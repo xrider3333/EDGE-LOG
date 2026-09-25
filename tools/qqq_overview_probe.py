@@ -91,6 +91,17 @@ this REPLACES the old 2026-09-08 density pass's tilesBottom/readinessBottom chec
 wrapper and moved into qbx-stats/qbx-system. A dedicated 'keel_drawer_positions' case
 opens the 'positions' fixture's first (newest) trade row and asserts its KEEL drawer text.
 
+LIVE P&L PASS (2026-09-25, owner: "make it simple ... for postions put any open pnl and
+then total ... whyd doesnt it show live pnl") -- two more dedicated, non-screenshot cases:
+'livepnl_positions' (LIVEPNL flag, 'positions' fixture) proves the ENGU-Q/NOISE notes are
+hidden by default, appear after tapping that leg's own info toggle without opening its
+row-expand drawer, that a held leg's sidebar line reads "Open ..." then "Total ..." with
+Total = closed + open P&L, and that ACCOUNT lists each open position before the Total open
+P&L line -- all read straight off QPOSLIVE.legs, so they can never disagree with the hero.
+'listener_wiring_check' (LISTENERCHECK flag) swaps in a fake db/auth with a working
+onSnapshot and calls _qqqExecEnsureLive() twice in a row (standing in for a second
+renderApp() pass), proving it does not throw and never stacks a second listener.
+
 Not wired into wt.py ship (ad hoc verification tool), but written the same way as
 tools/paper_render_probe.py: stdlib + a subprocess call to local headless Chrome,
 serving the repo over loopback so index.html's own fetches never fire.
@@ -168,6 +179,10 @@ var DEEP=__DEEP__;
 var KEEPSHEET=__KEEPSHEET__;
 var OPENCHECKS=__OPENCHECKS__;
 var IW=__IW__;
+// LIVEPNL/LISTENERCHECK (2026-09-25, live-P&L pass): see the module docstring addendum
+// below the ROBINHOOD_SIZES comment for what each one drives.
+var LIVEPNL=__LIVEPNL__;
+var LISTENERCHECK=__LISTENERCHECK__;
 (function(){
   var reported=false;
   function report(why){
@@ -186,7 +201,7 @@ var IW=__IW__;
         +"window._qqqExecLoaded=true;window._qqqExecLoading=false;window._qqqExecErr=null;"
         +"window._qqqPaper=null;window._qqqPaperLoaded=true;window._qqqPaperLoading=false;window._qqqPaperErr=null;"
         +"window._qqqCalMonth=null;window._qeDrawerIdx=null;window._qeChartHidden={};window._qeTradesShown=50;window._qeEventsShown=30;"
-        +"window._qbSheet=null;window._qbLegOpen=new Set();window._qeTradesView='list';window._qeChartPeriod='ALL';"
+        +"window._qbSheet=null;window._qbLegOpen=new Set();window._qbLegNoteOpen={};window._qeTradesView='list';window._qeChartPeriod='ALL';"
         +"activeTab='augur';augurSub='qqqpaper';renderApp();return 'OK';"
         +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
       out.themeApplied=d.documentElement.getAttribute('data-theme');
@@ -349,6 +364,62 @@ var IW=__IW__;
         fire('[data-qbtraderow="0"]');
       }
 
+      if(LIVEPNL){
+        // ── NOTES UNDER AN EXPANDER (2026-09-25, owner: "make it simple") -- ENGU-Q's
+        // ETH-fit caveat and NOISE's since/was/KEEL line must be hidden by default,
+        // appear after tapping that leg's own "i" toggle, and that tap must NOT also
+        // open the leg's row-expand drawer (.qb-leg-detail) -- stopPropagation check.
+        out.legDetailCountBefore=d.querySelectorAll('.qb-leg-detail').length;
+        out.noteEnguqBefore=html().indexOf('ETH-fit crown')>=0;
+        out.noteNoiseBefore=html().indexOf('KEEL v12')>=0;
+        out.hasOrbInfoToggle=!!d.querySelector('[data-qbleginfo="ORB"]'); // ORB has no note -> no toggle
+        out.infoToggleEnguqClicked=fire('[data-qbleginfo="ENGUQ"]');
+        out.infoToggleNoiseClicked=fire('[data-qbleginfo="NOISE"]');
+        out.noteEnguqAfter=html().indexOf('ETH-fit crown')>=0;
+        out.noteNoiseAfter=html().indexOf('KEEL v12')>=0;
+        out.legDetailCountAfterInfo=d.querySelectorAll('.qb-leg-detail').length;
+
+        // ── SIDEBAR "Open ... / Total ..." (2026-09-25) -- ORB (long 5 @ 498.32, live
+        // 501.15, open_pnl 14.15 per tools/fixtures/qqq_exec_positions.json) must show
+        // its OPEN P&L and a TOTAL equal to its own closed P&L (220.69) + that open P&L.
+        var orbRowTop=d.querySelector('[data-qblegrow="ORB"]');
+        var orbRowWrap=orbRowTop?orbRowTop.parentElement:null;
+        out.orbLiveText=(function(){
+          var el=orbRowWrap?orbRowWrap.querySelector('.qbx-leg-live'):null;
+          return el?el.textContent.replace(/\\s+/g,' ').trim():null;
+        })();
+
+        // ── ACCOUNT lists each open position, THEN the total (2026-09-25) ──
+        var acctEl=d.querySelector('.qbx-account');
+        out.accountText=acctEl?acctEl.textContent.replace(/\\s+/g,' ').trim():null;
+      }
+
+      if(LISTENERCHECK){
+        // ── LIVE LISTENER WIRING (2026-09-25) -- _qqqExecEnsureLive (defined near
+        // loadQqqExec in index.html) must not throw against a fake db/auth that has a
+        // working onSnapshot, and calling it again (standing in for a second renderApp()
+        // pass) must NOT attach a second listener. Runs against a fake db, entirely
+        // separate from the real Firebase db/auth this iframe boots with (which stays
+        // signed out for every OTHER case in this file, so this is the one case that
+        // actually exercises the attach path).
+        out.listenerCall=w.eval("(function(){try{"
+          +"var _fakeRef={};var _calls=0,_unsubs=0;"
+          +"_fakeRef.collection=function(){return _fakeRef;};"
+          +"_fakeRef.doc=function(){return _fakeRef;};"
+          +"_fakeRef.onSnapshot=function(cb,errCb){_calls++;return function(){_unsubs++;};};"
+          +"db=_fakeRef;auth={currentUser:{uid:'probe-uid'}};"
+          +"_qqqExecEnsureLive();" // first attach
+          +"_qqqExecEnsureLive();" // stand-in for a second render -- must be a same-tick no-op
+          +"window._qeProbeListenerCalls=_calls;window._qeProbeListenerUnsubs=_unsubs;"
+          +"return 'OK';"
+          +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
+        out.listenerCalls=w.eval('window._qeProbeListenerCalls');
+        out.listenerUnsubs=w.eval('window._qeProbeListenerUnsubs');
+        // restore a clean signed-out state so this does not leak into anything else
+        // this iframe still does (harmless either way -- each case gets a fresh iframe).
+        w.eval("(function(){try{if(window._qqqExecUnsub){window._qqqExecUnsub();}window._qqqExecUnsub=null;window._qqqExecLive=false;db=null;auth=null;return 'OK';}catch(e){return 'ERR '+e;}})()");
+      }
+
       out.consoleErrors=w.eval('window._qeProbeErrors||[]');
       out.html=html();
       var undef=(out.html.match(/undefined/g)||[]).length;
@@ -395,7 +466,7 @@ var IW=__IW__;
 
 
 def run_case(chrome, root, fixture, name, shot_path, width=1600, height=1400, theme='dark',
-             deep=False, keep_sheet=False, open_checks=False):
+             deep=False, keep_sheet=False, open_checks=False, livepnl=False, listener_check=False):
     pdir = os.path.join(root, '_qqqovprobe')
     if not os.path.isdir(pdir):
         os.makedirs(pdir)
@@ -405,6 +476,8 @@ def run_case(chrome, root, fixture, name, shot_path, width=1600, height=1400, th
             .replace('__DEEP__', 'true' if deep else 'false')
             .replace('__KEEPSHEET__', 'true' if keep_sheet else 'false')
             .replace('__OPENCHECKS__', 'true' if open_checks else 'false')
+            .replace('__LIVEPNL__', 'true' if livepnl else 'false')
+            .replace('__LISTENERCHECK__', 'true' if listener_check else 'false')
             .replace('__IW__', str(width)).replace('__IH__', str(height)))
     io.open(ppath, 'w', encoding='utf-8').write(html)
 
@@ -541,6 +614,23 @@ def main():
                                        keep_sheet=keep_sheet, open_checks=open_checks)
         if shot:
             print('%s shot -> %s' % (case_name, shot))
+
+    # ── LIVE P&L pass (2026-09-25) -- separate small plans (their own tuple shape, so
+    # kept out of the shared matrix loop above): notes-under-an-expander + sidebar
+    # Open/Total + ACCOUNT positions-then-total, all on the 'positions' fixture (it is
+    # the one fixture with a live ORB/ENGUQ position AND a NOISE KEEL note); and the
+    # live-listener wiring check, which needs no fixture data at all beyond a render.
+    livepnl_plan = [
+        ('livepnl_positions', 'positions', 1366, 1200, 'mono', False, False, False, True, False),
+    ]
+    listener_plan = [
+        ('listener_wiring_check', 'flat', 1200, 900, 'mono', False, False, False, False, True),
+    ]
+    for case_name, fixture_name, w, h, theme, deep, keep_sheet, open_checks, livepnl, listener_check in livepnl_plan + listener_plan:
+        results[case_name] = run_case(chrome, ROOT, fx[fixture_name], case_name, None,
+                                       width=w, height=h, theme=theme, deep=deep,
+                                       keep_sheet=keep_sheet, open_checks=open_checks,
+                                       livepnl=livepnl, listener_check=listener_check)
 
     fails = []
 
@@ -836,6 +926,64 @@ def main():
             fails.append('keel_drawer_positions: NOISE KEEL drawer text missing "wanted 30 sh"')
         if 'qb-sheet-backdrop' not in keel_html:
             fails.append('keel_drawer_positions: trade row 0 did not open its drawer sheet')
+
+    # ── LIVE P&L (2026-09-25, owner: "make it simple ... for postions put any open pnl
+    # and then total ... whyd doesnt it show live pnl") -- notes-under-an-expander,
+    # sidebar Open/Total, ACCOUNT positions-then-total, all on the 'positions' fixture.
+    # Expected numbers come straight from tools/fixtures/qqq_exec_positions.json:
+    # ORB is long 5 @ 498.32 (positions_live), live 501.15, open_pnl 14.15; its own
+    # closed trades_all sum is 220.69 (matches cum_pnl.ORB's own last point), so
+    # Total = 220.69 + 14.15 = 234.84. ENGUQ is short 5 @ 505.10, live 507.85,
+    # open_pnl -13.75.
+    r_lp = results.get('livepnl_positions', {})
+    if r_lp.get('err'):
+        fails.append('livepnl_positions: %s' % r_lp['err'])
+    else:
+        if r_lp.get('call') != 'OK':
+            fails.append('livepnl_positions: renderApp threw -- %s' % r_lp.get('call'))
+        if r_lp.get('legDetailCountBefore'):
+            fails.append('livepnl_positions: a leg drawer (.qb-leg-detail) is already open on first paint')
+        if r_lp.get('noteEnguqBefore'):
+            fails.append('livepnl_positions: ENGU-Q note ("ETH-fit crown...") is visible before its info toggle is clicked')
+        if r_lp.get('noteNoiseBefore'):
+            fails.append('livepnl_positions: NOISE note ("KEEL v12...") is visible before its info toggle is clicked')
+        if r_lp.get('hasOrbInfoToggle'):
+            fails.append('livepnl_positions: ORB has no note but still shows an info ("i") toggle')
+        if not r_lp.get('infoToggleEnguqClicked'):
+            fails.append('livepnl_positions: no info toggle found for ENGU-Q (data-qbleginfo="ENGUQ")')
+        if not r_lp.get('infoToggleNoiseClicked'):
+            fails.append('livepnl_positions: no info toggle found for NOISE (data-qbleginfo="NOISE")')
+        if not r_lp.get('noteEnguqAfter'):
+            fails.append('livepnl_positions: ENGU-Q note did not appear after clicking its info toggle')
+        if not r_lp.get('noteNoiseAfter'):
+            fails.append('livepnl_positions: NOISE note did not appear after clicking its info toggle')
+        if r_lp.get('legDetailCountAfterInfo'):
+            fails.append('livepnl_positions: clicking an info toggle opened a leg drawer (.qb-leg-detail) -- stopPropagation is not working')
+        orb_live = r_lp.get('orbLiveText') or ''
+        if 'Open $14.15' not in orb_live:
+            fails.append('livepnl_positions: ORB sidebar line missing "Open $14.15" (got %r)' % orb_live)
+        if 'Total $234.84' not in orb_live:
+            fails.append('livepnl_positions: ORB sidebar line missing "Total $234.84" (got %r)' % orb_live)
+        acct = r_lp.get('accountText') or ''
+        orb_i, engu_i, total_i = acct.find('ORB'), acct.find('ENGU-Q'), acct.find('Total open P')
+        if orb_i < 0 or engu_i < 0 or total_i < 0:
+            fails.append('livepnl_positions: ACCOUNT is missing the ORB/ENGU-Q position line(s) or the Total open P&L line (got %r)' % acct)
+        elif not (orb_i < total_i and engu_i < total_i):
+            fails.append('livepnl_positions: ACCOUNT does not list the open positions BEFORE the total line (got %r)' % acct)
+        if '-$13.75' not in acct:
+            fails.append('livepnl_positions: ACCOUNT is missing ENGU-Q\'s open P&L -$13.75 (got %r)' % acct)
+
+    # ── LIVE LISTENER WIRING (2026-09-25) -- _qqqExecEnsureLive must not throw against a
+    # fake db/auth with a working onSnapshot, and a second call (standing in for a
+    # second renderApp() pass) must not attach a second listener.
+    r_lc = results.get('listener_wiring_check', {})
+    if r_lc.get('err'):
+        fails.append('listener_wiring_check: %s' % r_lc['err'])
+    else:
+        if r_lc.get('listenerCall') != 'OK':
+            fails.append('listener_wiring_check: _qqqExecEnsureLive threw -- %s' % r_lc.get('listenerCall'))
+        if r_lc.get('listenerCalls') != 1:
+            fails.append('listener_wiring_check: expected exactly one onSnapshot attach across two calls, got %s' % r_lc.get('listenerCalls'))
 
     for nm, r in results.items():
         print(nm.upper(), ':', json.dumps({k: v for k, v in r.items() if k not in ('html', 'moreStatsHtml')}, indent=1))
