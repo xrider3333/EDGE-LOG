@@ -14,8 +14,12 @@ mirror) over 516 pre-declared cells on NQ and ES 1-minute 24-hour bars, 2010-06-
 re-implementation matched every CBU-Q and ENGU 2.0 trade before any result was read. **One cell passes the house bar:
 CBU on NQ** (new day high above the prior-day high, first 30 minutes, 2x volume, breakeven at 1R then ride): 617
 trades, $52,868, PF 1.81, net/DD 8.8, 8 of 8 slices - but concentrated (top ten trades 85% of net) and the pre-queue
-guard shows that cell losing on 27 trades in the sealed stretch. Its Auto-Validate is queued
-(`tools/queue_setups_r1_validate.py`). ENGU, CBD, EBU and ENGD have no edge as written rules. STUDIES rows 1752-1764.
+guard shows that cell losing on 27 trades in the sealed stretch. **Its Auto-Validate FAILS (run #427, 5 of 7
+gates):** the sealed nine months lose (80 trades, PF 0.85), ES loses at the same settings (PF 0.87), the luck test
+fails, and the last walk-forward fold loses. On the overlap test (`tools/setups_r1_overlap.py`) 74% of its trades fall
+on NOISE #382 days, same direction, and it loses $61,806 on days NOISE is flat: a morning new high of the day is the
+trend day NOISE already trades. ENGU, CBD, EBU and ENGD have no edge as written rules. **Round 1 is closed; nothing goes
+forward.** STUDIES rows 1752-1766.
 
 ## The short version
 
