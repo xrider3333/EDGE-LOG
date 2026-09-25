@@ -165,6 +165,17 @@ KNOWN_EXTENDED_SESSIONS = frozenset({
 _TF_SECONDS = {"1m": 60, "5m": 300}
 _TF_LABELS = {60: "1m", 300: "5m"}
 
+# ── bar-close hand-off (WEBULL_PAPER_TODO.md item 10, 2026-09-25) ──────────────────────
+# api/cloud_signal.py (a SEPARATE process/service) today only sees a bar once its own
+# ~30s REST poll settles it. This streamer already builds the SAME bar from ticks and
+# closes it within ~1s of the real boundary -- HANDOFF_TIMEFRAME_SECONDS (5m) is
+# published to a small atomically-replaced file the instant it clears
+# HANDOFF_GRACE_SECONDS past its own close, so a fast local-file poll (no network) can
+# see it almost immediately. See api/cloud_signal_stream.py for the consumer side.
+HANDOFF_TIMEFRAME_SECONDS = 300         # 5m only -- see module docstring's design doc
+HANDOFF_GRACE_SECONDS = 1.5             # settle time after close before publishing
+HANDOFF_POLL_SECONDS = 0.25             # this process's own internal publish-check cadence
+
 WEBULL_KEYS = os.environ.get("EDGELOG_WEBULL_KEYS", r"C:\EdgeLog\webull_keys.json")
 WEBULL_TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_TOKEN_DIR", r"C:\EdgeLog\webull_token")
 _PLACEHOLDERS = ("", "PASTE_APP_KEY_HERE", "PASTE_APP_SECRET_HERE")
@@ -301,6 +312,37 @@ def edgelog_home():
 def stream_cache_path(timeframe="1m", home=None):
     home = home or edgelog_home()
     return os.path.join(home, "ohlc_stream", f"QQQ_{timeframe}.csv")
+
+
+def closed_bar_handoff_path(timeframe="5m", home=None):
+    """The atomically-replaced 'last closed bar' file item 10's hand-off uses -- one
+    file per timeframe, always holding only the MOST RECENTLY published closed bar (a
+    consumer that was down when an earlier bar published simply never sees it, which is
+    correct: a stale bar is not actionable anyway). Same directory as stream_cache_path,
+    a different filename so a consumer can never confuse the two schemas."""
+    home = home or edgelog_home()
+    return os.path.join(home, "ohlc_stream", f"QQQ_{timeframe}_closed.json")
+
+
+def write_closed_bar_handoff(bar, timeframe="5m", home=None, extra=None):
+    """Atomic tmp+os.replace publish of one completed bar (WEBULL_PAPER_TODO.md item 10,
+    design constraint 1: 'Never read a half-written file'). `bar` is the plain
+    {time, open, high, low, close, volume} dict (this module's schema); `extra` (e.g. a
+    health() snapshot) is merged in flat -- see api/cloud_signal_stream.py's
+    stream_bar_is_usable for which of those keys it actually gates on. Writing beside
+    the final path and renaming over it means a reader (possibly in a different OS
+    process) sees either the previous file or this one, in full, never a partial write --
+    the same pattern as merge_and_write / api/cloud_signal.py's own cache writes."""
+    path = closed_bar_handoff_path(timeframe, home)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    payload = dict(bar)
+    if extra:
+        payload.update(extra)
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(payload, f)
+    os.replace(tmp, path)
+    return payload
 
 
 def load_keys(keys_path=WEBULL_KEYS):
@@ -608,6 +650,36 @@ def next_backoff(attempt, base=1.0, cap=60.0):
     return min(cap, base * (2 ** attempt))
 
 
+def next_handoff_bar(closed_bar, bars_since_connect, last_published_time,
+                     grace_seconds=HANDOFF_GRACE_SECONDS):
+    """Pure decision for ONE hand-off poll (item 10, design constraints 1 + 4): should
+    the just-closed bar be published now? Returns (bar_to_publish_or_None,
+    updated_last_published_time). Deliberately takes plain values (not a streamer
+    instance) so it needs no fake SDK/thread/clock to unit test -- same pattern as this
+    module's other pure helpers (is_stale, next_backoff).
+
+    Refuses (returns None, unchanged) when:
+      - `closed_bar` is None (nothing has closed yet),
+      - it is the SAME bar already published (dedupe on `time`),
+      - fewer than 2 bars have closed since the stream's most recent (re)connect --
+        constraint 4's 'first bar after the stream (re)connects' may be a partial bar
+        (ticks before the connect settled are simply gone), so it and everything before
+        it are skipped; the compare here is against 2, not 1, because
+        `bars_since_connect` counts THIS bar too (it is 1 on the very first close),
+      - `closed_bar['age']` (time since ITS OWN close, from WebullBarStreamer.closed_bar)
+        has not yet cleared `grace_seconds` -- constraint 1's settle time for late ticks.
+    """
+    if not closed_bar:
+        return None, last_published_time
+    if closed_bar.get("time") == last_published_time:
+        return None, last_published_time
+    if (bars_since_connect or 0) < 2:
+        return None, last_published_time
+    if float(closed_bar.get("age") or 0.0) < grace_seconds:
+        return None, last_published_time
+    return closed_bar, closed_bar["time"]
+
+
 # ── resilient live streamer (thin orchestration; the SDK only shows up here) ──
 class WebullBarStreamer:
     """Owns the MQTT connection lifecycle: connect, subscribe, decode pushes into
@@ -627,7 +699,9 @@ class WebullBarStreamer:
                  extra_bar_seconds=EXTRA_BAR_SECONDS,
                  keys_path=WEBULL_KEYS, token_dir=WEBULL_TOKEN_DIR,
                  stale_after_seconds=90, backoff_base=1.0, backoff_cap=60.0,
-                 flush_every_seconds=10, log=print, clock=None):
+                 flush_every_seconds=10, log=print, clock=None,
+                 handoff_grace_seconds=HANDOFF_GRACE_SECONDS,
+                 handoff_poll_seconds=HANDOFF_POLL_SECONDS, handoff_home=None):
         self.symbols = symbols or list(DEFAULT_SYMBOLS)
         self.bar_seconds = bar_seconds
         self.keys_path = keys_path
@@ -637,6 +711,13 @@ class WebullBarStreamer:
         self.backoff_cap = backoff_cap
         self.flush_every_seconds = flush_every_seconds
         self.log = log
+        # item 10 hand-off (see the block comment above HANDOFF_TIMEFRAME_SECONDS) --
+        # 5m only, by design: `handoff_home=None` means edgelog_home() at call time
+        # (not baked in at construction), matching every other path helper here.
+        self.handoff_grace_seconds = handoff_grace_seconds
+        self.handoff_poll_seconds = handoff_poll_seconds
+        self.handoff_home = handoff_home
+        self._handoff_thread = None
         # SDK LOG FLOOD (item A, 2026-09-25) -- see _configure_sdk_loggers's own
         # docstring. Called here (construction), not start(), so even a caller that
         # builds a streamer and never calls .start() (e.g. a future accessor-only use)
@@ -656,6 +737,12 @@ class WebullBarStreamer:
 
         self._pending_rows = {secs: [] for secs in all_secs}
         self._closed_bars = {secs: None for secs in all_secs}   # secs -> most recent closed bar dict
+        # item 10 hand-off bookkeeping -- how many bars of THIS timeframe have closed
+        # since the most recent successful (re)connect (reset in _connect_once), and
+        # the `time` of the last bar this instance published to the hand-off file
+        # (reset only by a fresh publish -- see next_handoff_bar's dedupe).
+        self._bars_closed_since_connect = {secs: 0 for secs in all_secs}
+        self._handoff_last_published = {secs: None for secs in all_secs}
         self._last_trade = None      # QuoteUpdate (TICK/SNAPSHOT-derived; ANY session, not RTH-gated)
         self._last_quote = None      # TopOfBook (QUOTE-derived)
         self._message_times = deque(maxlen=4096)
@@ -714,6 +801,11 @@ class WebullBarStreamer:
                 if closed:
                     self._pending_rows.setdefault(secs, []).extend(closed)
                     self._closed_bars[secs] = closed[-1]
+                    # item 10: counts THIS bar too, so it reads 1 on the very first
+                    # close after a (re)connect -- next_handoff_bar's own docstring
+                    # explains why it gates on < 2, not < 1.
+                    self._bars_closed_since_connect[secs] = (
+                        self._bars_closed_since_connect.get(secs, 0) + 1)
 
     def _record_session_label(self, label):
         """Bookkeeping only -- tally every trading_session value actually seen (None
@@ -796,6 +888,11 @@ class WebullBarStreamer:
             raise RuntimeError(f"subscribe rejected, status={status}")
 
         self._last_message_epoch = self._clock()   # count connect as "alive" for staleness purposes
+        # item 10: every (re)connect can miss the ticks before it settled, so the first
+        # bar closed afterward may be a partial bar -- reset the per-timeframe counter
+        # next_handoff_bar gates on, so that first bar is never published.
+        with self._lock:
+            self._bars_closed_since_connect = {secs: 0 for secs in self.builders}
         return client
 
     def _watchdog(self):
@@ -855,11 +952,50 @@ class WebullBarStreamer:
                 pass
             self._client = None
 
+    # ── item 10 hand-off: publish each completed 5m bar within ~HANDOFF_GRACE_SECONDS ──
+    def _handoff_pass(self, timeframe="5m"):
+        """One hand-off check -- pulled out of _handoff_loop's loop (same reason/pattern
+        as _watchdog_pass: unit-testable directly, with no thread or real sleep). Reads
+        this instance's OWN accessors only (closed_bar/bars_closed_since_connect/health,
+        each already lock-safe and exception-safe on their own), decides via the pure
+        next_handoff_bar, and on a publish, writes the hand-off file with a health()
+        snapshot folded in so a DIFFERENT OS process (api/cloud_signal.py) can gate on
+        freshness without ever calling back into this one. Never raises -- a hand-off
+        failure must not take down the watchdog/tick pipeline it rides alongside."""
+        secs = _seconds_of(timeframe)
+        if secs is None:
+            return
+        try:
+            closed = self.closed_bar(timeframe)
+            bsc = self.bars_closed_since_connect(timeframe)
+            last_published = self._handoff_last_published.get(secs)
+            bar, last_published = next_handoff_bar(closed, bsc, last_published,
+                                                   grace_seconds=self.handoff_grace_seconds)
+            self._handoff_last_published[secs] = last_published
+            if bar is None:
+                return
+            snap = self.health()
+            extra = {"connected": snap.get("connected"), "fresh": snap.get("fresh"),
+                     "bars_since_connect": bsc, "reconnects": snap.get("reconnects"),
+                     "published_epoch": self._clock()}
+            write_closed_bar_handoff(bar, timeframe=timeframe, home=self.handoff_home, extra=extra)
+            self.log(f"[webull-stream] published closed {timeframe} bar @ {bar['time']} "
+                    f"(age {bar.get('age', 0):.2f}s, fresh={extra['fresh']})")
+        except Exception as e:
+            self.log(f"[webull-stream] hand-off publish failed: {type(e).__name__}: {e}")
+
+    def _handoff_loop(self):
+        while not self._stop.is_set():
+            self._handoff_pass("5m")
+            self._stop.wait(self.handoff_poll_seconds)
+
     def start(self):
         self._stop.clear()
         self._client = self._connect_once()
         self._watchdog_thread = threading.Thread(target=self._watchdog, name="webull-stream-watchdog", daemon=True)
         self._watchdog_thread.start()
+        self._handoff_thread = threading.Thread(target=self._handoff_loop, name="webull-stream-handoff", daemon=True)
+        self._handoff_thread.start()
 
     def stop(self):
         self._stop.set()
@@ -873,6 +1009,8 @@ class WebullBarStreamer:
         self._teardown_client()
         if self._watchdog_thread is not None:
             self._watchdog_thread.join(timeout=5)
+        if self._handoff_thread is not None:
+            self._handoff_thread.join(timeout=5)
 
     # ── live-read API -- every accessor reports the AGE of what it returns ─────────────
     def last_trade(self):
@@ -935,6 +1073,20 @@ class WebullBarStreamer:
             return out
         except Exception:
             return None
+
+    def bars_closed_since_connect(self, timeframe):
+        """How many bars of `timeframe` have closed since the most recent successful
+        (re)connect -- item 10's next_handoff_bar gates a publish on this being >= 2
+        (the first close after a (re)connect may be a partial bar). 0 if never
+        connected or `timeframe` isn't built by this instance."""
+        try:
+            secs = _seconds_of(timeframe)
+            if secs is None:
+                return 0
+            with self._lock:
+                return int(self._bars_closed_since_connect.get(secs, 0))
+        except Exception:
+            return 0
 
     def health(self):
         """Live verdict on the pipe itself. `fresh` is the field a caller should gate on:

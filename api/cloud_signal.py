@@ -1518,8 +1518,31 @@ def cloud_signal_thread(stop=None, log=print):
     30s rather than cmd_loop's 20s: every step may hit yfinance once per timeframe before
     the cheap "no new bar closed" short-circuit in step() can skip the engine, and a 1m leg
     cannot gain a bar faster than once a minute anyway. Two fetches a minute per timeframe
-    is enough to see a bar the moment it closes without leaning on a free endpoint."""
+    is enough to see a bar the moment it closes without leaning on a free endpoint.
+
+    ITEM 10 (2026-09-25, "fire orders at the bar close from the live price feed"): the
+    per-tick call below goes through api.cloud_signal_stream.run_stream_aware_step
+    instead of a bare step() -- see that module's docstring. It always ends by calling
+    THIS module's real step() and returning exactly what it returns, so with its owner
+    switch off (the default) this thread's behaviour is unchanged. The import is
+    best-effort: a failure there (or inside the wrapper itself) falls straight back to
+    calling step() directly, so a bug in the new module can never stop a real signal
+    from being evaluated. The sleep at the bottom is the only other change: it fast-polls
+    (api.cloud_signal_stream.HANDOFF_POLL_SECONDS, ~1s -- not the producer's own ~250ms
+    internal thread, see that constant's own docstring for why) only in the ~minute after
+    each 5m boundary (api.cloud_signal_stream.in_handoff_window) so that module's own
+    local hand-off-file check can catch a stream bar within a second or two of its close
+    instead of the classic ~30s;
+    api.cloud_signal_stream.run_stream_aware_step throttles the actual network fetch back
+    to this thread's normal THREAD_STEP_SEC cadence regardless of how often it is called,
+    so the fast poll never turns into a fast REST-fetch loop."""
     log("[cloud-signal] parallel run: ON (signals only, no order path)")
+    try:
+        from api import cloud_signal_stream as _stream_mod
+    except Exception as e:
+        log(f"[cloud-signal] cloud_signal_stream unavailable, item 10 stream path disabled "
+           f"({type(e).__name__}: {e}); stepping classically")
+        _stream_mod = None
     # Bring the live ledger's header up to SIGNAL_COLS at boot rather than at the first
     # emitted event, which is always mid-session with api/qqq_exec.py reading the file (a
     # runner restart after the close then upgrades it while nobody is consuming). Atomic
@@ -1529,6 +1552,7 @@ def cloud_signal_thread(stop=None, log=print):
             _migrate_signals_header(DEFAULT_PATHS["signals_path"], SIGNAL_COLS)
     except Exception as e:
         log(f"[cloud-signal] ledger header check failed (next append retries): {type(e).__name__}: {e}")
+    last_fetch_wall = 0.0
     while stop is None or not stop.is_set():
         in_session = False           # set before the try so a throw still picks a sleep
         try:
@@ -1536,8 +1560,20 @@ def cloud_signal_thread(stop=None, log=print):
             in_session = (market_calendar.is_session(now_et.date())
                          and RTH_OPEN <= now_et.time() <= RTH_CLOSE)
             if in_session:
+                # THROTTLE (item 10): only the REST/network half of a step runs on the
+                # classic 30s cadence -- a fast tick in between (see the sleep below)
+                # still calls in, but with fetch=False, so it only ever costs a cheap
+                # on-disk short-circuit check, never an extra network round trip.
+                now_wall = _time.time()
+                do_fetch = (now_wall - last_fetch_wall) >= THREAD_STEP_SEC
+                if do_fetch:
+                    last_fetch_wall = now_wall
                 warnings = {}
-                events = step(now=now_et, fetch=True, paths=DEFAULT_PATHS, warnings=warnings)
+                if _stream_mod is not None:
+                    events = _stream_mod.run_stream_aware_step(
+                        now=now_et, fetch=do_fetch, paths=DEFAULT_PATHS, warnings=warnings, log=log)
+                else:
+                    events = step(now=now_et, fetch=do_fetch, paths=DEFAULT_PATHS, warnings=warnings)
                 cache_failed = bool(warnings.get("cache_write_failed"))
                 note = f"{len(events)} event(s)" + (" (cache_write_failed)" if cache_failed else "")
                 _write_heartbeat(DEFAULT_PATHS, ok=True, note=note, cache_write_failed=cache_failed)
@@ -1552,7 +1588,14 @@ def cloud_signal_thread(stop=None, log=print):
             except Exception:
                 pass
             log(f"[cloud-signal] step failed: {type(e).__name__}: {e}")
-        _time.sleep(THREAD_STEP_SEC if in_session else 60.0)
+        sleep_s = THREAD_STEP_SEC if in_session else 60.0
+        if in_session and _stream_mod is not None:
+            try:
+                if _stream_mod.in_handoff_window(now_et):
+                    sleep_s = _stream_mod.HANDOFF_POLL_SECONDS
+            except Exception:
+                sleep_s = THREAD_STEP_SEC
+        _time.sleep(sleep_s)
 
 
 def cmd_loop():

@@ -5,6 +5,7 @@ No network, no MQTT, no webull SDK import is exercised (the SDK only appears ins
 WebullBarStreamer._connect_once, which these tests never call).
 """
 import logging
+import os
 import sys
 import types
 from datetime import datetime
@@ -853,3 +854,134 @@ def test_sdk_logger_cap_reasserts_after_later_sdk_handlers():
 
     S._configure_sdk_loggers()           # idempotent: still exactly one of ours
     assert len(core.handlers) == 1
+
+
+# ── item 10: bar-close hand-off (WEBULL_PAPER_TODO.md item 10, 2026-09-25) ───────────────
+# api/cloud_signal.py (a separate OS process) sees these via
+# api.webull_stream.read_closed_bar_handoff / stream_bar_is_usable in
+# api/cloud_signal_stream.py -- that module's own tests cover the consumer side
+# (freshness/market-hours/missing-tick gating, shadow comparison, the owner flag).
+# Everything here is the PRODUCER: next_handoff_bar's pure gating, the atomic file
+# write, and WebullBarStreamer's own wiring (_handoff_pass, the reconnect reset).
+def test_next_handoff_bar_pure_gating():
+    grace = 1.5
+    assert S.next_handoff_bar(None, 5, None, grace_seconds=grace) == (None, None)
+
+    bar = {"time": 1000, "age": 2.0}
+    # bars_since_connect counts THIS bar too -- 1 means it IS the first close after a
+    # (re)connect, which must never publish (constraint 4).
+    assert S.next_handoff_bar(bar, 1, None, grace_seconds=grace) == (None, None)
+
+    not_yet = {"time": 1300, "age": 0.5}      # closed, but grace hasn't cleared
+    assert S.next_handoff_bar(not_yet, 2, None, grace_seconds=grace) == (None, None)
+
+    ready = {"time": 1300, "age": 1.6}        # closed AND settled
+    out_bar, last = S.next_handoff_bar(ready, 2, None, grace_seconds=grace)
+    assert out_bar == ready and last == 1300
+
+    # the same bar, already published, must never publish again
+    assert S.next_handoff_bar(ready, 2, 1300, grace_seconds=grace) == (None, 1300)
+
+    later = {"time": 1600, "age": 1.6}        # a LATER bar publishes again
+    out_bar2, last2 = S.next_handoff_bar(later, 3, 1300, grace_seconds=grace)
+    assert out_bar2 == later and last2 == 1600
+
+
+def test_write_closed_bar_handoff_is_atomic_and_leaves_no_tmp_file(tmp_path, monkeypatch):
+    import glob
+    import json as _json
+    monkeypatch.setenv("EDGELOG_HOME", str(tmp_path))
+    bar = {"time": 1000, "open": 500.0, "high": 501.0, "low": 499.0, "close": 500.5, "volume": 120.0}
+
+    payload = S.write_closed_bar_handoff(bar, timeframe="5m",
+                                         extra={"fresh": True, "connected": True})
+
+    path = S.closed_bar_handoff_path("5m", home=str(tmp_path))
+    with open(path, encoding="utf-8") as f:
+        on_disk = _json.load(f)
+    assert on_disk == payload
+    assert on_disk["time"] == 1000 and on_disk["close"] == 500.5
+    assert on_disk["fresh"] is True and on_disk["connected"] is True
+    assert glob.glob(str(tmp_path / "ohlc_stream" / "*.tmp")) == [], (
+        "no tmp file should survive a successful publish")
+
+    # a second publish (the next completed bar) must cleanly replace it -- never leave
+    # two files or a reader race between them.
+    S.write_closed_bar_handoff(dict(bar, time=1300, close=502.0), timeframe="5m",
+                               extra={"fresh": True, "connected": True})
+    with open(path, encoding="utf-8") as f:
+        on_disk2 = _json.load(f)
+    assert on_disk2["time"] == 1300 and on_disk2["close"] == 502.0
+
+
+def test_handoff_pass_never_publishes_the_first_bar_after_connect(tmp_path, monkeypatch):
+    """The bar closed right after (re)connecting may be missing the ticks before the
+    connection settled -- next_handoff_bar's own test covers the pure gate; this proves
+    WebullBarStreamer's _handoff_pass actually wires it (no file appears)."""
+    monkeypatch.setenv("EDGELOG_HOME", str(tmp_path))
+    streamer, box = _mk_streamer()
+    streamer._client = object()      # health().connected -- see test_health_distinguishes...
+    path = S.closed_bar_handoff_path("5m", home=str(tmp_path))
+    t30 = _epoch(2026, 1, 5, 9, 30, 0)
+    t35 = _epoch(2026, 1, 5, 9, 35, 0)
+
+    streamer._on_message("tick", _FakeTick(int(t30 * 1000), 500.0, 1, trading_session="RTH"))
+    streamer._on_message("tick", _FakeTick(int(t35 * 1000), 510.0, 1, trading_session="RTH"))
+    assert streamer.bars_closed_since_connect("5m") == 1
+
+    box["t"] = t35 + 30.0             # comfortably past any grace
+    streamer._handoff_pass("5m")
+
+    assert not os.path.exists(path), "the first bar closed after connect must never publish"
+
+
+def test_handoff_pass_publishes_the_second_bar_only_once_grace_clears(tmp_path, monkeypatch):
+    monkeypatch.setenv("EDGELOG_HOME", str(tmp_path))
+    streamer, box = _mk_streamer()
+    streamer._client = object()
+    path = S.closed_bar_handoff_path("5m", home=str(tmp_path))
+    t30 = _epoch(2026, 1, 5, 9, 30, 0)
+    t35 = _epoch(2026, 1, 5, 9, 35, 0)
+    t40 = _epoch(2026, 1, 5, 9, 40, 0)
+
+    streamer._on_message("tick", _FakeTick(int(t30 * 1000), 500.0, 1, trading_session="RTH"))
+    streamer._on_message("tick", _FakeTick(int(t35 * 1000), 510.0, 1, trading_session="RTH"))
+    streamer._on_message("tick", _FakeTick(int(t40 * 1000), 520.0, 1, trading_session="RTH"))
+    assert streamer.bars_closed_since_connect("5m") == 2   # the 9:35 bar just closed, close=510
+
+    box["t"] = t40 + 0.5              # inside the default 1.5s grace
+    streamer._handoff_pass("5m")
+    assert not os.path.exists(path), "must not publish before grace clears -- 'not read before complete'"
+
+    box["t"] = t40 + 2.0              # past grace
+    streamer._handoff_pass("5m")
+    assert os.path.exists(path), "must publish within the grace once it clears"
+
+    import json as _json
+    with open(path, encoding="utf-8") as f:
+        published = _json.load(f)
+    assert published["time"] == t35 and published["close"] == 510.0
+    assert published["fresh"] is True and published["connected"] is True
+    assert published["bars_since_connect"] == 2
+
+    # a repeat pass with nothing new must not rewrite/republish
+    mtime_before = os.path.getmtime(path)
+    streamer._handoff_pass("5m")
+    assert os.path.getmtime(path) == mtime_before
+
+
+def test_connect_once_resets_bars_closed_since_connect(monkeypatch):
+    _install_fake_webull_sdk(monkeypatch, _FakeSdkStreamingClient)
+    monkeypatch.setattr(S, "load_keys",
+                        lambda path=None: {"app_key": "k", "app_secret": "s", "region": "us"})
+    streamer, box = _mk_streamer()
+    t30 = _epoch(2026, 1, 5, 9, 30, 0)
+    t35 = _epoch(2026, 1, 5, 9, 35, 0)
+    streamer._on_message("tick", _FakeTick(int(t30 * 1000), 500.0, 1, trading_session="RTH"))
+    streamer._on_message("tick", _FakeTick(int(t35 * 1000), 510.0, 1, trading_session="RTH"))
+    assert streamer.bars_closed_since_connect("5m") == 1
+
+    streamer._connect_once()   # simulates a reconnect settling
+
+    assert streamer.bars_closed_since_connect("5m") == 0
+    assert streamer.bars_closed_since_connect("1m") == 0
