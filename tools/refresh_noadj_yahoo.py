@@ -9,6 +9,16 @@
 # Roll gaps Yahoo carries are CORRECT for a non-adjusted series (they live overnight
 # between sessions and don't affect intraday-flat strategies like ORB).
 #
+# MUST NEVER save a still-forming bar. yf.Ticker(...).history() returns the CURRENT,
+# in-progress bar as its last row, and this script only ever appends bars past the
+# master's last timestamp -- so a partial bar saved once stays wrong forever (every
+# later run only sees timestamps after it and skips it). This bit on 2026-09-24: a run
+# at ~15:07 ET saved the NQ 5m bar stamped 15:05 ET with Yahoo's still-forming
+# close 30742.00/volume 1708, against Yahoo's own final 30738.75/2502 once that bar
+# closed -- the only bad bar among 458 Yahoo-sourced bars in 60 days, fixed by hand
+# after the fact. _drop_unclosed() below keeps only bars whose full interval (bar
+# start + timeframe + a safety margin) has already elapsed as of "now".
+#
 # Run:  python tools/refresh_noadj_yahoo.py
 import os, sqlite3, time
 import pandas as pd, numpy as np
@@ -18,6 +28,8 @@ UP   = os.path.join(ROOT, "augur_uploads")
 DB   = os.path.join(ROOT, "optimizer_history.db")
 YTK  = {"NQ": "NQ=F", "ES": "ES=F"}
 YINT = {"5m": "5m", "1m": "1m"}
+TF_SECONDS = {"5m": 300, "1m": 60}
+YAHOO_SETTLE_S = 15 * 60   # Yahoo's CME futures feed runs ~10 min behind; 15 min is safe
 
 
 def _to_tv(h):
@@ -33,17 +45,36 @@ def _to_tv(h):
     return out.dropna(subset=["open"]).reset_index(drop=True)
 
 
+def _drop_unclosed(df, tf, now_s, margin_s=None):
+    """Drop bars from a TV-format frame (`_to_tv`'s output; `time` = bar START, unix
+    seconds) that cannot have fully closed yet as of `now_s`. Yahoo's history() always
+    hands back the still-forming current bar as its last row; keeping it would poison
+    a non-adjusted master forever, since later runs only append bars past it (see the
+    2026-09-24 header note above). A bar closes at time + tf_seconds; margin_s (default
+    YAHOO_SETTLE_S) is extra slack for Yahoo's own lag: its CME futures prices are
+    delayed about 10 minutes, so a bar can still be filling there well after its
+    nominal close. A skipped bar is not lost - the next run appends it."""
+    tf_s = TF_SECONDS[tf]
+    if margin_s is None:
+        margin_s = YAHOO_SETTLE_S
+    if not len(df):
+        return df
+    return df[df["time"] + tf_s + margin_s <= now_s].reset_index(drop=True)
+
+
 def _rth(df):
     et = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
     mins = et.dt.hour * 60 + et.dt.minute
     return df[(mins >= 9*60+30) & (mins < 16*60) & (et.dt.dayofweek < 5)].reset_index(drop=True)
 
 
-def main():
+def main(now_s=None):
     try:
         import yfinance as yf
     except Exception as e:
         print("yfinance not installed:", e); return
+    if now_s is None:
+        now_s = int(time.time())
     conn = sqlite3.connect(DB)
     masters = conn.execute(
         "SELECT id,filename,instrument,timeframe,session FROM csv_files "
@@ -62,6 +93,11 @@ def main():
         if h is None or not len(h):
             print(f"  {fn}: no Yahoo data"); continue
         new = _to_tv(h)
+        n_before = len(new)
+        new = _drop_unclosed(new, tf, now_s)
+        n_skipped = n_before - len(new)
+        if n_skipped:
+            print(f"  {fn}: skipped {n_skipped} unfinished bar(s) (still forming)")
         if str(sess).lower() == "rth":
             new = _rth(new)
         new = new[new["time"] > last]                       # only bars past the seam
