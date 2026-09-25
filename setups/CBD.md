@@ -10,6 +10,7 @@
 ## What the data says so far
 
 - 4 trades: 3 winners, +$21.15, average +0.15 R. Too few to call.
+- All 3 distinct CBD signals closed at a new low of the day (the two 2026-06-12 09:46 shorts share one signal).
 - On 2026-06-12 he shorted the September contract at about 09:46:00 and was stopped 3 seconds later, then re-shorted the June contract at about 09:46:30.
 
 ## Futures — 4 real trades
@@ -24,6 +25,17 @@
 | 2026-05-04 | MES | SHORT | 31.85 | 0.47 | 11.3 | — | 4.1 | 7.0 | — | sheet |
 | 2026-06-12 | MES | SHORT | 0.60 | 0.04 | -5.1 | 100 | 1.1 | 1.1 | — | EL |
 | 2026-06-12 | MES | SHORT | -16.90 | -0.22 | 1.7 | — | 1.1 | 1.1 | — | EL |
+
+#### Signal-bar features (known when the signal candle closed)
+
+| Date | Time | Dir | Min after 9:30 | Range ÷ ATR | Vol × prior 10 | Tight base (bars) | Past 10-bar high/low (ATR) | Past today's high/low (ATR) | Past premarket high/low (ATR) | Past prior-day high/low (ATR) | Prior day |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-04-28 | 10:35 | SHORT | 66 | 1.79 | 2.5 | 1 | +0.70 | +0.62 | -3.81 | +5.37 | up |
+| 2026-05-04 | 12:07 | SHORT | 158 | 3.03 | 4.1 | 4 | +1.89 | +1.89 | +1.20 | +10.74 | down |
+| 2026-06-12 | 09:45 | SHORT | 16 | 1.40 | 1.1 | 3 | +0.45 | +0.45 | +2.64 | -10.12 | up |
+| 2026-06-12 | 09:45 | SHORT | 16 | 1.40 | 1.1 | 3 | +0.45 | +0.45 | +2.64 | -10.12 | up |
+
+Closed past today's high/low so far: 4 of 4 · past the premarket high/low: 3 of 4 · past the prior-day high/low: 2 of 4 · past the 10-bar high/low: 4 of 4
 
 ### Futures trades, one by one
 
@@ -266,4 +278,7 @@
 - **Best next 15m** = the best move, in points from his entry price, in the 15 one-minute bars after the exit (negative when price never got back to his entry). Stocks with only 5-minute bars use the three 5-minute bars after the exit bar, so theirs is approximate.
 - While held means: from 10-second bars when they exist (trades from 2026-06-26 on), to the nearest 10 seconds (the 10-second bars the fill and the exit fall in are counted whole). Otherwise the bar the fill came in and the bar the exit came in are both left out, because each also holds prices from outside the trade (the exit price itself still counts). A trade that did not stay through one full bar shows —.
 - **Vol × / Body ×** = the signal bar's volume and body against the average / median of the 10 bars before it.
+- **Signal-bar features** (futures only, in the table below the summary) describe the signal candle itself - how stretched it is, how tight the base under it was, how it sits against recent highs and lows - using only bars that had already closed by the time the signal candle closed, so nothing after the fact leaks in.
+- **ATR** = the average 1-minute true range (high minus low, widened for a gap from the prior close) of the 14 bars before the signal candle - 5-minute bars, for a trade whose signal candle is a 5-minute candle.
+- **Past today's high/low** compares the signal close with the regular-session (9:30 on) bars before it; **premarket** = the 4:00-9:29 bars; **prior day** = the previous regular session - blank when a contract roll sits between that day and this one.
 - Futures prices are unadjusted CME front-month bars (MES is read from ES bars and MNQ from NQ bars; the micro and full-size prints can differ by a tick or two on a fast bar). 10-second bars are the NinjaTrader capture, moved back 10 seconds because it stamps each bar at its close. Stock bars are Yahoo 1- or 5-minute bars kept with the scores.

@@ -31,6 +31,7 @@
 
 ## Notes
 
+- [ALGO_SCOPE.md](ALGO_SCOPE.md) is the scope for automating these setups: what the shop has already closed, what these journals add, and the recommended next steps (a live setup alert first; at most one pre-registered CBU test).
 - Every trade with a chart was read twice: once to place the fill, the signal candle and the stop on the bars and on the saved chart, then by a second, independent check told to disprove the first. 5 trades had a disputed field, and a third check re-read the files and decided each: 2026-04-07 10:29 ENGU (which sheet row the chart backs), 2026-04-21 fat-finger short (whose chart it is), 2026-05-01 EBU and 2026-05-08 MNQ CBU (the drawn stop; the second check was right both times), 2026-06-30 MNQ CBU (its 10-second stamps; the fill log settles it).
 - The NinjaTrader 10-second price files are stamped at each bar’s close (EDGE LOG’s own tools shift them the same way when they read them). These pages shift them back 10 seconds, so every time shown is the start of the bar.
 - Trades bought inside the signal minute (off a 5- or 10-second chart) show "same bar" for chase: the 1-minute candle closed after the fill, so they are left out of the chase and volume findings.

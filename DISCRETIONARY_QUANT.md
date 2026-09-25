@@ -14,6 +14,13 @@ automatable* strategies — and honestly measure, at each step, whether the disc
 
 ## Status — where we are right now
 
+**2026-09-25: the answer key exists and the algo scope is written.** `setups/` holds one journal per
+setup (CBU, ENGU, EBU, CBD, ENGD) with every real trade, its charts, its OHLC and its signal-bar
+features; `setups/ALGO_SCOPE.md` is the scope that follows from them (raw patterns have no edge; the
+owner's CBU is a level break at the open, ENGU fires inside the range; alerts first, one
+pre-registered CBU-Q test, ENGU parked until 10-second history exists). Read that before this file's
+older sections.
+
 **Shipped (commit `76e09ba`, backend-only, no site VERSION change):**
 
 - **`augur_strategies/REPLAY_1_0.py`** — a strategy plugin that "enters" at a CSV of

@@ -8,6 +8,7 @@
 # reproducible dataset per setup - the same role tools/data/trade_scores.json plays for scores.
 #
 #   python tools/setup_journal.py prep      pull trades (read-only) + sheet links + bars -> cache
+#   python tools/setup_journal.py features  signal-bar features per futures trade (full-day bars) -> spec
 #   python tools/setup_journal.py render    tools/data/setup_journal.json + cache -> setups/*.md
 #   python tools/setup_journal.py check     exit 1 if setups/*.md is stale vs the spec
 #
@@ -399,6 +400,16 @@ def fmt(x, nd=2):
     return str(x)
 
 
+def fmt_signed(x, nd=2):
+    """A signal-bar feature value with an explicit sign, or — when null."""
+    if x is None or (isinstance(x, float) and pd.isna(x)):
+        return '—'
+    return ('%+.' + str(nd) + 'f') % x if isinstance(x, float) else '%+d' % x
+
+
+PDAY_WORD = {1: 'up', -1: 'down', 0: 'flat'}
+
+
 SOURCE_NAME = {'NOADJ 1m': '1-minute CME bars, unadjusted',
                'NT 10s resampled to 1m': 'NinjaTrader 10-second bars combined into 1-minute bars',
                'Yahoo 1m (score cache)': 'Yahoo 1-minute bars', 'Yahoo 5m (score cache)': 'Yahoo 5-minute bars'}
@@ -613,9 +624,47 @@ def render_setup(code, entries, spec):
           '- **Best next 15m** = the best move, in points from his entry price, in the 15 one-minute bars after the exit (negative when price never got back to his entry). Stocks with only 5-minute bars use the three 5-minute bars after the exit bar, so theirs is approximate.',
           '- While held means: from 10-second bars when they exist (trades from 2026-06-26 on), to the nearest 10 seconds (the 10-second bars the fill and the exit fall in are counted whole). Otherwise the bar the fill came in and the bar the exit came in are both left out, because each also holds prices from outside the trade (the exit price itself still counts). A trade that did not stay through one full bar shows —.',
           "- **Vol × / Body ×** = the signal bar's volume and body against the average / median of the 10 bars before it.",
+          "- **Signal-bar features** (futures only, in the table below the summary) describe the signal candle itself - how stretched it is, how tight the base under it was, how it sits against recent highs and lows - using only bars that had already closed by the time the signal candle closed, so nothing after the fact leaks in.",
+          "- **ATR** = the average 1-minute true range (high minus low, widened for a gap from the prior close) of the 14 bars before the signal candle - 5-minute bars, for a trade whose signal candle is a 5-minute candle.",
+          "- **Past today's high/low** compares the signal close with the regular-session (9:30 on) bars before it; **premarket** = the 4:00-9:29 bars; **prior day** = the previous regular session - blank when a contract roll sits between that day and this one.",
           '- Futures prices are unadjusted CME front-month bars (MES is read from ES bars and MNQ from NQ bars; the micro and full-size prints can differ by a tick or two on a fast bar). 10-second bars are the NinjaTrader capture, moved back 10 seconds because it stamps each bar at its close. Stock bars are Yahoo 1- or 5-minute bars kept with the scores.']
     L.append('')
     return '\n'.join(L)
+
+
+def render_features_table(sums):
+    """The signal-bar features table + summary line for the Futures section (sums = [(j, g), ...],
+    already sorted date/entry_time)."""
+    L = ['#### Signal-bar features (known when the signal candle closed)', '']
+    L.append("| Date | Time | Dir | Min after 9:30 | Range ÷ ATR | Vol × prior 10 | Tight base (bars) | "
+             "Past 10-bar high/low (ATR) | Past today's high/low (ATR) | Past premarket high/low (ATR) | "
+             "Past prior-day high/low (ATR) | Prior day |")
+    L.append('|---|---|---|---|---|---|---|---|---|---|---|---|')
+    feats = []
+    for j, g in sums:
+        f = j.get('features') or {}
+        feats.append(f)
+        L.append('| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |' % (
+            j['date'], j['signal_candle'], j['dir'],
+            fmt(f.get('min_after_open'), 0), fmt(f.get('range_atr')), fmt(f.get('vol_x10'), 1),
+            fmt(f.get('tight_bars'), 0), fmt_signed(f.get('brk10_atr')), fmt_signed(f.get('today_ext_atr')),
+            fmt_signed(f.get('premkt_atr')), fmt_signed(f.get('pday_atr')),
+            PDAY_WORD.get(f.get('pday_dir'), '—')))
+    L.append('')
+
+    def counts(key):
+        have = [f.get(key) for f in feats if f.get(key) is not None]
+        return sum(1 for v in have if v > 0), len(have)
+
+    a1, b1_ = counts('today_ext_atr')
+    a2, b2_ = counts('premkt_atr')
+    a3, b3_ = counts('pday_atr')
+    a4, b4_ = counts('brk10_atr')
+    L.append("Closed past today's high/low so far: %d of %d · past the premarket high/low: %d of %d · "
+             "past the prior-day high/low: %d of %d · past the 10-bar high/low: %d of %d"
+             % (a1, b1_, a2, b2_, a3, b3_, a4, b4_))
+    L.append('')
+    return L
 
 
 def render_section(head, entries):
@@ -648,6 +697,8 @@ def render_section(head, entries):
             'same bar' if g.get('same_bar') else fmt(g.get('chase_pct'), 1), fmt(g.get('capture')), fmt(g.get('vol_x'), 1),
             fmt(g.get('body_x'), 1), j.get('grade') or '—', j.get('label_source', 'EL')))
     L.append('')
+    if head == 'Futures':
+        L += render_features_table(sums)
     L.append('### %s trades, one by one' % head)
     L.append('')
     for b in blocks:
@@ -826,9 +877,164 @@ def build(a):
     print('spec: %d futures + %d stock entries -> %s' % (len(trades), len(keep), SPEC))
 
 
+# ------------------------------------------------------------------ features (signal-bar answer key)
+
+ROLL_MONTHS = (3, 6, 9, 12)
+
+
+def is_roll_window(date):
+    """March/June/September/December, the 5th-21st: the window a quarterly futures roll falls in."""
+    ts = pd.Timestamp(date)
+    return ts.month in ROLL_MONTHS and 5 <= ts.day <= 21
+
+
+def build_5m(b1):
+    """5-minute candles from a day's 1-minute bars, label='left', closed='left'."""
+    return b1.resample('5min', label='left', closed='left').agg(
+        {'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
+
+
+def sig01(x):
+    return 0 if x == 0 else (1 if x > 0 else -1)
+
+
+# NYSE full-day closures. CME keeps a short Globex session on most of them (Labor Day 2026 traded
+# 09:30-12:59 in the NinjaTrader capture), so "has regular-session bars" alone would pick them.
+NYSE_HOLIDAYS = {
+    '2025-01-01', '2025-01-09', '2025-01-20', '2025-02-17', '2025-04-18', '2025-05-26', '2025-06-19',
+    '2025-07-04', '2025-09-01', '2025-11-27', '2025-12-25',
+    '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03', '2026-05-25', '2026-06-19', '2026-07-03',
+    '2026-09-07', '2026-11-26', '2026-12-25',
+    '2027-01-01', '2027-01-18', '2027-02-15', '2027-03-26', '2027-05-31', '2027-06-18', '2027-07-05',
+    '2027-09-06', '2027-11-25', '2027-12-24',
+}
+
+
+def prior_trading_day(root, date, siv):
+    """Walk back up to 10 calendar days for the first day with RTH (09:30-15:59) bars of the
+    signal's own timeframe (weekends/holidays/Sunday-evening-only days have none and are skipped).
+    Returns (that date, its full-day 1m bars, its RTH bars of the signal timeframe), or all None."""
+    d0 = pd.Timestamp(date)
+    for i in range(1, 11):
+        pdate = (d0 - pd.Timedelta(days=i)).strftime('%Y-%m-%d')
+        if pdate in NYSE_HOLIDAYS:
+            continue
+        pb1, _ = bars_1m(root, pdate)
+        if pb1 is None or not len(pb1):
+            continue
+        pbs = pb1 if siv != '5m' else build_5m(pb1)
+        prth = pbs[(pbs.index >= _t(pdate, '09:30')) & (pbs.index < _t(pdate, '16:00'))]
+        if len(prth):
+            return pdate, pb1, prth
+    return None, None, None
+
+
+def trade_features(j):
+    """trade['features']: signal-bar values known when the signal candle CLOSED - never later. j is
+    one resolved spec entry (as build() writes it). dir mirrors LONG <-> SHORT throughout."""
+    root = ROOT_OF[j['sym']]
+    date = j['date']
+    b1, src = bars_1m(root, date)
+    if b1 is None or not len(b1):
+        return {'note': 'no bars for this day'}
+    siv = j.get('signal_iv') or j.get('interval', '1m')
+    step_min = 5 if siv == '5m' else 1
+    bs = b1 if siv != '5m' else build_5m(b1)
+    sig_ts = _t(date, j['signal_candle'])
+    if sig_ts not in bs.index:
+        return {'note': 'no bars for this day'}
+    pos = bs.index.get_loc(sig_ts)
+    sig = bs.iloc[pos]
+    long_ = j['dir'] == 'LONG'
+    t930 = _t(date, '09:30')
+
+    f = {'min_after_open': int(round((sig_ts + pd.Timedelta(minutes=step_min) - t930).total_seconds() / 60))}
+
+    win_atr = bs.iloc[max(0, pos - 15):pos]           # up to 15 bars -> 14 true ranges (needs a prior close)
+    trs = []
+    for i in range(1, len(win_atr)):
+        h, l, pc = win_atr.iloc[i].high, win_atr.iloc[i].low, win_atr.iloc[i - 1].close
+        trs.append(max(h - l, abs(h - pc), abs(l - pc)))
+    trs = trs[-14:]
+    atr = (sum(trs) / len(trs)) if trs else None
+    have_atr = atr is not None and atr != 0
+    f['atr'] = round(float(atr), 2) if atr is not None else None
+    f['range_atr'] = round(float((sig.high - sig.low) / atr), 2) if have_atr else None
+
+    win10 = bs.iloc[max(0, pos - 10):pos]
+    mv = win10.volume.mean() if len(win10) else None
+    f['vol_x10'] = round(float(sig.volume / mv), 2) if (mv is not None and mv != 0) else None
+
+    tight = 0
+    if atr is not None:
+        thresh = 1.5 * atr
+        hi = lo = None
+        for n in range(1, min(120, pos) + 1):
+            bar = bs.iloc[pos - n]
+            hi = bar.high if hi is None else max(hi, bar.high)
+            lo = bar.low if lo is None else min(lo, bar.low)
+            if hi - lo <= thresh:
+                tight = n
+            else:
+                break
+    f['tight_bars'] = tight
+
+    if have_atr and len(win10):
+        hh, ll = win10.high.max(), win10.low.min()
+        f['brk10_atr'] = round(float(((sig.close - hh) if long_ else (ll - sig.close)) / atr), 2)
+    else:
+        f['brk10_atr'] = None
+
+    rth_today = bs[(bs.index >= t930) & (bs.index < sig_ts)]
+    if have_atr and len(rth_today):
+        f['today_ext_atr'] = round(float(((sig.close - rth_today.high.max()) if long_
+                                           else (rth_today.low.min() - sig.close)) / atr), 2)
+    else:
+        f['today_ext_atr'] = None
+
+    pm = bs[(bs.index >= _t(date, '04:00')) & (bs.index < t930)]
+    if have_atr and len(pm):
+        f['premkt_atr'] = round(float(((sig.close - pm.high.max()) if long_
+                                        else (pm.low.min() - sig.close)) / atr), 2)
+    else:
+        f['premkt_atr'] = None
+
+    f['pday_atr'] = None
+    f['pday_dir'] = None
+    pdate, pb1, prth = prior_trading_day(root, date, siv)
+    if pdate and have_atr:
+        roll = False
+        if pb1 is not None and len(pb1) and len(b1):
+            first_today, last_prior = b1.iloc[0], pb1.iloc[-1]
+            if last_prior.close is not None and last_prior.close != 0:
+                pct = abs(first_today.open - last_prior.close) / abs(last_prior.close) * 100
+                roll = pct > 0.6 and (is_roll_window(date) or is_roll_window(pdate))
+        if roll:
+            f['note'] = 'contract roll between the prior day and this one'
+            print('CONTRACT ROLL: trade n=%s %s %s (prior day %s)' % (j.get('n'), date, j['sym'], pdate))
+        else:
+            f['pday_atr'] = round(float(((sig.close - prth.high.max()) if long_
+                                          else (prth.low.min() - sig.close)) / atr), 2)
+            f['pday_dir'] = sig01(prth.iloc[-1].close - prth.iloc[0].open)
+
+    f['bars'] = src
+    return f
+
+
+def features(a):
+    spec = json.load(io.open(SPEC, encoding='utf-8'))
+    n = 0
+    for j in spec['trades']:
+        if j.get('label') in SETUPS and j.get('asset', 'futures') == 'futures':
+            j['features'] = trade_features(j)
+            n += 1
+    io.open(SPEC, 'w', encoding='utf-8', newline='\n').write(json.dumps(spec, indent=1, ensure_ascii=False))
+    print('features: %d futures trades -> %s' % (n, SPEC))
+
+
 def main():
     ap = argparse.ArgumentParser(description='per-setup journals of the real futures trades')
-    ap.add_argument('cmd', choices=['prep', 'build', 'render', 'check'])
+    ap.add_argument('cmd', choices=['prep', 'build', 'render', 'check', 'features'])
     ap.add_argument('--cache', default=os.path.join(os.path.expanduser('~'), 'AppData', 'Local', 'Temp',
                                                     'setup_journal_cache'))
     ap.add_argument('--results', help='build: the checking workflow result JSON')
@@ -838,6 +1044,8 @@ def main():
         prep(a)
     elif a.cmd == 'build':
         build(a)
+    elif a.cmd == 'features':
+        features(a)
     else:
         render(a)
 

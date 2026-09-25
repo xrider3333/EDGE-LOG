@@ -12,6 +12,7 @@
 ## What the data says so far
 
 - Futures, 12 trades: 7 winners, +$53.49, average +0.18 R. Stocks, 12 trades: 5 winners, -$133.56 (IPST alone -$164), average -0.45 R.
+- Signal-bar features: 7 of the 9 CBU signals that had an earlier regular-session candle closed at a new high of the day, 9 of 12 above the premarket high and 10 of 11 above the prior-day high, usually far above them: CBU is a new high on a day that is already strong. ENGU is the opposite.
 - 6 of the 12 futures trades were bought inside the breakout minute itself, off a 5- or 10-second chart. The 1-minute candle closed after those fills, so they are left out of the chase and volume splits below (the page marks them "same bar").
 - Futures CBU at the open paid: 6 trades taken 09:30-10:00 averaged +0.33 R, the 6 taken later +0.03 R.
 - Volume: of the 6 futures trades whose breakout minute closed before the fill, the 4 whose 1-minute breakout candle traded 3x or more the volume of the 10 candles before it all won (+0.37 R average); the other 2 averaged -0.29 R. Counting all 12 it is +0.36 R against 0.00 R. Small numbers.
@@ -40,6 +41,25 @@
 | 2026-06-30 | MNQ | LONG | 61.10 | 0.60 | -1.7 | 83 | 10.2 | 6.2 | B | EL |
 | 2026-07-10 | MES | LONG | 10.62 | 0.48 | 15.8 | 83 | 13.5 | 9.0 | B | EL |
 | 2026-08-04 | MNQ | LONG | -1.88 | 0.00 | same bar | 0 | 1.5 | 2.2 | B | EL |
+
+#### Signal-bar features (known when the signal candle closed)
+
+| Date | Time | Dir | Min after 9:30 | Range ÷ ATR | Vol × prior 10 | Tight base (bars) | Past 10-bar high/low (ATR) | Past today's high/low (ATR) | Past premarket high/low (ATR) | Past prior-day high/low (ATR) | Prior day |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-04-07 | 13:34 | LONG | 245 | 1.66 | 2.1 | 1 | +0.95 | -2.69 | -11.55 | -9.65 | up |
+| 2026-04-14 | 09:42 | LONG | 13 | 1.29 | 0.9 | 4 | +0.88 | +0.88 | +2.37 | +9.06 | up |
+| 2026-04-14 | 10:35 | LONG | 66 | 3.35 | 2.5 | 6 | +1.67 | +1.52 | +15.37 | +30.43 | up |
+| 2026-04-15 | 11:12 | LONG | 103 | 1.98 | 3.2 | 1 | +0.93 | +0.47 | +7.47 | +12.13 | up |
+| 2026-04-21 | 09:52 | LONG | 23 | 1.24 | 1.1 | 4 | +0.34 | +0.34 | -4.90 | +1.59 | flat |
+| 2026-04-27 | 15:45 | LONG | 376 | 2.21 | 3.8 | 6 | +0.18 | +0.00 | +6.82 | +5.34 | up |
+| 2026-05-08 | 11:36 | LONG | 127 | 1.74 | 2.5 | 2 | +1.15 | +1.15 | +16.38 | +18.53 | down |
+| 2026-06-11 | 15:30 | LONG | 361 | 4.29 | 4.3 | 2 | +2.86 | +2.86 | +18.60 | +2.18 | down |
+| 2026-06-15 | 09:30 | LONG | 1 | 6.22 | 15.2 | 1 | +4.67 | — | +3.89 | — | — |
+| 2026-06-30 | 09:30 | LONG | 1 | 3.83 | 10.2 | 1 | +2.22 | — | -5.78 | +1.10 | up |
+| 2026-07-10 | 09:30 | LONG | 1 | 3.13 | 13.5 | 1 | +1.81 | — | +0.82 | +1.15 | up |
+| 2026-08-04 | 09:50 | LONG | 21 | 1.33 | 1.5 | 4 | +0.75 | +0.75 | +6.20 | +15.87 | up |
+
+Closed past today's high/low so far: 7 of 9 · past the premarket high/low: 9 of 12 · past the prior-day high/low: 10 of 11 · past the 10-bar high/low: 12 of 12
 
 ### Futures trades, one by one
 
@@ -1704,4 +1724,7 @@
 - **Best next 15m** = the best move, in points from his entry price, in the 15 one-minute bars after the exit (negative when price never got back to his entry). Stocks with only 5-minute bars use the three 5-minute bars after the exit bar, so theirs is approximate.
 - While held means: from 10-second bars when they exist (trades from 2026-06-26 on), to the nearest 10 seconds (the 10-second bars the fill and the exit fall in are counted whole). Otherwise the bar the fill came in and the bar the exit came in are both left out, because each also holds prices from outside the trade (the exit price itself still counts). A trade that did not stay through one full bar shows —.
 - **Vol × / Body ×** = the signal bar's volume and body against the average / median of the 10 bars before it.
+- **Signal-bar features** (futures only, in the table below the summary) describe the signal candle itself - how stretched it is, how tight the base under it was, how it sits against recent highs and lows - using only bars that had already closed by the time the signal candle closed, so nothing after the fact leaks in.
+- **ATR** = the average 1-minute true range (high minus low, widened for a gap from the prior close) of the 14 bars before the signal candle - 5-minute bars, for a trade whose signal candle is a 5-minute candle.
+- **Past today's high/low** compares the signal close with the regular-session (9:30 on) bars before it; **premarket** = the 4:00-9:29 bars; **prior day** = the previous regular session - blank when a contract roll sits between that day and this one.
 - Futures prices are unadjusted CME front-month bars (MES is read from ES bars and MNQ from NQ bars; the micro and full-size prints can differ by a tick or two on a fast bar). 10-second bars are the NinjaTrader capture, moved back 10 seconds because it stamps each bar at its close. Stock bars are Yahoo 1- or 5-minute bars kept with the scores.

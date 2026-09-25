@@ -11,6 +11,7 @@
    ],
    "findings": [
     "Futures, 12 trades: 7 winners, +$53.49, average +0.18 R. Stocks, 12 trades: 5 winners, -$133.56 (IPST alone -$164), average -0.45 R.",
+    "Signal-bar features: 7 of the 9 CBU signals that had an earlier regular-session candle closed at a new high of the day, 9 of 12 above the premarket high and 10 of 11 above the prior-day high, usually far above them: CBU is a new high on a day that is already strong. ENGU is the opposite.",
     "6 of the 12 futures trades were bought inside the breakout minute itself, off a 5- or 10-second chart. The 1-minute candle closed after those fills, so they are left out of the chase and volume splits below (the page marks them \"same bar\").",
     "Futures CBU at the open paid: 6 trades taken 09:30-10:00 averaged +0.33 R, the 6 taken later +0.03 R.",
     "Volume: of the 6 futures trades whose breakout minute closed before the fill, the 4 whose 1-minute breakout candle traded 3x or more the volume of the 10 candles before it all won (+0.37 R average); the other 2 averaged -0.29 R. Counting all 12 it is +0.36 R against 0.00 R. Small numbers.",
@@ -30,6 +31,7 @@
    ],
    "findings": [
     "Futures, 17 trades: 12 winners, +$107.25, average +0.10 R. Stocks, 1 trade: LABT, +$3.60, +0.19 R.",
+    "Signal-bar features: only 2 of 16 ENGU signals closed at a new high of the day, 2 of 17 above the premarket high, 2 of 17 above the prior-day high and 5 of 17 above the high of the 10 candles before: ENGU fires inside the day’s range, unlike CBU.",
     "The open is where ENGU works: 8 trades taken 09:30-10:00 averaged +0.28 R (7 winners); the 9 taken later averaged -0.06 R (5 winners).",
     "7 of the 17 futures trades were bought inside the 1-minute trigger candle itself (off a 5- or 10-second chart, or in the last second of the minute on 2026-09-22), so their chase cannot be measured from 1-minute bars. On the 10 that can, chase made no difference: 6 filled no more than 10% of the range past the close averaged +0.13 R, 4 filled further past it +0.12 R. The earlier \"chase is the difference\" reading leaned on those 7 in-candle fills.",
     "Only 4 of the 17 trigger candles (16 one-minute, one 5-minute) traded 3x the volume of the 10 before them, although his rulebook calls the volume spike the number-one filter. On these trades the spike did not separate winners: 3 spike trades that closed before the fill averaged +0.07 R, the 7 without +0.15 R.",
@@ -45,6 +47,7 @@
    ],
    "findings": [
     "9 trades: 4 winners, +$29.15, average -0.01 R.",
+    "Signal-bar features: 7 of 9 closed above the high of the 10 candles before (2 exactly at it) but only 2 of 9 at a new high of the day: a local breakout below the day’s high (4 of 9 were above the prior-day high).",
     "5 of the 9 were bought inside the breakout minute off a 5- or 10-second chart, so chase is not measured on them. Of the 4 that can be measured, the 3 filled no more than 10% of the range past the close averaged +0.34 R (2 winners); the one further past it (2026-06-26, +0.50 R) won.",
     "Both full-stop losses (2026-04-15 15:50 and 2026-04-29 13:20, about -1.1 R each) were 5-second-chart entries inside the breakout minute, away from the open.",
     "Only 1 of the 9 was taken 09:30-10:00 (2026-06-26, +0.50 R)."
@@ -58,6 +61,7 @@
    ],
    "findings": [
     "4 trades: 3 winners, +$21.15, average +0.15 R. Too few to call.",
+    "All 3 distinct CBD signals closed at a new low of the day (the two 2026-06-12 09:46 shorts share one signal).",
     "On 2026-06-12 he shorted the September contract at about 09:46:00 and was stopped 3 seconds later, then re-shorted the June contract at about 09:46:30."
    ]
   },
@@ -130,7 +134,20 @@
     "The claim's '2.73 px per second' on Wpfg3yIj's 1s pane is off. I measured 2.5 px per second at original size (10:28 to 10:29 is 150 px). The box ends at about 10:29:25, consistent with the 22s hold.",
     "Weak supporting detail: the 'Score' widget reads 1/15 on Wpfg3yIj (the 10:29 chart) and 2/15 on 1cjZL1U1 (13:35). Chart creation order (16:07, then 16:14) also follows trade order, matching the sheet's row order ENGU then CBU.",
     "The snapshot's axis_range line 'Every time axis is 12:25-13:47 ET' is loose: the 1s pane covers only 13:31-13:36, the 10s pane 13:10-13:40, and the main 5s pane 13:10-13:45."
-   ]
+   ],
+   "features": {
+    "min_after_open": 60,
+    "atr": 5.29,
+    "range_atr": 1.47,
+    "vol_x10": 1.12,
+    "tight_bars": 2,
+    "brk10_atr": -0.71,
+    "today_ext_atr": -6.1,
+    "premkt_atr": -11.4,
+    "pday_atr": -10.26,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 2,
@@ -186,7 +203,20 @@
     "The broker exports use two clocks. 'Position History.csv', '(1)' and '(11)' show this trade at 10:35:24/10:35:37 and n=1 at 07:29, which is Pacific, 3 hours behind Eastern. The other exports are Eastern. Any tool reading these files has to tell the two apart, or trades will land 3 hours off.",
     "The signal-candle evidence overstates the engulf. The 13:34 body (6626.75-6630.50) does not cover the 13:33 open of 6626.25, so it is not a body-over-body engulf. Only its full range (low 6626.25) reaches the prior bar's body.",
     "The CBU case in the label evidence ignores the 13:00-13:13 range. Highs there reached 6631.00-6631.75, and 13:34 closed below them at 6630.50. The first 1m bar to clear that level was 13:35, the entry bar itself, so the 1m CBU reading is weaker than stated."
-   ]
+   ],
+   "features": {
+    "min_after_open": 245,
+    "atr": 3.16,
+    "range_atr": 1.66,
+    "vol_x10": 2.15,
+    "tight_bars": 1,
+    "brk10_atr": 0.95,
+    "today_ext_atr": -2.69,
+    "premkt_atr": -11.55,
+    "pday_atr": -9.65,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 3,
@@ -243,7 +273,20 @@
     "The box's left edge is x 2673 (15:08:20), not x 2677. Its span is about 105 s, not 101 s, which is a closer match to dur_secs 106.",
     "The dark part of the main-pane box starts at about 6801.5, so TradingView's P&L shading ends at about 6801.5 at the box's right edge. The box end is therefore not drawn at the 6802.75 exit.",
     "The chart shows the 15:01 low at 6792.75 while the ES bars show 6792.50. This is one tick of MES-versus-ES noise at the extreme, not a price offset."
-   ]
+   ],
+   "features": {
+    "min_after_open": 339,
+    "atr": 3.21,
+    "range_atr": 1.17,
+    "vol_x10": 1.13,
+    "tight_bars": 1,
+    "brk10_atr": 0.0,
+    "today_ext_atr": -11.04,
+    "premkt_atr": -14.31,
+    "pday_atr": 44.1,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 4,
@@ -301,7 +344,20 @@
     "The 6,857.50 -0.21% yellow label is the live last price when the snapshot was made (16:17 1m bar L 6857.25, H 6858.00). The 6,876.75 +0.07% label is the close of the last visible bar (10:24). Both sit against the same prior settle of about 6871.9. This supports created_et and px_offset=0.",
     "The claim ties the 6,863.25 lavender label to a drawn line. The dashed horizontal line after 10:01 actually sits at y=633, which is 6862.50 and equals the 10:01 low. The 6,863.25 label (y about 615) is not attached to that line. This is minor and does not affect the trade.",
     "Measured volume-bar heights are 28 px for the 09:36:10 bar and 52/54 px for the 09:35:00 and 09:35:40 bars, against the claim's 27 and 51-53 px. The difference is small and the conclusion is the same."
-   ]
+   ],
+   "features": {
+    "min_after_open": 7,
+    "atr": 2.86,
+    "range_atr": 1.14,
+    "vol_x10": 1.24,
+    "tight_bars": 0,
+    "brk10_atr": -4.2,
+    "today_ext_atr": -4.2,
+    "premkt_atr": -6.47,
+    "pday_atr": -2.27,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 5,
@@ -358,7 +414,20 @@
     "score.px_offset is null in prep.json while the claim gives 0. The two mean the same thing, but the field should be normalised.",
     "The claim describes two 19-second windows on the 1s pane. A third crossing of 6861.50 also exists, during the opening spike at about 12:13:00-01. The second-level timing therefore stays indeterminate, and no 10s bars exist for 2026-04-10."
    ],
-   "signal_note": "He traded a 5-second chart, so the breakout candle sits inside the 12:13 minute, the minute he bought in. The 12:12 candle is the range he broke out of; his drawn stop, 6859.50, is its low."
+   "signal_note": "He traded a 5-second chart, so the breakout candle sits inside the 12:13 minute, the minute he bought in. The 12:12 candle is the range he broke out of; his drawn stop, 6859.50, is its low.",
+   "features": {
+    "min_after_open": 164,
+    "atr": 2.61,
+    "range_atr": 1.25,
+    "vol_x10": 1.6,
+    "tight_bars": 2,
+    "brk10_atr": 0.58,
+    "today_ext_atr": -7.86,
+    "premkt_atr": -9.78,
+    "pday_atr": -5.18,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 6,
@@ -417,7 +486,20 @@
     "The drawn box ends at about 15:57:55, but entry plus the 476s hold puts the real exit at about 15:58:06-15:58:26. The box is a drawing, not the fill record. The 15:58 exit minute still holds.",
     "The earlier score has px_offset null, while the claim has 0. They mean the same thing.",
     "The 10s fields were skipped because the trade date, 2026-04-10, is before 10s bars exist (2026-06-23). Verification crops are in C:/Users/xride/AppData/Local/Temp/claude/C--Users-xride-OneDrive-Desktop/8b1d99d5-c949-4817-8709-f9dce139a445/scratchpad/futsetups/cache/work/n6_v/"
-   ]
+   ],
+   "features": {
+    "min_after_open": 381,
+    "atr": 2.21,
+    "range_atr": 2.71,
+    "vol_x10": 2.84,
+    "tight_bars": 2,
+    "brk10_atr": -0.9,
+    "today_ext_atr": -13.66,
+    "premkt_atr": -15.92,
+    "pday_atr": -10.5,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 7,
@@ -474,7 +556,20 @@
     "The ENGU 5s candle only loosely engulfs. Its open of 6832.50 sits inside the prior 09:33:40 up-candle body (6831.50-6832.75), so it clears the prior highs rather than engulfing the prior body.",
     "Minor: the 09:34:20 MES 5s wick reads ~6836.75, one tick above the ES 1m 09:34 high of 6836.50. This is either MES/ES book divergence or pixel error, and it does not affect any field.",
     "No 10s bars exist for 2026-04-13, so entry_ts_10s and exit_ts_10s were skipped. The 5s timing (entry ~09:33:45-50, target first touched at 09:34:15, trade-through at 09:34:20-25) comes from the snapshot pixels only."
-   ]
+   ],
+   "features": {
+    "min_after_open": 4,
+    "atr": 2.34,
+    "range_atr": 2.14,
+    "vol_x10": 1.79,
+    "tight_bars": 0,
+    "brk10_atr": -2.03,
+    "today_ext_atr": -2.03,
+    "premkt_atr": 0.21,
+    "pday_atr": -20.41,
+    "pday_dir": -1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 8,
@@ -529,7 +624,20 @@
     "He traded the 5s chart (el_tf=5s). On 5s the breakout bar is 09:42:10, with a pixel-read low of about 6955.5, which would give a tighter stop than the 1m 09:42 low of 6953.75. With no sub-minute bars for 2026-04-14, the 1m-based stop stands, but it is wider than the stop he would have used on his own timeframe.",
     "His drawn stop, 6954.75, matches no candle low on either timeframe. It is one tick under the 6955.00 level (the 5s 09:42:05 low is about 6954.25, and the 09:42:10 low is about 6955.5). He set the stop from the level, not from the candle.",
     "Minor wording in the claims' 'read' text: the 09:30 bar opened at 6937.75 (its low was 6937.50), not 'about 6937.50 at the open'. This has no effect on any field."
-   ]
+   ],
+   "features": {
+    "min_after_open": 13,
+    "atr": 3.7,
+    "range_atr": 1.29,
+    "vol_x10": 0.94,
+    "tight_bars": 4,
+    "brk10_atr": 0.88,
+    "today_ext_atr": 0.88,
+    "premkt_atr": 2.37,
+    "pday_atr": 9.06,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 9,
@@ -585,7 +693,20 @@
     "The 10:36 1m open is also 6974.75, so an ENGU-style 'next candle open' entry would have given the same price. The journal's 10:35 entry and the box starting at 10:35:50 place the fill inside the 10:35 bar, so it was not a next-open entry.",
     "The 10:36 bar's high is exactly 6975.00, so the exit price also fits 10:36. The 121 s hold rules that out: an entry in 10:35 cannot exit before 10:37:01.",
     "No 10s bars exist for 2026-04-14, so the 10s timestamp fields do not apply; the seconds (entry about 10:35:50, exit arrow about 10:37:22) come only from the snapshot pixels."
-   ]
+   ],
+   "features": {
+    "min_after_open": 66,
+    "atr": 1.64,
+    "range_atr": 3.35,
+    "vol_x10": 2.47,
+    "tight_bars": 6,
+    "brk10_atr": 1.67,
+    "today_ext_atr": 1.52,
+    "premkt_atr": 15.37,
+    "pday_atr": 30.43,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 10,
@@ -644,7 +765,20 @@
     "The 11:12 1m candle would also pass an ENGU check. Its body is 3.25 of a 4.25 range, there is no lower wick, volume is 3.2x, and it covers the 11:11 doji body; it does not cover the 11:11 low of 7030.50 on ES. It also happens that the 11:13 open (7034.00) equals the fill. But the timing puts the fill inside 11:12, so CBU stands.",
     "The sheet says 'STOPED OUT', yet the exit at 7034.25 is above both the fill of 7034.00 and the drawn entry of 7033.75. Net P&L is -0.65 after 1.90 in fees, so gross was +1.25. Either he moved the stop up to about breakeven, or he closed by hand. Nothing in the files settles which.",
     "There are no 10s bars for 2026-04-15; the cache's 10s files start at 2026-06-26. So the 10-second timestamp fields do not apply, and I left them out."
-   ]
+   ],
+   "features": {
+    "min_after_open": 103,
+    "atr": 2.14,
+    "range_atr": 1.98,
+    "vol_x10": 3.21,
+    "tight_bars": 1,
+    "brk10_atr": 0.93,
+    "today_ext_atr": 0.47,
+    "premkt_atr": 7.47,
+    "pday_atr": 12.13,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 11,
@@ -701,7 +835,20 @@
     "On the MES 5s chart, the 15:50:00 signal bar's own low reads 7057.00: the body bottom at pixel row 583, with no visible lower wick. The 7056.75 stop is the ES 1m 15:50 low, and it is also the low of the 15:49:55 5s bar and the drawn box stop. If the signal candle is taken as the 5s bar, its low is 7057.00, one tick higher.",
     "The 1m 15:50 high of 7063.00 did not clear the 15:35 session-area high of 7063.25. The breakout is only out of the 15:40-15:49 range (7054.25-7060.25), not the wider 15:30-15:49 range. This is relevant context for the EBU/CHASED reading.",
     "The earlier score has px_offset null in prep.json, while the claim sets it to 0. 0 is correct, so no conflict."
-   ]
+   ],
+   "features": {
+    "min_after_open": 381,
+    "atr": 2.16,
+    "range_atr": 2.89,
+    "vol_x10": 2.94,
+    "tight_bars": 0,
+    "brk10_atr": 0.46,
+    "today_ext_atr": -0.93,
+    "premkt_atr": 20.02,
+    "pday_atr": 24.64,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 12,
@@ -810,7 +957,20 @@
     "EL data quirk: n12 and n13 both carry durationSecs 42 and the same sellOrderId, 14595748735. For n13 the 42 s is correct (09:52:56 to 09:53:38). n12's real hold was 3 s (09:52:41 to 09:52:44), so n12's dur_secs is wrong."
    ],
    "link_note": "EL has no chart on this trade, and the sheet row's chart (ihNLObLD) shows the 2026-04-15 15:50 EBU trade. The chart saved on the fat-finger short in the same minute, [taSMzocP](https://www.tradingview.com/x/taSMzocP/), draws the long he meant to take at about 09:52:40 (box entry about 7165.50, stop about 7164.00, target about 7168.75, on a 5-second chart). This long came 15 seconds later.",
-   "fill_seconds": "in 09:52:56, out 09:53:38 ET (broker fill file)"
+   "fill_seconds": "in 09:52:56, out 09:53:38 ET (broker fill file)",
+   "features": {
+    "min_after_open": 23,
+    "atr": 3.62,
+    "range_atr": 1.24,
+    "vol_x10": 1.13,
+    "tight_bars": 4,
+    "brk10_atr": 0.34,
+    "today_ext_atr": 0.34,
+    "premkt_atr": -4.9,
+    "pday_atr": 1.59,
+    "pday_dir": 0,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 14,
@@ -867,7 +1027,20 @@
     "Minor: 5s candle spacing is 92.5/12 = 7.7 px, not '8 px, about 5.2 s'. The bars are 5s.",
     "The claim that 'price climbed to 7,211.25 by 15:50' uses the 1m high. The chart's 15:50:00 5s wick reads 7211.50 (y 170), one tick higher. The same one-tick spike difference shows at 15:32 (7208.00 vs 7207.75) and 15:45 (7209.50 vs 7209.25).",
     "No 10s bars exist for 2026-04-27 (the cache holds only ES_2026-04-27_1m.csv), so the 10s timestamp fields were skipped."
-   ]
+   ],
+   "features": {
+    "min_after_open": 376,
+    "atr": 1.36,
+    "range_atr": 2.21,
+    "vol_x10": 3.75,
+    "tight_bars": 6,
+    "brk10_atr": 0.18,
+    "today_ext_atr": 0.0,
+    "premkt_atr": 6.82,
+    "pday_atr": 5.34,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 15,
@@ -924,7 +1097,20 @@
     "7161.50 is the MES LOD label. The ES bar RTH low before the trade was 7161.75 (09:31/09:32), a one-tick contract difference.",
     "Minor 5s range misreads: the 10:36:00 5s bar (entry) looks like about 7158.50-7160.00, not 7158.0-7160.0; the 10:36:35 5s bar (exit) reaches down to about 7156.50, not 7156.75. Neither changes which bars contain the fills.",
     "The 10s fields were skipped: no ES_2026-04-28 10s bar file exists (only the 1m CSV), which fits the 10s data starting 2026-06-23."
-   ]
+   ],
+   "features": {
+    "min_after_open": 66,
+    "atr": 3.21,
+    "range_atr": 1.79,
+    "vol_x10": 2.46,
+    "tight_bars": 1,
+    "brk10_atr": 0.7,
+    "today_ext_atr": 0.62,
+    "premkt_atr": -3.81,
+    "pday_atr": 5.37,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 16,
@@ -980,7 +1166,20 @@
     "The main 5s pane is not at the live edge. Its time axis is 43.5 px per minute, with 13:20 at x=1220.5 and 13:25 at x=1438, and its last candle is at x of about 1514, which is about 13:26:45, not 13:28. Its axis tags read 7150.00 and 7149.50, not 7150.50. Only the 10s pane, the 1m pane and the strips show 7150.50 at about 13:28:30.",
     "MES and ES extremes differ by one tick in two places. The 13:20:00 5s spike high reads about 7155.00 (y=465) against an ES 1m high of 7154.75. The 13:04 low reads about 7145.00 against ES 7145.25. So the claim's '7145.25 matches exactly' is really within one tick. This does not support any offset.",
     "On the 5s chart he traded, the 13:20:00 spike candle has a body from 7149.25 to about 7153.00, a wick to about 7155 and a 6.15K volume spike. The drawn entry of 7153 equals that candle's close, and the drawn stop of 7149.00 is one tick below its low. That matches the ENGU pattern ('stop below its LOW', entry at the next open) more than CBU. The owner's only label is still the sheet's EBU, so it stands, but ENGU-on-5s is a reasonable alternative reading worth flagging to the owner."
-   ]
+   ],
+   "features": {
+    "min_after_open": 231,
+    "atr": 1.7,
+    "range_atr": 3.24,
+    "vol_x10": 8.53,
+    "tight_bars": 3,
+    "brk10_atr": 0.0,
+    "today_ext_atr": -14.0,
+    "premkt_atr": -17.39,
+    "pday_atr": -18.57,
+    "pday_dir": -1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 17,
@@ -1038,7 +1237,20 @@
     "The drawn stop (7285.50) is one tick above the 11:37 low (7285.25) and sits at about the candle's body bottom. The owner's chart stop was not exactly the rule stop.",
     "HOD 2 (7298.25) is the owner's drawn line, not the session high: the ES RTH high was 7300.75 at 10:22, and the chart wick confirms it.",
     "No 10s bars exist for 2026-05-01, so the 10s entry and exit fields were skipped."
-   ]
+   ],
+   "features": {
+    "min_after_open": 128,
+    "atr": 2.04,
+    "range_atr": 3.44,
+    "vol_x10": 4.02,
+    "tight_bars": 3,
+    "brk10_atr": 1.72,
+    "today_ext_atr": -5.16,
+    "premkt_atr": 9.21,
+    "pday_atr": 18.91,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 18,
@@ -1094,7 +1306,20 @@
     "The 7214.25 PRE/LOD line is an MES level. In the ES bars the premarket low is 7213.75 (06:22) and the RTH high is 7271.00 (chart HOD 7270.75). These are micro vs e-mini tick differences, not a contract-month offset, so px_offset 0 stands.",
     "The position box's left edge is at about the 12:07:55 5s bar (x=1489), not exactly 12:08:00. Both fill arrows sit on the 12:08:00 5s bar (x of about 1493).",
     "The ENGD alternative in the issues list is weaker than stated: the 12:07 body (open 7219.00) does not engulf the 12:06 body (7219.25-7220.75)."
-   ]
+   ],
+   "features": {
+    "min_after_open": 158,
+    "atr": 4.38,
+    "range_atr": 3.03,
+    "vol_x10": 4.11,
+    "tight_bars": 4,
+    "brk10_atr": 1.89,
+    "today_ext_atr": 1.89,
+    "premkt_atr": 1.2,
+    "pday_atr": 10.74,
+    "pday_dir": -1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 19,
@@ -1152,7 +1377,20 @@
     "Under the ENGU rule the entry would be the 11:44:55 5s open at about 7365.00. The actual fill came 7 s later, on the 11:45:00 bar, 0.75 pt lower.",
     "The chart's LOD label reads 7,327.00, but the ES 1m bars show an RTH low of 7327.25 at 09:30. That is a 1-tick MES vs ES wick difference and is immaterial.",
     "The panes look like they were in replay rather than showing 14:32 live data. The HOD of 7375.00 equals the RTH high only up to about 11:48 (the day's high by 14:32 was 7381.75), and the last prices differ between panes: 5s 7365.50, 10s 7363.75, 1m 7368.00, 3m 7368.25."
-   ]
+   ],
+   "features": {
+    "min_after_open": 135,
+    "atr": 2.02,
+    "range_atr": 3.96,
+    "vol_x10": 4.85,
+    "tight_bars": 0,
+    "brk10_atr": -3.84,
+    "today_ext_atr": -6.07,
+    "premkt_atr": -1.73,
+    "pday_atr": 31.22,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 20,
@@ -1211,7 +1449,20 @@
     "The claim's issue list says the 14:09 bar engulfs the 14:08 bar's body. That is wrong. The 14:08 bar has O 7369.00 and C 7367.25, and the 14:09 high is only 7368.25, so 14:09 does not cover 14:08's body top. It opens exactly at the 14:08 close and only takes out the 14:08 low (7366.50). Strict engulfing therefore fails against the immediately prior bar. The 14:09 body does cover the 14:05 body and most of the 14:06 body. This does not change the signal candle or the ENGD label.",
     "The earlier score summary says 'entry itself was clean at the bar close'. The fill of 7362.00 is the 14:10 open, which is the same price as the 14:09 close. The TradingView marker puts the fill in the 14:10 bar, so it is a next-bar-open fill, not a fill at the close.",
     "The MES 14:12 bar appears to differ slightly from the ES bar. Pixel reading gives MES about 7362.75-7365.50 against ES 7363.00-7365.25. The chart-derived exit time is therefore more reliable than the ES bars alone."
-   ]
+   ],
+   "features": {
+    "min_after_open": 280,
+    "atr": 3.89,
+    "range_atr": 1.99,
+    "vol_x10": 2.03,
+    "tight_bars": 3,
+    "brk10_atr": -0.64,
+    "today_ext_atr": -4.17,
+    "premkt_atr": 7.13,
+    "pday_atr": -8.93,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 21,
@@ -1271,7 +1522,20 @@
     "The timing is narrowly ambiguous. An entry at 11:36:50-11:36:59 (29,215 is inside the 11:36 range) plus 310 s would also put the exit in the 11:42 bar. The journal and the box anchor both say 11:37, so 11:37 stands.",
     "The claim says the 09:30-09:40 box near 28,925 is 'a different trade'. That is unverified: prep.json has no other trade on 2026-05-08, so it may just be an old drawing."
    ],
-   "signal_note": "The break started with the 11:35 candle (close 29,193.25). The 11:36 candle, the last one to close before his fill, is used as the signal, as the CBU rule says."
+   "signal_note": "The break started with the 11:35 candle (close 29,193.25). The 11:36 candle, the last one to close before his fill, is used as the signal, as the CBU rule says.",
+   "features": {
+    "min_after_open": 127,
+    "atr": 14.52,
+    "range_atr": 1.74,
+    "vol_x10": 2.47,
+    "tight_bars": 2,
+    "brk10_atr": 1.15,
+    "today_ext_atr": 1.15,
+    "premkt_atr": 16.38,
+    "pday_atr": 18.53,
+    "pday_dir": -1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 22,
@@ -1322,7 +1586,20 @@
     "Data oddity in n=20, not n=22: n=20 is recorded as SHORT with entry 7362.0 and exit 7365.5, but the chart shows a sell at 7365.50 (down arrow) and a buy at 7362.00 (up arrow). That points to a short sold at 7365.50 and covered at 7362.00, so n=20's entry and exit may be swapped in prep.json.",
     "The ENGD candle is an engulf only in the loose sense. Its body top (7429.25) equals the 09:29 close, and 09:29 was itself a small down candle (7430.75 to 7429.25), so the body does not cover 09:29's open. It does close below the lows of the 09:27-09:29 candles."
    ],
-   "link_note": "The chart saved with this trade (tOU5oaTk) shows the 2026-05-07 14:10 ENGD short, not this one; no snapshot of this trade exists."
+   "link_note": "The chart saved with this trade (tOU5oaTk) shows the 2026-05-07 14:10 ENGD short, not this one; no snapshot of this trade exists.",
+   "features": {
+    "min_after_open": 1,
+    "atr": 1.61,
+    "range_atr": 4.98,
+    "vol_x10": 12.96,
+    "tight_bars": 1,
+    "brk10_atr": 3.42,
+    "today_ext_atr": null,
+    "premkt_atr": -4.04,
+    "pday_atr": -37.18,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 23,
@@ -1381,7 +1658,20 @@
     "The fill cannot be before 09:40:30. The 09:40:25 5s green candle tops out at about 7438.45, one tick under the 7438.75 fill. So the exit is 09:40:54 or later, and 09:41:00-03 at the 7441.50 open is still possible.",
     "The 10s signal-candle low comes from the image only. From the 5s pixels it is about 7433.2 (09:40:20 bar), slightly above the earlier reader's 'about 7433.0'. Either way it is a tighter stop than the 1m rule stop of 7431.",
     "The earlier reader said the 5s volume bar at 09:40:25 is one of the tallest after the open. That is overstated: it is well below the 09:30 and 09:35 red spikes and similar to the 09:44-09:45 bars. The 1m volume spike (8830 against about 6.5k) is the firmer evidence."
-   ]
+   ],
+   "features": {
+    "min_after_open": 11,
+    "atr": 6.45,
+    "range_atr": 1.71,
+    "vol_x10": 0.91,
+    "tight_bars": 3,
+    "brk10_atr": -3.14,
+    "today_ext_atr": -3.14,
+    "premkt_atr": -5.31,
+    "pday_atr": -15.24,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 24,
@@ -1436,7 +1726,20 @@
     "The snapshot volume pane is MES volume, not ES volume. By pixel read it is about 10.1K at 10:05, 9.3K at 10:06 and 8.3K at 10:07. The ES bars have 10:07 (8099) above 10:06 (7893), so 'the same pattern' holds only for 10:05 > 10:06. In both sources 10:06 is not a volume spike over 10:05.",
     "Drawn entry 7439.62 by pixel lies midway between 7439.50 and 7439.75, so it cannot be pinned to one tick.",
     "No 10-second bars exist for 2026-05-18, so the 10-second stamp fields were skipped."
-   ]
+   ],
+   "features": {
+    "min_after_open": 37,
+    "atr": 5.8,
+    "range_atr": 2.46,
+    "vol_x10": 1.26,
+    "tight_bars": 3,
+    "brk10_atr": -2.46,
+    "today_ext_atr": -2.46,
+    "premkt_atr": -2.28,
+    "pday_atr": -6.16,
+    "pday_dir": -1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 25,
@@ -1492,7 +1795,20 @@
     "Price alone cannot rule out a fill at the 09:48 close with an exit at about 09:50:52, because the ES 09:50 bar (7381.00-7387.50) also contains 7386.75. Only the EL exit minute of 09:49, read as a truncated fill time, excludes it. hold_from = null depends on EL times being truncated fill timestamps.",
     "The middle pane's 7,385.25 boxed label does not match the ES close of the last visible bar at 10:00-10:01 (7386.25 or 7385.50). It may be an MES tick difference, or it may mark the fill. The claim's 'probably a last-visible-bar label' is not proven either way. No field depends on it.",
     "The claim's wording 'Volume was 10,565, the highest since 09:31' is loose: 09:31 itself had 9,304. It is the highest since the 09:30 open bar (14,657)."
-   ]
+   ],
+   "features": {
+    "min_after_open": 18,
+    "atr": 6.05,
+    "range_atr": 2.6,
+    "vol_x10": 1.41,
+    "tight_bars": 1,
+    "brk10_atr": -2.06,
+    "today_ext_atr": -2.06,
+    "premkt_atr": -7.89,
+    "pday_atr": -11.69,
+    "pday_dir": -1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 26,
@@ -1549,7 +1865,20 @@
     "MES and ES differ by a tick inside 09:58. The snapshot's 09:58:20 wick low reads ~7428.0 (ES 1m low 7428.25), and the 09:58:50 high reads ~7433.6-7433.75 (ES 7433.50). The drawn stop of ~7428.0 therefore sits on the MES swing low, not one tick below the rule stop.",
     "The 10s entry was not at the next candle's open after the engulfing candle. 09:58:50 opened ~7433, but a fill there would fall in minute 09:58, and the journal says 09:59. The fill came ~20-30 s later, around 09:59:00-09:59:10, where 7433 retraded.",
     "No 10s bar file exists for 2026-05-21 (the 10s files start 2026-06-23), so entry_ts_10s and exit_ts_10s were skipped. The snapshot's own 10s candles bound the entry to ~09:59:00-09:59:19 and the exit to ~09:59:30-09:59:49."
-   ]
+   ],
+   "features": {
+    "min_after_open": 29,
+    "atr": 5.98,
+    "range_atr": 0.88,
+    "vol_x10": 0.57,
+    "tight_bars": 2,
+    "brk10_atr": -1.3,
+    "today_ext_atr": -1.3,
+    "premkt_atr": -6.35,
+    "pday_atr": -4.39,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 27,
@@ -1608,7 +1937,20 @@
    ],
    "tags": [
     "CHoS"
-   ]
+   ],
+   "features": {
+    "min_after_open": 221,
+    "atr": 2.21,
+    "range_atr": 7.23,
+    "vol_x10": 12.51,
+    "tight_bars": 7,
+    "brk10_atr": 5.19,
+    "today_ext_atr": -0.79,
+    "premkt_atr": -12.53,
+    "pday_atr": -7.23,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 28,
@@ -1663,7 +2005,20 @@
     "The 11:30 candle also partly fits the ENGU description: large body, about 14x volume, and it engulfs the prior bars. But its upper wick is 3.25 of a 12.25-point range (about 27%), and the owner's label EBU stands.",
     "No 10-second bars exist for 2026-06-01 (they start 2026-06-23), so the 10-second timestamp fields were skipped.",
     "The note 'STOPPED OUT' with exit equal to entry (7599.25) means a breakeven stop. The trade survived the dip to 7594.25 at 11:31 and was taken out on the 11:34 dip to 7597.75 after 11:33 traded 7600.00."
-   ]
+   ],
+   "features": {
+    "min_after_open": 121,
+    "atr": 2.0,
+    "range_atr": 6.12,
+    "vol_x10": 15.37,
+    "tight_bars": 2,
+    "brk10_atr": 3.12,
+    "today_ext_atr": 0.88,
+    "premkt_atr": -12.25,
+    "pday_atr": -6.5,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 29,
@@ -1719,7 +2074,20 @@
     "prep.json has sheet = null; the claim writes it as an empty string (cosmetic).",
     "No 10-second bars exist for 2026-06-09 (the earliest 10s file in the cache is 2026-06-26), so the 10s timestamp fields were skipped.",
     "The main 1m pane's right-edge price tag reads 7,400.75, while the 10s and 5m panes show the live price near 7,269-7,270 at 12:43. The main pane is scrolled back to 07:45-11:12, so the tag is not the live price. This does not affect the trade reading."
-   ]
+   ],
+   "features": {
+    "min_after_open": 53,
+    "atr": 7.43,
+    "range_atr": 1.95,
+    "vol_x10": 1.22,
+    "tight_bars": 4,
+    "brk10_atr": -2.52,
+    "today_ext_atr": -7.64,
+    "premkt_atr": -3.43,
+    "pday_atr": -5.72,
+    "pday_dir": -1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 30,
@@ -1775,7 +2143,20 @@
     "The engulf caveat is understated. 13:29 engulfs no prior candle at all, not just 13:28: its low 7312.00 is above every high from 13:05 to 13:27 (max 7292.00), so it is a continuation bar after 13:28. 13:28 itself only nearly engulfs 13:27 (13:27 low 7284.50 is under 13:28's low 7289.50; 13:27 open 7285.50 is under 13:28's open 7289.75). The ENGU fit rests on body size and volume alone.",
     "The 13:30 entry bar had the largest volume of the move (23,047, above 13:29's 18,768), and the spike high 7371.50 printed about 13:30:10-13:30:20 on the 10s chart, before the ~13:30:40 fill. This backs the chase reading.",
     "Label evidence says the 10s volume before the spike was 'under 1K'. A few earlier 10s bars (around 13:07, 13:12, 13:17) reach about 1.5K on the volume pane. Minor wording issue."
-   ]
+   ],
+   "features": {
+    "min_after_open": 240,
+    "atr": 7.79,
+    "range_atr": 4.43,
+    "vol_x10": 5.49,
+    "tight_bars": 0,
+    "brk10_atr": 1.96,
+    "today_ext_atr": 1.19,
+    "premkt_atr": 0.8,
+    "pday_atr": -7.67,
+    "pday_dir": -1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 31,
@@ -1831,7 +2212,20 @@
     "The score stores px_offset as null while the claim gives 0. They mean the same thing, but downstream code should treat null as 0.",
     "One small numeric slip in the claim: the pre-breakout volume range is 1,437-4,733 (15:18 = 1,437), not 2,389-4,733. This does not change the signal call.",
     "The 15:33:50 10s candle (about 7414.1-7416.5) also contains the 7414.50 exit price. The red arrow is clearly on the next candle, 15:34:00 (x=612, not x=608), and that candle's high matches the 15:34 1m high, so exit_ts_10s stays 15:34:00."
-   ]
+   ],
+   "features": {
+    "min_after_open": 361,
+    "atr": 4.02,
+    "range_atr": 4.29,
+    "vol_x10": 4.27,
+    "tight_bars": 2,
+    "brk10_atr": 2.86,
+    "today_ext_atr": 2.86,
+    "premkt_atr": 18.6,
+    "pday_atr": 2.18,
+    "pday_dir": -1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 32,
@@ -1887,7 +2281,20 @@
     "The claim's 'real signal = about 09:45:30 bar, high about 7377.5' is also only approximate. Pixel columns put the big brown down bar at x=571, which is the 09:45:40 bar (about 7378.7 to 7369.3). The bar before it (09:45:30) reached about 7382.5.",
     "The 10:20:27 / 10:21:33 arrow pair on this link is trade n=34 (LONG 7423.5 to 7418.5, 55 s), whose own link is ElyQ3QpN.",
     "Trade n=33 (the September contract short at 7434.25, 3 s, about 26 s before this entry) has no arrows on this MES1! (June) chart. So the only sell arrow in 09:45-09:50 belongs to n=32."
-   ]
+   ],
+   "features": {
+    "min_after_open": 16,
+    "atr": 10.5,
+    "range_atr": 1.4,
+    "vol_x10": 1.09,
+    "tight_bars": 3,
+    "brk10_atr": 0.45,
+    "today_ext_atr": 0.45,
+    "premkt_atr": 2.64,
+    "pday_atr": -10.12,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 33,
@@ -1946,7 +2353,20 @@
     "The 1m 09:45 high of 7382.75 was set early in the minute (10s bars at about 09:45:20-09:45:30). The 10s breakdown candle he would have seen on his chart (09:45:40) has a high of only about 7378.75, so a stop taken from the 10s candle would be about 4 points tighter than the 1m-based 7448.",
     "Confirmed: the 7436.75 stop note is in tools/data/trade_scores.json (Risk definition factor) and does not match the actual 3.00-point exit at 7437.25."
    ],
-   "caveat": "No September-contract bars exist, so this trade is shown on June bars shifted +65.25. That shift was fitted from this trade’s own fill (7434.25 against the 09:46 June open of 7369.00), so the stop could sit anywhere from 7443.50 to 7448.50 and R anywhere from -0.21 to -0.32."
+   "caveat": "No September-contract bars exist, so this trade is shown on June bars shifted +65.25. That shift was fitted from this trade’s own fill (7434.25 against the 09:46 June open of 7369.00), so the stop could sit anywhere from 7443.50 to 7448.50 and R anywhere from -0.21 to -0.32.",
+   "features": {
+    "min_after_open": 16,
+    "atr": 10.5,
+    "range_atr": 1.4,
+    "vol_x10": 1.09,
+    "tight_bars": 3,
+    "brk10_atr": 0.45,
+    "today_ext_atr": 0.45,
+    "premkt_atr": 2.64,
+    "pday_atr": -10.12,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 34,
@@ -2004,7 +2424,20 @@
     "The entry price alone does not pin the 10s entry bar. The 10:20:40 candle (about 7422.25-7425.0) also contains 7423.50, and a 10:20:40 entry plus 55 s would still exit inside 10:21:30. Only the arrow placement at x=681 fixes 10:20:30.",
     "From 10:19:20 to 10:20:10 the bars formed a tight 7419.0-7420.25 range that the 10:20:20 candle broke, so the setup also fits the CBU definition. EL's ENGU label stands as the authority, but this may matter for the CBU/ENGU data sets.",
     "This verification is read-only. The scratch crops are in C:/Users/xride/AppData/Local/Temp/claude/C--Users-xride-OneDrive-Desktop/8b1d99d5-c949-4817-8709-f9dce139a445/scratchpad/futsetups/cache/work/n34_v/ (title.png, zoom.png, vol.png)."
-   ]
+   ],
+   "features": {
+    "min_after_open": 51,
+    "atr": 6.41,
+    "range_atr": 0.9,
+    "vol_x10": 0.69,
+    "tight_bars": 3,
+    "brk10_atr": -0.94,
+    "today_ext_atr": -0.94,
+    "premkt_atr": -4.6,
+    "pday_atr": 0.27,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 35,
@@ -2060,7 +2493,20 @@
     "The two thin horizontal lines start at x about 1250 (green) and 1254 (red), that is the 12:13:10-12:13:20 bars, not at the 12:13:00 spike bar. The red line (about 7430.1-7430.25) lines up with the body bottom of the purple 12:13:10 10s bar, so it is most likely a level anchored to the bar after the spike, not a planned stop.",
     "He traded the 10s chart. The 12:13:00 10s spike bar's low reads about 7416.25-7416.5 on the MES chart, against the ES 1m low of 7416.00. A stop taken from the 10s bar would be 1-2 ticks higher. The 1m-based 7416.00 follows the framework and matches the score.",
     "No bars_10s file exists for 2026-06-12, so the 10s timestamp fields were skipped. The chart places the entry on the 12:14:00 10s bar and the exit on the 12:16:20 bar."
-   ]
+   ],
+   "features": {
+    "min_after_open": 164,
+    "atr": 7.18,
+    "range_atr": 3.27,
+    "vol_x10": 3.52,
+    "tight_bars": 1,
+    "brk10_atr": 1.71,
+    "today_ext_atr": -4.18,
+    "premkt_atr": -2.72,
+    "pday_atr": 1.64,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 36,
@@ -2116,7 +2562,21 @@
     "The drawn box's left edge (x=2448) and entry line (7606.00) line up with the 09:32 candle and its open, not with the 09:31 bar where the journal puts the fill. This is only a drawing anchor. The journal times still pass the price-in-bar check, and nothing in the files refutes them.",
     "In the bars CSV, the rows from 01:00 to 05:29 are the older contract (about 7521-7533). The chart shows about 7583-7600 for those hours. Only the bars from 05:30 on can be compared with the snapshot. This does not affect the trade.",
     "There is no 10s bar file for 2026-06-15 (only the 1m CSV exists), so the 10s timestamp fields were skipped."
-   ]
+   ],
+   "features": {
+    "min_after_open": 1,
+    "atr": 1.61,
+    "range_atr": 6.22,
+    "vol_x10": 15.21,
+    "tight_bars": 1,
+    "brk10_atr": 4.67,
+    "today_ext_atr": null,
+    "premkt_atr": 3.89,
+    "pday_atr": null,
+    "pday_dir": null,
+    "note": "contract roll between the prior day and this one",
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 37,
@@ -2171,7 +2631,20 @@
     "The signal evidence overstates the engulf. The 15:50 low of 7533.25 is above the 15:49 low (7532.00) and the 15:47/15:48 lows (7531.50). Its body bottom (7535.25) is above the 15:49 open (7532.75) and above the 15:48 body. So it does not literally engulf the 15:47-15:49 bars by range or by body. It engulfs only in size and upside reach. The signal bar and stop do not change: a CBU reading gives the same 15:50 bar and 7533.25 low.",
     "The label evidence says the 15:50 candle has 'the biggest volume bar in view'. That is wrong: on the 1m pane the red volume bar at about 15:59 is taller (about 11K against about 8.5K). The 15:50 bar is only the largest up to the time of the trade.",
     "There is no 10s bar CSV for 2026-06-22. Both 10s timestamps rest only on the pixel positions of the snapshot arrows. They agree with dur_secs=70 and with the pixel-to-price extents of the candles."
-   ]
+   ],
+   "features": {
+    "min_after_open": 381,
+    "atr": 2.66,
+    "range_atr": 4.51,
+    "vol_x10": 4.08,
+    "tight_bars": 1,
+    "brk10_atr": 3.1,
+    "today_ext_atr": -20.86,
+    "premkt_atr": -13.25,
+    "pday_atr": -14.19,
+    "pday_dir": -1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 38,
@@ -2229,7 +2702,20 @@
     "A minor point: the chart high measures about 7436.1 (wick top y=255), not about 7435.8. It still matches the 7436.25 bar high."
    ],
    "bars_10s_file": "setup_bars/ES_2026-06-26_n38_10s.csv",
-   "fill_seconds": "fills at 09:57:03 and 10:00:17 ET (NinjaTrader fill log)"
+   "fill_seconds": "fills at 09:57:03 and 10:00:17 ET (NinjaTrader fill log)",
+   "features": {
+    "min_after_open": 27,
+    "atr": 8.5,
+    "range_atr": 1.74,
+    "vol_x10": 1.43,
+    "tight_bars": 3,
+    "brk10_atr": 1.09,
+    "today_ext_atr": 1.09,
+    "premkt_atr": -1.94,
+    "pday_atr": -10.71,
+    "pday_dir": -1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 39,
@@ -2288,7 +2774,20 @@
    "bars_10s_file": "setup_bars/NQ_2026-06-30_n39_10s.csv",
    "link_note": "EL saved the 2026-07-07 SUGP stock chart (ABdqp2x0) on this trade; the chart above is the one on the sheet row, and it is this trade.",
    "fill_seconds": "fills at 09:31:00 and 09:31:10 ET (NinjaTrader fill log); this row of the log is stamped in Pacific time",
-   "signal_note": "His drawn stop, about 30,034.25, is the MNQ chart’s own 09:30 low; the NQ bars used here put that low at 30,033 (the two contracts differ by about 1.5 points on this bar)."
+   "signal_note": "His drawn stop, about 30,034.25, is the MNQ chart’s own 09:30 low; the NQ bars used here put that low at 30,033 (the two contracts differ by about 1.5 points on this bar).",
+   "features": {
+    "min_after_open": 1,
+    "atr": 15.41,
+    "range_atr": 3.83,
+    "vol_x10": 10.17,
+    "tight_bars": 1,
+    "brk10_atr": 2.22,
+    "today_ext_atr": null,
+    "premkt_atr": -5.78,
+    "pday_atr": 1.1,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 40,
@@ -2345,7 +2844,20 @@
     "Possible MES-vs-ES one-tick difference at the 09:30 low: the TV MES candle appears to wick to ~7592.00, while the ES bar low is 7592.25. The drawn stop 7592.00 may be the MES candle's exact low, not 'one tick under'.",
     "The TV 10s 09:30:00 candle shows H ~7592.75, while the matching NT bar (stamp 09:30:10) has H 7594.75. The bodies match, and the next bar (k=1) matches exactly, so the 10 s shift still holds. This is likely an MES/ES opening-print difference."
    ],
-   "bars_10s_file": "setup_bars/ES_2026-07-10_n40_10s.csv"
+   "bars_10s_file": "setup_bars/ES_2026-07-10_n40_10s.csv",
+   "features": {
+    "min_after_open": 1,
+    "atr": 1.52,
+    "range_atr": 3.13,
+    "vol_x10": 13.51,
+    "tight_bars": 1,
+    "brk10_atr": 1.81,
+    "today_ext_atr": null,
+    "premkt_atr": 0.82,
+    "pday_atr": 1.15,
+    "pday_dir": 1,
+    "bars": "NT 10s resampled to 1m"
+   }
   },
   {
    "n": 46,
@@ -2402,7 +2914,20 @@
     "The end-stamp convention is confirmed in code. EdgeLogOHLCExport.cs writes NinjaTrader's Time[0] with Calculate.OnBarClose, and import_nt_ohlc.py returns a 0 shift for 's' series by design. The cached 'NT 10s resampled to 1m' files were built without that end-stamp correction, so every 1m bar holds 09:xx:50 through 09:yy:50. For example, the file's 09:50 low of 29447.50 is not the real 09:50 low of 29455.50. Stops read from the bars_1m lows on other 10s-era trades may be wrong by that bar."
    ],
    "bars_10s_file": "setup_bars/NQ_2026-08-04_n46_10s.csv",
-   "fill_seconds": "fills at 09:50:12 and 09:54:54 ET (NinjaTrader fill log)"
+   "fill_seconds": "fills at 09:50:12 and 09:54:54 ET (NinjaTrader fill log)",
+   "features": {
+    "min_after_open": 21,
+    "atr": 32.88,
+    "range_atr": 1.33,
+    "vol_x10": 1.54,
+    "tight_bars": 4,
+    "brk10_atr": 0.75,
+    "today_ext_atr": 0.75,
+    "premkt_atr": 6.2,
+    "pday_atr": 15.87,
+    "pday_dir": 1,
+    "bars": "NT 10s resampled to 1m"
+   }
   },
   {
    "n": 47,
@@ -2459,7 +2984,20 @@
     "The 10s CSV is stamped at bar END, confirmed by a 95% OHLC match with the 1m bars after a -10 s shift against 1.6% raw. Any trade whose 10s timestamps were taken from the raw labels is 10 s late."
    ],
    "bars_10s_file": "setup_bars/ES_2026-08-07_n47_10s.csv",
-   "fill_seconds": "fills at 09:44:22 and 09:50:22 ET (NinjaTrader fill log)"
+   "fill_seconds": "fills at 09:44:22 and 09:50:22 ET (NinjaTrader fill log)",
+   "features": {
+    "min_after_open": 14,
+    "atr": 4.95,
+    "range_atr": 1.42,
+    "vol_x10": 1.14,
+    "tight_bars": 2,
+    "brk10_atr": 0.45,
+    "today_ext_atr": 0.45,
+    "premkt_atr": -2.53,
+    "pday_atr": -0.45,
+    "pday_dir": -1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 48,
@@ -2515,7 +3053,20 @@
    ],
    "bars_10s_file": "setup_bars/ES_2026-09-08_n48_10s.csv",
    "fill_seconds": "fills at 13:05:22 and 14:19:49 ET (NinjaTrader fill log)",
-   "signal_iv": "5m"
+   "signal_iv": "5m",
+   "features": {
+    "min_after_open": 215,
+    "atr": 4.54,
+    "range_atr": 2.2,
+    "vol_x10": 1.5,
+    "tight_bars": 0,
+    "brk10_atr": 0.61,
+    "today_ext_atr": -3.97,
+    "premkt_atr": -4.08,
+    "pday_atr": -11.3,
+    "pday_dir": -1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 49,
@@ -2583,7 +3134,20 @@
      "ts": "09:49:20",
      "px": 7677.5
     }
-   ]
+   ],
+   "features": {
+    "min_after_open": 16,
+    "atr": 2.8,
+    "range_atr": 3.03,
+    "vol_x10": 2.24,
+    "tight_bars": 3,
+    "brk10_atr": -0.27,
+    "today_ext_atr": -1.07,
+    "premkt_atr": -4.73,
+    "pday_atr": -3.92,
+    "pday_dir": -1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 50,
@@ -2641,7 +3205,20 @@
    ],
    "bars_10s_file": "setup_bars/NQ_2026-09-22_n50_10s.csv",
    "fill_seconds": "fills at 09:30:59 and 09:31:34 ET (NinjaTrader fill log)",
-   "signal_note": "He bought at 09:30:59, in the last second of the signal minute, so the candle was all but finished when he filled; the page still marks it \"same bar\"."
+   "signal_note": "He bought at 09:30:59, in the last second of the signal minute, so the candle was all but finished when he filled; the page still marks it \"same bar\".",
+   "features": {
+    "min_after_open": 1,
+    "atr": 9.7,
+    "range_atr": 5.41,
+    "vol_x10": 13.24,
+    "tight_bars": 1,
+    "brk10_atr": 3.69,
+    "today_ext_atr": null,
+    "premkt_atr": -3.84,
+    "pday_atr": -5.08,
+    "pday_dir": 1,
+    "bars": "NOADJ 1m"
+   }
   },
   {
    "n": 101,
@@ -3462,6 +4039,7 @@
   "**Extra charts in the sheet’s TRADES TO ADD tab:** XHG 2026-08-13 (EcA2vfXN) and IPST 2026-08-17 (FoDpAoxL), both saved the same day. Both were read; the IPST one moved its breakout candle to the 1-minute 10:59 candle (stop 7.86)."
  ],
  "notes": [
+  "[ALGO_SCOPE.md](ALGO_SCOPE.md) is the scope for automating these setups: what the shop has already closed, what these journals add, and the recommended next steps (a live setup alert first; at most one pre-registered CBU test).",
   "Every trade with a chart was read twice: once to place the fill, the signal candle and the stop on the bars and on the saved chart, then by a second, independent check told to disprove the first. 5 trades had a disputed field, and a third check re-read the files and decided each: 2026-04-07 10:29 ENGU (which sheet row the chart backs), 2026-04-21 fat-finger short (whose chart it is), 2026-05-01 EBU and 2026-05-08 MNQ CBU (the drawn stop; the second check was right both times), 2026-06-30 MNQ CBU (its 10-second stamps; the fill log settles it).",
   "The NinjaTrader 10-second price files are stamped at each bar’s close (EDGE LOG’s own tools shift them the same way when they read them). These pages shift them back 10 seconds, so every time shown is the start of the bar.",
   "Trades bought inside the signal minute (off a 5- or 10-second chart) show \"same bar\" for chase: the 1-minute candle closed after the fill, so they are left out of the chase and volume findings.",

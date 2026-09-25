@@ -10,6 +10,7 @@
 ## What the data says so far
 
 - 9 trades: 4 winners, +$29.15, average -0.01 R.
+- Signal-bar features: 7 of 9 closed above the high of the 10 candles before (2 exactly at it) but only 2 of 9 at a new high of the day: a local breakout below the day’s high (4 of 9 were above the prior-day high).
 - 5 of the 9 were bought inside the breakout minute off a 5- or 10-second chart, so chase is not measured on them. Of the 4 that can be measured, the 3 filled no more than 10% of the range past the close averaged +0.34 R (2 winners); the one further past it (2026-06-26, +0.50 R) won.
 - Both full-stop losses (2026-04-15 15:50 and 2026-04-29 13:20, about -1.1 R each) were 5-second-chart entries inside the breakout minute, away from the open.
 - Only 1 of the 9 was taken 09:30-10:00 (2026-06-26, +0.50 R).
@@ -31,6 +32,22 @@
 | 2026-06-01 | MES | LONG | -1.90 | 0.00 | 6.1 | 0 | 15.4 | 11.7 | A | EL |
 | 2026-06-12 | MES | LONG | 16.85 | 0.25 | -3.2 | 58 | 3.5 | 4.9 | — | EL |
 | 2026-06-26 | MES | LONG | 38.10 | 0.50 | 11.9 | 68 | 1.4 | 3.7 | A | EL |
+
+#### Signal-bar features (known when the signal candle closed)
+
+| Date | Time | Dir | Min after 9:30 | Range ÷ ATR | Vol × prior 10 | Tight base (bars) | Past 10-bar high/low (ATR) | Past today's high/low (ATR) | Past premarket high/low (ATR) | Past prior-day high/low (ATR) | Prior day |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-04-08 | 15:08 | LONG | 339 | 1.17 | 1.1 | 1 | +0.00 | -11.04 | -14.31 | +44.10 | up |
+| 2026-04-10 | 12:13 | LONG | 164 | 1.25 | 1.6 | 2 | +0.58 | -7.86 | -9.78 | -5.18 | up |
+| 2026-04-15 | 15:50 | LONG | 381 | 2.89 | 2.9 | 0 | +0.46 | -0.93 | +20.02 | +24.64 | up |
+| 2026-04-29 | 13:20 | LONG | 231 | 3.24 | 8.5 | 3 | +0.00 | -14.00 | -17.39 | -18.57 | down |
+| 2026-05-01 | 11:37 | LONG | 128 | 3.44 | 4.0 | 3 | +1.72 | -5.16 | +9.21 | +18.91 | up |
+| 2026-05-21 | 13:10 | LONG | 221 | 7.23 | 12.5 | 7 | +5.19 | -0.79 | -12.53 | -7.23 | up |
+| 2026-06-01 | 11:30 | LONG | 121 | 6.12 | 15.4 | 2 | +3.12 | +0.88 | -12.25 | -6.50 | up |
+| 2026-06-12 | 12:13 | LONG | 164 | 3.27 | 3.5 | 1 | +1.71 | -4.18 | -2.72 | +1.64 | up |
+| 2026-06-26 | 09:56 | LONG | 27 | 1.74 | 1.4 | 3 | +1.09 | +1.09 | -1.94 | -10.71 | down |
+
+Closed past today's high/low so far: 2 of 9 · past the premarket high/low: 2 of 9 · past the prior-day high/low: 4 of 9 · past the 10-bar high/low: 7 of 9
 
 ### Futures trades, one by one
 
@@ -680,4 +697,7 @@
 - **Best next 15m** = the best move, in points from his entry price, in the 15 one-minute bars after the exit (negative when price never got back to his entry). Stocks with only 5-minute bars use the three 5-minute bars after the exit bar, so theirs is approximate.
 - While held means: from 10-second bars when they exist (trades from 2026-06-26 on), to the nearest 10 seconds (the 10-second bars the fill and the exit fall in are counted whole). Otherwise the bar the fill came in and the bar the exit came in are both left out, because each also holds prices from outside the trade (the exit price itself still counts). A trade that did not stay through one full bar shows —.
 - **Vol × / Body ×** = the signal bar's volume and body against the average / median of the 10 bars before it.
+- **Signal-bar features** (futures only, in the table below the summary) describe the signal candle itself - how stretched it is, how tight the base under it was, how it sits against recent highs and lows - using only bars that had already closed by the time the signal candle closed, so nothing after the fact leaks in.
+- **ATR** = the average 1-minute true range (high minus low, widened for a gap from the prior close) of the 14 bars before the signal candle - 5-minute bars, for a trade whose signal candle is a 5-minute candle.
+- **Past today's high/low** compares the signal close with the regular-session (9:30 on) bars before it; **premarket** = the 4:00-9:29 bars; **prior day** = the previous regular session - blank when a contract roll sits between that day and this one.
 - Futures prices are unadjusted CME front-month bars (MES is read from ES bars and MNQ from NQ bars; the micro and full-size prints can differ by a tick or two on a fast bar). 10-second bars are the NinjaTrader capture, moved back 10 seconds because it stamps each bar at its close. Stock bars are Yahoo 1- or 5-minute bars kept with the scores.
