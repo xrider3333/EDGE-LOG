@@ -12,7 +12,7 @@ done.
 | ---: | --- | --- | --- |
 | 1 | Void the fake NOISE rows a test re-run wrote into the live signal record | **WAITING ON OWNER** | reply "apply the ledger repair" |
 | 2 | Stop a hand-run signal step from writing beside the live signal thread | **OPEN** | nothing |
-| 3 | Keep the QQQ lease fresh when status publishes are throttled | **OPEN** | nothing; fix before the cloud VM runs beside the PC |
+| 3 | Keep the QQQ lease fresh when status publishes are throttled | **BUILT, NOT SHIPPED** (2026-09-25, worktree `bookfix`) | nothing; ship when convenient |
 | 4 | A second signal engine ran on the cloud box for 12 hours: one duplicate NOISE entry row to judge | **OPEN** | nothing, unless the row is to be voided (then "apply the ledger repair", as item 1) |
 | 5 | NOISE bought in the book but never at Webull: re-send a blocked buy, never sell what Webull does not hold, retry a same-instant duplicate | **DONE** (2026-09-21, after-close check passed) | nothing |
 | 6 | ML filter for the Webull book, NOISE first (then ORB, then ENGU-Q) | **NOISE FAILED STEP 1** (run #408, 2026-09-21) | test ORB #314 next, or close the item |
@@ -179,9 +179,31 @@ real order once the Webull broker mirror is armed.
 
 ## 3. Keep the QQQ lease fresh when status publishes are throttled
 
-**Status: OPEN.** Needs nothing from the owner; fix it before the cloud VM ever runs beside the
-PC. Added 2026-09-14 from the owner's chat of the same name, which was closed before any work
+**Status: BUILT, NOT SHIPPED (2026-09-25, worktree `bookfix`).** Needs nothing from the owner.
+Added 2026-09-14 from the owner's chat of the same name, which was closed before any work
 started (no worktree, branch, edit or commit).
+
+**What was built (design (a), "advertised cadence" -- picked over "(b) lease-only renewal" as
+the CONSERVATIVE choice: (b)'s extra merge write would need to fire roughly every 45s around the
+clock, ~13x more writes than today's 600s off-hours cadence, undoing most of the write-quota
+savings this throttle exists for; (a) costs zero extra writes).** A publishing host now stamps
+its lease with `renew_every_sec` -- the same interval `_should_publish` just used for that
+publish (`api/qqq_exec.py`'s `_publish_interval_for`, wired through `publish_async`/
+`publish_now` -> `_Publisher.write_one` -> `_do_set`). A claimer (`_lease_claimable`, and so
+`_check_lease`/`_claim_lease`, plus `_check_lease_for_broker`'s own foreign-claim check) judges
+staleness against `max(LEASE_STALE_SEC, 1.5 x that advertised cadence)` instead of the fixed 90s
+alone (see `_lease_stale_bound`), so a healthy off-hours holder is no longer mistaken for dead. A
+lease doc from before this shipped, or from a caller that never advertised a cadence, falls back
+to the old fixed 90s bound exactly as before -- never less safe. `_LeaseHolder.write_mode` /
+`within_hold` / `send_gate` and the suspended-loop re-claim were reviewed and left unchanged (see
+the LEASE_STALE_MARGIN comment in `api/qqq_exec.py` for why each is unaffected).
+`tools/qqq_failover_sim.py` scenario G exercises the fixed behaviour directly; new tests in
+`tests/test_qqq_exec_lease.py` and `tests/test_qqq_exec_publish_throttle.py` cover the bound and
+the advertised value end to end. `deploy/cloud/README.md`'s "Two machines, one shadow book"
+section and its handover-timing estimate (step 8) are updated to match.
+Not yet shipped to `main` (built in a worktree per this session's instructions) and not observed
+against the live two-host setup or the Linux CI job's 35-failure baseline -- both still open
+before this can read fully DONE.
 
 **What happened, in plain words.** Only one machine may run the Webull paper trading book at a
 time. The machine running it proves it is alive by refreshing a timestamp (the "lease") each time

@@ -39,6 +39,13 @@ print "gap closed" since the LEASE PROTOCOL in api/qqq_exec.py, same day):
      CLOSED 2026-09-14: ENTRY/EXIT rows carry a trade id (api/trade_id.py) and the adapter
      closes a lot only with the EXIT carrying the same id; an id-less EXIT closes nothing. The
      check fails again if the stale EXIT closes the lot OR the trade's own EXIT no longer does.
+  G  a healthy holder publishing on the throttled OFF-mode off-hours cadence (FIX 1, 600s) reads
+     STALE against the fixed 90s LEASE_STALE_SEC alone, so a second host can claim the lease out
+     from under it (WEBULL_PAPER_TODO.md item 3). CLOSED 2026-09-25: a holder now advertises its
+     own cadence on the lease (`renew_every_sec`) and a claimer judges staleness against
+     max(90s, 1.5x that cadence) -- see api/qqq_exec.py's _lease_stale_bound and the
+     LEASE_STALE_MARGIN comment above it. A genuinely dead holder (quiet well past even its own
+     advertised cadence) must still free up in bounded time, not be trusted forever.
 """
 import csv
 import datetime as dt
@@ -465,9 +472,33 @@ def scenario_f():
     return "F stale EXIT closes today's lot", (stale_closed or not own_closed)
 
 
+def scenario_g():
+    _header("G. A healthy holder throttled to the off-hours cadence looks stale")
+    DOC.clear()
+    # what a real off-mode, off-hours publish leaves behind since FIX 1 (2026-09-14): the
+    # lease stamp ages up to publish_interval_offhours_sec (600s default) between renewals --
+    # live evidence that day was 89.8s at 16:48:31 ET, already past the fixed 90s alone.
+    DOC["lease"] = {"host_id": "owners-pc-G", "leased_at": time.time() - 150,
+                    "renew_every_sec": qe.PUBLISH_INTERVAL_OFFHOURS_SEC}
+    qe._lease_host_id = lambda: "oracle-vm-G"
+    healthy_ok, healthy_reason = qe._check_lease(FDB, "uid1", log=lambda *_: None)
+    healthy_broker_ok, _ = qe._check_lease_for_broker(FDB, "uid1", log=lambda *_: None)
+    print(f"PC quiet 150s of a {qe.PUBLISH_INTERVAL_OFFHOURS_SEC:g}s off-hours cadence -> "
+          f"VM may claim? {healthy_ok} ({healthy_reason}); broker gate ok={healthy_broker_ok}")
+    # a genuinely dead holder (same advertised cadence, long past even that generous bound)
+    # must still free up in bounded time, never be trusted forever.
+    dead_age = 1.5 * qe.PUBLISH_INTERVAL_OFFHOURS_SEC + 100
+    DOC["lease"]["leased_at"] = time.time() - dead_age
+    dead_ok, dead_reason = qe._check_lease(FDB, "uid1", log=lambda *_: None)
+    print(f"PC quiet {dead_age:.0f}s -> VM may claim? {dead_ok} ({dead_reason})")
+    gap = healthy_ok or healthy_broker_ok or not dead_ok
+    return "G throttled holder looks stale off-hours", gap
+
+
 def main():
     _setup()
-    results = [s() for s in (scenario_a, scenario_b, scenario_c, scenario_d, scenario_e, scenario_f)]
+    results = [s() for s in (scenario_a, scenario_b, scenario_c, scenario_d, scenario_e, scenario_f,
+                             scenario_g)]
     _header("SUMMARY")
     for name, gap in results:
         print(f"  {'GAP PRESENT' if gap else 'gap closed '}  {name}")

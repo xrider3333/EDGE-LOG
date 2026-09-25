@@ -79,11 +79,16 @@ personally do.
    open (the section below says why): end the `python -m api.qqq_exec --serve` process
    in Task Manager. The PC's runner relaunches it at its next restart (and at 06:05),
    but a relaunched copy is refused for as long as the VM holds the lease.
-8. **Confirm the phone tab shows CLOUD** — about two minutes after step 7 the VM takes
-   the lease. Open the EDGELOG web app's QQQ SHADOW / Webull paper tab and check the
-   status card's "running on" reads **CLOUD**, not THIS PC. If it still says THIS PC,
-   `check.sh`'s log tail will show why (`edgelog-qqq-exec.service` not started, or the
-   PC's copy still running).
+8. **Confirm the phone tab shows CLOUD** — the VM takes the lease once the PC's last
+   stamp looks stale (see [Two machines, one shadow book](#two-machines-one-shadow-book)
+   below): about two minutes if the PC was still mid-session or had the Webull order
+   mirror armed, up to about 15 minutes if it had gone quiet after the close with the
+   mirror OFF (2026-09-25: a healthy PC now advertises how slowly it publishes off-hours,
+   so the VM waits out that whole cycle instead of taking over early). Open the EDGELOG
+   web app's QQQ SHADOW / Webull paper tab and check the status card's "running on" reads
+   **CLOUD**, not THIS PC. If it still says THIS PC well past that window, `check.sh`'s
+   log tail will show why (`edgelog-qqq-exec.service` not started, or the PC's copy still
+   running).
 9. **Decide on PAPER mode** (flip it on with a one-line config change) — see
    [Webull ORDER adapter](#webull-order-adapter-paper-orders-now-live-staged-for-later)
    below for the exact steps and the LIVE 2FA caveat. Do this whenever you're ready;
@@ -101,9 +106,15 @@ is running the shadow book, re-stamped every few seconds. As of 2026-09-14
   lock frees itself the moment its holder exits, crash included.
 - **One machine at a time.** A machine claims the lease with a Firestore *transaction*
   (the read and the write happen as one step, so two machines cannot both win), and only
-  when the lease is free, already its own, or older than 90 seconds. A refused copy never
-  ticks; it leaves `qqq_exec/SERVING.lock.standby` behind so the runner on that machine
-  does not start its own copy either, and on the VM systemd retries every ~15 seconds.
+  when the lease is free, already its own, or looks stale. "Stale" is whichever is LARGER
+  of 90 seconds or 1.5x however often the current holder said it renews (2026-09-25): the
+  Webull order mirror being OFF backs off how often the running machine publishes, to
+  60 seconds in-session and 600 seconds (10 minutes) off-hours, to save the daily
+  Firestore write quota, and every publish is also the lease renewal — so a healthy
+  machine quietly publishing off-hours would otherwise look dead against a flat 90-second
+  rule most of the time. A refused copy never ticks; it leaves
+  `qqq_exec/SERVING.lock.standby` behind so the runner on that machine does not start its
+  own copy either, and on the VM systemd retries every ~15 seconds.
 - **Standing down.** The running machine re-confirms the lease at least every 30 seconds,
   and right away after it wakes from sleep. If another machine has taken it (say the PC
   lost its internet for more than 90 seconds and the VM took over), it stops ticking,

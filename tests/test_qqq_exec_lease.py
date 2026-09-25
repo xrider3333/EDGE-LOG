@@ -495,7 +495,7 @@ def test_a_check_that_errors_past_the_hold_bound_publishes_without_the_lease(mon
 def test_a_publish_never_queues_behind_one_still_running(monkeypatch):
     calls, release = [], threading.Event()
 
-    def slow_do_set(db, uid, doc):
+    def slow_do_set(db, uid, doc, renew_every_sec=None):
         calls.append(doc)
         release.wait(5)
 
@@ -784,3 +784,131 @@ def test_tick_blocks_sends_until_a_stamp_of_this_hosts_own_has_landed(tmp_path, 
     qe._LEASE.note_committed(time.time())              # our stamp lands
     _, state, doc = qe.tick(cfg=cfg, state=state, now=outside_hours, db=db, uid="uid1", log=NOOP)
     assert state["_broker_lease_ok"] is True
+
+
+# ══ LEASE PROTOCOL step 3.1 (2026-09-25) -- ADVERTISED CADENCE ═══════════════════════
+# WEBULL_PAPER_TODO.md item 3, "keep the QQQ lease fresh when status publishes are
+# throttled". FIX 1 (2026-09-14) backs the OFF-mode publish interval off to
+# publish_interval_offhours_sec (600s default) to save the daily write quota -- but every
+# publish is also this host's lease renewal, so a healthy off-hours holder's stamp is
+# routinely older than the fixed LEASE_STALE_SEC (90s) alone (live 2026-09-14: 89.8s at
+# 16:48:31 ET). These tests pin the fix: a holder now advertises how often it renews
+# (lease["renew_every_sec"]), and a claimer judges staleness against whichever is larger
+# of the fixed floor or 1.5x that cadence -- see api/qqq_exec.py's _lease_stale_bound and
+# the LEASE_STALE_MARGIN comment above it.
+
+def test_lease_stale_bound_widens_for_a_slow_advertised_cadence():
+    lease = {"host_id": "owners-pc", "leased_at": time.time(), "renew_every_sec": 600.0}
+    assert qe._lease_stale_bound(lease) == 900.0                    # 1.5 x 600
+
+
+def test_lease_stale_bound_never_drops_below_the_fixed_floor():
+    """A fast (armed, 20s) cadence must not shrink the bound below LEASE_STALE_SEC --
+    1.5 x 20 = 30, well under the 90s floor."""
+    lease = {"host_id": "owners-pc", "leased_at": time.time(), "renew_every_sec": 20.0}
+    assert qe._lease_stale_bound(lease) == qe.LEASE_STALE_SEC
+
+
+def test_lease_stale_bound_falls_back_to_the_fixed_floor_without_a_usable_cadence():
+    assert qe._lease_stale_bound({"host_id": "owners-pc"}) == qe.LEASE_STALE_SEC
+    assert qe._lease_stale_bound(
+        {"host_id": "owners-pc", "renew_every_sec": "not-a-number"}) == qe.LEASE_STALE_SEC
+    assert qe._lease_stale_bound({"host_id": "owners-pc", "renew_every_sec": 0}) == qe.LEASE_STALE_SEC
+    assert qe._lease_stale_bound({"host_id": "owners-pc", "renew_every_sec": -5}) == qe.LEASE_STALE_SEC
+    assert qe._lease_stale_bound({}) == qe.LEASE_STALE_SEC
+
+
+def test_a_healthy_offhours_throttled_holder_is_never_claimable_within_its_cadence(monkeypatch):
+    """THE LIVE CASE (2026-09-14, 16:48:31 ET): stamp age 89.8s, already past the fixed 90s
+    alone, with the PC perfectly healthy and just quiet on purpose. 150s here is comfortably
+    past the OLD fixed bound but nowhere near the 600s off-hours cadence x1.5 = 900s bound."""
+    monkeypatch.setattr(qe, "_lease_host_id", lambda: "cloud-vm")
+    doc = {"lease": {"host_id": "owners-pc", "leased_at": time.time() - 150,
+                     "renew_every_sec": qe.PUBLISH_INTERVAL_OFFHOURS_SEC}}
+    ok, reason = qe._check_lease(_FakeDb(doc), "uid1", log=NOOP)
+    assert ok is False, "150s old must still read fresh at a 600s advertised cadence"
+    assert "fresh" in reason
+    ok, reason = qe._check_lease_for_broker(_FakeDb(doc), "uid1", log=NOOP)
+    assert ok is False, ("_check_lease_for_broker's foreign-claim branch must agree, or a VM "
+                         "about to arm real sends could double-arm against a healthy PC")
+
+
+def test_a_genuinely_dead_offhours_holder_still_frees_up_in_bounded_time(monkeypatch):
+    """The advertised cadence must not trust a holder FOREVER -- well past even its own
+    generous bound, it is still claimable."""
+    monkeypatch.setattr(qe, "_lease_host_id", lambda: "cloud-vm")
+    dead_age = 1.5 * qe.PUBLISH_INTERVAL_OFFHOURS_SEC + 100
+    doc = {"lease": {"host_id": "owners-pc", "leased_at": time.time() - dead_age,
+                     "renew_every_sec": qe.PUBLISH_INTERVAL_OFFHOURS_SEC}}
+    ok, reason = qe._check_lease(_FakeDb(doc), "uid1", log=NOOP)
+    assert ok is True
+    assert "stale" in reason
+
+
+def test_an_armed_holders_fast_cadence_gets_no_extra_grace():
+    """Once armed, publish_interval_armed_sec (20s) applies -- 1.5x that is 30s, under the
+    90s floor, so the bound stays exactly LEASE_STALE_SEC: an armed host gets no MORE grace
+    than it always had."""
+    doc = {"lease": {"host_id": "owners-pc",
+                     "leased_at": time.time() - (qe.LEASE_STALE_SEC - 5),
+                     "renew_every_sec": qe.PUBLISH_INTERVAL_ARMED_SEC}}
+    ok, _ = qe._lease_claimable(doc, "cloud-vm", time.time())
+    assert ok is False, "still within the fixed floor -- unaffected by the cadence fix"
+
+
+def test_a_lease_doc_from_before_this_fix_behaves_exactly_as_before():
+    """No renew_every_sec key at all (an older host, or a doc from before this shipped):
+    falls back to the fixed LEASE_STALE_SEC alone, never less safe than pre-fix."""
+    fresh = _lease_doc("owners-pc", age_sec=qe.LEASE_STALE_SEC - 5)
+    stale = _lease_doc("owners-pc", age_sec=qe.LEASE_STALE_SEC + 30)
+    assert qe._lease_claimable(fresh, "cloud-vm", time.time())[0] is False
+    assert qe._lease_claimable(stale, "cloud-vm", time.time())[0] is True
+
+
+def test_do_set_advertises_the_cadence_it_is_given(monkeypatch):
+    monkeypatch.setattr(qe, "_lease_host_id", lambda: "owners-pc")
+    qe._LEASE.begin("uid1", time.time())
+    store = _Store({"mode": "SHADOW"})
+    qe._Publisher._do_set(store, "uid1", {"mode": "SHADOW"},
+                          renew_every_sec=qe.PUBLISH_INTERVAL_OFFHOURS_SEC)
+    assert store.doc["lease"]["renew_every_sec"] == qe.PUBLISH_INTERVAL_OFFHOURS_SEC
+
+
+def test_do_set_omits_the_cadence_when_the_caller_does_not_know_it(monkeypatch):
+    """Every direct _do_set caller elsewhere in this file (all written before this fix) must
+    keep publishing the exact pre-fix lease shape -- no renew_every_sec key at all."""
+    monkeypatch.setattr(qe, "_lease_host_id", lambda: "owners-pc")
+    qe._LEASE.begin("uid1", time.time())
+    store = _Store({"mode": "SHADOW"})
+    qe._Publisher._do_set(store, "uid1", {"mode": "SHADOW"})
+    assert "renew_every_sec" not in store.doc["lease"]
+
+
+def test_do_set_ignores_a_bogus_cadence_and_omits_the_field(monkeypatch):
+    monkeypatch.setattr(qe, "_lease_host_id", lambda: "owners-pc")
+    qe._LEASE.begin("uid1", time.time())
+    store = _Store({"mode": "SHADOW"})
+    qe._Publisher._do_set(store, "uid1", {"mode": "SHADOW"}, renew_every_sec="garbage")
+    assert "renew_every_sec" not in store.doc["lease"]
+
+
+def test_publish_now_advertises_the_same_interval_should_publish_used(monkeypatch):
+    """End to end: publish_now -> _should_publish's own interval selection -> the doc that
+    actually lands, with no extra Firestore read needed to know what to advertise."""
+    monkeypatch.setattr(qe, "_lease_host_id", lambda: "owners-pc")
+    monkeypatch.setattr(qe, "_in_market_window", lambda *a, **k: False)   # off-session
+    qe._LEASE.begin("uid1", time.time())
+    store = _Store({"mode": "SHADOW"})
+    doc = {"mode": "SHADOW", "broker": {"effective_mode": "OFF"}}
+    qe.publish_now(store, "uid1", doc, {}, force=True, log=NOOP)
+    assert store.doc["lease"]["renew_every_sec"] == qe.PUBLISH_INTERVAL_OFFHOURS_SEC
+    assert _holder(store) == "owners-pc"
+
+
+def test_publish_now_advertises_the_armed_cadence_once_armed(monkeypatch):
+    monkeypatch.setattr(qe, "_lease_host_id", lambda: "owners-pc")
+    qe._LEASE.begin("uid1", time.time())
+    store = _Store({"mode": "SHADOW"})
+    doc = {"mode": "SHADOW", "broker": {"effective_mode": "PAPER"}}
+    qe.publish_now(store, "uid1", doc, {}, force=True, log=NOOP)
+    assert store.doc["lease"]["renew_every_sec"] == qe.PUBLISH_INTERVAL_ARMED_SEC

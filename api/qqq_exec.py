@@ -3215,7 +3215,14 @@ def _consume_engine_signals(state, cfg, now, log=print):
                        # see _route_engine_events). _resolve_entry_size (api/qqq_exec.py)
                        # is the one place this is turned into a number, at the point of
                        # use, exactly like ref_price is parsed above.
-                       "size": r.get("size")})
+                       "size": r.get("size"),
+                       # KEEL OVERLAY (2026-09-25 fix): raw signals.csv value, unparsed --
+                       # this was missing here, so an engine ENTRY's own keel_size never
+                       # reached _route_engine_events (which already forwards it to
+                       # _open_lot) or the trade row (TRADE_COLS' "keel_size" -- the web
+                       # drawer's "#382 x KEEL" display). DISPLAY ONLY: never fed into an
+                       # order quantity -- see _resolve_keel_size vs _resolve_entry_size.
+                       "keel_size": r.get("keel_size")})
         except Exception as e:
             log(f"[qqq-exec] engine event row malformed, skipped: {type(e).__name__}: {e}")
     return out
@@ -4117,16 +4124,37 @@ def _track_tick_gap(state, nowdt, now_wall=None, log=print):
 
     Rolling per-ET-day max in state['tick_gap_max_s_today']; logs a `tick_gap` event each
     time a gap exceeds TICK_GAP_WARN_SEC (no cooldown -- each is a distinct real stall).
-    Returns the gap in seconds, or None on the first tick of a fresh state. Never raises."""
+    Returns the gap in seconds, or None on the first tick of a fresh state. Never raises.
+
+    OVERNIGHT / CROSS-SESSION GAP (2026-09-25 fix). This is only ever called `if active`
+    (see tick()'s caller), so "the previous active tick" is normally a few seconds ago --
+    except for the FIRST active tick of a session, whose previous active tick was the
+    prior session's close. The adapter is inactive outside market hours, so that gap is
+    routinely ~62,000s (overnight) or a full weekend, and is not a stall: it fired the
+    WARN log, a `tick_gap` event, and tick_gap_max_s_today every single morning before
+    this fix, polluting the day's health figures with a number that says nothing about
+    today. Detected by ET CALENDAR DATE (nowdt), not by the gap's size -- a size threshold
+    cannot tell a real multi-hour stall from an overnight one. When the previous active
+    tick's ET date differs from this tick's, this call is treated exactly like the first
+    tick of a brand new state: return None, no warn, no event, just store the new
+    baseline (the day-rollover block below already zeroes tick_gap_max_s_today). A real
+    intraday stall -- previous active tick on the SAME ET day -- still warns exactly as
+    before."""
     try:
         wall = now_wall if now_wall is not None else time.time()
         day = nowdt.strftime("%Y-%m-%d")
-        if state.get("_tick_gap_day") != day:
+        prev_day = state.get("_tick_gap_day")
+        new_day = prev_day != day
+        if new_day:
             state["_tick_gap_day"] = day
             state["tick_gap_max_s_today"] = 0.0
         last = state.get("_last_tick_wall")
         state["_last_tick_wall"] = wall
         if last is None:
+            return None
+        if prev_day is not None and new_day:
+            # first active tick of a new ET session -- see OVERNIGHT / CROSS-SESSION GAP
+            # above; tick_gap_max_s_today was already reset to 0.0 just above.
             return None
         gap = round(wall - last, 2)
         if gap > float(state.get("tick_gap_max_s_today", 0.0) or 0.0):
@@ -5480,7 +5508,13 @@ class _Publisher:
         if prev is not None and not prev.done():
             _record_publish_result(state, False, err="previous publish still running", log=log)
             return
-        fut = self._ex.submit(self._do_set, db, uid, doc)
+        # ADVERTISED CADENCE (2026-09-25, LEASE PROTOCOL step 3.1): the interval THIS
+        # publish was throttled to (see publish_async/publish_now, which stash it here
+        # right after calling _should_publish) rides along so _do_set can tell a claimer
+        # how often this host promises to renew -- see _lease_stale_bound. None (a caller
+        # that never set it, e.g. a test driving write_one directly) reproduces the
+        # pre-fix lease shape exactly: _do_set omits the field entirely.
+        fut = self._ex.submit(self._do_set, db, uid, doc, state.get("_lease_renew_every_sec"))
         self._inflight = fut
         try:
             fut.result(timeout=PUBLISH_TIMEOUT_SEC)
@@ -5492,7 +5526,7 @@ class _Publisher:
             _record_publish_result(state, False, err=f"{type(e).__name__}: {e}", log=log)
 
     @staticmethod
-    def _do_set(db, uid, doc):
+    def _do_set(db, uid, doc, renew_every_sec=None):
         ref = db.collection("users").document(uid).collection("meta").document("qqq_exec")
         # LEASE PROTOCOL step 3 (2026-09-14): a lease-managed process's publish IS its lease
         # renewal, so it decides HERE, at the moment the write actually goes out (a doc can
@@ -5507,7 +5541,23 @@ class _Publisher:
                                 f"({_LEASE.lost_reason})")
         stamp = time.time()
         doc = dict(doc)
-        doc["lease"] = {"host_id": _lease_host_id(), "leased_at": stamp}
+        lease = {"host_id": _lease_host_id(), "leased_at": stamp}
+        # ADVERTISED CADENCE (2026-09-25, LEASE PROTOCOL step 3.1, see LEASE_STALE_MARGIN):
+        # tell a claimer how often we actually promise to renew, so _lease_stale_bound can
+        # give a healthy, off-hours-throttled holder more than the fixed LEASE_STALE_SEC
+        # grace. `renew_every_sec` is None whenever the caller does not know it (write_one
+        # reads state["_lease_renew_every_sec"], which is only set by publish_async/
+        # publish_now -- see those); omitting the key entirely (never a guessed number)
+        # makes _lease_stale_bound fall back to LEASE_STALE_SEC alone, identical to the
+        # pre-fix shape, so every direct _do_set caller (this module's own tests included)
+        # is unaffected.
+        try:
+            cadence = float(renew_every_sec)
+        except (TypeError, ValueError):
+            cadence = None
+        if cadence is not None and math.isfinite(cadence) and cadence > 0:
+            lease["renew_every_sec"] = round(cadence, 1)
+        doc["lease"] = lease
         if mode == "cas":
             try:
                 ok, reason = _cas_publish(db, ref, doc)
@@ -5607,6 +5657,30 @@ def _publish_fingerprint(doc):
     }
 
 
+def _publish_interval_for(doc, cfg=None):
+    """The BASELINE publish interval _should_publish is using for `doc`/`cfg` right now
+    -- armed/session/off-hours selection only, pulled out on its own (2026-09-25, LEASE
+    PROTOCOL step 3.1) so a host can ADVERTISE this same number as
+    lease["renew_every_sec"] (see _lease_stale_bound) from publish_async/publish_now,
+    without _should_publish's own return signature changing under its many existing
+    callers and tests (all unpack a fixed 3-tuple).
+
+    Deliberately excludes _should_publish's LIVE POSITIONS CEILING tightening (the
+    publish_interval_position_open_sec floor while a position is open in-session): that
+    ceiling only ever SHORTENS one publish's own interval, so a claimer told the longer
+    baseline number is always given an EQUAL-OR-SAFER (never looser) bound -- an actual
+    publish that arrives sooner than promised is never a problem, only one that arrives
+    later would be. Advertising the shorter, more volatile ceiling instead would make
+    two adjacent off-hours ticks claim different cadences for no safety benefit."""
+    broker_mode = (doc.get("broker") or {}).get("effective_mode")
+    armed = broker_mode in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE)
+    if armed:
+        return _cfg_num(cfg, "publish_interval_armed_sec", PUBLISH_INTERVAL_ARMED_SEC)
+    in_session = _in_market_window(_now_et())
+    return (_cfg_num(cfg, "publish_interval_session_sec", PUBLISH_INTERVAL_SESSION_SEC) if in_session
+            else _cfg_num(cfg, "publish_interval_offhours_sec", PUBLISH_INTERVAL_OFFHOURS_SEC))
+
+
 def _should_publish(state, doc, force=False, cfg=None):
     """(should, hash, now). `should` is True if the doc's FINGERPRINT (see
     _publish_fingerprint -- deliberately not the whole doc) differs from the
@@ -5641,14 +5715,8 @@ def _should_publish(state, doc, force=False, cfg=None):
     narrow window (flat, or off-hours, keep whichever interval already applied)."""
     h = str(hash(json.dumps(_publish_fingerprint(doc), sort_keys=True, default=str)))
     now = time.time()
-    broker_mode = (doc.get("broker") or {}).get("effective_mode")
-    armed = broker_mode in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE)
     in_session = _in_market_window(_now_et())
-    if armed:
-        interval = _cfg_num(cfg, "publish_interval_armed_sec", PUBLISH_INTERVAL_ARMED_SEC)
-    else:
-        interval = _cfg_num(cfg, "publish_interval_session_sec", PUBLISH_INTERVAL_SESSION_SEC) if in_session \
-            else _cfg_num(cfg, "publish_interval_offhours_sec", PUBLISH_INTERVAL_OFFHOURS_SEC)
+    interval = _publish_interval_for(doc, cfg=cfg)
     if in_session and doc.get("positions"):
         position_open_interval = _cfg_num(cfg, "publish_interval_position_open_sec",
                                           PUBLISH_INTERVAL_POSITION_OPEN_SEC)
@@ -5670,6 +5738,12 @@ def publish_async(db, uid, doc, state, force=False, log=print, cfg=None):
             return
         state["last_doc_hash"] = h
         state["last_publish"] = now
+        # ADVERTISED CADENCE (2026-09-25, LEASE PROTOCOL step 3.1): the SAME baseline
+        # interval _should_publish just used, stashed on `state` so write_one/_do_set can
+        # attach it to the lease field as lease["renew_every_sec"] -- see _lease_stale_bound
+        # and _publish_interval_for's own docstring for why this rides on `state` rather
+        # than changing _should_publish's return arity.
+        state["_lease_renew_every_sec"] = _publish_interval_for(doc, cfg=cfg)
         _publisher.start(log=log)
         _publisher.submit(db, uid, doc, state, log=log)
         _track_fs_write(state)
@@ -5689,6 +5763,7 @@ def publish_now(db, uid, doc, state, force=True, log=print, cfg=None):
         return
     state["last_doc_hash"] = h
     state["last_publish"] = now
+    state["_lease_renew_every_sec"] = _publish_interval_for(doc, cfg=cfg)   # see publish_async
     _publisher.write_one(db, uid, doc, state, log=log)
     _track_fs_write(state)
 
@@ -6220,6 +6295,62 @@ LEASE_SEND_MAX_AGE_SEC = 30.0
 LEASE_CLAIM_TIMEOUT_SEC = 15.0
 HOST_SLOT_WAIT_SEC = 5.0
 
+# LEASE PROTOCOL step 3.1 -- ADVERTISED CADENCE (2026-09-25, WEBULL_PAPER_TODO.md item 3,
+# "keep the QQQ lease fresh when status publishes are throttled"). THE GAP: FIX 1
+# (_should_publish, 2026-09-14) backs the publish interval off to
+# publish_interval_offhours_sec (default 600s) whenever the broker is OFF, to save the
+# daily Firestore write quota -- but every publish is also this host's lease renewal, so
+# a perfectly healthy off-hours holder's stamp is OLDER than the fixed LEASE_STALE_SEC
+# (90s) for most of each cycle (observed live 2026-09-14: stamp age 89.8s at 16:48:31 ET,
+# last publish 16:47:02). Judging staleness against LEASE_STALE_SEC alone -- as every
+# reader used to -- means a second host (the planned Oracle Cloud VM) can claim the lease
+# out from under a healthy PC while it is merely being quiet on purpose, and worse, a
+# relaunched copy on the ORIGINAL host (a runner restart, tools/premarket_ensure.py at
+# 06:05) can then claim it BACK overnight, defeating deploy/cloud/README.md's "a
+# relaunched copy is refused for as long as the VM holds the lease" promise.
+#
+# THE FIX (design (a) of the two the spec offered, "advertised cadence" -- picked over
+# "(b) lease-only renewal" because it costs ZERO extra Firestore writes: (b)'s small
+# merge write, sent whenever the throttled publish would otherwise leave the stamp older
+# than ~45s, would need to fire roughly every 45s around the clock -- ~13x MORE writes
+# than today's 600s off-hours cadence, undoing most of the very quota savings FIX 1 was
+# for. This is the CONSERVATIVE choice the spec asked for when a design decision is
+# left open). A publishing host advertises its own cadence on every lease write
+# (lease["renew_every_sec"], set in _Publisher._do_set from the SAME interval
+# _should_publish/_publish_interval_for just computed for THIS publish -- see
+# publish_async/publish_now). A claimer then judges staleness against whichever is
+# LARGER: the fixed LEASE_STALE_SEC (still the FLOOR -- an armed host renewing every 20s
+# must not suddenly get a multi-minute grace from a stale or bogus cadence value) or
+# LEASE_STALE_MARGIN (1.5x, one missed renewal's worth, the same sizing logic
+# LEASE_STALE_SEC itself already used against the fastest/armed cadence) times that
+# advertised cadence. See _lease_stale_bound.
+#
+# EVERY READER CHECKED, per the spec:
+#   - _lease_claimable (and so _check_lease, _claim_lease, _cas_publish, which all call
+#     it) and _check_lease_for_broker's OTHER-HOST branch: UPDATED to _lease_stale_bound
+#     -- both are exactly "is a foreign claim's stamp too old to trust", the question
+#     this fix answers.
+#   - _check_lease_for_broker's OWN-stale branch (own_age > LEASE_HOLD_SEC) is
+#     UNCHANGED: it only runs once armed (see that function's own comment; OFF never
+#     reaches it), and while armed _should_publish always uses the fast, constant
+#     publish_interval_armed_sec (20s, comfortably under LEASE_HOLD_SEC's 60s) --
+#     never the throttled session/off-hours interval this fix targets, so there is no
+#     gap there to close.
+#   - _LeaseHolder.write_mode / within_hold / send_gate are UNCHANGED: all three judge
+#     THIS process's own last commit, not a foreign advertised cadence. write_mode
+#     already falls to "cas" (never wrong, just an extra transaction) once our own gap
+#     exceeds LEASE_HOLD_SEC/LEASE_RECHECK_SEC -- which off-hours it always will, cheaply,
+#     at that slow cadence. within_hold's conservative "not provably still safe" default
+#     on a CAS error is the right answer regardless of cadence. send_gate's 30s bound
+#     only matters once armed, same as the own-stale branch above.
+#   - The suspended-loop re-claim (qqq_exec_thread, `gap > LEASE_STALE_SEC and
+#     _LEASE.held`) is UNCHANGED: `gap` there is wall-clock time since THIS process's
+#     OWN previous pass through its TICK_SEC (5s)-paced while-loop -- a signal that the
+#     process itself stalled (machine sleep, thread starvation), completely independent
+#     of the publish throttle this fix is about. A healthy loop updates it every ~5s
+#     regardless of whether that tick happened to publish.
+LEASE_STALE_MARGIN = 1.5
+
 
 def _pid_alive(pid):
     """Is this process id running? Conservative: if we cannot tell, say YES, because the
@@ -6505,11 +6636,39 @@ def _lease_of(doc):
     return lease if isinstance(lease, dict) else {}
 
 
+def _lease_stale_bound(lease):
+    """How old another host's lease stamp may get before it is claimable -- LEASE
+    PROTOCOL step 3.1, "advertised cadence" (2026-09-25, see LEASE_STALE_MARGIN's own
+    comment for the full why). `lease` is the "lease" sub-dict already read off the doc
+    (e.g. via _lease_of).
+
+    The holder's own last publish stamped lease["renew_every_sec"] with the interval it
+    is currently throttled to (see _Publisher._do_set / _publish_interval_for); this
+    returns whichever is LARGER of the fixed LEASE_STALE_SEC floor or LEASE_STALE_MARGIN
+    (1.5x) times that cadence, so a healthy host publishing slowly on purpose (off-hours,
+    broker OFF, to save the daily write quota) is never mistaken for dead.
+
+    Missing, unreadable or non-positive -- an older host that predates this field, a
+    stray/malformed value, or this process's own never-yet-published claim doc -- falls
+    back to LEASE_STALE_SEC alone: exactly the behaviour before this fix, never LESS
+    safe than it was."""
+    try:
+        cadence = float(lease.get("renew_every_sec"))
+    except (TypeError, ValueError, AttributeError):
+        return LEASE_STALE_SEC
+    if not math.isfinite(cadence) or cadence <= 0:
+        return LEASE_STALE_SEC
+    return max(LEASE_STALE_SEC, LEASE_STALE_MARGIN * cadence)
+
+
 def _lease_claimable(doc, my_host, now):
     """(ok, reason) -- _check_lease's rule on an already-read doc, shared with _claim_lease
     and _cas_publish so the plain read and the compare-and-set can never disagree: only a
     DIFFERENT host's positively fresh stamp refuses; free, ours, stale, or a timestamp that
-    is missing/unreadable (fail-open, see _check_lease) is claimable."""
+    is missing/unreadable (fail-open, see _check_lease) is claimable.
+
+    "Fresh" is judged against _lease_stale_bound, not a bare LEASE_STALE_SEC (2026-09-25,
+    LEASE PROTOCOL step 3.1) -- see that helper and LEASE_STALE_MARGIN's comment."""
     lease = _lease_of(doc)
     other_host = lease.get("host_id")
     leased_at = lease.get("leased_at")
@@ -6519,7 +6678,7 @@ def _lease_claimable(doc, my_host, now):
         age = now - float(leased_at)
     except (TypeError, ValueError):
         return True, "lease timestamp unreadable -- treating as free"
-    if age > LEASE_STALE_SEC:
+    if age > _lease_stale_bound(lease):
         return True, f"other host's lease is stale ({age:.0f}s old)"
     return False, f"host {other_host!r} holds a fresh lease ({age:.0f}s old)"
 
@@ -6548,7 +6707,16 @@ def _check_lease_for_broker(db, uid, log=print):
     OUR OWN lease counts only while it is fresh (2026-09-14, simulation scenario E): a stamp
     of ours older than LEASE_HOLD_SEC means our renewals stopped landing, and from
     LEASE_STALE_SEC another host may legitimately claim -- which is exactly when the old
-    rule let BOTH pass, the last writer reading "ours" and the other host reading "stale"."""
+    rule let BOTH pass, the last writer reading "ours" and the other host reading "stale".
+
+    OUR OWN branch's LEASE_HOLD_SEC bound is deliberately NOT widened by LEASE PROTOCOL
+    step 3.1's advertised cadence (2026-09-25): this function is only ever consulted once
+    the broker mirror is ARMED (see _mirror_to_broker), and while armed _should_publish
+    always uses the fast, constant publish_interval_armed_sec (20s, well under this 60s
+    bound) -- never the throttled session/off-hours interval step 3.1 targets. The OTHER
+    HOST branch below judges a foreign claim exactly like _lease_claimable does, so it
+    DOES need that widening: the other host may be a different, off-hours-throttled
+    machine (see _lease_stale_bound)."""
     if db is None or not uid:
         return False, "lease unverifiable: no Firestore/uid configured"
     try:
@@ -6582,7 +6750,7 @@ def _check_lease_for_broker(db, uid, log=print):
     except (TypeError, ValueError):
         return False, (f"lease unverifiable: host {other_host!r} claims the lease but its "
                        "timestamp is unreadable")
-    if age > LEASE_STALE_SEC:
+    if age > _lease_stale_bound(lease):
         return True, f"lease ok (other host {other_host!r}'s lease is stale, {age:.0f}s old)"
     return False, (f"host {other_host!r} holds a fresh lease ({age:.0f}s old) -- broker "
                    "sends blocked")

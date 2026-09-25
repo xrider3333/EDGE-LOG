@@ -439,6 +439,40 @@ def test_usage_log_fires_once_per_hour_and_resets_hour_bucket(monkeypatch):
     assert state["_fs_writes_today"] == 8   # day bucket NOT reset mid-day
 
 
+# ── _publish_interval_for: pulled out of _should_publish (2026-09-25, LEASE PROTOCOL
+# step 3.1) so a host can advertise this same number on its lease -- see
+# tests/test_qqq_exec_lease.py's ADVERTISED CADENCE section for the staleness-bound half
+# of that fix. These guard the refactor itself: the extracted helper must keep making
+# the exact same choice _should_publish always did.
+
+def test_publish_interval_for_matches_off_mode_session_and_offhours(monkeypatch):
+    monkeypatch.setattr(qe, "_in_market_window", lambda *a, **k: True)
+    assert qe._publish_interval_for(_base_doc()) == qe.PUBLISH_INTERVAL_SESSION_SEC
+    monkeypatch.setattr(qe, "_in_market_window", lambda *a, **k: False)
+    assert qe._publish_interval_for(_base_doc()) == qe.PUBLISH_INTERVAL_OFFHOURS_SEC
+
+
+def test_publish_interval_for_matches_armed_regardless_of_session():
+    assert qe._publish_interval_for(_armed_doc()) == qe.PUBLISH_INTERVAL_ARMED_SEC
+
+
+def test_publish_interval_for_respects_cfg_overrides(monkeypatch):
+    monkeypatch.setattr(qe, "_in_market_window", lambda *a, **k: False)
+    cfg = {"publish_interval_offhours_sec": 45}
+    assert qe._publish_interval_for(_base_doc(), cfg=cfg) == 45
+
+
+def test_publish_interval_for_excludes_the_live_positions_ceiling(monkeypatch):
+    """Deliberately: _should_publish additionally tightens to
+    publish_interval_position_open_sec while a position is open in-session, but
+    _publish_interval_for (what gets ADVERTISED on the lease) must stay at the wider
+    baseline -- see that helper's own docstring for why a claimer is always given an
+    equal-or-safer, never a tighter, promise."""
+    monkeypatch.setattr(qe, "_in_market_window", lambda *a, **k: True)
+    doc = _base_doc(positions={"ORB": {"side": "long", "shares": 5}})
+    assert qe._publish_interval_for(doc) == qe.PUBLISH_INTERVAL_SESSION_SEC
+
+
 def test_usage_day_bucket_resets_on_a_new_et_date(monkeypatch):
     state = {}
     monkeypatch.setattr(qe, "_now_et", lambda: _dt.datetime(2026, 9, 14, 23, 0, 0))
