@@ -62,6 +62,8 @@ job = dict(type="validate", status="queued", strategy=STRAT,
           "plus 7,970 at profit factor 1.12. The pre-queue guard shows that triage cell at 27 trades and "
           "profit factor 0.44 in the sealed stretch; this validate searches the full declared space and "
           "grades its own crown. Lockbox 9 months (2025-07-07 to 2026-04-06) so no journal trade sits in it."))
+if len(sys.argv) > 1:          # e.g. a re-run note
+    job["note"] = sys.argv[1] + " " + job["note"]
 job["createdAt"] = datetime.datetime.now(datetime.timezone.utc)
 ref = u.collection("backtests").document()
 _retry(lambda: ref.set(job))

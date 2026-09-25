@@ -31,6 +31,7 @@ import random
 import uuid
 import threading
 import collections
+import numbers
 try:
     import psutil as _psutil   # liveness (is the claiming runner alive?) + free-memory guard
 except Exception:              # pragma: no cover - degrade to the timestamp-only rules
@@ -208,12 +209,35 @@ def _is_protected_key(k) -> bool:
 _WEB_OWNED_RUN_FIELDS = ("starred", "note", "archived")
 
 
+def _fs_value_size(v) -> int:
+    """Firestore's documented storage size of one value: string = UTF-8 bytes + 1,
+    number / timestamp = 8, boolean / null = 1, array = sum of its elements, map = sum of
+    (key UTF-8 bytes + 1 + value). numpy scalars and arrays count like their Python twins."""
+    if v is None or isinstance(v, bool) or type(v).__name__ in ("bool_", "bool8"):
+        return 1
+    if isinstance(v, (numbers.Number, datetime.datetime, datetime.date)):
+        return 8
+    if isinstance(v, str):
+        return len(v.encode("utf-8", "replace")) + 1
+    if isinstance(v, dict):
+        return sum(len(str(k).encode("utf-8", "replace")) + 1 + _fs_value_size(x) for k, x in v.items())
+    if isinstance(v, (list, tuple)) or type(v).__name__ == "ndarray":
+        return sum(_fs_value_size(x) for x in v)
+    if isinstance(v, (bytes, bytearray)):
+        return len(v)
+    return len(str(v).encode("utf-8", "replace")) + 1
+
+
 def _doc_size(doc) -> int:
-    """Proxy for the Firestore-encoded size of `doc`. json.dumps length isn't byte-
-    identical to Firestore's wire encoding but tracks it closely enough that the
-    margin baked into DOC_SIZE_BUDGET/BATCH_BYTE_BUDGET covers the drift."""
+    """Firestore-encoded size of `doc`, by Firestore's own size rules, plus a fixed
+    allowance for the document name and the 32-byte per-document overhead.
+    Until 2026-09-25 this was len(json.dumps(doc)), which UNDER-counts numbers: a price
+    like 12.5 is 4 characters of JSON but 8 bytes in Firestore. On a numeric-heavy
+    Auto-Validate (CBU-Q, burned run id #426) the JSON proxy read under the 950,000
+    budget, no shrink stage ran, and Firestore refused the run doc at 1,049,722 bytes -
+    the finished run never reached Runs history."""
     try:
-        return len(json.dumps(doc, default=str))
+        return _fs_value_size(doc) + 32 + 200
     except Exception:
         return 0
 
