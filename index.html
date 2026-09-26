@@ -2952,6 +2952,32 @@ function _starRunsFetch(uid){
     }))
     .catch(e=>{console.warn('[runs] starred REST read failed:',(e&&e.message)||e);return null;});
 }
+// MANAGER WATCH LIST runs outside the loaded window (v73.9x follow-up): a watched run can be
+// older than the ~75-run window above and never starred - the whole reason a manager needs a
+// watch list is to point at ANY run, not just a recent or starred one. Selects by document id
+// (an IN filter on __name__ - Firestore caps that at 30 values, so longer lists are chunked and
+// merged) with the same projection and row shape as the two reads above. Never throws: any
+// failure resolves to null so the caller can fall back cleanly.
+function _rbWatchRunsFetch(uid,ids){
+  const pid=((firebase.app().options||{}).projectId)||'edge-tracker-b55af';
+  const url='https://firestore.googleapis.com/v1/projects/'+pid+'/databases/(default)/documents/users/'+uid+':runQuery';
+  const base='projects/'+pid+'/databases/(default)/documents/users/'+uid+'/runs/';
+  const chunks=[];for(let i=0;i<ids.length;i+=30)chunks.push(ids.slice(i,i+30));
+  return auth.currentUser.getIdToken().then(tok=>Promise.all(chunks.map(ch=>{
+    const body={structuredQuery:{from:[{collectionId:'runs'}],
+      where:{fieldFilter:{field:{fieldPath:'__name__'},op:'IN',value:{arrayValue:{values:ch.map(id=>({referenceValue:base+id}))}}}},
+      select:{fields:RUNS_LITE_FIELDS.map(f=>({fieldPath:f}))}}};
+    return fetch(url,{method:'POST',headers:{'Authorization':'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(r=>{if(!r.ok)throw new Error('watch runs REST '+r.status);return r.json();})
+      .then(rows=>(rows||[]).filter(x=>x&&x.document).map(x=>{
+        const did=String(x.document.name||'').split('/').pop();
+        const o=Object.assign({id:did},_fsFields(x.document.fields||{}));
+        o._lite=true;
+        return _bookUnitsOnRead(_isoTs(o));
+      }));
+  }))).then(lists=>[].concat(...lists))
+    .catch(e=>{console.warn('[runs] watch-list runs REST read failed:',(e&&e.message)||e);return null;});
+}
 // The whole document for ONE run, fetched the first time its report is opened and kept in
 // a small cache. Bounded to the 8 most recently opened so a long browsing session cannot
 // accumulate the same hundreds of megabytes the boot used to pull in one go.
@@ -10097,6 +10123,12 @@ async function fetchSPYData(startDate,endDate){
 // time the RUNBOARD renders - and again only when the WATCH chip itself is clicked, a manual
 // refresh. window._rbWatch is the cache every reader below shares.
 window._rbWatch=window._rbWatch||{state:'idle',runs:[],at:0};
+// Watched runs outside BOTH the loaded window and window._starRuns (v73.9x follow-up): fetched
+// by id, ONLY for ids missing from both, so the watch view can show every listed run without
+// widening what LEADERBOARD / CHAMPIONS / champion-per-family read. Never folded into
+// _c2StarExtra or any other pool - the watch view's own _wFind is the only reader.
+window._rbWatchRuns=window._rbWatchRuns||[];window._rbWatchRunsState=window._rbWatchRunsState||'idle';
+window._rbWatchRunsGen=window._rbWatchRunsGen||0;window._rbWatchRunsWant=window._rbWatchRunsWant||[];
 function _loadRbWatch(){
   if(window._rbWatch.state==='loading')return;
   // not signed in yet - a page opened straight onto RUNBOARD renders before sign-in answers:
@@ -10110,11 +10142,31 @@ function _loadRbWatch(){
       const data=snap.exists?snap.data():null;
       const runs=(data&&Array.isArray(data.runs))?data.runs.filter(w=>w&&w.id!=null&&/^\d+$/.test(String(w.id).trim())):[];
       window._rbWatch={state:(runs.length?'ok':'none'),runs:runs,at:Date.now()};
+      // fetch whatever the doc names that neither pool already has - once per successful doc
+      //   read (this page load, and again on every WATCH-chip refresh), never from a render path.
+      if(window._rbWatch.state==='ok')_rbWatchRunsMaybeLoad(uid);
       renderApp();
     })
     .catch(e=>{console.warn('MANAGER watch list not available:',(e&&e.message)||e);
       window._rbWatch={state:'err',runs:[],at:Date.now()};
       renderApp();});
+}
+// Diff the watched ids against runHistory + window._starRuns (compared as strings) and fetch
+// only what is missing from both. A no-op when nothing is missing.
+function _rbWatchRunsMaybeLoad(uid){
+  const ids=((window._rbWatch&&window._rbWatch.runs)||[]).map(w=>w&&String(w.id).trim()).filter(Boolean);
+  const have=new Set(([]).concat(Array.isArray(runHistory)?runHistory:[],Array.isArray(window._starRuns)?window._starRuns:[])
+    .filter(r=>r&&r.id!=null).map(r=>String(r.id)));
+  const need=Array.from(new Set(ids.filter(id=>!have.has(id))));
+  if(!need.length){window._rbWatchRuns=[];window._rbWatchRunsState='idle';window._rbWatchRunsWant=[];return;}
+  const g=++window._rbWatchRunsGen;
+  window._rbWatchRunsState='loading';window._rbWatchRunsWant=need;
+  _rbWatchRunsFetch(uid,need).then(rows=>{
+    if(g!==window._rbWatchRunsGen)return; // a newer doc read / WATCH-chip refresh already took over
+    window._rbWatchRuns=Array.isArray(rows)?[...rows]:[];
+    window._rbWatchRunsState=Array.isArray(rows)?'ok':'err';
+    renderApp();
+  });
 }
 // One run's watch entry by id (accepts a number or a numeric string) - null if it is not on the
 // list. Shared by the RUNBOARD chip, its LANE VERDICT row and its left-list chip.
@@ -27061,18 +27113,26 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               const _wSeen={},_wIds=[];
               ((window._rbWatch&&window._rbWatch.runs)||[]).forEach(w=>{const k=w&&String(w.id).trim();
                 if(k&&!_wSeen[k]){_wSeen[k]=1;_wIds.push(k);}});
-              const _wFind=id=>rs.filter(x=>String(x.id)===id)[0]||_c2AllPool.filter(x=>String(x.id)===id)[0]||null;
+              const _wFind=id=>rs.filter(x=>String(x.id)===id)[0]||_c2AllPool.filter(x=>String(x.id)===id)[0]||(Array.isArray(window._rbWatchRuns)?window._rbWatchRuns:[]).filter(x=>String(x.id)===id)[0]||null;
               famRuns=_wIds.map(_wFind).filter(Boolean).sort((a,b)=>_rbVal(b,_rbR)-_rbVal(a,_rbR));
               const _wMiss=_wIds.filter(id=>!_wFind(id));
-              if(_wMiss.length){
-                const _wArch=_wMiss.filter(id=>_missKind(id)==='archived');
-                const _wOlder=_wMiss.filter(id=>_missKind(id)==='older');
-                const _wGone=_wMiss.filter(id=>_missKind(id)==='gone');
+              // ids _rbWatchRunsMaybeLoad is fetching right now: "loading", not "not loaded" -
+              //   they are not stuck, just not back yet. A resolved fetch either finds them (via
+              //   window._rbWatchRuns in _wFind above, so they drop out of _wMiss entirely) or
+              //   falls through to the wording below, unchanged.
+              const _wLoadIds=(window._rbWatchRunsState==='loading'&&Array.isArray(window._rbWatchRunsWant))?window._rbWatchRunsWant.map(String):[];
+              const _wLoading=_wMiss.filter(id=>_wLoadIds.includes(id));
+              const _wMissRest=_wMiss.filter(id=>!_wLoadIds.includes(id));
+              if(_wMissRest.length){
+                const _wArch=_wMissRest.filter(id=>_missKind(id)==='archived');
+                const _wOlder=_wMissRest.filter(id=>_missKind(id)==='older');
+                const _wGone=_wMissRest.filter(id=>_missKind(id)==='gone');
                 const _wLn=(grp,tail)=>grp.length?('<div style="margin-top:6px;font-size:8px;color:var(--yellow)">⚠ '+grp.map(x=>'#'+x).join(' ')+' '+(grp.length===1?'is':'are')+' '+tail+'</div>'):'';
                 _wMissNote=_wLn(_wArch,'archived - switch on archived runs in Past Runs to include '+(_wArch.length===1?'it':'them'))
                   +_wLn(_wOlder,'not loaded - LOAD ALL (in the bar above) to include '+(_wOlder.length===1?'it':'them'))
                   +_wLn(_wGone,'no longer in your history');
               }
+              if(_wLoading.length)_wMissNote+='<div style="margin-top:6px;font-size:8px;color:var(--text5)">loading '+_wLoading.map(x=>'#'+x).join(' ')+' …</div>';
             }else{
             if(_rbFam&&_rbFam!=='__WATCH__')famRuns=rs.filter(r=>_c2FamOf(r)===_rbFam);
             // v71.85 (owner: "remove the engu thats only 19 days lol"): a strategy whose best run

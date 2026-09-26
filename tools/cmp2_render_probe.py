@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 139
+N_CASES = 140
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -4508,6 +4508,72 @@ var FIX = __FIX__;
         }, {chipText1:chipText1,watchCols:watchCols,champCols:champCols,a1Txt:a1Txt,a2Txt:a2Txt,b1Txt:b1Txt,missNoteOk:missNoteOk,loadingShown:loadingShown,fbCols:fbCols,fbNote:fbNote,chip6:!!chip6,refreshCols:refreshCols});
       })();
 
+      // -- k2 (MANAGER WATCH LIST runs outside the loaded window, 2026-09-26 follow-up): the
+      //    page only loads ~75 runs (+ starred) into runHistory / window._starRuns, so a
+      //    watched run older than that window falls through both and is fetched separately by
+      //    _rbWatchRunsMaybeLoad into window._rbWatchRuns - read ONLY by the watch view's own
+      //    _wFind, never folded into any other pool. No Firestore in this probe: _rbWatchRuns /
+      //    _rbWatchRunsState / _rbWatchRunsWant are stubbed directly, same as _rbWatch above.
+      (function(){
+        function mkR(id,champ){
+          var o=JSON.parse(JSON.stringify(FIX));
+          o.id=String(id);o.strategy='ZWFETCH_1_0.py';o.starred=false;o.multiplier=1;
+          delete o.famKey;delete o.famSeq;
+          o.date_from='2010-06-07';o.date_to='2026-06-30';
+          o.best_pnl_usd=champ?80000:20000;o.best_dd_usd=champ?8000:9000;
+          o.validate={verdict:'PASS',total_dd:champ?-8000:-9000,
+            n_pass:champ?5:2,n_gates:5,wfe:champ?1:0,dsr:champ?1:0,
+            lockbox:{pnl:champ?9000:1000,pf:champ?1.3:1.0,trades:40,pass:!!champ}};
+          return o;
+        }
+        var IN1=mkR(String(+FIX.id+680101),true);   // loaded normally, inside runHistory
+        var OUT1=String(+FIX.id+680102);             // outside the loaded window - fetched by id
+        var OUT1_ROW=mkR(OUT1,false);
+        var wc="var RS="+JSON.stringify([IN1])+";"
+          +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+          +"runHistory=RS.map(f);window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();window._starRuns=[];";
+        var DOC_RUNS=[{id:+IN1.id,family:'ZWFETCH',lane:'NOISE',verdict:'CANDIDATE'},
+                      {id:OUT1,family:'ZWFETCH',lane:'NOISE',verdict:'CANDIDATE'}];
+        var wOk="window._rbWatch={state:'ok',runs:"+JSON.stringify(DOC_RUNS)+",at:Date.now()};";
+        var allErrors=[],allUncaught=[];
+        function acc(){allErrors=allErrors.concat(sink.errors);allUncaught=allUncaught.concat(sink.uncaught);}
+
+        // render 1: the fetch for the missing id is still in flight - the note names it as
+        //   "loading", and it is not yet a column
+        var wLoading="window._rbWatchRuns=[];window._rbWatchRunsState='loading';window._rbWatchRunsWant=["+JSON.stringify(OUT1)+"];";
+        var c1=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full',rbFam:'__WATCH__'}, wc+wOk+wLoading); acc();
+        var bodyTxt1=(d.body&&(d.body.innerText||d.body.textContent))||'';
+        var loadingNoteOk=bodyTxt1.indexOf('loading #'+OUT1)>=0;
+        var out1ColLoading=!!d.querySelector('#rb-mtx-box table thead th[data-rbc="'+OUT1+'"]');
+
+        // render 2: the fetch resolved into window._rbWatchRuns - the id now renders as a
+        //   column and the loading note is gone
+        var wDone="window._rbWatchRuns=[f("+JSON.stringify(OUT1_ROW)+")];window._rbWatchRunsState='ok';window._rbWatchRunsWant=[];";
+        var c2=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full',rbFam:'__WATCH__'}, wc+wOk+wDone); acc();
+        var out1ColDone=!!d.querySelector('#rb-mtx-box table thead th[data-rbc="'+OUT1+'"]');
+        var watchCols2=d.querySelectorAll('#rb-mtx-box table thead th[data-rbc]').length;
+        var bodyTxt2=(d.body&&(d.body.innerText||d.body.textContent))||'';
+        var noLoadingLeft=bodyTxt2.indexOf('loading #'+OUT1)<0;
+
+        // render 3: champion view (rbFam cleared) - window._rbWatchRuns must stay invisible to
+        //   every other pool (LEADERBOARD / CHAMPIONS / champion-per-family)
+        var c3=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full'}, wc+wOk+wDone); acc();
+        var champHasOut1=!!d.querySelector('#rb-mtx-box table thead th[data-rbc="'+OUT1+'"]');
+        var champCols3=d.querySelectorAll('#rb-mtx-box table thead th[data-rbc]').length;
+
+        dfxCase('k2_watch_fetch', [c1,c2,c3], {
+          'renders OK while loading, once resolved, and in the champion view': [c1,c2,c3].every(function(c){return c==='OK';}),
+          'while the fetch is in flight the note reads "loading #<id>" for the id being fetched': loadingNoteOk,
+          'that id is not yet a column while its fetch is in flight': !out1ColLoading,
+          'once the fetch resolves into window._rbWatchRuns, the id renders as a watch column': out1ColDone,
+          'the watch view now shows both runs': watchCols2===2,
+          'the loading note is gone once the run is found': noLoadingLeft,
+          'the champion view (rbFam cleared) does not gain the fetched run': !champHasOut1,
+          'the champion view still shows just its one real champion column': champCols3===1,
+          'no console errors or uncaught exceptions across any render': allErrors.length===0&&allUncaught.length===0
+        }, {out1ColLoading:out1ColLoading,out1ColDone:out1ColDone,watchCols2:watchCols2,champHasOut1:champHasOut1,champCols3:champCols3,loadingNoteOk:loadingNoteOk,noLoadingLeft:noLoadingLeft});
+      })();
+
         dfxCase('i1_f25_window_stage', calls, {
           'renders OK on IS / LB / FULL / WF': calls.every(function(c){return c==='OK';}),
           'IS and LB use the label WINDOW (not RUN WINDOW)': !!per.is['WINDOW']&&!!per.lb['WINDOW'],
@@ -6884,6 +6950,7 @@ def main(argv=None):
            'i4_f31_lb_zero_reason',
            'j1_roc_sortino_rows']
     DFX += ['k1_watch_list']
+    DFX += ['k2_watch_fetch']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
