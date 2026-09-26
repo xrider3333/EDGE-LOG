@@ -104,6 +104,7 @@ CLI
 """
 import argparse
 import datetime as _dt
+import inspect
 import json
 import logging as _logging
 import math
@@ -554,6 +555,56 @@ def leg_warmup_sessions(cfg):
     return base if need is None else max(base, need + WARMUP_MARGIN_SESSIONS)
 
 
+# ── "session still in progress" pass-through (WEBULL_PAPER_TODO.md item 15) ──────────────
+# GENERIC BY DESIGN, NOT ORB-SPECIFIC. A strategy's length-based half-day skip (today,
+# only ORB_3_6.py -- see its own "LIVE-ENGINE ADDITION" note) can misfire on the live
+# engine's own rolling window: the LAST session in that window is today's, still being
+# built bar by bar, so it is genuinely short -- for a reason that has nothing to do with
+# a holiday -- until the session is nearly over. By the time it counts as full, a morning
+# entry has already aged past _diff_leg's freshness window and is dropped as "late" (box
+# record: ORB_R6 fired once since 09-09, late_skipped 6). Rather than hard-code that fix
+# to ORB, any strategy may opt in by simply declaring a `session_in_progress` keyword on
+# its own run_backtest (exactly the reflection convention augur_engine.engine.run_backtest
+# already uses for `volumes`/`day_id`/`index`) -- this module then sets it True for that
+# call whenever the two conditions below both hold, and leaves every other leg, and every
+# leg on every other call, completely untouched.
+def _leg_accepts_session_in_progress(strategy):
+    """True iff `strategy`'s run_backtest explicitly names a `session_in_progress`
+    parameter. Deliberately does NOT treat a bare **kwargs catch-all as support (unlike
+    the volumes/day_id convention every plugin is expected to tolerate): skipping a
+    strategy's own half-day test is a live-only correctness decision, and a plugin that
+    merely swallows extra keywords has not actually reviewed whether that is safe for
+    it. Best-effort/never-raises, same contract as _strategy_module_for_sizing."""
+    mod = _strategy_module_for_sizing(strategy)
+    if mod is None or not hasattr(mod, "run_backtest"):
+        return False
+    try:
+        sp = inspect.signature(mod.run_backtest).parameters
+    except (TypeError, ValueError):
+        return False
+    return "session_in_progress" in sp
+
+
+def _session_in_progress(arrays, now):
+    """True when `arrays`' LAST session shares `now`'s calendar date AND today is not a
+    recognised early close (api.market_calendar.session_close_et) -- i.e. the window
+    genuinely ends mid-build on today's own session, not on a real half day where a
+    length-based skip should still fire untouched. Best-effort/never-raises: any
+    surprise here (a naive `now`, an empty index) reads as False, the safe/off default
+    that reproduces today's behaviour."""
+    try:
+        idx = arrays.get("index")
+        if idx is None or not len(idx) or now is None:
+            return False
+        last_date = idx[-1].date()
+        today = now.date()
+        if last_date != today:
+            return False
+        return market_calendar.session_close_et(today) != "13:00"
+    except Exception:
+        return False
+
+
 def _cache_session_count(tf, paths):
     """How many DISTINCT RTH sessions the on-disk bar cache holds for `tf` right now --
     the same day-bucketing build_arrays/closed_arrays use, so this number means the
@@ -676,7 +727,7 @@ def _resolve_trade_sizes(res, n_trades, label):
     return out, cost
 
 
-def run_leg_trades(cfg, arrays, leg_key=None, log=print):
+def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None):
     """Runs the plugin (or a stub module override) via the shared engine wrapper and
     converts the raw (entry_bar, exit_bar, pnl_pts, side, entry_px) tuples into
     canonical dicts keyed by wall-clock timestamps (not bar indices — those are only
@@ -693,8 +744,22 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print):
     is broken (see _resolve_trade_sizes) fails the WHOLE call closed: this returns []
     and logs why, rather than guess at a price that would mis-size every order
     downstream.
+
+    SESSION-IN-PROGRESS PASS-THROUGH (item 15, see the block comment above
+    _leg_accepts_session_in_progress). `now` is optional and defaults to None -- every
+    call site that predates this feature (tests, tools) keeps calling this with no
+    `now` and gets exactly today's behaviour, cfg["params"] untouched. Only step()
+    passes the real `now`, and only a leg whose strategy opted in AND whose window's
+    last session is today's own (still-forming) session gets a PER-CALL copy of its
+    params with session_in_progress=True added -- cfg["params"] itself is never
+    mutated, so the next call (a different `now`) recomputes this fresh.
     """
-    res = engine_run_backtest(cfg["strategy"], arrays=arrays, params=cfg["params"],
+    params = cfg["params"]
+    if now is not None and _leg_accepts_session_in_progress(cfg["strategy"]) \
+            and _session_in_progress(arrays, now):
+        params = dict(params)
+        params["session_in_progress"] = True
+    res = engine_run_backtest(cfg["strategy"], arrays=arrays, params=params,
                               cost_pts=0.0, return_trades=True)
     if not res or not res.get("trades"):
         return []
@@ -1207,7 +1272,7 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
         if arrays is None:
             continue
 
-        trades = run_leg_trades(cfg, arrays, leg_key=key)
+        trades = run_leg_trades(cfg, arrays, leg_key=key, now=now)
         # Three bars of grace by default: a signal may legitimately be discovered a bar or
         # so late, but never hours late (see _diff_leg's LATE ENTRIES note). A leg may set
         # its own `max_entry_age_sec` when its bar size makes three bars the wrong measure.

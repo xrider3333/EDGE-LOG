@@ -30,6 +30,15 @@ Interaction rules (kept deliberately simple):
     __main__ smoke test).
 
 Knobs = 3.4's twelve + be_after_R.
+
+LIVE-ENGINE ADDITION (2026-09-26, WEBULL_PAPER_TODO.md item 15): `session_in_progress`
+(runtime-only, not a DEFAULT_PARAMS knob, default False) exempts the LAST session from
+the skip_holidays length test. On the live engine the last session is today's, still
+being built bar by bar, so it reads as a false half day until it is nearly over -- by
+which point a morning entry has already aged past api/cloud_signal.py's freshness
+window and is silently dropped as "late". False reproduces every existing backtest
+bit-for-bit; api/cloud_signal.py sets it True only when the last session is today's AND
+the market calendar does not list today as a real early close.
 """
 import numpy as np
 
@@ -131,6 +140,12 @@ DEFAULT_PARAMS = {
     },
 }
 
+# `session_in_progress` is a RUNTIME flag, not a sweepable knob (same convention as
+# `day_id`/`return_trades` below) -- it is deliberately left out of DEFAULT_PARAMS so no
+# grid search or validate ever varies it. Default False -> byte-identical to every
+# existing backtest (see the __main__ smoke test). See run_backtest's skip_holidays
+# block for what it does.
+
 PARAM_GRID_PRESETS = {
     # THE hypothesis test: hold run #230's champion FIXED, sweep ONLY the new lever.
     # 9 combos incl. the be=0 control (= the champion itself, bit-identical).
@@ -161,6 +176,7 @@ def run_backtest(
     partial_exit_R: float = 3.0, trail_bars: int = 3, be_after_R: float = 0.0,
     atr_filter: float = 0.7, target_R: float = 5.5,
     flat_eod: bool = True, skip_holidays: bool = True,
+    session_in_progress: bool = False,
     day_id=None,
     return_trades: bool = False, _stop_event=None, _pause_event=None,
 ):
@@ -187,12 +203,23 @@ def run_backtest(
         _sess_bounds.append((_a, _b)); _a = _b
 
     # ── Half-day / holiday skip (skip_holidays) ───────────────────────────────
+    # LIVE opt-in (session_in_progress, default False): a live engine hands this
+    # function today's session while it is still being built bar by bar, so the LAST
+    # session in `_sess_bounds` is short of the median for a reason that has nothing to
+    # do with a holiday. session_in_progress=False (every existing backtest, every
+    # sweep/validate call) reproduces the exact behaviour above, unconditionally. The
+    # caller (api/cloud_signal.py) sets it True only when the last session is today's
+    # AND the market calendar does not list today as a recognised early close -- on a
+    # real half day this stays False and the length test still fires exactly as before.
     _holiday_start = set()
     if skip_holidays and len(_sess_bounds) > 4:
         _lens = np.array([b - a for a, b in _sess_bounds], float)
         _half = 0.70 * np.median(_lens)
-        for (a, b) in _sess_bounds:
+        _last_sess_idx = len(_sess_bounds) - 1
+        for _si, (a, b) in enumerate(_sess_bounds):
             if (b - a) < _half:
+                if session_in_progress and _si == _last_sess_idx:
+                    continue          # exempt: this is the in-progress final session
                 _holiday_start.add(a)
 
     # ── Vol-regime filter (atr_filter > 0): trailing-only, no look-ahead ──────
