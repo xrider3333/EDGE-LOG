@@ -974,23 +974,29 @@ def test_cmd_once_and_cmd_loop_return_the_exit_code_directly():
         shutil.rmtree(live["home"], ignore_errors=True)
 
 
-# ── 6. Live history window sizing (WEBULL_PAPER_TODO.md item 12, 2026-09-25) ────────────
+# ── 6. Live history window sizing (WEBULL_PAPER_TODO.md item 12, 2026-09-25; widened to
+# match the backtest's actual RANKING depth per go-live audit item 3.8, 2026-09-26) ──────
 # NOISE_1_8_CT304.py's vol_skip_pct filter (frozen on at 95.0, see its _FROZEN dict)
 # needs 60 REFERENCE sessions before it ever produces anything but NaN (NOISE_1_0.py's
-# _vol_percentile, VOL_SKIP_LOOKBACK_SESSIONS) -- and the live engine used to hand it
-# exactly 60 sessions TOTAL, one short of that, so the skip could never engage. These
-# tests cover leg_warmup_sessions()/required_lookback_sessions() (the fix), plus a
-# synthetic proof against the real strategy function, and log_history_windows()'s
-# startup diagnostic (complete vs degraded).
+# _vol_percentile, its `min_obs`/VOL_SKIP_LOOKBACK_SESSIONS) -- 307a128 fixed the live
+# engine handing it exactly 60 sessions TOTAL (one short of that) so the skip could
+# engage at all. It still RANKED each day against only ~60-70 reference sessions once
+# engaged, while a backtest run over its full history always ranks against the full 252
+# (_vol_percentile's `ref_n`/VOL_SKIP_REF_SESSIONS) -- so NOISE_1_0.py now declares
+# REQUIRED_LOOKBACK_SESSIONS off VOL_SKIP_REF_SESSIONS (252) instead of
+# VOL_SKIP_LOOKBACK_SESSIONS (60). These tests cover leg_warmup_sessions()/
+# required_lookback_sessions() (the fix), plus a synthetic proof against the real
+# strategy function, and log_history_windows()'s startup diagnostic (complete vs
+# degraded).
 def test_required_lookback_sessions_reads_the_real_noise_strategy_chain():
     """End to end on the REAL repo files: NOISE_1_8_CT304.py (the filename CROWN_LEGS
     actually names for the live NOISE_382 leg) re-exports REQUIRED_LOOKBACK_SESSIONS
     from NOISE_1_1_NBHD.py, which re-exports it from NOISE_1_0.py's own
-    VOL_SKIP_LOOKBACK_SESSIONS -- ties this test to that number wherever it is actually
+    VOL_SKIP_REF_SESSIONS -- ties this test to that number wherever it is actually
     defined, so a future change to it is caught here rather than silently drifting from
     what cloud_signal uses."""
-    assert cs.required_lookback_sessions("NOISE_1_8_CT304.py") == 60
-    assert cs.leg_warmup_sessions(cs.CROWN_LEGS["NOISE_382"]) == 60 + cs.WARMUP_MARGIN_SESSIONS
+    assert cs.required_lookback_sessions("NOISE_1_8_CT304.py") == 252
+    assert cs.leg_warmup_sessions(cs.CROWN_LEGS["NOISE_382"]) == 252 + cs.WARMUP_MARGIN_SESSIONS
 
 
 def test_orb_and_enguq_declare_no_lookback_requirement_today():
@@ -1233,3 +1239,135 @@ def test_noise_vol_skip_cannot_engage_at_60_sessions_but_can_at_70_or_more():
         "NOISE_382 (60+10 margin): with a full 60-session reference available, the "
         "outlier 'yesterday' ranks at the 100th percentile and vol_skip_pct=95 must "
         "block the judged session's entry")
+
+
+# ── go-live audit item 3.8 (2026-09-26): the RANKING, not merely the engaging, must
+# match the backtest over the last 60 live-style sessions ────────────────────────────────
+def _noise_vol_skip_bars_varying(n_sessions, amplitudes, base=100.0):
+    """Like _noise_vol_skip_bars above, but EVERY session's bar-1 intrabar high gets
+    its own amplitudes[si] added (not just one hand-picked outlier session), so each
+    judged session's "yesterday" carries a genuinely different (H-L)/C value and a
+    reference window's exact COMPOSITION -- not merely whether one single outlier
+    happens to sit inside it -- can flip a percentile-vs-threshold decision, the way
+    real market volatility does. The entry-triggering close pattern (session_o/
+    session_c) is untouched, so a trade still fires deterministically every unblocked
+    session regardless of amplitudes."""
+    opens, highs, lows, closes, day_id = [], [], [], [], []
+    session_o = [base, base, base + 3.0, base - 3.0]
+    session_c = [base, base + 3.0, base - 3.0, base]
+    for si in range(n_sessions):
+        for k in range(4):
+            o, c = session_o[k], session_c[k]
+            h = max(o, c) + 0.05
+            l = min(o, c) - 0.05
+            if k == 1:
+                h += amplitudes[si]
+            opens.append(o); highs.append(h); lows.append(l); closes.append(c)
+            day_id.append(si)
+    return opens, highs, lows, closes, day_id
+
+
+def _judged_session_has_entry(opens, highs, lows, closes, day_id, vol_skip_pct,
+                              bars_per_session=4):
+    """Same on/off comparison as _run_noise_core + _entries_in_last_session above,
+    generalised to take already-built (opens, highs, lows, closes, day_id) directly --
+    needed here because the caller slices one shared bar array into several different
+    windows rather than building fresh bars per call."""
+    import augur_strategies.NOISE_1_0 as noise10
+    res = noise10.run_backtest(
+        opens, highs, lows, closes, day_id=day_id,
+        lookback=1, band_mult_long=0.001, band_mult_short=0.001,
+        exit_mode="band", side="Both", window="all_day", flat_eod=True,
+        skip_holidays=False, stop_mode="off", confirm_bars=1, daytype_mode="off",
+        vol_skip_pct=vol_skip_pct, return_trades=True)
+    n_sessions = len(opens) // bars_per_session
+    last_start = (n_sessions - 1) * bars_per_session
+    trades = (res or {}).get("trades", [])
+    return any(last_start <= t[0] < last_start + bars_per_session for t in trades)
+
+
+def test_262_session_live_window_matches_full_history_for_the_last_60_sessions():
+    """go-live audit item 3.8 / WEBULL_PAPER_TODO.md item 12's own required check: "for
+    the last 60 sessions, the skip decisions from the live-style window equal those
+    from a full-history run over the same QQQ data." A real 262+-session QQQ history
+    was not available to build this test against (no Alpaca key is configured anywhere
+    on this machine -- see load_keys() in tools/import_alpaca_stocks.py / api/
+    spy_daily.py -- and Yahoo's intraday history is capped at roughly 60 days, far
+    short of the ~year this needs), so this proves the MECHANISM on synthetic data
+    instead, directly against the real NOISE_1_0.run_backtest / _vol_percentile code:
+
+    api/cloud_signal.py's closed_arrays() re-fetches a FRESH trailing window ending at
+    "today" every single day (its own docstring) -- so "today" always sits in the LAST
+    slot of whatever window a leg is handed, never buried in the middle of one. Because
+    _vol_percentile's reference slice is a fixed-width trailing lookback (`ref = vals[j
+    - ref_n : j]`), the exact same real calendar sessions land in that slice whether
+    the array handed to it is exactly 262 sessions long or the strategy's entire
+    multi-year history -- PROVIDED the window is at least VOL_SKIP_REF_SESSIONS (252)
+    + 2 sessions deep, which VOL_SKIP_REF_SESSIONS + WARMUP_MARGIN_SESSIONS (262) is.
+    The OLD window (60 + WARMUP_MARGIN_SESSIONS = 70, pre go-live-3.8) is not: its
+    reference slice is only ~68 sessions deep, so it silently drops whichever of the
+    trailing 252 real sessions are older than that -- changing the percentile rank
+    exactly like a shorter, wrong reference set would in the real backtest.
+
+    Seed and threshold (95.0, NOISE_382's own real, frozen vol_skip_pct) are pinned
+    because they are known to exercise the gap on this synthetic history; a different
+    seed may or may not, so this is not re-seeded per run.
+    """
+    import random
+    import augur_strategies.NOISE_1_0 as noise10
+
+    total_sessions = 321                      # 261 sessions of pre-history + 60 test days
+    bars_per_session = 4
+    rng = random.Random(16)
+    amplitudes = [rng.uniform(0.0, 40.0) for _ in range(total_sessions)]
+    opens, highs, lows, closes, day_id = _noise_vol_skip_bars_varying(
+        total_sessions, amplitudes)
+
+    def window(lo, hi):
+        """Sessions [lo, hi) as their own fresh (opens, highs, lows, closes, day_id) --
+        day_id REBASED to start at 0, exactly as a live rolling window (which never
+        sees absolute calendar day numbers) would hand the strategy."""
+        a, b = lo * bars_per_session, hi * bars_per_session
+        return (opens[a:b], highs[a:b], lows[a:b], closes[a:b],
+                [v - lo for v in day_id[a:b]])
+
+    new_window = noise10.VOL_SKIP_REF_SESSIONS + cs.WARMUP_MARGIN_SESSIONS   # 262
+    old_window = 70                                                          # pre-3.8
+    n_test_days = 60
+    first_test_day = total_sessions - n_test_days
+
+    mismatches_new = mismatches_old = 0
+    skip_full = skip_new = skip_old = 0
+    for d in range(first_test_day, total_sessions):        # d = the judged session
+        full_on = _judged_session_has_entry(*window(0, d + 1), vol_skip_pct=95.0)
+        new_on = _judged_session_has_entry(*window(max(0, d + 1 - new_window), d + 1),
+                                           vol_skip_pct=95.0)
+        old_on = _judged_session_has_entry(*window(max(0, d + 1 - old_window), d + 1),
+                                           vol_skip_pct=95.0)
+        assert _judged_session_has_entry(*window(0, d + 1), vol_skip_pct=0.0), (
+            f"sanity check at d={d}: with the skip off, the judged session must still "
+            "fire normally")
+        mismatches_new += new_on != full_on
+        mismatches_old += old_on != full_on
+        skip_full += not full_on
+        skip_new += not new_on
+        skip_old += not old_on
+
+    assert mismatches_new == 0, (
+        f"the {new_window}-session live-style window disagreed with a full-history run "
+        f"on {mismatches_new}/{n_test_days} of the last {n_test_days} sessions -- it "
+        "must always agree (see this test's docstring)")
+    # Skip-day counts over these 60 synthetic sessions (report, not an assertion target):
+    # full-history and the new 262-session window must read the same number by the
+    # assertion above; the old 70-session window's count differing from both is the
+    # go-live-3.8 gap this fix closes.
+    assert (skip_full, skip_new) == (7, 7) and skip_old == 2, (
+        f"skip-day counts moved from what this test was written against -- "
+        f"full-history={skip_full}, new-262={skip_new}, old-70={skip_old} (expected "
+        "7, 7, 2): re-derive these numbers before changing the assertion, don't just "
+        "widen it")
+    assert mismatches_old > 0, (
+        "sanity check: the OLD 70-session window should disagree with the full-history "
+        "run on at least some of these 60 days on this synthetic history, or the seed "
+        "above no longer exercises the item-12/3.8 gap -- pick a new seed rather than "
+        "delete this check")

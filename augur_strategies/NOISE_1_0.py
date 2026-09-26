@@ -369,24 +369,44 @@ def _atr_by_session(h, l, sess_bounds, period):
 
 # How many REFERENCE sessions (strictly before the "prior day" _vol_percentile ranks --
 # see its own docstring) the vol_skip_pct filter needs before it stops returning NaN and
-# actually starts judging days. A module constant, not just a default argument, so a
-# caller sizing a LIVE rolling history window (api/cloud_signal.py) can ask this file
-# how much history it needs instead of a second copy of the number going stale beside
-# it (WEBULL_PAPER_TODO.md item 12, 2026-09-25: the live engine handed this strategy
-# exactly 60 sessions total, so the session being judged was never more than 59 sessions
-# into that window -- one short of the 60 REFERENCE sessions this needs BEFORE it -- and
-# the skip could never engage live no matter how much history the box had accumulated).
+# actually starts judging days -- i.e. _vol_percentile's `min_obs` floor, not its ranking
+# window. This used to be the number api/cloud_signal.py sized its live history window
+# off (REQUIRED_LOOKBACK_SESSIONS, below), which was ENOUGH for the skip to engage at
+# all (WEBULL_PAPER_TODO.md item 12, 2026-09-25) but not enough for it to rank against
+# the same sessions the backtest does once it engages -- see VOL_SKIP_REF_SESSIONS below
+# (go-live audit item 3.8, 2026-09-26). Kept as its own constant, and still
+# _vol_percentile's `min_obs` default, because it is a real, separate number: the floor
+# below which the filter must stay inactive (NaN), not the depth it ranks against once
+# active.
 VOL_SKIP_LOOKBACK_SESSIONS = 60
+
+# How many REFERENCE sessions _vol_percentile actually RANKS the judged day's prior
+# session against once the min_obs floor above is cleared (its `ref_n`, read straight off
+# this constant below rather than a second literal 252 that could drift from it). A
+# backtest run over its strategy's full history is always this deep into its own past by
+# the time it reaches any session worth judging, so its ranking window is always the full
+# 252 -- never merely VOL_SKIP_LOOKBACK_SESSIONS (60) sessions. THIS is the number a live
+# caller sizing a rolling window must match for the skip's PERCENTILE, not merely whether
+# it fires, to agree with the backtest (go-live audit item 3.8, 2026-09-26: live handed
+# NOISE_382 a window sized off VOL_SKIP_LOOKBACK_SESSIONS -- 60, later 60+margin=70 --
+# so once the skip engaged it ranked each day against only that many sessions instead of
+# the backtest's full 252, disagreeing on roughly half of skip days).
+VOL_SKIP_REF_SESSIONS = 252
 
 # Generic contract a live-history caller (api/cloud_signal.py) reads off WHICHEVER
 # concrete strategy file a leg names, without needing to know it is this file's own
 # vol_skip_pct filter driving the number -- see that module's required_lookback_sessions.
 # NOISE_1_1_NBHD.py and NOISE_1_8_CT304.py each re-export this same attribute from their
-# own `_base` so the leg still resolves it through either wrapper.
-REQUIRED_LOOKBACK_SESSIONS = VOL_SKIP_LOOKBACK_SESSIONS
+# own `_base` so the leg still resolves it through either wrapper. Sized off
+# VOL_SKIP_REF_SESSIONS (252), not VOL_SKIP_LOOKBACK_SESSIONS (60): a live window only as
+# deep as the min_obs floor lets the skip fire, but ranks it against a shallower history
+# than the backtest ever does once it is deep enough into its own data to judge anything
+# -- see that constant's comment.
+REQUIRED_LOOKBACK_SESSIONS = VOL_SKIP_REF_SESSIONS
 
 
-def _vol_percentile(h, l, c, sess_bounds, ref_n=252, min_obs=VOL_SKIP_LOOKBACK_SESSIONS):
+def _vol_percentile(h, l, c, sess_bounds, ref_n=VOL_SKIP_REF_SESSIONS,
+                    min_obs=VOL_SKIP_LOOKBACK_SESSIONS):
     """vol_skip_pct helper (2026-08-17): pct[si] = percentile rank of the PRIOR
     session's (H-L)/C among the ref_n sessions strictly before that prior session.
     NaN when fewer than min_obs reference sessions exist (treated as not-extreme,

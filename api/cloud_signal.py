@@ -507,6 +507,17 @@ def closed_arrays(all_epoch_df, now, timeframe, warmup_sessions):
 # always a full trading day (a holiday-shortened session can eat one without shrinking
 # the DISTINCT-DAY count closed_arrays trims to). Ten sessions of slack clears that
 # uncertainty with room to spare instead of shaving it to the exact bar.
+#
+# FOLLOW-UP (go-live audit item 3.8, 2026-09-26). 307a128 fixed the skip's ability to
+# ENGAGE at all by declaring REQUIRED_LOOKBACK_SESSIONS = 60 (NOISE_1_0.py's min_obs
+# floor), but a live window sized off the floor still ranked each day against only
+# ~60-70 reference sessions once the skip fired, while a backtest run over its full
+# history always ranks against the FULL 252-session window (_vol_percentile's ref_n) --
+# about half of skip days disagreed as a result. NOISE_1_0.py now declares
+# REQUIRED_LOOKBACK_SESSIONS off VOL_SKIP_REF_SESSIONS (252, its ranking depth) instead
+# of VOL_SKIP_LOOKBACK_SESSIONS (60, its bare activation floor), so this same margin
+# gives NOISE_382 a 262-session window -- no special-casing here, this function is
+# unchanged; only what NOISE_1_0.py declares changed.
 WARMUP_MARGIN_SESSIONS = 10
 
 

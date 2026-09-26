@@ -71,9 +71,10 @@ _AUGUR_PARENT = "NOISE_1_1_NBHD.py"
 # Re-exported so api/cloud_signal.py's required_lookback_sessions can read this straight
 # off "NOISE_1_8_CT304.py" -- the file name CROWN_LEGS actually names for the live
 # NOISE_382 leg -- without needing to know it delegates through NOISE_1_1_NBHD.py down
-# to NOISE_1_0.py's vol_skip_pct filter, where the number (60) actually comes from
-# (WEBULL_PAPER_TODO.md item 12). _FROZEN above pins vol_skip_pct=95.0 on always, so
-# this leg's requirement is never "off" the way a vol_skip_pct=0.0 config's would be.
+# to NOISE_1_0.py's vol_skip_pct filter, where the number (252, VOL_SKIP_REF_SESSIONS)
+# actually comes from (WEBULL_PAPER_TODO.md item 12; go-live audit item 3.8). _FROZEN
+# above pins vol_skip_pct=95.0 on always, so this leg's requirement is never "off" the
+# way a vol_skip_pct=0.0 config's would be.
 REQUIRED_LOOKBACK_SESSIONS = getattr(_base, "REQUIRED_LOOKBACK_SESSIONS", None)
 
 _COST_PTS = 0.533
