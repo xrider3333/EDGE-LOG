@@ -1,0 +1,11 @@
+leg,entry_unix,entry_iso,note
+ORB,1789566300,2026-09-16T09:45:00-04:00,09-16 ORB long enabled by the splice-widened volatility filter; not open across the switch itself; ROLL_AUDIT 4.5.4
+ORB_H,1789566300,2026-09-16T09:45:00-04:00,09-16 ORB_H long enabled by the splice-widened volatility filter; not open across the switch itself; ROLL_AUDIT 4.5.4
+ORB_R6,1789582200,2026-09-16T14:10:00-04:00,09-16 ORB_R6 long enabled by the splice-widened volatility filter; not open across the switch itself; ROLL_AUDIT 4.5.4
+ORB_R6_C15,1789582200,2026-09-16T14:10:00-04:00,09-16 ORB_R6_C15 long enabled by the splice-widened volatility filter; not open across the switch itself; ROLL_AUDIT 4.5.4
+ORB_R6_C15F,1789582200,2026-09-16T14:10:00-04:00,09-16 ORB_R6_C15F long enabled by the splice-widened volatility filter; not open across the switch itself; ROLL_AUDIT 4.5.4
+ORB_R6_C15FE,1789582200,2026-09-16T14:10:00-04:00,09-16 ORB_R6_C15FE long enabled by the splice-widened volatility filter; not open across the switch itself; ROLL_AUDIT 4.5.4
+ENGUQ_335_VC,1789450980,2026-09-15T01:43:00-04:00,09-15 ENGUQ_335_VC trade is a splice artifact; not open across the switch itself; ROLL_AUDIT 4.5.4
+ENGUQ_335_VC,1789465740,2026-09-15T05:49:00-04:00,09-15 ENGUQ_335_VC trade is a splice artifact; not open across the switch itself; ROLL_AUDIT 4.5.4
+ENGUQ_ER,1789466400,2026-09-15T06:00:00-04:00,09-15 ENGUQ_ER trade is a splice artifact; not open across the switch itself; ROLL_AUDIT 4.5.4
+ENGUQ_ER,1789527960,2026-09-15T23:06:00-04:00,09-15 ENGUQ_ER trade is a splice artifact; not open across the switch itself; ROLL_AUDIT 4.5.4

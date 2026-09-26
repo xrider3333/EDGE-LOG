@@ -1,0 +1,5 @@
+root,switch_sec,switch_et,note,source
+NQ,1781508600,2026-06-15 03:30,in-bar splice June->Sep contract (offset ~+293 pts); ROLL_AUDIT 6.3,roll_audit_6_3
+ES,1781515800,2026-06-15 05:30,in-bar splice June->Sep contract (offset ~+64 pts); ROLL_AUDIT 6.3,roll_audit_6_3
+NQ,1789399800,2026-09-14 11:30,in-bar splice Sep->Dec contract (offset ~+295 pts); ROLL_AUDIT 6.3,roll_audit_6_3
+ES,1789399800,2026-09-14 11:30,in-bar splice Sep->Dec contract (offset ~+67.75 pts); ROLL_AUDIT 6.3,roll_audit_6_3

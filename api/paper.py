@@ -1902,6 +1902,279 @@ def _append_fresh(arrays, bars):
     return out, len(bars)
 
 
+# ── contract-continuity guard on the NT capture tail (ROLL_AUDIT 4.5.5, 6.6) ────────────
+# 2026-09-15: the NT chart capture was still on the Sep contract while the master had
+# already spliced to Dec (it picks whichever of the two 10s files has the LATER last bar --
+# see _ticks_path above -- and that file happened to be the Sep one). The tail got appended
+# after the master's last bar anyway, a fake ~293-point NQ drop (ROLL_AUDIT 4.5.5). The NT
+# add-on does not label its rows with a contract name yet (ROLL_AUDIT 6.4 proposes adding
+# one to tools/EdgeLogOHLCAddon.cs); until it does, this is a PRICE-CONTINUITY test, not a
+# label check -- if a future capture file DOES carry a contract column, add that check ahead
+# of this one and only fall through to price continuity when it's absent.
+_CONTRACT_GAP_OVERLAP_PTS = {"NQ": 5.0, "ES": 1.5}       # normal cross-feed noise (ROLL_AUDIT
+                                                          # 2.6/6.8 test 2: today's NQ/ES gap
+                                                          # between feeds runs well under this)
+_CONTRACT_GAP_NOOVERLAP_PTS = {"NQ": 50.0, "ES": 15.0}   # looser: one bar's own intrabar range
+                                                          # adds noise a median-over-many-bars
+                                                          # wouldn't have. Still far below a
+                                                          # roll offset (about 293 NQ / 68 ES
+                                                          # points, ROLL_AUDIT 6.3) and above a
+                                                          # normal 1-5m bar move.
+# Review finding (minor, 2026-09-26): the no-overlap gap is often measured ACROSS a session
+# break (yesterday's RTH close vs. today's RTH open), where a real overnight NQ/ES move
+# routinely clears the same-session threshold above and would wrongly refuse a legitimate
+# tail. Use a looser threshold there -- still comfortably below a real roll offset (about
+# 293 NQ / 68 ES points, ROLL_AUDIT 6.3) -- and log which one applied.
+_CONTRACT_GAP_NOOVERLAP_SESSION_PTS = {"NQ": 150.0, "ES": 40.0}
+
+# Review finding (major, 2026-09-26): a median taken over EVERY shared bar is dominated by
+# weeks of agreeing history and misses a short recent mismatch -- the 09-15 shape was 20-odd
+# RTH days agreeing and only the LAST day on a different contract, and the guard as written
+# read that as "1635 overlapping bar(s), median gap 0.00 pts, ok" and would have appended the
+# fake ~293-pt drop it exists to stop. The reverse also failed: a capture back-loaded onto the
+# new contract while the master is still on the old one for its OLDER bars drags the median to
+# ~295 and refuses a correct tail for weeks. What decides whether the tail CONTINUES the
+# master is only the most recent shared bars, so restrict the comparison to the shared bars
+# inside the master's own FINAL session, falling back to the last _CONTRACT_CHECK_RECENT_BARS
+# shared timestamps when that session has no overlap at all (e.g. a capture that skips the
+# master's last session entirely).
+_CONTRACT_CHECK_RECENT_BARS = 24
+
+
+def _capture_tail_contract_check(arrays, bars, bars_et, instrument="NQ"):
+    """Is `bars` (the resampled NT capture, RTH-filtered, BEFORE the 'only after the
+    master's last bar' cut) on the same contract as `arrays` (the loaded master)?
+
+    Returns (ok, reason). ok=False means "refuse this tail, looks like a different
+    contract" -- the caller does not append it, it does not raise, and it logs `reason`.
+
+    * If `bars` and the master's own index share any timestamps (both feeds already cover
+      that time -- true whenever the master was refreshed today, or on a slow capture-vs-
+      master race), compare closes on the MOST RECENT shared bars only (the master's own
+      final session, or the last _CONTRACT_CHECK_RECENT_BARS shared timestamps if that
+      session has no overlap): refuse if the median absolute difference exceeds
+      _CONTRACT_GAP_OVERLAP_PTS[instrument]. A long run of agreeing history further back
+      must not paper over a recent mismatch, and a long run of OLD mismatched history must
+      not block a tail that agrees now.
+    * If there is no overlap, compare the first capture bar strictly after the master's
+      last bar (its OPEN, the natural "gap from the prior close") against the master's own
+      last close: refuse if that gap exceeds _CONTRACT_GAP_NOOVERLAP_PTS[instrument] when
+      the two bars are in the same session, or the looser
+      _CONTRACT_GAP_NOOVERLAP_SESSION_PTS[instrument] when they cross a session break (an
+      overnight gap is expected to be larger than an intra-session one).
+    * Nothing to compare (empty master or empty capture) -> ok, nothing to refuse.
+    """
+    inst = str(instrument or "NQ").upper()
+    ov_th = _CONTRACT_GAP_OVERLAP_PTS.get(inst, _CONTRACT_GAP_OVERLAP_PTS["NQ"])
+    no_ov_th = _CONTRACT_GAP_NOOVERLAP_PTS.get(inst, _CONTRACT_GAP_NOOVERLAP_PTS["NQ"])
+    no_ov_session_th = _CONTRACT_GAP_NOOVERLAP_SESSION_PTS.get(
+        inst, _CONTRACT_GAP_NOOVERLAP_SESSION_PTS["NQ"])
+    master_idx_in = None if arrays is None else arrays.get("index")
+    if bars is None or not len(bars) or master_idx_in is None or not len(master_idx_in):
+        return True, "nothing to compare (empty master or empty capture)"
+
+    master_idx = pd.DatetimeIndex(arrays["index"])
+    master_close = pd.Series(np.asarray(arrays["close"], float), index=master_idx)
+    master_close = master_close[~master_close.index.duplicated(keep="last")]
+    last_master_time = master_close.index.max()
+    last_master_close = float(master_close.iloc[-1])
+
+    cap = bars.copy()
+    cap.index = pd.DatetimeIndex(bars_et)
+
+    shared = cap.index.intersection(master_close.index).sort_values()
+    if len(shared):
+        last_session_date = last_master_time.date()
+        recent = shared[shared.date == last_session_date]
+        window_desc = "master's final session"
+        if not len(recent):
+            recent = shared[-_CONTRACT_CHECK_RECENT_BARS:]
+            window_desc = f"last {len(recent)} shared bar(s)"
+        diff = (cap.loc[recent, "close"].astype(float) - master_close.loc[recent]).abs()
+        med = float(diff.median())
+        if med > ov_th:
+            return False, (
+                f"{inst} capture/master close mismatch on {len(recent)} of {len(shared)} "
+                f"overlapping bar(s) ({window_desc}), median {med:.2f} pts "
+                f"(> {ov_th} pt threshold) -- looks like a different contract than the "
+                f"master, refusing the tail")
+        return True, (f"{len(recent)} of {len(shared)} overlapping bar(s) ({window_desc}), "
+                       f"median gap {med:.2f} pts, ok")
+
+    first_after = cap[cap.index > last_master_time]
+    if not len(first_after):
+        return True, "no bars after the master's last bar"
+    first_open = float(first_after["open"].iloc[0])
+    gap = abs(first_open - last_master_close)
+    same_session = first_after.index[0].date() == last_master_time.date()
+    th = no_ov_th if same_session else no_ov_session_th
+    session_desc = "same session" if same_session else "across a session break"
+    if gap > th:
+        return False, (
+            f"{inst} capture has no time overlap with the master; its first bar "
+            f"({first_after.index[0]}) opens {gap:.2f} pts from the master's last close "
+            f"(> {th} pt threshold, {session_desc}) -- looks like a different contract, "
+            f"refusing the tail")
+    return True, f"no overlap ({session_desc}); first-bar gap {gap:.2f} pts, ok"
+
+
+# ── roll-splice trade marking (ROLL_AUDIT 4.5.4, 6.6 item 15) ───────────────────────────
+# Shadow trades are re-upserted from the masters every night (run_shadow re-scans the whole
+# window since PAPER_START), so a one-off edit to a stored trade doc would just be
+# overwritten the next run. This marks trades at the SAME point they're built every night,
+# so the mark persists automatically. It never deletes a trade or touches its P&L (owner/
+# spec hard rule) -- it only adds roll_flag/roll_note fields _emit writes onto the doc.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_SWITCH_CSV = {
+    "NQ": os.path.join(_REPO_ROOT, "tools", "data", "contract_switches_NQ.csv"),
+    "ES": os.path.join(_REPO_ROOT, "tools", "data", "contract_switches_ES.csv"),
+}
+# The data lane owns the two files above (do not edit them here) -- kept only so a future
+# corrected table can be pointed at from the same place. They are NOT read for containment
+# any more: review finding (major, 2026-09-26). Today each has exactly two rows whose source
+# is "inferred_after_raw_end", and ROLL_AUDIT 2.7 audited both (2026-06-14 18:10 and
+# 2026-09-13 18:10 ET) and found they are REAL same-contract weekend gaps ("Roll? No"), not
+# splices -- the table's own placeholder timestamp for a switch it had not yet located.
+# Marking on those rows flagged real weekend-hold trades as splices (ENGUQ_335_VC's
+# -$7,815.66 exit and ENGUQ_L50's -$9,596.79 exit, both ROLL_AUDIT 4.5.4, real and
+# unchanged) and caught NONE of the actual in-bar splices (2026-06-15 03:30 ET NQ / 05:30 ET
+# ES, 2026-09-14 11:30 ET both roots -- ROLL_AUDIT 6.3), because the placeholder timestamp is
+# EARLIER than the real event in both cases.
+#
+# Until the data lane ships a corrected table that distinguishes a real in-bar splice from a
+# weekend-gap placeholder, this lane keeps its own small table of the audited splice times
+# (tools/data/roll_splices.csv, sourced from ROLL_AUDIT 6.3). Swap _ROLL_SPLICES_CSV back to
+# reading contract_switches_*.csv (filtered on whatever source label the data lane settles
+# on for a real splice) once that ships -- _load_inbar_switches is the one place to change.
+_ROLL_SPLICES_CSV = os.path.join(_REPO_ROOT, "tools", "data", "roll_splices.csv")
+_switch_cache = {}   # path -> (mtime, [(root, switch_sec), ...])
+
+
+def _load_inbar_switches(root):
+    """In-bar SPLICE switch_sec values (UTC epoch seconds) for one root ('NQ' or 'ES'),
+    from this lane's own audited table (see _ROLL_SPLICES_CSV above). Cached by the file's
+    mtime so an update (e.g. adding the December 2026 row once it's audited) is picked up on
+    the next call with no restart. Never raises -- a missing/unreadable file or unknown root
+    just yields no switches, same as today."""
+    path = _ROLL_SPLICES_CSV
+    if not path or not os.path.exists(path):
+        return []
+    mtime = os.path.getmtime(path)
+    cached = _switch_cache.get(path)
+    if cached and cached[0] == mtime:
+        all_rows = cached[1]
+    else:
+        try:
+            df = pd.read_csv(path)
+            all_rows = [(str(r).upper(), int(s))
+                       for r, s in zip(df["root"], df["switch_sec"])]
+        except Exception as e:
+            _log(f"_load_inbar_switches failed reading {path}: {type(e).__name__}: {e}")
+            all_rows = []
+        _switch_cache[path] = (mtime, all_rows)
+    want = str(root or "").upper()
+    return [sec for r, sec in all_rows if r == want]
+
+
+_ROLL_MARKED_TRADES_CSV = os.path.join(_REPO_ROOT, "tools", "data", "roll_marked_trades.csv")
+_named_marks_cache = None   # (mtime, {(leg, entry_unix): note}) or None until first load
+
+
+def _load_named_roll_marks():
+    """The exact trades ROLL_AUDIT 4.5.4 identifies as pure splice ARTIFACTS -- enabled by
+    the splice's after-effects (a widened volatility filter, a stale gate feature) but not
+    themselves open across the switch, so the containment test in _apply_roll_marks can
+    never catch them. Keyed on (leg, entry_unix); never raises."""
+    global _named_marks_cache
+    path = _ROLL_MARKED_TRADES_CSV
+    if not os.path.exists(path):
+        return {}
+    mtime = os.path.getmtime(path)
+    if _named_marks_cache and _named_marks_cache[0] == mtime:
+        return _named_marks_cache[1]
+    out = {}
+    try:
+        df = pd.read_csv(path)
+        for _, row in df.iterrows():
+            out[(str(row["leg"]), int(row["entry_unix"]))] = str(row["note"])
+    except Exception as e:
+        _log(f"_load_named_roll_marks failed reading {path}: {type(e).__name__}: {e}")
+        out = {}
+    _named_marks_cache = (mtime, out)
+    return out
+
+
+def _root_of(instrument):
+    """'NQ', 'MNQ', 'ES', 'MES' (or anything ending in one of those roots) -> 'NQ'/'ES'.
+    Unknown instruments return None (no switches known for them, so nothing gets marked)."""
+    s = str(instrument or "").upper()
+    if s.endswith("NQ"):
+        return "NQ"
+    if s.endswith("ES"):
+        return "ES"
+    return None
+
+
+def _apply_roll_marks(trades, leg_key, instrument):
+    """IN PLACE: add roll_flag='splice' + roll_note to every trade dict (as built by
+    _extract_trades) whose holding window contains a listed in-bar switch, that ENTERS after
+    a switch inside the same session it lands in (see the "entered after" branch below), or
+    that is explicitly named in tools/data/roll_marked_trades.csv. Every trade dict always
+    gets both keys (None when unmarked) so a doc's absence of a mark is explicit, not silent.
+    Never deletes a trade or changes pnl_pts/pnl_usd/size. Never raises."""
+    try:
+        root = _root_of(instrument)
+        switches = _load_inbar_switches(root) if root else []
+        named = _load_named_roll_marks()
+        # exit_dt is None only for a trade still open on the LAST bar the backtest saw
+        # (_extract_trades always sets it from idx[xb], never leaves it missing) -- 'now' is
+        # a defensive fallback for that shape, not a path run_shadow's nightly re-scan takes
+        # in practice, since a trade open at the last bar is checked through that bar anyway.
+        now_ts = pd.Timestamp.now(tz="US/Eastern")
+        for t in trades:
+            t.setdefault("roll_flag", None)
+            t.setdefault("roll_note", None)
+            entry_unix = int(t["entry_dt"].timestamp())
+            named_note = named.get((leg_key, entry_unix))
+            if named_note:
+                t["roll_flag"] = "splice"
+                t["roll_note"] = named_note
+                continue
+            if not switches:
+                continue
+            entry_ts = t["entry_dt"]
+            exit_ts = t.get("exit_dt") or now_ts
+            for switch_sec in switches:
+                switch_ts = pd.Timestamp(switch_sec, unit="s", tz="UTC").tz_convert("US/Eastern")
+                day = switch_ts.date().isoformat()
+                holds_across = entry_ts <= switch_ts <= exit_ts
+                # Review finding (major, 2026-09-26): a trade ENTERED after the splice bar,
+                # later the same session, never "holds across" the switch, but its entry is
+                # still built on a splice-contaminated lookback (the ~295-pt splice bar sits
+                # inside every EMA/ATR/volatility-filter window an entry that session reads)
+                # -- ROLL_AUDIT 4.5.4's NOISE family 09-14 11:45 longs (after the 09-14 11:30
+                # splice, same RTH session) are exactly this shape, across 15 legs, and could
+                # not be listed by exact entry time without a backtest replay this worktree
+                # cannot run (no local master/optimizer registry). This does NOT reach a
+                # LATER session's trade (an ETH leg's 09-15/09-16 entry needs the named list
+                # below; see the stage report for exactly which 4.5.4 rows this reaches).
+                entered_after_same_session = (
+                    entry_ts >= switch_ts and entry_ts.date() == switch_ts.date())
+                if holds_across or entered_after_same_session:
+                    t["roll_flag"] = "splice"
+                    if holds_across:
+                        t["roll_note"] = (
+                            f"holds across the {day} {root} contract splice; ROLL_AUDIT 4.5.4")
+                    else:
+                        t["roll_note"] = (
+                            f"entered after the {day} {root} contract splice bar, same "
+                            f"session; ROLL_AUDIT 4.5.4")
+                    break
+    except Exception as e:
+        _log(f"_apply_roll_marks({leg_key}) failed: {type(e).__name__}: {e}")
+    return trades
+
+
 # ── trade conversion (mirrors augur_engine/reconcile.py edgelog_blotter) ─────────
 def _extract_trades(leg, arrays, sized, key=None):
     """(trade tuple, size multiplier) pairs -> plain dicts.
@@ -2007,8 +2280,18 @@ def run_shadow(leg, today):
             bars, bars_et = _filter_rth(bars, leg.get("session", "rth"))
             last_master_time = arrays["index"][-1] if len(arrays["index"]) else None
             if last_master_time is not None and len(bars):
-                keep = (bars_et > last_master_time).values
-                bars = bars[keep].reset_index(drop=True)
+                # Refuse a capture tail on a different contract from the master BEFORE
+                # cutting it down to "only bars after the master's last one" -- the check
+                # itself needs whatever overlap exists (ROLL_AUDIT 4.5.5, 6.6).
+                ok, reason = _capture_tail_contract_check(
+                    arrays, bars, bars_et, leg.get("instrument") or "NQ")
+                if not ok:
+                    warnings.append(f"capture tail refused: {reason}")
+                    _log(f"run_shadow({leg.get('key')}): capture tail refused: {reason}")
+                    bars = bars.iloc[0:0]
+                else:
+                    keep = (bars_et > last_master_time).values
+                    bars = bars[keep].reset_index(drop=True)
             if len(bars):
                 arrays, bars_appended = _append_fresh(arrays, bars)
 
@@ -2033,11 +2316,13 @@ def run_shadow(leg, today):
                 ung = _extract_trades(leg, arrays, [(t, 1.0) for t in raw],
                                       key=leg["emit_ungated_as"])
                 ungated_out = [t for t in ung if t["entry_dt"].date() >= paper_start]
+                _apply_roll_marks(ungated_out, leg["emit_ungated_as"], leg.get("instrument"))
         else:
             sized = [(t, 1.0) for t in raw]
 
         trades = _extract_trades(leg, arrays, sized)
         trades_out = [t for t in trades if t["entry_dt"].date() >= paper_start]
+        _apply_roll_marks(trades_out, leg["key"], leg.get("instrument"))
         ran_ok = True          # the backtest completed; its trade list is authoritative
     except Exception as e:
         msg = f"exception in run_shadow({leg.get('key')}): {type(e).__name__}: {e}"
@@ -2321,6 +2606,12 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
                     "backfill": is_backfill, "live_from": _lf,
                     "layer": "shadow", "run_date": t_date.isoformat(),
                     "flags": leg.get("flags") or [],
+                    # roll_flag/roll_note: set by _apply_roll_marks (ROLL_AUDIT 4.5.4, 6.6
+                    # item 15) when this trade's holding window contains a known in-bar
+                    # contract splice, or is one of the named artifact trades in
+                    # tools/data/roll_marked_trades.csv. None on every ordinary trade --
+                    # never changes pnl_pts/pnl_usd/size, never deletes a trade.
+                    "roll_flag": t.get("roll_flag"), "roll_note": t.get("roll_note"),
                 })
                 # Roll-splice artifact mark (see ROLL_ARTIFACTS above). Matched on
                 # (leg, entry_unix) only -- NOT on this run's recomputed pnl_usd -- so the

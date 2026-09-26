@@ -103,3 +103,9 @@ tools/data/paper_review_inbox/
 !tools/data/setup_bars/*.csv
 # exact NQ/ES contract-switch tables rebuilt from databento_raw (ROLL_AUDIT.md; tiny reference data, overrides *.csv)
 !tools/data/contract_switches_*.csv
+# named splice-artifact shadow trades ROLL_AUDIT 4.5.4 identifies (roll/roll_guard_marks; tiny reference data)
+!tools/data/roll_marked_trades.csv
+# this lane's own audited in-bar splice times (ROLL_AUDIT 6.3) until the data lane's
+# contract_switches_*.csv distinguishes a real splice from a weekend-gap placeholder
+# (roll/roll_guard_marks review finding; tiny reference data)
+!tools/data/roll_splices.csv
