@@ -288,9 +288,9 @@ same queue as the website.
 |---|---|
 | **See live logs** | `tail -f ~/edgelog/logs/qqq_exec.log` (the book) or `~/edgelog/logs/cloud_signal.log` (the signals); Ctrl+C to stop watching |
 | **Check status + secrets** | `bash ~/edgelog/EDGE-LOG/deploy/cloud/check.sh` |
-| **Restart** (e.g. after editing edgelog.env; outside market hours) | `sudo systemctl restart edgelog-cloud-signal.service edgelog-qqq-exec.service` |
+| **Restart** (e.g. after editing edgelog.env; outside market hours) | Don't run `sudo systemctl restart ...` by hand -- see `deploy/cloud/CHANGE_CONTROL.md`. From the PC: `python tools/box_deploy.py --commit <current sha> --yes` re-deploys the box's own current commit, which stops and starts both services through every flatness/window/boot check, same as a real deploy |
 | **Stop** | `sudo systemctl stop edgelog-qqq-exec.service edgelog-cloud-signal.service` |
-| **Update to the latest code** | `cd ~/edgelog/EDGE-LOG && git pull && bash deploy/cloud/install.sh`, then, outside market hours, `sudo systemctl restart edgelog-cloud-signal.service edgelog-qqq-exec.service` |
+| **Update to the latest code** | Don't `git pull` here by hand. From the PC: `python tools/box_deploy.py --yes` (see `deploy/cloud/CHANGE_CONTROL.md`) -- it picks an exact commit, checks the trading-hours window and the book's flatness, and stops/starts the services itself |
 | **Full status** | `systemctl status edgelog-qqq-exec.service edgelog-cloud-signal.service` |
 
 Both paper services **restart automatically** if they ever crash (`Restart=always`) and
