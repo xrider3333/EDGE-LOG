@@ -61,8 +61,6 @@ import datetime as _dt
 import json
 import os
 import sys
-import urllib.error
-import urllib.request
 
 # Make api/ importable when this script is run as `python tools/qqq_deadman.py` from the
 # repo root -- same convention as tools/nt_cloud_watchdog.py reaching api.nt_heartbeat.
@@ -290,24 +288,12 @@ def _write_meta_doc(db, uid, doc_name, data):
 
 
 def _ntfy_post(topic, message, title=None, priority=None):
-    """POST message to ntfy.sh/<topic>. Returns True on 2xx, False otherwise. Never
-    raises -- same shape as tools/nt_cloud_watchdog.py's own _ntfy_post."""
-    url = f"https://ntfy.sh/{topic}"
-    headers = {}
-    if title:
-        headers["Title"] = title
-    if priority:
-        headers["Priority"] = priority
-    req = urllib.request.Request(url, data=message.encode("utf-8"), headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            return 200 <= resp.status < 300
-    except urllib.error.HTTPError as e:
-        print(f"[qqq-deadman] ntfy POST failed: HTTP {e.code}: {e.read()[:300]}")
-        return False
-    except Exception as e:
-        print(f"[qqq-deadman] ntfy POST failed: {type(e).__name__}: {e}")
-        return False
+    """POST one push through api/ntfy_push.py (reads NTFY_TOPIC, optional NTFY_TOKEN /
+    NTFY_SERVER from the environment; `topic` is kept for the call shape only). Returns
+    True on 2xx, False otherwise. Never raises, never logs the topic or token."""
+    from api import ntfy_push
+    return ntfy_push.push(message, title=title, priority=priority, timeout=10,
+                          log=lambda s: print(f"[qqq-deadman] {s}"))
 
 
 def main(argv=None):

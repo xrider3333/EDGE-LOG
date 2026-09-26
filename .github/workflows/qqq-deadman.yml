@@ -54,3 +54,4 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/serviceAccount.json
           EDGELOG_UID: ${{ secrets.EDGELOG_UID }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
