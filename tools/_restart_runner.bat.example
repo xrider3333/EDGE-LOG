@@ -7,11 +7,36 @@ REM queue back to ONE job slot - which is what happened every time until today, 
 REM workers were launched by hand and nothing relaunched them.
 cd /d "C:\Users\xride\OneDrive\Desktop\EDGE-LOG"
 set AUGUR_TRIAL_CACHE=1
-REM ntfy push topic. Without this the local alerters (api/nt_exec_review.py fill pings and
-REM api/nt_drawdown_alert.py intraday warnings) fall back to LOG-ONLY and never reach the
-REM phone -- they were silently log-only until 2026-08-16 because this was only ever set as
-REM a GitHub Actions secret for the cloud watchdog, never in the local launcher.
-set NTFY_TOPIC=edgelog-ESmQqoq7tFF9PZVHs6azgDYI
+REM ntfy push topic/token. Without NTFY_TOPIC the local alerters (api/nt_exec_review.py
+REM fill pings and api/nt_drawdown_alert.py intraday warnings) fall back to LOG-ONLY and
+REM never reach the phone -- they were silently log-only until 2026-08-16 because this was
+REM only ever set as a GitHub Actions secret for the cloud watchdog, never in the local
+REM launcher. Used to be a literal value right here -- this repo is public, so anyone who
+REM cloned it could read (and post to) the topic (WEBULL_GO_LIVE.md 1.10). Both now come
+REM from an UNTRACKED local file instead: C:\EdgeLog\secrets\ntfy.env, one KEY=VALUE per
+REM line, '#' comments allowed, e.g.:
+REM   # ntfy push topic/token -- see WEBULL_GO_LIVE.md 1.10
+REM   NTFY_TOPIC=edgelog-xxxxxxxxxxxxxxxxxxxx
+REM   NTFY_TOKEN=tk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+REM NTFY_TOKEN is optional (a private topic's access token) -- a missing file, or a missing
+REM key inside it, just leaves that piece unset, same as an unset env var always meant.
+REM FILE FORMAT, exactly: create the C:\EdgeLog\secrets\ folder first (it does not exist by
+REM default), then save this file as plain ASCII or UTF-8 (tested 2026-09-26: cmd's `for /f`
+REM below tolerates a UTF-8 byte-order mark (BOM) on the first line fine -- it is the
+REM deploy/_run_qqq_exec.vbs launcher's own text parser that fails to match NTFY_TOPIC on a
+REM BOM-prefixed first line, not this one). What NEITHER parser can read is UTF-16: Windows
+REM PowerShell 5.1's `Out-File`/`Set-Content`/`>` all default to UTF-16LE, not UTF-8, so avoid
+REM those for this file. Use:
+REM   [IO.File]::WriteAllText('C:\EdgeLog\secrets\ntfy.env', "# ...`r`nNTFY_TOPIC=...`r`n",
+REM     (New-Object Text.UTF8Encoding $false))
+REM Starting the file with a '#' comment line (as in the example above) keeps a stray BOM off
+REM the real keys either way, since `eol=#` skips it.
+if exist "C:\EdgeLog\secrets\ntfy.env" (
+  for /f "usebackq tokens=1,* delims== eol=#" %%K in ("C:\EdgeLog\secrets\ntfy.env") do (
+    if /I "%%K"=="NTFY_TOPIC" set "NTFY_TOPIC=%%L"
+    if /I "%%K"=="NTFY_TOKEN" set "NTFY_TOKEN=%%L"
+  )
+)
 REM Warn on the phone well before the bridge's own breaker floor (max_daily_loss_usd in
 REM C:\EdgeLog\bridge.json) so a bad day is audible long before anything trips.
 set EDGELOG_DD_WARN_USD=500

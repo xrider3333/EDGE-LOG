@@ -52,6 +52,12 @@ import time
 import urllib.request
 from zoneinfo import ZoneInfo
 
+# Make api/ importable when this script is run as `python tools/nt_rollover.py` from the
+# repo root (same pattern as tools/nt_cloud_watchdog.py reaching api.nt_heartbeat).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from api import ntfy_push  # noqa: E402  (see sys.path insert above)
+
 ET = ZoneInfo("America/New_York")
 ROOTS = ("NQ", "MNQ", "ES", "MES")
 QUARTERS = (3, 6, 9, 12)
@@ -140,16 +146,8 @@ def log(msg):
 
 
 def page(title, msg):
-    topic = os.environ.get("NTFY_TOPIC")
-    if not topic:
-        log(f"(no NTFY_TOPIC, push skipped) {title}: {msg}")
-        return
-    try:
-        req = urllib.request.Request(f"https://ntfy.sh/{topic}", data=msg.encode("utf-8"),
-                                     headers={"Title": title, "Priority": "high"})
-        urllib.request.urlopen(req, timeout=8).read()
-    except Exception as e:
-        log(f"push failed: {type(e).__name__}: {e}")
+    # api/ntfy_push.py owns the topic/token/server plumbing (WEBULL_GO_LIVE.md 1.10).
+    ntfy_push.push(msg, title=title, priority="high", timeout=8, log=log)
 
 
 def bridge(path, post=False, timeout=8):

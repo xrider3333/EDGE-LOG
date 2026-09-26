@@ -222,19 +222,14 @@ def evaluate(bridge_data, prior_alert):
 
 
 def _page(msg, title):
-    """Best-effort ntfy push. A watchdog must never take down the watch loop, so every
-    failure here is swallowed -- the printed log line is the durable record."""
+    """Best-effort ntfy push, via api/ntfy_push.py (WEBULL_GO_LIVE.md 1.10) -- the
+    topic/token/server plumbing lives there now, never hardcoded here. A watchdog must
+    never take down the watch loop, so every failure here is swallowed -- the printed
+    log line is the durable record."""
     try:
-        import os
-        import urllib.request
-        topic = os.environ.get("NTFY_TOPIC")
-        if not topic:
-            print(f"[nt-heartbeat] NTFY_TOPIC unset, push skipped: {title}: {msg}")
-            return
-        req = urllib.request.Request(f"https://ntfy.sh/{topic}",
-                                     data=msg.encode("utf-8"),
-                                     headers={"Title": title, "Priority": "high"})
-        urllib.request.urlopen(req, timeout=8).read()
+        from api import ntfy_push
+        ntfy_push.push(msg, title=title, priority="high", timeout=8,
+                        log=lambda t: print(f"[nt-heartbeat] {t}"))
     except Exception as e:
         print(f"[nt-heartbeat] push failed: {type(e).__name__}: {e}")
 

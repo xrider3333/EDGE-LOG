@@ -113,10 +113,19 @@ EDGELOG_VALIDATE_WORKERS=2
 AUGUR_TRIAL_CACHE=1
 # ntfy.sh push topic used by edgelog-healthcheck.service and by the runner's own
 # alerters (api/nt_exec_review.py, api/nt_drawdown_alert.py). The owner already has
-# a topic in tools/_restart_runner.bat.example on the PC -- reuse it here so alerts
-# land on the same phone, or pick a fresh topic name (anyone who learns the topic
-# name can read the messages, so treat it like a lightly-kept secret).
+# a topic in the PC's own untracked C:\EdgeLog\secrets\ntfy.env (see
+# tools/_restart_runner.bat.example) -- reuse it here so alerts land on the same
+# phone, or reserve a fresh PRIVATE topic (WEBULL_GO_LIVE.md 1.10; see
+# deploy/cloud/README.md's "ntfy alerts" section). A public topic name is a
+# lightly-kept secret at best -- anyone who learns it can read every message.
 NTFY_TOPIC=CHANGE-ME
+# Access token for the topic above. Leave EMPTY unless the topic is private -- a
+# non-empty value is sent as 'Authorization: Bearer <token>', and ntfy.sh 401s ANY
+# request carrying invalid credentials, even on a public topic, so a placeholder
+# token here would silently break every push once NTFY_TOPIC above is filled in.
+# Fill this in only after reserving a private topic and creating a token for it
+# (see deploy/cloud/README.md's "ntfy alerts" section).
+NTFY_TOKEN=
 EOF
 else
   echo "==> ${ENV_FILE} already exists, leaving it alone"
@@ -170,7 +179,7 @@ echo "         webull_keys.json      -> ${EDGELOG_HOME}/webull_keys.json"
 echo "         webull_token/token.txt -> ${EDGELOG_HOME}/webull_token/token.txt"
 echo "       (Webull ORDER adapter paper credentials, once you have them, go in"
 echo "        ${EDGELOG_HOME}/webull_paper_keys.json -- see README.md \"Webull ORDER adapter\".)"
-echo "    2. Edit ${ENV_FILE} (set NTFY_TOPIC)."
+echo "    2. Edit ${ENV_FILE} (set NTFY_TOPIC, and NTFY_TOKEN if the topic is private)."
 echo "    3. Start the paper book (the job runner stays off on this box -- api/runner.py"
 echo "       refuses to run here; the PC's runner owns the job queue):"
 echo "         sudo systemctl start edgelog-cloud-signal.service"

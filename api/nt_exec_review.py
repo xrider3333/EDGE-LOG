@@ -47,11 +47,6 @@ import time
 import urllib.error
 import urllib.request
 
-try:
-    import requests
-except Exception:
-    requests = None
-
 BASE = os.environ.get("EDGELOG_BRIDGE_URL", "http://127.0.0.1:8391")
 TIMEOUT_SEC = 3
 
@@ -155,24 +150,19 @@ def _save_seen(seen_set):
 
 
 def _notify(message):
-    """Push one ntfy.sh notification. Reads the topic from NTFY_TOPIC (same env var the
-    parallel cloud-watchdog work is expected to use) -- never hardcode a topic name.
-    Logs instead of raising if the env var is unset or the send fails; this runs inside
-    the local runner loop, which must never go down over a missing notification channel."""
-    topic = os.environ.get("NTFY_TOPIC")
-    if not topic:
-        _safe_print(f"[exec-review] NTFY_TOPIC not set, logging only: {message}")
-        return
-    try:
-        if requests is not None:
-            requests.post(f"https://ntfy.sh/{topic}", data=message.encode("utf-8"),
-                           timeout=TIMEOUT_SEC)
-        else:
-            req = urllib.request.Request(
-                f"https://ntfy.sh/{topic}", data=message.encode("utf-8"), method="POST")
-            urllib.request.urlopen(req, timeout=TIMEOUT_SEC)
-    except Exception as e:
-        _safe_print(f"[exec-review] notify failed: {type(e).__name__}: {e}")
+    """Push one ntfy.sh notification via api/ntfy_push.py (WEBULL_GO_LIVE.md 1.10) --
+    the topic/token/server plumbing lives there now, never hardcoded here. Logs instead
+    of raising if the env var is unset or the send fails; this runs inside the local
+    runner loop, which must never go down over a missing notification channel.
+
+    Lazy import (not module-level, same as api/nt_heartbeat.py's _page) so
+    `python api/nt_exec_review.py` still works as a manual/debug run -- a top-level
+    `from api import ntfy_push` makes a bare script invocation fail with
+    ModuleNotFoundError: No module named 'api', since the runner is the only caller
+    that imports this as api.nt_exec_review."""
+    from api import ntfy_push
+    ntfy_push.push(message, timeout=TIMEOUT_SEC,
+                    log=lambda t: _safe_print(f"[exec-review] {t}"))
 
 
 def _respond_to_flagged_fill(fill, reason):

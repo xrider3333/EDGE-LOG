@@ -12,6 +12,13 @@ EDGELOG_HOME="${EDGELOG_HOME:-$HOME/edgelog}"
 LOG_FILE="${EDGELOG_HOME}/logs/runner.log"
 STALE_SEC=600   # 10 minutes
 NTFY_TOPIC="${NTFY_TOPIC:-}"
+NTFY_TOKEN="${NTFY_TOKEN:-}"
+# Default matches api/ntfy_push.py's own default -- a self-hosted ntfy server would
+# otherwise reach every Python sender but not this healthcheck, and the two would
+# disagree about which server actually got the push. Trailing slash stripped the same
+# way api/ntfy_push.py strips it, so "https://ntfy.example.com/" in edgelog.env works.
+NTFY_SERVER="${NTFY_SERVER:-https://ntfy.sh}"
+NTFY_SERVER="${NTFY_SERVER%/}"
 
 _ntfy() {
   local msg="$1"
@@ -19,7 +26,13 @@ _ntfy() {
     echo "[healthcheck] NTFY_TOPIC not set in edgelog.env -- skipping push: $msg"
     return 0
   fi
-  curl -fsS -m 10 -d "$msg" "https://ntfy.sh/${NTFY_TOPIC}" >/dev/null 2>&1 \
+  # NTFY_TOKEN is optional (WEBULL_GO_LIVE.md 1.10, private topic + access token) -- when
+  # unset this sends the exact same unauthenticated POST as before this var existed.
+  local curl_args=(-fsS -m 10 -d "$msg")
+  if [ -n "$NTFY_TOKEN" ]; then
+    curl_args+=(-H "Authorization: Bearer ${NTFY_TOKEN}")
+  fi
+  curl "${curl_args[@]}" "${NTFY_SERVER}/${NTFY_TOPIC}" >/dev/null 2>&1 \
     || echo "[healthcheck] ntfy push failed (non-fatal)"
 }
 

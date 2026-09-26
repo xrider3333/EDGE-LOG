@@ -81,17 +81,15 @@ def _save_state(st):
 
 
 def _notify(msg, title, priority="high"):
-    topic = os.environ.get("NTFY_TOPIC")
-    if not topic:
-        print(f"[dd-alert] NTFY_TOPIC unset, logging only: {msg}")
-        return
-    try:
-        req = urllib.request.Request(
-            f"https://ntfy.sh/{topic}", data=msg.encode("utf-8"), method="POST",
-            headers={"Title": title, "Priority": priority})
-        urllib.request.urlopen(req, timeout=TIMEOUT_SEC)
-    except Exception as e:
-        print(f"[dd-alert] notify failed: {type(e).__name__}: {e}")
+    # api/ntfy_push.py owns the topic/token/server plumbing (WEBULL_GO_LIVE.md 1.10) --
+    # this module just supplies its own "[dd-alert]" log prefix. Lazy import (not
+    # module-level, same as api/nt_heartbeat.py's _page) so `python api/nt_drawdown_alert.py`
+    # still works as a manual/debug run -- a top-level `from api import ntfy_push` makes
+    # a bare script invocation fail with ModuleNotFoundError: No module named 'api',
+    # since the runner is the only caller that imports this as api.nt_drawdown_alert.
+    from api import ntfy_push
+    ntfy_push.push(msg, title=title, priority=priority, timeout=TIMEOUT_SEC,
+                    log=lambda t: print(f"[dd-alert] {t}"))
 
 
 def check():

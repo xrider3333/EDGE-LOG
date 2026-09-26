@@ -54,15 +54,14 @@
 import json
 import os
 import sys
-import urllib.error
-import urllib.request
 
 # Make api/ importable when this script is run as `python tools/nt_cloud_watchdog.py` from
 # the repo root (matches how other tools/ scripts reach into api/, e.g. tools/nt_bridge.py
-# reaching EdgeLogBridge -- here we reach api.nt_heartbeat instead).
+# reaching EdgeLogBridge -- here we reach api.nt_heartbeat and api.ntfy_push instead).
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from api import nt_heartbeat  # noqa: E402  (see sys.path insert above)
+from api import ntfy_push  # noqa: E402  (see sys.path insert above)
+from api import nt_heartbeat  # noqa: E402
 
 
 def _get_firestore_client():
@@ -82,27 +81,6 @@ def _get_firestore_client():
 def _read_meta_doc(db, uid, doc_name):
     doc = db.collection("users").document(uid).collection("meta").document(doc_name).get()
     return doc.to_dict() if doc.exists else None
-
-
-def _ntfy_post(topic, message, title=None, priority=None):
-    """POST message to ntfy.sh/<topic>. Returns True on 2xx, False otherwise. Never raises."""
-    url = f"https://ntfy.sh/{topic}"
-    headers = {}
-    if title:
-        headers["Title"] = title
-    if priority:
-        headers["Priority"] = priority
-    req = urllib.request.Request(
-        url, data=message.encode("utf-8"), headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            return 200 <= resp.status < 300
-    except urllib.error.HTTPError as e:
-        print(f"[nt-cloud-watchdog] ntfy POST failed: HTTP {e.code}: {e.read()[:300]}")
-        return False
-    except Exception as e:
-        print(f"[nt-cloud-watchdog] ntfy POST failed: {type(e).__name__}: {e}")
-        return False
 
 
 def main():
@@ -130,11 +108,14 @@ def main():
 
     severity = rep.get("severity")
     if severity == "critical":
-        ok = _ntfy_post(
-            ntfy_topic,
+        # api/ntfy_push.py owns the topic/token/server plumbing (WEBULL_GO_LIVE.md 1.10);
+        # it re-reads NTFY_TOPIC from the environment itself, same as ntfy_topic above.
+        ok = ntfy_push.push(
             rep.get("message", "NT bridge heartbeat critical"),
             title="EDGELOG: NT bridge DOWN",
             priority="urgent",
+            timeout=10,  # matches the old _ntfy_post's timeout=10, not the helper's default
+            log=lambda t: print(f"[nt-cloud-watchdog] {t}"),
         )
         print(f"[nt-cloud-watchdog] paged owner via ntfy: {'ok' if ok else 'FAILED'}")
         if not ok:
@@ -142,8 +123,8 @@ def main():
     elif severity == "warning":
         # Default: log only, don't push -- avoid paging for the lower-risk case (stale
         # heartbeat but nothing was Realtime last we saw the roster, or a doc that's simply
-        # missing/malformed). Flip this to also call _ntfy_post(...) if the owner decides
-        # warnings should page too.
+        # missing/malformed). Flip this to also call ntfy_push.push(...) if the owner
+        # decides warnings should page too.
         print(f"[nt-cloud-watchdog] warning (not paged): {rep.get('message')}")
     else:
         print(f"[nt-cloud-watchdog] ok ({rep.get('stale_minutes')}m)")

@@ -63,7 +63,9 @@ personally do.
    a fresh Webull live token).
 5. **Fill in `~/edgelog/edgelog.env`** on the VM (`nano ~/edgelog/edgelog.env`) — see
    [`edgelog.env.example`](edgelog.env.example) for what every line means. At minimum,
-   set `NTFY_TOPIC`. Leave `EDGELOG_HOST_ROLE=cloud` exactly as install.sh wrote it.
+   set `NTFY_TOPIC` (and `NTFY_TOKEN` if you've moved to a private topic — see
+   ["ntfy alerts"](#ntfy-alerts--moving-to-a-private-topic-webull_go_livemd-110)
+   below). Leave `EDGELOG_HOST_ROLE=cloud` exactly as install.sh wrote it.
 6. **Start the paper book** — the signal engine and the adapter. The job runner stays
    off on this box:
    ```bash
@@ -259,7 +261,9 @@ What each one is:
 Then finish `~/edgelog/edgelog.env` on the VM (`nano ~/edgelog/edgelog.env`) — see
 [`edgelog.env.example`](edgelog.env.example) for what every line means. At minimum,
 fill in `NTFY_TOPIC` (the push-notification topic — reuse the one already set on your
-PC in `tools/_restart_runner.bat.example`, or pick a fresh name at <https://ntfy.sh>).
+PC's own untracked `C:\EdgeLog\secrets\ntfy.env`, or move to a fresh private one —
+see ["ntfy alerts"](#ntfy-alerts--moving-to-a-private-topic-webull_go_livemd-110)
+below — and set `NTFY_TOKEN` to match if you do).
 
 ---
 
@@ -365,6 +369,111 @@ response to a real incident: an overnight Webull SDK reconnect storm reached 203
 at its source) shipped alongside this backstop. `copytruncate` is required (not the
 usual rename-and-reopen) because these services write through systemd's own held-open
 file handle, not one they reopen per line — see the template's own comments for detail.
+
+---
+
+## ntfy alerts — moving to a private topic (WEBULL_GO_LIVE.md 1.10)
+
+Every phone alert in this project (the exec-review fill pings, the drawdown warning,
+the NT heartbeat page, the futures-roll page, the healthcheck restart notice, the
+cloud watchdog dead-man's-switch) goes out over one ntfy.sh topic. Today that topic is
+a plain unauthenticated name: anyone who learns it can read every message it has ever
+carried AND post fake ones to it, and this repo is public, so the topic was committed
+in `tools/_restart_runner.bat.example` (a `.example` file, tracked in git) and in
+`deploy/_run_qqq_exec.vbs` (the real launcher, also tracked) — readable by anyone who
+clones the repo, past or future. Both of those tracked files are fixed by this change
+(they now read from an untracked local file instead), but a read-only masked grep
+(2026-09-26) found the SAME literal topic (masked here as `ed**`, 32 chars) sitting in
+several places this repo change cannot reach on its own — all on the owner's **PC**
+(none of this is on the Oracle cloud box):
+
+- `C:\EdgeLog\_restart_runner.bat` — the actual launcher every runner restart uses
+  today (`tools/fleet_restart.py` calls this one, not the tracked `.example`), line 14
+  `set NTFY_TOPIC=ed**`.
+- `C:\EdgeLog\_restart_runner.bat.bak-20260908` and
+  `C:\EdgeLog\_restart_runner.bat.bak-20260908-keep` — old backup copies of the same
+  file, same literal.
+- `C:\EdgeLog\_run_qqq_exec.vbs` — the PC's installed copy of the old `.vbs` (this is
+  the **PC**, not "the box's installed copy" as an earlier draft of this note said).
+- The **shared checkout's own tracked copies**, `deploy/_run_qqq_exec.vbs` and
+  `tools/_restart_runner.bat.example` on `origin/main`, still carry the literal until
+  this branch is merged — fixed automatically once that happens.
+- A **stale worktree**, `EDGE-LOG\.claude\worktrees\intelligent-dewdney-3a903d`, has
+  its own untouched copies of those same two files.
+- The Windows Scheduled Task **"EdgeLog NT futures rollover"** has it on its command
+  line (`cmd.exe /c "set NTFY_TOPIC=ed** && python -u tools\nt_rollover.py --apply
+  ..."`) — read-only checked, not modified by this change (see item 4 below).
+- **Git history**: the literal is in 2 commits on this repo, permanently — removing it
+  from every tracked file today does not remove it from history.
+
+None of the untracked files above are fixed by this change (they are outside git
+entirely, so nothing in this repo can rewrite them). The lead needs to do this by hand
+at integration:
+
+(a) Replace `C:\EdgeLog\_restart_runner.bat` with the logic from the newly-tracked
+    `tools\_restart_runner.bat.example` (or just delete its `set NTFY_TOPIC=...` /
+    `set NTFY_TOKEN=...` lines and paste in the `for /f` block that reads
+    `C:\EdgeLog\secrets\ntfy.env`, shown below). Delete or scrub the two `.bak-20260908`
+    copies so they stop carrying the literal forward.
+(b) Copy the newly-tracked `deploy\_run_qqq_exec.vbs` over
+    `C:\EdgeLog\_run_qqq_exec.vbs`.
+(c) Re-point the scheduled task so it reads the topic/token from
+    `C:\EdgeLog\secrets\ntfy.env` instead of carrying them on its command line: wrap
+    `tools\nt_rollover.py --apply` in a small tracked `.bat` that does the same
+    `for /f` read as `tools\_restart_runner.bat.example`, then run
+    `schtasks /change /tn "EdgeLog NT futures rollover" /tr <path to that wrapper>`.
+(d) Remove (or `git worktree remove`) the stale `intelligent-dewdney-3a903d` worktree
+    so it stops being a copy of the burned topic sitting on disk.
+
+**Do not treat the old topic as safe going forward just because it is being replaced:
+it is in git history permanently and must be assumed compromised.**
+
+Moving to a private topic with an access token closes that gap. This is an owner
+action — nobody else can create the account or the token — and it takes about five
+minutes:
+
+1. **Create an ntfy account.** Go to <https://ntfy.sh>, sign up (or sign in with an
+   existing account) — an account is what lets a topic be reserved and locked down,
+   instead of being just a name anyone can post to.
+2. **Reserve a new topic** under that account (a fresh name, not the old one — the old
+   one is burned, see above). Reserving it is what makes it exclusive to your account
+   rather than first-come-first-served.
+3. **Create an access token** scoped to that topic (ntfy.sh: account settings → Access
+   tokens). This is the value every sender in this project will send as
+   `Authorization: Bearer <token>` (via `api/ntfy_push.py`) instead of posting in the
+   open.
+4. **Subscribe your phone** to the new topic from the ntfy app, signed into the same
+   account you created in step 1 — this is what makes the alerts show up on your phone
+   again after the switch.
+5. **Give the lead the new topic name and token privately** (not in chat, not in a
+   commit, not in an issue) — he is the one who puts them into the untracked local
+   files this change reads from: `C:\EdgeLog\secrets\ntfy.env` on the PC (**create the
+   `C:\EdgeLog\secrets\` folder first — it does not exist by default**; format: one
+   `NTFY_TOPIC=...` / `NTFY_TOKEN=...` line each). **Write it with this exact
+   PowerShell command** (do not use `Out-File`, `Set-Content`, or `>` — their UTF-8
+   variants add a byte-order mark, and their *default* encoding is UTF-16LE, which
+   neither the `.vbs` launcher's text parser nor cmd's `for /f` loop can read at all):
+   ```powershell
+   [IO.File]::WriteAllText('C:\EdgeLog\secrets\ntfy.env',
+     "# ntfy push topic/token -- see WEBULL_GO_LIVE.md 1.10`r`nNTFY_TOPIC=your-new-topic`r`nNTFY_TOKEN=your-token`r`n",
+     (New-Object Text.UTF8Encoding $false))
+   ```
+   That writes plain UTF-8 with no BOM, which is the only encoding both parsers
+   support. (Tested 2026-09-26: a UTF-8 BOM on the first line only breaks the `.vbs`
+   launcher's own line-by-line parser — cmd's `for /f` actually matches `NTFY_TOPIC`
+   fine even with a BOM-prefixed first line. Starting the file with a `#` comment line,
+   as the command above does, is still worth keeping — it keeps a stray BOM off the
+   real keys either way.) See the comment block at the top of `deploy/_run_qqq_exec.vbs`
+   or `tools/_restart_runner.bat.example` for the full file-format comment, and
+   `NTFY_TOPIC` / `NTFY_TOKEN` in `~/edgelog/edgelog.env` on the cloud box (see
+   [`edgelog.env.example`](edgelog.env.example)), plus the `NTFY_TOKEN` GitHub Actions
+   secret for `.github/workflows/nt-watchdog.yml` if that workflow should also
+   authenticate.
+
+`NTFY_TOKEN` is optional everywhere it is read: every sender behaves exactly as it did
+before this change when the token is left unset (an unauthenticated POST to whatever
+topic `NTFY_TOPIC` names), so nothing breaks if the token isn't ready yet — only the
+topic name needs to change to stop using the burned one.
 
 ---
 

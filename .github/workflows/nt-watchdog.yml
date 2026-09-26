@@ -8,13 +8,16 @@ name: nt-cloud-watchdog
 # anyone. This workflow runs the SAME evaluate() logic on GitHub's own infrastructure, on a
 # schedule, so it keeps checking even when the PC is completely dark.
 #
-# Needs two repo secrets (Settings -> Secrets and variables -> Actions):
+# Needs two repo secrets, plus one optional one (Settings -> Secrets and variables -> Actions):
 #   FIREBASE_SERVICE_ACCOUNT_JSON  -- full contents of the Firebase Admin service account
 #                                     JSON (same credential shape api/runner.py --cred takes)
 #   EDGELOG_UID                    -- the owner's Firebase uid to check
 #   NTFY_TOPIC                     -- a long random unguessable ntfy.sh topic string (NOT a
 #                                     public/guessable name -- ntfy.sh topics are readable by
 #                                     anyone who knows the name)
+#   NTFY_TOKEN (optional)          -- access token for a PRIVATE topic (WEBULL_GO_LIVE.md
+#                                     1.10). Leave unset for a public topic; api/ntfy_push.py
+#                                     sends it as 'Authorization: Bearer <token>' only when set.
 on:
   schedule:
     - cron: '*/15 * * * *'
@@ -46,3 +49,6 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/serviceAccount.json
           EDGELOG_UID: ${{ secrets.EDGELOG_UID }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          # Optional -- an unset secret evaluates to an empty string, which
+          # api/ntfy_push.py already treats as "no token, unauthenticated POST".
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
