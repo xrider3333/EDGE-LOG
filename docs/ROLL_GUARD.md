@@ -56,9 +56,27 @@ alarms, because what otherwise trips the test is Federal Reserve 14:00 ET decisi
 - `optimizer.py` `auto_refresh_masters`, between the merge and the save. This is the path
   the headless runner executes through `api/augur_refresh.py` about every half hour while
   `--watch` is running, so it is the one that matters most.
+- `tools/refresh_resampled_masters.py`, which rebuilds the 15m/30m/60m/2m masters from
+  those parents. It asks the PARENT, for the reason in the next section.
 
-Both call the same functions, so they cannot drift. `tests/test_roll_guard.py` pins the
-wiring as well as the arithmetic: a guard nothing calls is not a guard.
+All three call the same functions, so they cannot drift. `tests/test_roll_guard.py` pins
+the wiring as well as the arithmetic: a guard nothing calls is not a guard.
+
+## It has to be asked at 1m or 5m, not on a coarse bar
+
+The "is this an extreme move for this bar size" test loses its bite as bars get coarser. A
+30-minute bar's ordinary body is already large enough that a carry-sized jump no longer
+stands ten standard deviations clear of it. Measured on the real 2026-09-14 buckets: ES 30m,
+ES 60m and NQ 2m are caught, and **NQ 30m and NQ 60m sail through** - their preceding
+bodies have a spread wide enough to put the ten-sigma floor above 400 points, and the
+splice bucket's body is 377.50.
+
+That is fine where the guard actually sits, because both data-refresh paths write 1m and 5m
+masters, and at those sizes a carry-sized jump is unmistakable. For the resampled masters
+the rule is: run the guard on the parent's 1m or 5m bars, then refuse any bucket whose
+window covers a flagged parent bar, and everything after it. That is the same "propagate a
+mixed bar to coarser bars" rule `ROLL_AUDIT.md` section 6.2 describes. Do not test a coarse
+bar's own body and conclude it is clean.
 
 ## Proof it works, and what it costs
 
@@ -93,7 +111,13 @@ inflate the spread. Raising the multiple would miss that splice.
 - **It does not use "the other root did not move."** The two roots often roll in the same
   window, and in June 2026 they rolled two hours apart, so that signal is not dependable.
   The other root's body is recorded as evidence, never gated on.
-- **It does not repair the two splices already in the masters.** Those bars are stored and
+- **It does not repair the two splices already in the masters.** The one consequence worth
+  naming: because the 15m/30m/60m/2m masters end 2026-06-30 and the September splice is
+  after that, bringing them current stops at 2026-09-14 rather than 2026-09-25. They go from
+  63 weekdays stale to a little over a week, and the rest appends by itself once the parent
+  is repaired. ES 30m RTH is read by the live paper book, so adding a known-bad bar to it
+  was not an acceptable price for eight more days of tail.
+   Those bars are stored and
   the guard ignores bars at or before the master's last stored timestamp - otherwise every
   refresh would stall forever. Repairing them is `ROLL_AUDIT.md` section 6.3, which needs
   a roll table and, for an exact rather than estimated offset, a Databento re-pull.
