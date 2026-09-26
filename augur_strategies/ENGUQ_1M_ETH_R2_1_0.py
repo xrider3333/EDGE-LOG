@@ -140,6 +140,20 @@ DEFAULT_PARAMS = {
                    'label': 'Breakeven (R, 0=off)',
                    'tooltip': 'Once the trade is this many R in profit, raise the stop to entry. 0=off.'},
 }
+# phantom_safe (2026-09-26, WEBULL_GO_LIVE.md 3.7) is a run_backtest KEYWORD ARGUMENT, not a
+# DEFAULT_PARAMS entry -- deliberately, per the review that caught the first draft: every
+# search-space builder in the repo (augur_engine/auto.py's _auto_space_from_params, used by
+# run_auto/Auto-Validate, plus optimizer.py's two grid builders) turns a DEFAULT_PARAMS 'bool'
+# into a dimension it sweeps over [True, False], ignoring 'options' entirely. Registering the
+# switch there would have spent every future tune/validate's trial budget probing a live-only
+# safety flag, let a fold-truncated walk choose it, and changed the seeded sampler's space so
+# an existing R2 auto-validate could no longer reproduce its trials with the flag off (hard
+# rule 6). Kept OFF the ordinary way instead: the kwarg default below is False, so every caller
+# that does not pass it -- every backtest, validate, and grid/random search -- runs exactly as
+# before. The engine hands **params straight to run_backtest (augur_engine/engine.py), so
+# api/cloud_signal.py's ENGUQ_335 leg reaches it by passing phantom_safe=True explicitly in its
+# own params dict, without this file ever exposing a knob for it. See the SHALLOW LIMIT block
+# below for what True changes.
 
 PARAM_GRID_PRESETS = {
     'Limit depth sweep (research)': {'limit_atr': [0.0, 0.10, 0.20, 0.35, 0.50]},
@@ -160,7 +174,7 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
                  er_len=60, er_th=0.0, limit_atr=0.0,
                  tl_len=170, vol_mult=0.8, stop_mult=1.0, act_R=2.5, trail_frac=2.5,
                  buf_atr=0.9, min_brk=1.3, ema_len=1380, atr_len=106, regime_len=0,
-                 breakeven_R=1.5,
+                 breakeven_R=1.5, phantom_safe=False,
                  return_trades=False, _stop_event=None, _pause_event=None,
                  _signal_probe=None, _fill_probe=None, **_ignore):
     """_signal_probe / _fill_probe: optional lists (research instrumentation only, not part
@@ -230,7 +244,8 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
             vv if have_vol else None, vavg if have_vol else None,
             tl_len=tl_len, buf_atr=buf_atr, min_brk=min_brk, vol_mult=vol_mult,
             limit_atr=limit_atr, stop_mult=stop_mult, act_R=act_R, trail_frac=trail_frac,
-            breakeven_R=breakeven_R, n_scan=_N_SCAN, max_hold_bars=0)
+            breakeven_R=breakeven_R, n_scan=_N_SCAN, max_hold_bars=0,
+            phantom_safe=phantom_safe)
         if _fast is not None:
             _e, _x, _p, _ep = _fast
             pnl_list = [float(v) for v in _p]
@@ -302,6 +317,16 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
                 fill_j = j
                 break
         if fill_j is None:
+            # WEBULL_GO_LIVE.md 3.7: jmax got clamped to n-1 because the data ends before
+            # this setup's 10-bar window is over, not because the window genuinely ran out
+            # with no fill. Off (default): the FULL-backtest reading -- the window always
+            # finishes in a full backtest, so "no fill yet" and "no fill, ever" are the same
+            # thing and the walk is free to move on to a later signal. On: a live/replay
+            # caller cannot yet tell those two apart either, so it stops the walk here
+            # instead of guessing -- no trade for this setup, and no later signal considered
+            # until a fresh call sees more bars and can finish the scan for real.
+            if phantom_safe and jmax < i + _N_SCAN:
+                break
             i += 1; continue  # no fill within the window -> setup dropped, no trade
         if _fill_probe is not None:
             _fill_probe.append(c[i] - fill_price)  # limit touched -> counts as a FILL regardless of risk floor

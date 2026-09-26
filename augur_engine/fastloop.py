@@ -95,7 +95,7 @@ def _tr_jit(h, l, c):
 @njit(cache=True)
 def _walk_jit(o, h, l, c, ema_a, reg, has_reg, atr, tr, er_ok, has_er, vv, vavg, has_vol,
               tl_len, buf_atr, min_brk, vol_mult, limit_atr, stop_mult, act_R, trail_frac,
-              breakeven_R, n_scan, max_hold_bars):
+              breakeven_R, n_scan, max_hold_bars, phantom_safe):
     """The strategy's trade walk. `max_hold_bars` 0 = no time cap (the R2 shape)."""
     n = c.shape[0]
     cap = n // 8 + 64
@@ -220,6 +220,10 @@ def _walk_jit(o, h, l, c, ema_a, reg, has_reg, atr, tr, er_ok, has_er, vv, vavg,
                 fill_j = j
                 break
         if fill_j < 0:
+            # ENGUQ_1M_ETH_R2_1_0.py's phantom_safe -- transcribed identically (see that
+            # file's comment on the same branch, WEBULL_GO_LIVE.md 3.7).
+            if phantom_safe and jmax < i + n_scan:
+                break
             i += 1
             continue
         risk = fill_price - swing_low
@@ -262,11 +266,15 @@ def true_range(h, l, c):
 
 def engu_walk(o, h, l, c, ema_a, reg, atr, tr, er_ok, vv, vavg, *, tl_len, buf_atr, min_brk,
               vol_mult, limit_atr, stop_mult, act_R, trail_frac, breakeven_R, n_scan,
-              max_hold_bars=0):
+              max_hold_bars=0, phantom_safe=False):
     """Returns (entry_bars, exit_bars, pnls, entry_prices) or None if unavailable.
 
     `reg`, `er_ok`, `vv`/`vavg` may be None - the flags below tell the compiled code to skip
     those gates, which is how the interpreted version behaves when the same inputs are None.
+
+    `phantom_safe` (2026-09-26, WEBULL_GO_LIVE.md 3.7): default False keeps every existing
+    caller byte-for-byte unchanged. See ENGUQ_1M_ETH_R2_1_0.py's own comment for what True
+    changes -- transcribed identically into _walk_jit's fill-window branch above.
     """
     if not enabled():
         return None
@@ -284,4 +292,4 @@ def engu_walk(o, h, l, c, ema_a, reg, atr, tr, er_ok, vv, vavg, *, tl_len, buf_a
         np.asarray(vavg, float) if has_vol else np.zeros(n), has_vol,
         int(tl_len), float(buf_atr), float(min_brk), float(vol_mult), float(limit_atr),
         float(stop_mult), float(act_R), float(trail_frac), float(breakeven_R),
-        int(n_scan), int(max_hold_bars))
+        int(n_scan), int(max_hold_bars), bool(phantom_safe))

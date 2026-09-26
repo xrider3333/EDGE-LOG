@@ -225,7 +225,15 @@ CROWN_LEGS = {
     "ENGUQ_335": {
         "strategy": "ENGUQ_1M_ETH_R2_1_0.py",
         "timeframe": "1m",
-        "params": dict(ENGUQ_335),
+        # phantom_safe=True (2026-09-26, WEBULL_GO_LIVE.md 3.7): ONLY this live leg opts in.
+        # phantom_safe is a run_backtest KEYWORD ARGUMENT, not a DEFAULT_PARAMS entry (kept out
+        # of DEFAULT_PARAMS on purpose so no search space ever sweeps it -- see that file's own
+        # comment just above DEFAULT_PARAMS' closing brace). The strategy's own default is False
+        # (every backtest, validate and paper leg keeps today's behaviour) -- this is the one
+        # caller that re-runs the walk on a rolling window that keeps growing bar by bar, which
+        # is exactly the shape that used to book a trade a full backtest never takes (see
+        # ENGUQ_1M_ETH_R2_1_0.py's comment for what the flag does).
+        "params": dict(ENGUQ_335, phantom_safe=True),
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
         # see module docstring "ENGINE LIMITATION" — flagged, not hidden
         "caveat": "ETH-fit crown running on an RTH-only QQQ tape — exploratory, not evidence-backed",
