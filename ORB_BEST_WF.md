@@ -1,5 +1,18 @@
 # ORB — the best configurations to use, with walk-forward performance (2026-09-14)
 
+> **ADDENDUM 2026-09-26 — run #421, #257's region re-fitted.** The Auto-Validate of the settings
+> around #257 (`ORB_3_6_E1R.py`) PASSED 7/8 folds with the parameters re-fitted inside every fold —
+> the test only #314 had faced. Under that same test it earns $312,052 walk-forward (anchored;
+> $308,383 rolling) against #314's $252,549, so the #257 region beats the crown's region the hard
+> way. It did NOT pick #257: it crowned stop 2.75, buffer 0.25, breakeven 0.4 (at the edge of an
+> auto-widened range, still rising), target 6.0. That cell earned the most in the tuning years
+> ($360,051 before the lockbox against #257's $324,977) and then **$58,254 in the lockbox against
+> #257's $91,405**, with the deepest drawdown of the family ($39,825). The four runners-up (all
+> breakeven 0.8) earned $86,131-$88,466. Same lesson as the meta walk-forward: re-tuning picks
+> worse. **#257's frozen cell stays the money pick; the #421 cell is not a candidate.** ES transfer
+> PASS at PF 1.003 (barely), PBO 0.468 ("some overfit risk"), neighbourhood HIGH GROUND.
+> The single crown statement now lives at the top of `ORB.md`.
+
 > **CORRECTION 2026-09-24 — read this before the table.** #257 stays the pick, but not for the reason
 > this page gave. Round 59 (`ORB_ROUND59_FILTER_INTERIOR.md`) mapped the volatility filter from off to
 > 0.80 and found every setting up to 0.40 gives the identical result, so the gate never binds below

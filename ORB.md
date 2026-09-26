@@ -1,6 +1,30 @@
 # ORB — Opening Range Breakout: status, results & backlog
 
-> Living handoff doc. **Last updated: 2026-09-08** (Claude Code).
+## ONE CROWN STATEMENT (2026-09-26) — read this first; it replaces every crown line below
+
+| Question | Answer |
+|---|---|
+| **Owner crown** | **Run #314** (`ORB_3_6_R6.py`), crowned by the owner 2026-09-05. Unchanged. |
+| **What runs where** | The **Webull QQQ paper book's ORB leg is #314**. On NinjaTrader paper, `ORB_R6` is #314 and `ORB` is the #234 control, running side by side (plus the gated/tilted clones `ORB_H`, `ORB_R6_C15*`). #234 is also the ORB leg of book #396. |
+| **Owner star** | **#257** (starred by the owner; stars are web-owned). Not live on any paper leg. |
+| **Which earns the most money** | **#257.** Most walk-forward money ($339,110 against #234's $310,678) and most money by calendar year (+$26,507 over #234, ahead in the four biggest years). #314 is the smoothest ride — lowest drawdown, best worst year — and gives up $33,358 in the four biggest years. Detail: `ORB_BEST_WF.md`. |
+| **Is #257 real, measured the hard way?** | **Its region is; its re-tuned cell is not.** Run #421 re-fitted #257's neighbourhood inside every walk-forward fold, the same test #314 passed: PASS, 7/8 folds, walk-forward **$312,052** against #314's **$252,549** under the same test (ROC 34.4%/yr, Sortino 2.03 vs 27.8%/yr, 1.82). But the cell #421 crowned (stop 2.75, breakeven 0.4, target 6.0, buffer 0.25) won the tuning years and then earned **$58,254** in the lockbox against **$91,405** for #257's own frozen cell. Re-tuning picked a worse cell, again. **Keep #257 frozen; do not adopt the #421 cell.** |
+| **#257 vs #266** | **One strategy.** The volatility-filter setting that separates them (0.50 vs off) removes 11 of 2,762 trades and has not removed a trade since July 2021 (round 59, `ORB_ROUND59_FILTER_INTERIOR.md`). |
+| **Owner calls open** | (1) Keep #314 as crown, or move the crown to #257 (more money, ~12% deeper drawdown). (2) Whether #257 gets a paper leg beside #314 and #234. Research does not decide either. |
+
+**Contract roll (ROLL_AUDIT.md §3.4, §4.5.4, 2026-09-25).** The ORB backtests are immune to rolls
+*between* sessions: #314, #257, #239, #234 and #297 give bit-identical trade lists on back-adjusted
+data. They are **not** immune to a splice *inside* a session: the 2026-09-14 in-bar splice inflated
+that session's range (430.75 → 725.75), which let the 2026-09-16 paper trades through the
+volatility filter — `ORB` −$1,930.66, `ORB_R6` −$2,410.66 (and the same trade on the `ORB_R6_C15*`
+clones, `ORB_H` −$2,912.38). **All of them disappear on corrected prices.** The effect lasts about
+five sessions. Paper: NT8 and Paper: WB own marking those trades; nothing in the ORB strategy
+changes.
+
+---
+
+> Living handoff doc. **Last updated: 2026-09-26** (Claude Code). The crown lines in this
+> block are history — the ONE CROWN STATEMENT above is the current answer.
 > **2026-09-05 — THE CROWN MOVED TO RUN #314 / `ORB_3_6_R6.py`.** Same #230 close-confirmed
 > entry; re-tuned exit: **stop 2.5x the range, target 5.0R, breakeven 0.5R, filters 0.75 / 0.80**.
 > Validate #314 PASS on all seven checks, WF 7/8, lockbox $92,102 / PF 1.561, **ES transfer 1.019
