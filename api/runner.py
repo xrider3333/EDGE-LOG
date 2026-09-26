@@ -493,6 +493,27 @@ CTRL_CHECK_SEC = 3.0             # STOP/PAUSE poll cadence inside a running job
 MIN_FREE_MEM_BYTES = 2.5 * 1024 ** 3   # do not claim more work below this much free RAM
 
 
+def book_legs_missing_params(legs):
+    """Names of BOOK legs that carry no params - the ones that would silently run the
+    strategy FILE's defaults instead of the settings the book card names.
+
+    A book leg is meant to be FIXED: nothing is tuned inside a book run, so the leg's
+    params ARE the leg. BOOK #419/#417/#418 (2026-09-25) were queued with the params
+    block missing on their first legs and nothing said so - the ENGU-Q leg booked
+    2,843 trades / $420,506 where run #396's leg books 1,949 / $603,381, and the card
+    still read '#396 + TTIBS'. A leg that genuinely wants the file defaults declares
+    it with \"use_defaults\": true, so the intent is on the job doc either way.
+    """
+    out = []
+    for i, leg in enumerate(legs or []):
+        if not isinstance(leg, dict) or not leg.get("strategy"):
+            continue
+        if leg.get("params") or leg.get("use_defaults"):
+            continue
+        out.append("leg %d (%s)" % (i + 1, leg.get("strategy")))
+    return out
+
+
 def _claimant_pid(claimed_by):
     """claimedBy is 'runner-<pid>-<rand>' (see _WORKER_ID). None when it is anything else."""
     try:
@@ -732,6 +753,22 @@ def process_job(job: dict, progress_cb=None) -> dict:
             # every leg's trades pooled into a single pile and scored as ONE strategy. Fixed
             # params — nothing is tuned here — so there is no WF fold result to report; the
             # lockbox split and the house consistency count are in the result's `book` block.
+            # EMPTY LEG PARAMS = A BOOK THAT IS NOT THE BOOK YOU ASKED FOR (2026-09-26).
+            #   BOOK #419/#417/#418 were queued with `params` missing on their first legs, so
+            #   those legs silently ran the strategy FILE's DEFAULT_PARAMS instead of the
+            #   frozen settings the card claimed: ENGU-Q booked 2,843 trades / $420,506 where
+            #   run #396's leg books 1,949 / $603,381. Nothing in the result said so - the run
+            #   looked like a clean book of the named legs. A leg that really does want the
+            #   file defaults has to say so with "use_defaults": true, which also leaves a
+            #   record in the job doc of what was intended.
+            _bad = book_legs_missing_params(job.get("legs") or [])
+            if _bad:
+                raise ValueError(
+                    "BOOK leg(s) with EMPTY params: %s. A book leg runs FIXED settings, so an "
+                    "empty params block silently substitutes the strategy file's defaults and "
+                    "the book is not the one the card names (BOOK #419, 2026-09-25). Re-queue "
+                    "with each leg's params, or set \"use_defaults\": true on the leg if the "
+                    "file defaults are genuinely what you want." % ", ".join(_bad))
             r = ae.run_book(
                 job.get("legs") or [],
                 date_from=df_from, date_to=df_to,
