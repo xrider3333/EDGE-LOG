@@ -98,6 +98,7 @@ docs/anatomy/*_trades.csv
 !tools/data/fomc_dates.csv
 tools/data/score_pending.json
 tools/data/score_inbox/
+tools/data/paper_review_inbox/
 # setup-journal bar windows: the permanent OHLC record behind setups/*.md (same reason as above)
 !tools/data/setup_bars/*.csv
 # exact NQ/ES contract-switch tables rebuilt from databento_raw (ROLL_AUDIT.md; tiny reference data, overrides *.csv)
