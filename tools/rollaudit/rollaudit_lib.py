@@ -5,7 +5,7 @@ stitch rule (tools/stitch_databento._active_by_day: max-volume contract per UTC 
 64 raw switches per root 2010-06..2026-03 (+2 inferred after the raw files end 2026-06-05; the
 2026-09 one reads -384.5 NQ points and is NOT trusted - post-raw data comes from another feed).
 
-    import sys; sys.path.insert(0, r"C:\\EdgeLog\\_anatomy_cache\\rollaudit"); import rollaudit_lib as RL
+    import sys; sys.path.insert(0, "tools/rollaudit"); import rollaudit_lib as RL   (from the repo root)
     sw  = RL.load_switches("NQ")                         # DataFrame, raw switches only by default
     adj = RL.adjusted_arrays(arrays, "NQ")               # Panama back-adjusted copy of a load_master_arrays dict
     det = RL.true_detector("NQ")                         # drop-in for detect_roll_seams(day_open, day_close, day_ts)

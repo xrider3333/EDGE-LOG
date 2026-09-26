@@ -6,7 +6,8 @@ the true contract offset (new close - old close at the last minute both traded b
 Master data after the raw files end (2026-06-07) is flagged; the June 2026 switch there is
 inferred from the largest 00:00-UTC / session-open jump in its quarterly window.
 
-Output: C:\\EdgeLog\\_anatomy_cache\\rollaudit\\switches_<ROOT>.csv (+ .json)
+Output: C:\\EdgeLog\\_anatomy_cache\\rollaudit\\switches_<ROOT>.csv - copy it to
+tools/data/contract_switches_<ROOT>.csv to update the committed table.
 """
 import os, sys, json
 import numpy as np

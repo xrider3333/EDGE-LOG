@@ -20,7 +20,7 @@ A = ilu.module_from_spec(sp); sp.loader.exec_module(A)
 detect = A.detect_roll_seams
 HERE = os.path.dirname(os.path.abspath(__file__))
 TABLES = os.path.join(os.path.dirname(HERE), "data")
-OUTDIR = r"C:\EdgeLog\_anatomy_cacheollaudit"
+OUTDIR = r"C:\EdgeLog\_anatomy_cache\rollaudit"
 
 
 def load(root, tf, sess):
