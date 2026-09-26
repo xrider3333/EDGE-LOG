@@ -564,6 +564,8 @@ and blind for one that holds for weeks: ENGU-Q (`ENGUQ_1M_ETH_R2_1_0.py`) has he
 days on NQ, and its 182 trades held over 5 days carry $901,692 of a leg that nets $603,381. While
 those trades are open their swings never reach the book's daily curve. Found in book round 56
 (`BOOK_ROUND56_ROC.txt` section 5).
+> Roll audit (2026-09-25): on roll-corrected prices this leg nets $499,155, not $603,381
+> (ROLL_AUDIT.md 3.2); see 10f.
 
 **What changed.** `augur_engine/book.py` scores the same dollars twice. The headline - every
 stored number, every bar - stays the at-close reading. `book.mtm` values each open position at
@@ -582,6 +584,10 @@ when it differs - never for an intraday-only book.
 | #396 (recommended) | lockbox drawdown | $27,506 | $49,855 |
 | #372 FRONTIER PENTA | lockbox drawdown | $34,205 | $54,539 |
 
+> Roll audit: corrected, #397's pre-lockbox drawdown is $40,971 at close / $41,853 valued daily and
+> its lockbox drawdown $25,893 at close; the #396 and #372 rows do not move (10f). The $49,855
+> stretch sits just after the unrepaired June 2026 switch.
+
 Whole-run net is identical to the cent on all three, and the at-close figures reproduce the stored
 runs exactly (756 ENGU-Q trades marked, none unmarkable).
 
@@ -595,6 +601,8 @@ Gates: `tests/test_book_mtm.py`, `tools/runboard_books_probe.py` (both book tabl
 **Not in this change:** the quarterly-roll steps a multi-week leg books on the no-adjust masters
 (about $39,580 = 6.6% of the ENGU-Q NQ leg's net, measured by the sibling session; see
 `BOOK_ROUND56_ROC.txt` section 5b).
+> Superseded by ROLL_AUDIT.md 4.6: 36 crossings book $38,985 ($34,240 pre-lockbox, $4,745 in the
+> lockbox); with the changed trades the leg loses $104,226 and the books 8.0-8.5% - see 10f.
 
 **Correction for the DIP legs (2026-09-25, after v73.899).** The first version valued every open
 position as side x (close - entry) x the leg's multiplier. The DIP files (`NQDIP_1_0.py`,
@@ -623,6 +631,287 @@ right after this ship (its dry run: at-close figures reproduce to the cent; poin
 
 Gates: `tests/test_dip_open_marks.py` (each file's open values plus its own costs rebuild its closed
 P&L to the cent, across roll seams; every file with a `notional` knob must have the hook).
+
+### 10f. Roll-audit restatement (2026-09-25/26) - #366, #396 and #397 on roll-corrected legs
+
+**What was done.** `ROLL_AUDIT.md` (2026-09-25) re-ran the three current books locally with every
+leg's quarterly contract rolls corrected (section 4.3): the ENGU-Q #335 leg on back-adjusted NQ
+1-minute prices, the TTM leg on back-adjusted ES 30-minute prices, and NOISE #304 with the
+prior-close fix. Every "stored" figure below was first reproduced from the stored run to the dollar.
+**No stored run was changed**: Past Runs, the RUNBOARD and every table above this section still show
+the raw figures. These are local re-runs, not new BOOK jobs.
+
+**Window.** 2010-06-07 to 2026-06-30 with the lockbox from 2025-06-30 (ROLL_AUDIT.md 4.3), so the
+pre-lockbox stretch is 2010-06-07..2025-06-29 (5,502 days = 15.06 years) and the lockbox is
+2025-06-30..2026-06-30 (365 days = 0.9993 year at 365.25 days a year). ROC %/yr is EL's column: net
+per year as a percentage of a $100k account (`BOOK_ROUND56_ROC.txt` section 1). This convention
+reproduces round 56's stored-run figures exactly (#397 97.4 / 306.3, #396 98.5 / 307.3).
+
+**What these numbers do NOT include: the June 2026 roll.** The June 2026 contract switch sits inside
+one bar of the NQ 1-minute 24-hour master, and none of the columns below repairs it. Repaired on its
+own, it takes a further **-$5,860** off the ENGU-Q #335 leg on both the whole run and the lockbox
+(V, ROLL_AUDIT.md 3.2), so each book should fall by about that much more. The TTM and NOISE legs also
+carry the uncorrected June gap on the day-session masters, and that part is not quantified. The audit
+marks the combined book figures *to be recomputed* (4.3).
+
+#### BOOK #396 (recommended)
+
+| Figure | Stored | Roll-corrected | Change |
+|---|---|---|---|
+| Whole-run net | $1,790,319 | $1,640,039 | -$150,280 (-8.4%) |
+| Pre-lockbox net | $1,483,223 | $1,340,004 | -$143,219 (-9.7%) |
+| Lockbox net | $307,096 | $300,034 | -$7,062 (-2.3%) |
+| Pre-lockbox drawdown, at close | $36,562 | $43,967 | +$7,405 (+20.3%) |
+| Pre-lockbox drawdown, valued daily | $37,444 | $44,849 | +$7,405 (+19.8%) |
+| Lockbox drawdown, at close | $27,506 | $27,506 | none |
+| Lockbox drawdown, valued daily | $49,855 | $49,855 | none (see the June note above) |
+| Pre-lockbox net/DD | 40.57 | 30.48 | |
+| Lockbox net/DD | 11.16 | 10.91 | |
+| Profit factor, pre-lockbox / lockbox | 1.5105 / 1.5984 | 1.4488 / 1.5855 | |
+| ROC %/yr, pre-lockbox | 98.5 | 89.0 | -9.5 points |
+| ROC %/yr, lockbox | 307.3 | 300.2 | -7.1 points |
+| Consistency (8 stretches) | 8/8, PASS | 8/8, PASS | |
+
+#### BOOK #397 (FRONTIER)
+
+| Figure | Stored | Roll-corrected | Change |
+|---|---|---|---|
+| Whole-run net | $1,773,541 | $1,623,261 | -$150,280 (-8.5%) |
+| Pre-lockbox net | $1,467,499 | $1,324,280 | -$143,219 (-9.8%) |
+| Lockbox net | $306,042 | $298,981 | -$7,061 (-2.3%) |
+| Pre-lockbox drawdown, at close | $33,567 | $40,971 | +$7,404 (+22.1%) |
+| Pre-lockbox drawdown, valued daily | $34,449 | $41,853 | +$7,404 (+21.5%) |
+| Lockbox drawdown, at close | $25,357 | $25,893 | +$536 (+2.1%) |
+| Lockbox drawdown, valued daily | $49,855 | $49,855 | none (see the June note above) |
+| Pre-lockbox net/DD | 43.72 | 32.32 | |
+| Lockbox net/DD | 12.07 | 11.55 | |
+| Profit factor, pre-lockbox / lockbox | 1.5226 / 1.6073 | 1.4586 / 1.5942 | |
+| ROC %/yr, pre-lockbox | 97.4 | 87.9 | -9.5 points |
+| ROC %/yr, lockbox | 306.3 | 299.2 | -7.1 points |
+| Consistency (8 stretches) | 8/8, PASS | 8/8, PASS | |
+
+#### BOOK #366 (adopted, starred)
+
+| Figure | Stored | Roll-corrected | Change |
+|---|---|---|---|
+| Whole-run net | $1,685,715 | $1,550,996 | -$134,719 (-8.0%) |
+| Pre-lockbox net | $1,395,904 | $1,268,246 | -$127,658 (-9.1%) |
+| Lockbox net | $289,811 | $282,750 | -$7,061 (-2.4%) |
+| Pre-lockbox drawdown, at close | $36,562 | $40,854 | +$4,292 (+11.7%) |
+| Pre-lockbox drawdown, valued daily | $37,444 | $41,736 | +$4,292 (+11.5%) |
+| Lockbox drawdown, at close | $28,066 | $28,066 | none |
+| Lockbox drawdown, valued daily | $49,855 | $49,855 | none (see the June note above) |
+| Pre-lockbox net/DD | 38.18 | 31.04 | |
+| Lockbox net/DD | 10.33 | 10.07 | |
+| Profit factor, pre-lockbox / lockbox | 1.4862 / 1.5634 | 1.4303 / 1.5504 | |
+| ROC %/yr, pre-lockbox | 92.7 | 84.2 | -8.5 points |
+| ROC %/yr, lockbox | 290.0 | 282.9 | -7.1 points |
+| Consistency (8 stretches) | 8/8, PASS | 8/8, PASS | |
+
+#### For comparison: #379 and #372
+
+| Figure | #379 stored | #379 corrected | #372 stored | #372 corrected |
+|---|---|---|---|---|
+| Whole-run net | $1,773,184 | $1,622,903 | $1,667,190 | $1,550,566 |
+| Pre-lockbox net | $1,479,042 | $1,335,823 | $1,383,367 | $1,273,814 |
+| Lockbox net | $294,142 | $287,081 | $283,823 | $276,752 |
+| Pre-lockbox drawdown, at close | $33,350 | $33,350 | $36,487 | $37,918 |
+| Pre-lockbox drawdown, valued daily | $35,993 | $35,993 | $37,369 | $38,800 |
+| Lockbox drawdown, at close | $26,683 | $26,683 | $34,205 | $34,205 |
+| Lockbox drawdown, valued daily | $49,855 | $49,855 | $54,539 | $54,539 |
+| Pre-lockbox net/DD | 44.35 | 40.05 | 37.91 | 33.59 |
+| Lockbox net/DD | 11.02 | 10.76 | 8.30 | 8.09 |
+| ROC %/yr, pre-lockbox / lockbox | 98.2 / 294.3 | 88.7 / 287.3 | 91.8 / 284.0 | 84.6 / 276.9 |
+| Consistency (8 stretches) | 8/8, PASS | 8/8, PASS | 8/8, PASS | 8/8, PASS |
+
+**Where each figure comes from.**
+- Whole-run net, lockbox net, both net/DD ratios and the pre-lockbox drawdown at close: ROLL_AUDIT.md
+  4.3, first table ("Before" and "All three fixes" columns).
+- Pre-lockbox drawdown valued daily: ROLL_AUDIT.md 4.3, second table (V).
+- Pre-lockbox net, lockbox drawdown at close and valued daily, and profit factor: the audit's output
+  file `work\sweep-holders\impact\books_run1.log` (the "stored" and "V3_ttm_noise_enguq" lines, which
+  are the "All three fixes" state of 4.3). #397's corrected lockbox drawdown ($25,893) is also printed
+  in `work\harness-misc\book_impact.log`.
+- ROC %/yr, stored: `work\harness-misc\book_years.log` and `BOOK_ROUND56_ROC.txt` section 4. ROC %/yr,
+  roll-corrected: arithmetic on the corrected pre-lockbox and lockbox nets (net / 15.0637 years /
+  $1,000, and net / 0.99932 year / $1,000). The audit file prints ROC only for a state with ENGU-Q and
+  TTM corrected but not NOISE: #396 89.1 / 300.2, #397 88.1 / 299.2, #366 84.4 / 282.9.
+- #372: ROLL_AUDIT.md 4.4 gives only its ENGU-Q leg delta (-$103,706) and "stays PASS" (M). Every other
+  #372 figure is from `books_run1.log`.
+- The "Change" column is arithmetic.
+- Verification (ROLL_AUDIT.md 4.3): #396 and #397 are **V** (re-run by a second agent). #366 is V except
+  its TTM+NOISE and all-three columns, which are M: one agent measured them, and they follow
+  arithmetically from verified leg deltas. #379 is **M**; #372 is **M** (4.4).
+
+**Where the money goes.** Whole-run net, from the columns of ROLL_AUDIT.md 4.3:
+
+| Book | ENGU-Q fix alone | TTM + NOISE fixes | All three |
+|---|---|---|---|
+| #366 | -$104,226 | -$30,493 | -$134,719 |
+| #396 | -$104,226 | -$46,054 | -$150,280 |
+| #397 | -$104,226 | -$46,054 | -$150,280 |
+
+- **ENGU-Q.** The -$104,226 is the #335 leg falling from $603,381 to $499,155 (-17%, V, 3.2). Only
+  $38,985 of it is money booked across switches. The rest is a different sequence of trades,
+  dominated by one March 2023 entry that a stale regime average let through just after a roll.
+- **TTM and NOISE.** The TTM part is -$43,180 for TTM #369 x3 in #396/#397 (V) and -$27,620 for
+  TTM #353 x3 in #366 (M) (3.3). The NOISE #304 leg moves -$2,874 ($405,980 to $403,106, V, 3.4).
+- **Lockbox net.** Every book's lockbox net falls by about $7,061, and all of it is the ENGU-Q leg:
+  the TTM and NOISE lockboxes do not move (3.3, 3.4).
+
+**Why the pre-lockbox drawdowns rise.** All of the rise is one new TTM short on 2020-03-17, inside the
+Feb-Mar 2020 worst stretch (4.3, V). It costs 3 x -$2,468 = -$7,404 with TTM #369 (#396, #397) and
+3 x -$1,431 = -$4,292 with TTM #353 (#366). The valued-daily worst stretch is 2020-03-02..2020-03-27
+in every variant. #379 does not move because its worst stretch is May 2022, which the correction does
+not touch (4.3, M).
+
+**Finding 1 - #396 over #366 now rests on the held-back year alone** (ROLL_AUDIT.md 4.3; owner call,
+7 item 4).
+- **Before the correction**, #396 led on both stretches: selection n/DD 40.57 against 38.18, and
+  lockbox n/DD 11.16 against 10.33.
+- **Corrected, #366 is slightly ahead on the selection stretch** (31.04 against 30.48). #396's TTM
+  leg takes the new 2020 short three times at -$2,468, while #366's takes it at -$1,431.
+- **#396 still wins the held-back year**: $300,034 / PF 1.585 against $282,750 / PF 1.550 (n/DD 10.91
+  against 10.07).
+- **#396 still makes more money.** It is $89,043 ahead on whole-run net, down from $104,604
+  (`book_years.log`). Its corrected ROC is 89.0 against 84.2 before the lockbox and 300.2 against
+  282.9 in it (arithmetic, tables above).
+- **Calendar-year test (book55c, M).** Years 2011-2025 are counted. A year is a #396 win when it
+  makes at least as much net with no deeper in-year drawdown, and a loss when it makes less net
+  with a deeper drawdown.
+
+  | Correction state | #396 vs #366, wins / losses of 15 |
+  |---|---|
+  | Stored | 6 / 1 |
+  | ENGU-Q fixed | 7 / 1 |
+  | TTM fixed alone | 4 / 3 |
+  | ENGU-Q and TTM fixed (NOISE not fixed in this test) | 5 / 3 |
+
+- **In the same test**, #397 against #396 goes from 6 / 4 to 7 / 4. The TTM-leg swap (#353 to #369)
+  earns more net in 11 of 15 years, not 13 (M).
+- **Still owed.** The audit asks for this test to be re-run with every leg corrected, NOISE
+  included, before the recommendation is re-decided.
+
+**Finding 2 - #397 now trails #379 by 19% on the selection stretch** (ROLL_AUDIT.md 4.3 and 3.8
+items 8 and 13; owner call, 7 item 5).
+
+| Correction state | #397 selection n/DD | #379 selection n/DD | #397 below #379 |
+|---|---|---|---|
+| Stored | 43.72 | 44.35 | 1.4% |
+| TTM fixed alone | 34.76 | 43.05 | 19.3% |
+| TTM + NOISE fixed | 34.69 | 42.97 | 19.3% |
+| All three fixed | 32.32 | 40.05 | 19.3% |
+
+- **"19%" means #397's ratio is 19% below #379's.** Put the other way, #379 is about 24% above (3.8
+  item 8). The ENGU-Q-only state was not computed for #379.
+- **The held-back-year ranking does not change.** #397 leads 11.55 against 10.76 corrected (12.07
+  against 11.02 stored).
+- **The gap comes from #397's drawdown.** #379's selection-stretch drawdown stays at $33,350,
+  because its worst stretch (May 2022) is untouched. #397's drawdown rises to $40,971 through the new
+  2020 TTM short.
+
+**What this does not change.**
+- **Verdicts.** Every variant of all five books is PASS 8/8 (4.3, and `books_run1.log` for #372).
+- **ROC order, lockbox.** The order of the five books is unchanged.
+- **ROC order, pre-lockbox.** The only swap is at the bottom: #372 (84.6) moves just ahead of #366
+  (84.2). This is arithmetic from the tables above.
+- **Book bars.** Section 10 bars are still read on the stored at-close figures. Re-running #366, #396
+  and #397 (then #379, #371, #378 and #339) as BOOK jobs on corrected masters is proposed in
+  ROLL_AUDIT.md 6.7 item 4. It waits for owner approval and for the adjusted masters to be built.
+- **The valued-daily lockbox drawdown ($49,855, 2026-06-18..06-26).** It sits just after the June
+  2026 switch and was not re-checked with that switch repaired (4.3).
+
+Reproduce: the audit's scripts and logs are listed at the end of ROLL_AUDIT.md
+(`C:\EdgeLog\_anatomy_cache\rollaudit\work\sweep-holders\impact\` and `work\harness-misc\`).
+
+**Elsewhere in this file, figures the audit also restates** (history is left as written; ROLL_AUDIT.md
+section in brackets, V = verified by a second agent, M = measured once):
+- 3.4 row 24, the ENGU-Q day-session leg of #227: nets $374,531 corrected, not $477,521; run #227's
+  drawdown $65,635 -> $87,683 (3.2, V). Rows 25/29 (#262, #261) carry that leg: #262 stays PASS (4.4, M).
+- 10's "$34,329.21 - the same to the cent" (#336 / #337 / #341): #337 loses its ENGU-Q #309 leg delta
+  (-$96,992) and stays PASS (4.4, M); the drawdown itself was not restated.
+- 10's weak-edge ETF book #332: drawdown $75,755 with DIP's true switch days; the r25 gates still hold
+  (4.4, M).
+- 10a / 10c: #347 $793,811 -> $702,192 with 8/8 -> 7/8 stretches; #311 / #346 / #348 at-close drawdowns
+  +$7,668 each (#311 $114,107 -> $121,775) on the corrected DIP leg (4.4, M); the MAR ratios there were
+  not recomputed.
+- 10e's DIP figures: at close, DIP on NQ #423's drawdown is $47,505 (true switch days) / $39,458
+  (back-adjusted), and DIP on ES #425's is $66,592-$68,714, not $54,016 (3.6, V). The valued-daily DIP
+  figures in 10e were not restated.
+
+### 10g. Round 58 — beating #397's ROC / YR with ML: no (2026-09-25)
+
+**The ask and the fair comparison.** Owner: *"beat roc/yr on our best frontier model … ML's count."* ROC / YR
+doubles when contracts double, so every candidate was scaled by one book-wide factor, set on the pre-lockbox
+stretch only so its pre-lockbox drawdown (the worse of at-close and valued-daily) matches #397's $34,449, then
+carried unchanged into the lockbox. Pre-registered bar at that size: pre ROC ≥ 102.3 (1.05 × 97.4), lockbox
+ROC ≥ 306.3, lockbox drawdown within 5% ($26,625 at close / $52,348 valued daily), more net in ≥ 10 of 15 years.
+
+**Result: no genuine beat in ~71 books** (58a grid of 60, 58b volatility dial, 58c KEEL v12 / #422, 58d ENGU-Q's own gate).
+
+| book, at #397's drawdown | pre ROC | lockbox ROC | lockbox DD at close | verdict |
+|---|---|---|---|---|
+| #397 FRONTIER as run | 97.4 | 306.3 | $25,357 | — |
+| ENGU-Q et@0.55 cut + NOISE #422 (58d) | 103.3 | 321.0 | $26,492 | passed, then **refuted** |
+| NOISE #422 in the NOISE slot (58c) | 105.7 | 322.7 | $27,955 | misses the drawdown clause only — **owner call** |
+| + NOISE #398 x1 (58a, closest) | 108.5 | 328.2 | $28,821 | misses the drawdown clause |
+
+**Why the 58d pass is refuted.** It holds only at gate seed 42 and start 2010-06-07 (0 of 10 other seeds, 0 of 4
+other starts, +0.25 cost fails); its $133 of drawdown headroom is two ENGU-Q losers on 2025-11-25 that seed 42
+skipped; and the cut loses money ($36,277 before the lockbox) and scores winners at chance (AUC 0.495).
+**The #335 gate belongs to run #335's champion (cost 0.533), not to #397's ENGU-Q leg (R2 defaults, cost 0.783)**:
+moved onto the leg it takes the lockbox from $107,941 to $14,705. No validated gate exists for that leg.
+
+**Owner call (not a recommendation):** NOISE #422, the validated 1.75x compression tilt, in place of #304 earns
+more in 15 of 15 years at an unchanged pre-lockbox drawdown, but misses the lockbox at-close cap by $1,330, and
+its lockbox gain sits at the 78.9th percentile of random upsizing, it adds only 2.7% at matched
+volatility, and it fails the bar at the tradable 1.7x and 1.8x sizes (1.75 NQ is not a whole
+number of micros).
+
+**Pre-audit.** All figures are on the unadjusted masters (10f restates the books); ROLL_AUDIT.md later found roll phantom P&L in the
+ENGU-Q NQ leg. Both sides of every comparison carry the same legs, so the verdicts stand; the absolute ROC
+figures are pre-audit. Full write-up: `BOOK_ROUND58_ML.txt` (data and scripts in
+`C:\EdgeLog\_anatomy_cache\frontier_ml\`, outside git).
+
+### 10h. BOOK #417 / #418 / #419 re-run with their frozen settings - read runs #430 / #429 / #431 (2026-09-26)
+
+**Why.** The three jobs queued 2026-09-24 carried NO params on every leg they shared with their source
+book (the legs look copied from a run doc's `book.legs`, which never stores params). A leg with empty
+params runs the strategy file's own defaults, so ORB, ENGU-Q and (in #419) NOISE #304 were not the
+frozen legs: ENGU-Q ran 2,843 trades / $420,506 instead of 1,949 / $603,381; ORB $337,940 instead of
+$373,305; #419's NOISE $395,169 instead of $405,980. The TTM legs happened to be right (their defaults
+equal the frozen settings). **The stored #417 / #418 / #419 do not describe the books their names
+claim - read the re-runs.** ELwA: Features is adding a runner guard against empty-params legs.
+
+**How.** Each re-run is the source book's job legs VERBATIM plus exactly the change the broken job's own
+name and label state: #417 and #418 swap the NOISE slot from NOISE #304 to the live NOISE leg (NOISE
+#382, run #382's champion); #419 adds TTIBS #300 as a fifth leg. Before queueing, #396 and #366
+reproduced their stored figures to the cent from their own legs, and every shared leg matched its
+source-run leg to the cent. The runner's results equal that local re-run to the cent. Queue script and
+parity table: `C:\EdgeLog\_anatomy_cache\manager_0926\` (`queue_books_0926.py`, `parity_table.json`).
+
+| run | what it is | pre-lockbox net / ROC %/yr | pre DD at close / valued daily | lockbox net / ROC %/yr | lockbox DD at close / valued daily | stretches |
+|---|---|---|---|---|---|---|
+| **#430** | re-run of #417: #396 with NOISE #382 in the NOISE slot | $1,675,397 / 111.2 | $37,738 / $40,306 | $328,445 / 328.7 | $32,467 / $55,474 | 8/8 PASS |
+| **#429** | re-run of #418: #366 with NOISE #382 in the NOISE slot | $1,588,077 / 105.4 | $37,738 / $40,306 | $311,161 / 311.4 | $33,292 / $55,474 | 8/8 PASS |
+| **#431** | re-run of #419: #396 + TTIBS #300 as a fifth leg | $1,858,429 / 123.4 | $68,852 / $72,102 | $343,905 / 344.1 | $48,074 / $77,370 | 8/8 PASS |
+| #396 | reference | $1,483,223 / 98.5 | $36,562 / $37,444 | $307,096 / 307.3 | $27,506 / $49,855 | 8/8 PASS |
+| #366 | reference | $1,395,904 / 92.7 | $36,562 / $37,444 | $289,811 / 290.0 | $28,066 / $49,855 | 8/8 PASS |
+
+ROC %/yr = net per year on a $100k account (15.06 years before the lockbox, 1.0 in it). Book runs carry
+no Sortino (the book engine does not compute one). Figures are on the stored, unadjusted masters, like
+every stored run (10f).
+
+**Reading (no decision taken here).**
+- **NOISE #382 in the NOISE slot (#430 vs #396):** +$192,174 before the lockbox for +$1,176 of at-close
+  drawdown; +$21,350 in the lockbox for +$4,961 at close and +$5,620 valued daily. Scaled to #396's
+  pre-lockbox at-close drawdown it reads about 107.8 / 318.4 %/yr against 98.5 / 307.3, with a lockbox
+  at-close drawdown about 14% deeper. Same swap on #366 (#429): the same dollars. Whether to trade NOISE
+  #382 (or #422, 10g) in the book's NOISE slot is an **owner call**.
+- **TTIBS #300 as a fifth leg (#431 vs #396):** +$375,205 before the lockbox, but the pre-lockbox
+  drawdown nearly doubles ($36,562 -> $68,852) and the worst stretch moves from Feb-Mar 2020 to
+  Jul-Aug 2024. Scaled to #396's drawdown it reads about 65.5 / 182.8 %/yr - well below #396. On these
+  numbers the add does not pay for its drawdown; the TBIS chat re-reads TTIBS from #431.
 
 ### 10b. An open item this audit turned up: two day-stamping rules disagree
 

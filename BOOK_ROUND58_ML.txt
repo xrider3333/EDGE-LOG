@@ -1,0 +1,370 @@
+BOOK ROUND 58 - BEAT FRONTIER BOOK #397 ON ROC / YR, ML ALLOWED  (2026-09-25, written up 2026-09-26)
+=====================================================================================================
+
+Owner ask: "i asked to beat roc/yr on our best frontier model. dont come back until you do. ML's count"
+
+VERDICT: NO. About 71 books were scored in four stages (58a-58d). One pre-registered book passed, and a
+three-part adversarial check refuted it as fatal. Nothing from this round should be queued as an
+improvement on #397. The one real edge is NOISE #422's size tilt in the NOISE slot. It misses one clause
+of the bar, so whether to use it is left as an OWNER CALL (section 7).
+
+ROC % / YR is net profit per year as a percentage of a $100k account. Pre-lockbox = 2010-06-07 ..
+2025-06-29; lockbox (the held-back year) = 2025-06-30 .. 2026-06-30. Every figure is on that window
+and on the stored, unadjusted masters. Section 9 explains what the later roll audit changes.
+The pre-registration log, with every result appended as it came in, is
+C:\EdgeLog\_anatomy_cache\frontier_ml\PREREG_R58.txt.
+
+
+1. THE BOOK TO BEAT
+-------------------
+#397 FRONTIER = ORB #297 filters x1 + ENGU-Q #335 R2 leg x1 + TTM #369 x3 + NOISE #304 x1.
+
+                     net          ROC %/yr   drawdown at close   drawdown valued daily
+  pre-lockbox        $1,467,499    97.4      $33,567             $34,449
+  lockbox            $306,042     306.3      $25,357             $49,855   (lockbox net valued daily $290,729)
+
+Where the drawdowns sit:
+  - The pre-lockbox drawdown is Feb-Mar 2020 and is paid by ORB and ENGU-Q: at close 2020-02-25 to
+    03-27, valued daily 2020-03-02 to 03-27.
+  - The lockbox at-close drawdown is ONE 13-day slide, 2025-11-24 to 12-11, in which every leg lost.
+  - The lockbox valued-daily drawdown is 2026-06-18 to 06-26 (BOOK.md 10e).
+
+A structural consequence: an add-on that is flat in 2020 cannot move the pre-lockbox drawdown. But if
+it loses in the Nov-Dec 2025 slide, it breaks the lockbox drawdown clause (bar 3). An add-on that loses
+in March 2020 shrinks the scale factor k for the whole book.
+
+
+2. THE FAIR-COMPARISON RULE
+---------------------------
+ROC / YR scales with contracts. Round 56 showed the same #397 at x0.5 / x1 / x1.5 / x2 gives 48.7 / 97.4
+/ 146.1 / 194.8 %/yr. A plain "more ROC / YR" is therefore not a beat. Every candidate is scaled by ONE
+book-wide factor k, with legs rounded to 0.1 contract because micro contracts make that tradeable. k is
+chosen on the PRE-LOCKBOX stretch only, so that the candidate's pre-lockbox drawdown equals #397's
+$34,449. That drawdown is the WORSE of the at-close and valued-daily readings. k is then carried
+unchanged into the lockbox. Leg weights stay 1/1/3/1 before k: round 56 Test A found that re-weighting
+has no forward skill.
+
+
+3. THE PRE-REGISTERED BAR (written into PREREG_R58.txt before any candidate number existed)
+-------------------------------------------------------------------------------------------
+At that k, a candidate beats #397 only if ALL of:
+  1. pre-lockbox ROC >= 1.05 x 97.4 = 102.3 %/yr
+  2. lockbox ROC >= 306.3 %/yr (at close) AND lockbox net valued daily >= $290,729
+  3. lockbox drawdown at close <= 1.05 x $25,357 = $26,625 AND valued daily <= 1.05 x $49,855 = $52,348
+  4. more net than #397 (scaled the same way) in >= 10 of the 15 calendar years 2011-2025, and no more
+     than 3 years with less net AND a deeper in-year drawdown
+  5. ML legs use ONLY the model each run's own gate_validate chose, at its chosen cut-off. The hybrid
+     size_norm is frozen on pre-lockbox survivors, and scores are walk-forward (min_history 30,
+     refit_every 25). No model, cut-off or weight shopping on the lockbox.
+  6. it survives an adversarial check: look-ahead in the gate path, roll-step phantom P&L,
+     concentration, and "is it just leverage".
+
+The candidate family was also fixed in advance:
+  - the four #397 slots, each as in #397 or with its run's own validated ML (cut or hybrid);
+  - the NOISE slot as #382 (the validated compression re-size of #304), with or without its own gate;
+  - at most ONE new validated leg, at weight 0.5 or 1.
+Every book built is reported below, pass or fail.
+
+In the tables, "k" is the scale factor. The two DD columns are the LOCKBOX drawdown at close and valued
+daily. "yrs" is the number of years with more net / the number of years with less net and a deeper
+drawdown. "fails" lists the bars missed.
+
+
+4. RESULTS
+----------
+58a - 60 PRE-REGISTERED BOOKS (r58_prereg.txt / .json). NO PASS.
+  The grid had three parts, 3 x 4 x 5 = 60:
+    - the ENGU-Q slot: #397's own leg, run #335's champion with its rf cut, or the champion with its
+      rf hybrid;
+    - the NOISE slot: #304, #382, #382 with its rf cut, or #382 with its rf hybrid;
+    - the add-on: none, NOISE #398 x0.5 or x1, or DIP on ES #425 x0.5 or x1.
+  The ORB and TTM slots stayed as in #397 in every book. Every ML form on ORB #297 (chosen rf@0.45),
+  TTM #369 (rf@0.50) and NOISE #304 (logistic@0.50) fails its own money rule at leg level
+  (ml_evidence.csv).
+
+  book (scaled to #397's pre-lockbox drawdown)       k     pre    LB     LB DD close  LB DD daily  yrs    fails
+  #397 as run                                      1.000   97.4  306.3   $25,357      $49,855       -      -
+  + NOISE #398 x0.5                                1.000  103.0  317.2   $27,089      $49,855     15/0   3
+  + NOISE #398 x1  (closest overall)               1.000  108.5  328.2   $28,821      $49,855     15/0   3
+  NOISE slot #382                                  0.914   99.2  294.9   $25,894      $49,927      6/2   1 2 4
+  NOISE #382 + #398 x1  (stage-1 pick on pre ROC)  0.910  109.1  314.6   $28,381      $49,927     13/2   3
+  NOISE #382 + rf CUT                              0.850   89.3  264.4   $22,976      $44,380      3/1   1 2 4
+  NOISE #382 + rf HYBRID                           0.833   91.3  264.6   $27,321      $44,476      3/1   1 2 3 4
+  + DIP on ES #425 x0.5                            0.547   56.0  165.1   $13,886      $25,564      3/0   1 2 4
+  + DIP on ES #425 x1                              0.346   36.5  103.8    $9,319      $15,593      1/0   1 2 4
+  ENGU-Q #335 champion + rf CUT (NOISE #304)       1.048   88.5  270.6   $50,805      $53,267      5/4   1 2 3 4
+  ENGU-Q #335 champion + rf HYBRID (NOISE #304)    0.824   71.9  238.5   $40,302      $43,109      1/1   1 2 3 4
+
+  - NOISE #398 is not a new strategy. It is exactly 996 of NOISE #304's 4,817 trades, the ones taken
+    while the hourly squeeze is compressed. Adding it is a size tilt on the NOISE slot. Its filter was
+    chosen on these same years, and the first two weeks of the book's lockbox fall inside its
+    selection window.
+  - DIP on ES loses $16,706 inside #397's worst stretch (2020-03-02 to 03-27, valued daily). That
+    drags k down to 0.547 or 0.346. This is the same failure as round 52.
+  - All 40 books with the #335 champion in the ENGU-Q slot fail. The reason is in section 6.
+
+58b - BOOK VOLATILITY DIAL (pre-registered; a causal risk overlay with nothing fitted). FAIL.
+  Each day's book size = clip( std(book daily $, last 250 trading days) / std(book daily $, last 20),
+  0.5, 1.5 ). Both are measured on the at-close curve through the previous day, with fixed numbers.
+  It was applied to #397 and to #397 + NOISE #398 x1, and rebuilt at trade level, with size fixed on
+  each trade's entry day.
+  - #397 + dial reads pre 111.9 as built. But its valued-daily pre drawdown is $39,126: ENGU-Q trades
+    opened at 1.5x in calm tape, then were held into the crash. That gives k 0.845 and pre 94.5.
+  - #397 + #398 + dial gives k 0.746 and pre ~91.6. Dead.
+
+58c - EXPLORATORY, FLAGGED: KEEL v12 and #422 in the NOISE slot. NO PASS.
+  Caveats known before scoring:
+  - KEEL v5-v12 settings were chosen while reading #243 / #304 lockbox results in this window, so
+    KEEL's lockbox read is not clean.
+  - KEEL's gap_atr feature leaks the fill bar's range (under 1%). The leak-fixed series are the ones
+    that count.
+
+  book                                              k     pre    LB     LB DD close  LB DD daily  yrs    fails
+  NOISE slot #422 (validated 1.75x tilt)          1.000  105.7  322.7   $27,955      $49,855     15/0   3
+  #304 + KEEL v12, leak-fixed                     0.847   89.0  290.5   $24,767      $39,884      0/0   1 2 4
+  #382 + KEEL v12, leak-fixed (live Webull cfg)   0.836  102.7  301.8   $28,384      $45,502      9/2   2 3 4
+  #304 + KEEL v12 as shipped                      0.902   99.2  325.3   $28,113      $44,869      7/1   1 3 4
+  #382 + KEEL v12 as shipped                      0.830  102.9  299.4   $28,439      $45,461     10/2   2 3
+
+  #422 passed its own validate: PASS 6/6, 8/8 folds, PBO 0.19. The 1.75x tilt was chosen by its own
+  validate, and the squeeze is read from COMPLETE hourly bars only (checked). In the book it misses
+  bar 3 only: the lockbox at-close drawdown is $27,955, +10.2% over #397.
+
+58d - THE ENGU-Q SLOT'S OWN CHOSEN GATE (pre-registered). 1 PASS OF 4.
+  The standard 5-model x 4-cut-off bake-off was run on #397's ENGU-Q leg itself (R2 defaults, cost
+  0.783, lockbox 2025-06-30), locally rather than as a runner job. On pre-lockbox data it chose et@0.55.
+  Its own verdict was LOCKBOX FAILED: $86,040 against $87,790 ungated, with a drawdown of $47,032
+  against $41,889, counted by entry date. It was graded anyway, flagged, as CUT and HYBRID, in #397 and
+  in #397 with #422 in the NOISE slot.
+
+  book                                              k     pre    LB     LB DD close  LB DD daily  yrs    fails
+  ENGU-Q et@0.55 CUT + NOISE #422                 1.000  103.3  321.0   $26,492      $49,855     10/2   PASS
+  ENGU-Q et@0.55 CUT + NOISE #304                 1.000   95.0  304.5   $23,894      $49,855      5/3   1 2 4
+  ENGU-Q et@0.55 HYBRID + NOISE #304              0.947   85.9  279.8   $21,899      $50,285      1/1   1 2 4
+  ENGU-Q et@0.55 HYBRID + NOISE #422              0.947   93.4  294.6   $23,980      $50,285      6/2   1 2 4
+
+  The pass cleared every clause by a thin margin:
+    - pre 103.3 against a bar of 102.3;
+    - lockbox net valued daily $305,425 against $290,729;
+    - lockbox drawdown at close $26,492 against a cap of $26,625;
+    - 10 of 15 years (the bar is 10), with 2 worse-and-deeper.
+  Written BEFORE the adversarial check:
+    - every margin is thin, and ~71 books had been scored;
+    - the ML cut LOWERS ROC on its own (95.0 vs 97.4);
+    - its only role in the pass is trimming the lockbox at-close drawdown under the 5% cap;
+    - #422 alone earns more (105.7 / 322.7, 15/15 years) but misses that cap.
+
+
+5. THE ADVERSARIAL CHECK ON THE 58d PASS - REFUTED, FATAL (three skeptics; adv_* files)
+---------------------------------------------------------------------------------------
+Reproduction. augur_engine.book.run_book reproduces the pass to the cent: pre $1,556,427 with drawdown
+$33,567 / $34,449, and lockbox $320,738 with drawdown $26,492 / $49,855.
+
+Fragility (adv_frag_*, adv_randcut_seeds_log.txt). The pass holds ONLY at gate seed 42 and window start
+2010-06-07.
+  - gate seeds 0-9: 0 of 10 pass. Pre ranges 100.4-102.5, and the lockbox at-close drawdown is $27,273 -
+    $27,955 except at seed 5. Seeds 123 and 2024 also fail.
+  - cut-offs 0.54, 0.545, 0.555, 0.56 at seed 42: all fail.
+  - start dates 2010-07-06, 2010-09-07, 2011-01-03, 2012-01-03 (legs re-run, gate re-walked, k re-fixed):
+    all fail. Moving the start by one month turns the cut from -$36,277 to -$87,037 of pre-lockbox
+    ENGU-Q net.
+  - cost +0.25 points per trade per contract on every leg: pre 97.0 against a bar of 98.5, 7/15 years.
+    FAIL.
+  - ET session-day stamping (the open BOOK.md 10b call): #397's lockbox at-close drawdown drops to
+    $24,576, so the cap becomes $25,805, and the candidate's $26,492 FAILS.
+  - risk matched on pre-lockbox daily volatility instead of the worst drawdown: k 0.968, pre 100.0 vs
+    97.4 (+2.7%), under 102.3. FAIL.
+  What did NOT break it:
+    - moving the lockbox boundary anywhere from 2025-04-30 to 2025-08-29;
+    - extending the window to 2026-09-24 (fresh 2026-07-01..09-24 net $54,356 vs #397's $50,125);
+    - removing the booked roll steps from both ENGU-Q legs (pre 101.25 vs 95.44, bar 100.21; lockbox
+      311.45 vs 296.75).
+  None of these rescues a result that dies on the seed.
+
+Where bar 3 comes from (adv_randcut_lbtrades.txt).
+  - The pass rests on two ENGU-Q losers on 2025-11-25 that seed 42 happened to skip: -$780 at score
+    0.5491 and -$682 at 0.5379.
+  - Put either back and the lockbox at-close drawdown is $27,273 or $27,174. FAIL.
+  - Headroom under the cap is $133. Six tilted NOISE trades sit inside the slide, and $22 of extra cost
+    on each of them would break the cap.
+
+The cut itself (adv_randcut_*).
+  - It COSTS money: -$36,277 pre-lockbox and -$1,751 in the lockbox. It kept 65.2% of pre-lockbox
+    entries and 87.3% of lockbox entries.
+  - It cannot tell winners from losers (AUC 0.495).
+  - Random cuts that keep the same number of trades (500 draws each): uniform 0/500 pass, stratified
+    0/500, random pre-lockbox with the real lockbox 0/500, random pre-lockbox with all lockbox trades
+    0/500. With the real pre-lockbox cut and random lockbox cuts, 18/500 (3.6%) pass.
+  - It beats random cuts only by KEEPING BIG TRADES. It kept 20 of the top 20 winners (random expects
+    12.9) and 9 of the worst 10 losers. Drop the top 20 winners and it sits at the 44.8th percentile of
+    random cuts.
+  - Shuffled within deciles of trade size, which keeps the size pattern and destroys the
+    winner-vs-loser choice, 15/500 pass. The real cut sits at the 50.2nd percentile on pre ROC and the
+    56.2nd on lockbox ROC: as good as shuffled.
+
+Where the money is (adv_money_*).
+  - The 58d book's pre-lockbox advantage over #397 is $88,929: the NOISE tilt +$125,206 and the ENGU-Q
+    cut -$36,277.
+  - Its lockbox advantage is $14,696: the NOISE tilt +$16,447 and the cut -$1,751. 89% of that lockbox
+    advantage ($13,027) is one month, Feb 2026.
+  - It earns less than #397 in 2014, 2015, 2016, 2017 and 2019. In 2017 it is -$14,688, where the cut
+    skipped $14,796 of ENGU-Q net.
+
+Is it leverage (adv_money_main_log.txt)? NOISE #422 is #304's own trades, re-sized; they pair exactly
+($0 difference).
+  - Pre-lockbox: +17.6% net per average contract. That is $125,206 of extra net against $54,474 from
+    flat leverage to the same average size (x1.1567). It sits at the 100th percentile of 5,000 random
+    tilts of the same count. This is real money.
+  - Lockbox: +13.3% per average contract, $16,447 against $7,674 from flat leverage, at the 78.9th
+    percentile of random tilts.
+  - Flat NOISE #304 x1.2 in its place gives k 0.947, pre 93.04, lockbox 289.59. FAIL.
+  - At the tradable tilt sizes, with the cut:
+      1.7x: pre 102.8, lockbox 319.9, drawdown $26,319, 9/15 years. FAILS bar 4.
+      1.8x: pre 103.9, lockbox 322.1, drawdown $26,666. FAILS bar 3.
+
+FINAL: NO GENUINE BEAT OF #397 FOUND IN ROUND 58 (~71 books). Do not queue the 58d book as an
+improvement. Its leg spec is saved (r58_candidate_legs.json) only as the reproduction record.
+
+
+6. THE ML FINDINGS
+------------------
+The #335 gate does not belong to #397's ENGU-Q leg.
+  #397's leg:
+    - the R2 file's default settings at cost 0.783 (tl_len 206, limit_atr 0.55, vol_mult 1.1);
+    - 1,949 trades.
+  Run #335's gate_validate was scored on the run's CHAMPION instead:
+    - cost 0.533 (tl_len 238, limit_atr 0.1, vol_mult 0.0, ema_len 1340);
+    - 1,344 trades.
+  Its HYBRID rf@0.45 PASS is therefore evidence about a different configuration. That hybrid also has
+  about $88.8k less raw pre-lockbox net than ungated ($402,689 vs $491,518); it wins only at equal
+  drawdown.
+  Moved onto #397's leg (book view, exit day):
+    - ungated: pre $495,439, DD $38,872; lockbox $107,941, DD $39,550
+    - rf@0.45 cut: pre $434,189, DD $46,988; lockbox $14,705, DD $53,457
+    - rf@0.45 hybrid: pre $452,893, DD $48,517; lockbox $23,762, DD $61,740
+  The leg's own bake-off (58d) chose et@0.55, which failed its lockbox.
+  CONCLUSION: no validated gate exists for #397's ENGU-Q leg.
+
+The other book legs (ml_evidence.csv, 96 rows):
+  - ORB #297 (rf@0.45): "ungated wins pre-lockbox", and every form fails its money rule.
+  - TTM #369 (rf@0.50): the gate verdict is LOCKBOX FAILED, and every form fails.
+  - NOISE #304 (logistic@0.50): LOCKBOX FAILED, and every form either loses lockbox money or breaks
+    the 5% lockbox drawdown cap.
+  - NOISE #382's rf@0.45 CUT passes its money rule narrowly, but it kept all 315 lockbox trades, so
+    its lockbox is a tie. Inside the book neither its cut nor its hybrid helps (58a).
+
+The machinery is not the problem. A book leg carrying a gate block reproduces each run's stored cut and
+hybrid rows to within 1e-9 dollars (ORB #314, NOISE #382, ENGU-Q #335 champion). The question is only
+which configuration and cost a gate was validated on.
+
+Rule going forward:
+  - a gate belongs to the exact configuration and cost it was validated on;
+  - before believing any ML-gated book pass, run a random-cut null plus a gate-seed and start-date
+    sweep.
+
+
+7. OWNER CALL - NOISE #422 IN #397's NOISE SLOT (stated for decision, not recommended)
+-------------------------------------------------------------------------------------
+The swap: #397 with NOISE #304 replaced by #422, the same 4,817 trades with 1.75 contracts when the
+hourly squeeze is compressed (996 trades, 20.7%) and 1 otherwise. Nothing else changes, k = 1.00.
+
+  For:
+  - validated on its own: PASS 6/6, 8/8 folds, PBO 0.19, tilt chosen by its own validate, causal
+    (complete hourly bars only)
+  - in the book: pre 105.7 vs 97.4, lockbox 322.7 vs 306.3, lockbox net valued daily $307,176 vs
+    $290,729
+  - more net in 15 of 15 years, 0 worse-and-deeper
+  - pre-lockbox drawdown unchanged ($33,567 / $34,449); lockbox valued-daily drawdown unchanged ($49,855)
+  - +17.6% net per average contract before the lockbox, at the 100th percentile of random tilts
+  - with the booked ENGU-Q roll steps removed from both books it still reads 103.75 vs 95.44 pre and
+    313.21 vs 296.75 lockbox, failing bar 3 only
+
+  Against:
+  - it FAILS the pre-registered bar: lockbox drawdown at close $27,955 against the $26,625 cap (+10.2%
+    over #397's $25,357)
+  - in the lockbox the tilt sits at the 78.9th percentile of random upsizing of the same trade count
+  - the 58d book, which carries it, gains only +2.7% at matched volatility
+  - with the ENGU-Q cut, the tradable 1.7x and 1.8x sizes fail the bar
+  - it is a size tilt on an existing leg, not a new leg; the same tilt at 2x (#382 in the NOISE slot)
+    and #398 added at x0.5 / x1 (1.5x / 2x on the compressed trades) all fail this bar in 58a
+
+The pre-registered answer is no. Keeping #397 as it is, or swapping in #422 knowing it missed bar 3 by
+$1,330, is the owner's decision; this round does not recommend either.
+
+
+8. WHAT IS DEAD - DO NOT RE-RUN
+-------------------------------
+  - transplanting run #335's gate onto #397's ENGU-Q leg, or putting the #335 champion and its gate in
+    the ENGU-Q slot
+  - the ENGU-Q et@0.55 cut: lockbox failed standalone, loses money, AUC 0.495, pass seed-specific
+  - every validated ML form on ORB #297, TTM #369 and NOISE #304; NOISE #382's rf cut and hybrid
+    inside the book
+  - NOISE #382 in the NOISE slot (k 0.914, pre 99.2)
+  - NOISE #398 added at x0.5 or x1: fails the lockbox at-close drawdown
+  - a book volatility dial (58b)
+  - KEEL v12 in the NOISE slot, as shipped and leak-fixed, including the live Webull configuration
+    (#382 + KEEL v12)
+  - DIP on ES #425 at x0.5 or x1: loses in the March 2020 stretch that sets the drawdown
+The next honest lever is a genuinely new, validated leg with low correlation to the other legs. Overlays
+and re-sizing of the existing four legs are exhausted at this bar.
+
+
+9. ROLL AUDIT CAVEAT - THE FIGURES ARE PRE-AUDIT, THE VERDICTS STAND
+--------------------------------------------------------------------
+Every round-58 number was computed on the stored, unadjusted (no-adjust) masters. ROLL_AUDIT.md, written
+later the same day, found that the ENGU-Q NQ leg carries roll phantom P&L:
+  - #397's ENGU-Q leg crosses 36 contract switches and books $38,985 of offset.
+  - On back-adjusted prices the leg falls from $603,381 to $499,155 (-17%), because the trade sequence
+    changes too.
+  - TTM #369 falls from $135,884 to $121,491, NOISE moves about 1%, and ORB is identical.
+  - With all fixes #397 itself is $1,623,261 whole-run (was $1,773,541). Its pre-lockbox drawdown is
+    $40,971 at close (was $33,567) and $41,853 valued daily (was $34,449).
+
+The verdicts stand because both sides of every comparison carry the same legs on the same masters:
+  - ORB #297 and TTM #369 are identical in #397 and every candidate.
+  - Every ENGU-Q variant is the same 1,949 trades; a cut keeps a subset. The one exception is the 40
+    58a books that swap in run #335's champion, a different configuration. The audit moves that one
+    too (whole run $541,330 -> $476,435), and those books failed 3 or 4 of the 4 bars.
+  - Every NOISE variant is #304's own trades, re-sized.
+  - DIP on ES #425 is the one add-on only on the candidate side. The audit makes its drawdown larger
+    ($66,592-$68,714, was $54,016), which only deepens its fail.
+The 58d adversarial check also removed the booked roll steps (37 crossings, $39,387 by its method) from
+both ENGU-Q legs, and the bar result did not change.
+
+The ABSOLUTE figures are pre-audit and will move when the books are re-scored on corrected legs. That
+covers 97.4 / 306.3, the $34,449 matching target, and every candidate ROC above. The ENGU-Q gate was
+also trained on unadjusted prices, so a corrected leg would need its own bake-off.
+
+
+10. SIDE FINDINGS FROM THE ROUND'S MAPPING PASS
+------------------------------------------------
+  - Book open-trade marks for the self-sizing DIP files were valued at $1 a point. FIXED in b9d7d0c
+    (BOOK.md 10e correction).
+  - The RSI2 DIP file recorded shorts as longs. FIXED in the same commit.
+  - Book jobs #417-#419 ran four legs with empty settings, so the strategy files' defaults ran instead
+    of #396's frozen settings. This is recorded in ROLL_AUDIT.md section 1. The TTIBS verdict stands
+    on its own: TTIBS at 1 raises #397's pre-lockbox drawdown at close from $33,567 to $68,402.
+  - KEEL's gap_atr feature divides by an ATR that includes the fill bar's own high/low/close. It moved
+    12 of 12 bars by up to 28.5%, and the effect on results is under 1% in both directions. No fix on
+    main as of 9421861.
+
+
+11. FILES
+---------
+All in C:\EdgeLog\_anatomy_cache\frontier_ml\ (outside git):
+  PREREG_R58.txt                    pre-registration + every stage result, in the order written (primary)
+  map_results.txt                   the mapping pass: ML evidence, new legs, KEEL causality, gate parity
+  ml_evidence.csv / .py             96 rows: 16 runs x ungated/cut/hybrid/tilt/KEEL, in dollars
+  r58_prereg.txt / .json            58a, all 60 books;  r58_run.py, eval_r58.py (scoring + the bar)
+  r58b_voldial.py, r58b_trade.py    58b
+  r58c.json / .py                   58c;  r58d.json / .py, r58d_series.py   58d
+  gate_validate_enguq335_leg.*      the 5 x 4 bake-off on #397's own ENGU-Q leg (chose et@0.55)
+  gate_parity_*.json, gate_booklegs_*   gate parity and the #335-gate transplant
+  noise_variants*                   KEEL v12 series (as shipped and leak-fixed)
+  new_leg_*.csv, new_legs_*.json    daily tables for 19 candidate legs, at close and valued daily
+  adv_randcut_*                     random-cut null, size-band null, seed sweep, lockbox trade list
+  adv_frag_*                        seeds, start dates, cost, day stamping, boundary, extension, vol match
+  adv_money_*                       roll steps, concentration, leverage controls, tilt sizes, year split
+  r58_candidate.py / _legs.json / _runbook.json   the 58d book through run_book (reproduction only)
+Summary: BOOK.md section 10g. Ledger rows: RESEARCH_LEDGER.md 1.16, 2.20, 3.13, 4.8.
+Memory: edgelog-book58-ml-roc.md.
