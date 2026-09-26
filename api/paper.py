@@ -2018,163 +2018,6 @@ def _capture_tail_contract_check(arrays, bars, bars_et, instrument="NQ"):
     return True, f"no overlap ({session_desc}); first-bar gap {gap:.2f} pts, ok"
 
 
-# ── roll-splice trade marking (ROLL_AUDIT 4.5.4, 6.6 item 15) ───────────────────────────
-# Shadow trades are re-upserted from the masters every night (run_shadow re-scans the whole
-# window since PAPER_START), so a one-off edit to a stored trade doc would just be
-# overwritten the next run. This marks trades at the SAME point they're built every night,
-# so the mark persists automatically. It never deletes a trade or touches its P&L (owner/
-# spec hard rule) -- it only adds roll_flag/roll_note fields _emit writes onto the doc.
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_SWITCH_CSV = {
-    "NQ": os.path.join(_REPO_ROOT, "tools", "data", "contract_switches_NQ.csv"),
-    "ES": os.path.join(_REPO_ROOT, "tools", "data", "contract_switches_ES.csv"),
-}
-# The data lane owns the two files above (do not edit them here) -- kept only so a future
-# corrected table can be pointed at from the same place. They are NOT read for containment
-# any more: review finding (major, 2026-09-26). Today each has exactly two rows whose source
-# is "inferred_after_raw_end", and ROLL_AUDIT 2.7 audited both (2026-06-14 18:10 and
-# 2026-09-13 18:10 ET) and found they are REAL same-contract weekend gaps ("Roll? No"), not
-# splices -- the table's own placeholder timestamp for a switch it had not yet located.
-# Marking on those rows flagged real weekend-hold trades as splices (ENGUQ_335_VC's
-# -$7,815.66 exit and ENGUQ_L50's -$9,596.79 exit, both ROLL_AUDIT 4.5.4, real and
-# unchanged) and caught NONE of the actual in-bar splices (2026-06-15 03:30 ET NQ / 05:30 ET
-# ES, 2026-09-14 11:30 ET both roots -- ROLL_AUDIT 6.3), because the placeholder timestamp is
-# EARLIER than the real event in both cases.
-#
-# Until the data lane ships a corrected table that distinguishes a real in-bar splice from a
-# weekend-gap placeholder, this lane keeps its own small table of the audited splice times
-# (tools/data/roll_splices.csv, sourced from ROLL_AUDIT 6.3). Swap _ROLL_SPLICES_CSV back to
-# reading contract_switches_*.csv (filtered on whatever source label the data lane settles
-# on for a real splice) once that ships -- _load_inbar_switches is the one place to change.
-_ROLL_SPLICES_CSV = os.path.join(_REPO_ROOT, "tools", "data", "roll_splices.csv")
-_switch_cache = {}   # path -> (mtime, [(root, switch_sec), ...])
-
-
-def _load_inbar_switches(root):
-    """In-bar SPLICE switch_sec values (UTC epoch seconds) for one root ('NQ' or 'ES'),
-    from this lane's own audited table (see _ROLL_SPLICES_CSV above). Cached by the file's
-    mtime so an update (e.g. adding the December 2026 row once it's audited) is picked up on
-    the next call with no restart. Never raises -- a missing/unreadable file or unknown root
-    just yields no switches, same as today."""
-    path = _ROLL_SPLICES_CSV
-    if not path or not os.path.exists(path):
-        return []
-    mtime = os.path.getmtime(path)
-    cached = _switch_cache.get(path)
-    if cached and cached[0] == mtime:
-        all_rows = cached[1]
-    else:
-        try:
-            df = pd.read_csv(path)
-            all_rows = [(str(r).upper(), int(s))
-                       for r, s in zip(df["root"], df["switch_sec"])]
-        except Exception as e:
-            _log(f"_load_inbar_switches failed reading {path}: {type(e).__name__}: {e}")
-            all_rows = []
-        _switch_cache[path] = (mtime, all_rows)
-    want = str(root or "").upper()
-    return [sec for r, sec in all_rows if r == want]
-
-
-_ROLL_MARKED_TRADES_CSV = os.path.join(_REPO_ROOT, "tools", "data", "roll_marked_trades.csv")
-_named_marks_cache = None   # (mtime, {(leg, entry_unix): note}) or None until first load
-
-
-def _load_named_roll_marks():
-    """The exact trades ROLL_AUDIT 4.5.4 identifies as pure splice ARTIFACTS -- enabled by
-    the splice's after-effects (a widened volatility filter, a stale gate feature) but not
-    themselves open across the switch, so the containment test in _apply_roll_marks can
-    never catch them. Keyed on (leg, entry_unix); never raises."""
-    global _named_marks_cache
-    path = _ROLL_MARKED_TRADES_CSV
-    if not os.path.exists(path):
-        return {}
-    mtime = os.path.getmtime(path)
-    if _named_marks_cache and _named_marks_cache[0] == mtime:
-        return _named_marks_cache[1]
-    out = {}
-    try:
-        df = pd.read_csv(path)
-        for _, row in df.iterrows():
-            out[(str(row["leg"]), int(row["entry_unix"]))] = str(row["note"])
-    except Exception as e:
-        _log(f"_load_named_roll_marks failed reading {path}: {type(e).__name__}: {e}")
-        out = {}
-    _named_marks_cache = (mtime, out)
-    return out
-
-
-def _root_of(instrument):
-    """'NQ', 'MNQ', 'ES', 'MES' (or anything ending in one of those roots) -> 'NQ'/'ES'.
-    Unknown instruments return None (no switches known for them, so nothing gets marked)."""
-    s = str(instrument or "").upper()
-    if s.endswith("NQ"):
-        return "NQ"
-    if s.endswith("ES"):
-        return "ES"
-    return None
-
-
-def _apply_roll_marks(trades, leg_key, instrument):
-    """IN PLACE: add roll_flag='splice' + roll_note to every trade dict (as built by
-    _extract_trades) whose holding window contains a listed in-bar switch, that ENTERS after
-    a switch inside the same session it lands in (see the "entered after" branch below), or
-    that is explicitly named in tools/data/roll_marked_trades.csv. Every trade dict always
-    gets both keys (None when unmarked) so a doc's absence of a mark is explicit, not silent.
-    Never deletes a trade or changes pnl_pts/pnl_usd/size. Never raises."""
-    try:
-        root = _root_of(instrument)
-        switches = _load_inbar_switches(root) if root else []
-        named = _load_named_roll_marks()
-        # exit_dt is None only for a trade still open on the LAST bar the backtest saw
-        # (_extract_trades always sets it from idx[xb], never leaves it missing) -- 'now' is
-        # a defensive fallback for that shape, not a path run_shadow's nightly re-scan takes
-        # in practice, since a trade open at the last bar is checked through that bar anyway.
-        now_ts = pd.Timestamp.now(tz="US/Eastern")
-        for t in trades:
-            t.setdefault("roll_flag", None)
-            t.setdefault("roll_note", None)
-            entry_unix = int(t["entry_dt"].timestamp())
-            named_note = named.get((leg_key, entry_unix))
-            if named_note:
-                t["roll_flag"] = "splice"
-                t["roll_note"] = named_note
-                continue
-            if not switches:
-                continue
-            entry_ts = t["entry_dt"]
-            exit_ts = t.get("exit_dt") or now_ts
-            for switch_sec in switches:
-                switch_ts = pd.Timestamp(switch_sec, unit="s", tz="UTC").tz_convert("US/Eastern")
-                day = switch_ts.date().isoformat()
-                holds_across = entry_ts <= switch_ts <= exit_ts
-                # Review finding (major, 2026-09-26): a trade ENTERED after the splice bar,
-                # later the same session, never "holds across" the switch, but its entry is
-                # still built on a splice-contaminated lookback (the ~295-pt splice bar sits
-                # inside every EMA/ATR/volatility-filter window an entry that session reads)
-                # -- ROLL_AUDIT 4.5.4's NOISE family 09-14 11:45 longs (after the 09-14 11:30
-                # splice, same RTH session) are exactly this shape, across 15 legs, and could
-                # not be listed by exact entry time without a backtest replay this worktree
-                # cannot run (no local master/optimizer registry). This does NOT reach a
-                # LATER session's trade (an ETH leg's 09-15/09-16 entry needs the named list
-                # below; see the stage report for exactly which 4.5.4 rows this reaches).
-                entered_after_same_session = (
-                    entry_ts >= switch_ts and entry_ts.date() == switch_ts.date())
-                if holds_across or entered_after_same_session:
-                    t["roll_flag"] = "splice"
-                    if holds_across:
-                        t["roll_note"] = (
-                            f"holds across the {day} {root} contract splice; ROLL_AUDIT 4.5.4")
-                    else:
-                        t["roll_note"] = (
-                            f"entered after the {day} {root} contract splice bar, same "
-                            f"session; ROLL_AUDIT 4.5.4")
-                    break
-    except Exception as e:
-        _log(f"_apply_roll_marks({leg_key}) failed: {type(e).__name__}: {e}")
-    return trades
-
-
 # ── trade conversion (mirrors augur_engine/reconcile.py edgelog_blotter) ─────────
 def _extract_trades(leg, arrays, sized, key=None):
     """(trade tuple, size multiplier) pairs -> plain dicts.
@@ -2316,13 +2159,11 @@ def run_shadow(leg, today):
                 ung = _extract_trades(leg, arrays, [(t, 1.0) for t in raw],
                                       key=leg["emit_ungated_as"])
                 ungated_out = [t for t in ung if t["entry_dt"].date() >= paper_start]
-                _apply_roll_marks(ungated_out, leg["emit_ungated_as"], leg.get("instrument"))
         else:
             sized = [(t, 1.0) for t in raw]
 
         trades = _extract_trades(leg, arrays, sized)
         trades_out = [t for t in trades if t["entry_dt"].date() >= paper_start]
-        _apply_roll_marks(trades_out, leg["key"], leg.get("instrument"))
         ran_ok = True          # the backtest completed; its trade list is authoritative
     except Exception as e:
         msg = f"exception in run_shadow({leg.get('key')}): {type(e).__name__}: {e}"
@@ -2606,12 +2447,6 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
                     "backfill": is_backfill, "live_from": _lf,
                     "layer": "shadow", "run_date": t_date.isoformat(),
                     "flags": leg.get("flags") or [],
-                    # roll_flag/roll_note: set by _apply_roll_marks (ROLL_AUDIT 4.5.4, 6.6
-                    # item 15) when this trade's holding window contains a known in-bar
-                    # contract splice, or is one of the named artifact trades in
-                    # tools/data/roll_marked_trades.csv. None on every ordinary trade --
-                    # never changes pnl_pts/pnl_usd/size, never deletes a trade.
-                    "roll_flag": t.get("roll_flag"), "roll_note": t.get("roll_note"),
                 })
                 # Roll-splice artifact mark (see ROLL_ARTIFACTS above). Matched on
                 # (leg, entry_unix) only -- NOT on this run's recomputed pnl_usd -- so the

@@ -1,17 +1,12 @@
-"""Unit tests for the roll/roll_guard_marks work (ROLL_AUDIT 4.5.4, 4.5.5, 6.6 item 15),
+"""Unit tests for the shadow loader's contract guard (ROLL_AUDIT 4.5.5, 6.6 item 15),
 including the 2026-09-26 review-finding fixes:
 
   1. api/paper.py's contract-continuity guard on the NT capture tail
      (_capture_tail_contract_check, wired into run_shadow) -- now compares only the MOST
      RECENT shared bars (not a median over the whole overlap), and uses a looser
      no-overlap threshold across a session break than within one session.
-  2. The persistent splice-trade marking step (_apply_roll_marks,
-     _load_inbar_switches, _load_named_roll_marks), wired into run_shadow -- now reads
-     the audited real splice times (tools/data/roll_splices.csv, ROLL_AUDIT 6.3) instead
-     of the data lane's contract_switches_*.csv "inferred_after_raw_end" placeholder rows
-     (which ROLL_AUDIT 2.7 shows are real weekend gaps, not splices), and also flags a
-     trade ENTERED after the splice bar in the same session (not only one that holds
-     across it).
+  (The September-roll trade MARKS live in api/paper.py's ROLL_ARTIFACTS list, shipped
+  separately in 2e2cd47; this file tests only the contract guard.)
 
 Everything here is synthetic (no real master, no real 10s file, no Firestore, no
 network) -- find_master / load_master_arrays / _load_fresh_ticks / run_backtest are
@@ -32,16 +27,6 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from api import paper  # noqa: E402
-
-
-# ── reset the module-level caches around every test ─────────────────────────────────
-@pytest.fixture(autouse=True)
-def _reset_roll_caches():
-    paper._switch_cache.clear()
-    paper._named_marks_cache = None
-    yield
-    paper._switch_cache.clear()
-    paper._named_marks_cache = None
 
 
 def _et(s):
@@ -213,200 +198,6 @@ def test_recent_window_falls_back_when_final_session_has_no_overlap():
     ok, reason = paper._capture_tail_contract_check(master, bars, bars_et, "NQ")
     assert ok is True, reason
     assert "shared bar(s)" in reason
-
-
-# ── 2. _load_inbar_switches / _load_named_roll_marks ─────────────────────────────────
-
-_SPLICE_HEADER = "root,switch_sec,switch_et,note,source\n"
-
-
-def test_load_inbar_switches_reads_roll_splices_csv(tmp_path, monkeypatch):
-    """Reads this lane's own audited table, filtered by root -- not the data lane's
-    contract_switches_*.csv (review finding, major: those rows are weekend gaps)."""
-    csv = tmp_path / "roll_splices.csv"
-    csv.write_text(
-        _SPLICE_HEADER +
-        "NQ,1781508600,2026-06-15 03:30,in-bar splice June->Sep; ROLL_AUDIT 6.3,roll_audit_6_3\n"
-        "ES,1781515800,2026-06-15 05:30,in-bar splice June->Sep; ROLL_AUDIT 6.3,roll_audit_6_3\n"
-        "NQ,1789399800,2026-09-14 11:30,in-bar splice Sep->Dec; ROLL_AUDIT 6.3,roll_audit_6_3\n",
-        encoding="utf-8")
-    monkeypatch.setattr(paper, "_ROLL_SPLICES_CSV", str(csv))
-    assert paper._load_inbar_switches("NQ") == [1781508600, 1789399800]
-    assert paper._load_inbar_switches("ES") == [1781515800]
-
-
-def test_load_inbar_switches_unknown_root_or_missing_file(tmp_path, monkeypatch):
-    monkeypatch.setattr(paper, "_ROLL_SPLICES_CSV", str(tmp_path / "does_not_exist.csv"))
-    assert paper._load_inbar_switches("NQ") == []
-    assert paper._load_inbar_switches("XYZ") == []
-
-
-def test_shipped_roll_splices_csv_has_the_audited_2026_splices():
-    """Guards the real, shipped table against an accidental edit: it must carry the
-    ROLL_AUDIT 6.3 in-bar splice times, NOT the data lane's inferred_after_raw_end
-    weekend-gap placeholders (2026-06-14 18:10 / 2026-09-13 18:10)."""
-    nq = paper._load_inbar_switches("NQ")
-    es = paper._load_inbar_switches("ES")
-    assert int(_et("2026-06-15 03:30").timestamp()) in nq
-    assert int(_et("2026-09-14 11:30").timestamp()) in nq
-    assert int(_et("2026-06-15 05:30").timestamp()) in es
-    assert int(_et("2026-09-14 11:30").timestamp()) in es
-    # the weekend-gap placeholders must NOT be in here
-    assert int(_et("2026-06-14 18:10").timestamp()) not in nq
-    assert int(_et("2026-09-13 18:10").timestamp()) not in nq
-
-
-def test_load_named_roll_marks(tmp_path, monkeypatch):
-    csv = tmp_path / "roll_marked_trades.csv"
-    csv.write_text(
-        "leg,entry_unix,entry_iso,note\n"
-        "ORB,1789566300,2026-09-16T09:45:00-04:00,test note\n",
-        encoding="utf-8")
-    monkeypatch.setattr(paper, "_ROLL_MARKED_TRADES_CSV", str(csv))
-    out = paper._load_named_roll_marks()
-    assert out == {("ORB", 1789566300): "test note"}
-
-
-def test_load_named_roll_marks_missing_file(tmp_path, monkeypatch):
-    monkeypatch.setattr(paper, "_ROLL_MARKED_TRADES_CSV", str(tmp_path / "nope.csv"))
-    assert paper._load_named_roll_marks() == {}
-
-
-# ── 3. _apply_roll_marks ─────────────────────────────────────────────────────────────
-
-def _trade(entry, exit_, pnl_usd=100.0, pnl_pts=5.0, size=1.0):
-    return {"entry_dt": entry, "exit_dt": exit_, "pnl_usd": pnl_usd, "pnl_pts": pnl_pts,
-            "size": size, "side": 1, "entry_px": 100.0, "exit_px": 105.0}
-
-
-def _write_splices(tmp_path, monkeypatch, rows):
-    """rows: list of (root, switch_sec, switch_et_str)."""
-    csv = tmp_path / "roll_splices.csv"
-    lines = [_SPLICE_HEADER]
-    for root, sec, et in rows:
-        lines.append(f"{root},{sec},{et},test splice,test\n")
-    csv.write_text("".join(lines), encoding="utf-8")
-    monkeypatch.setattr(paper, "_ROLL_SPLICES_CSV", str(csv))
-
-
-def test_apply_roll_marks_flags_trade_holding_across_real_splice(tmp_path, monkeypatch):
-    """ROLL_AUDIT 6.3's real in-bar splice (2026-09-14 11:30 ET) -- a trade held over it
-    is flagged."""
-    switch_sec = int(_et("2026-09-14 11:30").timestamp())
-    _write_splices(tmp_path, monkeypatch, [("NQ", switch_sec, "2026-09-14 11:30")])
-    monkeypatch.setattr(paper, "_ROLL_MARKED_TRADES_CSV", str(tmp_path / "nope.csv"))
-
-    holds = _trade(_et("2026-09-14 06:01"), _et("2026-09-14 12:00"))
-    doesnt = _trade(_et("2026-09-16 09:45"), _et("2026-09-16 14:30"))
-    trades = [holds, doesnt]
-    paper._apply_roll_marks(trades, "ENGUQ_309", "NQ")
-
-    assert holds["roll_flag"] == "splice"
-    assert "2026-09-14" in holds["roll_note"] and "ROLL_AUDIT 4.5.4" in holds["roll_note"]
-    assert doesnt["roll_flag"] is None
-    assert doesnt["roll_note"] is None
-    # never touches P&L
-    assert holds["pnl_usd"] == 100.0 and holds["pnl_pts"] == 5.0 and holds["size"] == 1.0
-
-
-def test_apply_roll_marks_weekend_gap_trade_not_flagged(tmp_path, monkeypatch):
-    """Review finding (major): a trade held over the 09-11 -> 09-13 REAL weekend gap
-    (ENGUQ_335_VC's -$7,815.66 / ENGUQ_L50's -$9,596.79 exits, ROLL_AUDIT 4.5.4) must NOT
-    be flagged now that the guard reads the audited splice table, which has no row for
-    that weekend -- only the real 2026-09-14 11:30 splice."""
-    switch_sec = int(_et("2026-09-14 11:30").timestamp())
-    _write_splices(tmp_path, monkeypatch, [("NQ", switch_sec, "2026-09-14 11:30")])
-    monkeypatch.setattr(paper, "_ROLL_MARKED_TRADES_CSV", str(tmp_path / "nope.csv"))
-
-    weekend_gap_trade = _trade(_et("2026-09-11 15:00"), _et("2026-09-13 18:10"),
-                               pnl_usd=-7815.66)
-    paper._apply_roll_marks([weekend_gap_trade], "ENGUQ_335_VC", "NQ")
-    assert weekend_gap_trade["roll_flag"] is None
-    assert weekend_gap_trade["roll_note"] is None
-    assert weekend_gap_trade["pnl_usd"] == -7815.66   # unchanged, real loss
-
-
-def test_apply_roll_marks_flags_trade_entered_after_splice_same_session(tmp_path, monkeypatch):
-    """Review finding (major): ROLL_AUDIT 4.5.4's NOISE family 09-14 11:45-15:55 longs
-    entered AFTER the 09-14 11:30 splice bar, in the same RTH session -- never 'holds
-    across' the switch, but the entry itself reads a splice-contaminated lookback and
-    must still be flagged."""
-    switch_sec = int(_et("2026-09-14 11:30").timestamp())
-    _write_splices(tmp_path, monkeypatch, [("NQ", switch_sec, "2026-09-14 11:30")])
-    monkeypatch.setattr(paper, "_ROLL_MARKED_TRADES_CSV", str(tmp_path / "nope.csv"))
-
-    after_same_session = _trade(_et("2026-09-14 11:45"), _et("2026-09-14 15:55"))
-    next_session = _trade(_et("2026-09-15 09:45"), _et("2026-09-15 14:30"))
-    trades = [after_same_session, next_session]
-    paper._apply_roll_marks(trades, "NOISE_304", "NQ")
-
-    assert after_same_session["roll_flag"] == "splice"
-    assert "entered after" in after_same_session["roll_note"]
-    assert "ROLL_AUDIT 4.5.4" in after_same_session["roll_note"]
-    # a LATER session's trade is not caught by this mechanical rule (needs the named list)
-    assert next_session["roll_flag"] is None
-
-
-def test_apply_roll_marks_open_trade_uses_now(tmp_path, monkeypatch):
-    """An open trade (exit_dt=None) is checked against 'now', not a missing exit. NOTE
-    (review finding, minor): this exercises a defensive branch only -- _extract_trades
-    always sets exit_dt from the last bar the backtest saw, so in production a trade
-    still open at the last bar is checked THROUGH that bar, not through 'now'; this test
-    covers the fallback in isolation, it is not evidence run_shadow's nightly re-scan
-    takes this path."""
-    long_ago = int(_et("2020-01-01 00:00").timestamp())
-    _write_splices(tmp_path, monkeypatch, [("NQ", long_ago, "2020-01-01 00:00")])
-    monkeypatch.setattr(paper, "_ROLL_MARKED_TRADES_CSV", str(tmp_path / "nope.csv"))
-
-    still_open = _trade(_et("2019-06-01 09:30"), None)
-    paper._apply_roll_marks([still_open], "SOMELEG", "NQ")
-    assert still_open["roll_flag"] == "splice"
-
-
-def test_apply_roll_marks_named_list_independent_of_switches(tmp_path, monkeypatch):
-    """A trade named in roll_marked_trades.csv gets marked even with no switch rows at
-    all (the ORB/ORB_R6/ENGUQ_335_VC/ENGUQ_ER 09-15/09-16 artifacts: enabled by the
-    splice's after-effects, not open across the switch itself)."""
-    monkeypatch.setattr(paper, "_ROLL_SPLICES_CSV", str(tmp_path / "no_switches.csv"))
-    named_csv = tmp_path / "roll_marked_trades.csv"
-    entry = _et("2026-09-16 09:45")
-    named_csv.write_text(
-        "leg,entry_unix,entry_iso,note\n"
-        f"ORB,{int(entry.timestamp())},{entry.isoformat()},named artifact note\n",
-        encoding="utf-8")
-    monkeypatch.setattr(paper, "_ROLL_MARKED_TRADES_CSV", str(named_csv))
-
-    artifact = _trade(entry, _et("2026-09-16 14:30"))
-    other = _trade(_et("2026-09-16 09:50"), _et("2026-09-16 14:30"))
-    trades = [artifact, other]
-    paper._apply_roll_marks(trades, "ORB", "NQ")
-    assert artifact["roll_flag"] == "splice"
-    assert artifact["roll_note"] == "named artifact note"
-    assert other["roll_flag"] is None
-
-
-def test_apply_roll_marks_never_raises_on_bad_switch_file(tmp_path, monkeypatch):
-    bad = tmp_path / "roll_splices.csv"
-    bad.write_text("not,a,valid,switch,file\n1,2,3,4,5\n", encoding="utf-8")
-    monkeypatch.setattr(paper, "_ROLL_SPLICES_CSV", str(bad))
-    monkeypatch.setattr(paper, "_ROLL_MARKED_TRADES_CSV", str(tmp_path / "nope.csv"))
-    t = _trade(_et("2026-09-16 09:45"), _et("2026-09-16 14:30"))
-    paper._apply_roll_marks([t], "ORB", "NQ")   # must not raise
-    assert t["roll_flag"] is None
-
-
-def test_apply_roll_marks_unknown_instrument_root_skips_switches_but_not_named(tmp_path, monkeypatch):
-    monkeypatch.setattr(paper, "_ROLL_SPLICES_CSV", str(tmp_path / "no.csv"))
-    entry = _et("2026-09-16 09:45")
-    named_csv = tmp_path / "roll_marked_trades.csv"
-    named_csv.write_text(
-        "leg,entry_unix,entry_iso,note\n"
-        f"WEIRDLEG,{int(entry.timestamp())},{entry.isoformat()},named note\n",
-        encoding="utf-8")
-    monkeypatch.setattr(paper, "_ROLL_MARKED_TRADES_CSV", str(named_csv))
-    t = _trade(entry, _et("2026-09-16 14:30"))
-    paper._apply_roll_marks([t], "WEIRDLEG", "SOME_UNKNOWN_INSTRUMENT")
-    assert t["roll_flag"] == "splice"   # named match still applies
 
 
 # ── 4. run_shadow wiring: the guard actually gates what gets appended ───────────────

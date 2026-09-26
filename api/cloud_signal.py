@@ -234,6 +234,11 @@ CROWN_LEGS = {
         # is exactly the shape that used to book a trade a full backtest never takes (see
         # ENGUQ_1M_ETH_R2_1_0.py's comment for what the flag does).
         "params": dict(ENGUQ_335, phantom_safe=True),
+        # With phantom_safe a REAL later entry only shows once the earlier setup's 10-bar
+        # fill window has run out, up to ~10 one-minute bars after its own fill bar
+        # (seen 2026-09-24 12:17). Accept entries up to 11 bars old instead of the
+        # default 3, so a late real trade is taken rather than dropped (lead, 2026-09-26).
+        "max_entry_age_sec": 11 * 60,
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
         # see module docstring "ENGINE LIMITATION" — flagged, not hidden
         "caveat": "ETH-fit crown running on an RTH-only QQQ tape — exploratory, not evidence-backed",
