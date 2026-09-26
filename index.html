@@ -10090,6 +10090,39 @@ async function fetchSPYData(startDate,endDate){
   _spyCache[key]=data;
   return data;
 }
+// MANAGER WATCH LIST (users/{uid}/meta/runboard_watch) - ONE Firestore doc that COMPARE >
+// RUNBOARD only READS; a command-line tool run separately is what WRITES it, so MANAGER and the
+// strategy chats can add or drop a run without a code change here. Quota is tight (the same
+// 50k reads/day budget as spy_daily above), so this reads ONCE per page load, lazily, the first
+// time the RUNBOARD renders - and again only when the WATCH chip itself is clicked, a manual
+// refresh. window._rbWatch is the cache every reader below shares.
+window._rbWatch=window._rbWatch||{state:'idle',runs:[],at:0};
+function _loadRbWatch(){
+  if(window._rbWatch.state==='loading')return;
+  // not signed in yet - a page opened straight onto RUNBOARD renders before sign-in answers:
+  //   stay 'idle' so the next render tries again (lead review; 'none' here hid the chip for the
+  //   whole page load)
+  if(!db||!auth||!auth.currentUser)return;
+  window._rbWatch={state:'loading',runs:window._rbWatch.runs||[],at:window._rbWatch.at||0};
+  const uid=auth.currentUser.uid;
+  db.collection('users').doc(uid).collection('meta').doc('runboard_watch').get()
+    .then(snap=>{
+      const data=snap.exists?snap.data():null;
+      const runs=(data&&Array.isArray(data.runs))?data.runs.filter(w=>w&&w.id!=null&&/^\d+$/.test(String(w.id).trim())):[];
+      window._rbWatch={state:(runs.length?'ok':'none'),runs:runs,at:Date.now()};
+      renderApp();
+    })
+    .catch(e=>{console.warn('MANAGER watch list not available:',(e&&e.message)||e);
+      window._rbWatch={state:'err',runs:[],at:Date.now()};
+      renderApp();});
+}
+// One run's watch entry by id (accepts a number or a numeric string) - null if it is not on the
+// list. Shared by the RUNBOARD chip, its LANE VERDICT row and its left-list chip.
+function _rbWatchOf(id){
+  const list=(window._rbWatch&&window._rbWatch.runs)||[];
+  for(let i=0;i<list.length;i++){if(list[i]&&String(list[i].id).trim()===String(id))return list[i];}
+  return null;
+}
 // Calculate SPY return % between two dates using real data (if cached) or approx
 function spyReturnReal(startDate,endDate,spyData){
   if(!spyData)return spyReturnBetweenDates(startDate,endDate);
@@ -26866,6 +26899,17 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(V.total_sharpe!=null)return +V.total_sharpe;
           if(!_wfA(r)&&!_lbA(r)&&V.is_sharpe!=null)return +V.is_sharpe;
           return null;};
+        // SORTINO beside SHARPE. Unlike SHARPE, a Gate-Validate job (no validate block at all)
+        //   still reads on FULL and IS from its own measured ungated slices, the same way every
+        //   other figure this board reads for that run type does. No run of any kind saves an
+        //   in-sample Sortino - the engine measures a Sharpe there, never a Sortino - so IS is a
+        //   structural dash on every other run, not a missing-data one. A book computes no
+        //   Sortino at all, so every field it would come from is simply absent.
+        const _soOf=r=>{if(_rbS==='wf')return _rbWfGet(r,'so');if(_rbZeroLb(r))return null;
+          if(_rbS==='is'){if(_isGvJob(r)){const g=_gvB(r,'ungated_is');return (g&&g.sortino!=null&&isFinite(+g.sortino))?+g.sortino:null;}return null;}
+          if(_rbS==='lb'){const lb=r.validate&&r.validate.lockbox;return (lb&&lb.sortino!=null&&isFinite(+lb.sortino))?+lb.sortino:null;}
+          if(_isGvJob(r)){const g=_gvB(r,'ungated_full');return (g&&g.sortino!=null&&isFinite(+g.sortino))?+g.sortino:null;}
+          const V=r.validate;return (V&&V.total_sortino!=null&&isFinite(+V.total_sortino))?+V.total_sortino:null;};
         // whole-run trades = the optimize-window champion count + the walk-forward out-of-sample
         //   counts + the lockbox count, the same sum the run report's own KPI matrix adds up.
         // FULL TRADES (item 6a): validate.total_trades is the run's own whole-run
@@ -26927,6 +26971,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(k==='pf')return Z?null:(O?O.pf:(A?A.pf:null));
           if(k==='wr')return Z?null:((O&&O.wr!=null)?O.wr:_wfPoolWr(r,A));
           if(k==='sh')return (O&&!Z)?O.sharpe:null;
+          if(k==='so')return (O&&!Z)?O.sortino:null;
           // AN ACCEPTED TEST THAT SAVED NO WINDOW HAS NO YEARS - it must not borrow the tuning-split
           //   window, which is longer than the folds cover, so MAR and R / YR dash instead of
           //   dividing the folds' own drawdown by somebody else's span. The wf_split fallback stays
@@ -26968,7 +27013,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //    computed over the FULL run history (all `rs`), not the filtered/grouped picker list
         //    (`_plist`, which is limited to the strategy dropdown filter). Capped at 8 (the
         //    Compare pipeline max); anything past the cutoff is reported in a footer note. ──
-        let famMore=[],_rbHidden=[];
+        let famMore=[],_rbHidden=[],_wMissNote='';
+        // v73.9 (MANAGER WATCH LIST): true only for the RUNBOARD's own watch view - never for the
+        //   BY STRATEGY tile (_famRowOf is shared, but _cmpMode there is 'fam') and never for an
+        //   ordinary family drill-down (_rbFam then holds a real family name, not this sentinel).
+        const _rbWSt=(window._rbWatch&&window._rbWatch.state)||'idle';
+        //   (lead review) a doc that turned out missing or unreadable is not a watch view: the board
+        //   falls back to one champion per family and says so under the chip bar
+        const _rbWatching=(_cmpMode==='board'&&_rbFam==='__WATCH__'&&_rbWSt!=='none'&&_rbWSt!=='err');
         if(_cmpMode==='fam'||_cmpMode==='board'){
           // SHARED CHAMPION RULE (item 3, owner-approved fix round 2): the exact
           //   pool the LEADERBOARD picks from, so a book named after a strategy no
@@ -26999,7 +27051,30 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             //   book run instead of whichever one a book's own file-shaped label happened to
             //   match under the old key. This is what lets the funnel draw more than the single
             //   auto-picked champion book.
-            if(_rbFam)famRuns=rs.filter(r=>_c2FamOf(r)===_rbFam);
+            if(_rbWatching){
+              // MANAGER WATCH LIST view (v73.9): every listed id, found first in the board's own
+              //   pool and then in the full account pool (archived / starred runs included, the
+              //   same _c2AllPool the COMPARE picker's own missing-run note already reads) -
+              //   ordered by the same RANK BY / SAMPLE as any other board view. A short sample
+              //   stays on the board with its warning mark instead of being hidden: it is here
+              //   because MANAGER put it here, not because it scored well.
+              const _wSeen={},_wIds=[];
+              ((window._rbWatch&&window._rbWatch.runs)||[]).forEach(w=>{const k=w&&String(w.id).trim();
+                if(k&&!_wSeen[k]){_wSeen[k]=1;_wIds.push(k);}});
+              const _wFind=id=>rs.filter(x=>String(x.id)===id)[0]||_c2AllPool.filter(x=>String(x.id)===id)[0]||null;
+              famRuns=_wIds.map(_wFind).filter(Boolean).sort((a,b)=>_rbVal(b,_rbR)-_rbVal(a,_rbR));
+              const _wMiss=_wIds.filter(id=>!_wFind(id));
+              if(_wMiss.length){
+                const _wArch=_wMiss.filter(id=>_missKind(id)==='archived');
+                const _wOlder=_wMiss.filter(id=>_missKind(id)==='older');
+                const _wGone=_wMiss.filter(id=>_missKind(id)==='gone');
+                const _wLn=(grp,tail)=>grp.length?('<div style="margin-top:6px;font-size:8px;color:var(--yellow)">⚠ '+grp.map(x=>'#'+x).join(' ')+' '+(grp.length===1?'is':'are')+' '+tail+'</div>'):'';
+                _wMissNote=_wLn(_wArch,'archived - switch on archived runs in Past Runs to include '+(_wArch.length===1?'it':'them'))
+                  +_wLn(_wOlder,'not loaded - LOAD ALL (in the bar above) to include '+(_wOlder.length===1?'it':'them'))
+                  +_wLn(_wGone,'no longer in your history');
+              }
+            }else{
+            if(_rbFam&&_rbFam!=='__WATCH__')famRuns=rs.filter(r=>_c2FamOf(r)===_rbFam);
             // v71.85 (owner: "remove the engu thats only 19 days lol"): a strategy whose best run
             //   covers under two years is DROPPED from the board, not just sorted last. Nineteen
             //   days of trading cannot be compared with sixteen years, so showing it at all only
@@ -27007,13 +27082,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             //   silently, and the TOP 10 panel still reaches every run including these.
             _rbHidden=famRuns.filter(_shortRun);
             famRuns=famRuns.filter(r=>!_shortRun(r)).sort((a,b)=>_rbVal(b,_rbR)-_rbVal(a,_rbR));
+            }
             // …plus any runs added by hand with the ＋ ADD button on the funnel. F19 fix: a pin
             //   used to be PUSHED onto the end of the already-10-long champion list and then cut
             //   away by the slice below, so with 10 (or more) family champions on the board +ADD
             //   could never actually add anything, no matter what the dialog promised. A genuinely
             //   NEW pin (not already one of the champions) now reserves its own seat by trimming
             //   the champion list first, so it always survives into the kept slice.
-            const _rbCap=10; // board mode's own column cap — this branch only runs in board mode
+            const _rbCap=_rbWatching?40:10; // board mode's own column cap - the watch view gets room for every listed run instead of the usual 10
             const _pin=(Array.isArray(APREF.rbAdd)?APREF.rbAdd:[]).slice(0,_rbCap).map(String);
             if(_pin.length){
               // F19 REGRESSION fix: pins go FIRST, never trimmed-in-after. The old code checked
@@ -27029,8 +27105,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               famRuns=_pinned.concat(famRuns.filter(r=>!_pinIds.has(String(r.id))));
             }
           }
-          famMore=famRuns.slice(_cmpMode==='board'?10:8);
-          runs=famRuns.slice(0,_cmpMode==='board'?10:8);
+          famMore=famRuns.slice(_cmpMode==='board'?(_rbWatching?40:10):8);
+          runs=famRuns.slice(0,_cmpMode==='board'?(_rbWatching?40:10):8);
         }
         const _rowOf=r=>{const on=ids.indexOf(String(r.id))>=0;const vv=r.validate?r.validate.verdict:'';const sc=scoreRun(r);const isBest=_isBest(r);
           return '<div data-cmpk="'+r.id+'" style="display:flex;align-items:center;gap:7px;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:var(--fsxs);'+(on?'background:color-mix(in srgb,var(--blue) 13%,transparent);':'')+'" title="'+(on?'click to remove from the comparison':'click to add to the comparison')+'">'
@@ -27109,6 +27185,16 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   picker rows above (swatch · id · label · market · net $ · score · verdict), but one
         //   row per shown family and nothing to click — the list is automatic, not a selection.
         const _famRowOf=r=>{const vv=r.validate?r.validate.verdict:'';const sc=scoreRun(r);const swc=((typeof stratColor==='function')&&stratColor(r.strategy))||'var(--text4)';
+          // MANAGER WATCH LIST (v73.9): a watched run carries its own lane verdict as a small chip
+          //   at the end of its row - the same wording the matrix's LANE VERDICT row gives for the
+          //   same run, truncated here since this list is narrower than a matrix cell.
+          const _w=_rbWatchOf(r.id);
+          const _wbits=[];
+          if(_w){if(_w.lane)_wbits.push(String(_w.lane).trim()+' chat');if(_w.verdict_at)_wbits.push(String(_w.verdict_at).trim());}
+          const _wvt=_w?(String(_w.verdict||'').trim()||'no verdict yet'):'';
+          const _wtip=_w?(_wvt+(_wbits.length?(' - '+_wbits.join(', ')):'')+(_w.note?(' - '+String(_w.note).trim()):'')):'';
+          const _wshort=_w?((_wvt.length>28)?(_wvt.slice(0,28)+'…'):_wvt):'';
+          const _wChip=_w?('<span title="'+_wfoEsc(_wtip)+'" style="flex:0 0 auto;font-size:8px;color:var(--text4);border:1px solid var(--border);border-radius:9px;padding:1px 6px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:help">'+_wfoEsc(_wshort)+'</span>'):'';
           return '<div title="automatic — this family champion is picked by score" style="display:flex;align-items:center;gap:7px;padding:4px 8px;border-radius:6px;font-size:var(--fsxs)">'
             +'<span style="flex:0 0 10px;height:10px;border-radius:3px;background:'+swc+'"></span>'
             +'<span style="flex:0 0 33px;text-align:right;color:var(--text3)">#'+r.id+'</span>'+((r.famKey&&r.famSeq!=null)?'<span style="flex:0 0 auto;font-size:8px;font-weight:700;color:var(--text5)" title="family run id">'+r.famKey+'-'+r.famSeq+'</span>':'')
@@ -27117,6 +27203,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +'<span style="flex:0 0 58px;text-align:right;color:'+((r.best_pnl_usd||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(r.best_pnl_usd||0))+'</span>'
             +'<span style="flex:0 0 28px;text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+_scTxt(sc)+'</span>'
             +'<span style="flex:0 0 32px;font-size:8px;font-weight:700;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'">'+(vv||'')+'</span>'
+            +_wChip
             +'</div>';};
         // hidden short-window strategies are COUNTED here so nothing disappears silently
         const _rbHideNote=(_cmpMode==='board'&&_rbHidden.length)?('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">'+_rbHidden.length+' strateg'+(_rbHidden.length===1?'y':'ies')+' hidden - window under 2 years, so their figures do not compare: '+_rbHidden.map(r=>'#'+r.id).join(' ')+'. The TOP 10 panel still reaches them.</div>'):'';
@@ -27124,9 +27211,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   on the board three ways — the cap there is 10 not 8, the order is whatever RANK BY is
         //   set to (not a robustness score), and since +ADD pins now always reserve their own
         //   seat (above), anything actually cut is a family, never a hand-added run.
-        const _famCap=(_cmpMode==='board')?10:8;
-        const _famCutBy=(_cmpMode==='board')?('RANK BY '+({mar:'MAR',pf:'PF',net:'NET $',dd:'MAX DD'}[_rbR]||_rbR.toUpperCase())):'robustness score';
-        const _famMoreNote=(famMore.length?('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">+'+famMore.length+' more famil'+(famMore.length===1?'y':'ies')+' below the '+_famCutBy+' cutoff ('+_famCap+' column'+(_famCap===1?'':'s')+' max): '+famMore.map(_labOf).join(', ')+'</div>'):'')+_rbHideNote;
+        const _famCap=(_cmpMode==='board')?(_rbWatching?40:10):8;
+        const _famCutBy=(_cmpMode==='board')?(_rbWatching?'the 40-run watch list limit':('RANK BY '+({mar:'MAR',pf:'PF',net:'NET $',dd:'MAX DD'}[_rbR]||_rbR.toUpperCase()))):'robustness score';
+        const _famMoreNote=(famMore.length?('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">+'+famMore.length+' more famil'+(famMore.length===1?'y':'ies')+' below the '+_famCutBy+' cutoff ('+_famCap+' column'+(_famCap===1?'':'s')+' max): '+famMore.map(_labOf).join(', ')+'</div>'):'')+_rbHideNote+_wMissNote;
         const famTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">BY STRATEGY</span><span style="font-size:8px;color:var(--text5)">top config per family · auto-updates as new runs land</span></div>'
           +'<div style="overflow:auto;max-height:74vh">'+runs.map(_famRowOf).join('')+'</div>'
           +_famMoreNote);
@@ -31566,6 +31653,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 :'Every verdict has its own shape as well as its own colour, so nothing here depends on colour to be readable.')+'</div>'
             ,0)+'</div>';
         }else if(_cmpMode==='board'){
+        // MANAGER WATCH LIST: the first RUNBOARD render of the page kicks off the one read this
+        //   doc gets per load - state moves off 'idle' the instant the read starts, so this can
+        //   never fire twice. The WATCH chip's own click handler is the only other place that
+        //   reads it again, as a manual refresh.
+        if(window._rbWatch.state==='idle')_loadRbWatch();
         // ── RUNBOARD body (owner ask 2026-08-09: "make it like 1A and 1E - a funnel chart and a
         //    table chart, populated with the top runs from each strategy"). The funnel is the SAME
         //    live overlay PICK RUNS uses (key pills on their lines, crosshair, drawdown pane,
@@ -31617,14 +31709,27 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // TASK 2: _c2FamOf, not the raw strategy label - see the drill-down fix below for why.
         const _rbFams=[...new Set(rs.filter(r=>r&&!r.archived).map(r=>_c2FamOf(r)).filter(Boolean))]
           .sort((x,y)=>((typeof famNum==='function'?famNum(x):99)||99)-((typeof famNum==='function'?famNum(y):99)||99));
-        const _rbFamBar=(_rbFams.length>1||_rbFam)?('<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-bottom:7px">'
+        // MANAGER WATCH LIST chip (v73.9): the weekly report's own run list, kept up to date by
+        //   MANAGER and the strategy chats through a doc this page only reads (a separate
+        //   command-line tool writes it). Shown whenever that doc has at least one run on it, even
+        //   with only one strategy in play - which is why it sits outside the FAMILY label's own
+        //   "more than one family" gate, below.
+        const _rbWOk=!!(window._rbWatch&&(window._rbWatch.state==='ok'||(window._rbWatch.state==='loading'&&(window._rbWatch.runs||[]).length)));
+        const _rbWLoading=!!(window._rbWatch&&window._rbWatch.state==='loading');
+        const _rbWChip=_rbWOk?('<span data-rbfam="__WATCH__" title="The MANAGER watch list - every run in the weekly report. MANAGER and the strategy chats keep it up to date without a code change; the LANE VERDICT row shows each chat’s verdict. Ask MANAGER to add or drop a run." style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:9px;white-space:nowrap;border:1px solid '+(_rbWatching?'var(--blue)':'var(--border)')+';color:'+(_rbWatching?'var(--blue)':'var(--text4)')+';background:'+(_rbWatching?'color-mix(in srgb,var(--blue) 12%,transparent)':'var(--bg1)')+'">WATCH · '+window._rbWatch.runs.length+'</span>'):'';
+        const _rbFamBar=(_rbFams.length>1||_rbFam||_rbWOk)?('<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-bottom:7px">'
           +'<span title="click a strategy to load ITS top runs instead of one champion per strategy" style="font-size:7.5px;font-weight:700;letter-spacing:.6px;color:var(--text5);cursor:help">FAMILY</span>'
+          +_rbWChip
           +_rbFams.map(f=>{const on=(_rbFam===f),col=((typeof stratColor==='function')&&stratColor(f))||'var(--text4)';
             return '<span data-rbfam="'+String(f).replace(/"/g,'')+'" title="'+(on?'click to go back to one run per strategy':'show the top runs of '+f)+'" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:9px;white-space:nowrap;border:1px solid '+(on?col:'var(--border)')+';color:'+(on?'var(--text)':'var(--text4)')+';background:'+(on?'color-mix(in srgb,'+col+' 20%,transparent)':'var(--bg1)')+'">'+f+'</span>';}).join('')
           +(_rbFam?'<span data-rbfam="" title="show one champion per strategy again" style="cursor:pointer;font-size:8px;color:var(--text5);text-decoration:underline;margin-left:2px">all</span>':'')
           +'</div>'):'';
+        // rbFam already points at the watch list but the doc has not answered yet - say so rather
+        //   than silently falling back to one champion per family while it loads.
+        const _rbWLoadingNote=(_rbWatching&&_rbWLoading)?'<div style="font-size:8px;color:var(--text5);margin-bottom:6px">loading the watch list…</div>'
+          :((_rbFam==='__WATCH__'&&!_rbWatching)?'<div style="font-size:8px;color:var(--text5);margin-bottom:6px">the watch list could not be read right now - showing one champion per family</div>':'');
         const boardTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">RUNBOARD</span><span style="font-size:8px;color:var(--text5)">top run per strategy · auto-populates from run history · ordered by the RANK BY pick</span></div>'
-          +_rbFamBar+'<div style="overflow:auto;max-height:'+(_rbSide?'38vh':'74vh')+'">'+runs.map(_famRowOf).join('')+'</div>'
+          +_rbFamBar+_rbWLoadingNote+'<div style="overflow:auto;max-height:'+(_rbSide?'38vh':'74vh')+'">'+runs.map(_famRowOf).join('')+'</div>'
           +_famMoreNote);
         // v71.27: saved chart height + a drag HANDLE ROW under the chart, the same grip the
         //   section-1 charts use (rsRow). cmpOvlMount reads window._cmpOvlH when it draws.
@@ -31731,6 +31836,30 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // WHY A WALK-FORWARD CELL IS A DASH, in plain words, on the cell itself - the same
         //   sentence the report and the LEADERBOARD give for the same run.
         const _rbWhy=w=>(_rbS!=='wf')?null:(r=>(_wfoIsBook(r)?'A book tunes nothing, so it has no walk-forward folds by design.':_wfOosWhy(r,w)));
+        // SORTINO's own dash reasons beyond what _rbWhy already gives on WF (the exact same book
+        //   wording, the exact same _wfOosWhy sentence - it already understands 'so' just like
+        //   'sh'): a book computes no Sortino on any stage, no run of any kind saves an in-sample
+        //   Sortino, and a Gate-Validate job with no measured slice has nothing to read one off.
+        const _soWfWhy=_rbWhy('so');
+        const _soWhy=r=>{if(_soWfWhy)return _soWfWhy(r);
+          if(r&&r.book&&Array.isArray(r.book.legs))return 'A book pools its legs into one curve and computes no Sortino.';
+          if(_rbS==='is')return _isGvJob(r)?'This run saved no measured in-sample slice to read a Sortino from.':'The engine saves no in-sample Sortino here, only a Sharpe.';
+          if(_rbS==='lb')return 'This run saved no lockbox Sortino.';
+          return _isGvJob(r)?'This run saved no measured whole-run slice to read a Sortino from.':'This run saved no whole-run Sortino.';};
+        // ROC % / YR on WF dashes for one of two reasons: no pooled net (the TOTAL row's own
+        //   reason) or a saved test with no window, so no years to annualise over (lead review:
+        //   the net reason is empty there, because the pooled net is still a reading) - name
+        //   whichever is true. Only on WF it also names a saved crowning score when there is one:
+        //   the crowned settings held fixed over the same years, a different reading from the
+        //   walk-forward test this row shows (RUNBOARD's WF stage never reads it as the test
+        //   itself - see _rbWfSrc).
+        const _rocWhy=(_rbS!=='wf')?null:(r=>(_wfoIsBook(r)?'A book tunes nothing, so it has no walk-forward folds by design.'
+          :(_wfOosWhy(r,'net')||_wfOosWhy(r,'yrs')||'')));
+        const _rocCrown=r=>{const G=r&&r.gate_validate;
+          if(!G||!Array.isArray(G.wf_range)||!G.wf_range[0]||!G.wf_range[1])return null;
+          const gw=_gvB(r,'ungated_wf');if(!gw)return null;
+          const y=_yrsBetween(String(G.wf_range[0]).slice(0,10),String(G.wf_range[1]).slice(0,10));if(!(y>0))return null;
+          const v=_rocYr((+gw.total_pnl||0)*_mcOf(r),y);return (v!=null&&isFinite(v))?v:null;};
         const _mk=(lbl,fn,fmt,dir,opt)=>{const ap=opt&&opt._apx;
           // custom ~ hover per metric (items 6a/6b): a pooled-fallback PF and a
           //   summed-fallback trade count are approximate for DIFFERENT reasons, so
@@ -31893,10 +32022,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             _mk('LB $',r=>{const a=_lbA(r);return a?a.net:null;},_mSub,'max',{_noRank:_lbZeroTr,_noRankWhy:_rbZeroWhy+' Its $0 still adds to the whole run, but it is not a lockbox result, so it takes no best mark and no heat shade here - the LB sample dashes it.'})
           ]:[]).concat([
             _mk('TOTAL',_netOf,_m$,'max',{top:true,_why:_rbWhy('net')}),
+            (function(){const _row=_mk('<span title="'+_wfoEsc('Net per year over this stage as a percentage of a '+_kfmt(_rocAcct())+' account - the same account and arithmetic COMPARE > EXPLORE and the weekly report use. Position size moves this row; MAR and SORTINO stay the same.'+((_rbS==='wf')?(' '+_rbWfSrc):''))+'" style="border-bottom:1px dotted var(--text5);cursor:help">ROC % / YR</span>',
+                r=>_rocYr(_netOf(r),_rbYrs(r)),v=>'<span style="color:'+(v<0?'var(--red)':'var(--text2)')+'">'+v.toFixed(1)+'%</span>','max',{_why:_rocWhy});
+              if(_rbS==='wf'){const _base=_row.cell;
+                _row.cell=c=>{const html=_base(c),v=_rocYr(_netOf(c.run),_rbYrs(c.run)),cs=(v!=null&&isFinite(v))?_rocCrown(c.run):null;
+                  if(cs==null)return html;
+                  return '<span title="'+_wfoEsc('This run also saved a crowning score - the crowned settings held fixed over the same years - of '+cs.toFixed(1)+'% a year. That is the reading the crown was picked on, so it is not shown here as the test.')+'" style="cursor:help">'+html+'</span>';};}
+              return _row;})(),
             _mk('DD',_ddOf2,v=>'<span style="color:#e24b4a">'+_ab$(Math.abs(v))+'</span>','min',{_apx:_ddApx2,_why:_rbWhy('dd')})])},
           {name:_rbBand('reward ÷ risk'),rows:[
             _mk('MAR',_marOf,v=>'<span style="color:'+(v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v>=2?'700':'400')+'">'+v.toFixed(2)+'</span>','max',{top:true,_apx:_ddApx2,_why:_rbWhy('mar')}),
             _mk('SHARPE',_shOf,v=>'<span style="color:var(--text2)">'+v.toFixed(2)+'</span>','max',{_why:_rbWhy('sh')}),
+            _mk('<span title="'+_wfoEsc('The engine’s own annualised Sortino - like Sharpe, but only losing days count as risk. Position size does not change it.'+((_rbS==='wf')?(' '+_rbWfSrc):''))+'" style="border-bottom:1px dotted var(--text5);cursor:help">SORTINO</span>',_soOf,v=>'<span style="color:var(--text2)">'+v.toFixed(2)+'</span>','max',{_why:_soWhy}),
             _mk('PF',_pfOf,v=>'<span style="color:'+(v>=1?'var(--text)':'var(--red)')+'">'+v.toFixed(2)+'</span>','max',{_why:_rbWhy('pf'),_apx:_pfApx,_apxTip:'this run saved no whole-run averages (total win rate, average win, average loss), so FULL profit factor was rebuilt by pooling the stretches instead - walk-forward folds trade a DIFFERENT, re-fitted config, so this reading is never given the best mark'}),
             _mk('WIN %',_wrOf,v=>'<span style="color:var(--text2)">'+Math.round(v)+'%</span>',null,{_why:_rbWhy('wr')}),
             // REVIEW ROUND 6 - EV IS NET DIVIDED BY THAT SAME TRADE COUNT, so when FULL has to sum the
@@ -31956,7 +32093,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               return '<b style="color:'+(a.held>=a.n/2?'var(--green)':'var(--red)')+'">'+a.held+'/'+a.n+'</b>';}}]},
           {name:'verdict',rows:[
             {lbl:'VERDICT',top:true,cell:c=>{const v=c.run.validate?c.run.validate.verdict:'';
-              return v?'<b style="color:'+(v==='PASS'?'var(--green)':v==='WEAK'?'var(--yellow)':'var(--red)')+'">'+v+'</b>':'<span style="color:var(--text5)">—</span>';}}]}
+              return v?'<b style="color:'+(v==='PASS'?'var(--green)':v==='WEAK'?'var(--yellow)':'var(--red)')+'">'+v+'</b>':'<span style="color:var(--text5)">—</span>';}},
+            // MANAGER WATCH LIST (v73.9): every board view - champions, a family drill-down or the
+            //   watch view itself - carries this row, so a chat's verdict is visible without
+            //   switching into the watch view. No best mark, no heat - this is a status, not a score.
+            {lbl:'LANE VERDICT',cell:c=>{const w=_rbWatchOf(c.run.id);
+              if(!w)return '<span title="not on the MANAGER watch list" style="color:var(--text5);cursor:help">—</span>';
+              const vt=String(w.verdict||'').trim(),lane=String(w.lane||'').trim(),when=String(w.verdict_at||'').trim(),note=String(w.note||'').trim();
+              const txt=vt||'no verdict yet',bits=[];
+              if(lane)bits.push(lane+' chat');if(when)bits.push(when);
+              const tip=txt+(bits.length?(' - '+bits.join(', ')):'')+(note?(' - '+note):'');
+              return '<span title="'+_wfoEsc(tip)+'" style="display:inline-block;max-width:120px;white-space:normal;font-size:8px;color:var(--text3);cursor:help">'+_wfoEsc(txt)+'</span>';}}]}
         ];
         // v71.27: the matrix scrolls inside a box whose height the owner can drag, same handle.
         const _rbMH=Math.max(160,Math.min(1600,Math.round(+APREF.rbMtxH||420)));
@@ -32166,7 +32313,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +_rbCol(0,'1 1 420px',300,funnelTile)+_rbSp(0)
             +_rbCol(1,'1.35 1 500px',320,matrixTile)+_rbSp(1)
             +_rbCol(2,'0 1 290px',240,boardTile+(_rbSide?('<div style="height:10px"></div>'+_sideTile):''))
-            +'</div>'):'<div style="border:1px dashed var(--border);padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px;margin-bottom:14px">NO SAVED RUNS YET — THE BOARD POPULATES ITSELF FROM RUN HISTORY</div>')
+            +'</div>'):(_rbWatching&&_rbWLoading?'<div style="border:1px dashed var(--border);padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px;margin-bottom:14px">loading the watch list…</div>':'<div style="border:1px dashed var(--border);padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px;margin-bottom:14px">NO SAVED RUNS YET — THE BOARD POPULATES ITSELF FROM RUN HISTORY</div>'))
           +(_rbWF?_rbBooksWFHold:booksTile));
         }else if(_cmpMode==='featboard'){
         // ── FEATURE BOARD (owner ask 2026-09-07): "what helps every strategy, not just one".
@@ -39218,7 +39365,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // family chips - drill the board into one strategy's own runs, or back out to all
       content.querySelectorAll('[data-rbfam]').forEach(c=>{c.onclick=()=>{
         const v=c.dataset.rbfam||'';
-        savePref('rbFam',(v&&v===String(APREF.rbFam||''))?'':v);renderApp();};});
+        const _rbfNext=(v&&v===String(APREF.rbFam||''))?'':v;
+        savePref('rbFam',_rbfNext);
+        // WATCH reads a live doc, not a local filter - every click that lands ON it is a manual
+        //   refresh (the render-time loader only ever fires once, on 'idle').
+        if(_rbfNext==='__WATCH__'&&typeof _loadRbWatch==='function')_loadRbWatch();
+        renderApp();};});
       {const _rh=content.querySelector('[data-rbheat]');
        if(_rh)_rh.onclick=()=>{savePref('rbHeat',(APREF.rbHeat==null)?false:!APREF.rbHeat);renderApp();};}
       // TOP 10 side panel: the ＋ button opens it on BEST, the tabs switch it, ✕ closes it. The

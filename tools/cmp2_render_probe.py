@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 137
+N_CASES = 139
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -4375,6 +4375,139 @@ var FIX = __FIX__;
             fullTxt=(per.full['RUN WINDOW']||[]).join(' | ');
         var lbDashCount=(per.lb['WINDOW']||[]).filter(function(t){return t==='—';}).length;
         var legacyLbTitle=titles.lb;
+      // -- k1 (MANAGER WATCH LIST, 2026-09-26): a single Firestore doc (users/{uid}/meta/
+      //    runboard_watch) the page only reads. A WATCH chip on the RUNBOARD family bar switches
+      //    the board from one champion per family to every listed run; a LANE VERDICT row on the
+      //    matrix shows each chat's verdict in every board view; a listed id missing from history
+      //    is reported instead of silently dropped. No Firestore in this probe: window._rbWatch is
+      //    stubbed directly before each render (the page's own loader only ever fires when its
+      //    state is 'idle', so a stubbed non-idle state is never clobbered by a real fetch).
+      (function(){
+        function mkW(off,strat,champ,dFrom,dTo){
+          var o=JSON.parse(JSON.stringify(FIX));
+          o.id=String(+FIX.id+off);o.strategy=strat;o.starred=false;o.multiplier=1;
+          delete o.famKey;delete o.famSeq;
+          o.date_from=dFrom;o.date_to=dTo;
+          o.best_pnl_usd=champ?80000:20000;o.best_dd_usd=champ?8000:9000;
+          o.validate={verdict:'PASS',total_dd:champ?-8000:-9000,
+            n_pass:champ?5:2,n_gates:5,wfe:champ?1:0,dsr:champ?1:0,
+            lockbox:{pnl:champ?9000:1000,pf:champ?1.3:1.0,trades:40,pass:!!champ}};
+          return o;
+        }
+        var LF='2010-06-07', LT='2026-06-30';
+        var WA1=mkW(680001,'ZWATCHA_1_0.py',true,LF,LT), WA2=mkW(680002,'ZWATCHA_1_0.py',false,LF,LT),
+            WA3=mkW(680003,'ZWATCHA_1_0.py',false,LF,LT), WA4=mkW(680004,'ZWATCHA_1_0.py',false,LF,LT),
+            WA5=mkW(680005,'ZWATCHA_1_0.py',false,LF,LT), WA6=mkW(680006,'ZWATCHA_1_0.py',false,LF,LT);
+        var WB1=mkW(680011,'ZWATCHB_1_0.py',true,LF,LT), WB2=mkW(680012,'ZWATCHB_1_0.py',false,LF,LT),
+            WB3=mkW(680013,'ZWATCHB_1_0.py',false,LF,LT), WB4=mkW(680014,'ZWATCHB_1_0.py',false,LF,LT),
+            WB5=mkW(680015,'ZWATCHB_1_0.py',false,LF,LT);
+        var WC1=mkW(680021,'ZWATCHC_1_0.py',true,'2025-01-01','2025-06-01'); // under 2 years - a short sample
+        var MISS1=String(+FIX.id+680091), MISS2=String(+FIX.id+680092);
+        var ALL=[WA1,WA2,WA3,WA4,WA5,WA6,WB1,WB2,WB3,WB4,WB5,WC1];
+        var wc="var RS="+JSON.stringify(ALL)+";"
+          +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+          +"runHistory=RS.map(f);window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();window._starRuns=[];";
+        var DOC_RUNS=[
+          {id:+WA1.id,family:'ZWATCHA',lane:'NOISE',verdict:'LIVE - Webull test leg',note:'watch note A1',added_by:'MANAGER',added_at:'2026-09-20',verdict_by:'NOISE',verdict_at:'2026-09-26'},
+          {id:+WA2.id,family:'ZWATCHA',lane:'NOISE',verdict:'',added_by:'MANAGER',added_at:'2026-09-20',verdict_by:'',verdict_at:'2026-09-25'},
+          {id:+WA3.id,family:'ZWATCHA',lane:'NOISE',verdict:'CANDIDATE'},
+          {id:+WA4.id,family:'ZWATCHA',lane:'NOISE',verdict:'CANDIDATE'},
+          {id:+WA5.id,family:'ZWATCHA',lane:'NOISE',verdict:'PARKED'},
+          {id:+WA6.id,family:'ZWATCHA',lane:'NOISE',verdict:'PARKED'},
+          {id:+WB2.id,family:'ZWATCHB',lane:'DIP',verdict:'CANDIDATE'},
+          {id:+WB3.id,family:'ZWATCHB',lane:'DIP',verdict:'CANDIDATE'},
+          {id:+WB4.id,family:'ZWATCHB',lane:'DIP',verdict:'PARKED'},
+          {id:+WB5.id,family:'ZWATCHB',lane:'DIP',verdict:'PARKED'},
+          {id:+WC1.id,family:'ZWATCHC',lane:'NOISE',verdict:'PARKED',verdict_at:'2026-09-24'},
+          {id:MISS1,family:'GHOST',lane:'GHOST',verdict:'DEAD'},
+          {id:MISS2,family:'GHOST',lane:'GHOST',verdict:'DEAD'}
+        ];
+        var wOk="window._rbWatch={state:'ok',runs:"+JSON.stringify(DOC_RUNS)+",at:Date.now()};";
+        var wNone="window._rbWatch={state:'none',runs:[],at:Date.now()};";
+        var wLoading="window._rbWatch={state:'loading',runs:[],at:Date.now()};";
+        var allErrors=[],allUncaught=[];
+        function acc(){allErrors=allErrors.concat(sink.errors);allUncaught=allUncaught.concat(sink.uncaught);}
+        function rowLabelled(lbl){var tr=null;
+          [].forEach.call(d.querySelectorAll('#rb-mtx-box table tr'),function(t){
+            if(tr)return;var c=t.children;if(!c.length)return;
+            if((c[0].textContent||'').trim()===lbl)tr=t;});
+          return tr;}
+        function cellFor(lbl,id){var tr=rowLabelled(lbl);if(!tr)return null;return tr.querySelector('td[data-rbc="'+id+'"]');}
+        function titleOf(cell){if(!cell)return '';var h=cell.querySelector('[title]');return h?(h.getAttribute('title')||''):(cell.getAttribute('title')||'');}
+
+        // render 1: WATCH active, doc loaded with 13 listed runs (11 found, 2 missing)
+        var c1=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full',rbFam:'__WATCH__'}, wc+wOk); acc();
+        var chip1=d.querySelector('[data-rbfam="__WATCH__"]');
+        var chipText1=chip1?(chip1.textContent||'').trim():'';
+        var chipTitle1=chip1?(chip1.getAttribute('title')||''):'';
+        var watchCols=d.querySelectorAll('#rb-mtx-box table thead th[data-rbc]').length;
+        var thWC1=d.querySelector('#rb-mtx-box table thead th[data-rbc="'+WC1.id+'"]');
+        var wc1HasWarn=thWC1?/⚠/.test(thWC1.innerHTML):false;
+        var bodyTxt1=(d.body&&(d.body.innerText||d.body.textContent))||'';
+        var missNoteOk=bodyTxt1.indexOf(MISS1)>=0&&bodyTxt1.indexOf(MISS2)>=0
+          &&(bodyTxt1.indexOf('no longer in your history')>=0||bodyTxt1.indexOf('LOAD ALL')>=0);
+        var cellA1_w=cellFor('LANE VERDICT',WA1.id), cellA2_w=cellFor('LANE VERDICT',WA2.id);
+        var a1Txt=cellA1_w?(cellA1_w.textContent||'').trim():null;
+        var a1Title=titleOf(cellA1_w);
+        var a2Txt=cellA2_w?(cellA2_w.textContent||'').trim():null;
+
+        // render 2: rbFam cleared -- back to one champion per family
+        var c2=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full'}, wc+wOk); acc();
+        var champCols=d.querySelectorAll('#rb-mtx-box table thead th[data-rbc]').length;
+        var champHasA1=!!d.querySelector('#rb-mtx-box table thead th[data-rbc="'+WA1.id+'"]');
+        var champHasB1=!!d.querySelector('#rb-mtx-box table thead th[data-rbc="'+WB1.id+'"]');
+        var cellA1_c=cellFor('LANE VERDICT',WA1.id), cellB1_c=cellFor('LANE VERDICT',WB1.id);
+        var a1TxtChamp=cellA1_c?(cellA1_c.textContent||'').trim():null;
+        var b1Txt=cellB1_c?(cellB1_c.textContent||'').trim():null;
+        var b1Title=titleOf(cellB1_c);
+
+        // render 3: doc state 'none' -- no chip
+        var c3=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full'}, wc+wNone); acc();
+        var chip3=d.querySelector('[data-rbfam="__WATCH__"]');
+
+        // render 4: rbFam already on WATCH while the doc is still loading, nothing cached yet
+        var c4=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full',rbFam:'__WATCH__'}, wc+wLoading); acc();
+        var bodyTxt4=(d.body&&(d.body.innerText||d.body.textContent))||'';
+        var loadingShown=bodyTxt4.indexOf('loading the watch list')>=0;
+
+        // render 5 (lead review): WATCH saved but the doc turned out missing - one champion per
+        //   family, and one line saying why, never an empty board
+        var c5=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full',rbFam:'__WATCH__'}, wc+wNone); acc();
+        var fbCols=d.querySelectorAll('#rb-mtx-box table thead th[data-rbc]').length;
+        var bodyTxt5=(d.body&&(d.body.innerText||d.body.textContent))||'';
+        var fbNote=bodyTxt5.indexOf('could not be read right now')>=0;
+        // render 6 (lead review): a refresh in flight over a list already read keeps the chip and
+        //   the watch view on screen
+        var wRefresh="window._rbWatch={state:'loading',runs:"+JSON.stringify(DOC_RUNS)+",at:Date.now()};";
+        var c6=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full',rbFam:'__WATCH__'}, wc+wRefresh); acc();
+        var chip6=d.querySelector('[data-rbfam="__WATCH__"]');
+        var refreshCols=d.querySelectorAll('#rb-mtx-box table thead th[data-rbc]').length;
+
+        dfxCase('k1_watch_list', [c1,c2,c3,c4,c5,c6], {
+          'renders OK on every state (loaded / cleared / none / loading / fallback / refresh)': [c1,c2,c3,c4,c5,c6].every(function(c){return c==='OK';}),
+          'WATCH saved but the doc missing: one champion per family (2 columns), not an empty board': fbCols===2,
+          'and one line says the watch list could not be read': fbNote,
+          'a refresh in flight over a list already read keeps the WATCH chip up': !!chip6,
+          'and keeps the watch view on screen (11 columns)': refreshCols===11,
+          'no console errors or uncaught exceptions across any render': allErrors.length===0&&allUncaught.length===0,
+          'the WATCH chip shows the doc’s own count (13 listed, including the 2 not yet loaded)': chipText1.indexOf('WATCH')>=0&&chipText1.indexOf('13')>=0,
+          'the chip hover names MANAGER, the weekly report and the LANE VERDICT row': chipTitle1.indexOf('MANAGER watch list')>=0&&chipTitle1.indexOf('LANE VERDICT')>=0&&chipTitle1.indexOf('Ask MANAGER')>=0,
+          'the watch view shows more than 10 runs (the old champion-only cap does not apply)': watchCols===11,
+          'a short-sample watched run stays on the board and keeps its warning mark': !!thWC1&&wc1HasWarn,
+          'a listed id missing from history is reported under the list, by number': missNoteOk,
+          'a watched run’s LANE VERDICT cell shows its verdict text': a1Txt==='LIVE - Webull test leg',
+          'that cell’s hover names the lane chat, the verdict date and the note': a1Title.indexOf('NOISE chat')>=0&&a1Title.indexOf('2026-09-26')>=0&&a1Title.indexOf('watch note A1')>=0,
+          'a watched run with no verdict yet reads plainly, not blank': a2Txt==='no verdict yet',
+          'clearing rbFam returns the board to one champion per family (2 columns, not 11)': champCols===2,
+          'the two champions are family A and family B’s real top scorers': champHasA1&&champHasB1,
+          'outside watch mode the watched champion still shows its verdict': a1TxtChamp==='LIVE - Webull test leg',
+          'the champion NOT on the watch list shows a dash instead of a verdict': b1Txt==='—',
+          'that dash explains why in plain language': b1Title==='not on the MANAGER watch list',
+          'doc state none shows no WATCH chip': !chip3,
+          'rbFam already on WATCH while the doc is still loading says so instead of showing champions': loadingShown
+        }, {chipText1:chipText1,watchCols:watchCols,champCols:champCols,a1Txt:a1Txt,a2Txt:a2Txt,b1Txt:b1Txt,missNoteOk:missNoteOk,loadingShown:loadingShown,fbCols:fbCols,fbNote:fbNote,chip6:!!chip6,refreshCols:refreshCols});
+      })();
+
         dfxCase('i1_f25_window_stage', calls, {
           'renders OK on IS / LB / FULL / WF': calls.every(function(c){return c==='OK';}),
           'IS and LB use the label WINDOW (not RUN WINDOW)': !!per.is['WINDOW']&&!!per.lb['WINDOW'],
@@ -4498,6 +4631,89 @@ var FIX = __FIX__;
           'the reason names the true cause - the lockbox took no trades': /lockbox.*took no trades/i.test(zWhy),
           'the reason does not claim the curve was never saved (it is saved; only the lockbox slice is empty)': !/no curve saved/i.test(zWhy)&&/is saved/i.test(zWhy)
         }, {zWhy:zWhy});
+      })();
+
+      // -- j1 (2026-09-26): RUNBOARD 1E MATRIX grows two rows, ROC % / YR (return band, right
+      //    after TOTAL) and SORTINO (reward / risk band, right after SHARPE), reading on every
+      //    SAMPLE stage. ROC % / YR is net per year over a fixed account, built from the exact
+      //    net and years the TOTAL and MAR rows already read for the stage - checked here by
+      //    hand from the fixture's own saved money and dates, never read back off the page.
+      //    SORTINO reads the saved walk-forward test on WF, the saved lockbox / whole-run
+      //    Sortino on LB / FULL, and dashes on IN-SAMPLE for any plain run (the engine measures
+      //    no in-sample Sortino, only a Sharpe). A book has no Sortino on any stage and no
+      //    walk-forward test at all, so both new rows dash on WF with the same book reason
+      //    every other WF row already gives. A run that also saved a crowning score
+      //    (gate_validate.ungated_wf) names it, with its own figure, in the WF ROC cell's own
+      //    hover - RUNBOARD's WF stage reads the walk-forward TEST, never that crowned-and-
+      //    held-fixed reading.
+      (function(){
+        var PID=String(+FIX.id+640101), BID=String(+FIX.id+640102);
+        var P=JSON.parse(JSON.stringify(FIX));
+        P.id=PID;P.strategy='ZJ1ROC_1_0.py';P.starred=false;P.multiplier=1;delete P.scope;delete P.equity;
+        P.date_from='2010-01-01';P.date_to='2030-01-01';
+        P.best_pnl_usd=500000;P.best_dd_usd=50000;P.best_pf=1.3;P.best_trades=400;
+        P.top10_results=[{fold:1,oos_pnl:25000,oos_trades:60,oos_wins:33},{fold:2,oos_pnl:20000,oos_trades:60,oos_wins:33}];
+        P.gate_validate={wf_range:['2015-01-01','2025-01-01'],ungated_wf:{num_trades:150,total_pnl:60000,profit_factor:1.5}};
+        P.validate={verdict:'PASS',total_dd:-50000,total_sortino:1.83,
+          windows:{lockbox:['2028-01-01','2029-01-01']},
+          lockbox:{pnl:45000,pf:1.35,trades:130,pass:true,sortino:2.05,dd:-9000},
+          wf_oos:{v:1,trades:120,net:45000,wins:66,profit_factor:1.28,gross_loss:5000,n_folds:2,years:10,
+            from:'2015-01-01',to:'2025-01-01',sortino:1.55,sharpe:1.22,max_drawdown:7000,equity:[0,45000]}};
+        var B=JSON.parse(JSON.stringify(FIX));
+        B.id=BID;B.strategy='BOOK: J1 PROBE';B.starred=false;B.multiplier=1;delete B.scope;delete B.equity;delete B.top10_results;delete B.gate_validate;
+        B.date_from='2010-01-01';B.date_to='2030-01-01';
+        B.book={name:'J1 PROBE',legs:[{strategy:'AAA_1_0.py',weight:1},{strategy:'BBB_1_0.py',weight:1}],
+          whole:{total_pnl:800000,max_drawdown:60000,num_trades:5000,profit_factor:1.4},
+          pre_lockbox:{total_pnl:700000,max_drawdown:60000,num_trades:4500},
+          lockbox:{total_pnl:100000,num_trades:400,win_rate:44,profit_factor:1.3,max_drawdown:20000},
+          lockbox_from:'2028-01-01',date_from:'2010-01-01',date_to:'2030-01-01'};
+        B.validate={verdict:'PASS',lockbox:{pnl:100000,pf:1.3,trades:400,pass:true},book:true};
+        var wc="var P="+JSON.stringify(P)+";var B="+JSON.stringify(B)+";"
+          +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+          +"runHistory=[f(P),f(B)];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();window._starRuns=[];";
+        function yrsBetween(a,b){var t0=Date.parse(a),t1=Date.parse(b);return (t1>t0)?((t1-t0)/(365.25*86400000)):null;}
+        function roc(net,yrs){return (yrs>0)?((net/yrs)/100000*100):null;}
+        function numOf(v){return v==null?null:parseFloat(v);}
+        function close(a,b,tol){return a!=null&&b!=null&&isFinite(a)&&isFinite(b)&&Math.abs(a-b)<tol;}
+        function rbCell(lbl,id){
+          var ths=[].slice.call(d.querySelectorAll('#rb-mtx-box th[data-rbc]')),col=-1;
+          ths.forEach(function(th,idx){if(th.getAttribute('data-rbc')===String(id))col=idx;});
+          if(col<0)return null;
+          var found=null;
+          [].forEach.call(d.querySelectorAll('#rb-mtx-box table tr'),function(tr){
+            if(found)return;var c=tr.children;if(c.length<2)return;
+            if(dfxN(c[0].textContent)!==lbl)return;
+            found=c[col+1]||null;});
+          if(!found)return null;
+          var t=found.querySelector('[title]');
+          return {v:dfxN(found.textContent),tip:t?(t.getAttribute('title')||''):(found.getAttribute('title')||'')};
+        }
+        var calls=[],errAcc=[],cell={};
+        ['is','lb','full','wf'].forEach(function(smp){
+          calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:smp,cmpIds:[PID,BID]}, wc));
+          if(sink.errors.length||sink.uncaught.length)errAcc.push(smp+': '+sink.errors.concat(sink.uncaught).join(' | '));
+          cell[smp]={pRoc:rbCell('ROC % / YR',PID),pSo:rbCell('SORTINO',PID),bRoc:rbCell('ROC % / YR',BID),bSo:rbCell('SORTINO',BID)};
+        });
+        var lbYrsP=yrsBetween('2028-01-01','2029-01-01'), lbRocP=roc(45000,lbYrsP);
+        var fullYrsP=yrsBetween('2010-01-01','2030-01-01'), fullRocP=roc(500000,fullYrsP);
+        var wfRocP=roc(45000,10);
+        var bkLbYrs=yrsBetween('2028-01-01','2030-01-01'), bkLbRoc=roc(100000,bkLbYrs);
+        var crownYrs=yrsBetween('2015-01-01','2025-01-01'), crownRoc=roc(60000,crownYrs);
+        var crownMatch=(cell.wf.pRoc&&cell.wf.pRoc.tip)?cell.wf.pRoc.tip.match(/of (-?[0-9.]+)% a year/):null;
+        dfxCase('j1_roc_sortino_rows', calls, {
+          'renders OK on IS / LB / FULL / WF': calls.every(function(c){return c==='OK';}),
+          'no console errors on any stage': errAcc.length===0,
+          'FULL ROC % / YR reads the TOTAL net over the run years': close(numOf(cell.full.pRoc&&cell.full.pRoc.v),fullRocP,0.06),
+          'LOCKBOX ROC % / YR reads the lockbox net over the lockbox years': close(numOf(cell.lb.pRoc&&cell.lb.pRoc.v),lbRocP,0.06),
+          'LOCKBOX SORTINO is the saved lockbox Sortino, 2.05': close(numOf(cell.lb.pSo&&cell.lb.pSo.v),2.05,0.006),
+          'WALK-FORWARD ROC % / YR reads the pooled fold net over the saved test years, 4.5%': close(numOf(cell.wf.pRoc&&cell.wf.pRoc.v),wfRocP,0.06),
+          'WALK-FORWARD SORTINO is the saved test Sortino, 1.55': close(numOf(cell.wf.pSo&&cell.wf.pSo.v),1.55,0.006),
+          'the WALK-FORWARD ROC cell also names the saved crowning score, with its own figure': !!(cell.wf.pRoc&&cell.wf.pRoc.tip&&/crowning score/i.test(cell.wf.pRoc.tip)&&/not shown here as the test/i.test(cell.wf.pRoc.tip)&&crownMatch&&close(numOf(crownMatch[1]),crownRoc,0.06)),
+          'IN-SAMPLE SORTINO dashes for a plain validated run, with a reason naming Sortino and Sharpe': !!(cell.is.pSo&&cell.is.pSo.v==='—'&&/sortino/i.test(cell.is.pSo.tip)&&/sharpe/i.test(cell.is.pSo.tip)),
+          "a book's WALK-FORWARD ROC dashes with the book reason": !!(cell.wf.bRoc&&cell.wf.bRoc.v==='—'&&/book/i.test(cell.wf.bRoc.tip)),
+          "a book's WALK-FORWARD SORTINO dashes with the book reason": !!(cell.wf.bSo&&cell.wf.bSo.v==='—'&&/book/i.test(cell.wf.bSo.tip)),
+          "a book's LOCKBOX ROC reads its own lockbox net over its own lockbox years": close(numOf(cell.lb.bRoc&&cell.lb.bRoc.v),bkLbRoc,0.06)
+        }, {cell:cell,fullRocP:fullRocP,lbRocP:lbRocP,wfRocP:wfRocP,bkLbRoc:bkLbRoc,crownRoc:crownRoc,errAcc:errAcc});
       })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
@@ -6665,7 +6881,9 @@ def main(argv=None):
            # i1-i4 (audit3_report.md round, 2026-09-24): F25 WINDOW row stage stretch,
            # F30 book-name labels + rank-on-picked + side issues, F31 LB zero-trade reason.
            'i1_f25_window_stage', 'i2_f30_book_and_naming', 'i3_f30_rank_on_picked',
-           'i4_f31_lb_zero_reason']
+           'i4_f31_lb_zero_reason',
+           'j1_roc_sortino_rows']
+    DFX += ['k1_watch_list']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}

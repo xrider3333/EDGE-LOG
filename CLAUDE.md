@@ -157,6 +157,17 @@ nobody clicks - so the durable channel is a file inbox per chat at `C:\EdgeLog\c
   when it gets through). Never rely on SendMessage alone.
 - `python tools/chat_inbox.py all` = every chat's open items; say "check the inboxes" to see them.
 
+## RUNBOARD watch list - edit COMPARE > RUNBOARD without a code ship (owner go via MANAGER 2026-09-26)
+MANAGER and the strategy chats add or track runs on the RUNBOARD's WATCH chip by writing ONE Firestore
+doc (`users/{uid}/meta/runboard_watch`) through `tools/runboard_watch.py` - no web push needed. The app
+reads that doc on COMPARE > RUNBOARD: the WATCH chip shows every listed run, and the LANE VERDICT
+row prints each run's verdict wherever it sits on the board. Keep verdicts short (under ~60 characters)
+and plain; the note is the hover. Family names follow the vocabulary below.
+- Add or update a run: `python tools/runboard_watch.py add <run#> --verdict "..." --from <YOUR NAME>`
+  (also takes `--family`, `--lane`, `--note`; idempotent - only the given fields change).
+- Set just the verdict: `python tools/runboard_watch.py verdict <run#> "..." --from <YOUR NAME>`.
+- Drop a run: `python tools/runboard_watch.py remove <run#> --from <YOUR NAME>`. List it: `... list`.
+
 ## Strategy FAMILY names - one vocabulary, 1-2 words (owner 2026-09-24, hard rule)
 Owner: "make sure you and all the other strategies are using/adopting family names that are consistent
 and 1-2 words max." Use EXACTLY these names in replies, docs, STUDIES rows, run ids and the app:
