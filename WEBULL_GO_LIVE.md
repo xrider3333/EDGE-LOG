@@ -7,6 +7,27 @@ rules, the web tab), every finding was re-checked by a second agent (two for the
 then a critic looked for gaps. 69 findings, 3 thrown out, the rest merged below. Board item 14 in
 WEBULL_PAPER_TODO.md points here.
 
+**Status on 2026-09-26 (weekend fix round, box deployed while flat).**
+- Done and live on the box: 1.1 (refused orders page; failed exits retry until the flatten
+  deadline, re-sent only when Webull's own record of that order says it is dead, never on a
+  guess; an after-close check reads Webull's real position and pages if it is not flat),
+  1.2 (exits skip the Firestore lease check on the serving box), 1.4 (stall, position-check and
+  tick-failure pushes; urgent/high priorities; an off-box dead-man on GitHub Actions),
+  1.8 (half-day flatten 3 minutes before the early close, last entry 10 minutes before),
+  1.9 (tools/box_deploy.py is the only way to deploy; the flat-restart script is retired),
+  3.6 (ORB's morning blind spot), 3.7 (ENGU-Q phantom entries; the two ghosts are marked void),
+  3.11 (KEEL never rebuilds in the session; a push when it falls back to 1.0), KEEL's gap_atr
+  look-ahead, and the roll guard on the shadow paper loader.
+- 1.3: the book now refuses to serve on a host missing from its serving list; the PC's config
+  lists only the box. It takes effect on the PC at the job runner's next restart.
+- 1.10: code is ready for a private topic with an access token; the owner must create it.
+- 3.8: NOISE now asks for 262 sessions; the box holds 77 until a year of QQQ 5m bars is
+  backfilled, which needs an intraday data key (owner).
+- Not yet: 1.5-1.7 (the order-path rework: unknown outcomes, separate live state, safe disarm,
+  a real kill path) was built and reviewed but NOT shipped; four review rounds kept finding new edge cases, so it will be redone smaller before anything goes live. 1.11 (a supervised
+  1-share live test) and 1.12 (the runbook) come after it. Entries and exits still go out one
+  5-minute bar after the backtest's fill (3.3); fixing that is next.
+
 **Checked again by hand on 2026-09-25:**
 - ORB is blind before about 14:05 ET (item 3.6). The half-day test compares today's session, which is
   still being built, to a full day's length, so every morning session is dropped as a half day.

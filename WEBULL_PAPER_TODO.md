@@ -21,10 +21,12 @@ done.
 | 9 | KEEL v12 on top of run #382 on the NOISE leg | **LIVE** (2026-09-24, 5326d02) | nothing |
 | 10 | Fire orders at the bar close from the live price feed | **SHADOW** (2026-09-25, 4aaabc8, live on the box, switch off) | after about a week of shadow numbers: switch it on or not |
 | 11 | Re-price trades from Webull's own tape, not Yahoo | **DONE** (2026-09-25, 9805414, live on the box) | nothing |
-| 12 | NOISE's volatility skip never fires live | **PARTLY DONE** (2026-09-25, 307a128): the skip now engages live; full match needs 252 sessions | nothing |
+| 12 | NOISE's volatility skip never fires live | **PARTLY DONE** (2026-09-26): NOISE asks for 262 sessions; the box holds 77 | an intraday data key (e.g. a free Alpaca account) for a year of QQQ 5m bars |
 | 13 | Share cap vs #382 x KEEL sizes | **DONE** (2026-09-24: 60 per leg, 80 total) | nothing |
-| 14 | Taking the book live: the go-live punch list (WEBULL_GO_LIVE.md) | **OPEN** (2026-09-25) | decisions in its section 2: account, size and the day-trade rule, shorting, token, KEEL stack, ENGU-Q |
-| 15 | ORB never enters before about 14:05 ET: the half-day test drops today's unfinished session | **OPEN** (2026-09-25) | nothing |
+| 14 | Taking the book live: the go-live punch list (WEBULL_GO_LIVE.md) | **IN PROGRESS** (2026-09-26: 1.1-1.4, 1.8, 1.9, 3.6-3.8, 3.11 done; see its status note) | decisions in its section 2: account, size and the day-trade rule, shorting, token, KEEL stack, ENGU-Q; a private alert topic |
+| 15 | ORB never enters before about 14:05 ET: the half-day test drops today's unfinished session | **DONE** (2026-09-26, 9a82613, live on the box) | nothing; watch ORB's first morning entries |
+| 16 | Entries and exits go out one 5-minute bar after the backtest's fill | **OPEN** (2026-09-26, confirmed from the live record) | nothing |
+| 17 | Order-path rework (unknown outcomes, fill status, split orders, separate live state, safe disarm) | **OPEN** (2026-09-26: built, not shipped) | nothing |
 
 ---
 
@@ -682,3 +684,30 @@ the length test) on the live path only. Then replay 60 sessions and check the OR
 the backtest one for one.
 
 **Done when:** the replay matches and ORB can take a morning entry on paper.
+
+---
+
+## 16. Entries and exits go out one 5-minute bar after the backtest's fill
+
+**Status: OPEN.** Added 2026-09-26 (owner question via MANAGER; NOISE round 61 priced it at
+about 0.45-0.66 NQ points a trade).
+
+**What is wrong.** The backtest decides at the close of bar D and fills at the OPEN of bar D+1.
+The live engine only sees finished bars, so it learns of that fill when bar D+1 closes and sends
+5-35 s later: every recent NOISE entry went out 5 minutes plus 5-35 s after its backtest fill
+(09-22 to 09-25). The 09-22 exit fix only removed the exits' second bar. Item 10 (bar-close
+firing) would only cut the 5-35 s.
+
+**Fix.** Let the engine see the decision at bar D's close (for example, run the strategy with a
+stand-in next bar and send any entry or exit it would fill at that bar's open), then prove on a
+replay that every live order goes out within seconds of the backtest's fill.
+
+---
+
+## 17. Order-path rework
+
+**Status: OPEN.** Added 2026-09-26. The go-live items 1.5-1.7 were built (worktree wb-orders,
+about 3,000 lines in api/webull_orders.py) but four review rounds kept finding new edge cases, so
+none of it shipped. Redo it smaller: unknown outcomes resolved by order id, fill status and
+filled quantity applied to the books, a split order's second part only after the first fills,
+then (LIVE only) a separate live state file, a flat-before-arming guard and a safe disarm.
