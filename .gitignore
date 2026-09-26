@@ -100,3 +100,5 @@ tools/data/score_pending.json
 tools/data/score_inbox/
 # setup-journal bar windows: the permanent OHLC record behind setups/*.md (same reason as above)
 !tools/data/setup_bars/*.csv
+# exact NQ/ES contract-switch tables rebuilt from databento_raw (ROLL_AUDIT.md; tiny reference data, overrides *.csv)
+!tools/data/contract_switches_*.csv
