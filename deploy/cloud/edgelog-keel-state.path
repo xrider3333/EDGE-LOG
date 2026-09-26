@@ -14,6 +14,15 @@
 # new state in atomically (summary written first, state file last), so a same-day
 # rebuild just retrains through the PREVIOUS session and can never serve
 # api/cloud_signal.py a half-written or partial-session state.
+#
+# NEVER MID-SESSION, THOUGH (deadman/deadman_keel_guard, 2026-09-26): "harmless" above is
+# about data integrity, not about WHEN the state a live entry scores against is allowed
+# to change underneath it -- a rebuild landing between two entries in the same session
+# would silently swap the state a KEEL-scored trade sees partway through the day. The
+# service THIS unit fires (edgelog-keel-state.service) now always passes
+# --defer-in-session, so a push landing 09:25-16:05 ET on a trading day exits 0 with a
+# log line instead of rebuilding -- the 18:30 ET timer builds it. See
+# tools/keel_live_state.py's DEFER-IN-SESSION comment.
 Description=Watch the NQ 5m RTH master for changes -> rebuild KEEL v12 immediately
 Documentation=https://github.com/xrider3333/EDGE-LOG/blob/main/deploy/cloud/README.md
 

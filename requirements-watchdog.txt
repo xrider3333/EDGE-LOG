@@ -1,5 +1,8 @@
-# Deps for .github/workflows/nt-watchdog.yml (tools/nt_cloud_watchdog.py) ONLY.
+# Deps for the off-box dead-man's-switch workflows ONLY: .github/workflows/nt-watchdog.yml
+# (tools/nt_cloud_watchdog.py) and .github/workflows/qqq-deadman.yml
+# (tools/qqq_deadman.py, deadman/deadman_keel_guard 2026-09-26) -- both just read a
+# Firestore doc or two and POST one HTTP request, so both reuse this same file rather
+# than each declaring its own copy.
 # Deliberately NOT api/requirements.txt -- that pulls in fastapi/uvicorn/numpy/pandas/
-# webull-openapi-python-sdk, none of which this checker needs. Just enough to read one
-# Firestore doc and POST one HTTP request.
+# webull-openapi-python-sdk, none of which either checker needs.
 firebase-admin

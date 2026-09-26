@@ -905,6 +905,15 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None):
 # ── KEEL v12 overlay -- see the block comment above keel_paths() near CROWN_LEGS ─────────
 _KEEL_STATE_CACHE = {}   # state_path -> (mtime, state, summary-or-None)
 
+# KEEL FALLBACK PUSH (deadman/deadman_keel_guard, 2026-09-26). How many trading sessions
+# a KEEL state may lag "now" (by data_through/last_nq_session) before this module tells
+# the owner about it -- DELIBERATELY TIGHTER than KEEL_MAX_STALE_SESSIONS above (which
+# governs when the SIZING itself gives up and falls back to 1.0). A state that is one
+# session behind is not yet stale enough to change what a trade gets sized at, but it is
+# already stale enough that the owner should hear the nightly rebuild missed a night --
+# well before KEEL_MAX_STALE_SESSIONS quiet sessions would actually change live sizing.
+KEEL_PUSH_STALE_SESSIONS = 1
+
 
 def _load_keel_state(state_path, summary_path, log=print):
     """Best-effort load of a KEEL state + its JSON summary, cached by the state file's
@@ -995,6 +1004,120 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print):
     except Exception as e:
         log(f"[cloud-signal] KEEL scoring failed: {type(e).__name__}: {e}")
         return 1.0, f"keel scoring error: {type(e).__name__}: {e}"
+
+
+def _keel_fallback_reason(keel_cfg, now, arrays=None, log=print):
+    """Would KEEL fall back to keel_size 1.0 right now, and if so why -- a STANDALONE
+    freshness read, independent of any actual trade entry. _keel_size_for_entry above
+    only ever runs at the moment a NEW entry is about to be emitted, which on a quiet
+    leg can be hours or days away; a broken/stale KEEL state should not have to wait
+    for a trade to be noticed (deadman/deadman_keel_guard, 2026-09-26).
+
+    Checks, in order: the state file itself (missing/unreadable -- see
+    _load_keel_state), staleness by data_through/last_nq_session against
+    KEEL_PUSH_STALE_SESSIONS (tighter than KEEL_MAX_STALE_SESSIONS -- see that
+    constant's own comment), and -- only when `arrays` is given -- the feature-column
+    match _keel_size_for_entry also checks. `arrays` is optional because this is called
+    every tick a leg's bars actually advance (see step()), and the two array-free
+    checks alone already cover the failure modes that matter most: a dead nightly
+    build, or a state file that stops updating.
+
+    Returns a short human-readable reason string on any fallback condition, or None
+    when KEEL looks healthy. NEVER raises -- any exception anywhere in this check
+    itself is caught and reported back as its own reason, exactly like a real scoring
+    exception would be."""
+    try:
+        state, summary = _load_keel_state(keel_cfg["state_path"], keel_cfg.get("summary_path", ""),
+                                          log=log)
+        if state is None:
+            return "keel state unavailable"
+        last_session = (summary or {}).get("data_through") or (summary or {}).get("last_nq_session")
+        if last_session:
+            sessions = market_calendar.sessions_between(last_session, now.date().isoformat())
+            n_stale = max(0, len(sessions) - 1)
+            if n_stale > KEEL_PUSH_STALE_SESSIONS:
+                return f"keel state stale: {n_stale} session(s) since {last_session}"
+        if arrays is not None:
+            from augur_engine import ml_keel as _keel
+            F, names = _keel.keel_features(arrays)
+            if list(names) != list(state.get("feature_names") or []):
+                return "keel feature columns do not match the state"
+        return None
+    except Exception as e:
+        return f"keel freshness check error: {type(e).__name__}: {e}"
+
+
+def _is_cloud_host():
+    """True only on the box (EDGELOG_HOST_ROLE=cloud, set by deploy/cloud/edgelog.env via
+    install.sh / edgelog.env.example) -- the SAME check api/runner.py's
+    _cloud_runner_refusal and api/qqq_exec.py's host-role label already use. The PC
+    runner also imports and calls this module's step() (api/runner.py's
+    cloud_signal_thread), and C:\\EdgeLog\\cloud_signal\\keel never exists there (KEEL
+    state is only ever built on the box), so without this gate the PC would page the
+    owner's phone with a false "keel state unavailable" every trading day -- see
+    _maybe_push_keel_fallback's caller in step()."""
+    return str(os.environ.get("EDGELOG_HOST_ROLE") or "").strip().lower() == "cloud"
+
+
+def _this_host_id():
+    """This host's label for a KEEL fallback push title, so a real box alert can never
+    be confused with anything else -- same EDGELOG_HOST_ID-override-else-hostname
+    pattern as api/qqq_exec.py's _lease_host_id."""
+    override = os.environ.get("EDGELOG_HOST_ID")
+    if override and override.strip():
+        return override.strip()
+    try:
+        import socket
+        return socket.gethostname() or "unknown-host"
+    except Exception:
+        return "unknown-host"
+
+
+def _keel_ntfy_push(msg, title, log=print):
+    """Best-effort ntfy.sh push -- same shape as api/qqq_exec.py's _notify (this module
+    has never needed to push a phone alert before this feature). Reads the topic from
+    NTFY_TOPIC so the topic itself is never hardcoded/committed. Never raises."""
+    topic = os.environ.get("NTFY_TOPIC")
+    if not topic:
+        log(f"[cloud-signal] NTFY_TOPIC unset, push skipped: {title}: {msg}")
+        return
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            f"https://ntfy.sh/{topic}", data=msg.encode("utf-8"), method="POST",
+            headers={"Title": title, "Priority": "default"})
+        urllib.request.urlopen(req, timeout=4)
+    except Exception as e:
+        log(f"[cloud-signal] ntfy push failed: {type(e).__name__}: {e}")
+
+
+def _maybe_push_keel_fallback(leg_key, keel_cfg, now, state, arrays=None, log=print):
+    """Pushes ONCE PER (ET calendar) DAY when `leg_key`'s KEEL overlay would currently
+    fall back to keel_size 1.0 -- see _keel_fallback_reason for the conditions this
+    covers (state missing/unreadable, stale by data_through beyond
+    KEEL_PUSH_STALE_SESSIONS, a feature-column mismatch, or an exception in the check
+    itself). Dedupe lives in state["keel_alerts"][leg_key]["last_pushed_date"] --
+    state.json, the SAME ledger step() already loads/persists every tick, so no
+    separate store is needed. A reason on a day already pushed is a no-op; a day with
+    NO reason leaves the stamp untouched (not cleared) -- so the run this actually
+    recovers is quiet, and the NEXT bad day pages again rather than the alert going
+    silent forever after its first page. Never raises -- a broken alerter must never
+    take down step()."""
+    try:
+        reason = _keel_fallback_reason(keel_cfg, now, arrays=arrays, log=log)
+        if not reason:
+            return
+        alerts = state.setdefault("keel_alerts", {})
+        rec = alerts.setdefault(leg_key, {})
+        today = now.date().isoformat()
+        if rec.get("last_pushed_date") == today:
+            return
+        _keel_ntfy_push(f"{leg_key}: {reason}",
+                       f"EDGELOG QQQ ({_this_host_id()}): KEEL fell back to 1.0", log=log)
+        rec["last_pushed_date"] = today
+        rec["last_reason"] = reason
+    except Exception as e:
+        log(f"[cloud-signal] KEEL fallback push failed: {type(e).__name__}: {e}")
 
 
 def _entry_key(leg, trade):
@@ -1283,6 +1406,27 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
         if arrays is None:
             continue
 
+        # KEEL FALLBACK PUSH (deadman/deadman_keel_guard, 2026-09-26): a standalone
+        # freshness read, independent of whether this tick's diff below finds a new
+        # entry to score -- see _maybe_push_keel_fallback / _keel_fallback_reason.
+        # Runs here (once per leg per NEW bar, same cadence as the recompute above)
+        # rather than every tick: cheap and frequent enough (every 5 real minutes for
+        # NOISE_382) for a once-per-day push, without re-adding the O(ticks) cost the
+        # comment above this block exists to avoid.
+        #
+        # ONLY on a LIVE tick on the CLOUD BOX (fetch=True AND EDGELOG_HOST_ROLE=cloud,
+        # see _is_cloud_host) -- 2026-09-26 fix. api/runner.py's cloud_signal_thread
+        # calls this same step() from the PC runner too, and the PC never has a KEEL
+        # state directory (it is only ever built on the box), so without this gate the
+        # PC would push a false "keel state unavailable" every trading day, using the
+        # SAME title as a real box alert -- the owner could never tell them apart. A
+        # replay (--replay always passes fetch=False) hits the same gate: replaying N
+        # historical days with a live NTFY_TOPIC set must never send N false pushes for
+        # a "staleness" that is just how far in the past the replay's own `now` is.
+        keel_cfg = (cfg or {}).get("keel")
+        if keel_cfg and fetch and _is_cloud_host():
+            _maybe_push_keel_fallback(key, keel_cfg, now, state, arrays=arrays)
+
         trades = run_leg_trades(cfg, arrays, leg_key=key, now=now)
         # Three bars of grace by default: a signal may legitimately be discovered a bar or
         # so late, but never hours late (see _diff_leg's LATE ENTRIES note). A leg may set
@@ -1291,7 +1435,7 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
                            max_entry_age_sec=cfg.get("max_entry_age_sec",
                                                      3 * TIMEFRAME_SECONDS[tf]),
                            bar_source=(state.get("bar_source", {}).get(tf, {}).get("source")),
-                           cfg=cfg, arrays=arrays)
+                           cfg=cfg, arrays=arrays, fetch=fetch)
         all_events.extend(events)
         leg_state["asof"] = arrays["index"][-1].isoformat()
 
@@ -1311,7 +1455,7 @@ def _zi(name):
 
 
 def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_source=None,
-             cfg=None, arrays=None, log=print):
+             cfg=None, arrays=None, fetch=True, log=print):
     """Mutates leg_state['trades'] (entry_key -> record) in place; returns the list of
     NEW ENTRY/EXIT event dicts this call discovered.
 
@@ -1362,6 +1506,13 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
     the same value on both rows of one trade, and it is also the key of this leg's memory
     (see _entry_key; _rekey_recorded_trades upgrades a pre-2026-09-14 memory once). An
     executor closes a position only with the EXIT whose trade_id matches the one it opened.
+
+    `fetch` (2026-09-26, deadman/deadman_keel_guard): step()'s own `fetch` passed straight
+    through, gating ONLY the scoring-time KEEL fallback push below (same live+cloud-box
+    gate as step()'s standalone _maybe_push_keel_fallback) -- never anything else here.
+    Defaults True so every pre-existing direct caller (every test written before this
+    feature) keeps behaving exactly as before; the push itself additionally requires
+    EDGELOG_HOST_ROLE=cloud, so it stays a no-op off the box regardless.
     """
     events = []
     _rekey_recorded_trades(leg_key, leg_state)
@@ -1450,6 +1601,32 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                                                  t["entry_time"], log=log)
                 keel_size = ks
                 final_size = plugin_size * ks
+                # SCORING-TIME FALLBACK PUSH (minor fix, deadman/deadman_keel_guard,
+                # 2026-09-26). _keel_fallback_reason (step()'s standalone freshness
+                # read) never calls keel_score_from_state, so it cannot see a fallback
+                # that only happens AT SCORING TIME -- keel_score_from_state raising,
+                # or returning a non-finite/non-positive size (_keel_size_for_entry's
+                # own two `except`/guard branches, above). Those ARE real "this trade
+                # got sized at 1.0 because scoring blew up" events, and they are the
+                # ones the owner most wants to hear about -- so page for them here too.
+                # `_diag` is a short reason STRING on any fallback (see
+                # _keel_size_for_entry's own docstring) or a diagnostics DICT on a real
+                # score -- isinstance(_diag, str) is exactly "this was a fallback".
+                # Dedupe lives on `leg_state` itself (once per ET calendar day, same
+                # convention as _maybe_push_keel_fallback's state["keel_alerts"]) since
+                # this function -- unlike step() -- has no access to the top-level
+                # state dict. Same live+cloud-box gate as step()'s own push: the PC
+                # runner scores KEEL too (import-only, no state directory), so without
+                # this gate it would page a false "keel state unavailable" on its own.
+                if fetch and _is_cloud_host() and isinstance(_diag, str):
+                    alert = leg_state.setdefault("keel_alert", {})
+                    if alert.get("last_pushed_date") != today:
+                        _keel_ntfy_push(
+                            f"{leg_key}: {_diag}",
+                            f"EDGELOG QQQ ({_this_host_id()}): KEEL fell back to 1.0",
+                            log=log)
+                        alert["last_pushed_date"] = today
+                        alert["last_reason"] = _diag
             rec = recorded[key]
             rec["size"] = final_size
             rec["keel_size"] = keel_size

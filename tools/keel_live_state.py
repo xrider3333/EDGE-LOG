@@ -85,6 +85,40 @@ RUN_ID_FOR_CHECK = 382
 UID_FOR_CHECK = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
 
 
+# DEFER-IN-SESSION (deadman/deadman_keel_guard, 2026-09-26). edgelog-keel-state.path
+# (deploy/cloud/) rebuilds the moment a new NQ 5m RTH master lands -- see that unit's
+# own comment, ITEM E. That is exactly right for a late push that lands OUTSIDE market
+# hours, but a push that happens to land DURING the session (09:25-16:05 ET on a
+# trading day) must NOT trigger a same-session rebuild: KEEL must never rebuild mid-
+# session (the whole point of a build-once/score-many split -- see ml_keel.py's own
+# docstring -- is that every entry within one session scores off the SAME state; a
+# rebuild landing between two entries would silently change what "the state" means
+# partway through the day). --defer-in-session makes this script a no-op (exit 0, one
+# log line) when called inside that window; the existing 18:30 ET timer (well after the
+# window, see edgelog-keel-state.timer) always builds regardless, since it never falls
+# inside DEFER_START..DEFER_END.
+DEFER_START = (9, 25)
+DEFER_END = (16, 5)
+
+
+def _now_et():
+    import datetime as _dt2
+    from zoneinfo import ZoneInfo
+    return _dt2.datetime.now(ZoneInfo("America/New_York"))
+
+
+def should_defer_in_session(now_et):
+    """True when `now_et` (an America/New_York-aware datetime) falls inside the
+    trading session's own KEEL-rebuild blackout window (DEFER_START..DEFER_END,
+    inclusive) on a trading day -- see the DEFER-IN-SESSION comment above. Pure
+    function of `now_et` alone so tests never need to patch the clock."""
+    from api import market_calendar as _mc
+    if not _mc.is_session(now_et.date()):
+        return False
+    hhmm = (now_et.hour, now_et.minute)
+    return DEFER_START <= hhmm <= DEFER_END
+
+
 def _default_nq_file():
     return os.path.join(ROOT, "augur_uploads", "NOADJ_NQ_5m_RTH.csv")
 
@@ -338,7 +372,21 @@ def main():
     ap.add_argument("--check-run-doc", action="store_true",
                     help="also read (READ-ONLY) run #382's own gate_validate.keel row "
                     "from Firestore and report whether this walk reproduces it")
+    ap.add_argument("--defer-in-session", action="store_true",
+                    help="exit 0 without building (one log line) if now (ET) falls "
+                    "inside a trading day's 09:25-16:05 rebuild blackout window -- see "
+                    "the DEFER-IN-SESSION comment above should_defer_in_session; used by "
+                    "deploy/cloud/edgelog-keel-state.service so edgelog-keel-state.path's "
+                    "on-push rebuild never fires mid-session")
     a = ap.parse_args()
+
+    if a.defer_in_session:
+        now = _now_et()
+        if should_defer_in_session(now):
+            print(f"[keel-live-state] --defer-in-session: {now.strftime('%Y-%m-%d %H:%M:%S %Z')} "
+                  f"is inside the trading session -- deferring to the 18:30 ET timer, not "
+                  f"building now")
+            return
 
     nq_file = a.nq_file or _default_nq_file()
     out_dir = a.out_dir or _default_out_dir()

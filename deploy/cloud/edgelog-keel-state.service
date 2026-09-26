@@ -4,6 +4,13 @@
 # nightly (tools/push_nq_master_to_box.py, ~17:20 ET) into __EDGELOG_HOME__/nq/. Built HERE
 # because the box's scikit-learn differs from the PC's, so a fitted model never crosses
 # machines. api/cloud_signal.py picks the new state up by its mtime - no restart needed.
+#
+# --defer-in-session (deadman/deadman_keel_guard, 2026-09-26): this SAME unit is also
+# fired by edgelog-keel-state.path on every master push, including one that happens to
+# land mid-session -- KEEL must never rebuild mid-session (see
+# tools/keel_live_state.py's DEFER-IN-SESSION comment). The flag is a no-op for THIS
+# timer's own nightly 18:30 ET run (well outside the 09:25-16:05 window), so one
+# ExecStart line safely covers both triggers.
 Description=EDGE-LOG KEEL v12 live state build (NOISE_382, nightly)
 After=network-online.target
 
@@ -12,7 +19,7 @@ Type=oneshot
 User=__EDGELOG_USER__
 WorkingDirectory=__EDGELOG_REPO__
 EnvironmentFile=__EDGELOG_HOME__/edgelog.env
-ExecStart=__EDGELOG_VENV__/bin/python -u tools/keel_live_state.py --nq-file __EDGELOG_HOME__/nq/NOADJ_NQ_5m_RTH.csv --out-dir __EDGELOG_HOME__/cloud_signal/keel
+ExecStart=__EDGELOG_VENV__/bin/python -u tools/keel_live_state.py --nq-file __EDGELOG_HOME__/nq/NOADJ_NQ_5m_RTH.csv --out-dir __EDGELOG_HOME__/cloud_signal/keel --defer-in-session
 Nice=10
 StandardOutput=append:__EDGELOG_HOME__/logs/keel_state.log
 StandardError=append:__EDGELOG_HOME__/logs/keel_state.log

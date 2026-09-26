@@ -1,6 +1,12 @@
 [Unit]
 Description=Nightly KEEL v12 live state build (18:30 ET Mon-Fri, after the PC's 17:20 ET NQ push)
 
+# Persistent=true (2026-09-26 review note): if the box is down at 18:30 ET and reboots
+# DURING the next session, systemd's catch-up run now hits --defer-in-session (see
+# tools/keel_live_state.py) and exits without building -- so KEEL stays one extra
+# session stale until that evening's normal 18:30 run, and the new KEEL fallback push
+# in api/cloud_signal.py will flag it. Acceptable, and simpler than a second
+# path-triggered-only unit; not something to "fix" without a reason to.
 [Timer]
 OnCalendar=Mon..Fri *-*-* 18:30:00 America/New_York
 Persistent=true

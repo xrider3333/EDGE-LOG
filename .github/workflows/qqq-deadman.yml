@@ -1,0 +1,56 @@
+name: qqq-deadman
+
+# Runner-INDEPENDENT dead-man's-switch for the Webull QQQ paper book (tools/qqq_deadman.py,
+# deadman/deadman_keel_guard 2026-09-26). Modeled on nt-watchdog.yml: same shape, same
+# secrets, same "keep checking even when the box is completely dark" reasoning -- but for
+# api/qqq_exec.py's published users/{uid}/meta/qqq_exec doc (the Oracle ARM box's
+# edgelog-qqq-exec service) instead of the NT bridge heartbeat.
+#
+# SCHEDULE. The book is only meant to be alive 09:25-16:10 ET on a trading day --
+# tools/qqq_deadman.py itself decides whether a given run is inside that window (via
+# api/market_calendar.py + the real ET clock), never this cron expression alone. GitHub
+# Actions cron is UTC and known to fire several minutes late under load, so this schedules
+# every 5 minutes across 13:00-22:00 UTC Mon-Fri -- a window comfortably wider than
+# 09:25-16:10 ET in EITHER DST state (13:25-20:10 UTC EDT / 14:25-21:10 UTC EST) -- and lets
+# the script's own window check turn the extra runs into cheap, harmless no-ops.
+#
+# Needs three repo secrets (Settings -> Secrets and variables -> Actions) -- ALL THREE
+# ALREADY EXIST for nt-watchdog.yml (see that workflow's own comment); nothing new to add:
+#   FIREBASE_SERVICE_ACCOUNT_JSON  -- full contents of the Firebase Admin service account
+#                                     JSON (same credential shape api/runner.py --cred takes)
+#   EDGELOG_UID                    -- the owner's Firebase uid to check
+#   NTFY_TOPIC                     -- the same long random unguessable ntfy.sh topic
+#                                     nt-watchdog.yml already uses (NOT a public/guessable
+#                                     name -- ntfy.sh topics are readable by anyone who
+#                                     knows the name)
+on:
+  schedule:
+    - cron: '*/5 13-22 * * 1-5'
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install watchdog deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-watchdog.txt
+
+      - name: Write service account credential
+        run: echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > "${{ runner.temp }}/serviceAccount.json"
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+
+      - name: Run QQQ deadman check
+        run: python tools/qqq_deadman.py
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/serviceAccount.json
+          EDGELOG_UID: ${{ secrets.EDGELOG_UID }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
