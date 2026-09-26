@@ -352,15 +352,17 @@ def test_host_id_recorded_on_every_row(tmp_path, monkeypatch):
 
 
 def test_host_id_column_appended_never_inserted_migrates_old_file(tmp_path, monkeypatch):
-    """An existing broker_orders.csv written before this column existed must be
-    migrated in place (old rows padded with ""), never dropped or reordered."""
+    """An existing broker_orders.csv written before host_id (and, EXIT SAFETY item 5,
+    2026-09-26 minor review, before outcome) existed must be migrated in place (old rows
+    padded with ""), never dropped or reordered."""
     out = _patch_qqq_paths(tmp_path, monkeypatch)
     os.makedirs(out, exist_ok=True)
-    old_cols = qe.BROKER_ORDER_COLS[:-1]   # every column except the new trailing host_id
+    old_cols = qe.BROKER_ORDER_COLS[:-2]   # every column except the two trailing ones
     assert old_cols == ["ts_et", "leg", "intent", "side", "shares", "signal_id",
                         "client_order_id", "mode", "ok", "sent", "shadow_px",
                         "broker_fill_px", "slippage", "reason", "duplicate"], (
-        "host_id must be APPENDED at the end, never inserted")
+        "host_id and outcome must be APPENDED at the end, never inserted")
+    assert qe.BROKER_ORDER_COLS[-2:] == ["host_id", "outcome"]
     old_row = {c: "" for c in old_cols}
     old_row["leg"] = "OLD"
     old_row["intent"] = "OPEN"
@@ -378,8 +380,10 @@ def test_host_id_column_appended_never_inserted_migrates_old_file(tmp_path, monk
     rows = _read_csv(qe.BROKER_ORDERS_CSV)
     assert rows[0]["leg"] == "OLD"
     assert rows[0]["host_id"] == "", "old rows are padded, not dropped"
+    assert rows[0]["outcome"] == "", "old rows are padded, not dropped"
     assert rows[1]["leg"] == "ORB"
     assert rows[1]["host_id"]
+    assert rows[1]["outcome"] == "OK"
 
 
 # ── Part D: tick() wiring -- db/uid -> _check_lease_for_broker -> state ─────────────

@@ -1940,8 +1940,16 @@ def cmd_once():
     """One live step() and exit. Refused (returns 2) while a live writer's heartbeat is
     fresh -- see _refuse_beside_live_writer -- so this can never become a second writer
     of the live signal record beside the runner's own cloud_signal_thread or another
-    --loop/--once. Returns the process exit code; main() passes it to sys.exit()."""
+    --loop/--once. Also refused (returns 2) when this host is excluded by config.json's
+    serving_hosts -- see _serving_hosts_ok's docstring: that gate protects
+    cloud_signal_thread, but a hand-run `--once` on an excluded host bypassed it (MINOR
+    review fix, 2026-09-26). Returns the process exit code; main() passes it to
+    sys.exit()."""
     paths = DEFAULT_PATHS
+    hosts_ok, hosts_reason = _serving_hosts_ok()
+    if not hosts_ok:
+        print(f"cloud_signal --once: REFUSED -- {hosts_reason}")
+        return 2
     rc = _refuse_beside_live_writer(paths, "--once")
     if rc:
         return rc
@@ -1957,6 +1965,71 @@ def cmd_once():
 
 
 THREAD_STEP_SEC = 30.0   # see cloud_signal_thread
+
+
+def _host_id():
+    """This host's identity -- the SAME rule as api.qqq_exec._lease_host_id, duplicated
+    (not imported) because that module already imports THIS one (_build_keel_status), so
+    the reverse import would be circular. EDGELOG_HOST_ID overrides; else the OS
+    hostname."""
+    override = os.environ.get("EDGELOG_HOST_ID")
+    if override and override.strip():
+        return override.strip()
+    try:
+        import platform as _platform
+        return _platform.node() or "unknown-host"
+    except Exception:
+        return "unknown-host"
+
+
+def _qqq_exec_config_path():
+    """Path to api/qqq_exec.py's config.json -- the book's own config file. Built the
+    SAME way that module builds its own CONFIG_PATH (EDGELOG_QQQ_EXEC_DIR, else
+    <EDGELOG_HOME>/qqq_exec), duplicated rather than imported for the same circular-
+    import reason as _host_id above."""
+    out_dir = os.environ.get("EDGELOG_QQQ_EXEC_DIR", os.path.join(edgelog_home(), "qqq_exec"))
+    return os.path.join(out_dir, "config.json")
+
+
+def _serving_hosts_ok(log=print):
+    """(ok, reason) -- SERVING_HOSTS GATE (2026-09-26, "the PC does not run the signal
+    engine either"): reads the SAME "serving_hosts" list from the SAME config.json as
+    api.qqq_exec._serving_hosts_ok (see that function's docstring for the full why this
+    is a static allow-list, never a Firestore lease). One list in one file governs both
+    halves of the book, so there is only ever one place to edit.
+
+    Missing config.json, missing key, or a value that is not a non-empty list --
+    today's behaviour, this host may run the engine exactly as before. A read/parse
+    error is treated the same way (fail-open) -- never raises, never blocks the engine
+    over a transient file glitch. MINOR review fix (2026-09-26): a missing file is the
+    common, silent case (nobody has added the key yet), but a file that EXISTS and
+    fails to parse is a real config problem masquerading as "every host may serve" --
+    logged as a WARNING, distinct from the missing-file case, so it does not read like
+    routine startup noise."""
+    path = _qqq_exec_config_path()
+    if not os.path.exists(path):
+        return True, None
+    try:
+        with open(path, encoding="utf-8") as f:
+            cfg = json.load(f)
+    except Exception as e:
+        log(f"[cloud-signal] WARNING: {path} exists but could not be read/parsed "
+            f"({type(e).__name__}: {e}) -- serving_hosts gate fails OPEN (proceeding, "
+            "today's behaviour); fix the file to restore the gate")
+        return True, None
+    hosts = (cfg or {}).get("serving_hosts")
+    if hosts is None:
+        return True, None
+    if not isinstance(hosts, list) or not hosts:
+        log(f"[cloud-signal] {path}'s serving_hosts={hosts!r} is not a non-empty list -- "
+            "ignoring (every host may still run the engine, today's behaviour)")
+        return True, None
+    allowed = {str(h).strip() for h in hosts if str(h).strip()}
+    me = _host_id()
+    if me in allowed:
+        return True, None
+    return False, (f"this host {me!r} is not in {path}'s serving_hosts {sorted(allowed)} "
+                   "-- refusing to run the signal engine")
 
 
 def cloud_signal_thread(stop=None, log=print):
@@ -1992,7 +2065,17 @@ def cloud_signal_thread(stop=None, log=print):
 
     NEVER refuses beside a fresh heartbeat (unlike cmd_once/cmd_loop, see
     _refuse_beside_live_writer's own docstring) -- this IS the live writer, and a stale
-    heartbeat left by an old --loop or a runner restart must not stop it from starting."""
+    heartbeat left by an old --loop or a runner restart must not stop it from starting.
+
+    SERVING_HOSTS GATE (2026-09-26): checked FIRST, before anything else here -- see
+    _serving_hosts_ok. This is both the runner's in-process thread (PC) and the box's
+    own systemd ExecStart, so one check here covers both call sites; an excluded host
+    returns at once, never touching signals.csv, state.json or the heartbeat file."""
+    hosts_ok, hosts_reason = _serving_hosts_ok(log=log)
+    if not hosts_ok:
+        log(f"[cloud-signal] REFUSING to run the signal engine: {hosts_reason} -- never "
+            "stepping, never writing signals.csv/state.json/heartbeat.json")
+        return
     log("[cloud-signal] parallel run: ON (signals only, no order path)")
     try:
         log_history_windows(log=log)
@@ -2063,14 +2146,21 @@ def cmd_loop():
     """step() every 20s during session hours, sleep outside them, until Ctrl+C. Refused
     (returns 2) while a live writer's heartbeat is fresh -- see
     _refuse_beside_live_writer -- so this can never become a second writer beside the
-    runner's own cloud_signal_thread or another --loop/--once.
+    runner's own cloud_signal_thread or another --loop/--once. Also refused (returns 2)
+    when this host is excluded by config.json's serving_hosts -- see
+    _serving_hosts_ok's docstring: that gate protects cloud_signal_thread, but a
+    hand-run `--loop` on an excluded host bypassed it (MINOR review fix, 2026-09-26).
 
-    The check runs EXACTLY ONCE, here, before this loop's own first heartbeat write --
+    Both checks run EXACTLY ONCE, here, before this loop's own first heartbeat write --
     never inside the loop below. This loop writes the heartbeat itself every iteration
     (ok=True, "outside session hours" or an event count), so checking freshness again
     inside the loop would see the stamp IT JUST WROTE a moment before and refuse itself
     on the very next pass."""
     paths = DEFAULT_PATHS
+    hosts_ok, hosts_reason = _serving_hosts_ok()
+    if not hosts_ok:
+        print(f"cloud_signal --loop: REFUSED -- {hosts_reason}")
+        return 2
     rc = _refuse_beside_live_writer(paths, "--loop")
     if rc:
         return rc

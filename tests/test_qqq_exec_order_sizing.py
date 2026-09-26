@@ -470,7 +470,8 @@ def test_resend_after_duplicate_reject_uses_the_lots_own_sized_quantity(tmp_path
     adapter, client = _paper_adapter(tmp_path, monkeypatch, max_shares_per_leg=25)
     monkeypatch.setattr(qe, "_get_broker_adapter", lambda log=print: adapter)
     sent = []
-    monkeypatch.setattr(qe, "_notify", lambda msg, title, log=print: sent.append(msg))
+    monkeypatch.setattr(qe, "_notify",
+                        lambda msg, title, log=print, priority=None: sent.append(msg))
     clock = [1_000_000.0]
     monkeypatch.setattr(qe.time, "time", lambda: clock[0])
 

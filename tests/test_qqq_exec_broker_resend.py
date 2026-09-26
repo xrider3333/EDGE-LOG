@@ -159,7 +159,8 @@ def _setup(tmp_path, monkeypatch):
     adapter, client = _paper_adapter(tmp_path, monkeypatch)
     monkeypatch.setattr(qe, "_get_broker_adapter", lambda log=print: adapter)
     sent = []
-    monkeypatch.setattr(qe, "_notify", lambda msg, title, log=print: sent.append((title, msg)))
+    monkeypatch.setattr(qe, "_notify",
+                        lambda msg, title, log=print, priority=None: sent.append((title, msg)))
     clock = [1_000_000.0]
     monkeypatch.setattr(qe.time, "time", lambda: clock[0])
     cfg = {"session": {"open": "09:31", "last_entry": "15:55", "flat_by": "15:59"}}

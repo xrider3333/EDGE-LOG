@@ -364,7 +364,76 @@ def _past_flat_by(dt, sess):
     return _et_hhmm(dt) >= fb
 
 
+def _hhmm_minus(hhmm, minutes):
+    """'HH:MM' minus `minutes` minutes, clamped at 00:00 -- never crosses midnight
+    (session times never need to). Used by the half-day clamp (EXIT SAFETY item 5,
+    2026-09-26) to derive flat_by/last_entry from the recognised early close."""
+    h, m = _hhmm(hhmm)
+    total = max(0, h * 60 + m - int(minutes))
+    return f"{total // 60:02d}:{total % 60:02d}"
+
+
+# EXIT SAFETY (2026-09-26), item 2/6: how long a CLOSE re-send keeps trying, and how far
+# apart the tries are. A flat-out backoff, not BROKER_RESEND_MIN_GAP_SEC/MAX_TRIES above --
+# those govern an OPEN blocked by a reconcile halt or a same-instant duplicate, which are
+# timing glitches expected to clear in seconds; a CLOSE that keeps failing (refused,
+# exception/timeout, BLOCKED) may be a real outage, and giving up on an EXIT after 3 tries
+# risks leaving real shares open with nobody trying any more.
+BROKER_CLOSE_RESEND_BACKOFF_SEC = (5.0, 10.0, 20.0, 30.0)   # then 30s per further try
+SESSION_FLATTEN_DEADLINE_MARGIN_SEC = 10.0   # a CLOSE re-send never tries past close - 10s
+
+
+def _close_resend_backoff(tries):
+    """Seconds to wait before the next CLOSE re-send attempt, given `tries` already
+    made -- about 5, 10, 20, 30s, then every 30s after that (BROKER_CLOSE_RESEND_BACKOFF_SEC)."""
+    idx = min(max(int(tries), 0), len(BROKER_CLOSE_RESEND_BACKOFF_SEC) - 1)
+    return BROKER_CLOSE_RESEND_BACKOFF_SEC[idx]
+
+
+def _session_flatten_deadline(nowdt):
+    """Today's session close (market_calendar.session_close_et -- 16:00 normally, 13:00
+    on a recognised half day) minus SESSION_FLATTEN_DEADLINE_MARGIN_SEC -- the hard stop
+    for a CLOSE re-send (EXIT SAFETY item 2, 2026-09-26): Webull refuses a market order
+    once the venue itself has closed (see _maybe_flatten_orphan_broker's own docstring
+    on the 2026-09-17/18 incident), so retrying past this instant can only ever fail.
+    Never raises -- an unreadable session-close string falls back to 16:00."""
+    try:
+        h, m = _hhmm(market_calendar.session_close_et(nowdt) or "16:00")
+    except Exception:
+        h, m = 16, 0
+    close_dt = nowdt.replace(hour=h, minute=m, second=0, microsecond=0)
+    return close_dt - timedelta(seconds=SESSION_FLATTEN_DEADLINE_MARGIN_SEC)
+
+
 # -- config / state I/O -------------------------------------------------------------
+def _read_config_for_gate(path=None, log=print):
+    """Read-only counterpart to load_config, for the SERVING_HOSTS GATE ONLY (major
+    review finding, 2026-09-26): load_config() CREATES config.json with defaults when
+    it is missing, and every call site of the gate (qqq_exec_thread, ensure_standalone,
+    run_once, serve) used to run BEFORE the host-slot/lease checks that today's tests
+    never isolate from the real EDGELOG_HOME -- so a fresh box wrote a live config.json
+    the live-system guard then blocked, and a box that HAS the recommended
+    serving_hosts key made unrelated tests fail by actually refusing on that host. This
+    never writes, never merges DEFAULT_CONFIG, never touches `mode`/`signal_source` --
+    it only needs the raw "serving_hosts" key, and returning {} for "missing or
+    unreadable" is exactly the fail-open a caller needs to decide nothing has changed.
+
+    `path` defaults to None the same way load_config does: read the CURRENT module
+    global, not one bound at def-time, so a caller (or a test) that reassigns
+    qqq_exec.CONFIG_PATH still gets the right file."""
+    path = path if path is not None else CONFIG_PATH
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        log(f"[qqq-exec] WARNING: {path} exists but could not be read/parsed "
+            f"({type(e).__name__}: {e}) -- serving_hosts gate fails OPEN (every host may "
+            "still serve), same as a missing file; fix the file to restore the gate")
+        return {}
+
+
 def load_config(path=None, log=print):
     """Reloaded every tick so the owner can edit rails live. Creates the file with
     defaults if missing. A `mode` other than "SHADOW" is refused (logged) and the
@@ -417,6 +486,7 @@ def _default_state():
         "breaker_tripped": False,
         "flat_by_done_date": None,
         "kill_done": False,
+        "kill_flatten_date": None,  # ET date a KILL flatten last fired -- EXIT SAFETY item 4
         "last_feed_alert": 0.0,
         "feed_stale": False,
         "calib": None,             # {"ratio","source","at"}
@@ -619,7 +689,13 @@ def _roll_day(state, today):
 
 
 # -- ntfy push (best-effort, non-fatal -- same shape as api.nt_drawdown_alert) ------
-def _notify(msg, title, log=print):
+def _notify(msg, title, log=print, priority=None):
+    """`priority` (EXIT SAFETY, 2026-09-26, item 7): an optional ntfy Priority header
+    override -- 'high' for a safety push (a broker record that came back not ok, an
+    exit re-send queue giving up), 'urgent' for the one case worse than that (Webull
+    still holds shares after the close). Omitted (the default) keeps the original
+    'default' priority for every routine fill/summary ping -- every call site from
+    before this date passes nothing and is unaffected."""
     topic = os.environ.get("NTFY_TOPIC")
     if not topic:
         log(f"[qqq-exec] NTFY_TOPIC unset, push skipped: {title}: {msg}")
@@ -627,7 +703,7 @@ def _notify(msg, title, log=print):
     try:
         req = urllib.request.Request(
             f"https://ntfy.sh/{topic}", data=msg.encode("utf-8"), method="POST",
-            headers={"Title": title, "Priority": "default"})
+            headers={"Title": title, "Priority": priority or "default"})
         urllib.request.urlopen(req, timeout=4)
     except Exception as e:
         log(f"[qqq-exec] ntfy push failed: {type(e).__name__}: {e}")
@@ -995,7 +1071,22 @@ BROKER_ORDER_COLS = ["ts_et", "leg", "intent", "side", "shares", "signal_id",
                      # header and pads old rows with ""). Which host actually sent (or
                      # was blocked from sending) this row -- see _lease_host_id and the
                      # lease-unverifiable gate in _mirror_to_broker.
-                     "host_id"]
+                     "host_id",
+                     # EXIT SAFETY item 5 (2026-09-26 minor review): appended at the END,
+                     # same backward-compat convention as host_id above -- a genuinely
+                     # UNKNOWN outcome (a hard-timeout send, or a PENDING-resolver record
+                     # from api/webull_orders.py's own side) used to be indistinguishable
+                     # from an ordinary refusal in this CSV's own "ok"/"sent" columns
+                     # (both read ok=False, sent=True) -- see _broker_row_outcome. One of
+                     # OK / REFUSED / BLOCKED / UNKNOWN, always derivable from the same
+                     # `rec` this row's other fields already came from. Every reader of
+                     # this file (api/qqq_exec.py's own _best_broker_row/_broker_realized_
+                     # today/_all_broker_orders_from_csv/_update_broker_order_row, tools/
+                     # qqq_exec_smoke.py, tools/qqq_failover_sim.py) reads by column NAME
+                     # (csv.DictReader), never by position, so an appended column is safe
+                     # for every one of them; index.html has no broker_orders.csv reader
+                     # at all (checked by grep).
+                     "outcome"]
 
 _ORDER_ADAPTER = None
 
@@ -1562,9 +1653,595 @@ def _query_broker_fill(adapter, signal_id, account_id=None, log=print):
         return None, f"order-status parse failed: {type(e).__name__}: {e}"
 
 
+# -- EXIT SAFETY (2026-09-26) shared helpers -----------------------------------------
+def _is_serving_standalone():
+    """True only while THIS process itself holds the LOCAL serving lock -- the exact
+    same file (SERVING_LOCK) serving_alive() reads for the runner/premarket_ensure, and
+    the same guarantee serve()'s own 'SERVING standalone' log line describes: on one
+    machine, at most one process runs the book at a time, entirely independent of the
+    Firestore lease. Used by the item-3 CLOSE lease-gate exemption below -- a caller/
+    test that never wrote this lock (every pre-2026-09-14 test, a bare --once run) reads
+    False, so the exemption can never fire for them. Never raises."""
+    try:
+        alive, pid = serving_alive()
+        return bool(alive) and pid == os.getpid()
+    except Exception:
+        return False
+
+
+# EXIT SAFETY item 3 (2026-09-26, LEAD DECISION on the "alerts in book" review): a CLOSE
+# that keeps failing across many backoff retries used to page on EVERY one of them (each
+# not-ok _mirror_to_broker call fires its own alert, and a close_retry can retry every
+# 5-30s for hours) -- a real outage would then page every few seconds for as long as it
+# lasts. The lead's call: page on the FIRST failure (so the owner hears about it right
+# away), then at most once every CLOSE_FAIL_ALERT_GAP_SEC per leg while it keeps
+# failing, plus the give-up push (_maybe_resend_broker_orders), which always fires
+# regardless of this gate, at urgent priority. NOT one push per retry.
+CLOSE_FAIL_ALERT_GAP_SEC = 300.0
+
+
+def _close_fail_should_alert(state, leg, log=print):
+    """True the first time this leg's CLOSE has failed since its last resolved episode,
+    or again once CLOSE_FAIL_ALERT_GAP_SEC has passed since the last push while it keeps
+    failing; False for every push in between (the ordinary not-ok log line at the
+    caller's own call site still runs regardless -- nothing is silently lost, only the
+    repeat phone push). Records the push time when it returns True so the next call
+    measures from it. Never raises (fails OPEN -- a bug here must never silently swallow
+    a real safety push)."""
+    try:
+        now = time.time()
+        throttle = state.setdefault("_close_fail_alert", {})
+        last = throttle.get(leg)
+        if last is None or (now - float(last)) >= CLOSE_FAIL_ALERT_GAP_SEC:
+            throttle[leg] = now
+            return True
+        return False
+    except Exception:
+        return True
+
+
+def _close_fail_alert_reset(state, leg):
+    """Clears the throttle above once a leg's CLOSE-failure episode is resolved (a
+    retry finally lands, the retry queue gives up, or the position is confirmed already
+    closed some other way) -- so the NEXT failure for this leg (a different trade, a
+    later day) pages immediately again rather than inheriting the old episode's
+    cooldown. PAGING (minor, THIRD 2026-09-26 review): the CLOSE-retry "stalled" push
+    (_maybe_resend_broker_orders) now shares this SAME throttle key (`leg`) rather than
+    a separate "<leg>#stall" one -- point 3 of the spec caps a failing CLOSE at one push
+    per leg per CLOSE_FAIL_ALERT_GAP_SEC, not one budget for the send failure and a
+    second independent one for the stall -- so there is only ever this one key to clear.
+    Never raises."""
+    try:
+        throttle = state.get("_close_fail_alert") or {}
+        throttle.pop(leg, None)
+    except Exception:
+        pass
+
+
+def _alert_broker_not_ok(state, *, leg, intent, side, shares, reason, log=print):
+    """Phone alert for a broker record that came back NOT ok (refused, exception/
+    timeout, BLOCKED) -- EXIT SAFETY item 1, right after the 'NOT ok' log line at this
+    function's own call site. An OPEN pushes at most once per leg per calendar day
+    (state['_open_fail_notified'][leg] = that day's date) -- a leg blocked all morning
+    by the same stale lease would otherwise page every 5s tick. A CLOSE pushes on the
+    FIRST failure, then at most once per CLOSE_FAIL_ALERT_GAP_SEC per leg while it keeps
+    failing (item 3, 2026-09-26 lead decision -- see _close_fail_should_alert; NOT once
+    per retry). Also logs one timeline event either way. Never raises.
+
+    REVIEW FIX (2026-09-26 review, minor): the pushed message is now built from
+    _plain_broker_error(reason) -- the raw ServerException text (HTTP status, Webull
+    code, RequestID) is unreadable on a phone push, and the "NOT ok" log line right
+    above this function's own call site already carries the raw text, so nothing is
+    lost by translating it here."""
+    try:
+        if intent == "OPEN":
+            today = _now_et().strftime("%Y-%m-%d")
+            notified = state.setdefault("_open_fail_notified", {})
+            if notified.get(leg) == today:
+                return
+            notified[leg] = today
+        elif not _close_fail_should_alert(state, leg, log=log):
+            return
+        plain_reason = _plain_broker_error(reason) or reason or "no reason given"
+        msg = f"QQQ BROKER {intent} NOT OK: {leg} {side} {shares}sh -- {plain_reason}"
+        _log_event(state, "broker", msg, log=log)
+        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+    except Exception as e:
+        log(f"[qqq-exec] broker-not-ok alert failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _alert_broker_send_unknown(state, *, leg, intent, side, shares, reason,
+                               client_order_id, log=print):
+    """Phone alert for a broker send whose outcome is UNKNOWN (item 4, 2026-09-26 --
+    see _place_stock_order_with_timeout). An OPEN always pushes -- it is never retried,
+    so this can only ever fire once per real hang. A CLOSE (item 3, 2026-09-26 lead
+    decision, NARROWING this from "always pushes") is gated by the same per-leg
+    CLOSE_FAIL_ALERT_GAP_SEC as _alert_broker_not_ok: a repeated timeout across many
+    close_retry attempts is still "a CLOSE that keeps failing", not a fresh emergency
+    each time -- see _close_fail_should_alert. Also logs one timeline event. Never
+    raises."""
+    try:
+        if intent == "CLOSE" and not _close_fail_should_alert(state, leg, log=log):
+            return
+        msg = (f"QQQ BROKER {intent} OUTCOME UNKNOWN: {leg} {side} {shares}sh (order id "
+              f"{client_order_id}) -- {reason}")
+        _log_event(state, "broker", msg, log=log)
+        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+    except Exception as e:
+        log(f"[qqq-exec] broker-unknown alert failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _believed_qty_for_leg(leg, log=print):
+    """Current believed QQQ position (whole shares, unsigned) the broker adapter's OWN
+    order-history records say `leg` holds -- the SMALLER of believed_positions and
+    broker_sent_positions (EXIT SAFETY item 2 minor, 2026-09-26: the adapter's own
+    NOTHING TO CLOSE guard and reconcile() trust broker_sent_positions, not
+    believed_positions alone; after an OFF-to-PAPER mode switch mid-session -- or any
+    other path that updates one without the other -- the two can briefly disagree, and
+    the smaller of the two is always the safer number for a re-send to trust: it can
+    never send more than either source believes is actually held). 0 for a leg with no
+    belief on record in EITHER, None if the adapter cannot be read at all. Used by the
+    CLOSE re-send loop (item 2) to re-check before every retry -- a retry must never
+    double-sell. Never raises."""
+    try:
+        status = _get_broker_adapter(log=log).status()
+        believed = (status.get("believed_positions") or {}).get(leg)
+        sent = (status.get("broker_sent_positions") or {}).get(leg)
+
+        def _qty(p):
+            if not p:
+                return 0
+            return int(round(abs(float(p.get("qty") or 0))))
+
+        return min(_qty(believed), _qty(sent))
+    except Exception as e:
+        log(f"[qqq-exec] believed-position read failed for {leg} (non-fatal): "
+            f"{type(e).__name__}: {e}")
+        return None
+
+
+_positions_executor = concurrent.futures.ThreadPoolExecutor(
+    max_workers=1, thread_name_prefix="qqq-positions")
+
+
+def _positions_with_timeout(adapter, log=print):
+    """adapter.positions() (the Webull get_account_position() call) bounded to
+    RECONCILE_HARD_TIMEOUT_SEC wall-clock -- EXIT SAFETY item 4 major (2026-09-26): this
+    was called inline on the 5s tick thread with no time limit at all. Same precaution as
+    _reconcile_with_timeout: this SDK's own connect/read timeouts are not reliably
+    honoured on every call path (the runner's shadow thread once hung 10 hours inside
+    get_snapshot) -- if this particular read hung at ~15:58, the whole tick loop would
+    stop dead (no CLOSE retries, no heartbeat/publish, no EOD summary).
+
+    Runs on its OWN single-worker executor, never _reconcile_executor: if reconcile()
+    itself is the thing hung, sharing that executor would queue this call behind it
+    forever, defeating the point.
+
+    A timeout (or any other exception escaping the call) is folded into the SAME shape
+    adapter.positions() itself returns for a read failure -- {"broker": None, "error":
+    <reason>} -- so the caller's existing 'could not read' branch below handles it with
+    no separate code path to keep in sync. Never raises."""
+    fut = _positions_executor.submit(adapter.positions)
+    try:
+        return fut.result(timeout=RECONCILE_HARD_TIMEOUT_SEC)
+    except concurrent.futures.TimeoutError:
+        return {"broker": None,
+               "error": f"position read timed out after {RECONCILE_HARD_TIMEOUT_SEC:g}s"}
+    except Exception as e:
+        return {"broker": None, "error": f"{type(e).__name__}: {e}"}
+
+
+def _check_webull_flat_after_eod(state, log=print):
+    """EXIT SAFETY item 4: read Webull's OWN account QQQ position through the broker
+    adapter's own position read (adapter.positions()['broker'] -- the same
+    get_account_position() call reconcile() itself uses, see api/webull_orders.py),
+    bounded via _positions_with_timeout so a hung SDK call can never stall this or the
+    tick loop it runs on. Push URGENT and log an event when it is not flat; log+push
+    (high, not urgent -- unverified is not the same as confirmed-not-flat) when the read
+    itself fails or times out. Returns (flat, shares) for the end-of-day summary's own
+    line: (True, 0) flat, (False, N) N shares still held, (None, None) unverifiable,
+    (True, None) nothing real was ever armed (mode OFF) so there is nothing to check.
+    Never raises."""
+    try:
+        adapter = _get_broker_adapter(log=log)
+        mode, _reason = adapter.effective_mode()
+        if mode not in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
+            return True, None
+        info = _positions_with_timeout(adapter, log=log)
+        broker = info.get("broker")
+        if broker is None:
+            msg = ("QQQ BROKER: could not read Webull's own position after the "
+                  "end-of-day flatten (" + str(info.get("error") or "no client") +
+                  ") -- check the Webull app by hand")
+            log(f"[qqq-exec] {msg}")
+            _log_event(state, "broker", msg, log=log)
+            _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+            return None, None
+        qty = float(broker.get(BROKER_SYMBOL, 0.0) or 0.0)
+        if abs(qty) > 1e-9:
+            shares = int(round(abs(qty)))
+            msg = (f"Webull still holds {shares} QQQ after the close -- sell by hand in "
+                  f"the Webull app")
+            log(f"[qqq-exec] {msg}")
+            _log_event(state, "broker", msg, log=log)
+            _notify(msg, "EDGELOG QQQ BROKER NOT FLAT", log, priority="urgent")
+            return False, shares
+        return True, 0
+    except Exception as e:
+        log(f"[qqq-exec] Webull flat-check after EOD failed (non-fatal): "
+            f"{type(e).__name__}: {e}")
+        return None, None
+
+
+def _maybe_check_webull_flat_after_eod(state, cfg, nowdt, log=print):
+    """Runs the item-4 check above once PER FLATTEN KIND per trading day (see the
+    REVIEW FIX note below), and only once ALL of:
+      * a flatten has genuinely fired today -- either the ordinary end-of-day flat_by
+        (state['flat_by_done_date'] == today) or a same-day KILL flatten
+        (state['kill_flatten_date'] == today -- EXIT SAFETY item 4 major, 2026-09-26: a
+        kill-file day used to never set flat_by_done_date at all, so this check never
+        ran on one and the EOD summary defaulted to a false 'yes' every kill day);
+      * BEFORE the session flatten deadline only: no leg is still open in the book
+        (state['legs'] empty) -- the flatten's own CLOSEs have not even reached the
+        book yet otherwise -- AND BROKER_RECONCILE_POST_ORDER_GRACE_SEC has passed
+        since the last broker send (state['_last_broker_send_at']), AND no CLOSE of ANY
+        kind -- any queue entry whose intent is CLOSE, whatever its `why` -- is still
+        left in _broker_resend (EXIT SAFETY item 4 major, 2026-09-26: this used to check
+        only why=='close_retry' and nothing else, so (a) the flatten's own CLOSEs sent
+        THIS SAME tick had not had a chance to land before this ran right after them --
+        reading Webull's position milliseconds later could still show the shares and
+        fire a false URGENT 'sell by hand' that then never re-checked -- and (b) a CLOSE
+        still queued as why=='duplicate' (two legs flattening in the same instant) was
+        ignored entirely);
+      * OR the session flatten deadline has passed regardless, so a re-send that is
+        itself stuck, a lot that could never be priced and stays in state['legs']
+        forever (_close_all logs "lot left open" and skips it -- REVIEW FIX, 2026-09-26
+        review, minor: the legs-still-open wait used to apply even past the deadline,
+        so exactly the day a lot could not be flattened was the day this check never
+        ran and the EOD summary silently showed "not checked" instead of an urgent
+        push), or a send that never even landed a timestamp can never block this check
+        forever.
+
+    REVIEW FIX (2026-09-26 review, minor): keyed on WHICH flatten kind(s) have fired
+    today (state['_eod_flat_checked_for']), not just the calendar date -- a kill
+    flatten checked at 11:00 must not suppress a SEPARATE check after the ordinary
+    15:58 flat_by flatten fires later the SAME day (or vice versa): before this fix, a
+    kill-then-clear day stamped the date after the morning check and the 15:58 flatten
+    was never checked at all, so the 16:05 EOD summary showed the morning's stale
+    "Webull flat: yes" even if the end-of-day CLOSE itself failed.
+
+    Stashes the result -- WITH today's date, so a stale prior day's verdict can never be
+    read as current (EXIT SAFETY item 4 major, 2026-09-26) -- on
+    state['_webull_flat_after_eod'] for _maybe_send_eod_summary's own line. Never
+    raises."""
+    try:
+        today = nowdt.strftime("%Y-%m-%d")
+        have_flat_by = state.get("flat_by_done_date") == today
+        have_kill = state.get("kill_flatten_date") == today
+        if not (have_flat_by or have_kill):
+            return
+        checked = state.get("_eod_flat_checked_for") or {}
+        already_covered = (checked.get("date") == today
+                          and (not have_flat_by or checked.get("flat_by"))
+                          and (not have_kill or checked.get("kill")))
+        if already_covered:
+            return
+        deadline_passed = nowdt >= _session_flatten_deadline(nowdt)
+        if not deadline_passed:
+            if state.get("legs"):
+                return
+            grace = max(0.0, _cfg_num(cfg, "broker_reconcile_post_order_grace_sec",
+                                      BROKER_RECONCILE_POST_ORDER_GRACE_SEC))
+            sent_at = float(state.get("_last_broker_send_at", 0) or 0)
+            if time.time() - sent_at < grace:
+                return
+            still_retrying = any(v.get("intent") == "CLOSE"
+                                 for v in (state.get("_broker_resend") or {}).values())
+            if still_retrying:
+                return
+        flat, qty = _check_webull_flat_after_eod(state, log=log)
+        state["eod_flat_check_date"] = today
+        state["_eod_flat_checked_for"] = {"date": today, "flat_by": have_flat_by,
+                                          "kill": have_kill}
+        state["_webull_flat_after_eod"] = {"date": today, "flat": flat, "shares": qty}
+    except Exception as e:
+        log(f"[qqq-exec] EOD Webull flat-check scheduling failed (non-fatal): "
+            f"{type(e).__name__}: {e}")
+
+
+# -- BROKER SEND HARD TIMEOUT (2026-09-26, "alerts in book" item 4) ------------------
+# A hung SDK call inside adapter.place_stock_order() (client.order_v3.place_order --
+# the same underlying kind of call default_webull_quote/order_status/reconcile have
+# each already needed their own hard timeout for, see QUOTE_HARD_TIMEOUT_SEC /
+# ORDER_STATUS_HARD_TIMEOUT_SEC / RECONCILE_HARD_TIMEOUT_SEC above) would otherwise
+# freeze the whole 5s tick loop -- no other leg's send, no exits, no publish -- for as
+# long as the SDK's own connect/read timeouts fail to fire. Run the call on its own
+# single worker thread, bounded to BROKER_SEND_HARD_TIMEOUT_SEC; OrderAdapter is
+# documented thread-safe (its own lock, see place_stock_order's own docstring) so the
+# tick thread giving up on this call while it may still be running in the background is
+# safe the same way _reconcile_with_timeout already relies on.
+#
+# ON TIMEOUT THE OUTCOME IS UNKNOWN, NEVER "NOT PLACED": client.order_v3.place_order may
+# already have reached Webull before the timeout fired (a slow response, not a
+# refusal), so this never returns ok=True/sent=False (that shape means "we know it was
+# never sent" -- see place_stock_order's OFF/BLOCKED paths) and never fabricates a
+# fill. It returns sent=True, ok=False, the real armed mode (so the existing PAPER/LIVE
+# branches right below -- fill-price capture queueing, reconcile-due -- run exactly as
+# they would for a normal send, which is exactly right: a reconcile is the thing that
+# can actually resolve whether this order landed), plus outcome="UNKNOWN" and the
+# client_order_id computed the same deterministic way place_stock_order itself would
+# have (_sanitize_client_order_id(signal_id) is pure, no network -- safe to compute here
+# even though the real call never returned).
+#
+# Downstream, unchanged by this: an UNKNOWN OPEN is never queued for auto-resend
+# (_queue_broker_resend only ever queues an OPEN for why="halt"/"duplicate", and this
+# record's reason text matches neither). An UNKNOWN CLOSE queues as why="close_retry"
+# with needs_verify=True (no parseable 4xx in the reason -- see _queue_broker_resend),
+# so _maybe_resend_broker_orders only retries it once _order_known_at_broker finds
+# Webull's own record of the previous attempt DEAD (REJECTED/CANCELLED/FAILED with an
+# explicit filled quantity -- then only the unfilled remainder goes; FINAL CLOSE
+# RE-SEND RULE, 2026-09-26) -- exactly the path a genuine mid-send timeout inside
+# place_stock_order's own per-part try/except already takes.
+#
+# ANOTHER TRACK (2026-09-26) is adding a genuine "UNKNOWN" outcome plus a PENDING-record
+# resolver inside api/webull_orders.py itself. This side only needs to keep treating
+# that shape the same way once it lands -- _is_unknown_outcome reads rec["outcome"]
+# regardless of which side set it (or rec["parts"][i]["outcome"] for that track's own
+# part shape -- see _is_unknown_outcome's item-4-minor review note).
+#
+# NOT FIXED HERE, FLAGGED FOR THE LEAD AT INTEGRATION (minor, 2026-09-26 review): this
+# 40s bound is tighter than the worst case the OTHER track's own place_stock_order can
+# legitimately spend while holding OrderAdapter._lock once its constants land (its own
+# 25s SDK read timeout, plus its UNKNOWN_RESOLVE_WINDOW_SEC and
+# SPLIT_PART_FILL_TIMEOUT_SEC, plus a part-2 place -- the other track's own numbers,
+# not read here, so guessing a new bound from this side would be worse than leaving it
+# for the lead to set once both tracks are actually merged). A slow send that would
+# have completed could be declared UNKNOWN early, which pages and (via
+# _skip_broker_housekeeping_for_inflight_send) blocks every other leg's sends until it
+# finishes. Separately, and already true before this change: a reconcile() that hangs
+# holding the same lock makes a send wait on it past this bound too (_reconcile_with_
+# timeout's fail_closed on the tick thread can also block on it) -- the in-flight skip
+# above only covers a hung SEND, never a hung reconcile.
+BROKER_SEND_HARD_TIMEOUT_SEC = 40.0
+_place_order_executor = concurrent.futures.ThreadPoolExecutor(
+    max_workers=1, thread_name_prefix="qqq-broker-send")
+
+
+# MAJOR REVIEW FIXES (2026-09-26, "alerts in book" review of item 4 above):
+#
+# #1 -- a still-hung send keeps holding OrderAdapter._lock (place_stock_order takes it
+# for the WHOLE SDK call, see api/webull_orders.py) for as long as it keeps running in
+# the background after this side gives up waiting on it. The tick thread's OWN later
+# calls into update_daily_pnl/reset_daily_pnl (_sync_broker_daily_pnl) and reconcile()/
+# fail_closed (_reconcile_with_timeout, via _maybe_run_broker_reconcile) take that same
+# lock, so the FIRST of those after the timeout blocks too -- freezing the whole 5s tick
+# loop one tick later, not just the send itself (repro'd offline with a real
+# OrderAdapter + a place_order that waits on an Event -- scratchpad lockprobe.py: 1.5s
+# after the UNKNOWN return, update_daily_pnl was still blocked). While frozen, neither
+# this module's own stall/tick-failure pushes above can fire either -- the loop is stuck,
+# not raising.
+#
+# #2 -- the shared worker has exactly ONE thread (_place_order_executor above), so a
+# second send queued while the first is still hung does not run now: it sits behind the
+# hang and only really executes once the hang clears, at some arbitrary later time,
+# against believed-position/price state that has moved on since. That includes another
+# leg's flatten and every close_retry re-send -- each would itself queue, block the tick
+# for BROKER_SEND_HARD_TIMEOUT_SEC, come back UNKNOWN without ever having started, and
+# only really reach Webull later out of context (repro: lockprobe.py's second send came
+# back UNKNOWN, then place_order ran twice once the hang released).
+#
+# Both fixes key off the SAME piece of state: which future (if any) this module last
+# handed to that one worker thread is still running. _place_stock_order_with_timeout
+# refuses to submit a new send at all while the previous one has not resolved (#2,
+# below); _run_broker_housekeeping checks the same thing before touching any
+# lock-taking adapter method and skips itself for the tick, resuming once it clears (#1,
+# see that function).
+_inflight_send = {"future": None, "leg": None, "intent": None}
+_send_stall_logged = {"active": False}   # housekeeping-skip log: once per episode, not per tick
+
+
+def _send_inflight_future():
+    """The in-flight broker-send future, or None once it has actually finished --
+    clears `_inflight_send` the first time anyone notices it is done. Never raises."""
+    fut = _inflight_send.get("future")
+    if fut is None:
+        return None
+    try:
+        done = fut.done()
+    except Exception:
+        done = True
+    if done:
+        _inflight_send["future"] = None
+        _inflight_send["leg"] = None
+        _inflight_send["intent"] = None
+        return None
+    return fut
+
+
+def _skip_broker_housekeeping_for_inflight_send(log=print):
+    """True (skip this tick's housekeeping) while a previous broker send is still
+    running on the shared single worker thread and therefore still holding
+    OrderAdapter._lock (major finding #1 above) -- logs ONCE per stall episode rather
+    than every tick, then once more when it clears. Never raises."""
+    fut = _send_inflight_future()
+    if fut is not None:
+        if not _send_stall_logged["active"]:
+            _send_stall_logged["active"] = True
+            log(f"[qqq-exec] broker housekeeping (daily P&L / reconcile) skipped this tick "
+                f"-- a broker send for {_inflight_send.get('leg')} "
+                f"{_inflight_send.get('intent')} is still in flight and holds the adapter "
+                f"lock; resuming once it resolves")
+        return True
+    if _send_stall_logged["active"]:
+        _send_stall_logged["active"] = False
+        log("[qqq-exec] broker housekeeping resumed -- the in-flight broker send resolved")
+    return False
+
+
+def _is_unknown_outcome(rec):
+    """True for a broker record whose outcome is genuinely unresolved -- this
+    process's own hard-timeout record (below), a PENDING-resolver record from
+    api/webull_orders.py's own side with outcome on the TOP-LEVEL record (see the
+    module comment above), OR one of the other track's PART-shaped records (item 4
+    minor, 2026-09-26 review): that side puts outcome="UNKNOWN" on
+    rec["parts"][i]["outcome"] for a netted order, never on the top-level record, so a
+    top-level-only check misses it and an UNKNOWN OPEN pages on the ordinary once-per-
+    leg-per-day throttle instead of every time (the money-path re-send gating is
+    unaffected either way -- sent=True with no 4xx already sets needs_verify=True, and
+    an OPEN is never auto-resent regardless of this check). Never raises."""
+    try:
+        r = rec or {}
+        if str(r.get("outcome") or "").upper() == "UNKNOWN":
+            return True
+        return any(str((p or {}).get("outcome") or "").upper() == "UNKNOWN"
+                  for p in r.get("parts") or [])
+    except Exception:
+        return False
+
+
+def _broker_row_ambiguous_send(sent, ok, reason):
+    """True when a single send (the top-level record, or one netted part of it) reached
+    the send path (`sent`) but came back not ok with NO definite 4xx of its own --
+    exactly the "outcome genuinely unknown" case _queue_broker_resend's own
+    `needs_verify` judgment already gates the next retry on (a 5xx, a timeout, or a
+    dropped connection may have reached Webull's book before the failure happened; a 4xx
+    is Webull answering SYNCHRONOUSLY that it refused the order outright -- a definite,
+    already-known outcome). Never raises."""
+    try:
+        if not sent or ok:
+            return False
+        code = _broker_send_status_code(reason)
+        return not (code is not None and 400 <= code < 500)
+    except Exception:
+        return False
+
+
+def _broker_row_outcome(rec):
+    """EXIT SAFETY item 5 (2026-09-26 minor review, THIRD REVIEW FIX): the
+    BROKER_ORDER_COLS 'outcome' column -- one of OK / REFUSED / BLOCKED / UNKNOWN,
+    always derivable from the same `rec` this row's other fields (ok/sent/mode/reason)
+    already come from, so a reader of broker_orders.csv no longer has to reconstruct
+    "was this genuinely unresolved" by re-deriving the logic from the raw reason text.
+    UNKNOWN takes priority over ok/not-ok -- this process's own hard-timeout record, or
+    a PENDING-resolver record from api/webull_orders.py's own side, can carry
+    sent=True/ok=False exactly like an ordinary refusal, but its outcome is genuinely
+    unresolved, not a known refusal.
+
+    THIRD REVIEW FIX (2026-09-26, minor): this used to check _is_unknown_outcome alone
+    -- which only fires when something upstream had ALREADY tagged the record
+    outcome="UNKNOWN" explicitly. An ordinary exception, 5xx, or dropped connection
+    (sent=True, ok=False, no parseable 4xx) never gets that tag; it was written to this
+    CSV as REFUSED even though _queue_broker_resend's own needs_verify judgment (right
+    below, on the very same `rec`) treats it as genuinely ambiguous and re-verifies
+    before ever re-sending -- misreporting exactly the rows this column exists to flag.
+    Now _broker_row_ambiguous_send re-derives that SAME judgment here: a plain send is
+    ambiguous when sent=True/ok=False with no definite 4xx; a SPLIT send (rec["parts"]
+    has more than one entry) is ambiguous when ANY part is sent/not-ok with no definite
+    4xx of its own, mirroring _queue_broker_resend's own per-part reasoning for a netted
+    CLOSE (a 417 on one part must never hide a same-record part that timed out with no
+    status at all). Never raises (falls back to UNKNOWN, the safest reading of a row
+    this function itself could not classify)."""
+    try:
+        r = rec or {}
+        if _is_unknown_outcome(r):
+            return "UNKNOWN"
+        parts = r.get("parts") or []
+        if len(parts) > 1:
+            ambiguous = any(
+                _broker_row_ambiguous_send(p.get("sent"), p.get("ok"),
+                                          p.get("reason") or p.get("error"))
+                for p in parts if isinstance(p, dict))
+        else:
+            ambiguous = _broker_row_ambiguous_send(
+                r.get("sent"), r.get("ok"), r.get("reason") or r.get("error"))
+        if ambiguous:
+            return "UNKNOWN"
+        if r.get("ok"):
+            return "OK"
+        if r.get("mode") == "BLOCKED":
+            return "BLOCKED"
+        return "REFUSED"
+    except Exception:
+        return "UNKNOWN"
+
+
+def _place_stock_order_with_timeout(adapter, *, leg, signal_id, symbol, side, qty,
+                                    intent, mode, log=print):
+    """adapter.place_stock_order(...) bounded to BROKER_SEND_HARD_TIMEOUT_SEC wall-clock
+    on its own worker thread -- see the module comment above this function for why and
+    what a timeout returns. Never raises (an unexpected exception from the executor
+    itself is left to propagate to _mirror_to_broker's own outer except, same as before
+    this function existed).
+
+    MAJOR REVIEW FIX #2 (2026-09-26): refuses to submit at all while a previous send is
+    still running on the shared single worker (_send_inflight_future) -- see the module
+    comment above _inflight_send for why queuing behind a hung send is unsafe. Returns a
+    definite, immediate not-sent record instead (mode="BLOCKED", sent=False,
+    inflight_blocked=True), which _queue_broker_resend already routes exactly like any
+    other not-ok CLOSE (why="close_retry"; sent=False on its OWN never sets needs_verify
+    -- but a still-unresolved EARLIER attempt's needs_verify/last_signal_id survives
+    this one untouched, see _queue_broker_resend's item-1-critical review note --
+    retried only once the hung call resolves and either the adapter's believed position
+    or _order_known_at_broker reflects its real outcome) and never auto-resends for an
+    OPEN (no "halted:"-prefixed BLOCKED reason -> no why at all). `inflight_blocked`
+    (minor, 2026-09-26 review) also tells _mirror_to_broker to skip the phone push for
+    THIS record -- the still-unresolved earlier attempt already paged once for the same
+    episode (an UNKNOWN timeout alert, or its own prior not-ok push), and every 5-10-
+    20-30s retry coming back BLOCKED while the hang persists would otherwise re-page on
+    its own backoff for as long as the hang lasts."""
+    prior = _send_inflight_future()
+    if prior is not None:
+        coid = webull_orders._sanitize_client_order_id(signal_id)
+        reason = ("previous broker send still in flight (hung) -- not queuing another "
+                 "send behind it")
+        log(f"[qqq-exec] {reason} (leg {leg} {intent}, signal {signal_id})")
+        return {"leg": leg, "symbol": symbol, "side": side, "qty": qty, "intent": intent,
+               "signal_id": signal_id, "client_order_id": coid, "mode": "BLOCKED",
+               "ok": False, "sent": False, "duplicate": False, "reason": reason,
+               "inflight_blocked": True}
+    fut = _place_order_executor.submit(
+        adapter.place_stock_order, leg=leg, signal_id=signal_id, symbol=symbol,
+        side=side, qty=qty, intent=intent)
+    _inflight_send["future"] = fut
+    _inflight_send["leg"] = leg
+    _inflight_send["intent"] = intent
+    try:
+        result = fut.result(timeout=BROKER_SEND_HARD_TIMEOUT_SEC)
+        _inflight_send["future"] = None
+        return result
+    except concurrent.futures.TimeoutError:
+        fut.cancel()   # no-op once the worker has started it; drops it if it had not
+        coid = webull_orders._sanitize_client_order_id(signal_id)
+        reason = (f"broker send timed out after {BROKER_SEND_HARD_TIMEOUT_SEC:g}s -- "
+                 f"Webull may or may not have received this order, outcome unknown")
+        log(f"[qqq-exec] {reason} (leg {leg} {intent}, signal {signal_id})")
+        # deliberately NOT clearing _inflight_send here -- the worker thread is still
+        # running this call in the background (that is the whole reason the outcome is
+        # UNKNOWN, not "not placed"), so it must keep reading as in-flight until
+        # _send_inflight_future() next observes fut.done().
+        return {"leg": leg, "symbol": symbol, "side": side, "qty": qty, "intent": intent,
+               "signal_id": signal_id, "client_order_id": coid, "mode": mode,
+               "ok": False, "sent": True, "duplicate": False, "outcome": "UNKNOWN",
+               "reason": reason}
+    except Exception:
+        _inflight_send["future"] = None
+        raise
+
+
 def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, seq=0,
-                      trade_id=None, resend=0, requeue=True, log=print):
+                      trade_id=None, resend=0, requeue=True, nowdt=None, log=print):
     """Call after the shadow's own order/trade row is already recorded. Never raises.
+
+    `nowdt` (EXIT SAFETY item 4 minor, 2026-09-26 review): the calling tick's OWN
+    notion of "now" (tick()'s own `nowdt`, threaded down through _open_lot/_reduce_lot/
+    _close_all/_route_fills/_mark_and_check_breaker) -- passed straight through to
+    _queue_broker_resend so a close_retry item's session_date is stamped from the SAME
+    clock _maybe_resend_broker_orders later compares it against, never the real wall
+    clock (_now_et()), which a test's simulated `nowdt` (or a real clock drifting across
+    midnight mid-tick) could otherwise disagree with. None (every caller with no tick of
+    its own -- a direct call, a test, the orphan-broker repair's requeue=False path
+    which never reaches _queue_broker_resend anyway) falls back to _now_et() exactly as
+    before this parameter existed.
 
     ORDER NETTING (2026-09-24): the three legs share ONE Webull account, and
     webull_orders.OrderAdapter.place_stock_order plans the real broker order(s) for
@@ -1615,21 +2292,64 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
         mode, _mode_reason = adapter.effective_mode()
         armed = mode in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE)
         at_send = _LEASE.send_gate(_LEASE.uid) if armed else None
-        if armed and (not state.get("_broker_lease_ok", True)
-                      or (at_send is not None and not at_send[0])):
+        lease_reason = None
+        if armed:
             if not state.get("_broker_lease_ok", True):
-                reason = state.get("_broker_lease_reason") or "lease unverifiable"
-            else:
-                reason = at_send[1]
+                lease_reason = state.get("_broker_lease_reason") or "lease unverifiable"
+            elif at_send is not None and not at_send[0]:
+                lease_reason = at_send[1]
+        # EXIT SAFETY item 3 (2026-09-26; NARROWED 2026-09-26 review -- see the finding
+        # this fixed): a CLOSE must never be the thing an OUTAGE-unverifiable Firestore
+        # lease blocks while THIS process is the serving host. A genuine hand-off to
+        # another host already makes THIS process stand down entirely (_stand_down stops
+        # ticking/publishing/sending outright) -- so by the time this line runs, a
+        # genuinely UNVERIFIABLE lease (a Firestore read failing/timing out, or this
+        # process's own stamp not landing) means an OUTAGE, not a real second host about
+        # to send the same order.
+        #
+        # This must NEVER exempt (a) a CONFIRMED fresh foreign lease -- reason text
+        # "host 'X' holds a fresh lease (...)" from _check_lease_for_broker means another
+        # host has POSITIVELY taken over and may send the identical CLOSE right now, or
+        # (b) this process's own _LEASE genuinely having been marked lost mid-tick --
+        # send_gate's "lease lost: ..." (held=False is this process's own confirmed
+        # stand-down, not an outage). Exempting either risks the exact cross-host
+        # double-sell this gate exists to prevent -- the local SERVING_LOCK only
+        # arbitrates between two processes on ONE machine, never between the PC and the
+        # cloud VM. So the exemption fires only when the actual reason text starts with
+        # "lease unverifiable" AND this process's own _LEASE (if it is lease-managed at
+        # all -- a direct call/test with no lease loop has uid=None) still believes it
+        # holds the lease. _is_serving_standalone() is true only while THIS process
+        # itself holds the LOCAL SERVING_LOCK (single process per machine, enforced by
+        # serve()/_acquire_host_slot regardless of Firestore) -- so this can never widen
+        # the gate for a caller/test with no such lock. The gate is UNCHANGED for an OPEN.
+        #
+        # REVIEW FIX (2026-09-26 review, minor, flagged for the lead as a residual risk):
+        # two of _check_lease_for_broker's OWN "lease unverifiable"-prefixed reasons are
+        # actually a FOREIGN claim, not an outage on our side -- "host 'X' claims the
+        # lease but its timestamp is missing/unreadable" (that host's leased_at could not
+        # be parsed, so its age could not be judged stale-or-fresh). That is a positive
+        # sign another host may genuinely hold the lease right now, so it must be
+        # excluded from the exemption exactly like the CONFIRMED-fresh-foreign-lease
+        # reason already is above -- both name another host ("claims the lease"), so a
+        # single substring check keeps them out.
+        reason_text = str(lease_reason or "")
+        close_lease_exempt = (
+            intent == "CLOSE" and lease_reason is not None
+            and reason_text.startswith("lease unverifiable")
+            and "claims the lease" not in reason_text
+            and (_LEASE.uid is None or _LEASE.held)
+            and _is_serving_standalone())
+        if armed and lease_reason is not None and not close_lease_exempt:
             log(f"[qqq-exec] broker {intent} for {leg} BLOCKED before send (mode={mode}): "
-                f"{reason} -- shadow record above stands, broker mirror suppressed")
-            rec = {"ok": False, "sent": False, "mode": "BLOCKED", "reason": reason,
+                f"{lease_reason} -- shadow record above stands, broker mirror suppressed")
+            rec = {"ok": False, "sent": False, "mode": "BLOCKED", "reason": lease_reason,
                   "side": _broker_side(side, intent), "client_order_id": "",
                   "duplicate": False}
         else:
-            rec = adapter.place_stock_order(leg=leg, signal_id=signal_id, symbol=BROKER_SYMBOL,
-                                            side=_broker_side(side, intent),
-                                            qty=int(round(shares)), intent=intent)
+            rec = _place_stock_order_with_timeout(
+                adapter, leg=leg, signal_id=signal_id, symbol=BROKER_SYMBOL,
+                side=_broker_side(side, intent), qty=int(round(shares)), intent=intent,
+                mode=mode, log=log)
     except Exception as e:
         rec = {"ok": False, "sent": False, "mode": "ERROR", "error": f"{type(e).__name__}: {e}"}
         log(f"[qqq-exec] broker adapter call failed for {leg} {intent} (non-fatal -- the "
@@ -1655,6 +2375,8 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
         # send -- see BROKER_ORDER_COLS. Recorded on every row, not just blocked ones, so
         # a handoff between the owner's PC and the cloud VM is visible in the CSV itself.
         "host_id": _lease_host_id(),
+        # EXIT SAFETY item 5 (2026-09-26 minor review): see BROKER_ORDER_COLS.
+        "outcome": _broker_row_outcome(rec),
     }
     _append_csv(BROKER_ORDERS_CSV, BROKER_ORDER_COLS, row, ORDERS_KEEP)
     state["_broker_last"] = {"leg": leg, "intent": intent, "mode": rec.get("mode"),
@@ -1691,6 +2413,31 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
     if rec.get("mode") not in (None, "OFF") and not rec.get("ok", False):
         log(f"[qqq-exec] broker {intent} for {leg} NOT ok (mode={rec.get('mode')}): "
             f"{row['reason']}")
+        # EXIT SAFETY item 1 (2026-09-26): scoped to `requeue` (the normal shadow-book
+        # entry/exit path -- _open_lot/_reduce_lot/_close_all) so the orphan-broker
+        # repair's own retries (requeue=False, _maybe_flatten_orphan_broker) do not also
+        # page on every one of its own attempts -- that repair already escalates on its
+        # own after FLATTEN_MAX_TRIES with its own phone alert. "nothing to close" is
+        # excluded too: the notify right below this handles that confirmed-benign case
+        # on its own terms (nothing real failed to exit).
+        if requeue and _is_unknown_outcome(rec):
+            # item 4 (2026-09-26): an UNKNOWN outcome is rarer and more dangerous than
+            # an ordinary "not ok" (Webull may genuinely hold the order) -- always push,
+            # never folded into _alert_broker_not_ok's once-per-day-per-leg OPEN
+            # throttle, which exists for the much more common "refused/blocked" case.
+            _alert_broker_send_unknown(state, leg=leg, intent=intent, side=row["side"],
+                                       shares=shares, reason=row["reason"],
+                                       client_order_id=row["client_order_id"], log=log)
+        elif requeue and not rec.get("nothing_to_close") and not rec.get("inflight_blocked"):
+            # PAGING STORM (minor, 2026-09-26 review): `inflight_blocked` (see
+            # _place_stock_order_with_timeout) means this specific record is just this
+            # tick's re-send bouncing off a STILL-hung earlier send, not a new failure of
+            # its own -- the UNKNOWN alert already paged once for that earlier send's own
+            # timeout, and the queue's own not-ok log line just above still runs, so
+            # nothing here is silently lost, only the repeat phone push for the same
+            # episode on every 5-10-20-30s retry while the hang persists.
+            _alert_broker_not_ok(state, leg=leg, intent=intent, side=row["side"],
+                                 shares=shares, reason=row["reason"], log=log)
     if rec.get("nothing_to_close"):
         msg = (f"QQQ BROKER: {leg} closed in the book, but Webull never held it (its buy "
                f"never went through) -- no sell sent, Webull stays flat for {leg}")
@@ -1711,7 +2458,8 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
     if requeue:
         _queue_broker_resend(state, rec, leg=leg, side=side, shares=shares,
                              shadow_px=shadow_px, intent=intent, ts=ts, seq=seq,
-                             trade_id=trade_id, resend=resend, log=log)
+                             trade_id=trade_id, resend=resend, signal_id=signal_id,
+                             nowdt=nowdt, log=log)
 
 
 # -- broker RE-SEND (2026-09-21) ---------------------------------------------------------
@@ -1725,13 +2473,64 @@ def _broker_halt_source(log=print):
         return None
 
 
-def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts, seq,
-                         trade_id, resend, log=print):
-    """Queue a broker order that did not go through for another try later
-    (state["_broker_resend"], keyed "<leg>:<intent>"), or drop it from the queue once it
-    has gone through. Never raises.
+# EXIT SAFETY item 2 major (2026-09-26 review): api.webull_orders.OrderAdapter records a
+# raw Webull ServerException verbatim (see _plain_broker_error's own module note below),
+# e.g. "ServerException: HTTP Status: 417, Code: OPENAPI_CAN_NOT_TRADING_FOR_FIXGW_NOT_
+# READY_MARKET, ...". A 4xx status means Webull answered SYNCHRONOUSLY that it refused
+# the order outright -- a definite, already-known outcome, not an ambiguous one. A 5xx,
+# a timeout, or a connection error carries no such answer: the request may have reached
+# Webull's book before the failure happened, so the outcome is genuinely unknown.
+_HTTP_STATUS_RE = re.compile(r"HTTP Status:\s*(\d\d\d)")
 
-    Only two failures are worth another try -- both are timing glitches, not decisions:
+
+def _broker_send_status_code(text):
+    """The numeric HTTP status a Webull ServerException string carries, or None when
+    the text has no such marker (a non-Webull exception, a rail refusal already written
+    in plain English, a bare timeout/connection message, ...). Never raises."""
+    try:
+        m = _HTTP_STATUS_RE.search(str(text or ""))
+        return int(m.group(1)) if m else None
+    except Exception:
+        return None
+
+
+def _whole_qty(v):
+    """A share count as a non-negative whole int, or None when `v` is missing, not a
+    number, negative, not finite or not a whole number. Used for the sizes the CLOSE
+    re-send verify step subtracts from -- a size it cannot read makes it hold, never
+    guess. Never raises."""
+    try:
+        if v is None or isinstance(v, bool) or (isinstance(v, str) and not v.strip()):
+            return None
+        f = float(v)
+        if not math.isfinite(f) or f < 0 or abs(f - round(f)) > 1e-9:
+            return None
+        return int(round(f))
+    except (TypeError, ValueError):
+        return None
+
+
+def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts, seq,
+                         trade_id, resend, signal_id=None, nowdt=None, log=print):
+    """Queue a broker order that did not go through for another try later
+    (state["_broker_resend"]), or drop it from the queue once it has gone through. Never
+    raises.
+
+    `nowdt` (EXIT SAFETY item 4 minor, 2026-09-26 review): see _mirror_to_broker's own
+    docstring -- used only to stamp a brand-new item's own "session_date" (below) from
+    the calling tick's own notion of "now", never the wall clock.
+
+    KEYED "<leg>:<intent>" (unchanged) for an OPEN, a "duplicate" or a "halt" CLOSE --
+    at most one of each can ever be genuinely pending for a leg (a leg holds one open
+    lot at a time). A "close_retry" CLOSE (EXIT SAFETY item 2 minor, 2026-09-26) is
+    instead keyed "<leg>:<intent>:<trade_id>": re-entering a leg while an earlier failed
+    CLOSE for the PREVIOUS trade is still retrying used to overwrite that older entry
+    under the same plain "<leg>:CLOSE" key -- clamped to the newer trade's size and
+    silently dropping the older lot's own retry. Keying by trade_id lets both coexist;
+    a resolution (rec.get("ok")) checks both key shapes so it cleans up whichever one is
+    actually queued regardless of which `why` queued it.
+
+    Failures worth another try:
       * an OPEN the adapter BLOCKED because of its OWN reconcile halt. 2026-09-21: a false
         post-order mismatch halted entries at 09:42, NOISE entered at 09:45:12, its buy
         was blocked, the halt cleared seconds later -- and nothing ever sent the buy, so
@@ -1741,16 +2540,42 @@ def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts
         id, so two legs sending the identical SELL/BUY 10 QQQ in one instant collide: the
         09:31 orphan repair, an end-of-day flatten with two legs open, two legs entering
         on the same bar. That order was never placed, so it goes again a tick later,
-        after the one it collided with has filled.
-    A kill-file halt, a lease block, a rails refusal, "nothing to close" and an OFF /
-    ERROR record are never re-sent: those are decisions (or a broken adapter)."""
+        after the one it collided with has filled;
+      * EXIT SAFETY item 2 (2026-09-26): ANY CLOSE that came back not ok for ANY reason
+        (refused, exception/timeout, BLOCKED by the lease gate, a kill-file halt, ...) --
+        why="close_retry" -- EXCEPT the confirmed "nothing to close" case (the book closed
+        a lot the broker never actually held; nothing needs to reach Webull). Unlike the
+        two cases above this is not bounded by BROKER_RESEND_MAX_TRIES/BROKER_OPEN_
+        RESEND_WINDOW_MIN -- see _maybe_resend_broker_orders, which instead retries with
+        backoff until the session flatten deadline: an EXIT that keeps failing is worse
+        left un-retried than an OPEN is, and a real broker/network outage can outlast 3
+        tries in seconds.
+    A kill-file halt on an OPEN, a lease block on an OPEN, a rails refusal, "nothing to
+    close" and an OFF / ERROR record on an OPEN are never re-sent: those are decisions (or
+    a broken adapter) -- only a CLOSE gets the catch-all above."""
     try:
         q = state.setdefault("_broker_resend", {})
-        key = f"{leg}:{intent}"
-        mine = bool(trade_id) and (q.get(key) or {}).get("trade_id") == trade_id
+        plain_key = f"{leg}:{intent}"
+        # trade-scoped key only ever used for a CLOSE's close_retry entries (see the
+        # docstring above) -- None for an OPEN, so its lookups below fall through to
+        # plain_key exactly as before this feature existed.
+        trade_key = f"{leg}:{intent}:{trade_id}" if intent == "CLOSE" and trade_id else None
+        existing, existing_key = None, None
+        for k in (trade_key, plain_key):
+            if k is None:
+                continue
+            e = q.get(k)
+            if e and trade_id and e.get("trade_id") == trade_id:
+                existing, existing_key = e, k
+                break
         if rec.get("ok"):
-            if mine:
-                q.pop(key, None)
+            if existing_key:
+                q.pop(existing_key, None)
+            if intent == "CLOSE":
+                # item 3 (2026-09-26 lead decision): this CLOSE-failure episode is over
+                # -- the NEXT failure for this leg (a different trade) should page
+                # immediately again, not inherit this episode's cooldown.
+                _close_fail_alert_reset(state, leg)
             return
         text = str(rec.get("reason") or rec.get("error") or "")
         why = None
@@ -1759,21 +2584,450 @@ def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts
         elif (intent == "OPEN" and rec.get("mode") == "BLOCKED" and text.startswith("halted:")
               and _broker_halt_source(log=log) == "reconcile"):
             why = "halt"
+        elif intent == "CLOSE" and not rec.get("nothing_to_close"):
+            why = "close_retry"
         if not why or not trade_id:
             return
+        key = trade_key if (why == "close_retry" and trade_key) else plain_key
+        if existing_key and existing_key != key:
+            # `why` changed shape between retries (e.g. a same-instant duplicate on the
+            # first try, a generic failure on the next) -- move the entry rather than
+            # leaving a stale copy behind under the old key.
+            q.pop(existing_key, None)
         now = time.time()
+        sent = bool(rec.get("sent"))
+        # EXIT SAFETY item 2 major (2026-09-26 review): a 4xx ServerException (see
+        # _broker_send_status_code) means Webull answered SYNCHRONOUSLY that it refused
+        # this specific order -- e.g. the four live "417 ... OPENAPI_CAN_NOT_TRADING_
+        # FOR_FIXGW_NOT_READY_MARKET" refusals this fix is responding to. That is a
+        # definite, already-known "never landed" outcome, not an ambiguous one, so no
+        # order_status verification is needed before the next retry (see
+        # _maybe_resend_broker_orders). Only a send with NO parseable HTTP status at all
+        # (a 5xx, a timeout, a dropped connection, the adapter's own outer except around
+        # e.g. an account-id read) still needs verifying: place_stock_order may have
+        # reached Webull's book before the failure happened.
+        #
+        # SPLIT ORDERS (item 2 major, SECOND 2026-09-26 review, of a NETTED close --
+        # rec["parts"] has more than one entry, see api.webull_orders.place_stock_order's
+        # own docstring): the combined `text` above can hide one part's real outcome
+        # behind another's -- a 417 on part 1 matches _HTTP_STATUS_RE first even when
+        # part 2 timed out with no status at all -- and _order_known_at_broker would ask
+        # about the BASE client_order_id, which Webull never saw (each part went out
+        # under its OWN id, see _part_client_order_id): a "not found" answer for the base
+        # id is not a positive "never landed" for a part that actually reached Webull, so
+        # base-id verification is wrong for a split record either way. Judge PER PART
+        # instead: a part needs verifying when it is not ok and carries no definite 4xx
+        # of its own; `unresolved_part_ids` (checked by _order_known_at_broker_any) is
+        # what the next retry actually verifies against -- never the base id -- for a
+        # split record.
+        #
+        # FINAL CLOSE RE-SEND RULE (2026-09-26 lead decision): the verify step can now
+        # answer "dead with N filled" and re-send only the unfilled remainder, so the
+        # queue also records the SIZE of what is being verified -- `verify_qty` (this
+        # attempt's whole size: the single order's qty, or the sum of every part of a
+        # split), `unresolved_part_qty` (each unresolved part's own qty, split only) and
+        # `verify_landed_qty` (the parts Webull already accepted outright, split only).
+        # Any size that cannot be read is stored as None, and the verify step then holds
+        # rather than guess a remainder.
+        parts = rec.get("parts") or []
+        if len(parts) > 1:
+            unresolved = [p for p in parts
+                          if not p.get("ok")
+                          and _broker_send_status_code(p.get("reason")) is None]
+            unresolved_part_ids = [p.get("client_order_id") for p in unresolved]
+            needs_verify = sent and bool(unresolved_part_ids)
+            unresolved_part_qty = {p.get("client_order_id"): _whole_qty(p.get("qty"))
+                                   for p in unresolved}
+            part_qtys = [_whole_qty(p.get("qty")) for p in parts]
+            verify_qty = None if None in part_qtys else sum(part_qtys)
+            landed_qtys = [_whole_qty(p.get("qty")) for p in parts if p.get("ok")]
+            verify_landed_qty = None if None in landed_qtys else sum(landed_qtys)
+        else:
+            status_code = _broker_send_status_code(text)
+            needs_verify = sent and not (status_code is not None and 400 <= status_code < 500)
+            unresolved_part_ids = None
+            unresolved_part_qty = None
+            # the size that actually went out: the one part's own qty when the adapter
+            # reported parts, else the record's qty, else what was asked for
+            verify_qty = (_whole_qty(parts[0].get("qty"))
+                          if len(parts) == 1 and isinstance(parts[0], dict) else None)
+            if verify_qty is None:
+                verify_qty = _whole_qty(rec.get("qty"))
+                if verify_qty is None:
+                    verify_qty = _whole_qty(shares)
+                # MAJOR (2026-09-26 review): with no parts on the record (the hard
+                # timeout path of _place_stock_order_with_timeout, an adapter exception
+                # before any part was planned) `qty` is what was ASKED, but the adapter
+                # clamps a CLOSE to what it holds for the leg (broker_sent_positions --
+                # "clamped to ... only that much of this leg reached the broker"). A
+                # failed or hung send never moves the adapter's books, so the leg's
+                # believed qty read NOW is that pre-attempt clamp: cap at it, or a later
+                # "dead with N filled" remainder is computed against shares that never
+                # went out (book 10, adapter 6, 4 filled -> re-send 6, not 2).
+                if intent == "CLOSE" and verify_qty is not None:
+                    held_now = _believed_qty_for_leg(leg, log=log)
+                    if held_now is not None:
+                        verify_qty = min(verify_qty, held_now)
+            verify_landed_qty = 0
+        # EXIT SAFETY item 1 critical (2026-09-26 review of item 4's "alerts in book"):
+        # THIS attempt may itself never have reached the send path at all -- e.g. the
+        # definite, immediate mode="BLOCKED"/sent=False record _place_stock_order_with_
+        # timeout returns while a PREVIOUS send for this same key is still hung in the
+        # background (see that function's own docstring). That record says nothing at
+        # all about the still-unresolved earlier attempt -- rebuilding needs_verify/
+        # last_signal_id from it alone would silently drop the fact that THAT attempt
+        # (not this refusal) still needs _order_known_at_broker's say-so, letting the
+        # very next retry re-send blind once the hang clears. Only a THIS-attempt that
+        # actually reached the send path (sent=True) may replace an unresolved earlier
+        # one; a not-sent attempt on top of an unresolved needs_verify entry leaves that
+        # entry's own last_signal_id/unresolved_part_ids exactly as they were.
+        if not sent and existing and existing.get("needs_verify"):
+            needs_verify = True
+            last_signal_id = existing.get("last_signal_id")
+            unresolved_part_ids = existing.get("unresolved_part_ids")
+            # the SIZE of that earlier attempt travels with its ids (FINAL CLOSE
+            # RE-SEND RULE) -- a remainder is always computed against the attempt
+            # actually being verified, never this not-sent requeue's own size.
+            unresolved_part_qty = existing.get("unresolved_part_qty")
+            verify_qty = existing.get("verify_qty")
+            verify_landed_qty = existing.get("verify_landed_qty")
+        else:
+            last_signal_id = signal_id
         q[key] = {"leg": leg, "intent": intent, "side": side, "shares": shares,
                   "shadow_px": shadow_px, "ts": None if ts is None else str(ts),
                   "seq": seq, "trade_id": trade_id, "why": why,
                   "tries": int(resend or 0),
-                  "first_at": (q[key].get("first_at") if mine else None) or now,
-                  "last_at": now}
-        log(f"[qqq-exec] broker {intent} for {leg} queued for a re-send ("
-            + ("Webull saw a same-instant duplicate" if why == "duplicate"
-               else "blocked by a reconcile halt")
-            + f"; {int(resend or 0)} of {BROKER_RESEND_MAX_TRIES} re-sends used)")
+                  "first_at": (existing.get("first_at") if existing else None) or now,
+                  "last_at": now,
+                  # EXIT SAFETY item 4 minor (2026-09-26 review): the ET date this item
+                  # was first queued, preserved across retries like first_at -- lets
+                  # _maybe_resend_broker_orders give up on a close_retry left over from
+                  # an earlier trading day (the process was down overnight) instead of
+                  # firing a stale sell into the next day's pre-open/open. Stamped from
+                  # the TICK'S OWN `nowdt` (falling back to the wall clock only when no
+                  # caller supplied one), never the wall clock alone -- that check later
+                  # compares this against _maybe_resend_broker_orders' own `nowdt`
+                  # argument, and the two must agree even when a test (or a real clock
+                  # ticking across midnight mid-tick) makes them differ.
+                  "session_date": (existing.get("session_date") if existing else None)
+                                 or (nowdt or _now_et()).strftime("%Y-%m-%d"),
+                  # EXIT SAFETY item 1 critical (2026-09-26): whether THIS attempt's
+                  # place_stock_order call actually reached the adapter's send path
+                  # (rec['sent']) and under which signal_id -- see
+                  # _order_known_at_broker / _maybe_resend_broker_orders. A CLOSE whose
+                  # outcome is genuinely unknown (sent=True, ok=False -- a timeout, or a
+                  # dropped connection after Webull already took the order) must be
+                  # verified against Webull's own order record before ever re-sending
+                  # blind, because api.webull_orders.place_stock_order does NOT update
+                  # believed_positions/broker_sent_positions on that path -- so
+                  # _believed_qty_for_leg alone cannot tell "genuinely never sent" apart
+                  # from "sent, outcome unknown". `sent` is kept verbatim for anything
+                  # still reading it; `needs_verify` (EXIT SAFETY item 2 major, 2026-09-26
+                  # review) is the one _maybe_resend_broker_orders actually gates on --
+                  # see the note on status_code just above -- and, for a split record,
+                  # `unresolved_part_ids` is what it verifies against, never
+                  # `last_signal_id` (the base id a split order never actually used).
+                  "sent": sent,
+                  "needs_verify": needs_verify,
+                  "last_signal_id": last_signal_id,
+                  "unresolved_part_ids": unresolved_part_ids,
+                  # FINAL CLOSE RE-SEND RULE (2026-09-26): the size of the attempt
+                  # under verification -- see the note above `parts` for each field.
+                  "verify_qty": verify_qty,
+                  "unresolved_part_qty": unresolved_part_qty,
+                  "verify_landed_qty": verify_landed_qty}
+        why_txt = {"duplicate": "Webull saw a same-instant duplicate",
+                  "halt": "blocked by a reconcile halt",
+                  "close_retry": f"broker record not ok ({text or 'see the broker log'})"}[why]
+        tries_txt = (f"{int(resend or 0)} re-sends so far" if why == "close_retry"
+                    else f"{int(resend or 0)} of {BROKER_RESEND_MAX_TRIES} re-sends used")
+        log(f"[qqq-exec] broker {intent} for {leg} queued for a re-send ({why_txt}; "
+            f"{tries_txt})")
     except Exception as e:
         log(f"[qqq-exec] broker re-send bookkeeping failed (non-fatal): {type(e).__name__}: {e}")
+
+
+# FINAL CLOSE RE-SEND RULE (2026-09-26, lead decision after four review rounds): one
+# Webull margin account nets every leg, so an ACCOUNT position read can never say which
+# leg's shares are still out -- a CLOSE whose previous attempt is ambiguous is never
+# re-sent on position arithmetic. Only Webull's own record of THAT order (looked up by
+# its client_order_id) may release a re-send, and only when it says the order is dead:
+#   FILLED                                   -> known; drop the retry, never re-send
+#   a DOCUMENTED live status (PENDING/
+#     SUBMITTED/PARTIAL_FILLED)              -> known; keep waiting, never re-send
+#   REJECTED/CANCELLED/FAILED with an
+#     EXPLICIT filled quantity               -> dead; re-send only what did not fill
+#   anything else (lookup error/timeout,
+#     not found/404, no status, a status
+#     this code does not recognise such as
+#     EXPIRED or garbage, a dead status with
+#     no readable filled qty, a record for a
+#     different order id)                    -> unverifiable; hold and page
+# The live list is a WHITELIST (minor, 2026-09-26 review): an unrecognised status used to
+# read as "working", which never pages -- a close whose order was actually dead under an
+# unexpected status then sat silently until the flatten deadline. Statuses come from
+# Webull's Get Order Detail schema (see api.webull_orders.order_status_fields) and the
+# SDK's own webull.trade.common.order_status.OrderStatus ("PARTIAL FILLED" with a space
+# there, so spaces/hyphens are normalised to "_" before matching).
+_ORDER_DEAD_STATUSES = ("REJECTED", "CANCELLED", "CANCELED", "FAILED")
+_ORDER_LIVE_STATUSES = ("PENDING", "SUBMITTED", "PARTIAL_FILLED")
+
+# The order lookup below runs on _order_status_executor's ONE worker. A lookup that hit
+# ORDER_STATUS_HARD_TIMEOUT_SEC may still be running there; every further submit would
+# only queue behind it and pile up stale calls against an already-struggling endpoint
+# (minor, 2026-09-26 review). So a timed-out future is cancelled (a no-op once started)
+# and remembered here, and while it is still not done the next lookup is not submitted
+# at all -- that step simply reads as unverifiable (hold and page, as for a timeout).
+_order_lookup_inflight = {"future": None}
+# Set when a lookup timed out; further lookups within ORDER_LOOKUP_COOLDOWN_SEC are
+# skipped as unverifiable, so a worker stuck on another call (fill capture shares it)
+# costs one ORDER_STATUS_HARD_TIMEOUT_SEC wait per tick, not one per held item.
+_order_lookup_timeout_at = {"t": 0.0}
+ORDER_LOOKUP_COOLDOWN_SEC = 10.0
+
+
+def _order_known_at_broker(adapter, signal_id, log=print):
+    """Webull's own verdict on ONE earlier CLOSE attempt, looked up by its client order
+    id via adapter.order_status(signal_id), bounded to ORDER_STATUS_HARD_TIMEOUT_SEC on
+    its own worker thread (the same precaution as _query_broker_fill -- this SDK's own
+    timeouts are not reliably honoured on every call path).
+
+    Why a lookup at all (EXIT SAFETY item 1 critical, 2026-09-26): a send that reached
+    the adapter's send path but came back not ok with no definite 4xx (a timeout, a 5xx,
+    a dropped connection after Webull already took the order) leaves believed_positions/
+    broker_sent_positions untouched (see api.webull_orders.place_stock_order's own
+    per-part try/except), so the adapter's own books cannot tell "never reached Webull"
+    apart from "reached Webull, outcome unknown".
+
+    Returns (FINAL CLOSE RE-SEND RULE -- see the table just above):
+      {"verdict": "filled", "status": s}               -- the order filled;
+      {"verdict": "working", "status": s}              -- a DOCUMENTED live status
+          (_ORDER_LIVE_STATUSES); any other status is unverifiable (None);
+      {"verdict": "dead", "status": s, "filled": n}    -- REJECTED/CANCELLED/FAILED
+          with an EXPLICIT whole filled quantity n >= 0 (0 = nothing landed);
+      None                                             -- unverifiable.
+    A "not found"/404 answer is never read as "dead": a just-placed order may not be
+    visible yet, and a 404 can be a routing error (SECOND 2026-09-26 review). Never
+    raises."""
+    if not signal_id:
+        return None
+    try:
+        prior = _order_lookup_inflight.get("future")
+        if prior is not None:
+            if not prior.done():
+                log(f"[qqq-exec] order lookup for {signal_id} skipped: an earlier lookup "
+                    f"is still hung on the order-status worker -- unverifiable this step")
+                return None
+            _order_lookup_inflight["future"] = None
+    except Exception:
+        _order_lookup_inflight["future"] = None
+    if time.time() - float(_order_lookup_timeout_at.get("t") or 0.0) < ORDER_LOOKUP_COOLDOWN_SEC:
+        log(f"[qqq-exec] order lookup for {signal_id} skipped: a lookup timed out moments "
+            f"ago -- unverifiable this step")
+        return None
+    try:
+        fut = _order_status_executor.submit(adapter.order_status, signal_id, None)
+    except Exception:
+        return None
+    try:
+        result = fut.result(timeout=ORDER_STATUS_HARD_TIMEOUT_SEC)
+    except concurrent.futures.TimeoutError:
+        fut.cancel()   # drops it if the worker had not started it yet
+        _order_lookup_timeout_at["t"] = time.time()
+        if not fut.done():
+            _order_lookup_inflight["future"] = fut
+        return None
+    except Exception:
+        return None
+    try:
+        if not isinstance(result, dict) or not result.get("ok"):
+            return None   # the lookup did not positively resolve -- unverifiable,
+                          # regardless of whether the reason text says "not found"/404
+        coid = result.get("client_order_id") or signal_id
+        response = result.get("response")
+        item = webull_orders._order_item(response, coid)
+        item_coid = (webull_orders._field(item, "client_order_id", "clientOrderId")
+                     if isinstance(item, dict) else None)
+        if item_coid is not None and str(item_coid) != str(coid):
+            return None   # the record is about some other order -- never judge ours by it
+        fields = webull_orders.order_status_fields(response, coid)
+        raw_status = fields.get("status")
+        if not isinstance(raw_status, str):
+            return None   # a numeric/garbage status (e.g. a fallback payload) -- unverifiable
+        status = re.sub(r"[\s\-]+", "_", raw_status.strip().upper())
+        if not status:
+            return None
+        if status == "FILLED":
+            return {"verdict": "filled", "status": status}
+        if status in _ORDER_DEAD_STATUSES:
+            filled = _whole_qty(fields.get("filled_quantity"))
+            if filled is None:
+                return None   # dead, but how much landed first is not on the record
+            return {"verdict": "dead", "status": status, "filled": filled}
+        if status in _ORDER_LIVE_STATUSES:
+            return {"verdict": "working", "status": status}
+        log(f"[qqq-exec] order lookup for {signal_id}: unrecognised status {raw_status!r} "
+            f"-- unverifiable, holding")
+        return None
+    except Exception:
+        return None
+
+
+def _order_known_at_broker_any(adapter, signal_ids, log=print):
+    """Split (netted) CLOSE form of _order_known_at_broker: each unresolved part went
+    out under its OWN client_order_id (api.webull_orders._part_client_order_id), never
+    the base id, so each one is looked up directly (EXIT SAFETY item 2 major, SECOND
+    2026-09-26 review).
+
+    Returns {"verdict": v, "parts": {part_id: that part's own verdict dict}}, where v is
+      "working" -- at least one part is still live at Webull (wait; never re-send);
+      "filled"  -- every part filled;
+      "dead"    -- no part live, at least one dead (the caller re-sends only what did
+                   not fill, part by part);
+    or None (unverifiable -- hold) as soon as ANY part's own lookup is unverifiable (the
+    remaining parts are then not asked about this step), or when `signal_ids` is
+    empty/None. Never raises."""
+    try:
+        ids = [s for s in (signal_ids or []) if s]
+        if not ids:
+            return None
+        per = {}
+        for sid in ids:
+            v = _order_known_at_broker(adapter, sid, log=log)
+            if not isinstance(v, dict) or v.get("verdict") not in ("filled", "working", "dead"):
+                return None
+            per[sid] = v
+        verdicts = {v["verdict"] for v in per.values()}
+        if "working" in verdicts:
+            agg = "working"
+        elif verdicts == {"filled"}:
+            agg = "filled"
+        else:
+            agg = "dead"
+        return {"verdict": agg, "parts": per}
+    except Exception:
+        return None
+
+
+def _close_resend_sizes(item, verdict, believed=None):
+    """(remaining, unacked_landed) for a queued CLOSE once Webull's own order record
+    says the attempt under verification is over (verdict "filled" or "dead" -- see
+    _order_known_at_broker / _order_known_at_broker_any), or (None, None) when a size it
+    needs is missing (the caller then holds, never guesses).
+
+    remaining -- how many shares of this close are still unsold:
+      single order: min(verify_qty, believed) - (that size if FILLED else its filled
+                    qty). `believed` is the adapter's own qty for the leg read at this
+                    verify step: a failed or hung send never moves it, so it is the
+                    adapter's pre-attempt clamp (MAJOR, 2026-09-26 review) -- an item
+                    queued before verify_qty was capped at queue time, or a legacy entry
+                    with no verify_qty at all (falls back to item["shares"], the ASKED
+                    size), can then never re-send shares that never went out;
+      split order:  verify_qty - verify_landed_qty (parts Webull accepted outright)
+                    - each unresolved part's landed shares (its whole qty if FILLED,
+                      else its filled qty); a part refused with its own definite 4xx
+                      landed nothing and is simply part of the remainder
+      then clamped to item["shares"] (a re-send never exceeds what this close asked
+      for) and floored at 0. The caller still clamps by the believed qty on top.
+    unacked_landed -- the shares that filled on parts whose send came back NOT ok (the
+      single order itself, or the unresolved parts of a split). The adapter never booked
+      those (place_stock_order only moves its books for an accepted part), so the caller
+      applies them to the adapter's books (minor, 2026-09-26 review). Never raises."""
+    try:
+        attempt = _whole_qty(item.get("verify_qty"))
+        if attempt is None:
+            attempt = _whole_qty(item.get("shares"))   # an item queued before these
+                                                       # fields existed
+        if attempt is None:
+            return None, None
+        part_ids = item.get("unresolved_part_ids")
+        if part_ids:
+            landed = _whole_qty(item.get("verify_landed_qty"))
+            part_qty = item.get("unresolved_part_qty") or {}
+            parts = (verdict or {}).get("parts") or {}
+            if landed is None:
+                return None, None
+            unacked = 0
+            for pid in part_ids:
+                pv = parts.get(pid)
+                if not isinstance(pv, dict):
+                    return None, None
+                if pv.get("verdict") == "filled":
+                    q = _whole_qty(part_qty.get(pid))
+                    if q is None:
+                        return None, None
+                    unacked += q
+                elif pv.get("verdict") == "dead":
+                    unacked += int(pv.get("filled") or 0)
+                else:
+                    return None, None
+            landed += unacked
+        else:
+            held = _whole_qty(believed)
+            if held is not None:
+                attempt = min(attempt, held)
+            v = (verdict or {}).get("verdict")
+            if v == "filled":
+                landed = attempt
+            elif v == "dead":
+                landed = int((verdict or {}).get("filled") or 0)
+            else:
+                return None, None
+            unacked = landed
+        remaining = attempt - landed
+        cap = _whole_qty(item.get("shares"))
+        if cap is not None:
+            remaining = min(remaining, cap)
+        return max(0, int(remaining)), max(0, int(unacked))
+    except Exception:
+        return None, None
+
+
+def _close_resend_remainder(item, verdict, believed=None):
+    """The `remaining` half of _close_resend_sizes (see there). Never raises."""
+    return _close_resend_sizes(item, verdict, believed=believed)[0]
+
+
+def _apply_unacked_close_fill(state, leg, qty, log=print):
+    """Books `qty` shares that filled at Webull on a CLOSE send that came back not ok
+    onto the adapter's own sent/believed books for `leg` (OrderAdapter.apply_unacked_
+    close_fill) -- minor, 2026-09-26 review: without this the adapter keeps believing
+    the leg holds shares already sold, which can raise a false reconcile halt, block
+    the leg's next entry, and offer phantom shares to a manually triggered
+    FLATTEN_BROKER orphan repair (which would sell shares already sold).
+
+    Skipped (never forced) while ANY broker send is still hung on the send worker: that
+    send holds the adapter lock, and if it is THIS leg's ambiguous send it may yet
+    return ok and book the same shares itself. When skipped or when the adapter cannot
+    do it, logs, records a timeline event and pushes, saying the adapter's books are off
+    by N shares until reconcile and that FLATTEN_BROKER must not be dropped for this leg
+    until they are corrected. Never raises."""
+    try:
+        qty = int(qty or 0)
+        if qty <= 0:
+            return
+        applied = None
+        why = "the adapter could not update its books"
+        if _send_inflight_future() is not None:
+            why = "a broker send is still in flight"
+        else:
+            fn = getattr(_get_broker_adapter(log=log), "apply_unacked_close_fill", None)
+            if callable(fn):
+                applied = fn(leg, qty)
+        if isinstance(applied, dict):
+            log(f"[qqq-exec] broker books for {leg}: booked {qty} share(s) that filled at "
+                f"Webull on a not-ok CLOSE send (sent -{applied.get('sent')}, believed "
+                f"-{applied.get('believed')})")
+            return
+        msg = (f"QQQ BROKER: {leg}'s adapter books still count {qty} share(s) that already "
+               f"sold at Webull ({why}) -- off until reconcile; do not use FLATTEN_BROKER "
+               f"for {leg} until they are corrected")
+        log(f"[qqq-exec] {msg}")
+        _log_event(state, "broker", msg, log=log)
+        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+    except Exception as e:
+        log(f"[qqq-exec] booking an unacked close fill failed (non-fatal): "
+            f"{type(e).__name__}: {e}")
 
 
 def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
@@ -1785,11 +3039,36 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
         at or before session.last_entry and within broker_open_resend_window_min of its
         first try (a late entry at a stale price is worse than none); one blocked by a
         halt also waits until the adapter is no longer halted (the halted re-check in
-        _maybe_run_broker_reconcile looks every 30 s, so a false halt clears fast);
-      * a CLOSE goes whatever the book says (the book already closed the lot, the shares
-        are still at Webull); webull_orders refuses it if nothing is held there;
-      * at most BROKER_RESEND_MAX_TRIES re-sends, each under a fresh id. Giving up, or
-        running out of window or market, logs an event and sends a phone alert."""
+        _maybe_run_broker_reconcile looks every 30 s, so a false halt clears fast); at
+        most BROKER_RESEND_MAX_TRIES re-sends, each under a fresh id;
+      * a CLOSE queued as why="close_retry" (EXIT SAFETY item 2, 2026-09-26) goes
+        whatever the book says, with backoff (_close_resend_backoff -- about 5, 10, 20,
+        30s, then 30s), re-checked against the adapter's OWN believed position right
+        before every attempt (never double-sell: if it already reads flat for this leg,
+        the close has already reached Webull some other way -- drop the retry, no
+        further send), until SESSION FLATTEN DEADLINE (_session_flatten_deadline --
+        session close minus 10s), not bounded by BROKER_RESEND_MAX_TRIES, and given up
+        on outright if it is left over from an earlier trading day (item["session_date"]
+        -- EXIT SAFETY item 4 minor, 2026-09-26 review);
+      * a close_retry whose previous attempt needs verifying (item["needs_verify"] --
+        EXIT SAFETY item 2 major, 2026-09-26 review: only a send with no definite 4xx
+        refusal does; see _queue_broker_resend) is checked against Webull's own order
+        record (_order_known_at_broker / _order_known_at_broker_any, by order id --
+        per unresolved part id for a split) at every backoff step, before ever
+        re-sending. FINAL CLOSE RE-SEND RULE (2026-09-26 lead decision): FILLED -> drop,
+        never re-send; still live at Webull -> keep waiting, never re-send; REJECTED/
+        CANCELLED/FAILED with an explicit filled quantity -> re-send only the unfilled
+        remainder (_close_resend_remainder), right away; anything unverifiable (lookup
+        error, not found, missing filled quantity) -> hold. An ACCOUNT position read is
+        NEVER used to release a re-send: one margin account nets every leg, so it cannot
+        say which leg's shares are still out. Two or more unverifiable holds (a working answer
+        in between does not reset the count)
+        push urgently (sharing the leg's own CLOSE-failure throttle -- first failure,
+        then at most once per CLOSE_FAIL_ALERT_GAP_SEC) telling the owner to check
+        Webull and sell by hand; the hold ends at the flatten deadline with the urgent
+        give-up push, and the after-close Webull-flat check is the backstop.
+    Giving up, or running out of window/market/deadline, logs an event and sends a phone
+    alert."""
     q = state.get("_broker_resend") or {}
     if not q:
         return
@@ -1802,6 +3081,7 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
             leg, intent, why = item.get("leg"), item.get("intent"), item.get("why")
             tries = int(item.get("tries") or 0)
             what = "buy" if intent == "OPEN" else "sell"
+            close_retry = why == "close_retry"
             lot = (state.get("legs") or {}).get(leg)
             if intent == "OPEN" and (not lot or lot.get("trade_id") != item.get("trade_id")):
                 q.pop(key, None)
@@ -1810,40 +3090,210 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                 log(f"[qqq-exec] {msg}")
                 _log_event(state, "broker", msg, log=log)
                 continue
-            late = intent == "OPEN" and (
+            late = intent == "OPEN" and not close_retry and (
                 (now - float(item.get("first_at") or now)) / 60.0 > window_min
                 or _et_hhmm(nowdt) > _hhmm(sess.get("last_entry", "15:55")))
-            if tries >= BROKER_RESEND_MAX_TRIES or late or not active:
+            deadline_passed = close_retry and nowdt >= _session_flatten_deadline(nowdt)
+            # EXIT SAFETY item 4 minor (2026-09-26 review): a close_retry item left over
+            # from an earlier trading day (the process was down from before the prior
+            # day's deadline until after this morning's session start, so no tick ever
+            # saw active=False or the deadline fire) must never run today -- it would
+            # start pre-open (Webull refuses a market order then) and could keep going
+            # into today's session. per-leg broker_sent_positions already caps the sell
+            # itself so this was never a double-sell, just an unplanned stale exit.
+            stale_day = close_retry and item.get("session_date") not in (
+                None, nowdt.strftime("%Y-%m-%d"))
+            give_up = (late or not active or deadline_passed or stale_day
+                      or (not close_retry and tries >= BROKER_RESEND_MAX_TRIES))
+            if give_up:
                 q.pop(key, None)
-                cause = ("its window passed" if late else "the market window closed" if not active
-                         else f"{tries} re-sends failed")
+                if intent == "CLOSE":
+                    # item 3 (2026-09-26 lead decision): the give-up push always fires,
+                    # regardless of the throttle above, and this leg's next CLOSE
+                    # failure (a new trade) should page immediately again rather than
+                    # inherit this episode's cooldown.
+                    _close_fail_alert_reset(state, leg)
+                cause = ("its window passed" if late
+                        else "it is from an earlier trading day" if stale_day
+                        else "the session flatten deadline passed" if deadline_passed
+                        else "the market window closed" if not active
+                        else f"{tries} re-sends failed")
+                why_txt = ("blocked by a reconcile halt" if why == "halt"
+                          else "rejected by Webull as a duplicate" if why == "duplicate"
+                          else "not ok at the broker")
                 msg = (f"QQQ BROKER: gave up re-sending the {leg} {what} ({cause}; first try "
-                       + ("blocked by a reconcile halt" if why == "halt"
-                          else "rejected by Webull as a duplicate") + "). "
+                       f"{why_txt}). "
                        + (f"The book holds {leg} but Webull does not." if intent == "OPEN"
                           else f"Webull may still hold {leg}'s shares -- check and sell by hand."))
                 log(f"[qqq-exec] {msg}")
                 _log_event(state, "broker", msg, log=log)
-                _notify(msg, "EDGELOG QQQ BROKER", log)
+                # item 3 (2026-09-26 lead decision): the give-up push is "urgent" for a
+                # CLOSE -- Webull may still hold real shares with nobody retrying any
+                # more, the one case worse than an ordinary safety push -- and stays
+                # "high" for an OPEN (the book just holds a trade Webull never got).
+                _notify(msg, "EDGELOG QQQ BROKER", log,
+                       priority=("urgent" if intent == "CLOSE" else None))
                 continue
             if why == "halt" and _broker_halt_source(log=log) is not None:
                 continue  # still halted -- the 30 s halted re-check clears a false one
-            if now - float(item.get("last_at") or 0) < BROKER_RESEND_MIN_GAP_SEC:
+            gap = _close_resend_backoff(tries) if close_retry else BROKER_RESEND_MIN_GAP_SEC
+            if now - float(item.get("last_at") or 0) < gap:
                 continue
             shares = lot.get("shares_remaining") if intent == "OPEN" else item.get("shares")
-            log(f"[qqq-exec] broker RE-SEND {intent} for {leg} (re-send {tries + 1} of "
-                f"{BROKER_RESEND_MAX_TRIES}; first try {why})")
+            if close_retry:
+                # NEVER DOUBLE-SELL (item 2): re-check the adapter's own believed
+                # position right before this attempt -- if it already reads flat, some
+                # other path (a prior try Webull actually accepted despite the record
+                # we got back, the orphan repair, a manual sell) already closed it.
+                believed = _believed_qty_for_leg(leg, log=log)
+                if believed == 0:
+                    q.pop(key, None)
+                    _close_fail_alert_reset(state, leg)
+                    msg = (f"Re-send of the {leg} sell dropped: Webull's own position "
+                          f"already reads flat for {leg} -- no send")
+                    log(f"[qqq-exec] {msg}")
+                    _log_event(state, "broker", msg, log=log)
+                    _notify(msg + " (check Webull if in doubt)", "EDGELOG QQQ BROKER", log,
+                           priority="high")
+                    continue
+                if item.get("needs_verify"):
+                    # EXIT SAFETY item 1 critical (2026-09-26), NARROWED item 2 major
+                    # (2026-09-26 review): the PREVIOUS attempt's place_stock_order call
+                    # actually reached the send path but came back not ok with no
+                    # definite 4xx refusal (_queue_broker_resend already ruled that case
+                    # out) -- a 5xx, a timeout, or a dropped connection after Webull may
+                    # already have taken the order. That path never updates
+                    # believed_positions/broker_sent_positions (see
+                    # api.webull_orders.place_stock_order's own per-part try/except),
+                    # so the believed-flat check just above cannot catch this case: it
+                    # can still read the shares as held even though the order already
+                    # landed at Webull. Ask Webull directly before ever re-sending
+                    # blind under a fresh id.
+                    #
+                    # SPLIT ORDERS (item 2 major, SECOND 2026-09-26 review): a netted
+                    # CLOSE's unresolved parts each went out under their OWN
+                    # client_order_id, never the base id (see _queue_broker_resend's own
+                    # note on `unresolved_part_ids`) -- verify each of THOSE when
+                    # present, never the base last_signal_id, which a split order never
+                    # actually sent to Webull.
+                    part_ids = item.get("unresolved_part_ids")
+                    prev_id = item.get("last_signal_id")
+                    ids_desc = ", ".join(part_ids) if part_ids else prev_id
+                    if part_ids:
+                        known = _order_known_at_broker_any(_get_broker_adapter(log=log),
+                                                           part_ids, log=log)
+                    else:
+                        known = _order_known_at_broker(_get_broker_adapter(log=log), prev_id,
+                                                       log=log)
+                    # FINAL CLOSE RE-SEND RULE (2026-09-26 lead decision, after four
+                    # review rounds): only Webull's own record of THAT order decides --
+                    # never an account position read (one margin account nets every
+                    # leg, so no position read can say which leg's shares are still
+                    # out, and a wrong guess is a double sell).
+                    v = known.get("verdict") if isinstance(known, dict) else None
+                    released = False
+                    if v == "working":
+                        # Webull holds the order and it is still live -- a re-send now
+                        # would be a second sell on top of it. Wait, ask again next
+                        # backoff step. Not an unverifiable hold: this is a known answer.
+                        # verify_holds is deliberately NOT reset here (minor, 2026-09-26
+                        # review): a lookup alternating working/unverifiable would
+                        # otherwise never reach the 2-hold urgent page.
+                        item["last_at"] = now
+                        log(f"[qqq-exec] broker CLOSE re-send for {leg} waiting: the "
+                            f"previous attempt ({ids_desc}) is still working at Webull "
+                            f"-- no re-send while it is live")
+                        continue
+                    if v == "dead" and believed is None and not part_ids:
+                        v = None   # cannot cap the remainder by what the adapter sent -- hold
+                    if v in ("filled", "dead"):
+                        remaining, unacked = _close_resend_sizes(item, known,
+                                                                 believed=believed)
+                        if remaining is not None and unacked:
+                            # the adapter never booked shares that filled on a not-ok
+                            # send -- book them now (minor, 2026-09-26 review)
+                            _apply_unacked_close_fill(state, leg, unacked, log=log)
+                        if remaining is not None and remaining <= 0:
+                            # everything this close asked for already landed
+                            q.pop(key, None)
+                            _close_fail_alert_reset(state, leg)
+                            msg = (f"Re-send of the {leg} sell dropped: Webull's own "
+                                  f"order record shows the previous attempt ({ids_desc}) "
+                                  f"reached the book -- not re-sending to avoid a "
+                                  f"double-sell; check Webull and the book by hand")
+                            log(f"[qqq-exec] {msg}")
+                            _log_event(state, "broker", msg, log=log)
+                            _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+                            continue
+                        if remaining is not None:
+                            # the attempt is DEAD at Webull (REJECTED/CANCELLED/FAILED
+                            # with an explicit filled quantity) -- re-send only what did
+                            # not fill, now. The attempt under verification is resolved:
+                            # clear it so a not-sent requeue of THIS re-send (e.g. an
+                            # in-flight block) never carries it forward and re-subtracts
+                            # its fills from the already-reduced size.
+                            log(f"[qqq-exec] broker CLOSE for {leg}: Webull's own order "
+                                f"record shows the previous attempt ({ids_desc}) is dead "
+                                f"-- re-sending the unfilled {remaining} of "
+                                f"{item.get('shares')}")
+                            item["shares"] = remaining
+                            item["needs_verify"] = False
+                            item["unresolved_part_ids"] = None
+                            item["unresolved_part_qty"] = None
+                            item["verify_qty"] = remaining
+                            item["verify_landed_qty"] = 0
+                            item["verify_holds"] = 0
+                            shares = remaining
+                            released = True
+                    if not released:
+                        # UNVERIFIABLE (lookup error/timeout, not found/404, no status,
+                        # a dead status with no readable filled quantity, or a size
+                        # needed for the remainder missing) -- hold, bump last_at so the
+                        # same backoff gap applies, ask again next time it is due.
+                        holds = int(item.get("verify_holds") or 0) + 1
+                        item["verify_holds"] = holds
+                        item["last_at"] = now
+                        log(f"[qqq-exec] broker CLOSE re-send for {leg} held ({holds}x): "
+                            f"could not verify whether the previous attempt ({ids_desc}) "
+                            f"reached Webull -- will check again")
+                        if holds >= 2:
+                            # 2+ unverifiable holds: the order lookup itself is not
+                            # answering (an outage, not a blip). Push urgently, sharing
+                            # the leg's own CLOSE-failure throttle (first failure, then
+                            # at most once per CLOSE_FAIL_ALERT_GAP_SEC per leg -- never a
+                            # second independent stream; THIRD/FOURTH 2026-09-26
+                            # reviews). The item stays held until the flatten deadline
+                            # gives up with its own urgent push; the after-close
+                            # Webull-flat check reads the real position.
+                            if _close_fail_should_alert(state, leg, log=log):
+                                stall_msg = (f"CLOSE retry for {leg} stalled: cannot "
+                                            f"verify the previous attempt -- check Webull")
+                                _log_event(state, "broker", stall_msg, log=log)
+                                _notify(stall_msg + " and sell by hand if it is still held",
+                                       "EDGELOG QQQ BROKER", log, priority="urgent")
+                        continue
+                if believed is not None and shares is not None:
+                    shares = int(min(float(shares), float(believed)))
+            log(f"[qqq-exec] broker RE-SEND {intent} for {leg} (re-send {tries + 1}"
+                + (f" of {BROKER_RESEND_MAX_TRIES}" if not close_retry else "")
+                + f"; first try {why})")
             _mirror_to_broker(state, leg=leg, side=item.get("side"), shares=shares,
                               shadow_px=item.get("shadow_px"), intent=intent,
                               ts=item.get("ts"), seq=item.get("seq") or 0,
-                              trade_id=item.get("trade_id"), resend=tries + 1, log=log)
+                              trade_id=item.get("trade_id"), resend=tries + 1,
+                              nowdt=nowdt, log=log)
             last = state.get("_broker_last") or {}
             if last.get("ok") and last.get("leg") == leg:
                 msg = (f"QQQ BROKER: {leg} {what} re-sent and accepted ("
                        + ("after the reconcile halt cleared" if why == "halt"
-                          else "after a same-instant duplicate") + ")")
+                          else "after a same-instant duplicate" if why == "duplicate"
+                          else "after a retry") + ")")
                 _log_event(state, "broker", msg, log=log)
                 _notify(msg, "EDGELOG QQQ BROKER", log)
+            elif close_retry and key in q and int(q[key].get("tries") or 0) == tries + 1:
+                # still not ok -- stays queued (see _queue_broker_resend); the per-record
+                # "NOT ok" alert from _mirror_to_broker's own call above already paged
+                pass
             elif key in q and int(q[key].get("tries") or 0) == tries:
                 # failed for a reason that is not worth another try (kill file, rails,
                 # nothing held at Webull) -- _mirror_to_broker already logged why
@@ -2421,6 +3871,35 @@ def _reconcile_with_timeout(adapter, log=print):
         return adapter.fail_closed(reason)
 
 
+RECONCILE_ALERT_REPEAT_SEC = 30 * 60.0  # item 2 (2026-09-26): cap while it persists
+
+
+def _maybe_notify_reconcile_halt(state, kind, reason, log=print):
+    """Phone push for a broker reconcile MISMATCH or READ FAILURE (item 2, 2026-09-26,
+    "alerts in book") -- called from _maybe_run_broker_reconcile's own failure branch,
+    right after its log line and timeline event. Pushes the FIRST occurrence of the
+    calendar day at once, then at most once every RECONCILE_ALERT_REPEAT_SEC (30 min)
+    for as long as it keeps recurring that same day -- state["_reconcile_alert"] =
+    {"day", "last_at"}. Deliberately keyed by DAY, not by episode: a reconcile that
+    clears and fails again later the same day still counts against the same 30-minute
+    cap rather than paging immediately a second time, which is the conservative choice
+    against a reconcile that flaps in and out of MISMATCH. A new calendar day always
+    pages again on its own first occurrence. Never raises."""
+    try:
+        today = _now_et().strftime("%Y-%m-%d")
+        info = state.get("_reconcile_alert") or {}
+        now = time.time()
+        due = info.get("day") != today or (now - float(info.get("last_at") or 0)
+                                           >= RECONCILE_ALERT_REPEAT_SEC)
+        if not due:
+            return
+        state["_reconcile_alert"] = {"day": today, "last_at": now}
+        msg = f"QQQ BROKER RECONCILE {kind}: new broker entries halted -- {reason}"
+        _notify(msg, "EDGELOG QQQ BROKER RECONCILE", log, priority="high")
+    except Exception as e:
+        log(f"[qqq-exec] reconcile-halt alert failed (non-fatal): {type(e).__name__}: {e}")
+
+
 def _maybe_run_broker_reconcile(state, cfg, adapter, nowdt, active, log=print):
     """Runs adapter.reconcile() (see api.webull_orders.OrderAdapter.reconcile's own
     docstring for what it checks and how it fails closed) -- at boot (see
@@ -2494,18 +3973,37 @@ def _maybe_run_broker_reconcile(state, cfg, adapter, nowdt, active, log=print):
         _log_event(state, "broker_reconcile_halt",
                   f"Broker reconcile {kind.lower()} -- new broker entries halted: {reason}",
                   log=log)
+        # item 2 (2026-09-26, "alerts in book"): a reconcile that cannot confirm the
+        # book and Webull agree is exactly the "may be silently wrong" case a phone
+        # push exists for, but while it is halted this same function is re-entered
+        # every broker_reconcile_halted_recheck_sec (30s, see the "halted re-check"
+        # branch above) -- pushing every one of those would page every 30s all day.
+        _maybe_notify_reconcile_halt(state, kind, reason, log=log)
 
 
 def _run_broker_housekeeping(state, cfg, nowdt, active, log=print):
     """ONE consolidated _get_broker_adapter() call per tick feeding both the daily P&L
     wiring and the reconcile scheduler above -- kept as a single call site so adding
     these two independent, Firestore-free concerns doesn't multiply how many times
-    tick() touches the broker adapter singleton. Never raises."""
+    tick() touches the broker adapter singleton. Never raises.
+
+    MAJOR REVIEW FIX #1 (2026-09-26): both callees below take OrderAdapter._lock
+    (update_daily_pnl/reset_daily_pnl directly, reconcile()/fail_closed via
+    _reconcile_with_timeout) -- the same lock a still-hung broker send
+    (_place_stock_order_with_timeout) keeps holding for as long as it keeps running in
+    the background after this process gives up waiting on it. Calling into either while
+    that is true would block THIS tick thread on that lock too, freezing the whole tick
+    loop rather than just the send -- see _skip_broker_housekeeping_for_inflight_send's
+    own module comment. Skip this tick's housekeeping entirely rather than block; the
+    reconcile scheduler's own due/interval bookkeeping is untouched, so nothing here is
+    lost, only delayed until the send resolves."""
     try:
         adapter = _get_broker_adapter(log=log)
     except Exception as e:
         log(f"[qqq-exec] broker housekeeping skipped (adapter unavailable): "
             f"{type(e).__name__}: {e}")
+        return
+    if _skip_broker_housekeeping_for_inflight_send(log=log):
         return
     _sync_broker_daily_pnl(state, adapter, nowdt, log=log)
     _maybe_run_broker_reconcile(state, cfg, adapter, nowdt, active, log=log)
@@ -2941,10 +4439,34 @@ def _check_feed_engine(state, log=print):
     if stale and not was:
         _log_event(state, "feed_down",
                   "cloud_signal engine heartbeat stale/missing -- new entries blocked", log=log)
+        # item 1 (2026-09-26, "alerts in book"): a stall while the book holds an open
+        # lot is the dangerous case -- neither a fresh ENTRY nor a SIGNAL-DRIVEN exit can
+        # reach this adapter until the heartbeat recovers, so an open lot rides unmanaged
+        # by the strategy for as long as the stall lasts. The end-of-day flatten, KILL
+        # file and daily-loss breaker are rail-driven, not signal-driven (_close_all is
+        # called directly by tick()'s own rail checks -- see the module docstring), and
+        # keep working the whole time; the wording below (item 6, 2026-09-26 minor
+        # review) must never claim otherwise, or the owner reads a stalled heartbeat as
+        # "nothing can close this" when EOD/KILL/breaker still can. Push once per stall
+        # EPISODE (state["legs"] checked at the moment the stall begins, since a new lot
+        # cannot open while stale -- entries_blocked already covers that in tick()) and
+        # remember it so the recovery branch below pushes its matching "cleared" push. A
+        # stall with no open lot at the time stays a log-only event, same as before this
+        # item.
+        if state.get("legs"):
+            state["_signal_stall_alerted"] = True
+            legs_txt = ", ".join(sorted(state["legs"].keys()))
+            msg = (f"QQQ SIGNAL ENGINE STALLED with an open lot held ({legs_txt}) -- "
+                  f"new entries and signal-driven exits are blocked until the heartbeat "
+                  f"recovers; the end-of-day flatten, KILL and breaker still work")
+            _notify(msg, "EDGELOG QQQ SIGNAL STALL", log, priority="high")
     elif was and not stale:
         log("[qqq-exec] engine heartbeat recovered")
         state["relaunch_at"] = _now_et().strftime("%Y-%m-%d %H:%M:%S")
         _log_event(state, "feed_up", "cloud_signal engine heartbeat recovered", log=log)
+        if state.pop("_signal_stall_alerted", False):
+            _notify("QQQ SIGNAL ENGINE recovered -- heartbeat is fresh again",
+                   "EDGELOG QQQ SIGNAL STALL", log)
     return stale
 
 
@@ -3001,6 +4523,38 @@ def _engine_mark_price(leg, log=print):
     except Exception as e:
         log(f"[qqq-exec] engine mark price failed for {leg}: {type(e).__name__}: {e}")
         return None, None
+
+
+# EXIT SAFETY item 6 (2026-09-26): an EOD/forced (flat_by, KILL, BREAKER) exit in
+# engine mode used to price ONLY off the newest closed engine bar (_engine_mark_price),
+# which can be stale by several minutes on a 5m leg -- 2026-09-25's NOISE EOD exit was
+# booked at the 15:55 bar close (744.92) at 15:59:03 while Webull actually filled
+# 744.60 and the 1m tape read 744.45. Prefer the live Webull stream's own last trade
+# print when it is genuinely fresh; otherwise fall back to the bar close exactly as
+# before.
+EXIT_LIVE_PRICE_MAX_AGE_SEC = 15.0
+
+
+def _exit_price_for_leg(leg, log=print):
+    """(qqq_px, source) for an END-OF-DAY/forced exit in engine mode -- see
+    EXIT_LIVE_PRICE_MAX_AGE_SEC's own comment. `source` is 'live_stream' when the live
+    print was used, else whatever _engine_mark_price itself returns ('engine_cache'/
+    'engine_yfinance'/...) -- carried through to the closed trade's own exit_reason
+    (TRADE_COLS has no dedicated price-source column, see _close_all) so a forced exit
+    always says which price closed it. Never raises; falls back to _engine_mark_price
+    on any stream error."""
+    try:
+        streamer = _qqq_stream_instance()
+        if streamer is not None and streamer.is_fresh():
+            t = streamer.last_trade()
+            if t and t.get("price") is not None:
+                age = float(t.get("age") or 0.0)
+                if age <= EXIT_LIVE_PRICE_MAX_AGE_SEC:
+                    return float(t["price"]), "live_stream"
+    except Exception as e:
+        log(f"[qqq-exec] live-stream exit price read failed for {leg} (falling back to "
+            f"the bar close): {type(e).__name__}: {e}")
+    return _engine_mark_price(leg, log=log)
 
 
 def _leg_timeframe_seconds(leg, log=print):
@@ -3398,7 +4952,7 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
                                cfg.get("slippage_per_share", 0.0), f=None, log=log,
                                sig_dt=sig_dt, signal_source=cfg.get("signal_source"),
                                trade_id=row_tid, entry_ref_time=str(e.get("ref_time") or ""),
-                               size=e.get("size"), keel_size=e.get("keel_size"))
+                               size=e.get("size"), keel_size=e.get("keel_size"), nowdt=nowdt)
             _accumulate_signal(state, sig_dt or _now_et(), leg, "fired", log=log)
             _accumulate_signal(state, sig_dt or _now_et(), leg, "taken" if opened else "refused", log=log)
         elif e["event"] == "EXIT":
@@ -3429,7 +4983,7 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
             state["_px_source"] = px_source
             _reduce_lot(state, cfg, leg, lot["nq_qty_total"], None, float(e["ref_price"]),
                        cfg.get("slippage_per_share", 0.0), "signal exit", f=None, log=log,
-                       sig_dt=sig_dt, signal_source=cfg.get("signal_source"))
+                       sig_dt=sig_dt, signal_source=cfg.get("signal_source"), nowdt=nowdt)
 
 
 def _apply_slippage(px, side, entering, slip):
@@ -3504,9 +5058,13 @@ def _sized_shares(base_shares, size):
 
 def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, log=print,
               sig_dt=None, signal_source=None, trade_id=None, entry_ref_time=None, size=None,
-              keel_size=None):
+              keel_size=None, nowdt=None):
     """Returns True if a shadow lot opened, False if refused/skipped (feature #55 needs
     to know this to tell TAKEN from REFUSED).
+
+    `nowdt` (EXIT SAFETY item 4 minor, 2026-09-26 review): the calling tick's own
+    notion of "now", threaded straight through to _mirror_to_broker -- see that
+    function's own docstring.
 
     `keel_size` (2026-09-23): the KEEL multiplier ALONE from the ENTRY signal's own
     "keel_size" column (blank/None for a leg with no KEEL overlay, or an older row) --
@@ -3645,12 +5203,16 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
     # "broker mirror" section docstring near _mirror_to_broker. A broker error here
     # never unwinds the shadow lot just opened.
     _mirror_to_broker(state, leg=leg, side=side, shares=shares, shadow_px=fill_px,
-                      intent="OPEN", ts=lot["entry_ts"], trade_id=lot["trade_id"], log=log)
+                      intent="OPEN", ts=lot["entry_ts"], trade_id=lot["trade_id"],
+                      nowdt=nowdt, log=log)
     return True
 
 
 def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason, f=None, log=print,
-                sig_dt=None, signal_source=None):
+                sig_dt=None, signal_source=None, nowdt=None):
+    """`nowdt` (EXIT SAFETY item 4 minor, 2026-09-26 review): the calling tick's own
+    notion of "now", threaded straight through to _mirror_to_broker -- see that
+    function's own docstring."""
     lot = state["legs"].get(leg)
     if not lot:
         log(f"[qqq-exec] WARN exit fill for {leg} with no open shadow lot -- skipped")
@@ -3702,7 +5264,8 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
     lot["_broker_close_seq"] = lot.get("_broker_close_seq", 0) + 1
     _mirror_to_broker(state, leg=leg, side=lot["side"], shares=shares_close,
                       shadow_px=fill_px, intent="CLOSE", ts=lot["entry_ts"],
-                      seq=lot["_broker_close_seq"], trade_id=lot.get("trade_id"), log=log)
+                      seq=lot["_broker_close_seq"], trade_id=lot.get("trade_id"),
+                      nowdt=nowdt, log=log)
     pnl = None
     if lot["shares_remaining"] <= 0:
         # close the round-trip on the full lot's entry (weighted avg exit unnecessary
@@ -3713,10 +5276,15 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
     return pnl
 
 
-def _close_all(state, cfg, reason, quote_fn, ratio_fn, log=print):
+def _close_all(state, cfg, reason, quote_fn, ratio_fn, log=print, nowdt=None):
     """BREAKER/EOD/KILL flatten -- branches on signal_source exactly like
-    _mark_and_check_breaker: engine mode prices the close off api.cloud_signal's own
-    QQQ bar cache (_engine_mark_price), never the NQ feed/ratio/Webull quote."""
+    _mark_and_check_breaker: engine mode prices the close off the live Webull stream
+    when it is fresh, else api.cloud_signal's own QQQ bar cache (_exit_price_for_leg,
+    EXIT SAFETY item 6, 2026-09-26), never the NQ feed/ratio/Webull quote.
+
+    `nowdt` (EXIT SAFETY item 4 minor, 2026-09-26 review): the calling tick's own
+    notion of "now", threaded straight through to _reduce_lot -- see
+    _mirror_to_broker's own docstring."""
     engine_mode = str(cfg.get("signal_source") or "engine").strip().lower() == "engine"
     nq_now = None
     if not engine_mode:
@@ -3725,7 +5293,7 @@ def _close_all(state, cfg, reason, quote_fn, ratio_fn, log=print):
         lot = state["legs"][leg]
         if engine_mode:
             exit_nq = None
-            qqq_px, src = _engine_mark_price(leg, log=log)
+            qqq_px, src = _exit_price_for_leg(leg, log=log)
         else:
             # flatten at the LIVE NQ price (fallback: last known) -- never at the entry price
             exit_nq = nq_now if nq_now is not None else (lot.get("last_nq_px") or lot["nq_entry_px"])
@@ -3735,9 +5303,16 @@ def _close_all(state, cfg, reason, quote_fn, ratio_fn, log=print):
             log(f"[qqq-exec] cannot price {leg} for {reason} close -- no quote/ratio "
                 f"available, lot left open")
             continue
+        # EXIT SAFETY item 6 (engine mode only -- the live-stream-vs-bar choice above
+        # only exists for engine/QQQ pricing): trades.csv has no dedicated
+        # price-source column, so it travels in the exit note instead (exit_reason,
+        # e.g. "EOD (px: live_stream)" vs "EOD (px: engine_cache)") -- the base reason
+        # ("EOD"/"KILL"/"BREAKER") stays the FIRST word, unchanged, for anything
+        # reading it as a tag.
+        exit_reason = f"{reason} (px: {src or 'n/a'})" if engine_mode else reason
         _reduce_lot(state, cfg, leg, lot["nq_qty_remaining"], exit_nq,
-                   qqq_px, cfg.get("slippage_per_share", 0.0), reason, log=log,
-                   signal_source=cfg.get("signal_source"))
+                   qqq_px, cfg.get("slippage_per_share", 0.0), exit_reason, log=log,
+                   signal_source=cfg.get("signal_source"), nowdt=nowdt)
 
 
 # -- orphan broker repair ------------------------------------------------------------------
@@ -3843,7 +5418,8 @@ def _maybe_flatten_orphan_broker(state, cfg, nowdt, log=print):
 
 
 # -- fill routing ------------------------------------------------------------------------
-def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=print):
+def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=print,
+                 nowdt=None):
     """Walk NEW fills in file order, updating per-group position and opening/reducing
     shadow lots. Mirrors api.nt_sync.build_trades' adding/reducing FIFO logic.
 
@@ -3852,7 +5428,11 @@ def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=pri
     those apply to every fill regardless of when it happened. The session-window
     check (open/last_entry) is evaluated against the FILL'S OWN timestamp
     (f["dt"], NY-local per fills.csv), which is what a real 5s-tick adapter is
-    equivalent to: by the time a fill shows up in the file it IS "now"."""
+    equivalent to: by the time a fill shows up in the file it IS "now".
+
+    `nowdt` (EXIT SAFETY item 4 minor, 2026-09-26 review): the calling tick's own
+    notion of "now", threaded straight through to _open_lot/_reduce_lot -- see
+    _mirror_to_broker's own docstring."""
     groups = {}
     for f in fills:
         groups.setdefault((f["account"], f["instrument"]), []).append(f)
@@ -3929,7 +5509,7 @@ def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=pri
                     continue
                 opened = _open_lot(state, cfg, leg, side_of_fill, abs(delta), f["price"], qqq_px,
                                    cfg.get("slippage_per_share", 0.0), f=f, log=log,
-                                   signal_source=cfg.get("signal_source"))
+                                   signal_source=cfg.get("signal_source"), nowdt=nowdt)
                 state["group_leg"][gk] = leg
                 _accumulate_signal(state, f["dt"], leg, "fired", log=log)
                 _accumulate_signal(state, f["dt"], leg, "taken" if opened else "refused", log=log)
@@ -3944,16 +5524,19 @@ def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=pri
                 reason = "signal exit" if str(f.get("signal") or "").strip() else "close"
                 _reduce_lot(state, cfg, leg, abs(delta), f["price"], qqq_px,
                            cfg.get("slippage_per_share", 0.0), reason, f=f, log=log,
-                           signal_source=cfg.get("signal_source"))
+                           signal_source=cfg.get("signal_source"), nowdt=nowdt)
                 if leg not in state["legs"]:
                     state["group_leg"].pop(gk, None)
 
 
 # -- mark-to-market + breaker ------------------------------------------------------------
-def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print):
+def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=None):
     # stashes the per-leg breakdown on state["_unrl_by_leg"] (leg -> unrealized $) so
     # _build_doc can show each leg card its own unrealized figure, not just the total --
     # cheap, since the marks are already computed here for the breaker check.
+    # `nowdt` (EXIT SAFETY item 4 minor, 2026-09-26 review): the calling tick's own
+    # notion of "now", threaded straight through to _close_all -- see
+    # _mirror_to_broker's own docstring.
     if not state.get("legs"):
         state["_unrl_by_leg"] = {}
         return 0.0  # nothing open: no quote/ratio work, unrealized is zero
@@ -3990,7 +5573,7 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print):
     if limit and total <= -abs(limit) and not state.get("breaker_tripped"):
         log(f"[qqq-exec] BREAKER TRIPPED: today's shadow P&L {total:.2f} <= "
             f"-{limit:.2f} -- closing all lots")
-        _close_all(state, cfg, "BREAKER", quote_fn, ratio_fn, log=log)
+        _close_all(state, cfg, "BREAKER", quote_fn, ratio_fn, log=log, nowdt=nowdt)
         state["breaker_tripped"] = True
         _notify(f"QQQ SHADOW breaker tripped: {total:.2f} (limit -{limit:.2f})",
                "EDGELOG QQQ SHADOW BREAKER", log)
@@ -5031,9 +6614,26 @@ def _maybe_send_eod_summary(state, doc, nowdt, log=print):
         today_feed = next((d for d in doc["feed_days"] if d["date"] == today), None)
         uptime_txt = f"{today_feed['uptime_pct'] * 100:.1f}%" if today_feed else "n/a"
         rail_trips = 1 if doc.get("breaker_tripped") else 0
+        # EXIT SAFETY item 4 (2026-09-26; narrowed 2026-09-26 review): the item-4 check
+        # (_maybe_check_webull_flat_after_eod, run earlier in the same tick loop once the
+        # flatten/re-sends have had their window) stashes its verdict on state, dated. A
+        # result whose date is not TODAY -- absent entirely (never checked), or left over
+        # from a prior day (a crash/restart around the flatten, or a kill day before this
+        # fix ran the check at all) -- must never be shown as today's answer: this is
+        # exactly the false reassurance item 4 exists to prevent, so it prints
+        # 'not checked' instead of silently defaulting to 'yes'.
+        flat_info = state.get("_webull_flat_after_eod") or {}
+        if flat_info.get("date") != today:
+            flat_txt = "Webull flat: not checked"
+        elif flat_info.get("flat") is False:
+            flat_txt = f"Webull flat: NO ({flat_info.get('shares')} shares)"
+        elif flat_info.get("flat") is None:
+            flat_txt = "Webull flat: could not verify"
+        else:
+            flat_txt = "Webull flat: yes"
         msg = (f"Trades {n} | P&L ${pnl:.2f} | parity checked/failed "
               f"{parity['checked']}/{parity['failed']} | feed uptime {uptime_txt} | "
-              f"rail trips {rail_trips}")
+              f"rail trips {rail_trips} | {flat_txt}")
         _notify(msg, "EDGELOG QQQ SHADOW: EOD summary", log)
         state["eod_summary_done_date"] = today
         _log_event(state, "eod_summary", msg, log=log)
@@ -5895,29 +7495,54 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
         return cfg, state, doc
 
     # MARKET CALENDAR: half-day early close (day after Thanksgiving, certain Jul 3 /
-    # Dec 24) -- clamp flat_by to the EARLIER of the configured value and the
-    # recognised early close, in memory only, for this tick's session dict. Never
-    # edits config.json.
+    # Dec 24) -- clamp flat_by/last_entry to the EARLIER of the configured value and a
+    # margin BEFORE the recognised early close, in memory only, for this tick's session
+    # dict. Never edits config.json.
+    #
+    # EXIT SAFETY item 5 (2026-09-26): this used to clamp flat_by to the bell itself
+    # (sess_close, e.g. "13:00") -- the 5s tick then fires the flatten at
+    # 13:00:00-13:00:05 ET, AFTER the early close, and Webull refuses the market sell
+    # exactly like the 2026-09-17/18 16:00 incident (see _maybe_flatten_orphan_broker's
+    # own docstring). Now flat_by clamps to early-close-minus-3-minutes (12:57 for a
+    # 13:00 close) and last_entry to early-close-minus-10-minutes, so the flatten fires
+    # comfortably inside the half-day session and the day's last new entry is not still
+    # open at the bell.
     sess_close = market_calendar.session_close_et(nowdt)
     if sess_close != "16:00":
-        configured_flat = (cfg.get("session") or {}).get("flat_by", "15:58")
-        if sess_close < configured_flat:
+        half_day_flat = _hhmm_minus(sess_close, 3)
+        half_day_last_entry = _hhmm_minus(sess_close, 10)
+        sess_before = cfg.get("session") or {}
+        configured_flat = sess_before.get("flat_by", "15:58")
+        configured_last_entry = sess_before.get("last_entry", "15:55")
+        clamp_flat = half_day_flat < configured_flat
+        clamp_entry = half_day_last_entry < configured_last_entry
+        if clamp_flat or clamp_entry:
             cfg = dict(cfg)
-            cfg["session"] = dict(cfg.get("session") or {})
-            cfg["session"]["flat_by"] = sess_close
+            cfg["session"] = dict(sess_before)
+            if clamp_flat:
+                cfg["session"]["flat_by"] = half_day_flat
+            if clamp_entry:
+                cfg["session"]["last_entry"] = half_day_last_entry
             if state.get("half_day_logged_date") != today:
                 log(f"[qqq-exec] {today} is a recognised early close ({sess_close} ET) -- "
-                    f"flat_by clamped from {configured_flat} to {sess_close}")
+                    f"flat_by clamped from {configured_flat} to {half_day_flat}, last_entry "
+                    f"from {configured_last_entry} to {half_day_last_entry}")
                 _log_event(state, "half_day",
                           f"{today} early close ({sess_close} ET) -- flat_by clamped from "
-                          f"{configured_flat} to {sess_close}", log=log)
+                          f"{configured_flat} to {half_day_flat}, last_entry from "
+                          f"{configured_last_entry} to {half_day_last_entry}", log=log)
                 state["half_day_logged_date"] = today
 
     kill_present = os.path.exists(cfg.get("kill_file") or "")
     if kill_present and not state.get("kill_done"):
         log("[qqq-exec] KILL file present -- closing all shadow lots")
-        _close_all(state, cfg, "KILL", quote_fn, ratio_fn, log=log)
+        _close_all(state, cfg, "KILL", quote_fn, ratio_fn, log=log, nowdt=nowdt)
         state["kill_done"] = True
+        # EXIT SAFETY item 4 (2026-09-26): dated, like flat_by_done_date -- lets
+        # _maybe_check_webull_flat_after_eod run its Webull-flat check on a kill day too
+        # (kill_done itself is a sticky boolean, not a per-day marker: it stays True for
+        # as long as the kill file is present, which can span more than one day).
+        state["kill_flatten_date"] = today
         _notify("QQQ SHADOW: kill file present, all lots closed", "EDGELOG QQQ SHADOW KILL", log)
         _log_event(state, "kill", "Kill file present -- all shadow lots closed, new entries blocked",
                   log=log)
@@ -5986,7 +7611,8 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
             new_fills.sort(key=lambda f: (f["dt"], f["_i"]))
 
             if new_fills:
-                _route_fills(state, cfg, new_fills, quote_fn, ratio_fn, entries_blocked, log=log)
+                _route_fills(state, cfg, new_fills, quote_fn, ratio_fn, entries_blocked,
+                            log=log, nowdt=nowdt)
                 for f in new_fills:
                     processed.add(f["exec_id"])
                 # cap the processed-id memory so state.json stays small
@@ -5996,14 +7622,14 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
             if state.get("legs"):
                 legs_open = list(state["legs"].keys())
                 log("[qqq-exec] past flat_by -- closing remaining open lots")
-                _close_all(state, cfg, "EOD", quote_fn, ratio_fn, log=log)
+                _close_all(state, cfg, "EOD", quote_fn, ratio_fn, log=log, nowdt=nowdt)
                 _log_event(state, "eod_flatten",
                           f"End-of-day flatten closed: {', '.join(legs_open)}", log=log)
             state["flat_by_done_date"] = today
 
     unrealized = 0.0
     if not kill_present:
-        unrealized = _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=log)
+        unrealized = _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=log, nowdt=nowdt)
 
     # BROKER HOUSEKEEPING (2026-09-14): daily P&L wiring for webull_orders' own
     # (previously dead) loss rail + FIX 2's reconcile scheduling. ONE
@@ -6016,6 +7642,10 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     # BROKER RE-SEND (2026-09-21): after housekeeping, so a reconcile that just cleared a
     # halt lets the OPEN it blocked go out in the same tick -- see _maybe_resend_broker_orders.
     _maybe_resend_broker_orders(state, cfg, nowdt, active, log=log)
+    # EXIT SAFETY item 4 (2026-09-26): after the flatten and its CLOSE re-sends above have
+    # had their full window, read Webull's own position once and push urgently if it is
+    # not flat -- see _maybe_check_webull_flat_after_eod.
+    _maybe_check_webull_flat_after_eod(state, cfg, nowdt, log=log)
     # BROKER FILL CAPTURE (feature #57, DEFERRED 2026-09-22): queued by _mirror_to_broker,
     # serviced here -- see _maybe_capture_broker_fills for why this is off the order path.
     _maybe_capture_broker_fills(state, cfg, nowdt, active, log=log)
@@ -6041,7 +7671,20 @@ def run_once(uid=None, fills_path=DEFAULT_FILLS, db=None, log=print):
     would tick the same book with its own memory -- and mirror its own broker orders), and,
     when it publishes, refused while another host holds a fresh lease. While publishing it
     is lease-managed like the loop, so a claim that only failed open can neither overwrite
-    another host's lease on publish nor send a broker order. Returns None when refused."""
+    another host's lease on publish nor send a broker order. Returns None when refused.
+
+    SERVING_HOSTS GATE (2026-09-26, MAJOR review fix): checked FIRST, before the host
+    slot -- `--once` used to be the one path this gate missed entirely. With no --uid,
+    db is None, so tick() skips the broker-lease block and _LEASE.send_gate returns
+    None -- an excluded PC's manual `python -m api.qqq_exec --once` could still mirror a
+    real Webull paper order, exactly the "PC takes over the book" case this gate exists
+    to close. Refused here, this never enters the host slot, never ticks, never mirrors
+    to the broker."""
+    hosts_ok, hosts_reason = _serving_hosts_ok(_read_config_for_gate(log=log), log=log)
+    if not hosts_ok:
+        log(f"[qqq-exec] REFUSING --once: {hosts_reason} -- never entering the host slot, "
+            "never ticking, never sending")
+        return None
     slot, why = _enter_host_slot(log=log)
     if slot is None:
         log(f"[qqq-exec] REFUSING --once: {why} -- a second copy of the book on one host "
@@ -6102,6 +7745,45 @@ def _reconcile_broker_at_boot(log=print):
         log(f"[qqq-exec] broker reconcile at boot failed (non-fatal): {type(e).__name__}: {e}")
 
 
+TICK_FAILURE_ALERT_THRESHOLD = 3  # item 3 (2026-09-26): consecutive failed ticks -> push
+
+
+def _note_tick_result(state, ok, exc=None, log=print):
+    """Tracks CONSECUTIVE tick() failures across iterations of qqq_exec_thread's own
+    while loop (item 3, 2026-09-26, "alerts in book") and pushes ONE high-priority
+    alert per episode, the moment the streak first reaches TICK_FAILURE_ALERT_THRESHOLD
+    -- never again for the rest of that same episode (an outage can run for a while;
+    paging every 5s would be useless noise), and never for one or two isolated
+    failures, which this adapter has always shrugged off and retried.
+
+    `state` carries the streak (state["_tick_fail_streak"] / state["_tick_fail_alerted"])
+    the same way every other piece of this loop's own bookkeeping does -- and it is
+    exactly the right place for it: a failed tick's `except` branch never reaches
+    save_state (see qqq_exec_thread's own try body), so this in-memory counter lives
+    only for the life of the process, which is what makes it a per-EPISODE signal
+    rather than a per-day one. A single call covers both directions: ok=True resets
+    the streak (and logs a plain recovery line once one was ever counted, no push --
+    the episode already got its one alert going in). Never raises."""
+    try:
+        if ok:
+            streak = int(state.get("_tick_fail_streak") or 0)
+            if streak:
+                log(f"[qqq-exec] tick loop recovered after {streak} consecutive failure(s)")
+            state["_tick_fail_streak"] = 0
+            state["_tick_fail_alerted"] = False
+            return
+        streak = int(state.get("_tick_fail_streak") or 0) + 1
+        state["_tick_fail_streak"] = streak
+        if streak >= TICK_FAILURE_ALERT_THRESHOLD and not state.get("_tick_fail_alerted"):
+            state["_tick_fail_alerted"] = True
+            msg = (f"QQQ EXEC: {streak} consecutive tick failures -- latest: "
+                  f"{type(exc).__name__ if exc is not None else 'unknown'}: {exc}")
+            _log_event(state, "tick_failures", msg, log=log)
+            _notify(msg, "EDGELOG QQQ TICK LOOP", log, priority="high")
+    except Exception as e:
+        log(f"[qqq-exec] tick-failure alert bookkeeping failed (non-fatal): {type(e).__name__}: {e}")
+
+
 # -- runner thread hook (mirrors api.runner._bridge_watchdog_thread) ---------------------
 def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
     """Own thread, ticking every TICK_SEC -- never blocks the runner's main loop and
@@ -6122,7 +7804,20 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
     the FIRST uid only; in practice this list is always exactly the one owner uid
     (api/runner.py builds it from --allow-uid), never a genuine multi-tenant fan-out.
     With no db (tests, offline tools) there is nothing to hold a lease in and the loop
-    runs unmanaged, exactly as before."""
+    runs unmanaged, exactly as before.
+
+    SERVING_HOSTS GATE (2026-09-26): checked FIRST, before the host slot or the lease --
+    see _serving_hosts_ok. A host config.json excludes never claims the lease, never
+    takes the host slot, never ticks and never sends, regardless of db/managed. Reads
+    config.json through _read_config_for_gate, NOT load_config (major review fix,
+    2026-09-26): load_config writes a default file when one is missing, a side effect
+    this gate must never trigger just to decide whether this host may even touch the
+    book."""
+    hosts_ok, hosts_reason = _serving_hosts_ok(_read_config_for_gate(log=log), log=log)
+    if not hosts_ok:
+        log(f"[qqq-exec] REFUSING to run the shadow book: {hosts_reason} -- never "
+            "claiming the lease, never ticking, never sending")
+        return
     lease_uid = uids[0] if uids else None
     managed = db is not None and bool(lease_uid)
     slot, why = _enter_host_slot(log=log)
@@ -6187,12 +7882,21 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
                 cfg2, state, doc = tick(cfg=cfg, state=state, db=db, uid=lease_uid, log=log)
                 for uid in uids:
                     publish_async(db, uid, doc, state, log=log, cfg=cfg2)
+                # MINOR REVIEW FIX (2026-09-26, item 3): _note_tick_result before
+                # save_state -- it used to run after, so the FIRST successful tick after
+                # an alerted episode persisted the stale _tick_fail_streak/
+                # _tick_fail_alerted to state.json a moment before this call would have
+                # reset them. A restart landing in that instant loaded
+                # _tick_fail_alerted=True and suppressed the page for a genuinely NEW
+                # episode.
+                _note_tick_result(state, True, log=log)
                 save_state(state, log=log)
                 _touch_serving_lock(log=log)
                 if on_tick is not None:
                     on_tick(log=log)
             except Exception as e:
                 log(f"[qqq-exec] tick failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
+                _note_tick_result(state, False, exc=e, log=log)
             (stop.wait(TICK_SEC) if stop is not None else time.sleep(TICK_SEC))
     finally:
         # LIVE WEBULL STREAM (2026-09-23, item 3): unconditional and first -- covers a
@@ -6568,7 +8272,23 @@ def ensure_standalone(log=print, vbs=None):
     never checked the lease (tools/qqq_failover_sim.py scenario D). Its STANDBY marker keeps
     the runner's thread off, and on Windows keeps the runner from relaunching a standalone
     that would only be refused again. The fallback thread obeys the lease itself regardless
-    (see qqq_exec_thread)."""
+    (see qqq_exec_thread).
+
+    SERVING_HOSTS GATE (2026-09-26): checked FIRST, before any of the above -- see
+    _serving_hosts_ok. A host config.json excludes is not just refused the standalone
+    slot, it is never OFFERED one: this returns True (nothing else to do here) WITHOUT
+    ever launching the VBS, so an excluded PC does not spawn a fresh detached
+    wscript/python pair on every fleet restart (this function is called once per boot,
+    but the runner fleet restarts many times a day -- see _run_qqq_exec.vbs's own
+    docstring on the 2026-09-09 incident that made this a standalone launcher in the
+    first place). Returning True also skips the in-runner fallback thread below, which
+    would otherwise start and immediately self-refuse via the same gate in
+    qqq_exec_thread every single boot -- harmless, but pure churn."""
+    hosts_ok, hosts_reason = _serving_hosts_ok(_read_config_for_gate(log=log), log=log)
+    if not hosts_ok:
+        log(f"[qqq-exec] {hosts_reason} -- never launching the standalone adapter on this "
+            "host, no fallback thread either")
+        return True
     alive, pid = serving_alive()
     if alive:
         log(f"[qqq-exec] standalone already serving (pid {pid}) -- runner thread stays off")
@@ -6612,6 +8332,42 @@ def _lease_host_id():
         return _platform.node() or "unknown-host"
     except Exception:
         return "unknown-host"
+
+
+def _serving_hosts_ok(cfg, log=print):
+    """(ok, reason) -- SERVING_HOSTS GATE (2026-09-26, "the owner's PC can never take
+    over the book"): a STATIC allow-list, config.json's optional "serving_hosts" list of
+    _lease_host_id() names, checked BEFORE the LEASE PROTOCOL above ever runs.
+
+    Why this is a separate gate and not just the lease: the lease only ever lets ONE
+    host serve at a time, but does not care WHICH one -- it fails OPEN on every read
+    problem (_check_lease, _claim_lease) precisely so the very first host to boot can
+    always start. That is exactly wrong for "the PC must never serve again": a stale
+    Firestore read, a blip, or simply booting first would let it win the race like any
+    other host. serving_hosts is judged with no such fail-open -- it never touches
+    Firestore at all, so it works identically whether the lease is healthy, stale, or
+    unreachable.
+
+    Absent, or present but not a (non-empty) list -- today's behaviour, every host may
+    still compete for the lease exactly as before this gate existed. Present as a list
+    -- this host may proceed only if _lease_host_id() is one of the names in it; every
+    other host is refused here, before it ever calls _claim_lease or _enter_host_slot,
+    so it can truthfully log that it never claimed the lease, ticked or sent."""
+    if not isinstance(cfg, dict):
+        return True, None
+    hosts = cfg.get("serving_hosts")
+    if hosts is None:
+        return True, None
+    if not isinstance(hosts, list) or not hosts:
+        log(f"[qqq-exec] config.json serving_hosts={hosts!r} is not a non-empty list -- "
+            "ignoring (every host may still serve, today's behaviour)")
+        return True, None
+    allowed = {str(h).strip() for h in hosts if str(h).strip()}
+    me = _lease_host_id()
+    if me in allowed:
+        return True, None
+    return False, (f"this host {me!r} is not in config.json's serving_hosts {sorted(allowed)} "
+                   "-- refusing to serve")
 
 
 def _check_lease(db, uid, log=print):
@@ -6956,7 +8712,20 @@ def serve(db, uids, log=print):
     lease. qqq_exec_thread holds the serving slot and the heartbeat and runs the LEASE
     PROTOCOL; this is the standalone's front door. Returns at once while another host's
     lease is fresh, leaving a STANDBY marker -- on the VM systemd restarts the unit, which
-    is how a refused standalone keeps re-checking."""
+    is how a refused standalone keeps re-checking.
+
+    SERVING_HOSTS GATE (2026-09-26, MINOR review fix): checked FIRST, before
+    serving_alive/_check_lease -- an excluded host used to reach _check_lease (a
+    Firestore read, and possibly _note_standby) and log a misleading "SERVING" line
+    before qqq_exec_thread's OWN copy of this gate ever refused it. If the box ever
+    excludes itself (a hostname typo in serving_hosts), systemd's Restart=always /
+    RestartSec=15 turned that into a Firestore read plus a misleading SERVING line every
+    15s. Refused here, this never reads the lease and never logs SERVING at all."""
+    hosts_ok, hosts_reason = _serving_hosts_ok(_read_config_for_gate(log=log), log=log)
+    if not hosts_ok:
+        log(f"[qqq-exec] REFUSING to serve: {hosts_reason} -- no lease read, no SERVING "
+            "line")
+        return
     alive, pid = serving_alive()
     if alive and pid != os.getpid():
         log(f"[qqq-exec] another standalone is already serving (pid {pid}) -- exiting")

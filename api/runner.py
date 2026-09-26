@@ -2770,10 +2770,20 @@ def main(argv=None):
         # nothing unless it is collected every session rather than replayed after the fact.
         # SIGNALS ONLY: this module imports no broker SDK and has no order path.
         if _cloud_signal is not None and not _IS_WORKER:
+            # MINOR review fix (2026-09-26): this line used to print "ON" unconditionally,
+            # even on a host config.json's serving_hosts excludes -- the thread refuses at
+            # its own top (see cloud_signal_thread's SERVING_HOSTS GATE), but the runner
+            # log then read "ON" right next to the refusal line, which looked contradictory
+            # during a go-live check. Checking the same gate here, read-only, lets the
+            # printed line match what the thread is actually about to do.
+            hosts_ok, hosts_reason = _cloud_signal._serving_hosts_ok(log=print)
             threading.Thread(target=_cloud_signal.cloud_signal_thread, daemon=True,
                              name='cloud-signal').start()
-            print(f"CLOUD SIGNAL parallel run (api/cloud_signal.py): ON (own thread, every "
-                 f"{_cloud_signal.THREAD_STEP_SEC:g}s during RTH; signals only, no order path)")
+            if hosts_ok:
+                print(f"CLOUD SIGNAL parallel run (api/cloud_signal.py): ON (own thread, every "
+                     f"{_cloud_signal.THREAD_STEP_SEC:g}s during RTH; signals only, no order path)")
+            else:
+                print(f"CLOUD SIGNAL parallel run (api/cloud_signal.py): REFUSED -- {hosts_reason}")
         next_exec_review = 0.0  # first pass runs immediately, then every EXEC_REVIEW_SEC
         preflight_done_date = None  # last local date the 9am ET roster preflight ran
         backup_done_date = None     # last local date the nightly NT backup ran

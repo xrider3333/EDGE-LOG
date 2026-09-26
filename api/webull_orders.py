@@ -1026,6 +1026,50 @@ class OrderAdapter:
         positions[leg] = cur
         self._save_state()
 
+    def apply_unacked_close_fill(self, leg, qty, lock_timeout=1.0):
+        """Books `qty` shares of a CLOSE for `leg` that FILLED at Webull even though the
+        send itself came back not ok (a timeout, a dropped connection, a 5xx) -- the
+        caller (api/qqq_exec.py's close re-send, FINAL CLOSE RE-SEND RULE 2026-09-26)
+        learned it from Webull's own order record by id. place_stock_order never moves
+        broker_sent_positions/believed_positions on that not-ok path, so without this
+        the adapter would keep believing the leg holds shares already sold (false
+        reconcile halts, a blocked next entry, phantom shares offered to a FLATTEN_BROKER
+        orphan repair).
+
+        Moves BOTH books for `leg` toward zero by `qty`, never past zero (a CLOSE can
+        only shrink the leg; the netted account side is irrelevant to this leg's own
+        book), and drops the leg from open_legs once its believed qty reaches zero.
+        Takes the adapter lock with a bounded wait (a hung send holds it) -- returns None
+        without touching anything when the lock is not free in time. Otherwise returns
+        {"sent": n, "believed": m}, the shares actually taken off each book. Never
+        raises."""
+        try:
+            qty = abs(float(qty or 0))
+        except (TypeError, ValueError):
+            return None
+        if qty <= 0:
+            return {"sent": 0, "believed": 0}
+        if not self._lock.acquire(timeout=lock_timeout):
+            return None
+        try:
+            applied = {}
+            for book in ("broker_sent_positions", "believed_positions"):
+                cur = (self._state.get(book) or {}).get(leg)
+                held = float((cur or {}).get("qty", 0) or 0)
+                take = min(qty, abs(held))
+                if cur is not None and take > 0:
+                    cur["qty"] = held - take if held > 0 else held + take
+                applied["sent" if book == "broker_sent_positions" else "believed"] = take
+            believed = (self._state.get("believed_positions") or {}).get(leg) or {}
+            if abs(float(believed.get("qty", 0) or 0)) < 1e-9:
+                (self._state.get("open_legs") or {}).pop(leg, None)
+            self._save_state()
+            return applied
+        except Exception:
+            return None
+        finally:
+            self._lock.release()
+
     def _account_net(self, symbol, account_id=None):
         """The account-level net position Webull actually holds (as far as this
         adapter's own record of what reached the broker goes) for `symbol` RIGHT NOW --

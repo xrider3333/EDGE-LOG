@@ -40,6 +40,15 @@ tools/qqq_exec_smoke.py was isolated the same way in 550055c; this does it for e
    never-streams) overrides qqq_exec._webull_stream_factory with its OWN fake via
    monkeypatch, never the genuine class. Belt-and-suspenders alongside guard #2 above,
    which independently blocks any socket connect to a "webull"-named host regardless.
+5. _isolate_inflight_send (autouse, 2026-09-26, "alerts in book" review) resets
+   qqq_exec._inflight_send / ._send_stall_logged before and after every test.
+   _place_stock_order_with_timeout tracks its shared single worker's current future at
+   MODULE level (major review findings #1/#2 -- see that function and
+   _run_broker_housekeeping) so a still-running send is visible across the whole
+   process, not just within one call; a test that exercises a real hang (a fake
+   place_stock_order that blocks) and does not itself resolve the future before
+   returning would otherwise leave every LATER test believing a send is still in
+   flight, silently turning their own sends into instant BLOCKED-not-sent records.
 """
 import errno
 import itertools
@@ -205,6 +214,54 @@ def _isolate_broker_adapter(live_system_guard, monkeypatch, _broker_isolation_ro
     yield
 
 
+# ── 1b. the SERVING_HOSTS GATE's config.json (major review fix, 2026-09-26) ──────────────
+@pytest.fixture(autouse=True)
+def _isolate_serving_hosts_config(live_system_guard, monkeypatch, _broker_isolation_root):
+    """api.qqq_exec._serving_hosts_ok and api.cloud_signal._serving_hosts_ok both read
+    config.json's optional "serving_hosts" allow-list BEFORE a test can reach anything
+    else it wants to exercise (the host slot, the lease, a ledger upgrade, a heartbeat
+    write...), and neither call touches Firestore or the broker, so nothing else in this
+    file isolates it. Without this, two things went wrong (major review finding): on a
+    fresh EDGELOG_HOME (CI, a new box) the gate's read used to be load_config(), which
+    WRITES a default config.json the live-system guard then blocked, failing tests that
+    never cared about config at all; and on a host that HAS the owner's recommended
+    serving_hosts key in its real config.json, the gate genuinely refused that host,
+    silently changing the behaviour of unrelated tests that assume "every host may
+    serve" (today's behaviour). Point both modules at ONE private, per-test config path
+    with no serving_hosts key -- so a real C:\\EdgeLog\\qqq_exec\\config.json, present on
+    the PC and on any host once the owner adds this key, can never reach a test that did
+    not ask for it. A test that wants the gate itself writes its own config to this same
+    path (or overrides these same attributes), exactly like every other fixture here.
+
+    Only CONFIG_PATH is repointed, never OUT_DIR: OUT_DIR (and everything else derived
+    from it -- STATE_PATH, ORDERS_CSV, SERVING_LOCK...) is a module-level constant other
+    tests assert the exact literal value of (tests/test_qqq_exec_edgelog_home.py), and
+    only CONFIG_PATH is what load_config/_read_config_for_gate actually read.
+    api.cloud_signal._qqq_exec_config_path is monkeypatched directly rather than via the
+    EDGELOG_QQQ_EXEC_DIR env var: that env var is real process environment, which leaks
+    into every subprocess a test spawns (tests/test_qqq_exec_edgelog_home.py's own
+    EDGELOG_HOME-override tests run qqq_exec in a fresh subprocess specifically to prove
+    what an UNPATCHED environment does) -- an attribute monkeypatch never crosses that
+    boundary. A test that wants _qqq_exec_config_path's own path-building logic keeps its
+    own reference to the real function, captured at collection time before this fixture
+    ever runs (see tests/test_cloud_signal_serving_hosts.py)."""
+    try:
+        from api import qqq_exec as qe
+    except ImportError:   # then nothing in this run can reach either gate
+        yield
+        return
+    d = _broker_isolation_root / f"servinghosts_{next(_broker_dirs)}"
+    d.mkdir()
+    cfg_path = str(d / "config.json")
+    monkeypatch.setattr(qe, "CONFIG_PATH", cfg_path)
+    try:
+        from api import cloud_signal as cs
+        monkeypatch.setattr(cs, "_qqq_exec_config_path", lambda: cfg_path)
+    except ImportError:
+        pass
+    yield
+
+
 # ── 4. the QQQ shadow's live Webull price stream ─────────────────────────────────────────
 class _InertStreamer:
     """Stand-in for api.webull_stream.WebullBarStreamer: records start()/stop() calls,
@@ -255,3 +312,41 @@ def _isolate_qqq_stream(live_system_guard, monkeypatch):
     monkeypatch.setattr(qe, "_qqq_stream_state",
                         {"streamer": None, "starting": False, "stop_requested": False})
     yield
+
+
+# ── 5. the QQQ shadow's in-flight broker-send tracker ────────────────────────────────────
+@pytest.fixture(autouse=True)
+def _isolate_inflight_send(live_system_guard, monkeypatch):
+    try:
+        from api import qqq_exec as qe
+    except ImportError:
+        yield
+        return
+    # fresh before AND after: a test that deliberately drives a real hang through
+    # _place_stock_order_with_timeout must not have some earlier test's leftover
+    # "in flight" belief make its own first send instantly BLOCKED, and must not leave
+    # its own belief behind for the next test either.
+    monkeypatch.setattr(qe, "_inflight_send", {"future": None, "leg": None, "intent": None})
+    monkeypatch.setattr(qe, "_send_stall_logged", {"active": False})
+    # same for the order-lookup tracker (a timed-out lookup future is remembered so the
+    # next lookup is skipped while it still runs) -- never leaks between tests
+    monkeypatch.setattr(qe, "_order_lookup_inflight", {"future": None}, raising=False)
+    yield
+    monkeypatch.setattr(qe, "_inflight_send", {"future": None, "leg": None, "intent": None})
+    monkeypatch.setattr(qe, "_send_stall_logged", {"active": False})
+    monkeypatch.setattr(qe, "_order_lookup_inflight", {"future": None}, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _reset_order_lookup_cooldown():
+    """api.qqq_exec skips order lookups for a few seconds after one timed out
+    (_order_lookup_timeout_at). Reset it around every test so one test's timeout can
+    never turn another test's lookup into 'unverifiable'."""
+    import sys
+    qe = sys.modules.get("api.qqq_exec")
+    if qe is not None and hasattr(qe, "_order_lookup_timeout_at"):
+        qe._order_lookup_timeout_at["t"] = 0.0
+    yield
+    qe = sys.modules.get("api.qqq_exec")
+    if qe is not None and hasattr(qe, "_order_lookup_timeout_at"):
+        qe._order_lookup_timeout_at["t"] = 0.0
