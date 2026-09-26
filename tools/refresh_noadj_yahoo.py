@@ -19,11 +19,24 @@
 # after the fact. _drop_unclosed() below keeps only bars whose full interval (bar
 # start + timeframe + a safety margin) has already elapsed as of "now".
 #
+# MUST NEVER SAVE A BAR THAT SPANS A CONTRACT SWITCH either. Yahoo's continuous
+# front-month series changes contract whenever it likes, including mid-session, and it
+# does not mark the change. Twice in 2026 the change landed INSIDE one bar, so the bar
+# opened on the expiring contract and closed on the next one (2026-06-15 03:30 ET and
+# 2026-09-14 11:30 ET; ROLL_AUDIT.md section 2.7). A bar like that is two contracts
+# glued together: it books fake profit for anything holding through it and trips fake
+# stops. augur_engine/roll_guard.py recognises one and this script then STOPS appending
+# at the last clean bar and says so, rather than storing it. The next quarterly roll is
+# December 2026, expiry 2026-12-18.
+#
 # Run:  python tools/refresh_noadj_yahoo.py
-import os, sqlite3, time
+import os, sqlite3, sys, time
 import pandas as pd, numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+from augur_engine import roll_guard
 UP   = os.path.join(ROOT, "augur_uploads")
 DB   = os.path.join(ROOT, "optimizer_history.db")
 YTK  = {"NQ": "NQ=F", "ES": "ES=F"}
@@ -103,6 +116,17 @@ def main(now_s=None):
         new = new[new["time"] > last]                       # only bars past the seam
         if not len(new):
             print(f"  {fn}: already current (last {pd.to_datetime(last,unit='s')})"); continue
+        # Refuse a bar that spans a contract switch. Everything from the suspect bar
+        # onwards is held back, not lost: the next run sees it again, once a human has
+        # either confirmed the roll or cleared the false alarm.
+        new, hit = roll_guard.split_tv_frame(new, after_time=last)
+        if hit is not None:
+            alert = roll_guard.write_alert(fn, tf, hit)
+            print(f"  {fn}: REFUSED an in-bar contract switch. " + roll_guard.describe(hit))
+            print(f"    held back {hit['et_date']} onwards"
+                  + (f"; alert written to {alert}" if alert else ""))
+            if not len(new):
+                continue
         merged = (pd.concat([cur, new], ignore_index=True)
                     .drop_duplicates(subset="time").sort_values("time").reset_index(drop=True))
         merged.to_csv(p, index=False)

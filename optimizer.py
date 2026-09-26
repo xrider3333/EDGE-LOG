@@ -31,6 +31,15 @@ import json
 import os
 import math
 import shutil
+import sys as _sys
+
+# The contract-roll guard lives in the engine package so the app, the headless runner and
+# the tests all use the same rule. optimizer.py sits at the repo root, so the package is
+# importable; the path insert covers being exec'd from elsewhere (api/augur_refresh.py).
+_AUGUR_ROOT = os.path.dirname(os.path.abspath(__file__))
+if _AUGUR_ROOT not in _sys.path:
+    _sys.path.insert(0, _AUGUR_ROOT)
+from augur_engine import roll_guard
 
 # CPU / parallelism. The i7-1260P has 4 P-cores + 8 E-cores (16 logical).
 # Default to a value that uses the fast cores plus a couple E-cores while
@@ -1340,6 +1349,39 @@ def auto_refresh_masters(progress_cb=None) -> list:
         merged, info = combine_ohlcv_frames(frames, tf, labels=labels)
         if merged is None or len(merged) <= before_rows:
             continue   # no net-new rows
+
+        # NEVER STORE A BAR THAT SPANS A CONTRACT SWITCH. Yahoo's continuous front-month
+        # series changes contract mid-session without marking it, and twice in 2026 the
+        # change landed inside a single bar (2026-06-15 03:30 ET and 2026-09-14 11:30 ET,
+        # ROLL_AUDIT.md 2.7) - a bar that opens on one contract and closes on the next
+        # books fake profit and trips fake stops for everything downstream. The guard
+        # stops the append at the last clean bar; the held-back bars are seen again next
+        # refresh, once someone has confirmed the roll or cleared a false alarm.
+        try:
+            # The master's last stored bar, as unix seconds. A stored frame can come back
+            # tz-naive, and reading that as local time would move the boundary by hours -
+            # far enough to re-flag a splice we already have (stalling every refresh) or
+            # to wave a new one through. Treat a naive stamp as UTC, which is how these
+            # masters are written.
+            _last_stored = None
+            if len(existing_df):
+                _lt = existing_df.index[-1]
+                if getattr(_lt, "tzinfo", None) is None:
+                    _lt = _lt.tz_localize("UTC")
+                _last_stored = int(_lt.timestamp())
+            merged, _roll_hit = roll_guard.split_indexed_frame(merged, _last_stored)
+            if _roll_hit is not None:
+                _alert = roll_guard.write_alert(m["filename"], tf, _roll_hit)
+                results.append(
+                    f"⚠ {m['name']}: refused an in-bar contract switch - "
+                    + roll_guard.describe(_roll_hit)
+                    + (f" Alert: {_alert}" if _alert else ""))
+                if merged is None or len(merged) <= before_rows:
+                    continue   # nothing clean left to store
+        except Exception as _rge:
+            results.append(f"⚠ {m['name']}: roll guard could not run ({_rge}); "
+                           f"append skipped as a precaution")
+            continue
 
         prov = _build_provenance(info, src, parts)
         ok, _r = save_master_csv(merged, m["name"], inst, tf, source=src,
