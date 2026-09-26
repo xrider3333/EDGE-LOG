@@ -1,0 +1,60 @@
+ROLL-CORRECTION SENSITIVITY OF THE TWO GATE_LIVE ML MODELS -- 2026-09-26
+Scripts: common.py, step1_reproduce.py, step2_worker.py, step3_report.py (this dir).
+Raw run data: noise_A.json/noise_B.json, enguq_A.json. Nothing served was touched.
+REPRODUCTION (step1_reproduce.py): both artifacts rebuilt offline (find_master->
+load_master_arrays->run_backtest->entry_features_causal->_make_model(seed=42).fit) match the
+served .pkl EXACTLY: max predict_proba diff = 0.0000000000 for NOISE_H_RF (5,658 trades,
+NOADJ_NQ_5m_RTH, 2010-06-07..2026-09-25 15:55) and ENGUQ_ER_H (1,355 trades, NOADJ_NQ_1m_ETH,
+..2026-09-25 17:00). Trade counts match n_trades_trained exactly -- confirms the audit's
+"replays match exactly" before doing the roll test.
+METHOD: evaluator = augur_engine.ml_gate.gate_trades (min_history=30, refit_every=25,
+threshold=0.55, the leg's own NOISE_GATE_RF / ENGUQ_ER_GATE params). WF/LB split = last 12
+months (gate_validate's default; no leg-specific wf_from/wf_to is registered under family run
+#231/#265 in optimizer_history.db, which holds db ids not family numbers) -> LB =
+2025-09-25..2026-09-25 both legs. Corrected run = features off RL.adjusted_arrays(raw,'NQ') +
+trade pnl minus RL.stitch_points (64 table switches) + the two undocumented 2026 splices masked
+by hand: drop a trade whose [entry,exit) straddles the splice instant (2026-06-15 03:30 ET or
+2026-09-14 11:30 ET) OR whose entry falls on that ET calendar day. NOISE: 4 trades masked (one
+is the audit's exact -49.033pt 09-14 fake long); 0 needed a stitch fix (NOISE flattens daily,
+so no trade holds across the 64 overnight switches -- its only roll channel is the level-based
+features). ENGUQ: 1 trade masked (06-11->06-16, spans the June splice); 34 stitch-corrected
+(sum|stitch|=1,965.75pt). CAVEAT: this does not rerun the base strategy on adjusted data, so it
+misses trades that only appear/vanish because indicators still carried the splice a day later
+(ENGUQ's real 09-15 trades, -$2,370.66/+$969.34, reproduced here to the cent, are unmasked since
+neither touches 09-14 literally; ROLL_AUDIT 4.5.6 shows a full rerun removes them). Seed spread
+used 10 of the requested 10-20 seeds (43-52): NOISE's RF walk costs ~225-250s/run (20 would be
+~90min); the range already shows the pattern.
+NOISE_H_RF (rf, hybrid@0.55) -- taken/skipped, net$, DD$, ROC%/yr($100k), Sortino
+  raw:       1,479/5,658 taken. WF n=1310 $208,473 dd-$10,189 13.62%/yr SR2.47
+                                 LB n=169  $37,502  dd-$14,511 37.53%/yr SR2.73
+                                 FULL      $245,975 dd-$17,441 15.09%/yr SR2.38
+  corrected: 1,564/5,654 taken. WF n=1393 $201,019 dd-$17,317 13.14%/yr SR2.20
+                                 LB n=171  $25,496  dd-$20,840 25.51%/yr SR2.01
+                                 FULL      $226,514 dd-$25,903 13.89%/yr SR2.11
+  flip share (common trades): 340/5,654 = 6.01%
+  seed spread (43-52): FULL net $165,481-$244,121 (spread $78,641); WF net $167,504-$214,324
+    (spread $46,820); LB net -$11,151 to $40,043 (spread $51,194, crosses zero); DD -$49,395 to
+    -$21,665 (spread $27,731).
+  roll move: FULL $19,461, WF $7,454, LB $12,006 -- smaller than the seed spread in every
+    stretch. VERDICT: does NOT need a refit on roll grounds alone.
+ENGUQ_ER_H (logistic, hybrid@0.55) -- same layout
+  raw:       726/1,355 taken. WF n=677 $256,356 dd-$27,462 16.75%/yr SR2.13
+                               LB n=49  $88,910  dd-$25,309 88.97%/yr SR4.25
+                               FULL     $345,266 dd-$27,462 21.18%/yr SR2.30
+  corrected: 697/1,354 taken. WF n=652 $255,620 dd-$20,097 16.70%/yr SR2.41
+                               LB n=45  $75,638  dd-$22,748 75.69%/yr SR3.65
+                               FULL     $331,257 dd-$22,748 20.32%/yr SR2.40
+  flip share: 41/1,354 = 3.03%
+  seed spread (43-52): EXACTLY $0 on every stat -- LogisticRegression(solver=lbfgs) ignores
+    random_state for a binary fit (confirmed: all 10 seeds bit-identical to raw), so
+    "move > seed spread" is trivially true and not informative alone.
+  roll move: FULL -$14,008 (-4.1%), WF -$736 (-0.3%, n 677->652), LB -$13,272 (-14.9%, on
+    49->45 trades) -- almost the whole dollar move sits in a thin lockbox tail.
+  VERDICT: technically "exceeds" a zero-width noise band, but that band is degenerate for this
+    model family. On its own terms the shift is real but modest, concentrated in 45-49 lockbox
+    trades rather than the 15+-year fit that sets its weights (WF net near-unchanged). Worth
+    refitting on corrected data (free to do), not evidence the live artifact is wrong now.
+BOTTOM LINE: NOISE_H_RF's roll sensitivity is noise-floor-sized -- no refit needed. ENGUQ_ER_H
+moves a real but small amount, almost entirely in its lockbox tail; a refit is cheap insurance,
+not an urgent fix. Neither model's Sept/June splice trades reached a live NinjaTrader decision
+(ROLL_AUDIT 4.5.2a already established that for NOISE_H_RF; ENGUQ_ER_H is paper-only).

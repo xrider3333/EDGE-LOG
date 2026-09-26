@@ -1298,6 +1298,56 @@ designed on, so every lockbox read of v9-v12 is partly in-sample, this table's i
 is the honest number for KEEL, and on #304 it depends on the boundary; the continuous read above is the
 fairest single figure available until forward data accrues.
 
+### KEEL look-ahead fix, roll contamination, and the seed floor (2026-09-26, MANAGER dispatch)
+
+**The look-ahead.** KEEL's gap_atr feature divided the opening gap by an ATR that included the bar's
+own high, low and close (found in book round 58). `tools/keel_fix_roll_check.py` rebuilds the feature
+with the ATR lagged one bar, without editing the engine (the engine fix belongs to the Webull paper
+lane), on the round-60 tape and stretches. Only gap_atr moves; the other 19 features are identical.
+Both shipped legs reproduce round 60 to the dollar before the change.
+
+| leg | whole tape | WF ROC %/yr | WF Sortino | LB ROC %/yr | LB Sortino |
+|---|---|---|---|---|---|
+| NOISE #304 + KEEL, shipped -> fixed | -0.39% | 57.5 -> 58.1 | 4.54 -> 4.57 | 100.9 -> 96.4 | 4.67 -> 4.43 |
+| NOISE #382 + KEEL, shipped -> fixed | +0.03% | 84.3 -> 84.1 | 4.23 -> 4.22 | 108.8 -> 111.8 | 3.11 -> 3.22 |
+
+Under 1% on the whole tape, as expected. Per trade it is not small - 20% of trades change size by
+more than 1%, and a 10-share base changes on 10-12% of trades - but that churn is the ensemble
+refitting differently, and it washes out.
+
+**The rolls.** NOISE is flat by the close, so no trade crosses a between-session switch and no
+trade P&L is touched; the contamination is in the features (every roll gap reads as a giant opening
+gap). Roll-corrected = features on a back-adjusted copy (64 raw switches plus the two 2026 splices
+at the ROLL_AUDIT central estimates). Against the fixed model: #304 WF -3.7%, LB +16.7%; #382 WF
++2.1%, LB -6.9% with LB drawdown $39.2k -> $46.6k.
+
+**The seed floor decides both.** Refitting the fixed model with six other seeds:
+
+| leg | WF net spread | LB net range | LB drawdown range |
+|---|---|---|---|
+| NOISE #304 + KEEL | 6.7% | $76,057 - $108,583 | $26,451 - $29,134 |
+| NOISE #382 + KEEL | 4.4% | $71,323 - $122,051 | $39,655 - $64,300 |
+
+Every change above sits inside this spread, so **neither the look-ahead fix nor the roll correction
+needs a refit on its own evidence** (the fix should still ship - it is a correctness fix).
+
+**The finding that matters more: KEEL's lockbox is mostly seed.** One stretch of 14 months moves up
+to 71% on the random seed alone, and its drawdown on #382 ranges $39.7k-$64.3k. The shipped seed
+gives the best lockbox of the seven tried on BOTH legs (fixed model: #382 LB ROC 111.8 vs 61.0-104.4 for the other six; #304
+96.4 vs 65.1-92.9), and v9-v12 were all judged on that one seed. Walk-forward is steady (4-7%), so the
+walk-forward case for KEEL stands; every lockbox figure quoted for KEEL, including this document's
+2026-09-11 shoot-out, should be read as one draw from a wide distribution. The obvious remedy -
+averaging the size over several seeds - is untested and an owner call.
+
+**The two gate models** (subagent, `tools/rollaudit/gates/`, report `REPORT_2026-09-26.txt`). Both
+served artifacts were first rebuilt offline to a maximum probability difference of 0.0.
+- NOISE_H_RF (the one NinjaTrader asks): the roll correction moves full net $19,461, WF $7,454, LB
+  $12,006 - all smaller than its own 10-seed spread (full $78,641, LB crosses zero). No refit.
+- ENGUQ_ER_H (paper rows only): logistic, so seeds do nothing and there is no noise band. Full
+  net -4.1%, WF -0.3%, LB -14.9% on 49 -> 45 trades. Real but small and sitting in the lockbox tail;
+  a refit on corrected data is cheap insurance, not a fix for a wrong live model. The method holds
+  the base trade list fixed, so it slightly understates the ENGU-Q effect (ROLL_AUDIT 4.5.6).
+
 ### The guard's concentration check was measuring sample size (2026-09-24)
 
 On 2026-09-09 the #243 compression-inside-v12 case failed on the concentration check (C4) alone,
