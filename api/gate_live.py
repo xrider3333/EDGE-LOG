@@ -37,6 +37,17 @@ DESIGN RULES, each load-bearing:
     decision was scored on ENGU-Q's overnight 1-minute bars and nobody could tell,
     because the two sides of the conversation never compared notes.
 
+  * decide() NEVER TOUCHES DISK (2026-09-26, ROLL_AUDIT.md 4.5.2). It used to call
+    _refresh_live_arrays itself, so 7342cc4's stale-cache rebuild -- and, on a bar
+    mismatch, a SECOND rebuild -- both ran inside NinjaTrader's 300ms budget. The
+    keep-warm loop only asked every 10 minutes, so cached ticks were routinely >60s
+    behind the file by the time either NinjaTrader or the next keep-warm call arrived,
+    and the resulting 1.2-1.6s in-request rebuilds caused the four 09-23 timeouts that
+    let ungated shorts through. A background thread (_bg_refresh_loop) now keeps every
+    series' cache within a few seconds of the file at all times; decide() only ever
+    reads that ready snapshot (_current_snapshot). It also never scores a bar the
+    capture has not finished writing -- see the INCOMPLETE_BAR check in decide().
+
 Endpoints (127.0.0.1:8392, GET, JSON):
     /gate/health                    service + per-leg artifact status, the git SHA of
                                     the code THIS PROCESS loaded, and per leg when it
@@ -142,9 +153,30 @@ def _cache_for(leg):
     c = _live_caches.get(k)
     if c is None:
         c = {"arrays": None, "loaded_day": None, "tick_offset": 0, "tick_df": None,
-             "tick_path": None}
+             "tick_path": None,
+             # the RAW capture file's own header columns (2026-09-26 fix, see
+             # _refresh_live_arrays) -- NOT the already-6-column-filtered tick_df.columns,
+             # which is what an incremental headerless read used to (wrongly) reuse.
+             "raw_columns": None,
+             # unix seconds through which the 10s capture is KNOWN to be fully written --
+             # i.e. the newest point `arrays` can be trusted to. None = unknown/never read.
+             # Set only by _refresh_live_arrays (the background thread); decide() only reads
+             # it, to answer INCOMPLETE_BAR instead of scoring a bar the capture has not
+             # finished writing (2026-09-26, ROLL_AUDIT.md 4.5.2).
+             "covered_through": None}
         _live_caches[k] = c
     return c
+
+
+def _current_snapshot(leg):
+    """The (arrays, covered_through) decide() actually scores -- READ-ONLY, no I/O.
+
+    This is the other half of the 2026-09-26 fix: decide() calls this instead of
+    _refresh_live_arrays, so a slow rebuild can never land inside NinjaTrader's 300ms
+    budget. The background thread (_bg_refresh_loop) is the only caller of
+    _refresh_live_arrays once the service is serving."""
+    c = _cache_for(leg)
+    return c["arrays"], c.get("covered_through")
 
 
 def _log(msg):
@@ -319,19 +351,33 @@ def _reset_live_cache(leg, why):
 
 
 def _refresh_live_arrays(leg, _resynced=False):
-    """A 5m bar series ending at the most recent CLOSED bar, cheap enough to call per
-    request: the master window is cached per day, and the 10s capture file is read
-    incrementally (only bytes appended since the last request).
+    """A 5m bar series ending at the most recent CLOSED bar. Called ONLY from the
+    background thread (_bg_refresh_loop), or once synchronously at startup to prime the
+    cache before the HTTP port opens -- NEVER from decide() (2026-09-26 fix, see the
+    DESIGN RULES note above and ROLL_AUDIT.md 4.5.2). The master window is cached per
+    day, and the 10s capture file is read incrementally (only bytes appended since the
+    last call).
 
     SELF-HEAL (owner 2026-09-21: "fix the ML gate so it doesnt go stale"). That morning
     the service started at 09:23 ET while NinjaTrader was still down, and when the 10s
     capture came back at 10:27 ET the long-running process never took the new bars in:
     it kept scoring Friday's 15:55 bar, NinjaTrader's 10:30 NOISE entry hit the bar
     interlock and went through UNGATED. A fresh process read the same files correctly,
-    so the defect is stale incremental state, whatever tripped it. Two guards now: the
-    cached ticks are compared with the file's own last row on every refresh (more than
-    a minute behind = rebuild from disk), and decide() rebuilds once on a bar mismatch
-    before it falls open."""
+    so the defect is stale incremental state, whatever tripped it. The cached ticks are
+    compared with the file's own last row on every refresh (more than a minute behind =
+    rebuild from disk). This used to also run a second time, inline in decide(), on a
+    bar mismatch -- removed 2026-09-26: that in-request rebuild (1.2-1.6s, measured in
+    gate_live.log) is what blew NinjaTrader's 300ms timeout on 09-23 (ROLL_AUDIT.md
+    4.5.2). The background thread calling this every few seconds is what keeps mismatches
+    from happening in the first place, so decide() no longer needs a rescue path.
+
+    NEVER SERVES A BAR THE CAPTURE HAS NOT FINISHED WRITING (2026-09-26). A resampled
+    bucket is only appended once a 10s row reaches its END -- otherwise the trailing
+    bucket is held back for the next call. Before this, the 09-22 09:45 ET decision was
+    scored on a 09:40 bar missing its last ~50s (capture lag), which flipped a skip into
+    an ORDERED take (ROLL_AUDIT.md 4.5.2). `covered_through` on the cache records the
+    newest point the capture is known to cover, which is how decide() answers
+    INCOMPLETE_BAR instead of silently scoring that kind of partial bar."""
     from augur_engine.data import find_master, load_master_arrays
     from api import paper
 
@@ -347,6 +393,8 @@ def _refresh_live_arrays(leg, _resynced=False):
         _live_cache["tick_offset"] = 0
         _live_cache["tick_df"] = None
         _live_cache["tick_path"] = paper._ticks_path()
+        _live_cache["raw_columns"] = None
+        _live_cache["covered_through"] = None
         _log(f"live window reloaded for {'/'.join(_series_key(leg))} "
              f"({date_from} .. master end, {len(_live_cache['arrays']['index'])} bars)")
 
@@ -356,6 +404,7 @@ def _refresh_live_arrays(leg, _resynced=False):
         _live_cache["tick_offset"] = 0
         _live_cache["tick_df"] = None
         _live_cache["tick_path"] = path
+        _live_cache["raw_columns"] = None
     try:
         size = os.path.getsize(path)
     except OSError:
@@ -373,9 +422,23 @@ def _refresh_live_arrays(leg, _resynced=False):
         try:
             if _live_cache["tick_df"] is None:
                 df = pd.read_csv(io.StringIO(txt))
+                # Remember the RAW file's own header (2026-09-26 fix). The capture has
+                # more columns than we keep (delta/buy_vol/sell_vol/tick_count/rt) -- a
+                # later headerless read MUST be told all of them, or pandas treats the
+                # extra leading fields as an index and every value shifts by one column
+                # (time ends up holding `volume`, open holds `delta`, etc.). This used to
+                # reuse the ALREADY-6-COLUMN-FILTERED tick_df.columns below, which is 5
+                # names short of the real file -- silently corrupting every incremental
+                # append. It went unnoticed because the >60s self-heal reset (7342cc4)
+                # almost always fired first and threw the corrupted read away before it
+                # was ever used; moving that reset off the request path and polling every
+                # few seconds (this fix) makes the incremental path the COMMON case, which
+                # is what surfaced this.
+                _live_cache["raw_columns"] = list(df.columns)
             else:
                 df = pd.read_csv(io.StringIO(txt), header=None,
-                                 names=list(_live_cache["tick_df"].columns))
+                                 names=_live_cache["raw_columns"]
+                                 or list(_live_cache["tick_df"].columns))
             df = df[["time", "open", "high", "low", "close", "volume"]].copy()
             df["time"] = pd.to_numeric(df["time"], errors="coerce")
             df = df.dropna(subset=["time"])
@@ -399,6 +462,11 @@ def _refresh_live_arrays(leg, _resynced=False):
     from api import paper as _p
     arrays = _live_cache["arrays"]
     ticks = _live_cache["tick_df"]
+    # The newest point the capture is KNOWN to cover -- set even when there is nothing
+    # new to append, and even if every fresh bucket below turns out incomplete. None
+    # means "no fresh ticks read yet", which decide()'s INCOMPLETE_BAR check treats as
+    # not-safe-to-score, same as any other insufficient coverage.
+    covered_through = int(ticks["time"].max()) if ticks is not None and len(ticks) else None
     if ticks is not None and len(ticks):
         tf_min = 5 if str(leg["timeframe"]).lower().startswith("5") else 1
         bars = _p._resample(ticks, tf_min)
@@ -406,8 +474,28 @@ def _refresh_live_arrays(leg, _resynced=False):
         last = arrays["index"][-1] if len(arrays["index"]) else None
         if last is not None and len(bars):
             bars = bars[(bars_et > last).values].reset_index(drop=True)
+        # Drop a trailing bucket the capture has not finished writing yet (2026-09-26):
+        # _resample bucket-starts are bar OPEN, so a bucket is complete only once a 10s
+        # row reaches its END, i.e. covered_through >= bucket_open + step. Held back here,
+        # it is picked up whole on a later call once the capture catches up -- never
+        # served half-built (this is what let the 09-22 09:45 take through, see the
+        # module docstring and ROLL_AUDIT.md 4.5.2).
+        if len(bars):
+            step_sec = tf_min * 60
+            last_bucket_open = int(bars["time"].iloc[-1])
+            if covered_through is None or covered_through < last_bucket_open + step_sec:
+                bars = bars.iloc[:-1].reset_index(drop=True)
+                bars_et = bars_et.iloc[:-1].reset_index(drop=True)
         if len(bars):
             arrays, _n = _p._append_fresh(arrays, bars)
+            # PERSIST the append (2026-09-26 fix). This used to be dropped on the floor --
+            # `arrays` was only a local variable -- so every single call re-resampled and
+            # re-appended the WHOLE day's accumulated ticks from scratch instead of just
+            # the new bars since last time. Besides the wasted work (measured up to 7.6s
+            # for the 1-minute ETH series), an un-persisted append also meant `last` above
+            # was always the STALE day-load cutoff, never today's most recent bar.
+            _live_cache["arrays"] = arrays
+    _live_cache["covered_through"] = covered_through
     return arrays
 
 
@@ -542,6 +630,21 @@ def _bar_interlock(nt_bar, svc_bar, step):
     return ("ok" if delta <= step.total_seconds() else "mismatch"), int(delta)
 
 
+def _bar_end_unix(nt_ts, step):
+    """The unix-second END of the bar NinjaTrader says it just acted on, or None.
+
+    NinjaTrader sends only a bar STAMP (its OPEN, per EdgeLogNOISE.cs's AskGate) -- never
+    OHLCV -- so this is the only thing decide() can check the capture against to know
+    whether that bar is safe to score (see the INCOMPLETE_BAR check in decide() and the
+    module docstring). Naive `nt_ts` is New York wall clock, same convention as every
+    other bar stamp in this file."""
+    try:
+        ts = nt_ts.tz_localize(_ET) if nt_ts.tzinfo is None else nt_ts
+        return int((ts + step).tz_convert("UTC").timestamp())
+    except Exception:
+        return None
+
+
 def _measured_step(idx):
     """Minutes between the last two bars -- the OBSERVED series step, which is how a
     5-minute leg being scored on 1-minute bars gives itself away."""
@@ -597,6 +700,13 @@ def decide(leg_key, nt_bar=None, *, source="internal"):
     source is for /gate/health only: it separates "NinjaTrader asked" from the keep-warm
     loop asking, which otherwise make a dead integration look alive.
 
+    READS A READY SNAPSHOT ONLY (2026-09-26). This never rebuilds or reads the 10s
+    capture itself -- that is _bg_refresh_loop's job, off this request path entirely
+    (ROLL_AUDIT.md 4.5.2: the four 09-23 fail-open timeouts were exactly this rebuild
+    running inside NinjaTrader's 300ms budget). It also refuses to score a bar the
+    capture has not finished writing (INCOMPLETE_BAR, below) rather than silently use
+    whatever partial close is on disk (the cause of the 09-22 ORDERED take).
+
     Never raises: any failure returns take=True/size=1.0 with the reason attached."""
     t0 = time.time()
     st = _state_for(leg_key)
@@ -628,7 +738,11 @@ def decide(leg_key, nt_bar=None, *, source="internal"):
 
         from augur_engine.ml_gate import entry_features_causal
         with _lock:
-            arrays = _refresh_live_arrays(leg)
+            arrays, covered_through = _current_snapshot(leg)
+        if arrays is None:
+            base["error"] = "live window not ready"
+            _log(f"decide {leg_key} FAIL-OPEN: {base['error']}")
+            return base
         idx = arrays["index"]
         if len(idx) < 200:
             base["error"] = "too little data"
@@ -638,17 +752,32 @@ def decide(leg_key, nt_bar=None, *, source="internal"):
         # The leg's CONFIGURED step, not the measured one: a session gap makes the
         # measured step look like 17 hours, and the tolerance would swallow anything.
         step = pd.Timedelta(minutes=5 if str(leg["timeframe"]).startswith("5") else 1)
+
+        # INCOMPLETE BAR (2026-09-26, ROLL_AUDIT.md 4.5.2). NinjaTrader asks the instant
+        # its own bar closes; the 10s capture that rebuilds our bars can still be writing
+        # that bar's last seconds (measured 40-50s lag on 09-22). NT sends only a bar
+        # STAMP, never OHLCV, so there is no authoritative bar to fall back on -- the only
+        # honest answer when the capture has not caught up to the bar's own close is to
+        # say so and fail open, not score whatever partial close happens to be on disk
+        # (which is exactly how the 09-22 09:45 skip became an ORDERED take).
+        nt_ts = _parse_nt_bar(nt_bar)
+        if nt_ts is not None:
+            bar_end = _bar_end_unix(nt_ts, step)
+            if bar_end is None or covered_through is None or covered_through < bar_end:
+                base["bar_check"] = "incomplete"
+                out = dict(base)
+                out.update({
+                    "error": f"INCOMPLETE_BAR: capture covers through "
+                             f"{covered_through}, bar {str(nt_bar).strip()} needs {bar_end}",
+                    "bars": int(len(idx)), "bar_minutes": _measured_step(idx),
+                    "last_closed_bar": str(idx[-1]),
+                    "elapsed_ms": int((time.time() - t0) * 1000)})
+                _log(f"decide {leg_key} FAIL-OPEN (INCOMPLETE_BAR): capture covers through "
+                     f"{covered_through}, short of bar-end {bar_end} for nt_bar="
+                     f"{str(nt_bar).strip()!r}")
+                return out
+
         bar_state, bar_delta = _bar_interlock(nt_bar, idx[-1], step)
-        if bar_state == "mismatch":
-            # Rebuild from disk once before giving up: a mismatch is far more often our
-            # own stale cache than NinjaTrader being wrong (see _refresh_live_arrays).
-            with _lock:
-                _reset_live_cache(leg, f"bar mismatch vs NinjaTrader ({bar_delta}s)")
-                arrays = _refresh_live_arrays(leg)
-            idx = arrays["index"]
-            bar_state, bar_delta = _bar_interlock(nt_bar, idx[-1], step)
-            if bar_state == "ok":
-                _log(f"decide {leg_key}: bar mismatch cleared by a rebuild - scoring normally")
         base["bar_check"] = bar_state
         if bar_state == "unparseable":
             _log(f"decide {leg_key}: could not read bar={str(nt_bar).strip()!r} "
@@ -737,6 +866,98 @@ def decide(leg_key, nt_bar=None, *, source="internal"):
         return base
 
 
+# ── background bar-cache refresher (off the request path) ─────────────────────────
+_BG_REFRESH_SECS = 3          # target <50ms decide() latency needs this well under a bar step
+
+
+def _series_reps():
+    """One representative leg per distinct (instrument, timeframe, session) -- the gated
+    legs that SHARE a series only need their cache advanced once."""
+    reps = {}
+    for leg in _gated_legs():
+        reps.setdefault(_series_key(leg), leg)
+    return reps
+
+
+_STALE_CAPTURE_SECS = 180      # how long a series' 10s file may sit still, in session, before we say so
+
+
+def _in_session_hours(leg):
+    """Best-effort: is `leg`'s series inside a window where its 10s capture SHOULD be
+    advancing? Used only to decide whether a frozen file is worth a loud log line --
+    never anything decide() reads, so a wrong guess here costs a log message, not a
+    trade."""
+    try:
+        from zoneinfo import ZoneInfo
+        et = datetime.now(ZoneInfo("America/New_York"))
+    except Exception:
+        return True         # can't tell -- don't suppress the warning that might matter
+    if et.weekday() >= 5:
+        return False
+    if str(leg.get("session", "rth")).lower() != "rth":
+        return True          # ETH: the futures tape runs the whole weekday
+    tod = et.hour * 60 + et.minute
+    return 9 * 60 + 30 <= tod < 16 * 60
+
+
+def _check_capture_stale(key, leg, covered, tracker):
+    """Log ONCE per stall if a series' 10s capture file stops advancing during its own
+    session hours (2026-09-26). This is a visibility fix, not a data fix: the underlying
+    writer is the NinjaTrader OHLC addon, outside this service and outside this repo, so
+    there is nothing here to rebuild -- see the module report for why. What WAS missing is
+    any signal that it had happened at all: on 09-22 the capture froze at 09:45:40 ET for
+    the rest of the session (ROLL_AUDIT.md 4.5.2), and the only trace was a flat
+    `last_closed_bar` sitting in gate_live.log until someone went looking weeks later.
+    `tracker` is a plain dict the caller keeps across loop iterations: key -> (covered,
+    first_seen_ts, already_warned)."""
+    now = time.time()
+    prev = tracker.get(key)
+    if prev is None or prev[0] != covered:
+        tracker[key] = (covered, now, False)
+        return
+    _prev_covered, first_seen, warned = prev
+    if warned or covered is None:
+        return
+    if now - first_seen < _STALE_CAPTURE_SECS or not _in_session_hours(leg):
+        return
+    tracker[key] = (covered, first_seen, True)
+    _log(f"LIVE CAPTURE STALE for {'/'.join(key)}: the 10s file has not advanced past "
+         f"unix {covered} in over {_STALE_CAPTURE_SECS}s during session hours -- the "
+         f"capture writer looks stopped, not this service (NinjaTrader/the OHLC addon; "
+         f"see ROLL_AUDIT.md 4.5.2 for the 09-22 precedent)")
+
+
+def _bg_refresh_loop():
+    """Keeps every gated leg's live bar cache current, OFF NinjaTrader's request path
+    (2026-09-26 fix; ROLL_AUDIT.md 4.5.2 "Non-roll defects found along the way").
+
+    Before this, decide() called _refresh_live_arrays itself. The keep-warm loop below
+    only asked every 10 minutes, so cached ticks were routinely well over 7342cc4's 60s
+    staleness threshold by the time either NinjaTrader or the next keep-warm call arrived
+    -- and the resulting 1.2-1.6s rebuild-from-disk (gate_live.log "live window RESET")
+    ran INSIDE that request. All four 09-23 fail-open timeouts line up exactly with one
+    of these in-request rebuilds. Polling every few seconds instead means the incremental
+    tick read (cheap: only bytes appended since the last poll) almost always keeps the
+    cache within a few seconds of the file, so the >60s rebuild path -- still here,
+    unchanged, see _refresh_live_arrays -- becomes rare and always happens here, never in
+    decide().
+
+    Also watches for the capture ITSELF going quiet mid-session (_check_capture_stale) --
+    see there for the 09-22 precedent this is meant to surface quickly next time."""
+    stale_tracker = {}
+    while True:
+        for key, leg in _series_reps().items():
+            try:
+                with _lock:
+                    _refresh_live_arrays(leg)
+                    covered = _cache_for(leg).get("covered_through")
+            except Exception as e:
+                _log(f"bg refresh {'/'.join(key)} FAILED: {type(e).__name__}: {e}")
+                continue
+            _check_capture_stale(key, leg, covered, stale_tracker)
+        time.sleep(_BG_REFRESH_SECS)
+
+
 # ── nightly self-refresh ──────────────────────────────────────────────────────────
 def _refresh_loop():
     """Rebuild artifacts once per evening after the session close (16:15 ET), so the
@@ -756,10 +977,11 @@ def _refresh_loop():
                 last_built = day
         except Exception as e:
             _log(f"refresh loop: {type(e).__name__}: {e}")
-        # Keep-warm: score each leg every pass so the bar cache never goes cold.
-        # The one measured cold call took 351ms against NinjaTrader's 300ms timeout --
-        # which silently UN-GATES that trade (fail-open). A warm call is ~50-110ms,
-        # and a background decide() every 10 minutes costs nothing anyone will notice.
+        # Keep-warm: score each leg every pass. _bg_refresh_loop is what actually keeps
+        # the bar cache current now (2026-09-26) -- this no longer exists to prevent a
+        # cold rebuild, decide() can't trigger one any more. It stays for /gate/health's
+        # last_decide_ts/last_decide_source (a still-alive signal independent of whether
+        # NinjaTrader has asked anything recently) and costs nothing anyone will notice.
         for _leg in _gated_legs():
             try:
                 decide(_leg["key"])
@@ -781,11 +1003,15 @@ def serve():
             _load_artifact(leg["key"])
         except Exception as e:
             _log(f"warm load {leg['key']}: {type(e).__name__}: {e}")
-    try:
-        if _gated_legs():
-            decide(_gated_legs()[0]["key"])       # primes the bar cache
-    except Exception:
-        pass
+    # Prime every distinct bar series directly (2026-09-26): this is the one place a
+    # synchronous _refresh_live_arrays call is still correct -- before the port opens,
+    # nothing is waiting on a 300ms clock. _bg_refresh_loop takes over from here.
+    for leg in _series_reps().values():
+        try:
+            with _lock:
+                _refresh_live_arrays(leg)
+        except Exception as e:
+            _log(f"warm live window {'/'.join(_series_key(leg))}: {type(e).__name__}: {e}")
 
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):               # our own log instead
@@ -876,6 +1102,7 @@ Restart it by running <code>C:\\EdgeLog\\_gate_server.bat</code></div>"""
             else:
                 self._json({"error": "unknown path"}, 404)
 
+    threading.Thread(target=_bg_refresh_loop, daemon=True, name="gate-bg-refresh").start()
     threading.Thread(target=_refresh_loop, daemon=True, name="gate-refresh").start()
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
     _log(f"gate service up on 127.0.0.1:{PORT} "
