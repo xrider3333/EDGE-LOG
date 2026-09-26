@@ -29,7 +29,26 @@ NY = "America/New_York"
 
 # Capture files the NinjaTrader indicator writes. Stale = the chart is closed or NT is off.
 NT_OHLC_DIR = os.environ.get("EDGELOG_NT_OHLC", r"C:\EdgeLog\ohlc")
-NT_WATCH = ["NQ_10s.csv", "NQ_1m.csv", "NQ_1s.csv", "ES_10s.csv"]
+NT_WATCH = ["NQ_10s.csv", "ES_10s.csv"]
+
+# RETIRED 2026-09-26 (owner: data-health flagged these as ~44 days stale). The dedicated
+# NQ 1-Minute and 1-Second charts that fed these two files closed in the same 2026-08-11
+# outage documented above and were never reopened -- only the 10s chart capture came
+# back. Nothing downstream needs them fresh any more: the production NQ 1m master
+# (augur_uploads/NOADJ_NQ_1m_RTH.csv, the one ENGUQ_1M_*.py strategies read) is Yahoo/
+# Databento-fed, and tools/backfill_1m_from_10s.py derives 1m bars from the live 10s
+# capture instead of relying on a dedicated 1m chart. tools/import_nt_ohlc.py still
+# re-ingests these two frozen files every run (harmless no-op) into the nt_noadj_eth
+# NQ 1m/1s masters, which are used only by point-in-time diagnostics with an already-
+# fixed window (ROLL_AUDIT.md, tools/diag_10s_stamp.py) -- not by anything live. Kept in
+# the report (retired=True, never alarmed) rather than deleted outright, so a reader can
+# still see they exist and why they don't page anyone.
+NT_RETIRED = {
+    "NQ_1m.csv": "closed with the 2026-08-11 NT outage; the 1m master now derives from "
+                 "the live 10s capture (tools/backfill_1m_from_10s.py), not this file",
+    "NQ_1s.csv": "closed with the 2026-08-11 NT outage; sub-minute captures are raw "
+                 "material only and nothing reads this file live",
+}
 
 # How old a thing may get before it is called stale, in minutes, DURING a weekday.
 # The NT capture writes continuously through the overnight session, so a few hours of
@@ -82,16 +101,24 @@ def _age_min(epoch_secs, now=None):
 
 
 def _nt_capture():
-    """Age of each NinjaTrader capture file, by mtime."""
+    """Age of each NinjaTrader capture file, by mtime. Retired files (NT_RETIRED) are
+    still reported, with retired=True and stale forced False, so they never raise a
+    problem in check() but are still visible with a note explaining why."""
     out = []
-    for name in NT_WATCH:
+    for name in list(NT_WATCH) + list(NT_RETIRED):
+        retired = name in NT_RETIRED
         p = os.path.join(NT_OHLC_DIR, name)
         if not os.path.exists(p):
-            out.append({"name": name, "present": False, "age_min": None, "stale": True})
-            continue
-        age = _age_min(os.path.getmtime(p))
-        out.append({"name": name, "present": True, "age_min": round(age, 1),
-                    "stale": age > STALE_NT_MIN})
+            entry = {"name": name, "present": False, "age_min": None,
+                      "stale": False if retired else True}
+        else:
+            age = _age_min(os.path.getmtime(p))
+            entry = {"name": name, "present": True, "age_min": round(age, 1),
+                      "stale": False if retired else (age > STALE_NT_MIN)}
+        if retired:
+            entry["retired"] = True
+            entry["note"] = NT_RETIRED[name]
+        out.append(entry)
     return out
 
 
@@ -148,6 +175,8 @@ def check():
     problems = []
     if not quiet:
         for f in nt:
+            if f.get("retired"):
+                continue   # reported for visibility only, never alarmed -- see NT_RETIRED
             if not f["present"]:
                 problems.append(f"NT capture missing: {f['name']}")
             elif f["stale"]:
