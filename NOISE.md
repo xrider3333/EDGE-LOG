@@ -7,6 +7,52 @@
 
 ---
 
+## 🧪 2026-09-26 — ROUND 61: the round-60 validates judged, and the live NOISE #382 leg's two gaps sized
+
+MANAGER dispatch (owner GO 2026-09-26). Drivers: `tools/r60_judge_validates.py` (-> `r37_results/r60_judge_validates.txt`)
+and `tools/r61_noise_382_live_gaps.py` (-> `r37_results/r61_382_live_gaps.txt`). One continuous tape to 2026-09-16 (last
+Databento bar), cost 0.533, the validates' own stretches (WF 2016-06-30 .. 2025-07-16, LB .. 2026-07-16).
+
+**NOISE #420 (NOISE-54, GEO304) - bar NOT met, keep the centre.** PASS, 8 folds, but overfit 0.349 (bar <= 0.198) and it
+crowned long band 0.5 / stop 2.0 / skip 97.5, which has LOWER profit factor than the centre in both eras (1.82 vs 2.00
+before 2024, 1.69 vs 2.02 from 2024). The crown's geometry holds on compressed hours; the extra dollars came from 36%
+more trades. Nothing to adopt.
+
+**NOISE #422 (NOISE-55, CT304H) - pre-registered bar MET.** PASS, 8 folds, overfit 0.19; crowned hourly squeeze length 20 /
+threshold 1.15 at 1.75x (not the centre). Sealed year vs the crown: $65,470 vs $50,081 at drawdown $20,992 vs $19,423
+(+8%, limit +25%), MAR 3.12 vs 2.58. Against #382's cell (the live base; run #410 is its warm re-run) on the same tape:
+WF 49.6%/yr vs 55.9%, MAR 2.82 vs 2.67, Sortino 4.49 vs 3.87; LB 67.2%/yr vs 72.4%, drawdown $20,992 vs $27,578, MAR
+3.20 vs 2.62, Sortino 3.34 vs 2.62. **Same 4,847 trades, sized by the hourly squeeze instead of the 30-minute one:
+about 10% less money, about 20-25% less drawdown, better return per drawdown and Sortino in both stretches.** It is
+also the more robust of the two to late fills (below). It belongs on the owner's live-stack list; the live leg is
+unchanged (owner decision).
+
+**Fill timing (Paper: WB audit, live orders a full bar after the backtest fill).** Every trade re-priced from the bars
+(zero delay reproduces all 4,847 to the cent). One bar late costs #382 0.45 NQ points a trade on the entry alone and
+0.66 with the exit late too - about $0.014 per QQQ share, roughly 10% of the edge, NOT the $0.30/share the audit's
+median gap suggested (that gap is mostly two-sided noise between the live QQQ fill and the translated NQ price).
+Money falls modestly (WF 55.9% -> 53.2%/yr, LB 72.4% -> 57.0%) but walk-forward DRAWDOWN grows from $21k to $34k
+(MAR 2.67 -> 1.55). #422 loses less (WF MAR 2.82 -> 1.88, LB 3.20 -> 3.19); the crown #304 loses 0.21 / 0.33 points.
+Late stop exits are modelled as a market order at the next open, an approximation of a live stop checked on the close.
+
+**Vol-skip look-back (commit 307a128).** 307a128 made the skip FIRE live (it could not before), but live ranks yesterday's
+volatility against ~68 prior sessions while the backtest ranks against 252. Re-run with the reference capped at 68:
+5% of trading days differ (79 dropped, 47 added), and on history the 68-session version did slightly BETTER (#382 WF
+59.6% vs 55.9%/yr, LB 91.6% vs 72.4%). So the gap is closed in the sense that matters for safety - live now skips - but
+live still runs a rule that was never validated. Owner call: give the live engine 262+ sessions so it matches the
+backtest, or accept the 68-session rule (it would need its own validate before anyone calls it better; the edge here
+was read on the same years).
+
+**Tilt guard C4 (rebuilt db49235).** Round 60's only guard read was the earnings calendar and it already ran on the
+rebuilt C4 (its printout shows the new gross-share test); it failed on money in the lockbox, the uniform control, and
+both permutations, none of which C4 touches. The two round-60 validates were judged on their files' own bars, not the
+guard. Nothing to re-judge. The two older verdicts C4 flips (#243 compression inside v12, #304 Friday 1.5x) predate
+round 60 and are recorded by the Custom ML lane.
+
+**Roll audit (ROLL_AUDIT.md, 9421861).** NOISE is flat by the close and only its prior close reads across sessions, so a
+roll-corrected tape moves backtests about 1% (#382 $604,706 -> $611,338). The 2026-09-14 in-bar contract splice put a
+fake long into the paper record; Paper: NT8 and Paper: WB are marking those trades, not this lane.
+
 ## 🧪 2026-09-24 — ROUND 60: two validates queued, the earnings calendar is a NO, and the filter has gone quiet
 
 Owner: "where we at. auto validate anything promising and continue searching."

@@ -1,0 +1,13 @@
+
+========================================================================================================================
+#420 NOISE-54  NOISE_1_9_GEO304.py  verdict PASS  folds 8  overfit 0.349  crowned {'lookback': 40, 'band_mult_long': 0.5, 'band_mult_short': 1.5, 'stop_k': 2.0, 'vol_skip_pct': 97.5}  (not the centre)
+  centre                            pre-2024  857 tr $  122,090 PF 2.00 DD $  5,702 MAR 1.58 | 2024 on  139 tr $   66,779 PF 2.02 DD $ 13,027 MAR 2.02 | sealed yr   49 tr $   20,517 PF 1.73 DD $ 10,350 MAR 1.98
+  crowned                           pre-2024 1162 tr $  127,501 PF 1.82 DD $  8,097 MAR 1.16 | 2024 on  198 tr $   63,649 PF 1.69 DD $ 12,649 MAR 1.98 | sealed yr   66 tr $   27,554 PF 1.82 DD $  8,651 MAR 3.19
+  BAR: NOT MET - keep the centre
+
+========================================================================================================================
+#422 NOISE-55  NOISE_1_8_CT304H.py  verdict PASS  folds 8  overfit 0.19  crowned {'gate_len': 20, 'gate_ratio': 1.15, 'tilt_mult': 1.75}  (not the centre)
+  centre                            pre-2024 4097 tr $  304,222 PF 1.40 DD $ 15,021 MAR 1.49 | 2024 on  728 tr $  162,911 PF 1.39 DD $ 20,430 MAR 3.14 | sealed yr  315 tr $   61,391 PF 1.30 DD $ 20,430 MAR 3.01
+  crowned                           pre-2024 4097 tr $  349,934 PF 1.43 DD $ 12,811 MAR 2.01 | 2024 on  728 tr $  188,852 PF 1.43 DD $ 20,992 MAR 3.54 | sealed yr  315 tr $   65,470 PF 1.31 DD $ 20,992 MAR 3.12
+  live crown #304 (reference)       pre-2024 4097 tr $  258,367 PF 1.36 DD $ 16,916 MAR 1.13 | 2024 on  728 tr $  138,767 PF 1.35 DD $ 19,423 MAR 2.81 | sealed yr  315 tr $   50,081 PF 1.26 DD $ 19,423 MAR 2.58
+  BAR (sealed year vs crown): net $65,470 vs $50,081, DD $20,992 vs $19,423 (limit +25%), MAR 3.12 vs 2.58 -> MET

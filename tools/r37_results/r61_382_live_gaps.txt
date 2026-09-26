@@ -1,0 +1,72 @@
+tape 2010-06-07 .. 2026-09-16, cost 0.533, $20 per point, ROC on $100000
+
+PART 1 + PART 2 - as backtested, then one bar late
+
+NOISE #304 raw (crown)  (4847 trades; zero-delay re-price reproduces every trade)
+  as backtested (fill at next bar's open)
+    WF   2805 tr  $  330,907  DD $ 16,916  ROC  36.6%/yr  MAR 2.16  Sortino 3.79  PF 1.41
+    LB    314 tr  $   51,722  DD $ 19,304  ROC  51.8%/yr  MAR 2.68  Sortino 2.86  PF 1.27
+    tail   23 tr  $   12,819  DD $  6,727  ROC  75.5%/yr  MAR 11.23  Sortino 5.84  PF 1.84
+  entry one bar late (44 trades lost)
+    WF   2780 tr  $  328,694  DD $ 18,096  ROC  36.3%/yr  MAR 2.01  Sortino 4.01  PF 1.47
+    LB    309 tr  $   43,175  DD $ 16,339  ROC  43.2%/yr  MAR 2.64  Sortino 2.62  PF 1.26
+    tail   22 tr  $    5,830  DD $ 10,363  ROC  34.3%/yr  MAR 3.31  Sortino 2.15  PF 1.30
+  entry AND exit one bar late (44 lost)
+    WF   2780 tr  $  325,250  DD $ 21,236  ROC  36.0%/yr  MAR 1.69  Sortino 3.55  PF 1.41
+    LB    309 tr  $   40,331  DD $ 15,925  ROC  40.4%/yr  MAR 2.53  Sortino 2.14  PF 1.21
+    tail   22 tr  $    1,040  DD $ 15,238  ROC   6.1%/yr  MAR 0.40  Sortino 0.30  PF 1.04
+    whole tape: $411,595 -> $391,499 (entry late) -> $379,855 (both late); per trade -0.21 / -0.33 points vs as-backtested
+
+NOISE #382 cell (live base; #410 = its warm re-run)  (4847 trades; zero-delay re-price reproduces every trade)
+  as backtested (fill at next bar's open)
+    WF   2805 tr  $  505,313  DD $ 20,960  ROC  55.9%/yr  MAR 2.67  Sortino 3.87  PF 1.46
+    LB    314 tr  $   72,343  DD $ 27,578  ROC  72.4%/yr  MAR 2.62  Sortino 2.62  PF 1.27
+    tail   23 tr  $   18,331  DD $  8,368  ROC 108.0%/yr  MAR 12.91  Sortino 6.94  PF 2.01
+  entry one bar late (44 trades lost)
+    WF   2780 tr  $  485,676  DD $ 27,630  ROC  53.7%/yr  MAR 1.94  Sortino 3.91  PF 1.50
+    LB    309 tr  $   62,651  DD $ 19,463  ROC  62.7%/yr  MAR 3.22  Sortino 2.59  PF 1.28
+    tail   22 tr  $    7,412  DD $ 13,334  ROC  43.7%/yr  MAR 3.27  Sortino 1.98  PF 1.29
+  entry AND exit one bar late (44 lost)
+    WF   2780 tr  $  481,527  DD $ 34,364  ROC  53.2%/yr  MAR 1.55  Sortino 3.47  PF 1.44
+    LB    309 tr  $   56,951  DD $ 21,566  ROC  57.0%/yr  MAR 2.64  Sortino 2.09  PF 1.22
+    tail   22 tr  $     -682  DD $ 21,419  ROC  -4.0%/yr  MAR -0.19  Sortino -0.13  PF 0.98
+    whole tape: $626,318 -> $582,238 (entry late) -> $562,821 (both late); per trade -0.45 / -0.66 points vs as-backtested
+
+NOISE #422 crowned (hourly 20/1.15 at 1.75x)  (4847 trades; zero-delay re-price reproduces every trade)
+  as backtested (fill at next bar's open)
+    WF   2805 tr  $  448,732  DD $ 17,616  ROC  49.6%/yr  MAR 2.82  Sortino 4.49  PF 1.50
+    LB    314 tr  $   67,110  DD $ 20,992  ROC  67.2%/yr  MAR 3.20  Sortino 3.34  PF 1.32
+    tail   23 tr  $   15,376  DD $  6,727  ROC  90.6%/yr  MAR 13.46  Sortino 7.01  PF 2.00
+  entry one bar late (44 trades lost)
+    WF   2780 tr  $  434,238  DD $ 22,977  ROC  48.0%/yr  MAR 2.09  Sortino 4.61  PF 1.55
+    LB    309 tr  $   54,297  DD $ 18,189  ROC  54.3%/yr  MAR 2.99  Sortino 2.78  PF 1.29
+    tail   22 tr  $    7,869  DD $ 10,363  ROC  46.4%/yr  MAR 4.47  Sortino 2.90  PF 1.41
+  entry AND exit one bar late (44 lost)
+    WF   2780 tr  $  428,403  DD $ 25,264  ROC  47.4%/yr  MAR 1.88  Sortino 4.11  PF 1.48
+    LB    309 tr  $   49,262  DD $ 15,461  ROC  49.3%/yr  MAR 3.19  Sortino 2.20  PF 1.23
+    tail   22 tr  $    3,079  DD $ 15,238  ROC  18.1%/yr  MAR 1.19  Sortino 0.88  PF 1.12
+    whole tape: $555,804 -> $518,238 (entry late) -> $501,525 (both late); per trade -0.39 / -0.56 points vs as-backtested
+
+PART 3 - volatility-skip reference window: 252 prior sessions (backtest) vs 68 (live after 307a128)
+
+NOISE #304 raw (crown)  (vol-skip function patched in 1 module(s))
+  reference 252 sessions (backtest)
+    WF   2805 tr  $  330,907  DD $ 16,916  ROC  36.6%/yr  MAR 2.16  Sortino 3.79  PF 1.41
+    LB    314 tr  $   51,722  DD $ 19,304  ROC  51.8%/yr  MAR 2.68  Sortino 2.86  PF 1.27
+    tail   23 tr  $   12,819  DD $  6,727  ROC  75.5%/yr  MAR 11.23  Sortino 5.84  PF 1.84
+  reference 68 sessions (live)
+    WF   2721 tr  $  346,009  DD $ 16,621  ROC  38.3%/yr  MAR 2.30  Sortino 3.96  PF 1.44
+    LB    294 tr  $   64,222  DD $ 19,304  ROC  64.3%/yr  MAR 3.33  Sortino 3.75  PF 1.37
+    tail   29 tr  $   15,880  DD $  6,727  ROC  93.6%/yr  MAR 13.91  Sortino 7.10  PF 1.95
+    trading days only in the 252 run: 79, only in the 68 run: 47, of 2466 / 2434
+
+NOISE #382 cell (live base; #410 = its warm re-run)  (vol-skip function patched in 2 module(s))
+  reference 252 sessions (backtest)
+    WF   2805 tr  $  505,313  DD $ 20,960  ROC  55.9%/yr  MAR 2.67  Sortino 3.87  PF 1.46
+    LB    314 tr  $   72,343  DD $ 27,578  ROC  72.4%/yr  MAR 2.62  Sortino 2.62  PF 1.27
+    tail   23 tr  $   18,331  DD $  8,368  ROC 108.0%/yr  MAR 12.91  Sortino 6.94  PF 2.01
+  reference 68 sessions (live)
+    WF   2721 tr  $  539,241  DD $ 20,960  ROC  59.6%/yr  MAR 2.84  Sortino 4.17  PF 1.50
+    LB    294 tr  $   91,585  DD $ 27,578  ROC  91.6%/yr  MAR 3.32  Sortino 3.50  PF 1.38
+    tail   29 tr  $   21,392  DD $  8,368  ROC 126.0%/yr  MAR 15.06  Sortino 7.99  PF 2.09
+    trading days only in the 252 run: 79, only in the 68 run: 47, of 2466 / 2434
