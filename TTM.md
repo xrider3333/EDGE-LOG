@@ -77,6 +77,7 @@ paper legs (see `KEEL.md` / memory `edgelog-keel-overlay`).
 | 12 | Five parallel hunts for a new version of the squeeze | Four dead, one lead (the structural stop), one look-ahead bug caught | `ttmsqz12`, rows 1584–1599 |
 | 16 | Fade count, size ladder, verification frame, direction | All four at their peak already; the hourly frame is a SPIKE, not a plateau | `ttmsqz16`, rows 1745–1751 |
 | 17 | The whole stack on NQ, unchanged; the 90/150-minute frames | Does not transfer (1 of 4 steps); 90 minutes collapses like 120 | `ttmsqz16`, rows 1745–1751 |
+| 18 | Whole-contract ladder; roll guard for the book leg | 3 / 4 / 7 contracts is best; run #428 (roll guard) PASS, PBO 0.036, misses the MAR clause 1.29 vs 1.31 | `ttmsqz18`, rows 1768–1772 |
 
 ## Validated runs
 
