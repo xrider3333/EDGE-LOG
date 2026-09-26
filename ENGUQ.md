@@ -721,3 +721,109 @@ window is broad, and a single large winner is the documented shape of this famil
 year is not independent evidence - it is one trade - so the sealed PF 1.675 must never be quoted as
 a forward expectation, and the R3 hold-cap sibling (cap the hold at 8,280 bars) now has a second
 independent argument for a per-stretch battery.
+
+## 2026-09-26 - contract-roll correction (ROLL_AUDIT.md)
+
+The roll audit (written 2026-09-25, text in commit 80ab727; read here at 9421861) rebuilt all 64 NQ
+and 64 ES contract switches from raw vendor data and re-ran this family on back-adjusted prices. It
+changed nothing - no strategy file, no paper leg, no job. ENGU-Q carries more of the correction than
+any other family, so the figures below replace the ones they name. (V) = re-run independently and
+matched. (M) = measured once. "To be recomputed" means do not quote a number yet.
+
+**A contract roll reaches ENGU-Q three ways, because the family has no roll handling at all.**
+1. *Booked carry (V).* A position held through a switch books the contract offset - about $1.5k to
+   $6k per NQ contract over 2022-25. On the #335 leg that is $38,985 across 36 crossings.
+2. *Stale entry filters (V).* For one to three days after an upward switch the regime average, the
+   moving average and the trendline still hold old-contract prices, so extra longs get through. This
+   is the bigger half, and one entry dominates: 13 March 2023, a real five-month hold worth $65,121
+   that a stale regime average let in. Corrected, it and one loser in the same window become 52
+   smaller trades worth $11,677 - about $47.6k of the family's whole change.
+3. *Fake stop-outs on a splice bar (V).* The trail is lifted off the bar's high before the low is
+   checked, so a bar holding two contracts can stop a long at a price that never traded. ENGU-Q #381
+   in June 2026 is the worked example; any trailing long open across the 14 September 2026 splice is
+   exposed to the same thing.
+
+**Corrected on back-adjusted prices (the June 2026 splice is NOT adjusted in this block):**
+- **#335 book and paper leg** (file defaults, cost 0.783): $603,381 to **$499,155**, down 17%.
+  PF 1.694 to 1.534, drawdown $41,889 to $44,205, lockbox by entry $87,790 to $80,729. Only $38,985
+  is booked carry; the rest is a different sequence of trades. (V)
+- **#335 validate champion** (starred crown, cost 0.533): $541,330 to **$476,435**, PF 1.820 to
+  1.699; cold lockbox $58,163 / PF 1.531 to **$43,468 / PF 1.366**. (V)
+- **ENGU-Q on ES #370** (PASS, cost 0.40): $381,313 to **$341,487**, PF 2.459 to 2.187, drawdown
+  $13,402 to $15,444; cold lockbox $25,372 to $17,261. (V)
+- Paper controls: **#309** $591,267 to $494,275 - **#265** $486,053 to $418,006 - **#249** $513,014
+  to $407,010 - **#226** $434,721 to $343,583. (all M)
+- **#227**, the day-session run behind the QQQ evidence: $453,532 to **$350,542**, drawdown deepens
+  34% to $87,683 - the largest drawdown change in the family. (V)
+- The other twenty-odd research runs lose 4% to 22%; every cold lockbox keeps its sign. (M)
+- Books carrying these legs each lose their leg's delta: the four with the #309 leg (#371, #361,
+  #337, #317) lose $96,992 each; the five with the #335 leg (#365, #375, #372, #363, #323) lose
+  $104,226 each; #262 carries the day-session leg and loses about $103,000. All stay PASS. (M)
+
+**June 2026 sits on top of that, and most of the combined arithmetic is still owed.** The June
+switch is inside the 15 June 03:30 ET bar on NQ at about +293 points, not the 14 June evening jump
+earlier work used - that jump is a real weekend gap. Repaired alone, June costs the #335 leg another
+$5,860 on both the whole run and the lockbox, ES #370 about $6,824, and hands #381 back $6,305 (it
+still FAILs). Those deltas were measured on the raw runs, so every back-adjusted-plus-June figure is
+**to be recomputed**, including the cold lockboxes for the #335 champion and for #370. One exception
+stands: #370's lockbox read by entry date, **$28,136**. (V)
+
+**What did not change.** ENGU-Q #335 is still the family crown, and its order against #309, #226,
+#265 and #249 holds on net, profit factor and the validate lockbox. Every crowned, starred, book and
+paper run keeps a positive cold lockbox at profit factor 1 or better; no sign flips. #381 stays
+FAIL. The only lockbox that flips is #152, a superseded July run that was never deployed.
+Walk-forward folds, PBO and DSR were not re-run for any crown, so those are untested, not confirmed.
+
+**How far back-adjusting was proved safe here - read before running anything.** Over the full window,
+shifts of +5,000, -1,000 and the cumulative offset give identical trades for the #335 leg and for
+#370 (M). The wider check across other family files used one shift over 2021 to mid-2026 only, one
+run per file, champion parameters only (V for that scope). "Every ENGU-Q file is shift-safe" is NOT
+established; each file needs the full-window shift test on its own real parameters first.
+
+**The leg-parameter trap, unchanged.** Three cells answer to the same name: the books' ENGU-Q #335
+leg is the file's own defaults, 1,949 trades at cost 0.783; #335's saved champion is 1,344 trades at
+0.533; a leg queued with no parameters drops through to the function's internal defaults, which is
+#226's cell, 2,843 trades / $420,506 - what books #417, #418 and #419 actually ran. Always say which
+cell a figure comes from. (V)
+
+**The fix is a re-validate, and it is an owner call.** No ENGU-Q file needs an edit. Order of work:
+repair the post-June-2026 data tail, build back-adjusted 1-minute masters (none exist today - the
+only adjusted futures series registered are four 5-minute twins with a stale offset that stop
+adjusting in March 2026), then re-validate #335 and #370 and restate the evidence behind #309, #226,
+#265, #249 and #227. The queue script is prepared and guarded at
+`tools/queue_enguq_rolladj_revalidate.py`; it is a dry run unless the owner says go.
+
+**Research ledger row 1.15 is superseded by the audit** (the row already carries the note). It read
+23 crossings / $39,580 on the #335 leg and 30 / $33,912 on #370; exact is 36 / $38,985 and 35 /
+$24,862, with none of #370's inside its entry-split lockbox, and the full losses including changed
+trades are much larger - $104,226 and $39,826. The row leaned on the house seam detector, which
+finds only 19 of the 64 NQ switches.
+
+## 2026-09-26 - ENGU-Q on ES: CLOSED-NO
+
+**Decision, taken by the owner through the MANAGER chat on 2026-09-26: the ES/MES paper leg is
+CLOSED-NO.** This is a decision, not a new measurement, and the evidence below is recorded with its
+honest edges so a future session can re-open it knowingly. Nothing here touches the NQ crown #335.
+
+- **Two grades, one cell.** ENGU-Q #370 (ES 1m 24h, 2010-06-07..2026-06-30, sealed from 2025-06-30)
+  at 0.40 points a round trip: PASS 6/6, folds 8/8, 681 trades / $381,313 / PF 2.46 / drawdown
+  $13,402, sealed year 67 trades / $25,372 / PF 1.61. ENGU-Q #377, the same cell at the honest 0.60:
+  WEAK, folds still 8/8, sealed year still positive at $24,702 / PF 1.59, failing only the overfit
+  check at 0.516 against a 0.500 line (#370 reads 0.496). The extra cost removes $6,810, 1.8% of net.
+- **Round 46 pre-registered the failure condition** before either grade was read: if it only
+  survives at 0.40 it is not a leg. 0.40 on ES is below one tick plus commission.
+- **The concentration read is the stronger argument.** On the crown's settings run on ES (rounds
+  46-47): only 3 of 16 years stay positive once each year loses its own three biggest trades; over
+  2024-2026 the ten best trades are 124% of the stretch and the other 226 trades lose $19,909. On
+  #370's own sealed year the ten best trades make $64,852 against a year of $25,372, and the other
+  57 trades lose $39,482. The card's own power check reads 0.37 against a 0.80 target.
+- **The roll correction takes another tenth off.** 35 of #370's trades cross a contract switch and
+  book $24,862 of pure carry, all before the sealed year; back-adjusted the run is $341,487 and the
+  sealed year by entry is $28,136 once June is repaired.
+- **The honest edges of this closure.** At 0.60 the leg still clears the round-42 cost rule (about
+  $98 a trade against a $30 round trip, 3.3x), and the per-stretch concentration test has never been
+  run on the cell #370 and #377 actually crowned - only on the crown's NQ settings run on ES. The
+  sealed year also has four published values (67 trades / $25,372 reloaded; 16 / $34,960 continuous
+  by entry; $107,924 pooled by exit inside a book; $48,073 in the card's own stretch block) and they
+  have never been reconciled. To re-open, the minimum is one re-grade at 0.60 on back-adjusted
+  prices with June repaired, plus the concentration test on the graded cell.
