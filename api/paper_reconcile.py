@@ -40,7 +40,7 @@ of error that looks like a result.
 
 Never raises: this runs inside the runner's watch loop.
 """
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 # How far apart a shadow entry and a live entry may be and still be the same trade.
 # The demo fills at the next bar's open on a 1m/5m chart, and the AddOn stamps the
@@ -69,20 +69,51 @@ _SIZE_SLACK = 0.5 + 1e-9
 # family is left in shadow_only, i.e. the board would paint a red "NinjaTrader never took it"
 # cross on the very leg NinjaTrader had just filled. No NZ fill has landed since the rename,
 # so nothing recorded is wrong; the next one would have been. These now name the legs whose
-# `nt` field claims those NinjaScripts: EdgeLogNOISE -> NOISE_H_RF, EdgeLogENGUQ1m -> ENGUQ_ER.
-SIGNAL_PREFIX = {"NZ": "NOISE_H_RF", "EQ": "ENGUQ_ER", "ORB": "ORB"}
+# `nt` field claims those NinjaScripts: EdgeLogNOISE -> NOISE_H_RF, EdgeLogORB230 -> ORB.
+# EQ (EdgeLogENGUQ1m) is date-dependent -- see _ENGUQ_SWITCH_DATE below -- so it is NOT in
+# this static table.
+SIGNAL_PREFIX = {"NZ": "NOISE_H_RF", "ORB": "ORB"}
+
+# 2026-09-08: EdgeLogENGUQ1m switched from the ENGUQ_ER settings to the #335 (R2) knobs.
+# Evidence: commit f484c0e ("EdgeLogENGUQ1m set to the R2 knobs (check ok, Realtime) ...
+# parity = nightly reconcile from 09-09", 2026-09-08 21:52 PDT = just after 2026-09-09
+# 00:00 ET) preceded the same evening by a886ff0 ("ENGU-Q crown moves to run #335 ...
+# NinjaTrader unchanged"); and ROLL_AUDIT.md's "Urgent (live/paper)" item 7, itself marked
+# (V): "EdgeLogENGUQ1m has run the #335 settings since 09-08". Fills dated before the
+# switch (the ER-settings era) still belong to ENGUQ_ER; 09-08 on belongs to ENGUQ_335.
+# A fill's ET calendar date is what nt_sync/build_trades stamps it with, so that is what
+# is compared here -- not the deploy's own PDT timestamp.
+_ENGUQ_SWITCH_DATE = date(2026, 9, 8)
+_ENGUQ_LEG_BEFORE_SWITCH = "ENGUQ_ER"
+_ENGUQ_LEG_FROM_SWITCH = "ENGUQ_335"
 
 
-def _map_signal(sig):
+def _map_signal(sig, trade_date=None):
     """(prefix, leg) for a fill's signal name, or (None, None) when it cannot be known.
 
     The PREFIX comes back too so a rejection can quote the rule that produced it. A reason
     that says only "not in today's report" sends the next reader hunting for the mapping;
     one that names the prefix and the leg it resolved to explains itself.
+
+    `trade_date` (a date, or an ISO "YYYY-MM-DD" string, or None) resolves the EQ prefix,
+    which is not a fixed leg -- see _ENGUQ_SWITCH_DATE. A caller that cannot supply a date
+    still gets a leg back (the current one), rather than None, so existing callers keep
+    working; but every call in this file that has a date passes it.
     """
     s = (sig or "").strip().upper()
     if not s:
         return None, None
+    if s.startswith("EQ"):
+        d = trade_date
+        if isinstance(d, str):
+            try:
+                d = datetime.strptime(d[:10], "%Y-%m-%d").date()
+            except Exception:
+                d = None
+        leg = (_ENGUQ_LEG_BEFORE_SWITCH
+               if (d is not None and d < _ENGUQ_SWITCH_DATE)
+               else _ENGUQ_LEG_FROM_SWITCH)
+        return "EQ", leg
     # Longest prefix first so "ORB" is never shadowed by a shorter key.
     for pre in sorted(SIGNAL_PREFIX, key=len, reverse=True):
         if s.startswith(pre):
@@ -90,9 +121,9 @@ def _map_signal(sig):
     return None, None
 
 
-def leg_from_signal(sig):
+def leg_from_signal(sig, trade_date=None):
     """Exact leg for a fill's signal name, or None when it cannot be known."""
-    return _map_signal(sig)[1]
+    return _map_signal(sig, trade_date)[1]
 
 
 def _parse_iso(s):
@@ -215,7 +246,7 @@ def match_day(shadow_by_leg, live_trades, *, tol_min=TOL_MIN):
         # Prefer the signal name when the fill carries one: that is the strategy telling
         # us which leg it is, rather than us inferring it from the clock.
         sig = lv.get("signal")
-        pre, known_leg = _map_signal(sig)
+        pre, known_leg = _map_signal(sig, trade_date=ldt.date())
         near = [c for c in cands
                 if not c["taken"] and c["s"].get("side") == lside
                 and abs(c["dt"] - ldt) <= tol
@@ -233,11 +264,12 @@ def match_day(shadow_by_leg, live_trades, *, tol_min=TOL_MIN):
                 # prefix, the table it came from and the legs that WERE on the board turns
                 # the next occurrence into a one-line read instead of a re-investigation.
                 ambiguous.append({"kind": "live_only", "live": lv,
-                                  "reason": f"signal {sig!r} matched SIGNAL_PREFIX "
+                                  "reason": f"signal {sig!r} matched prefix "
                                             f"{pre!r} -> leg {known_leg}, which is not in "
                                             f"today's report (legs today: {legs_today}); "
-                                            f"fix the mapping in paper_reconcile."
-                                            f"SIGNAL_PREFIX, not the fill"})
+                                            f"fix the mapping in paper_reconcile._map_signal "
+                                            f"(SIGNAL_PREFIX or the EQ switch date), not "
+                                            f"the fill"})
             continue
         if not near:
             # No shadow trade explains this fill. Which leg it belongs to is unknowable,
@@ -246,8 +278,8 @@ def match_day(shadow_by_leg, live_trades, *, tol_min=TOL_MIN):
             # nameless fill is a genuinely undecidable manual/pre-2026-08-13 row.
             why = ("fill carries no signal name (manual, or written before 2026-08-13)"
                    if not (sig or "").strip()
-                   else f"signal {sig!r} matches no SIGNAL_PREFIX key "
-                        f"({', '.join(sorted(SIGNAL_PREFIX))})")
+                   else f"signal {sig!r} matches no known prefix "
+                        f"({', '.join(sorted(list(SIGNAL_PREFIX) + ['EQ']))})")
             ambiguous.append({"kind": "live_only", "live": lv,
                               "reason": f"no shadow signal within {tol_min}m; {why}"})
             continue

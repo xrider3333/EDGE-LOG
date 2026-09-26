@@ -303,7 +303,7 @@ def read_fills(path, date_et, account=None):
     meta["account"] = account
     gated = set(gated_legs())
     for t in trades:
-        key = paper_reconcile.leg_from_signal(t.get("signal"))
+        key = paper_reconcile.leg_from_signal(t.get("signal"), trade_date=date_et)
         leg = None
         if key in gated:
             leg = key

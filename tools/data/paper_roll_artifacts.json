@@ -1,0 +1,108 @@
+{
+  "_comment": "Committed list of paper_trades docs known to be fake trades from an in-bar futures contract-roll splice, not real strategy behaviour. api/paper.py's nightly upsert (api/paper._run_one_uid._emit) checks every trade it writes against this list by (leg, entry_unix) and adds roll_artifact=true / roll_note on a match. The trade is KEPT (never deleted) -- see ROLL_AUDIT.md section 'Urgent (live/paper)' item 1 and section 4.5.4/4.5.5 for the full investigation. Matched and verified against live Firestore docs on 2026-09-26 (all 17 entries: exact leg + entry_unix + recorded_pnl_usd match to the cent); see tools/mark_roll_artifacts.py for the one-off script that applied the flags. Do not remove entries here without owner sign-off -- api/paper.py's re-upsert re-applies these fields every night as long as they stay in this file.",
+  "version": 1,
+  "entries": [
+    {
+      "leg": "NOISE_304", "entry_unix": 1789400700,
+      "entry_et": "2026-09-14T11:45:00-04:00", "exit_et": "2026-09-14T15:55:00-04:00",
+      "recorded_pnl_usd": -980.66,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4): the data feed switched Sep->Dec inside the 09-14 11:30 ET bar (NQ +304.5pt, ~+295pt of it contract carry). The long opened 11:45 ET rode a fake -49.03pt move to the 15:55 ET exit; it disappears under every proper price correction tried."
+    },
+    {
+      "leg": "NOISE_SBS_V90", "entry_unix": 1789400700,
+      "entry_et": "2026-09-14T11:45:00-04:00", "exit_et": "2026-09-14T15:55:00-04:00",
+      "recorded_pnl_usd": -980.66,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4): same 09-14 11:45-15:55 ET fake -49.03pt NOISE-family long as NOISE_304 (in-bar Sep->Dec switch inside the 09-14 11:30 ET bar)."
+    },
+    {
+      "leg": "NOISE_SBS_V90_C15G", "entry_unix": 1789400700,
+      "entry_et": "2026-09-14T11:45:00-04:00", "exit_et": "2026-09-14T15:55:00-04:00",
+      "recorded_pnl_usd": -980.66,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4): same 09-14 11:45-15:55 ET fake -49.03pt NOISE-family long as NOISE_304 (in-bar Sep->Dec switch inside the 09-14 11:30 ET bar)."
+    },
+    {
+      "leg": "NOISE_SBS_V90_C15", "entry_unix": 1789400700,
+      "entry_et": "2026-09-14T11:45:00-04:00", "exit_et": "2026-09-14T15:55:00-04:00",
+      "recorded_pnl_usd": -980.66,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4): same 09-14 11:45-15:55 ET fake -49.03pt NOISE-family long as NOISE_304 (in-bar Sep->Dec switch inside the 09-14 11:30 ET bar)."
+    },
+    {
+      "leg": "NOISE_225", "entry_unix": 1789400700,
+      "entry_et": "2026-09-14T11:45:00-04:00", "exit_et": "2026-09-14T15:55:00-04:00",
+      "recorded_pnl_usd": -980.66,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4): same 09-14 11:45-15:55 ET fake -49.03pt NOISE-family long as NOISE_304 (in-bar Sep->Dec switch inside the 09-14 11:30 ET bar). This leg is NOISE_H's ungated companion row (emit_ungated_as)."
+    },
+    {
+      "leg": "NOISE_SBS_V90_K6", "entry_unix": 1789400700,
+      "entry_et": "2026-09-14T11:45:00-04:00", "exit_et": "2026-09-14T15:55:00-04:00",
+      "recorded_pnl_usd": -980.66,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4): same 09-14 11:45-15:55 ET fake -49.03pt NOISE-family long as NOISE_304 (in-bar Sep->Dec switch inside the 09-14 11:30 ET bar)."
+    },
+    {
+      "leg": "NOISE_SBS_V90_K", "entry_unix": 1789400700,
+      "entry_et": "2026-09-14T11:45:00-04:00", "exit_et": "2026-09-14T15:55:00-04:00",
+      "recorded_pnl_usd": -970.48,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4): same 09-14 11:45-15:55 ET fake NOISE-family long as NOISE_304, sized at this leg's own KEEL multiplier (~0.99x)."
+    },
+    {
+      "leg": "NOISE_SBS_V90_T", "entry_unix": 1789400700,
+      "entry_et": "2026-09-14T11:45:00-04:00", "exit_et": "2026-09-14T15:55:00-04:00",
+      "recorded_pnl_usd": -924.45,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4): same 09-14 11:45-15:55 ET fake NOISE-family long as NOISE_304, sized at this leg's own KEEL multiplier (~0.94x)."
+    },
+    {
+      "leg": "NOISE_SBS_V90_K7", "entry_unix": 1789400700,
+      "entry_et": "2026-09-14T11:45:00-04:00", "exit_et": "2026-09-14T15:55:00-04:00",
+      "recorded_pnl_usd": -1185.80,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4): same 09-14 11:45-15:55 ET fake NOISE-family long as NOISE_304, sized at this leg's own KEEL multiplier (~1.21x)."
+    },
+    {
+      "leg": "NOISE_SBS_V90_K8", "entry_unix": 1789400700,
+      "entry_et": "2026-09-14T11:45:00-04:00", "exit_et": "2026-09-14T15:55:00-04:00",
+      "recorded_pnl_usd": -1390.94,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4): same 09-14 11:45-15:55 ET fake NOISE-family long as NOISE_304, sized at this leg's own KEEL multiplier (~1.42x)."
+    },
+    {
+      "leg": "NOISE_SBS_V90_K9", "entry_unix": 1789400700,
+      "entry_et": "2026-09-14T11:45:00-04:00", "exit_et": "2026-09-14T15:55:00-04:00",
+      "recorded_pnl_usd": -1390.94,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4): same 09-14 11:45-15:55 ET fake NOISE-family long as NOISE_304, sized at this leg's own KEEL multiplier (~1.42x)."
+    },
+    {
+      "leg": "NOISE_SBS_V90_K11", "entry_unix": 1789400700,
+      "entry_et": "2026-09-14T11:45:00-04:00", "exit_et": "2026-09-14T15:55:00-04:00",
+      "recorded_pnl_usd": -1390.94,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4): same 09-14 11:45-15:55 ET fake NOISE-family long as NOISE_304, sized at this leg's own KEEL multiplier (~1.42x)."
+    },
+    {
+      "leg": "NOISE_SBS_V90_K12", "entry_unix": 1789400700,
+      "entry_et": "2026-09-14T11:45:00-04:00", "exit_et": "2026-09-14T15:55:00-04:00",
+      "recorded_pnl_usd": -1390.94,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4): same 09-14 11:45-15:55 ET fake NOISE-family long as NOISE_304, sized at this leg's own KEEL multiplier (~1.42x)."
+    },
+    {
+      "leg": "NOISE_SBS_V90_H", "entry_unix": 1789400700,
+      "entry_et": "2026-09-14T11:45:00-04:00", "exit_et": "2026-09-14T15:55:00-04:00",
+      "recorded_pnl_usd": -1592.63,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4): same 09-14 11:45-15:55 ET fake NOISE-family long as NOISE_304, sized at this leg's own KEEL/gate multiplier (~1.62x)."
+    },
+    {
+      "leg": "NOISE_H", "entry_unix": 1789400700,
+      "entry_et": "2026-09-14T11:45:00-04:00", "exit_et": "2026-09-14T15:55:00-04:00",
+      "recorded_pnl_usd": -1733.99,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4): same 09-14 11:45-15:55 ET fake NOISE-family long as NOISE_304, sized at this gated leg's own model multiplier (~1.77x)."
+    },
+    {
+      "leg": "ORB", "entry_unix": 1789566300,
+      "entry_et": "2026-09-16T09:45:00-04:00", "exit_et": "2026-09-16T14:30:00-04:00",
+      "recorded_pnl_usd": -1930.66,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4/3.x): ORB's volatility filter reads the 5-session average range; the 09-14 in-bar splice raised that session's range from 430.75 to 725.75pt, letting this losing 09-16 09:45 ET long through. Gone at every offset/method tried."
+    },
+    {
+      "leg": "ORB_R6", "entry_unix": 1789582200,
+      "entry_et": "2026-09-16T14:10:00-04:00", "exit_et": "2026-09-16T14:35:00-04:00",
+      "recorded_pnl_usd": -2410.66,
+      "reason": "2026-09 contract roll splice (ROLL_AUDIT 4.5.4/3.x): ORB's volatility filter reads the 5-session average range; the 09-14 in-bar splice raised that session's range from 430.75 to 725.75pt, letting this losing 09-16 14:10 ET long through. Gone at every offset/method tried."
+    }
+  ]
+}

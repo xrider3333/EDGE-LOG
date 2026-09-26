@@ -21,6 +21,7 @@ Data flow per leg:
 Everything here is exception-proof by design (try/except around every stage) — a data
 hiccup must never take down the runner's watch loop.
 """
+import json
 import os
 import time
 from datetime import date, timedelta
@@ -36,6 +37,44 @@ from .util import json_safe
 # First trading day shadow trades are logged for. Anything with an entry before this
 # (e.g. the warm-up history the engine needs to even start emitting signals) is dropped.
 PAPER_START = "2026-08-11"
+
+# ── roll-splice artifact marks (ROLL_AUDIT.md, "Urgent (live/paper)" item 1; 4.5.4) ──
+# The September 2026 contract roll landed an in-bar Sep->Dec splice inside the 09-14
+# 11:30 ET bar; every leg re-reads the unadjusted master every night, so the fake trades
+# it produced (a 09-14 NOISE-family long, a 09-16 ORB long, a 09-16 ORB_R6 long) are
+# re-upserted forever until the master tail itself is repaired. The owner call was to
+# KEEP them (never delete a paper trade) but mark them, in a way that survives the
+# nightly re-upsert. ROLL_ARTIFACTS below is the committed flag list this file checks on
+# every trade doc it writes; the file itself carries the ROLL_AUDIT citation and the
+# recorded P&L for each entry, matched to Firestore on 2026-09-26 by tools/mark_roll_artifacts.py.
+ROLL_ARTIFACTS_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "tools", "data", "paper_roll_artifacts.json")
+
+
+def _load_roll_artifacts(path=None):
+    """{(leg, entry_unix): entry-dict} from the committed roll-splice flag list.
+
+    Matched purely on (leg, entry_unix) -- NOT on recorded_pnl_usd -- so the mark stays
+    even if a data refresh changes the recomputed P&L of the trade. Never raises: a
+    missing or unparsable file just means nothing gets flagged, not a broken nightly run.
+    """
+    out = {}
+    try:
+        with open(path or ROLL_ARTIFACTS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for e in data.get("entries") or []:
+            leg, eu = e.get("leg"), e.get("entry_unix")
+            if leg is not None and eu is not None:
+                out[(leg, int(eu))] = e
+    except Exception:
+        pass
+    return out
+
+
+# Loaded once at import time, same as every other static config in this file -- a
+# runner restart is what picks up an edit, exactly like every other constant here.
+ROLL_ARTIFACTS = _load_roll_artifacts()
 
 # ── BACKFILL vs FORWARD (owner 2026-08-16: "are you just assuming they were live
 #    from the get go?") ────────────────────────────────────────────────────────────
@@ -2283,6 +2322,16 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
                     "layer": "shadow", "run_date": t_date.isoformat(),
                     "flags": leg.get("flags") or [],
                 })
+                # Roll-splice artifact mark (see ROLL_ARTIFACTS above). Matched on
+                # (leg, entry_unix) only -- NOT on this run's recomputed pnl_usd -- so the
+                # mark survives a data refresh that moves the number. Applied on every
+                # nightly re-upsert, merge=True below, so it is re-asserted forever as
+                # long as the entry stays in tools/data/paper_roll_artifacts.json; a
+                # viewer can never lose the flag by the doc happening to get rewritten.
+                _art = ROLL_ARTIFACTS.get((key, entry_unix))
+                if _art:
+                    doc["roll_artifact"] = True
+                    doc["roll_note"] = _art.get("reason") or "2026-09 contract roll splice (ROLL_AUDIT 4.5.4)"
                 doc["createdAt"] = firestore.SERVER_TIMESTAMP
                 batch.set(q.db.collection("users").document(uid)
                          .collection("paper_trades").document(doc_id), doc, merge=True)
