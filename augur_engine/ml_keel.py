@@ -332,6 +332,14 @@ def extra_features(arrays):
     day = pd.Series(np.asarray(arrays["day_id"]))
     tr = pd.concat([H - L, (H - C.shift(1)).abs(), (L - C.shift(1)).abs()], axis=1).max(axis=1)
     atr14 = tr.ewm(alpha=1 / 14, adjust=False).mean().replace(0.0, np.nan)
+    # gap_atr fix (book round 58, keel_causality_probe.py, 2026-09-26): atr14[i] is an EWM
+    # over tr, and tr[i] reads bar i's OWN high/low (tr[i] = max(H[i]-L[i], ...)) -- so an
+    # unlagged gap_atr dividing by atr14 directly was scaling the entry-bar gap by an ATR
+    # that had already seen that same bar's fill-time high/low. gap_atr is the only reader
+    # of atr14 (all other columns below use `rng` = the SAME bar's H-L, but those are
+    # `lagged` and get shifted a full bar by keel_features's caller, so they never leak).
+    # Lag atr14 one bar so it ends at the bar BEFORE the fill bar, like a real pre-entry ATR.
+    atr14_prior = atr14.shift(1)
     rng = (H - L).replace(0.0, np.nan)
     body = ((C - O).abs() / rng).rolling(5, min_periods=1).mean()
     sv = np.sign(C.diff()).fillna(0.0).to_numpy()
@@ -349,7 +357,7 @@ def extra_features(arrays):
     day_open = O.groupby(day).transform("first")
     prev_close = C.groupby(day).last().shift(1)
     pc_on_bars = prev_close.reindex(day.to_numpy()).to_numpy()
-    gap = (day_open.to_numpy() - pc_on_bars) / atr14.to_numpy()
+    gap = (day_open.to_numpy() - pc_on_bars) / atr14_prior.to_numpy()
     rv20 = C.pct_change().rolling(20).std(); rv100 = C.pct_change().rolling(100).std()
     sq = _squeeze60(arrays)
     lagged = pd.DataFrame({"body5": body, "run_len": pd.Series(run), "day_pos": day_pos,
