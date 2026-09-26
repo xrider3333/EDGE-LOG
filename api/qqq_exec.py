@@ -696,14 +696,21 @@ def _notify(msg, title, log=print, priority=None):
     still holds shares after the close). Omitted (the default) keeps the original
     'default' priority for every routine fill/summary ping -- every call site from
     before this date passes nothing and is unaffected."""
-    topic = os.environ.get("NTFY_TOPIC")
+    topic = (os.environ.get("NTFY_TOPIC") or "").strip()
     if not topic:
         log(f"[qqq-exec] NTFY_TOPIC unset, push skipped: {title}: {msg}")
         return
+    headers = {"Title": title, "Priority": priority or "default"}
+    # Private topic (WEBULL_GO_LIVE 1.10): same NTFY_TOKEN / NTFY_SERVER contract as
+    # api/ntfy_push.py; unset keeps today's public ntfy.sh behaviour.
+    token = (os.environ.get("NTFY_TOKEN") or "").strip()
+    if token and "CHANGE-ME" not in token:
+        headers["Authorization"] = f"Bearer {token}"
+    server = ((os.environ.get("NTFY_SERVER") or "").strip() or "https://ntfy.sh").rstrip("/")
     try:
         req = urllib.request.Request(
-            f"https://ntfy.sh/{topic}", data=msg.encode("utf-8"), method="POST",
-            headers={"Title": title, "Priority": priority or "default"})
+            f"{server}/{topic}", data=msg.encode("utf-8"), method="POST",
+            headers=headers)
         urllib.request.urlopen(req, timeout=4)
     except Exception as e:
         log(f"[qqq-exec] ntfy push failed: {type(e).__name__}: {e}")
