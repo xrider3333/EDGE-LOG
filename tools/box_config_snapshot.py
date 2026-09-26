@@ -157,7 +157,7 @@ def _read_text_lines(path):
 
 # ── ssh/scp transport (never exercised in tests) ──────────────────────────────────────
 def _ssh(cmd, timeout=60):
-    return subprocess.run(["ssh", *SSH_OPTS, HOST, cmd], capture_output=True, text=True,
+    return subprocess.run(["ssh", *SSH_OPTS, HOST, cmd], capture_output=True, text=True, encoding="utf-8", errors="replace",
                           timeout=timeout)
 
 
@@ -173,7 +173,7 @@ def _remote_read_bytes(path, max_bytes=1_000_000):
         return None
     r = subprocess.run(
         ["ssh", *SSH_OPTS, HOST, f"base64 -w0 {shlex.quote(path)} 2>/dev/null"],
-        capture_output=True, text=True, timeout=60)
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
     if r.returncode != 0 or not (r.stdout or "").strip():
         return None
     import base64

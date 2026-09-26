@@ -147,6 +147,7 @@ _STATIC_BOOK_PATHS = [
     "api/cloud_signal_stream.py",
     "api/market_calendar.py",
     "augur_engine/ml_keel.py",
+    "augur_engine/fastloop.py",
     "tools/keel_live_state.py",
     "deploy/cloud",
 ]
@@ -297,7 +298,7 @@ def _book_is_flat(qqq_state, webull_state):
 
 # -- ssh/scp transport (never exercised in tests) ----------------------------------------
 def _ssh(cmd, timeout=120):
-    return subprocess.run(["ssh", *SSH_OPTS, HOST, cmd], capture_output=True, text=True,
+    return subprocess.run(["ssh", *SSH_OPTS, HOST, cmd], capture_output=True, text=True, encoding="utf-8", errors="replace",
                           timeout=timeout)
 
 
@@ -424,7 +425,7 @@ def _remote_git_diff_names(base_sha, target_sha, pathspecs):
 
 def _resolve_origin_main():
     r = subprocess.run(["git", "ls-remote", REPO_URL, "refs/heads/main"],
-                       capture_output=True, text=True, timeout=30)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
     out = (r.stdout or "").strip()
     if r.returncode != 0 or not out:
         raise RuntimeError(f"could not resolve origin/main: {(r.stderr or '').strip()[:200]}")
