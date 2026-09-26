@@ -493,6 +493,25 @@ CTRL_CHECK_SEC = 3.0             # STOP/PAUSE poll cadence inside a running job
 MIN_FREE_MEM_BYTES = 2.5 * 1024 ** 3   # do not claim more work below this much free RAM
 
 
+def log_safe(text):
+    """`text` with anything the console cannot encode replaced, instead of an exception.
+
+    WHY (2026-09-26). The master-refresh report lines carry a tick or a warning sign, and
+    printing one to a cp1252 console raises UnicodeEncodeError. The refresh call sits inside
+    a try/except, so the exception did not just lose ONE line - it threw away the whole
+    report and printed "[auto-refresh] skipped: UnicodeEncodeError" after the masters had
+    already been written. That is why runner.log has no refresh lines for 2026-09-14, the
+    day a contract splice went into every Yahoo-fed master, and why ROLL_AUDIT.md section
+    2.7 could only INFER who wrote that day's bars. A guard whose warning cannot be printed
+    is not a guard, so every one of those lines goes through here now.
+    """
+    try:
+        enc = (getattr(sys.stdout, "encoding", None) or "utf-8")
+        return str(text).encode(enc, errors="replace").decode(enc, errors="replace")
+    except Exception:
+        return str(text).encode("ascii", errors="replace").decode("ascii")
+
+
 def book_legs_missing_params(legs):
     """Names of BOOK legs that carry no params - the ones that would silently run the
     strategy FILE's defaults instead of the settings the book card names.
@@ -2556,7 +2575,7 @@ def main(argv=None):
             print(f"[{tag}] refreshing masters (Yahoo + watch-folder)…")
             changes = run_auto_refresh()
             for line in changes[:12]:
-                print(f"   {line}")
+                print("   " + log_safe(line))
             print(f"[{tag}] {len(changes)} master(s) updated.")
             if a.firestore:
                 q.sync_meta()

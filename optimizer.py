@@ -1372,14 +1372,16 @@ def auto_refresh_masters(progress_cb=None) -> list:
             merged, _roll_hit = roll_guard.split_indexed_frame(merged, _last_stored)
             if _roll_hit is not None:
                 _alert = roll_guard.write_alert(m["filename"], tf, _roll_hit)
+                # ASCII on purpose: this is the one line that must reach the log even on a
+                # console that cannot encode a warning glyph (api/runner.py log_safe).
                 results.append(
-                    f"⚠ {m['name']}: refused an in-bar contract switch - "
+                    f"WARNING {m['name']}: refused an in-bar contract switch - "
                     + roll_guard.describe(_roll_hit)
                     + (f" Alert: {_alert}" if _alert else ""))
                 if merged is None or len(merged) <= before_rows:
                     continue   # nothing clean left to store
         except Exception as _rge:
-            results.append(f"⚠ {m['name']}: roll guard could not run ({_rge}); "
+            results.append(f"WARNING {m['name']}: roll guard could not run ({_rge}); "
                            f"append skipped as a precaution")
             continue
 

@@ -371,3 +371,44 @@ def test_the_direction_is_a_named_constant_so_a_backwardated_market_can_flip_it(
     """In the near-zero-rate years the deferred contract traded BELOW the front one.
     The rule has to be changeable in one place if that returns."""
     assert rg.CARRY_SIGN == 1
+
+
+# ------------------------------------ the warning has to survive the console it prints to
+
+def test_a_refresh_line_with_a_glyph_does_not_take_the_whole_report_down():
+    """WHY this test exists (2026-09-26).
+
+    The refresh report lines carry a tick or a warning sign. Printing one to a cp1252
+    console raises UnicodeEncodeError, and the refresh call sits inside a try/except - so
+    the exception did not lose one line, it threw away the whole report and logged
+    "[auto-refresh] skipped: UnicodeEncodeError" AFTER the masters had already been
+    written. That is why runner.log has no refresh lines for 2026-09-14, the day a contract
+    splice went into every Yahoo-fed master. A guard whose warning cannot be printed is not
+    a guard.
+    """
+    from api.runner import log_safe
+    line = "\u2713 NQ 5m: +12 rows \u00b7 refused an in-bar contract switch \u26a0"
+    out = line.encode("cp1252", errors="replace").decode("cp1252")
+    assert out                                  # the point: this does not raise
+    safe = log_safe(line)
+    assert isinstance(safe, str) and "refused an in-bar contract switch" in safe
+    # plain text is returned untouched
+    assert log_safe("NQ 5m: held back 2026-12-14 onwards") == \
+        "NQ 5m: held back 2026-12-14 onwards"
+
+
+def test_the_roll_guard_message_the_app_logs_is_plain_ascii():
+    """It must not depend on that fix to be readable: no glyph in the line itself."""
+    src = open(os.path.join(ROOT, "optimizer.py"), encoding="utf-8").read()
+    i = src.index("refused an in-bar contract switch")
+    line = src[src.rindex("\n", 0, i) + 1:src.index("\n", i)]
+    assert line.isascii(), "the roll-guard log line carries a non-ASCII character: %r" % line
+    assert "WARNING" in line
+
+
+def test_the_guard_message_itself_is_ascii():
+    """roll_guard.describe() output ends up in a log and a JSON alert; keep it printable."""
+    st = _stamp(2026, 9, 14, 11, 30)
+    t, o, c, v = _with_splice(29080, 18.0, 300, st, 29077.00, 29454.50, 18996)
+    hit = rg.suspect_bars(t, o, c, volumes=v)[0]
+    assert rg.describe(hit).isascii()
