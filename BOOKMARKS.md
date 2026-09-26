@@ -472,3 +472,9 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - **The squeeze swap is real:** more net in 13 of 15 years, worst year -$4,061. #396 = #366 with only that file changed, app PASS.
 - **Slot audit:** 7 validated alternatives, none clears (ENGU-Q R4: sel +12.5%, held-back -11.9%).
 - **Hourly squeeze tilt on NOISE:** exact subset of the crown, beats leverage controls, never loses a year - but only 84-87% of nulls in the held-back year vs 95% pre-registered. Parked.
+
+## 2026-09-26 - DIP on true contract rolls (STUDIES rows 1778-1783, v73.913)
+
+| # | Find | Numbers | Where | Caveat |
+|---|---|---|---|---|
+| **B34** | **DIP on ES, restated** - `NQDIP_1_2.py` on ES 5m (roll fix: only the contract offset leaves the P&L, at the true switch bar from `tools/data/contract_switches_ES.csv`) | run **#432** WEAK 5/6 (PBO 0.71 only) - WF 8/8 folds, WF **17.8%/yr** Sortino 1.32 - LB +$25,409 **25.4%/yr** Sortino 3.77 PF 2.06 - whole-run **DD $66,592** (the Sep 24 PASS **#425 read $54,016**: its file dropped the whole gap on every flagged night, hiding real Covid gaps) | `tools/queue_dip_true_rolls.py`; ROLL_AUDIT.md 3.6 | pre-registered: below PASS it is no book candidate until re-argued (owner call). Same rules on NQ: **#433** WEAK, WF 31.7%/yr, LB 29.5%/yr, DD $39,458; DIP 1.1 as `NQDIP_1_3.py` **#434** WEAK, WF 37.9%/yr, LB 24.8%/yr (was 78.1), DD $52,496 |
