@@ -1,0 +1,39 @@
+REPLAY MISMATCH DIAGNOSIS — run #310 and run #326 (2026-09-27, read-only)
+
+METHOD: pulled both docs live from Firestore users/IO0K.../runs/{310,326}; reloaded NQ 1m ETH
+db_noadj_eth over each run's own window with its own best_params/cost/mult; re-ran
+augur_engine.ml_gate.gate_validate() with the stored span/wf_range/lockbox_from; also ran a
+fresh RELOAD backtest starting exactly at lockbox_from (validate.py's own lockbox method).
+Both runs (#310 stamped 09-02, #326 stamped 09-07) predate the look-ahead fix's successor
+changes (dense-tails 09-13, warm-starts 09-20) which don't rewrite trade totals anyway, and
+postdate the 08-10 look-ahead fix itself — no version-drift expected, and none found.
+RUN #310 (ENGUQ_1M_ETH_LIM_1_0, HYBRID-DD et):
+- Fresh gate_validate reproduces the stored doc to the cent: 749 trades, ungated_wf
+  $607,888.26, ungated_lockbox $0/0 trades, ungated_full $667,718.72 — exact match.
+- roc_board's "run-row WF/LB" (41.0/34.5) also reproduces exactly, from validate.wf_oos
+  ($356,834/8.71yr) and validate.lockbox ($34,452/1yr) — a RE-TUNED rolling-fold WF, a
+  different pipeline from gate_validate's frozen-config continuous WF ($607,888). No stored
+  pair in the doc equals $149,580; nearest gaps are $251,054 (retuned-WF vs continuous-WF)
+  and $59,830 (full vs WF).
+- CAUSE (a): most likely a replay-script bug — comparing two WF definitions never meant to
+  agree, not an engine/save fault (the engine reproduces its own numbers exactly). Separately
+  (already in memory): #310's continuous lockbox is genuinely 0 trades (one held-open
+  position) vs validate's reload seeing 91 — the #198 artifact, real but not $149,580's source.
+- QUOTABLE: stored gate_validate numbers, yes. NOT quotable as a forward lockbox result.
+RUN #326 (ENGUQ_1M_ETH_REG5, TILT xgb tier):
+- Fresh continuous replay reproduces the doc to the cent: 2,756 trades, ungated_wf
+  $504,272.60, ungated_lockbox $115,052.97/35 trades — matches TILT/xgb lockbox exactly.
+- Fresh RELOAD from lockbox_from (cold state) gives 236 trades/$114,428.10 — identical to
+  stored validate.lockbox (236 trades, same $/PF/Sortino). 236 − 35 = 201.
+- CAUSE (b): expected difference by design, same mechanism as #198/#310 — the reload's
+  EMA(1380)/trend(170)/regime(5) start cold at the boundary and fire far more entries than
+  the continuous run, already deep in a long position there. Both blocks are individually
+  correct (both reproduce exactly); nothing is missing or a bug, no post-09-07 engine change
+  caused it.
+- QUOTABLE: both blocks individually, yes — never as one number; label "236 reload" vs
+  "35 continuous" together whenever quoted.
+BOTTOM LINE: neither run's engine/save layer is bugged — every stored number replays exactly
+on today's code. Both are pre-existing methodology splits (retuned-WF vs frozen-continuous-WF
+for #310; reload-lockbox vs continuous-lockbox for #326), the same class #198 exposed
+2026-08-08. Never quote a bare "WF" or "lockbox" number for either run without naming the
+pipeline it came from.
