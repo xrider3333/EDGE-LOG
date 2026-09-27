@@ -21,11 +21,11 @@ done.
 | 9 | KEEL v12 on top of run #382 on the NOISE leg | **LIVE** (2026-09-24, 5326d02) | nothing |
 | 10 | Fire orders at the bar close from the live price feed | **SHADOW** (2026-09-25, 4aaabc8, live on the box, switch off) | after about a week of shadow numbers: switch it on or not |
 | 11 | Re-price trades from Webull's own tape, not Yahoo | **DONE** (2026-09-25, 9805414, live on the box) | nothing |
-| 12 | NOISE's volatility skip never fires live | **PARTLY DONE** (2026-09-26): NOISE asks for 262 sessions; the box holds 77 | an intraday data key (e.g. a free Alpaca account) for a year of QQQ 5m bars |
+| 12 | NOISE's volatility skip never fires live | **PARTLY DONE** (2026-09-26): daily QQQ ranges fill the missing sessions (live from Monday's first tick); the exact fix waits on a data key | a free Alpaca data key in the private secrets folder (steps in item 12) |
 | 13 | Share cap vs #382 x KEEL sizes | **DONE** (2026-09-24: 60 per leg, 80 total) | nothing |
 | 14 | Taking the book live: the go-live punch list (WEBULL_GO_LIVE.md) | **IN PROGRESS** (2026-09-26: 1.1-1.4, 1.8, 1.9, 3.6-3.8, 3.11 done; see its status note) | decisions in its section 2: account, size and the day-trade rule, shorting, token, KEEL stack, ENGU-Q; a private alert topic |
 | 15 | ORB never enters before about 14:05 ET: the half-day test drops today's unfinished session | **DONE** (2026-09-26, 9a82613, live on the box) | nothing; watch ORB's first morning entries |
-| 16 | Entries and exits go out one 5-minute bar after the backtest's fill | **OPEN** (2026-09-26, confirmed from the live record) | nothing |
+| 16 | Entries and exits go out one 5-minute bar after the backtest's fill | **DONE** (2026-09-26, live on the box from Monday) | nothing; check the first day's timing |
 | 17 | Order-path rework (unknown outcomes, fill status, split orders, separate live state, safe disarm) | **OPEN** (2026-09-26: built, not shipped) | nothing |
 
 ---
@@ -627,6 +627,22 @@ bars (REST history, or the live feed's ohlc_stream files) are the tape the order
 
 ## 12. NOISE's volatility skip never fires live
 
+**Status 2026-09-26: PARTLY DONE, two parts.**
+- Shipped (f397763d): the sessions before the box's 5m window are filled from QQQ DAILY
+  ranges (Yahoo, no key), scaled onto the 5m ranges (ratio 0.9999 over 76 shared sessions).
+  The box builds its daily file on Monday's first live tick; until then the skip ranks
+  against 77 sessions as before.
+- Built, waiting on the owner (the Alpaca backfill tool): a year of real QQQ 5m bars from
+  Alpaca's free data feed, so the skip ranks on the same bars as the backtest.
+
+**Needs from the owner (Alpaca, about 5 minutes).**
+1. Open a free Alpaca account (alpaca.markets); paper trading is enough, no money needed.
+2. In the Alpaca dashboard, generate API keys (the key id and the secret).
+3. On the PC, in PowerShell, put them in the private secrets folder (never in chat):
+   `[IO.File]::WriteAllText('C:\EdgeLog\secrets\alpaca_keys.json', (@{key='YOUR_KEY'; secret='YOUR_SECRET'} | ConvertTo-Json), (New-Object Text.UTF8Encoding $false))`
+4. Tell MANAGER "Alpaca key added". Claude then checks the key, pulls the bars, copies them to
+   the box after the close while the book is flat, and confirms the NOISE window reads COMPLETE.
+
 **Status: PARTLY DONE 2026-09-25** (307a128; live from the 16:07 ET restart). The engine now hands
 NOISE 70 sessions (the log reads "look-back COMPLETE"), so the skip can engage live. The
 backtest still ranks against up to 252 sessions, not about 70, so some skip days will differ.
@@ -689,7 +705,20 @@ the backtest one for one.
 
 ## 16. Entries and exits go out one 5-minute bar after the backtest's fill
 
-**Status: OPEN.** Added 2026-09-26 (owner question via MANAGER; NOISE round 61 priced it at
+**Status: DONE 2026-09-26** (deployed to the box on Saturday while flat; first live day Monday
+2026-09-28). NOISE #382 now decides at the close of bar D: the engine re-runs the strategy with
+two flat stand-in bars after D and sends any entry it would fill at the next open, and any exit
+it had already queued for the next open, straight away, priced at D's close. An exit on a
+position entered on D is only sent early when a second run with the stand-ins moved far in the
+position's favour still closes it at the next open (so a stop guessed from stand-in data is
+never sent). ORB does not use this: its stop orders are real intrabar fills.
+Replay on the box's own bars (36 sessions, 2026-08-06 to 09-25, tools/decide_at_close_replay.py,
+with and without the daily-range bridge): 35 of 35 entries and 28 of 28 next-open exits now go
+out at the backtest's fill time instead of 5 minutes after it, with the same trades, no misses
+and no duplicates. The 6 end-of-day exits are unchanged (the book flattens itself before the
+close). To check on Monday: the first live orders' send time against the backtest's fill bar.
+
+**Original note.** Added 2026-09-26 (owner question via MANAGER; NOISE round 61 priced it at
 about 0.45-0.66 NQ points a trade).
 
 **What is wrong.** The backtest decides at the close of bar D and fills at the OPEN of bar D+1.

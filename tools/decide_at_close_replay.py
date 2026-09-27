@@ -58,13 +58,17 @@ def _exit_kind(arrays, t):
     return "intrabar"
 
 
-def replay(epoch_df, leg_key, cfg, n_sessions, workdir):
-    """-> dict(events=[...], trades={tid: trade}, state=leg_state, sessions=[dates])."""
+def replay(epoch_df, leg_key, cfg, n_sessions, workdir, daily=None):
+    """-> dict(events=[...], trades={tid: trade}, state=leg_state, sessions=[dates]).
+    `daily`: optional COPY of QQQ_1d.csv, put in the throwaway store so the live
+    vol_prior_ranges bridge runs as it does on the box (the reference run gets it too)."""
     tf = cfg["timeframe"]
     tf_sec = cs.TIMEFRAME_SECONDS[tf]
     paths = cs._paths(home=workdir)
     os.makedirs(paths["ohlc_dir"], exist_ok=True)
     epoch_df.to_csv(os.path.join(paths["ohlc_dir"], f"QQQ_{tf}.csv"), index=False)
+    if daily:
+        shutil.copyfile(daily, os.path.join(paths["ohlc_dir"], "QQQ_1d.csv"))
 
     arrays = cs.build_arrays(epoch_df)
     idx = arrays["index"]
@@ -72,7 +76,11 @@ def replay(epoch_df, leg_key, cfg, n_sessions, workdir):
     sessions = days[-n_sessions:]
     bars = [ts for ts in idx if ts.date() in set(sessions)]
 
-    full = cs.run_leg_trades(cfg, arrays, leg_key=leg_key)
+    if daily:
+        end = (idx[-1] + pd.Timedelta(seconds=tf_sec + TICK_AFTER_CLOSE_SEC)).to_pydatetime()
+        full = cs.run_leg_trades(cfg, arrays, leg_key=leg_key, now=end, paths=paths)
+    else:
+        full = cs.run_leg_trades(cfg, arrays, leg_key=leg_key)
     trades = {cs._entry_key(leg_key, t): t for t in full
               if pd.Timestamp(t["entry_time"]).date() in set(sessions)}
 
@@ -180,6 +188,7 @@ def main(argv=None):
     ap.add_argument("--sessions", type=int, default=36)
     ap.add_argument("--yf", action="store_true", help="top up the cache from yfinance 5m (network)")
     ap.add_argument("--out", default=None, help="scratch output dir (default: a new temp dir)")
+    ap.add_argument("--daily", default=None, help="COPY of QQQ_1d.csv: run the live daily-range bridge")
     a = ap.parse_args(argv)
     out = a.out or tempfile.mkdtemp(prefix="decide_at_close_replay_")
     os.makedirs(out, exist_ok=True)
@@ -188,7 +197,7 @@ def main(argv=None):
     for flag in (False, True):
         work = tempfile.mkdtemp(prefix="dac_store_", dir=out)
         try:
-            run = replay(epoch_df, a.leg, leg_cfg(a.leg, flag), a.sessions, work)
+            run = replay(epoch_df, a.leg, leg_cfg(a.leg, flag), a.sessions, work, daily=a.daily)
         finally:
             shutil.rmtree(work, ignore_errors=True)
         sc = score(run)
