@@ -46,3 +46,38 @@ ROC %/yr on $100k, and the engine's Sortino (`sortino_from_pnls`).
 - Any other FAIL: nothing live changes; the shipped single-seed v12 stays.
 - Not changed by this round whatever the result: every NOISE crown, the event and compression tilts,
   and ENGU-Q.
+
+---
+
+## RESULT (read 2026-09-26, after the bar above was committed as 696c00f) - FAIL
+
+`python tools/keel_bag_check.py --report` (per-seed sizes cached at C:\EdgeLog\_anatomy_cache\keel_bag).
+
+| leg | row | WF ROC %/yr | WF ret/DD | WF Sortino | LB ROC %/yr | LB ret/DD | LB Sortino |
+|---|---|---|---|---|---|---|---|
+| NOISE #304 | raw | 36.6 | 2.16 | 3.79 | 55.2 | 2.25 | 3.16 |
+| NOISE #304 | single seed 42 (shipped) | 58.1 | 2.17 | 4.57 | 96.4 | 3.57 | 4.43 |
+| NOISE #304 | single-seed median | 56.7 | 2.10 | 4.42 | 82.6 | 3.12 | 3.63 |
+| NOISE #304 | **bag 1 (primary)** | 55.7 | 2.11 | 4.42 | 86.1 | 3.03 | 3.87 |
+| NOISE #382 | raw | 55.9 | 2.67 | 3.87 | 77.6 | 2.33 | 2.95 |
+| NOISE #382 | single seed 42 (shipped) | 84.1 | 2.60 | 4.22 | 111.8 | 2.85 | 3.22 |
+| NOISE #382 | single-seed median | 85.9 | 2.59 | 4.38 | 101.0 | 2.36 | 2.82 |
+| NOISE #382 | **bag 1 (primary)** | 84.7 | 2.59 | 4.24 | 95.2 | 2.33 | 2.74 |
+
+- **#304: P1 FAIL, P2 PASS, P3 PASS, P4 PASS.** Walk-forward return per drawdown 2.11 against raw 2.16.
+- **#382: P1 FAIL, P2 FAIL, P3 FAIL, P4 PASS.** P2 misses by a hair (Sortino 4.24 against a 4.25 line);
+  P3 misses because the lockbox return per drawdown only ties raw (2.33).
+- **P4 passes by a wide margin on both.** Across three independent bags the lockbox net spread falls
+  from 48% to 21% (#304) and from 83% to 6% (#382); walk-forward from 6.7% to 1.8% and 4.4% to 0.7%.
+
+**What it means.** Averaging does exactly what it was meant to do - it removes the seed. What is left
+underneath is the finding: **on this tape KEEL's walk-forward return per drawdown is raw's, not better**
+(bags 2.04-2.11 vs 2.16 on #304; 2.53-2.59 vs 2.67 on #382). P1 fails for the single-seed median too,
+so this is a property of KEEL, not of averaging. What KEEL does add robustly is about 50% more money
+at a proportionally larger drawdown, with a better Sortino (4.42 vs 3.79; 4.24 vs 3.87). That is closer
+to well-placed leverage than to an edge. The shipped seed's lockbox advantage was luck: every bag is
+below it.
+
+**Per the pre-registration: nothing live changes.** The single-seed v12 stays on the Webull NOISE leg.
+Whether a sizing layer that matches raw's return per drawdown should stay live at all is an owner call,
+not something this round can decide.
