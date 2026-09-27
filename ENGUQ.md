@@ -827,3 +827,50 @@ honest edges so a future session can re-open it knowingly. Nothing here touches 
   by entry; $107,924 pooled by exit inside a book; $48,073 in the card's own stretch block) and they
   have never been reconciled. To re-open, the minimum is one re-grade at 0.60 on back-adjusted
   prices with June repaired, plus the concentration test on the graded cell.
+
+### 2026-09-27 - the roll-corrected re-validates landed: ENGU-Q #443 (NQ) and #442 (ES)
+
+Owner GO on decision 13. Both jobs named the registered back-adjusted masters explicitly
+(db_adj_eth), pinned window, cost, contract value and the sealed year to the runs they correct,
+ran 900 trials with the ranges fenced, and finished in about 70 minutes each.
+
+**Both come back WEAK, and neither failure is caused by the roll correction.**
+- **ENGU-Q #443 (NQ, corrects #335):** WEAK, failing only the luck check (0.769 against a 0.80
+  bar). Folds 7/8, overfit reading 0.222 - BETTER than #335's 0.385. Walk-forward 19.6% a year at
+  Sortino 1.42 (against #335's 37.7% and 2.998); sealed year 59.3% a year at Sortino 1.81 on 197
+  trades (#335: 58.2% and 2.844 on 129).
+- **The budget moved the crown, not the tape.** #443's crowned cell is identical in all 14 knobs
+  to ENGU-Q #402's, a 900-trial search run on the UN-corrected tape on 2026-09-20 that was also
+  WEAK. Nothing here says the roll fix re-crowned ENGU-Q.
+- **ENGU-Q #442 (ES, corrects #370):** WEAK, failing only the overfit check, and failing it badly
+  at 0.905. Walk-forward 22.0% a year at Sortino 4.42; the sealed year is TEN trades whose ten best
+  are 100% of it. Not evidence. ENGU-Q on ES stays CLOSED-NO; this run corrects the record.
+
+**The number that decides the crown: the defaults cell, run continuously on the corrected tape.**
+This is the cell paper leg ENGUQ_335 and NinjaTrader actually trade.
+
+| NQ, cost 0.533 | no-adjust | roll-corrected |
+|---|---|---|
+| Tuning trades / net / PF / MAR / Sortino | 1,831 / $524,745 / 1.717 / 0.90 / 3.90 | 1,937 / $428,111 / 1.537 / 0.74 / 3.10 |
+| Sealed trades / net / PF / MAR / Sortino | 118 / $88,380 / 1.675 / 2.13 / 4.00 | 116 / $75,449 / 1.580 / 1.72 / 3.41 |
+| Whole window | 1,949 / $613,126 / 1.711 | 2,053 / $503,560 / 1.543 |
+
+Reconciles to the dollar with the correction section above: at the book's 0.783 cost the corrected
+whole run is $493,295, which is that section's $499,155 less the $5,860 June repair - these masters
+carry the June switch, which that block excluded.
+
+**On the corrected tape the defaults cell beats both champions.** Against #335's champion
+($441,318 tuning / MAR 0.41 / sealed $29,257) and #443's new cell ($379,140 / MAR 0.33 / sealed
+$59,301), the defaults cell wins on net, drawdown, annualised MAR and Sortino in both stretches.
+Nothing argues for moving the paper or NinjaTrader cell, and ENGU-Q #335 keeps the crown.
+
+**Read these two runs with five caveats.** (1) Not like-for-like in three ways at once: corrected
+tape, 900 trials against 300 and 250, and fenced ranges. (2) Every sealed year here is tail - the
+corrected defaults cell's ten best trades are 224% of its sealed net, and without them the year is
+-$93,484, so the "sealed year of ENGU-Q #335 is one trade" finding survives the correction and gets
+worse. (3) #442's sealed year is ten trades. (4) The June 2026 offset behind both sealed years is
+ESTIMATED (NQ +293.00, range 288-300) because the raw vendor feed stops 2026-06-05; no trade in any
+cell enters or exits on a splice bar, but the estimate sits in the level of every earlier bar.
+(5) Shift-invariance was proved for the #335 leg and #370 at their own parameters, not for the two
+new cells - if either is sensitive to price level it would read differently on the forward-adjusted
+twin.
