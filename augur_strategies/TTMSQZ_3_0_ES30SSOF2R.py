@@ -13,7 +13,7 @@ WHY THIS EXISTS (2026-09-26, MANAGER dispatch; ROLL_AUDIT.md section 3.3)
 
 THE GUARD, AND WHY IT IS BAR-LEVEL RATHER THAN A BLACKOUT
   Every bar before each true contract switch is shifted by that switch's offset (Panama
-  back-adjustment), using the exact switch table tools/data/contract_switches_ES.csv - never the
+  back-adjustment), using the data lane roll table tools/data/rolls_ES.csv (was contract_switches_ES.csv) - never the
   house seam detector, which the audit found catches only 19 of 64 switches. The strategy then runs
   unchanged on the continuous series. The alternative - blocking entries for N days after a roll -
   throws away the real trades on those days along with the fake ones, and needs an N nobody can
@@ -60,20 +60,25 @@ _sp = _u.spec_from_file_location("TTMSQZ_3_0_ES30SSOF2", os.path.join(_HERE, "TT
 _base = _u.module_from_spec(_sp); _sp.loader.exec_module(_base)
 
 _ROOT = "ES"
-_SWITCHES_CSV = os.path.join(os.path.dirname(_HERE), "tools", "data", "contract_switches_%s.csv" % _ROOT)
-_INCLUDE_INFERRED = False   # raw Databento switches only, as the roll audit measured (the post-raw
-                            # rows are inferred from another feed and one of them is not trusted)
+# THE ROLL TABLE (moved 2026-09-27 from contract_switches_ES.csv to the data lane's rolls_ES.csv). The two
+# agree on all 64 raw switches to the point; rolls_ES.csv also labels the fake 2026-09-13 row a weekend
+# gap (not a roll) and carries the in-bar 2026 switches with estimated offsets, and it is the table the
+# data lane appends each new roll to. Every row except kind == not_a_roll is used, estimated ones too:
+# an offset good to a point or two removes a 60-point roll jump far better than leaving it in.
+_ROLLS_CSV = os.path.join(os.path.dirname(_HERE), "tools", "data", "rolls_%s.csv" % _ROOT)
+_TABLE = {"mtime": None, "sec": np.zeros(0, np.int64), "off": np.zeros(0)}
 
 
-def _load_switches():
-    sw = pd.read_csv(_SWITCHES_CSV)
-    if not _INCLUDE_INFERRED:
-        sw = sw[sw["source"] == "databento_raw"]
-    sw = sw[np.isfinite(sw["contract_offset"].astype(float))]
-    return (sw["switch_sec"].to_numpy(np.int64), sw["contract_offset"].to_numpy(float))
-
-
-_SW_SEC, _SW_OFF = _load_switches()
+def _switches():
+    """(switch seconds, offsets), re-read whenever the CSV changes - a long-running paper runner holds this
+    module for days, and a roll row appended on the evening of a switch must reach the next session."""
+    mt = os.path.getmtime(_ROLLS_CSV)
+    if _TABLE["mtime"] != mt:
+        sw = pd.read_csv(_ROLLS_CSV)
+        sw = sw[(sw["kind"] != "not_a_roll") & np.isfinite(pd.to_numeric(sw["offset_pts"], errors="coerce"))]
+        _TABLE.update(mtime=mt, sec=sw["switch_sec"].to_numpy(np.int64),
+                      off=pd.to_numeric(sw["offset_pts"]).to_numpy(float))
+    return _TABLE["sec"], _TABLE["off"]
 
 
 def _bar_seconds(index):
@@ -87,7 +92,8 @@ def roll_offsets(index):
     """Points to add to each bar: the sum of the offsets of every true switch AFTER that bar."""
     sec = _bar_seconds(index)
     add = np.zeros(len(sec))
-    for s, off in zip(_SW_SEC, _SW_OFF):
+    sw_sec, sw_off = _switches()
+    for s, off in zip(sw_sec, sw_off):
         add[sec < s] += off
     return add
 
