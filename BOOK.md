@@ -1025,6 +1025,34 @@ and valued daily (cap $52,348), and (4) more net than #437 in >= 10 of the 15 ye
   The #428 cutoff was chosen in-sample and missed its own MAR clause, so the leg decision stays with the
   TTM chat.
 
+**Round 60b (same day, TTM inbox #12 + MANAGER inbox #13), pre-registered in the same file before C1-C3 were
+computed.** C1 re-bases the NOISE-slot bar on #436 (cap: lockbox drawdown $28,881 at close, $52,348 valued
+daily; pre ROC >= 93.6; lockbox ROC >= 294.4; >= 10 of 15 years). C2 and C3 carry the TTM chat's exact leg:
+`TTMSQZ_3_0_ES30SSOF2R347.py`, which is the #428 roll-guard cell sized 3 / 4 / 7 whole ES contracts by the
+file itself, at weight 1 on the no-adjust master. Its leg net ($358,609.80) equals this chat's own 3 / 4 / 7
+re-pricing to the cent.
+
+| run | book | ROC %/yr pre / lockbox | pre DD at close / valued daily | lockbox DD at close / valued daily | Sortino pre / lockbox | years more than its base | bar |
+|---|---|---|---|---|---|---|---|
+| #436 | base: #396 roll-corrected | 89.1 / 294.4 | $43,967 / $44,849 | $27,506 / $49,855 | 3.96 / 6.25 | - | - |
+| **#449** | #436 with NOISE #422 | **97.5 / 310.8** | $43,967 / $44,849 | $27,506 / $49,855 | 4.18 / 6.42 | **15** | **CLEARS all four clauses** |
+| #435 | base: #366 roll-corrected | 84.4 / 277.1 | $40,854 / $41,736 | $28,066 / $49,855 | 3.80 / 5.85 | - | - |
+| **#448** | #435 with TTM = R347 | 88.8 / 293.8 | $36,562 / $37,444 | $27,506 / $49,855 | 4.01 / 6.25 | 11 | no bar (TTM chat's leg call) |
+| #437 | base: #397 roll-corrected | 88.1 / 293.3 | $40,971 / $41,853 | $25,893 / $49,855 | 3.98 / 6.31 | - | - |
+| **#450** | #437 with TTM = R347 | 87.8 / 292.7 | $33,567 / $34,449 | $25,893 / $49,855 | 4.03 / 6.31 | 6 | no bar (TTM chat's leg call) |
+
+- **NOISE #422 clears on #396's legs and misses on #397's.** The same swap adds the same $141,652 to the NOISE
+  leg in both books. On #396's legs it touches neither worst stretch, so both drawdowns stay put. On #397's
+  legs it deepens the lockbox's worst stretch from $25,893 to $27,955. The swap was tried on two bases, and
+  only one clears, so read the pass as base-specific rather than a property of #422 alone. Round 58's other
+  cautions still apply: it is a size tilt on the same trades, and in the lockbox it sits at the 79th
+  percentile of random upsizing.
+- **The TTM chat's leg lowers the pre-lockbox drawdown on every base.** The TTM chat traced this to a
+  2020-03-17 losing short that the roll-guarded #369 cell takes and the #428 cell does not. On #366's legs it lifts 84.4 / 277.1 to 88.8 /
+  293.8. Its entry cutoff was chosen in-sample, so the leg decision stays with the TTM chat.
+- **Nothing is adopted.** The open owner questions are now: which book (#366, #396 or #397), which NOISE leg
+  (#304 or #422), and which TTM leg (#369 or R347).
+
 ### 10b. An open item this audit turned up: two day-stamping rules disagree
 
 The recorded finding put the baseline's worst stretch in **2020-02-21..2020-03-25 at $34,903**; the
