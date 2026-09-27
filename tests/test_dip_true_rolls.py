@@ -146,3 +146,39 @@ def test_1_3_with_its_extra_legs_off_is_1_2():
     b = m13.run_backtest(o, h, l, c, day_id=did, index=idx, return_trades=True,
                          use_ibs=False, use_streak=False, use_gapdn=False)
     assert a["trades"] == b["trades"]
+
+
+# ── 5. NQDIP 1.4: the crash stop ────────────────────────────────────────────────────────────
+def test_1_4_with_the_stop_off_is_1_2():
+    m12, m14 = _load("NQDIP_1_2.py"), _load("NQDIP_1_4.py")
+    o, h, l, c, idx, did = _long_tape()
+    a = m12.run_backtest(o, h, l, c, day_id=did, index=idx, return_trades=True)
+    b = m14.run_backtest(o, h, l, c, day_id=did, index=idx, return_trades=True, stop_atr=0.0)
+    assert a["trades"] == b["trades"]
+
+
+@pytest.mark.parametrize("stop_atr", [1.0, 2.0])
+def test_1_4_stopped_trades_rebuild_their_dollars(stop_atr):
+    mod = _load("NQDIP_1_4.py")
+    o, h, l, c, idx, did = _long_tape()
+    trades = mod.run_backtest(o, h, l, c, day_id=did, index=idx, return_trades=True, stop_atr=stop_atr)["trades"]
+    marks = mod.mark_open_trades(trades, o, h, l, c, day_id=did, index=idx, stop_atr=stop_atr)
+    oa, ha, la, ca, ev = mod.roll_adjust(o, h, l, c, idx)
+    rb = np.array([b for b, _ in ev])
+    bounds = mod._session_bounds(did, len(c))
+    bar_sess = np.concatenate([[j] * (b - a) for j, (a, b) in enumerate(bounds)])
+    dca = np.array([ca[b - 1] for a, b in bounds]); doa = np.array([oa[a] for a, b in bounds])
+    stopped = 0
+    for t, mk in zip(trades, marks):
+        e, x, pnl, side, ep, xp = t
+        de, dx = bar_sess[e], bar_sess[x]
+        stopped += x != bounds[dx][0]
+        xadj = xp + (ca[x] - c[x])                                   # traded price back on the adjusted series
+        dpp = 2.0 * max(1, int(round(100000.0 / (ep * 2.0))))
+        n_roll = int(((rb > e) & (rb <= x)).sum())
+        assert [k for k, _ in mk] == [bounds[j][1] - 1 for j in range(de, dx)]
+        base, ref = (mk[-1][1], dca[dx - 1]) if mk else (0.0, doa[de])
+        assert base + dpp * (xadj - ref) - 0.783 * dpp - 0.25 * dpp * n_roll == pytest.approx(pnl, abs=1e-6)
+        if x != bounds[dx][0]:                                       # an intraday stop fills at or below its level
+            assert xadj <= doa[de] + 1e-9
+    assert stopped >= 1, "no trade was stopped - the stop branch is untested"
