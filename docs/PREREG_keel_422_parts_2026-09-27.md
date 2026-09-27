@@ -56,3 +56,12 @@ Nothing live changes. The recommendation goes to MANAGER as an owner call for th
   largest size 3.94x instead of 5.25x. The live box already runs KEEL at trust 0, which is the fixed tilts
   in practice; A3 makes that explicit and stops the model from growing into the sizing as trust accrues.
   Owner call; nothing live changed.
+
+---
+
+## ADDENDUM PRE-REGISTRATION (2026-09-27, committed before any #382 arm is computed) - the same test on NOISE #382
+
+The live leg today is #382 + KEEL v12. The identical arms A0-A4, H1, H2, lockbox veto and recommendation
+rule above are applied unchanged to NOISE #382 (NOISE_1_8_CT304.py 30-min, 16, 1.15, 2.0x), same tape,
+stretches, engine and seeds (A1/A2 = 7-seed bags 90001-90007). A0 and A1 for #382 were read on 2026-09-26/27
+(tools/keel_bag_check.py) and are comparators only. Nothing live changes whatever the result.
