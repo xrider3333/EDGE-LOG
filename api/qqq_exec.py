@@ -948,7 +948,8 @@ TRADE_COLS = (["leg", "entry_ts", "exit_ts", "side", "shares", "entry_px", "exit
 
 
 def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, log=print,
-                  fill_dt=None, signal_source=None, size=None, shares_wanted=None):
+                  fill_dt=None, signal_source=None, size=None, shares_wanted=None,
+                  decided_at_ref=False):
     """`fill_dt` (feature #51 LATENCY): the ET timestamp of the NT fill this order
     mirrors, when one exists -- absent for rail-driven closes (BREAKER/EOD/KILL flatten
     has no single triggering fill). latency_s = now (adapter order time) - fill_dt.
@@ -971,7 +972,12 @@ def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, l
     leg swapped onto a different timeframe is picked up automatically). Left blank
     ("") for ninjatrader-mode rows (fill_dt there already IS a real fill time --
     latency_s already answers this question for them) and for any row with no
-    resolvable leg timeframe."""
+    resolvable leg timeframe.
+
+    `decided_at_ref` (2026-09-26, WEBULL_PAPER_TODO item 16): the signal came from
+    cloud_signal's decide_at_close probe -- its ref_time is the bar that was only just
+    STARTING when the decision was made at the previous bar's close, so that close IS
+    ref_time and after_close_s = latency_s (subtracting the bar width would read ~-270s)."""
     latency_s = None
     if fill_dt is not None:
         try:
@@ -983,7 +989,7 @@ def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, l
             and str(signal_source or "").strip().lower() == "engine"):
         tf_sec = _leg_timeframe_seconds(leg, log=log)
         if tf_sec is not None:
-            after_close_s = round(latency_s - tf_sec, 3)
+            after_close_s = round(latency_s - (0 if decided_at_ref else tf_sec), 3)
     row = {"ts_et": _now_et().strftime("%Y-%m-%d %H:%M:%S"), "leg": leg, "action": action,
            "side": side, "shares": shares,
            "nq_px": round(nq_px, 4) if nq_px is not None else "",
@@ -4783,7 +4789,9 @@ def _consume_engine_signals(state, cfg, now, log=print):
                        # _open_lot) or the trade row (TRADE_COLS' "keel_size" -- the web
                        # drawer's "#382 x KEEL" display). DISPLAY ONLY: never fed into an
                        # order quantity -- see _resolve_keel_size vs _resolve_entry_size.
-                       "keel_size": r.get("keel_size")})
+                       "keel_size": r.get("keel_size"),
+                       # decide_at_close probe rows say so here (see _route_engine_events)
+                       "reason": r.get("reason") or ""})
         except Exception as e:
             log(f"[qqq-exec] engine event row malformed, skipped: {type(e).__name__}: {e}")
     return out
@@ -4903,6 +4911,9 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
             sig_dt = None
         px_source = "engine_" + (str(e.get("bar_source") or "cache"))
         row_tid = str(e.get("trade_id") or "").strip()
+        # api/cloud_signal.py's DECIDE_AT_CLOSE_TAG: decided at the close of the bar before
+        # ref_time -- latency only (see _record_order); nothing is priced or refused on it.
+        decided_at_ref = "decide_at_close" in str(e.get("reason") or "")
         open_lot = state["legs"].get(leg)
         detail = {"leg": leg, "event": e["event"], "row_trade_id": row_tid,
                   "ref_time": str(e.get("ref_time") or ""),
@@ -4948,7 +4959,7 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
             if entries_blocked:
                 _record_order(leg, "ENTER", e["side"], shares, None, None, None,
                              "REFUSED -- breaker/feed/kill blocked", log, fill_dt=sig_dt,
-                             signal_source=cfg.get("signal_source"))
+                             signal_source=cfg.get("signal_source"), decided_at_ref=decided_at_ref)
                 _accumulate_signal(state, sig_dt or _now_et(), leg, "fired", log=log)
                 _accumulate_signal(state, sig_dt or _now_et(), leg, "refused", log=log)
                 continue
@@ -4959,7 +4970,8 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
                                cfg.get("slippage_per_share", 0.0), f=None, log=log,
                                sig_dt=sig_dt, signal_source=cfg.get("signal_source"),
                                trade_id=row_tid, entry_ref_time=str(e.get("ref_time") or ""),
-                               size=e.get("size"), keel_size=e.get("keel_size"), nowdt=nowdt)
+                               size=e.get("size"), keel_size=e.get("keel_size"), nowdt=nowdt,
+                               decided_at_ref=decided_at_ref)
             _accumulate_signal(state, sig_dt or _now_et(), leg, "fired", log=log)
             _accumulate_signal(state, sig_dt or _now_et(), leg, "taken" if opened else "refused", log=log)
         elif e["event"] == "EXIT":
@@ -4990,7 +5002,8 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
             state["_px_source"] = px_source
             _reduce_lot(state, cfg, leg, lot["nq_qty_total"], None, float(e["ref_price"]),
                        cfg.get("slippage_per_share", 0.0), "signal exit", f=None, log=log,
-                       sig_dt=sig_dt, signal_source=cfg.get("signal_source"), nowdt=nowdt)
+                       sig_dt=sig_dt, signal_source=cfg.get("signal_source"), nowdt=nowdt,
+                       decided_at_ref=decided_at_ref)
 
 
 def _apply_slippage(px, side, entering, slip):
@@ -5065,7 +5078,7 @@ def _sized_shares(base_shares, size):
 
 def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, log=print,
               sig_dt=None, signal_source=None, trade_id=None, entry_ref_time=None, size=None,
-              keel_size=None, nowdt=None):
+              keel_size=None, nowdt=None, decided_at_ref=False):
     """Returns True if a shadow lot opened, False if refused/skipped (feature #55 needs
     to know this to tell TAKEN from REFUSED).
 
@@ -5128,7 +5141,8 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
             if shares > max_shares:
                 _record_order(leg, "ENTER", side, shares, nq_px, None, None,
                               f"REFUSED shares {shares} > max_shares_per_leg {max_shares}", log,
-                              fill_dt=(f.get("dt") if f else sig_dt), signal_source=signal_source)
+                              fill_dt=(f.get("dt") if f else sig_dt), signal_source=signal_source,
+                              decided_at_ref=decided_at_ref)
                 return False
         else:
             # SIZED (2026-09-23): an engine ENTRY signal declared a per-trade size (run
@@ -5204,7 +5218,8 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
     lot["signal_source"] = signal_source or ""
     _record_order(leg, "ENTER", side, shares, nq_px, fill_px, state["_px_source"],
                  "signal entry", log, fill_dt=(f.get("dt") if f else sig_dt),
-                 signal_source=signal_source, shares_wanted=wanted_shares, size=sized)
+                 signal_source=signal_source, shares_wanted=wanted_shares, size=sized,
+                 decided_at_ref=decided_at_ref)
     _notify(f"QQQ SHADOW {leg} {side} {shares} @ {fill_px:.2f}", "EDGELOG QQQ SHADOW", log)
     # BROKER MIRROR: after the shadow's own order is already recorded above -- see the
     # "broker mirror" section docstring near _mirror_to_broker. A broker error here
@@ -5216,7 +5231,7 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
 
 
 def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason, f=None, log=print,
-                sig_dt=None, signal_source=None, nowdt=None):
+                sig_dt=None, signal_source=None, nowdt=None, decided_at_ref=False):
     """`nowdt` (EXIT SAFETY item 4 minor, 2026-09-26 review): the calling tick's own
     notion of "now", threaded straight through to _mirror_to_broker -- see that
     function's own docstring."""
@@ -5259,7 +5274,7 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
     _record_order(leg, "EXIT", lot["side"], shares_close, nq_px, fill_px,
                  state["_px_source"], reason, log, fill_dt=(f.get("dt") if f else sig_dt),
                  signal_source=(signal_source or lot.get("signal_source")),
-                 size=lot.get("size"))
+                 size=lot.get("size"), decided_at_ref=decided_at_ref)
     _notify(f"QQQ SHADOW {leg} {reason.lower()} {shares_close} @ {fill_px:.2f}",
            "EDGELOG QQQ SHADOW", log)
     # BROKER MIRROR: mirrors every reduce, not just a full close -- a ninjatrader-mode

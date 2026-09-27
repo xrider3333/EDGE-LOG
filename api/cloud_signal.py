@@ -221,6 +221,9 @@ CROWN_LEGS = {
         # cfg simply has no "keel" key, and every keel-aware code path below treats a
         # missing key exactly like today's pre-KEEL behaviour (see _diff_leg).
         "keel": dict(version="v12", **keel_paths("NOISE_382", "v12")),
+        # Send orders at the backtest's decision (the close of bar D), not a bar later
+        # (WEBULL_PAPER_TODO.md item 16, owner GO 2026-09-26) -- see _decide_at_close_probe.
+        "decide_at_close": True,
     },
     "ENGUQ_335": {
         "strategy": "ENGUQ_1M_ETH_R2_1_0.py",
@@ -1782,6 +1785,122 @@ def _append_signals(events, paths):
             w.writerow({k: e.get(k, "") for k in fieldnames})
 
 
+# ── Decide at close (WEBULL_PAPER_TODO.md item 16, owner GO 2026-09-26) ─────────────────
+# A decide-at-close plugin (NOISE_1_0.py and its wrappers) decides at the CLOSE of bar D
+# (entry_pending / exit_pending) and fills at the OPEN of bar D+1, and the trade records
+# D+1 as its entry/exit bar. step() only hands it CLOSED bars, so it cannot report that
+# fill until D+1 has closed too: every live NOISE order went out one bar after the
+# backtest's own fill (09-22..09-25). A leg with cfg["decide_at_close"] also runs the
+# plugin on the same arrays plus stand-in bars, and anything the plugin fills at the
+# first stand-in's OPEN was already decided at D's close -- that decision is emitted now,
+# under the trade id the real D+1 bar will later produce, so it is never emitted twice.
+#
+# TWO flat stand-ins, not one: S1 for D+1 and S2 after it, all four prices = D's close,
+# volume 0 (VWAP unchanged), D's day id. With only S1, an exit filled at S1's open and
+# the plugin's end-of-data force-close at S1's close carry the SAME price, and the
+# 6249926 price rule would read every queued exit as still open. With S2 the force-close
+# lands on S2, so a trade closed ON S1 is a real fill -- the same rule, one bar further on.
+#
+# What the probe may emit, and nothing else:
+#   ENTRY  a trade whose entry bar is S1 (queued at D's close).
+#   EXIT   a trade the normal run reports still open, closed ON S1. Such an exit is either
+#          queued at D's close or a stop hit on S1. Entered BEFORE D: a flat S1 sits inside
+#          D's own range, so a fixed stop that D itself did not touch cannot be hit on S1.
+#          Entered ON D (plugins skip the stop on the entry bar, so D may already sit past
+#          it): only if a CONFIRM run, with the stand-ins far on the position's winning
+#          side where no stop can fill, still closes it on S1 at S1's own open.
+#   That is the promise a leg makes by setting the flag: it DECIDES at a bar's close and
+#   FILLS at the next bar's open (never at the fill bar's own close), and its stops are
+#   levels fixed at entry, checked on every later bar's open/high/low (true of
+#   NOISE_1_0.py; NOT of ORB_3_6.py, which enters at the signal bar's own close -- run
+#   there, the probe would invent entries from the stand-in's close; nor of a trailing
+#   stop or a target that fills at a gap open).
+#   Anything else -- every fill on S2, the S1 exit of a trade that entered on S1 -- rests
+#   on stand-in data and is ignored.
+# No probe when D is not from `now`'s own session, or D is its session's last bar (no
+# D+1 exists: the plugin flattens at D's close).
+DECIDE_AT_CLOSE_TAG = "decide_at_close"
+
+
+def _is_session_last_bar(bar_start, tf):
+    """True when a bar starting at `bar_start` (ET) closes at or after its session's
+    close (16:00, or 13:00 on a recognised half day)."""
+    hh, mm = (int(x) for x in market_calendar.session_close_et(bar_start.date()).split(":"))
+    end_min = bar_start.hour * 60 + bar_start.minute + TIMEFRAME_SECONDS[tf] // 60
+    return end_min >= hh * 60 + mm
+
+
+def _stand_in_arrays(arrays, tf, pads=2, price=None):
+    """`arrays` plus `pads` flat stand-in bars after its last bar, at `price` (default: the
+    last close -- see the block above)."""
+    import numpy as np
+    import pandas as pd
+    last_px = float(arrays["close"][-1]) if price is None else float(price)
+    step_td = pd.Timedelta(seconds=TIMEFRAME_SECONDS[tf])
+    idx = arrays["index"]
+    out = dict(arrays)
+    for k in ("open", "high", "low", "close"):
+        out[k] = np.concatenate([np.asarray(arrays[k], dtype=float), np.full(pads, last_px)])
+    out["volume"] = np.concatenate([np.asarray(arrays["volume"], dtype=float), np.zeros(pads)])
+    out["day_id"] = np.concatenate([arrays["day_id"],
+                                    np.full(pads, arrays["day_id"][-1], dtype=arrays["day_id"].dtype)])
+    out["index"] = idx.append(pd.DatetimeIndex([idx[-1] + step_td * (i + 1) for i in range(pads)]))
+    return out
+
+
+def _decide_at_close_probe(arrays, trades, tf, now, run, log=print):
+    """(trades, arrays_for_diff): `trades` (the normal run over `arrays`, ending at bar D)
+    plus what the plugin already decided at D's close -- new ENTRY trades filled at S1,
+    and still-open trades it closes at S1 -- tagged "probe_entry"/"probe_exit" for the
+    signal row's reason. `run(arrays)` runs the leg exactly as step() just did. Returns
+    the inputs unchanged when there is no probe or it finds nothing; never raises."""
+    try:
+        idx = arrays["index"]
+        n = len(arrays["close"])
+        d_start = idx[-1]
+        if n < 2 or d_start.date() != now.astimezone(d_start.tzinfo).date() \
+                or _is_session_last_bar(d_start, tf):
+            return trades, arrays
+        probe_arrays = _stand_in_arrays(arrays, tf)
+        s1_time = probe_arrays["index"][n].isoformat()
+        d_close = round(float(arrays["close"][-1]), 4)
+        tag = (f"{DECIDE_AT_CLOSE_TAG}: decided at the close of the {d_start.strftime('%H:%M')} "
+               f"bar, priced at that close")
+        new_entries, early_exits, entered_on_d = [], set(), {}
+        for t in run(probe_arrays):
+            key = (t["entry_time"], t["side"])
+            if t["entry_bar"] == n:
+                new_entries.append(dict(t, still_open=True, exit_time=None, exit_px=None,
+                                        probe_entry=tag))
+            elif t["exit_time"] == s1_time:
+                if t["entry_bar"] < n - 1:
+                    early_exits.add(key)
+                elif t["entry_bar"] == n - 1:
+                    entered_on_d[key] = t["side"]
+        # CONFIRM RUN (entered on D): same bars, the stand-ins moved far onto the winning side
+        # of that position, where no stop can fill. Still closed on S1, at S1's own open ->
+        # the exit was queued at D's close, not a stop guessed from stand-in data.
+        for side in sorted(set(entered_on_d.values())):
+            far = float(arrays["close"][-1]) * (2.0 if side == "long" else 0.5)
+            for t in run(_stand_in_arrays(arrays, tf, price=far)):
+                key = (t["entry_time"], t["side"])
+                if (entered_on_d.get(key) == side and t["exit_time"] == s1_time
+                        and abs(float(t["exit_px"]) - far) <= 1e-6 * far):
+                    early_exits.add(key)
+        if not new_entries and not early_exits:
+            return trades, arrays
+        out = []
+        for t in trades:
+            if t["still_open"] and (t["entry_time"], t["side"]) in early_exits:
+                t = dict(t, still_open=False, exit_time=s1_time, exit_px=d_close, probe_exit=tag)
+            out.append(t)
+        return out + new_entries, probe_arrays
+    except Exception as e:
+        log(f"[cloud-signal] decide_at_close probe failed ({type(e).__name__}: {e}) -- "
+            f"falling back to the closed-bar signals for this bar")
+        return trades, arrays
+
+
 # ── The core entry point ───────────────────────────────────────────────────────────────
 def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
     """One signal-engine tick. For each leg: load cached bars (optionally refreshed
@@ -1892,6 +2011,14 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
             _maybe_push_keel_fallback(key, keel_cfg, now, state, arrays=arrays)
 
         trades = run_leg_trades(cfg, arrays, leg_key=key, now=now, paths=paths, fetch=fetch)
+        diff_arrays = arrays
+        if cfg.get("decide_at_close"):
+            # The probe must run the leg exactly like the call above -- keep the two in step.
+            # fetch=False: the call above already refreshed the daily cache this tick, so the
+            # probe reads the same file without a second network call.
+            trades, diff_arrays = _decide_at_close_probe(
+                arrays, trades, tf, now,
+                lambda a: run_leg_trades(cfg, a, leg_key=key, now=now, paths=paths, fetch=False))
         # Three bars of grace by default: a signal may legitimately be discovered a bar or
         # so late, but never hours late (see _diff_leg's LATE ENTRIES note). A leg may set
         # its own `max_entry_age_sec` when its bar size makes three bars the wrong measure.
@@ -1899,7 +2026,7 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
                            max_entry_age_sec=cfg.get("max_entry_age_sec",
                                                      3 * TIMEFRAME_SECONDS[tf]),
                            bar_source=(state.get("bar_source", {}).get(tf, {}).get("source")),
-                           cfg=cfg, arrays=arrays, fetch=fetch)
+                           cfg=cfg, arrays=diff_arrays, fetch=fetch)
         all_events.extend(events)
         leg_state["asof"] = arrays["index"][-1].isoformat()
 
@@ -2098,7 +2225,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 "emitted_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(),
                 "leg": leg_key, "event": "ENTRY", "side": t["side"],
                 "ref_time": t["entry_time"], "ref_price": t["entry_px"],
-                "shares": t["shares"], "reason": "", "bar_source": bar_source or "",
+                "shares": t["shares"], "reason": t.get("probe_entry") or "",
+                "bar_source": bar_source or "",
                 "trade_id": tid,
                 "size": final_size,
                 "keel_size": keel_size,
@@ -2123,7 +2251,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 "emitted_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(),
                 "leg": leg_key, "event": "EXIT", "side": t["side"],
                 "ref_time": t["exit_time"], "ref_price": t["exit_px"],
-                "shares": t["shares"], "reason": "strategy_exit",
+                "shares": t["shares"],
+                "reason": "strategy_exit" + (f"; {t['probe_exit']}" if t.get("probe_exit") else ""),
                 "bar_source": bar_source or "",
                 # the ENTRY's id, not one built from the exit bar -- see SIGNAL_COLS
                 "trade_id": tid,
