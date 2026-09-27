@@ -1053,6 +1053,63 @@ re-pricing to the cent.
 - **Nothing is adopted.** The open owner questions are now: which book (#366, #396 or #397), which NOISE leg
   (#304 or #422), and which TTM leg (#369 or R347).
 
+### 10l. Round 61 - combined frontier books with ML-sized legs, and DIP on ES #452 as a seat (2026-09-27)
+
+**What.** The owner asked, via MANAGER (#15/#16): take each paper-traded family's frontier leg, raw or
+ML-sized, combine the legs by daily P&L valued daily, and read walk-forward and lockbox separately. Every
+size is frozen before the lockbox. Custom ML exported the ML legs with raw twins to `C:\EdgeLog\book_legs\`.
+This chat built the rest from the engine. Pre-registration and addendum A were written before any combined
+result: `C:\EdgeLog\_anatomy_cache\frontier_combo\PREREG_R61.txt`.
+
+**Grid: 18 books.** NOISE #422 raw x ORB {#314 raw, #314 HYBRID DD tree, #257 raw} x ENGU-Q {the book leg
+(R2 defaults at 0.783), #335 champion raw, #335 HYBRID DD rf} x TTM {#455 roll-safe 3 / 4 / 7, #368 KEEL x3}.
+No NOISE ML legs were exported, so none was tested. The common windows are WF 2016-10-17..2025-06-13
+(8.65 years) and LB 2025-08-14..2026-06-24 (0.86 years). The engine-built baselines reproduce #449, #437 and
+#435 to the cent.
+
+**The bar** (vs #449): (1) WF ROC at a $30k drawdown >= 1.05 x #449's; (2) WF Sortino >= #449's; (3) lockbox
+ROC at the WF-set size >= #449's; (4) lockbox drawdown at that size <= 1.05 x #449's.
+
+| book | WF ROC %/yr as run / at $30k / at $50k | WF DD (valued daily) | WF Sortino | LB ROC as run / at the WF $30k size | LB DD at that size | LB Sortino | bar vs #449 |
+|---|---|---|---|---|---|---|---|
+| #449 | 155.5 / 104.0 / 173.3 | $44,849 | 4.12 | 295.0 / 197.3 | $30,143 | 4.53 | - |
+| #437 | 139.0 / 99.7 / 166.1 | $41,853 | 3.83 | 277.4 / 198.8 | $29,651 | 4.35 | - |
+| #435 | 135.0 / 97.0 / 161.7 | $41,736 | 3.70 | 260.7 / 187.4 | $32,983 | 4.05 | - |
+| best of 18: NOISE #422 + ORB #257 + ENGU-Q book leg + **TTM #368 KEEL** | 210.0 / **148.3** / 247.2 | $42,475 | 5.24 | 402.9 / 284.6 | **$33,098** | 6.19 | misses (4) |
+| **#456** = same with **TTM #455** (best roll-safe, rank 2) | 160.9 / **147.2** / 245.3 | $32,794 | 4.32 | 282.5 / 258.4 | **$42,534** | 4.36 | misses (4) |
+
+The median book of the 18 reads 94.0 at $30k. #456 is the rank-2 book queued as a real BOOK run on the
+standard window: 99.1 / 293.1 %/yr, pre-lockbox drawdown $33,264 at close (#449: $43,967), lockbox drawdown
+$27,310, 8 of 8 stretches. The runner equals the local run to the cent.
+
+**Reading (no decision taken here).**
+- **No combined book beats #449.** Both top books clear the first three clauses and fail the fourth. Sized
+  up to #449's walk-forward risk, their lockbox drawdown runs deeper than #449's: +9.8 % for the best book and
+  +41 % for #456. The walk-forward drawdown advantage does not carry into the lockbox.
+- **The top book's TTM leg is not roll-safe.** #368 KEEL runs on unadjusted prices, and about 14 % of the raw
+  #368 leg's walk-forward money is fake roll-day trades ($256,421 unadjusted against $224,924 roll-corrected).
+  It carries 36 % of that book's net. Treat #456 as the honest best combination.
+- **The ML legs add nothing in the book at matched drawdown.** Each ML leg was swapped for its own raw twin
+  inside the best book, reading WF at $30k and then LB:
+  - ORB HYBRID DD tree: 137.4 against 145.8, lockbox 283.4 against 284.2.
+  - ENGU-Q HYBRID DD rf: 80.8 against 97.3, lockbox 129.4 against 164.9. Custom ML also reports that the
+    stored hybrid lockbox overstates a truly frozen gate by 24 %.
+  - TTM KEEL: 148.3 against 149.8 in WF. It is higher in the lockbox (284.6 against 256.6), but only on
+    11 trades.
+- **What #456 is made of.** Share of WF net: NOISE 32 %, ORB 25 %, ENGU-Q 26 %, TTM 17 %. Its worst WF
+  drawdown (2022-04-26 to 05-03) is ORB 51 %, ENGU-Q 32 % and NOISE 17 %. Daily correlations: NOISE with ORB
+  0.40, ENGU-Q with the others 0.20, TTM with the others 0.02-0.12. Worst day -$22,273 WF and -$21,061 LB;
+  worst month -$17,924 WF and -$13,248 LB.
+- **DIP, as a comparison only:** DIP on ES #452 alone reads 31.0 %/yr at a $71,941 WF drawdown (Sortino 0.92).
+  Added to the best book, it lowers WF ROC at $30k from 148.3 to 87.9.
+- **DIP on ES #452 as a seat** (TV's ask; the same test as 10j, vs #436): #453 at $100k reads 121.6 / 318.6 %/yr
+  but has a whole-run drawdown of $111,845 against a $48,364 cap, and a lockbox drawdown of $29,536 against
+  $28,881. #454 at $50k reads 105.5 / 306.3 with a whole-run drawdown of $77,511. Both FAIL, again in the
+  2020 crash. The runner equals local to the cent on both.
+
+Scripts, streams and the full report: `C:\EdgeLog\_anatomy_cache\frontier_combo\` (`combo_eval.py`,
+`combo_report.txt`, `combo_results.json`) and `...\dip452_book\`.
+
 ### 10b. An open item this audit turned up: two day-stamping rules disagree
 
 The recorded finding put the baseline's worst stretch in **2020-02-21..2020-03-25 at $34,903**; the
