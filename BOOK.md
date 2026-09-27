@@ -956,6 +956,44 @@ drawdown, per stretch.
   lockbox), as ROLL_AUDIT 4.3 found. #379 (which the audit ranks above #397 on the selection stretch)
   was not re-run here. Adoption (#366 / #396 / #397, and the NOISE slot) stays the owner's call.
 
+### 10j. DIP on ES #432 as a book seat or its own book - #440 / #439 / #441 (2026-09-26)
+
+**What.** The TV chat's pre-registered book test (docs/DIP_ES_CASE.md 3c, commit d491b177), owner GO via
+MANAGER. **Information for the owner, not an eligibility pass:** DIP on ES's overfit question is still
+unresolved (DIP_ES_CASE.md 4). Baseline = **#436** (#396 on the roll-corrected masters, 10i). DIP legs =
+`NQDIP_1_2.py` with the frozen champions of #432 (ES) and #433 (NQ), 5m RTH on the no-adjust master (the
+file handles roll seams itself), cost 0 and mult 1 because the file sizes itself and returns dollars. Two
+sizes only, fixed in advance: $100k and $50k notional. The runner's results equal the local run to the
+dollar; the local run first reproduced stored #436 to the cent.
+
+**The seat rule (pre-set, vs #436 on the same window):** more net than #436 in at least as many full
+calendar years (2011-2025) as it nets less, AND higher whole-run net; lockbox drawdown at close within +5 %
+(cap $28,881); whole-run drawdown at close not worse than +10 % (cap $48,364). Sortino = daily at-close
+book P&L on a $100k account, every weekday counted, times the square root of 252.
+
+| run | book | whole net | ROC %/yr pre / lockbox | whole DD at close / valued daily | lockbox DD at close / valued daily | Sortino pre / lockbox | years more / less than #436 | stretches | seat rule |
+|---|---|---|---|---|---|---|---|---|---|
+| #436 | baseline | $1,637,053 | 89.1 / 294.4 | $43,967 / $49,855 | $27,506 / $49,855 | 3.96 / 6.25 | - | 8/8 | - |
+| **#440** | #436 + DIP on ES $100k | $2,016,359 | 112.1 / 327.2 | **$109,956** / $97,783 | **$30,374** / $53,618 | 4.07 / 6.99 | 13 / 2 | 8/8 | **FAIL** - both drawdown clauses |
+| **#439** | #436 + DIP on ES $50k | $1,827,126 | 100.7 / 310.3 | **$76,727** / $69,030 | $27,997 / $51,468 | 4.23 / 6.64 | 13 / 2 | 8/8 | **FAIL** - whole-run drawdown |
+| **#441** | DIP on ES $100k + DIP on NQ $100k | $972,102 | 59.9 / 70.5 | $106,050 / $118,999 | $13,110 / $34,841 | 2.32 / 5.14 | - | 8/8 | not gated |
+
+**Reading (no decision taken here).**
+- As a seat, DIP on ES adds money in 13 of 15 years (it trails #436 in 2018 and 2022) and lifts Sortino,
+  but it more than doubles the whole-run drawdown at full size and adds 75 % at half size. Both seats'
+  worst stretch is the February-March 2020 crash (2020-02-26 to 2020-03-27), where DIP on ES loses at the same time as the
+  other legs. Neither size passes; full size also breaks the lockbox clause.
+- At one common risk (each scaled to #436's pre-lockbox drawdown, $43,967) the seats read 44.8 / 130.8
+  (full) and 57.7 / 177.8 (half) %/yr against #436's 89.1 / 294.4: the extra money costs more than its
+  share of drawdown.
+- As its own book, DIP (ES + NQ) makes 59.9 / 70.5 %/yr, loses money in 2011, 2018 and 2022, and reads
+  24.8 / 29.2 %/yr at #436's drawdown. Its daily P&L is uncorrelated with #436 before the lockbox (DIP on
+  ES -0.009, DIP on NQ 0.005; DIP on ES vs DIP on NQ 0.327), so it would diversify a second account, but it
+  is far weaker than the book per unit of drawdown.
+- Same shape as the 2026-09-09 DIP on NQ fifth-seat rejection: DIP's own drawdown is bigger than the
+  whole book's. Adoption stays the owner's call; nothing was adopted. Script and logs:
+  `C:\EdgeLog\_anatomy_cache\dip432_book\` (`dip432_eval.py`, `verify_runs.py`).
+
 ### 10b. An open item this audit turned up: two day-stamping rules disagree
 
 The recorded finding put the baseline's worst stretch in **2020-02-21..2020-03-25 at $34,903**; the
