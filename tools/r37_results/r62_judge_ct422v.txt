@@ -1,0 +1,6 @@
+#447 NOISE-56 NOISE_1_8_CT422V.py  verdict WEAK  folds 8  overfit 0.683  crowned {'vol_skip_pct': 97.5, 'vol_ref_sessions': 160}
+  68 sessions, skip 95 (live)   WF 2721 tr PF 1.507  50.1%/yr DD $ 17,616 Sortino 4.46 | LB  294 tr PF 1.427  81.3%/yr DD $ 20,992 Sortino 4.30
+  160 sessions, skip 95         WF 2745 tr PF 1.512  49.6%/yr DD $ 17,616 Sortino 4.55 | LB  300 tr PF 1.416  81.0%/yr DD $ 20,992 Sortino 4.23
+  252 sessions, skip 95 (#422)  WF 2805 tr PF 1.499  49.6%/yr DD $ 17,616 Sortino 4.49 | LB  314 tr PF 1.319  67.2%/yr DD $ 20,992 Sortino 3.34
+  crowned (reported only)       WF 2842 tr PF 1.495  50.6%/yr DD $ 20,556 Sortino 4.44 | LB  312 tr PF 1.399  83.8%/yr DD $ 20,992 Sortino 4.18
+BAR (68 within 0.02 PF of 252 in WF AND sealed year, validate not FAIL): MET - the live 68-session window is acceptable  [WF 1.507 vs 1.499, LB 1.427 vs 1.319]

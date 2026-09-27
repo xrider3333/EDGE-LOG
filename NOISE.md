@@ -33,7 +33,11 @@ centre = #422 exactly, 4,824 trades / $540,428, `tools/r62_noise_ct422v_parity.p
 the 68-session cell at skip 95 is acceptable for live if the validate is not FAIL and, replayed continuously, its
 profit factor is within 0.02 of the 252-session cell (or above) in BOTH the walk-forward and the sealed year - then
 the live engine's short window is not a defect and the QQQ history backfill is optional. The crowned cell is reported,
-never adopted from this round. (Suggested to Paper: WB meanwhile: the skip only needs each prior session's
+never adopted from this round.
+
+**RESULT - NOISE #447 (NOISE-56): bar MET, the live 68-session memory is acceptable.** Verdict WEAK, 8 folds, overfit 0.683 - high because the nine cells are near-twins and no memory length is reliably better than another, which is
+the non-inferiority answer, not a flaw. Continuous replay at skip 95: 68 sessions PF 1.507 WF / 1.427 sealed year, 160 sessions 1.512 / 1.416, 252 sessions (#422) 1.499 / 1.319 - the short memory is never worse, drawdown identical. So the QQQ history backfill is optional for the NOISE leg. Do NOT read this as '68 is better': the lockbox edge is one
+year and the search itself could not separate the cells. `tools/r62_judge_ct422v.py` -> `r37_results/r62_judge_ct422v.txt`. (Suggested to Paper: WB meanwhile: the skip only needs each prior session's
 (high-low)/close, which daily QQQ bars or the NQ master already on the box can supply without an intraday data key.)
 
 ## 🧪 2026-09-26 — ROUND 61: the round-60 validates judged, and the live NOISE #382 leg's two gaps sized
