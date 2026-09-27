@@ -7,6 +7,7 @@ Arms on the round-60 tape (tools/keel_bag_check.py stretches, leak-fixed engine)
 
     python tools/keel_422_parts_check.py --walk    # A2's seven walks, cached (~20 min)
     python tools/keel_422_parts_check.py           # the table and the pre-registered H1 / H2 / veto
+    add --leg 382 to either for the live #382 (addendum pre-registered as f6e09db6)
 """
 import os
 import sys
@@ -25,41 +26,44 @@ from augur_engine.engine import run_backtest                          # noqa: E4
 K.CFG["_v12_nocomp"] = {k: v for k, v in K.CFG["v12"].items() if k != "comp"}
 EVENT = dict(K.CFG["v12"]["event"])
 DOW = {k: v for k, v in K.CFG["v12"]["dow"].items() if k != "cap"}
+LEG = sys.argv[sys.argv.index("--leg") + 1] if "--leg" in sys.argv else "422"
+FILE = {"422": ("NOISE_1_8_CT304H.py", S.P422), "382": ("NOISE_1_8_CT304.py", B.LEGS["382"][2])}[LEG]
 
 
 def trades():
     A, idx = S.tape()
-    r = run_backtest(B.mod("NOISE_1_8_CT304H.py"), arrays=A, params=S.P422, cost_pts=B.COST, return_trades=True)
-    return A, idx, sorted(r["trades"], key=lambda z: z[0])
+    r = run_backtest(B.mod(FILE[0]), arrays=A, params=FILE[1], cost_pts=B.COST, return_trades=True)
+    plug = S.plugin_sizes(r, len(r["trades"]))[np.argsort([t[0] for t in r["trades"]], kind="stable")]
+    return A, idx, sorted(r["trades"], key=lambda z: z[0]), plug
 
 
 def walk():
-    A, idx, T = trades()
+    A, idx, T, _ = trades()
     F = K.keel_features(A)
     out = {}
     for s in S.BAG:
         out["s%d" % s] = np.asarray(K.keel_walk(A, T, feats=F, version="_v12_nocomp", seed=s)["size"], float)
         print(f"A2 seed {s}: mean size {out['s%d' % s].mean():.4f}", flush=True)
-    np.savez(os.path.join(B.CACHE, "leg422_nocomp.npz"), **out)
-    print("cached leg422_nocomp")
+    np.savez(os.path.join(B.CACHE, "leg%s_nocomp.npz" % LEG), **out)
+    print("cached leg%s_nocomp" % LEG)
 
 
 def main():
-    A, idx, T = trades()
-    z = np.load(os.path.join(B.CACHE, "leg422.npz"))
-    zn = np.load(os.path.join(B.CACHE, "leg422_nocomp.npz"))
-    d, P, end, plug = pd.DatetimeIndex(z["d"]), z["P"], pd.Timestamp(int(z["end"][0])), z["plug"]
-    assert len(T) == len(P), "trade list moved since the #422 cache was built"
+    A, idx, T, plug = trades()
+    z = np.load(os.path.join(B.CACHE, "leg%s.npz" % LEG))
+    zn = np.load(os.path.join(B.CACHE, "leg%s_nocomp.npz" % LEG))
+    d, P, end = pd.DatetimeIndex(z["d"]), z["P"], pd.Timestamp(int(z["end"][0]))
+    assert len(T) == len(P) == len(plug), "trade list moved since the cache was built"
     cap = float(K.CFG["v12"]["comp"]["cap"])
     arms = {
-        "A0 #422 alone": np.ones(len(P)),
+        "A0 #%s alone" % LEG: np.ones(len(P)),
         "A1 + KEEL v12 (7-seed)": np.mean([z["s%d" % s] for s in S.BAG], axis=0),
         "A2 + KEEL v12 no squeeze (7-seed)": np.mean([zn["s%d" % s] for s in S.BAG], axis=0),
         "A3 + fixed tilts only": K.compression_sizes(A, T, mult=1.5, dow=DOW, cap=cap, event=EVENT),
         "A4 + fixed tilts, no squeeze": K.compression_sizes(A, T, mult=1.0, dow=DOW, cap=cap, event=EVENT),
     }
     res = {}
-    print("NOISE #422 on the round-60 tape; WF 2016-06-30..2025-07-16, LB 2025-07-16..2026-09-16; ROC on $100k")
+    print(f"NOISE #{LEG} on the round-60 tape; WF 2016-06-30..2025-07-16, LB 2025-07-16..2026-09-16; ROC on $100k")
     print(f"{'':34s} {'WF net':>9s} {'ROC':>6s} {'Sort':>5s} {'DD':>7s} {'r/DD':>5s} | {'LB net':>8s} {'ROC':>6s}"
           f" {'Sort':>5s} {'DD':>7s} {'r/DD':>5s} | max x")
     for lab, k in arms.items():
@@ -72,7 +76,7 @@ def main():
     h1 = a2[0]["mar"] >= 1.03 * a1[0]["mar"] and a2[0]["sortino"] >= a1[0]["sortino"]
     ref, fixed = (a2, a4) if h1 else (a1, a3)
     h2 = fixed[0]["mar"] >= ref[0]["mar"] and fixed[0]["sortino"] >= 0.97 * ref[0]["sortino"]
-    print(f"\nH1 drop KEEL's squeeze on #422 ...... {'HOLDS' if h1 else 'does not hold'}")
+    print(f"\nH1 drop KEEL's squeeze on #{LEG} ...... {'HOLDS' if h1 else 'does not hold'}")
     print(f"H2 learned part adds nothing ........ {'HOLDS' if h2 else 'does not hold'} "
           f"({'A4 vs A2' if h1 else 'A3 vs A1'})")
     ok = {lab: r for lab, r in res.items() if not lab.startswith("A0") and r[1]["mar"] >= a0[1]["mar"]}
