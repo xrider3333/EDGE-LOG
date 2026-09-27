@@ -312,7 +312,7 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log):
         return
     bar = {k: payload[k] for k in ("time", "open", "high", "low", "close", "volume")}
     bar_epoch = int(bar["time"])
-    rest_df = cs.load_cached_bars("5m", paths)
+    rest_df = cs.historical_bars("5m", paths)
     augmented = _augment_with_stream_bar(rest_df, bar)
     effective_now = _effective_now_for_bar(bar_epoch + cs.TIMEFRAME_SECONDS["5m"],
                                            cs.CLOSE_GRACE_SECONDS)
@@ -365,7 +365,7 @@ def _resolve_pending_against_rest(now, five_m_legs, paths, log):
     pending_legs = [k for k in shadow if k in five_m_legs]
     if not pending_legs:
         return
-    rest_df = cs.load_cached_bars("5m", paths)
+    rest_df = cs.historical_bars("5m", paths)
     if rest_df is None or not len(rest_df):
         return
     changed = False

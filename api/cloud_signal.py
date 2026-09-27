@@ -268,6 +268,83 @@ def load_cached_bars(timeframe, paths=None):
     return pd.read_csv(path)
 
 
+# -- optional Alpaca backfill splice (tools/backfill_qqq_5m_alpaca.py, WEBULL go-live
+# "alpaca" task, 2026-09-26) -- READ-ONLY older history for signal computation, never for
+# what gets written back to disk. See that tool's own module docstring "UPLOAD" for why
+# this lives here rather than touching QQQ_5m.csv directly: the box's --apply upload
+# writes ~/edgelog/ohlc/QQQ_{tf}_backfill.csv, a file this module never writes, so there is
+# no write-write race with the live cache-writer thread (fetch_and_merge) to guard
+# against -- only a read of a file something else finished writing (atomically) before
+# this call started.
+_BACKFILL_CACHE = {}     # backfill path -> (mtime, DataFrame)
+_BACKFILL_WARNED = set()  # backfill paths already logged as unreadable (log once)
+
+
+def _backfill_path(timeframe, paths):
+    return os.path.join(paths["ohlc_dir"], f"QQQ_{timeframe}_backfill.csv")
+
+
+def _load_backfill_bars(timeframe, paths):
+    """QQQ_{tf}_backfill.csv, if present, cached by the file's own mtime so a live tick
+    loop does not reparse it every call. None if the file is absent. Fail-safe: any read
+    error is cached (by that same mtime, as None) and logged ONCE, so a broken file is
+    neither re-parsed every tick nor re-logged -- only a later mtime change (someone
+    fixing or replacing the file) triggers another attempt. A bad backfill file must
+    never break live signals."""
+    path = _backfill_path(timeframe, paths)
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        return None
+    hit = _BACKFILL_CACHE.get(path)
+    if hit is not None and hit[0] == mtime:
+        return hit[1]
+    try:
+        import pandas as pd
+        df = pd.read_csv(path)
+    except Exception as e:
+        _BACKFILL_CACHE[path] = (mtime, None)
+        if path not in _BACKFILL_WARNED:
+            _BACKFILL_WARNED.add(path)
+            print(f"[cloud-signal] backfill file unreadable, ignoring it ({path}): "
+                  f"{type(e).__name__}: {e}")
+        return None
+    _BACKFILL_CACHE[path] = (mtime, df)
+    return df
+
+
+def _prepend_backfill(df, timeframe, paths):
+    """`df` with any _load_backfill_bars() rows STRICTLY OLDER than `df`'s own first bar
+    spliced onto the front -- never overriding a single row `df` already has. Returns
+    `df` UNCHANGED (None stays None, empty stays empty) whenever there is no backfill
+    file, no usable older rows, or anything goes wrong (fail-safe by design, same
+    contract as _load_backfill_bars). A missing/empty live cache is deliberately NOT
+    replaced by the backfill alone: signal computation should skip the leg the same way
+    it would with no cache at all, not silently run off backfill-only history."""
+    try:
+        if df is None or not len(df):
+            return df
+        backfill = _load_backfill_bars(timeframe, paths)
+        if backfill is None or not len(backfill):
+            return df
+        import pandas as pd
+        older = backfill[backfill["time"] < df["time"].min()]
+        if not len(older):
+            return df
+        return pd.concat([older, df], ignore_index=True).sort_values("time").reset_index(drop=True)
+    except Exception as e:
+        print(f"[cloud-signal] backfill splice failed, ignoring it ({type(e).__name__}: {e})")
+        return df
+
+
+def historical_bars(timeframe, paths=None):
+    """load_cached_bars() plus any older QQQ_{tf}_backfill.csv history spliced onto the
+    front (_prepend_backfill) -- what signal computation and window-sizing should read.
+    NEVER what fetch_and_merge writes back to the on-disk cache."""
+    paths = paths or DEFAULT_PATHS
+    return _prepend_backfill(load_cached_bars(timeframe, paths), timeframe, paths)
+
+
 WEBULL_KEYS = os.environ.get("EDGELOG_WEBULL_KEYS", r"C:\EdgeLog\webull_keys.json")
 WEBULL_TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_TOKEN_DIR", r"C:\EdgeLog\webull_token")
 WEBULL_TAIL_BARS = 200          # see _fetch_webull
@@ -406,7 +483,10 @@ def fetch_and_merge(timeframe, paths=None, log=print):
     merged.to_csv(tmp, index=False)
     cache_ok = qp._replace_with_retry(tmp, path, log=log,
                                       what=f"[cloud-signal] {timeframe} bar cache")
-    return merged, source, cache_ok
+    # Splice any older Alpaca-backfill history onto the RETURNED frame only -- `merged` was
+    # already written to disk above with none of it, so the on-disk cache never gains
+    # backfill rows (see historical_bars / tools/backfill_qqq_5m_alpaca.py "UPLOAD").
+    return _prepend_backfill(merged, timeframe, paths), source, cache_ok
 
 
 def read_bar_source(paths=None):
@@ -633,14 +713,15 @@ def _session_in_progress(arrays, now):
 
 
 def _cache_session_count(tf, paths):
-    """How many DISTINCT RTH sessions the on-disk bar cache holds for `tf` right now --
-    the same day-bucketing build_arrays/closed_arrays use, so this number means the
-    same thing as a leg's warmup_sessions. 0 when there is no cache yet. Only ever
-    called from log_history_windows (STARTUP, never the per-tick path) -- paying
-    build_arrays' full tz-aware/factorize cost once here is fine even though
-    closed_arrays deliberately avoids it per-tick (see that function's own PERFORMANCE
-    note)."""
-    epoch_df = load_cached_bars(tf, paths)
+    """How many DISTINCT RTH sessions the bar cache holds for `tf` right now, INCLUDING
+    any older Alpaca-backfill history (historical_bars) -- the same day-bucketing
+    build_arrays/closed_arrays use, so this number means the same thing as a leg's
+    warmup_sessions and log_history_windows' own COMPLETE/TRUNCATED verdict reflects the
+    backfill once it lands. 0 when there is no cache yet. Only ever called from
+    log_history_windows (STARTUP, never the per-tick path) -- paying build_arrays' full
+    tz-aware/factorize cost once here is fine even though closed_arrays deliberately
+    avoids it per-tick (see that function's own PERFORMANCE note)."""
+    epoch_df = historical_bars(tf, paths)
     if epoch_df is None or not len(epoch_df):
         return 0
     arrays = build_arrays(epoch_df)
@@ -1960,7 +2041,7 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
             if not cache_ok and warnings is not None:
                 warnings["cache_write_failed"] = True
         elif tf not in tf_cache:
-            tf_cache[tf] = load_cached_bars(tf, paths)
+            tf_cache[tf] = historical_bars(tf, paths)
         epoch_df = tf_cache[tf]
         leg_state = state["legs"].setdefault(key, {"trades": {}})
         if epoch_df is None or not len(epoch_df):

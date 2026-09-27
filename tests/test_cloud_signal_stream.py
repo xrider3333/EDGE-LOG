@@ -212,6 +212,36 @@ def test_handoff_window_shadow_records_without_mutating_real_state(tmp_path):
     assert any("shadow: LEGA stream decision" in m for m in logs)
 
 
+def test_handoff_window_dry_run_frame_includes_backfill_history(tmp_path, monkeypatch):
+    """cloud_signal_review finding (major): _handle_handoff_window used to build its
+    dry-run frame from cs.load_cached_bars alone, so once the Alpaca backfill lands
+    (tools/backfill_qqq_5m_alpaca.py) the stream path would rank/decide against a
+    SHORTER history than the REST path (cs.historical_bars via step()). Both must see
+    the same bars, so this asserts the older backfill rows reach cs.closed_arrays."""
+    paths, base, bar4_epoch = _setup(tmp_path, "backfill_home")
+    # bars strictly OLDER than the 4-bar REST cache written by _setup, one week earlier
+    # so they land in a distinct, unambiguous day bucket.
+    backfill_df, backfill_epoch, _ = _5m_bars([690.0, 691.0], base=base - pd.Timedelta(days=7))
+    backfill_df.to_csv(cs._backfill_path("5m", paths), index=False)
+    _write_handoff(paths, bar4_epoch, close=710.0)
+
+    seen_times = {}
+    real_closed_arrays = cs.closed_arrays
+
+    def _spy(df, *a, **kw):
+        seen_times["times"] = set(df["time"].tolist())
+        return real_closed_arrays(df, *a, **kw)
+
+    monkeypatch.setattr(cs, "closed_arrays", _spy)
+
+    now = _now_after(base)
+    css._handle_handoff_window(now, _legs(), paths, {"bar_close_from_stream": False}, lambda *_: None)
+
+    assert set(backfill_epoch).issubset(seen_times["times"]), (
+        "the stream dry-run frame must include the older backfill rows, same as REST's "
+        "cs.historical_bars")
+
+
 def test_resolve_against_rest_logs_match_and_clears_shadow(tmp_path):
     paths, base, bar4_epoch = _setup(tmp_path)
     _write_handoff(paths, bar4_epoch, close=710.0)
