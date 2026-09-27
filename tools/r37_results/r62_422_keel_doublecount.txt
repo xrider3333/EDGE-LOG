@@ -1,0 +1,14 @@
+tape 2010-06-07 .. 2026-09-16, cost 0.533; ROC on $100000; KEEL seeds: default, 11, 23
+
+#422 alone                                   1.15x | WF $ 448,732 DD $17,616  49.6%/yr MAR 2.82 Sort 4.49 | LB $ 67,110 DD $20,992  67.2%/yr MAR 3.20 Sort 3.34 | tail $ 15,376
+#422 + KEEL v12                              1.45x | WF $ 749,273 DD $31,911  82.9%/yr MAR 2.60 Sort 5.04 | LB $122,552 DD $30,730 122.6%/yr MAR 3.99 Sort 4.41 | tail $  9,311
+   overlap: #422 tilts 997 of 4847 trades; KEEL's squeeze fires on 615; BOTH on 615 (62% of #422's tilted trades). Combined size mean 1.45x, 95th pct 3.39x, max 5.25x; 651 trades above 2.5x
+#422 + KEEL v12 (seed 11)                    1.45x | WF $ 753,466 DD $31,123  83.3%/yr MAR 2.68 Sort 5.03 | LB $152,167 DD $29,385 152.3%/yr MAR 5.18 Sort 5.52 | tail $  6,126
+#422 + KEEL v12 (seed 23)                    1.44x | WF $ 745,481 DD $30,971  82.4%/yr MAR 2.66 Sort 5.05 | LB $129,127 DD $29,212 129.2%/yr MAR 4.42 Sort 4.68 | tail $  6,643
+#422 + KEEL v12 minus its squeeze            1.32x | WF $ 631,477 DD $29,417  69.8%/yr MAR 2.37 Sort 4.79 | LB $ 97,890 DD $27,049  98.0%/yr MAR 3.62 Sort 3.89 | tail $  9,311
+#422 + KEEL v12 minus its squeeze (seed 11)  1.32x | WF $ 639,012 DD $28,886  70.7%/yr MAR 2.45 Sort 4.84 | LB $116,328 DD $26,431 116.4%/yr MAR 4.40 Sort 4.58 | tail $  6,126
+#422 + KEEL v12 minus its squeeze (seed 23)  1.31x | WF $ 626,382 DD $28,576  69.3%/yr MAR 2.42 Sort 4.77 | LB $101,754 DD $25,837 101.8%/yr MAR 3.94 Sort 4.05 | tail $  6,643
+#304 alone                                   1.00x | WF $ 330,907 DD $16,916  36.6%/yr MAR 2.16 Sort 3.79 | LB $ 51,722 DD $19,304  51.8%/yr MAR 2.68 Sort 2.86 | tail $ 12,819
+#304 + KEEL v12                              1.21x | WF $ 525,299 DD $26,730  58.1%/yr MAR 2.17 Sort 4.57 | LB $102,970 DD $27,028 103.0%/yr MAR 3.81 Sort 4.58 | tail $  9,746
+#382 alone                                   1.34x | WF $ 505,313 DD $20,960  55.9%/yr MAR 2.67 Sort 3.87 | LB $ 72,343 DD $27,578  72.4%/yr MAR 2.62 Sort 2.62 | tail $ 18,331
+#382 + KEEL v12                              1.68x | WF $ 760,968 DD $32,377  84.1%/yr MAR 2.60 Sort 4.22 | LB $117,641 DD $28,329 117.7%/yr MAR 4.16 Sort 3.22 | tail $ 13,025

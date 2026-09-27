@@ -7,6 +7,35 @@
 
 ---
 
+## 🧪 2026-09-27 — ROUND 62: NOISE #422 + KEEL v12 is sound, and a validate of the live vol-skip memory
+
+MANAGER status tasker (owner, 2026-09-27). Driver `tools/r62_noise_422_keel_doublecount.py` (-> `r37_results/
+r62_422_keel_doublecount.txt`): one continuous tape to 2026-09-16, cost 0.533, #422's stretches, ROC on $100k, KEEL v12
+(with the gap_atr look-ahead fix) walked on each base's own trades at three model seeds.
+
+**Is #422 + KEEL v12 sound, given KEEL's own hourly squeeze sits on #422's hourly squeeze? YES - the double count is not
+a defect.** KEEL's squeeze fires on 615 trades and every one of them is already a #422 tilted trade (615 of #422's 997).
+Taking KEEL's squeeze multiplier OUT makes the stack worse on both money and return per drawdown at every seed
+(walk-forward 69-71%/yr at MAR 2.37-2.45, against 82-83%/yr at MAR 2.60-2.68 with it; lockbox 98-116%/yr at MAR
+3.62-4.40, against 123-152%/yr at MAR 3.99-5.18) - the compressed-hour trades are the best trades, so more weight on
+them pays. The stack, default seed: walk-forward 82.9%/yr, drawdown $31.9k, MAR 2.60, Sortino 5.04; lockbox 122.6%/yr,
+drawdown $30.7k, MAR 3.99, Sortino 4.41. Against the live stack #382 + KEEL v12 on the same tape: walk-forward a tie
+(84.1%/yr, MAR 2.60, Sortino 4.22), lockbox more money and Sortino (117.7%/yr, MAR 4.16, Sortino 3.22).
+**What KEEL still is:** on #422 it adds 33 points of walk-forward ROC but lowers walk-forward return per drawdown (MAR
+2.82 alone -> 2.60) while raising Sortino (4.49 -> 5.04) - mostly leverage, as Custom ML's seed-averaged read also found.
+Combined size (#422 tilt x KEEL) averages 1.45x but reaches 3.39x at the 95th percentile and 5.25x at most (651 trades
+above 2.5x) - the live share cap decides how much of that the account actually takes. Fresh tail (07-16 .. 09-16,
+23 trades): #422 alone +$15,376, with KEEL +$9,311 - too few trades to read.
+
+**Queued - NOISE_1_8_CT422V (job 4YHL0tRuk5TIyRdx9hKV, 900 trials, 2010-06-07 .. 2026-07-16).** NOISE #422's crowned
+cell with the volatility-skip MEMORY opened: 68 / 160 / 252 prior sessions x skip 92.5 / 95 / 97.5 (9 fenced cells;
+centre = #422 exactly, 4,824 trades / $540,428, `tools/r62_noise_ct422v_parity.py`). Pre-registered NON-INFERIORITY bar:
+the 68-session cell at skip 95 is acceptable for live if the validate is not FAIL and, replayed continuously, its
+profit factor is within 0.02 of the 252-session cell (or above) in BOTH the walk-forward and the sealed year - then
+the live engine's short window is not a defect and the QQQ history backfill is optional. The crowned cell is reported,
+never adopted from this round. (Suggested to Paper: WB meanwhile: the skip only needs each prior session's
+(high-low)/close, which daily QQQ bars or the NQ master already on the box can supply without an intraday data key.)
+
 ## 🧪 2026-09-26 — ROUND 61: the round-60 validates judged, and the live NOISE #382 leg's two gaps sized
 
 MANAGER dispatch (owner GO 2026-09-26). Drivers: `tools/r60_judge_validates.py` (-> `r37_results/r60_judge_validates.txt`)
