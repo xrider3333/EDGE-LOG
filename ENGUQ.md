@@ -874,3 +874,47 @@ cell enters or exits on a splice bar, but the estimate sits in the level of ever
 (5) Shift-invariance was proved for the #335 leg and #370 at their own parameters, not for the two
 new cells - if either is sensitive to price level it would read differently on the forward-adjusted
 twin.
+
+### 2026-09-27 - the hold cap on roll-corrected prices: FAILS its pre-registered bar
+
+Pre-registered before any measurement (scratch PREREG.md, 12:26): the hold cap earns a validate only
+if, against the crown's defaults cell, (a) the sealed-year top-10 share falls at least 30 points AND
+the sealed year stays positive AND its profit factor without the ten biggest trades is above 1.0,
+(b) tuning net gives up no more than 10%, and (c) tuning annualised MAR does not get worse. All on
+the back-adjusted NQ tape, cost 0.533, contract value $20, window 2010-06-07..2026-06-30, sealed
+split 2025-06-30, one continuous run per cell sliced by entry. Harness gate: the crown cell
+reproduces all nine published baseline quantities, and the hold-cap file with the cap switched off
+returns a byte-identical trade list, so every row below is a one-knob comparison.
+
+**Shift-invariance first, because it had never been proved for this file.** Twelve price shifts on
+two tapes moved not one entry bar, exit bar or trade count. A last-bit floating-point residue does
+appear in the points column (largest 1.8e-11 points, net unchanged to the cent) - the crown cell
+shows the same residue at the same size, so it is not a property of the hold cap. Mechanism proved,
+not assumed: it is the re-rounding of the resting limit price, the one place a price level meets a
+non-tick quantity; set that entry to market and every trade list is bit-identical.
+
+**Every cap fails, and always on the same leg.** Caps 6,900 / 7,820 / 8,280 (the file's default) /
+8,740 / 9,660 bars: sealed-year top-10 share falls a lot (48 to 60 points, clause a's first leg
+clears everywhere) but the sealed year without its ten biggest trades runs at profit factor 0.548 to
+0.585 against the 1.0 required, so clause (a) fails in all five. Clause (c) fails in all five too:
+tuning annualised MAR drops from 0.74 to between 0.49 and 0.69. Clause (b) survives except at cap
+6,900. Best cell of a failing set is cap 8,740: tuning 2,490 trades / $416,567 / PF 1.437 / drawdown
+$40,548 / MAR 0.68, sealed $112,565 with the top-10 share down 60 points.
+
+**What the cap genuinely does, on the measure the house says is the right one.** Rate-matched (k=1
+for a one-year stretch), delete the single biggest sealed trade: the crown's sealed year turns into
+a $15,708 LOSS at profit factor 0.879, while every capped cell stays positive at 1.23 to 1.42. The
+cap also cuts the longest hold from 104 days to 11-15, lifts the sealed sample from 116 trades to
+146-172, roughly halves the sealed-year drawdown, and improves tuning years-surviving-three-deletions
+from 5 of 16 to 6 or 7. The price is a tuning drawdown up to 35% worse and a lower tuning MAR -
+a trade the file's own docstring does not mention.
+
+**Verdict: no validate queued.** The idea is not worthless, but it fails the bar that was written
+before the numbers were read, and rescuing it on the rate-matched read afterwards would be fitting
+the test to the result. Also noted: the R3 docstring's own table was measured on the un-corrected
+tape and does not reproduce here. If this is ever revived it needs a new pre-registration whose
+concentration clause is rate-matched from the start, not a re-read of this one.
+
+**Process note.** These local runs were wrapped in the house research beacon, which writes a job
+document to the queue so the dials show the work. That is a Firestore write, so "read-only" was not
+strictly true of this round; no run number was created and nothing reached the RUNBOARD.
