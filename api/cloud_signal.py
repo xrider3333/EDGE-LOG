@@ -971,6 +971,18 @@ def _daily_cache_newest_date(paths):
         return None
 
 
+def _daily_cache_refresh_due(now, paths):
+    """True iff _maybe_refresh_daily_cache(now, paths) would fetch right now: no attempt
+    yet on `now`'s ET date (the mtime gate) AND the cache is missing or older than
+    _last_completed_session_date(now). Split out (2026-09-27) so api/cloud_signal_stream.py
+    can ask "may a fetching step() still change QQQ_1d.csv today?" with the SAME test,
+    without fetching. May raise on an unexpected error -- both callers wrap it."""
+    if _daily_cache_refreshed_today(paths, now):
+        return False
+    newest = _daily_cache_newest_date(paths)
+    return newest is None or newest < _last_completed_session_date(now)
+
+
 def _maybe_refresh_daily_cache(now, paths, log=print):
     """Refresh the QQQ daily cache when it does not yet hold the last COMPLETED
     session (critical fix, go-live audit item 3.8, 2026-09-26): missing entirely, or
@@ -991,11 +1003,7 @@ def _maybe_refresh_daily_cache(now, paths, log=print):
     here just leaves the existing on-disk cache (or none) in place for
     vol_prior_ranges_for_leg to read, which is already its own fail-safe path."""
     try:
-        if _daily_cache_refreshed_today(paths, now):
-            return
-        needed = _last_completed_session_date(now)
-        newest = _daily_cache_newest_date(paths)
-        if newest is not None and newest >= needed:
+        if not _daily_cache_refresh_due(now, paths):
             return
         fetch_and_merge_daily(paths, now=now, log=log)
     except Exception as e:
@@ -1982,6 +1990,30 @@ def _decide_at_close_probe(arrays, trades, tf, now, run, log=print):
         return trades, arrays
 
 
+def leg_decision_trades(cfg, arrays, leg_key, tf, now, paths, fetch, log=print):
+    """(trades, diff_arrays): everything step() does to one leg between closed_arrays and
+    _diff_leg -- run_leg_trades with `now`/`paths`/`fetch` (the session_in_progress and
+    vol_prior_ranges pass-throughs), then, for a cfg["decide_at_close"] leg, the
+    decide_at_close probe; `diff_arrays` is what _diff_leg must be handed. ONE function so
+    step() and api/cloud_signal_stream.py's stream decision cannot drift apart again (the
+    stream path once skipped all three extras -- WEBULL_PAPER_TODO.md item 10). The stream
+    calls this with fetch=False: it must never touch the network, and step() runs right
+    after it on the same tick and does the daily-cache refresh."""
+    trades = run_leg_trades(cfg, arrays, leg_key=leg_key, log=log, now=now, paths=paths,
+                            fetch=fetch)
+    diff_arrays = arrays
+    if cfg.get("decide_at_close"):
+        # The probe must run the leg exactly like the call above -- keep the two in step.
+        # fetch=False: the call above already refreshed the daily cache this tick, so the
+        # probe reads the same file without a second network call.
+        trades, diff_arrays = _decide_at_close_probe(
+            arrays, trades, tf, now,
+            lambda a: run_leg_trades(cfg, a, leg_key=leg_key, log=log, now=now, paths=paths,
+                                     fetch=False),
+            log=log)
+    return trades, diff_arrays
+
+
 # ── The core entry point ───────────────────────────────────────────────────────────────
 def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
     """One signal-engine tick. For each leg: load cached bars (optionally refreshed
@@ -2091,15 +2123,10 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
         if keel_cfg and fetch and _is_cloud_host():
             _maybe_push_keel_fallback(key, keel_cfg, now, state, arrays=arrays)
 
-        trades = run_leg_trades(cfg, arrays, leg_key=key, now=now, paths=paths, fetch=fetch)
-        diff_arrays = arrays
-        if cfg.get("decide_at_close"):
-            # The probe must run the leg exactly like the call above -- keep the two in step.
-            # fetch=False: the call above already refreshed the daily cache this tick, so the
-            # probe reads the same file without a second network call.
-            trades, diff_arrays = _decide_at_close_probe(
-                arrays, trades, tf, now,
-                lambda a: run_leg_trades(cfg, a, leg_key=key, now=now, paths=paths, fetch=False))
+        # run_leg_trades (+ the decide_at_close probe for a flagged leg) -- shared with the
+        # stream path (api/cloud_signal_stream.py) so the two can never decide differently
+        # off the same bars; see leg_decision_trades.
+        trades, diff_arrays = leg_decision_trades(cfg, arrays, key, tf, now, paths, fetch)
         # Three bars of grace by default: a signal may legitimately be discovered a bar or
         # so late, but never hours late (see _diff_leg's LATE ENTRIES note). A leg may set
         # its own `max_entry_age_sec` when its bar size makes three bars the wrong measure.

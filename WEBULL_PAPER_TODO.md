@@ -19,7 +19,7 @@ done.
 | 7 | One Webull account, three strategies: net the orders | **DONE** (2026-09-23, d14e2a3) | nothing; watch the first split order |
 | 8 | Live positions + account equity, honest warnings, plain-English broker errors | **DONE** (2026-09-23) | nothing; watch the live feed's load at the open |
 | 9 | KEEL v12 on top of run #382 on the NOISE leg | **LIVE** (2026-09-24, 5326d02) | nothing |
-| 10 | Fire orders at the bar close from the live price feed | **SHADOW** (2026-09-25, 4aaabc8, live on the box, switch off) | after about a week of shadow numbers: switch it on or not |
+| 10 | Fire orders at the bar close from the live price feed | **SHADOW** (switch off; first real session 2026-09-28 - the week of shadow numbers starts then) | after about a week of shadow numbers: switch it on or not |
 | 11 | Re-price trades from Webull's own tape, not Yahoo | **DONE** (2026-09-25, 9805414, live on the box) | nothing |
 | 12 | NOISE's volatility skip never fires live | **PARTLY DONE** (2026-09-26): daily QQQ ranges fill the missing sessions (live from Monday's first tick); the exact fix waits on a data key | a free Alpaca data key in the private secrets folder (steps in item 12) |
 | 13 | Share cap vs #382 x KEEL sizes | **DONE** (2026-09-24: 60 per leg, 80 total) | nothing |
@@ -596,6 +596,19 @@ validation's walk would already count earlier same-day trades - a one-day lag of
 ---
 
 ## 10. Fire orders at the bar close from the live price feed
+
+**2026-09-27 corrections.**
+- **No shadow numbers exist yet.** The shadow code first reached the box after the 09-25 close and
+  the weekend followed, so no session has run with it; the week of numbers starts Monday 2026-09-28.
+  Check from about 09:40 ET: ohlc_stream/QQQ_5m_closed.json exists, the exec log has "published
+  closed 5m bar" lines, cloud_signal/stream_shadow.json exists and the signal log has "shadow" lines.
+- **The stream decision had drifted from the classic one** (fixed 2026-09-27): it used a 60-session
+  window instead of NOISE's 262, skipped the daily-range bridge, skipped ORB's morning fix (item 15)
+  and skipped the bar-close orders (item 16). With the switch on, a stream decision REPLACES the
+  classic one for that bar, so switching it on would have re-broken all three. Both paths now call
+  one shared decision function; on the box's bars (last 20 sessions, 1,559 bars per leg) the stream
+  and classic decisions match exactly for ORB and NOISE. The stream also stands aside for NOISE's
+  first bar of a day until the daily-range file has been refreshed.
 
 **Status: SHADOW 2026-09-25** (4aaabc8; live on the box from the 16:07 ET restart, switch
 `bar_close_from_stream` off). The engine still fires from Webull's REST bar. Beside it, it logs

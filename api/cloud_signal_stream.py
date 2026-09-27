@@ -15,7 +15,12 @@ THE OWNER'S HONESTY RULE ("live must match the backtest"). A "decision" here is 
 reimplemented -- it is always produced by calling api.cloud_signal.closed_arrays /
 run_leg_trades / _diff_leg, the EXACT functions step() itself uses, just against a
 different OHLC frame. The only way a stream decision and a REST decision can ever
-differ is the data they were handed, never the code path.
+differ is the data they were handed, never the code path. (Since 2026-09-27 the engine
+step is api.cloud_signal.leg_decision_trades, which step() calls too, so the history
+window, the session_in_progress / vol_prior_ranges pass-throughs and the decide_at_close
+probe are shared by construction -- see _dry_run_decision. The one data gap left -- the
+QQQ daily cache step() refreshes only AFTER the stream has run on a tick -- is closed by
+leaving that bar to step() alone; see _daily_cache_may_still_change.)
 
 SHADOW MODE (design constraint 3 -- the main deliverable). Regardless of the owner
 switch below, every 5m leg's stream-implied decision is computed via a DEEP COPY of its
@@ -188,21 +193,62 @@ def _effective_now_for_bar(bar_close_epoch, grace_seconds):
     return _dt.datetime.fromtimestamp(bar_close_epoch + grace_seconds, tz=cs._zi(cs.TZ))
 
 
-def _dry_run_decision(leg_key, cfg, df, now_et, leg_state, bar_source, log):
-    """Runs the exact engine path step() uses (closed_arrays -> run_leg_trades ->
-    _diff_leg) against a throwaway DEEP COPY of `leg_state` -- the real one is never
-    touched here. Returns (events, mutated_leg_state_copy); events is None if there is
-    not yet enough history to evaluate (closed_arrays returned None, e.g. cold cache)."""
-    warmup = cfg.get("warmup_sessions", cs.DEFAULT_WARMUP_SESSIONS)
-    arrays = cs.closed_arrays(df, now_et, "5m", warmup)
+def _dry_run_decision(leg_key, cfg, df, now_et, leg_state, bar_source, log, paths=None):
+    """Runs the exact engine path step() uses (closed_arrays over
+    cs.leg_warmup_sessions(cfg) -> cs.leg_decision_trades -> _diff_leg) against a
+    throwaway DEEP COPY of `leg_state` -- the real one is never touched here. Returns
+    (events, mutated_leg_state_copy); events is None if there is not yet enough history
+    to evaluate (closed_arrays returned None, e.g. cold cache).
+
+    leg_decision_trades is the SAME function step() calls, so the history window, the
+    session_in_progress / vol_prior_ranges pass-throughs and the decide_at_close probe
+    all match it (before 2026-09-27 this path used a flat 60-session window, no `now`
+    and no probe). `paths` is the leg's store; the vol_prior_ranges bridge reads its
+    daily cache only when it is given (None -- old callers -- skips the bridge, the
+    run_leg_trades convention). fetch=False always, to BOTH calls: the stream extras
+    never touch the network; step() runs right after on the same tick and refreshes the
+    daily cache. In _diff_leg, fetch only gates the scoring-time KEEL fallback ntfy push
+    (no event or state depends on it) -- that push is step()'s to send, and its
+    once-a-day dedupe would only land on this throwaway copy, so it would repeat."""
+    arrays = cs.closed_arrays(df, now_et, "5m", cs.leg_warmup_sessions(cfg))
     if arrays is None:
         return None, None
-    trades = cs.run_leg_trades(cfg, arrays, leg_key=leg_key, log=log)
+    trades, diff_arrays = cs.leg_decision_trades(cfg, arrays, leg_key, "5m", now_et, paths,
+                                                 False, log=log)
     leg_state_copy = copy.deepcopy(leg_state)
     max_age = cfg.get("max_entry_age_sec", 3 * cs.TIMEFRAME_SECONDS["5m"])
     events = cs._diff_leg(leg_key, trades, leg_state_copy, now_et, max_entry_age_sec=max_age,
-                          bar_source=bar_source, cfg=cfg, arrays=arrays, log=log)
+                          bar_source=bar_source, cfg=cfg, arrays=diff_arrays, fetch=False,
+                          log=log)
     return events, leg_state_copy
+
+
+# Last bar_epoch each leg was held back for by _daily_cache_may_still_change -- only so
+# that skip is logged once per bar, not once per ~1s hand-off-window tick.
+_DAILY_GATE_LOGGED = {}
+
+
+def _daily_cache_may_still_change(cfg, now, paths):
+    """True when this leg reads the vol_prior_ranges bridge AND a fetching step() may
+    still rewrite QQQ_1d.csv today (cs._daily_cache_refresh_due -- the SAME test step()'s
+    own refresh uses). run_stream_aware_step runs the stream extras BEFORE step() on a
+    tick, and step() only refreshes that file when it processes a new bar -- so the first
+    bar of each ET day would otherwise be decided off a cache missing D-1 while step() and
+    the REST what-if, moments later, read the refreshed one (calibration gains a session:
+    a borderline rank can flip -> a false DISAGREEMENT, or with bar_close_from_stream on,
+    a committed decision step() would not make). Such a bar is left to classic step()
+    alone; the stream resumes as soon as step() has made today's refresh attempt.
+    A plain leg is never held back. Any error reads as True: skipping the stream is always
+    safe, step() still decides the bar."""
+    try:
+        strategy = cfg.get("strategy")
+        if not cs._leg_accepts_vol_prior_ranges(strategy):
+            return False
+        if cs.required_lookback_sessions(strategy) is None:
+            return False
+        return bool(cs._daily_cache_refresh_due(now, paths))
+    except Exception:
+        return True
 
 
 # ── comparing two decisions ──────────────────────────────────────────────────────────────
@@ -330,9 +376,18 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log):
         leg_state = state["legs"].setdefault(leg_key, {"trades": {}})
         if leg_state.get("last_bar_epoch") == bar_epoch:
             continue   # this leg already has a real decision for this bar
+        if _daily_cache_may_still_change(cfg, now, paths):
+            # real `now`, not effective_now: the question is whether step() on THIS tick
+            # (or a later one today) may still rewrite QQQ_1d.csv -- see the helper.
+            if _DAILY_GATE_LOGGED.get(leg_key) != bar_epoch:
+                _DAILY_GATE_LOGGED[leg_key] = bar_epoch
+                log(f"[cloud-signal-stream] {leg_key} @ {bar_epoch}: no stream decision -- "
+                   "QQQ daily cache not yet refreshed today (vol_prior_ranges); classic "
+                   "step() decides this bar")
+            continue
         baseline = copy.deepcopy(leg_state)
         events, mutated = _dry_run_decision(leg_key, cfg, augmented, effective_now, leg_state,
-                                            "stream", log)
+                                            "stream", log, paths=paths)
         if events is None:
             continue
         committed = False
@@ -382,7 +437,8 @@ def _resolve_pending_against_rest(now, five_m_legs, paths, log):
             effective_now = _effective_now_for_bar(bar_epoch + cs.TIMEFRAME_SECONDS["5m"],
                                                    cs.CLOSE_GRACE_SECONDS)
             rest_events, _ = _dry_run_decision(leg_key, cfg, rest_df, effective_now,
-                                               rec["baseline_leg_state"], "webull", log)
+                                               rec["baseline_leg_state"], "webull", log,
+                                               paths=paths)
             rest_events = rest_events or []
             match, detail = compare_decisions(rec["events"], rest_events)
             close_epoch = bar_epoch + cs.TIMEFRAME_SECONDS["5m"]
