@@ -683,11 +683,442 @@ def log_history_windows(legs=None, paths=None, log=print):
                 f"margin; cache holds {available}) -- look-back COMPLETE")
         else:
             short = max(0, need - actual)
+            bridge_note = ""
+            if short > 0 and _leg_accepts_vol_prior_ranges(cfg.get("strategy")):
+                daily_n = _daily_prior_sessions_available(tf, paths, need)
+                bridge_note = (
+                    f" -- vol_prior_ranges bridge (go-live audit item 3.8) available: up to "
+                    f"{min(short, daily_n)} more session(s) from QQQ DAILY bars ({daily_n} "
+                    f"cached before the {tf} window's own first session), calibrated onto the "
+                    f"{tf} scale at runtime; the exact count used each tick depends on that "
+                    f"day's calibration (see api/cloud_signal.py's vol_prior_ranges_for_leg)")
             log(f"[cloud-signal] history window {key}: {actual} session(s) "
                 f"(strategy needs >= {need}; wanted {wanted} = {need}+{WARMUP_MARGIN_SESSIONS} "
                 f"margin; cache holds only {available}) -- look-back TRUNCATED"
                 + (f", {short} session(s) short of the strategy's own minimum" if short > 0
-                   else " (below the margin, but at/above the strategy's own minimum)"))
+                   else " (below the margin, but at/above the strategy's own minimum)")
+                + bridge_note)
+
+
+# ── vol_prior_ranges bridge (go-live audit item 3.8, 2026-09-26) ─────────────────────────
+# See NOISE_1_0.py's own vol_prior_ranges / _vol_percentile docstrings for what this feeds
+# and WHY: the box's QQQ 5m cache holds only ~77 sessions -- nowhere near the 252 sessions
+# the vol_skip_pct filter ranks against once it engages -- and there is no intraday data key
+# on this PC to backfill it (WEBULL_PAPER_TODO.md item 12's other half, which needs an
+# owner-provisioned key; see MANAGER inbox item 12, 2026-09-26). The filter only ever reads
+# each session's (H-L)/C though, which a DAILY bar already gives for any session older than
+# the 5m cache's own reach. This loads QQQ daily bars from yfinance, computes (H-L)/C for the
+# sessions strictly BEFORE a leg's own 5m window, calibrates them onto the 5m-derived scale
+# (a daily bar's own H/L is not the same number as an RTH-only 5m session's -- see
+# _calibrate_daily_ranges), and hands the result to NOISE_1_0.py's vol_prior_ranges kwarg via
+# a PER-CALL copy of the leg's params (cfg["params"] itself is never mutated -- same
+# convention as the session_in_progress pass-through above).
+#
+# FAIL-SAFE THROUGHOUT, by design: any error, any missing/thin overlap, or a calibration
+# ratio outside a sane band passes NOTHING and logs why -- exactly today's (pre-this-
+# feature) behaviour for that call. This is a bridge for a PC that lacks intraday depth, not
+# a new hard requirement -- NOISE_382 keeps trading on its 5m-only window whenever the
+# bridge is unavailable, same as before REQUIRED_LOOKBACK_SESSIONS existed.
+DAILY_MIN_OVERLAP_SESSIONS = 20
+DAILY_CALIBRATION_RATIO_MIN = 0.8
+DAILY_CALIBRATION_RATIO_MAX = 1.25
+DAILY_MARGIN_SESSIONS = WARMUP_MARGIN_SESSIONS   # same slack idea as leg_warmup_sessions
+
+_DAILY_CALIBRATION_LOG = {}   # "date" -> the ET calendar date last logged; "reasons" ->
+                              # the set of _log_fail_safe_once reason_keys already logged
+                              # that date (reset together whenever "date" rolls forward)
+
+
+def _leg_accepts_vol_prior_ranges(strategy):
+    """True iff `strategy` -- or, walking its `_base` attribute chain the way
+    NOISE_1_8_CT304.py wraps NOISE_1_1_NBHD.py wraps NOISE_1_0.py -- resolves to a
+    module whose run_backtest explicitly names a `vol_prior_ranges` parameter. Same
+    reflection convention as _leg_accepts_session_in_progress: a bare **kwargs
+    catch-all does not count ON ITS OWN, but NOISE's two live wrappers each forward
+    this specific keyword through their own **kw once it is present in the caller's
+    kwargs (see NOISE_1_8_CT304.py's own vol_prior_ranges passthrough and
+    NOISE_1_1_NBHD.py's _BASE_ARGS filter, which is computed by inspecting
+    NOISE_1_0.py's signature directly) -- so reaching a module at the bottom of the
+    chain that DOES name it is sufficient to know the whole chain will carry it
+    through. Best-effort/never-raises, same contract as _strategy_module_for_sizing."""
+    mod = _strategy_module_for_sizing(strategy)
+    seen = set()
+    while mod is not None and id(mod) not in seen:
+        seen.add(id(mod))
+        if hasattr(mod, "run_backtest"):
+            try:
+                sp = inspect.signature(mod.run_backtest).parameters
+            except (TypeError, ValueError):
+                sp = {}
+            if "vol_prior_ranges" in sp:
+                return True
+        mod = getattr(mod, "_base", None)
+    return False
+
+
+def _fetch_yf_daily():
+    """Fresh QQQ DAILY bars from yfinance, regular session, unadjusted -- same
+    auto_adjust=False convention as qp._fetch_yf's intraday pulls. Returns a
+    DataFrame indexed by a DatetimeIndex with Open/High/Low/Close/Volume, or an
+    empty DataFrame on ANY failure (network, rate limit, genuinely no data) --
+    never raises. period="5y" is comfortably more than REQUIRED_LOOKBACK_SESSIONS
+    (252) + margin ever needs and small enough to pull in one request, every time
+    (no 7-day chunking like the 1m intraday path)."""
+    import pandas as pd
+    try:
+        import yfinance as yf
+        tkr = yf.Ticker(qp.TICKER)
+        df = tkr.history(period="5y", interval="1d", prepost=False, auto_adjust=False)
+    except Exception:
+        return pd.DataFrame()
+    return df if df is not None else pd.DataFrame()
+
+
+def _last_completed_session_date(now):
+    """The most recent session date that should already be fully closed as of `now`:
+    TODAY's own session once `now` is at/after its regular-session close (api.
+    market_calendar.session_close_et) -- half-day aware -- else the most recent
+    session date strictly BEFORE today. Used to decide whether the on-disk QQQ daily
+    cache is stale (go-live audit item 3.8, critical fix 2026-09-26): the cache should
+    always hold a finished bar for this date once it exists, whatever the wall-clock
+    time is."""
+    today = now.date()
+    if market_calendar.is_session(today):
+        close_et = market_calendar.session_close_et(today)
+        hh, mm = (int(x) for x in close_et.split(":"))
+        if now.time() >= _dt.time(hh, mm):
+            return today
+    d = today - _dt.timedelta(days=1)
+    while not market_calendar.is_session(d):
+        d -= _dt.timedelta(days=1)
+    return d
+
+
+def _drop_unfinished_session_rows(df, now, log=print):
+    """Drop any row of an epoch-schema daily-bars DataFrame dated `now`'s own ET
+    calendar date OR LATER, unless TODAY's own regular session has already closed as
+    of `now` -- i.e. keep only FINISHED daily bars, matching what "after the close"
+    means everywhere else in this bridge (critical fix, go-live audit item 3.8,
+    2026-09-26: a stray in-progress row from yfinance -- e.g. a mid-session pull that
+    returns today's own partial OHLC -- must never be stored or handed to a strategy
+    as though it were a finished session). Applied both BEFORE this cache is written
+    (fetch_and_merge_daily) and BEFORE it is read for use (vol_prior_ranges_for_leg /
+    _daily_prior_sessions_available), so a row written by an older build, or by any
+    other writer of this file, is filtered out here too. Never raises: any error
+    reading `df` returns it unchanged rather than risk dropping good rows."""
+    import pandas as pd
+    if df is None or not len(df):
+        return df
+    try:
+        needed = _last_completed_session_date(now)
+        dates = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert(TZ).dt.date
+        kept = df[dates <= needed]
+        return kept.reset_index(drop=True)
+    except Exception as e:
+        log(f"[cloud-signal] could not filter unfinished daily rows ({type(e).__name__}: {e}) "
+            f"-- using the cache unfiltered this call")
+        return df
+
+
+def fetch_and_merge_daily(paths=None, now=None, log=print):
+    """Refresh <home>/ohlc/QQQ_1d.csv from yfinance and return the merged epoch-schema
+    DataFrame (one row per session), or None on any failure -- NEVER raises: a daily-
+    cache miss just means vol_prior_ranges_for_leg passes nothing this call (see its
+    own fail-safe). Same atomic write-beside-and-rename convention as fetch_and_merge
+    (qp._replace_with_retry) -- this file is read by this same process's very next
+    call and, in principle, a parallel replay/tool, exactly like QQQ_5m.csv/QQQ_1m.csv.
+
+    Any row dated `now`'s own date or later is dropped before the merge is written
+    (see _drop_unfinished_session_rows) unless today's own session has already
+    closed -- a mid-session yfinance pull can return today's own partial daily bar,
+    and "after the close" (the spec) means a FINISHED bar, never that one."""
+    import pandas as pd
+    paths = paths or DEFAULT_PATHS
+    now = now or _dt.datetime.now(tz=_zi(TZ))
+    os.makedirs(paths["ohlc_dir"], exist_ok=True)
+    path = _cache_path("1d", paths)
+    old = load_cached_bars("1d", paths)
+    if old is None:
+        old = pd.DataFrame(columns=["time", "open", "high", "low", "close", "volume"])
+    fresh_df = _fetch_yf_daily()
+    fresh = qp._to_epoch_frame(fresh_df)
+    fresh = _drop_unfinished_session_rows(fresh, now, log=log)
+    if not len(fresh) and not len(old):
+        return None
+    merged = pd.concat([old, fresh], ignore_index=True)
+    if len(merged):
+        merged = merged.drop_duplicates("time", keep="last").sort_values("time")
+    tmp = path + ".tmp"
+    merged.to_csv(tmp, index=False)
+    qp._replace_with_retry(tmp, path, log=log, what="[cloud-signal] 1d bar cache")
+    return merged
+
+
+def _daily_cache_refreshed_today(paths, now):
+    """True iff <home>/ohlc/QQQ_1d.csv's own mtime already falls on `now`'s ET
+    calendar date -- the refresh-at-most-once-a-day ATTEMPT gate for
+    _maybe_refresh_daily_cache (kept exactly as before this fix: a failed fetch
+    leaves the old file's mtime untouched, so the next tick the same day retries,
+    same as always). False (never raises) when the file does not exist yet or its
+    mtime can't be read."""
+    try:
+        import pandas as pd
+        mtime = os.path.getmtime(_cache_path("1d", paths))
+    except OSError:
+        return False
+    try:
+        mdate = pd.Timestamp(mtime, unit="s", tz="UTC").tz_convert(TZ).date()
+    except Exception:
+        return False
+    return mdate == now.date()
+
+
+def _daily_cache_newest_date(paths):
+    """The most recent session date already on disk in <home>/ohlc/QQQ_1d.csv, or
+    None when the cache is missing, empty, or unreadable -- never raises."""
+    try:
+        df = load_cached_bars("1d", paths)
+        if df is None or not len(df):
+            return None
+        import pandas as pd
+        dates = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert(TZ).dt.date
+        return dates.max()
+    except Exception:
+        return None
+
+
+def _maybe_refresh_daily_cache(now, paths, log=print):
+    """Refresh the QQQ daily cache when it does not yet hold the last COMPLETED
+    session (critical fix, go-live audit item 3.8, 2026-09-26): missing entirely, or
+    its newest on-disk date is older than _last_completed_session_date(now) -- the
+    session before today, or today itself once today's own regular-session close has
+    passed. This is tied to what the cache actually HOLDS, not to `now`'s own
+    time-of-day, because the live loops (cloud_signal_thread, cmd_loop) only ever
+    call step() during RTH_OPEN..RTH_CLOSE -- a pure time-of-day gate at the session
+    close overlaps that window at a single instant and the cache was never refreshed
+    in practice (see this function's own history for the bug this replaced).
+
+    Still refreshes AT MOST ONCE PER CALENDAR DAY (the mtime/attempt gate above,
+    unchanged) even when the cache is stale for a reason this can't fix (e.g.
+    yfinance genuinely has nothing new yet) -- this never hammers the network every
+    tick. A non-session day (weekend/holiday) still only ever attempts once, since
+    the cache is never stale relative to `_last_completed_session_date` past the
+    first successful refresh that already covers it. Never raises -- any failure
+    here just leaves the existing on-disk cache (or none) in place for
+    vol_prior_ranges_for_leg to read, which is already its own fail-safe path."""
+    try:
+        if _daily_cache_refreshed_today(paths, now):
+            return
+        needed = _last_completed_session_date(now)
+        newest = _daily_cache_newest_date(paths)
+        if newest is not None and newest >= needed:
+            return
+        fetch_and_merge_daily(paths, now=now, log=log)
+    except Exception as e:
+        log(f"[cloud-signal] QQQ daily cache refresh failed ({type(e).__name__}: {e}) -- "
+            f"vol_prior_ranges continues off whatever is already cached, if anything")
+
+
+def _session_ranges_from_5m(arrays):
+    """{date: (H-L)/C} for every distinct session already in this leg's live intraday
+    `arrays` -- the same per-session reduction NOISE_1_0.py's own _vol_percentile
+    does internally, read off the live cache instead of a backtest master. Used ONLY
+    to calibrate the daily series onto the same scale (see _calibrate_daily_ranges);
+    never itself handed to a strategy."""
+    import numpy as np
+    h, l, c, day_id, idx = (arrays["high"], arrays["low"], arrays["close"],
+                            arrays["day_id"], arrays["index"])
+    out = {}
+    n = len(day_id)
+    a = 0
+    while a < n:
+        b = a
+        while b < n and day_id[b] == day_id[a]:
+            b += 1
+        out[idx[a].date()] = (float(np.max(h[a:b])) - float(np.min(l[a:b]))) / float(c[b - 1])
+        a = b
+    return out
+
+
+def _daily_ranges_by_date(daily_df):
+    """{date: (H-L)/C} from an epoch-schema daily bars DataFrame (time/open/high/low/
+    close/volume, one row per session -- QQQ_1d.csv's own schema). Skips any row with
+    a non-positive close (can't compute a ratio off it)."""
+    import pandas as pd
+    dates = pd.to_datetime(daily_df["time"], unit="s", utc=True).dt.tz_convert(TZ).dt.date
+    out = {}
+    for dt, h, l, c in zip(dates, daily_df["high"], daily_df["low"], daily_df["close"]):
+        c = float(c)
+        if c > 0:
+            out[dt] = (float(h) - float(l)) / c
+    return out
+
+
+def _log_fail_safe_once(reason_key, msg, log=print):
+    """Logs `msg` at most once per ET calendar date per `reason_key` (minor fix,
+    go-live audit item 3.8, 2026-09-26): every vol_prior_ranges fail-safe reason used
+    to log on EVERY call -- about 78 times a day for NOISE_382's own 5m cadence --
+    because only the calibration line itself had a once-a-day latch. Keyed by
+    `reason_key` (a short fixed label, not the formatted message text, which carries
+    numbers that legitimately change tick to tick) so each distinct reason still gets
+    its own once-a-day line, but the SAME reason on the next bar/tick that same date
+    stays silent. Shares its date-rollover bookkeeping with _DAILY_CALIBRATION_LOG so
+    a fresh calendar date resets every reason's latch together."""
+    today = _dt.datetime.now(tz=_zi(TZ)).date()
+    if _DAILY_CALIBRATION_LOG.get("date") != today:
+        _DAILY_CALIBRATION_LOG["date"] = today
+        _DAILY_CALIBRATION_LOG["reasons"] = set()
+    reasons = _DAILY_CALIBRATION_LOG.setdefault("reasons", set())
+    if reason_key in reasons:
+        return
+    reasons.add(reason_key)
+    log(msg)
+
+
+def _calibrate_daily_ranges(daily_df, arrays, now=None, log=print):
+    """Median ratio of 5m-derived (H-L)/C to Yahoo-DAILY (H-L)/C over the sessions
+    BOTH sources cover (the live intraday `arrays`' own sessions), plus that overlap
+    count. Logged ONCE per ET calendar date (not per leg, not per tick).
+
+    JUDGED-DAY LEAK (minor fix, go-live audit item 3.8, 2026-09-26): the live
+    intraday `arrays`' own LAST session is dropped from the overlap before
+    calibrating whenever `now` is given and that session's date is `now`'s own date
+    or later, or _session_in_progress(arrays, now) says the window is mid-build --
+    in replay, the daily cache already holds the replayed day's own FINISHED bar
+    while `arrays` only holds part of it; live, this only matters if a stray
+    in-progress row ever reached this far (see _drop_unfinished_session_rows, which
+    should already have kept it out). Either way, letting the session being judged
+    leak into its own scale factor is a small bias this avoids. `now=None` (every
+    call site that predates this parameter) skips the check entirely -- byte-
+    identical to before it existed.
+
+    Returns (ratio, overlap_n): ratio is None -- meaning "pass nothing, fail safe" --
+    whenever the overlap is thinner than DAILY_MIN_OVERLAP_SESSIONS or the median
+    ratio itself falls outside [DAILY_CALIBRATION_RATIO_MIN, DAILY_CALIBRATION_RATIO_MAX]
+    (a daily bar and an RTH-only 5m session's own (H-L)/C should be close -- QQQ barely
+    trades outside RTH -- so a ratio far from 1.0 means the two series are not lining up
+    the way this bridge assumes, e.g. a date-alignment bug or a corrupted cache, and
+    scaling by it would be trusting a broken calibration rather than fixing one)."""
+    import numpy as np
+    five_min = _session_ranges_from_5m(arrays)
+    if now is not None and five_min:
+        idx = arrays.get("index")
+        last_date = idx[-1].date() if idx is not None and len(idx) else None
+        if last_date is not None and (last_date >= now.date()
+                                      or _session_in_progress(arrays, now)):
+            five_min = dict(five_min)
+            five_min.pop(last_date, None)
+    daily = _daily_ranges_by_date(daily_df)
+    overlap = sorted(set(five_min) & set(daily))
+    n = len(overlap)
+    ratios = [five_min[d] / daily[d] for d in overlap if daily[d] > 0]
+    ratio = float(np.median(ratios)) if ratios else None
+    today = _dt.datetime.now(tz=_zi(TZ)).date()
+    if _DAILY_CALIBRATION_LOG.get("date") != today:
+        _DAILY_CALIBRATION_LOG["date"] = today
+        _DAILY_CALIBRATION_LOG["reasons"] = set()
+        log(f"[cloud-signal] vol_prior_ranges calibration: {n} overlap session(s) between "
+            f"the 5m cache and QQQ daily bars, 5m/daily (H-L)/C median ratio = "
+            + (f"{ratio:.4f}" if ratio is not None else "n/a"))
+    if ratio is None:
+        _log_fail_safe_once(
+            "no_valid_overlap",
+            "[cloud-signal] vol_prior_ranges: no valid overlap ratios -- passing nothing", log)
+        return None, n
+    if n < DAILY_MIN_OVERLAP_SESSIONS:
+        _log_fail_safe_once(
+            "thin_overlap",
+            f"[cloud-signal] vol_prior_ranges: only {n} overlap session(s) "
+            f"(< {DAILY_MIN_OVERLAP_SESSIONS} required) -- passing nothing", log)
+        return None, n
+    if not (DAILY_CALIBRATION_RATIO_MIN <= ratio <= DAILY_CALIBRATION_RATIO_MAX):
+        _log_fail_safe_once(
+            "ratio_out_of_band",
+            f"[cloud-signal] vol_prior_ranges: calibration ratio {ratio:.4f} outside "
+            f"[{DAILY_CALIBRATION_RATIO_MIN}, {DAILY_CALIBRATION_RATIO_MAX}] -- passing nothing", log)
+        return None, n
+    return ratio, n
+
+
+def vol_prior_ranges_for_leg(cfg, arrays, now, paths=None, fetch=False, log=print):
+    """The list of calibrated prior-session (H-L)/C values (oldest first) to hand
+    this leg's engine call as vol_prior_ranges -- see NOISE_1_0.py's own kwarg -- or
+    None when the leg's strategy does not declare it, its strategy declares no
+    REQUIRED_LOOKBACK_SESSIONS, the daily cache can't be built/read, or calibration
+    fails (see _calibrate_daily_ranges). `fetch` gates the ONE network call this can
+    make (refreshing QQQ_1d.csv) -- False (the default) never touches the network,
+    same convention as fetch_and_merge/`step`'s own fetch flag; a replay or a test
+    passes/leaves this False and reads only whatever is already on disk, if anything.
+
+    FAIL-SAFE: any exception anywhere in this function is caught, logged once, and
+    treated as "pass nothing" -- this never raises and never blocks step()."""
+    try:
+        if not _leg_accepts_vol_prior_ranges(cfg.get("strategy")):
+            return None
+        need = required_lookback_sessions(cfg.get("strategy"))
+        if need is None:
+            return None
+        first_date = arrays["index"][0].date()
+        paths = paths or DEFAULT_PATHS
+        if fetch:
+            _maybe_refresh_daily_cache(now, paths, log=log)
+        daily_df = load_cached_bars("1d", paths)
+        if daily_df is None or not len(daily_df):
+            _log_fail_safe_once(
+                "missing_cache",
+                "[cloud-signal] vol_prior_ranges: QQQ_1d.csv is missing or empty -- "
+                "passing nothing until it exists", log)
+            return None
+        # Defense in depth (critical fix, go-live audit item 3.8): filter out any
+        # unfinished-session row again at READ time, not only at fetch_and_merge_daily's
+        # write time -- a cache written by an older build, or by any other writer of
+        # this file, could still hold a stray in-progress row.
+        daily_df = _drop_unfinished_session_rows(daily_df, now, log=log)
+        if daily_df is None or not len(daily_df):
+            _log_fail_safe_once(
+                "missing_cache",
+                "[cloud-signal] vol_prior_ranges: QQQ_1d.csv has no finished session yet -- "
+                "passing nothing until it does", log)
+            return None
+        ratio, _overlap_n = _calibrate_daily_ranges(daily_df, arrays, now=now, log=log)
+        if ratio is None:
+            return None
+        daily = _daily_ranges_by_date(daily_df)
+        prior_dates = sorted(d for d in daily if d < first_date)
+        keep = need + DAILY_MARGIN_SESSIONS
+        prior_dates = prior_dates[-keep:]
+        if not prior_dates:
+            return None
+        return [ratio * daily[d] for d in prior_dates]
+    except Exception as e:
+        log(f"[cloud-signal] vol_prior_ranges unavailable ({type(e).__name__}: {e}) -- "
+            f"passing nothing this call")
+        return None
+
+
+def _daily_prior_sessions_available(tf, paths, need):
+    """Best-effort count of QQQ daily-bar sessions cached STRICTLY BEFORE the `tf`
+    intraday cache's own first session -- i.e. an upper bound on what the
+    vol_prior_ranges bridge could contribute, ignoring calibration (a STARTUP
+    diagnostic only -- see log_history_windows; the real, calibration-gated count is
+    computed fresh every tick by vol_prior_ranges_for_leg). 0 on any missing cache or
+    read failure -- never raises."""
+    try:
+        epoch_df = load_cached_bars(tf, paths)
+        if epoch_df is None or not len(epoch_df):
+            return 0
+        arrays = build_arrays(epoch_df)
+        if arrays is None or not len(arrays.get("close", [])):
+            return 0
+        first_date = arrays["index"][0].date()
+        daily_df = load_cached_bars("1d", paths)
+        if daily_df is None or not len(daily_df):
+            return 0
+        daily = _daily_ranges_by_date(daily_df)
+        n = sum(1 for d in daily if d < first_date)
+        return min(n, need + DAILY_MARGIN_SESSIONS)
+    except Exception:
+        return 0
 
 
 # ── One leg's trades -> canonical records ────────────────────────────────────────────────
@@ -751,7 +1182,7 @@ def _resolve_trade_sizes(res, n_trades, label):
     return out, cost
 
 
-def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None):
+def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, fetch=False):
     """Runs the plugin (or a stub module override) via the shared engine wrapper and
     converts the raw (entry_bar, exit_bar, pnl_pts, side, entry_px) tuples into
     canonical dicts keyed by wall-clock timestamps (not bar indices — those are only
@@ -777,12 +1208,32 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None):
     last session is today's own (still-forming) session gets a PER-CALL copy of its
     params with session_in_progress=True added -- cfg["params"] itself is never
     mutated, so the next call (a different `now`) recomputes this fresh.
+
+    VOL_PRIOR_RANGES PASS-THROUGH (go-live audit item 3.8, see the block comment above
+    _leg_accepts_vol_prior_ranges). Same `now`-gated, per-call-copy convention as
+    session_in_progress just above -- `paths`/`fetch` are new, optional, and default to
+    (None -> DEFAULT_PATHS) / False, so every pre-existing call site is unaffected and
+    touches no network. Only step() passes the real `paths`/`fetch`. `paths` must be
+    passed EXPLICITLY (not just `now`) for this bridge to run at all (minor fix,
+    go-live audit item 3.8, 2026-09-26): a caller that passes `now` alone used to
+    still read the live DEFAULT_PATHS QQQ_1d.csv for an opted-in leg -- a read-only,
+    fetch=False read, but one an isolated test or tool calling this with `now` (to
+    exercise session_in_progress, say) never asked for and had no way to avoid. Give
+    such a call its own `paths` (an isolated dict, or DEFAULT_PATHS on purpose) to opt
+    into the daily-cache bridge too.
     """
     params = cfg["params"]
+    extra = {}
     if now is not None and _leg_accepts_session_in_progress(cfg["strategy"]) \
             and _session_in_progress(arrays, now):
+        extra["session_in_progress"] = True
+    if now is not None and paths is not None:
+        prior_ranges = vol_prior_ranges_for_leg(cfg, arrays, now, paths=paths, fetch=fetch, log=log)
+        if prior_ranges:
+            extra["vol_prior_ranges"] = prior_ranges
+    if extra:
         params = dict(params)
-        params["session_in_progress"] = True
+        params.update(extra)
     res = engine_run_backtest(cfg["strategy"], arrays=arrays, params=params,
                               cost_pts=0.0, return_trades=True)
     if not res or not res.get("trades"):
@@ -1440,7 +1891,7 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
         if keel_cfg and fetch and _is_cloud_host():
             _maybe_push_keel_fallback(key, keel_cfg, now, state, arrays=arrays)
 
-        trades = run_leg_trades(cfg, arrays, leg_key=key, now=now)
+        trades = run_leg_trades(cfg, arrays, leg_key=key, now=now, paths=paths, fetch=fetch)
         # Three bars of grace by default: a signal may legitimately be discovered a bar or
         # so late, but never hours late (see _diff_leg's LATE ENTRIES note). A leg may set
         # its own `max_entry_age_sec` when its bar size makes three bars the wrong measure.

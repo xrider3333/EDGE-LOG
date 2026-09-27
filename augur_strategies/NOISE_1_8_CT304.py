@@ -149,6 +149,13 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
         call["day_id"] = day_id
     if index is not None and ("index" in sp or hk):
         call["index"] = index
+    # vol_prior_ranges (2026-09-26, go-live audit item 3.8): opt-in runtime kwarg, not a
+    # DEFAULT_PARAMS knob -- see NOISE_1_0.py's run_backtest/_vol_percentile. Forwarded
+    # through unchanged so a live caller (api/cloud_signal.py) reaches NOISE_1_0.py's
+    # vol_skip_pct filter through this wrapper the same way it would through NBHD alone;
+    # absent from kw (the normal backtest path), this is a no-op.
+    if "vol_prior_ranges" in kw and ("vol_prior_ranges" in sp or hk):
+        call["vol_prior_ranges"] = kw["vol_prior_ranges"]
     r = _base.run_backtest(opens, highs, lows, closes, return_trades=True, **call)
     if not r or not r.get("trades"):
         return None

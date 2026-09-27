@@ -406,21 +406,41 @@ REQUIRED_LOOKBACK_SESSIONS = VOL_SKIP_REF_SESSIONS
 
 
 def _vol_percentile(h, l, c, sess_bounds, ref_n=VOL_SKIP_REF_SESSIONS,
-                    min_obs=VOL_SKIP_LOOKBACK_SESSIONS):
+                    min_obs=VOL_SKIP_LOOKBACK_SESSIONS, prior_ranges=None):
     """vol_skip_pct helper (2026-08-17): pct[si] = percentile rank of the PRIOR
     session's (H-L)/C among the ref_n sessions strictly before that prior session.
     NaN when fewer than min_obs reference sessions exist (treated as not-extreme,
     i.e. the filter stays inactive that day). Fully causal: session si only ever
-    reads sessions that FINISHED before si opens."""
+    reads sessions that FINISHED before si opens.
+
+    prior_ranges (opt-in, live-history bridge -- 2026-09-26, go-live audit item
+    3.8): an optional 1-D sequence of (H-L)/C values for the sessions immediately
+    BEFORE sess_bounds[0], oldest first (prior_ranges[-1] is the session right
+    before the array starts). When given, these are prepended ahead of the
+    in-array vals so an early in-array session's reference window can reach back
+    past the array's own start -- the same depth (up to ref_n real prior
+    sessions) a full-history backtest already has by the time it reaches any
+    session worth judging. Default None reproduces today's code path exactly,
+    byte-for-byte (the run_backtest caller never sets this; it is not a
+    DEFAULT_PARAMS knob)."""
     n_sess = len(sess_bounds)
     vals = np.array([(h[a:b].max() - l[a:b].min()) / c[b - 1] for a, b in sess_bounds], float)
+    if prior_ranges is not None and len(prior_ranges) > 0:
+        pr = np.asarray(prior_ranges, dtype=float)
+        ext = np.concatenate([pr, vals])
+        p = len(pr)
+    else:
+        ext = vals
+        p = 0
     pct = np.full(n_sess, np.nan, dtype=float)
-    for si in range(1, n_sess):
-        j = si - 1
+    for si in range(0 if p > 0 else 1, n_sess):
+        j = si - 1 + p
+        if j < 0:
+            continue
         lo = max(0, j - ref_n)
-        ref = vals[lo:j]
+        ref = ext[lo:j]
         if len(ref) >= min_obs:
-            pct[si] = 100.0 * np.mean(ref < vals[j])
+            pct[si] = 100.0 * np.mean(ref < ext[j])
     return pct
 
 
@@ -448,6 +468,7 @@ def run_backtest(
     confirm_bars: int = 1, daytype_mode: str = "off",
     daytype_lo: float = 0.2, daytype_hi: float = 0.8,
     vol_skip_pct: float = 0.0,
+    vol_prior_ranges=None,
     day_id=None,
     return_trades: bool = False, _stop_event=None, _pause_event=None,
 ):
@@ -496,7 +517,14 @@ def run_backtest(
     # 2026-08-17 filter knobs -- both computed ONLY when their knob is on, so the
     # defaults stay a true no-op (byte-identical; proven by smoke tests a/b below).
     confirm_bars = max(1, int(confirm_bars))
-    vol_pct = _vol_percentile(h, l, c, sess_bounds) if vol_skip_pct > 0.0 else None
+    # vol_prior_ranges is an opt-in RUNTIME kwarg (not a DEFAULT_PARAMS knob -- see its
+    # own docstring on _vol_percentile): a live caller with only a short intraday
+    # history (api/cloud_signal.py) can hand in (H-L)/C values for the sessions before
+    # this array starts so the vol_skip_pct filter ranks the same way a full-history
+    # backtest does. None (the default, always true for a normal backtest run) is a
+    # complete no-op -- byte-identical to before this kwarg existed.
+    vol_pct = _vol_percentile(h, l, c, sess_bounds, prior_ranges=vol_prior_ranges) \
+        if vol_skip_pct > 0.0 else None
     dt_pos = _daytype_pos(h, l, c, sess_bounds) if daytype_mode != "off" else None
 
     pnl_list, trade_log = [], []
