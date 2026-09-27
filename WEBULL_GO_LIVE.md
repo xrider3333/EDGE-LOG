@@ -174,6 +174,30 @@ The "ORB on a different account" question is answered. It is a leftover record f
 
 ## 2. Owner decisions and actions
 
+**Settled 2026-09-26 (owner: "you do this").** Claude settled the parts that are software
+settings; the rest need the owner's own account, money or phone and stay open below.
+- 2.5 Stage-1 live settings (to be applied when LIVE is armed): NOISE only, 1 share base, caps 3 per
+  leg and 3 in total, daily loss stop $40, plus a weekly and a since-start stop still to build.
+- 2.6 KEEL for live stage 1: off. The live leg will trade #382 with its tilt and KEEL forced to 1.0,
+  because #382 x KEEL is not the stack that held its validation and at 1-3 shares a 1.43x vs 1.5x
+  multiplier flips the share count. Paper keeps #382 x KEEL so the forward test goes on.
+- 2.7 ENGU-Q: paper only. The live book will not send ENGU-Q orders until a regular-hours,
+  flat-at-close ENGU-Q is re-validated.
+- 2.9 Box backup: done without the Oracle console. The PC copies the box's ledgers and state
+  every day at 17:45 ET into the private C:\EdgeLog\box_backup (tools/pull_box_ledgers.py, task
+  "EdgeLog pull box ledgers", 60 days kept).
+- Ubuntu updates (CHANGE_CONTROL.md option a): done. needrestart no longer restarts the two book
+  services; the pending libc reboot was taken on 2026-09-26 while flat.
+- 1.10 alert channel: a new unguessable topic is generated and every PC sender now reads the
+  topic from C:\EdgeLog\secrets\ntfy.env (still the old topic until the owner's phone subscribes
+  to the new one; then Claude switches the PC file, the box env and asks for the GitHub secret).
+
+**Still the owner's, and why Claude cannot do them:** 2.1 a dedicated account and 2.2 funding it
+(opening accounts and moving money), 2.3 turning on shorting (an account setting), 2.4 approving
+a live Webull token (2FA on the owner's phone), 2.8 a paid Firestore plan (payment), 2.10 tax
+advice, the phone subscription to the new alert topic, and setting the GitHub NTFY_TOPIC secret
+(Claude does not type secrets into web forms).
+
 **2.1 Which account (day 1)**
 - **What is wrong:** Live would trade your personal Webull login. The position check compares every stock in that account, so any other holding halts all entries. Any QQQ you trade by hand gets netted against the book, and your manual day trades count toward the same day-trade limit.
 - **What to do:** Open or set aside an account used only by the book. Claude then pins it by its last four digits and limits the position check to QQQ.
