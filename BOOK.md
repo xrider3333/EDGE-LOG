@@ -1156,6 +1156,30 @@ combination figures above reproduce exactly. The runner equals the local run to 
 
 The lockbox drawdown at close is 9 % deeper than #449's; valued daily it is slightly smaller.
 
+**Addendum C - lockbox concentration (MANAGER #20; clause 5 pre-registered before the numbers).**
+The house top-10 rule is scaled to one lockbox year of sixteen, so k = 1: remove each book's single largest
+lockbox trade, from the at-close series and from the valued-daily marks. In every book it is the same trade:
+**ENGU-Q, held 2026-04-07 to 2026-05-12, +$91,152**, which is 28-33 % of each book's lockbox net. Every ENGU-Q
+leg here is the roll-corrected paper leg, valued daily.
+
+| book | lockbox ROC %/yr as run / without it | lockbox DD at close as run / without it | lockbox DD valued daily | lockbox Sortino as run / without it | without it, at the WF-set $30k size |
+|---|---|---|---|---|---|
+| #435 (= #366) | 277.1 / 185.9 | $28,066 / $36,875 | $49,855 | 5.85 / 3.91 | 133.6 |
+| #437 (= #397) | 293.3 / 202.1 | $25,893 / $32,619 | $49,855 | 6.31 / 4.33 | 144.9 |
+| #449 | 310.8 / 219.6 | $27,506 / $36,315 | $49,855 | 6.42 / 4.52 | 146.9 |
+| #456 | 293.1 / 201.9 | $27,310 / $35,484 | $49,475 | 6.06 / 4.15 | 184.7 |
+| #457 | 322.9 / 231.7 | $30,051 / $37,682 | $49,475 | 6.28 / 4.48 | 205.7 |
+
+- **Clause 5** (the candidate's lockbox ROC without its top trade, at its WF-set size, is at least the
+  reference's):
+  - vs #449: #456 and #457 PASS; #437 FAILS (144.9 against 146.9).
+  - vs #435: #437, #449, #456 and #457 all pass.
+- **The valued-daily lockbox drawdown does not move** without the trade. It is set by the June 2026 stretch,
+  after the trade closed. The at-close drawdown deepens by about $7-9k, because the win had been covering
+  losses.
+- **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
+  lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
+
 ### 10b. An open item this audit turned up: two day-stamping rules disagree
 
 The recorded finding put the baseline's worst stretch in **2020-02-21..2020-03-25 at $34,903**; the
