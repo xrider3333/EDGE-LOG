@@ -31,4 +31,19 @@ as #439/#440; the book decision stays with the owner.
 
 ## Results
 
-_(filled in after the runs)_
+Run 2026-09-27 (sections above unchanged; pre-registration commit 48c0e5c8).
+
+**Test A - PASSES its bar. Run #452 (`NQDIP_1_3.py` on ES) replaces #432 as the DIP on ES reference.**
+WEAK 5/6 (overfit score 0.90 only; 7 of 8 walk-forward stretches held, efficiency 0.82). WF **22.8 %/yr,
+Sortino 1.39** (bar: above 17.8 and 1.32). Lockbox +$31,119 = **31.1 %/yr, Sortino 3.63**, PF 1.78 (bar:
+positive). Whole-run drawdown $68,480 (bar: at most $73,251). Champion: RSI 2/25/exit 4, trend 300, N-day 4,
+pullback 5/13, capitulation 1.0/0.25/4, IBS 0.10/0.90/8, gap-down 1.0 ATR/2 days; the losing-streak leg off.
+
+**Test B - the search prefers no stop. Run #451 (`NQDIP_1_4.py` on ES) crowned stop_atr = 0**, which is
+#432's exact config (1,036 trades, drawdown $66,592, lockbox $25,409). Its walk-forward, where each fold
+re-tunes and sometimes picks a stop, fell to 9.8 %/yr, Sortino 0.60 (from #432's 17.8 / 1.32): stops chosen
+in-sample hurt out of sample. A crash stop is not the fix for DIP's 2020 drawdown. #432's rules stand.
+
+**Next (pre-registered above):** #452 goes to the Frontier chat for the same seat test as #439/#440. Its
+drawdown ($68,480) is no smaller than #432's, so the seat's drawdown clauses are not expected to pass;
+the owner decides.
