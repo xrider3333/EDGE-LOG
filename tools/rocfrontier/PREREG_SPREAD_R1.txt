@@ -1,0 +1,14 @@
+SPREAD r1 - NQ vs ES relative value, dollar-neutral. PRE-REGISTERED 2026-09-27 before any cell is computed.
+Data: roll-corrected ADJ 5m RTH masters (db_adj_rth) -> daily 09:30 open / 16:00 close. Window 2010-06-07..2025-06-30 ONLY.
+The lockbox (>= 2025-06-30) is not loaded.
+Position: +1 = long 1 NQ, short h ES with h = (20*NQ)/(50*ES) at entry rounded to 0.1 (MES steps); -1 = the reverse.
+Signal from the close of day t, filled at the open of t+1; marked to market at each close. Costs: NQ 0.533 pts, ES 0.363 pts per
+contract round trip (house RTH costs), scaled by h for ES; a flip pays two round trips.
+Cells (12): A1 MOMENTUM on x = log(NQ/ES): sign(x_t - x_{t-L}), L in {10,20,40,60,120,250};
+            A2 REVERSION: z = (x - mean_N)/sd_N, enter against |z| >= Z, exit at z crossing 0 or after 10 days; N in {10,20,60} x Z in {1.5,2.0}.
+PASS bar for a strategy file + Auto-Validate (all must hold on the pre-lockbox window):
+ 1. annualised MAR (marked to market) >= 0.8 and >= 10 of 15 full years positive;
+ 2. top-10 winning trades < 50% of net;
+ 3. plateau: the best cell's neighbours (adjacent L, or adjacent N/Z) also clear rule 1;
+ 4. added to BOOK #397 at one unit, pre-lockbox MAR rises >= 5% and the Feb-Mar 2020 stretch is not deeper.
+Family-wide null: re-run the 12 cells on a randomly SIGN-FLIPPED signal (200 draws); report how many cells clear rule 1 by chance.

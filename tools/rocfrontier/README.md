@@ -20,6 +20,7 @@ read and can run any time.
 - `rebal_book.py` — tests the rebalancing leg added to frontier book #397 at matched drawdown.
 - `rebal_intraday.py` — where inside the day the month-end flow lands (spread across the session, not a closing-hour flow).
 - `engudq_regime.py` — regime-gated ENGU-Q short mirror, pre-lockbox only (loads the frozen `ENGUDQ_1M_ETH_1_0.py` copy in the cache).
+- `spread_r1.py` — SPREAD r1: NQ vs ES dollar-neutral relative value, 12 pre-registered cells (`PREREG_SPREAD_R1.txt`), pre-lockbox only.
 - `seam_leg.py` — contract-roll stitch P&L crossed inside a multi-day leg's trades.
 - `rank.py` — ranks runs_roc.json by walk-forward ROC/yr.
 - `rank_ml.py` — ranks runs_ml.json (tilts/keel/hybrids) by walk-forward ROC/yr.
