@@ -106,6 +106,8 @@ LEG_LIVE_FROM = {
     # the 09-05 session, so that session was not watched under this config end to end; the
     # first fully forward session is the next trading day.
     "ORB_R6":    "2026-09-08",   # leg added: run #314 takes the ORB crown from #234
+    # Added on Sunday 2026-09-27 with the market closed, so the next session is watched end to end.
+    "ORB_257":   "2026-09-28",   # run #257 (owner-starred, most ORB money) beside ORB_R6 and the ORB control
     "ORB_H":     "2026-08-24",   # gate re-based on #234 (its own crowned rf@0.45, re-calibrated)
     "NOISE_225": "2026-08-16",   # leg added
     "NOISE_H":   "2026-08-16",   # gate added; the pre-registered claim starts here
@@ -221,6 +223,27 @@ ORB_234 = dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.0, atr_filt
 ORB_314 = dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.5, atr_filter=0.75,
                vpace_filter=0.8, close_confirm=True, breakout_buf=0.25, trail_bars=0,
                target_R=5.0, partial_exit_R=0.0, be_after_R=0.5, flat_eod=True,
+               skip_holidays=True)
+
+# RUN #257 (added 2026-09-27, owner via MANAGER: "stage as much as you can"). The ORB configuration
+# with the most money: most walk-forward money in the family ($339,110 against #234's $310,678) and
+# the most money by calendar year (+$26,507 over #234, ahead in the four biggest years), starred by
+# the owner. It is #234 with three knobs moved one way - hold the trade open wider and gate it less:
+# stop 2.5x the range, breakout buffer 0.30, volatility filter 0.50. FORWARD EVIDENCE ONLY: it is NOT
+# the crown (that stays #314) and not in any book figure.
+#
+# Two findings travel with it. (a) Run #421 re-fitted this region inside every walk-forward fold and
+# PASSED, earning more than #314's region under the same test - but the cell it crowned lost $33k
+# against #257's own cell in the lockbox, so the leg runs #257 FROZEN, never a re-tuned cell.
+# (b) Its volatility filter at 0.50 has not removed a trade since July 2021 (round 59), so on today's
+# tape it behaves as #266 (filter off); expect it to trade on days the 0.70/0.75 legs sit out.
+#
+# Reproduced to the cent before this was written, through ORB_3_6_E1.py with exactly these params on
+# run #257's window and master: 2,751 trades, $416,381.84; lockbox 171 trades, 4,570.232 points
+# ($91,404.64) at PF 1.501873 - run #257's stored figures.
+ORB_257 = dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.5, atr_filter=0.5,
+               vpace_filter=0.7, close_confirm=True, breakout_buf=0.30, trail_bars=0,
+               target_R=5.5, partial_exit_R=0.0, be_after_R=1.0, flat_eod=True,
                skip_holidays=True)
 
 # ENGU-Q leg params: NQ_DEPLOY_PARAMS_149 is a clean module-level constant in
@@ -890,6 +913,23 @@ LEG_SOURCE = {
                   "denominator, so EV R is not safe to compare across that knob (see "
                   "tools/orb_pick.py).",
     },
+    "ORB_257": {
+        "run": 257, "run_label": "#257 (ORB_3_6_E1) the most-money ORB, owner-starred",
+        "strategy_file": "ORB_3_6_E1.py", "picked": "2026-09-27",
+        "note": "The ORB configuration that earns the most money: #234's entry with a wider stop "
+                "(2.5x the range), a bigger breakout buffer (0.30) and a looser volatility filter "
+                "(0.50). Most walk-forward money in the family ($339,110 against #234's $310,678) "
+                "and $26,507 more than #234 by calendar year, ahead in the four biggest years. "
+                "Validate #257 PASS, walk-forward 7 of 8, lockbox $91,405 at PF 1.50. Run #421 "
+                "re-fitted its region inside every fold and it held up better than #314's region "
+                "under the same test. Runs beside ORB_R6 (the crown) and ORB (#234, the control) "
+                "for a three-way forward read. Reported per one contract; not in the book figure.",
+        "caveat": "Forward evidence only - #314 stays the crown until the owner decides. Its "
+                  "drawdown is about 12% deeper than #234's ($32,505 against $29,142). Its "
+                  "volatility filter has not removed a trade since July 2021, so it trades on "
+                  "days the tighter-filtered legs sit out. The leg is the FROZEN #257 cell, not "
+                  "run #421's re-tuned pick, which lost $33k against it in the lockbox.",
+    },
     "ENGUQ": {
         "run": 226, "run_label": "#226 (ENGU-Q ETH FROZEN)",
         "strategy_file": "ENGUQ_1M_ETH_FROZEN_1_0.py",
@@ -1496,6 +1536,12 @@ PAPER_LEGS = [
     {"key": "ORB_R6", "strategy": "ORB_3_6_R6.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": ORB_314, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB_R6"]},
+    # ADDED 2026-09-27 (owner via MANAGER). Run #257, the most-money ORB, as a third forward
+    # read beside the crown (ORB_R6) and the control (ORB). Same instrument, window and costs;
+    # the params above reproduce run #257 to the cent. No ML gate. See ORB_257's comment block.
+    {"key": "ORB_257", "strategy": "ORB_3_6_E1.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": ORB_257, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB_257"]},
     # ADDED 2026-09-08 (owner: "crown R2 once the validate passes, swap the paper leg").
     # THE ENGU-Q family crown -- see ENGUQ_335's comment block above and ENGUQ.md's
     # CROWN CHANGE 2026-09-08 section. An ADDITION, not a swap-in-place: the #309 row
