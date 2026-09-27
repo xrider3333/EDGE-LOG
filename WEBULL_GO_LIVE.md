@@ -22,8 +22,9 @@ WEBULL_PAPER_TODO.md points here.
   lists only the box. It takes effect on the PC at the job runner's next restart.
 - 1.10: code is ready for a private topic with an access token; the owner must create it.
 - 3.8: NOISE's vol skip now ranks against 262 sessions from Monday 2026-09-28: QQQ daily ranges
-  (no key) fill the sessions before the box's 77 days of 5m bars. The exact fix, a year of real
-  QQQ 5m bars, is built and waits on the owner's free Alpaca data key (steps in to-do 12).
+  (no key) fill the sessions before the box's 77 days of 5m bars. A year of real QQQ 5m bars
+  (Alpaca backfill) is built but PARKED 2026-09-27: NOISE #447 shows the shorter memory trades as
+  well, so no Alpaca key is needed.
 - 3.3: entries and exits no longer go out one 5-minute bar late: NOISE #382 sends at the close of
   the deciding bar (to-do 16; replay 35/35 entries and 28/28 exits at the backtest's fill time).
 - 1.5: shipped for paper on 2026-09-26 (to-do 17): unknown outcomes are looked up by order id,

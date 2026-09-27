@@ -21,7 +21,7 @@ done.
 | 9 | KEEL v12 on top of run #382 on the NOISE leg | **LIVE** (2026-09-24, 5326d02) | nothing |
 | 10 | Fire orders at the bar close from the live price feed | **SHADOW** (switch off; first real session 2026-09-28 - the week of shadow numbers starts then) | after about a week of shadow numbers: switch it on or not |
 | 11 | Re-price trades from Webull's own tape, not Yahoo | **DONE** (2026-09-25, 9805414, live on the box) | nothing |
-| 12 | NOISE's volatility skip never fires live | **PARTLY DONE** (2026-09-26): daily QQQ ranges fill the missing sessions (live from Monday's first tick); the exact fix waits on a data key | a free Alpaca data key in the private secrets folder (steps in item 12) |
+| 12 | NOISE's volatility skip never fires live | **DONE** (2026-09-26: daily QQQ ranges fill the missing sessions, live from Monday; 2026-09-27: NOISE #447 shows the shorter memory trades as well, so the Alpaca backfill is parked) | nothing (no Alpaca key needed) |
 | 13 | Share cap vs #382 x KEEL sizes | **DONE** (2026-09-24: 60 per leg, 80 total) | nothing |
 | 14 | Taking the book live: the go-live punch list (WEBULL_GO_LIVE.md) | **IN PROGRESS** (2026-09-26: 1.1-1.4, 1.8, 1.9, 3.6-3.8, 3.11 done; see its status note) | decisions in its section 2: account, size and the day-trade rule, shorting, token, KEEL stack, ENGU-Q; a private alert topic |
 | 15 | ORB never enters before about 14:05 ET: the half-day test drops today's unfinished session | **DONE** (2026-09-26, 9a82613, live on the box) | nothing; watch ORB's first morning entries |
@@ -645,10 +645,14 @@ bars (REST history, or the live feed's ohlc_stream files) are the tape the order
   ranges (Yahoo, no key), scaled onto the 5m ranges (ratio 0.9999 over 76 shared sessions).
   The box builds its daily file on Monday's first live tick; until then the skip ranks
   against 77 sessions as before.
-- Built, waiting on the owner (the Alpaca backfill tool): a year of real QQQ 5m bars from
+- **2026-09-27: PARKED, no owner action needed.** NOISE #447 (NOISE.md round 62) shows the live ~68-session
+  memory trades as well as the backtested 252 (PF 1.507 vs 1.499 walk-forward, same drawdown), so MANAGER
+  parked the backfill: the tool stays in the repo, and the owner does NOT need to create an Alpaca key. The
+  daily-range bridge above stays live. The steps below are kept only in case the backfill is ever wanted.
+- Built (the Alpaca backfill tool): a year of real QQQ 5m bars from
   Alpaca's free data feed, so the skip ranks on the same bars as the backtest.
 
-**Needs from the owner (Alpaca, about 5 minutes).**
+**Only if the backfill is ever revived (optional, parked 2026-09-27) - Alpaca, about 5 minutes.**
 1. Open a free Alpaca account (alpaca.markets); paper trading is enough, no money needed.
 2. In the Alpaca dashboard, generate API keys (the key id and the secret).
 3. On the PC, in PowerShell, put them in the private secrets folder (never in chat):
