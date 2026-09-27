@@ -1,0 +1,92 @@
+ENGUQ_ER_H GATE REFIT ON FADJ_NQ_1m_ETH -- 2026-09-27, READ-ONLY
+Script: run_study.py (this dir) -> results.json. Reuses tools/rollaudit/gates/common.py.
+CONTROL REPRODUCTION (gate before trusting anything): find_master('NQ','1m','eth')
+[no source -> db_noadj_eth] -> run_backtest(ENGUQ_1M_ETH_ER25_1_0.py, ENGUQ_ER25) ->
+entry_features_causal -> logistic seed=42, history_from=2010-06-07 (served fit window).
+n_trades=1,355 = served n_trades_trained EXACTLY. max predict_proba diff vs
+C:\EdgeLog\gate_models\ENGUQ_ER_H.pkl = 0.0000000000. PASS.
+FADJ REBUILD: same strategy/params/seed/fit-window; base backtest AND
+entry_features_causal BOTH run on find_master('NQ','1m','eth','db_fadj_eth') =
+FADJ_NQ_1m_ETH.csv. Byte-identical `time` grid vs NOADJ (5,488,167 bars both), so trade
+lists compare directly by entry-bar position. FADJ base backtest: 1,389 trades (noadj
+1,355, +34 net).
+EVALUATION (augur_engine.ml_gate.gate_trades, threshold 0.55, min_history=30,
+refit_every=25, seed=42, WF/LB split = last 12mo, LB start 2025-09-25 both masters):
+  NOADJ (=served): base 1,355 taken 726
+    WF n=677 net $256,356 dd $27,462 16.75%/yr Sortino 2.13
+    LB n=49  net $88,910  dd $25,309 88.97%/yr Sortino 4.25
+    (matches REPORT_2026-09-26.txt's "raw" row exactly -- sanity check passes)
+  FADJ (full rerun on corrected prices): base 1,389 taken 739
+    WF n=680 net $203,229 dd $24,202 13.28%/yr Sortino 1.72
+    LB n=59  net $63,236  dd $32,445 63.28%/yr Sortino 2.87
+MOVE (FADJ vs NOADJ): WF net -20.7% ($-53,127), WF dd -11.9% (better); LB net -28.9%
+($-25,674), LB dd +28.2% (worse, $25,309->$32,445); full-window net -22.8%
+($345,266->$266,465). Far bigger than the prior stitch-only "corrected" variant's -4.1%
+full net, because this run lets the base strategy actually enter/exit differently on
+the corrected price path (ROLL_AUDIT 4.5.6's "full rerun" effect a stitch can't reach).
+BASE TRADE DIFF (pre-gate, by entry bar): common=1,343, vanish(noadj-only)=12,
+appear(fadj-only)=46 (46-12=34 = the net count delta). Of 1,343 common entries: 9 exit
+at a different bar, 27 have nonzero point-PnL diff (mostly roll-spanning trades, where
+FADJ removes the discrete contract jump NOADJ's PnL still carries). TAKE/SKIP FLIP SHARE
+on common trades: 33/1,343 = 2.46%.
+ESTIMATED-OFFSET / SPLICE TOUCH: tools/data/rolls_NQ.csv has exactly 2 status=estimated
+NQ rows, both inside this window: 2026-06-15 03:30 ET (+293.00pt) and 2026-09-14 11:30 ET
+(+295.00pt) -- same two undocumented splices common.py tracks (synthetic=1 confirmed in
+FADJ_NQ_1m_ETH.csv). Exactly 1 base trade (same one, both masters) touches them; the ML
+gate SKIPS it both times -> 0 taken/live trades touch an estimated offset or splice bar.
+api/gate_live.py MASTER SELECTION -- both no `source` (defaults to db_noadj_eth, per
+find_master's own docstring), same call shape, used by ENGUQ_ER_H AND NOISE_H_RF alike:
+  L242 _build_artifact (nightly refit):
+    master = find_master(leg["instrument"], leg["timeframe"], leg.get("session","rth"))
+  L387 _current_snapshot (the live scoring window decide() reads every request):
+    master = find_master(leg["instrument"], leg["timeframe"], leg.get("session","rth"))
+PROPOSED MINIMAL DIFF (NOT applied; pins ENGUQ_ER_H only, everything else unchanged):
+  api/paper.py ENGUQ_ER_H leg dict (~L1505-1509): add
+    "gate_master_source": "db_fadj_eth",
+  api/gate_live.py L242 AND L387, both calls, add 4th arg:
+    master = find_master(leg["instrument"], leg["timeframe"], leg.get("session","rth"),
+                          leg.get("gate_master_source"))
+  leg.get("gate_master_source") is None for every other leg incl. NOISE_H_RF, so
+  find_master falls back to its no-source default there -- NOISE_H_RF UNCHANGED.
+  BOTH lines must move together: pinning only L242 trains on FADJ features but scores
+  live decisions on NOADJ features (L387) -- a train/serve mismatch, not a fix.
+UNGATED BASE (owner follow-up; script run_ungated.py; same WF/LB split, LB from
+2025-09-25, same base trade lists as above -- 1,355 noadj / 1,389 fadj), per master:
+  NOADJ ungated: WF n=1,289 net $344,304 dd $61,031 22.50%/yr Sortino 2.05
+                 LB n=66   net $119,509 dd $24,935 119.59%/yr Sortino 5.46
+  FADJ  ungated: WF n=1,309 net $290,391 dd $61,031 18.98%/yr Sortino 1.73
+                 LB n=80   net $100,917 dd $34,818 100.99%/yr Sortino 4.49
+
+DECOMPOSING THE MOVE -- base strategy (ungated) vs the gate's own effect:
+  WF total move -$53,127 (gated fadj minus gated noadj) = base-strategy -$53,913
+    (ungated fadj minus ungated noadj, -15.66%) + gate's own contribution +$787.
+    The WF move is essentially ALL the base strategy trading differently on corrected
+    prices; the gate itself barely moves WF net.
+  LB total move -$25,674 = base-strategy -$18,592 (ungated, -15.56%, 72% of the move)
+    + gate's own contribution -$7,082 (28% of the move) -- the gate drags LB down
+    further on fadj than it did on noadj, not just less-favorable base trades.
+
+GATE'S OWN EFFECT (gated minus ungated, net $ and return/DD = (net/yrs)/|DD|), per
+master and stretch:
+  NOADJ: WF delta_net -$87,949, RoDD 0.369 -> 0.610 (+0.241)
+         LB delta_net -$30,599, RoDD 4.796 -> 3.515 (-1.281)
+  FADJ:  WF delta_net -$87,162, RoDD 0.311 -> 0.549 (+0.238)
+         LB delta_net -$37,681, RoDD 2.900 -> 1.950 (-0.950)
+  The gate cuts WF net by a similar dollar amount on both masters but IMPROVES WF RoDD
+  both times (cuts DD proportionally more than net). In LB the gate REDUCES RoDD on
+  both masters -- it removes profitable trades without cutting risk proportionally --
+  matching the paper card's existing "LB FAILED" caveat for ENGUQ_ER_H. The gate's own
+  LB RoDD drop is bigger in absolute terms on noadj (-1.281) than fadj (-0.950), but
+  fadj's post-gate LB RoDD (1.950) still ends up well below noadj's (3.515) -- that gap
+  comes from the base-strategy correction (fadj's ungated LB RoDD is already lower,
+  2.900 vs 4.796), not from the gate itself.
+  Per-trade pnl ($) for every base trade, both masters, now saved in results.json
+  under gated.noadj.pnl_usd / gated.fadj.pnl_usd (aligned with the existing
+  entry_bars/exit_bars/keep order), plus new top-level "ungated" and "gate_effect"
+  sections with the numbers above.
+
+NOT MEASURED: no seed-spread run (logistic ignores random_state per the prior report, so
+it adds nothing); did not replicate _build_artifact's same-day fresh-tick append
+(irrelevant to this historical comparison, same as the prior study); ADJ_NQ_1m_ETH
+(back-adjusted) not run, task specified FADJ for level-keyed features; NOISE_H_RF not
+touched or re-evaluated.

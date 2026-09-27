@@ -30,3 +30,29 @@ The owner's live-leg pick is NOISE #422 + KEEL v12. Two things about that stack 
 
 ## What happens next
 Nothing live changes. The recommendation goes to MANAGER as an owner call for the #422 live build.
+
+---
+
+## RESULT (read 2026-09-27 after 10dedef5) - H1 does not hold, H2 HOLDS, recommendation A3
+
+`python tools/keel_422_parts_check.py` (round-60 tape; WF 2016-06-30..2025-07-16, LB 2025-07-16..2026-09-16).
+
+| arm | WF net | WF ROC %/yr | WF Sortino | WF DD | WF ret/DD | LB net | LB ROC %/yr | LB Sortino | LB DD | LB ret/DD | max size |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| A0 #422 alone | 448,732 | 49.6 | 4.49 | 17,616 | 2.82 | 82,488 | 70.6 | 3.67 | 22,416 | 3.15 | 1.75x |
+| A1 + KEEL v12 (7-seed) | 745,188 | 82.4 | 4.97 | 31,173 | 2.64 | 145,199 | 124.2 | 4.68 | 31,756 | 3.91 | 5.25x |
+| A2 + KEEL v12 no squeeze | 626,053 | 69.2 | 4.74 | 28,848 | 2.40 | 115,910 | 99.1 | 4.08 | 31,991 | 3.10 | 5.25x |
+| **A3 + fixed tilts only** | 635,254 | 70.2 | **5.48** | **19,356** | **3.63** | 110,339 | 94.4 | 3.86 | 28,116 | 3.36 | 3.94x |
+| A4 + fixed tilts, no squeeze | 522,642 | 57.8 | 4.86 | 17,364 | 3.33 | 92,093 | 78.8 | 3.66 | 25,162 | 3.13 | 2.62x |
+
+- **H1 does not hold:** removing KEEL's squeeze LOWERS walk-forward return per drawdown (2.64 -> 2.40). The
+  double squeeze is not what hurts; in the fixed form it helps (A3 3.63 vs A4 3.33).
+- **H2 HOLDS:** the fixed tilts alone beat full KEEL on walk-forward return per drawdown (3.63 vs 2.64) and
+  Sortino (5.48 vs 4.97). The learned model adds $110k of walk-forward money for $11.8k (61%) more
+  drawdown - leverage, not edge, the same finding as the 7-seed bag on #304 and #382.
+- **Lockbox veto:** A1 and A3 clear it (3.91 and 3.36 vs raw 3.15). A1's lockbox lead is partly in-sample
+  for KEEL, which was designed with that stretch visible.
+- **Pre-registered recommendation: A3, #422 + the fixed v12 tilts with no model.** Deterministic (no seed),
+  largest size 3.94x instead of 5.25x. The live box already runs KEEL at trust 0, which is the fixed tilts
+  in practice; A3 makes that explicit and stops the model from growing into the sizing as trust accrues.
+  Owner call; nothing live changed.
