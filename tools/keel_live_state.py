@@ -12,7 +12,10 @@ from the swap on; it was NOISE_382 before), and refuses -- a clear error, nothin
 CROWN_LEGS leg with a "keel" block, or a RETIRED KEEL leg (NOISE_382, see
 _retired_keel_legs) so an old leg's state can still be rebuilt or checked by hand. So a
 leg swap in CROWN_LEGS moves this nightly build with it and the box's systemd unit
-(deploy/cloud/edgelog-keel-state.service, which passes no --leg) needs no edit. What
+(deploy/cloud/edgelog-keel-state.service, which passes no --leg) needs no edit. A leg
+whose "keel" block is mode="fixed" (v12's fixed tilts, no model -- 2026-09-27) has nothing
+to build: when that is the only KEEL leg the default run prints so and exits 0, so the
+nightly unit stays green (see NothingToBuild). What
 stays literal here is what every NOISE KEEL leg shares and CROWN_LEGS does not carry:
 instrument NQ, timeframe 5m, source db_noadj_rth, date_from 2010-06-07 (the #304 crown's
 own start, used by runs #382 and #422 alike), cost_pts 0.533 (the house NQ cost -- both
@@ -108,6 +111,14 @@ class LegResolutionError(RuntimeError):
     with the message, so the nightly unit fails loudly instead of building a guess."""
 
 
+class NothingToBuild(Exception):
+    """The live KEEL leg(s) all use v12's FIXED tilts (a "keel" block with mode="fixed",
+    see api/cloud_signal.py's THREE SHAPES comment): no model, so no state to build. Not
+    a failure -- main() prints the message and exits 0, so the box's nightly
+    edgelog-keel-state.service/.path stay green instead of failing every night. Kept
+    apart from LegResolutionError on purpose: that one must stay loud."""
+
+
 def _retired_keel_legs():
     """KEEL legs that have LEFT api/cloud_signal.CROWN_LEGS but can still be named with
     --leg -- to rebuild an old leg's state by hand or re-run its --check-run-doc against
@@ -129,14 +140,30 @@ def resolve_leg(leg_key=None, crown_legs=None):
     carries a "keel" block. Zero such legs (KEEL taken off the book) or several (two
     legs would need two builds, and a silent pick of one would leave the other stale)
     both raise LegResolutionError naming what it found -- never a guess.
-    leg_key given: that CROWN_LEGS leg (it must carry a "keel" block -- this script
-    builds KEEL states and nothing else), or else a retired KEEL leg (_retired_keel_legs).
-    `crown_legs` is for tests; None reads the real CROWN_LEGS."""
+    FIXED TILTS (2026-09-27): a mode="fixed" block has no model to build. When every KEEL
+    leg is fixed this raises NothingToBuild (main() exits 0 with the message); fixed legs
+    never count toward the one-leg rule above, and a block with an unknown mode is a
+    LegResolutionError.
+    leg_key given: that CROWN_LEGS leg (it must carry a learned "keel" block -- this
+    script builds KEEL states and nothing else), or else a retired KEEL leg
+    (_retired_keel_legs). `crown_legs` is for tests; None reads the real CROWN_LEGS."""
+    from api import cloud_signal as _cs
     if crown_legs is None:
-        from api import cloud_signal as _cs
         crown_legs = _cs.CROWN_LEGS
     if leg_key is None:
-        keel_keys = [k for k, cfg in crown_legs.items() if (cfg or {}).get("keel")]
+        modes = {k: _cs.keel_mode(cfg.get("keel")) for k, cfg in crown_legs.items()
+                 if (cfg or {}).get("keel")}
+        odd = {k: m for k, m in modes.items() if m not in (_cs.KEEL_MODE_LEARNED, _cs.KEEL_MODE_FIXED)}
+        if odd:
+            raise LegResolutionError(
+                f"unknown keel mode on {odd} in api/cloud_signal.CROWN_LEGS "
+                f"(expected {_cs.KEEL_MODE_LEARNED!r} or {_cs.KEEL_MODE_FIXED!r}). Nothing built.")
+        fixed_keys = sorted(k for k, m in modes.items() if m == _cs.KEEL_MODE_FIXED)
+        keel_keys = [k for k, m in modes.items() if m == _cs.KEEL_MODE_LEARNED]
+        if not keel_keys and fixed_keys:
+            raise NothingToBuild(
+                f"live KEEL leg {', '.join(fixed_keys)} uses v12's fixed tilts (no model) -- "
+                "nothing to build")
         if len(keel_keys) != 1:
             raise LegResolutionError(
                 "expected exactly ONE leg with a \"keel\" block in api/cloud_signal.CROWN_LEGS, "
@@ -155,6 +182,10 @@ def resolve_leg(leg_key=None, crown_legs=None):
     if not keel:
         raise LegResolutionError(
             f"leg {leg_key!r} carries no \"keel\" block in api/cloud_signal.CROWN_LEGS -- "
+            "there is no KEEL state to build for it")
+    if _cs.keel_mode(keel) != _cs.KEEL_MODE_LEARNED:
+        raise LegResolutionError(
+            f"leg {leg_key!r} uses keel mode {_cs.keel_mode(keel)!r}, not a learned model -- "
             "there is no KEEL state to build for it")
     strategy = cfg.get("strategy")
     if not isinstance(strategy, str) or not strategy:
@@ -575,6 +606,9 @@ def main():
 
     try:
         leg = resolve_leg(a.leg)
+    except NothingToBuild as e:
+        print(f"[keel-live-state] {e}. Exiting 0.")
+        return
     except LegResolutionError as e:
         raise SystemExit(f"[keel-live-state] {e}")
 

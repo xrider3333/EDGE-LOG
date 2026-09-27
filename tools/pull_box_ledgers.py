@@ -33,6 +33,7 @@ FILES = [
     "cloud_signal/signals.csv", "cloud_signal/state.json", "cloud_signal/corrections.log",
     # the live KEEL leg's summary (NOISE #422 from its switch) and NOISE #382's last one,
     # which stays on the box after the switch; a file not there yet is listed as missing.
+    # A fixed-tilt or no-KEEL NOISE leg never writes one: listed as missing, never a failure.
     "cloud_signal/keel/NOISE_422_v12_summary.json",
     "cloud_signal/keel/NOISE_382_v12_summary.json",
 ]

@@ -16,6 +16,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
+import api.cloud_signal as cs  # noqa: E402
 import tools.keel_live_state as kls  # noqa: E402
 
 ET = zoneinfo.ZoneInfo("America/New_York")
@@ -75,7 +76,11 @@ def test_main_defer_in_session_skips_build_and_exits_cleanly(tmp_path, monkeypat
 
 def test_main_without_defer_flag_still_requires_the_nq_file(tmp_path, monkeypatch):
     """Sanity check that --defer-in-session alone changed behaviour above -- without
-    it, a missing NQ file still raises exactly as before this feature."""
+    it, a missing NQ file still raises exactly as before this feature. Pinned to the
+    learned "keel" line: on the fixed line main() rightly exits 0 before it reads any file
+    (NothingToBuild), which would make this pass for the wrong reason or fail."""
+    monkeypatch.setattr(cs, "CROWN_LEGS", dict(cs.CROWN_LEGS, NOISE_422=dict(
+        cs.CROWN_LEGS["NOISE_422"], keel=dict(version="v12", **cs.keel_paths("NOISE_422", "v12")))))
     monkeypatch.setattr(kls, "_now_et", lambda: _et(*TRADING_DAY, 12, 0))
     missing_nq = str(tmp_path / "does_not_exist.csv")
     old_argv = sys.argv

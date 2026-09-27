@@ -583,6 +583,39 @@ def compression_sizes(arrays, trades, mult=1.5, feature="sq60_on", deep=None, th
     return m
 
 
+# -- v12's fixed tilts with NO model (2026-09-27) -------------------------------------------
+# Arm A3 of docs/PREREG_keel_422_parts_2026-09-27.md (tools/keel_422_parts_check.py): v12's
+# three a-priori tilts alone -- compression 1.5x, Friday 1.5x, product capped at 3, then
+# half size before an FOMC statement -- and nothing learned. On NOISE #422 it beat full KEEL
+# v12 on walk-forward return per drawdown (3.63 vs 2.64) and Sortino (5.48 vs 4.97), with a
+# smaller largest size (3.94x vs 5.25x). Kept here so the live leg (api/cloud_signal.py,
+# cfg["keel"] mode "fixed") and the research tool read ONE definition. Every value is v12's
+# own (CFG["v12"]), minus the "cap" key the tool strips from dow before passing it.
+FIXED_V12_MULT = float(CFG["v12"]["comp"]["mult"])
+FIXED_V12_CAP = float(CFG["v12"]["comp"]["cap"])
+FIXED_V12_DOW = {k: v for k, v in CFG["v12"]["dow"].items() if k != "cap"}
+FIXED_V12_EVENT = dict(CFG["v12"]["event"])
+
+
+def fixed_tilt_sizes_v12(arrays, entry_bars):
+    """v12's fixed tilts, no model, for each entry bar in `entry_bars` (returned in the
+    order given, not sorted). Exactly compression_sizes(arrays, trades, mult=1.5, dow=v12's
+    dow minus "cap", cap=v12's comp cap, event=v12's event) -- arm A3 above -- which only
+    ever reads a trade's ENTRY bar, so no exit or pnl is needed. What each tilt reads at the
+    entry bar: compression = the last COMPLETE 60-minute group before it (_squeeze60),
+    weekday and FOMC pre-statement = the entry bar's own time. Pure: no state, no file but
+    fomc_dates.txt (whose absence turns the FOMC half-size off, see fomc_decision_days)."""
+    E = np.asarray(entry_bars, dtype=np.int64).ravel()
+    if not len(E):
+        return np.ones(0)
+    order = np.argsort(E, kind="stable")
+    m = compression_sizes(arrays, [(int(e), int(e), 0.0) for e in E[order]], mult=FIXED_V12_MULT,
+                          dow=dict(FIXED_V12_DOW), cap=FIXED_V12_CAP, event=dict(FIXED_V12_EVENT))
+    out = np.empty(len(E))
+    out[order] = m
+    return out
+
+
 def sizes_from_z(z, trust, k=K_MAX, lo=LO, hi=HI):
     zz = np.where(np.isnan(z), 0.0, z)
     return np.clip(1.0 + k * trust * zz, lo, hi)

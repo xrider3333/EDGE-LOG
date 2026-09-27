@@ -21,7 +21,8 @@ COVERS:
      _vol_percentile, and to change nothing when absent.
   4. api/qqq_exec.py's ENGINE_LEG_MAP maps NOISE_422, NOISE_382 and NOISE_304 all to
      "NOISE", and the reverse lookup picks the LIVE key.
-  5. tools/keel_live_state.py builds NOISE_422 by default.
+  5. tools/keel_live_state.py builds NOISE_422 by default on the learned line, and does
+     the right thing for whichever of the three "keel" lines is live in the file.
   6. The leg end to end through cloud_signal.step(), WITH and WITHOUT the "keel" key --
      the no-KEEL alternative MANAGER may choose is a one-line delete of that key, so both
      shapes are exercised: sizes, keel_size column, the KEEL status the tab reads, and
@@ -117,6 +118,17 @@ _DAYS = _sessions(70)
 _EPOCH = _synthetic_epoch(_DAYS)
 
 
+def _learned_crown_legs():
+    """CROWN_LEGS with NOISE_422 on the LEARNED go-day line, whichever of the three lines
+    (api/cloud_signal.py's THREE SHAPES) is live in the file. The build tests here are about
+    the learned build itself; which line is live is checked by
+    test_noise_422_leg_carries_every_field_noise_382_did and
+    test_nightly_keel_build_on_the_line_that_is_live_now below, so these must not go red
+    when MANAGER picks the fixed or the no-KEEL line."""
+    return dict(cs.CROWN_LEGS, NOISE_422=dict(
+        cs.CROWN_LEGS["NOISE_422"], keel=dict(version="v12", **cs.keel_paths("NOISE_422", "v12"))))
+
+
 def _arrays_through(day, n_sessions=300):
     now = pd.Timestamp(f"{day} 17:00", tz=cs.TZ).to_pydatetime()
     return cs.closed_arrays(_EPOCH, now, "5m", n_sessions)
@@ -140,12 +152,21 @@ def test_noise_422_leg_carries_every_field_noise_382_did():
     assert "gate_tf_min" not in leg["params"], "the file freezes the frame at 60 itself"
     assert leg["warmup_sessions"] == cs.DEFAULT_WARMUP_SESSIONS
     assert leg["decide_at_close"] is True
-    assert leg["keel"] == dict(version="v12", **cs.keel_paths("NOISE_422", "v12"))
-    assert os.path.basename(leg["keel"]["state_path"]) == "NOISE_422_v12_state.joblib"
-    assert os.path.basename(leg["keel"]["summary_path"]) == "NOISE_422_v12_summary.json"
-    # the SAME keys as run #382's leg had -- nothing dropped, nothing new
-    assert set(leg) == {"strategy", "timeframe", "params", "warmup_sessions", "keel",
-                        "decide_at_close"}
+    # "keel" is whichever of the THREE SHAPES (cloud_signal, above keel_paths) MANAGER put
+    # live on go day -- each passes here exactly as written, and nothing else does
+    mode = cs.keel_mode(leg.get("keel"))
+    if mode == cs.KEEL_MODE_LEARNED:
+        assert leg["keel"] == dict(version="v12", **cs.keel_paths("NOISE_422", "v12"))
+        assert os.path.basename(leg["keel"]["state_path"]) == "NOISE_422_v12_state.joblib"
+        assert os.path.basename(leg["keel"]["summary_path"]) == "NOISE_422_v12_summary.json"
+    elif mode == cs.KEEL_MODE_FIXED:
+        assert leg["keel"] == dict(version="v12", mode="fixed")
+    else:
+        assert "keel" not in leg, ("not one of the three go-day lines", leg.get("keel"))
+    # the SAME keys as run #382's leg had -- nothing dropped, nothing new ("keel" only
+    # when a KEEL line is live)
+    assert set(leg) - {"keel"} == {"strategy", "timeframe", "params", "warmup_sessions",
+                                   "decide_at_close"}
     # run #382's cell stays importable (history tools, --leg NOISE_382)
     assert cs.NOISE_382_PARAMS == {"tilt_mult": 2.0, "gate_tf_min": 30, "gate_len": 16,
                                    "gate_ratio": 1.15}
@@ -256,12 +277,30 @@ def test_engine_mark_price_resolves_through_the_live_noise_422_key(tmp_path, mon
 
 
 # ── 5. the nightly KEEL build follows the live leg ──────────────────────────────────────
-def test_keel_live_state_resolves_noise_422_by_default():
+def test_keel_live_state_resolves_noise_422_by_default(monkeypatch):
+    """On the learned line (pinned here -- see _learned_crown_legs)."""
+    monkeypatch.setattr(cs, "CROWN_LEGS", _learned_crown_legs())
     leg = kls.resolve_leg()
     assert leg["leg_key"] == "NOISE_422"
     assert leg["strategy"] == "NOISE_1_8_CT304H.py"
     assert leg["params"] == cs.NOISE_422_PARAMS
     assert leg["version"] == "v12" and leg["live"] is True
+
+
+def test_nightly_keel_build_on_the_line_that_is_live_now():
+    """The LIVE line itself, in whichever of the three shapes it is: learned -> the
+    nightly build resolves NOISE_422; fixed -> NothingToBuild (main() exits 0, the units
+    stay green); none -> refuses loudly ("found 0" -- disable the two units, see
+    deploy/cloud/README.md)."""
+    mode = cs.keel_mode(cs.CROWN_LEGS["NOISE_422"].get("keel"))
+    if mode == cs.KEEL_MODE_LEARNED:
+        assert kls.resolve_leg()["leg_key"] == "NOISE_422"
+    elif mode == cs.KEEL_MODE_FIXED:
+        with pytest.raises(kls.NothingToBuild, match="NOISE_422"):
+            kls.resolve_leg()
+    else:
+        with pytest.raises(kls.LegResolutionError, match="found 0"):
+            kls.resolve_leg()
 
 
 # ── 6. end to end through step(), with and without the "keel" key ───────────────────────
@@ -300,7 +339,7 @@ def test_noise_422_leg_end_to_end_with_and_without_keel(tmp_path, monkeypatch, w
     if with_keel:
         cfg["keel"] = _write_keel_state(home)
     else:
-        del cfg["keel"]
+        cfg.pop("keel", None)   # already absent when the no-KEEL line is the live one
     legs = {"NOISE_422": cfg}
     monkeypatch.setattr(cs, "CROWN_LEGS", dict(cs.CROWN_LEGS, NOISE_422=cfg))
 

@@ -151,6 +151,9 @@ sudo systemctl enable edgelog-qqq-exec.service edgelog-cloud-signal.service
 # KEEL v12 state build: the 18:30 ET nightly timer (fallback) PLUS the path unit that
 # rebuilds immediately whenever the NQ master itself changes (item E, 2026-09-25 --
 # closes the gap a late/overnight push left, see edgelog-keel-state.path's own comment).
+# A re-run re-enables both even when the live NOISE leg has NO "keel" key (the "none"
+# shape, README "KEEL v12 state rebuild"), whose build then refuses every night: disable
+# them again by hand after any re-run in that shape.
 sudo systemctl enable edgelog-keel-state.timer edgelog-keel-state.path
 # The job runner does NOT run on this box (2026-09-21 -- api/runner.py refuses on
 # EDGELOG_HOST_ROLE=cloud; see _cloud_runner_refusal there for what went wrong when one

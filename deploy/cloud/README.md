@@ -360,6 +360,52 @@ Check either trigger: `systemctl list-timers edgelog-keel-state.timer` (next sch
 run) and `systemctl status edgelog-keel-state.path` (watching, or the last time it
 fired); build logs land in `~/edgelog/logs/keel_state.log`.
 
+What these units do for each shape of the NOISE leg's `"keel"` key (see
+`api/cloud_signal.py`'s THREE SHAPES comment, 2026-09-27):
+
+- **learned** (`dict(version="v12", **keel_paths(...))`): build the state as above.
+- **fixed** (`dict(version="v12", mode="fixed")`, v12's fixed tilts, no model): nothing to
+  build -- the service logs "uses v12's fixed tilts (no model) -- nothing to build" and
+  exits 0, so both triggers can stay enabled.
+- **none** (no `"keel"` key): the service refuses loudly (exit 1) every night -- disable
+  the timer and the path unit (`sudo systemctl disable --now edgelog-keel-state.timer
+  edgelog-keel-state.path`) if that shape is chosen. **Re-running `install.sh` re-enables
+  both units**, so disable them again after any re-run while this shape is live.
+
+**Rolling back to NOISE #382 + KEEL v12** (from any of the three shapes). Never
+`box_deploy` an older (pre-#422) sha: its `ENGINE_LEG_MAP` has no `NOISE_422`, so the
+#422 rows and trade ids on the box stop resolving. Instead:
+
+1. A FORWARD commit: `CROWN_LEGS` gets `NOISE_382` back with its learned line
+   (`"keel": dict(version="v12", **keel_paths("NOISE_382", "v12"))`) and loses
+   `NOISE_422` -- exactly ONE NOISE key, or every NOISE order doubles. `ENGINE_LEG_MAP`
+   keeps `NOISE_422`; if #422 ran learned, add it to `tools/keel_live_state.py`'s
+   `_retired_keel_legs` so its state can still be rebuilt by hand.
+2. Deploy while the NOISE leg is flat, outside 09:25-16:05 ET on a trading day (as on go
+   day): `tools/box_deploy.py` dry run, then `--commit <sha> --yes`.
+3. If the **none** shape had disabled them: `sudo systemctl enable --now
+   edgelog-keel-state.timer edgelog-keel-state.path`.
+4. Rebuild NOW, by hand, also outside 09:25-16:05 ET on a trading day: `sudo systemctl
+   start edgelog-keel-state.service`, then check
+   `cloud_signal/keel/NOISE_382_v12_summary.json`'s `data_through` is the last complete
+   session. #382's state froze on the switch date: without this, the first bar pushes a
+   stale alert (KEEL_PUSH_STALE_SESSIONS = 1) and, more than 5 sessions after the switch,
+   every NOISE entry sizes 1.0 until the 18:30 ET build. The unit runs with
+   `--defer-in-session`, so a start inside those hours does nothing (exit 0, one
+   "deferring to the 18:30 ET timer" log line) and `data_through` stays old: the rebuild waits for the 18:30 ET
+   timer, and the stale push / 1.0 sizing until then is expected, not a new fault.
+5. Web and docs: the Webull tab's `QE_LEG_VERSIONS` (drop the `#382 -> #422` row if #422
+   never traded, else add a `#422 -> #382` row dated the rollback day), its `QE_LEGS`
+   NOISE label (`'#422'` -> `'#382'`), the runboard verdicts for 382/422
+   (`tools/runboard_watch.py verdict ...`), and the NOISE rows of `WEBULL_PAPER_TODO.md` /
+   `WEBULL_GO_LIVE.md`.
+
+**Exception -- the go deploy itself fails.** If `box_deploy` reports `VERIFY FAILED` on the
+go deploy itself, with NOISE flat and no #422 ENTRY yet, redeploying the previous (pre-PREP)
+sha, as its own message suggests, is fine: `qqq_exec` skips an engine leg it does not know,
+and the only #422 row written by then is a SEED row. The forward-commit rollback above is
+for after #422 has traded.
+
 ### Log rotation
 
 Every service here appends to `~/edgelog/logs/*.log` via systemd's own

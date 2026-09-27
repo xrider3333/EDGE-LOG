@@ -25,6 +25,22 @@ import tools.keel_live_state as kls          # noqa: E402
 import api.cloud_signal as cs                 # noqa: E402
 
 
+def _learned_crown_legs():
+    """CROWN_LEGS with NOISE_422 on the LEARNED go-day line, whichever of the three lines
+    (api/cloud_signal.py's THREE SHAPES) is live in the file. The build tests here are about
+    the learned build itself; which line is live is tests/test_noise_422_switch.py's to
+    check, so these must not go red when MANAGER picks the fixed or the no-KEEL line."""
+    return dict(cs.CROWN_LEGS, NOISE_422=dict(
+        cs.CROWN_LEGS["NOISE_422"], keel=dict(version="v12", **cs.keel_paths("NOISE_422", "v12"))))
+
+
+@pytest.fixture(autouse=True)
+def _learned_live_leg(monkeypatch):
+    """Every test here runs on the learned line (see _learned_crown_legs); a test that
+    wants another CROWN_LEGS patches its own on top."""
+    monkeypatch.setattr(cs, "CROWN_LEGS", _learned_crown_legs())
+
+
 # ── the leg comes from CROWN_LEGS itself -- nothing duplicated here to drift ─────────────
 def test_default_leg_is_the_one_crown_leg_with_a_keel_block():
     leg = kls.resolve_leg()

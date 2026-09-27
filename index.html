@@ -34495,7 +34495,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           parts.push('since '+mdOf(vs[0].date)+' &middot; was '+was);
         }
         const k=QE&&QE.keel&&QE.keel[key];
-        if(k&&k.version){
+        // mode 'fixed' (2026-09-27, api/qqq_exec.py _build_keel_status): v12's fixed tilts
+        // with no model -- nothing is trained, so it says so instead of a training date.
+        if(k&&k.version&&k.mode==='fixed'){
+          parts.push('KEEL '+k.version+' fixed tilts (no model)');
+        }else if(k&&k.version){
           let through='';
           if(k.trained_through){
             const d2=new Date(k.trained_through+'T00:00:00');

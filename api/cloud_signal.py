@@ -220,6 +220,37 @@ NOISE_422_PARAMS = {"tilt_mult": 1.75, "gate_len": 20, "gate_ratio": 1.15}
 # sessions a state may lag "now" before it is treated as unavailable rather than trusted.
 KEEL_MAX_STALE_SESSIONS = 5
 
+# THREE SHAPES OF A LEG'S "keel" KEY (2026-09-27, docs/PREREG_keel_422_parts_2026-09-27.md
+# RESULT). MANAGER picks one at go time; each is ONE line in CROWN_LEGS:
+#   learned  dict(version="v12", **keel_paths(<leg>, "v12"))  -- the model, trained nightly on
+#            the box (tools/keel_live_state.py) and scored from its state file (no "mode"
+#            key, or mode="learned").
+#   fixed    dict(version="v12", mode="fixed")  -- v12's a-priori tilts with NO model
+#            (augur_engine/ml_keel.py's fixed_tilt_sizes_v12, arm A3 of that pre-registration:
+#            compression 1.5x, Friday 1.5x, capped at 3, half size before an FOMC statement).
+#            No state file, no nightly build, no staleness check -- nothing to go stale.
+#   none     no "keel" key at all -- the plugin's own size, exactly the pre-KEEL behaviour.
+# Any other "mode" is a configuration error: every entry sizes 1.0 and the fallback push says
+# so (see _keel_size_for_entry / _keel_fallback_reason), same as a broken learned state.
+# keel_mode() strips and lower-cases, so " Fixed " also runs as fixed: the exact spelling
+# above is enforced by tests/test_noise_422_switch.py before deploy, not by the runtime.
+KEEL_MODE_LEARNED = "learned"
+KEEL_MODE_FIXED = "fixed"
+KEEL_FIXED_VERSIONS = ("v12",)   # the fixed tilts exist for v12 only (ml_keel.FIXED_V12_*)
+
+
+def keel_mode(keel_cfg):
+    """The mode of a leg's "keel" block (see THREE SHAPES above): "learned" or "fixed",
+    None for no block, or the raw lower-cased "mode" string when it is neither -- which
+    every reader treats as a configuration error, never as either mode. Never raises."""
+    if not keel_cfg:
+        return None
+    try:
+        mode = str(keel_cfg.get("mode") or KEEL_MODE_LEARNED).strip().lower()
+    except Exception:
+        return "?"
+    return mode
+
 
 def keel_paths(leg_key, version, home=None):
     """Where tools/keel_live_state.py writes -- and this module reads -- a leg's KEEL
@@ -254,7 +285,10 @@ CROWN_LEGS = {
         # cfg simply has no "keel" key, and every keel-aware code path below treats a
         # missing key exactly like today's pre-KEEL behaviour (see _diff_leg). Deleting
         # this ONE line is the whole of "NOISE #422 without KEEL": tools/keel_live_state.py
-        # then finds no KEEL leg and refuses to build rather than guess one.
+        # then finds no KEEL leg and refuses to build rather than guess one. Replacing it
+        # with `"keel": dict(version="v12", mode="fixed"),` is the whole of "NOISE #422 +
+        # v12's fixed tilts, no model" (see THREE SHAPES above keel_paths): no state file,
+        # and tools/keel_live_state.py then exits 0 with nothing to build.
         "keel": dict(version="v12", **keel_paths("NOISE_422", "v12")),
         # Send orders at the backtest's decision (the close of bar D), not a bar later
         # (WEBULL_PAPER_TODO.md item 16, owner GO 2026-09-26) -- see _decide_at_close_probe.
@@ -1567,11 +1601,26 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print):
     block or delay the trade it would have merely resized. The second return value is
     a short human-readable reason string on any fallback, or a diagnostics dict
     (z/trust/rho/t_fast) on a real score -- for logging only.
+
+    A mode="fixed" block (see THREE SHAPES above keel_paths) never reaches the state
+    file: _keel_fixed_size_for_entry scores it, under the same contract. An unknown mode
+    is a configuration error -> 1.0 with its reason, like any other fallback. So is a
+    learned block with no "state_path" -- the likeliest slip when the go-day line is typed
+    by hand (dict(version="v12") alone, or a misspelt "mode" KEY, both read as learned):
+    _diff_leg and step()'s per-leg loop have no try of their own, so a KeyError here
+    would stop every leg's tick, not just this entry's KEEL.
     """
     if not keel_cfg or entry_bar is None:
         return 1.0, None
-    state, summary = _load_keel_state(keel_cfg["state_path"], keel_cfg.get("summary_path", ""),
-                                      log=log)
+    mode = keel_mode(keel_cfg)
+    if mode == KEEL_MODE_FIXED:
+        return _keel_fixed_size_for_entry(keel_cfg, arrays, entry_bar, log=log)
+    if mode != KEEL_MODE_LEARNED:
+        return 1.0, f"unknown keel mode {mode!r}"
+    state_path = keel_cfg.get("state_path")
+    if not state_path:
+        return 1.0, "keel config has no state_path"
+    state, summary = _load_keel_state(state_path, keel_cfg.get("summary_path", ""), log=log)
     if state is None:
         return 1.0, "keel state unavailable"
     try:
@@ -1609,6 +1658,40 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print):
         return 1.0, f"keel scoring error: {type(e).__name__}: {e}"
 
 
+def _keel_fixed_size_for_entry(keel_cfg, arrays, entry_bar, log=print):
+    """keel_size for ONE new entry on a mode="fixed" leg: v12's fixed tilts, no model
+    (augur_engine.ml_keel.fixed_tilt_sizes_v12) at `entry_bar` of `arrays` -- the arrays
+    _diff_leg was handed. Same contract as _keel_size_for_entry: a finite float > 0, 1.0
+    with a short reason string on ANY failure (logged, never raised), a small diagnostics
+    dict on a real score.
+
+    DECIDE-AT-CLOSE. For a probe entry `arrays` are the probe's (bar D plus two flat
+    stand-ins) and `entry_bar` is the stand-in S1, which carries the real D+1 bar's own
+    start time and session. Every tilt reads only what is known at that bar's open: the
+    compression state of the last COMPLETE 60-minute group before it (the stand-ins sit in
+    S1's own group or later, never in an earlier one), and the weekday and FOMC
+    pre-statement hour of its start time. So the probe's size equals the full-history
+    backtest's at the real entry bar (tests/test_noise_422_keel_fixed.py checks it).
+
+    An entry_bar outside `arrays` (should never happen) is a fallback with its reason, not
+    clamped onto the nearest bar and scored there silently."""
+    try:
+        version = keel_cfg.get("version")
+        if version not in KEEL_FIXED_VERSIONS:
+            return 1.0, f"keel fixed tilts: unsupported version {version!r}"
+        from augur_engine import ml_keel as _keel
+        row, n_bars = int(entry_bar), len(arrays["close"])
+        if not 0 <= row < n_bars:
+            return 1.0, f"keel fixed tilts: entry_bar {row} out of range (0..{n_bars - 1})"
+        size = float(_keel.fixed_tilt_sizes_v12(arrays, [row])[0])
+        if not math.isfinite(size) or size <= 0:
+            return 1.0, f"keel fixed tilts returned a non-finite/non-positive size ({size!r})"
+        return size, {"mode": KEEL_MODE_FIXED, "version": version}
+    except Exception as e:
+        log(f"[cloud-signal] KEEL fixed tilts failed: {type(e).__name__}: {e}")
+        return 1.0, f"keel fixed tilts error: {type(e).__name__}: {e}"
+
+
 def _keel_fallback_reason(keel_cfg, now, arrays=None, log=print):
     """Would KEEL fall back to keel_size 1.0 right now, and if so why -- a STANDALONE
     freshness read, independent of any actual trade entry. _keel_size_for_entry above
@@ -1628,10 +1711,22 @@ def _keel_fallback_reason(keel_cfg, now, arrays=None, log=print):
     Returns a short human-readable reason string on any fallback condition, or None
     when KEEL looks healthy. NEVER raises -- any exception anywhere in this check
     itself is caught and reported back as its own reason, exactly like a real scoring
-    exception would be."""
+    exception would be.
+
+    A mode="fixed" block has no state and nothing to go stale: healthy (None) unless its
+    version has no fixed tilts. An unknown mode is always reported."""
     try:
-        state, summary = _load_keel_state(keel_cfg["state_path"], keel_cfg.get("summary_path", ""),
-                                          log=log)
+        mode = keel_mode(keel_cfg)
+        if mode == KEEL_MODE_FIXED:
+            version = keel_cfg.get("version")
+            return (None if version in KEEL_FIXED_VERSIONS
+                    else f"keel fixed tilts: unsupported version {version!r}")
+        if mode != KEEL_MODE_LEARNED:
+            return f"unknown keel mode {mode!r}"
+        state_path = keel_cfg.get("state_path")
+        if not state_path:
+            return "keel config has no state_path"
+        state, summary = _load_keel_state(state_path, keel_cfg.get("summary_path", ""), log=log)
         if state is None:
             return "keel state unavailable"
         last_session = (summary or {}).get("data_through") or (summary or {}).get("last_nq_session")

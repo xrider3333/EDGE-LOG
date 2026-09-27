@@ -7025,6 +7025,11 @@ def _build_run_location():
     return {"label": label, "host": host}
 
 
+# (engine_key, what) pairs whose "unknown keel mode" / "no fixed tilts for that version"
+# line _build_keel_status has already logged -- once per process, not on every 20-60 s publish.
+_KEEL_BAD_MODE_LOGGED = set()
+
+
 def _build_keel_status(log=print):
     """Best-effort read of every KEEL-overlaid leg's small JSON summary (see
     api/cloud_signal.py's keel_paths and tools/keel_live_state.py, the nightly builder)
@@ -7036,7 +7041,17 @@ def _build_keel_status(log=print):
     never touches the (potentially large) pickled state file itself -- only the small
     JSON sidecar. Returns {} on any import/read failure, which the web tab already
     treats as "no freshness data" (same null-safety as every other optional field on
-    this doc)."""
+    this doc).
+
+    "mode" (2026-09-27): "learned" (the model above) or "fixed" (v12's fixed tilts, no
+    model -- see cloud_signal's THREE SHAPES comment above keel_paths). A fixed leg has no
+    summary file and nothing trained: it publishes {"version", "mode": "fixed"} with
+    trained_through/last_trade_session/n_trades None, so the tab can say "fixed tilts (no
+    model)" instead of a training date. A leg with an unknown mode -- or a fixed block whose
+    version has no fixed tilts (not in cloud_signal's KEEL_FIXED_VERSIONS, e.g. a hand-typed
+    "v11") -- is left out (logged once per process), so the tab never claims an overlay that
+    is off: cloud_signal already sizes it 1.0 and pushes the reason. The "mode" key is
+    additive: a learned leg's scoring and its other fields are unchanged."""
     out = {}
     try:
         from . import cloud_signal as _cs
@@ -7048,6 +7063,24 @@ def _build_keel_status(log=print):
         if not keel_cfg:
             continue
         exec_key = ENGINE_LEG_MAP.get(engine_key, engine_key)
+        mode = _cs.keel_mode(keel_cfg)
+        if mode == _cs.KEEL_MODE_FIXED:
+            version = keel_cfg.get("version")
+            if version not in getattr(_cs, "KEEL_FIXED_VERSIONS", ()):
+                if (engine_key, ("fixed", version)) not in _KEEL_BAD_MODE_LOGGED:
+                    _KEEL_BAD_MODE_LOGGED.add((engine_key, ("fixed", version)))
+                    log(f"[qqq-exec] KEEL status: {engine_key} asks for fixed tilts of "
+                        f"{version!r}, which have none (sized 1.0)")
+                continue
+            out[exec_key] = {"version": version, "mode": _cs.KEEL_MODE_FIXED,
+                             "trained_through": None, "last_trade_session": None,
+                             "n_trades": None}
+            continue
+        if mode != _cs.KEEL_MODE_LEARNED:
+            if (engine_key, mode) not in _KEEL_BAD_MODE_LOGGED:
+                _KEEL_BAD_MODE_LOGGED.add((engine_key, mode))
+                log(f"[qqq-exec] KEEL status: {engine_key} has an unknown keel mode {mode!r}")
+            continue
         summary_path = keel_cfg.get("summary_path", "")
         if not summary_path or not os.path.exists(summary_path):
             continue
@@ -7065,6 +7098,7 @@ def _build_keel_status(log=print):
             # still meaningful on its own -- "when did the NOISE leg last actually trade".
             out[exec_key] = {
                 "version": summary.get("version") or keel_cfg.get("version"),
+                "mode": _cs.KEEL_MODE_LEARNED,
                 "trained_through": summary.get("data_through") or summary.get("last_nq_session"),
                 "last_trade_session": summary.get("last_nq_session"),
                 "n_trades": summary.get("n_trades"),
