@@ -65,3 +65,24 @@ The live leg today is #382 + KEEL v12. The identical arms A0-A4, H1, H2, lockbox
 rule above are applied unchanged to NOISE #382 (NOISE_1_8_CT304.py 30-min, 16, 1.15, 2.0x), same tape,
 stretches, engine and seeds (A1/A2 = 7-seed bags 90001-90007). A0 and A1 for #382 were read on 2026-09-26/27
 (tools/keel_bag_check.py) and are comparators only. Nothing live changes whatever the result.
+
+## ADDENDUM RESULT - NOISE #382 (read after f6e09db6): H1 does not hold, H2 HOLDS, recommendation A3
+
+`python tools/keel_422_parts_check.py --leg 382`
+
+| arm | WF net | WF ROC %/yr | WF Sortino | WF DD | WF ret/DD | LB net | LB ROC %/yr | LB Sortino | LB DD | LB ret/DD | max size |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| A0 #382 alone | 505,314 | 55.9 | 3.87 | 20,960 | 2.67 | 90,675 | 77.6 | 2.95 | 33,290 | 2.33 | 2.00x |
+| A1 + KEEL v12 (7-seed) | 765,966 | 84.7 | 4.24 | 32,715 | 2.59 | 111,340 | 95.2 | 2.74 | 40,881 | 2.33 | 6.00x |
+| A2 + KEEL v12 no squeeze | 660,097 | 73.0 | 4.01 | 30,953 | 2.36 | 87,919 | 75.2 | 2.29 | 41,992 | 1.79 | 6.00x |
+| **A3 + fixed tilts only** | 710,868 | 78.6 | **4.84** | 25,170 | **3.12** | **120,614** | 103.2 | **3.26** | 32,941 | **3.13** | 4.50x |
+| A4 + fixed tilts, no squeeze | 595,995 | 65.9 | 4.26 | 22,174 | 2.97 | 104,198 | 89.1 | 3.05 | 35,733 | 2.49 | 3.00x |
+
+The #422 finding replicates on the live leg, more strongly: the fixed tilts beat full KEEL on walk-forward
+return per drawdown and Sortino AND on lockbox money ($120.6k vs $111.3k) at lower lockbox drawdown. Full
+KEEL fails the lockbox veto on #382 (it only ties raw). Across both legs the learned model adds walk-forward
+money at a disproportionate drawdown and nothing the fixed tilts do not already capture.
+
+**The two candidates side by side (fixed tilts):** #382 + tilts makes more (WF 78.6 vs 70.2 %/yr, LB 103.2 vs
+94.4) with more risk (WF DD $25.2k vs $19.4k, top size 4.5x vs 3.9x); #422 + tilts is the better return per
+drawdown (WF 3.63 vs 3.12, LB 3.36 vs 3.13) and Sortino (5.48 vs 4.84). Owner call; nothing live changed.
