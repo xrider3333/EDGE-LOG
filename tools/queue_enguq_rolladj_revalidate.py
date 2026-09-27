@@ -26,6 +26,19 @@ series is corrected, the trial budget rises to the house 900 (the originals ran 
 on ES), and the declared ranges are fenced shut (auto_expand False; the originals ran with the
 runner default, which widened them).
 
+MASTERS VERIFIED 2026-09-26 (read-only, full lockstep pass over all 5,488,516 NQ 1m bars):
+ADJ_NQ_1m_ETH and ADJ_ES_1m_ETH are a Panama difference adjust - 67 offset levels, 66 steps, each
+landing exactly on a contract roll - anchored at the END, so the current contract reads the real
+tape (offset 0.00 at the last bar). The FADJ twins are the same curve anchored at the START, a
+constant 3,732.25 points lower on NQ; trades and point P&L come out identical either way, so this
+script names db_adj_eth for the level that matches the live feed. Both 2026 switches are carried
+(-293.00 at 2026-06-15 03:30 ET, -295.00 at 2026-09-14 11:30 ET; ES -64.00 and -67.75), so the old
+"stopped adjusting 2026-03-15" defect is gone. Timestamps and volumes are bar-for-bar identical to
+the no-adjust tape with no new gaps. Two caveats: the July-August 2026 hole is unrepaired (both
+jobs pin date_to 2026-06-30, which keeps it out), and the two synthetic splice bars take their open
+from the old offset and their close from the new with high/low as max/min of those, so the real
+intrabar range is under-reported on exactly those two bars.
+
 PRECONDITIONS - all checked at run time, and --confirm aborts if any fails:
   1. A registered back-adjusted master exists for each tape. NONE EXISTS TODAY: the registry holds
      34 masters and no adjusted futures series at 1 minute; the only adjusted futures series are
@@ -53,7 +66,7 @@ JOBS = [
         label="ENGU-Q #335 on back-adjusted NQ",
         strategy="ENGUQ_1M_ETH_R2_1_0.py",
         instrument="NQ", timeframe="1m", session="eth",
-        source="db_adj_eth",                     # must exist and be registered first
+        source="db_adj_eth",                     # ADJ_NQ_1m_ETH.csv, registered 2026-09-26
         date_from="2010-06-07", date_to="2026-06-30",
         cost_pts=0.533, mult=20, lockbox_months=12, n_trials=900, warm_days=300,
         note=("[ROLL-ADJUSTED RE-VALIDATE] Corrects ENGU-Q #335 for the quarterly contract switch "
@@ -68,7 +81,7 @@ JOBS = [
         label="ENGU-Q #370 on back-adjusted ES",
         strategy="ENGUQ_1M_ETH_R2_1_0.py",
         instrument="ES", timeframe="1m", session="eth",
-        source="db_adj_es_eth",                  # must exist and be registered first
+        source="db_adj_eth",                     # ADJ_ES_1m_ETH.csv, registered 2026-09-26
         date_from="2010-06-07", date_to="2026-06-30",
         cost_pts=0.40, mult=50, lockbox_months=12, n_trials=900, warm_days=300,
         note=("[ROLL-ADJUSTED RE-VALIDATE] Corrects ENGU-Q #370 (ES) for the quarterly contract "
