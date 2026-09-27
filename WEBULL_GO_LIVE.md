@@ -21,12 +21,17 @@ WEBULL_PAPER_TODO.md points here.
 - 1.3: the book now refuses to serve on a host missing from its serving list; the PC's config
   lists only the box. It takes effect on the PC at the job runner's next restart.
 - 1.10: code is ready for a private topic with an access token; the owner must create it.
-- 3.8: NOISE now asks for 262 sessions; the box holds 77 until a year of QQQ 5m bars is
-  backfilled, which needs an intraday data key (owner).
-- Not yet: 1.5-1.7 (the order-path rework: unknown outcomes, separate live state, safe disarm,
-  a real kill path) was built and reviewed but NOT shipped; four review rounds kept finding new edge cases, so it will be redone smaller before anything goes live. 1.11 (a supervised
-  1-share live test) and 1.12 (the runbook) come after it. Entries and exits still go out one
-  5-minute bar after the backtest's fill (3.3); fixing that is next.
+- 3.8: NOISE's vol skip now ranks against 262 sessions from Monday 2026-09-28: QQQ daily ranges
+  (no key) fill the sessions before the box's 77 days of 5m bars. The exact fix, a year of real
+  QQQ 5m bars, is built and waits on the owner's free Alpaca data key (steps in to-do 12).
+- 3.3: entries and exits no longer go out one 5-minute bar late: NOISE #382 sends at the close of
+  the deciding bar (to-do 16; replay 35/35 entries and 28/28 exits at the backtest's fill time).
+- 1.5: shipped for paper on 2026-09-26 (to-do 17): unknown outcomes are looked up by order id,
+  only filled shares are booked, partial fills roll back the rest with a push, split orders wait
+  for part 1. A few minor notes are listed under to-do 17.
+- Not yet: 1.6-1.7 (a separate live state file, a flat-before-arming guard, a safe disarm and a
+  real kill path) are LIVE-only and come before arming; 1.11 (a supervised 1-share live test)
+  and 1.12 (the runbook) come after them.
 
 **Checked again by hand on 2026-09-25:**
 - ORB is blind before about 14:05 ET (item 3.6). The half-day test compares today's session, which is

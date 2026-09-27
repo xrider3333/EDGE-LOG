@@ -26,7 +26,7 @@ done.
 | 14 | Taking the book live: the go-live punch list (WEBULL_GO_LIVE.md) | **IN PROGRESS** (2026-09-26: 1.1-1.4, 1.8, 1.9, 3.6-3.8, 3.11 done; see its status note) | decisions in its section 2: account, size and the day-trade rule, shorting, token, KEEL stack, ENGU-Q; a private alert topic |
 | 15 | ORB never enters before about 14:05 ET: the half-day test drops today's unfinished session | **DONE** (2026-09-26, 9a82613, live on the box) | nothing; watch ORB's first morning entries |
 | 16 | Entries and exits go out one 5-minute bar after the backtest's fill | **DONE** (2026-09-26, live on the box from Monday) | nothing; check the first day's timing |
-| 17 | Order-path rework (unknown outcomes, fill status, split orders, separate live state, safe disarm) | **OPEN** (2026-09-26: built, not shipped) | nothing |
+| 17 | Order-path rework (unknown outcomes, fill status, split orders, separate live state, safe disarm) | **PARTLY DONE** (2026-09-26: the paper order path shipped and is live on the box from Monday; the LIVE-only parts and a short list of minor notes remain) | nothing |
 
 ---
 
@@ -735,7 +735,34 @@ replay that every live order goes out within seconds of the backtest's fill.
 
 ## 17. Order-path rework
 
-**Status: OPEN.** Added 2026-09-26. The go-live items 1.5-1.7 were built (worktree wb-orders,
+**Status 2026-09-26: PARTLY DONE.** The smaller rework shipped (worktree wb-orders2, three
+skeptical reviews passed with no critical or major issue) and runs on the box from Monday:
+unknown send outcomes are resolved by the order's own id inside a 15 s budget; only filled shares
+are booked, and a partial fill rolls back the rest with one high-priority push; fill capture waits
+while Webull says the order is working and ignores a record about another order; a split order's
+second part goes only after the first fills, and a dead part re-queues the whole unfilled amount
+(an entry re-buy is sized by the larger of the two books, so a disagreement shrinks it); a dead
+exit found by the reconcile re-sells the unsold shares or says "sell by hand"; 4xx refusals are
+read the same way on both sides.
+
+**Still open (LIVE only, before arming):** a separate live state file, a flat-before-arming guard
+and a safe disarm.
+
+**Minor notes left from the last review (none can send a duplicate or oversized order; they can
+leave an exit waiting with urgent pages until the flatten deadline):**
+- A split exit that hits the 40 s hard timeout is verified under the base order id, which a split
+  never sends, so it waits until the deadline. Fix: switch the verify to the adapter's recorded
+  part ids when they exist.
+- One lookup started just before the 15 s budget can still run about 35 s (the SDK's own
+  timeouts). Fix: stop starting lookups once less than one worst-case lookup is left.
+- A split exit that is not fully acked does not queue fill capture for the parts Webull did accept,
+  so a later partial death of such a part only shows as a reconcile mismatch.
+- A part settled by the reconcile while its send had the lock released can be re-booked in full
+  from an older answer until fill capture corrects it.
+- Shares waiting behind another verify ("pending add") are not named in the give-up push, and the
+  reconcile's pending lookup can still use its whole 12 s budget once and halt new entries briefly.
+
+**Original note.** Added 2026-09-26. The go-live items 1.5-1.7 were built (worktree wb-orders,
 about 3,000 lines in api/webull_orders.py) but four review rounds kept finding new edge cases, so
 none of it shipped. Redo it smaller: unknown outcomes resolved by order id, fill status and
 filled quantity applied to the books, a split order's second part only after the first fills,
