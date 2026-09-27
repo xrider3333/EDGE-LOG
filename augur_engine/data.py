@@ -42,9 +42,35 @@ def list_masters():
     return df.to_dict("records")
 
 
+# Roll-corrected masters are OPT-IN ONLY. A caller that does not name a source must never be
+# handed one (2026-09-26): registering the first of them silently changed what every UNPINNED
+# lookup returned, because this function took the first row of a list ordered by source name
+# and "db_adj_eth" sorts before "db_noadj_eth". The live NinjaTrader ML gate
+# (api/gate_live.py), the paper leg loader (api/paper.py) and the reconcile tool
+# (augur_engine/reconcile.py) all resolve without a source, so all three would have switched
+# to back-adjusted prices, against the explicit instruction that no live or paper leg's data
+# changes. An adjusted master is a research artefact whose absolute price levels differ from
+# the tradeable front contract by thousands of points; handing one to a live service by
+# accident is the worst failure this registry can produce.
+ADJUSTED_SOURCE_PREFIXES = ("db_adj", "db_fadj")
+
+
+def is_adjusted_source(source):
+    """True for a roll-corrected master's source tag."""
+    return str(source or "").startswith(ADJUSTED_SOURCE_PREFIXES)
+
+
 def find_master(instrument, timeframe, session=None, source=None):
     """Best-matching master row for instrument+timeframe (+ optional session/source).
-    For non-adjusted data pass source='db_noadj_rth'/'db_noadj_eth'."""
+
+    For non-adjusted data pass source='db_noadj_rth'/'db_noadj_eth'.
+
+    A ROLL-CORRECTED master ('db_adj_*' / 'db_fadj_*') is returned ONLY when `source` names
+    one. Leave `source` blank and you get the unadjusted data you got before those masters
+    existed - and if the only thing that would match is an adjusted master, this returns None
+    rather than quietly substituting one. Failing to find data is recoverable; a live service
+    silently re-pointed at a different price scale is not. See docs/ROLL_ADJUSTED_MASTERS.md.
+    """
     cand = [m for m in list_masters()
             if str(m.get("instrument")) == str(instrument)
             and str(m.get("timeframe")) == str(timeframe)]
@@ -52,6 +78,8 @@ def find_master(instrument, timeframe, session=None, source=None):
         cand = [m for m in cand if str(m.get("session", "")).lower() == session.lower()]
     if source:
         cand = [m for m in cand if str(m.get("source", "")) == source]
+    else:
+        cand = [m for m in cand if not is_adjusted_source(m.get("source"))]
     return cand[0] if cand else None
 
 
