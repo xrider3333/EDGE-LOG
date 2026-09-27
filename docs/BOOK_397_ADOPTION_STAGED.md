@@ -82,7 +82,7 @@ the cent on both TTM cells.
 |---|---|---|---|---|---|---|
 | #437 as run | #369 cell, 3 / 4.5 / 6.75 | 88.1 / 293.3 | $40,971 / $41,853 | $25,893 | 3.98 / 6.31 | 87.9 / 292.5 |
 | V347 | #369 cell, **3 / 4 / 7** | 88.3 / 290.7 | $40,971 / $41,853 | $25,893 | 4.00 / 6.26 | 88.0 / 289.9 |
-| V428 | **#428 cell** (roll guard, entry cutoff 5), 3 / 4.5 / 6.75 | 87.6 / 295.6 | **$33,567** / $34,449 | $25,893 | 4.02 / 6.37 | 106.6 / 359.8 |
+| V428 (= run #445) | **#428 cell** (roll guard, entry cutoff 5), 3 / 4.5 / 6.75 | 87.6 / 295.6 | **$33,567** / $34,449 | $25,893 | 4.02 / 6.37 | 106.6 / 359.8 |
 | V428_347 | #428 cell, **3 / 4 / 7** | 87.8 / 292.7 | $33,567 / $34,449 | $25,893 | 4.03 / 6.31 | 106.8 / 356.3 |
 
 Reading:
@@ -98,7 +98,7 @@ Reading:
 - **Suggested split (the owner decides):** adopt #397 as #437 runs it, which changes no TTM paper leg. Treat
   the #428 cell and 3 / 4 / 7 as the TTM chat's separate leg decision, which can follow on its own evidence.
 
-Script, log and parity: `C:\EdgeLog\_anatomy_cache\stage397\` (`variants.py`, `variants.log`,
+V428 is persisted as real run #445 (BOOK.md 10k), equal to this figure to the cent. Script, log and parity: `C:\EdgeLog\_anatomy_cache\stage397\` (`variants.py`, `variants.log`,
 `variants.json`, `legs_diff.py`). #435 and #437 were reproduced to the dollar before any variant was
 read.
 

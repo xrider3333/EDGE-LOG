@@ -994,6 +994,37 @@ book P&L on a $100k account, every weekday counted, times the square root of 252
   whole book's. Adoption stays the owner's call; nothing was adopted. Script and logs:
   `C:\EdgeLog\_anatomy_cache\dip432_book\` (`dip432_eval.py`, `verify_runs.py`).
 
+### 10k. Round 60 - one-leg swaps on the roll-corrected #397: #445 / #444 / #446 (2026-09-27)
+
+**What.** MANAGER tasker (2026-09-27): run the next pre-registered backtests in the book lane. Base =
+**#437** (#397 on the roll-corrected masters, 10i), its job legs verbatim with ONE leg swapped and every
+leg's source pinned. Pre-registration, written before B2/B3 were computed:
+`C:\EdgeLog\_anatomy_cache\stage397\PREREG_R60.txt`. The runner equals the local run to the cent on all three.
+
+**The bar for the two NOISE-slot books** (round 58's, re-based on #437): scale the book so its
+pre-lockbox drawdown (the worse of at-close and valued daily) equals #437's $41,853. Then it needs (1)
+pre ROC >= 1.05 x 88.1, (2) lockbox ROC >= 293.3, (3) lockbox drawdown within +5 % at close (cap $27,188)
+and valued daily (cap $52,348), and (4) more net than #437 in >= 10 of the 15 years 2011-2025.
+
+| run | #437 with | ROC %/yr pre / lockbox | pre DD at close / valued daily | lockbox DD at close / valued daily | Sortino pre / lockbox | years more than #437 | bar |
+|---|---|---|---|---|---|---|---|
+| #437 | (base) | 88.1 / 293.3 | $40,971 / $41,853 | $25,893 / $49,855 | 3.98 / 6.31 | - | - |
+| **#445** | TTM = run #428's cell (roll guard, entry cutoff 5) | 87.6 / 295.6 | **$33,567** / $34,449 | $25,893 / $49,855 | 4.02 / 6.37 | 6 | no bar (the TTM chat's leg call) |
+| **#444** | NOISE = run #422 (1.75x compression tilt) | 96.4 / 309.8 | $40,971 / $41,853 | **$27,955** / $49,855 | 4.21 / 6.48 | **15** | **MISSES clause 3 only**, by $767 |
+| **#446** | NOISE = run #382 (2x tilt) | 100.9 / 314.7 (at scale 0.973: 98.1 / 306.1) | $42,147 / $43,029 | $30,706 / $55,474 | 4.04 / 5.97 | 14 | **MISSES clause 3**, both readings |
+
+**Reading (no decision taken here).**
+- **NOISE #422 in the NOISE slot is the same answer as round 58, a little closer.** It needs no scaling:
+  it leaves the pre-lockbox drawdown unchanged. It makes more money in all 15 years and lifts Sortino.
+  It misses only the lockbox drawdown at close, $27,955 against the $27,188 cap (+8.0 % against +5 %).
+  On the unadjusted masters it missed by $1,330. Pre-registered answer: no; it stays an owner call.
+- **NOISE #382 misses more clearly.** As traded, its lockbox drawdown is +18.6 % at close and +11.3 %
+  valued daily, and it is still over both caps at the scale the bar uses.
+- **#445 persists the staged TTM variant** (docs/BOOK_397_ADOPTION_STAGED.md section 5). It removes
+  $7,404 of the Feb-Mar 2020 drawdown and adds 2.3 points in the lockbox at the same lockbox drawdown.
+  The #428 cutoff was chosen in-sample and missed its own MAR clause, so the leg decision stays with the
+  TTM chat.
+
 ### 10b. An open item this audit turned up: two day-stamping rules disagree
 
 The recorded finding put the baseline's worst stretch in **2020-02-21..2020-03-25 at $34,903**; the
