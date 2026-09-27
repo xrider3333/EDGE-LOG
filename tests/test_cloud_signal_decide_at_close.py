@@ -292,8 +292,9 @@ def test_stand_in_arrays_shape():
     assert len(arrays["close"]) == 20                         # input untouched
 
 
-def test_flag_is_on_for_noise_382_only():
-    assert cs.CROWN_LEGS["NOISE_382"].get("decide_at_close") is True
+def test_flag_is_on_for_the_noise_leg_only():
+    # NOISE_422 since the 2026-09-27 swap (NOISE_382 before it) -- the flag moved with the leg
+    assert cs.CROWN_LEGS["NOISE_422"].get("decide_at_close") is True
     assert not cs.CROWN_LEGS["ORB_R6"].get("decide_at_close")
     assert not cs.CROWN_LEGS["ENGUQ_335"].get("decide_at_close")
 

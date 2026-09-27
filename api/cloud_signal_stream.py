@@ -39,7 +39,7 @@ This never invents an exit or reverses a position, and never fires again for a l
 after a same-day disagreement (see _trip_disagreement) -- it only ever changes how SOON
 a decision that was going to happen anyway gets recorded.
 
-SCOPE. 5m legs only (ORB_R6, NOISE_382 today) -- api.webull_stream's hand-off is 5m-only
+SCOPE. 5m legs only (ORB_R6, NOISE_422 today) -- api.webull_stream's hand-off is 5m-only
 by design (see its HANDOFF_TIMEFRAME_SECONDS), and ENGUQ_335 (1m) is unaffected and
 keeps going through step()'s normal REST path exactly as before.
 

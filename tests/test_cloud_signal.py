@@ -989,14 +989,16 @@ def test_cmd_once_and_cmd_loop_return_the_exit_code_directly():
 # strategy function, and log_history_windows()'s startup diagnostic (complete vs
 # degraded).
 def test_required_lookback_sessions_reads_the_real_noise_strategy_chain():
-    """End to end on the REAL repo files: NOISE_1_8_CT304.py (the filename CROWN_LEGS
-    actually names for the live NOISE_382 leg) re-exports REQUIRED_LOOKBACK_SESSIONS
-    from NOISE_1_1_NBHD.py, which re-exports it from NOISE_1_0.py's own
-    VOL_SKIP_REF_SESSIONS -- ties this test to that number wherever it is actually
-    defined, so a future change to it is caught here rather than silently drifting from
-    what cloud_signal uses."""
+    """End to end on the REAL repo files: NOISE_1_8_CT304H.py (the filename CROWN_LEGS
+    actually names for the live NOISE_422 leg since the 2026-09-27 swap) and
+    NOISE_1_8_CT304.py (the retired NOISE_382 leg's) each re-export
+    REQUIRED_LOOKBACK_SESSIONS from NOISE_1_1_NBHD.py, which re-exports it from
+    NOISE_1_0.py's own VOL_SKIP_REF_SESSIONS -- ties this test to that number wherever it
+    is actually defined, so a future change to it is caught here rather than silently
+    drifting from what cloud_signal uses."""
     assert cs.required_lookback_sessions("NOISE_1_8_CT304.py") == 252
-    assert cs.leg_warmup_sessions(cs.CROWN_LEGS["NOISE_382"]) == 252 + cs.WARMUP_MARGIN_SESSIONS
+    assert cs.required_lookback_sessions("NOISE_1_8_CT304H.py") == 252
+    assert cs.leg_warmup_sessions(cs.CROWN_LEGS["NOISE_422"]) == 252 + cs.WARMUP_MARGIN_SESSIONS
 
 
 def test_orb_and_enguq_declare_no_lookback_requirement_today():

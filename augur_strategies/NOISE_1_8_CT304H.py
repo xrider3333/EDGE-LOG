@@ -47,6 +47,15 @@ DESCRIPTION = ("The LIVE NOISE crown (run #304), core frozen, every trade kept; 
 _AUGUR_MARKET = {"instrument": "NQ", "timeframe": "5m"}
 _AUGUR_PARENT = "NOISE_1_1_NBHD.py"
 
+# Re-exported so api/cloud_signal.py's required_lookback_sessions can read this straight
+# off "NOISE_1_8_CT304H.py" -- the file name CROWN_LEGS names for the live NOISE_422
+# leg -- without needing to know it delegates through NOISE_1_1_NBHD.py down to
+# NOISE_1_0.py's vol_skip_pct filter, where the number (252, VOL_SKIP_REF_SESSIONS)
+# actually comes from. Same hook, same wording, as NOISE_1_8_CT304.py's (go-live audit
+# item 3.8). _FROZEN below pins vol_skip_pct=95.0 on always, so this leg's requirement
+# is never "off" the way a vol_skip_pct=0.0 config's would be.
+REQUIRED_LOOKBACK_SESSIONS = getattr(_base, "REQUIRED_LOOKBACK_SESSIONS", None)
+
 _COST_PTS = 0.533
 
 # Run #304 champion, written out literally. NOT read from any file defaults.
@@ -115,6 +124,13 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
         call["day_id"] = day_id
     if index is not None and ("index" in sp or hk):
         call["index"] = index
+    # vol_prior_ranges (go-live audit item 3.8, same as NOISE_1_8_CT304.py): opt-in runtime
+    # kwarg, not a DEFAULT_PARAMS knob -- see NOISE_1_0.py's run_backtest/_vol_percentile.
+    # Forwarded through unchanged so a live caller (api/cloud_signal.py) reaches NOISE_1_0.py's
+    # vol_skip_pct filter through this wrapper the same way it would through NBHD alone;
+    # absent from kw (the normal backtest path), this is a no-op.
+    if "vol_prior_ranges" in kw and ("vol_prior_ranges" in sp or hk):
+        call["vol_prior_ranges"] = kw["vol_prior_ranges"]
     r = _base.run_backtest(opens, highs, lows, closes, return_trades=True, **call)
     if not r or not r.get("trades"):
         return None

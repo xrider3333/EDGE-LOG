@@ -515,7 +515,7 @@ def run(args, key_secret=None, http_get=None, box_cache_df=None, now_et=None,
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        description="Backfill QQQ 5-minute history from Alpaca for the box's NOISE_382 "
+        description="Backfill QQQ 5-minute history from Alpaca for the box's NOISE leg's "
                     "vol_skip_pct window.")
     ap.add_argument("--sessions", type=int, default=MIN_SESSIONS,
                     help=f"minimum sessions to fetch (default {MIN_SESSIONS})")

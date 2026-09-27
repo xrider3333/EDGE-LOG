@@ -16,7 +16,7 @@ one scp'd from the box) and optionally tops it up from yfinance (--yf, network).
 only under --out. KEEL is dropped from the leg config: it changes a trade's size, never
 when it is emitted, and its state lives on the box.
 
-  python tools/decide_at_close_replay.py --cache <copy of QQQ_5m.csv> --leg NOISE_382 \
+  python tools/decide_at_close_replay.py --cache <copy of QQQ_5m.csv> --leg NOISE_422 \
       --sessions 36 --out <scratch dir>
 """
 import argparse
@@ -184,7 +184,7 @@ def load_cache(path, use_yf=False):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--cache", required=True, help="COPY of an epoch-schema QQQ_5m.csv")
-    ap.add_argument("--leg", default="NOISE_382")
+    ap.add_argument("--leg", default="NOISE_422")   # the live NOISE key (CROWN_LEGS)
     ap.add_argument("--sessions", type=int, default=36)
     ap.add_argument("--yf", action="store_true", help="top up the cache from yfinance 5m (network)")
     ap.add_argument("--out", default=None, help="scratch output dir (default: a new temp dir)")

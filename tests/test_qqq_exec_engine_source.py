@@ -3,9 +3,10 @@ entries/exits from api/cloud_signal.py's own signal ledger instead of NinjaTrade
 fills.csv (2026-09-13, "move QQQ shadow off NinjaTrader").
 
 Coverage:
-  1. The NOISE leg resolves to run #382's definition (NOISE_1_8_CT304.py, OWNER DECISION
-     2026-09-23), and the retired run #304 engine key still resolves through qqq_exec's
-     own leg map even though it is gone from cloud_signal.CROWN_LEGS.
+  1. The NOISE leg resolves to run #422's definition (NOISE_1_8_CT304H.py, OWNER DECISION
+     2026-09-27; run #382's NOISE_1_8_CT304.py before it, 2026-09-23), and the retired
+     run #382 and run #304 engine keys still resolve through qqq_exec's own leg map even
+     though both are gone from cloud_signal.CROWN_LEGS.
   2. Consuming api.cloud_signal's signals.csv is idempotent across a simulated adapter
      restart: the same rows are never re-entered/re-exited twice.
   3. First-ever activation of engine mode absorbs any PRE-EXISTING signal rows without
@@ -40,29 +41,35 @@ from api import webull_orders as WO             # noqa: E402
 
 
 # ── 1. leg definition -----------------------------------------------------------------
-def test_noise_leg_resolves_to_run_382():
-    """api/cloud_signal.py's NOISE leg must be exactly run #382's definition
-    (NOISE_1_8_CT304.py: the #304 crown's own core, frozen literally inside that file,
-    plus the validated hourly-compression SIZE tilt) -- OWNER DECISION 2026-09-23, not
-    re-derived, not left on the retired #304 config. The retired #304 engine key must be
-    GONE from CROWN_LEGS (replaced, not kept alongside) but must still resolve through
-    qqq_exec's own leg map, so an old signals.csv row or an in-flight trade id from
-    before the swap is never orphaned."""
-    assert "NOISE_382" in cs.CROWN_LEGS
-    assert "NOISE_304" not in cs.CROWN_LEGS, (
-        "the retired #304 engine key must be gone from CROWN_LEGS, not just added-alongside")
+def test_noise_leg_resolves_to_run_422():
+    """api/cloud_signal.py's NOISE leg must be exactly run #422's definition
+    (NOISE_1_8_CT304H.py: the #304 crown's own core, frozen literally inside that file,
+    sized by the HOURLY squeeze) -- OWNER DECISION 2026-09-27, not re-derived, not left
+    on the retired #382 cell. Both retired engine keys (#382, and #304 before it) must be
+    GONE from CROWN_LEGS (replaced, not kept alongside -- two NOISE keys would double
+    every NOISE order) but must still resolve through qqq_exec's own leg map, so an old
+    signals.csv row or an in-flight trade id from before either swap is never orphaned."""
+    assert "NOISE_422" in cs.CROWN_LEGS
+    for retired in ("NOISE_382", "NOISE_304"):
+        assert retired not in cs.CROWN_LEGS, (
+            "the retired %s engine key must be gone from CROWN_LEGS, not just "
+            "added-alongside" % retired)
     assert "NOISE_SBS_V90" not in cs.CROWN_LEGS, "the stale #243 key must be gone, not just added-alongside"
-    leg = cs.CROWN_LEGS["NOISE_382"]
-    assert leg["strategy"] == "NOISE_1_8_CT304.py"
+    leg = cs.CROWN_LEGS["NOISE_422"]
+    assert leg["strategy"] == "NOISE_1_8_CT304H.py"
     assert leg["timeframe"] == "5m"
-    assert leg["params"] == {"tilt_mult": 2.0, "gate_tf_min": 30, "gate_len": 16,
-                             "gate_ratio": 1.15}
+    assert leg["params"] == {"tilt_mult": 1.75, "gate_len": 20, "gate_ratio": 1.15}
     assert leg["warmup_sessions"] == cs.DEFAULT_WARMUP_SESSIONS, "same warm-up as before the swap"
-    assert qe.ENGINE_LEG_MAP.get("NOISE_382") == "NOISE", (
+    assert qe.ENGINE_LEG_MAP.get("NOISE_422") == "NOISE", (
         "qqq_exec's own leg map must track the cloud_signal rename")
-    assert qe.ENGINE_LEG_MAP.get("NOISE_304") == "NOISE", (
-        "the retired engine key must still resolve to the same exec leg, so an old ledger "
-        "row or in-flight trade id from before the swap is never orphaned")
+    for retired in ("NOISE_382", "NOISE_304"):
+        assert qe.ENGINE_LEG_MAP.get(retired) == "NOISE", (
+            "the retired engine key %s must still resolve to the same exec leg, so an old "
+            "ledger row or in-flight trade id from before the swap is never orphaned" % retired)
+    # run #382's cell itself is history now, but still importable (tools/keel_live_state.py
+    # rebuilds/checks the retired leg from it).
+    assert cs.NOISE_382_PARAMS == {"tilt_mult": 2.0, "gate_tf_min": 30, "gate_len": 16,
+                                   "gate_ratio": 1.15}
 
 
 def _cfg(tmp_path, **overrides):

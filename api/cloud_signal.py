@@ -33,9 +33,23 @@ files, because both write the very same shared OHLC cache and Windows refuses th
 rename outright while any reader -- including the OTHER writer's own read of the same
 file -- still has it open.
 
-THE THREE CROWN LEGS (as of 2026-09-24; NOISE swapped by OWNER DECISION 2026-09-23):
+THE THREE CROWN LEGS (as of 2026-09-28; NOISE swapped again by OWNER DECISION 2026-09-27):
   ORB_R6      run #314, ORB_3_6_R6.py, api.paper.ORB_314, 5m RTH, no gate.
-  NOISE_382   run #382, NOISE_1_8_CT304.py, params below, 5m RTH, no gate.
+  NOISE_422   run #422, NOISE_1_8_CT304H.py, params below, 5m RTH, no gate, KEEL v12 on top.
+              (repointed at the owner's go, first session 2026-09-28 or later -- NOISE
+              #422 takes the SAME trades as NOISE #382, the #304 crown's own core written
+              out literally inside the file, but sizes them by the HOURLY squeeze (frame
+              frozen at 60 inside the file; gate_len 20, gate_ratio 1.15, tilt_mult 1.75
+              -- inside that file's own FENCED set) instead of the 30-minute one at 2.0x.
+              NOISE.md "NOISE #422 (NOISE-55,
+              CT304H)": about 10% less money, 20-25% less drawdown, better return per
+              drawdown in both stretches. NOISE_382 stays in api/qqq_exec.py's
+              ENGINE_LEG_MAP (-> the same "NOISE" exec leg) for the same reason NOISE_304
+              does -- an in-flight trade id or an old signals.csv row keeps resolving --
+              and is GONE from CROWN_LEGS itself: two NOISE legs would double every order.)
+  ENGUQ_335   run #335, ENGUQ_1M_ETH_R2_1_0.py, api.paper.ENGUQ_335, 1m **ETH**, no gate.
+  Retired from this list (kept for history):
+  NOISE_382   run #382, NOISE_1_8_CT304.py, 5m RTH, live from the 2026-09-24 session to the #422 switch.
               (repointed 2026-09-24 -- run #382 is the #304 crown's own core, written out
               literally inside that file, plus the validated hourly-compression SIZE tilt
               (tilt_mult 2.0, gate_tf_min 30, gate_len 16, gate_ratio 1.15 -- all inside
@@ -45,7 +59,6 @@ THE THREE CROWN LEGS (as of 2026-09-24; NOISE swapped by OWNER DECISION 2026-09-
               itself, not kept alongside. api/paper.py's OWN "NOISE_304" leg (the
               NinjaTrader PAPER board, api.paper.NOISE_304_NBHD) is a DIFFERENT book and
               is UNCHANGED and unrelated to this one.)
-  ENGUQ_335   run #335, ENGUQ_1M_ETH_R2_1_0.py, api.paper.ENGUQ_335, 1m **ETH**, no gate.
 
 ENGINE LIMITATION, READ BEFORE TRUSTING THE ENGUQ_335 LEG. The ENGU-Q family crown
 moved to an ETH (23-hour NQ futures) config on 2026-09-08. yfinance QQQ bars (this
@@ -178,11 +191,27 @@ DEFAULT_PATHS = _paths()
 # gate_tf_min in {30, 60}, gate_len in {16, 20}, gate_ratio in {1.0, 1.15},
 # tilt_mult in {1.0, 1.5, 2.0} -- every value below sits on one of those points.
 NOISE_382_PARAMS = {"tilt_mult": 2.0, "gate_tf_min": 30, "gate_len": 16, "gate_ratio": 1.15}
+# RETIRED from CROWN_LEGS by the NOISE #382 -> #422 swap below (OWNER DECISION 2026-09-27);
+# the dict itself stays so history tools and tests that name run #382's cell keep importing it.
+
+# NOISE_422 (OWNER DECISION 2026-09-27): run #422's crowned cell, read literally from the
+# run's own record (NOISE.md "NOISE #422 (NOISE-55, CT304H)"; tools/r61_noise_382_live_gaps.py
+# carries the same literal). NOISE_1_8_CT304H.py is FENCED exactly like NOISE_1_8_CT304.py --
+# it REFUSES (returns None) a configuration outside its declared neighbourhood rather than
+# clamp one, so this dict must carry the exact cell the run picked, never a nearby guess.
+# gate_len in {16, 20, 24}, gate_ratio in {0.85, 1.0, 1.15}, tilt_mult in {1.25, 1.5, 1.75}
+# -- every value below sits on one of those points. There is NO gate_tf_min key: the file
+# freezes the verification frame at 60 minutes itself (_GATE_TF_MIN) and ignores any
+# gate_tf_min passed in, so writing one here would only mislead a reader.
+NOISE_422_PARAMS = {"tilt_mult": 1.75, "gate_len": 20, "gate_ratio": 1.15}
 
 
 # ── KEEL v12 overlay (OWNER DECISION 2026-09-23) ─────────────────────────────────────────
 # "Put KEEL v12 on top of run #382 on the live Webull NOISE leg, train it on the NQ
-# backtest like the validation." See augur_engine/ml_keel.py's keel_build_state /
+# backtest like the validation." Carried over unchanged onto NOISE #422 by the 2026-09-27
+# swap: KEEL v12 is trained on the live leg's OWN NQ walk, so the state is rebuilt from
+# #422's trades under #422's file names (tools/keel_live_state.py resolves the leg from
+# CROWN_LEGS itself). See augur_engine/ml_keel.py's keel_build_state /
 # keel_score_from_state (the build-once/score-many split this overlay is built on) and
 # tools/keel_live_state.py (the nightly job that writes the files keel_paths() below
 # names). AN OVERLAY, NEVER A GATE: every failure path in _keel_size_for_entry returns
@@ -210,17 +239,23 @@ CROWN_LEGS = {
         "params": dict(ORB_314),
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
     },
-    "NOISE_382": {
-        "strategy": "NOISE_1_8_CT304.py",
+    # NOISE_422 REPLACES NOISE_382 here (OWNER DECISION 2026-09-27) -- replaced, never kept
+    # alongside: two NOISE engine keys would each emit their own ENTRY for the same trade and
+    # double every NOISE order. Every field below is NOISE_382's, only the strategy file,
+    # params and KEEL file names (keyed by the engine key) change.
+    "NOISE_422": {
+        "strategy": "NOISE_1_8_CT304H.py",
         "timeframe": "5m",
-        "params": dict(NOISE_382_PARAMS),
+        "params": dict(NOISE_422_PARAMS),
         # same warm-up as every other crown leg -- the owner's spec calls for no change
         # here, only the strategy file + params under it.
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
         # KEEL v12 overlay -- see the block comment above keel_paths(). Any OTHER leg's
         # cfg simply has no "keel" key, and every keel-aware code path below treats a
-        # missing key exactly like today's pre-KEEL behaviour (see _diff_leg).
-        "keel": dict(version="v12", **keel_paths("NOISE_382", "v12")),
+        # missing key exactly like today's pre-KEEL behaviour (see _diff_leg). Deleting
+        # this ONE line is the whole of "NOISE #422 without KEEL": tools/keel_live_state.py
+        # then finds no KEEL leg and refuses to build rather than guess one.
+        "keel": dict(version="v12", **keel_paths("NOISE_422", "v12")),
         # Send orders at the backtest's decision (the close of bar D), not a bar later
         # (WEBULL_PAPER_TODO.md item 16, owner GO 2026-09-26) -- see _decide_at_close_probe.
         "decide_at_close": True,
@@ -579,12 +614,14 @@ def closed_arrays(all_epoch_df, now, timeframe, warmup_sessions):
 # ── Live history window sizing (WEBULL_PAPER_TODO.md item 12, 2026-09-25) ────────────────
 # A strategy file MAY declare a module-level REQUIRED_LOOKBACK_SESSIONS: how many
 # TRAILING sessions one of its own internal look-backs needs fully available (strictly
-# BEFORE the session being judged) before that look-back stops truncating. Only
-# NOISE_1_8_CT304.py (via NOISE_1_1_NBHD.py, via NOISE_1_0.py's vol_skip_pct filter)
-# declares one today -- see NOISE_1_0.py's own VOL_SKIP_LOOKBACK_SESSIONS /
-# REQUIRED_LOOKBACK_SESSIONS. ORB_3_6_R6.py and ENGUQ_1M_ETH_R2_1_0.py declare nothing,
-# so leg_warmup_sessions() below is a complete no-op for them -- byte-identical to the
-# plain cfg["warmup_sessions"] read step() used before this existed.
+# BEFORE the session being judged) before that look-back stops truncating. Only the
+# two NOISE size-tilt files -- NOISE_1_8_CT304H.py (live NOISE_422) and NOISE_1_8_CT304.py
+# (NOISE_382 until the 2026-09-27 swap), each via NOISE_1_1_NBHD.py, via NOISE_1_0.py's
+# vol_skip_pct filter -- declare one today, both by the same one-line re-export; see
+# NOISE_1_0.py's own VOL_SKIP_LOOKBACK_SESSIONS / REQUIRED_LOOKBACK_SESSIONS.
+# ORB_3_6_R6.py and ENGUQ_1M_ETH_R2_1_0.py declare nothing, so leg_warmup_sessions()
+# below is a complete no-op for them -- byte-identical to the plain
+# cfg["warmup_sessions"] read step() used before this existed.
 #
 # THE BUG THIS FIXES. warmup_sessions (DEFAULT_WARMUP_SESSIONS, 60 -- same for every leg)
 # hands closed_arrays() exactly 60 sessions TOTAL, so the session being judged ("today")
@@ -613,7 +650,10 @@ def closed_arrays(all_epoch_df, now, timeframe, warmup_sessions):
 # REQUIRED_LOOKBACK_SESSIONS off VOL_SKIP_REF_SESSIONS (252, its ranking depth) instead
 # of VOL_SKIP_LOOKBACK_SESSIONS (60, its bare activation floor), so this same margin
 # gives NOISE_382 a 262-session window -- no special-casing here, this function is
-# unchanged; only what NOISE_1_0.py declares changed.
+# unchanged; only what NOISE_1_0.py declares changed. NOISE_422 gets the same 262:
+# NOISE_1_8_CT304H.py re-exports the same NOISE_1_0.py number (added for the 2026-09-27
+# swap -- without it the file declared nothing and the live leg would have silently
+# dropped back to the 60-session window this block exists to fix).
 WARMUP_MARGIN_SESSIONS = 10
 
 
@@ -636,7 +676,8 @@ def _strategy_module_for_sizing(strategy):
 def required_lookback_sessions(strategy):
     """This leg's strategy's own declared REQUIRED_LOOKBACK_SESSIONS (see block comment
     above), or None when it declares nothing -- true today for every CROWN_LEGS
-    strategy except NOISE_1_8_CT304.py."""
+    strategy except the NOISE leg's NOISE_1_8_CT304H.py (and the retired
+    NOISE_1_8_CT304.py, which declares the same number)."""
     mod = _strategy_module_for_sizing(strategy)
     if mod is None:
         return None
@@ -801,7 +842,7 @@ def log_history_windows(legs=None, paths=None, log=print):
 # FAIL-SAFE THROUGHOUT, by design: any error, any missing/thin overlap, or a calibration
 # ratio outside a sane band passes NOTHING and logs why -- exactly today's (pre-this-
 # feature) behaviour for that call. This is a bridge for a PC that lacks intraday depth, not
-# a new hard requirement -- NOISE_382 keeps trading on its 5m-only window whenever the
+# a new hard requirement -- the NOISE leg keeps trading on its 5m-only window whenever the
 # bridge is unavailable, same as before REQUIRED_LOOKBACK_SESSIONS existed.
 DAILY_MIN_OVERLAP_SESSIONS = 20
 DAILY_CALIBRATION_RATIO_MIN = 0.8
@@ -815,16 +856,22 @@ _DAILY_CALIBRATION_LOG = {}   # "date" -> the ET calendar date last logged; "rea
 
 def _leg_accepts_vol_prior_ranges(strategy):
     """True iff `strategy` -- or, walking its `_base` attribute chain the way
-    NOISE_1_8_CT304.py wraps NOISE_1_1_NBHD.py wraps NOISE_1_0.py -- resolves to a
+    NOISE_1_8_CT304H.py (live NOISE_422) and NOISE_1_8_CT304.py (NOISE_382) each wrap
+    NOISE_1_1_NBHD.py wraps NOISE_1_0.py -- resolves to a
     module whose run_backtest explicitly names a `vol_prior_ranges` parameter. Same
     reflection convention as _leg_accepts_session_in_progress: a bare **kwargs
     catch-all does not count ON ITS OWN, but NOISE's two live wrappers each forward
     this specific keyword through their own **kw once it is present in the caller's
-    kwargs (see NOISE_1_8_CT304.py's own vol_prior_ranges passthrough and
-    NOISE_1_1_NBHD.py's _BASE_ARGS filter, which is computed by inspecting
-    NOISE_1_0.py's signature directly) -- so reaching a module at the bottom of the
-    chain that DOES name it is sufficient to know the whole chain will carry it
-    through. Best-effort/never-raises, same contract as _strategy_module_for_sizing."""
+    kwargs (see the vol_prior_ranges passthrough in NOISE_1_8_CT304H.py and
+    NOISE_1_8_CT304.py, and NOISE_1_1_NBHD.py's _BASE_ARGS filter, which is computed by
+    inspecting NOISE_1_0.py's signature directly) -- so reaching a module at the bottom
+    of the chain that DOES name it is sufficient to know the whole chain will carry it
+    through. THAT IS AN ASSUMPTION ABOUT EVERY WRAPPER ON THE WAY DOWN, not something this
+    walk checks: NOISE_1_8_CT304H.py had `_base` but no passthrough until the 2026-09-27
+    swap, so this returned True while the kwarg was silently dropped one level down. A
+    new NOISE wrapper put on a live leg needs the same passthrough (and a test that the
+    kwarg reaches the core -- see tests/test_noise_422_switch.py). Best-effort/never-raises,
+    same contract as _strategy_module_for_sizing."""
     mod = _strategy_module_for_sizing(strategy)
     seen = set()
     while mod is not None and id(mod) not in seen:
@@ -1049,7 +1096,7 @@ def _daily_ranges_by_date(daily_df):
 def _log_fail_safe_once(reason_key, msg, log=print):
     """Logs `msg` at most once per ET calendar date per `reason_key` (minor fix,
     go-live audit item 3.8, 2026-09-26): every vol_prior_ranges fail-safe reason used
-    to log on EVERY call -- about 78 times a day for NOISE_382's own 5m cadence --
+    to log on EVERY call -- about 78 times a day for the NOISE leg's own 5m cadence --
     because only the calibration line itself had a once-a-day latch. Keyed by
     `reason_key` (a short fixed label, not the formatted message text, which carries
     numbers that legitimately change tick to tick) so each distinct reason still gets
@@ -1281,7 +1328,7 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, f
     valid for the exact arrays slice they came from, and the rolling window's start
     shifts every call).
 
-    PER-TRADE SIZE (2026-09-23). A sizing plugin (NOISE_1_8_CT304.py today; the KEEL
+    PER-TRADE SIZE (2026-09-23). A sizing plugin (NOISE_1_8_CT304H.py today; the KEEL
     overlay later) can additively declare trade_sizes/size_cost_pts in its result dict
     -- see that file's ADDITIVE SIZE CONTRACT comment and this module's
     _resolve_trade_sizes. When declared and valid, every trade dict below carries the
@@ -1530,7 +1577,7 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print):
     try:
         # ITEM D (2026-09-25): staleness must be counted from the DATA, not the last
         # trade. "last_nq_session" (ml_keel.py's own field) is the date of the last NQ
-        # #382 TRADE the state was fitted on -- on a quiet run of NQ sessions with no
+        # NOISE TRADE the state was fitted on -- on a quiet run of NQ sessions with no
         # trade at all, that date stops advancing even though tools/keel_live_state.py
         # keeps rebuilding on fully current data every night, which would eventually
         # (after KEEL_MAX_STALE_SESSIONS quiet sessions) trip this guard and fall back
@@ -1766,7 +1813,7 @@ SIGNAL_COLS = ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "s
               # For a leg with NO "keel" block in CROWN_LEGS this is the plugin's own
               # declared size (run_leg_trades: 1.0 for a leg that does not size at all)
               # -- UNCHANGED by the KEEL overlay below. For a leg WITH a "keel" block
-              # (NOISE_382 today) this is the PRODUCT plugin_size * keel_size (see
+              # (NOISE_422 today) this is the PRODUCT plugin_size * keel_size (see
               # _diff_leg / _keel_size_for_entry) -- the executor's existing
               # size-to-shares multiply (api/qqq_exec.py's _sized_shares) needs no
               # change to pick up KEEL sizing, because it already multiplies by
@@ -2107,7 +2154,7 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
         # entry to score -- see _maybe_push_keel_fallback / _keel_fallback_reason.
         # Runs here (once per leg per NEW bar, same cadence as the recompute above)
         # rather than every tick: cheap and frequent enough (every 5 real minutes for
-        # NOISE_382) for a once-per-day push, without re-adding the O(ticks) cost the
+        # NOISE_422) for a once-per-day push, without re-adding the O(ticks) cost the
         # comment above this block exists to avoid.
         #
         # ONLY on a LIVE tick on the CLOUD BOX (fetch=True AND EDGELOG_HOST_ROLE=cloud,

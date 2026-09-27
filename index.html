@@ -34464,12 +34464,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // crown behind each leg, plain text (never color-only, mono theme has no green/red
       // hue) -- ENGUQ carries its own caveat (ETH-fit crown on an RTH-only QQQ tape, see
       // api/cloud_signal.py's module docstring) shown under its row.
-      const QE_LEGS=[['ORB','ORB','var(--blue)','#314',null],['ENGUQ','ENGU-Q','var(--purple)','#335','ETH-fit crown running on an RTH-only QQQ tape — exploratory, not evidence-backed'],['NOISE','NOISE','var(--green)','#382',null]];
+      const QE_LEGS=[['ORB','ORB','var(--blue)','#314',null],['ENGUQ','ENGU-Q','var(--purple)','#335','ETH-fit crown running on an RTH-only QQQ tape — exploratory, not evidence-backed'],['NOISE','NOISE','var(--green)','#422',null]];
       // ── LEG VERSION CHANGES (2026-09-24, owner decision) — one row per swap of a leg's
       // underlying run, so the LEGS list, the trades table and the chart can all say which
       // version is live without hardcoding it more than once. Add ONE row here the next
       // time a leg's run changes; nothing else on this tab needs editing.
-      const QE_LEG_VERSIONS=[{leg:'NOISE',date:'2026-09-24',from:'#304',to:'#382',note:'the #304 crown’s own core plus the validated compression size tilt (squeeze on the 30-minute chart doubles the trade)'}];
+      // 2026-09-27 owner decision: NOISE #382 -> #422 is the second NOISE row (its date is
+      // the first session on #422; move it if the go lands on a later day).
+      const QE_LEG_VERSIONS=[{leg:'NOISE',date:'2026-09-24',from:'#304',to:'#382',note:'the #304 crown’s own core plus the validated compression size tilt (squeeze on the 30-minute chart doubles the trade)'},{leg:'NOISE',date:'2026-09-28',from:'#382',to:'#422',note:'the same trades as #382, sized by the squeeze on the hourly chart instead (1.75 times the trade when it is on, not 2) - a little less money, a smaller drawdown, KEEL still on top'}];
       // "#382 since Sep 24 &middot; was #304" for a leg QE_LEG_VERSIONS covers; the plain
       // runNo (e.g. "#314") for one it does not.
       // REVIEW FIX 2 (2026-09-24): the combined "#382 since Sep 24 &middot; was #304
@@ -34483,11 +34485,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const qeLegSubLineHtml=(key)=>{
         const vs=QE_LEG_VERSIONS.filter(v=>v.leg===key).sort((a,b)=>a.date<b.date?1:-1);
         const parts=[];
+        // REVIEW NOTE (2026-09-27): a leg with more than one row names EVERY earlier run in
+        // plain words, newest first -- "since Sep 28 &middot; was #382 (Sep 24), #304 before
+        // that" -- so #304 stays on the row once NOISE is on #422, not only in the chart
+        // markers and the per-trade id tags. One row still reads "since Sep 24 &middot; was #304".
+        const mdOf=s=>{const d=new Date(s+'T00:00:00');return isNaN(d.getTime())?s:(d.toLocaleString('en',{month:'short'})+' '+d.getDate());};
         if(vs.length){
-          const v=vs[0];
-          const d=new Date(v.date+'T00:00:00');
-          const since=isNaN(d.getTime())?v.date:(d.toLocaleString('en',{month:'short'})+' '+d.getDate());
-          parts.push('since '+since+' &middot; was '+v.from);
+          const was=vs.map((v,i)=>v.from+(i+1<vs.length?(' ('+mdOf(vs[i+1].date)+')'):(vs.length>1?' before that':''))).join(', ');
+          parts.push('since '+mdOf(vs[0].date)+' &middot; was '+was);
         }
         const k=QE&&QE.keel&&QE.keel[key];
         if(k&&k.version){
@@ -35391,29 +35396,65 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // that misstates when the switch really happened.
             const markerDates=Array.from(new Set(QE_LEG_VERSIONS.map(v=>v.date))).sort();
             const qeLegFamName=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:k;};
+            // REVIEW NOTE (2026-09-27): switches only a few plotted days apart (NOISE's
+            // Sep 24 #304 -> #382 and Sep 28 #382 -> #422) drew two labels at the same y,
+            // and they run into each other as the book's day count grows on 3M/ALL. So
+            // every in-window marker is found FIRST, then a marker whose label would
+            // overlap the label before it is MERGED into that one, which then reads as a
+            // chain ("NOISE #304 -> #382 -> #422") centred between its guide lines. Widths
+            // are estimated (4.6 units a character at font-size 8, an arrow counted as two);
+            // the guide line, rings and date tooltip are still drawn for every marker.
+            const vMarks=[];
             markerDates.forEach(md=>{
               if(!allDates.length||md<allDates[0]||md>allDates[allDates.length-1])return;
               const idx=allDates.findIndex(d=>d>=md);
               if(idx<0)return;
-              const mxN=x(idx);
-              const mx=mxN.toFixed(1);
-              const chg=QE_LEG_VERSIONS.filter(v=>v.date===md);
-              // REVIEW FIX 3 (2026-09-24): prefix the FAMILY name (owner's family-
-              // vocabulary rule: family + run number, e.g. "NOISE #304 -> #382"), not
-              // just the bare from/to run numbers.
-              const label=chg.map(v=>qeLegFamName(v.leg)+' '+v.from+' &rarr; '+v.to).join(', ');
-              const tip=md+' — '+chg.map(v=>qeLegFamName(v.leg)+' '+v.from+' → '+v.to+(v.note?(': '+v.note):'')).join('; ');
-              // KEEP THE LABEL ON-CANVAS: text-anchor="middle" clipped it whenever the
-              // switch date sits near an edge (e.g. the most recent plotted day) --
-              // anchor "end"/"start" (with a small x offset away from the guide line)
-              // in the right/left 15% of the plot instead, so the full label always
-              // stays inside the viewBox at every width (anchor math is in SVG
-              // user-space, so it is identical regardless of the CSS-rendered size).
-              const frac=(mxN-padL)/plotW;
+              vMarks.push({md,idx,xN:x(idx),chg:QE_LEG_VERSIONS.filter(v=>v.date===md)});
+            });
+            // REVIEW FIX 3 (2026-09-24): prefix the FAMILY name (owner's family-
+            // vocabulary rule: family + run number, e.g. "NOISE #304 -> #382"), not
+            // just the bare from/to run numbers. Per leg, a switch whose "from" is the
+            // previous switch's "to" extends that leg's chain instead of starting a new one.
+            const vMarkLabel=grp=>{
+              const chains=[];
+              grp.forEach(m=>m.chg.forEach(v=>{const c=chains.find(c=>c.leg===v.leg&&c.runs[c.runs.length-1]===v.from);if(c)c.runs.push(v.to);else chains.push({leg:v.leg,runs:[v.from,v.to]});}));
+              return {html:chains.map(c=>qeLegFamName(c.leg)+' '+c.runs.join(' &rarr; ')).join(', '),
+                chars:chains.map(c=>qeLegFamName(c.leg)+' '+c.runs.join(' -> ')).join(', ').length};
+            };
+            // KEEP THE LABEL ON-CANVAS: text-anchor="middle" clipped it whenever the
+            // switch date sits near an edge (e.g. the most recent plotted day) --
+            // anchor "end"/"start" (with a small x offset away from the guide line)
+            // in the right/left 15% of the plot instead, so the full label always
+            // stays inside the viewBox at every width (anchor math is in SVG
+            // user-space, so it is identical regardless of the CSS-rendered size).
+            const vMarkPlace=grp=>{
+              const lbl=vMarkLabel(grp);
+              const cx=(grp[0].xN+grp[grp.length-1].xN)/2;
+              const frac=(cx-padL)/plotW;
               const anchor=frac>0.85?'end':(frac<0.15?'start':'middle');
-              const tx=(anchor==='end'?(mxN-4):(anchor==='start'?(mxN+4):mxN)).toFixed(1);
+              const tx=anchor==='end'?(cx-4):(anchor==='start'?(cx+4):cx);
+              const w=lbl.chars*4.6;
+              const lo=anchor==='end'?(tx-w):(anchor==='start'?tx:(tx-w/2));
+              return {lbl,anchor,tx,lo,hi:lo+w};
+            };
+            const vGroups=[];
+            vMarks.forEach(m=>{
+              vGroups.push([m]);
+              while(vGroups.length>1){
+                const a=vMarkPlace(vGroups[vGroups.length-2]),b=vMarkPlace(vGroups[vGroups.length-1]);
+                if(b.lo>=a.hi+6)break;
+                const last=vGroups.pop();
+                vGroups[vGroups.length-1]=vGroups[vGroups.length-1].concat(last);
+              }
+            });
+            vGroups.forEach(grp=>{
+              const p=vMarkPlace(grp);
+              svg+='<text data-qbvmark="1" x="'+p.tx.toFixed(1)+'" y="'+(padT-4)+'" font-size="8" fill="var(--text4)" text-anchor="'+p.anchor+'">'+p.lbl.html+'</text>';
+            });
+            vMarks.forEach(m=>{
+              const mx=m.xN.toFixed(1),idx=m.idx,chg=m.chg;
+              const tip=m.md+' — '+chg.map(v=>qeLegFamName(v.leg)+' '+v.from+' → '+v.to+(v.note?(': '+v.note):'')).join('; ');
               svg+='<line x1="'+mx+'" y1="'+padT+'" x2="'+mx+'" y2="'+(H-padB)+'" stroke="var(--text4)" stroke-dasharray="2,3" opacity="0.55"/>';
-              svg+='<text x="'+tx+'" y="'+(padT-4)+'" font-size="8" fill="var(--text4)" text-anchor="'+anchor+'">'+label+'</text>';
               chg.forEach(v=>{if(hiddenSet[v.leg])return;const s=cum[v.leg]||[];const pt=s.find(p=>cD(p)===allDates[idx]);if(pt)svg+='<circle cx="'+mx+'" cy="'+y(cV(pt)).toFixed(1)+'" r="5.5" fill="none" stroke="'+legColorQE(v.leg)+'" stroke-width="1.6"/>';});
               if(!hiddenSet.total){const tp=(cum.total||[]).find(p=>cD(p)===allDates[idx]);if(tp)svg+='<circle cx="'+mx+'" cy="'+y(cV(tp)).toFixed(1)+'" r="5.5" fill="none" stroke="var(--text)" stroke-width="1.6"/>';}
               svg+='<circle cx="'+mx+'" cy="'+(padT-4)+'" r="9" fill="transparent" stroke="none"><title>'+tip+'</title></circle>';

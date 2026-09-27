@@ -4,6 +4,14 @@ core, frozen literally inside that file, plus the validated hourly-compression S
 tilt; params {"tilt_mult": 2.0, "gate_tf_min": 30, "gate_len": 16, "gate_ratio": 1.15},
 read from the run #382 doc).
 
+SUPERSEDED 2026-09-27 (OWNER DECISION): the live NOISE leg moved on again, to NOISE #422
+(NOISE_1_8_CT304H.py) -- see tests/test_noise_422_switch.py for the live leg. NOISE_382 is
+gone from CROWN_LEGS, so this file now drives run #382's leg from its own retired cfg
+(_NOISE_382_CFG below, built from cloud_signal.NOISE_382_PARAMS) and keeps every assertion
+that is still true of it as history: its cell still sits inside NOISE_1_8_CT304.py's fence,
+the file still trades and sizes on real bars, a fresh key still cold-starts silently, and
+qqq_exec's reverse lookup still prefers whichever NOISE key is LIVE.
+
 tests/test_qqq_exec_engine_source.py's own leg-definition test
 (test_noise_leg_resolves_to_run_382) already covers CROWN_LEGS's shape and both
 ENGINE_LEG_MAP keys -- updated alongside this file, in the same change, not repeated
@@ -67,18 +75,22 @@ HAS_REAL_5M_CACHE = _PRESENT and not _EMPTY
 _CACHE_SKIP = "no local QQQ 5m bar cache on this machine: %s" % REAL_CACHE_5M
 
 NOISE_382_PARAMS = {"tilt_mult": 2.0, "gate_tf_min": 30, "gate_len": 16, "gate_ratio": 1.15}
+# run #382's leg exactly as CROWN_LEGS carried it 2026-09-24 .. the #422 swap (KEEL aside)
+_NOISE_382_CFG = {"strategy": "NOISE_1_8_CT304.py", "timeframe": "5m",
+                  "params": dict(cs.NOISE_382_PARAMS),
+                  "warmup_sessions": cs.DEFAULT_WARMUP_SESSIONS}
 
 
 # ── 1. Params inside the strategy file's own fence ───────────────────────────────────────
 def test_noise_382_params_are_inside_the_fenced_admissible_set():
-    """CROWN_LEGS["NOISE_382"]'s params must be exactly the run #382 doc's champion cell,
-    and NOISE_1_8_CT304.py's OWN fence (_in_neighbourhood, not re-derived here) must
-    accept them -- the file REFUSES (returns None), never clamps, an out-of-set config,
-    so an off-by-one-step value here would silently kill every signal, not misprice one."""
-    leg = cs.CROWN_LEGS["NOISE_382"]
-    assert leg["strategy"] == "NOISE_1_8_CT304.py"
-    assert leg["timeframe"] == "5m"
-    assert leg["params"] == NOISE_382_PARAMS
+    """cloud_signal.NOISE_382_PARAMS (the leg's params while it was live; kept after the
+    #422 swap) must be exactly the run #382 doc's champion cell, and NOISE_1_8_CT304.py's
+    OWN fence (_in_neighbourhood, not re-derived here) must accept them -- the file
+    REFUSES (returns None), never clamps, an out-of-set config, so an off-by-one-step
+    value here would silently kill every signal, not misprice one."""
+    assert "NOISE_382" not in cs.CROWN_LEGS, "replaced by NOISE_422 on 2026-09-27, not kept alongside"
+    leg = _NOISE_382_CFG
+    assert cs.NOISE_382_PARAMS == NOISE_382_PARAMS
     assert leg["warmup_sessions"] == cs.DEFAULT_WARMUP_SESSIONS, \
         "same warm-up as every other crown leg -- the task calls for no change here"
 
@@ -117,7 +129,7 @@ def test_noise_382_runs_through_run_leg_trades_on_real_bars_and_sizes_its_trades
     arrays = cs.closed_arrays(df, now.to_pydatetime(), "5m", cs.DEFAULT_WARMUP_SESSIONS)
     assert arrays is not None, "the real cache must yield a usable warm-up window"
 
-    trades = cs.run_leg_trades(cs.CROWN_LEGS["NOISE_382"], arrays, leg_key="NOISE_382")
+    trades = cs.run_leg_trades(_NOISE_382_CFG, arrays, leg_key="NOISE_382")
     assert trades, "NOISE_1_8_CT304.py must take at least one real trade over a 60-session window"
     for t in trades:
         assert isinstance(t["size"], float) and t["size"] > 0 and t["shares"] >= 0
@@ -139,7 +151,7 @@ def test_fresh_noise_382_key_cold_starts_without_an_entry_exit_burst(tmp_path):
     os.makedirs(paths["ohlc_dir"], exist_ok=True)
     shutil.copy(REAL_CACHE_5M, os.path.join(paths["ohlc_dir"], "QQQ_5m.csv"))
 
-    legs = {"NOISE_382": cs.CROWN_LEGS["NOISE_382"]}
+    legs = {"NOISE_382": _NOISE_382_CFG}
     assert legs["NOISE_382"]["warmup_sessions"] == cs.DEFAULT_WARMUP_SESSIONS, \
         "must exercise the SHIPPED config at full depth, not a reduced test shortcut"
 
@@ -171,16 +183,19 @@ def test_fresh_noise_382_key_cold_starts_without_an_entry_exit_burst(tmp_path):
 
 
 # ── 4. qqq_exec's reverse lookup must prefer the LIVE engine key ─────────────────────────
-def test_engine_mark_price_prefers_the_live_noise_382_key_over_the_retired_one(tmp_path, monkeypatch):
-    """ENGINE_LEG_MAP now maps BOTH NOISE_382 (live) and NOISE_304 (retired, kept only so
-    an old ledger row / in-flight trade id still resolves) to the EXEC leg "NOISE". But
-    CROWN_LEGS holds only ONE of them at a time -- NOISE_304 was REPLACED there, not kept
-    alongside -- so a reverse lookup that just takes the first mapped key can land on the
-    retired one, find nothing in CROWN_LEGS, and mark the live leg's price unavailable
-    (which would silently zero its unrealized P&L and block EOD/breaker flattening and
-    orphan-broker repair, all of which call _engine_mark_price). It must resolve to
-    whichever mapped key CROWN_LEGS actually has."""
-    assert "NOISE_304" not in cs.CROWN_LEGS and "NOISE_382" in cs.CROWN_LEGS
+def test_engine_mark_price_prefers_the_live_noise_key_over_the_retired_ones(tmp_path, monkeypatch):
+    """ENGINE_LEG_MAP maps the live NOISE key AND every retired one (NOISE_382 and
+    NOISE_304 since the 2026-09-27 swap, kept only so an old ledger row / in-flight trade
+    id still resolves) to the EXEC leg "NOISE". But CROWN_LEGS holds only ONE of them at
+    a time -- each retired key was REPLACED there, not kept alongside -- so a reverse
+    lookup that just takes the first mapped key can land on a retired one, find nothing
+    in CROWN_LEGS, and mark the live leg's price unavailable (which would silently zero
+    its unrealized P&L and block EOD/breaker flattening and orphan-broker repair, all of
+    which call _engine_mark_price). It must resolve to whichever mapped key CROWN_LEGS
+    actually has -- NOISE_422 today."""
+    assert "NOISE_304" not in cs.CROWN_LEGS and "NOISE_382" not in cs.CROWN_LEGS
+    assert "NOISE_422" in cs.CROWN_LEGS
+    assert qe._engine_key_for_leg("NOISE", cs) == "NOISE_422"
     paths = cs._paths(home=str(tmp_path))
     os.makedirs(paths["ohlc_dir"], exist_ok=True)
     bars = pd.DataFrame({"time": [1_758_000_000, 1_758_000_300],
@@ -192,14 +207,14 @@ def test_engine_mark_price_prefers_the_live_noise_382_key_over_the_retired_one(t
 
     px, src = qe._engine_mark_price("NOISE")
     assert px == pytest.approx(701.4), (
-        "must resolve via NOISE_382 (the key CROWN_LEGS actually has) -- got %r "
-        "(None means it resolved to the retired NOISE_304 key and found nothing there)" % (px,))
+        "must resolve via NOISE_422 (the key CROWN_LEGS actually has) -- got %r "
+        "(None means it resolved to a retired NOISE key and found nothing there)" % (px,))
     assert src == "engine_cache"
 
 
 def test_engine_key_for_leg_falls_back_when_every_mapped_key_is_retired(monkeypatch):
     """If a leg's mapped keys were EVER all retired from CROWN_LEGS at once (not today's
-    case -- NOISE_382 is live -- but the fallback exists so this can never raise), the
+    case -- NOISE_422 is live -- but the fallback exists so this can never raise), the
     lookup returns the first mapped key rather than None, so callers keep degrading the
     same way they already do for a leg missing from CROWN_LEGS entirely (cfg_leg falsy ->
     "no price available"), instead of crashing."""

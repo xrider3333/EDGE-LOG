@@ -74,11 +74,15 @@ def test_unresolvable_strategy_string_is_best_effort_false():
     assert cs._leg_accepts_vol_prior_ranges("NOT_A_REAL_FILE_xyz.py") is False
 
 
-def test_real_crown_legs_only_noise_382_opts_in():
-    """The three real strategy files behind today's CROWN_LEGS -- NOISE_382 (via
-    NOISE_1_8_CT304.py -> NOISE_1_1_NBHD.py -> NOISE_1_0.py) opts in; ORB_R6 and
-    ENGUQ_335 must get NOTHING (item 4 of the go-live audit spec)."""
-    assert cs._leg_accepts_vol_prior_ranges(cs.CROWN_LEGS["NOISE_382"]["strategy"]) is True
+def test_real_crown_legs_only_the_noise_leg_opts_in():
+    """The three real strategy files behind today's CROWN_LEGS -- NOISE_422 (via
+    NOISE_1_8_CT304H.py -> NOISE_1_1_NBHD.py -> NOISE_1_0.py; NOISE_382's
+    NOISE_1_8_CT304.py before the 2026-09-27 swap) opts in; ORB_R6 and ENGUQ_335 must get
+    NOTHING (item 4 of the go-live audit spec). That CT304H really FORWARDS the kwarg down
+    the chain (this reflection only reads the bottom module's signature) is proved in
+    tests/test_noise_422_switch.py."""
+    assert cs._leg_accepts_vol_prior_ranges(cs.CROWN_LEGS["NOISE_422"]["strategy"]) is True
+    assert cs._leg_accepts_vol_prior_ranges("NOISE_1_8_CT304.py") is True
     assert cs._leg_accepts_vol_prior_ranges(cs.CROWN_LEGS["ORB_R6"]["strategy"]) is False
     assert cs._leg_accepts_vol_prior_ranges(cs.CROWN_LEGS["ENGUQ_335"]["strategy"]) is False
 

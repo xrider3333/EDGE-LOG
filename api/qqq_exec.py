@@ -131,7 +131,7 @@ LEGS = ("ORB", "ENGUQ", "NOISE")
 # GONE from cloud_signal.CROWN_LEGS (replaced, not kept alongside -- see that module), but
 # it is kept HERE, still pointing at "NOISE", purely so an EXIT row cloud_signal already
 # wrote under the old key, or a trade id already embedded in an open lot/broker order,
-# keeps resolving after the swap. NOISE_382 is the live key. Everything downstream of this
+# keeps resolving after the swap. NOISE_382 was the live key then. Everything downstream of this
 # map (state["legs"][leg], cfg["shares"][leg], the resend queue, deferred fill capture,
 # book-only -- see _open_lot's own SIZE ORDERS comment) keys on the EXEC leg ("NOISE")
 # string, never on the engine key, so both mapped keys already carry straight through
@@ -140,7 +140,13 @@ LEGS = ("ORB", "ENGUQ", "NOISE")
 # are _engine_mark_price and _engine_confirms_entry below; see _engine_key_for_leg's own
 # docstring for why a naive "first mapped key" reverse lookup is not safe once two engine
 # keys share one EXEC leg.
-ENGINE_LEG_MAP = {"ORB_R6": "ORB", "ENGUQ_335": "ENGUQ", "NOISE_382": "NOISE", "NOISE_304": "NOISE"}
+#
+# THREE KEYS NOW (2026-09-27 OWNER DECISION, the NOISE #382 -> #422 swap): NOISE_422 is the
+# live key; NOISE_382 joins NOISE_304 as retired-but-kept, for exactly the reason above. The
+# live key is listed FIRST so even the all-retired fallback in _engine_key_for_leg lands on
+# the newest one.
+ENGINE_LEG_MAP = {"ORB_R6": "ORB", "ENGUQ_335": "ENGUQ", "NOISE_422": "NOISE",
+                  "NOISE_382": "NOISE", "NOISE_304": "NOISE"}
 ENGINE_HEARTBEAT_STALE_SEC = 90.0     # mirrors FEED_STALE_SEC's role, for cloud_signal's own heartbeat
 ENGINE_CONSUME_STALE_SEC = 30 * 60.0  # this adapter was down too long to act on a queued signal
 ENGINE_SHORT_READ_TICKS = 3           # consecutive short ledger reads before accepting a replaced file
@@ -4771,9 +4777,10 @@ def _engine_key_for_leg(leg, cs=None):
     WHY THIS CANNOT BE A PLAIN next(...) OVER ENGINE_LEG_MAP.items() (2026-09-24). A leg
     swap keeps the RETIRED engine key in ENGINE_LEG_MAP (see its own comment -- an old
     ledger row or in-flight trade id must keep resolving), so by design more than one
-    engine key can map to the same EXEC leg at once ("NOISE_304" and "NOISE_382" both ->
-    "NOISE" today). cloud_signal.CROWN_LEGS, though, holds only the LIVE key -- the
-    retired one is REPLACED there, not kept alongside -- so whichever mapped key a naive
+    engine key can map to the same EXEC leg at once ("NOISE_304", "NOISE_382" and, since
+    the 2026-09-27 swap, the live "NOISE_422" all -> "NOISE" today).
+    cloud_signal.CROWN_LEGS, though, holds only the LIVE key -- the retired one is
+    REPLACED there, not kept alongside -- so whichever mapped key a naive
     first-match lookup happens to hit first can easily be the retired one, find nothing in
     CROWN_LEGS, and silently read as "this leg's cache is empty". That is not hypothetical:
     it is exactly what plain dict-order iteration would have hit here the day NOISE_304
@@ -4854,7 +4861,7 @@ def _leg_timeframe_seconds(leg, log=print):
     """Seconds in ONE bar of this EXEC leg's own LIVE engine timeframe (ORB/NOISE 5m,
     ENGUQ 1m today) -- read from api.cloud_signal.CROWN_LEGS via _engine_key_for_leg/
     ENGINE_LEG_MAP, never hard-coded, so a future leg swapped onto a different
-    timeframe (like the 2026-09-24 NOISE_304 -> NOISE_382 swap) is picked up here
+    timeframe (like the NOISE_304 -> NOISE_382 -> NOISE_422 swaps) is picked up here
     automatically. None for a leg with no live engine mapping."""
     try:
         cs = _cs_module()
@@ -7024,7 +7031,7 @@ def _build_keel_status(log=print):
     for the web tab's NOISE LEGS row (design doc G: "the state's freshness"). Returns
     {exec_leg_key: {"version", "trained_through", "n_trades"}} -- keyed by THIS
     module's own exec leg names (ENGINE_LEG_MAP's values, e.g. "NOISE"), not
-    cloud_signal's engine keys (e.g. "NOISE_382"), since that is what the published doc's
+    cloud_signal's engine keys (e.g. "NOISE_422"), since that is what the published doc's
     other per-leg fields (positions, cum_pnl, ...) are already keyed by. Never raises,
     never touches the (potentially large) pickled state file itself -- only the small
     JSON sidecar. Returns {} on any import/read failure, which the web tab already
@@ -7050,12 +7057,12 @@ def _build_keel_status(log=print):
             # ITEM D (2026-09-25): "trained through" means the DATA, not the last
             # trade -- "data_through" (the ET date of the last BAR used, see
             # tools/keel_live_state.py's build()) stays current even on a quiet day
-            # with no NQ #382 trade, when "last_nq_session" (the last TRADE's date,
+            # with no NQ NOISE trade, when "last_nq_session" (the last TRADE's date,
             # ml_keel.py's own field, untouched by this change) would otherwise sit
             # behind and make the web tab show a stale-looking date. Fall back to
             # last_nq_session for a summary written before data_through existed.
             # last_trade_session is published separately (never dropped) since it is
-            # still meaningful on its own -- "when did NOISE_382 last actually trade".
+            # still meaningful on its own -- "when did the NOISE leg last actually trade".
             out[exec_key] = {
                 "version": summary.get("version") or keel_cfg.get("version"),
                 "trained_through": summary.get("data_through") or summary.get("last_nq_session"),

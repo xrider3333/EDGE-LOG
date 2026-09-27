@@ -107,6 +107,7 @@ tools/paper_render_probe.py: stdlib + a subprocess call to local headless Chrome
 serving the repo over loopback so index.html's own fetches never fire.
 """
 import http.server
+import copy
 import io
 import json
 import os
@@ -264,20 +265,38 @@ var LISTENERCHECK=__LISTENERCHECK__;
       var noiseTopRowEl=d.querySelector('[data-qblegrow="NOISE"]');
       out.noiseTopRowHeight=noiseTopRowEl?noiseTopRowEl.getBoundingClientRect().height:null;
 
-      // Fix 3: the chart's version-marker <text> (there is at most one in this SVG --
-      // baseline/axis values are never drawn as SVG text here) must stay fully inside
-      // the SVG's own viewBox in SVG user-space (getBBox ignores CSS scaling entirely,
-      // so this is exact regardless of the CSS-rendered chart width).
+      // Fix 3: the chart's version-marker <text> labels (tagged data-qbvmark since
+      // 2026-09-27 -- baseline/axis values are never drawn as SVG text here) must stay
+      // fully inside the SVG's own viewBox in SVG user-space (getBBox ignores CSS
+      // scaling entirely, so this is exact regardless of the CSS-rendered chart width).
+      // markerText/markerBBox = the first label; markerLabels = every label, so main()
+      // can also check the labels against EACH OTHER (NOISE's Sep 24 and Sep 28
+      // switches sit a few plotted days apart).
       var chartSvgEl=d.querySelector('.qb-chart-wrap svg');
       out.chartViewBoxW=(chartSvgEl&&chartSvgEl.viewBox&&chartSvgEl.viewBox.baseVal)?chartSvgEl.viewBox.baseVal.width:null;
-      var markerTextEl=d.querySelector('.qb-chart-wrap svg text');
-      out.markerText=markerTextEl?markerTextEl.textContent:null;
-      out.markerBBox=null;
-      if(markerTextEl){
+      var markerTextEls=d.querySelectorAll('.qb-chart-wrap svg text[data-qbvmark]');
+      out.markerLabels=[];
+      for(var mi=0;mi<markerTextEls.length;mi++){
+        var ml={text:markerTextEls[mi].textContent,bbox:null};
         try{
-          var bb=markerTextEl.getBBox();
-          out.markerBBox={x:bb.x,width:bb.width,right:bb.x+bb.width};
+          var bb=markerTextEls[mi].getBBox();
+          ml.bbox={x:bb.x,width:bb.width,right:bb.x+bb.width};
         }catch(e){}
+        out.markerLabels.push(ml);
+      }
+      out.markerText=out.markerLabels.length?out.markerLabels[0].text:null;
+      out.markerBBox=out.markerLabels.length?out.markerLabels[0].bbox:null;
+      // the NOISE sidebar sub-line names every earlier run once there are two
+      // switches ("... was #382 (Sep 24), #304 before that") -- 2026-09-27 review note.
+      // The sub-line sits behind the leg's closed-by-default info toggle, so open it,
+      // read, and close it again -- only when the #422 switch is on the chart (the
+      // twoswitch fixtures), so every other case's first-paint state is untouched.
+      out.hasRunHistoryLine=null;
+      if(out.markerLabels.some(function(ml){return ml.text.indexOf('#422')>=0;})){
+        if(fire('[data-qbleginfo="NOISE"]')){
+          out.hasRunHistoryLine=html().indexOf('#304 before that')>=0;
+          fire('[data-qbleginfo="NOISE"]');
+        }
       }
 
       // Outer harness-page horizontal scroll (owner: "the screenshots show a bottom
@@ -546,6 +565,32 @@ def main():
         p = os.path.join(ROOT, 'tools', 'fixtures', fname)
         fx[nm] = json.load(io.open(p, encoding='utf-8'))
 
+    # ── TWO NOISE SWITCHES (2026-09-27 review note) -- built in memory from 'positions'
+    # (whose newest plotted day is the 2026-09-24 #304 -> #382 switch) plus one NOISE
+    # #422 trade on 2026-09-25 and one on 2026-09-28, so BOTH QE_LEG_VERSIONS rows land
+    # inside the plotted window. 'twoswitch' keeps the whole July-September book (35
+    # plotted days: the two markers sit about 44 units apart, so their labels must MERGE
+    # into one "NOISE #304 -> #382 -> #422" chain); 'twoswitch_sep' keeps only
+    # September (10 plotted days, about 165 units apart: two separate labels). Either
+    # way no two labels may overlap and every label must stay inside the viewBox.
+    def _two_switch(src, since=None):
+        f = copy.deepcopy(src)
+        base = next(t for t in f['trades_all'] if t.get('leg') == 'NOISE')
+        new_rows = []
+        for day, utc in (('2026-09-28', '20260928T140500Z'), ('2026-09-25', '20260925T140500Z')):
+            t = copy.deepcopy(base)
+            t['entry_ts'] = day + ' 10:05:00'
+            t['exit_ts'] = day + ' 10:42:00'
+            t['trade_id'] = 'NOISE_422-%s-L' % utc
+            new_rows.append(t)
+        rows = f['trades_all']
+        if since:
+            rows = [t for t in rows if str(t.get('exit_ts') or t.get('entry_ts') or '')[:10] >= since]
+        f['trades_all'] = new_rows + rows
+        return f
+    fx['twoswitch'] = _two_switch(fx['positions'])
+    fx['twoswitch_sep'] = _two_switch(fx['positions'], since='2026-09-01')
+
     out_dir = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else ROOT
 
     results = {}
@@ -606,8 +651,17 @@ def main():
         ('keel_drawer_positions', 'positions', 1366, 900, 'mono', False, True, False),
     ]
 
+    # ── TWO NOISE SWITCHES (2026-09-27 review note) -- see _two_switch above; no
+    # screenshots, the marker-label checks in main() below read the bboxes.
+    twoswitch_plan = []
+    for fixture_name in ('twoswitch', 'twoswitch_sep'):
+        for (w, h) in ((1366, 768), (390, 844)):
+            for theme in ('mono', 'dark'):
+                case = '%s_%dx%d_%s' % (fixture_name, w, h, theme)
+                twoswitch_plan.append((case, fixture_name, w, h, theme, False, False, False))
+
     shot_names = set(n for n, *_ in shot_plan) | set(n for n, *_ in robinhood_plan) | set(n for n, *_ in keel_plan)
-    for case_name, fixture_name, w, h, theme, deep, keep_sheet, open_checks in matrix_plan + deep_plan + extra_plan + shot_plan + robinhood_plan + keel_plan:
+    for case_name, fixture_name, w, h, theme, deep, keep_sheet, open_checks in matrix_plan + deep_plan + extra_plan + shot_plan + robinhood_plan + keel_plan + twoswitch_plan:
         shot = os.path.join(out_dir, 'qqq_overview_%s.png' % case_name) if case_name in shot_names else None
         results[case_name] = run_case(chrome, ROOT, fx[fixture_name], case_name, shot,
                                        width=w, height=h, theme=theme, deep=deep,
@@ -895,6 +949,51 @@ def main():
             if bbox['right'] > vbw + 0.5:
                 fails.append('%s: version-marker text "%s" overflows the RIGHT edge of the chart (right=%.1f > viewBox width=%.1f)'
                               % (case_name, mtext, bbox['right'], vbw))
+
+    # ── TWO NOISE SWITCHES (2026-09-27 review note): with both QE_LEG_VERSIONS rows
+    # plotted, no two marker labels may overlap each other, every label stays inside
+    # the viewBox, and the labels together still name #304, #382 and #422 with the
+    # family prefix. 'twoswitch' (markers ~44 units apart) must MERGE into one chain
+    # label; 'twoswitch_sep' (~165 apart) must keep two. The NOISE sidebar sub-line
+    # must name #304 as well ("... #304 before that").
+    for case_name, fixture_name, w, h, theme, deep, keep_sheet, open_checks in twoswitch_plan:
+        r = results.get(case_name, {})
+        if r.get('err'):
+            fails.append('%s: %s' % (case_name, r['err']))
+            continue
+        if r.get('call') != 'OK':
+            fails.append('%s: renderApp threw -- %s' % (case_name, r.get('call')))
+            continue
+        if r.get('consoleErrors'):
+            fails.append('%s: console errors -- %s' % (case_name, r['consoleErrors']))
+        labels = r.get('markerLabels') or []
+        vbw = r.get('chartViewBoxW')
+        texts = [lb.get('text') or '' for lb in labels]
+        want_n = 1 if fixture_name == 'twoswitch' else 2
+        if len(labels) != want_n:
+            fails.append('%s: expected %d version-marker label(s), got %d: %s' % (case_name, want_n, len(labels), texts))
+        joined = ' | '.join(texts)
+        for run in ('#304', '#382', '#422'):
+            if run not in joined:
+                fails.append('%s: version-marker labels do not name %s (got %s)' % (case_name, run, texts))
+        for t in texts:
+            if 'NOISE' not in t:
+                fails.append('%s: version-marker text "%s" is missing the family-name prefix ("NOISE")' % (case_name, t))
+        boxes = [lb.get('bbox') for lb in labels]
+        if any(b is None for b in boxes) or vbw is None:
+            fails.append('%s: could not measure every version-marker label bounding box' % case_name)
+        else:
+            for t, b in zip(texts, boxes):
+                if b['x'] < -0.5 or b['right'] > vbw + 0.5:
+                    fails.append('%s: version-marker text "%s" leaves the chart (x=%.1f right=%.1f viewBox width=%.1f)'
+                                 % (case_name, t, b['x'], b['right'], vbw))
+            order = sorted(zip(boxes, texts), key=lambda bt: bt[0]['x'])
+            for (b1, t1), (b2, t2) in zip(order, order[1:]):
+                if b2['x'] < b1['right'] + 2:
+                    fails.append('%s: version-marker labels "%s" and "%s" overlap (%.1f < %.1f)'
+                                 % (case_name, t1, t2, b2['x'], b1['right'] + 2))
+        if not r.get('hasRunHistoryLine'):
+            fails.append('%s: NOISE sidebar sub-line does not name #304 ("... #304 before that")' % case_name)
 
     # ── REVIEW FIX 4 (2026-09-24): Max Drawdown prints as a positive number (the label
     # already says "drawdown") on both the primary stats row and "More stats". Checked

@@ -1,5 +1,6 @@
 """tests/test_keel_live_state.py -- tools/keel_live_state.py, the nightly KEEL v12
-state builder for the NOISE_382 leg (OWNER DECISION 2026-09-23, design doc D).
+state builder for the live KEEL leg (OWNER DECISION 2026-09-23, design doc D) -- NOISE_382
+until the 2026-09-27 swap, NOISE_422 after it, read from api/cloud_signal.CROWN_LEGS.
 
 Runs entirely on small synthetic data -- no dependency on the real NQ master (not
 present in a worktree, see BACKTEST_SPEED.md rule 3) or on serviceAccount.json. The
@@ -24,13 +25,62 @@ import tools.keel_live_state as kls          # noqa: E402
 import api.cloud_signal as cs                 # noqa: E402
 
 
-# ── the one place these facts are duplicated must never drift ────────────────────────────
-def test_strategy_facts_match_cloud_signals_own_crown_leg():
-    leg = cs.CROWN_LEGS["NOISE_382"]
-    assert kls.STRATEGY_FILE == leg["strategy"]
-    assert kls.STRATEGY_PARAMS == leg["params"]
-    assert kls.LEG_KEY == "NOISE_382"
-    assert leg["keel"]["version"] == kls.VERSION
+# ── the leg comes from CROWN_LEGS itself -- nothing duplicated here to drift ─────────────
+def test_default_leg_is_the_one_crown_leg_with_a_keel_block():
+    leg = kls.resolve_leg()
+    assert leg["leg_key"] == "NOISE_422"
+    cfg = cs.CROWN_LEGS["NOISE_422"]
+    assert leg["strategy"] == cfg["strategy"] == "NOISE_1_8_CT304H.py"
+    assert leg["params"] == cfg["params"]
+    assert leg["version"] == cfg["keel"]["version"] == kls.VERSION
+    assert leg["live"] is True
+
+
+def test_resolve_leg_refuses_zero_or_several_keel_legs():
+    """No guess: with KEEL taken off every leg, or on two legs at once, the nightly
+    default must fail loudly (main() turns this into a SystemExit) rather than build
+    one arbitrarily or nothing silently."""
+    plain = {"ORB_R6": {"strategy": "ORB_3_6_R6.py", "params": {}}}
+    with pytest.raises(kls.LegResolutionError, match="found 0"):
+        kls.resolve_leg(crown_legs=plain)
+    two = {"A": {"strategy": "a.py", "keel": {"version": "v12"}},
+           "B": {"strategy": "b.py", "keel": {"version": "v12"}}}
+    with pytest.raises(kls.LegResolutionError, match="found 2"):
+        kls.resolve_leg(crown_legs=two)
+    # an explicit leg that carries no KEEL block is refused too -- this script builds
+    # KEEL states and nothing else
+    with pytest.raises(kls.LegResolutionError, match="no \"keel\" block"):
+        kls.resolve_leg("ORB_R6")
+    with pytest.raises(kls.LegResolutionError, match="unknown leg"):
+        kls.resolve_leg("NOT_A_LEG")
+
+
+def test_retired_noise_382_leg_stays_resolvable_by_hand():
+    """--leg NOISE_382 keeps working after the swap (rebuild or --check-run-doc against
+    run #382's own stored KEEL row), from run #382's own cell -- not the live leg's."""
+    assert "NOISE_382" not in cs.CROWN_LEGS
+    leg = kls.resolve_leg("NOISE_382")
+    assert leg == {"leg_key": "NOISE_382", "strategy": "NOISE_1_8_CT304.py",
+                   "params": cs.NOISE_382_PARAMS, "version": "v12", "live": False}
+    assert kls.RUN_ID_FOR_LEG["NOISE_382"] == 382
+
+
+def test_main_fails_loudly_when_no_leg_carries_keel(tmp_path, monkeypatch):
+    """The no-KEEL alternative (the "keel" key deleted from CROWN_LEGS["NOISE_422"]): the
+    nightly unit's own invocation must exit non-zero with the reason, writing nothing."""
+    no_keel = {k: {kk: vv for kk, vv in v.items() if kk != "keel"}
+               for k, v in cs.CROWN_LEGS.items()}
+    monkeypatch.setattr(cs, "CROWN_LEGS", no_keel)
+    nq = _write_master_csv(tmp_path / "nq.csv", n_full_days=3)
+    old_argv = sys.argv
+    sys.argv = ["keel_live_state.py", "--nq-file", str(nq), "--out-dir", str(tmp_path / "out")]
+    try:
+        with pytest.raises(SystemExit) as ei:
+            kls.main()
+    finally:
+        sys.argv = old_argv
+    assert "found 0" in str(ei.value.code)
+    assert not (tmp_path / "out").exists()
 
 
 # ── a small, real, NQ-master-shaped CSV to drive load_nq_arrays/build on ─────────────────
@@ -114,8 +164,11 @@ def test_build_writes_a_loadable_state_and_a_json_safe_summary(tmp_path):
     out_dir = tmp_path / "out"
     state, summary = kls.build(str(path), str(out_dir), version="v12", log=lambda *a, **k: None)
 
-    state_path = out_dir / "NOISE_382_v12_state.joblib"
-    summary_path = out_dir / "NOISE_382_v12_summary.json"
+    # the live KEEL leg's own names -- exactly what cloud_signal.keel_paths reads
+    state_path = out_dir / "NOISE_422_v12_state.joblib"
+    summary_path = out_dir / "NOISE_422_v12_summary.json"
+    assert os.path.basename(cs.CROWN_LEGS["NOISE_422"]["keel"]["state_path"]) == state_path.name
+    assert os.path.basename(cs.CROWN_LEGS["NOISE_422"]["keel"]["summary_path"]) == summary_path.name
     # atomic swap (2026-09-24): both files land by rename -- nothing half-written is left behind
     assert not [p for p in out_dir.iterdir() if p.name.endswith(".tmp")]
     assert state_path.exists() and summary_path.exists()
@@ -127,8 +180,11 @@ def test_build_writes_a_loadable_state_and_a_json_safe_summary(tmp_path):
 
     with open(summary_path, encoding="utf-8") as f:
         disk_summary = json.load(f)
-    assert disk_summary["leg"] == "NOISE_382"
-    assert disk_summary["strategy"] == kls.STRATEGY_FILE
+    assert disk_summary["leg"] == "NOISE_422"
+    assert disk_summary["leg_live"] is True
+    assert disk_summary["strategy"] == "NOISE_1_8_CT304H.py"
+    assert disk_summary["params"] == cs.NOISE_422_PARAMS
+    assert disk_summary["cost_pts"] == 0.533 and disk_summary["date_from"] == "2010-06-07"
     assert disk_summary["nq_file_sha256"] and len(disk_summary["nq_file_sha256"]) == 64
     assert disk_summary["build_seconds"] >= 0
     assert "timings_seconds" in disk_summary
@@ -158,7 +214,7 @@ def test_data_through_is_the_last_bar_even_with_no_recent_trade(tmp_path, monkey
     # nine quiet closing sessions in a row with no NQ trade whatsoever.
     early_trades = [(5, 8, 12.5), (20, 25, -4.0), (40, 44, 6.25)]
     monkeypatch.setattr(kls, "run_nq_backtest",
-                        lambda arr, log=print: (list(early_trades), {"total_pnl": 14.75}))
+                        lambda arr, leg=None, log=print: (list(early_trades), {"total_pnl": 14.75}))
 
     state, summary = kls.build(str(path), str(out_dir), version="v12", log=lambda *a, **k: None)
 
@@ -194,3 +250,67 @@ def test_check_against_run_doc_skips_cleanly_without_credentials(tmp_path, monke
     result = kls.check_against_run_doc(run_id=382, log=logged.append)
     assert result is None
     assert logged and "skipping run-doc check" in logged[-1]
+
+
+# ── --leg: a retired leg builds under its OWN names, never the live leg's ────────────────
+def test_build_for_the_retired_noise_382_leg_writes_its_own_files(tmp_path, monkeypatch):
+    path = _write_master_csv(tmp_path / "nq.csv", n_full_days=5, seed=2)
+    seen = {}
+
+    def fake_backtest(arr, leg=None, log=print):
+        seen["leg"] = leg
+        return [(5, 8, 12.5), (20, 25, -4.0)], {"total_pnl": 8.5}
+    monkeypatch.setattr(kls, "run_nq_backtest", fake_backtest)
+    state, summary = kls.build(str(path), str(tmp_path / "out"), leg="NOISE_382",
+                               log=lambda *a, **k: None)
+    assert seen["leg"]["strategy"] == "NOISE_1_8_CT304.py"
+    assert (tmp_path / "out" / "NOISE_382_v12_state.joblib").exists()
+    assert not (tmp_path / "out" / "NOISE_422_v12_state.joblib").exists()
+    assert summary["leg"] == "NOISE_382" and summary["leg_live"] is False
+
+
+# ── the READ-ONLY walk-vs-state check (the #422 reproduction check) ─────────────────────
+def test_walk_cut_points_cover_warmup_refit_and_the_last_trade():
+    from augur_engine import ml_keel as K
+    cuts = kls.walk_cut_points(4861, n_cuts=3)
+    assert cuts[0] == K.MIN_HISTORY - 1 and K.MIN_HISTORY in cuts
+    assert K.MIN_HISTORY + K.REFIT_EVERY in cuts
+    assert cuts[-1] == 4860 and cuts == sorted(set(cuts))
+    assert kls.walk_cut_points(10) == [9]
+    assert kls.walk_cut_points(0) == []
+
+
+def test_check_state_matches_walk_passes_on_a_real_walk(tmp_path):
+    """check_state_matches_walk on a small series: state-built scoring equals keel_walk's
+    own size at every cut point (the same 1e-12 bar tests/test_ml_keel_state.py holds the
+    split to), and it writes nothing."""
+    rng = np.random.RandomState(9)
+    n_days, bars = 60, 16
+    idx = []
+    day = pd.Timestamp("2024-01-02", tz="US/Eastern")
+    d = 0
+    while d < n_days:
+        if day.dayofweek <= 4:
+            idx += [day.replace(hour=9, minute=30) + pd.Timedelta(minutes=5 * b) for b in range(bars)]
+            d += 1
+        day = day + pd.Timedelta(days=1)
+    n = len(idx)
+    c = 15000.0 + np.cumsum(rng.normal(0, 3.0, n))
+    arrays = {"open": c.copy(), "high": c + 2, "low": c - 2, "close": c,
+              "volume": np.full(n, 1000.0), "day_id": np.repeat(np.arange(n_days), bars),
+              "index": pd.DatetimeIndex(idx)}
+    trades, pos = [], 3
+    while pos < n - 3 and len(trades) < 120:
+        ex = pos + int(rng.randint(1, 4))
+        trades.append((pos, ex, float(rng.normal(0.5, 5.0))))
+        pos = ex + 1
+    logged = []
+    before = sorted(os.listdir(tmp_path))
+    r = kls.check_state_matches_walk(None, leg="NOISE_422", n_cuts=3, log=logged.append,
+                                     arrays=arrays, trades=trades)
+    assert r["ok"] is True and not r["mismatches"], r
+    assert r["leg"] == "NOISE_422" and r["n_trades"] == len(trades)
+    assert r["cuts"] == kls.walk_cut_points(len(trades), 3)
+    assert r["max_abs_diff"] <= 1e-12
+    assert any("PASS" in line for line in logged)
+    assert sorted(os.listdir(tmp_path)) == before

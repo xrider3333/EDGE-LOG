@@ -331,9 +331,13 @@ glancing at the instance's utilization graph in the Oracle console occasionally 
 bundle does not attempt to work around the idle-reclaim rule, it just documents it so
 a VM disappearing isn't a mystery.
 
-### KEEL v12 state rebuild (NOISE_382 leg)
+### KEEL v12 state rebuild (the live KEEL leg: NOISE_422 from the #382 -> #422 swap)
 
-`tools/keel_live_state.py` rebuilds the KEEL v12 live-scoring state from the NQ 5m RTH
+`tools/keel_live_state.py` rebuilds the KEEL v12 live-scoring state for whichever
+`api/cloud_signal.CROWN_LEGS` leg carries a `"keel"` block (NOISE_382 until the owner's
+2026-09-27 swap, NOISE_422 after it -- files `cloud_signal/keel/<LEG>_v12_state.joblib` and
+`_summary.json`), so a leg swap needs no unit change. It refuses to build, loudly, when no
+leg or more than one carries KEEL. It rebuilds from the NQ 5m RTH
 master the PC pushes into `~/edgelog/nq/NOADJ_NQ_5m_RTH.csv`
 (`tools/push_nq_master_to_box.py`, ~17:20 ET). Two independent triggers run the exact
 same `edgelog-keel-state.service` oneshot — either is enough on its own:
