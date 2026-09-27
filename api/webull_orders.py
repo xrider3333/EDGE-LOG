@@ -150,7 +150,9 @@ present"), file paths, and order/rail metadata.
 """
 import hashlib
 import json
+import math
 import os
+import re
 import threading
 import time
 from datetime import datetime
@@ -629,6 +631,78 @@ def _part_client_order_id(base, index, total):
     return base[:max(0, CLIENT_ORDER_ID_MAX - len(suffix))] + suffix
 
 
+# ── THE ORDER PATH NEVER GUESSES (2026-09-26, WEBULL_PAPER_TODO item 17) ─────────────
+# Each broker part is in state["order_parts"] (by its own id) BEFORE it is sent, with
+# `booked` (shares the books count) and `pending` (Webull's answer not known). Only a
+# 4xx is "never placed" without a lookup; unclear = PENDING, outcome "UNKNOWN". A live
+# part counts in FULL; only FILLED or dead-with-filled-qty sets its shares exactly.
+UNKNOWN_LOOKUP_TRIES = 3            # lookups after a send that raised ...
+UNKNOWN_LOOKUP_WINDOW_SEC = 10.0    # ... spread over about this long
+SPLIT_FILL_POLL_TRIES = 5           # part 1 of a split must report FILLED ...
+SPLIT_FILL_POLL_WINDOW_SEC = 10.0   # ... within about this long, or part 2 is not sent
+SEND_LOOKUP_BUDGET_SEC = 15.0       # past this, one send starts no lookup AND sends no
+                                    # later split part (returned NOT_SENT): qqq_exec gives it
+                                    # 40 s, a started lookup + one part send need ~25 s of it
+RECONCILE_PENDING_LOOKUPS = 1       # PENDING parts looked up per reconcile() pass ...
+RECONCILE_PENDING_BUDGET_SEC = 4.0  # ... none started after the pass has run this long
+ORDER_PART_KEEP_SEC = 7 * 24 * 3600.0
+DEAD_STATUSES = ("REJECTED", "CANCELLED", "CANCELED", "FAILED")
+LIVE_STATUSES = ("PENDING", "SUBMITTED", "PARTIAL_FILLED")
+_HTTP_STATUS_RE = re.compile(r"HTTP(?: Status:)?\s*(\d{3})")
+
+
+def _sleep(sec):
+    """The one wait in the order path (a seam, so tests never really wait)."""
+    time.sleep(sec)
+
+
+def _norm_status(v):
+    """Webull status -> "PARTIAL_FILLED" style, or None."""
+    if not isinstance(v, str) or not v.strip():
+        return None
+    return re.sub(r"[\s\-]+", "_", v.strip().upper())
+
+
+def _to_qty(v):
+    """A non-negative finite share count, or None (missing / unreadable)."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) and f >= 0 else None
+
+
+def _http_status(e):
+    """The HTTP status a send exception carries (its http_status attribute, else "HTTP
+    NNN" / "HTTP Status: NNN" in its text) as an int, or None. Put on the part record
+    (p["http_status"]) so qqq_exec judges a 4xx exactly as the adapter did."""
+    code = getattr(e, "http_status", None)
+    if code is None:
+        m = _HTTP_STATUS_RE.search(str(e))
+        code = m.group(1) if m else None
+    try:
+        return int(code)
+    except (TypeError, ValueError):
+        return None
+
+
+def _definite_refusal(e):
+    """True only for Webull's own synchronous 4xx -- a 5xx or timeout may have landed."""
+    code = _http_status(e)
+    return code is not None and 400 <= code < 500
+
+
+def _terminal_qty(qty, status, filled):
+    """Shares a terminal answer says landed (qty if FILLED, `filled` if dead), else None."""
+    return qty if status == "FILLED" else filled if status in DEAD_STATUSES else None
+
+
+def _conclusive(ans):
+    """A lookup answer that settles an unclear send."""
+    return (ans["status"] == "FILLED" or ans["status"] in LIVE_STATUSES
+            or (ans["status"] in DEAD_STATUSES and ans["filled"] is not None))
+
+
 def _now_ny():
     return datetime.now(_NY) if _NY else datetime.utcnow()
 
@@ -958,7 +1032,7 @@ class OrderAdapter:
     def _believed_total_shares(self):
         return sum(abs(p.get("qty", 0)) for p in (self._state.get("believed_positions") or {}).values())
 
-    def _check_rails(self, leg, qty, intent):
+    def _check_rails(self, leg, qty, intent, remainder=False):
         rails = self.cfg.get("rails") or DEFAULT_RAILS
         # CLOSE (flattening) is checked FIRST and unconditionally passes -- a halted
         # adapter (kill file, reconcile mismatch) must still be able to flatten,
@@ -984,7 +1058,9 @@ class OrderAdapter:
             return False, f"daily loss limit hit ({self._state.get('daily_pnl', 0.0):.2f} <= -{limit})"
         if not self._in_session_window(rails):
             return False, f"outside session window {rails.get('session_start')}-{rails.get('session_end')} NY"
-        if rails.get("one_open_position_per_leg", True) and leg in (self._state.get("open_legs") or {}):
+        # `remainder`: the rest of this leg's OWN split OPEN (its part 1 opened the leg)
+        if (rails.get("one_open_position_per_leg", True) and not remainder
+                and leg in (self._state.get("open_legs") or {})):
             return False, f"leg {leg!r} already has an open position (one_open_position_per_leg)"
         return True, "rails ok"
 
@@ -1026,7 +1102,7 @@ class OrderAdapter:
         positions[leg] = cur
         self._save_state()
 
-    def apply_unacked_close_fill(self, leg, qty, lock_timeout=1.0):
+    def apply_unacked_close_fill(self, leg, qty, lock_timeout=1.0, part_outcomes=None):
         """Books `qty` shares of a CLOSE for `leg` that FILLED at Webull even though the
         send itself came back not ok (a timeout, a dropped connection, a 5xx) -- the
         caller (api/qqq_exec.py's close re-send, FINAL CLOSE RE-SEND RULE 2026-09-26)
@@ -1042,16 +1118,32 @@ class OrderAdapter:
         Takes the adapter lock with a bounded wait (a hung send holds it) -- returns None
         without touching anything when the lock is not free in time. Otherwise returns
         {"sent": n, "believed": m}, the shares actually taken off each book. Never
-        raises."""
+        raises.
+
+        `part_outcomes` (2026-09-26): {order id: {"status", "filled"}} Webull verified.
+        When every id is a recorded part, each is set EXACTLY to what landed (_book_part)
+        instead of `qty`, so shares already booked are never taken off twice."""
         try:
             qty = abs(float(qty or 0))
         except (TypeError, ValueError):
             return None
-        if qty <= 0:
+        if qty <= 0 and not part_outcomes:
             return {"sent": 0, "believed": 0}
         if not self._lock.acquire(timeout=lock_timeout):
             return None
         try:
+            outs = {_sanitize_client_order_id(c): v for c, v in (part_outcomes or {}).items() if c}
+            parts = self._state.get("order_parts") or {}
+            if outs and all(c in parts for c in outs):
+                took = 0
+                for c, v in outs.items():
+                    filled = (parts[c]["qty"] if _norm_status((v or {}).get("status")) == "FILLED"
+                              else _to_qty((v or {}).get("filled")))
+                    if filled is not None:
+                        took += self._book_part(c, filled, pending=False)
+                return {"sent": took, "believed": took}
+            if qty <= 0:
+                return {"sent": 0, "believed": 0}
             applied = {}
             for book in ("broker_sent_positions", "believed_positions"):
                 cur = (self._state.get(book) or {}).get(leg)
@@ -1069,6 +1161,262 @@ class OrderAdapter:
             return None
         finally:
             self._lock.release()
+
+    # -- THE ORDER PATH NEVER GUESSES (see the module comment above UNKNOWN_LOOKUP_TRIES) --
+    def _parts(self):
+        return self._state.setdefault("order_parts", {})
+
+    def _prune_parts(self):
+        cutoff = time.time() - ORDER_PART_KEEP_SEC
+        parts = self._parts()
+        for coid in [c for c, p in parts.items() if float(p.get("ts") or 0) < cutoff]:
+            parts.pop(coid, None)
+
+    def _book_part(self, coid, target, pending=None):
+        """Make the books count exactly `target` (0..qty) shares of part `coid`; returns
+        the change. Idempotent. Caller holds the lock."""
+        part = self._parts().get(coid)
+        if not part:
+            return 0
+        target = max(0, min(int(round(target)), int(part["qty"])))
+        delta = target - int(part.get("booked") or 0)
+        if delta:
+            leg, symbol = part["leg"], part["symbol"]
+            signed = delta if part["side"] == "BUY" else -delta
+            for book in ("believed_positions", "broker_sent_positions"):
+                cur = self._state.setdefault(book, {}).setdefault(leg, {"symbol": symbol, "qty": 0})
+                cur["qty"] = cur.get("qty", 0) + signed
+                cur["symbol"] = symbol
+                if book == "broker_sent_positions" and part.get("account_id"):
+                    cur["account_id"] = part["account_id"]
+            open_legs = self._state.setdefault("open_legs", {})
+            if abs(self._state["believed_positions"][leg]["qty"]) > 1e-9:
+                open_legs[leg] = True
+            else:
+                open_legs.pop(leg, None)
+            part["booked"] = target
+        if pending is not None:
+            part["pending"] = pending
+        self._save_state()
+        return delta
+
+    def _lookup_order(self, client, account_id, coid):
+        """Webull's record of one order -> {"status", "filled"}, or None when there is no
+        clear answer. Never raises."""
+        try:
+            resp = _safe_response(client.order_v3.get_order_detail(account_id, coid))
+            item_coid = _field(_order_item(resp, coid), "client_order_id", "clientOrderId")
+            if item_coid is not None and str(item_coid) != str(coid):
+                return None
+            fields = order_status_fields(resp, coid)
+            status = _norm_status(fields.get("status"))
+            if not status:
+                return None
+            return {"status": status, "filled": _to_qty(fields.get("filled_quantity"))}
+        except Exception:
+            return None
+
+    def _poll_order(self, client, account_id, coid, tries, window_sec, done, stop_at=None):
+        """Up to `tries` lookups over about `window_sec`: the first answer `done` accepts,
+        else the last one seen (or None). None started after `stop_at`. The adapter
+        lock (held by the send) is let go for each wait + lookup, so a slow wait never
+        blocks reconcile/status/fill capture; the part is on disk and the signal cached
+        UNKNOWN first, and every booking after it is exact (_book_part)."""
+        deadline = time.time() + window_sec
+        last = None
+        for i in range(max(1, tries)):
+            if i and time.time() >= deadline:
+                break
+            wait = window_sec / max(1, tries) if i else 0.0
+            if stop_at is not None and time.time() + wait >= stop_at:
+                break   # the lookup would start past the send's budget
+            try:
+                self._lock.release()
+                released = True
+            except RuntimeError:
+                released = False   # not held (a direct call): nothing to let go
+            try:
+                if wait:
+                    _sleep(wait)
+                ans = self._lookup_order(client, account_id, coid)
+            finally:
+                if released:
+                    self._lock.acquire()
+            if ans is not None:
+                last = ans
+                if done(ans):
+                    return ans
+        return last
+
+    def _send_part(self, client, account_id, mode, leg, symbol, intent, side, qty,
+                   part_coid, new_order, label, stop_at=None):
+        """Send ONE broker part (PENDING on disk first). On an exception a 4xx is a
+        refusal; else look it up: FILLED/live = sent, dead books its filled qty, unclear
+        stays PENDING with outcome "UNKNOWN". Caller holds the lock."""
+        self._parts()[part_coid] = {"leg": leg, "symbol": symbol, "side": side,
+                                    "qty": int(qty), "intent": intent,
+                                    "account_id": account_id, "ts": time.time(),
+                                    "booked": 0, "pending": True}
+        self._save_state()
+        rec = {"side": side, "qty": qty, "client_order_id": part_coid, "sent": True,
+               "response": None}
+        try:
+            resp = client.order_v3.place_order(account_id, [new_order])
+        except Exception as e:
+            reason = f"{type(e).__name__}: {e}"
+            self.log(f"  [webull-orders] {mode} place_order FAILED for {symbol} {side} {qty} "
+                     f"(leg {leg}{label}): {reason}")
+            rec["http_status"] = _http_status(e)
+            if _definite_refusal(e):
+                self._parts()[part_coid]["pending"] = False
+                self._save_state()
+                rec.update(ok=False, reason=reason)
+                return rec
+            ans = self._poll_order(client, account_id, part_coid, UNKNOWN_LOOKUP_TRIES,
+                                   UNKNOWN_LOOKUP_WINDOW_SEC, _conclusive, stop_at=stop_at)
+            st = ans["status"] if ans else None
+            if st == "FILLED" or st in LIVE_STATUSES:
+                self._book_part(part_coid, qty, pending=False)
+                rec.update(ok=True, resolved_by_lookup=st,
+                           reason=f"send raised ({reason}) but Webull's own record shows it {st}")
+            elif st in DEAD_STATUSES and ans["filled"] is not None:
+                self._book_part(part_coid, ans["filled"], pending=False)
+                rec.update(ok=False, outcome=st, filled=ans["filled"],
+                           reason=f"{reason}; Webull's own record shows it {st} "
+                                  f"({ans['filled']:g} of {qty} filled)")
+            else:
+                rec.update(ok=False, outcome="UNKNOWN",
+                           reason=f"{reason}; Webull's own record could not confirm it "
+                                  f"(status {st or 'unreadable'}) -- outcome UNKNOWN, kept PENDING")
+            self.log(f"  [webull-orders] {part_coid} after lookup: {rec['reason']}")
+            return rec
+        self._apply_intent_to_belief(leg, symbol, side, qty, intent)
+        self._apply_intent_to_sent(leg, symbol, side, qty, account_id, intent)
+        self._parts()[part_coid].update(booked=int(qty), pending=False)
+        self._save_state()
+        rec.update(ok=True, reason="", response=_safe_response(resp))
+        return rec
+
+    def _part_filled(self, client, account_id, prev, stop_at=None):
+        """SPLIT SEQUENCING: True only once part `prev` reports FILLED (ack, lookup or a
+        bounded poll). Dead: rolled back to what filled. Still working / no answer: kept
+        in full, PENDING, and `prev` marked ok=False outcome "WORKING" so qqq_exec
+        verifies it before any re-send. Caller holds the lock. Never raises."""
+        try:
+            if not prev.get("ok"):
+                return False
+            coid = prev["client_order_id"]
+            ack = _norm_status(order_status_fields(prev.get("response"), coid).get("status"))
+            if "FILLED" in (ack, prev.get("resolved_by_lookup")):
+                return True
+            ans = self._poll_order(client, account_id, coid, SPLIT_FILL_POLL_TRIES,
+                                   SPLIT_FILL_POLL_WINDOW_SEC,
+                                   lambda a: a["status"] == "FILLED" or a["status"] in DEAD_STATUSES,
+                                   stop_at=stop_at)
+            st = ans["status"] if ans else None
+            if st == "FILLED":
+                return True
+            if st in DEAD_STATUSES and ans["filled"] is not None:
+                self._book_part(coid, ans["filled"], pending=False)
+                prev.update(ok=False, outcome=st, filled=ans["filled"],
+                            reason=f"{st} at Webull ({ans['filled']:g} of {prev['qty']} "
+                                   f"filled) -- books rolled back to the filled shares")
+            else:
+                self._parts()[coid]["pending"] = True
+                self._save_state()
+                prev.update(ok=False, outcome="WORKING",
+                            reason=f"acked but not confirmed FILLED (status "
+                                   f"{st or 'unreadable'}) -- still counted in full, pending")
+            return False
+        except Exception as e:
+            self.log(f"  [webull-orders] split part check failed: {type(e).__name__}: {e}")
+            return False
+
+    def apply_order_outcome(self, signal_id, status, filled_quantity=None, lock_timeout=1.0):
+        """Fill capture's hook: FILLED books the whole part, dead with a filled qty just
+        that; anything else changes nothing. None when the books did not move,
+        {"deferred": True} when the lock is busy, else {"leg", "intent", "status",
+        "qty", "filled", "change" (< 0: shares that did not go through), "final"}."""
+        try:
+            coid = _sanitize_client_order_id(signal_id)
+            st, filled = _norm_status(status), _to_qty(filled_quantity)
+            if not self._lock.acquire(timeout=lock_timeout):
+                return {"deferred": True}
+            try:
+                part = self._parts().get(coid)
+                target = _terminal_qty(part["qty"], st, filled) if part else None
+                if target is None:
+                    if part and st in DEAD_STATUSES:
+                        part["pending"] = True
+                        self._save_state()
+                    return None
+                change = self._book_part(coid, target, pending=False)
+                if not change:
+                    return None
+                self.log(f"  [webull-orders] {coid} ({part['leg']}) is {st} at Webull: books "
+                         f"now count {part['booked']} of {part['qty']} share(s)")
+                return {"leg": part["leg"], "intent": part.get("intent"), "status": st,
+                        "qty": part["qty"], "filled": part["booked"], "change": change,
+                        "final": True}
+            finally:
+                self._lock.release()
+        except Exception:
+            return None
+
+    def _resolve_pending(self, client):
+        """reconcile()'s PENDING pass (bounded count and time): FILLED or dead with a
+        filled qty settles a part; anything else keeps it pending. Each book change is
+        queued for take_part_events() so qqq_exec can push it. Never raises."""
+        try:
+            started = time.time()
+            with self._lock:
+                self._prune_parts()
+                todo = sorted((float(p.get("checked_at") or 0), c, p.get("account_id"))
+                              for c, p in self._parts().items() if p.get("pending"))
+            for _, coid, acct in todo[:RECONCILE_PENDING_LOOKUPS]:
+                if time.time() - started >= RECONCILE_PENDING_BUDGET_SEC:
+                    break
+                ans = self._lookup_order(client, acct, coid)
+                with self._lock:
+                    part = self._parts().get(coid)
+                    if not part or not part.get("pending"):
+                        continue
+                    part["checked_at"] = time.time()
+                    st = ans["status"] if ans else None
+                    target = _terminal_qty(part["qty"], st, ans["filled"]) if ans else None
+                    change = 0 if target is None else self._book_part(coid, target, pending=False)
+                    if change:
+                        self._state.setdefault("part_events", []).append(
+                            {"client_order_id": coid, "leg": part["leg"],
+                             "intent": part.get("intent"), "status": st, "qty": part["qty"],
+                             "booked": part["booked"], "change": change})
+                    self._save_state()
+                    self.log(f"  [webull-orders] PENDING {coid} ({part['leg']}): "
+                             f"{st or 'no clear answer'} -> books count {part['booked']} of "
+                             f"{part['qty']}" + (", still pending" if part["pending"] else ""))
+        except Exception as e:
+            self.log(f"  [webull-orders] PENDING pass failed: {type(e).__name__}: {e}")
+
+    def take_part_events(self, lock_timeout=1.0):
+        """Hand over (and clear) _resolve_pending's book changes; [] if none or busy."""
+        if not self._lock.acquire(timeout=lock_timeout):
+            return []
+        try:
+            events = self._state.pop("part_events", None) or []
+            if events:
+                self._save_state()
+            return events
+        finally:
+            self._lock.release()
+
+    def booked_shares(self, client_order_ids):
+        """Shares of these recorded parts the books count now (0 on any problem)."""
+        try:
+            parts = self._state.get("order_parts") or {}
+            return sum(int((parts.get(_sanitize_client_order_id(c)) or {}).get("booked") or 0)
+                       for c in client_order_ids or [] if c)
+        except Exception:
+            return 0
 
     def _account_net(self, symbol, account_id=None):
         """The account-level net position Webull actually holds (as far as this
@@ -1119,7 +1467,7 @@ class OrderAdapter:
     def place_stock_order(self, *, leg, signal_id, symbol, side, qty, intent="OPEN",
                           order_type="MARKET", limit_price=None, tif="DAY",
                           extended_hours=False, market="US", account_id=None,
-                          instrument_id=None):
+                          instrument_id=None, remainder=False):
         """Idempotent on signal_id. Returns a record dict always (never raises for a
         blocked/no-op/OFF path -- only an unexpected SDK exception in PAPER/LIVE is
         caught and reported via record["error"], never propagated).
@@ -1145,7 +1493,13 @@ class OrderAdapter:
         their existing meaning (the leg's own request), even when the actual part(s)
         used a different broker-facing side (e.g. a leg's own "SELL" sent as SHORT
         because the account was already flat) -- read `record["parts"]` for what
-        actually happened at the broker."""
+        actually happened at the broker.
+
+        NEVER GUESSES (2026-09-26, see UNKNOWN_LOOKUP_TRIES): an unclear part carries
+        outcome "UNKNOWN" (so does the record). A split's later part goes only once the
+        earlier one reports FILLED; otherwise it (or one refused with a 4xx) is listed
+        in record["unsent_parts"] and kept in `parts` with sent=False. `remainder=True`
+        re-sends a split OPEN's rest (the one-open-position rail allows it)."""
         side = str(side).upper()
         intent = str(intent).upper()
         order_type = str(order_type).upper()
@@ -1159,6 +1513,7 @@ class OrderAdapter:
         if intent not in ("OPEN", "CLOSE"):
             raise ValueError(f"intent must be OPEN or CLOSE, got {intent!r}")
 
+        send_started = time.time()   # SEND_LOOKUP_BUDGET_SEC counts from here (lock wait too)
         with self._lock:
             coid = _sanitize_client_order_id(signal_id)
             cached = (self._state.get("orders") or {}).get(coid)
@@ -1175,7 +1530,7 @@ class OrderAdapter:
                       "limit_price": limit_price, "tif": tif, "client_order_id": coid,
                       "ts": time.time()}
 
-            ok, reason = self._check_rails(leg, qty, intent)
+            ok, reason = self._check_rails(leg, qty, intent, remainder=remainder)
             if not ok:
                 record.update(mode="BLOCKED", ok=False, sent=False, reason=reason)
                 self._record_order(coid, record)
@@ -1255,9 +1610,30 @@ class OrderAdapter:
                     # silently and calling it ok.
                     parts_plan = [(side, int(round(qty)))]
 
+                # a crash from here on must never re-send this signal: cache UNKNOWN first
+                self._prune_parts()
+                self._record_order(coid, dict(record, ok=False, sent=True, outcome="UNKNOWN",
+                                              reason="send in progress (process stopped mid-send?)"))
                 parts = []
+                stop_at = send_started + SEND_LOOKUP_BUDGET_SEC   # lookups AND later parts
                 for i, (part_side, part_qty) in enumerate(parts_plan, start=1):
                     part_coid = _part_client_order_id(coid, i, len(parts_plan))
+                    held = None
+                    if parts and not self._part_filled(client, account_id, parts[-1], stop_at):
+                        # SPLIT SEQUENCING: the rest assumes the earlier part went through.
+                        held = f"part {i - 1} was not confirmed FILLED"
+                    elif parts and time.time() >= stop_at:
+                        # a late part 2 could run past qqq_exec's hard timeout (recorded
+                        # under the base id a split never used): hand it back instead
+                        held = f"the send's {SEND_LOOKUP_BUDGET_SEC:g} s budget ran out"
+                    if held:
+                        parts.append({"side": part_side, "qty": part_qty,
+                                      "client_order_id": part_coid, "ok": False, "sent": False,
+                                      "outcome": "NOT_SENT", "response": None,
+                                      "reason": f"not sent: {held} -- returned for re-send"})
+                        self.log(f"  [webull-orders] {mode} {symbol} {part_side} {part_qty} "
+                                 f"(leg {leg}, part {i}/{len(parts_plan)}) NOT SENT: {held}")
+                        continue
                     # v3 order dict (see module docstring, ORDER API VERSION): symbol-keyed,
                     # no instrument_id lookup needed. quantity/limit_price go over as
                     # STRINGS per the documented getting-started sample.
@@ -1270,32 +1646,29 @@ class OrderAdapter:
                     if order_type in ("LIMIT", "STOP_LOSS_LIMIT", "ENHANCED_LIMIT",
                                       "AT_AUCTION_LIMIT") and limit_price is not None:
                         new_order["limit_price"] = str(limit_price)
-                    try:
-                        resp = client.order_v3.place_order(account_id, [new_order])
-                        part_rec = {"side": part_side, "qty": part_qty,
-                                   "client_order_id": part_coid, "ok": True, "sent": True,
-                                   "reason": "", "response": _safe_response(resp)}
-                    except Exception as e:
-                        part_rec = {"side": part_side, "qty": part_qty,
-                                   "client_order_id": part_coid, "ok": False, "sent": True,
-                                   "reason": f"{type(e).__name__}: {e}", "response": None}
-                        self.log(f"  [webull-orders] {mode} place_order FAILED for {symbol} "
-                                 f"{part_side} {part_qty} (leg {leg}"
-                                 + (f", part {i}/{len(parts_plan)}" if len(parts_plan) > 1 else "")
-                                 + f"): {part_rec['reason']}")
-                    parts.append(part_rec)
-                    # Apply belief/sent bookkeeping per ACCEPTED part, immediately -- a
-                    # part refused later in the same call must never roll back a part
-                    # that already succeeded, and a part accepted later must still
-                    # count even if an earlier one in this same call was refused. See
-                    # _apply_intent_to_sent's docstring.
-                    if part_rec["ok"]:
-                        self._apply_intent_to_belief(leg, symbol, part_side, part_qty, intent)
-                        self._apply_intent_to_sent(leg, symbol, part_side, part_qty,
-                                                   account_id, intent)
+                    # books move per ACCEPTED part, inside _send_part (see _apply_intent_to_sent)
+                    parts.append(self._send_part(
+                        client, account_id, mode, leg, symbol, intent, part_side, part_qty,
+                        part_coid, new_order,
+                        f", part {i}/{len(parts_plan)}" if len(parts_plan) > 1 else "",
+                        stop_at=stop_at))
 
                 all_ok = all(p["ok"] for p in parts)
                 record.update(ok=all_ok, sent=True, account_id=account_id, parts=parts)
+                # a split's held-back parts, any Webull refused outright (4xx), and the
+                # unfilled rest of one Webull killed (dead with a known filled qty)
+                unsent = [{"side": p["side"], "client_order_id": p["client_order_id"],
+                           "qty": p["qty"] - (int(round(p["filled"]))
+                                              if p.get("outcome") in DEAD_STATUSES else 0)}
+                          for p in parts if len(parts) > 1 and not p["ok"] and (
+                              p.get("outcome") in (None, "NOT_SENT")
+                              or (p.get("outcome") in DEAD_STATUSES
+                                  and p.get("filled") is not None))]
+                unsent = [u for u in unsent if u["qty"] > 0]
+                if unsent:
+                    record["unsent_parts"] = unsent
+                if any(p.get("outcome") == "UNKNOWN" for p in parts):
+                    record["outcome"] = "UNKNOWN"
                 if not all_ok:
                     # Keep the status panel's "last error" honest: before netting, a failed
                     # place_order raised into the outer except below, which set _last_error;
@@ -1306,6 +1679,7 @@ class OrderAdapter:
                     record["response"] = parts[0]["response"]
                     if not all_ok:
                         record["error"] = parts[0]["reason"]
+                        record["http_status"] = parts[0].get("http_status")
                 else:
                     accepted_qty = sum(p["qty"] for p in parts if p["ok"])
                     detail = "; ".join(
@@ -1429,7 +1803,7 @@ class OrderAdapter:
                      f"entries: {reason}")
             return result
 
-    def reconcile(self, account_id=None, broker_positions_fn=None):
+    def reconcile(self, account_id=None, broker_positions_fn=None, resolve_pending=True):
         """Compare the broker's live position (PAPER/LIVE only) against the sum of
         THIS adapter's own lots that actually reached the broker with a successful ack
         -- broker_sent_positions, NOT believed_positions (which also absorbs OFF-mode
@@ -1451,7 +1825,10 @@ class OrderAdapter:
         == "reconcile"); a kill-file halt is left completely alone.
 
         Returns None when there's no broker to reconcile against at all (OFF mode) --
-        that is a legitimate no-network no-op, not a failure, see the OFF-mode test."""
+        that is a legitimate no-network no-op, not a failure, see the OFF-mode test.
+
+        `resolve_pending=False` skips the PENDING pass (qqq_exec does, while its own order
+        lookups are timing out) so a slow lookup never eats the positions read's time."""
         mode, _ = self.effective_mode()
         if mode not in (MODE_PAPER, MODE_LIVE):
             return None
@@ -1463,6 +1840,9 @@ class OrderAdapter:
                 if client is None:
                     return None
                 account_id = account_id or self._account_id(mode, client)
+                # leftover PENDING parts first, so a fill Webull shows is compared too
+                if resolve_pending:
+                    self._resolve_pending(client)
                 broker = _positions_from_response(client.account_v2.get_account_position(account_id))
         except Exception as e:
             return self.fail_closed(f"can't read positions at Webull: {type(e).__name__}: {e}")
@@ -1587,6 +1967,9 @@ class OrderAdapter:
             "last_reconcile_at": self._state.get("last_reconcile_at"),
             "last_reconcile_result": self._state.get("last_reconcile_result"),
             "broker_sent_positions": self._state.get("broker_sent_positions", {}),
+            # NEVER GUESSES (2026-09-26): order ids whose outcome Webull has not settled
+            "pending_parts": sorted(c for c, p in (self._state.get("order_parts") or {}).items()
+                                    if p.get("pending")),
         }
 
 

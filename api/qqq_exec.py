@@ -1625,7 +1625,7 @@ _order_status_executor = concurrent.futures.ThreadPoolExecutor(
     max_workers=1, thread_name_prefix="qqq-orderstatus")
 
 
-def _query_broker_fill(adapter, signal_id, account_id=None, log=print):
+def _query_broker_fill(adapter, signal_id, account_id=None, log=print, outcome=None):
     """(filled_price_or_None, note_or_None) -- asks Webull for this order's CURRENT
     status, bounded to ORDER_STATUS_HARD_TIMEOUT_SEC wall-clock on its own worker
     thread: the same precaution as _reconcile_with_timeout / default_webull_quote's
@@ -1641,7 +1641,13 @@ def _query_broker_fill(adapter, signal_id, account_id=None, log=print):
     result. The caller (the capture job) only fills in broker_fill_px/slippage when a
     real price comes back, and otherwise keeps <reason> for its own give-up path (see
     _finish_fill_capture) so a human can see WHY it is still blank instead of just
-    guessing."""
+    guessing.
+
+    ACK IS NOT A FILL (2026-09-26): with an `outcome` dict, status + filled qty also go
+    to adapter.apply_order_outcome and `outcome` gets its answer when the books moved.
+    A still-working order (PENDING/SUBMITTED/PARTIAL_FILLED) never returns a price --
+    a partial's average is not the fill -- and sets outcome["working"] when the adapter
+    tracks it, so the capture job stays open until a terminal status."""
     try:
         fut = _order_status_executor.submit(adapter.order_status, signal_id, account_id)
         result = fut.result(timeout=ORDER_STATUS_HARD_TIMEOUT_SEC)
@@ -1653,8 +1659,27 @@ def _query_broker_fill(adapter, signal_id, account_id=None, log=print):
         if not isinstance(result, dict) or not result.get("ok"):
             reason = (result or {}).get("reason") or "order-status query returned not-ok"
             return None, reason
-        fields = webull_orders.order_status_fields(
-            result.get("response"), result.get("client_order_id") or signal_id)
+        coid = result.get("client_order_id") or signal_id
+        # order_status_fields falls back to orders[0]: never read (or book) another order
+        item_coid = webull_orders._field(webull_orders._order_item(result.get("response"), coid),
+                                         "client_order_id", "clientOrderId")
+        if item_coid is not None and str(item_coid) != str(coid):
+            return None, "record is about another order"
+        fields = webull_orders.order_status_fields(result.get("response"), coid)
+        apply = getattr(adapter, "apply_order_outcome", None) if outcome is not None else None
+        if callable(apply):
+            res = apply(coid, fields.get("status"),
+                        fields.get("filled_quantity"))
+            if isinstance(res, dict) and res.get("deferred"):
+                return None, "adapter books busy (a send is in flight) -- will ask again"
+            if isinstance(res, dict):
+                outcome.update(res)
+        st = webull_orders._norm_status(fields.get("status"))
+        if callable(apply) and st:
+            outcome["working"] = st in webull_orders.LIVE_STATUSES   # a clear answer only
+        if st in webull_orders.LIVE_STATUSES:
+            return None, (f"still working at Webull (status={st}, "
+                          f"{fields.get('filled_quantity') or 0} filled)")
         px = fields.get("filled_price")
         if px in (None, ""):
             return None, f"no fill price yet (status={fields.get('status') or 'unknown'})"
@@ -1784,7 +1809,7 @@ def _alert_broker_send_unknown(state, *, leg, intent, side, shares, reason,
         log(f"[qqq-exec] broker-unknown alert failed (non-fatal): {type(e).__name__}: {e}")
 
 
-def _believed_qty_for_leg(leg, log=print):
+def _believed_qty_for_leg(leg, log=print, larger=False):
     """Current believed QQQ position (whole shares, unsigned) the broker adapter's OWN
     order-history records say `leg` holds -- the SMALLER of believed_positions and
     broker_sent_positions (EXIT SAFETY item 2 minor, 2026-09-26: the adapter's own
@@ -1795,7 +1820,9 @@ def _believed_qty_for_leg(leg, log=print):
     never send more than either source believes is actually held). 0 for a leg with no
     belief on record in EITHER, None if the adapter cannot be read at all. Used by the
     CLOSE re-send loop (item 2) to re-check before every retry -- a retry must never
-    double-sell. Never raises."""
+    double-sell. `larger=True` (2026-09-26) returns the LARGER of the two instead -- for
+    sizing an OPEN re-buy as "what the lot lacks", where disagreeing books must shrink
+    the buy, never grow it. Never raises."""
     try:
         status = _get_broker_adapter(log=log).status()
         believed = (status.get("believed_positions") or {}).get(leg)
@@ -1806,7 +1833,7 @@ def _believed_qty_for_leg(leg, log=print):
                 return 0
             return int(round(abs(float(p.get("qty") or 0))))
 
-        return min(_qty(believed), _qty(sent))
+        return (max if larger else min)(_qty(believed), _qty(sent))
     except Exception as e:
         log(f"[qqq-exec] believed-position read failed for {leg} (non-fatal): "
             f"{type(e).__name__}: {e}")
@@ -2112,7 +2139,7 @@ def _is_unknown_outcome(rec):
         return False
 
 
-def _broker_row_ambiguous_send(sent, ok, reason):
+def _broker_row_ambiguous_send(sent, ok, reason, http_status=None):
     """True when a single send (the top-level record, or one netted part of it) reached
     the send path (`sent`) but came back not ok with NO definite 4xx of its own --
     exactly the "outcome genuinely unknown" case _queue_broker_resend's own
@@ -2123,7 +2150,7 @@ def _broker_row_ambiguous_send(sent, ok, reason):
     try:
         if not sent or ok:
             return False
-        code = _broker_send_status_code(reason)
+        code = _broker_send_status_code(reason, http_status)
         return not (code is not None and 400 <= code < 500)
     except Exception:
         return False
@@ -2162,11 +2189,13 @@ def _broker_row_outcome(rec):
         if len(parts) > 1:
             ambiguous = any(
                 _broker_row_ambiguous_send(p.get("sent"), p.get("ok"),
-                                          p.get("reason") or p.get("error"))
+                                          p.get("reason") or p.get("error"),
+                                          p.get("http_status"))
                 for p in parts if isinstance(p, dict))
         else:
             ambiguous = _broker_row_ambiguous_send(
-                r.get("sent"), r.get("ok"), r.get("reason") or r.get("error"))
+                r.get("sent"), r.get("ok"), r.get("reason") or r.get("error"),
+                r.get("http_status"))
         if ambiguous:
             return "UNKNOWN"
         if r.get("ok"):
@@ -2179,7 +2208,7 @@ def _broker_row_outcome(rec):
 
 
 def _place_stock_order_with_timeout(adapter, *, leg, signal_id, symbol, side, qty,
-                                    intent, mode, log=print):
+                                    intent, mode, log=print, remainder=False):
     """adapter.place_stock_order(...) bounded to BROKER_SEND_HARD_TIMEOUT_SEC wall-clock
     on its own worker thread -- see the module comment above this function for why and
     what a timeout returns. Never raises (an unexpected exception from the executor
@@ -2214,7 +2243,7 @@ def _place_stock_order_with_timeout(adapter, *, leg, signal_id, symbol, side, qt
                "inflight_blocked": True}
     fut = _place_order_executor.submit(
         adapter.place_stock_order, leg=leg, signal_id=signal_id, symbol=symbol,
-        side=side, qty=qty, intent=intent)
+        side=side, qty=qty, intent=intent, **({"remainder": True} if remainder else {}))
     _inflight_send["future"] = fut
     _inflight_send["leg"] = leg
     _inflight_send["intent"] = intent
@@ -2242,7 +2271,8 @@ def _place_stock_order_with_timeout(adapter, *, leg, signal_id, symbol, side, qt
 
 
 def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, seq=0,
-                      trade_id=None, resend=0, requeue=True, nowdt=None, log=print):
+                      trade_id=None, resend=0, requeue=True, nowdt=None, log=print,
+                      remainder=False):
     """Call after the shadow's own order/trade row is already recorded. Never raises.
 
     `nowdt` (EXIT SAFETY item 4 minor, 2026-09-26 review): the calling tick's OWN
@@ -2362,7 +2392,7 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
             rec = _place_stock_order_with_timeout(
                 adapter, leg=leg, signal_id=signal_id, symbol=BROKER_SYMBOL,
                 side=_broker_side(side, intent), qty=int(round(shares)), intent=intent,
-                mode=mode, log=log)
+                mode=mode, log=log, **({"remainder": True} if remainder else {}))
     except Exception as e:
         rec = {"ok": False, "sent": False, "mode": "ERROR", "error": f"{type(e).__name__}: {e}"}
         log(f"[qqq-exec] broker adapter call failed for {leg} {intent} (non-fatal -- the "
@@ -2412,7 +2442,12 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
         _queue_broker_fill_capture(state, leg=leg, intent=intent, signal_id=signal_id,
                                    account_id=rec.get("account_id"), shadow_px=shadow_px,
                                    parts=rec_parts if rec_parts and len(rec_parts) > 1 else None,
-                                   log=log)
+                                   log=log,
+                                   # for _requeue_close_unfilled
+                                   retry=({"side": side, "ts": None if ts is None else str(ts),
+                                           "seq": seq, "trade_id": trade_id,
+                                           "resend": int(resend or 0)}
+                                          if intent == "CLOSE" and trade_id else None))
     if rec.get("mode") in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
         # BROKER RECONCILE (2026-09-14, FIX 2): a real send was just attempted (ok or
         # not) -- have _maybe_run_broker_reconcile run reconcile() on the VERY NEXT
@@ -2456,7 +2491,10 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
                f"never went through) -- no sell sent, Webull stays flat for {leg}")
         _log_event(state, "broker", msg, log=log)
         _notify(msg, "EDGELOG QQQ BROKER", log)
-    if rec.get("partial"):
+    unsent_qty = sum(int(p.get("qty") or 0) for p in rec.get("unsent_parts") or [])
+    open_rest = (unsent_qty and intent == "OPEN" and requeue and trade_id
+                 and not _is_unknown_outcome(rec))
+    if rec.get("partial") and not open_rest:
         # ORDER NETTING (2026-09-24): one or more of this leg event's broker parts (see
         # api.webull_orders.place_stock_order's `parts`) was refused while at least one
         # other part landed -- broker_sent_positions[leg] only moved by the accepted
@@ -2468,6 +2506,22 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
         msg = (f"QQQ BROKER: {leg} {intent} only PARTIALLY reached Webull: {row['reason']}")
         _log_event(state, "broker", msg, log=log)
         _notify(msg, "EDGELOG QQQ BROKER", log)
+    if unsent_qty and intent == "OPEN" and requeue and trade_id and not open_rest:
+        # part 1 is UNKNOWN: the rest could stack on shares that landed -- not re-sent
+        log(f"[qqq-exec] broker OPEN for {leg}: {unsent_qty} share(s) of a split order not "
+            f"sent and part 1's outcome is UNKNOWN -- not re-sent")
+    elif open_rest:
+        # SPLIT REMAINDER (2026-09-26): a split OPEN's unsent rest goes ONCE (why=
+        # "remainder"); a split CLOSE's rest is re-sent by close_retry instead.
+        now = time.time()
+        state.setdefault("_broker_resend", {})[f"{leg}:{intent}"] = {
+            "leg": leg, "intent": intent, "side": side, "shares": unsent_qty,
+            "shadow_px": shadow_px, "ts": None if ts is None else str(ts), "seq": seq,
+            "trade_id": trade_id, "why": "remainder", "tries": int(resend or 0),
+            "first_at": now, "last_at": now,
+            "session_date": (nowdt or _now_et()).strftime("%Y-%m-%d")}
+        log(f"[qqq-exec] broker OPEN for {leg}: {unsent_qty} share(s) of a split order not "
+            f"sent (held back or refused) -- queued for one re-send")
     if requeue:
         _queue_broker_resend(state, rec, leg=leg, side=side, shares=shares,
                              shadow_px=shadow_px, intent=intent, ts=ts, seq=seq,
@@ -2493,13 +2547,22 @@ def _broker_halt_source(log=print):
 # the order outright -- a definite, already-known outcome, not an ambiguous one. A 5xx,
 # a timeout, or a connection error carries no such answer: the request may have reached
 # Webull's book before the failure happened, so the outcome is genuinely unknown.
-_HTTP_STATUS_RE = re.compile(r"HTTP Status:\s*(\d\d\d)")
+# 2026-09-26: the SAME parser as the adapter's _definite_refusal ("HTTP NNN" too), and
+# the code the adapter parsed itself (rec/part "http_status") wins when present.
+_HTTP_STATUS_RE = webull_orders._HTTP_STATUS_RE
 
 
-def _broker_send_status_code(text):
-    """The numeric HTTP status a Webull ServerException string carries, or None when
-    the text has no such marker (a non-Webull exception, a rail refusal already written
-    in plain English, a bare timeout/connection message, ...). Never raises."""
+def _broker_send_status_code(text, code=None):
+    """The numeric HTTP status of a failed send: `code` (the adapter's own parsed
+    record["http_status"] / part["http_status"]) when it is a number, else the one a
+    Webull ServerException string carries, or None when neither says (a non-Webull
+    exception, a rail refusal already written in plain English, a bare timeout/
+    connection message, ...). Never raises."""
+    try:
+        if code is not None:
+            return int(code)
+    except (TypeError, ValueError):
+        pass
     try:
         m = _HTTP_STATUS_RE.search(str(text or ""))
         return int(m.group(1)) if m else None
@@ -2590,6 +2653,9 @@ def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts
                 # immediately again, not inherit this episode's cooldown.
                 _close_fail_alert_reset(state, leg)
             return
+        if intent == "OPEN" and rec.get("unsent_parts"):
+            # its rest is _mirror_to_broker's "remainder" item -- never overwrite it
+            return
         text = str(rec.get("reason") or rec.get("error") or "")
         why = None
         if "DUPLICATE_ORDER_CHECK" in text:
@@ -2644,9 +2710,13 @@ def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts
         # rather than guess a remainder.
         parts = rec.get("parts") or []
         if len(parts) > 1:
+            # 2026-09-26: a held-back part (sent=False) is just remainder; only a 4xx on a
+            # part not UNKNOWN/WORKING is "never placed" -- a 5xx/504 may have landed
             unresolved = [p for p in parts
-                          if not p.get("ok")
-                          and _broker_send_status_code(p.get("reason")) is None]
+                          if not p.get("ok") and p.get("sent", True)
+                          and (p.get("outcome") in ("UNKNOWN", "WORKING")
+                               or not 400 <= (_broker_send_status_code(
+                                   p.get("reason"), p.get("http_status")) or 0) < 500)]
             unresolved_part_ids = [p.get("client_order_id") for p in unresolved]
             needs_verify = sent and bool(unresolved_part_ids)
             unresolved_part_qty = {p.get("client_order_id"): _whole_qty(p.get("qty"))
@@ -2656,7 +2726,7 @@ def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts
             landed_qtys = [_whole_qty(p.get("qty")) for p in parts if p.get("ok")]
             verify_landed_qty = None if None in landed_qtys else sum(landed_qtys)
         else:
-            status_code = _broker_send_status_code(text)
+            status_code = _broker_send_status_code(text, rec.get("http_status"))
             needs_verify = sent and not (status_code is not None and 400 <= status_code < 500)
             unresolved_part_ids = None
             unresolved_part_qty = None
@@ -2799,6 +2869,19 @@ _order_lookup_timeout_at = {"t": 0.0}
 ORDER_LOOKUP_COOLDOWN_SEC = 10.0
 
 
+def _order_lookup_busy():
+    """True while an order lookup is still hung or one timed out within
+    ORDER_LOOKUP_COOLDOWN_SEC (the same test _order_known_at_broker skips on). Never raises."""
+    try:
+        prior = _order_lookup_inflight.get("future")
+        if prior is not None and not prior.done():
+            return True
+        return (time.time() - float(_order_lookup_timeout_at.get("t") or 0.0)
+                < ORDER_LOOKUP_COOLDOWN_SEC)
+    except Exception:
+        return False
+
+
 def _order_known_at_broker(adapter, signal_id, log=print):
     """Webull's own verdict on ONE earlier CLOSE attempt, looked up by its client order
     id via adapter.order_status(signal_id), bounded to ORDER_STATUS_HARD_TIMEOUT_SEC on
@@ -2931,8 +3014,8 @@ def _close_resend_sizes(item, verdict, believed=None):
     remaining -- how many shares of this close are still unsold:
       single order: min(verify_qty, believed) - (that size if FILLED else its filled
                     qty). `believed` is the adapter's own qty for the leg read at this
-                    verify step: a failed or hung send never moves it, so it is the
-                    adapter's pre-attempt clamp (MAJOR, 2026-09-26 review) -- an item
+                    verify step plus OrderAdapter.booked_shares of the verified
+                    attempt, i.e. the pre-attempt clamp (MAJOR, 2026-09-26) -- an item
                     queued before verify_qty was capped at queue time, or a legacy entry
                     with no verify_qty at all (falls back to item["shares"], the ASKED
                     size), can then never re-send shares that never went out;
@@ -3001,7 +3084,7 @@ def _close_resend_remainder(item, verdict, believed=None):
     return _close_resend_sizes(item, verdict, believed=believed)[0]
 
 
-def _apply_unacked_close_fill(state, leg, qty, log=print):
+def _apply_unacked_close_fill(state, leg, qty, log=print, part_outcomes=None):
     """Books `qty` shares that filled at Webull on a CLOSE send that came back not ok
     onto the adapter's own sent/believed books for `leg` (OrderAdapter.apply_unacked_
     close_fill) -- minor, 2026-09-26 review: without this the adapter keeps believing
@@ -3017,7 +3100,7 @@ def _apply_unacked_close_fill(state, leg, qty, log=print):
     until they are corrected. Never raises."""
     try:
         qty = int(qty or 0)
-        if qty <= 0:
+        if qty <= 0 and not part_outcomes:
             return
         applied = None
         why = "the adapter could not update its books"
@@ -3026,11 +3109,15 @@ def _apply_unacked_close_fill(state, leg, qty, log=print):
         else:
             fn = getattr(_get_broker_adapter(log=log), "apply_unacked_close_fill", None)
             if callable(fn):
-                applied = fn(leg, qty)
+                # Webull's verified answer per id sets those parts exactly (2026-09-26)
+                applied = (fn(leg, qty, part_outcomes=part_outcomes)
+                           if part_outcomes else fn(leg, qty))
         if isinstance(applied, dict):
             log(f"[qqq-exec] broker books for {leg}: booked {qty} share(s) that filled at "
                 f"Webull on a not-ok CLOSE send (sent -{applied.get('sent')}, believed "
                 f"-{applied.get('believed')})")
+            return
+        if qty <= 0:
             return
         msg = (f"QQQ BROKER: {leg}'s adapter books still count {qty} share(s) that already "
                f"sold at Webull ({why}) -- off until reconcile; do not use FLATTEN_BROKER "
@@ -3152,7 +3239,38 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
             gap = _close_resend_backoff(tries) if close_retry else BROKER_RESEND_MIN_GAP_SEC
             if now - float(item.get("last_at") or 0) < gap:
                 continue
-            shares = lot.get("shares_remaining") if intent == "OPEN" else item.get("shares")
+            shares = (lot.get("shares_remaining") if intent == "OPEN" and why != "remainder"
+                      else item.get("shares"))
+            if why == "remainder":
+                # SPLIT REMAINDER (2026-09-26): ONCE, capped at what the lot still lacks
+                q.pop(key, None)
+                held = _believed_qty_for_leg(leg, log=log, larger=True)   # never over-buy
+                shares = min(int(shares or 0), int(round(float(lot.get("shares_remaining")
+                                                               or 0))) - (held or 0))
+                if held is None or shares <= 0:
+                    msg = (f"QQQ BROKER: the rest of {leg}'s split entry not re-sent -- " + (
+                        "Webull already holds what the lot needs" if held is not None else
+                        f"the adapter's books could not be read; the book may hold more {leg}"))
+                    log(f"[qqq-exec] {msg}")
+                    _log_event(state, "broker", msg, log=log)
+                    if held is None:
+                        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+                    continue
+                _mirror_to_broker(state, leg=leg, side=item.get("side"), shares=shares,
+                                  shadow_px=item.get("shadow_px"), intent=intent,
+                                  ts=item.get("ts"), seq=item.get("seq") or 0,
+                                  trade_id=item.get("trade_id"), resend=tries + 1,
+                                  requeue=False, nowdt=nowdt, log=log, remainder=True)
+                last = state.get("_broker_last") or {}
+                ok = bool(last.get("ok")) and last.get("leg") == leg
+                msg = (f"QQQ BROKER: the unsent {shares} of {leg}'s split entry "
+                       + ("re-sent and accepted" if ok else
+                          f"could not be sent either ({last.get('reason') or 'see the broker log'}) "
+                          f"-- the book holds more {leg} than Webull; no further tries"))
+                log(f"[qqq-exec] {msg}")
+                _log_event(state, "broker", msg, log=log)
+                _notify(msg, "EDGELOG QQQ BROKER", log, priority=None if ok else "high")
+                return  # ONE re-send per tick
             if close_retry:
                 # NEVER DOUBLE-SELL (item 2): re-check the adapter's own believed
                 # position right before this attempt -- if it already reads flat, some
@@ -3220,12 +3338,28 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                     if v == "dead" and believed is None and not part_ids:
                         v = None   # cannot cap the remainder by what the adapter sent -- hold
                     if v in ("filled", "dead"):
+                        # 2026-09-26: add back what the adapter already counts of this
+                        # attempt, so `believed` is the pre-attempt qty (never twice)
+                        ids = part_ids or [prev_id]
+                        booked_fn = getattr(_get_broker_adapter(log=log), "booked_shares", None)
+                        booked = booked_fn(ids) if callable(booked_fn) else 0
+                        if believed is not None and type(booked) is int and booked > 0:
+                            believed += booked
                         remaining, unacked = _close_resend_sizes(item, known,
                                                                  believed=believed)
-                        if remaining is not None and unacked:
-                            # the adapter never booked shares that filled on a not-ok
-                            # send -- book them now (minor, 2026-09-26 review)
-                            _apply_unacked_close_fill(state, leg, unacked, log=log)
+                        extra = _whole_qty(item.get("pending_add")) or 0
+                        if remaining is not None and extra:
+                            # another dead order's unsold shares (_requeue_close_unfilled)
+                            remaining += extra
+                            item["pending_add"] = 0
+                        if remaining is not None:
+                            # books = what Webull says landed for the verified order(s)
+                            _apply_unacked_close_fill(
+                                state, leg, unacked, log=log,
+                                part_outcomes=(known.get("parts") if part_ids
+                                               else {prev_id: known}))
+                            if believed is not None:
+                                believed = max(0, believed - (unacked or 0))
                         if remaining is not None and remaining <= 0:
                             # everything this close asked for already landed
                             q.pop(key, None)
@@ -3246,9 +3380,8 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                             # in-flight block) never carries it forward and re-subtracts
                             # its fills from the already-reduced size.
                             log(f"[qqq-exec] broker CLOSE for {leg}: Webull's own order "
-                                f"record shows the previous attempt ({ids_desc}) is dead "
-                                f"-- re-sending the unfilled {remaining} of "
-                                f"{item.get('shares')}")
+                                f"record shows the previous attempt ({ids_desc}) is {v} "
+                                f"-- re-sending the unsold {remaining}")
                             item["shares"] = remaining
                             item["needs_verify"] = False
                             item["unresolved_part_ids"] = None
@@ -3461,7 +3594,7 @@ BROKER_FILL_CAPTURE_MAX_AGE_SEC = 60.0       # give up "after about a minute"
 
 
 def _queue_broker_fill_capture(state, *, leg, intent, signal_id, account_id, shadow_px,
-                               parts=None, log=print):
+                               parts=None, log=print, retry=None):
     """Queue a deferred order_status() query for a just-accepted real send -- serviced
     later by _maybe_capture_broker_fills, from tick(). A pure `state` write: no network
     call, cannot block or raise into the order path. Never raises.
@@ -3502,6 +3635,17 @@ def _queue_broker_fill_capture(state, *, leg, intent, signal_id, account_id, sha
                  "last_note": None}
                 for p in parts if p.get("client_order_id")
             ]
+        if retry:
+            job["retry"] = retry   # a CLOSE's trade, see _requeue_close_unfilled
+            # kept past this job's give-up: reconcile's PENDING pass may settle a part
+            # later (_push_pending_changes), keyed by every order id of this send
+            ctxs = state.setdefault("_broker_close_ctx", {})
+            for k in [k for k, v in ctxs.items() if now - float(v.get("at") or 0) > 86400]:
+                ctxs.pop(k, None)
+            for oid in [signal_id] + [p.get("client_order_id") for p in job.get("parts") or []]:
+                if oid:
+                    ctxs[webull_orders._sanitize_client_order_id(oid)] = {
+                        "leg": leg, "shadow_px": shadow_px, "retry": retry, "at": now}
         state.setdefault("_broker_fill_capture", {})[key] = job
     except Exception as e:
         log(f"[qqq-exec] fill-capture queueing failed (non-fatal): {type(e).__name__}: {e}")
@@ -3632,6 +3776,74 @@ def _finish_fill_capture_parts(item, log=print):
     _finish_fill_capture(item, px, note, log=log)
 
 
+def _requeue_close_unfilled(state, item, order_id, unsold, nowdt=None, log=print):
+    """ACK IS NOT A FILL, CLOSE side (2026-09-26): an acked CLOSE Webull later killed
+    left `unsold` shares; queue them through close_retry (grown onto this trade's item --
+    held as its pending_add while it verifies another attempt -- or a new one), unless a
+    queued item is already verifying `order_id`. True when
+    queued. Never raises."""
+    try:
+        ctx = (item or {}).get("retry") or {}
+        leg, trade_id, unsold = item.get("leg"), ctx.get("trade_id"), int(unsold or 0)
+        if unsold <= 0 or not trade_id:
+            return False
+        q = state.setdefault("_broker_resend", {})
+        existing = next((e for k, e in q.items() if e.get("leg") == leg
+                         and e.get("intent") == "CLOSE" and e.get("trade_id") == trade_id), None)
+        if existing is not None:
+            ids = list(existing.get("unresolved_part_ids") or []) + [existing.get("last_signal_id")]
+            if existing.get("needs_verify") and order_id in [
+                    webull_orders._sanitize_client_order_id(i) for i in ids if i]:
+                return False
+            if existing.get("needs_verify"):
+                # verifying ANOTHER attempt: never grow that attempt's size (a "filled"
+                # verdict would then drop the item with these shares unsold) -- they
+                # are added once the verify resolves (see "pending_add")
+                existing["pending_add"] = int(existing.get("pending_add") or 0) + unsold
+                return True
+            existing["shares"] = int(existing.get("shares") or 0) + unsold
+            if _whole_qty(existing.get("verify_qty")) is not None:
+                existing["verify_qty"] = int(existing["verify_qty"]) + unsold
+            return True
+        now = time.time()
+        q[f"{leg}:CLOSE:{trade_id}"] = {
+            "leg": leg, "intent": "CLOSE", "side": ctx.get("side"), "shares": unsold,
+            "shadow_px": item.get("shadow_px"), "ts": ctx.get("ts"), "seq": ctx.get("seq") or 0,
+            "trade_id": trade_id, "why": "close_retry", "tries": int(ctx.get("resend") or 0),
+            "first_at": now, "last_at": now,
+            "session_date": (nowdt or _now_et()).strftime("%Y-%m-%d"),
+            "sent": False, "needs_verify": False, "last_signal_id": None,
+            "unresolved_part_ids": None, "verify_qty": unsold,
+            "unresolved_part_qty": None, "verify_landed_qty": 0}
+        return True
+    except Exception as e:
+        log(f"[qqq-exec] close re-queue after a dead order failed (non-fatal): "
+            f"{type(e).__name__}: {e}")
+        return False
+
+
+def _push_fill_outcome(state, item, order_id, outcome, log=print, nowdt=None):
+    """ACK IS NOT A FILL (2026-09-26): one high push when fill capture moved the books
+    for an acked order that did not fully fill; a CLOSE's unsold shares are re-queued
+    first. apply_order_outcome reports a change once, so never twice. Never raises."""
+    try:
+        if not outcome or outcome.get("status") in (None, "FILLED"):
+            return
+        unsold = -int(outcome.get("change") or 0)
+        requeued = (item.get("intent") == "CLOSE" and unsold > 0 and _requeue_close_unfilled(
+            state, item, webull_orders._sanitize_client_order_id(order_id), unsold,
+            nowdt=nowdt, log=log))
+        msg = (f"QQQ BROKER {item.get('intent')} {item.get('leg')}: Webull reports "
+               f"{outcome['status']} for order {order_id} -- {outcome.get('filled')} of "
+               f"{outcome.get('qty')} share(s) filled; the adapter's books now count only "
+               f"the filled shares"
+               + (f"; re-sending the unsold {unsold}" if requeued else ""))
+        _log_event(state, "broker", msg, log=log)
+        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+    except Exception as e:
+        log(f"[qqq-exec] fill-outcome push failed (non-fatal): {type(e).__name__}: {e}")
+
+
 def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
     """Service the queued fill-price jobs (see _queue_broker_fill_capture) -- modelled
     on _maybe_resend_broker_orders: giving up on a stale job is cheap local bookkeeping
@@ -3677,7 +3889,8 @@ def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
                 # resolves cannot keep the job alive past the ordinary give-up window;
                 # each part gets its OWN retry-gap/tries so one already-priced part is
                 # never re-queried while a sibling still waits.
-                if age > BROKER_FILL_CAPTURE_MAX_AGE_SEC:
+                if age > BROKER_FILL_CAPTURE_MAX_AGE_SEC and not any(
+                        p.get("working") and not p.get("resolved") for p in parts):
                     q.pop(key, None)
                     _finish_fill_capture_parts(item, log=log)
                     continue
@@ -3695,12 +3908,20 @@ def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
                     continue  # every part is either resolved or in its own retry cooldown
                 target["tries"] = int(target.get("tries") or 0) + 1
                 target["last_at"] = now
+                outcome = {}
                 px, note = _query_broker_fill(adapter, target["client_order_id"],
-                                              account_id=item.get("account_id"), log=log)
+                                              account_id=item.get("account_id"), log=log,
+                                              outcome=outcome)
+                _push_fill_outcome(state, item, target["client_order_id"], outcome, log=log,
+                                   nowdt=nowdt)
                 if px is not None:
                     target["resolved"] = True
                     target["price"] = px
+                elif outcome.get("final"):
+                    target["resolved"] = True   # dead at Webull: no price will ever come
+                    target["last_note"] = f"{outcome.get('status')} at Webull"
                 else:
+                    target["working"] = outcome.get("working", target.get("working"))
                     target["last_note"] = note
                     log(f"[qqq-exec] fill-capture retry {target['tries']} for {item.get('leg')} "
                         f"{item.get('intent')} part {target['client_order_id']}: {note}")
@@ -3709,7 +3930,8 @@ def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
                     _finish_fill_capture_parts(item, log=log)
                 return  # ONE order_status() SDK call per tick
             # -- ordinary, single-order job: unchanged from before ORDER NETTING --
-            if age > BROKER_FILL_CAPTURE_MAX_AGE_SEC:
+            # (except: a job Webull last reported still working never ages out)
+            if age > BROKER_FILL_CAPTURE_MAX_AGE_SEC and not item.get("working"):
                 q.pop(key, None)
                 _finish_fill_capture(
                     item, None, item.get("last_note") or "gave up waiting for a fill price",
@@ -3721,12 +3943,20 @@ def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
                 continue
             item["tries"] = int(item.get("tries") or 0) + 1
             item["last_at"] = now
+            outcome = {}
             px, note = _query_broker_fill(adapter, item.get("signal_id"),
-                                          account_id=item.get("account_id"), log=log)
+                                          account_id=item.get("account_id"), log=log,
+                                          outcome=outcome)
+            _push_fill_outcome(state, item, item.get("signal_id"), outcome, log=log,
+                               nowdt=nowdt)
             if px is not None:
                 q.pop(key, None)
                 _finish_fill_capture(item, px, None, log=log)
+            elif outcome.get("final"):
+                q.pop(key, None)   # dead at Webull: no price will ever come
+                _finish_fill_capture(item, None, f"{outcome.get('status')} at Webull", log=log)
             else:
+                item["working"] = outcome.get("working", item.get("working"))
                 item["last_note"] = note
                 log(f"[qqq-exec] fill-capture retry {item['tries']} for {item.get('leg')} "
                     f"{item.get('intent')} (signal {item.get('signal_id')}): {note}")
@@ -3870,8 +4100,13 @@ def _reconcile_with_timeout(adapter, log=print):
     exactly like reconcile()'s documented read-failure path: fail closed via
     adapter.fail_closed(), because reconcile() itself is guaranteed thread-safe (see
     OrderAdapter's own lock) even if the underlying network call is still running in
-    the background after this function gives up waiting on it."""
-    fut = _reconcile_executor.submit(adapter.reconcile)
+    the background after this function gives up waiting on it.
+
+    2026-09-26: while an order lookup is hung or timed out within ORDER_LOOKUP_COOLDOWN_SEC,
+    reconcile() skips its PENDING pass (resolve_pending=False) -- that lookup runs before
+    the positions read, inside this same 12 s budget."""
+    fut = (_reconcile_executor.submit(adapter.reconcile, resolve_pending=False)
+           if _order_lookup_busy() else _reconcile_executor.submit(adapter.reconcile))
     try:
         return fut.result(timeout=RECONCILE_HARD_TIMEOUT_SEC)
     except concurrent.futures.TimeoutError:
@@ -3882,6 +4117,50 @@ def _reconcile_with_timeout(adapter, log=print):
         reason = f"can't read positions at Webull: reconcile crashed ({type(e).__name__}: {e})"
         log(f"[qqq-exec] {reason} -- halting new broker entries")
         return adapter.fail_closed(reason)
+
+
+def _push_pending_changes(state, adapter, log=print, nowdt=None):
+    """One high push per book change reconcile()'s PENDING pass made (take_part_events):
+    the books then match Webull, so nothing else would page. A dead CLOSE's unsold
+    shares (Webull's explicit dead record with a filled qty) are re-queued through
+    close_retry like fill capture does, unless a queued close re-send already verifies
+    that order; with no trade context the push says to sell by hand. Never raises."""
+    try:
+        take = getattr(adapter, "take_part_events", None)
+        events = take(lock_timeout=0.2) if callable(take) else []
+        for ev in events if isinstance(events, list) else []:
+            leg = ev.get("leg")
+            msg = (f"QQQ BROKER {ev.get('intent')} {leg}: Webull's record of order "
+                   f"{ev.get('client_order_id')} (outcome was not known) came back "
+                   f"{ev.get('status')} -- the adapter's books now count {ev.get('booked')} "
+                   f"of {ev.get('qty')} share(s)")
+            unsold = -int(ev.get("change") or 0)
+            if (ev.get("intent") == "CLOSE" and unsold > 0
+                    and ev.get("status") in webull_orders.DEAD_STATUSES):
+                oid = webull_orders._sanitize_client_order_id(ev.get("client_order_id"))
+                verifying = any(
+                    e.get("leg") == leg and e.get("intent") == "CLOSE" and e.get("needs_verify")
+                    and oid in [webull_orders._sanitize_client_order_id(i) for i in
+                                list(e.get("unresolved_part_ids") or [])
+                                + [e.get("last_signal_id")] if i]
+                    for e in (state.get("_broker_resend") or {}).values())
+                ctx = (state.get("_broker_close_ctx") or {}).get(oid)
+                if verifying:
+                    msg += "; the queued close re-send is verifying it"
+                elif ctx and _requeue_close_unfilled(state, ctx, oid, unsold, nowdt=nowdt,
+                                                     log=log):
+                    msg += f"; re-sending the unsold {unsold}"
+                else:
+                    msg += (f"; Webull still holds {unsold} {leg} share(s) -- sell them "
+                            f"by hand")
+            if ev.get("intent") == "OPEN" and int(ev.get("booked") or 0) > 0 \
+                    and not (state.get("legs") or {}).get(leg):
+                msg += (f"; the book holds no {leg}, so Webull may hold shares the book "
+                        f"does not -- check Webull")
+            _log_event(state, "broker", msg, log=log)
+            _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+    except Exception as e:
+        log(f"[qqq-exec] pending-order push failed (non-fatal): {type(e).__name__}: {e}")
 
 
 RECONCILE_ALERT_REPEAT_SEC = 30 * 60.0  # item 2 (2026-09-26): cap while it persists
@@ -3976,6 +4255,7 @@ def _maybe_run_broker_reconcile(state, cfg, adapter, nowdt, active, log=print):
     result = _reconcile_with_timeout(adapter, log=log)
     if result is None:
         return
+    _push_pending_changes(state, adapter, log=log, nowdt=nowdt)
     if result.get("ok"):
         log(f"[qqq-exec] broker reconcile OK ({why})")
     else:

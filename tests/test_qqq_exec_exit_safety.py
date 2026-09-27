@@ -73,6 +73,7 @@ here even when a test does not build its own adapter.
 """
 import csv
 import datetime
+import itertools
 import json
 import os
 import time
@@ -314,7 +315,10 @@ def test_mirror_to_broker_alerts_high_priority_on_close_failure(tmp_path, monkey
     qe._mirror_to_broker(state, leg="ORB", side="long", shares=5, shadow_px=500.0,
                          intent="CLOSE", ts="x", trade_id=ORB_TRADE_ID, log=NOOP)
 
-    assert any(p == "high" and "CLOSE NOT OK" in m for _t, m, p in pushed)
+    # 2026-09-26 (the order path never guesses): a bare exception with no clear answer
+    # from Webull's own order record is now an UNKNOWN outcome -- still one high push
+    assert any(p == "high" and ("CLOSE NOT OK" in m or "CLOSE OUTCOME UNKNOWN" in m)
+               for _t, m, p in pushed)
 
 
 def test_mirror_to_broker_does_not_alert_on_confirmed_nothing_to_close(tmp_path, monkeypatch):
@@ -554,8 +558,10 @@ def test_close_retry_drops_when_webulls_own_record_shows_the_order_landed(tmp_pa
     clock = [1_000_000.0]
     monkeypatch.setattr(qe.time, "time", lambda: clock[0])
     client.order_v3.place_order.side_effect = RuntimeError("dropped connection")
-    client.order_v3.get_order_detail.return_value.json.return_value = {
-        "orders": [{"status": "FILLED"}]}
+    # 2026-09-26: the adapter's own send-time lookups (WO.UNKNOWN_LOOKUP_TRIES) find no
+    # record yet, so the send stays UNKNOWN; Webull's record shows FILLED only later
+    client.order_v3.get_order_detail.return_value.json.side_effect = itertools.chain(
+        [{}] * WO.UNKNOWN_LOOKUP_TRIES, itertools.repeat({"orders": [{"status": "FILLED"}]}))
     cfg = _resend_cfg()
     nowdt = datetime.datetime(2026, 9, 26, 12, 0, 0)
     state = {"legs": {}, "events": []}

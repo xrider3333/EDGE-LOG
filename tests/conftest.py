@@ -338,6 +338,17 @@ def _isolate_inflight_send(live_system_guard, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_order_path_waits(monkeypatch):
+    """api.webull_orders spaces its order lookups (an unclear send, a split's part 1)
+    over a few seconds through its one _sleep seam -- never really wait in a test."""
+    try:
+        from api import webull_orders as wo
+    except ImportError:
+        return
+    monkeypatch.setattr(wo, "_sleep", lambda sec: None)
+
+
+@pytest.fixture(autouse=True)
 def _reset_order_lookup_cooldown():
     """api.qqq_exec skips order lookups for a few seconds after one timed out
     (_order_lookup_timeout_at). Reset it around every test so one test's timeout can

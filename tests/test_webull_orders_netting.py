@@ -551,7 +551,7 @@ def test_fill_capture_weights_price_by_qty_across_parts(tmp_path, monkeypatch):
 
     prices = {"n-open-1": 100.0, "n-open-2": 102.0}
 
-    def fake_query(adapter, coid, account_id=None, log=print):
+    def fake_query(adapter, coid, account_id=None, log=print, outcome=None):
         return prices[coid], None
 
     monkeypatch.setattr(qe, "_query_broker_fill", fake_query)
