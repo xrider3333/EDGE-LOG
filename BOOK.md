@@ -1110,6 +1110,38 @@ $27,310, 8 of 8 stretches. The runner equals the local run to the cent.
 Scripts, streams and the full report: `C:\EdgeLog\_anatomy_cache\frontier_combo\` (`combo_eval.py`,
 `combo_report.txt`, `combo_results.json`) and `...\dip452_book\`.
 
+**Addendum B - the NOISE sizing legs (MANAGER #17; pre-registered as addendum B before the streams existed).**
+Custom ML exported the NOISE legs on the no-adjust 5m tape. NOISE is flat by the close, and its #422 raw twin
+matches the engine to $0.63 over 2016-2026. Each leg was swapped into #456's legs (ORB #257, the ENGU-Q book
+leg, TTM #455) and into the ORB #314 base. Common windows: WF 2016-07-13..2025-06-13 and LB
+2025-08-14..2026-06-29.
+
+| #456's legs with NOISE = | WF ROC as run / at $30k | WF DD | WF Sortino | LB ROC as run / at the WF $30k size | LB DD as run / at that size | vs #449 | vs #456 |
+|---|---|---|---|---|---|---|---|
+| (#449 itself) | 151.7 / 101.5 | $44,849 | 4.14 | 293.3 / 196.2 | $49,855 / $33,349 | - | - |
+| #422 raw (= #456) | 157.0 / 143.6 | $32,794 | 4.34 | 280.9 / 256.9 | $49,475 / $45,259 | misses (4) | - |
+| **#422 + fixed tilts** | **178.1 / 158.1** | $33,792 | **4.80** | **315.1** / 279.8 | **$49,475** / $43,923 | misses (4) | **BEATS** |
+| #422 + KEEL 7-seed | 189.7 / 168.0 | $33,872 | 4.81 | 300.5 / 266.1 | $49,162 / $43,543 | misses (4) | BEATS |
+| #382 + fixed tilts | 186.9 / 148.3 | $37,809 | 4.72 | 323.5 / 256.7 | $56,494 / $44,826 | misses (4) | misses (1)(3) |
+
+- **The fixed tilts add, and so does KEEL on #456's legs.** Each was read against its own raw twin at matched
+  drawdown, WF at $30k then LB:
+  - #422 fixed tilts: 158.1 against 143.6, lockbox 279.8 against 256.9 on #456's legs, and they add on the
+    ORB #314 base too.
+  - #422 KEEL 7-seed: 168.0 against 143.6 on #456's legs. It adds NOTHING on the ORB #314 base (132.0 against
+    140.5), so its gain is base-specific.
+  - #382 fixed tilts against #382 raw: 148.3 against 125.8.
+- **Against #449, every NOISE swap still misses clause 4 at the walk-forward-matched size.** #449's 2020
+  walk-forward drawdown makes its matched size small; a book with a smaller walk-forward drawdown is sized up,
+  and its lockbox drawdown then runs deeper.
+- **At OWN size (k = 1), #456's legs with the #422 fixed tilts beat #449 on every read.**
+  - Walk-forward: 178.1 against 151.7 %/yr, drawdown $33,792 against $44,849, Sortino 4.80 against 4.14.
+  - Lockbox: 315.1 against 293.3 %/yr, drawdown $49,475 against $49,855, Sortino 4.74 against 4.54.
+  - #456 alone at own size also passes clause 4 ($49,475 against $49,855), but its lockbox return is lower
+    (280.9 against 293.3).
+  - Caveat: the Friday and compression tilts were found on pre-lockbox data, so part of the WF gain is
+    in-sample. The lockbox (+12 % on #456 at the same lockbox drawdown) is the out-of-sample read.
+
 ### 10b. An open item this audit turned up: two day-stamping rules disagree
 
 The recorded finding put the baseline's worst stretch in **2020-02-21..2020-03-25 at $34,903**; the
