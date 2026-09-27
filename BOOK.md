@@ -1142,6 +1142,20 @@ leg, TTM #455) and into the ORB #314 base. Common windows: WF 2016-07-13..2025-0
   - Caveat: the Friday and compression tilts were found on pre-lockbox data, so part of the WF gain is
     in-sample. The lockbox (+12 % on #456 at the same lockbox drawdown) is the out-of-sample read.
 
+**Persisted as run #457 (MANAGER GO, a test, not an adoption).** #456's legs with the NOISE #422 leg
+carrying the paper compression gate. The gate settings are compression 1.5x, Friday 1.5x, half size
+before Fed statements, and a cap of 3; they are the exact settings of Custom ML's export tool. The engine
+leg equals Custom ML's stream ($775,876.48 against $775,876.24; no day off by more than $0.05), and the
+combination figures above reproduce exactly. The runner equals the local run to the cent, 8 of 8 stretches.
+
+| Standard window | #457 | #449 |
+|---|---|---|
+| ROC %/yr, pre-lockbox / lockbox | 112.3 / 322.9 | 97.5 / 310.8 |
+| Drawdown, pre-lockbox, at close / valued daily | $33,264 / $33,792 | $43,967 / $44,849 |
+| Drawdown, lockbox, at close / valued daily | **$30,051** / $49,475 | $27,506 / $49,855 |
+
+The lockbox drawdown at close is 9 % deeper than #449's; valued daily it is slightly smaller.
+
 ### 10b. An open item this audit turned up: two day-stamping rules disagree
 
 The recorded finding put the baseline's worst stretch in **2020-02-21..2020-03-25 at $34,903**; the
