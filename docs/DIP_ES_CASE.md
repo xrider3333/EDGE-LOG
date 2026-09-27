@@ -63,4 +63,38 @@ Either result goes to the owner; nothing is adopted by this file.
 
 ## 4. Results
 
-_(filled in after the measurements; section 1-3 text unchanged)_
+Run 2026-09-26 with `tools/pbo_band.py` (sections 1-3 unchanged; pre-registration commit d491b177).
+
+| Run | Stored | Top-24 recomputed | Band over 300 draws of 24 from the top 48 (min / 10 % / median / 90 % / max) | Draws ≥ 0.5 | Bar |
+|---|---|---|---|---|---|
+| **#432** (true rolls) | 0.706 | 0.817 | 0.321 / 0.448 / **0.651** / 0.865 / 0.980 | 83 % | UNINFORMATIVE |
+| #425 (control, old rolls) | 0.337 | 0.639 | 0.369 / 0.504 / **0.623** / 0.770 / 0.944 | 92 % | FAILED |
+
+**The reproduction check failed on both runs** (off by 0.11 and 0.30), so under 3b **the band is not trusted
+and the case goes back to the owner as-is.** Cause: the validate builds its 24 from the search's full ranked
+list (all ~860 valid trials, realism-gated, then by profit), and a run saves only a 150-point sample of the
+search, so this tool cannot rebuild the exact 24. Fixing that means saving the validate's 24 config ids on
+the run (engine change, not done here).
+
+**What the untrusted band suggests, stated as context only:** the two versions of DIP on ES land in one
+band (medians 0.65 and 0.62, wide spread), so #425's 0.337 PASS looks like the low end of a draw, not the
+roll fix breaking a sound strategy. That cuts **against** the re-argument, not for it: the overfit concern is
+not shown to be pure measurement here. It also does not show real overfitting - the band is wide (0.32 to
+0.98) and, unlike NOISE in RESEARCH.md 3d, sits mostly above the line, which a near-tie alone would not do.
+
+**Standing facts for the owner:** five of six gates pass; 8 of 8 walk-forward stretches held; lockbox +25.4 %
+a year, Sortino 3.77; the search chose the same champion before and after the roll fix. Adoption, and
+whether a book test is still worth running, is the owner's call. The book test in 3c was handed to the
+Frontier chat as information for that call, marked not eligible under 3b.
+
+## 5. New data for the next strategy search (scoped 2026-09-26, prices as found on vendor pages that day)
+
+| Option | What it unlocks | Cost | Effort |
+|---|---|---|---|
+| **Alpaca stock/ETF 1m-5m bars (free tier)** | Intraday search on single stocks and ETFs, not just NQ/ES | Free; needs an owner-created API key | Near zero: `tools/import_alpaca_stocks.py` is already written |
+| **Databento CME Globex OHLCV-1m for YM, RTY, CL, GC, ZN/ZB, 6E** | New, less-correlated futures for the ORB / NOISE / DIP recipes on the same pipeline | Usage-based, "from $0.50/GB" (databento.com/catalog/GLBX.MDP3); $125 free credit for a new team (databento.com/pricing). 1-minute bars for one root over 16 years are small, so likely inside the credit - confirm with Databento's cost estimate before buying | About 0.5-1 day per root: add the root to `tools/stitch_databento.py`, build its roll table with `tools/rollaudit/ground_truth.py`, register masters (YM/RTY/CL/GC specs already exist in `optimizer.py`) |
+| VIX futures (CFE) | A new asset class | Databento offers raw feed only ($750/month); normalized bars "in development". FirstRate / Kibot sell minute bundles (Kibot top-10 futures $400 one-time, kibot.com); FirstRate price not readable on the page | Medium-high: new importer and vendor format |
+| Order flow (CME trades / top of book) | Per-bar buy/sell delta on NQ/ES | Not verified (ROADMAP.md #23 quotes $28/GB, unconfirmed) | Medium-high: new schema and features |
+
+Recommendation: the free Alpaca pull first, then a small Databento pull for YM, RTY, CL and GC. Both need an
+account only the owner can create (this chat never creates accounts or handles keys).
