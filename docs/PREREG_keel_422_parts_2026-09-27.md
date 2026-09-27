@@ -86,3 +86,41 @@ money at a disproportionate drawdown and nothing the fixed tilts do not already 
 **The two candidates side by side (fixed tilts):** #382 + tilts makes more (WF 78.6 vs 70.2 %/yr, LB 103.2 vs
 94.4) with more risk (WF DD $25.2k vs $19.4k, top size 4.5x vs 3.9x); #422 + tilts is the better return per
 drawdown (WF 3.63 vs 3.12, LB 3.36 vs 3.13) and Sortino (5.48 vs 4.84). Owner call; nothing live changed.
+
+---
+
+## POST-HOC (2026-09-27, MANAGER audit #18) - the only clean window, and what it says
+
+**No tilt or KEEL lockbox figure above is clean.** Every setting was chosen reading NOISE #243 / #304's
+walk-forward AND lockbox on tapes ending 2026-08-12:
+
+| setting | fixed | chosen on |
+|---|---|---|
+| compression 1.5x | v9, 2026-09-07 | TTM round-6 by-product; 2x rejected on #304's lockbox drawdown |
+| Friday 1.5x | v11, 2026-09-08 | picked from five weekdays on WF AND lockbox EV R |
+| FOMC-morning 0.5x | v12, 2026-09-09 | an a-priori hypothesis (the Fed calendar) with permutation + placebo support - the only one with independent evidence; the 0.5 level was the middle because deeper cuts read better on the lockbox |
+| KEEL model (v1-v12) | 2026-09-02..09 | members, windows, shade and trust tuned reading both stretches |
+| #382 / #422 cells | validates to 2026-07-16 | their own searches |
+
+**Cut-off 2026-08-12.** Clean window = entries 2026-08-13 .. 2026-09-25 (the last bar), the 09-14 splice
+session dropped: **27 trades**. `python tools/keel_clean_window.py`
+
+| leg | arm | n | net $ | max DD $ | net / DD |
+|---|---|---|---|---|---|
+| #422 | raw | 27 | 6,932 | 4,633 | 1.50 |
+| #422 | fixed tilts | 27 | 5,534 | 4,633 | 1.19 |
+| #422 | KEEL seed 42 | 27 | 4,737 | 6,010 | 0.79 |
+| #422 | KEEL 7-seed | 27 | 5,013 | 5,466 | 0.92 |
+| #382 | raw | 27 | 5,726 | 5,878 | 0.97 |
+| #382 | fixed tilts | 27 | 4,328 | 5,878 | 0.74 |
+| #382 | KEEL seed 42 | 27 | 3,346 | 8,638 | 0.39 |
+| #382 | KEEL 7-seed | 27 | 5,414 | 7,268 | 0.75 |
+
+Raw leads on both legs, but every gap is smaller than one trade's P&L - 27 trades cannot separate these
+arms. Round 60 and the 09-27 comparisons had already looked at data to 2026-09-16, so only 15 of these
+trades are unseen by any comparison either (same ordering on #422; on #382 KEEL 7-seed edges raw, 2.12 vs 2.05).
+**Conclusion: there is no clean evidence yet that any NOISE sizing layer beats raw.** The earlier
+"fixed tilts beat KEEL" result still holds as a comparison on the walk-forward, but the walk-forward is
+not clean either - the tilts were read on it. Only forward data can decide; the live NOISE leg's paper record
+from 2026-09-24 is the clean test, and a shadow-scored raw / fixed-tilt / KEEL comparison on its fills
+would settle it the same way as docs/PREREG_orb314_tree_forward_2026-09-27.md.
