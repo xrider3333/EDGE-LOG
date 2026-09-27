@@ -913,6 +913,49 @@ every stored run (10f).
   Jul-Aug 2024. Scaled to #396's drawdown it reads about 65.5 / 182.8 %/yr - well below #396. On these
   numbers the add does not pay for its drawdown; the TBIS chat re-reads TTIBS from #431.
 
+### 10i. Real book runs on roll-corrected masters - #435 / #436 / #437 / #438 (2026-09-26)
+
+**What.** Owner GO (decision 13, via MANAGER): re-run the current books as real BOOK jobs on the
+roll-corrected masters EL-CBU-STOCKS registered on 2026-09-26 (sources `db_adj_eth` / `db_adj_rth`:
+Panama back-adjusted on the 64 exact contract switches of `tools/data/contract_switches_*.csv`, with
+the June and September 2026 in-bar splices repaired). Legs are each book's frozen job legs VERBATIM
+except the data source.
+
+**What is and is not corrected.** ENGU-Q and TTM run on back-adjusted prices, which is exactly how
+ROLL_AUDIT.md corrected them (3.2, 3.3). ORB is immune (identical trades either way, 3.4). **NOISE stays
+on the no-adjust master**: the audit corrected NOISE with a strategy-side prior-close fix (3.4), and a
+back-adjusted master gives NOISE a different, wrong answer (its bands are percent-of-price; measured
+$4.7k-$19k off the audit figure). NOISE's own correction is small (NOISE #304 -$2,874, 3.4). The masters
+also repair the June 2026 splice, which no audit figure includes (ENGU-Q -$5,860, ROLL_AUDIT 3.2).
+
+**Parity.** Before queueing, the frozen legs on the no-adjust masters reproduced stored #366 / #396 /
+#397 / #430 to the cent, and on the corrected masters every trade closing before the June splice
+equalled the audit's own code path trade for trade. The runner's results equal that local run to the
+dollar, and every leg ran on the intended master (no fallback). Script, targets and logs:
+`C:\EdgeLog\_anatomy_cache\rolladj_books\` (`rolladj_books.py`, `rolladj_targets.md`).
+
+| run | = | whole net | pre-lockbox net / ROC %/yr | pre DD at close / valued daily | lockbox net / ROC %/yr | lockbox DD at close / valued daily | stretches |
+|---|---|---|---|---|---|---|---|
+| **#435** | #366 roll-corrected | $1,548,011 | $1,271,120 / 84.4 | $40,854 / $41,736 | $276,890 / 277.1 | $28,066 / $49,855 | 8/8 PASS |
+| **#436** | #396 roll-corrected | $1,637,053 | $1,342,879 / 89.1 | $43,967 / $44,849 | $294,174 / 294.4 | $27,506 / $49,855 | 8/8 PASS |
+| **#437** | #397 roll-corrected | $1,620,275 | $1,327,154 / 88.1 | $40,971 / $41,853 | $293,121 / 293.3 | $25,893 / $49,855 | 8/8 PASS |
+| **#438** | #430 roll-corrected | $1,850,577 | $1,535,052 / 101.9 | $45,143 / $46,024 | $315,524 / 315.7 | $32,467 / $55,474 | 8/8 PASS |
+
+Stored (unadjusted) figures for comparison: #366 92.7 / 290.0, #396 98.5 / 307.3, #397 97.4 / 306.3,
+#430 111.2 / 328.7 %/yr. Books carry no Sortino (the book engine does not compute one).
+
+**The ranking, restated (no decision taken here).** Return per drawdown = net per year / at-close
+drawdown, per stretch.
+- Before the lockbox: #438 2.26, **#437 2.15**, #435 2.07, #436 2.03.
+- In the lockbox: **#437 11.3**, #436 10.7, #435 9.9, #438 9.7.
+- At one common risk (each scaled to #366's pre-lockbox drawdown, $40,854): #438 92.2 / 285.7,
+  **#437 87.9 / 292.5**, #435 84.4 / 277.1, #436 82.8 / 273.5 %/yr.
+- Reading: FRONTIER #397 (#437) is the most balanced - first in the lockbox, second before it. The NOISE
+  #382 slot (#438) makes the most money and the best pre-lockbox ratio, but the deepest drawdowns and the
+  weakest lockbox ratio. #396 over #366 now rests on the lockbox alone (it trails #366 before the
+  lockbox), as ROLL_AUDIT 4.3 found. #379 (which the audit ranks above #397 on the selection stretch)
+  was not re-run here. Adoption (#366 / #396 / #397, and the NOISE slot) stays the owner's call.
+
 ### 10b. An open item this audit turned up: two day-stamping rules disagree
 
 The recorded finding put the baseline's worst stretch in **2020-02-21..2020-03-25 at $34,903**; the
