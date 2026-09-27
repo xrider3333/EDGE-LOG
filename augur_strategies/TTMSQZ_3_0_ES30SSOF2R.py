@@ -46,6 +46,9 @@ money. It is judged on whether the honest leg still stands:
       1.15, both on back-adjusted data.
   Swapping the paper leg or the book leg onto this file is an OWNER decision either way.
 """
+# PARENT FIX 2026-09-27: TTMSQZ_3_0_ES30SS.py's entry-bar stop no longer books an exit at a price
+# the bar never traded when the open gaps past the stop. This line also changes this file's hash,
+# because the trial cache fingerprints only the top-level file and would otherwise replay old results.
 import os
 from importlib import util as _u
 

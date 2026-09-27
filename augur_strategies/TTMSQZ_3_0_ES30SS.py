@@ -224,7 +224,14 @@ def _simulate(o, h, l, c, n, warm, mom, atr, fire, rng_hi, rng_lo, gate_long, ga
                     # the fill bar's own range can take out the protective stop; assume it does.
                     if stop_px is not None and ((side > 0 and l[u] <= stop_px) or
                                                (side < 0 and h[u] >= stop_px)):
-                        _book(u, stop_px, pos, entry_px, entry_bar)
+                        # FIX 2026-09-27 (MANAGER audit): when the open has already gapped PAST the
+                        # stop, the stop sits on the far side of the entry and booking it at stop_px
+                        # recorded a PROFIT at a price the bar never traded (17 of 354 trades on #369,
+                        # e.g. 2026-03-03 long in at 6,746.25 out at 6,853.25 against a 6,762 high). The
+                        # fill is the open, exactly as step 2 below already treats a gap on a later bar:
+                        # the trade is flat at the entry price and pays the round-trip cost.
+                        px = min(o[u], stop_px) if side > 0 else max(o[u], stop_px)
+                        _book(u, px, pos, entry_px, entry_bar)
                         pos = 0; stop_px = None
                 pending = None
 

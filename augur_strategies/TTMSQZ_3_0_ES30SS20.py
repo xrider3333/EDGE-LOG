@@ -30,6 +30,9 @@ WHY THIS EXISTS (2026-09-09, immediately after run #352)
   Everything else - the mechanism, the hourly verification, the tilt, the cost convention - is
   identical to TTMSQZ_3_0_ES30SS.py, which this file imports rather than copies.
 """
+# PARENT FIX 2026-09-27: TTMSQZ_3_0_ES30SS.py's entry-bar stop no longer books an exit at a price
+# the bar never traded when the open gaps past the stop. This line also changes this file's hash,
+# because the trial cache fingerprints only the top-level file and would otherwise replay old results.
 import os
 from importlib import util as _u
 

@@ -39,6 +39,9 @@ Everything else is unchanged from the leg the book carries: the crown cell, the 
 at length 20, the validated 1.5x deep-squeeze size tilt, and the structural stop at the far side of
 the squeeze range. Imported from TTMSQZ_3_0_ES30SS.py rather than copied.
 """
+# PARENT FIX 2026-09-27: TTMSQZ_3_0_ES30SS.py's entry-bar stop no longer books an exit at a price
+# the bar never traded when the open gaps past the stop. This line also changes this file's hash,
+# because the trial cache fingerprints only the top-level file and would otherwise replay old results.
 import os
 from importlib import util as _u
 

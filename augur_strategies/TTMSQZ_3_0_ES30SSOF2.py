@@ -43,6 +43,9 @@ annualised MAR 1.450, lockbox $16,977 at profit factor 6.72):
 Imported from TTMSQZ_3_0_ES30SSO.py, which imports the structural-stop file, which imports the
 engine. Nothing is copied.
 """
+# PARENT FIX 2026-09-27: TTMSQZ_3_0_ES30SS.py's entry-bar stop no longer books an exit at a price
+# the bar never traded when the open gaps past the stop. This line also changes this file's hash,
+# because the trial cache fingerprints only the top-level file and would otherwise replay old results.
 import os
 from importlib import util as _u
 

@@ -21,6 +21,9 @@ HOW TO CARRY IT IN A BOOK: strategy TTMSQZ_3_0_ES30SSOF2R347.py, ES 30m RTH, sou
 (the file removes the rolls itself - on a back-adjusted master it would remove them twice), params
 kc_mult 1.5 / eod_cutoff 5, cost_pts 0.363, multiplier 50, WEIGHT 1.0.
 """
+# PARENT FIX 2026-09-27: TTMSQZ_3_0_ES30SS.py's entry-bar stop no longer books an exit at a price
+# the bar never traded when the open gaps past the stop. This line also changes this file's hash,
+# because the trial cache fingerprints only the top-level file and would otherwise replay old results.
 import os
 from importlib import util as _u
 
