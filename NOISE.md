@@ -39,6 +39,8 @@ next to the geometry, filters, exits, calendars and models closed before it. The
 only add-on that holds. New alpha for this family needs new information (order flow) or new markets (the transfer
 round waiting on the owner's data key).
 
+**Live-leg footnote (MANAGER audit, inbox #11):** quote NOISE #382's honest WARM lockbox from its re-run #410 - $69,062, PF 1.26 - not the cold run-row $79,938. Without its top five trades #382's lockbox loses money (-$5,967); #422's stays barely positive (+$2,551). The fixed-tilt levels were read on #243/#304's lockbox, so tilt lockbox figures are not clean.
+
 ## 🧪 2026-09-27 — ROUND 62: NOISE #422 + KEEL v12 is sound, and a validate of the live vol-skip memory
 
 MANAGER status tasker (owner, 2026-09-27). Driver `tools/r62_noise_422_keel_doublecount.py` (-> `r37_results/
