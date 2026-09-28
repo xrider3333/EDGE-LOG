@@ -41,6 +41,11 @@ WHAT IT ASSERTS, per case
   * NO uncaught exception / unhandled rejection during or shortly after the render
   * #res-detail exists, does not carry the "couldn't render" card, and is not tiny
   * the report names the fixture run
+  * the 1E KPI MATRIX LOCKBOX column carries an LB warm tag naming run 306's own cold
+    reading (301 trades, $9,826) -- this fixture scored its lockbox cold and its saved
+    gate_validate.ungated_lockbox is a continuous replay of the same stretch (334 trades),
+    so it qualifies for the same warm-lockbox swap RUNBOARD / EXPLORE / LEADERBOARD read
+    (2026-09-28, owner via MANAGER)
 
 Cases cover the three REPORT COLUMNS layouts, since each is a different template path.
 
@@ -184,6 +189,14 @@ var CASES=__CASES__, FIX=__FIX__;
         var txt=det?(det.innerText||det.textContent||''):'';
         r.cantRender=/couldn.t render/i.test(txt);
         r.namesRun=txt.indexOf(String(FIX.id))>=0;
+        // LOCKBOX column / LB warm tag (2026-09-28, owner via MANAGER): this fixture (run 306)
+        // scored its own lockbox cold (301 trades) before a continuous replay of the same
+        // stretch (gate_validate.ungated_lockbox, 334 trades) - it qualifies for the same
+        // warm-lockbox swap _lbWarmOf already makes on RUNBOARD / EXPLORE / the LEADERBOARD,
+        // and the 1E KPI MATRIX's LOCKBOX column should show that reading, tagged.
+        var lbTags=det?[].filter.call(det.querySelectorAll('span[title]'),function(sp){return (sp.textContent||'').indexOf('LB warm')>=0;}):[];
+        r.lbWarmTagCount=lbTags.length;
+        r.lbWarmTagTip=lbTags.length?(lbTags[0].getAttribute('title')||''):'';
         r.appLen=(d.getElementById('app')||{innerHTML:''}).innerHTML.length;
         r.errors=sink.errors.slice(0,20);
         r.uncaught=sink.uncaught.slice(0,20);
@@ -440,6 +453,22 @@ def _attempt(chrome, root, alt_index, fixture):
             fails.append('%s: report body is only %s chars' % (nm, r.get('detailLen')))
         if not r.get('namesRun'):
             fails.append('%s: report never names run %s' % (nm, fixture.get('id')))
+        # LOCKBOX column / LB warm tag (2026-09-28, owner via MANAGER): fixture run 306 scored
+        # its own lockbox cold (301 trades, ~$9,826) and carries a continuous replay of the
+        # same stretch (334 trades) in gate_validate.ungated_lockbox, so it qualifies for the
+        # warm swap RUNBOARD / EXPLORE / LEADERBOARD already make -- the 1E KPI MATRIX's
+        # LOCKBOX column must show that reading, tagged, with this run's own cold figures on
+        # the tag's hover.
+        if not r.get('lbWarmTagCount'):
+            fails.append('%s: the 1E KPI MATRIX LOCKBOX column shows no LB warm tag -- run %s '
+                         'scored its own lockbox cold (301 trades) and should read the '
+                         'continuous replay (334 trades) like RUNBOARD / EXPLORE / LEADERBOARD '
+                         'already do' % (nm, fixture.get('id')))
+        else:
+            _tip = r.get('lbWarmTagTip') or ''
+            if '301' not in _tip or '9,826' not in _tip:
+                fails.append('%s: the LB warm tag does not name the cold reading this run '
+                             'saved, 301 trades and $9,826 -- tip=%r' % (nm, _tip[:200]))
 
     if fails:
         return FAIL, fails, notes, data, True

@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 145
+N_CASES = 146
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -339,6 +339,10 @@ var FIX = __FIX__;
         var C=JSON.parse(JSON.stringify(FIX));
         C.id=String(+FIX.id+800000);C.starred=false;
         delete C.validate.lockbox.dd;
+        // 2026-09-28: this run's whole point is the _c2eqDD curve-derived-drawdown fallback - it
+        //   must not inherit FIX's own gate_validate.ungated_lockbox, or _lbWarmOf swaps in that
+        //   reading (dd included) and the ~ marker this case checks is never reached.
+        delete C.gate_validate;
         var wc="var F="+JSON.stringify(FIX)+";var B="+JSON.stringify(BK)+";var K="+JSON.stringify(C)+";"
           +"var doc=(typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(F)):F;"
           +"var bdoc=(typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(B)):B;"
@@ -610,6 +614,10 @@ var FIX = __FIX__;
         // make B clearly the better run on the lockbox read
         if(B.validate&&B.validate.lockbox){B.validate.lockbox.pnl=(+FIX.validate.lockbox.pnl||0)*4+1000;
           B.validate.lockbox.pf=(+FIX.validate.lockbox.pf||1)+0.6;}
+        // 2026-09-28: both must read their OWN validate.lockbox, not FIX's inherited
+        //   gate_validate.ungated_lockbox (_lbWarmOf) - otherwise A and B could show the SAME
+        //   swapped figure and this ordering case would never actually compare two different reads.
+        delete A.gate_validate;delete B.gate_validate;
         var wc="var A="+JSON.stringify(A)+";var B="+JSON.stringify(B)+";"
           +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
           +"runHistory=[f(A),f(B)];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();";
@@ -1245,8 +1253,13 @@ var FIX = __FIX__;
       (function(){
         var Z=JSON.parse(JSON.stringify(FIX));Z.id=String(+FIX.id+300001);Z.strategy='ZZERO_TR_1_0.py';Z.starred=false;
         Z.validate.lockbox=Object.assign({},Z.validate.lockbox,{trades:0,pnl:0,dd:0,pf:0,win_rate:0});
+        // 2026-09-28: must not inherit FIX's own gate_validate.ungated_lockbox (_lbWarmOf) - this
+        //   fixture's whole point is a lockbox that took NO trades, which the warm swap would hide.
+        delete Z.gate_validate;
         var P=JSON.parse(JSON.stringify(FIX));P.id=String(+FIX.id+300002);P.strategy='ZPFZERO_1_0.py';P.starred=false;
         P.validate.lockbox=Object.assign({},P.validate.lockbox,{trades:50,pf:0});
+        // same reason: P's all-loss PF 0.00 must not be swapped for FIX's inherited reading either.
+        delete P.gate_validate;
         var wc="var Z="+JSON.stringify(Z)+";var P="+JSON.stringify(P)+";"
           +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
           +"runHistory=[f(Z),f(P)];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();";
@@ -2715,7 +2728,12 @@ var FIX = __FIX__;
       function dfxNote(){var c=[].filter.call(d.querySelectorAll('div'),function(x){return x.querySelector('b')&&/not on this chart/.test(x.textContent||'');});
         c.sort(function(a,b){return (a.textContent||'').length-(b.textContent||'').length;});return c[0]?dfxN(c[0].textContent):'';}
       function dfxCase(name,calls,ck,info){var r=snap(name,calls.every(function(c){return c==='OK';})?'OK':('ERR '+calls.join(' / ')));r.ck=ck;r.info=info||{};return r;}
-      function dfxLbRun(id,name,lb){var x=dfxClone(FIX);x.id=String(id);x.strategy=name;x.starred=false;x.validate.lockbox=Object.assign({},x.validate.lockbox,lb);return x;}
+      function dfxLbRun(id,name,lb){var x=dfxClone(FIX);x.id=String(id);x.strategy=name;x.starred=false;x.validate.lockbox=Object.assign({},x.validate.lockbox,lb);
+        // 2026-09-28: every caller of this helper is testing ITS OWN cold validate.lockbox figure
+        //   (a zero-trade dash, a missing PF, a 0.00 all-loss PF...) - it must not inherit FIX's
+        //   own gate_validate.ungated_lockbox, or _lbWarmOf silently swaps in that unrelated
+        //   reading and the case never gets to test what it exists to check.
+        delete x.gate_validate;return x;}
 
       // D03 - MIN TRADES note: a configuration row judged on its ticked stretches added up is not 'judged on a WHOLE-RUN count'
       (function(){var CID=String(FIX.id),F=dfxClone(FIX),cand=(((F.selection||{}).candidates)||[]).filter(function(c){return c&&c.crowned;})[0];
@@ -4220,6 +4238,9 @@ var FIX = __FIX__;
       (function(){
         var THIN=hWfFold(960008,'ZTHINE_1_0.py',10,500,1.2);
         THIN.validate.lockbox=Object.assign({},THIN.validate.lockbox,{trades:200,pnl:5000,pf:1.3,win_rate:35,pass:true});
+        // 2026-09-28: must not inherit FIX's own gate_validate.ungated_lockbox (_lbWarmOf) - this
+        //   case's LOCKBOX net has to be THIN's own $5,000, not a swapped, unrelated reading.
+        delete THIN.gate_validate;
         var W=dfxWin([THIN]),calls=[],res={};
         calls.push(doRender({c2Screen:'lead',c2Rank:'net',c2Stage:'lb'},W));
         res.bodyText=d.body.innerText||'';
@@ -5388,6 +5409,88 @@ var FIX = __FIX__;
           'with the preset off, the TILT row carries no leverage chip':!chipTiltOff,
           'with the preset off, the chart draws no plain-twin line':twinLabelCountOff===0
         },{rowCount:rowCount,presetOn:presetOn,chipGate:chipGate&&chipGate.textContent,chipTilt:chipTilt&&chipTilt.textContent,chipHyb:chipHyb&&chipHyb.textContent,chipTiltTitle:chipTilt&&chipTilt.getAttribute('title'),ptGate:ptGate,ptTilt:ptTilt,ptHyb:ptHyb,twinLabelCount:twinLabelCount,twinLabelCountOff:twinLabelCountOff,errAcc:errAcc});
+      })();
+
+      // -- m1 (2026-09-28, owner via MANAGER): the LEADERBOARD / COMPARE-beta LB stage and the
+      //    older COMPARE tab's "Lockbox net $" row now read the SAME warm-lockbox rule RUNBOARD
+      //    and EXPLORE already use (_lbWarmOf) - a cold run's money and trade count swap for the
+      //    continuous replay, tagged LB warm with its own cold reading on hover. A run that
+      //    already warmed up, or whose continuous slice is a clear mismatch (far fewer trades),
+      //    is untouched. The whole-run split (the older tab's TOTAL scope, in-sample = total -
+      //    walk-forward - lockbox) must still use the run's own COLD lockbox, because the saved
+      //    whole-run curve is the cold one. Fixture mirrors k3_rb_roc30_warm's COLD / WARM /
+      //    MISMATCH shape exactly, so the two cases can never quietly disagree on which runs
+      //    qualify for the swap.
+      (function(){
+        var CID=String(+FIX.id+680501), WID=String(+FIX.id+680502), MID=String(+FIX.id+680503);
+        function base(id,strat){
+          var r=JSON.parse(JSON.stringify(FIX));
+          r.id=id;r.strategy=strat;r.starred=false;r.multiplier=20;delete r.equity;delete r.top10_results;delete r.gate_validate;
+          r.date_from='2010-01-01';r.date_to='2026-06-01';
+          r.validate={verdict:'PASS',total_trades:5000,total_win_rate:41,total_avg_win:150,total_avg_loss:-90,total_dd:9000,
+            total_sharpe:1.1,total_sortino:1.6,
+            windows:{optimize:['2010-01-01','2018-01-01'],wf_split:'2018-01-01',lockbox:['2025-06-01','2026-06-01']}};
+          return r;
+        }
+        var COLD=base(CID,'ZM1COLD_1_0.py');
+        COLD.validate.lockbox={pnl:3996.9,trades:239,pf:1.39,win_rate:44,dd:190,sortino:3.23};
+        COLD.gate_validate={ungated_lockbox:{total_pnl:3453.1,num_trades:315,profit_factor:1.259,max_drawdown:-210,sortino:2.478,win_rate:41.5}};
+        var WARM=base(WID,'ZM1WARM_1_0.py');
+        WARM.validate.windows.warm_days=300;
+        WARM.validate.lockbox={pnl:3453.1,trades:315,pf:1.259,win_rate:41.5,dd:210,sortino:2.478};
+        WARM.gate_validate={ungated_lockbox:{total_pnl:3453.1,num_trades:315,profit_factor:1.259,max_drawdown:-210,sortino:2.478,win_rate:41.5}};
+        var MISMATCH=base(MID,'ZM1MISMATCH_1_0.py');
+        MISMATCH.validate.lockbox={pnl:1500,trades:91,pf:1.1,win_rate:30,dd:300,sortino:0.8};
+        MISMATCH.gate_validate={ungated_lockbox:{total_pnl:0,num_trades:0,profit_factor:0,max_drawdown:0,sortino:0,win_rate:0}};
+        var IDS=[CID,WID,MID];
+        var wc="var RS="+JSON.stringify([COLD,WARM,MISMATCH])+";"
+          +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+          +"runHistory=RS.map(f);window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();window._starRuns=[];";
+        function lbTagInfo(el){if(!el)return {has:false,tip:null};
+          var spans=[].slice.call(el.querySelectorAll('span[title]'));
+          var tagSpan=spans.filter(function(sp){return (sp.textContent||'').indexOf('LB warm')>=0;})[0]||null;
+          return {has:!!tagSpan,tip:tagSpan?tagSpan.getAttribute('title'):null};}
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+
+        // render 1: LEADERBOARD, LB stage - the family row's "... LB $" text carries the swap + tag.
+        calls.push(doRender({c2Screen:'lead',c2Stage:'lb',c2Rank:'net'}, wc));chk('lead-lb');
+        function famWho(strat){var rows=[].slice.call(d.querySelectorAll('.c2-row[data-c2fam]'));
+          var row=rows.filter(function(x){return decodeURIComponent(x.getAttribute('data-c2fam')||'')===strat;})[0]||null;
+          return row?row.querySelector('.c2-who'):null;}
+        var whoC=famWho('ZM1COLD_1_0'), whoW=famWho('ZM1WARM_1_0'), whoM=famWho('ZM1MISMATCH_1_0');
+        var whoTxtC=whoC?dfxN(whoC.textContent):'', whoTxtW=whoW?dfxN(whoW.textContent):'', whoTxtM=whoM?dfxN(whoM.textContent):'';
+        var tagLeadC=lbTagInfo(whoC), tagLeadW=lbTagInfo(whoW), tagLeadM=lbTagInfo(whoM);
+
+        // render 2: the older COMPARE tab, LOCKBOX scope - the "Lockbox net $" row.
+        calls.push(doRender({c2Screen:'cmp',c2View:'runs',c2Stage:'lb',cmpIds:IDS}, wc));chk('cmp-lb');
+        var netCells=dfxRow('Lockbox net $').map(dfxCell);
+        var netC=netCells[0]||{v:null,tip:''}, netW=netCells[1]||{v:null,tip:''}, netM=netCells[2]||{v:null,tip:''};
+
+        // render 3: the same older COMPARE tab, TOTAL scope - the whole-run split's own
+        //   "lockbox $" sub-row shows the SAME continuous figure as the Lockbox rows (one
+        //   lockbox figure per run, lead decision 2026-09-28); its hover names the cold
+        //   reading the saved whole-run total holds and says the lines no longer add up.
+        calls.push(doRender({c2Screen:'cmp',c2View:'runs',c2Stage:'full',cmpIds:[CID]}, wc));chk('cmp-full');
+        var totLbCells=dfxRow('└ lockbox $').map(dfxCell);
+        var totLbC=totLbCells[0]||{v:null,tip:''};
+
+        dfxCase('m1_lb_warm_everywhere', calls, {
+          'renders OK on LEADERBOARD LB, the old COMPARE tab LB, and its TOTAL scope':calls.every(function(c){return c==='OK';}),
+          'no console errors on any render':errAcc.length===0,
+          "LEADERBOARD: the cold run's family row reads the continuous replay, $69,062":whoTxtC.indexOf('$69,062')>=0,
+          'LEADERBOARD: that row carries the LB warm tag':tagLeadC.has,
+          "LEADERBOARD: the tag names the run's own cold reading, $79,938 on 239 trades, PF 1.39":(tagLeadC.tip||'').indexOf('79,938')>=0&&(tagLeadC.tip||'').indexOf('239')>=0&&(tagLeadC.tip||'').indexOf('1.39')>=0,
+          'LEADERBOARD: a run that already warmed up reads its own $69,062, no tag':!tagLeadW.has&&whoTxtW.indexOf('$69,062')>=0,
+          'LEADERBOARD: a mismatched continuous slice (0 trades) is refused - its own $30,000, no tag':!tagLeadM.has&&whoTxtM.indexOf('$30,000')>=0,
+          "old COMPARE tab 'Lockbox net $': the cold run reads the continuous $69k (abbreviated), tagged":(netC.v||'').indexOf('$69k')>=0&&(netC.tip||'').length>0,
+          'that tag also names $79,938 on 239 trades, PF 1.39':(netC.tip||'').indexOf('79,938')>=0&&(netC.tip||'').indexOf('239')>=0&&(netC.tip||'').indexOf('1.39')>=0,
+          'old COMPARE tab: the warm run reads its own $69k, no tag':(netW.v||'').indexOf('$69k')>=0&&(netW.tip||'').length===0,
+          'old COMPARE tab: the mismatched run reads its own $30k, no tag':(netM.v||'').indexOf('$30k')>=0&&(netM.tip||'').length===0,
+          "the whole-run split's lockbox sub-row reads the same continuous $69k":(totLbC.v||'').indexOf('$69k')>=0,
+          "its hover names the cold $79,938 the saved whole-run total holds":(totLbC.tip||'').indexOf('79,938')>=0&&(totLbC.tip||'').indexOf('saved curve')>=0
+        }, {whoTxtC:whoTxtC,whoTxtW:whoTxtW,whoTxtM:whoTxtM,tagLeadC:tagLeadC,tagLeadW:tagLeadW,tagLeadM:tagLeadM,
+            netC:netC,netW:netW,netM:netM,totLbC:totLbC,errAcc:errAcc});
       })();
 
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
@@ -7586,6 +7689,7 @@ def main(argv=None):
     DFX += ['y1_explore_money']
     DFX += ['k3_rb_roc30_warm']
     DFX += ['l1_explore_leverage']
+    DFX += ['m1_lb_warm_everywhere']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}

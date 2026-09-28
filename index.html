@@ -829,7 +829,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.939';
+const VERSION='73.940';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -847,7 +847,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.937',date:'2026-09-28',notes:['RUNBOARD ROC TOGGLE NOW CLICKS. In v73.936 the ROC row label showed the switch between ROC % / YR and ROC @ $30K DD but clicking it did nothing, on the RUNBOARD tab and on the COMPARE board alike - its click was only hooked up on a different screen. It is now hooked up for every screen the board draws on, and the render check clicks it on both.']},{v:'73.936',date:'2026-09-28',notes:['EXPLORE AND RUNBOARD AUDIT (owner go, via MANAGER). EXPLORE: a row with fewer than 50 lockbox trades carries a caution tag and greys while the lockbox is ticked; ORB #205-#209 are marked VOID (the entry is gated on that same bar finished volume) and always greyed; a pinned single-config run says its walk-forward is in-sample; HYBRID redeploy and equal-drawdown rows size the lockbox at the walk-forward factor, with the lockbox-hindsight reading on hover; the run chips list watched and starred runs first and FAIL or VOID runs last, greyed, never the default pick; a run scored before warm starts reads its continuous lockbox when that is plausibly the same config warmed up (NOISE #382 $69,062, ENGU-Q #335 $49,812, ORB #314 $87,132), tagged LB warm; new ROC @ $30K DD measure (30 x MAR) as a column and on both chart axes; new LEVERAGE LINE view: ROC % / YR against drawdown % of the account, a line from zero through each run plain twin, and every ML or sized row marked above, on or below it. RUNBOARD: the lockbox stage reads the same warm lockbox (tagged LB warm on TOTAL), and clicking the ROC row label switches ROC % / YR and ROC @ $30K DD on every stage and on the WATCH view.']},{v:'73.935',date:'2026-09-28',notes:['LIVE GATE: the NinjaTrader NOISE strategy now sends its own finished bar prices, so the gate scores that bar instead of letting the trade through ungated when the price capture is a few seconds behind.']},
+const CHANGELOG=[{v:'73.940',date:'2026-09-28',notes:['ONE LOCKBOX FIGURE PER RUN, ON EVERY SCREEN. LEADERBOARD, the older COMPARE tables and the run report now read the same lockbox EXPLORE and RUNBOARD already show: for a run that scored its lockbox before warm starts (v73.841), the continuous replay of the same stretch, tagged LB warm with the run’s own cold figure on hover. Same refusal rule: a continuous slice with far fewer trades is a different replay, so that run keeps its own lockbox (ENGU-Q #310, #326). PASS / FAIL stays the verdict scored on the run’s own lockbox. In the run report this covers the metrics table LOCKBOX column, the chart’s lockbox hover and the gate banner; the whole-run curve and the in-sample figure worked out from it stay on the saved (cold) curve. Also fixed: a negative cold figure in the LB warm hover printed as $-42,119.']},{v:'73.937',date:'2026-09-28',notes:['RUNBOARD ROC TOGGLE NOW CLICKS. In v73.936 the ROC row label showed the switch between ROC % / YR and ROC @ $30K DD but clicking it did nothing, on the RUNBOARD tab and on the COMPARE board alike - its click was only hooked up on a different screen. It is now hooked up for every screen the board draws on, and the render check clicks it on both.']},{v:'73.936',date:'2026-09-28',notes:['EXPLORE AND RUNBOARD AUDIT (owner go, via MANAGER). EXPLORE: a row with fewer than 50 lockbox trades carries a caution tag and greys while the lockbox is ticked; ORB #205-#209 are marked VOID (the entry is gated on that same bar finished volume) and always greyed; a pinned single-config run says its walk-forward is in-sample; HYBRID redeploy and equal-drawdown rows size the lockbox at the walk-forward factor, with the lockbox-hindsight reading on hover; the run chips list watched and starred runs first and FAIL or VOID runs last, greyed, never the default pick; a run scored before warm starts reads its continuous lockbox when that is plausibly the same config warmed up (NOISE #382 $69,062, ENGU-Q #335 $49,812, ORB #314 $87,132), tagged LB warm; new ROC @ $30K DD measure (30 x MAR) as a column and on both chart axes; new LEVERAGE LINE view: ROC % / YR against drawdown % of the account, a line from zero through each run plain twin, and every ML or sized row marked above, on or below it. RUNBOARD: the lockbox stage reads the same warm lockbox (tagged LB warm on TOTAL), and clicking the ROC row label switches ROC % / YR and ROC @ $30K DD on every stage and on the WATCH view.']},{v:'73.935',date:'2026-09-28',notes:['LIVE GATE: the NinjaTrader NOISE strategy now sends its own finished bar prices, so the gate scores that bar instead of letting the trade through ungated when the price capture is a few seconds behind.']},
 {v:'73.930',date:'2026-09-28',notes:['SCORE FIXES: seven stock trades (EHGO, LABT, SUGP, GMM, XHG, IPST, HOWL) were scored off the wrong candle or 5-minute bars; re-scored against the 1-minute or 10-second candle the owner actually traded.']},
 {v:'73.928',date:'2026-09-27',notes:['HOME LEDGER ON A PHONE: the SIMPLE ledger no longer clips the edit button at phone width - its cells are a little tighter below 480 pixels.']},
 {v:'73.927',date:'2026-09-27',notes:['ONE ROW OF TABS. The TRADING LOG and BACKTESTER buttons are gone - every tab sits in one row: HOME, ANALYTICS, BUILDER, RESULTS, COMPARE, RESEARCH. The queue dials and the settings gear stay on the top bar.','PAPER MOVED NEXT TO THE REAL LOG. HOME has three subtabs: REAL, NT8 PAPER and WEBULL PAPER. The paper boards are unchanged - only the button that opens them moved. HOME returns to whichever subtab was open last, and a refresh lands on the same tab and subtab.','HOME LEDGER: SIMPLE OR FULL. In TABLE view a new SIMPLE / FULL switch sits next to the FEED button. SIMPLE (the default) shows the columns that fit - date, time, symbol, side, contracts, points, net, score, grade, setup, notes - with no sideways scrolling on a laptop. FULL is the whole row as before. Your choice is remembered in this browser.','Add ?oldtabs=1 to the address to get the old two-level tabs back for now.']},
@@ -19346,6 +19346,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       return {pnl:wN,trades:wT,pf:num(g.profit_factor),dd:(dd!=null)?Math.abs(dd):null,sortino:num(g.sortino),sharpe:num(g.sharpe),
         win_rate:num(g.win_rate),avg_win:num(g.avg_win),avg_loss:num(g.avg_loss),pass:lb.pass,from:lb.from,to:lb.to,
         _warm:true,_cold:{pnl:cN,trades:cT,pf:num(lb.pf)}};};
+    // THE RUN'S validate BLOCK WITH ITS LOCKBOX SWAPPED for the warm reading when _lbWarmOf accepts it
+    //   (2026-09-28, owner via MANAGER) - for the report helpers that take the validate block rather
+    //   than the run (championEquityHtml, validateCardHtml). windows / power / verdict stay the run's own.
+    const _vLbWarm=x=>{const V=x&&x.validate;if(!V)return V;const w=_lbWarmOf(x);return w?Object.assign({},V,{lockbox:w}):V;};
+    const _lbWarmWhy=(w,mult)=>{const c=(w&&w._cold)||{};const cN=(c.pnl!=null)?((c.pnl<0?'-$':'$')+Math.abs(Math.round(c.pnl*mult)).toLocaleString()):null;
+      return 'Lockbox read from the continuous replay. This run scored its own lockbox cold (before warm starts, v73.841)'
+        +((cN!=null)?(': '+cN+(c.trades!=null?(' on '+c.trades+' trades'):'')+(c.pf!=null?(', PF '+(+c.pf).toFixed(2)):'')+'.'):'.');};
+    const _lbWarmTagHtml=(w,mult)=>' <span title="'+_lbWarmWhy(w,mult).replace(/"/g,'&quot;')+'" style="font-size:7px;color:var(--text5);border:1px solid var(--border2);border-radius:3px;padding:0 2px;cursor:help">LB warm</span>';
     const _gvYrs=x=>{const G=x&&x.gate_validate;if(!G)return null;
       const sp=Array.isArray(G.span)?G.span:null,wr=Array.isArray(G.wf_range)?G.wf_range:null;
       return {a:(sp&&sp[0])?String(sp[0]).slice(0,10):null,
@@ -19748,6 +19756,17 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const _wfO=_wfOosOf(d,mult);   // the saved walk-forward test, checked against these fold rows (or null)
       const folds=(Array.isArray(d.top10_results)?d.top10_results.filter(x=>x&&x.fold!=null):[]).slice().sort((a,b)=>(a.fold-b.fold));
       const lb=V.lockbox||{},f1=folds[0]||{};
+      // A COLD RUN'S LOCKBOX COLUMN, READ FROM THE CONTINUOUS REPLAY (2026-09-28, owner via
+      //   MANAGER): the same shared rule LEADERBOARD (_c2lb) and RUNBOARD (_lbBlk) already read,
+      //   so this report never shows a different lockbox net than those two screens for the same
+      //   run. Only the LOCKBOX column's own headline figures move below - nIS/nWF/nLB/nTOT stay
+      //   tied to the saved equity curve (cold), because no warm curve is saved to re-split.
+      const _lbW=_lbWarmOf(d);
+      const _lbWarmTagRe=p=>{if(!p||!p._warm)return '';const c=p._cold||{};
+        const cN=(c.pnl!=null)?((c.pnl<0?'-$':'$')+Math.abs(Math.round(c.pnl*mult)).toLocaleString()):null;
+        const tip='Lockbox read from the continuous replay. This run scored its own lockbox cold (before warm starts, v73.841)'
+          +((cN!=null)?(': '+cN+(c.trades!=null?(' on '+c.trades+' trades'):'')+(c.pf!=null?(', PF '+c.pf.toFixed(2)):'')+'.'):'.');
+        return ' <span title="'+tip.replace(/"/g,'&quot;')+'" style="font-size:7px;color:var(--text5);border:1px solid var(--border2);border-radius:3px;padding:0 2px;cursor:help">LB warm</span>';};
       const W=V.windows||{},_oS=W.optimize&&W.optimize[0],_oE=W.optimize&&W.optimize[1];
       const _toMs=s=>s?+new Date(s):null;
       const optS=_toMs(_oS),optE=_toMs(_oE),lbS=_toMs(W.lockbox&&W.lockbox[0]),lbE=_toMs(W.lockbox&&W.lockbox[1]);
@@ -19819,7 +19838,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const _wfColLead=_wfO
         ?('WALK-FORWARD TEST = each of the '+folds.length+' folds re-tuned on its own past, its unseen trades joined in fold order and traded blind on the next slice - the honest reading the crown is checked against, not the one it was picked on. NET and TRADES are pooled across the fold rows; DRAWDOWN, PF, WIN %, SHARPE and SORTINO come from that saved, joined test. ')
         :('POOLED RE-TUNED FOLDS = the '+folds.length+' folds, each independently re-tuned on its own past and tested out-of-sample, with NET and TRADES pooled across the fold rows and PF, WIN % pooled the same way when no saved test overrides them - not one joined test, so DRAWDOWN, SHARPE and SORTINO are not available. ');
-      const ddIS=_ddOf(V.is_dd,0,wEnd+1),ddLB=_ddOf(lb.dd,Math.max(0,li-1),eq.length),ddTOT=_ddOf(V.total_dd,0,eq.length);
+      const ddIS=_ddOf(V.is_dd,0,wEnd+1),ddLB=_ddOf((_lbW&&_lbW.dd!=null)?_lbW.dd:lb.dd,Math.max(0,li-1),eq.length),ddTOT=_ddOf(V.total_dd,0,eq.length);
       const phases=_isBookRpt?_bookKpiPhases(d,mult):[
         {sh_:'IS', sub:'no shading', col:'var(--text2)', dr:_dr(optS,isEndMs), days:_days(optS,isEndMs), bars:tr0||null, net:nIS, dd:ddIS, pf:(f1.profit_factor!=null?+f1.profit_factor:null), wr:(f1.win_rate!=null?+f1.win_rate:null), aw:awIS.aw, al:awIS.al, sh:V.is_sharpe, tr:(f1.num_trades!=null?+f1.num_trades:null),
           tip:'IN-SAMPLE = the knob-tuning start of the graph. NET here is a RESIDUAL (TOTAL − WALK-FORWARD − LOCKBOX) so the three sections reconcile to the whole-run total — it is NOT a measured slice. The RAW and GATE tabs show the exact calendar in-sample figure (every trade before the first walk-forward fold), and it differs from this by whatever the fold test slices do not cover. PF / Win% / Trades here come from fold 1 in-sample backtest; DAYS are read off the curve.'},
@@ -19838,7 +19857,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +((_wfO&&_wfO.from&&_wfO.to)?('The dates beside this heading and DAYS are that test’s own window, '+String(_wfO.from).slice(0,10)+' to '+String(_wfO.to).slice(0,10)+', and MAR divides the pooled net over those years by that drawdown.')
               :(_wfO?'That test did not record its window dates, so the dates beside this heading and DAYS are estimated from the fold bar counts, and MAR, ROC and R / YR stay blank rather than divide by a guessed window - the same dash the walk-forward chips show under the 1C chart.'
                 :('The dates beside this heading and DAYS are estimated from the fold bar counts across the tuning window. '+_wfOosWhy(d,'any'))))}:null,
-        (lb.pnl!=null)?{sh_:'LB', sub:'purple', col:C_LB, dr:_dr(lbS,lbE), days:_days(lbS,lbE), bars:(lb.bars!=null?+lb.bars:null), net:nLB, dd:ddLB, pf:(lb.pf!=null?+lb.pf:null), wr:(lb.win_rate!=null?+lb.win_rate:null), aw:(lb.avg_win!=null?(+lb.avg_win)*mult:awLB.aw), al:(lb.avg_loss!=null?(+lb.avg_loss)*mult:awLB.al), sh:(lb.sharpe!=null?+lb.sharpe:null), sortino:(lb.sortino!=null?+lb.sortino:null), tr:(lb.trades!=null?+lb.trades:null),
+        (lb.pnl!=null)?{sh_:'LB', sub:'purple', col:C_LB, dr:_dr(lbS,lbE), days:_days(lbS,lbE), bars:(lb.bars!=null?+lb.bars:null), net:((_lbW&&_lbW.pnl!=null)?_lbW.pnl*mult:nLB), dd:ddLB, pf:((_lbW&&_lbW.pf!=null)?_lbW.pf:(lb.pf!=null?+lb.pf:null)), wr:((_lbW&&_lbW.win_rate!=null)?_lbW.win_rate:(lb.win_rate!=null?+lb.win_rate:null)), aw:((_lbW&&_lbW.avg_win!=null)?Math.abs(_lbW.avg_win)*mult:(lb.avg_win!=null?(+lb.avg_win)*mult:awLB.aw)), al:((_lbW&&_lbW.avg_loss!=null)?Math.abs(_lbW.avg_loss)*mult:(lb.avg_loss!=null?(+lb.avg_loss)*mult:awLB.al)), sh:((_lbW&&_lbW.sharpe!=null)?_lbW.sharpe:(lb.sharpe!=null?+lb.sharpe:null)), sortino:((_lbW&&_lbW.sortino!=null)?_lbW.sortino:(lb.sortino!=null?+lb.sortino:null)), tr:((_lbW&&_lbW.trades!=null)?_lbW.trades:(lb.trades!=null?+lb.trades:null)),
           tip:'LOCKBOX = the purple holdout — never tuned or browsed, the final untouched test. NET P&L is the lockbox\'s own backtest (the 🔒 strip figure). Win% & Sharpe are from the lockbox trades.'}:null,
         {sh_:'TOTAL', total:true, col:'var(--green)', dr:_dr(optS,lbE), days:_days(optS,lbE), bars:totBars, net:nTOT, dd:ddTOT, pf:totPf, wr:(V.total_win_rate!=null?+V.total_win_rate:null), aw:(V.total_avg_win!=null?(+V.total_avg_win)*mult:awTOT.aw), al:(V.total_avg_loss!=null?(+V.total_avg_loss)*mult:awTOT.al), sh:(V.total_sharpe!=null?+V.total_sharpe:null), sortino:(V.total_sortino!=null?+V.total_sortino:null), tr:totTr,
           tip:'TOTAL = the whole backtest = IN-SAMPLE + WALK-FORWARD + LOCKBOX. NET P&L is the equity curve\'s endpoint — the three sections add up to it. Win% & Sharpe are the champion measured over the whole window.'}
@@ -19885,7 +19904,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   percent apart. Two screens must not print different lockboxes under one word, so
         //   this column now reads the same block COMPARE BETA and the RUNBOARD read. The
         //   consequence is stated in the tooltip: the sections may no longer sum to TOTAL.
-        const _sLB=(V&&V.lockbox)||null;
+        const _sLB=_lbW||(V&&V.lockbox)||null;
         if(_sLB&&_sLB.pnl!=null&&isFinite(+_sLB.pnl)){
           // ALL OF IT OR NONE OF IT. Filling in only the fields the strip happens to carry
           //   and leaving the rest behind from the slice would put the strip net over the
@@ -19919,6 +19938,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
                    LB:'LOCKBOX = the sealed final year, opened once after the winner was already chosen. These are the figures from the lockbox strip - the block the PASS or FAIL was scored from, and the one COMPARE BETA and the RUNBOARD also read. The gate study saves a second lockbox slice cut from the champion own trade list; where the two differ this column follows the strip, so the three sections may not add up to TOTAL exactly.',
                    TOTAL:'TOTAL = the whole backtest, taken from the champion own trade list over the full span. The three sections no longer have to add up to it: the LOCKBOX column reads the sealed-year strip that the PASS or FAIL was scored from, and where that differs from the slice cut out of this trade list, the difference shows up here as a gap. See the LOCKBOX note. MAX DD is the deepest dip on the whole curve, which is why it is deeper than any single section. Its YEARS run from the crowned config’s first trade to the gate study’s own end date, not the run’s data-window start, so MAR, R / YR and ROC here can read a percent or two away from COMPARE’s FULL on the same run.'})[ph._k||ph.sh_]||ph.tip;});
       }
+      // THE LB warm BADGE'S DATA (2026-09-28, owner via MANAGER): tag whichever LB phase object
+      //   is actually in play - the legacy one built above, or this block's gate-exact overlay -
+      //   so the badge is right whether or not this run carries the ungated four-block path. Never
+      //   fires on a book report (_lbW is null there - a book has no validate.lockbox to warm).
+      if(_lbW&&!_isBookRpt){const _phLB=phases.filter(ph=>(ph._k||ph.sh_)==='LB')[0];if(_phLB){_phLB._warm=true;_phLB._cold=_lbW._cold||null;
+        _phLB.tip='LOCKBOX = the sealed final year, opened once after the winner was already chosen. These figures are read from the continuous replay (the champion own trades cut at the lockbox dates, indicators already warm) - the same lockbox EXPLORE, RUNBOARD and LEADERBOARD show for this run. This run scored its own lockbox cold (before warm starts, v73.841); that reading - the one the PASS or FAIL was scored from - is on the LB warm tag.';}}
       const _pf=v=>(v==null||!isFinite(v)||v<=0)?'—':Math.min(v,99).toFixed(2);
       const _sh=v=>(v==null||!isFinite(v))?'—':(+v).toFixed(2);
       const _wr=v=>(v==null||!isFinite(v))?'—':(+v).toFixed(0)+'%';
@@ -19957,7 +19982,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const _ovl=p=>p.total?';border-left:2px solid color-mix(in srgb,var(--green) 55%,transparent);background:color-mix(in srgb,var(--green) 9%,transparent)':(p.col&&p.col[0]==='#'?';background:color-mix(in srgb,'+p.col+' 12%,transparent)':'');
       // v71.0 (owner: "compress kpi vertically a bit, trying to get close to raw vertical"):
       //   same padding rhythm the config matrices use in compact mode.
-      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:3px 4px;vertical-align:bottom">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:3px 4px;white-space:nowrap;cursor:help;vertical-align:bottom;color:'+p.col+(p.total?';font-weight:800':';font-weight:700')+_ovl(p)+'">'+p.sh_+(p.dr?'<span style="font-size:7px;font-weight:400;color:var(--text5);margin-left:3px">'+p.dr+'</span>':'')+'</th>').join('')+'</tr>';
+      const head='<tr style="color:var(--text5)"><th style="text-align:left;padding:3px 4px;vertical-align:bottom">METRIC</th>'+phases.map(p=>'<th title="'+p.tip+'" style="text-align:right;padding:3px 4px;white-space:nowrap;cursor:help;vertical-align:bottom;color:'+p.col+(p.total?';font-weight:800':';font-weight:700')+_ovl(p)+'">'+p.sh_+(p.dr?'<span style="font-size:7px;font-weight:400;color:var(--text5);margin-left:3px">'+p.dr+'</span>':'')+(p._warm?_lbWarmTagRe(p):'')+'</th>').join('')+'</tr>';
       // group the rows into sections (return / drawdown / reward÷risk / edge / sample) — a small
       //   uppercase header row precedes the first metric of each group so the eye reads them as blocks.
       const _grpAt={'NET P&L':'return','MAR':'reward ÷ risk','TRADES':'sample'},_ncol=phases.length+1;
@@ -20289,7 +20314,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const _tip='<b>WF fold f'+f.fold+'</b>'+((_wf1&&_wf1.from&&_wf1.to)?(' · '+_mdy(+new Date(String(_wf1.from).slice(0,10)))+'→'+_mdy(+new Date(String(_wf1.to).slice(0,10)))):(optS?(' · '+_dAt(_f0)+'→'+_dAt(_f1)):''))+'<br>out-of-sample <b>'+fmtUsd(Math.round((+f.oos_pnl||0)*mlt))+'</b> · PF <b>'+(+f.oos_pf||0).toFixed(2)+'</b>'+(_wf1?(' · '+((+_wf1.tr>0)?((+_wf1.tr).toLocaleString()+' trades'):'no trades')):'');
           return '<rect x="'+_x0.toFixed(1)+'" y="0" width="'+Math.max(0,_x1-_x0).toFixed(1)+'" height="'+EH+'" fill="'+((i%2===0)?'rgba(96,165,250,.16)':'rgba(96,165,250,.30)')+'" style="cursor:pointer" data-tip="'+_tip+'"/>';}).join('');
           wfNote='<span style="color:#60a5fa">▦ '+_fs.length+' walk-forward test windows</span>';}}
-      const _lbTip='<b>Lockbox · out-of-sample, never optimized</b>'+(_lf?(' · '+_mdy(lbS)+'→'+_mdy(lbE)):'')+'<br>'+fmtUsd(Math.round((lb.pnl||0)*mlt))+' · PF '+(lb.pf||0).toFixed(2)+' · '+(lb.trades||0)+' trades · '+lbVerdict(lb,V,1).word+lbVerdictTip(lb,V);
+      const _lbTip='<b>Lockbox · out-of-sample, never optimized</b>'+(_lf?(' · '+_mdy(lbS)+'→'+_mdy(lbE)):'')+'<br>'+fmtUsd(Math.round((lb.pnl||0)*mlt))+' · PF '+(lb.pf||0).toFixed(2)+' · '+(lb.trades||0)+' trades · '+lbVerdict(lb,V,1).word+lbVerdictTip(lb,V)+(lb._warm?('<br>'+_lbWarmWhy(lb,mlt)):'');
       // date ticks (M/D/YY) evenly spaced in TIME across [optS,lbE] — x is linear in time so they
       //   read chronologically and visibly compress the lockbox into the right end.
       let ticks='';
@@ -20426,7 +20451,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       return {word:word+(und?' (underpowered)':''),col:col,und:und,held:held};};
     const lbVerdictTip=(lb,V)=>{const p=lbPow(V);
       if(!lbUnder(V))return '';
-      return ' - UNDERPOWERED: '+((lb&&lb.trades)||(p&&p.n)||0)+' lockbox trades give about '
+      return ' - UNDERPOWERED: '+((lb&&lb._warm&&lb._cold&&lb._cold.trades)||(lb&&lb.trades)||(p&&p.n)||0)+((lb&&lb._warm)?' cold':'')+' lockbox trades give about '
         +Math.round(((p&&p.achieved_power)||0)*100)+'% power, so this verdict is weak evidence '
         +'either way, not proof.';};
     const verdictPowerHtml=(V,mlt)=>{
@@ -20474,7 +20499,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         +'</div>'+(_evNote?'<div>'+_evNote+'</div>':'')+'</div>'
         +((V.transfer&&V.transfer.length)?'<div style="margin-top:7px;font-size:var(--fsxs);color:var(--text3)">↔ Champion re-tested (no re-fit): '+V.transfer.map(t=>instTag(t.inst)+' '+(t.pass?'<b style="color:var(--green)">holds</b>':'<b style="color:var(--red)">fails</b>')+' · PF '+Math.min(t.pf||0,99).toFixed(2)+' · '+fmtUsd(Math.round((t.pnl||0)*instMult(t.inst)))+' · '+(t.trades||0)+' trd').join('　·　')+'</div>':'')
         +eqSvg
-        +'<div style="margin-top:9px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+lbVerdict(lb,V,0).col+'" title="'+lbVerdictTip(lb,V).replace(/"/g,'&quot;')+'">'+lbVerdict(lb,V,1).word+'</b> · '+fmtUsd(Math.round((lb.pnl||0)*mlt))+' · PF '+Math.min(lb.pf||0,99).toFixed(2)+' · '+(lb.trades||0)+' trades'+(V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
+        +'<div style="margin-top:9px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+lbVerdict(lb,V,0).col+'" title="'+lbVerdictTip(lb,V).replace(/"/g,'&quot;')+'">'+lbVerdict(lb,V,1).word+'</b> · '+fmtUsd(Math.round((lb.pnl||0)*mlt))+' · PF '+Math.min(lb.pf||0,99).toFixed(2)+' · '+(lb.trades||0)+' trades'+(lb._warm?_lbWarmTagHtml(lb,mlt):'')+(V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
         +_driftLine
         +_pwrLine;
     };
@@ -22339,7 +22364,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +_pfTd(r.minus,0,(!r.minus?'no tested value BELOW the winner — it sits at the bottom edge of the tested grid':''),'#3a9bdc')+_pfTd(r.winner||{val:null,pf:w},1)+_pfTd(r.plus,0,(!r.plus?'no tested value ABOVE the winner — it sits at the top edge of the tested grid (e.g. a declared range cap). See the 2G ⚠ if flagged.':''),'#e0a04b')+'</div>';}).join('');
         nbHtml='<div style="max-width:780px">'+strip+_nbHead+rows2
           +'</div>';}
-      const valdCard=d.validate?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'+validateCardHtml(d.validate,(d.multiplier||20),stratTag(d.strategy),d.top10_results)+'</div>':'';
+      const valdCard=d.validate?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'+validateCardHtml(_vLbWarm(d),(d.multiplier||20),stratTag(d.strategy),d.top10_results)+'</div>':'';
       // ── Per-run validation status: map THIS run's analytics onto the 10-step deploy
       //    checklist so the report card reads as the checklist. Steps 2/3/4/5/6/7/8
       //    auto-derive from the run's own best_pf/neighborhood/stress/folds/transfer/
@@ -22495,7 +22520,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         _cardSty=_card;
         _eqChart=''
           +'<div style="display:flex;align-items:center;gap:10px;margin:0 0 4px;flex-wrap:wrap"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:none">'+(_eqcInfo=_infoIc(_ipAB('The champion config equity curve, chronological: in-sample + walk-forward first (green), then the purple LOCKBOX holdout the optimizer never saw. The labels inside the top of the chart mark its three sections: IS = in-sample, WF = walk-forward, LB = lockbox (with its held/fail mark). Blue bands = the walk-forward test windows; pink segments = high-water marks; the red pane below = underwater drawdown on the same time axis. Double-click expands with a live crosshair and trade blotter. GRAPH DETAIL thins only the drawn line — never the totals.','best config · 1 contract · whole run')))+'</span><span style="display:flex;align-items:center;gap:6px;font-size:8px;color:var(--text5)"><span style="letter-spacing:.5px">GRAPH DETAIL</span><input type="range" class="fillrng" min="5" max="100" step="5" value="'+Math.round((window._eqDetail||1)*100)+'" oninput="this.nextElementSibling.textContent=this.value+\'%\';this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-5)/95*100)+\'%,var(--bg1) 0)\'" onchange="window._eqDetail=+this.value/100;renderApp()" style="width:120px;background:linear-gradient(90deg,var(--blue) '+(((Math.round((window._eqDetail||1)*100))-5)/95*100).toFixed(1)+'%,var(--bg1) 0)"><span>'+Math.round((window._eqDetail||1)*100)+'%</span></span></div>'
-          +'<div id="res-step-8" style="scroll-margin-top:64px"'+_eqxA+'>'+championEquityHtml(_V,mlt,d.top10_results,1,_wfOosOf(d,mlt))+'</div>';
+          +'<div id="res-step-8" style="scroll-margin-top:64px"'+_eqxA+'>'+championEquityHtml(_vLbWarm(d),mlt,d.top10_results,1,_wfOosOf(d,mlt))+'</div>';
         _eqRest=''
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:4px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
@@ -23044,7 +23069,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         if(_mlBest){const B=_mlBest.best;_gbc=_mlBest.beats?'var(--green)':'var(--red)';
           _gbTxt='<b style="color:'+_gbc+'">ML '+(_mlBest.beats?'BEATS RAW ✓':'BELOW RAW ✕')+'</b> — best ML line at the end of the curve: <b>'+B.nm+'</b> '+fmtUsd(Math.round(B.pnl*mlt))+' vs raw '+fmtUsd(Math.round(_mlBest.raw*mlt))+(B.lb!=null&&_mlBest.rawLb!=null?' · lockbox year '+fmtUsd(Math.round(B.lb*mlt))+' vs '+fmtUsd(Math.round(_mlBest.rawLb*mlt)):'')+' · drawdown '+fmtUsd(Math.round(B.dd*mlt))+' vs '+fmtUsd(Math.round(_mlBest.rawDd*mlt))+(B.f>1.0001?' · <span style="color:var(--text4)">sized '+B.f.toFixed(2)+'× (survivors spend the contracts the gate freed up)</span>':'')+(_gvP&&_gvP.LB?' · <span style="color:var(--text4)">crowned cut-gate alone: '+(_gvP.LB.helped?'held':'lost to raw')+' on its one lockbox look</span>':'');}
         else if(_gvP&&_gvP.LB){const LB=_gvP.LB;_gbc=LB.helped?'var(--green)':'var(--red)';
-          const _sLB=d.validate&&d.validate.lockbox;_gbTxt='<b style="color:'+_gbc+'">GATE LB '+(LB.helped?'HELD ✓':'FAILED ✕')+'</b> — the ML gate '+(LB.helped?'beat':'lost to')+' the plain strategy on the held-out slice it never saw'+((_sLB&&_sLB.pnl!=null)?' · the strategy’s OWN lockbox <b style="color:'+(_sLB.pass?'var(--green)':'var(--red)')+'">'+(_sLB.pass?'HELD ✓':'FAILED ✕')+'</b> ('+fmtUsd(Math.round((_sLB.pnl||0)*mlt))+' · PF '+Math.min(_sLB.pf||0,99).toFixed(2)+') — a failed gate does not touch that':'');}
+          const _sLB=_lbWarmOf(d)||(d.validate&&d.validate.lockbox);_gbTxt='<b style="color:'+_gbc+'">GATE LB '+(LB.helped?'HELD ✓':'FAILED ✕')+'</b> — the ML gate '+(LB.helped?'beat':'lost to')+' the plain strategy on the held-out slice it never saw'+((_sLB&&_sLB.pnl!=null)?' · the strategy’s OWN lockbox <b style="color:'+(_sLB.pass?'var(--green)':'var(--red)')+'">'+(_sLB.pass?'HELD ✓':'FAILED ✕')+'</b> ('+fmtUsd(Math.round((_sLB.pnl||0)*mlt))+' · PF '+Math.min(_sLB.pf||0,99).toFixed(2)+')'+(_sLB._warm?_lbWarmTagHtml(_sLB,mlt):'')+' — a failed gate does not touch that':'');}
         else if(_gvP){_gbc=_gvP.V.gate_earns_pre?'var(--green)':'var(--yellow)';_gbTxt='<b style="color:'+_gbc+'">PRE-LB '+(_gvP.V.gate_earns_pre?'EARNS':'DOES NOT EARN')+'</b> — no held-out lockbox look was saved for this run';}
         else{const _u2=d.ml_gate.ungated||{},_q2=d.ml_gate.gated||{};const _h2=(_q2.total_pnl||0)>=(_u2.total_pnl||0);_gbc=_h2?'var(--green)':'var(--yellow)';
           _gbTxt='<b style="color:'+_gbc+'">GATE '+(_h2?'HELPS':'DOES NOT HELP')+'</b> — the trades it kept '+(_h2?'beat':'did worse than')+' taking every trade (in-sample)';}
@@ -23512,7 +23537,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             s+='<line x1="'+cx+'" y1="'+cy+'" x2="'+np[0].toFixed(1)+'" y2="'+np[1].toFixed(1)+'" stroke="'+sc+'" stroke-width="2.5" stroke-linecap="round"/><circle cx="'+cx+'" cy="'+cy+'" r="3.4" fill="'+sc+'"/><circle cx="'+cx+'" cy="'+cy+'" r="1.5" fill="var(--bg2)"/>';}
           s+='</svg>';return {svg:s,sc:sc};};
         // value plumbing (all defensive — a missing block dims its gauge, never fakes a status)
-        const _V2=d.validate||null,_lbx=(_V2&&_V2.lockbox)||null;
+        const _V2=d.validate||null,_lbxW=_lbWarmOf(d),_lbx=_lbxW||(_V2&&_V2.lockbox)||null;
         const _ggNet=(_bPnlUsd!=null)?+_bPnlUsd:null,_ggDd=(_bDd!=null)?Math.abs(+_bDd):null;
         const _ggMar=(_ggNet!=null&&_ggDd>1e-9)?(_ggNet/_ggDd):null;
         const _ggPf=(_bPf!=null)?+_bPf:null,_ggWr=(_bWr!=null)?+_bWr:null,_ggTrd=(_bTrd!=null)?+_bTrd:null;
@@ -23567,7 +23592,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           {k:'dsr',cat:'r',lb:'DEFLATED SHARPE',ok:_ggDsr!=null,pos:_ggDsr==null?0:_ggC(_ggDsr,0,1),zn:_hbz(0.8,0.95),val:_ggDsr==null?'—':(Math.round(_ggDsr*100)+'%'),sub:'luck-adjusted — best of many configs',tip:'Deflated Sharpe — the chance the edge is real rather than the luckiest of all configs searched. Same zones as the 1I card: red under 80%, yellow 80-95%, green 95% plus.',det:(d.validate?_distTile:_dsrInner),wrap:(d.validate?0:1)},
           {k:'wfe',cat:'r',lb:'WALK-FWD EFF',ok:_ggWfe!=null,pos:_ggWfe==null?0:_ggC(_ggWfe/1.2,0,1),zn:_hbz(0.3/1.2,0.5/1.2),val:_ggWfe==null?'—':(Math.round(_ggWfe*100)+'%'),sub:'OOS ÷ IS, per bar',tip:'Walk-forward efficiency — out-of-sample PnL rate as a share of the in-sample rate. Red under 30%, yellow 30-50%, green 50% plus (100% = held up perfectly on unseen data).',det:_panelEquity},
           {k:'folds',cat:'r',lb:'WF FOLDS HELD',ok:_fldIds.length>=2,pos:_fldIds.length?(_fldHeld/_fldIds.length):0,zn:_hbz(0.5,0.75),val:_fldIds.length>=2?(_fldHeld+'/'+_fldIds.length):'—',sub:'folds profitable out-of-sample',tip:'Of the walk-forward folds, how many made money on their unseen test slice. Red under half, yellow to 75%, green above.',det:_panelEquity},
-          {k:'lbx',cat:'r',lb:'LOCKBOX',ok:!!(_lbx&&_lbx.pnl!=null),pos:(_lbx&&_lbx.pass)?0.85:0.12,zn:[[0.5,RED],[1,GRN]],val:(_lbx&&_lbx.pnl!=null)?lbVerdict(_lbx,d,0).word:'—',sub:(_lbx&&_lbx.pnl!=null)?(fmtUsd(Math.round(_lbx.pnl*mlt))+' on the reserved slice'):'',tip:'The one-look holdout: data reserved before any optimization, tested once. Binary — it held or it did not.'+lbVerdictTip(_lbx,d),det:_panelEquity},
+          {k:'lbx',cat:'r',lb:'LOCKBOX',ok:!!(_lbx&&_lbx.pnl!=null),pos:(_lbx&&_lbx.pass)?0.85:0.12,zn:[[0.5,RED],[1,GRN]],val:(_lbx&&_lbx.pnl!=null)?lbVerdict(_lbx,d,0).word:'—',sub:(_lbx&&_lbx.pnl!=null)?(fmtUsd(Math.round(_lbx.pnl*mlt))+' on the reserved slice'):'',tip:'The one-look holdout: data reserved before any optimization, tested once. Binary — it held or it did not.'+(_lbxW?' Money and trades read from the continuous replay (this run scored its own lockbox cold, before warm starts, v73.841) - the 1E LOCKBOX column shows the cold figures on its LB warm tag.':'')+lbVerdictTip(_lbx,d),det:_panelEquity},
           {k:'mc',cat:'r',lb:'MC P95 DD',ok:_ggMcUsd!=null,pos:(_ggMcR==null)?0.5:_ggC(_ggMcR/3,0,1),zn:_lbz(1.4/3,2/3),val:_ggMcUsd==null?'—':fmtUsd(Math.round(_ggMcUsd)),sub:(_ggMcR!=null?(_ggMcR.toFixed(1)+'× the seen max DD'):'simulated worst case'),tip:'Monte-Carlo 95th-percentile drawdown — the worst case to size the account for. Judged as a multiple of the realized max DD: green to 1.4×, yellow to 2×, red beyond (path luck is hiding risk).',det:_panelEquity},
           {k:'reg',cat:'r',lb:'REGIME SPREAD',ok:_rgTot>=3,pos:_rgTot?(_rgPos/_rgTot):0,zn:_hbz(0.4,0.7),val:_rgTot>=3?(Math.round(_rgPos/_rgTot*100)+'%'):'—',sub:_rgTot>=3?(_rgPos+'/'+_rgTot+' slices profitable'):'',tip:'Share of regime buckets (volatility, trend, day-of-week, time-of-day) that end profitable. Red under 40%, yellow 40-70%, green 70% plus — a real edge should not live in one regime only.',det:_panelMatrix},
           {k:'knobs',cat:'i',lb:'SIGNAL KNOBS',ok:_ksK.length>0,pos:_ksK.length?(_ksSig/_ksK.length):0,zn:_hbz(0.25,0.5),val:_ksK.length?(_ksSig+'/'+_ksK.length):'—',sub:'beat the noise probe',tip:'How many tuned knobs carry real signal — they beat a pure-noise probe in the surrogate screen. Red under a quarter, yellow to half, green above half.',det:_corr,wrap:1},
@@ -27659,6 +27684,23 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _lbZeroTr=x=>{const lb=x&&x.validate&&x.validate.lockbox;return !!(lb&&lb.trades!=null&&isFinite(+lb.trades)&&+lb.trades===0);};
         // THE LB-STAGE LOCKBOX BLOCK (2026-09-28, owner via MANAGER): the warm continuous replay when this run qualifies for the swap (_lbWarmOf), else its own saved validate.lockbox - every LB-stage reader below goes through this one gate so none of them can read the cold figure behind a warm run's back.
         const _lbBlk=r=>_lbWarmOf(r)||(r&&r.validate&&r.validate.lockbox)||null;
+        // THE OLD COMPARE TAB'S WARM-AWARE TWIN OF _lbA (2026-09-28, owner via MANAGER): same
+        //   shape as _lbA (net/pf/tr/pass) but sourced through _lbBlk, so the M_lb rows below
+        //   (Lockbox net $ / PF / Held? / trades) show the same figure LEADERBOARD and RUNBOARD
+        //   show. _lbA itself and _totA are untouched - the whole-run split (M_tot's "lockbox $"
+        //   sub-row) stays cold, same as _c2full on the LEADERBOARD side.
+        const _lbAW=x=>{const lb=_lbBlk(x);if(!lb)return null;
+          return {net:(lb.pnl||0)*_mcOf(x),pf:((lb.pf!=null&&lb.pf!==''&&isFinite(+lb.pf)&&+lb.pf>=0)?+lb.pf:null),tr:(lb.trades||0),pass:!!lb.pass,warm:!!lb._warm,_cold:lb._cold||null};};
+        // warm-aware twin of _lbZeroTr: a lockbox that took no trades COLD but takes some once
+        //   warmed up must not be dashed here on the strength of a figure this row no longer reads.
+        const _lbZeroTrW=x=>{const lb=_lbBlk(x);return !!(lb&&lb.trades!=null&&isFinite(+lb.trades)&&+lb.trades===0);};
+        // same small badge RUNBOARD's TOTAL row uses on its LB stage, built with this tab's own
+        //   escaper (_wfoEsc) and multiplier accessor (_mcOf).
+        const _lbWarmTagOld=(x,a)=>{if(!a||!a.warm)return '';const cold=a._cold||{},mc=_mcOf(x);
+          const cN=(cold.pnl!=null)?((cold.pnl<0?'-$':'$')+Math.abs(Math.round(cold.pnl*mc)).toLocaleString()):null;
+          const tip='Lockbox read from the continuous replay. This run scored its own lockbox cold (before warm starts, v73.841)'
+            +((cN!=null)?(': '+cN+(cold.trades!=null?(' on '+cold.trades+' trades'):'')+(cold.pf!=null?(', PF '+cold.pf.toFixed(2)):'')+'.'):'.');
+          return ' <span title="'+_wfoEsc(tip)+'" style="font-size:7px;color:var(--text5);border:1px solid var(--border2);border-radius:3px;padding:0 2px;cursor:help">LB warm</span>';};
         const _rbZeroLb=r=>{const lb=_lbBlk(r);return (_rbS==='lb')&&!!(lb&&lb.trades!=null&&isFinite(+lb.trades)&&+lb.trades===0);};
         const _rbZeroWhy='This run took no trades in the lockbox.';
         const _num=(v,f)=>(v==null||!isFinite(v))?'<span style="color:var(--text5)">—</span>':f(v);
@@ -28155,20 +28197,23 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           // a test that took no trades reads 0 trades - a count, not a missing figure
           {l:'OOS trades',s:'OOS tr',f:x=>{const a=_wfA(x),O=_wfoOf(x);return (O&&O.zeroTr)?0:((a&&a.tr)?a.tr:'—');},sec:'sample'}];
         const M_lb=[
-          {l:'Lockbox net $',s:'LB $',v:x=>{const a=_lbA(x);return (a&&!_lbZeroTr(x))?a.net:-1e15;},f:x=>{const a=_lbA(x);return _lbZeroTr(x)?('<span title="'+_rbZeroWhy+'" style="cursor:help">—</span>'):(a?_ab$(a.net):'—');},b:'max',sec:'return'},
+          {l:'Lockbox net $',s:'LB $',v:x=>{const a=_lbAW(x);return (a&&!_lbZeroTrW(x))?a.net:-1e15;},f:x=>{const a=_lbAW(x);return _lbZeroTrW(x)?('<span title="'+_rbZeroWhy+'" style="cursor:help">—</span>'):(a?(_ab$(a.net)+_lbWarmTagOld(x,a)):'—');},b:'max',sec:'return'},
           // (D12) a lockbox with no saved profit factor dashes and never takes the best mark: every trade winning leaves
           //   nothing to divide by, and printing 0.00 made it read exactly like a lockbox that lost every trade
-          {l:'Lockbox PF',s:'LB PF',v:x=>{const a=_lbA(x);return (a&&!_lbZeroTr(x)&&a.pf!=null)?a.pf:-1e15;},f:x=>{const a=_lbA(x);if(_lbZeroTr(x))return '<span title="'+_rbZeroWhy+'" style="cursor:help">—</span>';
-            if(!a)return '—';if(a.pf!=null)return a.pf.toFixed(2);const lb0=(x.validate&&x.validate.lockbox)||{};
+          {l:'Lockbox PF',s:'LB PF',v:x=>{const a=_lbAW(x);return (a&&!_lbZeroTrW(x)&&a.pf!=null)?a.pf:-1e15;},f:x=>{const a=_lbAW(x);if(_lbZeroTrW(x))return '<span title="'+_rbZeroWhy+'" style="cursor:help">—</span>';
+            if(!a)return '—';if(a.pf!=null)return a.pf.toFixed(2);const lb0=_lbBlk(x)||{};
             return '<span title="'+((+lb0.trades>0&&lb0.win_rate!=null&&+lb0.win_rate>=100)?'No lockbox trade lost, so a profit factor cannot be worked out.':'No lockbox profit factor is saved on this run.')+'" style="cursor:help;color:var(--text5)">—</span>';},b:'max',sec:'edge'},
-          {l:'Held?',s:'Held',f:x=>{const a=_lbA(x);return a?('<b style="color:'+(a.pass?'var(--green)':'var(--red)')+'">'+(a.pass?'HELD ✓':'FAILED ✕')+'</b>'):'—';},sec:'edge'},
-          {l:'Lockbox trades',s:'LB tr',f:x=>{const a=_lbA(x);return a?a.tr:'—';},sec:'sample'}];
+          {l:'Held?',s:'Held',f:x=>{const a=_lbAW(x);if(!a)return '—';const tip=a.warm?'This run PASS / FAIL was judged on its own cold lockbox reading, before the continuous-replay swap LB $ / LB PF show above (v73.841).':'';
+            return '<b'+(tip?(' title="'+_wfoEsc(tip)+'"'):'')+' style="color:'+(a.pass?'var(--green)':'var(--red)')+(tip?';cursor:help':'')+'">'+(a.pass?'HELD ✓':'FAILED ✕')+'</b>';},sec:'edge'},
+          {l:'Lockbox trades',s:'LB tr',f:x=>{const a=_lbAW(x);return a?a.tr:'—';},sec:'sample'}];
         const M_tot=[
           {l:'Total net $ (whole run)',s:'Total $',v:x=>{const a=_totA(x);return a?a.net:-1e15;},f:x=>{const a=_totA(x);if(!a)return '—';
             return '<b>'+_ab$(a.net)+'</b>'+(a.whole?'':'<span title="this run has no walk-forward / lockbox stages — its whole run IS the in-sample window, so this equals the in-sample figure" style="color:var(--yellow);font-size:8px"> IS only</span>');},b:'max',sec:'return'},
           {l:'  ├ in-sample $',s:'IS $',v:x=>{const a=_totA(x);return (a&&a.is!=null)?a.is:-1e15;},f:x=>{const a=_totA(x);return (a&&a.is!=null)?'<span style="color:var(--text4)">'+_ab$(a.is)+'</span>':'<span style="color:var(--text5)" title="'+_wfoEsc((a&&a.isWhy)||'This run saved no in-sample figures.')+'">—</span>';},sec:'return'},
           {l:'  ├ walk-forward $',s:'WF $',v:x=>{const a=_wfA(x);return a?a.net:-1e15;},f:x=>{const a=_wfA(x);return a?'<span style="color:var(--text4)">'+_ab$(a.net)+'</span>':'—';},sec:'return'},
-          {l:'  └ lockbox $',s:'LB $',v:x=>{const a=_lbA(x);return a?a.net:-1e15;},f:x=>{const a=_lbA(x);return a?'<span style="color:var(--text4)">'+_ab$(a.net)+'</span>':'—';},sec:'return'},
+          {l:'  └ lockbox $',s:'LB $',v:x=>{const a=_lbAW(x);return a?a.net:-1e15;},f:x=>{const a=_lbAW(x);if(!a)return '—';
+            const tip=a.warm?('Lockbox read from the continuous replay - the same figure as the Lockbox net $ row. The whole-run total above is the saved curve, which holds this run’s own cold lockbox'+((a._cold&&a._cold.pnl!=null)?(' ('+(a._cold.pnl<0?'-$':'$')+Math.abs(Math.round(a._cold.pnl*_mcOf(x))).toLocaleString()+')'):'')+'.'):'';
+            return '<span'+(tip?(' title="'+_wfoEsc(tip)+'"'):'')+' style="color:var(--text4)'+(tip?';cursor:help':'')+'">'+_ab$(a.net)+'</span>';},sec:'return'},
           {l:'Max DD (in-sample)',s:'Max DD',v:x=>{if(_isGvJob(x)){const g=_gvB(x,'ungated_is');return (g&&g.max_drawdown!=null&&isFinite(+g.max_drawdown))?Math.abs(+g.max_drawdown)*_mcOf(x):null;}return (x.best_dd_usd!=null&&isFinite(+x.best_dd_usd))?Math.abs(+x.best_dd_usd):null;},f:x=>{if(_isGvJob(x)){const g=_gvB(x,'ungated_is');return (g&&g.max_drawdown!=null&&isFinite(+g.max_drawdown))?_ab$(Math.abs(+g.max_drawdown)*_mcOf(x)):'<span style="color:var(--text5)" title="This run saved no in-sample figures.">—</span>';}return (x.best_dd_usd!=null&&isFinite(+x.best_dd_usd))?_ab$(Math.abs(+x.best_dd_usd)):'—';},b:'min',sec:'drawdown'},
           {l:'Robustness',s:'Rob',v:x=>scoreRun(x),f:x=>_robFmt(x),b:'max',sec:'edge'},
           {l:'Verdict',s:'Verdict',f:x=>x.validate?'<b style="color:'+(x.validate.verdict==='PASS'?'var(--green)':x.validate.verdict==='WEAK'?'var(--yellow)':'var(--red)')+'">'+x.validate.verdict+'</b>':'—'}];
@@ -28476,7 +28521,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   label names the stage actually shown.
         const _pnlOf=r=>{
           if(_cSc==='wf'){const a=_wfA(r);return a?a.net:null;}
-          if(_cSc==='lb'){if(_lbZeroTr(r))return null;const a=_lbA(r);return a?a.net:null;}
+          if(_cSc==='lb'){if(_lbZeroTrW(r))return null;const a=_lbAW(r);return a?a.net:null;}
           if(_cSc==='tot'){const a=_totA(r);return a?a.net:null;}
           return (r.best_pnl_usd!=null)?+r.best_pnl_usd:null;};
         const _pnlLbl={wf:'walk-forward $',lb:'lockbox $',tot:'whole-run $'}[_cSc]||'in-sample (tuning-score) $';
@@ -33299,7 +33344,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               if(_rbS==='lb'){const _base=_row.cell;
                 _row.cell=c=>{const html=_base(c),w=_lbWarmOf(c.run);
                   if(!w)return html;
-                  const cold=w._cold||{},mc=_mcOf(c.run),cN=(cold.pnl!=null)?('$'+Math.round(cold.pnl*mc).toLocaleString()):null;
+                  const cold=w._cold||{},mc=_mcOf(c.run),cN=(cold.pnl!=null)?((cold.pnl<0?'-$':'$')+Math.abs(Math.round(cold.pnl*mc)).toLocaleString()):null;
                   const tip='Lockbox read from the continuous replay. This run scored its own lockbox cold (before warm starts, v73.841)'
                     +((cN!=null)?(': '+cN+(cold.trades!=null?(' on '+cold.trades+' trades'):'')+(cold.pf!=null?(', PF '+cold.pf.toFixed(2)):'')+'.'):'.');
                   return html+' <span title="'+_wfoEsc(tip)+'" style="font-size:7px;color:var(--text5);border:1px solid var(--border2);border-radius:3px;padding:0 2px;cursor:help">LB warm</span>';};}
@@ -33962,7 +34007,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // a BOOK keeps its lockbox drawdown and window on the book block (validate.lockbox carries
       //   only pnl / pf / trades / pass for a book), so those are the fallbacks here - the same
       //   fields RUNBOARD's BOOKS tile reads. Without them a book dashed MAR and R / YR on LB.
-      const _c2lb=x=>{const V=x.validate,lb=V&&V.lockbox;if(!lb)return null;const _bl=(x.book&&x.book.lockbox)||null;
+      // COLD-ONLY TWIN (2026-09-28, owner via MANAGER): _c2full's in-sample residual (TOTAL minus
+      //   walk-forward minus lockbox) must keep the run's OWN saved lockbox even when _c2lb below
+      //   has been swapped for the continuous replay - the saved whole-run curve (TOTAL) is the
+      //   cold one, so a warm lockbox in that subtraction would silently corrupt IN-SAMPLE. Exact
+      //   copy of _c2lb's old body, frozen under a new name for that one caller.
+      const _c2lbCold=x=>{const V=x.validate,lb=V&&V.lockbox;if(!lb)return null;const _bl=(x.book&&x.book.lockbox)||null;
         const W=((lb.from&&lb.to)?[lb.from,lb.to]:null)||(V.windows&&V.windows.lockbox)||((x.book&&x.book.lockbox_from&&(x.book.date_to||x.date_to))?[x.book.lockbox_from,(x.book.date_to||x.date_to)]:null)||null;
         const _lbYrs=((W&&W[0]&&W[1]&&typeof _yrsBetween==='function')?_yrsBetween(String(W[0]).slice(0,10),String(W[1]).slice(0,10))
              :((V.windows&&+V.windows.lockbox_months>0)?(+V.windows.lockbox_months/12):null));
@@ -33977,6 +34027,33 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   is built to say so. Only a missing or negative profit factor is a dash.
           pf:((lb.pf!=null&&isFinite(+lb.pf)&&+lb.pf>=0)?+lb.pf:null),tr:(+lb.trades||0),wr:(lb.win_rate!=null?+lb.win_rate:((_bl&&_bl.win_rate!=null)?+_bl.win_rate:null)),dd:(lb.dd!=null?Math.abs(+lb.dd)*_c2mc(x):((_bl&&_bl.max_drawdown!=null&&isFinite(+_bl.max_drawdown))?Math.abs(+_bl.max_drawdown):_c2eqDD(x,'lb'))),ddApx:(lb.dd==null&&!(_bl&&_bl.max_drawdown!=null&&isFinite(+_bl.max_drawdown))),
         yrs:_lbYrs,pass:!!lb.pass};};
+      // THE SMALL "LB warm" BADGE (2026-09-28, owner via MANAGER): same wrap-the-cell wording
+      //   RUNBOARD's TOTAL row uses on its LB stage, copied here so every screen that swaps in
+      //   the continuous replay names the run's own cold reading on hover the same way.
+      const _c2LbWarmTag=(r,S)=>{if(!S||!S.warm)return '';const cold=S._cold||{},mc=_c2mc(r);
+        const cN=(cold.pnl!=null)?((cold.pnl<0?'-$':'$')+Math.abs(Math.round(cold.pnl*mc)).toLocaleString()):null;
+        const tip='Lockbox read from the continuous replay. This run scored its own lockbox cold (before warm starts, v73.841)'
+          +((cN!=null)?(': '+cN+(cold.trades!=null?(' on '+cold.trades+' trades'):'')+(cold.pf!=null?(', PF '+cold.pf.toFixed(2)):'')+'.'):'.');
+        return ' <span title="'+_reEscC2(tip)+'" style="font-size:7px;color:var(--text5);border:1px solid var(--border2);border-radius:3px;padding:0 2px;cursor:help">LB warm</span>';};
+      // THE LB-STAGE LOCKBOX READER (2026-09-28, owner via MANAGER): the warm continuous replay
+      //   when this run qualifies for the swap (_lbWarmOf), else its own saved validate.lockbox -
+      //   the same gate RUNBOARD's _lbBlk reads, so LEADERBOARD / COMPARE and RUNBOARD can never
+      //   disagree about which runs get it. _c2full keeps _c2lbCold above for its cold residual.
+      const _c2lb=x=>{const V=x.validate,_lbW=_lbWarmOf(x),lb=_lbW||(V&&V.lockbox);if(!lb)return null;const _bl=(x.book&&x.book.lockbox)||null;
+        const W=((lb.from&&lb.to)?[lb.from,lb.to]:null)||(V.windows&&V.windows.lockbox)||((x.book&&x.book.lockbox_from&&(x.book.date_to||x.date_to))?[x.book.lockbox_from,(x.book.date_to||x.date_to)]:null)||null;
+        const _lbYrs=((W&&W[0]&&W[1]&&typeof _yrsBetween==='function')?_yrsBetween(String(W[0]).slice(0,10),String(W[1]).slice(0,10))
+             :((V.windows&&+V.windows.lockbox_months>0)?(+V.windows.lockbox_months/12):null));
+        // A LOCKBOX THAT TOOK ZERO TRADES HAS NO READING AT ALL (item 11) - not a $0 net, a
+        //   0.00 PF or a $0 drawdown, every one of which is a confident wrong number wearing a
+        //   real one's clothes. Only an EXPLICIT saved zero counts - a missing trades field
+        //   stays unknown, not zero, so an old run that never saved this field is not swept in.
+        if(lb.trades!=null&&isFinite(+lb.trades)&&+lb.trades===0)
+          return {net:null,pf:null,tr:0,wr:null,dd:null,ddApx:false,yrs:_lbYrs,pass:!!lb.pass,zeroTr:true,warm:!!_lbW,_cold:(_lbW&&_lbW._cold)||null};
+        return {net:((lb.pnl!=null&&isFinite(+lb.pnl))?(+lb.pnl)*_c2mc(x):null),
+          // zero IS a reading - it means the stretch never won a trade, and expectancy in R
+          //   is built to say so. Only a missing or negative profit factor is a dash.
+          pf:((lb.pf!=null&&isFinite(+lb.pf)&&+lb.pf>=0)?+lb.pf:null),tr:(+lb.trades||0),wr:(lb.win_rate!=null?+lb.win_rate:((_bl&&_bl.win_rate!=null)?+_bl.win_rate:null)),dd:(lb.dd!=null?Math.abs(+lb.dd)*_c2mc(x):((_bl&&_bl.max_drawdown!=null&&isFinite(+_bl.max_drawdown))?Math.abs(+_bl.max_drawdown):_c2eqDD(x,'lb'))),ddApx:(lb.dd==null&&!(_bl&&_bl.max_drawdown!=null&&isFinite(+_bl.max_drawdown))),
+        yrs:_lbYrs,pass:!!lb.pass,sh:((lb.sharpe!=null&&isFinite(+lb.sharpe))?+lb.sharpe:null),so:((lb.sortino!=null&&isFinite(+lb.sortino))?+lb.sortino:null),warm:!!_lbW,_cold:(_lbW&&_lbW._cold)||null};};
       // A MISSING FIGURE IS A DASH, NEVER A ZERO. Coercing an absent drawdown to 0 made the
       //   run with no drawdown saved the SMALLEST drawdown of the picked runs, so it won the
       //   row and the MAR row underneath it; an absent net showed as $0 and beat a run that
@@ -34022,7 +34099,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   under a different parameterisation - pooling it double-counts, and the three
         //   parts then failed to sum to the very net printed above them. Total minus
         //   walk-forward minus lockbox is how the run report and the RUNBOARD both do it.
-        const _w=_c2wf(x),_l=_c2lb(x);
+        const _w=_c2wf(x),_l=_c2lbCold(x);
         const _isNet=(net!=null)?(net-((_w&&_w.net)||0)-((_l&&_l.net)||0)):null;
         const parts=[{net:_isNet,pf:((x.best_pf!=null)?+x.best_pf:null)},
                      {net:(_w&&_w.net),pf:(_w&&_w.pf)},
@@ -34635,7 +34712,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             return '<span style="color:'+c+(isBest?';font-weight:800':'')+'"'
               +(isBest?' title="best of the picked runs on this row"':'')
               +(der?(' title="'+_reEscC2(derTip)+'"'):'')
-              +'>'+(der?'~':'')+mfmt(m.k,v)+'</span>';};
+              +'>'+(der?'~':'')+mfmt(m.k,v)+'</span>'+((m.k==='net'&&x.S&&x.S.warm)?_c2LbWarmTag(x.r,x.S):'');};
           const _BANDS=['return \u00b7 '+_c2StageNm,'reward \u00f7 risk \u00b7 '+_c2StageNm,'sample','verdict'];
           const _mGroups=_BANDS.map((nm,bi)=>({name:nm,
             rows:MROWS.filter(m=>m.band===bi).map(m=>({lbl:m.lbl,top:!!m.top,
@@ -34778,7 +34855,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +(shrt?('<span style="font-size:8px;color:var(--yellow)" title="this run window is under two years, so its figures rest on a short sample - shown here as a caveat, not left out">\u26a0 '+yrs.toFixed(1)+'y</span>'):'')
             +(o.v.thinWf?('<span style="font-size:8px;color:var(--yellow)" title="'+_reEscC2(_c2ThinWfWhy((_c2StageOf(r)||{}).tr))+'">⚠ thin</span>'):'')+'</div>'
             +'<div class="c2-who">'+_reEscC2(String(r.instrument||'')+' '+String(r.timeframe||''))+' \u00b7 '+String(r.timestamp||'').slice(0,10)+'</div></div>'
-            +'<div><div class="c2-big" style="color:'+_c2Col(o.v.v)+'">'+(o.v.apx?'~':'')+_c2Fmt(o.v.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
+            +'<div><div class="c2-big" style="color:'+_c2Col(o.v.v)+'">'+(o.v.apx?'~':'')+_c2Fmt(o.v.v)+_c2LbWarmTag(r,_c2StageOf(r))+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
             +'<span class="c2-chev">\u203a</span></div>';}).join('')
           :('<div class="c2-hold">NO RUN CARRIES THAT MEASUREMENT ON THIS STAGE</div>'))+'</div>');
         const rows=fams.map((f,i)=>{const open=window._c2Open.has(f.k),ch=f.ch,vv=ch.validate?ch.validate.verdict:'',S=_c2StageOf(ch);
@@ -34786,7 +34863,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           return '<div class="c2-row" data-c2fam="'+encodeURIComponent(f.k)+'">'
             +'<span class="c2-chev">'+(open?'\u25be':'\u25b8')+'</span>'
             +'<div><div class="c2-nm"><span style="color:var(--text5);font-weight:500;width:16px">'+(i+1)+'</span>'+((f.k==='BOOKS')?'<span style="font-weight:600;letter-spacing:.04em">BOOKS</span>':(((typeof _canonFam==='function')&&_canonFam(ch.strategy))?((typeof stratTag==='function')?stratTag(ch.strategy):_reEscC2(f.k)):_reEscC2(f.k)))+_c2Pill(vv)+_c2Drift(ch)+_c2ShortPill(ch)+_c2ThinPill(ch,S)+(eq?_c2Spark(eq,64,18):'')+'</div>'
-            +'<div class="c2-who">'+(ch.starred?'<span title="you starred this run">\u2605 your crown #':'<span title="'+_reEscC2('No run in this family is starred, so this is only the top '+((f.k==='BOOKS')?'book on pre-lockbox net over drawdown':'robustness score')+'. Star the run you actually trade in Past Runs and it takes this place.')+'" style="cursor:help">top pick, no \u2605 crown #')+ch.id+'</span>'+((f.k==='BOOKS')?(' '+_reEscC2(String((ch.book&&ch.book.name)||ch.strategy||'').replace(/^BOOK:\s*/i,'').slice(0,48))):'')+' of '+f.runs.length+' run'+(f.runs.length===1?'':'s')+(S&&S.zeroTr?' \u00b7 no '+_c2StageNm+' trades':(S&&S.net!=null?' \u00b7 '+_c2StageNm+' '+(S.net<0?'-$':'$')+Math.round(Math.abs(S.net)).toLocaleString():''))+'</div></div>'
+            +'<div class="c2-who">'+(ch.starred?'<span title="you starred this run">\u2605 your crown #':'<span title="'+_reEscC2('No run in this family is starred, so this is only the top '+((f.k==='BOOKS')?'book on pre-lockbox net over drawdown':'robustness score')+'. Star the run you actually trade in Past Runs and it takes this place.')+'" style="cursor:help">top pick, no \u2605 crown #')+ch.id+'</span>'+((f.k==='BOOKS')?(' '+_reEscC2(String((ch.book&&ch.book.name)||ch.strategy||'').replace(/^BOOK:\s*/i,'').slice(0,48))):'')+' of '+f.runs.length+' run'+(f.runs.length===1?'':'s')+(S&&S.zeroTr?' \u00b7 no '+_c2StageNm+' trades':(S&&S.net!=null?' \u00b7 '+_c2StageNm+' '+(S.net<0?'-$':'$')+Math.round(Math.abs(S.net)).toLocaleString()+_c2LbWarmTag(ch,S):''))+'</div></div>'
             +'<div><div class="c2-big" style="color:'+_c2Col(f.val.v)+'"'+(f.val.v==null?(' title="'+_reEscC2(f.val.why)+'"'):'')+'>'+(f.val.apx?'~':'')+_c2Fmt(f.val.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
             +'<span class="c2-chev">'+(open?'':'\u203a')+'</span></div>'
             +(open?f.runs.map((r,j)=>_c2RunRow(r,!!r.starred)).join(''):'');}).join('');
