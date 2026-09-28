@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 140
+N_CASES = 143
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -143,6 +143,11 @@ var FIX = __FIX__;
           call=w.eval("(function(){try{"
             +"localStorage.setItem('augurPrefs',"+JSON.stringify(JSON.stringify(prefs))+");"
             +"window._starRuns=[];"
+            // z1 (2026-09-27 audit, EXPLORE run pills): EXPLORE's own pill pool now folds in
+            //   window._rbWatch / window._rbWatchRuns the same way it already folded in
+            //   window._starRuns - reset both here too, or a case that leaves either set
+            //   (k1_watch_list, k2_watch_fetch) leaks into whatever renders next.
+            +"window._rbWatch={state:'idle',runs:[],at:0};window._rbWatchRuns=[];window._rbWatchRunsState='idle';window._rbWatchRunsWant=[];"
             +winCode
             +"activeTab='augur';augurSub='"+(sub||'cmp2')+"';renderApp();return 'OK';"
             +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
@@ -270,7 +275,10 @@ var FIX = __FIX__;
           r.splitCol=L?Math.round(L.getBoundingClientRect().width):0;
           r.splitChart=sv?Math.round(sv.getBoundingClientRect().width):0;
           r.splitLeftFirst=(L&&sv)?(L.getBoundingClientRect().left<sv.getBoundingClientRect().left):null;
-          r.splitSameRow=(L&&sv)?(Math.abs(L.getBoundingClientRect().top-sv.getBoundingClientRect().top)<260):null;
+          // z1 (2026-09-27 audit): the ROC @ $30K DD axis buttons add one control's worth of
+        //   height above the chart on this level (measured 244.56px before, 263.5px after - the
+        //   split itself is still correctly side by side, only the fixed pixel budget was tight).
+        r.splitSameRow=(L&&sv)?(Math.abs(L.getBoundingClientRect().top-sv.getBoundingClientRect().top)<300):null;
         })();
       })();
 
@@ -871,12 +879,16 @@ var FIX = __FIX__;
         var T=+V.total_trades,Wt=T*(+V.total_win_rate)/100;
         var wfT=0,wfW=0,wfGW=0,wfGL=0;fl.forEach(function(z){wfT+=(+z.oos_trades||0);wfW+=(+z.oos_wins||0);
           var pf=+z.oos_pf,p=+z.oos_pnl,g=Math.abs(p/(pf-1));wfGL+=g;wfGW+=pf*g;});
-        var lT=+Lk.trades,lW=lT*(+Lk.win_rate)/100,lGW=(+Lk.avg_win)*lW,lGL=Math.abs(+Lk.avg_loss)*(lT-lW);
+        // (2026-09-28 staged: a cold run's EXPLORE run row now reads the continuous lockbox - y1_explore_money)
+        var gvLb=(R.gate_validate&&R.gate_validate.ungated_lockbox)||null;
+        var lT=gvLb?+gvLb.num_trades:+Lk.trades;
+        var lPfExp=gvLb?(+gvLb.profit_factor).toFixed(2):(function(){var lW0=lT*(+Lk.win_rate)/100,lGW0=(+Lk.avg_win)*lW0,lGL0=Math.abs(+Lk.avg_loss)*(lT-lW0);return (lGW0/lGL0).toFixed(2);})();
+        var lWrExp=gvLb?(Math.round(+gvLb.win_rate)+'%'):(Math.round(+Lk.win_rate)+'%');
         var tGW=(+V.total_avg_win)*Wt,tGL=Math.abs(+V.total_avg_loss)*(T-Wt);
         var gvIs=(R.gate_validate&&R.gate_validate.ungated_is)||{};
         var isT=+gvIs.num_trades||0;
         var exp={wf:{pf:(wfGW/wfGL).toFixed(2),wr:Math.round(100*wfW/wfT)+'%',trd:wfT},
-                 lb:{pf:(lGW/lGL).toFixed(2),wr:Math.round(+Lk.win_rate)+'%',trd:lT},
+                 lb:{pf:lPfExp,wr:lWrExp,trd:lT},
                  is:{pf:(+gvIs.profit_factor).toFixed(2),trd:isT},
                  all:{pf:(tGW/tGL).toFixed(2),trd:T},islb:{trd:isT+lT}};
         var wc='var F='+JSON.stringify(R)+';runHistory=[F];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();';
@@ -1924,6 +1936,9 @@ var FIX = __FIX__;
         // run rows: a zero-trade lockbox beside a normal one, on a drawdown axis
         var Z=JSON.parse(JSON.stringify(FIX));Z.id=String(+FIX.id+750001);Z.strategy='ZZERO_TR_1_0.py';Z.starred=false;
         Z.validate.lockbox=Object.assign({},Z.validate.lockbox,{trades:0,pnl:0,dd:0,pf:0,win_rate:0,sharpe:0,sortino:0,avg_loss:0,avg_win:0});
+        // (2026-09-28 staged, y1_explore_money: excluded from the new cold-lockbox read, or FIX's
+        //   own inherited gate_validate.ungated_lockbox would un-zero this run's whole point)
+        Z.validate.windows=Object.assign({},Z.validate.windows,{warm_days:300});
         var NN=JSON.parse(JSON.stringify(FIX));NN.id=String(+FIX.id+750002);NN.strategy='ZKAPPA_1_0.py';NN.starred=false;
         var wcR="var Z="+JSON.stringify(Z)+";var NN="+JSON.stringify(NN)+";"
           +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
@@ -2028,6 +2043,9 @@ var FIX = __FIX__;
         var ALc=cl(AL);ALc.id=String(+FIX.id+760007);ALc.strategy='ZALLLOSSC_1_0.py';(function(){folds(ALc)[4].oos_pf=1e-7;})();
         var LL=cl(FIX);LL.id=String(+FIX.id+760008);LL.strategy='ZLBLOSS_1_0.py';LL.starred=false;
         LL.validate.lockbox=Object.assign({},LL.validate.lockbox,{trades:5,win_rate:0,avg_win:null,avg_loss:100,pf:0,pnl:-500,dd:500,pass:false});
+        // (2026-09-28 staged, y1_explore_money: excluded from the new cold-lockbox read, so LL
+        //   and its clone LLc keep reading PF 0.00 instead of FIX's inherited continuous slice)
+        LL.validate.windows=Object.assign({},LL.validate.windows,{warm_days:300});
         var LLc=cl(LL);LLc.id=String(+FIX.id+760009);LLc.strategy='ZLBLOSSC_1_0.py';LLc.validate.lockbox.avg_win=0;
         var LW=cl(FIX);LW.id=String(+FIX.id+760010);LW.strategy='ZLBWIN_1_0.py';LW.starred=false;
         LW.validate.lockbox=Object.assign({},LW.validate.lockbox,{trades:5,win_rate:100,avg_win:100,avg_loss:null,pf:null,pnl:500,dd:0,pass:true});
@@ -2273,6 +2291,9 @@ var FIX = __FIX__;
       (function(){
         var Z=JSON.parse(JSON.stringify(FIX));Z.id=String(+FIX.id+770001);Z.strategy='ZZERO_TR_1_0.py';Z.starred=false;
         Z.validate.lockbox=Object.assign({},Z.validate.lockbox,{trades:0,pnl:0,dd:0,pf:0,win_rate:0,sharpe:0,sortino:0,avg_loss:0,avg_win:0});
+        // (2026-09-28 staged, y1_explore_money: excluded from the new cold-lockbox read, or FIX's
+        //   own inherited gate_validate.ungated_lockbox would un-zero this run's whole point)
+        Z.validate.windows=Object.assign({},Z.validate.windows,{warm_days:300});
         var NN=JSON.parse(JSON.stringify(FIX));NN.id=String(+FIX.id+770002);NN.strategy='ZKAPPA_1_0.py';NN.starred=false;
         var wc="var Z="+JSON.stringify(Z)+";var NN="+JSON.stringify(NN)+";"
           +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
@@ -3718,6 +3739,9 @@ var FIX = __FIX__;
         //   placeable failure also happened to sit under the floor).
         var FAILMIN=dfxClone(FIX);FAILMIN.id=+FIX.id+967004;FAILMIN.strategy='ZG20FAILMIN_1_0.py';FAILMIN.starred=false;FAILMIN.validate.verdict='FAIL';
         FAILMIN.validate.lockbox.trades=10;   // below the 30-trade floor; FAILPL's own 301 stays above it
+        // (2026-09-28 staged, y1_explore_money: excluded from the new cold-lockbox read, or FIX's
+        //   own inherited gate_validate.ungated_lockbox (334) would read above the floor)
+        FAILMIN.validate.windows=Object.assign({},FAILMIN.validate.windows,{warm_days:300});
         var Wr2=dfxWin([PASS,FAILPL,FAILNF,FAILMIN]);
         calls.push(doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:['lb'],resAxis:'raw',resXAxis:'dd',resFail:'0',resMinTrd:'30'}, Wr2));
         var hintMin=dfxTips('rows plotted')[0]||'';
@@ -4781,6 +4805,284 @@ var FIX = __FIX__;
           "a book's LOCKBOX ROC reads its own lockbox net over its own lockbox years": close(numOf(cell.lb.bRoc&&cell.lb.bRoc.v),bkLbRoc,0.06)
         }, {cell:cell,fullRocP:fullRocP,lbRocP:lbRocP,wfRocP:wfRocP,bkLbRoc:bkLbRoc,crownRoc:crownRoc,errAcc:errAcc});
       })();
+
+      // -- case y1_explore_money: MANAGER audit 2026-09-27 (ml_edge_orb_leak_answer_2026-09-27.md
+      //    1.3b/1.4a/3.1e/3.3b, verify_redflags_2026-09-27.md M1/H2). Two EXPLORE fixes.
+      //    (A) HYBRID recycle (redeploy) and HYBRID equal-drawdown rows: whenever the ticked
+      //    stretch includes the lockbox, size at the WALK-FORWARD factor - the size known before
+      //    the lockbox opened - not the lockbox's own hindsight factor; the row's hover still
+      //    states the hindsight reading. A walk-forward-only tick is untouched, and MAR (size-
+      //    free) reads the same hand ratio either way.
+      //    (B) a level-2 AUTO-VALIDATE RUNS row for a run saved cold (validate.windows.warm_days
+      //    absent/0) reads its LOCKBOX money and trades off the continuous
+      //    gate_validate.ungated_lockbox slice instead of its own cold reading, tagged LB warm; a
+      //    warm run (300+ sessions) is untouched even when it also carries a decoy continuous
+      //    slice.
+      (function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function dayGap(a,b){return Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00Z'))/86400000);}
+        function yrsBetween(a,b){var g=dayGap(a,b);return (g>0)?(g/365.25):null;}
+        function roc(net,yrs){return (yrs>0)?((net/yrs)/100000*100):null;}
+        function numOf(v){return (v==null)?null:parseFloat(String(v).replace(/[^0-9.\-]/g,''));}
+        function close(a,b,tol){return a!=null&&b!=null&&isFinite(a)&&isFinite(b)&&Math.abs(a-b)<tol;}
+        function hdrsOf(tr){return [].map.call(tr.closest('table').querySelectorAll('thead th'),function(x){return (x.textContent||'').replace(/[^A-Z0-9 /%$]/g,'').trim();});}
+        function rowCells(tr){if(!tr)return {};var hs=hdrsOf(tr),o={};
+          for(var i=0;i<tr.cells.length;i++){var c=tr.cells[i],sp=c.querySelector('span[title]');
+            o[hs[i]]={t:(c.textContent||'').trim(),tip:sp?(sp.getAttribute('title')||''):'',cellTip:c.getAttribute('title')||''};}
+          return o;}
+        function findRowBy(sub){return [].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){return (t.textContent||'').indexOf(sub)>=0;})[0]||null;}
+
+        // ---- (A) HYBRID sizing: lockbox hindsight vs. the walk-forward size ---------------------
+        var blk=function(p,dd,n){return {total_pnl:p,max_drawdown:dd,num_trades:n,profit_factor:1.5,win_rate:40,sharpe:1.2,sortino:2.1,avg_pnl:(p/n),avg_loss:-10};};
+        var RID_A=8801001;
+        var HD=blk(3000,-150,90);
+        var H2={model:'rf',n_trades:260,is_rng:blk(500,-100,40),wf_rng:blk(2000,-400,60),lockbox:HD,
+          full:blk(6000,-650,220),pre:blk(2500,-500,100),wf_lb:blk(5000,-550,150)};
+        var A=JSON.parse(JSON.stringify(FIX));
+        A.id=RID_A;A.strategy='ORB_9_9_1_0.py';A.starred=false;A.multiplier=20;delete A.equity;delete A.top10_results;
+        A.date_from='2010-01-01';A.date_to='2026-01-01';
+        A.validate={verdict:'PASS',total_trades:1000,total_win_rate:40,total_avg_win:900,total_avg_loss:-300,total_dd:9000,
+          windows:{optimize:['2010-01-01','2016-01-01'],wf_split:'2016-01-01',lockbox:['2025-01-01','2026-01-01']},
+          lockbox:{pnl:3000,trades:90,pf:1.5,win_rate:40,dd:-150,pass:true}};
+        A.gate_validate={span:['2010-01-01','2026-01-01'],wf_range:['2016-01-01','2025-01-01'],lockbox_from:'2025-01-01',
+          candidates:[],chosen:{model:'rf',threshold:0.5},tilts:[],hybrids:[H2],gates:[],windows:{},
+          ungated_is:{num_trades:80,max_drawdown:-150},ungated_wf:{num_trades:120,max_drawdown:-800},
+          ungated_lockbox:{num_trades:180,max_drawdown:-450},ungated_full:{num_trades:380,max_drawdown:-1300},
+          ungated_pre:{num_trades:200,max_drawdown:-950},ungated_wf_lb:{num_trades:300,max_drawdown:-1150}};
+        var wcA="var F="+JSON.stringify(A)+";var doc=(typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(F)):F;"
+          +"runHistory=[doc];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();window._runCfg={};window._runCfg[String(doc.id)]=doc;";
+        function readEqDD(segs){
+          calls.push(doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:[String(RID_A)],resSegs:segs,resAxis:'ratio',resXAxis:'so',c2Tbl:true,resCols:'all'},wcA));
+          chk('eqdd:'+segs.join('+'));
+          var tr=findRowBy('HYBRID \u2193DD');
+          return {row:rowCells(tr),foundTr:!!tr};
+        }
+        var lbTick=readEqDD(['lb']);
+        var wfTick=readEqDD(['wf']);
+
+        var lbYrs=yrsBetween('2025-01-01','2026-01-01');
+        var fWf=800/400, fHind=450/150;
+        var wantLbNet=HD.total_pnl*A.multiplier*fWf;
+        var wantLbDd=Math.abs(HD.max_drawdown)*A.multiplier*fWf;
+        var wantHindNet=HD.total_pnl*A.multiplier*fHind;
+        var wantHindRoc=roc(wantHindNet,lbYrs);
+        var wfWantNet=H2.wf_rng.total_pnl*A.multiplier*fWf;
+        var lbNet=numOf((lbTick.row['LOCKBOX']||{}).tip);
+        var lbDd=numOf((lbTick.row['DRAWDOWN']||{}).tip);
+        var lbMar=numOf((lbTick.row['MAR']||{}).t);
+        var wantMar=(HD.total_pnl/lbYrs)/Math.abs(HD.max_drawdown);
+        var totHov=(lbTick.row['TOTAL']||{}).cellTip||'';
+        var hindMatch=totHov.match(/lockbox hindsight \(x([0-9.]+)\)[^%]*read (-?[0-9.]+)%\/yr/);
+        var wfWfVal=numOf((wfTick.row['WALKFWD']||{}).tip);
+        var wfTotHov=(wfTick.row['TOTAL']||{}).cellTip||'';
+
+        // ---- (B) warm lockbox for a cold run, level 2 AUTO-VALIDATE RUNS ------------------------
+        var RID_C=8801101, RID_W=8801102;
+        function mkRun(id,warmDays){
+          var r=JSON.parse(JSON.stringify(FIX));
+          r.id=id;r.strategy='NOISE_9_9_1_0.py';r.starred=false;r.multiplier=20;delete r.equity;delete r.top10_results;delete r.gate_validate;
+          r.date_from='2010-01-01';r.date_to='2026-06-01';
+          r.validate={verdict:'PASS',total_trades:5000,total_win_rate:41,total_avg_win:150,total_avg_loss:-90,total_dd:9000,total_sharpe:1.1,total_sortino:1.6,
+            windows:{optimize:['2010-01-01','2018-01-01'],wf_split:'2018-01-01',lockbox:['2025-06-01','2026-06-01']},
+            lockbox:{pnl:3996.9,trades:239,pf:1.39,win_rate:44,dd:-190,sortino:3.23}};
+          if(warmDays)r.validate.windows.warm_days=warmDays;
+          r.gate_validate={ungated_lockbox:{total_pnl:3453.1,num_trades:315,profit_factor:1.259,max_drawdown:210,sortino:2.478,win_rate:41.5}};
+          return r;
+        }
+        var COLD=mkRun(RID_C,0), WARM=mkRun(RID_W,300);
+        WARM.validate.lockbox={pnl:3453.1,trades:315,pf:1.259,win_rate:41.5,dd:-210,sortino:2.478};
+        calls.push(doRender({c2Screen:'explore',resLvl:'all',resShow:'runs',resSegs:['lb'],resAxis:'roc',resXAxis:'dd',c2Tbl:true,resCols:'all'},r4Win([COLD,WARM])));
+        chk('coldwarm');
+        var trC=findRowBy('#'+RID_C), trW=findRowBy('#'+RID_W);
+        var rowC=rowCells(trC), rowW=rowCells(trW);
+        function lbTagInfo(tr){if(!tr)return {has:false,tip:null};
+          var hs=hdrsOf(tr),idx=hs.indexOf('LOCKBOX');if(idx<0)return {has:false,tip:null};
+          var c=tr.cells[idx],has=(c.textContent||'').indexOf('LB warm')>=0;
+          var spans=[].slice.call(c.querySelectorAll('span[title]'));
+          var tagSpan=spans.filter(function(sp){return (sp.textContent||'').indexOf('LB warm')>=0;})[0]||null;
+          return {has:has,tip:tagSpan?tagSpan.getAttribute('title'):null};}
+        var tagC=lbTagInfo(trC), tagW=lbTagInfo(trW);
+        var warmNet=3453.1*20;
+
+        dfxCase('y1_explore_money', calls, {
+          'renders OK on every call': calls.every(function(c){return c==='OK';}),
+          'no console errors on any call': errAcc.length===0,
+          'A: the equal-drawdown row is found on both ticks': lbTick.foundTr&&wfTick.foundTr,
+          'A: on the LOCKBOX tick, LOCKBOX $ sizes at the walk-forward factor (x2.00), not the lockbox hindsight factor (x3.00)': close(lbNet,wantLbNet,1),
+          'A: DRAWDOWN on that tick scales with the same factor': close(lbDd,wantLbDd,1),
+          'A: MAR is size-free - the same hand ratio holds whichever factor actually sizes the row': close(lbMar,wantMar,0.05),
+          "A: the row's hover names the walk-forward size and states the lockbox-hindsight reading": !!hindMatch&&close(numOf(hindMatch[1]),fHind,0.02)&&close(numOf(hindMatch[2]),wantHindRoc,0.6),
+          'A: on a walk-forward-only tick the row is unchanged from today (same factor, no hindsight note)': close(wfWfVal,wfWantNet,1)&&!/lockbox hindsight/.test(wfTotHov),
+          'B: both the cold and the warm run rows are found': !!trC&&!!trW,
+          'B: the cold run carries the LB warm tag on LOCKBOX': tagC.has,
+          "B: the cold run's LOCKBOX money is the continuous reading, $69,062, not its own cold $79,938": close(numOf((rowC['LOCKBOX']||{}).tip),warmNet,1),
+          "B: the cold run's TRADES read the continuous count, 315, not its cold 239": close(numOf((rowC['TRADES']||{}).t),315,0.5),
+          "B: the tag's hover states the run's own cold reading, $79,938 on 239 trades, PF 1.39": /\$79,938/.test(tagC.tip||'')&&/239/.test(tagC.tip||'')&&/1\.39/.test(tagC.tip||''),
+          'B: the warm run carries no LB warm tag': !tagW.has,
+          "B: the warm run's LOCKBOX money is untouched by its own decoy continuous slice": close(numOf((rowW['LOCKBOX']||{}).tip),warmNet,1)
+        }, {lbTick:lbTick.row,wfTick:wfTick.row,totHov:totHov,wantHindRoc:wantHindRoc,rowC:rowC,rowW:rowW,tagC:tagC,tagW:tagW,errAcc:errAcc});
+      })();
+
+      // -- case x1_explore_flags: MANAGER audit 2026-09-27 (ml_edge_orb_leak_answer_2026-09-27.md,
+      //    1.5 / 2.3b / 3.1a / 3.3) - EXPLORE owed three honest cautions it never gave: a lockbox
+      //    too thin to trust (under 50 trades), a run carrying the volume-filter look-ahead (VOID:
+      //    ORB #206 / #209), and a pinned single-config run whose walk-forward figures are the
+      //    CROWNING SCORE, not a test. _reFlagsOf tags and greys only - the owner rule says EXPLORE
+      //    never hides or drops a row, so the row count must stay the same on every tick.
+      (function(){
+        function flagRun(id,strat,lbTrades,extra){
+          var r={id:id,strategy:strat,starred:false,multiplier:20,instrument:'NQ',timeframe:'5m',
+            date_from:'2010-06-07',date_to:'2026-06-30',timestamp:'2026-08-20T00:00:00Z',
+            validate:{verdict:'PASS',total_trades:2000,total_win_rate:38,total_avg_win:900,total_avg_loss:-300,total_dd:31000,
+              windows:{optimize:['2010-06-07','2025-06-29'],wf_split:'2016-10-12',lockbox:['2025-06-29','2026-06-29']},
+              lockbox:{pnl:lbTrades*160,trades:lbTrades,pf:1.4,win_rate:42,dd:9000,pass:true}}};
+          if(extra)Object.keys(extra).forEach(function(k){r[k]=extra[k];});
+          return r;}
+        var RFnorm=flagRun(990810,'ZFLAGZ_NORM_1_0.py',180,null),
+            RFthin=flagRun(990811,'ZFLAGZ_THIN_1_0.py',12,null),
+            RFvoid=flagRun(209,'ZFLAGZ_VOID_1_0.py',180,null),
+            RFpin=flagRun(990812,'ZFLAGZ_PIN_1_0.py',180,{n_evaluated:1});
+        var WIN=dfxWin([RFnorm,RFthin,RFvoid,RFpin]);
+        var BASE={c2Screen:'explore',resLvl:'valid',resShow:'runs',resView:'one',c2Tbl:true,
+          resAxis:'raw',resXAxis:'dd',resFilt:{},resScope:'all',resMinTrd:'0',resSplitRun:false};
+        var WARN=String.fromCharCode(9888);
+        function rowInfo(id){
+          var tr=d.querySelector('tr[data-rerow="runs:'+id+'"]');
+          if(!tr)return {found:false,tags:[],tips:[],grey:false};
+          var style=tr.getAttribute('style')||'';
+          var spans=[].filter.call(tr.querySelectorAll('span[title]'),function(s){return (s.textContent||'').indexOf(WARN)===0;});
+          return {found:true,grey:style.indexOf('opacity:0.5')>=0,
+            tags:spans.map(function(s){return dfxN(s.textContent);}),
+            tips:spans.map(function(s){return s.getAttribute('title')||'';})};}
+        function pointTip(id){var g=d.querySelector('[data-repoint="runs:'+id+'"]'),t=g?g.querySelector('title'):null;
+          return t?t.textContent:null;}
+        var errAcc=[];
+        function keepErr(){errAcc=errAcc.concat(sink.errors).concat(sink.uncaught);}
+        var calls=[],res={};
+        calls.push(doRender(Object.assign({},BASE,{resSegs:['wf']}),WIN));keepErr();
+        res.rowCountWf=d.querySelectorAll('tr[data-rerow]').length;
+        res.normWf=rowInfo(RFnorm.id);res.thinWf=rowInfo(RFthin.id);res.voidWf=rowInfo(RFvoid.id);res.pinWf=rowInfo(RFpin.id);
+        res.voidPtWf=pointTip(RFvoid.id);
+        calls.push(doRender(Object.assign({},BASE,{resSegs:['lb']}),WIN));keepErr();
+        res.rowCountLb=d.querySelectorAll('tr[data-rerow]').length;
+        res.normLb=rowInfo(RFnorm.id);res.thinLb=rowInfo(RFthin.id);res.voidLb=rowInfo(RFvoid.id);res.pinLb=rowInfo(RFpin.id);
+        res.errAcc=errAcc.slice(0,10);
+        dfxCase('x1_explore_flags',calls,{
+          'renders OK on the WF tick and the LOCKBOX tick':calls.every(function(c){return c==='OK';}),
+          'all four fixture rows render on the WF tick':res.rowCountWf===4,
+          'all four fixture rows still render on the LOCKBOX tick - nothing hidden':res.rowCountLb===4,
+          'thin lockbox (12 trades) is tagged LB 12 tr on the WF-only tick':res.thinWf.found&&res.thinWf.tags.some(function(t){return t.indexOf('LB 12 tr')>=0;}),
+          'thin lockbox is NOT greyed on the WF-only tick, since lockbox is not ticked':res.thinWf.found&&!res.thinWf.grey,
+          'thin lockbox IS greyed once the LOCKBOX tick is on':res.thinLb.found&&res.thinLb.grey,
+          'thin lockbox keeps its LB 12 tr tag on the LOCKBOX tick too':res.thinLb.found&&res.thinLb.tags.some(function(t){return t.indexOf('LB 12 tr')>=0;}),
+          'run #209 is tagged VOID':res.voidWf.found&&res.voidWf.tags.some(function(t){return t.indexOf('VOID')>=0;}),
+          'run #209 is greyed on the WF-only tick too - VOID always greys':res.voidWf.found&&res.voidWf.grey,
+          'run #209 stays greyed on the LOCKBOX tick':res.voidLb.found&&res.voidLb.grey,
+          'run #209 VOID hover names the look-ahead':res.voidWf.tips.some(function(t){return /volume|look-ahead/i.test(t);}),
+          'run #209 is still present on both ticks - the count never drops':res.voidWf.found&&res.voidLb.found,
+          'the pinned run (n_evaluated=1) carries the WF = in-sample tag':res.pinWf.found&&res.pinWf.tags.some(function(t){return t.indexOf('WF = in-sample')>=0;}),
+          'the pinned tag never greys the row by itself':res.pinWf.found&&!res.pinWf.grey&&res.pinLb.found&&!res.pinLb.grey,
+          'the pinned tag names the CROWNING SCORE reading':res.pinWf.tips.some(function(t){return /crowning score/i.test(t);}),
+          'an unflagged row carries no caution tag':res.normWf.found&&res.normWf.tags.length===0&&res.normLb.found&&res.normLb.tags.length===0,
+          'an unflagged row is never greyed':res.normWf.found&&!res.normWf.grey&&res.normLb.found&&!res.normLb.grey,
+          'the VOID point, if the chart draws it, lists the reason on hover too':(res.voidPtWf==null)||/VOID|volume|look-ahead/i.test(res.voidPtWf),
+          'no console errors across either tick':res.errAcc.length===0
+        }, res);
+      })();
+
+      // -- case z1_explore_pills_r30 (owner audit 2026-09-27, sections 1.4a / 1.5 / 3.3e): EXPLORE's
+      //    per-run pick pills now pull in starred runs and the MANAGER watch list so a crown older
+      //    than the loaded window still offers a pill, order watch-listed first then PASS/WEAK
+      //    newest-first then FAIL last (greyed, marked, still clickable), and default to the newest
+      //    NON-FAIL run. A new ROC @ $30K DD measure (30 x MAR on the $100k default account) is
+      //    added beside MAR on both scatter axes and right after ROC % / YR in the table, reading
+      //    the exact net / years / drawdown MAR reads and dashing with MAR's own reason.
+      (function(){
+        var allErrors=[],allUncaught=[];
+        function acc(){allErrors=allErrors.concat(sink.errors);allUncaught=allUncaught.concat(sink.uncaught);}
+        function numOf(v){if(v==null)return null;var f=parseFloat(String(v).replace(/[%,]/g,''));return isFinite(f)?f:null;}
+        function close(a,b,tol){return a!=null&&b!=null&&isFinite(a)&&isFinite(b)&&Math.abs(a-b)<tol;}
+        function yrsBetween(a,b){var t0=Date.parse(a),t1=Date.parse(b);return (t1>t0)?((t1-t0)/(365.25*86400000)):null;}
+        function pillList(){return [].slice.call(d.querySelectorAll('[data-recfgrun]')).map(function(b){
+          return {id:b.getAttribute('data-recfgrun'),title:b.getAttribute('title')||'',
+            fail:!!b.closest('[data-refail]'),on:(b.getAttribute('style')||'').indexOf('color:var(--text);')>=0};});}
+
+        // ---- PART A: run pills (1.4a) -------------------------------------------------------
+        function mkRun(id,verdict){
+          return {id:id,strategy:'ORB_3_6_1_0.py',starred:false,multiplier:20,date_from:'2010-06-07',date_to:'2026-08-01',
+            top10_results:[{fold:1,oos_pnl:15000,oos_trades:200,oos_pf:1.35,oos_wins:80}],
+            validate:{verdict:verdict,total_trades:2100,total_win_rate:38,total_avg_win:900,total_avg_loss:-300,total_dd:31000,
+              windows:{optimize:['2010-06-07','2025-06-29'],wf_split:'2016-10-12',lockbox:['2025-06-29','2026-06-29']}}};}
+        var R1=mkRun('991601','PASS'),R2=mkRun('991602','PASS'),R3=mkRun('991603','FAIL'),R4=mkRun('991604','FAIL');
+        var STAR=mkRun('991500','PASS');STAR.starred=true;
+        var WATCHONLY=mkRun('991400','PASS');
+        var wcA="runHistory=["+JSON.stringify(R1)+","+JSON.stringify(R2)+","+JSON.stringify(R3)+","+JSON.stringify(R4)+"];"
+          +"window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();"
+          +"window._starRuns=["+JSON.stringify(STAR)+"];"
+          +"window._rbWatch={state:'ok',runs:[{id:'991400',family:'ORB',lane:'NOISE',verdict:'CANDIDATE'}],at:Date.now()};"
+          +"window._rbWatchRuns=["+JSON.stringify(WATCHONLY)+"];window._rbWatchRunsState='ok';window._rbWatchRunsWant=[];";
+        var callA1=doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resFilt:{fam:['ORB']},c2Tbl:true},wcA);acc();
+        var pills=pillList();
+        var pillIds=pills.map(function(p){return p.id;});
+        var byId={};pills.forEach(function(p){byId[p.id]=p;});
+        var expectOrder=['991400','991602','991601','991500','991604','991603'];
+        var orderOk=expectOrder.length===pillIds.length&&expectOrder.every(function(id,i){return pillIds[i]===id;});
+
+        var callA2=doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resFilt:{fam:['ORB']},resCfgRun:['991400'],c2Tbl:true},wcA);acc();
+        var bodyA2=(d.body&&(d.body.innerText||d.body.textContent))||'';
+        var watchPickAlive=bodyA2.indexOf('991400')>=0&&(bodyA2.indexOf('LOADING')>=0||bodyA2.indexOf('runs in')>=0);
+
+        // ---- PART B: ROC @ $30K DD (1.5) -----------------------------------------------------
+        var B30={id:'991700',strategy:'ORB_3_6_1_0.py',starred:false,multiplier:1,date_from:'2010-01-01',date_to:'2026-01-01',
+          validate:{verdict:'PASS',total_trades:500,total_win_rate:40,total_avg_win:900,total_avg_loss:-300,
+            windows:{lockbox:['2025-01-01','2026-01-01']},
+            lockbox:{pnl:30000,pf:1.3,trades:50,win_rate:50,dd:9000,pass:true}}};
+        var B30D={id:'991701',strategy:'ORB_3_6_1_0.py',starred:false,multiplier:1,date_from:'2010-01-01',date_to:'2026-01-01',
+          validate:{verdict:'PASS',total_trades:500,total_win_rate:40,total_avg_win:900,total_avg_loss:-300,
+            windows:{lockbox:['2025-01-01','2026-01-01']}}};
+        var wcB="runHistory=["+JSON.stringify(B30)+","+JSON.stringify(B30D)+"];window._runFull={};window._runFullOrder=[];"
+          +"window._runHydrating={};window._c2Open=new Set();window._starRuns=[];";
+        var callB=doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs',resFilt:{fam:['ORB']},resSegs:['lb'],resAxis:'roc30',resXAxis:'dd',c2Tbl:true},wcB);acc();
+
+        var ROC30_HDR='ROC @ $30K DD'.replace(/[^A-Z0-9 /%$]/g,'');
+        function rowCells(key){var o=r4Row(key)||{};return {mar:o['MAR'],roc30:o[ROC30_HDR],found:!!o['MAR']};}
+        var rowGood=rowCells('runs:991700'),rowDash=rowCells('runs:991701');
+
+        var yrs30=yrsBetween('2025-01-01','2026-01-01');
+        var mar30=(30000/yrs30)/9000;
+        var roc30Expected=mar30*30;
+
+        var yBtn=d.querySelector('[data-resaxis="roc30"]'),xBtn=d.querySelector('[data-resxaxis="roc30"]');
+        var yBtnOn=yBtn?((yBtn.getAttribute('style')||'').indexOf('color:var(--text);')>=0):false;
+        var ptTitleEl=d.querySelector('[data-repoint="runs:991700"] title');
+        var ptTitle=ptTitleEl?(ptTitleEl.textContent||''):'';
+        var axM=ptTitle.match(/ROC @ \$30K DD (-?[0-9.]+)/);
+        var axisVal=axM?parseFloat(axM[1]):null;
+        var dashPtEl=d.querySelector('[data-repoint="runs:991701"]');
+
+        dfxCase('z1_explore_pills_r30', [callA1,callA2,callB], {
+          'renders OK (pill default/order, pill pick, ROC30 axis+column)': [callA1,callA2,callB].every(function(c){return c==='OK';}),
+          'no console errors or uncaught exceptions across any render': allErrors.length===0&&allUncaught.length===0,
+          'PILLS: all six runs are offered (in-window PASS/FAIL, starred, watch-only)': pillIds.length===6,
+          'PILLS: a watch-list run outside runHistory and starRuns appears as a pill': pillIds.indexOf('991400')>=0,
+          'PILLS: a starred run outside the loaded window appears as a pill': pillIds.indexOf('991500')>=0,
+          'PILLS: order is watch-listed first, then PASS/WEAK newest first, then FAIL last': orderOk,
+          'PILLS: the two FAIL runs carry the FAIL mark and sort after every PASS/WEAK run': !!(byId['991603']&&byId['991603'].fail&&byId['991604']&&byId['991604'].fail),
+          'PILLS: every pill hover names its own verdict': !!(byId['991602']&&byId['991602'].title.indexOf('verdict: PASS')>=0&&byId['991603']&&byId['991603'].title.indexOf('verdict: FAIL')>=0&&byId['991400']&&byId['991400'].title.indexOf('verdict: PASS')>=0),
+          'PILLS: the default pick (nothing ticked) is the newest NON-FAIL run, skipping the newer FAIL runs': !!(byId['991602']&&byId['991602'].on)&&!(byId['991604']&&byId['991604'].on)&&!(byId['991603']&&byId['991603'].on),
+          'PILLS: picking a run found only via the watch list is kept (not silently dropped) and its full document is fetched': watchPickAlive,
+          'ROC30: the table column sits right after ROC % / YR and reads for a known row': rowGood.found&&!!rowGood.roc30,
+          'ROC30: the column prints 30 x MAR on the $100k account (hand-computed)': close(numOf(rowGood.roc30&&rowGood.roc30.t), roc30Expected, 0.15),
+          'ROC30: the MAR column itself matches the same hand computation': close(numOf(rowGood.mar&&rowGood.mar.t), mar30, 0.01),
+          'ROC30: the Y-axis button exists, is labelled ROC @ $30K DD and is selected': !!yBtn&&(yBtn.textContent||'').trim().indexOf('ROC @ $30K DD')>=0&&yBtnOn,
+          'ROC30: the X-axis button also exists': !!xBtn,
+          'ROC30: the scatter point for the same row plots 30 x MAR too (hand-computed, read off its hover)': close(axisVal, roc30Expected, 0.05),
+          'ROC30: a row with no lockbox reading dashes both MAR and ROC30': !!(rowDash.mar&&rowDash.mar.t==='\u2014'&&rowDash.roc30&&rowDash.roc30.t==='\u2014'),
+          'ROC30: the dash reason is exactly the same one MAR gives, and names the missing lockbox': !!(rowDash.mar&&rowDash.roc30&&rowDash.roc30.tip===rowDash.mar.tip&&/lockbox/i.test(rowDash.mar.tip)),
+          'ROC30: the row with no lockbox reading is correctly left off the chart (both axes null for it)': !dashPtEl
+        }, {pillIds:pillIds,expectOrder:expectOrder,rowGood:rowGood,rowDash:rowDash,roc30Expected:roc30Expected,mar30:mar30,axisVal:axisVal,watchPickAlive:watchPickAlive,bodyA2Has991400:bodyA2.indexOf('991400')>=0});
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -5687,7 +5989,7 @@ def main(argv=None):
          % (_il.get('trd'), _il.get('tpy'), _as.get('trd'), _as.get('tpy'), _ppts))
     if not stages_ok:
         fail('stage-counts: IN-SAMPLE + LOCKBOX is not reading the ticked stretches (or all three moved) -- see the stage-counts line')
-    _ORDER = ['so', 'sh', 'ddr', 'ddp', 'dd', 'ratio', 'pf', 'wr', 'evr', 'ppt', 'rpy', 'roc', 'raw']
+    _ORDER = ['so', 'sh', 'ddr', 'ddp', 'dd', 'ratio', 'roc30', 'pf', 'wr', 'evr', 'ppt', 'rpy', 'roc', 'raw']
     _ax = r.get('axNew') or {}
     axes_ok = (r.get('axOrdY') == _ORDER and r.get('axOrdX') == _ORDER
                and all(isinstance(v, int) and v >= 1 for v in _ax.values()) and len(_ax) == 6)
@@ -6951,6 +7253,9 @@ def main(argv=None):
            'j1_roc_sortino_rows']
     DFX += ['k1_watch_list']
     DFX += ['k2_watch_fetch']
+    DFX += ['z1_explore_pills_r30']
+    DFX += ['x1_explore_flags']
+    DFX += ['y1_explore_money']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}

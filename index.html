@@ -24015,6 +24015,18 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       //   RUNBOARD tile and the native BOOKS view so the two can never explain it differently.
       const RB_MTM_TIP='Every figure on this row counts a trade on the day it CLOSES. A strategy that holds a trade for days or weeks - ENGU-Q has held one for 143 days - swings while the trade is open, and counting at the close never sees those swings. This line values every open trade at the last price of each day instead, which is the drawdown the account would really have lived through. The money is the same over the whole run; inside one stage the net can shift by open-trade dollars that cross the stage edge. Nothing else on the row changes.';
       const RB_ORB_LA_TIP='This book pools the ORB leg, and ORB fills on a bar using that same bars FINISHED volume, which a live trader could not have known yet. Most of the ORB edge traces to that gap. This net dollar figure is not something a live account could have achieved, so this book baseline is under review.';
+      // MANAGER audit 2026-09-27 (ml_edge_orb_leak_answer_2026-09-27.md, 3.1a / 3.3): ORB #206
+      //   and #209 carry this same volume-filter look-ahead and the board never flagged them
+      //   VOID - the old la:true list was retired on 2026-08-18 and nothing replaced it. Plain-
+      //   English reason per run number, read by _reFlagsOf on COMPARE > EXPLORE: it greys the
+      //   row and the dot and tags VOID, it never hides or drops either one.
+      const RUN_VOID={
+        205:'VOID - it enters on the breakout touch but gates the trade on that same bar’s finished volume, which is not known when the order fills: the look-ahead that voided #125 and ORB 3.0 / 3.1. Recorded by the ORB chat and MANAGER’s audit, 2026-09-28. Ignore it on every ranking.',
+        206:'VOID - it enters on the breakout touch but gates the trade on that same bar’s finished volume, which is not known when the order fills: the look-ahead that voided #125 and ORB 3.0 / 3.1. Recorded by the ORB chat and MANAGER’s audit, 2026-09-28. Ignore it on every ranking.',
+        207:'VOID - it enters on the breakout touch but gates the trade on that same bar’s finished volume, which is not known when the order fills: the look-ahead that voided #125 and ORB 3.0 / 3.1. Recorded by the ORB chat and MANAGER’s audit, 2026-09-28. Ignore it on every ranking. It is also a duplicate of #206.',
+        208:'VOID - it enters on the breakout touch but gates the trade on that same bar’s finished volume, which is not known when the order fills: the look-ahead that voided #125 and ORB 3.0 / 3.1. Recorded by the ORB chat and MANAGER’s audit, 2026-09-28. Ignore it on every ranking. It is also a duplicate of #206.',
+        209:'VOID - it enters on the breakout touch but gates the trade on that same bar’s finished volume, which is not known when the order fills: the look-ahead that voided #125 and ORB 3.0 / 3.1. Recorded by the ORB chat and MANAGER’s audit, 2026-09-28. Ignore it on every ranking. It tops some walk-forward matched-risk lists only because of this.'
+      };
       // F4 fix: the volume-filter look-ahead documented in PAPER_TRADING.md was only ever
       //   true of the touch-entry ORB family - ORB_2_0, ORB_3_0 to ORB_3_3 and their forks,
       //   ORB_3_1_125 but not its fixed close-confirmed fork _125C. ORB_3_6 (and its C2 / R6
@@ -28482,6 +28494,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           +_cmpModeBtn('rank','RANKINGS','every run scored and ranked against every other, newest data, one row each')
           +'</span>'+(_cmpMode==='fam'?'<span style="font-size:8px;color:var(--text5)">one curve per strategy family — its top config, picked automatically</span>':(_cmpMode==='board'?'<span style="font-size:8px;color:var(--text5)">top run of every strategy · funnel + matrix redraw on SAMPLE · order follows RANK BY</span>':(_cmpMode==='research'?'<span style="font-size:8px;color:var(--text5)">every variant tested, on ONE chart · pick a strategy on the rail · one table per study underneath</span>':(_cmpMode==='featboard'?'<span style="font-size:8px;color:var(--text5)">what helps every strategy, not just one · plus the exit autopsy underneath</span>':''))))+'</div>';
         if(_cmpMode==='research'){
+        // MANAGER WATCH LIST (owner audit 2026-09-27, section 1.4a): EXPLORE's own run pills
+        //   read the watch list too, so a crown MANAGER is tracking still offers a pill even
+        //   when it is older than the loaded window. Same one-read guard the RUNBOARD chip
+        //   uses - state moves off 'idle' the instant the read starts, so this can never fire
+        //   twice, and it safely does nothing before sign-in answers (_loadRbWatch's own guard).
+        if(window._rbWatch.state==='idle')_loadRbWatch();
         // ── STUDIES board (owner asks 2026-08-18). Every row comes from the RESEARCH_STUDIES
         //    registry above — this renderer holds NO data, so a new study renders itself the
         //    moment it is appended. The full contract is written up in STUDIES_BOARD.md at the
@@ -28605,7 +28623,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   a PRE-LOCKBOX row has no separate walk-forward because its first column already holds
         //   the tuning years pooled - but it changes what the sum covers, so it is always said.
         const _reSegMiss=rw=>_reSegsEff.filter(sg=>_reNum(rw,sg)==null);
-        const _reAxis=(['raw','ratio','ppt','pf','wr','evr','sh','so','rpy','roc','ddp','ddr','dd'].indexOf(APREF.resAxis)>=0)?APREF.resAxis:'evr';
+        const _reAxis=(['raw','ratio','ppt','pf','wr','evr','sh','so','rpy','roc','roc30','ddp','ddr','dd'].indexOf(APREF.resAxis)>=0)?APREF.resAxis:'evr';
         // SPLIT LAYOUT. SIDE puts the chart beside the study tables, STACK keeps it above them.
         //   The toggle lives in the sub-tab bar beside the other split toggles this app already
         //   has (RESULTS, LIBRARY, RESEARCH), so it is where the owner already looks for it. The
@@ -28871,7 +28889,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // a th width only holds if the BODY cells stop pushing the column wider, so the
         //   table lays out on its own widths and long text ellipses instead of stretching.
         const _reTblFix=Object.keys(_reColW).length?'table-layout:fixed;':'';
-        const _reNCols=(_reFull?24:16)+((_reBasis==='year')?3:0);   // +RUN moved beside FAMILY, +TRADES / YR
+        const _reNCols=(_reFull?25:17)+((_reBasis==='year')?3:0);   // +RUN moved beside FAMILY, +TRADES / YR, +ROC @ $30K DD
         // how many years the row OWN window covers. PER YEAR divides by this and nothing else.
         //    A CONFIG ROW MEASURES THE TICKED STRETCH, not the whole run. The report
         //    spans the first ticked stretch's start to the last one's end, off the run's
@@ -29161,7 +29179,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
                        :('The whole run, end to end, as the row recorded it. Exact: '+_reExact(t)+'.');
           // a SIZED hybrid (recycled / equal-DD) carries the ONE size of the ticked sample (option A),
           //   so its whole-run money moves when the tick moves - say so where the figure is read
-          const tip2=tip+((rw&&rw._cfg&&rw._sf!=null&&Math.abs(+rw._sf-1)>1e-9)?(' This is a sized variant: every dollar figure on the row, this one included, is at the ONE size the ticked sample calls for ('+(+rw._sf).toFixed(2)+' times the one-lot row), so it changes when you tick a different sample.'):'');
+          const tip2=tip+((rw&&rw._cfg&&rw._sf!=null&&Math.abs(+rw._sf-1)>1e-9)?(' This is a sized variant: every dollar figure on the row, this one included, is at the ONE size the ticked sample calls for ('+(+rw._sf).toFixed(2)+' times the one-lot row), so it changes when you tick a different sample.'):'')+((rw&&rw._szHindTip)?(' '+rw._szHindTip):'');
           return '<td title="'+_reEsc(tip2)+'" style="text-align:right;padding:2px 5px;border-bottom:1px solid var(--border2);white-space:nowrap;font-variant-numeric:tabular-nums;cursor:help">'
             +_reMoney(t)+'</td>';};
         const _reStWord=(st,sg)=>(sg==='is')?((((st&&st.isLbl))==='PRE-LOCKBOX')?'Pre-lockbox':'In-sample'):(sg==='wf'?'Walk-forward':(sg==='lb'?'Lockbox':'Total'));
@@ -29180,6 +29198,24 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   sets it), so a number read there means the same thing here.
         const _reRoc=(st,rw,segOv)=>{const p=_reSegVal(rw,segOv),y=_reYrs(st,rw,segOv),a=_rocAcct();
           return (p!=null&&y!=null&&y>0&&a>0)?((p/y)/a*100):null;};
+        // ROC AT A $30K WORST DRAWDOWN (owner audit 2026-09-27, section 1.5): MAR x 30,000, read
+        //   as a percentage of the $100k default account - exactly 30 x MAR on that account. It
+        //   is the ROC %/YR the row would earn if it were sized so its worst drawdown on the
+        //   ticked stretch were $30k: a return-per-unit-of-risk read in ROC's own units, so a
+        //   sized-up HYBRID row or a KEEL row can no longer out-rank its own plain config just by
+        //   trading bigger. Reads the exact net, years and drawdown MAR reads for the same row
+        //   and stretch, and dashes with MAR's own reason when MAR dashes - never its own guess.
+        const _reMarWhy=(st,rw,segOv)=>{
+          const p=_reSegVal(rw,segOv),d=_reNum(rw,'dd'),y=_reYrs(st,rw,segOv);
+          const miss=_reSegMiss(rw);
+          if(p!=null&&d===0&&rw&&rw._st)return _reWfTestWhy(rw,'mar')||'This stretch never drew down, so MAR has nothing to divide by.';
+          if(p==null||d==null||!d)return _reWhy(st,rw,(p==null)?miss[0]:'dd');
+          if(!(y>0))return _reWfYrsWhy(rw)||(_reWrPartial(rw)?_reWrPartWhy(rw,'MAR'):'This row records no date window, so its MAR cannot be put on a per-year basis (MAR is net per YEAR over worst drawdown since v73.7x).');
+          return null;};
+        const _reRoc30=(st,rw,segOv)=>{
+          const p=_reSegVal(rw,segOv),d=_reNum(rw,'dd'),y=_reYrs(st,rw,segOv);
+          const m=(p==null||d==null||!d||!(y>0))?null:_marAnn(p,y,d);
+          return (m==null||!isFinite(m))?null:(m*30000/_rocAcct()*100);};
         // DD % - the worst peak-to-trough loss as a percentage of that same account.
         const _reDdp=(st,rw)=>{const d=_reNum(rw,'dd'),a=_rocAcct();
           return (d!=null&&a>0)?(Math.abs(d)/a*100):null;};
@@ -29242,6 +29278,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(M==='so')return _reSoOf(st,rw);
           if(M==='rpy')return _reRpy(st,rw,segOv);
           if(M==='roc')return _reRoc(st,rw,segOv);
+          if(M==='roc30')return _reRoc30(st,rw,segOv);
           if(M==='ddp')return _reDdp(st,rw);
           if(M==='ddr')return _reDdr(st,rw);
           // DRAWDOWN in dollars: the size of the worst loss, never its sign - the caption says it
@@ -29260,6 +29297,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(_reMode()==='so')return _reCfgDashWhy(rw,'This row records no Sortino.','so');
           if(_reMode()==='rpy')return 'R / YR needs an expectancy in R, a trade count and a window. This row is missing at least one.';
           if(_reMode()==='roc')return (_reSegVal(rw)!=null&&_reWrPartial(rw))?_reWrPartWhy(rw,'ROC % / YR'):'ROC needs a profit for the ticked stretch and a window to annualise it over. This row is missing one of them.';
+          if(_reMode()==='roc30')return _reMarWhy(st,rw)||'ROC at a $30k drawdown needs a profit, a drawdown and a window for the ticked stretch - the same three inputs MAR reads.';
           if(_reMode()==='ddp'||_reMode()==='ddr'||_reMode()==='dd')return _reWhy(st,rw,'dd');
           if(_reMode()==='ratio'&&_reSegVal(rw)!=null&&_reNum(rw,'dd')&&!(_reYrs(st,rw)>0))return _reWrPartial(rw)?_reWrPartWhy(rw,'MAR'):'This row records no date window, so its MAR cannot be put on a per-year basis.';
           const miss=_reSegMiss(rw);
@@ -29267,8 +29305,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // roc and ddp are percentages - _reTick prints them bare, so they carry their own
         //   suffix through _reYSuf rather than reading as an unlabelled number beside the
         //   run report's own '381%'.
-        const _reYSuf=()=>((['roc','ddp','wr'].indexOf(_reMode())>=0)?'%':((_reMode()==='ddr')?'R':''));
-        const _reYfmt=()=>(['ratio','pf','wr','evr','sh','so','rpy','roc','ddp','ddr'].indexOf(_reMode())>=0)?'num':'money';
+        const _reYSuf=()=>((['roc','roc30','ddp','wr'].indexOf(_reMode())>=0)?'%':((_reMode()==='ddr')?'R':''));
+        const _reYfmt=()=>(['ratio','pf','wr','evr','sh','so','rpy','roc','roc30','ddp','ddr'].indexOf(_reMode())>=0)?'num':'money';
         const _rePfCap='Profit factor \u2014 gross winnings over gross losses, HIGHER is better. It ignores PROFIT STAGE and COMPARE ON: a profit factor is recorded once per row, and it is already free of window length because it counts trades rather than calendar';
         const _rePptCap='Whole-run profit per trade \u2014 HIGHER is better. It ignores PROFIT STAGE and COMPARE ON, because a trade count is recorded once per row and a per-trade average is already free of window length';
         // ONE chart covering several studies cannot borrow one study's word for the in-sample
@@ -29297,6 +29335,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           so:'Sortino — HIGHER is better',
           rpy:'R per year — HIGHER is better',
           roc:'Return on the account, per year — HIGHER is better',
+          roc30:'ROC at a $30k worst drawdown — HIGHER is better',
           ddp:'Drawdown, percent of the account — LOWER is better',
           ddr:'Drawdown in losing trades — LOWER is better',
           dd:'Drawdown, in dollars — LOWER is better'};
@@ -29710,12 +29749,74 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           //   g and pb are kept so bringing the second tint back is a one-line change.
           void g;void pb;
           return (tone==='champ')?('color-mix(in srgb,'+b+' '+pa+',transparent)'):'';};
+        // ---- ROW FLAGS (MANAGER audit 2026-09-27, ml_edge_orb_leak_answer_2026-09-27.md
+        //   sections 1.5 / 2.3b / 3.1a / 3.3). Three honest cautions EXPLORE owed and never
+        //   gave. OWNER RULE: EXPLORE shows every row and every dot - this greys and tags
+        //   only, it never hides or drops a row or a dot, and it never changes a "not on
+        //   this chart" count. One helper so the table row and the scatter point can never
+        //   disagree about what a row is flagged with.
+        //     THIN LOCKBOX - the row's OWN lockbox trade count (never the ticked stretch's):
+        //       a config row reads its own lockbox block, a run row reads the trade count
+        //       straight off the cited run document (validate.lockbox.trades), a row with
+        //       neither gets no tag. Greyed only while the ticked stretch includes lockbox.
+        //     VOID - the cited run is a key of RUN_VOID (declared beside RB_ORB_LA_TIP).
+        //       Always greyed, whatever is ticked.
+        //     PINNED - the cited run validated exactly one configuration (n_evaluated===1,
+        //       the same test the run report's _pinned1 uses). Its walk-forward reading
+        //       holds the chosen settings fixed over the years they were picked on - the
+        //       CROWNING SCORE, never a test. Never greyed for this reason alone.
+        const _reLbTradesOf=rw=>{
+          if(!rw)return null;
+          if(rw._stRun){
+            const runs=Array.isArray(rw.runs)?rw.runs:[];
+            const d=runs.length?_reRunRec(runs[0]):null;
+            const lb=d&&d.validate&&d.validate.lockbox;
+            const v=lb?((lb.trades!=null)?lb.trades:lb.num_trades):null;
+            return (v!=null&&isFinite(+v))?+v:null;
+          }
+          const b=rw._st&&rw._st.lb;
+          const v=b&&b.num_trades;
+          return (v!=null&&isFinite(+v))?+v:null;
+        };
+        const _reRunFlagOf=rw=>{
+          const runs=Array.isArray(rw&&rw.runs)?rw.runs:[];
+          for(let i=0;i<runs.length;i++){const k=String(runs[i]);
+            if(Object.prototype.hasOwnProperty.call(RUN_VOID,k))return RUN_VOID[k];}
+          return null;
+        };
+        const _rePinnedRunOf=rw=>{
+          const runs=Array.isArray(rw&&rw.runs)?rw.runs:[];
+          if(!runs.length)return false;
+          const d=_reRunRec(runs[0]);
+          return !!(d&&d.n_evaluated!=null&&+d.n_evaluated===1);
+        };
+        const _reFlagsOf=rw=>{
+          const out=[];
+          const vr=_reRunFlagOf(rw);
+          if(vr)out.push({k:'void',txt:'VOID',tip:vr,grey:true});
+          const lbN=_reLbTradesOf(rw);
+          if(lbN!=null&&lbN<50)out.push({k:'thinlb',txt:'LB '+lbN+' tr',
+            tip:'Only '+lbN+' trades in the lockbox - one or two trades can move every lockbox figure on this row. The yardstick asks for at least 50.',
+            grey:_reSegsEff.indexOf('lb')>=0});
+          if(_rePinnedRunOf(rw))out.push({k:'pin1',txt:'WF = in-sample',
+            tip:'Pinned single-config run: its walk-forward figures hold the chosen settings fixed over the years they were picked on, so they are in-sample, not a test - the same reading the run report calls the CROWNING SCORE.',
+            grey:false});
+          return out;
+        };
+        const _reFlagChip=f=>'<span title="'+_reEsc(f.tip)+'" style="font-size:8px;font-weight:700;margin-left:5px;color:var(--yellow);cursor:help">⚠ '+_reEsc(f.txt)+'</span>';
+        const _reFlagChips=flags=>(flags&&flags.length)?flags.map(_reFlagChip).join(''):'';
         const _reRow=(st,rw,rank,com,showSt)=>{
           const td=(c,al,extra)=>'<td class="retd" style="text-align:'+(al||'right')+';padding:2px 5px;border-bottom:1px solid var(--border2)'+(extra||'')+'">'+c+'</td>';
           // a prose cell is clamped to one line and carries its full text on hover. Wrapping
           //   these two columns was what made a row three lines tall.
           const tdw=(txt,colr,w)=>td('<span title="'+_reEsc(txt)+'" style="color:'+colr+';display:inline-block;max-width:'+w+'px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;cursor:help">'+_reEsc(txt)+'</span>','left');
           const col=_reTone[rw.tone]||'var(--text4)';
+          // MANAGER audit 2026-09-27 flags (thin lockbox / VOID run / pinned single-config) -
+          //   see _reFlagsOf above. Computed once so the tag and the grey below can never
+          //   disagree.
+          const _reFlags=_reFlagsOf(rw);
+          const _reFlGrey=_reFlags.some(function(fl){return fl.grey;});
+          const _reFlagPin1=_reFlags.filter(function(fl){return fl.k==='pin1';})[0]||null;
           const runs=Array.isArray(rw.runs)?rw.runs:[];
           // ARCHIVED REPEATS. `runs` lists only runs you can still open, so the +N marker
           // never advertises a run that Past Runs is hiding. But a repeat that happened
@@ -29758,6 +29859,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             if(!(y>0))return _reDash(_reWfYrsWhy(rw)||(_reWrPartial(rw)?_reWrPartWhy(rw,'MAR'):'This row records no date window, so its MAR cannot be put on a per-year basis (MAR is net per YEAR over worst drawdown since v73.7x).'));
             let tip=_reSegCap+' profit of '+_reExact(p)+' over '+y.toFixed(1)+' years, per year, over a worst drawdown of '+_reExact(Math.abs(d))
               +(miss.length?('. This row records no separate '+miss.map(sg=>_reSegLong[sg]).join(' or ')+' figure, so the profit here covers only the stages it does record - its '+((st.isLbl==='PRE-LOCKBOX')?'first money column already holds the tuning years pooled together':'missing stage was never measured')+'.'):'.');
+            // MANAGER audit 2026-09-27 (2.3b): a pinned single-config run's walk-forward
+            //   figure is the CROWNING SCORE, not a test - said first, right here, whenever
+            //   walk-forward is part of the ticked stretch.
+            if(_reFlagPin1&&_reSegsEff.indexOf('wf')>=0)tip=_reFlagPin1.tip+' '+tip;
             return '<b title="'+_reEsc(tip+(_reDdApx(rw)?' ~ The drawdown for this stretch is cut from the saved equity curve, which is thinned for storage and can only read shallower than the true drawdown, so this MAR can only read high.':''))+'" style="cursor:help">'+(_reDdApx(rw)?'~':'')+_marAnnTxt(p,y,d)+'</b>';})();
           // -- THE COMPARISON-BASIS COLUMNS. They appear only when a basis other than RATIOS AS
           //    IS is chosen, they carry the emphasis the selected stage column normally wears
@@ -29797,7 +29902,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const mk='<svg width="12" height="12" viewBox="0 0 15 15" style="vertical-align:-2px;margin-right:4px">'+_reShape(rw.tone,7.5,7.5,4.4,col,1,1)+'</svg>';
           return '<tr data-rerow="'+st.key+':'+rw.n+'"'+(runs.length?(' data-rank-run="'+runs[0]+'"'):'')
             +(bg?(' title="'+_reEsc(_reBgWhy[rw.tone]||'')+'"'):'')
-            +' style="'+(runs.length?'cursor:pointer;':'')+(bg?('background:'+bg):'')+'">'
+            +' style="'+(runs.length?'cursor:pointer;':'')+(_reFlGrey?'opacity:0.5;':'')+(bg?('background:'+bg):'')+'">'
             +td('<span style="color:var(--text4)">'+(rank?rank:_reDash(_reZeroOr(rw,'This row has no figure for the stage now selected, so it cannot be ranked on it.')))+'</span>','left',_reStickyCss('RANK',1)+_reStickyBg(bg))
             +td((function(){const isCfg=!!rw._cfg,fam=String((isCfg&&rw.fam)||'RAW');
                 const stratCol=(isCfg&&_reByStrat&&rw._strat)?_reStratCol(rw._strat):null;
@@ -29813,7 +29918,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +td(runCell,null,_reStickyCss('RUN',1)+_reStickyBg(bg))
             +(_reFull?(td(_reCell(st,rw,'is',_reMoney),null,(_reSegsEff.indexOf('is')>=0)?em:'')
             +td(_reCell(st,rw,'wf',v=>_reMoney(v)),null,(_reSegsEff.indexOf('wf')>=0)?em:'')
-            +td(_reCell(st,rw,'lb',_reMoney),null,(_reSegsEff.indexOf('lb')>=0)?em:'')
+            +td(_reCell(st,rw,'lb',v=>_reMoney(v)+((rw&&rw._st&&rw._st.lb&&rw._st.lb._lbWarm)?(' <span title="'+_reEsc(rw._st.lb._lbWarmTip||'')+'" style="font-size:7px;color:var(--text5);border:1px solid var(--border2);border-radius:3px;padding:0 2px;cursor:help">LB warm</span>'):'')),null,(_reSegsEff.indexOf('lb')>=0)?em:'')
             +_reTotCell(st,rw)
             +td(_reCell(st,rw,'dd',v=>'<span style="color:'+_reDn+'"'+(_reDdApx(rw)?' title="cut from the thinned equity curve - can only read shallow"':'')+'>'+(_reDdApx(rw)?'~':'')+_reMoneyPlain(Math.abs(v))+'</span>'))):'')
             // the ratio block, in the 1E ALL table order: MAR SHARPE SORTINO PF WIN % EV R
@@ -29830,6 +29935,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               return (v==null||!isFinite(v))?_reDash(_reWfYrsWhy(rw)||_reGrossWhy(rw)||_reZeroOr(rw,((_reNum(rw,'pf')==null)&&_reWfTestWhy(rw,'pf'))||'R / YR needs an expectancy in R, a trade count and a window; this row is missing at least one.')):(v.toFixed(1)+'R');})())
             +td((function(){const v=_reRoc(st,rw);
               return (v==null||!isFinite(v))?_reDash(_reWfYrsWhy(rw)||((_reSegVal(rw)!=null&&_reWrPartial(rw))?_reWrPartWhy(rw,'ROC % / YR'):_reZeroOr(rw,'ROC needs a profit for the ticked stretch and a window to annualise it over. This row is missing one of them.'))):('<span style="color:'+((v>=0)?'#1d9e75':'#e24b4a')+'">'+v.toFixed(1)+'%</span>');})())
+            +td((function(){const v=_reRoc30(st,rw);
+              return (v==null||!isFinite(v))?_reDash(_reMarWhy(st,rw)||'ROC at a $30k drawdown needs a profit, a drawdown and a window for the ticked stretch - the same three inputs MAR reads.'):('<span style="color:'+((v>=0)?'#1d9e75':'#e24b4a')+'">'+v.toFixed(1)+'%</span>');})())
             +td((()=>{const v=_rePpt(rw);return (v==null)?_reDash(_rePptWhy(st,rw)):('<span title="'+_reExact(v)+' per trade" style="cursor:help;color:'+((v>=0)?_reUp:_reDn)+'">'+(v>=0?'$':'-$')+_reAbbr(v)+'</span>');})())
             +basCells
             +td((()=>{const t=_reTrd(rw);
@@ -29842,7 +29949,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +td(winCell,'left')):'')
             +td('<span title="'+_reEsc(_reReadTip(st,rw))+'" style="color:'+col+';display:inline-block;max-width:'+(_reSplit?90:130)+'px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;cursor:help">'+_reEsc(rw.read)+'</span>','left')
             // item 14 (owner: "move this junk to the end of the row, move the important stuff like the kpis up front"): CONFIG - the long name and its badges - is the least useful thing to see first when scanning a row for numbers, so it sits last now; RANK / FAMILY / RUN stay up front, pinned, as the identifying columns (see _reStickyCss).
-            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b><span title="permanent row handle" style="color:var(--text5);font-size:8px;margin-left:4px">'+rw.n+'</span>'+((showSt||_reSplitRun)?_reRunChip(rw):'')+_reFamTag(st,rw)+_reLiveInline(rw)
+            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b><span title="permanent row handle" style="color:var(--text5);font-size:8px;margin-left:4px">'+rw.n+'</span>'+((showSt||_reSplitRun)?_reRunChip(rw):'')+_reFamTag(st,rw)+_reLiveInline(rw)+_reFlagChips(_reFlags)
               +(showSt?('<span title="'+_reEsc('Researched in the study: '+st.title+'. In ONE TABLE view the studies are pooled, so each row says where it came from.')+'" style="font-size:7px;letter-spacing:.4px;padding:1px 4px;border-radius:4px;margin-left:5px;color:var(--text5);border:1px solid var(--border2);cursor:help">'+_reEsc((String(st.title).length>24)?(String(st.title).slice(0,23)+'…'):st.title)+'</span>'):''),'left')+'</tr>';};
         // ═══ THE ONE SCATTER ═══
         //  Owner ask, 2026-08-19: "this was originally supposed to be one scatter plot and it
@@ -29883,7 +29990,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // DEFAULTS ARE THE COMPARABLE PAIR (owner 2026-08-28): Sortino across, EV in R up. The
         //   board opens on the reading that survives different instruments, sizes and windows,
         //   rather than on dollars, which do not.
-        const _reXAxis=(['dd','sh','so','evr','pf','wr','rpy','roc','ddp','ddr','raw','ratio','ppt'].indexOf(APREF.resXAxis)>=0)?APREF.resXAxis:'so';
+        const _reXAxis=(['dd','sh','so','evr','pf','wr','rpy','roc','roc30','ddp','ddr','raw','ratio','ppt'].indexOf(APREF.resXAxis)>=0)?APREF.resXAxis:'so';
         const _reXv=(st,rw,modeOv,segOv)=>{
           const M=modeOv||_reXAxis;
           if(M==='sh')return _reShOf(st,rw);
@@ -29893,6 +30000,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(M==='wr'){const v=_reWrOf(st,rw);return (v==null||!isFinite(v))?null:((v>1)?+v:(+v*100));}
           if(M==='rpy')return _reRpy(st,rw,segOv);
           if(M==='roc')return _reRoc(st,rw,segOv);
+          if(M==='roc30')return _reRoc30(st,rw,segOv);
           if(M==='ddp')return _reDdp(st,rw);
           if(M==='ddr')return _reDdr(st,rw);
           // the same three readers the vertical axis has always used for these, so a row sits
@@ -29911,12 +30019,13 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(_reXAxis==='wr')return 'This row records no win rate for the ticked stretch.';
           if(_reXAxis==='rpy')return 'R / YR needs an expectancy in R, a trade count and a window.';
           if(_reXAxis==='roc')return (_reSegVal(rw)!=null&&_reWrPartial(rw))?_reWrPartWhy(rw,'ROC % / YR'):'ROC needs a profit for the ticked stretch and a window to annualise it over.';
+          if(_reXAxis==='roc30')return _reMarWhy(st,rw)||'ROC at a $30k drawdown needs a profit, a drawdown and a window for the ticked stretch - the same three inputs MAR reads.';
           if(_reXAxis==='ddp'||_reXAxis==='ddr')return _reWhy(st,rw,'dd');
           if(_reXAxis==='raw'){const ms=_reSegMiss(rw);return _reWhy(st,rw,ms.length?ms[0]:'tot');}
           if(_reXAxis==='ratio'){const ms=_reSegMiss(rw);if(ms.length===_reSegsEff.length)return _reWhy(st,rw,ms[0]);if(_reNum(rw,'dd')!=null&&!(_reYrs(st,rw)>0))return _reWrPartial(rw)?_reWrPartWhy(rw,'MAR'):'This row records no date window, so its MAR cannot be put on a per-year basis.';return _reWhy(st,rw,'dd');}
           if(_reXAxis==='ppt')return _rePptWhy(st,rw);
           return _reWhy(st,rw,'dd');};
-        const _reXNm={dd:'MAX DRAWDOWN ($)',sh:'SHARPE',so:'SORTINO',evr:'EV IN R',pf:'PF',rpy:'R / YR',roc:'ROC % / YR',ddp:'DD %',ddr:'DD (R)',raw:'PROFIT ($)',ratio:'MAR',ppt:'EV ($ PER TRADE)',wr:'WIN %'};
+        const _reXNm={dd:'MAX DRAWDOWN ($)',sh:'SHARPE',so:'SORTINO',evr:'EV IN R',pf:'PF',rpy:'R / YR',roc:'ROC % / YR',roc30:'ROC @ $30K DD',ddp:'DD %',ddr:'DD (R)',raw:'PROFIT ($)',ratio:'MAR',ppt:'EV ($ PER TRADE)',wr:'WIN %'};
         const _reXBetter={dd:'deeper to the right',sh:'higher to the right',so:'higher to the right',
           evr:'higher to the right',pf:'higher to the right',rpy:'higher to the right',
           roc:'higher to the right',ddp:'deeper to the right',ddr:'deeper to the right',
@@ -30496,7 +30605,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const xv=xe[0]+(xe[1]-xe[0])*i/4,xx=L+(R-L)*i/4;
               _ticks+='<line x1="'+xx.toFixed(1)+'" y1="'+B+'" x2="'+xx.toFixed(1)+'" y2="'+(B+5)+'" stroke="var(--text3)" stroke-width="1.6"/>';
               g+='<line x1="'+xx.toFixed(1)+'" y1="'+T+'" x2="'+xx.toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-dasharray="2,4"/>'
-                +'<text x="'+xx.toFixed(1)+'" y="'+XT+'" fill="var(--text3)" font-size="12.5" text-anchor="middle">'+_reTick(xv,xf)+((['roc','ddp','wr'].indexOf(_reXAxis)>=0)?'%':((_reXAxis==='ddr')?'R':''))+'</text>';}
+                +'<text x="'+xx.toFixed(1)+'" y="'+XT+'" fill="var(--text3)" font-size="12.5" text-anchor="middle">'+_reTick(xv,xf)+((['roc','roc30','ddp','wr'].indexOf(_reXAxis)>=0)?'%':((_reXAxis==='ddr')?'R':''))+'</text>';}
             // BREAK-EVEN LINE. One chart now carries families whose variants include losers, so
             //   the line between making money and losing it is worth drawing rather than
             //   leaving the reader to find it among the tick labels. Drawn only when the range
@@ -30551,7 +30660,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // ORDER BY is a sort, and sorting cannot move a point, so the chart never fakes a
               // change. Under DATE RAN the tables split into ran and never-run blocks, so the
               // chart fades the never-run points to match what is being read underneath it.
-              const dim=(_reSplitRun&&!runs.length);
+              // MANAGER audit 2026-09-27 (1.5 / 2.3b / 3.1a): a thin lockbox (on the lockbox
+              //   tick), a VOID run or a pinned single-config run reads the same _reFlagsOf the
+              //   table uses and greys the point the same way it dims a never-run one - it
+              //   stays on the chart, only its opacity moves.
+              const _reFlags=_reFlagsOf(r);
+              const dim=(_reSplitRun&&!runs.length)||_reFlags.some(function(fl){return fl.grey;});
               // 850 marks at report size is a wall of icons (owner: "icons too big,
               //   convoluted"). Past ~250 points everything scales down together -
               //   marks, rings and halos all key off sz, so nothing gets out of step.
@@ -30601,6 +30715,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 tp+=' | '+(_reFldNm[f]||f)+' '+((v==null)?'not measured':((f==='trd')?Math.round(v).toLocaleString():_reVal(v,_reAxFmt(f,null))));});
               if(_reLiveV(r)!=='none')tp+=' | '+_reLiveNm[_reLiveV(r)];
               if(dim)tp+=' | never run as a validate run';
+              if(_reFlags.length)tp+=' | '+_reFlags.map(function(fl){return fl.txt+': '+fl.tip;}).join(' | ');
               tp+=' | click to jump to its row in its own study table below';
               tp+=' | right-click to hide this dot for now - the chart refits, and SHOW ALL under the chart brings it back';
               // STATUS rings. The verdict already owns the SHAPE, so status rides as a ring
@@ -31093,6 +31208,57 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           rs.forEach(function(x){
             const V=x.validate||null,mc=_mcOf(x);
             const wf=_wfA(x),lb=_lbA(x),t=_totA(x),_rst=_reRunStages(x);
+            // owner audit M1/H5 (verify_redflags_2026-09-27.md, 2026-09-27): a run saved before
+            //   v73.841 scored its OWN lockbox cold (validate.windows.warm_days absent or 0) - a
+            //   standalone re-test of just the lockbox window with no history to warm up on. Many
+            //   such runs also carry gate_validate.ungated_lockbox, a continuous replay of the
+            //   same stretch that needs no warm-up and reproduces a dedicated warm re-run exactly
+            //   (NOISE #382 cold vs #410 warm). Level 2 reads that continuous slice for THIS
+            //   row's own lockbox figures instead - money, trades, PF, DD, Sortino, win rate -
+            //   and tags the LOCKBOX cell so the swap is never silent. A run that already warmed
+            //   up (300+ sessions) is untouched. Only this row's own lb / _rst locals change:
+            //   _lbA and _reRunStages are not touched, so RUNBOARD, LEADERBOARD and the run
+            //   report - which call them, or read validate.lockbox, directly - still see the
+            //   run's own cold figure. validate.lockbox is the crowned config's OWN standalone
+            //   lockbox (ungated already - gate_validate.chosen is a separate bake-off candidate,
+            //   not what validate.lockbox measures) and gate_validate.ungated_lockbox differs from
+            //   it only when the run scored cold - confirmed live: a warm run's two readings match
+            //   to the dollar and the trade (#410, #422).
+            if(lb&&!(V&&V.windows&&V.windows.warm_days)){
+              const _lbwCs=_gvB(x,'ungated_lockbox');
+              if(_lbwCs){
+                const _lbwN=(+_lbwCs.total_pnl||0)*mc,
+                      _lbwT=(_lbwCs.num_trades!=null)?+_lbwCs.num_trades:null,
+                      _lbwPf=(_lbwCs.profit_factor!=null&&isFinite(+_lbwCs.profit_factor)&&+_lbwCs.profit_factor>0)?+_lbwCs.profit_factor:null,
+                      _lbwDd=(_lbwCs.max_drawdown!=null&&isFinite(+_lbwCs.max_drawdown))?Math.abs(+_lbwCs.max_drawdown)*mc:null,
+                      _lbwSo=(_lbwCs.sortino!=null&&isFinite(+_lbwCs.sortino))?+_lbwCs.sortino:null,
+                      _lbwWr=(_lbwCs.win_rate!=null&&isFinite(+_lbwCs.win_rate))?+_lbwCs.win_rate:null,
+                      _lbwOldN=lb.net,_lbwOldT=lb.tr,_lbwOldPf=lb.pf;
+                // ONLY WHEN IT ACTUALLY DIFFERS: a cold run whose continuous reading happens to
+                //   coincide with its own cold one (or a run with no cold trade count saved at
+                //   all) has nothing to correct and no warm tag to show.
+                const _lbwDiffers=(_lbwOldN==null)||(_lbwT!=null&&_lbwOldT!=null&&_lbwT!==_lbwOldT)||(Math.abs(_lbwN-_lbwOldN)>0.5);
+                if(_lbwDiffers){
+                  const _lbwTip='Lockbox read from the continuous replay. This run scored its own lockbox cold (before warm starts, v73.841)'
+                    +((_lbwOldN!=null)?(': '+_reExact(_lbwOldN)+(_lbwOldT!=null?(' on '+_lbwOldT+' trades'):'')+(_lbwOldPf!=null?(', PF '+_lbwOldPf.toFixed(2)):'')+'.'):'.');
+                  lb.net=_lbwN;if(_lbwT!=null)lb.tr=_lbwT;if(_lbwPf!=null)lb.pf=_lbwPf;
+                  if(_rst&&_rst.B&&_rst.B.lb){const _B=_rst.B.lb;
+                    _B.total_pnl=_lbwN;if(_lbwT!=null)_B.num_trades=_lbwT;if(_lbwPf!=null)_B.profit_factor=_lbwPf;
+                    if(_lbwDd!=null){_B.max_drawdown=_lbwDd;_B._ddApx=false;}
+                    if(_lbwSo!=null)_B.sortino=_lbwSo;
+                    if(_lbwWr!=null)_B.win_rate=_lbwWr;
+                    _B._lbWarm=true;_B._lbWarmTip=_lbwTip;}
+                  // a WALK-FORWARD+LOCKBOX combined pick adds the same warm money and trades, so a
+                  //   two-stretch tick stays internally consistent with the LOCKBOX-alone tick; its
+                  //   drawdown is a peak-to-trough measured off the saved (cold) curve and no warm
+                  //   curve exists to rebuild it from, so it is left as the curve reads it.
+                  if(_rst&&_rst.B&&_rst.B.wf_lb&&_rst.B.wf&&_rst.B.wf.total_pnl!=null){const _B2=_rst.B.wf_lb;
+                    _B2.total_pnl=_rst.B.wf.total_pnl+_lbwN;
+                    if(_lbwT!=null&&_rst.B.wf.num_trades!=null)_B2.num_trades=_rst.B.wf.num_trades+_lbwT;
+                    _B2._lbWarm=true;_B2._lbWarmTip=_lbwTip;}
+                }
+              }
+            }
             const tot=t?t.net:(+x.best_pnl_usd||null);
             if(tot==null||!isFinite(tot))return;
             // A GATE-VALIDATE JOB SAVES NO validate BLOCK (repair round): its DD/PF/trades must
@@ -31211,7 +31377,31 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   initialised - so the first read threw 'cannot access before initialization' and
         //   took the whole tab down. Same trap as the blank COMPARE tab in v71.77.
         const _reCfgFam=(Array.isArray(APREF.resCfgFam)?APREF.resCfgFam.map(String):[]);
-        const _reCfgPick=rs.filter(function(r){return r&&(String(r.scope||'').indexOf('valid')>=0||r.validate);}).slice(0,80);
+        // MANAGER WATCH LIST ids, in the order MANAGER listed them (owner audit 2026-09-27,
+        //   section 1.4a). Read once here so the run pool below and the pill order built
+        //   further down agree on who is watched.
+        const _reWatchIds=((window._rbWatch&&window._rbWatch.runs)||[]).map(function(w){return w&&String(w.id).trim();}).filter(Boolean);
+        // FAIL, off the same validate.verdict every run row already carries in the lite
+        //   projection - never a guess, and never a fetch of the full document.
+        const _reRunFailV=function(r){return /FAIL/.test(String((r&&r.validate&&r.validate.verdict)||'').toUpperCase());};
+        // THE RUN PILL POOL (owner audit 2026-09-27, section 1.4a). `rs` already folds starred
+        //   runs outside the loaded window into its own list, but a crown far older than that
+        //   window still fell off the .slice(0,80) cut below the moment the combined list ran
+        //   past 80 - exactly how ORB's #314 / #257 / #239 crowns went missing from these pills
+        //   while two of its four offered runs were FAIL rows (#403, #404). Every starred run
+        //   and every MANAGER watch-list run is now FORCED past that cut - appended after the
+        //   ordinary newest-80 slice instead of competing with it for a place - and deduplicated
+        //   against it and against each other.
+        const _reCfgPickBase=rs.filter(function(r){return r&&(String(r.scope||'').indexOf('valid')>=0||r.validate);}).slice(0,80);
+        const _reCfgPick=(function(){
+          const have={};_reCfgPickBase.forEach(function(r){have[String(r.id)]=1;});
+          const ok=function(r){return r&&r.id!=null&&!have[String(r.id)]&&(String(r.scope||'').indexOf('valid')>=0||r.validate);};
+          const forced=[];
+          [].concat(Array.isArray(window._starRuns)?window._starRuns:[])
+            .concat(Array.isArray(window._rbWatchRuns)?window._rbWatchRuns:[])
+            .forEach(function(r){if(ok(r)){have[String(r.id)]=1;forced.push(r);}});
+          return _reCfgPickBase.concat(forced);
+        })();
         // the pref holds a LIST now; a single id from before still reads correctly.
         // tell the run-document cache how many we are about to need, so it stops
         //   evicting the ones we already have to make room for the next.
@@ -31225,15 +31415,23 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const _inFam=function(id){if(!(_fam&&_fam.length))return true;
             const r=_reCfgPick.filter(function(x){return String(x.id)===id;})[0];
             return !!r&&_fam.indexOf(_canonFam(r.strategy)||'UNTAGGED')>=0;};
+          // THE DEFAULT PICK IS THE NEWEST NON-FAIL RUN (item 4, same audit): picking the
+          //   newest run outright used to land on a FAIL run whenever one was the most recent
+          //   thing offered. Falls back to the newest of any verdict only when every candidate
+          //   in the pool failed.
+          const _newestOk=function(pool){const okList=pool.filter(function(r){return !_reRunFailV(r);});
+            const src=okList.length?okList:pool;
+            return src.reduce(function(best,r){return (!best||(+r.id||0)>(+best.id||0))?r:best;},null);};
           const _kept=a.filter(_inFam);
-          // nothing of this strategy was ticked - take its newest run, so switching
+          // nothing of this strategy was ticked - take its newest NON-FAIL run, so switching
           //   strategy shows THAT strategy instead of an empty board or the old one.
-          a=_kept.length?_kept:_reCfgPick.filter(function(r){return _inFam(String(r.id));})
-                            .slice(0,1).map(function(r){return String(r.id);});
+          if(_kept.length)a=_kept;
+          else{const cand=_reCfgPick.filter(function(r){return _inFam(String(r.id));});
+            const pick=_newestOk(cand);a=pick?[String(pick.id)]:[];}
           // only fall back to the newest run of ANY family when no strategy is picked -
           //   with one picked, an empty pick must stay empty and say so, or the board draws
           //   another strategy's configurations with no lit chip to explain them.
-          if(!a.length&&!(_fam&&_fam.length)&&_reCfgPick.length)a=[String(_reCfgPick[0].id)];
+          if(!a.length&&!(_fam&&_fam.length)&&_reCfgPick.length){const pick=_newestOk(_reCfgPick);if(pick)a=[String(pick.id)];}
           try{window._runFullCap=Math.max(8,a.length+2);}catch(e){}
           return a;})();
         _reCfgRunId=_reCfgIds.join(', #');
@@ -31407,14 +31605,34 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const szRow=function(x,tabNm,label,mode){
                 const st2=x.full||x.pre||null;if(!st2)return;
                 const md=mode||'one';
-                const f=(function(){if(md==='one')return 1;
+                const _szR=(function(){if(md==='one')return {f:1};
                   const SB={is:x.is_rng,wf:x.wf_rng,lb:x.lockbox,pre:x.pre,wf_lb:x.wf_lb,full:x.full},e=_reBlkKey;
-                  if(e&&((e!=='pre'&&e!=='wf_lb')||SB[e]))return szFac(SB[e],md,UNGby[e]);
-                  if(md==='redeploy'){let a=0,b=0,ok=true;
-                    _reSegsEff.forEach(function(sg){const u=UNGby[sg],xb=SB[sg];
-                      if(!u||u.num_trades==null||!xb||xb.num_trades==null)ok=false;else{a+=+u.num_trades;b+=+xb.num_trades;}});
-                    if(ok&&a>0&&b>0)return a/b;}
-                  return szFac(x.full,md,UNGby.full);})();
+                  const fOld=(function(){
+                    if(e&&((e!=='pre'&&e!=='wf_lb')||SB[e]))return szFac(SB[e],md,UNGby[e]);
+                    if(md==='redeploy'){let a=0,b=0,ok=true;
+                      _reSegsEff.forEach(function(sg){const u=UNGby[sg],xb=SB[sg];
+                        if(!u||u.num_trades==null||!xb||xb.num_trades==null)ok=false;else{a+=+u.num_trades;b+=+xb.num_trades;}});
+                      if(ok&&a>0&&b>0)return a/b;}
+                    return szFac(x.full,md,UNGby.full);})();
+                  // owner audit (ml_edge_orb_leak_answer_2026-09-27.md 1.4a/4a; verify_redflags
+                  //   H2): whenever the SAMPLE resolves to the lockbox alone or to all three -
+                  //   the two cases where this row's own lockbox trades or drawdown set the
+                  //   factor - a REDEPLOY or EQUAL-DD size is measured against the lockbox's own
+                  //   ungated twin, so the row's lockbox ROC carries lockbox hindsight (ORB #257
+                  //   down-DD: 137%/yr on the lockbox, 83% at its walk-forward size). Size these
+                  //   two the way the walk-forward already knew to, before the lockbox opened,
+                  //   and keep every stretch's money at that ONE size, same as today. A
+                  //   WALK-FORWARD-only or IN-SAMPLE+WALK-FORWARD tick never included the
+                  //   lockbox and is unchanged - and so is the WALK-FORWARD+LOCKBOX pick, which
+                  //   keeps sizing off its own combined pair (option A, v73.773: the rows add up
+                  //   to that pick's own total).
+                  if((md!=='redeploy'&&md!=='equaldd')||(e!=='lb'&&e!=='full'))return {f:fOld};
+                  const wfFac=(x.wf_rng&&UNGby.wf)?szFac(x.wf_rng,md,UNGby.wf):null;
+                  const preFac=(wfFac==null&&x.pre&&UNGby.pre)?szFac(x.pre,md,UNGby.pre):null;
+                  const fNew=(wfFac!=null)?wfFac:preFac;
+                  if(fNew==null)return {f:fOld,noWf:true};
+                  return {f:fNew,basis:(wfFac!=null)?'walk-forward':'pre-lockbox',hind:(Math.abs(fNew-fOld)>0.005)?fOld:null};})();
+                const f=_szR.f;
                 const net=(st2.total_pnl!=null)?st2.total_pnl*mult*f:null;
                 const dd=(st2.max_drawdown!=null)?Math.abs(st2.max_drawdown)*mult*f:null;
                 _cn++;_reCfgCounts[(tabNm==='TILT')?'tilt':((tabNm==='KEEL')?'keel':'hyb')]++;
@@ -31434,6 +31652,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                       _run:RID,runs:[+RID],
                       _sh:shCum(x.equity&&x.equity.cum,yrsW),_so:soCum(x.equity&&x.equity.cum,yrsW),
                       _avl:((st2.avg_loss!=null)?Math.abs(+st2.avg_loss)*mult*f:null),
+                      // the hindsight sentence: null on every untouched row (plain HYBRID, TILT,
+                      //   KEEL, GATE, RAW, or a redeploy/equal-DD row whose tick never included
+                      //   the lockbox) - _reTotCell appends it to the TOTAL $ hover only when set.
+                      _szHindTip:(function(){
+                        if(_szR.noWf)return 'This row has no walk-forward or pre-lockbox pair to size against, so it still carries lockbox hindsight (x'+f.toFixed(2)+').';
+                        if(_szR.hind==null)return null;
+                        const hf=_szR.hind,hNet=(x.lockbox&&x.lockbox.total_pnl!=null)?x.lockbox.total_pnl*mult*hf:null;
+                        const hYrs=(SPAN&&SPAN.l&&SPAN.b)?_reDayGap(SPAN.l,SPAN.b)/365.25:null;
+                        const hRoc=(hNet!=null&&hYrs&&hYrs>0&&_rocAcct()>0)?((hNet/hYrs)/_rocAcct()*100):null;
+                        return 'Sized at the '+_szR.basis+' size (x'+f.toFixed(2)+'). Sized with lockbox hindsight (x'+hf.toFixed(2)+') this row would read '
+                          +((hRoc!=null)?(hRoc.toFixed(1)+'%/yr on the lockbox.'):'a different reading on the lockbox, but its years could not be worked out to annualise it.');})(),
                       why:{wf:'This run saved no walk-forward slice for this variant.',lb:'This run saved no lockbox slice for this variant, so it has no lockbox figure.'}});};
               ((GV&&Array.isArray(GV.tilts))?GV.tilts:[]).forEach(function(t){
                 szRow(t,'TILT','TILT '+String(t.model||'')+' \u00b7 '+String(t.scheme||''));});
@@ -31594,6 +31823,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +_hs('evr','EV R','Expectancy in R: the average trade divided by the average LOSING trade. It is leverage-blind, so a row trading one contract and a row trading ten land on the same number, which raw dollar expectancy cannot do. A dash means the row records no average loss - only a run or a re-run study carries one. The $/TRD column beside it is the same expectancy in dollars.')
             +_hs('rpy','R / YR','R / YR: expectancy in R multiplied by trades per year over the ticked stretch. It is the cross-strategy rank read - leverage-blind like EV R, but it also rewards a strategy for trading often enough to compound that edge. A strategy earning 0.4R on 200 trades a year beats one earning 0.6R on 40.'+((_reSegsEff.length===1&&_reSegsEff[0]==='lb')?' The same figure the run report 1E matrix prints.':((_reSegsEff.length===1&&_reSegsEff[0]==='wf')?' On WALK-FWD alone a run row reads its saved walk-forward test - the figures on the report’s 1C chips and WF TEST pill, not its 1E CROWNING SCORE column, which holds the crowned settings fixed.':'')))
             +_hs('roc','ROC % / YR','ROC % / YR: the ticked stretch profit, annualised, as a percentage of the fixed account ROC is measured against (the chip on the run report sets it). It is the one measure on this row that is NOT leverage-blind - every ratio beside it divides money by something that scales with position size, so sizing cancels out, while this divides by an account you set, which does not. Read it beside R / YR: R / YR says how much edge the configuration earns, this says what that edge is worth on your account. A dash means this row is missing a profit figure or a data window to annualise it over.')
+            +_hs('roc30','ROC @ $30K DD','ROC % / YR at a $30k worst drawdown: the row resized so its worst drawdown on the ticked stretch is $30,000 - return per unit of risk in ROC terms. Equals 30 x MAR on a $100k account.')
             +_hs('ppt','$/TRD',_rePptTip)
             +basHd
             +_hs('trd','TRADES','How many trades the row took. On a configuration row that is the ticked stretches, off the run own per-stage record - in-sample plus lockbox is the two counts added; a sweep row records only its whole window. A small circle marks a count read from the saved run document.')
@@ -31623,7 +31853,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // EVERY numeric column can order the board, not the five that happened to be
               //   wired. A row with no figure for the picked column still sits last rather
               //   than being given a place it did not earn.
-              const _skG={mar:(st,r)=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p==null||!d)?null:_marAnn(p,_reYrs(st,r),d);},sh:(st,r)=>_reShOf(st,r),so:(st,r)=>_reSoOf(st,r),pf:(st,r)=>_reNum(r,'pf'),wr:(st,r)=>_reWrOf(st,r),evr:(st,r)=>_reEvR(st,r),rpy:(st,r)=>_reRpy(st,r),roc:(st,r)=>_reRoc(st,r),ppt:(st,r)=>_rePpt(r),trd:(st,r)=>_reNum(r,'trd'),tpy:(st,r)=>_reTpy(st,r),run:(st,r)=>_reRunNo(r),tot:(st,r)=>_reSegVal(r),dd:(st,r)=>_reNum(r,'dd')};
+              const _skG={mar:(st,r)=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p==null||!d)?null:_marAnn(p,_reYrs(st,r),d);},sh:(st,r)=>_reShOf(st,r),so:(st,r)=>_reSoOf(st,r),pf:(st,r)=>_reNum(r,'pf'),wr:(st,r)=>_reWrOf(st,r),evr:(st,r)=>_reEvR(st,r),rpy:(st,r)=>_reRpy(st,r),roc:(st,r)=>_reRoc(st,r),ppt:(st,r)=>_rePpt(r),trd:(st,r)=>_reNum(r,'trd'),tpy:(st,r)=>_reTpy(st,r),run:(st,r)=>_reRunNo(r),tot:(st,r)=>_reSegVal(r),dd:(st,r)=>_reNum(r,'dd'),roc30:(st,r)=>_reRoc30(st,r)};
               const _skLow={dd:1,ddr:1};
               const _skGet=_skG[_skK];
               const _skSgn=_skGet?(_skLow[_skK]?-1:1):_reYSgn();
@@ -31730,7 +31960,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const sorted=items.slice();
           if(_reOrd==='res'){
             const _skK2=String(APREF.reSortK||'');
-            const _skG2={mar:(st,r)=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p==null||!d)?null:_marAnn(p,_reYrs(st,r),d);},sh:(st,r)=>_reShOf(st,r),so:(st,r)=>_reSoOf(st,r),pf:(st,r)=>_reNum(r,'pf'),wr:(st,r)=>_reWrOf(st,r),evr:(st,r)=>_reEvR(st,r),rpy:(st,r)=>_reRpy(st,r),roc:(st,r)=>_reRoc(st,r),ppt:(st,r)=>_rePpt(r),trd:(st,r)=>_reNum(r,'trd'),tpy:(st,r)=>_reTpy(st,r),run:(st,r)=>_reRunNo(r),tot:(st,r)=>_reSegVal(r),dd:(st,r)=>_reNum(r,'dd')};
+            const _skG2={mar:(st,r)=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p==null||!d)?null:_marAnn(p,_reYrs(st,r),d);},sh:(st,r)=>_reShOf(st,r),so:(st,r)=>_reSoOf(st,r),pf:(st,r)=>_reNum(r,'pf'),wr:(st,r)=>_reWrOf(st,r),evr:(st,r)=>_reEvR(st,r),rpy:(st,r)=>_reRpy(st,r),roc:(st,r)=>_reRoc(st,r),ppt:(st,r)=>_rePpt(r),trd:(st,r)=>_reNum(r,'trd'),tpy:(st,r)=>_reTpy(st,r),run:(st,r)=>_reRunNo(r),tot:(st,r)=>_reSegVal(r),dd:(st,r)=>_reNum(r,'dd'),roc30:(st,r)=>_reRoc30(st,r)};
             const _skLow2={dd:1,ddr:1};
             const _skGet2=_skG2[_skK2];
             const _skSgn2=_skGet2?(_skLow2[_skK2]?-1:1):_reYSgn();
@@ -31854,6 +32084,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   chips answer 'which runs', which is the question once you want to know whether
         //   two Auto-Validates found the same thing. Newest first, and every row on the chart
         //   carries its run number so a point is always traceable.
+        // RUN PILL ORDER (owner audit 2026-09-27, section 1.4a): watch-listed runs first, in
+        //   the order MANAGER listed them, then every other offered run PASS / WEAK newest
+        //   first, then FAIL last. A FAIL run is never dropped - it sorts last and stays
+        //   clickable, just greyed and marked - so two of ORB's four offered pills can no
+        //   longer sit ahead of its crowns with nothing to tell them apart from a PASS pill.
+        const _reCfgPillOrd=function(av){
+          const watch=[],rest=[];
+          av.forEach(function(r){(_reWatchIds.indexOf(String(r.id))>=0?watch:rest).push(r);});
+          watch.sort(function(a,b){return _reWatchIds.indexOf(String(a.id))-_reWatchIds.indexOf(String(b.id));});
+          const ok=rest.filter(function(r){return !_reRunFailV(r);}).sort(function(a,b){return (+b.id||0)-(+a.id||0);});
+          const bad=rest.filter(_reRunFailV).sort(function(a,b){return (+b.id||0)-(+a.id||0);});
+          return watch.concat(ok,bad);};
         const _reCfgSel=(_reLvl!=='valid'&&_reLvl!=='all')?'':_reCtl('','RUNS','which Auto-Validate runs the configurations are read out of. Tick as many as you like - their RAW, GATE, TILT and HYBRID candidates all land on the same axes, and each point says which run it came from. The full run document is fetched on demand, so a run shows LOADING the first time it is ticked.',
           // ONLY THE PICKED STRATEGY'S RUNS. Offering all seventy-five while the rail
           //   says NOISE was most of what made this confusing - the strategy pick looked
@@ -31861,28 +32103,34 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // ALL / NONE, because ticking fourteen runs one at a time to see a strategy's
           //   whole 1E landscape is a chore (owner 2026-09-04: "add an option for check all
           //   when im looking at a strategy and want all the runs populated"). ALL takes
-          //   every run the STRATEGY pick is offering; NONE clears back to the newest one,
-          //   because an empty pick has nothing to draw.
-          (function(){const _av=_reCfgPick.filter(function(r){const sel=_reFilt.fam;
-              return !(sel&&sel.length)||sel.indexOf(_canonFam(r.strategy)||'UNTAGGED')>=0;}).slice(0,40);
+          //   every run the STRATEGY pick is offering; NONE clears back to the newest
+          //   non-FAIL one, because an empty pick has nothing to draw.
+          (function(){const _famOk=function(r){const sel=_reFilt.fam;
+              return !(sel&&sel.length)||sel.indexOf(_canonFam(r.strategy)||'UNTAGGED')>=0;};
+            const _av=_reCfgPillOrd(_reCfgPick.filter(_famOk)).slice(0,40);
             const _on=_av.filter(function(r){return _reCfgIds.indexOf(String(r.id))>=0;}).length;
+            const _pills=_av.map(function(r){const id=String(r.id);
+              // a BOOK run pools its legs into one document and saves no per-configuration
+              //   records (the BOOK job type never emits them), so on this view its chip
+              //   is greyed and says why rather than letting the pick end in an empty chart.
+              //   The doc marks itself two ways - scope carries Book, strategy starts BOOK:
+              const isBook=(String(r.scope||'').indexOf('Book')>=0)||(/^BOOK:/i.test(String(r.strategy||'')));
+              const isFail=_reRunFailV(r);
+              const vd=String((r.validate&&r.validate.verdict)||'').toUpperCase();
+              const tip='run #'+id+' · '+String(r.strategy||'').replace(/\.py$/,'')+' · '+String(r.instrument||'')+' '+String(r.timeframe||'')+' · verdict: '+(vd||'not recorded');
+              if(_reShowCfg&&isBook)return '<span style="opacity:.55;display:inline-flex">'+_reBtn('data-recfgrun="'+id+'"','#'+id+' · book',_reCfgIds.indexOf(id)>=0,
+                tip+' — a BOOK run: its legs are pooled into one result and no per-configuration records exist, so it has nothing to draw on this view. Switch SHOW to RUNS to compare it as one row.',_TONE.samp)+'</span>';
+              // FAIL runs sort last and stay pickable - never removed - but read as what they
+              //   are: greyed, with their own mark (item 2, section 1.4a) - two of ORB's four
+              //   offered chips used to be FAIL runs with nothing to tell them apart from PASS.
+              if(isFail)return '<span data-refail="1" style="opacity:.5;display:inline-flex">'+_reBtn('data-recfgrun="'+id+'"','#'+id+' FAIL',_reCfgIds.indexOf(id)>=0,tip,_TONE.samp)+'</span>';
+              return _reBtn('data-recfgrun="'+id+'"','#'+id,_reCfgIds.indexOf(id)>=0,tip,_TONE.rank);}).join('');
             return _reBtn('data-recfgall="1"','ALL · '+_av.length,(_on===_av.length&&_av.length>0),
                 'tick every run listed here - the whole 1E landscape for this strategy on one chart. '
                +'Each run is a separate fetch, so a big strategy fills in over a few seconds.',_TONE.rank)
               +_reBtn('data-recfgnone="1"','NONE',false,
-                'clear back to the newest run on its own.',_TONE.rank);})()
-          +_reCfgPick.filter(function(r){const sel=_reFilt.fam;
-            return !(sel&&sel.length)||sel.indexOf(_canonFam(r.strategy)||'UNTAGGED')>=0;})
-          .slice(0,40).map(function(r){const id=String(r.id);
-            // a BOOK run pools its legs into one document and saves no per-configuration
-            //   records (the BOOK job type never emits them), so on this view its chip
-            //   is greyed and says why rather than letting the pick end in an empty chart.
-            //   The doc marks itself two ways - scope carries Book, strategy starts BOOK:
-            const isBook=(String(r.scope||'').indexOf('Book')>=0)||(/^BOOK:/i.test(String(r.strategy||'')));
-            const tip='run #'+id+' · '+String(r.strategy||'').replace(/\.py$/,'')+' · '+String(r.instrument||'')+' '+String(r.timeframe||'');
-            if(_reShowCfg&&isBook)return '<span style="opacity:.55;display:inline-flex">'+_reBtn('data-recfgrun="'+id+'"','#'+id+' · book',_reCfgIds.indexOf(id)>=0,
-              tip+' — a BOOK run: its legs are pooled into one result and no per-configuration records exist, so it has nothing to draw on this view. Switch SHOW to RUNS to compare it as one row.',_TONE.samp)+'</span>';
-            return _reBtn('data-recfgrun="'+id+'"','#'+id,_reCfgIds.indexOf(id)>=0,tip,_TONE.rank);}).join('')
+                'clear back to the newest non-FAIL run on its own, or the newest run if every one offered here failed.',_TONE.rank)
+              +_pills;})()
           ,_TONE.rank);
         const _reChartBtns=_reCtl(1,'CHART','which drawing the rows are shown in. Both use exactly the same rows, filters and ticked profit stage.',
             _reBtn('data-reschart="scatter"','SCATTER',(_reChartK==='scatter'),'the worst drawdown across the bottom against the profit stage up the side. One point per row. Best for the single question of what a variant cost in pain for what it paid.',_TONE.samp)
@@ -31909,6 +32157,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
            +_reBtn('data-resxaxis="ddp"','DD %',_reXAxis==='ddp','the worst peak-to-trough loss as a percent of that same account. LOWER is better, so the good rows sit toward the LEFT on this axis.',_TONE.samp)
            +_reBtn('data-resxaxis="dd"','DRAWDOWN',_reXAxis==='dd','the worst peak-to-trough loss, in dollars. Deeper to the right.',_TONE.samp)
            +_reBtn('data-resxaxis="ratio"','MAR',_reXAxis==='ratio','MAR - the ticked stretch profit PER YEAR divided by its worst drawdown, the same annualised MAR the MAR column, the vertical axis, the RUNBOARD and the 1E matrix print.',_TONE.samp)
+           +_reBtn('data-resxaxis="roc30"','ROC @ $30K DD',_reXAxis==='roc30','ROC % / YR at a $30k worst drawdown: the row resized so its worst drawdown on the ticked stretch is $30,000 - return per unit of risk in ROC terms. Equals 30 x MAR on a $100k account.',_TONE.samp)
            +_reBtn('data-resxaxis="pf"','PF',_reXAxis==='pf','profit factor - gross winnings over gross losses.',_TONE.samp)
            +_reBtn('data-resxaxis="wr"','WIN %',_reXAxis==='wr','the share of trades that won, for the ticked stretch. Read it beside PF: a system can win a minority of its trades and still be the better one when its winners are large - ENGU-Q wins about a quarter of the time by design.',_TONE.samp)
            +_reBtn('data-resxaxis="evr"','EV R',_reXAxis==='evr','expectancy in R - the leverage-blind edge per bet.',_TONE.samp)
@@ -31924,6 +32173,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
            +_reBtn('data-resaxis="ddp"','DD %',_reAxis==='ddp','plot the worst peak-to-trough loss as a percent of that same account. LOWER is better, so the good rows sit toward the LEFT on this axis.',_TONE.samp)
            +_reBtn('data-resaxis="dd"','DRAWDOWN',_reAxis==='dd','plot the worst peak-to-trough loss in DOLLARS. LOWER is better, so the good rows sit toward the BOTTOM and the ranking puts the shallowest first. Dollars scale with size and with how long the row ran, so use DD % or DD (R) to compare strategies traded at different sizes.',_TONE.samp)
            +_reBtn('data-resaxis="ratio"','MAR',_reAxis==='ratio','plot MAR - profit PER YEAR divided by the worst drawdown, the same annualised MAR the MAR column, the RUNBOARD and the 1E matrix print. The ticks read as plain numbers, not dollars. Be careful with it: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so this is the most fragile of the readings here',_TONE.rank)
+           +_reBtn('data-resaxis="roc30"','ROC @ $30K DD',_reAxis==='roc30','plot ROC % / YR at a $30k worst drawdown: the row resized so its worst drawdown on the ticked stretch is $30,000 - return per unit of risk in ROC terms. Equals 30 x MAR on a $100k account.',_TONE.rank)
            // F21 fix: this claimed PF ignores PROFIT STAGE "and says so on the axis" - false on both
            //   counts. A run or configuration row saves PF per stretch, so the plotted value (and
            //   the table cell) DOES follow the stage - only a sweep/write-up row, which never split
@@ -39848,8 +40098,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const all=_reAvailRuns();if(all.length)savePref('resCfgRun',all);renderApp();};});
       content.querySelectorAll('[data-recfgnone]').forEach(b=>{b.onclick=()=>{
         const all=_reAvailRuns();
-        // an empty pick draws nothing, so NONE keeps the newest run rather than blanking
-        if(all.length)savePref('resCfgRun',[all[0]]);renderApp();};});
+        if(!all.length){renderApp();return;}
+        // an empty pick draws nothing, so NONE keeps a run rather than blanking. The pills
+        //   sort watch-listed runs first now (owner audit 2026-09-27, section 1.4a), so the
+        //   first pill offered is no longer necessarily the newest - pick the newest NON-FAIL
+        //   id among every run offered here, falling back to the newest of any verdict only
+        //   when every one offered here failed, the same rule item 4 gives the default pick.
+        const failIds=new Set([...content.querySelectorAll('[data-refail] [data-recfgrun]')].map(x=>x.getAttribute('data-recfgrun')));
+        const okAll=all.filter(id=>!failIds.has(id));
+        const pool=okAll.length?okAll:all;
+        const newest=pool.reduce((best,id)=>((+id||0)>(+best||0))?id:best);
+        savePref('resCfgRun',[newest]);renderApp();};});
       content.querySelectorAll('[data-refilt]').forEach(b=>{b.onclick=()=>{
         let o={};try{o=JSON.parse(APREF.resFilt||'{}')||{};}catch(e){o={};}
         const k=b.dataset.refilt,v=b.dataset.refiltv,cur=Array.isArray(o[k])?o[k].slice():[];
