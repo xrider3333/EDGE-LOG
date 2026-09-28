@@ -2979,6 +2979,11 @@ def _serving_hosts_ok(log=print):
 # reported with the next line) -- a broken shadow leg must not flood the runner log either.
 SHADOW_ERROR_LOG_EVERY_SEC = 600.0
 _SHADOW_ERR = {"last_logged": 0.0, "suppressed": 0}
+# NOISE FORWARD LOG (2026-09-28, Custom ML's pre-registered forward test,
+# docs/PREREG_noise_shadow_forward_2026-09-28.md): run_shadow_step writes one decision-time
+# row per NOISE signal into <shadow store>/noise_forward_log.csv -- see api/noise_forward.py.
+# False turns it off; the live and shadow legs are identical either way.
+NOISE_FORWARD_LOG = True
 
 
 def shadow_only_timeframes(live_legs=None, shadow_legs=None):
@@ -3004,7 +3009,9 @@ def run_shadow_step(now=None, fetch=True, live_legs=None, shadow_legs=None, live
          the same on-disk bars the live step just refreshed, the same QQQ_1d.csv. fetch=False
          means no network, no daily-cache refresh and no ntfy push (and every shadow cfg
          carries "shadow": True, the second guard -- see _push_allowed).
-      3. Stamp the shadow store's OWN heartbeat -- never the live heartbeat.
+      3. NOISE FORWARD LOG (NOISE_FORWARD_LOG): api/noise_forward.forward_log_tick writes
+         any NOISE signal row now due into the shadow store. Never raises.
+      4. Stamp the shadow store's OWN heartbeat -- never the live heartbeat.
 
     The live store is only ever READ here (its state.json's bar_source, to label the
     shadow rows with the feed that priced them) -- never written. May raise: the thread
@@ -3028,6 +3035,15 @@ def run_shadow_step(now=None, fetch=True, live_legs=None, shadow_legs=None, live
             except Exception as e:     # the shadow step still runs off the cache on disk
                 notes.append(f"{tf} fetch failed: {type(e).__name__}: {e}")
     events = step(now=now, legs=shadow_legs, paths=spaths, fetch=False, bar_sources=sources)
+    if NOISE_FORWARD_LOG:
+        try:
+            from api import noise_forward as _nf
+            n_fwd = _nf.forward_log_tick(now, live_paths, spaths, live_legs, shadow_legs, log=log)
+        except Exception as e:           # an import failure; forward_log_tick itself never raises
+            n_fwd = 0
+            notes.append(f"NOISE forward log unavailable: {type(e).__name__}: {e}")
+        if n_fwd:
+            notes.append(f"{n_fwd} NOISE forward-log row(s)")
     _write_heartbeat(spaths, ok=True,
                      note=f"{len(events)} shadow event(s)" + ("; " + "; ".join(notes) if notes else ""))
     return events
@@ -3120,6 +3136,14 @@ def cloud_signal_thread(stop=None, log=print):
             log_history_windows(legs=SHADOW_LEGS, log=log)
         except Exception as e:                 # same: diagnostic only
             log(f"[cloud-signal] shadow history window logging failed ({type(e).__name__}: {e})")
+        if NOISE_FORWARD_LOG:
+            # resolve the engine commit NOW, not on the first NOISE row mid-session (it is
+            # read from .git, no subprocess -- see noise_forward.engine_commit)
+            try:
+                from api import noise_forward as _nf
+                _nf.engine_commit()
+            except Exception as e:             # the forward log then reads it on first use
+                log(f"[cloud-signal] NOISE forward log commit read failed ({type(e).__name__}: {e})")
     try:
         from api import cloud_signal_stream as _stream_mod
     except Exception as e:

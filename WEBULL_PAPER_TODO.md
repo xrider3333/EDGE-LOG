@@ -818,6 +818,24 @@ tools/pull_box_ledgers.py, which now also copies the shadow record) prints each 
 would-be dollars at 10 shares x size, win rate and largest win and loss, beside the live primary
 and #382 without KEEL. These are signal prices, not fills.
 
+**Forward log for Custom ML's test** (docs/PREREG_noise_shadow_forward_2026-09-28.md). Every NOISE
+signal, filled or not, gets one row in cloud_signal/shadow/noise_forward_log.csv on the box,
+written by the shadow run right after the decision: the signal and its bar, the squeeze, Friday
+and FOMC-morning flags each arm sizes on (read exactly as each strategy and KEEL read them), all
+five arms' multipliers before the share caps, the shares each arm would send, and both KEEL
+models' version, seed, training date, trade count, trust and the code version. A signal only the
+#422 legs took gets its own row. It sends nothing and cannot touch the live leg; if it fails, the
+shadow run carries on. `python tools/noise_forward_log.py --out table.csv` (or `--home` on a
+pulled copy) adds the live leg's Webull fills, exit reason, whether the order was capped, refused
+or skipped, and each arm's dollars; `--backfill` rebuilds rows for days before the log existed.
+An order Webull never filled (blocked by a halt, a loss or share limit or the lease, rejected,
+unknown, or a close that never filled) gets its own status, and its dollars at the book's prices
+go in separate columns, never in the Webull ones. An arm whose leg did not take the trade, or
+exited somewhere else, gets no dollars, and the table names why. A KEEL size that was the 1.0
+fallback, not a real score, is named too.
+**Log starts:** the first session after this deploy - that date goes in Custom ML's first
+scoring report.
+
 **Deploy (after 16:05 ET, flat).**
 1. Box deploy tool dry run. Expect NOISE_1_8_CT304H.py among the changed files (with the two
    signal modules, the order adapter, the KEEL trainer and the nightly KEEL build), and no unit

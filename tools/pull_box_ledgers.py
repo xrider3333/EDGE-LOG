@@ -38,6 +38,8 @@ FILES = [
     # not there yet (before the first shadow tick / first KEEL build) is listed as missing.
     "cloud_signal/shadow/signals.csv", "cloud_signal/shadow/state.json",
     "cloud_signal/shadow/heartbeat.json",
+    # the NOISE forward log (api/noise_forward.py) -- tools/noise_forward_log.py --home reads it
+    "cloud_signal/shadow/noise_forward_log.csv",
     "cloud_signal/keel/NOISE_422_KEEL_v12_summary.json",
 ]
 DEFAULT_DEST = r"C:\EdgeLog\box_backup"

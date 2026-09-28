@@ -342,6 +342,21 @@ def test_compare_decisions_treats_a_sub_half_cent_ref_price_gap_as_the_same_deci
     assert "735.66" in detail and "735.6599" in detail
 
 
+def test_compare_decisions_half_a_cent_is_in_whatever_the_float_arithmetic_says():
+    """Exactly half a cent apart is a match however the subtraction rounds in binary:
+    735.70 - 735.695 computes just UNDER 0.005 (passed before only by that luck), and
+    730.19 - 730.185 just OVER it (a false DISAGREEMENT before REF_PRICE_EPS). The live
+    pair 735.66 vs 735.6599 stays a match; a hair over half a cent stays a mismatch."""
+    assert abs(735.70 - 735.695) < css.REF_PRICE_TOLERANCE < abs(730.19 - 730.185)
+    for stream, rest in ((735.70, 735.695), (735.695, 735.70), (730.19, 730.185),
+                         (735.66, 735.6599)):
+        match, detail = css.compare_decisions([_ev(stream)], [_ev(rest)])
+        assert match is True, (stream, rest, detail)
+    assert css.compare_decisions([_ev(735.70)], [_ev(735.6949)])[0] is False
+    assert css.compare_decisions([_ev(735.66)], [_ev(735.6549)])[0] is False
+    assert css._prices_close("735.70", "735.695") is True
+
+
 def test_compare_decisions_still_flags_real_price_and_field_differences():
     assert css.compare_decisions([_ev(735.66)], [_ev(735.65)])[0] is False, "a full cent is real"
     assert css.compare_decisions([_ev(735.66)], [_ev(735.6599, side="long")])[0] is False

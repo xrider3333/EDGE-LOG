@@ -409,11 +409,14 @@ def build(nq_file, out_dir, version=None, log=print, leg=None, master=None):
         log(f"[keel-live-state] data_through unavailable: {type(e).__name__}: {e}")
     summary = K.keel_state_summary(state, arrays=arr, extra={
         "leg": leg_key,
-        # a SHADOW leg's summary says so; a live leg's (NOISE_382) keeps exactly the keys
-        # it always had
+        # a SHADOW leg's summary says so; a live leg's (NOISE_382) carries no leg_live key,
+        # as before
         **({} if leg["live"] else {"leg_live": False}),
         "strategy": leg["strategy"],
         "params": leg["params"],
+        # the model's seed (ml_keel.SEED unless a caller passed another) -- read by the NOISE
+        # forward log (api/noise_forward.py keel_meta), which never loads the state itself
+        "seed": state.get("seed"),
         "cost_pts": COST_PTS,
         "date_from": DATE_FROM,
         "data_through": data_through,

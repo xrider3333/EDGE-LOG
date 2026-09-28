@@ -176,6 +176,8 @@ def test_build_writes_a_loadable_state_and_a_json_safe_summary(tmp_path):
     assert disk_summary["strategy"] == "NOISE_1_8_CT304.py"
     assert disk_summary["params"] == cs.NOISE_382_PARAMS
     assert "leg_live" not in disk_summary, "the live leg's summary keeps exactly its old keys"
+    # the model's seed, for the NOISE forward log (api/noise_forward.py keel_meta)
+    assert disk_summary["seed"] == reloaded["seed"]
     assert disk_summary["nq_file_sha256"] and len(disk_summary["nq_file_sha256"]) == 64
     assert disk_summary["build_seconds"] >= 0
     assert "timings_seconds" in disk_summary

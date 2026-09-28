@@ -266,13 +266,19 @@ def _canonical_events(events):
 # 735.66 stream vs 735.6599 REST), and an exact compare called that a DISAGREEMENT -- which
 # with bar_close_from_stream on trips the day's latch for nothing. ref_price now matches
 # within half a cent; every other decision field stays exact.
+# FLOAT SLACK (2026-09-28 follow-up): a gap of exactly half a cent is not exactly 0.005 in
+# binary floating point -- 735.70 - 735.695 computes to 0.0049999999999955 (in), but
+# 730.19 - 730.185 to 0.0050000000001091 (out). REF_PRICE_EPS absorbs that representation
+# error (a billionth of a dollar, far below any real price step), so half a cent is always in
+# and 0.0051 is always out, whatever the two prices are.
 REF_PRICE_TOLERANCE = 0.005
+REF_PRICE_EPS = 1e-9
 _REF_PRICE_AT = _DECISION_FIELDS.index("ref_price")
 
 
 def _prices_close(a, b):
     try:
-        return abs(float(a) - float(b)) <= REF_PRICE_TOLERANCE
+        return abs(float(a) - float(b)) <= REF_PRICE_TOLERANCE + REF_PRICE_EPS
     except (TypeError, ValueError):
         return a == b
 
