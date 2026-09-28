@@ -29768,6 +29768,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _reLbTradesOf=rw=>{
           if(!rw)return null;
           if(rw._stRun){
+            // a cold run whose LOCKBOX cell now reads the continuous (warm) slice is judged on
+            //   the trades that cell shows, not on its own cold count (real-data check
+            //   2026-09-28: DIP runs scored 0 lockbox trades cold and 12-110 on the replay).
+            const wl=rw._st&&rw._st.lb;
+            if(wl&&wl._lbWarm&&wl.num_trades!=null&&isFinite(+wl.num_trades))return +wl.num_trades;
             const runs=Array.isArray(rw.runs)?rw.runs:[];
             const d=runs.length?_reRunRec(runs[0]):null;
             const lb=d&&d.validate&&d.validate.lockbox;
@@ -29788,7 +29793,13 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const runs=Array.isArray(rw&&rw.runs)?rw.runs:[];
           if(!runs.length)return false;
           const d=_reRunRec(runs[0]);
-          return !!(d&&d.n_evaluated!=null&&+d.n_evaluated===1);
+          if(!(d&&d.n_evaluated!=null&&+d.n_evaluated===1))return false;
+          // a BOOK tunes nothing and shows no walk-forward figure of its own, so there is
+          //   nothing to label (real-data check 2026-09-28: every book row carried the tag on
+          //   an empty WALK-FWD cell). Same book test the walk-forward curve uses.
+          const bk=(d.book&&Array.isArray(d.book.legs))||String(d.scope||'').indexOf('Book')>=0
+            ||/^(BOOK:|COMBINED\b)/i.test(String(d.strategy||''));
+          return !bk;
         };
         const _reFlagsOf=rw=>{
           const out=[];
@@ -31238,7 +31249,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 //   coincide with its own cold one (or a run with no cold trade count saved at
                 //   all) has nothing to correct and no warm tag to show.
                 const _lbwDiffers=(_lbwOldN==null)||(_lbwT!=null&&_lbwOldT!=null&&_lbwT!==_lbwOldT)||(Math.abs(_lbwN-_lbwOldN)>0.5);
-                if(_lbwDiffers){
+                // ONLY WHEN IT IS PLAUSIBLY THE SAME CONFIG, WARMED UP (real-data check 2026-09-28).
+                //   Warming up can only ADD trades at the front of the lockbox, bar a position or two
+                //   carried across its start, so a continuous slice holding clearly FEWER trades than
+                //   the cold reading is the gate bake-off's own replay of something else (ENGU-Q #310:
+                //   91 cold, 0 continuous; #326: 236 vs 35) and the row keeps its own cold figure.
+                //   #382 (239 -> 315), #335 (129 -> 128), #314 (168 -> 168) and the DIP runs (0 cold)
+                //   all pass.
+                const _lbwSame=(_lbwT!=null)&&(_lbwOldT==null||_lbwT>=_lbwOldT-Math.max(2,Math.round(_lbwOldT*0.05)));
+                if(_lbwDiffers&&_lbwSame){
                   const _lbwTip='Lockbox read from the continuous replay. This run scored its own lockbox cold (before warm starts, v73.841)'
                     +((_lbwOldN!=null)?(': '+_reExact(_lbwOldN)+(_lbwOldT!=null?(' on '+_lbwOldT+' trades'):'')+(_lbwOldPf!=null?(', PF '+_lbwOldPf.toFixed(2)):'')+'.'):'.');
                   lb.net=_lbwN;if(_lbwT!=null)lb.tr=_lbwT;if(_lbwPf!=null)lb.pf=_lbwPf;
