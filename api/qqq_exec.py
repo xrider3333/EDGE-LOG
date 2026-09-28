@@ -410,6 +410,27 @@ def _session_flatten_deadline(nowdt):
     return close_dt - timedelta(seconds=SESSION_FLATTEN_DEADLINE_MARGIN_SEC)
 
 
+class _MarketClosed(Exception):
+    """_mirror_to_broker's own signal that its AFTER-CLOSE GUARD refused the send."""
+
+
+def _market_closed_for_orders(nowdt):
+    """True from today's session close (16:00, or 13:00 on a recognised half day) onward,
+    on a session day -- AFTER-CLOSE GUARD (2026-09-28): no broker order of any kind goes
+    out then (Webull refuses market orders after the bell -- 2026-09-17/18, 417
+    OPENAPI_CAN_NOT_TRADING_FOR_FIXGW_NOT_READY_MARKET -- and an OPEN it did take would
+    stay open overnight). Seconds precision: 16:00:00 is already closed. Never raises
+    (any doubt reads as not closed, today's behaviour)."""
+    try:
+        if nowdt is None or not market_calendar.is_session(nowdt):
+            return False
+        close_dt = _session_flatten_deadline(nowdt) + timedelta(
+            seconds=SESSION_FLATTEN_DEADLINE_MARGIN_SEC)
+        return nowdt >= close_dt
+    except Exception:
+        return False
+
+
 # -- config / state I/O -------------------------------------------------------------
 def _read_config_for_gate(path=None, log=print):
     """Read-only counterpart to load_config, for the SERVING_HOSTS GATE ONLY (major
@@ -2335,7 +2356,19 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
     signal_id = _broker_signal_id(leg, ts, intent, seq=seq, trade_id=trade_id)
     if resend:
         signal_id = f"{signal_id}R{int(resend)}"   # 28 + 2 chars for NOISE/ENGUQ, inside 32
+    # AFTER-CLOSE GUARD (2026-09-28, see _market_closed_for_orders): judged on the calling
+    # tick's own clock, so only when the caller passes one (every tick() path does, the
+    # FLATTEN_BROKER orphan repair included). No order call, no re-send queue. A CLOSE
+    # blocked here while the adapter's books still hold shares for the leg pushes once
+    # (_alert_close_blocked_after_close); _maybe_check_webull_flat_after_eod still pages
+    # if Webull is left holding shares.
+    market_closed = nowdt is not None and _market_closed_for_orders(nowdt)
+    requeue_asked = requeue
+    if market_closed:
+        requeue = False
     try:
+        if market_closed:
+            raise _MarketClosed()
         adapter = _get_broker_adapter(log=log)
         mode, _mode_reason = adapter.effective_mode()
         armed = mode in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE)
@@ -2398,6 +2431,16 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
                 adapter, leg=leg, signal_id=signal_id, symbol=BROKER_SYMBOL,
                 side=_broker_side(side, intent), qty=int(round(shares)), intent=intent,
                 mode=mode, log=log, **({"remainder": True} if remainder else {}))
+    except _MarketClosed:
+        reason = (f"market closed: after today's session close, no broker order is sent "
+                  f"(tick {nowdt.strftime('%H:%M:%S')} ET)")
+        log(f"[qqq-exec] broker {intent} for {leg} BLOCKED before send: {reason} -- shadow "
+            f"record above stands, broker mirror suppressed")
+        rec = {"ok": False, "sent": False, "mode": "BLOCKED", "reason": reason,
+               "side": _broker_side(side, intent), "client_order_id": "", "duplicate": False,
+               "market_closed": True}
+        if intent == "CLOSE" and requeue_asked:
+            _alert_close_blocked_after_close(state, leg, nowdt, log=log)
     except Exception as e:
         rec = {"ok": False, "sent": False, "mode": "ERROR", "error": f"{type(e).__name__}: {e}"}
         log(f"[qqq-exec] broker adapter call failed for {leg} {intent} (non-fatal -- the "
@@ -5155,6 +5198,78 @@ def _lot_label(lot):
     return f"opened {(lot or {}).get('entry_ts')} (no trade id -- predates trade ids)"
 
 
+def _late_entry_reason(nowdt, sig_dt, sess):
+    """None, or why an engine ENTRY is too late to open (LATE-ENTRY GUARD, 2026-09-28).
+    Engine mode had no entry-window check at all (only ninjatrader mode's
+    _in_entry_window): a row consumed after the day's flatten opened a lot nothing would
+    close that day, and one consumed after the bell mirrored an OPEN Webull refuses.
+    Judged by the signal's OWN bar: refused when that bar starts after
+    session.last_entry. The consumption time only has hard stops -- at/after the session
+    close, past flat_by, or inside the last minute before flat_by (so the entry's market
+    order has filled before the flatten's close goes out). 2026-09-28 review: the first
+    version also refused by the consumption minute (> last_entry), which dropped an
+    entry decided at the 15:50 bar's close whenever the fetch throttle plus REST latency
+    (or one failed fetch) pushed its consumption past 15:55:59 -- the backtest takes it.
+    Never raises (any doubt reads as not late)."""
+    try:
+        last_entry = sess.get("last_entry", "15:55")
+        flat_by = sess.get("flat_by", "15:58")
+        if _market_closed_for_orders(nowdt):
+            return "consumed after the session close"
+        if _past_flat_by(nowdt, sess):
+            return f"consumed past flat_by {flat_by}"
+        if _et_hhmm(nowdt) >= _hhmm(_hhmm_minus(flat_by, 1)):
+            return f"consumed inside the last minute before flat_by {flat_by}"
+        if sig_dt is not None:
+            bar = sig_dt.astimezone(_NY) if (sig_dt.tzinfo is not None and _NY is not None) else sig_dt
+            if _et_hhmm(bar) > _hhmm(last_entry):
+                return f"its bar ({bar.strftime('%H:%M')}) is after last_entry {last_entry}"
+    except Exception:
+        return None
+    return None
+
+
+BACKTEST_EOD_EXITS_KEEP = 60
+
+
+def _note_backtest_eod_exit(state, leg, trade_id, e, nowdt, log=print):
+    """EOD SETTLE (2026-09-28): api/cloud_signal.py now emits the backtest's end-of-day
+    EXIT right after the close. For a trade the day's flatten already closed there is
+    nothing to do at the broker -- the engine's exit price is kept (state
+    "backtest_eod_exits", merged onto that trade's published row by
+    _merge_backtest_exits) so the book's flatten fill can be compared with the backtest's
+    own close. No order, no warning. Never raises."""
+    try:
+        book = state.setdefault("backtest_eod_exits", {})
+        book[trade_id] = {"leg": leg, "px": float(e["ref_price"]),
+                          "ts": str(e.get("ref_time") or ""),
+                          "at": nowdt.strftime("%Y-%m-%d %H:%M:%S")}
+        for old in list(book)[:-BACKTEST_EOD_EXITS_KEEP]:
+            book.pop(old, None)
+        log(f"[qqq-exec] {leg} backtest end-of-day exit for {_trade_id.describe(trade_id, _NY)} "
+            f"@ {float(e['ref_price']):.2f} (bar {e.get('ref_time')}) -- the day's flatten "
+            f"already closed it; recorded for comparison, nothing sent")
+    except Exception as ex:
+        log(f"[qqq-exec] backtest end-of-day exit not recorded for {leg}: "
+            f"{type(ex).__name__}: {ex}")
+
+
+def _merge_backtest_exits(trades_all, state):
+    """Adds backtest_exit_px / backtest_exit_ts to each published trade row whose trade id
+    has a _note_backtest_eod_exit record. Additive fields only. Never raises."""
+    try:
+        book = (state or {}).get("backtest_eod_exits") or {}
+        if not book:
+            return
+        for row in trades_all:
+            rec = book.get(str(row.get("trade_id") or "").strip())
+            if rec:
+                row["backtest_exit_px"] = rec.get("px")
+                row["backtest_exit_ts"] = rec.get("ts")
+    except Exception:
+        pass
+
+
 def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=None):
     """engine mode's equivalent of _route_fills: consumes api.cloud_signal ENTRY/EXIT
     events (already idempotent and de-duplicated by _consume_engine_signals' cursor)
@@ -5252,6 +5367,19 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
                         nowdt, detail, log=log)
                 continue
             shares = int(cfg["shares"].get(leg, 0))
+            too_late = _late_entry_reason(nowdt, sig_dt, cfg.get("session") or {})
+            if too_late:
+                # LATE-ENTRY GUARD (2026-09-28): an entry opened now could only be flattened
+                # by nothing (flat_by has run) or sent after the bell -- never opened.
+                _record_order(leg, "ENTER", e["side"], shares, None, None, None,
+                             f"REFUSED -- {too_late}", log, fill_dt=sig_dt,
+                             signal_source=cfg.get("signal_source"), decided_at_ref=decided_at_ref)
+                _accumulate_signal(state, sig_dt or _now_et(), leg, "fired", log=log)
+                _accumulate_signal(state, sig_dt or _now_et(), leg, "refused", log=log)
+                _log_event(state, "entry_too_late",
+                           f"{leg} entry signal ({_trade_id.describe(row_tid, _NY)}) not taken "
+                           f"-- {too_late}", log=log)
+                continue
             if entries_blocked:
                 _record_order(leg, "ENTER", e["side"], shares, None, None, None,
                              "REFUSED -- breaker/feed/kill blocked", log, fill_dt=sig_dt,
@@ -5275,6 +5403,12 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
             exit_of = (_trade_id.describe(row_tid, _NY) if row_tid
                        else f"a trade with no id (exit bar {e.get('ref_time')})")
             if not lot:
+                if row_tid and state.get("flat_by_done_date") == today \
+                        and _past_flat_by(nowdt, cfg.get("session") or {}):
+                    # EOD SETTLE (2026-09-28): the backtest's own end-of-day exit of a trade
+                    # the day's flatten already closed -- expected, not an identity problem.
+                    _note_backtest_eod_exit(state, leg, row_tid, e, nowdt, log=log)
+                    continue
                 # Starts with the pre-2026-09-14 wording verbatim: tools/qqq_failover_sim.py
                 # and docs/CLOUD_SIGNAL_REPAIR_20260914.md's verification grep for it.
                 _record_trade_id_issue(
@@ -5296,8 +5430,13 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
                     f"{_lot_label(lot)}; nothing closed", nowdt, detail, log=log)
                 continue
             state["_px_source"] = px_source
+            # an EOD SETTLE row (api/cloud_signal.py, after the close) closing a lot the
+            # flatten could not price: the shadow closes at the backtest's own price; the
+            # broker mirror is refused by _mirror_to_broker's AFTER-CLOSE GUARD
+            exit_reason = ("EOD settle (backtest)" if "eod_settle" in str(e.get("reason") or "")
+                           else "signal exit")
             _reduce_lot(state, cfg, leg, lot["nq_qty_total"], None, float(e["ref_price"]),
-                       cfg.get("slippage_per_share", 0.0), "signal exit", f=None, log=log,
+                       cfg.get("slippage_per_share", 0.0), exit_reason, f=None, log=log,
                        sig_dt=sig_dt, signal_source=cfg.get("signal_source"), nowdt=nowdt,
                        decided_at_ref=decided_at_ref)
 
@@ -5527,10 +5666,17 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
 
 
 def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason, f=None, log=print,
-                sig_dt=None, signal_source=None, nowdt=None, decided_at_ref=False):
+                sig_dt=None, signal_source=None, nowdt=None, decided_at_ref=False,
+                broker_cross=None):
     """`nowdt` (EXIT SAFETY item 4 minor, 2026-09-26 review): the calling tick's own
     notion of "now", threaded straight through to _mirror_to_broker -- see that
-    function's own docstring."""
+    function's own docstring.
+
+    `broker_cross` (2026-09-28, END-OF-DAY INTERNAL CROSS -- only _close_all passes it):
+    {"crossed": n, "left": signed broker qty after the cross, "px", "id", "against"} for
+    a leg whose n broker shares were already offset against another leg's (no order).
+    Those shares get an allocation row (_record_internal_cross); only the rest -- at
+    most what the broker still holds for this leg -- is mirrored as a CLOSE order."""
     lot = state["legs"].get(leg)
     if not lot:
         log(f"[qqq-exec] WARN exit fill for {leg} with no open shadow lot -- skipped")
@@ -5580,10 +5726,21 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
     # here too (_close_all calls _reduce_lot), so this is also what keeps a broker
     # position from surviving past flat-by.
     lot["_broker_close_seq"] = lot.get("_broker_close_seq", 0) + 1
-    _mirror_to_broker(state, leg=leg, side=lot["side"], shares=shares_close,
-                      shadow_px=fill_px, intent="CLOSE", ts=lot["entry_ts"],
-                      seq=lot["_broker_close_seq"], trade_id=lot.get("trade_id"),
-                      nowdt=nowdt, log=log)
+    broker_shares = shares_close
+    crossed = int((broker_cross or {}).get("crossed") or 0)
+    if crossed > 0:
+        broker_shares = max(0, min(shares_close - crossed,
+                                   int(round(abs(float(broker_cross.get("left") or 0))))))
+        if not broker_cross.get("row_done"):   # a re-run after a crash, see _replay_internal_cross
+            _record_internal_cross(state, leg=leg, side=lot["side"], shares=crossed,
+                                   shadow_px=fill_px, cross=broker_cross, ts=lot["entry_ts"],
+                                   seq=lot["_broker_close_seq"], trade_id=lot.get("trade_id"),
+                                   partial=broker_shares > 0, log=log)
+    if broker_shares > 0:
+        _mirror_to_broker(state, leg=leg, side=lot["side"], shares=broker_shares,
+                          shadow_px=fill_px, intent="CLOSE", ts=lot["entry_ts"],
+                          seq=lot["_broker_close_seq"], trade_id=lot.get("trade_id"),
+                          nowdt=nowdt, log=log)
     pnl = None
     if lot["shares_remaining"] <= 0:
         # close the round-trip on the full lot's entry (weighted avg exit unnecessary
@@ -5602,11 +5759,21 @@ def _close_all(state, cfg, reason, quote_fn, ratio_fn, log=print, nowdt=None):
 
     `nowdt` (EXIT SAFETY item 4 minor, 2026-09-26 review): the calling tick's own
     notion of "now", threaded straight through to _reduce_lot -- see
-    _mirror_to_broker's own docstring."""
+    _mirror_to_broker's own docstring.
+
+    END-OF-DAY INTERNAL CROSS (2026-09-28): every lot is priced FIRST, then legs holding
+    opposite sides at the broker are crossed against each other with no order
+    (_internal_cross_for_flatten / OrderAdapter.cross_legs_internally), and only each
+    leg's remainder -- all on the account's own side, so each is a plain closing order
+    -- is sent. The 09-28 15:59 pair (ORB short 10, ENGUQ long 10, account flat) now
+    sends nothing instead of a BUY that Webull held pending and a SELL it refused with
+    417 OPENAPI_OPEN_ORDER_HAS_BOX_ORDER. The shadow book is unchanged: every lot still
+    closes at its own end-of-day price."""
     engine_mode = str(cfg.get("signal_source") or "engine").strip().lower() == "engine"
     nq_now = None
     if not engine_mode:
         nq_now, _ts = _latest_nq_px()
+    priced = []
     for leg in list(state["legs"].keys()):
         lot = state["legs"][leg]
         if engine_mode:
@@ -5616,11 +5783,17 @@ def _close_all(state, cfg, reason, quote_fn, ratio_fn, log=print, nowdt=None):
             # flatten at the LIVE NQ price (fallback: last known) -- never at the entry price
             exit_nq = nq_now if nq_now is not None else (lot.get("last_nq_px") or lot["nq_entry_px"])
             qqq_px, src = resolve_price(cfg, state, exit_nq, quote_fn, ratio_fn, log=log)
-        state["_px_source"] = src
         if qqq_px is None:
             log(f"[qqq-exec] cannot price {leg} for {reason} close -- no quote/ratio "
                 f"available, lot left open")
             continue
+        priced.append((leg, exit_nq, qqq_px, src))
+    crosses = _internal_cross_for_flatten(state, priced, reason, nowdt=nowdt, log=log)
+    for leg, exit_nq, qqq_px, src in priced:
+        lot = state["legs"].get(leg)
+        if not lot:
+            continue
+        state["_px_source"] = src
         # EXIT SAFETY item 6 (engine mode only -- the live-stream-vs-bar choice above
         # only exists for engine/QQQ pricing): trades.csv has no dedicated
         # price-source column, so it travels in the exit note instead (exit_reason,
@@ -5630,7 +5803,210 @@ def _close_all(state, cfg, reason, quote_fn, ratio_fn, log=print, nowdt=None):
         exit_reason = f"{reason} (px: {src or 'n/a'})" if engine_mode else reason
         _reduce_lot(state, cfg, leg, lot["nq_qty_remaining"], exit_nq,
                    qqq_px, cfg.get("slippage_per_share", 0.0), exit_reason, log=log,
-                   signal_source=cfg.get("signal_source"), nowdt=nowdt)
+                   signal_source=cfg.get("signal_source"), nowdt=nowdt,
+                   broker_cross=crosses.get(leg))
+
+
+def _internal_cross_for_flatten(state, priced, reason, nowdt=None, log=print):
+    """{leg: broker_cross} for _close_all -- see its END-OF-DAY INTERNAL CROSS note and
+    OrderAdapter.cross_legs_internally. {} (every leg closes one by one, as before)
+    unless the broker mirror would really send right now: adapter PAPER/LIVE, the
+    cross-host lease good (the same gate _mirror_to_broker applies -- a host that may not
+    send must not rewrite the books either), no broker send still in flight, and not
+    after the session close. A leg with anything in the re-send queue keeps its own
+    verify-gated path and is left out. Only priced lots with at least one long and one
+    short take part. Never raises."""
+    try:
+        sides = {leg: (1 if (state["legs"].get(leg) or {}).get("side") == "long" else -1)
+                 for leg, _nq, _px, _src in priced if state["legs"].get(leg)}
+        busy = {str((item or {}).get("leg") or "")
+                for item in (state.get("_broker_resend") or {}).values()}
+        sides = {leg: s for leg, s in sides.items() if leg not in busy}
+        if len({s for s in sides.values()}) < 2:
+            return {}
+        if nowdt is not None and _market_closed_for_orders(nowdt):
+            return {}
+        if _send_inflight_future() is not None:
+            return {}
+        adapter = _get_broker_adapter(log=log)
+        mode, _mode_reason = adapter.effective_mode()
+        if mode not in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
+            return {}
+        if not state.get("_broker_lease_ok", True):
+            return {}
+        at_send = _LEASE.send_gate(_LEASE.uid)
+        if at_send is not None and not at_send[0]:
+            return {}
+        cross = getattr(adapter, "cross_legs_internally", None)
+        trade_ids = {leg: str((state["legs"].get(leg) or {}).get("trade_id") or "")
+                     for leg in sides}
+        res = cross(BROKER_SYMBOL, sides, trade_ids=trade_ids) if callable(cross) else None
+        crossed = (res or {}).get("crossed") or {}
+        replay = None
+        if not crossed:
+            replay = _replay_internal_cross(state, adapter, sides, trade_ids, log=log)
+            res = replay
+            crossed = (res or {}).get("crossed") or {}
+        if not crossed:
+            return {}
+        # ONE price for every crossed share, so the legs' broker P&L sums to the
+        # account's: the live print when a lot was priced off it, else the newest bar
+        # (the finest timeframe) among the crossed legs.
+        px_by_leg = {leg: (px, src) for leg, _nq, px, src in priced}
+        live = [px for leg, (px, src) in px_by_leg.items() if leg in crossed and src == "live_stream"]
+        if live:
+            cross_px = live[0]
+        else:
+            cross_px = sorted(
+                ((_leg_timeframe_seconds(leg, log=log) or 10 ** 9, leg, px)
+                 for leg, (px, _src) in px_by_leg.items() if leg in crossed))[0][2]
+        out = {}
+        rows_done = (replay or {}).get("rows_done") or set()
+        for leg, n in crossed.items():
+            others = [f"{o} {'long' if sides[o] > 0 else 'short'}" for o in sorted(crossed)
+                      if sides[o] != sides[leg]]
+            out[leg] = {"crossed": int(n), "left": (res.get("left") or {}).get(leg, 0),
+                        "px": float(cross_px), "id": res.get("id"),
+                        "against": ", ".join(others), "reason": reason,
+                        "row_done": leg in rows_done}
+        booked = state.setdefault("_crosses_booked", [])
+        if res.get("id") and res.get("id") not in booked:
+            booked.append(res.get("id"))
+            del booked[:-CROSSES_BOOKED_KEEP]
+        state["_reconcile_due"] = True        # confirm Webull agrees on the next tick
+        _log_event(state, "broker",
+                   f"{reason} flatten: " + (f"re-run after a restart, cross {res.get('id')} "
+                                            f"already booked at the adapter: "
+                                            if replay else "crossed ") + ", ".join(
+                       f"{leg} {'long' if sides[leg] > 0 else 'short'} {n}"
+                       for leg, n in sorted(crossed.items()))
+                   + f" against each other at {cross_px:.2f} -- already flat at Webull, "
+                     f"no order sent for those shares", log=log)
+        return out
+    except Exception as e:
+        log(f"[qqq-exec] {reason} internal cross skipped (legs close one by one): "
+            f"{type(e).__name__}: {e}")
+        return {}
+
+
+CROSSES_BOOKED_KEEP = 20
+INTERNAL_CROSS_REPLAY_MAX_AGE_SEC = 600.0
+
+
+def _replay_internal_cross(state, adapter, sides, trade_ids, log=print):
+    """A cross the adapter already booked for THESE lots on an earlier run whose
+    qqq_exec state was never saved (2026-09-28 review: a crash between the adapter's
+    save and ours). The re-run's cross finds the crossed legs flat at the broker, so
+    without this each would be closed one by one, refused "nothing to close", push the
+    misleading "Webull never held it" message and lose its NETTED row. Matched only on
+    a record younger than INTERNAL_CROSS_REPLAY_MAX_AGE_SEC, not in
+    state["_crosses_booked"], whose every leg is still open here on the same side with
+    the same trade id. Returns cross_legs_internally's shape with "left" = what the
+    adapter holds now (so a remainder already sent before the crash is never re-sent)
+    and "rows_done" = legs whose NETTED row for it is already on file; else None.
+    Never raises."""
+    try:
+        fn = getattr(adapter, "recent_internal_crosses", None)
+        if not callable(fn):
+            return None
+        records = fn(max_age_sec=INTERNAL_CROSS_REPLAY_MAX_AGE_SEC)
+        if not isinstance(records, list):
+            return None
+        booked = set(state.get("_crosses_booked") or [])
+        for rec in reversed(records):
+            cid = str((rec or {}).get("id") or "")
+            legs = (rec or {}).get("legs") or {}
+            rec_tids = (rec or {}).get("trade_ids") or {}
+            if not cid or cid in booked or not legs:
+                continue
+            if not all(leg in sides and (float(q) > 0) == (sides[leg] > 0)
+                       and trade_ids.get(leg) and rec_tids.get(leg) == trade_ids[leg]
+                       for leg, q in legs.items()):
+                continue
+            rows_done = {r.get("leg") for r in _all_broker_orders_from_csv()
+                         if r.get("outcome") == "NETTED" and f"({cid})" in (r.get("reason") or "")}
+            log(f"[qqq-exec] internal cross {cid} was booked at the adapter by an earlier run "
+                f"that never saved its state -- re-using it (no order, no second cross)")
+            return {"crossed": {leg: int(round(abs(float(q)))) for leg, q in legs.items()},
+                    "left": dict((rec or {}).get("sent_now") or {}), "id": cid,
+                    "rows_done": rows_done}
+        return None
+    except Exception as e:
+        log(f"[qqq-exec] internal cross re-run check failed (legs close one by one): "
+            f"{type(e).__name__}: {e}")
+        return None
+
+
+def _alert_close_blocked_after_close(state, leg, nowdt, log=print):
+    """One high-priority push per leg per day when the AFTER-CLOSE GUARD blocks a CLOSE
+    while the adapter's books (PAPER/LIVE) still hold shares for `leg` (2026-09-28
+    review): a flatten or settle EXIT that ran after the bell -- a stalled tick -- used
+    to depend entirely on _maybe_check_webull_flat_after_eod running in a later tick.
+    Reads the adapter's status only; sends nothing. Never raises."""
+    try:
+        status = _get_broker_adapter(log=log).status()
+        if status.get("effective_mode") not in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
+            return
+
+        def _qty(book):
+            p = (status.get(book) or {}).get(leg)
+            return int(round(abs(float((p or {}).get("qty") or 0))))
+
+        held = min(_qty("believed_positions"), _qty("broker_sent_positions"))
+        if held <= 0:
+            return
+        day = nowdt.strftime("%Y-%m-%d")
+        sent = state.setdefault("_after_close_blocked_alerted", {})
+        for k in [k for k in sent if not str(k).startswith(day)]:
+            sent.pop(k, None)
+        key = f"{day}:{leg}"
+        if sent.get(key):
+            return
+        sent[key] = True
+        msg = (f"QQQ BROKER: {leg}'s CLOSE came after the bell ({nowdt.strftime('%H:%M:%S')} "
+               f"ET) and was NOT sent -- Webull may still hold {held} share(s) for {leg}; "
+               f"check the account and flatten by hand")
+        _log_event(state, "broker", msg, log=log)
+        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+    except Exception as e:
+        log(f"[qqq-exec] after-close blocked-CLOSE alert failed (non-fatal): "
+            f"{type(e).__name__}: {e}")
+
+
+def _record_internal_cross(state, *, leg, side, shares, shadow_px, cross, ts, seq, trade_id,
+                           partial, log=print):
+    """broker_orders.csv's row for a leg's crossed shares (see _close_all's END-OF-DAY
+    INTERNAL CROSS): intent CLOSE, sent False, ok True, outcome NETTED, priced at the
+    cross price -- so _broker_realized_today pairs it with the leg's OPEN and the legs'
+    realized P&L still sums to the account's. A fully crossed leg's row carries its
+    ordinary CLOSE signal id (the parity check finds it); a partly crossed one's gets an
+    "X" suffix, so fill capture of the leg's real CLOSE order (same base id) updates that
+    order's own row, never this one. Never raises."""
+    try:
+        base = _broker_signal_id(leg, ts, "CLOSE", seq=seq, trade_id=trade_id)
+        cross_px = float(cross.get("px"))
+        slippage = round(cross_px - float(shadow_px), 4) if shadow_px is not None else ""
+        try:
+            mode, _ = _get_broker_adapter(log=log).effective_mode()
+        except Exception:
+            mode = ""
+        row = {
+            "ts_et": _now_et().strftime("%Y-%m-%d %H:%M:%S"), "leg": leg, "intent": "CLOSE",
+            "side": _broker_side(side, "CLOSE"), "shares": shares,
+            "signal_id": base + ("X" if partial else ""), "client_order_id": "",
+            "mode": mode, "ok": True, "sent": False,
+            "shadow_px": round(shadow_px, 4) if shadow_px is not None else "",
+            "broker_fill_px": round(cross_px, 4), "slippage": slippage,
+            "reason": (f"{cross.get('reason') or 'flatten'}: crossed internally against "
+                       f"{cross.get('against') or 'another leg'} ({cross.get('id')}) -- "
+                       f"already flat at Webull, no order sent"),
+            "duplicate": False, "host_id": _lease_host_id(), "outcome": "NETTED",
+        }
+        _append_csv(BROKER_ORDERS_CSV, BROKER_ORDER_COLS, row, ORDERS_KEEP)
+        log(f"[qqq-exec] broker CLOSE for {leg}: {shares} share(s) crossed internally against "
+            f"{cross.get('against')} @ {cross_px:.2f} -- no order sent")
+    except Exception as e:
+        log(f"[qqq-exec] internal-cross row not written for {leg}: {type(e).__name__}: {e}")
 
 
 # -- orphan broker repair ------------------------------------------------------------------
@@ -5716,7 +6092,8 @@ def _maybe_flatten_orphan_broker(state, cfg, nowdt, log=print):
                 f"(attempt {tries[key]} of {FLATTEN_MAX_TRIES}; shadow book holds no lot for it)")
             _mirror_to_broker(state, leg=leg, side="long", shares=qty, shadow_px=qqq_px,
                              intent="CLOSE", ts=nowdt, requeue=False,
-                             trade_id=f"FIX-{leg}-{nowdt:%Y%m%d%H%M%S}", log=log)
+                             trade_id=f"FIX-{leg}-{nowdt:%Y%m%d%H%M%S}", nowdt=nowdt,
+                             log=log)
             _log_event(state, "broker",
                       f"Flatten-broker repair: sent CLOSE for orphan {leg} {qty} sh "
                       f"(attempt {tries[key]}, mark {qqq_px if qqq_px is not None else 'n/a'}, "
@@ -7125,6 +7502,7 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     # REPRICE MERGE (feature #48 half): merges broker-verified fields onto trades_all
     # IN PLACE and returns the coverage summary.
     reprice = _merge_reprice(trades_all, log=log)
+    _merge_backtest_exits(trades_all, state)   # EOD SETTLE (2026-09-28)
 
     # ENGINE-VS-BROKER PARITY (feature #56): a SEPARATE read from the NT parity above,
     # for every row that never had a NinjaTrader fill to mirror (signal_source !=

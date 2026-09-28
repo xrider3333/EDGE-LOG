@@ -648,6 +648,11 @@ RECONCILE_PENDING_BUDGET_SEC = 4.0  # ... none started after the pass has run th
 ORDER_PART_KEEP_SEC = 7 * 24 * 3600.0
 DEAD_STATUSES = ("REJECTED", "CANCELLED", "CANCELED", "FAILED")
 LIVE_STATUSES = ("PENDING", "SUBMITTED", "PARTIAL_FILLED")
+# END-OF-DAY INTERNAL CROSS (2026-09-28 review): a leg with an order part younger than
+# this that Webull has not yet reported terminal (part["final_status"]) is left out of
+# cross_legs_internally -- its acked order may still die unfilled. Matches qqq_exec's
+# BROKER_RECONCILE_POST_ORDER_GRACE_SEC.
+CROSS_FRESH_PART_SEC = 30.0
 _HTTP_STATUS_RE = re.compile(r"HTTP(?: Status:)?\s*(\d{3})")
 
 
@@ -1024,10 +1029,20 @@ class OrderAdapter:
 
     # -- rails --
     def _in_session_window(self, rails):
+        """[session_start, session_end) NY, to the second (2026-09-28): the end is
+        EXCLUSIVE, so a "16:00" end refuses an OPEN from 16:00:00 -- it used to compare
+        whole minutes inclusively and let one through until 16:00:59, after the bell,
+        where Webull refuses a market order (or an OPEN it took would sit overnight). An
+        end of "23:59" or later still means the whole day (test and all-day configs)."""
         start, end = rails.get("session_start"), rails.get("session_end")
         if not start or not end:
             return True
-        return start <= _now_ny().strftime("%H:%M") <= end
+        now = _now_ny()
+        if not (start <= now.strftime("%H:%M")):
+            return False
+        if str(end) >= "23:59":
+            return True
+        return now.strftime("%H:%M:%S") < (str(end) + ":00" if len(str(end)) == 5 else str(end))
 
     def _believed_total_shares(self):
         return sum(abs(p.get("qty", 0)) for p in (self._state.get("believed_positions") or {}).values())
@@ -1162,6 +1177,160 @@ class OrderAdapter:
         finally:
             self._lock.release()
 
+    # -- END-OF-DAY INTERNAL CROSS (2026-09-28) ------------------------------------------
+    def cross_legs_internally(self, symbol, legs, lock_timeout=2.0,
+                              fresh_part_sec=CROSS_FRESH_PART_SEC, trade_ids=None):
+        """Offset opposite legs' shares against each other in the books, sending NOTHING.
+
+        WHY (09-28 15:59:01, box qqq_exec.log). The end-of-day flatten closed ORB short 10
+        and ENGUQ long 10 with one market order each, back to back. The account was flat
+        at Webull all along (-10 + 10), so the right number of orders was zero. ORB's BUY
+        10 went out first -- a buy-OPENING order on a flat account -- and was booked in
+        full on its ack, so ENGUQ's SELL 10 was planned as a closing sell on a +10
+        account; at Webull the buy was still pending on a flat account, the sell was a
+        sell-OPENING order, and Webull refused it: 417 OPENAPI_OPEN_ORDER_HAS_BOX_ORDER (a
+        pending buy-opening and a pending sell-opening order may not coexist on one
+        symbol). close_retry re-sent it 5 s later, and the pair paid two spreads for no
+        change in the account.
+
+        Crossing first removes that class: every share one leg holds long against
+        another leg's short is already flat at Webull, so both legs' broker books move
+        toward zero by the crossed amount with no order at all. What is left is on ONE
+        side of the account only (every remaining leg holds the side of the account's own
+        net), so each remaining per-leg close is a plain closing order that can never
+        cross zero, never split and never open anything -- no box-order refusal, whatever
+        order they go out in and whether or not the earlier one has filled yet.
+
+        `legs`: {leg: +1 | -1}, the side the caller's book holds for each leg it is about
+        to close (long +1, short -1). A leg takes part only when broker_sent_positions
+        holds shares for it on that same side, for `symbol`, it has no PENDING order part
+        (its real position is not known yet -- it keeps its own verify-gated path), no
+        order part younger than `fresh_part_sec` that Webull has not reported terminal
+        (2026-09-28 review: an acked market order is booked in full before it fills, and
+        one that then dies unfilled would leave crossed shares with no order behind them
+        -- a KILL or BREAKER flatten seconds after a fresh entry), and its account id
+        matches the others'. Legs are paired in name order, longs against
+        shorts. broker_sent_positions and believed_positions move by exactly the crossed
+        shares (their account-wide sums, which reconcile() compares with Webull, do not
+        change), open_legs drops a leg whose belief reaches zero, and the cross is logged
+        under state["internal_crosses"] -- with `trade_ids` ({leg: the caller's trade id},
+        optional) on the record, so a caller that crashed before saving its own books can
+        recognise the cross on a re-run (recent_internal_crosses).
+
+        Returns {"crossed": {leg: shares}, "left": {leg: signed qty still held},
+        "id": str} (crossed empty when nothing offsets), or None when the mode is not
+        PAPER/LIVE or the lock is busy -- the caller then closes each leg as before.
+        Never raises."""
+        try:
+            mode, _ = self.effective_mode()
+            if mode not in (MODE_PAPER, MODE_LIVE):
+                return None
+            if not self._lock.acquire(timeout=lock_timeout):
+                return None
+        except Exception:
+            return None
+        try:
+            want_symbol = str(symbol).upper()
+            sent = self._state.get("broker_sent_positions") or {}
+            now_ts = time.time()
+            pending_legs = {p.get("leg") for p in (self._state.get("order_parts") or {}).values()
+                            if isinstance(p, dict) and (
+                                p.get("pending")
+                                or (not p.get("final_status")
+                                    and now_ts - float(p.get("ts") or 0) < fresh_part_sec))}
+            eligible, account = {}, None
+            for leg in sorted(legs or {}):
+                sign = 1 if (legs[leg] or 0) > 0 else -1
+                p = sent.get(leg)
+                if not isinstance(p, dict) or str(p.get("symbol", "")).upper() != want_symbol:
+                    continue
+                qty = int(round(float(p.get("qty", 0) or 0)))
+                if qty == 0 or (qty > 0) != (sign > 0) or leg in pending_legs:
+                    continue
+                acct = p.get("account_id")
+                if acct is not None:
+                    if account is None:
+                        account = acct
+                    elif acct != account:
+                        continue
+                eligible[leg] = qty
+            longs = [[leg, q] for leg, q in eligible.items() if q > 0]
+            shorts = [[leg, -q] for leg, q in eligible.items() if q < 0]
+            crossed = {}
+            i = j = 0
+            while i < len(longs) and j < len(shorts):
+                n = min(longs[i][1], shorts[j][1])
+                crossed[longs[i][0]] = crossed.get(longs[i][0], 0) + n
+                crossed[shorts[j][0]] = crossed.get(shorts[j][0], 0) + n
+                longs[i][1] -= n
+                shorts[j][1] -= n
+                if longs[i][1] == 0:
+                    i += 1
+                if shorts[j][1] == 0:
+                    j += 1
+            cross_id = f"X{int(time.time() * 1000)}"
+            left = {}
+            for leg, n in crossed.items():
+                sign = 1 if eligible[leg] > 0 else -1
+                for book in ("broker_sent_positions", "believed_positions"):
+                    cur = (self._state.get(book) or {}).get(leg)
+                    if not isinstance(cur, dict):
+                        continue
+                    held = float(cur.get("qty", 0) or 0)
+                    take = min(float(n), abs(held)) if (held > 0) == (sign > 0) else 0.0
+                    cur["qty"] = held - take * sign
+                left[leg] = float(sent[leg].get("qty", 0) or 0)
+                believed = (self._state.get("believed_positions") or {}).get(leg) or {}
+                if abs(float(believed.get("qty", 0) or 0)) < 1e-9:
+                    (self._state.get("open_legs") or {}).pop(leg, None)
+            if crossed:
+                log_rows = self._state.setdefault("internal_crosses", [])
+                log_rows.append({"id": cross_id, "ts": time.time(), "symbol": want_symbol,
+                                 "account_id": account,
+                                 "legs": {leg: (n if eligible[leg] > 0 else -n)
+                                          for leg, n in crossed.items()},
+                                 "trade_ids": {leg: str((trade_ids or {}).get(leg) or "")
+                                               for leg in crossed}})
+                del log_rows[:-20]
+                self._save_state()
+                self.log(f"  [webull-orders] INTERNAL CROSS {cross_id} {want_symbol}: " + ", ".join(
+                    f"{leg} {'long' if eligible[leg] > 0 else 'short'} {n}"
+                    for leg, n in sorted(crossed.items()))
+                    + " -- already flat against each other at the broker, no order sent")
+            return {"crossed": crossed, "left": left, "id": cross_id}
+        except Exception as e:
+            self.log(f"  [webull-orders] internal cross failed (legs close one by one): "
+                     f"{type(e).__name__}: {e}")
+            return None
+        finally:
+            self._lock.release()
+
+    def recent_internal_crosses(self, max_age_sec=600.0, lock_timeout=1.0):
+        """Copies of the internal_crosses records (newest last) no older than
+        `max_age_sec`, with each leg's broker qty now ("sent_now": {leg: signed qty}).
+        [] when there are none or the lock is busy. Never raises."""
+        try:
+            if not self._lock.acquire(timeout=lock_timeout):
+                return []
+        except Exception:
+            return []
+        try:
+            cutoff = time.time() - float(max_age_sec)
+            sent = self._state.get("broker_sent_positions") or {}
+            out = []
+            for rec in self._state.get("internal_crosses") or []:
+                if not isinstance(rec, dict) or float(rec.get("ts") or 0) < cutoff:
+                    continue
+                copy = json.loads(json.dumps(rec))
+                copy["sent_now"] = {leg: float((sent.get(leg) or {}).get("qty", 0) or 0)
+                                    for leg in (rec.get("legs") or {})}
+                out.append(copy)
+            return out
+        except Exception:
+            return []
+        finally:
+            self._lock.release()
+
     # -- THE ORDER PATH NEVER GUESSES (see the module comment above UNKNOWN_LOOKUP_TRIES) --
     def _parts(self):
         return self._state.setdefault("order_parts", {})
@@ -1171,6 +1340,13 @@ class OrderAdapter:
         parts = self._parts()
         for coid in [c for c, p in parts.items() if float(p.get("ts") or 0) < cutoff]:
             parts.pop(coid, None)
+
+    def _mark_final(self, coid, status):
+        """Record Webull's TERMINAL answer (FILLED or dead) on part `coid` -- what
+        cross_legs_internally trusts for a fresh part. Caller holds the lock."""
+        part = self._parts().get(coid)
+        if part is not None and status:
+            part["final_status"] = status
 
     def _book_part(self, coid, target, pending=None):
         """Make the books count exactly `target` (0..qty) shares of part `coid`; returns
@@ -1275,6 +1451,8 @@ class OrderAdapter:
             ans = self._poll_order(client, account_id, part_coid, UNKNOWN_LOOKUP_TRIES,
                                    UNKNOWN_LOOKUP_WINDOW_SEC, _conclusive, stop_at=stop_at)
             st = ans["status"] if ans else None
+            if st == "FILLED" or (st in DEAD_STATUSES and ans["filled"] is not None):
+                self._mark_final(part_coid, st)
             if st == "FILLED" or st in LIVE_STATUSES:
                 self._book_part(part_coid, qty, pending=False)
                 rec.update(ok=True, resolved_by_lookup=st,
@@ -1293,6 +1471,12 @@ class OrderAdapter:
         self._apply_intent_to_belief(leg, symbol, side, qty, intent)
         self._apply_intent_to_sent(leg, symbol, side, qty, account_id, intent)
         self._parts()[part_coid].update(booked=int(qty), pending=False)
+        try:
+            if _norm_status(order_status_fields(_safe_response(resp), part_coid)
+                            .get("status")) == "FILLED":
+                self._mark_final(part_coid, "FILLED")
+        except Exception:
+            pass
         self._save_state()
         rec.update(ok=True, reason="", response=_safe_response(resp))
         return rec
@@ -1308,6 +1492,7 @@ class OrderAdapter:
             coid = prev["client_order_id"]
             ack = _norm_status(order_status_fields(prev.get("response"), coid).get("status"))
             if "FILLED" in (ack, prev.get("resolved_by_lookup")):
+                self._mark_final(coid, "FILLED")
                 return True
             ans = self._poll_order(client, account_id, coid, SPLIT_FILL_POLL_TRIES,
                                    SPLIT_FILL_POLL_WINDOW_SEC,
@@ -1315,8 +1500,10 @@ class OrderAdapter:
                                    stop_at=stop_at)
             st = ans["status"] if ans else None
             if st == "FILLED":
+                self._mark_final(coid, "FILLED")
                 return True
             if st in DEAD_STATUSES and ans["filled"] is not None:
+                self._mark_final(coid, st)
                 self._book_part(coid, ans["filled"], pending=False)
                 prev.update(ok=False, outcome=st, filled=ans["filled"],
                             reason=f"{st} at Webull ({ans['filled']:g} of {prev['qty']} "
@@ -1350,6 +1537,7 @@ class OrderAdapter:
                         part["pending"] = True
                         self._save_state()
                     return None
+                self._mark_final(coid, st)
                 change = self._book_part(coid, target, pending=False)
                 if not change:
                     return None
@@ -1384,6 +1572,8 @@ class OrderAdapter:
                     part["checked_at"] = time.time()
                     st = ans["status"] if ans else None
                     target = _terminal_qty(part["qty"], st, ans["filled"]) if ans else None
+                    if target is not None:
+                        self._mark_final(coid, st)
                     change = 0 if target is None else self._book_part(coid, target, pending=False)
                     if change:
                         self._state.setdefault("part_events", []).append(

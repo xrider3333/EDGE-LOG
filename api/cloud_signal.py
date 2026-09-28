@@ -289,6 +289,8 @@ CROWN_LEGS = {
         "timeframe": "5m",
         "params": dict(ORB_314),
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
+        # Flat at the session's last bar, like the backtest -- see EOD SETTLE (2026-09-28).
+        "eod_flat": True,
     },
     "NOISE_382": {
         "strategy": "NOISE_1_8_CT304.py",
@@ -304,6 +306,8 @@ CROWN_LEGS = {
         # Send orders at the backtest's decision (the close of bar D), not a bar later
         # (WEBULL_PAPER_TODO.md item 16, owner GO 2026-09-26) -- see _decide_at_close_probe.
         "decide_at_close": True,
+        # Flat at the session's last bar (NOISE_1_0.py's STEP E) -- see EOD SETTLE.
+        "eod_flat": True,
     },
     # ENGUQ_335 moved to SHADOW_LEGS below, unchanged (OWNER DECISION 2026-09-28) -- it
     # sends no Webull orders from that deploy on.
@@ -323,6 +327,8 @@ SHADOW_LEGS = {
         "params": dict(NOISE_422_PARAMS),
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
         "decide_at_close": True,
+        # flat at the session's last bar like the primary -- see EOD SETTLE (2026-09-28)
+        "eod_flat": True,
         "shadow": True,
     },
     # + KEEL v12's fixed tilts, no model (research arm A3) -- see THREE SHAPES above keel_paths.
@@ -333,6 +339,8 @@ SHADOW_LEGS = {
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
         "keel": dict(version="v12", mode=KEEL_MODE_FIXED),
         "decide_at_close": True,
+        # flat at the session's last bar like the primary -- see EOD SETTLE (2026-09-28)
+        "eod_flat": True,
         "shadow": True,
     },
     # + KEEL v12 learned: its OWN nightly state, trained on #422's NQ walk under this key's
@@ -345,9 +353,13 @@ SHADOW_LEGS = {
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
         "keel": dict(version="v12", **keel_paths("NOISE_422_KEEL", "v12")),
         "decide_at_close": True,
+        # flat at the session's last bar like the primary -- see EOD SETTLE (2026-09-28)
+        "eod_flat": True,
         "shadow": True,
     },
     # Moved here unchanged from CROWN_LEGS (was live until 2026-09-28) -- see the docstring.
+    # No "eod_flat": its engine trade holds overnight like the backtest (owner GO
+    # 2026-09-28), so its last-bar exit stays an open trade here.
     "ENGUQ_335": {
         "strategy": "ENGUQ_1M_ETH_R2_1_0.py",
         "timeframe": "1m",
@@ -1555,6 +1567,20 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, f
     # A valid size declaration only removes the NEED for that flag on a size-folding leg.
     _eod_promise = cfg.get("eod_marks_at_close", True)
     eod_marks_at_close = _eod_promise and not (_partial_exit_r > 0)
+    # EOD FLAT (2026-09-28, see EOD SETTLE above cloud_signal_thread). A leg flagged
+    # cfg["eod_flat"] promises its strategy flattens every position at the close of the
+    # session's LAST bar. When this window ends on exactly that bar, the session is
+    # complete, so a trade whose exit is that bar really closed there -- the backtest's
+    # own end-of-day fill -- and is not "still open because the data ran out". Without
+    # this, the day's last exits were only emitted the next morning. Never applied with
+    # ORB's partial-exit blend on (its boundary price is not a clean close, see above).
+    _tf = cfg.get("timeframe")
+    eod_flat_close = False
+    if cfg.get("eod_flat") and not (_partial_exit_r > 0) and _tf in TIMEFRAME_SECONDS:
+        try:
+            eod_flat_close = _is_session_last_bar(idx[n_bars - 1], _tf)
+        except Exception:
+            eod_flat_close = False
 
     if sizes_declared:
         paired = list(zip(trades_raw, leg_sizes))
@@ -1581,6 +1607,9 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, f
             # into it.
             exit_px = entry_px + pnl_pts * side
         if exit_bar < n_bars - 1:
+            still_open = False
+        elif eod_flat_close:
+            # the session's last bar: an eod_flat strategy is flat here (see EOD FLAT above)
             still_open = False
         elif not eod_marks_at_close:
             # OLD, conservative rule for a leg whose boundary price can't be trusted (see
@@ -2165,6 +2194,30 @@ def _is_session_last_bar(bar_start, tf):
     return end_min >= hh * 60 + mm
 
 
+def _session_close_dt(now):
+    """Today's session close (16:00, or 13:00 on a recognised half day) as an ET datetime,
+    or None when `now`'s date is not a session. A naive `now` is read as ET. Never raises."""
+    try:
+        if now is None:
+            return None
+        et = now.astimezone(_zi(TZ)) if now.tzinfo is not None else now.replace(tzinfo=_zi(TZ))
+        if not market_calendar.is_session(et.date()):
+            return None
+        hh, mm = (int(x) for x in market_calendar.session_close_et(et.date()).split(":"))
+        return et.replace(hour=hh, minute=mm, second=0, microsecond=0)
+    except Exception:
+        return None
+
+
+def _at_or_after_session_close(now):
+    """True from today's session close onward (same session day only). Never raises."""
+    close_dt = _session_close_dt(now)
+    if close_dt is None:
+        return False
+    et = now.astimezone(_zi(TZ)) if now.tzinfo is not None else now.replace(tzinfo=_zi(TZ))
+    return et >= close_dt
+
+
 def _stand_in_arrays(arrays, tf, pads=2, price=None):
     """`arrays` plus `pads` flat stand-in bars after its last bar, at `price` (default: the
     last close -- see the block above)."""
@@ -2261,7 +2314,8 @@ def leg_decision_trades(cfg, arrays, leg_key, tf, now, paths, fetch, log=print):
 
 
 # ── The core entry point ───────────────────────────────────────────────────────────────
-def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources=None):
+def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources=None,
+         post_close=False):
     """One signal-engine tick. For each leg: load cached bars (optionally refreshed
     from yfinance first), restrict to bars CLOSED as of `now`, run the engine over the
     rolling warm-up window, and diff the resulting trade list against what was last
@@ -2294,6 +2348,10 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
     bars a fetching caller has JUST refreshed on disk (run_shadow_step, 2026-09-28): it is
     recorded and stamped exactly as a fetch's own source would be. Ignored for a timeframe
     this call fetched itself; None (every other caller) changes nothing.
+    `post_close` (2026-09-28): the EOD SETTLE step (see _eod_settle_tick) -- passed to
+    _diff_leg, which then never emits an ENTRY. Also reports, via `warnings`
+    ("eod_settled", "eod_bars"), whether every cfg["eod_flat"] leg's newest usable bar
+    is today's last session bar, and stamps state["eod_settled"][date] when it is.
     """
     legs = legs if legs is not None else CROWN_LEGS
     if paths is None:
@@ -2316,8 +2374,14 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
     # in-process dict -- the standalone qqq_exec adapter is a DIFFERENT process and can
     # only see this via the file (see read_bar_source).
     tf_source = {}
+    # EOD SETTLE (2026-09-28): per cfg["eod_flat"] leg, the newest usable bar's start and
+    # whether it is today's last session bar -- read before the "no new bar" short-circuit
+    # below, so a repeat settle step still knows the day is complete.
+    eod_bars = {}
     for key, cfg in legs.items():
         tf = cfg["timeframe"]
+        if cfg.get("eod_flat"):
+            eod_bars[key] = None
         if fetch and tf not in tf_cache:
             tf_cache[tf], tf_source[tf], cache_ok = fetch_and_merge(tf, paths)
             if not cache_ok and warnings is not None:
@@ -2342,6 +2406,14 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
         if not len(usable):
             continue
         latest_bar_epoch = int(usable["time"].max())
+        if cfg.get("eod_flat"):
+            try:
+                bar_start = _dt.datetime.fromtimestamp(latest_bar_epoch, tz=_zi(TZ))
+                if bar_start.date() == now.astimezone(_zi(TZ)).date() \
+                        and _is_session_last_bar(bar_start, tf):
+                    eod_bars[key] = bar_start.isoformat()
+            except Exception:
+                pass
         if tf in tf_source:
             state.setdefault("bar_source", {})[tf] = {
                 "source": tf_source[tf], "newest_epoch": latest_bar_epoch,
@@ -2387,9 +2459,21 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
                            max_entry_age_sec=cfg.get("max_entry_age_sec",
                                                      3 * TIMEFRAME_SECONDS[tf]),
                            bar_source=(state.get("bar_source", {}).get(tf, {}).get("source")),
-                           cfg=cfg, arrays=diff_arrays, fetch=fetch)
+                           cfg=cfg, arrays=diff_arrays, fetch=fetch, post_close=post_close)
         all_events.extend(events)
         leg_state["asof"] = arrays["index"][-1].isoformat()
+
+    if post_close:
+        settled = all(v is not None for v in eod_bars.values())
+        if settled:
+            day = now.astimezone(_zi(TZ)).date().isoformat()
+            stamps = state.setdefault("eod_settled", {})
+            stamps[day] = {"at": now.isoformat(), "bars": dict(eod_bars)}
+            for old in sorted(stamps)[:-10]:          # a short history is plenty
+                stamps.pop(old, None)
+        if warnings is not None:
+            warnings["eod_settled"] = settled
+            warnings["eod_bars"] = dict(eod_bars)
 
     state["generated_at"] = now.isoformat()
     _write_state(state, paths)
@@ -2407,9 +2491,17 @@ def _zi(name):
 
 
 def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_source=None,
-             cfg=None, arrays=None, fetch=True, log=print):
+             cfg=None, arrays=None, fetch=True, log=print, post_close=False):
     """Mutates leg_state['trades'] (entry_key -> record) in place; returns the list of
     NEW ENTRY/EXIT event dicts this call discovered.
+
+    `post_close` (2026-09-28, EOD SETTLE -- see the block above cloud_signal_thread): the
+    step runs after the session's close. A trade FIRST seen then is recorded silently
+    (skip "after_close", counted in leg_state['after_close_skipped']) with its EXIT
+    suppressed -- nothing can be bought after the bell, so no actionable ENTRY is ever
+    emitted then. EXITs of trades whose ENTRY was already emitted still emit, tagged
+    "eod_settle" in the reason. Also switched on automatically whenever `now` is at or
+    past today's session close (a stream or regular step that lands on the bell).
 
     `cfg`/`arrays` (2026-09-23, KEEL overlay): `cfg` is this leg's own CROWN_LEGS entry
     (step() always passes it; a caller that omits it -- every test written before this
@@ -2504,6 +2596,7 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
     # entry must be within a few bars of `now` to emit, and anything older is recorded
     # silently and counted in `late_skipped` -- visible, but never handed downstream.
     today = now.date().isoformat()
+    post_close = bool(post_close) or _at_or_after_session_close(now)
     for t in trades:
         key = _entry_key(leg_key, t)
         tid = key if _trade_id.is_valid(key) else ""
@@ -2511,11 +2604,14 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
         if rec is None:
             # One trade, ONE reason. STALE = the entry is not even from today (the rolling
             # window's left edge re-minting an old trade). LATE = today, but discovered too
-            # many bars after the fact to act on. They are different failures and counting
-            # a trade under both makes each counter a lie.
+            # many bars after the fact to act on. AFTER_CLOSE = first seen once the session
+            # has closed (see `post_close`). They are different failures and counting a
+            # trade under two makes each counter a lie.
             skip = None
             if str(t["entry_time"])[:10] != today:
                 skip = "stale"
+            elif post_close:
+                skip = "after_close"
             elif max_entry_age_sec:
                 try:
                     entered = _dt.datetime.fromisoformat(str(t["entry_time"]))
@@ -2614,7 +2710,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 "leg": leg_key, "event": "EXIT", "side": t["side"],
                 "ref_time": t["exit_time"], "ref_price": t["exit_px"],
                 "shares": t["shares"],
-                "reason": "strategy_exit" + (f"; {t['probe_exit']}" if t.get("probe_exit") else ""),
+                "reason": ("strategy_exit" + (f"; {t['probe_exit']}" if t.get("probe_exit") else "")
+                           + ("; eod_settle" if post_close else "")),
                 "bar_source": bar_source or "",
                 # the ENTRY's id, not one built from the exit bar -- see SIGNAL_COLS
                 "trade_id": tid,
@@ -2998,7 +3095,7 @@ def shadow_only_timeframes(live_legs=None, shadow_legs=None):
 
 
 def run_shadow_step(now=None, fetch=True, live_legs=None, shadow_legs=None, live_paths=None,
-                    log=print):
+                    log=print, post_close=False):
     """One tick of the SHADOW LEGS, run AFTER the live step on the same tick. Returns the
     shadow events this call emitted (written to shadow_paths()' ledger only).
 
@@ -3012,6 +3109,9 @@ def run_shadow_step(now=None, fetch=True, live_legs=None, shadow_legs=None, live
       3. NOISE FORWARD LOG (NOISE_FORWARD_LOG): api/noise_forward.forward_log_tick writes
          any NOISE signal row now due into the shadow store. Never raises.
       4. Stamp the shadow store's OWN heartbeat -- never the live heartbeat.
+
+    `post_close`: the EOD SETTLE step (_eod_settle_shadow) -- passed to step(), so no shadow
+    ENTRY is emitted after the bell.
 
     The live store is only ever READ here (its state.json's bar_source, to label the
     shadow rows with the feed that priced them) -- never written. May raise: the thread
@@ -3034,7 +3134,8 @@ def run_shadow_step(now=None, fetch=True, live_legs=None, shadow_legs=None, live
                     notes.append(f"{tf} cache_write_failed")
             except Exception as e:     # the shadow step still runs off the cache on disk
                 notes.append(f"{tf} fetch failed: {type(e).__name__}: {e}")
-    events = step(now=now, legs=shadow_legs, paths=spaths, fetch=False, bar_sources=sources)
+    events = step(now=now, legs=shadow_legs, paths=spaths, fetch=False, bar_sources=sources,
+                  post_close=post_close)
     if NOISE_FORWARD_LOG:
         try:
             from api import noise_forward as _nf
@@ -3073,6 +3174,137 @@ def _shadow_tick(now, fetch, log=print):
         else:
             _SHADOW_ERR["suppressed"] += 1
         return []
+
+
+# ── EOD SETTLE (2026-09-28) ─────────────────────────────────────────────────────────────
+# The thread below steps only while RTH_OPEN <= now <= RTH_CLOSE, and a bar is usable only
+# CLOSE_GRACE_SECONDS after it closes -- so the session's LAST bar (5m 15:55, 1m 15:59)
+# first became usable at 16:00:05, when the thread had already stopped stepping. The
+# day's end-of-day exits were then emitted around 09:35 the NEXT session with an old
+# ref_time (box cloud_signal.log, 09-25: "EXIT NOISE_382 long @ 744.5 (15:55)" at the
+# next open), which api/qqq_exec.py logged as exit_no_lot.
+#
+# Now, on a session day, the thread runs ONE more kind of step after the close: from
+# close + EOD_SETTLE_FIRST_TRY_SEC, every EOD_SETTLE_RETRY_SEC, until close +
+# EOD_SETTLE_WINDOW_SEC, a plain step(post_close=True) with fetch -- never the stream
+# wrapper. It stops once every cfg["eod_flat"] leg's newest usable bar is the session's
+# last bar (state["eod_settled"][date]); past the window it gives up with one log line
+# and the next morning emits as before. With post_close set no ENTRY is ever emitted
+# (_diff_leg), and run_leg_trades' EOD FLAT rule closes the eod_flat legs' trades at that
+# last bar -- the backtest's own end-of-day fill. SIGNALS ONLY: api/qqq_exec.py never
+# sends a broker order for these rows (its after-close guard; no lot -> nothing to close).
+#
+# KNOWN LIMIT (accepted, 2026-09-28 review): a settle EXIT's price is fixed by the FIRST
+# fetch that holds the last bar, and _diff_leg never re-emits an exit once emitted -- so
+# if that REST bar is later revised (09-28: stream-vs-REST close differences up to 0.005
+# on just-closed bars), backtest_exit_px keeps the provisional value. It feeds signals and
+# parity only; no order depends on it.
+#
+# A step() that RAISES inside the window is caught here, never by the thread's own
+# except-branch: the heartbeat stays ok=True with an "eod settle failed" note (nothing
+# signal-driven can happen after the bell, and an ok=False heartbeat would make
+# api/qqq_exec.py's feed check call the engine stalled and page while a lot is open), and
+# the last try inside the window still writes the GAVE UP line.
+EOD_SETTLE_FIRST_TRY_SEC = 30.0
+EOD_SETTLE_RETRY_SEC = 30.0
+EOD_SETTLE_WINDOW_SEC = 300.0
+EOD_SETTLE_POLL_SEC = 5.0
+
+
+def _eod_settle_close(now):
+    """Today's session close when `now` is inside its settle window (close, close +
+    EOD_SETTLE_WINDOW_SEC], else None. Never raises."""
+    close_dt = _session_close_dt(now)
+    if close_dt is None:
+        return None
+    et = now.astimezone(_zi(TZ)) if now.tzinfo is not None else now.replace(tzinfo=_zi(TZ))
+    if close_dt < et <= close_dt + _dt.timedelta(seconds=EOD_SETTLE_WINDOW_SEC):
+        return close_dt
+    return None
+
+
+def _eod_settle_shadow(now, log=print):
+    """The shadow legs' settle step, when this build has them (run_shadow_step, the
+    wb-shadow work) AND that function takes `post_close` -- without it, stepping the
+    shadow legs after the bell could emit an ENTRY, so they are left alone and settle the
+    next morning as before. Never raises; returns the shadow events."""
+    fn = globals().get("run_shadow_step")
+    if not callable(fn):
+        return []
+    try:
+        accepts = "post_close" in inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        accepts = False
+    if not accepts:
+        return []
+    try:
+        return fn(now=now, fetch=True, post_close=True, log=log) or []
+    except Exception as e:
+        log(f"[cloud-signal] eod settle: shadow step failed (live legs unaffected): "
+            f"{type(e).__name__}: {e}")
+        return []
+
+
+def _eod_settle_tick(now, close_dt, mem, paths=None, log=print):
+    """One pass of the EOD SETTLE window (see the block above). `mem` is the thread's own
+    {date: {"last_try", "done", "gave_up"}}. Writes the heartbeat on every pass (the
+    engine stays fresh for api/qqq_exec.py through the window). Returns the live events
+    emitted. A step() that raises is logged and noted in an ok=True heartbeat, not
+    re-raised (see the EOD SETTLE block above)."""
+    paths = paths or DEFAULT_PATHS
+    day = close_dt.date().isoformat()
+    m = mem.setdefault(day, {"last_try": None, "done": False, "gave_up": False})
+    if m["done"] or m["gave_up"]:
+        _write_heartbeat(paths, ok=True, note="eod settle: " + ("settled" if m["done"] else "gave up"))
+        return []
+    if now < close_dt + _dt.timedelta(seconds=EOD_SETTLE_FIRST_TRY_SEC):
+        _write_heartbeat(paths, ok=True, note="eod settle: waiting for the last bar")
+        return []
+    if m["last_try"] is not None and \
+            (now - m["last_try"]).total_seconds() < EOD_SETTLE_RETRY_SEC:
+        _write_heartbeat(paths, ok=True, note="eod settle: waiting")
+        return []
+    if (_load_state(paths).get("eod_settled") or {}).get(day):
+        m["done"] = True                  # a restart inside the window: already settled
+        _write_heartbeat(paths, ok=True, note="eod settle: settled")
+        return []
+    m["last_try"] = now
+    warnings = {}
+    last_try_in_window = (now + _dt.timedelta(seconds=EOD_SETTLE_RETRY_SEC)
+                          > close_dt + _dt.timedelta(seconds=EOD_SETTLE_WINDOW_SEC))
+    try:
+        events = step(now=now, fetch=True, paths=paths, warnings=warnings, post_close=True)
+    except Exception as e:
+        err = f"{type(e).__name__}: {e}"
+        log(f"[cloud-signal] eod settle step failed: {err}")
+        if last_try_in_window:
+            m["gave_up"] = True
+            log(f"[cloud-signal] eod settle {day}: GAVE UP -- the last try inside the window "
+                f"failed ({err}); the next session's first step emits these exits")
+        try:
+            _write_heartbeat(paths, ok=True, note=f"eod settle failed: {err}"[:300])
+        except Exception:
+            pass
+        return []
+    shadow = _eod_settle_shadow(now, log=log)
+    settled = bool(warnings.get("eod_settled"))
+    cache_failed = bool(warnings.get("cache_write_failed"))
+    note = (f"eod settle: {len(events)} event(s)" + (" (settled)" if settled else "")
+            + (f", {len(shadow)} shadow" if shadow else "")
+            + (" (cache_write_failed)" if cache_failed else ""))
+    _write_heartbeat(paths, ok=True, note=note, cache_write_failed=cache_failed)
+    for e in events:
+        log(f"[cloud-signal] {e['event']} {e['leg']} {e.get('side','')} "
+            f"@ {e.get('ref_price','')} ({e.get('ref_time','')}) {e.get('reason','')}")
+    if settled:
+        m["done"] = True
+        log(f"[cloud-signal] eod settle {day}: every flat-at-close leg has its last bar "
+            f"({warnings.get('eod_bars')}) -- {len(events)} event(s)")
+    elif last_try_in_window:
+        m["gave_up"] = True
+        log(f"[cloud-signal] eod settle {day}: GAVE UP -- the last bar never arrived "
+            f"({warnings.get('eod_bars')}); the next session's first step emits these exits")
+    return events
 
 
 def cloud_signal_thread(stop=None, log=print):
@@ -3118,7 +3350,10 @@ def cloud_signal_thread(stop=None, log=print):
     SERVING_HOSTS GATE (2026-09-26): checked FIRST, before anything else here -- see
     _serving_hosts_ok. This is both the runner's in-process thread (PC) and the box's
     own systemd ExecStart, so one check here covers both call sites; an excluded host
-    returns at once, never touching signals.csv, state.json or the heartbeat file."""
+    returns at once, never touching signals.csv, state.json or the heartbeat file.
+
+    EOD SETTLE (2026-09-28): for five minutes after each session's close this thread runs
+    the settle step instead of idling -- see the EOD SETTLE block above _eod_settle_tick."""
     hosts_ok, hosts_reason = _serving_hosts_ok(log=log)
     if not hosts_ok:
         log(f"[cloud-signal] REFUSING to run the signal engine: {hosts_reason} -- never "
@@ -3160,13 +3395,25 @@ def cloud_signal_thread(stop=None, log=print):
     except Exception as e:
         log(f"[cloud-signal] ledger header check failed (next append retries): {type(e).__name__}: {e}")
     last_fetch_wall = 0.0
+    settle_mem = {}                  # EOD SETTLE: {date: {"last_try", "done", "gave_up"}}
     while stop is None or not stop.is_set():
         in_session = False           # set before the try so a throw still picks a sleep
+        settling = False
         try:
             now_et = _dt.datetime.now(tz=_zi(TZ))
             in_session = (market_calendar.is_session(now_et.date())
                          and RTH_OPEN <= now_et.time() <= RTH_CLOSE)
-            if in_session:
+            # A recognised half day ends at ITS close (13:00), not RTH_CLOSE: past it the
+            # EOD SETTLE window below takes over, exactly as after 16:00 on a full day.
+            if in_session and market_calendar.session_close_et(now_et.date()) != "16:00":
+                half_close = _session_close_dt(now_et)
+                if half_close is not None and now_et > half_close:
+                    in_session = False
+            settle_close = None if in_session else _eod_settle_close(now_et)
+            settling = settle_close is not None
+            if settling:
+                _eod_settle_tick(now_et, settle_close, settle_mem, log=log)
+            elif in_session:
                 # THROTTLE (item 10): only the REST/network half of a step runs on the
                 # classic 30s cadence -- a fast tick in between (see the sleep below)
                 # still calls in, but with fetch=False, so it only ever costs a cheap
@@ -3198,11 +3445,17 @@ def cloud_signal_thread(stop=None, log=print):
                 _write_heartbeat(DEFAULT_PATHS, ok=True, note="outside session hours")
         except Exception as e:                            # a bad step must never kill the run
             try:
-                _write_heartbeat(DEFAULT_PATHS, ok=False, note=f"{type(e).__name__}: {e}")
+                # EOD SETTLE: after the bell a failure stays ok=True (see the block above
+                # _eod_settle_tick) -- no signal-driven action can happen then
+                _write_heartbeat(DEFAULT_PATHS, ok=bool(settling),
+                                 note=(("eod settle failed: " if settling else "")
+                                       + f"{type(e).__name__}: {e}"))
             except Exception:
                 pass
             log(f"[cloud-signal] step failed: {type(e).__name__}: {e}")
         sleep_s = THREAD_STEP_SEC if in_session else 60.0
+        if settling:
+            sleep_s = EOD_SETTLE_POLL_SEC   # cheap passes; _eod_settle_tick paces the steps
         if in_session and _stream_mod is not None:
             try:
                 if _stream_mod.in_handoff_window(now_et):

@@ -143,8 +143,9 @@ def test_three_noise_422_shadow_variants_carry_every_field_noise_382_does():
         assert leg["warmup_sessions"] == cs.DEFAULT_WARMUP_SESSIONS
         assert leg["decide_at_close"] is True
         assert leg["shadow"] is True
+        assert leg["eod_flat"] is True    # flat at the close like NOISE_382 (EOD SETTLE)
         assert set(leg) - {"keel"} == {"strategy", "timeframe", "params", "warmup_sessions",
-                                       "decide_at_close", "shadow"}, key
+                                       "decide_at_close", "eod_flat", "shadow"}, key
     assert "keel" not in cs.SHADOW_LEGS["NOISE_422_PLAIN"]
     assert cs.SHADOW_LEGS["NOISE_422_FIXED"]["keel"] == dict(version="v12", mode="fixed")
     kl = cs.SHADOW_LEGS["NOISE_422_KEEL"]["keel"]
