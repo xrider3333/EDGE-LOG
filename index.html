@@ -9513,7 +9513,7 @@ window.cmpOvlMount=function(hostId){
   keyEl.innerHTML=ALL.map(sr=>{const _apx=!!sr.keyApx,
       lastV=(sr.keyEnd!=null)?sr.keyEnd:((sr.eq&&sr.eq.length)?sr.eq[sr.eq.length-1]:0),
       off=HID.has(String(sr.id)),gry=GRY.has(String(sr.id));
-      return '<div data-ovltog="'+sr.id+'" title="'+(off?'click to bring this strategy back':(gry?'click again to remove it from the chart':'click to grey this strategy out - it stays on the chart, faint. Click again to remove it, once more to bring it back.'))+'" style="white-space:nowrap;cursor:pointer;user-select:none;color:'+(off?'var(--text5)':sr.color)+(off?';text-decoration:line-through':'')+'"><b>'+(off?'▭':(gry?'▬':'▬'))+'</b> '+(sr.rank?('<span style="color:var(--text5)">R'+sr.rank+'</span> '):'')+'#'+sr.id+' '+sr.label+' · '+(_apx?'<span title="this reads the table’s own figure for the stage on screen - the drawn line is a thinned, trade-indexed slice and its last drawn point does not necessarily land on exactly this dollar amount or date" style="cursor:help">~</span>':'')+'<span class="cmpovl-kv" data-end="'+_ab$(lastV)+'">'+_ab$(lastV)+'</span>'+((ONE_A||sr.wfoCurve)?_spanTxt(sr):'')+'</div>';}).join('')
+      return '<div data-ovltog="'+sr.id+'" title="'+(off?'click to bring this strategy back':(gry?'click again to remove it from the chart':'click to grey this strategy out - it stays on the chart, faint. Click again to remove it, once more to bring it back.'))+'" style="white-space:nowrap;cursor:pointer;user-select:none;color:'+(off?'var(--text5)':sr.color)+(off?';text-decoration:line-through':'')+'"><b>'+(off?'▭':(gry?'▬':'▬'))+'</b> '+(sr.rank?('<span style="color:var(--text5)">R'+sr.rank+'</span> '):'')+'#'+sr.id+' '+sr.label+' · '+(_apx?'<span title="this reads the table’s own figure for the stage on screen - the drawn line is a thinned, trade-indexed slice and its last drawn point does not necessarily land on exactly this dollar amount or date'+(sr.keyWarm?'. For this run the figure is the continuous (warm) lockbox reading, while the line is its own cold lockbox curve - no warm curve is saved':'')+'" style="cursor:help">~</span>':'')+'<span class="cmpovl-kv" data-end="'+_ab$(lastV)+'">'+_ab$(lastV)+'</span>'+((ONE_A||sr.wfoCurve)?_spanTxt(sr):'')+'</div>';}).join('')
     // v72.0 (owner: "remove the in-sample wf lb in the key on 1A"): the line-style legend only
     //   shows on the plain COMPARE chart. On the RUNBOARD the info icon already explains it.
     // (D31) a chart of walk-forward tests has no in-sample stretch, so no in-sample line style
@@ -19322,6 +19322,30 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     const _gvB=(x,k)=>{const b=x&&x.gate_validate&&x.gate_validate[k];
       return (b&&b.num_trades!=null&&b.total_pnl!=null)?b:null;};
     const _isGvJob=x=>!(x&&x.validate)&&/gate-validate/i.test(String((x&&x.scope)||''));
+    // A COLD RUN'S LOCKBOX, READ FROM THE CONTINUOUS REPLAY (2026-09-28, owner via MANAGER).
+    //   A run saved before v73.841 scored its OWN lockbox cold (validate.windows.warm_days
+    //   absent or 0) - a standalone re-test of just the lockbox window with no history to warm
+    //   up on. gate_validate.ungated_lockbox is a continuous replay of the same stretch that
+    //   needs no warm-up (for NOISE #382 it matched the warm re-run #410 to the dollar). ONE rule for
+    //   RUNBOARD and EXPLORE, so the two screens can never disagree about which runs get the
+    //   swap: only when the continuous reading actually differs from the cold one, and only
+    //   when it is plausibly the same config warmed up (warming up can only ADD trades at the
+    //   front of the lockbox, so a continuous count clearly FEWER than the cold one is the
+    //   gate bake-off's own replay of something else, not a warm-up). NOISE #382 (239 -> 315
+    //   trades) is accepted; ENGU-Q #310 (91 -> 0) is refused.
+    const _lbWarmOf=x=>{const V=x&&x.validate,lb=V&&V.lockbox;if(!lb)return null;
+      if(V.windows&&V.windows.warm_days)return null;
+      const g=_gvB(x,'ungated_lockbox');if(!g)return null;
+      const num=v=>(v!=null&&v!==''&&isFinite(+v))?+v:null;
+      const cT=num(lb.trades),wT=num(g.num_trades),cN=num(lb.pnl),wN=num(g.total_pnl);
+      if(wT==null||wN==null)return null;
+      const differs=(cN==null)||(cT!=null&&wT!==cT)||(Math.abs(wN-cN)>1e-6);
+      const same=(cT==null)||(wT>=cT-Math.max(2,Math.round(cT*0.05)));
+      if(!differs||!same)return null;
+      const dd=num(g.max_drawdown);
+      return {pnl:wN,trades:wT,pf:num(g.profit_factor),dd:(dd!=null)?Math.abs(dd):null,sortino:num(g.sortino),sharpe:num(g.sharpe),
+        win_rate:num(g.win_rate),avg_win:num(g.avg_win),avg_loss:num(g.avg_loss),pass:lb.pass,from:lb.from,to:lb.to,
+        _warm:true,_cold:{pnl:cN,trades:cT,pf:num(lb.pf)}};};
     const _gvYrs=x=>{const G=x&&x.gate_validate;if(!G)return null;
       const sp=Array.isArray(G.span)?G.span:null,wr=Array.isArray(G.wf_range)?G.wf_range:null;
       return {a:(sp&&sp[0])?String(sp[0]).slice(0,10):null,
@@ -27633,7 +27657,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   EXPLICIT saved zero counts. FULL is untouched - a lockbox with no trades really does add $0
         //   to the whole run, so _lbA itself keeps returning that $0 for the whole-run sums.
         const _lbZeroTr=x=>{const lb=x&&x.validate&&x.validate.lockbox;return !!(lb&&lb.trades!=null&&isFinite(+lb.trades)&&+lb.trades===0);};
-        const _rbZeroLb=r=>(_rbS==='lb')&&_lbZeroTr(r);
+        // THE LB-STAGE LOCKBOX BLOCK (2026-09-28, owner via MANAGER): the warm continuous replay when this run qualifies for the swap (_lbWarmOf), else its own saved validate.lockbox - every LB-stage reader below goes through this one gate so none of them can read the cold figure behind a warm run's back.
+        const _lbBlk=r=>_lbWarmOf(r)||(r&&r.validate&&r.validate.lockbox)||null;
+        const _rbZeroLb=r=>{const lb=_lbBlk(r);return (_rbS==='lb')&&!!(lb&&lb.trades!=null&&isFinite(+lb.trades)&&+lb.trades===0);};
         const _rbZeroWhy='This run took no trades in the lockbox.';
         const _num=(v,f)=>(v==null||!isFinite(v))?'<span style="color:var(--text5)">—</span>':f(v);
         const _pf2=v=>(v==null||!isFinite(v)||v<=0)?null:Math.min(v,99);
@@ -27649,13 +27675,17 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           //   is the measured pre-fold slice on the SAME ungated population the FULL sample's
           //   curve draws; missing that, the IS sample dashes rather than mislabel the headline.
           if(_rbS==='is'&&_isGvJob(r)){const g=_gvB(r,'ungated_is');return g?(+g.total_pnl||0)*_mcOf(r):null;}
-          return (_rbS==='is')?(+r.best_pnl_usd||0):((_rbS==='lb')?((_lbA(r)||{}).net):(_totA(r).net));};
+          return (_rbS==='is')?(+r.best_pnl_usd||0):((_rbS==='lb')?(_lbBlk(r)?((+_lbBlk(r).pnl||0)*_mcOf(r)):null):(_totA(r).net));};
         // the STORED lockbox drawdown wins over one measured off the saved curve: that curve is
         //   downsampled, so a peak-to-trough read from it can only come out too small, and too
         //   small is exactly what wins a smallest-drawdown mark and inflates a MAR. A run with no
         //   in-sample drawdown saved gets a dash - it used to get zero, which won the same mark.
-        const _lbDDof=r=>{const lb=r&&r.validate&&r.validate.lockbox;
+        const _lbDDof=r=>{const lb=_lbBlk(r);
           if(lb&&lb.dd!=null&&isFinite(+lb.dd))return Math.abs(+lb.dd)*_mcOf(r);
+          // A WARM BLOCK WITH NO SAVED DRAWDOWN NEVER FALLS BACK TO THE COLD CURVE (2026-09-28):
+          //   that curve is the run's OWN cold lockbox, a different population from the warm
+          //   continuous replay this reader just swapped in - dash it instead of mixing the two.
+          if(lb&&lb._warm)return null;
           return _eqDD(r,'lb');};
         const _ddOf2=r=>{if(_rbS==='wf')return _rbWfGet(r,'dd');if(_rbZeroLb(r))return null;const b=_bw(r);if(b)return (b.max_drawdown!=null&&isFinite(+b.max_drawdown))?Math.abs(+b.max_drawdown):null;
           if(_rbS==='is'&&_isGvJob(r)){const g=_gvB(r,'ungated_is');return (g&&g.max_drawdown!=null&&isFinite(+g.max_drawdown))?Math.abs(+g.max_drawdown)*_mcOf(r):null;}
@@ -27675,7 +27705,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   read up to a third shallow, so a whole-run MAR here read up to 1.5x high. A figure that
         //   still has to come off the curve is marked ~ and is never given the best mark.
         const _ddApx2=r=>{if(_rbS==='wf')return false;if(_rbZeroLb(r)||_bw(r)||_rbS==='is')return false;const V=r&&r.validate;
-          if(_rbS==='lb'){const lb=V&&V.lockbox;return !(lb&&lb.dd!=null&&isFinite(+lb.dd))&&_eqDD(r,'lb')!=null;}
+          if(_rbS==='lb'){const lb=_lbBlk(r);if(lb&&lb._warm)return false;return !(lb&&lb.dd!=null&&isFinite(+lb.dd))&&_eqDD(r,'lb')!=null;}
           return !(V&&V.total_dd!=null&&isFinite(+V.total_dd))&&_eqDD(r,'full')!=null;};
         // v71.72 (owner: "were missing data for the risk / reward in them too"): the whole-run PF
         //   and win rate were blank on every run except a book. They are recoverable — the run
@@ -27703,8 +27733,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _pfOf=r=>{if(_rbS==='wf')return _rbWfGet(r,'pf');if(_rbZeroLb(r))return null;const b=_bw(r);if(b)return _pfZero(b.profit_factor,b.num_trades)?0:_pf2(+b.profit_factor);
           if(_rbS==='is'&&_isGvJob(r)){const g=_gvB(r,'ungated_is');return g?(_pfZero(g.profit_factor,g.num_trades)?0:_pf2(+g.profit_factor)):null;}
           if(_rbS==='is')return _pfZero(r.best_pf,r.best_trades)?0:_pf2(+r.best_pf);
-          if(_rbS==='lb'){const lb0=r&&r.validate&&r.validate.lockbox;
-            return (lb0&&_pfZero(lb0.pf,lb0.trades))?0:_pf2((_lbA(r)||{}).pf);}
+          if(_rbS==='lb'){const lb0=_lbBlk(r);
+            return (lb0&&_pfZero(lb0.pf,lb0.trades))?0:_pf2((lb0||{}).pf);}
           const cp=_champPfOf(r);if(cp!=null&&isFinite(cp)&&cp>0)return _pf2(cp);
           const a=_wfA(r),lb=_lbA(r),t=_totA(r);
           // a run with NO walk-forward and NO lockbox never split its window - its optimize
@@ -27718,14 +27748,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const V=r.validate;
           if(_rbS==='is'&&_isGvJob(r)){const g=_gvB(r,'ungated_is');return (g&&g.win_rate!=null)?+g.win_rate:null;}
           if(_rbS==='is')return (r.best_win_rate!=null)?+r.best_win_rate:null;
-          if(_rbS==='lb'){const lb=V&&V.lockbox;return (lb&&lb.win_rate!=null)?+lb.win_rate:null;}
+          if(_rbS==='lb'){const lb=_lbBlk(r);return (lb&&lb.win_rate!=null)?+lb.win_rate:null;}
           if(V&&V.total_win_rate!=null)return +V.total_win_rate;
           if(!_wfA(r)&&!_lbA(r)&&r.best_win_rate!=null)return +r.best_win_rate;
           return null;};
         // SHARPE — the row the 1E card carries in this same band.
         const _shOf=r=>{if(_rbS==='wf')return _rbWfGet(r,'sh');if(_rbZeroLb(r))return null;const V=r.validate;if(!V)return null;
           if(_rbS==='is')return (V.is_sharpe!=null)?+V.is_sharpe:null;
-          if(_rbS==='lb'){const lb=V.lockbox;return (lb&&lb.sharpe!=null)?+lb.sharpe:null;}
+          if(_rbS==='lb'){const lb=_lbBlk(r);return (lb&&lb.sharpe!=null)?+lb.sharpe:null;}
           if(V.total_sharpe!=null)return +V.total_sharpe;
           if(!_wfA(r)&&!_lbA(r)&&V.is_sharpe!=null)return +V.is_sharpe;
           return null;};
@@ -27737,7 +27767,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   Sortino at all, so every field it would come from is simply absent.
         const _soOf=r=>{if(_rbS==='wf')return _rbWfGet(r,'so');if(_rbZeroLb(r))return null;
           if(_rbS==='is'){if(_isGvJob(r)){const g=_gvB(r,'ungated_is');return (g&&g.sortino!=null&&isFinite(+g.sortino))?+g.sortino:null;}return null;}
-          if(_rbS==='lb'){const lb=r.validate&&r.validate.lockbox;return (lb&&lb.sortino!=null&&isFinite(+lb.sortino))?+lb.sortino:null;}
+          if(_rbS==='lb'){const lb=_lbBlk(r);return (lb&&lb.sortino!=null&&isFinite(+lb.sortino))?+lb.sortino:null;}
           if(_isGvJob(r)){const g=_gvB(r,'ungated_full');return (g&&g.sortino!=null&&isFinite(+g.sortino))?+g.sortino:null;}
           const V=r.validate;return (V&&V.total_sortino!=null&&isFinite(+V.total_sortino))?+V.total_sortino:null;};
         // whole-run trades = the optimize-window champion count + the walk-forward out-of-sample
@@ -27756,7 +27786,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _trOf=r=>{if(_rbS==='wf')return _rbWfGet(r,'tr');if(_rbZeroLb(r))return 0;const b=_bw(r);if(b)return +b.num_trades||0;
           if(_rbS==='is'&&_isGvJob(r)){const g=_gvB(r,'ungated_is');return g?(+g.num_trades||0):null;}
           if(_rbS==='is')return +r.best_trades||0;
-          if(_rbS==='lb')return (_lbA(r)||{}).tr;
+          if(_rbS==='lb'){const lb=_lbBlk(r);return lb?(+lb.trades||0):null;}
           const V=r.validate;
           if(V&&V.total_trades!=null&&isFinite(+V.total_trades))return +V.total_trades;
           const a=_wfA(r),lb=_lbA(r);
@@ -28229,7 +28259,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           //   joined end to end, over the fold dates, with no lockbox door - and a run that
           //   saved none goes to the no-curve list rather than showing its whole run under a
           //   walk-forward caption. Nothing is rebased: the curve already starts at $0.
-          let _wfoSpan=null,_wfoWhy=null,_keyEnd=null,_keyApx=false,_tsArr=null;
+          let _wfoSpan=null,_wfoWhy=null,_keyEnd=null,_keyApx=false,_keyWarm=false,_tsArr=null;
           if(_rbWfCv){const O=_wfoOf(r);
             if(O&&O.curve&&O.curve.length>2){eq=O.curve;li=null;wf=[];_wfoSpan=[O.from,O.to];}
             else{eq=null;li=null;wf=[];_wfoWhy=_wfoNoCurveWhy(r);}}
@@ -28273,7 +28303,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               }}
             else{if(li!=null&&li<n0-2){const b0=eq[li];eq=eq.slice(li).map(v=>v-b0);}else{eq=null;_wfoWhy='This run’s lockbox took no trades, so there is nothing to draw for it here - the curve itself is saved.';}li=null;wf=[];
               if(eq&&_lbFromStr&&_rbDTo)_wfoSpan=[_lbFromStr,_rbDTo];
-              if(eq){const nv=_netOf(r);if(nv!=null&&isFinite(nv)){_keyEnd=nv;_keyApx=true;}}}
+              if(eq){const nv=_netOf(r);if(nv!=null&&isFinite(nv)){_keyEnd=nv;_keyApx=true;_keyWarm=(_rbS==='lb')&&!!_lbWarmOf(r);}}}
           }
           else if(eq&&li!=null){
             // F15 fix: the saved curve is indexed by TRADE, not by day, so spreading its points
@@ -28298,7 +28328,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               _tsArr=arr;
             }
           }
-          return {r:r,c:_curveColor(r,i),eq:eq,li:li,wf:wf,wfo:(_rbWfCv?1:0),span:_wfoSpan,why:_wfoWhy,keyEnd:_keyEnd,keyApx:_keyApx,ts:_tsArr};});
+          return {r:r,c:_curveColor(r,i),eq:eq,li:li,wf:wf,wfo:(_rbWfCv?1:0),span:_wfoSpan,why:_wfoWhy,keyEnd:_keyEnd,keyApx:_keyApx,keyWarm:_keyWarm,ts:_tsArr};});
         // compact run header (v68.0, owner: condense the table) — swatch dot in the curve
         //   colour + #id + the famKey chip (e.g. "ORB-4"); the long strategy tag is dropped from
         //   the header itself (it was the widest thing in the table) and rides in title= instead.
@@ -28348,7 +28378,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             wfoCurve:(c.wfo?1:0),span:(c.span||null),
             // F5: the table's own stage figure for a sliced (IS/LB) curve, so the key can show
             //   the true number instead of the approximate slice's own last point — see keyApx.
-            keyEnd:(c.keyEnd!=null?c.keyEnd:null),keyApx:!!c.keyApx,
+            keyEnd:(c.keyEnd!=null?c.keyEnd:null),keyApx:!!c.keyApx,keyWarm:!!c.keyWarm,
             // F15: a piecewise date per point (date_from -> the lockbox door -> date_to), read
             //   by cmpOvlMount/expandCompareEq instead of an even trade-count spread.
             ts:(c.ts||null),
@@ -31245,19 +31275,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                       _lbwSo=(_lbwCs.sortino!=null&&isFinite(+_lbwCs.sortino))?+_lbwCs.sortino:null,
                       _lbwWr=(_lbwCs.win_rate!=null&&isFinite(+_lbwCs.win_rate))?+_lbwCs.win_rate:null,
                       _lbwOldN=lb.net,_lbwOldT=lb.tr,_lbwOldPf=lb.pf;
-                // ONLY WHEN IT ACTUALLY DIFFERS: a cold run whose continuous reading happens to
-                //   coincide with its own cold one (or a run with no cold trade count saved at
-                //   all) has nothing to correct and no warm tag to show.
-                const _lbwDiffers=(_lbwOldN==null)||(_lbwT!=null&&_lbwOldT!=null&&_lbwT!==_lbwOldT)||(Math.abs(_lbwN-_lbwOldN)>0.5);
-                // ONLY WHEN IT IS PLAUSIBLY THE SAME CONFIG, WARMED UP (real-data check 2026-09-28).
-                //   Warming up can only ADD trades at the front of the lockbox, bar a position or two
-                //   carried across its start, so a continuous slice holding clearly FEWER trades than
-                //   the cold reading is the gate bake-off's own replay of something else (ENGU-Q #310:
-                //   91 cold, 0 continuous; #326: 236 vs 35) and the row keeps its own cold figure.
-                //   #382 (239 -> 315), #335 (129 -> 128), #314 (168 -> 168) and the DIP runs (0 cold)
-                //   all pass.
-                const _lbwSame=(_lbwT!=null)&&(_lbwOldT==null||_lbwT>=_lbwOldT-Math.max(2,Math.round(_lbwOldT*0.05)));
-                if(_lbwDiffers&&_lbwSame){
+                // THE SHARED RULE DECIDES (2026-09-28, owner via MANAGER): _lbWarmOf(x) is the
+                //   same differs / same-config test RUNBOARD's LB stage reads through _lbBlk, so
+                //   EXPLORE and RUNBOARD can never disagree about which runs get the warm swap.
+                if(_lbWarmOf(x)){
                   const _lbwTip='Lockbox read from the continuous replay. This run scored its own lockbox cold (before warm starts, v73.841)'
                     +((_lbwOldN!=null)?(': '+_reExact(_lbwOldN)+(_lbwOldT!=null?(' on '+_lbwOldT+' trades'):'')+(_lbwOldPf!=null?(', PF '+_lbwOldPf.toFixed(2)):'')+'.'):'.');
                   lb.net=_lbwN;if(_lbwT!=null)lb.tr=_lbwT;if(_lbwPf!=null)lb.pf=_lbwPf;
@@ -32966,6 +32987,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const gw=_gvB(r,'ungated_wf');if(!gw)return null;
           const y=_yrsBetween(String(G.wf_range[0]).slice(0,10),String(G.wf_range[1]).slice(0,10));if(!(y>0))return null;
           const v=_rocYr((+gw.total_pnl||0)*_mcOf(r),y);return (v!=null&&isFinite(v))?v:null;};
+        // ROC @ $30K DD'S OWN WF CROWN FIGURE (2026-09-28, owner via MANAGER): the same
+        //   crowning score _rocCrown reads (gate_validate.ungated_wf over gate_validate.
+        //   wf_range), scaled through that score's own MAR - net per year over its own
+        //   drawdown - times 30, the same way the row's own dd30 getter scales _marOf.
+        //   Skipped when the crown saved no drawdown to scale by.
+        const _rocCrown30=r=>{const G=r&&r.gate_validate;
+          if(!G||!Array.isArray(G.wf_range)||!G.wf_range[0]||!G.wf_range[1])return null;
+          const gw=_gvB(r,'ungated_wf');if(!gw)return null;
+          const dd=(gw.max_drawdown!=null&&isFinite(+gw.max_drawdown))?Math.abs(+gw.max_drawdown):0;if(!dd)return null;
+          const y=_yrsBetween(String(G.wf_range[0]).slice(0,10),String(G.wf_range[1]).slice(0,10));if(!(y>0))return null;
+          const mc=_mcOf(r),net=(+gw.total_pnl||0)*mc,ddUsd=dd*mc;
+          const v=((net/y)/ddUsd)*30000/_rocAcct()*100;return (v!=null&&isFinite(v))?v:null;};
         const _mk=(lbl,fn,fmt,dir,opt)=>{const ap=opt&&opt._apx;
           // custom ~ hover per metric (items 6a/6b): a pooled-fallback PF and a
           //   summed-fallback trade count are approximate for DIFFERENT reasons, so
@@ -33127,13 +33160,41 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             _mk('WF $',r=>{const a=_wfA(r);return a?a.net:null;},_mSub,'max'),
             _mk('LB $',r=>{const a=_lbA(r);return a?a.net:null;},_mSub,'max',{_noRank:_lbZeroTr,_noRankWhy:_rbZeroWhy+' Its $0 still adds to the whole run, but it is not a lockbox result, so it takes no best mark and no heat shade here - the LB sample dashes it.'})
           ]:[]).concat([
-            _mk('TOTAL',_netOf,_m$,'max',{top:true,_why:_rbWhy('net')}),
-            (function(){const _row=_mk('<span title="'+_wfoEsc('Net per year over this stage as a percentage of a '+_kfmt(_rocAcct())+' account - the same account and arithmetic COMPARE > EXPLORE and the weekly report use. Position size moves this row; MAR and SORTINO stay the same.'+((_rbS==='wf')?(' '+_rbWfSrc):''))+'" style="border-bottom:1px dotted var(--text5);cursor:help">ROC % / YR</span>',
-                r=>_rocYr(_netOf(r),_rbYrs(r)),v=>'<span style="color:'+(v<0?'var(--red)':'var(--text2)')+'">'+v.toFixed(1)+'%</span>','max',{_why:_rocWhy});
+            (function(){const _row=_mk('TOTAL',_netOf,_m$,'max',{top:true,_why:_rbWhy('net')});
+              // LB WARM TAG (2026-09-28, owner via MANAGER): the same wrap-the-cell trick the
+              //   ROC row uses for its WF crown add-on, but on the TOTAL row and only on LB -
+              //   a run whose _lbWarmOf is non-null had its money swapped for the continuous
+              //   replay, so the cell says so and names the run's own cold reading on hover.
+              if(_rbS==='lb'){const _base=_row.cell;
+                _row.cell=c=>{const html=_base(c),w=_lbWarmOf(c.run);
+                  if(!w)return html;
+                  const cold=w._cold||{},mc=_mcOf(c.run),cN=(cold.pnl!=null)?('$'+Math.round(cold.pnl*mc).toLocaleString()):null;
+                  const tip='Lockbox read from the continuous replay. This run scored its own lockbox cold (before warm starts, v73.841)'
+                    +((cN!=null)?(': '+cN+(cold.trades!=null?(' on '+cold.trades+' trades'):'')+(cold.pf!=null?(', PF '+cold.pf.toFixed(2)):'')+'.'):'.');
+                  return html+' <span title="'+_wfoEsc(tip)+'" style="font-size:7px;color:var(--text5);border:1px solid var(--border2);border-radius:3px;padding:0 2px;cursor:help">LB warm</span>';};}
+              return _row;})(),
+            (function(){
+              // ROC % / YR <-> ROC @ $30K DD (2026-09-28, owner via MANAGER): a toggle on the row
+              //   label, not a second row - APREF.rbRocMode ('yr' default, or 'dd30') picks which
+              //   reading shows. dd30 is 30x this same stage's MAR: net per year per dollar of
+              //   worst drawdown, scaled to a $30,000 drawdown on the default $100k account - it
+              //   reads the SAME _marOf(r), so it moves stage for stage exactly like MAR already
+              //   does, and dashes / approximates exactly like MAR too.
+              const _rocMode=(APREF.rbRocMode==='dd30')?'dd30':'yr';
+              const _rocLbl='<span data-rbroc title="'+_wfoEsc('ROC % / YR = net per year as a % of the '+_kfmt(_rocAcct())+' account. ROC @ $30K DD = the same stage’s MAR x 30: what a year earns on the account if the position is sized so this stage’s worst drawdown is $30,000. Click to switch.')+'" style="border-bottom:1px dotted var(--text5);cursor:pointer">'+((_rocMode==='dd30')?'ROC @ $30K DD':'ROC % / YR')+' ⇄</span>';
+              const _row=(_rocMode==='dd30')
+                ?_mk(_rocLbl,r=>{const m=_marOf(r);return (m!=null&&isFinite(m))?m*30000/_rocAcct()*100:null;},v=>'<span style="color:'+(v<0?'var(--red)':'var(--text2)')+'">'+v.toFixed(1)+'%</span>','max',{_apx:_ddApx2,_why:_rbWhy('mar')})
+                :_mk(_rocLbl,r=>_rocYr(_netOf(r),_rbYrs(r)),v=>'<span style="color:'+(v<0?'var(--red)':'var(--text2)')+'">'+v.toFixed(1)+'%</span>','max',{_why:_rocWhy});
               if(_rbS==='wf'){const _base=_row.cell;
-                _row.cell=c=>{const html=_base(c),v=_rocYr(_netOf(c.run),_rbYrs(c.run)),cs=(v!=null&&isFinite(v))?_rocCrown(c.run):null;
-                  if(cs==null)return html;
-                  return '<span title="'+_wfoEsc('This run also saved a crowning score - the crowned settings held fixed over the same years - of '+cs.toFixed(1)+'% a year. That is the reading the crown was picked on, so it is not shown here as the test.')+'" style="cursor:help">'+html+'</span>';};}
+                if(_rocMode==='dd30'){
+                  _row.cell=c=>{const html=_base(c),m=_marOf(c.run),v=(m!=null&&isFinite(m))?m*30000/_rocAcct()*100:null,cs=(v!=null&&isFinite(v))?_rocCrown30(c.run):null;
+                    if(cs==null)return html;
+                    return '<span title="'+_wfoEsc('This run also saved a crowning score - the crowned settings held fixed over the same years - of '+cs.toFixed(1)+'% a year at a $30,000 worst drawdown. That is the reading the crown was picked on, so it is not shown here as the test.')+'" style="cursor:help">'+html+'</span>';};
+                }else{
+                  _row.cell=c=>{const html=_base(c),v=_rocYr(_netOf(c.run),_rbYrs(c.run)),cs=(v!=null&&isFinite(v))?_rocCrown(c.run):null;
+                    if(cs==null)return html;
+                    return '<span title="'+_wfoEsc('This run also saved a crowning score - the crowned settings held fixed over the same years - of '+cs.toFixed(1)+'% a year. That is the reading the crown was picked on, so it is not shown here as the test.')+'" style="cursor:help">'+html+'</span>';};
+                }}
               return _row;})(),
             _mk('DD',_ddOf2,v=>'<span style="color:#e24b4a">'+_ab$(Math.abs(v))+'</span>','min',{_apx:_ddApx2,_why:_rbWhy('dd')})])},
           {name:_rbBand('reward ÷ risk'),rows:[
@@ -41366,6 +41427,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-rocacct]').forEach(b=>{b.onclick=e=>{e.stopPropagation();
         const cur=+(APREF.rocAcct||100000),i=_ROC_STEPS.indexOf(cur);
         savePref('rocAcct',_ROC_STEPS[(i<0?2:i+1)%_ROC_STEPS.length]);renderApp();};});
+      // the ROC row's own label toggles ROC % / YR <-> ROC @ $30K DD (2026-09-28). This is the
+      //   one place [data-rocacct] is wired too, inside the single shared renderApp() pass, so
+      //   it covers the RUNBOARD tab and the COMPARE-beta board host alike - whichever branch
+      //   built the matrix into `content`, this runs over that same content afterward.
+      content.querySelectorAll('[data-rbroc]').forEach(b=>{b.onclick=e=>{e.stopPropagation();
+        savePref('rbRocMode',(APREF.rbRocMode==='dd30')?'yr':'dd30');renderApp();};});
       content.querySelectorAll('[data-mtxallsort]').forEach(b=>{b.onclick=e=>{e.stopPropagation();
         const k=b.getAttribute('data-mtxallsort'),cur=String(APREF.mtxAllSort||'net:d');
         savePref('mtxAllSort',(cur===k+':d')?(k+':a'):(k+':d'));renderApp();};});

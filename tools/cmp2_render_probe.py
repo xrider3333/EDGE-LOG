@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 143
+N_CASES = 144
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -1772,8 +1772,16 @@ var FIX = __FIX__;
       (function(){
         var Z=JSON.parse(JSON.stringify(FIX));Z.id=String(+FIX.id+730001);Z.strategy='ZZERO_TR_1_0.py';Z.starred=false;
         Z.validate.lockbox=Object.assign({},Z.validate.lockbox,{trades:0,pnl:0,dd:0,pf:0,win_rate:0,sharpe:0});
+        // 2026-09-28: this fixture's whole point is a lockbox that took NO trades - it must
+        //   not inherit FIX's own gate_validate.ungated_lockbox (334 trades), or _lbWarmOf
+        //   reads that unrelated figure as a warm re-run of this cold zero and the case never
+        //   gets to test the dash it exists to check.
+        delete Z.gate_validate;
         var N=JSON.parse(JSON.stringify(FIX));N.id=String(+FIX.id+730002);N.strategy='ZKAPPA_1_0.py';N.starred=false;
         N.validate.lockbox=Object.assign({},N.validate.lockbox,{trades:120,pnl:-250,dd:900,pf:0.9,win_rate:30});
+        // same reason: N's own 120 trades / -$5,000 loss must not be swapped for FIX's
+        //   inherited 334-trade reading either.
+        delete N.gate_validate;
         var wc="var Z="+JSON.stringify(Z)+";var N="+JSON.stringify(N)+";"
           +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
           +"runHistory=[f(Z),f(N)];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();";
@@ -3428,7 +3436,11 @@ var FIX = __FIX__;
         var keyRowIs=d.querySelector('.cmpovl-key [data-ovltog="'+FIX.id+'"]');
         res.isKeyText=keyRowIs?dfxN(keyRowIs.textContent):null;
         res.isKeyTilde=!!(res.isKeyText&&res.isKeyText.indexOf('~')>=0);
-        var expLbNet=FIX.validate.lockbox.pnl*(FIX.multiplier||20);
+        // 2026-09-28: FIX qualifies for the warm-lockbox swap (_lbWarmOf) - its LB stage now
+        //   reads gate_validate.ungated_lockbox instead of its own cold validate.lockbox, so
+        //   the key's expected endpoint must follow the same reading.
+        var _fixGv=(FIX.gate_validate&&FIX.gate_validate.ungated_lockbox)||null;
+        var expLbNet=_fixGv?(_fixGv.total_pnl*(FIX.multiplier||20)):(FIX.validate.lockbox.pnl*(FIX.multiplier||20));
         var expIsNet=FIX.best_pnl_usd;
         var _folds=(FIX.top10_results||[]).filter(function(f){return f&&f.fold!=null&&(+f.test_bars>0);}).sort(function(a,b){return a.fold-b.fold;});
         var _tr0=+_folds[0].train_bars||0,_tbSum=_folds.reduce(function(s,f){return s+(+f.test_bars||0);},0);
@@ -4772,7 +4784,11 @@ var FIX = __FIX__;
           var found=null;
           [].forEach.call(d.querySelectorAll('#rb-mtx-box table tr'),function(tr){
             if(found)return;var c=tr.children;if(c.length<2)return;
-            if(dfxN(c[0].textContent)!==lbl)return;
+            // 2026-09-28: the ROC row label is now a click-to-switch toggle carrying a
+            //   trailing glyph (ROC % / YR -> ROC @ $30K DD), so this looks up by prefix
+            //   rather than exact text - SORTINO and every other plain label still matches
+            //   exactly, since a prefix match is a superset of an exact one.
+            if(dfxN(c[0].textContent).indexOf(lbl)!==0)return;
             found=c[col+1]||null;});
           if(!found)return null;
           var t=found.querySelector('[title]');
@@ -4804,6 +4820,121 @@ var FIX = __FIX__;
           "a book's WALK-FORWARD SORTINO dashes with the book reason": !!(cell.wf.bSo&&cell.wf.bSo.v==='—'&&/book/i.test(cell.wf.bSo.tip)),
           "a book's LOCKBOX ROC reads its own lockbox net over its own lockbox years": close(numOf(cell.lb.bRoc&&cell.lb.bRoc.v),bkLbRoc,0.06)
         }, {cell:cell,fullRocP:fullRocP,lbRocP:lbRocP,wfRocP:wfRocP,bkLbRoc:bkLbRoc,crownRoc:crownRoc,errAcc:errAcc});
+      })();
+
+      // -- k3 (2026-09-28, owner via MANAGER): RUNBOARD's LB stage now reads the SAME warm-lockbox
+      //    rule EXPLORE already uses (_lbWarmOf, shared by _lbBlk) - the TOTAL row swaps a cold
+      //    run's own lockbox money for the continuous replay and tags the cell LB warm, with the
+      //    run's own cold figures on hover; TRADES and SORTINO follow through the same _lbBlk
+      //    gate. A run that already warmed up, or whose continuous slice holds far fewer trades
+      //    than its own cold reading (a different replay, not a warm-up), is untouched. Also the
+      //    new ROC % / YR <-> ROC @ $30K DD toggle: dd30 is always this same stage's MAR cell x
+      //    30, checked here against the MAR cell itself rather than hand-recomputed, so the two
+      //    rows can never quietly drift apart - on LB (a lockbox-only fixture) and on WF (a run
+      //    with real walk-forward data, the same shape j1_roc_sortino_rows builds off FIX).
+      (function(){
+        var CID=String(+FIX.id+680401), WID=String(+FIX.id+680402), MID=String(+FIX.id+680403), FID=String(+FIX.id+680404);
+        function base(id,strat){
+          var r=JSON.parse(JSON.stringify(FIX));
+          r.id=id;r.strategy=strat;r.starred=false;r.multiplier=20;delete r.equity;delete r.top10_results;delete r.gate_validate;
+          r.date_from='2010-01-01';r.date_to='2026-06-01';
+          r.validate={verdict:'PASS',total_trades:5000,total_win_rate:41,total_avg_win:150,total_avg_loss:-90,total_dd:9000,
+            total_sharpe:1.1,total_sortino:1.6,
+            windows:{optimize:['2010-01-01','2018-01-01'],wf_split:'2018-01-01',lockbox:['2025-06-01','2026-06-01']}};
+          return r;
+        }
+        var COLD=base(CID,'ZK3COLD_1_0.py');
+        COLD.validate.lockbox={pnl:3996.9,trades:239,pf:1.39,win_rate:44,dd:190,sortino:3.23};
+        COLD.gate_validate={ungated_lockbox:{total_pnl:3453.1,num_trades:315,profit_factor:1.259,max_drawdown:-210,sortino:2.478,win_rate:41.5}};
+        var WARM=base(WID,'ZK3WARM_1_0.py');
+        WARM.validate.windows.warm_days=300;
+        WARM.validate.lockbox={pnl:3453.1,trades:315,pf:1.259,win_rate:41.5,dd:210,sortino:2.478};
+        WARM.gate_validate={ungated_lockbox:{total_pnl:3453.1,num_trades:315,profit_factor:1.259,max_drawdown:-210,sortino:2.478,win_rate:41.5}};
+        var MISMATCH=base(MID,'ZK3MISMATCH_1_0.py');
+        MISMATCH.validate.lockbox={pnl:1500,trades:91,pf:1.1,win_rate:30,dd:300,sortino:0.8};
+        MISMATCH.gate_validate={ungated_lockbox:{total_pnl:0,num_trades:0,profit_factor:0,max_drawdown:0,sortino:0,win_rate:0}};
+        // a plain walk-forward-capable run (same shape j1_roc_sortino_rows builds off FIX) so the
+        //   toggle can be checked on WF too, not only on a lockbox-only fixture.
+        var WFR=JSON.parse(JSON.stringify(FIX));
+        WFR.id=FID;WFR.strategy='ZK3WF_1_0.py';WFR.starred=false;WFR.multiplier=20;delete WFR.scope;delete WFR.equity;
+        WFR.date_from='2010-01-01';WFR.date_to='2030-01-01';
+        WFR.best_pnl_usd=500000;WFR.best_dd_usd=50000;WFR.best_pf=1.3;WFR.best_trades=400;
+        WFR.top10_results=[{fold:1,oos_pnl:25000,oos_trades:60,oos_wins:33},{fold:2,oos_pnl:20000,oos_trades:60,oos_wins:33}];
+        WFR.gate_validate={wf_range:['2015-01-01','2025-01-01'],ungated_wf:{num_trades:150,total_pnl:60000,profit_factor:1.5,max_drawdown:-8000}};
+        WFR.validate={verdict:'PASS',total_dd:-50000,
+          windows:{lockbox:['2028-01-01','2029-01-01']},
+          lockbox:{pnl:45000,pf:1.35,trades:130,pass:true,sortino:2.05,dd:9000},
+          wf_oos:{v:1,trades:120,net:45000,wins:66,profit_factor:1.28,gross_loss:5000,n_folds:2,years:10,
+            from:'2015-01-01',to:'2025-01-01',sortino:1.55,sharpe:1.22,max_drawdown:7000,equity:[0,45000]}};
+        var IDS=[CID,WID,MID,FID];
+        var wc="var RS="+JSON.stringify([COLD,WARM,MISMATCH,WFR])+";"
+          +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+          +"runHistory=RS.map(f);window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();window._starRuns=[];";
+        function rowLabelled(lbl){var tr=null;
+          [].forEach.call(d.querySelectorAll('#rb-mtx-box table tr'),function(t){
+            if(tr)return;var c=t.children;if(!c.length)return;
+            if(dfxN(c[0].textContent)===lbl)tr=t;});
+          return tr;}
+        function rocRow(){var tr=null;
+          [].forEach.call(d.querySelectorAll('#rb-mtx-box table tr'),function(t){
+            if(tr)return;var c=t.children;if(!c.length)return;
+            if(c[0].querySelector('[data-rbroc]'))tr=t;});
+          return tr;}
+        function cellIn(tr,id){return tr?tr.querySelector('td[data-rbc="'+id+'"]'):null;}
+        function cellFor(lbl,id){return cellIn(rowLabelled(lbl),id);}
+        function numOf(v){return (v==null)?null:parseFloat(String(v).replace(/[^0-9.-]/g,''));}
+        function close(a,b,tol){return a!=null&&b!=null&&isFinite(a)&&isFinite(b)&&Math.abs(a-b)<tol;}
+        function lbTagInfo(cell){if(!cell)return {has:false,tip:null};
+          var spans=[].slice.call(cell.querySelectorAll('span[title]'));
+          var tagSpan=spans.filter(function(sp){return (sp.textContent||'').indexOf('LB warm')>=0;})[0]||null;
+          return {has:!!tagSpan,tip:tagSpan?tagSpan.getAttribute('title'):null};}
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+
+        // render 1: LB, default ROC mode - TOTAL / TRADES / SORTINO / tag checks live here.
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',cmpIds:IDS}, wc));chk('lb-yr');
+        var totC=cellFor('TOTAL',CID), totW=cellFor('TOTAL',WID);
+        var tagC=lbTagInfo(totC), tagW=lbTagInfo(totW), tagM=lbTagInfo(cellFor('TOTAL',MID));
+        var trC=cellFor('TRADES',CID), soC=cellFor('SORTINO',CID), trM=cellFor('TRADES',MID);
+        var rocRow1=rocRow(), rocLbl1=rocRow1?dfxN(rocRow1.children[0].textContent):null;
+        var hasToggle1=!!(rocRow1&&rocRow1.children[0].querySelector('[data-rbroc]'));
+
+        // render 2: LB, dd30 mode - every column's ROC cell should read 30x its own MAR cell.
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',cmpIds:IDS,rbRocMode:'dd30'}, wc));chk('lb-dd30');
+        var rocRow2=rocRow(), rocLbl2=rocRow2?dfxN(rocRow2.children[0].textContent):null;
+        var hasToggle2=!!(rocRow2&&rocRow2.children[0].querySelector('[data-rbroc]'));
+        var marRow2=rowLabelled('MAR');
+        var lbCheck={};
+        IDS.forEach(function(id){
+          var rc=cellIn(rocRow2,id), mc=cellIn(marRow2,id);
+          var rv=rc?numOf(rc.textContent):null, mv=mc?numOf(mc.textContent):null;
+          lbCheck[id]={rv:rv,mv:mv,ok:(rv==null&&mv==null)?true:close(rv,(mv==null?null:mv*30),0.2)};
+        });
+
+        // render 3: WF, dd30 mode - only WFR carries real walk-forward data on this stage.
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'wf',cmpIds:IDS,rbRocMode:'dd30'}, wc));chk('wf-dd30');
+        var rocRow3=rocRow(), marRow3=rowLabelled('MAR');
+        var rv3=numOf((cellIn(rocRow3,FID)||{}).textContent), mv3=numOf((cellIn(marRow3,FID)||{}).textContent);
+        var hasToggle3=!!(rocRow3&&rocRow3.children[0].querySelector('[data-rbroc]'));
+
+        dfxCase('k3_rb_roc30_warm', calls, {
+          'renders OK on LB (both ROC modes) and WF': calls.every(function(c){return c==='OK';}),
+          'no console errors on any render': errAcc.length===0,
+          "a cold run's LB TOTAL reads $69k - the continuous replay (3453.1 x 20 rounds to $69k), not its own cold $80k": close(numOf(totC&&totC.textContent),69,1),
+          'that TOTAL cell carries the LB warm tag': tagC.has,
+          "the tag's hover names the run's own cold reading, $79,938 on 239 trades, PF 1.39": (tagC.tip||'').indexOf('$79,938')>=0&&(tagC.tip||'').indexOf('239')>=0&&(tagC.tip||'').indexOf('1.39')>=0,
+          'that same cold run reads 315 on the TRADES row, not its own cold 239': close(numOf(trC&&trC.textContent),315,0.5),
+          'and 2.48 on the SORTINO row, the continuous reading': close(numOf(soC&&soC.textContent),2.48,0.01),
+          'a run that already warmed up keeps its own validate.lockbox, no tag': !tagW.has,
+          'a mismatched continuous slice (0 trades) is refused - the run keeps its own 91-trade lockbox, no tag': !tagM.has&&close(numOf(trM&&trM.textContent),91,0.5),
+          'the default ROC row label reads ROC % / YR': !!rocLbl1&&rocLbl1.indexOf('ROC % / YR')>=0,
+          'the toggle element is on the ROC row in the default mode': hasToggle1,
+          'switching the pref to dd30 relabels the row ROC @ $30K DD': !!rocLbl2&&rocLbl2.indexOf('ROC @ $30K DD')>=0&&rocLbl2.indexOf('ROC % / YR')<0,
+          'the toggle element is still there in dd30 mode': hasToggle2,
+          'on LB every column reads 30x its own MAR cell': IDS.every(function(id){return lbCheck[id].ok;}),
+          'on WF the walk-forward run also reads 30x its own MAR cell': close(rv3,(mv3==null?null:mv3*30),0.2)&&mv3!=null,
+          'the toggle element is on the ROC row on WF too': hasToggle3
+        }, {tagC:tagC,tagW:tagW,tagM:tagM,rocLbl1:rocLbl1,rocLbl2:rocLbl2,lbCheck:lbCheck,rv3:rv3,mv3:mv3,errAcc:errAcc});
       })();
 
       // -- case y1_explore_money: MANAGER audit 2026-09-27 (ml_edge_orb_leak_answer_2026-09-27.md
@@ -5623,12 +5754,33 @@ def main(argv=None):
     per = r.get('per') or {}
     lbc = per.get('lb') or {}
     want = None
+    def _lb_warm_of(fx):
+        # mirrors index.html's _lbWarmOf (2026-09-28): a cold lockbox (no validate.windows.
+        # warm_days) whose gate_validate.ungated_lockbox plausibly reproduces a warm re-run
+        # (a trade count no more than 5%-of-cold below the cold count) is read from that
+        # continuous replay instead of the run's own cold validate.lockbox figure.
+        V = fx.get('validate') or {}
+        lb0 = V.get('lockbox') or {}
+        if not lb0 or (V.get('windows') or {}).get('warm_days'):
+            return lb0
+        g = (fx.get('gate_validate') or {}).get('ungated_lockbox') or {}
+        wT, wN = g.get('num_trades'), g.get('total_pnl')
+        if wT is None or wN is None:
+            return lb0
+        cT, cN = lb0.get('trades'), lb0.get('pnl')
+        differs = (cN is None) or (cT is not None and wT != cT) or (cN is not None and abs(wN - cN) > 1e-6)
+        same = (cT is None) or (wT >= cT - max(2, round(cT * 0.05)))
+        if not differs or not same:
+            return lb0
+        return {'pnl': wN, 'dd': abs(g.get('max_drawdown') or 0), 'trades': wT,
+                'from': lb0.get('from'), 'to': lb0.get('to')}
     try:
         V = (fixture.get('validate') or {})
         lb = V.get('lockbox') or {}
+        eff = _lb_warm_of(fixture)
         mult = float(fixture.get('multiplier') or 20)
-        net = float(lb['pnl']) * mult
-        ddv = abs(float(lb['dd'])) * mult
+        net = float(eff['pnl']) * mult
+        ddv = abs(float(eff['dd'])) * mult
         d0 = datetime.datetime.strptime(str(lb['from'])[:10], '%Y-%m-%d')
         d1 = datetime.datetime.strptime(str(lb['to'])[:10], '%Y-%m-%d')
         yrs = (d1 - d0).days / 365.25
@@ -7299,6 +7451,7 @@ def main(argv=None):
     DFX += ['z1_explore_pills_r30']
     DFX += ['x1_explore_flags']
     DFX += ['y1_explore_money']
+    DFX += ['k3_rb_roc30_warm']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
