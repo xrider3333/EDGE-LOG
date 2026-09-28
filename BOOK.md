@@ -1185,6 +1185,48 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10o. Round 62 - structural book alpha on the adopted #463: volatility targeting and an overlap cap (2026-09-28)
+
+**What.** Owner ask via MANAGER (#29): brainstorm book-level alpha from structural changes, not re-weighting;
+pre-register the top one or two and triage them. Rules and bar written first:
+`C:\EdgeLog\_anatomy_cache\adopt449\PREREG_R62.txt`. Base and raw twin = #463's legs, rebuilt trade by trade. The rebuild
+equals run #463 to the cent (whole net, and both valued-daily drawdowns). Stretches: IS 2010-06-07..2016-06-30 (never
+judged), WF 2016-07-01..2025-06-29, LB 2025-06-30..2026-06-30. Every size applies to a trade at its entry, from
+information up to the day before. Sizes are rounded to 0.1, which micros make tradeable.
+
+| rule | WF ROC %/yr at $30k | WF Sortino | WF DD (valued daily) | LB ROC %/yr at $30k | LB Sortino | LB DD (valued daily) | average size | bar vs #463 |
+|---|---|---|---|---|---|---|---|---|
+| #463 (raw twin) | 92.7 | 3.82 | $44,849 | 164.8 | 4.15 | $49,855 | 1.00 | - |
+| V: vol target fixed in dollars from IS | 95.8 | 3.87 | $22,424 | 164.8 | 4.15 | $24,927 | 0.55 | FAIL |
+| **V2: vol target vs its own trailing year** | 116.1 | 3.91 | $35,304 | 259.3 | 4.79 | $32,941 | 0.99 | **PASS** |
+| V2 sensitivity: 500-day reference | 111.9 | 3.92 | $34,407 | 239.5 | 4.70 | $33,899 | 0.93 | **PASS** |
+| V2 sensitivity: 60-day lookback | 123.3 | 3.76 | $31,232 | 203.5 | 4.10 | $35,907 | 0.97 | FAIL |
+| O: ORB x NOISE same-direction overlap at half size | 87.4 | 3.61 | $42,346 | 146.9 | 3.64 | $47,045 | 0.87 | FAIL |
+| O sensitivity: skip the overlap | 81.5 | 3.29 | $39,843 | 126.7 | 3.02 | $44,235 | 0.73 | FAIL |
+
+- **O (overlap cap) FAILS, and the risk it named came true.** Trades where ORB and NOISE are in the market the same
+  way have a profit factor of 1.56 against 1.30 for the rest, so halving them costs money. An *agreement tilt* (more
+  size when they agree) is the obvious follow-on. It was found in this data, so only a forward test could judge it.
+- **V (as registered) FAILS without testing its mechanism.** Its target was fixed in dollars from 2010-16, but the
+  book's dollar volatility grew about tenfold with the NQ price. The size sat on its 0.5 floor almost all the time
+  (average 0.55; the lockbox is exactly x0.5).
+- **V2 (repair written in an addendum before it ran) PASSES the bar in both stretches.** Size = the book's
+  20-day volatility measured against the median of its own previous 250 days, clipped to 0.5-2.0. No constant is
+  fitted. The 500-day reference also passes; the 60-day lookback misses only lockbox Sortino (4.10 vs 4.15).
+- **But V2 is a tail hedge, not an everyday edge.** It has the better net/drawdown in only 7 of 15 years (2011-2025).
+  Trades it sizes up earn about the same as trades it sizes down (raw PF 1.46 vs 1.43). The whole gain is two
+  episodes: the March 2020 crash (drawdown $44,849 -> $22,578) and the June 2026 ENGU-Q stretch
+  ($49,855 -> $32,941). That is what volatility targeting is for, but here it rests on two events.
+- **Not adopted, no validate queued.** The book engine cannot size a whole book from its own volatility, so a real
+  run needs a new book-level sizing feature. The next clean step is a nightly paper shadow; that is the owner's call.
+
+**The rest of the brainstorm (not run).**
+- Book drawdown brake fixed in advance: path-dependent, and it overlaps V2's tail effect.
+- Crash guard on the long-biased ENGU-Q leg: two events in 16 years; it overlaps V2.
+- Agreement tilt: see O.
+- Already dead: DIP on ES as a seat (10j/10l); NOISE and ORB on ES; ENGU-Q on ES (#370, one trade); the month-end
+  flow leg; walk-forward re-weighting (round 56).
+
 ### 10n. ADOPTED: BOOK #449 on the fixed legs (run #463) replaces #366; the #397 flip is dropped (2026-09-28)
 
 **The owner's calls (via MANAGER, 2026-09-28).** (1) Adopt BOOK #449 on the fixed TTM files, which is run #463,
