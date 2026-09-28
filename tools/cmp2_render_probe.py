@@ -5051,6 +5051,26 @@ var FIX = __FIX__;
         var bodyA2=(d.body&&(d.body.innerText||d.body.textContent))||'';
         var watchPickAlive=bodyA2.indexOf('991400')>=0&&(bodyA2.indexOf('LOADING')>=0||bodyA2.indexOf('runs in')>=0);
 
+        // ---- PART A3: every run loaded (LOAD ALL) - 82 newer NOISE runs ahead of a watched and a
+        //      starred ORB run, both IN runHistory, so neither side-pool holds them (real-data
+        //      check 2026-09-28: ORB then offered only #421, #404 and #403).
+        var many=[];
+        for(var mi=0;mi<82;mi++){var mr=mkRun(String(992000+mi),'PASS');mr.strategy='NOISE_1_8_1_0.py';mr.timestamp='2026-09-20T00:00:00Z';many.push(mr);}
+        var OLDW=mkRun('991450','PASS');OLDW.timestamp='2026-01-01T00:00:00Z';
+        var OLDS=mkRun('991460','PASS');OLDS.starred=true;OLDS.timestamp='2026-01-01T00:00:00Z';
+        var OLDV=mkRun('206','PASS');OLDV.timestamp='2025-08-11T00:00:00Z';
+        var wcA3="runHistory="+JSON.stringify(many.concat([OLDW,OLDS,OLDV]))+";"
+          +"window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();"
+          +"window._starRuns=[];"
+          +"window._rbWatch={state:'ok',runs:[{id:'206',family:'ORB',lane:'ORB',verdict:'VOID'},{id:'991450',family:'ORB',lane:'ORB',verdict:'CROWN'}],at:Date.now()};"
+          +"window._rbWatchRuns=[];window._rbWatchRunsState='ok';window._rbWatchRunsWant=[];";
+        var callA3=doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resFilt:{fam:['ORB']},c2Tbl:true},wcA3);acc();
+        var pillIdsA3=pillList().map(function(p){return p.id;});
+        var voidPill=d.querySelector('[data-revoid] [data-recfgrun="206"]');
+        var voidPillTxt=voidPill?(voidPill.textContent||''):'';
+        var voidPillTip=voidPill?(voidPill.getAttribute('title')||''):'';
+        var pickedA3=pillList().filter(function(p){return p.on;}).map(function(p){return p.id;});
+
         // ---- PART B: ROC @ $30K DD (1.5) -----------------------------------------------------
         var B30={id:'991700',strategy:'ORB_3_6_1_0.py',starred:false,multiplier:1,date_from:'2010-01-01',date_to:'2026-01-01',
           validate:{verdict:'PASS',total_trades:500,total_win_rate:40,total_avg_win:900,total_avg_loss:-300,
@@ -5079,8 +5099,13 @@ var FIX = __FIX__;
         var axisVal=axM?parseFloat(axM[1]):null;
         var dashPtEl=d.querySelector('[data-repoint="runs:991701"]');
 
-        dfxCase('z1_explore_pills_r30', [callA1,callA2,callB], {
-          'renders OK (pill default/order, pill pick, ROC30 axis+column)': [callA1,callA2,callB].every(function(c){return c==='OK';}),
+        dfxCase('z1_explore_pills_r30', [callA1,callA2,callA3,callB], {
+          'renders OK (pill default/order, pill pick, ROC30 axis+column)': [callA1,callA2,callA3,callB].every(function(c){return c==='OK';}),
+          'PILLS (all loaded, past the newest 80): a watch-list run already in runHistory still gets a pill': pillIdsA3.indexOf('991450')>=0,
+          'PILLS (all loaded, past the newest 80): a starred run already in runHistory still gets a pill': pillIdsA3.indexOf('991460')>=0,
+          'PILLS: a watched VOID run (#206) is still offered, marked VOID, greyed, with the reason on hover': !!voidPill&&/VOID/.test(voidPillTxt)&&/look-ahead|volume/i.test(voidPillTip),
+          'PILLS: the VOID pill sorts after every usable run, even though it is watch-listed first': pillIdsA3.indexOf('206')===pillIdsA3.length-1,
+          'PILLS: the default pick is never the VOID run': pickedA3.indexOf('206')<0&&pickedA3.length>0,
           'no console errors or uncaught exceptions across any render': allErrors.length===0&&allUncaught.length===0,
           'PILLS: all six runs are offered (in-window PASS/FAIL, starred, watch-only)': pillIds.length===6,
           'PILLS: a watch-list run outside runHistory and starRuns appears as a pill': pillIds.indexOf('991400')>=0,

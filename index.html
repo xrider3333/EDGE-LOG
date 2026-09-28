@@ -31402,6 +31402,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // FAIL, off the same validate.verdict every run row already carries in the lite
         //   projection - never a guess, and never a fetch of the full document.
         const _reRunFailV=function(r){return /FAIL/.test(String((r&&r.validate&&r.validate.verdict)||'').toUpperCase());};
+        // VOID (RUN_VOID, the same record the run rows read): pills treat it like FAIL - last,
+        //   greyed, marked, never the default pick (real-data check 2026-09-28: watched VOID
+        //   ORB #206 sat among the crowns with nothing to say so).
+        const _reRunVoidV=function(r){return !!r&&Object.prototype.hasOwnProperty.call(RUN_VOID,String(r.id));};
         // THE RUN PILL POOL (owner audit 2026-09-27, section 1.4a). `rs` already folds starred
         //   runs outside the loaded window into its own list, but a crown far older than that
         //   window still fell off the .slice(0,80) cut below the moment the combined list ran
@@ -31415,8 +31419,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const have={};_reCfgPickBase.forEach(function(r){have[String(r.id)]=1;});
           const ok=function(r){return r&&r.id!=null&&!have[String(r.id)]&&(String(r.scope||'').indexOf('valid')>=0||r.validate);};
           const forced=[];
+          // ...and a starred or watched run ALREADY in the loaded list (after LOAD ALL, or LOAD 75
+          //   MORE) is in neither side-pool, so it fell off the same cut: force it too (real-data
+          //   check 2026-09-28: every run loaded, ORB offered only #421, #404 and #403).
+          const _watchedSet={};_reWatchIds.forEach(function(id){_watchedSet[id]=1;});
           [].concat(Array.isArray(window._starRuns)?window._starRuns:[])
             .concat(Array.isArray(window._rbWatchRuns)?window._rbWatchRuns:[])
+            .concat(rs.filter(function(r){return r&&(r.starred===true||_watchedSet[String(r.id)]);}))
             .forEach(function(r){if(ok(r)){have[String(r.id)]=1;forced.push(r);}});
           return _reCfgPickBase.concat(forced);
         })();
@@ -31437,7 +31446,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   newest run outright used to land on a FAIL run whenever one was the most recent
           //   thing offered. Falls back to the newest of any verdict only when every candidate
           //   in the pool failed.
-          const _newestOk=function(pool){const okList=pool.filter(function(r){return !_reRunFailV(r);});
+          const _newestOk=function(pool){const okList=pool.filter(function(r){return !_reRunFailV(r)&&!_reRunVoidV(r);});
             const src=okList.length?okList:pool;
             return src.reduce(function(best,r){return (!best||(+r.id||0)>(+best.id||0))?r:best;},null);};
           const _kept=a.filter(_inFam);
@@ -32108,12 +32117,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   clickable, just greyed and marked - so two of ORB's four offered pills can no
         //   longer sit ahead of its crowns with nothing to tell them apart from a PASS pill.
         const _reCfgPillOrd=function(av){
-          const watch=[],rest=[];
-          av.forEach(function(r){(_reWatchIds.indexOf(String(r.id))>=0?watch:rest).push(r);});
+          const watch=[],rest=[],voids=[];
+          av.forEach(function(r){(_reRunVoidV(r)?voids:(_reWatchIds.indexOf(String(r.id))>=0?watch:rest)).push(r);});
           watch.sort(function(a,b){return _reWatchIds.indexOf(String(a.id))-_reWatchIds.indexOf(String(b.id));});
           const ok=rest.filter(function(r){return !_reRunFailV(r);}).sort(function(a,b){return (+b.id||0)-(+a.id||0);});
           const bad=rest.filter(_reRunFailV).sort(function(a,b){return (+b.id||0)-(+a.id||0);});
-          return watch.concat(ok,bad);};
+          voids.sort(function(a,b){return (+b.id||0)-(+a.id||0);});
+          return watch.concat(ok,bad,voids);};
         const _reCfgSel=(_reLvl!=='valid'&&_reLvl!=='all')?'':_reCtl('','RUNS','which Auto-Validate runs the configurations are read out of. Tick as many as you like - their RAW, GATE, TILT and HYBRID candidates all land on the same axes, and each point says which run it came from. The full run document is fetched on demand, so a run shows LOADING the first time it is ticked.',
           // ONLY THE PICKED STRATEGY'S RUNS. Offering all seventy-five while the rail
           //   says NOISE was most of what made this confusing - the strategy pick looked
@@ -32141,6 +32151,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // FAIL runs sort last and stay pickable - never removed - but read as what they
               //   are: greyed, with their own mark (item 2, section 1.4a) - two of ORB's four
               //   offered chips used to be FAIL runs with nothing to tell them apart from PASS.
+              if(_reRunVoidV(r))return '<span data-refail="1" data-revoid="1" style="opacity:.5;display:inline-flex">'+_reBtn('data-recfgrun="'+id+'"','#'+id+' VOID',_reCfgIds.indexOf(id)>=0,tip+' — '+RUN_VOID[id],_TONE.samp)+'</span>';
               if(isFail)return '<span data-refail="1" style="opacity:.5;display:inline-flex">'+_reBtn('data-recfgrun="'+id+'"','#'+id+' FAIL',_reCfgIds.indexOf(id)>=0,tip,_TONE.samp)+'</span>';
               return _reBtn('data-recfgrun="'+id+'"','#'+id,_reCfgIds.indexOf(id)>=0,tip,_TONE.rank);}).join('');
             return _reBtn('data-recfgall="1"','ALL · '+_av.length,(_on===_av.length&&_av.length>0),
