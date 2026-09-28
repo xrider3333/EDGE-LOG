@@ -4942,9 +4942,17 @@ var FIX = __FIX__;
         var RFnorm=flagRun(990810,'ZFLAGZ_NORM_1_0.py',180,null),
             RFthin=flagRun(990811,'ZFLAGZ_THIN_1_0.py',12,null),
             RFvoid=flagRun(209,'ZFLAGZ_VOID_1_0.py',180,null),
-            RFpin=flagRun(990812,'ZFLAGZ_PIN_1_0.py',180,{n_evaluated:1});
-        var WIN=dfxWin([RFnorm,RFthin,RFvoid,RFpin]);
-        var BASE={c2Screen:'explore',resLvl:'valid',resShow:'runs',resView:'one',c2Tbl:true,
+            RFpin=flagRun(990812,'ZFLAGZ_PIN_1_0.py',180,{n_evaluated:1}),
+            // 2026-09-28 real-data fixes: a BOOK (n_evaluated 1, no walk-forward of its own) takes
+            //   no WF = in-sample tag, and a cold run whose continuous lockbox holds 180 trades is
+            //   not called thin off its own cold 12.
+            RFbook=flagRun(990813,'ZFLAGZ_BOOK_1_0.py',180,{n_evaluated:1,scope:'Book'}),
+            RFwarm=flagRun(990814,'ZFLAGZ_WARM_1_0.py',12,{gate_validate:{ungated_lockbox:{total_pnl:28800,num_trades:180,profit_factor:1.4,max_drawdown:450,sortino:2,win_rate:42}}}),
+            // and a cold run whose continuous slice holds far FEWER trades (ENGU-Q #310: 91 cold,
+            //   0 continuous) is another replay, not a warm reading - it keeps its own lockbox.
+            RFmis=flagRun(990815,'ZFLAGZ_MISMATCH_1_0.py',91,{gate_validate:{ungated_lockbox:{total_pnl:0,num_trades:0,profit_factor:0,max_drawdown:0,win_rate:0}}});
+        var WIN=dfxWin([RFnorm,RFthin,RFvoid,RFpin,RFbook,RFwarm,RFmis]);
+        var BASE={c2Screen:'explore',resLvl:'valid',resShow:'runs',resView:'one',c2Tbl:true,resCols:'all',
           resAxis:'raw',resXAxis:'dd',resFilt:{},resScope:'all',resMinTrd:'0',resSplitRun:false};
         var WARN=String.fromCharCode(9888);
         function rowInfo(id){
@@ -4963,15 +4971,25 @@ var FIX = __FIX__;
         calls.push(doRender(Object.assign({},BASE,{resSegs:['wf']}),WIN));keepErr();
         res.rowCountWf=d.querySelectorAll('tr[data-rerow]').length;
         res.normWf=rowInfo(RFnorm.id);res.thinWf=rowInfo(RFthin.id);res.voidWf=rowInfo(RFvoid.id);res.pinWf=rowInfo(RFpin.id);
+        res.bookWf=rowInfo(RFbook.id);
         res.voidPtWf=pointTip(RFvoid.id);
         calls.push(doRender(Object.assign({},BASE,{resSegs:['lb']}),WIN));keepErr();
         res.rowCountLb=d.querySelectorAll('tr[data-rerow]').length;
         res.normLb=rowInfo(RFnorm.id);res.thinLb=rowInfo(RFthin.id);res.voidLb=rowInfo(RFvoid.id);res.pinLb=rowInfo(RFpin.id);
+        res.warmLb=rowInfo(RFwarm.id);
+        (function(){var tr=d.querySelector('tr[data-rerow="runs:'+RFwarm.id+'"]');res.warmLbTag=!!tr&&(tr.textContent||'').indexOf('LB warm')>=0;})();
+        res.misLb=rowInfo(RFmis.id);
+        (function(){var tr=d.querySelector('tr[data-rerow="runs:'+RFmis.id+'"]');res.misLbTag=!!tr&&(tr.textContent||'').indexOf('LB warm')>=0;})();
         res.errAcc=errAcc.slice(0,10);
         dfxCase('x1_explore_flags',calls,{
           'renders OK on the WF tick and the LOCKBOX tick':calls.every(function(c){return c==='OK';}),
-          'all four fixture rows render on the WF tick':res.rowCountWf===4,
-          'all four fixture rows still render on the LOCKBOX tick - nothing hidden':res.rowCountLb===4,
+          'all seven fixture rows render on the WF tick':res.rowCountWf===7,
+          'all seven fixture rows still render on the LOCKBOX tick - nothing hidden':res.rowCountLb===7,
+          'a cold run whose continuous slice holds far fewer trades (0 vs 91 cold) keeps its own lockbox - no LB warm tag':res.misLb.found&&!res.misLbTag,
+          'and it is not called thin, since it keeps its own 91 trades':res.misLb.found&&!res.misLb.tags.some(function(t){return /LB \d+ tr/.test(t);}),
+          'a BOOK row (n_evaluated 1, no walk-forward of its own) carries no WF = in-sample tag':res.bookWf.found&&!res.bookWf.tags.some(function(t){return t.indexOf('WF = in-sample')>=0;}),
+          'a cold run reading its continuous lockbox (180 trades) shows the LB warm tag':res.warmLb.found&&res.warmLbTag,
+          'that run is not called thin off its own cold 12 trades':res.warmLb.found&&!res.warmLb.tags.some(function(t){return /LB \d+ tr/.test(t);}),
           'thin lockbox (12 trades) is tagged LB 12 tr on the WF-only tick':res.thinWf.found&&res.thinWf.tags.some(function(t){return t.indexOf('LB 12 tr')>=0;}),
           'thin lockbox is NOT greyed on the WF-only tick, since lockbox is not ticked':res.thinWf.found&&!res.thinWf.grey,
           'thin lockbox IS greyed once the LOCKBOX tick is on':res.thinLb.found&&res.thinLb.grey,
