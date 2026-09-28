@@ -28654,6 +28654,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   the tuning years pooled - but it changes what the sum covers, so it is always said.
         const _reSegMiss=rw=>_reSegsEff.filter(sg=>_reNum(rw,sg)==null);
         const _reAxis=(['raw','ratio','ppt','pf','wr','evr','sh','so','rpy','roc','roc30','ddp','ddr','dd'].indexOf(APREF.resAxis)>=0)?APREF.resAxis:'evr';
+        // LEVERAGE LINE (owner ask via MANAGER, 2026-09-28, inbox #12): an ML or sized row is only
+        //   justified when its ROC grows at least in proportion to its drawdown. Read straight off
+        //   APREF, never off _reXAxis / _reRel below - both are declared further down this function,
+        //   so reading THEM here would throw on the const's own temporal dead zone.
+        const _reLevOn=(APREF.resLev===true&&APREF.resAxis==='roc'&&APREF.resXAxis==='ddp'&&APREF.resRel!=='crown');
         // SPLIT LAYOUT. SIDE puts the chart beside the study tables, STACK keeps it above them.
         //   The toggle lives in the sub-tab bar beside the other split toggles this app already
         //   has (RESULTS, LIBRARY, RESEARCH), so it is where the owner already looks for it. The
@@ -29249,6 +29254,53 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // DD % - the worst peak-to-trough loss as a percentage of that same account.
         const _reDdp=(st,rw)=>{const d=_reNum(rw,'dd'),a=_rocAcct();
           return (d!=null&&a>0)?(Math.abs(d)/a*100):null;};
+        // LEVERAGE LINE's PLAIN TWIN (owner ask via MANAGER, 2026-09-28, inbox #12): every config
+        //   row of a run is stamped _twin at build time - see the UNGby block below - with either
+        //   the gate bake-off's own UNGATED reading on the same blocks (the honest plain twin) or,
+        //   when that run saved none for the ticked stretch, its own RAW crowned candidate standing
+        //   in for it (_twinFallback true). This just reads the stamp and places it on the same two
+        //   axes _reDdp / _reRoc place every other row on, so it moves with STAGE like they do.
+        const _reTwinOf=(st,rw)=>{
+          const twin=(rw&&rw._twin)||null;if(!twin)return null;
+          const x=_reDdp(st,twin),y=_reRoc(st,twin);
+          return (x!=null&&y!=null)?{x:x,y:y,row:twin,fallback:!!(rw&&rw._twinFallback)}:null;};
+        // LEVERAGE LINE's classifier (owner ask via MANAGER, 2026-09-28, inbox #12). ML / sized
+        //   rows only - GATE, TILT, either HYBRID sizing or KEEL; never RAW (RAW rows are the crown
+        //   pool the twin is read against, not a variant of it) and never a run row (its own crowned
+        //   config IS its RAW reading, with no separate ML variant to grade). null with nothing
+        //   asserted when there is no twin, no drawdown to found a slope on, or this row has no
+        //   figure of its own on the ticked stretch - never a guess standing in for a measurement.
+        const _reLevTabs=['GATE','TILT','HYBRID','HYBRID \u267b','HYBRID \u2193DD','KEEL'];
+        const _reLevOf=(st,rw)=>{
+          if(!(rw&&rw._cfg&&_reLevTabs.indexOf(rw._tab)>=0))return null;
+          const tw=_reTwinOf(st,rw);if(!tw)return null;
+          const x=_reDdp(st,rw),y=_reRoc(st,rw);
+          if(x==null||y==null)return null;
+          const tx=tw.x,ty=tw.y;
+          if(!(tx>0))return null;    // its plain twin has no drawdown on this stretch
+          const slope=ty/tx,e=slope*x,band=0.10*Math.abs(e);
+          const cls=(y>e+band)?'above':((y<e-band)?'below':'on');
+          const rocPct=(ty!==0)?((y/ty-1)*100):null;
+          const ddPct=(x/tx-1)*100;
+          const ratio=(x>0&&ty!==0)?((y/x)/(ty/tx)):null;
+          const clsWord={above:'ABOVE',on:'ON THE LINE',below:'BELOW'}[cls];
+          const rocTxt=(rocPct==null)?'a changed ROC':(Math.round(Math.abs(rocPct))+'% '+((rocPct>=0)?'more':'less')+' ROC');
+          const ddTxt=Math.round(Math.abs(ddPct))+'% '+((ddPct>=0)?'more':'less')+' drawdown';
+          const ratioTxt=(ratio==null)?'not measurable here':(ratio.toFixed(2)+'x the twin\u2019s');
+          const why=String(rw.name)+': '+rocTxt+' for '+ddTxt+' -> '+clsWord+' its plain twin (ROC per % of drawdown '+ratioTxt+'; ON means within 10%, the plain config traded bigger). '
+            +'Plain twin #'+rw._run+': '+ty.toFixed(1)+'%/yr at '+tx.toFixed(1)+'% drawdown.';
+          return {cls:cls,rocPct:rocPct,ddPct:ddPct,ratio:ratio,twin:tw,why:why};};
+        // the CONFIG-column chip (table only - the chart reads _reLevOf straight from the point
+        //   loop, since it also needs the class for the mark's fill). '' off the view, on a row
+        //   with nothing to grade, or on any row that is not this run's plain twin standing in.
+        const _reLevChip=(txt,tip)=>'<span title="'+_reEsc(tip)+'" style="font-size:8px;font-weight:700;margin-left:5px;color:var(--text2);cursor:help">'+_reEsc(txt)+'</span>';
+        const _reLevChipOf=(st,rw)=>{
+          if(!_reLevOn)return '';
+          const lv=_reLevOf(st,rw);
+          if(lv)return _reLevChip({above:'\u25b2 ABOVE',on:'= ON',below:'\u25bc BELOW'}[lv.cls],lv.why);
+          if(rw&&rw._tab==='RAW'&&rw.tone==='champ'&&rw._twinFallback)
+            return _reLevChip('plain twin','No ungated block was recorded for this run on this stretch, so its own crowned RAW configuration stands in as the PLAIN TWIN the LEVERAGE LINE view measures every GATE, TILT, HYBRID and KEEL variant of this run against.');
+          return '';};
         // DD (R) - the drawdown measured in average LOSING TRADES, the same unit EV R uses.
         //   Leverage-blind, so it compares across strategies that trade different sizes:
         //   how many losing trades in a row the worst stretch was worth.
@@ -29689,25 +29741,36 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   `s`/`sz` plays in _reShape above; `champ` draws the same crowned-config outline
         //   every shape already carries elsewhere on this board, and `dim` follows the
         //   chart's own faded-point rule (a row never run as a validate run).
-        const _reCfgMark=(type,cx,cy,h,col,fo,champ,dim)=>{
+        const _reCfgMark=(type,cx,cy,h,col,fo,champ,dim,cls)=>{
           const x=(+cx).toFixed(1),y=(+cy).toFixed(1);
           const foV=(fo==null)?1:fo,so=dim?0.3:1;
           const champRing=champ?(' stroke="var(--text)" stroke-opacity="'+so+'" stroke-width="1.2"'):'';
           const ring=champ?('<circle cx="'+x+'" cy="'+y+'" r="'+(h+2.4).toFixed(1)+'" fill="none" stroke="var(--text)" stroke-width="1" stroke-opacity="'+so+'"/>'):'';
           const sw=Math.max(1.4,h*0.55).toFixed(2);
+          // LEVERAGE LINE class (owner ask via MANAGER, 2026-09-28, inbox #12): a classified point
+          //   keeps its FAMILY shape but reads ABOVE / ON / BELOW from the fill and a small glyph at
+          //   its upper right, never from colour alone - the MONO theme has no hue. cls is null on
+          //   every mark outside that view and on every RAW mark, which is never classified.
+          const clsFo=(cls==null)?null:{above:(dim?0.16:1),on:(dim?0.16:0.35),below:0}[cls];
+          const fillOp=(clsFo==null)?foV:clsFo;
+          const fillCol=(cls==='below')?'none':col;
+          const belowStroke=(cls==='below')?(' stroke="'+col+'" stroke-width="'+Math.max(1.3,h*0.3).toFixed(2)+'"'):'';
+          const dashExtra=(cls==='below')?' stroke-dasharray="3,2.5"':'';
+          const glyphTxt=(cls==null)?'':({above:'\u25b2',on:'=',below:'\u25bc'}[cls]||'');
+          const glyph=glyphTxt?('<text x="'+(+cx+h+1).toFixed(1)+'" y="'+(+cy-h+2).toFixed(1)+'" font-size="'+Math.max(7.5,h*1.05).toFixed(1)+'" font-weight="700" fill="var(--text2)" fill-opacity="'+so+'" style="pointer-events:none">'+glyphTxt+'</text>'):'';
           if(type==='GATE'){const hh=h*0.88;
-            return '<rect x="'+(cx-hh).toFixed(1)+'" y="'+(cy-hh).toFixed(1)+'" width="'+(2*hh).toFixed(1)+'" height="'+(2*hh).toFixed(1)+'" fill="'+col+'" fill-opacity="'+foV+'"'+champRing+'/>';}
+            return '<rect x="'+(cx-hh).toFixed(1)+'" y="'+(cy-hh).toFixed(1)+'" width="'+(2*hh).toFixed(1)+'" height="'+(2*hh).toFixed(1)+'" fill="'+fillCol+'" fill-opacity="'+fillOp+'"'+belowStroke+champRing+'/>'+glyph;}
           if(type==='TILT'){const hh=h*1.15;
-            return '<path d="M'+x+' '+(cy-hh).toFixed(1)+'L'+(cx+hh).toFixed(1)+' '+(cy+hh*0.85).toFixed(1)+'L'+(cx-hh).toFixed(1)+' '+(cy+hh*0.85).toFixed(1)+'Z" fill="'+col+'" fill-opacity="'+foV+'"'+champRing+'/>';}
+            return '<path d="M'+x+' '+(cy-hh).toFixed(1)+'L'+(cx+hh).toFixed(1)+' '+(cy+hh*0.85).toFixed(1)+'L'+(cx-hh).toFixed(1)+' '+(cy+hh*0.85).toFixed(1)+'Z" fill="'+fillCol+'" fill-opacity="'+fillOp+'"'+belowStroke+champRing+'/>'+glyph;}
           if(type==='HYBRID'){const hh=h*1.1;
-            return '<path d="M'+x+' '+(cy-hh).toFixed(1)+'L'+(cx+hh).toFixed(1)+' '+y+'L'+x+' '+(cy+hh).toFixed(1)+'L'+(cx-hh).toFixed(1)+' '+y+'Z" fill="'+col+'" fill-opacity="'+foV+'"'+champRing+'/>';}
+            return '<path d="M'+x+' '+(cy-hh).toFixed(1)+'L'+(cx+hh).toFixed(1)+' '+y+'L'+x+' '+(cy+hh).toFixed(1)+'L'+(cx-hh).toFixed(1)+' '+y+'Z" fill="'+fillCol+'" fill-opacity="'+fillOp+'"'+belowStroke+champRing+'/>'+glyph;}
           if(type==='HYBRID \u267b'){const hh=h*1.15;
-            return '<path d="M'+x+' '+(cy+hh).toFixed(1)+'L'+(cx+hh).toFixed(1)+' '+(cy-hh*0.85).toFixed(1)+'L'+(cx-hh).toFixed(1)+' '+(cy-hh*0.85).toFixed(1)+'Z" fill="'+col+'" fill-opacity="'+foV+'"'+champRing+'/>';}
+            return '<path d="M'+x+' '+(cy+hh).toFixed(1)+'L'+(cx+hh).toFixed(1)+' '+(cy-hh*0.85).toFixed(1)+'L'+(cx-hh).toFixed(1)+' '+(cy-hh*0.85).toFixed(1)+'Z" fill="'+fillCol+'" fill-opacity="'+fillOp+'"'+belowStroke+champRing+'/>'+glyph;}
           if(type==='HYBRID \u2193DD')
-            return ring+'<path d="M'+(cx-h).toFixed(1)+' '+y+'L'+(cx+h).toFixed(1)+' '+y+'M'+x+' '+(cy-h).toFixed(1)+'L'+x+' '+(cy+h).toFixed(1)+'" fill="none" stroke="'+col+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-opacity="'+so+'"/>';
+            return ring+'<path d="M'+(cx-h).toFixed(1)+' '+y+'L'+(cx+h).toFixed(1)+' '+y+'M'+x+' '+(cy-h).toFixed(1)+'L'+x+' '+(cy+h).toFixed(1)+'" fill="none" stroke="'+col+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-opacity="'+so+'"'+dashExtra+'/>'+glyph;
           if(type==='KEEL'){const hh=h*0.9;
-            return ring+'<path d="M'+(cx-hh).toFixed(1)+' '+(cy-hh).toFixed(1)+'L'+(cx+hh).toFixed(1)+' '+(cy+hh).toFixed(1)+'M'+(cx-hh).toFixed(1)+' '+(cy+hh).toFixed(1)+'L'+(cx+hh).toFixed(1)+' '+(cy-hh).toFixed(1)+'" fill="none" stroke="'+col+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-opacity="'+so+'"/>';}
-          return '<circle cx="'+x+'" cy="'+y+'" r="'+(h*0.85).toFixed(1)+'" fill="'+col+'" fill-opacity="'+foV+'"'+champRing+'/>';};
+            return ring+'<path d="M'+(cx-hh).toFixed(1)+' '+(cy-hh).toFixed(1)+'L'+(cx+hh).toFixed(1)+' '+(cy+hh).toFixed(1)+'M'+(cx-hh).toFixed(1)+' '+(cy+hh).toFixed(1)+'L'+(cx+hh).toFixed(1)+' '+(cy-hh).toFixed(1)+'" fill="none" stroke="'+col+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-opacity="'+so+'"'+dashExtra+'/>'+glyph;}
+          return '<circle cx="'+x+'" cy="'+y+'" r="'+(h*0.85).toFixed(1)+'" fill="'+fillCol+'" fill-opacity="'+fillOp+'"'+belowStroke+champRing+'/>'+glyph;};
         const _reSz={champ:9,good:6.6,frag:6.6,fail:6.2,ref:6.4};
         // MARKS: plain dots by default. A verdict shape per point - circle, square,
         //   triangle, cross - is readable at twenty points and a wall of icons at eight
@@ -29990,7 +30053,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +td(winCell,'left')):'')
             +td('<span title="'+_reEsc(_reReadTip(st,rw))+'" style="color:'+col+';display:inline-block;max-width:'+(_reSplit?90:130)+'px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;cursor:help">'+_reEsc(rw.read)+'</span>','left')
             // item 14 (owner: "move this junk to the end of the row, move the important stuff like the kpis up front"): CONFIG - the long name and its badges - is the least useful thing to see first when scanning a row for numbers, so it sits last now; RANK / FAMILY / RUN stay up front, pinned, as the identifying columns (see _reStickyCss).
-            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b><span title="permanent row handle" style="color:var(--text5);font-size:8px;margin-left:4px">'+rw.n+'</span>'+((showSt||_reSplitRun)?_reRunChip(rw):'')+_reFamTag(st,rw)+_reLiveInline(rw)+_reFlagChips(_reFlags)
+            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b><span title="permanent row handle" style="color:var(--text5);font-size:8px;margin-left:4px">'+rw.n+'</span>'+((showSt||_reSplitRun)?_reRunChip(rw):'')+_reFamTag(st,rw)+_reLiveInline(rw)+_reLevChipOf(st,rw)+_reFlagChips(_reFlags)
               +(showSt?('<span title="'+_reEsc('Researched in the study: '+st.title+'. In ONE TABLE view the studies are pooled, so each row says where it came from.')+'" style="font-size:7px;letter-spacing:.4px;padding:1px 4px;border-radius:4px;margin-left:5px;color:var(--text5);border:1px solid var(--border2);cursor:help">'+_reEsc((String(st.title).length>24)?(String(st.title).slice(0,23)+'…'):st.title)+'</span>'):''),'left')+'</tr>';};
         // ═══ THE ONE SCATTER ═══
         //  Owner ask, 2026-08-19: "this was originally supposed to be one scatter plot and it
@@ -30687,6 +30750,38 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'<line x1="'+L+'" y1="'+B+'" x2="'+R+'" y2="'+B+'" stroke="var(--text3)" stroke-width="1.8"/>'
               +_ticks;
             const tipF=['dd','tot','lb','trd'];
+            // LEVERAGE LINE (owner ask via MANAGER, 2026-09-28, inbox #12): for every run on this
+            //   chart with at least one classified row, draw its line from zero through its plain
+            //   twin, a faint +/-10% wedge either side of it, and the twin itself - all BEFORE the
+            //   points, so the marks land on top of the geometry rather than under it. One line per
+            //   RUN, not per row: a run's GATE, TILT and three HYBRID sizings all share one twin.
+            if(_reLevOn){
+              const _reLevRay=(dx0,dy0)=>{
+                const rx1=px(0),ry1=py(0),rx2=px(dx0),ry2=py(dy0);
+                const ddx=rx2-rx1,ddy=ry2-ry1;let t=Infinity;
+                if(ddx>0)t=Math.min(t,(R-rx1)/ddx);else if(ddx<0)t=Math.min(t,(L-rx1)/ddx);
+                if(ddy>0)t=Math.min(t,(B-ry1)/ddy);else if(ddy<0)t=Math.min(t,(T-ry1)/ddy);
+                if(!isFinite(t)||t<1)t=1;
+                return {x1:rx1,y1:ry1,x2:rx1+t*ddx,y2:ry1+t*ddy};};
+              const _reLevSeen={};
+              pts.forEach(function(p){
+                const rid=p.r&&p.r._run;if(rid==null||_reLevSeen[rid]!=null)return;
+                if(!_reLevOf(p.st,p.r))return;
+                _reLevSeen[rid]=p;});
+              const _reLevRunIds=Object.keys(_reLevSeen);
+              if(_reLevRunIds.length){
+                g+='<defs><clipPath id="relevclip"><rect x="'+L+'" y="'+T+'" width="'+(R-L)+'" height="'+(B-T)+'"/></clipPath></defs><g clip-path="url(#relevclip)">';
+                _reLevRunIds.forEach(function(rid){
+                  const p=_reLevSeen[rid],tw=_reTwinOf(p.st,p.r);if(!tw||!(tw.x>0))return;
+                  const lo=_reLevRay(tw.x,tw.y*0.9),hi=_reLevRay(tw.x,tw.y*1.1),mid=_reLevRay(tw.x,tw.y);
+                  g+='<line x1="'+lo.x1.toFixed(1)+'" y1="'+lo.y1.toFixed(1)+'" x2="'+lo.x2.toFixed(1)+'" y2="'+lo.y2.toFixed(1)+'" stroke="var(--text5)" stroke-width="1" opacity="0.35"/>'
+                    +'<line x1="'+hi.x1.toFixed(1)+'" y1="'+hi.y1.toFixed(1)+'" x2="'+hi.x2.toFixed(1)+'" y2="'+hi.y2.toFixed(1)+'" stroke="var(--text5)" stroke-width="1" opacity="0.35"/>'
+                    +'<line x1="'+mid.x1.toFixed(1)+'" y1="'+mid.y1.toFixed(1)+'" x2="'+mid.x2.toFixed(1)+'" y2="'+mid.y2.toFixed(1)+'" stroke="var(--text4)" stroke-width="1.2" stroke-dasharray="5,4"/>';
+                  const tcx=px(tw.x),tcy=py(tw.y);
+                  g+='<rect x="'+(tcx-4).toFixed(1)+'" y="'+(tcy-4).toFixed(1)+'" width="8" height="8" fill="none" stroke="var(--text4)" stroke-width="1.3"/>'
+                    +'<circle cx="'+tcx.toFixed(1)+'" cy="'+tcy.toFixed(1)+'" r="1.6" fill="var(--text4)"/>'
+                    +(showN?('<text x="'+(tcx+7).toFixed(1)+'" y="'+(tcy+3).toFixed(1)+'" fill="var(--text4)" font-size="9" font-weight="600">plain #'+rid+'</text>'):'');});
+                g+='</g>';}}
             // plot the biggest first so the smaller marks land on top and stay readable
             pts.slice().sort((a,b)=>b.y-a.y).forEach(p=>{
               // ON THE 1E CONFIGS VIEW THE COLOUR IS THE FAMILY, not the verdict
@@ -30707,6 +30802,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   stays on the chart, only its opacity moves.
               const _reFlags=_reFlagsOf(r);
               const dim=(_reSplitRun&&!runs.length)||_reFlags.some(function(fl){return fl.grey;});
+              // LEVERAGE LINE classification for THIS point, computed once and reused by both the
+              //   mark's fill/glyph and the hover sentence below.
+              const _reLv=_reLevOn?_reLevOf(st,r):null;
               // 850 marks at report size is a wall of icons (owner: "icons too big,
               //   convoluted"). Past ~250 points everything scales down together -
               //   marks, rings and halos all key off sz, so nothing gets out of step.
@@ -30757,6 +30855,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               if(_reLiveV(r)!=='none')tp+=' | '+_reLiveNm[_reLiveV(r)];
               if(dim)tp+=' | never run as a validate run';
               if(_reFlags.length)tp+=' | '+_reFlags.map(function(fl){return fl.txt+': '+fl.tip;}).join(' | ');
+              if(_reLv)tp+=' | '+_reLv.why;
               tp+=' | click to jump to its row in its own study table below';
               tp+=' | right-click to hide this dot for now - the chart refits, and SHOW ALL under the chart brings it back';
               // STATUS rings. The verdict already owns the SHAPE, so status rides as a ring
@@ -30780,10 +30879,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 //   is a slightly larger dot with a white ring. Under 250 points the shape
                 //   system draws exactly as before.
                 +((pts.length>250)
-                  ?(r._cfg?_reCfgMark(r.fam,cx,cy,champ?3.8:2.8,col,dim?0.16:(champ?1:0.7),champ,dim):('<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(champ?'3.4':'2')
+                  ?(r._cfg?_reCfgMark(r.fam,cx,cy,champ?3.8:2.8,col,dim?0.16:(champ?1:0.7),champ,dim,(_reLv?_reLv.cls:null)):('<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(champ?'3.4':'2')
                     +'" fill="'+col+'" fill-opacity="'+(dim?'0.16':(champ?'1':'0.7'))
                     +(champ?('" stroke="var(--text)" stroke-opacity="'+(dim?'0.3':'1')+'" stroke-width="1.2'):'')+'"/>'))
-                  :(r._cfg?_reCfgMark(r.fam,cx,cy,sz,col,dim?0.16:(champ?0.95:0.72),champ,dim):_reShape(r.tone,cx,cy,sz,col,dim?0.16:(champ?0.95:0.72),dim?0.3:1)))
+                  :(r._cfg?_reCfgMark(r.fam,cx,cy,sz,col,dim?0.16:(champ?0.95:0.72),champ,dim,(_reLv?_reLv.cls:null)):_reShape(r.tone,cx,cy,sz,col,dim?0.16:(champ?0.95:0.72),dim?0.3:1)))
                 +(showN?('<text x="'+(cx+sz+4.5).toFixed(1)+'" y="'+(cy+4+Math.min(_di,6)*10).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(dim?0.4:1)+'" font-size="11" font-weight="700" style="pointer-events:none">'+_reEsc((_reFamsOn.length>1)?(_reFamOf(st,r)+' '+r.n):String(r.n))+'</text>'):'')
                 +'<title>'+_reEsc(tp)+'</title></g>';});
           }else{
@@ -31730,6 +31829,31 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   whose keel walk FAILED carries {error} - both contribute no row at all.
               (function(){const K=(GV&&GV.keel&&!GV.keel.error)?GV.keel:null;if(!K)return;
                 szRow(K,'KEEL','KEEL '+String(K.version||''),'one');})();
+              // LEVERAGE LINE's PLAIN TWIN, stamped once per run rather than re-derived per row.
+              //   UNGby IS the plain twin - the gate bake-off's own ungated fixed champion on the
+              //   SAME blocks the GATE / TILT / HYBRID / KEEL rows above were just measured on - so
+              //   it wins whenever it actually covers the ticked stretch. Where it does not (an older
+              //   run, or a stretch combination the bake-off never stitched), the run's own RAW
+              //   crowned candidate is the nearest thing on this board to "the plain config" and
+              //   stands in instead - _twinFallback says so, for the chip and the hover sentence.
+              (function(){
+                const U=UNGby,hasU=!!(U.is||U.wf||U.lb||U.pre||U.wf_lb||U.full);
+                const uTwin=hasU?{n:0,name:'#'+RID+' plain twin',_cfg:1,_tab:'RAW',fam:'RAW',tone:'champ',
+                  _sp:SPAN,_mu:mult,_sf:1,_run:RID,runs:[+RID],
+                  _st:{is:U.is||null,wf:U.wf||null,lb:U.lb||null,pre:U.pre||null,wf_lb:U.wf_lb||null,full:U.full||null},
+                  is:((U.is&&U.is.total_pnl!=null)?U.is.total_pnl*mult:null),
+                  wf:((U.wf&&U.wf.total_pnl!=null)?U.wf.total_pnl*mult:null),
+                  lb:((U.lb&&U.lb.total_pnl!=null)?U.lb.total_pnl*mult:null),
+                  tot:((U.full&&U.full.total_pnl!=null)?U.full.total_pnl*mult:null),
+                  dd:((U.full&&U.full.max_drawdown!=null)?Math.abs(U.full.max_drawdown)*mult:null)}:null;
+                const uOk=!!(uTwin&&_reDdp(null,uTwin)!=null&&_reRoc(null,uTwin)!=null);
+                let twin=uOk?uTwin:null,fellBack=false;
+                if(!twin){
+                  const champ=CROWS.filter(function(r){return r._run===RID&&r._tab==='RAW'&&r.tone==='champ';})[0]||null;
+                  if(champ&&_reDdp(null,champ)!=null&&_reRoc(null,champ)!=null){twin=champ;fellBack=true;}
+                }
+                CROWS.forEach(function(r){if(r._run===RID){r._twin=twin;r._twinFallback=fellBack;}});
+              })();
             }});
           // EVERY TICKED RUN ACCOUNTED FOR (owner 2026-08-30: "what do you mean 11 of 21
           //   contributed nothing?"). A run can be on the chart, still loading, or hold no
@@ -32200,6 +32324,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +_reBtn('data-respreset="risk"','RISK',(_reAxis==='evr'&&_reXAxis==='ddr'),'RISK - expectancy in R up the side against DRAWDOWN IN R across. Reward and risk measured in the SAME unit, the average losing trade, so the pair is honest about size. Upper LEFT is the good corner: a big edge per bet that never dug a deep hole. This is the pair to check a candidate on before adopting it.',_TONE.samp)
             +_reBtn('data-respreset="qual"','QUALITY',(_reAxis==='evr'&&_reXAxis==='so'),'QUALITY - Sortino across against expectancy in R up the side. Sortino charges a strategy only for its DOWNSIDE swings, so this asks whether the edge arrived smoothly or in a few lucky jumps. Upper right is a big edge earned calmly.',_TONE.samp)
             +_reBtn('data-respreset="money"','MONEY',(_reAxis==='raw'&&_reXAxis==='ddp'),'MONEY - the profit itself up the side against drawdown as a percent of the account across. The reporting pair, not the picking pair: it says what the strategy would have paid and what it would have cost to sit through, in units you can compare against anything else you might do with the capital.',_TONE.samp)
+            +_reBtn('data-respreset="lev"','LEVERAGE LINE',_reLevOn,'LEVERAGE LINE - the owner\u2019s grey-area test for an ML or sized row: is its ROC growing at least in proportion to its drawdown? Plots ROC % / YR up the side against worst drawdown as a percent of the account across, draws a straight line from zero through each run\u2019s PLAIN TWIN (its ungated reading on the same blocks the gate bake-off measured), and marks every GATE, TILT, HYBRID or KEEL row of that run ABOVE the line (more ROC per % of drawdown - efficiency), ON it within 10% (the plain config just traded bigger - leverage) or BELOW (worse). Needs 1E CONFIGS: a per-run dot has no ML or sized variant to grade.',_TONE.samp)
           ,_TONE.samp);
         const _reXAxisBtns=_reCtl('','HORIZONTAL AXIS','what the width of the chart measures. DRAWDOWN is the original question - what a variant cost in pain for what it paid - but it is measured in DOLLARS, so it flatters a row that traded small and punishes one that ran long. The other three are size-blind and window-blind. For a straight comparison across everything, put SORTINO here and EV IN R up the side.',
             _reBtn('data-resxaxis="so"','SORTINO',_reXAxis==='so','annualised return charged for its DOWNSIDE only. Size-blind and frequency-fair, which makes it the best single across-everything measure this board holds.',_TONE.samp)
@@ -32589,6 +32714,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           return '&nbsp;&nbsp;<b style="color:var(--text4)">'+n+' not on this chart:</b> '
             +ks.sort(function(a,b){return b-a;}).map(function(k){return '#'+k+'×'+sk[k];}).join(' ')
             +' <span title="These configurations are in the table but record nothing for one of the two ticked axes, so they cannot be placed. Almost always a run validated before the engine started writing Sharpe and Sortino onto every candidate block - re-validating that run fills them in. The count follows the axes you pick." style="cursor:help">ⓘ</span>';})();
+        const _reLevLegend=_reLevOn?('<div style="font-size:8.5px;color:var(--text5);margin-top:7px">'
+          +'<b style="color:var(--text4)">LEVERAGE LINE</b> \u2014 each line runs from zero through a run\u2019s plain twin. '
+          +'\u25b2 above = more ROC per % of drawdown (efficiency); = on the line (within 10%) = the plain config traded bigger (leverage); \u25bc below = worse. '
+          +(_reShowCfg?'Needs 1E CONFIGS.':'The lines appear on 1E CONFIGS.')
+          +'</div>'):'';
         const _reChartTile=tile(
             '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">'
@@ -32605,6 +32735,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                +'<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">'
                +_reAxisBtns+_reXAxisBtns+'</div>'
                +''+'</div>'))
+            +_reLevLegend
             +_reMissNote
             +((_reShowCfg&&(_reCfgEmpty.length||Object.keys(_reCfgBy).length))
               ?('<div style="font-size:8.5px;color:var(--text5);margin-top:7px">'
@@ -40103,11 +40234,23 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // QUALITY used to set vertical Sortino / horizontal EV R - the opposite of what
         //   its own description says (item 11, owner audit round 2). The description is the
         //   owner's intent; the click now matches it.
-        const P={edge:['evr','rpy'],risk:['evr','ddr'],qual:['evr','so'],money:['raw','ddp']}
+        const P={edge:['evr','rpy'],risk:['evr','ddr'],qual:['evr','so'],money:['raw','ddp'],lev:['roc','ddp']}
                  [b.getAttribute('data-respreset')];
-        if(!P)return;savePref('resAxis',P[0]);savePref('resXAxis',P[1]);renderApp();};});
-      content.querySelectorAll('[data-resxaxis]').forEach(b=>{b.onclick=()=>{savePref('resXAxis',b.getAttribute('data-resxaxis'));renderApp();};});
-      content.querySelectorAll('[data-resaxis]').forEach(b=>{b.onclick=()=>{savePref('resAxis',b.dataset.resaxis);renderApp();};});
+        if(!P)return;savePref('resAxis',P[0]);savePref('resXAxis',P[1]);
+        // LEVERAGE LINE also flips its own pref, drops CHAMPION mode (it reads absolute figures
+        //   against a straight line, not a difference from a crown) and needs 1E CONFIGS - only
+        //   there do the GATE / TILT / HYBRID / KEEL rows it grades exist. Every OTHER preset -
+        //   and a manual axis click below - turns the pref back off.
+        const _reIsLev=(b.getAttribute('data-respreset')==='lev');
+        savePref('resLev',_reIsLev);
+        if(_reIsLev){
+          savePref('resRel','abs');
+          if(String(APREF.resShow||'runs')!=='configs')savePref('resShow','configs');
+          if(APREF.resLvl!=='valid'&&APREF.resLvl!=='all')savePref('resLvl','valid');
+        }
+        renderApp();};});
+      content.querySelectorAll('[data-resxaxis]').forEach(b=>{b.onclick=()=>{savePref('resXAxis',b.getAttribute('data-resxaxis'));savePref('resLev',false);renderApp();};});
+      content.querySelectorAll('[data-resaxis]').forEach(b=>{b.onclick=()=>{savePref('resAxis',b.dataset.resaxis);savePref('resLev',false);renderApp();};});
       content.querySelectorAll('[data-reschart]').forEach(b=>{b.onclick=()=>{savePref('resChart',b.dataset.reschart);renderApp();};});
       content.querySelectorAll('[data-relvl]').forEach(b=>{b.onclick=()=>{savePref('resLvl',b.getAttribute('data-relvl'));renderApp();};});
       content.querySelectorAll('[data-recfgfam]').forEach(b=>{b.onclick=()=>{

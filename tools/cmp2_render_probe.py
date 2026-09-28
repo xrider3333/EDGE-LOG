@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 144
+N_CASES = 145
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -5257,6 +5257,123 @@ var FIX = __FIX__;
           'ROC30: the row with no lockbox reading is correctly left off the chart (both axes null for it)': !dashPtEl
         }, {pillIds:pillIds,expectOrder:expectOrder,rowGood:rowGood,rowDash:rowDash,roc30Expected:roc30Expected,mar30:mar30,axisVal:axisVal,watchPickAlive:watchPickAlive,bodyA2Has991400:bodyA2.indexOf('991400')>=0});
       })();
+
+      // -- case l1_explore_leverage (owner ask via MANAGER, 2026-09-28, inbox #12): the LEVERAGE
+      //    LINE view on COMPARE > EXPLORE - ROC % / YR against worst drawdown % of the account, a
+      //    line from zero through each run's plain twin (its ungated reading), and every GATE /
+      //    TILT / HYBRID / KEEL row of that run marked ABOVE / ON / BELOW it. One run, three ML
+      //    rows built to land exactly ABOVE (2x net at the same drawdown), ON (1.5x net AND 1.5x
+      //    drawdown) and BELOW (same net at 2x drawdown) on the WF+LB tick.
+      (function(){
+        var errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function findRowBy(sub){return [].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){return (t.textContent||'').indexOf(sub)>=0;})[0]||null;}
+        function levChipOf(tr){if(!tr)return null;
+          var spans=[].slice.call(tr.querySelectorAll('span[title]'));
+          return spans.filter(function(s){var t=(s.textContent||'').trim();return t==='\u25b2 ABOVE'||t==='= ON'||t==='\u25bc BELOW';})[0]||null;}
+        function pointTitleFor(sub){
+          var ts=[].map.call(d.querySelectorAll('[data-repoint]'),function(g){var t=g.querySelector('title');return t?(t.textContent||''):'';});
+          return ts.filter(function(t){return t.indexOf(sub)>=0;})[0]||null;}
+        function allSvgHtml(){return [].map.call(d.querySelectorAll('svg'),function(el){return el.outerHTML;}).join('');}
+
+        var RID=8802001, MULT=20;
+        var A={id:RID,strategy:'ORB_9_9_1_0.py',starred:false,multiplier:MULT,instrument:'NQ',timeframe:'5m',
+          date_from:'2020-01-01',date_to:'2026-01-01',
+          validate:{verdict:'PASS',total_trades:400,total_win_rate:42,total_avg_win:900,total_avg_loss:-300,total_dd:9000,
+            windows:{optimize:['2020-01-01','2024-01-01'],wf_split:'2024-01-01',lockbox:['2025-01-01','2026-01-01']},
+            lockbox:{pnl:10000,trades:50,pf:1.4,win_rate:42,dd:-2000,pass:true}},
+          selection:{candidates:[{
+            crowned:true,
+            cal:{is:{total_pnl:100},wf:{total_pnl:500}},
+            lb_equity:{final:1100},
+            is_rng:{total_pnl:100,max_drawdown:-30,num_trades:20,profit_factor:1.4,win_rate:44},
+            wf_rng:{total_pnl:500,max_drawdown:-80,num_trades:60,profit_factor:1.4,win_rate:44},
+            lockbox:{total_pnl:500,max_drawdown:-60,num_trades:50,profit_factor:1.4,win_rate:44},
+            wf_lb:{max_drawdown:-100,num_trades:110,profit_factor:1.4,win_rate:44},
+            full:{total_pnl:1100,max_drawdown:-100,num_trades:130},
+            metrics:{max_drawdown:-100}
+          }],robust:[]},
+          gate_validate:{
+            span:['2020-01-01','2026-01-01'],wf_range:['2024-01-01','2025-01-01'],lockbox_from:'2025-01-01',
+            candidates:[{
+              model:'gm1',threshold:0.5,
+              is_rng:{total_pnl:200,max_drawdown:-40,num_trades:30,profit_factor:1.4,win_rate:44},
+              wf_rng:{total_pnl:1000,max_drawdown:-160,num_trades:80,profit_factor:1.4,win_rate:44},
+              lockbox:{total_pnl:1000,max_drawdown:-120,num_trades:70,profit_factor:1.4,win_rate:44},
+              wf_lb:{max_drawdown:-100,num_trades:150,profit_factor:1.4,win_rate:44},
+              full:{total_pnl:2200,max_drawdown:-160,num_trades:180},
+              pre:{total_pnl:1200,max_drawdown:-150,num_trades:110,profit_factor:1.4,win_rate:44},
+              pre_pnl:1200,pre_rec:150,kept_pre:110,pre_pf:1.4,pre_wr:44
+            }],
+            tilts:[{
+              model:'tm1',scheme:'linear',n_trades:140,
+              is_rng:{total_pnl:150,max_drawdown:-30,num_trades:20,profit_factor:1.4,win_rate:44},
+              wf_rng:{total_pnl:750,max_drawdown:-120,num_trades:70,profit_factor:1.4,win_rate:44},
+              lockbox:{total_pnl:750,max_drawdown:-90,num_trades:70,profit_factor:1.4,win_rate:44},
+              wf_lb:{max_drawdown:-150,num_trades:140,profit_factor:1.4,win_rate:44},
+              full:{total_pnl:1500,max_drawdown:-150,num_trades:140},
+              pre:{total_pnl:1500,max_drawdown:-150,num_trades:140,profit_factor:1.4,win_rate:44}
+            }],
+            hybrids:[{
+              model:'hm1',n_trades:100,
+              is_rng:{total_pnl:100,max_drawdown:-40,num_trades:20,profit_factor:1.3,win_rate:40},
+              wf_rng:{total_pnl:500,max_drawdown:-160,num_trades:50,profit_factor:1.3,win_rate:40},
+              lockbox:{total_pnl:500,max_drawdown:-120,num_trades:50,profit_factor:1.3,win_rate:40},
+              wf_lb:{max_drawdown:-200,num_trades:100,profit_factor:1.3,win_rate:40},
+              full:{total_pnl:1000,max_drawdown:-200,num_trades:100},
+              pre:{total_pnl:1000,max_drawdown:-200,num_trades:100,profit_factor:1.3,win_rate:40}
+            }],
+            ungated_wf:{total_pnl:500,max_drawdown:-80},
+            ungated_lockbox:{total_pnl:500,max_drawdown:-60},
+            ungated_wf_lb:{total_pnl:1000,max_drawdown:-100}
+          }};
+        var wc="var F="+JSON.stringify(A)+";var doc=(typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(F)):F;"
+          +"runHistory=[doc];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();window._runCfg={};window._runCfg[String(doc.id)]=doc;";
+
+        var PREFS_ON={c2Screen:'explore',resLvl:'valid',resShow:'configs',resSegs:['wf','lb'],resAxis:'roc',resXAxis:'ddp',resLev:true,c2Tbl:true,resCols:'all',resCfgRun:[String(RID)]};
+        var callOn=doRender(PREFS_ON, wc); chk('on');
+
+        var rowCount=d.querySelectorAll('tr[data-rerow]').length;
+        var presetBtn=d.querySelector('[data-respreset="lev"]');
+        var presetOn=presetBtn?((presetBtn.getAttribute('style')||'').indexOf('color:var(--text);')>=0):false;
+
+        var trGate=findRowBy('#'+RID+' GATE gm1'), trTilt=findRowBy('#'+RID+' TILT tm1'), trHyb=findRowBy('#'+RID+' HYBRID hm1');
+        var chipGate=levChipOf(trGate), chipTilt=levChipOf(trTilt), chipHyb=levChipOf(trHyb);
+        // the redeploy and equal-drawdown sizings of the same hybrid are ML / sized rows too - each
+        //   must carry a class chip (lead review 2026-09-28: the equal-DD tab name was misspelt in
+        //   the classifier, so those rows were silently never graded).
+        var chipHybR=levChipOf(findRowBy('#'+RID+' HYBRID \u267b hm1')), chipHybD=levChipOf(findRowBy('#'+RID+' HYBRID \u2193DD hm1'));
+
+        var ptGate=pointTitleFor('#'+RID+' GATE GM1'), ptTilt=pointTitleFor('#'+RID+' TILT TM1'), ptHyb=pointTitleFor('#'+RID+' HYBRID HM1');
+        var twinLabelCount=(allSvgHtml().match(new RegExp('plain #'+RID,'g'))||[]).length;
+
+        var PREFS_OFF=Object.assign({},PREFS_ON,{resLev:false});
+        var callOff=doRender(PREFS_OFF, wc); chk('off');
+        var chipGateOff=levChipOf(findRowBy('#'+RID+' GATE gm1'));
+        var chipTiltOff=levChipOf(findRowBy('#'+RID+' TILT tm1'));
+        var twinLabelCountOff=(allSvgHtml().match(new RegExp('plain #'+RID,'g'))||[]).length;
+
+        dfxCase('l1_explore_leverage',[callOn,callOff],{
+          'renders OK on the LEVERAGE LINE tick and on the plain tick':callOn==='OK'&&callOff==='OK',
+          'no console errors on either render':errAcc.length===0,
+          'the LEVERAGE LINE preset reads on':!!presetBtn&&presetOn,
+          'every fixture row is still in the table - six rows, nothing hidden':rowCount===6,
+          'the chart draws exactly one plain-twin line for this run':twinLabelCount===1,
+          'the GATE row (2x net, same drawdown) carries the ABOVE chip':!!trGate&&!!chipGate&&/ABOVE/.test(chipGate.textContent||''),
+          'the TILT row (1.5x net, 1.5x drawdown) carries the ON chip':!!trTilt&&!!chipTilt&&(chipTilt.textContent||'').trim()==='= ON',
+          'the HYBRID row (same net, 2x drawdown) carries the BELOW chip':!!trHyb&&!!chipHyb&&/BELOW/.test(chipHyb.textContent||''),
+          'the HYBRID redeploy row carries a class chip too':!!chipHybR,
+          'the HYBRID equal-drawdown row carries a class chip too':!!chipHybD,
+          'the GATE point hover also reads ABOVE its plain twin':!!ptGate&&/ABOVE its plain twin/.test(ptGate),
+          'the TILT point hover also reads ON THE LINE its plain twin':!!ptTilt&&/ON THE LINE its plain twin/.test(ptTilt),
+          'the HYBRID point hover also reads BELOW its plain twin':!!ptHyb&&/BELOW its plain twin/.test(ptHyb),
+          'the ON row (TILT) hover states about 50% more ROC for 50% more drawdown':!!chipTilt&&/50% more ROC for 50% more drawdown/.test(chipTilt.getAttribute('title')||''),
+          'with the preset off, the GATE row carries no leverage chip':!chipGateOff,
+          'with the preset off, the TILT row carries no leverage chip':!chipTiltOff,
+          'with the preset off, the chart draws no plain-twin line':twinLabelCountOff===0
+        },{rowCount:rowCount,presetOn:presetOn,chipGate:chipGate&&chipGate.textContent,chipTilt:chipTilt&&chipTilt.textContent,chipHyb:chipHyb&&chipHyb.textContent,chipTiltTitle:chipTilt&&chipTilt.getAttribute('title'),ptGate:ptGate,ptTilt:ptTilt,ptHyb:ptHyb,twinLabelCount:twinLabelCount,twinLabelCountOff:twinLabelCountOff,errAcc:errAcc});
+      })();
+
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -7452,6 +7569,7 @@ def main(argv=None):
     DFX += ['x1_explore_flags']
     DFX += ['y1_explore_money']
     DFX += ['k3_rb_roc30_warm']
+    DFX += ['l1_explore_leverage']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
