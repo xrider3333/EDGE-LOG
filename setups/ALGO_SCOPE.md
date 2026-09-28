@@ -21,6 +21,31 @@ on NOISE #382 days, same direction, and it loses $61,806 on days NOISE is flat: 
 trend day NOISE already trades. ENGU, CBD, EBU and ENGD have no edge as written rules. **Round 1 is closed; nothing goes
 forward.** STUDIES rows 1752-1766.
 
+## Catch-rate check (2026-09-28)
+
+Track B step 1, run on the three coded rules that exist, with no tuning (`tools/setups_catch_rate.py`; the
+matching rule is written in its header and was fixed before it ran). Question: of your 44 labelled futures
+journal trades (38 long, 6 short), how many would each rule have flagged at the same moment, and how many alerts
+a day would it ring? "Same minute" = an alert on your signal candle or one either side; "within 5" = within five
+minutes. Alerts are counted once per run of back-to-back alert candles. Bars: roll-corrected 1-minute ES/NQ with
+the July hole filled from the NinjaTrader capture; 2026-04-07 to 2026-09-25, 122 sessions.
+
+- **#427 (CBU-Q crown):** 3 of your 12 CBU trades at the same minute (3 of the 6 inside its 09:30-10:29 window),
+  4 of your 38 longs within 5 minutes. About 2 alerts a day across ES+NQ, on about half the days; on your trading
+  days about 1 alert in 8 was a trade you took.
+- **The triage cell (CBU, prior-day high, first 30 minutes, 2x volume):** 2 of 12 CBU; about one alert every three
+  days; 2 of its 9 alerts on your trading days were your trades.
+- **ENGU 2.0 (defaults):** 8 of your 17 ENGU trades at the same minute, plus 5 of 9 EBU and 1 CBU (14 of 38 longs;
+  18 within 5 minutes), but about 41 alerts a day across ES+NQ, and only 1 in 25 was a trade you took.
+- The 2026-09-24 12:20 MNQ EBU trade: only ENGU 2.0 comes close (an alert at 12:15).
+- A year's lookback (2025-09-26 to 2026-09-25) gives the same alert rates.
+
+**Reading:** no coded rule is at "most of your setups at 2-3 alerts a day". The CBU rules ring at the right rate
+but miss three in four of your CBU trades, partly because half your CBU trades come after their morning window.
+The ENGU trigger fires on the right candle half the time, but you pick about one in forty of its candles: the
+filter is the levels and context you judge by eye, which are not coded. An alert is only worth building if those
+levels can be written down (owner calls below).
+
 ## The short version
 
 1. **The mechanical versions of these setups are already dead or closed here.** The shop tested almost
