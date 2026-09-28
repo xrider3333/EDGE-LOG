@@ -181,8 +181,25 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // zone conversion instead of guessing -- otherwise the two clocks disagree by
                 // a full bar plus three hours and the interlock would cry mismatch on every
                 // single request.
+                //
+                // OWN FINISHED-BAR PRICES (owner-approved 2026-09-28). We ask the instant
+                // this bar closes (Calculate.OnBarClose), so Open[0]/High[0]/Low[0]/Close[0]
+                // /Volume[0] right here ARE that same just-closed bar -- the one `barTime`
+                // (its open) names. The service's own 10-second capture rebuilds the same bar
+                // from a separate file and can still be a few seconds behind at the exact
+                // moment we ask (2026-09-28 11:00 ET: "capture covers through 1790607590,
+                // short of bar-end 1790607600" -> FAIL-OPEN, an ungated short). Sending our
+                // own finished OHLCV lets the service score on THIS bar instead of waiting on
+                // that capture; it validates and ignores these if they look wrong (see
+                // api/gate_live.py _sane_ohlcv/_apply_nt_bar), so a bad read here degrades to
+                // the pre-existing capture-only behaviour, never to a fabricated decision.
                 string url = GateUrl + (GateUrl != null && GateUrl.IndexOf('?') >= 0 ? "&" : "?")
-                           + "bar=" + Uri.EscapeDataString(Iso(barTime));
+                           + "bar=" + Uri.EscapeDataString(Iso(barTime))
+                           + "&o=" + Uri.EscapeDataString(F(Open[0], "0.##########"))
+                           + "&h=" + Uri.EscapeDataString(F(High[0], "0.##########"))
+                           + "&l=" + Uri.EscapeDataString(F(Low[0], "0.##########"))
+                           + "&c=" + Uri.EscapeDataString(F(Close[0], "0.##########"))
+                           + "&v=" + Uri.EscapeDataString(F(Volume[0], "0.##########"));
                 var req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create(url);
                 req.Method  = "GET";
                 req.Timeout = GateTimeoutMs;            // hard deadline; expired = fail-open
