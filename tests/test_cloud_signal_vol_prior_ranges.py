@@ -80,7 +80,10 @@ def test_real_crown_legs_only_noise_382_opts_in():
     ENGUQ_335 must get NOTHING (item 4 of the go-live audit spec)."""
     assert cs._leg_accepts_vol_prior_ranges(cs.CROWN_LEGS["NOISE_382"]["strategy"]) is True
     assert cs._leg_accepts_vol_prior_ranges(cs.CROWN_LEGS["ORB_R6"]["strategy"]) is False
-    assert cs._leg_accepts_vol_prior_ranges(cs.CROWN_LEGS["ENGUQ_335"]["strategy"]) is False
+    # ENGUQ_335 is a shadow leg since 2026-09-28 (same cfg); the #422 shadow legs' CT304H
+    # opts in exactly like NOISE_382's file
+    assert cs._leg_accepts_vol_prior_ranges(cs.SHADOW_LEGS["ENGUQ_335"]["strategy"]) is False
+    assert cs._leg_accepts_vol_prior_ranges(cs.SHADOW_LEGS["NOISE_422_PLAIN"]["strategy"]) is True
 
 
 # ── synthetic bar builders (no network, no real bar cache) ───────────────────────────────
@@ -311,7 +314,9 @@ def test_real_orb_and_enguq_legs_get_nothing_from_vol_prior_ranges_for_leg(tmp_p
     arrays = _intraday_arrays(overlap_dates, five_min)
     now = pd.Timestamp("2026-03-10 12:00", tz=cs.TZ).to_pydatetime()
     for leg_key in ("ORB_R6", "ENGUQ_335"):
-        out = cs.vol_prior_ranges_for_leg(cs.CROWN_LEGS[leg_key], arrays, now, paths=paths,
+        # ENGUQ_335 is a shadow leg since 2026-09-28 (same cfg)
+        out = cs.vol_prior_ranges_for_leg(dict(cs.CROWN_LEGS, **cs.SHADOW_LEGS)[leg_key], arrays,
+                                          now, paths=paths,
                                           fetch=False, log=lambda m: None)
         assert out is None, leg_key
 

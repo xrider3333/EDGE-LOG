@@ -33,7 +33,8 @@ files, because both write the very same shared OHLC cache and Windows refuses th
 rename outright while any reader -- including the OTHER writer's own read of the same
 file -- still has it open.
 
-THE THREE CROWN LEGS (as of 2026-09-24; NOISE swapped by OWNER DECISION 2026-09-23):
+THE CROWN (LIVE) LEGS (as of 2026-09-28; NOISE swapped by OWNER DECISION 2026-09-23,
+ENGU-Q moved to the shadow legs by OWNER DECISION 2026-09-28 -- see SHADOW LEGS below):
   ORB_R6      run #314, ORB_3_6_R6.py, api.paper.ORB_314, 5m RTH, no gate.
   NOISE_382   run #382, NOISE_1_8_CT304.py, params below, 5m RTH, no gate.
               (repointed 2026-09-24 -- run #382 is the #304 crown's own core, written out
@@ -45,7 +46,24 @@ THE THREE CROWN LEGS (as of 2026-09-24; NOISE swapped by OWNER DECISION 2026-09-
               itself, not kept alongside. api/paper.py's OWN "NOISE_304" leg (the
               NinjaTrader PAPER board, api.paper.NOISE_304_NBHD) is a DIFFERENT book and
               is UNCHANGED and unrelated to this one.)
+
+SHADOW LEGS (OWNER DECISION 2026-09-28, via MANAGER) -- SHADOW_LEGS below. Same engine,
+same bars, NO orders: they write only to their own store, <home>/cloud_signal/shadow/
+(state.json + signals.csv -- see shadow_paths), which api/qqq_exec.py never reads, so
+nothing they do can reach Webull, the live legs, their caps or their state. They exist
+so the Custom ML chat can score would-be trades (docs/PREREG_noise_shadow_forward_
+2026-09-28.md; tools/shadow_legs_report.py reads the ledger). Run by run_shadow_step()
+from cloud_signal_thread, after the live step, on fetch ticks only.
+  NOISE_422_PLAIN   run #422, NOISE_1_8_CT304H.py, NOISE_422_PARAMS, 5m RTH, no KEEL.
+  NOISE_422_FIXED   the same + KEEL v12's fixed tilts, no model (research arm A3).
+  NOISE_422_KEEL    the same + KEEL v12 learned, its own nightly state (NOISE_422_KEEL_v12_*).
   ENGUQ_335   run #335, ENGUQ_1M_ETH_R2_1_0.py, api.paper.ENGUQ_335, 1m **ETH**, no gate.
+              Live until 2026-09-28: the box ledgers showed every ENGU-Q Webull order was
+              closed by qqq_exec's 15:59 end-of-day flatten, never by the strategy's own
+              multi-day exit (owner: no flat-at-close variant) -- so it now only logs its
+              would-be trades, with its own exits, to the shadow ledger. Its cfg is moved
+              unchanged (phantom_safe, max_entry_age_sec). api/qqq_exec.py keeps
+              "ENGUQ_335" in ENGINE_LEG_MAP so an old live row still resolves.
 
 ENGINE LIMITATION, READ BEFORE TRUSTING THE ENGUQ_335 LEG. The ENGU-Q family crown
 moved to an ETH (23-hour NQ futures) config on 2026-09-08. yfinance QQQ bars (this
@@ -170,6 +188,29 @@ def _paths(home=None):
 # run gets isolated_paths() or an explicit paths dict (see isolated_paths, 2026-09-14).
 DEFAULT_PATHS = _paths()
 
+
+def shadow_paths(live_paths=None):
+    """The SHADOW LEGS' store (OWNER DECISION 2026-09-28): the same keys as _paths(), with
+    ohlc_dir = the LIVE store's own bar cache (the shadow legs read the very bars the live
+    legs do -- QQQ_5m/QQQ_1m/QQQ_1d.csv and any backfill -- and never write them) and every
+    state file under <live state_dir>/shadow/. api/qqq_exec.py reads only
+    DEFAULT_PATHS["signals_path"], so nothing written here can ever become an order.
+    Built from `live_paths` (default DEFAULT_PATHS, read at call time) so a test that
+    repoints DEFAULT_PATHS gets a matching shadow store under it."""
+    live_paths = live_paths or DEFAULT_PATHS
+    state_dir = os.path.join(live_paths["state_dir"], "shadow")
+    return {
+        "home": live_paths["home"],
+        "ohlc_dir": live_paths["ohlc_dir"],
+        "state_dir": state_dir,
+        "signals_path": os.path.join(state_dir, "signals.csv"),
+        "state_path": os.path.join(state_dir, "state.json"),
+        # the shadow run's OWN heartbeat (run_shadow_step) -- never the live one, which
+        # api/qqq_exec.py's engine-mode feed check reads
+        "heartbeat_path": os.path.join(state_dir, "heartbeat.json"),
+    }
+
+
 # ── Crown legs (current as of 2026-09-24 — see api/paper.py PAPER_LEGS) ─────────────────
 # NOISE_382 (OWNER DECISION 2026-09-23): run #382's champion cell, read literally from the
 # run's own doc. NOISE_1_8_CT304.py is FENCED (_ADMISSIBLE/_in_neighbourhood) -- it REFUSES
@@ -178,6 +219,16 @@ DEFAULT_PATHS = _paths()
 # gate_tf_min in {30, 60}, gate_len in {16, 20}, gate_ratio in {1.0, 1.15},
 # tilt_mult in {1.0, 1.5, 2.0} -- every value below sits on one of those points.
 NOISE_382_PARAMS = {"tilt_mult": 2.0, "gate_tf_min": 30, "gate_len": 16, "gate_ratio": 1.15}
+
+# NOISE #422 (SHADOW LEGS, OWNER DECISION 2026-09-28): run #422's crowned cell, read
+# literally from the run's own record (NOISE.md "NOISE #422 (NOISE-55, CT304H)";
+# tools/r61_noise_382_live_gaps.py carries the same literal). NOISE_1_8_CT304H.py is FENCED
+# exactly like NOISE_1_8_CT304.py -- it REFUSES (returns None) a configuration outside its
+# declared neighbourhood rather than clamp one, so this dict must carry the exact cell the
+# run picked. gate_len in {16, 20, 24}, gate_ratio in {0.85, 1.0, 1.15}, tilt_mult in
+# {1.25, 1.5, 1.75} -- every value below sits on one of those points. There is NO
+# gate_tf_min key: the file freezes the verification frame at 60 minutes itself.
+NOISE_422_PARAMS = {"tilt_mult": 1.75, "gate_len": 20, "gate_ratio": 1.15}
 
 
 # ── KEEL v12 overlay (OWNER DECISION 2026-09-23) ─────────────────────────────────────────
@@ -190,6 +241,35 @@ NOISE_382_PARAMS = {"tilt_mult": 2.0, "gate_tf_min": 30, "gate_len": 16, "gate_r
 # -- see that function's own docstring. KEEL_MAX_STALE_SESSIONS caps how many trading
 # sessions a state may lag "now" before it is treated as unavailable rather than trusted.
 KEEL_MAX_STALE_SESSIONS = 5
+
+# THREE SHAPES OF A LEG'S "keel" KEY (2026-09-27, docs/PREREG_keel_422_parts_2026-09-27.md
+# RESULT; all three run side by side on the NOISE #422 shadow legs since 2026-09-28):
+#   learned  dict(version="v12", **keel_paths(<leg>, "v12"))  -- the model, trained nightly on
+#            the box (tools/keel_live_state.py) and scored from its state file (no "mode"
+#            key, or mode="learned"). NOISE_382 (live) and NOISE_422_KEEL (shadow).
+#   fixed    dict(version="v12", mode="fixed")  -- v12's a-priori tilts with NO model
+#            (augur_engine/ml_keel.py's fixed_tilt_sizes_v12, arm A3 of that pre-registration:
+#            compression 1.5x, Friday 1.5x, capped at 3, half size before an FOMC statement).
+#            No state file, no nightly build, no staleness check. NOISE_422_FIXED (shadow).
+#   none     no "keel" key at all -- the plugin's own size. ORB_R6, NOISE_422_PLAIN, ENGUQ_335.
+# Any other "mode" is a configuration error: every entry sizes 1.0 and the fallback push says
+# so (see _keel_size_for_entry / _keel_fallback_reason), same as a broken learned state.
+KEEL_MODE_LEARNED = "learned"
+KEEL_MODE_FIXED = "fixed"
+KEEL_FIXED_VERSIONS = ("v12",)   # the fixed tilts exist for v12 only (ml_keel.FIXED_V12_*)
+
+
+def keel_mode(keel_cfg):
+    """The mode of a leg's "keel" block (see THREE SHAPES above): "learned" or "fixed",
+    None for no block, or the raw lower-cased "mode" string when it is neither -- which
+    every reader treats as a configuration error, never as either mode. Never raises."""
+    if not keel_cfg:
+        return None
+    try:
+        mode = str(keel_cfg.get("mode") or KEEL_MODE_LEARNED).strip().lower()
+    except Exception:
+        return "?"
+    return mode
 
 
 def keel_paths(leg_key, version, home=None):
@@ -225,10 +305,54 @@ CROWN_LEGS = {
         # (WEBULL_PAPER_TODO.md item 16, owner GO 2026-09-26) -- see _decide_at_close_probe.
         "decide_at_close": True,
     },
+    # ENGUQ_335 moved to SHADOW_LEGS below, unchanged (OWNER DECISION 2026-09-28) -- it
+    # sends no Webull orders from that deploy on.
+}
+
+# ── Shadow legs (OWNER DECISION 2026-09-28) -- see the module docstring's SHADOW LEGS ────
+# Run by run_shadow_step() on the SAME bars as CROWN_LEGS, into shadow_paths()'s store only.
+# "shadow": True is a second, independent guard beside run_shadow_step's fetch=False: every
+# ntfy push step()/_diff_leg can reach checks it (see _push_allowed), so a shadow leg can
+# never page the owner even if a future caller ran it with fetch=True. Keys must not collide
+# with CROWN_LEGS (tests/test_shadow_legs.py) -- a trade id carries the leg key.
+SHADOW_LEGS = {
+    # NOISE #422 plain: the plugin's own size (1.0, or 1.75 while the hourly squeeze is on).
+    "NOISE_422_PLAIN": {
+        "strategy": "NOISE_1_8_CT304H.py",
+        "timeframe": "5m",
+        "params": dict(NOISE_422_PARAMS),
+        "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
+        "decide_at_close": True,
+        "shadow": True,
+    },
+    # + KEEL v12's fixed tilts, no model (research arm A3) -- see THREE SHAPES above keel_paths.
+    "NOISE_422_FIXED": {
+        "strategy": "NOISE_1_8_CT304H.py",
+        "timeframe": "5m",
+        "params": dict(NOISE_422_PARAMS),
+        "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
+        "keel": dict(version="v12", mode=KEEL_MODE_FIXED),
+        "decide_at_close": True,
+        "shadow": True,
+    },
+    # + KEEL v12 learned: its OWN nightly state, trained on #422's NQ walk under this key's
+    # file names (tools/keel_live_state.py builds every learned leg in both dicts). Until the
+    # first build lands every entry scores 1.0 -- silently, see _push_allowed.
+    "NOISE_422_KEEL": {
+        "strategy": "NOISE_1_8_CT304H.py",
+        "timeframe": "5m",
+        "params": dict(NOISE_422_PARAMS),
+        "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
+        "keel": dict(version="v12", **keel_paths("NOISE_422_KEEL", "v12")),
+        "decide_at_close": True,
+        "shadow": True,
+    },
+    # Moved here unchanged from CROWN_LEGS (was live until 2026-09-28) -- see the docstring.
     "ENGUQ_335": {
         "strategy": "ENGUQ_1M_ETH_R2_1_0.py",
         "timeframe": "1m",
-        # phantom_safe=True (2026-09-26, WEBULL_GO_LIVE.md 3.7): ONLY this live leg opts in.
+        # phantom_safe=True (2026-09-26, WEBULL_GO_LIVE.md 3.7): ONLY this leg opts in (live until
+        # 2026-09-28, a shadow leg since).
         # phantom_safe is a run_backtest KEYWORD ARGUMENT, not a DEFAULT_PARAMS entry (kept out
         # of DEFAULT_PARAMS on purpose so no search space ever sweeps it -- see that file's own
         # comment just above DEFAULT_PARAMS' closing brace). The strategy's own default is False
@@ -245,6 +369,7 @@ CROWN_LEGS = {
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
         # see module docstring "ENGINE LIMITATION" — flagged, not hidden
         "caveat": "ETH-fit crown running on an RTH-only QQQ tape — exploratory, not evidence-backed",
+        "shadow": True,
     },
 }
 
@@ -1520,17 +1645,31 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print):
     block or delay the trade it would have merely resized. The second return value is
     a short human-readable reason string on any fallback, or a diagnostics dict
     (z/trust/rho/t_fast) on a real score -- for logging only.
+
+    A mode="fixed" block (see THREE SHAPES above keel_paths) never reaches the state
+    file: _keel_fixed_size_for_entry scores it, under the same contract. An unknown mode
+    is a configuration error -> 1.0 with its reason, like any other fallback. So is a
+    learned block with no "state_path" (dict(version="v12") alone, or a misspelt "mode"
+    KEY, both read as learned): _diff_leg and step()'s per-leg loop have no try of their
+    own, so a KeyError here would stop every leg's tick, not just this entry's KEEL.
     """
     if not keel_cfg or entry_bar is None:
         return 1.0, None
-    state, summary = _load_keel_state(keel_cfg["state_path"], keel_cfg.get("summary_path", ""),
-                                      log=log)
+    mode = keel_mode(keel_cfg)
+    if mode == KEEL_MODE_FIXED:
+        return _keel_fixed_size_for_entry(keel_cfg, arrays, entry_bar, log=log)
+    if mode != KEEL_MODE_LEARNED:
+        return 1.0, f"unknown keel mode {mode!r}"
+    state_path = keel_cfg.get("state_path")
+    if not state_path:
+        return 1.0, "keel config has no state_path"
+    state, summary = _load_keel_state(state_path, keel_cfg.get("summary_path", ""), log=log)
     if state is None:
         return 1.0, "keel state unavailable"
     try:
         # ITEM D (2026-09-25): staleness must be counted from the DATA, not the last
         # trade. "last_nq_session" (ml_keel.py's own field) is the date of the last NQ
-        # #382 TRADE the state was fitted on -- on a quiet run of NQ sessions with no
+        # NOISE TRADE the state was fitted on -- on a quiet run of NQ sessions with no
         # trade at all, that date stops advancing even though tools/keel_live_state.py
         # keeps rebuilding on fully current data every night, which would eventually
         # (after KEEL_MAX_STALE_SESSIONS quiet sessions) trip this guard and fall back
@@ -1562,6 +1701,40 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print):
         return 1.0, f"keel scoring error: {type(e).__name__}: {e}"
 
 
+def _keel_fixed_size_for_entry(keel_cfg, arrays, entry_bar, log=print):
+    """keel_size for ONE new entry on a mode="fixed" leg: v12's fixed tilts, no model
+    (augur_engine.ml_keel.fixed_tilt_sizes_v12) at `entry_bar` of `arrays` -- the arrays
+    _diff_leg was handed. Same contract as _keel_size_for_entry: a finite float > 0, 1.0
+    with a short reason string on ANY failure (logged, never raised), a small diagnostics
+    dict on a real score.
+
+    DECIDE-AT-CLOSE. For a probe entry `arrays` are the probe's (bar D plus two flat
+    stand-ins) and `entry_bar` is the stand-in S1, which carries the real D+1 bar's own
+    start time and session. Every tilt reads only what is known at that bar's open: the
+    compression state of the last COMPLETE 60-minute group before it (the stand-ins sit in
+    S1's own group or later, never in an earlier one), and the weekday and FOMC
+    pre-statement hour of its start time. So the probe's size equals the full-history
+    backtest's at the real entry bar (tests/test_noise_422_keel_fixed.py checks it).
+
+    An entry_bar outside `arrays` (should never happen) is a fallback with its reason, not
+    clamped onto the nearest bar and scored there silently."""
+    try:
+        version = keel_cfg.get("version")
+        if version not in KEEL_FIXED_VERSIONS:
+            return 1.0, f"keel fixed tilts: unsupported version {version!r}"
+        from augur_engine import ml_keel as _keel
+        row, n_bars = int(entry_bar), len(arrays["close"])
+        if not 0 <= row < n_bars:
+            return 1.0, f"keel fixed tilts: entry_bar {row} out of range (0..{n_bars - 1})"
+        size = float(_keel.fixed_tilt_sizes_v12(arrays, [row])[0])
+        if not math.isfinite(size) or size <= 0:
+            return 1.0, f"keel fixed tilts returned a non-finite/non-positive size ({size!r})"
+        return size, {"mode": KEEL_MODE_FIXED, "version": version}
+    except Exception as e:
+        log(f"[cloud-signal] KEEL fixed tilts failed: {type(e).__name__}: {e}")
+        return 1.0, f"keel fixed tilts error: {type(e).__name__}: {e}"
+
+
 def _keel_fallback_reason(keel_cfg, now, arrays=None, log=print):
     """Would KEEL fall back to keel_size 1.0 right now, and if so why -- a STANDALONE
     freshness read, independent of any actual trade entry. _keel_size_for_entry above
@@ -1581,10 +1754,22 @@ def _keel_fallback_reason(keel_cfg, now, arrays=None, log=print):
     Returns a short human-readable reason string on any fallback condition, or None
     when KEEL looks healthy. NEVER raises -- any exception anywhere in this check
     itself is caught and reported back as its own reason, exactly like a real scoring
-    exception would be."""
+    exception would be.
+
+    A mode="fixed" block has no state and nothing to go stale: healthy (None) unless its
+    version has no fixed tilts. An unknown mode is always reported."""
     try:
-        state, summary = _load_keel_state(keel_cfg["state_path"], keel_cfg.get("summary_path", ""),
-                                          log=log)
+        mode = keel_mode(keel_cfg)
+        if mode == KEEL_MODE_FIXED:
+            version = keel_cfg.get("version")
+            return (None if version in KEEL_FIXED_VERSIONS
+                    else f"keel fixed tilts: unsupported version {version!r}")
+        if mode != KEEL_MODE_LEARNED:
+            return f"unknown keel mode {mode!r}"
+        state_path = keel_cfg.get("state_path")
+        if not state_path:
+            return "keel config has no state_path"
+        state, summary = _load_keel_state(state_path, keel_cfg.get("summary_path", ""), log=log)
         if state is None:
             return "keel state unavailable"
         last_session = (summary or {}).get("data_through") or (summary or {}).get("last_nq_session")
@@ -1613,6 +1798,18 @@ def _is_cloud_host():
     owner's phone with a false "keel state unavailable" every trading day -- see
     _maybe_push_keel_fallback's caller in step()."""
     return str(os.environ.get("EDGELOG_HOST_ROLE") or "").strip().lower() == "cloud"
+
+
+def _push_allowed(cfg, fetch):
+    """May a KEEL fallback push fire for this leg on this tick? Only on a LIVE (fetching)
+    tick, on the cloud box (_is_cloud_host), for a leg that is NOT a shadow leg
+    (cfg["shadow"], SHADOW_LEGS -- OWNER DECISION 2026-09-28: shadow legs never page the
+    owner). The ONE gate both push sites use (step()'s standalone freshness push and
+    _diff_leg's scoring-time push); for every CROWN_LEGS leg (no "shadow" key) it is exactly
+    the `fetch and _is_cloud_host()` test those two sites carried before it existed.
+    run_shadow_step also steps with fetch=False, so a shadow leg is silenced twice over --
+    a NOISE_422_KEEL with no state yet on the box scores 1.0 and says nothing."""
+    return bool(fetch) and not (cfg or {}).get("shadow") and _is_cloud_host()
 
 
 def _this_host_id():
@@ -2015,7 +2212,7 @@ def leg_decision_trades(cfg, arrays, leg_key, tf, now, paths, fetch, log=print):
 
 
 # ── The core entry point ───────────────────────────────────────────────────────────────
-def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
+def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources=None):
     """One signal-engine tick. For each leg: load cached bars (optionally refreshed
     from yfinance first), restrict to bars CLOSED as of `now`, run the engine over the
     rolling warm-up window, and diff the resulting trade list against what was last
@@ -2044,6 +2241,10 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
     note instead of raising, so a transient disk/lock hiccup does not make
     api/qqq_exec.py's engine-mode feed check see a stale heartbeat and block entries
     over something that never affected the signals it will act on.
+    `bar_sources`: optional {timeframe: "webull"/"yfinance"} for a fetch=False call whose
+    bars a fetching caller has JUST refreshed on disk (run_shadow_step, 2026-09-28): it is
+    recorded and stamped exactly as a fetch's own source would be. Ignored for a timeframe
+    this call fetched itself; None (every other caller) changes nothing.
     """
     legs = legs if legs is not None else CROWN_LEGS
     if paths is None:
@@ -2074,6 +2275,8 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
                 warnings["cache_write_failed"] = True
         elif tf not in tf_cache:
             tf_cache[tf] = historical_bars(tf, paths)
+            if bar_sources and bar_sources.get(tf):
+                tf_source[tf] = bar_sources[tf]
         epoch_df = tf_cache[tf]
         leg_state = state["legs"].setdefault(key, {"trades": {}})
         if epoch_df is None or not len(epoch_df):
@@ -2119,8 +2322,9 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
         # replay (--replay always passes fetch=False) hits the same gate: replaying N
         # historical days with a live NTFY_TOPIC set must never send N false pushes for
         # a "staleness" that is just how far in the past the replay's own `now` is.
+        # Never for a shadow leg (cfg["shadow"] -- see _push_allowed).
         keel_cfg = (cfg or {}).get("keel")
-        if keel_cfg and fetch and _is_cloud_host():
+        if keel_cfg and _push_allowed(cfg, fetch):
             _maybe_push_keel_fallback(key, keel_cfg, now, state, arrays=arrays)
 
         # run_leg_trades (+ the decide_at_close probe for a flagged leg) -- shared with the
@@ -2317,7 +2521,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 # state dict. Same live+cloud-box gate as step()'s own push: the PC
                 # runner scores KEEL too (import-only, no state directory), so without
                 # this gate it would page a false "keel state unavailable" on its own.
-                if fetch and _is_cloud_host() and isinstance(_diag, str):
+                # Never for a shadow leg (cfg["shadow"] -- see _push_allowed).
+                if isinstance(_diag, str) and _push_allowed(cfg, fetch):
                     alert = leg_state.setdefault("keel_alert", {})
                     if alert.get("last_pushed_date") != today:
                         _keel_ntfy_push(
@@ -2720,6 +2925,91 @@ def _serving_hosts_ok(log=print):
                    "-- refusing to run the signal engine")
 
 
+# ── Shadow run (OWNER DECISION 2026-09-28) -- see the module docstring's SHADOW LEGS ─────
+# One shadow failure log line per this many seconds at most (the rest are counted and
+# reported with the next line) -- a broken shadow leg must not flood the runner log either.
+SHADOW_ERROR_LOG_EVERY_SEC = 600.0
+_SHADOW_ERR = {"last_logged": 0.0, "suppressed": 0}
+
+
+def shadow_only_timeframes(live_legs=None, shadow_legs=None):
+    """The timeframes a shadow leg reads that NO live leg does, sorted -- today ["1m"]
+    (ENGUQ_335). The live step already fetches every live timeframe once per fetch tick;
+    run_shadow_step fetches only these, so each timeframe is fetched exactly once per tick
+    (Webull rate-limits with 429) and the 1m cache stays fresh with ENGU-Q off the book."""
+    live_legs = CROWN_LEGS if live_legs is None else live_legs
+    shadow_legs = SHADOW_LEGS if shadow_legs is None else shadow_legs
+    live_tfs = {cfg["timeframe"] for cfg in live_legs.values()}
+    return sorted({cfg["timeframe"] for cfg in shadow_legs.values()} - live_tfs)
+
+
+def run_shadow_step(now=None, fetch=True, live_legs=None, shadow_legs=None, live_paths=None,
+                    log=print):
+    """One tick of the SHADOW LEGS, run AFTER the live step on the same tick. Returns the
+    shadow events this call emitted (written to shadow_paths()' ledger only).
+
+      1. On a fetch tick, fetch_and_merge each shadow_only_timeframes() timeframe into the
+         LIVE bar cache -- the only network this ever does. A timeframe a live leg uses is
+         never fetched here: the live step fetched it moments ago on this same tick.
+      2. step() over `shadow_legs` with fetch=False into the shadow store: the same engine,
+         the same on-disk bars the live step just refreshed, the same QQQ_1d.csv. fetch=False
+         means no network, no daily-cache refresh and no ntfy push (and every shadow cfg
+         carries "shadow": True, the second guard -- see _push_allowed).
+      3. Stamp the shadow store's OWN heartbeat -- never the live heartbeat.
+
+    The live store is only ever READ here (its state.json's bar_source, to label the
+    shadow rows with the feed that priced them) -- never written. May raise: the thread
+    calls it through _shadow_tick, which never does."""
+    shadow_legs = SHADOW_LEGS if shadow_legs is None else shadow_legs
+    if not shadow_legs:
+        return []
+    live_legs = CROWN_LEGS if live_legs is None else live_legs
+    live_paths = live_paths or DEFAULT_PATHS
+    spaths = shadow_paths(live_paths)
+    sources = {tf: info.get("source") for tf, info in (read_bar_source(live_paths) or {}).items()
+               if isinstance(info, dict) and info.get("source")}
+    notes = []
+    if fetch:
+        for tf in shadow_only_timeframes(live_legs, shadow_legs):
+            try:
+                _df, src, cache_ok = fetch_and_merge(tf, live_paths, log=log)
+                sources[tf] = src
+                if not cache_ok:
+                    notes.append(f"{tf} cache_write_failed")
+            except Exception as e:     # the shadow step still runs off the cache on disk
+                notes.append(f"{tf} fetch failed: {type(e).__name__}: {e}")
+    events = step(now=now, legs=shadow_legs, paths=spaths, fetch=False, bar_sources=sources)
+    _write_heartbeat(spaths, ok=True,
+                     note=f"{len(events)} shadow event(s)" + ("; " + "; ".join(notes) if notes else ""))
+    return events
+
+
+def _shadow_tick(now, fetch, log=print):
+    """cloud_signal_thread's ONE call into the shadow legs: run_shadow_step, NEVER raising
+    into the live loop. A failure stamps the shadow heartbeat ok=false (best-effort) and
+    logs at most once per SHADOW_ERROR_LOG_EVERY_SEC, with how many were held back."""
+    try:
+        events = run_shadow_step(now=now, fetch=fetch, log=log)
+        for e in events:
+            log(f"[cloud-signal] SHADOW {e['event']} {e['leg']} {e.get('side','')} "
+                f"@ {e.get('ref_price','')} ({e.get('ref_time','')}) size={e.get('size','')}")
+        return events
+    except Exception as e:
+        try:
+            _write_heartbeat(shadow_paths(), ok=False, note=f"{type(e).__name__}: {e}")
+        except Exception:
+            pass
+        now_wall = _time.time()
+        if now_wall - _SHADOW_ERR["last_logged"] >= SHADOW_ERROR_LOG_EVERY_SEC:
+            held = _SHADOW_ERR["suppressed"]
+            _SHADOW_ERR["last_logged"], _SHADOW_ERR["suppressed"] = now_wall, 0
+            log(f"[cloud-signal] shadow step failed (live legs unaffected): "
+                f"{type(e).__name__}: {e}" + (f" [+{held} more since the last line]" if held else ""))
+        else:
+            _SHADOW_ERR["suppressed"] += 1
+        return []
+
+
 def cloud_signal_thread(stop=None, log=print):
     """Runner-hosted PARALLEL RUN. Steps the signal engine through every session so the
     QQQ-bar signals accumulate beside the NinjaTrader-mirrored shadow book, which is the
@@ -2755,6 +3045,11 @@ def cloud_signal_thread(stop=None, log=print):
     _refuse_beside_live_writer's own docstring) -- this IS the live writer, and a stale
     heartbeat left by an old --loop or a runner restart must not stop it from starting.
 
+    SHADOW LEGS (OWNER DECISION 2026-09-28): after each successful FETCH tick's live step
+    and heartbeat, _shadow_tick runs the SHADOW_LEGS into their own store (see
+    run_shadow_step). It never raises into this loop and never writes the live heartbeat,
+    state.json or signals.csv.
+
     SERVING_HOSTS GATE (2026-09-26): checked FIRST, before anything else here -- see
     _serving_hosts_ok. This is both the runner's in-process thread (PC) and the box's
     own systemd ExecStart, so one check here covers both call sites; an excluded host
@@ -2769,6 +3064,13 @@ def cloud_signal_thread(stop=None, log=print):
         log_history_windows(log=log)
     except Exception as e:                     # diagnostic only -- must never block startup
         log(f"[cloud-signal] history window logging failed ({type(e).__name__}: {e}) -- continuing")
+    if SHADOW_LEGS:
+        log(f"[cloud-signal] shadow legs: {', '.join(SHADOW_LEGS)} (no orders; ledger "
+            f"{shadow_paths()['signals_path']})")
+        try:
+            log_history_windows(legs=SHADOW_LEGS, log=log)
+        except Exception as e:                 # same: diagnostic only
+            log(f"[cloud-signal] shadow history window logging failed ({type(e).__name__}: {e})")
     try:
         from api import cloud_signal_stream as _stream_mod
     except Exception as e:
@@ -2812,6 +3114,13 @@ def cloud_signal_thread(stop=None, log=print):
                 for e in events:
                     log(f"[cloud-signal] {e['event']} {e['leg']} {e.get('side','')} "
                         f"@ {e.get('ref_price','')} ({e.get('ref_time','')}) {e.get('reason','')}")
+                # SHADOW LEGS (OWNER DECISION 2026-09-28): only AFTER the live step and its
+                # heartbeat, and only on a fetch tick -- the bars on disk only move when a
+                # fetch lands, so the ~1s hand-off-window fast ticks between (fetch=False)
+                # have nothing new for a shadow leg and are left to the live legs alone.
+                # _shadow_tick never raises; its store is <state_dir>/shadow/.
+                if do_fetch:
+                    _shadow_tick(now_et, fetch=True, log=log)
             else:
                 _write_heartbeat(DEFAULT_PATHS, ok=True, note="outside session hours")
         except Exception as e:                            # a bad step must never kill the run

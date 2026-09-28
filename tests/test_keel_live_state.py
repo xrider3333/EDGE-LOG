@@ -1,5 +1,7 @@
 """tests/test_keel_live_state.py -- tools/keel_live_state.py, the nightly KEEL v12
-state builder for the NOISE_382 leg (OWNER DECISION 2026-09-23, design doc D).
+state builder (OWNER DECISION 2026-09-23, design doc D) -- since 2026-09-28 for EVERY
+learned-KEEL leg in api/cloud_signal's CROWN_LEGS and SHADOW_LEGS: the live NOISE_382 leg
+and the NOISE_422_KEEL shadow leg, each under its own file names.
 
 Runs entirely on small synthetic data -- no dependency on the real NQ master (not
 present in a worktree, see BACKTEST_SPEED.md rule 3) or on serviceAccount.json. The
@@ -24,13 +26,55 @@ import tools.keel_live_state as kls          # noqa: E402
 import api.cloud_signal as cs                 # noqa: E402
 
 
-# ── the one place these facts are duplicated must never drift ────────────────────────────
-def test_strategy_facts_match_cloud_signals_own_crown_leg():
-    leg = cs.CROWN_LEGS["NOISE_382"]
-    assert kls.STRATEGY_FILE == leg["strategy"]
-    assert kls.STRATEGY_PARAMS == leg["params"]
-    assert kls.LEG_KEY == "NOISE_382"
-    assert leg["keel"]["version"] == kls.VERSION
+QUIET = lambda *a, **k: None   # noqa: E731
+
+
+# ── the legs come from CROWN_LEGS / SHADOW_LEGS themselves -- nothing duplicated to drift ─
+def test_nightly_default_builds_every_learned_keel_leg_live_first():
+    """NOISE_382 (live) and NOISE_422_KEEL (shadow), in that order, each read straight off
+    its own cfg; the fixed-tilt and plain #422 legs, ORB_R6 and ENGUQ_335 have nothing to
+    build and are not listed."""
+    legs = kls.resolve_legs()
+    assert [(l["leg_key"], l["live"]) for l in legs] == [("NOISE_382", True), ("NOISE_422_KEEL", False)]
+    for leg in legs:
+        cfg = dict(cs.CROWN_LEGS, **cs.SHADOW_LEGS)[leg["leg_key"]]
+        assert leg["strategy"] == cfg["strategy"]
+        assert leg["params"] == cfg["params"]
+        assert leg["version"] == cfg["keel"]["version"] == kls.VERSION
+
+
+def test_live_keel_leg_is_still_run_382_exactly():
+    """What this script carried as literals before 2026-09-28 -- unchanged for the live leg."""
+    leg = kls.resolve_leg()
+    assert leg == {"leg_key": "NOISE_382", "strategy": "NOISE_1_8_CT304.py",
+                   "params": {"tilt_mult": 2.0, "gate_tf_min": 30, "gate_len": 16,
+                              "gate_ratio": 1.15},
+                   "version": "v12", "live": True}
+    shadow = kls.resolve_leg("NOISE_422_KEEL")
+    assert shadow["strategy"] == "NOISE_1_8_CT304H.py" and shadow["live"] is False
+    assert shadow["params"] == cs.NOISE_422_PARAMS
+
+
+def test_resolve_refuses_rather_than_guess():
+    plain = {"ORB_R6": {"strategy": "ORB_3_6_R6.py", "params": {}}}
+    with pytest.raises(kls.LegResolutionError, match="found 0"):
+        kls.resolve_legs(crown_legs=plain, shadow_legs={})
+    with pytest.raises(kls.LegResolutionError, match="found 0"):
+        kls.resolve_leg(crown_legs=plain, shadow_legs={})
+    fixed = {"F": {"strategy": "f.py", "keel": {"version": "v12", "mode": "fixed"}}}
+    with pytest.raises(kls.NothingToBuild, match="fixed tilts"):
+        kls.resolve_legs(crown_legs=plain, shadow_legs=fixed)
+    bad = {"B": {"strategy": "b.py", "keel": {"version": "v12", "mode": "fixd"}}}
+    with pytest.raises(kls.LegResolutionError, match="unknown keel mode"):
+        kls.resolve_legs(crown_legs=dict(plain, **bad), shadow_legs={})
+    # on a shadow leg only it is dropped, not raised -- with nothing else to build that is
+    # still the loud "found 0" failure
+    with pytest.raises(kls.LegResolutionError, match="found 0"):
+        kls.resolve_legs(crown_legs=plain, shadow_legs=bad)
+    for key, why in (("ORB_R6", "no \"keel\" block"), ("NOISE_422_PLAIN", "no \"keel\" block"),
+                     ("NOISE_422_FIXED", "not a learned model"), ("NOT_A_LEG", "unknown leg")):
+        with pytest.raises(kls.LegResolutionError, match=why):
+            kls.resolve_leg(key)
 
 
 # ── a small, real, NQ-master-shaped CSV to drive load_nq_arrays/build on ─────────────────
@@ -114,6 +158,7 @@ def test_build_writes_a_loadable_state_and_a_json_safe_summary(tmp_path):
     out_dir = tmp_path / "out"
     state, summary = kls.build(str(path), str(out_dir), version="v12", log=lambda *a, **k: None)
 
+    # the live KEEL leg's own names -- exactly what cloud_signal.keel_paths reads
     state_path = out_dir / "NOISE_382_v12_state.joblib"
     summary_path = out_dir / "NOISE_382_v12_summary.json"
     # atomic swap (2026-09-24): both files land by rename -- nothing half-written is left behind
@@ -128,7 +173,9 @@ def test_build_writes_a_loadable_state_and_a_json_safe_summary(tmp_path):
     with open(summary_path, encoding="utf-8") as f:
         disk_summary = json.load(f)
     assert disk_summary["leg"] == "NOISE_382"
-    assert disk_summary["strategy"] == kls.STRATEGY_FILE
+    assert disk_summary["strategy"] == "NOISE_1_8_CT304.py"
+    assert disk_summary["params"] == cs.NOISE_382_PARAMS
+    assert "leg_live" not in disk_summary, "the live leg's summary keeps exactly its old keys"
     assert disk_summary["nq_file_sha256"] and len(disk_summary["nq_file_sha256"]) == 64
     assert disk_summary["build_seconds"] >= 0
     assert "timings_seconds" in disk_summary
@@ -158,7 +205,7 @@ def test_data_through_is_the_last_bar_even_with_no_recent_trade(tmp_path, monkey
     # nine quiet closing sessions in a row with no NQ trade whatsoever.
     early_trades = [(5, 8, 12.5), (20, 25, -4.0), (40, 44, 6.25)]
     monkeypatch.setattr(kls, "run_nq_backtest",
-                        lambda arr, log=print: (list(early_trades), {"total_pnl": 14.75}))
+                        lambda arr, leg=None, log=print: (list(early_trades), {"total_pnl": 14.75}))
 
     state, summary = kls.build(str(path), str(out_dir), version="v12", log=lambda *a, **k: None)
 
@@ -194,3 +241,186 @@ def test_check_against_run_doc_skips_cleanly_without_credentials(tmp_path, monke
     result = kls.check_against_run_doc(run_id=382, log=logged.append)
     assert result is None
     assert logged and "skipping run-doc check" in logged[-1]
+
+
+# ── the nightly run: every learned leg, one master read, failures isolated ──────────────
+def _fake_backtest(seen):
+    def fake(arr, leg=None, log=print):
+        seen.append(leg["leg_key"])
+        return [(5, 8, 12.5), (20, 25, -4.0), (40, 44, 6.25)], {"total_pnl": 14.75}
+    return fake
+
+
+def _run_main(argv, monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["keel_live_state.py"] + argv)
+    return kls.main()
+
+
+def test_main_builds_both_learned_legs_under_their_own_names_reading_the_master_once(
+        tmp_path, monkeypatch):
+    nq = _write_master_csv(tmp_path / "nq.csv", n_full_days=10, seed=3)
+    out = tmp_path / "out"
+    seen, loads = [], []
+    monkeypatch.setattr(kls, "run_nq_backtest", _fake_backtest(seen))
+    real_load = kls.load_master
+    monkeypatch.setattr(kls, "load_master", lambda f, log=print: loads.append(f) or real_load(f, log=QUIET))
+    assert _run_main(["--nq-file", str(nq), "--out-dir", str(out)], monkeypatch) is None
+    assert seen == ["NOISE_382", "NOISE_422_KEEL"] and len(loads) == 1
+    names = sorted(p.name for p in out.iterdir())
+    assert names == ["NOISE_382_v12_state.joblib", "NOISE_382_v12_summary.json",
+                     "NOISE_422_KEEL_v12_state.joblib", "NOISE_422_KEEL_v12_summary.json"]
+    # exactly the files the two legs' cfgs read
+    for key, cfg in (("NOISE_382", cs.CROWN_LEGS["NOISE_382"]),
+                     ("NOISE_422_KEEL", cs.SHADOW_LEGS["NOISE_422_KEEL"])):
+        assert os.path.basename(cfg["keel"]["state_path"]) == f"{key}_v12_state.joblib"
+        assert os.path.basename(cfg["keel"]["summary_path"]) == f"{key}_v12_summary.json"
+    with open(out / "NOISE_422_KEEL_v12_summary.json", encoding="utf-8") as f:
+        sh = json.load(f)
+    assert sh["leg"] == "NOISE_422_KEEL" and sh["leg_live"] is False
+    assert sh["strategy"] == "NOISE_1_8_CT304H.py" and sh["params"] == cs.NOISE_422_PARAMS
+
+
+def test_a_shadow_build_failure_never_fails_the_run_or_the_live_build(tmp_path, monkeypatch, capsys):
+    nq = _write_master_csv(tmp_path / "nq.csv", n_full_days=10, seed=3)
+    out = tmp_path / "out"
+    seen = []
+    fake = _fake_backtest(seen)
+
+    def shadow_breaks(arr, leg=None, log=print):
+        if not leg["live"]:
+            raise RuntimeError("synthetic shadow failure")
+        return fake(arr, leg=leg, log=log)
+    monkeypatch.setattr(kls, "run_nq_backtest", shadow_breaks)
+    assert _run_main(["--nq-file", str(nq), "--out-dir", str(out)], monkeypatch) is None   # exit 0
+    assert (out / "NOISE_382_v12_state.joblib").exists()
+    assert not (out / "NOISE_422_KEEL_v12_state.joblib").exists()
+    assert "shadow leg(s) not built this run: NOISE_422_KEEL" in capsys.readouterr().out
+
+
+def test_a_live_build_failure_fails_the_run_after_the_shadow_leg_is_still_built(tmp_path, monkeypatch):
+    nq = _write_master_csv(tmp_path / "nq.csv", n_full_days=10, seed=3)
+    out = tmp_path / "out"
+    seen = []
+    fake = _fake_backtest(seen)
+
+    def live_breaks(arr, leg=None, log=print):
+        if leg["live"]:
+            raise RuntimeError("synthetic live failure")
+        return fake(arr, leg=leg, log=log)
+    monkeypatch.setattr(kls, "run_nq_backtest", live_breaks)
+    with pytest.raises(SystemExit) as ei:
+        _run_main(["--nq-file", str(nq), "--out-dir", str(out)], monkeypatch)
+    assert "NOISE_382" in str(ei.value.code)
+    assert (out / "NOISE_422_KEEL_v12_state.joblib").exists()
+
+
+def test_main_leg_flag_builds_only_that_leg(tmp_path, monkeypatch):
+    nq = _write_master_csv(tmp_path / "nq.csv", n_full_days=10, seed=3)
+    out = tmp_path / "out"
+    seen = []
+    monkeypatch.setattr(kls, "run_nq_backtest", _fake_backtest(seen))
+    _run_main(["--nq-file", str(nq), "--out-dir", str(out), "--leg", "NOISE_422_KEEL"], monkeypatch)
+    assert seen == ["NOISE_422_KEEL"]
+    assert not (out / "NOISE_382_v12_state.joblib").exists()
+
+
+def test_main_fails_loudly_when_no_leg_carries_a_learned_keel(tmp_path, monkeypatch):
+    strip = lambda legs: {k: {kk: vv for kk, vv in v.items() if kk != "keel"}   # noqa: E731
+                          for k, v in legs.items()}
+    monkeypatch.setattr(cs, "CROWN_LEGS", strip(cs.CROWN_LEGS))
+    monkeypatch.setattr(cs, "SHADOW_LEGS", strip(cs.SHADOW_LEGS))
+    nq = _write_master_csv(tmp_path / "nq.csv", n_full_days=3)
+    with pytest.raises(SystemExit) as ei:
+        _run_main(["--nq-file", str(nq), "--out-dir", str(tmp_path / "out")], monkeypatch)
+    assert "found 0" in str(ei.value.code)
+    assert not (tmp_path / "out").exists()
+
+
+def test_a_bad_shadow_keel_mode_is_dropped_and_the_live_leg_still_builds(tmp_path, monkeypatch, capsys):
+    """A typo'd mode on a SHADOW leg (e.g. "fixd") drops that leg with a log line; the live
+    NOISE_382 state still builds. The same typo on a LIVE leg stays a loud failure."""
+    shadow = {k: dict(v) for k, v in cs.SHADOW_LEGS.items()}
+    shadow["NOISE_422_KEEL"]["keel"] = dict(shadow["NOISE_422_KEEL"]["keel"], mode="fixd")
+    monkeypatch.setattr(cs, "SHADOW_LEGS", shadow)
+    assert [leg["leg_key"] for leg in kls.resolve_legs()] == ["NOISE_382"]
+    assert "NOISE_422_KEEL" in capsys.readouterr().out
+
+    nq = _write_master_csv(tmp_path / "nq.csv", n_full_days=10, seed=3)
+    out = tmp_path / "out"
+    seen = []
+    monkeypatch.setattr(kls, "run_nq_backtest", _fake_backtest(seen))
+    assert _run_main(["--nq-file", str(nq), "--out-dir", str(out)], monkeypatch) is None
+    assert seen == ["NOISE_382"] and (out / "NOISE_382_v12_state.joblib").exists()
+
+    crown = {k: dict(v) for k, v in cs.CROWN_LEGS.items()}
+    crown["NOISE_382"]["keel"] = dict(crown["NOISE_382"]["keel"], mode="fixd")
+    with pytest.raises(kls.LegResolutionError):
+        kls.resolve_legs(crown_legs=crown, shadow_legs=cs.SHADOW_LEGS)
+
+
+def test_defer_in_session_is_rechecked_before_each_shadow_leg(tmp_path, monkeypatch, capsys):
+    """A build that starts at 09:24 ET builds the live leg, but if the clock has reached
+    09:25 by the shadow leg, that leg is skipped (the 18:30 timer builds it)."""
+    import datetime
+    import zoneinfo
+    et = zoneinfo.ZoneInfo("America/New_York")
+    clock = iter([datetime.datetime(2026, 9, 22, 9, 24, tzinfo=et)]
+                 + [datetime.datetime(2026, 9, 22, 9, 26, tzinfo=et)] * 5)
+    monkeypatch.setattr(kls, "_now_et", lambda: next(clock))
+    nq = _write_master_csv(tmp_path / "nq.csv", n_full_days=10, seed=3)
+    out = tmp_path / "out"
+    seen = []
+    monkeypatch.setattr(kls, "run_nq_backtest", _fake_backtest(seen))
+    assert _run_main(["--nq-file", str(nq), "--out-dir", str(out), "--defer-in-session"],
+                     monkeypatch) is None
+    assert seen == ["NOISE_382"]
+    assert (out / "NOISE_382_v12_state.joblib").exists()
+    assert not (out / "NOISE_422_KEEL_v12_state.joblib").exists()
+    assert "NOISE_422_KEEL (shadow) deferred" in capsys.readouterr().out
+
+
+# ── the READ-ONLY walk-vs-state check (the #422 reproduction check) ─────────────────────
+def test_walk_cut_points_cover_warmup_refit_and_the_last_trade():
+    from augur_engine import ml_keel as K
+    cuts = kls.walk_cut_points(4861, n_cuts=3)
+    assert cuts[0] == K.MIN_HISTORY - 1 and K.MIN_HISTORY in cuts
+    assert K.MIN_HISTORY + K.REFIT_EVERY in cuts
+    assert cuts[-1] == 4860 and cuts == sorted(set(cuts))
+    assert kls.walk_cut_points(10) == [9]
+    assert kls.walk_cut_points(0) == []
+
+
+def test_check_state_matches_walk_passes_on_a_real_walk(tmp_path):
+    """check_state_matches_walk on a small series: state-built scoring equals keel_walk's
+    own size at every cut point (the same 1e-12 bar tests/test_ml_keel_state.py holds the
+    split to), and it writes nothing."""
+    rng = np.random.RandomState(9)
+    n_days, bars = 60, 16
+    idx = []
+    day = pd.Timestamp("2024-01-02", tz="US/Eastern")
+    d = 0
+    while d < n_days:
+        if day.dayofweek <= 4:
+            idx += [day.replace(hour=9, minute=30) + pd.Timedelta(minutes=5 * b) for b in range(bars)]
+            d += 1
+        day = day + pd.Timedelta(days=1)
+    n = len(idx)
+    c = 15000.0 + np.cumsum(rng.normal(0, 3.0, n))
+    arrays = {"open": c.copy(), "high": c + 2, "low": c - 2, "close": c,
+              "volume": np.full(n, 1000.0), "day_id": np.repeat(np.arange(n_days), bars),
+              "index": pd.DatetimeIndex(idx)}
+    trades, pos = [], 3
+    while pos < n - 3 and len(trades) < 120:
+        ex = pos + int(rng.randint(1, 4))
+        trades.append((pos, ex, float(rng.normal(0.5, 5.0))))
+        pos = ex + 1
+    logged = []
+    before = sorted(os.listdir(tmp_path))
+    r = kls.check_state_matches_walk(None, leg="NOISE_422_KEEL", n_cuts=3, log=logged.append,
+                                     arrays=arrays, trades=trades)
+    assert r["ok"] is True and not r["mismatches"], r
+    assert r["leg"] == "NOISE_422_KEEL" and r["n_trades"] == len(trades)
+    assert r["cuts"] == kls.walk_cut_points(len(trades), 3)
+    assert r["max_abs_diff"] <= 1e-12
+    assert any("PASS" in line for line in logged)
+    assert sorted(os.listdir(tmp_path)) == before

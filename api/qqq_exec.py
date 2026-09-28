@@ -125,7 +125,7 @@ LEGS = ("ORB", "ENGUQ", "NOISE")
 # ENGINE MODE (2026-09-13): maps api/cloud_signal.py's own CROWN_LEGS keys onto this
 # module's short leg keys. Kept explicit (not derived) so a cloud_signal rename never
 # silently breaks this mapping -- update BOTH sides in the same commit. See
-# api/cloud_signal.py's "THE THREE CROWN LEGS" docstring for the current crown/run per key.
+# api/cloud_signal.py's "THE CROWN (LIVE) LEGS" docstring for the current crown/run per key.
 #
 # TWO KEYS CAN MAP TO ONE EXEC LEG (2026-09-24, the NOISE #304 -> #382 swap): NOISE_304 is
 # GONE from cloud_signal.CROWN_LEGS (replaced, not kept alongside -- see that module), but
@@ -140,6 +140,11 @@ LEGS = ("ORB", "ENGUQ", "NOISE")
 # are _engine_mark_price and _engine_confirms_entry below; see _engine_key_for_leg's own
 # docstring for why a naive "first mapped key" reverse lookup is not safe once two engine
 # keys share one EXEC leg.
+#
+# ENGUQ_335 LEFT cloud_signal.CROWN_LEGS on 2026-09-28 (OWNER DECISION -- it is a shadow leg
+# now, cloud_signal.SHADOW_LEGS, writing only to <state_dir>/shadow/signals.csv, which this
+# module never reads). Its key stays here for the same reason NOISE_304's does: an old live
+# ledger row still resolves. No new live ENGU-Q row is ever written, so no ENGU-Q order is sent.
 ENGINE_LEG_MAP = {"ORB_R6": "ORB", "ENGUQ_335": "ENGUQ", "NOISE_382": "NOISE", "NOISE_304": "NOISE"}
 ENGINE_HEARTBEAT_STALE_SEC = 90.0     # mirrors FEED_STALE_SEC's role, for cloud_signal's own heartbeat
 ENGINE_CONSUME_STALE_SEC = 30 * 60.0  # this adapter was down too long to act on a queued signal
@@ -1325,7 +1330,7 @@ def _leg_timeframe_bar_close_age(leg, log=print):
     try:
         cs = _cs_module()
         cs_key = _engine_key_for_leg(leg, cs)
-        cfg_leg = cs.CROWN_LEGS.get(cs_key) if cs_key else None
+        cfg_leg = _engine_leg_cfg(cs, cs_key)
         if not cfg_leg:
             return None
         return _bar_close_age(cfg_leg["timeframe"], log=log)
@@ -4792,6 +4797,17 @@ def _engine_key_for_leg(leg, cs=None):
     return keys[0] if keys else None
 
 
+def _engine_leg_cfg(cs, cs_key):
+    """cloud_signal's cfg for an engine key -- CROWN_LEGS first, then SHADOW_LEGS (2026-09-28:
+    ENGUQ_335 moved there, OWNER DECISION). Used ONLY for the key's timeframe (its bar cache,
+    its bar width): an old ENGUQ order row keeps its after-close latency, and a leftover
+    ENGUQ lot could still be marked and flattened. It never makes a shadow leg's signals
+    reach this module -- those live in a ledger this module never reads. None for no key."""
+    if not cs_key:
+        return None
+    return cs.CROWN_LEGS.get(cs_key) or (getattr(cs, "SHADOW_LEGS", None) or {}).get(cs_key)
+
+
 def _engine_mark_price(leg, log=print):
     """(qqq_px, source) for marking/closing an OPEN leg when signal_source == 'engine' --
     the newest CLOSED bar close from api.cloud_signal's own on-disk cache (Webull bar if
@@ -4801,7 +4817,7 @@ def _engine_mark_price(leg, log=print):
     try:
         cs = _cs_module()
         cs_key = _engine_key_for_leg(leg, cs)
-        cfg_leg = cs.CROWN_LEGS.get(cs_key) if cs_key else None
+        cfg_leg = _engine_leg_cfg(cs, cs_key)
         if not cfg_leg:
             return None, None
         tf = cfg_leg["timeframe"]
@@ -4859,7 +4875,7 @@ def _leg_timeframe_seconds(leg, log=print):
     try:
         cs = _cs_module()
         cs_key = _engine_key_for_leg(leg, cs)
-        cfg_leg = cs.CROWN_LEGS.get(cs_key) if cs_key else None
+        cfg_leg = _engine_leg_cfg(cs, cs_key)
         if not cfg_leg:
             return None
         return cs.TIMEFRAME_SECONDS.get(cfg_leg["timeframe"])

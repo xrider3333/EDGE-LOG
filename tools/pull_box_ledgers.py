@@ -32,6 +32,13 @@ FILES = [
     "webull_orders/state.json", "webull_orders/config.json",
     "cloud_signal/signals.csv", "cloud_signal/state.json", "cloud_signal/corrections.log",
     "cloud_signal/keel/NOISE_382_v12_summary.json",
+    # SHADOW LEGS (owner 2026-09-28; api/cloud_signal.py shadow_paths): the would-be trades of
+    # NOISE #422 plain / fixed tilts / KEEL and ENGU-Q, their state and heartbeat, and the
+    # NOISE_422_KEEL leg's own KEEL summary -- read by tools/shadow_legs_report.py. A file
+    # not there yet (before the first shadow tick / first KEEL build) is listed as missing.
+    "cloud_signal/shadow/signals.csv", "cloud_signal/shadow/state.json",
+    "cloud_signal/shadow/heartbeat.json",
+    "cloud_signal/keel/NOISE_422_KEEL_v12_summary.json",
 ]
 DEFAULT_DEST = r"C:\EdgeLog\box_backup"
 LOG_PATH = r"C:\EdgeLog\logs\pull_box_ledgers.log"

@@ -356,6 +356,18 @@ Check either trigger: `systemctl list-timers edgelog-keel-state.timer` (next sch
 run) and `systemctl status edgelog-keel-state.path` (watching, or the last time it
 fired); build logs land in `~/edgelog/logs/keel_state.log`.
 
+**Two KEEL legs since 2026-09-28 (shadow legs, WEBULL_PAPER_TODO.md item 18).** The same
+unit, with no unit change, now builds every learned-KEEL leg in `api/cloud_signal.py`: the
+live `NOISE_382` (files `NOISE_382_v12_*`, unchanged) first, then the `NOISE_422_KEEL`
+shadow leg (`NOISE_422_KEEL_v12_*`). The NQ master is read once for both, so a build takes
+about twice as long. With `--defer-in-session` (the .path trigger) the window check runs
+again before the shadow leg, so a build that started just before 09:25 ET skips the shadow
+leg rather than change it mid-session; the 18:30 timer builds it. A failed shadow build, or
+a shadow leg with a mistyped keel mode, is logged and never fails the run; a failed live
+build still does. Build one leg by hand with `--leg NOISE_422_KEEL`. The shadow legs' own
+record is `~/edgelog/cloud_signal/shadow/` (read it with `tools/shadow_legs_report.py`);
+the order adapter never reads it.
+
 ### Log rotation
 
 Every service here appends to `~/edgelog/logs/*.log` via systemd's own

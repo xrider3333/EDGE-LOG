@@ -27,6 +27,7 @@ done.
 | 15 | ORB never enters before about 14:05 ET: the half-day test drops today's unfinished session | **DONE** (2026-09-26, 9a82613, live on the box) | nothing; watch ORB's first morning entries |
 | 16 | Entries and exits go out one 5-minute bar after the backtest's fill | **DONE** (2026-09-26, live on the box from Monday) | nothing; check the first day's timing |
 | 17 | Order-path rework (unknown outcomes, fill status, split orders, separate live state, safe disarm) | **PARTLY DONE** (2026-09-26: the paper order path shipped and is live on the box from Monday; the LIVE-only parts and a short list of minor notes remain) | nothing |
+| 18 | Shadow legs: NOISE #422 three ways and ENGU-Q log would-be trades, no orders | **BUILT, NOT DEPLOYED** (2026-09-28, worktree wb-shadow; deploy after the close while flat). ENGU-Q sends no Webull orders from that deploy on | nothing; MANAGER says when to deploy |
 
 ---
 
@@ -784,3 +785,67 @@ about 3,000 lines in api/webull_orders.py) but four review rounds kept finding n
 none of it shipped. Redo it smaller: unknown outcomes resolved by order id, fill status and
 filled quantity applied to the books, a split order's second part only after the first fills,
 then (LIVE only) a separate live state file, a flat-before-arming guard and a safe disarm.
+
+---
+
+## 18. Shadow legs (owner 2026-09-28)
+
+**Status: BUILT, NOT DEPLOYED** (2026-09-28, worktree wb-shadow, not committed). Owner decision via
+MANAGER: the live NOISE leg stays #382 with KEEL v12 on top - no change to its orders, sizes or
+caps. Beside it, four legs run in the background with NO orders, so the Custom ML chat can score
+what they would have done (docs/PREREG_noise_shadow_forward_2026-09-28.md):
+- **NOISE #422 plain** - the same entries and exits as #382, sized 1.75x while the hourly squeeze
+  is on (else 1x).
+- **NOISE #422 + fixed tilts** - #422 plain times KEEL v12's three fixed tilts, no model
+  (compression 1.5x, Friday 1.5x, capped at 3, half size before an FOMC statement).
+- **NOISE #422 + KEEL** - #422 plain times KEEL v12 learned, with its own model trained nightly on
+  #422's own NQ trades. Until its first nightly build it sizes 1.0.
+- **ENGU-Q #335** - **no longer sends Webull orders from the deploy on.** The box ledgers showed
+  every ENGU-Q order was closed by the book's 15:59 end-of-day flatten, never by the strategy's
+  own multi-day exit, and the owner wants no flat-at-close version. Its would-be trades, with the
+  strategy's own exits, now go to the shadow record. Its last live position was flattened at
+  15:59 on 2026-09-28.
+
+**How it works.** The shadow legs read the same QQQ bars as the live legs and write to their own
+record on the box (cloud_signal/shadow/: signals.csv, state.json, heartbeat.json). The order
+adapter never reads that folder. They run after the live legs on each 30-second bar fetch, never
+page the owner, never touch the live heartbeat, and a shadow failure cannot stop a live tick. The
+1-minute bars ENGU-Q needs are still fetched once per tick. The nightly KEEL build now builds
+both KEEL models (#382 live, #422 shadow); a failed shadow build never fails the live one.
+
+**Reading it.** `python tools/shadow_legs_report.py` on the box (or `--home` on a copy pulled by
+tools/pull_box_ledgers.py, which now also copies the shadow record) prints each leg's trades,
+would-be dollars at 10 shares x size, win rate and largest win and loss, beside the live primary
+and #382 without KEEL. These are signal prices, not fills.
+
+**Deploy (after 16:05 ET, flat).**
+1. Box deploy tool dry run. Expect NOISE_1_8_CT304H.py among the changed files (with the two
+   signal modules, the order adapter, the KEEL trainer and the nightly KEEL build), and no unit
+   or dependency warning.
+2. The real deploy (the same command with the commit and --yes).
+3. Run the KEEL build once by hand so the #422 KEEL model exists (the nightly build now does
+   both models; it skips the shadow model if it would run into the session, and the 18:30
+   build catches up).
+4. The next session: check the shadow record fills and that no ENGU-Q order goes out.
+
+**Rollback (after 16:05 ET, flat).** Box deploy tool dry run with the previous commit, then the
+same with --yes. The old code picks ENGU-Q #335 back up as a live leg with no fresh start. It
+may still remember a trade the 15:59 flatten already closed, so expect one late ENGU-Q exit
+line on its first tick and check the order adapter ignores it (the ENGU-Q leg is flat); or clear
+that leg's open trades in the signal state before the restart.
+
+**Turning the shadow legs off.** Emptying the shadow legs also stops the 1-minute bar refresh,
+and any leftover ENGU-Q position is priced from those bars. Only do it while ENGU-Q is flat in
+the order adapter and at the broker (the deploy's flat check already makes that true right after
+a deploy).
+
+**Known display quirks (no effect on orders).** The live status no longer refreshes the
+1-minute bar source, so when the Webull stream is not fresh the price age on the Webull tab
+reads from the 5-minute bar (about 5 minutes, not about 1). The daily one-time diagnostic lines
+about the prior-day ranges are shared by the live and shadow legs; the live legs run first each
+tick, so they still print for the live leg.
+
+**Needs from the owner.** Nothing. MANAGER says when to deploy.
+
+**Done when:** deployed, the shadow record gets its first entries on the next session, and no
+ENGU-Q order reaches Webull.
