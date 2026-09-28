@@ -1,8 +1,7 @@
-# Adopting BOOK #397 (FRONTIER) over #366 - STAGED, not adopted (2026-09-27)
+# Adopting BOOK #397 (FRONTIER) over #366 - ADOPTED @@FLIP_DATE@@ (staged 2026-09-27)
 
-**Status: STAGED.** The owner said "stage as much as you can" (via MANAGER, 2026-09-27). Nothing in this
-file is in effect. The adopted book is still **#366** until the owner confirms through MANAGER. The flip
-is a ready commit on branch `stage/adopt-397` (section 6).
+**Status: ADOPTED on @@FLIP_DATE@@** (owner confirm via MANAGER). Staged 2026-09-27 on the owner's "stage as
+much as you can"; the flip commit below was applied unchanged apart from the date.
 
 ## 1. What BOOK #397 is, in five lines
 

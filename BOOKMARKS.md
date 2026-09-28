@@ -423,7 +423,22 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - Also tested: ORB x2 (28.08) and ENGU-Q x2 (32.18) worse; ORB x0.5 better on both (42.85 / 10.40) for the same mechanical reason — recorded, not acted on.
 - **Standing answer: the validated four-leg book run #366** — selection n/DD 38.18 vs adopted 30.25, whole 46.11 vs 36.93, held-back level 10.33, 8/8 slices. Adoption is the owner's call.
 
-## ADOPTED 2026-09-09 - the book is run #366 (supersedes #361)
+## ADOPTED @@FLIP_DATE@@ - the book is run #397 (supersedes #366)
+
+Owner confirm via MANAGER. #397 = #366 with two leg upgrades: ORB at run #297's filters (volume pace
+0.80, ATR 0.75, otherwise #234) and TTM at run #369 (three ES). ENGU-Q #335 and NOISE #304 unchanged.
+
+| book | ROC %/yr pre / lockbox | pre DD at close | lockbox DD at close | stretches |
+|---|---|---|---|---|
+| **#397 ADOPTED** (stored) | 97.4 / 306.3 | $33,567 | $25,357 | 8/8 |
+| #437 = #397 roll-corrected | 88.1 / 293.3 | $40,971 | $25,893 | 8/8 |
+| #366 (previous), stored | 92.7 / 290.0 | $36,562 | $28,066 | 8/8 |
+| #435 = #366 roll-corrected | 84.4 / 277.1 | $40,854 | $28,066 | 8/8 |
+
+Paper: new leg `ORB_297`; the nightly book figure = ORB_297 + ENGUQ_335 + 3 x TTM_299_SSOF2 + NOISE_304.
+Full record: `docs/BOOK_397_ADOPTION_STAGED.md`.
+
+## ADOPTED 2026-09-09 - the book was run #366 (supersedes #361; superseded by #397 on @@FLIP_DATE@@)
 
 **Four legs, nothing tuned** - re-queue with `python tools/queue_book_four_leg.py`:
 

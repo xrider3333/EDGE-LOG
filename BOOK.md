@@ -9,6 +9,10 @@
 > Everything in this file was computed by `tools/t8_noise_book.py`, which refuses to print a
 > single result until it has reproduced (a) every leg's published standalone number and
 > (b) run #238's saved book document to the dollar through `augur_engine.run_book`.
+>
+> **ADOPTED BOOK: #397 (FRONTIER), owner confirm via MANAGER on @@FLIP_DATE@@ - replaces #366.** ORB #297
+> + ENGU-Q #335 + TTM #369 at three ES + NOISE #304. Roll-corrected read: run #437, 88.1 / 293.3 % a
+> year before / in the lockbox. What changed and why: `docs/BOOK_397_ADOPTION_STAGED.md`.
 
 ---
 
@@ -672,7 +676,7 @@ marks the combined book figures *to be recomputed* (4.3).
 | ROC %/yr, lockbox | 307.3 | 300.2 | -7.1 points |
 | Consistency (8 stretches) | 8/8, PASS | 8/8, PASS | |
 
-#### BOOK #397 (FRONTIER)
+#### BOOK #397 (FRONTIER, adopted @@FLIP_DATE@@)
 
 | Figure | Stored | Roll-corrected | Change |
 |---|---|---|---|
@@ -690,7 +694,7 @@ marks the combined book figures *to be recomputed* (4.3).
 | ROC %/yr, lockbox | 306.3 | 299.2 | -7.1 points |
 | Consistency (8 stretches) | 8/8, PASS | 8/8, PASS | |
 
-#### BOOK #366 (adopted, starred)
+#### BOOK #366 (adopted until @@FLIP_DATE@@, starred)
 
 | Figure | Stored | Roll-corrected | Change |
 |---|---|---|---|

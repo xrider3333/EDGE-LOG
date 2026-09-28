@@ -106,6 +106,7 @@ LEG_LIVE_FROM = {
     # the 09-05 session, so that session was not watched under this config end to end; the
     # first fully forward session is the next trading day.
     "ORB_R6":    "2026-09-08",   # leg added: run #314 takes the ORB crown from #234
+    "ORB_297":   "@@FLIP_DATE@@",   # leg added: BOOK #397 adopted over #366; its ORB leg is run #297
     # Added on Sunday 2026-09-27 with the market closed, so the next session is watched end to end.
     "ORB_257":   "2026-09-28",   # run #257 (owner-starred, most ORB money) beside ORB_R6 and the ORB control
     "ORB_H":     "2026-08-24",   # gate re-based on #234 (its own crowned rf@0.45, re-calibrated)
@@ -224,6 +225,14 @@ ORB_314 = dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.5, atr_filt
                vpace_filter=0.8, close_confirm=True, breakout_buf=0.25, trail_bars=0,
                target_R=5.0, partial_exit_R=0.0, be_after_R=0.5, flat_eod=True,
                skip_holidays=True)
+
+# THE BOOK'S ORB LEG from @@FLIP_DATE@@ (owner adopted BOOK #397 over #366 via MANAGER). Run #297's settings
+# on ORB_3_6.py: the #234 rules with two entry filters tighter - volume pace 0.80 (was 0.70) and ATR
+# 0.75 (was 0.70); stop, target, breakeven and exits identical to #234. In the book it trades 2,278
+# times against #234's 2,584 over 2010-06-07..2026-06-30 and earns $16,778 less; it is carried for the
+# lower book drawdown in both stretches (docs/BOOK_397_ADOPTION_STAGED.md). The #234 leg ("ORB")
+# stays running as its matched control - only the two filters differ.
+ORB_297 = dict(ORB_234, atr_filter=0.75, vpace_filter=0.8)
 
 # RUN #257 (added 2026-09-27, owner via MANAGER: "stage as much as you can"). The ORB configuration
 # with the most money: most walk-forward money in the family ($339,110 against #234's $310,678) and
@@ -913,6 +922,19 @@ LEG_SOURCE = {
                   "denominator, so EV R is not safe to compare across that knob (see "
                   "tools/orb_pick.py).",
     },
+    "ORB_297": {
+        "run": 297, "run_label": "#297 (ORB_3_6, the ORB leg of BOOK #397)", "strategy_file": "ORB_3_6.py",
+        "picked": "@@FLIP_DATE@@",
+        "note": "The ORB leg of BOOK #397 (FRONTIER), adopted over #366 on @@FLIP_DATE@@: the #234 rules "
+                "with the volume-pace filter at 0.80 and the ATR filter at 0.75. Roll-corrected book "
+                "#437 reads 88.1 / 293.3 percent a year before / in the lockbox against #366's 84.4 / "
+                "277.1, lockbox drawdown $25,893 against $28,066, 8 of 8 stretches.",
+        "caveat": "Chosen for the BOOK, not as the ORB crown (the crown is #314). Alone it earns less "
+                  "than #234 ($356,527 against $373,305 over the window) and trades less, and the ORB "
+                  "chat's round 59 found tighter volatility filters earn less by calendar year. "
+                  "NinjaTrader's ORB strategy has no filter inputs, so this leg is paper-only until "
+                  "they are added.",
+    },
     "ORB_257": {
         "run": 257, "run_label": "#257 (ORB_3_6_E1) the most-money ORB, owner-starred",
         "strategy_file": "ORB_3_6_E1.py", "picked": "2026-09-27",
@@ -1536,6 +1558,11 @@ PAPER_LEGS = [
     {"key": "ORB_R6", "strategy": "ORB_3_6_R6.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": ORB_314, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB_R6"]},
+    # ADDED @@FLIP_DATE@@ (owner adopted BOOK #397 over #366). The book's ORB leg: run #297's two tighter
+    # filters on the #234 rules. The #234 leg ("ORB") above is its matched control. No ML gate.
+    {"key": "ORB_297", "strategy": "ORB_3_6.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": ORB_297, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "history_from": _GATE_HISTORY_FROM, "book_weight": 1.0, "source": LEG_SOURCE["ORB_297"]},
     # ADDED 2026-09-27 (owner via MANAGER). Run #257, the most-money ORB, as a third forward
     # read beside the crown (ORB_R6) and the control (ORB). Same instrument, window and costs;
     # the params above reproduce run #257 to the cent. No ML gate. See ORB_257's comment block.
@@ -2760,10 +2787,15 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
     # lockbox $246,409 against $229,124, up 7.5 percent; LOCKBOX DRAWDOWN IDENTICAL at $22,226; 8 of 8
     # slices. Whole-run drawdown x1.0025, reported as a check rather than a gate per BOOK.md section 10.
     # TTM_299_SS stays beside it as the exact matched control, as TTM_299_T does for that.
-    _BOOK = {"ORB": 1.0, "ENGUQ_309": 1.0, "TTM_299_SSOF2": 3.0}
+    # ADOPTED BOOK #397 (FRONTIER) from @@FLIP_DATE@@, owner confirm via MANAGER. Until then this figure still
+    # read BOOK #371 (ORB 234 + ENGU-Q 309 + 3 ES of TTM 369) - it never followed the #366 adoption of
+    # 2026-09-09. It now adds the four legs #397 carries, at #397's weights: ORB at run #297's filters,
+    # the ENGU-Q crown #335, three ES of the combined TTM leg (run #369) and the NOISE crown #304.
+    # docs/BOOK_397_ADOPTION_STAGED.md has the evidence (roll-corrected run #437).
+    _BOOK = {"ORB_297": 1.0, "ENGUQ_335": 1.0, "TTM_299_SSOF2": 3.0, "NOISE_304": 1.0}
     book_pnl = sum(leg_reports[k]["pnl_usd"] * w for k, w in _BOOK.items() if k in leg_reports)
-    book_block = {"pnl_usd": book_pnl, "weights": _BOOK, "source_run": 371,
-                  "name": "ORB 234 + ENGU-Q 309 + 3 ES of the combined TTM leg (run 369)"}
+    book_block = {"pnl_usd": book_pnl, "weights": _BOOK, "source_run": 397,
+                  "name": "BOOK #397: ORB 297 + ENGU-Q 335 + 3 ES of TTM 369 + NOISE 304"}
     # STAGED, NOT SWITCHED (2026-09-28, owner via MANAGER: stage, flip only on confirm). The same two NQ
     # legs plus the ROLL-GUARDED TTM leg at run 428s cell, sized 3 / 4 / 7 whole ES contracts by the
     # trade own size (1.0 / 1.5 / 2.25) instead of a flat 3 x the ladder. It is reported every night as

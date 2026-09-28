@@ -3,7 +3,14 @@
 **Single source of truth for where the backtesting engine stands.** Update this
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
-> **2026-09-09 - THE ADOPTED BOOK IS RUN #366 (owner's call).** Four legs, one window, nothing tuned:
+> **@@FLIP_DATE@@ - THE ADOPTED BOOK IS RUN #397, FRONTIER (owner's call via MANAGER; replaces #366).**
+> Same four legs and weights as #366 below, with two leg upgrades: the ORB leg at run #297's filters
+> (`ORB_3_6.py`, volume pace 0.80, ATR 0.75, otherwise #234) and the squeeze leg at run #369
+> (`TTMSQZ_3_0_ES30SSOF2.py`, weight 3). Roll-corrected read, run #437: 88.1 / 293.3 % a year before /
+> in the lockbox, drawdown $40,971 / $25,893 at close, 8 of 8 stretches (#366's #435: 84.4 / 277.1,
+> $40,854 / $28,066). Record: `docs/BOOK_397_ADOPTION_STAGED.md`.
+>
+> **2026-09-09 - THE ADOPTED BOOK WAS RUN #366 (owner's call; replaced by #397 on @@FLIP_DATE@@).** Four legs, one window, nothing tuned:
 > the opening-range crown (`ORB_3_6_C2.py`, NQ 5m RTH, 0.533/RT, x20, weight 1) - the CURRENT ENGU-Q
 > crown (`ENGUQ_1M_ETH_R2_1_0.py`, NQ 1m ETH, **0.783**/RT, the 24-hour convention, x20, weight 1) -
 > the squeeze structural-stop leg (`TTMSQZ_3_0_ES30SS20.py`, ES 30m RTH, 0.363/RT, x50, **weight 3**) -
