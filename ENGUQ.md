@@ -918,3 +918,79 @@ concentration clause is rate-matched from the start, not a re-read of this one.
 **Process note.** These local runs were wrapped in the house research beacon, which writes a job
 document to the queue so the dials show the work. That is a Firestore write, so "read-only" was not
 strictly true of this round; no run number was created and nothing reached the RUNBOARD.
+
+### 2026-09-28 - ENGU-Q #335 restated: drawdown valued daily, the roll-corrected sealed year, and which cell to judge the crown by
+
+MANAGER's ROC audit and ML-edge audit each raised a pair of ENGU-Q #335 figures that did not
+reconcile. Every number below was re-measured here, one continuous run per cell over
+2010-06-07..2026-06-30 sliced by ENTRY at the 2025-06-30 sealed split, on the registered masters
+(NOADJ_NQ_1m_ETH and ADJ_NQ_1m_ETH). Nothing was re-validated and no run number was created.
+
+**Two cells answer to the name ENGU-Q #335, and they disagree about everything.**
+
+| one continuous run, sliced by entry | paper / NinjaTrader cell (file defaults, cost 0.783) | validate champion (starred crown, cost 0.533) |
+|---|---|---|
+| whole run, no-adjust | 1,949 trades / $603,381 | 1,344 trades / $541,330 |
+| whole run, roll-corrected | 2,053 trades / $493,295 | 1,387 trades / $470,575 |
+| sealed year, no-adjust | 118 trades / $87,790 | 128 trades / $49,812 |
+| sealed year, roll-corrected | 116 trades / $74,869 | **147 trades / $29,257** |
+| sealed drawdown booked at close | $44,205 corrected | $47,779 no-adjust / $57,729 corrected |
+| sealed drawdown valued daily | $50,443 corrected | **$65,128 no-adjust** / $71,933 corrected |
+| sealed return per dollar of drawdown, valued daily | 1.48 | 0.77 no-adjust, 0.41 corrected |
+
+**Drawdown valued daily, because ENGU-Q holds for weeks.** The engine books a loss only when a
+trade closes, so a hold that is deep under water for a month shows nothing until the exit. Marked
+every day, the validate champion's sealed drawdown is $65,128 against the $47,779 booked at close -
+36% deeper, and its sealed return per dollar of drawdown falls from 1.04 to 0.77. MANAGER's audit
+reads 1.22 falling to 0.89; that pair divides the validate card's $58,163 by the same continuously
+measured drawdowns, which mixes two reads (see the next paragraph). The paper cell suffers far less:
+$50,443 valued daily against $44,205 booked, 14% deeper. Two independent reconstructions of the
+daily curve agree within 2% ($65,128 marking each ET calendar day's last bar, $63,973 from the
+exported leg curve at C:\EdgeLog\book_legs); the conclusion is the same either way.
+
+**Gap one, now closed: $43,468 against $29,257.** Same cell, two methods. $43,468 is a COLD-RELOAD
+lockbox measured on a locally built back-adjusted series that did not carry the June 2026 splice.
+$29,257 is the same champion cell run continuously on the registered ADJ_NQ_1m_ETH master, which
+does carry June, and sliced by entry. The cold reload reads about 17% high on its own (see gap two),
+June is worth about $5,860, and the remainder is a different sequence of trades. **Use $29,257 on
+147 trades. Retire $43,468 - it is not a like-for-like read of anything.**
+
+**Gap two, now closed: $58,163 on 129 trades against $49,812 on 128.** Same cell, same uncorrected
+tape, same window. $58,163 is the validate card's lockbox, which reloads the sealed year cold with
+no warm history - the pre-v73.841 convention. $49,812 is the continuous run sliced by entry. The
+cold reload therefore reads 16.8% above the honest figure, which is the same 14% overstatement
+MANAGER measured from the other direction. **Use $49,812.**
+
+**Roll jumps are 31% of that sealed year.** Three of the champion cell's 128 sealed trades are held
+across a quarterly contract switch and book the offset as profit: 14 Sep 2025 (+237.25 points,
+$4,745), 14 Dec 2025 (+254.00, $5,080) and June 2026 ($5,860). Together $15,685, or 31.5% of the
+$49,812. The June component uses the ESTIMATED +293.00 offset, because the raw vendor feed stops
+2026-06-05; the true value is somewhere in 288-300, so that third is worth +/- $100.
+
+**One trade is the whole sealed year, and the roll correction makes that worse, not better.** The
+paper cell's sealed year holds one long from 7 April to 12 May 2026, 35 calendar days, worth
+$91,152. That is 104% of the uncorrected sealed year of $87,790, and 122% of the roll-corrected
+$74,869. Strip it and the remaining 115-117 trades LOSE: -$3,361 uncorrected, -$16,283 corrected.
+The champion cell has the same shape with a different trade - one 42-day hold worth $52,498, 105%
+of its uncorrected sealed year and 179% of its corrected one. No ENGU-Q sealed-year figure should
+ever be quoted forward without this sentence attached.
+
+**Which cell should the crown be judged by: the paper / NinjaTrader cell.** It is the cell paper
+leg ENGUQ_335 and NinjaTrader actually trade, so judging the live leg by a cell nobody trades is a
+category error on its own. It also wins on the corrected tape on every measure that matters: whole
+run $493,295 against $470,575, sealed year $74,869 against $29,257, sealed drawdown valued daily
+$50,443 against $71,933, sealed return per dollar of drawdown 1.48 against 0.41. **Recommendation:
+the paper / NinjaTrader default cell is the single forward yardstick for ENGU-Q #335, and EXPLORE's
+champion row should be read as a search artefact, not as the leg.** The crown itself is unchanged.
+
+**The rf HYBRID gate hurts the cell that is traded, and its apparent win elsewhere is size.** On the
+paper cell the rf gate turns a sealed +$74,869 into **-$17,067** (-$16,637 at one contract). On the
+champion cell it reads +$110,209, but at an average 2.4 contracts; at one contract that is $33,288
+against raw's $49,812. The gate loses on both cells once size is frozen. Confirms MANAGER's note
+and extends it to the champion cell.
+
+**#442 and #443 must not carry the roll haircut.** MANAGER's ROC board
+(C:\EdgeLog\manager\roc_board_2026-09-27.json) applies the flag "ENGU-Q net ~-17% after roll
+correction (re-runs #442/#443)" to every ENGU-Q row including #442's and #443's own, which
+double-counts: both runs were searched on the back-adjusted masters and already carry the
+correction. Routed to MANAGER; that file is not edited from this lane.
