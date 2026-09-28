@@ -1035,8 +1035,7 @@ def features(a):
 def main():
     ap = argparse.ArgumentParser(description='per-setup journals of the real futures trades')
     ap.add_argument('cmd', choices=['prep', 'build', 'render', 'check', 'features'])
-    ap.add_argument('--cache', default=os.path.join(os.path.expanduser('~'), 'AppData', 'Local', 'Temp',
-                                                    'setup_journal_cache'))
+    ap.add_argument('--cache', default=os.path.join('C:' + os.sep, 'EdgeLog', 'setup_journal_cache'))
     ap.add_argument('--results', help='build: the checking workflow result JSON')
     a = ap.parse_args()
     a.check = a.cmd == 'check'

@@ -3221,6 +3221,72 @@
    }
   },
   {
+   "n": 51,
+   "asset": "futures",
+   "trade_id": "nt_198027185664",
+   "date": "2026-09-24",
+   "sym": "MNQ",
+   "dir": "LONG",
+   "entry": 30687.0,
+   "exit": 30700.0,
+   "qty": 1,
+   "pnl": 24.12,
+   "label": "EBU",
+   "label_source": "EL",
+   "el_label": "EBU",
+   "sheet_label": "",
+   "grade": null,
+   "tf": null,
+   "notes": "traded wrong chart so existed early",
+   "links": [
+    "https://www.tradingview.com/x/VwS7aWEQ/"
+   ],
+   "signal_candle": "12:19",
+   "entry_time": "12:20",
+   "exit_time": "12:20",
+   "hold_from": null,
+   "entry_ts": "12:20:00",
+   "exit_ts": "12:20:10",
+   "stop": 30664.75,
+   "px_offset": 0.0,
+   "snapshot_created": "2026-09-27 15:19",
+   "snapshot_read": "four MNQ panes (1-minute, 5-minute, 10-second, 30-minute) with no price levels or trade box drawn on any of them; the 1-minute pane’s x-axis (about 10:30-13:30) matches this session’s shape - a base near 30,500-30,600 into a sharp green breakout candle near 12:15 up toward 30,800 - but nothing on the image marks this fill, and the title stamp (Sep 27, 2026 15:19 ET) is three days after the trade.",
+   "snapshot_depicts": "no",
+   "drawn": {},
+   "label_evidence": "EL now labels this trade EBU (added to EDGE LOG between the 2026-09-24 build and this 2026-09-28 update); no sheet row exists to cross-check. The bars show a breakout spike 12:14-12:18 (about 30,522 to 30,748 on volume up to 8,547), a pullback to a 30,664.75 low on the 12:19 candle, then a resumption push on 12:20 (high 30,708.75) where he bought 30,687.00 - a breakout-up continuation, consistent with EBU.",
+   "label_snapshot_supports": "n/a",
+   "el_times": null,
+   "bars_file": "setup_bars/NQ_2026-09-24_n51_1m.csv",
+   "interval": "1m",
+   "bars_source": "NOADJ 1m",
+   "bars_10s_file": "setup_bars/NQ_2026-09-24_n51_10s.csv",
+   "check": "added 2026-09-28 once EL carried a label for this trade; no independent second-pass check has been run on it yet (unlike the trades checked at the 2026-09-24 build). Signal candle and stop are the automated SCORE routine’s reading (trade_scores.json: breakout candle 12:19, stop 30,664.75, the candle’s own low); the saved chart does not depict this trade (see snapshot_read) so it could neither confirm nor refute them.",
+   "confidence": "medium",
+   "issues": [
+    "The chart saved on this trade (VwS7aWEQ) was created 2026-09-27 15:19 ET, three days after the fill, and carries no entry/stop/target markings - a later reference chart, not a contemporaneous record of this trade.",
+    "Signal candle and stop are taken from trade_scores.json’s automated SCORE (breakout_candle 12:19, stop 30,664.75) rather than a chart reading, since no chart of the actual trade exists.",
+    "EL’s note reads “traded wrong chart so existed early” [sic, probably “exited”] - read as: he was watching the wrong chart/instrument and got out early. The fill log agrees: a 13-second hold.",
+    "Fill seconds come from C:/EdgeLog/fills.csv (rows 198026935040 / 198027185664): 16:20:04 / 16:20:17. This export is UTC-stamped (unlike the Arizona-time rows from June), so ET = minus 4 hours: 12:20:04 / 12:20:17, matching EL’s 12:20 entry and exit.",
+    "No grade or timeframe is recorded in EL for this trade."
+   ],
+   "link_note": "EL’s saved chart (VwS7aWEQ) was captured 2026-09-27, three days after this trade, with no drawn levels - general later context, not a record of this fill.",
+   "fill_seconds": "fills at 12:20:04 and 12:20:17 ET (NinjaTrader fill log; this row is UTC-stamped, converted by -4h)",
+   "signal_note": "The 12:14-12:18 run (about 30,522 to 30,748) is the breakout; 12:19 is the pullback candle used here as the signal/stop, and he bought the 12:20 resumption at 30,687.00.",
+   "features": {
+    "min_after_open": 170,
+    "atr": 30.0,
+    "range_atr": 1.51,
+    "vol_x10": 1.28,
+    "tight_bars": 0,
+    "brk10_atr": -2.17,
+    "today_ext_atr": -2.17,
+    "premkt_atr": 3.09,
+    "pday_atr": -11.01,
+    "pday_dir": -1,
+    "bars": "NOADJ 1m"
+   }
+  },
+  {
    "n": 101,
    "asset": "stock",
    "trade_id": "wb_BDH4F80JP4LMF1M4AIIOP6I7J8",
@@ -4023,8 +4089,11 @@
  ],
  "unlabelled": [
   "2026-04-21 09:52 MES SHORT 7165.25→7165.00 (-$0.65): the sheet calls it a fat-finger order, so it is left out of every setup page. Its chart (taSMzocP) draws the long he meant; the CBU page links it on the 04-21 long.",
-  "2026-07-15 08:30 MNQ LONG 29932.50→29937.75 (+$8.62), 2026-07-17 11:36 MES LONG 7515.25→7516.25 (+$3.12), 2026-07-20 15:29 MES LONG 7490.00→7493.75 (+$16.87), 2026-07-27 12:25 MES LONG 7448.50→7449.00 (+$0.62), 2026-07-29 14:02 MES LONG 7445.00→7445.25 (-$0.63): no setup label and no chart in EL or the sheet. Tag them in TRADING LOG ▸ TRADES and they will be filed on the next rebuild.",
-  "2026-09-24 12:20 MNQ LONG 30687.00→30700.00: in the NinjaTrader fill log but not in EL yet when this was built.",
+  "2026-07-15 08:30 MNQ LONG 29932.50→29937.75 (+$8.62): no setup label and no chart in EL or the sheet (checked again 2026-09-28: still neither). Bars: the entry candle blew out of a 20-minute 29,856-29,892 range on a roughly 10x volume spike (1,396 vs 60-150), swinging 29,856.50-29,947.00 and closing near the top at 29,923.00 - a wide breakout-up bar, no tight base under it.",
+  "2026-07-17 11:36 MES LONG 7515.25→7516.25 (+$3.12): no setup label and no chart in EL or the sheet (checked again 2026-09-28: still neither). Bars: a small bounce off a three-bar pullback low (7,510.00) inside the recent range, on ordinary volume - no base, no clean breakout to point to.",
+  "2026-07-20 15:29 MES LONG 7490.00→7493.75 (+$16.87): no setup label and no chart in EL or the sheet (checked again 2026-09-28: still neither). Bars: broke a 19-minute 7,480-7,487 range on an 8,445-volume spike, closing near the high at 7,490.50 - a clean range breakout up.",
+  "2026-07-27 12:25 MES LONG 7448.50→7449.00 (+$0.62): no setup label and no chart in EL or the sheet (checked again 2026-09-28: still neither). Bars: a huge, news-sized volume spike (15,825 vs about 1,700-2,900 the prior bars) blew through the morning’s 7,428-7,445 range; he bought 7,448.50 mid-spike, not off a base.",
+  "2026-07-29 14:02 MES LONG 7445.00→7445.25 (-$0.63): no setup label and no chart in EL or the sheet (checked again 2026-09-28: still neither). Bars: bought the pullback two bars into an even bigger volume-spike breakout (13,517, then 10,453), on the third bar as it was already fading (open 7,448.00, low 7,442.00, close 7,443.50).",
   "Stock trades with no label in EL or the sheet: TNMG 2026-06-29, CELZ 06-30, LHAI 07-01, LGCL 07-02, AMC 07-20, VEEA 09-15 (two trades).",
   "Stock trades with no label in EL but a label in the sheet (DRCT, GXAI x3, IVF, XWEL, PRSO, ATPC as CBU; ALUR and SPY x3 as EBU) are older than any free minute data. They are listed at the bottom of the CBU and EBU pages with the numbers the sheet kept."
  ],
@@ -4045,7 +4114,8 @@
   "Trades bought inside the signal minute (off a 5- or 10-second chart) show \"same bar\" for chase: the 1-minute candle closed after the fill, so they are left out of the chase and volume findings.",
   "The end-of-day SCORE has no score for seven July-August futures trades (07-10, 07-15, 07-17, 07-20, 07-27, 07-29, 08-04: \"no 1-minute data\"); the NinjaTrader 10-second capture covers those days, and these pages use it.",
   "Six stock trades (SUGP, GMM, XHG, IPST, SLE, HOWL) only have the 5-minute bars kept with their scores, so their breakout candle was read off the 1-minute or 10-second chart he saved. LABT’s was read off its 10-second chart too, since 1-minute bars cannot show a 10-second candle. Each page says so.",
-  "Seven stock readings here differ from the SCORE in TRADING LOG, which used 5-minute bars or another candle: EHGO (09:29, not 09:31), LABT (the 10-second 08:08:00 candle), SUGP, GMM, XHG, IPST and HOWL. The SCORE has not been re-run on them."
+  "Seven stock readings here differ from the SCORE in TRADING LOG, which used 5-minute bars or another candle: EHGO (09:29, not 09:31), LABT (the 10-second 08:08:00 candle), SUGP, GMM, XHG, IPST and HOWL. The SCORE was re-scored on 2026-09-28 to match these pages.",
+  "Re-checked EDGE LOG on 2026-09-28 against this file: the 2026-04-07 label swap, the 2026-05-13 ENGD chart (tOU5oaTk), and the 2026-06-30 MNQ CBU chart (ABdqp2x0) are all still unfixed - see “Where EL and the TRADETRACKER sheet disagree” above. The 2026-09-24 12:20 MNQ trade is now in EL, labelled EBU with its own chart, and is filed on the EBU page."
  ],
  "nodata": {
   "CBU": [

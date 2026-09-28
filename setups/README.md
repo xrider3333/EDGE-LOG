@@ -6,15 +6,18 @@
 |---|---|---|---|---|---|---|---|---|
 | CBU | Consolidation Breakout Up | 12 | 7 | 53.49 | 12 | -133.56 | 18 | [CBU.md](CBU.md) |
 | ENGU | Engulfing Up | 17 | 12 | 107.25 | 1 | 3.60 | 5 | [ENGU.md](ENGU.md) |
-| EBU | Breakout Up (rule not written down yet) | 9 | 4 | 29.15 | 0 | — | 4 | [EBU.md](EBU.md) |
+| EBU | Breakout Up (rule not written down yet) | 10 | 5 | 53.27 | 0 | — | 4 | [EBU.md](EBU.md) |
 | CBD | Consolidation Breakout Down | 4 | 3 | 21.15 | 0 | — | 0 | [CBD.md](CBD.md) |
 | ENGD | Engulfing Down | 2 | 1 | -7.55 | 0 | — | 0 | [ENGD.md](ENGD.md) |
 
 ## Real trades with no setup label yet
 
 - 2026-04-21 09:52 MES SHORT 7165.25→7165.00 (-$0.65): the sheet calls it a fat-finger order, so it is left out of every setup page. Its chart (taSMzocP) draws the long he meant; the CBU page links it on the 04-21 long.
-- 2026-07-15 08:30 MNQ LONG 29932.50→29937.75 (+$8.62), 2026-07-17 11:36 MES LONG 7515.25→7516.25 (+$3.12), 2026-07-20 15:29 MES LONG 7490.00→7493.75 (+$16.87), 2026-07-27 12:25 MES LONG 7448.50→7449.00 (+$0.62), 2026-07-29 14:02 MES LONG 7445.00→7445.25 (-$0.63): no setup label and no chart in EL or the sheet. Tag them in TRADING LOG ▸ TRADES and they will be filed on the next rebuild.
-- 2026-09-24 12:20 MNQ LONG 30687.00→30700.00: in the NinjaTrader fill log but not in EL yet when this was built.
+- 2026-07-15 08:30 MNQ LONG 29932.50→29937.75 (+$8.62): no setup label and no chart in EL or the sheet (checked again 2026-09-28: still neither). Bars: the entry candle blew out of a 20-minute 29,856-29,892 range on a roughly 10x volume spike (1,396 vs 60-150), swinging 29,856.50-29,947.00 and closing near the top at 29,923.00 - a wide breakout-up bar, no tight base under it.
+- 2026-07-17 11:36 MES LONG 7515.25→7516.25 (+$3.12): no setup label and no chart in EL or the sheet (checked again 2026-09-28: still neither). Bars: a small bounce off a three-bar pullback low (7,510.00) inside the recent range, on ordinary volume - no base, no clean breakout to point to.
+- 2026-07-20 15:29 MES LONG 7490.00→7493.75 (+$16.87): no setup label and no chart in EL or the sheet (checked again 2026-09-28: still neither). Bars: broke a 19-minute 7,480-7,487 range on an 8,445-volume spike, closing near the high at 7,490.50 - a clean range breakout up.
+- 2026-07-27 12:25 MES LONG 7448.50→7449.00 (+$0.62): no setup label and no chart in EL or the sheet (checked again 2026-09-28: still neither). Bars: a huge, news-sized volume spike (15,825 vs about 1,700-2,900 the prior bars) blew through the morning’s 7,428-7,445 range; he bought 7,448.50 mid-spike, not off a base.
+- 2026-07-29 14:02 MES LONG 7445.00→7445.25 (-$0.63): no setup label and no chart in EL or the sheet (checked again 2026-09-28: still neither). Bars: bought the pullback two bars into an even bigger volume-spike breakout (13,517, then 10,453), on the third bar as it was already fading (open 7,448.00, low 7,442.00, close 7,443.50).
 - Stock trades with no label in EL or the sheet: TNMG 2026-06-29, CELZ 06-30, LHAI 07-01, LGCL 07-02, AMC 07-20, VEEA 09-15 (two trades).
 - Stock trades with no label in EL but a label in the sheet (DRCT, GXAI x3, IVF, XWEL, PRSO, ATPC as CBU; ALUR and SPY x3 as EBU) are older than any free minute data. They are listed at the bottom of the CBU and EBU pages with the numbers the sheet kept.
 
@@ -37,4 +40,5 @@
 - Trades bought inside the signal minute (off a 5- or 10-second chart) show "same bar" for chase: the 1-minute candle closed after the fill, so they are left out of the chase and volume findings.
 - The end-of-day SCORE has no score for seven July-August futures trades (07-10, 07-15, 07-17, 07-20, 07-27, 07-29, 08-04: "no 1-minute data"); the NinjaTrader 10-second capture covers those days, and these pages use it.
 - Six stock trades (SUGP, GMM, XHG, IPST, SLE, HOWL) only have the 5-minute bars kept with their scores, so their breakout candle was read off the 1-minute or 10-second chart he saved. LABT’s was read off its 10-second chart too, since 1-minute bars cannot show a 10-second candle. Each page says so.
-- Seven stock readings here differ from the SCORE in TRADING LOG, which used 5-minute bars or another candle: EHGO (09:29, not 09:31), LABT (the 10-second 08:08:00 candle), SUGP, GMM, XHG, IPST and HOWL. The SCORE has not been re-run on them.
+- Seven stock readings here differ from the SCORE in TRADING LOG, which used 5-minute bars or another candle: EHGO (09:29, not 09:31), LABT (the 10-second 08:08:00 candle), SUGP, GMM, XHG, IPST and HOWL. The SCORE was re-scored on 2026-09-28 to match these pages.
+- Re-checked EDGE LOG on 2026-09-28 against this file: the 2026-04-07 label swap, the 2026-05-13 ENGD chart (tOU5oaTk), and the 2026-06-30 MNQ CBU chart (ABdqp2x0) are all still unfixed - see “Where EL and the TRADETRACKER sheet disagree” above. The 2026-09-24 12:20 MNQ trade is now in EL, labelled EBU with its own chart, and is filed on the EBU page.
