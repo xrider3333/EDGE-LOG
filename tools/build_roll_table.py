@@ -73,14 +73,18 @@ TAIL_ROLLS = [
      "Estimate from the contract spread on 06-01..06-05 (+0.826%), the daily ES/SPY ratio "
      "change (+0.861%) and the minute-ratio step at 05:30 with NQ flat. NQ and ES rolled two "
      "hours apart, so neither root confirms the other's timing."),
-    ("NQ", "2026-09-14 11:30", "NQU6", "NQZ6", 295.0, "288..300.25", "capture_spread",
+    ("NQ", "2026-09-14 11:30", "NQU6", "NQZ6", 296.5, "292.50..300.50", "capture_spread",
      "In-bar, and on EVERY Yahoo-fed master this time, RTH and 24h: the 11:30 ET bar opens "
-     "29,077.00 and closes 29,454.50 on 5m. Estimate is the median of master minus the "
-     "NinjaTrader capture over 1,630 minutes; it drifts from about 300 on the afternoon of "
-     "09-14 to 288-290 on 09-15."),
-    ("ES", "2026-09-14 11:30", "ESU6", "ESZ6", 67.75, "66.5..68.25", "capture_spread",
+     "29,077.00 and closes 29,454.50 on 5m. MEASURED 2026-09-28 by tools/roll_watch.py: the "
+     "master-minus-capture spread is flat at 0.00 over the 600 minutes before this bar and "
+     "+296.50 over the 535 after, with a p5..p95 width of 8.00 on the later side. This "
+     "replaces the original +295.00 estimate, which was the median over a window that also "
+     "spanned the capture's OWN roll a day later.", "measured"),
+    ("ES", "2026-09-14 11:30", "ESU6", "ESZ6", 67.75, "67.50..68.00", "capture_spread",
      "In-bar, on every Yahoo-fed master: the 11:30 ET bar opens 7,612.00 and closes 7,691.50 "
-     "on 5m. Estimate from master minus capture over the same window."),
+     "on 5m. MEASURED 2026-09-28 by tools/roll_watch.py: the master-minus-capture spread is "
+     "flat at 0.00 over the 600 minutes before and +67.75 over the 539 after, with a p5..p95 "
+     "width of 0.50. This confirms the original estimate to the tick.", "measured"),
 ]
 
 # Events that look like rolls and are NOT. Recorded so nobody adjusts them out again.
@@ -164,13 +168,18 @@ def rows_for(root, src_dir=DATA):
                 kind=classify_kind(r["switch_et"]), source="databento_raw",
                 status="exact", note=""))
 
-    for rt, stamp, old, new, off, ci, source, note in TAIL_ROLLS:
+    for entry in TAIL_ROLLS:
+        rt, stamp, old, new, off, ci, source, note = entry[:8]
+        # A tail row is ESTIMATED unless it has since been measured against a second feed.
+        # The September 2026 pair were upgraded to `measured` on 2026-09-28; June cannot be,
+        # because the NinjaTrader capture only starts 2026-06-23, after that switch.
+        status = entry[8] if len(entry) > 8 else "estimated"
         if rt != root:
             continue
         out.append(dict(root=root, old=old, new=new, switch_sec=_et_to_sec(stamp),
                         switch_et=stamp, offset_pts="%.2f" % off, offset_ci_pts=ci,
                         offset_sec=stamp, kind="in_bar", source=source,
-                        status="estimated", note=note))
+                        status=status, note=note))
 
     for rt, stamp, kind, note in NOT_ROLLS:
         if rt != root:
@@ -197,12 +206,14 @@ def write(root, rows, out_dir=DATA):
 def summarise(root, rows):
     real = [r for r in rows if r["kind"] != "not_a_roll"]
     est = [r for r in real if r["status"] == "estimated"]
+    meas = [r for r in real if r["status"] == "measured"]
     in_bar = [r for r in real if r["kind"] == "in_bar"]
     neg = [r for r in real if float(r["offset_pts"]) < 0]
-    return ("%s: %d switches (%d exact, %d ESTIMATED), %d in-bar, %d with a negative "
-            "offset, plus %d not-a-roll rows. First %s, last %s."
-            % (root, len(real), len(real) - len(est), len(est), len(in_bar), len(neg),
-               len(rows) - len(real), real[0]["switch_et"], real[-1]["switch_et"]))
+    return ("%s: %d switches (%d exact, %d measured, %d ESTIMATED), %d in-bar, %d with a "
+            "negative offset, plus %d not-a-roll rows. First %s, last %s."
+            % (root, len(real), len(real) - len(est) - len(meas), len(meas), len(est),
+               len(in_bar), len(neg), len(rows) - len(real),
+               real[0]["switch_et"], real[-1]["switch_et"]))
 
 
 def main():

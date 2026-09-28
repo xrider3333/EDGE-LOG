@@ -22,7 +22,8 @@ import pandas as pd
 import pytest
 
 from augur_engine import trial_cache as TC
-from augur_engine.strategies import strategy_file_sha, load_strategy
+from augur_engine.strategies import (strategy_file_sha, strategy_closure_sha,  # noqa: F401
+                                     load_strategy)
 from augur_engine.auto import run_auto, make_slice_evaluator
 from augur_engine.optimize import run_grid
 from augur_engine.engine import run_backtest
@@ -246,7 +247,11 @@ def test_build_ctx_returns_full_dict_when_everything_available(tmp_path):
                        date_from="2026-01-01", date_to="2026-01-31",
                        master=arrays["meta"])
     assert ctx is not None
-    assert ctx["strategy_file_sha"] == strategy_file_sha(strat_path)
+    # The CLOSURE, not the single file (2026-09-28). A variant loads its parent by file
+    # path at run time, so hashing only the top-level file let a fix in the parent replay
+    # stale cached results. tests/test_trial_cache_closure.py covers that behaviour; this
+    # line just pins which hash the stored field holds. The column keeps its old name.
+    assert ctx["strategy_file_sha"] == strategy_closure_sha(strat_path, mod)
     assert ctx["engine_epoch"] == 1
     assert ctx["master_id"] == "SYNI|5m|test"
     assert ctx["data_fingerprint"] == arrays["fingerprint"]

@@ -289,8 +289,12 @@ def build_ctx(mod, arrays, *, cost_pts=0.0, session=None, date_from=None, date_t
     if not path:
         return None
     try:
-        from .strategies import strategy_file_sha as _sha_of
-        sha = _sha_of(path)
+        # The CLOSURE, not just this file: a variant is a thin wrapper that loads its parent
+        # by file path at run time, so hashing only the top-level file let a fix in the parent
+        # replay stale cached results (TTM, 2026-09-27). It also covers tools/data tables a
+        # roll-guarded strategy reads, which are not frozen either.
+        from .strategies import strategy_closure_sha as _sha_of
+        sha = _sha_of(path, mod)
     except Exception:
         return None
     if not sha:

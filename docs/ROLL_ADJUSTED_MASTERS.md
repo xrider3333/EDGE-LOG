@@ -111,12 +111,23 @@ at 1 minute but fall strictly inside a 5-minute bar.
 **Four offsets are ESTIMATES, not measurements.** The raw feed stops 2026-06-07, so the 2026
 tail switches were estimated against the other root and against the NinjaTrader capture:
 
-| Root | Switch (ET) | Offset | Range | Method |
-|---|---|---|---|---|
-| NQ | 2026-06-15 03:30 | +293.00 | 288..300 | contract spread + NQ/QQQ ratio + minute ratio |
-| ES | 2026-06-15 05:30 | +64.00 | 61..66 | contract spread + ES/SPY ratio + minute ratio |
-| NQ | 2026-09-14 11:30 | +295.00 | 288..300.25 | median of master minus capture, n=1,630 |
-| ES | 2026-09-14 11:30 | +67.75 | 66.5..68.25 | same |
+**Updated 2026-09-28: the September pair are now MEASURED, not estimated.**
+
+| Root | Switch (ET) | Offset | Range | Status | Method |
+|---|---|---|---|---|---|
+| NQ | 2026-06-15 03:30 | +293.00 | 288..300 | estimated | contract spread + NQ/QQQ ratio + minute ratio |
+| ES | 2026-06-15 05:30 | +64.00 | 61..66 | estimated | contract spread + ES/SPY ratio + minute ratio |
+| NQ | 2026-09-14 11:30 | **+296.50** | 292.50..300.50 | **measured** | master minus NinjaTrader capture: flat 0.00 over the 600 minutes before, +296.50 over the 535 after |
+| ES | 2026-09-14 11:30 | +67.75 | 67.50..68.00 | **measured** | same; the original estimate was right to the tick |
+
+The NQ figure moved from an estimated +295.00 to a measured **+296.50**. The original estimate
+took a median over a window that also spanned the NinjaTrader capture's OWN roll a day later,
+which pulled it down. `tools/roll_watch.py --selftest` re-derives both numbers from the live
+feeds on demand.
+
+**June 2026 will always be an estimate.** The NinjaTrader capture begins 2026-06-23, after
+that switch, so there is no second feed to measure it against. Only a Databento re-pull could
+settle it.
 
 This was raised as a blocker before the work started and the owner said go, so the uncertainty
 is carried in the data rather than in prose: `status=estimated` with the range in the table, a
@@ -163,6 +174,40 @@ see `docs/DATA_TAIL_2026.md`, where that purchase is recommended for three other
   attached to an end bar (so a 2020 series was guarded because of a 2026 roll, and reported
   `has_estimated=True`), and the reach of the estimates described above was not reported at all.
 - Re-verify the table at any time with `python tools/build_roll_table.py --check`.
+
+## Which rows a guard may trust
+
+Three statuses, weakest last. **Ask `rolls.is_trustworthy(row)`, do not compare the string** -
+the vocabulary already grew once, on 2026-09-28, and a guard testing `status == "exact"`
+silently starts refusing rows that are perfectly good.
+
+| Status | Means | Trust it? |
+|---|---|---|
+| `exact` | measured from contract-level raw data (`databento_raw`). The 64 switches to 2026-06-05, and nothing else unless that feed returns | yes |
+| `measured` | measured from two independent feeds that rolled at different times, with a stated sample size and spread | yes |
+| `estimated` | inferred, with no second feed to check it against. Today only the June 2026 pair | no - `guard_masks(block_estimated=True)` keeps a caller flat across these |
+
+## Keeping the masters and the table in step
+
+The table is not frozen. `python tools/build_adjusted_masters.py --verify` reports any master
+built from an older version of it; each master records a fingerprint of the switch times and
+offsets it was built from. A stale master is not wrong, it is just built on different numbers
+than the table now holds - which is exactly the thing that is invisible without the check.
+
+## December 2026, and every roll after it
+
+`databento_raw` stopped, so a new switch is measured from the Yahoo master minus the
+NinjaTrader capture: the two roll at different times, so their spread steps by one carry.
+`tools/roll_watch.py` does the measurement and `tools/roll_watch_nightly.py` runs it unattended
+each evening a roll window is open, appends the row when the measurement is clean, and posts
+to TTM and MANAGER either way - a silent night shows up as a silent night rather than as
+nothing having run. It never appends twice and never writes a row it is unsure of.
+
+The December 2026 expiry is Friday **2026-12-18**, so the window is **12-08 to 12-17**. Rows it
+writes carry `status=measured` and `source=capture_spread`. If both feeds ever roll in the same
+minute the spread never steps and nothing is written; the calendar guard in
+`augur_engine/roll_guard.py` arms for the whole window regardless, so a caller is protected
+either way.
 
 ## What is still open
 

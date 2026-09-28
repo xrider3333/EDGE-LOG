@@ -111,7 +111,16 @@ def test_row_and_status_counts_per_root():
         exact = [r for r in real if r["status"] == "exact"]
         estimated = [r for r in real if r["status"] == "estimated"]
         assert len(exact) == 64
-        assert len(estimated) == 2
+        measured = [r for r in real if r["status"] == "measured"]
+        # 2026-09-28: the September pair were MEASURED against the NinjaTrader capture and are
+        # no longer estimates. Only the June pair remains estimated, and always will - the
+        # capture starts 2026-06-23, after that switch, so nothing we hold can measure it.
+        assert len(measured) == 1, "%s: the September 2026 switch should be measured" % root
+        assert len(estimated) == 1, "%s: only June 2026 should still be an estimate" % root
+        assert estimated[0]["switch_et"].startswith("2026-06")
+        assert measured[0]["switch_et"] == "2026-09-14 11:30"
+        assert rolls.is_trustworthy(measured[0]) and rolls.is_trustworthy(exact[0])
+        assert not rolls.is_trustworthy(estimated[0])
 
         neg = [r for r in exact if r["offset_pts"] < 0]
         assert len(neg) == neg_expected, (
@@ -222,7 +231,19 @@ def test_boundary_switch_is_not_mixed_and_the_step_loses_only_the_offset(tmp_pat
 
 # ── 6. an in-bar switch IS mixed - real NQ 2026-09-14 11:30 row, 5-minute grid ─────────
 def _the_tail_row():
+    """The September 2026 in-bar switch - measured against the capture on 2026-09-28."""
     row = next(r for r in rolls.real_switches("NQ") if r["switch_et"] == "2026-09-14 11:30")
+    assert row["kind"] == "in_bar" and row["status"] == "measured"
+    return row
+
+
+def _the_estimated_row():
+    """The June 2026 in-bar switch - the only one still an ESTIMATE, and permanently so.
+
+    The NinjaTrader capture begins 2026-06-23, after this switch, so there is no second feed
+    to measure it against. Anything testing the estimated path has to use this row.
+    """
+    row = next(r for r in rolls.real_switches("NQ") if r["switch_et"] == "2026-06-15 03:30")
     assert row["kind"] == "in_bar" and row["status"] == "estimated"
     return row
 
@@ -335,29 +356,38 @@ def test_guard_masks_flat_by_no_entry_and_block_estimated(tmp_path):
 
 # ── 10. estimated_switches() and roll_map's has_estimated ──────────────────────────────
 def test_estimated_switches_returns_exactly_two_rows_per_root():
-    """estimated_switches() is how a caller finds the four (two per root) 2026 tail rows
-    whose offset came from cross-referencing another root or a NinjaTrader capture rather
-    than from the raw feed. If this ever returned more or fewer, either a genuinely measured
-    switch would get treated as uncertain, or an uncertain one would slip through as if it
-    were measured."""
+    """estimated_switches() is how a caller finds the rows whose offset was INFERRED rather
+    than measured. If it returned more or fewer, either a genuinely measured switch would be
+    treated as uncertain, or an uncertain one would slip through as if it were measured.
+
+    Since 2026-09-28 there is exactly ONE per root: the June 2026 in-bar switch. The
+    September pair were measured against the NinjaTrader capture; June cannot be, because
+    the capture starts 2026-06-23, after it."""
     for root in ("NQ", "ES"):
         est = rolls.estimated_switches(root)
-        assert len(est) == 2
-        assert all(r["status"] == "estimated" for r in est)
-        assert all(r["kind"] == "in_bar" for r in est), (
-            "both of this root's estimated switches are the in-bar tail rows")
+        assert len(est) == 1
+        assert est[0]["status"] == "estimated"
+        assert est[0]["switch_et"].startswith("2026-06")
+        assert est[0]["kind"] == "in_bar"
+        assert not rolls.is_trustworthy(est[0])
 
 
 def test_has_estimated_true_for_a_series_that_covers_the_2026_tail():
     """A caller that gates on has_estimated needs it to actually fire when a series really
     does cross one of the four estimated switches - the positive case block_estimated exists
     to serve."""
-    row = _the_tail_row()
+    row = _the_estimated_row()
     tf = 300
     times = np.array([row["switch_sec"] - tf, row["switch_sec"], row["switch_sec"] + tf],
                       dtype="int64")
     m = rolls.roll_map(times, "NQ", tf)
     assert m["has_estimated"] is True
+    # ...and a series crossing the MEASURED September switch does not raise the same flag,
+    # because that offset is no longer a guess
+    s = _the_tail_row()
+    m2 = rolls.roll_map(np.array([s["switch_sec"] - tf, s["switch_sec"], s["switch_sec"] + tf],
+                                 dtype="int64"), "NQ", tf)
+    assert m2["n_switches"] == 1 and m2["has_estimated"] is False
 
 
 def test_has_estimated_is_false_for_a_series_that_ends_well_before_2026():
@@ -521,7 +551,7 @@ def test_n_switches_counts_this_series_while_the_total_stays_available():
     # a series that really does span the September 2026 splice reports one
     t2 = np.array([1789399800 - tf * 5 + i * tf for i in range(20)], dtype="int64")
     m2 = rolls.roll_map(t2, "NQ", tf)
-    assert m2["n_switches"] == 1 and m2["has_estimated"] is True
+    assert m2["n_switches"] == 1 and m2["has_estimated"] is False
 
 
 def test_back_adjusting_an_old_series_still_rests_on_the_2026_estimates():

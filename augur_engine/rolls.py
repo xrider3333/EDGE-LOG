@@ -105,9 +105,39 @@ def real_switches(root, table_dir=None):
     return [r for r in load_table(root, table_dir) if r["kind"] != "not_a_roll"]
 
 
+# HOW MUCH A ROW'S OFFSET CAN BE TRUSTED. Three values, weakest last:
+#
+#   exact     - measured from contract-level raw data (databento_raw). The 64 switches to
+#               2026-06-05. Nothing else will ever be `exact` unless the raw feed returns.
+#   measured  - measured from two independent feeds that rolled at different times: the step
+#               in the Yahoo master minus the NinjaTrader capture, with a stated sample size
+#               and spread. Produced by tools/roll_watch.py. Strong enough to adjust on.
+#   estimated - inferred, with no second feed to check it against. Today this is only the
+#               June 2026 pair: the capture starts 2026-06-23, after that switch, so nothing
+#               we still hold can measure it.
+#
+# A CALLER SHOULD ASK is_trustworthy(row), NOT compare the string. The vocabulary can grow -
+# it already has, on 2026-09-28 - and a guard that tests `status == "exact"` silently starts
+# refusing rows that are perfectly good, or worse, keeps trusting one that was downgraded.
+TRUSTWORTHY_STATUSES = ("exact", "measured")
+
+
+def is_trustworthy(row):
+    """True when this row's offset was measured rather than inferred.
+
+    This is the question a roll guard actually wants answered before it removes an offset or
+    decides whether to stay flat across a switch.
+    """
+    return str((row or {}).get("status", "")) in TRUSTWORTHY_STATUSES
+
+
 def estimated_switches(root, table_dir=None):
-    """Switches whose offset is an estimate, not a measurement."""
-    return [r for r in real_switches(root, table_dir) if r["status"] != "exact"]
+    """Switches whose offset is an estimate rather than a measurement.
+
+    These are the ones worth staying flat across, and the ones a reported result has to
+    mention. `guard_masks(..., block_estimated=True)` uses the same test.
+    """
+    return [r for r in real_switches(root, table_dir) if not is_trustworthy(r)]
 
 
 def _switch_arrays(root, table_dir=None):
@@ -187,7 +217,7 @@ def roll_map(times, root, tf_seconds, table_dir=None):
 
     # `n_switches` and `has_estimated` describe THIS SERIES, so a caller can ask "does the
     # data I hold contain a switch, or an estimated one" and get an answer about its own bars.
-    est = np.array([r["status"] != "exact" for r in rows], dtype=bool) if rows else np.zeros(0, dtype=bool)
+    est = np.array([not is_trustworthy(r) for r in rows], dtype=bool) if rows else np.zeros(0, dtype=bool)
     # ...and separately: the back-adjust SHIFT on this series is the sum of every switch that
     # comes after it, so an old series' absolute LEVELS still depend on the 2026 estimates even
     # though no estimated switch falls inside it. Forward adjustment cancels those, so it does
@@ -285,7 +315,7 @@ def guard_masks(times, root, tf_seconds, table_dir=None, block_estimated=False):
         # away is a false positive a caller cannot tell from a real one.
         if b < 0 or b >= n:
             continue
-        est = i < len(rows) and rows[i]["status"] != "exact"
+        est = i < len(rows) and not is_trustworthy(rows[i])
         if b - 1 >= 0:
             flat_by[b - 1] = True
         no_entry[b] = True

@@ -51,6 +51,7 @@ property is what makes a before-and-after comparison meaningful.
 """
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import sqlite3
@@ -63,6 +64,35 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 from augur_engine import rolls  # noqa: E402
+
+def table_fingerprint(root):
+    """A short hash of the roll table this master would be built from.
+
+    WHY (2026-09-28). The table is not frozen: the September 2026 NQ offset moved from an
+    estimated 295.00 to a measured 296.50 the day it was measured against the NinjaTrader
+    capture, and December's switch will be appended the evening it happens. A master built
+    from an older table is not wrong so much as STALE, and nothing on disk said which version
+    produced it - so a re-validation could be compared against a run built on different
+    numbers without anyone noticing. Recording the fingerprint makes that detectable;
+    `--verify` reports it.
+
+    Only the fields that actually change the OUTPUT are hashed: which switches are real, when
+    they happen, and by how much. A re-worded note, a tightened confidence interval or a
+    status upgraded from `estimated` to `measured` does not alter a single bar, so it must not
+    mark every master stale - otherwise the check cries wolf and stops being read.
+    """
+    import csv as _csv
+    p = os.path.join(ROOT, "tools", "data", "rolls_%s.csv" % root)
+    try:
+        with open(p, encoding="utf-8") as fh:
+            rows = [(r["switch_sec"], r["kind"], r["offset_pts"])
+                    for r in _csv.DictReader(fh) if r["kind"] != "not_a_roll"]
+        rows.sort()
+        payload = ";".join("%s,%s,%s" % r for r in rows)
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:12]
+    except Exception:
+        return ""
+
 
 DEFAULT_UP = os.path.join(ROOT, "augur_uploads")
 DEFAULT_DB = os.path.join(ROOT, "optimizer_history.db")
@@ -151,6 +181,7 @@ def register(conn, filename, src, frame, stats, method):
         built_by="tools/build_adjusted_masters.py",
         derived_from=src["filename"], method=method,
         roll_table="tools/data/rolls_%s.csv" % src["instrument"],
+        roll_table_sha=table_fingerprint(src["instrument"]),
         switches_applied=stats["switches"], estimated_switches=stats["estimated"],
         switches_inside_this_span=stats["in_series_switches"],
         levels_rest_on_estimate=stats["levels_rest_on_estimate"],
@@ -195,6 +226,9 @@ def write_atomic(path, frame):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--apply", action="store_true", help="write the files and register them")
+    ap.add_argument("--verify", action="store_true",
+                    help="report which registered adjusted masters were built from an older "
+                         "roll table than the one on disk now; writes nothing")
     ap.add_argument("--reregister-only", action="store_true",
                     help="refresh the registry rows from the files already on disk, without "
                          "rewriting 1.7 GB of CSV - for a provenance-only change")
@@ -209,6 +243,31 @@ def main():
     # the runner's short reads instead of giving up.
     conn = sqlite3.connect(a.db, timeout=120)
     conn.execute("PRAGMA busy_timeout = 120000")
+
+    if a.verify:
+        stale = 0
+        rows = conn.execute(
+            "SELECT filename,instrument,provenance FROM csv_files WHERE is_master=1 AND "
+            "(source LIKE 'db_adj%' OR source LIKE 'db_fadj%') ORDER BY filename").fetchall()
+        for fn, inst, prov in rows:
+            try:
+                built = (json.loads(prov or "{}") or {}).get("roll_table_sha", "")
+            except Exception:
+                built = ""
+            now = table_fingerprint(inst)
+            ok = bool(built) and built == now
+            if not ok:
+                stale += 1
+            print("%-24s built from %-14s table now %-14s %s"
+                  % (fn, built or "(not recorded)", now, "ok" if ok else "STALE"))
+        print()
+        print("%d of %d adjusted masters are stale against the current roll table."
+              % (stale, len(rows)))
+        if stale:
+            print("Rebuild with --apply when it suits; results from a stale master are still "
+                  "self-consistent, they just do not match the table on disk.")
+        conn.close()
+        return 1 if stale else 0
     want = {x.strip() for x in a.only.split(",") if x.strip()}
     srcs = [m for m in noadj_masters(conn) if not want or m["filename"] in want]
     if not srcs:
