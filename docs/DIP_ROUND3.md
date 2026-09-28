@@ -67,3 +67,10 @@ Cell **VOL**: each trade's notional = $100,000 x min(1, v_med / v20), where v20 
 before that (both causal); whole micros as the file rounds them. Everything else RAW. Same bar as above
 (beat RAW on ROC @ $30k DD and Sortino in WF and LB on both markets; 100 / 50 trades; LB > 0 without its
 biggest trade). No other scaling variant is tried.
+
+**Addendum A result (2026-09-28): VOL is DEAD by its bar.** ES #452: WF 13.2 -> **19.7** %/yr at $30k, Sortino
+1.03 -> 1.22, whole drawdown $71,941 -> **$44,305** (under the book's $48,364 cap); LB 54.9 -> 53.0 (fails by
+1.9), Sortino 1.36 -> 1.38. NQ #433: WF 26.9 -> 23.5, LB 42.2 -> 32.2 (fails). Pre-registered as "both
+markets", so it stops here. Stated for the owner, not acted on: on ES alone it is the first DIP rule to bring
+the drawdown under the book cap while raising walk-forward return per unit of risk; a single-market re-test
+would have to be registered fresh and judged on data it has not seen.

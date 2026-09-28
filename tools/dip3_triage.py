@@ -20,7 +20,7 @@ UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
 WF = ("2016-07-18", "2025-08-22"); LB = ("2025-08-24", "2026-08-24")
 LEGS = [("RSI", "use_rsi"), ("DBL", "use_dbl"), ("PB", "use_pb"), ("CAP", "use_cap"),
         ("IBS", "use_ibs"), ("STREAK", "use_streak"), ("GAPDN", "use_gapdn")]
-CELLS = [("RAW", 0, False), ("CAP1", 1, False), ("CAP2", 2, False), ("TBX", 0, True),
+CELLS = [("RAW", 0, False), ("VOL", 0, "vol"), ("CAP1", 1, False), ("CAP2", 2, False), ("TBX", 0, True),
          ("CAP1+TBX", 1, True), ("CAP2+TBX", 2, True)]
 
 
@@ -50,6 +50,10 @@ class Market:
         self.day = pd.DatetimeIndex([self.idx[a] for a, b in self.bounds]).tz_localize(None).normalize()
         self.trend = pd.Series(self.dca).rolling(int(self.P["trend_len"])).mean().values
         self.sess = {int(a): j for j, (a, b) in enumerate(self.bounds)}
+        r = np.concatenate([[np.nan], np.diff(self.dca) / self.dca[:-1]])
+        v20 = pd.Series(r).rolling(20).std().shift(1).values          # 20 returns before day j
+        vmed = pd.Series(v20).rolling(252, min_periods=60).median().shift(1).values
+        self.vmult = np.where(np.isfinite(v20) & np.isfinite(vmed) & (v20 > 0), np.minimum(1.0, vmed / v20), 1.0)
         self.trades = []                                   # (leg, de, dx, entry_px)
         for leg, flag in LEGS:
             if not self.P.get(flag, False) and flag in self.P:
@@ -65,26 +69,27 @@ class Market:
                                    return_trades=True, **self.P)
         self.full_n, self.full_net = full["num_trades"], full["total_pnl"]
 
-    def pnl(self, de, dx, ep):
-        dpp = 2.0 * max(1, int(round(float(self.P.get("notional", 100000)) / (ep * 2.0))))
+    def pnl(self, de, dx, ep, mult=1.0):
+        dpp = 2.0 * max(1, int(round(mult * float(self.P.get("notional", 100000)) / (ep * 2.0))))
         cross = int(((self.rb > self.open_bar[de]) & (self.rb <= self.open_bar[dx])).sum())
         return dpp, (self.doa[dx] - self.doa[de]) * dpp - float(self.P.get("cost_pts_rt", 0.783)) * dpp - 0.25 * dpp * cross
 
     def cell(self, cap, tbx):
         tr = []
+        vol = tbx == "vol"; tbx = tbx is True
         for leg, de, dx, ep in self.trades:
             if tbx and leg != "CAP":
                 for j in range(de, dx):
                     if not np.isnan(self.trend[j]) and self.dca[j] < self.trend[j]:
                         dx = min(dx, j + 1); break
-            tr.append((de, dx, ep))
+            tr.append((de, dx, ep, float(self.vmult[de]) if vol else 1.0))
         tr.sort(key=lambda t: (t[0], t[1]))
         if cap:
             kept, open_x = [], []
-            for de, dx, ep in tr:
+            for de, dx, ep, mu in tr:
                 open_x = [x for x in open_x if x > de]
                 if len(open_x) < cap:
-                    kept.append((de, dx, ep)); open_x.append(dx)
+                    kept.append((de, dx, ep, mu)); open_x.append(dx)
             tr = kept
         return tr
 
@@ -92,8 +97,8 @@ class Market:
         a, b = pd.Timestamp(a), pd.Timestamp(b)
         sel = [t for t in tr if a <= self.day[t[0]] <= b]
         n = len(self.bounds); eq = np.zeros(n); nets = []
-        for de, dx, ep in sel:
-            dpp, p = self.pnl(de, dx, ep); nets.append(p)
+        for de, dx, ep, mu in sel:
+            dpp, p = self.pnl(de, dx, ep, mu); nets.append(p)
             eq[de:dx] += (self.dca[de:dx] - self.doa[de]) * dpp
             eq[dx:] += p
         k = (self.day >= a) & (self.day <= b + pd.Timedelta(days=400))
