@@ -1119,3 +1119,46 @@ data this round has not read - a fresh pre-registration graded on a stretch thes
 cover, or a forward paper shadow of the gated cell beside the live one. Re-grading it on this
 window would not be evidence. My recommendation is the forward shadow: it costs nothing, it needs
 no runner time, and it is the only reading that cannot be contaminated by what is written above.
+
+### 2026-09-28 - the partial exit on the ETH crown: DEAD, 0 of 12 cells - an owed result, finally read
+
+`augur_strategies/ENGUQ_1M_ETH_PX_1_0.py` and its bench `tools/enguq_px_bench.py` were built on
+2026-09-05 with five bars pre-registered in both files, and then **never run to a published
+verdict** - no result appears in this file, BACKTESTING_STACK.md, BOOKMARKS.md or the research
+ledger. Run today exactly as it was written, against the #309 crown it was built for, so the bar
+genuinely predates the numbers by three weeks. (The bench pointed at a 2026-09-05 worktree that no
+longer exists; only that path was corrected, in a scratch copy. The committed tool is untouched.)
+
+**Both parity anchors pass**, so every row below is a one-knob comparison: partial off reproduces
+run #309 exactly (1,604 trades / $591,267 / PF 1.655) and the file's own defaults reproduce the
+frozen #226 anchor to the cent ($434,721.12).
+
+**The mechanism does precisely what it was meant to do, and it is still not worth it.** Banking
+`partial_frac` of the position the first time open profit reaches `partial_R` times the initial
+risk lifts the win rate from 33.7% to as high as 50.4%, drops the top-ten share from 57.7% to
+44.0%, and cuts the drawdown from $48,900 to as little as $29,142. Every cell keeps a positive
+net excluding its top ten, and every cell keeps at least 99 held-out trades.
+
+**It fails on return per year, in all twelve cells, by a wide margin.** The bar allowed R per year
+to fall 5%, from 43.4 to 41.23. The best cell manages 40.2 and the primary cell (partial_R 2.0,
+partial_frac 0.5) manages 32.8 - a 24% give-up. Eleven of twelve also miss the MAR bar; the
+single cell that clears MAR (partial_R 1.0 / frac 0.25 with breakeven 1.5, MAR 0.8811) gives up
+30% of R per year to get there. **No cell passes all five bars.**
+
+**Why it fails is the same sentence as round 62.** ENGU-Q's money is in the trades that survive:
+the 270 holds longer than three days make more than the whole book's net, and the intraday deaths
+cost almost exactly that net back. A partial exit takes size off a survivor at the moment it is
+proving it will survive, so it always sells the good half of the distribution. The hold cap
+(2026-09-27) failed for the same reason, and so does this. **Three separate mechanisms now agree:
+nothing that reduces exposure to a winning ENGU-Q trade pays for itself.**
+
+**Worth telling the owner, because it answers a question he asked on 2026-09-11.** He expected
+ENGU-Q to show a high win rate at a modest profit factor and was surprised to find the opposite.
+The partial exit produces exactly the picture he expected - a 49-50% win rate at profit factor
+1.46-1.59 - and the price of that picture is about a third of the return. The shape he found
+unintuitive is the shape that pays.
+
+**No validate queued, and no port recommended.** Re-asking this on the current crown and the new
+$30k-drawdown yardstick would cost about twenty minutes, but the failure mode is structural rather
+than parameter-specific, so the answer is very unlikely to change. Recorded as DEAD; the file and
+bench stay in the tree as the documented negative result they now are.
