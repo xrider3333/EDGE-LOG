@@ -10,10 +10,10 @@
    "entry": 3.95,
    "exit": 4.515,
    "qty": 100,
-   "breakout_candle": "09:31",
-   "stop": 3.78,
-   "overall": 82,
-   "summary": "The model trade. Bought a pullback BELOW the breakout candle close, sized up on the best catalyst, and sold into the spike. EHGO closed 2.71 — the exit was the trade.",
+   "breakout_candle": "09:29",
+   "stop": 2.88,
+   "overall": 78,
+   "summary": "The real breakout candle is 09:29 (low 2.88), not 09:31 — exactly matching the stop he drew live. Risking 1.07 for 0.565 is +0.53R, not the +3.3R the old candle gave. Still bought a pullback below the breakout close and sold into the 4.97 spike; EHGO closed 2.71.",
    "setup": [
     {
      "label": "Catalyst / RVOL",
@@ -25,25 +25,25 @@
      "label": "Front-side structure",
      "weight": 20,
      "score": 16,
-     "note": "Genuine first expansion off a premarket base"
+     "note": "Genuine first expansion off the 2.65-2.97 premarket range"
     },
     {
      "label": "Entry location",
      "weight": 20,
      "score": 18,
-     "note": "Filled 3.95 BELOW the 4.04 breakout close. Bought the dip, not the spike"
+     "note": "Filled 3.95 BELOW the 4.11 breakout close (09:29). Bought the dip, not the spike"
     },
     {
      "label": "Risk definition",
      "weight": 15,
-     "score": 12,
-     "note": "Stop 3.78 = breakout candle low, 4.3% away"
+     "score": 8,
+     "note": "Stop 2.88 = the true 09:29 candle's low, 27% away — much wider than the 4.3% the wrong candle gave"
     },
     {
      "label": "R:R to a real level",
      "weight": 10,
-     "score": 8,
-     "note": "0.17 risk against a multi-point extension"
+     "score": 5,
+     "note": "The 09:33 high (4.97) was about 1R above the fill on the wider 1.07 stop — not the outsized cushion the old 0.17 stop implied"
     },
     {
      "label": "Liquidity",
@@ -62,14 +62,14 @@
     {
      "label": "Entry timing",
      "weight": 25,
-     "score": 23,
-     "note": "No chase at all — the best fill in the whole log"
+     "score": 22,
+     "note": "Filled 12% below the 09:29 candle's 4.11 close — still no chase, just a smaller edge than the old candle suggested"
     },
     {
      "label": "Risk control / MAE",
      "weight": 25,
-     "score": 20,
-     "note": "MAE 3.88 used only 41% of planned risk"
+     "score": 21,
+     "note": "MAE 3.88 used only 7% of the wider 1.07 risk — even less pressure than the old 41% figure, since the correct stop is much wider"
     },
     {
      "label": "Exit vs MFE",
@@ -80,14 +80,14 @@
     {
      "label": "Sizing",
      "weight": 15,
-     "score": 12,
-     "note": "100 sh / $395 = 13% of account. Biggest size on the best setup — correct"
+     "score": 10,
+     "note": "100 sh / $395 = 13% of account, but the real risk is $107 (was thought $17) — still reasonable on the best setup"
     },
     {
      "label": "Plan adherence",
      "weight": 10,
      "score": 9,
-     "note": "Entry rule, stop and exit all followed"
+     "note": "His own drawn box (entry 4.12, stop 2.87) matches the correct 09:29 candle exactly — the live plan was right; only the end-of-day SCORE used the wrong bar"
     }
    ]
   },
@@ -280,10 +280,18 @@
    "entry": 5.11,
    "exit": 5.23,
    "qty": 30,
-   "breakout_candle": "08:07",
-   "stop": 4.15,
-   "overall": 38,
-   "summary": "The worst fill in the log: paid 5.11 when the breakout candle closed 4.54 — a full candle-range above it. Held through the stop zone, then took $3.60 out of a move that ran to 7.72.",
+   "breakout_candle": "08:08",
+   "stop": 4.49,
+   "breakout_px": {
+    "o": 4.5,
+    "h": 5.28,
+    "l": 4.49,
+    "c": 5.18,
+    "tf": "10-second",
+    "how": "the 08:08:00 10-second candle he traded, read off his saved chart"
+   },
+   "overall": 52,
+   "summary": "The signal he actually traded is the 10-second 08:08:00 candle (open 4.50, close 5.18), not the 1-minute 08:07 bar: filled 5.11 is a pullback below that close, not the 112% chase the old candle showed, and the correct stop is 4.49. Price still traded through that stop to 4.44 a minute later before recovering, and he took $3.60 out of a move that ran further.",
    "setup": [
     {
      "label": "Catalyst / RVOL",
@@ -295,19 +303,19 @@
      "label": "Front-side structure",
      "weight": 20,
      "score": 10,
-     "note": "Third vertical extension in three minutes, not a first break"
+     "note": "Still the third vertical extension in a few minutes (08:04-08:07 ran 2.65 to 6.98) — the 08:08:00 candle is a genuine ENGU, just deep into the move"
     },
     {
      "label": "Entry location",
      "weight": 20,
-     "score": 3,
-     "note": "Breakout close 4.54, filled 5.11 = 112% of the candle range above it"
+     "score": 16,
+     "note": "Filled 5.11, 9% below the 08:08:00 candle's 5.18 close — a pullback, not the 112% chase the wrong 1-minute bar showed"
     },
     {
      "label": "Risk definition",
      "weight": 15,
-     "score": 4,
-     "note": "Stop 4.15 = 0.96 risk (19%) on a bar that had just printed a 6.98 wick"
+     "score": 6,
+     "note": "Stop 4.49 = that candle's actual low, correctly placed — but price traded through it to 4.44 a minute later"
     },
     {
      "label": "R:R to a real level",
@@ -332,14 +340,14 @@
     {
      "label": "Entry timing",
      "weight": 25,
-     "score": 4,
-     "note": "Chased the extension bar by more than its own range"
+     "score": 20,
+     "note": "Filled 5.11, 9% below the 08:08:00 candle's 5.18 close — a real pullback entry, not a chase"
     },
     {
      "label": "Risk control / MAE",
      "weight": 25,
-     "score": 8,
-     "note": "MAE 4.44 ate 70% of risk inside one minute"
+     "score": 5,
+     "note": "Price traded to 4.44, through the 4.49 stop (108% of the 0.62 risk), before recovering — the stop would have been hit"
     },
     {
      "label": "Exit vs MFE",
@@ -350,14 +358,14 @@
     {
      "label": "Sizing",
      "weight": 15,
-     "score": 9,
-     "note": "30 sh / $153 = 5% of account"
+     "score": 10,
+     "note": "30 sh / $153, with real risk about $18.60 — still a small stake"
     },
     {
      "label": "Plan adherence",
      "weight": 10,
      "score": 4,
-     "note": "Exit was neither the stop nor a target — a discretionary bail"
+     "note": "The stop was breached intrabar and not honoured; the eventual exit at 5.23 was still neither the stop nor a target"
     }
    ]
   },
@@ -460,10 +468,18 @@
    "entry": 5.61,
    "exit": 5.77,
    "qty": 20,
-   "breakout_candle": "08:35",
-   "stop": 4.89,
-   "overall": 53,
-   "summary": "Chased 65% of the breakout candle range into a +203% gapper, then cut for 0.16 when the very next bar still carried 0.79 more. GMM printed 6.57 two minutes after the exit.",
+   "breakout_candle": "08:40",
+   "stop": 5.2,
+   "breakout_px": {
+    "o": 5.23,
+    "h": 6.08,
+    "l": 5.2,
+    "c": 5.69,
+    "tf": "10-second",
+    "how": "the 08:41:10 10-second candle he traded, read off his saved chart"
+   },
+   "overall": 66,
+   "summary": "The real signal is the 08:41:10 ten-second candle (close 5.69), not the 5-minute 08:35 bar: filled 5.61 is a 9% pullback below that close, not a 65% chase, on a tight, well-placed 5.20 stop that was never threatened. Still cut for just 0.16 when the same bar carried 0.79 more, and GMM printed 6.57 two minutes after the exit.",
    "setup": [
     {
      "label": "Catalyst / RVOL",
@@ -475,25 +491,25 @@
      "label": "Front-side structure",
      "weight": 20,
      "score": 14,
-     "note": "Clean first expansion after a 20-minute base"
+     "note": "Clean expansion after a ~20-minute 4.70-5.35 range, with a final tight 3-minute coil (5.10-5.37) right at the breakout"
     },
     {
      "label": "Entry location",
      "weight": 20,
-     "score": 6,
-     "note": "5.61 = 65% of the breakout candle range above its 5.31 close"
+     "score": 16,
+     "note": "Filled 5.61, 9% below the 08:41:10 candle's 5.69 close — bought the pullback, not the top"
     },
     {
      "label": "Risk definition",
      "weight": 15,
-     "score": 7,
-     "note": "Breakout candle low 4.89 gives a 0.72 stop, 13% away"
+     "score": 11,
+     "note": "Stop 5.20 = that candle's actual low, a tighter 0.41 (7%) away — and never threatened"
     },
     {
      "label": "R:R to a real level",
      "weight": 10,
-     "score": 3,
-     "note": "0.72 risk for the 0.16 he took = 0.22R"
+     "score": 4,
+     "note": "0.41 risk for the 0.16 he took is 0.39R — a real ratio, just realised small"
     },
     {
      "label": "Liquidity",
@@ -512,32 +528,32 @@
     {
      "label": "Entry timing",
      "weight": 25,
-     "score": 14,
-     "note": "Early in the bar rather than after it — better than OFAL, worse than the rule"
+     "score": 20,
+     "note": "Filled 5.61, a genuine 9% pullback below the 08:41:10 candle's 5.69 close — not early, just quick to take profit"
     },
     {
      "label": "Risk control / MAE",
      "weight": 25,
-     "score": 14,
-     "note": "Never pressed; the trade went his way immediately"
+     "score": 16,
+     "note": "Went his way immediately; no bar between the 08:41 fill and 08:43 exit ever printed below it"
     },
     {
      "label": "Exit vs MFE",
      "weight": 25,
      "score": 8,
-     "note": "Kept 0.16 of the 0.79 still in the bar. GMM printed 6.57 two minutes later"
+     "note": "Kept 0.16 of the 0.79 still in the bar. GMM printed 6.57 two minutes after the exit"
     },
     {
      "label": "Sizing",
      "weight": 15,
      "score": 9,
-     "note": "20 sh / $112 = 3.7% of account"
+     "note": "20 sh / $112, with real risk of $8.20 (was thought $14.40) — still a small stake"
     },
     {
      "label": "Plan adherence",
      "weight": 10,
-     "score": 7,
-     "note": "Consistent with his rule, just early and short"
+     "score": 9,
+     "note": "Bought the pullback below the breakout close exactly per the rule, then cut early relative to the eventual move"
     }
    ]
   },
@@ -550,10 +566,18 @@
    "entry": 1.22,
    "exit": 1.13,
    "qty": 20,
-   "breakout_candle": "07:55",
-   "stop": 1.08,
-   "overall": 52,
-   "summary": "The first trade where the management beat the idea. He bought the high tick of the bar (+55% chase) but cut it fast — SUGP closed at 0.751, so the exit saved roughly nine dollars.",
+   "breakout_candle": "08:00",
+   "stop": 1.14,
+   "breakout_px": {
+    "o": 1.14,
+    "h": 1.22,
+    "l": 1.14,
+    "c": 1.22,
+    "tf": "1-minute",
+    "how": "the 08:01 1-minute candle he traded, read off his saved chart"
+   },
+   "overall": 55,
+   "summary": "The 08:01 candle he actually broke out on (not the 5-minute 07:55 bar) closed exactly where he filled, 1.22 — no chase, but also the top of the move; it never traded higher. He was cut out near his own 1.13 stop as SUGP kept fading to close at 0.751, so the exit still saved roughly nine dollars.",
    "setup": [
     {
      "label": "Catalyst / RVOL",
@@ -564,20 +588,20 @@
     {
      "label": "Front-side structure",
      "weight": 20,
-     "score": 8,
-     "note": "Fifth push of a premarket grind, not a first break"
+     "score": 12,
+     "note": "Broke a real 4-minute 1.13-1.19 consolidation (07:57-08:00) with the 08:01 candle — a tighter base than the 'fifth push' read gave it credit for"
     },
     {
      "label": "Entry location",
      "weight": 20,
-     "score": 4,
-     "note": "1.22 was 55% of the breakout candle range above its 1.16 close — the high tick"
+     "score": 12,
+     "note": "Filled 1.22, exactly at the 08:01 candle's close — no chase, but also the high tick so far"
     },
     {
      "label": "Risk definition",
      "weight": 15,
-     "score": 10,
-     "note": "Stop 1.08 = prior bar low, 0.14 risk"
+     "score": 8,
+     "note": "Stop 1.14 = that candle's low, just 0.08 (7%) away — tight, but price traded through it to 1.13 five minutes later"
     },
     {
      "label": "R:R to a real level",
@@ -602,26 +626,26 @@
     {
      "label": "Entry timing",
      "weight": 25,
-     "score": 6,
-     "note": "Filled at the extreme of the bar"
+     "score": 12,
+     "note": "Filled 1.22, right at the candle's close — not a chase, but no discount either"
     },
     {
      "label": "Risk control / MAE",
      "weight": 25,
-     "score": 18,
-     "note": "Exited ABOVE the stop. MAE used 64% of planned risk"
+     "score": 6,
+     "note": "Price traded to 1.13 during the hold, through the corrected 1.14 stop (113% of the tiny 0.08 risk)"
     },
     {
      "label": "Exit vs MFE",
      "weight": 25,
-     "score": 18,
-     "note": "Cut at 1.13 before the collapse — SUGP closed 0.751"
+     "score": 19,
+     "note": "No favourable move after the fill — price never traded above 1.22 again. Cut at 1.13 before the collapse to 0.751"
     },
     {
      "label": "Sizing",
      "weight": 15,
      "score": 9,
-     "note": "20 sh / $24 = 0.8% of account"
+     "note": "20 sh / $24, real risk about $1.60 — negligible either way"
     },
     {
      "label": "Plan adherence",
@@ -3494,9 +3518,17 @@
    "exit": 5.08,
    "qty": 20,
    "breakout_candle": "08:40",
-   "stop": 3.11,
-   "overall": 43,
-   "summary": "You bought a CBU on the bounce after a 1.20 to 16.42 spike, which is a second leg rather than a clean front side. The only structure was the 08:40 low at 3.11, more than half the share price away, so there was no real risk definition. The small size kept this to a $32 loss; skip these until a tighter base forms.",
+   "stop": 4.9,
+   "breakout_px": {
+    "o": 5.19,
+    "h": 7.0,
+    "l": 4.9,
+    "c": 6.8,
+    "tf": "1-minute",
+    "how": "the 08:43 1-minute candle he traded, read off his saved chart"
+   },
+   "overall": 44,
+   "summary": "You bought a CBU on the bounce after a 1.20 to 16.42 spike, which is a second leg rather than a clean front side. The real structure is the 1-minute 08:43 candle's low at 4.90, still 27% of the price away, so risk was wide even once correctly read. The small size kept this to a $32 loss; skip these until a tighter base forms.",
    "setup": [
     {
      "label": "Catalyst / RVOL",
@@ -3508,25 +3540,25 @@
      "label": "Front-side structure",
      "weight": 20,
      "score": 7,
-     "note": "After the 16.42 blow-off the 08:40 bar bounced from 3.11 to 7.52, a second leg, not a fresh front side"
+     "note": "After the 16.42 blow-off, the 1-minute 08:43 candle ran from 5.19 to 6.80 (high 7.00) — still a second leg, not a fresh front side"
     },
     {
      "label": "Entry location",
      "weight": 20,
-     "score": 6,
-     "note": "Filled at 6.67, 0.85 under the 08:40 high and 0.18 above its close, in the middle of a 4-dollar candle"
+     "score": 9,
+     "note": "Filled 6.67, 6% below the 08:43 candle's 6.80 close, in the upper half of its 2.10 range"
     },
     {
      "label": "Risk definition",
      "weight": 15,
-     "score": 5,
-     "note": "Structural stop at the 08:40 low 3.11, 3.56 ($71) away, more than half the price"
+     "score": 6,
+     "note": "Structural stop at the 08:43 low, 4.90 — 1.77 (27%) away, a real fraction of the 3.11 the wrong 5-minute bar gave"
     },
     {
      "label": "R:R to a real level",
      "weight": 10,
      "score": 3,
-     "note": "The 7.52 high was only 0.24R above the fill"
+     "note": "The 08:43 candle's 7.00 high was only 0.19R above the fill"
     },
     {
      "label": "Liquidity",
@@ -3545,32 +3577,32 @@
     {
      "label": "Entry timing",
      "weight": 25,
-     "score": 8,
-     "note": "Bought late in a candle that had already doubled"
+     "score": 14,
+     "note": "Filled right after the 08:43 candle closed, 6% below its close — correct CBU timing on a candle that had already run from 5.19 to 6.80"
     },
     {
      "label": "Risk control / MAE",
      "weight": 25,
-     "score": 12,
-     "note": "The 08:45 bar dropped to 5.63 and you sold at 5.08, a 1.59 loss, about 45% of the structural risk"
+     "score": 5,
+     "note": "Sold at 5.08 inside the 08:50 bar (range 4.26-6.40), a 1.59 loss = 90% of the corrected 1.77 risk — essentially a full stop-out"
     },
     {
      "label": "Exit vs MFE",
      "weight": 25,
-     "score": 12,
-     "note": "Within 15 minutes of entry the best print was 6.85 at 08:55, only 0.18 above the fill, and you sold near the 08:50 lows"
+     "score": 10,
+     "note": "The best print during the hold was 6.81 (08:45), just 0.14 above the fill, before the reversal; sold near the 08:50 bar's lows"
     },
     {
      "label": "Sizing",
      "weight": 15,
-     "score": 11,
-     "note": "20 shares, about $133, is sensibly small for a stock moving this wildly"
+     "score": 12,
+     "note": "20 shares, about $133, with real risk of $35 (was thought $71) — still sensibly small"
     },
     {
      "label": "Plan adherence",
      "weight": 10,
-     "score": 4,
-     "note": "No defined stop in the chart, and the exit was a bail near the low of a 4.26-6.40 bar"
+     "score": 5,
+     "note": "A real CBU stop existed at 4.90 even though his own drawn stop (4.73) sat below it; the exit was a bail inside the 4.26-6.40 bar, at neither level"
     }
    ]
   },
@@ -3586,9 +3618,17 @@
    "exit": 7.27,
    "qty": 100,
    "breakout_candle": "10:55",
-   "stop": 7.3,
-   "overall": 47,
-   "summary": "The breakout to 9.66 was real, but you bought it at 8.91 two minutes later while the next candle was already rolling over. The trade never showed a profit, and you held it 69 minutes before exiting at 7.27, right at the breakout low. When the candle after the break is red, pass on the CBU.",
+   "stop": 7.86,
+   "breakout_px": {
+    "o": 7.88,
+    "h": 9.66,
+    "l": 7.86,
+    "c": 9.66,
+    "tf": "1-minute",
+    "how": "the 10:59 1-minute candle he traded, read off his saved chart"
+   },
+   "overall": 44,
+   "summary": "The breakout to 9.66 was real, but you bought it at 8.91 two minutes later, 42% below the signal candle's close, while the next candle was already rolling over. The trade never showed a profit, and you held it 69 minutes before exiting at 7.27 — well through the 7.86 breakout low, not just testing it. When the candle after the break is red, pass on the CBU.",
    "setup": [
     {
      "label": "Catalyst / RVOL",
@@ -3600,25 +3640,25 @@
      "label": "Front-side structure",
      "weight": 20,
      "score": 7,
-     "note": "The 10:55 bar ran from 7.375 to 9.66, but the 11:00 bar was already fading from 9.66 to 8.42"
+     "note": "The 1-minute 10:59 candle ran from 7.88 to 9.66, but by 11:00 price was already fading toward 8.42"
     },
     {
      "label": "Entry location",
      "weight": 20,
-     "score": 8,
-     "note": "Filled at 8.91 at 11:02, 0.75 under the 9.66 high, as the candle after the signal was selling off"
+     "score": 6,
+     "note": "Filled 8.91, 42% below the 10:59 candle's 9.66 close, as the next candle was already fading — a discount, but into a failing move"
     },
     {
      "label": "Risk definition",
      "weight": 15,
-     "score": 7,
-     "note": "Structural stop at the 10:55 low 7.30, 1.61 ($161) away"
+     "score": 9,
+     "note": "Structural stop at the 10:59 low 7.86, a tighter 1.05 (12%) away"
     },
     {
      "label": "R:R to a real level",
      "weight": 10,
-     "score": 4,
-     "note": "The 9.66 high was only 0.47R above the fill"
+     "score": 5,
+     "note": "The 9.66 high was 0.71R above the fill on the corrected risk"
     },
     {
      "label": "Liquidity",
@@ -3638,31 +3678,31 @@
      "label": "Entry timing",
      "weight": 25,
      "score": 8,
-     "note": "Bought two minutes into a bar that was reversing the breakout"
+     "note": "Bought 8.91, 42% below the signal close, two minutes into a bar that was already reversing"
     },
     {
      "label": "Risk control / MAE",
      "weight": 25,
-     "score": 12,
-     "note": "Price never got back above your entry and you sold at 7.27, just under the 7.30 stop, a 1.02R loss"
+     "score": 6,
+     "note": "Held through a breach of the 7.86 stop — the low during the hold was 7.21, 162% of the 1.05 risk — before selling at 7.27"
     },
     {
      "label": "Exit vs MFE",
      "weight": 25,
      "score": 9,
-     "note": "Within 15 minutes of entry the best print was 8.80 at 11:05, below your fill, and you then held 69 minutes to sell near the 7.21 low at 12:10"
+     "note": "The best print during the 69-minute hold was 8.83, still below the 8.91 fill — never profitable — before he sold near the 12:10 bar's 7.21 low"
     },
     {
      "label": "Sizing",
      "weight": 15,
-     "score": 9,
-     "note": "100 shares with $161 at risk is on the heavy side for a midday fade"
+     "score": 10,
+     "note": "100 shares with $105 at risk (was thought $161) is still heavy for a midday fade"
     },
     {
      "label": "Plan adherence",
      "weight": 10,
-     "score": 5,
-     "note": "The stop level was respected, but only after a long hold through a failed breakout"
+     "score": 3,
+     "note": "The corrected stop (7.86) was breached, not respected — he held through it down to 7.21 before selling at 7.27"
     }
    ]
   },
@@ -3672,21 +3712,29 @@
    "key_time": true,
    "dir": "LONG",
    "interval": "5m",
-   "entry_time": "08:20",
+   "entry_time": "08:21",
    "exit_time": "09:47",
    "entry": 1.1486,
    "exit": 0.9024,
    "qty": 70,
    "breakout_candle": "08:20",
-   "stop": 0.8658,
-   "overall": 45,
-   "summary": "You caught the right stock, but the fill at 1.1486 came near the top of the 08:20 spike candle. From there it made lower highs for an hour and a half, and you sold at 0.9024 after it slipped to 0.882. Wait for the first pullback and a higher low instead of buying the spike bar itself.",
+   "stop": 0.79,
+   "breakout_px": {
+    "o": 0.9,
+    "h": 1.109,
+    "l": 0.79,
+    "c": 1.048,
+    "tf": "1-minute",
+    "how": "the 08:20 1-minute candle he traded, read off his saved chart"
+   },
+   "overall": 44,
+   "summary": "You caught the right stock, but the fill at 1.1486 came in the minute AFTER the 08:20 spike candle, above even that candle's own 1.109 high. From there it made lower highs for the next hour and a half, and you sold at 0.9024 after it slipped to 0.882 — 74% of the wider (correct) 0.36 risk, with the true 0.79 stop never actually threatened. Wait for the first pullback and a higher low instead of buying the spike bar itself.",
    "setup": [
     {
      "label": "Catalyst / RVOL",
      "weight": 15,
      "score": 12,
-     "note": "The 08:20 bar jumped from 0.75 to 1.19, about 58%, and the open bar later traded 121.9M shares"
+     "note": "Off the 0.75-0.79 premarket base, the 1-minute 08:20 candle ran up to a 1.109 high (open 0.90), and the open bar later traded 121.9M shares"
     },
     {
      "label": "Front-side structure",
@@ -3697,20 +3745,20 @@
     {
      "label": "Entry location",
      "weight": 20,
-     "score": 5,
-     "note": "Filled at 1.1486, near the 1.19 top of the 08:20 candle and 0.09 above its 1.0597 close"
+     "score": 4,
+     "note": "Filled 1.1486 — above even the signal candle's own 1.109 high; the fill landed in the next (08:21) minute, chasing further than the old 5-minute read showed (+31.5% of that candle's range)"
     },
     {
      "label": "Risk definition",
      "weight": 15,
-     "score": 6,
-     "note": "Structural stop at the 08:20 low 0.8658, 0.28 ($19.80) away, about 25% of the price"
+     "score": 5,
+     "note": "Structural stop at the 1-minute candle's true low, 0.79 (the 5-minute bar's 0.8658 missed the wick) — 0.36 (31%) away"
     },
     {
      "label": "R:R to a real level",
      "weight": 10,
      "score": 3,
-     "note": "The 1.19 high was only 0.15R above the fill"
+     "note": "The 1.19 five-minute high was about 0.11R above the fill on the wider risk"
     },
     {
      "label": "Liquidity",
@@ -3722,39 +3770,39 @@
      "label": "Time of day",
      "weight": 10,
      "score": 5,
-     "note": "08:20, early premarket"
+     "note": "08:21, early premarket"
     }
    ],
    "exec": [
     {
      "label": "Entry timing",
      "weight": 25,
-     "score": 7,
-     "note": "Chased the top of the spike candle"
+     "score": 5,
+     "note": "Filled above the signal candle's own high, in the following minute — more of a chase than the old read showed"
     },
     {
      "label": "Risk control / MAE",
      "weight": 25,
-     "score": 13,
-     "note": "The low before your exit was 0.882 at 09:45, 94% of the planned risk, and the stop was never hit"
+     "score": 16,
+     "note": "The low before the exit was 0.882 at 09:45, 74% of the wider 0.36 risk — the true stop was never hit"
     },
     {
      "label": "Exit vs MFE",
      "weight": 25,
      "score": 9,
-     "note": "Within 15 minutes of entry the best print was 1.08, below your fill, so the tape never offered a profit; you held 87 minutes"
+     "note": "The best print in the 86-minute hold was 1.08, still below the fill — the tape never offered a profit"
     },
     {
      "label": "Sizing",
      "weight": 15,
      "score": 12,
-     "note": "70 shares, about $80 notional and $20 at risk, is sensibly small"
+     "note": "70 shares, about $80 notional and $25 at risk (was thought $20), is still sensibly small"
     },
     {
      "label": "Plan adherence",
      "weight": 10,
      "score": 5,
-     "note": "The stop held, but you sat through 87 minutes of lower highs with no exit plan"
+     "note": "The stop held, but he sat through 86 minutes of lower highs with no exit plan"
     }
    ]
   },

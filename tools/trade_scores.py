@@ -127,8 +127,13 @@ def derive(t, refresh=False):
     bo_row = day.between_time(bo, bo)
     if not len(bo_row):
         raise SystemExit('%s %s: no bar at the breakout candle %s' % (sym, date, bo))
-    bo_close = round(float(bo_row.Close.iloc[0]), 4)
-    bo_range = round(float(bo_row.High.iloc[0] - bo_row.Low.iloc[0]), 4)
+    bpx = t.get('breakout_px')          # candle finer than the cached bars (5m-only day, or a
+    if bpx:                             # 10-second read): use the journal's own OHLC for the
+        bo_close = round(float(bpx['c']), 4)                          # geometry, but still box
+        bo_range = round(float(bpx['h']) - float(bpx['l']), 4)        # the cached bar that
+    else:                                                              # contains it (bo_row above)
+        bo_close = round(float(bo_row.Close.iloc[0]), 4)
+        bo_range = round(float(bo_row.High.iloc[0] - bo_row.Low.iloc[0]), 4)
 
     # sgn flips every distance for a SHORT so risk/reward/chase/MAE/MFE read the same way
     sgn = -1 if str(t.get('dir', 'LONG')).upper() == 'SHORT' else 1
