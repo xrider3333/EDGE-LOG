@@ -160,6 +160,12 @@ FEED_ALERT_COOLDOWN_SEC = 30 * 60
 QUOTE_MAX_AGE_SEC = 60.0
 CALIB_REFRESH_SEC = 30 * 60
 ORDERS_KEEP = 100
+# broker_orders.csv keeps far more than orders.csv (2026-09-28, P&L of record): each
+# closed trade's P&L of record reads its Webull fills from here, so the file must
+# outlive a week of trading (100 rows did not). The nightly re-price also persists each
+# captured fill in reprice.csv (entry_px_source/exit_px_source == "webull_fill"), which
+# covers anything older than this.
+BROKER_ORDERS_KEEP = 2000
 # 500: matches the `trades_all` cap in the published doc, so the on-disk trades.csv
 # never trims history the web tab is still allowed to show.
 TRADES_KEEP = 500
@@ -2469,7 +2475,7 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
         # EXIT SAFETY item 5 (2026-09-26 minor review): see BROKER_ORDER_COLS.
         "outcome": _broker_row_outcome(rec),
     }
-    _append_csv(BROKER_ORDERS_CSV, BROKER_ORDER_COLS, row, ORDERS_KEEP)
+    _append_csv(BROKER_ORDERS_CSV, BROKER_ORDER_COLS, row, BROKER_ORDERS_KEEP)
     state["_broker_last"] = {"leg": leg, "intent": intent, "mode": rec.get("mode"),
                              "ok": rec.get("ok"), "reason": row["reason"]}
     if rec.get("mode") in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE) \
@@ -5108,6 +5114,11 @@ def _consume_engine_signals(state, cfg, now, log=print):
                       f"{r.get('leg')} {ev} skipped -- consumed {age/60:.0f} min late", log=log)
             continue
         try:
+            # The ledger's own `shares` column is NOTIONAL ($100k / price, ~135 QQQ
+            # shares -- parity audit 2026-09-28) and deliberately NOT carried: the book
+            # trades cfg shares x size (see _open_lot / _sized_shares), and nothing
+            # downstream of this -- the order path, the published doc, the web tab --
+            # may read it as a live size.
             out.append({"leg": r["leg"], "event": ev, "side": r.get("side") or "long",
                        "ref_time": r["ref_time"], "ref_price": float(r["ref_price"]),
                        "bar_source": r.get("bar_source") or "",
@@ -6234,6 +6245,11 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=Non
     # _mirror_to_broker's own docstring.
     if not state.get("legs"):
         state["_unrl_by_leg"] = {}
+        # FLAT (review 2026-09-28): nothing to mark or close, but today's realized total
+        # (plus the fill shortfall) can already be past the limit -- trip now, which
+        # blocks new entries (entries_blocked), instead of letting the next entry open
+        # and be flattened at once. Never calls _close_all: there is nothing to close.
+        _check_breaker_while_flat(state, cfg, log=log, nowdt=nowdt)
         return 0.0  # nothing open: no quote/ratio work, unrealized is zero
     unrl = 0.0
     unrl_by_leg = {}
@@ -6263,7 +6279,13 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=Non
         unrl_by_leg[leg] = round(leg_unrl, 2)
         unrl += leg_unrl
     state["_unrl_by_leg"] = unrl_by_leg
-    total = state.get("realized_pnl_today", 0.0) + unrl
+    # P&L OF RECORD on the breaker (2026-09-28 (B), FAIL-SAFE): Webull's fills can only
+    # make this input MORE negative, never less -- each closed trade and open lot adds
+    # min(0, fill-based - book) (see _breaker_fill_shortfall); a side with no captured
+    # fill keeps the book's value, exactly as before.
+    adj = _breaker_fill_shortfall(state, log=log)
+    state["_breaker_fill_adj"] = adj
+    total = state.get("realized_pnl_today", 0.0) + adj + unrl
     limit = float(cfg.get("daily_loss_limit_usd", 0) or 0)
     if limit and total <= -abs(limit) and not state.get("breaker_tripped"):
         log(f"[qqq-exec] BREAKER TRIPPED: today's shadow P&L {total:.2f} <= "
@@ -6276,6 +6298,101 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=Non
                   f"Daily loss breaker tripped at ${total:.2f} (limit -${limit:.2f}) -- "
                   f"all shadow lots closed", log=log)
     return unrl
+
+
+def _check_breaker_while_flat(state, cfg, log=print, nowdt=None):
+    """The daily loss breaker's check for a FLAT book (see _mark_and_check_breaker):
+    realized today + the fill shortfall against the limit; trips (breaker_tripped, the
+    push and the event) without closing anything. The phone push only goes out 09:30-
+    16:00 ET (review 2026-09-28: a 15:59 flatten that realizes a loss past the limit
+    would otherwise push "tripped while flat" after the bell); the trip, log line and
+    event happen either way. Never raises."""
+    try:
+        limit = float(cfg.get("daily_loss_limit_usd", 0) or 0)
+        if not limit or state.get("breaker_tripped"):
+            return
+        adj = _breaker_fill_shortfall(state, log=log)
+        state["_breaker_fill_adj"] = adj
+        total = float(state.get("realized_pnl_today", 0.0) or 0.0) + adj
+        if total <= -abs(limit):
+            state["breaker_tripped"] = True
+            log(f"[qqq-exec] BREAKER TRIPPED while flat: today's shadow P&L {total:.2f} <= "
+                f"-{limit:.2f} -- new entries blocked for the day")
+            now = nowdt or _now_et()
+            if (9, 30) <= _et_hhmm(now) < (16, 0):
+                _notify(f"QQQ SHADOW breaker tripped while flat: {total:.2f} "
+                        f"(limit -{limit:.2f})", "EDGELOG QQQ SHADOW BREAKER", log)
+            _log_event(state, "breaker",
+                       f"Daily loss breaker tripped at ${total:.2f} (limit -${limit:.2f}) "
+                       f"with no lots open -- new entries blocked for the day", log=log)
+    except Exception as e:
+        log(f"[qqq-exec] flat breaker check failed: {type(e).__name__}: {e}")
+
+
+_BREAKER_ADJ_CACHE = {"key": None, "val": 0.0}
+
+
+def _breaker_fill_shortfall(state, log=print):
+    """<= 0.0 -- how much WORSE today's book reads at Webull's own fills than at the
+    book's prices: for EACH SIDE of each trade closed today, min(0, (Webull fill - book
+    price) a share, signed, x shares) -- per fill, so a helpful capture on one side can
+    never cancel a bad fill on the other (review 2026-09-28); for each open lot,
+    min(0, what its captured entry fill does to the open P&L). Never
+    positive, so feeding it to the daily loss breaker can only make the breaker trip
+    sooner, never later (owner 2026-09-28: stay fail-safe; a side with no fill keeps the
+    book's value). Cached on both ledgers' size/mtime and the open lots. Never raises:
+    0.0 (the old behaviour) on any error."""
+    try:
+        day = state.get("trading_day") or _now_et().strftime("%Y-%m-%d")
+        lots = state.get("legs") or {}
+        sig = []
+        for p in (TRADES_CSV, BROKER_ORDERS_CSV):
+            try:
+                st = os.stat(p)
+                sig.append((st.st_mtime_ns, st.st_size))
+            except OSError:
+                sig.append(None)
+        lot_sig = tuple(sorted((k, str(v.get("trade_id")), v.get("entry_px"),
+                                v.get("shares_remaining"), v.get("side"))
+                               for k, v in lots.items()))
+        key = (day, tuple(sig), lot_sig)
+        if _BREAKER_ADJ_CACHE["key"] == key:
+            return _BREAKER_ADJ_CACHE["val"]
+        by_base = _broker_orders_by_base(_all_broker_orders_from_csv())
+        adj = 0.0
+        for t in _all_trades_from_csv(cap=200):
+            if str(t.get("exit_ts") or "")[:10] != day:
+                continue
+            sh = _finite_or_none(t.get("shares")) or 0.0
+            for intent in ("OPEN", "CLOSE"):
+                s = _side_parity(t, intent, by_base, None)
+                if s.get("fs") != "ok" or s.get("wb") is None or s.get("bk") is None:
+                    continue
+                adj += min(0.0, _edge_ps(s["bk"], s["wb"], _is_buy(t.get("side"), intent)) * sh)
+        for leg, lot in lots.items():
+            tid = str(lot.get("trade_id") or "").strip()
+            if not tid:
+                continue
+            brow = _broker_order_for(tid, "OPEN", by_base)
+            if brow is None or str(brow.get("ok")).strip().lower() not in ("true", "1"):
+                continue
+            fill = _finite_or_none(brow.get("broker_fill_px"))
+            book_entry = _finite_or_none(lot.get("entry_px"))
+            if fill is None or book_entry is None:
+                continue
+            base = _broker_signal_id(None, None, "OPEN", trade_id=tid)
+            if base in SUSPECT_BROKER_FILLS:
+                continue
+            dir_mult = 1 if lot.get("side") == "long" else -1
+            sh = float(lot.get("shares_remaining") or 0)
+            adj += min(0.0, (book_entry - fill) * dir_mult * sh)
+        adj = round(min(0.0, adj), 2)
+        _BREAKER_ADJ_CACHE["key"] = key
+        _BREAKER_ADJ_CACHE["val"] = adj
+        return adj
+    except Exception as e:
+        log(f"[qqq-exec] breaker fill shortfall failed (book value kept): {type(e).__name__}: {e}")
+        return 0.0
 
 
 # -- feed uptime per day (feature 2) --------------------------------------------------------
@@ -6651,13 +6768,12 @@ def _parity_summary(trades_all):
 # section and still run for every row (a row that genuinely mirrors NinjaTrader,
 # signal_source=="ninjatrader", keeps exactly that read -- see _build_doc).
 #
-# This section is the comparison the owner asked for instead: the engine's own booked
-# entry_px/exit_px (computed off OHLC bars, see module docstring PRICING) against the
-# best BROKER-side truth available for that fill -- Webull's own reported fill price
-# (broker_orders.csv's broker_fill_px, captured by _query_broker_fill above) when we
-# have it, else the tape-repriced price (reprice.csv via _merge_reprice,
-# real_entry_px/real_exit_px) as a fallback -- independently per LEG of the round trip,
-# so a trade can have a Webull fill on one leg and only a repriced price on the other.
+# This section is the comparison the owner asked for instead. REBUILT 2026-09-28 (owner
+# decisions after the 09-28 parity audit -- see FILL PARITY below): each Webull fill
+# (broker_orders.csv's broker_fill_px, captured by _query_broker_fill above) is compared
+# with the BACKTEST's own price for that side, signed, per share, split into design gap
+# / slippage / unexplained -- never with the book's send-time price, and never with the
+# re-price minute close.
 _RESEND_SUFFIX_RE = re.compile(r"R\d+$")
 
 
@@ -6707,7 +6823,7 @@ def _broker_order_for(trade_id, intent, by_base):
     return _best_broker_row(by_base.get(sig_id))
 
 
-def _all_broker_orders_from_csv(cap=1000):
+def _all_broker_orders_from_csv(cap=BROKER_ORDERS_KEEP):
     """Every broker_orders.csv row on file (oldest-first, as the CSV stores them),
     capped defensively to the newest `cap` -- mirrors _all_trades_from_csv. The file
     itself never holds more than ORDERS_KEEP rows (trimmed at write time), so this cap
@@ -6720,124 +6836,628 @@ def _all_broker_orders_from_csv(cap=1000):
     return rows[-cap:]
 
 
-def _broker_trade_parity(row, by_base, log=print):
-    """Compute the ENGINE-vs-BROKER parity block for one trades.csv row (a dict of
-    strings, as read back by csv.DictReader, already carrying reprice fields merged in
-    by _merge_reprice -- this must run AFTER that merge). Returns broker_* fields;
-    broker_parity_ok is None ("not checked" -- NOT an error, see module docstring) when
-    neither a Webull fill nor a repriced tape price is available for BOTH legs yet (the
-    normal state for a trade closed before feature #56/#57 shipped, or one still waiting
-    on tonight's reprice run). Never raises."""
+# -- FILL PARITY: Webull's fills vs the BACKTEST's own price (owner decisions 2026-09-28) --
+# The PARITY NOTE used to compare each Webull fill with the BOOK's send-time price (the
+# signal price plus or minus the configured 1-cent charge, or the live quote at the 15:59
+# flatten) and called that "engine booked"; it judged the gap against 2% of the trade's
+# own P&L (about a cent a share), ignored direction, and fell back to the re-price minute
+# close when no fill was captured -- so it read "36 of 36 trades miss" on a day Webull
+# did better than the backtest (parity audit 2026-09-28). Owner decisions 2026-09-28 (A):
+#   * each Webull fill is compared with the BACKTEST's own fill price for that side
+#     (owner, 2026-09-28: "fill price vs the backtest's assumed fill") -- the engine's
+#     ref_price on its ENTRY/EXIT signal row (api/cloud_signal.py's signals.csv, joined
+#     by trade id, see _engine_prices_by_trade), except on NOISE's decide-at-close rows,
+#     whose ref_price is the DECISION close while the backtest fills at the OPEN of the
+#     next bar: there it is that open, from the engine's own bar file (older NOISE rows
+#     already carry the fill-bar open). ORB: its signal-bar close and its stop / target
+#     / day-end exit; ENGU-Q: its limit and its own exit -- including an exit the engine
+#     emits AFTER the book already flattened (the next-morning day-end exit, a
+#     multi-day ENGU-Q stop);
+#   * signed by side: + means Webull did BETTER than the backtest, - worse;
+#   * cents a share and dollars at the trade's actual shares;
+#   * each gap is split into DESIGN (a known, intended difference: the 15:59 flatten,
+#     limit vs market, a level exit vs a market order after the bar, NOISE acting one
+#     bar late before decide-at-close), SLIPPAGE (the market moving while a market order
+#     goes out) and UNEXPLAINED (a fill that does not fit the tape -- a suspect capture);
+#   * a trade is FLAGGED when any ONE of its fills is more than PARITY_TRADE_TOL_PS a
+#     share WORSE than the backtest once the design gap is taken out (adverse only, per
+#     fill -- a fill that beat the backtest is shown, never flagged), or when a fill does
+#     not fit the tape at all (unexplained, a suspect capture);
+#   * a leg / the board is FLAGGED when the signed average SLIPPAGE per fill over its
+#     last PARITY_ROLL_N compared trades is worse than -PARITY_ROLL_TOL_PS (adverse
+#     only). That average counts only fills that have a slippage part: a suspect
+#     capture (its trade already carries its own CHECK FILL flag) and an all-design
+#     side (limit / level / late, slippage 0 by construction) are left out of it -- see
+#     _roll_block;
+#   * no fallback to the re-price minute close: a side with no Webull fill is simply not
+#     compared, and says so.
+PARITY_TRADE_TOL_PS = 0.15
+# ROUND TRIP reading of the 15-cent band (review 2026-09-28, OWNER CALL, off until the
+# owner says yes): also flag a trade whose two fills TOGETHER are more than the band
+# worse (14c worse in + 14c worse out = 28c lost, which the per-fill reading passes).
+# On the 09-28 rows it would add one flag (NOISE 11:45 short, 8.4c + 9.0c = 17.4c).
+PARITY_ROUND_TRIP = False
+PARITY_ROLL_N = 20
+PARITY_ROLL_TOL_PS = 0.05
+# Legs whose backtest ENTRY rests a limit order (live sends a market order once the
+# engine reports the fill bar) -- the whole entry gap is design.
+LIMIT_ENTRY_LEGS = ("ENGUQ",)
+# Legs whose backtest EXITS fill at a stop / target / trail level inside the bar (live
+# sends a market order once the engine sees the finished bar) -- the whole gap on an
+# engine-signalled exit is design. NOISE exits are decided at a bar close, so theirs is
+# slippage.
+LEVEL_EXIT_LEGS = ("ORB", "ENGUQ")
+# The book's own rails close a trade at a moment the backtest does not -- the gap
+# between the backtest's exit and the book's price at that moment is design; only the
+# book-price-to-Webull-fill part is slippage.
+RAIL_EXIT_WHY = {"EOD": "eod", "KILL": "kill", "BREAKER": "breaker"}
+# Every side's `why` is one of these short codes (the published doc carries up to 500
+# trades under Firestore's 1 MiB cap, so each row keeps codes, not sentences); the plain
+# words ride ONCE on the summary as broker_parity.why_text, which the web tab reads.
+FP_WHY = {
+    "nofill": "no Webull fill",
+    "nobt": "backtest price not on record",
+    "noexit": "the backtest has not exited this trade yet",
+    "void": "the backtest never took this trade (the engine withdrew the entry)",
+    "limit": "the backtest enters at its resting limit; live sends a market order after the fill bar",
+    "late": "before 09-26 the book acted one bar after the backtest's fill",
+    "nodac": "the bar-close decision did not run for this bar, so the book acted one bar "
+             "after the backtest's fill",
+    "level": "the backtest exits at its stop or target level; live sends a market order after the bar",
+    "eod": "the book flattens at 15:59; the backtest exits on its own bar",
+    "kill": "the kill switch closed the book; the backtest exits on its own bar",
+    "breaker": "the daily loss breaker closed the book; the backtest exits on its own bar",
+    "suspect": "the Webull fill is outside the prices traded in that minute",
+}
+# (E) 2026-09-28: a fill captured before the 09-26 order-status guard (a0d7165e: never
+# read another order's record, never take a price from a still-working order) that does
+# not fit the tape. Marked here, never rewritten in broker_orders.csv. Keyed by the
+# side's base signal id (_broker_signal_id).
+SUSPECT_BROKER_FILLS = {
+    "qxENGUQ33520260924T161700ZLO": (
+        "Webull fill 737.88 is below that minute's low (739.45) -- captured on 09-24, "
+        "before the 09-26 check that the record is this order's and that it has filled"),
+}
+_ENGINE_PX_CACHE = {"key": None, "val": {}}
+# NOISE decides at a bar's close from this ET day on (WEBULL_PAPER_TODO.md item 16, owner
+# GO 2026-09-26). Before it every NOISE side acted one bar late ("late"); from it a NOISE
+# side WITHOUT the decide-at-close tag is a stop exit filled at its level inside the bar
+# ("level") or, on an entry, a bar whose close decision did not run ("nodac").
+NOISE_DAC_FROM = "2026-09-26"
+# api/cloud_signal.py's DECIDE_AT_CLOSE_TAG -- the reason tag on a decide-at-close row.
+_DAC_TAG = "decide_at_close"
+# The engine's own QQQ bar files (api/cloud_signal.py's _cache_path), searched in this
+# order for a bar's open: a bar's open is the open of its first minute either way.
+_ENGINE_BAR_FILES = ("QQQ_5m.csv", "QQQ_1m.csv")
+
+
+def _ref_epoch(ref_time):
+    """Epoch seconds of an ISO ref_time carrying its offset ('2026-09-28T12:05:00-04:00'),
+    else None."""
+    try:
+        dt = datetime.fromisoformat(str(ref_time or "").strip())
+        return int(dt.timestamp()) if dt.tzinfo is not None else None
+    except Exception:
+        return None
+
+
+def _bar_opens_at(epochs, bars_dir):
+    """{epoch: open} for the bars STARTING at each of `epochs`, from the engine's own QQQ
+    bar files in `bars_dir` (_ENGINE_BAR_FILES, first hit wins; their `time` column is
+    the bar's start in epoch seconds). Only the wanted rows are kept. Never raises: {}
+    when nothing can be read."""
+    want = {int(e) for e in epochs if e is not None}
+    out = {}
+    if not want or not bars_dir:
+        return out
+    for name in _ENGINE_BAR_FILES:
+        left = want - set(out)
+        if not left:
+            break
+        try:
+            with open(os.path.join(bars_dir, name), encoding="utf-8", newline="") as f:
+                for r in csv.DictReader(f):
+                    try:
+                        t = int(float(r.get("time") or ""))
+                    except (TypeError, ValueError):
+                        continue
+                    if t in left and t not in out:
+                        px = _finite_or_none(r.get("open"))
+                        if px is not None and px > 0:
+                            out[t] = px
+        except Exception:
+            continue
+    return out
+
+
+def _engine_prices_by_trade(path=None, bars_dir=None, log=print):
+    """{trade_id: {"ENTRY": {px, dec_px, ref_time, reason}, "EXIT": {...}}} -- the
+    BACKTEST's own fill price for each side of each trade, from the engine's own signal
+    ledger (api/cloud_signal.py's signals.csv). The first row per trade id and event
+    wins; SEED rows and rows without a trade id or price are skipped (VOID_ENTRY is kept
+    as "VOID": the engine withdrew that entry).
+
+    DECIDE-AT-CLOSE rows (reason tagged _DAC_TAG, NOISE since 09-26): the engine emits
+    the decision at the CLOSE of bar D and its ref_price is that close, but the
+    backtest FILLS at the OPEN of bar D+1 -- the bar starting at the row's ref_time (see
+    api/cloud_signal.py's decide-at-close block). px is that open, read from the
+    engine's own bar files in `bars_dir` (default: the ohlc folder beside the ledger's
+    cloud_signal folder -- the bars the backtest itself runs on); dec_px keeps the
+    decision close. Until D+1's bar is on file (or after it has aged out of the file) px
+    falls back to the decision close. Every other row's ref_price already IS the
+    backtest's fill (older NOISE rows: the fill-bar open), dec_px None.
+
+    Cached on the ledger's and the bar files' size and mtime. Never raises: {} when the
+    ledger cannot be read."""
+    try:
+        if path is None:
+            path = _cs_module().DEFAULT_PATHS["signals_path"]
+        st = os.stat(path)
+    except Exception:
+        return {}
+    if bars_dir is None:
+        bars_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(path))), "ohlc")
+    bar_sig = []
+    for name in _ENGINE_BAR_FILES:
+        try:
+            bst = os.stat(os.path.join(bars_dir, name))
+            bar_sig.append((bst.st_mtime_ns, bst.st_size))
+        except OSError:
+            bar_sig.append(None)
+    key = (path, st.st_mtime_ns, st.st_size, bars_dir, tuple(bar_sig))
+    if _ENGINE_PX_CACHE["key"] == key:
+        return _ENGINE_PX_CACHE["val"]
+    out = {}
+    dac = []
+    try:
+        with open(path, encoding="utf-8", newline="") as f:
+            for r in csv.DictReader(f):
+                ev = str(r.get("event") or "").strip().upper()
+                if ev == "VOID_ENTRY":
+                    ev = "VOID"   # the engine withdrew this entry: the backtest never took it
+                if ev not in ("ENTRY", "EXIT", "VOID"):
+                    continue
+                tid = str(r.get("trade_id") or "").strip()
+                px = _f_or_none(r.get("ref_price"))
+                if not tid or px is None or not math.isfinite(px):
+                    continue
+                slot = out.setdefault(tid, {})
+                if ev not in slot:
+                    slot[ev] = {"px": px, "dec_px": None,
+                                "ref_time": str(r.get("ref_time") or ""),
+                                "reason": str(r.get("reason") or "")}
+                    if ev != "VOID" and _DAC_TAG in slot[ev]["reason"]:
+                        dac.append(slot[ev])
+    except Exception as e:
+        log(f"[qqq-exec] engine signal ledger read failed (fill parity): {type(e).__name__}: {e}")
+        return {}
+    if dac:
+        opens = _bar_opens_at([_ref_epoch(s["ref_time"]) for s in dac], bars_dir)
+        for s in dac:
+            o = opens.get(_ref_epoch(s["ref_time"]))
+            if o is not None:
+                s["dec_px"], s["px"] = s["px"], o
+    _ENGINE_PX_CACHE["key"] = key
+    _ENGINE_PX_CACHE["val"] = out
+    return out
+
+
+def _r4(v):
+    return None if v is None else round(float(v), 4)
+
+
+def _is_buy(side, intent):
+    """True when this side of the round trip is a BUY: opening a long, closing a short."""
+    return (str(side or "long").strip().lower() == "long") == (intent == "OPEN")
+
+
+def _edge_ps(backtest_px, px, buy):
+    """Signed $/share, + = `px` is BETTER for us than the backtest's price (paid less on a
+    buy, got more on a sell)."""
+    return (backtest_px - px) if buy else (px - backtest_px)
+
+
+def _rail_word(exit_reason):
+    w = str(exit_reason or "").strip().split(" ")[0].strip().upper()
+    return w if w in RAIL_EXIT_WHY else None
+
+
+def _finite_or_none(v):
+    x = _f_or_none(v)
+    return x if (x is not None and math.isfinite(x)) else None
+
+
+def _webull_fill_for_side(row, intent, by_base):
+    """(px, state, note) -- Webull's own fill for one side of a trade. state is "ok",
+    "suspect" (captured, but it does not fit the tape -- see SUSPECT_BROKER_FILLS and
+    the nightly re-price's own range check) or "none". The captured broker_orders.csv
+    fill wins; failing that, the nightly re-price's persisted copy of that same fill
+    (entry_px_source / exit_px_source == "webull_fill"), which survives
+    broker_orders.csv's own row trim. Never the re-price minute close."""
+    trade_id = str(row.get("trade_id") or "").strip()
+    px = None
+    brow = _broker_order_for(trade_id, intent, by_base) if trade_id else None
+    if brow is not None and str(brow.get("ok")).strip().lower() in ("true", "1"):
+        px = _finite_or_none(brow.get("broker_fill_px"))
+    pfx = "entry" if intent == "OPEN" else "exit"
+    if px is None and str(row.get(f"{pfx}_px_source") or "").strip() == "webull_fill":
+        px = _finite_or_none(row.get(f"real_{pfx}_px"))
+    if px is None:
+        return None, "none", ""
+    if trade_id:
+        base = _broker_signal_id(None, None, intent, trade_id=trade_id)
+        if base in SUSPECT_BROKER_FILLS:
+            return px, "suspect", SUSPECT_BROKER_FILLS[base]
+    if str(row.get(f"{pfx}_fill_check") or "").strip().lower() == "suspect":
+        return px, "suspect", FP_WHY["suspect"]
+    return px, "ok", ""
+
+
+def _side_parity(row, intent, by_base, eng):
+    """One side (OPEN/CLOSE) of a trade, compared: {bt, wb, bk, fs, edge, dsg, slp, unx,
+    why} -- bt = the backtest's price, wb = Webull's fill, bk = the book's price, fs =
+    fill state; edge/dsg/slp/unx are signed $/share (+ = Webull better), None when the
+    side cannot be compared (no Webull fill, or no backtest price on record yet); why is
+    an FP_WHY code ("" when the whole gap is slippage)."""
+    leg = str(row.get("leg") or "").strip().upper()
+    buy = _is_buy(row.get("side"), intent)
+    ev = (eng or {}).get("ENTRY" if intent == "OPEN" else "EXIT")
+    bt = ev["px"] if ev else None
+    book = _finite_or_none(row.get("entry_px" if intent == "OPEN" else "exit_px"))
+    fill, fstate, _fnote = _webull_fill_for_side(row, intent, by_base)
+    out = {"bt": _r4(bt), "wb": _r4(fill), "bk": _r4(book), "fs": fstate,
+           "edge": None, "dsg": None, "slp": None, "unx": None, "why": ""}
+    if fill is None:
+        out["why"] = "nofill"
+        return out
+    if bt is None:
+        if (eng or {}).get("VOID") and not (eng or {}).get("ENTRY"):
+            out["why"] = "void"
+        elif intent == "OPEN" or not (eng or {}).get("ENTRY"):
+            out["why"] = "nobt"
+        else:
+            out["why"] = "noexit"
+        return out
+    edge = _edge_ps(bt, fill, buy)
+    design, unexpl, why = 0.0, 0.0, ""
+    dac = "decide_at_close" in str((ev or {}).get("reason") or "")
+    if fstate == "suspect":
+        unexpl, why = edge, "suspect"
+    elif intent == "OPEN":
+        if leg in LIMIT_ENTRY_LEGS:
+            design, why = edge, "limit"
+        elif leg == "NOISE" and not dac:
+            design, why = edge, ("late" if _before_noise_dac(ev, row, intent) else "nodac")
+    else:
+        rail = _rail_word(row.get("exit_reason"))
+        if rail:
+            design = _edge_ps(bt, book, buy) if book is not None else edge
+            why = RAIL_EXIT_WHY[rail]
+        elif leg in LEVEL_EXIT_LEGS:
+            design, why = edge, "level"
+        elif leg == "NOISE" and not dac:
+            # review 2026-09-28: from 09-26 an untagged NOISE exit is its protective stop
+            # (the bandwidth stop in augur_strategies/NOISE_1_0.py), filled at its level
+            # inside the bar -- never the pre-09-26 "one bar late" reason on a 09-28 trade.
+            design, why = edge, ("late" if _before_noise_dac(ev, row, intent) else "level")
+    slip = edge - design - unexpl
+    out.update({"edge": _r4(edge), "dsg": _r4(design), "slp": _r4(slip), "unx": _r4(unexpl),
+                "why": why})
+    return out
+
+
+def _before_noise_dac(ev, row, intent):
+    """True when this NOISE side's bar is before NOISE_DAC_FROM: the engine row's own
+    ref_time, else the trade row's entry_ts / exit_ts. Unknown -> False."""
+    d = str((ev or {}).get("ref_time") or "")[:10]
+    if not d:
+        d = str(row.get("entry_ts" if intent == "OPEN" else "exit_ts") or "")[:10]
+    return bool(d) and d < NOISE_DAC_FROM
+
+
+def _cents(ps):
+    """Plain words for a signed $/share figure: '12.5 cents a share better'."""
+    c = abs(ps) * 100.0
+    if c < 0.05:
+        return "level with the backtest"
+    return f"{c:.1f} cents a share {'better' if ps > 0 else 'worse'}"
+
+
+def _cents_than(ps):
+    """'12.5 cents a share worse than the backtest', or 'level with the backtest' -- never
+    'level with the backtest than the backtest' (review 2026-09-28)."""
+    c = abs(ps) * 100.0
+    return _cents(ps) if c < 0.05 else f"{_cents(ps)} than the backtest"
+
+
+def _pnl_of_record(row, en, ex):
+    """P&L OF RECORD (owner decision 2026-09-28 (B)): Webull's real fill for each side
+    when one was captured (and does not look wrong), else the book's own price for that
+    side -- labelled "book price, no Webull fill". The backtest's own P&L for the same
+    trade rides alongside. Stored ledgers are never rewritten: `pnl` stays the book's
+    figure, these are published next to it. {pnl_record, pnl_record_src
+    ("webull"/"part"/"book"), pnl_record_note, pnl_backtest}."""
+    try:
+        shares = _finite_or_none(row.get("shares")) or 0.0
+        dir_mult = 1 if str(row.get("side") or "long").strip().lower() == "long" else -1
+        notes = []
+
+        def _px(s, pfx):
+            if s.get("fs") == "ok" and s.get("wb") is not None:
+                return s["wb"], True
+            book = _finite_or_none(row.get(f"{pfx}_px"))
+            if book is None and pfx == "exit":
+                real = _finite_or_none(row.get("real_exit_px"))
+                if real is not None:
+                    notes.append("exit at the re-price minute close, no Webull fill")
+                    return real, False
+            if s.get("fs") == "suspect":
+                notes.append(f"Webull {pfx} fill looks wrong, book price used")
+            elif book is not None:
+                notes.append(f"{pfx} at the book price, no Webull fill")
+            return book, False
+
+        en_px, en_wb = _px(en, "entry")
+        ex_px, ex_wb = _px(ex, "exit")
+        bt_pnl = None
+        if en.get("bt") is not None and ex.get("bt") is not None:
+            bt_pnl = round((ex["bt"] - en["bt"]) * dir_mult * shares, 2)
+        if en_px is None or ex_px is None:
+            return {"pnl_record": _curve_pnl_book(row), "pnl_record_src": "book",
+                    "pnl_record_note": "book price, no Webull fill", "pnl_backtest": bt_pnl}
+        rec = round((ex_px - en_px) * dir_mult * shares, 2)
+        src = "webull" if (en_wb and ex_wb) else ("part" if (en_wb or ex_wb) else "book")
+        note = "book price, no Webull fill" if src == "book" and not any(
+            "looks wrong" in n or "minute close" in n for n in notes) else "; ".join(notes)
+        return {"pnl_record": rec, "pnl_record_src": src, "pnl_record_note": note,
+                "pnl_backtest": bt_pnl}
+    except Exception:
+        return {"pnl_record": _curve_pnl_book(row), "pnl_record_src": "book",
+                "pnl_record_note": "book price, no Webull fill", "pnl_backtest": None}
+
+
+def _cents_short(ps):
+    """Compact signed cents for the per-trade note: '16.0c worse', '12.5c better'."""
+    c = abs(ps) * 100.0
+    if c < 0.05:
+        return "level"
+    return f"{c:.1f}c {'better' if ps > 0 else 'worse'}"
+
+
+def _broker_trade_parity(row, by_base, engine_px=None, log=print):
+    """FILL PARITY for one trades.csv row (a dict of strings as csv.DictReader reads it,
+    with the re-price sidecar's fields already merged by _merge_reprice): each Webull
+    fill against the backtest's own price -- see the section comment above. Returns
+    broker_parity_ok (None = not compared yet, never an error; False = FLAGGED;
+    True = within the band), broker_parity_note (a short plain line, the chip's hover
+    text), and `fp` -- the breakdown the web tab draws: {st, en, ex, exec_ps, gap_usd,
+    dsg_usd, exec_usd, flag}, en/ex being _side_parity's per-side dicts. Plus the P&L of
+    record fields (_pnl_of_record). Compact on purpose: up to 500 of these ride in one
+    Firestore doc. Never raises."""
     try:
         trade_id = str(row.get("trade_id") or "").strip()
-        shares = _f_or_none(row.get("shares")) or 0.0
-        side = row.get("side")
-        dir_mult = 1 if side == "long" else -1
-        engine_entry = _f_or_none(row.get("entry_px"))
-        engine_exit = _f_or_none(row.get("exit_px"))
-
-        def _leg_price(intent, real_field):
-            """(price, source) for one leg of the round trip -- a real Webull fill
-            beats the repriced tape price, which beats nothing."""
-            brow = _broker_order_for(trade_id, intent, by_base)
-            if brow is not None and str(brow.get("ok")).strip().lower() in ("true", "1"):
-                px = _f_or_none(brow.get("broker_fill_px"))
-                if px is not None:
-                    return px, "webull_fill"
-            real_px = _f_or_none(row.get(real_field))
-            if real_px is not None:
-                return real_px, "repriced_tape"
-            return None, None
-
-        entry_px, entry_src = _leg_price("OPEN", "real_entry_px")
-        exit_px, exit_src = _leg_price("CLOSE", "real_exit_px")
-
-        if entry_px is None or exit_px is None or engine_entry is None or engine_exit is None:
-            return {"broker_entry_px": entry_px, "broker_exit_px": exit_px,
-                   "broker_entry_source": entry_src, "broker_exit_source": exit_src,
-                   "broker_slip_entry_ps": None, "broker_slip_exit_ps": None,
-                   "broker_expected_usd": None, "broker_track_err_usd": None,
-                   "broker_parity_ok": None, "broker_parity_source": None,
-                   "broker_parity_note": "not checked -- no Webull fill or repriced tape "
-                                         "price for this trade yet"}
-
-        slip_entry_ps = round(entry_px - engine_entry, 4)
-        slip_exit_ps = round(exit_px - engine_exit, 4)
-        broker_points = round((exit_px - entry_px) * dir_mult, 4)
-        expected_usd = round(broker_points * shares, 2)
-        pnl = _f_or_none(row.get("pnl")) or 0.0
-        track_err = round(pnl - expected_usd, 2)
-        tol = max(0.05, 0.02 * abs(expected_usd))
-        ok = abs(track_err) <= tol
-        source = entry_src if entry_src == exit_src else "mixed"
-        note = ""
-        if not ok:
-            note = (f"engine booked ${pnl:.2f} but {source.replace('_', ' ')} price(s) "
-                    f"imply ${expected_usd:.2f} -- tracking error ${track_err:.2f} "
-                    f"exceeds tolerance ${tol:.2f}")
-        return {"broker_entry_px": entry_px, "broker_exit_px": exit_px,
-               "broker_entry_source": entry_src, "broker_exit_source": exit_src,
-               "broker_slip_entry_ps": slip_entry_ps, "broker_slip_exit_ps": slip_exit_ps,
-               "broker_expected_usd": expected_usd, "broker_track_err_usd": track_err,
-               "broker_parity_ok": bool(ok), "broker_parity_source": source,
-               "broker_parity_note": note}
+        shares = _finite_or_none(row.get("shares")) or 0.0
+        eng = (engine_px or {}).get(trade_id) if trade_id else None
+        en = _side_parity(row, "OPEN", by_base, eng)
+        ex = _side_parity(row, "CLOSE", by_base, eng)
+        out = dict(_pnl_of_record(row, en, ex))
+        comp = [s for s in (en, ex) if s.get("edge") is not None]
+        if not comp:
+            if not trade_id:
+                note = "not compared: no trade id (closed before 09-22)"
+            else:
+                whys = [s["why"] for s in (en, ex) if s.get("why")]
+                real = [w for w in whys if w != "nofill"]
+                code = (real or whys or ["nofill"])[0]
+                note = "not compared: " + FP_WHY.get(code, code)
+            out.update({"broker_parity_ok": None, "broker_parity_note": note,
+                        "fp": {"st": "not compared", "en": en, "ex": ex, "exec_ps": None,
+                               "gap_usd": None, "dsg_usd": None, "exec_usd": None,
+                               "flag": False}})
+            return out
+        gap = sum(s["edge"] for s in comp)
+        dsg = sum(s["dsg"] for s in comp)
+        exe = sum(s["slp"] + s["unx"] for s in comp)
+        # PER FILL (the band is cents a share on ONE fill, like the audit's "11.6-cent
+        # average gap" -- never the round trip's sum): a trade is FLAGGED when any one
+        # of its fills is more than PARITY_TRADE_TOL_PS WORSE than the backtest once the
+        # known design gap is taken out, or when a fill does not fit the tape at all
+        # (unexplained). A fill that beat the backtest is shown, never flagged -- that
+        # was the old note's "36 of 36 miss" failure.
+        worse = [s for s in comp if (s["slp"] + s["unx"]) < -PARITY_TRADE_TOL_PS - 1e-9]
+        odd = [s for s in comp if abs(s["unx"]) >= 0.00005]
+        # ROUND TRIP (PARITY_ROUND_TRIP, off until the owner says yes): a trade whose two
+        # fills TOGETHER are more than the band worse. Only adds flags, never removes.
+        rt_worse = bool(PARITY_ROUND_TRIP and len(comp) == 2
+                        and exe < -PARITY_TRADE_TOL_PS - 1e-9)
+        flag = bool(worse or odd or rt_worse)
+        st = ("entry and exit" if len(comp) == 2 else
+              ("entry only" if en["edge"] is not None else "exit only"))
+        side_txt = []
+        for nm, s in (("entry", en), ("exit", ex)):
+            if s["edge"] is None:
+                side_txt.append(f"{nm} not compared ({FP_WHY.get(s['why'], s['why'])})")
+                continue
+            t = f"{nm} {_cents_short(s['edge'])}"
+            if abs(s["unx"]) >= 0.00005:
+                t += " (fill does not fit the tape)"
+            elif abs(s["dsg"]) >= 0.00005:
+                t += f" (design {_cents_short(s['dsg'])}, slippage {_cents_short(s['slp'])})"
+            side_txt.append(t)
+        usd = gap * shares
+        note = (f"Webull vs backtest a share: {', '.join(side_txt)}; "
+                f"{'+' if usd >= 0 else '-'}${abs(usd):.2f} at {shares:g} sh")
+        if worse:
+            note = f"FLAGGED, a fill over {PARITY_TRADE_TOL_PS * 100:.0f}c a share worse -- " + note
+        elif rt_worse:
+            note = (f"FLAGGED, the two fills together over {PARITY_TRADE_TOL_PS * 100:.0f}c a "
+                    f"share worse -- " + note)
+        elif odd:
+            note = "FLAGGED, a Webull fill does not fit the tape -- " + note
+        out.update({"broker_parity_ok": not flag, "broker_parity_note": note,
+                    "fp": {"st": st, "en": en, "ex": ex, "exec_ps": _r4(exe),
+                           "gap_usd": round(gap * shares, 2),
+                           "dsg_usd": round(dsg * shares, 2),
+                           "exec_usd": round(exe * shares, 2), "flag": flag}})
+        return out
     except Exception as e:
-        log(f"[qqq-exec] broker parity calc failed for a trade row: {type(e).__name__}: {e}")
-        return {"broker_entry_px": None, "broker_exit_px": None,
-               "broker_entry_source": None, "broker_exit_source": None,
-               "broker_slip_entry_ps": None, "broker_slip_exit_ps": None,
-               "broker_expected_usd": None, "broker_track_err_usd": None,
-               "broker_parity_ok": None, "broker_parity_source": None,
-               "broker_parity_note": f"parity calc failed: {type(e).__name__}"}
+        log(f"[qqq-exec] fill parity calc failed for a trade row: {type(e).__name__}: {e}")
+        return {"broker_parity_ok": None,
+                "broker_parity_note": f"parity calc failed: {type(e).__name__}",
+                "fp": None, "pnl_record": _curve_pnl_book(row), "pnl_record_src": "book",
+                "pnl_record_note": "book price, no Webull fill", "pnl_backtest": None}
 
 
 _NT_MIRROR_NOTE = "n/a -- this trade mirrors NinjaTrader, see NT parity"
 
 
+# A side whose whole gap is design by construction (slippage fixed at 0) -- see
+# _side_parity. Left out of the running slippage average (_roll_block).
+DESIGN_ONLY_WHY = ("limit", "level", "late", "nodac")
+# Every side whose gap has a design part: the all-design codes plus the book's own rails.
+DESIGN_WHY = DESIGN_ONLY_WHY + tuple(RAIL_EXIT_WHY.values())
+
+
+def _side_is_suspect(s):
+    """True for a compared side whose Webull fill does not fit the tape (fs "suspect",
+    or any unexplained part)."""
+    return (s.get("fs") == "suspect" or s.get("why") == "suspect"
+            or abs(s.get("unx") or 0.0) >= 0.00005)
+
+
+def _roll_block(rows):
+    """{n, fills, fills_compared, suspect_fills, design_only_fills, avg_exec_ps,
+    avg_gap_ps, avg_dsg_ps, flagged, flag} over the last PARITY_ROLL_N compared trades
+    (an oldest-first list of fp dicts). Averages are PER FILL, signed, + better.
+
+    avg_exec_ps is the running SLIPPAGE average the 5-cent flag reads, over `fills` --
+    only the fills that have a slippage part. Left out of it (review 2026-09-28):
+      * a SUSPECT capture (a fill that does not fit the tape): its trade already carries
+        its own CHECK FILL flag, and its unexplained part must never average in -- on
+        the 09-28 rows one bad 09-24 ENGU-Q capture (+1.49/sh in the helpful direction)
+        made up nearly all of an "8.6 cents a share better" board read and would offset
+        about 30 fills running 5 cents worse; counted in `suspect_fills`;
+      * an ALL-DESIGN side (limit / level / late, DESIGN_ONLY_WHY): its slippage is 0 by
+        construction, so it would only pull the average toward zero; counted in
+        `design_only_fills`.
+    None (never 0) when no fill in the window has a slippage part yet.
+    avg_gap_ps / avg_dsg_ps are the whole gap and the design gap alone over every
+    compared fill that is not suspect (`fills_compared`). med_dsg_ps is the MIDDLE design
+    gap over the `dsg_fills` fills that carry one (DESIGN_WHY) -- the typical figure the
+    board shows (review 2026-09-28: one multi-day ENGU-Q rail exit, 671.5 cents, swamped
+    the average).
+    flag = avg_exec_ps worse than -PARITY_ROLL_TOL_PS (adverse only)."""
+    win = rows[-PARITY_ROLL_N:]
+    sides = [s for f in win for s in (f.get("en") or {}, f.get("ex") or {})
+             if s.get("edge") is not None]
+    good = [s for s in sides if not _side_is_suspect(s)]
+    slip = [s for s in good if s.get("why") not in DESIGN_ONLY_WHY]
+    out = {"n": len(win), "fills": len(slip), "fills_compared": len(good),
+           "suspect_fills": len(sides) - len(good),
+           "design_only_fills": len(good) - len(slip),
+           "avg_exec_ps": None, "avg_gap_ps": None, "avg_dsg_ps": None,
+           "med_dsg_ps": None, "dsg_fills": 0,
+           "flagged": sum(1 for f in win if f.get("flag")), "flag": False}
+    if good:
+        out["avg_gap_ps"] = _r4(sum(s["edge"] for s in good) / len(good))
+        out["avg_dsg_ps"] = _r4(sum(s["dsg"] for s in good) / len(good))
+    dsg = sorted(float(s.get("dsg") or 0.0) for s in good if s.get("why") in DESIGN_WHY)
+    if dsg:
+        mid = len(dsg) // 2
+        out["med_dsg_ps"] = _r4(dsg[mid] if len(dsg) % 2 else (dsg[mid - 1] + dsg[mid]) / 2)
+        out["dsg_fills"] = len(dsg)
+    if slip:
+        avg = sum(s["slp"] for s in slip) / len(slip)
+        out["avg_exec_ps"] = _r4(avg)
+        out["flag"] = bool(avg < -PARITY_ROLL_TOL_PS - 1e-9)
+    return out
+
+
 def _broker_parity_summary(trades_all):
-    """Headline ENGINE-vs-BROKER parity read -- see _broker_trade_parity. Counts only
-    rows this check actually applies to (signal_source != "ninjatrader"); a
-    NinjaTrader-mirrored row keeps its own NT parity (_parity_summary above) and never
-    counts here, matching how those rows are computed in _build_doc."""
-    checked = ok = failed = not_checked = 0
-    worst = 0.0
-    worst_note = ""
-    for t in trades_all:
-        if str(t.get("signal_source") or "").strip().lower() == "ninjatrader":
-            continue
-        pok = t.get("broker_parity_ok")
-        if pok is None:
+    """Headline FILL PARITY read -- see _broker_trade_parity. NinjaTrader-mirrored rows
+    never count here. The window is the last PARITY_ROLL_N compared trades (by exit
+    time): `checked`/`failed`/`ok` count inside it (so one old bad trade ages out, and
+    _build_readiness reads the same window), `board`/`legs` carry the signed rolling
+    averages and their flags, `checked_all`/`flagged_all` the whole history.
+    `webull_usd`/`backtest_usd` add up the P&L of record and the backtest's P&L over the
+    trades where both are known (`n_both`)."""
+    def _ts(t):
+        return str(t.get("exit_ts") or t.get("entry_ts") or "")
+    rows = [t for t in trades_all
+            if str(t.get("signal_source") or "").strip().lower() != "ninjatrader"]
+    rows = sorted(rows, key=_ts)
+    comp, not_checked = [], 0
+    by_leg = {}
+    worst = None
+    webull_usd = backtest_usd = 0.0
+    n_both = 0
+    for t in rows:
+        fp = t.get("fp") or {}
+        rec, bt = _finite_or_none(t.get("pnl_record")), _finite_or_none(t.get("pnl_backtest"))
+        if rec is not None and bt is not None and t.get("pnl_record_src") == "webull":
+            webull_usd += rec
+            backtest_usd += bt
+            n_both += 1
+        if t.get("broker_parity_ok") is None or fp.get("exec_ps") is None:
             not_checked += 1
             continue
-        checked += 1
-        te = t.get("broker_track_err_usd")
-        if pok:
-            ok += 1
-        else:
-            failed += 1
-        if te is not None and abs(te) > abs(worst):
-            worst = te
-            worst_note = t.get("broker_parity_note") or ""
-    if checked == 0:
-        note = (f"{not_checked} trade(s) awaiting a Webull fill price or a repriced tape "
-                f"price -- not an error, just not checked yet" if not_checked else
+        comp.append(fp)
+        by_leg.setdefault(str(t.get("leg") or "?"), []).append(fp)
+        if fp.get("flag") and (worst is None or fp["exec_ps"] < worst[0]):
+            worst = (fp["exec_ps"], t.get("broker_parity_note") or "")
+    board = _roll_block(comp)
+    legs = {leg: _roll_block(v) for leg, v in by_leg.items()}
+    checked = board["n"]
+    failed = board["flagged"]
+    tol_c = PARITY_TRADE_TOL_PS * 100
+    roll_c = PARITY_ROLL_TOL_PS * 100
+    if not comp:
+        note = (f"{not_checked} trade(s) have no Webull fill or no backtest price to compare "
+                f"yet -- not an error, just not compared yet" if not_checked else
                 "no engine-signal trades recorded yet")
-    elif failed == 0:
-        note = "every checked trade tracks its broker-side price within tolerance"
-        if not_checked:
-            note += f" ({not_checked} more not yet checked)"
     else:
-        note = f"{failed} of {checked} trade(s) miss their broker-side price"
-        if worst_note:
-            note += f" -- worst: {worst_note}"
-    return {"checked": checked, "ok": ok, "failed": failed, "not_checked": not_checked,
-           "worst_err_usd": round(worst, 2), "note": note}
+        if board["avg_exec_ps"] is None:
+            note = (f"last {checked} compared trade(s): no Webull fill with slippage to "
+                    f"compare yet (limit entries, stop or target exits and NOISE before "
+                    f"09-26 are all design gap)")
+        else:
+            ax = board["avg_exec_ps"]
+            note = (f"last {checked} compared trade(s): Webull fills "
+                    f"{'were' if abs(ax) * 100 < 0.05 else 'averaged'} {_cents_than(ax)} "
+                    f"on slippage over {board['fills']} fill(s), known design gaps left out "
+                    f"(flag at {roll_c:.0f} cents worse)")
+        if board["suspect_fills"]:
+            note += (f"; {board['suspect_fills']} fill(s) that do not fit the tape left out "
+                     f"of the average")
+        if board["med_dsg_ps"] is not None:
+            note += (f"; the typical design gap (middle of {board['dsg_fills']} fill(s)) was "
+                     f"{_cents_than(board['med_dsg_ps'])}")
+        rt_txt = ", or a trade's two fills together," if PARITY_ROUND_TRIP else ""
+        note += (f"; {failed} trade(s) flagged (a fill{rt_txt} more than {tol_c:.0f} cents "
+                 f"a share worse, or a fill that does not fit the tape)"
+                 if failed else f"; no fill more than {tol_c:.0f} cents a share worse")
+        flagged_legs = [k for k, v in legs.items() if v["flag"]]
+        if board["flag"] or flagged_legs:
+            note += (" -- running average too far worse than the backtest"
+                     + (f" on {', '.join(sorted(flagged_legs))}" if flagged_legs else ""))
+    return {"checked": checked, "ok": checked - failed, "failed": failed,
+            "not_checked": not_checked, "checked_all": len(comp),
+            "flagged_all": sum(1 for f in comp if f.get("flag")),
+            "board": board, "legs": legs,
+            "board_flag": bool(board["flag"] or any(v["flag"] for v in legs.values())),
+            "worst_exec_ps": worst[0] if worst else None,
+            "worst_note": worst[1] if worst else "",
+            "tol_trade_ps": PARITY_TRADE_TOL_PS, "tol_roll_ps": PARITY_ROLL_TOL_PS,
+            "round_trip_check": PARITY_ROUND_TRIP,
+            "roll_n": PARITY_ROLL_N, "why_text": dict(FP_WHY),
+            "webull_usd": round(webull_usd, 2), "backtest_usd": round(backtest_usd, 2),
+            "n_both": n_both, "note": note}
 
 
-def _apply_broker_parity(trades_all, broker_by_base, log=print):
-    """Updates every row of trades_all IN PLACE with its broker_* fields (see
-    _broker_trade_parity) -- factored out of _build_doc so the dispatch rule itself
-    ("which rows get the new check") is unit-testable on its own. A row whose
+def _apply_broker_parity(trades_all, broker_by_base, engine_px=None, log=print):
+    """Updates every row of trades_all IN PLACE with its fill-parity and P&L-of-record
+    fields (see _broker_trade_parity) -- factored out of _build_doc so the dispatch rule
+    itself ("which rows get the check") is unit-testable on its own. A row whose
     signal_source is "ninjatrader" (a genuine NinjaTrader-mirrored trade, see module
     docstring) is left with a clear placeholder instead: _trade_parity's OWN NT-parity
     fields on that row (parity_ok/parity_note, computed separately in _build_doc,
@@ -6845,14 +7465,12 @@ def _apply_broker_parity(trades_all, broker_by_base, log=print):
     this function never reads or writes them. Never raises."""
     for row in trades_all:
         if str(row.get("signal_source") or "").strip().lower() == "ninjatrader":
-            row.update({"broker_entry_px": None, "broker_exit_px": None,
-                       "broker_entry_source": None, "broker_exit_source": None,
-                       "broker_slip_entry_ps": None, "broker_slip_exit_ps": None,
-                       "broker_expected_usd": None, "broker_track_err_usd": None,
-                       "broker_parity_ok": None, "broker_parity_source": None,
-                       "broker_parity_note": _NT_MIRROR_NOTE})
+            row.update({"broker_parity_ok": None, "broker_parity_note": _NT_MIRROR_NOTE,
+                        "fp": None, "pnl_record": _curve_pnl_book(row),
+                        "pnl_record_src": "book", "pnl_record_note": "",
+                        "pnl_backtest": None})
         else:
-            row.update(_broker_trade_parity(row, broker_by_base, log=log))
+            row.update(_broker_trade_parity(row, broker_by_base, engine_px=engine_px, log=log))
 
 
 def _book_only_status(row, by_base, log=print):
@@ -6949,26 +7567,28 @@ def _apply_book_only(trades_all, broker_by_base, log=print):
 
 
 def _book_only_summary(trades_all):
-    """Book vs broker headline totals over trades_all's own pnl (_curve_pnl -- the SAME
-    fallback pnl/real_pnl rule the equity curve, the closed-trades table and the
-    calendar all use, so this total always agrees with what the tab already shows
-    elsewhere). `book_net` is every closed trade, exactly what the tab has always
-    summed; `broker_net` is the same sum with every book_only trade left out -- what
-    Webull's own side actually made. Equal whenever nothing is book-only. Never
-    raises -- a trade whose own pnl fields are unusable contributes 0.0 either way,
-    the same as _curve_pnl already does for the curve."""
+    """Book vs broker headline totals over every closed trade in trades_all.
+    `book_net` is the BOOK's own figure (_curve_pnl_book: pnl, else the re-priced
+    real_pnl). `record_net` is the P&L OF RECORD (_curve_pnl: Webull's fills, the book
+    price per side where none was captured -- what the equity curve, the closed-trades
+    table and the calendar add up since 2026-09-28). `broker_net` is record_net with
+    every book_only trade left out -- what Webull's own side actually made (the tab's
+    "broker made ... of that" line). Never raises -- a trade whose own pnl fields are
+    unusable contributes 0.0, the same as the curve."""
     book_net = 0.0
+    record_net = 0.0
     broker_net = 0.0
     book_only_n = 0
     for t in trades_all:
+        book_net += _curve_pnl_book(t)
         pnl = _curve_pnl(t)
-        book_net += pnl
+        record_net += pnl
         if t.get("book_only"):
             book_only_n += 1
         else:
             broker_net += pnl
-    return {"book_net": round(book_net, 2), "broker_net": round(broker_net, 2),
-           "book_only_count": book_only_n}
+    return {"book_net": round(book_net, 2), "record_net": round(record_net, 2),
+            "broker_net": round(broker_net, 2), "book_only_count": book_only_n}
 
 
 def _all_trades_from_csv(cap=500):
@@ -6985,7 +7605,18 @@ def _all_trades_from_csv(cap=500):
 
 
 def _curve_pnl(t):
-    """What one closed trade adds to the curve: `pnl` when it is a real number, else
+    """What one closed trade adds to the curve (P&L OF RECORD, owner decision 2026-09-28
+    (B)): `pnl_record` -- Webull's real fills, else the book price per side, see
+    _pnl_of_record -- when _apply_broker_parity has put one on the row, else the book's
+    own figure (_curve_pnl_book). The web tab's qePnlOf applies the same rule."""
+    v = _finite_or_none(t.get("pnl_record")) if isinstance(t, dict) else None
+    if v is not None:
+        return v
+    return _curve_pnl_book(t)
+
+
+def _curve_pnl_book(t):
+    """The BOOK's own figure for one closed trade: `pnl` when it is a real number, else
     the tape-repriced `real_pnl` (merged onto the row by _merge_reprice), else 0 -- the
     same fallback the web tab uses for its table, calendar and KPIs (qePnlOf).
 
@@ -7138,7 +7769,12 @@ def _build_latency(orders, log=print):
 # additive -- nothing in index.html reads it yet, and "source" (kept for backward
 # compatibility, now carrying the same value) is unaffected.
 REPRICE_MERGE_FIELDS = ["real_entry_px", "real_exit_px", "real_pnl", "slip_entry_ps",
-                        "slip_exit_ps", "repriced_at", "source", "price_source", "note"]
+                        "slip_exit_ps", "repriced_at", "source", "price_source", "note",
+                        # 2026-09-28 (C/E): which price each side used ("webull_fill" or
+                        # the minute-close source) and the fill-vs-tape range check --
+                        # read by _webull_fill_for_side.
+                        "entry_px_source", "exit_px_source", "entry_fill_check",
+                        "exit_fill_check"]
 
 
 def _load_reprice_sidecar(log=print):
@@ -7266,8 +7902,19 @@ def _build_readiness(feed_days, parity, reprice, state, log=print):
             missing.append(f"only {live_parity_checked} live-captured trade(s) have been "
                            f"parity-checked against Webull (need {DAYS_REQUIRED})")
         if live_parity_failed > 0:
-            missing.append(f"{live_parity_failed} live-captured trade(s) failed the "
-                           f"Webull parity check")
+            missing.append(f"{live_parity_failed} of the last {live_parity_checked} "
+                           f"compared trade(s) are past the per-trade Webull fill limit")
+        # the window above drops a flagged trade after PARITY_ROLL_N more; the whole
+        # history's count rides beside it so an old flag is never silently forgotten
+        # (display only -- it does not change `ready`)
+        flagged_all = int(parity.get("flagged_all") or 0)
+        if flagged_all > live_parity_failed:
+            missing.append(f"{flagged_all - live_parity_failed} older flagged trade(s) "
+                           f"before the last {live_parity_checked} (still on record)")
+        if parity.get("board_flag"):
+            ready = False
+            missing.append("the running average of Webull fills is too far worse than "
+                           "the backtest")
         if uptime_mean_10 < 0.95:
             missing.append(f"average feed uptime over the last {len(last10)} day(s) is "
                            f"{uptime_mean_10 * 100:.1f}% (need at least 95%)")
@@ -7280,6 +7927,7 @@ def _build_readiness(feed_days, parity, reprice, state, log=print):
         note = "ready for a live-sizing decision" if ready else "; ".join(missing)
         return {"ready": bool(ready), "days_valid": days_valid, "days_required": DAYS_REQUIRED,
                "live_parity_checked": live_parity_checked, "live_parity_failed": live_parity_failed,
+               "live_parity_flagged_all": flagged_all,
                "uptime_mean_10": uptime_mean_10, "rail_trips_unexplained": rail_trips_unexplained,
                "reprice_coverage_pct": round(reprice_coverage_pct, 4), "missing": missing,
                "note": note}
@@ -7304,8 +7952,15 @@ def _maybe_send_eod_summary(state, doc, nowdt, log=print):
         if state.get("eod_summary_done_date") == today:
             return
         n = len(doc["today"]["trades"])
-        pnl = doc["today"]["realized_pnl"]
-        parity = doc["parity"]
+        # P&L OF RECORD (2026-09-28): Webull's fills (book price where none was captured),
+        # the book's own figure beside it; an older doc without it reads the book's.
+        book_pnl = doc["today"]["realized_pnl"]
+        rec_pnl = doc["today"].get("realized_pnl_record")
+        pnl_txt = (f"P&L ${rec_pnl:.2f} at Webull fills (book ${book_pnl:.2f})"
+                   if isinstance(rec_pnl, (int, float)) else f"P&L ${book_pnl:.2f}")
+        # FILL PARITY (2026-09-28): this book's own check (Webull fills vs the backtest)
+        # when published, else the old summary
+        parity = doc.get("broker_parity") or doc["parity"]
         today_feed = next((d for d in doc["feed_days"] if d["date"] == today), None)
         uptime_txt = f"{today_feed['uptime_pct'] * 100:.1f}%" if today_feed else "n/a"
         rail_trips = 1 if doc.get("breaker_tripped") else 0
@@ -7326,8 +7981,11 @@ def _maybe_send_eod_summary(state, doc, nowdt, log=print):
             flat_txt = "Webull flat: could not verify"
         else:
             flat_txt = "Webull flat: yes"
-        msg = (f"Trades {n} | P&L ${pnl:.2f} | parity checked/failed "
-              f"{parity['checked']}/{parity['failed']} | feed uptime {uptime_txt} | "
+        roll_txt = " (running average worse)" if parity.get("board_flag") else ""
+        all_txt = (f", all {parity['checked_all']}/{parity['flagged_all']}"
+                   if "checked_all" in parity else "")
+        msg = (f"Trades {n} | {pnl_txt} | fills vs backtest checked/flagged last "
+              f"{parity['checked']}/{parity['failed']}{all_txt}{roll_txt} | feed uptime {uptime_txt} | "
               f"rail trips {rail_trips} | {flat_txt}")
         _notify(msg, "EDGELOG QQQ SHADOW: EOD summary", log)
         state["eod_summary_done_date"] = today
@@ -7511,7 +8169,10 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     # genuinely mirrors NinjaTrader is left exactly as _trade_parity already computed it
     # -- see _apply_broker_parity/_broker_trade_parity's own docstrings for why.
     broker_by_base = _broker_orders_by_base(_all_broker_orders_from_csv())
-    _apply_broker_parity(trades_all, broker_by_base, log=log)
+    # FILL PARITY (owner decisions 2026-09-28): the backtest's own price per side comes
+    # from the engine's signal ledger, joined by trade id -- see _engine_prices_by_trade.
+    engine_px = _engine_prices_by_trade(log=log)
+    _apply_broker_parity(trades_all, broker_by_base, engine_px=engine_px, log=log)
     broker_parity = _broker_parity_summary(trades_all)
 
     # BOOK-ONLY MARKING (2026-09-23, owner: "mark the book only trades" -- Webull
@@ -7576,7 +8237,7 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     equity = _build_equity_status(state, _now_et(), log=log)
     keel_status = _build_keel_status(log=log)
 
-    return {
+    doc = {
         "mode": cfg.get("mode"), "updated_at": _now_et().strftime("%Y-%m-%d %H:%M:%S"),
         "live_from": LIVE_FROM,
         "signal_source": cfg.get("signal_source"),
@@ -7601,6 +8262,15 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
         "equity": equity,
         "today": {"orders": orders, "trades": trades,
                   "realized_pnl": state.get("realized_pnl_today", 0.0),
+                  # P&L OF RECORD (2026-09-28 (B)): today's closed trades at Webull's
+                  # fills (book price per side where none was captured) -- the tab's
+                  # TODAY figure reads realized_pnl_record; realized_pnl stays the
+                  # book's own. breaker_fill_adj: what the fills took off the daily
+                  # loss breaker's input (never positive, see _breaker_fill_shortfall).
+                  "realized_pnl_record": round(sum(
+                      _curve_pnl(t) for t in trades_all
+                      if str(t.get("exit_ts") or "")[:10] == day), 2),
+                  "breaker_fill_adj": state.get("_breaker_fill_adj", 0.0),
                   "unrealized_pnl": round(unrealized, 2)},
         "trades_all": trades_all,
         "parity": parity,
@@ -7638,6 +8308,127 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
         # book (and its broker mirror) is already running elsewhere.
         "lease": {"host_id": _lease_host_id(), "leased_at": time.time()},
     }
+    # FIRESTORE CAPS (review 2026-09-28): every summary above has read the full rows --
+    # now pack what rides on each published trade row, then make sure the doc fits.
+    _compact_published_trades(doc["trades_all"])
+    _fit_doc_budget(doc, log=log)
+    return doc
+
+
+# -- published doc: compact trade rows + Firestore size / index-entry guard ----------------
+# The status doc carries up to 500 trades. Firestore caps a document at 1 MiB AND at
+# 40,000 index entries, and project memory says it indexes the leaves of maps inside
+# arrays (a candle reply once failed on the index cap, not on bytes). The fill-parity
+# fields added 2026-09-28 took a row from ~57 to ~79 counted entries (_fs_leaves, which
+# also counts every map and array element, so it over-counts); packing each fp side
+# into one string brings it back to ~60 (~1.13 KB a row, ~565 KB at 500 rows). A doc
+# still over budget drops its OLDEST trades (the server curve cum_pnl is built before
+# this and keeps them) and says how many.
+FS_DOC_BUDGET_BYTES = 900_000
+FS_DOC_BUDGET_LEAVES = 36_000
+
+
+def _pack_num(v):
+    if v is None:
+        return ""
+    return ("%.4f" % float(v)).rstrip("0").rstrip(".") or "0"
+
+
+def _pack_side(s):
+    """One fp side as a compact string for the published doc:
+    'bt|wb|fs|edge|dsg|slp|unx|why' (fs: o = ok, s = suspect, n = no fill; an empty
+    field = None) -- one index entry and ~40 bytes where the dict was 9 leaves and ~120
+    bytes. The book's own price (bk) is left out: it is the row's own entry_px /
+    exit_px. The web tab's qeFpSide unpacks it. Anything that is not a dict passes
+    through unchanged."""
+    if not isinstance(s, dict):
+        return s
+    fs = {"ok": "o", "suspect": "s"}.get(s.get("fs"), "n")
+    return "|".join([_pack_num(s.get("bt")), _pack_num(s.get("wb")), fs,
+                     _pack_num(s.get("edge")), _pack_num(s.get("dsg")),
+                     _pack_num(s.get("slp")), _pack_num(s.get("unx")),
+                     str(s.get("why") or "")])
+
+
+_NT_ONLY_COLS = tuple(NT_PARITY_COLS) + tuple(SIZING_COLS)
+
+
+def _compact_published_trades(trades_all):
+    """IN PLACE on the doc's own trades_all, AFTER every summary has read the full rows:
+    packs each fp side (_pack_side) and drops broker_parity_note on a row within the
+    band (broker_parity_ok True: the tab shows no chip for it and draws the drawer's
+    FILLS vs BACKTEST lines from fp). A flagged or not-compared row keeps its note (the
+    chip's hover text). Never raises."""
+    for t in trades_all or []:
+        try:
+            fp = t.get("fp")
+            if isinstance(fp, dict):
+                fp = dict(fp)
+                fp["en"] = _pack_side(fp.get("en"))
+                fp["ex"] = _pack_side(fp.get("ex"))
+                t["fp"] = fp
+            if t.get("broker_parity_ok") is True:
+                t.pop("broker_parity_note", None)
+            if t.get("pnl_record_note") == "":
+                t.pop("pnl_record_note", None)   # the tab only reads it off a non-Webull row
+            # an engine row never mirrors NinjaTrader: its empty NT columns are dead
+            # weight toward the doc caps (review 2026-09-28) -- the tab reads a missing
+            # field and an empty one alike.
+            if str(t.get("signal_source") or "").strip().lower() != "ninjatrader":
+                for c in _NT_ONLY_COLS:
+                    if t.get(c) in ("", None):
+                        t.pop(c, None)
+        except Exception:
+            continue
+
+
+def _fs_size(v):
+    """Firestore's storage size of one value (api/runner.py's _fs_value_size rules)."""
+    if v is None or isinstance(v, bool):
+        return 1
+    if isinstance(v, (int, float)):
+        return 8
+    if isinstance(v, str):
+        return len(v.encode("utf-8", "replace")) + 1
+    if isinstance(v, dict):
+        return sum(len(str(k).encode("utf-8", "replace")) + 1 + _fs_size(x) for k, x in v.items())
+    if isinstance(v, (list, tuple)):
+        return sum(_fs_size(x) for x in v)
+    return len(str(v).encode("utf-8", "replace")) + 1
+
+
+def _fs_leaves(v):
+    """Index entries a value can cost, counted conservatively: one per leaf, one per
+    array element, one per map."""
+    if isinstance(v, dict):
+        return 1 + sum(_fs_leaves(x) for x in v.values())
+    if isinstance(v, (list, tuple)):
+        return sum(1 + _fs_leaves(x) for x in v)
+    return 1
+
+
+def _fit_doc_budget(doc, log=print):
+    """Keeps the status doc under FS_DOC_BUDGET_BYTES and FS_DOC_BUDGET_LEAVES by dropping
+    the OLDEST trades_all rows (the list is newest-first) -- a rejected status write
+    would also fail to renew the lease, which blocks broker sends. Publishes
+    `trades_all_trimmed` (0 normally) and logs when it trims. Never raises."""
+    try:
+        doc["trades_all_trimmed"] = 0
+        rows = doc.get("trades_all") or []
+        size, leaves = _fs_size(doc) + 232, _fs_leaves(doc)
+        if size <= FS_DOC_BUDGET_BYTES and leaves <= FS_DOC_BUDGET_LEAVES:
+            return
+        dropped = 0
+        while rows and (size > FS_DOC_BUDGET_BYTES or leaves > FS_DOC_BUDGET_LEAVES):
+            r = rows.pop()
+            size -= _fs_size(r)
+            leaves -= 1 + _fs_leaves(r)
+            dropped += 1
+        doc["trades_all_trimmed"] = dropped
+        log(f"[qqq-exec] status doc over its Firestore budget -- dropped the {dropped} "
+            f"oldest trade row(s) from trades_all (now ~{size} bytes, ~{leaves} index entries)")
+    except Exception as e:
+        log(f"[qqq-exec] doc budget check failed: {type(e).__name__}: {e}")
 
 
 def _record_publish_result(state, ok, err=None, log=print):

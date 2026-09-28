@@ -33,6 +33,8 @@ backups/
 augur_uploads/
 augur_watch/_ingested/
 *.csv
+# the real 2026-09-28 Webull book rows the fill-parity tests and probe run on
+!tests/fixtures/parity0928/*.csv
 *.sqlite
 *.db
 augur_config.json

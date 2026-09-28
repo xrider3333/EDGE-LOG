@@ -91,6 +91,21 @@ CURRENT SIDECAR_COLS, migrating every old row's header for free) -- no separate
 migration step needed. An old row that is never touched again (nothing new to write)
 simply stays on disk in its old shape until the next row is written.
 
+WEBULL FILLS FIRST (owner decision 2026-09-28 (C)). A side of a round trip that has a
+real Webull fill (broker_orders.csv's broker_fill_px, beside trades.csv -- the last
+successful attempt for that trade id and intent, resends included) is priced at THAT
+fill, never at a minute close, and is not charged slippage_per_share (a real fill
+already carries its own cost). Only a side with no captured fill falls back to the
+minute close from the sources above, labelled: `entry_px_source` / `exit_px_source`
+say which price each side used ("webull_fill" or the bar source), and `price_source`
+reads "webull_fill", "webull_fill+<bar source>" or just the bar source. A fill that does
+not fit the tape -- outside the low/high traded in its own minute and the next one (plus
+FILL_RANGE_TOL), checked against the local stream bars when they cover that day -- is
+marked `entry_fill_check` / `exit_fill_check` = "suspect" (else "ok", or "" when no bars
+covered it) and that side falls back to the minute close with a note. A sidecar row
+written before this existed (no entry_px_source) is re-priced on the next run once a
+fill exists for it, without --force.
+
 CLI:
     python tools/qqq_reprice.py                 dry run (default) -- prints the table,
                                                   writes nothing
@@ -107,6 +122,7 @@ import argparse
 import csv
 import json
 import os
+import re
 import sys
 import tempfile
 import traceback
@@ -129,7 +145,14 @@ CONFIG_PATH = os.path.join(OUT_DIR, "config.json")
 # writes from here on -- see module docstring's SOURCE PREFERENCE section.
 SIDECAR_COLS = ["leg", "entry_ts", "exit_ts", "real_entry_px", "real_exit_px",
                 "real_pnl", "slip_entry_ps", "slip_exit_ps", "repriced_at",
-                "source", "price_source", "note"]
+                "source", "price_source", "note",
+                # appended 2026-09-28 (owner decision C / audit item E) -- see the module
+                # docstring's WEBULL FILLS FIRST section. Old rows read back "".
+                "entry_px_source", "exit_px_source", "entry_fill_check", "exit_fill_check"]
+SOURCE_FILL = "webull_fill"
+# How far outside the traded low/high of its own minute (and the next) a captured fill
+# may sit before it is marked suspect -- a cent or two of print/rounding noise.
+FILL_RANGE_TOL = 0.02
 
 DEFAULT_SLIPPAGE_PER_SHARE = 0.01
 NEAREST_BAR_TOLERANCE_MIN = 3
@@ -432,6 +455,161 @@ def _nearest_bar_close(bars, ts, tolerance_min=NEAREST_BAR_TOLERANCE_MIN):
     return None, f"no bar within {tolerance_min} min -- skipped"
 
 
+# -- Webull's own fills (2026-09-28, owner decision C) ---------------------------------
+def _signal_base(trade_id, intent):
+    """The broker_orders.csv signal id api/qqq_exec.py's _broker_signal_id gives one side
+    of a trade -- "qx" + the trade id with every non-alphanumeric character removed +
+    O/C. Duplicated, not imported (see SOURCE PREFERENCE for why this tool stays
+    standalone). None without a trade id."""
+    tid = str(trade_id or "").strip()
+    if not tid:
+        return None
+    return "qx" + re.sub(r"[^A-Za-z0-9]", "", tid) + ("O" if intent == "OPEN" else "C")
+
+
+# (E) 2026-09-28: fills captured before the 09-26 order-status guard that do not fit the
+# tape -- api/qqq_exec.py's SUSPECT_BROKER_FILLS, duplicated here (this tool stays
+# standalone, see SOURCE PREFERENCE) and kept in step by
+# tests/test_qqq_reprice_fills.py. A listed side is always "suspect", never used as the
+# fill, whether or not the stream file still reaches back to its day (the box's rolling
+# 1-minute file holds about three sessions, so the range check alone would stop
+# catching the 09-24 capture once that day rolls off).
+SUSPECT_BROKER_FILLS = {
+    "qxENGUQ33520260924T161700ZLO": "Webull fill 737.88 is below that minute's low (739.45)",
+}
+
+
+def read_broker_fills(path, log=print, times=None):
+    """{signal_base: fill_px} from broker_orders.csv: per base id (resend suffix "R<n>"
+    stripped), the LAST attempt that reached the broker OK with a numeric
+    broker_fill_px. `times`, when a dict is passed, is filled with {signal_base: that
+    same winning attempt's ts_et} -- the fill check runs at the time the fill that is
+    actually used was sent (a resend can go out minutes after the first try). {} when
+    the file is missing/unreadable. Never raises."""
+    out = {}
+    if not path or not os.path.exists(path):
+        return out
+    try:
+        with open(path, encoding="utf-8", newline="") as f:
+            for r in csv.DictReader(f):
+                if str(r.get("ok")).strip().lower() not in ("true", "1"):
+                    continue
+                try:
+                    px = float(r.get("broker_fill_px"))
+                except (TypeError, ValueError):
+                    continue
+                if px != px or px <= 0:
+                    continue
+                base = re.sub(r"R\d+$", "", str(r.get("signal_id") or ""))
+                if base:
+                    out[base] = px
+                    if times is not None:
+                        times[base] = str(r.get("ts_et") or "").strip()
+    except Exception as e:
+        log(f"[qqq-reprice] broker_orders.csv read failed ({path}): {type(e).__name__}: {e}")
+        return {}
+    return out
+
+
+def load_stream_ranges(days_needed, timeframe="1m", home=None, log=print):
+    """{day_str -> {naive ET minute -> (low, high)}} from the live feed's own bar cache
+    (same file as load_stream_bars) -- used only to check that a captured Webull fill
+    fits the tape. {} when the file is missing. Never raises."""
+    path = _stream_bar_path(timeframe, home)
+    if not os.path.exists(path):
+        return {}
+    try:
+        out = {}
+        with open(path, encoding="utf-8", newline="") as f:
+            for row in csv.DictReader(f):
+                try:
+                    epoch = float(row["time"])
+                    lo = float(row["low"])
+                    hi = float(row["high"])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                dt = _epoch_to_et_minute(epoch)
+                day = dt.strftime("%Y-%m-%d")
+                if day in days_needed:
+                    out.setdefault(day, {})[dt] = (lo, hi)
+        return out
+    except Exception as e:
+        log(f"[qqq-reprice] stream range read failed ({path}): {type(e).__name__}: {e}")
+        return {}
+
+
+def check_fill(ranges_by_day, ts, px, tol=FILL_RANGE_TOL):
+    """("ok"|"suspect"|"", why) -- does a fill at `px`, sent at `ts`, sit inside what
+    traded in that minute and the next? "" (not checked) when no bars cover it."""
+    minute = ts.replace(second=0, microsecond=0)
+    day = (ranges_by_day or {}).get(minute.strftime("%Y-%m-%d")) or {}
+    spans = [day[m] for m in (minute, minute + timedelta(minutes=1)) if m in day]
+    if not spans:
+        return "", ""
+    lo = min(s[0] for s in spans)
+    hi = max(s[1] for s in spans)
+    if px < lo - tol or px > hi + tol:
+        return "suspect", (f"is outside the {lo:.2f}-{hi:.2f} range traded at "
+                           f"{minute.strftime('%H:%M')}-{(minute + timedelta(minutes=1)).strftime('%H:%M')}")
+    return "ok", ""
+
+
+def _fill_ts(trade, fld, base, fill_ts):
+    """When the fill actually used was sent: the winning attempt's own ts_et
+    (read_broker_fills' `times`), else the trade's own entry/exit time."""
+    raw = (fill_ts or {}).get(base) if base else None
+    if raw:
+        try:
+            return _parse_ts(raw)
+        except Exception:
+            pass
+    return _parse_ts(trade[fld])
+
+
+def _fill_plan(trade, fills, ranges_by_day, fill_ts=None):
+    """({"entry": px, "exit": px} usable fills, {"entry": check, "exit": check}, notes)
+    for one trade -- a suspect fill (SUSPECT_BROKER_FILLS, or outside the range traded
+    in the minute its winning attempt was sent and the next) is left out (its side
+    falls back to the minute close) and explained in notes."""
+    use, checks, notes = {}, {"entry": "", "exit": ""}, []
+    tid = trade.get("trade_id")
+    for intent, pfx, fld in (("OPEN", "entry", "entry_ts"), ("CLOSE", "exit", "exit_ts")):
+        base = _signal_base(tid, intent)
+        px = (fills or {}).get(base) if base else None
+        if px is None:
+            continue
+        chk, why = check_fill(ranges_by_day, _fill_ts(trade, fld, base, fill_ts), px)
+        if base in SUSPECT_BROKER_FILLS and chk != "suspect":
+            # listed: suspect whether or not the stream file still reaches its minute
+            chk, why = "suspect", (f"is on the known-suspect list "
+                                   f"({SUSPECT_BROKER_FILLS[base]})")
+        checks[pfx] = chk
+        if chk == "suspect":
+            notes.append(f"{pfx}: Webull fill {px} {why} -- minute close used")
+            continue
+        use[pfx] = px
+    return use, checks, notes
+
+
+def _price_sides(bars_by_day, sides, day_notes=None):
+    """{pfx: px} for the needed sides [(pfx, ts, day), ...] from ONE source, or None
+    (with notes) when that source cannot price every one of them."""
+    day_notes = day_notes or {}
+    notes, out = [], {}
+    for pfx, ts, day in sides:
+        bars = bars_by_day.get(day)
+        if not bars:
+            notes.append(day_notes.get(day, f"no bars for {day}"))
+            return None, notes
+        px, note = _nearest_bar_close(bars, ts)
+        if note:
+            notes.append(f"{pfx}: {note}")
+        if px is None:
+            return None, notes
+        out[pfx] = px
+    return out, notes
+
+
 # -- core repricing ---------------------------------------------------------------------
 def _try_source(bars_by_day, entry_ts, exit_ts, entry_day, exit_day, day_notes=None):
     """Try to price ONE trade's entry+exit from a SINGLE source's per-day bars dict
@@ -464,12 +642,16 @@ def _try_source(bars_by_day, entry_ts, exit_ts, entry_day, exit_day, day_notes=N
     return real_entry_px, real_exit_px, notes
 
 
-def reprice_one(trade, tiered_sources, slippage_per_share, log=print):
+def reprice_one(trade, tiered_sources, slippage_per_share, log=print, fills=None,
+                ranges_by_day=None, fill_ts=None):
     """tiered_sources: ordered list of (source_name, bars_by_day[, day_notes]) tuples,
-    HIGHEST PREFERENCE FIRST (see module docstring's SOURCE PREFERENCE). The first
-    source that can price BOTH legs of the round trip wins -- a round trip is never
-    split across two sources (see SLIPPAGE CONVENTION). Returns a sidecar row dict, or
-    a skip row (via _skip_row) citing every source's reason if none could price it."""
+    HIGHEST PREFERENCE FIRST (see module docstring's SOURCE PREFERENCE). A side with a
+    usable Webull fill (`fills`, see read_broker_fills / _fill_plan) is priced at it and
+    charged no slippage (WEBULL FILLS FIRST); every remaining side is priced by the first
+    source that can price ALL of them -- the minute-close sides of one round trip are
+    never split across two sources (see SLIPPAGE CONVENTION). Returns a sidecar row
+    dict, or a skip row (via _skip_row) citing every source's reason if none could price
+    it."""
     leg = trade["leg"]
     entry_ts = _parse_ts(trade["entry_ts"])
     exit_ts = _parse_ts(trade["exit_ts"])
@@ -482,22 +664,23 @@ def reprice_one(trade, tiered_sources, slippage_per_share, log=print):
     entry_day = entry_ts.strftime("%Y-%m-%d")
     exit_day = exit_ts.strftime("%Y-%m-%d")
 
-    all_notes = []
-    for spec in tiered_sources:
-        source_name, bars_by_day = spec[0], spec[1]
-        day_notes = spec[2] if len(spec) > 2 else None
-        real_entry_px, real_exit_px, notes = _try_source(
-            bars_by_day, entry_ts, exit_ts, entry_day, exit_day, day_notes)
-        if real_entry_px is None:
-            if notes:
-                all_notes.append(f"{source_name}: " + "; ".join(notes))
-            continue
+    use, checks, fill_notes = _fill_plan(trade, fills, ranges_by_day, fill_ts)
+    need = [(p, ts, d) for p, ts, d in (("entry", entry_ts, entry_day), ("exit", exit_ts, exit_day))
+            if p not in use]
 
-        slippage_total = 2.0 * slippage_per_share * shares
+    def _row(prices, source_name, notes):
+        real_entry_px, real_exit_px = prices["entry"], prices["exit"]
+        # slippage_per_share is charged only on a side priced from a minute close -- a
+        # real Webull fill already carries its own cost.
+        slippage_total = slippage_per_share * shares * len(need)
         real_pnl = round((real_exit_px - real_entry_px) * dir_mult * shares - slippage_total, 2)
-        slip_entry_ps = round(real_entry_px - entry_px, 4)
-        slip_exit_ps = round(real_exit_px - exit_px, 4)
-
+        src = {p: (SOURCE_FILL if p in use else source_name) for p in ("entry", "exit")}
+        if not need:
+            price_source = SOURCE_FILL
+        elif use:
+            price_source = f"{SOURCE_FILL}+{source_name}"
+        else:
+            price_source = source_name
         return {
             "leg": leg,
             "entry_ts": trade["entry_ts"],
@@ -505,18 +688,42 @@ def reprice_one(trade, tiered_sources, slippage_per_share, log=print):
             "real_entry_px": round(real_entry_px, 4),
             "real_exit_px": round(real_exit_px, 4),
             "real_pnl": real_pnl,
-            "slip_entry_ps": slip_entry_ps,
-            "slip_exit_ps": slip_exit_ps,
+            "slip_entry_ps": round(real_entry_px - entry_px, 4),
+            "slip_exit_ps": round(real_exit_px - exit_px, 4),
             "repriced_at": _now_et().strftime("%Y-%m-%d %H:%M:%S"),
-            "source": source_name,
-            "price_source": source_name,
-            "note": "; ".join(notes),
+            "source": price_source,
+            "price_source": price_source,
+            "note": "; ".join(fill_notes + notes),
+            "entry_px_source": src["entry"], "exit_px_source": src["exit"],
+            "entry_fill_check": checks["entry"], "exit_fill_check": checks["exit"],
             # not written to sidecar, kept for the printed table only:
             "_ratio_entry_px": entry_px, "_ratio_exit_px": exit_px,
             "_ratio_pnl": float(trade.get("pnl") or 0.0), "_skipped": False,
         }
 
-    reason = "; ".join(all_notes) if all_notes else "no source had bars for this trade"
+    if not need:
+        return _row(dict(use), SOURCE_FILL, [])
+
+    all_notes = []
+    for spec in tiered_sources:
+        source_name, bars_by_day = spec[0], spec[1]
+        day_notes = spec[2] if len(spec) > 2 else None
+        if len(need) == 2:
+            real_entry_px, real_exit_px, notes = _try_source(
+                bars_by_day, entry_ts, exit_ts, entry_day, exit_day, day_notes)
+            got = None if real_entry_px is None else {"entry": real_entry_px, "exit": real_exit_px}
+        else:
+            got, notes = _price_sides(bars_by_day, need, day_notes)
+        if got is None:
+            if notes:
+                all_notes.append(f"{source_name}: " + "; ".join(notes))
+            continue
+        prices = dict(use)
+        prices.update(got)
+        return _row(prices, source_name, notes)
+
+    reason = "; ".join(fill_notes + all_notes) if (all_notes or fill_notes) else \
+        "no source had bars for this trade"
     return _skip_row(trade, reason)
 
 
@@ -527,6 +734,8 @@ def _skip_row(trade, note):
         "slip_entry_ps": "", "slip_exit_ps": "",
         "repriced_at": _now_et().strftime("%Y-%m-%d %H:%M:%S"),
         "source": "", "price_source": "", "note": note,
+        "entry_px_source": "", "exit_px_source": "", "entry_fill_check": "",
+        "exit_fill_check": "",
         "_ratio_entry_px": float(trade.get("entry_px") or 0.0),
         "_ratio_exit_px": float(trade.get("exit_px") or 0.0),
         "_ratio_pnl": float(trade.get("pnl") or 0.0), "_skipped": True,
@@ -539,20 +748,20 @@ def print_table(rows, log=print):
         log("[qqq-reprice] nothing to report.")
         return
     hdr = (f"{'leg':<7}{'entry_ts':<21}{'ratio px (en/ex)':<20}{'real px (en/ex)':<20}"
-           f"{'slip en/ex ps':<16}{'ratio pnl':>10}{'real pnl':>10}  {'source':<16}note")
+           f"{'slip en/ex ps':<16}{'ratio pnl':>10}{'real pnl':>10}  {'source':<30}note")
     log(hdr)
     log("-" * len(hdr))
     for r in rows:
         if r["_skipped"]:
             log(f"{r['leg']:<7}{r['entry_ts']:<21}{'--':<20}{'--':<20}{'--':<16}"
-                f"{r['_ratio_pnl']:>10.2f}{'--':>10}  {'--':<16}{r['note']}")
+                f"{r['_ratio_pnl']:>10.2f}{'--':>10}  {'--':<30}{r['note']}")
             continue
         ratio_px = f"{r['_ratio_entry_px']:.4f}/{r['_ratio_exit_px']:.4f}"
         real_px = f"{r['real_entry_px']:.4f}/{r['real_exit_px']:.4f}"
         slip_px = f"{r['slip_entry_ps']:+.4f}/{r['slip_exit_ps']:+.4f}"
         log(f"{r['leg']:<7}{r['entry_ts']:<21}{ratio_px:<20}{real_px:<20}{slip_px:<16}"
             f"{r['_ratio_pnl']:>10.2f}{r['real_pnl']:>10.2f}  "
-            f"{r.get('price_source', '') or '--':<16}{r['note']}")
+            f"{r.get('price_source', '') or '--':<30}{r['note']}")
 
     priced = [r for r in rows if not r["_skipped"]]
     if priced:
@@ -595,8 +804,15 @@ def summary_json(all_trades, sidecar_after, log=print):
 # -- main ---------------------------------------------------------------------------------
 def run(trades_csv=None, sidecar_csv=None, config_path=None, apply=False, force=False,
         do_summary_json=False, stream_home=None, webull_keys_path=None,
-        webull_token_dir=None, log=print):
+        webull_token_dir=None, log=print, broker_orders_csv=None):
     trades = read_trades(trades_csv)
+    # WEBULL FILLS FIRST: broker_orders.csv sits beside trades.csv (the same folder
+    # api/qqq_exec.py writes both into), so a test's own trades.csv never reads the
+    # live file.
+    fill_ts = {}
+    fills = read_broker_fills(
+        broker_orders_csv or os.path.join(os.path.dirname(trades_csv or TRADES_CSV),
+                                          "broker_orders.csv"), log=log, times=fill_ts)
     if not trades:
         log(f"[qqq-reprice] no closed trades found in "
             f"{trades_csv or TRADES_CSV} -- nothing to do.")
@@ -609,11 +825,18 @@ def run(trades_csv=None, sidecar_csv=None, config_path=None, apply=False, force=
 
     cutoff_date = (_now_et() - timedelta(days=YF_1M_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
 
+    def _has_fill(t):
+        return any(fills.get(_signal_base(t.get("trade_id"), i)) is not None
+                   for i in ("OPEN", "CLOSE"))
+
     to_process = []
     for t in trades:
         key = (t["leg"], t["entry_ts"])
         if key in existing and not force:
-            continue
+            # UPGRADE (2026-09-28): a row priced before WEBULL FILLS FIRST existed (no
+            # entry_px_source) is re-priced once a Webull fill is on record for it.
+            if (existing[key].get("entry_px_source") or "").strip() or not _has_fill(t):
+                continue
         to_process.append(t)
 
     if not to_process:
@@ -628,13 +851,26 @@ def run(trades_csv=None, sidecar_csv=None, config_path=None, apply=False, force=
         days_needed.add(_parse_ts(t["entry_ts"]).strftime("%Y-%m-%d"))
         days_needed.add(_parse_ts(t["exit_ts"]).strftime("%Y-%m-%d"))
 
+    # the fill check reads the stream's own low/high (local file only, never a network
+    # call); a day it does not cover is simply not checked.
+    range_days = set(days_needed)
+    for raw in fill_ts.values():
+        try:
+            range_days.add(_parse_ts(raw).strftime("%Y-%m-%d"))
+        except Exception:
+            pass
+    ranges_by_day = load_stream_ranges(range_days, home=stream_home, log=log)
+
     def _covered(bars_by_day, t):
+        use, _checks, _notes = _fill_plan(t, fills, ranges_by_day, fill_ts)
         entry_ts = _parse_ts(t["entry_ts"])
         exit_ts = _parse_ts(t["exit_ts"])
-        px_e, _px_x, _notes = _try_source(bars_by_day, entry_ts, exit_ts,
-                                          entry_ts.strftime("%Y-%m-%d"),
-                                          exit_ts.strftime("%Y-%m-%d"))
-        return px_e is not None
+        need = [(p, ts, ts.strftime("%Y-%m-%d")) for p, ts in (("entry", entry_ts), ("exit", exit_ts))
+                if p not in use]
+        if not need:
+            return True
+        got, _n = _price_sides(bars_by_day, need)
+        return got is not None
 
     # -- (a) the live feed's own bars for the session: local file, always tried first,
     # never a network call. --
@@ -653,8 +889,11 @@ def run(trades_csv=None, sidecar_csv=None, config_path=None, apply=False, force=
     # behaviour -- only for the days still needed by whatever's left uncovered. --
     yf_days_needed = set()
     for t in remaining:
-        yf_days_needed.add(_parse_ts(t["entry_ts"]).strftime("%Y-%m-%d"))
-        yf_days_needed.add(_parse_ts(t["exit_ts"]).strftime("%Y-%m-%d"))
+        use, _c, _n = _fill_plan(t, fills, ranges_by_day, fill_ts)
+        if "entry" not in use:
+            yf_days_needed.add(_parse_ts(t["entry_ts"]).strftime("%Y-%m-%d"))
+        if "exit" not in use:
+            yf_days_needed.add(_parse_ts(t["exit_ts"]).strftime("%Y-%m-%d"))
 
     yf_bars_by_day = {}
     fetch_errors = {}
@@ -680,7 +919,8 @@ def run(trades_csv=None, sidecar_csv=None, config_path=None, apply=False, force=
             (SOURCE_STREAM, stream_bars_by_day),
             (SOURCE_REST, rest_bars_by_day),
             (SOURCE_YFINANCE, yf_bars_by_day, fetch_errors),
-        ], slippage_per_share, log=log)
+        ], slippage_per_share, log=log, fills=fills, ranges_by_day=ranges_by_day,
+            fill_ts=fill_ts)
         report_rows.append(row)
         if not row["_skipped"]:
             computed[(row["leg"], row["entry_ts"])] = row

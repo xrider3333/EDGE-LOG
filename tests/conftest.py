@@ -361,3 +361,24 @@ def _reset_order_lookup_cooldown():
     qe = sys.modules.get("api.qqq_exec")
     if qe is not None and hasattr(qe, "_order_lookup_timeout_at"):
         qe._order_lookup_timeout_at["t"] = 0.0
+
+
+@pytest.fixture(autouse=True)
+def _reset_fill_parity_caches():
+    """api.qqq_exec caches the engine's backtest prices (_ENGINE_PX_CACHE) and the
+    breaker's fill shortfall (_BREAKER_ADJ_CACHE) at MODULE level, keyed on file
+    stats. A test that monkeypatches a reader while the files stay the same would
+    otherwise get an earlier test's cached value and never run its own path. Cleared
+    before and after every test (review 2026-09-28)."""
+    import sys
+
+    def _clear():
+        qe = sys.modules.get("api.qqq_exec")
+        for name, empty in (("_ENGINE_PX_CACHE", {}), ("_BREAKER_ADJ_CACHE", 0.0)):
+            c = getattr(qe, name, None) if qe is not None else None
+            if isinstance(c, dict):
+                c["key"] = None
+                c["val"] = empty
+    _clear()
+    yield
+    _clear()

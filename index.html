@@ -829,7 +829,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.941';
+const VERSION='73.942';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -847,7 +847,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.941',date:'2026-09-28',notes:['LOCKBOX FOLLOW-UP (live check of v73.940): four places still printed a warm run’s cold lockbox - the run report’s 1A chart hover (the chart the classic report layout shows), RUNBOARD’s whole-run LB $ row, the Past Runs group list’s lockbox PF, and LEADERBOARD’s lockbox Sharpe fallback. All four now read the same continuous replay, tagged LB warm or naming the run’s own cold reading on hover; refused runs (ENGU-Q #310, #326) keep their own lockbox everywhere. The run-report check gained a fourth case in the classic 1A layout, so this miss cannot come back unseen.']},{v:'73.940',date:'2026-09-28',notes:['ONE LOCKBOX FIGURE PER RUN, ON EVERY SCREEN. LEADERBOARD, the older COMPARE tables and the run report now read the same lockbox EXPLORE and RUNBOARD already show: for a run that scored its lockbox before warm starts (v73.841), the continuous replay of the same stretch, tagged LB warm with the run’s own cold figure on hover. Same refusal rule: a continuous slice with far fewer trades is a different replay, so that run keeps its own lockbox (ENGU-Q #310, #326). PASS / FAIL stays the verdict scored on the run’s own lockbox. In the run report this covers the metrics table LOCKBOX column, the chart’s lockbox hover and the gate banner; the whole-run curve and the in-sample figure worked out from it stay on the saved (cold) curve. Also fixed: a negative cold figure in the LB warm hover printed as $-42,119.']},{v:'73.937',date:'2026-09-28',notes:['RUNBOARD ROC TOGGLE NOW CLICKS. In v73.936 the ROC row label showed the switch between ROC % / YR and ROC @ $30K DD but clicking it did nothing, on the RUNBOARD tab and on the COMPARE board alike - its click was only hooked up on a different screen. It is now hooked up for every screen the board draws on, and the render check clicks it on both.']},{v:'73.936',date:'2026-09-28',notes:['EXPLORE AND RUNBOARD AUDIT (owner go, via MANAGER). EXPLORE: a row with fewer than 50 lockbox trades carries a caution tag and greys while the lockbox is ticked; ORB #205-#209 are marked VOID (the entry is gated on that same bar finished volume) and always greyed; a pinned single-config run says its walk-forward is in-sample; HYBRID redeploy and equal-drawdown rows size the lockbox at the walk-forward factor, with the lockbox-hindsight reading on hover; the run chips list watched and starred runs first and FAIL or VOID runs last, greyed, never the default pick; a run scored before warm starts reads its continuous lockbox when that is plausibly the same config warmed up (NOISE #382 $69,062, ENGU-Q #335 $49,812, ORB #314 $87,132), tagged LB warm; new ROC @ $30K DD measure (30 x MAR) as a column and on both chart axes; new LEVERAGE LINE view: ROC % / YR against drawdown % of the account, a line from zero through each run plain twin, and every ML or sized row marked above, on or below it. RUNBOARD: the lockbox stage reads the same warm lockbox (tagged LB warm on TOTAL), and clicking the ROC row label switches ROC % / YR and ROC @ $30K DD on every stage and on the WATCH view.']},{v:'73.935',date:'2026-09-28',notes:['LIVE GATE: the NinjaTrader NOISE strategy now sends its own finished bar prices, so the gate scores that bar instead of letting the trade through ungated when the price capture is a few seconds behind.']},
+const CHANGELOG=[{v:'73.942',date:'2026-09-28',notes:['WEBULL PAPER: FILLS vs BACKTEST AT THE OWNER’S TOLERANCE, AND WEBULL FILLS ARE THE P&L OF RECORD. The old PARITY NOTE (36 of 36 trades miss) is gone: it compared against the send-time quote at 2% of each trade’s P&L and ignored direction. Each Webull fill is now compared, signed (+ = Webull did better), with the backtest’s own fill for that side - for NOISE decided at a bar close, the next bar’s open. A fill more than 15 cents a share worse is flagged (FILL GAP), and a leg or the board is flagged when its last 20 fills average more than 5 cents worse. Known design gaps (the 15:59 flatten, ENGU-Q’s limit entry, stop and target levels, NOISE before 09-26) are shown apart and never flag; a capture that does not fit the tape reads CHECK FILL and never counts (the 09-24 ENGU-Q fill). Trade sheets, the equity curve, today’s figure, the calendar and the evening summary use Webull’s fill per side (book price, labelled, where there is none) with the backtest’s P&L alongside; the daily loss breaker can only trip sooner on a fill shortfall. Today’s orders show the delay after the bar close (SLOW in words past 60 s).']},{v:'73.941',date:'2026-09-28',notes:['LOCKBOX FOLLOW-UP (live check of v73.940): four places still printed a warm run’s cold lockbox - the run report’s 1A chart hover (the chart the classic report layout shows), RUNBOARD’s whole-run LB $ row, the Past Runs group list’s lockbox PF, and LEADERBOARD’s lockbox Sharpe fallback. All four now read the same continuous replay, tagged LB warm or naming the run’s own cold reading on hover; refused runs (ENGU-Q #310, #326) keep their own lockbox everywhere. The run-report check gained a fourth case in the classic 1A layout, so this miss cannot come back unseen.']},{v:'73.940',date:'2026-09-28',notes:['ONE LOCKBOX FIGURE PER RUN, ON EVERY SCREEN. LEADERBOARD, the older COMPARE tables and the run report now read the same lockbox EXPLORE and RUNBOARD already show: for a run that scored its lockbox before warm starts (v73.841), the continuous replay of the same stretch, tagged LB warm with the run’s own cold figure on hover. Same refusal rule: a continuous slice with far fewer trades is a different replay, so that run keeps its own lockbox (ENGU-Q #310, #326). PASS / FAIL stays the verdict scored on the run’s own lockbox. In the run report this covers the metrics table LOCKBOX column, the chart’s lockbox hover and the gate banner; the whole-run curve and the in-sample figure worked out from it stay on the saved (cold) curve. Also fixed: a negative cold figure in the LB warm hover printed as $-42,119.']},{v:'73.937',date:'2026-09-28',notes:['RUNBOARD ROC TOGGLE NOW CLICKS. In v73.936 the ROC row label showed the switch between ROC % / YR and ROC @ $30K DD but clicking it did nothing, on the RUNBOARD tab and on the COMPARE board alike - its click was only hooked up on a different screen. It is now hooked up for every screen the board draws on, and the render check clicks it on both.']},{v:'73.936',date:'2026-09-28',notes:['EXPLORE AND RUNBOARD AUDIT (owner go, via MANAGER). EXPLORE: a row with fewer than 50 lockbox trades carries a caution tag and greys while the lockbox is ticked; ORB #205-#209 are marked VOID (the entry is gated on that same bar finished volume) and always greyed; a pinned single-config run says its walk-forward is in-sample; HYBRID redeploy and equal-drawdown rows size the lockbox at the walk-forward factor, with the lockbox-hindsight reading on hover; the run chips list watched and starred runs first and FAIL or VOID runs last, greyed, never the default pick; a run scored before warm starts reads its continuous lockbox when that is plausibly the same config warmed up (NOISE #382 $69,062, ENGU-Q #335 $49,812, ORB #314 $87,132), tagged LB warm; new ROC @ $30K DD measure (30 x MAR) as a column and on both chart axes; new LEVERAGE LINE view: ROC % / YR against drawdown % of the account, a line from zero through each run plain twin, and every ML or sized row marked above, on or below it. RUNBOARD: the lockbox stage reads the same warm lockbox (tagged LB warm on TOTAL), and clicking the ROC row label switches ROC % / YR and ROC @ $30K DD on every stage and on the WATCH view.']},{v:'73.935',date:'2026-09-28',notes:['LIVE GATE: the NinjaTrader NOISE strategy now sends its own finished bar prices, so the gate scores that bar instead of letting the trade through ungated when the price capture is a few seconds behind.']},
 {v:'73.930',date:'2026-09-28',notes:['SCORE FIXES: seven stock trades (EHGO, LABT, SUGP, GMM, XHG, IPST, HOWL) were scored off the wrong candle or 5-minute bars; re-scored against the 1-minute or 10-second candle the owner actually traded.']},
 {v:'73.928',date:'2026-09-27',notes:['HOME LEDGER ON A PHONE: the SIMPLE ledger no longer clips the edit button at phone width - its cells are a little tighter below 480 pixels.']},
 {v:'73.927',date:'2026-09-27',notes:['ONE ROW OF TABS. The TRADING LOG and BACKTESTER buttons are gone - every tab sits in one row: HOME, ANALYTICS, BUILDER, RESULTS, COMPARE, RESEARCH. The queue dials and the settings gear stay on the top bar.','PAPER MOVED NEXT TO THE REAL LOG. HOME has three subtabs: REAL, NT8 PAPER and WEBULL PAPER. The paper boards are unchanged - only the button that opens them moved. HOME returns to whichever subtab was open last, and a refresh lands on the same tab and subtab.','HOME LEDGER: SIMPLE OR FULL. In TABLE view a new SIMPLE / FULL switch sits next to the FEED button. SIMPLE (the default) shows the columns that fit - date, time, symbol, side, contracts, points, net, score, grade, setup, notes - with no sideways scrolling on a laptop. FULL is the whole row as before. Your choice is remembered in this browser.','Add ?oldtabs=1 to the address to get the old two-level tabs back for now.']},
@@ -35153,6 +35153,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(QE&&QE.kill)chips.push(qbChip('KILL ACTIVE','var(--attn-red)'));
         if(QE&&QE.feed_stale)chips.push(qbChip('FEED STALE','var(--attn-red)'));
         if(parFailedForHero>0)chips.push(qbChip(parFailedForHero+' PARITY MISMATCH'+(parFailedForHero===1?'':'ES'),'var(--attn-red)'));
+        // FILL PARITY running average (2026-09-28): only the leg/board rolling flag reaches
+        // the hero -- one flagged trade stays on its own row.
+        if(QBPAR&&QBPAR.board_flag)chips.push(qbChip('FILLS BEHIND BACKTEST','var(--attn-red)'));
         if(QRHEALTH&&QRHEALTH.warn)chips.push(qbChip('RATIO DRIFT','var(--attn-amber)'));
         if(qeSlowLatency)chips.push(qbChip('SLOW LATENCY','var(--attn-amber)'));
         if(QREADY&&QREADY.ready===false)chips.push(qbChip('NOT READY','var(--attn-amber)'));
@@ -35513,7 +35516,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // _merge_reprice publishes it as real_pnl/real_exit_px, so fall back to that
         // rather than pretending the day was flat. 0 only when NEITHER figure exists.
         const qeFin=v=>{const n=Number(v);return isFinite(n)?n:null;};
-        const qePnlOf=t=>{const a=qeFin(t&&t.pnl);if(a!==null)return a;const b=qeFin(t&&t.real_pnl);return b!==null?b:0;};
+        // P&L OF RECORD (owner decision 2026-09-28): Webull's own fills, else the book
+        // price per side (labelled "book price, no Webull fill") -- api/qqq_exec.py's
+        // pnl_record, the same figure its equity curve adds up. An older doc without it
+        // falls back to the book's own pnl, then the re-priced real_pnl, exactly as before.
+        const qePnlOf=t=>{const r=qeFin(t&&t.pnl_record);if(r!==null)return r;const a=qeFin(t&&t.pnl);if(a!==null)return a;const b=qeFin(t&&t.real_pnl);return b!==null?b:0;};
         const qeRepriced=t=>qeFin(t&&t.pnl)===null&&qeFin(t&&t.real_pnl)!==null;
         // CURVE FROM THE TRADES (2026-09-21, owner: "webull paper chart doesnt show all the
         // trades"). The chart and the leg sparklines used to read the server-built
@@ -35550,7 +35557,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const avgTrade=closedN?(closedSum/closedN):null;
         const posCount=Object.keys(positions).length;
         const openExposure=Object.values(positions).reduce((s,p)=>s+(Number(p.shares)||0)*(Number(p.entry_px)||0),0);
-        const todayPnl=(Number(QE.today&&QE.today.realized_pnl)||0)+(Number(QE.today&&QE.today.unrealized_pnl)||0);
+        // today's closed trades at the P&L of record (Webull fills) when the doc has it
+        const qeTodayRealized=(QE.today&&qeFin(QE.today.realized_pnl_record)!==null)?Number(QE.today.realized_pnl_record):(Number(QE.today&&QE.today.realized_pnl)||0);
+        const todayPnl=qeTodayRealized+(Number(QE.today&&QE.today.unrealized_pnl)||0);
         // open trades marked at the LIVE price when the positions block has one (the same
         // figure as the sidebar lines and ACCOUNT's Total open P&L), else at the last bar
         // close the book itself uses -- so the hero never disagrees with the rows under it.
@@ -36033,11 +36042,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'<td style="text-align:right">'+qeMoney(o.nq_px)+'</td>'
               +'<td style="text-align:right">'+qeMoney(o.qqq_px)+'</td>'
               +'<td>'+naS(o.px_source)+'</td>'
-              +'<td style="text-align:right;color:'+((o.latency_s!=null&&o.latency_s>10)?'var(--red)':'var(--text3)')+'">'+(o.latency_s!=null?qeNum(o.latency_s,2)+'s':'—')+'</td>'
+              // AFTER CLOSE (audit 2026-09-28): latency_s counts from the bar's START (306s
+              // for an order 6.65s after the close); after_close_s is the real delay. A
+              // row without it (NT mode / older rows) shows latency_s marked "from bar start".
+              +(o.after_close_s!=null&&o.after_close_s!==''&&isFinite(Number(o.after_close_s))
+                ?('<td style="text-align:right;color:'+(Number(o.after_close_s)>60?'var(--attn-red)':'var(--text3)')+'"'+(Number(o.after_close_s)>60?' title="more than 60 seconds after the bar closed"':'')+'>'+qeNum(o.after_close_s,1)+'s'+(Number(o.after_close_s)>60?' <b>SLOW</b>':'')+'</td>')
+                :(String(o.signal_source||'').toLowerCase()==='engine'
+                  ?('<td style="text-align:right;color:var(--text4)" title="measured from the start of the signal bar, not its close">'+(o.latency_s!=null&&o.latency_s!==''?qeNum(o.latency_s,1)+'s from bar start':'—')+'</td>')
+                  :('<td style="text-align:right;color:var(--text3)" title="NinjaTrader fill to order">'+(o.latency_s!=null&&o.latency_s!==''?qeNum(o.latency_s,1)+'s':'—')+'</td>')))
               +'<td style="color:var(--text4)">'+String(naS(o.reason)).replace(/</g,'&lt;')+tagFor(o.reason)+'</td>'
               +'</tr>').join('');
             ordersHtml='<div class="qb-card qb-sec-orders"><div class="qb-section-hd">Today&rsquo;s orders (' +orders.length+')</div>'
-              +'<div style="overflow-x:auto;max-height:340px;overflow-y:auto"><table class="table"><thead><tr><th>TIME (ET)</th><th>LEG</th><th>ACTION</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">NQ PX</th><th style="text-align:right">QQQ PX</th><th>SOURCE</th><th style="text-align:right">LATENCY</th><th>REASON</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+              +'<div style="overflow-x:auto;max-height:340px;overflow-y:auto"><table class="table"><thead><tr><th>TIME (ET)</th><th>LEG</th><th>ACTION</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">NQ PX</th><th style="text-align:right">QQQ PX</th><th>SOURCE</th><th style="text-align:right" title="seconds from the close of the signal bar to the order">AFTER CLOSE</th><th>REASON</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
           }
         }
 
@@ -36082,16 +36098,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 if(/^reconstructed$/i.test(note.trim()))return ' '+qePill('RECONSTRUCTED','var(--text4)');
                 return ' <span title="'+note.replace(/</g,'&lt;').replace(/"/g,'&quot;')+'">'+qePill('PARITY NOTE','var(--attn-red)')+'</span>';
               }
+              // FILL PARITY (owner decisions 2026-09-28): Webull's fills vs the BACKTEST's
+              // own price, signed (a better fill never flags). FILL GAP = a fill more than
+              // 15 cents a share worse once the known design gap is taken out; CHECK FILL =
+              // a Webull fill that does not fit the tape. Told apart by label, not colour.
               const bOk=t.broker_parity_ok;
+              const note=String(t.broker_parity_note||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
               if(bOk===false){
-                const note=String(t.broker_parity_note||'');
-                return ' <span title="'+note.replace(/</g,'&lt;').replace(/"/g,'&quot;')+'">'+qePill('PARITY NOTE','var(--attn-red)')+'</span>';
+                const fpD=qeFpOf(t);
+                const odd=!!(fpD&&[fpD.en,fpD.ex].some(s=>s&&Math.abs(Number(s.unx)||0)>=0.00005));
+                return ' <span title="'+note+'">'+qePill(odd?'CHECK FILL':'FILL GAP','var(--attn-red)')+'</span>';
               }
               if(bOk===undefined||bOk===null){
-                const note=String(t.broker_parity_note||'not checked yet');
-                return ' <span title="'+note.replace(/</g,'&lt;').replace(/"/g,'&quot;')+'">'+qePill('NOT CHECKED','var(--text4)')+'</span>';
+                return ' <span title="'+(note||'not compared yet')+'">'+qePill('NOT COMPARED','var(--text4)')+'</span>';
               }
-              return '';   // bOk===true -- matches within tolerance, shown quietly (as the NT case always has)
+              return '';   // bOk===true -- within the band, shown quietly (as the NT case always has)
             };
             // BOOK ONLY (2026-09-23, owner: "mark the book only trades" -- Webull
             // refused a NOISE short because stock orders were still on the cash
@@ -36102,7 +36123,32 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // outline, same as PARITY NOTE/NOT CHECKED): this is not a mismatched
             // price, the order never existed at the broker in the first place, so
             // it reads as a different KIND of caveat, never a louder parity chip.
+            // BOOK PRICE (owner decision 2026-09-28): the P&L of record is Webull's fills;
+            // a trade with no captured fill on a side is at the book price for that side
+            // and says so. Not shown on a BOOK ONLY trade (that pill already says Webull
+            // never held it).
+            // Each fp side rides PACKED as 'bt|wb|fs|edge|dsg|slp|unx|why' (api/qqq_exec.py's
+            // _pack_side -- up to 500 rows share one Firestore doc and its caps); the book's
+            // own price is the row's entry_px/exit_px. An older doc's dict passes through.
+            const qeFpSide=(s,bk)=>{
+              if(s===null||s===undefined)return null;
+              if(typeof s!=='string')return s;
+              const p=s.split('|');const n=v=>(v===undefined||v==='')?null:Number(v);
+              return {bt:n(p[0]),wb:n(p[1]),fs:({o:'ok',s:'suspect'})[p[2]]||'none',edge:n(p[3]),dsg:n(p[4]),slp:n(p[5]),unx:n(p[6]),why:p[7]||'',bk:bk};
+            };
+            const qeFpOf=t=>{
+              const fp=t&&t.fp;if(!fp)return null;
+              return Object.assign({},fp,{en:qeFpSide(fp.en,qeFin(t.entry_px)),ex:qeFpSide(fp.ex,qeFin(t.exit_px))});
+            };
+            const qeBookPriceChip=t=>{
+              if(!t||t.book_only||qeIsNtMirror(t))return '';
+              const src=String(t.pnl_record_src||'');
+              if(src!=='book'&&src!=='part')return '';
+              const note=String(t.pnl_record_note||'book price, no Webull fill').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+              return ' <span title="'+note+'">'+qePill(src==='part'?'PART BOOK PRICE':'BOOK PRICE','var(--text4)')+'</span>';
+            };
             const bookOnlyChip=t=>{
+              if(t&&!t.book_only)return qeBookPriceChip(t);
               if(!t||!t.book_only)return '';
               const note=String(t.book_only_reason||'the broker never received this order');
               return ' <span title="'+note.replace(/</g,'&lt;').replace(/"/g,'&quot;')+'">'+qePill('BOOK ONLY','var(--attn-amber)')+'</span>';
@@ -36118,6 +36164,43 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               if(a==null)return b; if(b==null)return a;
               return (a+b)/2;
             };
+            // FILLS vs BACKTEST (owner decisions 2026-09-28): per side, the backtest's own
+            // price, Webull's fill and the book's price, the signed gap in cents a share
+            // (+ better) and its split into design gap / slippage / unexplained -- see
+            // api/qqq_exec.py's _side_parity.
+            const qeCentsTxt=v=>{const n=Number(v);if(v===null||v===undefined||!isFinite(n))return '—';const a=Math.abs(n)*100;return a<0.05?'level':(a.toFixed(1)+'&cent; a share '+(n>0?'better':'worse'));};
+            const qePx=v=>(v===null||v===undefined||!isFinite(Number(v)))?'—':Number(v).toFixed(2);
+            // each side's `why` is a short code; its plain words ride once on the summary
+            const qeWhyTxt=c=>String((QBPAR&&QBPAR.why_text&&QBPAR.why_text[c])||c||'');
+            const qeFillsCol=t=>{
+              const fp=qeFpOf(t);
+              if(!fp||qeIsNtMirror(t))return '';
+              const esc=c=>qeWhyTxt(c).replace(/</g,'&lt;');
+              const side=(nm,s)=>{
+                if(!s)return '';
+                let h='<b>'+nm+'</b> backtest '+qePx(s.bt)+' &middot; Webull '+(s.fs==='suspect'?(qePx(s.wb)+' <span style="color:var(--attn-red)">(looks wrong)</span>'):qePx(s.wb))+' &middot; book '+qePx(s.bk)+'<br>';
+                if(s.edge===null||s.edge===undefined){h+='<span style="color:var(--text5)">not compared: '+esc(s.why)+'</span><br>';return h;}
+                h+=qeCentsTxt(s.edge);
+                const parts=[];
+                if(Math.abs(Number(s.dsg)||0)>=0.00005)parts.push('design gap '+qeCentsTxt(s.dsg));
+                if(Math.abs(Number(s.slp)||0)>=0.00005)parts.push('slippage '+qeCentsTxt(s.slp));
+                if(Math.abs(Number(s.unx)||0)>=0.00005)parts.push('unexplained '+qeCentsTxt(s.unx));
+                if(parts.length)h+=' <span style="color:var(--text4)">('+parts.join(', ')+')</span>';
+                if(s.why)h+='<br><span style="color:var(--text5)">'+esc(s.why)+'</span>';
+                return h+'<br>';
+              };
+              const sh=Number(t.shares)||0;
+              const money=v=>(v===null||v===undefined)?'—':qeMoney(Number(v));
+              return '<div class="qe-drawer-col"><div class="qe-drawer-lbl">FILLS vs BACKTEST'+(fp.flag?' &middot; FLAGGED':'')+'</div>'
+                +'<div style="font-size:var(--fsxs);line-height:1.7">'+side('entry',fp.en)+side('exit',fp.ex)
+                +(fp.gap_usd!==null&&fp.gap_usd!==undefined?('<span style="color:var(--text4)">at '+qeInt(sh)+' sh:</span> gap '+money(fp.gap_usd)+' &middot; design '+money(fp.dsg_usd)+' &middot; slippage and unexplained '+money(fp.exec_usd)):'')
+                +'</div></div>';
+            };
+            // the P&L of record's own label: Webull's fills on both sides, "of record" when
+            // one side is at the book price, "book" when neither side has a Webull fill (or
+            // an older doc without pnl_record at all)
+            const qeRecLbl=t=>{const s=String((t&&t.pnl_record_src)||'');return s==='webull'?'Webull':(s==='part'?'of record':'book');};
+            const qeExWhy=t=>{const f=qeFpOf(t);return (f&&f.ex&&f.ex.why&&f.ex.why!=='nofill')?f.ex.why:'';};
             const buildDrawer=t=>{
               const repriced=t.real_entry_px!=null||t.real_exit_px!=null;
               const shares=Number(t.shares)||0;
@@ -36140,10 +36223,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   +'<span style="color:var(--text4)">avg slip</span> '+(avgSlip(t)!=null?qeNum(avgSlip(t),3)+'/sh':'—')+'</div>')
                   :'<div style="font-size:var(--fsxs);color:var(--text5)">not re-priced yet — re-priced nightly from real QQQ 1-minute bars</div>')
                 +'</div>'
-                +'<div class="qe-drawer-col"><div class="qe-drawer-lbl">P&amp;L &amp; TRACKING</div>'
-                +'<div style="font-size:var(--fsxs);line-height:1.7">ratio-priced P&amp;L <b style="color:'+pnlCol(ratioPnl)+'">'+qeMoney(ratioPnl)+'</b><br>'
-                +'real P&amp;L <b style="color:'+(realPnl!=null?pnlCol(realPnl):'var(--text5)')+'">'+(realPnl!=null?qeMoney(realPnl):'—')+'</b><br>'
-                +'<span style="color:var(--text4)">tracking error</span> '+(trackErrDrawer!=null?qeMoney(trackErrDrawer):'—')+'</div></div>'
+                +qeFillsCol(t)
+                +'<div class="qe-drawer-col"><div class="qe-drawer-lbl">P&amp;L &mdash; Webull vs backtest</div>'
+                +'<div style="font-size:var(--fsxs);line-height:1.7">'+qeRecLbl(t)+' <b style="color:'+pnlCol(ratioPnl)+'">'+qeMoney(ratioPnl)+'</b>'
+                +(t.pnl_record_src&&t.pnl_record_src!=='webull'?(' <span style="color:var(--text4)">('+String(t.pnl_record_note||'book price, no Webull fill').replace(/</g,'&lt;')+')</span>'):'')+'<br>'
+                +'backtest '+(qeFin(t.pnl_backtest)!==null?('<b style="color:'+pnlCol(Number(t.pnl_backtest))+'">'+qeMoney(Number(t.pnl_backtest))+'</b>'):'<span style="color:var(--text5)">'+(qeExWhy(t)?qeWhyTxt(qeExWhy(t)).replace(/</g,'&lt;'):'not on record')+'</span>')+'<br>'
+                +'book <span style="color:var(--text3)">'+(qeFin(t.pnl)!==null?qeMoney(Number(t.pnl)):'—')+'</span>'
+                +(qeFin(t.pnl_backtest)!==null?('<br><span style="color:var(--text4)">'+qeRecLbl(t)+' vs backtest</span> '+qeMoney(ratioPnl-Number(t.pnl_backtest))):'')
+                +(trackErrDrawer!=null&&qeIsNtMirror(t)?('<br><span style="color:var(--text4)">tracking error</span> '+qeMoney(trackErrDrawer)):'')+'</div></div>'
                 +'</div>'
                 +'<div style="margin-top:10px;font-size:var(--fsxs);color:var(--text4)">exit reason: <span style="color:var(--text3)">'+naS(t.exit_reason)+'</span>'
                 +(t.book_only?(' &middot; <span style="color:var(--attn-amber)">BOOK ONLY: '+String(t.book_only_reason||'never reached the broker').replace(/</g,'&lt;')+'</span>'):'')
@@ -36286,17 +36373,49 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // price). "not checked" is its own calm state, never painted like a failure —
         // see api/qqq_exec.py's _broker_parity_summary.
         let brokerParityPanelHtml;
+        const qeCentsTxtP=v=>{const n=Number(v);if(v===null||v===undefined||!isFinite(n))return '—';const a=Math.abs(n)*100;return a<0.05?'level with the backtest':(a.toFixed(1)+'&cent; a share '+(n>0?'better':'worse'));};
+        // 'were level with the backtest' / 'averaged 1.2c a share worse than the backtest'
+        const qeAvgVsBtP=v=>{const n=Number(v);if(v===null||v===undefined||!isFinite(n))return 'averaged —';return Math.abs(n)*100<0.05?'were level with the backtest':('averaged '+qeCentsTxtP(n)+' than the backtest');};
+        const qeThanBtP=v=>{const n=Number(v);if(v===null||v===undefined||!isFinite(n))return '—';return Math.abs(n)*100<0.05?'level with the backtest':(qeCentsTxtP(n)+' than the backtest');};
         if(!QBPAR){
           brokerParityPanelHtml=tile('<div class="lbl" style="margin-bottom:6px">ENGINE vs BROKER</div><div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:10px">parity checks not published yet</div>');
         }else if(Number(QBPAR.checked||0)===0){
           const bNotChecked=Number(QBPAR.not_checked||0);
           brokerParityPanelHtml='<div class="hero-card" style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 70%,transparent);border-radius:10px;padding:12px 14px;margin-bottom:12px">'
             +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-            +'<div class="lbl" style="margin:0">ENGINE vs BROKER &mdash; does this book'+"'"+'s booked price match Webull?</div>'
-            +qePill('NOT CHECKED YET','var(--attn-amber)')
+            +'<div class="lbl" style="margin:0">WEBULL FILLS vs BACKTEST</div>'
+            +qePill('NOT COMPARED YET','var(--attn-amber)')
             +'</div>'
-            +'<div style="margin-top:8px;font-size:13px;font-weight:700;color:var(--text3)">'+(bNotChecked?bNotChecked+' trade'+(bNotChecked===1?'':'s')+' awaiting a Webull fill price or a re-priced tape price':'no engine-signal trades recorded yet')+'</div>'
-            +'<div style="margin-top:4px;font-size:var(--fsxs);color:var(--text4)">not an error &mdash; this fills in automatically once a fill price is captured or the nightly re-price runs</div>'
+            +'<div style="margin-top:8px;font-size:13px;font-weight:700;color:var(--text3)">'+(bNotChecked?bNotChecked+' trade'+(bNotChecked===1?'':'s')+' waiting for a Webull fill or the backtest'+"'"+'s own price':'no engine-signal trades recorded yet')+'</div>'
+            +'<div style="margin-top:4px;font-size:var(--fsxs);color:var(--text4)">not an error &mdash; a trade is compared once Webull reports its fill and the backtest has its own price for that side</div>'
+            +'</div>';
+        }else if(QBPAR.board&&QBPAR.board.avg_exec_ps!==undefined){
+          // FILL PARITY (owner decisions 2026-09-28): Webull's fills vs the backtest's own
+          // price, signed (+ better), per fill, known design gaps shown apart. Flags: a
+          // trade with a fill more than 15 cents a share worse (or a fill that does not
+          // fit the tape), and a leg/board whose running average over the last 20 trades
+          // is more than 5 cents a share worse.
+          const bFlagged=Number(QBPAR.failed||0);
+          const bRoll=!!QBPAR.board_flag;
+          const bLoud=bFlagged>0||bRoll;
+          const bNotChecked=Number(QBPAR.not_checked||0);
+          const bd=QBPAR.board||{};
+          const tolT=qeNum((Number(QBPAR.tol_trade_ps)||0.15)*100,0),tolR=qeNum((Number(QBPAR.tol_roll_ps)||0.05)*100,0);
+          const legName=k=>({ENGUQ:'ENGU-Q'}[k]||k);
+          const legLines=Object.keys(QBPAR.legs||{}).sort().map(k=>{const L=QBPAR.legs[k]||{};return '<div>'+legName(k)+': '+(L.n||0)+' trade'+(L.n===1?'':'s')+(L.avg_exec_ps===null||L.avg_exec_ps===undefined?', no fills with slippage to compare yet':(', slippage '+qeCentsTxtP(L.avg_exec_ps)+(L.fills?' over '+L.fills+' fill'+(L.fills===1?'':'s'):'')))+(L.suspect_fills?(' ('+L.suspect_fills+(L.suspect_fills===1?' fill that looks':' fills that look')+' wrong left out)'):'')+(L.flag?' &middot; <b>'+qePill('RUNNING AVG WORSE','var(--attn-red)')+'</b>':'')+'</div>';}).join('');
+          brokerParityPanelHtml='<div class="hero-card" style="background:'+(bLoud?'color-mix(in srgb,var(--attn-red) 8%,var(--bg2))':'var(--bg2)')+';border:1px solid '+(bLoud?'var(--attn-red)':'color-mix(in srgb,var(--border) 45%,transparent)')+';border-radius:13px;padding:13px 15px;margin-bottom:14px">'
+            +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+            +'<div class="lbl" style="margin:0;'+(bLoud?'color:var(--attn-red)':'')+'">WEBULL FILLS vs BACKTEST</div>'
+            +(bRoll?qePill('RUNNING AVG WORSE','var(--attn-red)',true):(bFlagged?qePill(bFlagged+' TRADE'+(bFlagged===1?'':'S')+' FLAGGED','var(--attn-red)',true):qePill('WITHIN LIMITS','var(--attn-ok)',true)))
+            +'</div>'
+            +'<div style="margin-top:8px;font-size:13px;font-weight:700;color:var(--text)">Last '+(bd.n||0)+' trade'+(bd.n===1?'':'s')+': '+(bd.avg_exec_ps===null||bd.avg_exec_ps===undefined?'no Webull fill with slippage to compare yet':('Webull fills '+qeAvgVsBtP(bd.avg_exec_ps)+' on slippage'))+'</div>'
+            +'<div style="margin-top:4px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">known design gaps (15:59 flatten, limit vs market, stop and target levels) are shown apart'+(bd.med_dsg_ps!==null&&bd.med_dsg_ps!==undefined?(': the typical one (middle of '+(bd.dsg_fills||0)+' fill'+(bd.dsg_fills===1?'':'s')+') was '+qeThanBtP(bd.med_dsg_ps)):'')
+            +'<br>the slippage average leaves out limit entries, stop or target exits, and NOISE before 09-26 or on a bar whose close decision did not run (all design gap)'+(bd.suspect_fills?(' and '+bd.suspect_fills+(bd.suspect_fills===1?' fill that does':' fills that do')+' not fit the tape (marked CHECK FILL)'):'')
+            +'<br>flags: a fill'+(QBPAR.round_trip_check?(' (or a trade'+"'"+'s two fills together)'):'')+' more than '+tolT+'&cent; a share worse, or a running average more than '+tolR+'&cent; a share worse over the last '+(QBPAR.roll_n||20)+' trades'
+            +(QBPAR.n_both?('<br>P&amp;L where both are known ('+QBPAR.n_both+' trade'+(QBPAR.n_both===1?'':'s')+'): Webull '+qeMoney(QBPAR.webull_usd)+' vs backtest '+qeMoney(QBPAR.backtest_usd)):'')
+            +(bNotChecked?('<br>'+bNotChecked+' trade'+(bNotChecked===1?'':'s')+' not compared yet (no Webull fill, or the backtest has not exited)'):'')
+            +'</div>'
+            +(legLines?('<div style="margin-top:6px;font-size:var(--fsxs);color:var(--text3);line-height:1.8">'+legLines+'</div>'):'')
             +'</div>';
         }else{
           const bLoud=Number(QBPAR.failed||0)>0;
@@ -36350,13 +36469,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // helper output (qqqStats/qeCalHtml/legList/buildDrawer/parityPanelHtml/
         // railsHtml/eventsHtml/modelSection) built above -- nothing recomputed here,
         // only assembled and restyled.
-        const qbSinceLabel='since '+naS(QE.live_from)+' · '+(QST.n?(QST.n+' closed trade'+(QST.n===1?'':'s')):'no closed trades yet');
+        const qbTrimmed=Number(QE.trades_all_trimmed)||0;  // api/qqq_exec.py _fit_doc_budget
+        const qbSinceLabel='since '+naS(QE.live_from)+' · '+(QST.n?(QST.n+' closed trade'+(QST.n===1?'':'s')):'no closed trades yet')+(qbTrimmed>0?(' · oldest '+qbTrimmed+' trade'+(qbTrimmed===1?'':'s')+' not counted (too many for one page)'):'');
         // "+$X today" under the hero: the BOOK's own today (closed today + open, openMarkPnl),
         // the same book the big number counts. Not the Webull account's daily move: on
         // 09-24 that read +$21.60 while the book said +$6.58 (broker filled ENGU-Q $1.50
         // better), and its percent is of a $1M paper account, so always +0.00%. The
         // account's own move stays in the ACCOUNT section.
-        const heroTodayVal=(Number(QE.today&&QE.today.realized_pnl)||0)+openMarkPnl;
+        const heroTodayVal=qeTodayRealized+openMarkPnl;
         const heroTodayPct=null;
         const qbHero=qbHeroBuild(sinceStartPnl,qbSinceLabel,parFailed,QBO,heroTodayVal,heroTodayPct);
         const qbHeroHtml=qbHero.main;
@@ -36797,7 +36917,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // Was its own qb-card qb-sec-integrity card; now the last sub-section inside the
         // collapsed SYSTEM area below (owner spec point 2) -- rows/sheets untouched.
         const qbIntegrityCard='<div class="qb-section-hd">Integrity</div><div class="qb-list">'
-          +qbIntegrityRow('Parity',(effParTotal!=null)?(effParMatched+' / '+effParTotal):'—',effParFailed>0?'var(--attn-red)':null,'parity')
+          +qbIntegrityRow('Parity',(effParTotal!=null)?(effParMatched+' / '+effParTotal):'—',(effParFailed>0||(QBPAR&&QBPAR.board_flag))?'var(--attn-red)':null,'parity')
           +qbIntegrityRow('Feed uptime',feedMean!=null?feedMean.toFixed(1)+'%':'—',qbFeedDotCol,'feeduptime')
           +qbIntegrityRow('Ratio',(QRHEALTH&&QRHEALTH.used===false)?'not used':(QE&&QE.calib?qeNum(QE.calib.ratio,3):'—'),(QRHEALTH&&QRHEALTH.warn)?'var(--attn-amber)':null,'ratio')
           +qbIntegrityRow('Latency',qbLatencyHeadline,qbLatencyDotCol,'latency')

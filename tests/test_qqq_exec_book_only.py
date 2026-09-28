@@ -234,7 +234,7 @@ def test_book_only_summary_on_all_book_only_trades_is_zero_broker_net():
 
 def test_book_only_summary_empty_trades_all():
     out = qe._book_only_summary([])
-    assert out == {"book_net": 0.0, "broker_net": 0.0, "book_only_count": 0}
+    assert out == {"book_net": 0.0, "record_net": 0.0, "broker_net": 0.0, "book_only_count": 0}
 
 
 def test_book_only_summary_uses_real_pnl_fallback_like_the_curve():
@@ -253,4 +253,4 @@ def test_book_only_summary_uses_real_pnl_fallback_like_the_curve():
 
 def test_book_only_summary_never_raises_on_garbage_pnl():
     out = qe._book_only_summary([{"pnl": "not-a-number", "book_only": False}])
-    assert out == {"book_net": 0.0, "broker_net": 0.0, "book_only_count": 0}
+    assert out == {"book_net": 0.0, "record_net": 0.0, "broker_net": 0.0, "book_only_count": 0}

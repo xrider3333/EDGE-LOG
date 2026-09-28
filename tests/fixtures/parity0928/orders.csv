@@ -1,0 +1,73 @@
+ts_et,leg,action,side,shares,nq_px,qqq_px,px_source,reason,latency_s,signal_source,size,shares_wanted,after_close_s
+2026-09-03 12:30:16,NOISE,ENTER,long,5,29498.25,719.2731,nq_ratio,signal entry,,,,,
+2026-09-03 12:30:18,ORB,ENTER,long,5,29498.25,719.2731,nq_ratio,signal entry,,,,,
+2026-09-03 15:58:05,NOISE,EXIT,long,5,29522.75,719.8505,nq_ratio,EOD,,,,,
+2026-09-03 15:58:05,ORB,EXIT,long,5,29522.75,719.8505,nq_ratio,EOD,,,,,
+2026-09-16 09:55:11,NOISE,ENTER,long,10,,709.78,engine_webull,signal entry,311.641,engine,,,
+2026-09-16 13:15:30,NOISE,EXIT,long,10,,709.465,engine_webull,signal exit,630.103,engine,,,
+2026-09-16 14:10:17,NOISE,ENTER,long,10,,710.95,engine_webull,signal entry,317.668,engine,,,
+2026-09-16 14:35:18,NOISE,EXIT,long,10,,709.64,engine_webull,signal exit,618.829,engine,,,
+2026-09-17 15:08:24,ENGUQ,ENTER,long,10,,716.8692,engine_webull,signal entry,84.079,engine,,,
+2026-09-17 16:00:02,ENGUQ,EXIT,long,10,,nan,engine_webull,EOD,,engine,,,
+2026-09-18 13:11:45,ENGUQ,ENTER,long,10,,716.851,engine_webull,signal entry,105.628,engine,,,
+2026-09-18 15:50:37,ORB,ENTER,long,10,,720.07,engine_webull,signal entry,337.586,engine,,,
+2026-09-18 16:00:02,ENGUQ,EXIT,long,10,,nan,engine_webull,EOD,,engine,,,
+2026-09-18 16:00:03,ORB,EXIT,long,10,,nan,engine_webull,EOD,,engine,,,
+2026-09-21 09:45:12,NOISE,ENTER,long,10,,729.82,engine_webull,signal entry,312.05,engine,,,
+2026-09-21 15:59:00,NOISE,EXIT,long,10,,741.58,engine_webull,EOD,,engine,,,
+2026-09-22 09:45:28,NOISE,ENTER,long,10,,744.14,engine_webull,signal entry,328.765,engine,,,
+2026-09-22 10:55:29,NOISE,EXIT,long,10,,744.61,engine_webull,signal exit,629.932,engine,,,
+2026-09-22 10:55:30,NOISE,ENTER,long,10,,745.285,engine_webull,signal entry,330.154,engine,,,
+2026-09-22 11:15:26,NOISE,EXIT,long,10,,744.592,engine_webull,signal exit,626.476,engine,,,
+2026-09-22 11:15:26,NOISE,ENTER,long,10,,744.6295,engine_webull,signal entry,326.7,engine,,,
+2026-09-22 11:50:10,NOISE,EXIT,long,10,,744.2,engine_webull,signal exit,610.901,engine,,,
+2026-09-22 11:55:18,NOISE,ENTER,long,10,,744.48,engine_webull,signal entry,318.162,engine,,,
+2026-09-22 12:05:34,NOISE,EXIT,long,10,,744.195,engine_webull,signal exit,634.224,engine,,,
+2026-09-22 12:05:34,NOISE,ENTER,long,10,,744.5774,engine_webull,signal entry,334.484,engine,,,
+2026-09-22 12:15:15,NOISE,EXIT,long,10,,744.49,engine_webull,signal exit,615.402,engine,,,
+2026-09-22 12:15:15,NOISE,ENTER,long,10,,744.96,engine_webull,signal entry,315.662,engine,,,
+2026-09-22 12:30:34,NOISE,EXIT,long,10,,744.54,engine_webull,signal exit,634.641,engine,,,
+2026-09-22 12:30:34,NOISE,ENTER,long,10,,744.26,engine_webull,signal entry,334.887,engine,,,
+2026-09-22 12:40:15,NOISE,EXIT,long,10,,744.08,engine_webull,signal exit,615.483,engine,,,
+2026-09-22 12:40:15,NOISE,ENTER,long,10,,744.74,engine_webull,signal entry,315.705,engine,,,
+2026-09-22 12:50:31,NOISE,EXIT,long,10,,744.37,engine_webull,signal exit,631.542,engine,,,
+2026-09-22 12:50:31,NOISE,ENTER,long,10,,744.65,engine_webull,signal entry,331.762,engine,,,
+2026-09-22 15:59:00,NOISE,EXIT,long,10,,747.69,engine_webull,EOD,,engine,,,
+2026-09-23 10:10:29,NOISE,ENTER,short,10,,742.7798,engine_webull,signal entry,329.751,engine,,,
+2026-09-23 11:00:33,NOISE,EXIT,short,10,,742.29,engine_webull,signal exit,333.481,engine,,,
+2026-09-23 11:20:29,NOISE,ENTER,short,10,,741.705,engine_webull,signal entry,329.198,engine,,,
+2026-09-23 11:30:09,NOISE,EXIT,short,10,,742.18,engine_webull,signal exit,309.767,engine,,,
+2026-09-23 11:35:17,NOISE,ENTER,short,10,,741.321,engine_webull,signal entry,317.792,engine,,,
+2026-09-23 14:01:29,ENGUQ,ENTER,long,10,,741.1247,engine_webull,signal entry,89.892,engine,,,
+2026-09-23 14:05:33,NOISE,EXIT,short,10,,741.28,engine_webull,signal exit,333.049,engine,,,
+2026-09-23 14:10:11,NOISE,ENTER,short,10,,740.242,engine_webull,signal entry,311.488,engine,,,
+2026-09-23 14:25:33,NOISE,EXIT,short,10,,741.04,engine_webull,signal exit,333.127,engine,,,
+2026-09-23 14:30:36,NOISE,ENTER,short,10,,741.055,engine_webull,signal entry,336.604,engine,,,
+2026-09-23 14:55:10,NOISE,EXIT,short,10,,741.07,engine_webull,signal exit,310.595,engine,,,
+2026-09-23 15:00:14,NOISE,ENTER,short,10,,740.74,engine_webull,signal entry,314.16,engine,,,
+2026-09-23 15:05:23,NOISE,EXIT,short,10,,741.055,engine_webull,signal exit,323.453,engine,,,
+2026-09-23 15:10:31,NOISE,ENTER,short,10,,740.61,engine_webull,signal entry,331.848,engine,,,
+2026-09-23 15:15:35,NOISE,EXIT,short,10,,741.2324,engine_webull,signal exit,335.861,engine,,,
+2026-09-23 15:20:14,NOISE,ENTER,short,10,,741.045,engine_webull,signal entry,314.015,engine,,,
+2026-09-23 15:40:10,NOISE,EXIT,short,10,,741.27,engine_webull,signal exit,310.19,engine,,,
+2026-09-23 15:50:21,NOISE,ENTER,short,10,,740.63,engine_webull,signal entry,321.837,engine,,,
+2026-09-23 15:55:30,NOISE,EXIT,short,10,,741.12,engine_webull,signal exit,330.755,engine,,,
+2026-09-23 15:59:03,ENGUQ,EXIT,long,10,,740.89,engine_webull,EOD,,engine,,,
+2026-09-24 12:18:25,ENGUQ,ENTER,long,10,,739.3817,engine_webull,signal entry,85.943,engine,1.0,10,25.943
+2026-09-24 15:59:00,ENGUQ,EXIT,long,10,,741.345,engine_webull,EOD,,engine,1.0,10,
+2026-09-25 09:45:11,NOISE,ENTER,long,15,,744.1,engine_webull,signal entry,311.194,engine,1.5,15,11.194
+2026-09-25 10:10:13,NOISE,EXIT,long,15,,742.48,engine_webull,signal exit,313.286,engine,1.5,15,13.286
+2026-09-25 12:15:09,NOISE,ENTER,long,15,,745.5,engine_webull,signal entry,309.883,engine,1.5,15,9.883
+2026-09-25 15:59:03,NOISE,EXIT,long,15,,744.92,engine_webull,EOD,,engine,1.5,15,
+2026-09-28 10:15:11,NOISE,ENTER,short,20,,735.6499,engine_webull,signal entry,11.159,engine,2.0,20,11.159
+2026-09-28 10:50:06,ORB,ENTER,short,10,,732.32,engine_webull,signal entry,306.654,engine,1.0,10,6.654
+2026-09-28 11:40:09,NOISE,EXIT,short,20,,735.705,engine_webull,signal exit,9.715,engine,2.0,20,9.715
+2026-09-28 11:45:09,NOISE,ENTER,short,10,,734.44,engine_webull,signal entry,9.091,engine,1.0,10,9.091
+2026-09-28 12:00:08,NOISE,EXIT,short,10,,735.64,engine_webull,signal exit,8.503,engine,1.0,10,8.503
+2026-09-28 12:05:08,NOISE,ENTER,short,10,,735.3,engine_webull,signal entry,8.57,engine,1.0,10,8.57
+2026-09-28 12:10:09,NOISE,EXIT,short,10,,735.63,engine_webull,signal exit,9.12,engine,1.0,10,9.12
+2026-09-28 12:15:09,NOISE,ENTER,short,10,,735.455,engine_webull,signal entry,9.064,engine,1.0,10,9.064
+2026-09-28 12:20:09,NOISE,EXIT,short,10,,736.89,engine_webull,signal exit,9.816,engine,1.0,10,9.816
+2026-09-28 12:33:38,ENGUQ,ENTER,long,10,,738.0395,engine_webull,signal entry,98.117,engine,1.0,10,38.117
+2026-09-28 15:59:01,ORB,EXIT,short,10,,736.76,live_stream,EOD (px: live_stream),,engine,1.0,10,
+2026-09-28 15:59:01,ENGUQ,EXIT,long,10,,736.66,live_stream,EOD (px: live_stream),,engine,1.0,10,

@@ -102,6 +102,24 @@ P&L line -- all read straight off QPOSLIVE.legs, so they can never disagree with
 onSnapshot and calls _qqqExecEnsureLive() twice in a row (standing in for a second
 renderApp() pass), proving it does not throw and never stacks a second listener.
 
+FILL PARITY PASS (2026-09-28, owner decisions after the 09-28 parity audit) -- the
+'parity0928' fixture is BUILT at run time from the real 2026-09-28 rows in
+tests/fixtures/parity0928/ through api/qqq_exec.py's own code (reprice merge, fill
+parity, P&L of record, summary -- see build_parity0928_fixture), on top of the 'flat'
+fixture's non-trade blocks, with the trade rows PACKED exactly as _build_doc publishes
+them (_compact_published_trades). Cases: the Integrity > Parity sheet ("WEBULL FILLS vs
+BACKTEST") and one flagged trade's sheet (NOISE 09-25 12:10, the 15:59 flatten sold 32
+cents a share under the flatten quote), at 1366x768 and 390x844 in mono and dark, plus at
+1366x768 mono the NOISE 09-28 12:05 trade (priced against the backtest's real fill, the
+12:05 bar's open: 3 cents worse, not flagged) and the 09-24 ENGU-Q trade (a fill that
+does not fit the tape, P&L "of record"), all screenshotted
+(parity_<what>_<w>x<h>_<theme>.png), and one check that a slow order says SLOW in words,
+plus assertions: the old "36 of 36 ... miss their broker-side price" / "engine booked"
+wording is gone, the list shows FILL GAP / CHECK FILL / BOOK PRICE / NOT COMPARED pills,
+the P&L is the Webull figure, and today's orders show AFTER CLOSE instead of the
+bar-start latency. `python tools/qqq_overview_probe.py <out_dir> --parity` runs only
+this pass.
+
 Not wired into wt.py ship (ad hoc verification tool), but written the same way as
 tools/paper_render_probe.py: stdlib + a subprocess call to local headless Chrome,
 serving the repo over loopback so index.html's own fetches never fire.
@@ -177,6 +195,8 @@ var FIX=__FIX__;
 var THEME=__THEME__;
 var DEEP=__DEEP__;
 var KEEPSHEET=__KEEPSHEET__;
+var OPENPARITY=__OPENPARITY__;
+var TRADEIDX=__TRADEIDX__;
 var OPENCHECKS=__OPENCHECKS__;
 var IW=__IW__;
 // LIVEPNL/LISTENERCHECK (2026-09-25, live-P&L pass): see the module docstring addendum
@@ -364,6 +384,24 @@ var LISTENERCHECK=__LISTENERCHECK__;
         fire('[data-qbtraderow="0"]');
       }
 
+      // FILL PARITY PASS (2026-09-28): the list's pills and today's orders header are
+      // read on first paint, then either the Integrity > Parity sheet or one trade's
+      // sheet is opened and LEFT open for the screenshot.
+      out.listHtml=html();
+      if(OPENPARITY){
+        // the System disclosure's open state is remembered per browser profile, and the
+        // screenshot run reuses the dump-dom run's profile -- open it only if it is shut
+        if(!d.querySelector('[data-qbsheet="parity"]'))fire('[data-qbdisclosure="system"]');
+        out.paritySheetOpened=fire('[data-qbsheet="parity"]')&&!!d.querySelector('.qb-sheet-backdrop');
+        var psh=d.querySelector('.qb-sheet');
+        out.sheetText=psh?psh.textContent.replace(/\\s+/g,' ').trim():null;
+      }
+      if(TRADEIDX>=0){
+        out.tradeSheetOpened=fire('[data-qbtraderow="'+TRADEIDX+'"]')&&!!d.querySelector('.qb-sheet .qe-drawer');
+        var tsh=d.querySelector('.qb-sheet');
+        out.sheetText=tsh?tsh.textContent.replace(/\\s+/g,' ').trim():null;
+      }
+
       if(LIVEPNL){
         // ── NOTES UNDER AN EXPANDER (2026-09-25, owner: "make it simple") -- ENGU-Q's
         // ETH-fit caveat and NOISE's since/was/KEEL line must be hidden by default,
@@ -465,8 +503,65 @@ var LISTENERCHECK=__LISTENERCHECK__;
 """
 
 
+def build_parity0928_fixture(base):
+    """The 'parity0928' fixture: `base` (the 'flat' fixture -- no open positions) with
+    every trade/parity/P&L block rebuilt from the REAL 2026-09-28 rows in
+    tests/fixtures/parity0928/ by api/qqq_exec.py's own functions, exactly as _build_doc
+    chains them (reprice merge -> fill parity + P&L of record -> summaries -> curve)."""
+    import copy
+    import csv as _csv
+    sys.path.insert(0, ROOT)
+    from api import qqq_exec as qe
+    fx_dir = os.path.join(ROOT, 'tests', 'fixtures', 'parity0928')
+    qe.TRADES_CSV = os.path.join(fx_dir, 'trades.csv')
+    qe.BROKER_ORDERS_CSV = os.path.join(fx_dir, 'broker_orders.csv')
+    quiet = lambda *a, **k: None  # noqa: E731
+    rows = [dict(r) for r in reversed(qe._all_trades_from_csv())]
+    for r in rows:
+        r.update(qe._trade_parity(r, log=quiet))
+    reprice = qe._merge_reprice(rows, log=quiet)
+    qe._ENGINE_PX_CACHE['key'] = None
+    # the fixture folder holds the box's own 1-minute bars for 09-24 and 09-28: the
+    # decide-at-close NOISE rows are priced at the next bar's open from them
+    eng = qe._engine_prices_by_trade(path=os.path.join(fx_dir, 'signals.csv'), bars_dir=fx_dir,
+                                     log=quiet)
+    by_base = qe._broker_orders_by_base(qe._all_broker_orders_from_csv())
+    qe._apply_broker_parity(rows, by_base, engine_px=eng, log=quiet)
+    broker_parity = qe._broker_parity_summary(rows)
+    qe._apply_book_only(rows, by_base, log=quiet)
+    day = '2026-09-28'
+    with io.open(os.path.join(fx_dir, 'orders.csv'), encoding='utf-8', newline='') as f:
+        orders = [o for o in _csv.DictReader(f) if str(o.get('ts_et') or '')[:10] == day]
+    fx = copy.deepcopy(base)
+    fx.update({
+        'updated_at': '2026-09-28 16:30:00', 'live_from': '2026-09-03',
+        'signal_source': 'engine', 'mode': 'SHADOW',
+        'trades_all': rows,
+        'parity': qe._parity_summary(rows),
+        'broker_parity': broker_parity,
+        'book_only_summary': qe._book_only_summary(rows),
+        'cum_pnl': qe._cum_pnl_by_leg(rows),
+        'reprice': reprice,
+        'latency': qe._build_latency(orders, log=quiet),
+        'today': {'orders': orders,
+                  'trades': [r for r in rows if str(r.get('exit_ts') or '')[:10] == day],
+                  'realized_pnl': round(sum(float(r['pnl']) for r in rows
+                                            if str(r.get('exit_ts') or '')[:10] == day), 2),
+                  'realized_pnl_record': round(sum(qe._curve_pnl(r) for r in rows
+                                                   if str(r.get('exit_ts') or '')[:10] == day), 2),
+                  'unrealized_pnl': 0.0, 'breaker_fill_adj': 0.0},
+        'positions': {},
+    })
+    fx['readiness'] = qe._build_readiness(fx.get('feed_days') or [], broker_parity, reprice,
+                                          {'events': []}, log=quiet)
+    # published exactly as _build_doc sends it: fp sides packed, in-band notes dropped
+    qe._compact_published_trades(fx['trades_all'])
+    return fx
+
+
 def run_case(chrome, root, fixture, name, shot_path, width=1600, height=1400, theme='dark',
-             deep=False, keep_sheet=False, open_checks=False, livepnl=False, listener_check=False):
+             deep=False, keep_sheet=False, open_checks=False, livepnl=False, listener_check=False,
+             open_parity=False, trade_idx=-1):
     pdir = os.path.join(root, '_qqqovprobe')
     if not os.path.isdir(pdir):
         os.makedirs(pdir)
@@ -478,6 +573,8 @@ def run_case(chrome, root, fixture, name, shot_path, width=1600, height=1400, th
             .replace('__OPENCHECKS__', 'true' if open_checks else 'false')
             .replace('__LIVEPNL__', 'true' if livepnl else 'false')
             .replace('__LISTENERCHECK__', 'true' if listener_check else 'false')
+            .replace('__OPENPARITY__', 'true' if open_parity else 'false')
+            .replace('__TRADEIDX__', str(int(trade_idx)))
             .replace('__IW__', str(width)).replace('__IH__', str(height)))
     io.open(ppath, 'w', encoding='utf-8').write(html)
 
@@ -546,7 +643,118 @@ def main():
         p = os.path.join(ROOT, 'tools', 'fixtures', fname)
         fx[nm] = json.load(io.open(p, encoding='utf-8'))
 
-    out_dir = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else ROOT
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    parity_only = '--parity' in sys.argv[1:]
+    out_dir = os.path.abspath(args[0]) if args else ROOT
+    if not os.path.isdir(out_dir):
+        os.makedirs(out_dir)
+
+    # ── FILL PARITY PASS (2026-09-28) ──
+    fx['parity0928'] = build_parity0928_fixture(fx['flat'])
+    p_trades = fx['parity0928']['trades_all']
+    def _idx(tid):
+        return next(i for i, t in enumerate(p_trades) if t.get('trade_id') == tid)
+    flagged_idx = _idx('NOISE_382-20260925T161000Z-L')
+    t1205_idx = _idx('NOISE_382-20260928T160500Z-S')
+    suspect_idx = _idx('ENGUQ_335-20260924T161700Z-L')
+    parity_plan = []
+    for (w, h) in ((1366, 768), (390, 844)):
+        for theme in ('mono', 'dark'):
+            parity_plan.append(('parity_sheet_%dx%d_%s' % (w, h, theme), w, h, theme, True, -1))
+            parity_plan.append(('parity_trade_%dx%d_%s' % (w, h, theme), w, h, theme, False, flagged_idx))
+    parity_plan.append(('parity_trade1205_1366x768_mono', 1366, 768, 'mono', False, t1205_idx))
+    parity_plan.append(('parity_suspect_1366x768_mono', 1366, 768, 'mono', False, suspect_idx))
+    # the per-case expectations of a trade sheet (text as the sheet shows it)
+    trade_wants = {
+        flagged_idx: ('FILLS vs BACKTEST', 'FLAGGED', 'backtest 744.50', 'Webull 744.60',
+                      'book 744.92', 'design gap 42.0\u00a2 a share better',
+                      'slippage 32.0\u00a2 a share worse', 'P&L \u2014 Webull vs backtest',
+                      'Webull -$11.25', 'backtest -$14.85', 'book -$8.70'),
+        t1205_idx: ('FILLS vs BACKTEST', 'backtest 735.18', 'Webull 735.15',
+                    '3.0\u00a2 a share worse', 'Webull -$5.80', 'backtest -$4.60', 'book -$3.30'),
+        suspect_idx: ('FILLS vs BACKTEST', 'FLAGGED', '(looks wrong)', 'unexplained',
+                      'of record $19.38', 'of record vs backtest'),
+    }
+    parity_results = {}
+    for case_name, w, h, theme, open_parity, tidx in parity_plan:
+        shot = os.path.join(out_dir, '%s.png' % case_name)
+        parity_results[case_name] = run_case(chrome, ROOT, fx['parity0928'], case_name, shot,
+                                              width=w, height=h, theme=theme,
+                                              open_parity=open_parity, trade_idx=tidx)
+        print('%s shot -> %s' % (case_name, shot))
+    parity_fails = []
+    # SLOW (MONO: said in words, not only in red): one order more than 60 s after its
+    # bar's close, on a copy of the fixture -- a render check only
+    import copy as _copy
+    fx_slow = _copy.deepcopy(fx['parity0928'])
+    for o in fx_slow['today']['orders']:
+        if o.get('after_close_s') not in (None, ''):
+            o['after_close_s'] = '75.2'
+            break
+    r_slow = run_case(chrome, ROOT, fx_slow, 'parity_slow_check',
+                      os.path.join(out_dir, 'parity_slow_check_1366x768_mono.png'),
+                      width=1366, height=768, theme='mono')
+    if r_slow.get('err') or 'SLOW' not in (r_slow.get('listHtml') or ''):
+        parity_fails.append('parity_slow_check: a 75 s order does not say SLOW (%s)'
+                            % (r_slow.get('err') or 'no SLOW on the page'))
+    for case_name, w, h, theme, open_parity, tidx in parity_plan:
+        r = parity_results[case_name]
+        if r.get('err'):
+            parity_fails.append('%s: %s' % (case_name, r['err']))
+            continue
+        if r.get('call') != 'OK':
+            parity_fails.append('%s: renderApp threw -- %s' % (case_name, r.get('call')))
+            continue
+        txt = r.get('sheetText') or ''
+        lst = r.get('listHtml') or ''
+        for bad in ('miss their broker-side price', 'engine booked', '36 of 36', 'PARITY NOTE'):
+            if bad in txt or bad in lst:
+                parity_fails.append('%s: old parity wording still on screen: %r' % (case_name, bad))
+        if open_parity:
+            if not r.get('paritySheetOpened'):
+                parity_fails.append('%s: Integrity > Parity sheet did not open' % case_name)
+            for want in ('WEBULL FILLS vs BACKTEST', 'Webull fills averaged 2.2',
+                         'better than the backtest on slippage', 'design gaps',
+                         '1 fill that does not fit the tape (marked CHECK FILL)',
+                         'flags: a fill more than 15', 'NOISE: 7 trades, slippage 0.2',
+                         'ORB:', 'ENGU-Q: 2 trades, slippage 2.5',
+                         '1 fill that looks wrong left out', 'Webull -$54.30 vs backtest -$70.15'):
+                if want not in txt:
+                    parity_fails.append('%s: parity sheet is missing %r (got %r)' % (case_name, want, txt[:400]))
+        else:
+            if not r.get('tradeSheetOpened'):
+                parity_fails.append('%s: the trade sheet did not open' % case_name)
+            if tidx == t1205_idx and 'FLAGGED' in txt:
+                parity_fails.append('%s: the 12:05 trade is 3 cents worse -- must not be flagged' % case_name)
+            for want in trade_wants[tidx]:
+                if want not in txt:
+                    parity_fails.append('%s: trade sheet is missing %r (got %r)' % (case_name, want, txt[:600]))
+        for pill in ('FILL GAP', 'CHECK FILL', 'BOOK PRICE', 'NOT COMPARED', 'AFTER CLOSE'):
+            if pill not in lst:
+                parity_fails.append('%s: %r not found on the page' % (case_name, pill))
+        if 'from bar start' in lst or '306.65' in lst or '306.7s' in lst:
+            parity_fails.append('%s: an order still shows the bar-start latency' % case_name)
+        if r.get('undefCount'):
+            parity_fails.append('%s: literal "undefined" appears %d times' % (case_name, r['undefCount']))
+        if r.get('nanCount'):
+            parity_fails.append('%s: literal "NaN" appears %d times' % (case_name, r['nanCount']))
+        if r.get('consoleErrors'):
+            parity_fails.append('%s: console errors -- %s' % (case_name, r['consoleErrors']))
+        if not r.get('overflowOk'):
+            parity_fails.append('%s: horizontal overflow at %dpx (scrollWidth=%s)' % (case_name, w, r.get('bodyScrollW')))
+        if theme == 'mono' and r.get('themeApplied') != 'mono':
+            parity_fails.append('%s: mono theme was not applied' % case_name)
+    for nm, r in parity_results.items():
+        print(nm.upper(), ':', json.dumps({k: v for k, v in r.items()
+                                           if k not in ('html', 'moreStatsHtml', 'listHtml')}, indent=1)[:1500])
+    if parity_only:
+        if parity_fails:
+            print('QQQOVPROBE PARITY: FAIL')
+            for f in parity_fails:
+                print('  - ' + f)
+            return 1
+        print('QQQOVPROBE PARITY: PASS')
+        return 0
 
     results = {}
 
@@ -986,8 +1194,9 @@ def main():
             fails.append('listener_wiring_check: expected exactly one onSnapshot attach across two calls, got %s' % r_lc.get('listenerCalls'))
 
     for nm, r in results.items():
-        print(nm.upper(), ':', json.dumps({k: v for k, v in r.items() if k not in ('html', 'moreStatsHtml')}, indent=1))
+        print(nm.upper(), ':', json.dumps({k: v for k, v in r.items() if k not in ('html', 'moreStatsHtml', 'listHtml')}, indent=1))
 
+    fails.extend(parity_fails)
     if fails:
         print('QQQOVPROBE: FAIL')
         for f in fails:
