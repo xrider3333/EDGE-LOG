@@ -47,3 +47,25 @@ change; owner decides via MANAGER) and is offered to Frontier as a book-leg stre
 written to the ledger. Test B's pick = the arm with the best WF ROC among arms that also beat R on WF Sortino;
 if that is FX or EV (a fixed rule), it is proposed as a third arm of the TTM shadow.
 Driver: tools/fixed_sizing_r1.py (pushed with the results).
+
+## RESULT (2026-09-28, run once, as registered) - nothing passes; no validate queued
+Test B stretches = the export's stage column (WF 2016-07-27 .. 2025-07-09, LB .. 2026-06-30).
+
+| arm | WF ROC @ $30k DD | WF Sortino | LB ROC | LB Sortino | LB ex-top $ | perm pct | verdict |
+|---|---|---|---|---|---|---|---|
+| ORB R raw | 35.3 | 2.22 | 113.8 | 3.09 | 67,932 | - | twin (1,290 WF / 168 LB trades) |
+| ORB RP causal risk parity | 34.9 | 2.18 | 110.5 | 3.52 | 65,770 | 71.0 | FAIL (WF ROC, WF Sortino, LB ROC, perm) |
+| ORB TT time tilt | 25.6 | 2.00 | 102.1 | 2.88 | 117,818 | 15.2 | FAIL (all) |
+| ORB RPTT both | 29.3 | 2.07 | 100.4 | 3.43 | 115,540 | 52.2 | FAIL (WF ROC, WF Sortino, LB ROC, perm) |
+| TTM R raw | 29.3 | 2.41 | 239.6 | 9.08 | 16,050 | - | twin (144 WF / 12 LB trades) |
+| TTM FX NOISE fixed package | 33.3 | 2.35 | 171.6 | 6.57 | 22,178 | 82.6 | FAIL |
+| TTM EV FOMC half only | 29.7 | 2.45 | 239.6 | 9.08 | 16,050 | 78.2 | FAIL (fires on 8 trades) |
+| TTM K KEEL v12 s42 | 33.1 | 2.74 | 267.7 | 11.76 | 41,063 | 75.8 | FAIL (LB trades 12 < 50, perm) |
+
+- **ORB:** the July sizing overlay does not survive on crown #314. The morning tilt is now actively harmful
+  (WF ROC 35.3 -> 25.6); risk parity is a wash. Its July win belonged to the voided ORB 3.x. Dead - ORB stays raw.
+- **TTM:** no fixed part carries KEEL's walk-forward gain. Compression is on for 233 of 246 trades (TTM enters
+  in squeezes), so FX is near-uniform leverage x Friday and loses Sortino; the FOMC rule touches 8 trades.
+  KEEL's own WF gain sits at the 76th percentile of its sizes shuffled across the same trades, i.e. the WF
+  edge is not distinguishable from its size SHAPE. The TTM shadow (docs/PREREG_ttm458_keel_shadow_2026-09-28.md)
+  therefore stays two arms (raw vs KEEL); no fixed third arm is proposed, and expectations should be low.
