@@ -170,8 +170,12 @@ def test_byte_identical_on_real_history_session_in_progress_is_always_a_noop():
     df = pd.read_csv(SHARED_NQ_MASTER)
     dt = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
     # The shared master is refreshed through the day, so its LAST session can be today's and
-    # still in progress (2026-09-28: it stopped at 13:00 ET, which reads as a short session and
-    # takes the exemption). Only finished sessions belong in this static check - drop the last.
+    # still in progress, which reads as a short session and takes the exemption (2026-09-28:
+    # it stopped at 13:00 ET, 2306 trades vs 2307). This is STRUCTURAL, not a one-off outage:
+    # the primary runner tops the masters up every 240 minutes (C:/EdgeLog/_restart_runner.bat,
+    # --refresh-min 240), and even on a perfect cadence the CURRENT session is incomplete while
+    # the market is open. Do not drop this line - the check is about finished sessions, so the
+    # last one goes first, or every mid-session push turns the pre-push engine gate red.
     df = df[(dt.dt.date < dt.dt.date.max()).values].reset_index(drop=True)
     dt = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
     df["day_id"] = pd.factorize(dt.dt.date)[0]
