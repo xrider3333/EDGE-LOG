@@ -3,7 +3,13 @@
 **Single source of truth for where the backtesting engine stands.** Update this
 whenever a method or strategy changes status, a run matters, or a decision is made.
 
-> **2026-09-09 - THE ADOPTED BOOK IS RUN #366 (owner's call).** Four legs, one window, nothing tuned:
+> **2026-09-28 - THE ADOPTED BOOK IS RUN #449, read on the fixed legs as run #463 (owner's call via MANAGER;
+> replaces #366).** Same four families as #366 below, with two leg changes: ENGU-Q at the crown #335 and
+> NOISE at run #422 (`NOISE_1_8_CT304H.py`, the #304 trades with 1.75 contracts on hourly-squeeze trades).
+> ROC %/yr at a $30k worst drawdown valued daily: 60.3 before / 164.8 in the lockbox
+> (#366's re-run #460: 57.1 / 151.7). Record: BOOK.md section 10n.
+>
+> **2026-09-09 - THE ADOPTED BOOK WAS RUN #366 (owner's call; replaced by #449 / #463 on 2026-09-28).** Four legs, one window, nothing tuned:
 > the opening-range crown (`ORB_3_6_C2.py`, NQ 5m RTH, 0.533/RT, x20, weight 1) - the CURRENT ENGU-Q
 > crown (`ENGUQ_1M_ETH_R2_1_0.py`, NQ 1m ETH, **0.783**/RT, the 24-hour convention, x20, weight 1) -
 > the squeeze structural-stop leg (`TTMSQZ_3_0_ES30SS20.py`, ES 30m RTH, 0.363/RT, x50, **weight 3**) -

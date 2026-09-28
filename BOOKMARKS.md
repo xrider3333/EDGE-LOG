@@ -423,7 +423,22 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - Also tested: ORB x2 (28.08) and ENGU-Q x2 (32.18) worse; ORB x0.5 better on both (42.85 / 10.40) for the same mechanical reason — recorded, not acted on.
 - **Standing answer: the validated four-leg book run #366** — selection n/DD 38.18 vs adopted 30.25, whole 46.11 vs 36.93, held-back level 10.33, 8/8 slices. Adoption is the owner's call.
 
-## ADOPTED 2026-09-09 - the book is run #366 (supersedes #361)
+## ADOPTED 2026-09-28 - the book is run #449, read on the fixed legs as run #463 (supersedes #366)
+
+Owner via MANAGER. #449 = #366's four legs with two changes. The ENGU-Q leg is the crown #335, and it is
+read on the roll-corrected ETH master. The NOISE leg is run #422: #304's trades, with 1.75 contracts on
+hourly-squeeze trades. ORB #234 and three ES of TTM #369 (re-validated fixed as #459) are unchanged. The TTM #458
+(3 / 4 / 7) variant held the drawdown but lost the lockbox at matched risk, so it was not taken.
+
+| book | ROC %/yr pre / lockbox | at a $30k drawdown (valued daily) | Sortino pre / lockbox | lockbox without its biggest trade |
+|---|---|---|---|---|
+| **#463 ADOPTED** | 90.2 / 273.8 | 60.3 / 164.8 | 3.15 / 4.15 | $182,457 |
+| #460 = #366 re-run (previous) | 79.4 / 252.1 | 57.1 / 151.7 | 2.88 / 3.85 | $160,764 |
+
+Paper: new leg `NOISE_422`. The nightly book figure = ORB + ENGUQ_335 + 3 x TTM_299_SSOF2 + NOISE_422.
+Record: BOOK.md section 10n. The staged #397 flip was dropped.
+
+## ADOPTED 2026-09-09 - the book was run #366 (supersedes #361; superseded by #449 / #463 on 2026-09-28)
 
 **Four legs, nothing tuned** - re-queue with `python tools/queue_book_four_leg.py`:
 

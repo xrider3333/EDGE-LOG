@@ -9,6 +9,11 @@
 > Everything in this file was computed by `tools/t8_noise_book.py`, which refuses to print a
 > single result until it has reproduced (a) every leg's published standalone number and
 > (b) run #238's saved book document to the dollar through `augur_engine.run_book`.
+>
+> **ADOPTED BOOK: #449 on the fixed legs = run #463 (FRONTIER), owner via MANAGER on 2026-09-28 - replaces #366.**
+> ORB #234 + ENGU-Q #335 + TTM #369 (fixed = #459) at three ES + NOISE #422. On the owner's yardstick
+> (ROC %/yr at a $30k worst drawdown valued daily): 60.3 before / 164.8 in the lockbox,
+> against #366's re-run 57.1 / 151.7. Section 10n. The staged #397 flip was dropped.
 
 ---
 
@@ -690,7 +695,7 @@ marks the combined book figures *to be recomputed* (4.3).
 | ROC %/yr, lockbox | 306.3 | 299.2 | -7.1 points |
 | Consistency (8 stretches) | 8/8, PASS | 8/8, PASS | |
 
-#### BOOK #366 (adopted, starred)
+#### BOOK #366 (adopted until 2026-09-28, starred)
 
 | Figure | Stored | Roll-corrected | Change |
 |---|---|---|---|
@@ -1179,6 +1184,37 @@ leg here is the roll-corrected paper leg, valued daily.
   losses.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
+
+### 10n. ADOPTED: BOOK #449 on the fixed legs (run #463) replaces #366; the #397 flip is dropped (2026-09-28)
+
+**The owner's calls (via MANAGER, 2026-09-28).** (1) Adopt BOOK #449 on the fixed TTM files, which is run #463,
+over #366, and drop the staged #397 flip. (2) First try #463 with the roll-safe TTM #458 (sized 3 / 4 / 7 ES)
+in place of #459. Adopt that version if it holds the book's drawdown and adds return; otherwise adopt #463 as is.
+
+**The TTM #458 check, rule written first** (`C:\EdgeLog\_anatomy_cache\adopt449\PREREG_TTM458.txt`).
+"Holds the drawdown" means both valued-daily drawdowns are within +5% of #463's. "Adds return" is read on the
+owner's new yardstick: ROC %/yr at a $30k worst drawdown valued daily, better in BOTH stretches.
+
+| book | ROC %/yr pre / lockbox, as run | the same at a $30k drawdown | worst drawdown, valued daily, pre / lockbox | Sortino (valued daily) pre / lockbox | trades pre / lockbox | lockbox net without its biggest trade |
+|---|---|---|---|---|---|---|
+| **#463 = #449, ADOPTED** | 90.2 / 273.8 | **60.3 / 164.8** | $44,849 / $49,855 | 3.15 / 4.15 | 9,190 / 619 | $182,457 |
+| #463 with TTM #458 (run #468) | 90.0 / 271.9 | **72.1 / 163.6** | $37,444 / $49,855 | 3.18 / 4.12 | 9,084 / 616 | $180,531 |
+| #460 = #366 re-run (previous) | 79.4 / 252.1 | **57.1 / 151.7** | $41,736 / $49,855 | 2.88 / 3.85 | 9,192 / 620 | $160,764 |
+
+- **The #458 version holds the drawdown and misses on return.** Its pre-lockbox drawdown falls from
+  $44,849 to $37,444, so its pre-lockbox ROC at $30k rises (60.3 -> 72.1).
+  But it earns less in both stretches as run, and the lockbox reads 163.6 against 164.8 at $30k.
+  Both lockbox drawdowns are the same June ENGU-Q stretch. **#463 is adopted as it is.** Run #468
+  reproduces the local read to the dollar.
+- **Against #366 (re-run #460), #463 is better on every read of the new yardstick.** It wins ROC at $30k and
+  Sortino in both stretches. It clears the minimums: well over 100 walk-forward and 50 lockbox trades, and the
+  lockbox stays profitable without its biggest trade. That trade is ENGU-Q's 2026-05-12 exit,
+  $91,152 of $273,609.
+- **What changes on paper.** The nightly book figure = ORB #234 + ENGU-Q #335 + 3 ES of TTM #369 (#459) +
+  NOISE #422, at one contract each for the NQ legs. It had still been reading #371 (ORB + ENGU-Q #309 +
+  TTM). NOISE #422 is a new paper leg; NOISE #304 keeps running beside it as its control.
+- **Dropped:** the staged #397 flip. Branch `stage/adopt-397` is not applied, and
+  `docs/BOOK_397_ADOPTION_STAGED.md` is marked DROPPED.
 
 ### 10m. The candidate books re-run on the FIXED TTM files (2026-09-28)
 

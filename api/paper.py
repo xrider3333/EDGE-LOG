@@ -114,6 +114,7 @@ LEG_LIVE_FROM = {
     "NOISE_H_RF": "2026-08-16",  # owner's pick, added the same day
     "NOISE_SBS": "2026-08-21",   # leg added the day the owner crowned run #241; retired 08-23
     "NOISE_304": "2026-09-06",      # the crown moved to run #304; leg added the same day
+    "NOISE_422": "2026-09-28",      # leg added: BOOK #449 adopted over #366 (re-run #463); its NOISE leg is run #422
     "NOISE_SBS_V90": "2026-08-23",  # leg added the day the owner crowned run #243
     "NOISE_SBS_V90_H": "2026-08-24",  # its run-#243 gate overlay (et@0.50), forward test only
     "NOISE_SBS_V90_T": "2026-08-24",  # its run-#243 size TILT (xgb/tier), forward test only
@@ -475,6 +476,15 @@ NOISE_243_SBS_V90 = dict(NOISE_241_SBS, vol_skip_pct=90.0)
 # overnight (longest hold 0 days), so neither carries the runaway-hold risk that the ENGU-Q
 # 24h configs do.
 NOISE_304_NBHD = dict(NOISE_243_SBS_V90, vol_skip_pct=95.0, lookback=40)
+
+# THE BOOK'S NOISE LEG from 2026-09-28 (owner adopted BOOK #449 over #366 via MANAGER; #449's re-run on the fixed
+# TTM files is run #463). Run #422 = NOISE_1_8_CT304H.py: the NOISE crown #304's core, frozen and written
+# out literally inside the file, with the trades decided while the HOURLY squeeze is compressed (length 20,
+# Bollinger width under 1.15 x Keltner) sized 1.75 contracts and every other trade one. The file folds the
+# size into each trade's points and declares it (trade_sizes / size_cost_pts), so this leg sets
+# size_contract: the row then shows the one-contract move and the real size, and the money is unchanged.
+# NOISE_304 stays running as its matched control - only the size tilt differs.
+NOISE_422 = dict(tilt_mult=1.75, gate_len=20, gate_ratio=1.15)
 
 # ── ML gate configs (api/paper_gate.py) ──────────────────────────────────────────
 # The gate is an OVERLAY: the strategy picks its trades exactly as it always has, and a
@@ -1051,6 +1061,19 @@ LEG_SOURCE = {
                 "takes 370 more trades at slightly lower quality for more total edge. #243 "
                 "stays on the board as its matched control.",
     },
+    "NOISE_422": {
+        "run": 422, "run_label": "#422 (NOISE #304 x hourly-compression size tilt 1.75)",
+        "strategy_file": "NOISE_1_8_CT304H.py", "picked": "2026-09-28",
+        "note": "The NOISE leg of the ADOPTED BOOK #449 (FRONTIER), adopted over #366 on 2026-09-28 (owner via "
+                "MANAGER). The #304 crown's trades, every one kept; those decided while the hourly squeeze "
+                "is compressed trade 1.75 contracts. In the book (run #463, fixed TTM files) it replaces "
+                "#304: pre-lockbox / lockbox ROC at a $30k worst drawdown valued daily "
+                "60.3 / 164.8 against #366's re-run (#460) "
+                "57.1 / 151.7.",
+        "caveat": "A size tilt, not a new entry rule: on the new frontier yardstick it must keep beating "
+                  "its raw twin (NOISE_304) forward on ROC at matched drawdown and on Sortino. NinjaTrader's "
+                  "NOISE strategy has no size tilt, so the tilt is paper-only until it is added.",
+    },
     "NOISE_SBS_V90": {
         "run": 243, "run_label": "#243 (Short Veto + Wild10)", "strategy_file": "NOISE_1_0.py",
         "picked": "2026-08-23",
@@ -1618,6 +1641,12 @@ PAPER_LEGS = [
     {"key": "NOISE_304", "strategy": "NOISE_1_1_NBHD.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": NOISE_304_NBHD, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["NOISE_304"]},
+    # ADDED 2026-09-28 (owner adopted BOOK #449 over #366). The book's NOISE leg: run #422, the #304 core with
+    # the hourly-compression size tilt at 1.75x. NOISE_304 above is its matched control. No ML gate.
+    {"key": "NOISE_422", "strategy": "NOISE_1_8_CT304H.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": NOISE_422, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "history_from": _GATE_HISTORY_FROM, "size_contract": True, "book_weight": 1.0,
+     "source": LEG_SOURCE["NOISE_422"]},
 
     {"key": "NOISE_SBS_V90", "strategy": "NOISE_1_0.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": NOISE_243_SBS_V90, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
@@ -2285,6 +2314,15 @@ def run_shadow(leg, today):
                 ung = _extract_trades(leg, arrays, [(t, 1.0) for t in raw],
                                       key=leg["emit_ungated_as"])
                 ungated_out = [t for t in ung if t["entry_dt"].date() >= paper_start]
+        elif leg.get("size_contract") and (res or {}).get("trade_sizes") is not None:
+            # A file that sizes its own trades (NOISE_1_8_CT304H.py) folds the size into the points
+            # (s*raw - (s-1)*cost, then the engine takes the cost once more = s*(raw-cost)) and
+            # declares the sizes. Undo the fold so pnl_pts is the one-contract move and size is the
+            # real size - pnl_usd = pnl_pts * mult * size is unchanged to the cent.
+            sizes = [float(x) for x in res["trade_sizes"]]
+            if len(sizes) != len(raw) or not all(x > 0 for x in sizes):
+                raise ValueError(f"trade_sizes has {len(sizes)} entries for {len(raw)} trades")
+            sized = [((t[0], t[1], float(t[2]) / x) + tuple(t[3:]), x) for t, x in zip(raw, sizes)]
         else:
             sized = [(t, 1.0) for t in raw]
 
@@ -2760,10 +2798,17 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
     # lockbox $246,409 against $229,124, up 7.5 percent; LOCKBOX DRAWDOWN IDENTICAL at $22,226; 8 of 8
     # slices. Whole-run drawdown x1.0025, reported as a check rather than a gate per BOOK.md section 10.
     # TTM_299_SS stays beside it as the exact matched control, as TTM_299_T does for that.
-    _BOOK = {"ORB": 1.0, "ENGUQ_309": 1.0, "TTM_299_SSOF2": 3.0}
+    # ADOPTED BOOK #449 (FRONTIER) from 2026-09-28, owner via MANAGER; its re-run on the fixed TTM files is
+    # run #463. Until today this figure still read BOOK #371 (ORB 234 + ENGU-Q 309 + 3 ES of TTM 369) - it
+    # never followed the #366 adoption of 2026-09-09. It now carries #463's four legs at #463's weights:
+    # ORB #234, the ENGU-Q crown #335, three ES of the combined TTM leg (#369, re-validated fixed as #459)
+    # and NOISE #422 (the #304 core with the hourly size tilt). The staged #397 flip was dropped.
+    # BOOK.md section 10n has the evidence: pre-lockbox / lockbox ROC at a $30k worst drawdown valued daily
+    # 60.3 / 164.8 %/yr against #366's re-run (#460) 57.1 / 151.7.
+    _BOOK = {"ORB": 1.0, "ENGUQ_335": 1.0, "TTM_299_SSOF2": 3.0, "NOISE_422": 1.0}
     book_pnl = sum(leg_reports[k]["pnl_usd"] * w for k, w in _BOOK.items() if k in leg_reports)
-    book_block = {"pnl_usd": book_pnl, "weights": _BOOK, "source_run": 371,
-                  "name": "ORB 234 + ENGU-Q 309 + 3 ES of the combined TTM leg (run 369)"}
+    book_block = {"pnl_usd": book_pnl, "weights": _BOOK, "source_run": 463,
+                  "name": "BOOK #449 (fixed-TTM re-run #463): ORB 234 + ENGU-Q 335 + 3 ES of TTM 369/459 + NOISE 422"}
     # STAGED, NOT SWITCHED (2026-09-28, owner via MANAGER: stage, flip only on confirm). The same two NQ
     # legs plus the ROLL-GUARDED TTM leg at run 428s cell, sized 3 / 4 / 7 whole ES contracts by the
     # trade own size (1.0 / 1.5 / 2.25) instead of a flat 3 x the ladder. It is reported every night as

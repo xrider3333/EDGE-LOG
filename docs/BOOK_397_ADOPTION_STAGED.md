@@ -1,8 +1,8 @@
-# Adopting BOOK #397 (FRONTIER) over #366 - STAGED, not adopted (2026-09-27)
+# Adopting BOOK #397 (FRONTIER) over #366 - DROPPED 2026-09-28 (staged 2026-09-27)
 
-**Status: STAGED.** The owner said "stage as much as you can" (via MANAGER, 2026-09-27). Nothing in this
-file is in effect. The adopted book is still **#366** until the owner confirms through MANAGER. The flip
-is a ready commit on branch `stage/adopt-397` (section 6).
+**Status: DROPPED on 2026-09-28** (owner via MANAGER). The owner adopted BOOK #449 on the fixed legs
+(run #463) instead - BOOK.md section 10n. Nothing in this file was applied, and branch
+`stage/adopt-397` is dead; it is kept only as a record.
 
 ## 1. What BOOK #397 is, in five lines
 
