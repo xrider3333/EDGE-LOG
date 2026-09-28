@@ -47,7 +47,8 @@ WHAT IT ASSERTS, per case
     so it qualifies for the same warm-lockbox swap RUNBOARD / EXPLORE / LEADERBOARD read
     (2026-09-28, owner via MANAGER)
 
-Cases cover the three REPORT COLUMNS layouts, since each is a different template path.
+Cases cover the three REPORT COLUMNS layouts, since each is a different template path, plus the
+classic layout on the 1A funnel chart (funnel-1a), whose lockbox hover is a separate builder.
 
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks).
 
@@ -96,6 +97,10 @@ CASES = [
     ('cols-3', {'prefs': {'repCols': '3'}, 'win': {}}),
     ('cols-2', {'prefs': {'repCols': '2'}, 'win': {}}),
     ('cols-1', {'prefs': {'repCols': '1'}, 'win': {}}),
+    # the owner's layout (2026-09-28): classic report, equity tab on the 1A funnel - a different chart
+    # builder with its own lockbox hover, which v73.940 missed; the three cases above never draw it
+    ('funnel-1a', {'prefs': {'repCols': '3', 'repLayout': 'classic', 'eqTab': 'funnel', 'a2gate': 1,
+                             'a2kAll': 1, 'a2cfgAll': 1, 'a2doors': 0}, 'win': {}}),
 ]
 
 # Builds this gate exists to catch. Each is a commit on main whose index.html blanked every
@@ -197,6 +202,10 @@ var CASES=__CASES__, FIX=__FIX__;
         var lbTags=det?[].filter.call(det.querySelectorAll('span[title]'),function(sp){return (sp.textContent||'').indexOf('LB warm')>=0;}):[];
         r.lbWarmTagCount=lbTags.length;
         r.lbWarmTagTip=lbTags.length?(lbTags[0].getAttribute('title')||''):'';
+        // every lockbox hover on the report's charts (1A funnel + champion equity) reads the same lockbox
+        var lbRects=det?[].filter.call(det.querySelectorAll('rect[data-tip]'),function(e){return (e.getAttribute('data-tip')||'').indexOf('out-of-sample, never optimized')>=0;}):[];
+        r.lbChartTips=lbRects.length;
+        r.lbChartWarm=lbRects.filter(function(e){return (e.getAttribute('data-tip')||'').indexOf('continuous replay')>=0;}).length;
         r.appLen=(d.getElementById('app')||{innerHTML:''}).innerHTML.length;
         r.errors=sink.errors.slice(0,20);
         r.uncaught=sink.uncaught.slice(0,20);
@@ -473,6 +482,11 @@ def _attempt(chrome, root, alt_index, fixture):
         # warm swap RUNBOARD / EXPLORE / LEADERBOARD already make -- the 1E KPI MATRIX's
         # LOCKBOX column must show that reading, tagged, with this run's own cold figures on
         # the tag's hover.
+        if (r.get('lbChartTips') or 0) and (r.get('lbChartWarm') or 0) < r.get('lbChartTips'):
+            fails.append('%s: %s of %s lockbox chart hovers still print the cold lockbox strip -- they '
+                         'must read the continuous replay the LOCKBOX column shows (live miss in '
+                         'v73.940: the 1A chart hover)' % (nm, r.get('lbChartTips') - (r.get('lbChartWarm') or 0),
+                                                          r.get('lbChartTips')))
         if not r.get('lbWarmTagCount'):
             fails.append('%s: the 1E KPI MATRIX LOCKBOX column shows no LB warm tag -- run %s '
                          'scored its own lockbox cold (301 trades) and should read the '
