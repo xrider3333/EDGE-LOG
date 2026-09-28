@@ -1039,3 +1039,83 @@ below the paper cell on both, which is the third independent argument for decisi
   a continuous run is the crown's settings held FIXED across later years, not settings re-fitted
   fold by fold. The honest re-fitted read is the roll-corrected re-validate ENGU-Q #443, which
   returned 19.6% a year at stated size and graded WEAK. Plan on the lower number.
+
+### 2026-09-28 - round 62, the cash-session entry window: FAILS its pre-registered bar, but it is the best entry result this family has produced
+
+Pre-registered in `ENGUQ_R62_PREREG.md`, committed before a single cell was measured. Research
+sibling `augur_strategies/ENGUQ_1M_ETH_R62_1_0.py`: the crown's file plus ONE gate - a signal is
+only taken when the SIGNAL BAR's own timestamp falls inside a US Eastern clock window. Exits,
+stops, trailing, the limit scan and the hold are untouched, so a trade entered at 15:55 still runs
+for weeks. The window is folded into the per-bar boolean the parent already tests at the signal
+bar, so the compiled and interpreted walks apply it identically.
+
+**Why this is not the RTH branch that was already killed.** Runs #149 and #227 trade the
+DAY-SESSION TAPE, where a genuine 24-hour resting stop costs the RTH champion $178,340. Round 62
+keeps the 24-hour tape and the 24-hour stop exactly as the crown has them, and gates only the
+entry signal. The night-trail-off file (`ENGUQ_1M_ETH_NF_1_0.py`, dead 2026-08-18) gated the
+TRAIL at night, which is the opposite change. Neither result covers this one.
+
+**The structural fact the round was built on.** On the paper cell, roll-corrected, whole window:
+the 1,078 intraday deaths cost **-$493,422**, almost exactly the whole net of $493,295, while the
+270 trades held longer than three days made **+$634,270**. Every dollar ENGU-Q has made comes from
+trades that survive their first day. That is why capping the hold failed on 2026-09-27 - the cap
+removes the edge - and why the lever is instead "stop paying for the trades that were never going
+to survive".
+
+**Result, one continuous run per cell on ADJ_NQ_1m_ETH, cost 0.783 x $20, drawdown valued daily:**
+
+| | walk-forward | | | | sealed year | | | |
+|---|---|---|---|---|---|---|---|---|
+| | trades | ROC at $30k DD | Sortino | drawdown | trades | ROC at $30k DD | Sortino | without its biggest trade |
+| raw twin, 24 hours | 1,178 | 26.8% | 3.66 | $48,566 | 116 | 44.4% | 3.38 | **-$16,283** |
+| R62, 09:30-16:00 ET | 678 | **33.2%** | 3.59 | $35,170 | 67 | **62.6%** | **5.70** | **-$2,567** |
+
+- **Clause 1, ROC at a $30k daily-valued drawdown, both stretches: PASS.** +6.4 points on the
+  walk-forward, +18.2 points in the sealed year, on roughly half the trades and a 28% shallower
+  walk-forward drawdown.
+- **Clause 2, Sortino both stretches: FAIL.** The sealed year improves a lot (3.38 to 5.70) but
+  the walk-forward slips from 3.66 to 3.59 - a 2% miss.
+- **Clause 3, sample minimums: PASS** (678 walk-forward, 67 sealed).
+- **Clause 4, sealed year survives losing its biggest trade: FAIL.** It loses $2,567 - six times
+  better than the raw twin's -$16,283, and still the wrong side of zero.
+- **Clause 5, era stability inside the engine: PASS.** Day-one survival for gated entries is
+  38.9 / 36.4 / 38.8 / 37.5 percent across 2010-14, 2015-18, 2019-22 and 2023-26, against
+  10.7 / 11.3 / 14.7 / 12.5 for the entries the gate removes. No drift in sixteen years.
+- **Clause 6, harness gate: PASS.** With the window opened to 24 hours the file returns 2,053
+  trades identical to `ENGUQ_1M_ETH_R2_1_0.py`, so every row above is a one-knob comparison.
+
+**Verdict: no validate queued.** Two clauses of six fail. The bar was written before the numbers
+and it does not move now, exactly as the round-57 daily-stretch cap was left dead on a 0.34-point
+miss.
+
+**The awkward part, stated rather than used.** The plateau, reported and never selected from:
+
+| window (ET) | WF ROC at $30k | WF Sortino | LB ROC at $30k | LB Sortino | LB without its biggest |
+|---|---|---|---|---|---|
+| 09:00-16:00 | 31.4% | 3.41 | 56.1% | 5.06 | -$10,105 |
+| **09:30-16:00 (pre-registered)** | 33.2% | 3.59 | 62.6% | 5.70 | -$2,567 |
+| 10:00-16:00 | 27.3% | 3.14 | 50.6% | 4.92 | -$9,236 |
+| 09:30-15:00 | 36.3% | 3.59 | 35.7% | 4.42 | -$22,966 |
+| 09:30-16:30 | 33.5% | 3.60 | 58.4% | 4.98 | -$8,452 |
+| 08:00-17:00 | 30.5% | 3.40 | 72.3% | 5.55 | **+$773** |
+
+The one window that clears clause 4 is 08:00-17:00, which is NOT the window that was
+pre-registered. Worse for the temptation: that window is also what a purely mechanical rule
+selects - taking every hour whose median 1-minute volume is at or above the tape's own median
+gives hours 08 through 16 ET exactly, computed from volume alone with no profit and loss involved
+(median volume 130 to 935 inside it, 7 to 75 outside). **That is not a pass and it is not being
+recorded as one.** The rule was written down after this table was read, so choosing it now would
+be picking the bar after seeing the answer, which is the one thing this lane does not do.
+
+**What this round actually establishes.** The liquidity mechanism is real and era-stable, and it
+is the first ENGU-Q entry rule ever to improve the owner's yardstick in both stretches at once
+while cutting drawdown - four earlier entry filters (round 57) failed at selection, and the whole
+trend-gate, confirmation-gate, day-type and ML-gate families are closed. It also very nearly fixes
+the family's central weakness: the sealed year's dependence on one 35-day hold falls from
+-$16,283 to -$2,567 without capping a single trade.
+
+**The one thing an owner must decide.** The clean way to settle the volume-defined window is on
+data this round has not read - a fresh pre-registration graded on a stretch these tables do not
+cover, or a forward paper shadow of the gated cell beside the live one. Re-grading it on this
+window would not be evidence. My recommendation is the forward shadow: it costs nothing, it needs
+no runner time, and it is the only reading that cannot be contaminated by what is written above.
