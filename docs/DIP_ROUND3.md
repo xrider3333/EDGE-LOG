@@ -39,4 +39,23 @@ At most the best TWO survivors (by WF ROC @ $30k on ES) go to Auto-Validate as f
 
 ## Results
 
-_(filled in after the triage)_
+Run 2026-09-28 (`tools/dip3_triage.py`; leg-split parity exact: 1,593 trades / $524,434 on #452, 1,336 /
+$600,514 on #433). ROC @ $30k DD (daily-valued) and daily Sortino:
+
+| Cell | ES #452 WF | ES #452 LB | NQ #433 WF | NQ #433 LB | Whole DD ES / NQ |
+|---|---|---|---|---|---|
+| RAW | 13.2 / 1.03 (951 tr) | 54.9 / 1.36 (115 tr) | **26.9 / 1.62** (789 tr) | 42.2 / 0.97 (94 tr) | $71,941 / $53,267 |
+| CAP1 | 5.7 / 0.65 | 34.8 / 0.85 (39 tr) | 19.5 / 1.30 | 10.6 / 0.32 (43 tr) | $33,774 / $23,425 |
+| CAP2 | 8.9 / 0.79 | 34.6 / 0.81 | 17.7 / 1.37 | 19.4 / 0.57 | $42,149 / $47,344 |
+| TBX | 10.9 / 0.86 | 54.9 / 1.36 | 29.7 / 1.71 | 30.8 / 0.86 | $69,785 / $48,027 |
+| CAP1+TBX | 3.0 / 0.44 | 34.8 / 0.85 | 16.1 / 1.16 | 4.9 / 0.18 | $46,659 / $27,730 |
+| CAP2+TBX | 5.1 / 0.61 | 34.6 / 0.81 | 23.7 / 1.54 | 15.9 / 0.47 | $55,394 / $43,766 |
+
+**Verdict: all five rule cells DEAD.** Every cap halves the drawdown but cuts return by more, so return per
+unit of drawdown FALLS: the legs that fire together are not duplicates, each earns its own bounce. The
+trend-break exit helps NQ's walk-forward (26.9 -> 29.7) but hurts ES and both lockboxes. Nothing is queued.
+
+**What it teaches:** DIP's drawdown is the price of its exposure, not waste inside it. At matched risk the
+RAW NQ file is already respectable (26.9 %/yr at $30k in the walk-forward, 42.2 in the lockbox); the book
+problem is that its drawdown lands in the same crash as the book's, which no in-file rule tested here fixes.
+Ideas 3 (volatility-scaled size), 4 (cross-market confirmation) and 6 (24h sessions) remain untested.
