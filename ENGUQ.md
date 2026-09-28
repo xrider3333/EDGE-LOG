@@ -994,3 +994,48 @@ and extends it to the champion cell.
 correction (re-runs #442/#443)" to every ENGU-Q row including #442's and #443's own, which
 double-counts: both runs were searched on the back-adjusted masters and already carry the
 correction. Routed to MANAGER; that file is not edited from this lane.
+
+### 2026-09-28 - owner decisions, the new house yardstick, and what ENGU-Q #335 scores on it
+
+Three owner decisions taken through the MANAGER chat on 2026-09-28 (inbox item #16). These are
+decisions, not measurements.
+
+1. **ENGU-Q stays paper-only on the Webull book.** No flat-at-close variant will be built or
+   re-validated. This closes the question raised by the Webull go-live audit: the Webull book
+   flattens ENGU-Q #335 at 15:59 every day while the strategy's edge is multi-day holds, so going
+   live there would trade an untested cut-short version. Paper: WB has been told.
+2. **The forward yardstick for ENGU-Q #335 is the paper / NinjaTrader DEFAULT cell on
+   roll-corrected prices, with the one-trade caveat stated every time.** The validate champion's
+   row on COMPARE and EXPLORE is a search artefact, not the leg. Recommended and accepted the same
+   day; the measurements behind it are in the section above.
+3. **#309, #265, #249 and #227 stay as superseded controls.** They will not be re-run on corrected
+   prices. Their roll-corrected figures are recorded in the 2026-09-26 correction section and are
+   measured-once (M), not verified; treat them as historical context, never as evidence.
+
+**New OWNER RULE, all lanes: one frontier yardstick.** Rank by ROC % per year at a $30,000 worst
+drawdown, with the drawdown valued DAILY - that is simply 30 x annualised MAR. Show the
+walk-forward and the lockbox separately, never pooled. Freeze size and every ML or tilt setting
+before the lockbox and count only the pre-lockbox pick. A sized or ML version must beat its raw
+twin on that number AND on Sortino in both stretches. Minimums: 100 walk-forward trades, 50 lockbox
+trades, and the lockbox must stay profitable without its single biggest trade. Keep quoting ROC %
+per year at stated size as well, but judge and recommend on this one.
+
+**ENGU-Q #335 scored on the new rule** (paper / NinjaTrader default cell, roll-corrected,
+one continuous run, drawdown marked every day):
+
+| stretch | trades | net | drawdown valued daily | annualised MAR | ROC at a $30k drawdown | without its single biggest trade |
+|---|---|---|---|---|---|---|
+| walk-forward (2016-10 to 2025-06) | 1,167 | $380,348 | $48,599 | 0.89 | **26.6% a year** | +$353,544 - passes |
+| lockbox (sealed year) | 116 | $74,869 | $50,485 | 1.58 | **47.4% a year** | **-$16,283 - FAILS** |
+
+The validate champion cell on uncorrected prices reads 20.6% and 24.9% on the same two stretches,
+below the paper cell on both, which is the third independent argument for decision 2 above.
+
+**Two consequences that must travel with every future ENGU-Q figure.**
+- **The sealed year no longer counts as evidence under the new rule.** It clears the 50-trade
+  minimum, but strip its one 35-day hold and it loses $16,283, so it fails the profitability
+  minimum outright. Quote the 47.4% only alongside that sentence, or not at all.
+- **The 26.6% walk-forward number is an upper bound, not a forecast.** The walk-forward stretch of
+  a continuous run is the crown's settings held FIXED across later years, not settings re-fitted
+  fold by fold. The honest re-fitted read is the roll-corrected re-validate ENGU-Q #443, which
+  returned 19.6% a year at stated size and graded WEAK. Plan on the lower number.
