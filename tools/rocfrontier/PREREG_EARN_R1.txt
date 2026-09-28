@@ -1,0 +1,25 @@
+PRE-REGISTRATION - ROUND 4b: EARN r1 (family OVERNIGHT) - hold NQ / ES overnight after a mega-cap earnings evening
+==============================================================================================================
+Written 2026-09-28 by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane, AFTER round 4's WKND r1 and FOMCWK r1 died
+at Stage A (PREREG_WKND_FOMCWK_R1.txt), BEFORE any signal of this family was computed. Every rule, stretch, cost,
+null and stage of PREREG_WKND_FOMCWK_R1.txt applies unchanged unless stated here. Harness: r4b_earn.py.
+
+Not a duplicate: the NOISE (round 60) and ORB (round 62) lanes use this calendar only to SIZE their RTH trades in
+the reaction session. This family is a standalone overnight position taken at the evening reopen.
+
+Mechanism: the seven largest Nasdaq-100 weights report just after 16:00 ET; NQ prices the shock in the thin
+16:00-17:00 ET futures session. The house pattern (continuation beats reversion) predicts that the move keeps
+going when Europe and the US cash open re-price a large slice of the index.
+
+- Events: tools/data/megacap_earnings.csv (SEC 8-K Item 2.02, AAPL MSFT NVDA AMZN GOOGL META TSLA, 461 releases),
+  accepted 16:00-16:59 ET on a day with an NQ session; several releases the same evening = one event.
+- P0 = close of the last bar starting before 16:00 ET that day; P1 = close of the last bar starting before 17:00
+  ET. m = (P1 - P0) / ATR, ATR = mean high-low of the 20 complete 18:00->17:00 ET sessions ending that day.
+- Decide at 17:00 ET (the close of the 16:55 bar); enter at the open of the next session's first bar (18:00 ET)
+  in the direction of m (continuation). No stop.
+- Cells: {NQ (primary), ES} x k in {0, 0.1, 0.2} (trade only if |m| >= k) x X in {next session 09:25 ET open,
+  next session 16:00 ET = close of the 15:55 bar} = 12 primary cells. FADE mirrors are controls only.
+- Null: each event's direction replaced by a fair coin, 500 replicates, statistic = MAX WF per-trade t over the
+  12 primary cells. Stage A d: t >= 2.0 AND above the null's 95th percentile.
+- Stage A2 / B / C: exactly as round 4 (book add to #463 at c in {1, 2, 3} contracts, pre ROC @ $30k >= 63.36
+  and pre Sortino >= 3.153; lockbox read once only for a Stage A2 pass).

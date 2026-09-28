@@ -1,0 +1,71 @@
+PRE-REGISTRATION - ROUND 4: two untested NQ/ES families as low-correlation additions to BOOK #463
+=================================================================================================
+Written 2026-09-28 by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (owner ask via MANAGER, inbox #6)
+BEFORE any signal of either family was computed. Neither mechanism appears in the ledger, the dead-hunt notes or
+the code base (searched: weekend gap / Sunday open / FOMC cycle / even week). Harness: tools/rocfrontier/r4_triage.py.
+Results: C:\EdgeLog\_anatomy_cache\rocfrontier\r4\ and RESEARCH_LEDGER.md. Any change = a new file (r2).
+
+WHY THESE TWO: BOOK #463 is four intraday / long-swing momentum legs trading RTH hours (ORB, NOISE, 3 x ES TTM)
+plus ENGU-Q. A new leg only helps at matched drawdown if it earns in hours or states the book does not
+(ROC hunt 2026-09-24). Both families below trade outside those hours or on a fixed calendar.
+
+COMMON RULES
+- Data: roll-corrected masters only (house ADJ, registry ids NQ 5m ETH 71, ES 5m ETH 62, NQ 5m RTH 73,
+  ES 5m RTH 63). Candidate data is sliced to bars BEFORE 2025-06-30 before any signal is computed; the lockbox
+  (2025-06-30 -> 2026-06-30, BOOK #463's) is read only by the Stage B script, only for Stage A2 passes.
+- Clock US/Eastern. Bar timestamps are bar starts; a bar's close is known at start + 5 minutes. Signals are
+  decided at a bar's close and filled at the next bar's open. Calendars are known in advance.
+- One contract per trade in Stage A. Costs: NQ 0.533 pts, ES 0.363 pts per round trip (house); stress +0.25 pt.
+- Stretches: EARLY = first bar with warm-up -> 2016-06-30 (sign check). WF = 2016-07-01 -> 2025-06-29.
+- Yardstick (owner rule 2026-09-28): ROC %/yr at a $30,000 worst drawdown valued daily = 30 x MAR.
+
+FAMILY W - WKND r1 (family OVERNIGHT): trade the weekend gap on the Sunday reopen
+Mechanism: weekend news is first priced in thin Sunday-evening liquidity; the house pattern (intraday
+continuation beats reversion) predicts the rest of the move is finished by Europe and the US open.
+- F = close of the last bar starting before 17:00 ET on the last session before the weekend.
+- S = open of the first bar of the new week (starting at/after 18:00 ET Sunday).
+- ATR = mean high-low of the 20 previous complete 18:00->17:00 ET sessions, known at F. g = (S - F) / ATR.
+- Decide at the close of the week's first bar; enter at the next bar's open in the direction of g
+  (continuation). No stop. Exit at the open of the first bar at/after X.
+- Cells: {NQ, ES} x k in {0, 0.25, 0.5} (trade only if |g| >= k; g = 0 never trades) x
+  X in {Monday 03:00 ET, Monday 09:25 ET, Monday 16:00 ET (close of the 15:55 bar)} = 18 primary cells.
+  Controls, never a pass route: the 18 FADE mirrors.
+- A week is skipped if a true roll switch (tools/data/rolls_<ROOT>.csv, kind != not_a_roll) falls between F
+  and the exit (calendar rule - never a jump-size rule, the ONDRIFT trap).
+- Family-wide null: each week's direction replaced by a fair coin, all 18 cells re-scored, 500 replicates;
+  the statistic is the MAX over the 18 cells of the WF per-trade t-stat.
+
+FAMILY F - FOMCWK r1 (family MISC): the FOMC-cycle even weeks (Cieslak, Morse & Vissing-Jorgensen, JF 2019)
+Mechanism: Fed-driven news flow clusters in even weeks of the FOMC cycle, so the equity premium is earned there.
+- FOMC days: tools/data/fomc_dates.txt (scheduled decision days only, from federalreserve.gov).
+- Trading days = the master's RTH session dates; daily close = close of the last bar starting before 16:00 ET.
+- Cycle day d(t) = trading days since the latest FOMC day <= t; the trading day just before an FOMC day is
+  d = -1 of that next cycle. Week 0 = d in [-1, 3], 1 = [4, 8], 2 = [9, 13], 3 = [14, 18], 4 = [19, 23],
+  5 = [24, 28], 6 = [29, 33]; d >= 34 = week 7 (odd).
+- Leg: long on even-week days (0, 2, 4, 6): enter at the daily close before each even block, exit at the close of
+  its last day; one round-trip cost per block. Valued daily at each close.
+- Cells: ES (primary), NQ (primary). Controls, never a pass route: odd weeks, always-long, week 0 only.
+- Null: every cycle's week labels shifted by a random 0-9 trading days, 500 replicates; statistic = the WF
+  annualised Sharpe of daily P&L.
+
+STAGE A - a cell passes only if ALL hold on WF:
+  a. >= 100 trades                        e. net > 0 with +0.25 pt per round trip
+  b. ROC @ $30k DD >= 15 %/yr (MAR >= 0.5)  f. profitable without its single biggest trade
+  c. profit factor >= 1.10                g. positive in >= 60% of its WF calendar years
+  d. W: t-stat >= 2.0 AND above the 95th percentile of the null max; F: Sharpe above the null's 95th
+     percentile AND ROC @ $30k above the same instrument's always-long control
+  h. EARLY net > 0
+
+STAGE A2 - book add, pre-lockbox only: per family, the Stage-A pass with the highest WF ROC @ $30k is added to
+BOOK #463's four legs (the frontier lane's exact scoring, adopt449/ttm458_eval.py: daily P&L of the job
+EmzbSsewQJ6TjEaaO4ea legs, valued daily, 2010-06-07 -> 2025-06-29) at c in {1, 2, 3} contracts; c = the one with
+the highest book pre ROC @ $30k, then frozen. Passes only if book pre ROC @ $30k >= 1.05 x #463's (60.34 ->
+63.36) AND book pre Sortino >= #463's (3.153).
+
+STAGE B - lockbox, read ONCE per Stage-A2 pass: book LB ROC @ $30k >= #463's 164.76 AND LB Sortino >= 4.150 AND
+the book's LB net without its single biggest trade > 0 AND the leg's own LB net > 0. The 50-lockbox-trade
+minimum cannot be met by either family (~28-50 trades a year), so, like TTM, they are judged only inside the book.
+
+STAGE C - a Stage-B pass gets a strategy file with open ranges, parity with this harness, and ONE Auto-Validate at
+the 900-trial budget (pinned window, same lockbox), then the RUNBOARD watch list and MANAGER. Owner decides.
+Zero passes at any stage = that family dead; ledger + memory; lockbox stays sealed for it.
