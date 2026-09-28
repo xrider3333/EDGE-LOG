@@ -4917,6 +4917,19 @@ var FIX = __FIX__;
         var rv3=numOf((cellIn(rocRow3,FID)||{}).textContent), mv3=numOf((cellIn(marRow3,FID)||{}).textContent);
         var hasToggle3=!!(rocRow3&&rocRow3.children[0].querySelector('[data-rbroc]'));
 
+        // renders 4 + 5 - the toggle must work when CLICKED, on BOTH board hosts (hotfix 2026-09-28:
+        //   the live check of v73.936 found the label rendered with no click handler on either).
+        function rocLblAny(){var tr=null;[].forEach.call(d.querySelectorAll('tr'),function(t){if(tr)return;var c=t.children;
+          if(c.length&&c[0].querySelector('[data-rbroc]'))tr=t;});return tr?dfxN(tr.children[0].textContent):null;}
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',cmpIds:IDS}, wc));chk('beta-click');
+        var t4=d.querySelector('[data-rbroc]');if(t4)t4.click();chk('beta-click-1');
+        var rocLbl4=rocLblAny();
+        var t4b=d.querySelector('[data-rbroc]');if(t4b)t4b.click();chk('beta-click-2');
+        var rocLbl4b=rocLblAny();
+        calls.push(doRender({cmpMode:'board',rbSample:'lb',rbRank:'mar',cmpIds:IDS}, wc, 'cmp'));chk('tab-click');
+        var t5=d.querySelector('[data-rbroc]');if(t5)t5.click();chk('tab-click-1');
+        var rocLbl5=rocLblAny();
+
         dfxCase('k3_rb_roc30_warm', calls, {
           'renders OK on LB (both ROC modes) and WF': calls.every(function(c){return c==='OK';}),
           'no console errors on any render': errAcc.length===0,
@@ -4933,8 +4946,11 @@ var FIX = __FIX__;
           'the toggle element is still there in dd30 mode': hasToggle2,
           'on LB every column reads 30x its own MAR cell': IDS.every(function(id){return lbCheck[id].ok;}),
           'on WF the walk-forward run also reads 30x its own MAR cell': close(rv3,(mv3==null?null:mv3*30),0.2)&&mv3!=null,
-          'the toggle element is on the ROC row on WF too': hasToggle3
-        }, {tagC:tagC,tagW:tagW,tagM:tagM,rocLbl1:rocLbl1,rocLbl2:rocLbl2,lbCheck:lbCheck,rv3:rv3,mv3:mv3,errAcc:errAcc});
+          'the toggle element is on the ROC row on WF too': hasToggle3,
+          'CLICKING the toggle on the COMPARE beta board switches the row to ROC @ $30K DD': !!t4&&!!rocLbl4&&rocLbl4.indexOf('ROC @ $30K DD')>=0,
+          'clicking it again switches it back to ROC % / YR': !!t4b&&!!rocLbl4b&&rocLbl4b.indexOf('ROC % / YR')>=0,
+          'CLICKING the toggle on the RUNBOARD tab switches the row too': !!t5&&!!rocLbl5&&rocLbl5.indexOf('ROC @ $30K DD')>=0
+        }, {rocLbl4:rocLbl4,rocLbl4b:rocLbl4b,rocLbl5:rocLbl5,tagC:tagC,tagW:tagW,tagM:tagM,rocLbl1:rocLbl1,rocLbl2:rocLbl2,lbCheck:lbCheck,rv3:rv3,mv3:mv3,errAcc:errAcc});
       })();
 
       // -- case y1_explore_money: MANAGER audit 2026-09-27 (ml_edge_orb_leak_answer_2026-09-27.md
