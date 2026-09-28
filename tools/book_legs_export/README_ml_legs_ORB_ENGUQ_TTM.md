@@ -68,3 +68,52 @@ hybrid — ML lockbox drawdown ran 17% above raw on ORB and 119% above raw on EN
 DD-matched on WF alone (per rule b, no lockbox-derived re-matching was allowed).
 
 Files: `C:\EdgeLog\book_legs\{ORB314_raw,ORB314_hybdd_tree,ENGUQ335_raw,ENGUQ335_hybdd_rf,TTM368_raw,TTM368_keel}_{daily,trades}.csv` and `_summary_*.json` per ML leg.
+
+## Round 2: ENGU-Q paper-leg cell, TTM #455
+
+**ENGUQ335paper (ENGUQ_1M_ETH_R2_1_0.py at FILE DEFAULTS, cost 0.783, db_adj_eth, #335's own
+WF 2016-10-12..2025-06-30 / LB 2025-06-30..2026-06-30):** no stored gate_validate to reproduce
+against (this is the live paper cell, not an archived validate). Roll guard
+(`rolls.guard_masks('NQ',60,block_estimated=True)`) dropped 0 of 2053 trades — the one estimated
+2026-06-15 NQ switch inside the window landed on a bar no ENGU-Q trade entered on; the second
+estimated switch (2026-09-14) is outside this window. HYBRID DD rf @0.45, DD factor from its own
+WF (0.8933) frozen at the lockbox boundary exactly as #335's leg was.
+| Leg | WF net | WF DD | WF MAR | WF Sortino | LB net | LB DD | LB MAR | LB Sortino |
+|---|---|---|---|---|---|---|---|---|
+| ENGUQ335paper raw | $380,348 | $38,872 | 1.12 | 3.68 | $74,869 | $44,205 | 1.69 | 3.38 |
+| ENGUQ335paper HYBRID DD rf | $318,466 | $38,872 | 0.94 | 3.46 | -$17,067 | $53,479 | -0.32 | -0.75 |
+ML at raw's WF drawdown is trivial ($318,466, already matched); at raw's LB drawdown, ML would
+have read -$14,107 (scale 0.827) — **the rf gate makes this cell materially worse in its own
+lockbox**, unlike ORB/ENGU-Q's champion cells. Say so plainly: HYBRID DD does not help here.
+
+**TTM #455 (TTMSQZ_3_0_ES30SSOF2R347.py) — BLOCKED, nothing exported.** Raw twin reproduced
+trade counts exactly (246/234/144/12) but net points ran ~40% BELOW the stored
+`gate_validate.ungated_*` blocks at every stretch (e.g. full 4,254 vs stored 7,172 pts) and KEEL
+likewise (e.g. lockbox stored $176,250 vs my online reproduction $68,335). Root cause found, not
+guessed: the strategy's shared base file `TTMSQZ_3_0_ES30SS.py` (and its `SSOF2R`/`SSOF2R347`
+children) was edited TODAY, file-modified 14:51-14:57, fixing a real bug ("entry-bar stop no
+longer books an exit at a price the bar never traded when the open gaps past the stop" —
+comment cites a same-day MANAGER audit). Run #455 was validated at 14:08, before that fix, so
+its stored numbers are pre-fix and my reproduction (post-fix code) correctly disagrees — same
+bars, different exit price on the affected trades, amplified by this file's 3/4/7-contract
+ladder. Per rule (a) this stops here: TTM455_raw/TTM455_keel are NOT written. Re-validating
+run #455 on the current (fixed) code, then re-running this export, would resolve it.
+
+## Round 3: TTM #458 (the fixed-code re-validation of #455)
+
+Reproduces exactly (git-pulled to d4b3bc1f first, cache off): trade counts and net $ match
+`gate_validate.ungated_*` and `.keel.*` to the cent at full/pre/WF/lockbox (whole-run raw net
+$212,710, matching the lane's own figure). Files written: `TTM458_raw`/`TTM458_keel`
+`_{daily,trades}.csv`, same KEEL v12 freeze as #368 (state built on the 234 pre-lockbox trades,
+each of the 12 lockbox trades scored from that frozen state). Daily sums tie to trade sums.
+| Leg | WF net | WF DD (daily) | ROC%/yr@$30k | WF Sortino | LB net | LB DD (daily) | ROC%/yr@$30k | LB Sortino |
+|---|---|---|---|---|---|---|---|---|
+| TTM458 raw | $142,510 | $16,307 | 29.1 | 2.40 | $29,278 | $3,761 | 233.3 | 8.96 |
+| TTM458 KEEL v12 | $347,262 | $35,141 | 32.9 | 2.73 | $69,263 | $7,963 | 260.7 | 11.61 |
+KEEL beats raw on both ROC%/yr and Sortino, both stretches. WF trades = 144 (clears the
+owner's 100-trade floor). **LB trades = 12 — fails the 50-trade floor**, so the LB column above
+is a thin read, not a judgement. LB stays profitable without its single biggest trade either
+way: raw $16,050 of $29,278 net ex the $13,227 trade; KEEL $41,063 of $69,263 net ex the
+$28,200 trade. Note: the lane's own WF Sortino (1.96) doesn't match this WF-window reading
+(2.40) — likely the separate "walk-forward TEST" (re-tuned blind folds) vs this doc's
+`gate_validate.wf_range` replay; flagging rather than guessing which one the lane wants.
