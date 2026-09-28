@@ -1,0 +1,24 @@
+tape 2010-06-07 .. 2026-09-16, cost 0.533, $20/pt; ROC@30k = 30 x MAR with drawdown valued daily
+
+NOISE #304 crown  (4847 trades; the stop-tagged copy reproduces every trade)
+  raw twin                         WF 2805 tr ROC@30k  66.0% Sort 3.79 ( 36.6%/yr, DD $16,635) | LB 314 tr ROC@30k  87.3% Sort 2.86 ( 51.8%/yr, DD $17,782, ex-top $ 34,368) | tail $12,819
+  A pyramid +1 at 1.0 R            WF 2805 tr ROC@30k  48.2% Sort 3.82 ( 44.0%/yr, DD $27,347) | LB 314 tr ROC@30k  83.3% Sort 2.91 ( 60.9%/yr, DD $21,921, ex-top $ 31,806) | tail $24,403
+  A neighbour 0.5 R                WF 2805 tr ROC@30k  54.9% Sort 4.14 ( 56.4%/yr, DD $30,836) | LB 314 tr ROC@30k  52.5% Sort 2.15 ( 58.2%/yr, DD $33,242, ex-top $ 26,259) | tail $15,946
+  A neighbour 1.5 R                WF 2805 tr ROC@30k  68.0% Sort 3.95 ( 40.8%/yr, DD $17,996) | LB 314 tr ROC@30k  81.9% Sort 2.59 ( 48.5%/yr, DD $17,782, ex-top $ 22,270) | tail $20,846
+  B half-hour checkpoints          WF 1695 tr ROC@30k  57.2% Sort 4.19 ( 33.7%/yr, DD $17,666) | LB 200 tr ROC@30k  36.4% Sort 1.38 ( 23.4%/yr, DD $19,319, ex-top $  6,670) | tail $ 6,281
+  B neighbour quarter-hour         WF 2227 tr ROC@30k  73.2% Sort 4.29 ( 37.9%/yr, DD $15,524) | LB 252 tr ROC@30k  63.1% Sort 2.12 ( 37.7%/yr, DD $17,924, ex-top $ 21,165) | tail $ 7,061
+    -> A pyramid 1.0 R: FAILS (WF ROC@30k 48.2 <= twin 66.0; LB ROC@30k 83.3 <= twin 87.3; a neighbour does not agree (spike, not plateau))
+    -> B half-hour checkpoints: FAILS (WF ROC@30k 57.2 <= twin 66.0; LB ROC@30k 36.4 <= twin 87.3; LB Sortino 1.38 <= twin 2.86)
+
+NOISE #243 retired  (4441 trades; the stop-tagged copy reproduces every trade)
+  raw twin                         WF 2574 tr ROC@30k  57.0% Sort 4.01 ( 35.0%/yr, DD $18,424) | LB 296 tr ROC@30k 115.8% Sort 3.22 ( 53.6%/yr, DD $13,874, ex-top $ 36,997) | tail $-6,516
+  A pyramid +1 at 1.0 R            WF 2574 tr ROC@30k  53.4% Sort 4.50 ( 44.1%/yr, DD $24,769) | LB 296 tr ROC@30k 112.2% Sort 3.34 ( 64.3%/yr, DD $17,187, ex-top $ 37,076) | tail $-7,645
+  A neighbour 0.5 R                WF 2574 tr ROC@30k  40.8% Sort 4.34 ( 53.4%/yr, DD $39,237) | LB 296 tr ROC@30k  77.5% Sort 2.86 ( 71.2%/yr, DD $27,569, ex-top $ 41,058) | tail $-15,143
+  A neighbour 1.5 R                WF 2574 tr ROC@30k  56.1% Sort 4.29 ( 39.0%/yr, DD $20,845) | LB 296 tr ROC@30k 114.0% Sort 3.01 ( 51.5%/yr, DD $13,560, ex-top $ 27,250) | tail $-8,510
+  B half-hour checkpoints          WF 1559 tr ROC@30k  65.8% Sort 3.88 ( 29.1%/yr, DD $13,284) | LB 192 tr ROC@30k  53.6% Sort 1.46 ( 22.6%/yr, DD $12,634, ex-top $  5,798) | tail $-9,737
+  B neighbour quarter-hour         WF 2052 tr ROC@30k  82.2% Sort 4.26 ( 34.6%/yr, DD $12,640) | LB 243 tr ROC@30k  75.7% Sort 2.00 ( 33.3%/yr, DD $13,205, ex-top $ 16,769) | tail $-9,900
+    -> A pyramid 1.0 R: FAILS (WF ROC@30k 53.4 <= twin 57.0; LB ROC@30k 112.2 <= twin 115.8; a neighbour does not agree (spike, not plateau))
+    -> B half-hour checkpoints: FAILS (WF Sortino 3.88 <= twin 4.01; LB ROC@30k 53.6 <= twin 115.8; LB Sortino 1.46 <= twin 3.22)
+
+IDEA A on BOTH bases: DEAD - record it
+IDEA B on BOTH bases: DEAD - record it

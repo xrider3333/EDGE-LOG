@@ -7,6 +7,38 @@
 
 ---
 
+## 🧪 2026-09-28 — ROUND 63: more alpha? Ten ideas, two pre-registered, both dead at triage
+
+Owner ask via MANAGER (inbox #13): brainstorm NOISE variations for more alpha, pre-register the best 1-2 on the owner's
+yardstick (ROC %/yr at a $30k worst drawdown valued daily, WF and LB apart, beat the raw twin and its Sortino, 100 WF /
+50 LB trades, LB profitable without its biggest trade), run the cheap triage. Pre-registration
+`docs/PREREG_noise_r63_2026-09-28.md` (committed 77298fc9 before any number); triage
+`tools/r63_noise_pyramid_checkpoint_triage.py` -> `r37_results/r63_triage.txt`, both crowns, tape to 2026-09-16.
+
+**The idea list (mechanism - cost - how it could fool us):** (1) pyramid on confirmation - run now; (2) half-hour decision
+checkpoints - run now; (3) time stop after two hours - cheap, low prior (NOISE's money is the all-day trend trade it would
+cut); (4) the crown on ZN / 6E / CL / GC as book legs - pre-registered by the frontier lane, needs the owner's data key;
+(5) volatility-targeted fixed sizing - Custom ML's lane; (6) daily-trend side alignment and (7) a daily squeeze regime -
+mostly covered by the 2026-08-18 context scan (MACD, efficiency ratio, range percentile: nothing survived); (8) NOISE on
+ES as a book leg - ES-native NOISE is dead (2026-08-22).
+
+**(A) Pyramid on confirmation - DEAD.** One contract added at entry + 1 R (R = entry to the trade's own stop), riding the
+original exit, conservative intrabar fills, the stop-carrying copy reproducing all 4,847 trades first. It makes more
+money at size (#304 WF 36.6 -> 44.0%/yr) but the drawdown grows faster ($16.6k -> $27.3k): ROC @ $30k WF 66.0 -> 48.2,
+LB 87.3 -> 83.3; #243 57.0 -> 53.4 and 115.8 -> 112.2. Sortino ticks up, which is what leverage on winners looks like;
+0.5 R is worse and 1.5 R a wash, so there is no plateau. The add fires after the move that makes it, and the moves that
+reach 1 R still reverse often enough to double the loss.
+
+**(B) Half-hour checkpoints - DEAD.** Entries only on bars closing at HH:00 / HH:30, exits unchanged: 40% fewer trades,
+walk-forward Sortino up on #304, but the lockbox collapses (ROC @ $30k 87.3 -> 36.4; #243 115.8 -> 53.6) and it keeps
+little without its top trade. The quarter-hour neighbour is better in walk-forward on BOTH crowns (73.2 vs 66.0, 82.2
+vs 57.0) but loses the lockbox too - a neighbour seen after the fact, not a lead.
+
+**Where that leaves NOISE:** every in-family lever this round could reach (entry timing, in-trade sizing) is now closed
+next to the geometry, filters, exits, calendars and models closed before it. The squeeze sizing (#422) is still the
+only add-on that holds. New alpha for this family needs new information (order flow) or new markets (the transfer
+round waiting on the owner's data key).
+
 ## 🧪 2026-09-27 — ROUND 62: NOISE #422 + KEEL v12 is sound, and a validate of the live vol-skip memory
 
 MANAGER status tasker (owner, 2026-09-27). Driver `tools/r62_noise_422_keel_doublecount.py` (-> `r37_results/
