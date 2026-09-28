@@ -261,11 +261,38 @@ def _canonical_events(events):
     return [tuple(e.get(f) for f in _DECISION_FIELDS) for e in (events or [])]
 
 
+# PRICE TOLERANCE (2026-09-28). The stream bar and the REST bar can carry the same close to
+# different precision (seen live: NOISE_382 @ 1790604600, the SAME short entry, ref_price
+# 735.66 stream vs 735.6599 REST), and an exact compare called that a DISAGREEMENT -- which
+# with bar_close_from_stream on trips the day's latch for nothing. ref_price now matches
+# within half a cent; every other decision field stays exact.
+REF_PRICE_TOLERANCE = 0.005
+_REF_PRICE_AT = _DECISION_FIELDS.index("ref_price")
+
+
+def _prices_close(a, b):
+    try:
+        return abs(float(a) - float(b)) <= REF_PRICE_TOLERANCE
+    except (TypeError, ValueError):
+        return a == b
+
+
+def _same_event(ea, eb):
+    return all(_prices_close(x, y) if i == _REF_PRICE_AT else x == y
+               for i, (x, y) in enumerate(zip(ea, eb)))
+
+
 def compare_decisions(stream_events, rest_events):
-    """(match, detail). `detail` is always a short, loggable string."""
+    """(match, detail). `detail` is always a short, loggable string; a match that needed
+    the ref_price tolerance names both prices."""
     a, b = _canonical_events(stream_events), _canonical_events(rest_events)
     if a == b:
         return True, f"same decision ({len(a)} event(s))"
+    if len(a) == len(b) and all(_same_event(ea, eb) for ea, eb in zip(a, b)):
+        prices = ", ".join(f"stream {ea[_REF_PRICE_AT]} vs rest {eb[_REF_PRICE_AT]}"
+                           for ea, eb in zip(a, b) if ea[_REF_PRICE_AT] != eb[_REF_PRICE_AT])
+        return True, (f"same decision ({len(a)} event(s)); ref_price within "
+                      f"{REF_PRICE_TOLERANCE}: {prices}")
     return False, f"stream={a!r} rest={b!r}"
 
 
@@ -449,7 +476,9 @@ def _resolve_pending_against_rest(now, five_m_legs, paths, log):
             if match:
                 log(f"[cloud-signal-stream] shadow MATCH {leg_key} @ {bar_epoch}: stream and "
                    f"REST agree ({detail}); stream saw it {stream_latency:.1f}s after close vs "
-                   f"REST's {rest_latency:.1f}s (~{max(0.0, rest_latency - stream_latency):.1f}s saved)")
+                   f"REST's {rest_latency:.1f}s (~{max(0.0, rest_latency - stream_latency):.1f}s saved)"
+                   + (f"; ohlc_diff(stream-rest)={_ohlc_diff(rec['bar'], rest_bar)}"
+                      if "ref_price within" in detail else ""))
             else:
                 log(f"[cloud-signal-stream] STREAM/REST DISAGREEMENT {leg_key} @ {bar_epoch}: "
                    f"{detail}; ohlc_diff(stream-rest)={_ohlc_diff(rec['bar'], rest_bar)}")

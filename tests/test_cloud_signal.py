@@ -900,6 +900,165 @@ def test_cloud_signal_thread_writes_ok_true_heartbeat_with_cache_write_failed_no
         "the abandoned bar-cache .tmp must not be left behind")
 
 
+# ── 4b. Unsettled bars never reach the cache (2026-09-28) ───────────────────────────────
+# yfinance (the fallback) returns the still-forming bar and revises the newest closed one
+# for a while; step() decides a bar from whatever the cache holds at close+5s, often on a
+# 1s fetch=False tick, and never re-decides it. See cloud_signal's UNSETTLED BARS comment.
+_B = int(pd.Timestamp("2026-09-08 09:30:00", tz=cs.TZ).tz_convert("UTC").timestamp())
+_FINAL = {0: (699.5, 700.2, 699.0, 700.0, 1000.0), 1: (700.5, 701.2, 700.0, 701.0, 1000.0),
+          2: (701.5, 702.7, 701.0, 702.5, 1000.0), 3: (702.4, 702.6, 702.2, 702.5, 1000.0)}
+
+
+def _epoch_rows(rows):
+    """{bar index -> (o, h, l, c, v)} -> this module's 1m epoch frame (bar i opens _B+60i)."""
+    return pd.DataFrame([{"time": _B + 60 * i, "open": o, "high": h, "low": l, "close": c,
+                          "volume": v} for i, (o, h, l, c, v) in sorted(rows.items())])
+
+
+def _yf_frame(rows):
+    """The same bars in yfinance's shape (what qp._fetch_yf returns)."""
+    ep = _epoch_rows(rows)
+    idx = pd.DatetimeIndex([pd.Timestamp(t, unit="s", tz="UTC").tz_convert(cs.TZ) for t in ep["time"]])
+    return pd.DataFrame({"Open": ep["open"].values, "High": ep["high"].values,
+                         "Low": ep["low"].values, "Close": ep["close"].values,
+                         "Volume": ep["volume"].values}, index=idx)
+
+
+def _pin_wall(monkeypatch, epoch):
+    monkeypatch.setattr(cs, "_wall_epoch", lambda: int(epoch))
+
+
+def _yf_only(monkeypatch, rows):
+    monkeypatch.setattr(cs, "_fetch_webull", lambda timeframe, log=print: None)
+    monkeypatch.setattr(cs.qp, "_fetch_yf", lambda timeframe: _yf_frame(rows))
+
+
+def test_fetch_and_merge_yfinance_leaves_forming_and_unsettled_bars_out(tmp_path, monkeypatch):
+    """At 09:32:30 yfinance hands back bar 0 (closed 90s ago: settled), bar 1 (closed 30s
+    ago: inside the settle margin) and bar 2 (still forming). Only bar 0 may be merged --
+    into the returned frame AND the on-disk cache."""
+    paths = cs._paths(home=str(tmp_path / "home"))
+    monkeypatch.setattr(cs, "_UNSETTLED_DROP_LOGGED", {})
+    _pin_wall(monkeypatch, _B + 150)
+    _yf_only(monkeypatch, {0: _FINAL[0], 1: _FINAL[1], 2: (701.5, 701.6, 701.0, 701.2, 300.0)})
+    logged = []
+
+    merged, source, cache_ok = cs.fetch_and_merge("1m", paths, log=logged.append)
+
+    assert source == "yfinance" and cache_ok is True
+    assert merged["time"].tolist() == [_B]
+    assert pd.read_csv(cs._cache_path("1m", paths))["time"].tolist() == [_B]
+    assert sum("not-yet-settled" in m for m in logged) == 1
+
+
+def test_fetch_and_merge_webull_keeps_finished_bars_drops_only_a_forming_one(tmp_path, monkeypatch):
+    """Webull gets no settle margin: a bar that closed 1s before the request is kept (the
+    normal path is unchanged); a row that has not closed yet is still never merged."""
+    paths = cs._paths(home=str(tmp_path / "home"))
+    os.makedirs(paths["ohlc_dir"], exist_ok=True)
+    _epoch_rows({0: _FINAL[0]}).to_csv(cs._cache_path("1m", paths), index=False)
+    monkeypatch.setattr(cs, "_UNSETTLED_DROP_LOGGED", {})
+    _pin_wall(monkeypatch, _B + 121)
+    monkeypatch.setattr(cs, "_fetch_webull", lambda timeframe, log=print: _epoch_rows(
+        {1: _FINAL[1], 2: (701.5, 701.6, 701.0, 701.2, 300.0)}))
+
+    merged, source, _ = cs.fetch_and_merge("1m", paths, log=lambda *_: None)
+
+    assert source == "webull"
+    assert merged["time"].tolist() == [_B, _B + 60]
+    assert pd.read_csv(cs._cache_path("1m", paths))["time"].tolist() == [_B, _B + 60]
+
+
+def test_fetch_and_merge_webull_judges_settled_at_response_time(tmp_path, monkeypatch):
+    """A Webull request that goes out 2s BEFORE bar 1 closes and answers 6s after it, with
+    the just-finished bar 1 in it: bar 1 is final and is kept (decided at close+5s, not one
+    fetch later). The forming bar 2 still closes after the response, so it is still dropped."""
+    paths = cs._paths(home=str(tmp_path / "home"))
+    monkeypatch.setattr(cs, "_UNSETTLED_DROP_LOGGED", {})
+    clock = {"now": _B + 118}                         # request start: bar 1 closes at _B+120
+
+    def webull(timeframe, log=print):
+        clock["now"] = _B + 126                       # the response lands 6s after the close
+        return _epoch_rows({0: _FINAL[0], 1: _FINAL[1], 2: (701.5, 701.6, 701.0, 701.2, 30.0)})
+
+    monkeypatch.setattr(cs, "_wall_epoch", lambda: int(clock["now"]))
+    monkeypatch.setattr(cs, "_fetch_webull", webull)
+
+    merged, source, _ = cs.fetch_and_merge("1m", paths, log=lambda *_: None)
+
+    assert source == "webull"
+    assert merged["time"].tolist() == [_B, _B + 60]
+
+
+def test_fetch_and_merge_all_dropped_fetch_keeps_the_cache_without_warning(tmp_path, monkeypatch):
+    """Under yfinance an early fetch can drop every row; the cache stays as it was and no
+    pandas empty-concat FutureWarning is raised."""
+    import warnings
+    paths = cs._paths(home=str(tmp_path / "home"))
+    os.makedirs(paths["ohlc_dir"], exist_ok=True)
+    _epoch_rows({0: _FINAL[0]}).to_csv(cs._cache_path("1m", paths), index=False)
+    monkeypatch.setattr(cs, "_UNSETTLED_DROP_LOGGED", {})
+    _pin_wall(monkeypatch, _B + 130)
+    _yf_only(monkeypatch, {1: _FINAL[1], 2: (701.5, 701.6, 701.0, 701.2, 300.0)})
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        merged, source, cache_ok = cs.fetch_and_merge("1m", paths, log=lambda *_: None)
+
+    assert source == "yfinance" and cache_ok is True
+    assert merged["time"].tolist() == [_B]
+    assert pd.read_csv(cs._cache_path("1m", paths))["time"].tolist() == [_B]
+
+
+def test_unsettled_drop_is_logged_once_per_run_not_every_fetch(tmp_path, monkeypatch):
+    paths = cs._paths(home=str(tmp_path / "home"))
+    monkeypatch.setattr(cs, "_UNSETTLED_DROP_LOGGED", {})
+    _yf_only(monkeypatch, {0: _FINAL[0], 1: (700.5, 700.6, 700.0, 700.3, 0.0)})
+    logged = []
+    for wall in (_B + 100, _B + 130, _B + 160):
+        _pin_wall(monkeypatch, wall)
+        cs.fetch_and_merge("1m", paths, log=logged.append)
+    assert sum("not-yet-settled" in m for m in logged) == 1
+    _pin_wall(monkeypatch, _B + 400)                  # everything settled: the run ends
+    cs.fetch_and_merge("1m", paths, log=logged.append)
+    _yf_only(monkeypatch, {0: _FINAL[0], 7: (700.5, 700.6, 700.0, 700.3, 0.0)})
+    cs.fetch_and_merge("1m", paths, log=logged.append)
+    assert sum("not-yet-settled" in m for m in logged) == 2, "a new run logs again"
+
+
+def test_step_never_decides_a_bar_off_a_pre_close_yfinance_snapshot(tmp_path, monkeypatch):
+    """END TO END, the live cadence under the yfinance fallback: a fetching tick 10s before
+    bar 2 closes (yfinance already shows a partial bar 2), then the 1s fetch=False tick at
+    bar 2's close+5s. Before this fix that tick decided bar 2 off the partial snapshot
+    (the stub fires on its 3rd bar) and set last_bar_epoch, so bar 2 was never re-decided
+    from the final data. Now bar 2 is decided only by the fetch that sees it settled."""
+    paths = cs._paths(home=str(tmp_path / "home"))
+    os.makedirs(paths["ohlc_dir"], exist_ok=True)
+    monkeypatch.setattr(cs, "_UNSETTLED_DROP_LOGGED", {})
+    legs = {"STUB": {"strategy": _stub_module(), "timeframe": "1m", "params": {},
+                     "warmup_sessions": 5, "max_entry_age_sec": 3600}}
+    at = lambda s: (pd.Timestamp(_B, unit="s", tz="UTC") + pd.Timedelta(seconds=s)).tz_convert(cs.TZ).to_pydatetime()
+    bar2 = _B + 120
+
+    _pin_wall(monkeypatch, _B + 170)
+    _yf_only(monkeypatch, {0: _FINAL[0], 1: _FINAL[1], 2: (701.5, 701.6, 701.0, 701.2, 300.0)})
+    seed = cs.step(now=at(170), legs=legs, paths=paths, fetch=True)
+    assert [e["event"] for e in seed] == ["SEED"]
+
+    assert cs.step(now=at(185), legs=legs, paths=paths, fetch=False) == [], (
+        "a non-fetching tick at bar 2's close+5s must not decide bar 2 off a pre-close snapshot")
+    assert cs._load_state(paths)["legs"]["STUB"]["last_bar_epoch"] != bar2
+
+    _pin_wall(monkeypatch, _B + 250)                  # bar 2 closed 70s ago; bar 3 forming
+    _yf_only(monkeypatch, {**_FINAL, 3: (702.4, 702.45, 702.3, 702.4, 200.0)})
+    events = cs.step(now=at(250), legs=legs, paths=paths, fetch=True)
+    assert [e["event"] for e in events] == ["ENTRY"]
+    assert cs._load_state(paths)["legs"]["STUB"]["last_bar_epoch"] == bar2
+    cache = pd.read_csv(cs._cache_path("1m", paths)).set_index("time")
+    assert cache.loc[bar2, "close"] == 702.5 and cache.loc[bar2, "volume"] == 1000.0
+    assert _B + 180 not in cache.index, "the forming bar 3 must not be cached either"
+
+
 # ── 5. Hand-run refusal beside a live writer (WEBULL_PAPER_TODO.md item 2, 2026-09-25) ──
 # `cmd_once`/`cmd_loop` must refuse (exit code 2) while a live writer's heartbeat is
 # fresh -- running either beside the runner's own cloud_signal_thread (or another

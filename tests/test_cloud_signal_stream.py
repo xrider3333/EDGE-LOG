@@ -325,6 +325,77 @@ def test_disagreement_after_a_live_commit_trips_latch_and_blocks_future_live_com
     assert any("not fired live" in m for m in logs3)
 
 
+# ── ref_price tolerance (2026-09-28, seen live: NOISE_382 @ 1790604600) ───────────────────
+def _ev(ref_price, **kw):
+    ev = {"event": "ENTRY", "side": "short", "ref_time": "2026-09-28T10:15:00-04:00",
+          "ref_price": ref_price, "shares": 2.0, "trade_id": "NOISE_382|x|short",
+          "size": 2.0, "keel_size": 1.0}
+    ev.update(kw)
+    return ev
+
+
+def test_compare_decisions_treats_a_sub_half_cent_ref_price_gap_as_the_same_decision():
+    """The live case: stream 735.66 vs REST 735.6599 for the SAME entry used to read as a
+    DISAGREEMENT. It is a match now, and the detail still names both prices."""
+    match, detail = css.compare_decisions([_ev(735.66)], [_ev(735.6599)])
+    assert match is True, detail
+    assert "735.66" in detail and "735.6599" in detail
+
+
+def test_compare_decisions_still_flags_real_price_and_field_differences():
+    assert css.compare_decisions([_ev(735.66)], [_ev(735.65)])[0] is False, "a full cent is real"
+    assert css.compare_decisions([_ev(735.66)], [_ev(735.6599, side="long")])[0] is False
+    assert css.compare_decisions([_ev(735.66)], [_ev(735.6599, size=3.0)])[0] is False
+    assert css.compare_decisions([_ev(735.66)], [_ev(735.6599, trade_id="other")])[0] is False
+    assert css.compare_decisions([_ev(735.66)], [])[0] is False
+    assert css.compare_decisions([_ev("")], [_ev("")])[0] is True
+
+
+def _close_priced_legs(threshold=THRESHOLD):
+    """Like _legs(), but the entry is priced at the NEWEST bar's close (what the
+    decide_at_close probe does live), so a stream/REST close difference reaches ref_price."""
+    mod = types.ModuleType("cloud_signal_stream_close_priced_stub")
+    mod.STRATEGY_NAME = "CLOSE_PRICED_STUB"
+    mod.DEFAULT_PARAMS = {}
+
+    def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=None,
+                     return_trades=False, **kw):
+        n = len(closes)
+        trades = [(n - 1, n - 1, 0.0, 1, float(closes[n - 1]))] if n and closes[n - 1] > threshold else []
+        return {"trades": trades if return_trades else None, "num_trades": len(trades),
+               "total_pnl": 0.0, "win_rate": 0, "profit_factor": 0, "max_drawdown": 0,
+               "avg_pnl": 0, "wins": 0, "losses": len(trades)}
+
+    mod.run_backtest = run_backtest
+    return {LEG_KEY: {"strategy": mod, "timeframe": "5m", "params": {}, "warmup_sessions": 5}}
+
+
+def test_sub_half_cent_close_gap_after_a_live_commit_is_a_match_and_keeps_the_latch_open(tmp_path):
+    """End to end through the real resolve path: the stream fires live at 710.0, REST's
+    bar says 709.9999 (and a different volume). Before the tolerance this logged a
+    DISAGREEMENT and tripped the day's latch; now it is a MATCH that shows both prices
+    and the ohlc diff, and the latch stays open."""
+    paths, base, bar4_epoch = _setup(tmp_path)
+    _write_handoff(paths, bar4_epoch, close=710.0)
+    now = _now_after(base)
+    css._handle_handoff_window(now, _close_priced_legs(), paths, {"bar_close_from_stream": True},
+                               lambda *_: None)
+    committed = css._load_shadow(paths)[LEG_KEY][str(bar4_epoch)]
+    assert committed["committed_live"] is True
+    assert [e["ref_price"] for e in committed["events"]] == [pytest.approx(710.0)]
+
+    _append_rest_bar(paths, bar4_epoch, close=709.9999)
+    now2 = now + pd.Timedelta(seconds=30)
+    logs = []
+    css._resolve_pending_against_rest(now2, _close_priced_legs(), paths, logs.append)
+
+    assert not any("DISAGREEMENT" in m for m in logs), logs
+    match_lines = [m for m in logs if "shadow MATCH" in m]
+    assert match_lines and "709.9999" in match_lines[0] and "ohlc_diff" in match_lines[0]
+    assert "'volume': -500.0" in match_lines[0], "the volume gap stays visible"
+    assert css._is_disagreement_tripped(paths, LEG_KEY, now2.date().isoformat()) is False
+
+
 def test_stale_stream_never_fires_live_or_shadows(tmp_path):
     paths, base, bar4_epoch = _setup(tmp_path)
     _write_handoff(paths, bar4_epoch, close=710.0, fresh=False)

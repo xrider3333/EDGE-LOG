@@ -474,6 +474,43 @@ WEBULL_KEYS = os.environ.get("EDGELOG_WEBULL_KEYS", r"C:\EdgeLog\webull_keys.jso
 WEBULL_TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_TOKEN_DIR", r"C:\EdgeLog\webull_token")
 WEBULL_TAIL_BARS = 200          # see _fetch_webull
 
+# UNSETTLED BARS (2026-09-28). A fetched row is merged into the cache only if its bar had
+# already CLOSED when the Webull response came back -- or, for the yfinance fallback,
+# closed at least YF_SETTLE_SECONDS before the request went out. step() decides a bar from whatever version the cache
+# holds at close+CLOSE_GRACE_SECONDS, often on a 1s fetch=False tick reading a fetch made
+# up to 30s earlier, and never re-decides it (leg_state["last_bar_epoch"]). Webull returns
+# finished bars only (box caches checked live 2026-09-28: the just-closed bar lands ~6s
+# after the close and never changes), so this is a no-op there. yfinance returns the
+# still-FORMING bar (5m: a growing partial aggregate; 1m: a flat volume-0 placeholder) and
+# keeps revising the newest closed one for ~13-38s, so without this a fallback session
+# decides every bar off a pre-close snapshot. Cost under the fallback: a bar is decided
+# one fetch later (~30-90s), well inside the legs' entry-age grace.
+YF_SETTLE_SECONDS = 60
+_UNSETTLED_DROP_LOGGED = {}     # timeframe -> True while a run of fetches keeps dropping rows
+
+
+def _wall_epoch():
+    """The fetch moment, as POSIX seconds. Its own function so tests can pin it."""
+    return int(_time.time())
+
+
+def _drop_unsettled(fresh, timeframe, settled_by_epoch, source, log=print):
+    """`fresh` minus every row whose bar closes after `settled_by_epoch` (see UNSETTLED
+    BARS above). Logs once per run of dropping fetches, not every 30s."""
+    if fresh is None or not len(fresh):
+        return fresh
+    keep = fresh["time"].astype("int64") + TIMEFRAME_SECONDS[timeframe] <= settled_by_epoch
+    dropped = int((~keep).sum())
+    if not dropped:
+        _UNSETTLED_DROP_LOGGED.pop(timeframe, None)
+        return fresh
+    if not _UNSETTLED_DROP_LOGGED.get(timeframe):
+        _UNSETTLED_DROP_LOGGED[timeframe] = True
+        log(f"[cloud-signal] {source} {timeframe}: left {dropped} not-yet-settled bar(s) out of "
+            f"the cache (newest {int(fresh['time'].max())}); they merge once settled "
+            f"(logged once until a fetch drops nothing)")
+    return fresh[keep].reset_index(drop=True)
+
 
 def _fetch_webull(timeframe, count=WEBULL_TAIL_BARS, log=print):
     """Recent QQQ bars from the official Webull OpenAPI, in this module's epoch schema,
@@ -587,14 +624,26 @@ def fetch_and_merge(timeframe, paths=None, log=print):
     old = load_cached_bars(timeframe, paths)
     if old is None:
         old = pd.DataFrame(columns=["time", "open", "high", "low", "close", "volume"])
+    # Settled-by cutoff per source (see UNSETTLED BARS above _wall_epoch). Webull: the
+    # RESPONSE time -- it never serves a forming bar, so a bar that finished while the
+    # request was in flight is final and is kept (the fetch phase drifts against the 5m
+    # grid, so a request can start a second or two before a close), and a forming row
+    # would still close after the response and be dropped. yfinance: the REQUEST-start time
+    # minus the settle margin, since it serves forming bars and revises the newest closed one.
     fresh = _fetch_webull(timeframe, log=log)
+    settled_by = _wall_epoch()
     source = "webull"
     if fresh is None or not len(fresh):
         log(f"[cloud-signal] falling back to yfinance for {timeframe} bars")
+        settled_by = _wall_epoch() - YF_SETTLE_SECONDS
         fresh_df = qp._fetch_yf(timeframe)
         fresh = qp._to_epoch_frame(fresh_df)
         source = "yfinance"
-    merged = pd.concat([old, fresh], ignore_index=True)
+    fresh = _drop_unsettled(fresh, timeframe, settled_by, source, log=log)
+    # concat only non-empty frames: an all-dropped fetch is routine under the yfinance
+    # fallback, and concatenating an empty frame raises pandas' FutureWarning
+    parts = [f for f in (old, fresh) if f is not None and len(f)]
+    merged = pd.concat(parts, ignore_index=True) if parts else old
     if len(merged):
         merged = merged.drop_duplicates("time", keep="last").sort_values("time")
     # ATOMIC (2026-09-09): to_csv() TRUNCATES then writes, so a reader that opens the file
