@@ -1,0 +1,22 @@
+PRE-REGISTRATION ADDENDUM - TRANSFER r1b: ORB #314 unchanged on RTY and YM (2 extra cells)
+==========================================================================================
+Written 2026-09-28 by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane at MANAGER's request (inbox #7, from the
+ORB lane's rounds 61-62: "the one ORB idea with a real prior left is #314 unchanged on RTY and YM 5m"), BEFORE any
+RTY or YM data exists on the machine. PREREG_TRANSFER_R1.txt (sha256 566d2405...ec75) is NOT changed; every rule,
+window, yardstick, stage and data gate in it applies to these two cells unless stated here.
+
+CELLS: ORB = run #314, file ORB_3_6_R6.py unchanged at #314's settings (listed in r1 section 1), one contract,
+5-minute bars, on:
+  RTY  CME E-mini Russell 2000   multiplier 50   tick 0.10   cost_pts 0.2132  ($10.66 a round trip)
+  YM   CBOT E-mini Dow ($5)      multiplier 5    tick 1.0    cost_pts 2.132   ($10.66 a round trip)
+(house cost rule: $5.66 round-trip commission / multiplier + 1 tick). NOISE and TTM are NOT added.
+
+DATA: Databento GLBX.MDP3 ohlcv-1m, parent symbology RTY.FUT and YM.FUT, same dates and delivery as r1; same front-month
+rule and roll tables; the raw stitch, like the NQ crown (db_noadj_rth). Session = 09:30-16:00 ET (the equity-index
+RTH the crown uses on NQ; NinjaTrader "CME US Index Futures RTH"), bars anchored at 09:30.
+RTY exists on CME only since July 2017 (Russell futures traded on ICE 2008-2017), so RTY has NO EARLY stretch: its WF
+runs from its first session with full warm-up to the lockbox start, and r1's Stage A item h (EARLY net > 0) applies
+to YM only.
+
+BAR: r1's Stage A unchanged, including t >= 2.64 (conservative for 2 cells), Stage B and Stage C (vs BOOK #463).
+These 2 cells are reported beside r1's 12 as one table.

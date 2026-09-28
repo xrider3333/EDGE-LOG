@@ -11,7 +11,7 @@ touched by Claude.
 |---|---|
 | Dataset | `GLBX.MDP3` (CME Globex MDP 3.0 - covers CME, CBOT, NYMEX, COMEX) |
 | Schema | `ohlcv-1m` (1-minute open/high/low/close/volume, trade-based) |
-| Symbols | `ZN.FUT`, `6E.FUT`, `CL.FUT`, `GC.FUT` |
+| Symbols | `ZN.FUT`, `6E.FUT`, `CL.FUT`, `GC.FUT`, plus `RTY.FUT` and `YM.FUT` (added 2026-09-28, MANAGER inbox #7 - ORB #314 cells, `PREREG_TRANSFER_R1B.txt`; RTY exists on CME only since July 2017) |
 | Symbology | `stype_in = parent` (every contract month + calendar spreads), `stype_out = instrument_id` |
 | Dates | start 2010-06-06 00:00 UTC (the dataset's first day, same as the June ES/NQ order) -> end 00:00 UTC on the order day |
 | Delivery | batch download, CSV, zstd compression (same price, ~10x less disk), split by symbol (one file per contract), `map_symbols` on, `pretty_px` on |
@@ -30,18 +30,19 @@ Prices keep full tick precision (6E 0.00005, ZN 1/64); the June tool's 4-decimal
 are registered only under the new instrument names, after checking that no unpinned lookup re-points.
 
 **Sessions** (the owner's NinjaTrader 8 templates): ZN 08:20-15:00 ET, 6E 08:20-15:00 ET, CL 09:00-14:30 ET,
-GC 08:20-13:30 ET; 5-minute and 30-minute bars anchored at the session open.
+GC 08:20-13:30 ET; RTY and YM 09:30-16:00 ET (the equity-index clock the ORB crown uses on NQ); 5-minute and
+30-minute bars anchored at the session open.
 
 **Contract economics** (house cost = $5.66 round-trip commission + 1 tick): ZN $1,000/pt, tick 1/64 = $15.625,
 cost $21.29; 6E $125,000/pt, tick 0.00005 = $6.25, cost $11.91; CL $1,000/pt, tick 0.01 = $10, cost $15.66;
-GC $100/pt, tick 0.10 = $10, cost $15.66.
+GC $100/pt, tick 0.10 = $10, cost $15.66; RTY $50/pt, tick 0.10 = $5, cost $10.66; YM $5/pt, tick 1 = $5, cost $10.66.
 
 ## 2. The exact price (Databento's public pricing page, read 2026-09-28)
 
 | Route | Price | Source |
 |---|---|---|
-| Pay-as-you-go (usage-based) | **$434.13** for the whole order (6.7 GB): CL $323.54 · GC $57.68 · 6E $28.30 · ZN $24.61 | pricing-page estimator: CME, OHLCV-1m, "Entire history" 2010-06-06 -> 2026-09-27 (5,958 days), "No subscription required"; OHLCV-1m rate **$70.00 per GB** |
-| **Standard CME plan (recommended)** | **$199 for one month**, then cancel | pricing page: "$199 per month · Monthly subscription · No license fees · 16+ years of L0 history"; L0 = "Aggregate bars (OHLCV-1s/1m/1d/1h), instrument definitions, statistics, status" |
+| Pay-as-you-go (usage-based) | **$434.13** for the four markets (6.7 GB): CL $323.54 · GC $57.68 · 6E $28.30 · ZN $24.61; **+$36.97 for RTY + YM** (567 MB: YM $23.76, RTY $13.21) = **$471.10** in all | pricing-page estimator: CME, OHLCV-1m, "Entire history" 2010-06-06 -> 2026-09-27 (5,958 days), "No subscription required"; OHLCV-1m rate **$70.00 per GB** |
+| **Standard CME plan (recommended)** | **$199 for one month**, then cancel - covers all six markets, RTY and YM add nothing | pricing page: "$199 per month · Monthly subscription · No license fees · 16+ years of L0 history"; L0 = "Aggregate bars (OHLCV-1s/1m/1d/1h), instrument definitions, statistics, status" |
 
 - The per-market split is the difference between the estimator's running totals as each market was added. CL is
   most of the bill because the parent symbol brings every monthly contract and spread it has ever listed.
