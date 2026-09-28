@@ -2806,10 +2806,21 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
     book_pnl = sum(leg_reports[k]["pnl_usd"] * w for k, w in _BOOK.items() if k in leg_reports)
     book_block = {"pnl_usd": book_pnl, "weights": _BOOK, "source_run": 463,
                   "name": "BOOK #449 (fixed-TTM re-run #463): ORB 234 + ENGU-Q 335 + 3 ES of TTM 369/459 + NOISE 422"}
+    # SHADOW BOOK from 2026-09-29 (owner "shadow TTM KEEL" via MANAGER, 2026-09-28): the adopted #463 with its TTM
+    # leg swapped for TTM_458_KEEL (roll-safe TTM #458 at its own 3/4/7 x KEEL v12 frozen at 2025-07-01). Reported
+    # beside the book every night, NEVER the book figure; Custom ML pre-registers the bar it is judged on. Backtest
+    # read (MANAGER #28): ROC at a $30k worst drawdown valued daily, walk-forward 118.5 vs #463's 93.3 and lockbox
+    # 187.7 vs 164.8 - but the lockbox is 12 TTM trades and KEEL v12 was designed after that year was visible.
+    _BOOK_SHADOW = {"ORB": 1.0, "ENGUQ_335": 1.0, "TTM_458_KEEL": 1.0, "NOISE_422": 1.0}
+    shadow_block = {"pnl_usd": sum(leg_reports[k]["pnl_usd"] * w for k, w in _BOOK_SHADOW.items() if k in leg_reports),
+                    "weights": _BOOK_SHADOW, "base_run": 463,
+                    "missing": [k for k in _BOOK_SHADOW if k not in leg_reports],
+                    "name": "SHADOW: #463 with TTM #458 KEEL in place of 3 ES of TTM 369/459"}
     report = {
         "legs": leg_reports,
         "blend": {"pnl_usd": blend_pnl},
         "book": book_block,
+        "book_shadow": shadow_block,
         "live": collect_live_fills(target_date),   # Layer 1: NT demo fills, unattributed
         "status": "runner_done",
         "run_date": target_date.isoformat(),
