@@ -42,8 +42,8 @@ the July hole filled from the NinjaTrader capture; 2026-04-07 to 2026-09-25, 122
 
 **Reading:** no coded rule is at "most of your setups at 2-3 alerts a day". The CBU rules ring at the right rate
 but miss three in four of your CBU trades, partly because half your CBU trades come after their morning window.
-The ENGU trigger fires on the right candle half the time, but you pick about one in forty of its candles: the
-filter is the levels and context you judge by eye, which are not coded. An alert is only worth building if those
+The ENGU trigger fires on the right candle half the time, but on your trading days you took only about 1 in 25
+of the candles it flagged: the filter is the levels and context you judge by eye, which are not coded. An alert is only worth building if those
 levels can be written down (owner calls below).
 
 ## The short version
