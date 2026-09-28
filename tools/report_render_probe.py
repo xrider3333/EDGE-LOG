@@ -212,7 +212,21 @@ var CASES=__CASES__, FIX=__FIX__;
           out.renderApp=typeof w.renderApp;
           hook(w);}catch(e){out.err=String(e);}
       if(out.renderApp!=='function'){finish('noboot');return;}
-      runCase(0);
+      // WAIT FOR FIREBASE AUTH TO SETTLE, THEN KEEP IT OFF THE PAGE (2026-09-28). With no
+      //   signed-in user, onAuthStateChanged paints the SIGN IN screen over whatever is on the
+      //   page whenever its round-trip lands. When it landed mid-run it replaced the cols-2
+      //   report and read as "no #res-detail card" - INCONCLUSIVE every time, and a failed
+      //   SELFTEST that blocked the v73.940 ship. Wait for that screen (up to 12s), then make
+      //   renderAuth a no-op so a late callback cannot paint over a case.
+      var _a0=Date.now();
+      (function waitAuth(){
+        var fd=document.getElementById('f').contentDocument;
+        if(!(fd&&fd.getElementById('tsu'))&&Date.now()-_a0<12000){setTimeout(waitAuth,100);return;}
+        out.authSettled=!!(fd&&fd.getElementById('tsu'));
+        try{document.getElementById('f').contentWindow.eval('renderAuth=function(){};');out.authStub=true;}
+        catch(e){out.authStub=String(e);}
+        runCase(0);
+      })();
     },2500);
   });
   setTimeout(function(){finish('backstop');},40000);
