@@ -134,6 +134,7 @@ LEG_LIVE_FROM = {
     "TTM_299_SSL": "2026-09-24",  # the structural stop at the LOOSER verification length (run 352) - 41 trades a year
     "TTM_299_SSOF2R": "2026-09-28",  # run 369 with the ROLL GUARD, at 369s own cell - shadow beside TTM_299_SSOF2
     "TTM_299_SSOF2R5": "2026-09-28", # the ROLL GUARD at run 428s crowned cell (entry cutoff 5) - the STAGED book leg
+    "TTM_458_KEEL": "2026-09-29",    # SHADOW: roll-safe TTM #458 (3/4/7) x KEEL v12 frozen at 2025-07-01 (owner via MANAGER 09-28)
     "NOISE_SBS_V90_C15G": "2026-09-09", # raw x compression 1.5x on the VALIDATED gate (30m / len 16 / ratio 1.15, run 333) - owner ask 2026-09-08
     "NOISE_SBS_V90_K12": "2026-09-09", # KEEL v12 = v11 x HALF SIZE before the FOMC statement (the Fed's own calendar)
     "ORB_R6_C15FE": "2026-09-09",     # ORB crown x compression x Friday x FOMC-morning 0.5x (the event hole is not NOISE-only)
@@ -772,12 +773,24 @@ TTM_299_SSL = dict(kc_mult=1.5, eod_cutoff=1, gate_len=16)
 #   TTM_299_SSOF2R  - run 369s own cell (entry cutoff 1): 355 trades / $121,491 / PF 2.789, the audit to
 #                     the dollar. The matched control for TTM_299_SSOF2 - they differ ONLY in the guard.
 #   TTM_299_SSOF2R5 - run 428s crowned cell (cutoff 5): 246 / $119,588 / PF 3.46. Run 428 PASSED 6/6 with
-#                     overfit probability 0.036; it is the STAGED book leg (see _TTM_BOOK_SWITCH below).
+#                     overfit probability 0.036. Staged as the book leg at 3/4/7 and NOT adopted: inside
+#                     BOOK #463 it held the drawdown but earned less (run #468, 2026-09-28).
 # Forward, the two guarded legs trade exactly like 369 until a switch falls inside a lookback window -
 # the next is the December 2026 roll, and the switch table must carry it before then (its raw rows end
 # 2026-06; later rows are estimates and the file ignores them). FORWARD EVIDENCE ONLY.
 TTM_299_SSOF2R = dict(kc_mult=1.5, eod_cutoff=1)
 TTM_299_SSOF2R5 = dict(kc_mult=1.5, eod_cutoff=5)
+
+# SHADOW TTM KEEL (added 2026-09-28, owner via MANAGER inbox #17). The roll-safe TTM #458 leg - already
+# sized 3 / 4 / 7 whole ES contracts by TTMSQZ_3_0_ES30SSOF2R347.py - with Custom ML's KEEL v12 sizing on
+# top, frozen exactly as Custom ML scored it and Frontier judged it (#28): causal KEEL walk on the trades
+# before 2025-07-01, every trade from then on scored by that frozen state (api/paper_gate.py keel_frozen).
+# Owner yardstick on the export: WF 32.9 vs 29.1 %/yr at a $30k drawdown, Sortino 2.73 vs 2.40; lockbox 12
+# trades only. The adopted BOOK #463 does NOT change; Frontier reads this leg for a shadow book line.
+# Carry it at WEIGHT 1.0 - the file already holds the 3/4/7 contracts. FORWARD EVIDENCE ONLY.
+TTM_458 = dict(kc_mult=1.5, eod_cutoff=5)
+TTM_458_KEEL_GATE = {"mode": "keel_frozen", "model": "keel", "version": "v12", "seed": 42,
+                     "freeze_from": "2025-07-01", "source_run": 458}
 
 NOISE_243_COMP15G = {"mode": "comp", "model": "compression", "mult": 1.5,
                      "gate_tf_min": 30, "gate_len": 16, "gate_ratio": 1.15, "source_run": 243}
@@ -1276,6 +1289,13 @@ LEG_SOURCE = {
                 "TTM_299_SS is the exact matched control. Reported per one contract; the deep-squeeze and "
                 "open-bar tilts multiply, so the leg trades a 1.0 / 1.5 / 2.25 ladder.",
     },
+    "TTM_458_KEEL": {
+        "run": 458, "run_label": "#458 (TTM-ES30SSOF2R347) roll-safe TTM at 3/4/7 x KEEL v12 frozen - SHADOW",
+        "strategy_file": "TTMSQZ_3_0_ES30SSOF2R347.py", "picked": "2026-09-28",
+        "note": "Roll-safe TTM run 458, already sized 3 / 4 / 7 whole ES contracts, with Custom ML KEEL v12 "
+                "sizing frozen at 2025-07-01 - the config Frontier judged beside the adopted book. The book "
+                "(#463) does not carry it; this is a shadow for forward evidence. Reported at its own contracts.",
+    },
     "TTM_299_SSOF2R": {
         "run": 369, "run_label": "#369 cell with the roll guard (TTM-ES30SSOF2R)",
         "strategy_file": "TTMSQZ_3_0_ES30SSOF2R.py", "picked": "2026-09-27",
@@ -1764,6 +1784,13 @@ PAPER_LEGS = [
      "timeframe": "30m", "session": "rth", "params": TTM_299_SSOF2R5,
      "cost_pts": _ES_COST_PTS, "mult": _ES_MULT, "px_tuple6": True,
      "source": LEG_SOURCE["TTM_299_SSOF2R5"]},
+    # SHADOW TTM KEEL (2026-09-28): see TTM_458_KEEL_GATE. Full history so the frozen KEEL state is built
+    # on the same pre-2025-07-01 trades Custom ML scored.
+    {"key": "TTM_458_KEEL", "strategy": "TTMSQZ_3_0_ES30SSOF2R347.py", "instrument": "ES",
+     "timeframe": "30m", "session": "rth", "params": TTM_458,
+     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT, "px_tuple6": True, "book_weight": 1.0,
+     "gate": TTM_458_KEEL_GATE, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["TTM_458_KEEL"]},
     # ADDED 2026-09-08 (owner): the validated-gate tilt leg beside C15. FORWARD EVIDENCE ONLY.
     {"key": "NOISE_SBS_V90_C15G", "strategy": "NOISE_1_0.py", "instrument": "NQ",
      "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
@@ -2175,36 +2202,6 @@ def _extract_trades(leg, arrays, sized, key=None):
 
 
 # ── per-leg shadow run ────────────────────────────────────────────────────────────
-# THE STAGED BOOK SWITCH (2026-09-28). False = the book figure is unchanged (run 369 at 3x). True = the
-# book carries the roll-guarded leg (run 428) at 3 / 4 / 7 contracts. Flip ONLY on the owner confirm.
-# Backtest before / after, tools/ttmsqz_r18b_stage_numbers.py: TTM leg $407,653 MAR 1.83 (369 raw, 3x,
-# includes fake roll-day trades) -> $358,610 MAR 1.39 (428, 3/4/7); paper book figure lockbox
-# $246,409 -> $245,820 at an identical lockbox drawdown of $22,226.
-_TTM_BOOK_SWITCH = False
-_TTM_LADDER = {1.0: 3, 1.5: 4, 2.25: 7}   # the trade own size -> whole ES contracts (round 18a)
-
-
-def _ttm_ladder_usd(trades, cost=None, mult=None):
-    """Dollars for a TTM leg day at 3 / 4 / 7 whole contracts. Each trade size is recovered from its
-    own numbers - the leg returns the sized move net of cost, s * (raw - cost) - and snapped to the
-    ladder; a trade whose raw move exactly equals the cost is worth nothing at any size."""
-    cost = _ES_COST_PTS if cost is None else cost
-    mult = _ES_MULT if mult is None else mult
-    total = 0.0
-    for t in trades:
-        raw = t.get("raw_pts")
-        if raw is None:
-            total += 3.0 * float(t.get("pnl_usd") or 0.0)     # no raw move recorded: fall back to 3x
-            continue
-        net1 = float(raw) - cost
-        if abs(net1) < 1e-9:
-            continue
-        s = float(t.get("pnl_usd") or 0.0) / mult / net1
-        c = _TTM_LADDER[min(_TTM_LADDER, key=lambda k: abs(k - s))]
-        total += c * net1 * mult
-    return total
-
-
 def run_shadow(leg, today):
     """Re-run one crowned leg on master + fresh-tail data. Never raises.
 
@@ -2809,24 +2806,10 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
     book_pnl = sum(leg_reports[k]["pnl_usd"] * w for k, w in _BOOK.items() if k in leg_reports)
     book_block = {"pnl_usd": book_pnl, "weights": _BOOK, "source_run": 463,
                   "name": "BOOK #449 (fixed-TTM re-run #463): ORB 234 + ENGU-Q 335 + 3 ES of TTM 369/459 + NOISE 422"}
-    # STAGED, NOT SWITCHED (2026-09-28, owner via MANAGER: stage, flip only on confirm). The same two NQ
-    # legs plus the ROLL-GUARDED TTM leg at run 428s cell, sized 3 / 4 / 7 whole ES contracts by the
-    # trade own size (1.0 / 1.5 / 2.25) instead of a flat 3 x the ladder. It is reported every night as
-    # book_staged so it gathers forward evidence; setting _TTM_BOOK_SWITCH makes it THE book figure.
-    staged_pnl = sum(leg_reports[k]["pnl_usd"] for k in ("ORB", "ENGUQ_309") if k in leg_reports)
-    if "TTM_299_SSOF2R5" in leg_reports:
-        staged_pnl += _ttm_ladder_usd(leg_reports["TTM_299_SSOF2R5"].get("_trades") or [])
-    staged_block = {"pnl_usd": staged_pnl, "weights": {"ORB": 1.0, "ENGUQ_309": 1.0,
-                                                       "TTM_299_SSOF2R5": "3/4/7 contracts"},
-                    "source_run": 428, "switched": _TTM_BOOK_SWITCH,
-                    "name": "ORB 234 + ENGU-Q 309 + roll-guarded TTM (run 428) at 3 / 4 / 7 ES"}
-    if _TTM_BOOK_SWITCH:
-        book_block = dict(staged_block, previous=book_block)
     report = {
         "legs": leg_reports,
         "blend": {"pnl_usd": blend_pnl},
         "book": book_block,
-        "book_staged": staged_block,
         "live": collect_live_fills(target_date),   # Layer 1: NT demo fills, unattributed
         "status": "runner_done",
         "run_date": target_date.isoformat(),

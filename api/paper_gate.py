@@ -164,6 +164,44 @@ def apply_gate(arrays, trades, gate):
             info.update({"ok": False, "n_kept": len(ordered), "n_skipped": 0, "n_warmup": None, "avg_size": 1.0})
             info["warnings"].append("gate did not run - leg fell back to UNGATED")
             return [(t, 1.0) for t in ordered], info
+    if mode == "keel_frozen":
+        # KEEL FROZEN AT A DATE (2026-09-28, TTM_458_KEEL shadow, owner via MANAGER). The exact recipe
+        # Custom ML scored and Frontier judged (tools/book_legs_export/step7_ttm458.py): trades entered
+        # before gate["freeze_from"] are sized by the causal KEEL walk over those trades alone; every
+        # trade from that date on - the lockbox and everything forward - is scored by the state built on
+        # the pre-freeze trades, which never learns again. Falls back to UNGATED if anything fails.
+        try:
+            import pandas as pd
+            from augur_engine import ml_keel
+            ver = str(gate.get("version") or "v12"); seed = int(gate.get("seed") or 42)
+            idx = pd.DatetimeIndex(arrays["index"])
+            f0 = pd.Timestamp(gate["freeze_from"])
+            if idx.tz is not None and f0.tzinfo is None:
+                f0 = f0.tz_localize(idx.tz)
+            ets = [idx[min(int(t[0]), len(idx) - 1)] for t in ordered]
+            pre = [t for t, e in zip(ordered, ets) if e < f0]
+            feats = ml_keel.keel_features(arrays)
+            w_pre = np.asarray(ml_keel.keel_walk(arrays, pre, feats=feats, seed=seed, version=ver)["size"], float) if pre else np.zeros(0)
+            state = ml_keel.keel_build_state(arrays, pre, feats=feats, seed=seed, version=ver)
+            w_post = [float(ml_keel.keel_score_from_state(state, arrays, entry_bar=int(t[0]), feats=feats,
+                                                          cross_series=False)[0])
+                      for t, e in zip(ordered, ets) if e >= f0]
+            w = np.concatenate([w_pre, np.asarray(w_post, float)])
+            if len(w) != len(ordered):
+                raise ValueError("keel_frozen size vector length mismatch")
+            kept = [(ordered[i], float(w[i])) for i in range(len(ordered))]
+            info.update({"ok": True, "n_kept": len(kept), "n_skipped": 0, "n_warmup": 0,
+                         "skipped_pnl_pts": 0.0, "keel_version": ver, "freeze_from": str(gate["freeze_from"]),
+                         "n_frozen_scored": len(w_post),
+                         "avg_size": round(float(w.mean()), 3), "max_size": round(float(w.max()), 3),
+                         "size_last": round(float(w[-1]), 3)})
+            return kept, info
+        except Exception as e:
+            info["warnings"].append(f"keel_frozen failed: {type(e).__name__}: {e}")
+            info.update({"ok": False, "n_kept": len(ordered), "n_skipped": 0,
+                         "n_warmup": None, "avg_size": 1.0})
+            info["warnings"].append("gate did not run - leg fell back to UNGATED")
+            return [(t, 1.0) for t in ordered], info
     if mode == "keel":
         # KEEL (augur_engine/ml_keel.py, 2026-09-06): every trade is taken; the size is the
         # skill-gated expectancy tilt's own output. No size_norm / recycle: the tilt is mean-1
