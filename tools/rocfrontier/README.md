@@ -21,6 +21,7 @@ read and can run any time.
 - `rebal_intraday.py` — where inside the day the month-end flow lands (spread across the session, not a closing-hour flow).
 - `engudq_regime.py` — regime-gated ENGU-Q short mirror, pre-lockbox only (loads the frozen `ENGUDQ_1M_ETH_1_0.py` copy in the cache).
 - `spread_r1.py` — SPREAD r1: NQ vs ES dollar-neutral relative value, 12 pre-registered cells (`PREREG_SPREAD_R1.txt`), pre-lockbox only.
+- `PREREG_TRANSFER_R1.txt` + `DATABENTO_TRANSFER_R1.md` — TRANSFER r1 (2026-09-28, pre-registered, not run): ORB / NOISE / TTM crowns unchanged on ZN / 6E / CL / GC; the Databento data spec, exact price and the owner's account/key steps.
 - `seam_leg.py` — contract-roll stitch P&L crossed inside a multi-day leg's trades.
 - `rank.py` — ranks runs_roc.json by walk-forward ROC/yr.
 - `rank_ml.py` — ranks runs_ml.json (tilts/keel/hybrids) by walk-forward ROC/yr.

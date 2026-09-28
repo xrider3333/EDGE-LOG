@@ -1,0 +1,108 @@
+PRE-REGISTRATION - TRANSFER r1: the ORB, NOISE and TTM crowns, UNCHANGED, on ZN / 6E / CL / GC 1-minute data
+===========================================================================================================
+Written 2026-09-28 by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane BEFORE any of this data exists on the
+machine (owner decision 2026-09-28 via MANAGER, inbox #5: Databento transfer test, "Step 1 only").
+Data spec, price and the owner's account/key steps: DATABENTO_TRANSFER_R1.md (same folder).
+Nothing below may change once the data arrives. Any change = a new pre-registration (r2) with its own file and hash.
+Results will go to C:\EdgeLog\_anatomy_cache\rocfrontier\r3\ (outside git) and RESEARCH_LEDGER.md row 2.29.
+
+0. QUESTION
+Do the three house crown mechanisms earn after costs on four liquid CME markets they were never tuned on, with
+every setting unchanged? The frontier book can only move with a new low-correlation leg (ROC hunt 2026-09-24,
+book round 58); a yes gives candidate legs, a no closes the transfer idea for these three families.
+
+1. CELLS - 3 strategies x 4 markets = 12 cells. ONE contract. No size tilts, no ML, no KEEL, no extra filters.
+ORB   = run #314, the owner's crown (2026-09-28). File ORB_3_6_R6.py (mechanism ORB_3_6.py), unchanged.
+        #314's settings: or_bars 2, trade_mode First-candle dir, stop_frac 2.5, breakout_buf 0.25,
+        close_confirm on, partial_exit_R 0, trail_bars 0, be_after_R 0.5, target_R 5.0, atr_filter 0.75,
+        vpace_filter 0.8, flat_eod on, skip_holidays on. 5-minute bars.
+NOISE = the raw core of the book's NOISE leg (#422 = this core + an hourly-compression size tilt).
+        File NOISE_1_1_NBHD.py, unchanged, at run #304's champion (the _FROZEN block of NOISE_1_8_CT304H.py):
+        lookback 40, band_mult_long 0.75, band_mult_short 1.5, exit_mode vwap, side Both, window all_day,
+        flat_eod on, skip_holidays off, stop_mode bandwidth, stop_k 1.75, confirm_bars 1,
+        daytype_mode skip_bot_short, daytype_lo 0.2, daytype_hi 0.8, vol_skip_pct 95. 5-minute bars.
+        (The #422 tilt file hard-codes the NQ cost 0.533 and refuses any other, and a size tilt must beat its
+        raw twin under the owner rule, so the tilt is outside this test.)
+TTM   = the raw core of the book's TTM leg #458 (TTMSQZ_3_0_ES30SSOF2R347.py): the same file stack
+        (R347 -> OF2R roll guard -> OF2 fade 2 -> SSO -> SS structural stop) at #458's settings kc_mult 1.5,
+        eod_cutoff 5 (gate_len 20 and fade_bars 2 are frozen inside the stack). A thin transfer wrapper changes
+        ONLY: the deep-squeeze tilt _TILT_MULT 1.5 -> 1.0, the open-bar tilt _OPEN_MULT 1.5 -> 1.0, the 3/4/7
+        contract ladder -> 1 contract, the cost constant _COST_PTS 0.363 -> the market's cost below, and the
+        roll table rolls_ES.csv -> rolls_<ROOT>.csv built from this data. 30-minute bars.
+        Wrapper acceptance: with the ES constants and both tilts restored it must reproduce
+        TTMSQZ_3_0_ES30SSOF2R.py on the ES 30m RTH master to the cent before it runs on anything else.
+
+2. MARKETS, SESSIONS, COSTS
+ZN (CBOT 10-Year T-Note), 6E (CME Euro FX), CL (NYMEX WTI crude oil), GC (COMEX gold).
+Databento GLBX.MDP3, ohlcv-1m, parent symbology, 2010-06-06 -> the order date (DATABENTO_TRANSFER_R1.md).
+Front month = the house rule (tools/stitch_databento.py): daily volume dominance, forward-only, contracts keyed
+by instrument_id, calendar spreads dropped, switch at the UTC day boundary (outside every window below).
+ORB and NOISE read the raw (unadjusted) stitch, like their crowns (db_noadj_rth). TTM reads the raw stitch
+through its own roll guard fed by the exact roll table, like its crown.
+RTH windows = the owner's NinjaTrader 8 session templates (the platform he would trade them on):
+  ZN 08:20-15:00 ET (CBOT Interest Rate RTH)     6E 08:20-15:00 ET (CME FX Futures RTH)
+  CL 09:00-14:30 ET (Nymex Energy RTH)           GC 08:20-13:30 ET (Nymex Metals RTH2 = COMEX gold)
+Weekdays only. Bars anchored at the session open. Short sessions kept; each file's own holiday logic applies.
+Economics (house cost rule: $5.66 round-trip commission / multiplier + 1 tick of slippage):
+  market  multiplier  tick       cost_pts     $ per round trip
+  ZN      1,000       0.015625   0.021285     21.29
+  6E      125,000     0.00005    0.00009528   11.91
+  CL      1,000       0.01       0.01566      15.66
+  GC      100         0.10       0.1566       15.66
+
+3. WINDOWS (pinned by calendar; END = the last complete RTH session in the delivered data)
+EARLY = the first session with full warm-up -> 2016-06-30. Out-of-sample for these markets; sign check only.
+WF    = 2016-07-01 -> LB_START minus one day (the calendar split the crowns' walk-forward used). Nothing is
+        fitted, so every WF trade is out-of-sample.
+LB    = the 12 calendar months ending END. SEALED: no script prints, plots or sums anything inside it until
+        Stage A is written to the ledger, and then only for cells that passed Stage A.
+
+4. YARDSTICK (owner rule 2026-09-28): ROC %/yr at a $30,000 worst drawdown, drawdown valued daily
+= 30 x MAR, where MAR = (net per year) / (worst drawdown of the daily equity curve). One contract, costs in,
+WF and LB shown separately. All three strategies are flat at every close, so the daily curve is exact.
+Sortino = the house (RUNBOARD) definition on daily P&L.
+
+5. STAGE A - a cell PASSES only if ALL of these hold on the WF stretch:
+  a. >= 100 trades (owner minimum)
+  b. ROC @ $30k DD >= 15 %/yr (MAR >= 0.50; about two-thirds of ORB #314's expected ~22 %/yr on NQ, the
+     weakest crown at home)
+  c. profit factor >= 1.10
+  d. t-stat of the mean daily P&L (every session day, flat days = 0) >= 2.64 (one-sided 5%, Bonferroni over 12)
+  e. net > 0 with one extra tick of cost per round trip
+  f. still profitable without its single biggest trade
+  g. positive in >= 60% of its WF calendar years
+  h. EARLY stretch net > 0
+Reported, never a pass route: per-strategy Stouffer Z over the 4 markets; every cell on the NQ clock
+(09:30-16:00 ET) for all four markets; ORB and NOISE on back-adjusted masters; each cell's daily correlation
+with BOOK #463's legs.
+ZERO passes -> TRANSFER r1 DEAD: ledger + memory, the lockbox stays sealed (usable by a future
+pre-registered test), stop.
+
+6. STAGE B - the lockbox, opened ONCE per Stage-A pass, in one scripted read:
+  LB >= 50 trades (owner minimum; TTM exempt - at ~12-15 trades a year it is judged only inside a book, as on ES),
+  LB net > 0, and still profitable without its single biggest trade. LB ROC @ $30k DD reported.
+
+7. STAGE C - book test for Stage-B survivors: each survivor added at ONE contract, weight 1.0 (no weight search;
+book round 56: re-weighting has no forward skill) to BOOK #463 (the adopted #449 on the fixed legs), plus one
+book with every survivor. A book passes only if it beats #463 on ROC @ $30k DD in BOTH WF and LB AND on
+Sortino in both, with its LB still profitable without its single biggest trade. A pass goes to MANAGER for the
+owner's call; nothing is adopted automatically.
+
+8. AUTO-VALIDATE (the original owner ask, 2026-09-24: "if something promising comes up, auto validate it"):
+after Stage B is written, each Stage-B survivor gets ONE Auto-Validate at the 900-trial budget on its new master
+with the crown file's own open ranges (TTM: the transfer wrapper's parent ranges, tilts still off), this window
+and this lockbox. Evidence only (PBO, fold record, plateau). It cannot rescue a failed cell, and no re-tuned
+setting enters Stage C in this round.
+
+9. DATA GATES before any strategy runs (a failure stops the test and is reported, never worked around):
+  - <= 1% of the expected RTH 5-minute bars missing per market; no in-RTH contract change in any session;
+  - every roll switch has an exact offset (a minute where both contracts traded) and falls outside RTH;
+  - prices kept at full tick precision (6E 0.00005, ZN 1/64); the June stitch tool's 4-decimal rounding is not
+    reused;
+  - 10 random sessions per market match an independent source (NinjaTrader historical bars for the same
+    contract) within one tick;
+  - masters registered under the NEW instrument names only, after checking that no unpinned lookup re-points
+    (the 2026-09 adjusted-masters incident).
+
+10. SCOPE: no other markets, strategies, settings, sessions, bar sizes, filters or costs. Anything else is a new
+pre-registration.
