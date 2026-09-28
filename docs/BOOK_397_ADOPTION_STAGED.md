@@ -69,6 +69,12 @@ Sortino uses daily at-close book P&L on $100k, every weekday counted, times the 
 - Both worst stretches are the same Feb-Mar 2020 crash (2020-02-25 to 2020-03-27).
 - The stored figures are on the no-adjust masters. Read the roll-corrected rows (ROLL_AUDIT.md; BOOK.md 10i).
 
+**CORRECTION 2026-09-28 - read BOOK.md 10m first.** The TTM stop bug (b3242e77) inflated every book above
+that carries a structural-stop TTM leg. Re-run on the fixed files, #437 (#397's twin) reads 80.8 / 256.3 %/yr
+against #435 (#366's twin) 79.4 / 252.1. The advantage section 4 describes has mostly gone, and #437 fails the
+lockbox concentration clause against #449. The staged flip below is unchanged and still ready, but its
+evidence is weak.
+
 ## 5. The TTM chat's staged leg, as variants on #437
 
 All variants swap only the TTM leg of #437. The #437 TTM leg (the #369 cell on the back-adjusted master)

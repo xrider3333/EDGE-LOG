@@ -1180,6 +1180,36 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10m. The candidate books re-run on the FIXED TTM files (2026-09-28)
+
+**What.** The TTM chat found a stop bug: every structural-stop TTM file booked an entry-bar exit at a price
+the bar never traded when the open gapped past the stop. The trades hit were all profits, 17 of 354 on #369.
+It is fixed on main in b3242e77. TTM legs #369, #428 and #455 are VOID; the fixed legs are re-validated as
+#459 (#369) and #458 (#455), both PASS. Every book below was re-queued with its job legs verbatim on the
+fixed files. The runner equals this chat's local re-read to the dollar on all seven, and every ENGU-Q leg is
+the roll-corrected paper leg, valued daily.
+
+| re-run | book | whole net, old -> fixed | ROC %/yr pre / lockbox | pre DD (valued daily) | lockbox DD at close / valued daily | lockbox Sortino | lockbox ROC without the ENGU-Q trade | the same at the WF-set $30k size | clause 5 vs #449 |
+|---|---|---|---|---|---|---|---|---|---|
+| **#466** | #457 (#456 + NOISE fixed tilts) | $2,014,255 -> $1,868,355 | 105.2 / 284.5 | $34,517 | $30,051 / $49,475 | 5.53 | 193.3 | 168.0 | PASS |
+| **#462** | #456 (r61 roll-safe combo) | $1,786,012 -> $1,640,112 | 92.0 / 254.7 | $32,826 | $27,310 / $49,475 | 5.26 | 163.5 | 149.4 | PASS |
+| **#465** | #450 (#397 + TTM R347) | $1,614,411 -> $1,468,511 | 80.6 / 254.4 | $34,449 | $27,797 / $49,855 | 5.48 | 163.1 | 142.1 | PASS |
+| **#464** | #448 (#366 + TTM R347) | $1,631,189 -> $1,485,289 | 81.7 / 255.4 | $37,444 | $27,506 / $49,855 | 5.43 | 164.2 | 131.6 | PASS |
+| **#463** | #449 (#396 + NOISE #422) | $1,778,706 -> $1,632,381 | 90.2 / 273.8 | $44,849 | $27,506 / $49,855 | 5.65 | 182.6 | 122.1 | - |
+| **#461** | #437 (= #397, staged) | $1,620,275 -> $1,473,950 | 80.8 / 256.3 | $41,853 | $27,771 / $49,855 | 5.51 | 165.1 | 118.3 | FAIL |
+| **#460** | #435 (= #366, adopted) | $1,548,011 -> $1,447,529 | 79.4 / 252.1 | $41,736 | $28,066 / $49,855 | 5.32 | 160.9 | 115.6 | FAIL |
+
+**The ranking, restated** (sorted by the concentration-cleaned lockbox at matched risk; no decision taken):
+- **#457 leads on every read**, but its lockbox gain from the NOISE tilts is not clean. It is followed by
+  **#456** and the two R347 books (#450, #448), and then by #449, #437 and #435.
+- **#397's case has mostly gone.** Its roll-corrected twin (#437) now reads 80.8 / 256.3 %/yr against #366's
+  (#435) 79.4 / 252.1. Much of the gap the TTM #369 swap bought was the stop bug. It still fails clause 5
+  against #449.
+- **On the round-61 four-clause bar vs #449** (common windows, valued daily), no book clears. #456 and #457
+  clear clauses 1-3 and fail clause 4 (lockbox drawdown at the WF-matched size).
+- **Staged flip:** the #397 flip (docs/BOOK_397_ADOPTION_STAGED.md) is still ready. Its evidence is now
+  weak; the choice is the owner's.
+
 ### 10b. An open item this audit turned up: two day-stamping rules disagree
 
 The recorded finding put the baseline's worst stretch in **2020-02-21..2020-03-25 at $34,903**; the
