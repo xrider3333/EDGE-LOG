@@ -59,3 +59,11 @@ trend-break exit helps NQ's walk-forward (26.9 -> 29.7) but hurts ES and both lo
 RAW NQ file is already respectable (26.9 %/yr at $30k in the walk-forward, 42.2 in the lockbox); the book
 problem is that its drawdown lands in the same crash as the book's, which no in-file rule tested here fixes.
 Ideas 3 (volatility-scaled size), 4 (cross-market confirmation) and 6 (24h sessions) remain untested.
+
+## Addendum A (pre-registered 2026-09-28, after the cells above, before running it): idea 3, volatility-scaled size
+
+Cell **VOL**: each trade's notional = $100,000 x min(1, v_med / v20), where v20 = standard deviation of the
+20 daily adjusted-close returns before the entry day and v_med = the median of v20 over the 252 sessions
+before that (both causal); whole micros as the file rounds them. Everything else RAW. Same bar as above
+(beat RAW on ROC @ $30k DD and Sortino in WF and LB on both markets; 100 / 50 trades; LB > 0 without its
+biggest trade). No other scaling variant is tried.
