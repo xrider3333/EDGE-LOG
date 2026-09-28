@@ -55,6 +55,13 @@ Endpoints (127.0.0.1:8392, GET, JSON):
     /gate/check?leg=NOISE_H_RF      the live decision: {take, size, prob, max_contracts, ...}
     /gate/check?leg=X&bar=<ISO8601> the same, with the bar interlock armed. Optional --
                                     a NinjaScript that does not send it still works.
+    /gate/check?leg=X&bar=...&o=&h=&l=&c=&v=  the same, plus NinjaTrader's own OHLCV for
+                                    that just-closed bar (owner-approved 2026-09-28). A
+                                    sane, aligned set makes NinjaTrader's bar authoritative
+                                    instead of the 10s capture's -- see decide()'s docstring
+                                    and _apply_nt_bar. Optional and all-or-nothing: a
+                                    NinjaScript that sends none of them, or an older one
+                                    that sends only &bar, is unaffected.
 
 Run:  python -m api.gate_live --serve          (the always-on service)
       python -m api.gate_live --build          (rebuild all artifacts now)
@@ -603,6 +610,24 @@ def _parse_nt_bar(s):
     return None
 
 
+def _align_nt_ts(ts, svc_ts):
+    """`ts` (a caller's bar stamp) converted onto `svc_ts`'s tz convention (naive ET vs
+    tz-aware ET), or None if the two cannot be compared -- e.g. a DST-ambiguous wall
+    clock. Shared by _bar_interlock and the NT-supplied-OHLCV path below (2026-09-28)
+    so both agree on what "the same bar" means; previously this lived only inside
+    _bar_interlock and the OHLCV path could not reuse it."""
+    try:
+        if ts.tzinfo is None and svc_ts.tzinfo is not None:
+            # No offset = New York wall clock, because that is what every bar index in
+            # this repo is and what the NinjaTrader charts are set to.
+            return ts.tz_localize(_ET)
+        if ts.tzinfo is not None and svc_ts.tzinfo is None:
+            return ts.tz_convert(_ET).tz_localize(None)
+        return ts
+    except Exception:
+        return None
+
+
 def _bar_interlock(nt_bar, svc_bar, step):
     """Compare the caller's last-closed bar against ours.
 
@@ -615,18 +640,12 @@ def _bar_interlock(nt_bar, svc_bar, step):
     ts = _parse_nt_bar(txt)
     if ts is None:
         return "unparseable", None
-    try:
-        if ts.tzinfo is None and svc_bar.tzinfo is not None:
-            # No offset = New York wall clock, because that is what every bar index in
-            # this repo is and what the NinjaTrader charts are set to.
-            ts = ts.tz_localize(_ET)
-        elif ts.tzinfo is not None and svc_bar.tzinfo is None:
-            ts = ts.tz_convert(_ET).tz_localize(None)
-        delta = abs((ts - svc_bar).total_seconds())
-    except Exception:
+    ts = _align_nt_ts(ts, svc_bar)
+    if ts is None:
         # A DST-ambiguous wall clock, a mixed type, anything else: unreadable, which is
         # not the same claim as "the two disagree". Say unreadable.
         return "unparseable", None
+    delta = abs((ts - svc_bar).total_seconds())
     return ("ok" if delta <= step.total_seconds() else "mismatch"), int(delta)
 
 
@@ -652,6 +671,104 @@ def _measured_step(idx):
         return int(round((idx[-1] - idx[-2]).total_seconds() / 60.0))
     except Exception:
         return None
+
+
+# ── NT-supplied finished-bar prices (owner-approved 2026-09-28) ───────────────────
+# WHY: the NOISE strategy asks the instant its own bar closes, but the 10s capture that
+# rebuilds our bars can lag a few seconds behind that close (measured on 2026-09-28
+# 11:00 ET: "capture covers through 1790607590, short of bar-end 1790607600" -- 10
+# seconds short -- FAIL-OPEN sent an ungated 3-MNQ short). NinjaTrader already HAS the
+# finished bar the instant it closes (Open[0]/High[0]/Low[0]/Close[0]/Volume[0] in its
+# own OnBarUpdate), so letting it send those four prices plus volume lets decide() score
+# on that bar directly instead of waiting on the capture -- without weakening the
+# INCOMPLETE_BAR protection for requests that do NOT carry prices (an older NinjaScript,
+# or a NinjaScript instance running an un-updated build) or for a bar more than one step
+# away (a genuine series mix-up, same as the existing bar interlock).
+def _sane_ohlcv(o, h, l, c, v):
+    """(o, h, l, c, v) as floats if they look like a real bar, else None. Never raises.
+
+    Deliberately permissive on WHAT a valid bar looks like (real markets gap and print
+    doji bars) and strict on internal consistency (a high below its own open, a negative
+    volume) -- the kind of corruption a bad query string or a NinjaScript bug would
+    produce, not the kind a real bar prints."""
+    try:
+        o, h, l, c, v = float(o), float(h), float(l), float(c), float(v)
+    except (TypeError, ValueError):
+        return None
+    if not all(np.isfinite(x) for x in (o, h, l, c, v)):
+        return None
+    if h < max(o, c) or l > min(o, c) or v < 0:
+        return None
+    return o, h, l, c, v
+
+
+def _apply_nt_bar(arrays, nt_ts, ohlcv, step):
+    """Return (new_arrays, mode) with NT's finished bar folded in as the AUTHORITATIVE
+    close for that bar, or (None, None) if `nt_ts` is not one step of `arrays["index"]`'s
+    last bar (too far away to be either the bar we already hold or the very next one --
+    same one-step tolerance as the existing bar interlock).
+
+    NEVER MUTATES `arrays` -- every array touched is copied first, so the shared cached
+    snapshot every other caller reads (_current_snapshot) is untouched. The arrays here
+    are a live-window's worth of 5-minute bars (thousands of rows, not millions), so a
+    full-column copy is cheap -- microseconds, well inside the 300ms budget this is
+    fixing a violation of.
+
+    Two modes:
+      * "replace" -- nt_ts IS arrays["index"][-1]: the capture already resampled this
+        bar (covered_through already reached its end), but NT's own tick-close is the
+        more authoritative number, so its OHLCV overwrites the capture's for this bar.
+      * "append"  -- nt_ts is ONE STEP AFTER arrays["index"][-1]: the capture has not
+        caught up yet (the exact 2026-09-28 failure) -- NT's bar becomes the new last
+        bar, standing in for the capture-resampled version that has not arrived.
+    """
+    idx = arrays["index"]
+    if len(idx) == 0:
+        return None, None
+    aligned = _align_nt_ts(nt_ts, idx[-1])
+    if aligned is None:
+        return None, None
+    step_s = step.total_seconds()
+    delta = (aligned - idx[-1]).total_seconds()
+    if abs(delta) < 1e-6:
+        mode = "replace"
+    elif abs(delta - step_s) < 1e-6:
+        mode = "append"
+    else:
+        return None, None
+
+    o, h, l, c, v = ohlcv
+    out = dict(arrays)
+    if mode == "replace":
+        for k, val in (("open", o), ("high", h), ("low", l), ("close", c)):
+            a = np.array(arrays[k], dtype=float, copy=True)
+            a[-1] = val
+            out[k] = a
+        if arrays.get("volume") is not None:
+            a = np.array(arrays["volume"], dtype=float, copy=True)
+            a[-1] = v
+            out["volume"] = a
+        # index/day_id unchanged -- same bar, just corrected prices
+    else:  # append
+        # Match idx's OWN tz object exactly (not just the same instant) before
+        # appending. `aligned` carries whatever fixed-offset tz NinjaTrader's stamp
+        # parsed to (e.g. "-04:00"), which is the same INSTANT as idx's "US/Eastern"
+        # but a different tz object -- DatetimeIndex.append across differing tz objects
+        # silently degrades to a plain object-dtype Index, which then has no .dt
+        # accessor for the day_id factorize below and breaks every downstream feature
+        # that expects a real DatetimeIndex.
+        new_ts = aligned
+        if idx.tz is not None:
+            new_ts = pd.Timestamp(aligned).tz_convert(idx.tz)
+        elif new_ts.tzinfo is not None:
+            new_ts = new_ts.tz_localize(None)
+        out["index"] = idx.append(pd.DatetimeIndex([new_ts]))
+        for k, val in (("open", o), ("high", h), ("low", l), ("close", c)):
+            out[k] = np.append(np.asarray(arrays[k], dtype=float), float(val))
+        if arrays.get("volume") is not None:
+            out["volume"] = np.append(np.asarray(arrays["volume"], dtype=float), float(v))
+        out["day_id"] = pd.factorize(pd.Series(out["index"]).dt.date)[0].astype("int64")
+    return out, mode
 
 
 def _recycle_allowance(art):
@@ -684,7 +801,8 @@ def _recycle_allowance(art):
     return 1.0, note
 
 
-def decide(leg_key, nt_bar=None, *, source="internal"):
+def decide(leg_key, nt_bar=None, *, source="internal",
+           nt_o=None, nt_h=None, nt_l=None, nt_c=None, nt_v=None):
     """The live decision. NinjaTrader calls this at a bar's CLOSE, about to enter at the
     NEXT bar's open -- the same timing the backtest gate scores at. Features for that
     entry bar are, by the causal rule, the just-closed bar's market state plus the entry
@@ -697,6 +815,16 @@ def decide(leg_key, nt_bar=None, *, source="internal"):
     _bar_interlock. Absent is fine and means "no interlock", so an older NinjaScript keeps
     working unchanged.
 
+    nt_o/nt_h/nt_l/nt_c/nt_v (optional, owner-approved 2026-09-28) are the OHLCV of the
+    bar `nt_bar` names, straight from NinjaTrader's own just-closed bar. When all five are
+    present, sane, and that bar is one the live window already holds or the very next one,
+    they REPLACE decide()'s notion of that bar's prices (see _apply_nt_bar) -- this is what
+    lets a request through on NT's own numbers when the 10s capture is a few seconds short
+    of that bar's close, instead of falling into INCOMPLETE_BAR below. Missing, insane, or
+    misaligned prices are silently ignored and decide() behaves exactly as before this
+    change (capture-only). A request with no prices at all -- an older NinjaScript --
+    is unaffected.
+
     source is for /gate/health only: it separates "NinjaTrader asked" from the keep-warm
     loop asking, which otherwise make a dead integration look alive.
 
@@ -705,7 +833,8 @@ def decide(leg_key, nt_bar=None, *, source="internal"):
     (ROLL_AUDIT.md 4.5.2: the four 09-23 fail-open timeouts were exactly this rebuild
     running inside NinjaTrader's 300ms budget). It also refuses to score a bar the
     capture has not finished writing (INCOMPLETE_BAR, below) rather than silently use
-    whatever partial close is on disk (the cause of the 09-22 ORDERED take).
+    whatever partial close is on disk (the cause of the 09-22 ORDERED take) -- UNLESS NT
+    supplied that bar's own finished prices, per the paragraph above.
 
     Never raises: any failure returns take=True/size=1.0 with the reason attached."""
     t0 = time.time()
@@ -722,7 +851,7 @@ def decide(leg_key, nt_bar=None, *, source="internal"):
             # either way.
             "max_contracts": _max_contracts(),
             "nt_bar": (str(nt_bar).strip() or None) if nt_bar is not None else None,
-            "bar_check": None}
+            "bar_check": None, "bar_source": "capture"}
     try:
         legs = {l["key"]: l for l in _gated_legs()}
         leg = legs.get(leg_key)
@@ -753,15 +882,35 @@ def decide(leg_key, nt_bar=None, *, source="internal"):
         # measured step look like 17 hours, and the tolerance would swallow anything.
         step = pd.Timedelta(minutes=5 if str(leg["timeframe"]).startswith("5") else 1)
 
+        nt_ts = _parse_nt_bar(nt_bar)
+
+        # NT-SUPPLIED FINISHED BAR (owner-approved 2026-09-28, see the docstring above).
+        # A sane, aligned price set makes NinjaTrader's own numbers authoritative for that
+        # bar, so a capture that is a few seconds short of the bar's close no longer has
+        # to fail open -- it scores on NT's bar instead. Anything not usable (missing,
+        # insane, or not landing on the bar we hold / the very next one) is ignored and
+        # everything below behaves exactly as it did before this change.
+        if nt_ts is not None and None not in (nt_o, nt_h, nt_l, nt_c, nt_v):
+            ohlcv = _sane_ohlcv(nt_o, nt_h, nt_l, nt_c, nt_v)
+            if ohlcv is not None:
+                nt_arrays, nt_mode = _apply_nt_bar(arrays, nt_ts, ohlcv, step)
+                if nt_arrays is not None:
+                    arrays = nt_arrays
+                    idx = arrays["index"]
+                    base["bar_source"] = "nt"
+                    _log(f"decide {leg_key}: bar source: nt ({nt_mode}) o={ohlcv[0]} "
+                         f"h={ohlcv[1]} l={ohlcv[2]} c={ohlcv[3]} v={ohlcv[4]} bar={nt_ts}")
+
         # INCOMPLETE BAR (2026-09-26, ROLL_AUDIT.md 4.5.2). NinjaTrader asks the instant
         # its own bar closes; the 10s capture that rebuilds our bars can still be writing
-        # that bar's last seconds (measured 40-50s lag on 09-22). NT sends only a bar
-        # STAMP, never OHLCV, so there is no authoritative bar to fall back on -- the only
-        # honest answer when the capture has not caught up to the bar's own close is to
-        # say so and fail open, not score whatever partial close happens to be on disk
-        # (which is exactly how the 09-22 09:45 skip became an ORDERED take).
-        nt_ts = _parse_nt_bar(nt_bar)
-        if nt_ts is not None:
+        # that bar's last seconds (measured 40-50s lag on 09-22, and again 2026-09-28 --
+        # see the module docstring). NT normally sends only a bar STAMP, never OHLCV, so
+        # there is no authoritative bar to fall back on -- the only honest answer when the
+        # capture has not caught up to the bar's own close is to say so and fail open, not
+        # score whatever partial close happens to be on disk (which is exactly how the
+        # 09-22 09:45 skip became an ORDERED take). Skipped entirely when NT's own bar was
+        # used above (bar_source == "nt") -- that bar is not partial, it is the real close.
+        if base["bar_source"] != "nt" and nt_ts is not None:
             bar_end = _bar_end_unix(nt_ts, step)
             if bar_end is None or covered_through is None or covered_through < bar_end:
                 base["bar_check"] = "incomplete"
@@ -844,6 +993,7 @@ def decide(leg_key, nt_bar=None, *, source="internal"):
                # the 3x cap is already inside `size` above. See _max_contracts.
                "max_contracts": base["max_contracts"],
                "nt_bar": base["nt_bar"], "bar_check": base["bar_check"],
+               "bar_source": base["bar_source"],
                # WHICH SERIES DID THIS SCORE? Recorded because for three days every NOISE
                # and ORB decision was scored on ENGU-Q's 1-minute overnight bars and
                # nothing said so -- the probability looked perfectly plausible.
@@ -857,7 +1007,8 @@ def decide(leg_key, nt_bar=None, *, source="internal"):
                "recycle_note": base.get("recycle_note"),
                "elapsed_ms": int((time.time() - t0) * 1000)}
         _log(f"decide {leg_key}: prob={prob:.3f} take={take} size={size:.2f} "
-             f"({out['elapsed_ms']}ms, bar {idx[-1]}, {len(idx)} bars @ {_step}m)")
+             f"({out['elapsed_ms']}ms, bar {idx[-1]}, {len(idx)} bars @ {_step}m, "
+             f"bar source: {base['bar_source']})")
         return out
     except Exception as e:
         base["error"] = f"{type(e).__name__}: {e}"
@@ -1098,7 +1249,18 @@ Restart it by running <code>C:\\EdgeLog\\_gate_server.bat</code></div>"""
                 # &bar is OPTIONAL on purpose: a NinjaScript that predates the interlock
                 # still gets a normal answer, it just gets no interlock.
                 bar = (q.get("bar") or [""])[0]
-                self._json(decide(key, bar or None, source="http"))
+                # &o=&h=&l=&c=&v= are ALSO optional (owner-approved 2026-09-28): the
+                # just-closed bar's own OHLCV, straight from NinjaTrader. Sent as plain
+                # query params, so any missing/blank one just stays None -- decide()
+                # treats "not all five present" the same as "none sent" (see its
+                # docstring). Validity (finite, sane relationships) is decide()'s job,
+                # not this handler's.
+                def _q(name):
+                    v = (q.get(name) or [""])[0]
+                    return v if v != "" else None
+                self._json(decide(key, bar or None, source="http",
+                                  nt_o=_q("o"), nt_h=_q("h"), nt_l=_q("l"),
+                                  nt_c=_q("c"), nt_v=_q("v")))
             else:
                 self._json({"error": "unknown path"}, 404)
 

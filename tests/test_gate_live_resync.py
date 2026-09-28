@@ -230,3 +230,108 @@ def test_complete_bar_is_scored_normally(decide_world):
     out = g.decide("TEST_LEG", nt_bar)
     assert out["bar_check"] == "ok"
     assert out["prob"] is not None
+
+
+# ── NT-supplied finished-bar prices (owner-approved 2026-09-28) ───────────────────────
+# WHY: 2026-09-28 11:00 ET, real gate_live.log -- "decide NOISE_H_RF FAIL-OPEN
+# (INCOMPLETE_BAR): capture covers through 1790607590, short of bar-end 1790607600" --
+# an ungated 3-MNQ short, because NinjaTrader asks the instant its 5-minute bar closes
+# and the 10s capture's last row lands a few seconds later. NinjaTrader already HAS that
+# bar's own Open/High/Low/Close/Volume the instant it closes; letting it send those
+# along with `bar` lets decide() score on NT's own finished bar instead of failing open.
+NT_OHLCV = dict(nt_o=100.0, nt_h=105.0, nt_l=95.0, nt_c=102.0, nt_v=50.0)
+
+
+def test_nt_prices_score_an_incomplete_capture_append_mode(decide_world):
+    """The real 2026-09-28 shape: the capture's last COMPLETE bar (idx[-1]) is the one
+    BEFORE the bar NinjaTrader says just closed -- the background resample has not caught
+    up yet. NT's own OHLCV for that just-closed bar must be appended and scored, not
+    fail-open."""
+    end_ts = "2026-09-22 09:35:00"           # capture's last complete bucket
+    nt_bar = "2026-09-22T09:40:00-04:00"     # NT says THIS bar (one step later) just closed
+    # capture is 10s short of the 09:40 bar's own 09:45:00 close
+    _seed_decide_cache(covered_through=_unix("2026-09-22 09:44:50"), end_ts=end_ts)
+    out = g.decide("TEST_LEG", nt_bar, **NT_OHLCV)
+    assert out.get("bar_source") == "nt"
+    assert out["prob"] is not None, "NT's finished bar must be scored, not fail-open"
+    assert out["ungated_fallback"] is False
+    assert "error" not in out
+    assert out["bar_check"] == "ok"
+    # the appended bar becomes the new last-closed bar
+    assert out["last_closed_bar"].startswith("2026-09-22 09:40:00")
+
+
+def test_nt_prices_score_an_incomplete_capture_replace_mode(decide_world):
+    """The bar NinjaTrader names is already idx[-1] (the shape of the pre-existing
+    test_incomplete_bar_is_never_scored world) -- NT's prices REPLACE that bar's OHLCV
+    and scoring proceeds instead of failing open on a stale covered_through."""
+    end_ts = "2026-09-22 09:40:00"
+    nt_bar = "2026-09-22T09:40:00-04:00"
+    _seed_decide_cache(covered_through=_unix("2026-09-22 09:44:50"), end_ts=end_ts)
+    out = g.decide("TEST_LEG", nt_bar, **NT_OHLCV)
+    assert out.get("bar_source") == "nt"
+    assert out["prob"] is not None
+    assert out["ungated_fallback"] is False
+    assert out["bars"] == 250, "replace mode must not grow the bar count"
+
+
+def test_insane_nt_prices_fall_back_to_incomplete_bar(decide_world):
+    """A high below the open/close (or any other internally inconsistent bar) must be
+    ignored, not trusted -- decide() falls back to the pre-2026-09-28 INCOMPLETE_BAR
+    behaviour exactly as if no prices had been sent."""
+    end_ts = "2026-09-22 09:40:00"
+    nt_bar = "2026-09-22T09:40:00-04:00"
+    _seed_decide_cache(covered_through=_unix("2026-09-22 09:44:50"), end_ts=end_ts)
+    insane = dict(nt_o=100.0, nt_h=90.0, nt_l=95.0, nt_c=102.0, nt_v=50.0)  # h < c
+    out = g.decide("TEST_LEG", nt_bar, **insane)
+    assert out.get("bar_source", "capture") == "capture"
+    assert out["bar_check"] == "incomplete"
+    assert out["prob"] is None
+    assert out["ungated_fallback"] is True
+    assert "INCOMPLETE_BAR" in out["error"]
+
+
+def test_negative_volume_is_insane(decide_world):
+    end_ts = "2026-09-22 09:40:00"
+    nt_bar = "2026-09-22T09:40:00-04:00"
+    _seed_decide_cache(covered_through=_unix("2026-09-22 09:44:50"), end_ts=end_ts)
+    out = g.decide("TEST_LEG", nt_bar, nt_o=100.0, nt_h=105.0, nt_l=95.0, nt_c=102.0,
+                   nt_v=-1.0)
+    assert out.get("bar_source", "capture") == "capture"
+    assert out["bar_check"] == "incomplete"
+
+
+def test_no_nt_prices_is_the_old_behaviour(decide_world):
+    """No o/h/l/c/v at all (an older NinjaScript) must behave exactly as before this
+    change -- still covered by test_incomplete_bar_is_never_scored above; this pins the
+    bar_source label too."""
+    end_ts = "2026-09-22 09:40:00"
+    nt_bar = "2026-09-22T09:40:00-04:00"
+    _seed_decide_cache(covered_through=_unix("2026-09-22 09:44:50"), end_ts=end_ts)
+    out = g.decide("TEST_LEG", nt_bar)
+    assert out.get("bar_source", "capture") == "capture"
+    assert out["bar_check"] == "incomplete"
+
+
+def test_nt_bar_too_far_from_the_series_is_ignored(decide_world):
+    """A `bar` more than one step from idx[-1] is a genuine series mix-up, not a
+    short-capture -- NT's prices must NOT be trusted just because they parsed and looked
+    sane; the existing bar-mismatch fail-open still applies. Picked well BEFORE idx[-1]
+    (rather than after) so the request is not also short of THIS bar's own close, which
+    would otherwise hit INCOMPLETE_BAR first and never reach the mismatch check."""
+    end_ts = "2026-09-22 09:40:00"
+    nt_bar = "2026-09-22T08:00:00-04:00"     # 100 minutes away -- not the held bar or the next
+    _seed_decide_cache(covered_through=_unix("2026-09-22 09:44:50"), end_ts=end_ts)
+    out = g.decide("TEST_LEG", nt_bar, **NT_OHLCV)
+    assert out.get("bar_source", "capture") == "capture"
+    assert out["bar_check"] == "mismatch"
+    assert out["prob"] is None
+
+
+def test_nt_prices_latency_stays_fast(decide_world):
+    end_ts = "2026-09-22 09:35:00"
+    nt_bar = "2026-09-22T09:40:00-04:00"
+    _seed_decide_cache(covered_through=_unix("2026-09-22 09:44:50"), end_ts=end_ts)
+    out = g.decide("TEST_LEG", nt_bar, **NT_OHLCV)
+    assert out["elapsed_ms"] < 100, \
+        f"decide() with NT prices took {out['elapsed_ms']}ms against a warm cache"
