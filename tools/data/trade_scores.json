@@ -577,7 +577,7 @@
     "how": "the 08:01 1-minute candle he traded, read off his saved chart"
    },
    "overall": 55,
-   "summary": "The 08:01 candle he actually broke out on (not the 5-minute 07:55 bar) closed exactly where he filled, 1.22 — no chase, but also the top of the move; it never traded higher. He was cut out near his own 1.13 stop as SUGP kept fading to close at 0.751, so the exit still saved roughly nine dollars.",
+   "summary": "The 08:01 candle he actually broke out on (not the 5-minute 07:55 bar) closed exactly where he filled, 1.22 — no chase, but also near the top: the 08:00-08:04 bar peaked at 1.23, one cent above the fill. He was cut out near his own 1.13 stop as SUGP kept fading to close at 0.751, so the exit still saved roughly nine dollars.",
    "setup": [
     {
      "label": "Catalyst / RVOL",
@@ -607,7 +607,7 @@
      "label": "R:R to a real level",
      "weight": 10,
      "score": 3,
-     "note": "No overhead level; the 1.23 high printed one minute later was the top"
+     "note": "No overhead level; the 08:00-08:04 bar topped at 1.23, one cent above the fill"
     },
     {
      "label": "Liquidity",
@@ -639,7 +639,7 @@
      "label": "Exit vs MFE",
      "weight": 25,
      "score": 19,
-     "note": "No favourable move after the fill — price never traded above 1.22 again. Cut at 1.13 before the collapse to 0.751"
+     "note": "At most one cent of favourable move (the 08:00-08:04 bar topped at 1.23). Cut at 1.13 before the collapse to 0.751"
     },
     {
      "label": "Sizing",
@@ -3712,7 +3712,7 @@
    "key_time": true,
    "dir": "LONG",
    "interval": "5m",
-   "entry_time": "08:21",
+   "entry_time": "08:20",
    "exit_time": "09:47",
    "entry": 1.1486,
    "exit": 0.9024,
