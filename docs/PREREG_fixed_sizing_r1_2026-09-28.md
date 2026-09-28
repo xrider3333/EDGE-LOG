@@ -69,3 +69,19 @@ Test B stretches = the export's stage column (WF 2016-07-27 .. 2025-07-09, LB ..
   KEEL's own WF gain sits at the 76th percentile of its sizes shuffled across the same trades, i.e. the WF
   edge is not distinguishable from its size SHAPE. The TTM shadow (docs/PREREG_ttm458_keel_shadow_2026-09-28.md)
   therefore stays two arms (raw vs KEEL); no fixed third arm is proposed, and expectations should be low.
+
+## The brainstorm this round came from (MANAGER #24; one line each, lane = ML / sizing / yardsticks)
+1. ORB #314 July sizing overlay re-judged (risk parity, time tilt) - RAN above, DEAD.
+2. TTM #458 KEEL parts (fixed vs learned) - RAN above, no fixed part carries it.
+3. PAIRED sequential forward yardstick: shadow arms share fills, so judge the per-trade DIFFERENCE (sized - raw)
+   with a pre-set sequential boundary; far less noise than two separate curves, so a verdict in months instead
+   of years. Cost: a scoring script. Fooled by: one fat trade driving the difference (keep the ex-top clause).
+   Changing the shadow tests' stopping rules is an owner call.
+4. Shuffle null on every sized-vs-raw compare (the 76th-percentile TTM finding: a WF "win" can be pure size
+   shape). Cost: minutes; add to tilt_guard and the book-leg exports. Fooled by: nothing new - it only removes.
+5. TTM KEEL on NQ 30m (market never tuned on) as out-of-market evidence for the TTM shadow. Cost: one runner
+   job for the TTM lane plus a local KEEL walk. Fooled by: NQ/ES correlation (same days, not fully independent).
+6. ENGU-Q overlap cap (one unit of risk across overlapping multi-week longs) - the daily-valued book drawdown
+   is ENGU-Q open trades. Needs the ENGU-Q lane's trade overlap check first; route.
+7. ORB + NOISE same-direction same-morning halving inside BOOK #463 (both NQ morning momentum). Book lane owns it.
+8. Realised-vol quintile sizing - near-duplicate of the dead book vol dial and ORB atr_filter; not proposed.
