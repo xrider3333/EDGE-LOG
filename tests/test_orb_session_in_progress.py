@@ -169,6 +169,11 @@ def test_byte_identical_on_real_history_session_in_progress_is_always_a_noop():
 
     df = pd.read_csv(SHARED_NQ_MASTER)
     dt = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
+    # The shared master is refreshed through the day, so its LAST session can be today's and
+    # still in progress (2026-09-28: it stopped at 13:00 ET, which reads as a short session and
+    # takes the exemption). Only finished sessions belong in this static check - drop the last.
+    df = df[(dt.dt.date < dt.dt.date.max()).values].reset_index(drop=True)
+    dt = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
     df["day_id"] = pd.factorize(dt.dt.date)[0]
     df = df.sort_values("time").reset_index(drop=True)
     args = (df["open"].values, df["high"].values, df["low"].values, df["close"].values)
