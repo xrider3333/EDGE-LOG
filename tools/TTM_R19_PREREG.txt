@@ -1,0 +1,42 @@
+TTM ROUND 19 - PRE-REGISTRATION (written 2026-09-28, before any result is computed)
+Owner ask via MANAGER 2026-09-28: more alpha in the TTM family, favouring ideas that raise TTM's ~22
+trades a year. Owner yardstick (MANAGER inbox #17): ROC %/yr at a $30k worst drawdown valued daily
+(= 30 x MAR), walk-forward (WF) and lockbox (LB) apart; beat the twin on that AND on Sortino in both
+stretches; at least 100 WF and 50 LB trades; LB profitable without its single biggest trade.
+
+COMMON RULES
+- Window 2010-06-07 .. 2026-06-30, LB from 2025-07-01. "WF" in a triage scan = the pre-lockbox stretch
+  (settings are frozen, nothing is refit, so pre-lockbox is out-of-sample for the SETTINGS).
+- Roll-safe data: the back-adjusted ADJ_ masters (db_adj_rth), named explicitly. TTM is flat at every
+  close, so back-adjustment changes no P&L, only the roll-day indicator reads.
+- Costs: ES 0.363 pts / $50 a point, NQ 0.533 pts / $20 a point, per contract round trip.
+- Engine: the ATR-stop TTMSQZ_3_0 engine (clean in the 2026-09-27 audit). No structural-stop file.
+- Drawdown valued DAILY on the pooled daily P&L. Sortino = mean / downside deviation of daily P&L x sqrt(252).
+- Twin = TTM #459 cell (the book's TTM leg, fixed) on the SAME data and the same yardstick.
+- Nothing crowned by a scan. A triage survivor goes to a fenced validate (900-trial budget, pinned window).
+
+IDEA 1 - THE MULTI-CELL SLEEVE (more trades)
+Mechanism: the family's one durable finding - only trade a squeeze fire while the HOURLY squeeze is still
+coiled - was net-positive on all 12 cells in round 4. One ES 30m cell fires ~22 times a year; the same
+frozen rule on ES 15m, NQ 15m and NQ 30m is the same mechanism on more tapes.
+Frozen settings, identical on every cell (the #299 / ES30N crown, NOT re-tuned per cell): Carter entry at
+the next open, momentum-fade exit after 1 bar, stop 1.5 ATR, Keltner 1.5, Bollinger 20 / 2.0, hourly
+verification sq_on length 20, no entries in the last bar, flat at the close. One contract per cell.
+Sleeve = equal one-contract sum of the four cells (ES 30m, ES 15m, NQ 30m, NQ 15m); also report each cell
+and the two-cell ES 30m + NQ 30m sleeve.
+PASS BAR (all of): (a) >= 100 WF and >= 50 LB trades; (b) ROC@$30k >= twin in WF AND LB; (c) Sortino >= twin
+in WF AND LB; (d) LB profitable without its biggest trade; (e) daily-P&L correlation to the NQ book legs
+(ORB 234 + ENGU-Q 309 cached daily P&L) no higher than 0.30.
+Main way it could fool us: the 15m cells failed the luck check alone (#343); NQ cells correlate with the
+NQ crowns (round 9); pooling can buy trade count with correlated risk.
+
+IDEA 2 - THE HONEST STACK ON THE ATR ENGINE (repair)
+Mechanism: the structural stop's advantage was the same-bar gap-stop bug (fixed #353 MAR 0.86 < #340's
+0.957). The two other validated changes - 1.5x on the session open-bar entry and leaving on the second
+fading bar - were never tried on the clean ATR engine. Frozen: #340's file (ES30T, deep-squeeze 1.5x)
+plus open-bar 1.5x plus fade after 2, ES 30m, one step at a time and all together.
+PASS BAR: the full stack beats its raw twin (#299 cell, ES30N, same data) AND the #459 cell on ROC@$30k and
+Sortino in WF AND LB, with LB profitable without its biggest trade. (It cannot reach 50 LB trades alone -
+report the count; it is judged as a book leg, and a pass here goes to a validate, not to adoption.)
+Main way it could fool us: the open-bar tilt's original edge was largely the bug (the gap trades were all
+session-open entries); on the clean engine it may be nothing.
