@@ -74,3 +74,7 @@ biggest trade). No other scaling variant is tried.
 markets", so it stops here. Stated for the owner, not acted on: on ES alone it is the first DIP rule to bring
 the drawdown under the book cap while raising walk-forward return per unit of risk; a single-market re-test
 would have to be registered fresh and judged on data it has not seen.
+
+**Owner decision 2026-09-29 (via MANAGER, TV inbox #16):** no fresh ES-only pre-registration of volatility-scaled
+DIP - the ES lockbox was already read in this round and the both-markets bar failed. **DIP stays parked for ROC
+until new data or a fresh lockbox exists.**
