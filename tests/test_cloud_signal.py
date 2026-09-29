@@ -376,7 +376,7 @@ def test_entry_and_exit_rows_carry_the_same_trade_id(tmp_path):
         header = f.readline().strip().split(",")
         f.seek(0)
         rows = list(csv.DictReader(f))
-    assert header == cs.SIGNAL_COLS and header[-1] == "keel_size"
+    assert header == cs.SIGNAL_COLS and header[-1] == "target_px"
     assert [r["event"] for r in rows] == ["SEED", "ENTRY", "EXIT"]
     assert rows[0]["trade_id"] == "" and rows[1]["trade_id"] == rows[2]["trade_id"] == want
 
@@ -442,7 +442,7 @@ def _old_ledger(paths):
     # before both of them; test_cloud_signal_trade_size.py's own
     # test_signals_csv_size_column_migrates_cleanly and this file's
     # test_keel_size_column_migrates_cleanly cover the two newer columns in isolation).
-    old_cols = cs.SIGNAL_COLS[:-2]
+    old_cols = cs.SIGNAL_COLS[:cs.SIGNAL_COLS.index("size")]
     assert old_cols == ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "shares",
                         "reason", "bar_source", "trade_id"], \
         "size/keel_size must be APPENDED at the end, never inserted"
@@ -504,7 +504,7 @@ def test_header_upgrade_that_cannot_swap_in_leaves_the_ledger_untouched(tmp_path
                          "trade_id": "ORB_R6-20260914T140500Z-L"}], paths)
     with open(paths["signals_path"], encoding="utf-8", newline="") as f:
         raw = list(csv.reader(f))
-    assert raw[0] == cs.SIGNAL_COLS[:-2] and all(len(r) == len(raw[0]) for r in raw), \
+    assert raw[0] == cs.SIGNAL_COLS[:cs.SIGNAL_COLS.index("size")] and all(len(r) == len(raw[0]) for r in raw), \
         "rows appended under the old header must stay aligned with it"
     assert raw[2][1:3] == ["ORB_R6", "ENTRY"]
 

@@ -369,8 +369,10 @@ def test_signals_csv_size_column_migrates_cleanly(tmp_path):
     # WITH size but not yet keel_size) so this test keeps proving exactly what its name
     # says -- the size column's own migration -- independent of keel_size, which gets
     # its own test right below (test_signals_csv_keel_size_column_migrates_cleanly).
-    old_cols = cs.SIGNAL_COLS[:-2]
-    target_cols = cs.SIGNAL_COLS[:-1]
+    # (stop_px/target_px, 2026-09-29, come after keel_size -- sliced off first)
+    upto_keel = cs.SIGNAL_COLS[:cs.SIGNAL_COLS.index("keel_size") + 1]
+    old_cols = upto_keel[:-2]
+    target_cols = upto_keel[:-1]
     assert old_cols[-1] == "trade_id" and "size" not in old_cols
     assert target_cols[-1] == "size" and "keel_size" not in target_cols
     old_row = {"emitted_at": "2026-09-01T00:00:00-04:00", "leg": "NOISE_304",
@@ -427,7 +429,9 @@ def test_signals_csv_keel_size_column_migrates_cleanly(tmp_path):
     import csv
 
     path = tmp_path / "signals.csv"
-    old_cols = cs.SIGNAL_COLS[:-1]
+    # (stop_px/target_px, 2026-09-29, come after keel_size -- sliced off first)
+    upto_keel = cs.SIGNAL_COLS[:cs.SIGNAL_COLS.index("keel_size") + 1]
+    old_cols = upto_keel[:-1]
     assert old_cols[-1] == "size" and "keel_size" not in old_cols
     old_row = {"emitted_at": "2026-09-20T00:00:00-04:00", "leg": "NOISE_382",
               "event": "ENTRY", "side": "long", "ref_time": "2026-09-20T09:30:00-04:00",
@@ -440,10 +444,10 @@ def test_signals_csv_keel_size_column_migrates_cleanly(tmp_path):
 
     assert cs._read_signals_header(str(path)) == old_cols
 
-    cs._migrate_signals_header(str(path), cs.SIGNAL_COLS)
+    cs._migrate_signals_header(str(path), upto_keel)
 
     new_header = cs._read_signals_header(str(path))
-    assert new_header == cs.SIGNAL_COLS
+    assert new_header == upto_keel
     assert new_header[-1] == "keel_size"
 
     with open(path, encoding="utf-8", newline="") as f:

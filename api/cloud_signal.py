@@ -291,6 +291,10 @@ CROWN_LEGS = {
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
         # Flat at the session's last bar, like the backtest -- see EOD SETTLE (2026-09-28).
         "eod_flat": True,
+        # Report the engine's own stop / target / breakeven levels (stop_px/target_px on
+        # the ENTRY row, a LEVELS row when breakeven moves the stop) for the resting Webull
+        # stop -- see RESTING LEVELS above run_leg_trades. ONLY this leg.
+        "resting_levels": True,
     },
     "NOISE_382": {
         "strategy": "NOISE_1_8_CT304.py",
@@ -1399,6 +1403,110 @@ def _daily_prior_sessions_available(tf, paths, need):
         return 0
 
 
+# ── RESTING LEVELS (2026-09-29, resting ORB stops -- design section 2) ─────────────────────
+# ONE source of truth for the levels a resting Webull stop / OCO target is placed at: the
+# engine itself. A leg with cfg["resting_levels"] (ORB_R6 only) whose strategy explicitly
+# names a `return_levels` keyword (ORB_3_6.py -- a bare **kwargs does not count, same
+# reflection rule as session_in_progress) gets return_levels=True on a PER-CALL copy of
+# its params; the engine then reports, per trade, the initial stop, the target, the
+# breakeven trigger and the bar at whose close breakeven armed. run_leg_trades rounds
+# them to cents and hangs them on the trade as t["levels"]; _diff_leg writes stop_px /
+# target_px on the ENTRY row and ONE "LEVELS" row (never an ENTRY/EXIT -- api/qqq_exec.py
+# ignores every other event type until it learns this one) when breakeven moves the stop.
+#
+# CENT ROUNDING IN THE BACKTEST'S OWN TRIGGER DIRECTION. The backtest fills a long's stop
+# when low <= stop and its target when high >= target (a short: high >= stop, low <=
+# target). On a one-cent price grid those tests are EXACTLY "low <= floor(stop)" and
+# "high >= ceil(target)", so: sell stop DOWN, buy stop UP, sell target UP, buy target
+# DOWN -- the order rests where the engine's own bar test would first fire, never
+# earlier. RESTING_CENT_TOL absorbs the float32 noise of the bar cache (732.33 is stored
+# as 732.330017), which must not push a level a whole cent away. The one case this cannot
+# match is a float TIE: a level that is a whole cent up to float noise (entry + 12.5 x an
+# even-cent range) touched exactly by a bar -- the backtest's float compare decides that
+# by 1e-13, Webull by the cent (tests/test_orb_resting_levels.py: none in 62 real QQQ
+# sessions, 1 in 73 synthetic cent-grid trades). A sub-penny print beyond the level but
+# short of the cent is invisible to a cent-priced order too. The breakeven TRIGGER is
+# the engine's own bar-close test and is never sent to Webull, so it is shown to the
+# nearest cent. 09-28's short (entry 732.33, range 3.375, ORB #314): buy stop 740.77,
+# breakeven trigger 728.11, target 690.14.
+RESTING_CENT_TOL = 1e-4          # dollars; below any real tick, above float32 noise
+
+
+def _leg_accepts_return_levels(strategy):
+    """True iff `strategy`'s run_backtest explicitly names a `return_levels` parameter --
+    the _leg_accepts_session_in_progress convention (a bare **kwargs catch-all does not
+    count). Best-effort/never-raises."""
+    mod = _strategy_module_for_sizing(strategy)
+    if mod is None or not hasattr(mod, "run_backtest"):
+        return False
+    try:
+        sp = inspect.signature(mod.run_backtest).parameters
+    except (TypeError, ValueError):
+        return False
+    return "return_levels" in sp
+
+
+def _cent_level(px, up):
+    """`px` rounded to a whole cent, UP (ceil) or DOWN (floor) -- see RESTING LEVELS. None
+    for a missing or non-finite price."""
+    try:
+        px = float(px)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(px):
+        return None
+    cents = px * 100.0
+    near = round(cents)
+    if abs(cents - near) <= RESTING_CENT_TOL * 100.0:
+        cents = near
+    return round((math.ceil(cents) if up else math.floor(cents)) / 100.0, 2)
+
+
+def _trade_levels(lv, entry_bar, side, entry_px, idx, n_bars):
+    """The cent-rounded levels one trade rests at (see RESTING LEVELS), from one entry of
+    the engine's out["levels"]; None when the row does not describe THIS trade or cannot
+    be rested from (a trailing stop or a partial exit moves the stop in ways it does not
+    list) -- the leg then simply has no levels and ORB keeps today's engine exit.
+        stop_px        initial protective stop (sell stop DOWN for a long, buy stop UP)
+        target_px      target (sell limit UP, buy limit DOWN); None with target_R 0
+        be_trigger_px  the bar close that arms breakeven (nearest cent; engine-only)
+        be_stop_px     the stop from the bar AFTER that close (= entry, same rounding)
+        be_armed_time  start of the bar whose CLOSE armed breakeven, or None
+    """
+    if not isinstance(lv, dict) or lv.get("trail") or lv.get("partial"):
+        return None
+    try:
+        if int(lv.get("entry_bar")) != int(entry_bar) or int(lv.get("side")) != int(side):
+            return None
+        if abs(float(lv.get("entry")) - float(entry_px)) > 1e-9 * max(1.0, abs(float(entry_px))):
+            return None
+    except (TypeError, ValueError):
+        return None
+    long_ = side > 0
+    stop_px = _cent_level(lv.get("stop"), up=not long_)
+    if stop_px is None:
+        return None
+    target_px = _cent_level(lv.get("target"), up=long_)
+    be_trigger_px = None
+    if lv.get("be_trigger") is not None:
+        try:
+            be_trigger_px = round(float(lv["be_trigger"]), 2)
+        except (TypeError, ValueError):
+            be_trigger_px = None
+    be_stop_px = _cent_level(lv.get("be_stop"), up=not long_)
+    be_armed_time = None
+    be_bar = lv.get("be_bar")
+    if be_bar is not None and be_stop_px is not None:
+        try:
+            be_bar = int(be_bar)
+            if 0 <= be_bar < n_bars:
+                be_armed_time = idx[be_bar].isoformat()
+        except (TypeError, ValueError, IndexError):
+            be_armed_time = None
+    return {"stop_px": stop_px, "target_px": target_px, "be_trigger_px": be_trigger_px,
+            "be_stop_px": be_stop_px, "be_armed_time": be_armed_time}
+
+
 # ── One leg's trades -> canonical records ────────────────────────────────────────────────
 class _TradeSizeContractError(Exception):
     """Raised by _resolve_trade_sizes when a plugin DECLARES the additive per-trade
@@ -1499,9 +1607,18 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, f
     exercise session_in_progress, say) never asked for and had no way to avoid. Give
     such a call its own `paths` (an isolated dict, or DEFAULT_PATHS on purpose) to opt
     into the daily-cache bridge too.
+
+    RESTING LEVELS (2026-09-29, see the block comment above _leg_accepts_return_levels).
+    Only for a cfg["resting_levels"] leg whose strategy names `return_levels`: the call
+    also gets return_levels=True (per-call copy again) and every trade dict gains a
+    "levels" key (_trade_levels, or None when the engine's row cannot be rested from).
+    Every other leg's call and trade dicts are exactly as before -- no "levels" key.
     """
     params = cfg["params"]
     extra = {}
+    want_levels = bool(cfg.get("resting_levels")) and _leg_accepts_return_levels(cfg["strategy"])
+    if want_levels:
+        extra["return_levels"] = True
     if now is not None and _leg_accepts_session_in_progress(cfg["strategy"]) \
             and _session_in_progress(arrays, now):
         extra["session_in_progress"] = True
@@ -1522,6 +1639,15 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, f
 
     trades_raw = res["trades"]
     label = _leg_label(cfg, leg_key)
+    levels_raw = None
+    if want_levels:
+        levels_raw = res.get("levels")
+        if not isinstance(levels_raw, (list, tuple)) or len(levels_raw) != len(trades_raw):
+            # never guess which level belongs to which trade -- no levels, today's exits
+            log(f"[cloud-signal] {label}: engine levels missing or misaligned "
+                f"({'none' if levels_raw is None else len(levels_raw)} for "
+                f"{len(trades_raw)} trade(s)) -- no resting levels this call")
+            levels_raw = None
     try:
         leg_sizes, size_cost_pts = _resolve_trade_sizes(res, len(trades_raw), label)
     except _TradeSizeContractError as e:
@@ -1586,10 +1712,13 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, f
         paired = list(zip(trades_raw, leg_sizes))
     else:
         paired = [(t, 1.0) for t in trades_raw]
+    # the engine's levels ride with their trade through the sort (same order as trades_raw)
+    paired = [p + (levels_raw[n] if levels_raw is not None else None,)
+              for n, p in enumerate(paired)]
     paired.sort(key=lambda p: p[0][0])
 
     out = []
-    for (entry_bar, exit_bar, pnl_pts, side, entry_px), size in paired:
+    for (entry_bar, exit_bar, pnl_pts, side, entry_px), size, lv in paired:
         entry_bar = int(entry_bar); exit_bar = int(exit_bar)
         entry_px = float(entry_px)
         if sizes_declared:
@@ -1658,6 +1787,8 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, f
             # this reads it, so it changes no existing behaviour.
             "entry_bar": entry_bar,
         })
+        if want_levels:
+            out[-1]["levels"] = _trade_levels(lv, entry_bar, side, entry_px, idx, n_bars)
     return out
 
 
@@ -2057,7 +2188,13 @@ SIGNAL_COLS = ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "s
               # _keel_size_for_entry) -- both real numbers, never blank. Blank on SEED
               # rows, on every non-KEEL leg's rows, and on any row written before this
               # column existed.
-              "keel_size"]
+              "keel_size",
+              # appended, never inserted (2026-09-29, resting ORB stops) -- the engine's own
+              # cent-rounded levels (see RESTING LEVELS above _leg_accepts_return_levels),
+              # only for a cfg["resting_levels"] leg (ORB_R6): the initial stop and the
+              # target on its ENTRY row, the moved stop and the same target on a LEVELS row.
+              # Blank on every other row and leg, and on rows written before these existed.
+              "stop_px", "target_px"]
 
 
 def _read_signals_header(path):
@@ -2481,6 +2618,22 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
     return all_events
 
 
+def _levels_reason(lv, tf):
+    """'breakeven armed at the close of 11:05 (the 11:00 bar)' -- the LEVELS row's reason.
+    The bar CLOSES `tf` after the start time the ledger stamps (ref_time)."""
+    try:
+        start = _dt.datetime.fromisoformat(str(lv["be_armed_time"]))
+        start = start.astimezone(_zi(TZ)) if start.tzinfo else start
+        if tf in TIMEFRAME_SECONDS:
+            close = start + _dt.timedelta(seconds=TIMEFRAME_SECONDS[tf])
+            return (f"breakeven armed at the close of {close:%H:%M} (the {start:%H:%M} bar); "
+                    f"stop {lv['be_stop_px']} from the next bar")
+        return (f"breakeven armed at the close of the {start:%H:%M} bar; "
+                f"stop {lv['be_stop_px']} from the next bar")
+    except Exception:
+        return f"breakeven armed; stop {lv.get('be_stop_px')} from the next bar"
+
+
 def _zi(name):
     try:
         from zoneinfo import ZoneInfo
@@ -2557,8 +2710,17 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
     Defaults True so every pre-existing direct caller (every test written before this
     feature) keeps behaving exactly as before; the push itself additionally requires
     EDGELOG_HOST_ROLE=cloud, so it stays a no-op off the box regardless.
+
+    RESTING LEVELS (2026-09-29). Only for a cfg["resting_levels"] leg whose trades carry
+    "levels" (run_leg_trades): the ENTRY row gains stop_px/target_px, and when breakeven
+    has armed on an open trade whose ENTRY was emitted, ONE "LEVELS" row names the moved
+    stop (ref_time = the arming bar, ref_price = stop_px = the new stop). It is keyed on
+    the trade's memory record like every other event (rec["be_emitted"]), so a re-run
+    tick never repeats it; it is never written for a skipped/seeded trade, a trade that
+    closed in the same diff (its EXIT says it all), or after the close.
     """
     events = []
+    levels_on = bool((cfg or {}).get("resting_levels"))
     _rekey_recorded_trades(leg_key, leg_state)
     recorded = leg_state.setdefault("trades", {})
     if not leg_state.get("seeded"):
@@ -2688,6 +2850,34 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 "trade_id": tid,
                 "size": final_size,
                 "keel_size": keel_size,
+            })
+            lv = t.get("levels") if levels_on else None
+            if lv:
+                # the engine's initial stop and target -- see RESTING LEVELS / SIGNAL_COLS
+                rec["stop_px"] = lv["stop_px"]
+                rec["target_px"] = lv["target_px"]
+                events[-1]["stop_px"] = lv["stop_px"]
+                events[-1]["target_px"] = "" if lv["target_px"] is None else lv["target_px"]
+        lv = t.get("levels") if levels_on else None
+        if (lv and lv.get("be_armed_time") and t["still_open"] and not post_close
+                and not rec.get("skipped") and not rec.get("seeded")
+                and not rec.get("exit_emitted") and not rec.get("be_emitted")):
+            # BREAKEVEN MOVED THE STOP (see RESTING LEVELS): armed at the close of the bar
+            # starting be_armed_time, in force from the next bar. Once per trade.
+            rec["be_emitted"] = lv["be_armed_time"]
+            rec["stop_px"] = lv["be_stop_px"]
+            target_px = rec.get("target_px", lv["target_px"])
+            events.append({
+                "emitted_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(),
+                "leg": leg_key, "event": "LEVELS", "side": t["side"],
+                "ref_time": lv["be_armed_time"], "ref_price": lv["be_stop_px"],
+                "shares": t["shares"],
+                "reason": _levels_reason(lv, (cfg or {}).get("timeframe")),
+                "bar_source": bar_source or "",
+                "trade_id": tid,
+                "size": "", "keel_size": "",
+                "stop_px": lv["be_stop_px"],
+                "target_px": "" if target_px is None else target_px,
             })
         if (not t["still_open"]) and (not rec["exit_emitted"]):
             rec["exit_emitted"] = True

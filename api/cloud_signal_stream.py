@@ -426,7 +426,16 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log):
         if events is None:
             continue
         committed = False
-        if want_live and not _is_disagreement_tripped(paths, leg_key, today):
+        levels = any(str(e.get("event") or "").upper() == "LEVELS" for e in events)
+        if want_live and levels:
+            # RESTING LEVELS (2026-09-29 review): a bar that moves a resting stop (a LEVELS
+            # row) is never committed from the stream close -- if REST's close for the same
+            # bar did not arm breakeven, the live stop would move while the backtest kept
+            # its stop, and rec["be_emitted"] would block the correction. REST step()
+            # decides this bar (a breakeven move can wait the few seconds).
+            log(f"[cloud-signal-stream] {leg_key} @ {bar_epoch}: stream decision carries a "
+               f"LEVELS row -- not fired live; classic step() decides this bar")
+        elif want_live and not _is_disagreement_tripped(paths, leg_key, today):
             mutated["last_bar_epoch"] = bar_epoch
             state["legs"][leg_key] = mutated
             cs._append_signals(events, paths)

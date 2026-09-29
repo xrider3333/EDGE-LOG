@@ -28,6 +28,7 @@ done.
 | 16 | Entries and exits go out one 5-minute bar after the backtest's fill | **DONE** (2026-09-26, live on the box from Monday) | nothing; check the first day's timing |
 | 17 | Order-path rework (unknown outcomes, fill status, split orders, separate live state, safe disarm) | **PARTLY DONE** (2026-09-26: the paper order path shipped and is live on the box from Monday; the LIVE-only parts and a short list of minor notes remain) | nothing |
 | 18 | Shadow legs: NOISE #422 three ways and ENGU-Q log would-be trades, no orders | **BUILT, NOT DEPLOYED** (2026-09-28, worktree wb-shadow; deploy after the close while flat). ENGU-Q sends no Webull orders from that deploy on | nothing; MANAGER says when to deploy |
+| 19 | Resting ORB #314 stops (and the 5R target inside one OCO) at Webull | **BUILDING** (2026-09-29: paper probe done; order gateway and resting lifecycle built in worktree wb-resting, not committed; ships log-only, no resting order sent) | nothing now; MANAGER says when to deploy and when to leave log-only |
 
 ---
 
@@ -867,3 +868,76 @@ tick, so they still print for the live leg.
 
 **Done when:** deployed, the shadow record gets its first entries on the next session, and no
 ENGU-Q order reaches Webull.
+
+---
+
+## 19. Resting ORB stops at Webull (owner GO 2026-09-29 via MANAGER)
+
+**Status 2026-09-29: BUILDING.** Goal: ORB #314's stop rests at Webull as a real order from the
+bar after the entry fills (as the backtest has it), with the 5R target optionally inside one
+native OCO, on the one QQQ paper account NOISE and ORB share. It ships in log-only mode: every
+arm, cancel, re-arm and crossing decision is logged and nothing rests at Webull until the owner
+switches it on.
+
+**Paper probe, 2026-09-29 10:31 ET** (tools/webull_resting_probe.py; 1-share QQQ orders about 8%
+from the price, all cancelled, book flat):
+- A single stop order with a stop price is accepted both as a buy (a buy-opening stop while flat)
+  and as a short sale (a sell-opening stop while flat). Webull shows it as submitted, and the
+  open-orders list includes it.
+- While the buy stop rested, a short-sale stop was refused with 417 OPENAPI_OPEN_ORDER_HAS_BOX_ORDER.
+  A resting order triggers the same rule as a pending market order, so every other QQQ order must
+  first cancel the resting one and wait until Webull confirms it.
+- Replacing an order moved a resting stop's price in place (798.75 to 806.14). The breakeven move
+  uses that, with cancel-and-place-new as the fallback.
+- A cancel showed as cancelled within about 1-2 seconds.
+- A native OCO (a buy stop plus a buy limit, both marked OCO, under one combo id) was accepted and
+  both legs rested (the open-orders list showed the limit leg as pending).
+- Cancelling ONE OCO leg left the other leg live 2 seconds later. The book always cancels both
+  legs itself and confirms both.
+- NOT verified (needs a real fill): whether a filled OCO leg cancels its sibling, partial fills,
+  whether a pending closing sell holds the shares, and a closing sell stop on a long position. So
+  after any resting fill the book cancels and confirms the sibling itself, and the stop-plus-target
+  mode stays opt-in.
+- No paper token is needed (the box's paper token folder is empty). The Webull SDK's logger stays
+  silenced, because it can log signed request headers.
+
+**What is built (order adapter):** cancel-first before every QQQ order (a fill found on the way
+is booked first; if Webull cannot confirm, nothing is sent and the order is retried); an optional
+rule that no QQQ order goes out while an earlier one is still working; placing, cancelling (both
+OCO legs, confirmed), replacing and checking resting orders, all recorded before they are sent and
+booked only from Webull's own fill record; reconcile books a resting fill before it compares
+positions, and on a real mismatch cancels every resting order; a start-up sweep cancels any open
+QQQ order the book does not know and halts entries until a reconcile agrees. The book side (when
+to arm, the levels from the engine, the rows and pushes) is built alongside.
+
+**Runbook and known limits (third review, 2026-09-29):**
+- Log-only sends no resting order. Its only Webull call is one read of the open-orders list at
+  each start-up. An open QQQ order the book does not know is listed and pushed once per order
+  (not at every restart). One whose id is a resting-stop id (a stop-mode host that crashed) is
+  cancelled while this host holds the lease, with a high push and entries halted until a
+  reconcile agrees.
+- The stop-plus-target mode also needs `orb_resting.oco_verified: true` in config.json. Without
+  it the book runs plain stop mode and logs one warning. Set it only after a real-fill paper probe
+  shows a filled OCO leg cancels its sibling and how partial fills behave. Even then, Webull fills
+  whichever leg its tape reaches first. The backtest checks the stop first inside a bar, so a bar
+  that touches both can be a stop in the backtest and a target fill at Webull. The fill parity
+  flags that trade "diverged".
+- If a resting call to Webull has not answered for a minute, one high push goes out. Every QQQ
+  order, including NOISE's exits and the 15:59 flatten, waits for it. Check Webull's open QQQ
+  orders by hand before 15:59.
+- A positions read failure (a Webull blip) halts entries but keeps a working stop. Only a real
+  position mismatch cancels it.
+- A stop from an earlier session whose fill cannot be decided holds back only ORB's own close.
+  Other legs' orders go through.
+- Mode `off` gives the executor's outputs (orders, trades, broker rows, adapter state, the
+  published doc) byte for byte as before. The engine's signal ledger still gains the stop and
+  target columns and ORB's LEVELS rows in every mode. LEVELS rows are never committed from the
+  stream bar-close path.
+- The web tab does not show the published `orb_resting` block yet (an index.html card is still to
+  do). Read the log-only decisions from the event timeline and the logs until then.
+
+**Needs from the owner.** Nothing now. MANAGER says when to deploy, and later when to leave
+log-only (2-3 sessions of log-only first).
+
+**Done when:** deployed in log-only, 2-3 sessions of logged decisions reviewed, then a week of
+stop mode on paper with no box-order refusal and no false halt.

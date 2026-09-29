@@ -226,6 +226,19 @@ DEFAULT_CONFIG = {
     # _start_qqq_stream. False falls back to bar-close pricing everywhere (exactly
     # like a failed/never-attempted connect), never a crash.
     "live_stream_enabled": True,
+    # RESTING ORB STOP (2026-09-29, owner GO via MANAGER -- see _maybe_manage_resting):
+    # "off" = today's behaviour exactly; "log_only" (DEFAULT) = every arm / cancel /
+    # re-arm / crossing decision is logged and published, and NO resting order is sent;
+    # "stop" = ORB #314's stop rests at Webull; "stop_target" = the stop plus the 5R
+    # target inside ONE native OCO. The last two are opt-in. "stop_target" also needs
+    # "oco_verified": true -- set only after a REAL-fill paper probe has shown a filled OCO
+    # leg cancels its sibling and how partial fills behave (untested 09-29: a partial
+    # target fill then a stop trigger before the book's own cancel lands could sell the
+    # account past zero); without it the mode runs as "stop", with one warning. Known
+    # limit: Webull fills whichever OCO leg its tape reaches first, while the backtest
+    # checks the stop first inside a bar -- a 5m bar touching both is a stop in the
+    # backtest and may be a target fill at Webull (flagged afterwards as "diverged").
+    "orb_resting": {"mode": "log_only"},
 }
 
 
@@ -2451,6 +2464,41 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
         rec = {"ok": False, "sent": False, "mode": "ERROR", "error": f"{type(e).__name__}: {e}"}
         log(f"[qqq-exec] broker adapter call failed for {leg} {intent} (non-fatal -- the "
             f"shadow record above stands): {type(e).__name__}: {e}")
+    if rec.get("closed_by_resting"):
+        # RESTING ORB STOP (2026-09-29): the gateway (or an earlier lookup) found the leg's
+        # resting stop/target already FILLED at Webull, so nothing was sent. That fill is
+        # the leg's CLOSE row (_book_resting_fills writes it, signal id qx<tid>C) -- no
+        # second row here, no "Webull never held it" push, no re-send.
+        cbr = rec["closed_by_resting"] or {}
+        msg = (f"{leg} {intent}: already closed at Webull by the resting {cbr.get('kind') or 'stop'} "
+               f"{cbr.get('client_order_id') or ''} ({cbr.get('filled') or '?'} share(s)"
+               + (f" @ {float(cbr['filled_price']):.2f}" if _finite_or_none(cbr.get("filled_price"))
+                  is not None else "") + ") -- no market close sent")
+        log(f"[qqq-exec] {msg}")
+        _log_event(state, "broker", msg, log=log)
+        state["_broker_last"] = {"leg": leg, "intent": intent, "mode": rec.get("mode"),
+                                 "ok": True, "reason": rec.get("reason") or msg,
+                                 "closed_by_resting": True}
+        if requeue:
+            _queue_broker_resend(state, rec, leg=leg, side=side, shares=shares,
+                                 shadow_px=shadow_px, intent=intent, ts=ts, seq=seq,
+                                 trade_id=trade_id, resend=resend, signal_id=signal_id,
+                                 nowdt=nowdt, log=log)
+        return
+    if (state.get("orb_resting") or {}).get("live_seen") and \
+            rec.get("mode") in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
+        # RESTING ORB STOP (2026-09-29 second review): a resting fill this send's gateway
+        # found (say a PARTIAL stop fill, the market close clamped to what was left) gets
+        # its row BEFORE this send's row -- the fill ledger's FIFO pairing (parity, the
+        # Webull P&L of record, the daily-loss rail) caps a trade's closes at its OPEN's
+        # shares in file order, so the market row written first would take them all.
+        # Only once a stop mode has run (live_seen) -- "off" and log_only never rest
+        # anything; no network.
+        try:
+            _book_resting_fills(state, _get_broker_adapter(log=log), nowdt or _now_et(), log=log)
+        except Exception as e:
+            log(f"[qqq-exec] resting fill booking before the {leg} {intent} row failed "
+                f"(non-fatal -- the next tick books it): {type(e).__name__}: {e}")
     broker_px = _extract_broker_fill_price(rec)
     slippage = None
     if broker_px is not None and shadow_px is not None:
@@ -2717,6 +2765,11 @@ def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts
         elif (intent == "OPEN" and rec.get("mode") == "BLOCKED" and text.startswith("halted:")
               and _broker_halt_source(log=log) == "reconcile"):
             why = "halt"
+        elif intent == "OPEN" and rec.get("busy") and not rec.get("sent"):
+            # RESTING ORB STOP (2026-09-29): the order gateway held it back -- a resting
+            # order not yet confirmed cancelled, or an earlier part still working at
+            # Webull. Nothing reached Webull; it goes again like a same-instant duplicate.
+            why = "busy"
         elif intent == "CLOSE" and not rec.get("nothing_to_close"):
             why = "close_retry"
         if not why or not trade_id:
@@ -2875,6 +2928,7 @@ def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts
                   "verify_landed_qty": verify_landed_qty}
         why_txt = {"duplicate": "Webull saw a same-instant duplicate",
                   "halt": "blocked by a reconcile halt",
+                  "busy": "held back by the order gateway",
                   "close_retry": f"broker record not ok ({text or 'see the broker log'})"}[why]
         tries_txt = (f"{int(resend or 0)} re-sends so far" if why == "close_retry"
                     else f"{int(resend or 0)} of {BROKER_RESEND_MAX_TRIES} re-sends used")
@@ -3274,6 +3328,7 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                         else f"{tries} re-sends failed")
                 why_txt = ("blocked by a reconcile halt" if why == "halt"
                           else "rejected by Webull as a duplicate" if why == "duplicate"
+                          else "held back by the order gateway" if why == "busy"
                           else "not ok at the broker")
                 msg = (f"QQQ BROKER: gave up re-sending the {leg} {what} ({cause}; first try "
                        f"{why_txt}). "
@@ -3483,10 +3538,16 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                               trade_id=item.get("trade_id"), resend=tries + 1,
                               nowdt=nowdt, log=log)
             last = state.get("_broker_last") or {}
-            if last.get("ok") and last.get("leg") == leg:
+            if last.get("ok") and last.get("leg") == leg and last.get("closed_by_resting"):
+                # RESTING ORB STOP: nothing was re-sent -- the resting order had already
+                # closed the leg at Webull (_mirror_to_broker logged and put it on the
+                # timeline); no "re-sent and accepted" push for an order never sent
+                pass
+            elif last.get("ok") and last.get("leg") == leg:
                 msg = (f"QQQ BROKER: {leg} {what} re-sent and accepted ("
                        + ("after the reconcile halt cleared" if why == "halt"
                           else "after a same-instant duplicate" if why == "duplicate"
+                          else "after the order gateway held it back" if why == "busy"
                           else "after a retry") + ")")
                 _log_event(state, "broker", msg, log=log)
                 _notify(msg, "EDGELOG QQQ BROKER", log)
@@ -3744,7 +3805,11 @@ def _update_broker_order_row(signal_id, updates, log=print):
         return False
     found = False
     for row in rows:
-        if row.get("signal_id") == signal_id:
+        # RESTING ORB STOP (2026-09-29 review): a resting fill row shares its trade's CLOSE
+        # signal id (qx<tid>C) but is written complete by _book_resting_fills and never
+        # has a capture of its own -- a later market close's capture must land on ITS
+        # row, never overwrite Webull's stop/target price on the resting one
+        if row.get("signal_id") == signal_id and not _is_resting_fill_row(row):
             row.update(updates)
             found = True
             break
@@ -4158,9 +4223,14 @@ def _reconcile_with_timeout(adapter, log=print):
 
     2026-09-26: while an order lookup is hung or timed out within ORDER_LOOKUP_COOLDOWN_SEC,
     reconcile() skips its PENDING pass (resolve_pending=False) -- that lookup runs before
-    the positions read, inside this same 12 s budget."""
+    the positions read, inside this same 12 s budget. RESTING ORB STOP (2026-09-29 second
+    review): the same while a resting call to Webull is hung or just timed out
+    (_resting_busy) -- its lookups would hang the reconcile into a false read-failure halt;
+    reconcile() then reads a difference a live resting order's fill would explain as
+    "undecided" instead of a mismatch."""
+    skip = _order_lookup_busy() or _resting_busy()
     fut = (_reconcile_executor.submit(adapter.reconcile, resolve_pending=False)
-           if _order_lookup_busy() else _reconcile_executor.submit(adapter.reconcile))
+           if skip else _reconcile_executor.submit(adapter.reconcile))
     try:
         return fut.result(timeout=RECONCILE_HARD_TIMEOUT_SEC)
     except concurrent.futures.TimeoutError:
@@ -4310,6 +4380,16 @@ def _maybe_run_broker_reconcile(state, cfg, adapter, nowdt, active, log=print):
     if result is None:
         return
     _push_pending_changes(state, adapter, log=log, nowdt=nowdt)
+    if result.get("undecided"):
+        # RESTING ORB STOP (2026-09-29 second review): the difference is what a live resting
+        # order's own fill would make, and that order had no clear lookup this pass -- it is
+        # looked up first (the adapter marked it due), and the check runs again after the
+        # post-order grace; no halt, no push. The adapter halts after a few in a row.
+        log(f"[qqq-exec] broker reconcile UNDECIDED ({why}): {result.get('reason')} -- the "
+            f"resting order is looked up first, then checked again")
+        state["_reconcile_due"] = True
+        state["_last_broker_send_at"] = time.time()
+        return
     if result.get("ok"):
         log(f"[qqq-exec] broker reconcile OK ({why})")
     else:
@@ -4354,6 +4434,1310 @@ def _run_broker_housekeeping(state, cfg, nowdt, active, log=print):
         return
     _sync_broker_daily_pnl(state, adapter, nowdt, log=log)
     _maybe_run_broker_reconcile(state, cfg, adapter, nowdt, active, log=log)
+
+
+# -- RESTING ORB STOP (2026-09-29, owner GO via MANAGER) -------------------------------------
+# ORB #314's stop -- and, opt-in, its 5R target inside ONE native OCO -- rests at Webull on
+# the ONE netted QQQ account the NOISE and ORB legs share, armed from the bar AFTER the
+# entry fill exactly as the backtest's stop is live from the next bar. The levels come from
+# the engine (api/cloud_signal.py writes stop_px / target_px on ORB's ENTRY row and a LEVELS
+# row when breakeven moves the stop), so the book never re-derives them. Netting-safe by
+# construction: api/webull_orders.py's order gateway cancels and confirms every resting
+# order before ANY other QQQ order is planned (and, in the stop modes, waits for an earlier
+# part to be FILLED or dead), and every resting order is re-planned from the confirmed
+# account net as ONE part -- never one that would cross zero.
+#
+# config orb_resting.mode:
+#   "off"         -- today's behaviour byte for byte: no LEVELS row consumed, no level on
+#                    a lot, no status block, no adapter call from this section;
+#   "log_only"    -- DEFAULT: every arm / cancel / re-arm / crossing decision is logged and
+#                    published (doc["orb_resting"]); no resting order is ever sent. Its
+#                    one Webull call is the process-start boot sweep's single read-only
+#                    get_order_open (_resting_boot_sweep: a crashed stop-mode host's
+#                    resting order is cancelled, a hand-placed one only listed);
+#   "stop"        -- the stop rests (STOP_LOSS, DAY, CORE);
+#   "stop_target" -- the stop and the 5R target rest as ONE native OCO. Runs only with
+#                    orb_resting.oco_verified = true (a real-fill paper probe of the OCO
+#                    sibling cancel and partial fills), else as "stop". Webull fills the
+#                    OCO leg its tape reaches first; the backtest checks the stop first
+#                    inside a bar, so a bar touching both can be a stop in the backtest
+#                    and a target fill at Webull (the fill parity then says "diverged").
+#
+# ARMING RULE (_resting_arm_gate): the lot has engine levels; ORB's OPEN is confirmed
+# FILLED at Webull (a part-filled entry rests the filled shares, a book-only lot nothing);
+# qty = ORB's confirmed broker quantity; no broker send in flight and nothing in the
+# re-send queue (the adapter itself refuses while any QQQ part is not yet terminal);
+# 09:30 <= now < flat_by - 1 min; no book KILL, breaker not tripped, adapter not halted by
+# reconcile, lease ok; the live stream's last trade still on the right side of the level --
+# else the stop is already hit and ORB's market close goes out now. Side from the account
+# net (webull_orders.plan_resting_side): SELL closing when n >= q, SHORT opening when
+# n <= 0, NOT rested when 0 < n < q (ORB then exits on the engine's bar close, one event
+# per trade); BUY is the mirror. At most one placement per tick; at most
+# RESTING_MAX_TRIES failed tries per trade and level, with backoff, then one push and the
+# engine-exit fallback.
+#
+# A RESTING FILL is ONE broker_orders.csv CLOSE row (signal_id qx<tid>C -- so the fill
+# parity and the Webull P&L of record find it unchanged -- client_order_id = the resting
+# id, shadow_px = the engine level, broker_fill_px = Webull's price) and sets
+# lot["broker_closed"]: the shadow lot stays engine-driven and its later EXIT (or the
+# day's flatten) closes it at the engine price with no second broker order.
+RESTING_LEG = "ORB"
+RESTING_QTY_UNREADABLE = "ORB's broker quantity is not readable now"
+ORB_RESTING_MODES = ("off", "log_only", "stop", "stop_target")
+RESTING_STOP_MODES = ("stop", "stop_target")
+RESTING_MAX_TRIES = 3
+RESTING_TRY_BACKOFF_SEC = (5.0, 10.0, 20.0)
+# Webull's rate limit (HTTP 429, outcome RATE_LIMITED) is waited out this long and never
+# counts as a failed try (2026-09-29 second review: a ~35 s 429 streak used to use up all
+# RESTING_MAX_TRIES and leave ORB without its stop for the trade).
+RESTING_RATE_LIMIT_WAIT_SEC = 60.0
+RESTING_ARM_FROM = (9, 30)
+_RESTING_PROCESS = {"prev_terminal": False, "bad_mode_warned": None}
+# A healthy resting order is looked up at most this often in the background; at once when
+# the live stream prints through a level, a leg is due a cancel or a look, or another
+# order went out on the symbol since the last look (2026-09-29 review: one lookup every
+# 5 s tick is ~4,000 get_order_detail calls a day against an unverified rate limit).
+RESTING_LOOKUP_EVERY_SEC = 30.0
+
+# BOUNDED RESTING CALLS (2026-09-29 review, major): every resting adapter call that can
+# reach Webull (place, replace, cancel-and-confirm, resolve, boot sweep) runs on ITS OWN
+# single worker with a hard wall-clock timeout, like _order_status_executor and
+# _positions_executor -- this SDK's own timeouts are not reliably honoured (the 09-03
+# 10-hour hang). A call that times out keeps running in the background; until it
+# finishes (and for RESTING_CALL_COOLDOWN_SEC after a timeout) the resting step skips
+# itself and the flatten's step 1 falls through to the closes, whose own gateway runs on
+# the bounded send worker. The adapter lets its lock go for every one of these network
+# calls, so a hung one never freezes the tick's other adapter reads either.
+RESTING_RESOLVE_HARD_TIMEOUT_SEC = 8.0     # one cancel_order + one get_order_detail (+ a
+                                           # get_order_open read for a stuck record)
+RESTING_PLACE_HARD_TIMEOUT_SEC = webull_orders.SEND_LOOKUP_BUDGET_SEC + 4.0
+RESTING_CANCEL_HARD_TIMEOUT_SEC = webull_orders.RESTING_GATEWAY_BUDGET_SEC + 4.0
+RESTING_REPLACE_HARD_TIMEOUT_SEC = webull_orders.RESTING_GATEWAY_BUDGET_SEC + 4.0
+RESTING_CALL_COOLDOWN_SEC = 10.0
+# A resting call still on the wire this long gets ONE high push (2026-09-29 review): a hung
+# place keeps its ids "sending", and the gateway then holds EVERY QQQ order -- NOISE's
+# exits and the 15:59 flatten included -- until it returns (fail-closed and netting-safe:
+# settling it could leave an unrecorded live stop if the send lands later). The owner
+# checks Webull's open orders by hand before 15:59.
+RESTING_HANG_ALERT_SEC = 60.0
+_resting_executor = concurrent.futures.ThreadPoolExecutor(
+    max_workers=1, thread_name_prefix="qqq-resting")
+_resting_inflight = {"future": None, "what": None, "timed_out_at": 0.0}
+
+
+class _RestingCallPending(Exception):
+    """A resting adapter call did not answer inside its hard timeout (it may still land),
+    or an earlier one is still running: its outcome is unknown this tick."""
+
+
+def _resting_busy():
+    """True while a resting call is still running on the resting worker, or one timed out
+    within RESTING_CALL_COOLDOWN_SEC. Never raises."""
+    try:
+        fut = _resting_inflight.get("future")
+        if fut is not None:
+            if not fut.done():
+                return True
+            _resting_inflight["future"] = None
+        return time.time() - float(_resting_inflight.get("timed_out_at") or 0.0) \
+            < RESTING_CALL_COOLDOWN_SEC
+    except Exception:
+        return False
+
+
+def _resting_call(what, timeout, fn, *args, log=print, **kwargs):
+    """fn(*args, **kwargs) on the resting worker, bounded to `timeout` wall-clock seconds.
+    Raises _RestingCallPending when a previous call is still running or this one timed out
+    (logged once); re-raises fn's own exception. Returns fn's result."""
+    prior = _resting_inflight.get("future")
+    if prior is not None and not prior.done():
+        raise _RestingCallPending(f"an earlier resting call ({_resting_inflight.get('what')}) "
+                                  f"is still running")
+    fut = _resting_executor.submit(fn, *args, **kwargs)
+    _resting_inflight.update(future=fut, what=what, started_at=time.time(), hang_alerted=False)
+    try:
+        return fut.result(timeout=timeout)
+    except concurrent.futures.TimeoutError:
+        fut.cancel()   # a no-op once started
+        _resting_inflight["timed_out_at"] = time.time()
+        log(f"[qqq-exec] resting {what} did not answer in {timeout:g}s -- its outcome is "
+            f"unknown; the resting step pauses until it finishes (the order gateway cancels "
+            f"first before any other QQQ order)")
+        raise _RestingCallPending(f"resting {what} timed out after {timeout:g}s")
+
+
+def _resting_hang_alert(state, log=print):
+    """ONE high push per resting call still running after RESTING_HANG_ALERT_SEC (see
+    there). Never raises."""
+    try:
+        fut = _resting_inflight.get("future")
+        if fut is None or fut.done() or _resting_inflight.get("hang_alerted"):
+            return
+        age = time.time() - float(_resting_inflight.get("started_at") or time.time())
+        if age < RESTING_HANG_ALERT_SEC:
+            return
+        _resting_inflight["hang_alerted"] = True
+        msg = (f"QQQ BROKER: the resting {_resting_inflight.get('what')} call to Webull has not "
+               f"answered for {age:.0f}s -- every QQQ order (NOISE's exits and the 15:59 "
+               f"flatten included) waits for it. Check Webull's open QQQ orders by hand "
+               f"before 15:59")
+        _log_event(state, "broker", msg, log=log)
+        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+    except Exception as e:
+        log(f"[qqq-exec] resting hang alert failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _orb_resting_mode(cfg):
+    """config orb_resting.mode, normalised to one of ORB_RESTING_MODES. A missing block
+    reads as the default "log_only"; an unreadable value too (sends nothing), warned once
+    per process. "stop_target" without orb_resting.oco_verified = true runs as "stop"
+    (2026-09-29 review: the OCO's filled-leg sibling cancel and its partial fills are not
+    yet proven on a real fill), warned once per process. Never raises."""
+    try:
+        blk = (cfg or {}).get("orb_resting")
+        raw = blk.get("mode", "log_only") if isinstance(blk, dict) else (blk or "log_only")
+        mode = str(raw).strip().lower()
+        verified = isinstance(blk, dict) and blk.get("oco_verified") is True
+    except Exception:
+        mode, verified = None, False
+    if mode == "stop_target" and not verified:
+        if not _RESTING_PROCESS.get("oco_unverified_warned"):
+            _RESTING_PROCESS["oco_unverified_warned"] = True
+            print("[qqq-exec] WARNING: orb_resting.mode='stop_target' needs "
+                  "orb_resting.oco_verified=true (a real-fill paper probe of the OCO) -- "
+                  "running 'stop': the 5R target stays on the engine exit")
+        return "stop"
+    if mode in ORB_RESTING_MODES:
+        return mode
+    if _RESTING_PROCESS["bad_mode_warned"] != mode:
+        _RESTING_PROCESS["bad_mode_warned"] = mode
+        print(f"[qqq-exec] WARNING: orb_resting.mode={mode!r} is not one of "
+              f"{ORB_RESTING_MODES} -- running 'log_only' (nothing rests)")
+    return "log_only"
+
+
+def _resting_gateway_step(cfg, log=print):
+    """The adapter gateway's previous-order-terminal rule is on in the stop modes only
+    (OrderAdapter.set_prev_terminal(True)); leaving them hands it back to the adapter's
+    own config (None). "off" / "log_only" with nothing ever switched never touch the
+    adapter. Never raises."""
+    want = _orb_resting_mode(cfg) in RESTING_STOP_MODES
+    if not want and not _RESTING_PROCESS["prev_terminal"]:
+        return
+    try:
+        fn = getattr(_get_broker_adapter(log=log), "set_prev_terminal", None)
+        if callable(fn):
+            fn(True if want else None)
+        _RESTING_PROCESS["prev_terminal"] = want
+    except Exception as e:
+        log(f"[qqq-exec] resting gateway mode not set (non-fatal): {type(e).__name__}: {e}")
+
+
+def _resting_block(state, mode, nowdt):
+    """state["orb_resting"] -- this section's own memory, reset per ET day (counts, tries,
+    per-trade notes). Created only outside "off"."""
+    blk = state.setdefault("orb_resting", {})
+    day = nowdt.strftime("%Y-%m-%d")
+    if blk.get("day") != day:
+        live_seen = blk.get("live_seen")   # survives the day reset: see _maybe_manage_resting
+        blk.clear()
+        if live_seen:
+            blk["live_seen"] = live_seen
+        blk.update({"day": day, "resting": None, "last": None, "tries": {}, "noted": {},
+                    "counts": {k: 0 for k in ("armed", "rearmed", "replaced", "cancelled",
+                                              "crossing", "crossed", "filled", "fallback")}})
+    blk["mode"] = mode
+    return blk
+
+
+def _resting_count(blk, kind, n=1):
+    counts = blk.setdefault("counts", {})
+    counts[kind] = int(counts.get(kind, 0) or 0) + n
+
+
+_RESTING_VOLATILE_RE = re.compile(r"\b\d+(?:\.\d+)?s\b")
+
+
+def _resting_note_key(text):
+    """A note's text with its running ages ("... landed in 123s") masked, so a reason that
+    only counts seconds up is ONE decision, not a new line every tick."""
+    return _RESTING_VOLATILE_RE.sub("#s", str(text or ""))
+
+
+def _resting_note(state, blk, kind, text, nowdt, log=print, event=True):
+    """Record the section's latest decision. Logged (and put on the event timeline) only
+    when it CHANGES -- ages in seconds masked (_resting_note_key, 2026-09-29 second review:
+    the lease's "no stamp ... in 123s" reason wrote a line every 5 s tick) -- so a waiting
+    state is one line, not one per 5 s tick. A "wait" note never goes on the timeline
+    (2026-09-29 review: each NOISE order while ORB holds would add two or three, some
+    naming an order id) -- it is logged and published as the status block's "last" only.
+    Returns True when it changed."""
+    last = blk.get("last") or {}
+    if last.get("kind") == kind and _resting_note_key(last.get("text")) == _resting_note_key(text):
+        return False
+    blk["last"] = {"at": nowdt.strftime("%Y-%m-%d %H:%M:%S"), "kind": kind, "text": text}
+    log(f"[qqq-exec] ORB resting ({blk.get('mode')}): {text}")
+    if event and kind != "wait":
+        _log_event(state, "orb_resting", f"ORB resting ({blk.get('mode')}): {text}", log=log)
+    return True
+
+
+def _resting_note_once(state, blk, key, text, nowdt, log=print):
+    """One timeline event per trade and `key` (e.g. the crossing case). True the first time."""
+    noted = blk.setdefault("noted", {})
+    if noted.get(key):
+        return False
+    noted[key] = nowdt.strftime("%H:%M:%S")
+    _log_event(state, "orb_resting", f"ORB resting ({blk.get('mode')}): {text}", log=log)
+    return True
+
+
+def _resting_stream_price(log=print):
+    """The live Webull stream's last QQQ trade while the stream is fresh, else None (the
+    bar close is too old to judge "already through the level"). Never raises."""
+    streamer = _qqq_stream_instance()
+    if streamer is None:
+        return None
+    try:
+        if streamer.is_fresh():
+            t = streamer.last_trade()
+            if t and t.get("price") is not None:
+                return float(t["price"])
+    except Exception as e:
+        log(f"[qqq-exec] live stream read for the resting stop failed: {type(e).__name__}: {e}")
+    return None
+
+
+def _resting_live(adapter, symbol=BROKER_SYMBOL, strict=False):
+    """The adapter's live resting records on `symbol` ([] when none). When they cannot be
+    read now -- a send in flight, the adapter lock busy past 0.5 s, an error -- [] or, with
+    `strict`, None (the caller then skips rather than reading "nothing rests"). No network."""
+    fn = getattr(adapter, "resting_orders", None)
+    if not callable(fn):
+        return []
+    if _send_inflight_future() is not None:
+        return None if strict else []
+    try:
+        recs = fn(symbol, lock_timeout=0.5)
+    except Exception:
+        return None if strict else []
+    if not isinstance(recs, list):
+        return None if strict else []
+    return [r for r in recs if isinstance(r, dict)]
+
+
+def _resting_broker_qty(adapter, leg):
+    """The leg's SIGNED quantity in the adapter's broker_sent_positions (what reached
+    Webull and is confirmed or counted), or None when unreadable."""
+    try:
+        p = ((adapter.status() or {}).get("broker_sent_positions") or {}).get(leg) or {}
+        if p and str(p.get("symbol") or BROKER_SYMBOL).upper() != BROKER_SYMBOL:
+            return 0.0
+        return float(p.get("qty", 0) or 0)
+    except Exception:
+        return None
+
+
+def _resting_entry_confirmed(adapter, lot):
+    """(True, None) once ORB's OPEN is confirmed at Webull -- every order part of it
+    settled (FILLED, or dead after a partial fill: the filled shares rest) -- else
+    (False, why). A book-only lot (no part at all) never is."""
+    tid = (lot or {}).get("trade_id")
+    if not tid:
+        return False, "the ORB trade has no trade id"
+    prefix = webull_orders._sanitize_client_order_id(
+        _broker_signal_id(RESTING_LEG, None, "OPEN", trade_id=tid))
+    fn = getattr(adapter, "order_parts", None)
+    parts = fn(leg=RESTING_LEG, intent="OPEN") if callable(fn) else []
+    # a part refused outright (4xx: booked 0, nothing pending) never reached Webull's book
+    parts = [p for p in (parts if isinstance(parts, list) else [])
+             if not p.get("resting") and str(p.get("client_order_id") or "").startswith(prefix)
+             and (p.get("pending") or int(p.get("booked") or 0) > 0 or p.get("final_status"))]
+    if not parts:
+        return False, "ORB's entry has no order at Webull (a book-only trade rests nothing)"
+    if any(p.get("pending") for p in parts):
+        return False, "ORB's entry order outcome is not settled at Webull yet"
+    if any(not p.get("final_status") for p in parts):
+        return False, "ORB's entry is not confirmed FILLED at Webull yet"
+    if not any(int(p.get("booked") or 0) > 0 for p in parts):
+        return False, "ORB's entry never filled at Webull"
+    return True, None
+
+
+def _resting_want(lot, mode, adapter):
+    """What should rest for `lot` now: {direction, qty (ORB's confirmed broker shares),
+    stop, target (stop_target mode only), trade_id} -- or (None, why)."""
+    lv = (lot or {}).get("levels") or {}
+    stop = _finite_or_none(lv.get("stop_px"))
+    if stop is None:
+        return None, "the ORB trade carries no engine levels (entered before this build)"
+    long_lot = lot.get("side") == "long"
+    direction = "SELL" if long_lot else "BUY"
+    target = _finite_or_none(lv.get("target_px")) if mode == "stop_target" else None
+    if target is not None and ((long_lot and target <= stop) or (not long_lot and target >= stop)):
+        target = None
+    held = _resting_broker_qty(adapter, RESTING_LEG)
+    if held is None:
+        # unreadable now (e.g. status() racing a timed-out reconcile thread) is NOT "ORB
+        # holds 0": the caller skips the tick instead of cancelling a healthy stop
+        return None, RESTING_QTY_UNREADABLE
+    qty = int(round(abs(held))) if (held > 0) == long_lot else 0
+    return {"direction": direction, "qty": qty, "stop": round(stop, 2),
+            "target": None if target is None else round(target, 2),
+            "trade_id": lot.get("trade_id")}, None
+
+
+def _resting_crossed(direction, px, stop, target=None):
+    """"stop" / "target" when the live price `px` is already through that level, else None."""
+    if px is None:
+        return None
+    if (px <= stop) if direction == "SELL" else (px >= stop):
+        return "stop"
+    if target is not None and ((px >= target) if direction == "SELL" else (px <= target)):
+        return "target"
+    return None
+
+
+def _resting_arm_gate(state, cfg, adapter, lot, nowdt, active):
+    """None when every arming condition except the account side holds (see the section
+    comment), else the plain-English reason nothing may rest now. No network."""
+    sess = cfg.get("session") or {}
+    last_arm = _hhmm_minus(sess.get("flat_by", "15:58"), 1)
+    if (not active or not _is_weekday(nowdt) or _market_closed_for_orders(nowdt)
+            or _et_hhmm(nowdt) < RESTING_ARM_FROM or _et_hhmm(nowdt) >= _hhmm(last_arm)):
+        return f"outside the arming window (09:30 to {last_arm} ET)"
+    if state.get("kill_done") or os.path.exists(cfg.get("kill_file") or ""):
+        return "the book KILL file is present"
+    if state.get("breaker_tripped"):
+        return "the daily-loss breaker has tripped"
+    if not state.get("_broker_lease_ok", True):
+        return f"the cross-host lease is not verified ({state.get('_broker_lease_reason')})"
+    at_send = _LEASE.send_gate(_LEASE.uid)
+    if at_send is not None and not at_send[0]:
+        return f"the cross-host lease is not held ({at_send[1]})"
+    if _broker_halt_source(log=lambda *_: None) == "reconcile":
+        return "the broker adapter is halted by a reconcile"
+    if state.get("_broker_resend"):
+        return "a broker re-send is queued -- rest after it"
+    if _send_inflight_future() is not None:
+        return "a broker send is still in flight"
+    try:
+        mode, _why = adapter.effective_mode()
+    except Exception:
+        mode = None
+    if mode not in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
+        return f"the broker adapter is {mode or 'unreadable'}, not PAPER or LIVE"
+    ok, why = _resting_entry_confirmed(adapter, lot)
+    return None if ok else why
+
+
+def _resting_desc(want, side=None):
+    """'SELL 10 stop 725.53' (+ ' / target 757.03 (OCO)')."""
+    s = f"{side or want['direction']} {want['qty']} QQQ stop {want['stop']:.2f}"
+    if want.get("target") is not None:
+        s += f" / target {want['target']:.2f} (OCO)"
+    return s
+
+
+def _resting_summary(recs):
+    """The published view of live resting records (small, JSON-plain)."""
+    return [{"id": r.get("client_order_id"), "kind": r.get("kind"), "side": r.get("side"),
+             "qty": r.get("qty"), "stop": r.get("stop_price"), "target": r.get("limit_price"),
+             "status": r.get("status"), "trade_id": r.get("trade_id")} for r in recs]
+
+
+RESTING_EVENT_MAX_REQUEUES = 5
+
+
+def _book_resting_escape(state, ev, nowdt, log=print):
+    """A resting record the adapter settled WITHOUT Webull's own terminal record (see
+    webull_orders' STUCK-RECORD ESCAPE: a previous session's DAY order Webull no longer
+    finds, or one no lookup could settle and get_order_open does not list -- settled
+    unfilled only because Webull's position showed it unfilled): no row (no shares moved
+    in the books), one timeline event, one high push, and a reconcile asked for. The
+    adapter blocks re-arming until a reconcile agrees and still does not find it open."""
+    state["_reconcile_due"] = True
+    state["_last_broker_send_at"] = time.time()
+    msg = (f"QQQ BROKER: {ev.get('leg') or RESTING_LEG}'s resting {ev.get('kind') or 'stop'} "
+           f"{ev.get('client_order_id')} settled {ev.get('status')} with nothing filled "
+           f"without a final answer from Webull ({ev.get('reason')}) -- the books count it "
+           f"unfilled; no stop re-arms until a reconcile agrees")
+    _log_event(state, "broker", msg, log=log)
+    _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+
+
+def _book_resting_undecided(state, ev, nowdt, log=print):
+    """A resting record Webull does not list as open and whose fill the adapter could NOT
+    decide from Webull's position (webull_orders._settle_absent, 2026-09-29 second review):
+    it stays live in the books, so the order gateway keeps every QQQ order -- ORB's close
+    and the flatten included -- back until it is settled; never a second close on a stop
+    that may have filled. One timeline event, one high push, a reconcile asked for."""
+    state["_reconcile_due"] = True
+    state["_last_broker_send_at"] = time.time()
+    msg = (f"QQQ BROKER: {ev.get('leg') or RESTING_LEG}'s resting {ev.get('kind') or 'stop'} "
+           f"{ev.get('client_order_id')} is not among Webull's open orders, and whether it "
+           f"FILLED cannot be told yet ({ev.get('reason')}) -- it stays open in the books and "
+           f"every QQQ order waits until it is settled; check Webull if this lasts")
+    _log_event(state, "broker", msg, log=log)
+    _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+
+
+def _resting_fill_stamp(ev, now_et):
+    """(ts_et text, note) for a resting fill row: now -- unless the order was placed on an
+    EARLIER ET session (a DAY order that filled while the book was down, booked by the next
+    boot sweep): then that session's date at 16:00, so the day's broker-realized P&L pairs
+    it with that day's OPEN (2026-09-29 second review)."""
+    stamp = now_et.strftime("%Y-%m-%d %H:%M:%S")
+    placed = _finite_or_none(ev.get("placed_at"))
+    if placed is None or _NY is None:
+        return stamp, ""
+    try:
+        day = datetime.fromtimestamp(placed, _NY).date()
+    except Exception:
+        return stamp, ""
+    if day >= now_et.date():
+        return stamp, ""
+    return (f"{day.isoformat()} 16:00:00",
+            f" (filled on {day.isoformat()} while the book was down; booked "
+            f"{now_et.strftime('%Y-%m-%d %H:%M')})")
+
+
+def _book_one_resting_fill(state, adapter, ev, mode, nowdt, log=print):
+    """ONE resting fill event -> its broker_orders.csv CLOSE row (written FIRST: an
+    exception before it leaves the event unbooked, and the caller hands it back to the
+    adapter), then the lot flag, the timeline event and the push (their own failures are
+    only logged -- the row is the record). Returns 1 when a row was written, else 0."""
+    change = int(ev.get("change") or 0)
+    if ev.get("undecided"):
+        _book_resting_undecided(state, ev, nowdt, log=log)
+        return 0
+    if ev.get("escaped"):
+        _book_resting_escape(state, ev, nowdt, log=log)
+        return 0
+    if change <= 0:
+        return 0
+    leg = ev.get("leg") or RESTING_LEG
+    tid = ev.get("trade_id")
+    kind = ev.get("kind") or "stop"
+    level = _finite_or_none(ev.get("stop_price") if kind == "stop" else ev.get("limit_price"))
+    lot = (state.get("legs") or {}).get(leg)
+    lot = lot if lot and lot.get("trade_id") == tid else None
+    if level is None and lot is not None:
+        lv = lot.get("levels") or {}
+        level = _finite_or_none(lv.get("stop_px" if kind == "stop" else "target_px"))
+    fill_px = _finite_or_none(ev.get("filled_price"))
+    stamp, late_note = _resting_fill_stamp(ev, _now_et())
+    inferred = bool(ev.get("inferred"))
+    row = {
+        "ts_et": stamp, "leg": leg, "intent": "CLOSE",
+        "side": ev.get("side") or "", "shares": change,
+        "signal_id": _broker_signal_id(leg, None, "CLOSE", trade_id=tid) if tid else "",
+        "client_order_id": ev.get("client_order_id") or "", "mode": mode,
+        "ok": True, "sent": True,
+        "shadow_px": round(level, 4) if level is not None else "",
+        "broker_fill_px": round(fill_px, 4) if fill_px is not None else "",
+        "slippage": (round(fill_px - level, 4)
+                     if fill_px is not None and level is not None else ""),
+        "reason": f"resting {kind} filled at Webull"
+                  + ("" if ev.get("final", True) else " (partial)")
+                  + (" (inferred from Webull's position -- fill price unknown)" if inferred else "")
+                  + late_note,
+        "duplicate": False, "host_id": _lease_host_id(), "outcome": "OK",
+    }
+    _append_csv(BROKER_ORDERS_CSV, BROKER_ORDER_COLS, row, BROKER_ORDERS_KEEP)
+    try:
+        # the books moved at Webull: confirm after the post-order grace, as for a send
+        state["_reconcile_due"] = True
+        state["_last_broker_send_at"] = time.time()
+        held = _resting_broker_qty(adapter, leg)
+        px_txt = f" @ {fill_px:.2f}" if fill_px is not None else ""
+        lvl_txt = f" ({kind} {level:.2f})" if level is not None else ""
+        if lot is not None:
+            if held is not None and abs(held) < 1e-9:
+                lot["broker_closed"] = {
+                    "by": f"resting {kind}", "ok": True, "px": fill_px,
+                    "id": ev.get("client_order_id"),
+                    "at": nowdt.strftime("%Y-%m-%d %H:%M:%S"),
+                    "note": f"already closed at Webull by the resting {kind} "
+                            f"{ev.get('client_order_id')}{px_txt}"}
+            else:
+                lot["broker_partial"] = {"id": ev.get("client_order_id"),
+                                         "filled": int(ev.get("filled") or 0), "px": fill_px}
+        blk = state.get("orb_resting")
+        if isinstance(blk, dict):
+            _resting_count(blk, "filled")
+        msg = (f"QQQ BROKER: {leg}'s resting {kind} filled at Webull: {ev.get('side')} "
+               f"{change}{px_txt}{lvl_txt}"
+               + ("" if ev.get("final", True) else " -- a PARTIAL fill; the rest of the "
+                  "group is cancelled and the engine exit closes what is left")
+               + (" -- the book's trade stays open until the strategy's own exit"
+                  if lot is not None else "")
+               + (f" -- INFERRED: Webull no longer lists the order and its position shows the "
+                  f"fill ({ev.get('reason')}); Webull's fill price is not known"
+                  if inferred else "") + late_note)
+        _log_event(state, "broker", msg, log=log)
+        _notify(msg, "EDGELOG QQQ BROKER", log, **({"priority": "high"} if inferred else {}))
+    except Exception as e:
+        log(f"[qqq-exec] resting fill {ev.get('client_order_id')} booked, but its follow-up "
+            f"failed (non-fatal): {type(e).__name__}: {e}")
+    return 1
+
+
+def _book_resting_fills(state, adapter, nowdt, log=print):
+    """Turn every resting fill the adapter booked (gateway, resolve, reconcile, boot sweep,
+    a cancel or a replace -- take_resting_events) into ONE broker_orders.csv CLOSE row per
+    event and the lot's broker_closed flag; one timeline event and one push each. An
+    escape event (a record settled with no final answer from Webull) pushes and asks for a
+    reconcile. An event that could not be booked -- and every one after it -- goes back
+    to the adapter's queue for the next tick (at most RESTING_EVENT_MAX_REQUEUES times,
+    then a loud log and push: broker_orders.csv, parity and the P&L of record would miss
+    that fill). Returns the number of rows written. Never raises."""
+    try:
+        take = getattr(adapter, "take_resting_events", None)
+        events = take(lock_timeout=0.5) if callable(take) else []
+        if not isinstance(events, list) or not events:
+            return 0
+    except Exception as e:
+        log(f"[qqq-exec] resting fill booking failed (non-fatal): {type(e).__name__}: {e}")
+        return 0
+    try:
+        mode, _ = adapter.effective_mode()
+    except Exception:
+        mode = ""
+    booked = 0
+    for i, ev in enumerate(events):
+        try:
+            booked += _book_one_resting_fill(state, adapter, ev, mode, nowdt, log=log)
+        except Exception as e:
+            rest = []
+            for r in events[i:]:
+                if not isinstance(r, dict):
+                    continue
+                r = dict(r, requeued=int(r.get("requeued") or 0) + (1 if r is ev else 0))
+                if r["requeued"] > RESTING_EVENT_MAX_REQUEUES:
+                    msg = (f"QQQ BROKER: the resting {r.get('kind')} fill "
+                           f"{r.get('client_order_id')} ({r.get('side')} {r.get('change')}) "
+                           f"could not be written to broker_orders.csv after "
+                           f"{RESTING_EVENT_MAX_REQUEUES} tries ({type(e).__name__}: {e}) -- "
+                           f"dropped; the books count it, the fill ledger does not")
+                    log(f"[qqq-exec] {msg}")
+                    _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+                    continue
+                rest.append(r)
+            put = getattr(adapter, "requeue_resting_events", None)
+            back = bool(callable(put) and put(rest))
+            log(f"[qqq-exec] resting fill booking failed at {ev.get('client_order_id')} "
+                f"({type(e).__name__}: {e}) -- {len(rest)} event(s) "
+                + ("handed back for the next tick" if back else
+                   "LOST (the adapter would not take them back): "
+                   + ", ".join(f"{r.get('client_order_id')} {r.get('side')} {r.get('change')}"
+                               for r in rest)))
+            break
+    return booked
+
+
+def _resting_market_close(state, lot, qty, level, why, nowdt, log=print):
+    """The live price is already through ORB's level: send ORB's market close now (the
+    backtest's bar will show the stop hit). A broker-only close -- the shadow lot waits for
+    the engine's EXIT, which then sends nothing when this close was accepted
+    (lot["broker_closed"]["ok"]); one that was not stays with the close re-send queue, and
+    the engine EXIT / flatten still send ORB's close (see _reduce_lot)."""
+    tid = lot.get("trade_id")
+    _mirror_to_broker(state, leg=RESTING_LEG, side=lot["side"], shares=qty, shadow_px=level,
+                      intent="CLOSE", ts=lot.get("entry_ts"), trade_id=tid, nowdt=nowdt, log=log)
+    last = state.get("_broker_last") or {}
+    ok = bool(last.get("ok")) and last.get("leg") == RESTING_LEG
+    if not lot.get("broker_closed"):
+        lot["broker_closed"] = {
+            "by": "market", "ok": ok, "px": None,
+            "id": _broker_signal_id(RESTING_LEG, None, "CLOSE", trade_id=tid),
+            "at": nowdt.strftime("%Y-%m-%d %H:%M:%S"),
+            "note": ("already closed at Webull by a market close sent when " + why if ok else
+                     "its broker close already went out when " + why
+                     + " (the close re-send queue owns it)")}
+    return ok
+
+
+def _resting_try_key(want):
+    return f"{want['trade_id']}|{want['stop']:.2f}|{want.get('target')}"
+
+
+def _resting_tries_ok(blk, key, now_wall):
+    """False while a failed try's backoff runs, or once this trade and level gave up."""
+    t = (blk.get("tries") or {}).get(key) or {}
+    return not t.get("gave_up") and now_wall >= float(t.get("next_at") or 0)
+
+
+def _resting_try_failed(state, blk, key, text, nowdt, log=print):
+    """Count one failed arm/replace try for `key`; the RESTING_MAX_TRIES-th pushes once
+    and hands ORB back to the engine exit for this level."""
+    tries = blk.setdefault("tries", {})
+    t = tries.setdefault(key, {"n": 0})
+    t["n"] = int(t.get("n") or 0) + 1
+    t["next_at"] = time.time() + RESTING_TRY_BACKOFF_SEC[min(t["n"], len(RESTING_TRY_BACKOFF_SEC)) - 1]
+    t["last"] = text
+    if t["n"] >= RESTING_MAX_TRIES and not t.get("gave_up"):
+        t["gave_up"] = True
+        _resting_count(blk, "fallback")
+        msg = (f"QQQ BROKER: ORB's resting stop could not be placed after {t['n']} tries "
+               f"({text}) -- ORB exits on the engine's bar close for this trade")
+        _resting_note(state, blk, "fallback", msg, nowdt, log=log)
+        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+    else:
+        _resting_note(state, blk, "retry", f"try {t['n']} of {RESTING_MAX_TRIES} failed: {text}",
+                      nowdt, log=log)
+
+
+def _resting_rate_limited(state, blk, key, text, nowdt, log=print):
+    """Webull's rate limit (429) on a place or replace: wait RESTING_RATE_LIMIT_WAIT_SEC, and
+    never count it as one of the RESTING_MAX_TRIES failed tries."""
+    t = blk.setdefault("tries", {}).setdefault(key, {"n": 0})
+    t["next_at"] = time.time() + RESTING_RATE_LIMIT_WAIT_SEC
+    t["last"] = text
+    _resting_note(state, blk, "wait", f"Webull's rate limit -- tried again in "
+                  f"{RESTING_RATE_LIMIT_WAIT_SEC:g} s, not counted as a failed try ({text})",
+                  nowdt, log=log)
+
+
+def _resting_cancel(state, blk, adapter, why, nowdt, log=print, confirm=True, **filters):
+    """Cancel and confirm live resting orders (always whole groups), book any fill found
+    (confirm=False only sends the cancels: the next gateway / lookup confirms them).
+    Bounded (RESTING_CANCEL_HARD_TIMEOUT_SEC); raises _RestingCallPending on a timeout."""
+    res = _resting_call("cancel", RESTING_CANCEL_HARD_TIMEOUT_SEC, adapter.cancel_resting,
+                        log=log, symbol=BROKER_SYMBOL, confirm=confirm, **filters) or {}
+    _book_resting_fills(state, adapter, nowdt, log=log)
+    if res.get("cancelled"):
+        _resting_count(blk, "cancelled", len(res["cancelled"]))
+    text = (f"cancelled {', '.join(res.get('cancelled') or []) or 'nothing'} ({why})"
+            + (f"; filled first: {', '.join(res['filled'])}" if res.get("filled") else "")
+            + (f"; NOT confirmed yet: {', '.join(res['unresolved'])} -- asked again next tick"
+               if res.get("unresolved") else ""))
+    _resting_note(state, blk, "cancel", text, nowdt, log=log)
+    return res
+
+
+# WORST CASE NEAR THE CLOSE (2026-09-29 review): with Webull slow or hung, one tick can
+# block for RESTING_PLACE_HARD_TIMEOUT_SEC (~19 s), RESTING_CANCEL_HARD_TIMEOUT_SEC (12 s)
+# or the flatten's step 1 (12 s), on top of the reconcile's 12 s and each close's 8 s
+# gateway. With under this many seconds left before the session close the flatten's step 1
+# only SENDS the cancels (no confirm wait): each close's own gateway cancels and confirms
+# first anyway, and the after-close guard would block closes that start past 16:00. 30 s,
+# not 60: the box's flat_by is 15:59, so an on-time flatten (~55-59 s left) still confirms
+# first and keeps ORB in the internal cross; only a late one takes the short path.
+RESTING_FLATTEN_CONFIRM_MIN_LEFT_SEC = 30.0
+
+
+def _resting_seconds_to_close(nowdt):
+    """Seconds from `nowdt` to today's session close (the after-close guard's own
+    moment), or None when unknown. Never raises."""
+    try:
+        if nowdt is None or not market_calendar.is_session(nowdt):
+            return None
+        close_dt = _session_flatten_deadline(nowdt) + timedelta(
+            seconds=SESSION_FLATTEN_DEADLINE_MARGIN_SEC)
+        return (close_dt - nowdt).total_seconds()
+    except Exception:
+        return None
+
+
+def _cancel_resting_for_flatten(state, cfg, reason, nowdt=None, log=print):
+    """Step 1 of the EOD / KILL / BREAKER flatten (_close_all): cancel every resting order
+    and wait for Webull to report it CANCELLED or FILLED (a fill is booked, so its leg's
+    close below sends nothing). A cancel that cannot be confirmed leaves that leg out of
+    the internal cross; its own close goes through the gateway, which tries again. In
+    log_only it records what would have been cancelled. Outside the stop modes the adapter
+    is only asked while a stop mode's order may still rest ("off" from the start never
+    touches it). Bounded: while an earlier resting call is still running, or this cancel
+    does not answer in RESTING_CANCEL_HARD_TIMEOUT_SEC, the flatten goes straight on to
+    the closes (their gateway cancels first, on the bounded send worker). Never raises."""
+    mode = _orb_resting_mode(cfg)
+    blk = state.get("orb_resting")
+    blk = blk if isinstance(blk, dict) else None
+    if mode not in RESTING_STOP_MODES and not (blk and (blk.get("resting") or blk.get("live_seen"))):
+        return
+    try:
+        nowdt = nowdt or _now_et()
+        if mode != "off":
+            blk = _resting_block(state, mode, nowdt)
+        if mode == "log_only" and isinstance(blk.get("resting"), dict):
+            _resting_count(blk, "cancelled")
+            _resting_note(state, blk, "cancel", f"log only: would cancel and confirm the resting "
+                          f"{blk['resting'].get('desc')} before the {reason} flatten", nowdt, log=log)
+            blk["resting"] = None
+        if mode not in RESTING_STOP_MODES and not blk.get("live_seen"):
+            return
+        adapter = _get_broker_adapter(log=log)
+        if _resting_busy():
+            log(f"[qqq-exec] {reason} flatten: step 1 skipped -- a resting call to Webull is "
+                f"still running; each close's gateway cancels first")
+            return
+        live = _resting_live(adapter, symbol=None, strict=True)
+        if live is None:
+            log(f"[qqq-exec] {reason} flatten: step 1 skipped -- the resting records are not "
+                f"readable now; each close's gateway cancels first")
+            return
+        if not live:
+            _book_resting_fills(state, adapter, nowdt, log=log)
+            return
+        if _market_closed_for_orders(nowdt):
+            return   # no broker call after the close; the DAY orders expire at 16:00
+        left = _resting_seconds_to_close(nowdt)
+        quick = left is not None and left < RESTING_FLATTEN_CONFIRM_MIN_LEFT_SEC
+        _resting_cancel(state, blk, adapter, f"{reason} flatten, step 1"
+                        + (f" -- {left:.0f}s to the close: cancels sent, each close's gateway "
+                           f"confirms" if quick else ""), nowdt, log=log, confirm=not quick)
+    except Exception as e:
+        log(f"[qqq-exec] {reason} flatten: resting cancel failed (non-fatal -- the gateway "
+            f"cancels before each close): {type(e).__name__}: {e}")
+
+
+def _resting_boot_sweep(adapter, log=print):
+    """Process start (_reconcile_broker_at_boot, before the reconcile): whenever
+    orb_resting.mode is not "off" (log_only included -- design section 10: a PC <-> box
+    hand-over must also catch the OTHER host's resting orders), or the adapter still
+    records a live resting order, run OrderAdapter.boot_sweep -- fills booked, stuck
+    records settled, and open QQQ orders this state does not know listed. They are
+    CANCELLED (and entries halted until a reconcile agrees, one high push) only in the stop
+    modes or while this state still records a resting order, and only while this host
+    holds the cross-host lease. In log_only with nothing resting they are only listed and
+    pushed (2026-09-29 second review: log_only was promised to send nothing, and a
+    hand-placed paper order must not be cancelled by a restart) -- except an order whose id
+    is a RESTING id (webull_orders.RESTING_ID_RE, third review): certainly this book's own
+    stop, left by a stop-mode host that crashed without standing down (or a PC / box config
+    mismatch); left working it would trip the 417 box rule on this host's next QQQ order or
+    fill unbooked, so with the lease it is cancelled in every mode but "off" (one high push).
+    Without the lease nothing is cancelled. A listed-only order is pushed ONCE per id, not
+    at every restart (the adapter remembers it, state["boot_listed"]). With nothing
+    resting that is ONE read-only get_order_open call per process start -- log_only's only
+    Webull call. Bounded to RECONCILE_HARD_TIMEOUT_SEC on the resting worker (the sweep's
+    own budget is 2 s less). The first tick re-verifies what is still live against the
+    lot. Never raises."""
+    try:
+        mode = _orb_resting_mode(_read_config_for_gate(log=log))
+        resting_now = bool(_resting_live(adapter, symbol=None))
+        if mode == "off" and not resting_now:
+            return
+        sweep = getattr(adapter, "boot_sweep", None)
+        if not callable(sweep):
+            return
+        at_send = _LEASE.send_gate(_LEASE.uid)
+        lease_ok = at_send is None or bool(at_send[0])
+        stop_side = mode in RESTING_STOP_MODES or resting_now
+        why_not = ("this host does not hold the lease" if not lease_ok else
+                   f"orb_resting.mode is {mode!r} and nothing of this book rests -- listed only")
+        res = _resting_call("boot sweep", RECONCILE_HARD_TIMEOUT_SEC, sweep, log=log,
+                            symbols=(BROKER_SYMBOL,), cancel_unknown=lease_ok and stop_side,
+                            budget_sec=max(1.0, RECONCILE_HARD_TIMEOUT_SEC - 2.0),
+                            no_cancel_reason=why_not, cancel_resting_pattern=lease_ok)
+        if not isinstance(res, dict):
+            return
+        log(f"[qqq-exec] resting boot sweep: resolved {res.get('resolved') or {}}, still live "
+            f"{res.get('live') or []}" + (f" -- {res.get('reason')}" if res.get("reason") else ""))
+        if res.get("unknown"):
+            cancelled = res.get("cancelled_unknown", True)
+            n_cx = len(res.get("unknown_cancelled") or ([] if not cancelled else res["unknown"]))
+            if not cancelled and lease_ok and "unknown_new" in res and not res["unknown_new"]:
+                # listed only, and every one already pushed at an earlier start: log, no push
+                log(f"[qqq-exec] resting boot sweep: open QQQ order(s) this book did not know, "
+                    f"already reported: {', '.join(o.get('client_order_id') or '' for o in res['unknown'])}")
+                return
+            _notify(f"QQQ BROKER: at start-up Webull held {len(res['unknown'])} open QQQ order(s) "
+                    f"this book did not know -- "
+                    + ("cancelled" + (f" ({n_cx} of them)" if n_cx < len(res["unknown"]) else "")
+                       + ", and new entries halted until a reconcile agrees"
+                       if cancelled else f"NOT cancelled: {why_not}")
+                    + f" ({res.get('reason')})",
+                    "EDGELOG QQQ BROKER", log,
+                    **({"priority": "high"} if cancelled or not lease_ok else {}))
+    except Exception as e:
+        log(f"[qqq-exec] resting boot sweep failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _apply_engine_levels(state, cfg, leg, e, row_tid, lot, log=print):
+    """A LEVELS row (api/cloud_signal.py: breakeven armed at a bar's close; the new stop
+    is in force from the next bar): move the open lot's engine stop. The resting stop
+    follows in _maybe_manage_resting (replace in place, cancel + new as the fallback)."""
+    if leg != RESTING_LEG:
+        return
+    if not lot or not row_tid or lot.get("trade_id") != row_tid:
+        log(f"[qqq-exec] {leg} LEVELS row for {row_tid or 'a trade with no id'} ignored -- "
+            f"not the open trade ({(lot or {}).get('trade_id')})")
+        return
+    stop = e.get("stop_px") if e.get("stop_px") is not None else _finite_or_none(e.get("ref_price"))
+    if stop is None:
+        return
+    lv = lot.setdefault("levels", {"stop_px": None, "target_px": None,
+                                   "initial_stop_px": None, "be_armed_at": None})
+    old = _finite_or_none(lv.get("stop_px"))
+    lv["stop_px"] = float(stop)
+    if e.get("target_px") is not None:
+        lv["target_px"] = e["target_px"]
+    lv["be_armed_at"] = str(e.get("ref_time") or "")
+    mode = _orb_resting_mode(cfg)
+    follow = ("log only: a resting stop would be moved to it" if mode == "log_only"
+              else "the resting stop is moved to it this tick")
+    _log_event(state, "orb_resting",
+               f"ORB breakeven: the engine moved the stop "
+               f"{'from ' + format(old, '.2f') + ' ' if old is not None else ''}to "
+               f"{float(stop):.2f} (armed at the close of the bar {e.get('ref_time')}) -- {follow}",
+               log=log)
+
+
+def _resting_disarm(state, cfg, mode, nowdt, log=print):
+    """Leaving the stop modes: cancel whatever still rests (booking any fill), and, in
+    "off", drop this section's state once nothing is left. Returns True when done."""
+    adapter = _get_broker_adapter(log=log)
+    if _resting_busy():
+        return False
+    live = _resting_live(adapter, symbol=None, strict=True)
+    if live is None:
+        return False
+    blk = state.get("orb_resting") if isinstance(state.get("orb_resting"), dict) else {}
+    if live and not _market_closed_for_orders(nowdt):
+        res = _resting_call("cancel", RESTING_CANCEL_HARD_TIMEOUT_SEC, adapter.cancel_resting,
+                            log=log, confirm=True) or {}
+        _book_resting_fills(state, adapter, nowdt, log=log)
+        msg = (f"orb_resting.mode is {mode!r}: cancelled the resting order(s) "
+               f"{', '.join(res.get('cancelled') or []) or '(none)'}"
+               + (f"; NOT confirmed yet: {', '.join(res['unresolved'])}" if res.get("unresolved") else ""))
+        log(f"[qqq-exec] {msg}")
+        _log_event(state, "orb_resting", msg, log=log)
+        if res.get("unresolved"):
+            return False
+    else:
+        _book_resting_fills(state, adapter, nowdt, log=log)
+    if blk:
+        blk["resting"] = None
+    return True
+
+
+def _resting_log_only(state, cfg, adapter, blk, nowdt, active, log=print):
+    """log_only: decide exactly as the stop modes would and log / publish it; send nothing."""
+    lot = (state.get("legs") or {}).get(RESTING_LEG)
+    prev = blk.get("resting")
+    if not lot:
+        blk["resting"] = None
+        _resting_note(state, blk, "idle", "no ORB trade open", nowdt, log=log, event=False)
+        return
+    want, why = _resting_want(lot, "stop", adapter)
+    if want is None and why == RESTING_QTY_UNREADABLE:
+        _resting_note(state, blk, "wait", f"log only: {why} -- decided next tick", nowdt, log=log)
+        return
+    if want is None:
+        blk["resting"] = None
+        _resting_note(state, blk, "idle", why, nowdt, log=log, event=False)
+        return
+    if prev and prev.get("trade_id") != want["trade_id"]:
+        prev = None
+    target = _finite_or_none((lot.get("levels") or {}).get("target_px"))
+    gate = _resting_arm_gate(state, cfg, adapter, lot, nowdt, active)
+    if gate and prev and gate.startswith("outside"):
+        # the last minute before flat_by: nothing arms or moves, but what rests stays
+        # until the flatten cancels it (_cancel_resting_for_flatten)
+        _resting_note(state, blk, "wait", f"log only: the resting {prev.get('desc')} would "
+                      f"stay until the flatten ({gate})", nowdt, log=log)
+        return
+    if gate:
+        if prev:
+            # something moved under a resting stop that would have been live: the gateway
+            # would have cancelled it (another leg's order) -- counted, re-armed when clear.
+            # A transient gate (a lease blip, a queued re-send) is counted and logged but
+            # kept off the timeline, and so is the re-arm that follows it (2026-09-29
+            # second review)
+            _resting_count(blk, "cancelled")
+            _resting_note(state, blk, "cancel", f"log only: would cancel the resting "
+                          f"{prev.get('desc')} ({gate})", nowdt, log=log, event=False)
+            blk["resting"] = None
+            blk["gated"] = {k: prev.get(k) for k in ("trade_id", "side", "stop")}
+            return
+        _resting_note(state, blk, "wait", f"log only: nothing would rest -- {gate}", nowdt, log=log)
+        return
+    if want["qty"] <= 0:
+        _resting_note(state, blk, "wait", "log only: nothing would rest -- ORB holds no confirmed "
+                      "shares at Webull", nowdt, log=log)
+        return
+    px = _resting_stream_price(log=log)
+    crossed = _resting_crossed(want["direction"], px, want["stop"])
+    if crossed:
+        _resting_count(blk, "crossed")
+        _resting_note_once(state, blk, f"crossed:{want['trade_id']}:{want['stop']:.2f}",
+                           f"log only: the live price {px:.2f} is already through ORB's stop "
+                           f"{want['stop']:.2f} -- would send ORB's market close now", nowdt, log=log)
+        blk["resting"] = None
+        return
+    plan = adapter.resting_plan(BROKER_SYMBOL, want["direction"], want["qty"], leg=RESTING_LEG)
+    if not isinstance(plan, dict) or plan.get("error"):
+        return
+    last_send = float(state.get("_last_broker_send_at", 0) or 0)
+    if plan.get("side") is None:
+        if _resting_note_once(
+                state, blk, f"crossing:{want['trade_id']}",
+                f"log only: would NOT rest ORB's stop -- the account net {plan.get('net'):g} "
+                f"sits between 0 and {want['qty']} on the closing side (a resting order would "
+                f"cross zero); ORB exits on the engine's bar close", nowdt, log=log):
+            _resting_count(blk, "crossing")
+        blk["resting"] = None
+        return
+    refusal = plan.get("refusal")
+    if refusal:
+        _resting_note(state, blk, "wait", f"log only: nothing would rest yet -- {refusal[1]}",
+                      nowdt, log=log)
+        return
+    snap = {"trade_id": want["trade_id"], "side": plan["side"], "qty": want["qty"],
+            "stop": want["stop"], "target": target, "net": plan.get("net"),
+            "desc": _resting_desc(want, plan["side"]), "since_send": last_send}
+    if prev is None:
+        _resting_count(blk, "armed" if not blk.get("noted", {}).get(f"armed:{want['trade_id']}")
+                       else "rearmed")
+        blk.setdefault("noted", {})[f"armed:{want['trade_id']}"] = True
+        gated = blk.pop("gated", None) or {}
+        same = (gated.get("trade_id") == snap["trade_id"] and gated.get("side") == snap["side"]
+                and gated.get("stop") == snap["stop"])
+        _resting_note(state, blk, "arm", f"log only: would rest {snap['desc']} (account net "
+                      f"{plan.get('net'):g})" + (f"; the {target:.2f} target stays on the engine "
+                                                 f"exit in 'stop' mode, OCO in 'stop_target'"
+                                                 if target is not None else ""), nowdt, log=log,
+                      event=not same)
+    elif last_send > float(prev.get("since_send") or 0):
+        # another order went out while the stop would have rested: cancel-first, re-arm
+        _resting_count(blk, "cancelled")
+        _resting_count(blk, "rearmed")
+        _resting_note(state, blk, "rearm", f"log only: the gateway would have cancelled the "
+                      f"resting {prev.get('desc')} before that order, then re-armed as "
+                      f"{snap['desc']} (account net {plan.get('net'):g})", nowdt, log=log)
+    elif abs(float(prev.get("stop") or 0) - want["stop"]) >= 0.005:
+        _resting_count(blk, "replaced")
+        _resting_note(state, blk, "replace", f"log only: would move the resting stop "
+                      f"{float(prev.get('stop')):.2f} -> {want['stop']:.2f} (replace in place)",
+                      nowdt, log=log)
+    blk["resting"] = snap
+
+
+def _resting_lease_lost(state):
+    """The reason this host must not keep a resting order working at Webull -- its own lease
+    is lost, or another host positively holds (or claims) it -- else None. That host's
+    gateway does not know this host's resting order (2026-09-29 second review): left live,
+    it would trip the 417 box rule on that host's orders, reserve its shares, or fill
+    unbooked. A lease that is merely UNVERIFIABLE (a Firestore outage) keeps the stop: that
+    is when protection matters most, and closes stay exempt from the gate then too. Stable
+    text (no running ages). No network."""
+    at_send = _LEASE.send_gate(_LEASE.uid)
+    if at_send is not None and not at_send[0] and str(at_send[1] or "").startswith("lease lost"):
+        return "this host no longer holds the cross-host lease"
+    if not state.get("_broker_lease_ok", True):
+        why = str(state.get("_broker_lease_reason") or "")
+        if not why.startswith("lease unverifiable") or "claims the lease" in why:
+            return "another host holds the cross-host lease"
+    return None
+
+
+def _cancel_resting_on_stand_down(state, log=print):
+    """_stand_down (another host took the lease): cancel and confirm every resting order this
+    host still records, bounded like every resting call -- the new lease holder's gateway
+    and boot sweep do not know them. A cancel can only take protection away, never open a
+    position, so it is the one Webull call made after the lease is gone. Only when a stop
+    mode ever ran here (live_seen); "off" and log_only never reach the adapter. Never raises."""
+    try:
+        blk = state.get("orb_resting")
+        if not (isinstance(blk, dict) and blk.get("live_seen")):
+            return
+        adapter = _get_broker_adapter(log=log)
+        if _resting_busy():
+            log("[qqq-exec] stand-down: a resting call to Webull is still running -- the "
+                "resting orders are left to the next boot sweep")
+            return
+        live = _resting_live(adapter, symbol=None, strict=True)
+        if not live:
+            return
+        res = _resting_call("cancel", RESTING_CANCEL_HARD_TIMEOUT_SEC, adapter.cancel_resting,
+                            log=log, confirm=True) or {}
+        _book_resting_fills(state, adapter, _now_et(), log=log)
+        log(f"[qqq-exec] stand-down: cancelled the resting order(s) "
+            f"{', '.join(res.get('cancelled') or []) or '(none)'}"
+            + (f"; filled first: {', '.join(res['filled'])}" if res.get("filled") else "")
+            + (f"; NOT confirmed: {', '.join(res['unresolved'])}" if res.get("unresolved") else ""))
+    except Exception as e:
+        log(f"[qqq-exec] stand-down: resting cancel failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _resting_reconcile_doubt(adapter):
+    """The reason no resting order may stand while a reconcile disagrees with Webull (the
+    books every resting order is sized from are wrong), else None. Only a REAL mismatch
+    counts (2026-09-29 review): the adapter's resting_blocked, or a reconcile halt whose
+    last result lists mismatches. A halt from a positions READ failure or a reconcile hard
+    timeout (fail_closed) keeps a working stop -- during a Webull blip the cancel would
+    most likely fail too, and the stop is the protection -- while the arm gate still
+    blocks any re-arm until a reconcile succeeds. No network."""
+    try:
+        st = adapter.status() or {}
+    except Exception:
+        st = {}
+    blocked = st.get("resting_blocked")
+    if blocked:
+        return f"re-arming is blocked until a reconcile agrees ({blocked})"
+    if _broker_halt_source(log=lambda *_: None) == "reconcile" and \
+            ((st.get("last_reconcile_result") or {}).get("mismatches")):
+        return "the broker adapter is halted by a reconcile mismatch"
+    return None
+
+
+def _resting_lookup_due(state, blk, live, pick):
+    """One background lookup per RESTING_LOOKUP_EVERY_SEC for a healthy resting group; at
+    once when the stream printed through a level (`pick`), a leg is due a cancel or a
+    look, a send's answer is still unknown, or another order went out since the last one."""
+    if pick is not None:
+        return True
+    if any(r.get("cancel_due") or r.get("check_due") or r.get("pending") for r in live):
+        return True
+    looked = float(blk.get("looked_at") or 0)
+    if float(state.get("_last_broker_send_at", 0) or 0) > looked:
+        return True
+    return time.time() - looked >= RESTING_LOOKUP_EVERY_SEC
+
+
+def _resting_live_step(state, cfg, adapter, blk, nowdt, active, mode, log=print):
+    """The stop modes: at most ONE placement, replace or cancel per tick (see the section
+    comment); otherwise one status lookup of the live order (_resting_lookup_due). Every
+    call that can reach Webull is bounded (_resting_call)."""
+    lot = (state.get("legs") or {}).get(RESTING_LEG)
+    live = _resting_live(adapter, strict=True)
+    if live is None:
+        return   # not readable now (a send in flight, the lock busy): next tick
+    blk["resting"] = _resting_summary(live) or None
+    want, want_why = (_resting_want(lot, mode, adapter) if lot else (None, "no ORB trade open"))
+    if want is None and want_why == RESTING_QTY_UNREADABLE:
+        _resting_note(state, blk, "wait", f"{want_why} -- nothing changes this tick", nowdt,
+                      log=log)
+        return   # never read as "ORB holds 0": that would cancel a healthy stop
+    px = _resting_stream_price(log=log)
+    if live and _market_closed_for_orders(nowdt):
+        return   # no broker call after the close: the DAY orders expire at 16:00 and the
+        #          next gateway, reconcile or boot sweep settles their records
+    if live:
+        groups = {r.get("group") for r in live}
+        stop_rec = next((r for r in live if r.get("kind") == "stop"), None)
+        tgt_rec = next((r for r in live if r.get("kind") == "target"), None)
+        doubt = None
+        if len(groups) > 1 or stop_rec is None:
+            doubt = "more than one resting group, or a group without its stop"
+        elif not lot or want is None:
+            doubt = want_why if lot else "no ORB trade is open"
+        elif stop_rec.get("trade_id") != lot.get("trade_id"):
+            doubt = f"it belongs to another trade ({stop_rec.get('trade_id')})"
+        elif lot.get("broker_closed"):
+            doubt = "ORB is already closed at Webull"
+        elif _resting_lease_lost(state):
+            doubt = _resting_lease_lost(state)
+        elif state.get("kill_done") or os.path.exists(cfg.get("kill_file") or ""):
+            doubt = "the book KILL file is present"
+        elif state.get("breaker_tripped"):
+            doubt = "the daily-loss breaker has tripped"
+        elif _resting_reconcile_doubt(adapter):
+            doubt = _resting_reconcile_doubt(adapter)
+        elif int(stop_rec.get("qty") or 0) != want["qty"]:
+            doubt = f"it is for {stop_rec.get('qty')} shares, ORB holds {want['qty']} at Webull"
+        elif (mode == "stop" and tgt_rec is not None) or (
+                mode == "stop_target" and tgt_rec is None and want.get("target") is not None):
+            doubt = f"orb_resting.mode is {mode!r}"
+        elif tgt_rec is not None and want.get("target") is not None and \
+                abs(float(tgt_rec.get("limit_price") or 0) - want["target"]) >= 0.005:
+            doubt = f"its target is not the engine's {want['target']:.2f}"
+        else:
+            plan = adapter.resting_plan(BROKER_SYMBOL, want["direction"], want["qty"])
+            side = (plan or {}).get("side") if isinstance(plan, dict) else None
+            if isinstance(plan, dict) and not plan.get("error") and side != stop_rec.get("side"):
+                doubt = f"its side {stop_rec.get('side')} no longer fits the account net {plan.get('net')}"
+        if doubt:
+            if _market_closed_for_orders(nowdt):
+                return
+            _resting_cancel(state, blk, adapter, doubt, nowdt, log=log)
+            blk["resting"] = _resting_summary(_resting_live(adapter)) or None
+            return
+        if abs(float(stop_rec.get("stop_price") or 0) - want["stop"]) >= 0.005:
+            gate = _resting_arm_gate(state, cfg, adapter, lot, nowdt, active)
+            key = _resting_try_key(want)
+            if gate and gate.startswith("outside"):
+                _resting_note(state, blk, "wait", f"the engine stop moved to {want['stop']:.2f} but "
+                              f"{gate}; the resting stop stays at {stop_rec.get('stop_price')}",
+                              nowdt, log=log)
+            elif _resting_tries_ok(blk, key, time.time()):
+                res = _resting_call("replace", RESTING_REPLACE_HARD_TIMEOUT_SEC,
+                                    adapter.replace_resting, stop_rec.get("group"), log=log,
+                                    stop_price=want["stop"], last_price=px) or {}
+                _book_resting_fills(state, adapter, nowdt, log=log)
+                out = res.get("outcome")
+                if out in ("REPLACED", "REARMED"):
+                    _resting_count(blk, "replaced" if out == "REPLACED" else "rearmed")
+                    (blk.get("tries") or {}).pop(key, None)
+                    _resting_note(state, blk, "replace", f"stop moved to {want['stop']:.2f} "
+                                  f"({out.lower()}: {res.get('reason')})", nowdt, log=log)
+                elif out == "CROSSED":
+                    _resting_count(blk, "crossed")
+                    _resting_market_close(state, lot, want["qty"], want["stop"],
+                                          f"the live price {px} was already through the new stop "
+                                          f"{want['stop']:.2f}", nowdt, log=log)
+                    _resting_note(state, blk, "crossed", f"the live price {px} is already through "
+                                  f"the new stop {want['stop']:.2f} -- sent ORB's market close",
+                                  nowdt, log=log)
+                elif out in ("FILLED", "NOT_LIVE"):
+                    _resting_note(state, blk, "replace", f"stop move: {res.get('reason')}",
+                                  nowdt, log=log)
+                elif out == "BUSY":
+                    _resting_note(state, blk, "wait", f"stop move waits: {res.get('reason')}",
+                                  nowdt, log=log)
+                elif out == "RATE_LIMITED":
+                    _resting_rate_limited(state, blk, key, f"stop move: {res.get('reason')}",
+                                          nowdt, log=log)
+                else:
+                    _resting_try_failed(state, blk, key, f"stop move {out}: {res.get('reason')}",
+                                        nowdt, log=log)
+            blk["resting"] = _resting_summary(_resting_live(adapter)) or None
+            return
+        # healthy: one lookup (the leg the live price is through first -- a likely fill)
+        through = _resting_crossed(want["direction"], px, float(stop_rec.get("stop_price") or 0),
+                                   float(tgt_rec["limit_price"]) if tgt_rec else None)
+        pick = (stop_rec if through == "stop" else tgt_rec if through == "target" else None)
+        if _resting_lookup_due(state, blk, live, pick):
+            blk["looked_at"] = time.time()
+            _resting_call("lookup", RESTING_RESOLVE_HARD_TIMEOUT_SEC, adapter.resolve_resting,
+                          pick.get("client_order_id") if pick else None, log=log)
+        _book_resting_fills(state, adapter, nowdt, log=log)
+        blk["resting"] = _resting_summary(_resting_live(adapter)) or None
+        if blk["resting"]:
+            _resting_note(state, blk, "resting", f"resting {_resting_desc(want, stop_rec.get('side'))}",
+                          nowdt, log=log, event=False)
+        return
+    # nothing live: arm when every condition holds
+    if not lot:
+        _resting_note(state, blk, "idle", "no ORB trade open", nowdt, log=log, event=False)
+        return
+    if want is None or lot.get("broker_closed"):
+        _resting_note(state, blk, "idle", want_why if want is None else
+                      "ORB is already closed at Webull", nowdt, log=log, event=False)
+        return
+    gate = _resting_arm_gate(state, cfg, adapter, lot, nowdt, active)
+    if gate:
+        _resting_note(state, blk, "wait", f"nothing rests -- {gate}", nowdt, log=log)
+        return
+    if want["qty"] <= 0:
+        _resting_note(state, blk, "wait", "nothing rests -- ORB holds no confirmed shares at "
+                      "Webull", nowdt, log=log)
+        return
+    key = _resting_try_key(want)
+    if not _resting_tries_ok(blk, key, time.time()):
+        return
+    crossed = _resting_crossed(want["direction"], px, want["stop"], want.get("target"))
+    if crossed:
+        _resting_count(blk, "crossed")
+        level = want["stop"] if crossed == "stop" else want["target"]
+        _resting_market_close(state, lot, want["qty"], level,
+                              f"the live price {px:.2f} was already through the {crossed} "
+                              f"{level:.2f}", nowdt, log=log)
+        _resting_note(state, blk, "crossed", f"the live price {px:.2f} is already through ORB's "
+                      f"{crossed} {level:.2f} -- sent ORB's market close", nowdt, log=log)
+        return
+    blk["looked_at"] = time.time()
+    res = _resting_call("place", RESTING_PLACE_HARD_TIMEOUT_SEC, adapter.place_resting, log=log,
+                        leg=RESTING_LEG, trade_id=want["trade_id"], symbol=BROKER_SYMBOL,
+                        direction=want["direction"], qty=want["qty"],
+                        stop_price=want["stop"], limit_price=want.get("target"),
+                        last_price=px) or {}
+    out = res.get("outcome")
+    _book_resting_fills(state, adapter, nowdt, log=log)
+    if out == "RESTING":
+        first = int(res.get("n") or 1) <= 1
+        _resting_count(blk, "armed" if first else "rearmed")
+        (blk.get("tries") or {}).pop(key, None)
+        _resting_note(state, blk, "arm" if first else "rearm",
+                      f"{'armed' if first else 're-armed'} {_resting_desc(want, res.get('side'))} "
+                      f"(account net {res.get('net'):g}, id {res.get('group')})", nowdt, log=log)
+    elif out == "CROSSED":
+        _resting_count(blk, "crossed")
+        level = want["stop"] if res.get("crossed") != "target" else want["target"]
+        _resting_market_close(state, lot, want["qty"], level, res.get("reason") or "crossed",
+                              nowdt, log=log)
+        _resting_note(state, blk, "crossed", f"{res.get('reason')} -- sent ORB's market close",
+                      nowdt, log=log)
+    elif out == "CROSSING":
+        if _resting_note_once(state, blk, f"crossing:{want['trade_id']}",
+                              f"ORB's stop NOT rested -- {res.get('reason')}; ORB exits on the "
+                              f"engine's bar close", nowdt, log=log):
+            _resting_count(blk, "crossing")
+        _resting_note(state, blk, "wait", f"nothing rests -- {res.get('reason')}", nowdt, log=log,
+                      event=False)
+    elif out in ("BUSY", "BLOCKED"):
+        _resting_note(state, blk, "wait", f"nothing rests yet -- {res.get('reason')}", nowdt,
+                      log=log)
+    elif out in ("FILLED", "DEAD"):
+        _resting_note(state, blk, "arm", f"resting send settled {out}: {res.get('reason')}",
+                      nowdt, log=log)
+    elif out == "RATE_LIMITED":
+        _resting_rate_limited(state, blk, key, res.get("reason"), nowdt, log=log)
+    else:
+        _resting_try_failed(state, blk, key, f"{out}: {res.get('reason')}", nowdt, log=log)
+    blk["resting"] = _resting_summary(_resting_live(adapter)) or None
+
+
+def _maybe_manage_resting(state, cfg, nowdt, active, log=print):
+    """RESTING ORB STOP, once per tick after fill capture -- see the section comment.
+    "off" does nothing at all (after cancelling anything a stop mode left resting);
+    "log_only" decides and publishes, sending nothing; the stop modes arm, move, re-arm or
+    cancel ORB's resting order and book its fills. While an earlier resting call to Webull
+    is still running (or one timed out moments ago -- _resting_busy) the step skips itself,
+    so a hung SDK call can never freeze the tick. Never raises."""
+    mode = _orb_resting_mode(cfg)
+    try:
+        if mode == "off":
+            if "orb_resting" in state and _send_inflight_future() is None:
+                if _resting_disarm(state, cfg, mode, nowdt, log=log):
+                    state.pop("orb_resting", None)
+            return
+        blk = _resting_block(state, mode, nowdt)
+        _resting_hang_alert(state, log=log)
+        if _send_inflight_future() is not None:
+            return   # the adapter lock is held by a send; next tick
+        if _resting_busy() and (mode in RESTING_STOP_MODES or blk.get("live_seen")):
+            return   # an earlier resting call is still out; its outcome is read next tick
+        if mode not in RESTING_STOP_MODES:
+            # log_only touches the adapter only while ORB holds a trade, or while a stop
+            # mode's resting order may still be live (live_seen) -- an idle tick costs nothing
+            if not (state.get("legs") or {}).get(RESTING_LEG) and not blk.get("live_seen"):
+                blk["resting"] = None
+                _resting_note(state, blk, "idle", "no ORB trade open", nowdt, log=log, event=False)
+                return
+            adapter = _get_broker_adapter(log=log)
+            if blk.get("live_seen") and _resting_disarm(state, cfg, mode, nowdt, log=log):
+                blk.pop("live_seen", None)
+            _resting_log_only(state, cfg, adapter, blk, nowdt, active, log=log)
+            return
+        adapter = _get_broker_adapter(log=log)
+        blk["live_seen"] = True
+        _book_resting_fills(state, adapter, nowdt, log=log)
+        _resting_live_step(state, cfg, adapter, blk, nowdt, active, mode, log=log)
+    except _RestingCallPending as e:
+        log(f"[qqq-exec] resting ORB stop step paused (non-fatal -- ORB keeps its engine "
+            f"exit): {e}")
+    except Exception as e:
+        log(f"[qqq-exec] resting ORB stop step failed (non-fatal -- ORB keeps its engine "
+            f"exit): {type(e).__name__}: {e}")
+
+
+def _build_resting_status(cfg, state):
+    """doc["orb_resting"]: {mode, day, resting (live orders in the stop modes / what would
+    rest in log_only), last {at, kind, text}, counts}; None in "off". Never raises."""
+    try:
+        mode = _orb_resting_mode(cfg)
+        if mode == "off":
+            return None
+        blk = state.get("orb_resting") or {}
+        resting = blk.get("resting")
+        if isinstance(resting, dict):
+            resting = {k: resting.get(k) for k in ("trade_id", "side", "qty", "stop", "target",
+                                                   "net", "desc")}
+        return {"mode": mode, "day": blk.get("day"), "resting": resting,
+                "last": blk.get("last"), "counts": dict(blk.get("counts") or {})}
+    except Exception:
+        return None
 
 
 # -- pricing ---------------------------------------------------------------------------
@@ -5095,9 +6479,12 @@ def _consume_engine_signals(state, cfg, now, log=print):
         return []
 
     out = []
+    # RESTING ORB STOP (2026-09-29): LEVELS rows (the engine's breakeven move) are only
+    # consumed while orb_resting.mode is not "off" -- "off" skips them exactly as before.
+    actionable = ("ENTRY", "EXIT") + (("LEVELS",) if _orb_resting_mode(cfg) != "off" else ())
     for r in new_rows:
         ev = str(r.get("event") or "").strip().upper()
-        if ev not in ("ENTRY", "EXIT"):
+        if ev not in actionable:
             continue  # SEED and any future non-actionable event types
         age = None
         try:
@@ -5107,7 +6494,10 @@ def _consume_engine_signals(state, cfg, now, log=print):
             age = (now_cmp - emitted_cmp).total_seconds()
         except Exception:
             age = None
-        if age is not None and age > ENGINE_CONSUME_STALE_SEC:
+        # a LEVELS row (the breakeven move) is a state update, not a trade decision: it
+        # still applies late (a restart) -- _apply_engine_levels only takes it for the
+        # open trade with the same trade id, and the resting stop then follows it
+        if age is not None and age > ENGINE_CONSUME_STALE_SEC and ev != "LEVELS":
             log(f"[qqq-exec] engine {ev} {r.get('leg')} consumed {age/60:.0f} min after "
                 f"it was emitted -- too stale to act on, recorded only")
             _log_event(state, "engine_stale_skip",
@@ -5142,6 +6532,13 @@ def _consume_engine_signals(state, cfg, now, log=print):
                        "keel_size": r.get("keel_size"),
                        # decide_at_close probe rows say so here (see _route_engine_events)
                        "reason": r.get("reason") or ""})
+            # RESTING ORB STOP (2026-09-29): the engine's cent levels (api/cloud_signal.py
+            # writes them on the resting leg's ENTRY and LEVELS rows only) -- carried only
+            # when present, so every other row's event dict is unchanged.
+            for k in ("stop_px", "target_px"):
+                v = _finite_or_none(r.get(k))
+                if v is not None:
+                    out[-1][k] = v
         except Exception as e:
             log(f"[qqq-exec] engine event row malformed, skipped: {type(e).__name__}: {e}")
     return out
@@ -5407,8 +6804,17 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
                                trade_id=row_tid, entry_ref_time=str(e.get("ref_time") or ""),
                                size=e.get("size"), keel_size=e.get("keel_size"), nowdt=nowdt,
                                decided_at_ref=decided_at_ref)
+            if opened and leg == RESTING_LEG and e.get("stop_px") is not None \
+                    and _orb_resting_mode(cfg) != "off":
+                # RESTING ORB STOP (2026-09-29): the engine's own levels ride on the lot --
+                # _maybe_manage_resting arms from them once the entry is FILLED at Webull
+                state["legs"][leg]["levels"] = {
+                    "stop_px": e["stop_px"], "target_px": e.get("target_px"),
+                    "initial_stop_px": e["stop_px"], "be_armed_at": None}
             _accumulate_signal(state, sig_dt or _now_et(), leg, "fired", log=log)
             _accumulate_signal(state, sig_dt or _now_et(), leg, "taken" if opened else "refused", log=log)
+        elif e["event"] == "LEVELS":
+            _apply_engine_levels(state, cfg, leg, e, row_tid, open_lot, log=log)
         elif e["event"] == "EXIT":
             lot = open_lot
             exit_of = (_trade_id.describe(row_tid, _NY) if row_tid
@@ -5747,7 +7153,18 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
                                    shadow_px=fill_px, cross=broker_cross, ts=lot["entry_ts"],
                                    seq=lot["_broker_close_seq"], trade_id=lot.get("trade_id"),
                                    partial=broker_shares > 0, log=log)
-    if broker_shares > 0:
+    closed_at_broker = lot.get("broker_closed")   # RESTING ORB STOP, see _book_resting_fills
+    # only an ACCEPTED close skips (2026-09-29 review): a market close that was not ok
+    # belongs to the close re-send queue, and if that queue gives up or drops it the
+    # engine EXIT / flatten must still send ORB's close -- the adapter's nothing-to-close
+    # and closed-by-resting guards already stop a double close
+    if broker_shares > 0 and closed_at_broker and closed_at_broker.get("ok"):
+        msg = (f"{leg} closed in the book ({reason}); "
+               f"{closed_at_broker.get('note') or 'already closed at Webull by the resting stop'}"
+               f" -- no market close sent")
+        log(f"[qqq-exec] {msg}")
+        _log_event(state, "broker", msg, log=log)
+    elif broker_shares > 0:
         _mirror_to_broker(state, leg=leg, side=lot["side"], shares=broker_shares,
                           shadow_px=fill_px, intent="CLOSE", ts=lot["entry_ts"],
                           seq=lot["_broker_close_seq"], trade_id=lot.get("trade_id"),
@@ -5780,6 +7197,10 @@ def _close_all(state, cfg, reason, quote_fn, ratio_fn, log=print, nowdt=None):
     sends nothing instead of a BUY that Webull held pending and a SELL it refused with
     417 OPENAPI_OPEN_ORDER_HAS_BOX_ORDER. The shadow book is unchanged: every lot still
     closes at its own end-of-day price."""
+    # RESTING ORB STOP (2026-09-29), step 1 of every flatten: cancel and confirm each
+    # resting order first (a fill found is booked, so its leg is not closed twice) --
+    # before the internal cross, which leaves out a leg whose resting order is still live.
+    _cancel_resting_for_flatten(state, cfg, reason, nowdt=nowdt, log=log)
     engine_mode = str(cfg.get("signal_source") or "engine").strip().lower() == "engine"
     nq_now = None
     if not engine_mode:
@@ -6909,6 +8330,17 @@ FP_WHY = {
     "breaker": "the daily loss breaker closed the book; the backtest exits on its own bar",
     "suspect": "the Webull fill is outside the prices traded in that minute",
 }
+# RESTING ORB STOP codes: kept out of FP_WHY (published whole as the parity block's
+# why_text) and added to why_text only when a published side carries one, so a book that
+# never rests an order publishes exactly what it did before.
+FP_WHY_RESTING = {
+    "diverged": "the resting order filled at Webull at a level where the backtest did not exit",
+}
+# RESTING ORB STOP (2026-09-29 second review): a resting fill whose level is farther than
+# this many R from the backtest's own exit is "diverged" (its gap unexplained), not
+# slippage. 1R = |backtest entry - the engine's initial stop|; unknown R -> any gap past a
+# cent.
+PARITY_RESTING_DIVERGE_R = 0.25
 # (E) 2026-09-28: a fill captured before the 09-26 order-status guard (a0d7165e: never
 # read another order's record, never take a price from a still-working order) that does
 # not fit the tape. Marked here, never rewritten in broker_orders.csv. Keyed by the
@@ -7026,6 +8458,11 @@ def _engine_prices_by_trade(path=None, bars_dir=None, log=print):
                     slot[ev] = {"px": px, "dec_px": None,
                                 "ref_time": str(r.get("ref_time") or ""),
                                 "reason": str(r.get("reason") or "")}
+                    # RESTING ORB STOP: the engine's initial stop on an ENTRY row (1R for
+                    # fill parity's divergence test); only when the row carries one
+                    stop_px = _f_or_none(r.get("stop_px")) if ev == "ENTRY" else None
+                    if stop_px is not None and math.isfinite(stop_px):
+                        slot[ev]["stop_px"] = stop_px
                     if ev != "VOID" and _DAC_TAG in slot[ev]["reason"]:
                         dac.append(slot[ev])
     except Exception as e:
@@ -7067,6 +8504,46 @@ def _finite_or_none(v):
     return x if (x is not None and math.isfinite(x)) else None
 
 
+def _is_resting_fill_row(brow):
+    """True for a broker_orders.csv row _book_resting_fills wrote (a resting stop/target
+    fill at Webull)."""
+    return str((brow or {}).get("reason") or "").startswith("resting ")
+
+
+def _resting_close_fill(rows, total=None):
+    """(share-weighted fill px, cent level of the resting row, True) when a trade's CLOSE
+    rows include a resting fill: every ok row counts by its shares, in file order, capped
+    at `total` (the trade's OPEN shares -- a market close row carries the lot's shares
+    even when the adapter sent only what was left after a PARTIAL resting fill). px is
+    None when a row that counts has no fill price yet. (None, None, False) when no
+    resting row is among them -- every other trade reads _best_broker_row as before."""
+    rows = rows or []
+    rest = [r for r in rows if _is_resting_fill_row(r)
+            and str(r.get("ok")).strip().lower() in ("true", "1")]
+    if not rest:
+        return None, None, False
+    left = float(total) if total and total > 0 else float("inf")
+    tot_sh, tot_px, unpriced = 0.0, 0.0, False
+    for r in rows:
+        if left <= 1e-9:
+            break
+        if str(r.get("ok")).strip().lower() not in ("true", "1"):
+            continue
+        sh = _finite_or_none(r.get("shares"))
+        if not sh or sh <= 0:
+            continue
+        sh = min(sh, left)
+        left -= sh
+        px = _finite_or_none(r.get("broker_fill_px"))
+        if px is None:
+            unpriced = True
+            continue
+        tot_sh += sh
+        tot_px += px * sh
+    level = _finite_or_none(rest[-1].get("shadow_px"))
+    return (None if unpriced or not tot_sh else round(tot_px / tot_sh, 4)), level, True
+
+
 def _webull_fill_for_side(row, intent, by_base):
     """(px, state, note) -- Webull's own fill for one side of a trade. state is "ok",
     "suspect" (captured, but it does not fit the tape -- see SUSPECT_BROKER_FILLS and
@@ -7079,6 +8556,14 @@ def _webull_fill_for_side(row, intent, by_base):
     brow = _broker_order_for(trade_id, intent, by_base) if trade_id else None
     if brow is not None and str(brow.get("ok")).strip().lower() in ("true", "1"):
         px = _finite_or_none(brow.get("broker_fill_px"))
+    if trade_id and intent == "CLOSE":
+        # a resting fill (maybe partial, then a market close of the rest): share-weighted
+        opened = _broker_order_for(trade_id, "OPEN", by_base)
+        rpx, _lvl, resting = _resting_close_fill(
+            by_base.get(_broker_signal_id(None, None, "CLOSE", trade_id=trade_id)),
+            total=_finite_or_none((opened or {}).get("shares")))
+        if resting:
+            px = rpx
     pfx = "entry" if intent == "OPEN" else "exit"
     if px is None and str(row.get(f"{pfx}_px_source") or "").strip() == "webull_fill":
         px = _finite_or_none(row.get(f"real_{pfx}_px"))
@@ -7130,7 +8615,39 @@ def _side_parity(row, intent, by_base, eng):
             design, why = edge, ("late" if _before_noise_dac(ev, row, intent) else "nodac")
     else:
         rail = _rail_word(row.get("exit_reason"))
-        if rail:
+        tid = str(row.get("trade_id") or "").strip()
+        level, resting = None, False
+        if tid and leg in LEVEL_EXIT_LEGS:
+            _rpx, level, resting = _resting_close_fill(
+                by_base.get(_broker_signal_id(None, None, "CLOSE", trade_id=tid)))
+        if resting and level is not None:
+            # RESTING ORB STOP (2026-09-29 review; second review): the stop rested at
+            # Webull and filled at market from its level. Only when the backtest exited
+            # AT that level (within a cent) is the backtest -> cent level gap design and
+            # the level -> fill gap slippage. Otherwise design is 0: a gap-through (the
+            # backtest filled at the open beyond the level) is all slippage, and a fill
+            # where the backtest did not exit at all (a print the 5m bars never show,
+            # then the engine left at its target or breakeven) is "diverged" -- the
+            # level-vs-backtest gap unexplained, so parity flags that trade. This wins
+            # over the book's own rail (third review): a resting fill closed Webull's
+            # side, so an EOD / KILL / BREAKER exit_reason on the book's trade -- or a
+            # fill between the engine's last EXIT and the flatten -- must not book the
+            # level-vs-backtest gap as slippage (it would skew the rolling average).
+            if abs(bt - level) < 0.01:
+                design, why = _edge_ps(bt, level, buy), ""
+            else:
+                en = (eng or {}).get("ENTRY") or {}
+                one_r = (abs(float(en["px"]) - float(en["stop_px"]))
+                         if en.get("px") is not None and en.get("stop_px") is not None
+                         else None)
+                gap = _edge_ps(bt, level, buy)
+                far = (abs(gap) > PARITY_RESTING_DIVERGE_R * one_r if one_r
+                       else abs(gap) >= 0.01)
+                if far:
+                    design, unexpl, why = 0.0, gap, "diverged"
+                else:
+                    design, why = 0.0, ""
+        elif rail:
             design = _edge_ps(bt, book, buy) if book is not None else edge
             why = RAIL_EXIT_WHY[rail]
         elif leg in LEVEL_EXIT_LEGS:
@@ -7249,7 +8766,7 @@ def _broker_trade_parity(row, by_base, engine_px=None, log=print):
                 whys = [s["why"] for s in (en, ex) if s.get("why")]
                 real = [w for w in whys if w != "nofill"]
                 code = (real or whys or ["nofill"])[0]
-                note = "not compared: " + FP_WHY.get(code, code)
+                note = "not compared: " + FP_WHY.get(code, FP_WHY_RESTING.get(code, code))
             out.update({"broker_parity_ok": None, "broker_parity_note": note,
                         "fp": {"st": "not compared", "en": en, "ex": ex, "exec_ps": None,
                                "gap_usd": None, "dsg_usd": None, "exec_usd": None,
@@ -7280,7 +8797,8 @@ def _broker_trade_parity(row, by_base, engine_px=None, log=print):
                 continue
             t = f"{nm} {_cents_short(s['edge'])}"
             if abs(s["unx"]) >= 0.00005:
-                t += " (fill does not fit the tape)"
+                t += (" (the resting fill and the backtest's exit differ)"
+                      if s.get("why") == "diverged" else " (fill does not fit the tape)")
             elif abs(s["dsg"]) >= 0.00005:
                 t += f" (design {_cents_short(s['dsg'])}, slippage {_cents_short(s['slp'])})"
             side_txt.append(t)
@@ -7293,7 +8811,9 @@ def _broker_trade_parity(row, by_base, engine_px=None, log=print):
             note = (f"FLAGGED, the two fills together over {PARITY_TRADE_TOL_PS * 100:.0f}c a "
                     f"share worse -- " + note)
         elif odd:
-            note = "FLAGGED, a Webull fill does not fit the tape -- " + note
+            note = ("FLAGGED, the resting order filled where the backtest did not exit -- "
+                    if all(s.get("why") == "diverged" for s in odd) else
+                    "FLAGGED, a Webull fill does not fit the tape -- ") + note
         out.update({"broker_parity_ok": not flag, "broker_parity_note": note,
                     "fp": {"st": st, "en": en, "ex": ex, "exec_ps": _r4(exe),
                            "gap_usd": round(gap * shares, 2),
@@ -7373,6 +8893,15 @@ def _roll_block(rows):
     return out
 
 
+def _parity_why_text(rows):
+    """FP_WHY, plus the FP_WHY_RESTING codes some published side actually carries."""
+    out = dict(FP_WHY)
+    used = {((t.get("fp") or {}).get(k) or {}).get("why") for t in rows or []
+            for k in ("en", "ex")}
+    out.update({k: v for k, v in FP_WHY_RESTING.items() if k in used})
+    return out
+
+
 def _broker_parity_summary(trades_all):
     """Headline FILL PARITY read -- see _broker_trade_parity. NinjaTrader-mirrored rows
     never count here. The window is the last PARITY_ROLL_N compared trades (by exit
@@ -7449,7 +8978,7 @@ def _broker_parity_summary(trades_all):
             "worst_note": worst[1] if worst else "",
             "tol_trade_ps": PARITY_TRADE_TOL_PS, "tol_roll_ps": PARITY_ROLL_TOL_PS,
             "round_trip_check": PARITY_ROUND_TRIP,
-            "roll_n": PARITY_ROLL_N, "why_text": dict(FP_WHY),
+            "roll_n": PARITY_ROLL_N, "why_text": _parity_why_text(rows),
             "webull_usd": round(webull_usd, 2), "backtest_usd": round(backtest_usd, 2),
             "n_both": n_both, "note": note}
 
@@ -8308,6 +9837,11 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
         # book (and its broker mirror) is already running elsewhere.
         "lease": {"host_id": _lease_host_id(), "leased_at": time.time()},
     }
+    # RESTING ORB STOP (2026-09-29): a small status block (mode, what rests -- or would
+    # rest in log_only -- and the last decision), never on trades_all rows; absent in "off".
+    resting_status = _build_resting_status(cfg, state)
+    if resting_status is not None:
+        doc["orb_resting"] = resting_status
     # FIRESTORE CAPS (review 2026-09-28): every summary above has read the full rows --
     # now pack what rides on each published trade row, then make sure the doc fits.
     _compact_published_trades(doc["trades_all"])
@@ -8957,6 +10491,10 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
         state["_broker_lease_ok"] = lease_ok
         state["_broker_lease_reason"] = lease_reason
 
+    # RESTING ORB STOP (2026-09-29): the gateway's previous-order-terminal rule is on in
+    # the "stop" modes only, before this tick can send anything -- see _resting_gateway_step.
+    _resting_gateway_step(cfg, log=log)
+
     # EVENT TIMELINE (feature #52): "boot" fires once per PROCESS start (a state.json
     # flag would only ever fire once across every future restart).
     if not _PROCESS["booted"]:
@@ -9136,6 +10674,9 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     # BROKER FILL CAPTURE (feature #57, DEFERRED 2026-09-22): queued by _mirror_to_broker,
     # serviced here -- see _maybe_capture_broker_fills for why this is off the order path.
     _maybe_capture_broker_fills(state, cfg, nowdt, active, log=log)
+    # RESTING ORB STOP (2026-09-29): after fill capture, so ORB's entry reads FILLED at
+    # Webull as soon as it is -- see _maybe_manage_resting.
+    _maybe_manage_resting(state, cfg, nowdt, active, log=log)
     # ACCOUNT EQUITY (2026-09-23, item 3): self-gated (at boot, then ~once/min while the
     # market is open) -- see _maybe_read_account_equity's own docstring.
     _maybe_read_account_equity(state, cfg, nowdt, log=log)
@@ -9215,11 +10756,17 @@ def _reconcile_broker_at_boot(log=print):
     not stop the shadow book itself from ticking."""
     try:
         adapter = _get_broker_adapter(log=log)
+        # RESTING ORB STOP (2026-09-29): the resting orders' boot sweep runs first, so a
+        # stop that filled while this process was down is booked before positions are read.
+        _resting_boot_sweep(adapter, log=log)
         result = _reconcile_with_timeout(adapter, log=log)
         if result is None:
             return  # OFF mode, or no broker client -- nothing to reconcile against
         if result.get("ok"):
             log("[qqq-exec] broker reconcile OK at boot")
+        elif result.get("undecided"):
+            log(f"[qqq-exec] broker reconcile UNDECIDED at boot: {result.get('reason')} -- a "
+                f"resting order is looked up first")
         elif result.get("error"):
             log(f"[qqq-exec] BROKER RECONCILE READ FAILURE at boot -- the broker order "
                 f"adapter halts new entries until a later reconcile succeeds: "
@@ -10179,6 +11726,8 @@ def _stand_down(state, uid, reason, log=print):
     log(f"[qqq-exec] STANDING DOWN on host {host!r}: {reason} -- this process has stopped "
         "ticking, publishing and sending")
     _publisher.drop(uid)
+    # RESTING ORB STOP (2026-09-29 second review): this host's resting orders go with it
+    _cancel_resting_on_stand_down(state, log=log)
     # Already standing by within the last few minutes means this host never really held the
     # lease (a claim that failed open on flaky reads, then found the other host): one phone
     # alert per real loss, not one per systemd restart while reads keep flapping.

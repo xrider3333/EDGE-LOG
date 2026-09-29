@@ -459,3 +459,27 @@ def test_run_stream_aware_step_always_calls_the_real_step_even_if_extras_blow_up
 
     assert [e["event"] for e in events] == ["ENTRY"], "a bug in the new extras must never block the real step()"
     assert any("stream extras failed" in m for m in logs)
+
+
+def test_a_levels_row_is_never_committed_from_the_stream(tmp_path, monkeypatch):
+    """RESTING LEVELS (2026-09-29 review): a stream decision that carries a LEVELS row (a
+    breakeven move of a resting stop) is shadow-recorded but never fired live, even with
+    the owner switch on -- REST step() decides that bar."""
+    paths, base, bar4_epoch = _setup(tmp_path)
+    _write_handoff(paths, bar4_epoch, close=710.0)
+    real = css._dry_run_decision
+
+    def with_levels(*a, **k):
+        events, mutated = real(*a, **k)
+        return (events or []) + [{"event": "LEVELS", "side": "long", "ref_time": "t",
+                                  "ref_price": 700.0, "trade_id": "x", "stop_px": 700.0,
+                                  "target_px": 720.0}], mutated
+    monkeypatch.setattr(css, "_dry_run_decision", with_levels)
+    logs = []
+    css._handle_handoff_window(_now_after(base), _legs(), paths,
+                               {"bar_close_from_stream": True}, logs.append)
+    state = cs._load_state(paths)
+    assert state["legs"][LEG_KEY].get("last_bar_epoch") != bar4_epoch
+    assert not os.path.exists(paths["signals_path"])
+    assert css._load_shadow(paths)[LEG_KEY][str(bar4_epoch)]["committed_live"] is False
+    assert any("carries a LEVELS row -- not fired live" in m for m in logs)

@@ -39,6 +39,15 @@ which point a morning entry has already aged past api/cloud_signal.py's freshnes
 window and is silently dropped as "late". False reproduces every existing backtest
 bit-for-bit; api/cloud_signal.py sets it True only when the last session is today's AND
 the market calendar does not list today as a real early close.
+
+LIVE-ENGINE ADDITION (2026-09-29, resting ORB stops, design section 2): `return_levels`
+(runtime-only, not a DEFAULT_PARAMS knob, default False) adds out["levels"], one dict per
+trade in the same order as the pnl list (and as out["trades"] when return_trades is on):
+the entry, the initial stop, the target, the breakeven trigger and the bar at whose CLOSE
+breakeven armed -- so the stop in force from the next bar is known. It only RECORDS values
+the walk already computes; no price, branch or trade changes, and False (every backtest,
+sweep and validate) leaves the result byte-identical. api/cloud_signal.py sets it for the
+live ORB_R6 leg only, to rest Webull stops at the engine's own levels.
 """
 import numpy as np
 
@@ -144,7 +153,8 @@ DEFAULT_PARAMS = {
 # `day_id`/`return_trades` below) -- it is deliberately left out of DEFAULT_PARAMS so no
 # grid search or validate ever varies it. Default False -> byte-identical to every
 # existing backtest (see the __main__ smoke test). See run_backtest's skip_holidays
-# block for what it does.
+# block for what it does. `return_levels` (2026-09-29) is runtime-only for the same reason
+# -- see the docstring and _levels_row below.
 
 PARAM_GRID_PRESETS = {
     # THE hypothesis test: hold run #230's champion FIXED, sweep ONLY the new lever.
@@ -167,6 +177,27 @@ PARAM_GRID_PRESETS = {
 }
 
 
+def _levels_row(i, ek, pos, entry, risk, tgt, be_lvl, be_k, trail_bars, partial_exit_R):
+    """One out["levels"] entry (return_levels -- see the docstring). Bar numbers are
+    absolute indices into the arrays this call was handed. The initial stop is rebuilt
+    with the very expression the entry used (entry -/+ risk), so it is the same float.
+    be_bar is the bar at whose CLOSE breakeven armed (the stop is `be_stop` from the NEXT
+    bar), or None. `trail`/`partial` say the stop can also move in ways not listed here
+    (off on the live ORB #314 leg); a consumer must not rest orders from such a row."""
+    def _fin(x):
+        x = float(x)
+        return x if np.isfinite(x) else None
+    be_trigger = _fin(be_lvl)
+    return {
+        "entry_bar": int(i + ek), "side": int(pos), "entry": float(entry), "risk": float(risk),
+        "stop": float(entry - risk) if pos > 0 else float(entry + risk),
+        "target": _fin(tgt), "be_trigger": be_trigger,
+        "be_stop": float(entry) if be_trigger is not None else None,
+        "be_bar": int(i + be_k) if be_k >= 0 else None,
+        "trail": bool(trail_bars > 0), "partial": bool(partial_exit_R > 0),
+    }
+
+
 def run_backtest(
     opens, highs, lows, closes,
     volumes=None,
@@ -179,6 +210,7 @@ def run_backtest(
     session_in_progress: bool = False,
     day_id=None,
     return_trades: bool = False, _stop_event=None, _pause_event=None,
+    return_levels: bool = False,
 ):
     o = np.asarray(opens, float); h = np.asarray(highs, float)
     l = np.asarray(lows, float);  c = np.asarray(closes, float)
@@ -248,6 +280,7 @@ def run_backtest(
             _pace_ref[_si, :] = np.nanmean(_pref[_si - 20:_si, :], axis=0)
 
     pnl_list, trade_log = [], []
+    levels_log = []                      # return_levels only -- parallel to pnl_list
     i = 0
     while i < n:
         if _stop_event is not None and _stop_event.is_set():
@@ -277,6 +310,7 @@ def run_backtest(
                 pos = 0; entry = 0.0; stop = 0.0; tgt = 0.0; risk = 0.0
                 ptgt = 0.0; p_done = False; p_pnl = 0.0; ek = -1
                 be_armed = False; be_lvl = np.nan
+                be_k = -1                        # bar whose close armed breakeven (return_levels)
                 for k in range(or_bars, m):
                     if pos == 0:
                         if close_confirm:
@@ -306,7 +340,7 @@ def run_backtest(
                             tgt   = entry + target_R * risk if target_R > 0 else np.inf
                             ptgt  = entry + partial_exit_R * risk if partial_exit_R > 0 else np.inf
                             be_lvl = entry + be_after_R * risk if be_after_R > 0 else np.nan
-                            pos = 1; ek = k; p_done = False; p_pnl = 0.0; be_armed = False; continue
+                            pos = 1; ek = k; p_done = False; p_pnl = 0.0; be_armed = False; be_k = -1; continue
                         elif short_ok and dn:
                             entry = sc[k] if close_confirm else (min(dn_lvl, so[k]) if so[k] < dn_lvl else dn_lvl)
                             risk  = stop_frac * rng
@@ -314,7 +348,7 @@ def run_backtest(
                             tgt   = entry - target_R * risk if target_R > 0 else -np.inf
                             ptgt  = entry - partial_exit_R * risk if partial_exit_R > 0 else -np.inf
                             be_lvl = entry - be_after_R * risk if be_after_R > 0 else np.nan
-                            pos = -1; ek = k; p_done = False; p_pnl = 0.0; be_armed = False; continue
+                            pos = -1; ek = k; p_done = False; p_pnl = 0.0; be_armed = False; be_k = -1; continue
                     else:
                         # ── BREAKEVEN (the 3.6 lever): armed on a PRIOR bar's close,
                         #    applied here — i.e. from the bar AFTER the arming close.
@@ -338,12 +372,13 @@ def run_backtest(
                                 pnl   = (p_pnl * 0.5 + raw * 0.5) if p_done else raw
                                 pnl_list.append(pnl)
                                 if return_trades: trade_log.append((i + ek, i + k, pnl, 1, entry))
+                                if return_levels: levels_log.append(_levels_row(i, ek, pos, entry, risk, tgt, be_lvl, be_k, trail_bars, partial_exit_R))
                                 pos = 0; break
                             # arm BE off this bar's CLOSE — takes effect next bar.
                             # (checked before the partial's `continue` so a partial-fire
                             #  bar can still arm; ordering is state-neutral this bar.)
                             if be_after_R > 0 and not be_armed and sc[k] >= be_lvl:
-                                be_armed = True
+                                be_armed = True; be_k = k
                             if not p_done and partial_exit_R > 0 and sh[k] >= ptgt:
                                 p_pnl = ptgt - entry; p_done = True; continue
                             if target_R > 0 and sh[k] >= tgt:
@@ -351,6 +386,7 @@ def run_backtest(
                                 pnl = (p_pnl * 0.5 + raw * 0.5) if p_done else raw
                                 pnl_list.append(pnl)
                                 if return_trades: trade_log.append((i + ek, i + k, pnl, 1, entry))
+                                if return_levels: levels_log.append(_levels_row(i, ek, pos, entry, risk, tgt, be_lvl, be_k, trail_bars, partial_exit_R))
                                 pos = 0; break
                         else:
                             if sh[k] >= stop:
@@ -359,9 +395,10 @@ def run_backtest(
                                 pnl   = (p_pnl * 0.5 + raw * 0.5) if p_done else raw
                                 pnl_list.append(pnl)
                                 if return_trades: trade_log.append((i + ek, i + k, pnl, -1, entry))
+                                if return_levels: levels_log.append(_levels_row(i, ek, pos, entry, risk, tgt, be_lvl, be_k, trail_bars, partial_exit_R))
                                 pos = 0; break
                             if be_after_R > 0 and not be_armed and sc[k] <= be_lvl:
-                                be_armed = True
+                                be_armed = True; be_k = k
                             if not p_done and partial_exit_R > 0 and sl[k] <= ptgt:
                                 p_pnl = entry - ptgt; p_done = True; continue
                             if target_R > 0 and sl[k] <= tgt:
@@ -369,12 +406,14 @@ def run_backtest(
                                 pnl = (p_pnl * 0.5 + raw * 0.5) if p_done else raw
                                 pnl_list.append(pnl)
                                 if return_trades: trade_log.append((i + ek, i + k, pnl, -1, entry))
+                                if return_levels: levels_log.append(_levels_row(i, ek, pos, entry, risk, tgt, be_lvl, be_k, trail_bars, partial_exit_R))
                                 pos = 0; break
                 if pos != 0:                                        # EOD flat
                     raw = (sc[-1] - entry) if pos > 0 else (entry - sc[-1])
                     pnl = (p_pnl * 0.5 + raw * 0.5) if p_done else raw
                     pnl_list.append(pnl)
                     if return_trades: trade_log.append((i + ek, j - 1, pnl, 1 if pos > 0 else -1, entry))
+                    if return_levels: levels_log.append(_levels_row(i, ek, pos, entry, risk, tgt, be_lvl, be_k, trail_bars, partial_exit_R))
         i = j
 
     if not pnl_list:
@@ -392,6 +431,8 @@ def run_backtest(
     }
     if return_trades:
         out["trades"] = trade_log
+    if return_levels:
+        out["levels"] = levels_log
     return out
 
 
