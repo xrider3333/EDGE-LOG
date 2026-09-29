@@ -1,0 +1,20 @@
+[Unit]
+# Runs edgelog-qqq-bars.service after the close (16:10 ET) and again before the next open
+# (09:20 ET), Mon-Fri. The morning run rewrites the previous day once its last 5-minute
+# bar has settled into the cache, which is what makes that day's doc final.
+# NOT INSTALLED BY install.sh -- see edgelog-qqq-bars.service for the by-hand steps.
+#
+# OPTIONAL, LATER (not part of this template): an intraday copy every 5 minutes with
+# `--intraday` instead of `--recent 2` writes today's doc only when a trade closed or a
+# Webull order landed since its last write (at most one write per 5 minutes), so a chart
+# opened during the session lags a close by about 5 minutes instead of until 16:10.
+Description=QQQ bars day docs for the Webull paper candle charts (16:10 + 09:20 ET Mon-Fri)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 16:10:00 America/New_York
+OnCalendar=Mon..Fri *-*-* 09:20:00 America/New_York
+Persistent=true
+Unit=edgelog-qqq-bars.service
+
+[Install]
+WantedBy=timers.target

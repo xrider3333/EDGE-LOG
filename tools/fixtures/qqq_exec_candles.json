@@ -1,0 +1,1683 @@
+{
+ "updated_at": "2026-09-04 15:59:50",
+ "live_from": "2026-07-06",
+ "kill": false,
+ "feed_stale": false,
+ "breaker_tripped": false,
+ "mode": "SHADOW",
+ "calib": {
+  "ratio": 4.02,
+  "source": "nq_qqq_ratio.json",
+  "at": "2026-09-04 09:31:00"
+ },
+ "rails": {
+  "slippage_per_share": 0.01,
+  "kill_file": "C:\\EdgeLog\\qqq_exec\\KILL",
+  "max_shares_per_leg": 10,
+  "daily_loss_limit_usd": 150,
+  "session": {
+   "open": "09:31",
+   "flat_by": "16:00",
+   "last_entry": "15:55"
+  },
+  "shares": {
+   "ORB": 5,
+   "NOISE": 5,
+   "ENGUQ": 5
+  }
+ },
+ "positions": {},
+ "today": {
+  "trades": [],
+  "orders": [
+   {
+    "ts_et": "2026-09-05 09:32:14",
+    "leg": "ORB",
+    "action": "ENTER",
+    "side": "long",
+    "shares": 5,
+    "nq_px": 20510.25,
+    "qqq_px": 500.12,
+    "px_source": "live_tick",
+    "reason": "signal",
+    "latency_s": 1.8
+   },
+   {
+    "ts_et": "2026-09-05 10:15:47",
+    "leg": "ENGUQ",
+    "action": "ENTER",
+    "side": "short",
+    "shares": 5,
+    "nq_px": 20488.0,
+    "qqq_px": 498.9,
+    "px_source": "live_tick",
+    "reason": "OOS -- NT ENGU-Q strategy traded outside QQQ regular session, order not mirrored",
+    "latency_s": null
+   },
+   {
+    "ts_et": "2026-09-05 11:42:03",
+    "leg": "NOISE",
+    "action": "EXIT",
+    "side": "long",
+    "shares": 5,
+    "nq_px": 20502.5,
+    "qqq_px": 499.7,
+    "px_source": "live_tick",
+    "reason": "signal",
+    "latency_s": 12.4
+   }
+  ],
+  "realized_pnl": 0.0,
+  "unrealized_pnl": 11.65
+ },
+ "trades_all": [
+  {
+   "leg": "ORB",
+   "entry_ts": "2026-09-28 10:50:06",
+   "exit_ts": "2026-09-28 15:59:01",
+   "side": "short",
+   "exit_reason": "EOD (px: live_stream)",
+   "shares": 10,
+   "entry_px": 732.32,
+   "exit_px": 736.76,
+   "pnl": -44.4,
+   "size": 1.0,
+   "shares_wanted": 10,
+   "trade_id": "ORB_R6-20260928T144500Z-S"
+  },
+  {
+   "leg": "ENGUQ",
+   "entry_ts": "2026-09-28 12:33:38",
+   "exit_ts": "2026-09-28 15:59:01",
+   "side": "long",
+   "exit_reason": "EOD (px: live_stream)",
+   "shares": 10,
+   "entry_px": 738.0395,
+   "exit_px": 736.66,
+   "pnl": -13.8,
+   "size": 1.0,
+   "shares_wanted": 10,
+   "trade_id": "ENGUQ_335-20260928T163200Z-L"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-28 12:15:09",
+   "exit_ts": "2026-09-28 12:20:10",
+   "side": "short",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 735.455,
+   "exit_px": 736.89,
+   "pnl": -14.35,
+   "size": 1.0,
+   "shares_wanted": 10,
+   "keel_size": 1.0,
+   "trade_id": "NOISE_382-20260928T161500Z-S"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-28 12:05:08",
+   "exit_ts": "2026-09-28 12:10:09",
+   "side": "short",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 735.3,
+   "exit_px": 735.63,
+   "pnl": -3.3,
+   "size": 1.0,
+   "shares_wanted": 10,
+   "keel_size": 1.0,
+   "trade_id": "NOISE_382-20260928T160500Z-S"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-28 11:45:09",
+   "exit_ts": "2026-09-28 12:00:08",
+   "side": "short",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 734.44,
+   "exit_px": 735.64,
+   "pnl": -12.0,
+   "size": 1.0,
+   "shares_wanted": 10,
+   "keel_size": 1.0,
+   "trade_id": "NOISE_382-20260928T154500Z-S"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-28 10:15:11",
+   "exit_ts": "2026-09-28 11:40:09",
+   "side": "short",
+   "exit_reason": "signal exit",
+   "shares": 20,
+   "entry_px": 735.6499,
+   "exit_px": 735.705,
+   "pnl": -1.1,
+   "size": 2.0,
+   "shares_wanted": 20,
+   "keel_size": 1.0,
+   "trade_id": "NOISE_382-20260928T141500Z-S"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-25 12:15:09",
+   "exit_ts": "2026-09-25 15:59:03",
+   "side": "long",
+   "exit_reason": "EOD",
+   "shares": 15,
+   "entry_px": 745.5,
+   "exit_px": 744.92,
+   "pnl": -8.7,
+   "size": 1.5,
+   "shares_wanted": 15,
+   "trade_id": "NOISE_382-20260925T161000Z-L"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-25 09:45:11",
+   "exit_ts": "2026-09-25 10:10:13",
+   "side": "long",
+   "exit_reason": "signal exit",
+   "shares": 15,
+   "entry_px": 744.1,
+   "exit_px": 742.48,
+   "pnl": -24.3,
+   "size": 1.5,
+   "shares_wanted": 15,
+   "trade_id": "NOISE_382-20260925T134000Z-L"
+  },
+  {
+   "leg": "ENGUQ",
+   "entry_ts": "2026-09-24 12:18:25",
+   "exit_ts": "2026-09-24 15:59:00",
+   "side": "long",
+   "exit_reason": "EOD",
+   "shares": 10,
+   "entry_px": 739.3817,
+   "exit_px": 741.345,
+   "pnl": 19.63,
+   "size": 1.0,
+   "shares_wanted": 10,
+   "trade_id": "ENGUQ_335-20260924T161700Z-L"
+  },
+  {
+   "leg": "ENGUQ",
+   "entry_ts": "2026-09-23 14:01:29",
+   "exit_ts": "2026-09-23 15:59:03",
+   "side": "long",
+   "exit_reason": "EOD",
+   "shares": 10,
+   "entry_px": 741.1247,
+   "exit_px": 740.89,
+   "pnl": -2.35,
+   "trade_id": "ENGUQ_335-20260923T180000Z-L"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 15:50:21",
+   "exit_ts": "2026-09-23 15:55:30",
+   "side": "short",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 740.63,
+   "exit_px": 741.12,
+   "pnl": -4.9,
+   "trade_id": "NOISE_304-20260923T194500Z-S"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 15:20:14",
+   "exit_ts": "2026-09-23 15:40:10",
+   "side": "short",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 741.045,
+   "exit_px": 741.27,
+   "pnl": -2.25,
+   "trade_id": "NOISE_304-20260923T191500Z-S"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 15:10:31",
+   "exit_ts": "2026-09-23 15:15:36",
+   "side": "short",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 740.61,
+   "exit_px": 741.2324,
+   "pnl": -6.22,
+   "trade_id": "NOISE_304-20260923T190500Z-S"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 15:00:14",
+   "exit_ts": "2026-09-23 15:05:23",
+   "side": "short",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 740.74,
+   "exit_px": 741.055,
+   "pnl": -3.15,
+   "trade_id": "NOISE_304-20260923T185500Z-S"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 14:30:36",
+   "exit_ts": "2026-09-23 14:55:10",
+   "side": "short",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 741.055,
+   "exit_px": 741.07,
+   "pnl": -0.15,
+   "trade_id": "NOISE_304-20260923T182500Z-S"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 14:10:11",
+   "exit_ts": "2026-09-23 14:25:33",
+   "side": "short",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 740.242,
+   "exit_px": 741.04,
+   "pnl": -7.98,
+   "trade_id": "NOISE_304-20260923T180500Z-S"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 11:35:17",
+   "exit_ts": "2026-09-23 14:05:33",
+   "side": "short",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 741.321,
+   "exit_px": 741.28,
+   "pnl": 0.41,
+   "trade_id": "NOISE_304-20260923T153000Z-S"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 11:20:29",
+   "exit_ts": "2026-09-23 11:30:09",
+   "side": "short",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 741.705,
+   "exit_px": 742.18,
+   "pnl": -4.75,
+   "trade_id": "NOISE_304-20260923T151500Z-S"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 10:10:29",
+   "exit_ts": "2026-09-23 11:00:33",
+   "side": "short",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 742.7798,
+   "exit_px": 742.29,
+   "pnl": 4.9,
+   "trade_id": "NOISE_304-20260923T140500Z-S"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 12:50:31",
+   "exit_ts": "2026-09-22 15:59:00",
+   "side": "long",
+   "exit_reason": "EOD",
+   "shares": 10,
+   "entry_px": 744.65,
+   "exit_px": 747.69,
+   "pnl": 30.4
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 12:40:15",
+   "exit_ts": "2026-09-22 12:50:31",
+   "side": "long",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 744.74,
+   "exit_px": 744.37,
+   "pnl": -3.7
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 12:30:34",
+   "exit_ts": "2026-09-22 12:40:15",
+   "side": "long",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 744.26,
+   "exit_px": 744.08,
+   "pnl": -1.8
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 12:15:15",
+   "exit_ts": "2026-09-22 12:30:34",
+   "side": "long",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 744.96,
+   "exit_px": 744.54,
+   "pnl": -4.2
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 12:05:34",
+   "exit_ts": "2026-09-22 12:15:15",
+   "side": "long",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 744.5774,
+   "exit_px": 744.49,
+   "pnl": -0.87
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 11:55:18",
+   "exit_ts": "2026-09-22 12:05:34",
+   "side": "long",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 744.48,
+   "exit_px": 744.195,
+   "pnl": -2.85
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 11:15:26",
+   "exit_ts": "2026-09-22 11:50:11",
+   "side": "long",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 744.6295,
+   "exit_px": 744.2,
+   "pnl": -4.29
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 10:55:30",
+   "exit_ts": "2026-09-22 11:15:26",
+   "side": "long",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 745.285,
+   "exit_px": 744.592,
+   "pnl": -6.93
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 09:45:28",
+   "exit_ts": "2026-09-22 10:55:30",
+   "side": "long",
+   "exit_reason": "signal exit",
+   "shares": 10,
+   "entry_px": 744.14,
+   "exit_px": 744.61,
+   "pnl": 4.7
+  }
+ ],
+ "cum_pnl": {
+  "ORB": [
+   {
+    "date": "2026-07-06",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-07",
+    "cum_pnl": 60.55
+   },
+   {
+    "date": "2026-07-10",
+    "cum_pnl": 60.55
+   },
+   {
+    "date": "2026-07-15",
+    "cum_pnl": 6.85
+   },
+   {
+    "date": "2026-07-16",
+    "cum_pnl": 6.85
+   },
+   {
+    "date": "2026-07-17",
+    "cum_pnl": -36.0
+   },
+   {
+    "date": "2026-07-20",
+    "cum_pnl": -36.0
+   },
+   {
+    "date": "2026-07-21",
+    "cum_pnl": 6.01
+   },
+   {
+    "date": "2026-07-22",
+    "cum_pnl": 6.01
+   },
+   {
+    "date": "2026-07-24",
+    "cum_pnl": 82.52
+   },
+   {
+    "date": "2026-07-27",
+    "cum_pnl": 82.52
+   },
+   {
+    "date": "2026-07-28",
+    "cum_pnl": 82.52
+   },
+   {
+    "date": "2026-07-29",
+    "cum_pnl": 82.52
+   },
+   {
+    "date": "2026-07-30",
+    "cum_pnl": 126.34
+   },
+   {
+    "date": "2026-07-31",
+    "cum_pnl": 126.34
+   },
+   {
+    "date": "2026-08-03",
+    "cum_pnl": 126.34
+   },
+   {
+    "date": "2026-08-04",
+    "cum_pnl": 162.17
+   },
+   {
+    "date": "2026-08-06",
+    "cum_pnl": 162.17
+   },
+   {
+    "date": "2026-08-07",
+    "cum_pnl": 107.54
+   },
+   {
+    "date": "2026-08-10",
+    "cum_pnl": 107.54
+   },
+   {
+    "date": "2026-08-13",
+    "cum_pnl": 107.54
+   },
+   {
+    "date": "2026-08-14",
+    "cum_pnl": 68.47
+   },
+   {
+    "date": "2026-08-17",
+    "cum_pnl": 68.47
+   },
+   {
+    "date": "2026-08-19",
+    "cum_pnl": 68.47
+   },
+   {
+    "date": "2026-08-20",
+    "cum_pnl": 68.47
+   },
+   {
+    "date": "2026-08-24",
+    "cum_pnl": 22.64
+   },
+   {
+    "date": "2026-08-25",
+    "cum_pnl": 22.64
+   },
+   {
+    "date": "2026-08-27",
+    "cum_pnl": 22.64
+   },
+   {
+    "date": "2026-08-31",
+    "cum_pnl": 97.62
+   },
+   {
+    "date": "2026-09-02",
+    "cum_pnl": 97.62
+   },
+   {
+    "date": "2026-09-03",
+    "cum_pnl": 125.51
+   },
+   {
+    "date": "2026-09-04",
+    "cum_pnl": 125.51
+   },
+   {
+    "date": "2026-09-07",
+    "cum_pnl": 125.51
+   },
+   {
+    "date": "2026-09-09",
+    "cum_pnl": 199.93
+   },
+   {
+    "date": "2026-09-10",
+    "cum_pnl": 199.93
+   },
+   {
+    "date": "2026-09-11",
+    "cum_pnl": 199.93
+   },
+   {
+    "date": "2026-09-14",
+    "cum_pnl": 220.69
+   }
+  ],
+  "ENGUQ": [
+   {
+    "date": "2026-07-06",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-07",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-10",
+    "cum_pnl": -5.36
+   },
+   {
+    "date": "2026-07-15",
+    "cum_pnl": -58.02
+   },
+   {
+    "date": "2026-07-16",
+    "cum_pnl": -58.02
+   },
+   {
+    "date": "2026-07-17",
+    "cum_pnl": -58.02
+   },
+   {
+    "date": "2026-07-20",
+    "cum_pnl": 15.47
+   },
+   {
+    "date": "2026-07-21",
+    "cum_pnl": 15.47
+   },
+   {
+    "date": "2026-07-22",
+    "cum_pnl": -18.63
+   },
+   {
+    "date": "2026-07-24",
+    "cum_pnl": -18.63
+   },
+   {
+    "date": "2026-07-27",
+    "cum_pnl": -18.63
+   },
+   {
+    "date": "2026-07-28",
+    "cum_pnl": -75.71
+   },
+   {
+    "date": "2026-07-29",
+    "cum_pnl": -75.71
+   },
+   {
+    "date": "2026-07-30",
+    "cum_pnl": -75.71
+   },
+   {
+    "date": "2026-07-31",
+    "cum_pnl": -93.3
+   },
+   {
+    "date": "2026-08-03",
+    "cum_pnl": -93.3
+   },
+   {
+    "date": "2026-08-04",
+    "cum_pnl": -93.3
+   },
+   {
+    "date": "2026-08-06",
+    "cum_pnl": -77.79
+   },
+   {
+    "date": "2026-08-07",
+    "cum_pnl": -77.79
+   },
+   {
+    "date": "2026-08-10",
+    "cum_pnl": -113.36
+   },
+   {
+    "date": "2026-08-13",
+    "cum_pnl": -113.36
+   },
+   {
+    "date": "2026-08-14",
+    "cum_pnl": -113.36
+   },
+   {
+    "date": "2026-08-17",
+    "cum_pnl": -78.68
+   },
+   {
+    "date": "2026-08-19",
+    "cum_pnl": -78.68
+   },
+   {
+    "date": "2026-08-20",
+    "cum_pnl": -78.68
+   },
+   {
+    "date": "2026-08-24",
+    "cum_pnl": -78.68
+   },
+   {
+    "date": "2026-08-25",
+    "cum_pnl": -130.22
+   },
+   {
+    "date": "2026-08-27",
+    "cum_pnl": -130.22
+   },
+   {
+    "date": "2026-08-31",
+    "cum_pnl": -130.22
+   },
+   {
+    "date": "2026-09-02",
+    "cum_pnl": -179.81
+   },
+   {
+    "date": "2026-09-03",
+    "cum_pnl": -116.81
+   },
+   {
+    "date": "2026-09-04",
+    "cum_pnl": -116.81
+   },
+   {
+    "date": "2026-09-07",
+    "cum_pnl": -116.81
+   },
+   {
+    "date": "2026-09-09",
+    "cum_pnl": -116.81
+   },
+   {
+    "date": "2026-09-10",
+    "cum_pnl": -156.08
+   },
+   {
+    "date": "2026-09-11",
+    "cum_pnl": -156.08
+   },
+   {
+    "date": "2026-09-14",
+    "cum_pnl": -156.08
+   }
+  ],
+  "NOISE": [
+   {
+    "date": "2026-07-06",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-07",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-10",
+    "cum_pnl": 11.96
+   },
+   {
+    "date": "2026-07-15",
+    "cum_pnl": 11.96
+   },
+   {
+    "date": "2026-07-16",
+    "cum_pnl": 87.21
+   },
+   {
+    "date": "2026-07-17",
+    "cum_pnl": 87.21
+   },
+   {
+    "date": "2026-07-20",
+    "cum_pnl": 87.21
+   },
+   {
+    "date": "2026-07-21",
+    "cum_pnl": 134.31
+   },
+   {
+    "date": "2026-07-22",
+    "cum_pnl": 151.17
+   },
+   {
+    "date": "2026-07-24",
+    "cum_pnl": 151.17
+   },
+   {
+    "date": "2026-07-27",
+    "cum_pnl": 151.17
+   },
+   {
+    "date": "2026-07-28",
+    "cum_pnl": 151.17
+   },
+   {
+    "date": "2026-07-29",
+    "cum_pnl": 201.66
+   },
+   {
+    "date": "2026-07-30",
+    "cum_pnl": 201.66
+   },
+   {
+    "date": "2026-07-31",
+    "cum_pnl": 201.66
+   },
+   {
+    "date": "2026-08-03",
+    "cum_pnl": 148.13
+   },
+   {
+    "date": "2026-08-04",
+    "cum_pnl": 148.13
+   },
+   {
+    "date": "2026-08-06",
+    "cum_pnl": 148.13
+   },
+   {
+    "date": "2026-08-07",
+    "cum_pnl": 154.24
+   },
+   {
+    "date": "2026-08-10",
+    "cum_pnl": 154.24
+   },
+   {
+    "date": "2026-08-13",
+    "cum_pnl": 154.24
+   },
+   {
+    "date": "2026-08-14",
+    "cum_pnl": 173.18
+   },
+   {
+    "date": "2026-08-17",
+    "cum_pnl": 173.18
+   },
+   {
+    "date": "2026-08-19",
+    "cum_pnl": 173.18
+   },
+   {
+    "date": "2026-08-20",
+    "cum_pnl": 119.82
+   },
+   {
+    "date": "2026-08-24",
+    "cum_pnl": 119.82
+   },
+   {
+    "date": "2026-08-25",
+    "cum_pnl": 119.82
+   },
+   {
+    "date": "2026-08-27",
+    "cum_pnl": 91.3
+   },
+   {
+    "date": "2026-08-31",
+    "cum_pnl": 91.3
+   },
+   {
+    "date": "2026-09-02",
+    "cum_pnl": 71.63
+   },
+   {
+    "date": "2026-09-03",
+    "cum_pnl": 71.63
+   },
+   {
+    "date": "2026-09-04",
+    "cum_pnl": 71.63
+   },
+   {
+    "date": "2026-09-07",
+    "cum_pnl": 84.76
+   },
+   {
+    "date": "2026-09-09",
+    "cum_pnl": 84.76
+   },
+   {
+    "date": "2026-09-10",
+    "cum_pnl": 84.76
+   },
+   {
+    "date": "2026-09-11",
+    "cum_pnl": 99.31
+   },
+   {
+    "date": "2026-09-14",
+    "cum_pnl": 99.31
+   }
+  ],
+  "total": [
+   {
+    "date": "2026-07-06",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-07",
+    "cum_pnl": 60.55
+   },
+   {
+    "date": "2026-07-10",
+    "cum_pnl": 67.15
+   },
+   {
+    "date": "2026-07-15",
+    "cum_pnl": -39.21
+   },
+   {
+    "date": "2026-07-16",
+    "cum_pnl": 36.04
+   },
+   {
+    "date": "2026-07-17",
+    "cum_pnl": -6.81
+   },
+   {
+    "date": "2026-07-20",
+    "cum_pnl": 66.68
+   },
+   {
+    "date": "2026-07-21",
+    "cum_pnl": 155.79
+   },
+   {
+    "date": "2026-07-22",
+    "cum_pnl": 138.55
+   },
+   {
+    "date": "2026-07-24",
+    "cum_pnl": 215.06
+   },
+   {
+    "date": "2026-07-27",
+    "cum_pnl": 215.06
+   },
+   {
+    "date": "2026-07-28",
+    "cum_pnl": 157.98
+   },
+   {
+    "date": "2026-07-29",
+    "cum_pnl": 208.47
+   },
+   {
+    "date": "2026-07-30",
+    "cum_pnl": 252.29
+   },
+   {
+    "date": "2026-07-31",
+    "cum_pnl": 234.7
+   },
+   {
+    "date": "2026-08-03",
+    "cum_pnl": 181.17
+   },
+   {
+    "date": "2026-08-04",
+    "cum_pnl": 217.0
+   },
+   {
+    "date": "2026-08-06",
+    "cum_pnl": 232.51
+   },
+   {
+    "date": "2026-08-07",
+    "cum_pnl": 183.99
+   },
+   {
+    "date": "2026-08-10",
+    "cum_pnl": 148.42
+   },
+   {
+    "date": "2026-08-13",
+    "cum_pnl": 148.42
+   },
+   {
+    "date": "2026-08-14",
+    "cum_pnl": 128.29
+   },
+   {
+    "date": "2026-08-17",
+    "cum_pnl": 162.97
+   },
+   {
+    "date": "2026-08-19",
+    "cum_pnl": 162.97
+   },
+   {
+    "date": "2026-08-20",
+    "cum_pnl": 109.61
+   },
+   {
+    "date": "2026-08-24",
+    "cum_pnl": 63.78
+   },
+   {
+    "date": "2026-08-25",
+    "cum_pnl": 12.24
+   },
+   {
+    "date": "2026-08-27",
+    "cum_pnl": -16.28
+   },
+   {
+    "date": "2026-08-31",
+    "cum_pnl": 58.7
+   },
+   {
+    "date": "2026-09-02",
+    "cum_pnl": -10.56
+   },
+   {
+    "date": "2026-09-03",
+    "cum_pnl": 80.33
+   },
+   {
+    "date": "2026-09-04",
+    "cum_pnl": 80.33
+   },
+   {
+    "date": "2026-09-07",
+    "cum_pnl": 93.46
+   },
+   {
+    "date": "2026-09-09",
+    "cum_pnl": 167.88
+   },
+   {
+    "date": "2026-09-10",
+    "cum_pnl": 128.61
+   },
+   {
+    "date": "2026-09-11",
+    "cum_pnl": 143.16
+   },
+   {
+    "date": "2026-09-14",
+    "cum_pnl": 163.92
+   }
+  ]
+ },
+ "parity": {
+  "checked": 40,
+  "ok": 39,
+  "failed": 1,
+  "worst_err_usd": 18.42,
+  "note": "1 trade missed its NinjaTrader fill by more than the 2 dollar tolerance -- investigate before trusting this book with real money."
+ },
+ "feed_days": [
+  {
+   "date": "2026-08-24",
+   "uptime_pct": 99.2,
+   "stale_min": 2,
+   "first_tick": "2026-08-24 09:31:00",
+   "last_tick": "2026-08-24 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-08-25",
+   "uptime_pct": 98.9,
+   "stale_min": 1,
+   "first_tick": "2026-08-25 09:31:00",
+   "last_tick": "2026-08-25 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-08-26",
+   "uptime_pct": 99.5,
+   "stale_min": 1,
+   "first_tick": "2026-08-26 09:31:00",
+   "last_tick": "2026-08-26 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-08-27",
+   "uptime_pct": 98.6,
+   "stale_min": 2,
+   "first_tick": "2026-08-27 09:31:00",
+   "last_tick": "2026-08-27 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-08-28",
+   "uptime_pct": 99.3,
+   "stale_min": 2,
+   "first_tick": "2026-08-28 09:31:00",
+   "last_tick": "2026-08-28 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-08-31",
+   "uptime_pct": 99.6,
+   "stale_min": 2,
+   "first_tick": "2026-08-31 09:31:00",
+   "last_tick": "2026-08-31 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-01",
+   "uptime_pct": 99.4,
+   "stale_min": 0,
+   "first_tick": "2026-09-01 09:31:00",
+   "last_tick": "2026-09-01 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-02",
+   "uptime_pct": 98.7,
+   "stale_min": 3,
+   "first_tick": "2026-09-02 09:31:00",
+   "last_tick": "2026-09-02 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-03",
+   "uptime_pct": 61.8,
+   "stale_min": 182,
+   "first_tick": "2026-09-03 09:31:00",
+   "last_tick": "2026-09-03 12:29:00",
+   "valid": false,
+   "note": "feed dropped at 12:29 ET and did not recover -- reconstructed from the recovery log"
+  },
+  {
+   "date": "2026-09-04",
+   "uptime_pct": 98.7,
+   "stale_min": 2,
+   "first_tick": "2026-09-04 09:31:00",
+   "last_tick": "2026-09-04 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-07",
+   "uptime_pct": 98.7,
+   "stale_min": 3,
+   "first_tick": "2026-09-07 09:31:00",
+   "last_tick": "2026-09-07 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-08",
+   "uptime_pct": 99.1,
+   "stale_min": 0,
+   "first_tick": "2026-09-08 09:31:00",
+   "last_tick": "2026-09-08 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-09",
+   "uptime_pct": 0.0,
+   "stale_min": 390,
+   "first_tick": null,
+   "last_tick": null,
+   "valid": false,
+   "note": "no ticks all session -- NinjaTrader connection was down (Tradovate token renewal bug)"
+  },
+  {
+   "date": "2026-09-10",
+   "uptime_pct": 99.6,
+   "stale_min": 4,
+   "first_tick": "2026-09-10 09:31:00",
+   "last_tick": "2026-09-10 16:00:00",
+   "valid": true,
+   "note": ""
+  }
+ ],
+ "ratio_hist": [
+  {
+   "at": "2026-09-01 09:31:00",
+   "ratio": 41.02,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-01 12:31:00",
+   "ratio": 41.13,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-02 09:31:00",
+   "ratio": 41.24,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-02 12:31:00",
+   "ratio": 41.35,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-03 09:31:00",
+   "ratio": 41.46,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-03 12:31:00",
+   "ratio": 41.57,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-04 09:31:00",
+   "ratio": 41.68,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-04 12:31:00",
+   "ratio": 41.79,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-05 09:31:00",
+   "ratio": 41.9,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-05 12:31:00",
+   "ratio": 42.01,
+   "source": "yfinance+NQ_10s"
+  }
+ ],
+ "ratio_health": {
+  "current": 42.01,
+  "at": "2026-09-05 12:31:00",
+  "source": "yfinance+NQ_10s",
+  "age_min": 6,
+  "mean_20": 41.515,
+  "drift_pct": 1.19,
+  "band_lo": 41.165,
+  "band_hi": 41.865,
+  "warn": false,
+  "note": "the NQ-to-QQQ ratio has drifted 1.19% above its 20-tick average -- every shadow price is an NQ price divided by this number, so a stale ratio quietly mis-sizes every fill until the next yfinance refresh.",
+  "used": false
+ },
+ "latency": {
+  "n": 214,
+  "median_s": 2.4,
+  "p95_s": 14.8,
+  "max_s": 31.2,
+  "last_s": 2.1
+ },
+ "reprice": {
+  "covered": 31,
+  "total": 40,
+  "coverage_pct": 77.5,
+  "mean_slip_ps": 0.021,
+  "last_run": "2026-09-15 02:11:00"
+ },
+ "readiness": {
+  "ready": false,
+  "days_valid": 11,
+  "days_required": 20,
+  "live_parity_checked": true,
+  "live_parity_failed": true,
+  "uptime_mean_10": 97.8,
+  "rail_trips_unexplained": 2,
+  "reprice_coverage_pct": 77.5,
+  "missing": [
+   "9 more validated trading days (11 of 20 so far)",
+   "the failed live parity check needs to be investigated and cleared",
+   "2 unexplained rail trips need root-caused before going live"
+  ],
+  "note": "not ready for real money yet -- see the checklist below"
+ },
+ "events": [
+  {
+   "ts_et": "2026-09-15 16:00:03",
+   "kind": "eod_summary",
+   "text": "session closed: 3 trades, net +$46.13, all legs flat by 16:00 ET"
+  },
+  {
+   "ts_et": "2026-09-15 15:58:00",
+   "kind": "eod_flatten",
+   "text": "flattened NOISE 5sh long ahead of the close"
+  },
+  {
+   "ts_et": "2026-09-15 11:42:03",
+   "kind": "refused",
+   "text": "ENGU-Q entry refused: daily loss limit would be exceeded"
+  },
+  {
+   "ts_et": "2026-09-15 10:15:47",
+   "kind": "oos",
+   "text": "ENGU-Q signal fired outside QQQ regular session -- order not mirrored"
+  },
+  {
+   "ts_et": "2026-09-15 09:32:14",
+   "kind": "reprice",
+   "text": "nightly repricer covered 31 of 40 closed trades against real QQQ 1-minute bars"
+  },
+  {
+   "ts_et": "2026-09-14 09:31:05",
+   "kind": "calib",
+   "text": "NQ-to-QQQ ratio recalibrated to 41.90 from yfinance+NQ_10s"
+  },
+  {
+   "ts_et": "2026-09-10 12:29:00",
+   "kind": "feed_down",
+   "text": "tick feed dropped mid-session and did not recover before the close"
+  },
+  {
+   "ts_et": "2026-09-10 12:31:00",
+   "kind": "feed_up",
+   "text": "tick feed recovered"
+  },
+  {
+   "ts_et": "2026-09-09 08:00:00",
+   "kind": "breaker",
+   "text": "daily loss breaker tripped after 2 consecutive stop-outs"
+  },
+  {
+   "ts_et": "2026-09-09 08:00:05",
+   "kind": "kill",
+   "text": "kill file detected -- all legs flattened, no new entries"
+  },
+  {
+   "ts_et": "2026-09-09 16:30:00",
+   "kind": "kill_clear",
+   "text": "kill file removed, resuming normal operation"
+  },
+  {
+   "ts_et": "2026-09-02 09:28:00",
+   "kind": "boot",
+   "text": "qqq_exec runner started, mode SHADOW"
+  }
+ ],
+ "signals_day": [
+  {
+   "date": "2026-09-02",
+   "fired": 18,
+   "taken": 12,
+   "refused": 4,
+   "oos": 2,
+   "by_leg": {
+    "ORB": {
+     "fired": 6,
+     "taken": 4,
+     "refused": 1,
+     "oos": 1
+    },
+    "ENGUQ": {
+     "fired": 5,
+     "taken": 3,
+     "refused": 1,
+     "oos": 1
+    },
+    "NOISE": {
+     "fired": 7,
+     "taken": 5,
+     "refused": 2,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-03",
+   "fired": 18,
+   "taken": 12,
+   "refused": 4,
+   "oos": 2,
+   "by_leg": {
+    "ORB": {
+     "fired": 6,
+     "taken": 4,
+     "refused": 1,
+     "oos": 1
+    },
+    "ENGUQ": {
+     "fired": 5,
+     "taken": 3,
+     "refused": 1,
+     "oos": 1
+    },
+    "NOISE": {
+     "fired": 7,
+     "taken": 5,
+     "refused": 2,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-04",
+   "fired": 18,
+   "taken": 12,
+   "refused": 4,
+   "oos": 2,
+   "by_leg": {
+    "ORB": {
+     "fired": 6,
+     "taken": 4,
+     "refused": 1,
+     "oos": 1
+    },
+    "ENGUQ": {
+     "fired": 5,
+     "taken": 3,
+     "refused": 1,
+     "oos": 1
+    },
+    "NOISE": {
+     "fired": 7,
+     "taken": 5,
+     "refused": 2,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-05",
+   "fired": 18,
+   "taken": 12,
+   "refused": 4,
+   "oos": 2,
+   "by_leg": {
+    "ORB": {
+     "fired": 6,
+     "taken": 4,
+     "refused": 1,
+     "oos": 1
+    },
+    "ENGUQ": {
+     "fired": 5,
+     "taken": 3,
+     "refused": 1,
+     "oos": 1
+    },
+    "NOISE": {
+     "fired": 7,
+     "taken": 5,
+     "refused": 2,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-08",
+   "fired": 18,
+   "taken": 12,
+   "refused": 4,
+   "oos": 2,
+   "by_leg": {
+    "ORB": {
+     "fired": 6,
+     "taken": 4,
+     "refused": 1,
+     "oos": 1
+    },
+    "ENGUQ": {
+     "fired": 5,
+     "taken": 3,
+     "refused": 1,
+     "oos": 1
+    },
+    "NOISE": {
+     "fired": 7,
+     "taken": 5,
+     "refused": 2,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-09",
+   "fired": 18,
+   "taken": 12,
+   "refused": 4,
+   "oos": 8,
+   "by_leg": {
+    "ORB": {
+     "fired": 6,
+     "taken": 4,
+     "refused": 1,
+     "oos": 3
+    },
+    "ENGUQ": {
+     "fired": 5,
+     "taken": 3,
+     "refused": 1,
+     "oos": 3
+    },
+    "NOISE": {
+     "fired": 7,
+     "taken": 5,
+     "refused": 2,
+     "oos": 2
+    }
+   }
+  },
+  {
+   "date": "2026-09-10",
+   "fired": 18,
+   "taken": 12,
+   "refused": 4,
+   "oos": 2,
+   "by_leg": {
+    "ORB": {
+     "fired": 6,
+     "taken": 4,
+     "refused": 1,
+     "oos": 1
+    },
+    "ENGUQ": {
+     "fired": 5,
+     "taken": 3,
+     "refused": 1,
+     "oos": 1
+    },
+    "NOISE": {
+     "fired": 7,
+     "taken": 5,
+     "refused": 2,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-11",
+   "fired": 18,
+   "taken": 12,
+   "refused": 4,
+   "oos": 2,
+   "by_leg": {
+    "ORB": {
+     "fired": 6,
+     "taken": 4,
+     "refused": 1,
+     "oos": 1
+    },
+    "ENGUQ": {
+     "fired": 5,
+     "taken": 3,
+     "refused": 1,
+     "oos": 1
+    },
+    "NOISE": {
+     "fired": 7,
+     "taken": 5,
+     "refused": 2,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-12",
+   "fired": 18,
+   "taken": 12,
+   "refused": 4,
+   "oos": 2,
+   "by_leg": {
+    "ORB": {
+     "fired": 6,
+     "taken": 4,
+     "refused": 1,
+     "oos": 1
+    },
+    "ENGUQ": {
+     "fired": 5,
+     "taken": 3,
+     "refused": 1,
+     "oos": 1
+    },
+    "NOISE": {
+     "fired": 7,
+     "taken": 5,
+     "refused": 2,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-13",
+   "fired": 18,
+   "taken": 12,
+   "refused": 4,
+   "oos": 2,
+   "by_leg": {
+    "ORB": {
+     "fired": 6,
+     "taken": 4,
+     "refused": 1,
+     "oos": 1
+    },
+    "ENGUQ": {
+     "fired": 5,
+     "taken": 3,
+     "refused": 1,
+     "oos": 1
+    },
+    "NOISE": {
+     "fired": 7,
+     "taken": 5,
+     "refused": 2,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-14",
+   "fired": 18,
+   "taken": 12,
+   "refused": 4,
+   "oos": 2,
+   "by_leg": {
+    "ORB": {
+     "fired": 6,
+     "taken": 4,
+     "refused": 1,
+     "oos": 1
+    },
+    "ENGUQ": {
+     "fired": 5,
+     "taken": 3,
+     "refused": 1,
+     "oos": 1
+    },
+    "NOISE": {
+     "fired": 7,
+     "taken": 5,
+     "refused": 2,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-15",
+   "fired": 18,
+   "taken": 12,
+   "refused": 4,
+   "oos": 2,
+   "by_leg": {
+    "ORB": {
+     "fired": 6,
+     "taken": 4,
+     "refused": 1,
+     "oos": 1
+    },
+    "ENGUQ": {
+     "fired": 5,
+     "taken": 3,
+     "refused": 1,
+     "oos": 1
+    },
+    "NOISE": {
+     "fired": 7,
+     "taken": 5,
+     "refused": 2,
+     "oos": 0
+    }
+   }
+  }
+ ],
+ "equity": {
+  "net_liq": 25148.9,
+  "change_today": 148.9,
+  "change_today_pct": 0.6,
+  "cash": 25000.0,
+  "as_of_et": "2026-09-24 15:59:50",
+  "stale": false
+ },
+ "broker": {
+  "effective_mode": "PAPER",
+  "requested_mode": "PAPER",
+  "halted": false,
+  "lease_ok_to_send": true,
+  "last_order": {
+   "leg": "NOISE",
+   "symbol": "QQQ",
+   "side": "BUY",
+   "qty": 20,
+   "mode": "PAPER",
+   "ok": true
+  },
+  "last_error": null
+ },
+ "lease": {
+  "host_id": "DESKTOP-EDGELOG"
+ },
+ "keel": {
+  "NOISE": {
+   "version": "v12",
+   "trained_through": "2026-09-23"
+  }
+ },
+ "positions_live": {
+  "legs": [],
+  "broker_net_qty": 0,
+  "legs_net_qty": 0,
+  "mismatch": false,
+  "total_open_pnl": 0
+ }
+}

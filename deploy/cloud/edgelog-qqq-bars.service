@@ -1,0 +1,44 @@
+[Unit]
+# QQQ BARS FOR THE WEBULL PAPER CANDLE CHARTS (owner ask via MANAGER 2026-09-28).
+# Writes ONE small doc per trading day, users/{uid}/qqq_bars/{YYYY-MM-DD} (~20-25 KB),
+# from this box's own settled bar caches (__EDGELOG_HOME__/ohlc/QQQ_1m.csv + QQQ_5m.csv,
+# the bars the engine traded on) plus per-trade markers joined from the book's ledgers.
+# See tools/qqq_bars_publish.py's docstring. A separate one-shot process: it never touches
+# edgelog-qqq-exec.service's tick loop or order path, so a slow or failing Firestore write
+# here can only leave a chart stale -- trading is unaffected.
+#
+# NOT INSTALLED BY install.sh ON PURPOSE (owner OK needed).
+# SHIPPING THE CODE RESTARTS THE LIVE BOOK: tools/box_deploy.py (the only allowed way to
+# put code on the box) always stops and starts edgelog-qqq-exec AND edgelog-cloud-signal,
+# and refuses unless the book is flat and outside its protected windows -- so run it after
+# the close with the book flat. The publisher itself never needs either service restarted.
+# To add the unit by hand after the owner's go and that deploy, with the placeholders
+# filled exactly as install.sh fills its own units:
+#   sed -e "s#__EDGELOG_USER__#ubuntu#g" -e "s#__EDGELOG_REPO__#$HOME/edgelog/EDGE-LOG#g" \
+#       -e "s#__EDGELOG_VENV__#$HOME/edgelog/venv#g" -e "s#__EDGELOG_HOME__#$HOME/edgelog#g" \
+#       -e "s#__EDGELOG_ALLOW_UID__#<uid>#g" deploy/cloud/edgelog-qqq-bars.service \
+#       | sudo tee /etc/systemd/system/edgelog-qqq-bars.service
+#   (same for edgelog-qqq-bars.timer), then: sudo systemctl daemon-reload &&
+#   sudo systemctl enable --now edgelog-qqq-bars.timer
+# One-off backfill from the book's start, run by hand once (dry run first). Days whose
+# Webull rows are older than broker_orders.csv's first row print as "predate the order
+# ledger" and show "not on file" rather than "no Webull order"; a later rewrite keeps any
+# Webull rows the published copy already has. More than 40 days needs --yes-many.
+#   venv/bin/python tools/qqq_bars_publish.py --backfill 2026-09-03 --dry-run
+#   venv/bin/python tools/qqq_bars_publish.py --backfill 2026-09-03 --uid <uid> --cred serviceAccount.json
+Description=EDGE-LOG QQQ bars day docs for the Webull paper candle charts
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__EDGELOG_USER__
+WorkingDirectory=__EDGELOG_REPO__
+EnvironmentFile=__EDGELOG_HOME__/edgelog.env
+# --recent 2 = today (if it traded) + the previous trading day, which by the next run has
+# its last bar and is marked final (the browser then keeps it forever).
+ExecStart=__EDGELOG_VENV__/bin/python -u tools/qqq_bars_publish.py --recent 2 --uid __EDGELOG_ALLOW_UID__ --cred serviceAccount.json
+TimeoutStartSec=300
+Nice=10
+StandardOutput=append:__EDGELOG_HOME__/logs/qqq_bars.log
+StandardError=append:__EDGELOG_HOME__/logs/qqq_bars.log
