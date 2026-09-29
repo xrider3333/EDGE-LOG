@@ -38,3 +38,7 @@ stays raw; the lockbox result is filed as not forward-confirmed.
 - Scoring: the Custom ML chat, offline, from the ORB_R6 paper blotter plus a same-day backtest replay as a
   cross-check (any trade the replay cannot match is reported, never silently dropped). Nothing live changes.
 - A contract roll inside the window (December 2026) is scored as the paper leg traded it, and flagged.
+
+## ADDENDUM 2026-09-29 (owner YES, MANAGER #27) - before any forward trade was read
+A paired sequential early stop now runs beside the final rule above, which is unchanged:
+docs/PREREG_paired_sequential_stop_2026-09-29.md (scorer tools/paired_seq_stop.py).

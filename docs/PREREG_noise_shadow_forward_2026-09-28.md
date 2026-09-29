@@ -50,3 +50,7 @@ scored for that arm at its same-day backtest-replay fill, and counted in the rep
   backtest-replay fill and listed separately; no trade is silently dropped.
 - QQQ has no contract roll; KEEL's NQ training master does (December 2026). Roll week is flagged in the report.
 - Scoring: the Custom ML chat, from Paper: WB's log plus a same-day backtest replay as a cross-check.
+
+## ADDENDUM 2026-09-29 (owner YES, MANAGER #27) - before any forward trade was read
+A paired sequential early stop now runs beside the final rule above, which is unchanged:
+docs/PREREG_paired_sequential_stop_2026-09-29.md (scorer tools/paired_seq_stop.py).

@@ -41,3 +41,7 @@ beside it. No shadow orders.
 - ES contract rolls inside the window are logged; the file's own roll handling is what is scored.
 - Scoring: the Custom ML chat, from the lane's log plus a same-day backtest replay cross-check. Nothing live
   changes on this test's say-so.
+
+## ADDENDUM 2026-09-29 (owner YES, MANAGER #27) - before any forward trade was read
+A paired sequential early stop now runs beside the final rule above, which is unchanged:
+docs/PREREG_paired_sequential_stop_2026-09-29.md (scorer tools/paired_seq_stop.py).
