@@ -1185,6 +1185,42 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10p. TTM's multi-cell sleeve as a book test (#469 / #470), and the nightly shadow lines on #463 (2026-09-29)
+
+**Why a book test.** Owner via MANAGER (2026-09-29): TTM candidates are judged on walk-forward plus a book-level test,
+because #459's 15-trade lockbox fails the 50-trade minimum. TTM's round-19 sleeve is TTMSQZ_3_0.py at the frozen #299
+settings on ES 30m, ES 15m, NQ 30m and NQ 15m, day session, roll-corrected masters pinned, one contract each. It was
+tested two ways inside #463, with the bar written first (`C:\EdgeLog\_anatomy_cache\adopt449\PREREG_TTMSLEEVE.txt`).
+Both runs equal the local read to the cent.
+
+| book | WF ROC %/yr at $30k | WF Sortino | WF DD (valued daily) | LB ROC %/yr at $30k | LB Sortino | LB DD (valued daily) | trades WF / LB | LB without its biggest trade |
+|---|---|---|---|---|---|---|---|---|
+| #463 (adopted) | 92.7 | 3.82 | $44,849 | 164.3 | 4.15 | $49,855 | 5,645 / 619 | $182,457 |
+| #469 = sleeve IN PLACE of TTM x3 | 82.9 | 3.90 | $50,925 | 149.1 | 3.89 | $52,429 | 6,426 / 689 | $169,891 |
+| #470 = sleeve ADDED as a fifth component | 82.6 | 4.08 | $56,477 | 166.9 | 4.37 | $52,429 | 6,638 / 704 | $201,094 |
+
+- **Both FAIL.**
+  - *Swap:* it loses ROC at $30k in both stretches.
+  - *Add:* it wins the lockbox (and Sortino in both stretches), but the pre-lockbox drawdown grows from $44,849 to
+    $56,477, so the walk-forward ROC at $30k falls from 92.7 to 82.6.
+- The four cells sum to TTM's own parity totals exactly (1,755 trades, $185,135 over the window).
+
+**The nightly shadow lines** (owner "shadow TTM KEEL" 09-28, and GO on the round-62 calls 09-29). They sit beside the
+adopted book figure in every paper report and are never the book figure. Rules are in
+`C:\EdgeLog\_anatomy_cache\adopt449\PREREG_SHADOWS_0929.txt`; code in `api/book_shadow.py`.
+- **KEEL** (report key book_shadow, from 09-29): #463 with TTM #458 x KEEL v12 (frozen at 2025-07-01) in place of TTM x3.
+  Custom ML sets its bar.
+- **VT** (book_shadow_vt, from 09-30): the day's book trades x m = clip(median 20-day volatility of the prior 250 days /
+  the 20-day volatility, 0.5-2.0). #463's daily series is rebuilt each night from its job legs. The rebuild reproduces
+  run #463 to the cent, and a three-year window gives identical multipliers on all 290 recent-year days. The multiplier
+  for 2026-09-29 was 0.7.
+- **AG** (book_shadow_ag, from 09-30): 1.5x on ORB / NOISE trades that enter while the other leg is in the same way. It
+  was found in-sample, so it is judged only on forward data.
+
+**How they will be judged.** Each line against the book line on ROC at a $30k drawdown and Sortino. AG is read at
+>= 100 tilted trades (about 9 months). VT is read after 12 months, and only if a drawdown deeper than $20k occurred in
+that window.
+
 ### 10o. Round 62 - structural book alpha on the adopted #463: volatility targeting and an overlap cap (2026-09-28)
 
 **What.** Owner ask via MANAGER (#29): brainstorm book-level alpha from structural changes, not re-weighting;
