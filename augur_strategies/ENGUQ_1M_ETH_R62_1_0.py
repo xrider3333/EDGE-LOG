@@ -197,6 +197,14 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
     #    and the interpreted walk apply it identically, with no engine or fastloop change.
     #    OFF (0..2400) leaves er_ok exactly as the parent built it -> identical trade list.
     _sf, _st = int(sess_from), int(sess_to)
+    if index is None and not (_sf <= 0 and _st >= 2400):
+        # FAIL LOUD. A caller that narrows the window but supplies no bar timestamps would
+        # otherwise get the PARENT trade list back under this file name - a silent no-op that
+        # would quietly turn a forward shadow arm into a duplicate of its own control.
+        raise ValueError(
+            "ENGUQ_1M_ETH_R62: sess_from/sess_to narrow the entry window to %04d-%04d but no "
+            "bar index was supplied. The engine hands timestamps only to strategies that "
+            "declare index; call run_backtest with arrays that carry an index." % (_sf, _st))
     if index is not None and not (_sf <= 0 and _st >= 2400):
         _ts = pd.DatetimeIndex(index)
         _ts = _ts.tz_convert("America/New_York") if _ts.tz is not None else _ts.tz_localize("UTC").tz_convert("America/New_York")
