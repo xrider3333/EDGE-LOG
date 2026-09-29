@@ -324,16 +324,23 @@ def process_one(uploads_dir, master, parent_row, method):
     drop_cols = [c for c in ("_grid_key", "_n") if c in full.columns]
     new_rows = full[full["time"] > last_master_t].drop(columns=drop_cols) if passed else None
 
-    # Refuse to append a bucket that spans a contract switch. The test runs on the PARENT's
-    # bars, where a carry-sized jump is still an extreme move, and then any bucket whose
-    # window covers a flagged parent bar is held back - along with everything after it, so
-    # the master stays contiguous. Nothing is dropped: the held-back tail appends by itself
-    # once the parent's own splice is repaired.
+    # Refuse to append a bucket that spans an UNRECOGNISED contract switch. The test runs on
+    # the PARENT's bars, where a carry-sized jump is still an extreme move, and then any
+    # bucket whose window covers a flagged parent bar is held back - along with everything
+    # after it, so the master stays contiguous.
+    #
+    # A switch already written into tools/data/rolls_<root>.csv with a trustworthy status is
+    # NOT held back (roll_guard passes it through), because the confirmation the guard was
+    # waiting for has happened. This matters: before 2026-09-29 these four coarse masters had
+    # been frozen at 2026-09-14 for two weeks on a switch that was recorded, measured, and
+    # ALREADY PRESENT in the parent they resample from - so refusing bought nothing and cost
+    # every coarse timeframe its tail. An ESTIMATED row still blocks.
     roll_hit = None
     if new_rows is not None and len(new_rows):
         roll_hit = roll_guard.first_suspect_after(
             parent["time"].values, parent["open"].values, parent["close"].values,
-            after_time=last_master_t, volumes=parent.get("volume"))
+            after_time=last_master_t, volumes=parent.get("volume"),
+            root=master["instrument"])
         if roll_hit is not None:
             # the bucket holding that parent bar starts at or before it, so cut from the
             # last bucket that both starts and ENDS before the flagged parent bar

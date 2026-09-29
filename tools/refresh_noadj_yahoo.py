@@ -119,7 +119,7 @@ def main(now_s=None):
         # Refuse a bar that spans a contract switch. Everything from the suspect bar
         # onwards is held back, not lost: the next run sees it again, once a human has
         # either confirmed the roll or cleared the false alarm.
-        new, hit = roll_guard.split_tv_frame(new, after_time=last)
+        new, hit = roll_guard.split_tv_frame(new, after_time=last, root=inst)
         if hit is not None:
             alert = roll_guard.write_alert(fn, tf, hit)
             print(f"  {fn}: REFUSED an in-bar contract switch. " + roll_guard.describe(hit))

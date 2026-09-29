@@ -1369,7 +1369,8 @@ def auto_refresh_masters(progress_cb=None) -> list:
                 if getattr(_lt, "tzinfo", None) is None:
                     _lt = _lt.tz_localize("UTC")
                 _last_stored = int(_lt.timestamp())
-            merged, _roll_hit = roll_guard.split_indexed_frame(merged, _last_stored)
+            merged, _roll_hit = roll_guard.split_indexed_frame(
+                merged, _last_stored, root=m.get("instrument"))
             if _roll_hit is not None:
                 _alert = roll_guard.write_alert(m["filename"], tf, _roll_hit)
                 # ASCII on purpose: this is the one line that must reach the log even on a

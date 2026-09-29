@@ -147,8 +147,39 @@ def carry_prior_pts(price):
     return abs(float(price)) * CARRY_FRAC
 
 
+def _known_switch_secs(root, table_dir=None):
+    """Unix seconds of every switch for `root` the table records and vouches for.
+
+    A switch in here has been settled by a human or measured against a second feed
+    (`rolls.is_trustworthy`), which is exactly the confirmation this guard was written
+    to wait for. An ESTIMATED row does NOT count: an estimate is a guess about a bar
+    nobody has checked, so it must not silently unblock an append.
+    """
+    if not root:
+        return []
+    try:
+        from augur_engine import rolls
+        return sorted(int(r["switch_sec"]) for r in rolls.real_switches(root, table_dir)
+                      if rolls.is_trustworthy(r))
+    except Exception:
+        return []        # no table, no root, unreadable file -> guard as before
+
+
+def _bar_seconds(times):
+    """The bar size in seconds, taken as the commonest gap between stamps."""
+    t = np.asarray(times, dtype="int64")
+    if len(t) < 3:
+        return 0
+    d = np.diff(t)
+    d = d[d > 0]
+    if not len(d):
+        return 0
+    vals, counts = np.unique(d, return_counts=True)
+    return int(vals[int(np.argmax(counts))])
+
+
 def suspect_bars(times, opens, closes, volumes=None, other_closes=None,
-                 other_opens=None):
+                 other_opens=None, root=None, table_dir=None):
     """Indices of bars that look like an in-bar contract switch, with the evidence.
 
     `times` are bar-START stamps in unix seconds. `other_closes`/`other_opens`, when
@@ -168,6 +199,10 @@ def suspect_bars(times, opens, closes, volumes=None, other_closes=None,
     body = np.abs(c - o)
     dates = _et_dates(times)
     vol = None if volumes is None else np.asarray(volumes, dtype="float64")
+    # A switch the table already vouches for is a KNOWN roll, not a discovery. Each hit
+    # is tagged rather than dropped, so a caller that wants to see everything still can.
+    known = _known_switch_secs(root, table_dir)
+    tf = _bar_seconds(times)
 
     hits = []
     for i in range(n):
@@ -191,7 +226,11 @@ def suspect_bars(times, opens, closes, volumes=None, other_closes=None,
             if body[i] < sd_floor:
                 continue
         win = roll_window_for(dates[i])
+        bar_t = int(np.asarray(times, dtype="int64")[i])
+        in_bar = [s for s in known if bar_t <= s < bar_t + (tf or 1)]
         hit = dict(index=int(i), time=int(np.asarray(times)[i]), et_date=str(dates[i]),
+                   known=bool(in_bar),
+                   known_switch_sec=(int(in_bar[0]) if in_bar else None),
                    expiry=str(win[1]) if win else None,
                    open=float(o[i]), close=float(c[i]), body=float(body[i]),
                    carry_prior=float(carry), body_floor=float(carry_floor),
@@ -220,8 +259,11 @@ def first_suspect_after(times, opens, closes, after_time, **kw):
     """
     t = np.asarray(times, dtype="int64")
     for hit in suspect_bars(times, opens, closes, **kw):
-        if t[hit["index"]] > int(after_time):
-            return hit
+        if t[hit["index"]] <= int(after_time):
+            continue
+        if hit.get("known"):
+            continue        # already in the roll table and vouched for - see below
+        return hit
     return None
 
 
@@ -256,7 +298,7 @@ def _col(df, name):
     return None
 
 
-def split_tv_frame(df, after_time, other=None):
+def split_tv_frame(df, after_time, other=None, root=None, table_dir=None):
     """Split a TV-format frame (a `time` column of unix seconds) at the first suspect bar.
 
     This is the shape `tools/refresh_noadj_yahoo.py` builds from a Yahoo pull.
@@ -268,13 +310,14 @@ def split_tv_frame(df, after_time, other=None):
         kw["other_opens"] = _col(other, "open")
         kw["other_closes"] = _col(other, "close")
     hit = first_suspect_after(df["time"].values, _col(df, "open"), _col(df, "close"),
-                              after_time=after_time, volumes=_col(df, "volume"), **kw)
+                              after_time=after_time, volumes=_col(df, "volume"),
+                              root=root, table_dir=table_dir, **kw)
     if hit is None:
         return df, None
     return df[df["time"] < hit["time"]].reset_index(drop=True), hit
 
 
-def split_indexed_frame(df, after_ts):
+def split_indexed_frame(df, after_ts, root=None, table_dir=None):
     """Split a datetime-indexed OHLCV frame at the first suspect bar.
 
     This is the shape `optimizer.auto_refresh_masters` holds after `combine_ohlcv_frames`,
@@ -291,7 +334,8 @@ def split_indexed_frame(df, after_ts):
         return df, None
     after = -1 if after_ts is None else int(after_ts)
     hit = first_suspect_after(secs, _col(df, "open"), _col(df, "close"),
-                              after_time=after, volumes=_col(df, "volume"))
+                              after_time=after, volumes=_col(df, "volume"),
+                              root=root, table_dir=table_dir)
     if hit is None:
         return df, None
     return df.iloc[:hit["index"]], hit
