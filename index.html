@@ -829,7 +829,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.942';
+const VERSION='73.943';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -37155,6 +37155,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
          crownTip:'The standing ENGU-Q champion since 2026-09-08: run #335, the R2 sibling of #309 - the same configuration with the breakeven moved from 3.0 R to 2.0 R and the stop from 1.3 to 1.0 ATR. Measured on one continuous run sliced by entry time - selection window 1,830 trades, profit factor 1.71, EV R 0.51, R / YR 61.7; held-out year 118 trades, profit factor 1.68, EV R 0.49, R / YR 57.5. Beats #309 on every one of those reads with a lower top-10 share (52% vs 53%) and half the longest hold (142 days vs 282). Auto-Validate #335: PASS, 6 of 6 checks, 8 of 8 walk-forward folds held, lockbox held. Note: the validate searched the whole file and its own best cell is a different configuration with a weaker held-out year; this leg trades the R2 defaults the owner compared, and #309 runs beside it as the control.',
          chip:'crown 09-08',
          chipTip:'Added to the board the day it was crowned, so every trade from here is forward evidence. Anything dated before 2026-09-08 on this row is a backtest.'},
+        // ROUND 62 FORWARD SHADOW ARMS (owner GO 2026-09-29 via MANAGER). Same fourteen knobs as
+        // the crown; the only difference is that a signal is taken only when the SIGNAL BAR's own
+        // clock time falls inside the window. Exits, stops, trailing and the hold are untouched.
+        // NO ORDERS on either arm and no NinjaTrader row. Bar written first, in
+        // ENGUQ_R62_FORWARD_PREREG.md; judged on day-one survival, read only at 60 and 150 gated
+        // entries. Round 62 itself FAILED two of six clauses, so neither arm is a candidate.
+        {k:'ENGUQ_335_S1', label:'ENGU-Q-335 · CASH SESSION', color:'#7fd4b0', ctrl:'ENGUQ_335',
+         chip:'shadow · no orders',
+         chipTip:'Takes the crown's trades only when the signal happens between 9:30am and 4pm New York time, and then manages them exactly as the crown does - the trade can still run for weeks. The idea: this strategy reads the balance of buyers and sellers, and outside the US cash session there is not enough size trading for that balance to mean anything. On history, trades signalled inside those hours survived their first day 36-39% of the time against 11-15% outside, in every one of four eras. It places NO orders and NinjaTrader does not run it. Its own backtest round missed two of six pre-set conditions, so this rides forward as evidence only, judged against the crown row.'},
+        {k:'ENGUQ_335_S2', label:'ENGU-Q-335 · WIDE SESSION', color:'#5fae91', ctrl:'ENGUQ_335',
+         chip:'shadow · exploratory',
+         chipTip:'The same idea over a wider window, 8am to 5pm New York time - the hours picked by a rule that looks only at trading volume and never at profit. On history this is the one window whose held-out year still makes money after deleting its single biggest trade. It is labelled exploratory because the volume rule was written down AFTER that table had been read, so it cannot be adopted on its own: it rides to answer whether the wider window behaves like the cash session or not. No orders, and NinjaTrader does not run it.'},
         // VALIDATE PICK (owner 2026-09-08 evening: "go for all"): run #335 searched the whole R2
         // file and its own best cell is a different configuration from the R2 defaults the crown
         // trades - ema 1340, trendline 238, trail 4.0, atr 28, activation 2.5 R, breakeven 1.0 R,

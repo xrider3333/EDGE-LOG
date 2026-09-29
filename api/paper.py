@@ -150,6 +150,10 @@ LEG_LIVE_FROM = {
     # pooled into one row -- see api/etf_book_shadow.py. Everything before this date is a
     # backtest re-run of a book validated on 2026-09-08, not forward evidence.
     "ETFBOOK_332": "2026-09-09",
+    # Round 62 forward shadow arms: judged ONLY on bars after the owner's GO (2026-09-29),
+    # so the first counted session is 2026-09-30. Nothing earlier is evidence for these two.
+    "ENGUQ_335_S1": "2026-09-30",
+    "ENGUQ_335_S2": "2026-09-30",
     "ENGUQ_335_VC": "2026-09-08",  # run #335's OWN best cell, forward test beside the crown (owner: "go for all")
     "ENGUQ_335": "2026-09-08",  # NEW FAMILY CROWN (owner 2026-09-08: "crown R2 once the validate
                                 # passes, swap the paper leg"); #309 below stays as the control
@@ -414,6 +418,25 @@ ENGUQ_335 = dict(ENGUQ_309, breakeven_R=2.0, stop_mult=1.0)
 ENGUQ_335_VC = dict(buf_atr=0.4, tl_len=238, trail_frac=4.0, ema_len=1340, atr_len=28,
                     act_R=2.5, breakeven_R=1.0, limit_atr=0.1, er_len=100, stop_mult=1.2,
                     regime_len=5, min_brk=1.4, vol_mult=0.0, er_th=0.0)
+
+# ROUND 62 FORWARD SHADOW ARMS (owner GO 2026-09-29 via MANAGER; bar in
+# ENGUQ_R62_FORWARD_PREREG.md, committed before the first shadow bar). Same fourteen knobs as
+# the live crown; the ONLY difference is that a signal is taken only when the SIGNAL BAR's own
+# clock time falls inside the window. Exits, stops, trailing and the hold are untouched, so a
+# 15:55 signal still runs for weeks. NO ORDERS: neither arm has a NinjaTrader row and neither
+# reaches the Webull book, where ENGU-Q is paper-only by the owner's 2026-09-28 decision.
+#   S1 = the PRE-REGISTERED arm, the US cash session, fixed on mechanism.
+#   S2 = EXPLORATORY and labelled: the window a volume-only rule picks, written down AFTER the
+#        round-62 plateau had been read, so it cannot be adopted on its own evidence.
+# Control for both = ENGUQ_335. Primary test is day-one survival, not money -- see the prereg.
+# One documented consequence of gating the SIGNAL bar, verified 2026-09-29: the resting limit
+# scans forward in BARS, not clock minutes, so a signal late in a session can fill after the
+# session gap (one case in 2025: a Friday 16:5x signal filled Sunday 18:00 ET). That is the
+# parent's behaviour, not something the window introduced, and phantom_safe is deliberately NOT
+# set here so both arms stay byte-comparable with the ENGUQ_335 control, which does not set it
+# either (only the live cloud-signal leg opts in).
+ENGUQ_335_S1 = dict(ENGUQ_335, sess_from=930, sess_to=1600)
+ENGUQ_335_S2 = dict(ENGUQ_335, sess_from=800, sess_to=1700)
 
 # NOISE leg params: the validated config (see NOISE_1_0.py docstring) + the
 # researched bandwidth stop. NOISE is execution-CLEAN (close signal -> next-open
@@ -1478,6 +1501,42 @@ LEG_SOURCE = {
                   "leg is a pre-registered forward test: it should beat NOISE_225 on recovery "
                   "from 2026-08-16 on, and if it does not, the lockbox row was noise.",
     },
+    "ENGUQ_335_S1": {
+        "run": 335, "run_label": "#335 crown knobs, entry window 09:30-16:00 ET (round 62, arm S1)",
+        "strategy_file": "ENGUQ_1M_ETH_R62_1_0.py",
+        "picked": "2026-09-29",
+        "note": "FORWARD SHADOW, NO ORDERS. The round-62 idea: ENGU-Q reads the imbalance of "
+                "buyers and sellers, and outside the US cash session there is not enough size on "
+                "the tape for that imbalance to mean anything. One gate, on the SIGNAL bar only; "
+                "exits, stops, trailing and the hold are the crown's, unchanged. On history "
+                "(ADJ_NQ_1m_ETH, drawdown valued daily) it lifted ROC at a $30k drawdown from "
+                "26.8 to 33.2 walk-forward and 44.4 to 62.6 in the sealed year, cut the "
+                "walk-forward drawdown 28%, and took the sealed year's one-trade dependency from "
+                "-$16,283 to -$2,567. Day-one survival was 36-39% for gated entries against "
+                "11-15% for the entries removed, in all four eras with no drift.",
+        "caveat": "Round 62 FAILED two of its six pre-registered clauses (walk-forward Sortino "
+                  "3.59 vs 3.66, and the sealed year is still negative without its biggest "
+                  "trade), so no validate was queued and this is NOT a candidate. It rides "
+                  "forward only. The bar is in ENGUQ_R62_FORWARD_PREREG.md: day-one survival "
+                  "must beat the removed entries by 15+ points, read ONLY at 60 and 150 gated "
+                  "entries. Control = ENGUQ_335. NinjaTrader does not run this cell.",
+    },
+    "ENGUQ_335_S2": {
+        "run": 335, "run_label": "#335 crown knobs, entry window 08:00-17:00 ET (round 62, arm S2)",
+        "strategy_file": "ENGUQ_1M_ETH_R62_1_0.py",
+        "picked": "2026-09-29",
+        "note": "FORWARD SHADOW, NO ORDERS. The same gate as ENGUQ_335_S1 over a wider window - "
+                "the one a purely mechanical rule selects, taking every hour whose median "
+                "one-minute volume is at or above the tape's own median, which lands on hours "
+                "08 through 16 ET. On history this is the only window that clears round 62's "
+                "failing clause (forward net survives deleting its biggest trade, +$773).",
+        "caveat": "EXPLORATORY AND CANNOT BE ADOPTED ON ITS OWN EVIDENCE. The volume rule was "
+                  "written down AFTER the round-62 plateau table had been read, so choosing this "
+                  "window on that history would be picking the bar after seeing the answer. It "
+                  "rides to answer one question: does the wider window behave like the cash "
+                  "session or not? If S1 fails and this passes, that is evidence the plateau was "
+                  "noise, NOT a pass. Control = ENGUQ_335. NinjaTrader does not run this cell.",
+    },
     "ENGUQ_335_VC": {
         "run": 335, "run_label": "#335 validate pick (its own best cell, not the R2 defaults)",
         "strategy_file": "ENGUQ_1M_ETH_R2_1_0.py",
@@ -1595,6 +1654,15 @@ PAPER_LEGS = [
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ_335"]},
     # ADDED 2026-09-08 evening (owner: "go for all"): run #335's own selected cell as a
     # FORWARD TEST beside the crown -- see ENGUQ_335_VC's comment block. Control = ENGUQ_335.
+    # ADDED 2026-09-29 (owner GO via MANAGER on round 62 option (a)): the cash-session entry
+    # gate as a NO-ORDER forward shadow beside the crown. Control = ENGUQ_335. Bar written
+    # first, in ENGUQ_R62_FORWARD_PREREG.md. Neither arm carries a NinjaTrader row.
+    {"key": "ENGUQ_335_S1", "strategy": "ENGUQ_1M_ETH_R62_1_0.py", "instrument": "NQ",
+     "timeframe": "1m", "session": "eth", "params": ENGUQ_335_S1,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ_335_S1"]},
+    {"key": "ENGUQ_335_S2", "strategy": "ENGUQ_1M_ETH_R62_1_0.py", "instrument": "NQ",
+     "timeframe": "1m", "session": "eth", "params": ENGUQ_335_S2,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ_335_S2"]},
     {"key": "ENGUQ_335_VC", "strategy": "ENGUQ_1M_ETH_R2_1_0.py", "instrument": "NQ",
      "timeframe": "1m", "session": "eth", "params": ENGUQ_335_VC,
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ_335_VC"]},
