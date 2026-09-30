@@ -59,3 +59,21 @@ backfill paired t (below) is <= -2.0, that leg's shadow is not started; anything
   valid +$28,094 (15); the 18 trades without delta made -$11,636.
 - Neither number is evidence (29-31 trades); this only cleared the kill line. Forward read: `python
   tools/orderflow_r1.py forward` (EDGELOG_ROOT = the shared checkout).
+
+## CORRECTION 2026-09-30 (MANAGER #34 re-check) - before any forward trade was read; supersedes the rule above
+Found by re-checking the build, not by looking at results:
+- **10-second stamps are bar END, not bar open.** Thirty 10s bars stamped 09:30:10 .. 09:35:00 rebuild the 09:30
+  5m master bar exactly (open, high, low, close); the open-stamp reading does not. **ORB fills at the CLOSE of its
+  entry bar** (close-confirm; the engine's entry price = that bar's close), NOISE at the OPEN of its entry bar.
+- The first version therefore ended the window 10 seconds early for NOISE and 5 minutes early for ORB (it left
+  out the breakout bar). Never late: no look-ahead in either version. Corrected rule: window = the 10s bars ENDING
+  in (start, fill], start = max(09:30, fill - 30 min), fill detected per trade from the engine's entry price.
+- theta recomputed on the corrected windows (feature only): 5 min 0.0329, 10 0.0243, 15 0.0208, 20 0.0185,
+  25 0.0174, 30 0.0155.
+- Early stop = the running-mean form (paired_seq_stop amendment); B 3.00 for both legs (false stops 1.4% / 0.5%).
+- **Kill check re-run on the corrected rule** (declared before running; its result stands either way): backfill
+  now to 09-30. ORB #314 30 of 34 valid, paired t +0.71; NOISE #422 37 of 55 valid, paired t **-1.89** - neither
+  crosses -2.0, so both forward shadows start 2026-10-01. NOISE sits close to the kill line and leans the way
+  the ENGU-Q lane's round 64 found on 1-minute breakouts (heaviest agreeing flow persists least) - expect little.
+- Overlap: the ORB lane runs its own breakout-bar order-flow shadow on #314 (docs/PREREG_orb_orderflow_shadow_
+  2026-09-30.md); the corrected window now contains that bar, so the two ORB reads are NOT independent.

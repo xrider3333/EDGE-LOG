@@ -4,8 +4,9 @@ C:\\EdgeLog\\_anatomy_cache\\adopt449\\PREREG_SHADOWS_0929.txt stays the verdict
 
 AG = 1.5x on an ORB (#234) or NOISE (#422) trade entering while the OTHER leg holds a trade the same way (on a
 same-bar same-direction entry the NOISE trade takes it) - exactly api/book_shadow.agreement_tilted. Every ORB and
-NOISE trade enters the paired series as d = (m - c) x trade $, c = the walk-forward mean of m, so the test asks
-whether the 1.5x lands on better trades, not whether more size made more money.
+NOISE trade enters the paired series as d = (m - mbar) x trade $, mbar = the RUNNING mean of m over the forward
+trades read so far (amended 2026-09-30 before any forward day; the first version froze c = 1.1793), so the test
+asks whether the 1.5x lands on better trades, not whether more size made more money.
 
     python tools/ag_paired_stop.py        prints c, the tilted share, and the calibrated boundary
 Run from the shared checkout (needs the master registry) or set EDGELOG_ROOT to it.
@@ -48,7 +49,11 @@ def tilt(mine, other, is_noise):
 
 def main(reps=4000, seed=20260930):
     from api.book_shadow import BOOK463_LEGS
-    import paired_seq_stop as Q
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "paired_seq_stop", os.path.join(os.path.dirname(os.path.abspath(__file__)), "paired_seq_stop.py"))
+    Q = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(Q)
     orb = leg([L for L in BOOK463_LEGS if L["strategy"].startswith("ORB")][0])
     noi = leg([L for L in BOOK463_LEGS if L["strategy"].startswith("NOISE")][0])
     allt = pd.concat([orb.assign(m=tilt(orb, noi, False)), noi.assign(m=tilt(noi, orb, True))]).sort_values("e")
@@ -57,17 +62,13 @@ def main(reps=4000, seed=20260930):
     share = float((wf.m > 1).mean())
     nmax = int(np.ceil(TILTED_READ / share))
     yrs = (LB0 - WF0).days / 365.25
-    d = (wf.m - c) * wf.usd
-    m, u = wf.m.to_numpy(), wf.usd.to_numpy()
-    rng = np.random.default_rng(seed)
-    for b in np.arange(3.0, 8.01, 0.25):
-        stops = sum(Q.read_pair((rng.choice(m, nmax) - c) * rng.choice(u, nmax), np.ones(nmax), np.zeros(nmax), 0.0, b)[0]
-                    != "continue" for _ in range(reps))
-        if stops / reps <= 0.05:
-            break
+    m, u = wf.m.to_numpy(float), wf.usd.to_numpy(float)
+    d = Q.diffs(u, m, np.ones(len(m)), None, len(m))
+    b, fs = Q.calibrate(m, u, nmax, reps, seed)
+    stops = fs * reps
     print(f"AG: WF ORB+NOISE trades {len(wf)} ({len(wf) / yrs:.0f}/yr), tilted {100 * share:.1f}% "
           f"({share * len(wf) / yrs:.0f}/yr); c = {c:.4f}; series length to {TILTED_READ} tilted = {nmax}; "
-          f"boundary |t| >= {b:.2f} (false stops {100 * stops / reps:.1f}%); WF paired t {Q.tstat(d):+.2f} (context only)")
+          f"boundary |t| >= {b:.2f} (false stops {100 * stops / reps:.1f}%, worse of two no-aim nulls); WF paired t {Q.tstat(d):+.2f} (context only)")
 
 
 if __name__ == "__main__":

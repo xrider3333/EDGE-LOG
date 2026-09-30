@@ -1,11 +1,14 @@
 """Order-flow round 1 (2026-09-30, owner ask via MANAGER inbox #29) - docs/PREREG_orderflow_r1_2026-09-30.md.
 
 NEW INFORMATION: the NinjaTrader 10-second NQ/ES bars carry buy / sell volume and delta since late June 2026
-(C:\\EdgeLog\\ohlc\\<SYM>_10s.csv, times = bar OPEN in UTC seconds). Too short to adopt anything; the rule below
+(C:\\EdgeLog\\ohlc\\<SYM>_10s.csv, times = bar END in UTC seconds - verified 2026-09-30: the thirty 10s bars stamped
+09:30:10..09:35:00 rebuild the 09:30 5m master bar exactly; the open-stamp reading does not). Too short to adopt anything; the rule below
 is fixed now and scored FORWARD with the paired early stop (tools/paired_seq_stop.py).
 
-FEATURE (read at the SIGNAL bar, never the fill): for a trade entering at 5m bar E (bar-open label = fill time),
-window W = the 10s bars that CLOSE by E, starting max(09:30 ET, E - 30 min). Valid when W spans >= 5 min, holds
+FEATURE (data up to the moment of the fill, nothing after): fill time F = the engine's fill - the OPEN of entry
+bar E for NOISE (fills at the next open), the CLOSE of E for ORB (close-confirm fills at the breakout bar's close);
+detected per trade from the engine's entry price. Window W = the 10s bars ENDING in (start, F], start =
+max(09:30 ET, F - 30 min). Valid when W spans >= 5 min, holds
 >= 90% of its 10s bars, and >= 80% of those carry buy+sell volume. Imbalance = sum(delta) / sum(buy + sell).
 Aligned = side x imbalance.
 SIZE RULE: aligned >= theta(L) -> 1.5x; aligned <= -theta(L) -> 0.5x; otherwise, or window not valid -> 1.0x.
@@ -26,12 +29,22 @@ ROOT = os.environ.get("EDGELOG_ROOT") or os.path.dirname(os.path.dirname(os.path
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 
+def _Q():
+    """paired_seq_stop from THIS file's folder (not the shared checkout's copy)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "paired_seq_stop", os.path.join(os.path.dirname(os.path.abspath(__file__)), "paired_seq_stop.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 OHLC = r"C:\EdgeLog\ohlc"
 LOOK_MIN, MIN_SPAN_MIN, BAR_COVER, DELTA_COVER = 30, 5, 0.90, 0.80
 UP, DOWN = 1.5, 0.5
 CUTOFF = pd.Timestamp("2026-10-01")
-# Frozen 2026-09-30 by `theta` (NQ, window minutes -> median |imbalance|, 06-23..09-30 capture).
-THETA = {5: 0.0331, 10: 0.0242, 15: 0.0206, 20: 0.0185, 25: 0.0174, 30: 0.0157}
+# Frozen 2026-09-30 by `theta` on the corrected end-stamp windows (first version: 0.0331 0.0242 0.0206 0.0185 0.0174 0.0157).
+THETA = {5: 0.0329, 10: 0.0243, 15: 0.0208, 20: 0.0185, 25: 0.0174, 30: 0.0155}
 
 
 def load_10s(sym):
@@ -41,14 +54,14 @@ def load_10s(sym):
                          "flow": (d.buy_vol + d.sell_vol).to_numpy(float)}).set_index("t")
 
 
-def window(of, entry):
-    """(imbalance, minutes) for the 10s bars closing by `entry` (naive ET); imbalance NaN when not valid."""
-    entry = pd.Timestamp(entry)
-    start = max(entry.normalize() + pd.Timedelta(hours=9, minutes=30), entry - pd.Timedelta(minutes=LOOK_MIN))
-    mins = (entry - start).total_seconds() / 60.0
+def window(of, fill):
+    """(imbalance, minutes) for the 10s bars ENDING in (start, fill] (naive ET); imbalance NaN when not valid."""
+    fill = pd.Timestamp(fill)
+    start = max(fill.normalize() + pd.Timedelta(hours=9, minutes=30), fill - pd.Timedelta(minutes=LOOK_MIN))
+    mins = (fill - start).total_seconds() / 60.0
     if mins < MIN_SPAN_MIN:
         return float("nan"), mins
-    w = of.loc[start: entry - pd.Timedelta(seconds=10)]
+    w = of.loc[start + pd.Timedelta(seconds=10): fill]
     if len(w) < BAR_COVER * mins * 6:
         return float("nan"), mins
     has = w.flow > 0
@@ -87,7 +100,7 @@ def freeze_theta(sym="NQ"):
                 if (e - open_).total_seconds() / 60 < L:
                     continue
                 s = e - pd.Timedelta(minutes=L)
-                w = of.loc[s: e - pd.Timedelta(seconds=10)]
+                w = of.loc[s + pd.Timedelta(seconds=10): e]
                 if len(w) < BAR_COVER * L * 6:
                     continue
                 has = w.flow > 0
@@ -101,7 +114,8 @@ def freeze_theta(sym="NQ"):
 
 
 def leg_trades(name):
-    """Crown / book-leg trades on the refreshed NQ 5m RTH no-adjust master: (entry ET, side, $ P&L)."""
+    """Crown / book-leg trades on the refreshed NQ 5m RTH no-adjust master: (FILL time ET, side, $ P&L).
+    Fill = open of the entry bar when the engine's entry price is that bar's open, else its close (bar + 5 min)."""
     import keel_bag_check as B
     import keel_422_stack_check as S
     from augur_engine.data import find_master, load_master_arrays
@@ -118,13 +132,17 @@ def leg_trades(name):
     T = sorted(r["trades"], key=lambda z: z[0])
     idx = pd.DatetimeIndex(A["index"])
     idx = idx.tz_convert("US/Eastern").tz_localize(None) if idx.tz is not None else idx
-    ent = idx[[int(t[0]) for t in T]]
+    O, Cl = np.asarray(A["open"], float), np.asarray(A["close"], float)
+    at_close = np.array([abs(float(t[4]) - Cl[int(t[0])]) < abs(float(t[4]) - O[int(t[0])]) for t in T])
+    ent = idx[[int(t[0]) for t in T]] + pd.to_timedelta(np.where(at_close, 5, 0), unit="min")
     side = np.array([1.0 if float(t[3]) > 0 else -1.0 for t in T])
     return ent, side, np.array([float(t[2]) for t in T]) * B.MULT
 
 
 LEGS = {"ORB314": ("ORB314_raw", 120), "NOISE422": ("NOISE422_raw", 150)}
-C, BOUND = {"ORB314": 1.1552, "NOISE422": 1.0968}, {"ORB314": 3.00, "NOISE422": 3.00}   # frozen 09-30 by `constants`
+# Early stop = paired_seq_stop's RUNNING-MEAN form (amended 2026-09-30 before any forward trade; the fixed c
+# 1.1552 / 1.0968 of the first version is retired). Bounds frozen by `constants` on 2026-09-30.
+BOUND = {"ORB314": 3.00, "NOISE422": 3.00}
 
 
 def backfill(name):
@@ -136,37 +154,34 @@ def backfill(name):
 
 
 def constants(reps=4000, seed=20260930):
-    """c = mean size over backfill trades with a valid window (reads the FEATURE, never the outcome);
-    B = smallest of 3.0, 3.25, ... whose false-stop rate is <= 5% when sizes are drawn from those backfill
-    sizes INDEPENDENTLY of outcomes drawn from the leg's walk-forward trades (the no-aim null)."""
-    import paired_seq_stop as Q
+    """B = smallest of 3.0, 3.25, ... whose false-stop rate is <= 5% under the no-aim null: sizes drawn from the
+    backfill's valid-window sizes (the FEATURE only, no outcome) INDEPENDENTLY of P&L drawn from the leg's
+    walk-forward trades, scored in the running-mean form."""
+    Q = _Q()
     for name, (twin, nmax) in LEGS.items():
         ent, side, pnl, m, a = backfill(name)
         v = np.isfinite(a)
-        c = float(m[v].mean())
         wf = pd.read_csv(os.path.join(Q.LEGS, twin + "_trades.csv"))
         u = wf.pnl_usd[wf.stage == "WF"].to_numpy(float)
         rng = np.random.default_rng(seed)
+        one = np.ones(nmax)
         for b in np.arange(3.0, 8.01, 0.25):
-            stops = 0
-            for _ in range(reps):
-                d = (rng.choice(m[v], nmax) - c) * rng.choice(u, nmax)
-                stops += Q.read_pair(d, np.ones(nmax), np.zeros(nmax), 0.0, b)[0] != "continue"
+            stops = sum(Q.read_pair(rng.choice(u, nmax), rng.choice(m[v], nmax), one, None, b)[0] != "continue"
+                        for _ in range(reps))
             if stops / reps <= 0.05:
                 break
         print(f"{name}: backfill trades {len(m)}, valid window {int(v.sum())} "
-              f"(1.5x {int((m[v] == UP).sum())}, 0.5x {int((m[v] == DOWN).sum())}), c = {c:.4f}, "
+              f"(1.5x {int((m[v] == UP).sum())}, 0.5x {int((m[v] == DOWN).sum())}), mean size {m[v].mean():.4f}, "
               f"B = {b:.2f} (false stops {100 * stops / reps:.1f}% over {nmax})", flush=True)
 
 
 def triage():
     """Backfill KILL check (pre-registered): paired t <= -2.0 on a leg = its shadow is not started."""
-    import paired_seq_stop as Q
+    Q = _Q()
     for name in LEGS:
         ent, side, pnl, m, a = backfill(name)
         v = np.isfinite(a)
-        d = (m[v] - C[name]) * pnl[v]
-        t = Q.tstat(d)
+        t = Q.tstat(Q.diffs(pnl[v], m[v], np.ones(int(v.sum())), None, int(v.sum())))
         up, dn, flat = m == UP, m == DOWN, v & (m == 1.0)
         print(f"{name}: valid {int(v.sum())} of {len(m)}; paired t {t:+.2f} -> "
               f"{'KILLED' if t <= -2.0 else 'start forward shadow'}; raw $ on 1.5x trades {pnl[up].sum():,.0f} "
@@ -176,14 +191,14 @@ def triage():
 
 def forward(since="2026-10-01"):
     """Forward read: trades entered on/after `since` with the paired early stop and the running final numbers."""
-    import paired_seq_stop as Q
+    Q = _Q()
     of = load_10s("NQ")
     for name, (_, nmax) in LEGS.items():
         ent, side, pnl = leg_trades(name)
         k = (ent >= pd.Timestamp(since)) & (ent <= of.index.max())
         m, a = sizes(of, ent[k], side[k], THETA)
         v = np.isfinite(a)
-        st = Q.read_pair(pnl[k][v], m[v], np.ones(int(v.sum())), C[name], BOUND[name])
+        st = Q.read_pair(pnl[k][v], m[v], np.ones(int(v.sum())), None, BOUND[name])
         print(f"{name}: forward trades {int(k.sum())} (valid window {int(v.sum())}), raw ${pnl[k].sum():,.0f}, "
               f"sized ${(pnl[k] * m).sum():,.0f}; early stop: {st[0]} at n {st[1]}, t {st[2]:+.2f}")
 

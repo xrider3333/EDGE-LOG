@@ -58,3 +58,23 @@ Frontier's own reads (C:\EdgeLog\_anatomy_cache\adopt449\PREREG_SHADOWS_0929.txt
 - **VT (whole book sized by its own 20-day volatility):** NO paired stop. Its claimed value is a smaller
   drawdown in stress, which a mean-difference test cannot see; an early FAIL in calm months would kill a
   working tail hedge. VT keeps Frontier's 12-month read only.
+
+## AMENDMENT 2026-09-30 (MANAGER #34 re-check) - before any forward trade or day was read
+1. **Running mean, not a frozen c.** The first version subtracted each arm's frozen walk-forward mean size c. If
+   an arm's forward mean size drifts from c (KEEL's does), plain leverage leaks into d. Now
+   d_i = (r_i - rbar_n) x b_i, r = arm size / twin size, b = the twin's P&L, rbar_n = the arm's mean r over the n
+   forward trades read so far - leverage is removed by construction (the ORB lane's own order-flow shadow already
+   used a running mean). The c column in the table above is retired.
+2. **Boundaries recalibrated** under the WORSE of two no-aim nulls: (a) walk-forward sizes and twin P&L drawn
+   independently; (b) walk-forward (size, P&L) pairs drawn together after removing the P&L's linear dependence on
+   size (keeps the real size-to-trade-size link, removes aim). New B: NOISE P 3.00 (1.1%), A3 3.00 (5.0%),
+   A4 3.00 (1.7%), ORB tree 3.00 (0.7%), TTM KEEL 3.25 (3.2%). AG line: running mean, 279 trades, B 3.00 (2.2%).
+3. **Book-line stops for Frontier's leg-swap shadows** (book_shadow_orb314 = #463 with ORB #314; book_shadow_q4 =
+   + ENGU-Q gate S1; book_shadow_orb239 = #463 with ORB #239, from its first report). A swapped book has no
+   "size" to aim, so the daily difference is risk-normalised: d_day = cand_day / sigma_cand - book_day / sigma_463,
+   sigma = the walk-forward (2016-07-01 .. 2025-06-29) std of each line's daily closed P&L on weekdays (weekend
+   UTC stamps folded into Friday). Looks on report day 20, 30, ... 250; B 3.00 for all three (false stops
+   1.3% / 1.7% / 1.7% with the walk-forward differences' mean removed). sigma_463 3,910.94; sigma ORB314
+   3,868.12, Q4 3,751.85, ORB239 3,899.75. Walk-forward paired t +0.65 / +0.32 / +0.30 (context only).
+   Driver tools/bookline_paired_stop.py (read_forward). Frontier's 12-month reads stay the verdict; the "#463 with
+   #239" line is covered from its first report.
