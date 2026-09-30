@@ -471,6 +471,11 @@ Trail (t3/t5/t8) tops the MAR frontier → it's a **plateau, not a spike** (robu
 Edge holds on a sibling instrument it was never fit to → **structural**, not an NQ artifact.
 
 ### 4.7 Vol-target (risk-parity) sizing — modest, and it GENERALIZES ✅
+> **DOES NOT HOLD ON THE LEGAL CROWN (2026-09-28, Custom ML round `tools/fixed_sizing_r1.py`,
+> `docs/PREREG_fixed_sizing_r1_2026-09-28.md`).** On #314 at a $30k drawdown, walk-forward ROC is raw 35.3%/yr,
+> constant-risk 34.9, morning tilt 25.6, both together 29.3, and the lockbox is worse for all three. The win
+> below belonged to the voided ORB 3.x touch-entry base. Do not re-test risk parity or the time tilt on ORB.
+
 Re-weight position size ∝ 1/initial-risk (constant-$ risk per trade) vs fixed 1 contract,
 capital-matched (mean size = 1), fee scales with size. `rp-cap3` = risk-parity capped at 3× avg;
 `rp-sqrt` = dampened (size ∝ 1/√risk).
@@ -538,6 +543,11 @@ Same story as regime-skip: the trailing stop already exits stalled trades; a har
   all-day $ at lower drawdown, far fewer trades, less fee/slippage drag. → **backlog item G.**
 
 ### 4.10 Entry-time × sizing (item G) — the combo WINS ✅ *(best result of the study)*
+> **DOES NOT HOLD ON THE LEGAL CROWN (2026-09-28, Custom ML round `tools/fixed_sizing_r1.py`,
+> `docs/PREREG_fixed_sizing_r1_2026-09-28.md`).** On #314 at a $30k drawdown, walk-forward ROC is raw 35.3%/yr,
+> constant-risk 34.9, morning tilt 25.6, both together 29.3, and the lockbox is worse for all three. The win
+> below belonged to the voided ORB 3.x touch-entry base. Do not re-test risk parity or the time tilt on ORB.
+
 Capital-matched to the **same total $risk budget** (a fair "where do you spend the risk?" test).
 Tier weights (morning ×2 / midday ×1 / afternoon ×0.5) are a **fixed a-priori rule** → lockbox is clean OOS.
 

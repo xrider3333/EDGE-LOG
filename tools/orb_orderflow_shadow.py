@@ -76,7 +76,7 @@ def main(describe=False):
         print("  delta AGAINST the trade: %3d trades, mean $%+8.1f, total $%+9.0f" % (len(a), a.u.mean() if len(a) else 0, a.u.sum()))
         f2v = V.dropna(subset=["f2_with"])
         print("  secondary F2 (opening-range delta with the trade): %d with $%+.0f | %d against $%+.0f"
-              % (int(f2v.f2_with.sum()), f2v[f2v.f2_with == True].u.sum(),
+              % (int((f2v.f2_with == True).sum()), f2v[f2v.f2_with == True].u.sum(),
                  int((f2v.f2_with == False).sum()), f2v[f2v.f2_with == False].u.sum()))
         c = float(V.m.mean())
         d = (V.m - c) * V.u
