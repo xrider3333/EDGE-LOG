@@ -1,0 +1,79 @@
+PRE-REGISTRATION - ALPACA r1: two stock-data families vs BOOK #463 (STAGED - nothing runs until the owner saves the keys)
+=====================================================================================================================
+Written 2026-09-30 by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (owner decision via MANAGER, inbox #9), BEFORE any
+Alpaca data exists on the machine. Any change after the first bar is read = a new file (r2). Results will go to
+C:\EdgeLog\_anatomy_cache\rocfrontier\alpaca_r1\ and RESEARCH_LEDGER.md. Data: Alpaca free Basic plan, SIP-consolidated
+historical bars since 2016, pulled with the shared loader tools/import_alpaca_stocks.py (ELWA-FEATURES) - research pulls go
+to a cache outside git and are never registered as library masters.
+
+YARDSTICK (owner rule 2026-09-28): ROC %/yr at a $30,000 worst drawdown valued daily = 30 x MAR, walk-forward (WF) and
+lockbox (LB) apart. BOOK #463's own numbers, from its daily legs (tools/rocfrontier/r4_book463.py, exact to the frontier
+lane): 2016-07-01 -> 2025-06-29 = 92.70 %/yr at $30k, Sortino 3.816; 2024-01-02 -> 2025-06-29 = 187.79, Sortino 4.428;
+LB (on/after 2025-06-30, the frontier lane's definition) = 164.76, Sortino 4.150. The LB is SEALED for both families:
+no script prints, plots or sums anything dated on/after 2025-06-30 until that family's Stage A (and A2) is written to the
+ledger, and then only once. Bars dated after 2026-06-30 are a FORWARD stretch: reported, never judged.
+
+======================================================================================================================
+FAMILY A - SIPORB r1: 5-minute opening-range breakout on the day's 20 "stocks in play" (Zarattini, Barbon & Aziz 2024,
+"A Profitable Day Trading Strategy For The U.S. Equity Market", SSRN 4729284 - rules as printed in the paper)
+Mechanism: stocks with news trade at many times their normal opening volume; that flow keeps going in the direction of
+the first five minutes, and the move is stock-specific, so it should be nearly uncorrelated with the NQ/ES book.
+- Universe each day: US-listed common stocks (Alpaca assets, status active AND inactive, so delisted names are included
+  where Alpaca has their bars) with (1) opening price > $5, (2) average volume over the previous 14 sessions >= 1,000,000
+  shares, (3) ATR(14) over the previous 14 sessions > $0.50, (4) Relative Volume >= 100%, where Relative Volume = the
+  09:30-09:35 ET volume / the average 09:30-09:35 volume of the previous 14 sessions. Filters 1-3 use RAW (unadjusted)
+  daily bars as they stood that day; a split inside the 14-session look-back excludes the name that day.
+- Selection: the 20 highest Relative Volume names (fewer if fewer pass).
+- Direction by the first 5-minute bar: close > open -> buy stop at its high; close < open -> sell stop at its low;
+  close = open -> no order. The stop order lives until 15:59 ET. Fill = the stop price, or the bar's open if a 1-minute
+  bar opens through it.
+- Protective stop: 10% of ATR(14) from the fill price. Exit: the close of the 15:59 1-minute bar if not stopped.
+- Size (fixed, no compounding, on $100k): 20 slots of $5,000; shares = min(1% of the slot / stop distance,
+  4 x the slot / entry price), rounded down.
+- Costs: $0.0035 a share per side (the paper's) + $0.01 a share per side slippage; stress = $0.02 slippage.
+- Cells: A1 both sides (PRIMARY, the paper's design). Reported, never a pass route: A2 long side only; the RAW TWIN
+  (the same 5-minute ORB on every filtered name without the Relative Volume filter or top-20 cut - the paper's
+  base strategy).
+- Stretches: REPLICATION = 2016-01-04 -> 2023-12-29 (the paper's own sample - NOT out-of-sample; it checks the pipeline:
+  if A1's replication Sharpe is below 1.0 against the paper's 2.81, the data or code is not reproducing the paper and
+  Stage A is not judged until that gap is explained). WF = 2024-01-02 -> 2025-06-29 (after the paper; the real test).
+- STAGE A (WF): >= 100 trades; ROC @ $30k >= 15; profit factor >= 1.10; t-stat of daily P&L >= 2.0; beats the RAW
+  TWIN on ROC @ $30k AND Sortino; net > 0 at the stress cost; profitable without its single biggest trade; >= 60% of
+  months positive.
+- STAGE A2 (WF): EITHER standalone ROC @ $30k >= #463's 187.79 on the same stretch, OR BOOK #463 + this leg (weight
+  c in {0.5, 1, 2} x the sizing above, the best c by WF book ROC @ $30k, then frozen) >= 1.05 x 187.79 = 197.2 with
+  Sortino >= 4.428.
+- STAGE B (LB, once): standalone LB ROC @ $30k >= 164.76 with >= 50 LB trades and profitable without its biggest trade,
+  OR the frozen book add beats #463's LB (>= 164.76 and Sortino >= 4.150, LB profitable without its biggest trade).
+- STAGE C: the engine has no multi-stock job type, so a pass becomes a written FORWARD PAPER SHADOW (Webull paper) with
+  its own bar + an owner call; no Auto-Validate applies.
+- Known ways it could fool us: survivorship (Alpaca may lack some delisted names - the replication check and a count
+  of names passing filters 1-3 per year are reported); borrow for shorts is assumed; stop fills in fast markets.
+
+======================================================================================================================
+FAMILY B - NQBRD r1: an NQ trend-day trigger from Nasdaq-100 breadth at 10:00 ET
+Mechanism: when most of the index's stocks are already above their own open by 10:00, the buying is broad
+(institutional), not one mega-cap - the trend should persist into the close. The index tape alone cannot see it.
+- Members: point-in-time Nasdaq-100 membership file tools/data/ndx_members.csv, built from Nasdaq's annual
+  reconstitution announcements and the public change log BEFORE any bar is read; removed members count for their
+  membership period.
+- Breadth B = share of that day's members (with bars) whose 09:55-bar close is above their 09:30 open (5-minute bars,
+  raw - a same-day ratio).
+- Trade NQ (5m RTH, roll-corrected master, 1 contract, cost 0.533): B >= theta -> long at the open of the 10:00 bar;
+  B <= 1 - theta -> short; exit at the close of the 15:55 bar. No stop.
+- Cells: theta in {0.70, 0.80} (PRIMARY). Control, never a pass route: NQ's own 09:30-10:00 direction on the same number
+  of days per year, picked by the largest |09:30-10:00 return|. Null: each traded day's direction replaced by a fair coin,
+  500 replicates, statistic = the max WF t over the 2 cells.
+- WF = 2016-07-01 -> 2025-06-29.
+- STAGE A (WF): >= 100 trades; ROC @ $30k >= 15; profit factor >= 1.10; t >= 2.0 AND above the null's 95th percentile;
+  beats the control on ROC @ $30k; net > 0 at +0.25 pt; profitable without its single biggest trade; >= 60% of years
+  positive.
+- STAGE A2 (WF): BOOK #463 + this leg at c in {1, 2, 3} contracts (best c by WF book ROC @ $30k, then frozen)
+  >= 1.05 x 92.70 = 97.3 with Sortino >= 3.816.
+- STAGE B (LB, once): book LB ROC @ $30k >= 164.76, Sortino >= 4.150, book LB profitable without its biggest trade,
+  the leg's own LB net > 0.
+- STAGE C: a strategy file reading a frozen daily breadth file + ONE Auto-Validate at the 900-trial budget (theta as the
+  open range, pinned window, same lockbox), then the RUNBOARD watch list and MANAGER. Owner decides.
+- Known ways it could fool us: breadth days are NOISE's trend days (the book-add stage prices that); membership errors.
+
+Zero passes at any stage = that family dead; ledger + memory.

@@ -1,5 +1,10 @@
 # Databento transfer test r1 - Step 1: data spec, price, owner steps
 
+> **SHELVED 2026-09-30 - the owner declined Databento (MANAGER inbox #9).** Kept on file with
+> `PREREG_TRANSFER_R1.txt` and `PREREG_TRANSFER_R1B.txt`; nothing will be bought. This also shelves the
+> RTY/YM ORB cells, the NOISE/TTM transfers and TTIBS idea B. Stock data comes from Alpaca instead:
+> `ALPACA_STAGE_R1.md`.
+
 Owner decision 2026-09-28 (via MANAGER, inbox #5): run ORB, NOISE and TTM unchanged on ZN, 6E, CL and GC
 1-minute data. **Step 1 only**: this spec, the exact public price, the owner's own account and key steps, and the
 pre-registration (`PREREG_TRANSFER_R1.txt`, same folder). Nothing has been bought, and no account or key has been

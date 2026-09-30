@@ -21,7 +21,8 @@ read and can run any time.
 - `rebal_intraday.py` — where inside the day the month-end flow lands (spread across the session, not a closing-hour flow).
 - `engudq_regime.py` — regime-gated ENGU-Q short mirror, pre-lockbox only (loads the frozen `ENGUDQ_1M_ETH_1_0.py` copy in the cache).
 - `spread_r1.py` — SPREAD r1: NQ vs ES dollar-neutral relative value, 12 pre-registered cells (`PREREG_SPREAD_R1.txt`), pre-lockbox only.
-- `PREREG_TRANSFER_R1.txt` + `DATABENTO_TRANSFER_R1.md` — TRANSFER r1 (2026-09-28, pre-registered, not run): ORB / NOISE / TTM crowns unchanged on ZN / 6E / CL / GC; the Databento data spec, exact price and the owner's account/key steps.
+- `PREREG_TRANSFER_R1.txt` + `DATABENTO_TRANSFER_R1.md` — TRANSFER r1 (2026-09-28, pre-registered, not run): ORB / NOISE / TTM crowns unchanged on ZN / 6E / CL / GC; the Databento data spec, exact price and the owner's account/key steps. **SHELVED 2026-09-30 (owner declined Databento).**
+- `PREREG_ALPACA_R1.txt` + `ALPACA_STAGE_R1.md` — ALPACA r1 (2026-09-30, staged, nothing runs until the owner saves the free keys): stocks-in-play ORB and the NQ breadth trigger, the owner's key steps and the loader interface.
 - `IDEAS_R4.md` — round 4 (2026-09-28): ten new-family ideas vs BOOK #463; three triaged, all dead (ledger 2.33).
 - `r4_book463.py` — BOOK #463's daily leg P&L (at close + valued daily), reproduces the frontier lane's 60.34 / 164.76 exactly.
 - `r4_triage.py` + `PREREG_WKND_FOMCWK_R1.txt` — WKND (weekend gap) and FOMCWK (FOMC-cycle weeks) Stage A, pre-lockbox only.
