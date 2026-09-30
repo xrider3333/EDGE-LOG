@@ -1,0 +1,17 @@
+tape 2010-06-07 .. 2026-09-16, cost 0.533, $20/pt; ROC@30k = 30 x MAR with drawdown valued daily
+
+NOISE #304 crown  (4847 trades)
+  raw twin                         WF 2805 tr ROC@30k  66.0% Sort 3.79 ( 36.6%/yr, DD $16,635) | LB 314 tr ROC@30k  87.3% Sort 2.86 ( 51.8%/yr, DD $17,782, ex-top $ 34,368) | tail $12,819
+  time stop 24 bars                WF 3935 tr ROC@30k  89.4% Sort 3.15 ( 34.8%/yr, DD $11,684) | LB 456 tr ROC@30k  80.1% Sort 2.00 ( 48.7%/yr, DD $18,240, ex-top $ 30,450) | tail $15,711
+  time stop 12 bars (neighbour)    WF 5457 tr ROC@30k  47.0% Sort 2.33 ( 27.1%/yr, DD $17,319) | LB 643 tr ROC@30k  49.8% Sort 1.45 ( 35.6%/yr, DD $21,477, ex-top $ 24,542) | tail $16,393
+  time stop 36 bars (neighbour)    WF 3416 tr ROC@30k  70.1% Sort 3.47 ( 37.2%/yr, DD $15,942) | LB 389 tr ROC@30k  86.9% Sort 2.39 ( 49.3%/yr, DD $17,003, ex-top $ 40,830) | tail $13,225
+    -> time stop 24 bars: FAILS (WF Sortino 3.15 <= twin 3.79; LB ROC@30k 80.1 <= twin 87.3; LB Sortino 2.00 <= twin 2.86; a neighbour does not agree (spike, not plateau))
+
+NOISE #243 retired  (4441 trades)
+  raw twin                         WF 2574 tr ROC@30k  57.0% Sort 4.01 ( 35.0%/yr, DD $18,424) | LB 296 tr ROC@30k 115.8% Sort 3.22 ( 53.6%/yr, DD $13,874, ex-top $ 36,997) | tail $-6,516
+  time stop 24 bars                WF 3618 tr ROC@30k  67.8% Sort 3.42 ( 34.3%/yr, DD $15,175) | LB 431 tr ROC@30k 108.0% Sort 2.15 ( 48.8%/yr, DD $13,561, ex-top $ 30,557) | tail $-3,925
+  time stop 12 bars (neighbour)    WF 5021 tr ROC@30k  44.0% Sort 2.62 ( 27.9%/yr, DD $19,009) | LB 608 tr ROC@30k  80.1% Sort 1.75 ( 39.8%/yr, DD $14,896, ex-top $ 28,671) | tail $-1,781
+  time stop 36 bars (neighbour)    WF 3136 tr ROC@30k  62.1% Sort 3.66 ( 35.6%/yr, DD $17,210) | LB 366 tr ROC@30k 128.0% Sort 2.86 ( 52.7%/yr, DD $12,352, ex-top $ 44,193) | tail $-6,138
+    -> time stop 24 bars: FAILS (WF Sortino 3.42 <= twin 4.01; LB ROC@30k 108.0 <= twin 115.8; LB Sortino 2.15 <= twin 3.22; a neighbour does not agree (spike, not plateau))
+
+TIME STOP on BOTH bases: DEAD - record it

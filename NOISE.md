@@ -7,6 +7,17 @@
 
 ---
 
+## 🧪 2026-09-30 — ROUND 65: a two-hour time stop - dead
+
+Queue item after round 64; pre-registration `docs/PREREG_noise_r65_timestop_2026-09-30.md` (a120e85b, before any run),
+driver `tools/r65_noise_timestop_triage.py` -> `r37_results/r65_timestop.txt` (round 63's harness, owner yardstick, both
+crowns, re-simulated so the freed position slot can take the next break). A position still open 24 bars after entry
+exits at the next open. **DEAD:** the walk-forward drawdown shrinks, so walk-forward ROC at a $30k drawdown rises (#304
+66.0 -> 89.4, #243 57.0 -> 67.8), but Sortino falls in both stretches on both crowns, the lockbox falls (87.3 -> 80.1,
+115.8 -> 108.0), and the 12-bar neighbour collapses to 47.0 - a spike, not a plateau. The stop turns one long trend
+trade into several shorter ones (#304 walk-forward trades 2,805 -> 3,935) and the extra re-entries earn less than the
+trend they interrupt. With round 52 (trailing, breakeven) this closes exits for NOISE.
+
 ## 🧪 2026-09-30 — ROUND 64: order-flow delta at the breakout - too little capture to read, two forward shadows
 
 Owner ask via MANAGER (inbox #14): keep a queue of NOISE improvements, starting with the NinjaTrader 10-second buy/sell
