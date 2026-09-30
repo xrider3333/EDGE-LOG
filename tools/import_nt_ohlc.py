@@ -19,6 +19,8 @@ sys.path.insert(0, ROOT)
 from augur_engine.data_quality import structural_report   # per-pull gate (stack pill 2.2)
 UP      = os.path.join(ROOT, "augur_uploads")
 DB      = os.path.join(ROOT, "optimizer_history.db")
+
+from augur_engine.master_write import write_master_csv  # noqa: E402
 SRC_DIR = os.environ.get("EDGELOG_NT_OHLC", r"C:\EdgeLog\ohlc")
 LOG     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "import_nt_ohlc.log")
 
@@ -171,7 +173,7 @@ def main():
             mid, fn = None, f"master_{uuid.uuid4().hex[:8]}.csv"
             merged = new.drop_duplicates(subset="time").sort_values("time").reset_index(drop=True)
 
-        merged.to_csv(os.path.join(UP, fn), index=False)
+        write_master_csv(merged, os.path.join(UP, fn))
         d0 = str(pd.to_datetime(merged["time"].min(), unit="s", utc=True).tz_convert("US/Eastern").date())
         d1 = str(pd.to_datetime(merged["time"].max(), unit="s", utc=True).tz_convert("US/Eastern").date())
 

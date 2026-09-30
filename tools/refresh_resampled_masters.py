@@ -105,6 +105,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 from augur_engine import roll_guard
+from augur_engine.master_write import write_master_csv
 
 DEFAULT_UP = os.path.join(ROOT, "augur_uploads")
 DEFAULT_DB = os.path.join(ROOT, "optimizer_history.db")
@@ -481,7 +482,7 @@ def apply_one(conn, uploads_dir, info, existing, new_rows):
     bak = f"{mpath}.bak-{stamp}"
     shutil.copy2(mpath, bak)
     merged = pd.concat([existing, new_rows], ignore_index=True).sort_values("time").reset_index(drop=True)
-    merged.to_csv(mpath, index=False)
+    write_master_csv(merged, mpath)
     date_to = str(pd.to_datetime(int(merged["time"].max()), unit="s", utc=True)
                   .tz_convert("US/Eastern").date())
     conn.execute("UPDATE csv_files SET rows=?, date_to=? WHERE id=?",

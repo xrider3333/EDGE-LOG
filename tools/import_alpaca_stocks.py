@@ -43,6 +43,10 @@ import requests
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UP   = os.path.join(ROOT, "augur_uploads")
 DB   = os.path.join(ROOT, "optimizer_history.db")
+
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+from augur_engine.master_write import write_master_csv  # noqa: E402
 LOG  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "import_alpaca_stocks.log")
 
 BARS_URL = "https://data.alpaca.markets/v2/stocks/bars"
@@ -149,7 +153,7 @@ def upsert_master(conn, inst, tf, src, sess, new):
     else:
         mid, fn = None, f"master_{uuid.uuid4().hex[:8]}.csv"
         merged = new
-    merged.to_csv(os.path.join(UP, fn), index=False)
+    write_master_csv(merged, os.path.join(UP, fn))
     d0 = str(pd.to_datetime(merged["time"].min(), unit="s", utc=True).tz_convert("US/Eastern").date())
     d1 = str(pd.to_datetime(merged["time"].max(), unit="s", utc=True).tz_convert("US/Eastern").date())
     if mid:

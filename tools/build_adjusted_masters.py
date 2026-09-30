@@ -64,6 +64,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 from augur_engine import rolls  # noqa: E402
+from augur_engine.master_write import write_master_csv  # noqa: E402
 
 def table_fingerprint(root):
     """A short hash of the roll table this master would be built from.
@@ -218,9 +219,10 @@ def write_atomic(path, frame):
     thread, so an in-place write can be read half-finished - a backtest on a truncated master
     does not crash, it quietly answers on less data. Same reasoning as save_master_csv.
     """
-    tmp = "%s.tmp-%d" % (path, os.getpid())
-    frame.to_csv(tmp, index=False)
-    os.replace(tmp, path)
+    # The row guard matters here too: an adjusted master is rebuilt from its no-adjust
+    # parent, so a damaged parent would otherwise shrink the twin silently and destroy
+    # the one intact copy the damage could have been repaired from.
+    write_master_csv(frame, path)
 
 
 def main():

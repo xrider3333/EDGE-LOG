@@ -37,6 +37,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 from augur_engine import roll_guard
+from augur_engine.master_write import write_master_csv
 UP   = os.path.join(ROOT, "augur_uploads")
 DB   = os.path.join(ROOT, "optimizer_history.db")
 YTK  = {"NQ": "NQ=F", "ES": "ES=F"}
@@ -129,7 +130,10 @@ def main(now_s=None):
                 continue
         merged = (pd.concat([cur, new], ignore_index=True)
                     .drop_duplicates(subset="time").sort_values("time").reset_index(drop=True))
-        merged.to_csv(p, index=False)
+        # ATOMIC, and refuses to lose rows. A bare to_csv here truncated NOADJ_NQ_5m_ETH
+        # to 625,491 of 1,144,508 rows on 2026-09-29 - a valid CSV that just stopped early,
+        # which the next refresh then appended to and blessed in the registry.
+        write_master_csv(merged, p)
         d1 = str(pd.to_datetime(merged["time"].max(), unit="s", utc=True).tz_convert("US/Eastern").date())
         conn.execute("UPDATE csv_files SET rows=?, date_to=? WHERE id=?", (len(merged), d1, mid))
         conn.commit()

@@ -340,8 +340,11 @@ def test_the_yahoo_refresh_tool_actually_calls_the_guard():
     src = open(os.path.join(ROOT, "tools", "refresh_noadj_yahoo.py"), encoding="utf-8").read()
     assert "from augur_engine import roll_guard" in src
     assert "roll_guard.split_tv_frame" in src
-    # and it must run BEFORE the merge-and-write, not after
-    assert src.index("roll_guard.split_tv_frame") < src.index("merged.to_csv")
+    # and it must run BEFORE the merge-and-write, not after. The write itself moved to
+    # augur_engine.master_write.write_master_csv on 2026-09-30 (atomic + refuses to lose
+    # rows, after NOADJ_NQ_5m_ETH was truncated by a bare to_csv); the ORDER is what this
+    # line has always been about, so it follows the write rather than the old call name.
+    assert src.index("roll_guard.split_tv_frame") < src.index("write_master_csv(merged")
 
 
 def test_the_app_and_runner_refresh_path_actually_calls_the_guard():
