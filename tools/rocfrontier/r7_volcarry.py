@@ -95,7 +95,7 @@ def book_eval(extra, pre=True):
     if extra is not None:
         e = extra.reindex(idx).fillna(0.0)
         M, C = M + e, C + e
-    sel = (idx >= BW0) & (idx < LB0) if pre else (idx >= LB0) & (idx < LB1)
+    sel = (idx >= BW0) & (idx < LB0) if pre else (idx >= LB0) & (idx <= LB1)     # LB includes 2026-06-30 (frontier definition)
     yrs = ((LB0 - BW0) if pre else (LB1 - LB0)).days / 365.25
     net, ddv = float(C[sel].sum()), ddmax(M[sel].values)
     return {"net": net, "roc30": net / yrs / 1000 * 30000 / ddv, "sortino": so(M[sel].values), "dd_daily": ddv,
@@ -190,9 +190,10 @@ def stage_b():
     flag = os.path.join(OUT, "stageB_READ.flag")
     assert not os.path.exists(flag), "Stage B was already read once"
     open(flag, "w").write(pd.Timestamp.now().isoformat())
-    px = load(pd.Timestamp("2025-06-01"), LB1)
+    px = load(pd.Timestamp("2025-06-01"), LB1 + pd.Timedelta(days=2))          # the 07-01 open closes day 06-30
     s, ratio = synth(px)
-    s, ratio = s[s.index >= LB0], ratio[ratio.index >= LB0]
+    keep = (s.index >= LB0) & (s.index <= LB1)
+    s, ratio = s[keep], ratio[keep]
     p, _ = leg(s, ratio, CELLS[res["A2"]["cell"]])
     p = p * float(res["A2"]["u"])
     r = book_eval(p, pre=False)

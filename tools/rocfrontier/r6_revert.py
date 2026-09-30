@@ -111,9 +111,9 @@ def load_master(inst, lockbox=False):
     from augur_engine import data
     m = data.find_master(inst, "5m", "rth", "db_adj_rth")
     assert m is not None, f"no ADJ RTH master for {inst}"
-    a = data.load_master_arrays(m, "2010-06-01", "2026-06-30" if lockbox else "2025-06-29")
+    a = data.load_master_arrays(m, "2010-06-01", "2026-07-01" if lockbox else "2025-06-29")
     idx = a["index"]
-    keep = np.asarray(idx >= LB0) & np.asarray(idx < pd.Timestamp("2026-06-30", tz="US/Eastern")) if lockbox else np.asarray(idx < LB0)
+    keep = np.asarray(idx >= LB0) & np.asarray(idx < pd.Timestamp("2026-07-01", tz="US/Eastern")) if lockbox else np.asarray(idx < LB0)
     if not lockbox:
         assert idx[keep].max() < LB0
     df = pd.DataFrame({k: np.asarray(a[k], float)[keep] for k in ("open", "high", "low", "close")}, index=idx[keep])
@@ -203,7 +203,7 @@ def book_eval(extra, pre=True):
         e = extra.reindex(M.index.union(extra.index)).fillna(0.0)
         M = M.reindex(e.index).fillna(0.0) + e
         C = C.reindex(e.index).fillna(0.0) + e
-    sel = (M.index >= BW0) & (M.index < LBN) if pre else (M.index >= LBN) & (M.index < LB1)
+    sel = (M.index >= BW0) & (M.index < LBN) if pre else (M.index >= LBN) & (M.index <= LB1)   # LB includes 2026-06-30 (frontier definition)
     yrs = ((LBN - BW0) if pre else (LB1 - LBN)).days / 365.25
     net = float(C[sel].sum())
     ddv = ddmax(M[sel].values)

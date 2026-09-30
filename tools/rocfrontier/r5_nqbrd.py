@@ -14,6 +14,7 @@ OUT = os.environ.get("EDGELOG_ALPACA_R1", r"C:\EdgeLog\_anatomy_cache\rocfrontie
 CACHE = os.environ.get("EDGELOG_ALPACA_CACHE", r"C:\EdgeLog\alpaca_cache")                     # raw research pulls
 BOOK = os.path.join(os.path.dirname(OUT), "r4", "book463_daily.csv")
 BW0, WF0, LB0, LB1 = (pd.Timestamp(x) for x in ("2010-06-07", "2016-07-01", "2025-06-30", "2026-06-30"))
+LBX, LBY = pd.Timestamp("2026-07-01"), (LB1 - LB0).days / 365.25   # LB = 06-30 .. 06-30 INCLUSIVE, frontier years
 THETAS, COST, MULT, STRESS, NREP = (0.70, 0.80), 0.533, 20.0, 0.25, 500
 rng = np.random.default_rng(20260930)
 
@@ -132,14 +133,14 @@ def stats(tr, days, t0, t1):
             "years_pos": float((by > 0).mean()) if len(by) else 0.0, "net_ex_big": net - (float(t.pnl.max()) if n else 0.0)}
 
 
-def book(extra, t0, t1):
+def book(extra, t0, t1, yrs=None):
     b = pd.read_csv(BOOK, parse_dates=["date"]).set_index("date")
     idx = b.index.union(extra.index) if extra is not None else b.index
     M, C = b["mtm"].reindex(idx).fillna(0.0), b["close"].reindex(idx).fillna(0.0)
     if extra is not None:
         e = extra.reindex(idx).fillna(0.0); M, C = M + e, C + e
     sel = (idx >= t0) & (idx < t1)
-    yrs, net, ddv = (t1 - t0).days / 365.25, float(C[sel].sum()), ddmax(M[sel].values)
+    yrs, net, ddv = yrs or (t1 - t0).days / 365.25, float(C[sel].sum()), ddmax(M[sel].values)
     return {"net": net, "roc30": net / yrs / 1000 * 30000 / ddv, "sortino": so(M[sel].values), "big": float(C[sel].max())}
 
 
@@ -212,13 +213,13 @@ def stage_b():
     assert not os.path.exists(flag), "Stage B was already read once"
     open(flag, "w").write(pd.Timestamp.now().isoformat())
     th, c = float(res["A2"]["theta"]), int(res["A2"]["c"])
-    br = breadth(LB1)
-    nq = nq_days(LB0, LB1)
+    br = breadth(LBX)
+    nq = nq_days(LB0, LBX)
     br = br.reindex(nq.index)
     sign = pd.Series(np.where(br.B >= th, 1, np.where(br.B <= 1 - th, -1, 0)), index=nq.index)
     t = trades(nq, sign)
     leg = t.groupby("date")["pnl"].sum() * c
-    r = book(leg, LB0, LB1)
+    r = book(leg, LB0, LBX, yrs=LBY)
     bt = pd.read_csv(os.path.join(os.path.dirname(BOOK), "book463_trades.csv"), parse_dates=["date"])
     big = max(float(bt[bt.date >= LB0]["pnl"].max()), float(t["pnl"].max() * c) if len(t) else 0.0)
     r["big"] = big

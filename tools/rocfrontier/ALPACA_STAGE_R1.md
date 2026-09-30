@@ -57,3 +57,4 @@ OneDrive (`C:\EdgeLog\alpaca_cache\`); they never register masters. Asked of the
 ## Update 2026-09-30 - NQBRD is ready to run
 - Membership: `tools/data/ndx_members.csv` (built before any stock bar; see `build_ndx_members.py`).
 - Harness: `tools/rocfrontier/r5_nqbrd.py pull` then `A` - one multi-symbol request per day (09:30-10:00 bars of that day's members, `asof` maps renamed tickers), about 2,600 requests = ~15 minutes on the free plan.
+- SIPORB: `tools/rocfrontier/r5_siporb.py` - order `probe`, `assets`, `daily`, `open5`, `min1 top`, `A` (replication check), `min1 twin`, `A` again; `B` only after an A2 pass. Roughly 3-4 hours of pulls on the free plan, most of it the raw twin's 1-minute bars.
