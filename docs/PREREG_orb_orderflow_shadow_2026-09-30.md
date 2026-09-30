@@ -62,5 +62,22 @@ those whose `time - 1` falls inside the bar.
   biased. The scorer reports how many forward trades were invalid.
 - The crown trades ~150 times a year but stands down on quiet tape; 60 valid trades may take 6-9 months.
 
+## Addendum (2026-09-30, before the first forward session) — two REPORTED-ONLY reads
+
+MANAGER asked for absorption at the range edge as well. Both reads below are printed beside the gated rule
+on every forward score. **They are exploratory: neither can pass, fail, or change the arm above.** If one
+of them looks strong after the forward sample, it becomes its own pre-registered test on fresh forward
+trades, never a promotion from this one.
+
+- **F3 — absorption ("effort versus result").** On the signal bar: |F1| divided by the bar's price move
+  |close - open| in points (a tick floor of 0.25). A high ratio means a lot of aggressive volume moved price
+  very little, i.e. passive orders absorbed it. Trades are split at the MEDIAN of F3 over the capture period
+  2026-06-23..2026-09-30, computed from the feature alone (no P&L), and the scorer reports the mean trade in
+  each half. The mechanism predicts high-absorption breakouts do worse.
+- **F4 — ES confirmation.** The summed ES 10-second delta over the same 5-minute bar
+  (`C:\EdgeLog\ohlc\ES_10s.csv`, same stamping rule), valid on the same 24-of-30 non-zero-rows test. The
+  scorer reports the mean trade when ES delta points with the NQ trade versus against it. The mechanism
+  predicts a breakout the whole index is buying beats one only NQ is buying.
+
 Scorer: `tools/orb_orderflow_shadow.py` (run from the shared checkout; `--describe` prints the capture
 period).

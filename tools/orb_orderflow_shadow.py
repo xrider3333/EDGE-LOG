@@ -20,6 +20,7 @@ os.chdir(ROOT)
 os.environ.setdefault("AUGUR_TRIAL_CACHE", "1")
 
 TICKS = r"C:\EdgeLog\ohlc\NQ_10s.csv"
+ES_TICKS = r"C:\EdgeLog\ohlc\ES_10s.csv"          # F4, reported only (addendum 2026-09-30)
 FN = "augur_strategies/ORB_3_6.py"
 COST, MULT = 0.533, 20.0
 CAPTURE_FROM, FORWARD_FROM, FINAL_N, FINAL_DATE = "2026-06-23", "2026-10-01", 60, "2027-06-30"
@@ -42,10 +43,20 @@ def main(describe=False):
     tk = pd.read_csv(TICKS, usecols=["time", "delta"])
     tk["bar"] = ((tk.time - 1) // 300) * 300                 # rows are stamped at the bar END
     agg = tk.groupby("bar").agg(f1=("delta", "sum"), nz=("delta", lambda s: int((s != 0).sum())))
+    es = pd.read_csv(ES_TICKS, usecols=["time", "delta"])
+    es["bar"] = ((es.time - 1) // 300) * 300
+    es_agg = es.groupby("bar").agg(f4=("delta", "sum"), nz=("delta", lambda s: int((s != 0).sum())))
 
     A = load_master_arrays(find_master("NQ", "5m", "rth", "db_noadj_rth"), date_from="2025-06-01", date_to=None)
     idx = pd.DatetimeIndex(A["index"])
     unix = (idx.tz_convert("UTC").asi8 // 10**9)
+    o5, c5 = np.asarray(A["open"], float), np.asarray(A["close"], float)
+    # F3's split point: the median over the capture period of |F1| / |close-open|, from the feature alone
+    cap = [(k, int(unix[k])) for k in range(len(idx))
+           if pd.Timestamp(CAPTURE_FROM, tz=idx.tz) <= idx[k] < pd.Timestamp(FORWARD_FROM, tz=idx.tz)]
+    f3_cap = [abs(agg.f1.get(b, 0)) / max(abs(c5[k] - o5[k]), 0.25) for k, b in cap
+              if int(agg.nz.get(b, 0)) >= MIN_ROWS and agg.f1.get(b, 0) != 0]
+    F3_MEDIAN = float(np.median(f3_cap)) if f3_cap else float("nan")
     lo, hi = (CAPTURE_FROM, FORWARD_FROM) if describe else (FORWARD_FROM, "2100-01-01")
     print("%s window %s .. %s | 5m master to %s | 10s capture to %s"
           % ("DESCRIPTIVE capture" if describe else "FORWARD", lo, hi, idx.max(),
@@ -64,8 +75,12 @@ def main(describe=False):
             f2 = sum(agg.f1.get(x, 0) for x in orb)
             valid = nz >= MIN_ROWS and f1 != 0
             m = (1.5 if np.sign(f1) == side else 0.5) if valid else 1.0
+            f3 = abs(f1) / max(abs(c5[ei] - o5[ei]), 0.25) if valid else np.nan
+            f4, nz4 = (es_agg.f4.get(b, 0), int(es_agg.nz.get(b, 0)))
+            f4_with = (np.sign(f4) == side) if (nz4 >= MIN_ROWS and f4 != 0) else np.nan
             rows.append(dict(t=t, day=t.tz_localize(None).normalize(), side=side, u=pnl * MULT, f1=f1, nz=nz,
-                             valid=valid, m=m, f2_with=(np.sign(f2) == side) if f2 != 0 else np.nan))
+                             valid=valid, m=m, f2_with=(np.sign(f2) == side) if f2 != 0 else np.nan,
+                             f3=f3, f4_with=f4_with))
         T = pd.DataFrame(rows)
         print("\n== %s: %d trades in window, %d with valid breakout-bar delta" % (leg, len(T), int(T.valid.sum()) if len(T) else 0))
         if not len(T) or not T.valid.any():
@@ -78,6 +93,13 @@ def main(describe=False):
         print("  secondary F2 (opening-range delta with the trade): %d with $%+.0f | %d against $%+.0f"
               % (int((f2v.f2_with == True).sum()), f2v[f2v.f2_with == True].u.sum(),
                  int((f2v.f2_with == False).sum()), f2v[f2v.f2_with == False].u.sum()))
+        hi3, lo3 = V[V.f3 > F3_MEDIAN], V[V.f3 <= F3_MEDIAN]
+        print("  REPORTED ONLY F3 absorption (split at capture median %.1f): high %d trades mean $%+.1f | low %d mean $%+.1f"
+              % (F3_MEDIAN, len(hi3), hi3.u.mean() if len(hi3) else 0, len(lo3), lo3.u.mean() if len(lo3) else 0))
+        v4 = V.dropna(subset=["f4_with"])
+        w4, a4 = v4[v4.f4_with == True], v4[v4.f4_with == False]
+        print("  REPORTED ONLY F4 ES delta: with %d trades mean $%+.1f | against %d mean $%+.1f | no ES delta %d"
+              % (len(w4), w4.u.mean() if len(w4) else 0, len(a4), a4.u.mean() if len(a4) else 0, len(V) - len(v4)))
         c = float(V.m.mean())
         d = (V.m - c) * V.u
         arm, twin = (T.m * T.u), T.u
