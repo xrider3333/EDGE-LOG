@@ -1313,3 +1313,71 @@ right instinct and the wrong target** - day-one survival is a diagnostic of what
 selectable proxy for it. Anything future rounds propose should be aimed at the long holds
 specifically, and should be able to say in advance why it would keep the 35-day trade while
 dropping the ordinary survivors, not merely lift the survival rate.
+
+### 2026-09-30 - adversarial audit of the 09-29/30 builds: three real defects fixed, two numbers restated
+
+Owner ask through the MANAGER chat: re-check the new builds for errors. An adversarial read-only
+audit was run over the round-62 session-window file, the two shadow paper legs and the round-63
+order-flow ledger, with every claim executed rather than inferred. Ten findings; the three that
+mattered are fixed below, and the ones that changed a published number are restated. Clean on the
+things that would have been worst: no look-ahead, exact parent parity, correct dtype through the
+compiled walk, and both shadow arms genuinely fenced off from every order path.
+
+**DEFECT 1, and it was a leak against this lane's own rule.** The ledger aggregated the ten
+minutes *ending at and including the fill minute*. The parent rests its limit and scans forward
+one to ten bars, so the signal is in `[fill-10, fill-1]` and the fill bar is never the signal bar
+- which means the window both omitted a legitimate signal minute and **included the fill minute,
+the exact fill-bar read the round-63 pre-registration forbids**. Fixed to the parent's scan
+window.
+
+**DEFECT 2: the ten-second rows are stamped at the bar's END.** The ledger bucketed by
+`t - (t % 60)`; the house rule, in `api/paper.py::_resample` and `tools/backfill_1m_from_10s.py`
+alike, is `(t - 1) // 60`, and a missing `-1` once put 11,611 of 12,762 minute opens at odds with
+the Databento master. Every minute was stealing the previous minute's last ten seconds. Fixed.
+
+**Both defects changed every published imbalance value.** Restated, crown leg, 22 trades with
+order flow: the median imbalance of trades held 24 hours or more is **+0.0328** against **+0.0488**
+for the rest, a gap of **-0.0160** where the first cut printed -0.0020. The cash-session arm reads
++0.0202 against +0.0171, a gap of +0.0031 on four trades. **None of this changes round 63's
+conclusion**, which was that three survivors cannot test anything.
+
+**Round 64 was re-run on the corrected stamping and its verdict stands.** 13,119 upward breakout
+bars instead of 12,972; top imbalance quintile persists **49.4%** against the bottom's **51.9%**,
+a gap of **-2.5 points** (was -2.9) at p 0.068, and no range tercile clears - widest -6.1, cash
+session -5.9, middle +0.8. Both clauses still fail and the sign is still negative nearly
+everywhere. Entry-bar order flow stays dead.
+
+**DEFECT 3: the declared search grid could not reach the cells we actually run.** The optimiser
+walks an integer knob as `min + step*k`. With `sess_to` declared min 800 step 30, the value 1600 -
+the pre-registered arm's own window - is **off the lattice**, as are S2's 0800 and the 2400 that
+the docstring calls the parity anchor. An Auto-Validate of this file could never have evaluated
+the cell it was validating. Both knobs are now step 10 from 0, which puts 0, 800, 930, 1600, 1700
+and 2400 on the grid. This was caught by the new test below, not by eye.
+
+**The definition of "survived day one" is now pinned, because two reasonable readings disagree in
+opposite directions on exactly the entries the cash-session gate removes.** Elapsed time of 24
+hours or more is PRIMARY and is what the family's whole-history hold table already uses; it is
+entry-time neutral. The calendar-date reading - exit falls on a later date - is entry-time BIASED,
+because a 23:00 entry exiting at 01:00 held two hours and would score as a survivor. On the
+current 33-trade sample the two give a +16.7 point gated-versus-removed gap and a 0.0 point gap
+respectively, which is exactly why it is pinned now rather than at the checkpoint. The ledger
+writes both columns plus the raw hold in hours, so no later reader inherits the choice blind.
+`ENGUQ_R62_FORWARD_PREREG.md` clause 1 is clarified to name the elapsed-24-hour reading; the
+15-point bar itself is unchanged.
+
+**Latent defects fixed while in there.** A naive bar index was assumed to be UTC, which silently
+shifted the window four to five hours and was not DST-stable - every other strategy here that
+localises a naive index treats it as Eastern, so this one now does too, and a wrong-length index
+raises instead of being read out of bounds by a compiled walk that carries no bounds checking.
+The parity the docstring claimed was "asserted by the round's own harness" had no harness;
+`tests/test_enguq_r62_parity.py` now locks down trade-for-trade parity with the parent when the
+window is off, compiled-versus-interpreted agreement when it is on, both refusals, and the grid
+reachability that caught defect 3. The file's description string, which is what the strategy
+picker shows, still described the parent; it now describes the window.
+
+**What was clean, stated because it is worth knowing.** The gate reads `er_ok` at the signal bar
+and nowhere else, in both the interpreted and compiled paths, at the same index. With the window
+open the file returns the parent's trade list exactly. The boolean fold cannot become a float. And
+the two shadow arms carry the crown's fourteen knobs with nothing drifting, take their `live_from`
+through the same mechanism as every other leg, and cannot reach NinjaTrader, the cloud signal path
+or the live gate - each checked by hand.

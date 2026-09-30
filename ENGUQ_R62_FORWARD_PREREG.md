@@ -41,6 +41,16 @@ is a per-trade rate with far more power, and it is the exact quantity the idea r
    for the entries the gate removes by **at least 15 percentage points**. The backtested gap was
    about 25 points (36-39% against 11-15%) and was stable across all four eras, so 15 is a real
    hurdle rather than a formality.
+   **DEFINITION PINNED 2026-09-30, before any checkpoint** (from the audit of the 09-29/30
+   builds): "survived day one" means the trade was HELD 24 HOURS OR MORE by elapsed time.
+   That reading is entry-time neutral and is the one the family's whole-history hold table
+   already uses. The alternative - the exit falling on a later calendar date - is entry-time
+   BIASED: a 23:00 entry exiting at 01:00 held two hours and would score as a survivor, and
+   only a late-session entry can cross midnight in under a day, so the bias falls entirely on
+   the entries this gate removes. Disclosed in full: on the 33 trades captured so far the two
+   readings give a +16.7 point gap and a 0.0 point gap respectively, which is exactly why the
+   choice is pinned now rather than at the checkpoint. The 15-point bar is unchanged, and the
+   ledger now records both readings plus the raw hold in hours.
 2. **CHECKPOINTS, and no reading between them.** Judge at **60 gated entries**, and again at
    **150 gated entries**. Reading the gap continuously and stopping when it looks good is peeking;
    these two points are the only ones that count.

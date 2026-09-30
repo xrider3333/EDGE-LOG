@@ -58,7 +58,12 @@ def load_capture(path=CAPTURE):
                 continue
             if tc <= 0:                      # rows before the delta capture went live
                 continue
-            m = t - (t % 60)
+            # F3 (audit 2026-09-30): NinjaTrader stamps every 10-second row at the bar's END,
+            # so a row stamped 10:00:00 covers 09:59:50-10:00:00 and belongs to 09:59. The
+            # repo rule is (time - 1) // 60 - api/paper.py::_resample and
+            # tools/backfill_1m_from_10s.py both do it, and a missing -1 once put 11,611 of
+            # 12,762 minute opens at odds with the Databento master.
+            m = ((t - 1) // 60) * 60
             a = per_min.setdefault(m, [0, 0, 0, 0, 0])
             a[0] += int(float(r.get("volume") or 0))
             a[1] += int(float(r.get("delta") or 0))
@@ -68,12 +73,19 @@ def load_capture(path=CAPTURE):
     return per_min
 
 
-def window(per_min, end_epoch, bars=SCAN_BARS):
-    """Aggregate the `bars` minutes ending at (and including) end_epoch."""
+def window(per_min, fill_epoch, bars=SCAN_BARS):
+    """Aggregate the parent's SCAN window: the `bars` minutes BEFORE the fill minute.
+
+    F4 (audit 2026-09-30). The parent rests its limit and scans j in [i+1, i+_N_SCAN], so with
+    limit_atr > 0 the fill bar is NEVER the signal bar and the signal lies in
+    [fill-_N_SCAN, fill-1]. The first cut of this function aggregated [fill-9, fill], which
+    both omitted a legitimate signal minute AND included the fill minute - the exact fill-bar
+    read the round-63 pre-registration forbids. Excluding the fill minute is the point.
+    """
     tot = [0, 0, 0, 0, 0]
     seen = 0
-    for k in range(bars):
-        a = per_min.get(end_epoch - 60 * k)
+    for k in range(1, bars + 1):
+        a = per_min.get(fill_epoch - 60 * k)
         if a is None:
             continue
         seen += 1
@@ -123,10 +135,21 @@ def main():
             ep = int(e.timestamp()); ep -= ep % 60
             tot, seen = window(per_min, ep)
             one = per_min.get(ep)
-            survived = (x - e).total_seconds() >= 86400
+            # F5 (audit 2026-09-30). Two definitions of "survived its first day" disagree, and
+            # they disagree in opposite directions on exactly the entries the cash-session gate
+            # removes, so the choice is pinned here instead of left implicit.
+            #   held_24h - elapsed time >= 24 hours. ENTRY-TIME NEUTRAL, and the definition the
+            #              family's whole-history hold table already uses. This one is PRIMARY.
+            #   next_cal - the exit falls on a later calendar date. Entry-time BIASED: a 23:00
+            #              entry exiting 01:00 held two hours and would score as a survivor.
+            # Both are written out so a later reader sees the gap rather than inherits a choice.
+            held_h = (x - e).total_seconds() / 3600.0
+            survived = held_h >= 24.0
+            next_cal = x.date() > e.date()
             out.append(dict(
                 entry=e.isoformat(), exit=x.isoformat(),
-                survived_day_one=int(survived), pnl_usd=round(float(t["pnl_usd"]), 2),
+                survived_day_one=int(survived), exited_later_calendar_day=int(next_cal),
+                hold_hours=round(held_h, 2), pnl_usd=round(float(t["pnl_usd"]), 2),
                 win_minutes_seen=seen,
                 win_volume=tot[0], win_delta=tot[1], win_buy=tot[2], win_sell=tot[3],
                 win_ticks=tot[4],
@@ -143,13 +166,15 @@ def main():
         cov = [r for r in out if r["imbalance"] != ""]
         s = [r for r in cov if r["survived_day_one"]]
         d = [r for r in cov if not r["survived_day_one"]]
-        print("\n%s: %d trades, %d with order flow (%d survived day one, %d died same day)"
+        print("\n%s: %d trades, %d with order flow (%d held 24h or more, %d did not)"
               % (key, len(out), len(cov), len(s), len(d)))
         print("   ledger -> %s" % path)
         if len(s) >= 3 and len(d) >= 3:
-            med = lambda v: sorted(v)[len(v) // 2]
+            def med(v):
+                q = sorted(v); h = len(q) // 2
+                return q[h] if len(q) % 2 else (q[h - 1] + q[h]) / 2.0
             ms, md = med([r["imbalance"] for r in s]), med([r["imbalance"] for r in d])
-            print("   median imbalance  survivors %+.4f   same-day deaths %+.4f   gap %+.4f"
+            print("   median imbalance  held 24h+ %+.4f   held less %+.4f   gap %+.4f"
                   % (ms, md, ms - md))
             print("   NOT EVIDENCE at this sample size - the bar is 60 and 60, read once "
                   "(ENGUQ_R63_OFLOW_PREREG.md).")

@@ -46,10 +46,11 @@ except Exception:                                                   # pragma: no
 
 _AUGUR_PARENT = "ENGUQ_1M_ETH_R2_1_0.py"
 STRATEGY_NAME = "ENGU-Q 1m ETH R62 - cash-session entry window"
-DESCRIPTION = ("The shallow-limit ENGU-Q engine plus a momentum-quality gate: the Kaufman "
-               "efficiency ratio of the last er_len minutes must reach er_th at the signal. "
-               "er_th=0 = parity with ENGUQ_1M_ETH_LIM_1_0; battery-W champion cell is "
-               "er_len 60, er_th 0.25 on the raw entry.")
+DESCRIPTION = ("The crown's ENGU-Q engine plus ONE entry test: the SIGNAL bar's own US "
+               "Eastern clock time must fall inside [sess_from, sess_to). Exits, stops, "
+               "trailing and the hold are the crown's, untouched, so a 15:55 signal still "
+               "runs for weeks. sess_from 0 with sess_to 2400 = OFF, trade-for-trade parity "
+               "with ENGUQ_1M_ETH_R2_1_0. Research sibling, round 62 - not a paper or book leg.")
 VERSION = "1.0"
 DIRECTION = "LONG"
 TIMEFRAME = "1m"
@@ -101,10 +102,12 @@ DEFAULT_PARAMS = {
     'regime_len': {'default': 10, 'min': 0, 'max': 100, 'step': 5, 'type': 'int',
                   'label': 'Regime SMA (days, 0=off)',
                   'tooltip': 'Only go long when close is above its N-DAY simple average. 0=off.'},
-    'sess_from': {'default': 930, 'min': 0, 'max': 1600, 'step': 30, 'type': 'int',
+    'sess_from': {'default': 930, 'min': 0, 'max': 1600, 'step': 10, 'type': 'int',
+                  'label': 'Entry window opens (HHMM ET)',
                   'tooltip': 'Signal bar must be at or after this US Eastern clock time, '
                              'written HHMM. 0 with sess_to 2400 = OFF / parity with the parent.'},
-    'sess_to': {'default': 1600, 'min': 800, 'max': 2400, 'step': 30, 'type': 'int',
+    'sess_to': {'default': 1600, 'min': 0, 'max': 2400, 'step': 10, 'type': 'int',
+                'label': 'Entry window closes (HHMM ET)',
                 'tooltip': 'Signal bar must be BEFORE this US Eastern clock time, written HHMM. '
                            'Exits and holds are never gated - only the entry signal.'},
     'breakeven_R': {'default': 2.0, 'min': 1.0, 'max': 2.5, 'step': 0.5, 'type': 'float',
@@ -122,6 +125,9 @@ DEFAULT_PARAMS = {
 # rule 6). Kept OFF the ordinary way instead: the kwarg default below is False, so every caller
 # that does not pass it -- every backtest, validate, and grid/random search -- runs exactly as
 # before. The engine hands **params straight to run_backtest (augur_engine/engine.py), so
+# NOTE (audit 2026-09-30): the cloud-signal ENGUQ_335 leg that opts into phantom_safe runs the
+# PARENT file, not this one. Nothing reads this file with phantom_safe=True today; the flag is
+# kept only so the two files stay one-knob comparable. Original note follows.
 # api/cloud_signal.py's ENGUQ_335 leg reaches it by passing phantom_safe=True explicitly in its
 # own params dict, without this file ever exposing a knob for it. See the SHALLOW LIMIT block
 # below for what True changes.
@@ -207,7 +213,18 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
             "declare index; call run_backtest with arrays that carry an index." % (_sf, _st))
     if index is not None and not (_sf <= 0 and _st >= 2400):
         _ts = pd.DatetimeIndex(index)
-        _ts = _ts.tz_convert("America/New_York") if _ts.tz is not None else _ts.tz_localize("UTC").tz_convert("America/New_York")
+        # F2 (audit 2026-09-30): the compiled walk is njit(cache=True) with no boundscheck, so
+        # a short mask is read out of bounds in silence. Refuse instead, the way the round-57
+        # sibling ENGUQ_1M_ETH_SEL_1_0 does.
+        if len(_ts) != n:
+            raise ValueError("ENGUQ_1M_ETH_R62: index has %d timestamps for %d bars"
+                             % (len(_ts), n))
+        # F1 (audit 2026-09-30): a NAIVE index used to be assumed UTC, which silently shifted
+        # the window four or five hours and was not even DST-stable. Every other strategy in
+        # this repo that localizes a naive bar index treats it as Eastern (NQDIP_1_2 and its
+        # siblings), so do that - and it is the same wall clock the window is written in.
+        _ts = (_ts.tz_convert("America/New_York") if _ts.tz is not None
+               else _ts.tz_localize("America/New_York"))
         _hhmm = _ts.hour.values * 100 + _ts.minute.values
         hour_ok = (_hhmm >= _sf) & (_hhmm < _st)
         er_ok = hour_ok if er_ok is None else (er_ok & hour_ok)
