@@ -137,6 +137,12 @@ SUM_SHADOWS = {
         "prereg": "C:/EdgeLog/_anatomy_cache/bookq/PREREG_BOOKQ.txt Q4 (post-hoc; forward read after 12 months)",
         "from": "2026-10-01",
     },
+    "book_shadow_orb314": {
+        "weights": {"ORB_R6": 1.0, "ENGUQ_335": 1.0, "TTM_299_SSOF2": 3.0, "NOISE_422": 1.0},
+        "name": "SHADOW ORB314: #463 with the ORB crown #314 in the ORB seat (book run #473)",
+        "prereg": "C:/EdgeLog/_anatomy_cache/bookq/PREREG_BOOKQ.txt Q1a FORWARD SHADOW (MANAGER GO 09-30; read after 12 months)",
+        "from": "2026-10-01",
+    },
 }
 
 
