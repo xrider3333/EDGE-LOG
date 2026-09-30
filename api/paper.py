@@ -108,6 +108,9 @@ LEG_LIVE_FROM = {
     "ORB_R6":    "2026-09-08",   # leg added: run #314 takes the ORB crown from #234
     # Added on Sunday 2026-09-27 with the market closed, so the next session is watched end to end.
     "ORB_257":   "2026-09-28",   # run #257 (owner-starred, most ORB money) beside ORB_R6 and the ORB control
+    # Added on the evening of 2026-09-30, after that session and its nightly run, so 10-01 is the first
+    # session watched end to end.
+    "ORB_239":   "2026-10-01",   # run #239 (#234 with breakeven 0.8R) - owner Q6: SHADOW FIRST for BOOK #463
     "ORB_H":     "2026-08-24",   # gate re-based on #234 (its own crowned rf@0.45, re-calibrated)
     "NOISE_225": "2026-08-16",   # leg added
     "NOISE_H":   "2026-08-16",   # gate added; the pre-registered claim starts here
@@ -251,6 +254,19 @@ ORB_257 = dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.5, atr_filt
                vpace_filter=0.7, close_confirm=True, breakout_buf=0.30, trail_bars=0,
                target_R=5.5, partial_exit_R=0.0, be_after_R=1.0, flat_eod=True,
                skip_holidays=True)
+
+# RUN #239 (added 2026-09-30, owner's Q6 call via MANAGER: SHADOW FIRST). The ORB control #234 with ONE
+# change - the breakeven trigger moves from 1.0 to 0.8 of the risk. ORB round 63 found it is the only ORB
+# leg that clears the pre-registered bar inside the adopted BOOK #463 (walk-forward ROC at a $30k daily-
+# valued drawdown 101.9 vs 94.0 %/yr, lockbox 158.7 vs 155.5, Sortino better in both), and the Frontier
+# lane reproduced that to the cent as run #478. BOOK #463 keeps #234 until this shadow reads; the Frontier
+# lane runs the matching book shadow line off this leg. FORWARD EVIDENCE ONLY - no orders, not the crown,
+# not in any book figure. ORB (#234) is its exact matched control: same entries, only the breakeven differs.
+#
+# Reproduced to the cent before this was written, through ORB_3_6_BE08.py with exactly these params on run
+# #239's window and master: 2,607 trades, $394,864.38; lockbox 178 trades, 4,713.376 points ($94,267.52)
+# at PF 1.494888 - run #239's stored figures.
+ORB_239 = dict(ORB_234, be_after_R=0.8)
 
 # ENGU-Q leg params: NQ_DEPLOY_PARAMS_149 is a clean module-level constant in
 # augur_strategies/ENGUQ_1M_1_0.py — import it directly.
@@ -976,6 +992,21 @@ LEG_SOURCE = {
                   "days the tighter-filtered legs sit out. The leg is the FROZEN #257 cell, not "
                   "run #421's re-tuned pick, which lost $33k against it in the lockbox.",
     },
+    "ORB_239": {
+        "run": 239, "run_label": "#239 (ORB_3_6_BE08) the control with breakeven at 0.8R",
+        "strategy_file": "ORB_3_6_BE08.py", "picked": "2026-09-30",
+        "note": "The ORB control #234 with only the breakeven trigger moved from 1.0 to 0.8 of the "
+                "risk. The only ORB leg that clears the pre-registered bar inside BOOK #463 (ORB round "
+                "63; Frontier run #478 to the cent): walk-forward ROC at a $30k daily-valued drawdown "
+                "101.9 vs 94.0 %/yr, lockbox 158.7 vs 155.5. Owner's call: shadow first - BOOK #463 "
+                "keeps #234 until this reads. ORB (#234) is the exact matched control. Reported per one "
+                "contract; not in the book figure.",
+        "caveat": "Forward evidence only. The book gain is small (+$1,235 by calendar year over "
+                  "fifteen years) and mostly a slightly shallower drawdown, so expect it to track the "
+                  "ORB leg closely; they differ only on trades that reach 0.8R and then come back. "
+                  "#239's own walk-forward figure is an in-sample replay (pinned card); a re-fitted "
+                  "Auto-Validate of its region was queued 2026-09-30.",
+    },
     "ENGUQ": {
         "run": 226, "run_label": "#226 (ENGU-Q ETH FROZEN)",
         "strategy_file": "ENGUQ_1M_ETH_FROZEN_1_0.py",
@@ -1644,6 +1675,11 @@ PAPER_LEGS = [
     {"key": "ORB_257", "strategy": "ORB_3_6_E1.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": ORB_257, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB_257"]},
+    # ADDED 2026-09-30 (owner Q6 via MANAGER: shadow first). Run #239 beside its exact control ORB (#234):
+    # same file family, instrument, window and costs; only the breakeven trigger differs. No ML gate.
+    {"key": "ORB_239", "strategy": "ORB_3_6_BE08.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": ORB_239, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB_239"]},
     # ADDED 2026-09-08 (owner: "crown R2 once the validate passes, swap the paper leg").
     # THE ENGU-Q family crown -- see ENGUQ_335's comment block above and ENGUQ.md's
     # CROWN CHANGE 2026-09-08 section. An ADDITION, not a swap-in-place: the #309 row
