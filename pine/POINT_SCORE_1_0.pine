@@ -1,0 +1,464 @@
+//@version=6
+// =============================================================================
+//  EDGELOG - POINT SCORE 1.0 -- the owner's 9-point score on the signal bar
+//  Pine port of docs/POINT_SCORE_SPEC.md (spec v1, "ps1") and of tools/point_score.py
+//
+//  WHAT IT IS
+//  At the CLOSE of every bar it scores the nine points from the spec, for the LONG
+//  side and for the SHORT side at the same time, then shows the score of the last
+//  closed bar in a table, labels strong bars, and can fire an alert.
+//  The bar that has just closed IS the signal bar S of the spec (the last closed bar
+//  before an entry fill). Nothing that starts at or after the bar's close is read.
+//
+//  MEANT FOR A 1-MINUTE CHART (the spec only supports 1m in v1). On any other chart
+//  timeframe the table shows a warning, and the numbers are NOT the spec's numbers.
+//  Use the normal 24-hour futures session (extended hours ON) - the spec's 1m / 5m /
+//  30m EMAs run over 24-hour bars.
+//
+//  THE NINE POINTS (long; short mirrors each one with < in place of >)
+//   1-4  close above the 200 EMA of the 10-second / 1-minute / 5-minute / 30-minute bars
+//        - 1m  : ta.ema(close, 200) on this chart, includes the signal bar.
+//        - 10s : last 10-second bar inside the signal bar (request.security_lower_tf).
+//        - 5m / 30m : the HTF bar BEFORE the one holding the signal bar (non-repainting).
+//        - each EMA is NA until its own timeframe has 600 bars.
+//   5-7  close above yesterday's regular-session low / close / high. Yesterday = the most
+//        recent earlier New York date that has regular-session bars (09:30 to 16:00).
+//        Sessions are tracked from the 1m bars themselves, NOT with a daily request
+//        (TradingView's daily futures bar is the overnight session).
+//   8    largest body since today's low (long: green candle, body >= every body from the
+//        latest bar whose low <= all earlier lows today, through this bar).
+//        Short: red candle, window starts at the latest bar whose high >= all earlier highs.
+//   9    largest volume since today's low (short: high). No colour test.
+//   Trend (separate, never in the /9): yesterday's high AND low both above (short: both below)
+//        the day before's.
+//  total = hits among the 9. max = points that are not NA. NA is never a miss: "7/8".
+//
+//  PARITY EXPORT
+//  The data-window plots named "L ..." / "S ..." / "R ..." are for Export chart data
+//  (chart menu -> Export chart data). 1 = hit, 0 = miss, empty = NA. They do not draw on
+//  the chart. python tools/point_score.py parity <csv> --root NQ compares them with EDGE LOG.
+//
+//  KNOWN LIMITS
+//   - TradingView's continuous NQ1! / ES1! rolls on a different day from EDGE LOG's data:
+//     compare on non-roll weeks (and prices differ by the roll gap around a roll).
+//   - The 30-minute EMA needs about 600 30-minute bars (about 13 trading days). A 1-minute
+//     chart on the Premium plan loads 20,000 bars, which only just reaches that. The
+//     table's bottom row shows how many bars each timeframe has; "warming up" = NA points.
+//   - 10-second bars need a TradingView plan with seconds timeframes (Premium or higher).
+//     TradingView may also only load 100,000 intrabars, so the oldest part of a long chart
+//     can have no 10-second data. Those bars show NA for the 10s point (never a miss).
+//     If the script will not run on your plan, untick "Use 10-second data".
+//   - Volume can differ slightly between feeds (ties on the volume point can flip).
+//   - Yesterday's levels and the 1m EMA start from the first bar the chart has loaded; a
+//     session (or today's window) that was cut off by the start of the loaded history is
+//     ignored (NA), and the 1m EMA is seeded from the first loaded close (as in the spec).
+//   - At the live bar's close the last 10-second bar may arrive a moment late.
+// =============================================================================
+indicator("EDGELOG Point Score 1.0", shorttitle = "POINTS", overlay = true, max_labels_count = 500)
+
+// -- Inputs --------------------------------------------------------------------
+G_PT = "Point score"
+G_TF = "Timeframes"
+G_MK = "Market and sessions"
+G_SH = "Display and alerts"
+
+sideIn    = input.string("Auto", "Side", options = ["Auto", "Long", "Short"], group = G_PT, tooltip = "Auto = long when the bar closes up (close >= open), short otherwise. Long / Short force one side for the labels and alerts. The table and the exported columns always carry BOTH sides.")
+emaLen    = input.int(200, "EMA length", minval = 2, group = G_PT, tooltip = "The spec uses 200.")
+
+tf10      = input.timeframe("10S", "10-second timeframe", group = G_TF)
+use10     = input.bool(true, "Use 10-second data", group = G_TF, tooltip = "Needs a TradingView plan with seconds timeframes (Premium or higher). Untick it if the script errors on your plan: the 10s point then shows NA.")
+tf5       = input.timeframe("5", "5-minute timeframe", group = G_TF)
+tf30      = input.timeframe("30", "30-minute timeframe", group = G_TF)
+
+mktIn     = input.string("Futures - today from 09:30", "Market", options = ["Futures - today from 09:30", "Stocks - today from 04:00"], group = G_MK, tooltip = "Where 'today' starts for points 8 and 9: 09:30 New York for futures, 04:00 for stocks.")
+regSess   = input.string("0930-1600", "Regular session (New York time)", group = G_MK, tooltip = "Format hhmm-hhmm. Yesterday's high / low / close are taken from bars that START inside this window (end not included).")
+
+showTrend = input.bool(true, "Show trend point in the table", group = G_SH, tooltip = "The trend point is shown on its own row and is never added to the /9.")
+labThr    = input.int(7, "Label threshold (points)", minval = 1, maxval = 9, group = G_SH)
+altThr    = input.int(8, "Alert threshold (points)", minval = 1, maxval = 9, group = G_SH)
+showLbl   = input.bool(true, "Show labels", group = G_SH)
+
+// -- Constants -----------------------------------------------------------------
+const string TZ      = "America/New_York"
+const int    MIN_BARS = 600        // spec: an EMA needs 600 bars of its own timeframe
+const int    GAP_MAX  = 7          // spec: the prior session must lie within 7 calendar days
+const int    DAY_MS   = 86400000
+
+// Table colours: mono, no hue.
+color C_BG    = #1b1f27
+color C_BORD  = #363a45
+color C_HDR   = #262b34
+color C_AUTO  = #2e343e
+color C_TXT   = #e6e6e6
+color C_DIM   = #8a8f98
+color C_HIT   = #ffffff
+color C_MISS  = #6b7078
+color C_NA    = #4b5058
+
+int winStartMin = mktIn == "Stocks - today from 04:00" ? 240 : 570
+// Minute of the day at which the regular session ends (the last 4 digits of "hhmm-hhmm").
+int sessEndMin  = int(str.tonumber(str.substring(regSess, 5, 7))) * 60 + int(str.tonumber(str.substring(regSess, 7, 9)))
+
+// -- Helper functions ----------------------------------------------------------
+// Tri-state point as a float: 1.0 = hit, 0.0 = miss, na = not available.
+// (Pine v6 bools cannot be na, so every point is a float.)
+f_ab(float c, float lvl, bool isLong) =>
+    float r = na
+    if not na(c) and not na(lvl)
+        r := isLong ? (c > lvl ? 1.0 : 0.0) : (c < lvl ? 1.0 : 0.0)
+    r
+
+f_cnt(float x) => na(x) ? 0.0 : 1.0
+
+// EMA of the requested context, NA until that context has MIN_BARS bars.
+// Evaluated INSIDE request.security / request.security_lower_tf, so bar_index is the
+// index of the foreign bar, and ta.ema runs on the foreign series from its first bar.
+f_ltf() =>
+    float e = ta.ema(close, emaLen)
+    bar_index >= MIN_BARS - 1 ? e : na
+
+// Same, but one HTF bar back (used with lookahead_on so it never repaints), plus the number
+// of HTF bars up to and including that reference bar.
+f_htf() =>
+    float e = ta.ema(close, emaLen)
+    float g = bar_index >= MIN_BARS - 1 ? e : na
+    [g[1], float(bar_index)]
+
+// Table text helpers.
+f_px(float x) => na(x) ? "-" : str.tostring(x, format.mintick)
+f_int(float x) => na(x) ? "-" : str.tostring(int(x))
+f_mark(float h) => na(h) ? "NA" : (h > 0.5 ? "✓" : "✗")
+f_col(float h) => na(h) ? C_NA : (h > 0.5 ? C_HIT : C_MISS)
+f_score(float tot, float mx) => str.tostring(int(tot)) + "/" + str.tostring(int(mx)) + (mx < 9 ? " (" + str.tostring(int(9 - mx)) + " NA)" : "")
+f_warm(string nm, float n) => nm + " " + (na(n) ? "n/a" : str.tostring(int(n))) + (not na(n) and n < MIN_BARS ? " (warming up)" : "")
+
+var array<string> KEYS = array.from("ma200_10s", "ma200_1m", "ma200_5m", "ma200_30m", "y_low", "y_close", "y_high", "big_body", "big_vol")
+var array<string> LBL  = array.from("Above/Below " + str.tostring(emaLen) + " EMA (10s)", "Above/Below " + str.tostring(emaLen) + " EMA (1m)", "Above/Below " + str.tostring(emaLen) + " EMA (5m)", "Above/Below " + str.tostring(emaLen) + " EMA (30m)", "Above/Below yesterday's low", "Above/Below yesterday's close", "Above/Below yesterday's high", "Largest body since today's low/high", "Largest volume since today's low/high")
+
+// The keys of the hit points, as a JSON list body: "ma200_1m","y_low",...
+f_hits(array<float> hv) =>
+    string s = ""
+    for i = 0 to 8
+        if array.get(hv, i) > 0.5
+            s += (s == "" ? "" : ",") + '"' + array.get(KEYS, i) + '"'
+    s
+
+// -- Bar clock (all New York time; bars are stamped at their START) ------------
+int  nyYear   = year(time, TZ)
+int  nyMonth  = month(time, TZ)
+int  nyDay    = dayofmonth(time, TZ)
+int  minOfDay = hour(time, TZ) * 60 + minute(time, TZ)
+int  dayTs    = timestamp(TZ, nyYear, nyMonth, nyDay, 12, 0, 0)   // noon of the NY date = the date's id
+// Regular-session bar: bar START in [09:30, 16:00). time() tests the start side; the
+// explicit minute test guarantees the end is NOT included whatever time() does at the edge.
+bool inRTH    = not na(time(timeframe.period, regSess, TZ)) and minOfDay < sessEndMin
+
+// -- Points 1-4: the four EMAs -------------------------------------------------
+float emaRaw = ta.ema(close, emaLen)
+float ema1m  = bar_index >= MIN_BARS - 1 ? emaRaw : na
+
+// 10s: last element of the 10-second EMA array for this 1-minute bar (an empty array, e.g. no
+// trades in the minute or no 10s history that far back, gives NA). request.* calls may sit in a
+// conditional in v6 (dynamic requests are on by default). The timeframe test keeps the call from
+// running on a chart that is not above the 10s timeframe. Pine has no try/catch, so if a plan
+// without seconds timeframes makes the request itself fail, that cannot be caught from inside the
+// script - that is what the "Use 10-second data" switch above is for (off = the 10s point is NA).
+array<float> arr10 = array.new_float(0)
+if use10 and timeframe.in_seconds() > timeframe.in_seconds(tf10)
+    arr10 := request.security_lower_tf(syminfo.tickerid, tf10, f_ltf())
+int n10b = array.size(arr10)
+float ema10 = n10b > 0 ? array.get(arr10, n10b - 1) : na
+var float n10tot = 0.0
+n10tot := n10tot + n10b
+
+// 5m / 30m: the bar before the one holding the signal bar, never repainting.
+[ema5, n5]   = request.security(syminfo.tickerid, tf5,  f_htf(), lookahead = barmerge.lookahead_on)
+[ema30, n30] = request.security(syminfo.tickerid, tf30, f_htf(), lookahead = barmerge.lookahead_on)
+float n1 = bar_index + 1
+
+// -- Points 5-7: yesterday's regular-session low / close / high ----------------
+// s0 = the most recent regular session seen, s1 = the one before, s2 = the one before that.
+// "ok" = the session was seen from its first bar (not cut off by the start of the chart).
+var int   s0t = na
+var float s0h = na
+var float s0l = na
+var float s0c = na
+var bool  s0ok = false
+var int   s1t = na
+var float s1h = na
+var float s1l = na
+var float s1c = na
+var bool  s1ok = false
+var int   s2t = na
+var float s2h = na
+var float s2l = na
+var bool  s2ok = false
+
+if inRTH
+    if na(s0t) or dayTs != s0t
+        // a new regular session begins: shift the history down
+        s2t  := s1t
+        s2h  := s1h
+        s2l  := s1l
+        s2ok := s1ok
+        s1t  := s0t
+        s1h  := s0h
+        s1l  := s0l
+        s1c  := s0c
+        s1ok := s0ok
+        s0t  := dayTs
+        s0h  := high
+        s0l  := low
+        s0c  := close
+        s0ok := bar_index > 0
+    else
+        s0h := math.max(s0h, high)
+        s0l := math.min(s0l, low)
+        s0c := close
+
+// Yesterday = the latest session on an EARLIER date than this bar's date. Before today's
+// regular session starts that is s0; once today's session has started it is s1.
+bool  tdIn0 = not na(s0t) and s0t == dayTs
+int   yT    = tdIn0 ? s1t : s0t
+float yH    = tdIn0 ? s1h : s0h
+float yL    = tdIn0 ? s1l : s0l
+float yC    = tdIn0 ? s1c : s0c
+bool  yOk   = tdIn0 ? s1ok : s0ok
+float yyH   = tdIn0 ? s2h : s1h
+float yyL   = tdIn0 ? s2l : s1l
+bool  yyOk  = tdIn0 ? s2ok : s1ok
+int   gapD  = na(yT) ? 9999 : math.round((dayTs - yT) / DAY_MS)
+bool  yValid = not na(yT) and yOk and gapD <= GAP_MAX
+float refYL = yValid ? yL : na
+float refYC = yValid ? yC : na
+float refYH = yValid ? yH : na
+
+// -- Points 8-9: largest body / volume since today's low (long) or high (short) -
+// Today window: this New York date, bar start >= 09:30 (futures) or 04:00 (stocks), no end.
+bool inWin = minOfDay >= winStartMin
+var int  winT  = na
+var bool winOk = false
+bool winNew = inWin and (na(winT) or winT != dayTs)
+if winNew
+    winT  := dayTs
+    // a window that began on the very first loaded bar may have lost its real start: NA
+    winOk := bar_index > 0
+bool winUse = inWin and winOk
+
+float body = math.abs(close - open)
+float vol  = nz(volume)
+
+var float runLow  = na
+var float mbL     = na
+var float mvL     = na
+var float runHigh = na
+var float mbS     = na
+var float mvS     = na
+
+if inWin
+    // long: a bar whose low <= the running low restarts the window at that bar
+    if winNew or low <= runLow
+        runLow := low
+        mbL    := body
+        mvL    := vol
+    else
+        mbL := math.max(mbL, body)
+        mvL := math.max(mvL, vol)
+    // short: a bar whose high >= the running high restarts the window at that bar
+    if winNew or high >= runHigh
+        runHigh := high
+        mbS     := body
+        mvS     := vol
+    else
+        mbS := math.max(mbS, body)
+        mvS := math.max(mvS, vol)
+
+float bbL = na
+float bvL = na
+float bbS = na
+float bvS = na
+if winUse
+    bbL := (close > open and body >= mbL) ? 1.0 : 0.0
+    bvL := mvL > 0 ? (vol >= mvL ? 1.0 : 0.0) : na
+    bbS := (close < open and body >= mbS) ? 1.0 : 0.0
+    bvS := mvS > 0 ? (vol >= mvS ? 1.0 : 0.0) : na
+
+// -- The points, both sides ----------------------------------------------------
+float h10L = f_ab(close, ema10,  true)
+float h1L  = f_ab(close, ema1m,  true)
+float h5L  = f_ab(close, ema5,   true)
+float h30L = f_ab(close, ema30,  true)
+float ylL  = f_ab(close, refYL,  true)
+float ycL  = f_ab(close, refYC,  true)
+float yhL  = f_ab(close, refYH,  true)
+
+float h10S = f_ab(close, ema10,  false)
+float h1S  = f_ab(close, ema1m,  false)
+float h5S  = f_ab(close, ema5,   false)
+float h30S = f_ab(close, ema30,  false)
+float ylS  = f_ab(close, refYL,  false)
+float ycS  = f_ab(close, refYC,  false)
+float yhS  = f_ab(close, refYH,  false)
+
+// Trend (separate): yesterday's high AND low vs the day before's.
+bool trValid = yValid and yyOk and not na(yyH) and not na(yyL)
+float trL = trValid ? ((yH > yyH and yL > yyL) ? 1.0 : 0.0) : na
+float trS = trValid ? ((yH < yyH and yL < yyL) ? 1.0 : 0.0) : na
+
+float totL = nz(h10L) + nz(h1L) + nz(h5L) + nz(h30L) + nz(ylL) + nz(ycL) + nz(yhL) + nz(bbL) + nz(bvL)
+float mxL  = f_cnt(h10L) + f_cnt(h1L) + f_cnt(h5L) + f_cnt(h30L) + f_cnt(ylL) + f_cnt(ycL) + f_cnt(yhL) + f_cnt(bbL) + f_cnt(bvL)
+float totS = nz(h10S) + nz(h1S) + nz(h5S) + nz(h30S) + nz(ylS) + nz(ycS) + nz(yhS) + nz(bbS) + nz(bvS)
+float mxS  = f_cnt(h10S) + f_cnt(h1S) + f_cnt(h5S) + f_cnt(h30S) + f_cnt(ylS) + f_cnt(ycS) + f_cnt(yhS) + f_cnt(bbS) + f_cnt(bvS)
+
+// Which side the labels / alerts follow.
+bool  isLongSide = sideIn == "Long" or (sideIn == "Auto" and close >= open)
+float autoTot    = isLongSide ? totL : totS
+float autoMax    = isLongSide ? mxL : mxS
+
+array<float> curL = array.from(h10L, h1L, h5L, h30L, ylL, ycL, yhL, bbL, bvL, trL, totL, mxL)
+array<float> curS = array.from(h10S, h1S, h5S, h30S, ylS, ycS, yhS, bbS, bvS, trS, totS, mxS)
+array<float> curR = array.from(ema10, ema1m, ema5, ema30, refYL, refYC, refYH, winUse ? mbL : na, winUse ? mvL : na, winUse ? mbS : na, winUse ? mvS : na, trValid ? yyH : na, trValid ? yyL : na, close)
+array<float> curN = array.from(n1, n10tot, n5, n30, trValid ? yH : na, trValid ? yL : na, isLongSide ? 1.0 : 0.0)
+
+// -- Snapshot of the LAST CLOSED bar (the table reads this) --------------------
+// Assigned only when the bar is confirmed, so on a live chart the table keeps showing the
+// last closed bar while the current bar forms.
+var array<float> snapL = array.new_float(12, na)
+var array<float> snapS = array.new_float(12, na)
+var array<float> snapR = array.new_float(14, na)
+var array<float> snapN = array.new_float(7, na)
+var int snapT = na
+if barstate.isconfirmed
+    snapL := curL
+    snapS := curS
+    snapR := curR
+    snapN := curN
+    snapT := time
+
+// -- Labels --------------------------------------------------------------------
+if showLbl and barstate.isconfirmed and autoTot >= labThr
+    string lblTxt = str.tostring(int(autoTot)) + "/" + str.tostring(int(autoMax))
+    if isLongSide
+        label.new(bar_index, high, lblTxt, style = label.style_label_down, color = color.new(#e6e6e6, 15), textcolor = #101318, size = size.small)
+    else
+        label.new(bar_index, low, lblTxt, style = label.style_label_up, color = color.new(#6b7078, 15), textcolor = #ffffff, size = size.small)
+
+// -- Alerts --------------------------------------------------------------------
+// alertcondition: static text, for the classic alert dialog (one per side).
+alertcondition(isLongSide and totL >= altThr, title = "Point Score LONG at or above threshold", message = "EDGELOG Point Score: LONG score at or above the alert threshold on {{ticker}} ({{interval}})")
+alertcondition(not isLongSide and totS >= altThr, title = "Point Score SHORT at or above threshold", message = "EDGELOG Point Score: SHORT score at or above the alert threshold on {{ticker}} ({{interval}})")
+
+// alert(): one message per closed bar with the score and the list of hit points.
+if barstate.isconfirmed and autoTot >= altThr
+    array<float> autoHv = isLongSide ? curL : curS
+    string sideTxt = isLongSide ? "LONG" : "SHORT"
+    string alertMsg = '{"symbol":"' + syminfo.tickerid + '","bar_time_ny":"' + str.format_time(time, "yyyy-MM-dd HH:mm", TZ) + '","side":"' + sideTxt + '","score":"' + str.tostring(int(autoTot)) + "/" + str.tostring(int(autoMax)) + '","hits":[' + f_hits(autoHv) + ']}'
+    alert(alertMsg, alert.freq_once_per_bar_close)
+
+// -- Data-window plots: the parity export ---------------------------------------
+// display.data_window = not drawn on the chart, present in the Data Window and in
+// Export chart data. 1 = hit, 0 = miss, na = not available.
+plot(h10L, title = "L ma200_10s", display = display.data_window)
+plot(h1L,  title = "L ma200_1m",  display = display.data_window)
+plot(h5L,  title = "L ma200_5m",  display = display.data_window)
+plot(h30L, title = "L ma200_30m", display = display.data_window)
+plot(ylL,  title = "L y_low",     display = display.data_window)
+plot(ycL,  title = "L y_close",   display = display.data_window)
+plot(yhL,  title = "L y_high",    display = display.data_window)
+plot(bbL,  title = "L big_body",  display = display.data_window)
+plot(bvL,  title = "L big_vol",   display = display.data_window)
+plot(trL,  title = "L trend",     display = display.data_window)
+plot(totL, title = "L total",     display = display.data_window)
+plot(mxL,  title = "L max",       display = display.data_window)
+
+plot(h10S, title = "S ma200_10s", display = display.data_window)
+plot(h1S,  title = "S ma200_1m",  display = display.data_window)
+plot(h5S,  title = "S ma200_5m",  display = display.data_window)
+plot(h30S, title = "S ma200_30m", display = display.data_window)
+plot(ylS,  title = "S y_low",     display = display.data_window)
+plot(ycS,  title = "S y_close",   display = display.data_window)
+plot(yhS,  title = "S y_high",    display = display.data_window)
+plot(bbS,  title = "S big_body",  display = display.data_window)
+plot(bvS,  title = "S big_vol",   display = display.data_window)
+plot(trS,  title = "S trend",     display = display.data_window)
+plot(totS, title = "S total",     display = display.data_window)
+plot(mxS,  title = "S max",       display = display.data_window)
+
+plot(ema10, title = "R ema10s", display = display.data_window)
+plot(ema1m, title = "R ema1m",  display = display.data_window)
+plot(ema5,  title = "R ema5m",  display = display.data_window)
+plot(ema30, title = "R ema30m", display = display.data_window)
+plot(refYL, title = "R y_low",   display = display.data_window)
+plot(refYC, title = "R y_close", display = display.data_window)
+plot(refYH, title = "R y_high",  display = display.data_window)
+
+// Extra reference columns for debugging a parity miss (not part of the spec's record).
+plot(winUse ? mbL : na, title = "R maxbody_L", display = display.data_window)
+plot(winUse ? mvL : na, title = "R maxvol_L",  display = display.data_window)
+plot(winUse ? mbS : na, title = "R maxbody_S", display = display.data_window)
+plot(winUse ? mvS : na, title = "R maxvol_S",  display = display.data_window)
+plot(n1,     title = "R n_1m",  display = display.data_window)
+plot(n10tot, title = "R n_10s", display = display.data_window)
+plot(n5,     title = "R n_5m",  display = display.data_window)
+plot(n30,    title = "R n_30m", display = display.data_window)
+
+// -- Table: the LAST CLOSED bar -------------------------------------------------
+var table tb = table.new(position.top_right, 4, 15, bgcolor = C_BG, border_color = C_BORD, border_width = 1, frame_color = C_BORD, frame_width = 1)
+if barstate.islast
+    float snapSide = array.get(snapN, 6)
+    bool  snapLong = snapSide > 0.5
+
+    // row 0: title, bar time, close
+    string hdrTxt = "POINT SCORE  " + (na(snapT) ? "(no closed bar yet)" : str.format_time(snapT, "yyyy-MM-dd HH:mm", TZ) + " NY") + "   C " + f_px(array.get(snapR, 13))
+    table.cell(tb, 0, 0, hdrTxt, text_color = C_TXT, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
+    table.cell(tb, 1, 0, "", bgcolor = C_HDR)
+    table.cell(tb, 2, 0, "", bgcolor = C_HDR)
+    table.cell(tb, 3, 0, "", bgcolor = C_HDR)
+    table.merge_cells(tb, 0, 0, 3, 0)
+
+    // row 1: warning when the chart is not 1-minute, else which side Auto picked
+    string noteTxt = timeframe.period != "1" ? "WARNING: Point Score is defined on 1-minute bars (this chart is " + timeframe.period + ")" : (sideIn == "Auto" ? "Auto side: " + (snapLong ? "LONG (bar closed up)" : "SHORT (bar closed down)") : "Forced side: " + (snapLong ? "LONG" : "SHORT"))
+    table.cell(tb, 0, 1, noteTxt, text_color = timeframe.period != "1" ? C_HIT : C_DIM, text_halign = text.align_left, text_size = size.small)
+    table.cell(tb, 1, 1, "")
+    table.cell(tb, 2, 1, "")
+    table.cell(tb, 3, 1, "")
+    table.merge_cells(tb, 0, 1, 3, 1)
+
+    // row 2: column heads (the followed side is starred)
+    table.cell(tb, 0, 2, "Point", text_color = C_DIM, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
+    table.cell(tb, 1, 2, snapLong ? "Long *" : "Long", text_color = C_DIM, text_size = size.small, bgcolor = snapLong ? C_AUTO : C_HDR)
+    table.cell(tb, 2, 2, snapLong ? "Short" : "Short *", text_color = C_DIM, text_size = size.small, bgcolor = snapLong ? C_HDR : C_AUTO)
+    table.cell(tb, 3, 2, "Ref", text_color = C_DIM, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
+
+    // rows 3-11: the nine points
+    for i = 0 to 8
+        float hl = array.get(snapL, i)
+        float hs = array.get(snapS, i)
+        string refTxt = i < 7 ? f_px(array.get(snapR, i)) : (i == 7 ? "L " + f_px(array.get(snapR, 7)) + " | S " + f_px(array.get(snapR, 9)) : "L " + f_int(array.get(snapR, 8)) + " | S " + f_int(array.get(snapR, 10)))
+        table.cell(tb, 0, 3 + i, array.get(LBL, i), text_color = C_TXT, text_halign = text.align_left, text_size = size.small)
+        table.cell(tb, 1, 3 + i, f_mark(hl), text_color = f_col(hl), text_size = size.small, bgcolor = snapLong ? C_AUTO : C_BG)
+        table.cell(tb, 2, 3 + i, f_mark(hs), text_color = f_col(hs), text_size = size.small, bgcolor = snapLong ? C_BG : C_AUTO)
+        table.cell(tb, 3, 3 + i, refTxt, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
+
+    // row 12: totals
+    table.cell(tb, 0, 12, "Total (of the 9)", text_color = C_TXT, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
+    table.cell(tb, 1, 12, f_score(array.get(snapL, 10), array.get(snapL, 11)), text_color = C_HIT, text_size = size.small, bgcolor = snapLong ? C_AUTO : C_HDR)
+    table.cell(tb, 2, 12, f_score(array.get(snapS, 10), array.get(snapS, 11)), text_color = C_HIT, text_size = size.small, bgcolor = snapLong ? C_HDR : C_AUTO)
+    table.cell(tb, 3, 12, "", bgcolor = C_HDR)
+
+    // row 13: trend point (separate, never in the /9)
+    float trl = array.get(snapL, 9)
+    float trs = array.get(snapS, 9)
+    string trRef = showTrend and not na(array.get(snapN, 4)) and not na(array.get(snapR, 11)) ? "H " + f_px(array.get(snapN, 4)) + " / " + f_px(array.get(snapR, 11)) + "  L " + f_px(array.get(snapN, 5)) + " / " + f_px(array.get(snapR, 12)) : (showTrend ? "-" : "")
+    table.cell(tb, 0, 13, showTrend ? "Daily trend (not in the 9)" : "", text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
+    table.cell(tb, 1, 13, showTrend ? f_mark(trl) : "", text_color = f_col(trl), text_size = size.small)
+    table.cell(tb, 2, 13, showTrend ? f_mark(trs) : "", text_color = f_col(trs), text_size = size.small)
+    table.cell(tb, 3, 13, trRef, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
+
+    // row 14: warm-up counts (an EMA point is NA until its timeframe has 600 bars)
+    string warmTxt = "Bars loaded: " + f_warm("1m", array.get(snapN, 0)) + " | " + f_warm("10s", array.get(snapN, 1)) + " | " + f_warm("5m", array.get(snapN, 2)) + " | " + f_warm("30m", array.get(snapN, 3))
+    table.cell(tb, 0, 14, warmTxt, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
+    table.cell(tb, 1, 14, "")
+    table.cell(tb, 2, 14, "")
+    table.cell(tb, 3, 14, "")
+    table.merge_cells(tb, 0, 14, 3, 14)
