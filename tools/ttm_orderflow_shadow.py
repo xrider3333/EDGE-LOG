@@ -21,6 +21,11 @@ import numpy as np
 import pandas as pd
 
 os.environ["TTM_R20_FROM"] = "2026-10-01"
+# Only COMPLETED sessions: today counts once it has closed (16:15 ET), else the shadow stops at the prior
+# weekday - a mid-session master refresh must never turn a live trade into a force-closed one.
+_et = pd.Timestamp.now(tz="America/New_York")
+_last = _et.normalize() if (_et.weekday() < 5 and (_et.hour, _et.minute) >= (16, 15)) else     (_et.normalize() - pd.offsets.BDay(1))
+os.environ["TTM_R20_TO"] = _last.strftime("%Y-%m-%d")
 HERE = os.path.dirname(os.path.abspath(__file__))
 sp = importlib.util.spec_from_file_location("r20a", os.path.join(HERE, "ttmsqz_r20a_orderflow.py"))
 R = importlib.util.module_from_spec(sp)

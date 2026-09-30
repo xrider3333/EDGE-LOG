@@ -348,3 +348,14 @@ def test_gated_legs_skip_every_keel_shape():
         if str(gt.get("model") or "").lower() == "keel" or str(gt.get("mode") or "").lower().startswith("keel"):
             assert l["key"] not in keys
     assert keys, "the live NT legs must still be served"
+
+
+def test_gate_audit_expects_exactly_the_served_legs():
+    """The audit's leg list is the service's list (2026-09-30): no engine-side KEEL / comp legs, and a
+    reconcile key like "ORB" resolves to exactly one served leg so its broker fills are attributed."""
+    from api import gate_live as g, gate_audit as ga
+    served = {l["key"] for l in g._gated_legs()}
+    assert set(ga.gated_legs()) == served
+    for key in ("ORB", "ENGUQ_ER"):
+        cands = [k for k in served if k.startswith(key + "_")]
+        assert len(cands) == 1, (key, cands)

@@ -196,6 +196,19 @@ def _log(msg):
         pass
 
 
+def serves(leg):
+    """True when this service serves the paper leg: it carries a gate that needs a live artifact.
+
+    The ONE rule for "a leg the gate serves" -- _gated_legs() below and api/gate_audit.gated_legs()
+    both use it, so the audit can never expect decisions for a leg this service never answers.
+    KEEL-model and comp legs size inside api/paper_gate (no artifact, no NinjaTrader caller)."""
+    g = leg.get("gate")
+    if not g:
+        return False
+    return (str(g.get("mode") or "").lower() not in ("keel", "keel_frozen", "comp")
+            and str(g.get("model") or "").lower() != "keel")
+
+
 def _gated_legs():
     """The paper legs that carry a gate -- the single source of truth for what to serve.
 
@@ -209,10 +222,7 @@ def _gated_legs():
     yet the keep-warm pass logged "FAIL-OPEN: no artifact" for it every 10 minutes and the nightly
     build failed on "unknown gate model 'keel'". Any leg whose MODEL is keel is engine-side."""
     from api import paper
-    return [l for l in paper.PAPER_LEGS
-            if l.get("gate")
-            and str(l["gate"].get("mode") or "").lower() not in ("keel", "keel_frozen", "comp")
-            and str(l["gate"].get("model") or "").lower() != "keel"]
+    return [l for l in paper.PAPER_LEGS if serves(l)]
 
 
 # ── nightly artifact ──────────────────────────────────────────────────────────────

@@ -54,12 +54,13 @@ def emit(x=""):
 
 def pull(sym, key, secret, loader):
     path = os.path.join(CACHE, "%s_30m_split_rth.csv" % sym)
-    if os.path.exists(path):
+    if os.path.exists(path) and os.path.getsize(path) > 100:
         return pd.read_csv(path)
     df = loader.fetch_bars(sym, "30Min", D0, "2026-07-01", key, secret, feed="sip", adjustment="split")
     df = loader.rth_filter(df) if len(df) else df
-    os.makedirs(CACHE, exist_ok=True)
-    df.to_csv(path, index=False)
+    if len(df):                     # never cache an empty pull - the next run would read it as data
+        os.makedirs(CACHE, exist_ok=True)
+        df.to_csv(path, index=False)
     return df
 
 
@@ -115,8 +116,9 @@ def main():
             return
         for s in UNIVERSE:
             df = pull(s, key, secret, loader)
-            if len(df) < 1000:
-                emit("  %s: only %d bars - kept in the pooled book as-is (no substitution)" % (s, len(df)))
+            first = str(pd.to_datetime(df["time"].iloc[0], unit="s", utc=True).date()) if len(df) else "-"
+            emit("  %s: %d bars from %s%s" % (s, len(df), first,
+                 "  <- SHORT HISTORY, kept as-is (no substitution)" if (len(df) < 1000 or first > "2016-02-01") else ""))
             if len(df):
                 data[s] = to_arrays(df)
     cal = R19.full_calendar([pd.DatetimeIndex(a["index"]).tz_localize(None) for a in data.values()], D0, D1)

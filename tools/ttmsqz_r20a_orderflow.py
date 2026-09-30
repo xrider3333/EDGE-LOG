@@ -40,6 +40,10 @@ MULT = {"ES": 50.0, "NQ": 20.0}
 TICK = 0.25
 CAP_FROM = pd.Timestamp(os.environ.get("TTM_R20_FROM", "2026-06-23"), tz="US/Eastern")
 LOAD_FROM = "2025-06-01"          # warm-up for the 20-bar squeeze and the hourly gate
+# Last session to read (inclusive). The engine treats the last bar it is given as a session close, so a
+# master refreshed mid-session would force-close a live trade at an intraday price; the shadow sets this
+# to the last COMPLETED session (review 2026-09-30). None = everything in the master (the in-hand read).
+LOAD_TO = os.environ.get("TTM_R20_TO") or None
 OUT = os.path.join(HERE, "tools", "data", "ttmsqz_r20a_orderflow.txt")
 FIRES_CSV = os.path.join(HERE, "tools", "data", "ttmsqz_r20a_orderflow_fires.csv")
 L = []
@@ -82,7 +86,7 @@ def window_flow(tens, s_utc, e_utc, tf_sec):
 
 
 def cell_fires(inst, tf, gate_mode, tens):
-    arr = load_master_arrays(find_master(inst, tf, "rth", "db_noadj_rth"), date_from=LOAD_FROM)
+    arr = load_master_arrays(find_master(inst, tf, "rth", "db_noadj_rth"), date_from=LOAD_FROM, date_to=LOAD_TO)
     p = dict(CROWN, gate_mode=gate_mode)
     o, h, l, c = arr["open"], arr["high"], arr["low"], arr["close"]
     res = MOD.run_backtest(o, h, l, c, day_id=arr["day_id"], index=arr["index"], return_trades=True, **p)

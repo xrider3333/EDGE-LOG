@@ -328,17 +328,24 @@ def gated_legs():
     Empty when api.paper cannot be imported (the CLI on a machine without the engine),
     which costs the audit its "this leg was gated and recorded nothing" line and nothing
     else — every other figure is derived from the three files.
+
+    2026-09-30: filtered by the service's own rule (api.gate_live.serves). Before, every gated
+    PAPER leg counted - 25 incl. the engine-side KEEL / comp legs - so "ORB" matched four
+    ORB_* legs and every ORB_H broker fill landed in "unattributed", and legs the service never
+    answers drew "NinjaScript recorded no opportunity" lines.
     """
     try:
         from .paper import PAPER_LEGS
+        from .gate_live import serves
     except Exception:
         try:
             from api.paper import PAPER_LEGS       # running as a script, not a package
+            from api.gate_live import serves
         except Exception:
             return {}
     out = {}
     for leg in PAPER_LEGS:
-        if not leg.get("gate"):
+        if not serves(leg):
             continue
         m = re.match(r"(\d+)", str(leg.get("timeframe") or ""))
         out[str(leg.get("key"))] = int(m.group(1)) if m else None
