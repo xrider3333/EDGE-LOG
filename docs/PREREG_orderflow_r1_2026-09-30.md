@@ -77,3 +77,8 @@ Found by re-checking the build, not by looking at results:
   the ENGU-Q lane's round 64 found on 1-minute breakouts (heaviest agreeing flow persists least) - expect little.
 - Overlap: the ORB lane runs its own breakout-bar order-flow shadow on #314 (docs/PREREG_orb_orderflow_shadow_
   2026-09-30.md); the corrected window now contains that bar, so the two ORB reads are NOT independent.
+- **Same-contract sessions only (NOISE lane finding, their e78ba46c; added before any forward trade):** a session
+  is scored only if >= 80% of the 5m closes rebuilt from the 10s rows equal the NQ master's close exactly - on
+  2026-09-14 the capture had rolled to December while the master was still on September. Forward scoring only;
+  the backfill kill check is not re-run a third time. On the backfill 65 of 70 sessions pass (dropped 08-18,
+  08-19, 09-07, 09-14, 09-15).

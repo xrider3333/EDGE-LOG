@@ -50,8 +50,24 @@ THETA = {5: 0.0329, 10: 0.0243, 15: 0.0208, 20: 0.0185, 25: 0.0174, 30: 0.0155}
 def load_10s(sym):
     d = pd.read_csv(os.path.join(OHLC, f"{sym}_10s.csv")).drop_duplicates("time").sort_values("time")
     t = pd.to_datetime(d.time.to_numpy(), unit="s", utc=True).tz_convert("US/Eastern").tz_localize(None)
-    return pd.DataFrame({"t": t, "delta": d.delta.to_numpy(float),
+    return pd.DataFrame({"t": t, "delta": d.delta.to_numpy(float), "close": d.close.to_numpy(float),
                          "flow": (d.buy_vol + d.sell_vol).to_numpy(float)}).set_index("t")
+
+
+def sessions_on_master(of, min_match=0.80):
+    """Dates whose 10s capture is on the SAME contract as the NQ 5m RTH no-adjust master: at least 80% of the
+    5m closes rebuilt from the end-stamped 10s rows equal the master's close exactly (NOISE lane's check,
+    e78ba46c - on 2026-09-14 the capture had already rolled to December while the master was still on September).
+    Forward scoring only (added 2026-09-30 before any forward trade; the backfill kill check is not re-run)."""
+    from augur_engine.data import find_master, load_master_arrays
+    A = load_master_arrays(find_master("NQ", "5m", "rth", "db_noadj_rth"), date_from=str(of.index.min().date()))
+    idx = pd.DatetimeIndex(A["index"])
+    idx = idx.tz_convert("US/Eastern").tz_localize(None) if idx.tz is not None else idx
+    master = pd.Series(np.asarray(A["close"], float), index=idx + pd.Timedelta(minutes=5))   # keyed by bar END
+    rebuilt = of.close.reindex(master.index)
+    ok = rebuilt.notna()
+    match = (rebuilt[ok] == master[ok]).groupby(master.index[ok].date).mean()
+    return set(match.index[match >= min_match])
 
 
 def window(of, fill):
@@ -193,10 +209,13 @@ def forward(since="2026-10-01"):
     """Forward read: trades entered on/after `since` with the paired early stop and the running final numbers."""
     Q = _Q()
     of = load_10s("NQ")
+    good = sessions_on_master(of)
     for name, (_, nmax) in LEGS.items():
         ent, side, pnl = leg_trades(name)
         k = (ent >= pd.Timestamp(since)) & (ent <= of.index.max())
         m, a = sizes(of, ent[k], side[k], THETA)
+        off = np.array([e.date() not in good for e in ent[k]])
+        m[off], a[off] = 1.0, np.nan                   # capture on another contract that session: no tilt
         v = np.isfinite(a)
         st = Q.read_pair(pnl[k][v], m[v], np.ones(int(v.sum())), None, BOUND[name])
         print(f"{name}: forward trades {int(k.sum())} (valid window {int(v.sum())}), raw ${pnl[k].sum():,.0f}, "
