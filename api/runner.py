@@ -2579,7 +2579,8 @@ def main(argv=None):
         (reusing optimizer.py's exact logic), then re-publish meta so the web Library
         shows the updated data + sync time. Network/IO errors never kill the runner."""
         try:
-            from api.augur_refresh import run_auto_refresh, run_coarse_refresh
+            from api.augur_refresh import (run_adjusted_refresh, run_auto_refresh,
+                                           run_coarse_refresh)
             print(f"[{tag}] refreshing masters (Yahoo + watch-folder)…")
             changes = run_auto_refresh()
             for line in changes[:12]:
@@ -2597,6 +2598,17 @@ def main(argv=None):
                     print(f"[{tag}] coarse masters (2m-60m) refreshed.")
             except Exception as _ce:
                 print(f"[{tag}] coarse refresh skipped: {type(_ce).__name__}: {_ce}")
+            # LAST in the chain: the roll-corrected twins are rebuilt FROM the masters
+            # the two steps above just wrote. Its own once-a-day marker, so a failed
+            # coarse step cannot make it skip a day (or run twice).
+            try:
+                adj = run_adjusted_refresh(force=(tag == "startup"))
+                for line in adj[:24]:
+                    print("   " + log_safe(line))
+                if adj:
+                    print(f"[{tag}] roll-corrected masters (ADJ_/FADJ_) rebuilt.")
+            except Exception as _ae:
+                print(f"[{tag}] adjusted rebuild skipped: {type(_ae).__name__}: {_ae}")
             if a.firestore:
                 q.sync_meta()
         except Exception as e:

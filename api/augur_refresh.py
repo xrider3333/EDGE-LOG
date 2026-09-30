@@ -178,11 +178,58 @@ def run_coarse_refresh(force=False, now=None, state_path=None):
     return lines
 
 
+# ------------------------------------------------ the roll-corrected (ADJ_/FADJ_) masters
+#
+# WHY THIS IS HERE TOO (2026-09-30). The 19 ADJ_/FADJ_ masters are rebuilt from the no-adjust
+# ones, and NOTHING scheduled that rebuild - it had been run by hand exactly once, on 09-28, so
+# by 09-30 anything pinned to them was reading two-day-old bars while the no-adjust masters
+# were current. Frontier's vol-target shadow signal and any ES book run past 09-14 were both
+# affected. No guard refused them; nobody ran the tool.
+#
+# THEY GO LAST. The chain is Yahoo (1m/5m) -> coarse resample (2m..60m) -> adjusted rebuild,
+# because each step reads what the step before it wrote. Rebuilding the adjusted twins first
+# would bake yesterday's tail into today's corrected bars.
+#
+# The rebuild is a FULL rewrite of all 19 files rather than an append, which is why it shares
+# the coarse masters' once-an-evening gate instead of running every pass.
+ADJUSTED_STATE = os.path.join(os.environ.get("EDGELOG_STATE_DIR", r"C:\EdgeLog"),
+                              "adjusted_refresh_state.json")
+
+
+def adjusted_refresh_due(now=None, state_path=None):
+    """Same rule as the coarse masters: once per ET day, after the evening cutoff."""
+    return coarse_refresh_due(now, state_path or ADJUSTED_STATE)
+
+
+def run_adjusted_refresh(force=False, now=None, state_path=None):
+    """Rebuild the ADJ_/FADJ_ masters from the current no-adjust parents.
+
+    Reuses tools/build_adjusted_masters.py --apply unchanged, so a human at a prompt and the
+    runner get identical results - including the write guard, which refuses a rebuild that
+    would leave any adjusted master with fewer rows than it already has.
+    """
+    state_path = state_path or ADJUSTED_STATE
+    if not force and not coarse_refresh_due(now, state_path):
+        return []
+    import subprocess
+    tool = os.path.join(ROOT, "tools", "build_adjusted_masters.py")
+    out = subprocess.run([sys.executable, tool, "--apply"], cwd=ROOT,
+                         capture_output=True, text=True, timeout=3600)
+    lines = [ln.strip() for ln in (out.stdout or "").splitlines()
+             if "-> ADJ_" in ln or "-> FADJ_" in ln or "refusing" in ln.lower()
+             or ln.strip().startswith(("NOTE:", "ERROR"))]
+    _mark_coarse_done(now, state_path)
+    return lines
+
+
 if __name__ == "__main__":
     print("running auto-refresh (Yahoo + watch-folder ingest)…")
     for line in run_auto_refresh(progress_cb=lambda m: print("  ·", m)):
         print("   ", line)
     print("coarse masters (2m-60m):")
     for line in run_coarse_refresh(force="--coarse-force" in sys.argv) or ["  not due yet"]:
+        print("   ", line)
+    print("roll-corrected masters (ADJ_/FADJ_):")
+    for line in run_adjusted_refresh(force="--coarse-force" in sys.argv) or ["  not due yet"]:
         print("   ", line)
     print("done.")
