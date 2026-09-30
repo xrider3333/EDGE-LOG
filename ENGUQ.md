@@ -1162,3 +1162,50 @@ unintuitive is the shape that pays.
 $30k-drawdown yardstick would cost about twenty minutes, but the failure mode is structural rather
 than parameter-specific, so the answer is very unlikely to change. Recorded as DEAD; the file and
 bench stay in the tree as the documented negative result they now are.
+
+### 2026-09-30 - round 63, entry-bar order flow: NOT TESTABLE YET, and the checkpoint is about two years away
+
+Pre-registered in `ENGUQ_R63_OFLOW_PREREG.md`, committed before a single order-flow number was
+read. The idea, from the owner's 2026-09-30 ask: the family's money is entirely in trades that
+survive their first day, so look for better survivors at entry - and the NinjaTrader 10-second
+capture has carried `delta`, `buy_vol`, `sell_vol` and `tick_count` since late June without this
+family ever using them. A breakout printed into genuine buying pressure should hold; one printed
+into selling pressure should fail the same day.
+
+**The sample was counted before the hypothesis was read, and it is far thinner than it looks.**
+The capture spans 80 trading days, 2026-06-26 to 2026-09-30. Over that window the crown leg takes
+33 trades. But only **22 of those 33 have any order flow at all**, and of those just **3 survived
+day one** against 19 same-day deaths. The cash-session arm reads 4 and 13.
+
+**Descriptive baseline, published because it was promised and not because it means anything.**
+Median signal-window imbalance (the minute's delta over its volume, aggregated across the
+parent's 10-bar limit scan): crown survivors +0.0266 against same-day deaths +0.0286, a gap of
+**-0.0020** - i.e. nothing, on three survivors. The cash-session arm reads +0.0213 against
++0.0126, a gap of +0.0087, on four. Neither number is evidence of anything and neither may be
+quoted as though it were.
+
+**The finding that actually matters: the pre-registered checkpoint is not reachable soon.** The
+bar is 60 survivors and 60 same-day deaths, read once. The crown leg produces day-one survivors at
+roughly 36 a year, so 60 of them is about **twenty months away** - and that is before the capture's
+own gaps, which are worse than expected: the median day holds 5,883 ten-second bars against the
+~8,280 a full 23-hour session should give (71%), 25 of the 80 days hold under 2,000, and some are
+nearly empty - 2026-08-27 has 42 bars, 2026-08-26 has 509. That hole is why a third of the crown's
+trades have no order flow, including cash-session entries like 25 and 26 August. Routed to the
+NinjaTrader paper lane, since the capture is theirs.
+
+**What shipped instead of a verdict.** `tools/enguq_orderflow_ledger.py` records the entry-bar
+order-flow reading for every ENGU-Q shadow trade into `C:\EdgeLog\enguq_orderflow\<LEG>.csv` -
+survived-day-one flag, the raw volume, delta, buy, sell and tick parts, and the pre-registered
+imbalance - keyed by entry time and safe to re-run. The sample now accumulates instead of being
+re-argued from 33 points every month. It also surfaces the shadow's own warnings, because
+`run_shadow` never raises and a missing master would otherwise read as a quiet "0 trades" - which
+it did, once, on the first run from a worktree.
+
+**Verdict: no result, no candidate, no validate, and the round stays open rather than being
+closed either way.** Entry-bar order flow is neither supported nor refuted; it is unmeasured.
+
+**Next in the queue, and it needs no owner decision.** The unit is the problem, not the idea. A
+filled trade is a scarce event in this family, but a SIGNAL is not - every bar that clears the
+entry filters is one, whether or not the resting limit fills it, and a signal's forward path
+answers the same survivor question. Changing the unit changes the test, so it needs its own
+pre-registration rather than an amendment to this one. That is round 64.
