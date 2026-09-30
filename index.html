@@ -829,7 +829,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.944';
+const VERSION='73.945';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -847,7 +847,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.944',date:'2026-09-29',notes:['WEBULL PAPER: CANDLES ON EVERY TRADE. Each trade sheet on HOME > WEBULL PAPER now opens a small QQQ chart of that trade (EXPAND for the full viewer with PREV / NEXT, zoom, 1m / 5m and SAVE PNG), drawn from the box’s own bars - the ones the engine traded on. Marks: the signal bar (dashed outline), the backtest’s fill and exit, the book’s fill and exit, and every Webull try - filled, refused, sent with no answer, held back by the book, a failed order call, or netted against another leg - each with its own shape and words, so they read in MONO too. The legend gives prices, times and how far each Webull fill was from the backtest. The box writes one small file per trading day after the close and again before the open; a day without one falls back to your PC and says so.']},{v:'73.942',date:'2026-09-28',notes:['WEBULL PAPER: FILLS vs BACKTEST AT THE OWNER’S TOLERANCE, AND WEBULL FILLS ARE THE P&L OF RECORD. The old PARITY NOTE (36 of 36 trades miss) is gone: it compared against the send-time quote at 2% of each trade’s P&L and ignored direction. Each Webull fill is now compared, signed (+ = Webull did better), with the backtest’s own fill for that side - for NOISE decided at a bar close, the next bar’s open. A fill more than 15 cents a share worse is flagged (FILL GAP), and a leg or the board is flagged when its last 20 fills average more than 5 cents worse. Known design gaps (the 15:59 flatten, ENGU-Q’s limit entry, stop and target levels, NOISE before 09-26) are shown apart and never flag; a capture that does not fit the tape reads CHECK FILL and never counts (the 09-24 ENGU-Q fill). Trade sheets, the equity curve, today’s figure, the calendar and the evening summary use Webull’s fill per side (book price, labelled, where there is none) with the backtest’s P&L alongside; the daily loss breaker can only trip sooner on a fill shortfall. Today’s orders show the delay after the bar close (SLOW in words past 60 s).']},{v:'73.941',date:'2026-09-28',notes:['LOCKBOX FOLLOW-UP (live check of v73.940): four places still printed a warm run’s cold lockbox - the run report’s 1A chart hover (the chart the classic report layout shows), RUNBOARD’s whole-run LB $ row, the Past Runs group list’s lockbox PF, and LEADERBOARD’s lockbox Sharpe fallback. All four now read the same continuous replay, tagged LB warm or naming the run’s own cold reading on hover; refused runs (ENGU-Q #310, #326) keep their own lockbox everywhere. The run-report check gained a fourth case in the classic 1A layout, so this miss cannot come back unseen.']},{v:'73.940',date:'2026-09-28',notes:['ONE LOCKBOX FIGURE PER RUN, ON EVERY SCREEN. LEADERBOARD, the older COMPARE tables and the run report now read the same lockbox EXPLORE and RUNBOARD already show: for a run that scored its lockbox before warm starts (v73.841), the continuous replay of the same stretch, tagged LB warm with the run’s own cold figure on hover. Same refusal rule: a continuous slice with far fewer trades is a different replay, so that run keeps its own lockbox (ENGU-Q #310, #326). PASS / FAIL stays the verdict scored on the run’s own lockbox. In the run report this covers the metrics table LOCKBOX column, the chart’s lockbox hover and the gate banner; the whole-run curve and the in-sample figure worked out from it stay on the saved (cold) curve. Also fixed: a negative cold figure in the LB warm hover printed as $-42,119.']},{v:'73.937',date:'2026-09-28',notes:['RUNBOARD ROC TOGGLE NOW CLICKS. In v73.936 the ROC row label showed the switch between ROC % / YR and ROC @ $30K DD but clicking it did nothing, on the RUNBOARD tab and on the COMPARE board alike - its click was only hooked up on a different screen. It is now hooked up for every screen the board draws on, and the render check clicks it on both.']},{v:'73.936',date:'2026-09-28',notes:['EXPLORE AND RUNBOARD AUDIT (owner go, via MANAGER). EXPLORE: a row with fewer than 50 lockbox trades carries a caution tag and greys while the lockbox is ticked; ORB #205-#209 are marked VOID (the entry is gated on that same bar finished volume) and always greyed; a pinned single-config run says its walk-forward is in-sample; HYBRID redeploy and equal-drawdown rows size the lockbox at the walk-forward factor, with the lockbox-hindsight reading on hover; the run chips list watched and starred runs first and FAIL or VOID runs last, greyed, never the default pick; a run scored before warm starts reads its continuous lockbox when that is plausibly the same config warmed up (NOISE #382 $69,062, ENGU-Q #335 $49,812, ORB #314 $87,132), tagged LB warm; new ROC @ $30K DD measure (30 x MAR) as a column and on both chart axes; new LEVERAGE LINE view: ROC % / YR against drawdown % of the account, a line from zero through each run plain twin, and every ML or sized row marked above, on or below it. RUNBOARD: the lockbox stage reads the same warm lockbox (tagged LB warm on TOTAL), and clicking the ROC row label switches ROC % / YR and ROC @ $30K DD on every stage and on the WATCH view.']},{v:'73.935',date:'2026-09-28',notes:['LIVE GATE: the NinjaTrader NOISE strategy now sends its own finished bar prices, so the gate scores that bar instead of letting the trade through ungated when the price capture is a few seconds behind.']},
+const CHANGELOG=[{v:'73.945',date:'2026-09-30',notes:['IMPORT: CONTRACT SYMBOLS AND PDF STATEMENTS. Imports now save every futures trade under its root symbol (MES, MNQ), never the contract code in the file: a PDF statement used to save MES as MESM and MNQ as MNQH, so it never matched your journal and saved the day a second time, and the Performance CSV saved MNQ trades as MES. A PDF statement now matches each of its trades to the journal copy one for one (same direction, same prices within a tick, same minutes) and never rewrites a journal trade: a scale-out saved as two 1-lot legs, two trades a tick apart and a same-price trade the other way all stay as they are. It only adds the trades your journal is missing, sets each fee to the statement fee per contract times its size, and lists any trade the journal holds in another size or direction without changing it. A reversal fill (long 1, sell 2) now makes two trades instead of one, and a clearing fee is split across the symbols traded that day instead of charged to each one.']},{v:'73.944',date:'2026-09-29',notes:['WEBULL PAPER: CANDLES ON EVERY TRADE. Each trade sheet on HOME > WEBULL PAPER now opens a small QQQ chart of that trade (EXPAND for the full viewer with PREV / NEXT, zoom, 1m / 5m and SAVE PNG), drawn from the box’s own bars - the ones the engine traded on. Marks: the signal bar (dashed outline), the backtest’s fill and exit, the book’s fill and exit, and every Webull try - filled, refused, sent with no answer, held back by the book, a failed order call, or netted against another leg - each with its own shape and words, so they read in MONO too. The legend gives prices, times and how far each Webull fill was from the backtest. The box writes one small file per trading day after the close and again before the open; a day without one falls back to your PC and says so.']},{v:'73.942',date:'2026-09-28',notes:['WEBULL PAPER: FILLS vs BACKTEST AT THE OWNER’S TOLERANCE, AND WEBULL FILLS ARE THE P&L OF RECORD. The old PARITY NOTE (36 of 36 trades miss) is gone: it compared against the send-time quote at 2% of each trade’s P&L and ignored direction. Each Webull fill is now compared, signed (+ = Webull did better), with the backtest’s own fill for that side - for NOISE decided at a bar close, the next bar’s open. A fill more than 15 cents a share worse is flagged (FILL GAP), and a leg or the board is flagged when its last 20 fills average more than 5 cents worse. Known design gaps (the 15:59 flatten, ENGU-Q’s limit entry, stop and target levels, NOISE before 09-26) are shown apart and never flag; a capture that does not fit the tape reads CHECK FILL and never counts (the 09-24 ENGU-Q fill). Trade sheets, the equity curve, today’s figure, the calendar and the evening summary use Webull’s fill per side (book price, labelled, where there is none) with the backtest’s P&L alongside; the daily loss breaker can only trip sooner on a fill shortfall. Today’s orders show the delay after the bar close (SLOW in words past 60 s).']},{v:'73.941',date:'2026-09-28',notes:['LOCKBOX FOLLOW-UP (live check of v73.940): four places still printed a warm run’s cold lockbox - the run report’s 1A chart hover (the chart the classic report layout shows), RUNBOARD’s whole-run LB $ row, the Past Runs group list’s lockbox PF, and LEADERBOARD’s lockbox Sharpe fallback. All four now read the same continuous replay, tagged LB warm or naming the run’s own cold reading on hover; refused runs (ENGU-Q #310, #326) keep their own lockbox everywhere. The run-report check gained a fourth case in the classic 1A layout, so this miss cannot come back unseen.']},{v:'73.940',date:'2026-09-28',notes:['ONE LOCKBOX FIGURE PER RUN, ON EVERY SCREEN. LEADERBOARD, the older COMPARE tables and the run report now read the same lockbox EXPLORE and RUNBOARD already show: for a run that scored its lockbox before warm starts (v73.841), the continuous replay of the same stretch, tagged LB warm with the run’s own cold figure on hover. Same refusal rule: a continuous slice with far fewer trades is a different replay, so that run keeps its own lockbox (ENGU-Q #310, #326). PASS / FAIL stays the verdict scored on the run’s own lockbox. In the run report this covers the metrics table LOCKBOX column, the chart’s lockbox hover and the gate banner; the whole-run curve and the in-sample figure worked out from it stay on the saved (cold) curve. Also fixed: a negative cold figure in the LB warm hover printed as $-42,119.']},{v:'73.937',date:'2026-09-28',notes:['RUNBOARD ROC TOGGLE NOW CLICKS. In v73.936 the ROC row label showed the switch between ROC % / YR and ROC @ $30K DD but clicking it did nothing, on the RUNBOARD tab and on the COMPARE board alike - its click was only hooked up on a different screen. It is now hooked up for every screen the board draws on, and the render check clicks it on both.']},{v:'73.936',date:'2026-09-28',notes:['EXPLORE AND RUNBOARD AUDIT (owner go, via MANAGER). EXPLORE: a row with fewer than 50 lockbox trades carries a caution tag and greys while the lockbox is ticked; ORB #205-#209 are marked VOID (the entry is gated on that same bar finished volume) and always greyed; a pinned single-config run says its walk-forward is in-sample; HYBRID redeploy and equal-drawdown rows size the lockbox at the walk-forward factor, with the lockbox-hindsight reading on hover; the run chips list watched and starred runs first and FAIL or VOID runs last, greyed, never the default pick; a run scored before warm starts reads its continuous lockbox when that is plausibly the same config warmed up (NOISE #382 $69,062, ENGU-Q #335 $49,812, ORB #314 $87,132), tagged LB warm; new ROC @ $30K DD measure (30 x MAR) as a column and on both chart axes; new LEVERAGE LINE view: ROC % / YR against drawdown % of the account, a line from zero through each run plain twin, and every ML or sized row marked above, on or below it. RUNBOARD: the lockbox stage reads the same warm lockbox (tagged LB warm on TOTAL), and clicking the ROC row label switches ROC % / YR and ROC @ $30K DD on every stage and on the WATCH view.']},{v:'73.935',date:'2026-09-28',notes:['LIVE GATE: the NinjaTrader NOISE strategy now sends its own finished bar prices, so the gate scores that bar instead of letting the trade through ungated when the price capture is a few seconds behind.']},
 {v:'73.930',date:'2026-09-28',notes:['SCORE FIXES: seven stock trades (EHGO, LABT, SUGP, GMM, XHG, IPST, HOWL) were scored off the wrong candle or 5-minute bars; re-scored against the 1-minute or 10-second candle the owner actually traded.']},
 {v:'73.928',date:'2026-09-27',notes:['HOME LEDGER ON A PHONE: the SIMPLE ledger no longer clips the edit button at phone width - its cells are a little tighter below 480 pixels.']},
 {v:'73.927',date:'2026-09-27',notes:['ONE ROW OF TABS. The TRADING LOG and BACKTESTER buttons are gone - every tab sits in one row: HOME, ANALYTICS, BUILDER, RESULTS, COMPARE, RESEARCH. The queue dials and the settings gear stay on the top bar.','PAPER MOVED NEXT TO THE REAL LOG. HOME has three subtabs: REAL, NT8 PAPER and WEBULL PAPER. The paper boards are unchanged - only the button that opens them moved. HOME returns to whichever subtab was open last, and a refresh lands on the same tab and subtab.','HOME LEDGER: SIMPLE OR FULL. In TABLE view a new SIMPLE / FULL switch sits next to the FEED button. SIMPLE (the default) shows the columns that fit - date, time, symbol, side, contracts, points, net, score, grade, setup, notes - with no sideways scrolling on a laptop. FULL is the whole row as before. Your choice is remembered in this browser.','Add ?oldtabs=1 to the address to get the old two-level tabs back for now.']},
@@ -2744,6 +2744,19 @@ window.sbMore=function(el){const p=el.parentElement;p.style.flexWrap='wrap';p.st
 const pct=n=>(n*100).toFixed(1)+'%';
 const isFut=sym=>!!PRESETS[sym];
 const getBase=s=>((s||'').trim().split(/\s+/)[0]||'').toUpperCase();  // contract root = first token (keeps digits, e.g. M2K)
+// A futures CONTRACT code -> its root: MESM6 -> MES, MNQH26 -> MNQ, ESZ5 -> ES, 6EM6 -> 6E,
+// MESZ2026 -> MES, "MES 12-26" -> MES. getBase alone keeps the whole first token (so M2K keeps its
+// digit), which left every importer that is handed a contract code - NinjaTrader PDF statements,
+// Performance CSVs, Orders, generic CSVs - saving MESM6 / MNQM6 as the symbol: PRESETS missed, the
+// Performance import then fell back to MES for every non-MES trade, and a PDF never matched the
+// journal's MES trades so it re-created them. Only a trailing month letter + year digits is cut,
+// and only off a root of 2+ characters, so stock tickers (letters only) pass through untouched.
+function futRoot(s){
+  const b=getBase(s);
+  if(PRESETS[b])return b;
+  const m=/^((?:[0-9][A-Z]|[A-Z][A-Z0-9])[A-Z0-9]{0,2}?)[FGHJKMNQUVXZ](?:\d{1,2}|20\d{2})$/.exec(b);
+  return m?m[1]:b;
+}
 const gradeClass=g=>({'+':'grade-A','A':'grade-A','B':'grade-B','C':'grade-C','D':'grade-D','F':'grade-F'}[g?.slice(-1)]||'grade-x');
 function fmtDur(m){if(!m||m<0)return'—';if(m<60)return m+'m';return Math.floor(m/60)+'h'+(m%60>0?' '+m%60+'m':'');}
 // Seconds-aware duration for the trades table: prefer t.durationSecs (exact), else fall
@@ -2763,7 +2776,7 @@ function durStr(t){
   if(m<60)return m+'m';
   return Math.floor(m/60)+'h'+(m%60>0?' '+m%60+'m':'');
 }
-function getFee(sym){return instrumentFees[sym]??instrumentFees[getBase(sym)]??4.50;}
+function getFee(sym){return instrumentFees[sym]??instrumentFees[futRoot(sym)]??4.50;}
 function setFavicon(dataUrl){const l=el('favicon')||document.createElement('link');l.id='favicon';l.rel='icon';l.href=dataUrl;document.head.appendChild(l);if(el('favicon')!==l)document.head.appendChild(l);}
 function updateFavicon(){
   if(!userLogo){setFavicon("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2300e5a0' rx='4'/><text x='4' y='24' font-size='22' font-family='monospace' fill='%23050a05' font-weight='bold'>E</text></svg>");return;}
@@ -4554,14 +4567,15 @@ async function importPDF(file,opts){
   //   "- - - - <clearingPnl> <segregated> - -"
   // The Clearing_Fee row has its fee amount as the 5th number (PNL column position)
   // dailyData[sym|date] = {contracts, fees: {exch,comm,nfa,clearing}, pnl, totalFees}
-  const dailyData={};
+  const dailyData={},clearByDate={};
   for(let i=0;i<allLines.length;i++){
     const line=allLines[i].trim();
     // Match "MM/DD/YYYY SYMBOL" header line
-    const symHdr=line.match(/^(\d{2}\/\d{2}\/\d{4})\s+([A-Z]{2,6})M?\d?\s*$/);
+    // the whole contract code (MESM6, MNQM6, 6EM6); futRoot turns it into the journal's root symbol
+    const symHdr=line.match(/^(\d{2}\/\d{2}\/\d{4})\s+([0-9]?[A-Z][A-Z0-9]{1,7})\s*$/);
     if(symHdr){
       const date=parseDate(symHdr[1]);
-      const baseSym=getBase(symHdr[2]);
+      const baseSym=futRoot(symHdr[2]);
       const sym=PRESETS[baseSym]?baseSym:baseSym;
       // Next line has the numbers
       const dataLine=(allLines[i+1]||'').trim();
@@ -4596,12 +4610,15 @@ async function importPDF(file,opts){
       const nums=dataLine.match(/-?[\d,]+\.?\d*/g)||[];
       // First non-dash number is the clearing fee
       const fee=Math.abs(parseFloat(nums[0]?nums[0].replace(/,/g,''):'0')||0);
-      // Add clearing to whichever symbol traded on this date
-      Object.values(dailyData).forEach(d=>{
-        if(d.date===date)d.clearing+=fee;
-      });
+      clearByDate[date]=(clearByDate[date]||0)+fee;
     }
   }
+  // Split each date's clearing fee across that date's symbols by contract count. It used to be
+  // added in full to every symbol that day, so a two-symbol day paid clearing twice.
+  Object.values(dailyData).forEach(d=>{
+    const tot=Object.values(dailyData).filter(x=>x.date===d.date).reduce((s,x)=>s+x.contracts,0)||1;
+    d.clearing=(clearByDate[d.date]||0)*d.contracts/tot;
+  });
   // ── Parse Fills section ──────────────────────────────────────
   // Format per line:
   //   "MM/DD/YYYY HH:MM:SS PM(GMT) FILL <buyQty> <sellQty> <price> <orderId>"
@@ -4610,11 +4627,11 @@ async function importPDF(file,opts){
   // its absolute instant, and trades are paired in true time order and dated by their New York
   // day (a GMT day splits an evening session at 8 pm New York).
   const pdfFills=[];
-  let currentSym=null;
+  let currentSym=null,currentCode='';
   for(let j=0;j<allLines.length;j++){
     const line=allLines[j];
-    const symMatch=line.match(/Trading details for.*\(([A-Z]{2,6})M?\d?\)/i);
-    if(symMatch){currentSym=getBase(symMatch[1]);continue;}
+    const symMatch=line.match(/Trading details for.*\(([0-9]?[A-Z][A-Z0-9]{1,7})\)/i);
+    if(symMatch){currentSym=futRoot(symMatch[1]);currentCode=symMatch[1].toUpperCase();continue;}
     if(!currentSym)continue;
     // Match fill line - flexible to handle both AM/PM and GMT variations
     const fillMatch=line.match(/^\s*(\d{2}\/\d{2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(AM|PM)?\s*(\(?\s*(?:GMT|UTC)\s*\)?)?\s+FILL/i);
@@ -4633,17 +4650,19 @@ async function importPDF(file,opts){
     if(!price)continue;
     const side=buyQty?'BUY':'SELL';
     const qty=buyQty||sellQty||1;
-    pdfFills.push({sym:currentSym,st,side,price,qty,orderId});
+    pdfFills.push({sym:currentSym,code:currentCode,st,side,price,qty,orderId});
   }
   // Resolve the zone (GMT-stamped fills need no guess) and group by symbol + New York day.
   const Zp=_impResolveZone(pdfFills.map(f=>({st:f.st,fid:''})),opts);
   if(Zp.ask){result.tzAsk=Zp;return result;}
-  result.tzNote=Zp;result.tzDrift=[];
+  result.tzNote=Zp;result.tzDrift=[];result.pdfFlags=[];
+  // the statement's own account, so another account's trades that day are never matched or re-feed
+  const acctM=allLines.join(' ').match(/Account Number:\s*([A-Za-z0-9-]+)/i),stmtAcct=acctM?acctM[1]:'';
   const fillsBySymDate={};
   pdfFills.forEach(f=>{
     const e=_impET(f.st,Zp.tz),key=f.sym+'|'+e.date;
     if(!fillsBySymDate[key])fillsBySymDate[key]=[];
-    fillsBySymDate[key].push({ms:e.ms,time:e.hm,side:f.side,price:f.price,qty:f.qty,orderId:f.orderId});
+    fillsBySymDate[key].push({ms:e.ms,time:e.hm,side:f.side,price:f.price,qty:f.qty,orderId:f.orderId,code:f.code});
   });
   // ── Pair fills into round-trip trades ─────────────────────────
   Object.entries(fillsBySymDate).forEach(([key,fills])=>{
@@ -4655,10 +4674,21 @@ async function importPDF(file,opts){
     // Supports scale-in (adding) and scale-out (partial exits)
     // A trade opens when position leaves zero and closes when it returns to zero
     const trades_=[];
+    // Each contract month is its own position (a roll day holds MESM6 and MESU6 at once): pair them
+    // apart, then reconcile them together under the root the journal saves.
+    const byCode={};fills.forEach(f=>(byCode[f.code]=byCode[f.code]||[]).push(f));
+    Object.values(byCode).forEach(cf=>{
+    // A fill that goes through flat (long 1, SELL 2: the REV button) closes one trade and opens the
+    // next at the same price and time. Split it in two first, as the NinjaTrader sync does
+    // (api/nt_sync.py _split_crossings); unsplit, the new trade was lost inside the old one.
+    {const fx=[];let p0=0;cf.forEach(f=>{const d=f.side==='BUY'?f.qty:-f.qty;
+      if(p0!==0&&Math.sign(d)!==Math.sign(p0)&&Math.abs(d)>Math.abs(p0)){fx.push({...f,qty:Math.abs(p0)});fx.push({...f,qty:Math.abs(d)-Math.abs(p0)});}
+      else fx.push(f);p0+=d;});cf=fx;}
     let pos=0;
     let entryQty=0,entryNotional=0,entryTime=null,entryMs=null,entrySide=null,entryOid='';
     let exitQty=0,exitNotional=0,exitTime=null,exitMs=null;
-    fills.forEach(f=>{
+    let ePx=[],xPx=[];   // every entry / exit fill price of the position, for matching journal legs
+    cf.forEach(f=>{
       const delta=f.side==='BUY'?f.qty:-f.qty;
       const newPos=pos+delta;
       const isAddToPosition=pos===0||Math.sign(delta)===Math.sign(pos);
@@ -4668,16 +4698,16 @@ async function importPDF(file,opts){
           // First fill of a new trade - initialize entry tracking
           entrySide=f.side;entryOid=f.orderId;entryTime=f.time;entryMs=f.ms;
           entryQty=Math.abs(delta);entryNotional=f.price*Math.abs(delta);
-          exitQty=0;exitNotional=0;exitTime=null;exitMs=null;
+          exitQty=0;exitNotional=0;exitTime=null;exitMs=null;ePx=[f.price];xPx=[];
         } else {
           // Scale-in: accumulate entry size & weighted price
-          entryQty+=Math.abs(delta);entryNotional+=f.price*Math.abs(delta);
+          entryQty+=Math.abs(delta);entryNotional+=f.price*Math.abs(delta);ePx.push(f.price);
         }
       } else if(isReducePosition){
         // Scale-out: accumulate exit size & weighted price
         const closingQty=Math.min(Math.abs(delta),Math.abs(pos));
         exitQty+=closingQty;exitNotional+=f.price*closingQty;
-        exitTime=f.time;exitMs=f.ms;
+        exitTime=f.time;exitMs=f.ms;xPx.push(f.price);
       }
       // Check if trade is fully closed
       if(pos!==0&&newPos===0){
@@ -4690,7 +4720,8 @@ async function importPDF(file,opts){
           entryTime,exitTime,
           durMin:entryMs!=null&&exitMs!=null?Math.round((exitMs-entryMs)/60000):null,
           size:entryQty,
-          orderId:entryOid
+          orderId:entryOid,
+          eLo:Math.min(...ePx),eHi:Math.max(...ePx),xLo:Math.min(...xPx),xHi:Math.max(...xPx),entryMs
         });
         // Reset
         entryQty=0;entryNotional=0;entryTime=null;entryMs=null;entrySide=null;entryOid='';
@@ -4698,37 +4729,102 @@ async function importPDF(file,opts){
       }
       pos=newPos;
     });
-    // Check existing trades
-    const existing=trades.filter(t=>t.date===date&&t.symbol===useSym);
-    if(existing.length){
-      // Update existing trades from PDF data — match by entry/exit price proximity
-      existing.forEach(t=>{
-        const matchingPair=trades_.find(p=>Math.abs(p.entry-t.entry)<0.5||Math.abs(p.exit-t.exit)<0.5);
-        if(!matchingPair)return;
-        const dr=_impDrift(t,matchingPair.entryTime,matchingPair.exitTime);if(dr)result.tzDrift.push(dr);
-        const updates={};
-        if(t.type!==matchingPair.dir)updates.type=matchingPair.dir;
-        if(Math.abs((t.size||1)-matchingPair.size)>0)updates.size=matchingPair.size;
-        if(Math.abs(t.entry-matchingPair.entry)>0.01)updates.entry=+matchingPair.entry.toFixed(4);
-        if(Math.abs(t.exit-matchingPair.exit)>0.01)updates.exit=+matchingPair.exit.toFixed(4);
-        if(Object.keys(updates).length){
-          // Recalculate P/L with updated values
-          const newSize=updates.size||t.size||1;
-          const newType=updates.type||t.type;
-          const newEntry=updates.entry||t.entry;
-          const newExit=updates.exit||t.exit;
-          const calc2=tradeCalc(t.symbol,newType,newEntry,newExit,newSize,t.fees||0);
-          updates.grossPnl=calc2.grossPnl;
-          updates.pnl=calc2.pnl;
-          result.merges.push({id:t.id,updates,desc:'updated from PDF: '+Object.keys(updates).filter(k=>!['grossPnl','pnl'].includes(k)).join(', ')});
+    });
+    trades_.sort((a,b)=>a.entryMs-b.entryMs);
+    // ── Reconcile with the journal (2026-09-30) ─────────────────────
+    // Until the contract-root fix this branch never ran for a NinjaTrader statement: its symbol came
+    // out as MESM, which never equalled the journal's MES. Its old rule - pair on entry OR exit within
+    // half a point, many-to-one, then rewrite size / prices / direction without asking - would now
+    // have doubled a scale-out day (a 2-lot position split into two 1-lot legs by Position History)
+    // and moved a trade onto its neighbour a tick away. So a statement round trip is matched
+    // ONE-TO-ONE to the journal legs that make it up (same direction, every leg's entry and exit
+    // inside the position's fill-price range, entered inside its time window), and a matched journal
+    // trade is never rewritten: the journal copy is the finer record. The statement only adds what
+    // the journal lacks, and prices every trade's fee from its own summary (fee per contract x size).
+    const tick=(PRESETS[useSym]&&PRESETS[useSym].ts)||0.25,eps=1e-6;
+    const existing=trades.filter(t=>t.date===date&&t.symbol===useSym&&(!stmtAcct||!t.account||String(t.account)===stmtAcct));
+    const used=new Set();
+    const mins=s=>{const m=/^(\d{1,2}):(\d{2})/.exec(s||'');return m?(+m[1])*60+(+m[2]):null;};
+    const inPx=(v,lo,hi,sl)=>v>=lo-sl-eps&&v<=hi+sl+eps;
+    // Fees come from the statement's own summary, which counts both sides of every contract (4 = two
+    // round-trip contracts), never from how the fills paired up. Journal fees are only corrected when
+    // the statement accounts for every contract it charged that day: an open or carried position, or
+    // evening fills dated the day before, would leave the rate a guess.
+    const totalFees=dayInfo?(dayInfo.exch+dayInfo.comm+dayInfo.nfa+dayInfo.clearing):0;
+    const rtSum=trades_.reduce((s,t)=>s+t.size,0);
+    const feePerContract=dayInfo&&dayInfo.contracts>0?totalFees/(dayInfo.contracts/2):0;
+    const feesComplete=!!dayInfo&&dayInfo.contracts===2*rtSum;
+    const win=p=>{const pe=mins(p.entryTime),px=mins(p.exitTime);return{pe,hi:px==null?pe:(px<pe?px+1440:px)};};
+    // How well journal trade t fits round trip p (same direction and prices within a tick of its
+    // fills, or null): tier 0 exact prices and entered inside its minutes, 1 a tick or a minute off,
+    // 2 the same minutes a whole number of hours away (a copy saved in the wrong zone: flagged as
+    // drift, never re-created), 3 no entry time saved. Ties break on minutes off, then price distance.
+    const fitOf=(t,p)=>{
+      if(t.type!==p.dir||!inPx(+t.entry,p.eLo,p.eHi,tick)||!inPx(+t.exit,p.xLo,p.xHi,tick))return null;
+      const w=win(p),m=mins(t.entryTime),pxd=Math.abs(+t.entry-p.entry)+Math.abs(+t.exit-p.exit);
+      if(m==null||w.pe==null)return{tier:3,off:0,pxd};
+      if(inPx(+t.entry,p.eLo,p.eHi,0)&&inPx(+t.exit,p.xLo,p.xHi,0)&&m>=w.pe&&m<=w.hi)return{tier:0,off:m-w.pe,pxd};
+      if(m>=w.pe-1&&m<=w.hi+1)return{tier:1,off:Math.abs(m-w.pe),pxd};
+      const h=Math.round((m-w.pe)/60),s=m-h*60;
+      if(h&&Math.abs(h)<=5&&s>=w.pe-1&&s<=w.hi+1)return{tier:2,off:Math.abs(s-w.pe),pxd,h};
+      return null;
+    };
+    const better=(a,b)=>a.tier-b.tier||a.off-b.off||a.pxd-b.pxd;
+    // p's candidate legs up to a tier, best first; mutual: skip a leg another open round trip fits better
+    const legsOf=(p,tier,open)=>existing.filter(t=>!used.has(t.id)).map(t=>({t,f:fitOf(t,p)})).filter(x=>x.f&&x.f.tier<=tier)
+      .filter(x=>!open||!open.some(q=>{if(q===p)return false;const g=fitOf(x.t,q);return g&&better(g,x.f)<0;}))
+      .sort((a,b)=>better(a.f,b.f)).slice(0,16);
+    // the best-first set of legs whose sizes add up to exactly need, or null
+    const fit=(legs,need)=>{const pick=[];const go=(i,left)=>{if(!left)return true;if(i>=legs.length)return false;
+      const s=+legs[i].t.size||1;if(s<=left){pick.push(legs[i]);if(go(i+1,left-s))return true;pick.pop();}return go(i+1,left);};
+      return go(0,need)?pick:null;};
+    // a leg matched a whole number of hours away is reported with that shift (each scale-out leg has
+    // its own exit, so re-checking it against the round trip's last exit would miss it)
+    const claim=(p,legs)=>legs.forEach(({t,f})=>{
+      used.add(t.id);
+      if(f.tier===2)result.tzDrift.push({id:t.id,date:t.date,symbol:t.symbol,saved:t.entryTime+(t.exitTime?'-'+t.exitTime:''),file:p.entryTime+(p.exitTime?'-'+p.exitTime:''),hours:f.h});
+      if(feesComplete){const nf=+(feePerContract*(+t.size||1)).toFixed(2);if(Math.abs((+t.fees||0)-nf)>0.005)result.feeUpdates.push({id:t.id,fees:nf,trade:t});}
+    });
+    // Pass 1, best fit first: every round trip claims its exact copies before any round trip may take
+    // a looser one, and a leg another open round trip fits better is left for that one - so a trade
+    // the journal lacks can never take its neighbour's copy (and get the neighbour re-created).
+    let pending=trades_.slice();
+    for(let tier=0;tier<=3;tier++){
+      for(let moved=true;moved;){
+        moved=false;
+        for(const p of pending.slice()){
+          const pick=fit(legsOf(p,tier,pending),p.size);
+          if(pick){claim(p,pick);pending=pending.filter(q=>q!==p);moved=true;}
         }
-      });
-    } else if(trades_.length){
-      // Create trades — distribute fees properly
-      const totalFees=dayInfo?(dayInfo.exch+dayInfo.comm+dayInfo.nfa+dayInfo.clearing):0;
-      const totalContracts=trades_.reduce((s,t)=>s+t.size,0)||1;
-      const feePerContract=totalFees/totalContracts;
-      trades_.forEach(p=>{
+      }
+    }
+    // Pass 2: the same without the better-owner rule (that owner turned out to have no full copy).
+    for(const p of pending.slice()){const pick=fit(legsOf(p,3,null),p.size);if(pick){claim(p,pick);pending=pending.filter(q=>q!==p);}}
+    // Pass 3: the rest. A journal copy of another size or direction is reported, never rewritten;
+    // a round trip with no journal copy at all is created. Nothing here goes by time order:
+    // (a) every leftover leg that still fits a round trip in its own direction goes to the one it
+    // fits best, and those round trips are reported as a different size; (b) a round trip whose own
+    // copy went to another's report is reported too, never re-created; (c) only then may a leg nobody
+    // fits count as the same trade saved the other way; (d) the rest is created.
+    const toCreate=[],owner=new Map();
+    const flag=(p,legs)=>{legs.forEach(t=>used.add(t.id));
+      result.pdfFlags.push({date,symbol:useSym,stmt:p.dir+' '+p.size+' @ '+(+p.entry.toFixed(2))+' - '+(+p.exit.toFixed(2))+' '+p.entryTime,
+        journal:legs.map(t=>t.type+' '+(t.size||1)+' @ '+t.entry+' - '+t.exit+(t.entryTime?' '+t.entryTime:'')).join(' + ')});};
+    existing.filter(t=>!used.has(t.id)).forEach(t=>{let bp=null,bf=null;
+      pending.forEach(p=>{const f=fitOf(t,p);if(f&&(!bf||better(f,bf)<0)){bp=p;bf=f;}});if(bp)owner.set(t.id,{p:bp,t});});
+    const parts=new Map();owner.forEach(({p,t})=>{if(!parts.has(p))parts.set(p,[]);parts.get(p).push(t);});
+    pending.forEach(p=>{if(parts.has(p))flag(p,parts.get(p));});
+    pending.filter(p=>!parts.has(p)).forEach(p=>{
+      const lost=[...owner.values()].filter(o=>o.p!==p&&fitOf(o.t,p)).map(o=>o.t);
+      if(lost.length){flag(p,lost);return;}
+      const w=win(p),lo=Math.min(p.eLo,p.xLo),hi=Math.max(p.eHi,p.xHi);
+      const clash=existing.filter(t=>{if(used.has(t.id)||t.type===p.dir||!inPx(+t.entry,lo,hi,tick)||!inPx(+t.exit,lo,hi,tick))return false;
+        const m=mins(t.entryTime);return m==null||w.pe==null||(m>=w.pe-1&&m<=w.hi+1);});
+      if(!clash.length){toCreate.push(p);return;}
+      flag(p,clash);
+    });
+    if(toCreate.length){
+      toCreate.forEach(p=>{
         const fees=+(feePerContract*p.size).toFixed(2);
         const calc=tradeCalc(useSym,p.dir,p.entry,p.exit,p.size,fees);
         result.batch.push({
@@ -4741,18 +4837,6 @@ async function importPDF(file,opts){
           orderId:p.orderId||'',
           source:'PDF Statement',assetType:'futures'
         });
-      });
-    }
-    // Apply fee updates to existing trades from Daily Activity
-    if(existing.length&&dayInfo){
-      const totalFees=dayInfo.exch+dayInfo.comm+dayInfo.nfa+dayInfo.clearing;
-      const totalContracts=existing.reduce((s,t)=>s+(t.size||1),0)||1;
-      const feePerContract=totalFees/totalContracts;
-      existing.forEach(t=>{
-        const newFee=+(feePerContract*(t.size||1)).toFixed(2);
-        if(Math.abs((t.fees||0)-newFee)>0.005){
-          result.feeUpdates.push({id:t.id,fees:newFee,trade:t});
-        }
       });
     }
   });
@@ -5070,7 +5154,7 @@ function importCSV(text,label,opts){
       const side=bs.startsWith('b')||bs==='long'?'BUY':'SELL';
       // Try 'Product' column first (already base symbol like 'MES'), fall back to 'Contract' (like 'MESM6')
       const symRaw=gc2(row,['product','symbol','contract','instrument'])||'';
-      const sym=getBase(symRaw);if(!sym)continue;
+      const sym=futRoot(symRaw);if(!sym)continue;
       // Date: try 'Fill Time' or 'Timestamp' (full datetime) first, then 'Date'
       const dtRaw=gc2(row,['fill time','filltime','filledtime','timestamp','time','date']);
       const date=parseDate(dtRaw);if(!date)continue;
@@ -5124,8 +5208,11 @@ function importCSV(text,label,opts){
     if(Z.ask)return held(Z);
     for(let i=1;i<lines.length;i++){
       const row=parseLine(lines[i]);if(row.length<10)continue;
-      const sym=getBase(gc2(row,['symbol','product'])||'MES')||'MES';
-      const useSym=PRESETS[sym]?sym:'MES';
+      // symbol column holds the contract code (MESM6, MNQM6); futRoot gives the root. A root with
+      // no contract spec here (e.g. M2K) keeps its own name - it used to become MES, which is how
+      // every MNQ row of a Performance CSV was saved as an MES trade.
+      const sym=futRoot(gc2(row,['symbol','product'])||'MES')||'MES';
+      const useSym=sym;
       const qty=parseInt(gc2(row,['qty','quantity'])||'1')||1;
       const buyR=parseFloat(gc2(row,['buyprice','buy price'])||'NaN');
       const sellR=parseFloat(gc2(row,['sellprice','sell price'])||'NaN');
@@ -5253,8 +5340,9 @@ function importCSV(text,label,opts){
     if(Z.ask)return held(Z);
     for(let i=1;i<lines.length;i++){
       const row=parseLine(lines[i]);if(row.length<20)continue;
-      const sym=getBase(gc2(row,['product','contract'])||'MES')||'MES';
-      const useSym=PRESETS[sym]?sym:'MES';
+      // Product is already the root; Contract (MESM6) is the fallback, so it goes through futRoot too
+      const sym=futRoot(gc2(row,['product','contract'])||'MES')||'MES';
+      const useSym=sym;
       const qty=parseInt(gc2(row,['pairedqty','paired qty','qty','quantity'])||'1')||1;
       const buyFillId=gc2(row,['buyfillid','buy fill id'])||'';
       const sellFillId=gc2(row,['sellfillid','sell fill id'])||'';
@@ -5326,8 +5414,9 @@ function importCSV(text,label,opts){
   const batch=[],merges=[],drift=[];let skipped=0;
   for(let i=1;i<lines.length;i++){
     const row=parseLine(lines[i]);if(row.length<4)continue;
-    const rawSym=gc2(row,['symbol','instrument'])||'MES',base=getBase(rawSym);
-    const sym=PRESETS[base]?base:(rawSym.toUpperCase().slice(0,6));
+    const rawSym=gc2(row,['symbol','instrument'])||'MES',base=futRoot(rawSym);
+    // a futures contract code keeps its root; anything else (a stock ticker) is kept as written
+    const sym=(PRESETS[base]||base!==getBase(rawSym))?base:(rawSym.toUpperCase().slice(0,6));
     const qty=parseInt(gc2(row,['qty','quantity','contracts','size','shares']))||1;
     const buyR=parseFloat(gc2(row,['buyprice','buy price'])),sellR=parseFloat(gc2(row,['sellprice','sell price']));
     const entR=parseFloat(gc2(row,['entryprice','entry price','avg entry','entry','open'])),extR=parseFloat(gc2(row,['exitprice','exit price','avg exit','exit','close']));
@@ -12599,11 +12688,11 @@ function _hmRenderHome(content){
 let _impResult=null;   // {results:[...], fillUTC, lastTz, total, running, error}
 const _impIsPdf=f=>f.name.toLowerCase().endsWith('.pdf')||f.type==='application/pdf';
 async function _impRunOne(f,text,opts){const r=_impIsPdf(f)?await importPDF(f,opts):importCSV(text,f.name,opts);r.label=f.name;return r;}
-function _impSummary(f,r){return{name:f.name,type:r.type,imported:r.imported||0,skipped:r.skipped||0,merged:r.merged||0,merges:r.merges||[],feeUpdates:r.feeUpdates||[],balRows:r.balRows||[],tzNote:r.tzNote||null,tzDrift:r.tzDrift||[]};}
+function _impSummary(f,r){return{name:f.name,type:r.type,imported:r.imported||0,skipped:r.skipped||0,merged:r.merged||0,merges:r.merges||[],feeUpdates:r.feeUpdates||[],balRows:r.balRows||[],tzNote:r.tzNote||null,tzDrift:r.tzDrift||[],pdfFlags:r.pdfFlags||[]};}
 function _impStats(L){
   let tot=0,totS=0,totM=0,totF=0;const held=L.results.filter(r=>r.ask).length;
   L.results.forEach(r=>{if(r.ask)return;tot+=r.imported||0;totS+=r.skipped||0;totM+=r.merged||0;totF+=(r.feeUpdates||[]).length;});
-  return{tot,totS,totM,totF,held,drift:L.results.some(r=>(r.tzDrift||[]).length)};
+  return{tot,totS,totM,totF,held,drift:L.results.some(r=>(r.tzDrift||[]).length||(r.pdfFlags||[]).length)};
 }
 function _impAskHtml(a,i,lastTz,busy){
   const best=a.rank&&a.rank[0],mine=a.rank&&a.rank.find(x=>x.tz===a.pick);
@@ -12617,6 +12706,11 @@ function _impAskHtml(a,i,lastTz,busy){
 }
 function _impDriftHtml(d){
   return d.length?`<div style="margin-top:4px;padding:5px 10px;background:color-mix(in srgb,var(--yellow) 10%,transparent);font-size:var(--fsxs);color:var(--yellow);line-height:1.7">⚠ ${d.length} trade${d.length===1?' is':'s are'} already in your journal with times a whole number of hours away from this file, so ${d.length===1?'it was':'they were'} probably saved in the wrong time zone. Nothing was changed. Fix them in each trade's edit window.<br>${d.slice(0,8).map(x=>`${x.date} ${x.symbol}: saved ${x.saved}, this file says ${x.file} Eastern (${x.hours>0?'+':''}${x.hours}h)`).join('<br>')}${d.length>8?'<br>… and '+(d.length-8)+' more':''}</div>`:'';
+}
+// A PDF statement round trip the journal holds in another size or direction: reported, never rewritten.
+function _impPdfFlagHtml(d){
+  const esc=s=>String(s).replace(/</g,'&lt;');
+  return d.length?`<div style="margin-top:4px;padding:5px 10px;background:color-mix(in srgb,var(--yellow) 10%,transparent);font-size:var(--fsxs);color:var(--yellow);line-height:1.7">⚠ ${d.length} statement trade${d.length===1?' does':'s do'} not match the journal copy (different size or direction). Nothing was changed and nothing was added for ${d.length===1?'it':'them'}. Check ${d.length===1?'it':'them'} in each trade's edit window.<br>${d.slice(0,8).map(x=>`${esc(x.date)} ${esc(x.symbol)}: statement ${esc(x.stmt)}, journal ${esc(x.journal)}`).join('<br>')}${d.length>8?'<br>… and '+(d.length-8)+' more':''}</div>`:'';
 }
 // Paint the stored result into one #import-result box (the gear pane and the fallback tab each have one).
 function _impPaintInto(rd){
@@ -12636,7 +12730,7 @@ function _impPaintInto(rd){
       const bd=(r.balRows||[]).length?`<div style="margin-top:4px;padding:5px 10px;background:var(--bg2);font-size:var(--fsxs);color:var(--blue)">📈 ${r.balRows.length} balance entries added to chart</div>`:'';
       const tzd=tzl?`<div style="margin-top:4px;padding:5px 10px;background:var(--bg2);font-size:var(--fsxs);color:var(--text4)">🕒 ${tzl}</div>`:'';
       const nc=noChanges?`<div style="margin-top:4px;padding:5px 10px;background:color-mix(in srgb,var(--yellow) 10%,transparent);font-size:var(--fsxs);color:var(--yellow)">⚠ No changes — file recognized as <b>${r.type}</b> but ${r.type==='cash'?'no fees or deposits matched existing trades':r.type==='orders'?'no orders matched existing trades by symbol+date':r.type==='balance_history'?'balance rows added to chart only (no trade changes expected)':'all data was duplicates or did not match'}.<br>Try importing Position History first, then this file.</div>`:'';
-      return`<div style="border-top:1px solid var(--border);padding:6px 0"><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><span style="color:var(--text3)">${r.name}</span><span class="tag">${r.type}</span>${r.imported?`<span style="color:var(--green)">+${r.imported} new</span>`:''}${r.merged?`<span style="color:var(--yellow)">~${r.merged} merged</span>`:''}${r.skipped?`<span style="color:var(--text5)">${r.skipped} dupe</span>`:''}${noChanges?`<span style="color:var(--yellow)">⚠ no changes</span>`:''}</div>${tzd}${md}${fd2}${bd}${_impDriftHtml(r.tzDrift||[])}${nc}</div>`;
+      return`<div style="border-top:1px solid var(--border);padding:6px 0"><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><span style="color:var(--text3)">${r.name}</span><span class="tag">${r.type}</span>${r.imported?`<span style="color:var(--green)">+${r.imported} new</span>`:''}${r.merged?`<span style="color:var(--yellow)">~${r.merged} merged</span>`:''}${r.skipped?`<span style="color:var(--text5)">${r.skipped} dupe</span>`:''}${noChanges?`<span style="color:var(--yellow)">⚠ no changes</span>`:''}</div>${tzd}${md}${fd2}${bd}${_impDriftHtml(r.tzDrift||[])}${_impPdfFlagHtml(r.pdfFlags||[])}${nc}</div>`;
     }).join('');
 }
 // Every live box, looked up at paint time - never a box captured when the drop started.

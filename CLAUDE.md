@@ -439,6 +439,10 @@ shipped in v53.3 (an opening HTML tag missing its closing `>` immediately follow
   prints GMT; the importer resolves each file's zone (Fills fill ids > EXPORT TIME ZONE pick >
   market hours > ask) before saving. Never save an import timestamp as printed, and never build
   it with `new Date(y,m,d,h,...)` - that is the device's zone. Use `_impStamp` / `_impET`.
+  The same probe (2026-09-30) also holds two more import rules: every saved futures symbol is the
+  contract ROOT via `futRoot` (MESM6 -> MES; never `getBase`, which keeps the whole code), and a PDF
+  statement reconciles ONE-TO-ONE with the journal and never rewrites a journal trade (it adds what
+  is missing, sets fee per contract x size, and reports a size/direction mismatch as `pdfFlags`).
 
 ## Working style the user likes
 Iterative, version-bumped releases (`__version__`), each targeting specific bugs/features.

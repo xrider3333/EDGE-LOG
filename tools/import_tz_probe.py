@@ -38,14 +38,32 @@ WHAT IT ASSERTS
   * a journal trade already saved 3 hours late is FLAGGED when the same trade is re-imported,
     and not rewritten
   * the Fills export itself is read as the source of absolute times
+  * every saved SYMBOL is the contract root (MES / MNQ), never the contract code a file carries
+    (MESM6 / MNQM6 / MNQH6): Position History with and without its Product column, Performance,
+    the PDF statement, a generic CSV (where a stock ticker must stay as written), and the root
+    helper itself on a table of codes
+  * a PDF statement for a day the journal already holds is merged, not saved a second time, and
+    its fee summary reaches the trades it creates
+  * a PDF statement NEVER rewrites a journal trade: a scale-out the journal holds as two 1-lot legs,
+    two trades a tick apart, and a same-price trade the other way all leave the journal untouched;
+    a trade the journal holds in another direction is reported, one it lacks is created, and every
+    fee is the statement's fee per contract x size
+  * the statement matches best fit first: a trade the journal lacks never takes its neighbour's copy
+    (a minute, an hour or a tick away, or an untimed copy), a reversal fill (long 1, sell 2) makes two
+    trades, a clearing fee is split across the day's symbols, and journal fees are left alone when
+    the statement cannot account for every contract it charged
+  * a roll day pairs each contract month apart, a copy of another size is reported against the
+    round trip it fits best (never by time order), and every scale-out leg saved in the wrong zone
+    is flagged
 
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks).
 
 Usage:
   python tools/import_tz_probe.py                # gates this repo's index.html
   python tools/import_tz_probe.py --file X.html  # gates X as if it were index.html
-  python tools/import_tz_probe.py --selftest     # asserts FAIL on the last build before the fix
-                                                 # (v73.885, from git history), PASS on this one
+  python tools/import_tz_probe.py --selftest     # asserts FAIL on every KNOWN_BAD build (v73.885
+                                                 # times, v73.944 symbols, from git history),
+                                                 # PASS on this one
 
 Stdlib only, plus a subprocess call to local Chrome.
 """
@@ -67,7 +85,10 @@ PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 
 # The last build before the fix: it saved printed wall-clock times as-is. --selftest asserts
 # this gate FAILS it.
-KNOWN_BAD = [('5326d02', '73.885', 'saved NinjaTrader export times exactly as printed')]
+KNOWN_BAD = [('5326d02', '73.885', 'saved NinjaTrader export times exactly as printed'),
+             ('8de5fcafbe5a82f9cef574244134204f9cbf4e27', '73.944',
+              'saved futures contract codes as symbols: PDF trades became MESM / MNQH and were saved '
+              'again beside the journal copy, Performance MNQ rows became MES')]
 
 # (symbol, direction, entry UTC, exit UTC, entry price, exit price, buy fill id, sell fill id)
 # Summer rows are EDT (UTC-4), the MNQ row is EST (UTC-5). Times are spread across the session so
@@ -120,7 +141,7 @@ def _legs(t):
     return (eu, xu, epx, xpx) if d == 'LONG' else (xu, eu, xpx, epx)
 
 
-def position_history(rows, disp):
+def position_history(rows, disp, product=True):
     hdr = ('Position ID,Timestamp,Trade Date,Net Pos,Net Price,Bought,Avg. Buy,Sold,Avg. Sell,Account,'
            'Contract,Product,Product Description,_priceFormat,_priceFormatType,_tickSize,Pair ID,'
            'Buy Fill ID,Sell Fill ID,Paired Qty,Buy Price,Sell Price,P/L,Currency,Bought Timestamp,'
@@ -134,7 +155,8 @@ def position_history(rows, disp):
         pl = (spx - bpx) * MULT[sym]
         out.append(','.join([
             str(880000 + i), f(close), et(_utc(eu)).strftime('%Y-%m-%d'), '0', '', '1', '%.2f' % bpx, '1',
-            '%.2f' % spx, 'DEMO123', sym + 'M6', sym, 'Micro contract', '-2', '0', '0.25', str(890000 + i),
+            '%.2f' % spx, 'DEMO123', sym + 'M6', sym if product else '', 'Micro contract', '-2', '0', '0.25',
+            str(890000 + i),
             bf, sf, '1', '%.2f' % bpx, '%.2f' % spx, '%.2f' % pl, 'USD', f(bu), f(su)]))
     return '\r\n'.join(out) + '\r\n'
 
@@ -176,6 +198,12 @@ def pdf_lines(rows):
     by_sym = {}
     for t in rows:
         by_sym.setdefault(t[0], []).append(t)
+    codes = {'MES': 'MESM6', 'MNQ': 'MNQH6'}
+    # Daily Activity Summary: "MM/DD/YYYY <contract>" then "<contracts> <exch> <comm> <nfa> <pnl> ..."
+    for sym, ts in by_sym.items():
+        for day in sorted(set(et(_utc(t[2])).strftime('%m/%d/%Y') for t in ts)):
+            lines.append('%s %s' % (day, codes[sym]))
+            lines.append('2 0.40 0.70 0.04 1.25 1,000.00 - -')
     names = {'MES': 'Micro E-mini S&P 500 - Jun. 2026 (MESM6)', 'MNQ': 'Micro E-mini Nasdaq-100 - Mar. 2026 (MNQH6)'}
     for sym, ts in by_sym.items():
         lines.append('Trading details for ' + names[sym])
@@ -191,12 +219,82 @@ def pdf_lines(rows):
 
 
 def truth(rows):
-    """{(date, entry price): (entry HH:MM, exit HH:MM, direction)} in New York time."""
+    """{(date, entry price): (entry HH:MM, exit HH:MM, direction, root symbol)} in New York time."""
     out = {}
     for sym, d, eu, xu, epx, xpx, bf, sf in rows:
         e, x = et(_utc(eu)), et(_utc(xu))
-        out[(e.strftime('%Y-%m-%d'), round(epx, 2))] = (e.strftime('%H:%M'), x.strftime('%H:%M'), d)
+        out[(e.strftime('%Y-%m-%d'), round(epx, 2))] = (e.strftime('%H:%M'), x.strftime('%H:%M'), d, sym)
     return out
+
+
+# futRoot table: contract code (or ticker) -> the symbol the journal must save
+ROOTS = {'MESM6': 'MES', 'MNQM6': 'MNQ', 'MNQH26': 'MNQ', 'ESZ5': 'ES', 'NQU26': 'NQ', '6EM6': '6E',
+         'M2KU6': 'M2K', 'MESZ2026': 'MES', 'MES 12-26': 'MES', 'mesm6': 'MES', 'MES': 'MES', 'NQ': 'NQ',
+         'AAPL': 'AAPL', 'TQQQ': 'TQQQ', 'SOXL': 'SOXL', 'VEEA': 'VEEA', 'BRK.B': 'BRK.B', 'QQQ': 'QQQ'}
+
+
+def generic_csv():
+    """A generic broker CSV: one futures contract code row and one stock row (times in Eastern)."""
+    return ('Symbol,Qty,Entry Price,Exit Price,Side,Entry Time,Exit Time\r\n'
+            'MESZ2026,1,6604.75,6605.00,Buy,04/07/2026 10:29:06,04/07/2026 10:31:40\r\n'
+            'AAPL,10,210.50,211.25,Buy,04/08/2026 15:10:01,04/08/2026 15:12:43\r\n')
+
+
+GENERIC_TRUTH = {('2026-04-07', 6604.75): ('10:29', '10:31', 'LONG', 'MES'),
+                 ('2026-04-08', 210.5): ('15:10', '15:12', 'LONG', 'AAPL')}
+
+
+RECON_DAY = '04/21/2026'   # EDT: GMT = New York + 4h
+
+
+def fill_lines(fills):
+    """Statement FILL lines from [(New York HH:MM:SS, 'B'|'S', qty, price[, MM/DD/YYYY])] (EDT)."""
+    out = ['Date & Time Code Buy Qty Sell Qty Filled Price Order_Id']
+    for i, f in enumerate(fills):
+        hms, side, qty, px = f[:4]
+        g = datetime.strptime((f[4] if len(f) > 4 else RECON_DAY) + ' ' + hms, '%m/%d/%Y %H:%M:%S') + timedelta(hours=4)
+        q = ('%d -' % qty) if side == 'B' else ('- %d' % qty)
+        out.append('%s(GMT) FILL %s %s 7,%03d,%03d' % (g.strftime('%m/%d/%Y %I:%M:%S %p'), q,
+                                                       ('%.2f' % px).rstrip('0').rstrip('.'), i, i * 7))
+    return out
+
+
+def pdf_day(fills, fee_total, acct='1810769', contracts=None):
+    """A one-day MES statement; the summary counts both sides of every contract, as NinjaTrader's does."""
+    return (['Daily Statement ' + RECON_DAY, 'Account Number: ' + acct, '%s MESM6' % RECON_DAY,
+             '%d %.2f 0.00 0.00 10.00 1,000.00 - -' % (contracts or sum(f[2] for f in fills), fee_total),
+             'Trading details for Micro E-mini S&P 500 - Jun. 2026 (MESM6)'] + fill_lines(fills))
+
+
+def pdf_two_symbols():
+    """MES and MNQ on one day with ONE clearing row: 1.52 each + clearing 0.76 split = 1.90 each."""
+    return (['Daily Statement ' + RECON_DAY, 'Account Number: 1810769',
+             '%s MESM6' % RECON_DAY, '2 -0.70 -0.78 -0.04 5.00 1,000.00 - -',
+             '%s MNQM6' % RECON_DAY, '2 -0.70 -0.78 -0.04 5.00 1,000.00 - -',
+             '%s Clearing_Fee' % RECON_DAY, '- - - - -0.76 -0.76 - -',
+             'Trading details for Micro E-mini S&P 500 - Jun. 2026 (MESM6)']
+            + fill_lines([('10:00:05', 'B', 1, 7000.00), ('10:02:05', 'S', 1, 7002.00)])
+            + ['Trading details for Micro E-mini Nasdaq-100 - Jun. 2026 (MNQM6)']
+            + fill_lines([('11:00:05', 'B', 1, 26000.00), ('11:02:05', 'S', 1, 26010.00)]))
+
+
+def jt(tid, typ, entry, exit_, e, x, size=1, **kw):
+    """A journal trade on RECON_DAY (MES, account 1810769, no fee yet)."""
+    t = {'id': tid, 'date': '2026-04-21', 'symbol': 'MES', 'type': typ, 'entry': entry, 'exit': exit_,
+         'size': size, 'entryTime': e, 'exitTime': x, 'fees': 0, 'account': '1810769'}
+    t.update(kw)
+    return t
+
+
+def pdf_roll():
+    """A roll day: MESM6 long and MESU6 short open at the same time (1.90 per round-trip contract)."""
+    return (['Daily Statement ' + RECON_DAY, 'Account Number: 1810769',
+             '%s MESM6' % RECON_DAY, '2 1.90 0.00 0.00 10.00 1,000.00 - -',
+             '%s MESU6' % RECON_DAY, '2 1.90 0.00 0.00 10.00 1,000.00 - -',
+             'Trading details for Micro E-mini S&P 500 - Jun. 2026 (MESM6)']
+            + fill_lines([('10:00:05', 'B', 1, 7000.00), ('10:05:00', 'S', 1, 7002.00)])
+            + ['Trading details for Micro E-mini S&P 500 - Sep. 2026 (MESU6)']
+            + fill_lines([('10:01:05', 'S', 1, 7050.00), ('10:06:00', 'B', 1, 7048.00)]))
 
 
 def fill_utc(rows):
@@ -239,6 +337,137 @@ def build_cases():
          'trades': [late], 'expect': 'drift'},
         {'name': 'fills-export', 'kind': 'csv', 'text': fills(all_rows, pt), 'opts': {'tz': 'auto'},
          'expect': 'fills', 'n': 2 * len(all_rows)},
+        {'name': 'ph-contract-only', 'kind': 'csv', 'text': position_history(TRADES, et, product=False),
+         'opts': {'tz': 'America/New_York'}, 'expect': 'rows', 'truth': truth(TRADES)},
+        {'name': 'generic-root-and-stock', 'kind': 'csv', 'text': generic_csv(),
+         'opts': {'tz': 'America/New_York'}, 'expect': 'rows', 'truth': GENERIC_TRUTH},
+        {'name': 'pdf-fees', 'kind': 'pdf', 'lines': pdf_lines(TRADES), 'opts': {'tz': 'auto'},
+         'expect': 'rows', 'truth': truth(TRADES), 'fees': True},
+        {'name': 'pdf-merges-journal-day', 'kind': 'pdf', 'lines': pdf_lines(TRADES), 'opts': {'tz': 'auto'},
+         'trades': [dict(late, id='probe-journal', entryTime=e0.strftime('%H:%M'), exitTime=x0.strftime('%H:%M'))],
+         'expect': 'pdfmerge', 'skip_date': e0.strftime('%Y-%m-%d'), 'n': len(TRADES) - 1},
+        {'name': 'root-table', 'kind': 'roots', 'inputs': list(ROOTS), 'expect': 'roots'},
+        # --- PDF statement vs the journal: match one-to-one, never rewrite (3.80 over 2 contracts) ---
+        {'name': 'pdf-scaleout-legs', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 2, 7000.00), ('10:05:10', 'S', 1, 7002.00),
+                           ('10:10:20', 'S', 1, 7004.00)], 3.80),
+         'trades': [jt('leg-a', 'LONG', 7000.00, 7002.00, '10:00', '10:05'),
+                    jt('leg-b', 'LONG', 7000.00, 7004.00, '10:00', '10:10')],
+         'rows': [], 'flags': 0, 'fees': {'leg-a': 1.90, 'leg-b': 1.90}},
+        {'name': 'pdf-tick-apart', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:30:05', 'B', 1, 6604.75), ('10:31:40', 'S', 1, 6605.00),
+                           ('10:40:05', 'B', 1, 6605.00), ('10:45:30', 'S', 1, 6605.25)], 3.80),
+         'trades': [jt('tick-1', 'LONG', 6604.75, 6605.00, '10:30', '10:31'),
+                    jt('tick-2', 'LONG', 6605.00, 6605.25, '10:40', '10:45')],
+         'rows': [], 'flags': 0, 'fees': {'tick-1': 1.90, 'tick-2': 1.90}},
+        {'name': 'pdf-opposite-missing', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('11:00:10', 'S', 1, 6700.00), ('11:01:50', 'B', 1, 6698.00),
+                           ('11:02:10', 'B', 1, 6699.00), ('11:04:00', 'S', 1, 6700.00)], 3.80),
+         'trades': [jt('long-only', 'LONG', 6699.00, 6700.00, '11:02', '11:04')],
+         'rows': [('SHORT', 6700.00, '11:00', 1.90)], 'flags': 0, 'fees': {'long-only': 1.90}},
+        {'name': 'pdf-direction-differs', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('09:45:00', 'S', 1, 6750.00), ('09:47:00', 'B', 1, 6751.00)], 1.90),
+         'trades': [jt('wrong-way', 'LONG', 6750.00, 6751.00, '09:45', '09:47')],
+         'rows': [], 'flags': 1, 'fees': {}},
+        {'name': 'pdf-partial-day', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 6800.00), ('10:02:05', 'S', 1, 6802.00),
+                           ('10:20:05', 'B', 1, 6810.00), ('10:22:05', 'S', 1, 6812.00)], 3.80),
+         'trades': [jt('held', 'LONG', 6800.00, 6802.00, '10:00', '10:02')],
+         'rows': [('LONG', 6810.00, '10:20', 1.90)], 'flags': 0, 'fees': {'held': 1.90}},
+        {'name': 'pdf-journal-3h-late', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 6900.00), ('10:02:05', 'S', 1, 6901.00)], 1.90),
+         'trades': [jt('late3', 'LONG', 6900.00, 6901.00, '13:00', '13:02')],
+         'rows': [], 'flags': 0, 'fees': {'late3': 1.90}, 'drift': ['late3']},
+        {'name': 'pdf-other-account', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 6950.00), ('10:02:05', 'S', 1, 6951.00)], 1.90),
+         'trades': [jt('other-acct', 'LONG', 6950.00, 6951.00, '10:00', '10:02', account='DEMO999')],
+         'rows': [('LONG', 6950.00, '10:00', 1.90)], 'flags': 0, 'fees': {}},
+        # --- review 2026-09-30: best fit first, reversals, clearing, incomplete days ---
+        {'name': 'pdf-reversal-journal', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 7000.00), ('10:05:00', 'S', 2, 7005.00),
+                           ('10:08:00', 'B', 1, 7003.00)], 3.80),
+         'trades': [jt('rv-long', 'LONG', 7000.00, 7005.00, '10:00', '10:05'),
+                    jt('rv-short', 'SHORT', 7005.00, 7003.00, '10:05', '10:08')],
+         'rows': [], 'flags': 0, 'fees': {'rv-long': 1.90, 'rv-short': 1.90}},
+        {'name': 'pdf-reversal-empty', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 7000.00), ('10:05:00', 'S', 2, 7005.00),
+                           ('10:08:00', 'B', 1, 7003.00)], 3.80),
+         'trades': [], 'rows': [('LONG', 7000.00, '10:00', 1.90), ('SHORT', 7005.00, '10:05', 1.90)],
+         'flags': 0, 'fees': {}},
+        {'name': 'pdf-missing-hour-neighbour', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 6604.75), ('10:00:40', 'S', 1, 6605.00),
+                           ('11:00:05', 'B', 1, 6604.75), ('11:00:40', 'S', 1, 6605.00)], 3.80),
+         'trades': [jt('nb-11', 'LONG', 6604.75, 6605.00, '11:00', '11:00')],
+         'rows': [('LONG', 6604.75, '10:00', 1.90)], 'flags': 0, 'fees': {'nb-11': 1.90}},
+        {'name': 'pdf-missing-minute-neighbour', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 7000.00), ('10:00:50', 'S', 1, 7001.25),
+                           ('10:01:10', 'B', 1, 7000.25), ('10:01:40', 'S', 1, 7001.00)], 3.80),
+         'trades': [jt('mn-2', 'LONG', 7000.25, 7001.00, '10:01', '10:01')],
+         'rows': [('LONG', 7000.00, '10:00', 1.90)], 'flags': 0, 'fees': {'mn-2': 1.90}},
+        {'name': 'pdf-untimed-copy-first', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 7000.00), ('10:02:05', 'S', 1, 7002.00),
+                           ('11:30:05', 'B', 1, 7000.00), ('11:32:05', 'S', 1, 7002.00)], 3.80),
+         'trades': [jt('ut-none', 'LONG', 7000.00, 7002.00, None, None),
+                    jt('ut-10', 'LONG', 7000.00, 7002.00, '10:00', '10:02')],
+         'rows': [], 'flags': 0, 'fees': {'ut-none': 1.90, 'ut-10': 1.90}},
+        {'name': 'pdf-drift-next-to-neighbour', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 7000.00), ('10:01:30', 'S', 1, 7002.00),
+                           ('10:02:05', 'B', 1, 7000.00), ('10:03:30', 'S', 1, 7002.00)], 3.80),
+         'trades': [jt('sd-1', 'LONG', 7000.00, 7002.00, '13:00', '13:01'),
+                    jt('sd-2', 'LONG', 7000.00, 7002.00, '10:02', '10:03')],
+         'rows': [], 'flags': 0, 'fees': {'sd-1': 1.90, 'sd-2': 1.90}, 'drift': ['sd-1']},
+        {'name': 'pdf-two-lot-and-one-lot', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 2, 7000.00), ('10:00:30', 'S', 2, 7002.00),
+                           ('10:00:40', 'B', 1, 7000.00), ('10:00:55', 'S', 1, 7002.00)], 5.70),
+         'trades': [jt('one', 'LONG', 7000.00, 7002.00, '10:00', '10:00'),
+                    jt('two', 'LONG', 7000.00, 7002.00, '10:00', '10:00', size=2)],
+         'rows': [], 'flags': 0, 'fees': {'one': 1.90, 'two': 3.80}},
+        {'name': 'pdf-clearing-two-symbols', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_two_symbols(),
+         'trades': [jt('cl-mes', 'LONG', 7000.00, 7002.00, '10:00', '10:02', fees=1.90),
+                    jt('cl-mnq', 'LONG', 26000.00, 26010.00, '11:00', '11:02', fees=1.90, symbol='MNQ')],
+         'rows': [], 'flags': 0, 'fees': {}},
+        {'name': 'pdf-day-not-all-accounted', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('19:00:05', 'B', 1, 6990.00, '04/20/2026'), ('19:02:05', 'S', 1, 6991.00, '04/20/2026'),
+                           ('10:00:05', 'B', 1, 7000.00), ('10:02:05', 'S', 1, 7002.00)], 3.80),
+         'trades': [jt('rth', 'LONG', 7000.00, 7002.00, '10:00', '10:02')],
+         'rows': [('LONG', 6990.00, '19:00', 0.00)], 'flags': 0, 'fees': {}},
+        # --- review round 2: roll day, pass-3 ownership, drift per scale-out leg ---
+        {'name': 'pdf-roll-day-journal', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_roll(),
+         'trades': [jt('roll-m', 'LONG', 7000.00, 7002.00, '10:00', '10:05'),
+                    jt('roll-u', 'SHORT', 7050.00, 7048.00, '10:01', '10:06')],
+         'rows': [], 'flags': 0, 'fees': {'roll-m': 1.90, 'roll-u': 1.90}},
+        {'name': 'pdf-roll-day-empty', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_roll(), 'trades': [],
+         'rows': [('LONG', 7000.00, '10:00', 1.90), ('SHORT', 7050.00, '10:01', 1.90)], 'flags': 0, 'fees': {}},
+        {'name': 'pdf-missing-before-short-part', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 7000.00), ('10:00:40', 'S', 1, 7002.00),
+                           ('10:00:50', 'S', 2, 7002.00), ('10:01:10', 'B', 1, 7000.00),
+                           ('10:01:30', 'B', 1, 7000.25)], 5.70),
+         'trades': [jt('sp-1', 'SHORT', 7002.00, 7000.00, '10:00', '10:01')],
+         'rows': [('LONG', 7000.00, '10:00', 1.90)], 'flags': 1, 'fees': {}},
+        {'name': 'pdf-missing-before-long-part', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'S', 1, 7000.00), ('10:00:40', 'B', 1, 6999.00),
+                           ('10:01:00', 'B', 2, 6999.25), ('10:01:30', 'S', 2, 7000.25)], 5.70),
+         'trades': [jt('lp-1', 'LONG', 6999.25, 7000.25, '10:01', '10:01')],
+         'rows': [('SHORT', 7000.00, '10:00', 1.90)], 'flags': 1, 'fees': {}},
+        {'name': 'pdf-untimed-part-far', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 7000.00), ('10:00:40', 'S', 1, 7002.00),
+                           ('14:00:05', 'S', 2, 7002.00), ('14:02:05', 'B', 2, 7000.00)], 5.70),
+         'trades': [jt('uf-1', 'SHORT', 7002.00, 7000.00, None, None)],
+         'rows': [('LONG', 7000.00, '10:00', 1.90)], 'flags': 1, 'fees': {}},
+        {'name': 'pdf-one-copy-two-trades', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 7000.00), ('10:00:20', 'S', 1, 7002.00),
+                           ('10:00:30', 'B', 1, 7000.00), ('10:00:50', 'S', 1, 7002.00)], 3.80),
+         'trades': [jt('oc-2', 'LONG', 7000.00, 7002.00, '10:00', '10:00', size=2)],
+         'rows': [], 'flags': 2, 'fees': {}},
+        {'name': 'pdf-scaleout-legs-3h-late', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 2, 7000.00), ('10:05:10', 'S', 1, 7002.00),
+                           ('10:40:20', 'S', 1, 7004.00)], 3.80),
+         'trades': [jt('sl-a', 'LONG', 7000.00, 7002.00, '13:00', '13:05'),
+                    jt('sl-b', 'LONG', 7000.00, 7004.00, '13:00', '13:40')],
+         'rows': [], 'flags': 0, 'fees': {'sl-a': 1.90, 'sl-b': 1.90}, 'drift': ['sl-a', 'sl-b']},
     ]
 
 
@@ -268,16 +497,19 @@ var CASES=__CASES__;
       var c=CASES[i],r={};
       try{
         w.eval('trades='+JSON.stringify(c.trades||[])+';');
+        if(c.kind==='roots'){r.roots=c.inputs.map(function(s){try{return w.futRoot(s);}catch(e){return 'ERR '+e;}});out.cases[c.name]=r;continue;}
         var res;
         if(c.kind==='pdf'){fakePdf(w,c.lines);
           res=await w.importPDF(new w.File([new Uint8Array([37,80,68,70])],'probe.pdf',{type:'application/pdf'}),c.opts);}
         else res=w.importCSV(c.text,c.name+'.csv',c.opts);
         r.type=res.type;
-        r.rows=(res.batch||[]).map(function(t){return {date:t.date,sym:t.symbol,dir:t.type,entry:t.entry,exit:t.exit,e:t.entryTime,x:t.exitTime};});
+        r.rows=(res.batch||[]).map(function(t){return {date:t.date,sym:t.symbol,dir:t.type,entry:t.entry,exit:t.exit,e:t.entryTime,x:t.exitTime,fees:t.fees};});
         r.ask=res.tzAsk?{why:res.tzAsk.why}:null;
         r.note=res.tzNote?{how:res.tzNote.how,tz:res.tzNote.tz}:null;
         r.drift=(res.tzDrift||[]).map(function(d){return {id:d.id,hours:d.hours};});
         r.merges=(res.merges||[]).map(function(m){return m.updates;});
+        r.feeUps=(res.feeUpdates||[]).map(function(f){return {id:f.id,fees:f.fees};});
+        r.flags=(res.pdfFlags||[]).length;
         r.fills=res.fillUTC?Object.keys(res.fillUTC).length:null;
       }catch(e){r.err=String(e&&e.stack?e.stack:e);}
       out.cases[c.name]=r;
@@ -286,7 +518,7 @@ var CASES=__CASES__;
     finish('done');
   }
   document.getElementById('f').addEventListener('load',function(){setTimeout(function(){run().catch(function(e){out.err=String(e);finish('threw');});},2500);});
-  setTimeout(function(){finish('backstop');},14000);
+  setTimeout(function(){finish('backstop');},58000);
 })();
 </script>
 </body></html>
@@ -356,6 +588,51 @@ def judge(cases, data):
             if touched:
                 fails.append('%s: the import REWROTE saved times %s -- it may only flag them' % (nm, touched))
             continue
+        if exp == 'roots':
+            got_roots = r.get('roots') or []
+            if got_roots and all(str(g).startswith('ERR') for g in got_roots):
+                fails.append('%s: the contract-root helper is missing or throws -- %s' % (nm, got_roots[0][:120]))
+                continue
+            for inp, g in zip(c['inputs'], got_roots):
+                if g != ROOTS[inp]:
+                    fails.append('%s: %r saved as symbol %r, expected %r' % (nm, inp, g, ROOTS[inp]))
+            if len(got_roots) != len(c['inputs']):
+                fails.append('%s: %d of %d codes answered' % (nm, len(got_roots), len(c['inputs'])))
+            continue
+        if exp == 'pdfmerge':
+            rows = r.get('rows') or []
+            dup = [x for x in rows if x['date'] == c['skip_date']]
+            if dup:
+                fails.append('%s: the statement re-created %s %s, a day the journal already holds as MES '
+                             '(saved again as %s)' % (nm, c['skip_date'], dup[0]['dir'], dup[0]['sym']))
+            if len(rows) != c['n']:
+                fails.append('%s: %d trade(s) created for the other days, expected %d' % (nm, len(rows), c['n']))
+            continue
+        if exp == 'recon':
+            rows = r.get('rows') or []
+            got_rows = sorted((x['dir'], round(float(x['entry']), 2), x['e'], round(float(x.get('fees') or 0), 2))
+                              for x in rows)
+            want_rows = sorted((d, round(e, 2), hm, round(f, 2)) for d, e, hm, f in c['rows'])
+            if got_rows != want_rows:
+                fails.append('%s: created %s, expected %s' % (nm, got_rows or 'nothing', want_rows or 'nothing'))
+            bad = [x for x in rows if x['sym'] not in ('MES', 'MNQ')]
+            if bad:
+                fails.append('%s: created trades saved as symbol %s, expected MES' % (nm, bad[0]['sym']))
+            if r.get('merges'):
+                fails.append('%s: the statement REWROTE journal trades %s -- it may only add or report'
+                             % (nm, r['merges'][:3]))
+            if (r.get('flags') or 0) != c['flags']:
+                fails.append('%s: %s statement/journal mismatch(es) reported, expected %d'
+                             % (nm, r.get('flags'), c['flags']))
+            fu = dict((f['id'], round(float(f['fees']), 2)) for f in (r.get('feeUps') or []))
+            if fu != c['fees']:
+                fails.append('%s: journal fee updates %s, expected %s (the statement fee per contract x size)'
+                             % (nm, fu or 'none', c['fees'] or 'none'))
+            want_d = sorted(c.get('drift') or [])
+            got_d = sorted(d.get('id') for d in (r.get('drift') or []))
+            if got_d != want_d:
+                fails.append('%s: drift flagged on %s, expected %s' % (nm, got_d or 'nothing', want_d or 'nothing'))
+            continue
         if exp == 'fills':
             if r.get('fills') != c['n']:
                 fails.append('%s: expected %d absolute fill times read, got %s' % (nm, c['n'], r.get('fills')))
@@ -373,9 +650,14 @@ def judge(cases, data):
             if not want:
                 fails.append('%s: unexpected trade %s entry %s (date or entry price wrong)' % (nm, x['date'], x['entry']))
                 continue
-            if (x['e'], x['x'], x['dir']) != want:
+            if (x['e'], x['x'], x['dir']) != want[:3]:
                 fails.append('%s: %s %s %s saved %s-%s, true New York time is %s-%s'
                              % (nm, x['date'], x['sym'], x['dir'], x['e'], x['x'], want[0], want[1]))
+            if x['sym'] != want[3]:
+                fails.append('%s: %s %s saved as symbol %s, expected %s' % (nm, x['date'], x['dir'], x['sym'], want[3]))
+            if c.get('fees') and not (x.get('fees') or 0) > 0:
+                fails.append('%s: %s %s got no fee from the statement summary (fees=%s)'
+                             % (nm, x['date'], x['sym'], x.get('fees')))
         note = r.get('note') or {}
         if c.get('zone') and note.get('tz') and note.get('tz') != c['zone']:
             fails.append('%s: read as %s, expected %s' % (nm, note.get('tz'), c['zone']))
@@ -419,7 +701,7 @@ def main(argv=None):
     try:
         out = subprocess.run(
             [chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--user-data-dir=' + prof,
-             '--virtual-time-budget=15000', '--dump-dom',
+             '--virtual-time-budget=60000', '--dump-dom',
              'http://127.0.0.1:%d/%s/probe.html' % (srv.server_address[1], sub)],
             capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=120).stdout
     except Exception as e:
