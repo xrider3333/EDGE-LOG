@@ -1,0 +1,108 @@
+PRE-REGISTRATION - ROUND 6: REVERT r1 - fade a failed new high / low of the day
+price only on 16 years (standard stages), and with the NinjaTrader 10-second order flow as a FORWARD SHADOW
+=================================================================================================
+Written 2026-09-30 by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (owner ask via MANAGER inbox #10: scope
+new families on the 10-second delta capture) BEFORE any outcome of either rule was computed. Read beforehand,
+outcome-free only: capture coverage per session; the stamp convention (10-second bars are stamped at their END -
+rebuilt 5-minute bars match the ES 5-minute master's bar returns at correlation 0.975, NQ 0.9997); the September
+contract switch (2026-09-15 16:00 ET, after the close, no jump inside regular hours); the 5-minute delta-share
+distribution; and SIGNAL COUNTS (no forward return was computed). Harness: tools/rocfrontier/r6_revert.py.
+Results: C:\EdgeLog\_anatomy_cache\rocfrontier\r6\ and RESEARCH_LEDGER.md. Any change = a new file (r2).
+
+LANE CHECK. Other lanes use the capture AT THEIR OWN ENTRIES: NOISE round 64 (delta at the breakout, two forward
+shadows), ORB order flow at the breakout (15d4f938, with an absorption read on ORB breakouts added 4971bed5), TTM
+round 20 (fire-bar order flow), order-flow r1 (size rule on ORB #314 / NOISE #422). None trades order flow as its
+own family, and none fades. BOOK #463 is breakout / momentum legs (ORB, NOISE, 3 x ES TTM) plus ENGU-Q; a leg that
+earns when breakouts FAIL is the missing low-correlation piece - if it earns at all. The ledger (row 2.5) found
+intraday continuation beats reversion on NQ, so the plain fade is expected to be weak; the order-flow cells ask
+whether absorption marks the exceptions. Family = REVERT (house vocabulary; a fade back from a session extreme).
+
+MECHANISM. At a new high of the day, a 5-minute bar that closes DOWN while aggressive buyers still out-traded
+aggressive sellers (positive delta) means resting sellers absorbed the buying and still pushed price lower - a
+large passive seller (informed traders often trade with limit orders, Kaniel & Liu 2006; CME iceberg orders).
+Absorbed breakouts should fail more often than ordinary pullbacks. Mirror at a new low of the day.
+
+COMMON RULES (both parts)
+- Clock US/Eastern. Regular hours (RTH) = 09:30-16:00. 5-minute bars start at 09:30, 09:35, ...; a bar's close is
+  known at its start + 5 minutes. Decisions at a bar's close, fills at the next bar's open.
+- Signal bars: bar starts 10:00 through 15:25 (the opening half hour belongs to ORB's lane).
+- SHORT candidate at bar k: high_k above every earlier RTH high of the session (a new high of the day)
+  AND close_k < open_k.
+  LONG candidate at bar k: low_k below every earlier RTH low of the session AND close_k > open_k.
+- Entry: open of the next bar, 1 contract. If that open is already at or through the stop: no trade.
+- Stop: short = high_k + 1 tick; long = low_k - 1 tick (tick 0.25 on both). A bar that trades through the stop
+  exits at the stop, or at that bar's open if it opened through it.
+- Time exit: close of the 6th bar after the signal bar (30 minutes held), or the session's last RTH bar's close
+  if that comes first (shortened sessions). Nothing is held past the close.
+- LEG view (what would be traded): one position per market per rule; a candidate that appears before the open
+  position has exited is ignored (a signal at the exit bar's close is allowed). PER-SIGNAL view: every candidate
+  simulated as its own trade - used only for the tag test (F3, F4).
+- Costs per round trip: NQ 0.533 pt ($20/pt), ES 0.363 pt ($50/pt) (house: $5.66 commission / multiplier +
+  1 tick). Stress: +0.25 pt per round trip.
+- Yardstick (owner rule 2026-09-28): ROC %/yr at a $30,000 worst drawdown valued daily = 30 x MAR,
+  MAR = (net / years) / worst drawdown of the daily P&L (every trade closes the same day, so daily = closed).
+  Sortino = mean / RMS of the negative daily P&L x sqrt(252), zero days included (the frontier lane's so()).
+
+PART P - price only (REVERT rejection fade), long history, the standard stages
+- Data: the house roll-corrected RTH masters (ADJ; registry ids NQ 5m RTH 73, ES 5m RTH 63). They are
+  back-adjusted by constant offsets, so intraday point P&L equals the traded contract's, and contract switches
+  fall at 19:00-20:00 ET, never inside RTH. Candidate arrays are cut to bars before 2025-06-30 BEFORE any signal
+  is computed; the lockbox (2025-06-30 -> 2026-06-30, BOOK #463's) is read only by Stage B, only after an A2 pass.
+- Cells: P-NQ, P-ES (primary). Control, never a pass route: the continuation mirror (buy the new-high bar that
+  closed down with the stop at low_k - 1 tick; sell the new-low bar that closed up with the stop at
+  high_k + 1 tick), same exits.
+- Stretches: EARLY = first bar -> 2016-06-30 (sign check). WF = 2016-07-01 -> 2025-06-29.
+- Family-wide null: every leg trade's gross point P&L gets a random sign, the cost is re-applied; the statistic
+  is the MAX over the two cells of the WF per-trade t; 500 replicates.
+- STAGE A - a cell passes only if ALL hold on WF:
+    a. >= 100 trades                          e. net > 0 at +0.25 pt per round trip
+    b. ROC @ $30k DD >= 15 %/yr               f. profitable without its single biggest trade
+    c. profit factor >= 1.10                  g. positive in >= 60% of its WF calendar years
+    d. t >= 2.0 AND above the null max's 95th percentile   h. EARLY net > 0
+- STAGE A2 - book add, pre-lockbox only: the Stage-A pass with the higher WF ROC @ $30k (both markets together as
+  one leg if both pass) added to BOOK #463's legs (daily P&L of job EmzbSsewQJ6TjEaaO4ea valued daily,
+  2010-06-07 -> 2025-06-29: C:\EdgeLog\_anatomy_cache\rocfrontier\r4\book463_daily.csv, which reproduces the
+  frontier lane's 60.34 / 3.153) at c in {1, 2, 3} contracts; c = the one with the highest book pre
+  ROC @ $30k, then frozen. Passes only if book pre ROC @ $30k >= 63.36 (1.05 x 60.34) AND book pre
+  Sortino >= 3.153.
+- STAGE B - lockbox, read ONCE per A2 pass: book LB ROC @ $30k >= 164.76 AND LB Sortino >= 4.150 AND the book's
+  LB net without its single biggest trade > 0 AND the leg's own LB net > 0 on >= 50 LB trades.
+- STAGE C - a strategy file with open ranges, parity with this harness, and ONE Auto-Validate at the 900-trial
+  budget (pinned window, same lockbox); then the RUNBOARD watch list and MANAGER. The owner decides.
+  Zero passes at a stage = Part P dead; ledger + memory; the lockbox stays sealed for it.
+
+PART F - with order flow (REVERT absorption), the NinjaTrader 10-second capture, FORWARD SHADOW ONLY
+- Data: C:\EdgeLog\ohlc\NQ_10s.csv and ES_10s.csv (chart capture, front-month outright, UTC seconds stamped at
+  the bar END: stamp T covers [T - 10 s, T)). 5-minute bars are rebuilt from the 10-second bars (open = first,
+  high = max, low = min, close = last) and run through the COMMON RULES unchanged.
+- Usable session: >= 2,000 RTH 10-second bars, >= 80% of them with buy_vol + sell_vol > 0 (NOISE round 64's
+  rule), and no 10-second open more than 0.5% away from the prior close inside RTH (a contract switch). Decided
+  from coverage alone; only sessions dated before the day of the read count (a session must be complete).
+- Delta share of a 5-minute bar: DS = sum(delta) / sum(buy_vol + sell_vol) over its 10-second bars; undefined if
+  that sum is 0 or fewer than 80% of its volume-bearing 10-second bars carry buy + sell > 0. Only the SIGN of DS is
+  used (Tick-Replay backfill gets the direction right and magnitudes only roughly).
+- Variant (absorption) = a candidate whose DS opposes the push: SHORT candidates with DS > 0, LONG candidates with
+  DS < 0. Twin = the same rule on the same capture bars without the DS condition (every candidate).
+- Cells F-NQ and F-ES, judged POOLED (one leg per market, 1 contract each, P&L summed by day over the usable
+  sessions) plus a per-market direction check.
+- HISTORICAL READ (usable sessions 2026-06-24 -> 2026-09-29, about 45 per market): DESCRIPTIVE ONLY. It prints the
+  forward bar's quantities for the record and decides nothing; the shadow runs regardless. (Signal counts seen:
+  about 0.8 absorption candidates per session on NQ, 1.0 on ES, before the one-position rule.)
+- FORWARD SHADOW - the real test. From 2026-10-01 the capture keeps accumulating and the harness scores it after
+  the fact; nothing live changes. Until the read, the harness prints trade COUNTS only. Read ONCE, when the pooled
+  variant legs have >= 150 trades on usable forward sessions (estimate 5-7 months; sooner if Paper: NT8 fixes the
+  live delta dropouts), not before. PASS only if ALL hold on the forward sessions alone:
+    F1. the variant legs beat the twin legs on ROC @ $30k AND on Sortino (same sessions, pooled);
+    F2. variant net > 0 after cost, > 0 at +0.25 pt, and > 0 without its single biggest trade;
+    F3. per-signal view: the variant candidates' mean $ is at or above the 95th percentile of 2,000 within-session
+        random same-size draws from the twin's candidates that have a defined DS (the tag must beat its shape);
+    F4. per market: the variant's per-signal mean $ is above the twin's, on NQ and on ES separately;
+    F5. binding if BOOK #463's forward daily P&L exists by then (paper nightly book or a re-run): #463 plus the
+        variant at 1 contract per market has a higher ROC @ $30k AND Sortino than #463 alone on the same days;
+        otherwise it is reported as not available.
+  A pass earns a no-order paper shadow leg on the live capture plus an owner call - never an adoption from this
+  read. A fail = the order-flow variant is dead for this family.
+
+INDEPENDENCE. Part P's verdict cannot change Part F's bar or read point, and Part F's historical read cannot change
+Part P. Anything else noticed (other hold times, thresholds on |DS|, the first half hour, other markets) is
+post-hoc and can only become its own later pre-registration.
