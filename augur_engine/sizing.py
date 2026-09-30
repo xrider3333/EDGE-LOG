@@ -11,6 +11,10 @@ Rules (multiplicative, all optional) — each is an independent, validated ORB e
   • side_tilt    size ∝ long_w / short_w — ORB shorts carry the edge; longs are ~deadweight.     (ORB.md §4.11)
 
 On NQ 5m RTH these stack: baseline lockbox MAR 6.9 → time×rp 12.7 → +short-tilt 15.0.
+RETRACTED FOR THE LEGAL ORB CROWN (2026-09-28): those figures came from the voided ORB 3.x touch-entry
+base. On crown #314 at a $30k drawdown the walk-forward ROC is raw 35.3%/yr, risk parity 34.9, time tilt
+25.6, both 29.3, and the lockbox is worse for all three (tools/fixed_sizing_r1.py). The helpers stay for
+reproduction; do not treat these rules as validated ORB edges.
 MAR = net PnL ÷ |max drawdown| — the drawdown-adjusted return you actually size on.
 """
 import numpy as np
