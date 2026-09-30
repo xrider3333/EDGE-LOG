@@ -55,6 +55,9 @@ WHAT IT ASSERTS
   * a roll day pairs each contract month apart, a copy of another size is reported against the
     round trip it fits best (never by time order), and every scale-out leg saved in the wrong zone
     is flagged
+  * fills pair across New York midnight (an evening trade is one trade, dated by its entry), a
+    position carried in or still open is reported and never paired into a made-up trade, and two
+    scale-outs in one minute never swap legs
 
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks).
 
@@ -259,9 +262,12 @@ def fill_lines(fills):
     return out
 
 
-def pdf_day(fills, fee_total, acct='1810769', contracts=None):
-    """A one-day MES statement; the summary counts both sides of every contract, as NinjaTrader's does."""
-    return (['Daily Statement ' + RECON_DAY, 'Account Number: ' + acct, '%s MESM6' % RECON_DAY,
+def pdf_day(fills, fee_total, acct='1810769', contracts=None, flat=False):
+    """A one-day MES statement; the summary counts both sides of every contract, as NinjaTrader's does.
+    flat=True prints the "No Open Trade Equity" line a statement carries when it ends flat."""
+    return (['Daily Statement ' + RECON_DAY, 'Account Number: ' + acct]
+            + (['Open Trade Equity', 'No Open Trade Equity'] if flat else [])
+            + ['%s MESM6' % RECON_DAY,
              '%d %.2f 0.00 0.00 10.00 1,000.00 - -' % (contracts or sum(f[2] for f in fills), fee_total),
              'Trading details for Micro E-mini S&P 500 - Jun. 2026 (MESM6)'] + fill_lines(fills))
 
@@ -468,6 +474,57 @@ def build_cases():
          'trades': [jt('sl-a', 'LONG', 7000.00, 7002.00, '13:00', '13:05'),
                     jt('sl-b', 'LONG', 7000.00, 7004.00, '13:00', '13:40')],
          'rows': [], 'flags': 0, 'fees': {'sl-a': 1.90, 'sl-b': 1.90}, 'drift': ['sl-a', 'sl-b']},
+        # --- review round 3: New York midnight, carried / open positions, same-minute scale-outs ---
+        {'name': 'pdf-across-midnight', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('23:55:00', 'B', 1, 7000.00, '04/20/2026'), ('00:05:00', 'S', 1, 7003.00),
+                           ('09:35:00', 'B', 1, 7010.00), ('09:40:00', 'S', 1, 7012.00)], 3.80, flat=True),
+         'trades': [jt('mid-20', 'LONG', 7000.00, 7003.00, '23:55', '00:05', date='2026-04-20'),
+                    jt('mid-21', 'LONG', 7010.00, 7012.00, '09:35', '09:40')],
+         'rows': [], 'flags': 0, 'fees': {}},
+        {'name': 'pdf-across-midnight-empty', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('23:55:00', 'B', 1, 7000.00, '04/20/2026'), ('00:05:00', 'S', 1, 7003.00),
+                           ('09:35:00', 'B', 1, 7010.00), ('09:40:00', 'S', 1, 7012.00)], 3.80, flat=True),
+         'trades': [], 'rows': [('LONG', 7000.00, '23:55', 0.00), ('LONG', 7010.00, '09:35', 1.90)],
+         'flags': 0, 'fees': {}},
+        {'name': 'pdf-carried-in', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('09:31:00', 'S', 1, 7005.00), ('09:35:00', 'B', 1, 7010.00),
+                           ('09:40:00', 'S', 1, 7012.00)], 2.85, flat=True),
+         'trades': [], 'rows': [('LONG', 7010.00, '09:35', 1.90)], 'flags': 0, 'fees': {}, 'open': 1},
+        {'name': 'pdf-still-open', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('09:35:00', 'B', 1, 7010.00), ('09:40:00', 'S', 1, 7012.00),
+                           ('15:50:00', 'B', 1, 7020.00)], 2.85),
+         'trades': [], 'rows': [('LONG', 7010.00, '09:35', 1.90)], 'flags': 0, 'fees': {}, 'open': 1},
+        {'name': 'pdf-same-minute-scale-then-one', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:13', 'B', 2, 7000.25), ('10:00:26', 'S', 1, 7002.00), ('10:00:29', 'S', 1, 7000.50),
+                           ('10:00:50', 'B', 1, 7000.25), ('10:00:53', 'S', 1, 7001.25)], 5.70),
+         'trades': [jt('so-a', 'LONG', 7000.25, 7002.00, '10:00', '10:00'),
+                    jt('so-b', 'LONG', 7000.25, 7000.50, '10:00', '10:00'),
+                    jt('re-1', 'LONG', 7000.25, 7001.25, '10:00', '10:00')],
+         'rows': [], 'flags': 0, 'fees': {'so-a': 1.90, 'so-b': 1.90, 're-1': 1.90}},
+        {'name': 'pdf-same-minute-two-scaleouts', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 2, 7000.00), ('10:00:15', 'S', 1, 7001.00), ('10:00:25', 'S', 1, 7003.00),
+                           ('10:00:35', 'B', 2, 7000.00), ('10:00:45', 'S', 1, 7002.00), ('10:00:55', 'S', 1, 7002.25)], 7.60),
+         'trades': [jt('a1', 'LONG', 7000.00, 7001.00, '10:00', '10:00'), jt('a2', 'LONG', 7000.00, 7003.00, '10:00', '10:00'),
+                    jt('b1', 'LONG', 7000.00, 7002.00, '10:00', '10:00'), jt('b2', 'LONG', 7000.00, 7002.25, '10:00', '10:00')],
+         'rows': [], 'flags': 0, 'fees': {'a1': 1.90, 'a2': 1.90, 'b1': 1.90, 'b2': 1.90}},
+        {'name': 'pdf-averaged-row-on-a-fill-price', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 3, 7000.00), ('10:00:20', 'S', 1, 7001.75),
+                           ('10:00:40', 'S', 1, 7002.00), ('10:00:55', 'S', 1, 7002.25)], 5.70),
+         'trades': [jt('nt3', 'LONG', 7000.00, 7002.00, '10:00', '10:00', size=3)],
+         'rows': [], 'flags': 0, 'fees': {'nt3': 5.70}},
+        {'name': 'pdf-missing-one-lot-before-its-twin-leg', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:17:05', 'B', 1, 7000.25), ('10:17:15', 'S', 1, 7001.25),
+                           ('10:17:30', 'B', 2, 7000.25), ('10:17:40', 'S', 1, 7000.50), ('10:17:55', 'S', 1, 7001.25)], 5.70),
+         'trades': [jt('tw-1', 'LONG', 7000.25, 7000.50, '10:17', '10:17'),
+                    jt('tw-2', 'LONG', 7000.25, 7001.25, '10:17', '10:17')],
+         'rows': [('LONG', 7000.25, '10:17', 1.90)], 'flags': 0, 'fees': {'tw-1': 1.90, 'tw-2': 1.90}},
+        {'name': 'pdf-averaged-rows-same-minute', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'S', 1, 7001.00), ('10:00:15', 'S', 1, 7000.50), ('10:00:25', 'S', 1, 7000.50),
+                           ('10:00:35', 'B', 2, 6999.75), ('10:00:50', 'B', 1, 6998.75),
+                           ('10:00:55', 'S', 3, 7001.00), ('10:01:05', 'B', 1, 6999.25), ('10:01:20', 'B', 2, 7000.00)], 11.40),
+         'trades': [jt('av-a', 'SHORT', 7000.6667, 6999.4167, '10:00', '10:00', size=3),
+                    jt('av-b', 'SHORT', 7001.00, 6999.75, '10:00', '10:01', size=3)],
+         'rows': [], 'flags': 0, 'fees': {'av-a': 5.70, 'av-b': 5.70}},
     ]
 
 
@@ -510,6 +567,7 @@ var CASES=__CASES__;
         r.merges=(res.merges||[]).map(function(m){return m.updates;});
         r.feeUps=(res.feeUpdates||[]).map(function(f){return {id:f.id,fees:f.fees};});
         r.flags=(res.pdfFlags||[]).length;
+        r.open=(res.pdfOpen||[]).length;
         r.fills=res.fillUTC?Object.keys(res.fillUTC).length:null;
       }catch(e){r.err=String(e&&e.stack?e.stack:e);}
       out.cases[c.name]=r;
@@ -628,6 +686,9 @@ def judge(cases, data):
             if fu != c['fees']:
                 fails.append('%s: journal fee updates %s, expected %s (the statement fee per contract x size)'
                              % (nm, fu or 'none', c['fees'] or 'none'))
+            if (r.get('open') or 0) != c.get('open', 0):
+                fails.append('%s: %s position(s) reported as only partly on the statement, expected %d'
+                             % (nm, r.get('open'), c.get('open', 0)))
             want_d = sorted(c.get('drift') or [])
             got_d = sorted(d.get('id') for d in (r.get('drift') or []))
             if got_d != want_d:

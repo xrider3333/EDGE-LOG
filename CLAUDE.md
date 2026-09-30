@@ -443,6 +443,8 @@ shipped in v53.3 (an opening HTML tag missing its closing `>` immediately follow
   contract ROOT via `futRoot` (MESM6 -> MES; never `getBase`, which keeps the whole code), and a PDF
   statement reconciles ONE-TO-ONE with the journal and never rewrites a journal trade (it adds what
   is missing, sets fee per contract x size, and reports a size/direction mismatch as `pdfFlags`).
+  Fills pair per contract across the WHOLE statement (never restarted at New York midnight); a
+  position opened before the statement or still open at its end goes to `pdfOpen`, never paired.
 
 ## Working style the user likes
 Iterative, version-bumped releases (`__version__`), each targeting specific bugs/features.
