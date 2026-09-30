@@ -106,6 +106,20 @@ CASES = [
                          'win': {'_legSortCol': 'last', '_legSortDir': 'desc'}}),
     ('sort-n',          {'sub': 'paper',  'prefs': {'paperCols': 'all'},
                          'win': {'_legSortCol': 'n', '_legSortDir': 'desc'}}),
+    # NT GATE chip (top bar): a status snapshot older than 15 minutes must read '?', and a PARTIAL gate must still
+    # show a stale model age. checked_at far in the past / far in the future stand for old / fresh.
+    ('gate-old-snapshot', {'sub': 'paper',  'prefs': {},
+                           'win': {'_ntBridge': {'checked_at': '2020-01-01 00:00:00',
+                                                 'gate': {'up': True, 'legs': [{'leg': 'A', 'loaded': True}]}}}}),
+    ('gate-partial-stale', {'sub': 'paper',  'prefs': {},
+                            'win': {'_ntBridge': {'checked_at': '2099-01-01 00:00:00',
+                                                  'gate': {'up': True, 'error': 'x', 'stale_days': 6,
+                                                           'legs': [{'leg': 'A', 'loaded': True},
+                                                                    {'leg': 'B', 'loaded': False}]}}}}),
+    ('gate-fresh-green', {'sub': 'paper',  'prefs': {},
+                          'win': {'_ntBridge': {'checked_at': '2099-01-01 00:00:00',
+                                                'gate': {'up': True, 'stale_days': 0,
+                                                         'legs': [{'leg': 'A', 'loaded': True}]}}}}),
     # zero state: an empty board must render a clean "no trades yet", not throw.
     ('empty',           {'sub': 'paper',  'prefs': {}, 'win': {'__empty': True}}),
 ]
@@ -182,6 +196,13 @@ var CASES=__CASES__, FIX=__FIX__;
             if(_col){var _trays=_col.querySelectorAll('[data-ptray]');
               for(var _ti=0;_ti<_trays.length;_ti++)
                 r.sideTrayMax=Math.max(r.sideTrayMax,_trays[_ti].clientHeight);}}catch(_e2){}
+        // NOISE #422 row + the 10s capture-health lines (both injected into the fixture by main())
+        r.legKeys=[];for(var lk=0;lk<legRows.length;lk++)r.legKeys.push(legRows[lk].getAttribute('data-paperleg'));
+        var _bt=d.body?d.body.innerText:'';
+        r.capNQ=(_bt.match(/10s capture NQ: [^\\n]*/)||[''])[0];
+        r.capES=(_bt.match(/10s capture ES: [^\\n]*/)||[''])[0];
+        var _gc=d.querySelector('a[href="http://127.0.0.1:8392"]');
+        r.gateChip=_gc?(_gc.textContent||'').trim():'';
         r.sortable=d.querySelectorAll('[data-lsort]').length;
         r.colsCtl=d.querySelectorAll('[data-papercols]').length;
         // ---- the TRADES table
@@ -286,6 +307,21 @@ def main():
     nt_labels = {d['label'] for d in defs.values() if d['nt']}
 
     fixture = json.load(io.open(fix_path, encoding='utf-8'))
+    # Inject what the real fixture predates: a NOISE_422 tilted-size trade (2026-09-28 leg) and the nightly
+    # capture_health block, one good instrument and one low-delta instrument.
+    _src = next((t for t in fixture['trades'] if t.get('leg') == 'NOISE_SBS_V90'), None)
+    if _src is not None:
+        _t = dict(_src, id='pt_NOISE_422_probe', leg='NOISE_422', size=1.75,
+                  pnl_usd=round(_src.get('pnl_usd', 0) * 1.75, 2))
+        fixture['trades'].append(_t)
+    fixture['reports'][0]['capture_health'] = {
+        'NQ': {'rth': {'bars': 2331, 'expected': 2340, 'bars_pct': 99.6, 'delta_pct': 98.3, 'rt_bars': 2000,
+                       'longest_gap_min': 1.5, 'gap_start_et': '10:12'},
+               'eth': {'bars': 8100, 'expected': 8280, 'delta_pct': 60.0, 'delta_from_et': '08:20'}},
+        'ES': {'rth': {'bars': 2340, 'expected': 2340, 'bars_pct': 100.0, 'delta_pct': 38.0, 'rt_bars': 2340,
+                       'longest_gap_min': 0.0, 'gap_start_et': None},
+               'eth': {'bars': 8100, 'expected': 8280, 'delta_pct': 11.0}},
+        'warning': '10-second capture problem - ES: buy/sell delta is filled in on only 38% of session bars.'}
 
     pdir = os.path.join(root, '_paperprobe')
     if not os.path.isdir(pdir):
@@ -389,6 +425,33 @@ def main():
         if drawn != want:
             fails.append('%s: crown drawn on %s, declared %s'
                          % (nm, sorted(drawn) or '(none)', sorted(want) or '(none)'))
+
+    # NOISE #422 must be a LEGS row, labelled with the family name, and its trade must reach the trades table
+    for nm in ('base', 'paper2'):
+        r = cases.get(nm) or {}
+        if 'NOISE_422' not in (r.get('legKeys') or []):
+            fails.append('%s: no NOISE_422 row on the board' % nm)
+        if not any(l.startswith('NOISE #422') for l in (r.get('tradeLegs') or {})):
+            fails.append('%s: the NOISE #422 trade did not reach the trades table' % nm)
+    # the capture-health line: one per instrument, low-delta day flagged in words (not colour alone)
+    for nm in ('base', 'paper2'):
+        r = cases.get(nm) or {}
+        if ('2,331/2,340 bars, delta on 98%' not in (r.get('capNQ') or '')
+                or 'split starts 08:20 ET' not in (r.get('capNQ') or '')):
+            fails.append('%s: NQ capture line missing or wrong: %r' % (nm, r.get('capNQ')))
+        if 'delta on 38%' not in (r.get('capES') or '') or 'LOW' not in (r.get('capES') or ''):
+            fails.append('%s: ES capture line not flagged LOW: %r' % (nm, r.get('capES')))
+
+    # the top-bar NT GATE chip: snapshot age first, PARTIAL shows a stale age too
+    g = (cases.get('gate-old-snapshot') or {}).get('gateChip') or ''
+    if 'NT GATE ? (status' not in g or 'old)' not in g:
+        fails.append('gate-old-snapshot: stale snapshot not flagged on the chip: %r' % g)
+    g = (cases.get('gate-partial-stale') or {}).get('gateChip') or ''
+    if 'PARTIAL + STALE 6d' not in g:
+        fails.append('gate-partial-stale: PARTIAL chip hides the stale model age: %r' % g)
+    g = (cases.get('gate-fresh-green') or {}).get('gateChip') or ''
+    if not g.endswith('NT GATE') or '?' in g:
+        fails.append('gate-fresh-green: a fresh healthy snapshot should read plain NT GATE: %r' % g)
 
     # COLUMNS: retired in v73.396 - the sidebar table is locked to KEY (thirteen
     # columns cannot fit a sidebar; everything else is on the row hovers), so KEY and

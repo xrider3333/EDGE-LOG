@@ -284,6 +284,20 @@ def _selftest_facts():
     }
 
 
+def _capture_health(rep, date_str):
+    """The day's 10-second capture health: the report's own block when the runner wrote one
+    (reports from 2026-10-01), else computed now from the local 10s files (read-only, cheap).
+    Never raises - a broken read becomes {"error": ...}."""
+    got = (rep or {}).get("capture_health")
+    if got:
+        return got
+    try:
+        from api import capture_health as CH
+        return CH.capture_health(date_str)
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+
+
 def _gather_facts(db, date_str):
     rep = _get_report(db, date_str)
     if rep is None:
@@ -335,6 +349,7 @@ def _gather_facts(db, date_str):
             "roll_artifact_trade_ids": roll_flagged,
             "reconcile": rep.get("reconcile"), "gate_live": rep.get("gate_live"),
         },
+        "capture_health": _capture_health(rep, date_str),
         "webull_book": webull_book,
         "diagnostics": {
             "runner_log_lines": runner_lines[-100:],
@@ -365,6 +380,23 @@ def _facts_md(facts):
               f"  book cumulative: ${cum.get('book_pnl_usd')}"]
     if nt.get("roll_artifact_trade_ids"):
         lines.append(f"ROLL ARTIFACT flagged trades: {nt['roll_artifact_trade_ids']}")
+    lines.append("")
+    lines.append("## 10-second capture health (NinjaTrader export, session 09:30-16:00 ET)")
+    ch = facts.get("capture_health")
+    if ch:
+        try:
+            from api import capture_health as CH
+            for inst in ("NQ", "ES"):
+                if inst in ch:
+                    lines.append("- " + CH.line(inst, ch[inst]))
+        except Exception as e:
+            lines.append(f"- capture health not formatted: {type(e).__name__}: {e}")
+        if ch.get("warning"):
+            lines.append("WARNING: " + ch["warning"])
+        if ch.get("error"):
+            lines.append("- capture health unavailable: " + str(ch["error"]))
+    else:
+        lines.append("- not available")
     lines.append("")
     lines.append("## Webull paper book")
     wb = facts["webull_book"]

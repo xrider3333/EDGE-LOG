@@ -2959,6 +2959,16 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
         report.update(_bs.sum_blocks(leg_reports))
     except Exception as e:
         _log(f"uid={uid} book sum shadows failed: {type(e).__name__}: {e}")
+    # CAPTURE HEALTH (2026-09-30): did the NinjaTrader 10-second export capture the day, and with its
+    # buy/sell split filled in? Reads only the day's rows of NQ_10s / ES_10s (api/capture_health.py).
+    # Fail-soft: it costs the report nothing if it breaks.
+    try:
+        from . import capture_health as _ch
+        report["capture_health"] = _ch.capture_health(target_date)
+        if report["capture_health"].get("warning"):
+            _log(f"uid={uid} CAPTURE {target_date.isoformat()}: {report['capture_health']['warning']}")
+    except Exception as e:
+        report["capture_health"] = {"error": f"{type(e).__name__}: {e}"}
     # Layer 3: three-way reconcile (api/paper_reconcile.py). live_expected reflects
     # whether the NinjaScript strategies are actually enabled on charts - while they are
     # not, "shadow signal with no live fill" is the designed state, and reporting it as a

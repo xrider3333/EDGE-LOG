@@ -829,7 +829,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.964';
+const VERSION='73.965';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -847,7 +847,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.959',date:'2026-09-30',notes:['SCORES: CLOSED THAT DAY now shows the close of the last bar before 16:00, not the first bar after the close (stocks were off by up to about 12 percent).','SCORES: MAE and MFE on MES and MNQ trades are now measured from 10-second bars between your entry and exit fills, so a flush after you were out no longer counts as heat (the 09-30 11:52 MNQ trade falls from 280 to 76 percent of risk).']},
+const CHANGELOG=[{v:'73.965',date:'2026-09-30',notes:['PAPER: daily 10-second capture health line (bars and delta coverage), a NOISE #422 row, and the top-bar NT GATE chip now shows when its status is stale or the gate is PARTIAL and STALE.']},
+{v:'73.959',date:'2026-09-30',notes:['SCORES: CLOSED THAT DAY now shows the close of the last bar before 16:00, not the first bar after the close (stocks were off by up to about 12 percent).','SCORES: MAE and MFE on MES and MNQ trades are now measured from 10-second bars between your entry and exit fills, so a flush after you were out no longer counts as heat (the 09-30 11:52 MNQ trade falls from 280 to 76 percent of risk).']},
 {v:'73.958',date:'2026-09-30',notes:['TRADING LOG IMPORT, PDF statement: a statement that does not end flat is no longer paired into trades. Its fills are listed and nothing is imported, because a position carried in and still open could turn into made-up trades the other way.','PDF statement: a trade that already matches its journal copy exactly is no longer taken over by a bigger trade that is missing a leg. The bigger trade is reported as a different size instead of the smaller one being saved twice.','PDF statement: an evening trade (entered at or after 6 pm New York) now gets the fee the statement charged for its trade date instead of $0.','PDF statement: trades it adds are saved under the statement account number, so a re-import never adds them again when the Settings account differs.','Contract sizes added for M2K, MYM, 6E and M6E. A statement fill for any contract without a known size is listed and not imported, instead of being priced like a stock.']},
 {v:'73.957',date:'2026-09-30',notes:['PASTE BOX ASKS BEFORE PUTTING A SNAPSHOT ON A FUTURES TRADE. A Webull stock trade can take up to 30 minutes to reach the journal, so a stock snapshot pasted right away used to land on your newest futures trade. Now the box asks: FILE ON that futures trade, pick another trade, or HOLD FOR A STOCK TRADE - a held link goes on the next stock trade that syncs (within a day).','UNDO after moving a pasted link now puts back the link it replaced, and a move is saved in one step.']},
 {v:'73.956',date:'2026-09-30',notes:['SCORES: 2 trades from 2026-09-30 scored, 0 marked NA (no price data).']},{v:'73.954',date:'2026-09-30',notes:['POINTS IS CONTEXT, NOT A FILTER. The POINTS hover and the trade panel now say so: over your first 53 scored trades, more points have not meant better results yet (the pre-registered check found no link). On a phone the prices each point was checked against now wrap instead of being cut off.']},
@@ -13676,15 +13677,22 @@ function renderApp(){
             const B=window._ntBridge, G=B?B.gate:null;
             const href='http://127.0.0.1:8392';
             let col,txt,tip;
+            const _snapAge=(B&&B.checked_at)?Math.floor((Date.now()-Date.parse(String(B.checked_at).replace(' ','T')+'Z'))/60000):null;
+            const _snapOld=_snapAge!=null&&isFinite(_snapAge)&&_snapAge>15;
             if(!G){ col='var(--text5)'; txt='NT GATE ?';
               tip='No status yet - the runner publishes one every 5 minutes. Click to check the gate service directly.'; }
             // PARTIAL (2026-09-30): the service is up and scoring, but one or more models did not
             // load -- only those legs trade ungated. Reading that as DOWN sent the owner looking
             // for a Webull fault; this chip is NinjaTrader's gate only (the Webull book has none).
+            // SNAPSHOT AGE (2026-10-01, MANAGER review): the status below is only as fresh as the runner's last publish.
+            // If the runner died, a stored green would sit here for hours while the gate itself could be down.
+            else if(_snapOld){ col='#e0c341'; txt='NT GATE ? (status '+(_snapAge>=120?Math.floor(_snapAge/60)+'h':_snapAge+'m')+' old)';
+              tip='The gate status is '+(_snapAge>=120?Math.floor(_snapAge/60)+' hours':_snapAge+' minutes')+' old - the runner has stopped publishing it (it normally updates every 5 minutes), so the last known state cannot be trusted. Click to check the gate service directly.'; }
             else if(G.up&&G.error&&Array.isArray(G.legs)&&G.legs.some(l=>l&&l.loaded)&&G.legs.some(l=>l&&!l.loaded)){
               const _bad=G.legs.filter(l=>l&&!l.loaded).map(l=>l.leg), _ok=G.legs.filter(l=>l&&l.loaded).length;
-              col='#e0c341'; txt='NT GATE PARTIAL';
-              tip='NinjaTrader ML gate is up and scoring '+_ok+' leg(s), but '+_bad.join(', ')+' did not load - NinjaTrader takes the signals of '+(_bad.length>1?'those legs':'that leg')+' at normal size (ungated). Only NinjaTrader uses this gate; the Webull paper book has no ML gate. Click for the status page.'; }
+              const _stl=(G.stale_days!=null&&G.stale_days>4)?G.stale_days:null;
+              col='#e0c341'; txt='NT GATE PARTIAL'+(_stl!=null?' + STALE '+_stl+'d':'');
+              tip=(_stl!=null?'The loaded models were also last taught '+_stl+' days ago - the nightly re-teach has been failing. ':'')+'NinjaTrader ML gate is up and scoring '+_ok+' leg(s), but '+_bad.join(', ')+' did not load - NinjaTrader takes the signals of '+(_bad.length>1?'those legs':'that leg')+' at normal size (ungated). Only NinjaTrader uses this gate; the Webull paper book has no ML gate. Click for the status page.'; }
             else if(!G.up||G.error){ col='#e24b4a'; txt='NT GATE DOWN';
               tip=(G.error||'gate service not reachable')+' -- NinjaTrader keeps trading but takes EVERY signal at normal size (the Webull paper book has no ML gate). Click for the status page; restart with C:\\EdgeLog\\_gate_server.bat'; }
             else if(G.stale_days!=null&&G.stale_days>4){ col='#e0c341'; txt='NT GATE STALE';
@@ -38252,6 +38260,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
          crownTip:'The standing NOISE champion since 2026-09-05: run #304, the first NOISE crown found by a real neighbourhood search (495 configurations, 6 of 6 checks, 8 of 8 walk-forward folds) rather than a pinned card. Graded on one continuous run sliced by entry time, it beats #243 on the held-out year on every read - 409 trades at profit factor 1.33 and $82,123 against 375 at 1.27 and $60,615, expectancy per trade 0.21 R against 0.17, R / YR 56 against 43 - on a smaller drawdown and MORE trades. What #243 keeps is per-trade quality before the lockbox (profit factor 1.42 against 1.38). Deleting the ten best trades costs 22% of this config selection-window profit, so the edge is broad rather than a handful of trades.',
          chip:'crown 09-05',
          chipTip:'Added to the board the day the crown moved, so every trade from 2026-09-06 on this row is forward evidence. Anything dated earlier is a backtest re-run. Its two knobs differ from NOISE-243 below and nothing else does, so the gap between the two rows is those two knobs.'},
+        // ADDED 2026-09-30 (the NOISE leg of the ADOPTED BOOK #449 / run #463, paper leg since 2026-09-28): run #422
+        // = the #304 core with a SIZE TILT - trades decided while the hourly squeeze is compressed trade 1.75
+        // contracts, every other trade one. NOISE-304 above is its matched control (the only difference is the
+        // tilt). Paper-only: NinjaTrader's NOISE strategy has no size tilt, so no `nt` field. No ML gate.
+        {k:'NOISE_422', label:'NOISE #422 · SIZE TILT', color:'#3fb88a', ctrl:'NOISE_304',
+         chip:'BOOK #463 leg · paper only',
+         chipTip:'The NOISE leg of the adopted BOOK #463 (run #422): the NOISE-304 crown trades, every one kept, but those decided while the hourly squeeze is compressed are sized 1.75 contracts instead of one. Sized by a tilt, paper-only - NinjaTrader NOISE has no size tilt. NOISE-304 above is its matched control, so any gap between the two rows is the tilt and nothing else. Forward evidence from 2026-09-28; it must keep beating its raw twin on return at matched drawdown and on Sortino.'},
         {k:'NOISE_SBS_V90', label:'NOISE-243 · VETO+WILD10', color:'#7fe8a8', ctrl:'NOISE_225',
          chip:'ex-crown · control',
          chipTip:'The crowned NOISE configuration since 2026-08-23: the NOISE-225 settings plus two filters - skip short trades the day after the prior session closed in the bottom fifth of its own range, and skip ALL trades on a day whose prior session was among the wildest 10 percent of the last year. The owner crowned it for the risk profile: about 2 percent less profit than the single filter for about 41 percent less drawdown, a better profit factor and the best ES transfer in the family (run #243, PASS 6/6). NOISE-225 RAW is its matched control, so any difference between the two rows is the filters and nothing else.',
@@ -40321,11 +40336,32 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<div style="font-size:10px;color:var(--text3);line-height:1.6">'+_dataWarn.map(w=>String(w).replace(/</g,'&lt;')).join('<br>')
           +'<div style="color:var(--text5);margin-top:3px;font-size:9px">This is the shared 10s tick capture that tops up the current session bars — it affects every leg equally and is not a fault in any one strategy.</div></div></div>'
         : '';
+      // -- 10s CAPTURE HEALTH (2026-09-30): one short line per instrument off the newest report that carries
+      // the block (api/capture_health.py): session bars captured vs expected, and how many of them carried a
+      // buy/sell split. A low day is marked with a warning sign and BOLD type, never colour alone (MONO theme).
+      const capHtml=(()=>{
+        const ch=(_pr.find(r=>r&&r.capture_health&&typeof r.capture_health==='object')||{}).capture_health;
+        if(!ch)return '';
+        const _rid=(_pr.find(r=>r&&r.capture_health===ch)||{}).id||'';
+        const _x=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const _n=v=>Number(v).toLocaleString('en-US');
+        const rows=['NQ','ES'].filter(i=>ch[i]).map(i=>{
+          const rec=ch[i]||{},r=rec.rth,e=rec.eth;
+          if(!r)return '<div title="'+_x(rec.error||'')+'">10s capture '+i+': unavailable</div>';
+          const bad=(+r.bars_pct<90)||(+r.delta_pct<80);
+          const tip='Session 09:30-16:00 ET on '+_x(_rid)+': '+_n(r.bars)+' of '+_n(r.expected)+' ten-second bars, buy/sell split on '+Math.round(+r.delta_pct)+'% of them, '+_n(r.rt_bars)+' recorded live'
+            +(e?('. Full day 18:00-17:00 ET: '+_n(e.bars)+' bars, split on '+Math.round(+e.delta_pct)+'%'):'')+'.';
+          return '<div title="'+tip+'"'+(bad?' style="font-weight:700;color:var(--text)"':'')+'>'+(bad?'⚠ ':'')+'10s capture '+i+': '+_n(r.bars)+'/'+_n(r.expected)+' bars, delta on '+Math.round(+r.delta_pct)+'%'
+            +(+r.longest_gap_min>=1?(' · longest gap '+r.longest_gap_min+' min from '+_x(r.gap_start_et)+' ET'):'')+(e&&e.delta_pct!=null?('; full day delta on '+Math.round(+e.delta_pct)+'%'+(+e.delta_pct<80?(e.delta_from_et?(' (split starts '+_x(e.delta_from_et)+' ET)'):' (no split all day)'):'')):'')+(bad?' · LOW':'')+'</div>';
+        }).join('');
+        const w=ch.warning?'<div style="font-weight:700;color:var(--text)">⚠ '+_x(ch.warning)+'</div>':'';
+        return '<div style="margin:0 2px 10px;font-size:10px;line-height:1.6;color:var(--text4)">'+rows+w+'<div style="font-size:9px;color:var(--text5)">NinjaTrader 10-second export, report '+_x(_rid)+'</div></div>';
+      })();
       // curveHtml now CARRIES the leg tiles, so it takes the tiles' old slot at the top:
       // summary + curve read as one block, then the detail panels below it.
       const _errHtml=window._paperErr?'<div style="color:var(--red);font-size:10px;margin-top:10px">load error: '+String(window._paperErr).replace(/</g,'&lt;')+'</div>':'';
       if(augurSub!=='paper2'){
-        body=headerHtml+bridgeHtml+curveHtml+tradesHtml+reconcileHtml+gateAuditHtml+reportsHtml+_errHtml;
+        body=headerHtml+capHtml+bridgeHtml+curveHtml+tradesHtml+reconcileHtml+gateAuditHtml+reportsHtml+_errHtml;
       }else{
         // ── PAPER ✦ · the concise layout (owner 2026-08-26: "clean up the page as a
         //    whole and make it more concise ... maybe make it a separate tab so i can
@@ -40468,7 +40504,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<div class="p2rhsub" data-p2sub>'+_rhToday+'<span>'+_pcwLbl+'</span><span class="p2rhsep">\u00b7</span><span>'+_H.n+' trade'+(_H.n===1?'':'s')+'</span><span class="p2rhsep">\u00b7</span><span>'+_nShown+' of '+LEGS_VIS.length+' strategies</span></div>'
           +'</div>'
           +'<div class="p2status">'+_p2Status+_reloadBtn.replace('height:24px','height:28px').replace('border-radius:7px','border-radius:999px')+'</div></div>';
-        const _p2Top=dataHtml+_rhChart+_rhTabs+'<div class="p2rhrow">'+_rhStats+_rhCal+'</div>';
+        const _p2Top=dataHtml+capHtml+_rhChart+_rhTabs+'<div class="p2rhrow">'+_rhStats+_rhCal+'</div>';
         const _p2Main=tradesHtml
           +_p2Card('nt','NinjaTrader \u00b7 detail',bridgeHtml,'live state, fills, orders')
           +_p2Card('recon','Cross-engine \u00b7 do they agree?',reconcileHtml,'engine vs NinjaTrader vs TradingView')

@@ -109,6 +109,10 @@ def _isolate(tmp_path, monkeypatch):
     monkeypatch.setattr(R, "RUNNER_LOG", str(tmp_path / "runner.log"))
     monkeypatch.setattr(R, "NT_RECOVER_LOG", str(tmp_path / "nt_recover.log"))
     monkeypatch.setattr(R, "GATE_LIVE_LOG", str(tmp_path / "gate_live.log"))
+    # the routine computes capture health from the local 10s files when a report lacks the block;
+    # keep tests off the real files
+    from api import capture_health as _CH
+    monkeypatch.setattr(_CH, "default_path", lambda inst: str(tmp_path / (inst + "_10s.csv")))
     for p in (R.RUNNER_LOG, R.NT_RECOVER_LOG, R.GATE_LIVE_LOG):
         with open(p, "w", encoding="utf-8") as f:
             f.write("")
@@ -370,3 +374,37 @@ def test_selftest_start_and_dry_finish_need_no_firestore(monkeypatch, capsys):
     R.cmd_finish(_Args())   # no --dry-run flag - selftest forces dry anyway
     out = capsys.readouterr().out
     assert "RESULT: DRY RUN OK" in out
+
+
+# ── 10-second capture health in the facts ────────────────────────────────────────────────
+def test_capture_health_from_report_shows_in_facts_json_and_md(monkeypatch, capsys):
+    db = FakeDB()
+    monkeypatch.setattr(R, "_db", lambda: db)
+    monkeypatch.setattr(R, "et_now", lambda: dt.datetime(2026, 9, 15, 17, 0))
+    rep = _basic_report(pnl=10)
+    rep["capture_health"] = {
+        "NQ": {"rth": {"bars": 2331, "expected": 2340, "bars_pct": 99.6, "delta_pct": 98.3, "rt_bars": 5,
+                       "longest_gap_min": 0.0, "gap_start_et": None}},
+        "ES": {"rth": {"bars": 2340, "expected": 2340, "bars_pct": 100.0, "delta_pct": 38.0, "rt_bars": 5,
+                       "longest_gap_min": 0.0, "gap_start_et": None}},
+        "warning": "10-second capture problem - ES: delta low"}
+    db.seed_report("2026-09-15", rep)
+    R.cmd_start(_Args(date="2026-09-15"))
+    capsys.readouterr()
+    facts = json.loads(open(os.path.join(R.INBOX, "facts.json"), encoding="utf-8").read())
+    assert facts["capture_health"]["NQ"]["rth"]["bars"] == 2331
+    md = open(os.path.join(R.INBOX, "facts.md"), encoding="utf-8").read()
+    assert "10s capture NQ: 2,331/2,340 bars, delta on 98%" in md
+    assert "WARNING: 10-second capture problem" in md
+
+
+def test_capture_health_falls_back_to_local_files_when_report_lacks_it(monkeypatch, capsys):
+    db = FakeDB()
+    monkeypatch.setattr(R, "_db", lambda: db)
+    monkeypatch.setattr(R, "et_now", lambda: dt.datetime(2026, 9, 15, 17, 0))
+    db.seed_report("2026-09-15", _basic_report(pnl=10))      # no capture_health; the files do not exist
+    R.cmd_start(_Args(date="2026-09-15"))
+    capsys.readouterr()
+    facts = json.loads(open(os.path.join(R.INBOX, "facts.json"), encoding="utf-8").read())
+    assert "error" in facts["capture_health"]["NQ"]
+    assert "capture" in facts["capture_health"]["warning"]
