@@ -214,7 +214,7 @@ def forward(since="2026-10-01"):
         ent, side, pnl = leg_trades(name)
         k = (ent >= pd.Timestamp(since)) & (ent <= of.index.max())
         m, a = sizes(of, ent[k], side[k], THETA)
-        off = np.array([e.date() not in good for e in ent[k]])
+        off = np.array([e.date() not in good for e in ent[k]], dtype=bool)
         m[off], a[off] = 1.0, np.nan                   # capture on another contract that session: no tilt
         v = np.isfinite(a)
         st = Q.read_pair(pnl[k][v], m[v], np.ones(int(v.sum())), None, BOUND[name])
