@@ -7,6 +7,30 @@
 
 ---
 
+## 🧪 2026-09-30 — ROUND 64: order-flow delta at the breakout - too little capture to read, two forward shadows
+
+Owner ask via MANAGER (inbox #14): keep a queue of NOISE improvements, starting with the NinjaTrader 10-second buy/sell
+delta capture - the first new information this family has had. Pre-registration `docs/PREREG_noise_r64_delta_2026-09-30.md`
+(6b3f35de, before any outcome split); read `tools/r64_noise_delta_read.py` -> `r37_results/r64_delta_read.txt`.
+
+**The capture.** `C:\EdgeLog\ohlc\NQ_10s.csv`, 70 RTH sessions from 2026-06-24. 5-minute bars rebuilt from it match the
+master (same-sign returns 99.6%). But delta is missing or near-zero on 25 sessions - the first three (backfill) and a run
+of LIVE sessions in late August and September (e.g. 08-18, 08-27, 09-01, 09-22 read live bars with delta on 1-4% of them),
+so only 45 sessions are usable. Routed to Paper: NT8, which owns the NinjaTrader capture.
+
+**The read (descriptive - 30 crown trades, far under any minimum).** The pre-registered tag - the signal bar's own delta
+agreeing with the break - is nearly redundant with the breakout itself: 25 of 29 breaks are "backed", because a bar that
+closes through the band usually carries same-sign flow. Skipping the 4 unbacked trades lowers ROC at a $30k drawdown
+(202% -> 131% over the window) and 74% of random shuffles do as well: no signal, and structurally little room for one.
+The session CUMULATIVE delta (descriptive) split the other way round: 7 trades taken against the day's net flow lost
+$3,159, the 22 with it made $23,389 (17% of shuffles match) - suggestive, seen, so it counts for nothing historically.
+
+**What runs now: two FORWARD SHADOWS, no live change.** From 2026-10-01 the capture accumulates and both tags are computed
+after the fact; read once at 150 tagged forward trades (about 6-12 months at NOISE's current pace), bar fixed in the
+pre-registration: skip-unbacked beats plain #304 on ROC at a $30k drawdown and Sortino, unbacked averages less than
+backed with under 5% of within-session shuffles matching, 50+ trades per bucket, profitable without its biggest trade.
+The capture fault above is the thing most likely to stall this: every session without delta is a session lost.
+
 ## 🧪 2026-09-28 — ROUND 63: more alpha? Ten ideas, two pre-registered, both dead at triage
 
 Owner ask via MANAGER (inbox #13): brainstorm NOISE variations for more alpha, pre-register the best 1-2 on the owner's

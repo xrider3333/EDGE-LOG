@@ -45,3 +45,12 @@ ALL hold on the forward trades alone:
 A pass earns a fenced Auto-Validate on the then-available capture and a paper shadow leg - still not an adoption.
 Anything else found while reading (other thresholds, magnitudes, ES delta, other bases) is post-hoc and can only become
 its own later pre-registration.
+
+## ADDENDUM 2026-09-30, written AFTER the historical read (commit of the read: see NOISE.md round 64)
+The historical read showed the pre-registered SIGNAL-BAR tag barely separates anything: 25 of 29 breakouts are backed by
+their own bar's delta (a bar that closes through the band usually carries same-sign flow), so skipping the 4 unbacked
+trades cannot move much. The session CUMULATIVE delta split (descriptive) pointed the right way on 7 unbacked trades.
+Because that was SEEN on the historical 30 trades, it is added here as a SECOND forward shadow only - its historical read
+counts for nothing. Same forward bar, same read point (150 tagged forward trades from 2026-10-01), read together with the
+first; with two shadows read at once, the permutation line for either is tightened to fewer than 5% of shuffles.
+Tag: CUM-BACKED = the session's cumulative 10-second delta from 09:30 to the signal bar's end has the trade's sign.
