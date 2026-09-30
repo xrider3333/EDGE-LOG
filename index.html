@@ -829,7 +829,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.949';
+const VERSION='73.950';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -847,7 +847,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.949',date:'2026-09-30',notes:['TOP BAR GATE CHIP NAMES ITS OWNER. The ML gate chip now reads NT GATE - it is NinjaTrader’s gate; the Webull paper book has no ML gate. When the gate is up and scoring but one model failed to load, it now shows a yellow NT GATE PARTIAL naming the leg that trades ungated, instead of a red GATE DOWN (on 09-30 the gate was up for 6 legs with only TTM #458’s KEEL model missing).']},{v:'73.946',date:'2026-09-30',notes:['IMPORT: PDF STATEMENT FOLLOW-UP. A position held across midnight New York, or opened before the statement, is no longer re-paired from flat each day, which made up a trade the other way and lost the real ones: fills now pair across the whole statement and each trade is dated by its entry, and a position only partly on the statement (opened before it or still open at its end) is listed and not imported. Two scale-outs in the same minute no longer swap journal legs, and a trade the journal lacks no longer takes a leg of its bigger neighbour.']},{v:'73.945',date:'2026-09-30',notes:['IMPORT: CONTRACT SYMBOLS AND PDF STATEMENTS. Imports now save every futures trade under its root symbol (MES, MNQ), never the contract code in the file: a PDF statement used to save MES as MESM and MNQ as MNQH, so it never matched your journal and saved the day a second time, and the Performance CSV saved MNQ trades as MES. A PDF statement now matches each of its trades to the journal copy one for one (same direction, same prices within a tick, same minutes) and never rewrites a journal trade: a scale-out saved as two 1-lot legs, two trades a tick apart and a same-price trade the other way all stay as they are. It only adds the trades your journal is missing, sets each fee to the statement fee per contract times its size, and lists any trade the journal holds in another size or direction without changing it. A reversal fill (long 1, sell 2) now makes two trades instead of one, and a clearing fee is split across the symbols traded that day instead of charged to each one.']},{v:'73.944',date:'2026-09-29',notes:['WEBULL PAPER: CANDLES ON EVERY TRADE. Each trade sheet on HOME > WEBULL PAPER now opens a small QQQ chart of that trade (EXPAND for the full viewer with PREV / NEXT, zoom, 1m / 5m and SAVE PNG), drawn from the box’s own bars - the ones the engine traded on. Marks: the signal bar (dashed outline), the backtest’s fill and exit, the book’s fill and exit, and every Webull try - filled, refused, sent with no answer, held back by the book, a failed order call, or netted against another leg - each with its own shape and words, so they read in MONO too. The legend gives prices, times and how far each Webull fill was from the backtest. The box writes one small file per trading day after the close and again before the open; a day without one falls back to your PC and says so.']},{v:'73.942',date:'2026-09-28',notes:['WEBULL PAPER: FILLS vs BACKTEST AT THE OWNER’S TOLERANCE, AND WEBULL FILLS ARE THE P&L OF RECORD. The old PARITY NOTE (36 of 36 trades miss) is gone: it compared against the send-time quote at 2% of each trade’s P&L and ignored direction. Each Webull fill is now compared, signed (+ = Webull did better), with the backtest’s own fill for that side - for NOISE decided at a bar close, the next bar’s open. A fill more than 15 cents a share worse is flagged (FILL GAP), and a leg or the board is flagged when its last 20 fills average more than 5 cents worse. Known design gaps (the 15:59 flatten, ENGU-Q’s limit entry, stop and target levels, NOISE before 09-26) are shown apart and never flag; a capture that does not fit the tape reads CHECK FILL and never counts (the 09-24 ENGU-Q fill). Trade sheets, the equity curve, today’s figure, the calendar and the evening summary use Webull’s fill per side (book price, labelled, where there is none) with the backtest’s P&L alongside; the daily loss breaker can only trip sooner on a fill shortfall. Today’s orders show the delay after the bar close (SLOW in words past 60 s).']},{v:'73.941',date:'2026-09-28',notes:['LOCKBOX FOLLOW-UP (live check of v73.940): four places still printed a warm run’s cold lockbox - the run report’s 1A chart hover (the chart the classic report layout shows), RUNBOARD’s whole-run LB $ row, the Past Runs group list’s lockbox PF, and LEADERBOARD’s lockbox Sharpe fallback. All four now read the same continuous replay, tagged LB warm or naming the run’s own cold reading on hover; refused runs (ENGU-Q #310, #326) keep their own lockbox everywhere. The run-report check gained a fourth case in the classic 1A layout, so this miss cannot come back unseen.']},{v:'73.940',date:'2026-09-28',notes:['ONE LOCKBOX FIGURE PER RUN, ON EVERY SCREEN. LEADERBOARD, the older COMPARE tables and the run report now read the same lockbox EXPLORE and RUNBOARD already show: for a run that scored its lockbox before warm starts (v73.841), the continuous replay of the same stretch, tagged LB warm with the run’s own cold figure on hover. Same refusal rule: a continuous slice with far fewer trades is a different replay, so that run keeps its own lockbox (ENGU-Q #310, #326). PASS / FAIL stays the verdict scored on the run’s own lockbox. In the run report this covers the metrics table LOCKBOX column, the chart’s lockbox hover and the gate banner; the whole-run curve and the in-sample figure worked out from it stay on the saved (cold) curve. Also fixed: a negative cold figure in the LB warm hover printed as $-42,119.']},{v:'73.937',date:'2026-09-28',notes:['RUNBOARD ROC TOGGLE NOW CLICKS. In v73.936 the ROC row label showed the switch between ROC % / YR and ROC @ $30K DD but clicking it did nothing, on the RUNBOARD tab and on the COMPARE board alike - its click was only hooked up on a different screen. It is now hooked up for every screen the board draws on, and the render check clicks it on both.']},{v:'73.936',date:'2026-09-28',notes:['EXPLORE AND RUNBOARD AUDIT (owner go, via MANAGER). EXPLORE: a row with fewer than 50 lockbox trades carries a caution tag and greys while the lockbox is ticked; ORB #205-#209 are marked VOID (the entry is gated on that same bar finished volume) and always greyed; a pinned single-config run says its walk-forward is in-sample; HYBRID redeploy and equal-drawdown rows size the lockbox at the walk-forward factor, with the lockbox-hindsight reading on hover; the run chips list watched and starred runs first and FAIL or VOID runs last, greyed, never the default pick; a run scored before warm starts reads its continuous lockbox when that is plausibly the same config warmed up (NOISE #382 $69,062, ENGU-Q #335 $49,812, ORB #314 $87,132), tagged LB warm; new ROC @ $30K DD measure (30 x MAR) as a column and on both chart axes; new LEVERAGE LINE view: ROC % / YR against drawdown % of the account, a line from zero through each run plain twin, and every ML or sized row marked above, on or below it. RUNBOARD: the lockbox stage reads the same warm lockbox (tagged LB warm on TOTAL), and clicking the ROC row label switches ROC % / YR and ROC @ $30K DD on every stage and on the WATCH view.']},{v:'73.935',date:'2026-09-28',notes:['LIVE GATE: the NinjaTrader NOISE strategy now sends its own finished bar prices, so the gate scores that bar instead of letting the trade through ungated when the price capture is a few seconds behind.']},
+const CHANGELOG=[{v:'73.950',date:'2026-09-30',notes:['EL CHART ON EVERY REAL TRADE. Every futures trade in your ledger now has its own candle chart, with no pasting needed: a 1-minute chart and a 10-second close-up with your entry, exit and the time you held shaded. Open it from the new CHART column (the two-candle icon) or from the trade panel, where a 1M / 10S switch sits above the chart. EXPAND opens the full chart with zoom, PREV / NEXT through your trades and SAVE PNG.','It works on your phone too: your PC publishes the candles for each trade a few minutes after it syncs. All 53 past futures trades already have one (10-second bars exist from late June on). Stock trades get charts once the free Alpaca key is saved.']},
+{v:'73.949',date:'2026-09-30',notes:['TOP BAR GATE CHIP NAMES ITS OWNER. The ML gate chip now reads NT GATE - it is NinjaTrader’s gate; the Webull paper book has no ML gate. When the gate is up and scoring but one model failed to load, it now shows a yellow NT GATE PARTIAL naming the leg that trades ungated, instead of a red GATE DOWN (on 09-30 the gate was up for 6 legs with only TTM #458’s KEEL model missing).']},{v:'73.946',date:'2026-09-30',notes:['IMPORT: PDF STATEMENT FOLLOW-UP. A position held across midnight New York, or opened before the statement, is no longer re-paired from flat each day, which made up a trade the other way and lost the real ones: fills now pair across the whole statement and each trade is dated by its entry, and a position only partly on the statement (opened before it or still open at its end) is listed and not imported. Two scale-outs in the same minute no longer swap journal legs, and a trade the journal lacks no longer takes a leg of its bigger neighbour.']},{v:'73.945',date:'2026-09-30',notes:['IMPORT: CONTRACT SYMBOLS AND PDF STATEMENTS. Imports now save every futures trade under its root symbol (MES, MNQ), never the contract code in the file: a PDF statement used to save MES as MESM and MNQ as MNQH, so it never matched your journal and saved the day a second time, and the Performance CSV saved MNQ trades as MES. A PDF statement now matches each of its trades to the journal copy one for one (same direction, same prices within a tick, same minutes) and never rewrites a journal trade: a scale-out saved as two 1-lot legs, two trades a tick apart and a same-price trade the other way all stay as they are. It only adds the trades your journal is missing, sets each fee to the statement fee per contract times its size, and lists any trade the journal holds in another size or direction without changing it. A reversal fill (long 1, sell 2) now makes two trades instead of one, and a clearing fee is split across the symbols traded that day instead of charged to each one.']},{v:'73.944',date:'2026-09-29',notes:['WEBULL PAPER: CANDLES ON EVERY TRADE. Each trade sheet on HOME > WEBULL PAPER now opens a small QQQ chart of that trade (EXPAND for the full viewer with PREV / NEXT, zoom, 1m / 5m and SAVE PNG), drawn from the box’s own bars - the ones the engine traded on. Marks: the signal bar (dashed outline), the backtest’s fill and exit, the book’s fill and exit, and every Webull try - filled, refused, sent with no answer, held back by the book, a failed order call, or netted against another leg - each with its own shape and words, so they read in MONO too. The legend gives prices, times and how far each Webull fill was from the backtest. The box writes one small file per trading day after the close and again before the open; a day without one falls back to your PC and says so.']},{v:'73.942',date:'2026-09-28',notes:['WEBULL PAPER: FILLS vs BACKTEST AT THE OWNER’S TOLERANCE, AND WEBULL FILLS ARE THE P&L OF RECORD. The old PARITY NOTE (36 of 36 trades miss) is gone: it compared against the send-time quote at 2% of each trade’s P&L and ignored direction. Each Webull fill is now compared, signed (+ = Webull did better), with the backtest’s own fill for that side - for NOISE decided at a bar close, the next bar’s open. A fill more than 15 cents a share worse is flagged (FILL GAP), and a leg or the board is flagged when its last 20 fills average more than 5 cents worse. Known design gaps (the 15:59 flatten, ENGU-Q’s limit entry, stop and target levels, NOISE before 09-26) are shown apart and never flag; a capture that does not fit the tape reads CHECK FILL and never counts (the 09-24 ENGU-Q fill). Trade sheets, the equity curve, today’s figure, the calendar and the evening summary use Webull’s fill per side (book price, labelled, where there is none) with the backtest’s P&L alongside; the daily loss breaker can only trip sooner on a fill shortfall. Today’s orders show the delay after the bar close (SLOW in words past 60 s).']},{v:'73.941',date:'2026-09-28',notes:['LOCKBOX FOLLOW-UP (live check of v73.940): four places still printed a warm run’s cold lockbox - the run report’s 1A chart hover (the chart the classic report layout shows), RUNBOARD’s whole-run LB $ row, the Past Runs group list’s lockbox PF, and LEADERBOARD’s lockbox Sharpe fallback. All four now read the same continuous replay, tagged LB warm or naming the run’s own cold reading on hover; refused runs (ENGU-Q #310, #326) keep their own lockbox everywhere. The run-report check gained a fourth case in the classic 1A layout, so this miss cannot come back unseen.']},{v:'73.940',date:'2026-09-28',notes:['ONE LOCKBOX FIGURE PER RUN, ON EVERY SCREEN. LEADERBOARD, the older COMPARE tables and the run report now read the same lockbox EXPLORE and RUNBOARD already show: for a run that scored its lockbox before warm starts (v73.841), the continuous replay of the same stretch, tagged LB warm with the run’s own cold figure on hover. Same refusal rule: a continuous slice with far fewer trades is a different replay, so that run keeps its own lockbox (ENGU-Q #310, #326). PASS / FAIL stays the verdict scored on the run’s own lockbox. In the run report this covers the metrics table LOCKBOX column, the chart’s lockbox hover and the gate banner; the whole-run curve and the in-sample figure worked out from it stay on the saved (cold) curve. Also fixed: a negative cold figure in the LB warm hover printed as $-42,119.']},{v:'73.937',date:'2026-09-28',notes:['RUNBOARD ROC TOGGLE NOW CLICKS. In v73.936 the ROC row label showed the switch between ROC % / YR and ROC @ $30K DD but clicking it did nothing, on the RUNBOARD tab and on the COMPARE board alike - its click was only hooked up on a different screen. It is now hooked up for every screen the board draws on, and the render check clicks it on both.']},{v:'73.936',date:'2026-09-28',notes:['EXPLORE AND RUNBOARD AUDIT (owner go, via MANAGER). EXPLORE: a row with fewer than 50 lockbox trades carries a caution tag and greys while the lockbox is ticked; ORB #205-#209 are marked VOID (the entry is gated on that same bar finished volume) and always greyed; a pinned single-config run says its walk-forward is in-sample; HYBRID redeploy and equal-drawdown rows size the lockbox at the walk-forward factor, with the lockbox-hindsight reading on hover; the run chips list watched and starred runs first and FAIL or VOID runs last, greyed, never the default pick; a run scored before warm starts reads its continuous lockbox when that is plausibly the same config warmed up (NOISE #382 $69,062, ENGU-Q #335 $49,812, ORB #314 $87,132), tagged LB warm; new ROC @ $30K DD measure (30 x MAR) as a column and on both chart axes; new LEVERAGE LINE view: ROC % / YR against drawdown % of the account, a line from zero through each run plain twin, and every ML or sized row marked above, on or below it. RUNBOARD: the lockbox stage reads the same warm lockbox (tagged LB warm on TOTAL), and clicking the ROC row label switches ROC % / YR and ROC @ $30K DD on every stage and on the WATCH view.']},{v:'73.935',date:'2026-09-28',notes:['LIVE GATE: the NinjaTrader NOISE strategy now sends its own finished bar prices, so the gate scores that bar instead of letting the trade through ungated when the price capture is a few seconds behind.']},
 {v:'73.930',date:'2026-09-28',notes:['SCORE FIXES: seven stock trades (EHGO, LABT, SUGP, GMM, XHG, IPST, HOWL) were scored off the wrong candle or 5-minute bars; re-scored against the 1-minute or 10-second candle the owner actually traded.']},
 {v:'73.928',date:'2026-09-27',notes:['HOME LEDGER ON A PHONE: the SIMPLE ledger no longer clips the edit button at phone width - its cells are a little tighter below 480 pixels.']},
 {v:'73.927',date:'2026-09-27',notes:['ONE ROW OF TABS. The TRADING LOG and BACKTESTER buttons are gone - every tab sits in one row: HOME, ANALYTICS, BUILDER, RESULTS, COMPARE, RESEARCH. The queue dials and the settings gear stay on the top bar.','PAPER MOVED NEXT TO THE REAL LOG. HOME has three subtabs: REAL, NT8 PAPER and WEBULL PAPER. The paper boards are unchanged - only the button that opens them moved. HOME returns to whichever subtab was open last, and a refresh lands on the same tab and subtab.','HOME LEDGER: SIMPLE OR FULL. In TABLE view a new SIMPLE / FULL switch sits next to the FEED button. SIMPLE (the default) shows the columns that fit - date, time, symbol, side, contracts, points, net, score, grade, setup, notes - with no sideways scrolling on a laptop. FULL is the whole row as before. Your choice is remembered in this browser.','Add ?oldtabs=1 to the address to get the old two-level tabs back for now.']},
@@ -6269,7 +6270,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
     }
     const x=xCenter(i);
     const t0=bars[i]&&bars[i].t?String(bars[i].t):'';
-    const tt=dayLbl?(t0.slice(5,7)+'/'+t0.slice(8,10)):t0.slice(11,16);
+    const tt=dayLbl?(t0.slice(5,7)+'/'+t0.slice(8,10)):t0.slice(11,t0.length>16?19:16);   // 10-second bars carry seconds
     out+='<text x="'+x+'" y="'+(margin.t+plotH+15)+'" text-anchor="middle" font-size="9" font-weight="'+(dayLbl?700:400)+'" fill="var(--text5)">'+esc(tt)+'</text>';
   }
 
@@ -6727,6 +6728,135 @@ window.candleSVG=function(bars,overlays,markers,opts){
   };
 })();
 
+// ── EL's OWN CHART ON EVERY REAL TRADE (owner 2026-09-30 via MANAGER: "go with defaults") ──
+// One 1-minute chart with a 10-second close-up, on every real futures trade, with no owner
+// step. The PC publishes each trade's bars right after the trade syncs (api/trade_bars.py ->
+// users/{uid}/trade_bars/{tradeId}), so the chart opens on the phone with the PC asleep. This
+// block reads that doc and hands the shared candle renderer (window.candleSVG) and the full
+// viewer (window._openTradeCandles, rows flagged _rbars) the same shape the Webull paper
+// candles use. A trade with no doc yet falls back to asking the PC (get_bars), like PAPER.
+(function(){
+  const mem={},pend={},TTL_OPEN=60000;   // an unfinished doc (still inside its after-window) is re-read after a minute
+  const fetchDoc=async tid=>{
+    if(typeof window._rtBarsSource==='function')return await window._rtBarsSource(tid);   // test hook
+    const u=(typeof currentUser!=='undefined'&&currentUser&&currentUser.uid)?currentUser.uid:null;
+    if(!u||typeof db==='undefined'||!db||!db.collection)return null;
+    const d=await db.collection('users').doc(u).collection('trade_bars').doc(String(tid)).get();
+    return (d&&d.exists)?d.data():null;
+  };
+  window._rtBarsDoc=async tid=>{
+    tid=String(tid||'');if(!tid)return null;
+    const hit=mem[tid];
+    if(hit&&((hit.doc&&hit.doc.complete)||Date.now()-hit.at<TTL_OPEN))return hit.doc;
+    if(pend[tid])return pend[tid];
+    pend[tid]=(async()=>{let doc=null;try{doc=await fetchDoc(tid);}catch(_e){doc=hit?hit.doc:null;}
+      mem[tid]={doc:doc||null,at:Date.now()};return doc||null;})().finally(()=>{delete pend[tid];});
+    return pend[tid];
+  };
+  window._rtBarsInMem=tid=>{const h=mem[String(tid||'')];return !!(h&&h.doc);};
+  // New York wall clock for an epoch second: the doc stores epochs, the renderer wants
+  // 'YYYY-MM-DD HH:MM' (1m) or 'YYYY-MM-DD HH:MM:SS' (10s). One offset per doc is enough -
+  // a trade's window never spans a daylight-saving switch that matters.
+  const etOff=ep=>{try{const p={};new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'})
+      .formatToParts(new Date(ep*1000)).forEach(q=>{p[q.type]=q.value;});
+    return Date.UTC(+p.year,+p.month-1,+p.day,+p.hour%24,+p.minute,+p.second)-ep*1000;}catch(_e){return -4*3600000;}};
+  const etStr=(ep,off,sec)=>{const s=new Date(ep*1000+off).toISOString();return s.slice(0,10)+' '+s.slice(11,sec?19:16);};
+  window._rtEtStr=(ep,sec)=>etStr(ep,etOff(ep),sec);
+  const unpack=(pk,sec)=>{
+    const out=[];if(!pk||!pk.s)return out;
+    const t0=+pk.t0,st=+pk.step||60,off=etOff(t0);
+    String(pk.s).split(';').forEach(p=>{const a=p.split(',');if(a.length<6)return;const ep=t0+(+a[0])*st;
+      out.push({t:etStr(ep,off,sec),o:+a[1],h:+a[2],l:+a[3],c:+a[4],v:+a[5],ep:ep});});
+    return out;
+  };
+  // the bar that CONTAINS the fill; a fill in a gap between bars goes on the bar before it;
+  // a fill past the last bar is off the chart (-1)
+  const idxOf=(bars,ep,st)=>{if(ep==null||!bars.length)return -1;
+    for(let i=bars.length-1;i>=0;i--){if(bars[i].ep<=ep)return (i===bars.length-1&&ep>=bars[i].ep+st)?-1:i;}
+    return -1;};
+  window._rtBarsForTrade=async(x,tf)=>{
+    if(!x||!x._tid)return null;
+    const doc=await window._rtBarsDoc(x._tid);if(!doc)return null;
+    tf=(String(tf||'1m')==='10s')?'10s':'1m';
+    const pk=tf==='10s'?doc.b10s:doc.b1m;if(!pk)return null;
+    const st=+pk.step||(tf==='10s'?10:60),bars=unpack(pk,tf==='10s');if(!bars.length)return null;
+    const ei=idxOf(bars,doc.entry&&doc.entry.t,st),xi=idxOf(bars,doc.exit&&doc.exit.t,st),sh=+pk.shift||0;
+    return {bars:bars,entry_idx:ei>=0?ei:null,exit_idx:xi>=0?xi:null,overlays:{},tf:tf,src:'el',final:!!doc.complete,
+      has10s:!!doc.b10s,shift:sh,entry_t:doc.entry&&doc.entry.t,exit_t:doc.exit&&doc.exit.t,
+      meta:{master:String(pk.src||'')+(sh?(' &middot; moved '+(sh>0?'+':'')+sh.toFixed(2)+' onto your contract month'):'')
+        +(doc.complete?'':' &middot; still filling in after the exit')}};
+  };
+  // ── the compact chart in HOME's trade panel: 1M | 10S, EXPAND on a wide screen ──
+  const svgCache={};   // last drawing per trade + bar size: a redraw of the panel shows it at once
+  const esc=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  window._rtSheetTf=window._rtSheetTf||'1m';
+  window._rtSheetCandlesHtml=tid=>{
+    const k=esc(tid),tf=window._rtSheetTf,cached=svgCache[tid+'|'+tf];
+    const chip=(v,l)=>'<button type="button" data-rtsheettf="'+v+'" style="background:'+(tf===v?'var(--bg2)':'none')+';border:0;color:'+(tf===v?'var(--text)':'var(--text4)')+';font-weight:'+(tf===v?'600':'400')+';border-radius:5px;padding:3px 9px;font-size:10px;letter-spacing:.8px;cursor:pointer;font-family:inherit">'+l+'</button>';
+    return '<div class="hm-sheet-candles" data-rtcandles="'+k+'" style="margin:0 0 16px">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span class="hm-micro" style="margin-right:auto">CHART</span>'
+      +'<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:7px;padding:2px">'+chip('1m','1M')+chip('10s','10S')+'</span>'
+      +(((window.innerWidth||1024)<600)?'':'<button type="button" data-rtcandlesexpand="'+k+'" title="open the full chart: zoom, pan, step through your trades, save a picture" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:6px;padding:3px 10px;font-size:10px;letter-spacing:.8px;cursor:pointer;font-family:inherit">EXPAND &#8599;</button>')
+      +'</div>'
+      +'<div data-rtcandlesbody style="min-height:120px;'+(cached?'':'display:flex;align-items:center;justify-content:center;')+'color:var(--text5);font-size:11px">'+(cached||'loading the candles&hellip;')+'</div>'
+      +'</div>';
+  };
+  window._rtSheetCandlesFill=async el=>{
+    const tid=el.getAttribute('data-rtcandles'),body=el.querySelector('[data-rtcandlesbody]');
+    const rows=window._hmCandleRows||[],x=rows.find(q=>String(q._tid)===String(tid));
+    if(!x||!body)return;
+    el.querySelectorAll('[data-rtsheettf]').forEach(b=>{b.onclick=e=>{e.stopPropagation();window._rtSheetTf=b.getAttribute('data-rtsheettf');
+      const host=el.parentNode;if(!host)return;const tmp=document.createElement('div');tmp.innerHTML=window._rtSheetCandlesHtml(tid);
+      const nu=tmp.firstChild;host.replaceChild(nu,el);window._rtSheetCandlesFill(nu);};});
+    const ex=el.querySelector('[data-rtcandlesexpand]');
+    if(ex)ex.onclick=e=>{e.stopPropagation();window._hmOpenCandles(tid,ex);};
+    const tf=window._rtSheetTf;
+    let rb=null;try{rb=await window._rtBarsForTrade(x,tf);}catch(_e){}
+    if(!document.body.contains(el))return;
+    if(!rb){
+      const d=window._rtBarsInMem(tid);
+      body.style.display='flex';
+      body.innerHTML='<span style="text-align:center;padding:0 10px">'+(tf==='10s'&&d
+        ?'no 10-second bars for this trade - the NinjaTrader capture was not running then (it started 2026-06-23)'
+        :'the chart is not published yet - your PC adds it a few minutes after the trade syncs')+'</span>';
+      return;}
+    const n=rb.bars.length,e=(rb.entry_idx!=null)?rb.entry_idx:((rb.exit_idx!=null)?rb.exit_idx:0),xx=(rb.exit_idx!=null)?rb.exit_idx:e;
+    const pad=tf==='10s'?18:20,lo=Math.max(0,e-pad),hi=Math.min(n-1,xx+pad);
+    const mk={entryPrice:x._ep,exitPrice:x._xp,side:x._side,pnlUsd:x._usd};
+    if(rb.entry_idx!=null&&rb.entry_idx>=lo&&rb.entry_idx<=hi)mk.entryIdx=rb.entry_idx-lo;
+    if(rb.exit_idx!=null&&rb.exit_idx>=lo&&rb.exit_idx<=hi)mk.exitIdx=rb.exit_idx-lo;
+    if(mk.entryIdx!=null&&mk.exitIdx!=null){mk.shadeFrom=mk.entryIdx;mk.shadeTo=mk.exitIdx;}
+    const W=Math.max(300,Math.round(el.clientWidth||388)),H=Math.max(180,Math.min(260,Math.round(W*0.55)));
+    const geo=window.CANDLE_GEO;
+    const inT=rb.entry_t?window._rtEtStr(rb.entry_t,true).slice(11):'',outT=rb.exit_t?window._rtEtStr(rb.exit_t,true).slice(11):'';
+    const html='<div class="hm-sheet-candles-svg">'+window.candleSVG(rb.bars.slice(lo,hi+1),{},mk,{width:W,height:H,xTicks:Math.max(3,Math.floor(W/95))})+'</div>'
+      +'<div style="font-size:10px;line-height:1.5;color:var(--text5);margin-top:5px">'+(inT?('in '+inT+' &rarr; out '+outT+' ET &middot; '):'')+'bars: '+rb.meta.master+'</div>';
+    window.CANDLE_GEO=geo;   // the full viewer's hover maths reads this - leave it as it was
+    svgCache[tid+'|'+tf]=html;
+    body.style.display='block';body.innerHTML=html;
+    const sv=body.querySelector('svg');if(sv){sv.style.width='100%';sv.style.height='auto';sv.style.display='block';}
+  };
+  // the ledger's chart icon and the panel's EXPAND: the full viewer on a wide screen, the
+  // trade panel (compact chart) on a phone
+  window._hmOpenCandles=(tid,glyph)=>{
+    const rows=window._hmCandleRows||[],x=rows.find(q=>String(q._tid)===String(tid));
+    if(!x)return;
+    if((window.innerWidth||1024)<600||!window._openTradeCandles){homeSheetId=String(tid);renderApp();return;}
+    window._openTradeCandles(x,glyph||null,{B:{},all:()=>rows,order:()=>rows});
+  };
+  // a REAL trade in the shape the candle viewer takes. Futures only until stock bars exist.
+  window._hmCandleRow=t=>{
+    const inst=_hmFutInst(t.symbol);if(!inst)return null;
+    const hm=v=>String(v||'').slice(0,5);
+    return {_no:'RT:'+t.id,_tid:String(t.id),_rbars:1,_tf:'1m',_et:t.date+' '+hm(t.entryTime),_xt2:t.date+' '+hm(t.exitTime||t.entryTime),
+      _ep:+t.entry,_xp:+t.exit,_side:(String(t.type).toUpperCase()==='SHORT')?'short':'long',_usd:+t.pnl||0,
+      _label:String(t.symbol||'')+' '+String(t.type||'')+' '+t.date+' '+hm(t.entryTime),_srcLbl:'your trade',
+      _pb:{instrument:inst,timeframe:'1m',session:'eth',include_fresh:true}};
+  };
+})();
+// MNQ/NQ -> NQ bars, MES/ES -> ES bars (the PC publishes these; stocks wait for Alpaca)
+function _hmFutInst(sym){const s=String(sym||'').toUpperCase().trim().split(/\s+/)[0];return ({MNQ:'NQ',NQ:'NQ',MES:'ES',ES:'ES'})[s]||null;}
+
 // Chart expand modal — fullscreen copy of a chart with LIVE hover: the same data-tip
 // tooltips as the report (delegated here too, since the report's listener sits on
 // #res-detail) PLUS an axis crosshair readout (date/param + $/count under the mouse)
@@ -7096,6 +7226,10 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
   };
 
   const _cndl={api:null,x:null,r:null,view:null,seq:0,ctx:null,grp:null};
+  // rows whose bars live in a Firestore doc instead of on the PC: Webull paper (x._qbars, the
+  // box day doc) and real trades (x._rbars, api/trade_bars.py). Null = ask the PC (get_bars).
+  const _docBars=(x,tf)=>(x&&x._qbars&&window._qqqBarsForTrade)?window._qqqBarsForTrade(x,tf)
+    :((x&&x._rbars&&window._rtBarsForTrade)?window._rtBarsForTrade(x,tf):null);
   // Webull paper rows (x._qbars) open zoomed to the trade with ~20 bars either side;
   // the rest of the session stays reachable by pan / zoom / FULL.
   const _cndlZoomTrade=r=>{if(!r||r.entry_idx==null)return;
@@ -7234,11 +7368,25 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       if(/^\d+\s*m$/i.test(tf))seen[tf]=1;});}catch(_tm){}
     seen[_curTf()]=1;
     if(x._qbars){seen['1m']=1;seen['5m']=1;}
-    return Object.keys(seen).sort((a,b)=>_tfMin(a)-_tfMin(b));
+    if(x._rbars){seen['1m']=1;const _hb=_barsCache[x._no];if(!_hb||_hb.has10s!==false)seen['10s']=1;}
+    const _tk=t=>(String(t)==='10s')?0.1:_tfMin(t);
+    return Object.keys(seen).sort((a,b)=>_tk(a)-_tk(b));
   };
   const _setTf=tf=>{
     if(!_cndl.x||!tf||tf===_curTf())return;
     const _x0=_cndl.x;
+    // a real trade's own doc carries 1m and 10s; anything else asks the PC like PAPER does
+    if(_x0._rbars&&(tf==='1m'||tf==='10s')&&window._rtBarsForTrade&&(!_cndl.sess||_cndl.sess==='eth')){
+      const seq0=_cndl.seq;
+      window._rtBarsForTrade(_x0,tf).then(rb=>{
+        if(!_cndlAlive()||_cndl.seq!==seq0||_cndl.x!==_x0)return;
+        if(!rb){if(tf==='10s'){_cndl.api.setSub('<span style="color:var(--text4)">no 10-second bars for this trade - the NinjaTrader capture was not running then</span>');return;}
+          _cndlRefetch({timeframe:tf,pad_sessions:1},'SWITCHING TO '+String(tf).toUpperCase()+' BARS',false);return;}
+        _cndl.tf=(tf==='1m')?null:tf;
+        _cndl.r=rb;_cndl.yLock=null;_cndl.yZoom=1;_cndlZoomTrade(rb);_renderCandle();_syncCndlCtl();
+      }).catch(()=>{});
+      return;
+    }
     if(_x0._qbars&&(tf==='1m'||tf==='5m')&&window._qqqBarsForTrade&&(!_cndl.sess||_cndl.sess==='rth')){
       const seq0=_cndl.seq;
       window._qqqBarsForTrade(_x0,tf).then(rb=>{
@@ -7312,7 +7460,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
       +' &middot; net <span style="color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x._usd)+'</span>'
 
-      +(meta.master?(r.src==='box'?' &middot; '+meta.master:' &middot; master: '+meta.master):'')
+      +(meta.master?((r.src==='box'||r.src==='el')?' &middot; '+meta.master:' &middot; master: '+meta.master):'')
       +((x._qbars&&r.src!=='box')?' &middot; <span style="color:var(--text4)">bars from your PC - can differ from what the engine traded on by a few cents</span>':'')
 
 
@@ -7520,7 +7668,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       gp.n=(gp.n||10)+10;
       gp.list=(gp.kind==='w:')?by.slice(0,gp.n):by.slice(-gp.n).reverse();
       gp.label=(gp.kind==='w:')?('TOP '+gp.n+' WINNERS'):('TOP '+gp.n+' LOSERS');
-      gp.list.forEach(nb=>{if(nb._qbars&&window._qqqBarsForTrade){window._qqqBarsForTrade(nb).then(rb=>{if(rb)_barsCache[nb._no]=rb;_syncCndlCtl();}).catch(()=>{});return;}
+      gp.list.forEach(nb=>{const _pd=_docBars(nb);if(_pd){_pd.then(rb=>{if(rb)_barsCache[nb._no]=rb;_syncCndlCtl();}).catch(()=>{});return;}
         if(_barsCache[nb._no]||nb._pf)return;nb._pf=1;
         _fetchBars(nb._no,Object.assign({},_cB(nb),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
           .catch(()=>{}).finally(()=>{nb._pf=0;_syncCndlCtl();});});
@@ -7550,7 +7698,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       const list=(kind==='w:')?by.slice(0,10):by.slice(-10).reverse();
       _cndl.grp={list:list,kind:kind,n:10,label:(kind==='w:')?'TOP 10 WINNERS':'TOP 10 LOSERS'};
       // fetch ALL TEN up front so PREV/NEXT and the arrow keys flip through the set instantly
-      list.forEach(nb=>{if(nb._qbars&&window._qqqBarsForTrade){window._qqqBarsForTrade(nb).then(rb=>{if(rb)_barsCache[nb._no]=rb;_syncCndlCtl();}).catch(()=>{});return;}
+      list.forEach(nb=>{const _pd=_docBars(nb);if(_pd){_pd.then(rb=>{if(rb)_barsCache[nb._no]=rb;_syncCndlCtl();}).catch(()=>{});return;}
         if(_barsCache[nb._no]||nb._pf)return;nb._pf=1;
         _fetchBars(nb._no,Object.assign({},_cB(nb),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
           .catch(()=>{}).finally(()=>{nb._pf=0;_syncCndlCtl();});});
@@ -7621,7 +7769,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
       // Webull paper rows are keyed by trade id -- show their leg + entry time instead
       const opt=(x2,tag,pre)=>'<option value="'+String(pre+x2._no).replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'">'+tag+' '+fmt$(x2._usd)+' &middot; '
-        +(x2._qbars?String(x2._label||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'):('#'+x2._no+' &middot; '+String(x2._et).slice(0,10)))+'</option>';
+        +((x2._qbars||x2._rbars)?String(x2._label||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'):('#'+x2._no+' &middot; '+String(x2._et).slice(0,10)))+'</option>';
 
       sel.innerHTML='<option value="">TOP 10 &#9662;</option>'
         +'<option value="reset">&#8617; back to table order</option>'
@@ -7688,7 +7836,9 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
       cx2.drawImage(img,0,0,cv.width,cv.height);
 
-      const name=(_cndl.x&&_cndl.x._qbars)
+      const name=(_cndl.x&&_cndl.x._rbars)
+        ?('trade_'+String(_cndl.x._label||_cndl.x._tid||'trade').replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)+'_candles.png')
+        :(_cndl.x&&_cndl.x._qbars)
         ?('webull_'+String(_cndl.x._tid||_cndl.x._label||'trade').replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)+'_candles.png')
         :('run'+((_cB().run_id)!=null?_cB().run_id:'')+'_trade'+(_cndl.x?_cndl.x._no:'')+'_candles.png');
 
@@ -7732,6 +7882,16 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       let rb=null;try{rb=await window._qqqBarsForTrade(x);}catch(_eb){}
       if(!_cndlAlive()||_cndl.seq!==seq)return;
       if(rb){_barsCache[x._no]=rb;x._marks=rb.marks||null;_cndl.r=rb;_cndlZoomTrade(rb);_renderCandle();_prefetchNeighbors(x);return;}
+    }
+    // real trades read their own published doc (api/trade_bars.py); no doc yet -> ask the PC below
+    if(x._rbars&&window._rtBarsForTrade){
+      if(!(window._rtBarsInMem&&window._rtBarsInMem(x._tid))){
+        _cndl.api.setSvg('<svg viewBox="0 0 1080 8" style="display:block;height:6px"></svg>');
+        _cndl.api.setSub('<b style="color:var(--text3)">loading this trade&#39;s candles&hellip;</b>');
+      }
+      let rb=null;try{rb=await window._rtBarsForTrade(x,'1m');}catch(_eb){}
+      if(!_cndlAlive()||_cndl.seq!==seq)return;
+      if(rb){_barsCache[x._no]=rb;_cndl.r=rb;_cndlZoomTrade(rb);_renderCandle();_prefetchNeighbors(x);return;}
     }
 
     const hit=_barsCache[x._no];
@@ -7780,7 +7940,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     [rows[i3-1],rows[i3+1]].forEach(nb=>{
 
-      if(nb&&nb._qbars&&window._qqqBarsForTrade){window._qqqBarsForTrade(nb).then(rb=>{if(rb)_barsCache[nb._no]=rb;}).catch(()=>{});return;}
+      {const _pd=nb?_docBars(nb):null;if(_pd){_pd.then(rb=>{if(rb)_barsCache[nb._no]=rb;}).catch(()=>{});return;}}
       if(!nb||_barsCache[nb._no]||nb._pf)return;nb._pf=1;
 
       _fetchBars(nb._no,Object.assign({},_cB(nb),{entry_time:nb._et,exit_time:nb._xt2,pad_sessions:1}),300000)
@@ -12055,6 +12215,7 @@ function _hmSheetHtml(id){
     <div class="hm-sheet-sym">${_hmEsc(t.symbol)}</div>
     <div class="hm-sheet-sub">${t.type} ${t.size!=null?t.size:''}${isFut(t.symbol)?' contract'+(t.size>1?'s':''):' sh'} &middot; ${t.date}</div>
     <div class="hm-sheet-net ${_hmCls(t.pnl)}">${_hmSigned(t.pnl)}</div>
+    ${_hmFutInst(t.symbol)&&window._rtSheetCandlesHtml?window._rtSheetCandlesHtml(String(t.id)):(isFut(t.symbol)?'':'<div style="font-size:10px;color:var(--text5);margin:-8px 0 14px">Charts for stock trades arrive once the free Alpaca key is saved.</div>')}
     <label class="hm-excl"><input type="checkbox" id="hm-sheet-excl"${t.statsExcluded?' checked':''}/><span><b>IGNORE IN METRICS</b><br/>Still counts in P&amp;L and the account balance. Left out of win rate, profit factor, averages, drawdown and the other performance figures.</span></label>
     <div>${dlHtml}</div>
     <div class="hm-tags">${tagsHtml}</div>
@@ -12119,11 +12280,17 @@ function _hmScoreHtml(t){
 // narrows (CSS next to .hm-dtable): PTS and # go first, then IN and SETUP, then CTRS, SCORE,
 // NOTES and the delete button - a phone keeps DATE, SYM, DIR, NET, GRADE and edit. NOTES soaks up
 // whatever width is left, so the row always ends at the edge of the box instead of past it.
+// EL's own chart (api/trade_bars.py): a small two-candle glyph that opens the trade's candles.
+// A pasted TradingView snapshot link keeps its own chart-link icon next to it.
+function _hmCandleGlyph(t){
+  if(!_hmFutInst(t.symbol))return '';
+  return `<span class="hm-candle-glyph" data-hmcandle="${_hmEsc(t.id)}" role="button" tabindex="0" title="EL chart: 1-minute candles with a 10-second close-up" style="cursor:pointer;display:inline-flex;vertical-align:middle;padding:2px 3px"><svg width="14" height="13" viewBox="0 0 14 13" aria-hidden="true"><path d="M3.5 1v11M10.5 2.5v9" stroke="currentColor" stroke-width="1"/><rect x="1.8" y="3.5" width="3.4" height="5.5" fill="currentColor"/><rect x="8.8" y="4.5" width="3.4" height="4.5" fill="none" stroke="currentColor" stroke-width="1"/></svg></span>`;
+}
 function _hmTableHeaderSimple(){
   return `<tr>
     <th class="num hm-s3">#</th>${_hmThCell('DATE','date','',_hmThFDates('dateFrom','dateTo'))}<th class="hm-s2">IN</th>
     ${_hmThCell('SYM','symbol','',_hmThFList('sym',_hmAllSyms()))}${_hmThCell('DIR','type','',_hmThFList('dir',['LONG','SHORT']))}${_hmThCell('CTRS','size','num hm-s1')}<th class="num hm-s3">PTS</th>
-    ${_hmThCell('NET','pnl','num',_hmThFRange('minPnl','maxPnl'))}${_hmThCell('SCORE','_score','hm-s1')}${_hmThCell('GRADE','grade','',_hmThFList('grade',GRADES.filter(g=>g!=='—')))}${_hmThCell('SETUP','setup','hm-s2',_hmThFList('setup',customSetups.filter(s=>s!=='—')))}<th class="hm-s-notes hm-s1">NOTES</th>
+    ${_hmThCell('NET','pnl','num',_hmThFRange('minPnl','maxPnl'))}${_hmThCell('SCORE','_score','hm-s1')}${_hmThCell('GRADE','grade','',_hmThFList('grade',GRADES.filter(g=>g!=='—')))}${_hmThCell('SETUP','setup','hm-s2',_hmThFList('setup',customSetups.filter(s=>s!=='—')))}<th class="hm-s-notes hm-s1">NOTES</th><th class="hm-s-ic hm-s1">CHART</th>
     <th class="hm-s-ic">&#9998;</th><th class="hm-s-ic hm-s1">&#10005;</th>
   </tr>`;
 }
@@ -12143,6 +12310,7 @@ function _hmTableRowSimple(t,idx,total){
     <td><select class="inline-sel" data-hmfield="grade" data-hmid="${t.id}">${GRADES.map(g=>`<option${g===(t.grade||'—')?' selected':''}>${g}</option>`).join('')}</select></td>
     <td class="hm-s2"><select class="inline-sel" data-hmfield="setup" data-hmid="${t.id}">${customSetups.map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}</select></td>
     <td class="hm-notes-cell hm-s-notes hm-s1" title="${_hmEsc(t.notes||'')}"><input class="inline-txt" data-field="notes" data-id="${t.id}" value="${_hmEsc(t.notes||'')}" placeholder="+ note" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:inherit;width:100%;box-sizing:border-box;padding:1px 2px;outline:none;text-overflow:ellipsis" onfocus="this.style.borderBottomColor='var(--blue)'" onblur="this.style.borderBottomColor='transparent';if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/></td>
+    <td class="hm-icon-cell hm-s-ic hm-s1" style="white-space:nowrap">${_hmCandleGlyph(t)}${t.chartUrl?`<a href="${_hmEsc(t.chartUrl)}" target="_blank" class="clink chart-link" data-url="${_hmEsc(t.chartUrl)}" title="your TradingView snapshot" style="text-decoration:none;margin-left:2px">&#128200;</a>`:''}</td>
     <td class="hm-icon-cell hm-s-ic" data-hmedit="${t.id}">&#9998;</td>
     <td class="hm-icon-cell hm-s-ic hm-s1" data-hmdel="${t.id}">&#10005;</td>
   </tr>`;
@@ -12177,7 +12345,7 @@ function _hmTableRow(t,idx,total,runBals){
     <td>${scoreHtml}</td>
     <td><select class="inline-sel" data-hmfield="setup" data-hmid="${t.id}">${customSetups.map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}</select></td>
     <td><button type="button" class="tf-btn" data-tid="${t.id}" data-tfkey="hm-${t.id}" onclick="event.stopPropagation();window.openTfPicker(this)" title="Pick one or more timeframes">${_hmEsc(tfLabel(t.timeframe))}</button></td>
-    <td class="hm-chart-cell" style="padding:3px 6px;white-space:nowrap">${t.chartUrl?`<a href="${_hmEsc(t.chartUrl)}" target="_blank" class="clink chart-link" data-url="${_hmEsc(t.chartUrl)}" style="margin-right:4px;text-decoration:none">&#128200;</a>`:''}<input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${_hmEsc(t.chartUrl||'')}" placeholder="chart url" title="${t.chartUrl?_hmEsc(t.chartUrl):'Paste a chart URL'}" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:9px;width:${t.chartUrl?'34px':'62px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='170px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'34px':'62px';if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/></td>
+    <td class="hm-chart-cell" style="padding:3px 6px;white-space:nowrap">${_hmCandleGlyph(t)}${t.chartUrl?`<a href="${_hmEsc(t.chartUrl)}" target="_blank" class="clink chart-link" data-url="${_hmEsc(t.chartUrl)}" style="margin-right:4px;text-decoration:none">&#128200;</a>`:''}<input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${_hmEsc(t.chartUrl||'')}" placeholder="chart url" title="${t.chartUrl?_hmEsc(t.chartUrl):'Paste a chart URL'}" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:9px;width:${t.chartUrl?'34px':'62px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='170px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'34px':'62px';if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/></td>
     <td style="padding:3px 6px;max-width:130px">${tagsHtml}</td>
     <td class="hm-notes-cell" style="max-width:none;overflow:visible" title="${_hmEsc(t.notes||'')}"><input class="inline-txt" data-field="notes" data-id="${t.id}" value="${_hmEsc(t.notes||'')}" placeholder="+ note" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:inherit;width:160px;padding:1px 2px;outline:none;text-overflow:ellipsis" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='360px'" onblur="this.style.borderBottomColor='transparent';this.style.width='160px';if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/></td>
     ${extra}
@@ -12486,6 +12654,10 @@ function _hmRenderHome(content){
   const rangeTrades=_hmTradesInRange(trades,homeRange);
   const rangeStats=calcStats(rangeTrades);
   const list=_hmFeedList();
+  // the candle viewer's PREV / NEXT walk your futures trades in the order the ledger shows them
+  try{window._hmCandleRows=(homeView==='table'?_hmApplySort(list):list).map(t=>window._hmCandleRow?window._hmCandleRow(t):null).filter(Boolean);
+    const _seen=new Set(window._hmCandleRows.map(r=>r._tid));
+    trades.forEach(t=>{if(!_seen.has(String(t.id))){const r=window._hmCandleRow?window._hmCandleRow(t):null;if(r)window._hmCandleRows.push(r);}});}catch(_e){window._hmCandleRows=[];}
   content.innerHTML=`<div class="hm-wrap">
     <div class="hm-hero">
       <div class="hm-micro" id="hm-hero-label"></div>
@@ -12646,6 +12818,9 @@ function _hmRenderHome(content){
     });
     feedC.querySelectorAll('[data-hmfee]').forEach(td=>{td.onclick=(e)=>{e.stopPropagation();showFeeBreakdown(td.dataset.hmfee);};});
     feedC.querySelectorAll('.hm-chart-cell').forEach(td=>{td.onclick=(e)=>{e.stopPropagation();};});
+    feedC.querySelectorAll('[data-hmcandle]').forEach(g=>{
+      g.onclick=(e)=>{e.stopPropagation();window._hmOpenCandles(g.dataset.hmcandle,null);};
+      g.onkeydown=(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();window._hmOpenCandles(g.dataset.hmcandle,null);}};});
     feedC.querySelectorAll('[data-hmedit]').forEach(td=>{td.onclick=(e)=>{e.stopPropagation();openEditModal(td.dataset.hmedit);};});
     feedC.querySelectorAll('[data-hmdel]').forEach(td=>{td.onclick=(e)=>{e.stopPropagation();deleteTrade(td.dataset.hmdel);};});
     feedC.querySelectorAll('tbody tr[data-hmid]').forEach(tr=>{
@@ -12676,6 +12851,7 @@ function _hmRenderHome(content){
   const backdropEl=content.querySelector('#hm-backdrop');
   if(homeSheetId){
     sheetEl.innerHTML=_hmSheetHtml(homeSheetId);
+    sheetEl.querySelectorAll('[data-rtcandles]').forEach(el=>{if(window._rtSheetCandlesFill)window._rtSheetCandlesFill(el);});
     sheetEl.classList.add('open');
     backdropEl.classList.add('open');
     const closeBtn=sheetEl.querySelector('#hm-sheet-close');
