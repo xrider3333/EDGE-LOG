@@ -58,3 +58,4 @@ OneDrive (`C:\EdgeLog\alpaca_cache\`); they never register masters. Asked of the
 - Membership: `tools/data/ndx_members.csv` (built before any stock bar; see `build_ndx_members.py`).
 - Harness: `tools/rocfrontier/r5_nqbrd.py pull` then `A` - one multi-symbol request per day (09:30-10:00 bars of that day's members, `asof` maps renamed tickers), about 2,600 requests = ~15 minutes on the free plan.
 - SIPORB: `tools/rocfrontier/r5_siporb.py` - order `probe`, `assets`, `daily`, `open5`, `min1 top`, `A` (replication check), `min1 twin`, `A` again; `B` only after an A2 pass. Roughly 3-4 hours of pulls on the free plan, most of it the raw twin's 1-minute bars.
+- TRANSFER r2 (ETF proxies): `tools/rocfrontier/r8_transfer_etf.py pull`, `gates`, `A` - six funds x 5-minute and 30-minute bars through the shared loader (library masters under the fund tickers), minutes of pulls.

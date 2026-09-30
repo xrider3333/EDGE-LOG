@@ -81,3 +81,10 @@ this lockbox. Evidence only - it cannot rescue a failed cell, and no re-tuned se
 
 11. SCOPE: no other funds, strategies, settings, sessions, bar sizes, filters or costs. Anything else is a new
 pre-registration.
+
+ADDENDUM 2026-09-30, written BEFORE any ETF bar exists (the harness builder found a spec flaw, no data involved):
+Gate 2's tolerance "within one cent" is replaced by "within one cent or 0.10% of the daily price, whichever is larger",
+for both the open and the close. Reason: Alpaca's daily open and close are the official auction prints (the close is the
+16:00 closing auction), which regular-hours 5-minute bars do not contain; a one-cent rule would drop healthy funds for
+microstructure, while 0.10% still catches what the gate is for (a wrong split adjustment or a wrong instrument moves
+prices by whole percent). Nothing else changes.

@@ -28,6 +28,7 @@ read and can run any time.
 - `build_ndx_members.py` (+ `tools/data/ndx_members*.csv`, `ndx_members_wikipedia.json`) — point-in-time Nasdaq-100 membership for NQBRD, from the Wikipedia list in force on the first of each month (2016-06..2026-07).
 - `r5_nqbrd.py` — ALPACA r1 family B (NQ breadth trigger): `pull` (needs the owner's Alpaca keys; 09:30-10:00 bars of each day's members into `C:\EdgeLog\alpaca_cache`), `A` = Stage A + A2 pre-lockbox, `B` = lockbox once.
 - `r5_siporb.py` — ALPACA r1 family A (stocks-in-play ORB): `probe`, `assets`, `daily`, `open5`, `min1 top|twin|est` (all need the owner's Alpaca keys), `A` = replication + Stage A + A2 pre-lockbox, `B` = lockbox once; `smoke DIR` = offline self-test on synthetic data.
+- `PREREG_TRANSFER_R2.txt` + `r8_transfer_etf.py` — TRANSFER r2 (2026-09-30, pre-registered, not run): the crowns unchanged on ETF proxies with free Alpaca data. Order: `ttmcheck` (runs now on ES; passes), `pull` (needs keys; registers fund masters via the shared loader and checks NQ / ES lookups do not move), `gates`, `A`, then `B --ledger-ok` and `C` only after passes; `smoke DIR` = offline self-test.
 - `IDEAS_R4.md` — round 4 (2026-09-28): ten new-family ideas vs BOOK #463; three triaged, all dead (ledger 2.33).
 - `r4_book463.py` — BOOK #463's daily leg P&L (at close + valued daily), reproduces the frontier lane's 60.34 / 164.76 exactly.
 - `r4_triage.py` + `PREREG_WKND_FOMCWK_R1.txt` — WKND (weekend gap) and FOMCWK (FOMC-cycle weeks) Stage A, pre-lockbox only.
