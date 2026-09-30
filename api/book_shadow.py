@@ -41,6 +41,7 @@ BOOK463_LEGS = [
 
 VT_LOOKBACK, VT_REF, VT_LO, VT_HI = 20, 250, 0.5, 2.0
 VT_WARMUP_DAYS = 3 * 366
+VT_MAX_LAG_BDAYS = 1                  # one missing business day tolerated (a holiday); two stops the line
 AG_TILT = 1.5
 AG_LEGS = ("ORB", "NOISE_422")        # paper leg keys: ORB #234 and NOISE #422
 
@@ -52,13 +53,28 @@ def vt_multipliers(M):
     return (ref / vol).clip(VT_LO, VT_HI).round(1).fillna(1.0)
 
 
-def book463_valued_daily(date_from, date_to):
-    """#463's valued-daily book P&L, built the way the book job builds it (UTC day stamps kept)."""
+def book463_valued_daily(date_from, date_to, data_through=None):
+    """#463's valued-daily book P&L, built the way the book job builds it (UTC day stamps kept).
+
+    Refuses (raises) rather than returning a quietly different series: the engine falls back to
+    another master when the pinned one is missing, and to exit-day stamps when daily valuation
+    fails - either would change the volatility signal without any error (09-30 review). When a
+    dict is passed as `data_through`, each leg's last master bar date is recorded in it.
+    """
     from augur_engine import book
     days = pd.bdate_range(date_from, date_to)
     parts = []
     for leg in BOOK463_LEGS:
         tr, inf = book._leg_trades(dict(leg), date_from, date_to)
+        if inf.get("source") != leg["source"]:
+            raise ValueError(f"{leg['strategy']} ran on source {inf.get('source')!r}, pinned {leg['source']!r}")
+        if inf.get("mtm_error"):
+            raise ValueError(f"{leg['strategy']} daily valuation failed: {inf['mtm_error']}")
+        if data_through is not None:
+            m = book.find_master(leg["instrument"], leg["timeframe"], leg["session"], leg["source"])
+            arr = book.load_master_arrays(m, date_from=(pd.Timestamp(date_to) - pd.Timedelta(days=20)).strftime("%Y-%m-%d"))
+            idx = pd.to_datetime(arr["index"])
+            data_through[leg["strategy"]] = str(idx.max().date()) if len(idx) else None
         marks = inf.pop("_mtm_day", None) or tr
         d, v = book._daily(marks)
         s = pd.Series(v, index=pd.to_datetime(d)).groupby(level=0).sum() if len(d) else pd.Series(dtype=float)
@@ -72,13 +88,32 @@ def vt_multiplier_for(day):
     D = pd.Timestamp(day).normalize()
     if D.tzinfo is not None:
         D = D.tz_localize(None)
-    M = book463_valued_daily((D - pd.Timedelta(days=VT_WARMUP_DAYS)).strftime("%Y-%m-%d"), D.strftime("%Y-%m-%d"))
+    thru = {}
+    M = book463_valued_daily((D - pd.Timedelta(days=VT_WARMUP_DAYS)).strftime("%Y-%m-%d"), D.strftime("%Y-%m-%d"), thru)
+    lag = stale_lag(thru, D)
+    if max(lag.values()) > VT_MAX_LAG_BDAYS:
+        # Missing days read as $0 and shrink the 20-day volatility, which pushes m toward 2.0 with no
+        # error at all (09-30 review) - so a master more than one business day behind stops the line.
+        raise ValueError(f"stale master data (business days behind D-1): {lag}")
     if D not in M.index:
         M = M.reindex(M.index.union(pd.DatetimeIndex([D]))).fillna(0.0)
     m = vt_multipliers(M)
     before = M[(M.index < D) & (M != 0)]
     return float(m.loc[D]), {"signal_through": str(before.index.max().date()) if len(before) else None,
+                             "data_through": thru, "lag_bdays": lag,
                              "vol20": _round(M.shift(1).rolling(VT_LOOKBACK).std().loc[D])}
+
+
+def stale_lag(data_through, D):
+    """Business days each leg's master is behind D-1 (0 = has D-1; a holiday costs 1)."""
+    out = {}
+    for k, v in data_through.items():
+        if v is None:
+            out[k] = 99
+            continue
+        last = pd.Timestamp(v)
+        out[k] = max(0, len(pd.bdate_range(last + pd.Timedelta(days=1), D - pd.Timedelta(days=1))))
+    return out
 
 
 def _round(x):
@@ -99,8 +134,10 @@ def agreement_tilted(leg_reports):
     tb = (leg_reports.get(b) or {}).get("_trades") or []
 
     def span(t):
+        # A trade with no exit yet is treated as open to the end of its entry day (both legs are flat
+        # at the close). pd.Timestamp.max cannot carry a timezone - it overflowed here (09-30 review).
         e = pd.Timestamp(t["entryIso"])
-        x = pd.Timestamp(t["exitIso"]) if t.get("exitIso") else pd.Timestamp.max.tz_localize(e.tz) if e.tz else pd.Timestamp.max
+        x = pd.Timestamp(t["exitIso"]) if t.get("exitIso") else e.normalize() + pd.Timedelta(days=1)
         return e, x
 
     out = []

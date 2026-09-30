@@ -73,3 +73,16 @@ def test_sum_shadows_use_real_paper_legs_and_add_up():
     blk = bs.sum_blocks(reports)["book_shadow_q4"]
     assert blk["pnl_usd"] == 100.0 - 50.0 + 30.0
     assert blk["missing"] == ["NOISE_422"]
+
+
+def test_agreement_tilt_trade_without_exit_is_open_to_end_of_day():
+    reports = {"ORB": {"_trades": [{"entryIso": "2026-09-30T09:40:00-04:00", "side": 1, "pnl_usd": 1.0}]},
+               "NOISE_422": {"_trades": [_t("10:15", "11:00", 1, 2.0)]}}
+    assert [(k, t["entryIso"][11:16]) for k, t in bs.agreement_tilted(reports)] == [("NOISE_422", "10:15")]
+
+
+def test_stale_lag_counts_business_days_behind_d_minus_1():
+    D = pd.Timestamp("2026-10-01")                      # a Thursday
+    lag = bs.stale_lag({"a": "2026-09-30", "b": "2026-09-29", "c": "2026-09-25", "d": None}, D)
+    assert lag == {"a": 0, "b": 1, "c": 3, "d": 99}
+    assert bs.stale_lag({"a": "2026-09-25"}, pd.Timestamp("2026-09-28")) == {"a": 0}   # Monday after a Friday

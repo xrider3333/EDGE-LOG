@@ -2911,7 +2911,12 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
     _BOOK = {"ORB": 1.0, "ENGUQ_335": 1.0, "TTM_299_SSOF2": 3.0, "NOISE_422": 1.0}
     book_pnl = sum(leg_reports[k]["pnl_usd"] * w for k, w in _BOOK.items() if k in leg_reports)
     book_block = {"pnl_usd": book_pnl, "weights": _BOOK, "source_run": 463,
-                  "name": "BOOK #449 (fixed-TTM re-run #463): ORB 234 + ENGU-Q 335 + 3 ES of TTM 369/459 + NOISE 422"}
+                  "name": "BOOK #449 (fixed-TTM re-run #463): ORB 234 + ENGU-Q 335 + 3 ES of TTM 369/459 + NOISE 422",
+                  # A leg that is missing or whose shadow run raised counts $0 above; say so here rather
+                  # than let the book figure quietly omit it (09-30 review).
+                  "missing": [k for k in _BOOK if k not in leg_reports],
+                  "failed": [k for k in _BOOK if any(str(w).startswith("exception in run_shadow")
+                                                     for w in (leg_reports.get(k) or {}).get("warnings") or [])]}
     # SHADOW BOOK from 2026-09-29 (owner "shadow TTM KEEL" via MANAGER, 2026-09-28): the adopted #463 with its TTM
     # leg swapped for TTM_458_KEEL (roll-safe TTM #458 at its own 3/4/7 x KEEL v12 frozen at 2025-07-01). Reported
     # beside the book every night, NEVER the book figure; Custom ML pre-registers the bar it is judged on. Backtest
