@@ -8,6 +8,7 @@ to be explicit so a validate can never fall back to an unpinned master lookup or
 """
 import os, sys, argparse, datetime
 os.chdir(r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG")
+sys.path.insert(0, os.getcwd())
 ap = argparse.ArgumentParser()
 ap.add_argument("file"); ap.add_argument("preset"); ap.add_argument("note")
 ap.add_argument("--source", required=True)
