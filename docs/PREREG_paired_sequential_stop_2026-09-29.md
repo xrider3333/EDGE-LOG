@@ -45,3 +45,16 @@ The book line differs from #463 only on TTM trades, so its difference series IS 
 paired stop fires for both. Final check at the TTM test's 50-trade verdict: the book with the KEEL leg must beat
 #463 on ROC %/yr at a $30k worst drawdown (valued daily) AND on daily Sortino over the same forward days, and
 stay ahead without its single best TTM trade. Book days without a TTM trade are identical in both lines.
+
+## ADDENDUM 2026-09-30 - Frontier's two new #463 shadow lines (Frontier inbox #28), before any forward day was read
+Frontier's own reads (C:\EdgeLog\_anatomy_cache\adopt449\PREREG_SHADOWS_0929.txt) stay the verdict.
+- **AG (1.5x on ORB #234 / NOISE #422 trades entering while the other leg is open the same way):** paired early
+  stop on EVERY forward ORB and NOISE trade in the book, d = (m - c) x trade $, c = 1.1793 (walk-forward
+  2016-06-30 .. 2025-07-16 mean of m; 35.9% of 4,250 trades tilted). Looks every 10 trades from 20, up to 279
+  trades (= Frontier's 100-tilted read at the walk-forward rate); boundary |t| >= 3.00 (false stops 2.1% when
+  sizes are drawn independently of outcomes), ex-extreme check 2.0. Driver: tools/ag_paired_stop.py.
+  Context only, not evidence: the walk-forward paired t is +0.11, i.e. on the walk-forward stretch the 1.5x
+  trades are no better per dollar than the rest once the extra size is removed.
+- **VT (whole book sized by its own 20-day volatility):** NO paired stop. Its claimed value is a smaller
+  drawdown in stress, which a mean-difference test cannot see; an early FAIL in calm months would kill a
+  working tail hedge. VT keeps Frontier's 12-month read only.
