@@ -1,0 +1,21 @@
+TTM round 21a - the honest stack on TTM's other cells (prereg addendum 4)
+PARITY ES 30m stacked: WF 342 / $68,585, LB 15 / $10,381 (round 19b row F = 342 / $68,585, 15 / $10,381)
+
+PER CELL (information): raw twin vs stacked
+  ES 30m raw               WF n   344 net $   40,002 ROC@30k   16.9 Sortino  2.05 | LB n   16 net $   4,992 ROC@30k   47.6 Sortino  2.53 ex-big $   1,686
+  ES 30m STACKED           WF n   342 net $   68,585 ROC@30k   24.6 Sortino  2.16 | LB n   15 net $  10,381 ROC@30k  113.0 Sortino  6.82 ex-big $   5,421
+    -> stacked beats raw on ROC@30k and Sortino in WF and LB: YES
+  ES 15m raw               WF n   505 net $   23,851 ROC@30k    6.0 Sortino  1.06 | LB n   26 net $   3,417 ROC@30k   37.3 Sortino  1.47 ex-big $    -352
+  ES 15m STACKED           WF n   500 net $   50,589 ROC@30k   14.4 Sortino  1.48 | LB n   26 net $   2,454 ROC@30k   21.2 Sortino  0.61 ex-big $  -3,557
+    -> stacked beats raw on ROC@30k and Sortino in WF and LB: no
+  NQ 30m raw               WF n   363 net $   43,523 ROC@30k    7.0 Sortino  0.97 | LB n   18 net $   3,315 ROC@30k   17.7 Sortino  0.61 ex-big $  -2,355
+  NQ 30m STACKED           WF n   359 net $   36,515 ROC@30k    3.3 Sortino  0.44 | LB n   18 net $   2,630 ROC@30k    9.3 Sortino  0.27 ex-big $  -3,039
+    -> stacked beats raw on ROC@30k and Sortino in WF and LB: no
+  NQ 15m raw               WF n   458 net $   59,122 ROC@30k   23.8 Sortino  1.90 | LB n   25 net $   6,913 ROC@30k   27.7 Sortino  1.28 ex-big $   1,588
+  NQ 15m STACKED           WF n   452 net $   83,622 ROC@30k   18.7 Sortino  1.50 | LB n   25 net $   7,924 ROC@30k   19.3 Sortino  0.69 ex-big $  -1,277
+    -> stacked beats raw on ROC@30k and Sortino in WF and LB: no
+
+THE SLEEVE (the decision)
+  raw 4-cell sleeve        WF n  1670 net $  166,498 ROC@30k   18.1 Sortino  2.09 | LB n   85 net $  18,637 ROC@30k   55.5 Sortino  1.89 ex-big $  12,968
+  STACKED 4-cell sleeve    WF n  1653 net $  239,311 ROC@30k   17.5 Sortino  1.65 | LB n   84 net $  23,389 ROC@30k   36.0 Sortino  1.38 ex-big $  14,188
+VERDICT: ROC@30k >= raw WF NO; ROC@30k >= raw LB NO; Sortino >= raw WF NO; Sortino >= raw LB NO; >=100 WF / 50 LB trades yes; LB ex-biggest > 0 yes -> FAIL
