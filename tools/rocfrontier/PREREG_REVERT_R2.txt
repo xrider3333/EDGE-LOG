@@ -1,0 +1,65 @@
+PRE-REGISTRATION - ROUND 9: REVERT r2 - the post-close reversal of closing-auction pressure (NQ, ES)
+=================================================================================================
+Written 2026-09-30 evening by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (owner ask via MANAGER inbox #13:
+"test further and auto-validate anything promising"; while the Alpaca keys are pending, pre-register a new family on
+data we already hold and run it through triage) BEFORE any return in the 15:50-16:15 window was computed. Read
+beforehand, outcome-free only: bar coverage (every full session has all 25 one-minute bars 15:50-16:14 on both masters)
+and the mega-cap earnings calendar's format. Harness: tools/rocfrontier/r9_postclose.py. Results:
+C:\EdgeLog\_anatomy_cache\rocfrontier\r9\ and RESEARCH_LEDGER.md. Any change = a new file (r3).
+
+LANE CHECK. The nearest dead tests: ledger 2.14 (15:30 -> 16:00 / 16:15 in the direction of the day so far - a
+continuation bet on leveraged-ETF rebalancing, dead) and the hour-of-day drift scan (2.13). Nothing on EL has traded the
+quarter hour AFTER the cash close against the last ten minutes of the cash session. Family = REVERT (a reversal).
+
+MECHANISM. From 15:50 ET the NYSE and Nasdaq publish closing-auction (market-on-close) imbalances. Index-arbitrage and
+hedging desks lean on the futures in 15:50-16:00 ahead of the closing flow, pushing them in the imbalance's direction.
+The cash auction prints at 16:00; the futures trade on to 17:00, and once the auction is done those hedges are unwound, so
+part of the 15:50-16:00 push should come back in the next quarter hour (temporary price impact reverts; e.g. the
+closing-auction reversal documented for stocks by Bogousslavsky & Muravyev 2023). Prediction: the 16:00-16:15 futures
+move is opposite the 15:50-16:00 move, more so when that move is large for the day.
+
+RULES
+- Data: the house roll-corrected 1-minute ETH masters (ADJ, source db_adj_eth; registry ids NQ 66, ES 58). They are
+  back-adjusted by constant offsets, so intraday point P&L equals the traded contract's, and contract switches fall at
+  19:00-20:00 ET, never inside 15:50-16:15. Bars are stamped at their START, clock US/Eastern. Every array is cut to bars
+  before 2025-06-30 BEFORE any signal is computed; the lockbox (2025-06-30 -> 2026-06-30 inclusive, BOOK #463's) is read
+  only by Stage B.
+- Eligible session: a weekday with a full cash session (>= 300 one-minute bars starting 09:30-15:59; early closes are
+  skipped), all 25 bars starting 15:50-16:14 present, and no mega-cap evening earnings release that day
+  (tools/data/megacap_earnings_dates.csv, report time >= 16:00; the calendar is known in advance).
+- Signal: m = close of the 15:59 bar - open of the 15:50 bar (the cash session's last ten minutes). Scale s = median of
+  |m| over the previous 60 eligible sessions (at least 40 needed, else no trade). Trade if m != 0 and |m| >= k x s.
+- Trade: the side OPPOSITE the sign of m, 1 contract, entry at the open of the 16:00 bar, exit at the close of the 16:14
+  bar (16:15). No stop, nothing held past 16:15.
+- Costs per round trip: NQ 0.533 pt ($20/pt), ES 0.363 pt ($50/pt) (house rule); stress +0.25 pt.
+- Cells: {NQ, ES} x k in {0, 1, 2} = 6 primary cells. Control, never a pass route: the continuation mirror (same days,
+  the side of m).
+- Stretches: EARLY = first eligible session -> 2016-06-30 (sign check); WF = 2016-07-01 -> 2025-06-29.
+- Family-wide null: on each market each eligible day's side is replaced by a fair coin (one coin per market-day, shared by
+  that market's three k cells), cost re-applied; statistic = the MAX over the 6 cells of the WF per-trade t; 500 reps.
+- Yardstick (owner rule 2026-09-28): ROC %/yr at a $30,000 worst drawdown of the daily P&L = 30 x MAR (every trade closes
+  the same day); Sortino = mean / RMS of negative daily P&L x sqrt(252), zero days included.
+
+STAGE A (triage) - a cell passes only if ALL hold on WF:
+  a. >= 100 trades                          e. net > 0 at +0.25 pt per round trip
+  b. ROC @ $30k >= 15 %/yr                   f. profitable without its single biggest trade
+  c. profit factor >= 1.10                   g. positive in >= 60% of its WF calendar years
+  d. t >= 2.0 AND above the null max's 95th percentile      h. EARLY net > 0
+STAGE A2 (book add, pre-lockbox): the Stage-A pass with the highest WF ROC @ $30k (one cell per market at most; both
+markets as one leg if both pass) added to BOOK #463's daily P&L (2010-06-07 -> 2025-06-29,
+C:\EdgeLog\_anatomy_cache\rocfrontier\r4\book463_daily.csv) at c in {1, 2, 3} contracts; c = the best by book pre ROC @
+$30k, then frozen. Passes only if book pre ROC @ $30k >= 63.36 (1.05 x 60.34) AND book pre Sortino >= 3.153.
+STAGE C (house Auto-Validate, per the owner's 2026-09-30 ask; runs BEFORE the book lockbox read): a strategy file for the
+passing cell with open ranges on k, the signal window (5-20 minutes before 16:00) and the hold (5-15 minutes), ONE
+Auto-Validate on the runner at the 900-trial budget, pinned date_from / date_to, the house lockbox; the pre-registered
+cell must reproduce in the file to the cent first. Evidence plus the house's own lockbox verdict; then the RUNBOARD watch
+list with this lane's verdict.
+STAGE B (book lockbox, read ONCE, the frozen pre-registered cell and c, not the validate's tuned setting): book LB ROC @
+$30k >= 164.76 AND LB Sortino >= 4.150 AND the book's LB net without its single biggest trade > 0 AND the leg's own LB
+net > 0 on >= 50 LB trades. A pass goes to MANAGER for the owner's call; nothing is adopted here.
+Zero passes at any stage = REVERT r2 dead; ledger + memory; the lockbox stays sealed for it.
+
+HOW IT COULD FOOL US. (1) The quarter hour after the close is thin; a few news days (after-hours releases other than the
+mega-caps, index rebalances) can dominate - f and g guard that, and the ten biggest days are listed. (2) CME's settlement
+conventions changed over the years; EARLY vs WF shows whether the effect is stable. (3) Entry at the 16:00 bar's open is the
+first futures price after the cash auction; the house one-tick slippage is assumed there, and the stress cost adds one more.
