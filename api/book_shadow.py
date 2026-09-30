@@ -126,3 +126,25 @@ def ag_block(leg_reports, weights, book_pnl):
     return {"pnl_usd": float(book_pnl) + extra, "tilt": AG_TILT, "n_tilted": len(tilted),
             "tilted": [f"{k} {t['entryIso']}" for k, t in tilted], "base_run": 463,
             "name": "SHADOW AG: #463 with 1.5x on ORB / NOISE trades that enter while the other is in the same way"}
+
+
+# Weighted sums of existing paper legs (each leg's entry-day figure x weight, the book line's own convention).
+# Every entry here was written to its forward bar BEFORE its first forward day - see its "prereg".
+SUM_SHADOWS = {
+    "book_shadow_q4": {
+        "weights": {"ORB_R6": 1.0, "ENGUQ_335_S1": 1.0, "TTM_299_SSOF2": 3.0, "NOISE_422": 1.0},
+        "name": "SHADOW Q4: #463 with ORB #314 and the ENGU-Q cash-session gate (S1)",
+        "prereg": "C:/EdgeLog/_anatomy_cache/bookq/PREREG_BOOKQ.txt Q4 (post-hoc; forward read after 12 months)",
+        "from": "2026-10-01",
+    },
+}
+
+
+def sum_blocks(leg_reports):
+    out = {}
+    for key, spec in SUM_SHADOWS.items():
+        w = spec["weights"]
+        out[key] = {"pnl_usd": sum(float((leg_reports.get(k) or {}).get("pnl_usd") or 0.0) * x for k, x in w.items()),
+                    "weights": dict(w), "missing": [k for k in w if k not in leg_reports],
+                    "name": spec["name"], "prereg": spec["prereg"], "from": spec["from"], "base_run": 463}
+    return out

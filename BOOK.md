@@ -1185,6 +1185,46 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10q. The standing book queue: Q1-Q4 on the adopted #463 (2026-09-30)
+
+**What.** Owner ask via MANAGER (#34): keep assessing structural book changes as an ongoing queue, fold in any
+lane survivor as a candidate leg, and judge each on the leverage line against #463. One standing bar, written
+before the first result: `C:\EdgeLog\_anatomy_cache\bookq\PREREG_BOOKQ.txt` (each item was added to it before it
+ran). The bar: beat #463 on ROC %/yr at a $30k worst drawdown (each stretch on its own valued-daily drawdown) and
+on Sortino, in BOTH WF 2016-07-01..2025-06-29 and LB 2025-06-30..2026-06-30, with the trade minimums. Every
+candidate was also run on the runner, and every run equals the local read to the cent.
+
+| candidate (#463 with ...) | run | WF ROC at $30k | WF Sortino | WF DD | LB ROC at $30k | LB Sortino | LB DD | verdict |
+|---|---|---|---|---|---|---|---|---|
+| #463 (adopted) | #463 | 92.7 | 3.82 | $44,849 | 164.3 | 4.15 | $49,855 | - |
+| Q1a ORB #314 in the ORB seat | #473 | 124.1 | 3.95 | $33,735 | 156.1 | 3.95 | $49,855 | FAIL |
+| Q1b ORB #257 in the ORB seat | #474 | 107.3 | 3.93 | $39,917 | 155.2 | 3.89 | $49,475 | FAIL |
+| Q2 NOISE #398 in the NOISE seat | #472 | 68.6 | 3.30 | $46,445 | 181.1 | 3.75 | $36,484 | FAIL |
+| Q2ctx NOISE #304 raw in the NOISE seat | #471 | 84.0 | 3.54 | $44,849 | 154.4 | 3.94 | $49,855 | context |
+| Q3 ENGU-Q cash-session gate S1 in the ENGU-Q seat | #475 | 83.5 | 3.89 | $48,172 | 198.5 | 4.61 | $43,341 | FAIL |
+| Q4 ORB #314 + ENGU-Q gate S1 (post-hoc) | #476 | 109.6 | 4.03 | $36,949 | 187.6 | 4.37 | $43,670 | **PASS (post-hoc)** |
+| Q5 + ENGU-Q on ES #442 as a fifth leg | #477 | 98.4 | 3.49 | $48,667 | 185.7 | 3.68 | $59,238 | FAIL |
+
+- **Q1 - the ORB crown #314 in the ORB seat** (#463 still carries #234): FAIL on the lockbox. The walk-forward
+  read is much better: drawdown $33.7k vs $44.8k, and the walk-forward ROC column above. But #314 earned less than
+  #234 in the lockbox, where both books' drawdown is the same June ENGU-Q stretch. ORB #257 has the same shape.
+- **Q2 - NOISE #398 (the squeeze filter) in the NOISE seat:** FAIL. Walk-forward collapses and Sortino falls in
+  both stretches. The raw #304 context row shows the adopted #422 tilt beats its raw twin in both stretches
+  inside the book.
+- **Q3 - the ENGU-Q lane's cash-session gate (S1) in the ENGU-Q seat** (information only; the gate is that lane's
+  forward shadow): FAIL on walk-forward, strong in the lockbox. That is the same split the ENGU-Q lane found.
+- **Q4 - Q1 + Q3 together, built after seeing them (post-hoc):** clears the bar in both stretches. It is
+  data-mined by construction, so per MANAGER #34 it becomes a forward paper shadow, not an adoption. The report
+  key is book_shadow_q4 (ORB_R6 + ENGUQ_335_S1 + 3 x TTM_299_SSOF2 + NOISE_422), with its bar written in the
+  pre-registration before its first forward day: read after 12 months against the book line, and void if the
+  ENGU-Q lane drops the S1 gate first.
+- **Q5 - ENGU-Q on ES (#442, the lane's roll-corrected re-run) added as a fifth leg:** FAIL on Sortino. It lifts ROC at
+  $30k in both stretches, but Sortino falls in both and the lockbox drawdown grows to $59.2k. ES and NQ trend
+  together, so it adds return with a rougher downside.
+- **Pattern worth knowing:** every single-seat swap so far trades one stretch for the other. The book's
+  walk-forward drawdown is the 2020 crash, and its lockbox drawdown is an ENGU-Q give-back in June 2026. A seat
+  change moves one of them, not both.
+
 ### 10p. TTM's multi-cell sleeve as a book test (#469 / #470), and the nightly shadow lines on #463 (2026-09-29)
 
 **Why a book test.** Owner via MANAGER (2026-09-29): TTM candidates are judged on walk-forward plus a book-level test,

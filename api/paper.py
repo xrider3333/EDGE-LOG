@@ -2912,6 +2912,12 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
         "status": "runner_done",
         "run_date": target_date.isoformat(),
     }
+    # Weighted-sum SHADOW books over existing paper legs, each pre-registered (api/book_shadow.py SUM_SHADOWS).
+    try:
+        from . import book_shadow as _bs
+        report.update(_bs.sum_blocks(leg_reports))
+    except Exception as e:
+        _log(f"uid={uid} book sum shadows failed: {type(e).__name__}: {e}")
     # Layer 3: three-way reconcile (api/paper_reconcile.py). live_expected reflects
     # whether the NinjaScript strategies are actually enabled on charts - while they are
     # not, "shadow signal with no live fill" is the designed state, and reporting it as a

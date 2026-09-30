@@ -62,3 +62,14 @@ def test_book463_legs_match_the_paper_legs():
     assert by["NOISE_1_8_CT304H.py"]["params"] == dict(P.NOISE_422)
     assert by["TTMSQZ_3_0_ES30SSOF2.py"]["params"] == dict(P.TTM_299_SSOF2)
     assert by["TTMSQZ_3_0_ES30SSOF2.py"]["weight"] == 3
+
+
+def test_sum_shadows_use_real_paper_legs_and_add_up():
+    from api import paper as P
+    keys = {l["key"] for l in P.PAPER_LEGS}
+    for spec in bs.SUM_SHADOWS.values():
+        assert set(spec["weights"]) <= keys, set(spec["weights"]) - keys
+    reports = {"ORB_R6": {"pnl_usd": 100.0}, "ENGUQ_335_S1": {"pnl_usd": -50.0}, "TTM_299_SSOF2": {"pnl_usd": 10.0}}
+    blk = bs.sum_blocks(reports)["book_shadow_q4"]
+    assert blk["pnl_usd"] == 100.0 - 50.0 + 30.0
+    assert blk["missing"] == ["NOISE_422"]
