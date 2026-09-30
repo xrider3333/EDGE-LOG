@@ -103,3 +103,21 @@ book (the arbiter for a leg with low correlation); it is not an adoption.
 Main ways it could fool us: survivorship in any fixed list; spin-offs are not price-adjusted (GE, T, MRK,
 PFE, IBM, INTC - one overnight gap each, flat every close, so only the indicator warm-up is touched);
 2016-2026 is a strong-market decade - both sides must earn, reported per side.
+
+ADDENDUM 3 (2026-09-30 evening, owner ask via MANAGER #28: auto-validate anything promising; written BEFORE the validate runs)
+Round 19b's FULL STACK on the clean ATR engine (deep-squeeze 1.5x x open-bar 1.5x, fade after 2) cleared every
+round-19 clause except the two against #459's 15-trade lockbox, which the owner set aside for TTM on 2026-09-29
+(MANAGER #22: TTM candidates are judged on walk-forward plus a book-level test). So it counts as promising.
+File: augur_strategies/TTMSQZ_3_0_ES30TOF2.py - reproduces round 19b row F exactly on the ADJ master
+(357 trades; WF 342 / $68,585; LB 15 / $10,381). (On the no-adjust master the same rule shows $82,404 WF -
+$13.8k of it is roll-day indicator noise; the validate uses the ADJ master.)
+VALIDATE (house Auto-Validate on the runner): ES 30m RTH, source db_adj_rth PINNED, 2010-06-07 .. 2026-06-30,
+lockbox 12 months, cost 0.363 pts, $50/pt, n_trials 900 (the 81-cell fence of run #299's four knobs is smaller,
+so the search is exhaustive), preset "Short (ES 30m honest stack neighbourhood, round 19b)".
+PASS BAR, all of: (1) the house validate verdict PASS; (2) on the RUNBOARD, its walk-forward stage ROC@$30k AND
+Sortino >= run #459's walk-forward stage (the book's TTM leg, per contract); (3) its lockbox net > 0 without its
+biggest trade. A pass goes onto the RUNBOARD watch list and to Frontier for a book test in place of the TTM x3
+leg inside the adopted book (#463), at whole contracts (3 / 4 / 7 on the 1.0 / 1.5 / 2.25 ladder, round 18a).
+It is not an adoption. A fail closes the stack.
+Main ways it could fool us: fade-after-2 is a sharp peak (round 16: 3+ adds drawdown) and its whole LB gain is
+15 trades; the open-bar tilt's old edge was mostly the gap-stop bug (clean engine: WF +2.0pp, LB -2.6pp).
