@@ -78,3 +78,28 @@ nightly, no orders, every UNGATED fire on the six cells logged with its fire-bar
 from 2026-10-01. First verdict at 150 forward fires the gate blocks, with coverage. PASS: blocked fires with
 BOTH order flow and candle agreeing have mean R >= the gated fires' mean R over the same dates AND a
 positive net without their 3 biggest trades; one-sided permutation p <= 0.10 for both-agree vs the rest.
+
+ADDENDUM 2 (2026-09-30, written before any stock bar is downloaded - the Alpaca keys are not saved yet)
+IDEA 20c - THE FROZEN CROWN ON LIQUID US STOCKS (trade count from new tapes, not from loosening the rule)
+Mechanism: the hourly-compression rule is TTM's one durable finding and it was net-positive on every futures
+cell; ES/NQ are two tapes. Large US stocks are dozens of tapes with the same auction mechanics in the same
+hours, so the unchanged rule should fire many times more often with low correlation to the futures legs.
+Universe (fixed now, chosen to limit survivorship bias: the largest US companies at the END of 2015 that
+still trade under the same ticker, BRK.B dropped for its dot ticker): AAPL GOOGL MSFT XOM AMZN META GE JNJ
+WFC JPM T PG VZ WMT CVX PFE KO HD ORCL DIS INTC MRK CMCSA PEP BAC CSCO V C GILD IBM UNH AMGN MO CVS MA.
+Data: Alpaca SIP 30-minute bars, split-adjusted, 09:30-16:00 ET only, 2016-01-04 .. 2026-06-30, pulled
+through the shared loader's fetch function into C:\EdgeLog\alpaca_cache (no library masters registered).
+Rule: TTMSQZ_3_0.py at the frozen #299 settings, unchanged. Size: $25,000 of stock per fire (whole shares
+at the entry price), cost $0.02 per share round trip (stress $0.05 reported). One position per stock at
+a time; stocks may overlap. WF = 2016-01-04 .. 2025-06-30, LB = 2025-07-01 .. 2026-06-30. Yardstick =
+round 19's stretch_stats on the pooled daily P&L. Plain twin = the same stocks UNGATED.
+Reported beside it, no clause: the ES 30m crown cell over the same two stretches; per-stock rows; daily
+correlation to the ES 30m crown cell.
+PASS (triage), all of, on the POOLED book only (no stock is selected or dropped after the fact):
+(a) >= 100 WF and >= 50 LB trades; (b) ROC@$30k >= the ungated twin in WF AND LB (above its leverage
+line); (c) WF Sortino >= 1.0 and LB ROC@$30k > 0; (d) LB net > 0 without its biggest trade; (e) still
+net positive in WF and LB at the $0.05 cost. A pass goes to Frontier for a book test inside the adopted
+book (the arbiter for a leg with low correlation); it is not an adoption.
+Main ways it could fool us: survivorship in any fixed list; spin-offs are not price-adjusted (GE, T, MRK,
+PFE, IBM, INTC - one overnight gap each, flat every close, so only the indicator warm-up is touched);
+2016-2026 is a strong-market decade - both sides must earn, reported per side.
