@@ -1206,6 +1206,14 @@ class FirestoreQueue:
                 total += r.get("added", 0) + r.get("updated", 0)
             except Exception as e:
                 log(f"  [nt-sync] skipped for {uid}: {type(e).__name__}: {e}")
+            # EL's own chart on every real trade (api/trade_bars.py): publish the candles
+            # right after the trade lands, so the chart opens on the phone with the PC asleep.
+            # Self-throttled (a few recent docs every 5 min, one full read per start).
+            try:
+                from api import trade_bars
+                trade_bars.sweep(self.db, uid, log)
+            except Exception as e:
+                log(f"  [trade-bars] skipped for {uid}: {type(e).__name__}: {e}")
         return total
 
     def sync_runs(self, log=print) -> int:
