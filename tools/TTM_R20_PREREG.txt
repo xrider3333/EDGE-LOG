@@ -1,0 +1,55 @@
+TTM ROUND 20 - PRE-REGISTRATION (written 2026-09-30, before any result is computed)
+Owner ask via MANAGER inbox #25 (2026-09-30): ongoing improvement queue; yardstick = ROC %/yr at a $30k
+worst drawdown valued daily (= 30 x MAR), WF and LB apart, ABOVE the plain twin's leverage line, Sortino,
+100 WF / 50 LB trades, LB profitable without its biggest trade. Ideas that RAISE TTM's trade count without
+lowering ROC per unit of drawdown come first. The NinjaTrader 10-second order-flow capture (buy/sell volume,
+delta; ES + NQ since 2026-06-23) is new information - anything found in it goes to a pre-registered FORWARD
+SHADOW, never to adoption.
+
+IDEA 20a - ORDER FLOW BEHIND THE FIRE (quality)
+Mechanism: a squeeze release that aggressive traders are pushing (buyers lifting offers on a long fire,
+sellers hitting bids on a short fire) is a real breakout; a release against the tape is more likely a fake
+that fades - which is exactly the trade the one-bar fade exit already cuts.
+Measure (known at the FIRE bar's close = the signal bar, nothing from the fill bar): imbalance =
+sum(delta) / sum(buy_vol + sell_vol) over the 10-second rows inside the fire bar. NinjaTrader stamps a
+10s row at its END, so a row stamped e belongs to the bar starting s when s < e <= s + bar length.
+Coverage = rows present with order flow / rows expected; a fire with coverage < 0.8, or whose 10s closes
+disagree with the master's bar close by more than 2 ticks (wrong contract around a roll), is "no data".
+Agree = sign(imbalance) equals the trade side; imbalance exactly 0 counts as disagree.
+Universe: the frozen #299 crown (TTMSQZ_3_0.py, the clean ATR engine, settings as in round 19, NOT re-tuned)
+on six cells: ES and NQ x 5m / 15m / 30m RTH, NO-ADJUST masters (db_noadj_rth - the capture is the
+unadjusted front month), costs ES 0.363 pts $50, NQ 0.533 pts $20, one contract. Per-trade outcome for
+pooling across cells = R = net points / (1.5 x ATR at the fire bar) (the trade's own stop distance).
+In-hand read (2026-06-23 .. last full session): DESCRIPTIVE ONLY - agree vs disagree count, mean R,
+net $, and the agree-only 6-cell book vs the all-fires book (daily P&L, same yardstick). No verdict
+on this stretch can adopt anything. It decides one thing: the forward shadow starts only if agree mean R
+> disagree mean R here (a weak screen so a dead idea does not occupy a shadow slot).
+
+IDEA 20b - ORDER FLOW INSTEAD OF (OR BESIDE) THE HOURLY GATE (trade count)
+Mechanism: the hourly compression gate is TTM's one durable filter but cuts fires by ~2/3. If order flow
+separates good fires from bad on its own, UNGATED fires with order-flow agreement may be as good per trade
+as gated fires - more trades at the same quality.
+Same six cells with gate_mode "none" (everything else frozen). Report: ungated-agree fires that the gate
+would have blocked - count and mean R - against the gated fires' mean R. Descriptive only, same rule.
+
+REPORTED, NO VERDICT: the coil's order flow (imbalance over the squeeze-on bars before the fire) split the
+same way; per-cell counts.
+
+FORWARD SHADOW (only if the 20a screen passes) - the bar is written now:
+- A nightly script recomputes every fire on the six cells (gated and ungated) from the refreshed masters,
+  joins the 10s order flow, and appends one row per fire to a CSV (no orders anywhere).
+- First verdict at 100 forward GATED fires with coverage, counted from the shadow's start date.
+- PASS 20a needs BOTH: (1) agree-only 6-cell book ROC@$30k (daily-valued drawdown) >= the all-fires
+  book's, i.e. on or above the leverage line - skipping trades must buy more return per drawdown, not less
+  risk alone; (2) agree mean R minus disagree mean R > 0 with a one-sided permutation p <= 0.10
+  (10,000 label shuffles).
+- PASS 20b needs: ungated-agree fires the gate blocked have mean R >= the gated fires' mean R AND add at
+  least 30% more trades; judged on the same forward fires.
+- A pass goes to a book-level test (Frontier, inside the adopted book) - not to adoption.
+Main ways it could fool us: 45 captured days is a tiny sample (the in-hand read is a screen, nothing more);
+Tick Replay backfill overstates volume magnitudes (the ratio should survive, the sign certainly does);
+NT capture gaps on days the charts were closed; the September roll (capture contract vs master contract).
+
+IDEA 20c - QUEUED, NEEDS THE OWNER'S ALPACA KEY: the frozen crown with the hourly gate on liquid US stocks
+(30m RTH, one fixed-dollar position per fire) - many tapes, many fires, same mechanism. Written up
+separately when the data lands.
