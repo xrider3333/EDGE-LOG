@@ -7,6 +7,19 @@
 
 ---
 
+## 🧪 2026-09-30 — ROUND 66: ES confirmation of the NQ break - dead
+
+Owner ask via MANAGER (inbox #16): keep testing NOISE, auto-validate anything promising. New information from a second
+market: pre-registration `docs/PREREG_noise_r66_esconfirm_2026-09-30.md` (296fd6c4, before any split), triage
+`tools/r66_noise_esconfirm_triage.py` -> `r37_results/r66_esconfirm.txt` (round 63's harness, both crowns, tape to
+2026-09-16). A long is taken only if ES's close on the same bar is also above ES's own noise band (crown formula on ES's
+bars), a short only if below; the rest are skipped inside the strategy. **DEAD:** only half the breaks are confirmed (ES
+merely moving the same way since its open agrees on 90%). Skipping the other half raises walk-forward ROC at a $30k
+drawdown (#304 66.0 -> 85.3, #243 57.0 -> 79.3) only because it trades less and the drawdown shrinks; the lockbox
+collapses (87.3 -> 37.8, 115.8 -> 64.5), lockbox Sortino falls on both, and the 1.5x neighbour fails. The 0.5x neighbour
+looked better in walk-forward on both, but it is a neighbour seen after the fact and its lockbox Sortino falls too - not
+a lead. NQ-only breaks are not worse breaks.
+
 ## 🧪 2026-09-30 — ROUND 65: a two-hour time stop - dead
 
 Queue item after round 64; pre-registration `docs/PREREG_noise_r65_timestop_2026-09-30.md` (a120e85b, before any run),

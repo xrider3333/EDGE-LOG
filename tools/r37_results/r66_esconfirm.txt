@@ -1,0 +1,19 @@
+tape 2010-06-07 .. 2026-09-16, cost 0.533, $20/pt; ROC@30k = 30 x MAR with drawdown valued daily
+
+NOISE #304 crown  (4847 trades)
+  descriptive: 49.8% of the plain breaks are ES-confirmed; ES's move since its open agrees on 90.5%
+  raw twin                         WF 2805 tr ROC@30k  66.0% Sort 3.79 ( 36.6%/yr, DD $16,635) | LB 314 tr ROC@30k  87.3% Sort 2.86 ( 51.8%/yr, DD $17,782, ex-top $ 34,368) | tail $12,819
+  ES-confirmed 1.0x band           WF 1795 tr ROC@30k  85.3% Sort 3.95 ( 33.1%/yr, DD $11,655) | LB 224 tr ROC@30k  37.8% Sort 1.44 ( 26.6%/yr, DD $21,120, ex-top $  9,248) | tail $16,990
+  ES-confirmed 0.5x band (neighbour) WF 2269 tr ROC@30k  86.3% Sort 3.80 ( 34.7%/yr, DD $12,055) | LB 279 tr ROC@30k  97.6% Sort 2.63 ( 47.0%/yr, DD $14,466, ex-top $ 29,661) | tail $16,503
+  ES-confirmed 1.5x band (neighbour) WF 1260 tr ROC@30k  51.8% Sort 3.52 ( 25.4%/yr, DD $14,752) | LB 157 tr ROC@30k   3.2% Sort 0.12 (  2.0%/yr, DD $18,762, ex-top $-12,241) | tail $17,167
+    -> ES-confirmed 1.0x: FAILS (LB ROC@30k 37.8 <= twin 87.3; LB Sortino 1.44 <= twin 2.86; a neighbour does not agree (spike, not plateau))
+
+NOISE #243 retired  (4441 trades)
+  descriptive: 49.5% of the plain breaks are ES-confirmed; ES's move since its open agrees on 90.4%
+  raw twin                         WF 2574 tr ROC@30k  57.0% Sort 4.01 ( 35.0%/yr, DD $18,424) | LB 296 tr ROC@30k 115.8% Sort 3.22 ( 53.6%/yr, DD $13,874, ex-top $ 36,997) | tail $-6,516
+  ES-confirmed 1.0x band           WF 1633 tr ROC@30k  79.3% Sort 4.04 ( 30.9%/yr, DD $11,699) | LB 213 tr ROC@30k  64.5% Sort 1.99 ( 32.8%/yr, DD $15,255, ex-top $ 16,244) | tail $   359
+  ES-confirmed 0.5x band (neighbour) WF 2079 tr ROC@30k  91.9% Sort 3.89 ( 32.5%/yr, DD $10,598) | LB 267 tr ROC@30k 105.2% Sort 2.63 ( 43.7%/yr, DD $12,467, ex-top $ 27,151) | tail $ 1,227
+  ES-confirmed 1.5x band (neighbour) WF 1136 tr ROC@30k  51.5% Sort 3.64 ( 23.9%/yr, DD $13,903) | LB 138 tr ROC@30k  50.9% Sort 1.55 ( 21.3%/yr, DD $12,565, ex-top $  8,720) | tail $ 2,990
+    -> ES-confirmed 1.0x: FAILS (LB ROC@30k 64.5 <= twin 115.8; LB Sortino 1.99 <= twin 3.22; a neighbour does not agree (spike, not plateau))
+
+ES CONFIRMATION on BOTH bases: DEAD - record it
