@@ -382,6 +382,44 @@ def _trade_hash(t):
     return hashlib.sha1(key.encode("utf-8")).hexdigest()[:16]
 
 
+# Fields the OWNER edits in the web journal. A sync seeds them on a brand-new trade only: a
+# merge write overwrites every key it carries, so sending the blank defaults again for a doc
+# that already exists wiped notes, chart links, setups and grades whenever the state file was
+# reset or a hashed field (fees, prices) changed - it fired on 2026-08-05 with the NFA fee cut
+# (review 2026-09-30 #5). createdAt is likewise kept from the first write.
+OWNER_FIELDS = ("setup", "grade", "timeframe", "notes", "chartUrl", "createdAt")
+
+
+def owner_safe(db, col, items):
+    """items: [(doc_id, doc)] about to be merge-written. Returns them with OWNER_FIELDS dropped
+    from every doc that already exists (one batched get_all; each id is one billed read)."""
+    if not items:
+        return items
+    exists = set()
+    refs = [col.document(i) for i, _ in items]
+    for k in range(0, len(refs), 300):
+        chunk = refs[k:k + 300]
+        exists.update(s.id for s in db.get_all(chunk) if s.exists)
+        _note_reads(len(chunk))
+    return [(i, {f: v for f, v in d.items() if f not in OWNER_FIELDS} if i in exists else d)
+            for i, d in items]
+
+
+def _note_reads(n):
+    """Count reads into the LIVE runner's [reads] meter (bucket 'other'); the runner runs as
+    __main__, so look it up instead of importing a second copy. Never raises."""
+    import sys
+    for name in ("__main__", "api.runner"):
+        m = sys.modules.get(name)
+        fn = getattr(m, "_note_reads", None) if m is not None else None
+        if callable(fn):
+            try:
+                fn("other", max(1, int(n)))
+            except Exception:
+                pass
+            return
+
+
 def sync_trades(db, uid, fills_path=DEFAULT_FILLS, log=print):
     """Read fills, build round-trips, upsert new/changed ones to users/{uid}/trades.
     Writes a status doc to users/{uid}/meta/nt_sync. Returns a summary dict."""
@@ -404,6 +442,7 @@ def sync_trades(db, uid, fills_path=DEFAULT_FILLS, log=print):
     added = updated = 0
     batch = db.batch()
     pending = 0
+    todo = []
     for t in trades:
         h = _trade_hash(t)
         prev = written.get(t["doc_id"])
@@ -412,8 +451,11 @@ def sync_trades(db, uid, fills_path=DEFAULT_FILLS, log=print):
         doc = {k: v for k, v in t.items() if k != "doc_id"}
         doc["createdAt"] = firestore.SERVER_TIMESTAMP
         doc["ntSync"] = True
-        batch.set(col.document(t["doc_id"]), doc, merge=True)
-        written[t["doc_id"]] = h
+        todo.append((t["doc_id"], doc, h, prev))
+    safe = dict(owner_safe(db, col, [(i, d) for i, d, _h, _p in todo]))
+    for doc_id, _doc, h, prev in todo:
+        batch.set(col.document(doc_id), safe[doc_id], merge=True)
+        written[doc_id] = h
         if prev is None:
             added += 1
         else:

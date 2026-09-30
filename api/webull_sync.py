@@ -28,6 +28,7 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 
 from .nt_sync import _split_crossings   # shared position-flip splitter (close + new open)
+from .nt_sync import owner_safe         # never re-send blank owner fields for an existing trade
 
 try:
     from zoneinfo import ZoneInfo
@@ -570,6 +571,7 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
     col = db.collection("users").document(uid).collection("trades")
     added = updated = pending = 0
     batch = db.batch()
+    todo = []
     for t in trades:
         h = _trade_hash(t)
         prev = written.get(t["doc_id"])
@@ -578,8 +580,11 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
         doc = {k: v for k, v in t.items() if k != "doc_id"}
         doc["createdAt"] = firestore.SERVER_TIMESTAMP
         doc["wbSync"] = True
-        batch.set(col.document(t["doc_id"]), doc, merge=True)
-        written[t["doc_id"]] = h
+        todo.append((t["doc_id"], doc, h, prev))
+    safe = dict(owner_safe(db, col, [(i, d) for i, d, _h, _p in todo]))
+    for doc_id, _doc, h, prev in todo:
+        batch.set(col.document(doc_id), safe[doc_id], merge=True)
+        written[doc_id] = h
         added += 1 if prev is None else 0
         updated += 0 if prev is None else 1
         pending += 1

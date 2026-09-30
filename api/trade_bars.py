@@ -30,6 +30,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 import time
 from datetime import datetime, timezone
 
@@ -49,6 +50,8 @@ MAX_10S = 1500                             # a long hold keeps its first and las
 SWEEP_EVERY = 300                          # seconds between journal sweeps inside the runner
 RECENT_DAYS = 3
 GIVE_UP_HOURS = 6                          # an unfinished chart is final this long after exit
+PS_RETRY_HOURS = 48                        # a point score still waiting on bars is retried this long after exit
+CAPTURE_SRC = "NinjaTrader 10-second capture"
 
 _last_sweep = {}
 _full_done = set()
@@ -189,18 +192,30 @@ def _read_window(path, t_from, t_to):
     return df.dropna().rename(columns=str.lower)
 
 
-def _shift_onto_fill(df, px, t_epoch, step):
-    """Whole-tick shift that puts a fill price inside its own bar (roll weeks), else 0."""
+def _shift_onto_fill(df, px, t_epoch, step, span=None):
+    """Whole-tick shift that puts a fill price inside its own bar (roll weeks), else 0.
+    span: the fill is only known to lie somewhere in [t_epoch, t_epoch + span) - a journal
+    time known to the minute (review 2026-09-30 #6: testing only the 10s bar at HH:MM:00
+    'moved' charts whose real fill was 50 s later). Every bar overlapping that span counts."""
     if df is None or df.empty or px in (None, ""):
         return 0.0
     px = float(px)
-    bar = df[(df["time"] <= t_epoch) & (df["time"] + step > t_epoch)]
+    if span:
+        bar = df[(df["time"] < t_epoch + span) & (df["time"] + step > t_epoch)]
+    else:
+        bar = df[(df["time"] <= t_epoch) & (df["time"] + step > t_epoch)]
     if bar.empty:
         return 0.0
-    b = bar.iloc[-1]
-    if b["low"] - 2 * TICK <= px <= b["high"] + 2 * TICK:
+    lo, hi = float(bar["low"].min()), float(bar["high"].max())
+    if lo - 2 * TICK <= px <= hi + 2 * TICK:
         return 0.0
-    return round((px - b["close"]) / TICK) * TICK
+    return round((px - float(bar["close"].iloc[-1])) / TICK) * TICK
+
+
+def _covers(df, e_s, x_s):
+    """True when a 1m frame (bar-START epochs) has the entry bar and the exit bar."""
+    return bool(df is not None and not df.empty and int(df["time"].iloc[0]) <= e_s
+                and int(df["time"].iloc[-1]) + 60 > x_s)
 
 
 def _fmt(v):
@@ -243,37 +258,40 @@ def build(t, tid, fills=None, cache=None, now=None):
         if s10.empty or s10["time"].iloc[0] > e_s:           # capture does not reach the entry
             s10 = None
 
-    # 1-minute chart: rebuilt from the capture when it covers the window, else the master
+    # 1-minute chart: the capture when it is fresh; otherwise whichever of capture and master
+    # has the trade's own bars and reaches furthest (review 2026-09-30 #2: once the capture
+    # stopped, ANY master rows in the window won, and a stale master replaced a good chart
+    # with a stub that ended before the entry).
     w0, w1 = e_s - M1_BEFORE_MIN * 60, x_s + M1_AFTER_MIN * 60
     need_to = min(w1, int(now.timestamp()) - 120)          # the last bar that could exist yet
-    m1, m1_src = None, None
+    cands = []
     if ticks is not None and not ticks.empty:
         from api import paper as _paper
         win = ticks[(ticks["time"] > w0) & (ticks["time"] <= w1 + 60)]
         if not win.empty:
             cand = _paper._resample(win, 1)
-            cand = cand[(cand["time"] >= w0) & (cand["time"] <= w1)]
-            if (not cand.empty and cand["time"].iloc[0] <= w0 + 300
-                    and int(cand["time"].iloc[-1]) + 120 >= need_to):
-                m1, m1_src = cand.reset_index(drop=True), "NinjaTrader 10-second capture"
-    if m1 is None:
-        # capture missing, or it stopped (NinjaTrader closed): the master, if it reaches further
+            cand = cand[(cand["time"] >= w0) & (cand["time"] <= w1)].reset_index(drop=True)
+            if not cand.empty:
+                cands.append((cand, CAPTURE_SRC))
+    fresh = bool(cands) and (int(cands[0][0]["time"].iloc[0]) <= w0 + 300
+                             and int(cands[0][0]["time"].iloc[-1]) + 120 >= need_to)
+    if not fresh:
         path, name = _master_path(inst)
         if path and os.path.exists(path):
             mm = _read_window(path, w0, w1)
             if mm is not None and not mm.empty:
-                m1, m1_src = mm, f"1-minute master {name}"
-    if m1 is None and ticks is not None and not ticks.empty:
-        from api import paper as _paper
-        win = ticks[(ticks["time"] > w0) & (ticks["time"] <= w1 + 60)]
-        if not win.empty:
-            m1 = _paper._resample(win, 1)
-            m1, m1_src = m1[(m1["time"] >= w0) & (m1["time"] <= w1)].reset_index(drop=True), "NinjaTrader 10-second capture"
-    if m1 is None or m1.empty:
+                cands.append((mm.reset_index(drop=True), f"1-minute master {name}"))
+    if not cands:
         return None, "no_bars"
+    m1, m1_src = max(cands, key=lambda c: (_covers(c[0], e_s, x_s), min(int(c[0]["time"].iloc[-1]), w1),
+                                           int(c[0]["time"].iloc[0]) <= w0 + 300, c[1] == CAPTURE_SRC))
 
     sh1 = _shift_onto_fill(m1, t.get("entry"), e_s, 60)
-    sh10 = _shift_onto_fill(s10, t.get("entry"), e_s, 10) if s10 is not None else 0.0
+    sh10 = 0.0
+    if s10 is not None:
+        # seconds known from the broker fills -> the fill's own 10s bar; journal time known to
+        # the minute only -> anywhere in that minute (review 2026-09-30 #6)
+        sh10 = _shift_onto_fill(s10, t.get("entry"), e_s, 10, span=None if how == "fills" else 60)
     b1 = _pack(m1, 60, sh1)
     b10 = _pack(s10, 10, sh10) if s10 is not None else None
 
@@ -287,8 +305,8 @@ def build(t, tid, fills=None, cache=None, now=None):
         "date": t.get("date"), "times_from": how,
         "entry": {"t": e_s, "px": t.get("entry")}, "exit": {"t": x_s, "px": t.get("exit")},
         "b1m": dict(b1, src=m1_src, shift=sh1),
-        "b10s": (dict(b10, src="NinjaTrader 10-second capture", shift=sh10) if b10 else None),
-        "complete": complete, "sig": signature(t),
+        "b10s": (dict(b10, src=CAPTURE_SRC, shift=sh10) if b10 else None),
+        "complete": complete, "covers": _covers(m1, e_s, x_s), "sig": signature(t),
         "published_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     if len(json.dumps(doc)) > DOC_CAP_BYTES and doc["b10s"]:
@@ -318,6 +336,7 @@ def _save_state(state, path=STATE_PATH):
 #    owned by DISCRECTIONALRY-TO-ALGO). Scored in the same pass as the chart, and ONLY the pointScore field is
 #    merged onto the trade - setup, grade and notes are never touched.
 _PS = None
+_PS_SRC = None
 
 
 def _point_score_module():
@@ -332,6 +351,45 @@ def _point_score_module():
     return _PS
 
 
+def _ps_fresh_bars(mod):
+    """point_score caches each root's bars for the life of the process, and the runner lives for
+    days while the masters it reads are rewritten (10s import every 15 min, Yahoo 1m every 4 h).
+    Drop that cache whenever a source file changed (review 2026-09-30 #1: every live trade was
+    scored against bars that ended before its signal minute and locked in as 0/0)."""
+    global _PS_SRC
+    cache = getattr(mod, "_BARS_CACHE", None)
+    if cache is None:
+        return
+    try:
+        up = mod.uploads_dir()
+        names = sorted(set(getattr(mod, "MASTER_1M", {}).values()) | set(getattr(mod, "MASTER_10S", {}).values()))
+        src = []
+        for n in names:
+            fp = os.path.join(up, n)
+            st = os.stat(fp) if os.path.exists(fp) else None
+            src.append((n, st.st_mtime_ns, st.st_size) if st else (n, None, None))
+        src = (up, tuple(src))
+    except Exception:
+        src = None                                        # cannot tell: never trust the cache
+    if src is None or src != _PS_SRC:
+        cache.clear()
+    _PS_SRC = src
+
+
+def _ps_retry_reasons(mod):
+    """NA reasons that mean 'the bars are not there YET' - worth another try while the trade is recent."""
+    return {getattr(mod, k) for k in ("NA_NOBAR", "NA_NO10BAR", "NA_NO10") if hasattr(mod, k)}
+
+
+def _ps_pending(rec, reasons):
+    if not rec:
+        return True
+    if not rec.get("max"):
+        return True
+    pts = list(rec.get("points") or []) + ([rec["trend"]] if rec.get("trend") else [])
+    return any(q.get("hit") is None and q.get("na_reason") in reasons for q in pts if isinstance(q, dict))
+
+
 def point_score(t, fills=None):
     """The agreed pointScore record for a futures trade, or None (stocks wait for Alpaca bars)."""
     if not instrument_of(t):
@@ -341,7 +399,9 @@ def point_score(t, fills=None):
         return None
     fill = e.strftime("%Y-%m-%d %H:%M:%S")
     side = "SHORT" if str(t.get("type") or "").upper() == "SHORT" else "LONG"
-    rec = _point_score_module().score_trade({"sym": _sym(t), "side": side, "fill": fill})
+    mod = _point_score_module()
+    _ps_fresh_bars(mod)
+    rec = mod.score_trade({"sym": _sym(t), "side": side, "fill": fill})
     rec = json.loads(json.dumps(rec, default=str))       # plain JSON types for Firestore
     rec.update({"fill": fill, "fill_from": how, "sig": signature(t)})
     return rec
@@ -361,10 +421,17 @@ def publish(db, uid, docs, log=print, dry_run=False, force=False, state=None, fi
     now = now or pd.Timestamp.now(tz=ET)
     for tid, t in docs:
         sig, st = signature(t), state.get(tid) or {}
-        have_ps = (t.get("pointScore") or {}).get("sig") == sig
-        if not force and st.get("sig") == sig and (st.get("complete") or st.get("skip")) and (have_ps or not instrument_of(t)):
+        ps_due = False
+        if instrument_of(t):
+            ps = t.get("pointScore") or {}
+            _e, _x, _h = trade_times(t, fills)
+            recent = _x is not None and now < _x + pd.Timedelta(hours=PS_RETRY_HOURS)
+            # re-score while the stored score is still waiting on bars (all NA / signal minute
+            # missing) and the trade is recent - not only while the chart is incomplete
+            ps_due = force or ps.get("sig") != sig or (recent and _ps_pending(ps, _ps_retry_reasons(_point_score_module())))
+        if not force and st.get("sig") == sig and (st.get("complete") or st.get("skip")) and not ps_due:
             continue
-        if instrument_of(t) and (force or not have_ps or not st.get("complete")):
+        if ps_due:
             try:
                 rec = point_score(t, fills)
                 if rec and not _same_score(rec, t.get("pointScore")):
@@ -385,9 +452,15 @@ def publish(db, uid, docs, log=print, dry_run=False, force=False, state=None, fi
             if why != "no_source":
                 log(f"  [trade-bars] {tid} {t.get('date')} {t.get('symbol')}: {why}")
             continue
+        if not force and st.get("sig") == sig and st.get("covers") and not doc["covers"]:
+            # the published chart had the trade's bars and every source now lacks them: keep it
+            log(f"  [trade-bars] {tid}: kept the published chart (new bars do not cover the trade)")
+            if doc["complete"]:                          # past the give-up time: the kept chart is final
+                state[tid] = dict(st, complete=True, at=time.time())
+            continue
         if not dry_run:
             db.collection("users").document(uid).collection(COLLECTION).document(tid).set(doc)
-        state[tid] = {"sig": sig, "complete": doc["complete"], "at": time.time()}
+        state[tid] = {"sig": sig, "complete": doc["complete"], "covers": doc["covers"], "at": time.time()}
         n += 1
         log(f"  [trade-bars] {'(dry) ' if dry_run else ''}{tid} {t.get('date')} {t.get('symbol')} "
             f"1m={doc['b1m']['s'].count(';') + 1} 10s={(doc['b10s']['s'].count(';') + 1) if doc['b10s'] else 0} "
@@ -413,5 +486,20 @@ def sweep(db, uid, log=print, force=False):
     else:
         snaps = coll.stream()
     docs = [(s.id, s.to_dict() or {}) for s in snaps]
+    _note_reads(max(1, len(docs)))                       # one query = at least one billed read
     _full_done.add(uid)
     return publish(db, uid, docs, log=log)
+
+
+def _note_reads(n):
+    """Count the sweep's reads into the LIVE runner's [reads] meter, bucket 'other' (review
+    2026-09-30 #7). The runner runs as __main__, so look it up; never import a second copy."""
+    for name in ("__main__", "api.runner"):
+        m = sys.modules.get(name)
+        fn = getattr(m, "_note_reads", None) if m is not None else None
+        if callable(fn):
+            try:
+                fn("other", n)
+            except Exception:
+                pass
+            return
