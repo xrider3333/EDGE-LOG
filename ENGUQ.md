@@ -1209,3 +1209,54 @@ filled trade is a scarce event in this family, but a SIGNAL is not - every bar t
 entry filters is one, whether or not the resting limit fills it, and a signal's forward path
 answers the same survivor question. Changing the unit changes the test, so it needs its own
 pre-registration rather than an amendment to this one. That is round 64.
+
+### 2026-09-30 - round 64, does entry-bar order flow carry ANY survivor information: NO, and the sign is backwards
+
+Pre-registered in `ENGUQ_R64_OFLOW_POWER_PREREG.md` (commit 54e9e580) before a single number was
+read. Round 63 could not test the order-flow idea at all - three day-one survivors, a checkpoint
+twenty months out - so this round dropped the ENGU-Q signal requirement and asked what has to be
+true underneath it: on this tape, does a bar's order-flow imbalance predict whether its move
+persists to the next day?
+
+**The obvious rescue was measured before being proposed, and abandoned.** Counting SIGNALS instead
+of filled trades gives 2,766 against 2,053 over the full history - a 74% fill rate, 0.56 signals a
+day against 0.41 trades. Eighty days of capture would yield about 44 signals rather than 33
+trades. A 1.3x gain is not a rescue, so that round was never run.
+
+**Population and result.** Every 1-minute upward breakout bar in the capture window - close above
+its open and above the previous bar's high, no other filter - that has a forward path one session
+later: **12,972 bars**, with 4,629 more (26%) excluded because their minute carries no order flow,
+the capture hole already routed to the NinjaTrader lane.
+
+| cut | n | bottom imbalance quintile persists | top quintile persists | gap | p |
+|---|---|---|---|---|---|
+| all breakout bars | 12,972 | 50.5% | 47.7% | **-2.9 pts** | 0.040 |
+| narrow range | 4,324 | 48.4% | 47.5% | -0.9 | 0.70 |
+| middle range | 4,324 | 49.8% | 47.3% | -2.4 | 0.31 |
+| wide range | 4,324 | 55.2% | 49.5% | -5.7 | 0.018 |
+| cash session only | 3,825 | 50.2% | 44.8% | -5.4 | 0.036 |
+
+**Both clauses fail.** The bar was a 10-point gap at p below 0.01, surviving in the majority of
+range terciles. The largest gap anywhere is 5.7 points, no tercile clears, and every p is above
+0.01. **Verdict: entry-bar order flow carries no usable survivor information on this tape.**
+
+**The interesting part is the sign, and it is not a new hypothesis.** Every cut is NEGATIVE: bars
+printed into the heaviest buying persist LESS often, most visibly in wide-range bars and inside
+the cash session. That is the opposite of the mechanism proposed in round 63, and it reads like
+absorption rather than continuation - heavy buying into a breakout that then goes nowhere. It is
+recorded because it is what the data says, **not** as a reversed filter to go and build: choosing
+that hypothesis now, after seeing this table, is exactly the move this lane does not make. Any
+reversed rule needs its own pre-registration on data this round has not read, and at gaps under
+the 10-point floor on 13,000 bars it is not worth the runner time.
+
+**Consequences.** The round-63 ledger (`tools/enguq_orderflow_ledger.py`) keeps accruing, because
+it costs nothing and the data is now being banked either way, but nobody should wait twenty months
+for its checkpoint expecting a result - the high-powered version of the question has already
+answered it. Entry-bar order flow joins the dead-hunt list for this family: tested, not merely
+untested.
+
+**Caveats that would matter if this had passed.** Consecutive breakout bars share almost all of
+their forward path, so the effective sample is far below 12,972 and the p-values are optimistic -
+which only strengthens a failure. The window is one regime, three months. And 26% of the
+population was dropped for missing order flow, so if that hole correlates with time of day the
+survivors are not a random subset.
