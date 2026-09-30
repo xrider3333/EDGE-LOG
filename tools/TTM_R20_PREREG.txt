@@ -53,3 +53,28 @@ NT capture gaps on days the charts were closed; the September roll (capture cont
 IDEA 20c - QUEUED, NEEDS THE OWNER'S ALPACA KEY: the frozen crown with the hourly gate on liquid US stocks
 (30m RTH, one fixed-dollar position per fire) - many tapes, many fires, same mechanism. Written up
 separately when the data lands.
+
+ADDENDUM 1 (2026-09-30, written AFTER the in-hand 20a/20b read, BEFORE any 16-year number below is computed)
+In-hand result (tools/data/ttmsqz_r20a_orderflow.txt): 20a screen FAILED (gated agree mean R -0.19 vs
+disagree -0.09, 33 fires) -> no 20a shadow, as written. 20b: the fires the hourly gate BLOCKS split
+sharply by order flow (agree 182, mean R +0.065, $33,450 vs disagree 84, -0.206, p 0.016) - but the top 3
+trades are 70% of that money and July is 65% of it. Diagnostic: order-flow sign matches the fire bar's
+candle (close vs open) on 79% of fires, and only fires where BOTH agree earn (+0.086 R, 171 fires).
+
+IDEA 20d - THE CANDLE HALF, ON 16 YEARS (price-only stand-in for 20b; testable now)
+Rule: the same six cells, frozen crown, a fire is taken only when the fire bar's candle agrees with the
+trade side (close > open for a long, close < open for a short; doji = no trade). Two variants:
+  20d-U = UNGATED + candle agrees (the trade-count idea);  20d-G = GATED + candle agrees (quality only).
+Twin = the gated six-cell crown book (TTM's plain configuration on the same cells); also shown: the
+ungated six-cell book (the plain twin of 20d-U). NO-ADJUST masters, pinned window 2010-06-07 .. 2026-06-30,
+LB from 2025-07-01, one contract per cell, same costs, daily-valued drawdown, same yardstick code as round 19.
+PASS (triage) for either variant, all of: ROC@$30k >= the gated twin in WF AND LB; Sortino >= the twin in
+WF AND LB; >= 100 WF / 50 LB trades; LB net > 0 without its biggest trade; and for 20d-U, ROC@$30k also
+>= the ungated book's in both stretches (above its own plain twin's leverage line).
+A triage pass goes to Frontier for a book test inside the adopted book. A fail closes the candle half.
+
+IDEA 20b FORWARD SHADOW (starts regardless of 20d - the owner's rule for anything found in the capture):
+nightly, no orders, every UNGATED fire on the six cells logged with its fire-bar order flow and candle,
+from 2026-10-01. First verdict at 150 forward fires the gate blocks, with coverage. PASS: blocked fires with
+BOTH order flow and candle agreeing have mean R >= the gated fires' mean R over the same dates AND a
+positive net without their 3 biggest trades; one-sided permutation p <= 0.10 for both-agree vs the rest.
