@@ -7,6 +7,18 @@
 
 ---
 
+## 🧪 2026-09-30 — ROUND 67: the break must clear the overnight high/low - dead
+
+Same owner ask (inbox #16). The overnight session is information NOISE never used (its band is anchored on the RTH open
+and the prior close). Pre-registration `docs/PREREG_noise_r67_overnight_2026-09-30.md` (4d202b7c, before any split),
+triage `tools/r67_noise_overnight_triage.py` -> `r37_results/r67_overnight.txt` (round 66's harness, both crowns). A long
+is taken only if the signal bar closes above the overnight high (ETH bars from the prior 16:00 to 09:30), a short only
+below the overnight low. **DEAD:** 80% of breaks already clear it, so the tag is mostly redundant with the break.
+Skipping the other 20% lifts walk-forward ROC at a $30k drawdown a little (#304 66.0 -> 70.8, #243 57.0 -> 72.9) but
+walk-forward Sortino falls on both, the lockbox falls (87.3 -> 60.9, 115.8 -> 73.6) and the stricter neighbour
+collapses (40.9, 46.5). Rounds 66-67 close the two new-information filters available without a data key (a second
+market, the overnight session); order flow stays a forward shadow.
+
 ## 🧪 2026-09-30 — ROUND 66: ES confirmation of the NQ break - dead
 
 Owner ask via MANAGER (inbox #16): keep testing NOISE, auto-validate anything promising. New information from a second

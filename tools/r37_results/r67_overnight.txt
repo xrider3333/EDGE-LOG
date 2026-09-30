@@ -1,0 +1,20 @@
+tape 2010-06-07 .. 2026-09-16, cost 0.533, $20/pt; ROC@30k = 30 x MAR with drawdown valued daily
+overnight range found for 99.98% of RTH sessions
+
+NOISE #304 crown  (4847 trades)
+  descriptive: 79.5% of the plain breaks already clear the overnight extreme
+  raw twin                         WF 2805 tr ROC@30k  66.0% Sort 3.79 ( 36.6%/yr, DD $16,635) | LB 314 tr ROC@30k  87.3% Sort 2.86 ( 51.8%/yr, DD $17,782, ex-top $ 34,368) | tail $12,819
+  clears overnight +0.0 range      WF 2499 tr ROC@30k  70.8% Sort 3.71 ( 34.7%/yr, DD $14,708) | LB 279 tr ROC@30k  60.9% Sort 2.27 ( 41.5%/yr, DD $20,422, ex-top $ 24,103) | tail $10,766
+  clears overnight +0.1 range (neighbour) WF 2334 tr ROC@30k  40.9% Sort 3.29 ( 30.7%/yr, DD $22,515) | LB 256 tr ROC@30k  51.7% Sort 2.33 ( 41.5%/yr, DD $24,067, ex-top $ 24,119) | tail $ 8,992
+  clears overnight -0.1 range (neighbour) WF 2624 tr ROC@30k  72.0% Sort 3.72 ( 35.5%/yr, DD $14,771) | LB 295 tr ROC@30k  71.6% Sort 2.45 ( 44.9%/yr, DD $18,804, ex-top $ 27,469) | tail $ 9,629
+    -> clears overnight extreme: FAILS (WF Sortino 3.71 <= twin 3.79; LB ROC@30k 60.9 <= twin 87.3; LB Sortino 2.27 <= twin 2.86; a neighbour does not agree (spike, not plateau))
+
+NOISE #243 retired  (4441 trades)
+  descriptive: 80.3% of the plain breaks already clear the overnight extreme
+  raw twin                         WF 2574 tr ROC@30k  57.0% Sort 4.01 ( 35.0%/yr, DD $18,424) | LB 296 tr ROC@30k 115.8% Sort 3.22 ( 53.6%/yr, DD $13,874, ex-top $ 36,997) | tail $-6,516
+  clears overnight +0.0 range      WF 2307 tr ROC@30k  72.9% Sort 3.93 ( 33.4%/yr, DD $13,766) | LB 263 tr ROC@30k  73.6% Sort 2.73 ( 45.3%/yr, DD $18,464, ex-top $ 28,734) | tail $-4,280
+  clears overnight +0.1 range (neighbour) WF 2164 tr ROC@30k  46.5% Sort 3.39 ( 28.9%/yr, DD $18,679) | LB 239 tr ROC@30k  63.3% Sort 2.91 ( 46.6%/yr, DD $22,109, ex-top $ 30,074) | tail $-6,150
+  clears overnight -0.1 range (neighbour) WF 2417 tr ROC@30k  66.8% Sort 4.06 ( 34.7%/yr, DD $15,608) | LB 280 tr ROC@30k  77.8% Sort 2.58 ( 43.7%/yr, DD $16,846, ex-top $ 27,151) | tail $-6,516
+    -> clears overnight extreme: FAILS (WF Sortino 3.93 <= twin 4.01; LB ROC@30k 73.6 <= twin 115.8; LB Sortino 2.73 <= twin 3.22; a neighbour does not agree (spike, not plateau))
+
+OVERNIGHT CLEARANCE on BOTH bases: DEAD - record it
