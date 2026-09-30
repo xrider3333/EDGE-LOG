@@ -11,6 +11,7 @@ the `#  AUGUR v4.0  —  UI Layer` marker), and call its auto_refresh_masters() 
 This keeps the refresh logic SINGLE-SOURCED in optimizer.py (the app and the runner share
 the exact same Yahoo/ingest/master-save code), so they can never drift.
 """
+import json
 import os
 import sys
 import types
@@ -110,8 +111,78 @@ def run_auto_refresh(progress_cb=None):
         return fn() or []
 
 
+# ---------------------------------------------------------------- the coarse masters
+#
+# WHY THIS IS SEPARATE (2026-09-30, owner GO via MANAGER). auto_refresh_masters() only knows
+# how to pull 1m and 5m from Yahoo. The masters resampled ON TOP of those -- 2m, 15m, 30m and
+# 60m, both roots -- were a one-time build and nothing ever topped them up, so they drifted
+# months behind their own parents without anything noticing. They are now refreshed here.
+#
+# ONCE AN EVENING, NOT EVERY PASS. Nothing reads a 30m or 60m bar intraday: the paper legs
+# and the backtests want them after the close. Rebuilding them on every 30-minute pass would
+# rewrite millions of rows for no reader, so this self-gates to one run per ET day, after
+# the 17:20 ET data refresh -- plus one at runner start, so a fresh fleet is never serving
+# a stale coarse master.
+COARSE_AFTER_ET = (17, 25)        # just behind the 17:20 ET refresh + push
+COARSE_STATE = os.path.join(os.environ.get("EDGELOG_STATE_DIR", r"C:\EdgeLog"),
+                            "coarse_refresh_state.json")
+
+
+def _et_now():
+    import pandas as pd
+    return pd.Timestamp.now(tz="US/Eastern")
+
+
+def coarse_refresh_due(now=None, state_path=None):
+    """True when the coarse masters have not been refreshed yet on this ET day and the
+    evening cutoff has passed. Reading the state must never raise: an unreadable state file
+    means 'not run today', which costs one extra refresh and loses nothing."""
+    now = now or _et_now()
+    if (now.hour, now.minute) < COARSE_AFTER_ET:
+        return False
+    try:
+        with open(state_path or COARSE_STATE, encoding="utf-8") as fh:
+            return json.load(fh).get("last_et_date") != str(now.date())
+    except Exception:
+        return True
+
+
+def _mark_coarse_done(now=None, state_path=None):
+    now = now or _et_now()
+    try:
+        path = state_path or COARSE_STATE
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump({"last_et_date": str(now.date()), "at": now.isoformat()}, fh)
+    except Exception:
+        pass          # a state file we cannot write means we retry; that is the safe way round
+
+
+def run_coarse_refresh(force=False, now=None, state_path=None):
+    """Top up the resampled masters. Returns the report lines, empty when not due.
+
+    It reuses tools/refresh_resampled_masters.py unchanged, so the runner and a human at a
+    prompt get byte-identical behaviour -- including its strict reproduction check, which
+    refuses to append to a master it cannot rebuild from its own parent.
+    """
+    if not force and not coarse_refresh_due(now, state_path):
+        return []
+    import subprocess
+    tool = os.path.join(ROOT, "tools", "refresh_resampled_masters.py")
+    out = subprocess.run([sys.executable, tool, "--apply"], cwd=ROOT,
+                         capture_output=True, text=True, timeout=1800)
+    lines = [ln.strip() for ln in (out.stdout or "").splitlines()
+             if ln.strip().startswith(("NOADJ_", "REPAIRED", "WARNING", "STOPPING"))
+             or ": backed up ->" in ln]
+    _mark_coarse_done(now, state_path)
+    return lines
+
+
 if __name__ == "__main__":
     print("running auto-refresh (Yahoo + watch-folder ingest)…")
     for line in run_auto_refresh(progress_cb=lambda m: print("  ·", m)):
+        print("   ", line)
+    print("coarse masters (2m-60m):")
+    for line in run_coarse_refresh(force="--coarse-force" in sys.argv) or ["  not due yet"]:
         print("   ", line)
     print("done.")

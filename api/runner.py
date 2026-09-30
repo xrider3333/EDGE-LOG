@@ -2571,12 +2571,24 @@ def main(argv=None):
         (reusing optimizer.py's exact logic), then re-publish meta so the web Library
         shows the updated data + sync time. Network/IO errors never kill the runner."""
         try:
-            from api.augur_refresh import run_auto_refresh
+            from api.augur_refresh import run_auto_refresh, run_coarse_refresh
             print(f"[{tag}] refreshing masters (Yahoo + watch-folder)…")
             changes = run_auto_refresh()
             for line in changes[:12]:
                 print("   " + log_safe(line))
             print(f"[{tag}] {len(changes)} master(s) updated.")
+            # The 2m-60m masters are resampled from those parents, so they go after,
+            # never before. Forced at startup, otherwise once an ET day past 17:25.
+            # A worker never reaches here (it runs with --refresh-min 0), so only the
+            # primary writes them and two processes cannot collide.
+            try:
+                coarse = run_coarse_refresh(force=(tag == "startup"))
+                for line in coarse[:20]:
+                    print("   " + log_safe(line))
+                if coarse:
+                    print(f"[{tag}] coarse masters (2m-60m) refreshed.")
+            except Exception as _ce:
+                print(f"[{tag}] coarse refresh skipped: {type(_ce).__name__}: {_ce}")
             if a.firestore:
                 q.sync_meta()
         except Exception as e:

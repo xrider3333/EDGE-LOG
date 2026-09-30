@@ -275,6 +275,83 @@ def find_masters(conn):
     return targets
 
 
+def _bucket_from(rows):
+    """The OHLCV bucket these parent rows make, by the same rule both methods share."""
+    return dict(open=float(rows["open"].iloc[0]), high=float(rows["high"].max()),
+                low=float(rows["low"].min()), close=float(rows["close"].iloc[-1]),
+                volume=float(rows["volume"].sum()))
+
+
+def _same_bucket(stored, built):
+    return all(abs(float(stored[k]) - built[k]) <= 1e-6
+               for k in ("open", "high", "low", "close", "volume"))
+
+
+def repair_partial_last_row(existing, full, parent, check):
+    """Rebuild a LAST row that was saved while its bucket was still filling.
+
+    WHY THIS EXISTS (2026-09-30, owner GO via MANAGER). A resampled master written while the
+    market is open stores a bucket built from only the parent bars that existed at that
+    moment. Nothing ever revisits it, so the partial bar is permanent - exactly the hazard
+    refresh_noadj_yahoo.py's own header warns about, one level up. NOADJ_NQ_15m_RTH carried
+    one from 2026-06-30 10:45 ET: volume 5,270 against the parent's 16,244, because only the
+    first 6 of its 15 one-minute bars had arrived. It failed the reproduction check every
+    run, which correctly refused to append anything, so that master stood still for three
+    months while the other six caught up.
+
+    THE CHECK STAYS STRICT. This repairs a row only when all of the following hold, so a
+    genuinely corrupt or differently-built master still stops the run:
+      - the only disputed row is the master's LAST one (history is never rewritten);
+      - it matches, to the tick on all five fields, the bucket built from the first K parent
+        bars of its own window for some K < N. That is what being interrupted mid-bucket
+        looks like, and it is not something corruption produces by accident.
+    The repair is the full-window bucket, and it is named in the report, never silent.
+
+    Returns (repaired_existing_or_None, note_or_None).
+    """
+    if not len(existing) or not len(full):
+        return None, None
+    bad = check[(check["open_new"].notna()) &
+                ((check["open_old"] - check["open_new"]).abs().gt(1e-6) |
+                 (check["high_old"] - check["high_new"]).abs().gt(1e-6) |
+                 (check["low_old"] - check["low_new"]).abs().gt(1e-6) |
+                 (check["close_old"] - check["close_new"]).abs().gt(1e-6) |
+                 (check["volume_old"] - check["volume_new"]).abs().gt(1e-6))]
+    last_t = int(existing["time"].max())
+    if len(bad) != 1 or int(bad.iloc[0]["time"]) != last_t:
+        return None, None            # more than the tail is wrong -> not this failure mode
+
+    # The bucket's window ends where the NEXT rebuilt bucket begins; that boundary is right
+    # for the grid rule and the row-count rule alike, so neither needs special-casing here.
+    later = full[full["time"] > last_t]
+    if not len(later):
+        return None, None
+    end_t = int(later["time"].iloc[0])
+    seg = parent[(parent["time"] >= last_t) & (parent["time"] < end_t)]
+    if len(seg) < 2:
+        return None, None
+
+    stored = existing.iloc[-1]
+    k = next((i for i in range(1, len(seg))
+              if _same_bucket(stored, _bucket_from(seg.iloc[:i]))), None)
+    if k is None:
+        return None, None            # not a prefix of its own bucket -> genuinely wrong
+
+    built = _bucket_from(seg)
+    repaired = existing.copy()
+    for col, val in built.items():
+        if col in repaired.columns:
+            repaired.iloc[-1, repaired.columns.get_loc(col)] = val
+    note = (f"REPAIRED the last stored row at {_fmt_et(last_t)}: it had been saved with only "
+            f"{k} of its {len(seg)} parent bars in place, so it read "
+            f"high {float(stored['high']):,.2f} / low {float(stored['low']):,.2f} / "
+            f"close {float(stored['close']):,.2f} / volume {float(stored['volume']):,.0f}. "
+            f"Rebuilt from the full window as high {built['high']:,.2f} / "
+            f"low {built['low']:,.2f} / close {built['close']:,.2f} / "
+            f"volume {built['volume']:,.0f}. No earlier row was touched.")
+    return repaired, note
+
+
 def process_one(uploads_dir, master, parent_row, method):
     """Dry-run analysis for one master. Returns (result_dict, existing_df, new_rows_df) --
     new_rows_df is None when the reproduction check failed (nothing safe to append)."""
@@ -320,6 +397,18 @@ def process_one(uploads_dir, master, parent_row, method):
         else:
             result = f"PASS - {len(check):,}/{len(existing):,} existing rows matched exactly"
 
+    # One failure mode is repairable and worth repairing: a last row saved mid-bucket.
+    repair_note = None
+    if not result.startswith("PASS") and not len(missing):
+        repaired, repair_note = repair_partial_last_row(existing, full, parent, check)
+        if repaired is not None:
+            existing = repaired
+            check = existing.merge(full, on="time", how="left", suffixes=("_old", "_new"))
+            worst = max((check[f"{c}_old"] - check[f"{c}_new"]).abs().max()
+                        for c in ("open", "high", "low", "close", "volume"))
+            result = (f"PASS after repair - {len(check):,}/{len(existing):,} existing rows "
+                      f"matched exactly") if worst <= 1e-6 else result
+
     passed = result.startswith("PASS")
     drop_cols = [c for c in ("_grid_key", "_n") if c in full.columns]
     new_rows = full[full["time"] > last_master_t].drop(columns=drop_cols) if passed else None
@@ -353,6 +442,7 @@ def process_one(uploads_dir, master, parent_row, method):
         "last_master_et": _fmt_et(last_master_t), "last_parent_et": _fmt_et(last_parent_t),
         "check_result": result, "n_new": 0 if new_rows is None else len(new_rows),
         "master_id": master["id"], "mpath": mpath, "roll_hit": roll_hit,
+        "repair_note": repair_note,
     }
     return info, existing, new_rows
 
@@ -362,6 +452,8 @@ def print_report(info, new_rows):
     print(f"  current last bar (ET): {info['last_master_et']}")
     print(f"  parent last bar (ET):  {info['last_parent_et']}")
     print(f"  reproduction check: {info['check_result']}")
+    if info.get("repair_note"):
+        print("  " + info["repair_note"])
     if new_rows is None:
         print("  STOPPING for this file -- reproduction check failed, nothing appended.")
         print()
