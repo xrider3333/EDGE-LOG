@@ -1,0 +1,83 @@
+PRE-REGISTRATION - TRANSFER r2: the ORB, NOISE and TTM crowns, UNCHANGED, on ETF proxies (free Alpaca data)
+===========================================================================================================
+Written 2026-09-30 by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (MANAGER inbox #10 queue) BEFORE any intraday
+ETF data exists on the machine (no Alpaca keys yet). It replaces the shelved TRANSFER r1 / r1b (Databento futures,
+owner declined 2026-09-30) with the same question asked of the exchange-traded funds that track those markets, whose
+1-minute history since 2016 is free on Alpaca's Basic plan. PREREG_TRANSFER_R1.txt and _R1B.txt are not changed.
+Harness: tools/rocfrontier/r8_transfer_etf.py. Results: C:\EdgeLog\_anatomy_cache\rocfrontier\r8\ and
+RESEARCH_LEDGER.md. Any change after the first ETF bar is read = a new file (r3).
+
+0. QUESTION
+Do the three house crown mechanisms earn after costs, with every setting unchanged, on liquid funds tracking markets
+they were never tuned on - traded on the US stock session, where these funds trade? A yes gives candidate legs for
+BOOK #463 on bonds, gold, oil, the euro or small caps; a no closes the transfer idea for the ETF route too.
+
+1. CELLS - 14. ONE unit (section 3). No size tilts, no ML, no KEEL, no extra filters.
+ORB   = run #314, the owner's crown. File ORB_3_6_R6.py unchanged at #314's settings: or_bars 2, trade_mode
+        First-candle dir, stop_frac 2.5, breakout_buf 0.25, close_confirm on, partial_exit_R 0, trail_bars 0,
+        be_after_R 0.5, target_R 5.0, atr_filter 0.75, vpace_filter 0.8, flat_eod on, skip_holidays on. 5-minute
+        bars. (Its buffer and stop are fractions of the opening range, so nothing is in NQ points.)
+NOISE = the raw core of the book's NOISE leg: NOISE_1_1_NBHD.py unchanged at run #304's champion: lookback 40,
+        band_mult_long 0.75, band_mult_short 1.5, exit_mode vwap, side Both, window all_day, flat_eod on,
+        skip_holidays off, stop_mode bandwidth, stop_k 1.75, confirm_bars 1, daytype_mode skip_bot_short,
+        daytype_lo 0.2, daytype_hi 0.8, vol_skip_pct 95. 5-minute bars.
+TTM   = the raw core of #458: the TTMSQZ_3_0_ES30SSOF2R347.py stack at kc_mult 1.5, eod_cutoff 5, through a thin
+        transfer wrapper that changes ONLY: the deep-squeeze tilt 1.5 -> 1.0, the open-bar tilt 1.5 -> 1.0, the
+        3/4/7 contract ladder -> 1 unit, the cost constant 0.363 -> the fund's cost below, and the roll table ->
+        empty (funds never roll). 30-minute bars. Wrapper acceptance, BEFORE it runs on any fund: with the ES
+        constants, tilts and roll table restored it must reproduce TTMSQZ_3_0_ES30SSOF2R.py on the ES 30-minute
+        RTH master to the cent (trades and net).
+Funds:  IEF (iShares 7-10 Year Treasury, for ZN), FXE (Invesco CurrencyShares Euro, for 6E), USO (United States Oil,
+        for CL), GLD (SPDR Gold, for GC) - ORB, NOISE and TTM each = 12 cells;
+        IWM (iShares Russell 2000, for RTY) and DIA (SPDR Dow Jones, for YM) - ORB only = 2 cells (r1b's question).
+
+2. DATA, SESSION
+Alpaca SIP bars through the shared loader tools/import_alpaca_stocks.py (ELWA-FEATURES), registered as library masters
+under the FUND tickers only (source alpaca_split_rth): 5Min and 30Min, 2016-01-04 -> 2026-06-30, split-adjusted (USO's
+1-for-8 reverse split of 2020-04-28), dividends not adjusted (every cell is flat at each close). Session 09:30-16:00 ET,
+bars anchored at 09:30, weekdays; each file's own holiday logic applies. After registration, find_master for NQ and ES
+must return exactly what it returned before (the 2026-09 adjusted-masters incident); if not, stop and report.
+
+3. UNITS AND COSTS
+One unit = floor($100,000 / the fund's close on 2016-06-30) shares, fixed for the whole test (the leg's multiplier),
+so P&L moves with the fund's price like a futures contract's does. Cost = $0.02 a share per round trip (one cent each
+side, zero commission as on Webull); stress = +$0.02 a share per round trip.
+
+4. WINDOWS (pinned by calendar)
+WF = 2016-07-01 -> 2025-06-29 (BOOK #463's walk-forward stretch); bars before 2016-07-01 are warm-up only. No EARLY
+stretch exists (SIP history starts in 2016). LB = 2025-06-30 -> 2026-06-30 INCLUSIVE (BOOK #463's lockbox, the
+frontier's definition, years = 365/365.25). SEALED: the harness cuts every input before 2025-06-30 before Stage A
+computes anything; the LB is read once, only for Stage-A passes, after Stage A is in the ledger. After 2026-06-30 =
+forward, reported only.
+
+5. YARDSTICK (owner rule 2026-09-28): ROC %/yr at a $30,000 worst drawdown, drawdown of the daily P&L = 30 x MAR;
+Sortino = mean / RMS of negative daily P&L x sqrt(252), every session day, zeros included.
+
+6. STAGE A - a cell PASSES only if ALL hold on WF:
+  a. >= 100 trades                             e. net > 0 at the stress cost
+  b. ROC @ $30k >= 15 %/yr                      f. still profitable without its single biggest trade
+  c. profit factor >= 1.10                      g. positive in >= 60% of its WF calendar years
+  d. t-stat of the mean daily P&L (every session day, flat days = 0) >= 2.69 (one-sided 5%, Bonferroni over 14)
+Reported, never a pass route: per-strategy Stouffer Z over the funds; each cell's daily correlation with BOOK #463's
+legs. ZERO passes -> TRANSFER r2 DEAD: ledger + memory, the lockbox stays sealed, stop.
+
+7. STAGE B - the lockbox, opened ONCE per Stage-A pass in one scripted read: LB >= 50 trades (TTM exempt, judged only
+inside a book, as on ES), LB net > 0, still profitable without its single biggest trade; LB ROC @ $30k reported.
+
+8. STAGE C - each Stage-B survivor added at ONE unit, weight 1.0 (no weight search; book round 56) to BOOK #463, plus one
+book with every survivor. A book passes only if it beats #463 on ROC @ $30k in BOTH WF (92.70) and LB (164.76) AND on
+Sortino in both (3.816 / 4.150), with its LB still profitable without its single biggest trade. A pass goes to MANAGER
+for the owner's call (a Webull paper shadow is the natural next step for a fund leg); nothing is adopted here.
+
+9. AUTO-VALIDATE (owner ask 2026-09-24): after Stage B, each survivor gets ONE Auto-Validate at the 900-trial budget on
+its fund master with the crown file's own open ranges (TTM: the wrapper's parent ranges, tilts off), this window and
+this lockbox. Evidence only - it cannot rescue a failed cell, and no re-tuned setting enters Stage C.
+
+10. DATA GATES before any strategy runs (a failure drops that fund's cells and is reported, never worked around):
+  - <= 1% of the expected RTH 5-minute bars missing over the window (FXE, the thinnest fund, is the likeliest to fail);
+  - the 5-minute bars summed to days match Alpaca's own split-adjusted daily bars (open and close within one cent) on
+    10 random sessions per fund;
+  - the NQ / ES lookup check in section 2.
+
+11. SCOPE: no other funds, strategies, settings, sessions, bar sizes, filters or costs. Anything else is a new
+pre-registration.
