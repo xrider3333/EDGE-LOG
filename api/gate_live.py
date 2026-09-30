@@ -202,10 +202,17 @@ def _gated_legs():
     2026-09-07: KEEL legs (gate mode "keel", augur_engine/ml_keel.py) are ENGINE-SIDE paper
     overlays with no live artifact - their sizes come from a rolling walk inside api/paper_gate,
     not from a pickled model. Serving them here raised "unknown gate model 'keel'" per leg and
-    flipped the whole service to DOWN on the board while every NT leg was in fact loaded."""
+    flipped the whole service to DOWN on the board while every NT leg was in fact loaded.
+
+    2026-09-30: the same holds for every KEEL shape, not just mode "keel" - TTM_458_KEEL (mode
+    "keel_frozen", model "keel") sizes inside api/paper_gate and no NinjaTrader strategy asks for it,
+    yet the keep-warm pass logged "FAIL-OPEN: no artifact" for it every 10 minutes and the nightly
+    build failed on "unknown gate model 'keel'". Any leg whose MODEL is keel is engine-side."""
     from api import paper
     return [l for l in paper.PAPER_LEGS
-            if l.get("gate") and str(l["gate"].get("mode") or "").lower() not in ("keel", "comp")]
+            if l.get("gate")
+            and str(l["gate"].get("mode") or "").lower() not in ("keel", "keel_frozen", "comp")
+            and str(l["gate"].get("model") or "").lower() != "keel"]
 
 
 # ── nightly artifact ──────────────────────────────────────────────────────────────

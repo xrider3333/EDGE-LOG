@@ -335,3 +335,16 @@ def test_nt_prices_latency_stays_fast(decide_world):
     out = g.decide("TEST_LEG", nt_bar, **NT_OHLCV)
     assert out["elapsed_ms"] < 100, \
         f"decide() with NT prices took {out['elapsed_ms']}ms against a warm cache"
+
+
+def test_gated_legs_skip_every_keel_shape():
+    """Engine-side KEEL legs (mode keel / keel_frozen, model keel) have no live artifact and no
+    NinjaTrader caller; serving them only logged FAIL-OPEN every keep-warm pass (2026-09-30)."""
+    from api import gate_live as g, paper
+    keys = {l["key"] for l in g._gated_legs()}
+    assert "TTM_458_KEEL" not in keys
+    for l in paper.PAPER_LEGS:
+        gt = l.get("gate") or {}
+        if str(gt.get("model") or "").lower() == "keel" or str(gt.get("mode") or "").lower().startswith("keel"):
+            assert l["key"] not in keys
+    assert keys, "the live NT legs must still be served"
