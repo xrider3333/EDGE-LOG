@@ -1,0 +1,73 @@
+PRE-REGISTRATION - ROUND 7: VOLCARRY r1 - the volatility risk premium as a new leg for BOOK #463
+=================================================================================================
+Written 2026-09-30 by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (MANAGER inbox #10, item 3: mechanism-first
+new families with a data need and a test plan) BEFORE any data for it was fetched or looked at. Family = MISC
+(volatility carry; no house family trades volatility). Harness: tools/rocfrontier/r7_volcarry.py. Results:
+C:\EdgeLog\_anatomy_cache\rocfrontier\r7\ and RESEARCH_LEDGER.md. Any change = a new file (r2).
+
+WHY. Nothing on EL has ever TRADED volatility: round 24 used the VIX only as a filter on ORB / ENGU-Q, ledger row 2.4 used
+the VIX term structure as a feature - both dead. BOOK #463's legs earn on trend days (ORB, NOISE and TTM breakouts,
+ENGU-Q swings) and give back in chop. A short-volatility leg earns in exactly the calm, choppy stretches and loses in
+volatility spikes - when breakout legs tend to earn. If the two offset, the book's drawdown falls at the same return,
+which is the only way a new leg moves the frontier at matched drawdown.
+
+MECHANISM. Investors pay to insure against volatility, so VIX futures trade above the volatility that follows on
+average; a short VIX-futures position collects that premium (Carr & Wu 2009 on variance risk premia; Simon & Campasano
+2014: the VIX futures basis predicts futures returns, not VIX changes). The premium is thin or negative when the VIX
+curve inverts (the crowd already pays up for near-term protection), so the classic guard is to hold only while the
+curve slopes upward (VIX below the 3-month VIX).
+
+DATA (free, public; Yahoo Finance daily bars via the yfinance library the repo already uses in tools/r24_calendar_vix.py;
+fetched ONCE after the owner's OK, saved with sha256 to the cache, never refreshed during the test):
+- VIXY (ProShares VIX Short-Term Futures ETF, 1x long the S&P 500 VIX Short-Term Futures Index, daily from 2011-01-04),
+  split-adjusted open / close.
+- ^VIX and ^VIX3M daily closes (CBOE 30-day and 3-month implied volatility).
+- SVXY (ProShares Short VIX Short-Term Futures ETF), split-adjusted, used ONLY for a parity check after 2018-02-28, when
+  it became -0.5x (before that it was -1x): the synthetic leg below must track SVXY's open-to-open returns at a
+  correlation >= 0.98, or the test stops and says so.
+The tradable form is SVXY bought on Webull (long-only, no borrowing); VIX futures themselves trade on CBOE's exchange,
+which the owner's NinjaTrader / Tradovate route does not carry.
+
+THE LEG (one unit = $100,000 notional, rebalanced to that notional at each open while held)
+- Synthetic short-volatility return for day t: s_t = -0.5 x (VIXY open(t+1) / VIXY open(t) - 1) - 0.0095 / 252
+  (SVXY's product design since 2018-02-28 and its 0.95% yearly fee).
+- Decision at the close of day t-1 from the CBOE closes (known after 16:15 ET), acted on at the open of day t:
+  ratio = VIX close(t-1) / VIX3M close(t-1). HOLD on day t if ratio < theta, else flat.
+- Daily P&L_t = hold_t x 100,000 x s_t, stamped on day t; cost 0.05% of notional on each switch in or out;
+  stress = 0.15% per switch.
+- Cells: G100 (theta = 1.00, curve upward-sloping), G090 (theta = 0.90, steep curve only) - primary.
+  TWIN (plain, always held) - a candidate too; the gated cells must beat it (owner rule: above its leverage line).
+- Stretches: EARLY = 2011-01-04 -> 2016-06-30 (sign check); WF = 2016-07-01 -> 2025-06-29; LOCKBOX = 2025-06-30 ->
+  2026-06-30 (BOOK #463's), read only by Stage B. The harness cuts every series before 2025-06-30 before computing
+  anything in Stages A / A2.
+- Yardstick (owner rule 2026-09-28): ROC %/yr at a $30,000 worst drawdown of the daily P&L = 30 x MAR; Sortino =
+  mean / RMS of negative daily P&L x sqrt(252), zero days included (the frontier lane's so()).
+- Family-wide null for the gated cells: the ratio series is circularly shifted by a random 63..(n-63) trading days,
+  both gated cells re-scored, 500 replicates; the statistic is the MAX over the two cells of the WF Sortino.
+
+STAGE A - a cell passes only if ALL hold on WF:
+  a. ROC @ $30k >= 15 %/yr                               e. net > 0 at the stress cost
+  b. positive in >= 60% of its WF calendar years         f. profitable without its single best day
+  c. EARLY net > 0                                       g. >= 30 holding spells (entries) in WF, or held >= 250 days
+  d. gated cells: ROC @ $30k AND Sortino above the TWIN's, AND WF Sortino above the null max's 95th percentile.
+     TWIN: a-c, e, f only.
+  (No per-trade minimum of 100 / 50: this is a daily holding leg, judged inside the book like TTM and FOMCWK.)
+
+STAGE A2 - book add, pre-lockbox only: the Stage-A pass with the highest WF ROC @ $30k (a gated cell wins a tie with the
+TWIN) is added to BOOK #463's legs (daily P&L of job EmzbSsewQJ6TjEaaO4ea valued daily, 2010-06-07 -> 2025-06-29,
+C:\EdgeLog\_anatomy_cache\rocfrontier\r4\book463_daily.csv; the leg is flat before 2011-01-04) at u in {0.5, 1, 2}
+units ($50k / $100k / $200k); u = the one with the highest book pre ROC @ $30k, then frozen. Passes only if book pre
+ROC @ $30k >= 63.36 (1.05 x 60.34) AND book pre Sortino >= 3.153. Also reported: the leg's daily correlation with the
+book, and the book's worst ten days with and without the leg.
+
+STAGE B - lockbox, read ONCE per A2 pass: book LB ROC @ $30k >= 164.76 AND LB Sortino >= 4.150 AND the book's LB net
+without its single biggest day > 0 AND the leg's own LB net > 0.
+
+STAGE C - a pass goes to MANAGER for an owner call on a no-order Webull paper shadow of SVXY (PAPER-WB's lane); never an
+adoption from this harness. Zero passes = VOLCARRY dead; ledger + memory; the lockbox stays sealed for it.
+
+HOW IT COULD FOOL US. (1) A handful of spike days decide everything (2015-08-24, 2018-02-05 when the VIX more than
+doubled, 2020-03, 2024-08-05): the matched-drawdown yardstick is taken on daily P&L so those days are fully charged,
+and they are listed in the report. (2) The premium was crowded before 2018 and shrank after; WF starts 2016-07 so the
+pre-crash boom is mostly in EARLY. (3) VIXY is a proxy for the index; the SVXY parity check guards the tradable form.
+(4) theta values are round numbers fixed here, not fitted.
