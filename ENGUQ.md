@@ -1260,3 +1260,56 @@ their forward path, so the effective sample is far below 12,972 and the p-values
 which only strengthens a failure. The window is one regime, three months. And 26% of the
 population was dropped for missing order flow, so if that hole correlates with time of day the
 survivors are not a random subset.
+
+### 2026-09-30 - round 65, distance below the recent high: the survival effect is REAL and era-stable, and it is worth nothing
+
+Pre-registered in `ENGUQ_R65_PREREG.md` (commit 18ca3aee) before any survival or profit number was
+read. Research sibling `augur_strategies/ENGUQ_1M_ETH_R65_1_0.py`: the crown's file plus one entry
+test - the signal close must sit within `max_room_atr` ATRs of the highest high of the previous
+1,380 bars. Exits, stops, trailing and the hold are untouched.
+
+**The round's first result cost nothing and killed the idea it started as.** It began as OVERHEAD
+SUPPLY - require room above the entry so the trade is not breaking into a nearby prior high. Dead
+at the design stage, before any outcome was read: over the crown's 2,053 entries the distance up
+to the previous session's high has a median of **12.5 ATR** and a lower quartile of 6.95, while
+the trade needs about 2.5 ATR to activate its trail. There is no overhead-supply problem here to
+filter. What that showed instead is that **ENGU-Q enters about twelve ATR BELOW recent structure**
+- it buys a bounce inside a decline, not a breakout into clear air - so the hypothesis was
+reversed: entries NEAR the prior high should be the survivors.
+
+**And they are. Clause 5 passes cleanly, in every era:**
+
+| era | kept entries survive day one | removed entries |
+|---|---|---|
+| 2010-14 | 33.9% (n=286) | 19.8% (n=379) |
+| 2015-18 | 32.1% (n=346) | 16.1% (n=385) |
+| 2019-22 | 31.2% (n=349) | 19.0% (n=363) |
+| 2023-26 | 30.1% (n=269) | 18.9% (n=281) |
+
+A 12-to-16 point separation, stable across sixteen years with no drift. The mechanism is real.
+
+**It is also worth nothing, and three clauses fail.** Against the raw twin on ADJ_NQ_1m_ETH with
+the drawdown valued daily: walk-forward ROC at a $30k drawdown falls **26.8% to 22.8%** (clause 1
+fails), walk-forward Sortino 3.66 to 3.65 (clause 2 fails), and the sealed year without its
+biggest trade gets **worse**, -$16,283 to -$18,746 (clause 4 fails). Samples are fine (741 and
+74) and the harness gate passes - the filter off reproduces the parent's 2,053 trades exactly.
+The sealed stretch does improve (ROC 44.4 to 55.1, Sortino 3.38 to 3.90), but one stretch is not
+the bar. **Verdict: no validate queued.** The plateau at 4 / 6 / 12 / 16 ATR is reported in the
+harness output and not selected from; no threshold clears clause 1.
+
+**Why it is worth nothing, measured rather than guessed.** The filter removes 39% of all trades
+(2,053 to 1,250) and the sealed net barely moves: **$74,869 to $72,708**. It keeps the one 7 April
+hold that IS the sealed year ($91,152, still 126% of the total afterwards) and strips out trades
+whose aggregate contribution is close to zero. Concentration hardly improves - the sealed top-ten
+share goes 226% to 201%.
+
+**The family lesson, now from two independent filters.** Round 62's cash-session gate and round
+65's room filter both separate day-one survivors by 12-25 points, era-stably, and **neither
+converts that into ROC**. The reason is now explicit: surviving day one is far too common a
+property to be the thing worth selecting. About a quarter of all entries survive, the money is in
+a handful of long holds, and a filter that doubles the survival rate still keeps hundreds of
+mediocre survivors and removes hundreds of near-free losers. **"Find better survivors" is the
+right instinct and the wrong target** - day-one survival is a diagnostic of what pays, not a
+selectable proxy for it. Anything future rounds propose should be aimed at the long holds
+specifically, and should be able to say in advance why it would keep the 35-day trade while
+dropping the ordinary survivors, not merely lift the survival rate.
