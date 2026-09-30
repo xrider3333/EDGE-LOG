@@ -38,7 +38,23 @@ def main(describe=False):
     import pandas as pd
     from augur_engine.engine import run_backtest
     from augur_engine.data import find_master, load_master_arrays
-    from paired_seq_stop import tstat, read_pair
+    from paired_seq_stop import tstat, FIRST, EVERY, BOUND, BOUND_EX
+
+    def seq_stop(u, m):
+        # House paired stop (docs/PREREG_paired_sequential_stop_2026-09-29.md) with this test's own c:
+        # at every look c is the mean arm size over the trades read SO FAR (outcome-blind), as the
+        # pre-registration says - not one c from the whole sample (fixed 2026-09-30, before any forward trade).
+        u, m = np.asarray(u, float), np.asarray(m, float)
+        last = ("continue", len(u), 0.0)
+        for n in range(FIRST, len(u) + 1, EVERY):
+            x = (m[:n] - m[:n].mean()) * u[:n]
+            t = tstat(x)
+            if t >= BOUND and tstat(np.delete(x, int(np.argmax(x)))) >= BOUND_EX:
+                return "EARLY PASS - read the final rule now", n, t
+            if t <= -BOUND and tstat(np.delete(x, int(np.argmin(x)))) <= -BOUND_EX:
+                return "EARLY FAIL", n, t
+            last = ("continue", n, t)
+        return last
 
     tk = pd.read_csv(TICKS, usecols=["time", "delta"])
     tk["bar"] = ((tk.time - 1) // 300) * 300                 # rows are stamped at the bar END
@@ -108,7 +124,7 @@ def main(describe=False):
         if describe:
             print("  (DESCRIPTIVE ONLY - the capture period can neither pass nor fail the test)")
             continue
-        status, n, t = read_pair(V.u.values, V.m.values, np.ones(len(V)), c)
+        status, n, t = seq_stop(V.u.values, V.m.values)
         print("  PAIRED SEQUENTIAL STOP: %s at %d valid trades (t %.2f)" % (status, n, t))
         if "ORB_R6" in leg and (len(V) >= FINAL_N or pd.Timestamp.now() >= pd.Timestamp(FINAL_DATE)):
             def roc30(pnl):
