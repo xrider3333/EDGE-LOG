@@ -829,7 +829,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.952';
+const VERSION='73.953';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -847,7 +847,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.951',date:'2026-09-30',notes:['OPEN IN TV. Every trade panel on HOME has an OPEN IN TV button: TradingView opens on that symbol at 1-minute and the trade date and time are copied - press Alt+G there and paste to jump to the trade. (TradingView has no link that opens a chart at a time, and EL never drives TradingView for you - its rules ban bots.)','PASTE BOX. Paste a TradingView snapshot link into the new box in the HOME activity toolbar and it goes on your newest trade that has no chart link yet. A note says which trade it went on, with UNDO and a list to move it to another trade.']},
+const CHANGELOG=[{v:'73.953',date:'2026-09-30',notes:['POINTS ON EVERY FUTURES TRADE. A new POINTS column in the HOME ledger shows your point score, for example 8/9: close above the 200 EMA on 10s, 1m, 5m and 30m; above the low, close and high of the previous day session; the biggest green body since the low of the day; and the biggest volume since that low - all read on the last closed 1-minute candle before your entry.','Hover the score for the list, or open the trade: the panel shows every point with a tick or a cross and the price it was checked against. A point that could not be checked is NA and lowers the maximum instead of counting as a miss (7/8 = one NA). The daily-trend point is shown on its own and is not in the score. All 53 past futures trades are scored; stocks follow once the Alpaca key is saved.']},
+{v:'73.951',date:'2026-09-30',notes:['OPEN IN TV. Every trade panel on HOME has an OPEN IN TV button: TradingView opens on that symbol at 1-minute and the trade date and time are copied - press Alt+G there and paste to jump to the trade. (TradingView has no link that opens a chart at a time, and EL never drives TradingView for you - its rules ban bots.)','PASTE BOX. Paste a TradingView snapshot link into the new box in the HOME activity toolbar and it goes on your newest trade that has no chart link yet. A note says which trade it went on, with UNDO and a list to move it to another trade.']},
 {v:'73.950',date:'2026-09-30',notes:['EL CHART ON EVERY REAL TRADE. Every futures trade in your ledger now has its own candle chart, with no pasting needed: a 1-minute chart and a 10-second close-up with your entry, exit and the time you held shaded. Open it from the new CHART column (the two-candle icon) or from the trade panel, where a 1M / 10S switch sits above the chart. EXPAND opens the full chart with zoom, PREV / NEXT through your trades and SAVE PNG.','It works on your phone too: your PC publishes the candles for each trade a few minutes after it syncs. All 53 past futures trades already have one (10-second bars exist from late June on). Stock trades get charts once the free Alpaca key is saved.']},
 {v:'73.949',date:'2026-09-30',notes:['TOP BAR GATE CHIP NAMES ITS OWNER. The ML gate chip now reads NT GATE - it is NinjaTrader’s gate; the Webull paper book has no ML gate. When the gate is up and scoring but one model failed to load, it now shows a yellow NT GATE PARTIAL naming the leg that trades ungated, instead of a red GATE DOWN (on 09-30 the gate was up for 6 legs with only TTM #458’s KEEL model missing).']},{v:'73.946',date:'2026-09-30',notes:['IMPORT: PDF STATEMENT FOLLOW-UP. A position held across midnight New York, or opened before the statement, is no longer re-paired from flat each day, which made up a trade the other way and lost the real ones: fills now pair across the whole statement and each trade is dated by its entry, and a position only partly on the statement (opened before it or still open at its end) is listed and not imported. Two scale-outs in the same minute no longer swap journal legs, and a trade the journal lacks no longer takes a leg of its bigger neighbour.']},{v:'73.945',date:'2026-09-30',notes:['IMPORT: CONTRACT SYMBOLS AND PDF STATEMENTS. Imports now save every futures trade under its root symbol (MES, MNQ), never the contract code in the file: a PDF statement used to save MES as MESM and MNQ as MNQH, so it never matched your journal and saved the day a second time, and the Performance CSV saved MNQ trades as MES. A PDF statement now matches each of its trades to the journal copy one for one (same direction, same prices within a tick, same minutes) and never rewrites a journal trade: a scale-out saved as two 1-lot legs, two trades a tick apart and a same-price trade the other way all stay as they are. It only adds the trades your journal is missing, sets each fee to the statement fee per contract times its size, and lists any trade the journal holds in another size or direction without changing it. A reversal fill (long 1, sell 2) now makes two trades instead of one, and a clearing fee is split across the symbols traded that day instead of charged to each one.']},{v:'73.944',date:'2026-09-29',notes:['WEBULL PAPER: CANDLES ON EVERY TRADE. Each trade sheet on HOME > WEBULL PAPER now opens a small QQQ chart of that trade (EXPAND for the full viewer with PREV / NEXT, zoom, 1m / 5m and SAVE PNG), drawn from the box’s own bars - the ones the engine traded on. Marks: the signal bar (dashed outline), the backtest’s fill and exit, the book’s fill and exit, and every Webull try - filled, refused, sent with no answer, held back by the book, a failed order call, or netted against another leg - each with its own shape and words, so they read in MONO too. The legend gives prices, times and how far each Webull fill was from the backtest. The box writes one small file per trading day after the close and again before the open; a day without one falls back to your PC and says so.']},{v:'73.942',date:'2026-09-28',notes:['WEBULL PAPER: FILLS vs BACKTEST AT THE OWNER’S TOLERANCE, AND WEBULL FILLS ARE THE P&L OF RECORD. The old PARITY NOTE (36 of 36 trades miss) is gone: it compared against the send-time quote at 2% of each trade’s P&L and ignored direction. Each Webull fill is now compared, signed (+ = Webull did better), with the backtest’s own fill for that side - for NOISE decided at a bar close, the next bar’s open. A fill more than 15 cents a share worse is flagged (FILL GAP), and a leg or the board is flagged when its last 20 fills average more than 5 cents worse. Known design gaps (the 15:59 flatten, ENGU-Q’s limit entry, stop and target levels, NOISE before 09-26) are shown apart and never flag; a capture that does not fit the tape reads CHECK FILL and never counts (the 09-24 ENGU-Q fill). Trade sheets, the equity curve, today’s figure, the calendar and the evening summary use Webull’s fill per side (book price, labelled, where there is none) with the backtest’s P&L alongside; the daily loss breaker can only trip sooner on a fill shortfall. Today’s orders show the delay after the bar close (SLOW in words past 60 s).']},{v:'73.941',date:'2026-09-28',notes:['LOCKBOX FOLLOW-UP (live check of v73.940): four places still printed a warm run’s cold lockbox - the run report’s 1A chart hover (the chart the classic report layout shows), RUNBOARD’s whole-run LB $ row, the Past Runs group list’s lockbox PF, and LEADERBOARD’s lockbox Sharpe fallback. All four now read the same continuous replay, tagged LB warm or naming the run’s own cold reading on hover; refused runs (ENGU-Q #310, #326) keep their own lockbox everywhere. The run-report check gained a fourth case in the classic 1A layout, so this miss cannot come back unseen.']},{v:'73.940',date:'2026-09-28',notes:['ONE LOCKBOX FIGURE PER RUN, ON EVERY SCREEN. LEADERBOARD, the older COMPARE tables and the run report now read the same lockbox EXPLORE and RUNBOARD already show: for a run that scored its lockbox before warm starts (v73.841), the continuous replay of the same stretch, tagged LB warm with the run’s own cold figure on hover. Same refusal rule: a continuous slice with far fewer trades is a different replay, so that run keeps its own lockbox (ENGU-Q #310, #326). PASS / FAIL stays the verdict scored on the run’s own lockbox. In the run report this covers the metrics table LOCKBOX column, the chart’s lockbox hover and the gate banner; the whole-run curve and the in-sample figure worked out from it stay on the saved (cold) curve. Also fixed: a negative cold figure in the LB warm hover printed as $-42,119.']},{v:'73.937',date:'2026-09-28',notes:['RUNBOARD ROC TOGGLE NOW CLICKS. In v73.936 the ROC row label showed the switch between ROC % / YR and ROC @ $30K DD but clicking it did nothing, on the RUNBOARD tab and on the COMPARE board alike - its click was only hooked up on a different screen. It is now hooked up for every screen the board draws on, and the render check clicks it on both.']},{v:'73.936',date:'2026-09-28',notes:['EXPLORE AND RUNBOARD AUDIT (owner go, via MANAGER). EXPLORE: a row with fewer than 50 lockbox trades carries a caution tag and greys while the lockbox is ticked; ORB #205-#209 are marked VOID (the entry is gated on that same bar finished volume) and always greyed; a pinned single-config run says its walk-forward is in-sample; HYBRID redeploy and equal-drawdown rows size the lockbox at the walk-forward factor, with the lockbox-hindsight reading on hover; the run chips list watched and starred runs first and FAIL or VOID runs last, greyed, never the default pick; a run scored before warm starts reads its continuous lockbox when that is plausibly the same config warmed up (NOISE #382 $69,062, ENGU-Q #335 $49,812, ORB #314 $87,132), tagged LB warm; new ROC @ $30K DD measure (30 x MAR) as a column and on both chart axes; new LEVERAGE LINE view: ROC % / YR against drawdown % of the account, a line from zero through each run plain twin, and every ML or sized row marked above, on or below it. RUNBOARD: the lockbox stage reads the same warm lockbox (tagged LB warm on TOTAL), and clicking the ROC row label switches ROC % / YR and ROC @ $30K DD on every stage and on the WATCH view.']},{v:'73.935',date:'2026-09-28',notes:['LIVE GATE: the NinjaTrader NOISE strategy now sends its own finished bar prices, so the gate scores that bar instead of letting the trade through ungated when the price capture is a few seconds behind.']},
 {v:'73.930',date:'2026-09-28',notes:['SCORE FIXES: seven stock trades (EHGO, LABT, SUGP, GMM, XHG, IPST, HOWL) were scored off the wrong candle or 5-minute bars; re-scored against the 1-minute or 10-second candle the owner actually traded.']},
@@ -11815,7 +11816,7 @@ function _hmNoteHtml(){
   if(!n||Date.now()>=n.until){window._hmNote=null;return '';}
   return `<span id="hm-note" style="color:var(--yellow);font-size:10px;letter-spacing:1px">${_hmEsc(n.text)}</span>`;
 }
-const _HM_SORT_LBL={date:'DATE',symbol:'SYM',type:'DIR',entry:'ENTRY',exit:'EXIT',_pts:'PTS',size:'CTRS',grossPnl:'GROSS',fees:'FEES',pnl:'NET',_runbal:'ACCT',grade:'GRADE',_score:'SCORE',setup:'SETUP',timeframe:'TF'};
+const _HM_SORT_LBL={_points:'POINTS',date:'DATE',symbol:'SYM',type:'DIR',entry:'ENTRY',exit:'EXIT',_pts:'PTS',size:'CTRS',grossPnl:'GROSS',fees:'FEES',pnl:'NET',_runbal:'ACCT',grade:'GRADE',_score:'SCORE',setup:'SETUP',timeframe:'TF'};
 function _hmSortLabel(){return 'SORTED BY '+(_HM_SORT_LBL[sortCol]||String(sortCol||'').toUpperCase())+(sortDir>0?' &#9650;':' &#9660;');}
 // Scrolls HOME's table to the first row whose trade passes `pred` and flashes every such row
 // for 2s - what the old TRADES tab did after a calendar-day or chart-dot jump.
@@ -12217,6 +12218,7 @@ function _hmSheetHtml(id){
     <div class="hm-sheet-sub">${t.type} ${t.size!=null?t.size:''}${isFut(t.symbol)?' contract'+(t.size>1?'s':''):' sh'} &middot; ${t.date}</div>
     <div class="hm-sheet-net ${_hmCls(t.pnl)}">${_hmSigned(t.pnl)}</div>
     ${_hmFutInst(t.symbol)&&window._rtSheetCandlesHtml?window._rtSheetCandlesHtml(String(t.id)):(isFut(t.symbol)?'':'<div style="font-size:10px;color:var(--text5);margin:-8px 0 14px">Charts for stock trades arrive once the free Alpaca key is saved.</div>')}
+    ${_hmPtsSheetHtml(t)}
     <label class="hm-excl"><input type="checkbox" id="hm-sheet-excl"${t.statsExcluded?' checked':''}/><span><b>IGNORE IN METRICS</b><br/>Still counts in P&amp;L and the account balance. Left out of win rate, profit factor, averages, drawdown and the other performance figures.</span></label>
     <div>${dlHtml}</div>
     <div class="hm-tags">${tagsHtml}</div>
@@ -12268,10 +12270,48 @@ function _hmTableHeader(){
     <th class="num hm-pin">#</th>${_hmThCell('DATE','date','hm-pin',_hmThFDates('dateFrom','dateTo'))}<th class="hm-col-in hm-pin">IN</th><th class="hm-col-out hm-pin">OUT</th><th class="hm-col-dur hm-pin">DUR</th>
     ${_hmThCell('SYM','symbol','hm-pin',_hmThFList('sym',_hmAllSyms()))}${_hmThCell('DIR','type','',_hmThFList('dir',['LONG','SHORT']))}${_hmThCell('ENTRY','entry','num')}${_hmThCell('EXIT','exit','num')}<th class="num">PTS</th>${_hmThCell('CTRS','size','num')}
     ${_hmThCell('GROSS','grossPnl','num')}${_hmThCell('FEES','fees','num')}${_hmThCell('NET','pnl','num',_hmThFRange('minPnl','maxPnl'))}<th>ACCT</th><th class="num">ACCT%</th>
-    ${_hmThCell('GRADE','grade','',_hmThFList('grade',GRADES.filter(g=>g!=='—')))}${_hmThCell('SCORE','_score','')}${_hmThCell('SETUP','setup','',_hmThFList('setup',customSetups.filter(s=>s!=='—')))}${_hmThCell('TF','timeframe','',_hmThFList('tf',TIMEFRAMES.filter(x=>x!=='—')))}<th>CHART</th><th>TAGS</th><th>NOTES</th>
+    ${_hmThCell('GRADE','grade','',_hmThFList('grade',GRADES.filter(g=>g!=='—')))}${_hmThCell('SCORE','_score','')}${_hmThCell('POINTS','_points','')}${_hmThCell('SETUP','setup','',_hmThFList('setup',customSetups.filter(s=>s!=='—')))}${_hmThCell('TF','timeframe','',_hmThFList('tf',TIMEFRAMES.filter(x=>x!=='—')))}<th>CHART</th><th>TAGS</th><th>NOTES</th>
     ${extra}
     <th>&#9998;</th><th>&#10005;</th>
   </tr>`;
+}
+// POINT SCORE (owner 2026-09-30 via MANAGER, "go with defaults"; spec docs/POINT_SCORE_SPEC.md, ps1):
+// nine yes/no points read at the signal candle - the last closed 1-minute bar before the entry
+// fill. The PC scores each real trade (tools/point_score.py) and merges ONLY t.pointScore onto it.
+// An NA point is never a 0: it lowers the maximum, so 7/8 means one point could not be checked.
+function _hmPts(t){const p=t&&t.pointScore;return (p&&p.max!=null&&p.total!=null)?p:null;}
+function _hmPtsRatio(t){const p=_hmPts(t);return (p&&p.max)?p.total/p.max:-1;}
+function _hmPtsColor(p){const r=p.max?p.total/p.max:0;return r>=0.78?'var(--green)':(r>=0.5?'var(--yellow)':'var(--red)');}
+function _hmPtsNum(v){if(v==null||v===''||!isFinite(+v))return '--';const n=+v;return Math.abs(n)>=1000?n.toLocaleString(undefined,{maximumFractionDigits:2}):String(Math.round(n*100)/100);}
+function _hmPtsLine(q){
+  const mark=q.hit===true?'\u2713':(q.hit===false?'\u2717':'NA');
+  const det=(q.hit==null)?(q.na_reason||'could not be checked'):(_hmPtsNum(q.val)+' vs '+_hmPtsNum(q.ref));
+  return {mark:mark,label:String(q.label||q.k||''),det:det};
+}
+function _hmPtsTitle(p){
+  return 'POINTS '+p.total+'/'+p.max+(p.na_count?(' ('+p.na_count+' NA)'):'')+' - signal candle '+String(p.signal_bar||'').slice(11)+'\n'
+    +(p.points||[]).map(q=>{const l=_hmPtsLine(q);return l.mark+'  '+l.label+': '+l.det;}).join('\n')
+    +(p.trend?('\n10th point, not counted: '+_hmPtsLine(p.trend).mark+'  '+String(p.trend.label||'')):'');
+}
+function _hmPtsHtml(t){
+  const p=_hmPts(t);
+  if(!p)return `<span class="score-pill" title="${_hmFutInst(t.symbol)?'Not scored yet - your PC adds it after the trade syncs':'Stock trades are scored once the free Alpaca key is saved'}" style="color:var(--text5)">-</span>`;
+  const c=_hmPtsColor(p);
+  return `<span class="score-pill" style="color:${c};border-color:color-mix(in srgb,${c} 35%,transparent);background:color-mix(in srgb,${c} 10%,transparent)" title="${_hmEsc(_hmPtsTitle(p))}">${p.total}/${p.max}</span>${p.na_count?`<span style="font-size:8px;color:var(--text5);margin-left:3px">${p.na_count} NA</span>`:''}`;
+}
+// the trade panel's POINTS block: every point with its tick / cross / NA and what it was checked against
+function _hmPtsSheetHtml(t){
+  const p=_hmPts(t);if(!p)return '';
+  const c=_hmPtsColor(p);
+  const row=q=>{const l=_hmPtsLine(q);const col=q.hit===true?'var(--green)':(q.hit===false?'var(--red)':'var(--text5)');
+    return `<div class="hm-dl-row"><div class="dt" style="display:flex;gap:8px;align-items:center"><span style="color:${col};font-weight:700;min-width:16px">${l.mark}</span>${_hmEsc(l.label)}</div><div class="dd" style="color:var(--text4);font-size:10px">${_hmEsc(l.det)}</div></div>`;};
+  return `<div class="hm-sheet-points" style="margin:0 0 16px">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px"><span class="hm-micro">POINTS</span>
+      <span style="font-family:'Bebas Neue',monospace;font-size:20px;color:${c}">${p.total}/${p.max}</span>
+      <span style="font-size:10px;color:var(--text5)">${p.na_count?p.na_count+' NA &middot; ':''}signal candle ${_hmEsc(String(p.signal_bar||'').slice(11))} ET</span></div>
+    ${(p.points||[]).map(row).join('')}
+    ${p.trend?`<div style="font-size:10px;color:var(--text5);margin-top:6px">10th point, not counted in the score:</div>${row(p.trend)}`:''}
+  </div>`;
 }
 // The SCORE cell, shared by the FULL and SIMPLE ledgers.
 function _hmScoreHtml(t){
@@ -12293,7 +12333,7 @@ function _hmTableHeaderSimple(){
   return `<tr>
     <th class="num hm-s3">#</th>${_hmThCell('DATE','date','',_hmThFDates('dateFrom','dateTo'))}<th class="hm-s2">IN</th>
     ${_hmThCell('SYM','symbol','',_hmThFList('sym',_hmAllSyms()))}${_hmThCell('DIR','type','',_hmThFList('dir',['LONG','SHORT']))}${_hmThCell('CTRS','size','num hm-s1')}<th class="num hm-s3">PTS</th>
-    ${_hmThCell('NET','pnl','num',_hmThFRange('minPnl','maxPnl'))}${_hmThCell('SCORE','_score','hm-s1')}${_hmThCell('GRADE','grade','',_hmThFList('grade',GRADES.filter(g=>g!=='—')))}${_hmThCell('SETUP','setup','hm-s2',_hmThFList('setup',customSetups.filter(s=>s!=='—')))}<th class="hm-s-notes hm-s1">NOTES</th><th class="hm-s-ic hm-s1">CHART</th>
+    ${_hmThCell('NET','pnl','num',_hmThFRange('minPnl','maxPnl'))}${_hmThCell('SCORE','_score','hm-s1')}${_hmThCell('POINTS','_points','hm-s2')}${_hmThCell('GRADE','grade','',_hmThFList('grade',GRADES.filter(g=>g!=='—')))}${_hmThCell('SETUP','setup','hm-s2',_hmThFList('setup',customSetups.filter(s=>s!=='—')))}<th class="hm-s-notes hm-s1">NOTES</th><th class="hm-s-ic hm-s1">CHART</th>
     <th class="hm-s-ic">&#9998;</th><th class="hm-s-ic hm-s1">&#10005;</th>
   </tr>`;
 }
@@ -12310,6 +12350,7 @@ function _hmTableRowSimple(t,idx,total){
     <td class="num hm-s3">${ptsPerC==null?'--':(ptsPerC>=0?'+':'')+ptsPerC.toFixed(2)+unit}</td>
     <td class="num ${_hmCls(t.pnl)}">${_hmSigned(t.pnl)}</td>
     <td class="hm-s1">${_hmScoreHtml(t)}</td>
+    <td class="hm-s2" style="white-space:nowrap">${_hmPtsHtml(t)}</td>
     <td><select class="inline-sel" data-hmfield="grade" data-hmid="${t.id}">${GRADES.map(g=>`<option${g===(t.grade||'—')?' selected':''}>${g}</option>`).join('')}</select></td>
     <td class="hm-s2"><select class="inline-sel" data-hmfield="setup" data-hmid="${t.id}">${customSetups.map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}</select></td>
     <td class="hm-notes-cell hm-s-notes hm-s1" title="${_hmEsc(t.notes||'')}"><input class="inline-txt" data-field="notes" data-id="${t.id}" value="${_hmEsc(t.notes||'')}" placeholder="+ note" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:inherit;width:100%;box-sizing:border-box;padding:1px 2px;outline:none;text-overflow:ellipsis" onfocus="this.style.borderBottomColor='var(--blue)'" onblur="this.style.borderBottomColor='transparent';if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/></td>
@@ -12346,6 +12387,7 @@ function _hmTableRow(t,idx,total,runBals){
     <td class="num ${acctPct!=null?_hmCls(acctPct):''}">${acctPct!=null?_hmPct(acctPct):'--'}</td>
     <td><select class="inline-sel" data-hmfield="grade" data-hmid="${t.id}">${GRADES.map(g=>`<option${g===(t.grade||'—')?' selected':''}>${g}</option>`).join('')}</select></td>
     <td>${scoreHtml}</td>
+    <td style="white-space:nowrap">${_hmPtsHtml(t)}</td>
     <td><select class="inline-sel" data-hmfield="setup" data-hmid="${t.id}">${customSetups.map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}</select></td>
     <td><button type="button" class="tf-btn" data-tid="${t.id}" data-tfkey="hm-${t.id}" onclick="event.stopPropagation();window.openTfPicker(this)" title="Pick one or more timeframes">${_hmEsc(tfLabel(t.timeframe))}</button></td>
     <td class="hm-chart-cell" style="padding:3px 6px;white-space:nowrap">${_hmCandleGlyph(t)}${t.chartUrl?`<a href="${_hmEsc(t.chartUrl)}" target="_blank" class="clink chart-link" data-url="${_hmEsc(t.chartUrl)}" style="margin-right:4px;text-decoration:none">&#128200;</a>`:''}<input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${_hmEsc(t.chartUrl||'')}" placeholder="chart url" title="${t.chartUrl?_hmEsc(t.chartUrl):'Paste a chart URL'}" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:9px;width:${t.chartUrl?'34px':'62px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='170px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'34px':'62px';if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/></td>
@@ -12377,6 +12419,7 @@ function _hmApplySort(list){
     // SCORE is a virtual column (authored data, not a trade field) - an unscored trade counts
     // as -1, the same rule the Trades tab used. GROSS falls back to NET like its cell does.
     if(sortCol==='_score'){av=scoreOf(a)?.overall??-1;bv=scoreOf(b)?.overall??-1;}
+    else if(sortCol==='_points'){av=_hmPtsRatio(a);bv=_hmPtsRatio(b);}
     else if(sortCol==='grossPnl'){av=parseFloat(a.grossPnl!=null?a.grossPnl:a.pnl)||0;bv=parseFloat(b.grossPnl!=null?b.grossPnl:b.pnl)||0;}
     else if(sortCol==='pnl'||sortCol==='entry'||sortCol==='exit'||sortCol==='size'||sortCol==='fees'){av=parseFloat(av)||0;bv=parseFloat(bv)||0;}
     if(av<bv)return -sortDir;if(av>bv)return sortDir;
