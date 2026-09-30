@@ -121,3 +121,21 @@ leg inside the adopted book (#463), at whole contracts (3 / 4 / 7 on the 1.0 / 1
 It is not an adoption. A fail closes the stack.
 Main ways it could fool us: fade-after-2 is a sharp peak (round 16: 3+ adds drawdown) and its whole LB gain is
 15 trades; the open-bar tilt's old edge was mostly the gap-stop bug (clean engine: WF +2.0pp, LB -2.6pp).
+
+ADDENDUM 4 = ROUND 21a (2026-09-30 evening, written BEFORE any number below is computed)
+IDEA 21a - THE HONEST STACK ON TTM'S OTHER CELLS (trade count)
+Why now: round 16's "the stack does NOT transfer to NQ 30m" was measured on the structural-stop lineage that
+the same-bar gap-stop bug inflated (the 2026-09-27 restatement flagged every SS-built conclusion for a re-read,
+the NQ transfer included). On the clean ATR engine the stack beat its raw twin on ES 30m in both stretches.
+If it also lifts the other three sleeve cells, the stacked multi-cell sleeve is TTM's honest trade-count route
+(the RAW 4-cell sleeve failed its book test #469/#470 on drawdown, not on money).
+Rule, frozen on every cell (no per-cell tuning): TTMSQZ_3_0.py at the #299 crown, fade_bars 2, deep-squeeze
+1.5x (hourly ratio <= 0.85 at fixed 20 / 2.0 / 1.5, ES30T._deep_state at the decision bar) x open-bar 1.5x
+(entry fills on the session's ordinal-1 bar). Cells: ES 15m, NQ 30m, NQ 15m, plus ES 30m (= round 19b row F).
+ADJ masters (db_adj_rth, pinned), 2010-06-07 .. 2026-06-30, LB from 2025-07-01, one contract per cell times its
+size, ES 0.363 / NQ 0.533 pts. Raw twin per cell = the crown unchanged (fade 1, no tilt) on the same data.
+Yardstick = round 19's stretch_stats.
+PASS per cell (information only): stacked >= its raw twin on ROC@$30k AND Sortino in WF AND LB.
+PASS for the sleeve (the decision): the stacked 4-cell sleeve vs the raw 4-cell sleeve (round 19a): ROC@$30k AND
+Sortino >= in WF AND LB; >= 100 WF / 50 LB trades; LB net > 0 without its biggest trade. A sleeve pass goes to
+Frontier for a book test inside #463 (in place of, and beside, the TTM x3 leg). A fail closes the stack transfer.
