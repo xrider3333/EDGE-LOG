@@ -53,3 +53,7 @@ OneDrive (`C:\EdgeLog\alpaca_cache\`); they never register masters. Asked of the
 - Point-in-time Nasdaq-100 membership file (`tools/data/ndx_members.csv`) - built from public sources before any bar
   is read; this lane owns it.
 - Nothing is scheduled; the first pull runs once, by hand, after "Alpaca keys saved".
+
+## Update 2026-09-30 - NQBRD is ready to run
+- Membership: `tools/data/ndx_members.csv` (built before any stock bar; see `build_ndx_members.py`).
+- Harness: `tools/rocfrontier/r5_nqbrd.py pull` then `A` - one multi-symbol request per day (09:30-10:00 bars of that day's members, `asof` maps renamed tickers), about 2,600 requests = ~15 minutes on the free plan.
