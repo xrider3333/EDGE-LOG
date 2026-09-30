@@ -54,3 +54,19 @@ Because that was SEEN on the historical 30 trades, it is added here as a SECOND 
 counts for nothing. Same forward bar, same read point (150 tagged forward trades from 2026-10-01), read together with the
 first; with two shadows read at once, the permutation line for either is tightened to fewer than 5% of shuffles.
 Tag: CUM-BACKED = the session's cumulative 10-second delta from 09:30 to the signal bar's end has the trade's sign.
+
+## ADDENDUM 2 - 2026-09-30 evening: audit of the build (owner ask via MANAGER inbox #16), before any forward trade
+1. Stamps: the 10-second rows are stamped at bar END. Rebuilt 5-minute bars match the master's close exactly on 92% of
+   bars under the END mapping and on 3% under a START mapping (open 92% vs 3%); the capture writes true UTC seconds.
+2. No look-ahead: a trade's first field is its fill bar (entry price = that bar's open on all 309 trades since 2025-06),
+   the signal bar is the one before it on the same day, and both tags use only 10-second bars that end by the signal
+   bar's close. Time zones are converted from UTC to New York, so the 2026-11-01 clock change is handled; the guard below
+   would also catch any shifted stamp.
+3. Reproduction: the tool read whatever capture existed, so re-running it later changed the sample. It is now pinned to
+   the recorded last session (2026-09-29) and reproduces the recorded numbers exactly.
+4. One data error: on 2026-09-14 the capture was already on the December contract while the price master was still on
+   September (about a 298-point gap, 31% of closes matching). A PRICE GUARD now applies to every read, the forward
+   shadows included: a session counts only if at least 80% of its rebuilt 5-minute closes equal the master's exactly
+   (median session 96%). It drops 09-14 and 08-19 (59%, partly back-filled). Guarded read (r37_results/
+   r64_delta_read_guarded.txt): 29 trades; signal-bar tag 74% of shuffles (no signal, unchanged); cumulative delta 7
+   unbacked lost $3,159, 16% of shuffles (unchanged conclusion). Nothing else in this pre-registration changes.

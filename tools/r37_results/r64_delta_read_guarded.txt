@@ -1,0 +1,18 @@
+price guard: dropped 2026-08-19, 2026-09-14
+usable capture sessions: 43 of 69 (2026-06-29 .. 2026-09-29)
+NOISE #304 trades in usable sessions: 29 (master through 2026-09-29)
+
+SIGNAL-BAR delta (pre-registered): 28 tagged, 1 untagged
+  backed                     n  24  avg $  588.3  win 37.5%  total $   14,119
+  unbacked                   n   4  avg $ 1772.8  win 25.0%  total $    7,091
+  plain #304 (tagged trades): ROC@$30k  211.4%  Sortino  7.48  DD $11,821
+  skip unbacked             : ROC@$30k  140.7%  Sortino  5.47  DD $11,821
+  permutation: 73.6% of 2,000 random tag shuffles keep as much money as skip-unbacked
+
+session cumulative delta (descriptive): 28 tagged, 1 untagged
+  backed                     n  21  avg $ 1160.5  win 38.1%  total $   24,369
+  unbacked                   n   7  avg $ -451.4  win 28.6%  total $   -3,159
+  plain #304 (tagged trades): ROC@$30k  211.4%  Sortino  7.48  DD $11,821
+  skip unbacked             : ROC@$30k  242.9%  Sortino  9.06  DD $11,821
+  permutation: 15.8% of 2,000 random tag shuffles keep as much money as skip-unbacked
+

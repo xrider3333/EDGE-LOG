@@ -21,6 +21,7 @@ from augur_engine.data import find_master, load_master_arrays         # noqa: E4
 from augur_engine.engine import run_backtest                          # noqa: E402
 
 TEN = os.environ.get("EDGELOG_NQ_10S", r"C:\EdgeLog\ohlc\NQ_10s.csv")
+DATE_TO = os.environ.get("R64_DATE_TO", "2026-09-29")   # the recorded read's last session, pinned so it reproduces
 M, COST = 20.0, 0.533
 CROWN = dict(lookback=40, band_mult_long=0.75, band_mult_short=1.5, exit_mode="vwap", side="Both",
              window="all_day", flat_eod=True, skip_holidays=False, stop_mode="bandwidth", stop_k=1.75,
@@ -30,7 +31,8 @@ CROWN = dict(lookback=40, band_mult_long=0.75, band_mult_short=1.5, exit_mode="v
 d = pd.read_csv(TEN)
 d["end"] = pd.to_datetime(d["time"], unit="s", utc=True).dt.tz_convert("America/New_York")
 t = d.end.dt.time
-rth = d[(t > pd.Timestamp("09:30").time()) & (t <= pd.Timestamp("16:00").time()) & (d.end.dt.dayofweek < 5)].copy()
+rth = d[(t > pd.Timestamp("09:30").time()) & (t <= pd.Timestamp("16:00").time()) & (d.end.dt.dayofweek < 5)
+        & (d.end.dt.date <= pd.Timestamp(DATE_TO).date())].copy()
 g = rth.groupby(rth.end.dt.date)
 q = pd.DataFrame({"bars": g.size(), "dnz": g.apply(lambda x: (x.delta != 0).mean())})
 USABLE = set(q[(q.bars >= 2000) & (q.dnz >= 0.8)].index)
@@ -39,14 +41,26 @@ bar_delta = rth.groupby("T")["delta"].sum()
 rth["day"] = rth.end.dt.date
 rth["cum"] = rth.groupby("day")["delta"].cumsum()
 cum_at_bar_end = rth.groupby("T")["cum"].last()
-print("usable capture sessions: %d of %d (%s .. %s)" % (len(USABLE), len(q), min(USABLE), max(USABLE)))
 
 # ---- NOISE #304 crown trades on the 5-minute master ----------------------------------------------------------------
 sp = ilu.spec_from_file_location("n10_r64", os.path.join(ROOT, "augur_strategies", "NOISE_1_0.py"))
 N10 = ilu.module_from_spec(sp)
 sp.loader.exec_module(N10)
-A = load_master_arrays(find_master("NQ", "5m", "rth", "db_noadj_rth"), date_from="2025-06-01")
+A = load_master_arrays(find_master("NQ", "5m", "rth", "db_noadj_rth"), date_from="2025-06-01", date_to=DATE_TO)
 IDX = pd.DatetimeIndex(A["index"])
+
+# PRICE GUARD (audit 2026-09-30 evening, outcome-blind): the capture must be the master's contract. A session counts only
+# if >= 80% of its 5-minute closes rebuilt from the END-stamped 10s bars equal the master's close exactly (median 96%;
+# 09-14 was 31% with a ~298-point gap = the capture already on December while the master was still on September).
+# R64_PRICE_GUARD=0 reproduces the first recorded read (45 sessions, 30 trades).
+close10 = rth.groupby("T")["close"].last()
+_m = pd.Series(A["close"], index=IDX.tz_convert("America/New_York")).to_frame("c").join(close10.rename("c10"), how="inner")
+match = (_m.c == _m.c10).groupby(_m.index.date).mean()
+if os.environ.get("R64_PRICE_GUARD", "1") != "0":
+    dropped = sorted(x for x in USABLE if match.get(x, 0.0) < 0.8)
+    USABLE -= set(dropped)
+    print("price guard: dropped %s" % (", ".join(str(x) for x in dropped) or "none"))
+print("usable capture sessions: %d of %d (%s .. %s)" % (len(USABLE), len(q), min(USABLE), max(USABLE)))
 tr = run_backtest(N10, arrays=A, params=CROWN, cost_pts=COST, return_trades=True)["trades"]
 rows = []
 for x in tr:

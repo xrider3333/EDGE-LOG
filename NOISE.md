@@ -42,6 +42,8 @@ pre-registration: skip-unbacked beats plain #304 on ROC at a $30k drawdown and S
 backed with under 5% of within-session shuffles matching, 50+ trades per bucket, profitable without its biggest trade.
 The capture fault above is the thing most likely to stall this: every session without delta is a session lost.
 
+**Audit 2026-09-30 evening (MANAGER inbox #16).** The 10-second stamps are bar END (92% of rebuilt 5-minute closes match the master exactly, 3% if read as START), the tags use only bars that end by the signal bar's close, and time zones come from UTC. Two fixes: the read is pinned to 2026-09-29 so it reproduces, and a PRICE GUARD drops sessions where the capture is not the master's contract (09-14 was already on December, ~298 points apart; 08-19 partly back-filled). Guarded: 29 trades, same conclusions (signal-bar tag no signal; cumulative delta 16% of shuffles). The guard applies to the forward read too.
+
 ## 🧪 2026-09-28 — ROUND 63: more alpha? Ten ideas, two pre-registered, both dead at triage
 
 Owner ask via MANAGER (inbox #13): brainstorm NOISE variations for more alpha, pre-register the best 1-2 on the owner's
