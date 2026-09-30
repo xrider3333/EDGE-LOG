@@ -1,0 +1,42 @@
+TTM round 20d - candle proxy on 16 years (prereg addendum 1, a85a666f)
+frozen crown {'length': 20, 'bb_mult': 2.0, 'kc_mult': 1.5, 'min_sq_bars': 1, 'entry_fill': 'open', 'exit_mode': 'fade', 'fade_bars': 1, 'stop_atr': 1.5, 'eod_cutoff': 1, 'gate_tf_min': 60, 'gate_mode': 'sq_on', 'gate_len': 20, 'gate_bars': 2, 'gate_ratio': 1.0, 'gate_fired_k': 3, 'direction': 'both'}
+PARITY ES 30m gated, no candle: 359 trades, $51,709 (run #299 = 359 / $51,709)
+
+TWIN gated
+  ES 5m                          WF n  1200 net $   15,618 ROC@30k    2.8 Sortino  0.78 | LB n   58 net $  -2,729 ROC@30k  -16.0 Sortino -1.01 ex-big $  -4,474
+  ES 15m                         WF n   499 net $   19,043 ROC@30k    4.6 Sortino  0.85 | LB n   26 net $   3,417 ROC@30k   37.3 Sortino  1.47 ex-big $    -352
+  ES 30m                         WF n   343 net $   46,716 ROC@30k   24.9 Sortino  2.51 | LB n   16 net $   4,992 ROC@30k   47.6 Sortino  2.53 ex-big $   1,686
+  NQ 5m                          WF n  1117 net $   63,716 ROC@30k   12.7 Sortino  1.96 | LB n   65 net $  -9,021 ROC@30k  -27.2 Sortino -1.79 ex-big $ -12,215
+  NQ 15m                         WF n   458 net $   59,183 ROC@30k   23.8 Sortino  1.89 | LB n   25 net $   6,913 ROC@30k   27.7 Sortino  1.28 ex-big $   1,588
+  NQ 30m                         WF n   373 net $   43,440 ROC@30k    7.0 Sortino  0.97 | LB n   19 net $   6,819 ROC@30k   45.6 Sortino  1.25 ex-big $   1,150
+  SIX-CELL BOOK                  WF n  3990 net $  247,716 ROC@30k   35.6 Sortino  2.93 | LB n  209 net $  10,391 ROC@30k   23.8 Sortino  0.85 ex-big $   4,722
+
+ungated (plain twin of U)
+  ES 5m                          WF n  9171 net $  -80,534 ROC@30k   -1.0 Sortino -1.15 | LB n  575 net $    -660 ROC@30k   -1.8 Sortino -0.08 ex-big $  -6,592
+  ES 15m                         WF n  2714 net $  -14,276 ROC@30k   -0.7 Sortino -0.24 | LB n  182 net $   7,182 ROC@30k   32.8 Sortino  1.10 ex-big $   3,413
+  ES 30m                         WF n  1131 net $   28,064 ROC@30k    3.2 Sortino  0.53 | LB n   71 net $     131 ROC@30k    0.4 Sortino  0.02 ex-big $  -3,301
+  NQ 5m                          WF n  8763 net $    4,121 ROC@30k    0.1 Sortino  0.04 | LB n  595 net $  18,752 ROC@30k   36.0 Sortino  1.08 ex-big $   7,072
+  NQ 15m                         WF n  2659 net $   37,672 ROC@30k    3.1 Sortino  0.40 | LB n  180 net $ -19,754 ROC@30k  -18.0 Sortino -1.38 ex-big $ -25,078
+  NQ 30m                         WF n  1145 net $   96,792 ROC@30k    6.1 Sortino  1.18 | LB n   73 net $     448 ROC@30k    0.9 Sortino  0.04 ex-big $  -5,222
+  SIX-CELL BOOK                  WF n 25583 net $   71,839 ROC@30k    0.6 Sortino  0.28 | LB n 1676 net $   6,099 ROC@30k    5.1 Sortino  0.18 ex-big $  -5,580
+
+20d-G gated + candle
+  ES 5m                          WF n   775 net $   -1,693 ROC@30k   -0.3 Sortino -0.10 | LB n   39 net $  -1,322 ROC@30k   -9.4 Sortino -0.52 ex-big $  -3,066
+  ES 15m                         WF n   323 net $   22,148 ROC@30k    8.9 Sortino  1.16 | LB n   15 net $   2,253 ROC@30k   36.3 Sortino  1.58 ex-big $     283
+  ES 30m                         WF n   219 net $   26,291 ROC@30k   12.6 Sortino  1.53 | LB n   12 net $   4,940 ROC@30k   79.5 Sortino  3.35 ex-big $   1,633
+  NQ 5m                          WF n   760 net $   32,530 ROC@30k    6.7 Sortino  1.18 | LB n   45 net $  -7,745 ROC@30k  -26.6 Sortino -1.71 ex-big $ -10,939
+  NQ 15m                         WF n   320 net $   41,514 ROC@30k   16.1 Sortino  1.41 | LB n   16 net $   6,574 ROC@30k   37.7 Sortino  1.68 ex-big $   1,249
+  NQ 30m                         WF n   254 net $   46,744 ROC@30k    9.6 Sortino  1.24 | LB n   10 net $  -1,844 ROC@30k  -12.4 Sortino -0.38 ex-big $  -4,463
+  SIX-CELL BOOK                  WF n  2651 net $  167,533 ROC@30k   26.8 Sortino  2.29 | LB n  137 net $   2,856 ROC@30k    6.7 Sortino  0.26 ex-big $  -2,469
+
+20d-U ungated + candle
+  ES 5m                          WF n  6093 net $  -51,216 ROC@30k   -1.0 Sortino -0.86 | LB n  389 net $   3,775 ROC@30k   16.3 Sortino  0.56 ex-big $  -2,157
+  ES 15m                         WF n  1797 net $    4,818 ROC@30k    0.5 Sortino  0.10 | LB n  125 net $   6,533 ROC@30k   28.5 Sortino  1.15 ex-big $   2,964
+  ES 30m                         WF n   737 net $   21,018 ROC@30k    2.6 Sortino  0.43 | LB n   49 net $   1,140 ROC@30k    4.7 Sortino  0.21 ex-big $  -2,167
+  NQ 5m                          WF n  6040 net $    3,921 ROC@30k    0.1 Sortino  0.04 | LB n  416 net $  33,281 ROC@30k   70.9 Sortino  2.26 ex-big $  21,601
+  NQ 15m                         WF n  1832 net $   39,168 ROC@30k    2.9 Sortino  0.49 | LB n  123 net $ -17,417 ROC@30k  -16.5 Sortino -1.45 ex-big $ -22,741
+  NQ 30m                         WF n   755 net $  111,992 ROC@30k   15.6 Sortino  1.90 | LB n   48 net $  -5,357 ROC@30k   -9.4 Sortino -0.56 ex-big $  -8,486
+  SIX-CELL BOOK                  WF n 17254 net $  129,702 ROC@30k    2.0 Sortino  0.64 | LB n 1150 net $  21,955 ROC@30k   18.4 Sortino  0.73 ex-big $  10,276
+
+VERDICT 20d-G gated + candle: ROC@30k >= twin WF NO; ROC@30k >= twin LB NO; Sortino >= twin WF NO; Sortino >= twin LB NO; >=100 WF / 50 LB trades yes; LB ex-biggest > 0 NO -> FAIL
+VERDICT 20d-U ungated + candle: ROC@30k >= twin WF NO; ROC@30k >= twin LB NO; Sortino >= twin WF NO; Sortino >= twin LB NO; >=100 WF / 50 LB trades yes; LB ex-biggest > 0 yes; ROC@30k >= ungated WF yes; ROC@30k >= ungated LB yes -> FAIL

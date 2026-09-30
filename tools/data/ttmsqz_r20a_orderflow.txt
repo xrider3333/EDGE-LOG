@@ -1,0 +1,49 @@
+TTM round 20a/20b - order flow behind the fire (prereg tools/TTM_R20_PREREG.txt, 5f5a0948)
+frozen #299 crown, TTMSQZ_3_0.py, ES/NQ x 5m/15m/30m RTH db_noadj_rth, one contract; fires from 2026-06-23
+  10s capture ES: 546502 rows, 2026-06-24 22:00:20 .. 2026-09-30 13:51:40 (UTC end stamps)
+  10s capture NQ: 558864 rows, 2026-06-23 22:00:20 .. 2026-09-30 13:51:40 (UTC end stamps)
+
+COVERAGE (fires on the capture stretch, by cell; ok = coverage >= 0.8 and price within 2 ticks)
+  ES 5m  gate sq_on fires  17  ok  14  (low coverage 3, price gap 0)
+  ES 5m  gate none  fires 157  ok 109  (low coverage 46, price gap 2)
+  ES 15m gate sq_on fires   7  ok   4  (low coverage 3, price gap 0)
+  ES 15m gate none  fires  34  ok  17  (low coverage 16, price gap 1)
+  ES 30m gate sq_on fires   4  ok   4  (low coverage 0, price gap 0)
+  ES 30m gate none  fires  18  ok  14  (low coverage 4, price gap 0)
+  NQ 5m  gate sq_on fires   7  ok   5  (low coverage 2, price gap 0)
+  NQ 5m  gate none  fires 164  ok 122  (low coverage 37, price gap 5)
+  NQ 15m gate sq_on fires   6  ok   4  (low coverage 2, price gap 0)
+  NQ 15m gate none  fires  47  ok  27  (low coverage 19, price gap 1)
+  NQ 30m gate sq_on fires   3  ok   2  (low coverage 1, price gap 0)
+  NQ 30m gate none  fires  17  ok  10  (low coverage 7, price gap 0)
+
+20a - GATED fires with order-flow data, agree vs disagree (R = net pts / 1.5 ATR)
+  ALL six cells                      agree  17  mean R -0.189  $    2,171 | disagree  16  mean R -0.091  $     -820 | p 0.654
+  ES 5m                              agree   8  mean R -0.186  $     -628 | disagree   6  mean R +0.118  $      341 | p 0.782
+  ES 15m                             agree   1  mean R +1.591  $    1,969 | disagree   3  mean R -0.522  $   -1,179 | p 0.252
+  ES 30m                             agree   1  mean R -0.249  $     -318 | disagree   3  mean R +0.053  $      721 | p 1.000
+  NQ 5m                              agree   2  mean R -1.009  $   -2,543 | disagree   3  mean R -0.248  $     -662 | p 1.000
+  NQ 15m                             agree   4  mean R -0.373  $    1,071 | disagree   0  mean R +nan  $        0 | p nan
+  NQ 30m                             agree   1  mean R +0.439  $    2,619 | disagree   1  mean R -0.017  $      -41 | p 0.504
+
+20a - the six-cell book, capture stretch 2026-06-23 .. 2026-09-29 (daily P&L, one contract per cell)
+  all gated fires (incl. no-data)    n  44  net $   -2,155  DD $   8,875  ROC@30k    -26.9  Sortino  -0.71
+  gated fires with data              n  33  net $    1,350  DD $   8,984  ROC@30k     16.6  Sortino   0.47
+  agree only                         n  17  net $    2,171  DD $   7,301  ROC@30k     32.9  Sortino   0.82
+  disagree only                      n  16  net $     -820  DD $   1,938  ROC@30k    -46.8  Sortino  -1.23
+
+20b - UNGATED fires the hourly gate would have BLOCKED, by agreement, vs the gated fires
+  gated fires with data: 33, mean R -0.142
+  blocked-by-gate, ALL cells         agree 182  mean R +0.065  $   33,450 | disagree  84  mean R -0.206  $  -12,494 | p 0.016
+  blocked ES 5m                      agree  65  mean R -0.100  $   -5,065 | disagree  30  mean R -0.220  $   -2,156 | p 0.283
+  blocked ES 15m                     agree   8  mean R +0.359  $      806 | disagree   5  mean R -0.139  $     -269 | p 0.248
+  blocked ES 30m                     agree   7  mean R -0.093  $   -1,385 | disagree   3  mean R +0.156  $    1,183 | p 0.729
+  blocked NQ 5m                      agree  81  mean R +0.127  $   22,852 | disagree  36  mean R -0.274  $  -11,435 | p 0.022
+  blocked NQ 15m                     agree  16  mean R +0.253  $    9,556 | disagree   7  mean R -0.128  $     -620 | p 0.218
+  blocked NQ 30m                     agree   5  mean R +0.345  $    6,687 | disagree   3  mean R +0.101  $      803 | p 0.347
+  blocked-agree adds 182 trades to 33 gated (+552%); blocked-agree mean R +0.065 vs gated -0.142
+
+REPORTED, NO VERDICT - the coil's order flow (squeeze-on bars before the fire), gated fires with data
+  coil agrees 23  mean R -0.021 | coil disagrees 10  mean R -0.420 | p 0.063
+
+SCREEN (prereg): gated agree mean R -0.189 vs disagree -0.091 -> forward shadow does NOT start
