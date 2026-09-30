@@ -51,3 +51,11 @@ backfill paired t (below) is <= -2.0, that leg's shadow is not started; anything
   without its single best trade. ROC at a fixed drawdown is scale-free, so extra size alone cannot pass - the
   rule must sit above the twin's leverage line. A pass is a CANDIDATE for the owner (via MANAGER) and is offered
   to Frontier as a book-leg stream; it adopts nothing by itself.
+
+## BACKFILL RESULT (2026-09-30, run once as registered) - neither leg killed; both forward shadows start 2026-10-01
+- ORB #314: 29 of 33 trades had a valid window; paired t +1.23. The 9 trades sized 1.5x made $23,974 raw, the 20
+  untilted valid trades $16,694; no ORB trade drew opposing flow (0 at 0.5x).
+- NOISE #422: 31 of 49 valid; paired t -0.68. 1.5x trades -$3,155 (11), 0.5x trades -$2,563 (5), untilted
+  valid +$28,094 (15); the 18 trades without delta made -$11,636.
+- Neither number is evidence (29-31 trades); this only cleared the kill line. Forward read: `python
+  tools/orderflow_r1.py forward` (EDGELOG_ROOT = the shared checkout).

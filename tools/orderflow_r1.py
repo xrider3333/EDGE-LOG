@@ -159,8 +159,41 @@ def constants(reps=4000, seed=20260930):
               f"B = {b:.2f} (false stops {100 * stops / reps:.1f}% over {nmax})", flush=True)
 
 
+def triage():
+    """Backfill KILL check (pre-registered): paired t <= -2.0 on a leg = its shadow is not started."""
+    import paired_seq_stop as Q
+    for name in LEGS:
+        ent, side, pnl, m, a = backfill(name)
+        v = np.isfinite(a)
+        d = (m[v] - C[name]) * pnl[v]
+        t = Q.tstat(d)
+        up, dn, flat = m == UP, m == DOWN, v & (m == 1.0)
+        print(f"{name}: valid {int(v.sum())} of {len(m)}; paired t {t:+.2f} -> "
+              f"{'KILLED' if t <= -2.0 else 'start forward shadow'}; raw $ on 1.5x trades {pnl[up].sum():,.0f} "
+              f"(n {int(up.sum())}), 0.5x {pnl[dn].sum():,.0f} (n {int(dn.sum())}), untilted valid "
+              f"{pnl[flat].sum():,.0f} (n {int(flat.sum())}), no data {pnl[~v].sum():,.0f} (n {int((~v).sum())})")
+
+
+def forward(since="2026-10-01"):
+    """Forward read: trades entered on/after `since` with the paired early stop and the running final numbers."""
+    import paired_seq_stop as Q
+    of = load_10s("NQ")
+    for name, (_, nmax) in LEGS.items():
+        ent, side, pnl = leg_trades(name)
+        k = (ent >= pd.Timestamp(since)) & (ent <= of.index.max())
+        m, a = sizes(of, ent[k], side[k], THETA)
+        v = np.isfinite(a)
+        st = Q.read_pair(pnl[k][v], m[v], np.ones(int(v.sum())), C[name], BOUND[name])
+        print(f"{name}: forward trades {int(k.sum())} (valid window {int(v.sum())}), raw ${pnl[k].sum():,.0f}, "
+              f"sized ${(pnl[k] * m).sum():,.0f}; early stop: {st[0]} at n {st[1]}, t {st[2]:+.2f}")
+
+
 if __name__ == "__main__":
-    if sys.argv[1:] == ["theta"]:
+    if sys.argv[1:] == ["triage"]:
+        triage()
+    elif sys.argv[1:] == ["forward"]:
+        forward()
+    elif sys.argv[1:] == ["theta"]:
         freeze_theta()
     elif sys.argv[1:] == ["constants"]:
         constants()
