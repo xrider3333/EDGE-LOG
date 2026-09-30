@@ -829,7 +829,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.956';
+const VERSION='73.957';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -847,7 +847,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.956',date:'2026-09-30',notes:['SCORES: 2 trades from 2026-09-30 scored, 0 marked NA (no price data).']},{v:'73.954',date:'2026-09-30',notes:['POINTS IS CONTEXT, NOT A FILTER. The POINTS hover and the trade panel now say so: over your first 53 scored trades, more points have not meant better results yet (the pre-registered check found no link). On a phone the prices each point was checked against now wrap instead of being cut off.']},
+const CHANGELOG=[{v:'73.957',date:'2026-09-30',notes:['PASTE BOX ASKS BEFORE PUTTING A SNAPSHOT ON A FUTURES TRADE. A Webull stock trade can take up to 30 minutes to reach the journal, so a stock snapshot pasted right away used to land on your newest futures trade. Now the box asks: FILE ON that futures trade, pick another trade, or HOLD FOR A STOCK TRADE - a held link goes on the next stock trade that syncs (within a day).','UNDO after moving a pasted link now puts back the link it replaced, and a move is saved in one step.']},
+{v:'73.956',date:'2026-09-30',notes:['SCORES: 2 trades from 2026-09-30 scored, 0 marked NA (no price data).']},{v:'73.954',date:'2026-09-30',notes:['POINTS IS CONTEXT, NOT A FILTER. The POINTS hover and the trade panel now say so: over your first 53 scored trades, more points have not meant better results yet (the pre-registered check found no link). On a phone the prices each point was checked against now wrap instead of being cut off.']},
 {v:'73.953',date:'2026-09-30',notes:['POINTS ON EVERY FUTURES TRADE. A new POINTS column in the HOME ledger shows your point score, for example 8/9: close above the 200 EMA on 10s, 1m, 5m and 30m; above the low, close and high of the previous day session; the biggest green body since the low of the day; and the biggest volume since that low - all read on the last closed 1-minute candle before your entry.','Hover the score for the list, or open the trade: the panel shows every point with a tick or a cross and the price it was checked against. A point that could not be checked is NA and lowers the maximum instead of counting as a miss (7/8 = one NA). The daily-trend point is shown on its own and is not in the score. All 53 past futures trades are scored; stocks follow once the Alpaca key is saved.']},
 {v:'73.951',date:'2026-09-30',notes:['OPEN IN TV. Every trade panel on HOME has an OPEN IN TV button: TradingView opens on that symbol at 1-minute and the trade date and time are copied - press Alt+G there and paste to jump to the trade. (TradingView has no link that opens a chart at a time, and EL never drives TradingView for you - its rules ban bots.)','PASTE BOX. Paste a TradingView snapshot link into the new box in the HOME activity toolbar and it goes on your newest trade that has no chart link yet. A note says which trade it went on, with UNDO and a list to move it to another trade.']},
 {v:'73.950',date:'2026-09-30',notes:['EL CHART ON EVERY REAL TRADE. Every futures trade in your ledger now has its own candle chart, with no pasting needed: a 1-minute chart and a 10-second close-up with your entry, exit and the time you held shaded. Open it from the new CHART column (the two-candle icon) or from the trade panel, where a 1M / 10S switch sits above the chart. EXPAND opens the full chart with zoom, PREV / NEXT through your trades and SAVE PNG.','It works on your phone too: your PC publishes the candles for each trade a few minutes after it syncs. All 53 past futures trades already have one (10-second bars exist from late June on). Stock trades get charts once the free Alpaca key is saved.']},
@@ -12515,7 +12516,8 @@ function _hmToolbarHtml(){
       <button class="hm-ghostbtn" id="hm-add-deposit">＋ ADD DEPOSIT</button>
       <button class="hm-ghostbtn" id="hm-scan-dupes">&#128269; SCAN DUPLICATES</button>
       <button class="hm-ghostbtn" id="hm-open-all" title="Open chart links for the trades currently shown on HOME">&#128200; OPEN ALL</button>
-    </span>${window._hmPasteNote?`<div id="hm-paste-msg" style="flex:1 1 100%;font-size:10px;color:var(--text3);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center">${window._hmPasteNote}</div>`:''}`;
+    </span>${window._hmPasteNote?`<div id="hm-paste-msg" style="flex:1 1 100%;font-size:10px;color:var(--text3);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center">${window._hmPasteNote}</div>`
+      :(_hmHoldGet()?`<div id="hm-paste-msg" style="flex:1 1 100%;font-size:10px;color:var(--text3);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center"><span>A snapshot link is held for your next stock trade to reach the journal.</span><span id="hm-hold-drop" style="cursor:pointer;color:var(--text5);text-decoration:underline">drop it</span></div>`:'')}`;
 }
 function _hmWireToolbar(root){
   const nt=root.querySelector('#hm-newtrade-toggle');
@@ -12537,7 +12539,16 @@ function _hmWireToolbar(root){
   const pm=root.querySelector('#hm-paste-move');
   if(pm)pm.onchange=()=>window.hmMoveChartLink(pm.value);
   const px=root.querySelector('#hm-paste-x');
-  if(px)px.onclick=()=>{window._hmPasteNote=null;window._hmPasteLast=null;renderApp();};
+  if(px)px.onclick=()=>{window._hmPasteNote=null;window._hmPasteLast=null;window._hmPasteAsk=null;renderApp();};
+  const pf=root.querySelector('#hm-paste-file');
+  if(pf)pf.onclick=()=>{const a=window._hmPasteAsk;if(a)window.hmFileChartLink(a.url,a.id);};
+  const pk=root.querySelector('#hm-paste-pick');
+  if(pk)pk.onchange=()=>{const a=window._hmPasteAsk;if(a&&pk.value)window.hmFileChartLink(a.url,pk.value);};
+  const ph=root.querySelector('#hm-paste-hold');
+  if(ph)ph.onclick=()=>window.hmHoldChartLink();
+  const hd=root.querySelector('#hm-hold-drop');
+  if(hd)hd.onclick=()=>{_hmHoldSet(null);renderApp();};
+  setTimeout(_hmCheckHold,0);
 }
 // ── TradingView extras (owner 2026-09-30 via MANAGER; default: NEVER automate TradingView - its
 // terms ban bots). EL's own chart is the automatic one; these two only make the owner's manual
@@ -12559,6 +12570,10 @@ window.hmOpenInTv=function(id,hintEl){
 // PASTE BOX: a pasted snapshot link goes on the newest trade that has no chart link yet (by trade
 // date and time, not by when you paste - a snapshot made days later still lands on the newest
 // chartless trade, and the note says which one so it can be undone or moved).
+// When that newest trade is a FUTURES trade the box asks first (review 2026-09-30 #4): EL already
+// draws every futures chart, and a Webull stock trade can take 30 minutes (after hours: until the
+// next day) to reach the journal, so a stock snapshot pasted right away used to land on the
+// futures trade. HOLD keeps the link (this device) and files it on the next stock trade that syncs.
 const _hmTradeKey=t=>String(t.date||'')+' '+String(t.exitTime||t.entryTime||'');
 function _hmNewestFirst(list){return list.slice().sort((a,b)=>{const ka=_hmTradeKey(a),kb=_hmTradeKey(b);return ka<kb?1:(ka>kb?-1:0);});}
 function _hmChartlessTarget(){return _hmNewestFirst(trades.filter(t=>!t.chartUrl))[0]||null;}
@@ -12573,32 +12588,90 @@ function _hmPasteMsg(html,withMove){
   window._hmPasteNote='<span>'+html+'</span>'+mv+'<span id="hm-paste-x" title="dismiss" style="cursor:pointer;color:var(--text5)">&#10005;</span>';
   renderApp();
 }
-window.hmFileChartLink=async function(url){
+// every chartUrl write of the paste box goes through one batch, so a move is all-or-nothing
+async function _hmChartWrites(map){
+  const ids=Object.keys(map);
+  if(!colRef||!ids.length)return;
+  if(ids.length===1)return updateTrade(ids[0],{chartUrl:map[ids[0]]});
+  const b=db.batch();ids.forEach(id=>b.update(colRef.doc(id),{chartUrl:map[id]}));return b.commit();
+}
+function _hmPasteAskMsg(url,t){
+  window._hmPasteAsk={url:url,id:String(t.id)};
+  const lbl=_hmEsc(_hmTradeLbl(t));
+  const pick='<select id="hm-paste-pick" class="inline-sel" title="put this link on a different trade" style="max-width:220px"><option value="">another trade&hellip;</option>'
+    +_hmNewestFirst(trades).slice(0,15).filter(x=>String(x.id)!==String(t.id)).map(x=>'<option value="'+_hmEsc(x.id)+'">'+_hmEsc(_hmTradeLbl(x))+(x.chartUrl?' (has a chart)':'')+'</option>').join('')+'</select>';
+  window._hmPasteNote='<span>Which trade is this snapshot for? Your newest trade without a link is <b>'+lbl+'</b>, but a stock trade can take up to 30 minutes to reach the journal.</span>'
+    +'<button class="hm-ghostbtn" id="hm-paste-file" style="padding:3px 9px">FILE ON '+lbl+'</button>'
+    +'<button class="hm-ghostbtn" id="hm-paste-hold" style="padding:3px 9px" title="keep the link and put it on the next stock trade that reaches the journal">HOLD FOR A STOCK TRADE</button>'
+    +pick+'<span id="hm-paste-x" title="dismiss" style="cursor:pointer;color:var(--text5)">&#10005;</span>';
+  renderApp();
+}
+window.hmFileChartLink=async function(url,pickId){
   url=String(url||'').trim();
   if(!url)return;
   if(!/^https?:\/\/\S+$/i.test(url)){_hmPasteMsg('That is not a link - paste the snapshot link TradingView copies for you.');return;}
   const dup=trades.find(t=>String(t.chartUrl||'')===url);
   if(dup){_hmPasteMsg('That link is already on '+_hmEsc(_hmTradeLbl(dup))+'.');return;}
-  const t=_hmChartlessTarget();
+  const t=pickId?trades.find(x=>String(x.id)===String(pickId)):_hmChartlessTarget();
   if(!t){_hmPasteMsg('Every trade already has a chart link - open a trade and paste it in its chart box instead.');return;}
-  try{await updateTrade(t.id,{chartUrl:url});}catch(e){_hmPasteMsg('Could not save: '+_hmEsc(String(e&&e.message||e)));return;}
-  window._hmPasteLast={id:String(t.id),url:url};
+  if(!pickId&&_hmFutInst(t.symbol)){_hmPasteAskMsg(url,t);return;}
+  const had=String(t.chartUrl||'');
+  if(had&&!confirm('That trade already has a chart link. Replace it with this one?')){renderApp();return;}
+  window._hmPasteAsk=null;
+  try{await _hmChartWrites({[t.id]:url});}catch(e){_hmPasteMsg('Could not save: '+_hmEsc(String(e&&e.message||e)));return;}
+  window._hmPasteLast={id:String(t.id),url:url,prev:{[String(t.id)]:had}};
   _hmPasteMsg('&#10003; Snapshot link filed on <b>'+_hmEsc(_hmTradeLbl(t))+'</b>.',true);
 };
+// UNDO puts back every link the paste replaced, including one a MOVE replaced (review 2026-09-30 #11)
 window.hmUndoChartLink=async function(){
   const l=window._hmPasteLast;if(!l)return;
-  try{await updateTrade(l.id,{chartUrl:''});}catch(e){_hmPasteMsg('Could not undo: '+_hmEsc(String(e&&e.message||e)));return;}
-  window._hmPasteLast=null;_hmPasteMsg('Removed the link again.');
+  const prev=l.prev||{[String(l.id)]:''};
+  try{await _hmChartWrites(prev);}catch(e){_hmPasteMsg('Could not undo: '+_hmEsc(String(e&&e.message||e)));return;}
+  window._hmPasteLast=null;
+  _hmPasteMsg(Object.values(prev).some(Boolean)?'Removed the link and put back the one it replaced.':'Removed the link again.');
 };
 window.hmMoveChartLink=async function(newId){
   const l=window._hmPasteLast;if(!l||!newId||String(newId)===String(l.id))return;
   const nt=trades.find(t=>String(t.id)===String(newId));if(!nt)return;
-  if(nt.chartUrl&&!confirm('That trade already has a chart link. Replace it with this one?')){renderApp();return;}
-  try{await updateTrade(l.id,{chartUrl:''});await updateTrade(nt.id,{chartUrl:l.url});}
-  catch(e){_hmPasteMsg('Could not move: '+_hmEsc(String(e&&e.message||e)));return;}
-  window._hmPasteLast={id:String(nt.id),url:l.url};
+  const had=String(nt.chartUrl||'');
+  if(had&&!confirm('That trade already has a chart link. Replace it with this one?')){renderApp();return;}
+  const prev=Object.assign({},l.prev||{[String(l.id)]:''});
+  if(!(String(nt.id) in prev))prev[String(nt.id)]=had;
+  try{await _hmChartWrites({[String(l.id)]:prev[String(l.id)]||'',[String(nt.id)]:l.url});}
+  catch(e){_hmPasteMsg('Could not move: '+_hmEsc(String(e&&e.message||e)),true);return;}
+  window._hmPasteLast={id:String(nt.id),url:l.url,prev:prev};
   _hmPasteMsg('&#10003; Moved to <b>'+_hmEsc(_hmTradeLbl(nt))+'</b>.',true);
 };
+// HOLD: one link per device, for up to a day, filed on the newest stock trade without a link that
+// closed in the 12 hours before the paste (or up to 5 minutes after it)
+function _hmHoldGet(){try{const h=JSON.parse(localStorage.getItem('el_paste_hold')||'null');return (h&&h.url&&h.at)?h:null;}catch(e){return null;}}
+function _hmHoldSet(h){try{if(h)localStorage.setItem('el_paste_hold',JSON.stringify(h));else localStorage.removeItem('el_paste_hold');}catch(e){}}
+function _hmEtKey(ms){
+  const p=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date(ms));
+  const g=k=>(p.find(x=>x.type===k)||{}).value||'';
+  return g('year')+'-'+g('month')+'-'+g('day')+' '+(g('hour')==='24'?'00':g('hour'))+':'+g('minute');
+}
+window.hmHoldChartLink=function(){
+  const a=window._hmPasteAsk;if(!a)return;
+  _hmHoldSet({url:a.url,at:Date.now()});window._hmPasteAsk=null;
+  _hmPasteMsg('Held. The link goes on the next stock trade that reaches your journal (Webull can take up to 30 minutes).');
+};
+let _hmHoldBusy=false;
+async function _hmCheckHold(){
+  const h=_hmHoldGet();if(!h||_hmHoldBusy||!colRef)return;
+  if(trades.some(t=>String(t.chartUrl||'')===h.url)){_hmHoldSet(null);return;}
+  if(Date.now()-h.at>24*3600e3){_hmHoldSet(null);_hmPasteMsg('A held snapshot link was not filed: no stock trade reached the journal within a day. Paste it again if you still want it.');return;}
+  const lo=_hmEtKey(h.at-12*3600e3),hi=_hmEtKey(h.at+5*60e3);
+  const t=_hmNewestFirst(trades.filter(x=>!x.chartUrl&&!_hmFutInst(x.symbol)&&_hmTradeKey(x).slice(0,16)>=lo&&_hmTradeKey(x).slice(0,16)<=hi))[0];
+  if(!t)return;
+  _hmHoldBusy=true;
+  try{
+    await _hmChartWrites({[t.id]:h.url});_hmHoldSet(null);
+    window._hmPasteLast={id:String(t.id),url:h.url,prev:{[String(t.id)]:''}};
+    _hmPasteMsg('&#10003; The held snapshot link is now on <b>'+_hmEsc(_hmTradeLbl(t))+'</b>.',true);
+  }catch(e){}
+  finally{_hmHoldBusy=false;}
+}
 // The NEW TRADE form - identical fields to the Trades tab's inline form, except TIMEFRAME:
 // here it is the multi-pick tf-btn (data-tftarget writes into the hidden #hnftf input),
 // the same widget openEditModal already uses, so a HOME-entered trade can carry more than
