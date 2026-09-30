@@ -5833,6 +5833,190 @@
    ],
    "overall": 70,
    "summary": "You bought the first pullback after a 240-point spike and banked 13 points in the same minute. The exit was sensible because price chopped down to 30650.75 over the next several minutes before running higher later. Log the setup and your stop next time so the plan can be graded."
+  },
+  {
+   "sym": "MNQ",
+   "date": "2026-09-30",
+   "dir": "LONG",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "09:32",
+   "exit_time": "09:45",
+   "entry": 30784.5,
+   "exit": 30785.5,
+   "qty": 1,
+   "breakout_candle": "09:31",
+   "stop": 30721.25,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 11,
+     "note": "Premarket sold off to 30682.25 at the 09:30 open, then the 09:30-09:31 opening drive reversed hard up to 30802.5."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 7,
+     "note": "You bought 30784.5 after an 80-point two-bar run, while the 09:32 bar was already fading from 30810.25."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 6,
+     "note": "The structural stop under the 09:31 bar low at 30721.25 sat 63 points away, a very wide risk for a scalp."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 5,
+     "note": "The premarket high at 30768.25 was already behind you, so there was no clear level overhead to target."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 5,
+     "note": "No setup was tagged, and the entry reads as a chase of the opening drive rather than a defined pattern."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 8,
+     "note": "Volume was heavy at 13,387 contracts on the entry bar, but the bars were swinging 40-60 points each."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 7,
+     "note": "Two minutes after the open is prime liquidity but also the most whipsaw-prone part of the session."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 8,
+     "note": "The fill came inside the 09:32 bar that reversed from 30810.25 down to 30750.5 and closed at 30758.75."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 5,
+     "note": "Price fell to 30716.0 at 09:38, about 68 points against you and below the 30721.25 structural stop, and you held."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 10,
+     "note": "You scratched at 30785.5 at 09:45, while the next 15 minutes ran to 30856.5 by 10:00."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 13,
+     "note": "One micro contract kept the wide 63-point risk to about $126."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 4,
+     "note": "No setup, notes or grade were logged, so the plan cannot be checked."
+    }
+   ],
+   "overall": 45,
+   "summary": "You chased the opening drive after an 80-point run and got filled as the 09:32 bar reversed. You then sat through a drop below the breakout bar low to 30716 before scratching near entry, just before the market ran to 30856 by 10:00. Wait for the first pullback after an opening drive, and respect the stop under the signal bar."
+  },
+  {
+   "sym": "MNQ",
+   "date": "2026-09-30",
+   "dir": "LONG",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "11:52",
+   "exit_time": "11:54",
+   "entry": 30872.25,
+   "exit": 30872.75,
+   "qty": 1,
+   "breakout_candle": "11:49",
+   "stop": 30866.0,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 15,
+     "note": "Price had trended up from 30806 at 11:22 to a 30906 high at 11:50 before pulling back."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 13,
+     "note": "You bought the pullback at 30872.25, just above the 11:49 breakout bar low of 30866."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 12,
+     "note": "The stop under the 11:49 bar low at 30866 was about 6 points away, a tight and clear risk."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 8,
+     "note": "A retest of the 30906 high offered about 34 points against 6 points of risk."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 6,
+     "note": "No setup was tagged, although the trade fits a first pullback after a breakout."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 7,
+     "note": "Midday volume was moderate at about 5,000 contracts per bar with 15-point ranges."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 4,
+     "note": "11:52 is the start of the lunch lull, when breakouts often stall and chop."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 18,
+     "note": "The fill at 30872.25 came near the 11:52 bar low of 30867.25 as the pullback stalled."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 20,
+     "note": "Worst heat was about 5 points to 30867.25, and you were out before the 11:54 flush to 30854.75."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 12,
+     "note": "You exited at 30872.75 after the hold reached 30884.25, and the next 15 minutes dipped to 30843 before reaching 30888.75."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 13,
+     "note": "One micro contract fit the 6-point stop."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 5,
+     "note": "No setup, notes or grade were logged, so the plan cannot be checked."
+    }
+   ],
+   "overall": 66,
+   "summary": "This was a well-placed pullback buy in an uptrend with a tight stop under the breakout bar. You gave back a 12-point gain to 30884 and scratched, which turned out fine because the market flushed to 30843 right after. The weak spot was the lunch-hour timing, so size down or skip trades after 11:30."
   }
  ],
  "na": [
