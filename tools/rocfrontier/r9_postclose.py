@@ -157,6 +157,11 @@ def stage_a():
     if passes:
         base = book(None, BW0, LB0)
         print(f"BOOK #463 pre (check 60.34 / 3.153): ROC@30k {base['roc30']:.2f} Sortino {base['sortino']:.3f}")
+        if not (abs(base["roc30"] - 60.34) < 0.006 and abs(base["sortino"] - 3.153) < 0.0006):
+            print("A2 NOT judged: the book file does not reproduce #463's pre numbers - fix the input first")
+            out["A2"] = {"pass": False, "error": "book check mismatch", "book_pre": base}
+            json.dump(out, open(os.path.join(OUT, "stageA.json"), "w"), indent=1, default=str)
+            return
         pick = {}
         for p in passes:                                         # at most one cell per market: the best WF ROC
             inst = p.split("|")[0]
@@ -176,16 +181,22 @@ def stage_a():
 
 
 def stage_b():
-    res = json.load(open(os.path.join(OUT, "stageA.json")))
+    pa = os.path.join(OUT, "stageA.json")
+    res = json.load(open(pa)) if os.path.exists(pa) else {}
     if not (res.get("A2") or {}).get("pass"):
         print("Stage B refused: no Stage A2 pass on file - the lockbox stays sealed."); return
     flag = os.path.join(OUT, "stageB_READ.flag")
-    assert not os.path.exists(flag), "Stage B was already read once"
-    open(flag, "w").write(pd.Timestamp.now().isoformat())
+    if os.path.exists(flag):
+        print("Stage B refused: the lockbox was already read once."); return
+    base = book(None, LB0, LBX, yrs=LBY)                         # #463's own LB numbers are public (prereg): checked before the family's lockbox is read
+    if not (abs(base["roc30"] - 164.76) < 0.006 and abs(base["sortino"] - 4.150) < 0.0006):
+        print("Stage B refused: the book file does not reproduce #463's LB numbers (lockbox NOT read)"); return
     c, legs = int(res["A2"]["c"]), []
-    for cell in res["A2"]["cells"]:
-        inst, k = cell.split("|")[0], int(cell.split("|")[1][1:])
-        s = sessions(load(inst, LBX, "2025-01-01"))              # 60 prior sessions for the scale
+    cells = [(cell.split("|")[0], int(cell.split("|")[1][1:])) for cell in res["A2"]["cells"]]
+    data = {inst: sessions(load(inst, LBX, "2025-01-01")) for inst, _ in cells}     # 60 prior sessions for the scale; loads first, nothing computed yet
+    open(flag, "w").write(pd.Timestamp.now().isoformat())        # the one read starts here (a crash above leaves the lockbox unread)
+    for inst, k in cells:
+        s = data[inst]
         t = trades(s, inst, k)
         legs.append(t[(t.date >= LB0) & (t.date < LBX)])
     lt = pd.concat(legs)

@@ -1,8 +1,11 @@
 # Round 7 (2026-09-30): VOLCARRY r1 - the volatility risk premium as a new leg for BOOK #463.
 # Pre-registered: tools/rocfrontier/PREREG_VOLCARRY_R1.txt, written before any of its data was fetched.
 #   python r7_volcarry.py fetch --owner-ok   one-time free Yahoo daily pull (VIXY, SVXY, ^VIX, ^VIX3M) -> cache + sha256
-#   python r7_volcarry.py A                  parity check, Stage A (+ A2 if a cell passes), PRE-LOCKBOX ONLY
-#   python r7_volcarry.py B                  Stage B (lockbox, once) - refuses unless A2 passed
+#   python r7_volcarry.py A                  parity check, Stage A (+ A2 if a cell passes, once BOOK #463's pre numbers reproduce), PRE-LOCKBOX ONLY
+#   python r7_volcarry.py B                  Stage B (lockbox, once) - refuses unless A2 passed; the READ flag is written only after the lockbox data
+#                                            has loaded and BOOK #463's LB numbers reproduce
+# Audit fix 2026-09-30: each open(t) -> open(t+1) P&L is stamped on the day it is realised, t+1 (the next VIXY day), not on t; a switch cost stays on the
+# day of the open it is paid at (the prereg text says 'stamped on day t').
 import hashlib, json, os, sys
 import numpy as np, pandas as pd
 
@@ -11,6 +14,7 @@ BOOK = os.path.join(os.path.dirname(OUT), "r4", "book463_daily.csv")
 TICKERS = ("VIXY", "SVXY", "^VIX", "^VIX3M")
 E0, WF0, LB0, LB1 = (pd.Timestamp(x) for x in ("2011-01-04", "2016-07-01", "2025-06-30", "2026-06-30"))
 BW0 = pd.Timestamp("2010-06-07")                          # BOOK #463 window start
+BOOK_PRE, BOOK_LB = (60.34, 3.153), (164.76, 4.150)       # BOOK #463 ROC@30k, Sortino on the pre-lockbox window / on the lockbox (prereg); the book file must reproduce them (within 0.006 / 0.0006)
 UNIT, FEE, SWITCH, STRESS = 100_000.0, 0.0095 / 252, 0.0005, 0.0015
 CELLS = {"G100": 1.00, "G090": 0.90, "TWIN": None}
 NREP = 500
@@ -47,7 +51,7 @@ def load(t0, t1):
 
 
 def synth(px):
-    """Per VIXY day t: s_t (open t -> open t+1, -0.5x, fee) and ratio of the CBOE closes of the last day BEFORE t."""
+    """Per VIXY day t: s_t (open t -> open t+1, -0.5x, fee), the ratio of the CBOE closes of the last day BEFORE t, and the day s_t is realised on (the next VIXY day)."""
     v = px["VIXY"]
     o = v["Open"]
     s = (-0.5 * (o.shift(-1) / o - 1.0) - FEE).dropna()          # the last day has no next open -> dropped
@@ -57,13 +61,18 @@ def synth(px):
     # shift(1) on the union index: for a VIXY day t it returns the ratio of the latest CBOE day < t
     ratio = prev.reindex(s.index)
     ok = ratio.notna()
-    return s[ok], ratio[ok]
+    s, ratio = s[ok], ratio[ok]
+    nxt = pd.Series(o.index[1:], index=o.index[:-1])               # open(t+1) is the open of the next trading day in the VIXY index
+    return s, ratio, nxt.reindex(s.index)
 
 
-def leg(s, ratio, theta, switch=SWITCH):
+def leg(s, ratio, real, theta, switch=SWITCH):
+    """-> (daily P&L, hold).  hold_t is decided at the close of t-1 and acted on at the open of t; the open(t) -> open(t+1) return is realised at the next
+    open, so it is stamped on the realisation day real_t = t+1 (the next VIXY day); a switch cost is paid at the open the position changes on: day t."""
     hold = pd.Series(1.0, index=s.index) if theta is None else (ratio < theta).astype(float)
     sw = hold.diff().abs().fillna(hold.iloc[0])
-    return hold * UNIT * s - sw * UNIT * switch, hold
+    gain = pd.Series((hold * UNIT * s).to_numpy(), index=pd.DatetimeIndex(real.to_numpy()))
+    return gain.add(-sw * UNIT * switch, fill_value=0.0).sort_index(), hold
 
 
 def ddmax(x):
@@ -105,7 +114,7 @@ def book_eval(extra, pre=True):
 def stage_a():
     px = load(pd.Timestamp("2010-12-01"), LB0)                   # PRE-LOCKBOX: nothing on/after 2025-06-30 is loaded
     assert all(d.index.max() < LB0 for d in px.values())
-    s, ratio = synth(px)
+    s, ratio, real = synth(px)
     # parity: synthetic vs SVXY open-to-open after its -0.5x switch (all days, not gated)
     sv = px["SVXY"]["Open"]
     sv_r = (sv.shift(-1) / sv - 1.0).dropna()
@@ -119,8 +128,8 @@ def stage_a():
         return
     res, legs = {"parity": par}, {}
     for name, th in CELLS.items():
-        p, h = leg(s, ratio, th)
-        ps, _ = leg(s, ratio, th, switch=STRESS)
+        p, h = leg(s, ratio, real, th)
+        ps, _ = leg(s, ratio, real, th, switch=STRESS)
         legs[name] = (p, h)
         res[name] = {"WF": stats(p, h, WF0, LB0), "EARLY": stats(p, h, E0, WF0),
                      "WF_stress_net": float(ps[(ps.index >= WF0)].sum())}
@@ -132,7 +141,7 @@ def stage_a():
         best = -np.inf
         for name, th in CELLS.items():
             if th is not None:
-                p, h = leg(s, rr, th)
+                p, h = leg(s, rr, real, th)
                 best = max(best, stats(p, h, WF0, LB0)["sortino"])
         null.append(best)
     res["null_sortino_max"] = {"p95": float(np.percentile(null, 95)), "median": float(np.median(null))}
@@ -161,7 +170,12 @@ def stage_a():
     if passes:
         pick = max(passes, key=lambda c: (res[c]["WF"]["roc30"], c != "TWIN"))
         base = book_eval(None)
-        print("BOOK #463 pre (check 60.34 / 3.153): ROC@30k %.2f Sortino %.3f" % (base["roc30"], base["sortino"]))
+        print("BOOK #463 pre check (must be %s / %s): ROC@30k %.2f Sortino %.3f" % (BOOK_PRE[0], BOOK_PRE[1], base["roc30"], base["sortino"]))
+        if not (abs(base["roc30"] - BOOK_PRE[0]) < 0.006 and abs(base["sortino"] - BOOK_PRE[1]) < 0.0006):
+            print("A2 NOT judged: the book file does not reproduce #463's prereg numbers - fix the input first")
+            res["A2"] = {"pass": False, "error": "book check mismatch", "book_pre": {k: base[k] for k in ("net", "roc30", "sortino", "dd_daily")}}
+            json.dump(res, open(os.path.join(OUT, "stageA.json"), "w"), indent=1, default=str)
+            return
         p = legs[pick][0]
         by_u = {}
         for u in (0.5, 1.0, 2.0):
@@ -183,19 +197,29 @@ def stage_a():
 
 
 def stage_b():
-    res = json.load(open(os.path.join(OUT, "stageA.json")))
+    pa = os.path.join(OUT, "stageA.json")
+    if not os.path.exists(pa):
+        print("Stage B refused: stageA.json is missing - run `A` first; the lockbox stays sealed.")
+        return
+    res = json.load(open(pa))
     if not (res.get("A2") or {}).get("pass"):
         print("Stage B refused: no Stage A2 pass on file - the lockbox stays sealed.")
         return
     flag = os.path.join(OUT, "stageB_READ.flag")
     assert not os.path.exists(flag), "Stage B was already read once"
-    open(flag, "w").write(pd.Timestamp.now().isoformat())
-    px = load(pd.Timestamp("2025-06-01"), LB1 + pd.Timedelta(days=2))          # the 07-01 open closes day 06-30
-    s, ratio = synth(px)
-    keep = (s.index >= LB0) & (s.index <= LB1)
-    s, ratio = s[keep], ratio[keep]
-    p, _ = leg(s, ratio, CELLS[res["A2"]["cell"]])
-    p = p * float(res["A2"]["u"])
+    px = load(pd.Timestamp("2025-06-01"), LB1 + pd.Timedelta(days=2))          # the lockbox data loads here; nothing is computed or shown from it yet
+    if not all(d.index.min() <= LB0 and d.index.max() >= LB1 for d in px.values()):
+        print("Stage B refused: the cached data does not span the lockbox 2025-06-30 .. 2026-06-30 (lockbox NOT read)")
+        return
+    bb = book_eval(None, pre=False)                                            # the book's own LB numbers are public (prereg); checked BEFORE the family's lockbox is read
+    print("BOOK #463 LB check (must be %s / %s): ROC@30k %.2f Sortino %.3f" % (BOOK_LB[0], BOOK_LB[1], bb["roc30"], bb["sortino"]))
+    if not (abs(bb["roc30"] - BOOK_LB[0]) < 0.006 and abs(bb["sortino"] - BOOK_LB[1]) < 0.0006):
+        print("Stage B refused: the book file's LB window does not reproduce #463's prereg LB numbers - settle the end-date convention first (lockbox NOT read)")
+        return
+    open(flag, "w").write(pd.Timestamp.now().isoformat())                      # the one read starts here (a crash above leaves the lockbox unread)
+    s, ratio, real = synth(px)
+    p, _ = leg(s, ratio, real, CELLS[res["A2"]["cell"]])
+    p = p[(p.index >= LB0) & (p.index <= LB1)] * float(res["A2"]["u"])         # the lockbox = P&L realised 2025-06-30 .. 2026-06-30 inclusive
     r = book_eval(p, pre=False)
     net_ex = r["net"] - float(r["series"].max())
     ok = r["roc30"] >= 164.76 and r["sortino"] >= 4.150 and net_ex > 0 and p.sum() > 0

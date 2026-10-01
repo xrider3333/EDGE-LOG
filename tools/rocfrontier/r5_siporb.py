@@ -1,6 +1,6 @@
 # ALPACA r1 family A - SIPORB: 5-minute opening-range breakout on each day's 20 "stocks in play" (Zarattini, Barbon & Aziz 2024,
 # SSRN 4729284). Pre-registered: tools/rocfrontier/PREREG_ALPACA_R1.txt, FAMILY A (canonical sha256 = committed blob a038a85c...0ee3,
-# main 2ba5b3db). Every rule, threshold, window and cost below is that file; where it is silent the choice is marked CHOICE.
+# main 2ba5b3db, + its pre-data ADDENDUM of 2026-09-30 evening -> canonical LF sha256 bda72203...f41d). Every rule, threshold, window and cost below is that file; where it is silent the choice is marked CHOICE.
 #   python r5_siporb.py assets   Alpaca asset list (active + inactive) -> common-stock universe + exclusion counts
 #   python r5_siporb.py daily    raw + split daily bars of the universe (500 symbols a request, resume-safe)
 #   python r5_siporb.py open5    09:30-09:35 bar of each name that passes filters 1-3 on the day or within the next 14 sessions
@@ -9,7 +9,9 @@
 #   python r5_siporb.py B        Stage B (lockbox, once) - refuses unless A2 passed
 # The pulls need the owner's Alpaca keys (env ALPACA_API_KEY / ALPACA_SECRET_KEY) and write only to the research cache, never a library master.
 # Order: assets, daily, open5, `min1 top`, A (replication check runs on that alone), `min1 twin` (the big one), A again, B only after an A2 pass.
-#   python r5_siporb.py probe    ~10 real requests (auth, asof, a renamed ticker, the split factor, symbols per request) - run once after `assets`
+#   python r5_siporb.py probe    ~15 real requests (auth, the FB/META renamed-ticker test: do the 5-minute and the daily requests answer for the same
+#                                symbols?, the split factor, symbols per request) - run once after `assets`. No request sends asof: every pull
+#                                uses Alpaca's default (today's names), so daily and intraday bars are keyed by the same symbols (prereg addendum 3)
 #   python r5_siporb.py smoke [dir]   offline self-test on synthetic bars through a fake transport - no network, no keys (hidden)
 import hashlib, json, os, re, sys, time
 from collections import Counter
@@ -35,14 +37,14 @@ NMIN, F0, F1 = 390, 5, 388                                     # 1-minute bars 0
 BOOK_WF, BOOK_LB = (187.79, 4.428), (164.76, 4.150)            # BOOK #463 ROC@30k, Sortino (prereg)
 CS = (0.5, 1.0, 2.0)
 RULES = {"rep_sharpe": 1.0, "n": 100, "roc": 15.0, "pf": 1.10, "t": 2.0, "months": 0.60, "twin": True, "stress": True, "exbig": True,
-         "a2_alone": 187.79, "a2_book": 197.2, "a2_sort": 4.428, "b_n": 50, "b_roc": 164.76, "b_sort": 4.150}
-CHECK_BOOK = os.environ.get("SIPORB_BOOK_CHECK", "1") != "0"   # refuse to judge if the book file does not reproduce #463's prereg numbers
+         "a2_alone": 187.79, "a2_book": 197.2, "a2_sort": 4.428, "b_n": 50, "b_roc": 164.76, "b_sort": 4.150, "cov": 0.98}
+CHECK_BOOK = True       # refuse to judge if the book file does not reproduce #463's prereg numbers; a real run always checks (only smoke() may switch it, see SIPORB_BOOK_CHECK there)
 BARS_URL, ASSETS_URL = "https://data.alpaca.markets/v2/stocks/bars", "https://paper-api.alpaca.markets/v2/assets"
 EXCH = {"NYSE", "NASDAQ", "AMEX", "ARCA", "BATS"}
 # CHOICE: keywords match as whole words (\b), case-insensitive - a substring match would drop Netflix ("etf") and Ultragenyx ("ultra")
 BAD_NAME = re.compile(r"\b(?:ETFs?|ETNs?|Exchange Traded|Funds?|iShares|SPDR|ProShares|Direxion|Vanguard|Invesco|Leveraged|Daily|Ultra|2X|3X"
                       r"|Bull|Bear|Notes|Warrants?|Units|Rights|Preferred|Depositary Shares Representing)\b", re.I)
-PACE, BACKOFF, RETRY, URL_MAX, DAILY_BATCH, NO_ASOF, SMOKE, BAD = 0.31, 20, 10, 6500, 500, False, False, []
+PACE, BACKOFF, RETRY, URL_MAX, DAILY_BATCH, SMOKE, BAD = 0.31, 20, 10, 6500, 500, False, []
 TRCOLS = ["date", "symbol", "side", "rv", "atr", "entry", "exit", "shares", "gross", "fill_min", "exit_min", "stopped", "pnl", "pnl_stress"]
 try:
     import pyarrow  # noqa: F401
@@ -69,12 +71,9 @@ def keys():
 
 
 def _get(url, params, key, secret):
-    """one GET, r5_nqbrd's pacing: 0.31 s after a good reply, 429 -> sleep 20 s and retry, 401/403 -> stop, asof rejected -> drop it"""
-    global NO_ASOF
+    """one GET, r5_nqbrd's pacing: 0.31 s after a good reply, 429 -> sleep 20 s and retry, 401/403 -> stop"""
     heads, tries = {"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret}, 0
     while True:
-        if NO_ASOF:
-            params.pop("asof", None)
         try:
             r = _http_get(url, heads, params)
         except OSError as e:                                # dropped connection / timeout: a few retries, then stop (the pulls resume)
@@ -86,9 +85,6 @@ def _get(url, params, key, secret):
             time.sleep(BACKOFF); continue
         if r.status_code in (401, 403):
             raise SystemExit(f"AUTH FAILED ({r.status_code}) - check the Alpaca keys")
-        if r.status_code in (400, 422) and "asof" in params and "asof" in r.text.lower():
-            print("  endpoint rejected asof - continuing without it (renamed tickers may then miss bars)", flush=True)
-            NO_ASOF = True; continue
         if r.status_code >= 500:
             tries += 1
             if tries > 6:
@@ -117,21 +113,20 @@ def fetch_safe(symbols, *a, **k):
             h = len(symbols) // 2
             return fetch_safe(symbols[:h], *a, **k) + fetch_safe(symbols[h:], *a, **k)
         os.makedirs(path_of(), exist_ok=True)
-        open(path_of("bad_symbols.txt"), "a").write(f"{symbols[0]}\t{a[0]}\t{k.get('asof') or ''}\t{str(e)[:160]}\n")
+        open(path_of("bad_symbols.txt"), "a").write(f"{symbols[0]}\t{a[0]}\t{a[1]}\t{str(e)[:160]}\n")      # symbol, timeframe, window start, the reply
         BAD.append(symbols[0])
         if len(BAD) > 50:
             raise RuntimeError("more than 50 symbols rejected in one run - check bad_symbols.txt")
         return []
 
 
-def fetch_bars(symbols, tf, start, end, adj, key, secret, asof=None):
-    """multi-symbol bars (SIP feed), paged on next_page_token -> [(symbol, t, o, h, l, c, v)]"""
+def fetch_bars(symbols, tf, start, end, adj, key, secret):
+    """multi-symbol bars (SIP feed), paged on next_page_token -> [(symbol, t, o, h, l, c, v)].  No asof, ever: Alpaca's default mapping (today's
+    names) is the one symbol mapping of every pull, daily and intraday alike (prereg addendum 3)"""
     rows, token = [], None
     while True:
         p = {"symbols": ",".join(symbols), "timeframe": tf, "start": start, "end": end, "limit": 10000, "adjustment": adj,
              "feed": "sip", "sort": "asc"}
-        if asof and not NO_ASOF:
-            p["asof"] = asof                                # maps renamed tickers (FB -> META) as of that day
         if token:
             p["page_token"] = token
         js = _get(BARS_URL, p, key, secret)
@@ -336,11 +331,11 @@ class Data:
 
         ar, asp = axes(raw), axes(spl)
         O, H, L, C, V = (fill(raw, c, ar) for c in "ohlcv")
-        Cs = fill(spl, "c", asp)
+        Os = fill(spl, "o", asp)
         with np.errstate(invalid="ignore", divide="ignore"):
             Cp = np.vstack([np.full((1, S), np.nan), C[:-1]])
             TR = np.maximum(H, Cp) - np.minimum(L, Cp)                               # true range, raw bars, needs the prior session's close
-            F = C / Cs                                                               # raw / split-adjusted close = the split factor
+            F = O / Os                                                               # raw / split-adjusted OPEN = the split factor (prereg addendum 4: known at 09:30, unlike the close)
             Ff = pd.DataFrame(F).ffill().to_numpy()
             self.chg = chg = np.zeros((T, S), bool)
             chg[1:] = np.abs(F[1:] / Ff[:-1] - 1.0) > 0.01                          # factor moved > 1% since the last session = a split on that session
@@ -353,11 +348,11 @@ class Data:
         # names to pull a 09:30 bar for on day s: pass filters 1-3 on any of sessions s .. s+14 (so every RV denominator exists)
         self.need = pd.DataFrame(self.P.astype(np.float32)).iloc[::-1].rolling(LOOK + 1, min_periods=1).max().iloc[::-1].to_numpy() > 0
         self.t_days = len(days)
-        cov = float(np.isfinite(Cs).any(axis=0).mean())
+        cov = float(np.isfinite(Os).any(axis=0).mean())
         print(f"universe: {S:,} symbols x {T:,} sessions ({days[0]:%Y-%m-%d} .. {shown(days[-1])}); symbols with split bars {cov:.1%}", flush=True)
         if cov < 0.98:
             print("  WARNING: split-adjusted bars missing for some symbols - splits on them cannot be detected; re-run `daily`", flush=True)
-        del H, L, C, V, Cp, TR, F, Ff, Cs, raw, spl
+        del H, L, C, V, Cp, TR, F, Ff, Os, raw, spl
         if open5:
             self._open5()
 
@@ -398,7 +393,7 @@ def open5():
     for n, d in enumerate(todo):
         day, rows, nm = f"{d:%Y-%m-%d}", [], names(d)
         for ch in chunk_syms(nm, 10 ** 9):
-            rows += fetch_safe(ch, "5Min", utc(day, 9, 30), utc(day, 9, 34, 59), "raw", key, secret, asof=day)
+            rows += fetch_safe(ch, "5Min", utc(day, 9, 30), utc(day, 9, 34, 59), "raw", key, secret)
         df = frame_min(rows); df = df[df["m"] == 570].drop(columns="m")                 # the 09:30 bar only
         save_df(df, path_of("open5", day))
         if n % 100 == 0:
@@ -426,7 +421,7 @@ def min1(mode="both"):
             i, day, rows = D.days.get_loc(d), f"{d:%Y-%m-%d}", []
             nm = D.syms[D.top20(i)] if kind == "top" else twin(d)
             for ch in chunk_syms(nm, 10 ** 9):
-                rows += fetch_safe(ch, "1Min", utc(day, 9, 30), utc(day, 15, 59, 59), "raw", key, secret, asof=day)
+                rows += fetch_safe(ch, "1Min", utc(day, 9, 30), utc(day, 15, 59, 59), "raw", key, secret)
             df = frame_min(rows); df = df[(df["m"] >= 570) & (df["m"] < 960)]
             save_df(df, path_of(f"min1_{kind}", day))
             if n % 50 == 0:
@@ -569,7 +564,7 @@ def dump(obj, name):
     json.dump(obj, open(os.path.join(OUT, name), "w"), indent=1, default=conv)
 
 
-PREREG_SHA = "a038a85c6dea2673f8eb79b3f4dcd9360315dbb111f42d144c26376b24ab0ee3"      # canonical (LF) sha256 of PREREG_ALPACA_R1.txt at main 2ba5b3db
+PREREG_SHA = "bda7220312a49c30d9b6857017cf00ba95d9c80fc7c0dfb9050a7d25bbf4f41d"      # canonical (LF) sha256 of PREREG_ALPACA_R1.txt: main 2ba5b3db + the pre-data addendum
 
 
 def prereg_ok():
@@ -594,6 +589,18 @@ def counts_by_year(D):
     return out
 
 
+def coverage_by_year(D):
+    """prereg addendum 3: share of the name-days passing filters 1-3 that have a finite 09:30 volume (V5), by year from 2016-01-04 (pre-lockbox only);
+    a low share means the intraday symbols do not match the daily ones (a symbol-mapping failure)"""
+    out = {}
+    for y in sorted(set(D.days.year)):
+        s = (D.days.year == y) & (D.days >= REP0)
+        if s.any():
+            k, k5 = int(D.P[s].sum()), int((D.P[s] & np.isfinite(D.V5[s])).sum())
+            out[int(y)] = {"name_days_1to3": k, "with_0930_bar": k5, "share": k5 / k if k else float("nan")}
+    return out
+
+
 def judge(w, tw, stress_net):
     R = RULES
     return {"n>=%d" % R["n"]: w["n"] >= R["n"], "roc>=%g" % R["roc"]: w["roc30"] >= R["roc"], "pf>=%g" % R["pf"]: w["pf"] >= R["pf"],
@@ -609,9 +616,18 @@ def stage_a():
     D = Data(LB0)                                   # every input is cut to dates < 2025-06-30 inside this call, before anything is computed
     assert D.days.max() < LB0
     wf = D.days[(D.days >= WF0) & (D.days < LB0)]
-    need_files("open5", [d for d in D.days if O5_0 <= d < LB0]); need_files("min1_top", D.days[(D.days >= REP0) & (D.days < LB0)])
-    cy = counts_by_year(D)
+    need_files("open5", [d for d in D.days if O5_0 <= d < LB0])
+    cy, cov = counts_by_year(D), coverage_by_year(D)
     print("names passing filters 1-3 / 1-4 per session (median), by year:", "  ".join(f"{y}: {v['median_1to3']:.0f}/{v['median_1to4']:.0f}" for y, v in cy.items()))
+    print(f"coverage gate (prereg addendum 3) - name-days passing filters 1-3 that have a 09:30 bar, by year (every year needs >= {RULES['cov']:.0%}):",
+          "  ".join(f"{y}: {v['share']:.1%}" for y, v in cov.items()))
+    out = {"prereg_sha256_lf": PREREG_SHA, "prereg_verified": pok, "counts_by_year": cy, "coverage_by_year": cov, "judged": False, "A2": None}
+    low = [y for y, v in cov.items() if not v["share"] >= RULES["cov"]]
+    if low:
+        print(f"Stage A is NOT judged: the 09:30 bar is missing for too many name-days passing filters 1-3 in {low} - a symbol-mapping failure "
+              f"(the intraday pulls do not see the symbols the daily pull does); the numbers are in siporb_stageA.json")
+        dump(out, "siporb_stageA.json"); return
+    need_files("min1_top", D.days[(D.days >= REP0) & (D.days < LB0)])
     m = D.P & np.isfinite(D.O5)
     print(f"survivorship / mapping check: names passing 1-3 ever {int(D.P.any(axis=0).sum()):,}; 5-min open differs from the daily open by >5% on "
           f"{float(np.mean(np.abs(D.O5[m] / D.Od[m] - 1.0) > 0.05)):.2%} of {int(m.sum()):,} name-days")
@@ -620,7 +636,7 @@ def stage_a():
     rep = stats(a1, D.days, REP0, REP1)
     print(f"REPLICATION 2016-01-04 -> 2023-12-29 (the paper's sample, not out-of-sample): A1 {rep['n']:,} trades, net ${rep['net']:,.0f}, "
           f"annualised daily Sharpe {rep['sharpe']:.2f} (paper 2.81; the pipeline check needs >= {RULES['rep_sharpe']:g})")
-    out = {"prereg_sha256_lf": PREREG_SHA, "prereg_verified": pok, "counts_by_year": cy, "replication": rep, "judged": False, "A2": None}
+    out["replication"] = rep
     if not rep["sharpe"] >= RULES["rep_sharpe"]:
         print("Stage A is NOT judged: the replication Sharpe is below the pipeline check - the data or code is not reproducing the paper; explain the gap first")
         dump(out, "siporb_stageA.json"); return
@@ -676,6 +692,11 @@ def stage_b():
     c = float(a2["c"])
     D = Data(LB1)                                    # loads bars only; no LB result has been computed or shown yet
     need_files("open5", [d for d in D.days if O5_0 <= d < LB1]); need_files("min1_top", D.days[(D.days >= LB0) & (D.days < LB1)])
+    lb = (D.days >= LB0) & (D.days < LB1)                            # prereg addendum 3's coverage rule, applied to the lockbox BEFORE the one read
+    k, k5 = int(D.P[lb].sum()), int((D.P[lb] & np.isfinite(D.V5[lb])).sum())
+    print(f"coverage on the lockbox: {k5:,} of {k:,} name-days passing filters 1-3 have a 09:30 bar ({k5 / max(k, 1):.1%}; needs >= {RULES['cov']:.0%})")
+    if not (k and k5 / k >= RULES["cov"]):
+        print("Stage B refused: the 09:30 bar is missing for too many lockbox name-days - a symbol-mapping failure; fix the pull first (lockbox NOT read)"); return
     open(flag, "w").write(pd.Timestamp.now().isoformat())        # the one read starts here (a crash above leaves the lockbox unread)
     tr = run(D, LB0, LB1, "top")
     tr.to_csv(os.path.join(OUT, "siporb_trades_A1_lb.csv"), index=False)
@@ -695,33 +716,51 @@ def stage_b():
     dump({"standalone": st, "book_add": r, "c": c, "standalone_ok": bool(alone), "book_ok": bool(viab), "pass": bool(alone or viab)}, "siporb_stageB.json")
 
 
+def mapping_verdict(daily, intraday):
+    """FB/META probe verdict. The daily request and the 5-minute request (both Alpaca's default mapping = today's names, no asof) must answer for
+    the same symbols, or the intraday pulls would miss names the daily pull has. rows = [(symbol, ...)] -> (True | False | None, text)"""
+    d, i = sorted({r[0] for r in daily}), sorted({r[0] for r in intraday})
+    if not d and not i:
+        return None, "INCONCLUSIVE - neither request returned a bar (check the date, the feed and the keys)"
+    if d == i:
+        return True, f"SAME MAPPING - the daily and the 5-minute requests answer for the same symbols {d}; the intraday pulls see what the daily pull sees"
+    return False, f"MAPPING DIFFERS - daily bars for {d}, 5-minute bars for {i}; the coverage gate would fail - do NOT run open5 / min1, tell the lane"
+
+
 def probe():
     """a handful of real requests that settle the API questions before the long pulls (needs keys; saves nothing)"""
     key, secret = keys()
 
-    def go(label, syms, tf, s, e, adj="raw", asof=None):
+    def go(label, syms, tf, s, e, adj="raw"):
         try:
-            rows = fetch_bars(syms, tf, s, e, adj, key, secret, asof=asof)
+            rows = fetch_bars(syms, tf, s, e, adj, key, secret)
             print(f"  {label}: {len(rows)} bars" + (f", first {rows[0]}" if rows else ""), flush=True)
             return rows
         except (BadRequest, RuntimeError) as ex:
             print(f"  {label}: FAILED {str(ex)[:200]}", flush=True)
             return []
-    print("probe (a few requests, nothing is saved):")
+    print("probe (a few requests, nothing is saved; no request sends asof):")
     r = go("daily AAPL raw (4:1 split on 2020-08-31)", ["AAPL"], "1Day", "2020-08-26T00:00:00Z", "2020-09-02T23:59:59Z")
     s = go("daily AAPL split-adjusted", ["AAPL"], "1Day", "2020-08-26T00:00:00Z", "2020-09-02T23:59:59Z", "split")
     if r and len(r) == len(s):
-        print("  raw/split close factor by session:", [round(a[5] / b[5], 3) for a, b in zip(r, s)], "(a >1% jump = the split rule fires on the first post-split session)")
-    d = "2019-01-02"
-    go(f"5-min 09:30 bars AAPL, MSFT, FB, META with asof={d} (FB was renamed META)", ["AAPL", "MSFT", "FB", "META"], "5Min", utc(d, 9, 30), utc(d, 9, 34, 59), asof=d)
-    go("same without asof", ["AAPL", "MSFT", "FB", "META"], "5Min", utc(d, 9, 30), utc(d, 9, 34, 59))
+        print("  raw/split OPEN factor by session:", [round(a[2] / b[2], 3) for a, b in zip(r, s)], "(a >1% jump = the split rule fires on the first post-split session)")
+    d, sy, dd, m5 = "2019-01-02", ["AAPL", "MSFT", "FB", "META"], [], []
+    for x in sy:                                           # one symbol a request: an unknown name (FB today) may be a 400 that would hide the others
+        dd += go(f"daily {x} on {d}, default mapping (the daily pull's)", [x], "1Day", f"{d}T00:00:00Z", f"{d}T23:59:59Z")
+        m5 += go(f"5-min 09:30 {x} on {d}, default mapping (open5 / min1's)", [x], "5Min", utc(d, 9, 30), utc(d, 9, 34, 59))
+    ok, text = mapping_verdict(dd, m5)
+    have = lambda rows: {r[0] for r in rows}
+    print(f"  FB/META RESULT for {d} (FB was renamed META in June 2022; neither request sends asof):")
+    for x in ("FB", "META"):
+        print(f"    {x:<5} daily bar: {'yes' if x in have(dd) else 'NO '} | 5-min 09:30 bar: {'yes' if x in have(m5) else 'NO '}")
+    print(f"    -> {text}", flush=True)
     go("1-minute AAPL 2024-03-11 09:30-09:36 (expect 7 bars, first stamp 13:30Z)", ["AAPL"], "1Min", utc("2024-03-11", 9, 30), utc("2024-03-11", 9, 36))
     if os.path.exists(path_of("assets.csv")):
         u = universe()
         for n in (100, 500, 1000, 1500):
             if n <= len(u):
                 go(f"{n} symbols in one request (URL {sum(len(x) + 3 for x in u[:n]):,} chars), 5-min 09:30 bars 2024-03-11", u[:n], "5Min",
-                   utc("2024-03-11", 9, 30), utc("2024-03-11", 9, 34, 59), asof="2024-03-11")
+                   utc("2024-03-11", 9, 30), utc("2024-03-11", 9, 34, 59))
 
 
 # ------------------------------------------------------------------ smoke: offline self-test on synthetic bars (fake Alpaca transport, no network, no keys)
@@ -734,9 +773,10 @@ class _Reply:
 
 
 class Fake:
-    """stand-in for the two endpoints: synthetic bars in Alpaca's JSON shape, small pages, a 429 now and then, one dropped connection, asof rejected mid-run"""
+    """stand-in for the two endpoints: synthetic bars in Alpaca's JSON shape, small pages, a 429 now and then, one dropped connection; a request that
+    carries asof fails the test (one symbol mapping for every pull, prereg addendum 3)"""
     def __init__(self, days, page=2500):
-        self.days, self.D, self.page, self.n, self.asof_seen, self.auth_fail, self._st = [f"{d:%Y-%m-%d}" for d in days], len(days), page, 0, 0, False, {}
+        self.days, self.D, self.page, self.n, self.auth_fail, self._st = [f"{d:%Y-%m-%d}" for d in days], len(days), page, 0, False, {}
         rng = np.random.default_rng(11)
         self.names = names = [f"S{k:02d}" for k in range(1, 35)] + ["LOWP", "LOWV", "LOWA", "SPL", "RVS", "DLST"]
         self.k, N, ix, dx = {n: k for k, n in enumerate(names)}, len(names), names.index, self.days.index
@@ -832,12 +872,9 @@ class Fake:
         if url.endswith("/v2/assets"):
             return _Reply(200, self.assets(params))
         assert url == BARS_URL and params["feed"] == "sip" and int(params["limit"]) <= 10000
+        assert "asof" not in params, "no pull may send asof: daily and intraday bars use the same (default) symbol mapping"
         if "ZZBAD" in params["symbols"].split(","):                                   # a symbol the endpoint rejects outright (400) -> the pull bisects it out
             return _Reply(400, {"message": "invalid symbol: ZZBAD"})
-        if "asof" in params:
-            self.asof_seen += 1
-            if self.asof_seen == 6:
-                return _Reply(422, {"message": "unknown parameter asof"})
         return _Reply(200, self.bars(params))
 
 
@@ -874,12 +911,14 @@ def selftest():
     ch = chunk_syms([f"S{k:04d}" for k in range(500)], 10 ** 9, 200)
     assert sum(map(len, ch)) == 500 and all(sum(len(s) + 3 for s in c) <= 200 for c in ch) and len(ch) > 10
     assert [len(c) for c in chunk_syms(list("abcdefg"), 3, 10 ** 9)] == [3, 3, 1]
-    print("selftest ok: simulate (9 paths + 4 no-fill cases), name/symbol filters, chunking")
+    mv = lambda a, b: mapping_verdict([(s, 1) for s in a], [(s, 1) for s in b])
+    assert mv(["AAPL", "META"], ["META", "AAPL"])[0] is True and mv(["AAPL", "META"], ["AAPL"])[0] is False and mv(["META"], ["FB"])[0] is False and mv([], [])[0] is None
+    print("selftest ok: simulate (9 paths + 4 no-fill cases), name/symbol filters, chunking, the FB/META mapping verdict")
 
 
 def smoke(*a):
     import contextlib, io, shutil, tempfile
-    global OUT, CACHE, BOOK, SMOKE, PACE, BACKOFF, RETRY, URL_MAX, DAILY_BATCH, NO_ASOF, CHECK_BOOK, EXT, _http_get
+    global OUT, CACHE, BOOK, SMOKE, PACE, BACKOFF, RETRY, URL_MAX, DAILY_BATCH, CHECK_BOOK, EXT, _http_get
     root = os.path.abspath(a[0] if a else os.path.join(tempfile.gettempdir(), "siporb_smoke"))
     if a[1:2] == ("csv",):                                                       # `smoke <dir> csv` = the no-pyarrow cache format (csv.gz)
         EXT = ".csv.gz"
@@ -887,7 +926,9 @@ def smoke(*a):
     shutil.rmtree(root, ignore_errors=True); os.makedirs(root)
     OUT, CACHE, BOOK = os.path.join(root, "out"), os.path.join(root, "cache"), os.path.join(root, "r4", "book463_daily.csv")
     os.makedirs(OUT); os.makedirs(os.path.dirname(BOOK))
-    SMOKE, PACE, BACKOFF, RETRY, URL_MAX, DAILY_BATCH, NO_ASOF, CHECK_BOOK = True, 0.0, 0.0, 0.0, 150, 15, False, False
+    SMOKE, PACE, BACKOFF, RETRY, URL_MAX, DAILY_BATCH = True, 0.0, 0.0, 0.0, 150, 15
+    CHECK_BOOK = os.environ.get("SIPORB_BOOK_CHECK", "0") == "1"            # the override is read HERE ONLY (a real run never sees it): smoke starts with the book check off - its
+                                                                                 # synthetic book cannot reproduce #463 - unless =1; the stages below then set it by hand
     BAD.clear()
     selftest()
     spans = (("2015-11-02", "2015-12-31"), ("2016-01-04", "2016-03-31"), ("2023-10-02", "2023-12-29"), ("2024-01-02", "2024-06-28"),
@@ -907,11 +948,10 @@ def smoke(*a):
     victim = sorted(os.listdir(path_of("daily_parts")))[0]; os.remove(path_of("daily_parts", victim)); daily(); assert fk.n > n1 and victim in os.listdir(path_of("daily_parts"))
     r0 = read_long("raw", LB0); assert r0["date"].max() == TS("2025-06-27") and (r0.groupby("symbol", observed=True).size() > 0).all()
     open5(); n2 = fk.n; open5(); assert fk.n == n2, "open5 resume must not re-request"
-    assert NO_ASOF, "the asof rejection path should have fired"
     min1("est"); min1(); n3 = fk.n; min1(); assert fk.n == n3, "min1 resume must not re-request"
     os.remove(path_of("min1_twin", "2024-03-20.parquet" if EXT == ".parquet" else "2024-03-20.csv.gz")); min1("twin"); assert fk.n > n3
     probe()                                                                      # the probe runs against the fake too (it only knows the synthetic names)
-    print(f"pulls ok through the fake transport ({fk.n:,} requests; 429s, a dropped connection and an asof rejection were retried)")
+    print(f"pulls ok through the fake transport ({fk.n:,} requests; 429s and a dropped connection were retried; not one request carried asof)")
     # split window on the synthetic split names
     D = Data(LB0)
     ix = list(D.syms)
@@ -922,6 +962,17 @@ def smoke(*a):
     assert not any(n in ix and D.P[:, ix.index(n)].any() for n in ("LOWV", "LOWA", "LOWP")), "filters 1-3"
     assert D.P[:, ix.index("DLST")][D.days > TS("2024-05-31")].sum() == 0 and D.days.max() < LB0
     print("universe ok: filters 1-3, split window [t-14, t] both directions, delisted name, cut before the lockbox")
+    cv = coverage_by_year(D)                                                     # every synthetic name-day passing filters 1-3 has its 09:30 bar
+    assert cv and all(v["share"] == 1.0 and v["name_days_1to3"] > 0 for v in cv.values()), cv
+    # the split rule reads the OPEN ratio (prereg addendum 4): double only the split-adjusted CLOSE of one name-day and only the split-adjusted OPEN of another
+    sb = path_of("daily_split"); orig = load_df(sb); doc = orig.copy(); doc["date"] = pd.to_datetime(doc["date"])
+    for sym, day, col in (("S05", TS("2024-04-10"), "c"), ("S06", TS("2024-04-12"), "o")):
+        mk = (doc["symbol"] == sym) & (doc["date"] == day); assert mk.sum() == 1; doc.loc[mk, col] *= 2.0
+    save_df(doc, sb); D2 = Data(LB0, open5=False); save_df(orig, sb)
+    ix2 = list(D2.syms)
+    assert not D2.chg[D2.days.get_loc(TS("2024-04-10")), ix2.index("S05")], "a CLOSE-only mismatch must not read as a split"
+    assert D2.chg[D2.days.get_loc(TS("2024-04-12")), ix2.index("S06")], "an OPEN mismatch must read as a split"
+    print("coverage by year ok (100% on the synthetic market); split rule ok: read from the raw / split-adjusted OPEN, not the close")
     rng = np.random.default_rng(5)                                               # synthetic BOOK #463 files (the real ones are never touched)
     bd = pd.bdate_range("2010-06-07", "2026-06-30"); c = rng.normal(40, 700, len(bd))
     pd.DataFrame({"date": bd, "close": c, "mtm": c + rng.normal(0, 150, len(bd))}).to_csv(BOOK, index=False)
@@ -929,6 +980,16 @@ def smoke(*a):
     pd.DataFrame({"date": bd[k], "pnl": c[k], "strategy": "FAKE"}).to_csv(os.path.join(os.path.dirname(BOOK), "book463_trades.csv"), index=False)
     stage_b()                                                                    # nothing on file yet: must refuse
     waive = dict(n=1, roc=-1e9, pf=0.0, t=-1e9, months=0.0, twin=False, stress=False, exbig=False, a2_alone=-1e9, a2_book=-1e9, a2_sort=-1e9, b_n=1, b_roc=-1e9, b_sort=-1e9)
+    print("--- coverage gate: half of the 2024 opening bars removed (a symbol-mapping failure): Stage A must stop before simulating a single trade")
+    o5 = {f[:10]: load_df(path_of("open5", f[:10])) for f in os.listdir(path_of("open5")) if f.startswith("2024-")}
+    for day, df in o5.items():
+        save_df(df.iloc[::2], path_of("open5", day))
+    stage_a(); stage_b()
+    res = json.load(open(os.path.join(OUT, "siporb_stageA.json")))
+    assert not res["judged"] and res["coverage_by_year"]["2024"]["share"] < RULES["cov"] <= res["coverage_by_year"]["2016"]["share"] and res["A2"] is None, res
+    assert not os.path.exists(os.path.join(OUT, "siporb_trades_A1_pre.csv")), "the coverage gate must stop Stage A before any trade is simulated"
+    for day, df in o5.items():
+        save_df(df, path_of("open5", day))
     print("--- replication gate set out of reach: Stage A must stop before judging")
     RULES["rep_sharpe"] = 1e9; stage_a(); stage_b()
     print("--- replication waived, ROC bar set out of reach: the Stage A FAIL path")

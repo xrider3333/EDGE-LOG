@@ -1,10 +1,12 @@
 # Round 8 (2026-09-30): TRANSFER r2 - the ORB, NOISE and TTM crowns, UNCHANGED, on ETF proxies (IEF FXE USO GLD; ORB also IWM DIA).
-# Pre-registered: tools/rocfrontier/PREREG_TRANSFER_R2.txt (commit 854955a0), written before any ETF intraday bar existed.
+# Pre-registered: tools/rocfrontier/PREREG_TRANSFER_R2.txt (commit 854955a0 + pre-data addendum 1, 688ae9ad, and pre-data addendum 2, 2026-09-30 evening:
+# the cost is charged per share AS TRADED - unit x that day's split ratio, from Alpaca's split-adjusted / raw daily closes), written before any ETF bar existed.
 #   python r8_transfer_etf.py pull      needs the owner's Alpaca keys: 5Min + 30Min RTH masters through the shared loader, daily bars -> research cache
 #   python r8_transfer_etf.py gates     section 10 data gates on the registered fund masters, PRE-LOCKBOX ONLY
 #   python r8_transfer_etf.py ttmcheck  TTM wrapper acceptance vs the real ES file (local data, no fund needed) - must pass before A
 #   python r8_transfer_etf.py A         Stage A, PRE-LOCKBOX ONLY (nothing on/after 2025-06-30 is loaded into a strategy, computed or printed)
-#   python r8_transfer_etf.py B --ledger-ok   Stage B (lockbox, once, after Stage A is in the ledger) - refuses unless a Stage A pass is on file
+#   python r8_transfer_etf.py B --ledger-ok   Stage B (lockbox, once, after Stage A is in the ledger) - refuses unless a Stage A pass is on file; the READ flag is
+#                                             written only after the lockbox data has loaded and BOOK #463's WF / LB numbers reproduce
 #   python r8_transfer_etf.py C         Stage C (book add vs BOOK #463) - refuses unless a Stage B survivor is on file
 #   python r8_transfer_etf.py smoke [DIR]   offline self-test on stand-in funds cut from the ES / NQ masters (numbers mean nothing)
 # Run from anywhere; imports augur_engine from the shared checkout (EDGELOG_ROOT overrides) and never chdirs into a worktree.
@@ -119,6 +121,17 @@ def book(extra, t0, t1, yrs=None):
     sel = (idx >= t0) & (idx < t1)
     yrs, net, ddv = yrs or (t1 - t0).days / 365.25, float(C[sel].sum()), ddmax(M[sel].values)
     return {"net": net, "roc30": net / yrs / 1000 * 30000 / ddv, "sortino": so(M[sel].values), "dd_daily": ddv}
+
+
+BOOK_BASE = (92.70, 3.816, 164.76, 4.150)       # BOOK #463 ROC@30k / Sortino on WF, then on the LB (prereg section 8)
+
+
+def book_base():
+    """BOOK #463's own WF and LB numbers from its daily file vs the pre-registered ones (public numbers: no family result is touched) -> (WF, LB, reproduces).
+    Within 0.006 / 0.0006 like the sibling harnesses (the WF Sortino is 3.8164957, a hair under a rounding boundary)."""
+    bwf, blb = book(None, WF0, LB0), book(None, LB0, LBX, yrs=LBY)
+    got = (bwf["roc30"], bwf["sortino"], blb["roc30"], blb["sortino"])
+    return bwf, blb, all(abs(g - b) < tol for g, b, tol in zip(got, BOOK_BASE, (0.006, 0.0006, 0.006, 0.0006)))
 
 
 def stouffer(cells):
@@ -420,14 +433,15 @@ def pull():
                                 "sha256": sha(os.path.join(UPLOADS, m["filename"]))}
     os.makedirs(os.path.join(CACHE, "etf_daily"), exist_ok=True)       # daily bars = a research cache file per fund, never a master; frozen on first pull
     for f in FUNDS:
-        p = os.path.join(CACHE, "etf_daily", f"{f}_1Day_split.csv")
-        if not os.path.exists(p):
-            df = fetch_bars(f, "1Day", D0 + "T00:00:00Z", "2026-06-30T23:59:59Z", key, secret, "sip", "split")
-            if df.empty:
-                bad.append((f, "1Day", "no bars")); continue
-            d = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert("US/Eastern").dt.tz_localize(None).dt.normalize()
-            pd.DataFrame({"date": d, "open": df["open"], "high": df["high"], "low": df["low"], "close": df["close"], "volume": df["volume"]}).to_csv(p, index=False)
-        reg[f"{f}|1Day"] = {"file": p, "rows": int(len(pd.read_csv(p))), "sha256": sha(p)}
+        for adj in ("split", "raw"):                                   # raw = as traded: the split ratio behind the per-share cost (prereg addendum 2)
+            p = os.path.join(CACHE, "etf_daily", f"{f}_1Day_{adj}.csv")
+            if not os.path.exists(p):
+                df = fetch_bars(f, "1Day", D0 + "T00:00:00Z", "2026-06-30T23:59:59Z", key, secret, "sip", adj)
+                if df.empty:
+                    bad.append((f, f"1Day {adj}", "no bars")); continue
+                d = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert("US/Eastern").dt.tz_localize(None).dt.normalize()
+                pd.DataFrame({"date": d, "open": df["open"], "high": df["high"], "low": df["low"], "close": df["close"], "volume": df["volume"]}).to_csv(p, index=False)
+            reg[f"{f}|1Day" + ("" if adj == "split" else "_raw")] = {"file": p, "rows": int(len(pd.read_csv(p))), "sha256": sha(p)}
     save("pull.json", {"registered": reg, "problems": bad, "at": pd.Timestamp.now().isoformat()})
     diff = lookup_diff(before, lookups())
     if diff:
@@ -586,6 +600,31 @@ def close_on(a, day):
     return float(a["close"][on][-1]) if on.any() else None
 
 
+def share_ratio(f, t1):
+    """prereg addendum 2: real shares per split-adjusted share on each day = Alpaca's split-adjusted daily close / its raw daily close, 3 decimals,
+    dates < t1 -> (Series by date, [(first day of each ratio, ratio), ...]), or (None, None) without both daily files"""
+    ps, pr = (os.path.join(CACHE, "etf_daily", f"{f}_1Day_{x}.csv") for x in ("split", "raw"))
+    if not (os.path.exists(ps) and os.path.exists(pr)):
+        return None, None
+    s, r = (pd.read_csv(p, parse_dates=["date"]).set_index("date")["close"] for p in (ps, pr))
+    q = (s / r).dropna()
+    q = q[q.index < t1].round(3)
+    return q, [(str(d.date()), float(v)) for d, v in q[q.ne(q.shift())].items()]
+
+
+def as_traded(df, q, unit):
+    """prereg addendum 2: the engine charged COST (STRESS) per split-adjusted share; on a day whose ratio is r the unit is unit x r real shares, so each
+    trade pays COST (STRESS) x unit x (r - 1) more - USO before its 1-for-8 reverse split of 2020-04-28: 8x. Adds 'ratio'; 'pts' stay the engine's."""
+    d = pd.DatetimeIndex(df["entry"]).normalize()
+    r = q.reindex(q.index.union(d.unique())).ffill().bfill().reindex(d).to_numpy(float) if len(df) else np.zeros(0)   # unique: union keeps duplicate days
+    assert np.isfinite(r).all() and (r > 0).all(), "no split ratio for a trade day"
+    df["ratio"] = r
+    df["pnl"] = df["pnl"].to_numpy() - COST * unit * (r - 1.0)
+    if "pnl_stress" in df:
+        df["pnl_stress"] = df["pnl_stress"].to_numpy() - STRESS * unit * (r - 1.0)
+    return df
+
+
 def leg_of(f, strat, unit, cost):
     """One cell as a BOOK leg dict (the shape book._leg_trades reads; ORB / NOISE by file name, TTM as the wrapper object)."""
     name, P, tf = STRAT[strat]
@@ -643,6 +682,10 @@ def compute_cells():
     drop = [f"{f} ({gate_why(gj['funds'].get(f, {}))})" for f in FUNDS if f not in keep]
     print(f"TRANSFER r2 Stage A - PRE-LOCKBOX ONLY (every load ends {PRE}); harness sha256 {sha(os.path.abspath(__file__))[:12]}, prereg sha256 (LF) {(prereg_sha() or 'n/a')[:12]}")
     print(f"funds kept by the gates: {' '.join(keep) or 'none'}; DROPPED by the gates (their cells are not run): {', '.join(drop) or 'none'}")
+    ratios = {f: share_ratio(f, LB0) for f in keep}                    # prereg addendum 2 needs both daily files of every kept fund: check before any cell runs
+    if any(q is None for q, _ in ratios.values()):
+        print(f"refused: no raw daily file for {', '.join(f for f, (q, _) in ratios.items() if q is None)} - run `pull` (prereg addendum 2 charges the cost per share as traded)")
+        return None
     eff = {s: effective(s) for s in STRAT}
     for s in STRAT:
         print(f"effective {s}: {eff[s]}")
@@ -655,17 +698,20 @@ def compute_cells():
         assert_volume(a5, f)
         arrs, close0 = {"5m": a5}, close_on(a5, "2016-06-30")
         unit = int(math.floor(USD / close0))
+        q, rl = ratios[f]
+        print(f"  {f}: real shares per split-adjusted share (first day of each ratio): {rl}", flush=True)
         if "TTM" in FUNDS[f]:
             arrs["30m"] = load(f, "30m", PRE)
             if arrs["30m"]["fingerprint"] != gj["funds"][f].get("fp30"):
                 print(f"refused: {f}'s 30-minute master changed since the gates ran (or was not gated) - re-run `gates`"); return None
         days = sess_days(*arrs.values())
-        funds[f] = {"close_2016_06_30": close0, "unit": unit, "sessions": len(days)}
+        funds[f] = {"close_2016_06_30": close0, "unit": unit, "sessions": len(days), "share_ratio": rl}
         for s in FUNDS[f]:
             t0 = time.time()
             base, st = run_cell(f, s, arrs, unit, COST, PRE), run_cell(f, s, arrs, unit, STRESS, PRE)
             assert len(base) == len(st) and (base.entry.values == st.entry.values).all() and (base.exit.values == st.exit.values).all(), "the stress cost changed the trade list"
             base["pnl_stress"] = st.pnl.values
+            base = as_traded(base, q, unit)                            # prereg addendum 2: the cost per share as traded
             base["wf"] = base.date >= WF0
             base.to_csv(os.path.join(OUT, f"A_{s}_{f}_trades.csv"), index=False)
             w = stats(base, days, WF0, LB0)
@@ -696,8 +742,8 @@ def judge_save(run):
         if c["corr_book463"]:
             print(f"  corr with BOOK #463 legs (WF daily) {k}: " + " ".join(f"{n} {v:+.2f}" for n, v in c["corr_book463"].items()))
     pd.DataFrame(rows).to_csv(os.path.join(OUT, "stageA_table.csv"), index=False)
-    out = {"prereg": "PREREG_TRANSFER_R2.txt @854955a0", "prereg_sha256_lf": prereg_sha(), "harness_sha256": sha(os.path.abspath(__file__)), "rules": RULE,
-           "window": {"WF": [str(WF0.date()), PRE], "date_to": PRE}, "params": {"ORB": ORB_P, "NOISE": NOISE_P, "TTM": TTM_P}, "effective": run["effective"], "costs": {"base": COST, "stress": STRESS},
+    out = {"prereg": "PREREG_TRANSFER_R2.txt (854955a0 + pre-data addenda 1 @688ae9ad and 2)", "prereg_sha256_lf": prereg_sha(), "harness_sha256": sha(os.path.abspath(__file__)), "rules": RULE,
+           "window": {"WF": [str(WF0.date()), PRE], "date_to": PRE}, "params": {"ORB": ORB_P, "NOISE": NOISE_P, "TTM": TTM_P}, "effective": run["effective"], "costs": {"base": COST, "stress": STRESS, "per": "share as traded = unit x that day's split ratio (prereg addendum 2)"},
            "files_sha256": run["files_sha256"], "gates": run["gates"], "funds": run["funds"], "cells": cells, "stouffer": st, "passes": passes}
     save("stageA.json", out)
     print("Stage A passes: " + (", ".join(passes) if passes else "none - TRANSFER r2 DEAD; ledger + memory, the lockbox stays sealed, stop"))
@@ -725,17 +771,31 @@ def stage_b(*a):
         return
     flag = os.path.join(OUT, "stageB_READ.flag")
     assert not os.path.exists(flag), "Stage B was already read once"
-    open(flag, "w").write(pd.Timestamp.now().isoformat())
     B, D, E = eng()
+    lbdata = {}
+    for k in sa["passes"]:                                             # the lockbox data loads FIRST; nothing is run or shown from it yet
+        s, f = k.split("|")
+        lbdata[k] = {"5m": load(f, "5m", "2026-06-30")}
+        if s == "TTM":
+            lbdata[k]["30m"] = load(f, "30m", "2026-06-30")
+    ratios = {f: share_ratio(f, LBX)[0] for f in {k.split("|")[1] for k in sa["passes"]}}
+    if any(q is None for q in ratios.values()):
+        print("Stage B refused: a fund's raw daily file is missing (prereg addendum 2 needs it) - run `pull` (lockbox NOT read)")
+        return
+    bwf, blb, base_ok = book_base()                                    # the book's own numbers are public (prereg); checked BEFORE any family lockbox result exists
+    print(f"BOOK #463 base check (must be WF {BOOK_BASE[0]} / {BOOK_BASE[1]} | LB {BOOK_BASE[2]} / {BOOK_BASE[3]}): WF ROC@30k {bwf['roc30']:.2f} Sortino {bwf['sortino']:.3f} | "
+          f"LB ROC@30k {blb['roc30']:.2f} Sortino {blb['sortino']:.3f}")
+    if CHECK_BOOK and not base_ok:
+        print("Stage B refused: the book file does not reproduce #463's pre-registered numbers - fix the input first (lockbox NOT read)")
+        return
+    open(flag, "w").write(pd.Timestamp.now().isoformat())              # the one read starts here (a crash above leaves the lockbox unread)
     res = {}
     print(f"Stage B - the lockbox {LB0.date()} .. {LB1.date()} inclusive, read ONCE for: {', '.join(sa['passes'])}")
     for k in sa["passes"]:
         s, f = k.split("|")
-        arrs = {"5m": load(f, "5m", "2026-06-30")}
-        if s == "TTM":
-            arrs["30m"] = load(f, "30m", "2026-06-30")
+        arrs = lbdata[k]
         unit = sa["funds"][f]["unit"]
-        df = run_cell(f, s, arrs, unit, COST, "2026-06-30")
+        df = as_traded(run_cell(f, s, arrs, unit, COST, "2026-06-30"), ratios[f], unit)
         days = sess_days(*arrs.values())
         a = pd.read_csv(os.path.join(OUT, f"A_{s}_{f}_trades.csv"), parse_dates=["date"])
         wf = df[df.date < LB0]
@@ -759,11 +819,10 @@ def stage_c():
     if sb is None or not sb["survivors"]:
         print("Stage C refused: no Stage B survivor on file.")
         return
-    bwf, blb = book(None, WF0, LB0), book(None, LB0, LBX, yrs=LBY)
+    bwf, blb, base_ok = book_base()
     print(f"BOOK #463: WF ROC@30k {bwf['roc30']:.2f} Sortino {bwf['sortino']:.3f} | LB ROC@30k {blb['roc30']:.2f} Sortino {blb['sortino']:.3f} (prereg: 92.70 / 3.816 | 164.76 / 4.150)")
     if CHECK_BOOK:
-        assert (round(bwf["roc30"], 2), round(bwf["sortino"], 3), round(blb["roc30"], 2), round(blb["sortino"], 3)) == (92.70, 3.816, 164.76, 4.150), \
-            "book463_daily.csv no longer reproduces the pre-registered #463 numbers - stop"
+        assert base_ok, "book463_daily.csv no longer reproduces the pre-registered #463 numbers - stop"
     bt = pd.read_csv(os.path.join(R4, "book463_trades.csv"), parse_dates=["date"])
     bmax = float(bt[(bt.date >= LB0) & (bt.date < LBX)]["pnl"].max())
     legs, big = {}, {}
@@ -833,6 +892,10 @@ def smoke(*a):
             if f == "FUND3":
                 g["close"] *= 1.01                                                           # off by 1% on every session (a wrong adjustment)
             g.to_csv(os.path.join(CACHE, "etf_daily", f"{f}_1Day_split.csv"), index=False)
+            rw = g.copy()                                                                    # raw (as-traded) daily bars: FUND1 gets a fake 1-for-8 reverse split on 2020-04-28
+            if f == "FUND1":
+                rw.loc[rw["date"] < pd.Timestamp("2020-04-28"), ["open", "high", "low", "close"]] /= 8.0
+            rw.to_csv(os.path.join(CACHE, "etf_daily", f"{f}_1Day_raw.csv"), index=False)
         base = lookups()
         save("pull_lookups_before.json", base)
         bad = json.loads(json.dumps(base)); k0 = next(k for k, v in bad["lookups"].items() if v)
@@ -872,6 +935,9 @@ def smoke(*a):
             p = os.path.join(OUT, name); orig = json.load(open(p)); j = json.loads(json.dumps(orig)); edit(j); json.dump(j, open(p, "w"))
             assert compute_cells() is None, f"Stage A must refuse when {what}"
             json.dump(orig, open(p, "w"))
+        rp = os.path.join(CACHE, "etf_daily", "FUND2_1Day_raw.csv"); os.rename(rp, rp + ".x")
+        assert compute_cells() is None, "Stage A must refuse without a fund's raw daily file (prereg addendum 2)"
+        os.rename(rp + ".x", rp)
         a5 = load("FUND1", "5m", PRE); u1 = int(math.floor(USD / close_on(a5, "2016-06-30")))
         for s in FUNDS["FUND1"]:                                         # the mirror (run_leg) must equal book._leg_trades leg by leg: ORB / NOISE by name, TTM as the wrapper object
             r = same_as_book(leg_of("FUND1", s, u1, COST), D0, PRE)
@@ -879,6 +945,17 @@ def smoke(*a):
             print(f"run_leg identical to book._leg_trades on the {s} leg of FUND1 (stand-in for a fund): {r['n']} trades, ${r['net']:,.2f}")
         run = compute_cells()
         assert run and set(run["funds"]) == {"FUND1", "FUND2"} and len(run["cells"]) == 6, "Stage A must run 3 strategies on each of the two surviving stand-ins"
+        assert [v for _, v in run["funds"]["FUND1"]["share_ratio"]] == [8.0, 1.0] and run["funds"]["FUND1"]["share_ratio"][1][0] == "2020-04-28", run["funds"]["FUND1"]
+        assert [v for _, v in run["funds"]["FUND2"]["share_ratio"]] == [1.0], run["funds"]["FUND2"]
+        u2 = run["funds"]["FUND2"]["unit"]
+        for s in FUNDS["FUND1"]:                                         # prereg addendum 2: 8x the per-share cost before the fake split, 1x after; FUND2 untouched
+            t = pd.read_csv(os.path.join(OUT, f"A_{s}_FUND1_trades.csv"), parse_dates=["entry"])
+            pre = t.entry < pd.Timestamp("2020-04-28")
+            assert pre.any() and (~pre).any() and (t.ratio[pre] == 8.0).all() and (t.ratio[~pre] == 1.0).all(), f"FUND1 {s}: split ratio by trade day"
+            assert np.allclose(t.pnl, t.pts * u1 - COST * u1 * (t.ratio - 1.0)) and np.allclose(t.pnl - t.pnl_stress, (STRESS - COST) * u1 * t.ratio), f"FUND1 {s}: per-share cost"
+            t2 = pd.read_csv(os.path.join(OUT, f"A_{s}_FUND2_trades.csv"))
+            assert (t2.ratio == 1.0).all() and np.allclose(t2.pnl, t2.pts * u2), f"FUND2 {s}: no split, no change"
+        print("prereg addendum 2 ok: FUND1's trades before its fake 1-for-8 split pay 8x the per-share cost (base and stress), after it 1x; FUND2 unchanged")
         print("--- Stage A judged by the pre-registered rules:")
         judge_save(run)
         print("--- Stage A judged with every rule waived, so Stage B and C have cells to run end to end (smoke only):")
@@ -886,8 +963,23 @@ def smoke(*a):
         judge_save(run)
         judge_b = lambda lb, strat, rule: ({"waived": True}, True)
         stage_b()                                                        # Stage A is on file but nobody attested the ledger: must refuse, no flag file
-        assert not os.path.exists(os.path.join(OUT, "stageB_READ.flag")), "B without --ledger-ok must not touch the lockbox"
+        flag = os.path.join(OUT, "stageB_READ.flag")
+        assert not os.path.exists(flag), "B without --ledger-ok must not touch the lockbox"
+        CHECK_BOOK = True; stage_b("--ledger-ok"); CHECK_BOOK = False    # the synthetic book cannot reproduce #463: refused after the data loaded, before the flag
+        assert not os.path.exists(flag), "a refused Stage B (book base check) must not burn the lockbox"
+        real_load = load
+        globals()["load"] = lambda *x: (_ for _ in ()).throw(SystemExit("simulated: the lockbox data cannot be loaded"))
+        try:
+            stage_b("--ledger-ok"); raise AssertionError("a failed lockbox load must stop Stage B")
+        except SystemExit:
+            pass
+        finally:
+            globals()["load"] = real_load
+        assert not os.path.exists(flag), "a failed lockbox load must not burn the lockbox"
+        print("Stage B refusals do not burn the lockbox: book base check mismatch and a failed data load both leave no flag file")
         stage_b("--ledger-ok")
+        sbj = json.load(open(os.path.join(OUT, "stageB.json")))
+        assert all(v["wf_part_identical_to_stageA"] for v in sbj["cells"].values()), "Stage B's pre-lockbox trades must equal Stage A's (same per-share cost)"
         try:
             stage_b("--ledger-ok"); raise AssertionError("a second lockbox read must be refused")
         except AssertionError as e:

@@ -88,3 +88,12 @@ for both the open and the close. Reason: Alpaca's daily open and close are the o
 16:00 closing auction), which regular-hours 5-minute bars do not contain; a one-cent rule would drop healthy funds for
 microstructure, while 0.10% still catches what the gate is for (a wrong split adjustment or a wrong instrument moves
 prices by whole percent). Nothing else changes.
+
+ADDENDUM 2 2026-09-30 evening, written BEFORE any ETF bar exists (MANAGER's independent build review, item 2; no data involved):
+Section 3's cost is charged per share AS TRADED that day. The masters are split-adjusted, so before a later split one unit
+(counted in split-adjusted shares, as section 3 sets it) is unit x (split-adjusted price / raw price) real shares - for USO
+before its 1-for-8 reverse split of 2020-04-28, 8 x unit; charging per adjusted share understated USO's cost 8x there.
+Each trade is therefore charged $0.02 (stress $0.04) x unit x that day's ratio. The ratio is Alpaca's split-adjusted daily
+close / its raw daily close (one extra raw daily pull per fund, cached beside the split one, frozen on first pull), rounded
+to 3 decimals; a fund with no split in the window has ratio 1 every day and is unaffected. The dollar P&L is unchanged
+(a split conserves notional). Each fund's split dates and ratios are printed with Stage A. Nothing else changes.

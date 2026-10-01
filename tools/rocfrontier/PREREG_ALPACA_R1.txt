@@ -77,3 +77,15 @@ Mechanism: when most of the index's stocks are already above their own open by 1
 - Known ways it could fool us: breadth days are NOISE's trend days (the book-add stage prices that); membership errors.
 
 Zero passes at any stage = that family dead; ledger + memory.
+
+ADDENDUM 2026-09-30 evening, written BEFORE any stock bar exists (an independent audit of the harnesses; no data involved):
+1. NQBRD membership source, as built: tools/data/ndx_members.csv comes from the Wikipedia 'Nasdaq-100' component list in force
+   on the first of each month (2016-06 -> 2026-07) plus the article's own dated 2016 changes - the public change-log route. A
+   change counts from the first month after it (no look-ahead; membership dates lag by up to a month).
+2. NQBRD coverage guard: a day counts only if at least 80% of that day's members return both the 09:30 and the 09:55
+   5-minute bars; other days get no trade and are reported. Stage A stops if any WF session is missing from the pull.
+3. SIPORB coverage gate: in every year the 09:30 bar must exist for at least 98% of the name-days that pass filters 1-3,
+   else Stage A is not judged (a symbol-mapping failure, reported). The intraday pulls use the same symbol mapping as the
+   daily pull (Alpaca's default, today's names).
+4. SIPORB split exclusion: a split is detected from the raw / split-adjusted OPEN ratio (known at 09:30), not the close.
+Nothing else changes.

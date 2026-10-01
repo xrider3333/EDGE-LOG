@@ -16,7 +16,8 @@ BOOK = os.path.join(os.path.dirname(OUT), "r4", "book463_daily.csv")
 LB0 = pd.Timestamp("2025-06-30", tz="US/Eastern")        # lockbox start - Part P loads nothing on/after it
 WF0, LBN, LB1 = pd.Timestamp("2016-07-01"), pd.Timestamp("2025-06-30"), pd.Timestamp("2026-06-30")
 BW0 = pd.Timestamp("2010-06-07")                          # BOOK #463 window start
-HIST0, FWD0 = pd.Timestamp("2026-06-24"), pd.Timestamp("2026-10-01")
+HIST0, FWD0 = pd.Timestamp("2026-07-01"), pd.Timestamp("2026-10-01")   # history read starts after BOOK #463's lockbox (audit 09-30)
+BOOK_FWD = os.environ.get("EDGELOG_BOOK463_FORWARD", os.path.join(os.path.dirname(OUT), "r4", "book463_forward_daily.csv"))  # F5 input: date, pnl
 MULT = {"NQ": 20.0, "ES": 50.0}
 COST = {"NQ": 0.533, "ES": 0.363}
 TICK, STRESS, HOLD = 0.25, 0.25, 6
@@ -213,6 +214,9 @@ def book_eval(extra, pre=True):
 def stage_a2(passes, trades):
     base = book_eval(None)
     print("BOOK #463 pre (check 60.34 / 3.153): ROC@30k %.2f Sortino %.3f" % (base["roc30"], base["sortino"]))
+    if not (abs(base["roc30"] - 60.34) < 0.006 and abs(base["sortino"] - 3.153) < 0.0006):
+        print("A2 NOT judged: the book file does not reproduce #463's pre numbers")
+        return {"base": base, "cells": passes, "pass": False, "error": "book check mismatch"}
     leg = pd.concat([to_df(trades[(i, "fade")], i) for i in passes])
     daily = leg.groupby("date")["pnl"].sum()
     out = {"base": base, "cells": passes, "by_c": {}}
@@ -229,18 +233,23 @@ def stage_a2(passes, trades):
 
 
 def part_b():
-    res = json.load(open(os.path.join(OUT, "P_stageA.json")))
+    pa = os.path.join(OUT, "P_stageA.json")
+    res = json.load(open(pa)) if os.path.exists(pa) else {}
     if not (res.get("A2") or {}).get("pass"):
         print("Stage B refused: no Stage A2 pass on file - the lockbox stays sealed.")
         return
     flag = os.path.join(OUT, "P_stageB_READ.flag")
-    assert not os.path.exists(flag), "Stage B was already read once"
-    open(flag, "w").write(pd.Timestamp.now().isoformat())
+    if os.path.exists(flag):
+        print("Stage B refused: the lockbox was already read once."); return
+    base = book_eval(None, pre=False)
+    if not (abs(base["roc30"] - 164.76) < 0.006 and abs(base["sortino"] - 4.150) < 0.0006):
+        print("Stage B refused: the book file does not reproduce #463's LB numbers (lockbox NOT read)"); return
     cc, cells = int(res["A2"]["c"]), res["A2"]["cells"]
+    dfs = {inst: load_master(inst, lockbox=True) for inst in cells}    # load first; a crash here leaves the lockbox unread
+    open(flag, "w").write(pd.Timestamp.now().isoformat())            # the one read starts here
     legs = []
     for inst in cells:
-        df = load_master(inst, lockbox=True)
-        t = part_p_trades(df)["fade"]
+        t = part_p_trades(dfs[inst])["fade"]
         legs.append(to_df(t, inst))
     leg = pd.concat(legs)
     daily = leg.groupby("date")["pnl"].sum() * cc
@@ -314,6 +323,11 @@ def part_f(mode):
     if mode == "forward" and nvar < FWD_N:
         print(f"FORWARD SHADOW: {nvar}/{FWD_N} pooled variant trades - not read yet (counts only, by pre-registration).")
         return
+    fflag = os.path.join(OUT, "F_forward_READ.flag")
+    if mode == "forward" and os.path.exists(fflag):                  # read ONCE: later runs show the frozen verdict
+        fr = json.load(open(os.path.join(OUT, "F_forward.json")))
+        print(f"FORWARD SHADOW already read on {open(fflag).read()[:10]}: bars {fr.get('bars')} -> {'PASS' if fr.get('PASS') else 'FAIL'} (frozen)")
+        return
     days = pd.DatetimeIndex(sorted(set(sessions["NQ"]) | set(sessions["ES"])))
     yrs = max((days[-1] - days[0]).days + 1, 1) / 365.25
     res = {"mode": mode, "sessions": {i: len(sessions[i]) for i in sessions}}
@@ -348,7 +362,18 @@ def part_f(mode):
          "F2": bool(v["net"] > 0 and res["var_stress_net"] > 0 and v["net_ex_big"] > 0),
          "F3": bool(actual >= res["F3"]["p95"]),
          "F4": bool(all(res[f"var_{i}_sig_mean"] > res[f"twin_{i}_sig_mean"] for i in ("NQ", "ES")))}
+    f5 = None                                                         # F5: #463 + the variant (1 contract a market) on the same days
+    if mode == "forward" and os.path.exists(BOOK_FWD):
+        bf = pd.read_csv(BOOK_FWD, parse_dates=["date"]).set_index("date")["pnl"]
+        span = pd.DatetimeIndex(sorted(set(bf.index[(bf.index >= FWD0) & (bf.index <= days[-1])]) | set(days)))
+        b0 = bf.reindex(span).fillna(0.0)
+        b1 = b0 + legs["var"].groupby("date")["pnl"].sum().reindex(span).fillna(0.0)
+        roc = lambda x: 30.0 * (x.sum() / yrs) / ddmax(x.values) if ddmax(x.values) > 0 else float("nan")
+        f5 = bool(roc(b1) > roc(b0) and so(b1.values) > so(b0.values))
+        res["F5_detail"] = {"book_roc30": roc(b0), "book_sortino": so(b0.values), "with_roc30": roc(b1), "with_sortino": so(b1.values)}
+    f["F5"] = f5                                                      # None = not available (reported as such)
     res["bars"] = f
+    res["PASS"] = bool(all(v for k, v in f.items() if v is not None))
     for name in ("var", "twin"):
         s_ = res[name]
         print(f"  {name:4s} pooled: n {s_['n']} net ${s_['net']:,.0f} (${s_['per_trade']:,.1f}/trade, win {s_['win']:.0%}) "
@@ -357,10 +382,13 @@ def part_f(mode):
             q = res[f"{name}_{i}"]
             print(f"      {i}: leg n {q['n']} net ${q['net']:,.0f} | per-signal mean ${res[f'{name}_{i}_sig_mean']:,.1f}")
     print(f"  F3 tag test: variant per-signal mean ${actual:,.1f} vs draws p95 ${res['F3']['p95']:,.1f} (percentile {res['F3']['pct']:.0%})")
-    print("  bars:", f, "| F5 needs BOOK #463 forward dailies" + (" | DESCRIPTIVE ONLY - decides nothing" if mode == "hist" else ""))
+    print("  bars:", f, "(F5 None = #463 forward dailies not available) ->", "PASS" if res["PASS"] else "FAIL",
+          "| DESCRIPTIVE ONLY - decides nothing" if mode == "hist" else "")
     for k, df in per.items():
         df.to_csv(os.path.join(OUT, f"F_{mode}_{k[0]}_{k[1]}.csv"), index=False)
     json.dump(res, open(os.path.join(OUT, f"F_{mode}.json"), "w"), indent=1, default=str)
+    if mode == "forward":
+        open(fflag, "w").write(pd.Timestamp.now().isoformat())       # the one forward read is done
 
 
 if __name__ == "__main__":

@@ -1,10 +1,15 @@
 # ALPACA r1 family B - NQBRD: an NQ trend-day trigger from Nasdaq-100 breadth at 10:00 ET.
-# Pre-registered: tools/rocfrontier/PREREG_ALPACA_R1.txt (canonical sha256 = committed blob a038a85c...0ee3, main 2ba5b3db).
+# Pre-registered: tools/rocfrontier/PREREG_ALPACA_R1.txt (canonical sha256 = committed blob a038a85c...0ee3, main 2ba5b3db, + its pre-data
+# ADDENDUM of 2026-09-30 evening -> canonical LF sha256 bda72203...f41d).
 # Membership: tools/data/ndx_members.csv (tools/rocfrontier/build_ndx_members.py), built before any stock bar existed.
 #   python r5_nqbrd.py pull     needs the owner's Alpaca keys (env ALPACA_API_KEY / ALPACA_SECRET_KEY); 09:30-10:00 5-minute
-#                               bars of each day's members -> research cache (never a library master); ~15 minutes
-#   python r5_nqbrd.py A        breadth + Stage A + A2, PRE-LOCKBOX ONLY (nothing on/after 2025-06-30 is computed)
-#   python r5_nqbrd.py B        Stage B (lockbox, once) - refuses unless A2 passed
+#                               bars of each day's members -> research cache (never a library master); ~15 minutes; a day that
+#                               returns no bars at all is recorded in empty_days.txt ('never pulled' vs 'nothing there')
+#   python r5_nqbrd.py A        breadth + Stage A + A2, PRE-LOCKBOX ONLY (nothing on/after 2025-06-30 is computed); stops if any WF
+#                               session of the NQ master is neither pulled nor recorded empty; a day counts only if >= 80% of its
+#                               members returned both bars (prereg addendum 2); A2 needs BOOK #463's WF numbers to reproduce
+#   python r5_nqbrd.py B        Stage B (lockbox, once) - refuses unless A2 passed; the READ flag is written only after the lockbox
+#                               data has loaded and BOOK #463's LB numbers reproduce
 import json, os, sys, time
 REPO = os.environ.get("EDGELOG_ROOT", r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG"); sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, "tools")); sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -16,6 +21,8 @@ BOOK = os.path.join(os.path.dirname(OUT), "r4", "book463_daily.csv")
 BW0, WF0, LB0, LB1 = (pd.Timestamp(x) for x in ("2010-06-07", "2016-07-01", "2025-06-30", "2026-06-30"))
 LBX, LBY = pd.Timestamp("2026-07-01"), (LB1 - LB0).days / 365.25   # LB = 06-30 .. 06-30 INCLUSIVE, frontier years
 THETAS, COST, MULT, STRESS, NREP = (0.70, 0.80), 0.533, 20.0, 0.25, 500
+COVER = 0.80                                              # coverage guard (prereg addendum 2): a day counts only if >= 80% of its members have both bars
+BOOK_WF, BOOK_LB = (92.70, 3.816), (164.76, 4.150)        # BOOK #463 ROC@30k, Sortino (prereg); the book file must reproduce them (within 0.006 / 0.0006)
 rng = np.random.default_rng(20260930)
 
 
@@ -54,27 +61,51 @@ def fetch_window(symbols, day, key, secret):
             return rows
 
 
+def master_days(d0, d1):
+    """session days (YYYY-MM-DD) of the NQ 5m RTH master between two dates inclusive; `pull` and the coverage check use the same list"""
+    from augur_engine import data
+    m = data.find_master("NQ", "5m", "rth", "db_adj_rth")
+    return sorted({str(d.date()) for d in pd.DatetimeIndex(data.load_master_arrays(m, d0, d1)["index"]).tz_localize(None).normalize()})
+
+
+def pulled_days(last=None):
+    """(days with bars in the pull cache, days recorded empty = the request ran and nothing came back), cut to days <= `last` if given"""
+    p, e = os.path.join(CACHE, "nqbrd", "open_bars.csv"), os.path.join(CACHE, "nqbrd", "empty_days.txt")
+    got = set(pd.read_csv(p, usecols=["day"])["day"]) if os.path.exists(p) else set()
+    empty = {x.strip() for x in open(e) if x.strip()} if os.path.exists(e) else set()
+    return tuple({d for d in s if last is None or d <= last} for s in (got, empty))
+
+
+def missing_days(d0, d1):
+    """session days of the NQ master in [d0, d1] that are neither in the pull cache nor recorded empty (prereg addendum 2)"""
+    got, empty = pulled_days(d1)
+    return [d for d in master_days(d0, d1) if d not in got and d not in empty]
+
+
 def pull():
     from import_alpaca_stocks import load_keys            # the shared loader's key lookup (env first)
     from build_ndx_members import members_on
     key, secret = load_keys()
     if not (key and secret):
         raise SystemExit("No Alpaca keys yet - the owner saves ALPACA_API_KEY / ALPACA_SECRET_KEY (ALPACA_STAGE_R1.md).")
-    from augur_engine import data
-    m = data.find_master("NQ", "5m", "rth", "db_adj_rth")
-    days = sorted({str(d.date()) for d in pd.DatetimeIndex(data.load_master_arrays(m, "2016-06-01", "2026-09-30")["index"]).tz_localize(None).normalize()})
+    days = master_days("2016-06-01", "2026-09-30")
     os.makedirs(os.path.join(CACHE, "nqbrd"), exist_ok=True)
-    path = os.path.join(CACHE, "nqbrd", "open_bars.csv")
-    done = set(pd.read_csv(path, usecols=["day"])["day"]) if os.path.exists(path) else set()
+    path, epath = os.path.join(CACHE, "nqbrd", "open_bars.csv"), os.path.join(CACHE, "nqbrd", "empty_days.txt")
+    done = set().union(*pulled_days())                    # bars on file + days that came back empty (not asked again)
     for i, day in enumerate(d for d in days if d not in done):
         rows = fetch_window(members_on(day), day, key, secret)
-        pd.DataFrame(rows, columns=["symbol", "t", "o", "c"]).assign(day=day).to_csv(path, mode="a", header=not os.path.exists(path), index=False)
+        if rows:
+            pd.DataFrame(rows, columns=["symbol", "t", "o", "c"]).assign(day=day).to_csv(path, mode="a", header=not os.path.exists(path), index=False)
+        else:
+            open(epath, "a").write(day + "\n"); print(day, "no bars returned - recorded in empty_days.txt", flush=True)    # asked, nothing came back: recorded, so 'never pulled' and 'nothing there' differ
         if i % 100 == 0:
             print(day, len(rows), "bars", flush=True)
 
 
 # ------------------------------------------------------------------ breadth and the NQ leg
 def breadth(t_end):
+    """-> (B and n by day, days dropped by the coverage guard)"""
+    from build_ndx_members import members_on
     raw = pd.read_csv(os.path.join(CACHE, "nqbrd", "open_bars.csv"))
     raw = raw[pd.to_datetime(raw["day"]) < t_end]                              # cut BEFORE anything is computed
     t = pd.to_datetime(raw["t"], utc=True).dt.tz_convert("US/Eastern")
@@ -84,7 +115,15 @@ def breadth(t_end):
     j = pd.concat([o, c], axis=1, join="inner").dropna()
     b = (j["c"] > j["o"]).groupby(level=0).mean()
     n = j.groupby(level=0).size()
-    return pd.DataFrame({"B": b, "n": n}).rename_axis("day").set_index(pd.to_datetime(b.index))
+    # coverage guard (prereg addendum 2): a day counts only if >= 80% of that day's members returned both bars; the rest get no trade
+    need = {}
+    for d in n.index:                                                          # membership is monthly: one lookup a month
+        if d[:7] not in need:
+            need[d[:7]] = len(members_on(d))
+    ok = np.array([k >= COVER * need[d[:7]] - 1e-9 for d, k in n.items()], bool)
+    dropped = [str(d) for d in n.index[~ok]]
+    b, n = b[ok], n[ok]
+    return pd.DataFrame({"B": b, "n": n}).rename_axis("day").set_index(pd.to_datetime(b.index)), dropped
 
 
 def nq_days(t0, t1):
@@ -145,11 +184,18 @@ def book(extra, t0, t1, yrs=None):
 
 
 def stage_a():
-    br = breadth(LB0)
+    last = f"{LB0 - pd.Timedelta(days=1):%Y-%m-%d}"                           # 2025-06-29, the last pre-lockbox day
+    miss = missing_days(f"{WF0:%Y-%m-%d}", last)                              # prereg addendum 2: every WF session must be pulled or recorded empty
+    if miss:
+        raise SystemExit(f"Stage A refused: {len(miss)} WF session days of the NQ master are neither in the pull cache nor recorded empty "
+                         f"(first {miss[0]}, last {miss[-1]}) - run `pull` first; nothing was computed")
+    empty = sorted(pulled_days(last)[1])
+    br, dropped = breadth(LB0)
     nq = nq_days(WF0 - pd.Timedelta(days=400), LB0)
     days = nq.index
     br = br.reindex(days)
-    print(f"breadth days {br.B.notna().sum()} of {len(days)}; members with bars per day median {br.n.median():.0f} (min {br.n.min():.0f})")
+    print(f"breadth days {br.B.notna().sum()} of {len(days)}; coverage guard dropped {len(dropped)} pulled days (< {COVER:.0%} of that day's members "
+          f"returned both bars; no trade), {len(empty)} days recorded empty; members with bars per day median {br.n.median():.0f} (min {br.n.min():.0f})")
     res, tr = {}, {}
     ret30 = nq["c955"] - nq["o930"]
     for th in THETAS:
@@ -187,10 +233,16 @@ def stage_a():
         if ok:
             passes.append(th)
     print(f"null max-t p95 {p95:.2f}")
-    out = {"stageA": {str(k): v for k, v in res.items()}, "null_p95": p95, "passes": passes, "A2": None}
+    out = {"stageA": {str(k): v for k, v in res.items()}, "null_p95": p95, "passes": passes, "A2": None,
+           "coverage": {"guard": f"day kept only if members with both bars >= {COVER} x members_on(day)", "breadth_days": int(br.B.notna().sum()), "sessions": len(days),
+                        "guard_dropped": len(dropped), "guard_dropped_days": dropped, "recorded_empty": len(empty), "recorded_empty_days": empty}}
     if passes:
         base = book(None, WF0, LB0)
-        print(f"BOOK #463 WF (check 92.70 / 3.816): ROC@30k {base['roc30']:.2f} Sortino {base['sortino']:.3f}")
+        print(f"BOOK #463 WF check (must be {BOOK_WF[0]} / {BOOK_WF[1]}): ROC@30k {base['roc30']:.2f} Sortino {base['sortino']:.3f}")
+        if not (abs(base["roc30"] - BOOK_WF[0]) < 0.006 and abs(base["sortino"] - BOOK_WF[1]) < 0.0006):
+            print("A2 NOT judged: the book file does not reproduce #463's prereg numbers - fix the input first")
+            out["A2"] = {"pass": False, "error": "book check mismatch", "book_wf": base}
+            json.dump(out, open(os.path.join(OUT, "nqbrd_stageA.json"), "w"), indent=1, default=str); return
         th = max(passes, key=lambda k: res[k]["WF"]["roc30"])
         leg = tr[th].groupby("date")["pnl"].sum()
         by_c = {c: book(leg * c, WF0, LB0) for c in (1, 2, 3)}
@@ -206,15 +258,25 @@ def stage_a():
 
 
 def stage_b():
-    res = json.load(open(os.path.join(OUT, "nqbrd_stageA.json")))
+    pa = os.path.join(OUT, "nqbrd_stageA.json")
+    if not os.path.exists(pa):
+        print("Stage B refused: nqbrd_stageA.json is missing - run `A` first; the lockbox stays sealed."); return
+    res = json.load(open(pa))
     if not (res.get("A2") or {}).get("pass"):
         print("Stage B refused: no Stage A2 pass on file - the lockbox stays sealed."); return
     flag = os.path.join(OUT, "nqbrd_stageB_READ.flag")
     assert not os.path.exists(flag), "Stage B was already read once"
-    open(flag, "w").write(pd.Timestamp.now().isoformat())
     th, c = float(res["A2"]["theta"]), int(res["A2"]["c"])
-    br = breadth(LBX)
+    miss = missing_days(f"{LB0:%Y-%m-%d}", f"{LB1:%Y-%m-%d}")                 # every lockbox session pulled or recorded empty, else the one read is wasted
+    if miss:
+        print(f"Stage B refused: {len(miss)} lockbox session days of the NQ master are neither in the pull cache nor recorded empty - run `pull` first (lockbox NOT read)"); return
+    br, _ = breadth(LBX)                                                      # the lockbox data loads here; nothing is computed or shown from it yet
     nq = nq_days(LB0, LBX)
+    bb = book(None, LB0, LBX, yrs=LBY)                                        # the book's own LB numbers are public (prereg); checked BEFORE the family's lockbox is read
+    print(f"BOOK #463 LB check (must be {BOOK_LB[0]} / {BOOK_LB[1]}): ROC@30k {bb['roc30']:.2f} Sortino {bb['sortino']:.3f}")
+    if not (abs(bb["roc30"] - BOOK_LB[0]) < 0.006 and abs(bb["sortino"] - BOOK_LB[1]) < 0.0006):
+        print("Stage B refused: the book file's LB window does not reproduce #463's prereg LB numbers - settle the end-date convention first (lockbox NOT read)"); return
+    open(flag, "w").write(pd.Timestamp.now().isoformat())                     # the one read starts here (a crash above leaves the lockbox unread)
     br = br.reindex(nq.index)
     sign = pd.Series(np.where(br.B >= th, 1, np.where(br.B <= 1 - th, -1, 0)), index=nq.index)
     t = trades(nq, sign)
