@@ -65,21 +65,22 @@ DEFAULT_PARAMS = {
     'exit_mode': {'default': 'ride', 'type': 'str', 'options': list(_EXITS), 'label': 'Management',
                   'tooltip': "ride = breakeven after a close at +1 R, then hold to the session close. "
                              "be2r = the same breakeven, plus a 2 R target."},
-    'vol_mult': {'default': 1.5, 'min': 1.0, 'max': 2.5, 'step': 0.25, 'type': 'float',
+    'vol_mult': {'default': 1.5, 'min': 1.25, 'max': 2.0, 'step': 0.25, 'type': 'float',
                  'label': 'Volume (x 10-bar mean)',
                  'tooltip': "The signal candle's volume must be at least this many times the mean of the 10 "
                             "bars before it."},
-    'range_atr': {'default': 1.2, 'min': 0.8, 'max': 1.6, 'step': 0.2, 'type': 'float',
+    'range_atr': {'default': 1.2, 'min': 1.0, 'max': 1.4, 'step': 0.2, 'type': 'float',
                   'label': 'Candle range (x ATR14)',
                   'tooltip': "The signal candle's high-low range, in ATR14 of the 14 bars before it."},
-    'body_atr': {'default': 0.7, 'min': 0.5, 'max': 0.9, 'step': 0.1, 'type': 'float',
+    'body_atr': {'default': 0.7, 'min': 0.5, 'max': 0.9, 'step': 0.2, 'type': 'float',
                  'label': 'Candle body (x ATR14)',
                  'tooltip': "The signal candle's green body (close - open), in ATR14."},
 }
 
 # SETUPS_PREREG_R3_CBU_V1.md section 4 / 4a: triage = base x window x exit at the written thresholds (8 cells
 # per root); the neighbours add vol_mult 1.25 / 2.0 and range_atr 1.0 / 1.4; the validate grid opens the three
-# thresholds by one step each way.
+# thresholds by one step each way. Auto-Validate searches DEFAULT_PARAMS (uniform steps), so its vol range also
+# holds 1.75 (deviations log, 2026-10-01).
 PARAM_GRID_PRESETS = {
     'Triage (pre-registered)': {
         'base': list(_BASES), 'window': list(_WINDOWS), 'exit_mode': list(_EXITS),

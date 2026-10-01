@@ -227,6 +227,10 @@ The dashed line at about 30,807 on the 09-30 chart is answered by the data: it i
     The latest-bar reading was run as a check and changes nothing material: held+day 0.58 vs 0.66 a day, same
     recall.
   - Recall counts an alert at the signal minute or the minute after, as section 3 says.
+- **2026-10-01, validate ranges** (after Test 2's triage and before the validate is queued): the runner's
+  Auto-Validate searches the file's DEFAULT_PARAMS ranges, not a preset. Those ranges now hold the section 4a
+  grid: base × window × exit × vol 1.25-2.0 × range 1.0-1.4 × body 0.5-0.9. Uniform steps add one value, vol
+  1.75, to the declared {1.25, 1.5, 2.0}. That gives 288 configs.
 
 ## 8. Test 1 result (2026-10-01): the alert check
 
@@ -255,3 +259,47 @@ No outcome was read. The report and the alert list are local, in `C:\EdgeLog\_an
 - **Verdict:** two variants meet the useful bar: momentum new highs, either morning-only or all-day.
   - These feed the alerts-first track.
   - The outcome test (section 4) still waits for the owner's answers.
+
+## 9. Test 2 result (2026-10-01): the outcome triage
+
+`python tools/setups_r3_triage.py`: 16 cells, 2010-06-07..2025-07-06, FADJ 1m, micro costs, runtime 39 s.
+Cells were fixed in eb6bf3e8 before the run. Results are local, in
+`C:\EdgeLog\_anatomy_cache\setups_r3_results\`. Money is for one micro contract.
+
+**1 of 16 cells passes, and it advances: NQ, `any` base, `am` window, `ride`.**
+
+| Measure | Value |
+|---|---|
+| Trades / days | 1,320 trades on 1,079 days |
+| PF / net | PF 1.59, net $9,786 |
+| net/DD | 10.6 |
+| Slices positive | 6 of 8 |
+| Top-10 share / net without them | 54%, +$4,496 |
+| $/trade | $7.41 (bar $4.80) |
+| Stress PF | 1.53 |
+| Neighbours with PF ≥ 1.15 | 6 of 7; only `be2r` fails, at 1.08 |
+
+**Near misses, all NQ `ride`:**
+
+- `held` + `am`: PF 1.96, but slices 5 of 8;
+- `held` + `day`: PF 1.63, but net/DD 7.6 and slices 5 of 8;
+- `any` + `day`: PF 1.41, but net/DD 6.0, slices 5 of 8 and $/trade 4.63.
+
+**Everything else:**
+
+- **ES:** no cell is close. The best is `held` + `am` + `ride` at PF 1.16; every `any`-base ES cell loses.
+- **Exit:** `ride` beats `be2r` in all 8 pairs. The 2 R target (his 04-07 note) turns every NQ ride cell
+  into PF 1.07-1.25.
+
+**NOISE #382 overlap (round 1's test), for the advancing cell:**
+
+- 84% of its trades are on days NOISE #382 trades, and 97% of those are in the same direction.
+- On NOISE-flat days it took 215 trades and lost $2,663 gross.
+- This is the same shape as round 1 (#427: 74%, lost on NOISE-flat days). The edge is NOISE #382's trend
+  days.
+
+**Holiday audit:** 86 listed holidays had no decisions. Two short sessions that are not holidays stay in;
+they are data cut-offs (2020-02-28, 2020-06-30).
+
+**Next, per section 4:** one Auto-Validate of `CBUQ_2_0.py` on NQ, as section 4 specifies, judged on the
+owner yardstick. The NOISE overlap is part of the verdict.
