@@ -34,18 +34,26 @@ def _t(entry, exit_, side, pnl):
 
 def test_agreement_tilt_rule():
     reports = {
-        "ORB": {"_trades": [_t("09:40", "15:55", 1, 800.0),       # ORB long open all day
-                            _t("09:30", "09:35", -1, -50.0)]},     # a short, closed before NOISE trades
-        "NOISE_422": {"_trades": [_t("10:15", "11:00", 1, 300.0),   # enters while ORB is long -> tilted
+        "ORB": {"_trades": [_t("09:40", "15:55", 1, 800.0),       # ORB long, fills at the 09:40 bar's CLOSE (09:45)
+                            _t("09:30", "09:35", -1, -50.0)]},     # an ORB short labelled 09:30 (fills 09:35)
+        "NOISE_422": {"_trades": [_t("10:15", "11:00", 1, 300.0),   # fills 10:15 while ORB long is in -> tilted
                                   _t("11:30", "12:00", -1, -200.0),  # short while ORB long -> not tilted
-                                  _t("09:30", "09:45", -1, 100.0)]},  # same bar as the ORB short -> NOISE takes it
+                                  _t("09:30", "09:45", -1, 100.0)]},  # same LABEL as the ORB short: NOISE filled first
     }
     tilted = bs.agreement_tilted(reports)
     got = sorted((k, t["entryIso"][11:16]) for k, t in tilted)
-    assert got == [("NOISE_422", "09:30"), ("NOISE_422", "10:15")]
+    # The same-label tie goes to the ORB short (NOISE was already in when ORB filled at 09:35), never to NOISE.
+    assert got == [("NOISE_422", "10:15"), ("ORB", "09:30")]
     blk = bs.ag_block(reports, {"ORB": 1.0, "NOISE_422": 1.0}, book_pnl=1000.0)
     assert blk["n_tilted"] == 2
-    assert blk["pnl_usd"] == 1000.0 + 0.5 * (300.0 + 100.0)
+    assert blk["pnl_usd"] == 1000.0 + 0.5 * (300.0 - 50.0)
+
+
+def test_agreement_tie_never_tilts_noise_on_orb_confirmed_later():
+    # ORB confirms at the CLOSE of the 09:50 bar; NOISE filled at its OPEN - the NOISE size must not depend on it.
+    reports = {"ORB": {"_trades": [_t("09:50", "15:55", 1, 900.0)]},
+               "NOISE_422": {"_trades": [_t("09:50", "10:30", 1, 400.0)]}}
+    assert [(k, t["entryIso"][11:16]) for k, t in bs.agreement_tilted(reports)] == [("ORB", "09:50")]
 
 
 def test_agreement_tilt_orb_entering_inside_noise():

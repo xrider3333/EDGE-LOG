@@ -44,6 +44,8 @@ VT_WARMUP_DAYS = 3 * 366
 VT_MAX_LAG_BDAYS = 1                  # one missing business day tolerated (a holiday); two stops the line
 AG_TILT = 1.5
 AG_LEGS = ("ORB", "NOISE_422")        # paper leg keys: ORB #234 and NOISE #422
+AG_BAR = pd.Timedelta(minutes=5)       # both legs trade NQ 5m bars, stamped with the bar's label (its start)
+AG_FILL_LAG = {"ORB": AG_BAR, "NOISE_422": pd.Timedelta(0)}   # ORB fills at the bar's close, NOISE at its open
 
 
 def vt_multipliers(M):
@@ -128,30 +130,40 @@ def vt_block(book_pnl, day):
 
 
 def agreement_tilted(leg_reports):
-    """The ORB / NOISE_422 trades of the day that take the agreement tilt: [(leg key, trade dict)]."""
+    """The ORB / NOISE_422 trades of the day that take the agreement tilt: [(leg key, trade dict)].
+
+    FILL TIMES, NOT BAR LABELS (fixed 2026-09-30 after MANAGER's build review). Both legs stamp a trade
+    with its bar's label, but they fill at different moments of that bar: NOISE at the bar's OPEN (a
+    signal queued at the previous close), ORB at the bar's CLOSE (close-confirmed breakout). The first
+    version compared labels and handed a same-label tie to NOISE - a size set with knowledge of a close
+    5 minutes after NOISE's fill (look-ahead). Now a trade is tilted only if the other leg's same-direction
+    trade was already FILLED, and not yet out, at this trade's own fill time. On a same-label tie that is
+    the ORB trade (NOISE was in 5 minutes earlier), never the NOISE one.
+    """
     a, b = AG_LEGS
     ta = (leg_reports.get(a) or {}).get("_trades") or []
     tb = (leg_reports.get(b) or {}).get("_trades") or []
 
-    def span(t):
-        # A trade with no exit yet is treated as open to the end of its entry day (both legs are flat
-        # at the close). pd.Timestamp.max cannot carry a timezone - it overflowed here (09-30 review).
-        e = pd.Timestamp(t["entryIso"])
-        x = pd.Timestamp(t["exitIso"]) if t.get("exitIso") else e.normalize() + pd.Timedelta(days=1)
+    def span(key, t):
+        e = pd.Timestamp(t["entryIso"]) + AG_FILL_LAG[key]
+        # An exit is at the latest by the close of its bar; a trade with no exit yet is open to the end of
+        # its entry day (both legs are flat at the close).
+        x = (pd.Timestamp(t["exitIso"]) + AG_BAR if t.get("exitIso") else
+             pd.Timestamp(t["entryIso"]).normalize() + pd.Timedelta(days=1))
         return e, x
 
     out = []
-    for key, mine, other, is_noise in ((a, ta, tb, False), (b, tb, ta, True)):
+    for key, mine, okey, other in ((a, ta, b, tb), (b, tb, a, ta)):
         for t in mine:
             side = int(t.get("side") or 0)
             if not side:
                 continue
-            e, _ = span(t)
+            e, _ = span(key, t)
             for o in other:
                 if int(o.get("side") or 0) != side:
                     continue
-                oe, ox = span(o)
-                if oe < e < ox or (oe == e and is_noise):
+                oe, ox = span(okey, o)
+                if oe < e < ox:
                     out.append((key, t))
                     break
     return out
@@ -178,6 +190,12 @@ SUM_SHADOWS = {
         "weights": {"ORB_R6": 1.0, "ENGUQ_335": 1.0, "TTM_299_SSOF2": 3.0, "NOISE_422": 1.0},
         "name": "SHADOW ORB314: #463 with the ORB crown #314 in the ORB seat (book run #473)",
         "prereg": "C:/EdgeLog/_anatomy_cache/bookq/PREREG_BOOKQ.txt Q1a FORWARD SHADOW (MANAGER GO 09-30; read after 12 months)",
+        "from": "2026-10-01",
+    },
+    "book_shadow_orb239": {
+        "weights": {"ORB_239": 1.0, "ENGUQ_335": 1.0, "TTM_299_SSOF2": 3.0, "NOISE_422": 1.0},
+        "name": "SHADOW ORB239: #463 with ORB #239 (breakeven 0.8 R) in the ORB seat (book run #478)",
+        "prereg": "C:/EdgeLog/_anatomy_cache/bookq/PREREG_BOOKQ.txt Q6 FORWARD SHADOW (owner: shadow first, 09-30; read after 12 months)",
         "from": "2026-10-01",
     },
 }
