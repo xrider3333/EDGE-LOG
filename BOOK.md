@@ -1192,8 +1192,8 @@ leg here is the roll-corrected paper leg, valued daily.
   trade on the same 5-minute label as an ORB trade counted as entering "while ORB was open". But ORB fills at that bar's
   close and NOISE at its open. Compared on fill times, the evidence for AG is gone: the trades it tilts have a profit
   factor of 1.35 against 1.38 for the rest (not 1.56 vs 1.30, as 10o says). With the fix, AG at 1.5x is flat on
-  walk-forward (92.8 vs 92.7 on the old convention) and the overlap cap O still fails. The nightly AG line now uses fill times; its bar is
-  unchanged. Whether to keep running it is the owner's call.
+  walk-forward (92.8 vs 92.7 on the old convention) and the overlap cap O still fails. The nightly AG line moved to fill times on
+  09-30 and was **retired on 10-01** (owner GO via MANAGER #48); its last report is 10-01, and no forward read will be made.
 - **The nightly shadow lines could read stale or substitute data.** The vol-target line refuses to size from data more
   than one business day old; any leg rebuilt from a fallback master or with a failed daily valuation is refused; a
   leg that throws is named in the report instead of silently reading $0.
@@ -1234,7 +1234,7 @@ computed from the per-trade paper records, each trade dated by its exit day; the
 - `PREREG_frontier_keel458_2026-09-28.txt` `72ce7193650adecd56cc6f1a62675cbd0d4d4e95a8e7abb8eeaf42eba964a790`
 - `PREREG_frontier_r62_2026-09-28.txt` `e0c4a8f596cb49401e8b3275434557f52ebf78287b7a2b1b4a1dc6f02ddca8a1`
 - `PREREG_frontier_ttmsleeve_2026-09-29.txt` `38688f8a3536f04e48739ef64e0f17b7f636a2f59d04f646f7aa433ee8597c3f`
-- `PREREG_frontier_shadows_2026-09-29.txt` `3e2061ad988f52407813b18e30ace63e234ce7fa7c8475f0fc5a70eae75de1b7`
+- `PREREG_frontier_shadows_2026-09-29.txt` `bf606dd1a75e3d630470cbb9b1e029b1676afa3b64825cd78cee6d298ad65016` (with the 10-01 AG retirement addendum; before it `3e2061ad988f52407813b18e30ace63e234ce7fa7c8475f0fc5a70eae75de1b7`)
 - `PREREG_frontier_bookq_2026-09-30.txt` `3ce3ba43ad4da7ce517de016513dc51c0680c0d18da8d0bae42e67ce001b3542`
 
 ### 10q. The standing book queue: Q1-Q4 on the adopted #463 (2026-09-30)
@@ -1306,11 +1306,11 @@ adopted book figure in every paper report and are never the book figure. Rules a
   the 20-day volatility, 0.5-2.0). #463's daily series is rebuilt each night from its job legs. The rebuild reproduces
   run #463 to the cent, and a three-year window gives identical multipliers on all 290 recent-year days. The multiplier
   for 2026-09-29 was 0.7.
-- **AG** (book_shadow_ag, from 09-30): 1.5x on ORB / NOISE trades that enter while the other leg is in the same way. It
+- **AG - RETIRED 10-01** (book_shadow_ag, 09-30..10-01; see 10r): 1.5x on ORB / NOISE trades that enter while the other leg is in the same way. It
   was found in-sample, so it is judged only on forward data.
 
-**How they will be judged.** Each line against the book line on ROC at a $30k drawdown and Sortino. AG is read at
->= 100 tilted trades (about 9 months). VT is read after 12 months, and only if a drawdown deeper than $20k occurred in
+**How they will be judged.** Each line against the book line on ROC at a $30k drawdown and Sortino. AG was to be read at
+>= 100 tilted trades; it was retired first (10r). VT is read after 12 months, and only if a drawdown deeper than $20k occurred in
 that window.
 
 ### 10o. Round 62 - structural book alpha on the adopted #463: volatility targeting and an overlap cap (2026-09-28)

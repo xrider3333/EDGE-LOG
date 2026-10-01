@@ -1,8 +1,8 @@
 """Nightly SHADOW lines on the adopted BOOK #463 (FRONTIER lane; owner GO via MANAGER, 2026-09-29).
 
-Two lines ride beside the adopted book figure in the paper report and are NEVER the book figure.
-Both re-size exactly the trades the book figure counts that day (the paper report books a trade on
-its ENTRY day). Pre-registration: C:\\EdgeLog\\_anatomy_cache\\adopt449\\PREREG_SHADOWS_0929.txt.
+The VT line rides beside the adopted book figure in the paper report and is NEVER the book figure.
+It re-sizes exactly the trades the book figure counts that day (the paper report books a trade on
+its ENTRY day). Pre-registration: docs/PREREG_frontier_shadows_2026-09-29.txt.
 
 VT  volatility-targeted #463 (book round 62, V2): every trade entering on day D is sized
     m(D) = clip(REF / vol20, 0.5, 2.0) rounded to 0.1, where vol20 is the std of #463's valued-daily
@@ -11,9 +11,9 @@ VT  volatility-targeted #463 (book round 62, V2): every trade entering on day D 
     starting three years before D - enough warm-up that the recent year matches the full-history
     series (checked when this shipped). Line = m(D) x the adopted book figure.
 
-AG  agreement tilt: an ORB or NOISE #422 trade that enters while a trade of the OTHER leg is open in
-    the SAME direction is sized 1.5x (on a same-bar same-direction entry the NOISE trade takes it).
-    Found in-sample (round 62's overlap diagnostic), so only forward data can judge it.
+AG  agreement tilt - RETIRED 2026-10-01 (owner GO via MANAGER #48); last in the 10-01 report. Its in-sample
+    evidence was a same-bar look-ahead (bar labels, not fills); on fill times the trades it tilted read
+    PF 1.35 vs 1.38 for the rest. History: BOOK.md 10p / 10r; the code is in git before this commit.
 
 Everything here is fail-soft: the caller wraps each block, and a failure reports an error string
 instead of a number. Nothing here places an order.
@@ -42,10 +42,7 @@ BOOK463_LEGS = [
 VT_LOOKBACK, VT_REF, VT_LO, VT_HI = 20, 250, 0.5, 2.0
 VT_WARMUP_DAYS = 3 * 366
 VT_MAX_LAG_BDAYS = 1                  # one missing business day tolerated (a holiday); two stops the line
-AG_TILT = 1.5
-AG_LEGS = ("ORB", "NOISE_422")        # paper leg keys: ORB #234 and NOISE #422
-AG_BAR = pd.Timedelta(minutes=5)       # both legs trade NQ 5m bars, stamped with the bar's label (its start)
-AG_FILL_LAG = {"ORB": AG_BAR, "NOISE_422": pd.Timedelta(0)}   # ORB fills at the bar's close, NOISE at its open
+
 
 
 def vt_multipliers(M):
@@ -127,54 +124,6 @@ def vt_block(book_pnl, day):
     return {"pnl_usd": m * float(book_pnl), "multiplier": m, **info, "base_run": 463,
             "rule": "m = clip(median vol20 of the prior 250 days / vol20, 0.5, 2.0), rounded 0.1 (book round 62 V2)",
             "name": "SHADOW VT: #463 sized by its own 20-day volatility vs its trailing year"}
-
-
-def agreement_tilted(leg_reports):
-    """The ORB / NOISE_422 trades of the day that take the agreement tilt: [(leg key, trade dict)].
-
-    FILL TIMES, NOT BAR LABELS (fixed 2026-09-30 after MANAGER's build review). Both legs stamp a trade
-    with its bar's label, but they fill at different moments of that bar: NOISE at the bar's OPEN (a
-    signal queued at the previous close), ORB at the bar's CLOSE (close-confirmed breakout). The first
-    version compared labels and handed a same-label tie to NOISE - a size set with knowledge of a close
-    5 minutes after NOISE's fill (look-ahead). Now a trade is tilted only if the other leg's same-direction
-    trade was already FILLED, and not yet out, at this trade's own fill time. On a same-label tie that is
-    the ORB trade (NOISE was in 5 minutes earlier), never the NOISE one.
-    """
-    a, b = AG_LEGS
-    ta = (leg_reports.get(a) or {}).get("_trades") or []
-    tb = (leg_reports.get(b) or {}).get("_trades") or []
-
-    def span(key, t):
-        e = pd.Timestamp(t["entryIso"]) + AG_FILL_LAG[key]
-        # An exit is at the latest by the close of its bar; a trade with no exit yet is open to the end of
-        # its entry day (both legs are flat at the close).
-        x = (pd.Timestamp(t["exitIso"]) + AG_BAR if t.get("exitIso") else
-             pd.Timestamp(t["entryIso"]).normalize() + pd.Timedelta(days=1))
-        return e, x
-
-    out = []
-    for key, mine, okey, other in ((a, ta, b, tb), (b, tb, a, ta)):
-        for t in mine:
-            side = int(t.get("side") or 0)
-            if not side:
-                continue
-            e, _ = span(key, t)
-            for o in other:
-                if int(o.get("side") or 0) != side:
-                    continue
-                oe, ox = span(okey, o)
-                if oe < e < ox:
-                    out.append((key, t))
-                    break
-    return out
-
-
-def ag_block(leg_reports, weights, book_pnl):
-    tilted = agreement_tilted(leg_reports)
-    extra = sum((AG_TILT - 1.0) * float(t["pnl_usd"]) * float(weights.get(k, 1.0)) for k, t in tilted)
-    return {"pnl_usd": float(book_pnl) + extra, "tilt": AG_TILT, "n_tilted": len(tilted),
-            "tilted": [f"{k} {t['entryIso']}" for k, t in tilted], "base_run": 463,
-            "name": "SHADOW AG: #463 with 1.5x on ORB / NOISE trades that enter while the other is in the same way"}
 
 
 # Weighted sums of existing paper legs (each leg's entry-day figure x weight, the book line's own convention).

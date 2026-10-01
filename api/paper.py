@@ -2689,7 +2689,6 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
                 trade_ids.append(doc_id)
                 todays_trades.append({
                     "side": t["side"], "entryIso": t["entry_dt"].isoformat(),
-                    # exitIso rides along for the book's agreement-tilt shadow line (api/book_shadow.py).
                     "exitIso": t["exit_dt"].isoformat(),
                     "entry_px": t["entry_px"], "exit_px": t["exit_px"],
                     "pnl_usd": t["pnl_usd"],
@@ -2927,28 +2926,21 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
                     "weights": _BOOK_SHADOW, "base_run": 463,
                     "missing": [k for k in _BOOK_SHADOW if k not in leg_reports],
                     "name": "SHADOW: #463 with TTM #458 KEEL in place of 3 ES of TTM 369/459"}
-    # Two more SHADOW lines from 2026-09-30 (owner GO via MANAGER, 2026-09-29): #463 sized by its own volatility
-    # (book round 62 V2) and the ORB x NOISE agreement tilt - see api/book_shadow.py. Fail-soft: an error string
-    # replaces the number, and the adopted book figure above is never touched.
+    # SHADOW VT from 2026-09-30 (owner GO via MANAGER, 2026-09-29): #463 sized by its own volatility (book round
+    # 62 V2) - see api/book_shadow.py. (The agreement-tilt line AG ran 09-30..10-01; retired, owner GO via MANAGER
+    # #48.) Fail-soft: an error string replaces the number, and the adopted book figure is never touched.
     try:
         from . import book_shadow as _bs
         vt_block = _bs.vt_block(book_pnl, target_date)
     except Exception as e:
         vt_block = {"error": f"{type(e).__name__}: {e}"}
         _log(f"uid={uid} book_shadow_vt failed: {type(e).__name__}: {e}")
-    try:
-        from . import book_shadow as _bs
-        ag_block = _bs.ag_block(leg_reports, _BOOK, book_pnl)
-    except Exception as e:
-        ag_block = {"error": f"{type(e).__name__}: {e}"}
-        _log(f"uid={uid} book_shadow_ag failed: {type(e).__name__}: {e}")
     report = {
         "legs": leg_reports,
         "blend": {"pnl_usd": blend_pnl},
         "book": book_block,
         "book_shadow": shadow_block,
         "book_shadow_vt": vt_block,
-        "book_shadow_ag": ag_block,
         "live": collect_live_fills(target_date),   # Layer 1: NT demo fills, unattributed
         "status": "runner_done",
         "run_date": target_date.isoformat(),

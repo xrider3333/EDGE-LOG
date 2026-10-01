@@ -1,4 +1,4 @@
-"""api/book_shadow.py - the #463 shadow lines (volatility target, agreement tilt)."""
+"""api/book_shadow.py - the #463 shadow lines (volatility target, weighted-sum lines; AG retired 10-01)."""
 import numpy as np
 import pandas as pd
 
@@ -28,40 +28,6 @@ def test_vt_multiplier_uses_only_days_before():
     assert bs.vt_multipliers(M2).loc[D] == base.loc[D]
 
 
-def _t(entry, exit_, side, pnl):
-    return {"entryIso": f"2026-09-30T{entry}:00-04:00", "exitIso": f"2026-09-30T{exit_}:00-04:00", "side": side, "pnl_usd": pnl}
-
-
-def test_agreement_tilt_rule():
-    reports = {
-        "ORB": {"_trades": [_t("09:40", "15:55", 1, 800.0),       # ORB long, fills at the 09:40 bar's CLOSE (09:45)
-                            _t("09:30", "09:35", -1, -50.0)]},     # an ORB short labelled 09:30 (fills 09:35)
-        "NOISE_422": {"_trades": [_t("10:15", "11:00", 1, 300.0),   # fills 10:15 while ORB long is in -> tilted
-                                  _t("11:30", "12:00", -1, -200.0),  # short while ORB long -> not tilted
-                                  _t("09:30", "09:45", -1, 100.0)]},  # same LABEL as the ORB short: NOISE filled first
-    }
-    tilted = bs.agreement_tilted(reports)
-    got = sorted((k, t["entryIso"][11:16]) for k, t in tilted)
-    # The same-label tie goes to the ORB short (NOISE was already in when ORB filled at 09:35), never to NOISE.
-    assert got == [("NOISE_422", "10:15"), ("ORB", "09:30")]
-    blk = bs.ag_block(reports, {"ORB": 1.0, "NOISE_422": 1.0}, book_pnl=1000.0)
-    assert blk["n_tilted"] == 2
-    assert blk["pnl_usd"] == 1000.0 + 0.5 * (300.0 - 50.0)
-
-
-def test_agreement_tie_never_tilts_noise_on_orb_confirmed_later():
-    # ORB confirms at the CLOSE of the 09:50 bar; NOISE filled at its OPEN - the NOISE size must not depend on it.
-    reports = {"ORB": {"_trades": [_t("09:50", "15:55", 1, 900.0)]},
-               "NOISE_422": {"_trades": [_t("09:50", "10:30", 1, 400.0)]}}
-    assert [(k, t["entryIso"][11:16]) for k, t in bs.agreement_tilted(reports)] == [("ORB", "09:50")]
-
-
-def test_agreement_tilt_orb_entering_inside_noise():
-    reports = {"ORB": {"_trades": [_t("10:00", "15:55", 1, 500.0)]},
-               "NOISE_422": {"_trades": [_t("09:45", "10:30", 1, 200.0)]}}
-    assert [(k, t["entryIso"][11:16]) for k, t in bs.agreement_tilted(reports)] == [("ORB", "10:00")]
-
-
 def test_book463_legs_match_the_paper_legs():
     from api import paper as P
     by = {l["strategy"]: l for l in bs.BOOK463_LEGS}
@@ -83,14 +49,17 @@ def test_sum_shadows_use_real_paper_legs_and_add_up():
     assert blk["missing"] == ["NOISE_422"]
 
 
-def test_agreement_tilt_trade_without_exit_is_open_to_end_of_day():
-    reports = {"ORB": {"_trades": [{"entryIso": "2026-09-30T09:40:00-04:00", "side": 1, "pnl_usd": 1.0}]},
-               "NOISE_422": {"_trades": [_t("10:15", "11:00", 1, 2.0)]}}
-    assert [(k, t["entryIso"][11:16]) for k, t in bs.agreement_tilted(reports)] == [("NOISE_422", "10:15")]
-
-
 def test_stale_lag_counts_business_days_behind_d_minus_1():
     D = pd.Timestamp("2026-10-01")                      # a Thursday
     lag = bs.stale_lag({"a": "2026-09-30", "b": "2026-09-29", "c": "2026-09-25", "d": None}, D)
     assert lag == {"a": 0, "b": 1, "c": 3, "d": 99}
     assert bs.stale_lag({"a": "2026-09-25"}, pd.Timestamp("2026-09-28")) == {"a": 0}   # Monday after a Friday
+
+
+def test_agreement_tilt_line_is_retired():
+    # Owner GO via MANAGER #48 (2026-10-01): the AG line is dropped from the nightly report; it must not come back
+    # by accident (its evidence was a same-bar look-ahead).
+    import inspect
+    from api import paper as P
+    assert not hasattr(bs, "ag_block") and not hasattr(bs, "agreement_tilted")
+    assert "book_shadow_ag" not in inspect.getsource(P)

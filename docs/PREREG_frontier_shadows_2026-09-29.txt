@@ -32,3 +32,5 @@ bar's close and NOISE at its open - a look-ahead. AG now compares FILL times (OR
 an ORB trade the same way filled strictly before it and is still open, and vice versa; a same-label tie can tilt only the ORB trade. On fill times
 the round-62 evidence is gone: tilted ORB/NOISE trades PF 1.35 vs 1.38 for the rest (AG 1.5x: WF 92.8 vs 92.7, LB 177.7 at $30k). The AG line stays
 a pre-registered forward test with its bar unchanged; whether to keep running it is the owner's call.
+
+RETIRED (2026-10-01, owner GO via MANAGER #48): the AG line is dropped from the nightly report after the 10-01 report (it ran 09-30..10-01). Reason: its only evidence was the same-bar look-ahead above. No forward read will be made; Custom ML's AG paired stop is retired with it. VT, KEEL and the weighted-sum lines are unchanged.
