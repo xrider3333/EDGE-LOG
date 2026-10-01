@@ -112,8 +112,10 @@ the signal). A trade row with no trade_id gets no marks at all rather than guess
 
 BACKTEST FILL TIMES (bt_in / bt_out .t) are stamped at the moment the backtest fills: a
 fill at a bar's close is stamped at that bar's END (= the next bar's start), for every
-leg -- ORB's ref_time names the bar it closed on, so it is moved one bar on; NOISE's and
-ENGU-Q's ref_time already is the fill moment.
+leg -- ORB's ref_time names the bar it closed on, so it is moved one bar on (its entry, and
+an exit priced at that bar's close such as the end-of-day flat: a 15:55-bar close fills at
+16:00); NOISE's and ENGU-Q's ref_time already is the fill moment. An ORB stop or target
+exit (a level inside the bar) keeps the bar's start.
 """
 import argparse
 import csv
@@ -413,6 +415,21 @@ def signal_bar(sig, tf, bars_by_day, leg=""):
     return None, "not recorded"
 
 
+def _orb_exit_fill_rule(sig, tf, bars_by_day, leg=""):
+    """"fill bar close" for an ORB EXIT priced at its ref_time bar's close (within
+    PRICE_EXACT) -- the end-of-day flat, ORB_3_6's sc[-1] -- else None. Only the fill TIME
+    uses this: the bar is still not a decision bar, so no exit signal outline is drawn
+    (MANAGER build review 2026-09-30: the 09-28 short's 15:55-bar close 736.53 was shown
+    as a 15:55 exit, four minutes before the book's 15:59:01 flatten, when it filled at
+    16:00)."""
+    px = _num(sig.get("ref_price"))
+    ref = to_et_str(sig.get("ref_time"))
+    if px is None or not ref or not _is_orb(leg or sig.get("leg")):
+        return None
+    b = _bar_index(bars_by_day.get(tf, {}).get(ref[:10], [])).get(_bar_start_for(ref, tf))
+    return "fill bar close" if b is not None and abs(b[4] - px) < PRICE_EXACT else None
+
+
 def _bt_fill(sig, rule, tf):
     """The backtest's fill as {t, px}, stamped at the fill moment (BACKTEST FILL TIMES):
     a "fill bar close" price moves the ref_time bar's start on to that bar's end."""
@@ -534,7 +551,8 @@ def build_mark(trade, sigs, brokers, bars_by_day, shadow=False, wb_from=False):
     if ex:
         t, rule = signal_bar(ex, tf, bars_by_day, leg=ex.get("leg") or leg)
         mark["signal_out"] = {"t": t, "rule": rule}
-        mark["bt_out"] = _bt_fill(ex, rule, tf)
+        fill_rule = _orb_exit_fill_rule(ex, tf, bars_by_day, leg=ex.get("leg") or leg) or rule
+        mark["bt_out"] = _bt_fill(ex, fill_rule, tf)
     else:
         mark["signal_out"] = None
         mark["bt_out"] = None

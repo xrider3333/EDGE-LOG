@@ -233,6 +233,38 @@ def test_orb_signal_bar_is_the_bar_it_was_priced_at(tmp_path):
     assert m["wb_out"] == []
 
 
+def _orb_exit_doc(tmp_path, exit_px, exit_hhmm="15:55"):
+    """The fixture day plus an ORB EXIT row at `exit_hhmm` priced at `exit_px`; the 5m
+    15:55 bar closes at 736.53 (the 09-28 end-of-day flat) and 13:00 is a wide bar a stop
+    level can sit inside."""
+    home = _make_home(tmp_path)
+    special5 = {"10:10": (736.7, 736.7, 735.31, 735.6599),
+                "10:45": (733.39, 733.49, 731.63, 732.33),
+                "13:00": (734.0, 736.9, 733.8, 734.2),
+                "15:55": (736.2, 736.6, 736.1, 736.53)}
+    _write_csv(os.path.join(home, "ohlc", "QQQ_5m.csv"), BAR_HDR, _bars_rows(DAY, 5, "15:55", special5))
+    with open(os.path.join(home, "cloud_signal", "signals.csv"), "a", newline="", encoding="utf-8") as f:
+        csv.writer(f).writerow(["x", "ORB_R6", "EXIT", "short", f"2026-09-28T{exit_hhmm}:00-04:00",
+                                str(exit_px), "136", "strategy_exit", "webull", ORB_ID, "1.0", ""])
+    return qb.build_day_doc(DAY, qb.load_all(qb.default_paths(home)), now=NOW)
+
+
+def test_orb_end_of_day_exit_is_stamped_at_its_bar_end(tmp_path):
+    """MANAGER build review 2026-09-30: ORB's end-of-day flat fills at the LAST bar's close,
+    so the 15:55-bar close 736.53 is a 16:00 fill, not a 15:55 one (and the 1m view must
+    not put it on the 15:55 one-minute candle)."""
+    m = _mark(_orb_exit_doc(tmp_path, 736.53), ORB_ID)
+    assert m["bt_out"] == {"t": "2026-09-28 16:00:00", "px": 736.53}
+    assert m["signal_out"] == {"t": None, "rule": "not recorded"}    # still not a decision bar
+    assert m["signal"] == {"t": "2026-09-28 10:45", "rule": "fill bar close"}
+
+
+def test_orb_stop_exit_inside_its_bar_keeps_the_bar_start(tmp_path):
+    """A stop / target level touched inside the bar is not a close fill: no shift."""
+    m = _mark(_orb_exit_doc(tmp_path, 736.75, exit_hhmm="13:00"), ORB_ID)
+    assert m["bt_out"] == {"t": "2026-09-28 13:00:00", "px": 736.75}
+
+
 def test_enguq_limit_fill_has_no_guessed_signal_bar(tmp_path):
     doc, _ = _doc(tmp_path)
     m = _mark(doc, ENGU_ID)
