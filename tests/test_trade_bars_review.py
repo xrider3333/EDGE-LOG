@@ -175,3 +175,43 @@ def test_sweep_counts_its_reads_into_the_runner_meter(monkeypatch):
     monkeypatch.setattr(tb, "_full_done", set())
     tb.sweep(_D(), "u", log=lambda *_: None, force=True)
     assert got == [("other", 3)]
+
+
+def test_a_record_from_an_older_spec_version_is_rescored_once(monkeypatch):
+    t = _trade()
+    calls = []
+    fake_mod = types.SimpleNamespace(VERSION="ps1.1", NA_NOBAR=NOBAR, NA_NO10BAR="x", NA_NO10="y")
+    monkeypatch.setattr(tb, "_point_score_module", lambda: fake_mod)
+
+    def fake_score(tt, fills=None):
+        calls.append(1)
+        return {"v": "ps1.1", "total": 1, "max": 6, "na_count": 3, "trend": None, "signal_bar": "s",
+                "points": [{"k": "a", "hit": True, "na_reason": None}], "sig": tb.signature(tt)}
+
+    monkeypatch.setattr(tb, "point_score", fake_score)
+    monkeypatch.setattr(tb, "build", lambda *a, **k: (None, "no_bars"))
+    db = _Db()
+    state = {"nt_1": {"sig": tb.signature(t), "complete": True, "covers": True}}
+    old = now = pd.Timestamp("2026-10-01 12:00", tz=ET) + pd.Timedelta(days=30)          # long after the trade
+    t["pointScore"] = {"v": "ps1", "total": 3, "max": 9, "na_count": 0, "points": [], "trend": None,
+                       "signal_bar": "s", "sig": tb.signature(t)}
+    tb.publish(db, "u", [("nt_1", t)], log=lambda *_: None, state=state, fills=({}, {}), now=old)
+    assert len(calls) == 1 and db.store["/users/u/trades/nt_1"]["pointScore"]["v"] == "ps1.1"
+    t["pointScore"] = db.store["/users/u/trades/nt_1"]["pointScore"]
+    tb.publish(db, "u", [("nt_1", t)], log=lambda *_: None, state=state, fills=({}, {}), now=now)
+    assert len(calls) == 1                                                              # current: left alone
+
+
+def test_the_scorer_is_reloaded_when_its_file_changes(tmp_path, monkeypatch):
+    import os
+    f = tmp_path / "point_score.py"
+    f.write_text("VERSION = 'ps1'\n")
+    monkeypatch.setattr(tb, "PS_PATH", str(f))
+    monkeypatch.setattr(tb, "_PS", None)
+    monkeypatch.setattr(tb, "_PS_MTIME", None)
+    assert tb._point_score_module().VERSION == "ps1"
+    assert tb._point_score_module() is tb._point_score_module()                         # unchanged: cached
+    f.write_text("VERSION = 'ps1.1'\n")
+    st = os.stat(f)
+    os.utime(f, ns=(st.st_atime_ns, st.st_mtime_ns + 10**9))
+    assert tb._point_score_module().VERSION == "ps1.1"

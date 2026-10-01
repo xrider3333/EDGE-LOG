@@ -336,18 +336,25 @@ def _save_state(state, path=STATE_PATH):
 #    owned by DISCRECTIONALRY-TO-ALGO). Scored in the same pass as the chart, and ONLY the pointScore field is
 #    merged onto the trade - setup, grade and notes are never touched.
 _PS = None
+_PS_MTIME = None
 _PS_SRC = None
+PS_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools", "point_score.py")
 
 
 def _point_score_module():
-    global _PS
-    if _PS is None:
+    """tools/point_score.py, loaded by path and RE-loaded whenever the file changes: the runner lives
+    for days, and a spec bump (ps1 -> ps1.1 on 2026-10-01) must reach it without a restart."""
+    global _PS, _PS_MTIME
+    try:
+        mt = os.stat(PS_PATH).st_mtime_ns
+    except OSError:
+        mt = None
+    if _PS is None or (mt is not None and mt != _PS_MTIME):
         import importlib.util
-        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        spec = importlib.util.spec_from_file_location("point_score", os.path.join(root, "tools", "point_score.py"))
+        spec = importlib.util.spec_from_file_location("point_score", PS_PATH)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        _PS = mod
+        _PS, _PS_MTIME = mod, mt
     return _PS
 
 
@@ -428,7 +435,10 @@ def publish(db, uid, docs, log=print, dry_run=False, force=False, state=None, fi
             recent = _x is not None and now < _x + pd.Timedelta(hours=PS_RETRY_HOURS)
             # re-score while the stored score is still waiting on bars (all NA / signal minute
             # missing) and the trade is recent - not only while the chart is incomplete
-            ps_due = force or ps.get("sig") != sig or (recent and _ps_pending(ps, _ps_retry_reasons(_point_score_module())))
+            mod = _point_score_module()
+            # a record from an older spec version is re-scored once (DISCRECTIONALRY-TO-ALGO 2026-10-01)
+            stale_v = bool(ps) and ps.get("v") != getattr(mod, "VERSION", ps.get("v"))
+            ps_due = force or ps.get("sig") != sig or stale_v or (recent and _ps_pending(ps, _ps_retry_reasons(mod)))
         if not force and st.get("sig") == sig and (st.get("complete") or st.get("skip")) and not ps_due:
             continue
         if ps_due:
