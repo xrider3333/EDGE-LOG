@@ -64,8 +64,23 @@ python tools/import_alpaca_stocks.py --symbols AAPL --timeframe 1Min --start 202
 ```
 
 `--check` fetches a handful of daily AAPL bars and exits, which is the cheapest proof that a
-key works. Re-running any import is additive and idempotent: it extends the matching master
-and rows already stored win on overlap, so a repeat pull can never rewrite history.
+key works.
+
+Re-running an import is additive while the overlap AGREES: it extends the matching master and
+the rows already stored win on a duplicate timestamp.
+
+**When the overlap DISAGREES, the split basis has changed and the master is rebased, not
+extended.** `adjustment=split` re-adjusts the whole history as of the moment of the query, so
+after a split lands between two pulls the stored bars are on the old basis and the new ones on
+the new basis. Splicing them leaves a 10:1 cliff mid-series that every breakout and gap rule
+reads as a real crash, and because rows only grow the write guard never sees it. So a
+disagreement beyond 0.5% on the shared bars replaces the stored history wholesale, says so in
+the log, and is recorded as a deliberate rewrite. If the new pull does not reach as far back as
+the stored one, it refuses instead and tells you which `--start` to re-run with, rather than
+dropping history.
+
+(An earlier version of this page promised that "a repeat pull can never rewrite history". That
+was the wrong promise for split-adjusted data and it is what the rebasing check fixes.)
 
 ## What is NOT done
 

@@ -124,11 +124,37 @@ def fetch_bars(sym, timeframe, start, end, key, secret, feed="sip", adjustment="
     return out.drop_duplicates(subset="time").sort_values("time").reset_index(drop=True)
 
 
+# NYSE closes at 13:00 ET on about three sessions a year. SIP keeps printing afterwards, and
+# those prints are extended-hours trades, so a master labelled "rth" that keeps them is not the
+# cash session. The futures RTH masters these results get compared against have no such bars
+# (MANAGER review 2026-09-30, finding 5). Dates are the half-days through 2027; add as needed -
+# an unknown year simply keeps the normal 16:00 close, which is the safe direction for a filter
+# that is only ever trimming.
+EARLY_CLOSE_DATES = {
+    "2016-11-25", "2016-12-23", "2017-07-03", "2017-11-24", "2018-07-03", "2018-11-23",
+    "2018-12-24", "2019-07-03", "2019-11-29", "2019-12-24", "2020-11-27", "2020-12-24",
+    "2021-11-26", "2022-11-25", "2023-07-03", "2023-11-24", "2024-07-03", "2024-11-29",
+    "2024-12-24", "2025-07-03", "2025-11-28", "2025-12-24", "2026-07-03", "2026-11-27",
+    "2026-12-24", "2027-07-02", "2027-11-26", "2027-12-24",
+}
+EARLY_CLOSE_MIN = 13 * 60        # 13:00 ET
+REGULAR_CLOSE_MIN = 16 * 60      # 16:00 ET
+
 def rth_filter(df):
-    """Keep only the 09:30-16:00 ET cash session."""
+    """Keep only the cash session, ending at the day's ACTUAL close.
+
+    16:00 ET normally, 13:00 ET on an NYSE half day. Filtering every day to 16:00 left
+    13:00-15:55 extended-hours prints inside masters labelled "rth", where a breakout rule's
+    end-of-day exit could land on a thin post-close print.
+    """
+    if df is None or not len(df):
+        return df
     et = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
     mins = et.dt.hour * 60 + et.dt.minute
-    return df[(mins >= 9 * 60 + 30) & (mins < 16 * 60)].reset_index(drop=True)
+    close = pd.Series(REGULAR_CLOSE_MIN, index=df.index)
+    early = et.dt.strftime("%Y-%m-%d").isin(EARLY_CLOSE_DATES)
+    close[early.values] = EARLY_CLOSE_MIN
+    return df[(mins >= 9 * 60 + 30) & (mins < close)].reset_index(drop=True)
 
 
 def detect_session(df):
@@ -138,22 +164,78 @@ def detect_session(df):
     return "rth" if inside > 0.98 else "eth"
 
 
+SPLIT_REBASE_TOLERANCE = 0.005      # 0.5% - far below any split, far above a cent of rounding
+
+
+def split_basis_changed(cur, new, tol=SPLIT_REBASE_TOLERANCE):
+    """Do the bars both pulls share disagree enough that the split basis must have changed?
+
+    WHY THIS MATTERS (MANAGER review 2026-09-30, finding 4). Alpaca's `adjustment=split`
+    re-adjusts the WHOLE history as of the moment of the query. So after a split lands between
+    two pulls, the stored bars are on the old basis and the new ones on the new basis. The
+    additive "existing rows win" rule - right for a non-adjusted futures master - then leaves a
+    10:1 cliff mid-series that every breakout and gap rule reads as a real crash. It is silent:
+    rows only grow, so the write guard's shrink check never sees it. Reproduced with NVDA's 2024
+    10:1 split: stored closes 1150 and 1220 sitting directly before 120.9 and 121.8.
+
+    Returns (changed, detail) where detail names the worst disagreeing bar for a human.
+    """
+    if cur is None or new is None or not len(cur) or not len(new):
+        return False, ""
+    j = cur.merge(new, on="time", how="inner", suffixes=("_old", "_new"))
+    if not len(j):
+        return False, ""                     # no overlap, so nothing to compare
+    old_c = j["close_old"].astype(float).abs()
+    ratio = (j["close_old"].astype(float) - j["close_new"].astype(float)).abs() / old_c.where(
+        old_c > 0, 1.0)
+    worst = float(ratio.max())
+    if worst <= tol:
+        return False, ""
+    i = int(ratio.idxmax())
+    when = pd.to_datetime(int(j["time"].iloc[i]), unit="s", utc=True).tz_convert("US/Eastern")
+    return True, ("the %d bar(s) both pulls share disagree by up to %.1f%% - worst at %s, "
+                  "stored %.4f against %.4f now"
+                  % (len(j), worst * 100, str(when)[:16],
+                     float(j["close_old"].iloc[i]), float(j["close_new"].iloc[i])))
+
 def upsert_master(conn, inst, tf, src, sess, new):
     """Create or EXTEND the master for (instrument, timeframe, source). Existing rows win
     on overlap — same additive contract as import_nt_ohlc.py."""
     row = conn.execute(
         "SELECT id, filename FROM csv_files WHERE is_master=1 AND instrument=? "
         "AND timeframe=? AND source=?", (inst, tf, src)).fetchone()
+    rebased_note = None
     if row:
         mid, fn = row
         cur = pd.read_csv(os.path.join(UP, fn))
-        merged = (pd.concat([cur, new], ignore_index=True)
-                    .drop_duplicates(subset="time")
-                    .sort_values("time").reset_index(drop=True))
+        changed, detail = split_basis_changed(cur, new)
+        if changed:
+            # The stored history is on a stale price basis. Keeping it would splice two bases
+            # into one series; the only honest options are to replace it wholly or to stop.
+            covers = (int(new["time"].min()) <= int(cur["time"].min())
+                      and int(new["time"].max()) >= int(cur["time"].max()))
+            if not covers:
+                log("  %s %s (%s): REFUSED - the split basis changed (%s), and this pull does "
+                    "not cover the stored span, so replacing it would drop history. Re-run with "
+                    "--start at or before %s to rebuild it."
+                    % (inst, tf, src, detail,
+                       str(pd.to_datetime(int(cur["time"].min()), unit="s", utc=True).date())))
+                return
+            merged = new.sort_values("time").reset_index(drop=True)
+            rebased_note = ("REBASED onto the new split basis - %s. The stored bars were "
+                            "replaced wholesale rather than spliced." % detail)
+            log("  %s %s (%s): %s" % (inst, tf, src, rebased_note))
+        else:
+            merged = (pd.concat([cur, new], ignore_index=True)
+                        .drop_duplicates(subset="time")
+                        .sort_values("time").reset_index(drop=True))
     else:
         mid, fn = None, f"master_{uuid.uuid4().hex[:8]}.csv"
         merged = new
-    write_master_csv(merged, os.path.join(UP, fn))
+    # A rebase legitimately replaces history and may hold fewer rows, so it has to say so;
+    # any other write still has to grow.
+    write_master_csv(merged, os.path.join(UP, fn), allow_shrink=bool(rebased_note),
+                     shrink_reason=(rebased_note or ""))
     d0 = str(pd.to_datetime(merged["time"].min(), unit="s", utc=True).tz_convert("US/Eastern").date())
     d1 = str(pd.to_datetime(merged["time"].max(), unit="s", utc=True).tz_convert("US/Eastern").date())
     if mid:

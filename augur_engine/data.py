@@ -52,11 +52,21 @@ def list_masters():
 # changes. An adjusted master is a research artefact whose absolute price levels differ from
 # the tradeable front contract by thousands of points; handing one to a live service by
 # accident is the worst failure this registry can produce.
-ADJUSTED_SOURCE_PREFIXES = ("db_adj", "db_fadj")
+# Sources an UNPINNED lookup must never return. Two different conventions live here:
+#   db_adj / db_fadj - roll-corrected futures, whose LEVELS differ from the tradeable price;
+#   alpaca_          - SPLIT-adjusted stock bars, the opposite convention to the
+#                      deliberately non-adjusted futures masters.
+# alpaca_ was added 2026-10-01 (MANAGER review finding 10): "alpaca_split_rth" sorts BEFORE
+# "nt_noadj_rth" and "tv", so once a stock master existed for a ticker the library already
+# held - QQQ 1m/5m being the live case - every unpinned find_master for it would have
+# returned split-adjusted stock data instead, including api/bars.py's fallback. Same shape
+# as the September regression that re-pointed the live gate at back-adjusted prices.
+ADJUSTED_SOURCE_PREFIXES = ("db_adj", "db_fadj", "alpaca_")
 
 
 def is_adjusted_source(source):
-    """True for a roll-corrected master's source tag."""
+    """True for a source an unpinned lookup must not substitute: roll-corrected futures
+    (db_adj/db_fadj) or split-adjusted stock bars (alpaca_). Name the source to get one."""
     return str(source or "").startswith(ADJUSTED_SOURCE_PREFIXES)
 
 

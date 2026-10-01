@@ -252,17 +252,25 @@ def test_re_running_extends_a_master_and_existing_rows_win(tmp_path):
     alp.upsert_master(conn, "AAPL", "5m", "alpaca_split_rth", "rth", first)
     conn.commit()
 
-    # an overlapping re-pull with DIFFERENT values for a bar we already hold
-    second = pd.DataFrame({"time": [1767366900, 1767367200], "open": [99.0, 3.0], "high": [99.0, 3.0],
-                           "low": [99.0, 3.0], "close": [99.0, 3.0], "volume": [99, 30]})
+    # An overlapping re-pull that AGREES on the shared bar: additive, and the stored copy
+    # wins on the duplicate. Volume is allowed to be restated upward by the vendor.
+    #
+    # CORRECTED 2026-10-01 (MANAGER review finding 4). This test used to feed a shared bar whose
+    # close jumped from 2.0 to 99.0 and assert the stored value won - which is exactly the
+    # defect: `adjustment=split` re-adjusts the whole history as of the query, so a disagreeing
+    # overlap means the SPLIT BASIS changed and keeping the old rows splices two bases into one
+    # series. "Existing rows win" is the right rule only when the overlap agrees; a disagreement
+    # is now detected and the master rebased (tests/test_alpaca_loader_review_fixes.py).
+    second = pd.DataFrame({"time": [1767366900, 1767367200], "open": [2.0, 3.0], "high": [2.0, 3.0],
+                           "low": [2.0, 3.0], "close": [2.0, 3.0], "volume": [25, 30]})
     alp.upsert_master(conn, "AAPL", "5m", "alpaca_split_rth", "rth", second)
     conn.commit()
 
     fn = conn.execute("SELECT filename, rows FROM csv_files WHERE instrument='AAPL'").fetchone()
     stored = pd.read_csv(os.path.join(str(tmp_path), fn[0]))
     assert len(stored) == 3 and fn[1] == 3, "one new bar, not a duplicate"
-    kept = stored[stored["time"] == 1767366900]["close"].iloc[0]
-    assert kept == 2.0, "the row we already had must win on overlap"
+    kept = stored[stored["time"] == 1767366900]["volume"].iloc[0]
+    assert kept == 20, "the row we already had must win on an agreeing overlap"
 
 
 def test_nothing_in_this_file_reaches_the_network():
