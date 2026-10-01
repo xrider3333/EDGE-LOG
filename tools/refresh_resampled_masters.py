@@ -92,6 +92,7 @@
 #   python tools/refresh_resampled_masters.py --db "C:\...\optimizer_history.db" --uploads "C:\...\augur_uploads"
 #   python tools/refresh_resampled_masters.py --apply     # actually writes (after the repro check passes)
 import argparse
+import glob
 import os
 import shutil
 import sqlite3
@@ -279,6 +280,10 @@ def find_masters(conn):
 # How far back the upstream feed may still restate a bar. Yahoo revises recent intraday bars -
 # volume especially - for several days after the fact. 10 days is ~7 observed plus margin.
 UNSETTLED_DAYS = 10
+
+# How many dated .bak copies of each master to keep. Nightly runs make one per master
+# per day inside the OneDrive-synced uploads folder, so this cannot be unbounded.
+KEEP_BACKUPS = 3
 
 
 def split_settled(existing, parent_last_t, days=UNSETTLED_DAYS):
@@ -521,6 +526,19 @@ def apply_one(conn, uploads_dir, info, existing, new_rows):
     stamp = datetime.now().strftime("%Y%m%d")
     bak = f"{mpath}.bak-{stamp}"
     shutil.copy2(mpath, bak)
+    # KEEP A FEW, NOT ALL (MANAGER review 2026-09-30, finding 9). This used to be a
+    # hand-run tool; nightly it drops a full copy of every coarse master every day into
+    # augur_uploads, which OneDrive then syncs - about 0.33 GB per run and nothing ever
+    # removed them. Three is enough to undo a bad run by hand.
+    try:
+        old = sorted(glob.glob(mpath + ".bak-*"))[:-KEEP_BACKUPS]
+        for p in old:
+            os.remove(p)
+        if old:
+            print("  pruned %d old backup copy(ies) of %s"
+                  % (len(old), os.path.basename(mpath)))
+    except OSError as e:
+        print("  could not prune old backups of %s: %s" % (os.path.basename(mpath), e))
     merged = pd.concat([existing, new_rows], ignore_index=True).sort_values("time").reset_index(drop=True)
     write_master_csv(merged, mpath)
     date_to = str(pd.to_datetime(int(merged["time"].max()), unit="s", utc=True)

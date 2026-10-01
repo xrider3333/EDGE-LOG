@@ -55,6 +55,8 @@ import pandas as pd
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
+
+from augur_engine.master_write import write_master_csv  # noqa: E402
 from augur_engine.paths import UPLOADS, DB_PATH  # noqa: E402
 
 # GLD/TLT/IWM/QQQ are the r25 book's ETF legs; SPY is a control (never in the book).
@@ -121,7 +123,7 @@ def build(tk, end, dry_run=False):
 
     path = os.path.join(UPLOADS, fname)
     os.makedirs(UPLOADS, exist_ok=True)
-    out.to_csv(path, index=False)
+    write_master_csv(out, path)
     os.makedirs(CACHE_DIR, exist_ok=True)
     shutil.copy2(path, os.path.join(CACHE_DIR, fname))
     return dict(name=f"{tk} 1d (Yahoo total-return)", filename=fname, instrument=tk,

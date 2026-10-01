@@ -132,7 +132,8 @@ def _masters():
         try:
             rows = pd.read_sql(
                 "SELECT instrument,timeframe,source,filename FROM csv_files "
-                "WHERE is_master=1 AND source LIKE 'db_noadj_%' "
+                "WHERE is_master=1 AND (source LIKE 'db_noadj_%' "
+                "              OR source LIKE 'db_adj_%' OR source LIKE 'db_fadj_%') "
                 "ORDER BY instrument,timeframe", conn).to_dict("records")
         finally:
             conn.close()

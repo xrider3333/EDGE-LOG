@@ -147,6 +147,44 @@ def coarse_refresh_due(now=None, state_path=None):
         return True
 
 
+def _trouble(out):
+    """Lines a caller must see when the child process did not come back clean.
+
+    MANAGER review 2026-09-30, finding 1: this used to keep only a few matching STDOUT lines
+    and throw stderr away entirely, so a tool that died on its second master still produced a
+    list that read like success - and the runner then logged 'rebuilt'. An exit code and the
+    tail of stderr are the only things that distinguish a partial build from a whole one.
+    """
+    if getattr(out, "returncode", 0) == 0:
+        return []
+    tail = [ln.strip() for ln in (getattr(out, "stderr", "") or "").splitlines() if ln.strip()]
+    msg = ["FAILED: the refresh tool exited with code %s - this run is INCOMPLETE and the day "
+           "is NOT marked done, so the next pass will try again" % out.returncode]
+    return msg + ["  " + ln for ln in tail[-6:]]
+
+
+def _mark_done_if_it_counts(returncode, now=None, state_path=None):
+    """Write the once-a-day marker only when the run both SUCCEEDED and was late enough to be
+    the day's real refresh.
+
+    Two separate ways the old rule lost a refresh:
+      - it marked the day done even when the tool had failed (finding 1), so a broken build
+        blocked the retry until the next evening;
+      - a FORCED run at startup marked the day done whatever the time (finding 2), so a restart
+        at 15:08 ET consumed the evening slot and every coarse and roll-corrected master then
+        missed the last hour of the session until the following night.
+    A forced run before the cutoff is still useful - it stops a fresh fleet serving stale data -
+    it just is not the day's refresh, so it leaves the marker alone.
+    """
+    if returncode != 0:
+        return False
+    n = now or _et_now()
+    if (n.hour, n.minute) < COARSE_AFTER_ET:
+        return False
+    _mark_coarse_done(n, state_path)
+    return True
+
+
 def _mark_coarse_done(now=None, state_path=None):
     now = now or _et_now()
     try:
@@ -172,9 +210,11 @@ def run_coarse_refresh(force=False, now=None, state_path=None):
     out = subprocess.run([sys.executable, tool, "--apply"], cwd=ROOT,
                          capture_output=True, text=True, timeout=1800)
     lines = [ln.strip() for ln in (out.stdout or "").splitlines()
-             if ln.strip().startswith(("NOADJ_", "REPAIRED", "WARNING", "STOPPING"))
+             if ln.strip().startswith(("NOADJ_", "REPAIRED", "WARNING", "STOPPING",
+                                       "NOT WRITTEN", "FAILED"))
              or ": backed up ->" in ln]
-    _mark_coarse_done(now, state_path)
+    lines += _trouble(out)
+    _mark_done_if_it_counts(out.returncode, now, state_path)
     return lines
 
 
@@ -217,8 +257,10 @@ def run_adjusted_refresh(force=False, now=None, state_path=None):
                          capture_output=True, text=True, timeout=3600)
     lines = [ln.strip() for ln in (out.stdout or "").splitlines()
              if "-> ADJ_" in ln or "-> FADJ_" in ln or "refusing" in ln.lower()
-             or ln.strip().startswith(("NOTE:", "ERROR"))]
-    _mark_coarse_done(now, state_path)
+             or ln.strip().startswith(("NOTE:", "ERROR", "FAILED"))
+             or "were NOT written" in ln]
+    lines += _trouble(out)
+    _mark_done_if_it_counts(out.returncode, now, state_path)
     return lines
 
 

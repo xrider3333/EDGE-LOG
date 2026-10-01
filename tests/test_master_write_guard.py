@@ -28,9 +28,26 @@ if ROOT not in sys.path:
 from augur_engine.master_write import (MasterShrank, read_row_count,  # noqa: E402
                                        write_master_csv)
 
-WRITERS = ("tools/refresh_noadj_yahoo.py", "tools/refresh_resampled_masters.py",
-           "tools/build_adjusted_masters.py", "tools/import_nt_ohlc.py",
-           "tools/import_alpaca_stocks.py")
+def _discover_writers():
+    """Every tool that writes a registered master, found by reading the tree.
+
+    A hard-coded list was the first version of this and it was already wrong within a day:
+    tools/backfill_1m_from_10s.py and tools/build_etf_masters.py both wrote masters with a bare
+    to_csv and neither was listed (MANAGER review 2026-09-30, finding 8). A new writer must
+    fail this file by existing, not by someone remembering to add it.
+    """
+    import glob
+    found = []
+    for p in sorted(glob.glob(os.path.join(ROOT, "tools", "*.py"))):
+        src = open(p, encoding="utf-8", errors="replace").read()
+        touches_registry = ("is_master" in src or "csv_files" in src)
+        writes_a_frame = (".to_csv(" in src or "write_master_csv(" in src)
+        if touches_registry and writes_a_frame:
+            found.append("tools/" + os.path.basename(p))
+    return found
+
+
+WRITERS = _discover_writers()
 
 
 def _frame(n, start=1_700_000_000):

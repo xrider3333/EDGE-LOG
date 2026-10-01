@@ -26,6 +26,8 @@ import pandas as pd
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 UP = os.path.join(ROOT, "augur_uploads")
+
+from augur_engine.master_write import write_master_csv  # noqa: E402
 DB = os.path.join(ROOT, "optimizer_history.db")
 
 # Order-flow columns the 10s capture carries. They sum over the minute; the plain
@@ -209,7 +211,7 @@ def main():
     if not len(fresh):
         print("\nNothing new — master already covers the 10s span.")
         return
-    merged.to_csv(p1m, index=False)
+    write_master_csv(merged, p1m)
     print(f"\nWrote {p1m}")
 
 

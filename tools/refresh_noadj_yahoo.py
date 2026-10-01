@@ -93,6 +93,7 @@ def main(now_s=None):
     masters = conn.execute(
         "SELECT id,filename,instrument,timeframe,session FROM csv_files "
         "WHERE is_master=1 AND source LIKE 'db_noadj%'").fetchall()
+    failures = []        # (filename, reason) - named at the end and in the exit code
     for mid, fn, inst, tf, sess in masters:
         if inst not in YTK or tf not in YINT:
             print(f"  skip {fn} (no Yahoo support for {inst} {tf})"); continue
@@ -133,14 +134,30 @@ def main(now_s=None):
         # ATOMIC, and refuses to lose rows. A bare to_csv here truncated NOADJ_NQ_5m_ETH
         # to 625,491 of 1,144,508 rows on 2026-09-29 - a valid CSV that just stopped early,
         # which the next refresh then appended to and blessed in the registry.
-        write_master_csv(merged, p)
+        # ONE FAILURE MUST NOT COST THE OTHERS (MANAGER review 2026-09-30, finding 7).
+        # os.replace onto a master a backtest has open raises PermissionError, and the
+        # guard raises when a write would lose rows. Before this, either one ended the
+        # whole loop - and NQ 5m RTH, the master pushed to the box for the live KEEL
+        # sizing, sorts late enough to be a likely casualty.
+        try:
+            write_master_csv(merged, p)
+        except Exception as _we:
+            failures.append((fn, "%s: %s" % (type(_we).__name__, _we)))
+            print(f"  {fn}: NOT WRITTEN - {type(_we).__name__}: {_we}. "
+                  f"Carrying on with the next master.")
+            continue
         d1 = str(pd.to_datetime(merged["time"].max(), unit="s", utc=True).tz_convert("US/Eastern").date())
         conn.execute("UPDATE csv_files SET rows=?, date_to=? WHERE id=?", (len(merged), d1, mid))
         conn.commit()
         print(f"  {fn}: +{len(new):,} bars -> {len(merged):,} total, now through {d1}")
     conn.close()
+    if failures:
+        print("%d master(s) were NOT written:" % len(failures))
+        for fn, why in failures:
+            print("   %s - %s" % (fn, why))
     print("Done. Non-adj masters extended from Yahoo (free, raw front-month).")
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)

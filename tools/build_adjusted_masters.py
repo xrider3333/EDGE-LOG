@@ -277,6 +277,7 @@ def main():
         return 1
 
     total_est = 0
+    failures = []          # (filename, reason) - reported at the end AND in the exit code
     for src in srcs:
         tf = src["timeframe"]
         if tf not in TF_SECONDS:
@@ -304,19 +305,38 @@ def main():
                     print("     SKIP - %s is not on disk, nothing to re-register" % fn)
                     continue
             else:
-                write_atomic(os.path.join(a.uploads, fn), frame)
+                # ONE REFUSED OR LOCKED WRITE MUST NOT SKIP THE OTHER 18 (MANAGER review
+                # 2026-09-30, finding 1). os.replace onto a master another process has
+                # open raises PermissionError, and the write guard raises MasterShrank
+                # when a parent legitimately shrank. Either used to kill the loop at the
+                # first casualty - and because the '-> ADJ_' line above is printed BEFORE
+                # the write, the log still read like success. Report on STDOUT (stderr is
+                # thrown away by the caller), carry on, and exit non-zero at the end.
+                try:
+                    write_atomic(os.path.join(a.uploads, fn), frame)
+                except Exception as _we:
+                    failures.append((fn, "%s: %s" % (type(_we).__name__, _we)))
+                    print("     FAILED %s - %s: %s. Carrying on with the next master."
+                          % (fn, type(_we).__name__, _we))
+                    continue
             what, rid = register(conn, fn, src, frame, st, method)
             conn.commit()
             print("     %s, %s in the registry as id %s"
                   % ("re-registered" if a.reregister_only else "written", what, rid))
     conn.close()
+    if failures:
+        print("\n%d master(s) were NOT written:" % len(failures))
+        for fn, why in failures:
+            print("   %s - %s" % (fn, why))
     if total_est:
         print("\nNOTE: %d of the switches applied carry an ESTIMATED offset (the 2026 tail - "
               "the raw feed stops 2026-06-07). A result that spans one is not measured data; "
               "see docs/ROLL_ADJUSTED_MASTERS.md." % total_est)
     if not (a.apply or a.reregister_only):
         print("\nDry run - nothing written. Re-run with --apply.")
-    return 0
+    # A caller that only reads stdout lines cannot tell a partial build from a whole one,
+    # so the exit code has to say. The nightly refresh keys its day marker on this.
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":
