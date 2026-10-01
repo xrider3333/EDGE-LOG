@@ -829,7 +829,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.957';
+const VERSION='73.958';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -847,7 +847,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.957',date:'2026-09-30',notes:['PASTE BOX ASKS BEFORE PUTTING A SNAPSHOT ON A FUTURES TRADE. A Webull stock trade can take up to 30 minutes to reach the journal, so a stock snapshot pasted right away used to land on your newest futures trade. Now the box asks: FILE ON that futures trade, pick another trade, or HOLD FOR A STOCK TRADE - a held link goes on the next stock trade that syncs (within a day).','UNDO after moving a pasted link now puts back the link it replaced, and a move is saved in one step.']},
+const CHANGELOG=[{v:'73.958',date:'2026-09-30',notes:['TRADING LOG IMPORT, PDF statement: a statement that does not end flat is no longer paired into trades. Its fills are listed and nothing is imported, because a position carried in and still open could turn into made-up trades the other way.','PDF statement: a trade that already matches its journal copy exactly is no longer taken over by a bigger trade that is missing a leg. The bigger trade is reported as a different size instead of the smaller one being saved twice.','PDF statement: an evening trade (entered at or after 6 pm New York) now gets the fee the statement charged for its trade date instead of $0.','PDF statement: trades it adds are saved under the statement account number, so a re-import never adds them again when the Settings account differs.','Contract sizes added for M2K, MYM, 6E and M6E. A statement fill for any contract without a known size is listed and not imported, instead of being priced like a stock.']},
+{v:'73.957',date:'2026-09-30',notes:['PASTE BOX ASKS BEFORE PUTTING A SNAPSHOT ON A FUTURES TRADE. A Webull stock trade can take up to 30 minutes to reach the journal, so a stock snapshot pasted right away used to land on your newest futures trade. Now the box asks: FILE ON that futures trade, pick another trade, or HOLD FOR A STOCK TRADE - a held link goes on the next stock trade that syncs (within a day).','UNDO after moving a pasted link now puts back the link it replaced, and a move is saved in one step.']},
 {v:'73.956',date:'2026-09-30',notes:['SCORES: 2 trades from 2026-09-30 scored, 0 marked NA (no price data).']},{v:'73.954',date:'2026-09-30',notes:['POINTS IS CONTEXT, NOT A FILTER. The POINTS hover and the trade panel now say so: over your first 53 scored trades, more points have not meant better results yet (the pre-registered check found no link). On a phone the prices each point was checked against now wrap instead of being cut off.']},
 {v:'73.953',date:'2026-09-30',notes:['POINTS ON EVERY FUTURES TRADE. A new POINTS column in the HOME ledger shows your point score, for example 8/9: close above the 200 EMA on 10s, 1m, 5m and 30m; above the low, close and high of the previous day session; the biggest green body since the low of the day; and the biggest volume since that low - all read on the last closed 1-minute candle before your entry.','Hover the score for the list, or open the trade: the panel shows every point with a tick or a cross and the price it was checked against. A point that could not be checked is NA and lowers the maximum instead of counting as a miss (7/8 = one NA). The daily-trend point is shown on its own and is not in the score. All 53 past futures trades are scored; stocks follow once the Alpaca key is saved.']},
 {v:'73.951',date:'2026-09-30',notes:['OPEN IN TV. Every trade panel on HOME has an OPEN IN TV button: TradingView opens on that symbol at 1-minute and the trade date and time are copied - press Alt+G there and paste to jump to the trade. (TradingView has no link that opens a chart at a time, and EL never drives TradingView for you - its rules ban bots.)','PASTE BOX. Paste a TradingView snapshot link into the new box in the HOME activity toolbar and it goes on your newest trade that has no chart link yet. A note says which trade it went on, with UNDO and a list to move it to another trade.']},
@@ -1857,8 +1858,8 @@ const CHANGELOG=[{v:'73.957',date:'2026-09-30',notes:['PASTE BOX ASKS BEFORE PUT
 window._setStage('SCRIPT START');
 </script>
 <script>
-const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001}};
-const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95};
+const PRESETS={ES:{tv:12.50,ts:0.25},MES:{tv:1.25,ts:0.25},NQ:{tv:5.00,ts:0.25},MNQ:{tv:0.50,ts:0.25},CL:{tv:10.00,ts:0.01},GC:{tv:10.00,ts:0.10},SI:{tv:25.00,ts:0.005},ZB:{tv:31.25,ts:0.03125},RTY:{tv:5.00,ts:0.10},YM:{tv:5.00,ts:1.00},MGC:{tv:1.00,ts:0.10},MCL:{tv:1.00,ts:0.01},ZN:{tv:31.25,ts:0.015625},ZC:{tv:12.50,ts:0.25},NG:{tv:10.00,ts:0.001},M2K:{tv:0.50,ts:0.10},MYM:{tv:0.50,ts:1.00},'6E':{tv:6.25,ts:0.00005},M6E:{tv:1.25,ts:0.0001}};
+const DEFAULT_FEES={ES:4.30,MES:0.95,NQ:4.30,MNQ:0.95,CL:4.30,GC:4.30,SI:4.30,ZB:4.30,RTY:4.30,YM:4.30,ZN:4.30,ZC:4.30,NG:4.30,MGC:0.95,MCL:0.95,M2K:0.95,MYM:0.95,'6E':4.30,M6E:0.95};
 const GRADES=['—','A+','A','B','C','D','F'];
 const TIMEFRAMES=['—','5s','10s','15s','30s','1m','2m','3m','5m','10m','15m','30m','1h','2h','4h','Daily','Weekly'];
 // A trade can carry more than one timeframe (owner: this trade was 10s and 1m). It is kept in
@@ -4676,7 +4677,12 @@ async function importPDF(file,opts){
   const acctM=stmtText.match(/Account Number:\s*([A-Za-z0-9-]+)/i),stmtAcct=acctM?acctM[1]:'';
   // "No Open Trade Equity": the account is flat at the end of the statement, so any contracts its
   // fills do not net out were already open when it started.
-  const endFlat=/No Open Trade Equity/i.test(stmtText);
+  // A statement that does NOT end flat lists its open positions under Open Trade Equity instead, but
+  // no statement with an open position has been seen yet (all of the owner's end flat), so that list
+  // is not read. Without it the starting position of every contract is unknown - one carried in AND
+  // still open nets to zero, and pairing it from flat made up trades the other way (review
+  // 2026-09-30 #3) - so nothing on such a statement is paired: every fill is listed, none imported.
+  const endFlat=/No\s+Open\s+Trade\s+Equity/i.test(stmtText);
   // ── Pair fills into round-trip trades ─────────────────────────
   // Each contract month is its own position (a roll day holds MESM6 and MESU6 at once), paired in
   // time order across the WHOLE statement - never restarted flat at New York midnight, which turned
@@ -4686,9 +4692,15 @@ async function importPDF(file,opts){
   // leaves zero and closes when it returns to zero.
   const rtByKey={},byCode={};
   pdfFills.forEach(f=>{const e=_impET(f.st,Zp.tz);(byCode[f.code]=byCode[f.code]||[]).push({ms:e.ms,time:e.hm,date:e.date,sym:f.sym,code:f.code,side:f.side,price:f.price,qty:f.qty,orderId:f.orderId});});
+  // every fill of a contract that cannot be paired, listed so the owner sees what was left out
+  const listFills=(cf,why)=>cf.forEach(f=>result.pdfOpen.push({date:f.date,symbol:f.sym,code:f.code,fill:why,
+    what:(f.side==='BUY'?'bought ':'sold ')+f.qty+' at '+f.price+', '+f.time}));
   Object.values(byCode).forEach(cf=>{
     cf.sort((a,b)=>a.ms-b.ms);
-    const seed=endFlat?-cf.reduce((s,f)=>s+(f.side==='BUY'?f.qty:-f.qty),0):0;
+    // a root with no contract size in PRESETS would be priced as a stock ($1 a point): list, never import
+    if(!PRESETS[cf[0].sym]){listFills(cf,'spec');return;}
+    if(!endFlat){listFills(cf,'open');return;}
+    const seed=-cf.reduce((s,f)=>s+(f.side==='BUY'?f.qty:-f.qty),0);
     // A fill that goes through flat (long 1, SELL 2: the REV button) closes one trade and opens the
     // next at the same price and time. Split it in two first, as the NinjaTrader sync does
     // (api/nt_sync.py _split_crossings); unsplit, the new trade was lost inside the old one.
@@ -4748,7 +4760,7 @@ async function importPDF(file,opts){
       }
       pos=newPos;
     });
-    // still open at the end (the statement does not say it ended flat): no exit to import yet
+    // still open at the end: no exit to import yet (a guard - the seed above ends every contract flat)
     if(pos!==0&&!carried&&entryDate)result.pdfOpen.push({date:entryDate,symbol:cf[0].sym,code:cf[0].code,what:(entrySide==='BUY'?'LONG':'SHORT')+' '+Math.abs(pos)+' opened '+entryTime+', still open at the end of this statement'});
     else if(carried)result.pdfOpen.push({date:cf[0].date,symbol:cf[0].sym,code:cf[0].code,what:'a position opened before this statement is still open'});
   });
@@ -4780,6 +4792,16 @@ async function importPDF(file,opts){
     const rtSum=trades_.reduce((s,t)=>s+t.size,0);
     const feePerContract=dayInfo&&dayInfo.contracts>0?totalFees/(dayInfo.contracts/2):0;
     const feesComplete=!!dayInfo&&dayInfo.contracts===2*rtSum;
+    // A trade this statement creates is priced at the rate of the TRADE DATE its fills belong to: the
+    // session that opens at 18:00 New York (and the Sunday open) is summarised under the next day, so
+    // an evening entry found no row under its own New York date and was saved with $0 fees (review
+    // 2026-09-30 #12). A trade date with no row of its own takes the statement-wide rate.
+    const rateOf=rows=>{const c=rows.reduce((s,x)=>s+x.contracts,0);return c>0?rows.reduce((s,x)=>s+x.exch+x.comm+x.nfa+x.clearing,0)/(c/2):0;};
+    const symRows=Object.values(dailyData).filter(x=>x.sym===sym);
+    const stmtRate=rateOf(symRows.length?symRows:Object.values(dailyData));
+    const tradeDate=p=>{const m=mins(p.entryTime);if(m==null||m<18*60)return date;
+      const d=new Date(date+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+1);return d.toISOString().slice(0,10);};
+    const rateAt=p=>{const d=dailyData[sym+'|'+tradeDate(p)];return d&&d.contracts>0?rateOf([d]):stmtRate;};
     const win=p=>{const pe=mins(p.entryTime),px=mins(p.exitTime);return{pe,hi:px==null?pe:(px<pe?px+1440:px)};};
     // How well journal trade t fits round trip p (same direction and prices within a tick of its
     // fills, or null): tier 0 exact prices and entered inside its minutes, 1 a tick or a minute off,
@@ -4849,7 +4871,10 @@ async function importPDF(file,opts){
           const pp=fit(legsOf(p,3,null),p);
           if(pp){pp.forEach(x=>used.add(x.t.id));const qq=fit(legsOf(q,3,null),q);
             if(qq){qq.forEach(x=>used.add(x.t.id));claimed.set(q,qq);claimed.set(p,pp);pending=pending.filter(z=>z!==p);changed=true;break;}
-            if(p.size>q.size){claimed.delete(q);claimed.set(p,pp);pending=pending.filter(z=>z!==p).concat([q]);changed=true;break;}
+            // (b) never takes a leg q fits better than p (q's exact fill pair that p fits only loosely):
+            // that stole the copy of a trade the journal holds and re-created it, when the real gap was
+            // one of p's legs (review 2026-09-30 #8). q keeps it, and pass 3 reports p as another size.
+            if(p.size>q.size&&!pp.some(x=>{const g=fitOf(x.t,q);return g&&better(g,x.f)<0;})){claimed.delete(q);claimed.set(p,pp);pending=pending.filter(z=>z!==p).concat([q]);changed=true;break;}
             pp.forEach(x=>used.delete(x.t.id));}
           qp.forEach(x=>used.add(x.t.id));
         }
@@ -4887,9 +4912,12 @@ async function importPDF(file,opts){
     });
     if(toCreate.length){
       toCreate.forEach(p=>{
-        const fees=+(feePerContract*p.size).toFixed(2);
+        const fees=+(rateAt(p)*p.size).toFixed(2);
         const calc=tradeCalc(useSym,p.dir,p.entry,p.exit,p.size,fees);
+        // saved under the statement's own account: left blank, commitImport stamped the Settings
+        // account, and a Settings value unlike the statement's made every re-import create it again
         result.batch.push({
+          ...(stmtAcct?{account:stmtAcct}:{}),
           date,symbol:useSym,type:p.dir,
           entry:+p.entry.toFixed(4),exit:+p.exit.toFixed(4),
           size:p.size,fees,grossPnl:calc.grossPnl,pnl:calc.pnl,
@@ -13144,10 +13172,17 @@ function _impPdfFlagHtml(d){
   const esc=s=>String(s).replace(/</g,'&lt;');
   return d.length?`<div style="margin-top:4px;padding:5px 10px;background:color-mix(in srgb,var(--yellow) 10%,transparent);font-size:var(--fsxs);color:var(--yellow);line-height:1.7">⚠ ${d.length} statement trade${d.length===1?' does':'s do'} not match the journal copy (different size or direction). Nothing was changed and nothing was added for ${d.length===1?'it':'them'}. Check ${d.length===1?'it':'them'} in each trade's edit window.<br>${d.slice(0,8).map(x=>`${esc(x.date)} ${esc(x.symbol)}: statement ${esc(x.stmt)}, journal ${esc(x.journal)}`).join('<br>')}${d.length>8?'<br>… and '+(d.length-8)+' more':''}</div>`:'';
 }
-// A statement position whose entry or exit is not on this statement (opened before it, or still open at its end).
+// A statement position whose entry or exit is not on this statement (opened before it, or still open at its end),
+// and the fills importPDF lists without pairing them: fill 'open' = the statement does not end flat, 'spec' = a
+// contract with no contract size in PRESETS.
 function _impPdfOpenHtml(d){
   const esc=s=>String(s).replace(/</g,'&lt;');
-  return d.length?`<div style="margin-top:4px;padding:5px 10px;background:color-mix(in srgb,var(--yellow) 10%,transparent);font-size:var(--fsxs);color:var(--yellow);line-height:1.7">⚠ ${d.length} position${d.length===1?' is':'s are'} only partly on this statement, so ${d.length===1?'it was':'they were'} not imported. Import the statement that holds the other side, or add ${d.length===1?'it':'them'} by hand.<br>${d.slice(0,8).map(x=>`${esc(x.date)} ${esc(x.code||x.symbol)}: ${esc(x.what)}`).join('<br>')}${d.length>8?'<br>… and '+(d.length-8)+' more':''}</div>`:'';
+  const box=(head,rows)=>rows.length?`<div style="margin-top:4px;padding:5px 10px;background:color-mix(in srgb,var(--yellow) 10%,transparent);font-size:var(--fsxs);color:var(--yellow);line-height:1.7">⚠ ${head}<br>${rows.slice(0,8).map(x=>`${esc(x.date)} ${esc(x.code||x.symbol)}: ${esc(x.what)}`).join('<br>')}${rows.length>8?'<br>… and '+(rows.length-8)+' more':''}</div>`:'';
+  const ps=d.filter(x=>!x.fill),fo=d.filter(x=>x.fill==='open'),fs=d.filter(x=>x.fill==='spec');
+  const n=(k,one,many)=>k===1?one:many;
+  return box(`${ps.length} position${n(ps.length,' is','s are')} only partly on this statement, so ${n(ps.length,'it was','they were')} not imported. Import the statement that holds the other side, or add ${n(ps.length,'it','them')} by hand.`,ps)
+    +box(`This statement ends with a position still open, and EDGE LOG cannot read that position from it, so none of its ${fo.length} fill${n(fo.length,' was','s were')} paired into trades or imported. Add any trade the journal is missing by hand.`,fo)
+    +box(`EDGE LOG has no contract size for ${esc([...new Set(fs.map(x=>x.symbol))].join(', '))}, so ${n(fs.length,'its fill was','its '+fs.length+' fills were')} not imported (the dollar result cannot be worked out). Add ${n(fs.length,'it','them')} by hand.`,fs);
 }
 // Paint the stored result into one #import-result box (the gear pane and the fallback tab each have one).
 function _impPaintInto(rd){

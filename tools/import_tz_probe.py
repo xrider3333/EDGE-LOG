@@ -58,6 +58,13 @@ WHAT IT ASSERTS
   * fills pair across New York midnight (an evening trade is one trade, dated by its entry), a
     position carried in or still open is reported and never paired into a made-up trade, and two
     scale-outs in one minute never swap legs
+  * (review 2026-09-30) a statement that does not end flat pairs nothing and lists every fill (its
+    open position is not read, so a position carried in AND still open cannot become made-up trades);
+    a 2-lot missing one leg never takes the exact copy of a 1-lot beside it (it is reported as another
+    size, not the 1-lot saved twice); an evening trade is priced at its trade date's fee rate, not $0;
+    created trades carry the statement's account, so a re-import under another Settings account adds
+    nothing; M2K is priced at $5 a point, and a contract with no known size is listed, never priced
+    like a stock
 
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks).
 
@@ -197,7 +204,7 @@ def fills(rows, disp):
 
 def pdf_lines(rows):
     """The text lines of a NinjaTrader daily statement's fills section (times printed in GMT)."""
-    lines = ['Daily Statement 04/07/2026']
+    lines = ['Daily Statement 04/07/2026'] + FLAT
     by_sym = {}
     for t in rows:
         by_sym.setdefault(t[0], []).append(t)
@@ -248,6 +255,9 @@ GENERIC_TRUTH = {('2026-04-07', 6604.75): ('10:29', '10:31', 'LONG', 'MES'),
 
 
 RECON_DAY = '04/21/2026'   # EDT: GMT = New York + 4h
+# Every real statement that ends flat prints this under its Open Trade Equity heading. One that does not
+# end flat lists the open positions there instead, and the importer then pairs nothing (it lists every fill).
+FLAT = ['Open Trade Equity', 'No Open Trade Equity']
 
 
 def fill_lines(fills):
@@ -262,20 +272,22 @@ def fill_lines(fills):
     return out
 
 
-def pdf_day(fills, fee_total, acct='1810769', contracts=None, flat=False):
-    """A one-day MES statement; the summary counts both sides of every contract, as NinjaTrader's does.
-    flat=True prints the "No Open Trade Equity" line a statement carries when it ends flat."""
+def pdf_day(fills, fee_total, acct='1810769', contracts=None, flat=True, code='MESM6',
+            name='Micro E-mini S&P 500 - Jun. 2026'):
+    """A one-day statement (MES unless code says otherwise); the summary counts both sides of every
+    contract, as NinjaTrader's does. flat=True prints the "No Open Trade Equity" line a statement carries
+    when it ends flat; flat=False is one that ends with a position open (its position list unread)."""
     return (['Daily Statement ' + RECON_DAY, 'Account Number: ' + acct]
-            + (['Open Trade Equity', 'No Open Trade Equity'] if flat else [])
-            + ['%s MESM6' % RECON_DAY,
+            + (FLAT if flat else ['Open Trade Equity'])
+            + ['%s %s' % (RECON_DAY, code),
              '%d %.2f 0.00 0.00 10.00 1,000.00 - -' % (contracts or sum(f[2] for f in fills), fee_total),
-             'Trading details for Micro E-mini S&P 500 - Jun. 2026 (MESM6)'] + fill_lines(fills))
+             'Trading details for %s (%s)' % (name, code)] + fill_lines(fills))
 
 
 def pdf_two_symbols():
     """MES and MNQ on one day with ONE clearing row: 1.52 each + clearing 0.76 split = 1.90 each."""
-    return (['Daily Statement ' + RECON_DAY, 'Account Number: 1810769',
-             '%s MESM6' % RECON_DAY, '2 -0.70 -0.78 -0.04 5.00 1,000.00 - -',
+    return (['Daily Statement ' + RECON_DAY, 'Account Number: 1810769'] + FLAT +
+            ['%s MESM6' % RECON_DAY, '2 -0.70 -0.78 -0.04 5.00 1,000.00 - -',
              '%s MNQM6' % RECON_DAY, '2 -0.70 -0.78 -0.04 5.00 1,000.00 - -',
              '%s Clearing_Fee' % RECON_DAY, '- - - - -0.76 -0.76 - -',
              'Trading details for Micro E-mini S&P 500 - Jun. 2026 (MESM6)']
@@ -294,8 +306,8 @@ def jt(tid, typ, entry, exit_, e, x, size=1, **kw):
 
 def pdf_roll():
     """A roll day: MESM6 long and MESU6 short open at the same time (1.90 per round-trip contract)."""
-    return (['Daily Statement ' + RECON_DAY, 'Account Number: 1810769',
-             '%s MESM6' % RECON_DAY, '2 1.90 0.00 0.00 10.00 1,000.00 - -',
+    return (['Daily Statement ' + RECON_DAY, 'Account Number: 1810769'] + FLAT +
+            ['%s MESM6' % RECON_DAY, '2 1.90 0.00 0.00 10.00 1,000.00 - -',
              '%s MESU6' % RECON_DAY, '2 1.90 0.00 0.00 10.00 1,000.00 - -',
              'Trading details for Micro E-mini S&P 500 - Jun. 2026 (MESM6)']
             + fill_lines([('10:00:05', 'B', 1, 7000.00), ('10:05:00', 'S', 1, 7002.00)])
@@ -437,7 +449,7 @@ def build_cases():
          'lines': pdf_day([('19:00:05', 'B', 1, 6990.00, '04/20/2026'), ('19:02:05', 'S', 1, 6991.00, '04/20/2026'),
                            ('10:00:05', 'B', 1, 7000.00), ('10:02:05', 'S', 1, 7002.00)], 3.80),
          'trades': [jt('rth', 'LONG', 7000.00, 7002.00, '10:00', '10:02')],
-         'rows': [('LONG', 6990.00, '19:00', 0.00)], 'flags': 0, 'fees': {}},
+         'rows': [('LONG', 6990.00, '19:00', 1.90)], 'flags': 0, 'fees': {}},
         # --- review round 2: roll day, pass-3 ownership, drift per scale-out leg ---
         {'name': 'pdf-roll-day-journal', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
          'lines': pdf_roll(),
@@ -484,16 +496,18 @@ def build_cases():
         {'name': 'pdf-across-midnight-empty', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
          'lines': pdf_day([('23:55:00', 'B', 1, 7000.00, '04/20/2026'), ('00:05:00', 'S', 1, 7003.00),
                            ('09:35:00', 'B', 1, 7010.00), ('09:40:00', 'S', 1, 7012.00)], 3.80, flat=True),
-         'trades': [], 'rows': [('LONG', 7000.00, '23:55', 0.00), ('LONG', 7010.00, '09:35', 1.90)],
+         'trades': [], 'rows': [('LONG', 7000.00, '23:55', 1.90), ('LONG', 7010.00, '09:35', 1.90)],
          'flags': 0, 'fees': {}},
         {'name': 'pdf-carried-in', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
          'lines': pdf_day([('09:31:00', 'S', 1, 7005.00), ('09:35:00', 'B', 1, 7010.00),
                            ('09:40:00', 'S', 1, 7012.00)], 2.85, flat=True),
          'trades': [], 'rows': [('LONG', 7010.00, '09:35', 1.90)], 'flags': 0, 'fees': {}, 'open': 1},
+        # not flat at the end and its open position unread: the start is unknown (this could as well be long 1
+        # carried in, making 09:35-09:40 no round trip at all), so every fill is listed and nothing is made
         {'name': 'pdf-still-open', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
          'lines': pdf_day([('09:35:00', 'B', 1, 7010.00), ('09:40:00', 'S', 1, 7012.00),
-                           ('15:50:00', 'B', 1, 7020.00)], 2.85),
-         'trades': [], 'rows': [('LONG', 7010.00, '09:35', 1.90)], 'flags': 0, 'fees': {}, 'open': 1},
+                           ('15:50:00', 'B', 1, 7020.00)], 2.85, flat=False),
+         'trades': [], 'rows': [], 'flags': 0, 'fees': {}, 'open': 3},
         {'name': 'pdf-same-minute-scale-then-one', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
          'lines': pdf_day([('10:00:13', 'B', 2, 7000.25), ('10:00:26', 'S', 1, 7002.00), ('10:00:29', 'S', 1, 7000.50),
                            ('10:00:50', 'B', 1, 7000.25), ('10:00:53', 'S', 1, 7001.25)], 5.70),
@@ -525,6 +539,45 @@ def build_cases():
          'trades': [jt('av-a', 'SHORT', 7000.6667, 6999.4167, '10:00', '10:00', size=3),
                     jt('av-b', 'SHORT', 7001.00, 6999.75, '10:00', '10:01', size=3)],
          'rows': [], 'flags': 0, 'fees': {'av-a': 5.70, 'av-b': 5.70}},
+        # --- review 2026-09-30 (#3 #8 #13 #14) ---
+        # #3: long carried in, closed 09:31, a long 09:35-09:40, a long opened 15:50 and held. The fills net to zero,
+        # and pairing from flat made two SHORTs that never happened. Not flat at the end -> listed, never paired.
+        {'name': 'pdf-carried-and-open', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('09:31:00', 'S', 1, 7005.00), ('09:35:00', 'B', 1, 7010.00),
+                           ('09:40:00', 'S', 1, 7012.00), ('15:50:00', 'B', 1, 7020.00)], 3.80, flat=False),
+         'trades': [jt('co-long', 'LONG', 7010.00, 7012.00, '09:35', '09:40')],
+         'rows': [], 'flags': 0, 'fees': {}, 'open': 4},
+        # #8: a 1-lot (q) next to a 2-lot scale-out (p); the journal holds q exactly and one of p's two legs. q keeps
+        # its exact copy (it used to be taken by p and q re-created as a duplicate); p is reported as another size.
+        {'name': 'pdf-leg-steal', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 7000.00), ('10:00:20', 'S', 1, 7002.00),
+                           ('10:00:30', 'B', 2, 7000.00), ('10:00:40', 'S', 1, 7001.75), ('10:00:50', 'S', 1, 7002.25)], 5.70),
+         'trades': [jt('j1-q', 'LONG', 7000.00, 7002.00, '10:00', '10:00'),
+                    jt('j2-pleg', 'LONG', 7000.00, 7001.75, '10:00', '10:00')],
+         'rows': [], 'flags': 1, 'fees': {'j1-q': 1.90}},
+        {'name': 'pdf-leg-steal-wide-exit', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 7000.00), ('10:00:20', 'S', 1, 7002.00),
+                           ('10:00:30', 'B', 2, 7000.00), ('10:00:40', 'S', 1, 7001.75), ('10:00:50', 'S', 1, 7010.00)], 5.70),
+         'trades': [jt('j1-q', 'LONG', 7000.00, 7002.00, '10:00', '10:00'),
+                    jt('j2-pleg', 'LONG', 7000.00, 7001.75, '10:00', '10:00')],
+         'rows': [], 'flags': 1, 'fees': {'j1-q': 1.90}},
+        # #13: a created trade carries the statement's account, so saving it with a different Settings account
+        # (commitImport stamps that only on a row with no account) and importing again creates nothing
+        {'name': 'pdf-reimport-other-settings-account', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 7000.00), ('10:02:05', 'S', 1, 7002.00)], 1.90),
+         'trades': [], 'rows': [('LONG', 7000.00, '10:00', 1.90)], 'flags': 0, 'fees': {},
+         'acct': '1810769', 'reimport': {'settings_acct': '1676735'}},
+        # #14: Micro Russell is $5 a point (it was priced as a stock, $1 a point); a contract with no known size is
+        # listed, never priced
+        {'name': 'pdf-m2k', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 2200.00), ('10:02:05', 'S', 1, 2210.00)], 1.90,
+                          code='M2KZ6', name='Micro E-mini Russell 2000 - Dec. 2026'),
+         'trades': [], 'rows': [('LONG', 2200.00, '10:00', 1.90)], 'flags': 0, 'fees': {},
+         'sym': 'M2K', 'gross': {2200.00: 50.00}},
+        {'name': 'pdf-no-contract-size', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
+         'lines': pdf_day([('10:00:05', 'B', 1, 90000.00), ('10:02:05', 'S', 1, 90500.00)], 1.90,
+                          code='XYZZ6', name='Probe contract with no size - Dec. 2026'),
+         'trades': [], 'rows': [], 'flags': 0, 'fees': {}, 'open': 2},
     ]
 
 
@@ -560,7 +613,7 @@ var CASES=__CASES__;
           res=await w.importPDF(new w.File([new Uint8Array([37,80,68,70])],'probe.pdf',{type:'application/pdf'}),c.opts);}
         else res=w.importCSV(c.text,c.name+'.csv',c.opts);
         r.type=res.type;
-        r.rows=(res.batch||[]).map(function(t){return {date:t.date,sym:t.symbol,dir:t.type,entry:t.entry,exit:t.exit,e:t.entryTime,x:t.exitTime,fees:t.fees};});
+        r.rows=(res.batch||[]).map(function(t){return {date:t.date,sym:t.symbol,dir:t.type,entry:t.entry,exit:t.exit,e:t.entryTime,x:t.exitTime,fees:t.fees,gross:t.grossPnl,acct:t.account||null};});
         r.ask=res.tzAsk?{why:res.tzAsk.why}:null;
         r.note=res.tzNote?{how:res.tzNote.how,tz:res.tzNote.tz}:null;
         r.drift=(res.tzDrift||[]).map(function(d){return {id:d.id,hours:d.hours};});
@@ -568,7 +621,17 @@ var CASES=__CASES__;
         r.feeUps=(res.feeUpdates||[]).map(function(f){return {id:f.id,fees:f.fees};});
         r.flags=(res.pdfFlags||[]).length;
         r.open=(res.pdfOpen||[]).length;
+        // the import result box must render what was listed (it is only drawn after a real drop)
+        if(r.open)r.openHtml=typeof w._impPdfOpenHtml==='function'?String(w._impPdfOpenHtml(res.pdfOpen)).length:0;
         r.fills=res.fillUTC?Object.keys(res.fillUTC).length:null;
+        if(c.reimport){
+          // save the created rows the way commitImport does (the Settings account only on a row with none),
+          // then import the same statement again
+          var saved=(res.batch||[]).map(function(t,k){var s=Object.assign({id:'reimport-'+k},t);if(!s.account)s.account=c.reimport.settings_acct;return s;});
+          w.eval('trades='+JSON.stringify(saved)+';');fakePdf(w,c.lines);
+          var res2=await w.importPDF(new w.File([new Uint8Array([37,80,68,70])],'probe.pdf',{type:'application/pdf'}),c.opts);
+          r.re={rows:(res2.batch||[]).length,flags:(res2.pdfFlags||[]).length,open:(res2.pdfOpen||[]).length};
+        }
       }catch(e){r.err=String(e&&e.stack?e.stack:e);}
       out.cases[c.name]=r;
     }
@@ -673,9 +736,28 @@ def judge(cases, data):
             want_rows = sorted((d, round(e, 2), hm, round(f, 2)) for d, e, hm, f in c['rows'])
             if got_rows != want_rows:
                 fails.append('%s: created %s, expected %s' % (nm, got_rows or 'nothing', want_rows or 'nothing'))
-            bad = [x for x in rows if x['sym'] not in ('MES', 'MNQ')]
+            want_sym = c.get('sym')
+            bad = [x for x in rows if (x['sym'] != want_sym if want_sym else x['sym'] not in ('MES', 'MNQ'))]
             if bad:
-                fails.append('%s: created trades saved as symbol %s, expected MES' % (nm, bad[0]['sym']))
+                fails.append('%s: created trades saved as symbol %s, expected %s' % (nm, bad[0]['sym'], want_sym or 'MES'))
+            for px, g in (c.get('gross') or {}).items():
+                hit = [x for x in rows if abs(float(x['entry']) - px) < 1e-6]
+                if hit and round(float(hit[0].get('gross') or 0), 2) != round(g, 2):
+                    fails.append('%s: the %s trade from %s saved gross $%s, expected $%.2f (its contract size)'
+                                 % (nm, hit[0]['sym'], px, hit[0].get('gross'), g))
+            if c.get('acct'):
+                off = [x for x in rows if x.get('acct') != c['acct']]
+                if off:
+                    fails.append('%s: a created trade carries account %s, expected the statement account %s'
+                                 % (nm, off[0].get('acct'), c['acct']))
+            if c.get('reimport'):
+                re_ = r.get('re') or {}
+                if re_.get('rows') or re_.get('flags') or 're' not in r:
+                    fails.append('%s: importing the statement again (trades saved with Settings account %s) created %s '
+                                 'and flagged %s, expected nothing' % (nm, c['reimport']['settings_acct'],
+                                                                      re_.get('rows'), re_.get('flags')))
+            if r.get('open') and not r.get('openHtml'):
+                fails.append('%s: the import result box did not render the %d listed item(s)' % (nm, r['open']))
             if r.get('merges'):
                 fails.append('%s: the statement REWROTE journal trades %s -- it may only add or report'
                              % (nm, r['merges'][:3]))
