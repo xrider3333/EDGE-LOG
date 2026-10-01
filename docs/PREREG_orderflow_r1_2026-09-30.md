@@ -82,3 +82,6 @@ Found by re-checking the build, not by looking at results:
   2026-09-14 the capture had rolled to December while the master was still on September. Forward scoring only;
   the backfill kill check is not re-run a third time. On the backfill 65 of 70 sessions pass (dropped 08-18,
   08-19, 09-07, 09-14, 09-15).
+- MANAGER build review 2026-09-30 item 1 (ORB window ended at the breakout bar's open) = the fix above (915742f9);
+  2026-10-01 adds a regression test (tests/test_orderflow_fill_window.py) and moves the fill detection into one
+  function (fill_times) that the AG stop shares.

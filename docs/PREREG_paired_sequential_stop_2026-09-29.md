@@ -78,3 +78,12 @@ Frontier's own reads (C:\EdgeLog\_anatomy_cache\adopt449\PREREG_SHADOWS_0929.txt
    3,868.12, Q4 3,751.85, ORB239 3,899.75. Walk-forward paired t +0.65 / +0.32 / +0.30 (context only).
    Driver tools/bookline_paired_stop.py (read_forward). Frontier's 12-month reads stay the verdict; the "#463 with
    #239" line is covered from its first report.
+
+## AMENDMENT 2026-10-01 - AG stop re-frozen on the fixed tilt rule (Frontier inbox #38, api/book_shadow.py 88c4d634)
+MANAGER's review found the AG tilt compared bar LABELS and handed a same-label tie to NOISE, sizing it from an ORB
+breakout that fills 5 minutes later at the bar's close (look-ahead). The rule now compares FILL times (ORB = label
++ 5 min, NOISE = label; exits out by their bar's close); tools/ag_paired_stop.py mirrors it, with a regression test
+(tests/test_orderflow_fill_window.py). Re-frozen before any AG forward read: walk-forward tilted share 32.0%
+(150/yr; was 35.9%), mean size 1.1599, early-stop series 313 trades (= Frontier's 100-tilted read), B 3.00 (2.5%
+false stops). Context only: the walk-forward paired t is now **-1.96** (was +0.11) - with the look-ahead removed
+the 1.5x trades are, if anything, worse per dollar than the rest. Frontier has recommended dropping the AG line.

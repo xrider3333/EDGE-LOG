@@ -2,8 +2,11 @@
 Rule: docs/PREREG_paired_sequential_stop_2026-09-29.md, section "Frontier's AG line"; the Frontier read in
 C:\\EdgeLog\\_anatomy_cache\\adopt449\\PREREG_SHADOWS_0929.txt stays the verdict.
 
-AG = 1.5x on an ORB (#234) or NOISE (#422) trade entering while the OTHER leg holds a trade the same way (on a
-same-bar same-direction entry the NOISE trade takes it) - exactly api/book_shadow.agreement_tilted. Every ORB and
+AG = 1.5x on an ORB (#234) or NOISE (#422) trade that FILLS while the other leg already holds a trade the same way
+- api/book_shadow.agreement_tilted as fixed in 88c4d634 (2026-09-30): compare FILL times (ORB fills at its entry
+bar's close = label + 5 min, NOISE at the label; an exit is out by its bar's close = label + 5 min). The first
+version compared bar labels and gave a same-label tie to NOISE - a size set from an ORB fill 5 minutes later
+(look-ahead); re-frozen on the fixed rule before any AG forward read. Every ORB and
 NOISE trade enters the paired series as d = (m - mbar) x trade $, mbar = the RUNNING mean of m over the forward
 trades read so far (amended 2026-09-30 before any forward day; the first version froze c = 1.1793), so the test
 asks whether the 1.5x lands on better trades, not whether more size made more money.
@@ -32,16 +35,27 @@ def leg(L):
     idx = pd.DatetimeIndex(A["index"])
     idx = idx.tz_convert("US/Eastern").tz_localize(None) if idx.tz is not None else idx
     T = sorted(r["trades"], key=lambda t: t[0])
-    return pd.DataFrame({"e": idx[[int(t[0]) for t in T]], "x": idx[[min(int(t[1]), len(idx) - 1) for t in T]],
+    return pd.DataFrame({"e": _of().fill_times(idx, A["open"], A["close"], T),
+                         "x": idx[[min(int(t[1]), len(idx) - 1) for t in T]] + pd.Timedelta(minutes=5),
                          "side": [1 if float(t[3]) > 0 else -1 for t in T],
                          "usd": [float(t[2]) * L["mult"] * L["weight"] for t in T]})
 
 
-def tilt(mine, other, is_noise):
+def _of():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "orderflow_r1", os.path.join(os.path.dirname(os.path.abspath(__file__)), "orderflow_r1.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def tilt(mine, other):
+    """1.5 where a same-direction trade of `other` FILLED strictly before this trade's fill and is not yet out."""
     oe, ox, os_ = other.e.to_numpy(), other.x.to_numpy(), other.side.to_numpy()
     m = np.ones(len(mine))
     for i, (e, s) in enumerate(zip(mine.e.to_numpy(), mine.side.to_numpy())):
-        hit = (os_ == s) & (((oe < e) & (e < ox)) | ((oe == e) & is_noise))
+        hit = (os_ == s) & (oe < e) & (e < ox)
         if hit.any():
             m[i] = 1.5
     return m
@@ -56,7 +70,7 @@ def main(reps=4000, seed=20260930):
     spec.loader.exec_module(Q)
     orb = leg([L for L in BOOK463_LEGS if L["strategy"].startswith("ORB")][0])
     noi = leg([L for L in BOOK463_LEGS if L["strategy"].startswith("NOISE")][0])
-    allt = pd.concat([orb.assign(m=tilt(orb, noi, False)), noi.assign(m=tilt(noi, orb, True))]).sort_values("e")
+    allt = pd.concat([orb.assign(m=tilt(orb, noi)), noi.assign(m=tilt(noi, orb))]).sort_values("e")
     wf = allt[(allt.e >= WF0) & (allt.e < LB0)]
     c = float(wf.m.mean())
     share = float((wf.m > 1).mean())

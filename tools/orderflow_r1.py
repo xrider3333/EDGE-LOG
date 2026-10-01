@@ -129,6 +129,15 @@ def freeze_theta(sym="NQ"):
     return out
 
 
+def fill_times(idx, opens, closes, trades, bar_min=5):
+    """Fill time of each engine trade (naive ET): the entry bar's open label when the engine's entry price is that
+    bar's OPEN (NOISE: a signal queued at the previous close), else the bar's CLOSE = label + bar_min (ORB
+    close-confirm fills at the breakout bar's close). MANAGER review 2026-09-30, fixed 915742f9."""
+    O, Cl = np.asarray(opens, float), np.asarray(closes, float)
+    at_close = np.array([abs(float(t[4]) - Cl[int(t[0])]) < abs(float(t[4]) - O[int(t[0])]) for t in trades], dtype=bool)
+    return pd.DatetimeIndex(idx[[int(t[0]) for t in trades]]) + pd.to_timedelta(np.where(at_close, bar_min, 0), unit="min")
+
+
 def leg_trades(name):
     """Crown / book-leg trades on the refreshed NQ 5m RTH no-adjust master: (FILL time ET, side, $ P&L).
     Fill = open of the entry bar when the engine's entry price is that bar's open, else its close (bar + 5 min)."""
@@ -148,9 +157,7 @@ def leg_trades(name):
     T = sorted(r["trades"], key=lambda z: z[0])
     idx = pd.DatetimeIndex(A["index"])
     idx = idx.tz_convert("US/Eastern").tz_localize(None) if idx.tz is not None else idx
-    O, Cl = np.asarray(A["open"], float), np.asarray(A["close"], float)
-    at_close = np.array([abs(float(t[4]) - Cl[int(t[0])]) < abs(float(t[4]) - O[int(t[0])]) for t in T])
-    ent = idx[[int(t[0]) for t in T]] + pd.to_timedelta(np.where(at_close, 5, 0), unit="min")
+    ent = fill_times(idx, A["open"], A["close"], T)
     side = np.array([1.0 if float(t[3]) > 0 else -1.0 for t in T])
     return ent, side, np.array([float(t[2]) for t in T]) * B.MULT
 
