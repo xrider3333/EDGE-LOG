@@ -1,0 +1,9 @@
+TTM MULTI-CELL SLEEVE AS A BOOK TEST INSIDE #463 (owner via MANAGER #31 + TTM inbox #32, 2026-09-29). Written BEFORE any number.
+SLEEVE = TTMSQZ_3_0.py at the frozen #299 settings (tools/ttmsqz_r19a_multicell_sleeve.py CROWN dict), ES 30m / ES 15m / NQ 30m / NQ 15m RTH,
+         source db_adj_rth pinned, costs ES 0.363 / NQ 0.533, mult 50 / 20, one contract each (weight 1).
+REF = #463 (adopted). SWAP = #463 with its TTM x3 leg replaced by the sleeve. ADD = #463 plus the sleeve as a fifth component.
+Stretches as round 62: WF 2016-07-01..2025-06-29, LB 2025-06-30..2026-06-30 (pre-lockbox 2010-06-07..2025-06-29 also shown).
+BAR (each variant separately, owner yardstick): beat #463 on ROC %/yr at a $30k worst drawdown valued daily AND on Sortino (valued daily) in BOTH WF
+and LB; >= 100 WF and >= 50 LB book trades; LB net > 0 without the book's biggest LB trade. Both variants are queued as real BOOK runs and must
+equal the local read to the dollar. Verdicts are reported as they fall; nothing is adopted here.
+Could fool us: pooling four cells buys trade count with correlated squeeze risk; the NQ cells overlap the NQ day legs.

@@ -1,0 +1,30 @@
+ROUND 62 - STRUCTURAL BOOK ALPHA ON THE ADOPTED BOOK #463 (owner ask via MANAGER #29, 2026-09-28). Written BEFORE any number.
+Base / raw twin = #463's job legs verbatim (ORB #234, ENGU-Q #335 R2 on the roll-corrected ETH master, TTM #459 cell x3, NOISE #422).
+Nothing here re-optimises a crown or re-weights legs; both rules below are fixed before WF/LB are read.
+
+STRETCHES: IS 2010-06-07..2016-06-30 (used ONLY to fix the one constant in V; never judged) · WF 2016-07-01..2025-06-29 · LB 2025-06-30..2026-06-30.
+YARDSTICK (owner rule 2026-09-28): ROC %/yr at a $30k worst drawdown valued daily (= 30 x MAR) and Sortino on the valued-daily series, WF and LB apart.
+BAR: the rule's book must beat the raw twin (#463) on BOTH numbers in BOTH stretches; >= 100 WF and >= 50 LB trades; LB net > 0 without its biggest trade.
+Sensitivity cells are reported as a plateau check only - the verdict is the PRIMARY cell. A survivor goes next to a real run (needs a book-level sizing
+feature in the engine, or a nightly paper shadow) - no validate is queued from this triage.
+
+V - BOOK VOLATILITY TARGETING (Moreira & Muir 2017, volatility-managed portfolios). Mechanism: volatility clusters but the book's return does not rise
+    in proportion, so cutting size after turbulent weeks and adding after calm ones raises return per unit of drawdown. Generalises the one sizing
+    rule that has held up here (NOISE #422: more size when the squeeze is compressed).
+    m(d) = clip(TARGET / vol20(d), 0.5, 2.0), rounded to 0.1 (micro contracts), applied to EVERY trade by its entry day d (all four legs).
+    vol20(d) = std of #463's own valued-daily P&L over the 20 index days strictly before d. TARGET = median vol20 over the IS days. m = 1 if undefined.
+    Sensitivity (not selection): lookback 10 and 60; caps 0.5-1.5.
+    Could fool us: this book earns most in turbulent regimes (2020, 2022), so scaling down there may cost more than it saves; ORB's same-day
+    vol sizing is already dead (different signal: that one used today's range).
+
+O - ORB x NOISE OVERLAP CAP. Mechanism: ORB and NOISE are both NQ day-session opening-momentum trades (daily corr 0.42); when both are in the same
+    direction at once the book holds the same factor twice. Rule: a trade of either leg that ENTERS while a trade of the other leg is OPEN IN THE SAME
+    DIRECTION is taken at half size. Opposite-direction overlaps and every other leg untouched. Sensitivity (not selection): skip instead of half.
+    Could fool us: agreement days may be the strongest trend days, where the doubled exposure is exactly what earns.
+    Tie rule (added before any run): if an ORB and a NOISE trade enter on the same bar in the same direction, the NOISE trade is the one halved.
+
+ADDENDUM (after V and O were read; V2 written BEFORE it is run). V as registered FAILS, and it did not test its own mechanism: TARGET was fixed in
+DOLLARS from 2010-16, but the book's dollar volatility grew ~10x with the NQ price, so m sat on its 0.5 floor almost every day after 2016 (average
+size 0.55; the lockbox is exactly x0.5). O FAILS. V's verdict stands.
+V2 - the same rule with a scale-free reference: m(d) = clip(REF(d) / vol20(d), 0.5, 2.0) rounded to 0.1, REF(d) = median of vol20 over the 250 index
+days before d (causal, no constant fitted anywhere). Same bar vs #463. Sensitivity (not selection): REF window 500; lookback 60.

@@ -1,0 +1,34 @@
+NIGHTLY SHADOW LINES ON THE ADOPTED BOOK #463 (owner GO via MANAGER #31, 2026-09-29). Written BEFORE any forward number exists.
+Both lines sit beside the adopted book figure in the nightly paper report and are NEVER the book figure. Each day's book figure counts
+the trades that ENTERED that day (the paper report's convention); a shadow line re-sizes exactly those trades.
+
+VT - VOLATILITY-TARGETED #463 (PREREG_R62 V2, unchanged): every trade entering on day D is sized m(D) = clip(REF(D) / vol20(D), 0.5, 2.0),
+    rounded to 0.1. vol20(D) = std of #463's valued-daily book P&L over the 20 index days before D; REF(D) = median of vol20 over the 250
+    index days before that. The series is rebuilt nightly by the house book engine from #463's job legs (their pinned roll-corrected
+    masters), starting three years before D (warm-up; verified to match the full-history series on the recent year). Line = m(D) x book.
+    Backtest read (R62, not forward evidence): WF 116.1 vs 92.7, LB 259.3 vs 164.8 %/yr at a $30k drawdown - a two-episode tail hedge.
+
+AG - AGREEMENT TILT (new; found in-sample in R62's overlap diagnostic - ORB/NOISE agreement trades PF 1.56 vs 1.30 - so ONLY forward data can
+    judge it): an ORB (#234) or NOISE (#422) trade that enters while a trade of the OTHER leg is open in the SAME direction is sized 1.5x
+    (fixed; not tuned); on a same-bar same-direction entry the NOISE trade takes the tilt. Every other trade and leg x1.
+    Line = book + 0.5 x the tilted trades' dollars.
+
+JUDGEMENT (forward only, from the first report that carries each line): each line vs the adopted book line over the same days on the owner
+yardstick - ROC %/yr at a $30k worst drawdown of the daily figure, and Sortino. AG is read when >= 100 tilted trades have accrued (~9 months at
+the backtest rate of ~136 a year); VT is read after 12 months and only counts as evidence if the window holds at least one drawdown of the book
+line deeper than $20k (VT only earns in stress). A line that is behind on either number at its read is dropped. Owner decides any adoption.
+
+CORRECTION (2026-09-30, after the independent review; written with only the 09-29 and 09-30 reports in existence): the nightly report counts a trade
+on its ENTRY day and writes that day once at ~16:10 ET, so a multi-day ENGU-Q hold is frozen at its 16:10 mark and ENGU-Q entries after 16:10 ET are
+never counted on any day. Summing the daily report figures would therefore misstate every line - and bias Q4 (its only difference is ENGU-Q entry
+timing). So every forward READ above is computed from the per-trade paper records (users/{uid}/paper_trades, final P&L re-upserted nightly), each
+trade dated by its EXIT day, with each line's own weights and sizes applied per trade (VT: the multiplier stored in the report of the trade's entry
+day; AG: the tilt rule applied to the recorded entry/exit times). The daily report figures remain a live monitor only. Bars, windows and the
+12-month / 100-trade timing are unchanged.
+
+AG CORRECTION (2026-10-01, MANAGER build review item 1; the rule is fixed before any AG forward read): the in-sample diagnostic that motivated AG
+compared bar LABELS, so a NOISE trade on the same 5-minute label as an ORB trade counted as "entering while ORB is open" although ORB fills at that
+bar's close and NOISE at its open - a look-ahead. AG now compares FILL times (ORB = label + 5 min, NOISE = label); a NOISE trade is tilted only if
+an ORB trade the same way filled strictly before it and is still open, and vice versa; a same-label tie can tilt only the ORB trade. On fill times
+the round-62 evidence is gone: tilted ORB/NOISE trades PF 1.35 vs 1.38 for the rest (AG 1.5x: WF 92.8 vs 92.7, LB 177.7 at $30k). The AG line stays
+a pre-registered forward test with its bar unchanged; whether to keep running it is the owner's call.

@@ -1,0 +1,9 @@
+TTM #458 KEEL AS A BOOK CANDIDATE (MANAGER #28 GO, 2026-09-28). Written BEFORE the numbers. Adoption stays the owner's call.
+K   = #463's ORB / ENGU-Q / NOISE legs (engine, job legs verbatim) + TTM = C:\EdgeLog\book_legs\TTM458_keel_daily.csv (KEEL v12,
+      state frozen at the lockbox start - Custom ML Round 3), weight 1.
+RAW = the same with TTM458_raw_daily.csv = run #468's legs (checked: the raw file must equal #468's engine TTM leg day by day).
+REF = #463 (adopted).
+Stretches: WF = the KEEL file's own WF stage (first WF-stamped day .. 2025-06-29); LB = 2025-06-30 .. 2026-06-30. The IS stage is not judged.
+Yardstick (owner rule 2026-09-28): ROC %/yr at a $30k worst drawdown valued daily, and Sortino on the valued-daily series, each stretch apart.
+K "beats its raw twin" only if K > RAW on BOTH numbers in BOTH stretches. Also reported: K vs REF on the same windows.
+Minimums: >= 100 WF and >= 50 LB book trades; LB net stays > 0 without the book's single biggest LB trade.

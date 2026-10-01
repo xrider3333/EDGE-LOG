@@ -1185,6 +1185,58 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10r. Build review fixes, one ROC convention for every lane, and Q6 (ORB #239) as a forward shadow (2026-10-01)
+
+**The review (MANAGER #44) found three real things; all are fixed.**
+- **The agreement tilt (AG) had a same-bar look-ahead.** Round 62's overlap diagnostic compared bar *labels*, so a NOISE
+  trade on the same 5-minute label as an ORB trade counted as entering "while ORB was open". But ORB fills at that bar's
+  close and NOISE at its open. Compared on fill times, the evidence for AG is gone: the trades it tilts have a profit
+  factor of 1.35 against 1.38 for the rest (not 1.56 vs 1.30, as 10o says). With the fix, AG at 1.5x is flat on
+  walk-forward (92.8 vs 92.7 on the old convention) and the overlap cap O still fails. The nightly AG line now uses fill times; its bar is
+  unchanged. Whether to keep running it is the owner's call.
+- **The nightly shadow lines could read stale or substitute data.** The vol-target line refuses to size from data more
+  than one business day old; any leg rebuilt from a fallback master or with a failed daily valuation is refused; a
+  leg that throws is named in the report instead of silently reading $0.
+- **The pre-registrations lived only outside git.** They are now committed, hashes below. Future addenda are committed
+  before the run they govern.
+
+**One ROC convention for every lane.** The ORB lane and this lane computed ROC differently: closed trades by exit day
+over (days + 1) / 365.25 years here, versus the valued-daily net over (last - first) / 365.25 there. From now on both use
+the valued-daily net and drawdown inside each stretch, over (last - first).days / 365.25 years. Everything in 10n-10q
+was re-scored on it. **No verdict changes.** #463's reference is now **WF 93.8 / LB 155.5 %/yr at a $30k drawdown**
+(it was 92.7 / 164.3; the lockbox moves most because ENGU-Q's long holds are now counted while open).
+
+| candidate (#463 with ...) | run | WF ROC at $30k | WF Sortino | WF DD | LB ROC at $30k | LB Sortino | LB DD | LB without its biggest trade | verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| #463 | #463 | 93.8 | 3.82 | $44,849 | 155.5 | 4.15 | $49,855 | $167,144 | - |
+| Q1a ORB #314 in the ORB seat | #473 | 125.6 | 3.95 | $33,735 | 147.3 | 3.95 | $49,855 | $153,500 | FAIL |
+| Q1b ORB #257 in the ORB seat | #474 | 108.5 | 3.93 | $39,917 | 146.3 | 3.89 | $49,475 | $150,003 | FAIL |
+| Q2 NOISE #398 in the NOISE seat | #472 | 69.6 | 3.30 | $46,445 | 169.0 | 3.75 | $36,484 | $114,214 | FAIL |
+| Q2ctx NOISE #304 raw in the NOISE seat | #471 | 85.1 | 3.54 | $44,849 | 145.6 | 3.94 | $49,855 | $150,697 | context |
+| Q3 ENGU-Q cash-session gate S1 in the ENGU-Q seat | #475 | 84.5 | 3.89 | $48,172 | 188.4 | 4.61 | $43,341 | $180,859 | FAIL |
+| Q4 ORB #314 + ENGU-Q gate S1 (post-hoc) | #476 | 111.0 | 4.03 | $36,949 | 177.6 | 4.37 | $43,670 | $167,216 | **PASS (post-hoc)** |
+| Q5 + ENGU-Q on ES #442 as a fifth leg | #477 | 103.1 | 3.49 | $48,667 | 149.6 | 3.68 | $59,238 | $204,016 | FAIL |
+| Q6 ORB #239 (breakeven 0.8) in the ORB seat | #478 | 101.8 | 3.84 | $41,319 | 158.7 | 4.23 | $49,855 | $172,469 | **PASS** |
+
+**Q6 - ORB #239 in the ORB seat** (#234's settings with the breakeven trigger at 0.8 R instead of 1.0 R; a survivor of
+the ORB lane's round 63). It clears the bar narrowly in both stretches, and the ORB lane's 900-trial validate of #239
+passed (their wider-region validate #480 failed). Owner call via MANAGER #41: **shadow first.** The nightly report now
+carries book_shadow_orb239 = ORB_239 + ENGUQ_335 + 3 x TTM_299_SSOF2 + NOISE_422, with its bar written before its
+first forward day: after 12 months it must beat the adopted book line on ROC at a $30k drawdown and on Sortino.
+Custom ML's paired early stop is its own document. #463 stays the adopted book.
+
+**How every forward line is read.** The nightly report counts a trade on its entry day and is written once at about
+16:10 ET, which freezes multi-day ENGU-Q holds and never counts ENGU-Q entries after 16:10. So every forward read is
+computed from the per-trade paper records, each trade dated by its exit day; the daily figures are a monitor only.
+
+**Pre-registrations in git** (`docs/`, sha256 of the committed file - check with `git show HEAD:<path> | sha256sum`):
+- `PREREG_frontier_ttm458_2026-09-28.txt` `c035956c4fcfaf4eb08ded025df80d11a648bae3f89159c8b69b15d81f00aace`
+- `PREREG_frontier_keel458_2026-09-28.txt` `72ce7193650adecd56cc6f1a62675cbd0d4d4e95a8e7abb8eeaf42eba964a790`
+- `PREREG_frontier_r62_2026-09-28.txt` `e0c4a8f596cb49401e8b3275434557f52ebf78287b7a2b1b4a1dc6f02ddca8a1`
+- `PREREG_frontier_ttmsleeve_2026-09-29.txt` `38688f8a3536f04e48739ef64e0f17b7f636a2f59d04f646f7aa433ee8597c3f`
+- `PREREG_frontier_shadows_2026-09-29.txt` `3e2061ad988f52407813b18e30ace63e234ce7fa7c8475f0fc5a70eae75de1b7`
+- `PREREG_frontier_bookq_2026-09-30.txt` `3ce3ba43ad4da7ce517de016513dc51c0680c0d18da8d0bae42e67ce001b3542`
+
 ### 10q. The standing book queue: Q1-Q4 on the adopted #463 (2026-09-30)
 
 **What.** Owner ask via MANAGER (#34): keep assessing structural book changes as an ongoing queue, fold in any
@@ -1281,7 +1333,7 @@ information up to the day before. Sizes are rounded to 0.1, which micros make tr
 | O sensitivity: skip the overlap | 81.5 | 3.29 | $39,843 | 126.7 | 3.02 | $44,235 | 0.73 | FAIL |
 
 - **O (overlap cap) FAILS, and the risk it named came true.** Trades where ORB and NOISE are in the market the same
-  way have a profit factor of 1.56 against 1.30 for the rest, so halving them costs money. An *agreement tilt* (more
+  way have a profit factor of 1.56 against 1.30 for the rest, so halving them costs money. (Superseded: that comparison had a same-bar look-ahead; on fill times it is 1.35 vs 1.38 - see 10r.) An *agreement tilt* (more
   size when they agree) is the obvious follow-on. It was found in this data, so only a forward test could judge it.
 - **V (as registered) FAILS without testing its mechanism.** Its target was fixed in dollars from 2010-16, but the
   book's dollar volatility grew about tenfold with the NQ price. The size sat on its 0.5 floor almost all the time

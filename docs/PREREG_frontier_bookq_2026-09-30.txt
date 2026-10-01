@@ -1,0 +1,72 @@
+BOOK QUEUE (owner ask via MANAGER #34, 2026-09-30) - one standing bar for every candidate, written before any queue result.
+REF = BOOK #463 (adopted; job EmzbSsewQJ6TjEaaO4ea legs verbatim). A candidate = #463 with ONE structural change (a leg swapped or added).
+Window 2010-06-07..2026-06-30; WF 2016-07-01..2025-06-29; LB 2025-06-30..2026-06-30 (pre-lockbox 2010-06-07.. shown for context only).
+YARDSTICK (owner): ROC %/yr at a $30k worst drawdown, each stretch on ITS OWN valued-daily drawdown (the leverage line), plus Sortino on the
+valued-daily series. PASS = beats #463 on BOTH numbers in BOTH WF and LB, >= 100 WF and >= 50 LB book trades, LB net > 0 without the book's single
+biggest LB trade. Every candidate that is scored is also queued as a real BOOK run and must equal the local read to the dollar before it is
+reported. A PASS on data already read is not an adoption: it goes to the owner with a forward paper shadow proposal.
+
+Q1 - ORB SEAT = THE ORB CROWN. #463 still carries ORB #234 (the control); the owner confirmed #314 as the ORB crown on 2026-09-28.
+     Q1a (primary): ORB #314 (ORB_3_6_R6.py, paper ORB_314 dict) in place of #234. Q1b (secondary, reported): ORB #257 (ORB_3_6_E1.py, paper
+     ORB_257 dict, the most-money ORB, forward shadow). Same master as #463's ORB (db_adj_rth), cost 0.533, $20/pt, weight 1.
+     Mechanism: the crown was chosen on risk (smaller stop giveback: breakeven 0.5R) - a lower-drawdown ORB should lift the book's leverage line.
+     Could fool us: round 61 read ORB #314 in a book on the stop-bug TTM legs and older windows; #257's filter is an 11-trade spike.
+
+Q2 - NOISE SEAT = NOISE #398 (written after Q1's result, before Q2 is run). NOISE_1_9_HSQ304H.py at its PASS champion (gate_len 20, gate_ratio 1.15),
+     db_noadj_rth (NOISE's own master, as #463), cost 0.533, $20/pt, weight 1, in place of #422. Context row (not judged): #304 raw (NOISE_1_1_NBHD.py
+     at the paper NOISE_304_NBHD dict) in the seat - the twin both #398 (filter) and #422 (tilt) are built on.
+     Mechanism: #422 = every #304 trade with the squeeze trades at 1.75x; #398 drops the non-squeeze trades instead. If the non-squeeze NOISE
+     trades add more drawdown than return to the book, the filter lifts the leverage line. Could fool us: the hourly frame was picked after it
+     was seen to beat the 30-minute one on these same years (the file says so), and the lockbox for NOISE is a cold-restart strip.
+
+Q3 - ENGU-Q SEAT = the ENGU-Q lane's round-62 cash-session gate, arm S1 (written after Q2's local read, before Q3 is run). ENGUQ_1M_ETH_R62_1_0.py at
+     the paper ENGUQ_335_S1 dict (#335's knobs + entries only 09:30-16:00 ET), same master (db_adj_eth), cost 0.783 and weight as #463's ENGU-Q leg.
+     INFORMATION ONLY for the owner: the gate failed 2 of 6 of its lane's clauses and already runs as a forward shadow judged by the ENGU-Q lane's bar
+     (ENGUQ_R62_FORWARD_PREREG.md); a book PASS here cannot adopt it, it only says whether the gate would help the BOOK if it holds forward.
+     Mechanism: the lane found overnight-session entries die intraday more often; the book's lockbox drawdown is an ENGU-Q stretch.
+
+Q4 - POST-HOC COMBINATION (written after Q1-Q3 were read, before Q4 is run): #463 with ORB #314 (Q1a) AND the ENGU-Q gate S1 (Q3). Built BECAUSE
+     Q1a won WF / lost LB and Q3 did the opposite, so it is data-mined by construction: INFORMATION ONLY. Even a PASS can at most become a forward
+     paper shadow line (both legs already run on paper: ORB_R6 and ENGUQ_335_S1), never an adoption.
+
+Q4 RESULT (local): clears the bar - WF 109.6 vs 92.7, LB 187.6 vs 164.3 at $30k, Sortino 4.03 / 4.37 vs 3.82 / 4.15. Post-hoc, so per MANAGER #34
+it becomes a FORWARD PAPER SHADOW, written now before any forward day: report key book_shadow_q4 = ORB_R6 (ORB #314) x1 + ENGUQ_335_S1 x1 +
+TTM_299_SSOF2 x3 + NOISE_422 x1 (the paper legs, entry-day figures, as the book line). FORWARD BAR: read after 12 months of reports; it must beat
+the adopted book line over the same days on ROC %/yr at a $30k worst drawdown of the daily figure AND on Sortino. It is void if the ENGU-Q lane
+drops the S1 gate on its own forward bar first. The owner decides anything beyond that.
+
+Q5 - FIFTH COMPONENT = ENGU-Q on ES, run #442 (written after Q4, before Q5 runs): ENGUQ_1M_ETH_R2_1_0.py at #442's validate champion, ES 1m ETH,
+     db_adj_eth (roll-corrected, as #442), cost 0.4, $50/pt, weight 1, ADDED to #463's four legs. The ENGU-Q lane's roll-corrected ES re-run (WEAK:
+     luck check only). Mechanism: the same trend-break edge on a second index adds trades on days NQ gives none. Could fool us: ES and NQ trend
+     together, so it may deepen the very ENGU-Q give-backs that set the book's lockbox drawdown; #370 (unadjusted) was one 347-day trade.
+
+Q6 - ORB SEAT = ORB #239 (lane survivor: the ORB lane's round 63 found it clears THEIR bar inside #463; written before my read). #234's settings with
+     the breakeven trigger at 0.8 R instead of 1.0 R, same file / master / cost as #463's ORB leg. Same standing bar. Could fool us: a pinned card
+     whose walk-forward is an in-sample read, and the gain the ORB lane measured is small.
+
+Q1a FORWARD SHADOW (MANAGER #38 GO, 2026-09-30; written before its first forward day): report key book_shadow_orb314 = ORB_R6 (ORB #314) x1 +
+     ENGUQ_335 x1 + TTM_299_SSOF2 x3 + NOISE_422 x1 (paper legs, entry-day figures, as the book line), from 2026-10-01. FORWARD BAR: read after
+     12 months against the adopted book line over the same days - it must beat it on ROC %/yr at a $30k worst drawdown of the daily figure AND on
+     Sortino. Custom ML may add a paired early stop as its own doc; this read stays the verdict. Owner decides anything beyond.
+
+Q6 FORWARD SHADOW (owner: SHADOW FIRST, via MANAGER #41, 2026-09-30; written before its first forward day): report key book_shadow_orb239 =
+     <ORB lane's #239 paper leg> x1 + ENGUQ_335 x1 + TTM_299_SSOF2 x3 + NOISE_422 x1 (paper legs, entry-day figures, as the book line), from the
+     first report after the leg exists. FORWARD BAR: read after 12 months against the adopted book line over the same days - it must beat it on
+     ROC %/yr at a $30k worst drawdown of the daily figure AND on Sortino. Custom ML's paired early stop, if added, is its own doc; this read is
+     the verdict. #463 stays the adopted book.
+
+CORRECTION (2026-09-30, after the independent review; written with only the 09-29 and 09-30 reports in existence): the nightly report counts a trade
+on its ENTRY day and writes that day once at ~16:10 ET, so a multi-day ENGU-Q hold is frozen at its 16:10 mark and ENGU-Q entries after 16:10 ET are
+never counted on any day. Summing the daily report figures would therefore misstate every line - and bias Q4 (its only difference is ENGU-Q entry
+timing). So every forward READ above is computed from the per-trade paper records (users/{uid}/paper_trades, final P&L re-upserted nightly), each
+trade dated by its EXIT day, with each line's own weights and sizes applied per trade (VT: the multiplier stored in the report of the trade's entry
+day; AG: the tilt rule applied to the recorded entry/exit times). The daily report figures remain a live monitor only. Bars, windows and the
+12-month / 100-trade timing are unchanged.
+
+CONVENTION CHANGE (2026-10-01, MANAGER build review item 3; written before any further queue item): from Q7 on, ROC in each stretch = the
+valued-daily net inside the stretch (not exit-stamped closed trades) over (last - first).days / 365.25 years, drawdown valued daily as before -
+the ORB lane's convention, so both lanes publish one number. Q1-Q6 rescored on it: no verdict changes (Q4 and Q6 still clear, the rest fail);
+#463's reference becomes WF 93.8 / LB 155.5 %/yr at a $30k drawdown.
+AG CORRECTION (2026-10-01, item 1): the agreement tilt compares FILL times (ORB fills at its bar's close, NOISE at its bar's open); a same-label
+tie goes to the ORB trade. The round-62 diagnostic that motivated AG (PF 1.56 vs 1.30) was the tie look-ahead: on fill times the tilted trades
+read PF 1.35 vs 1.38 for the rest.

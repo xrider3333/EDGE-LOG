@@ -1,0 +1,11 @@
+ADOPTION #449 - TTM LEG CONDITIONAL (owner via MANAGER #24, 2026-09-28). Written BEFORE the numbers.
+A = #463 (#449 on the fixed legs): ORB #234, ENGU-Q book leg (roll-corrected, 0.783), TTM #459 cell
+    (TTMSQZ_3_0_ES30SSOF2.py x3, back-adjusted master), NOISE #422.
+B = A with the TTM leg = run #458 (TTMSQZ_3_0_ES30SSOF2R347.py, eod_cutoff 5 / kc 1.5, db_noadj_rth, weight 1:
+    the file sizes 3 / 4 / 7 itself).
+Standard book window 2010-06-07..2026-06-30, lockbox 2025-06-30.., every drawdown valued daily unless stated.
+"HOLDS THE BOOK'S DRAWDOWN": B's pre-lockbox and lockbox valued-daily drawdowns are each <= 1.05 x A's.
+"ADDS RETURN" (the owner's yardstick of 2026-09-28): B's ROC %/yr at a $30k worst drawdown (= 30 x MAR, drawdown
+valued daily) is higher than A's in BOTH the pre-lockbox stretch and the lockbox; own-size ROC shown beside.
+Also checked (owner rule): the lockbox stays profitable without its single biggest trade.
+Both hold -> adopt B; otherwise adopt A (#463) as it is. B is also queued as a real BOOK run (= local to the dollar).
