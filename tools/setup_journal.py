@@ -595,6 +595,7 @@ def render_setup(code, entries, spec):
         ent = [j for j in entries if j.get('asset', 'futures') == asset]
         if ent:
             L += render_section(head, ent)
+    L += render_missed(code, spec)
     nd = spec.get('nodata', {}).get(code, [])
     if nd:
         L.append('## Stock trades tagged %s in the TRADETRACKER sheet, with no intraday data' % code)
@@ -630,6 +631,60 @@ def render_setup(code, entries, spec):
           '- Futures prices are unadjusted CME front-month bars (MES is read from ES bars and MNQ from NQ bars; the micro and full-size prints can differ by a tick or two on a fast bar). 10-second bars are the NinjaTrader capture, moved back 10 seconds because it stamps each bar at its close. Stock bars are Yahoo 1- or 5-minute bars kept with the scores.']
     L.append('')
     return '\n'.join(L)
+
+
+def render_missed(code, spec):
+    """The owner's SHOULD HAVE TRADED entries for this setup: setups he saw and did not take. They are a
+    labelled answer key for the algo work - kept out of every count, P&L figure, finding and feature table
+    on the page, and never used as lockbox or outcome evidence."""
+    ms = sorted((m for m in spec.get('missed', []) if m.get('setup') == code),
+                key=lambda m: (m['date'], m.get('signal_candle') or ''))
+    if not ms:
+        return []
+    L = ['## Should have traded (seen, not taken)', '']
+    L.append("> From the owner's SHOULD HAVE TRADED log: proper %s setups he saw but did not take. Not trades: "
+             "they are left out of every count, P&L figure and finding above, and they are a labelled set for "
+             "the algo work, never held-out (lockbox) data." % code)
+    L.append('')
+    for m in ms:
+        sg = m.get('signal') or {}
+        L.append('### %s %s %s - signal candle %s' % (m['date'], m['sym'], m['dir'], m.get('signal_candle') or ''))
+        L.append('')
+        for u in m.get('links', []):
+            L.append('- **Chart:** [%s](%s) · [png](%s)%s' % (u.rstrip('/').rsplit('/', 1)[-1], u, snap_png(u),
+                     (' - saved %s ET' % m['snapshot_created']) if m.get('snapshot_created') else ''))
+        if m.get('snapshot_read'):
+            L.append('- **What the chart shows:** %s' % m['snapshot_read'])
+        if sg:
+            L.append('- **Signal candle %s:** open %s, high %s, low %s, close %s, volume %s.' % (
+                m.get('signal_candle'), pxf(sg.get('o')), pxf(sg.get('h')), pxf(sg.get('l')), pxf(sg.get('c')),
+                '{:,}'.format(int(sg['v'])) if sg.get('v') is not None else '-'))
+        if m.get('base'):
+            L.append('- **Base:** %s.' % m['base'])
+        d = m.get('drawn') or {}
+        if d:
+            L.append('- **Drawn box:** entry %s, stop %s, target %s (%s).' % (
+                pxf(d.get('entry')), pxf(d.get('stop')), pxf(d.get('target')), d.get('how', '')))
+        if m.get('after'):
+            L.append('- **What happened next (not counted anywhere):** %s' % m['after'])
+        ps = m.get('point_score')
+        if ps:
+            hit = [x['label'] for x in ps['points'] if x.get('hit') is True]
+            miss = [x['label'] for x in ps['points'] if x.get('hit') is False]
+            na = [x['label'] for x in ps['points'] if x.get('hit') is None]
+            tr = ps.get('trend') or {}
+            L.append('- **Point score (%s, signal bar %s): %d/%d%s.** Hit: %s. Missed: %s.%s Daily trend (not in the 9): %s.' % (
+                ps.get('v'), ps.get('signal_bar'), ps['total'], ps['max'],
+                (' (%d NA)' % ps['na_count']) if ps.get('na_count') else '',
+                '; '.join(hit) or 'none', '; '.join(miss) or 'none',
+                (' NA: %s.' % '; '.join(na)) if na else '',
+                'NA' if tr.get('hit') is None else ('yes' if tr.get('hit') else 'no')))
+        if m.get('source'):
+            L.append('- **Source:** %s.' % m['source'])
+        if m.get('bars_file'):
+            L.append('- **Bars kept:** `tools/data/%s`.' % m['bars_file'])
+        L.append('')
+    return L
 
 
 def render_features_table(sums):
@@ -751,6 +806,18 @@ def render_index(spec, by):
             len(s), fmt(sum(j.get('pnl') or 0 for j in s)) if s else '—',
             len(spec.get('nodata', {}).get(code, [])), code, code))
     L.append('')
+    ms = spec.get('missed', [])
+    if ms:
+        L.append("## SHOULD HAVE TRADED log (setups seen, not taken)")
+        L.append('')
+        L.append("> Proper setups the owner saw and did not take. Each is filed on its setup page as a labelled example. None is a trade: they are left out of every count and P&L figure, and they are never held-out (lockbox) data.")
+        L.append('')
+        for m in sorted(ms, key=lambda m: (m['date'], m.get('signal_candle') or '')):
+            ps = m.get('point_score') or {}
+            L.append('- %s %s %s %s %s: point score %s. [%s.md](%s.md)' % (
+                m['date'], m.get('signal_candle') or '', m['sym'], m['dir'], m.get('setup'),
+                ('%d/%d' % (ps['total'], ps['max'])) if ps else '-', m.get('setup'), m.get('setup')))
+        L.append('')
     for sec in ('unlabelled', 'conflicts', 'notes'):
         if spec.get(sec):
             L.append('## %s' % {'unlabelled': 'Real trades with no setup label yet',

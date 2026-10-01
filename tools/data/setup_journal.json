@@ -4637,5 +4637,137 @@
     "el_label": "—"
    }
   ]
- }
+ },
+ "missed": [
+  {
+   "id": "KHwkzW9C",
+   "setup": "CBU",
+   "asset": "futures",
+   "sym": "MNQ",
+   "root": "NQ",
+   "dir": "LONG",
+   "date": "2026-09-30",
+   "signal_candle": "09:59",
+   "entry_bar": "10:00",
+   "source": "owner's SHOULD HAVE TRADED log (via MANAGER 2026-10-01); symbol, day and candle read off the snapshot and matched to the bars",
+   "links": [
+    "https://www.tradingview.com/x/KHwkzW9C/"
+   ],
+   "snapshot_created": "2026-10-01 11:01",
+   "snapshot_read": "1-minute MNQ1! chart, 05:45-12:45 on 2026-09-30 (the snapshot was saved the next morning). Price rose from the 07:15 low (about 30,512) through the 08:30 spike (30,779.50), then built a base from about 09:34 to 09:58 under a dashed line near 30,807. The 09:59 candle broke out of it on a volume spike, and a long box is drawn from about 10:00 to 10:38.",
+   "signal": {
+    "o": 30799.5,
+    "h": 30843.75,
+    "l": 30793.75,
+    "c": 30841.0,
+    "v": 3437
+   },
+   "base": "09:34-09:58: 25 one-minute bars between 30,717.50 and 30,806.75; volume in the last 10 base bars averaged about 1,990 contracts a minute, against 3,437 on the signal candle",
+   "drawn": {
+    "entry": 30837.75,
+    "stop": 30792.0,
+    "target": 30906.0,
+    "how": "entry = the box's entry price label on the axis (30,837.75); stop read off the box's lower edge, about +/-2 points (just under the 09:59 low of 30,793.75); target = the box's top, on the 30,906 line"
+   },
+   "after": "Price reached 30,894.75 at 10:06 (+57 points, about 1.2 R on the drawn box), short of the 30,906 target, then fell back through the drawn stop at 10:34. The target printed only at 11:50. Taken as drawn, it would have lost 1 R; with a stop moved to breakeven at +1 R it would have been a scratch.",
+   "point_score": {
+    "v": "ps1.1",
+    "side": "LONG",
+    "signal_bar": "2026-09-30 09:59",
+    "tf": "1m",
+    "tf_note": "1-minute default",
+    "total": 7,
+    "max": 9,
+    "na_count": 0,
+    "points": [
+     {
+      "k": "ma200_10s",
+      "label": "Above 200 EMA (10s)",
+      "hit": true,
+      "val": 30841.0,
+      "ref": 30759.1031,
+      "na_reason": null
+     },
+     {
+      "k": "ma200_1m",
+      "label": "Above 200 EMA (1m)",
+      "hit": true,
+      "val": 30841.0,
+      "ref": 30678.2714,
+      "na_reason": null
+     },
+     {
+      "k": "ma200_5m",
+      "label": "Above 200 EMA (5m)",
+      "hit": true,
+      "val": 30841.0,
+      "ref": 30634.7702,
+      "na_reason": null
+     },
+     {
+      "k": "ma200_30m",
+      "label": "Above 200 EMA (30m)",
+      "hit": true,
+      "val": 30841.0,
+      "ref": 30628.5847,
+      "na_reason": null
+     },
+     {
+      "k": "y_low",
+      "label": "Above yesterday's low",
+      "hit": true,
+      "val": 30841.0,
+      "ref": 30504.5,
+      "na_reason": null
+     },
+     {
+      "k": "y_close",
+      "label": "Above yesterday's close",
+      "hit": true,
+      "val": 30841.0,
+      "ref": 30617.25,
+      "na_reason": null
+     },
+     {
+      "k": "y_high",
+      "label": "Above yesterday's high",
+      "hit": true,
+      "val": 30841.0,
+      "ref": 30725.5,
+      "na_reason": null
+     },
+     {
+      "k": "big_body",
+      "label": "Largest body since today's low",
+      "hit": false,
+      "val": 41.5,
+      "ref": 70.5,
+      "na_reason": null
+     },
+     {
+      "k": "big_vol",
+      "label": "Largest volume since today's low",
+      "hit": false,
+      "val": 3439.0,
+      "ref": 7945.0,
+      "na_reason": null
+     }
+    ],
+    "trend": {
+     "k": "d_trend",
+     "label": "Daily trend up",
+     "hit": false,
+     "val": 30725.5,
+     "ref": 30759.25,
+     "na_reason": null,
+     "val2": 30504.5,
+     "ref2": 30356.75
+    },
+    "src": "master1m+capture10s",
+    "notes": []
+   },
+   "bars_file": "setup_bars/NQ_2026-09-30_m1_1m.csv",
+   "use": "a labelled CBU example for the algo work (an answer key for recall); never lockbox data and never counted as a result"
+  }
+ ]
 }

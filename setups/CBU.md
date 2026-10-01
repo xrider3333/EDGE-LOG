@@ -1690,6 +1690,22 @@ Closed past today's high/low so far: 7 of 9 · past the premarket high/low: 9 of
 
 </details>
 
+## Should have traded (seen, not taken)
+
+> From the owner's SHOULD HAVE TRADED log: proper CBU setups he saw but did not take. Not trades: they are left out of every count, P&L figure and finding above, and they are a labelled set for the algo work, never held-out (lockbox) data.
+
+### 2026-09-30 MNQ LONG - signal candle 09:59
+
+- **Chart:** [KHwkzW9C](https://www.tradingview.com/x/KHwkzW9C/) · [png](https://s3.tradingview.com/snapshots/k/KHwkzW9C.png) - saved 2026-10-01 11:01 ET
+- **What the chart shows:** 1-minute MNQ1! chart, 05:45-12:45 on 2026-09-30 (the snapshot was saved the next morning). Price rose from the 07:15 low (about 30,512) through the 08:30 spike (30,779.50), then built a base from about 09:34 to 09:58 under a dashed line near 30,807. The 09:59 candle broke out of it on a volume spike, and a long box is drawn from about 10:00 to 10:38.
+- **Signal candle 09:59:** open 30799.50, high 30843.75, low 30793.75, close 30841.00, volume 3,437.
+- **Base:** 09:34-09:58: 25 one-minute bars between 30,717.50 and 30,806.75; volume in the last 10 base bars averaged about 1,990 contracts a minute, against 3,437 on the signal candle.
+- **Drawn box:** entry 30837.75, stop 30792.00, target 30906.00 (entry = the box's entry price label on the axis (30,837.75); stop read off the box's lower edge, about +/-2 points (just under the 09:59 low of 30,793.75); target = the box's top, on the 30,906 line).
+- **What happened next (not counted anywhere):** Price reached 30,894.75 at 10:06 (+57 points, about 1.2 R on the drawn box), short of the 30,906 target, then fell back through the drawn stop at 10:34. The target printed only at 11:50. Taken as drawn, it would have lost 1 R; with a stop moved to breakeven at +1 R it would have been a scratch.
+- **Point score (ps1.1, signal bar 2026-09-30 09:59): 7/9.** Hit: Above 200 EMA (10s); Above 200 EMA (1m); Above 200 EMA (5m); Above 200 EMA (30m); Above yesterday's low; Above yesterday's close; Above yesterday's high. Missed: Largest body since today's low; Largest volume since today's low. Daily trend (not in the 9): no.
+- **Source:** owner's SHOULD HAVE TRADED log (via MANAGER 2026-10-01); symbol, day and candle read off the snapshot and matched to the bars.
+- **Bars kept:** `tools/data/setup_bars/NQ_2026-09-30_m1_1m.csv`.
+
 ## Stock trades tagged CBU in the TRADETRACKER sheet, with no intraday data
 
 > Free minute data does not reach back this far, so these carry only what the sheet recorded: the fill, and the float / relative volume / breakout columns he filled in by hand. "In EL" = the trade is also in TRADING LOG (Webull history there starts 2026-01-12).

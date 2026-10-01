@@ -10,6 +10,12 @@
 | CBD | Consolidation Breakout Down | 4 | 3 | 21.15 | 0 | — | 0 | [CBD.md](CBD.md) |
 | ENGD | Engulfing Down | 2 | 1 | -7.55 | 0 | — | 0 | [ENGD.md](ENGD.md) |
 
+## SHOULD HAVE TRADED log (setups seen, not taken)
+
+> Proper setups the owner saw and did not take. Each is filed on its setup page as a labelled example. None is a trade: they are left out of every count and P&L figure, and they are never held-out (lockbox) data.
+
+- 2026-09-30 09:59 MNQ LONG CBU: point score 7/9. [CBU.md](CBU.md)
+
 ## Real trades with no setup label yet
 
 - 2026-04-21 09:52 MES SHORT 7165.25→7165.00 (-$0.65): the sheet calls it a fat-finger order, so it is left out of every setup page. Its chart (taSMzocP) draws the long he meant; the CBU page links it on the 04-21 long.
