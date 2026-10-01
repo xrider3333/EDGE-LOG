@@ -794,3 +794,37 @@ def test_adapter_session_rail_end_of_23_59_still_means_all_day(tmp_path, monkeyp
     adapter = WO.OrderAdapter(config=cfg, log=NOOP)
     monkeypatch.setattr(WO, "_now_ny", lambda: datetime.datetime(2026, 9, 28, 23, 59, 30))
     assert adapter._in_session_window({"session_start": "00:00", "session_end": "23:59"})
+
+
+# ── the order log keeps its own 2000-row history (inventory finding 2026-10-01) ──────
+def test_internal_cross_row_keeps_the_order_logs_2000_row_history(tmp_path, monkeypatch):
+    """_record_internal_cross used to append with ORDERS_KEEP (100): the first 15:59 cross
+    would have cut broker_orders.csv to 100 rows, so older trades lost their Webull fill
+    (P&L of record, parity and candle marks fall back to the book)."""
+    path = tmp_path / "broker_orders.csv"
+    monkeypatch.setattr(qe, "BROKER_ORDERS_CSV", str(path))
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=qe.BROKER_ORDER_COLS)
+        w.writeheader()
+        for i in range(150):
+            w.writerow({"ts_et": f"2026-09-0{1 + i % 9} 10:00:00", "leg": "NOISE", "intent": "OPEN",
+                        "side": "BUY", "shares": 10, "signal_id": f"qxOLD{i}", "ok": True,
+                        "sent": True, "outcome": "OK"})
+    qe._record_internal_cross({}, leg="ORB", side="short", shares=10, shadow_px=736.76,
+                              cross={"px": 736.7, "against": "NOISE", "id": "x1",
+                                     "reason": "flatten"},
+                              ts="2026-09-28 15:59:01", seq=0, trade_id="ORB_R6-20260928T144500Z-S",
+                              partial=False, log=lambda *a, **k: None)
+    rows = _rows(str(path))
+    assert len(rows) == 151 and rows[0]["signal_id"] == "qxOLD0"
+    assert rows[-1]["outcome"] == "NETTED"
+
+
+def test_every_order_log_append_uses_the_order_logs_own_cap():
+    import ast
+    import inspect
+    tree = ast.parse(inspect.getsource(qe))
+    caps = [c.args[3].id for c in ast.walk(tree)
+            if isinstance(c, ast.Call) and getattr(c.func, "id", None) == "_append_csv"
+            and len(c.args) >= 4 and getattr(c.args[0], "id", None) == "BROKER_ORDERS_CSV"]
+    assert caps and set(caps) == {"BROKER_ORDERS_KEEP"}, caps

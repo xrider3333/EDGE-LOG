@@ -7434,7 +7434,7 @@ def _record_internal_cross(state, *, leg, side, shares, shadow_px, cross, ts, se
                        f"already flat at Webull, no order sent"),
             "duplicate": False, "host_id": _lease_host_id(), "outcome": "NETTED",
         }
-        _append_csv(BROKER_ORDERS_CSV, BROKER_ORDER_COLS, row, ORDERS_KEEP)
+        _append_csv(BROKER_ORDERS_CSV, BROKER_ORDER_COLS, row, BROKER_ORDERS_KEEP)
         log(f"[qqq-exec] broker CLOSE for {leg}: {shares} share(s) crossed internally against "
             f"{cross.get('against')} @ {cross_px:.2f} -- no order sent")
     except Exception as e:
@@ -8237,7 +8237,7 @@ def _broker_order_for(trade_id, intent, by_base):
     """The broker_orders.csv row (see _best_broker_row) for one leg (OPEN/CLOSE) of a
     trade id, or None when there is no trade id (a trades.csv row closed before feature
     #56 shipped, or a lot that lost its id) or no matching row at all (this leg's order
-    aged out of broker_orders.csv's own ORDERS_KEEP trim -- see BROKER_ORDER_COLS)."""
+    aged out of broker_orders.csv's own BROKER_ORDERS_KEEP trim -- see BROKER_ORDER_COLS)."""
     if not trade_id:
         return None
     sig_id = _broker_signal_id(None, None, intent, trade_id=trade_id)
@@ -8247,7 +8247,7 @@ def _broker_order_for(trade_id, intent, by_base):
 def _all_broker_orders_from_csv(cap=BROKER_ORDERS_KEEP):
     """Every broker_orders.csv row on file (oldest-first, as the CSV stores them),
     capped defensively to the newest `cap` -- mirrors _all_trades_from_csv. The file
-    itself never holds more than ORDERS_KEEP rows (trimmed at write time), so this cap
+    itself never holds more than BROKER_ORDERS_KEEP rows (trimmed at write time), so this cap
     is a second, independent ceiling, not the normal limiter. Never raises."""
     try:
         with open(BROKER_ORDERS_CSV, encoding="utf-8", newline="") as f:
@@ -9016,7 +9016,7 @@ def _book_only_status(row, by_base, log=print):
       UNKNOWN (book_only False, "" reason) --
       * no trade_id, or _broker_order_for finds no matching row at all: either this
         trade predates trade ids, or its OPEN order aged out of broker_orders.csv's own
-        ORDERS_KEEP trim (see BROKER_ORDER_COLS). There is no record either way, so
+        BROKER_ORDERS_KEEP trim (see BROKER_ORDER_COLS). There is no record either way, so
         this is NOT marked book-only -- that would claim more than the data supports.
       * mode == "OFF": the broker adapter was not mirroring AT ALL when this OPEN
         happened (webull_orders.MODE_OFF, a deliberate config-level no-op -- see
