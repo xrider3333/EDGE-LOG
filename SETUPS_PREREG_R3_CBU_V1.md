@@ -187,4 +187,41 @@ The dashed line at about 30,807 on the 09-30 chart is answered by the data: it i
 
 ## 7. Deviations log (append only)
 
-(none yet)
+- **2026-10-01, Test 1 implementation readings** (written into `tools/cbu_v1_alerts.py` before its first run;
+  none changes a rule):
+  - Bars, the 5m/30m EMAs and yesterday's high come from the point-score loader: the NOADJ 1m master plus the NT
+    capture in the summer hole and after the master's end, back-adjusted at the real contract switches.
+  - Listed CME full holidays are not sessions.
+  - A combined session needs both NQ and ES to have closed it.
+  - Held base: the 30-bar high is dated at its EARLIEST bar, so an equal touch later does not reset the hold.
+    The latest-bar reading was run as a check and changes nothing material: held+day 0.58 vs 0.66 a day, same
+    recall.
+  - Recall counts an alert at the signal minute or the minute after, as section 3 says.
+
+## 8. Test 1 result (2026-10-01): the alert check
+
+`python tools/cbu_v1_alerts.py` covered 122 regular sessions, 2026-04-07..2026-09-30, on NQ and ES.
+No outcome was read. The report and the alert list are local, in `C:\EdgeLog\_anatomy_cache\cbu_v1_alerts\`.
+
+| Variant | Alerts a day, NQ + ES (median / p90 / max) | Days with any | In-sample recall (same minute) | Useful? |
+|---|---|---|---|---|
+| `any` + `am` | 0.96 (0 / 3.9 / 7) | 38% | 6 of 13 (5) | **yes** |
+| `any` + `day` | 2.80 (1 / 9 / 20) | 52% | 9 of 13 (8) | **yes** |
+| `held` + `am` | 0.19 (0 / 1 / 3) | 16% | 2 of 13 (2) | no |
+| `held` + `day` | 0.66 (0 / 3 / 6) | 29% | 3 of 13 (3) | no |
+
+- **The same-minute recall reproduces the section 2 fit table exactly** (5 / 8 / 2 / 3).
+  - The extra catch on the `any` variants is 06-30. Its 09:30 candle closed below the premarket high, but
+    the 09:31 bar fired.
+- **Misses:**
+  - volume: 04-14 09:42 at 0.94x and 04-21 09:52 at 1.13x;
+  - not a new high of the day: 04-07 13:34, which also failed the yesterday's-high context, and 04-27 15:45.
+- **Held base** catches only the 5 base breakouts it was written for, and the volume rule drops 2 of those
+  (04-21, 04-27).
+- **Alerts bunch:** `any` + `day` has a median of 1 a day but 9 or more on the busiest tenth of days. Those are
+  the up-trend days.
+- **Out of sample:** no SHOULD HAVE TRADED CBU entry is dated after the prereg yet (0 of 0). Each new one gets
+  scored with this tool as it comes in.
+- **Verdict:** two variants meet the useful bar: momentum new highs, either morning-only or all-day.
+  - These feed the alerts-first track.
+  - The outcome test (section 4) still waits for the owner's answers.
