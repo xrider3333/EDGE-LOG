@@ -1065,6 +1065,29 @@ def save_master_csv(df, name, instrument, timeframe, source="tv",
             except Exception:
                 pass
         fn = overwrite_filename or f"master_{uuid.uuid4().hex[:8]}.csv"
+
+        # THE ROW GUARD, on the path that actually installed the 2026-09-29 stump (MANAGER
+        # review 2026-09-30, finding 6). This function was already atomic, so it could never
+        # leave a half-written file - but nothing stopped it INSTALLING a short one. On 09-29
+        # the runner's refresh read NOADJ_NQ_5m_ETH while the 17:20 box push was rewriting it
+        # in place, got 625,491 rows of a half-written file, appended a 7-day Yahoo window to
+        # the stump and re-registered it at 627,069 rows. The registry's own count is the last
+        # size a complete write recorded, so comparing against it catches exactly that: a
+        # truncation cannot launder itself through one bad read.
+        _known = None
+        if overwrite_filename:
+            try:
+                _c = _db_conn()
+                _r = _c.execute("SELECT rows FROM csv_files WHERE filename=?", (fn,)).fetchone()
+                _known = int(_r[0]) if _r and _r[0] else None
+            except Exception:
+                _known = None          # unknown is not zero: fall back to the disk comparison
+        if _known and len(df) < _known:
+            return False, (
+                f"REFUSED to save {fn}: it would go from {_known:,} rows (the registry's count) "
+                f"to {len(df):,}, losing {_known - len(df):,}. A master only ever grows. This is "
+                f"what a half-written read looks like - the old master is untouched.")
+
         raw = df_to_tv_csv_bytes(df)
         # ATOMIC (2026-09-07). This used to truncate the master and write it back in
         # place, which was safe only while ONE process touched the data: the runner

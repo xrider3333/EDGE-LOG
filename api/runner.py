@@ -2583,7 +2583,12 @@ def main(argv=None):
                                            run_coarse_refresh)
             print(f"[{tag}] refreshing masters (Yahoo + watch-folder)…")
             changes = run_auto_refresh()
-            for line in changes[:12]:
+            # EVERY line, not the first 12 (MANAGER review 2026-09-30, finding 6). On the
+            # night NOADJ_NQ_5m_ETH was truncated, the pass logged '15 master(s) updated'
+            # and only 12 change lines, so the one that would have shown the row count
+            # collapsing was the evidence that got cut. A refusal or a shrink must never be
+            # the line that falls off the end.
+            for line in changes:
                 print("   " + log_safe(line))
             print(f"[{tag}] {len(changes)} master(s) updated.")
             # The 2m-60m masters are resampled from those parents, so they go after,

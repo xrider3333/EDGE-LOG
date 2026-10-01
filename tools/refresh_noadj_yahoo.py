@@ -91,10 +91,10 @@ def main(now_s=None):
         now_s = int(time.time())
     conn = sqlite3.connect(DB)
     masters = conn.execute(
-        "SELECT id,filename,instrument,timeframe,session FROM csv_files "
+        "SELECT id,filename,instrument,timeframe,session,rows FROM csv_files "
         "WHERE is_master=1 AND source LIKE 'db_noadj%'").fetchall()
     failures = []        # (filename, reason) - named at the end and in the exit code
-    for mid, fn, inst, tf, sess in masters:
+    for mid, fn, inst, tf, sess, known_rows in masters:
         if inst not in YTK or tf not in YINT:
             print(f"  skip {fn} (no Yahoo support for {inst} {tf})"); continue
         p = os.path.join(UP, fn)
@@ -140,7 +140,9 @@ def main(now_s=None):
         # whole loop - and NQ 5m RTH, the master pushed to the box for the live KEEL
         # sizing, sorts late enough to be a likely casualty.
         try:
-            write_master_csv(merged, p)
+            # known_rows is the registry's count: the last size a COMPLETE write recorded.
+            # Without it, appending to a file some other process left short reads as growth.
+            write_master_csv(merged, p, known_rows=known_rows)
         except Exception as _we:
             failures.append((fn, "%s: %s" % (type(_we).__name__, _we)))
             print(f"  {fn}: NOT WRITTEN - {type(_we).__name__}: {_we}. "
