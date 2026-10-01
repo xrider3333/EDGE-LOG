@@ -57,9 +57,9 @@ so only 45 sessions are usable. Routed to Paper: NT8, which owns the NinjaTrader
 **The read (descriptive - 30 crown trades, far under any minimum).** The pre-registered tag - the signal bar's own delta
 agreeing with the break - is nearly redundant with the breakout itself: 25 of 29 breaks are "backed", because a bar that
 closes through the band usually carries same-sign flow. Skipping the 4 unbacked trades lowers ROC at a $30k drawdown
-(202% -> 131% over the window) and 74% of random shuffles do as well: no signal, and structurally little room for one.
+(202% -> 131% over the window): no signal, and structurally little room for one.
 The session CUMULATIVE delta (descriptive) split the other way round: 7 trades taken against the day's net flow lost
-$3,159, the 22 with it made $23,389 (17% of shuffles match) - suggestive, seen, so it counts for nothing historically.
+$3,159, the 22 with it made $23,389 - seen, so it counts for nothing historically. *Corrected 2026-10-01 (MANAGER review #18): the shuffle figures first quoted here (74% and 17%) used a global shuffle; the pre-registered null shuffles the tag WITHIN each session, which gives 10% (signal-bar) and 49% (cumulative) - the cumulative split has no historical support at all, and only 5 of 19 sessions hold more than one tagged trade, so this null can barely move on NOISE's one-or-two trades a day. The tool now uses the pre-registered null (global kept, labelled).*
 
 **What runs now: two FORWARD SHADOWS, no live change.** From 2026-10-01 the capture accumulates and both tags are computed
 after the fact; read once at 150 tagged forward trades (about 6-12 months at NOISE's current pace), bar fixed in the
@@ -67,7 +67,7 @@ pre-registration: skip-unbacked beats plain #304 on ROC at a $30k drawdown and S
 backed with under 5% of within-session shuffles matching, 50+ trades per bucket, profitable without its biggest trade.
 The capture fault above is the thing most likely to stall this: every session without delta is a session lost.
 
-**Audit 2026-09-30 evening (MANAGER inbox #16).** The 10-second stamps are bar END (92% of rebuilt 5-minute closes match the master exactly, 3% if read as START), the tags use only bars that end by the signal bar's close, and time zones come from UTC. Two fixes: the read is pinned to 2026-09-29 so it reproduces, and a PRICE GUARD drops sessions where the capture is not the master's contract (09-14 was already on December, ~298 points apart; 08-19 partly back-filled). Guarded: 29 trades, same conclusions (signal-bar tag no signal; cumulative delta 16% of shuffles). The guard applies to the forward read too.
+**Audit 2026-09-30 evening (MANAGER inbox #16).** The 10-second stamps are bar END (92% of rebuilt 5-minute closes match the master exactly, 3% if read as START), the tags use only bars that end by the signal bar's close, and time zones come from UTC. Two fixes: the read is pinned to 2026-09-29 so it reproduces, and a PRICE GUARD drops sessions where the capture is not the master's contract (09-14 was already on December, ~298 points apart; 08-19 partly back-filled). Guarded: 29 trades, same conclusions (signal-bar tag no signal; cumulative delta 49% of within-session shuffles). The guard applies to the forward read too.
 
 ## 🧪 2026-09-28 — ROUND 63: more alpha? Ten ideas, two pre-registered, both dead at triage
 

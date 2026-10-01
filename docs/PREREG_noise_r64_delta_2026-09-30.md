@@ -68,5 +68,14 @@ Tag: CUM-BACKED = the session's cumulative 10-second delta from 09:30 to the sig
    September (about a 298-point gap, 31% of closes matching). A PRICE GUARD now applies to every read, the forward
    shadows included: a session counts only if at least 80% of its rebuilt 5-minute closes equal the master's exactly
    (median session 96%). It drops 09-14 and 08-19 (59%, partly back-filled). Guarded read (r37_results/
-   r64_delta_read_guarded.txt): 29 trades; signal-bar tag 74% of shuffles (no signal, unchanged); cumulative delta 7
-   unbacked lost $3,159, 16% of shuffles (unchanged conclusion). Nothing else in this pre-registration changes.
+   r64_delta_read_guarded.txt): 29 trades; signal-bar tag lowers ROC (no signal, unchanged); cumulative delta 7
+   unbacked lost $3,159 (shuffle figures: see addendum 3). Nothing else in this pre-registration changes.
+
+## ADDENDUM 3 - 2026-10-01, correction (MANAGER build review #18), before any forward trade is scored
+The first read's permutation shuffled the tag across ALL trades; this pre-registration specifies a shuffle WITHIN each
+session (line 33 and forward criterion 2). Re-run with the specified null (tools/perm_null.py, tested): signal-bar tag
+10.0%, session cumulative tag 49.4% of 2,000 within-session shuffles (global: 74.4% / 17.2%). The cumulative split
+therefore had no historical support; it stays a forward shadow only because addendum 1 already gave its history no
+weight and the shadow costs nothing. Note for the forward read, unchanged criterion: with one or two NOISE trades per
+session, most sessions cannot be shuffled, so this null is strict (it only credits a tag that picks the better trade
+within a day) and criterion 2 will rarely pass by chance.

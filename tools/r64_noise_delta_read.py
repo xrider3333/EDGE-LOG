@@ -19,6 +19,8 @@ os.chdir(ROOT)
 import importlib.util as ilu                                          # noqa: E402
 from augur_engine.data import find_master, load_master_arrays         # noqa: E402
 from augur_engine.engine import run_backtest                          # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import perm_null                                                      # noqa: E402
 
 TEN = os.environ.get("EDGELOG_NQ_10S", r"C:\EdgeLog\ohlc\NQ_10s.csv")
 DATE_TO = os.environ.get("R64_DATE_TO", "2026-09-29")   # the recorded read's last session, pinned so it reproduces
@@ -105,9 +107,11 @@ for col, label in (("backed", "SIGNAL-BAR delta (pre-registered)"), ("cum_backed
     r_skip = yard(keep.pnl.to_numpy(), keep.day.to_numpy(), span)
     print("  plain #304 (tagged trades): ROC@$30k %6.1f%%  Sortino %5.2f  DD $%s" % (r_all[0], r_all[1], format(int(r_all[2]), ",")))
     print("  skip unbacked             : ROC@$30k %6.1f%%  Sortino %5.2f  DD $%s" % (r_skip[0], r_skip[1], format(int(r_skip[2]), ",")))
-    rng = np.random.default_rng(20260930)
-    real = keep.pnl.sum()
     lab = (tag[col] == True).to_numpy()                                           # noqa: E712
     p = tag.pnl.to_numpy()
-    beat = np.mean([p[rng.permutation(lab)].sum() >= real for _ in range(2000)])
-    print("  permutation: %.1f%% of 2,000 random tag shuffles keep as much money as skip-unbacked\n" % (100 * beat))
+    ses = tag.day.astype(str).to_numpy()
+    multi = int((tag.groupby("day").size() > 1).sum())
+    print("  permutation (pre-registered, WITHIN session): %.1f%% of 2,000 shuffles keep as much money as skip-unbacked "
+          "(%d of %d sessions hold >1 tagged trade)" % (100 * perm_null.within_session_share(p, lab, ses), multi,
+                                                        tag.day.nunique()))
+    print("  permutation (global, NOT the pre-registered null): %.1f%%\n" % (100 * perm_null.global_share(p, lab)))
