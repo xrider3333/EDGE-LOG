@@ -140,6 +140,36 @@ evidence):**
     lockbox apart, Sortino, 100 walk-forward / 50 lockbox trades, lockbox profitable without its top trade.
 - Then it goes on the RUNBOARD watch list.
 
+## 4a. Outcome cells fixed (2026-10-01, committed before any outcome run)
+
+- **Owner answers:** none yet.
+  - MANAGER (2026-10-01, inbox #15): use the bracketed defaults if no answer arrives before the profit test
+    is ready.
+  - The defaults are: both bases (Q1), both windows (Q2), the 09:30 candle counts (Q3), ride and be2r (Q4),
+    volume 1.5x (Q5).
+  - So **all 16 cells run as written**. Answers arriving later can only pick among them.
+- **Code:**
+  - `augur_strategies/CBUQ_2_0.py` (family CBU-Q; DEFAULT_PARAMS ranged for Auto-Validate);
+  - driver `tools/setups_r3_triage.py`;
+  - tests `tests/test_cbuq_2_0.py`.
+- **Data:** `FADJ_{NQ,ES}_1m_ETH`, sliced to 2010-06-07..2025-07-06 at read (round 2's loader and window
+  assert).
+- **History readings:**
+  - **Yesterday** = the latest earlier session that has regular bars, is not a listed holiday, and whose
+    last regular bar starts at 13:14 or later. The point score's strict "complete" needs an early-close list
+    that does not exist before 2025. On 2026 data this differs from Test 1 on one ES bar (07-27 09:35, after
+    an incomplete capture day).
+  - **Holidays** = US equity-market full closures 2010-27 by rule, plus Sandy and two days of mourning. The
+    list equals the point score's for 2025-27 (tested). No decision is made on a listed holiday.
+  - **EMA warm-up:** 600 buckets.
+  - **Cross-check:** on 2026-04-07..09-30 the file's signals equal Test 1's alerts on 750 of 751 bars.
+- **Neighbours (7):** base flipped, window flipped, exit flipped, vol 1.25 and 2.0, range 1.0 and 1.4.
+  A cell advances on: the house bar at house cost + stress PF ≥ 1.10 + at least 2 of 7 neighbours with
+  PF ≥ 1.15.
+- **Validate grid** (only if a cell advances): base × window × exit × vol {1.25, 1.5, 2.0} ×
+  range {1.0, 1.2, 1.4} × body {0.5, 0.7, 0.9}.
+- **NOISE #382 overlap:** reported for every cell that passes the house bar.
+
 **The labelled set:**
 
 - The journal trades and SHOULD HAVE TRADED entries are a labelled set used only for recall.
