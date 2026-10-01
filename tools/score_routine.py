@@ -46,6 +46,7 @@ FUT_SETUP = [('Trend / context', 20), ('Entry location', 20), ('Risk definition'
 EXEC = [('Entry timing', 25), ('Risk control / MAE', 25), ('Exit vs MFE', 25), ('Sizing', 15),
         ('Plan adherence', 10)]
 HHMM = re.compile(r'^\d\d:\d\d$')
+HHMMSS = re.compile(r'^\d\d:\d\d:\d\d$')
 
 
 def say(*a):
@@ -246,7 +247,10 @@ def build_entries(pending, scored, fix):
             e['trade_id'] = p['trade_id']
         if p.get('shift_min'):
             e['shift_min'] = p['shift_min']
-        for f in ('breakout_candle', 'hold_from'):
+        for f in ('entry_ts', 'exit_ts'):       # fill seconds (score_day reads them from fills.csv)
+            if HHMMSS.match(str(p.get(f) or '')):
+                e[f] = str(p[f])
+        for f in ('breakout_candle', 'hold_from', 'hold_to'):
             if s.get(f) not in (None, ''):
                 if HHMM.match(str(s[f])):
                     e[f] = str(s[f])
@@ -320,6 +324,9 @@ def stage(path, st, authored, note):
     new = [e for e in authored if ts.key_of(e) not in have]
     if len(new) != len(authored):
         say('  %d score(s) were already on main - left as they are' % (len(authored) - len(new)))
+    for e in new:                          # futures: fill seconds + cached 10s slice -> exact MAE / MFE
+        if e['sym'].upper() in ts.CAPTURE_OF:
+            say('  10s heat  %s %-5s %s: %s' % (e['date'], e['sym'], e['entry_time'], ts.attach_10s(e)))
     spec['trades'] += new
     dump(fp, spec)
     r = run([PY, os.path.join('tools', 'trade_scores.py'), '--apply'], cwd=path, check=False)

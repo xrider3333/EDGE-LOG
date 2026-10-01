@@ -196,6 +196,17 @@ def main():
                        'about 60 days' % (sym, t['date']))
             na_new.append(dict(base, reason=why))
             continue
+        # fill SECONDS from the NinjaTrader fills log: the score measures MAE / MFE from the 10s
+        # capture between these two seconds (trade_scores.heat_10s), never over whole bars
+        fsec = None
+        if sym in ts.CAPTURE_OF and str(t['date']) >= ts.TEN_FROM and t.get('entry') is not None:
+            try:
+                fsec = ts.find_fills({'sym': sym, 'date': t['date'], 'dir': t.get('type', 'LONG'),
+                                      'entry': t['entry'], 'entry_time': base['entry_time'],
+                                      'exit_time': str(t.get('exitTime') or '')[:5] or base['entry_time'],
+                                      'shift_min': shift})
+            except Exception as e:
+                print('  fills log not read for %s %s %s (%s)' % (t['date'], sym, et, e))
         at = day[day.index.strftime('%H:%M') <= et]
         i0 = len(at) - 1 if len(at) else 0
         win = day.iloc[max(0, i0 - CONTEXT_BARS): i0 + CONTEXT_BARS + 1]
@@ -205,6 +216,7 @@ def main():
             'asset': 'futures' if sym in ts.FUT_ROOTS else 'stock', 'interval': iv,
             'entry_time': base['entry_time'], 'exit_time': str(t.get('exitTime') or '')[:5] or base['entry_time'],
             'shift_min': shift, 'et_entry_time': et, 'et_exit_time': xt,
+            'entry_ts': fsec[0] if fsec else None, 'exit_ts': fsec[1] if fsec else None,
             'entry': t.get('entry'), 'exit': t.get('exit'), 'qty': t.get('size'),
             'pnl': t.get('pnl'), 'setup': t.get('setup'), 'timeframe': t.get('timeframe'),
             'notes': t.get('notes'), 'grade': t.get('grade'),

@@ -28,6 +28,10 @@ and 09-23 runs stalled that way on their first command).
    - `breakout_candle`: HH:MM Eastern of the signal bar (a time that appears in `bars_et`).
    - `stop`: the structural stop - the signal bar low for a long, its high for a short.
    - `hold_from` (optional): only when the fill came at the close of the entry bar - the next bar.
+   - `hold_to` (optional, HH:MM Eastern bar start, the mirror of `hold_from`): the last bar to
+     count as heat, only when the exit came at the start of the exit bar so that bar's post-exit
+     range is not heat. Futures trades normally need neither: they are measured from the 10-second
+     capture between the two fill seconds (`entry_ts` / `exit_ts`, filled in for you - see below).
    - `px_offset` (optional): only when the trade was on a different contract month than the bars.
    - `setup` and `exec`: lists of `{"label", "weight", "score", "note"}` - exactly the rubric rows
      below, in that order; `score` a whole number from 0 to the weight; `note` one short factual
@@ -53,6 +57,16 @@ it, then `finish --dry-run` runs every step except the commit and push.
 
 Never delete anything in `tools/data/score_bars/` - once Yahoo ages a day out (~30 days for 1m)
 the cache is the only copy.
+
+**Futures MAE / MFE come from the 10-second capture, not from 1-minute bars.** `score_day.py` reads
+the fill seconds for each MES / MNQ trade from `C:\EdgeLog\fills.csv` into `entry_ts` / `exit_ts`
+(HH:MM:SS Eastern); `score_routine.py` then caches that trade's slice of the NinjaTrader capture as
+`tools/data/score_bars/<SYM>_<date>_<HHMM>_10s.csv` (bar-START stamps, committed like the 1m cache).
+`trade_scores.py` measures heat over the 10-second bars that end after the entry second and start
+before the exit second, so a flush that printed after the exit never counts. If the slice is missing
+or does not cover the fills, it falls back to the 1-minute bars `hold_from` .. `hold_to`.
+`python tools/trade_scores.py --attach-10s` back-fills the stamps and slices for older trades.
+CLOSED THAT DAY is the close of the last bar that starts before 16:00 (bars are stamped at start).
 
 ## Data sources
 

@@ -14,6 +14,24 @@
 #   python tools/trade_scores.py --apply           rewrite the block inside index.html
 #   python tools/trade_scores.py --check           exit 1 if index.html is out of date
 #   python tools/trade_scores.py --refresh         re-download bars even if cached
+#   python tools/trade_scores.py --attach-10s      futures trades: stamp entry_ts / exit_ts from the
+#                                                  NinjaTrader fills log and cache the 10-second slice
+#
+# MAE / MFE (the maePct and mfeCap numbers) are measured BETWEEN THE FILLS, never over a whole bar:
+#   * 10-second path (automatic, futures from 2026-06-23): when a trade carries entry_ts / exit_ts
+#     (HH:MM:SS Eastern, the fill seconds from C:\EdgeLog\fills.csv) and its slice of the NinjaTrader
+#     10-second capture is cached under tools/data/score_bars/<SYM>_<date>_<HHMM>_10s.csv, heat is
+#     taken from the 10-second bars that END after the entry second and START before the exit second.
+#     The capture stamps a row at its bar END; the cache stores bar START (like the 1m cache), so a
+#     re-run on any machine gives the same numbers and never needs C:\EdgeLog.
+#     The slice must cover entry..exit with no hole and hold the entry fill price; else it is ignored
+#     (a warning prints) and the 1-minute path below is used.
+#   * 1-minute path: the bars hold_from .. hold_to, both HH:MM Eastern bar-START stamps. hold_from
+#     defaults to the entry minute, hold_to to the exit minute. Set hold_from when the fill came at
+#     the close of the entry bar (that bar's pre-fill low is not heat) and hold_to when the exit
+#     came at the start of the exit bar (that bar's post-exit range is not heat).
+# CLOSED THAT DAY (dayClose) is the close of the last bar that STARTS before 16:00 - bars are
+# stamped at their start, so the 16:00 bar is the first bar AFTER the cash close.
 #
 # DATA REACH (yfinance, free): 1m only covers the last ~30 days AND at most 8 days per request;
 # 5m covers ~60 days. Anything older cannot be scored from Yahoo at all — it needs a saved chart
@@ -45,6 +63,181 @@ END = '// <<< TRADE_SCORES END'
 # how many bars of context to bake either side of the trade
 PRE_BARS = 10
 POST_BARS = 14
+
+# --- 10-second heat (MAE / MFE between the fill seconds) --------------------------------------
+ET = 'America/New_York'
+TICK = 0.25                      # ES / MES / NQ / MNQ all trade in quarter points
+TEN_FROM = '2026-06-23'          # first session of the NinjaTrader 10-second capture
+S10 = 10                         # seconds per capture bar
+MAX_GAP_S = 120                  # a hole longer than this between capture bars = not covered
+FILLS_CSV = os.environ.get('EDGELOG_FILLS', r'C:\EdgeLog\fills.csv')
+OHLC_DIRS = (r'C:\EdgeLog\ohlc_addon', r'C:\EdgeLog\ohlc')     # same two homes api/paper.py reads
+CAPTURE_OF = {'NQ': 'NQ', 'MNQ': 'NQ', 'ES': 'ES', 'MES': 'ES'}   # traded root -> capture file
+
+
+def _at(date, hm, shift_min=0):
+    """The Eastern HH:MM to read the bars at when the journal clock was off by shift_min."""
+    return (pd.Timestamp(date + ' ' + hm) + pd.Timedelta(minutes=int(shift_min or 0))).strftime('%H:%M')
+
+
+def cache_path_10s(t):
+    """One cached 10-second slice per trade: <SYM>_<date>_<HHMM>_10s.csv (+ trade id if two
+    trades share a symbol and minute)."""
+    hm = str(t['entry_time'])[:5].replace(':', '')
+    tid = ('_' + str(t['trade_id'])) if t.get('trade_id') else ''
+    return os.path.join(CACHE, '%s_%s_%s%s_10s.csv' % (t['sym'].upper(), t['date'], hm, tid))
+
+
+def capture_path(inst, dirs=None):
+    """The 10s capture file with the newest last bar (ties: the bigger file), as api/paper.py does."""
+    have = [os.path.join(d, '%s_10s.csv' % inst) for d in (dirs or OHLC_DIRS)]
+    have = [p for p in have if os.path.exists(p)]
+
+    def rank(p):
+        try:
+            with open(p, 'rb') as fh:
+                fh.seek(0, os.SEEK_END)
+                size = fh.tell()
+                fh.seek(max(0, size - 4096))
+                tail = fh.read().decode('utf-8', 'replace').strip().splitlines()
+            return (int(float(tail[-1].split(',')[0])) if tail else 0, size)
+        except (OSError, ValueError, IndexError):
+            return (0, 0)
+    return max(have, key=rank) if have else None
+
+
+def _epoch(date, hms):
+    return int(pd.Timestamp('%s %s' % (date, hms), tz=ET).timestamp())
+
+
+def build_10s_slice(t, dirs=None):
+    """This trade's 10-second bars from the capture (bar-START stamps, Eastern), one minute of
+    margin either side. None when the capture is not on this machine or holds nothing there."""
+    inst = CAPTURE_OF.get(t['sym'].upper())
+    if not inst or not t.get('entry_ts') or not t.get('exit_ts'):
+        return None
+    path = capture_path(inst, dirs)
+    if not path:
+        return None
+    if ROOT not in sys.path:
+        sys.path.insert(0, ROOT)
+    from api import trade_bars as tb            # reads only the needed window of a 30 MB file
+    e, x = _epoch(t['date'], t['entry_ts']), _epoch(t['date'], t['exit_ts'])
+    w = tb._read_window(path, e - 60, x + S10 + 60)      # rows are stamped at bar END
+    if w is None or w.empty:
+        return None
+    w = w.drop_duplicates('time', keep='last').sort_values('time')
+    idx = pd.DatetimeIndex(pd.to_datetime(w['time'].astype('int64') - S10, unit='s', utc=True)).tz_convert(ET)
+    out = pd.DataFrame({'Open': w['open'].values, 'High': w['high'].values, 'Low': w['low'].values,
+                        'Close': w['close'].values, 'Volume': w['volume'].values}, index=idx)
+    return out
+
+
+def load_10s(t, refresh=False):
+    """The cached 10-second slice for a trade (building it from the capture when this machine has
+    the capture and no cache yet), or None."""
+    if not (t.get('entry_ts') and t.get('exit_ts')):
+        return None
+    fp = cache_path_10s(t)
+    if refresh or not os.path.exists(fp):
+        d = build_10s_slice(t)
+        if d is not None:
+            os.makedirs(CACHE, exist_ok=True)
+            d.to_csv(fp)
+            return d
+    if os.path.exists(fp):
+        return to_et(pd.read_csv(fp, index_col=0, parse_dates=True))
+    sys.stderr.write('warning: %s %s %s has entry_ts/exit_ts but no 10s slice (%s) and no capture '
+                     'here - heat falls back to 1-minute bars\n'
+                     % (t['sym'], t['date'], t['entry_time'], os.path.basename(fp)))
+    return None
+
+
+def heat_10s(s10, date, entry_ts, exit_ts, entry_px, offset=0.0):
+    """(lowest low, highest high, n bars) of the 10s bars strictly between the two fill seconds:
+    bars that END after the entry second and START before the exit second. None unless the slice
+    covers the whole stretch (a bar holding each fill second, no hole over MAX_GAP_S) and the entry
+    fill price sits inside the bar it filled in (so the capture is the contract that was traded)."""
+    if s10 is None or not len(s10):
+        return None
+    e, x = pd.Timestamp('%s %s' % (date, entry_ts), tz=ET), pd.Timestamp('%s %s' % (date, exit_ts), tz=ET)
+    if x <= e:
+        return None
+    s10 = s10.sort_index()
+    st = s10.index
+    en = st + pd.Timedelta(seconds=S10)
+    at_e = (st <= e) & (en > e)
+    at_x = (st <= x) & (en > x)
+    if not at_e.any() or not at_x.any():
+        return None
+    eb = s10[at_e].iloc[-1]
+    if not (eb.Low + offset - 2 * TICK <= float(entry_px) <= eb.High + offset + 2 * TICK):
+        return None
+    win = s10[(en > e) & (st < x)]
+    if not len(win):
+        return None
+    span = st[(st >= win.index[0]) & (st <= s10[at_x].index[-1])]
+    if len(span) > 1 and (span[1:] - span[:-1]).max() > pd.Timedelta(seconds=MAX_GAP_S):
+        return None
+    return float(win.Low.min()) + offset, float(win.High.max()) + offset, len(win)
+
+
+def find_fills(t, fills_path=None):
+    """(entry_ts, exit_ts) as 'HH:MM:SS' Eastern for a futures trade, from the NinjaTrader fills
+    log; None when the log is missing or holds no matching fills.
+    Entry = the earliest fill in the journal's entry minute at the entry price on the entry side;
+    exit = the latest opposite-side fill in the exit minute (a scaled exit has several).
+    The log is UTC. The 2026-06-30 rows carry the PACIFIC clock instead (06:31 for a 09:31 ET
+    trade), so a trade with no match in UTC is tried once more as Pacific."""
+    fills_path = fills_path or FILLS_CSV
+    sym = str(t['sym']).upper()
+    if sym not in CAPTURE_OF or not os.path.exists(fills_path):
+        return None
+    f = pd.read_csv(fills_path, dtype=str, usecols=['Time', 'Instrument', 'Action', 'Price'])
+    f = f[f.Instrument.str.split().str[0].str.upper() == sym]
+    if f.empty:
+        return None
+    long_ = str(t.get('dir', 'LONG')).upper() != 'SHORT'
+    a_in, a_out = ('BUY', 'SELL') if long_ else ('SELL', 'BUY')
+    sh = t.get('shift_min', 0)
+    e_hm, x_hm = _at(t['date'], t['entry_time'], sh), _at(t['date'], t['exit_time'], sh)
+    px = pd.to_numeric(f.Price, errors='coerce')
+    for zone in ('UTC', 'America/Los_Angeles'):
+        et = pd.DatetimeIndex([pd.Timestamp(s).tz_localize(zone).tz_convert(ET) for s in f.Time])
+        day = et.strftime('%Y-%m-%d') == t['date']
+        hm = et.strftime('%H:%M')
+        ins = f[day & (hm == e_hm) & (f.Action.str.upper().values == a_in)
+                & ((px - float(t['entry'])).abs().values < 1e-6)]
+        if ins.empty:
+            continue
+        e_t = min(et[f.index.get_indexer(ins.index)])
+        outs = [et[i] for i in f.index.get_indexer(f[day & (hm == x_hm)
+                                                      & (f.Action.str.upper().values == a_out)].index)]
+        outs = [o for o in outs if o >= e_t]
+        if outs:
+            return e_t.strftime('%H:%M:%S'), max(outs).strftime('%H:%M:%S')
+    return None
+
+
+def attach_10s(t, fills_path=None):
+    """Make a futures trade carry entry_ts / exit_ts and have its 10s slice cached (what the daily
+    routine calls for each new entry). Returns a short status string; mutates t."""
+    sym = str(t['sym']).upper()
+    if sym not in CAPTURE_OF or str(t['date']) < TEN_FROM:
+        return 'no 10s capture for this trade'
+    if not (t.get('entry_ts') and t.get('exit_ts')):
+        got = find_fills(t, fills_path)
+        if not got:
+            return 'no matching fills in the fills log'
+        t['entry_ts'], t['exit_ts'] = got
+    if os.path.exists(cache_path_10s(t)):
+        return 'stamped %s-%s, slice cached' % (t['entry_ts'], t['exit_ts'])
+    d = build_10s_slice(t)
+    if d is None:
+        return 'stamped %s-%s, capture has no bars there' % (t['entry_ts'], t['exit_ts'])
+    os.makedirs(CACHE, exist_ok=True)
+    d.to_csv(cache_path_10s(t))
+    return 'stamped %s-%s, slice cached (%d bars)' % (t['entry_ts'], t['exit_ts'], len(d))
 
 
 def cache_path(sym, date, interval):
@@ -108,8 +301,14 @@ def num(v):
 
 def derive(t, refresh=False):
     """Everything the report shows that is measured rather than judged."""
+    d = load_bars(t['sym'], t['date'], t['interval'], refresh, t.get('ticker'))
+    return derive_from(t, d, load_10s(t, refresh))
+
+
+def derive_from(t, d, s10=None):
+    """derive() on bars already in hand: d = the session's cached 1m/5m bars (bar-START stamps,
+    Eastern), s10 = the trade's cached 10-second slice or None. No file or network access."""
     sym, date, iv = t['sym'], t['date'], t['interval']
-    d = load_bars(sym, date, iv, refresh, t.get('ticker'))
     day = d[d.index.date == pd.Timestamp(date).date()]
     if not len(day):
         raise SystemExit('cached bars for %s hold no rows on %s' % (sym, date))
@@ -120,8 +319,7 @@ def derive(t, refresh=False):
     E, X, stop = float(t['entry']), float(t['exit']), float(t['stop'])
     # shift_min: the journal clock was not ET for this trade (e.g. -180 = logged in Pacific).
     # entry_time stays the journal time (it is the key); the bars are read at the ET time.
-    sh = pd.Timedelta(minutes=int(t.get('shift_min', 0)))
-    at = lambda hm: (pd.Timestamp(date + ' ' + hm) + sh).strftime('%H:%M')
+    at = lambda hm: _at(date, hm, t.get('shift_min', 0))
     bo, i0, i1 = t['breakout_candle'], at(t['entry_time']), at(t['exit_time'])
 
     bo_row = day.between_time(bo, bo)
@@ -139,16 +337,32 @@ def derive(t, refresh=False):
     sgn = -1 if str(t.get('dir', 'LONG')).upper() == 'SHORT' else 1
     risk = round(sgn * (E - stop), 4)
     reward = round(sgn * (X - E), 4)
-    # hold_from: first bar AFTER the fill, when the fill came at the close of the entry bar
-    # (otherwise that bar's pre-fill low would count as drawdown)
-    hold = day.between_time(t.get('hold_from', i0), i1)
-    if sgn > 0:
-        mae = float(hold.Low.min()) if len(hold) else E
-        mfe = float(hold.High.max()) if len(hold) else E
+    # Heat = the worst and best prices between the two fills. Preferred: the 10-second bars that
+    # end after the entry second and start before the exit second (heat_10s). Fallback: the 1m/5m
+    # bars hold_from .. hold_to (defaults: the entry bar and the exit bar). hold_from is the first
+    # bar AFTER the fill when the fill came at the close of the entry bar (that bar's pre-fill low
+    # would otherwise count as drawdown); hold_to is the last bar when the exit came at the start
+    # of the exit bar (that bar's post-exit range would otherwise count as heat).
+    heat = None
+    if s10 is not None and t.get('entry_ts') and t.get('exit_ts'):
+        heat = heat_10s(s10, date, t['entry_ts'], t['exit_ts'], E, float(t.get('px_offset') or 0))
+        if heat is None:
+            sys.stderr.write('warning: %s %s %s: the 10s slice does not cover the fills - heat falls '
+                             'back to 1-minute bars\n' % (sym, date, t['entry_time']))
+    if heat is not None:
+        lo_px, hi_px, _n = heat          # a fill at E means you were never better than E
+        mae, mfe = (min(lo_px, E), max(hi_px, E)) if sgn > 0 else (max(hi_px, E), min(lo_px, E))
     else:
-        mae = float(hold.High.max()) if len(hold) else E
-        mfe = float(hold.Low.min()) if len(hold) else E
-    rth = day.between_time('09:30', '16:00')
+        hold = day.between_time(t.get('hold_from', i0), t.get('hold_to', i1))
+        if sgn > 0:
+            mae = float(hold.Low.min()) if len(hold) else E
+            mfe = float(hold.High.max()) if len(hold) else E
+        else:
+            mae = float(hold.High.max()) if len(hold) else E
+            mfe = float(hold.Low.min()) if len(hold) else E
+    # CLOSED THAT DAY: bars are stamped at their START, so the 16:00 bar is the first bar after the
+    # cash close (for a stock with prepost data, an after-hours bar). Keep 09:30 <= start < 16:00.
+    rth = day.between_time('09:30', '16:00', inclusive='left')
 
     lo = (pd.Timestamp(date + ' ' + bo) - pd.Timedelta(minutes=PRE_BARS * step)).strftime('%H:%M')
     hi = (pd.Timestamp(date + ' ' + i1) + pd.Timedelta(minutes=POST_BARS * step)).strftime('%H:%M')
@@ -165,6 +379,7 @@ def derive(t, refresh=False):
         'mfeCap': round(reward / (sgn * (mfe - E)) * 100) if sgn * (mfe - E) > 0 else None,
         'dayClose': round(float(rth.Close.iloc[-1]), 4) if len(rth) else None,
         'bars': bars,
+        'heat': '10s' if heat is not None else iv,      # which bars maePct / mfeCap came from
     }
 
 
@@ -241,20 +456,49 @@ def main():
     ap.add_argument('--check', action='store_true')
     ap.add_argument('--list', action='store_true')
     ap.add_argument('--refresh', action='store_true', help='refetch bars instead of using the cache')
+    ap.add_argument('--attach-10s', action='store_true',
+                    help='stamp entry_ts/exit_ts from the fills log and cache the 10s slices')
     a = ap.parse_args()
     spec = json.load(io.open(SPEC, encoding='utf-8'))
 
+    if a.attach_10s:
+        n = 0
+        for i, t in enumerate(spec['trades']):
+            if t['sym'].upper() not in CAPTURE_OF or t['date'] < TEN_FROM:
+                continue
+            had = (t.get('entry_ts'), t.get('exit_ts'))
+            msg = attach_10s(t)
+            if (t.get('entry_ts'), t.get('exit_ts')) != had:
+                # keep the two stamps beside the other times in the JSON, not at the far end
+                new = {}
+                for k, v in t.items():
+                    if k not in ('entry_ts', 'exit_ts'):
+                        new[k] = v
+                    if k == 'exit_time':
+                        new['entry_ts'], new['exit_ts'] = t['entry_ts'], t['exit_ts']
+                spec['trades'][i] = new
+                n += 1
+            print('%-4s %s %s  %s' % (t['sym'], t['date'], t['entry_time'], msg))
+        if n:
+            io.open(SPEC, 'w', encoding='utf-8').write(json.dumps(spec, indent=1, ensure_ascii=False))
+        print('%d trade(s) newly stamped in %s' % (n, SPEC))
+        return
+
     if a.list or not (a.emit or a.apply or a.check):
-        print('%-6s %-11s %-4s %8s %8s %8s %7s %6s %6s' %
-              ('SYM', 'DATE', 'TF', 'CHASE%', 'RISK', 'REWARD', 'R', 'SETUP', 'EXEC'))
+        print('%-6s %-11s %-6s %-4s %8s %8s %8s %7s %6s %6s %7s %7s %10s %5s' %
+              ('SYM', 'DATE', 'ENTRY', 'TF', 'CHASE%', 'RISK', 'REWARD', 'R', 'SETUP', 'EXEC',
+               'MAE%', 'MFEcap%', 'DAYCLOSE', 'HEAT'))
         for t in spec['trades']:
             s = derive(t, a.refresh)
-            print('%-6s %-11s %-4s %8s %8s %8s %7s %6d %6d' % (
-                t['sym'], t['date'], t['interval'],
+            print('%-6s %-11s %-6s %-4s %8s %8s %8s %7s %6d %6d %7s %7s %10s %5s' % (
+                t['sym'], t['date'], t['entry_time'], t['interval'],
                 '—' if s['chase'] is None else '%+.1f' % s['chase'],
                 s['risk'], '%+g' % s['reward'],
                 '—' if s['R'] is None else '%+.2f' % s['R'],
-                sum(r['score'] for r in t['setup']), sum(r['score'] for r in t['exec'])))
+                sum(r['score'] for r in t['setup']), sum(r['score'] for r in t['exec']),
+                '—' if s['maePct'] is None else s['maePct'],
+                '—' if s['mfeCap'] is None else s['mfeCap'],
+                '—' if s['dayClose'] is None else s['dayClose'], s['heat']))
         print('\n%d trades · bars cached in %s' % (len(spec['trades']), CACHE))
         return
 

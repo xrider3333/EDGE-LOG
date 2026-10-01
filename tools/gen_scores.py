@@ -204,7 +204,7 @@ def main():
         mfe = float(hold.High.max()) if len(hold) else E
         maePct = round((E - mae) / risk * 100) if risk else None
         mfeCap = round(reward / (mfe - E) * 100) if mfe > E else None
-        rth = day.between_time('09:30', '16:00')
+        rth = day.between_time('09:30', '16:00', inclusive='left')   # bars are stamped at their START: the 16:00 bar is after the close
         dayClose = round(float(rth.Close.iloc[-1]), 4) if len(rth) else None
         overall, summ, setF, exeF = A[sym]
         setT = sum(f[2] for f in setF)
