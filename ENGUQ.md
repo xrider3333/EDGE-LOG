@@ -1335,11 +1335,33 @@ window.
 alike, is `(t - 1) // 60`, and a missing `-1` once put 11,611 of 12,762 minute opens at odds with
 the Databento master. Every minute was stealing the previous minute's last ten seconds. Fixed.
 
-**Both defects changed every published imbalance value.** Restated, crown leg, 22 trades with
-order flow: the median imbalance of trades held 24 hours or more is **+0.0328** against **+0.0488**
-for the rest, a gap of **-0.0160** where the first cut printed -0.0020. The cash-session arm reads
-+0.0202 against +0.0171, a gap of +0.0031 on four trades. **None of this changes round 63's
-conclusion**, which was that three survivors cannot test anything.
+**DEFECT 1b, found by MANAGER's independent review and worse than the above: the predictor was
+never the one that was pre-registered.** The pre-registration names "the SIGNAL bar's order-flow
+imbalance ... the minute's delta divided by its volume" - ONE minute. The ledger recorded a
+ten-minute aggregate, and the trade time it started from is the FILL bar, so on a tenth-bar fill
+the window contained no signal minute at all. Fixing the window to [fill-10, fill-1] removed the
+leak but still did not compute the pre-registered quantity.
+
+**The true signal bar is recoverable exactly, and now is.** The parent rests its limit at
+`close - limit_atr x ATR` on the signal bar, and that resting price IS the recorded entry price,
+so rebuilding the parent's own ATR and walking back up to ten bars identifies the signal bar to
+within a quarter tick. It resolved **100% of trades on the first run, 0 unidentified**. The
+single signal minute is now the PRIMARY column and the only one the checkpoint may read; the
+ten-minute window and the fill minute are kept as clearly-labelled descriptive columns. The fill
+minute especially must never be used - a resting limit buy is by construction hit by sellers, and
+its imbalance averages about -0.05 against the window's +0.04.
+
+**Restated on the correct predictor, crown leg, 22 trades scored:** median signal-minute imbalance
+**+0.0499** for trades held 24 hours or more against **+0.0856** for the rest, a gap of
+**-0.0357** - where the original cut printed -0.0020 on the wrong quantity. The cash-session arm
+reads +0.0517 against +0.0852, a gap of -0.0335. **None of this changes round 63's conclusion**,
+which was that three survivors cannot test anything; and the sign agrees with round 64's
+independent finding that heavier buying goes with worse persistence.
+
+**DEFECT 1c, same review: an OPEN trade was being counted as a same-day death.** An open position's
+exit is stamped at the last bar, so anything younger than 24 hours scored as a death - a bias
+against every fresh entry, which would have grown as the ledger accrued. Such rows are now written
+as `unresolved` and excluded from the comparison; one row on the current run.
 
 **Round 64 was re-run on the corrected stamping and its verdict stands.** 13,119 upward breakout
 bars instead of 12,972; top imbalance quintile persists **49.4%** against the bottom's **51.9%**,

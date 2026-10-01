@@ -94,20 +94,85 @@ def window(per_min, fill_epoch, bars=SCAN_BARS):
     return tot, seen
 
 
+def signal_minutes(leg, trades):
+    """Recover each trade's TRUE SIGNAL minute, which is what the pre-registration names.
+
+    MANAGER build review 2026-09-30, finding 1/2. The pre-registration fixes the predictor as
+    "the signal bar's order-flow imbalance ... the minute's delta divided by its volume" and says
+    "Signal bar, never the fill bar". A paper trade's entry_dt is the FILL bar: the parent rests a
+    limit at `close - limit_atr * ATR` on the signal bar i and fills at some j in [i+1, i+10]. So
+    the signal must be recovered, not assumed.
+
+    It is recoverable exactly, because the recorded entry price IS that resting limit. Rebuild the
+    parent's own ATR (a simple rolling mean of true range over atr_len, with the leading NaNs
+    filled by the bar's own true range - augur_strategies/ENGUQ_1M_ETH_R2_1_0.py) and walk back up
+    to _N_SCAN bars from the fill, looking for the bar whose limit price matches to within a tick.
+    Returns {fill_epoch: signal_epoch}; a trade whose signal cannot be identified is left out and
+    reported, never silently mapped to the fill bar.
+    """
+    import numpy as np
+    from augur_engine.data import find_master, load_master_arrays
+    lim = float(leg["params"].get("limit_atr") or 0.0)
+    if lim <= 0:
+        return {}, 0                      # fill == signal when there is no resting limit
+    m = find_master(leg.get("instrument") or "NQ", leg.get("timeframe") or "1m",
+                    leg.get("session") or "eth", "db_noadj_eth")
+    if m is None:
+        return {}, 0
+    arr = load_master_arrays(m)
+    h, l, c = (np.asarray(arr[k], float) for k in ("high", "low", "close"))
+    n = len(c)
+    tr = np.empty(n); tr[0] = h[0] - l[0]
+    tr[1:] = np.maximum(h[1:] - l[1:],
+                        np.maximum(np.abs(h[1:] - c[:-1]), np.abs(l[1:] - c[:-1])))
+    al = int(leg["params"].get("atr_len") or 52)
+    atr = np.full(n, np.nan)
+    csum = np.cumsum(tr)
+    atr[al - 1:] = (csum[al - 1:] - np.concatenate([[0], csum[:-al]])) / al
+    atr = np.where(np.isnan(atr), tr, atr)
+    limit_px = c - lim * atr
+
+    import pandas as pd
+    idx = pd.DatetimeIndex(arr["index"])
+    pos = {int(t.timestamp()): i for i, t in enumerate(idx)}
+    out, missed = {}, 0
+    for t in trades:
+        fe = int(t["entry_dt"].timestamp()); fe -= fe % 60
+        j = pos.get(fe)
+        px = t.get("entry_px")
+        if j is None or px is None:
+            missed += 1
+            continue
+        hit = None
+        for k in range(1, SCAN_BARS + 1):
+            i = j - k
+            if i < 0:
+                break
+            if abs(limit_px[i] - float(px)) <= 0.125:      # a quarter of an NQ tick
+                hit = i
+                break
+        if hit is None:
+            missed += 1
+            continue
+        se = int(idx[hit].timestamp()); se -= se % 60
+        out[fe] = se
+    return out, missed
+
+
 def rows_for(leg_key, today, since=None):
     from api import paper
     if since:
         paper.PAPER_START = since
     leg = next((l for l in paper.PAPER_LEGS if l["key"] == leg_key), None)
     if leg is None:
-        return []
+        return [], None
     r = paper.run_shadow(leg, today) or {}
     # run_shadow never raises, so a missing master (a worktree carries no optimizer_history.db)
     # would otherwise show up here as a quiet "0 trades" instead of an error. Surface it.
     for w in (r.get("warnings") or []):
         if "stale" not in str(w):
             print("   [%s] shadow warning: %s" % (leg_key, w))
-    return r.get("trades") or []
+    return (r.get("trades") or []), leg
 
 
 def main():
@@ -129,12 +194,17 @@ def main():
 
     for key in LEGS:
         trades = rows_for(key, today, args.since)
+        trades, leg = trades if isinstance(trades, tuple) else (trades, None)
+        sig_of, unresolved = signal_minutes(leg, trades) if leg else ({}, len(trades))
+        last_bar = max((t["exit_dt"] for t in trades), default=None)
         out = []
         for t in trades:
             e, x = t["entry_dt"], t["exit_dt"]
             ep = int(e.timestamp()); ep -= ep % 60
             tot, seen = window(per_min, ep)
             one = per_min.get(ep)
+            se = sig_of.get(ep)
+            sig = per_min.get(se) if se is not None else None
             # F5 (audit 2026-09-30). Two definitions of "survived its first day" disagree, and
             # they disagree in opposite directions on exactly the entries the cash-session gate
             # removes, so the choice is pinned here instead of left implicit.
@@ -146,14 +216,27 @@ def main():
             held_h = (x - e).total_seconds() / 3600.0
             survived = held_h >= 24.0
             next_cal = x.date() > e.date()
+            # MANAGER review: an OPEN trade's exit is stamped at the last bar, so a position
+            # younger than 24 hours would be logged as a same-day death. It is unresolved,
+            # not a death, and counting it as one biases every fresh entry downward.
+            unresolved_row = (last_bar is not None and x >= last_bar and held_h < 24.0)
             out.append(dict(
                 entry=e.isoformat(), exit=x.isoformat(),
-                survived_day_one=int(survived), exited_later_calendar_day=int(next_cal),
+                survived_day_one=("" if unresolved_row else int(survived)),
+                unresolved=int(unresolved_row),
+                exited_later_calendar_day=int(next_cal),
                 hold_hours=round(held_h, 2), pnl_usd=round(float(t["pnl_usd"]), 2),
                 win_minutes_seen=seen,
                 win_volume=tot[0], win_delta=tot[1], win_buy=tot[2], win_sell=tot[3],
                 win_ticks=tot[4],
-                imbalance=round(tot[1] / tot[0], 4) if tot[0] else "",
+                signal_minute=(dt.datetime.utcfromtimestamp(se).isoformat() if se else ""),
+                signal_volume=(sig[0] if sig else 0), signal_delta=(sig[1] if sig else 0),
+                # PRIMARY, and the only column the pre-registered checkpoint may read.
+                imbalance=(round(sig[1] / sig[0], 4) if sig and sig[0] else ""),
+                # descriptive only: the whole scan window, and the fill minute itself. Neither
+                # may be used at the checkpoint - the fill minute in particular fills into
+                # opposing flow by construction (a resting limit buy is hit by sellers).
+                window_imbalance=round(tot[1] / tot[0], 4) if tot[0] else "",
                 fill_minute_volume=one[0] if one else 0,
                 fill_minute_delta=one[1] if one else 0,
                 fill_minute_imbalance=(round(one[1] / one[0], 4) if one and one[0] else ""),
@@ -163,11 +246,13 @@ def main():
             with open(path, "w", newline="") as fh:
                 w = csv.DictWriter(fh, fieldnames=list(out[0]))
                 w.writeheader(); w.writerows(out)
-        cov = [r for r in out if r["imbalance"] != ""]
+        cov = [r for r in out if r["imbalance"] != "" and not r["unresolved"]]
         s = [r for r in cov if r["survived_day_one"]]
         d = [r for r in cov if not r["survived_day_one"]]
-        print("\n%s: %d trades, %d with order flow (%d held 24h or more, %d did not)"
-              % (key, len(out), len(cov), len(s), len(d)))
+        print("\n%s: %d trades, %d scored (%d held 24h or more, %d did not); "
+              "%d unresolved (still open and under 24h), %d signal bar not recovered"
+              % (key, len(out), len(cov), len(s), len(d),
+                 sum(r["unresolved"] for r in out), unresolved))
         print("   ledger -> %s" % path)
         if len(s) >= 3 and len(d) >= 3:
             def med(v):
