@@ -11,7 +11,8 @@ outcomes) and computes, exactly as pre-registered on main in 9b7c89b9 (docs/POIN
   SECONDARY= top vs bottom half by pct (median split, ties at the median -> bottom): mean R, win rate
              (R > 0), and mean pts
   EXPLORATORY (flagged, 9 comparisons): per point hit rate and mean R hit vs miss; points by time of
-             day (09:30-09:59, 10:00-11:59, 12:00-16:00); the trend point vs R.
+             day (09:30-09:59, 10:00-11:59, 12:00-16:00; a signal bar before 09:30 or at / after 16:00 is its own
+             'outside 09:30-16:00' group, review 2026-09-30 finding 5); the trend point vs R.
 
     python tools/point_score_rtest.py [--scores C:\\EdgeLog\\point_score\\backfill_scores.csv]
 """
@@ -91,7 +92,8 @@ def main():
               % (p, len(hit), len(miss), int(h.isna().sum()), hit.R.mean() if len(hit) else np.nan,
                  miss.R.mean() if len(miss) else np.nan))
     hm = pd.to_datetime(ok.signal_bar).dt.strftime('%H:%M')
-    band = np.where(hm < '10:00', '09:30-09:59', np.where(hm < '12:00', '10:00-11:59', '12:00-16:00'))
+    band = np.where((hm < '09:30') | (hm >= '16:00'), 'outside 09:30-16:00',
+                    np.where(hm < '10:00', '09:30-09:59', np.where(hm < '12:00', '10:00-11:59', '12:00-16:00')))
     ok['band'] = band
     print('\n  by time of day (signal bar):')
     print(ok.groupby('band').agg(n=('R', 'size'), mean_pct=('pct', 'mean'), mean_R=('R', 'mean')).round(3).to_string())

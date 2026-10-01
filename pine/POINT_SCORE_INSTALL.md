@@ -4,13 +4,13 @@ This adds your 9-point score to a TradingView chart. It follows `docs/POINT_SCOR
 
 ## Install (3 steps)
 
-1. Open a **1-minute** chart of NQ1! (or MNQ1! / ES1!) in TradingView. Open the **Pine Editor** at the bottom, choose **Open > New indicator**, delete the template text, and paste the whole of `POINT_SCORE_1_0.pine`. Click **Save**, name it `EDGELOG Point Score`, then click **Add to chart**.
+1. Open a **1-minute** chart of NQ1! (or MNQ1! / ES1!) in TradingView. Open the **Pine Editor** at the bottom, choose **Open > New indicator**, delete the template text, and paste the whole of `POINT_SCORE_1_0.pine`. Click **Save**, name it `EDGELOG Point Score`, then click **Add to chart**. Then turn on TradingView's back-adjustment for the continuous contract (the **B-ADJ** button at the bottom of the chart, also called "Adjust for contracts changes" in the chart settings), so the 30-minute average does not carry the old contract's price gap for about two weeks after every roll; TradingView's help page names no paid-plan requirement, but if the button is missing or locked on your plan, tell MANAGER.
 2. Open the indicator's **Settings**. Pick the **Market** (Futures = "today" starts at 09:30, Stocks = 04:00), and set the **Label threshold** (default 7) and **Alert threshold** (default 8). If TradingView shows an error about the 10-second data, your plan has no seconds timeframes: untick **Use 10-second data** (that one point then shows NA).
 3. Optional alert: click **Create Alert**, set Condition to `EDGELOG Point Score`, choose **Any alert() function call**, and set it to **Once per bar close**. The message carries the symbol, the bar time, the side, the score (like 8/9) and which points hit.
 
 ## Parity export (only needed once, to check TradingView against EDGE LOG)
 
-After a few regular sessions have printed on the chart (5 to 10 is plenty, and avoid the week of a futures roll), open the chart menu, choose **Export chart data**, and save the CSV into `C:\EdgeLog\point_score\tv_exports\`. Then tell MANAGER; Claude runs the comparison against EDGE LOG's own numbers. Claude never logs in to TradingView.
+After a few regular sessions have printed on the chart (5 to 10 is plenty, taken after the 15 sessions that follow a futures roll, because the comparison skips those), open the chart menu, choose **Export chart data**, and save the CSV into `C:\EdgeLog\point_score\tv_exports\`. Then tell MANAGER; Claude runs the comparison against EDGE LOG's own numbers. Claude never logs in to TradingView.
 
 ## What the table shows
 

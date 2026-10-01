@@ -1,4 +1,4 @@
-# POINT SCORE - spec v1 (`ps1`)
+# POINT SCORE - spec v1.1 (`ps1.1`)
 
 The owner's point score for his discretionary trades. The rules are his (2026-09-30), and the defaults were
 approved with "go with defaults". Scope: `C:\EdgeLog\manager\point_score_scope_2026-09-30.md`.
@@ -42,8 +42,16 @@ is wrong.
 **5-7. `y_low`, `y_close`, `y_high` - close above yesterday's regular-session low, close and high.**
 
 - "Yesterday" is the most recent date BEFORE S's date that has regular-session 1-minute bars, with bar
-  start in [09:30, 16:00) ET. Its high = max high, its low = min low, and its close = the close of its last
-  bar in that window (15:59, or earlier on a half-day).
+  start in [09:30, 16:00) ET, **and is not a CME equity holiday** (v1.1). Its high = max high, its low = min
+  low, and its close = the close of its last bar in that window.
+- **Holidays (v1.1):** the CME holiday list in section 7 is skipped entirely, even when Globex printed a
+  short 09:30-13:00 stub that day. The stub is not a regular session, so the session before it is
+  yesterday. Genuine early-close days (the day after Thanksgiving, Christmas Eve) ARE regular sessions;
+  their close is the 13:14 bar.
+- **Completeness (v1.1):** yesterday must have its last regular-session bar at 15:59, or at 13:14 on a listed
+  early-close day. Otherwise all three points (and the trend point) are NA, "prior session incomplete".
+  The day is NOT skipped: it was a real session we lack data for. Example: 2026-07-24, where the 10-second
+  capture stops at 10:46 inside the summer hole.
 - The prior session must lie within 7 calendar days, else all three points are NA.
 - **Long:** C > level. **Short:** C < level ("below yesterday's high / close / low").
 
@@ -74,7 +82,8 @@ is wrong.
 
 **10 (optional, shown separately, NOT in /9). `d_trend` - daily trend up.**
 
-- y = yesterday's regular session, and yy = the regular session before it.
+- y = yesterday's regular session, and yy = the regular session before it. Both follow the holiday and
+  completeness rules of points 5-7; if either is incomplete, the trend point is NA.
 - **Long hit:** yH > yyH AND yL > yyL. **Short hit:** yH < yyH AND yL < yyL.
 
 VWAP is not scored in v1.
@@ -110,6 +119,11 @@ VWAP is not scored in v1.
 - NA before 2026-06-23 ("no 10-second data").
 - NA if any real switch in the roll table lies within 48 h before t_close. The capture rolls about a day
   after the master ("near a contract roll").
+- **Capture gaps (v1.1):** NA, "10-second data gap", if the capture is missing data inside the EMA's
+  memory. The memory is the span from the 600th-latest 10-second bar before t_close to t_close.
+  - Missing data means 3 or more 1-minute master bars with volume > 0 that have no capture bar at all.
+  - Quiet minutes with no trades on either feed are not gaps; TradingView has no bars there either.
+  - The scheduled 17:00-18:00 ET break and weekends are never gaps.
 
 **Stocks:**
 
@@ -119,7 +133,7 @@ VWAP is not scored in v1.
 ## 4. Output record (agreed with TRADING-LOG)
 
 ```
-pointScore = {v: 'ps1', side: 'LONG'|'SHORT', signal_bar: 'YYYY-MM-DD HH:MM' (ET start), tf: '1m',
+pointScore = {v: 'ps1.1', side: 'LONG'|'SHORT', signal_bar: 'YYYY-MM-DD HH:MM' (ET start), tf: '1m',
   tf_note: '1-minute default', total, max, na_count,
   points: [{k, label, hit: true|false|null, val, ref, na_reason}],   # 9 points, fixed order
   trend: {k:'d_trend', label, hit, val, ref, na_reason},              # separate, not in total
@@ -166,7 +180,37 @@ The writer updates only the `pointScore` field on a trade, never setup / grade /
 - The owner exports chart data from a 1-minute NQ1! or ES1! chart with the indicator on it, for about 5-10
   regular sessions, and saves the CSV in `C:\EdgeLog\point_score\tv_exports\`.
 - `python tools/point_score.py parity <csv> --root NQ` compares every point on every bar in the regular
-  session. It skips roll weeks: TradingView's continuous contract rolls on a different day from ours.
+  session.
+- **Roll skip (v1.1):** it skips the switch day and the **15** regular sessions after each real switch. On
+  an unadjusted TradingView chart the 30-minute EMA carries the roll gap for about two weeks, and
+  TradingView's continuous contract also rolls a few days after ours.
+- The install note tells the owner to turn on TradingView's back-adjustment for continuous futures. With
+  it on, the live label matches EL straight after a roll; parity still skips those sessions, to stay safe.
 - **Pass:** at least 98% of bar-points agree where both sides are non-NA, and every disagreement is within
   1 tick of its threshold or is a volume tie.
 - Warm-up NA counts are reported separately.
+
+## 7. CME equity-index holiday list (v1.1)
+
+**Full holidays: skipped, never "yesterday".**
+
+| Year | Dates |
+|---|---|
+| 2025 | 01-01, 01-09, 01-20, 02-17, 04-18, 05-26, 06-19, 07-04, 09-01, 11-27, 12-25 |
+| 2026 | 01-01, 01-19, 02-16, 04-03, 05-25, 06-19, 07-03, 09-07, 11-26, 12-25 |
+| 2027 | 01-01, 01-18, 02-15, 03-26, 05-31, 06-18, 07-05, 09-06, 11-25, 12-24 |
+
+**Early close: a regular session that ends with the 13:14 bar.**
+
+| Year | Dates |
+|---|---|
+| 2025 | 07-03, 11-28, 12-24 |
+| 2026 | 11-27, 12-24 |
+| 2027 | 11-26 |
+
+**Rules:**
+
+- Both implementations carry this same list.
+- Extend it each December from the CME holiday calendar.
+- A day missing from the list cannot produce a wrong level. Its stub fails the completeness rule, so it
+  reads NA instead.

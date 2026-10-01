@@ -1,7 +1,7 @@
 //@version=6
 // =============================================================================
 //  EDGELOG - POINT SCORE 1.0 -- the owner's 9-point score on the signal bar
-//  Pine port of docs/POINT_SCORE_SPEC.md (spec v1, "ps1") and of tools/point_score.py
+//  Pine port of docs/POINT_SCORE_SPEC.md (spec v1.1, "ps1.1") and of tools/point_score.py
 //
 //  WHAT IT IS
 //  At the CLOSE of every bar it scores the nine points from the spec, for the LONG
@@ -22,7 +22,10 @@
 //        - 5m / 30m : the HTF bar BEFORE the one holding the signal bar (non-repainting).
 //        - each EMA is NA until its own timeframe has 600 bars.
 //   5-7  close above yesterday's regular-session low / close / high. Yesterday = the most
-//        recent earlier New York date that has regular-session bars (09:30 to 16:00).
+//        recent earlier New York date that has regular-session bars (09:30 to 16:00) and is
+//        NOT a listed CME holiday (HOL_FULL below: a holiday's Globex stub is never a regular
+//        session). Yesterday must also be COMPLETE: its last regular bar is 15:59 (13:14 on a
+//        listed early-close day, HOL_EARLY), else its three levels and the trend are NA.
 //        Sessions are tracked from the 1m bars themselves, NOT with a daily request
 //        (TradingView's daily futures bar is the overnight session).
 //   8    largest body since today's low (long: green candle, body >= every body from the
@@ -39,8 +42,13 @@
 //  the chart. python tools/point_score.py parity <csv> --root NQ compares them with EDGE LOG.
 //
 //  KNOWN LIMITS
-//   - TradingView's continuous NQ1! / ES1! rolls on a different day from EDGE LOG's data:
-//     compare on non-roll weeks (and prices differ by the roll gap around a roll).
+//   - Turn ON TradingView's back-adjustment for continuous futures (the B-ADJ button at the
+//     bottom of the chart, "Adjust for contracts changes" in the chart settings). Without it the
+//     30-minute EMA carries the roll gap for about two weeks after every quarterly roll, and the
+//     first session after a roll reads yesterday's levels from the old contract.
+//   - The CME holiday list (HOL_FULL / HOL_EARLY below) must be EXTENDED EACH DECEMBER from the
+//     CME holiday calendar; it must match CME_HOLIDAYS in tools/point_score.py. A day missing
+//     from the list cannot give a wrong level: its stub fails the completeness test and reads NA.
 //   - The 30-minute EMA needs about 600 30-minute bars (about 13 trading days). A 1-minute
 //     chart on the Premium plan loads 20,000 bars, which only just reaches that. The
 //     table's bottom row shows how many bars each timeframe has; "warming up" = NA points.
@@ -83,6 +91,15 @@ const string TZ      = "America/New_York"
 const int    MIN_BARS = 600        // spec: an EMA needs 600 bars of its own timeframe
 const int    GAP_MAX  = 7          // spec: the prior session must lie within 7 calendar days
 const int    DAY_MS   = 86400000
+const int    EARLY_LAST_MIN = 13 * 60 + 14   // spec: a listed early-close session ends with its 13:14 bar
+
+// CME equity-index holidays, spec section 7 (the SAME list as CME_HOLIDAYS in tools/point_score.py). yyyymmdd keys of
+// the New York date. EXTEND BOTH ARRAYS EACH DECEMBER from the CME holiday calendar.
+//   HOL_FULL : no regular session. Globex may print a short stub; those bars are NOT regular-session bars, so a
+//              holiday never becomes "yesterday".
+//   HOL_EARLY: a regular session that ends with its 13:14 bar (complete at 13:14 instead of 15:59).
+var array<int> HOL_FULL  = array.from(20250101, 20250109, 20250120, 20250217, 20250418, 20250526, 20250619, 20250704, 20250901, 20251127, 20251225, 20260101, 20260119, 20260216, 20260403, 20260525, 20260619, 20260703, 20260907, 20261126, 20261225, 20270101, 20270118, 20270215, 20270326, 20270531, 20270618, 20270705, 20270906, 20271125, 20271224)
+var array<int> HOL_EARLY = array.from(20250703, 20251128, 20251224, 20261127, 20261224, 20271126)
 
 // Table colours: mono, no hue.
 color C_BG    = #1b1f27
@@ -149,9 +166,15 @@ int  nyMonth  = month(time, TZ)
 int  nyDay    = dayofmonth(time, TZ)
 int  minOfDay = hour(time, TZ) * 60 + minute(time, TZ)
 int  dayTs    = timestamp(TZ, nyYear, nyMonth, nyDay, 12, 0, 0)   // noon of the NY date = the date's id
-// Regular-session bar: bar START in [09:30, 16:00). time() tests the start side; the
-// explicit minute test guarantees the end is NOT included whatever time() does at the edge.
-bool inRTH    = not na(time(timeframe.period, regSess, TZ)) and minOfDay < sessEndMin
+int  dayKey   = nyYear * 10000 + nyMonth * 100 + nyDay            // yyyymmdd, the key of the holiday arrays
+bool isHolDay   = array.includes(HOL_FULL, dayKey)                // a listed full holiday: no regular session
+bool isEarlyDay = array.includes(HOL_EARLY, dayKey)               // a listed early close: complete at 13:14
+// Regular-session bar: bar START in [09:30, 16:00) on a day that is NOT a listed holiday. time() tests the start
+// side; the explicit minute test guarantees the end is NOT included whatever time() does at the edge.
+bool inRegSess = not na(time(timeframe.period, regSess, TZ))      // its own line: v6 evaluates and / or lazily
+bool inRTH    = not isHolDay and inRegSess and minOfDay < sessEndMin
+// A closing bar: the 15:59 bar (end of the regular session minus one minute), or the 13:14 bar on a listed early close.
+bool isCloseBar = minOfDay == sessEndMin - 1 or (isEarlyDay and minOfDay == EARLY_LAST_MIN)
 
 // -- Points 1-4: the four EMAs -------------------------------------------------
 float emaRaw = ta.ema(close, emaLen)
@@ -178,43 +201,54 @@ float n1 = bar_index + 1
 
 // -- Points 5-7: yesterday's regular-session low / close / high ----------------
 // s0 = the most recent regular session seen, s1 = the one before, s2 = the one before that.
-// "ok" = the session was seen from its first bar (not cut off by the start of the chart).
+// "ok"   = the session was seen from its first bar (not cut off by the start of the chart).
+// "done" = the session's LAST regular bar so far is a closing bar (15:59, or 13:14 on a listed early close). Every
+//          regular bar overwrites it, so once a session is shifted into history it says whether that session ran
+//          to its close. An incomplete session (a capture hole, an unlisted short day) is NOT skipped: its levels
+//          and the trend read NA instead of a wrong level (spec v1.1).
 var int   s0t = na
 var float s0h = na
 var float s0l = na
 var float s0c = na
 var bool  s0ok = false
+var bool  s0done = false
 var int   s1t = na
 var float s1h = na
 var float s1l = na
 var float s1c = na
 var bool  s1ok = false
+var bool  s1done = false
 var int   s2t = na
 var float s2h = na
 var float s2l = na
 var bool  s2ok = false
+var bool  s2done = false
 
 if inRTH
     if na(s0t) or dayTs != s0t
         // a new regular session begins: shift the history down
-        s2t  := s1t
-        s2h  := s1h
-        s2l  := s1l
-        s2ok := s1ok
-        s1t  := s0t
-        s1h  := s0h
-        s1l  := s0l
-        s1c  := s0c
-        s1ok := s0ok
-        s0t  := dayTs
-        s0h  := high
-        s0l  := low
-        s0c  := close
-        s0ok := bar_index > 0
+        s2t    := s1t
+        s2h    := s1h
+        s2l    := s1l
+        s2ok   := s1ok
+        s2done := s1done
+        s1t    := s0t
+        s1h    := s0h
+        s1l    := s0l
+        s1c    := s0c
+        s1ok   := s0ok
+        s1done := s0done
+        s0t    := dayTs
+        s0h    := high
+        s0l    := low
+        s0c    := close
+        s0ok   := bar_index > 0
+        s0done := isCloseBar
     else
-        s0h := math.max(s0h, high)
-        s0l := math.min(s0l, low)
-        s0c := close
+        s0h    := math.max(s0h, high)
+        s0l    := math.min(s0l, low)
+        s0c    := close
+        s0done := isCloseBar
 
 // Yesterday = the latest session on an EARLIER date than this bar's date. Before today's
 // regular session starts that is s0; once today's session has started it is s1.
@@ -223,11 +257,13 @@ int   yT    = tdIn0 ? s1t : s0t
 float yH    = tdIn0 ? s1h : s0h
 float yL    = tdIn0 ? s1l : s0l
 float yC    = tdIn0 ? s1c : s0c
-bool  yOk   = tdIn0 ? s1ok : s0ok
+bool  yOk   = tdIn0 ? (s1ok and s1done) : (s0ok and s0done)      // seen from its first bar AND ran to its close
 float yyH   = tdIn0 ? s2h : s1h
 float yyL   = tdIn0 ? s2l : s1l
-bool  yyOk  = tdIn0 ? s2ok : s1ok
+bool  yyOk  = tdIn0 ? (s2ok and s2done) : (s1ok and s1done)
+int   yyT   = tdIn0 ? s2t : s1t
 int   gapD  = na(yT) ? 9999 : math.round((dayTs - yT) / DAY_MS)
+int   gapYY = (na(yT) or na(yyT)) ? 9999 : math.round((yT - yyT) / DAY_MS)     // spec port: yy within 7 days of y
 bool  yValid = not na(yT) and yOk and gapD <= GAP_MAX
 float refYL = yValid ? yL : na
 float refYC = yValid ? yC : na
@@ -301,7 +337,7 @@ float ycS  = f_ab(close, refYC,  false)
 float yhS  = f_ab(close, refYH,  false)
 
 // Trend (separate): yesterday's high AND low vs the day before's.
-bool trValid = yValid and yyOk and not na(yyH) and not na(yyL)
+bool trValid = yValid and yyOk and gapYY <= GAP_MAX and not na(yyH) and not na(yyL)
 float trL = trValid ? ((yH > yyH and yL > yyL) ? 1.0 : 0.0) : na
 float trS = trValid ? ((yH < yyH and yL < yyL) ? 1.0 : 0.0) : na
 
@@ -344,9 +380,11 @@ if showLbl and barstate.isconfirmed and autoTot >= labThr
         label.new(bar_index, low, lblTxt, style = label.style_label_up, color = color.new(#6b7078, 15), textcolor = #ffffff, size = size.small)
 
 // -- Alerts --------------------------------------------------------------------
-// alertcondition: static text, for the classic alert dialog (one per side).
-alertcondition(isLongSide and totL >= altThr, title = "Point Score LONG at or above threshold", message = "EDGELOG Point Score: LONG score at or above the alert threshold on {{ticker}} ({{interval}})")
-alertcondition(not isLongSide and totS >= altThr, title = "Point Score SHORT at or above threshold", message = "EDGELOG Point Score: SHORT score at or above the alert threshold on {{ticker}} ({{interval}})")
+// alertcondition: static text, for the classic alert dialog (one per side). Gated with barstate.isconfirmed so it
+// can only be true on the CLOSE of a bar (the signal bar S of the spec), never on a still-forming candle, whatever
+// frequency the alert dialog is set to.
+alertcondition(barstate.isconfirmed and isLongSide and totL >= altThr, title = "Point Score LONG at or above threshold", message = "EDGELOG Point Score: LONG score at or above the alert threshold on {{ticker}} ({{interval}})")
+alertcondition(barstate.isconfirmed and not isLongSide and totS >= altThr, title = "Point Score SHORT at or above threshold", message = "EDGELOG Point Score: SHORT score at or above the alert threshold on {{ticker}} ({{interval}})")
 
 // alert(): one message per closed bar with the score and the list of hit points.
 if barstate.isconfirmed and autoTot >= altThr

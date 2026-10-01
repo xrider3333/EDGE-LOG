@@ -1,4 +1,4 @@
-# point_score.py - the owner's POINT SCORE (spec v1, `ps1`): nine yes/no points read at the signal bar of a
+# point_score.py - the owner's POINT SCORE (spec v1.1, `ps1.1`): nine yes/no points read at the signal bar of a
 # trade, for futures from 2026-01 onward (stocks: stub until the Alpaca keys are saved). REFERENCE IMPLEMENTATION
 # of docs/POINT_SCORE_SPEC.md - that file is the ONE definition; pine/POINT_SCORE_1_0.pine is a line-by-line port
 # of it, and `parity` (below) compares the two. If this file and the spec disagree, THIS FILE is wrong.
@@ -13,6 +13,11 @@
 # largest volume since today's low. The signal bar S is the last CLOSED 1-minute bar before the entry fill
 # (S.start = floor(fill, 1 min) - 1 min). NA is never 0: the maximum drops. A tenth point (daily trend up) is
 # reported beside the score, not inside it.
+#
+# v1.1 (2026-10-01, review of 2026-09-30): "yesterday" is a REGULAR session. A listed CME holiday (CME_HOLIDAYS) is
+# skipped even when Globex printed a stub that day, and a session whose last regular bar is not 15:59 (13:14 on a listed
+# early-close day) gives NA 'prior session incomplete' instead of a wrong level (it is NOT skipped). The 10-second point
+# is NA '10-second data gap' when the capture lost 3+ minutes the master traded, inside the EMA's 600-bar memory.
 #
 # TWO CODE PATHS, ON PURPOSE. score_trade() is the LITERAL path: it slices the bars to S, re-adjusts them for the
 # contract rolls relative to THIS trade, and runs the spec one point at a time, so nothing at or after t_close can
@@ -52,7 +57,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(ROOT, 'tools', 'data')
 ET = 'America/New_York'
-VERSION = 'ps1'
+VERSION = 'ps1.1'
 
 SHARED = os.path.join(os.path.expanduser('~'), 'OneDrive', 'Desktop', 'EDGE-LOG')
 FILLS_CSV = os.path.join('C:' + os.sep, 'EdgeLog', 'fills.csv')
@@ -72,6 +77,28 @@ MIN_BARS = 600                       # bars of its own timeframe needed up to th
 RTH_OPEN, RTH_CLOSE = 9 * 60 + 30, 16 * 60          # regular session [09:30, 16:00) ET, in minutes of the day
 WINDOW_OPEN = {'futures': 9 * 60 + 30, 'stock': 4 * 60}
 MAX_SESSION_GAP_DAYS = 7
+SESSION_LAST_MIN = RTH_CLOSE - 1     # a complete regular session ends with its 15:59 bar ...
+EARLY_LAST_MIN = 13 * 60 + 14        # ... or, on a listed early-close day, with its 13:14 bar
+GAP10_MIN_MINUTES = 3                # a capture gap: >= 3 master minutes with volume > 0 and no 10-second bar at all
+ROLL_SKIP_SESSIONS = 15              # parity: sessions after a real switch whose 30m EMA still carries the roll gap
+
+# CME equity-index holidays, spec v1.1 section 7 - THE ONE LIST (pine/POINT_SCORE_1_0.pine carries the same dates).
+#   full : no regular session. Globex may print a short 09:30-13:00 stub; the stub is never "yesterday".
+#   early: a regular session that ends with its 13:14 bar (the day after Thanksgiving, Christmas Eve ...).
+# EXTEND IT EACH DECEMBER from the CME holiday calendar. A day missing from the list cannot give a wrong level: its
+# stub fails the completeness rule (the last regular bar is not 15:59) and reads NA.
+CME_HOLIDAYS = dict(
+    full=('2025-01-01', '2025-01-09', '2025-01-20', '2025-02-17', '2025-04-18', '2025-05-26', '2025-06-19',
+          '2025-07-04', '2025-09-01', '2025-11-27', '2025-12-25',
+          '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03', '2026-05-25', '2026-06-19', '2026-07-03',
+          '2026-09-07', '2026-11-26', '2026-12-25',
+          '2027-01-01', '2027-01-18', '2027-02-15', '2027-03-26', '2027-05-31', '2027-06-18', '2027-07-05',
+          '2027-09-06', '2027-11-25', '2027-12-24'),
+    early=('2025-07-03', '2025-11-28', '2025-12-24', '2026-11-27', '2026-12-24', '2027-11-26'),
+)
+HOLIDAY_ORD = np.array(sorted(int(np.datetime64(d, 'D').astype('int64')) for d in CME_HOLIDAYS['full']), dtype='int64')
+EARLY_ORD = np.array(sorted(int(np.datetime64(d, 'D').astype('int64')) for d in CME_HOLIDAYS['early']), dtype='int64')
+HOLIDAY_SET = set(int(x) for x in HOLIDAY_ORD)
 
 # the nine points, in fixed order: key, label when long, label when short
 POINTS = [
@@ -99,8 +126,10 @@ NA_NOBAR = 'no 1-minute bar for the signal minute'
 NA_PRE = 'before the loaded history'
 NA_STOCK10 = 'no 10-second bars for stocks'
 NA_NOSTOCK = 'no stock bars (Alpaca key not saved)'
+NA_INCOMPLETE = 'prior session incomplete'
+NA_GAP10 = '10-second data gap'
 _REASONS = [None, NA_WARM, NA_NO10, NA_ROLL, NA_NO10BAR, NA_NOY, NA_WIN, NA_NOVOL, NA_NOBAR, NA_PRE, NA_STOCK10,
-            NA_NOSTOCK]
+            NA_NOSTOCK, NA_INCOMPLETE, NA_GAP10]
 _CODE = {r: i for i, r in enumerate(_REASONS)}
 
 
@@ -215,6 +244,14 @@ def _near_roll(inst, tclose):
     ok = j >= 0
     dtm = tclose - inst[np.clip(j, 0, None)]
     return ok & (dtm <= NEAR_ROLL_SECS)
+
+
+def _complete(dates, last_min):
+    """True where a regular session (date as a day ordinal) is complete: its last regular-session bar is the 15:59 bar,
+    or the 13:14 bar on a listed early-close day. dates / last_min: scalars or arrays."""
+    dates = np.asarray(dates)
+    last_min = np.asarray(last_min)
+    return (last_min == SESSION_LAST_MIN) | (np.isin(dates, EARLY_ORD) & (last_min == EARLY_LAST_MIN))
 
 
 def _side(s):
@@ -354,8 +391,14 @@ class Bars:
             lo = np.searchsorted(self.t10, t, side='left')
             hi = np.searchsorted(self.t10, t + 60, side='left')
             ref = ema10[np.clip(hi - 1, 0, None)]
+            # capture gap (v1.1): >= 3 one-minute bars that traded (volume > 0) but have no 10-second bar at all, from the
+            # minute of the 600th-latest 10-second bar before t_close through the signal minute
+            miss = (v > 0) & (hi <= lo)
+            cs = np.r_[0, np.cumsum(miss)]
+            j0 = np.searchsorted(t, self.t10[np.clip(hi - MIN_BARS, 0, None)] // 60 * 60, side='left')
+            gap = (hi >= MIN_BARS) & ((cs[idx + 1] - cs[j0]) >= GAP10_MIN_MINUTES)
             put(d, sg * ((pc - A) - ref) > 0, pc - A, ref,          # the capture is raw: compare the REAL close
-                [(hi < MIN_BARS, _CODE[NA_WARM]), (hi <= lo, _CODE[NA_NO10BAR]),
+                [(hi < MIN_BARS, _CODE[NA_WARM]), (gap, _CODE[NA_GAP10]), (hi <= lo, _CODE[NA_NO10BAR]),
                  (_near_roll(self.sw_inst, t + 60), _CODE[NA_ROLL]), (t < self.t10[0], _CODE[NA_NO10])])
         out['ma200_10s'] = d
         # --- 1m EMA (S itself, so the EMA includes C)
@@ -373,8 +416,9 @@ class Bars:
             put(d, sg * (pc - ref) > 0, pc - A, ref - A, [((r < 0) | (r + 1 < MIN_BARS), _CODE[NA_WARM])])
             out[key] = d
         # --- yesterday's regular-session low / close / high (and the session before, for the trend point)
+        # a listed CME holiday is never a regular session (v1.1), whatever Globex printed that day
         rth = (mod >= RTH_OPEN) & (mod < RTH_CLOSE)
-        ri = np.flatnonzero(rth)
+        ri = np.flatnonzero(rth & ~np.isin(dord, HOLIDAY_ORD))
         rd = dord[ri]
         flag = np.ones(len(ri), dtype=bool)
         flag[1:] = rd[1:] != rd[:-1]
@@ -385,20 +429,24 @@ class Bars:
             sH = np.maximum.reduceat(ph[ri], st)
             sL = np.minimum.reduceat(pl[ri], st)
             sC = pc[ri][en]
+            sOK = _complete(sdate, mod[ri][en])                  # the session ran to its last regular bar (v1.1)
         else:
             sH = sL = sC = np.zeros(0)
+            sOK = np.zeros(0, dtype=bool)
         k = np.searchsorted(sdate, dord, side='left')        # sessions dated strictly before the bar's date
         yi, yyi = k - 1, k - 2
         if len(st):
-            okY = (yi >= 0) & ((dord - sdate[np.clip(yi, 0, None)]) <= MAX_SESSION_GAP_DAYS)
-            okYY = okY & (yyi >= 0) & ((sdate[np.clip(yi, 0, None)] - sdate[np.clip(yyi, 0, None)])
-                                       <= MAX_SESSION_GAP_DAYS)
+            yc, yyc = np.clip(yi, 0, None), np.clip(yyi, 0, None)
+            okY = (yi >= 0) & ((dord - sdate[yc]) <= MAX_SESSION_GAP_DAYS)
+            okYY = okY & (yyi >= 0) & ((sdate[yc] - sdate[yyc]) <= MAX_SESSION_GAP_DAYS)
+            cY, cYY = sOK[yc], sOK[yyc]
         else:
-            okY = okYY = np.zeros(n, dtype=bool)
+            okY = okYY = cY = cYY = np.zeros(n, dtype=bool)
         for key, arr in (('y_low', sL), ('y_close', sC), ('y_high', sH)):
             d = mk()
             lvl = arr[np.clip(yi, 0, None)] if len(arr) else nan
-            put(d, sg * (pc - lvl) > 0, pc - A, lvl - A, [(~okY, _CODE[NA_NOY])])
+            put(d, sg * (pc - lvl) > 0, pc - A, lvl - A,
+                [(~okY, _CODE[NA_NOY]), (okY & ~cY, _CODE[NA_INCOMPLETE])])
             out[key] = d
         # --- largest body / volume since today's low (high): the window restarts at every new-or-equal extreme
         wopen = WINDOW_OPEN.get(self.asset, RTH_OPEN)
@@ -438,7 +486,9 @@ class Bars:
             yyH, yyL = sH[np.clip(yyi, 0, None)], sL[np.clip(yyi, 0, None)]
         else:
             yH = yL = yyH = yyL = nan
-        put(d, (sg * (yH - yyH) > 0) & (sg * (yL - yyL) > 0), yH - A, yyH - A, [(~okYY, _CODE[NA_NOY])])
+        # NA reason, in the literal path's order: no y -> y incomplete -> no yy -> yy incomplete
+        put(d, (sg * (yH - yyH) > 0) & (sg * (yL - yyL) > 0), yH - A, yyH - A,
+            [(~okY | (okY & cY & ~okYY), _CODE[NA_NOY]), ((okY & ~cY) | (okYY & cY & ~cYY), _CODE[NA_INCOMPLETE])])
         d['val2'] = np.where(d['na'] == 0, yL - A, np.nan)
         d['ref2'] = np.where(d['na'] == 0, yyL - A, np.nan)
         out['d_trend'] = d
@@ -664,8 +714,18 @@ def _literal(bars, s_start, side):
         n10 = int(np.searchsorted(bars.t10, t_close, side='left'))
         if n10 == 0 or bars.t10[n10 - 1] < s_start:
             pts.append(_pt('ma200_10s', side, None, None, None, NA_NO10BAR))
+        elif n10 < MIN_BARS:
+            pts.append(_pt('ma200_10s', side, None, None, None, NA_WARM))
         else:
-            pts.append(ema_pt('ma200_10s', _ema(bars.c10[:n10])[-1], n10))
+            # capture gap (v1.1): minutes that traded (volume > 0) with no 10-second bar at all, from the minute of the
+            # 600th-latest 10-second bar before t_close through the signal minute
+            j0 = int(np.searchsorted(t, int(bars.t10[n10 - MIN_BARS]) // 60 * 60, side='left'))
+            t10 = bars.t10[:n10]
+            has10 = np.searchsorted(t10, t[j0:] + 60, side='left') > np.searchsorted(t10, t[j0:], side='left')
+            if int(((v[j0:] > 0) & ~has10).sum()) >= GAP10_MIN_MINUTES:
+                pts.append(_pt('ma200_10s', side, None, None, None, NA_GAP10))
+            else:
+                pts.append(ema_pt('ma200_10s', _ema(bars.c10[:n10])[-1], n10))
     # 2. 1-minute EMA
     pts.append(ema_pt('ma200_1m', _ema(ac)[-1], n))
     # 3-4. 5m / 30m EMA: the bar BEFORE the one containing S.start
@@ -679,7 +739,7 @@ def _literal(bars, s_start, side):
     # 5-7. yesterday's regular-session low / close / high (and the session before it, for the trend point)
     rth = (mod >= RTH_OPEN) & (mod < RTH_CLOSE)
     past = rth & (dord < dS)
-    days = np.unique(dord[past])
+    days = np.unique(dord[past & ~np.isin(dord, HOLIDAY_ORD)])      # a listed CME holiday is never a regular session (v1.1)
     yd = yyd = None
     if len(days) and dS - days[-1] <= MAX_SESSION_GAP_DAYS:
         yd = days[-1]
@@ -690,9 +750,15 @@ def _literal(bars, s_start, side):
         sel = past & (dord == d)
         return ah[sel].max(), al[sel].min(), ac[sel][-1]
 
+    def complete(d):                                            # the session ran to its last regular bar (v1.1)
+        return bool(_complete(d, mod[past & (dord == d)][-1]))
+
     if yd is None:
         for k in ('y_low', 'y_close', 'y_high'):
             pts.append(_pt(k, side, None, None, None, NA_NOY))
+    elif not complete(yd):
+        for k in ('y_low', 'y_close', 'y_high'):
+            pts.append(_pt(k, side, None, None, None, NA_INCOMPLETE))
     else:
         yH, yL, yC = sess(yd)
         for k, lvl in (('y_low', yL), ('y_close', yC), ('y_high', yH)):
@@ -716,8 +782,14 @@ def _literal(bars, s_start, side):
         else:
             pts.append(_pt('big_vol', side, bool(V >= maxv), V, maxv, None))
     # 10. trend (separate)
-    if yyd is None:
+    if yd is None:
         trend = _pt('d_trend', side, None, None, None, NA_NOY)
+    elif not complete(yd):
+        trend = _pt('d_trend', side, None, None, None, NA_INCOMPLETE)
+    elif yyd is None:
+        trend = _pt('d_trend', side, None, None, None, NA_NOY)
+    elif not complete(yyd):
+        trend = _pt('d_trend', side, None, None, None, NA_INCOMPLETE)
     else:
         yH, yL, _ = sess(yd)
         yyH, yyL, _ = sess(yyd)
@@ -1014,7 +1086,18 @@ def _tv_times(col):
     return _idx_epoch(pd.DatetimeIndex(ts))
 
 
-def parity(path, root='NQ', skip_sessions=5, max_list=40, bars=None):
+def _prev_sessions(d, k):
+    """The k latest EXPECTED regular sessions before the day ordinal d: weekdays that are not listed CME holidays."""
+    out, x = [], int(d)
+    while len(out) < k:
+        x -= 1
+        if np.datetime64(x, 'D').astype(dt.date).weekday() >= 5 or x in HOLIDAY_SET:
+            continue
+        out.append(x)
+    return out
+
+
+def parity(path, root='NQ', skip_sessions=ROLL_SKIP_SESSIONS, max_list=40, bars=None):
     df = pd.read_csv(path)
     low = {str(c).strip().lower().replace('"', ''): c for c in df.columns}
     tcol = low.get('time') or low.get('datetime') or df.columns[0]
@@ -1023,26 +1106,35 @@ def parity(path, root='NQ', skip_sessions=5, max_list=40, bars=None):
     tick = TICK.get(ROOT_OF.get(root, root), 0.25)
     dord, mod = _et_fields(t)
     rth = (mod >= RTH_OPEN) & (mod < RTH_CLOSE)
-    # skip the sessions from a real switch to `skip_sessions` sessions after it (TradingView rolls on another day)
-    sess_days = np.unique(bars.fields()[0][(bars.fields()[1] >= RTH_OPEN) & (bars.fields()[1] < RTH_CLOSE)])
+    # skip the switch day and the `skip_sessions` regular sessions after it (v1.1: 15). On an unadjusted TradingView chart
+    # the 30-minute EMA carries the roll gap for about two weeks, and TradingView rolls a few days after we do.
+    # sess_days = OUR regular sessions: dates with regular-session bars, listed holidays (stubs) excluded.
+    f_d, f_m = bars.fields()
+    sess_days = np.unique(f_d[(f_m >= RTH_OPEN) & (f_m < RTH_CLOSE) & ~np.isin(f_d, HOLIDAY_ORD)])
     skip = np.zeros(len(t), dtype=bool)
     for r in bars.sw_rows:
         d0 = int(_et_fields(np.array([r['inst']]))[0][0])
         after = sess_days[sess_days > d0][:skip_sessions]
         bad = set([d0]) | set(int(x) for x in after)
         skip |= np.isin(dord, list(bad))
-    # ...and the session right after a weekday our master has no regular-session bars for (a holiday with a short
-    # Globex session, or a hole): TradingView may still have that session, so its "yesterday" can differ from ours
+    # ...and a session whose "yesterday" or the session before it is a weekday our master has NO regular-session bars for
+    # that is not a listed holiday (a data hole): TradingView may have that session, so the two can differ. A LISTED
+    # holiday is not skipped: both implementations carry the same list (spec section 7), so the session after a holiday
+    # is exactly what this test should measure.
     sdset = set(int(x) for x in sess_days)
+    n_hole = 0
     for d in np.unique(dord):
-        prev = int(d) - (3 if np.datetime64(int(d), 'D').astype(dt.date).weekday() == 0 else 1)
-        if prev not in sdset and sess_days.size and prev > sess_days[0]:
+        if sess_days.size and any(p not in sdset and p > sess_days[0] for p in _prev_sessions(int(d), 2)):
             skip |= (dord == d)
+            n_hole += 1
     use = rth & ~skip
     d_from = _et_str(int(t.min()), '%Y-%m-%d')
     d_to = _et_str(int(t.max()), '%Y-%m-%d')
-    print('parity: %s  %d export bars, %d in the regular session outside roll weeks / holiday-adjacent sessions  (%s .. %s)' % (
+    print('parity: %s  %d export bars, %d in the regular session outside the roll window  (%s .. %s)' % (
         os.path.basename(path), len(t), int(use.sum()), d_from, d_to))
+    print('  roll window skipped: the switch day plus %d regular sessions after each of the %d real switches; '
+          '%d session(s) after a data hole skipped; listed CME holidays are NOT skipped (both sides skip them)'
+          % (skip_sessions, len(bars.sw_rows), n_hole))
     tot_both = tot_agree = 0
     bad_all = []
     for sd, sname in (('LONG', 'L'), ('SHORT', 'S')):
@@ -1097,7 +1189,7 @@ def parity(path, root='NQ', skip_sessions=5, max_list=40, bars=None):
 # ------------------------------------------------------------------ CLI
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description='the owner\'s point score (spec ps1)')
+    ap = argparse.ArgumentParser(description='the owner\'s point score (spec ps1.1)')
     sub = ap.add_subparsers(dest='cmd', required=True)
     a = sub.add_parser('trade', help='score one trade')
     a.add_argument('--sym', required=True)
