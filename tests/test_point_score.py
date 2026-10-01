@@ -1,4 +1,4 @@
-"""POINT SCORE (spec v1 `ps1`, docs/POINT_SCORE_SPEC.md): tools/point_score.py, the reference implementation.
+"""POINT SCORE (spec v1.1 `ps1.1`, docs/POINT_SCORE_SPEC.md): tools/point_score.py, the reference implementation.
 
 Two kinds of test, both against the SPEC, never against the code's own opinion:
 
@@ -6,7 +6,9 @@ Two kinds of test, both against the SPEC, never against the code's own opinion:
      quietly wrong has a case here: the signal-bar rule, no look-ahead, the since-low window tie rule, the green
      candle, the 5m / 30m reference bar, yesterday's levels across weekends / holidays / half days, the
      600-bar warm-up, NA never being 0, the long / short mirror, the trade-relative roll adjustment (checked against
-     a brute-force reading of the spec formula) and the 10-second rules.
+     a brute-force reading of the spec formula) and the 10-second rules. v1.1 (review 2026-09-30): listed CME holidays
+     are never "yesterday", an incomplete prior session reads NA (never a wrong level), a capture gap inside the 10s
+     EMA's memory reads NA, and the parity test skips 15 sessions after a roll but not the session after a holiday.
   2. DATA-BACKED - skipped when augur_uploads is absent (it is untracked): the owner's worked example
      (2026-09-30 09:32:21 MNQ LONG = 9 of 9 on the 09:31 bar), and score_series == score_trade on 200 random bars.
 
@@ -140,7 +142,7 @@ def test_only_1m_is_supported(long_series):
 def test_record_shape_is_the_agreed_contract(long_series):
     _, b = long_series
     r = rec_of(b, '2026-02-10 09:32:21')
-    assert r['v'] == 'ps1' and r['side'] == 'LONG' and r['tf'] == '1m' and r['tf_note'] == '1-minute default'
+    assert r['v'] == 'ps1.1' and r['side'] == 'LONG' and r['tf'] == '1m' and r['tf_note'] == '1-minute default'
     assert [p['k'] for p in r['points']] == ['ma200_10s', 'ma200_1m', 'ma200_5m', 'ma200_30m', 'y_low', 'y_close',
                                              'y_high', 'big_body', 'big_vol']
     assert r['trend']['k'] == 'd_trend'
@@ -475,73 +477,244 @@ def test_10s_is_na_within_48h_after_a_real_switch():
 
 # ------------------------------------------------------------------ yesterday's levels
 
-def _two_days():
-    """Wed full RTH, Thu HALF day (09:30-12:59 RTH bars plus 16:00-16:59 post bars that must not count),
-    Fri a holiday with NO bars, Sunday evening bars, Monday S."""
+def _block(rows, rng, date, start, n, base, vol=100):
+    """Append n one-minute random-walk bars from `start` on `date` (stamped at their START); returns the last close."""
+    t = pd.Timestamp('%s %s' % (date, start))
+    px = base
+    for i in range(n):
+        o = px
+        c = o + rng.choice([-1.0, 1.0, 0.5, -0.5])
+        rows.append(((t + pd.Timedelta(minutes=i)).strftime('%Y-%m-%d %H:%M'), o, max(o, c) + 0.25, min(o, c) - 0.25, c, vol))
+        px = c
+    return px
+
+
+def _thanksgiving_week():
+    """Wed 2026-11-25 full RTH, Thu 11-26 Thanksgiving (a listed holiday: NO bars), Fri 11-27 a listed EARLY CLOSE
+    (09:30-13:14) plus 16:00 / 16:01 post bars at wild prices that must not count, Sunday-evening bars (no regular
+    bars that day), Monday 11-30 S."""
     rows = []
     rng = np.random.default_rng(5)
-
-    def block(date, start, n, base, vol=100):
-        t = pd.Timestamp('%s %s' % (date, start))
-        px = base
-        for i in range(n):
-            o = px
-            c = o + rng.choice([-1.0, 1.0, 0.5, -0.5])
-            rows.append(((t + pd.Timedelta(minutes=i)).strftime('%Y-%m-%d %H:%M'), o, max(o, c) + 0.25, min(o, c) - 0.25, c, vol))
-            px = c
-        return px
-
-    px = block('2026-02-11', '09:30', 390, 100.0)               # Wed 09:30-15:59
-    px = block('2026-02-12', '09:30', 210, px)                  # Thu 09:30-12:59 (half day)
-    # post-close Thursday bars at wild prices: outside [09:30, 16:00) so they must not become yesterday's close/high
-    rows.append(('2026-02-12 16:00', 500.0, 600.0, 400.0, 555.0, 100))
-    rows.append(('2026-02-12 16:01', 555.0, 700.0, 300.0, 444.0, 100))
-    px2 = block('2026-02-15', '18:00', 60, px)                  # Sunday evening bars, no RTH bars that day
-    block('2026-02-16', '09:30', 40, px2)                       # Monday (Presidents Day in reality: still 'has bars')
+    px = _block(rows, rng, '2026-11-25', '09:30', 390, 100.0)    # Wed 09:30-15:59
+    px = _block(rows, rng, '2026-11-27', '09:30', 225, px)       # Fri 09:30-13:14 (early close)
+    rows.append(('2026-11-27 16:00', 500.0, 600.0, 400.0, 555.0, 100))
+    rows.append(('2026-11-27 16:01', 555.0, 700.0, 300.0, 444.0, 100))
+    px2 = _block(rows, rng, '2026-11-29', '18:00', 60, px)       # Sunday evening bars, no regular-session bars that day
+    _block(rows, rng, '2026-11-30', '09:30', 40, px2)            # Monday
     return hand(rows)
 
 
+def _short_day_week():
+    """Tue 2026-02-03 full, Wed 02-04 an UNLISTED short day (09:30-12:59), Thu 02-05 full, Fri 02-06 S."""
+    rows = []
+    rng = np.random.default_rng(6)
+    px = _block(rows, rng, '2026-02-03', '09:30', 390, 100.0)
+    px = _block(rows, rng, '2026-02-04', '09:30', 210, px)
+    px = _block(rows, rng, '2026-02-05', '09:30', 390, px)
+    _block(rows, rng, '2026-02-06', '09:30', 40, px)
+    return hand(rows)
+
+
+def _holiday_stub_week():
+    """Thu 2026-05-21 and Fri 05-22 full, Mon 05-25 Memorial Day: a Globex STUB (09:30-12:59) at prices far from Friday's,
+    Tue 05-26 S."""
+    rows = []
+    rng = np.random.default_rng(7)
+    px = _block(rows, rng, '2026-05-21', '09:30', 390, 100.0)
+    px = _block(rows, rng, '2026-05-22', '09:30', 390, px)
+    px = _block(rows, rng, '2026-05-25', '09:30', 210, px + 200.0)
+    _block(rows, rng, '2026-05-26', '09:30', 40, px)
+    return hand(rows)
+
+
+def _agree(b, idx, sides=('LONG', 'SHORT')):
+    """The literal path and the vectorised path give the same record (hit, NA reason, val, ref) at every index in idx."""
+    for side in sides:
+        f = b.full(side)
+        for i in idx:
+            rec, _ = ps._literal(b, int(b.t[i]), side)
+            for k, p in zip(ps.KEYS + ['d_trend'], rec['points'] + [rec['trend']]):
+                d = f[k]
+                ha = None if np.isnan(d['hit'][i]) else bool(d['hit'][i])
+                assert ha == p['hit'] and ps._REASONS[d['na'][i]] == p['na_reason'], (side, ps._et_str(b.t[i]), k)
+                if ha is not None:
+                    assert d['val'][i] == pytest.approx(p['val'], abs=1e-3)
+                    assert d['ref'][i] == pytest.approx(p['ref'], abs=1e-3)
+
+
 def test_yesterday_skips_days_without_regular_session_bars_and_uses_the_last_bar_before_1600():
-    df = _two_days()
+    df = _thanksgiving_week()
     b = bars_of(df)
-    # S on Monday 2026-02-16 09:35; Sunday has only evening bars, Friday/Saturday none -> yesterday = Thursday (half day)
-    r = rec_of(b, '2026-02-16 09:36:10')
-    thu = df.loc['2026-02-12 09:30':'2026-02-12 12:59']
-    assert pt(r, 'y_high')['ref'] == thu['high'].max()
-    assert pt(r, 'y_low')['ref'] == thu['low'].min()
-    assert pt(r, 'y_close')['ref'] == thu['close'].iloc[-1]     # the 12:59 bar, not the 16:00 / 16:01 post bars
+    # S on Monday 2026-11-30 09:35; Sunday has only evening bars, Saturday none -> yesterday = Friday, a listed EARLY CLOSE
+    # whose last regular bar is 13:14: it counts as complete (v1.1)
+    r = rec_of(b, '2026-11-30 09:36:10')
+    fri = df.loc['2026-11-27 09:30':'2026-11-27 13:14']
+    assert pt(r, 'y_high')['na_reason'] is None and pt(r, 'y_close')['na_reason'] is None
+    assert pt(r, 'y_high')['ref'] == fri['high'].max()
+    assert pt(r, 'y_low')['ref'] == fri['low'].min()
+    assert pt(r, 'y_close')['ref'] == fri['close'].iloc[-1]     # the 13:14 bar, not the 16:00 / 16:01 post bars
     assert pt(r, 'y_high')['ref'] < 500                          # the post bars at 600 / 700 are excluded
-    # the session before it = Wednesday: drives the trend point
-    wed = df.loc['2026-02-11 09:30':'2026-02-11 15:59']
+    # the session before it = Wednesday (Thursday was Thanksgiving: no bars, and listed): drives the trend point
+    wed = df.loc['2026-11-25 09:30':'2026-11-25 15:59']
     tr = r['trend']
-    assert tr['val'] == thu['high'].max() and tr['ref'] == wed['high'].max()
-    assert tr['hit'] == bool(thu['high'].max() > wed['high'].max() and thu['low'].min() > wed['low'].min())
-    # a Friday-evening-style check: S on Thursday uses Wednesday
-    r2 = rec_of(b, '2026-02-12 10:00:10')
+    assert tr['na_reason'] is None and tr['val'] == fri['high'].max() and tr['ref'] == wed['high'].max()
+    assert tr['hit'] == bool(fri['high'].max() > wed['high'].max() and fri['low'].min() > wed['low'].min())
+    # S on the early-close Friday itself uses Wednesday
+    r2 = rec_of(b, '2026-11-27 10:00:10')
     assert pt(r2, 'y_close')['ref'] == wed['close'].iloc[-1]
 
 
 def test_yesterday_beyond_7_calendar_days_is_na():
-    rows = _day_rows('2026-02-02', [(100, 101, 99, 100.5, 10)] * 60) + _day_rows('2026-02-12', [(100, 101, 99, 100.5, 10)] * 60)
+    full = [(100, 101, 99, 100.5, 10)] * 390                      # a complete 09:30-15:59 session
+    rows = _day_rows('2026-02-02', full) + _day_rows('2026-02-12', [(100, 101, 99, 100.5, 10)] * 60)
     b = bars_of(hand(rows))
     r = rec_of(b, '2026-02-12 09:45:10')
     for k in ('y_low', 'y_close', 'y_high'):
         assert pt(r, k)['hit'] is None and pt(r, k)['na_reason'] == ps.NA_NOY
     assert r['trend']['hit'] is None and r['max'] <= 6
-    rows = _day_rows('2026-02-02', [(100, 101, 99, 100.5, 10)] * 60) + _day_rows('2026-02-09', [(100, 101, 99, 100.5, 10)] * 60)
+    rows = _day_rows('2026-02-02', full) + _day_rows('2026-02-09', [(100, 101, 99, 100.5, 10)] * 60)
     r = rec_of(bars_of(hand(rows)), '2026-02-09 09:45:10')      # exactly 7 days: still found
     assert pt(r, 'y_low')['na_reason'] is None
 
 
 def test_short_compares_below_the_same_levels():
-    df = _two_days()
+    df = _thanksgiving_week()
     b = bars_of(df)
-    rl = rec_of(b, '2026-02-16 09:36:10', 'LONG')
-    rs = rec_of(b, '2026-02-16 09:36:10', 'SHORT')
+    rl = rec_of(b, '2026-11-30 09:36:10', 'LONG')
+    rs = rec_of(b, '2026-11-30 09:36:10', 'SHORT')
     for k in ('y_low', 'y_close', 'y_high'):
         pl, psh = pt(rl, k), pt(rs, k)
         assert pl['ref'] == psh['ref'] and pl['val'] == psh['val']
         assert pl['hit'] != psh['hit']                          # no tie in this data: above XOR below
+
+
+def test_a_listed_holiday_stub_is_never_yesterday():
+    df = _holiday_stub_week()
+    b = bars_of(df)
+    thu, fri = df.loc['2026-05-21 09:30':'2026-05-21 15:59'], df.loc['2026-05-22 09:30':'2026-05-22 15:59']
+    stub = df.loc['2026-05-25 09:30':'2026-05-25 12:59']
+    assert stub['low'].min() > fri['high'].max()                 # the stub sits far above Friday: a wrong pick is obvious
+    for fill in ('2026-05-26 10:00:30', '2026-05-26 09:31:00', '2026-05-26 10:05:12'):
+        r = rec_of(b, fill)
+        assert (pt(r, 'y_low')['ref'], pt(r, 'y_close')['ref'], pt(r, 'y_high')['ref']) == (
+            fri['low'].min(), fri['close'].iloc[-1], fri['high'].max()), fill
+        assert r['trend']['val'] == fri['high'].max() and r['trend']['ref'] == thu['high'].max()   # the stub is no yy either
+    # the stub's own date still scores (its yesterday is Friday); the vectorised path agrees everywhere
+    r = rec_of(b, '2026-05-25 10:00:30')
+    assert pt(r, 'y_high')['ref'] == fri['high'].max()
+    n = len(b)
+    _agree(b, [i for i in range(n) if b.t[i] >= ps._epoch('2026-05-25 09:30') and i % 7 == 0])
+    assert '2026-05-25' in ps.CME_HOLIDAYS['full']                # the list is what does the work
+
+
+def test_incomplete_prior_session_is_na_not_a_wrong_level_and_is_not_skipped():
+    df = _short_day_week()
+    b = bars_of(df)
+    tue, wed, thu = (df.loc['2026-02-0%d 09:30:00' % d:'2026-02-0%d 15:59' % d] for d in (3, 4, 5))
+    assert len(wed) == 210                                      # an unlisted short day: last regular bar 12:59
+    # S on Thursday: yesterday = Wednesday (incomplete) -> NA for all three levels AND the trend; Tuesday is NOT used
+    r = rec_of(b, '2026-02-05 10:00:30')
+    for k in ('y_low', 'y_close', 'y_high'):
+        p = pt(r, k)
+        assert p['hit'] is None and p['na_reason'] == ps.NA_INCOMPLETE and p['ref'] is None and p['val'] is None
+    assert r['trend']['hit'] is None and r['trend']['na_reason'] == ps.NA_INCOMPLETE
+    assert r['max'] == 9 - r['na_count'] and r['na_count'] >= 3
+    # S on Friday: yesterday = Thursday (complete) -> the levels are Thursday's; the session before it (Wednesday) is
+    # incomplete -> only the trend point is NA
+    r = rec_of(b, '2026-02-06 10:00:30')
+    assert pt(r, 'y_close')['na_reason'] is None and pt(r, 'y_close')['ref'] == thu['close'].iloc[-1]
+    assert pt(r, 'y_high')['ref'] == thu['high'].max() and pt(r, 'y_low')['ref'] == thu['low'].min()
+    assert r['trend']['hit'] is None and r['trend']['na_reason'] == ps.NA_INCOMPLETE
+    # both paths agree on every bar of the three days
+    _agree(b, [i for i in range(len(b)) if b.t[i] >= ps._epoch('2026-02-04 09:30') and i % 5 == 0])
+
+
+def test_early_close_day_ending_before_1314_or_an_unlisted_early_day_is_incomplete():
+    # 2026-11-27 is a listed early close: ending at 13:13 (one bar short) is incomplete; 2026-12-04 is not listed, so a
+    # 13:14 end is incomplete there
+    for day, nxt, n_bars, want_na in (('2026-11-27', '2026-11-30', 224, True), ('2026-12-04', '2026-12-07', 225, True),
+                                      ('2026-11-27', '2026-11-30', 225, False)):
+        rows = []
+        rng = np.random.default_rng(8)
+        px = _block(rows, rng, day, '09:30', n_bars, 100.0)
+        _block(rows, rng, nxt, '09:30', 40, px)
+        b = bars_of(hand(rows))
+        r = rec_of(b, nxt + ' 10:00:30')
+        assert (pt(r, 'y_close')['na_reason'] == ps.NA_INCOMPLETE) == want_na, (day, n_bars)
+        assert (pt(r, 'y_close')['hit'] is None) == want_na
+
+
+# ------------------------------------------------------------------ the 10-second capture gap (v1.1)
+
+def _gap_world(gap_minutes, quiet=None, seed=70):
+    """30 weekdays of 1-minute bars with a 10-second capture from 2026-01-28 18:00 that LOST the minutes
+    10:00 .. 10:00 + gap_minutes - 1 on 2026-02-10. quiet='volume0': the master also traded nothing in those minutes;
+    quiet='nobars': the master has no bars there at all."""
+    df = walk(n_days=30, seed=seed)
+    t10, c10 = ten_sec(df, '2026-01-28 18:00')
+    e0 = ps._epoch('2026-02-10 10:00')
+    keep = ~((t10 >= e0) & (t10 < e0 + 60 * gap_minutes))
+    if quiet == 'volume0':
+        m = (df.index >= pd.Timestamp('2026-02-10 10:00')) & (df.index < pd.Timestamp('2026-02-10 10:00') + pd.Timedelta(minutes=gap_minutes))
+        df = df.copy()
+        df.loc[m, 'volume'] = 0.0
+    elif quiet == 'nobars':
+        m = (df.index >= pd.Timestamp('2026-02-10 10:00')) & (df.index < pd.Timestamp('2026-02-10 10:00') + pd.Timedelta(minutes=gap_minutes))
+        df = df[~m]
+    return df, bars_of(df, t10=t10[keep], c10=c10[keep])
+
+
+def _p10(b, hm, side='LONG'):
+    """The 10-second point of the bar that STARTS at hm on 2026-02-10 (fill = 30 s into the next minute)."""
+    fill = pd.Timestamp('2026-02-10 ' + hm) + pd.Timedelta(seconds=90)
+    return pt(ps.score_trade(dict(sym='NQ', side=side, fill=fill), bars=b), 'ma200_10s')
+
+
+def test_10s_capture_gap_inside_the_ema_memory_is_na():
+    df, b = _gap_world(31)                                       # the capture lost 10:00-10:30 (31 minutes that traded)
+    assert _p10(b, '09:59')['hit'] is not None                  # the window has not reached the gap yet
+    assert _p10(b, '10:00')['na_reason'] == ps.NA_NO10BAR       # the signal minute itself has no 10s bar
+    assert _p10(b, '10:45')['na_reason'] == ps.NA_GAP10          # the gap is inside the last 600 10s bars
+    # 600 10s bars = 100 minutes of the capture AFTER the gap: 10:31 .. 12:10 inclusive. One minute earlier, the
+    # 600th-latest bar still lies before the gap -> NA; at 12:10 the window starts at 10:31 -> scored again
+    assert _p10(b, '12:09')['na_reason'] == ps.NA_GAP10
+    assert _p10(b, '12:10')['hit'] is not None and _p10(b, '12:10')['na_reason'] is None
+    # the vectorised path says the same on every bar of the day
+    i0, i1 = b.find(ps._epoch('2026-02-10 09:50')), b.find(ps._epoch('2026-02-10 12:30'))
+    _agree(b, list(range(i0, i1 + 1, 3)) + [b.find(ps._epoch('2026-02-10 12:09')), b.find(ps._epoch('2026-02-10 12:10'))])
+    f = b.full('SHORT')
+    assert ps._REASONS[f['ma200_10s']['na'][b.find(ps._epoch('2026-02-10 12:09'))]] == ps.NA_GAP10
+
+
+def test_10s_capture_gap_needs_three_lost_minutes():
+    _, b2 = _gap_world(2)                                        # two lost minutes: tolerated
+    assert _p10(b2, '10:45')['hit'] is not None and _p10(b2, '10:45')['na_reason'] is None
+    _, b3 = _gap_world(3)                                        # three lost minutes: a gap
+    assert _p10(b3, '10:45')['na_reason'] == ps.NA_GAP10
+    _agree(b3, [b3.find(ps._epoch('2026-02-10 10:45')), b3.find(ps._epoch('2026-02-10 10:03'))])
+    _agree(b2, [b2.find(ps._epoch('2026-02-10 10:45'))])
+
+
+@pytest.mark.parametrize('quiet', ['volume0', 'nobars'])
+def test_10s_a_quiet_market_is_not_a_gap(quiet):
+    # the capture has no bars for 31 minutes, but the master did not trade then either: nothing was lost
+    df, b = _gap_world(31, quiet=quiet)
+    for hm in ('10:45', '12:09', '12:10'):
+        p = _p10(b, hm)
+        assert p['hit'] is not None and p['na_reason'] is None, hm
+    _agree(b, [b.find(ps._epoch('2026-02-10 10:45')), b.find(ps._epoch('2026-02-10 12:09'))])
+
+
+def test_10s_the_daily_break_and_the_weekend_are_never_a_gap():
+    df = walk(n_days=30, seed=71)
+    t10, c10 = ten_sec(df, '2026-01-28 18:00')
+    b = bars_of(df, t10=t10, c10=c10)
+    # Sunday 02-08 19:00 is an hour after the week's open, so the 10s window spans the weekend; the 18:30 ones span the
+    # 17:00-18:00 break: none of them may read as a gap
+    for hm in ('2026-02-08 19:00', '2026-02-09 18:30', '2026-02-10 18:30'):
+        fill = pd.Timestamp(hm) + pd.Timedelta(seconds=75)
+        p = pt(ps.score_trade(dict(sym='NQ', side='LONG', fill=fill), bars=b), 'ma200_10s')
+        assert p['na_reason'] is None and p['hit'] is not None, hm
 
 
 # ------------------------------------------------------------------ rolls: trade-relative adjustment
@@ -894,6 +1067,52 @@ def test_parity_skips_the_session_after_a_weekday_with_no_bars(tmp_path, capsys)
     assert '390 in the regular session' in out                        # Tue only; Thursday follows the empty Wednesday
 
 
+def _tv_export_span(tmp_path, b, d0, d1):
+    """A parity export (the exact scores of b.full) for the dates [d0, d1] inclusive."""
+    ser = {sd: b.full(sd) for sd in ('LONG', 'SHORT')}
+    sel = np.flatnonzero((b.t >= ps._epoch(d0)) & (b.t < ps._epoch((pd.Timestamp(d1) + pd.Timedelta(days=1)).strftime('%Y-%m-%d'))))
+    data = {'time': b.t[sel]}
+    for sd, pre in (('LONG', 'L'), ('SHORT', 'S')):
+        for k in ps.KEYS:
+            data['%s %s' % (pre, k)] = ser[sd][k]['hit'][sel]
+        data['%s trend' % pre] = ser[sd]['d_trend']['hit'][sel]
+    p = tmp_path / 'tv_span.csv'
+    pd.DataFrame(data).to_csv(p, index=False)
+    return str(p)
+
+
+def test_parity_skips_the_switch_day_and_15_sessions_after_it(tmp_path, capsys):
+    df = walk(n_days=30, seed=62)
+    t10, c10 = ten_sec(df, '2026-01-28 18:00')
+    sw = [dict(inst=ps._epoch('2026-01-20 11:00'), offset=40.0, status='exact', et='2026-01-20 11:00', kind='mid_session')]
+    b = bars_of(df, t10=t10, c10=c10, switches=sw)
+    # sessions after the switch day 01-20: 21 22 23 26 27 28 29 30 | 02-02 03 04 05 06 | 09 10  = 15 -> 02-10 is the last skipped
+    path = _tv_export_span(tmp_path, b, '2026-02-09', '2026-02-12')
+    assert ps.parity(path, 'NQ', bars=b) is True
+    out = capsys.readouterr().out
+    assert '780 in the regular session' in out                         # 02-11 and 02-12 only
+    assert 'plus 15 regular sessions after each' in out
+    assert ps.ROLL_SKIP_SESSIONS == 15
+    assert ps.parity(path, 'NQ', bars=b, skip_sessions=5) is True      # the parameter still works
+    assert '1560 in the regular session' in capsys.readouterr().out    # 02-09 .. 02-12
+
+
+@pytest.mark.parametrize('holiday_has_bars,n_days', [(True, 1560), (False, 1170)])
+def test_parity_does_not_skip_the_session_after_a_listed_holiday(tmp_path, capsys, holiday_has_bars, n_days):
+    # 2026-02-16 (Presidents Day) is in CME_HOLIDAYS, so both sides skip it as "yesterday": the Tuesday is measured, not
+    # skipped. (An UNLISTED weekday with no bars is skipped: see the test above.)
+    df = walk(n_days=34, seed=63)
+    if not holiday_has_bars:
+        df = df[df.index.normalize() != pd.Timestamp('2026-02-16')]
+    t10, c10 = ten_sec(df, '2026-01-28 18:00')
+    b = bars_of(df, t10=t10, c10=c10)
+    path = _tv_export_span(tmp_path, b, '2026-02-13', '2026-02-18')    # Fri, Mon (holiday), Tue, Wed
+    assert ps.parity(path, 'NQ', bars=b) is True
+    out = capsys.readouterr().out
+    assert '%d in the regular session' % n_days in out
+    assert 'listed CME holidays are NOT skipped' in out
+
+
 # ================================================================== DATA-BACKED (skipped without augur_uploads)
 
 needs_data = pytest.mark.skipif(not (ps.data_available('NQ') and ps.data_available('ES')),
@@ -924,6 +1143,45 @@ def test_worked_example_2026_09_30_0932_mnq_long_scores_9_of_9():
     assert s['max'] == 9
     assert [p['hit'] for p in s['points'][:7]] == [False] * 7       # above every average and level: no short point
     assert s['points'][7]['hit'] is False                           # a green candle is not a short candle
+
+
+@needs_data
+def test_review_0930_findings_on_the_real_bars():
+    # finding 2: the day after Memorial Day uses Friday 05-22's regular session, not the 09:30-12:59 Globex stub
+    r = ps.score_trade(dict(sym='MES', side='LONG', fill='2026-05-26 10:00:30'))
+    by = {p['k']: p for p in r['points']}
+    assert (by['y_low']['ref'], by['y_close']['ref'], by['y_high']['ref']) == (7478.75, 7490.75, 7524.0)
+    assert by['y_low']['hit'] is True and by['y_close']['hit'] is True and by['y_high']['hit'] is True
+    # finding 1: 2026-07-24's capture stops at 10:46, so Monday 07-27 has NO yesterday levels (and no trend), not wrong ones
+    r = ps.score_trade(dict(sym='MES', side='LONG', fill='2026-07-27 12:25:37'))
+    by = {p['k']: p for p in r['points']}
+    for k in ('y_low', 'y_close', 'y_high'):
+        assert by[k]['hit'] is None and by[k]['na_reason'] == ps.NA_INCOMPLETE
+    assert r['trend']['hit'] is None and r['trend']['na_reason'] == ps.NA_INCOMPLETE
+    assert r['max'] == 9 - r['na_count'] and r['na_count'] >= 3
+    # finding 4: NQ's capture lost 13:34:50-15:39:30 on 2026-08-26, so the 10s point of 15:39-15:59 is NA...
+    b = ps.load_bars('NQ')
+    ser = ps.score_series('NQ', 'LONG', '2026-08-26', '2026-08-26', bars=b)
+    late = ser.loc['2026-08-26 15:39':'2026-08-26 15:59']
+    assert len(late) == 21 and (late['ma200_10s_na'] == ps.NA_GAP10).all() and late['ma200_10s_hit'].isna().all()
+    # ...while an ordinary regular session still scores it on every bar
+    for root in ('NQ', 'ES'):
+        day = ps.score_series(root, 'LONG', '2026-09-02', '2026-09-02').between_time('09:30', '15:59')
+        assert len(day) == 390 and day['ma200_10s_hit'].notna().all()
+
+
+@needs_data
+@pytest.mark.parametrize('root', ['NQ', 'ES'])
+def test_score_series_equals_score_trade_around_holidays_incomplete_days_and_gaps(root):
+    b = ps.load_bars(root)
+    stamps = ['2026-01-20 10:00', '2026-02-17 10:00', '2026-04-06 10:00', '2026-05-26 10:00', '2026-05-26 09:31',
+              '2026-06-22 10:00', '2026-07-06 10:00', '2026-07-26 19:00', '2026-07-27 09:31', '2026-07-27 12:24',
+              '2026-07-28 10:00', '2026-08-26 13:40', '2026-08-26 15:39', '2026-08-26 15:59', '2026-08-31 03:30',
+              '2026-09-08 10:00', '2026-09-11 11:30', '2026-09-24 14:15']
+    idx = [b.find(ps._epoch(s)) for s in stamps]
+    idx = [i for i in idx if i >= 0]
+    assert len(idx) >= 12
+    _agree(b, idx)
 
 
 @needs_data
