@@ -139,3 +139,16 @@ PASS per cell (information only): stacked >= its raw twin on ROC@$30k AND Sortin
 PASS for the sleeve (the decision): the stacked 4-cell sleeve vs the raw 4-cell sleeve (round 19a): ROC@$30k AND
 Sortino >= in WF AND LB; >= 100 WF / 50 LB trades; LB net > 0 without its biggest trade. A sleeve pass goes to
 Frontier for a book test inside #463 (in place of, and beside, the TTM x3 leg). A fail closes the stack transfer.
+RESULTS: 21a FAIL (a28a6ecd) - the stack lifts ES 30m only. Validate #479 (addendum 3) WEAK 5/6, PBO 0.639 -> the
+stack is closed.
+
+ADDENDUM 5 (2026-09-30 night, MANAGER build review C:\EdgeLog\manager\review_0930\TTM.md; written BEFORE any stock
+data exists and before the shadow has a single forward fire)
+- 20c COST CONVENTION, corrected: shares and the $/share cost are REAL. Bars stay split-adjusted (a split must not
+  look like a crash), and each trade is sized and costed at raw price = adjusted price x the entry date's split
+  factor (raw daily close / split-adjusted daily close, both pulled from Alpaca). Costing adjusted shares had
+  overstated pre-split costs ~20x on AMZN / GOOGL before 2022 and understated GE ~8x before its 2021 reverse split.
+  Dollar P&L is unchanged by this; only the share count and cost move.
+- 20b SHADOW READ POINT, pinned: the check runs on demand (it recomputes everything from the data, so no nightly job
+  is needed); it shows COUNTS ONLY until 150 blocked fires with coverage exist; at 150 it reads EXACTLY the first
+  150 blocked fires by fire time (gated fires over the same dates), saves that verdict once and never recomputes it.

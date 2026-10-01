@@ -5,7 +5,9 @@ never reads or prints them beyond handing them to the shared loader's fetch func
 Data: Alpaca SIP 30Min, split-adjusted, RTH 09:30-16:00 ET, 2016-01-04 .. 2026-06-30, cached per symbol in
 C:\\EdgeLog\\alpaca_cache\\ttm_r20c (no library masters are registered). Rule: TTMSQZ_3_0.py at the frozen
 crown, unchanged, gated (the candidate) and ungated (the plain twin). $25,000 of stock per fire in whole
-shares at the entry price; cost $0.02 a share round trip ($0.05 stress). Pooled daily P&L, round 19's
+shares at the entry price; cost $0.02 a share round trip ($0.05 stress). Shares and cost are REAL: the
+bars are split-adjusted, and each trade is sized/costed at raw price = adjusted x the entry date's split
+factor (raw / adjusted daily close; prereg addendum 5). Pooled daily P&L, round 19's
 stretch_stats, WF 2016-01-04 .. 2025-06-30, LB 2025-07-01 .. 2026-06-30.
 
   python tools/ttmsqz_r20c_stocks.py                 # pull (cached) + score + verdict
@@ -64,14 +66,42 @@ def pull(sym, key, secret, loader):
     return df
 
 
-def to_arrays(df):
-    """Bar-START POSIX seconds -> the same dict shape load_master_arrays returns."""
+def pull_factor(sym, key, secret, loader):
+    """Per-ET-date split factor = RAW daily close / split-adjusted daily close (MANAGER review 2026-09-30).
+
+    Bars are split-adjusted so a split never looks like a crash, but shares and the $/share cost must be
+    REAL: before AMZN's 2022 20:1 split an adjusted share is 1/20 of a real one, so costing adjusted
+    shares overstates the cost ~20x (GE's 2021 1-for-8 reverse split understates it ~8x). A split is a
+    calendar fact, so the factor on the entry date is known at the decision."""
+    path = os.path.join(CACHE, "%s_1d_split_factor.csv" % sym)
+    if os.path.exists(path) and os.path.getsize(path) > 50:
+        f = pd.read_csv(path)
+        return pd.Series(f["factor"].to_numpy(float), index=pd.to_datetime(f["date"]).dt.date)
+    raw = loader.fetch_bars(sym, "1Day", D0, "2026-07-01", key, secret, feed="sip", adjustment="raw")
+    adj = loader.fetch_bars(sym, "1Day", D0, "2026-07-01", key, secret, feed="sip", adjustment="split")
+    if not len(raw) or not len(adj):
+        return pd.Series(dtype=float)
+    m = raw[["time", "close"]].merge(adj[["time", "close"]], on="time", suffixes=("_raw", "_adj"))
+    m["date"] = pd.to_datetime(m["time"], unit="s", utc=True).dt.tz_convert("US/Eastern").dt.date
+    m["factor"] = m["close_raw"] / m["close_adj"]
+    os.makedirs(CACHE, exist_ok=True)
+    m[["date", "factor"]].to_csv(path, index=False)
+    return pd.Series(m["factor"].to_numpy(float), index=m["date"])
+
+
+def to_arrays(df, factor=None):
+    """Bar-START POSIX seconds -> the same dict shape load_master_arrays returns (+ per-bar split factor)."""
     idx = pd.DatetimeIndex(pd.to_datetime(df["time"], unit="s", utc=True)).tz_convert("US/Eastern")
     keep = (idx >= pd.Timestamp(D0, tz="US/Eastern")) & (idx < pd.Timestamp(D1, tz="US/Eastern") + pd.Timedelta(days=1))
     df, idx = df[keep], idx[keep]
+    dates = pd.Series(idx).dt.date
+    if factor is not None and len(factor):
+        fac = dates.map(factor.to_dict()).astype(float).ffill().bfill().fillna(1.0).to_numpy()
+    else:
+        fac = np.ones(len(idx))
     return dict(open=df["open"].to_numpy(float), high=df["high"].to_numpy(float), low=df["low"].to_numpy(float),
                 close=df["close"].to_numpy(float), index=idx,
-                day_id=pd.factorize(pd.Series(idx).dt.date)[0].astype("int64"))
+                day_id=pd.factorize(dates)[0].astype("int64"), factor=fac)
 
 
 def trades_usd(a, gated, cost_sh):
@@ -82,8 +112,9 @@ def trades_usd(a, gated, cost_sh):
     out = []
     for t in (r or {}).get("trades", []):
         eb, xb, pts, side, epx = int(t[0]), int(t[1]), float(t[2]), int(t[3]), float(t[4])
-        sh = np.floor(NOTIONAL / epx) if epx > 0 else 0.0
-        out.append((idx[xb].normalize(), sh * (pts - cost_sh), side))
+        f = float(a["factor"][eb]) if "factor" in a else 1.0     # real price = adjusted x factor
+        sh = np.floor(NOTIONAL / (epx * f)) if epx > 0 else 0.0  # REAL shares
+        out.append((idx[xb].normalize(), sh * (pts * f - cost_sh), side))
     return out
 
 
@@ -120,7 +151,10 @@ def main():
             emit("  %s: %d bars from %s%s" % (s, len(df), first,
                  "  <- SHORT HISTORY, kept as-is (no substitution)" if (len(df) < 1000 or first > "2016-02-01") else ""))
             if len(df):
-                data[s] = to_arrays(df)
+                fac = pull_factor(s, key, secret, loader)
+                if not len(fac):
+                    emit("  %s: no daily split factor - costed at adjusted shares (factor 1)" % s)
+                data[s] = to_arrays(df, fac)
     cal = R19.full_calendar([pd.DatetimeIndex(a["index"]).tz_localize(None) for a in data.values()], D0, D1)
     es = load_master_arrays(find_master("ES", "30m", "rth", "db_noadj_rth"), date_from=D0, date_to=D1)
     es_idx = pd.DatetimeIndex(es["index"]).tz_localize(None)
