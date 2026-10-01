@@ -6035,6 +6035,100 @@
    ],
    "overall": 66,
    "summary": "This was a well-placed pullback buy in an uptrend with a tight stop under the breakout bar. You gave back a 12-point gain to 30884 and scratched, which turned out fine because the market flushed to 30843 right after. The weak spot was the lunch-hour timing, so size down or skip trades after 11:30."
+  },
+  {
+   "sym": "MES",
+   "date": "2026-10-01",
+   "dir": "SHORT",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "10:05",
+   "exit_time": "10:22",
+   "entry": 7685.25,
+   "exit": 7685.25,
+   "qty": 1,
+   "entry_ts": "10:05:03",
+   "exit_ts": "10:22:56",
+   "breakout_candle": "10:04",
+   "stop": 7690.25,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 13,
+     "note": "The short went with a strong downtrend that fell from 7740.25 at 09:38 to 7683.75 at 10:03."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 5,
+     "note": "You sold 7685.25 at the very bottom of a 27-point flush that began at 10:00, with no pullback to sell into."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 7,
+     "note": "The 10:04 signal bar high at 7690.25 gave a tight 5-point stop, but no stop or plan was logged."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 4,
+     "note": "Price was already sitting on the 7683.75 session low, so there was no clear level below to target."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 5,
+     "note": "The trade had no setup tag, and it looks like a chase of the 10:00 breakdown rather than a defined pattern."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 9,
+     "note": "Volume was heavy at 5,700 to 10,500 per minute and the bars ranged 5 to 15 points."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 7,
+     "note": "10:05 sits right after the 10:00 release spike, when snap-back rallies are common."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 8,
+     "note": "The fill came five minutes into the drop, after 27 points had already moved and right before the bounce."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 6,
+     "note": "Price squeezed to 7702.00 at 10:09, about 16.75 points of heat and well through the 7690.25 stop."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 15,
+     "note": "The best price was only 7682.25 at 10:06, and the next 15 minutes ran up to 7701.00, so the scratch at 7685.25 was fair."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 13,
+     "note": "One MES contract kept the cost of the 16-point squeeze small."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 3,
+     "note": "You held through the signal-bar stop for 13 minutes with no logged plan or notes."
+    }
+   ],
+   "overall": 48,
+   "summary": "You shorted the bottom of a 27-point flush after the 10:00 spike, so there was almost no room left below and the market snapped back 16 points against you. You got out flat, which was a lucky save rather than good risk control, because the 7690.25 stop was blown by 10:08. Next time, wait for a pullback toward the breakdown level to sell, and honor the stop when it trades."
   }
  ],
  "na": [
