@@ -276,6 +276,31 @@ def find_masters(conn):
     return targets
 
 
+# How far back the upstream feed may still restate a bar. Yahoo revises recent intraday bars -
+# volume especially - for several days after the fact. 10 days is ~7 observed plus margin.
+UNSETTLED_DAYS = 10
+
+
+def split_settled(existing, parent_last_t, days=UNSETTLED_DAYS):
+    """(settled, unsettled) halves of a stored master, by bar time.
+
+    WHY THIS EXISTS (2026-09-30, the evening of the day the nightly refresh went live). The
+    reproduction check demands that every stored bucket can be rebuilt from the parent exactly.
+    That is the right test for corruption, and it was the wrong test for the recent tail: Yahoo
+    restated the volume of one 2026-09-29 12:30 ET bar from 23,092 to 25,672, so six coarse
+    masters that had stored their buckets before the restatement could no longer reproduce, and
+    the check refused the WHOLE file. All six froze a day behind their parents within hours of
+    the schedule going live - the same freeze fixed that morning, arriving by a different door.
+
+    So a bucket inside the restatement window is treated as RE-DERIVABLE rather than immutable:
+    it is dropped and rebuilt from the parent as it stands now. Everything older must still
+    reproduce to the tick, which is the part that actually catches a damaged master.
+    """
+    cutoff = int(parent_last_t) - int(days) * 86400
+    return (existing[existing["time"] < cutoff].reset_index(drop=True),
+            existing[existing["time"] >= cutoff].reset_index(drop=True))
+
+
 def _bucket_from(rows):
     """The OHLCV bucket these parent rows make, by the same rule both methods share."""
     return dict(open=float(rows["open"].iloc[0]), high=float(rows["high"].max()),
@@ -378,7 +403,15 @@ def process_one(uploads_dir, master, parent_row, method):
         full = resample_rowcount(parent, tf_minutes, parent_tf_minutes)
     full = _drop_incomplete_tail(full, tf_minutes, last_parent_t, parent_tf_seconds, ratio=ratio)
 
-    # reproduction check: every row the existing master already has must reappear, exactly,
+    # Bars the upstream feed may still restate are re-derived, not checked: see
+    # split_settled. `existing` becomes the settled history, and everything from the cutoff
+    # onwards is rebuilt from the parent as it stands now.
+    settled, unsettled = split_settled(existing, last_parent_t)
+    n_redrived = len(unsettled)
+    if n_redrived:
+        existing = settled
+
+    # reproduction check: every SETTLED row the master already has must reappear, exactly,
     # in our from-scratch resample of the parent.
     check = existing.merge(full, on="time", how="left", suffixes=("_old", "_new"))
     missing = check[check["open_new"].isna()]
@@ -412,7 +445,10 @@ def process_one(uploads_dir, master, parent_row, method):
 
     passed = result.startswith("PASS")
     drop_cols = [c for c in ("_grid_key", "_n") if c in full.columns]
-    new_rows = full[full["time"] > last_master_t].drop(columns=drop_cols) if passed else None
+    # Everything after the SETTLED history: the re-derived window plus whatever is genuinely
+    # new. `existing` is the settled half now, so its max is the right boundary.
+    settled_last = int(existing["time"].max()) if len(existing) else -1
+    new_rows = full[full["time"] > settled_last].drop(columns=drop_cols) if passed else None
 
     # Refuse to append a bucket that spans an UNRECOGNISED contract switch. The test runs on
     # the PARENT's bars, where a carry-sized jump is still an extreme move, and then any
@@ -443,7 +479,7 @@ def process_one(uploads_dir, master, parent_row, method):
         "last_master_et": _fmt_et(last_master_t), "last_parent_et": _fmt_et(last_parent_t),
         "check_result": result, "n_new": 0 if new_rows is None else len(new_rows),
         "master_id": master["id"], "mpath": mpath, "roll_hit": roll_hit,
-        "repair_note": repair_note,
+        "repair_note": repair_note, "n_rederived": n_redrived,
     }
     return info, existing, new_rows
 
@@ -455,6 +491,10 @@ def print_report(info, new_rows):
     print(f"  reproduction check: {info['check_result']}")
     if info.get("repair_note"):
         print("  " + info["repair_note"])
+    if info.get("n_rederived"):
+        print("  re-derived the last %d bucket(s) from the parent as it stands now, because the "
+              "feed may still restate a bar that recent (older buckets still had to match "
+              "exactly)" % info["n_rederived"])
     if new_rows is None:
         print("  STOPPING for this file -- reproduction check failed, nothing appended.")
         print()
