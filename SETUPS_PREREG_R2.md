@@ -120,4 +120,34 @@ NQ/ES. Point scoring of the owner's real trades continues forward.
 
 ## 7. Deviations log (append only)
 
-(none yet)
+Logged 2026-10-01, at the triage report. These are literal readings of the text above, not changes after
+results. The nearest cell is far from the bar, so none of them can flip a verdict.
+
+1. **Decision bars run 09:30-15:58, as written here.** Round 1 stopped one bar earlier. A 15:58 signal
+   enters at the 15:59 open, which affects 64 of about 43,000 trades summed over all cells.
+2. **A bar that fails only the risk check does not use up the session.** This is `setup_kit.run`, as in
+   round 1, and affects 3 sessions.
+3. **"Regular-session bars end at 13:14 or later"** means the last regular bar starts at or after 13:14.
+   - Kept as regular sessions: early closes ending 13:14 (31 on NQ, 29 on ES).
+   - Skipped: stubs ending 12:59 or 11:29 (85 on NQ, 84 on ES).
+4. **The since-low window** includes the low bar and bar i, and a tie goes to the later bar.
+5. **The EMAs** are pandas `ewm` span 200 `adjust=False` over the whole series, with no warm-up exclusion.
+   The 5m and 30m buckets are wall-clock ET buckets.
+6. **The prior-session levels** come straight from the FADJ bars. Trend and yhigh use strict `>`.
+7. **`be_R` and `target_R` are fixed at 1.0 constants.** The neighbour test was not reached.
+
+## 8. Result (2026-10-01): DEAD AT TRIAGE
+
+- **0 of 40 cells pass the house bar**, so nothing advances and nothing was queued.
+- **The best cell is NQ long `yhigh` ride:** 476 trades, PF 1.50, $30,051, net/DD 3.6, 6/8 slices, top-10
+  share 135%. It fails net/DD and concentration.
+- **ES loses money** in 17 of its 20 cells.
+- **A filter beat its `none` twin** on both PF and net in 13 of 32 comparisons. None of those cells came
+  near the bar.
+- **Overlap dry run** (not an official result, since nothing advanced): 68% of the best cell's trades fall
+  on NOISE #382 days, 96% of those in the same direction, and its gross is -$12,760 on NOISE-flat days.
+  That is the same story as CBU-Q #427: a morning new high is the trend day NOISE already trades.
+- **Verdict:** the point-score leads are not tradeable as a stand-alone one-minute rule on NQ/ES. Point
+  scoring of the owner's real trades continues forward.
+- **Driver:** `tools/setups_r2_triage.py`. Results are local in `tools/setups_r2_results/`.
+

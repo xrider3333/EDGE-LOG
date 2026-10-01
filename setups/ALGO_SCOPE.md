@@ -46,6 +46,18 @@ The ENGU trigger fires on the right candle half the time, but on your trading da
 of the candles it flagged: the filter is the levels and context you judge by eye, which are not coded. An alert is only worth building if those
 levels can be written down (owner calls below).
 
+## Round 2 result (2026-10-01): the point-score leads as a rule
+
+The 53-trade backfill pointed to four leads: largest body, largest volume, trend day and the first half
+hour. Round 2 turned them into a one-minute rule (CBU-Q PTS 1.0 and its short mirror) and tested it on NQ
+and ES from 2010 to 2025, never touching the owner's trades. It was pre-registered in
+`SETUPS_PREREG_R2.md`.
+
+- **0 of 40 cells pass the house bar.** The best was NQ long above yesterday's high: PF 1.50, net/DD 3.6,
+  concentrated.
+- **Two-thirds of its trades are NOISE #382 trend days.**
+- **The leads stay a live scoring aid, not a rule.**
+
 ## The short version
 
 1. **The mechanical versions of these setups are already dead or closed here.** The shop tested almost
