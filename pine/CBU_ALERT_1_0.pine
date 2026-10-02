@@ -1,0 +1,310 @@
+//@version=6
+// =============================================================================
+//  EDGELOG - CBU ALERT 1.0 -- the owner's CBU setup as a TradingView alert
+//  Pine port of the final CBU alert in SETUPS_PREREG_R3_CBU_V1.md section 11 (CBU rules v1 with the
+//  owner's answers of 2026-10-02). Reference code: tools/cbu_v1_alerts.py, variant any + day.
+//
+//  WHAT IT DOES
+//  At the CLOSE of every 1-minute candle it checks the CBU rule (long only). When a candle
+//  qualifies it draws a label and fires an alert, once per run of back-to-back qualifying
+//  candles. Nothing that starts at or after the candle's close is read. It is an ALERT, not an
+//  auto-trader: the automated version failed its validation (run #481).
+//
+//  THE RULE (all at the candle's close, New York time)
+//   1. Window: the candle starts 09:30-15:44 on a regular session (not a listed CME holiday).
+//   2. Context: the close is above
+//        - the 200 EMA of the last FINISHED 5-minute bar,
+//        - the 200 EMA of the last FINISHED 30-minute bar,
+//        - yesterday's regular-session high (point-score definition: the latest earlier regular
+//          session that is not a listed holiday; if that session is incomplete there is no level
+//          and no alert that day).
+//   3. Fresh high: the close is above every regular-session high since 09:30 today.
+//      The 09:30 candle (no earlier regular candle) must close above the premarket high
+//      (04:00-09:29) instead.
+//   4. Candle: green; high-low range >= 1.2 x ATR14 and body >= 0.7 x ATR14, where ATR14 is
+//      the average one-minute true range of the 14 candles BEFORE it.
+//   5. Volume: >= 1.5 x the average volume of the 10 candles before it.
+//  The label shows the point score (the 9 points of docs/POINT_SCORE_SPEC.md, long side),
+//  a stop one tick under the candle's low, the +1R breakeven level measured from the close,
+//  and the plan: breakeven at +1R, then ride to the close.
+//
+//  CHART: 1-minute NQ1! or ES1! (MNQ1! / MES1! show the same prices), extended hours ON
+//  (the 24-hour session: the EMAs and the premarket high need it), back-adjustment ON
+//  (the B-ADJ button), one chart per market.
+//
+//  KNOWN LIMITS
+//   - The 5- and 30-minute EMAs need 600 bars of their own timeframe before they count (the
+//     30-minute one about 13 trading days). Until then no alert can fire; the table says
+//     "warming up".
+//   - The CME holiday list (HOL_FULL / HOL_EARLY) is the point score's and must be EXTENDED
+//     EACH DECEMBER (it must match CME_HOLIDAYS in tools/point_score.py).
+//   - The 10-second point of the score needs a plan with seconds timeframes, so "Use 10-second
+//     data" is OFF by default (that point is NA and the score reads x/8). The CBU rule itself
+//     never uses 10-second data.
+//   - Set up ONE alert per chart: "Any alert() function call". Adding the classic "CBU long"
+//     condition as well would alert twice.
+//   - The 09:30 premarket rule applies to the first regular candle present (normally 09:30).
+//   - Volume differs a little between NQ and MNQ; the rule was measured on NQ / ES volume.
+// =============================================================================
+indicator("EDGELOG CBU Alert 1.0", shorttitle = "CBU", overlay = true, max_labels_count = 500)
+
+// -- Inputs --------------------------------------------------------------------
+G_R  = "CBU rule (owner answers 2026-10-02)"
+G_TF = "Timeframes"
+G_SH = "Display"
+
+rangeAtr = input.float(1.2, "Candle range (x ATR14)", minval = 0.0, step = 0.1, group = G_R)
+bodyAtr  = input.float(0.7, "Candle body (x ATR14)", minval = 0.0, step = 0.1, group = G_R)
+volMult  = input.float(1.5, "Volume (x average of the 10 candles before)", minval = 0.0, step = 0.25, group = G_R)
+sigWin   = input.string("0930-1544", "Signal candles (New York time, start of candle, both ends included)", group = G_R)
+emaLen   = input.int(200, "EMA length", minval = 2, group = G_R)
+
+tf10     = input.timeframe("10S", "10-second timeframe (point score only)", group = G_TF)
+use10    = input.bool(false, "Use 10-second data", group = G_TF, tooltip = "Only the point score's 10-second point uses it (off = that point is NA and the score reads x/8). Tick it only if your plan has seconds charts; the CBU rule never uses it.")
+tf5      = input.timeframe("5", "5-minute timeframe", group = G_TF)
+tf30     = input.timeframe("30", "30-minute timeframe", group = G_TF)
+
+showLbl  = input.bool(true, "Show labels", group = G_SH)
+showTbl  = input.bool(true, "Show the status table", group = G_SH)
+
+// -- Constants -----------------------------------------------------------------
+const string TZ       = "America/New_York"
+const int    MIN_BARS = 600
+const int    GAP_MAX  = 7
+const int    DAY_MS   = 86400000
+const int    EARLY_LAST_MIN = 13 * 60 + 14
+const int    PRE_FROM = 4 * 60
+const string REG_SESS = "0930-1600"
+const int    REG_END  = 16 * 60
+
+var array<int> HOL_FULL  = array.from(20250101, 20250109, 20250120, 20250217, 20250418, 20250526, 20250619, 20250704, 20250901, 20251127, 20251225, 20260101, 20260119, 20260216, 20260403, 20260525, 20260619, 20260703, 20260907, 20261126, 20261225, 20270101, 20270118, 20270215, 20270326, 20270531, 20270618, 20270705, 20270906, 20271125, 20271224)
+var array<int> HOL_EARLY = array.from(20250703, 20251128, 20251224, 20261127, 20261224, 20271126)
+
+color C_BG   = #1b1f27
+color C_BORD = #363a45
+color C_HDR  = #262b34
+color C_TXT  = #e6e6e6
+color C_DIM  = #8a8f98
+color C_HIT  = #ffffff
+color C_MISS = #6b7078
+
+int sigFrom = int(str.tonumber(str.substring(sigWin, 0, 2))) * 60 + int(str.tonumber(str.substring(sigWin, 2, 4)))
+int sigTo   = int(str.tonumber(str.substring(sigWin, 5, 7))) * 60 + int(str.tonumber(str.substring(sigWin, 7, 9)))
+
+// -- Helpers -------------------------------------------------------------------
+// 1.0 = close above the level, 0.0 = not, na = level not available
+f_ab(float c, float lvl) =>
+    float r = na
+    if not na(c) and not na(lvl)
+        r := c > lvl ? 1.0 : 0.0
+    r
+
+f_cnt(float x) => na(x) ? 0.0 : 1.0
+
+f_ltf() =>
+    float e = ta.ema(close, emaLen)
+    bar_index >= MIN_BARS - 1 ? e : na
+
+f_htf() =>
+    float e = ta.ema(close, emaLen)
+    float g = bar_index >= MIN_BARS - 1 ? e : na
+    [g[1], float(bar_index)]
+
+f_px(float x) => na(x) ? "-" : str.tostring(x, format.mintick)
+f_ok(bool b) => b ? "✓" : "✗"
+f_okc(bool b) => b ? C_HIT : C_MISS
+
+// -- Bar clock (New York time; bars are stamped at their START) -----------------
+int  nyYear   = year(time, TZ)
+int  nyMonth  = month(time, TZ)
+int  nyDay    = dayofmonth(time, TZ)
+int  minOfDay = hour(time, TZ) * 60 + minute(time, TZ)
+int  dayTs    = timestamp(TZ, nyYear, nyMonth, nyDay, 12, 0, 0)
+int  dayKey   = nyYear * 10000 + nyMonth * 100 + nyDay
+bool isHolDay   = array.includes(HOL_FULL, dayKey)
+bool isEarlyDay = array.includes(HOL_EARLY, dayKey)
+bool inRegSess  = not na(time(timeframe.period, REG_SESS, TZ))
+bool inRTH      = not isHolDay and inRegSess and minOfDay < REG_END
+bool isCloseBar = minOfDay == REG_END - 1 or (isEarlyDay and minOfDay == EARLY_LAST_MIN)
+
+// -- EMAs (point-score definitions) --------------------------------------------
+float emaRaw = ta.ema(close, emaLen)
+float ema1m  = bar_index >= MIN_BARS - 1 ? emaRaw : na
+
+array<float> arr10 = array.new_float(0)
+if use10 and timeframe.in_seconds() > timeframe.in_seconds(tf10)
+    arr10 := request.security_lower_tf(syminfo.tickerid, tf10, f_ltf())
+int n10b = array.size(arr10)
+float ema10 = n10b > 0 ? array.get(arr10, n10b - 1) : na
+
+[ema5, n5]   = request.security(syminfo.tickerid, tf5,  f_htf(), lookahead = barmerge.lookahead_on)
+[ema30, n30] = request.security(syminfo.tickerid, tf30, f_htf(), lookahead = barmerge.lookahead_on)
+
+// -- Yesterday's regular-session low / close / high (point-score definition) ----
+var int   s0t = na
+var float s0h = na
+var float s0l = na
+var float s0c = na
+var bool  s0ok = false
+var bool  s0done = false
+var int   s1t = na
+var float s1h = na
+var float s1l = na
+var float s1c = na
+var bool  s1ok = false
+var bool  s1done = false
+
+if inRTH
+    if na(s0t) or dayTs != s0t
+        s1t    := s0t
+        s1h    := s0h
+        s1l    := s0l
+        s1c    := s0c
+        s1ok   := s0ok
+        s1done := s0done
+        s0t    := dayTs
+        s0h    := high
+        s0l    := low
+        s0c    := close
+        s0ok   := bar_index > 0
+        s0done := isCloseBar
+    else
+        s0h    := math.max(s0h, high)
+        s0l    := math.min(s0l, low)
+        s0c    := close
+        s0done := isCloseBar
+
+bool  tdIn0  = not na(s0t) and s0t == dayTs
+int   yT     = tdIn0 ? s1t : s0t
+bool  yOk    = tdIn0 ? (s1ok and s1done) : (s0ok and s0done)
+int   gapD   = na(yT) ? 9999 : math.round((dayTs - yT) / DAY_MS)
+bool  yValid = not na(yT) and yOk and gapD <= GAP_MAX
+float refYL  = yValid ? (tdIn0 ? s1l : s0l) : na
+float refYC  = yValid ? (tdIn0 ? s1c : s0c) : na
+float refYH  = yValid ? (tdIn0 ? s1h : s0h) : na
+
+// -- Points 8-9 (long): largest body / volume since today's low -----------------
+bool inWin9 = minOfDay >= 570
+var int  winT  = na
+var bool winOk = false
+bool winNew = inWin9 and (na(winT) or winT != dayTs)
+if winNew
+    winT  := dayTs
+    winOk := bar_index > 0
+bool winUse = inWin9 and winOk
+
+float body = math.abs(close - open)
+float vol  = nz(volume)
+var float runLow = na
+var float mbL    = na
+var float mvL    = na
+if inWin9
+    if winNew or low <= runLow
+        runLow := low
+        mbL    := body
+        mvL    := vol
+    else
+        mbL := math.max(mbL, body)
+        mvL := math.max(mvL, vol)
+float bbL = na
+float bvL = na
+if winUse
+    bbL := (close > open and body >= mbL) ? 1.0 : 0.0
+    bvL := mvL > 0 ? (vol >= mvL ? 1.0 : 0.0) : na
+
+// -- The point score (long side, of the 9) -------------------------------------
+float h10L = f_ab(close, ema10)
+float h1L  = f_ab(close, ema1m)
+float h5L  = f_ab(close, ema5)
+float h30L = f_ab(close, ema30)
+float ylL  = f_ab(close, refYL)
+float ycL  = f_ab(close, refYC)
+float yhL  = f_ab(close, refYH)
+float totL = nz(h10L) + nz(h1L) + nz(h5L) + nz(h30L) + nz(ylL) + nz(ycL) + nz(yhL) + nz(bbL) + nz(bvL)
+float mxL  = f_cnt(h10L) + f_cnt(h1L) + f_cnt(h5L) + f_cnt(h30L) + f_cnt(ylL) + f_cnt(ycL) + f_cnt(yhL) + f_cnt(bbL) + f_cnt(bvL)
+
+// -- The CBU rule --------------------------------------------------------------
+// ATR14 and the volume average read the candles BEFORE this one.
+float atr14  = ta.sma(ta.tr(true), 14)[1]
+float vAvg10 = ta.sma(nz(volume), 10)[1]
+
+// Today's regular-session high before this candle, and today's premarket high (04:00-09:29).
+var int   rthDay = na
+var float rthHi  = na
+var int   pmDay  = na
+var float pmHi   = na
+bool  firstRth = inRTH and (na(rthDay) or rthDay != dayTs)
+float lvlRef   = na
+if inRTH
+    lvlRef := firstRth ? (pmDay == dayTs ? pmHi : na) : rthHi
+if minOfDay >= PRE_FROM and minOfDay < 570
+    if na(pmDay) or pmDay != dayTs
+        pmDay := dayTs
+        pmHi  := high
+    else
+        pmHi := math.max(pmHi, high)
+if inRTH
+    if firstRth
+        rthDay := dayTs
+        rthHi  := high
+    else
+        rthHi := math.max(rthHi, high)
+
+bool okWin  = inRTH and minOfDay >= sigFrom and minOfDay <= sigTo
+bool ok5    = nz(h5L) > 0.5
+bool ok30   = nz(h30L) > 0.5
+bool okYH   = nz(yhL) > 0.5
+bool okLvl  = not na(lvlRef) and close > lvlRef
+bool okAtr  = not na(atr14) and atr14 > 0
+bool okRng  = okAtr and (high - low) / atr14 >= rangeAtr
+bool okBody = okAtr and close > open and (close - open) / atr14 >= bodyAtr
+bool okVol  = not na(vAvg10) and (vAvg10 > 0 ? nz(volume) / vAvg10 >= volMult : nz(volume) > 0)
+bool cbu    = okWin and ok5 and ok30 and okYH and okLvl and okRng and okBody and okVol
+// once per run of back-to-back qualifying candles, only at a candle's close, only on a 1-minute chart
+bool fire   = barstate.isconfirmed and timeframe.period == "1" and cbu and not cbu[1]
+
+float stopPx = low - syminfo.mintick
+float bePx   = close + (close - stopPx)
+string scoreTxt = str.tostring(int(totL)) + "/" + str.tostring(int(mxL))
+
+// -- Label ---------------------------------------------------------------------
+if showLbl and fire
+    string t = "CBU  " + scoreTxt + "\nstop " + f_px(stopPx) + "\nBE at +1R " + f_px(bePx) + "\nthen ride"
+    label.new(bar_index, high, t, style = label.style_label_down, color = color.new(#e6e6e6, 10), textcolor = #101318, size = size.small)
+
+// -- Alerts --------------------------------------------------------------------
+// Classic alert dialog (static text):
+alertcondition(fire, title = "CBU long", message = "EDGELOG CBU: {{ticker}} closed {{close}} at a fresh high of the day. Plan: stop one tick under the candle, breakeven at +1R, then ride.")
+// "Any alert() function call" (full text with the score and levels):
+if fire
+    alert("EDGELOG CBU " + syminfo.ticker + " candle " + str.format_time(time, "HH:mm", TZ) + " NY | close " + f_px(close) + " | point score " + scoreTxt + " | stop " + f_px(stopPx) + " | breakeven at +1R " + f_px(bePx) + " | then ride to the close", alert.freq_once_per_bar_close)
+
+// -- Status table: the LAST CLOSED candle --------------------------------------
+var array<float> snap = array.new_float(16, na)
+var int snapT = na
+if barstate.isconfirmed
+    snap := array.from(okWin ? 1.0 : 0.0, ok5 ? 1.0 : 0.0, ok30 ? 1.0 : 0.0, okYH ? 1.0 : 0.0, okLvl ? 1.0 : 0.0, okRng ? 1.0 : 0.0, okBody ? 1.0 : 0.0, okVol ? 1.0 : 0.0, cbu ? 1.0 : 0.0, totL, mxL, lvlRef, okAtr ? (high - low) / atr14 : na, okAtr ? (close - open) / atr14 : na, (not na(vAvg10) and vAvg10 > 0) ? nz(volume) / vAvg10 : na, close)
+    snapT := time
+
+var table tb = table.new(position.bottom_right, 2, 12, bgcolor = C_BG, border_color = C_BORD, border_width = 1, frame_color = C_BORD, frame_width = 1)
+if showTbl and barstate.islast
+    string hdr = "CBU ALERT  " + (na(snapT) ? "(no closed candle yet)" : str.format_time(snapT, "yyyy-MM-dd HH:mm", TZ) + " NY") + "   C " + f_px(array.get(snap, 15))
+    table.cell(tb, 0, 0, hdr, text_color = C_TXT, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
+    table.cell(tb, 1, 0, "", bgcolor = C_HDR)
+    table.merge_cells(tb, 0, 0, 1, 0)
+    string tfNote = timeframe.period != "1" ? "WARNING: built for a 1-minute chart (this one is " + timeframe.period + ")" : "Long only. Fires once per run, at the candle's close."
+    table.cell(tb, 0, 1, tfNote, text_color = timeframe.period != "1" ? C_HIT : C_DIM, text_halign = text.align_left, text_size = size.small)
+    table.cell(tb, 1, 1, "")
+    table.merge_cells(tb, 0, 1, 1, 1)
+    array<string> names = array.from("In the window (" + sigWin + ", regular day)", "Above the 5-minute 200 EMA", "Above the 30-minute 200 EMA", "Above yesterday's high", "Fresh high of the day (09:30: premarket high)  " + f_px(array.get(snap, 11)), "Range >= " + str.tostring(rangeAtr) + " x ATR14  (" + (na(array.get(snap, 12)) ? "-" : str.tostring(array.get(snap, 12), "#.##")) + ")", "Green body >= " + str.tostring(bodyAtr) + " x ATR14  (" + (na(array.get(snap, 13)) ? "-" : str.tostring(array.get(snap, 13), "#.##")) + ")", "Volume >= " + str.tostring(volMult) + " x 10-candle avg  (" + (na(array.get(snap, 14)) ? "-" : str.tostring(array.get(snap, 14), "#.##")) + "x)")
+    for i = 0 to 7
+        bool b = array.get(snap, i) > 0.5
+        table.cell(tb, 0, 2 + i, array.get(names, i), text_color = C_TXT, text_halign = text.align_left, text_size = size.small)
+        table.cell(tb, 1, 2 + i, f_ok(b), text_color = f_okc(b), text_size = size.small)
+    bool allOk = array.get(snap, 8) > 0.5
+    table.cell(tb, 0, 10, "CBU on this candle   |   point score " + (na(array.get(snap, 9)) ? "-" : str.tostring(int(array.get(snap, 9))) + "/" + str.tostring(int(array.get(snap, 10)))), text_color = C_HIT, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
+    table.cell(tb, 1, 10, f_ok(allOk), text_color = f_okc(allOk), text_size = size.small, bgcolor = C_HDR)
+    string warm = "Bars loaded: 5m " + (na(n5) ? "n/a" : str.tostring(int(n5))) + (not na(n5) and n5 < MIN_BARS ? " (warming up)" : "") + " | 30m " + (na(n30) ? "n/a" : str.tostring(int(n30))) + (not na(n30) and n30 < MIN_BARS ? " (warming up)" : "")
+    table.cell(tb, 0, 11, warm, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
+    table.cell(tb, 1, 11, "")
+    table.merge_cells(tb, 0, 11, 1, 11)
