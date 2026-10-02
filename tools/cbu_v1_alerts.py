@@ -7,6 +7,7 @@ from 2026-04-07 to the latest closed session and reports, for each base x window
   - recall on the 13 labelled examples (the 12 journal CBU futures trades + the 09-30 SHOULD HAVE TRADED entry):
     an alert at the signal minute or the minute after (in-sample - the rules were written from these);
   - recall on SHOULD HAVE TRADED CBU entries added after the prereg commit (out of sample).
+    (the journal's 'missed' list plus the entries tools/missed_pull.py pulls from EDGELOG)
 No outcome (price after the signal) is read anywhere in this file.
 
 Bars, EMAs and yesterday's high are the POINT SCORE's (tools/point_score.py, spec ps1.1): the NOADJ 1m master plus
@@ -30,6 +31,7 @@ import point_score as P  # noqa: E402
 JOURNAL = os.path.join(TOOLS, 'data', 'setup_journal.json')
 PREREG_COMMIT = '918059d5'
 IN_SAMPLE_MISSED = {'KHwkzW9C'}          # SHOULD HAVE TRADED entries the rules were written from
+MISSED_CACHE = r'C:\EdgeLog\missed_trades\missed.json'   # tools/missed_pull.py
 DATE_FROM = '2026-04-07'
 
 # section 2, as pre-registered
@@ -160,11 +162,29 @@ def load_examples():
         if t.get('label') == 'CBU' and t.get('asset') == 'futures':
             out.append(dict(id='journal #%s' % t['n'], date=t['date'], root=P.ROOT_OF[t['sym']], sym=t['sym'],
                             S=t.get('signal_candle') or t['entry_time'], sample='in'))
+    seen = set()
     for m in j.get('missed', []):
         if m.get('setup') == 'CBU' and m.get('asset', 'futures') == 'futures' and m.get('dir', 'LONG') == 'LONG':
+            seen.add(m['id'])
             out.append(dict(id='missed %s' % m['id'], date=m['date'], root=P.ROOT_OF[m['sym']], sym=m['sym'],
                             S=m['signal_candle'], sample='in' if m['id'] in IN_SAMPLE_MISSED else 'out'))
+    # the owner's SHOULD HAVE TRADED log as pulled from EDGELOG by tools/missed_pull.py (outside git)
+    for m in _pulled_missed():
+        if (m['id'] not in seen and m.get('setup') == 'CBU' and str(m.get('type', '')).upper() == 'LONG'
+                and str(m.get('symbol', '')).upper() in P.ROOT_OF and m.get('date') and m.get('signal_candle')):
+            out.append(dict(id='missed %s' % m['id'], date=m['date'], root=P.ROOT_OF[str(m['symbol']).upper()],
+                            sym=str(m['symbol']).upper(), S=m['signal_candle'],
+                            sample='in' if m['id'] in IN_SAMPLE_MISSED else 'out'))
     return sorted(out, key=lambda r: (r['date'], r['S']))
+
+
+def _pulled_missed(path=None):
+    """Entries cached by tools/missed_pull.py ([] when it has never run)."""
+    path = path or MISSED_CACHE
+    try:
+        return list(json.load(io.open(path, encoding='utf-8')).get('entries', {}).values())
+    except (OSError, ValueError):
+        return []
 
 
 def closed_sessions(d):
