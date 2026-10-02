@@ -147,7 +147,10 @@ def exclusive(who="", path=None, timeout=DEFAULT_TIMEOUT, log=print,
                 sleep(2.0)
 
         try:
-            _write_name(fd, who)
+            try:
+                _write_name(fd, who)
+            except Exception:
+                pass        # the name is a convenience; never fail a ship over it
             yield True
         finally:
             _unlock_fd(fd)
@@ -203,7 +206,10 @@ def hold(who="", path=None, timeout=DEFAULT_TIMEOUT, log=print,
                 return None
             sleep(2.0)
 
-    _write_name(fd, who)
+    try:
+        _write_name(fd, who)
+    except Exception:
+        pass                # the name is a convenience; never fail a ship over it
     if who:
         log("  push lock held by this lane (%s) - other lanes will wait here" % who)
     return fd
