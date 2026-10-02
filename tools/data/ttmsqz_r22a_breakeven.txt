@@ -1,0 +1,15 @@
+TTM round 22 - breakeven at +1R on TTM #459 (prereg tools/TTM_R22_PREREG.txt, d3ddddc4)
+PARITY: twin 355 trades $72,716 (expect 355 / $72,716); copy with the rule off identical to the trade: YES
+
+  TWIN #459 unchanged            WF n  340 net $   62,315 ROC@30k   21.0 Sortino  1.91 | LB n  15 net $  10,401 ROC@30k  155.2 Sortino  8.47 ex-big $   5,441
+  22A breakeven, normal exits    WF n  340 net $   61,590 ROC@30k   20.4 Sortino  1.89 | LB n  15 net $  10,401 ROC@30k  155.2 Sortino  8.47 ex-big $   5,441
+  22B breakeven, then ride       WF n  340 net $   61,103 ROC@30k   20.2 Sortino  1.87 | LB n  15 net $  10,401 ROC@30k  155.2 Sortino  8.47 ex-big $   5,441
+
+REPORTED, NO VERDICT (the R-stat trap check; R = net points per contract-size unit / initial risk is not
+recoverable after sizing, so per-trade WIN RATE and mean $ per trade are shown instead)
+  TWIN #459 unchanged            trades 355  win rate 45.6%  mean $/trade +205  armed -  breakeven-stop exits -  twin winners scratched 0
+  22A breakeven, normal exits    trades 355  win rate 44.5%  mean $/trade +203  armed 25  breakeven-stop exits 5  twin winners scratched 9
+  22B breakeven, then ride       trades 355  win rate 44.5%  mean $/trade +201  armed 25  breakeven-stop exits 5  twin winners scratched 9
+
+VERDICT 22A breakeven, normal exits: (a) ROC@30k >= twin WF NO; (a) ROC@30k >= twin LB yes; (b) Sortino >= twin WF NO; (b) Sortino >= twin LB yes; (c) >=100 WF trades yes; (d) LB ex-biggest > 0 yes -> FAIL
+VERDICT 22B breakeven, then ride: (a) ROC@30k >= twin WF NO; (a) ROC@30k >= twin LB yes; (b) Sortino >= twin WF NO; (b) Sortino >= twin LB yes; (c) >=100 WF trades yes; (d) LB ex-biggest > 0 yes -> FAIL

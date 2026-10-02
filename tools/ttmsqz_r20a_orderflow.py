@@ -68,6 +68,11 @@ def load_10s(root):
     d = pd.read_csv(r"C:\EdgeLog\ohlc\%s_10s.csv" % root)
     d = d.drop_duplicates("time", keep="last").sort_values("time")
     d["flow"] = d["buy_vol"].astype(float) + d["sell_vol"].astype(float)
+    # PAPER-NT8 rule (inbox #31, 2026-10-02): rt=3 rows (volume but no trade ticks - NT back-filled after the
+    # PC slept) and any row with volume but buy+sell = 0 carry NO order flow: they are MISSING, never zero
+    # delta. Zero-flow rows already add nothing and do not count toward coverage; rt=3 is dropped by name.
+    if "rt" in d.columns:
+        d = d[d["rt"] != 3]
     return d[["time", "close", "delta", "flow"]].reset_index(drop=True)
 
 
