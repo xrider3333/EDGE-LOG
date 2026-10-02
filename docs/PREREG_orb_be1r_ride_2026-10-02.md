@@ -73,3 +73,13 @@ Sortino both, not behind by calendar year 2011-2025). A book swap is always the 
   validate ran.
 
 Tool: `tools/orb_r64_be1r_ride.py` (run from the shared checkout). Results: `ORB_ROUND64_BE1R_RIDE.md`.
+
+## Addendum 1 (2026-10-02, after the parity step, before any arm figure)
+
+The first run stopped at parity: #314's twin gave 168 lockbox trades and 4,356.581 points against the stored
+4,605.081. ORB.md already records why - #314's stored lockbox was measured before the v73.841 warm-start fix
+(its indicators started cold at the lockbox's first bar) and reads about 5% high. A cold replica (data starting
+2025-08-13) reproduces the stored 168 trades / 4,605.081 points exactly, and #234 reproduces 4,447.126 both
+ways. So the parity check now runs the cold replica against the stored figure, and the round itself uses the
+warm, corrected series (data from 2010-06-07) for every twin and arm. Nothing else changes; no arm had been
+run.

@@ -78,14 +78,19 @@ def main():
         return dict(roc=roc, sor=sor, net=float(s.sum()), dd=dd, n=len(sub),
                     ex_top=float(sub.usd.sum() - sub.usd.max()) if len(sub) else 0.0)
 
-    # ── PARITY: each twin reproduces its run's stored lockbox to 0.01 points, or the round stops ──
+    # ── PARITY: each twin's COLD lockbox replica (data from the lockbox's first day - how #314's stored
+    #    figure was measured, before the v73.841 warm-start fix) reproduces the stored lockbox to 0.01 points,
+    #    or the round stops (prereg addendum 1). The round itself uses the warm series from 2010.
+    A_cold = load_master_arrays(find_master("NQ", "5m", "rth", "db_noadj_rth"), date_from=LB[0], date_to=LB[1])
     twins = {}
     for name, (p, n_lb, pts_lb) in PARITY.items():
+        rc = run_backtest(FN, arrays=A_cold, params=p, cost_pts=COST, return_trades=True)["trades"]
+        ok = len(rc) == n_lb and abs(sum(t[2] for t in rc) - pts_lb) < 0.01
         T = trades(p)
         lb = T[(T.d >= pd.Timestamp(LB[0])) & (T.d <= pd.Timestamp(LB[1]))]
-        ok = len(lb) == n_lb and abs(lb.pts.sum() - pts_lb) < 0.01
-        print("PARITY %s lockbox: %d trades, %.3f points (stored %d / %.3f) -> %s"
-              % (name, len(lb), lb.pts.sum(), n_lb, pts_lb, "EXACT" if ok else "MISMATCH - stop"), flush=True)
+        print("PARITY %s cold lockbox replica: %d trades, %.3f points (stored %d / %.3f) -> %s | warm lockbox used: %d / %.3f"
+              % (name, len(rc), sum(t[2] for t in rc), n_lb, pts_lb, "EXACT" if ok else "MISMATCH - stop",
+                 len(lb), lb.pts.sum()), flush=True)
         if not ok:
             sys.exit(2)
         twins[name] = T
