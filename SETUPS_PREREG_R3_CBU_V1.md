@@ -303,3 +303,43 @@ they are data cut-offs (2020-02-28, 2020-06-30).
 
 **Next, per section 4:** one Auto-Validate of `CBUQ_2_0.py` on NQ, as section 4 specifies, judged on the
 owner yardstick. The NOISE overlap is part of the verdict.
+
+## 10. Auto-Validate verdict (run #481, 2026-10-02): FAIL
+
+**The job:** `tools/queue_setups_r3_validate.py`, job 6MagctwCz68pmGh7Hu5t, CBU-Q-3.
+
+- 288 configs, 900 trials, 8 walk-forward folds, FADJ NQ 1m, 2010-06-07..2026-04-06.
+- 9-month lockbox: 2025-07-07..2026-04-06.
+- Micro cost: 1.20 points at $2.
+
+**Champion:** the triage cell itself (`any` / `am` / `ride`, vol 1.5, range 1.2, body 0.7).
+
+**Verdict: FAIL, 5 of 7 gates.**
+
+- Passed: walk-forward efficiency, sample, plateau, luck (DSR 0.998) and consistency.
+- Failed: ES transfer (1,252 trades, PF 0.73).
+- Failed: overfit, PBO 0.63 ("likely overfit selection").
+
+**Owner yardstick** (ROC %/yr at a $30k worst drawdown valued daily; the champion's continuous trades sliced
+by stretch):
+
+| Stretch | Trades | PF | Net per MNQ | ROC @ $30k DD | Sortino (run) |
+|---|---|---|---|---|---|
+| IS 2010-06-07..2016-10-13 | 559 | 1.00 | +$9 | 0%/yr | - |
+| WF 2016-10-14..2025-07-06 | 761 (fold-by-fold run: 694) | 1.73 | +$9,777 | **+37.8%/yr** | 3.22 |
+| LB 2025-07-07..2026-04-06 | 61 | 0.50 | -$1,286 | **-40.1%/yr** | -2.70 |
+
+**Checks against the yardstick:**
+
+- The minimum trade counts are met: 100 walk-forward, 50 lockbox.
+- The lockbox is not profitable without its biggest trade (-$1,630).
+- Walk-forward folds: all 8 are positive, but fold 8 (2024-06..2025-07) made only +$96.
+
+**NOISE #382 overlap** (section 9): 84% of the selection trades are on #382 days, 97% of them the same
+direction, and they lose on #382-flat days.
+
+**Reading:**
+
+- CBU rules v1 found NOISE #382's trend days a third time, after rounds 1 and 2.
+- As a stand-alone strategy it is dead.
+- The alert check (section 8) stands. The owner's 5 answers can only choose which alert variant to keep.
