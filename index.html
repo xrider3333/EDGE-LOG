@@ -833,7 +833,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.979';
+const VERSION='73.980';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -851,7 +851,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.975',date:'2026-10-02',notes:['NinjaTrader paper: an ENGU-Q overnight trade now survives the PC being switched off - on restart ENGU-Q picks its own saved trade back up (entry, stop, trail) instead of the trade being orphaned; a leftover stop from before the shutdown is cancelled once the new one is placed.']},
+const CHANGELOG=[{v:'73.980',date:'2026-10-02',notes:['NinjaTrader paper: when the PC wakes with NinjaTrader still running and its 10-second bars carry no trade ticks, the watchdog restarts it (account flat only) so Tick Replay rebuilds the buy/sell data for the bars it missed.']},
+{v:'73.975',date:'2026-10-02',notes:['NinjaTrader paper: an ENGU-Q overnight trade now survives the PC being switched off - on restart ENGU-Q picks its own saved trade back up (entry, stop, trail) instead of the trade being orphaned; a leftover stop from before the shutdown is cancelled once the new one is placed.']},
 {v:'73.974',date:'2026-10-02',notes:['Trade panel chart: panning and zooming no longer stall after the page was in a background tab.']},
 {v:'73.971',date:'2026-10-02',notes:['SHOULD HAVE TRADED. A new list on HOME, under the ledger, for setups you saw and did not take: the snapshot link, setup, symbol, date, entry time, side, optional entry, stop and target, and a note. It never counts in P&L or stats. Paste a snapshot link in the box and pick SHOULD HAVE TRADED, or use ADD. Futures entries get the EL chart and the point score from your PC, like a real trade.','THE LEDGER CHART OPENS ON THE TRADE TIMEFRAME. A trade marked 10s opens on 10-second bars, 5m on 5-minute bars, and so on. Chips switch between 10S, 1M, 5M and 15M.','PAN AND ZOOM. In the trade panel, drag the chart to pan and use the wheel or a pinch to zoom out; the minus, plus, TRADE and DAY buttons do the same on a phone. Double-click goes back to the trade.','POINTS IN THE CHART WINDOW. The full chart window (EXPAND) shows the point score, what the trade missed, any NA and the daily trend point, with every point and the price it was checked against.']},
 {v:'73.969',date:'2026-10-01',notes:['SCORES: 1 trade from 2026-10-01 scored, 0 marked NA (no price data).']},{v:'73.965',date:'2026-09-30',notes:['PAPER: daily 10-second capture health line (bars and delta coverage), a NOISE #422 row, and the top-bar NT GATE chip now shows when its status is stale or the gate is PARTIAL and STALE.']},

@@ -308,6 +308,27 @@ function MaybeStaleRestart {
       # take the FRESHER of the two readings - only restart when both say stale
       $age = [Math]::Min($age, ((Get-Date) - $lastBar).TotalMinutes)
     } catch {}
+    # NO-TICKS counts as stale too (2026-10-02, owner: the PC is put to sleep at night on
+    # purpose). When it wakes with NinjaTrader still running, bars keep closing but carry no
+    # trade ticks (rt=3, no buy/sell split) until NinjaTrader is restarted - on 10-02 that was
+    # 01:00-12:30 ET. A restart reloads the charts with Tick Replay, which rebuilds the missed
+    # bars WITH buy/sell (replay sidecar) for tools/repair_10s_from_replay.py to merge back.
+    # Rule: of the traded bars in the last 15 minutes (at least 30), 80% or more are rt=3.
+    $noTick = $false
+    try {
+      $cut = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - 900
+      $traded = 0; $blind = 0
+      foreach ($ln in @(Get-Content $tenSecFile -Tail 120)) {
+        $c = $ln.Split(',')
+        if ($c.Count -lt 11) { continue }
+        $t = 0.0; if (-not [double]::TryParse($c[0], [ref]$t) -or $t -lt $cut) { continue }
+        if ([double]$c[5] -le 0) { continue }
+        $traded++
+        if ($c[10].Trim() -eq '3') { $blind++ }
+      }
+      $noTick = ($traded -ge 30 -and $blind -ge 0.8 * $traded)
+      if ($noTick) { $age = [Math]::Max($age, $StaleMin) }
+    } catch {}
     if ($age -lt $StaleMin) { return $false }
     $p = @(Get-Process NinjaTrader -ErrorAction SilentlyContinue)
     if ($p.Count -eq 0) { return $false }
@@ -334,7 +355,11 @@ function MaybeStaleRestart {
       Log ("10s data stale {0:N0} min but a position or working order is OPEN - leaving NinjaTrader alone" -f $age)
       return $false
     }
-    Log ("10s NQ data has not updated for {0:N0} min while the market is open and the account is flat - restarting NinjaTrader to revive the feed (restart {1} today)" -f $age, ($count + 1))
+    if ($noTick) {
+      Log ("10s NQ bars are arriving with NO trade ticks ({0} of {1} in the last 15 min) and the account is flat - restarting NinjaTrader so Tick Replay rebuilds them (restart {2} today)" -f $blind, $traded, ($count + 1))
+    } else {
+      Log ("10s NQ data has not updated for {0:N0} min while the market is open and the account is flat - restarting NinjaTrader to revive the feed (restart {1} today)" -f $age, ($count + 1))
+    }
     @{ day = $today; count = $count + 1; last = (Get-Date).ToString('s') } | ConvertTo-Json | Set-Content $staleState -Encoding utf8
     try { Invoke-WebRequest -Uri "$bridge/shutdown" -Method POST -TimeoutSec 8 -UseBasicParsing | Out-Null } catch {}
     $t0 = Get-Date
