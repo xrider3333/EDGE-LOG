@@ -153,7 +153,7 @@ def test_a_missed_entry_gets_a_bars_doc_and_only_a_point_score_merged_back(monke
     key, t = eng.builds[0]
     assert key == "missed_a1"
     assert (t["date"], t["entryTime"], t["exitTime"], t["entry"], t["type"], t["symbol"]) == \
-           ("2026-09-30", "10:00", "10:00", 30000.25, "LONG", "MNQ")
+           ("2026-09-30", "10:00", "10:00", None, "LONG", "MNQ")      # a snapshot level never shifts the chart
 
     # the point score: merged onto the missed_trades doc, every other field untouched
     got = db.store[f"users/{UID}/missed_trades/a1"]

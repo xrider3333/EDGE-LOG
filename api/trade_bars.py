@@ -548,9 +548,11 @@ def _num(v):
 
 def _missed_trade(d):
     """A missed_trades doc as the trade-shaped dict build() / point_score() take: the entry minute is
-    both the entry and the exit (there is no exit), and the price is the owner's entry or None."""
+    both the entry and the exit (there is no exit). No price goes in: the owner's entry is a level read
+    off a snapshot, not a fill, so it must never shift the chart onto "his contract month" (the roll
+    shift trusts the price it is given). The web draws the entry marker from the entry doc itself."""
     return {"date": d.get("date"), "entryTime": d.get("entryTime"), "exitTime": d.get("entryTime"),
-            "entry": _num(d.get("entry")), "exit": None, "type": d.get("type"),
+            "entry": None, "exit": None, "type": d.get("type"),
             "symbol": d.get("symbol"), "size": None, "pointScore": d.get("pointScore")}
 
 
