@@ -1,0 +1,37 @@
+TTM ROUND 22 - PRE-REGISTRATION (written 2026-10-02, before any number below is computed)
+Owner idea via MANAGER inbox #32 (2026-10-02, from the CBU review): a "BREAKEVEN AT +1R, THEN RIDE" exit on TTM #459.
+
+THE LEG: TTM #459 = augur_strategies/TTMSQZ_3_0_ES30SSOF2.py (the book's TTM leg, structural stop after the
+2026-09-27 gap-stop fix, deep-squeeze 1.5x x open-bar 1.5x size ladder, fade after 2), cell kc_mult 1.5 /
+eod_cutoff 1 / gate_len 20, ES 30m RTH. Data: the roll-corrected ADJ master (db_adj_rth, pinned), window
+2010-06-07 .. 2026-06-30, LB from 2025-07-01, cost 0.363 pts per contract round trip, $50 a point, sized as the
+file sizes (1.0 / 1.5 / 2.25 per contract; the book carries x3). Twin = the file UNCHANGED on the same data
+(parity first: 355 trades / $72,716, the round-19b twin check).
+
+THE RULE (honest bar timing, no intrabar peeking): R = the trade's initial risk in points = |entry price -
+initial structural stop|. After a bar CLOSES with the open trade at least +1R in its favour (close vs entry), the
+stop moves to the ENTRY price from the NEXT bar on (never loosened; the entry bar's own close counts). A later bar
+that trades through it exits at the stop, or at the open when the open gaps past it (the file's existing rule).
+Two variants, both pre-registered:
+  22A = breakeven, then the strategy's NORMAL exits (fade after 2 bars, the session close) - the owner's words read
+        literally, since TTM has no fixed target;
+  22B = breakeven, then RIDE: once the stop is at breakeven, the fade exit is switched off and the trade runs to the
+        breakeven stop or the session close.
+Implemented by swapping the structural-stop simulator inside the #459 module chain for a copy with the rule added;
+with the rule switched off the copy must reproduce the twin to the trade.
+
+YARDSTICK (owner, 09-28): ROC %/yr at a $30k worst drawdown valued daily (= 30 x MAR), WF and LB apart, Sortino,
+on DOLLARS - the known trap is that a breakeven rule flatters R-per-trade stats while costing dollars (memory: EV R
+is gameable by the breakeven), so R statistics are reported for information only and decide nothing.
+PASS (triage), per variant, all of: (a) ROC@$30k >= the twin in WF AND LB; (b) Sortino >= the twin in WF AND LB;
+(c) >= 100 WF trades; (d) LB net > 0 without its single biggest trade. The 50-LB-trade minimum cannot be met by this
+leg (the twin has 15 LB trades); per the owner's 09-29 rule TTM candidates are judged on walk-forward plus the
+validate and a book-level test. Two variants are tried, so a pass must hold for the variant on its own merits and
+is reported beside the other.
+A pass goes to the house Auto-Validate (new strategy file, ADJ master pinned, 2010-06-07 .. 2026-06-30, 900
+trials, the #459 file's own fence), then the RUNBOARD watch list and a Frontier book test inside #463 (reference
+WF 93.8 / LB 155.5). It is not an adoption. A fail on both closes the idea for TTM.
+Reported, no verdict: breakeven-stop exits per stretch, mean R and win rate per trade (the trap check), and how
+many twin winners the rule turned into scratches.
+Main ways it could fool us: 15 LB trades; TTM holds for hours with a one-bar fade exit, so a +1R close may be rare
+and the rule may barely act; a breakeven stop sits inside normal noise and can cut winners that pull back first.
