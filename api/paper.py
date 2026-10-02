@@ -32,6 +32,7 @@ import pandas as pd
 from augur_engine.data import find_master, load_master_arrays
 from augur_engine.engine import run_backtest
 from .util import json_safe
+from . import paper_exitday as _xd
 
 # ── crowned legs ─────────────────────────────────────────────────────────────────
 # First trading day shadow trades are logged for. Anything with an entry before this
@@ -2301,6 +2302,9 @@ def _extract_trades(leg, arrays, sized, key=None):
             "size": float(size),
             "pnl_pts": pnl_pts, "pnl_usd": pnl_pts * mult * float(size),
             "raw_pts": raw_pts,
+            # Still held when the data ends? The strategy files close such a position at the LAST bar,
+            # so this is a mark, not a result, and it counts on no day (api/paper_exitday.py).
+            "open": _xd.is_open(leg, idx, xb),
         })
     return out
 
@@ -2648,6 +2652,8 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
     (see rerun_legs). None = the full nightly pass, which is what the runner's EOD hook
     does."""
     leg_reports = {}
+    leg_days = {}        # leg key -> that leg's closed pnl by close day (api/paper_exitday.py)
+    _ok_days = {}        # the same, only for legs whose backtest COMPLETED - the re-merge reads this
     total_pnl = 0.0
     batch = None
     pending = 0
@@ -2667,7 +2673,13 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
         nonlocal batch, pending
         trade_ids = []
         todays_trades = []      # the trade dicts behind trade_ids, for Layer 3
-        leg_pnl = 0.0
+        # EXIT-DAY MONEY (owner GO 2026-10-02, api/paper_exitday.py): the day's pnl is the trades that
+        # CLOSED on target_date; trade_ids / todays_trades stay ENTRY-day (they are the day's SIGNALS,
+        # which is what the reconcile compares against NinjaTrader's fills).
+        _by_day, _n_by_day, _open_n, _open_pnl = _xd.bucket(trades)
+        leg_pnl = _by_day.get(target_date.isoformat(), 0.0)
+        leg_days[key] = {"by_day": _by_day, "n_closed": _n_by_day.get(target_date.isoformat(), 0),
+                         "open_n": _open_n, "open_pnl": _open_pnl}
         for t in trades:
             entry_unix = int(t["entry_dt"].timestamp())
             exit_unix = int(t["exit_dt"].timestamp())
@@ -2700,7 +2712,6 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
                     # _extract_trades already carries it; only this projection lost it.
                     "size": t.get("size"),
                 })
-                leg_pnl += t["pnl_usd"]
             if not dry_run:
                 doc = json_safe({
                     "leg": key, "strategy": leg["strategy"],
@@ -2714,6 +2725,10 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
                     "backfill": is_backfill, "live_from": _lf,
                     "layer": "shadow", "run_date": t_date.isoformat(),
                     "flags": leg.get("flags") or [],
+                    # run_date above stays the ENTRY date. These three say where the money counts:
+                    # open (still held, a mark), exit_date (ET calendar date of the exit) and close_day
+                    # (the report day it counts on; a weekend exit rolls to Monday; None while open).
+                    **_xd.trade_fields(t),
                 })
                 # Roll-splice artifact mark (see ROLL_ARTIFACTS above). Matched on
                 # (leg, entry_unix) only -- NOT on this run's recomputed pnl_usd -- so the
@@ -2794,6 +2809,8 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
                 "pruned": c_pruned,
                 "n_signals": len(c_ids), "n_since_start": len(r["ungated_trades"]),
                 "trade_ids": c_ids, "pnl_usd": c_pnl, "_trades": c_today,
+                "n_closed": leg_days[_companion]["n_closed"], "open_n": leg_days[_companion]["open_n"],
+                "open_pnl_usd": leg_days[_companion]["open_pnl"],
                 "bars_appended": r["bars_appended"], "data_fresh_thru": r["data_fresh_thru"],
                 "warnings": [], "flags": leg.get("flags") or [],
                 "source": LEG_SOURCE.get(_companion) or {},
@@ -2805,12 +2822,20 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
 
         trade_ids, todays_trades, leg_pnl = _emit(leg, leg["key"], r["trades"])
         n_pruned = _prune(leg["key"], r["trades"], r.get("ran_ok"))
+        if r.get("ran_ok"):
+            _ok_days[leg["key"]] = leg_days[leg["key"]]["by_day"]
+            if _companion and _companion in leg_days:
+                _ok_days[_companion] = leg_days[_companion]["by_day"]
         leg_reports[leg["key"]] = {
             "pruned": n_pruned,
             # n_signals / pnl_usd are THIS DAY only; n_since_start is the running total
             # so the cumulative view is still available without conflating the two.
             "n_signals": len(trade_ids), "n_since_start": len(r["trades"]),
             "trade_ids": trade_ids, "pnl_usd": leg_pnl,
+            # pnl_usd is the money of trades that CLOSED this day; n_signals counts trades that ENTERED.
+            # open_pnl_usd is the unrealised mark of trades still held at this run - on no day yet.
+            "n_closed": leg_days[leg["key"]]["n_closed"], "open_n": leg_days[leg["key"]]["open_n"],
+            "open_pnl_usd": leg_days[leg["key"]]["open_pnl"],
             # Layer 3 reads this and strips it before the doc is written - it is the
             # same data as trade_ids, just resolved, and Firestore does not need both.
             "_trades": todays_trades,
@@ -2907,6 +2932,8 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
     # and NOISE #422 (the #304 core with the hourly size tilt). The staged #397 flip was dropped.
     # BOOK.md section 10n has the evidence: pre-lockbox / lockbox ROC at a $30k worst drawdown valued daily
     # 60.3 / 164.8 %/yr against #366's re-run (#460) 57.1 / 151.7.
+    # EXIT-DAY (owner GO 2026-10-02): every leg's pnl_usd below is the money of trades that CLOSED on the
+    # day, so this figure, the two shadow books and the VT line are all exit-day. Same weights, same legs.
     _BOOK = {"ORB": 1.0, "ENGUQ_335": 1.0, "TTM_299_SSOF2": 3.0, "NOISE_422": 1.0}
     book_pnl = sum(leg_reports[k]["pnl_usd"] * w for k, w in _BOOK.items() if k in leg_reports)
     book_block = {"pnl_usd": book_pnl, "weights": _BOOK, "source_run": 463,
@@ -3001,5 +3028,16 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
             target_date.isoformat()).set(report_doc, merge=True)
         _leg_summary = ", ".join(f"{k}:{v['n_signals']}" for k, v in leg_reports.items())
         _log(f"uid={uid} {target_date.isoformat()}: blend ${total_pnl:,.0f} ({_leg_summary})")
+        # EXIT-DAY RE-MERGE (api/paper_exitday.py): a trade that closed after the 16:10 report of its
+        # day is not in that day's doc yet. Rebuild the previous days' per-leg, blend and book money
+        # from the same full trade list and merge just those fields, so no trade is left out of the
+        # day it closed on and none is counted twice. Fail-soft: it must never cost the report.
+        try:
+            for _day, _pl in _xd.remerge_prior_days(q.db, uid, target_date, _ok_days, log=_log,
+                                                    note_reads=_note_reads_other):
+                _bk = (_pl.get("book") or {}).get("pnl_usd")
+                _log(f"uid={uid} {_day}: exit-day re-merge" + (f" (book ${_bk:,.0f})" if _bk is not None else ""))
+        except Exception as e:
+            _log(f"uid={uid} exit-day re-merge failed: {type(e).__name__}: {e}")
 
     return report

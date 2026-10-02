@@ -126,7 +126,7 @@ def vt_block(book_pnl, day):
             "name": "SHADOW VT: #463 sized by its own 20-day volatility vs its trailing year"}
 
 
-# Weighted sums of existing paper legs (each leg's entry-day figure x weight, the book line's own convention).
+# Weighted sums of existing paper legs (each leg's exit-day figure x weight, the book line's own convention).
 # Every entry here was written to its forward bar BEFORE its first forward day - see its "prereg".
 SUM_SHADOWS = {
     "book_shadow_q4": {

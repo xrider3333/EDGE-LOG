@@ -76,6 +76,7 @@ CASES = [
                                                    'ENGUQ_L50', 'NOISE_225']}, 'win': {}}),
     ('show-archived',   {'sub': 'paper',  'prefs': {}, 'win': {'_paperShowArchived': True}}),
     ('scope-today',     {'sub': 'paper',  'prefs': {}, 'win': {'_paperMatrixScope': 'TODAY'}}),
+    ('reports-open',    {'sub': 'paper2', 'prefs': {}, 'win': {'_p2Open': {'reports': True}}}),
     ('detail-open',     {'sub': 'paper',  'prefs': {'paperCols': 'all'},
                          'win': {'_paperShowCfg': True}}),
     ('sort-net',        {'sub': 'paper',  'prefs': {'paperCols': 'all'},
@@ -154,7 +155,7 @@ var CASES=__CASES__, FIX=__FIX__;
           +"window._paperShowArchived=false;window._paperShowCfg=false;"
           +"window._paperMatrixScope='ALL';window._legSortCol=null;window._legSortDir=null;"
           +"window._paperFam=null;window._paperKind=null;window._paperBaseOnly=null;"
-          +"window._paperLegOff=null;window._paperCalMonth=null;window._ptSel=null;"
+          +"window._paperLegOff=null;window._paperCalMonth=null;window._ptSel=null;window._p2Open={};"
           +"var W="+JSON.stringify(win)+";for(var k in W)window[k]=W[k];"
           +"activeTab='augur';augurSub="+JSON.stringify(cfg.sub)+";renderApp();return 'OK';"
           +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
@@ -229,6 +230,13 @@ var CASES=__CASES__, FIX=__FIX__;
           var key=legRows[q].getAttribute('data-paperleg');
           r.crowned[key]=(legRows[q].innerHTML.indexOf('\\uD83D\\uDC51')>=0)?1:0;
         }
+        // EXIT-DAY money (owner GO 2026-10-02): day headers read CLOSED, a still-open trade sits under its own
+        // header with an unrealised mark, and the DAILY REPORTS table names the close day and carries BOOK $.
+        r.openMarks=body?(body.innerText.match(/unrealised/g)||[]).length:0;
+        r.dayHdrs=[].map.call(d.querySelectorAll('#ptrades-body tr.p2day'),function(x){return x.innerText.replace(/\\s+/g,' ').trim();});
+        r.heroBig=[].map.call(d.querySelectorAll('.p2big'),function(x){return x.innerText;}).join('|');
+        r.closeDayTh=[].filter.call(d.querySelectorAll('th'),function(x){return x.textContent.indexOf('CLOSE DAY')>=0;}).length;
+        r.bookTh=[].filter.call(d.querySelectorAll('th'),function(x){return x.textContent.indexOf('BOOK $')>=0;}).length;
         out.cases[nm]=r;
       }
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
@@ -314,6 +322,16 @@ def main():
         _t = dict(_src, id='pt_NOISE_422_probe', leg='NOISE_422', size=1.75,
                   pnl_usd=round(_src.get('pnl_usd', 0) * 1.75, 2))
         fixture['trades'].append(_t)
+    # EXIT-DAY: an OPEN ENGU-Q trade carrying a huge mark (must reach no total, curve or day) and a trade that
+    # closed on a Sunday evening (counts on the Monday).
+    _e = next((t for t in fixture['trades'] if str(t.get('leg', '')).startswith('ENGUQ')), None)
+    if _e is not None:
+        fixture['trades'].append(dict(_e, id='pt_ENGUQ_335_probe_open', leg='ENGUQ_335', open=True,
+                                      close_day=None, exit_date='2026-09-30', pnl_usd=987654.0,
+                                      exitIso='2026-09-30T16:09:00-04:00', exitTime=1790798940))
+        fixture['trades'].append(dict(_e, id='pt_ENGUQ_335_probe_sun', leg='ENGUQ_335', open=False,
+                                      exit_date='2026-09-20', close_day='2026-09-21', pnl_usd=123.0,
+                                      exitIso='2026-09-20T19:30:00-04:00', exitTime=1790033400))
     fixture['reports'][0]['capture_health'] = {
         'NQ': {'rth': {'bars': 2331, 'expected': 2340, 'bars_pct': 99.6, 'delta_pct': 98.3, 'rt_bars': 2000,
                        'longest_gap_min': 1.5, 'gap_start_et': '10:12'},
@@ -441,6 +459,22 @@ def main():
             fails.append('%s: NQ capture line missing or wrong: %r' % (nm, r.get('capNQ')))
         if 'delta on 38%' not in (r.get('capES') or '') or 'LOW' not in (r.get('capES') or ''):
             fails.append('%s: ES capture line not flagged LOW: %r' % (nm, r.get('capES')))
+
+    # EXIT-DAY board: close-day headers, the open trade apart and unrealised, the open mark in no total
+    for nm in ('base', 'paper2'):
+        r = cases.get(nm) or {}
+        hd = ' | '.join(r.get('dayHdrs') or []).lower()
+        if 'closed' not in hd:
+            fails.append('%s: day headers do not say the day is the close day: %r' % (nm, hd[:200]))
+        if 'open now' not in hd or not r.get('openMarks'):
+            fails.append('%s: the open trade is not shown apart as unrealised (headers %r)' % (nm, hd[:200]))
+        if '2026-09-21' not in hd:
+            fails.append('%s: the Sunday-evening exit did not count on its Monday' % nm)
+    r = cases.get('reports-open') or {}
+    if not r.get('closeDayTh') or not r.get('bookTh'):
+        fails.append('reports-open: DAILY REPORTS lost its CLOSE DAY / BOOK $ columns')
+    if '987,654' in ((cases.get('paper2') or {}).get('heroBig') or ''):
+        fails.append('paper2: an open trade mark leaked into the hero net')
 
     # the top-bar NT GATE chip: snapshot age first, PARTIAL shows a stale age too
     g = (cases.get('gate-old-snapshot') or {}).get('gateChip') or ''

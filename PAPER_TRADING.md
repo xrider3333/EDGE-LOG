@@ -13,6 +13,15 @@
 > Prior update 2026-08-23: NOISE crown → Short Veto + Wild10 run #243, `NOISE_SBS` leg
 > replaced by `NOISE_SBS_V90`).
 
+## 2026-10-02 — THE BOARD COUNTS A TRADE ON THE DAY IT CLOSES (owner GO via MANAGER)
+- **The rule** (`api/paper_exitday.py`, one definition): a trade's money counts on the US/Eastern date of its EXIT. A weekend exit (ENGU-Q trades Sunday evening) counts on the Monday after it. A trade still OPEN at the run counts on no day, and is shown as open with an unrealised mark.
+- **Why**: counting by entry day booked a multi-day hold at whatever its exit looked like at 16:10 that night, and left every entry after 16:10 ET (79 of 380 ENGU-Q #335 trades since 2023) on no day at all.
+- **Open detection**: the strategy files close a position still held when the data ends at the LAST bar, so open = the exit is the last bar AND that bar is not the last bar of the leg's own RTH session. A trade that really closes on the last bar reads open for one night and is picked up the next.
+- **No loss, no double count**: every nightly run rebuilds the day figures from the FULL trade list, writes the target day, and re-merges the previous 7 report days (merge=True, pnl fields only: legs, blend, BOOK, the weighted-sum shadows, VT = stored multiplier x BOOK). A trade that closes at 20:00 on day D is in D's figure from the next run on.
+- **Trade docs** (ids unchanged, entry-keyed) gain `open`, `exit_date`, `close_day`; `run_date` stays the ENTRY date. Report leg blocks gain `n_closed`, `open_n`, `open_pnl_usd`; `pnl_usd` is closed-that-day money, `n_signals` still counts ENTRIES (the reconcile reads those).
+- **Board** (PAPER / PAPER *): curve, calendar, hero, TODAY, leg tiles and the trade-table day headers all bucket by close day; rows show entry and exit date/time; open rows sit under "open now", labelled unrealised; DAILY REPORTS has CLOSE DAY and BOOK $.
+- **Backfill** of older report docs: `python tools/paper_exitday_rebucket.py` (dry run) / `--apply`.
+
 ## 2026-08-26 — THE LIVE ML GATE HAS BEEN SCORING ON THE WRONG BARS (read this first)
 
 Found while answering the owner's question "when we take it live, how do we know a ML will

@@ -833,7 +833,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.980';
+const VERSION='73.981';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -852,6 +852,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[{v:'73.980',date:'2026-10-02',notes:['NinjaTrader paper: when the PC wakes with NinjaTrader still running and its 10-second bars carry no trade ticks, the watchdog restarts it (account flat only) so Tick Replay rebuilds the buy/sell data for the bars it missed.']},
+{v:'73.981',date:'2026-10-02',notes:['PAPER (NT8 FUTURES): money now counts on the day a trade CLOSES (New York date), not the day it opened - the curve, calendar, TODAY, leg totals, the BOOK figure and the daily reports. A trade still open sits under OPEN NOW with its mark labelled unrealised and is in no day yet; a Sunday-evening exit counts on Monday. Rows show the entry and the exit date and time, day headers read CLOSED, and DAILY REPORTS has CLOSE DAY and BOOK columns. Fixes ENGU-Q entries after 16:10 ET (79 of 380 since 2023) landing on no day and multi-day holds being booked at a mark.']},
 {v:'73.975',date:'2026-10-02',notes:['NinjaTrader paper: an ENGU-Q overnight trade now survives the PC being switched off - on restart ENGU-Q picks its own saved trade back up (entry, stop, trail) instead of the trade being orphaned; a leftover stop from before the shutdown is cancelled once the new one is placed.']},
 {v:'73.974',date:'2026-10-02',notes:['Trade panel chart: panning and zooming no longer stall after the page was in a background tab.']},
 {v:'73.971',date:'2026-10-02',notes:['SHOULD HAVE TRADED. A new list on HOME, under the ledger, for setups you saw and did not take: the snapshot link, setup, symbol, date, entry time, side, optional entry, stop and target, and a note. It never counts in P&L or stats. Paste a snapshot link in the box and pick SHOULD HAVE TRADED, or use ADD. Futures entries get the EL chart and the point score from your PC, like a real trade.','THE LEDGER CHART OPENS ON THE TRADE TIMEFRAME. A trade marked 10s opens on 10-second bars, 5m on 5-minute bars, and so on. Chips switch between 10S, 1M, 5M and 15M.','PAN AND ZOOM. In the trade panel, drag the chart to pan and use the wheel or a pinch to zoom out; the minus, plus, TRADE and DAY buttons do the same on a phone. Double-click goes back to the trade.','POINTS IN THE CHART WINDOW. The full chart window (EXPAND) shows the point score, what the trade missed, any NA and the daily trend point, with every point and the price it was checked against.']},
@@ -38395,6 +38396,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _pt=window._paperTrades||[];
       const _pr=window._paperReports||[];
       const _dOnly=sec=>{if(!sec)return '';try{return new Date(sec*1000).toLocaleDateString('en-CA',{timeZone:'America/New_York'});}catch(e){return '';}};
+      // CLOSE DAY (owner GO 2026-10-02; api/paper_exitday.py is the one rule): a trade counts on the New York
+      // date it CLOSED, never the day it opened. A trade still open counts on NO day yet (close day ''), and is
+      // shown as OPEN with its mark labelled unrealised. A weekend exit counts on the Monday after it (no report
+      // is written on a weekend). The runner writes open / close_day on every trade doc; a doc written before
+      // that falls back to its exit date. The ENTRY date and time stay on every row.
+      const _rollWk=s=>{const d=new Date(s+'T12:00:00Z');const w=d.getUTCDay();if(w===6)d.setUTCDate(d.getUTCDate()+2);else if(w===0)d.setUTCDate(d.getUTCDate()+1);return d.toISOString().slice(0,10);};
+      const _closeDay=t=>{if(!t||t.open===true)return '';if(t.close_day)return t.close_day;const x=String(t.exitIso||'').slice(0,10);if(/^\d{4}-\d{2}-\d{2}$/.test(x))return _rollWk(x);return _dOnly(t.exitTime||t.entryTime);};
       const _fmtET=sec=>{if(!sec)return '—';try{return new Date(sec*1000).toLocaleTimeString('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hour12:false});}catch(e){return '—';}};
       // leg comes straight off the trade doc now (runner logs it verbatim: 'ORB'|'ENGUQ'|'NOISE');
       // the old name-sniffing heuristic is kept only as a fallback for legacy trades that predate the field.
@@ -38705,7 +38713,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _nShown=LEGS_VIS.filter(d=>_legShown(d.k)).length;
       const ORB_LA_TIP='The ORB engine\'s volume filter is look-ahead (see PAPER_TRADING.md) — these shadow numbers are NOT live-achievable. The live candidate is ORB V2 on NinjaTrader.';
       // BLEND is the owner's fixed ORB+ENGUQ baseline — NOISE never joins it, even though it shares the same trade collection.
-      const legRows=name=>name==='BLEND'?_pt.filter(t=>{const l=legOf(t);return l==='ORB'||l==='ENGUQ';}):_pt.filter(t=>legOf(t)===name);
+      const _legRowsAll=name=>name==='BLEND'?_pt.filter(t=>{const l=legOf(t);return l==='ORB'||l==='ENGUQ';}):_pt.filter(t=>legOf(t)===name);
+      // Realised money only: a trade still open is a mark and counts on no day, so it stays out of every total, curve and count.
+      const legRows=name=>_legRowsAll(name).filter(t=>t.open!==true);
+      const legOpen=name=>_legRowsAll(name).filter(t=>t.open===true);
       // BACKFILL vs FORWARD (owner 2026-08-16: "are you just assuming they were live from
       // the get go?"). No -- and the tile has to say so. The runner re-runs the whole window
       // since PAPER_START every night, so a leg added this morning instantly shows trades
@@ -38743,8 +38754,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const legAgg=(name,scope)=>{
         let rows=legRows(name);
         if(scope==='TODAY')
-          rows=rows.filter(t=>(t.run_date||_dOnly(t.exitTime||t.entryTime))===_todayET);
-        const days=new Set(rows.map(t=>t.run_date||_dOnly(t.exitTime||t.entryTime)).filter(Boolean));
+          rows=rows.filter(t=>(_closeDay(t))===_todayET);
+        const days=new Set(rows.map(t=>_closeDay(t)).filter(Boolean));
         const net=rows.reduce((s,t)=>s+(+t.pnl_usd||0),0);
         const wins=rows.filter(t=>(+t.pnl_usd||0)>0).length;
         const lastT=rows.reduce((m,t)=>Math.max(m,+t.exitTime||+t.entryTime||0),0);
@@ -38755,8 +38766,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // trading with no explanation on the tile itself.
         const rollRows=rows.filter(t=>t&&t.roll_artifact);
         const rollUsd=rollRows.reduce((s,t)=>s+(+t.pnl_usd||0),0);
+        const _op=legOpen(name);
         return {n:rows.length,days:days.size,net:net,wr:rows.length?wins/rows.length:0,lastT:lastT,
-                rollUsd:rollUsd,rollN:rollRows.length};
+                rollUsd:rollUsd,rollN:rollRows.length,
+                openN:_op.length,openUsd:_op.reduce((s2,t)=>s2+(+t.pnl_usd||0),0)};
       };
       const latestReport=_pr[0]||null;
       const legWarn=name=>{if(!latestReport)return null;const L=(latestReport.legs||{})[name]||(latestReport.legs||{})[name.toLowerCase()];const w=L&&L.warnings;return (Array.isArray(w)&&w.length)?w:null;};
@@ -38890,7 +38903,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const legStats=(name,scope)=>{
         const a=legAgg(name,scope), sp=legSplit(name);
         let rows=legRows(name);
-        if(scope==='TODAY')rows=rows.filter(t=>(t.run_date||_dOnly(t.exitTime||t.entryTime))===_todayET);
+        if(scope==='TODAY')rows=rows.filter(t=>(_closeDay(t))===_todayET);
         let gw=0,gl=0,fw=0,fl=0;
         rows.forEach(t=>{const p=+t.pnl_usd||0;
           if(p>0)gw+=p;else if(p<0)gl+=-p;
@@ -39208,13 +39221,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // is one of them -- attn-amber survives the mono theme's no-hue rule, unlike
         // --yellow/--green/--red which all resolve to shades of grey there.
         const _rollNote=a.rollN?('<div title="'+(a.rollN+' trade'+(a.rollN===1?'':'s')+' from the September 2026 contract-roll splice (kept, not deleted - see ROLL_AUDIT.md 4.5.4 and the ROLL badge on the trade rows below)').replace(/"/g,'&quot;')+'" style="font-size:8px;color:var(--attn-amber);margin-top:2px;white-space:nowrap;cursor:help">incl. '+fmtUsd(a.rollUsd)+' roll artifact</div>'):'';
+        const _openNote=a.openN?('<div title="'+(a.openN+' trade'+(a.openN===1?' is':'s are')+' still open: the figure is an UNREALISED mark at the last bar, it is not in NET, the curve or any day, and counts on the day the trade closes').replace(/"/g,'&quot;')+'" style="font-size:8px;color:var(--text4);margin-top:2px;white-space:nowrap;cursor:help">+ '+a.openN+' open \u00b7 '+fmtUsd(a.openUsd)+' unrealised</div>'):'';
         const _mainRow='<tr data-paperleg="'+name+'" class="p2row" title="'+_hover.replace(/"/g,'&quot;')+'" style="cursor:pointer">'
           +_rtd(dotMini||'<span class="p2live" style="background:var(--text5)"></span>','width:1%;padding-left:14px')
           +_rtd('<div style="font-weight:700;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;color:'+(dim?'var(--text5)':color)+'">'
                +_crownIc(name)+label+wBadge+orbBadge+noteBadge+'</div>'
                +'<div style="font-size:9.5px;color:var(--text5);margin-top:2px;white-space:nowrap">'+_subBits.join(' \u00b7 ')+'</div>','min-width:0;opacity:'+(dim?.55:1))
           +_rtd((a.n?('<span class="p2num" style="font-size:18px;color:'+(a.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(a.net)+'</span>')
-                   :'<span style="color:var(--text5)">\u2014</span>')+_rollNote,'text-align:right;white-space:nowrap;opacity:'+(dim?.55:1))
+                   :'<span style="color:var(--text5)">\u2014</span>')+_rollNote+_openNote,'text-align:right;white-space:nowrap;opacity:'+(dim?.55:1))
           +_rtd('<span class="p2sw'+(sel?' on':'')+'" role="switch" aria-checked="'+(sel?'true':'false')+'"></span>','width:1%;padding-right:14px')
           +'</tr>';
         // Detail row: only when asked for, and only when there is something to say.
@@ -39335,8 +39349,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const legStrip=legStripCtl+legTable;
       // cumulative curve — one merged date axis (all distinct run/exit dates), stepwise
       // cumulative $ per leg so the three lines share one x-axis even if a leg skipped a day.
-      const _allDates=[...new Set(_pt.map(t=>t.run_date||_dOnly(t.exitTime||t.entryTime)).filter(Boolean))].sort();
-      const _cumByDate=name=>{const rows=legRows(name);const byDate={};rows.forEach(t=>{const d=t.run_date||_dOnly(t.exitTime||t.entryTime);if(!d)return;byDate[d]=(byDate[d]||0)+(+t.pnl_usd||0);});let c=0;return _allDates.map(d=>{c+=(byDate[d]||0);return c;});};
+      const _allDates=[...new Set(_pt.map(t=>_closeDay(t)).filter(Boolean))].sort();
+      const _cumByDate=name=>{const rows=legRows(name);const byDate={};rows.forEach(t=>{const d=_closeDay(t);if(!d)return;byDate[d]=(byDate[d]||0)+(+t.pnl_usd||0);});let c=0;return _allDates.map(d=>{c+=(byDate[d]||0);return c;});};
       const _curveSvg=(dates,series)=>{
         if(!dates.length)return '<div style="padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:1px">NO PAPER TRADES YET — SHADOW TRADING STARTS '+PAPER_START+'</div>';
         const W=900,H=220,padL=56,padR=10,padT=10,padB=24;
@@ -39386,7 +39400,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _calPnlByDate=(()=>{
         const m={};
         _pt.filter(t=>_legShown(legOf(t))).forEach(t=>{
-          const d=t.run_date||_dOnly(t.exitTime||t.entryTime);
+          const d=_closeDay(t);
           if(!d)return;
           if(!m[d])m[d]={pnl:0,n:0,w:0};
           const v=+t.pnl_usd||0;
@@ -39500,13 +39514,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         last.setDate(last.getDate()-(_pcw==='1W'?7:30));
         return last.toISOString().slice(0,10);
       })();
-      const _heroRows=_pt.filter(t=>_legShown(legOf(t))).filter(t=>{const d=t.run_date||_dOnly(t.exitTime||t.entryTime)||'';return _pcw==='TODAY'?d===_todayET:(!_pcwFrom||d>=_pcwFrom);});
+      const _heroRows=_pt.filter(t=>_legShown(legOf(t))&&t.open!==true).filter(t=>{const d=_closeDay(t)||'';return _pcw==='TODAY'?d===_todayET:(!_pcwFrom||d>=_pcwFrom);});
       const _H=(()=>{const rows=_heroRows;
         const net=rows.reduce((a,t)=>a+(+t.pnl_usd||0),0);
         const gw=rows.reduce((a,t)=>a+Math.max(0,+t.pnl_usd||0),0), gl=rows.reduce((a,t)=>a+Math.max(0,-(+t.pnl_usd||0)),0);
         const wins=rows.filter(t=>(+t.pnl_usd||0)>0).length;
-        const days=new Set(rows.map(t=>t.run_date||_dOnly(t.exitTime||t.entryTime)).filter(Boolean)).size;
-        const today=_pt.filter(t=>_legShown(legOf(t))).filter(t=>(t.run_date||_dOnly(t.exitTime||t.entryTime))===_todayET).reduce((a,t)=>a+(+t.pnl_usd||0),0);
+        const days=new Set(rows.map(t=>_closeDay(t)).filter(Boolean)).size;
+        const today=_pt.filter(t=>_legShown(legOf(t))).filter(t=>(_closeDay(t))===_todayET).reduce((a,t)=>a+(+t.pnl_usd||0),0);
         return {n:rows.length,net:net,wr:rows.length?wins/rows.length:0,pf:gl>0?gw/gl:(gw>0?Infinity:null),days:days,today:today};})();
       const _winDates=_allDates.filter(d=>!_pcwFrom||d>=_pcwFrom);
       const _i0=_allDates.length-_winDates.length;
@@ -39572,7 +39586,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const wins=rows.filter(t=>pnl(t)>0), losses=rows.filter(t=>pnl(t)<0);
         const avg=a=>a.length?a.reduce((x,t)=>x+pnl(t),0)/a.length:null;
         const byDay={};
-        rows.forEach(t=>{const d=t.run_date||_dOnly(t.exitTime||t.entryTime);if(d)byDay[d]=(byDay[d]||0)+pnl(t);});
+        rows.forEach(t=>{const d=_closeDay(t);if(d)byDay[d]=(byDay[d]||0)+pnl(t);});
         const dv=Object.keys(byDay).sort().map(d=>[d,byDay[d]]);
         const best=dv.length?dv.reduce((a,b)=>b[1]>a[1]?b:a):null;
         const worst=dv.length?dv.reduce((a,b)=>b[1]<a[1]?b:a):null;
@@ -39782,7 +39796,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _cumById=(()=>{
         const chron=_tSorted.slice().sort((a,b)=>(+a.exitTime||+a.entryTime||0)-(+b.exitTime||+b.entryTime||0));
         const m=new Map(); let c=0;
-        chron.forEach(x=>{c+=(+x.pnl_usd||0); m.set(x,c);});
+        chron.forEach(x=>{if(x.open===true){m.set(x,null);return;} c+=(+x.pnl_usd||0); m.set(x,c);});
         return m;
       })();
       const _durTxt=t=>{
@@ -39840,8 +39854,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +' '+_engChip('TV –','#8a8a8a','TradingView has no API to poll - it is only ever checked by hand, in bulk. See CROSS-ENGINE, ALL TIME.')
           +'</td>';
       };
-      const _dayTot={};_tSorted.forEach(t=>{const d=t.run_date||_dOnly(t.exitTime||t.entryTime)||'';
+      const _dayTot={};_tSorted.forEach(t=>{const d=_closeDay(t)||'';
         if(!_dayTot[d])_dayTot[d]={pnl:0,n:0};_dayTot[d].pnl+=(+t.pnl_usd||0);_dayTot[d].n++;});
+      const _nOpenRows=_tSorted.filter(t=>t.open===true).length;
       let _lastDay=null;
       const _tRows=_tSorted.slice(0,200).map(t=>{
         const leg=legOf(t),lc=_legColor[leg]||'#5b8def';const pnl=+t.pnl_usd||0;
@@ -39871,20 +39886,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _selNow=(window._ptSel&&window._ptSel.has('P'+_ci));
         // DAY HEADERS (iOS section headers): only while the table is in date order -
         // grouping a list sorted by dollars would scatter the groups.
-        const _dsRow=t.run_date||_dOnly(t.exitTime||t.entryTime)||'';
+        const _dsRow=_closeDay(t)||'';
         let _dayHdr='';
         if(_psCol==='date'&&_dsRow!==_lastDay){
           _lastDay=_dsRow;
           const _dt=_dayTot[_dsRow]||{pnl:0,n:0};
           let _lbl=_dsRow;try{_lbl=new Date(_dsRow+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}).replace(', ',' \u00b7 ');}catch(e){}
-          _dayHdr='<tr class="p2day"><td colspan="11"><span style="display:flex;align-items:baseline;justify-content:space-between"><span>'+_lbl+(_dsRow?' <span style="letter-spacing:0;text-transform:none;font-weight:400">'+_dsRow+'</span>':'')+'</span>'
-            +'<span class="p2num" style="font-size:15px;letter-spacing:.4px;color:'+(_dt.pnl>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_dt.pnl)+' <span style="font-family:inherit;font-size:9px;color:var(--text5)">\u00b7 '+_dt.n+' trade'+(_dt.n===1?'':'s')+'</span></span></span></td></tr>';
+          // The day is the day the trade CLOSED. Trades still open sit under their own header: their money is an unrealised mark and is in no day yet.
+          _dayHdr='<tr class="p2day"><td colspan="11"><span style="display:flex;align-items:baseline;justify-content:space-between"><span>'+(_dsRow?('closed \u00b7 '+_lbl+' <span style="letter-spacing:0;text-transform:none;font-weight:400">'+_dsRow+'</span>'):'open now \u00b7 not counted on any day yet')+'</span>'
+            +'<span class="p2num" style="font-size:15px;letter-spacing:.4px;color:'+(_dt.pnl>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_dt.pnl)+' <span style="font-family:inherit;font-size:9px;color:var(--text5)">\u00b7 '+_dt.n+' trade'+(_dt.n===1?'':'s')+(_dsRow?'':' \u00b7 unrealised')+'</span></span></span></td></tr>';
         }
         const _sideTxt=(_sideOf(t.side)||'\u2014').toUpperCase();
         return _dayHdr+'<tr data-ptrow="P'+_ci+'"'+(_selNow?' class="ptsel"':'')+'>'
           +'<td data-pc="leg" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px">'+_crownIc(leg)+'<span style="color:'+lc+';font-weight:700">'+(_legLabel[leg]||leg)+'</span>'+_laBadge+_rollBadge+'</td>'
           +'<td><span style="display:inline-block;font-size:9px;letter-spacing:1px;font-weight:700;padding:1px 7px;border-radius:6px;border:1px solid var(--border);color:var(--text2)">'+_sideTxt+'</span></td>'
-          +'<td style="white-space:nowrap;color:var(--text4)" title="entry \u2192 exit, New York time">'+_fmtET(t.entryTime)+' \u2192 '+_fmtET(t.exitTime)+'</td>'
+          +'<td style="white-space:nowrap;color:var(--text4)" title="entry date and time \u2192 exit date and time, New York time. The day header above is the day the trade CLOSED'+(t.open===true?'. This trade is still OPEN, so its exit is the last bar seen and its money is an unrealised mark':'')+'">'+(_etKey(t.entryTime)||'\u2014').slice(5)+' \u2192 '+(t.open===true?'<b style="font-size:8px;letter-spacing:.5px;padding:0 4px;border-radius:4px;border:1px solid var(--text4)">OPEN</b> ':'')+(_etKey(t.exitTime)||'\u2014').slice(5)+'</td>'
           +'<td style="white-space:nowrap;color:var(--text4)" title="entry price \u2192 exit price">'+(t.entry_px!=null?(+t.entry_px).toFixed(2):'\u2014')+' \u2192 '+(t.exit_px!=null?(+t.exit_px).toFixed(2):'\u2014')+'</td>'
           +'<td style="text-align:right;white-space:nowrap;color:var(--text4)" title="time in the trade \u00b7 points won or lost">'+_durTxt(t)+' \u00b7 '+(t.pnl_pts!=null?(+t.pnl_pts).toFixed(2):'\u2014')+' pt</td>'
           +(()=>{const m=t.entryIso?_ntMatch[_ntKey(leg,t.entryIso)]:null;
@@ -39896,7 +39912,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                  +(sl==null?'\u2014':(sl>0?'+':'')+sl.toFixed(2))+'</td>'
                  +'<td style="text-align:right;color:'+(dd==null?'var(--text5)':(dd>=0?PNL_POS:PNL_NEG))+'" title="live P and L minus engine P and L on this matched trade">'
                  +(dd==null?'\u2014':fmtUsd(dd))+'</td>';})()
-          +'<td style="text-align:right;white-space:nowrap"><span class="p2num" style="font-size:17px;color:'+(pnl>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(pnl)+'</span></td>'
+          +'<td style="text-align:right;white-space:nowrap"'+(t.open===true?' title="UNREALISED mark at the last bar seen - the trade is still open, so this is in no day and no total until it closes"':'')+'><span class="p2num" style="font-size:17px;color:'+(pnl>=0?PNL_POS:PNL_NEG)+(t.open===true?';opacity:.55;font-style:italic':'')+'">'+fmtUsd(pnl)+'</span>'+(t.open===true?' <span style="font-size:8px;color:var(--text4)">unrealised</span>':'')+'</td>'
           +(()=>{const c=_cumById.get(t);return '<td style="text-align:right;color:'+((c||0)>=0?PNL_POS:PNL_NEG)+';opacity:.7" title="running total of the rows currently shown, in date order">'+(c==null?'\u2014':fmtUsd(c))+'</td>';})()
           +_engineCell(t).replace('<td ','<td data-pc="eng" ')
           +_chartCell+'</tr>';
@@ -39908,11 +39924,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'<span id="pt-selbar" style="margin-left:10px;font-weight:400;letter-spacing:0"></span>'
         +'<span style="margin-left:auto;font-weight:400;letter-spacing:0;font-size:8px;color:var(--text5)">click a row to select &middot; drag across rows for a range &middot; shift-click extends &middot; ctrl-click adds one</span>';
       const _p2dot=(col,txt)=>'<span style="display:inline-flex;align-items:center;gap:5px"><i style="width:7px;height:7px;border-radius:50%;background:'+col+';display:inline-block"></i>'+txt+'</span>';
-      const tradesHtml='<div class="p2sheet"><div class="p2sh" style="flex-wrap:wrap"><span>Trades \u00b7 '+_tSorted.length+(_tSorted.length>200?' <span style="font-weight:400;letter-spacing:.3px;text-transform:none">(showing 200)</span>':'')+'</span>'
+      const tradesHtml='<div class="p2sheet"><div class="p2sh" style="flex-wrap:wrap"><span>Trades \u00b7 '+_tSorted.length+(_nOpenRows?' ('+_nOpenRows+' open)':'')+(_tSorted.length>200?' <span style="font-weight:400;letter-spacing:.3px;text-transform:none">(showing 200)</span>':'')+'</span>'
           +'<span style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:.3px;font-weight:500">'
           +'<span data-psort="date" class="p2chip" style="cursor:pointer;height:26px" title="click to flip the day order">'+(_psCol==='date'?(_psDir==='desc'?'newest first':'oldest first'):'sorted by '+_psCol+' \u00b7 click for day order')+'</span>'
           +_ptSelBar.replace('margin-left:10px;','').replace(/<span style="margin-left:auto[^>]*>.*?<\/span>$/,'')+'</span></div>'
-        +'<div style="display:flex;gap:14px;padding:0 14px 10px;font-size:10px;color:var(--text5);flex-wrap:wrap;align-items:center">'+_p2dot(PNL_POS,'green = matched')+_p2dot(PNL_NEG,'red = missed')+_p2dot('#8a8a8a','grey = not run / not checked')+'<span style="margin-left:auto">click a row to select \u00b7 drag for a range \u00b7 shift-click extends</span></div>'
+        +'<div style="display:flex;gap:14px;padding:0 14px 10px;font-size:10px;color:var(--text5);flex-wrap:wrap;align-items:center">'+_p2dot(PNL_POS,'green = matched')+_p2dot(PNL_NEG,'red = missed')+_p2dot('#8a8a8a','grey = not run / not checked')+'<span title="Money is counted on the New York day a trade closes. A trade still open is in no day yet; its mark is labelled unrealised.">day = close day \u00b7 entry date stays on the row</span><span style="margin-left:auto">click a row to select \u00b7 drag for a range \u00b7 shift-click extends</span></div>'
         +'<style>#ptrades-body tr[data-ptrow]{cursor:pointer}#ptrades-body tr.ptsel{background:color-mix(in srgb,var(--blue) 20%,transparent)!important;box-shadow:inset 2px 0 0 var(--blue)}#ptrades-body.ptdrag{user-select:none;-webkit-user-select:none}'
           +'#ptrades-wrap table{font-size:10.5px;border-collapse:collapse}'
           +'#ptrades-wrap th{padding:4px 8px;letter-spacing:1.2px;font-size:8.5px;color:var(--text5);border:0;white-space:nowrap}'
@@ -39921,7 +39937,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'#ptrades-body tr.p2day td{padding:12px 14px 4px;font-size:10px;letter-spacing:1.2px;color:var(--text4);text-transform:uppercase;font-weight:700;border-top:0}'
           +'</style>'
         +(_tSorted.length?'<div id="ptrades-wrap" style="overflow-x:auto"><table class="table"><thead><tr>'
-          +_psTh('leg','strategy','left')+_psTh('side','side','left')+_psTh('entry','entry time','left')+_psTh('entrypx','entry price','left')+_psTh('pts','hold \u00b7 points','right')
+          +_psTh('leg','strategy','left')+_psTh('side','side','left')+_psTh('entry','entry \u2192 exit (ET)','left')+_psTh('entrypx','entry price','left')+_psTh('pts','hold \u00b7 points','right')
           +'<th style="text-align:right" title="entry slippage in points vs the engine, positive = live fill was worse">SLIP</th>'
           +'<th style="text-align:right" title="live P and L minus engine P and L, matched trades only">&#916; $</th>'
           +_psTh('usd','$','right')+'<th style="text-align:right" title="running total of the rows shown, in date order">CUM</th>'
@@ -39933,6 +39949,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const legs=r.legs||{};const st=r.status||'runner_done';
         const pillColor=st==='reviewed'?'var(--green)':'var(--text5)';
         const blendUsd=(r.blend&&r.blend.pnl_usd!=null)?fmtUsd(+r.blend.pnl_usd):'—';
+        const bookUsd=(r.book&&r.book.pnl_usd!=null)?fmtUsd(+r.book.pnl_usd):'—';
         const legSummary=LEGS_VIS.map(d=>d.k).filter(k=>legs[k]||legs[k.toLowerCase()]).map(k=>{const L=legs[k]||legs[k.toLowerCase()]||{};return (_legLabel[k]||k)+': '+(L.n_signals!=null?L.n_signals:'—')+' sig';}).join(' · ');
         const open=_repOpen.has(r.id);
         let detail='';
@@ -39942,7 +39959,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             return '<div style="flex:1 1 220px;min-width:200px;background:var(--bg1);border-radius:8px;padding:10px 12px">'
               +'<div style="font-weight:700;font-size:11px;margin-bottom:6px">'+(_legLabel[k]||k)+'</div>'
               +'<div style="font-size:10px;color:var(--text3);line-height:1.8">signals '+(L.n_signals!=null?L.n_signals:'—')
-              +' · net '+(L.pnl_usd!=null?fmtUsd(+L.pnl_usd):'—')
+              +' · closed today '+(L.pnl_usd!=null?fmtUsd(+L.pnl_usd):'—')+(L.open_n?(' · '+L.open_n+' open ('+fmtUsd(+L.open_pnl_usd||0)+' unrealised)'):'')
               +' · bars appended '+(L.bars_appended!=null?L.bars_appended:'—')
               +'<br>data fresh thru '+(L.data_fresh_thru||'—')+'</div>'+warn+'</div>';
           }).join('');
@@ -39959,11 +39976,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           }
           detail='<div style="padding:12px 4px 4px"><div style="display:flex;gap:10px;flex-wrap:wrap">'+legDetail+'</div>'+verdict+liveDetail+'</div>';
         }
-        return '<tr data-paperrep="'+r.id+'" style="cursor:pointer"><td>'+r.id+'</td><td style="font-size:10px;color:var(--text3)">'+legSummary+'</td><td style="text-align:right">'+blendUsd+'</td><td><span style="font-size:9px;padding:2px 8px;border-radius:999px;border:1px solid '+pillColor+';color:'+pillColor+'">'+st.toUpperCase()+'</span></td></tr>'
-          +(open?'<tr><td colspan="4" style="padding:0;border-bottom:1px solid var(--border2)">'+detail+'</td></tr>':'');
+        return '<tr data-paperrep="'+r.id+'" style="cursor:pointer"><td>'+r.id+'</td><td style="font-size:10px;color:var(--text3)">'+legSummary+'</td><td style="text-align:right">'+blendUsd+'</td><td style="text-align:right">'+bookUsd+'</td><td><span style="font-size:9px;padding:2px 8px;border-radius:999px;border:1px solid '+pillColor+';color:'+pillColor+'">'+st.toUpperCase()+'</span></td></tr>'
+          +(open?'<tr><td colspan="5" style="padding:0;border-bottom:1px solid var(--border2)">'+detail+'</td></tr>':'');
       }).join('');
       const reportsHtml=tile('<div class="lbl" style="margin-bottom:8px">DAILY REPORTS</div>'
-        +(_pr.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th>DATE</th><th>LEGS</th><th style="text-align:right">BLEND $</th><th>STATUS</th></tr></thead><tbody>'+_repRows+'</tbody></table></div>'
+        +(_pr.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th title="The day trades CLOSED. A trade is counted on the New York day it closes, not the day it opened; one still open is in no day yet.">CLOSE DAY</th><th title="Signals = trades that ENTERED that day">LEGS</th><th style="text-align:right" title="ORB + ENGU-Q legs: money of trades that closed that day">BLEND $</th><th style="text-align:right" title="The adopted BOOK: money of trades that closed that day, at the book weights">BOOK $</th><th>STATUS</th></tr></thead><tbody>'+_repRows+'</tbody></table></div>'
           :'<div style="padding:30px;text-align:center;color:var(--text5);font-size:11px">no reports yet</div>'));
       // ── NT BRIDGE — what NinjaTrader looks like RIGHT NOW ─────────────────────
       // Fed by the runner polling the local EdgeLogBridge AddOn every 5 minutes and
