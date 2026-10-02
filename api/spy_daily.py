@@ -25,12 +25,11 @@ Firestore's 1 MiB/doc cap -- see tests/test_spy_daily.py for the measured size. 
 document read per browser session, never one read per bar and never one write per bar --
 this account has already burned through its 50k-reads/day Spark quota twice.
 
-CREDENTIALS: resolved ONLY via tools/import_alpaca_stocks.load_keys() (env
-ALPACA_API_KEY/ALPACA_SECRET_KEY, then augur_config.json alpaca_key/alpaca_secret, then
-tools/.alpaca_keys.json) -- the exact order that module already documents and uses; this
-file adds no fourth location. Nothing in this file ever prints, logs, commits, or
-transmits the key or secret -- the only thing that gets written anywhere is the fetched
-SPY closes.
+CREDENTIALS: resolved ONLY via augur_engine.alpaca_keys.load_keys(), the single lookup for
+the whole repo (env, then the Windows user environment read from the registry, then three
+JSON locations) -- this file adds no location of its own. Nothing in this file ever prints,
+logs, commits, or transmits the key or secret -- the only thing that gets written anywhere
+is the fetched SPY closes.
 
 SCHEDULING: api/runner.py's --watch loop calls maybe_run(q) every tick. Real work (one
 Alpaca call + one Firestore write per allow-listed uid) happens AT MOST ONCE PER ET
@@ -58,7 +57,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from tools.import_alpaca_stocks import load_keys, fetch_bars   # noqa: E402
+from augur_engine.alpaca_keys import load_keys   # noqa: E402
+from tools.import_alpaca_stocks import fetch_bars   # noqa: E402
 
 SYMBOL = "SPY"
 META_DOC = "spy_daily"                    # users/{uid}/meta/spy_daily
@@ -194,10 +194,9 @@ def _maybe_run_inner(q, *, force=False):
     key, secret = load_keys()
     if not key or not secret:
         if not _warned_missing_keys:
-            _log("no Alpaca key configured -- add ALPACA_API_KEY / ALPACA_SECRET_KEY "
-                 "env vars, or \"alpaca_key\"/\"alpaca_secret\" to augur_config.json, "
-                 "or create tools/.alpaca_keys.json with {\"key\": ..., \"secret\": ...}. "
-                 "The SPY benchmark stays empty (web shows an em dash) until then.")
+            _log("no Alpaca key configured -- see augur_engine/alpaca_keys.py for every "
+                 "place checked. The SPY benchmark stays empty (web shows an em dash) "
+                 "until then.")
             _warned_missing_keys = True
         return None
     _last_run_date = today
@@ -225,10 +224,8 @@ def run_once_cli():
 
     key, secret = load_keys()
     if not key or not secret:
-        raise SystemExit(
-            "No Alpaca key found. Set env ALPACA_API_KEY / ALPACA_SECRET_KEY, or add\n"
-            '  "alpaca_key": "...", "alpaca_secret": "..."  to augur_config.json, or create\n'
-            '  tools/.alpaca_keys.json  with  {"key": "...", "secret": "..."}')
+        from augur_engine import alpaca_keys
+        raise SystemExit(alpaca_keys.HELP)
 
     import firebase_admin
     from firebase_admin import credentials, firestore

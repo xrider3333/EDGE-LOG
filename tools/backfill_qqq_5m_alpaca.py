@@ -15,14 +15,14 @@ NO KEY EXISTS YET (2026-09-26) -- everything here is built and tested against a 
 Alpaca HTTP layer (tests/test_backfill_qqq_5m_alpaca.py). See deploy_notes for the exact
 owner steps to add a real one.
 
-KEY LOOKUP, checked in order (never printed, never logged):
-  1. C:\EdgeLog\secrets\alpaca_keys.json  {"key": "...", "secret": "..."}  -- PREFERRED:
-     outside this repo, so it can never be committed by accident.
-  2. env  ALPACA_API_KEY / ALPACA_SECRET_KEY
-  3. augur_config.json  {"alpaca_key": "...", "alpaca_secret": "..."}
-  4. tools/.alpaca_keys.json  {"key": "...", "secret": "..."}
-(2-4 are exactly tools/import_alpaca_stocks.py's own load_keys() order, reused so a key
-already set up for that tool works here unchanged.)
+KEY LOOKUP: not done here. augur_engine/alpaca_keys.py is the single lookup for the whole
+repo -- env, then the Windows user environment read straight from the registry, then
+C:\EdgeLog\secrets\alpaca_keys.json, augur_config.json and tools/.alpaca_keys.json.
+This file used to prefer the secrets file over the environment. The environment now wins,
+because the argument for that file was about where a key is STORED (outside the repo, so it
+cannot be committed by accident), not about which source should win when two disagree -- and
+a key set in the process environment is the only override you can apply to one command
+without editing a file.
 
 ADJUSTMENT. Alpaca applies split adjustment server-side via `adjustment=split|raw|...`.
 QQQ had NO split in this window (unlike, say, NVDA or AAPL in other years), so `split`
@@ -86,7 +86,6 @@ ssh_fn, scp_fn) is an injectable parameter of run(), defaulting to the real thin
 main().
 """
 import argparse
-import json
 import os
 import shlex
 import subprocess
@@ -102,6 +101,8 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from api import market_calendar  # noqa: E402
+from augur_engine import alpaca_keys  # noqa: E402
+from augur_engine import alpaca_rate  # noqa: E402
 
 try:
     from zoneinfo import ZoneInfo
@@ -115,10 +116,6 @@ SYMBOL = "QQQ"
 TIMEFRAME = "5Min"
 DEFAULT_FEED = "sip"
 DEFAULT_ADJUSTMENT = "split"          # see module docstring "ADJUSTMENT"
-
-PREFERRED_KEYS_PATH = r"C:\EdgeLog\secrets\alpaca_keys.json"   # outside the repo, preferred
-_TOOLS_ALPACA_KEYS = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".alpaca_keys.json")
-_AUGUR_CONFIG = os.path.join(ROOT, "augur_config.json")
 
 MIN_SESSIONS = 265
 
@@ -152,35 +149,11 @@ COLUMNS = ["time", "open", "high", "low", "close", "volume"]
 
 # ── keys ──────────────────────────────────────────────────────────────────────────────────
 def load_keys():
-    """Resolve the Alpaca key/secret without ever hardcoding or printing it. Order: see
-    module docstring "KEY LOOKUP". Returns (key, secret) or (None, None).
-
-    Every JSON file is opened with encoding="utf-8-sig", not "utf-8": the owner's
-    deploy_notes one-liner is a PowerShell `Set-Content -Encoding utf8`, which on Windows
-    PowerShell 5.1 writes a UTF-8 BOM. `utf-8` chokes on that BOM (json.load raises
-    "Unexpected UTF-8 BOM"); `utf-8-sig` strips a BOM if present and reads a plain
-    UTF-8 file identically otherwise, so it is a strict superset -- safe for every file
-    here, BOM or not."""
-    try:
-        with open(PREFERRED_KEYS_PATH, encoding="utf-8-sig") as fh:
-            cfg = json.load(fh)
-        if cfg.get("key") and cfg.get("secret"):
-            return cfg["key"], cfg["secret"]
-    except Exception:
-        pass
-    k, s = os.environ.get("ALPACA_API_KEY"), os.environ.get("ALPACA_SECRET_KEY")
-    if k and s:
-        return k, s
-    for path, kk, sk in ((_AUGUR_CONFIG, "alpaca_key", "alpaca_secret"),
-                         (_TOOLS_ALPACA_KEYS, "key", "secret")):
-        try:
-            with open(path, encoding="utf-8-sig") as fh:
-                cfg = json.load(fh)
-            if cfg.get(kk) and cfg.get(sk):
-                return cfg[kk], cfg[sk]
-        except Exception:
-            pass
-    return None, None
+    """Resolve the Alpaca key/secret. ONE shared lookup, augur_engine/alpaca_keys.py --
+    including the Windows registry fallback, which is what lets a process that started
+    before the keys were saved still find them. Returns (key, secret) or (None, None), and
+    never prints or logs the value."""
+    return alpaca_keys.load_keys()
 
 
 # ── session window ───────────────────────────────────────────────────────────────────────
@@ -244,6 +217,9 @@ def fetch_5m_bars(key, secret, start_iso, end_iso, feed=DEFAULT_FEED,
                   "feed": feed, "sort": "asc"}
         if token:
             params["page_token"] = token
+        # One account, five lanes. The 0.31s pace below assumes this process is the only
+        # one pulling; alpaca_rate is what makes that true for the ACCOUNT instead.
+        alpaca_rate.wait()
         r = http_get(BARS_URL, headers=heads, params=params, timeout=60)
         if r.status_code == 429:
             log("    429 rate-limited, sleeping 20s…"); time.sleep(20); continue

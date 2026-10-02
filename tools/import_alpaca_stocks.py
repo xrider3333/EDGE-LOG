@@ -18,10 +18,9 @@
 # augur_uploads directly via sqlite3/pandas — it does NOT import optimizer.py.
 # Idempotent + additive: re-running EXTENDS the matching master (existing rows win).
 #
-# KEY (never hardcoded; read in this order):
-#   1. env  ALPACA_API_KEY / ALPACA_SECRET_KEY
-#   2. augur_config.json  {"alpaca_key": "...", "alpaca_secret": "..."}
-#   3. tools/.alpaca_keys.json  {"key": "...", "secret": "..."}
+# KEY: never hardcoded, never printed, and NOT resolved here -- augur_engine/alpaca_keys.py
+# is the one lookup for the whole repo (env, then the Windows user environment straight out
+# of the registry, then three JSON locations). See that module for the order and why.
 #
 # Run:
 #   python tools/import_alpaca_stocks.py --check
@@ -30,7 +29,6 @@
 import os
 import re
 import sys
-import json
 import time
 import uuid
 import sqlite3
@@ -46,6 +44,8 @@ DB   = os.path.join(ROOT, "optimizer_history.db")
 
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
+from augur_engine import alpaca_keys  # noqa: E402
+from augur_engine import alpaca_rate  # noqa: E402
 from augur_engine.master_write import write_master_csv  # noqa: E402
 LOG  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "import_alpaca_stocks.log")
 
@@ -67,20 +67,10 @@ def log(msg):
 
 
 def load_keys():
-    """Resolve the API key/secret without ever hardcoding it. Returns (key, secret)."""
-    k, s = os.environ.get("ALPACA_API_KEY"), os.environ.get("ALPACA_SECRET_KEY")
-    if k and s:
-        return k, s
-    for path, kk, sk in ((os.path.join(ROOT, "augur_config.json"), "alpaca_key", "alpaca_secret"),
-                         (os.path.join(os.path.dirname(os.path.abspath(__file__)), ".alpaca_keys.json"), "key", "secret")):
-        try:
-            with open(path, encoding="utf-8") as fh:
-                cfg = json.load(fh)
-            if cfg.get(kk) and cfg.get(sk):
-                return cfg[kk], cfg[sk]
-        except Exception:
-            pass
-    return None, None
+    """Resolve the API key/secret. ONE shared lookup now lives in augur_engine/alpaca_keys.py -
+    including the Windows registry fallback, which is what lets a process that started before
+    the keys were saved still find them. Never prints the value."""
+    return alpaca_keys.load_keys()
 
 
 def fetch_bars(sym, timeframe, start, end, key, secret, feed="sip", adjustment="split"):
@@ -95,6 +85,9 @@ def fetch_bars(sym, timeframe, start, end, key, secret, feed="sip", adjustment="
                   "limit": 10000, "adjustment": adjustment, "feed": feed, "sort": "asc"}
         if token:
             params["page_token"] = token
+        # One account, five lanes. The 0.31s pace below assumes this process is the only
+        # one pulling; alpaca_rate is what makes that true for the ACCOUNT instead.
+        alpaca_rate.wait()
         r = requests.get(BARS_URL, headers=heads, params=params, timeout=60)
         if r.status_code == 429:                       # rate limited -> back off and retry
             log("    429 rate-limited, sleeping 20s…"); time.sleep(20); continue
@@ -267,10 +260,7 @@ def main():
 
     key, secret = load_keys()
     if not key or not secret:
-        raise SystemExit(
-            "No Alpaca key found. Set env ALPACA_API_KEY / ALPACA_SECRET_KEY, or add\n"
-            '  "alpaca_key": "...", "alpaca_secret": "..."  to augur_config.json, or create\n'
-            '  tools/.alpaca_keys.json  with  {"key": "...", "secret": "..."}')
+        raise SystemExit(alpaca_keys.HELP)
 
     tf_tag = TF_TAG.get(a.timeframe.lower())
     if not tf_tag:

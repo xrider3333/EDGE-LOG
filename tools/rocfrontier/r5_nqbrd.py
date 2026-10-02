@@ -46,6 +46,10 @@ def fetch_window(symbols, day, key, secret):
             params["asof"] = day[:7] + "-01"
         if token:
             params["page_token"] = token
+        # One account, five lanes share the 200/min cap. Paces every ATTEMPT: the retry
+        # below loops back here, and a retried request costs the account the same as a first try.
+        from augur_engine import alpaca_rate
+        alpaca_rate.wait()
         try:
             r = requests.get("https://data.alpaca.markets/v2/stocks/bars", headers=heads, params=params, timeout=60)
         except (requests.ConnectionError, requests.Timeout) as ex:   # dropped connection / read timeout: retried like a 5xx

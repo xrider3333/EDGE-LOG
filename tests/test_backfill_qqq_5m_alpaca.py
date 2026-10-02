@@ -8,7 +8,6 @@ boundaries (http_get, box_cache_df, ssh_fn, scp_fn).
 """
 import datetime
 import importlib.util
-import json
 import os
 
 import pandas as pd
@@ -28,85 +27,32 @@ bf = _load_tool("backfill_qqq_5m_alpaca")
 
 
 # ── key lookup ───────────────────────────────────────────────────────────────────────────
-@pytest.fixture(autouse=True)
-def _isolate_key_paths(monkeypatch, tmp_path):
-    """Every test starts with NONE of the real key sources reachable -- a leaked real key
-    on the machine running these tests (env, augur_config.json, tools/.alpaca_keys.json,
-    or a real C:\\EdgeLog\\secrets\\alpaca_keys.json) must never leak into a test's result."""
-    monkeypatch.delenv("ALPACA_API_KEY", raising=False)
-    monkeypatch.delenv("ALPACA_SECRET_KEY", raising=False)
-    monkeypatch.setattr(bf, "PREFERRED_KEYS_PATH", str(tmp_path / "no_such_secrets.json"))
-    monkeypatch.setattr(bf, "_AUGUR_CONFIG", str(tmp_path / "no_such_augur_config.json"))
-    monkeypatch.setattr(bf, "_TOOLS_ALPACA_KEYS", str(tmp_path / "no_such_tools_keys.json"))
-    yield
+# This file used to own a copy of the lookup, with its own order (the out-of-repo secrets
+# file ahead of the environment) and its own path constants. There is now ONE lookup,
+# augur_engine/alpaca_keys.py, and tests/test_alpaca_keys.py covers the order, the BOM, the
+# corrupt file and the registry fallback once. What is still this file's business is that it
+# delegates rather than re-deriving, and that a missing key stops the run cleanly.
+def test_load_keys_delegates_to_the_one_shared_lookup(monkeypatch):
+    from augur_engine import alpaca_keys
+    monkeypatch.setattr(alpaca_keys, "load_keys", lambda: ("SHARED_KEY", "SHARED_SECRET"))
+    assert bf.load_keys() == ("SHARED_KEY", "SHARED_SECRET")
+
+
+def test_no_second_lookup_is_left_behind_in_this_tool():
+    """A leftover local copy is how the orders drifted apart in the first place."""
+    src = open(os.path.join(_TOOLS, "backfill_qqq_5m_alpaca.py"), encoding="utf-8").read()
+    body = src[src.index("def load_keys"):]
+    body = body[:body.index(chr(10) + "def ")]
+    assert "os.environ" not in body and "json.load" not in body, (
+        "load_keys must call the shared module, not resolve anything itself")
+    assert "alpaca_keys.load_keys()" in body
 
 
 def test_load_keys_returns_none_when_nothing_is_configured():
-    assert bf.load_keys() == (None, None)
-
-
-def test_load_keys_prefers_the_outside_repo_secrets_file_over_everything_else(monkeypatch, tmp_path):
-    preferred = tmp_path / "secrets" / "alpaca_keys.json"
-    preferred.parent.mkdir(parents=True)
-    preferred.write_text(json.dumps({"key": "PREFERRED_KEY", "secret": "PREFERRED_SECRET"}))
-    monkeypatch.setattr(bf, "PREFERRED_KEYS_PATH", str(preferred))
-    # even with an env var ALSO set, the preferred file must win
-    monkeypatch.setenv("ALPACA_API_KEY", "ENV_KEY")
-    monkeypatch.setenv("ALPACA_SECRET_KEY", "ENV_SECRET")
-    assert bf.load_keys() == ("PREFERRED_KEY", "PREFERRED_SECRET")
-
-
-def test_load_keys_falls_back_to_env_then_augur_config_then_tools_keys(monkeypatch, tmp_path):
-    assert bf.load_keys() == (None, None)
-
-    monkeypatch.setenv("ALPACA_API_KEY", "ENV_KEY")
-    monkeypatch.setenv("ALPACA_SECRET_KEY", "ENV_SECRET")
-    assert bf.load_keys() == ("ENV_KEY", "ENV_SECRET")
-    monkeypatch.delenv("ALPACA_API_KEY", raising=False)
-    monkeypatch.delenv("ALPACA_SECRET_KEY", raising=False)
-
-    augur_cfg = tmp_path / "augur_config.json"
-    augur_cfg.write_text(json.dumps({"alpaca_key": "AUGUR_KEY", "alpaca_secret": "AUGUR_SECRET"}))
-    monkeypatch.setattr(bf, "_AUGUR_CONFIG", str(augur_cfg))
-    assert bf.load_keys() == ("AUGUR_KEY", "AUGUR_SECRET")
-
-    tools_keys = tmp_path / "tools_keys.json"
-    tools_keys.write_text(json.dumps({"key": "TOOLS_KEY", "secret": "TOOLS_SECRET"}))
-    monkeypatch.setattr(bf, "_TOOLS_ALPACA_KEYS", str(tools_keys))
-    # augur_config.json still present -- it must still win over tools/.alpaca_keys.json
-    assert bf.load_keys() == ("AUGUR_KEY", "AUGUR_SECRET")
-
-    monkeypatch.setattr(bf, "_AUGUR_CONFIG", str(tmp_path / "gone.json"))
-    assert bf.load_keys() == ("TOOLS_KEY", "TOOLS_SECRET")
-
-
-def test_load_keys_never_raises_on_a_corrupt_config_file(monkeypatch, tmp_path):
-    bad = tmp_path / "augur_config.json"
-    bad.write_text("{not valid json")
-    monkeypatch.setattr(bf, "_AUGUR_CONFIG", str(bad))
-    assert bf.load_keys() == (None, None)
-
-
-def test_load_keys_reads_a_bom_prefixed_secrets_file(monkeypatch, tmp_path):
-    """The owner's deploy_notes one-liner is a PowerShell `Set-Content -Encoding utf8`,
-    which on Windows PowerShell 5.1 writes a UTF-8 BOM. Before this fix, load_keys()
-    opened with encoding="utf-8", json.load raised "Unexpected UTF-8 BOM", the bare
-    except swallowed it, and the tool silently fell through to "No Alpaca key found" even
-    though the owner did exactly what they were told."""
-    preferred = tmp_path / "secrets" / "alpaca_keys.json"
-    preferred.parent.mkdir(parents=True)
-    payload = json.dumps({"key": "BOM_KEY", "secret": "BOM_SECRET"})
-    preferred.write_bytes(b"\xef\xbb\xbf" + payload.encode("utf-8"))   # UTF-8 BOM prefix
-    monkeypatch.setattr(bf, "PREFERRED_KEYS_PATH", str(preferred))
-    assert bf.load_keys() == ("BOM_KEY", "BOM_SECRET")
-
-
-def test_load_keys_reads_a_bom_prefixed_augur_config_and_tools_keys_file(monkeypatch, tmp_path):
-    augur_cfg = tmp_path / "augur_config.json"
-    payload = json.dumps({"alpaca_key": "AUGUR_KEY", "alpaca_secret": "AUGUR_SECRET"})
-    augur_cfg.write_bytes(b"\xef\xbb\xbf" + payload.encode("utf-8"))
-    monkeypatch.setattr(bf, "_AUGUR_CONFIG", str(augur_cfg))
-    assert bf.load_keys() == ("AUGUR_KEY", "AUGUR_SECRET")
+    """conftest's _isolate_alpaca_keys fixture is what makes this safe to assert on a
+    machine that HAS a real key in its user environment. `not any(...)` rather than
+    `== (None, None)` so a failure here can never print the key it found."""
+    assert not any(bf.load_keys()), "nothing configured must resolve to nothing"
 
 
 # ── session window ───────────────────────────────────────────────────────────────────────

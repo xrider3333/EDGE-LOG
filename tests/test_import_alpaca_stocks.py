@@ -124,25 +124,42 @@ def test_the_environment_is_read_first(monkeypatch):
     assert alp.load_keys() == ("ENV_KEY", "ENV_SECRET")
 
 
-def test_the_env_var_names_are_the_ones_the_rest_of_the_repo_uses():
-    """PAPER-WB's QQQ backfill and api/spy_daily.py already read these names. Renaming them
-    here would quietly break both, so this pins the agreement rather than leaving it to a
-    conversation nobody can find later."""
-    src = open(TOOL, encoding="utf-8").read()
-    assert "ALPACA_API_KEY" in src and "ALPACA_SECRET_KEY" in src
-    for other in ("tools/backfill_qqq_5m_alpaca.py", "api/spy_daily.py"):
-        text = open(os.path.join(ROOT, other), encoding="utf-8").read()
-        assert "ALPACA_API_KEY" in text and "ALPACA_SECRET_KEY" in text, (
-            f"{other} must read the same env-var names")
+def test_the_lookup_is_the_shared_one_not_a_local_copy(monkeypatch):
+    """Three tools had grown their own order. This one is where the others import from, so
+    it has to be the delegation and not the original."""
+    from augur_engine import alpaca_keys
+    monkeypatch.setattr(alpaca_keys, "load_keys", lambda: ("SHARED_KEY", "SHARED_SECRET"))
+    assert alp.load_keys() == ("SHARED_KEY", "SHARED_SECRET")
+
+
+def test_no_consumer_declares_an_env_var_name_of_its_own():
+    """The agreed names (ALPACA_API_KEY / ALPACA_SECRET_KEY, which is what the owner saved)
+    are now declared once, in augur_engine/alpaca_keys.py, and tests/test_alpaca_keys.py pins
+    them there. What is left to go wrong is a consumer reading its OWN variable - an
+    ALPACA_KEY or ALPACA_SECRET, say - which would work on whichever machine happened to have
+    that one set and fail silently everywhere else."""
+    from augur_engine import alpaca_keys
+    agreed = {alpaca_keys.ENV_KEY, alpaca_keys.ENV_SECRET}
+    import re
+    for rel in ("tools/import_alpaca_stocks.py", "tools/backfill_qqq_5m_alpaca.py",
+                "api/spy_daily.py", "tools/ttmsqz_r20c_stocks.py",
+                "tools/rocfrontier/r5_nqbrd.py", "tools/rocfrontier/r5_siporb.py",
+                "tools/rocfrontier/r8_transfer_etf.py"):
+        text = open(os.path.join(ROOT, *rel.split("/")), encoding="utf-8").read()
+        # only ENVIRONMENT reads - a module constant called ALPACA_CACHE is nobody's business
+        for name in re.findall(r"""(?:environ(?:\.get)?|getenv)\(?\[?["'](ALPACA_[A-Z_]+)["']""",
+                               text):
+            assert name in agreed, f"{rel} reads {name}, which nothing sets"
 
 
 def test_without_a_key_it_refuses_rather_than_guessing(monkeypatch, tmp_path):
-    monkeypatch.delenv("ALPACA_API_KEY", raising=False)
-    monkeypatch.delenv("ALPACA_SECRET_KEY", raising=False)
-    monkeypatch.setattr(alp, "ROOT", str(tmp_path))
+    """The sources are isolated by conftest's _isolate_alpaca_keys, which also covers the
+    registry the owner's key now lives in -- patching alp.ROOT, as this test used to, no
+    longer isolates anything, since the paths moved to the shared module. Asserted as
+    `not any(...)` so a failure cannot print a real key.
+    """
     monkeypatch.chdir(tmp_path)
-    key, secret = alp.load_keys()
-    assert key is None and secret is None
+    assert not any(alp.load_keys()), "nothing configured must resolve to nothing"
 
 
 def test_no_key_is_hardcoded_anywhere_in_the_tool():

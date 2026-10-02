@@ -64,6 +64,8 @@ def _http_get(url, heads, params):
     if SMOKE:
         raise SystemExit("network call during smoke")
     import requests
+    from augur_engine import alpaca_rate
+    alpaca_rate.wait()            # one account-wide pace: five lanes share the 200/min cap
     return requests.get(url, headers=heads, params=params, timeout=120)
 
 

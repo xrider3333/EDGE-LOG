@@ -49,6 +49,14 @@ tools/qqq_exec_smoke.py was isolated the same way in 550055c; this does it for e
    place_stock_order that blocks) and does not itself resolve the future before
    returning would otherwise leave every LATER test believing a send is still in
    flight, silently turning their own sends into instant BLOCKED-not-sent records.
+6. _isolate_alpaca_keys (autouse, 2026-10-02) starts every test with NO Alpaca key
+   reachable. The owner's key now lives in the Windows user environment, so
+   augur_engine/alpaca_keys.py reads HKCU\\Environment when os.environ lacks it -- which
+   means a test that asserts "with nothing configured the lookup finds nothing" would
+   find the real key on this machine, FAIL, and print the key into the pytest output as
+   the failing comparison's value. Env vars deleted, the JSON locations pointed at a
+   temp dir, and a stub winreg installed, so a test that wants the registry path builds
+   its own fake over the stub.
 """
 import errno
 import itertools
@@ -382,3 +390,59 @@ def _reset_fill_parity_caches():
     _clear()
     yield
     _clear()
+
+
+# ── 6. the Alpaca key: never the owner's real one ────────────────────────────────────────
+class _EmptyWinreg:
+    """A winreg that holds nothing. augur_engine.alpaca_keys does `import winreg` INSIDE its
+    lookup, so putting this in sys.modules is enough to make the registry source empty for
+    every test. A test exercising the registry path replaces it with its own fake."""
+    HKEY_CURRENT_USER = object()
+    KEY_READ = 0x20019
+    REG_SZ = 1
+
+    @staticmethod
+    def OpenKey(root, path, reserved=0, access=0):
+        raise OSError(2, "stubbed out in tests")
+
+    @staticmethod
+    def QueryValueEx(handle, name):
+        raise OSError(2, "stubbed out in tests")
+
+
+@pytest.fixture(autouse=True)
+def _isolate_alpaca_keys(monkeypatch, tmp_path):
+    try:
+        from augur_engine import alpaca_keys as ak
+    except ImportError:
+        yield
+        return
+    monkeypatch.delenv("ALPACA_API_KEY", raising=False)
+    monkeypatch.delenv("ALPACA_SECRET_KEY", raising=False)
+    nowhere = tmp_path / "no_alpaca_keys_here"
+    monkeypatch.setattr(ak, "JSON_SOURCES", (
+        (str(nowhere / "secrets.json"), "key", "secret"),
+        (str(nowhere / "augur_config.json"), "alpaca_key", "alpaca_secret"),
+        (str(nowhere / "tools_keys.json"), "key", "secret"),
+    ))
+    monkeypatch.setitem(sys.modules, "winreg", _EmptyWinreg)
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_alpaca_rate(monkeypatch, tmp_path):
+    """augur_engine/alpaca_rate.py paces every Alpaca request through one small file so the
+    five lanes sharing the account stay under its 200/min cap. Two consequences for tests:
+    the state file must not be the real one under EDGELOG_HOME (guard #2 blocks that write and
+    fails the test, which is how this was found), and no test may actually sit out a pace. A
+    private path plus an effectively infinite cap gives both, while still running the real
+    code - tests/test_alpaca_rate.py drives the limiting itself, with its own path and cap."""
+    try:
+        from augur_engine import alpaca_rate as ar
+    except ImportError:
+        yield
+        return
+    monkeypatch.setattr(ar, "state_path",
+                        lambda: str(tmp_path / "alpaca_rate" / "state.json"))
+    monkeypatch.setenv("ALPACA_RATE_PER_MIN", "1000000")
+    yield
