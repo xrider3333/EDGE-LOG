@@ -1,0 +1,86 @@
+PRE-REGISTRATION - ROUND 10: SPREAD r2 - intraday NQ vs ES relative strength, beta-neutral (a MISC hunt)
+=========================================================================================================
+Written 2026-10-02 by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (MANAGER, 2026-10-02 after the app restart:
+"pre-register and triage the next new family you'd rank highest after REVERT r2, on the NQ/ES/QQQ masters or the free
+daily files, and avoid the dead hunts; anything that clears goes to Auto-Validate") BEFORE any spread return was
+computed. Read beforehand, outcome-free only: bar coverage (3,746 sessions 2010-06-07 -> 2025-06-27 have all 78
+five-minute RTH bars on both markets' raw and roll-corrected masters: EARLY 1,510, WF 2,236; 122 partial sessions) and
+that roll-corrected minus raw is constant inside every one of those sessions (no contract switch inside a cash session).
+Harness: tools/rocfrontier/r10_spread.py. Results: C:\EdgeLog\_anatomy_cache\rocfrontier\r10\ and RESEARCH_LEDGER.md.
+Any change = a new file (r3).
+
+WHY THIS ONE. Held data is close to mined out (ledger 2.5, 2.12-2.24, 2.33, 2.38-2.41; the MISC, calendar, rotation,
+sector, trend and DIP hunts). One shape was never computed: the NQ-vs-ES first-hour strength spread was tested only as
+a ONE-SIDED NQ trade (leg scan M3, ledger 2.5: continuation positive in both windows, PF 1.17-1.47, cleared nothing)
+and the spread itself only at a daily horizon (SPREAD r1, ledger 2.24, dead). A HEDGED intraday version - which strips
+out the market move the one-sided trade carried - is new, and being market-neutral it is the one held-data shape whose
+returns could be uncorrelated with all four #463 legs (each of them directional). DISCLOSURE: the M3 one-sided numbers
+were seen; they motivate the side tested (continuation). The hedged P&L, the beta-neutral signal and every outcome below
+are unseen.
+
+MECHANISM. Tech-specific information and flows (mega-cap news, rate moves that hit long-duration tech, sector orders)
+move NQ against ES in the first hour. Large orders are worked through the day (order splitting, VWAP execution) and the
+information spreads slowly between the two index complexes, so the relative move continues from 10:30 to the close.
+Prediction: the 10:30-15:55 beta-neutral relative return has the sign of the 09:30-10:30 one, more so when the first
+hour's relative move is large. Control: the reversal mirror (intraday continuation beat reversion everywhere else).
+
+RULES
+- Data: the house 5-minute RTH masters on raw contract prices (source db_noadj_rth: NQ registry id 37, ES id 33),
+  stamped at bar START, clock US/Eastern. The roll-corrected twins (db_adj_rth: NQ 73, ES 63) serve only as a guard: a
+  session where roll-corrected minus raw is not constant on either market is skipped (a contract switch inside it).
+  Every array is cut to bars before 2025-06-30 BEFORE any signal is computed.
+- Eligible session: all 78 bars 09:30-15:55 present on both markets (early closes and gappy sessions skipped).
+- Beta: OLS slope (with intercept) of NQ's 5-minute returns on ES's, using the 77 returns inside each session
+  (close / previous close - 1 of consecutive bars; no overnight return) of the previous 60 eligible sessions; at least
+  40 needed, else no trade.
+- Signal at 10:30: s = rN - beta x rE, where rX = close of the 10:25 bar / open of the 09:30 bar - 1 (the first hour).
+  Scale = median |s| over the previous 60 eligible sessions (at least 40). Trade if s != 0 and |s| >= k x scale.
+- Hedge: h = beta x (NQ price x 20) / (ES price x 50), prices = the 10:25 bar's closes, rounded to 0.1 contract (in
+  practice ES plus MES, 1 ES = 10 MES), at least 0.1.
+- Trade (CONTINUATION, the side tested): s > 0 -> long 1 NQ and short h ES; s < 0 -> short 1 NQ and long h ES. Entry at
+  the open of the 10:30 bar on both markets, exit at the close of the 15:50 bar (15:55) on both. No stop.
+  P&L $ = side x [20 x (NQ exit - NQ entry) - 50 x h x (ES exit - ES entry)] - cost.
+- Cost per round trip (house rule): NQ 0.533 pt x $20 + h x ES 0.363 pt x $50; stress = +0.25 pt per contract per
+  market (NQ +$5, ES +h x $12.50).
+- Cells: k in {0, 1, 2} = 3 primary cells. Control, never a pass route: the reversal mirror (same days, opposite side).
+- Stretches: EARLY = the first eligible session -> 2016-06-30 (sign check only); WF = 2016-07-01 -> 2025-06-29.
+- Family-wide null: each eligible day's side is replaced by a fair coin (one coin per day, shared by the three k cells),
+  cost re-applied; statistic = the MAX over the 3 cells of the WF per-trade t; 500 reps, fixed seed.
+- Yardstick (owner rule 2026-09-28; house convention of 2026-10-01, BOOK.md 10r): ROC %/yr at a $30,000 worst drawdown
+  = 30 x MAR, with net and drawdown of the daily P&L (every eligible session, zeros included) inside the stretch and
+  years = (last day - first day) / 365.25; Sortino = mean / RMS of negative daily P&L x sqrt(252), zero days included.
+
+STAGE A (triage) - a cell passes only if ALL hold on WF:
+  a. >= 100 trades                          e. net > 0 at the stress cost
+  b. ROC @ $30k >= 15 %/yr                   f. profitable without its single biggest trade
+  c. profit factor >= 1.10                   g. positive in >= 60% of its WF calendar years
+  d. t >= 2.0 AND above the null max's 95th percentile      h. EARLY net > 0
+Reported, never a pass route: the WF daily correlation with each #463 leg and with the book; the correlation of the
+spread's P&L with ES's own 10:30-15:55 move (residual market exposure); the mean beta and h; the ten biggest WF days.
+
+STAGE A2 (book add, pre-lockbox): the Stage-A pass with the highest WF ROC @ $30k added to BOOK #463's daily P&L
+(C:\EdgeLog\_anatomy_cache\rocfrontier\r4\book463_daily.csv, mtm) on the WF stretch at c in {1, 2, 3} units; c = the
+best by book WF ROC @ $30k, then frozen. #463 alone must first reproduce 93.81 / Sortino 3.816 on this convention.
+Passes only if the book's WF ROC @ $30k >= 98.50 (1.05 x 93.81) AND its WF Sortino >= 3.816.
+
+STAGE C (house Auto-Validate, per the owner's 2026-09-30 ask; runs BEFORE the book lockbox read): a strategy file on
+the NQ 5-minute RTH master that loads the ES master itself and returns each spread trade priced in NQ points ($20 a
+point; the ES leg converted), with open ranges on k (0-3), the entry time (10:00-11:30), the exit time (15:00-15:55)
+and the beta window (20-120 sessions). The pre-registered cell must reproduce in the file to the cent first. ONE
+Auto-Validate on the runner at the 900-trial budget, pinned date_from / date_to, the house lockbox. Evidence plus the
+house's own lockbox verdict; then the RUNBOARD watch list with this lane's verdict.
+
+STAGE B (book lockbox, read ONCE; the frozen pre-registered cell and c, not the validate's tuned setting): book LB
+(2025-06-30 -> 2026-06-30 inclusive, this convention) ROC @ $30k >= 155.54 AND LB Sortino >= 4.150 AND the book's LB net
+without its single biggest trade > 0 AND the leg's own LB net > 0 on >= 50 LB trades. The READ flag is written only after
+the lockbox data has loaded and #463's own LB numbers reproduce. A pass goes to MANAGER for the owner's call; nothing is
+adopted here.
+
+Zero passes at any stage = SPREAD r2 dead; ledger + memory; the lockbox stays sealed for it.
+
+HOW IT COULD FOOL US. (1) Residual market exposure: beta is estimated, so a beta error turns the spread into a small
+directional bet that rides the house's known intraday momentum - the correlation with ES's own move is reported.
+(2) A few event days (mega-cap earnings mornings, CPI days with rate-driven tech moves) can dominate - f, g and the ten
+biggest days guard that. (3) Fractional h is ES plus MES in practice; the stress cost covers the micro's higher cost per
+contract. (4) The M3 one-sided read was seen (disclosed above). (5) Two legs pay cost every trade: k = 0 trades on
+nearly every WF session, so cost alone is about $30 a trade.
