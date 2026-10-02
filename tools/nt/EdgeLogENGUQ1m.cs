@@ -217,10 +217,45 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Print("ENGUQ resume: adopted the open trade - entry " + ep.ToString("F2")
                     + ", risk " + risk.ToString("F2") + ", stop " + sl.ToString("F2")
                     + ", trailing=" + trailActive);
-                ExitLongStopMarket(0, true, Position.Quantity,
+                Order mine = ExitLongStopMarket(0, true, Position.Quantity,
                     Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "");   // "" = any entry: an ADOPTED position has no entry signal, and NT silently ignores exits tied to one (live 2026-08-25)
+                CancelStaleStops(mine);
             }
             catch (Exception ex) { Print("ENGUQ resume failed: " + ex.Message); }
+        }
+
+        /// <summary>After adopting, cancel any sell stop on this instrument that THIS instance
+        /// did not place. When the PC goes to sleep or is switched off, the old instance never
+        /// gets a clean disable, so its GTC stop stays resting at the broker (seen 2026-10-02:
+        /// the dead instance's EQx stop was still working after NinjaTrader restarted). The
+        /// adopted trade then has two sell stops for one contract, and a fast move through both
+        /// would fill twice and leave the account SHORT. Only runs once our own stop has been
+        /// submitted, so the position is never left without one. Never throws.</summary>
+        private void CancelStaleStops(Order mine)
+        {
+            try
+            {
+                if (mine == null || Account == null) { Print("ENGUQ resume: own stop not confirmed - leaving any older stop in place"); return; }
+                string inst = Instrument != null ? Instrument.FullName : "";
+                var stale = new System.Collections.Generic.List<Order>();
+                lock (Account.Orders)
+                    foreach (Order o in Account.Orders)
+                    {
+                        if (o == null || o == mine || Orders.Contains(o)) continue;
+                        if (o.Instrument == null || o.Instrument.FullName != inst) continue;
+                        if (o.OrderAction != OrderAction.Sell) continue;
+                        if (o.OrderType != OrderType.StopMarket && o.OrderType != OrderType.StopLimit) continue;
+                        if (o.OrderState != OrderState.Working && o.OrderState != OrderState.Accepted
+                            && o.OrderState != OrderState.TriggerPending) continue;
+                        stale.Add(o);
+                    }
+                if (stale.Count == 0) return;
+                foreach (Order o in stale)
+                    Print("ENGUQ resume: cancelling a stop left by the previous instance - " + o.Name
+                        + " qty " + o.Quantity + " @ " + o.StopPrice.ToString("F2"));
+                Account.Cancel(stale);
+            }
+            catch (Exception ex) { Print("ENGUQ resume: stale-stop cleanup failed: " + ex.Message); }
         }
 
         protected override void OnStateChange()

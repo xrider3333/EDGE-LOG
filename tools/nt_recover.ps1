@@ -59,6 +59,56 @@ function Log($m){
   try { Add-Content -Path $logPath -Value $line -Encoding utf8 } catch {}
 }
 
+# ENGU-Q OVERNIGHT HOLDS (2026-10-02, owner: the PC is switched off at night ON PURPOSE).
+# ENGU-Q #335 holds across sessions, so a trade is regularly open when the PC goes off. The
+# strategy already knows how to pick it back up - it saves entry/risk/stop to
+# $enguqState and, started with StartBehavior=AdoptAccountPosition, re-arms its stop on the
+# first live bar (proven 2026-08-19). Two things had broken that: the grid row had drifted
+# back to WaitUntilFlat, and the open-position gate below refused to enable ANYTHING while
+# a position was open - so every overnight hold came back orphaned (09-30, 10-01). Now the
+# gate lets exactly one case through: the only open position is ENGU-Q's own saved trade.
+$enguqName  = 'EdgeLogENGUQ1m'
+$enguqState = 'C:\EdgeLog\enguq_state.json'
+
+# Returns $null when the open position is ENGU-Q's saved trade and safe to adopt,
+# otherwise a plain reason why not.
+function EnguqAdoptRefusal($posJson) {
+  try { $ps = @(($posJson | ConvertFrom-Json).positions) } catch { return "could not read the positions" }
+  if ($ps.Count -ne 1) { return "$($ps.Count) open positions (adopt handles exactly one)" }
+  $p = $ps[0]
+  if ("$($p.account)" -ne 'DEMO7240108') { return "the position is on $($p.account), not the demo account" }
+  if ("$($p.side)" -ne 'Long') { return "the position is $($p.side) and ENGU-Q only goes long" }
+  if (-not (Test-Path $enguqState)) { return "ENGU-Q has no saved trade file" }
+  try { $st = Get-Content $enguqState -Raw | ConvertFrom-Json } catch { return "ENGU-Q's saved trade file is unreadable" }
+  if (-not $st.inPos) { return "ENGU-Q's saved trade says flat, so this position is not its own" }
+  if ("$($st.instrument)" -ne "$($p.instrument)") { return "saved trade is $($st.instrument) but the position is $($p.instrument)" }
+  if ([int]$st.qty -ne [int]$p.qty) { return "saved trade is $($st.qty) contract(s) but the position is $($p.qty)" }
+  $ep = [double]$st.ep; $risk = [double]$st.risk; $sl = [double]$st.sl
+  if (-not ($ep -gt 0 -and $risk -gt 0 -and $sl -gt 0)) { return "ENGU-Q's saved trade numbers are incomplete" }
+  # The account's average price is the FILL; the saved entry is the engine's anchor (the
+  # signal close), so they differ by slippage - but never by more than the trade's risk.
+  if ([Math]::Abs([double]$p.avg_price - $ep) -gt $risk) { return "position price $($p.avg_price) is nowhere near the saved entry $ep" }
+  return $null
+}
+
+# Makes sure ENGU-Q's grid row starts with AdoptAccountPosition. Only possible while the
+# strategy is NOT running (the bridge refuses otherwise), which is exactly when this is
+# called. Returns $true when the row is (now) set to adopt.
+function EnsureEnguqAdopt {
+  try {
+    $pj = (Invoke-WebRequest -Uri "$bridge/strategy/params?name=$enguqName" -TimeoutSec 10 -UseBasicParsing).Content | ConvertFrom-Json
+    $sb = "$(@($pj.base_settings | Where-Object { $_.name -eq 'StartBehavior' })[0].value)"
+    if ($sb -eq 'AdoptAccountPosition') { return $true }
+    if ($WhatIf) { Log "[WhatIf] would set $enguqName StartBehavior $sb -> AdoptAccountPosition"; return $false }
+    Log "$enguqName starts with $sb - setting AdoptAccountPosition so an overnight hold survives a restart"
+    Invoke-WebRequest -Uri "$bridge/strategy/setparam?name=$enguqName&param=StartBehavior&value=AdoptAccountPosition" -Method POST -TimeoutSec 10 -UseBasicParsing | Out-Null
+    $pj = (Invoke-WebRequest -Uri "$bridge/strategy/params?name=$enguqName" -TimeoutSec 10 -UseBasicParsing).Content | ConvertFrom-Json
+    $sb = "$(@($pj.base_settings | Where-Object { $_.name -eq 'StartBehavior' })[0].value)"
+    Log "  $enguqName StartBehavior is now $sb"
+    return ($sb -eq 'AdoptAccountPosition')
+  } catch { Log "WARN: could not read/set $enguqName StartBehavior: $_"; return $false }
+}
+
 # ROLL PAUSE (2026-09-15). tools/nt_rollover.py stops NinjaTrader on purpose to move the
 # strategies to the next futures contract (workspace + database are edited while it is
 # closed). Relaunching it in the middle of that edit would load half-rolled files, so the
@@ -377,13 +427,24 @@ Start-Sleep -Seconds 20
 # position here means a restart caught a live trade. That is a human-judgment moment:
 # report it loudly and stop rather than quietly enabling into a mismatch.
 $posJson = ""
+$adoptHold = $false
 try { $posJson = (Invoke-WebRequest -Uri "$bridge/positions" -TimeoutSec 8 -UseBasicParsing).Content } catch {}
 if ($posJson -and $posJson -notmatch '"positions"\s*:\s*\[\s*\]') {
-  Log "STOP: the account is holding a position while strategies are down:"
-  Log "  $posJson"
-  Log "Not enabling anything -- a strategy starting flat would leave this position unmanaged."
-  Log "Decide by hand: flatten it, or enable the strategy knowing it will not manage this trade."
-  exit 3
+  # The one exception (2026-10-02): the position is ENGU-Q's own saved overnight trade and
+  # ENGU-Q is not running - enable it with AdoptAccountPosition and it resumes the trade.
+  $why = EnguqAdoptRefusal $posJson
+  if (-not $why -and @(RealtimeNames) -notcontains $enguqName) {
+    Log "the account holds ENGU-Q's own saved trade: $posJson"
+    Log "enabling with adopt so ENGU-Q resumes managing it (entry, stop and trail from $enguqState)"
+    $adoptHold = $true
+  } else {
+    Log "STOP: the account is holding a position while strategies are down:"
+    Log "  $posJson"
+    if ($why) { Log "  not ENGU-Q's adoptable trade: $why" }
+    Log "Not enabling anything -- a strategy starting flat would leave this position unmanaged."
+    Log "Decide by hand: flatten it, or enable the strategy knowing it will not manage this trade."
+    exit 3
+  }
 }
 
 # ── 3c. CLEAR A STALE BREAKER LATCH ────────────────────────────────────────────────
@@ -435,6 +496,16 @@ do {
   $pending = @($pending | Where-Object { $loading -notcontains $_ })
   if ($pending.Count -eq 0) { Start-Sleep -Seconds 10; continue }
   foreach ($s in $pending) {
+    if ($s -eq $enguqName -and -not (EnsureEnguqAdopt)) {
+      if ($adoptHold) {
+        # Starting it any other way would leave its own trade unmanaged. The GTC stop at
+        # the broker still covers the position; a person has to decide.
+        Log "STOP: could not set $enguqName to adopt while it holds a trade - NOT enabling it"
+        $expected = @($expected | Where-Object { $_ -ne $enguqName })
+        continue
+      }
+      Log "  (account is flat, so starting $enguqName without adopt is harmless)"
+    }
     Log "enabling $s..."
     & $py $cli strategy enable --name $s --yes 2>&1 | ForEach-Object { Log "  [enable] $_" }
     Start-Sleep -Seconds 4
