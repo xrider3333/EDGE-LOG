@@ -15,7 +15,7 @@ Use two charts: a **1-minute NQ1!** and a **1-minute ES1!**. The alert was measu
    - Open the **Pine Editor**, choose **Open > New indicator**, delete the template text, and paste the whole of `CBU_ALERT_1_0.pine`.
    - Click **Save** (name it `EDGELOG CBU Alert`), then **Add to chart**.
    - Add it to the ES1! chart as well (Indicators > My scripts).
-2. Leave the settings at their defaults: range 1.2, body 0.7, volume 1.5, window 0930-1544. **Use 10-second data** is off by default, so the label's score reads out of 8. If your plan has seconds charts, tick it to get the full 9-point score that EDGE LOG records. The alert rule never uses it.
+2. Leave the settings at their defaults: moving average SMA, range 1.2, body 0.7, volume 1.5, window 0930-1544. The table's ticks are green for a hit and red for a miss (**Hit color** / **Miss color** / **NA color**), and **Table position** moves it (default bottom right, so it does not cover the Point Score table). **Use 10-second data** is off by default, so the label's score reads out of 8. If your plan has seconds charts, tick it to get the full 9-point score that EDGE LOG records. The alert rule never uses it.
 3. On each chart:
    - Click **Create Alert** and set Condition to `EDGELOG CBU Alert`.
    - Choose **Any alert() function call** and **Once per bar close**. Set up only this one alert per chart; adding the plain "CBU long" condition as well would alert you twice.
@@ -26,7 +26,7 @@ Use two charts: a **1-minute NQ1!** and a **1-minute ES1!**. The alert was measu
 
 - **A label above each alert candle:** `CBU 7/9`, a stop one tick under the candle's low, the breakeven level at +1R measured from the close, and "then ride".
 - **A table at the bottom right, for the last closed candle:** a tick or a cross for each condition, with the candle's range, body and volume against their minimums. The last line shows how many 5- and 30-minute bars are loaded.
-- **Warming up:** the alert cannot fire until both EMAs have 600 bars. For the 30-minute one that is about 13 trading days of history.
+- **Warming up:** the alert cannot fire until both moving averages have a full 200-bar window. For the 30-minute one that is about 4-5 trading days of history (with the EMA setting, 600 bars: about 13 days).
 - **How often:** expect about 3 alerts a day across the two charts. Usually it is 1; on a strong trend day it can be 9 or more.
 - **Once per run:** back-to-back qualifying candles alert once.
 

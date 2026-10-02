@@ -13,8 +13,9 @@
 //  THE RULE (all at the candle's close, New York time)
 //   1. Window: the candle starts 09:30-15:44 on a regular session (not a listed CME holiday).
 //   2. Context: the close is above
-//        - the 200 EMA of the last FINISHED 5-minute bar,
-//        - the 200 EMA of the last FINISHED 30-minute bar,
+//        - the 200 moving average of the last FINISHED 5-minute bar,
+//        - the 200 moving average of the last FINISHED 30-minute bar,
+//          (SMA by default, as in point score v1.2; the "Moving average" setting switches to EMA)
 //        - yesterday's regular-session high (point-score definition: the latest earlier regular
 //          session that is not a listed holiday; if that session is incomplete there is no level
 //          and no alert that day).
@@ -33,9 +34,9 @@
 //  (the B-ADJ button), one chart per market.
 //
 //  KNOWN LIMITS
-//   - The 5- and 30-minute EMAs need 600 bars of their own timeframe before they count (the
-//     30-minute one about 13 trading days). Until then no alert can fire; the table says
-//     "warming up".
+//   - The 5- and 30-minute averages need a full 200-bar window (SMA; the 30-minute one about
+//     4-5 trading days) or 600 bars (EMA; about 13 trading days) before they count. Until then
+//     no alert can fire; the table says "warming up".
 //   - The CME holiday list (HOL_FULL / HOL_EARLY) is the point score's and must be EXTENDED
 //     EACH DECEMBER (it must match CME_HOLIDAYS in tools/point_score.py).
 //   - The 10-second point of the score needs a plan with seconds timeframes, so "Use 10-second
@@ -57,7 +58,8 @@ rangeAtr = input.float(1.2, "Candle range (x ATR14)", minval = 0.0, step = 0.1, 
 bodyAtr  = input.float(0.7, "Candle body (x ATR14)", minval = 0.0, step = 0.1, group = G_R)
 volMult  = input.float(1.5, "Volume (x average of the 10 candles before)", minval = 0.0, step = 0.25, group = G_R)
 sigWin   = input.string("0930-1544", "Signal candles (New York time, start of candle, both ends included)", group = G_R)
-emaLen   = input.int(200, "EMA length", minval = 2, group = G_R)
+maType   = input.string("SMA", "Moving average", options = ["SMA", "EMA"], group = G_R, tooltip = "The 5- and 30-minute context lines (and the point score). SMA = a plain moving average, the default since the owner's correction of 2026-10-02; EMA = the line the alert was first measured on.")
+emaLen   = input.int(200, "Moving average length", minval = 2, group = G_R)
 
 tf10     = input.timeframe("10S", "10-second timeframe (point score only)", group = G_TF)
 use10    = input.bool(false, "Use 10-second data", group = G_TF, tooltip = "Only the point score's 10-second point uses it (off = that point is NA and the score reads x/8). Tick it only if your plan has seconds charts; the CBU rule never uses it.")
@@ -66,6 +68,7 @@ tf30     = input.timeframe("30", "30-minute timeframe", group = G_TF)
 
 showLbl  = input.bool(true, "Show labels", group = G_SH)
 showTbl  = input.bool(true, "Show the status table", group = G_SH)
+tblPos   = input.string("Bottom right", "Table position", options = ["Top left", "Top center", "Top right", "Middle left", "Middle center", "Middle right", "Bottom left", "Bottom center", "Bottom right"], group = G_SH, tooltip = "Bottom right by default, so it does not sit on top of the Point Score table (top right).")
 
 // -- Constants -----------------------------------------------------------------
 const string TZ       = "America/New_York"
@@ -85,9 +88,14 @@ color C_BORD = #363a45
 color C_HDR  = #262b34
 color C_TXT  = #e6e6e6
 color C_DIM  = #8a8f98
-color C_HIT  = #ffffff
-color C_MISS = #6b7078
+// Tick colours (owner 2026-10-02): a hit is a green tick, a miss a red cross, NA grey. EDGE LOG's mono
+// theme does not apply on TradingView. Change them in Settings.
+C_HIT  = input.color(color.green, "Hit color", group = G_SH, tooltip = "Colour of a hit (tick) in the table.")
+C_MISS = input.color(color.red, "Miss color", group = G_SH, tooltip = "Colour of a miss (cross) in the table.")
+C_NA   = input.color(color.gray, "NA color", group = G_SH, tooltip = "Colour of a point that could not be scored.")
+color C_WHITE = #ffffff
 
+int minBars = maType == "SMA" ? emaLen : MIN_BARS
 int sigFrom = int(str.tonumber(str.substring(sigWin, 0, 2))) * 60 + int(str.tonumber(str.substring(sigWin, 2, 4)))
 int sigTo   = int(str.tonumber(str.substring(sigWin, 5, 7))) * 60 + int(str.tonumber(str.substring(sigWin, 7, 9)))
 
@@ -101,17 +109,43 @@ f_ab(float c, float lvl) =>
 
 f_cnt(float x) => na(x) ? 0.0 : 1.0
 
-f_ltf() =>
+// The point's moving average of close (spec v1.2): SMA by default, EMA by setting. Both are computed on
+// every bar (ta.* functions must run on every bar) and one is picked.
+f_ma() =>
+    float s = ta.sma(close, emaLen)
     float e = ta.ema(close, emaLen)
-    bar_index >= MIN_BARS - 1 ? e : na
+    maType == "SMA" ? s : e
 
+// The average of the requested context, NA until that context has minBars bars (SMA: a full window;
+// EMA: 600). Evaluated INSIDE request.security / request.security_lower_tf, so bar_index is the
+// index of the foreign bar, and the average runs on the foreign series from its first bar.
+f_ltf() =>
+    float m = f_ma()
+    bar_index >= minBars - 1 ? m : na
+
+// Same, but one HTF bar back (used with lookahead_on so it never repaints), plus the number
+// of HTF bars up to and including that reference bar.
 f_htf() =>
-    float e = ta.ema(close, emaLen)
-    float g = bar_index >= MIN_BARS - 1 ? e : na
+    float m = f_ma()
+    float g = bar_index >= minBars - 1 ? m : na
     [g[1], float(bar_index)]
 
 f_px(float x) => na(x) ? "-" : str.tostring(x, format.mintick)
 f_ok(bool b) => b ? "✓" : "✗"
+// Table position (owner 2026-10-02): any of the nine spots on the chart.
+f_pos(string p) =>
+    switch p
+        "Top left"      => position.top_left
+        "Top center"    => position.top_center
+        "Top right"     => position.top_right
+        "Middle left"   => position.middle_left
+        "Middle center" => position.middle_center
+        "Middle right"  => position.middle_right
+        "Bottom left"   => position.bottom_left
+        "Bottom center" => position.bottom_center
+        "Bottom right"  => position.bottom_right
+        => position.top_right
+
 f_okc(bool b) => b ? C_HIT : C_MISS
 
 // -- Bar clock (New York time; bars are stamped at their START) -----------------
@@ -127,9 +161,9 @@ bool inRegSess  = not na(time(timeframe.period, REG_SESS, TZ))
 bool inRTH      = not isHolDay and inRegSess and minOfDay < REG_END
 bool isCloseBar = minOfDay == REG_END - 1 or (isEarlyDay and minOfDay == EARLY_LAST_MIN)
 
-// -- EMAs (point-score definitions) --------------------------------------------
-float emaRaw = ta.ema(close, emaLen)
-float ema1m  = bar_index >= MIN_BARS - 1 ? emaRaw : na
+// -- Moving averages (point-score definitions) ---------------------------------
+float emaRaw = f_ma()
+float ema1m  = bar_index >= minBars - 1 ? emaRaw : na
 
 array<float> arr10 = array.new_float(0)
 if use10 and timeframe.in_seconds() > timeframe.in_seconds(tf10)
@@ -286,25 +320,25 @@ if barstate.isconfirmed
     snap := array.from(okWin ? 1.0 : 0.0, ok5 ? 1.0 : 0.0, ok30 ? 1.0 : 0.0, okYH ? 1.0 : 0.0, okLvl ? 1.0 : 0.0, okRng ? 1.0 : 0.0, okBody ? 1.0 : 0.0, okVol ? 1.0 : 0.0, cbu ? 1.0 : 0.0, totL, mxL, lvlRef, okAtr ? (high - low) / atr14 : na, okAtr ? (close - open) / atr14 : na, (not na(vAvg10) and vAvg10 > 0) ? nz(volume) / vAvg10 : na, close)
     snapT := time
 
-var table tb = table.new(position.bottom_right, 2, 12, bgcolor = C_BG, border_color = C_BORD, border_width = 1, frame_color = C_BORD, frame_width = 1)
+var table tb = table.new(f_pos(tblPos), 2, 12, bgcolor = C_BG, border_color = C_BORD, border_width = 1, frame_color = C_BORD, frame_width = 1)
 if showTbl and barstate.islast
     string hdr = "CBU ALERT  " + (na(snapT) ? "(no closed candle yet)" : str.format_time(snapT, "yyyy-MM-dd HH:mm", TZ) + " NY") + "   C " + f_px(array.get(snap, 15))
     table.cell(tb, 0, 0, hdr, text_color = C_TXT, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
     table.cell(tb, 1, 0, "", bgcolor = C_HDR)
     table.merge_cells(tb, 0, 0, 1, 0)
     string tfNote = timeframe.period != "1" ? "WARNING: built for a 1-minute chart (this one is " + timeframe.period + ")" : "Long only. Fires once per run, at the candle's close."
-    table.cell(tb, 0, 1, tfNote, text_color = timeframe.period != "1" ? C_HIT : C_DIM, text_halign = text.align_left, text_size = size.small)
+    table.cell(tb, 0, 1, tfNote, text_color = timeframe.period != "1" ? C_WHITE : C_DIM, text_halign = text.align_left, text_size = size.small)
     table.cell(tb, 1, 1, "")
     table.merge_cells(tb, 0, 1, 1, 1)
-    array<string> names = array.from("In the window (" + sigWin + ", regular day)", "Above the 5-minute 200 EMA", "Above the 30-minute 200 EMA", "Above yesterday's high", "Fresh high of the day (09:30: premarket high)  " + f_px(array.get(snap, 11)), "Range >= " + str.tostring(rangeAtr) + " x ATR14  (" + (na(array.get(snap, 12)) ? "-" : str.tostring(array.get(snap, 12), "#.##")) + ")", "Green body >= " + str.tostring(bodyAtr) + " x ATR14  (" + (na(array.get(snap, 13)) ? "-" : str.tostring(array.get(snap, 13), "#.##")) + ")", "Volume >= " + str.tostring(volMult) + " x 10-candle avg  (" + (na(array.get(snap, 14)) ? "-" : str.tostring(array.get(snap, 14), "#.##")) + "x)")
+    array<string> names = array.from("In the window (" + sigWin + ", regular day)", "Above the 5-minute 200 " + maType, "Above the 30-minute 200 " + maType, "Above yesterday's high", "Fresh high of the day (09:30: premarket high)  " + f_px(array.get(snap, 11)), "Range >= " + str.tostring(rangeAtr) + " x ATR14  (" + (na(array.get(snap, 12)) ? "-" : str.tostring(array.get(snap, 12), "#.##")) + ")", "Green body >= " + str.tostring(bodyAtr) + " x ATR14  (" + (na(array.get(snap, 13)) ? "-" : str.tostring(array.get(snap, 13), "#.##")) + ")", "Volume >= " + str.tostring(volMult) + " x 10-candle avg  (" + (na(array.get(snap, 14)) ? "-" : str.tostring(array.get(snap, 14), "#.##")) + "x)")
     for i = 0 to 7
         bool b = array.get(snap, i) > 0.5
         table.cell(tb, 0, 2 + i, array.get(names, i), text_color = C_TXT, text_halign = text.align_left, text_size = size.small)
         table.cell(tb, 1, 2 + i, f_ok(b), text_color = f_okc(b), text_size = size.small)
     bool allOk = array.get(snap, 8) > 0.5
-    table.cell(tb, 0, 10, "CBU on this candle   |   point score " + (na(array.get(snap, 9)) ? "-" : str.tostring(int(array.get(snap, 9))) + "/" + str.tostring(int(array.get(snap, 10)))), text_color = C_HIT, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
+    table.cell(tb, 0, 10, "CBU on this candle   |   point score " + (na(array.get(snap, 9)) ? "-" : str.tostring(int(array.get(snap, 9))) + "/" + str.tostring(int(array.get(snap, 10)))), text_color = C_WHITE, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
     table.cell(tb, 1, 10, f_ok(allOk), text_color = f_okc(allOk), text_size = size.small, bgcolor = C_HDR)
-    string warm = "Bars loaded: 5m " + (na(n5) ? "n/a" : str.tostring(int(n5))) + (not na(n5) and n5 < MIN_BARS ? " (warming up)" : "") + " | 30m " + (na(n30) ? "n/a" : str.tostring(int(n30))) + (not na(n30) and n30 < MIN_BARS ? " (warming up)" : "")
-    table.cell(tb, 0, 11, warm, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
+    string warm = "Bars loaded: 5m " + (na(n5) ? "n/a" : str.tostring(int(n5))) + (not na(n5) and n5 < minBars ? " (warming up)" : "") + " | 30m " + (na(n30) ? "n/a" : str.tostring(int(n30))) + (not na(n30) and n30 < minBars ? " (warming up)" : "")
+    table.cell(tb, 0, 11, warm, text_color = (not na(n30) and n30 < minBars) ? C_NA : C_DIM, text_halign = text.align_left, text_size = size.small)
     table.cell(tb, 1, 11, "")
     table.merge_cells(tb, 0, 11, 1, 11)

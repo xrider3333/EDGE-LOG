@@ -1,7 +1,9 @@
 //@version=6
 // =============================================================================
 //  EDGELOG - POINT SCORE 1.0 -- the owner's 9-point score on the signal bar
-//  Pine port of docs/POINT_SCORE_SPEC.md (spec v1.1, "ps1.1") and of tools/point_score.py
+//  Pine port of docs/POINT_SCORE_SPEC.md (spec v1.2, "ps1.2") and of tools/point_score.py
+//  v1.2 (2026-10-02): the four "200" lines are a plain moving average (SMA) by default; the
+//  "Moving average" setting switches them to the EMA of v1.1.
 //
 //  WHAT IT IS
 //  At the CLOSE of every bar it scores the nine points from the spec, for the LONG
@@ -16,11 +18,13 @@
 //  30m EMAs run over 24-hour bars.
 //
 //  THE NINE POINTS (long; short mirrors each one with < in place of >)
-//   1-4  close above the 200 EMA of the 10-second / 1-minute / 5-minute / 30-minute bars
-//        - 1m  : ta.ema(close, 200) on this chart, includes the signal bar.
+//   1-4  close above the 200 moving average (SMA default, EMA setting) of the 10-second /
+//        1-minute / 5-minute / 30-minute bars
+//        - 1m  : the average of this chart's closes, includes the signal bar.
 //        - 10s : last 10-second bar inside the signal bar (request.security_lower_tf).
 //        - 5m / 30m : the HTF bar BEFORE the one holding the signal bar (non-repainting).
-//        - each EMA is NA until its own timeframe has 600 bars.
+//        - each average is NA until its own timeframe has a full 200-bar window (SMA) or 600
+//          bars (EMA).
 //   5-7  close above yesterday's regular-session low / close / high. Yesterday = the most
 //        recent earlier New York date that has regular-session bars (09:30 to 16:00) and is
 //        NOT a listed CME holiday (HOL_FULL below: a holiday's Globex stub is never a regular
@@ -49,8 +53,9 @@
 //   - The CME holiday list (HOL_FULL / HOL_EARLY below) must be EXTENDED EACH DECEMBER from the
 //     CME holiday calendar; it must match CME_HOLIDAYS in tools/point_score.py. A day missing
 //     from the list cannot give a wrong level: its stub fails the completeness test and reads NA.
-//   - The 30-minute EMA needs about 600 30-minute bars (about 13 trading days). A 1-minute
-//     chart on the Premium plan loads 20,000 bars, which only just reaches that. The
+//   - The 30-minute average needs 200 30-minute bars for the SMA (about 4-5 trading days) or about
+//     600 for the EMA (about 13 trading days). A 1-minute chart on the Premium plan loads 20,000
+//     bars, which only just reaches the EMA's 600. The
 //     table's bottom row shows how many bars each timeframe has; "warming up" = NA points.
 //   - 10-second bars need a TradingView plan with seconds timeframes (Premium or higher).
 //     TradingView may also only load 100,000 intrabars, so the oldest part of a long chart
@@ -71,7 +76,8 @@ G_MK = "Market and sessions"
 G_SH = "Display and alerts"
 
 sideIn    = input.string("Auto", "Side", options = ["Auto", "Long", "Short"], group = G_PT, tooltip = "Auto = long when the bar closes up (close >= open), short otherwise. Long / Short force one side for the labels and alerts. The table and the exported columns always carry BOTH sides.")
-emaLen    = input.int(200, "EMA length", minval = 2, group = G_PT, tooltip = "The spec uses 200.")
+maType    = input.string("SMA", "Moving average", options = ["SMA", "EMA"], group = G_PT, tooltip = "Spec v1.2: SMA (a plain moving average) is the default; EMA is the v1.1 line. EDGE LOG records which one a score used.")
+emaLen    = input.int(200, "Moving average length", minval = 2, group = G_PT, tooltip = "The spec uses 200.")
 
 tf10      = input.timeframe("10S", "10-second timeframe", group = G_TF)
 use10     = input.bool(true, "Use 10-second data", group = G_TF, tooltip = "Needs a TradingView plan with seconds timeframes (Premium or higher). Untick it if the script errors on your plan: the 10s point then shows NA.")
@@ -85,10 +91,11 @@ showTrend = input.bool(true, "Show trend point in the table", group = G_SH, tool
 labThr    = input.int(7, "Label threshold (points)", minval = 1, maxval = 9, group = G_SH)
 altThr    = input.int(8, "Alert threshold (points)", minval = 1, maxval = 9, group = G_SH)
 showLbl   = input.bool(true, "Show labels", group = G_SH)
+tblPos    = input.string("Top right", "Table position", options = ["Top left", "Top center", "Top right", "Middle left", "Middle center", "Middle right", "Bottom left", "Bottom center", "Bottom right"], group = G_SH)
 
 // -- Constants -----------------------------------------------------------------
 const string TZ      = "America/New_York"
-const int    MIN_BARS = 600        // spec: an EMA needs 600 bars of its own timeframe
+const int    MIN_BARS = 600        // spec: an EMA needs 600 bars of its own timeframe (an SMA: a full window)
 const int    GAP_MAX  = 7          // spec: the prior session must lie within 7 calendar days
 const int    DAY_MS   = 86400000
 const int    EARLY_LAST_MIN = 13 * 60 + 14   // spec: a listed early-close session ends with its 13:14 bar
@@ -108,10 +115,14 @@ color C_HDR   = #262b34
 color C_AUTO  = #2e343e
 color C_TXT   = #e6e6e6
 color C_DIM   = #8a8f98
-color C_HIT   = #ffffff
-color C_MISS  = #6b7078
-color C_NA    = #4b5058
+// Tick colours (owner 2026-10-02): a hit is a green tick, a miss a red cross, NA grey. EDGE LOG's mono
+// theme does not apply on TradingView. Change them in Settings.
+C_HIT  = input.color(color.green, "Hit color", group = G_SH, tooltip = "Colour of a hit (tick) in the table.")
+C_MISS = input.color(color.red, "Miss color", group = G_SH, tooltip = "Colour of a miss (cross) in the table.")
+C_NA   = input.color(color.gray, "NA color", group = G_SH, tooltip = "Colour of a point that could not be scored.")
+color C_WHITE = #ffffff
 
+int minBars = maType == "SMA" ? emaLen : MIN_BARS
 int winStartMin = mktIn == "Stocks - today from 04:00" ? 240 : 570
 // Minute of the day at which the regular session ends (the last 4 digits of "hhmm-hhmm").
 int sessEndMin  = int(str.tonumber(str.substring(regSess, 5, 7))) * 60 + int(str.tonumber(str.substring(regSess, 7, 9)))
@@ -127,30 +138,51 @@ f_ab(float c, float lvl, bool isLong) =>
 
 f_cnt(float x) => na(x) ? 0.0 : 1.0
 
-// EMA of the requested context, NA until that context has MIN_BARS bars.
-// Evaluated INSIDE request.security / request.security_lower_tf, so bar_index is the
-// index of the foreign bar, and ta.ema runs on the foreign series from its first bar.
-f_ltf() =>
+// The point's moving average of close (spec v1.2): SMA by default, EMA by setting. Both are computed on
+// every bar (ta.* functions must run on every bar) and one is picked.
+f_ma() =>
+    float s = ta.sma(close, emaLen)
     float e = ta.ema(close, emaLen)
-    bar_index >= MIN_BARS - 1 ? e : na
+    maType == "SMA" ? s : e
+
+// The average of the requested context, NA until that context has minBars bars (SMA: a full window;
+// EMA: 600). Evaluated INSIDE request.security / request.security_lower_tf, so bar_index is the
+// index of the foreign bar, and the average runs on the foreign series from its first bar.
+f_ltf() =>
+    float m = f_ma()
+    bar_index >= minBars - 1 ? m : na
 
 // Same, but one HTF bar back (used with lookahead_on so it never repaints), plus the number
 // of HTF bars up to and including that reference bar.
 f_htf() =>
-    float e = ta.ema(close, emaLen)
-    float g = bar_index >= MIN_BARS - 1 ? e : na
+    float m = f_ma()
+    float g = bar_index >= minBars - 1 ? m : na
     [g[1], float(bar_index)]
 
 // Table text helpers.
 f_px(float x) => na(x) ? "-" : str.tostring(x, format.mintick)
 f_int(float x) => na(x) ? "-" : str.tostring(int(x))
 f_mark(float h) => na(h) ? "NA" : (h > 0.5 ? "✓" : "✗")
+// Table position (owner 2026-10-02): any of the nine spots on the chart.
+f_pos(string p) =>
+    switch p
+        "Top left"      => position.top_left
+        "Top center"    => position.top_center
+        "Top right"     => position.top_right
+        "Middle left"   => position.middle_left
+        "Middle center" => position.middle_center
+        "Middle right"  => position.middle_right
+        "Bottom left"   => position.bottom_left
+        "Bottom center" => position.bottom_center
+        "Bottom right"  => position.bottom_right
+        => position.top_right
+
 f_col(float h) => na(h) ? C_NA : (h > 0.5 ? C_HIT : C_MISS)
 f_score(float tot, float mx) => str.tostring(int(tot)) + "/" + str.tostring(int(mx)) + (mx < 9 ? " (" + str.tostring(int(9 - mx)) + " NA)" : "")
-f_warm(string nm, float n) => nm + " " + (na(n) ? "n/a" : str.tostring(int(n))) + (not na(n) and n < MIN_BARS ? " (warming up)" : "")
+f_warm(string nm, float n) => nm + " " + (na(n) ? "n/a" : str.tostring(int(n))) + (not na(n) and n < minBars ? " (warming up)" : "")
 
 var array<string> KEYS = array.from("ma200_10s", "ma200_1m", "ma200_5m", "ma200_30m", "y_low", "y_close", "y_high", "big_body", "big_vol")
-var array<string> LBL  = array.from("Above/Below " + str.tostring(emaLen) + " EMA (10s)", "Above/Below " + str.tostring(emaLen) + " EMA (1m)", "Above/Below " + str.tostring(emaLen) + " EMA (5m)", "Above/Below " + str.tostring(emaLen) + " EMA (30m)", "Above/Below yesterday's low", "Above/Below yesterday's close", "Above/Below yesterday's high", "Largest body since today's low/high", "Largest volume since today's low/high")
+var array<string> LBL  = array.from("Above/Below " + str.tostring(emaLen) + " " + maType + " (10s)", "Above/Below " + str.tostring(emaLen) + " " + maType + " (1m)", "Above/Below " + str.tostring(emaLen) + " " + maType + " (5m)", "Above/Below " + str.tostring(emaLen) + " " + maType + " (30m)", "Above/Below yesterday's low", "Above/Below yesterday's close", "Above/Below yesterday's high", "Largest body since today's low/high", "Largest volume since today's low/high")
 
 // The keys of the hit points, as a JSON list body: "ma200_1m","y_low",...
 f_hits(array<float> hv) =>
@@ -176,9 +208,9 @@ bool inRTH    = not isHolDay and inRegSess and minOfDay < sessEndMin
 // A closing bar: the 15:59 bar (end of the regular session minus one minute), or the 13:14 bar on a listed early close.
 bool isCloseBar = minOfDay == sessEndMin - 1 or (isEarlyDay and minOfDay == EARLY_LAST_MIN)
 
-// -- Points 1-4: the four EMAs -------------------------------------------------
-float emaRaw = ta.ema(close, emaLen)
-float ema1m  = bar_index >= MIN_BARS - 1 ? emaRaw : na
+// -- Points 1-4: the four moving averages -------------------------------------
+float emaRaw = f_ma()
+float ema1m  = bar_index >= minBars - 1 ? emaRaw : na
 
 // 10s: last element of the 10-second EMA array for this 1-minute bar (an empty array, e.g. no
 // trades in the minute or no 10s history that far back, gives NA). request.* calls may sit in a
@@ -441,7 +473,7 @@ plot(n5,     title = "R n_5m",  display = display.data_window)
 plot(n30,    title = "R n_30m", display = display.data_window)
 
 // -- Table: the LAST CLOSED bar -------------------------------------------------
-var table tb = table.new(position.top_right, 4, 15, bgcolor = C_BG, border_color = C_BORD, border_width = 1, frame_color = C_BORD, frame_width = 1)
+var table tb = table.new(f_pos(tblPos), 4, 15, bgcolor = C_BG, border_color = C_BORD, border_width = 1, frame_color = C_BORD, frame_width = 1)
 if barstate.islast
     float snapSide = array.get(snapN, 6)
     bool  snapLong = snapSide > 0.5
@@ -456,7 +488,7 @@ if barstate.islast
 
     // row 1: warning when the chart is not 1-minute, else which side Auto picked
     string noteTxt = timeframe.period != "1" ? "WARNING: Point Score is defined on 1-minute bars (this chart is " + timeframe.period + ")" : (sideIn == "Auto" ? "Auto side: " + (snapLong ? "LONG (bar closed up)" : "SHORT (bar closed down)") : "Forced side: " + (snapLong ? "LONG" : "SHORT"))
-    table.cell(tb, 0, 1, noteTxt, text_color = timeframe.period != "1" ? C_HIT : C_DIM, text_halign = text.align_left, text_size = size.small)
+    table.cell(tb, 0, 1, noteTxt, text_color = timeframe.period != "1" ? C_WHITE : C_DIM, text_halign = text.align_left, text_size = size.small)
     table.cell(tb, 1, 1, "")
     table.cell(tb, 2, 1, "")
     table.cell(tb, 3, 1, "")
@@ -480,8 +512,8 @@ if barstate.islast
 
     // row 12: totals
     table.cell(tb, 0, 12, "Total (of the 9)", text_color = C_TXT, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
-    table.cell(tb, 1, 12, f_score(array.get(snapL, 10), array.get(snapL, 11)), text_color = C_HIT, text_size = size.small, bgcolor = snapLong ? C_AUTO : C_HDR)
-    table.cell(tb, 2, 12, f_score(array.get(snapS, 10), array.get(snapS, 11)), text_color = C_HIT, text_size = size.small, bgcolor = snapLong ? C_HDR : C_AUTO)
+    table.cell(tb, 1, 12, f_score(array.get(snapL, 10), array.get(snapL, 11)), text_color = C_WHITE, text_size = size.small, bgcolor = snapLong ? C_AUTO : C_HDR)
+    table.cell(tb, 2, 12, f_score(array.get(snapS, 10), array.get(snapS, 11)), text_color = C_WHITE, text_size = size.small, bgcolor = snapLong ? C_HDR : C_AUTO)
     table.cell(tb, 3, 12, "", bgcolor = C_HDR)
 
     // row 13: trend point (separate, never in the /9)
@@ -493,7 +525,7 @@ if barstate.islast
     table.cell(tb, 2, 13, showTrend ? f_mark(trs) : "", text_color = f_col(trs), text_size = size.small)
     table.cell(tb, 3, 13, trRef, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
 
-    // row 14: warm-up counts (an EMA point is NA until its timeframe has 600 bars)
+    // row 14: warm-up counts (an average's point is NA until its timeframe has minBars bars)
     string warmTxt = "Bars loaded: " + f_warm("1m", array.get(snapN, 0)) + " | " + f_warm("10s", array.get(snapN, 1)) + " | " + f_warm("5m", array.get(snapN, 2)) + " | " + f_warm("30m", array.get(snapN, 3))
     table.cell(tb, 0, 14, warmTxt, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
     table.cell(tb, 1, 14, "")
