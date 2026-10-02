@@ -24,7 +24,7 @@ Use two charts: a **1-minute NQ1!** and a **1-minute ES1!**. The alert was measu
 
 ## What you will see
 
-- **A label above each alert candle:** `CBU 7/9`, a stop one tick under the candle's low, the breakeven level at +1R measured from the close, and "then ride".
+- **A label above each alert candle:** a short `CBU 7/9`. Hover it for the detail: the time, the close, a stop one tick under the candle's low, the breakeven level at +1R measured from the close, and "then ride". The alert message carries the same detail.
 - **A table at the bottom right, for the last closed candle:** a tick or a cross for each condition, with the candle's range, body and volume against their minimums. The last line shows how many 5- and 30-minute bars are loaded.
 - **Warming up:** the alert cannot fire until both moving averages have a full 200-bar window. For the 30-minute one that is about 4-5 trading days of history (with the EMA setting, 600 bars: about 13 days).
 - **How often:** expect about 3 alerts a day across the two charts. Usually it is 1; on a strong trend day it can be 9 or more.
