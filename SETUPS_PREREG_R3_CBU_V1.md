@@ -343,3 +343,39 @@ direction, and they lose on #382-flat days.
 - CBU rules v1 found NOISE #382's trend days a third time, after rounds 1 and 2.
 - As a stand-alone strategy it is dead.
 - The alert check (section 8) stands. The owner's 5 answers can only choose which alert variant to keep.
+
+## 11. Owner answers and the final CBU alert (2026-10-02)
+
+**The owner's answers (via MANAGER, inbox #17):**
+
+1. A fresh new high counts. No held base is needed.
+2. Do not skip after 11:00; the alert runs all day.
+3. Yes, the 09:30 candle counts if it closes above the premarket high.
+4. Test every management variant. He leans to breakeven at +1 R, then ride. MANAGER is sending that exit
+   idea to ORB, NOISE and TTM as a separate test.
+5. Keep the 1.5x volume minimum.
+
+**What the answers settle:**
+
+- They pick the `any` + `day` alert variant from section 8: about 2.8 alerts a day across NQ and ES (median
+  1, 9 or more on the busiest tenth of days), catching 9 of the 13 examples.
+- They change nothing in sections 9-10. Run #481 failed, so CBU is an alert only, never an automated
+  strategy.
+
+**The final alert, CBU-Q 2.0 alert. Long, one-minute NQ and ES, decided at the candle's close:**
+
+1. **Context:** the candle closes 09:30-15:44 ET on a regular session (not an exchange holiday), and above:
+   - the 200 EMA of the last finished 5-minute bar;
+   - the 200 EMA of the last finished 30-minute bar;
+   - yesterday's regular-session high.
+2. **New high:** the close is above every regular-session high since 09:30. The 09:30 candle must instead
+   close above the premarket high (04:00-09:29).
+3. **Candle:** green. Its range is at least 1.2x, and its body at least 0.7x, the average one-minute true
+   range of the 14 candles before it.
+4. **Volume:** at least 1.5x the average of the 10 candles before it.
+5. **Firing:** a run of back-to-back qualifying candles fires once.
+6. **The message:** market, time, close, a stop one tick under the candle's low, and the +1 R breakeven
+   level, measured from the close.
+
+The reference code is `tools/cbu_v1_alerts.py`, the `any` + `day` variant. It replays every session, so any
+live alert can be checked against it.
