@@ -52,7 +52,7 @@ REAL is your real trades (NinjaTrader and Webull accounts). NT8 PAPER is the Nin
 | OPEN IN TV | Yes. | No. | No. |
 | TradingView snapshot link and PASTE box | Yes. | No. | No. |
 | POINTS (point score) | Yes, in the table and the panel. | No. | No. |
-| SHOULD HAVE TRADED | Being built now (setups you did not take, kept apart from P&L). | No. | No. |
+| SHOULD HAVE TRADED | Shipped in v73.971: setups you did not take, under the ledger, kept apart from P&L, with EL chart and points. | No. | No. |
 | Notes, grade, setup, tags | Yes, editable in place. | No. | No. |
 | Export | Import / export sits behind the settings gear. | None. | CSV button on the trade list. |
 | Board-only sections | Deposits strip, AI ASSESSMENT box, JOURNAL fold, NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL. | NinjaTrader detail, cross-engine reconcile, gate audit, daily reports, capture health, data feed warning. | Account, System fold (status, orders, readiness, integrity), Rails, event timeline, model reference. |
@@ -111,7 +111,7 @@ Phone, top to bottom:
 - SCORE, POINTS, grade, setup, timeframe, tags and notes, all editable in place.
 - The PASTE box for TradingView snapshot links, SNAPSHOT, OPEN IN TV, EDIT and DELETE in the panel.
 - IGNORE IN METRICS, NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL.
-- The JOURNAL fold, and the SHOULD HAVE TRADED section that is being built now.
+- The JOURNAL fold, and the SHOULD HAVE TRADED section (shipped in v73.971).
 - The SIMPLE / FULL table choice.
 
 **NT8 PAPER keeps:**
@@ -198,7 +198,7 @@ Already done and only listed for completeness: Webull's broker order file being 
 ## 5. Build order
 
 Each step is one ship (or one ship per board where marked). Each one leaves the app working. REAL goes first because this lane owns it and it is the board the owner uses most.
-Two pieces of in-flight REAL work should land before step 4: the SHOULD HAVE TRADED section, and the ledger chart work (timeframe that matches the ledger, TradingView-style pan and zoom-out, the point breakdown inside the chart view). The chart work touches the full viewer that all three boards share, so the shared trade panel in step 9 builds on top of it.
+Two pieces of REAL work landed in v73.971 (2026-10-02) and are the base for step 4: the SHOULD HAVE TRADED section, and the ledger chart work (timeframe that matches the ledger, TradingView-style pan and zoom-out, the point breakdown inside the chart view). The chart work touches the full viewer that all three boards share, so the shared trade panel in step 9 builds on top of it.
 
 | Step | What ships | Lane | Effort | What could break | How it is checked |
 |---|---|---|---|---|---|
