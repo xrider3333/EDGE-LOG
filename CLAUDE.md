@@ -445,6 +445,7 @@ shipped in v53.3 (an opening HTML tag missing its closing `>` immediately follow
   is missing, sets fee per contract x size, and reports a size/direction mismatch as `pdfFlags`).
   Fills pair per contract across the WHOLE statement (never restarted at New York midnight); a
   position opened before the statement or still open at its end goes to `pdfOpen`, never paired.
+- Ship also runs `tools/home_render_probe.py` when `index.html` changed (added 2026-10-02): HOME > REAL on laptop + phone, glass + paper, SIMPLE / FULL / FEED, with and without SHOULD HAVE TRADED entries, plus the trade-panel chart (zoom, DAY), the SHOULD HAVE TRADED panel, + ADD / SAVE and the paste box - fails on any throw, console.error, LOAD ERROR, missing row or phone page that scrolls sideways; its `--selftest` (six deliberately broken copies of index.html must FAIL) runs when the probe changed.
 
 ## Working style the user likes
 Iterative, version-bumped releases (`__version__`), each targeting specific bugs/features.

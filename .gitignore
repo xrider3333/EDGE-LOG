@@ -89,6 +89,9 @@ _paperprobe_dump.json
 _reportprobe_dump.json
 # import_tz_probe.py scratch page dir (self-cleaned; an interrupted run can leave one behind)
 _importtzprobe-*/
+# home_render_probe.py debug dump (HOMEPROBE_DUMP=1) and scratch page dir (self-cleaned)
+_homeprobe_dump.json
+_homeprobe_*/
 
 # exit_autopsy.py per-leg rich-trade cache (rebuilt from the engine any time)
 tools/_exit_cache/

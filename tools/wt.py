@@ -450,6 +450,38 @@ def cmd_ship(name, message):
             raise SystemExit('import time-zone gate SELF-TEST FAILED - the gate no longer catches '
                              'the pre-fix build - not pushing')
 
+    # HOME GATE (2026-10-02): HOME > REAL, the view the owner lands on, on a laptop and a phone. No
+    # other gate ever opened it, and it grew the SHOULD HAVE TRADED list and form, the paste box and
+    # EL's own chart with pan / zoom in v73.96x-v73.97x. home_render_probe.py seeds synthetic trades,
+    # SHOULD HAVE TRADED entries and packed trade bars (no network), renders 24 cases (laptop /
+    # phone x glass / paper x 0 / 2 entries x SIMPLE / FULL / FEED) and drives the trade panel chart,
+    # the SHOULD HAVE TRADED panel, + ADD / SAVE and the paste box; it fails on any throw,
+    # console.error or LOAD ERROR, a missing section or row, or a phone page that scrolls sideways.
+    # Only runs when index.html changed; its --selftest (does it still FAIL six deliberately broken
+    # copies of index.html?) runs when the probe itself changed. INCONCLUSIVE never blocks.
+    hp = os.path.join(wt, 'tools', 'home_render_probe.py')
+    if touched_index.strip() and os.path.isfile(hp):
+        r = subprocess.run([sys.executable, hp], cwd=wt, capture_output=True, text=True,
+                           encoding='utf-8', errors='replace')
+        out = (r.stdout or '') + (r.stderr or '')
+        verdict = [l for l in out.strip().splitlines() if l.startswith('HOMEPROBE:')]
+        print(verdict[-1] if verdict else '(HOME probe produced no output)')
+        if r.returncode == 1:
+            sys.stderr.write(out)
+            raise SystemExit('HOME render gate FAILED - not pushing')
+    touched_hp = run(['git', '-C', wt, 'diff', '--name-only', 'origin/main', '--',
+                      'tools/home_render_probe.py'], check=False)
+    if touched_hp.strip() and os.path.isfile(hp):
+        r = subprocess.run([sys.executable, hp, '--selftest'], cwd=wt, capture_output=True,
+                           text=True, encoding='utf-8', errors='replace')
+        out = (r.stdout or '') + (r.stderr or '')
+        last = [l for l in out.strip().splitlines() if l.startswith('SELFTEST:')]
+        print(last[-1] if last else '(HOME probe self-test produced no output)')
+        if r.returncode == 1:
+            sys.stderr.write(out)
+            raise SystemExit('HOME gate SELF-TEST FAILED - the gate no longer catches a deliberately '
+                             'broken build - not pushing')
+
     # FOURTH GATE: STUDIES row numbers must stay unique (2026-08-26). The render probe proves
     # the board DRAWS; it says nothing about the registry contract. Two sessions numbering rows
     # at the same time silently produced 27 collisions, and a row number is the board's permanent
