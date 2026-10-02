@@ -10,11 +10,11 @@ SIGNAL-BAR delta (pre-registered): 28 tagged, 1 untagged
   permutation (pre-registered, WITHIN session): 10.0% of 2,000 shuffles keep as much money as skip-unbacked (5 of 18 sessions hold >1 tagged trade)
   permutation (global, NOT the pre-registered null): 73.6%
 
-session cumulative delta (descriptive): 28 tagged, 1 untagged
+session cumulative delta (descriptive): 23 tagged, 6 untagged
   backed                     n  21  avg $ 1160.5  win 38.1%  total $   24,369
-  unbacked                   n   7  avg $ -451.4  win 28.6%  total $   -3,159
-  plain #304 (tagged trades): ROC@$30k  211.4%  Sortino  7.48  DD $11,821
+  unbacked                   n   2  avg $   91.8  win 50.0%  total $      183
+  plain #304 (tagged trades): ROC@$30k  244.7%  Sortino  9.12  DD $11,821
   skip unbacked             : ROC@$30k  242.9%  Sortino  9.06  DD $11,821
-  permutation (pre-registered, WITHIN session): 49.4% of 2,000 shuffles keep as much money as skip-unbacked (5 of 18 sessions hold >1 tagged trade)
-  permutation (global, NOT the pre-registered null): 15.8%
+  permutation (pre-registered, WITHIN session): 50.5% of 2,000 shuffles keep as much money as skip-unbacked (4 of 16 sessions hold >1 tagged trade)
+  permutation (global, NOT the pre-registered null): 47.8%
 

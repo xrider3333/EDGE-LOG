@@ -7,6 +7,19 @@
 
 ---
 
+## 🧪 2026-10-02 — ROUND 68: breakeven at +1R on a bar close, then ride - dead on #382 and #422
+
+Owner idea via MANAGER (inbox #21, from the CBU review). Pre-registration `docs/PREREG_noise_r68_breakeven_2026-10-02.md`
+(29775900, before any breakeven trade), triage `tools/r68_noise_breakeven_triage.py` -> `r37_results/r68_breakeven.txt`.
+When a bar closes with the trade 1R up (R = fill to its own initial stop), the stop moves to the fill price and the trade
+rides to its normal exit; re-simulated inside the strategy, each leg keeping its own size rule, the rebuilt legs
+reproducing NOISE_1_8_CT304 (#382) and CT304H (#422) trade for trade first. **DEAD on both legs:** walk-forward ROC at a
+$30k drawdown and Sortino fall a little (#382 80.2 -> 79.3, Sortino 3.87 -> 3.83; #422 84.6 -> 83.9, 4.49 -> 4.45); only
+the lockbox improves (85.7 -> 87.8; 118.1 -> 127.8), and the 1.5R neighbour does nothing. The move fires on 839 of 4,878
+trades but only 137 then exit at breakeven - NOISE's winners rarely come back to entry before the VWAP exit takes them.
+Same verdict, now on a close trigger, in dollars and on the traded legs, as round 52 (intrabar trigger, a wash) and run
+#374 (its own search chose no breakeven). Exits stay closed for this family.
+
 ## 🧪 2026-09-30 — ROUND 67: the break must clear the overnight high/low - dead
 
 Same owner ask (inbox #16). The overnight session is information NOISE never used (its band is anchored on the RTH open
@@ -67,7 +80,7 @@ pre-registration: skip-unbacked beats plain #304 on ROC at a $30k drawdown and S
 backed with under 5% of within-session shuffles matching, 50+ trades per bucket, profitable without its biggest trade.
 The capture fault above is the thing most likely to stall this: every session without delta is a session lost.
 
-**Audit 2026-09-30 evening (MANAGER inbox #16).** The 10-second stamps are bar END (92% of rebuilt 5-minute closes match the master exactly, 3% if read as START), the tags use only bars that end by the signal bar's close, and time zones come from UTC. Two fixes: the read is pinned to 2026-09-29 so it reproduces, and a PRICE GUARD drops sessions where the capture is not the master's contract (09-14 was already on December, ~298 points apart; 08-19 partly back-filled). Guarded: 29 trades, same conclusions (signal-bar tag no signal; cumulative delta 49% of within-session shuffles). The guard applies to the forward read too.
+**Audit 2026-09-30 evening (MANAGER inbox #16).** The 10-second stamps are bar END (92% of rebuilt 5-minute closes match the master exactly, 3% if read as START), the tags use only bars that end by the signal bar's close, and time zones come from UTC. Two fixes: the read is pinned to 2026-09-29 so it reproduces, and a PRICE GUARD drops sessions where the capture is not the master's contract (09-14 was already on December, ~298 points apart; 08-19 partly back-filled). Guarded: 29 trades, same conclusions (signal-bar tag no signal; cumulative delta 49% of within-session shuffles). The guard applies to the forward read too. *10-02 (PAPER-NT8 #20): capture rows with volume but no buy/sell split (sleep and back-fill windows) are now MISSING, not zero delta, and a tag whose window holds one is left untagged. 5 of the 7 cumulative 'unbacked' trades sat in such windows (09-23, 09-28); the other 2 made +$183, so the cumulative split had no history behind it at all. The signal-bar read is unchanged.*
 
 ## 🧪 2026-09-28 — ROUND 63: more alpha? Ten ideas, two pre-registered, both dead at triage
 

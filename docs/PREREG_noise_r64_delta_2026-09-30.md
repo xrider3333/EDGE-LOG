@@ -79,3 +79,10 @@ therefore had no historical support; it stays a forward shadow only because adde
 weight and the shadow costs nothing. Note for the forward read, unchanged criterion: with one or two NOISE trades per
 session, most sessions cannot be shuffled, so this null is strict (it only credits a tag that picks the better trade
 within a day) and criterion 2 will rarely pass by chance.
+
+## ADDENDUM 4 - 2026-10-02, data rule from PAPER-NT8 (inbox #20), before any forward trade is scored
+A capture row flagged rt=3, or with volume but buy_vol + sell_vol = 0, carries no delta (the PC slept and NinjaTrader
+back-filled bars without ticks); it is MISSING, not zero. Every read, the forward one included, now leaves a tag
+untagged when its window holds such a row (R64_MISSING_RULE=0 reproduces the earlier reads). Effect on the historical
+read (guarded): signal-bar tag unchanged; cumulative tag 23 tagged instead of 28 - five of its seven 'unbacked' trades
+sat in such windows, the remaining two made +$183. Nothing else changes.

@@ -1,0 +1,22 @@
+tape 2010-06-07 .. 2026-09-16, cost 0.533, $20/pt; ROC@30k = 30 x MAR with drawdown valued daily
+descriptive (#304 unsized): 4847 trades; the 1.0R move fired on 839 of 4878 trades; 137 exits at breakeven (net = -cost)
+
+NOISE #304 unsized (reference only)
+  crown exit                 WF 2805 tr ROC@30k  66.0% Sort 3.79 ( 36.6%/yr, DD $16,635) | LB 314 tr ROC@30k  87.3% Sort 2.86 ( 51.8%/yr, DD $17,782, ex-top $ 34,368) | tail $ 12,819
+  breakeven 1.0R             WF 2831 tr ROC@30k  65.2% Sort 3.75 ( 36.2%/yr, DD $16,671) | LB 314 tr ROC@30k  90.2% Sort 2.96 ( 53.5%/yr, DD $17,782, ex-top $ 36,103) | tail $ 12,819
+
+NOISE #382 (30-min gate 16/1.15, 2.0x) - rebuilt leg reproduces NOISE_1_8_CT304.py (4847 trades)
+  raw twin (crown exit)      WF 2805 tr ROC@30k  80.2% Sort 3.87 ( 55.9%/yr, DD $20,909) | LB 314 tr ROC@30k  85.7% Sort 2.62 ( 72.4%/yr, DD $25,327, ex-top $ 47,304) | tail $ 18,331
+  breakeven 1.0R             WF 2831 tr ROC@30k  79.3% Sort 3.83 ( 55.3%/yr, DD $20,909) | LB 314 tr ROC@30k  87.8% Sort 2.68 ( 74.1%/yr, DD $25,327, ex-top $ 49,054) | tail $ 18,331
+  breakeven 0.5R (neighbour) WF 2946 tr ROC@30k  75.2% Sort 3.76 ( 54.0%/yr, DD $21,567) | LB 328 tr ROC@30k  97.9% Sort 3.05 ( 82.7%/yr, DD $25,328, ex-top $ 57,594) | tail $ 13,830
+  breakeven 1.5R (neighbour) WF 2812 tr ROC@30k  79.9% Sort 3.85 ( 55.7%/yr, DD $20,909) | LB 314 tr ROC@30k  85.7% Sort 2.61 ( 72.3%/yr, DD $25,327, ex-top $ 47,239) | tail $ 18,331
+    -> breakeven 1.0R: FAILS (WF ROC@30k 79.3 <= twin 80.2; WF Sortino 3.83 <= twin 3.87; a neighbour does not agree (spike, not plateau))
+
+NOISE #422 (60-min gate 20/1.15, 1.75x) - rebuilt leg reproduces NOISE_1_8_CT304H.py (4847 trades)
+  raw twin (crown exit)      WF 2805 tr ROC@30k  84.6% Sort 4.49 ( 49.6%/yr, DD $17,590) | LB 314 tr ROC@30k 118.1% Sort 3.34 ( 67.2%/yr, DD $17,053, ex-top $ 49,756) | tail $ 15,376
+  breakeven 1.0R             WF 2831 tr ROC@30k  83.9% Sort 4.45 ( 49.2%/yr, DD $17,590) | LB 314 tr ROC@30k 127.8% Sort 3.43 ( 68.9%/yr, DD $16,173, ex-top $ 51,491) | tail $ 15,376
+  breakeven 0.5R (neighbour) WF 2946 tr ROC@30k  83.6% Sort 4.32 ( 47.9%/yr, DD $17,176) | LB 328 tr ROC@30k 126.5% Sort 3.72 ( 73.6%/yr, DD $17,449, ex-top $ 56,179) | tail $ 13,236
+  breakeven 1.5R (neighbour) WF 2812 tr ROC@30k  84.2% Sort 4.47 ( 49.4%/yr, DD $17,590) | LB 314 tr ROC@30k 118.0% Sort 3.33 ( 67.1%/yr, DD $17,053, ex-top $ 49,676) | tail $ 15,376
+    -> breakeven 1.0R: FAILS (WF ROC@30k 83.9 <= twin 84.6; WF Sortino 4.45 <= twin 4.49; a neighbour does not agree (spike, not plateau))
+
+BREAKEVEN AT +1R ON A CLOSE, on BOTH legs: DEAD - record it

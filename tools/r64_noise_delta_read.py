@@ -43,6 +43,14 @@ bar_delta = rth.groupby("T")["delta"].sum()
 rth["day"] = rth.end.dt.date
 rth["cum"] = rth.groupby("day")["delta"].cumsum()
 cum_at_bar_end = rth.groupby("T")["cum"].last()
+# MISSING ROWS (PAPER-NT8 #20, 2026-10-02): a row flagged rt=3, or with volume but no buy/sell split, has NO delta - it is
+# missing, not zero (sleep/back-fill windows). A tag whose window holds any such row is left untagged.
+# R64_MISSING_RULE=0 reproduces the reads recorded before this rule.
+rth["miss"] = (rth.rt == 3) | ((rth.volume > 0) & (rth.buy_vol + rth.sell_vol == 0))
+if os.environ.get("R64_MISSING_RULE", "1") == "0":
+    rth["miss"] = False
+bar_miss = rth.groupby("T")["miss"].any()
+cum_miss = rth.assign(m=rth.groupby("day")["miss"].cummax()).groupby("T")["m"].last()
 
 # ---- NOISE #304 crown trades on the 5-minute master ----------------------------------------------------------------
 sp = ilu.spec_from_file_location("n10_r64", os.path.join(ROOT, "augur_strategies", "NOISE_1_0.py"))
@@ -70,8 +78,8 @@ for x in tr:
     if sig.date() not in USABLE:
         continue
     side = int(np.sign(x[3]))
-    bd = bar_delta.get(sig, np.nan)
-    cd = cum_at_bar_end.get(sig, np.nan)
+    bd = np.nan if bar_miss.get(sig, False) else bar_delta.get(sig, np.nan)
+    cd = np.nan if cum_miss.get(sig, False) else cum_at_bar_end.get(sig, np.nan)
     rows.append(dict(sig=sig, day=sig.date(), side=side, pnl=float(x[2]) * M,
                      backed=(np.sign(bd) == side) if (np.isfinite(bd) and bd != 0) else None,
                      cum_backed=(np.sign(cd) == side) if (np.isfinite(cd) and cd != 0) else None))
