@@ -690,6 +690,10 @@ select option:checked{background:var(--bg3);color:var(--text)}
    width is left (the width:100% + max-width:0 pair), and the hm-s3 / hm-s2 / hm-s1 columns drop
    out in that order as the window narrows. */
 .hm-dtable.hm-simple{min-width:0}
+/* SHOULD HAVE TRADED form (HOME > REAL, under the ledger) */
+.hm-mf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;padding:8px 0 12px}
+.hm-mf-grid label{display:flex;flex-direction:column;gap:3px;font-size:9px;letter-spacing:1px;color:var(--text5);min-width:0}
+.hm-mf-grid input,.hm-mf-grid select,.hm-mf-grid textarea{background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font:inherit;font-size:12px;min-width:0;width:100%;box-sizing:border-box}
 .hm-dtable.hm-simple .hm-s-notes{width:100%;max-width:0;overflow:hidden}
 .hm-dtable.hm-simple .hm-s-ic{width:1%}
 /* the auto table layout squeezes a select down to its header's width - keep them readable */
@@ -829,7 +833,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.970';
+const VERSION='73.971';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -847,7 +851,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.969',date:'2026-10-01',notes:['SCORES: 1 trade from 2026-10-01 scored, 0 marked NA (no price data).']},{v:'73.965',date:'2026-09-30',notes:['PAPER: daily 10-second capture health line (bars and delta coverage), a NOISE #422 row, and the top-bar NT GATE chip now shows when its status is stale or the gate is PARTIAL and STALE.']},
+const CHANGELOG=[{v:'73.971',date:'2026-10-02',notes:['SHOULD HAVE TRADED. A new list on HOME, under the ledger, for setups you saw and did not take: the snapshot link, setup, symbol, date, entry time, side, optional entry, stop and target, and a note. It never counts in P&L or stats. Paste a snapshot link in the box and pick SHOULD HAVE TRADED, or use ADD. Futures entries get the EL chart and the point score from your PC, like a real trade.','THE LEDGER CHART OPENS ON THE TRADE TIMEFRAME. A trade marked 10s opens on 10-second bars, 5m on 5-minute bars, and so on. Chips switch between 10S, 1M, 5M and 15M.','PAN AND ZOOM. In the trade panel, drag the chart to pan and use the wheel or a pinch to zoom out; the minus, plus, TRADE and DAY buttons do the same on a phone. Double-click goes back to the trade.','POINTS IN THE CHART WINDOW. The full chart window (EXPAND) shows the point score, what the trade missed, any NA and the daily trend point, with every point and the price it was checked against.']},
+{v:'73.969',date:'2026-10-01',notes:['SCORES: 1 trade from 2026-10-01 scored, 0 marked NA (no price data).']},{v:'73.965',date:'2026-09-30',notes:['PAPER: daily 10-second capture health line (bars and delta coverage), a NOISE #422 row, and the top-bar NT GATE chip now shows when its status is stale or the gate is PARTIAL and STALE.']},
 {v:'73.959',date:'2026-09-30',notes:['SCORES: CLOSED THAT DAY now shows the close of the last bar before 16:00, not the first bar after the close (stocks were off by up to about 12 percent).','SCORES: MAE and MFE on MES and MNQ trades are now measured from 10-second bars between your entry and exit fills, so a flush after you were out no longer counts as heat (the 09-30 11:52 MNQ trade falls from 280 to 76 percent of risk).']},
 {v:'73.958',date:'2026-09-30',notes:['TRADING LOG IMPORT, PDF statement: a statement that does not end flat is no longer paired into trades. Its fills are listed and nothing is imported, because a position carried in and still open could turn into made-up trades the other way.','PDF statement: a trade that already matches its journal copy exactly is no longer taken over by a bigger trade that is missing a leg. The bigger trade is reported as a different size instead of the smaller one being saved twice.','PDF statement: an evening trade (entered at or after 6 pm New York) now gets the fee the statement charged for its trade date instead of $0.','PDF statement: trades it adds are saved under the statement account number, so a re-import never adds them again when the Settings account differs.','Contract sizes added for M2K, MYM, 6E and M6E. A statement fill for any contract without a known size is listed and not imported, instead of being priced like a stock.']},
 {v:'73.957',date:'2026-09-30',notes:['PASTE BOX ASKS BEFORE PUTTING A SNAPSHOT ON A FUTURES TRADE. A Webull stock trade can take up to 30 minutes to reach the journal, so a stock snapshot pasted right away used to land on your newest futures trade. Now the box asks: FILE ON that futures trade, pick another trade, or HOLD FOR A STOCK TRADE - a held link goes on the next stock trade that syncs (within a day).','UNDO after moving a pasted link now puts back the link it replaced, and a move is saved in one step.']},
@@ -2442,6 +2447,9 @@ let activeTab='home',activeChart='equity',chartTF='all',chartMode='pnl',spyOverl
 // homeQuery/homeStatsOpen/homeExtras/homeSheetId stay session-only (showAllCols on the
 // Trades tab is never persisted either, so this matches precedent).
 let homeRange='1M',homeChartMode='equity',homeFeedMode='trade',homeView='feed',homeStatsOpen=false,homeChip='ALL',homeQuery='',homeExtras=false,homeSheetId=null;
+// SHOULD HAVE TRADED (owner via MANAGER 2026-10-01): setups the owner saw and did not take, in their own
+// collection users/{uid}/missed_trades - never in `trades`, so never in P&L, stats or the equity curve.
+let missedTrades=[];
 // HOME LEDGER SIMPLE / FULL (owner ask via MANAGER 2026-09-27: the ledger row could not be seen
 //   without scrolling sideways). SIMPLE is the default: only the columns that fit HOME's column at
 //   laptop width (1366x768), no sideways scroll - everything else is in the row's detail sheet or in
@@ -4078,6 +4086,11 @@ function subscribeAll(uid){
   // TABS-NAV COLLAPSE: JOURNAL now also lives on HOME (window.hmShowJournal), so a live lessons
   //   update has to redraw HOME too, not just the retired standalone JOURNAL tab.
   unsubL=lessonRef.orderBy('createdAt','desc').onSnapshot(snap=>{lessons=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='journal'||activeTab==='home')renderApp();});
+  // SHOULD HAVE TRADED entries: a small collection, one listener (the PC merges each entry's point score)
+  if(window._unsubMissed)window._unsubMissed();
+  window._missedRef=db.collection('users').doc(uid).collection('missed_trades');
+  window._unsubMissed=window._missedRef.onSnapshot(snap=>{missedTrades=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='home')renderApp();},
+    err=>console.warn('missed_trades listener',err));
   btRef=db.collection('users').doc(uid).collection('backtests');
   if(unsubBT)unsubBT();
   // BOOT SPEED + LIVE TRUTH. One listener plus one one-shot read.
@@ -6823,12 +6836,33 @@ window.candleSVG=function(bars,overlays,markers,opts){
   const idxOf=(bars,ep,st)=>{if(ep==null||!bars.length)return -1;
     for(let i=bars.length-1;i>=0;i--){if(bars[i].ep<=ep)return (i===bars.length-1&&ep>=bars[i].ep+st)?-1:i;}
     return -1;};
+  // The bar sizes a published doc can draw (MANAGER 2026-10-01: the chart opens on the timeframe
+  // picked in the ledger): 10s and 30s from the 10-second capture, 1m and up built from the 1m bars.
+  // A ledger timeframe EL cannot draw opens on the nearest one (5s/15s -> 10s, 2h and up -> 1h).
+  const RT_TFS={'10s':['10s',1],'30s':['10s',3],'1m':['1m',1],'2m':['1m',2],'3m':['1m',3],'5m':['1m',5],
+    '10m':['1m',10],'15m':['1m',15],'30m':['1m',30],'1h':['1m',60]};
+  window._rtTfs=RT_TFS;
+  window._rtTfSec=v=>{const m=String(v||'').match(/^(\d+)\s*([smh])$/i);if(!m)return 60;return (+m[1])*({s:1,m:60,h:3600})[m[2].toLowerCase()];};
+  window._rtTfOf=v=>{const near={'5s':'10s','15s':'10s','2h':'1h','4h':'1h','Daily':'1h','Weekly':'1h'};
+    const f=(typeof tfList==='function'?tfList(v):[])[0];return f?(RT_TFS[f]?f:(near[f]||'1m')):'1m';};
+  // k bars of `st` seconds -> one bar, on clock boundaries (a 5m bar starts at :00, :05, ...)
+  const resample=(bars,st,k)=>{
+    if(k<=1)return bars;
+    const span=st*k,out=[];let cur=null;
+    bars.forEach(b=>{const b0=Math.floor(b.ep/span)*span;
+      if(!cur||cur.ep!==b0){cur={t:'',o:b.o,h:b.h,l:b.l,c:b.c,v:b.v,ep:b0};out.push(cur);}
+      else{if(b.h>cur.h)cur.h=b.h;if(b.l<cur.l)cur.l=b.l;cur.c=b.c;cur.v+=b.v;}});
+    const off=out.length?etOff(out[0].ep):0;out.forEach(b=>{b.t=etStr(b.ep,off,span<60);});
+    return out;
+  };
   window._rtBarsForTrade=async(x,tf)=>{
     if(!x||!x._tid)return null;
     const doc=await window._rtBarsDoc(x._tid);if(!doc)return null;
-    tf=(String(tf||'1m')==='10s')?'10s':'1m';
-    const pk=tf==='10s'?doc.b10s:doc.b1m;if(!pk)return null;
-    const st=+pk.step||(tf==='10s'?10:60),bars=unpack(pk,tf==='10s');if(!bars.length)return null;
+    tf=RT_TFS[String(tf||'1m')]?String(tf||'1m'):'1m';
+    const base=RT_TFS[tf][0],k=RT_TFS[tf][1];
+    const pk=base==='10s'?doc.b10s:doc.b1m;if(!pk)return null;
+    const st0=+pk.step||(base==='10s'?10:60),raw=unpack(pk,base==='10s');if(!raw.length)return null;
+    const bars=resample(raw,st0,k),st=st0*k;
     const ei=idxOf(bars,doc.entry&&doc.entry.t,st),xi=idxOf(bars,doc.exit&&doc.exit.t,st),sh=+pk.shift||0;
     return {bars:bars,entry_idx:ei>=0?ei:null,exit_idx:xi>=0?xi:null,overlays:{},tf:tf,src:'el',final:!!doc.complete,
       has10s:!!doc.b10s,shift:sh,entry_t:doc.entry&&doc.entry.t,exit_t:doc.exit&&doc.exit.t,
@@ -6838,68 +6872,128 @@ window.candleSVG=function(bars,overlays,markers,opts){
   // ── the compact chart in HOME's trade panel: 1M | 10S, EXPAND on a wide screen ──
   const svgCache={};   // last drawing per trade + bar size: a redraw of the panel shows it at once
   const esc=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-  window._rtSheetTf=window._rtSheetTf||'1m';
+  // The panel opens on the trade's own ledger timeframe; a chip you pick sticks for that trade.
+  window._rtSheetTfFor=window._rtSheetTfFor||{};
+  const rowOf=tid=>(window._hmCandleRows||[]).find(q=>String(q._tid)===String(tid))||null;
+  const sheetTf=(tid,x)=>window._rtSheetTfFor[tid]||(x&&x._tf)||'1m';
+  const btnCss='background:none;border:1px solid var(--border);color:var(--text3);border-radius:6px;padding:3px 9px;font-size:10px;letter-spacing:.8px;cursor:pointer;font-family:inherit';
   window._rtSheetCandlesHtml=tid=>{
-    const k=esc(tid),tf=window._rtSheetTf,cached=svgCache[tid+'|'+tf];
-    const chip=(v,l)=>'<button type="button" data-rtsheettf="'+v+'" style="background:'+(tf===v?'var(--bg2)':'none')+';border:0;color:'+(tf===v?'var(--text)':'var(--text4)')+';font-weight:'+(tf===v?'600':'400')+';border-radius:5px;padding:3px 9px;font-size:10px;letter-spacing:.8px;cursor:pointer;font-family:inherit">'+l+'</button>';
+    const x=rowOf(tid),k=esc(tid),tf=sheetTf(tid,x),cached=svgCache[tid+'|'+tf];
+    const opts=['10s','1m','5m','15m'];if(x&&x._tf&&opts.indexOf(x._tf)<0)opts.push(x._tf);
+    opts.sort((a,b)=>window._rtTfSec(a)-window._rtTfSec(b));
+    const chip=(v,l)=>'<button type="button" data-rtsheettf="'+v+'" title="'+(x&&x._tf===v?'the timeframe on this trade in the ledger':'draw it on '+l+' bars')+'" style="background:'+(tf===v?'var(--bg2)':'none')+';border:0;color:'+(tf===v?'var(--text)':'var(--text4)')+';font-weight:'+(tf===v?'600':'400')+';border-radius:5px;padding:3px 8px;font-size:10px;letter-spacing:.8px;cursor:pointer;font-family:inherit">'+l+'</button>';
     return '<div class="hm-sheet-candles" data-rtcandles="'+k+'" style="margin:0 0 16px">'
-      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span class="hm-micro" style="margin-right:auto">CHART</span>'
-      +'<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:7px;padding:2px">'+chip('1m','1M')+chip('10s','10S')+'</span>'
-      +(((window.innerWidth||1024)<600)?'':'<button type="button" data-rtcandlesexpand="'+k+'" title="open the full chart: zoom, pan, step through your trades, save a picture" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:6px;padding:3px 10px;font-size:10px;letter-spacing:.8px;cursor:pointer;font-family:inherit">EXPAND &#8599;</button>')
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap"><span class="hm-micro" style="margin-right:auto">CHART</span>'
+      +'<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:7px;padding:2px">'+opts.map(v=>chip(v,v.toUpperCase())).join('')+'</span>'
+      +(((window.innerWidth||1024)<600)?'':'<button type="button" data-rtcandlesexpand="'+k+'" title="open the full chart: zoom, pan, step through your trades, save a picture" style="'+btnCss+'">EXPAND &#8599;</button>')
       +'</div>'
-      +'<div data-rtcandlesbody style="min-height:120px;'+(cached?'':'display:flex;align-items:center;justify-content:center;')+'color:var(--text5);font-size:11px">'+(cached||'loading the candles&hellip;')+'</div>'
+      +'<div data-rtcandlesbody style="min-height:120px;touch-action:pan-y;user-select:none;-webkit-user-select:none;'+(cached?'':'display:flex;align-items:center;justify-content:center;')+'color:var(--text5);font-size:11px">'+(cached||'loading the candles&hellip;')+'</div>'
+      +'<div data-rtcandlesfoot style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:5px">'
+      +'<span data-rtcandlesinfo style="font-size:10px;line-height:1.5;color:var(--text5);flex:1 1 220px;min-width:0"></span>'
+      +'<span style="display:inline-flex;gap:4px;flex:0 0 auto">'
+      +'<button type="button" data-rtz="out" title="zoom out: more bars" style="'+btnCss+'">&minus;</button>'
+      +'<button type="button" data-rtz="in" title="zoom in: fewer bars" style="'+btnCss+'">+</button>'
+      +'<button type="button" data-rtz="trade" title="back to the trade" style="'+btnCss+'">TRADE</button>'
+      +'<button type="button" data-rtz="day" title="every bar in this chart: the whole session" style="'+btnCss+'">DAY</button>'
+      +'</span></div>'
       +'</div>';
   };
+  // Pan and zoom, TradingView-style (MANAGER 2026-10-01): drag = pan, wheel or pinch = zoom about
+  // the cursor, double-click = back to the trade; - / + / TRADE / DAY do the same on a phone. The doc
+  // holds the trade's whole session, so zooming out never costs a read. The view sticks per trade + size.
+  const rtView={};
   window._rtSheetCandlesFill=async el=>{
-    const tid=el.getAttribute('data-rtcandles'),body=el.querySelector('[data-rtcandlesbody]');
-    const rows=window._hmCandleRows||[],x=rows.find(q=>String(q._tid)===String(tid));
+    const tid=el.getAttribute('data-rtcandles'),body=el.querySelector('[data-rtcandlesbody]'),info=el.querySelector('[data-rtcandlesinfo]');
+    const x=rowOf(tid);
     if(!x||!body)return;
-    el.querySelectorAll('[data-rtsheettf]').forEach(b=>{b.onclick=e=>{e.stopPropagation();window._rtSheetTf=b.getAttribute('data-rtsheettf');
+    el.querySelectorAll('[data-rtsheettf]').forEach(b=>{b.onclick=e=>{e.stopPropagation();window._rtSheetTfFor[tid]=b.getAttribute('data-rtsheettf');
       const host=el.parentNode;if(!host)return;const tmp=document.createElement('div');tmp.innerHTML=window._rtSheetCandlesHtml(tid);
       const nu=tmp.firstChild;host.replaceChild(nu,el);window._rtSheetCandlesFill(nu);};});
     const ex=el.querySelector('[data-rtcandlesexpand]');
     if(ex)ex.onclick=e=>{e.stopPropagation();window._hmOpenCandles(tid,ex);};
-    const tf=window._rtSheetTf;
+    const tf=sheetTf(tid,x);
     let rb=null;try{rb=await window._rtBarsForTrade(x,tf);}catch(_e){}
     if(!document.body.contains(el))return;
     if(!rb){
       const d=window._rtBarsInMem(tid);
       body.style.display='flex';
-      body.innerHTML='<span style="text-align:center;padding:0 10px">'+(tf==='10s'&&d
-        ?'no 10-second bars for this trade - the NinjaTrader capture was not running then (it started 2026-06-23)'
-        :'the chart is not published yet - your PC adds it a few minutes after the trade syncs')+'</span>';
+      body.innerHTML='<span style="text-align:center;padding:0 10px">'+((tf==='10s'||tf==='30s')&&d
+        ?'no 10-second bars for this one - the NinjaTrader capture was not running then (it started 2026-06-23). Pick 1M.'
+        :(x._missed?'the chart is not published yet - your PC adds it a few minutes after you save the entry'
+          :'the chart is not published yet - your PC adds it a few minutes after the trade syncs'))+'</span>';
       return;}
     const n=rb.bars.length,e=(rb.entry_idx!=null)?rb.entry_idx:((rb.exit_idx!=null)?rb.exit_idx:0),xx=(rb.exit_idx!=null)?rb.exit_idx:e;
-    const pad=tf==='10s'?18:20,lo=Math.max(0,e-pad),hi=Math.min(n-1,xx+pad);
-    const mk={entryPrice:x._ep,exitPrice:x._xp,side:x._side,pnlUsd:x._usd};
-    if(rb.entry_idx!=null&&rb.entry_idx>=lo&&rb.entry_idx<=hi)mk.entryIdx=rb.entry_idx-lo;
-    if(rb.exit_idx!=null&&rb.exit_idx>=lo&&rb.exit_idx<=hi)mk.exitIdx=rb.exit_idx-lo;
-    if(mk.entryIdx!=null&&mk.exitIdx!=null){mk.shadeFrom=mk.entryIdx;mk.shadeTo=mk.exitIdx;}
-    const W=Math.max(300,Math.round(el.clientWidth||388)),H=Math.max(180,Math.min(260,Math.round(W*0.55)));
-    const geo=window.CANDLE_GEO;
+    const pad=window._rtTfSec(tf)<60?18:20,tradeV=[Math.max(0,e-pad),Math.min(n-1,xx+pad)];
+    const key=tid+'|'+tf,MIN=Math.min(8,n);
+    let v=(rtView[key]&&rtView[key][1]<n)?rtView[key]:tradeV.slice();
+    const entryPx=(x._ep!=null)?x._ep:((rb.entry_idx!=null)?rb.bars[rb.entry_idx].o:null);
     const inT=rb.entry_t?window._rtEtStr(rb.entry_t,true).slice(11):'',outT=rb.exit_t?window._rtEtStr(rb.exit_t,true).slice(11):'';
-    const html='<div class="hm-sheet-candles-svg">'+window.candleSVG(rb.bars.slice(lo,hi+1),{},mk,{width:W,height:H,xTicks:Math.max(3,Math.floor(W/95))})+'</div>'
-      +'<div style="font-size:10px;line-height:1.5;color:var(--text5);margin-top:5px">'+(inT?('in '+inT+' &rarr; out '+outT+' ET &middot; '):'')+'bars: '+rb.meta.master+'</div>';
-    window.CANDLE_GEO=geo;   // the full viewer's hover maths reads this - leave it as it was
-    svgCache[tid+'|'+tf]=html;
-    body.style.display='block';body.innerHTML=html;
-    const sv=body.querySelector('svg');if(sv){sv.style.width='100%';sv.style.height='auto';sv.style.display='block';}
+    const draw=()=>{
+      const lo=v[0],hi=v[1];
+      const mk={entryPrice:entryPx,exitPrice:x._xp,side:x._side,pnlUsd:x._usd};
+      if(rb.entry_idx!=null&&rb.entry_idx>=lo&&rb.entry_idx<=hi)mk.entryIdx=rb.entry_idx-lo;
+      if(!x._missed&&rb.exit_idx!=null&&rb.exit_idx>=lo&&rb.exit_idx<=hi)mk.exitIdx=rb.exit_idx-lo;
+      if(mk.entryIdx!=null&&mk.exitIdx!=null){mk.shadeFrom=mk.entryIdx;mk.shadeTo=mk.exitIdx;}
+      const W=Math.max(300,Math.round(el.clientWidth||388)),H=Math.max(180,Math.min(260,Math.round(W*0.55)));
+      const geo=window.CANDLE_GEO;
+      const html='<div class="hm-sheet-candles-svg">'+window.candleSVG(rb.bars.slice(lo,hi+1),{},mk,{width:W,height:H,xTicks:Math.max(3,Math.floor(W/95))})+'</div>';
+      window.CANDLE_GEO=geo;   // the full viewer's hover maths reads this - leave it as it was
+      svgCache[key]=html;
+      body.style.display='block';body.innerHTML=html;
+      const sv=body.querySelector('svg');if(sv){sv.style.width='100%';sv.style.height='auto';sv.style.display='block';sv.style.pointerEvents='none';}
+      if(info)info.innerHTML=(inT?((x._missed?'entry bar '+inT:'in '+inT+' &rarr; out '+outT)+' ET &middot; '):'')+(hi-lo+1)+' of '+n+' bars &middot; '
+        +(((window.innerWidth||1024)<600)?'drag to pan, pinch to zoom':'drag to pan, wheel to zoom, double-click for the trade')+' &middot; bars: '+rb.meta.master;
+    };
+    let raf=0;
+    const setV=(a,b)=>{let span=Math.max(MIN-1,Math.min(n-1,Math.round(b-a)));a=Math.round(a);
+      if(a<0)a=0;if(a+span>n-1)a=Math.max(0,n-1-span);v=[a,a+span];rtView[key]=v;
+      if(!raf)raf=requestAnimationFrame(()=>{raf=0;if(document.body.contains(el))draw();});};
+    const zoomAt=(f,frac)=>{const span=v[1]-v[0],ns=Math.max(MIN-1,Math.min(n-1,Math.round(span*f)));const anchor=v[0]+frac*span;setV(anchor-frac*ns,anchor-frac*ns+ns);};
+    draw();
+    el.querySelectorAll('[data-rtz]').forEach(b=>{b.onclick=ev=>{ev.stopPropagation();const z=b.getAttribute('data-rtz');
+      if(z==='out')zoomAt(1.6,0.5);else if(z==='in')zoomAt(1/1.6,0.5);else if(z==='trade')setV(tradeV[0],tradeV[1]);else setV(0,n-1);};});
+    const frac=cx=>{const r=body.getBoundingClientRect();return r.width?Math.max(0,Math.min(1,(cx-r.left)/r.width)):0.5;};
+    body.addEventListener('wheel',ev=>{ev.preventDefault();zoomAt(ev.deltaY<0?1/1.25:1.25,frac(ev.clientX));},{passive:false});
+    body.addEventListener('dblclick',ev=>{ev.preventDefault();setV(tradeV[0],tradeV[1]);});
+    const pts=new Map();let pan=null,pinch=null;
+    body.addEventListener('pointerdown',ev=>{pts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});try{body.setPointerCapture(ev.pointerId);}catch(_c){}
+      if(pts.size===1)pan={x:ev.clientX,v:v.slice()};
+      else if(pts.size===2){const a=[...pts.values()];pinch={d:Math.abs(a[0].x-a[1].x)||1,v:v.slice(),f:frac((a[0].x+a[1].x)/2)};pan=null;}});
+    body.addEventListener('pointermove',ev=>{if(!pts.has(ev.pointerId))return;pts.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+      const r=body.getBoundingClientRect();
+      if(pinch&&pts.size===2){const a=[...pts.values()],d=Math.abs(a[0].x-a[1].x)||1,span=pinch.v[1]-pinch.v[0];
+        const ns=Math.max(MIN-1,Math.min(n-1,Math.round(span*pinch.d/d))),anchor=pinch.v[0]+pinch.f*span;setV(anchor-pinch.f*ns,anchor-pinch.f*ns+ns);}
+      else if(pan&&r.width){const span=pan.v[1]-pan.v[0],sh=-(ev.clientX-pan.x)/r.width*(span+1);setV(pan.v[0]+sh,pan.v[0]+sh+span);}});
+    const up=ev=>{pts.delete(ev.pointerId);if(pts.size<2)pinch=null;if(pts.size===1){const a=[...pts.values()][0];pan={x:a.x,v:v.slice()};}if(!pts.size)pan=null;};
+    body.addEventListener('pointerup',up);body.addEventListener('pointercancel',up);
   };
   // the ledger's chart icon and the panel's EXPAND: the full viewer on a wide screen, the
   // trade panel (compact chart) on a phone
   window._hmOpenCandles=(tid,glyph)=>{
-    const rows=window._hmCandleRows||[],x=rows.find(q=>String(q._tid)===String(tid));
+    const all=window._hmCandleRows||[],x=all.find(q=>String(q._tid)===String(tid));
     if(!x)return;
-    if((window.innerWidth||1024)<600||!window._openTradeCandles){homeSheetId=String(tid);renderApp();return;}
+    if((window.innerWidth||1024)<600||!window._openTradeCandles){homeSheetId=x._missed?('missed:'+String(tid).slice(7)):String(tid);renderApp();return;}
+    const rows=all.filter(q=>!!q._missed===!!x._missed);
     window._openTradeCandles(x,glyph||null,{B:{},all:()=>rows,order:()=>rows});
   };
   // a REAL trade in the shape the candle viewer takes. Futures only until stock bars exist.
   window._hmCandleRow=t=>{
     const inst=_hmFutInst(t.symbol);if(!inst)return null;
     const hm=v=>String(v||'').slice(0,5);
-    return {_no:'RT:'+t.id,_tid:String(t.id),_rbars:1,_tf:'1m',_et:t.date+' '+hm(t.entryTime),_xt2:t.date+' '+hm(t.exitTime||t.entryTime),
+    return {_no:'RT:'+t.id,_tid:String(t.id),_rbars:1,_tf:window._rtTfOf(t.timeframe),_psT:t,_et:t.date+' '+hm(t.entryTime),_xt2:t.date+' '+hm(t.exitTime||t.entryTime),
       _ep:+t.entry,_xp:+t.exit,_side:(String(t.type).toUpperCase()==='SHORT')?'short':'long',_usd:+t.pnl||0,
       _label:String(t.symbol||'')+' '+String(t.type||'')+' '+t.date+' '+hm(t.entryTime),_srcLbl:'your trade',
+      _pb:{instrument:inst,timeframe:'1m',session:'eth',include_fresh:true}};
+  };
+  // a SHOULD HAVE TRADED entry in the same shape: its bars are trade_bars/missed_<id>, it has an
+  // entry bar but no exit, and it is never a trade (no P&L, never mixed into PREV / NEXT of trades)
+  window._hmMissedCandleRow=m=>{
+    const inst=_hmFutInst(m&&m.symbol);if(!inst||!m.date||!m.entryTime)return null;
+    const hm=String(m.entryTime).slice(0,5),px=(m.entry!=null&&m.entry!==''&&isFinite(+m.entry))?+m.entry:null;
+    const side=String(m.type||'').toUpperCase()==='SHORT'?'short':'long';
+    return {_no:'MS:'+m.id,_tid:'missed_'+m.id,_rbars:1,_missed:1,_tf:'1m',_psT:_hmMissedPtsHolder(m),_et:m.date+' '+hm,_xt2:m.date+' '+hm,
+      _ep:px,_xp:null,_side:side,_usd:0,
+      _label:'SHOULD HAVE TRADED '+String(m.symbol||'')+' '+side.toUpperCase()+' '+m.date+' '+hm,_srcLbl:'should have traded',
       _pb:{instrument:inst,timeframe:'1m',session:'eth',include_fresh:true}};
   };
 })();
@@ -7308,6 +7402,12 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
   };
 
   const _cndlAlive=()=>_cndl.api&&_cndl.api.modal&&document.body.contains(_cndl.api.modal);
+  // the POINTS breakdown inside the chart window (MANAGER 2026-10-01), for HOME trades and
+  // SHOULD HAVE TRADED entries that carry a point score; open / closed is remembered
+  const _cndlPts=x=>{if(!_cndlAlive())return;const box=_cndl.api.modal.querySelector('#cndl-pts');if(!box)return;
+    const h=(x&&x._psT&&window._hmPtsViewerHtml)?window._hmPtsViewerHtml(x._psT):'';
+    box.style.display=h?'block':'none';box.innerHTML=h;box.open=window._cndlPtsOpen!==false;
+    box.ontoggle=()=>{window._cndlPtsOpen=box.open;};};
 
   const _cndlTitle=t=>{if(!_cndlAlive())return;const el3=_cndl.api.modal.querySelector('div[style*="Bebas"]');if(el3)el3.textContent=t;};
 
@@ -7417,19 +7517,19 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       if(/^\d+\s*m$/i.test(tf))seen[tf]=1;});}catch(_tm){}
     seen[_curTf()]=1;
     if(x._qbars){seen['1m']=1;seen['5m']=1;}
-    if(x._rbars){seen['1m']=1;const _hb=_barsCache[x._no];if(!_hb||_hb.has10s!==false)seen['10s']=1;}
-    const _tk=t=>(String(t)==='10s')?0.1:_tfMin(t);
+    if(x._rbars){seen['1m']=1;seen['5m']=1;seen['15m']=1;if(x._tf)seen[x._tf]=1;const _hb=_barsCache[x._no];if(!_hb||_hb.has10s!==false)seen['10s']=1;}
+    const _tk=t=>window._rtTfSec?window._rtTfSec(t)/60:((String(t)==='10s')?0.1:_tfMin(t));
     return Object.keys(seen).sort((a,b)=>_tk(a)-_tk(b));
   };
   const _setTf=tf=>{
     if(!_cndl.x||!tf||tf===_curTf())return;
     const _x0=_cndl.x;
     // a real trade's own doc carries 1m and 10s; anything else asks the PC like PAPER does
-    if(_x0._rbars&&(tf==='1m'||tf==='10s')&&window._rtBarsForTrade&&(!_cndl.sess||_cndl.sess==='eth')){
+    if(_x0._rbars&&window._rtTfs&&window._rtTfs[tf]&&window._rtBarsForTrade&&(!_cndl.sess||_cndl.sess==='eth')){
       const seq0=_cndl.seq;
       window._rtBarsForTrade(_x0,tf).then(rb=>{
         if(!_cndlAlive()||_cndl.seq!==seq0||_cndl.x!==_x0)return;
-        if(!rb){if(tf==='10s'){_cndl.api.setSub('<span style="color:var(--text4)">no 10-second bars for this trade - the NinjaTrader capture was not running then</span>');return;}
+        if(!rb){if(tf==='10s'||tf==='30s'){_cndl.api.setSub('<span style="color:var(--text4)">no 10-second bars for this trade - the NinjaTrader capture was not running then</span>');return;}
           _cndlRefetch({timeframe:tf,pad_sessions:1},'SWITCHING TO '+String(tf).toUpperCase()+' BARS',false);return;}
         _cndl.tf=(tf==='1m')?null:tf;
         _cndl.r=rb;_cndl.yLock=null;_cndl.yZoom=1;_cndlZoomTrade(rb);_renderCandle();_syncCndlCtl();
@@ -7692,7 +7792,8 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       +'<button id="cndl-more" title="fetch more sessions of bars around this trade from your PC (dragging or zooming past the edge of the chart does this on its own)" style="'+bq+'">+ BARS</button>'
       +'<button id="cndl-sess" title="switch between regular hours (RTH) and the 24-hour session (ETH) - refetches this trade and its context on the other session" style="'+bq+'"></button>'
       +'<button id="cndl-auto" title="price scale" style="'+bq+'">AUTO</button>'
-      +'</div>');
+      +'</div>'
+      +'<details id="cndl-pts" style="display:none;flex:1 1 100%;min-width:0;border-top:1px solid var(--border2);padding-top:5px;margin-top:2px"></details>');
     // the shell sizes itself to its content, so ANY text change inside re-lays-out the chart.
     // A definite width stops that dead — and keeps the chart the same size trade to trade.
     try{const _sb=_cndl.api.modal.querySelector('#chart-sub');
@@ -7914,6 +8015,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     _cndl.x=x;_cndl.view=null;_cndl.yZoom=1;_cndl.yLock=null;_cndl.yView=null;_cndl.pad=1;_cndl.sess=null;_cndl.tf=null;_cndl.busy2=false;
 
     _cndlTitle(_cTitleOf(x));
+    _cndlPts(x);
 
     _syncCndlCtl();
 
@@ -7932,15 +8034,20 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       if(!_cndlAlive()||_cndl.seq!==seq)return;
       if(rb){_barsCache[x._no]=rb;x._marks=rb.marks||null;_cndl.r=rb;_cndlZoomTrade(rb);_renderCandle();_prefetchNeighbors(x);return;}
     }
-    // real trades read their own published doc (api/trade_bars.py); no doc yet -> ask the PC below
+    // real trades read their own published doc (api/trade_bars.py); no doc yet -> ask the PC below.
+    // It opens on the timeframe picked for the trade in the ledger (falls back to 1m if that size
+    // has no bars, e.g. 10s before the capture started).
     if(x._rbars&&window._rtBarsForTrade){
       if(!(window._rtBarsInMem&&window._rtBarsInMem(x._tid))){
         _cndl.api.setSvg('<svg viewBox="0 0 1080 8" style="display:block;height:6px"></svg>');
-        _cndl.api.setSub('<b style="color:var(--text3)">loading this trade&#39;s candles&hellip;</b>');
+        _cndl.api.setSub('<b style="color:var(--text3)">loading the candles&hellip;</b>');
       }
-      let rb=null;try{rb=await window._rtBarsForTrade(x,'1m');}catch(_eb){}
+      const tf0=x._tf||'1m';
+      let rb=null;try{rb=await window._rtBarsForTrade(x,tf0);if(!rb&&tf0!=='1m')rb=await window._rtBarsForTrade(x,'1m');}catch(_eb){}
       if(!_cndlAlive()||_cndl.seq!==seq)return;
-      if(rb){_barsCache[x._no]=rb;_cndl.r=rb;_cndlZoomTrade(rb);_renderCandle();_prefetchNeighbors(x);return;}
+      if(rb){if(x._ep==null&&rb.entry_idx!=null)x._ep=rb.bars[rb.entry_idx].o;
+        if(rb.tf==='1m')_barsCache[x._no]=rb;
+        _cndl.tf=(rb.tf&&rb.tf!=='1m')?rb.tf:null;_cndl.r=rb;_cndlZoomTrade(rb);_renderCandle();_syncCndlCtl();_prefetchNeighbors(x);return;}
     }
 
     const hit=_barsCache[x._no];
@@ -12225,6 +12332,7 @@ function _hmTagEditorHtml(t,pickerId,compact){
   </div>`;
 }
 function _hmSheetHtml(id){
+  if(String(id).startsWith('missed:'))return _hmMissedSheetHtml(String(id).slice(7));
   const t=trades.find(x=>String(x.id)===String(id));
   if(!t)return '';
   const runBals=_hmRunningBalances();
@@ -12581,6 +12689,8 @@ function _hmWireToolbar(root){
   if(pk)pk.onchange=()=>{const a=window._hmPasteAsk;if(a&&pk.value)window.hmFileChartLink(a.url,pk.value);};
   const ph=root.querySelector('#hm-paste-hold');
   if(ph)ph.onclick=()=>window.hmHoldChartLink();
+  const pms=root.querySelector('#hm-paste-missed');
+  if(pms)pms.onclick=()=>window.hmPasteToMissed();
   const hd=root.querySelector('#hm-hold-drop');
   if(hd)hd.onclick=()=>{_hmHoldSet(null);renderApp();};
   setTimeout(_hmCheckHold,0);
@@ -12618,11 +12728,177 @@ function _hmPasteMsg(html,withMove){
     const cur=String(window._hmPasteLast.id);
     mv='<select id="hm-paste-move" class="inline-sel" title="put this link on a different trade" style="max-width:220px"><option value="">move to another trade&hellip;</option>'
       +_hmNewestFirst(trades).slice(0,15).filter(t=>String(t.id)!==cur).map(t=>'<option value="'+_hmEsc(t.id)+'">'+_hmEsc(_hmTradeLbl(t))+(t.chartUrl?' (has a chart)':'')+'</option>').join('')+'</select>'
-      +'<button class="hm-ghostbtn" id="hm-paste-undo" style="padding:3px 9px">UNDO</button>';
+      +'<button class="hm-ghostbtn" id="hm-paste-undo" style="padding:3px 9px">UNDO</button>'
+      +'<button class="hm-ghostbtn" id="hm-paste-missed" style="padding:3px 9px" title="take it off that trade and file it as a setup you did not take">SHOULD HAVE TRADED</button>';
   }
   window._hmPasteNote='<span>'+html+'</span>'+mv+'<span id="hm-paste-x" title="dismiss" style="cursor:pointer;color:var(--text5)">&#10005;</span>';
   renderApp();
 }
+// ── SHOULD HAVE TRADED (owner via MANAGER 2026-10-01) ─────────────────────────────────────────────
+// A setup the owner saw and did not take: snapshot link, setup, symbol, date + entry time (ET), side,
+// optional entry / stop / target and a note, in users/{uid}/missed_trades. The PC (api/trade_bars.py)
+// publishes EL's chart to trade_bars/missed_<id> and merges the point score (ps1.1) onto the entry,
+// exactly as for a real trade. Nothing here ever touches `trades`, so P&L and stats never see it.
+function _hmMissedSorted(){return (missedTrades||[]).slice().sort((a,b)=>String((b.date||'')+' '+(b.entryTime||'')).localeCompare(String((a.date||'')+' '+(a.entryTime||''))));}
+function _hmMissedById(id){return (missedTrades||[]).find(m=>String(m.id)===String(id))||null;}
+// the stored score only counts while it was made for this date and time (an edit re-scores on the PC)
+function _hmMissedPtsHolder(m){
+  const p=m&&m.pointScore,ok=p&&String(p.fill||'').slice(0,16)===String(m.date||'')+' '+String(m.entryTime||'').slice(0,5);
+  return ok?m:{symbol:m?m.symbol:''};
+}
+function _hmMissedGlyph(m){
+  if(!_hmFutInst(m.symbol))return '';
+  return `<span class="hm-candle-glyph" data-hmmcandle="missed_${_hmEsc(m.id)}" role="button" tabindex="0" title="EL chart" style="cursor:pointer;display:inline-flex;vertical-align:middle;padding:2px 3px"><svg width="14" height="13" viewBox="0 0 14 13" aria-hidden="true"><path d="M3.5 1v11M10.5 2.5v9" stroke="currentColor" stroke-width="1"/><rect x="1.8" y="3.5" width="3.4" height="5.5" fill="currentColor"/><rect x="8.8" y="4.5" width="3.4" height="4.5" fill="none" stroke="currentColor" stroke-width="1"/></svg></span>`;
+}
+function _hmMissedSectionHtml(){
+  const list=_hmMissedSorted(),ed=window._hmMissedEdit;
+  const rows=list.map(m=>`<tr data-hmmissed="${_hmEsc(m.id)}" style="cursor:pointer">
+    <td>${_hmEsc(m.date||'--')}</td>
+    <td class="hm-s2">${_hmEsc(String(m.entryTime||'--').slice(0,5))}</td>
+    <td>${_hmEsc(m.symbol||'--')}</td>
+    <td><span class="hm-dir-badge ${m.type==='SHORT'?'short':'long'}">${m.type==='SHORT'?'SHORT':'LONG'}</span></td>
+    <td>${_hmEsc(m.setup||'--')}</td>
+    <td style="white-space:nowrap">${_hmPtsHtml(_hmMissedPtsHolder(m))}</td>
+    <td class="hm-icon-cell hm-s-ic" style="white-space:nowrap">${_hmMissedGlyph(m)}${m.url?`<a href="${_hmEsc(m.url)}" target="_blank" rel="noopener" class="clink" data-hmmlink="1" title="your TradingView snapshot">&#8599;</a>`:''}</td>
+    <td class="hm-notes-cell hm-s-notes hm-s1" title="${_hmEsc(m.note||'')}" style="color:var(--text4);white-space:nowrap;text-overflow:ellipsis">${_hmEsc(m.note||'')}</td>
+    <td class="hm-icon-cell hm-s-ic" data-hmmedit="${_hmEsc(m.id)}" title="edit">&#9998;</td>
+    <td class="hm-icon-cell hm-s-ic hm-s1" data-hmmdel="${_hmEsc(m.id)}" title="delete">&#10005;</td>
+  </tr>`).join('');
+  return `<div class="hm-missed" id="hm-missed" style="margin-top:20px">
+    <div class="hm-feed-head">
+      <div class="hm-micro">SHOULD HAVE TRADED${list.length?' &middot; '+list.length:''}</div>
+      <div class="hm-feed-controls"><button class="hm-ghostbtn${ed?' active':''}" id="hm-missed-add">${ed&&!ed.id?'&#9650; ADD':'＋ ADD'}</button></div>
+    </div>
+    <div style="font-size:10px;line-height:1.5;color:var(--text5);margin:2px 0 6px">Setups you saw and did not take. They are kept apart from your trades and never count in P&amp;L or stats. Paste a snapshot link in the box above and pick SHOULD HAVE TRADED, or add one here.</div>
+    ${ed?_hmMissedFormHtml(ed):''}
+    ${list.length?`<div class="hm-table-wrap"><table class="hm-dtable hm-simple"><thead><tr><th>DATE</th><th class="hm-s2">TIME</th><th>SYM</th><th>DIR</th><th>SETUP</th><th>POINTS</th><th class="hm-s-ic">CHART</th><th class="hm-s-notes hm-s1">NOTE</th><th class="hm-s-ic"></th><th class="hm-s-ic hm-s1"></th></tr></thead><tbody>${rows}</tbody></table></div>`:''}
+  </div>`;
+}
+function _hmMissedFormHtml(d){
+  const v=k=>_hmEsc(d[k]==null?'':String(d[k]));
+  const setups=(typeof customSetups!=='undefined'?customSetups:[]).filter(x=>x&&x!=='—');
+  return `<div class="hm-mf-grid" id="hm-missed-form">
+    <label style="grid-column:1/-1">SNAPSHOT LINK<input id="hmmf-url" data-hmmf="url" value="${v('url')}" placeholder="https://www.tradingview.com/x/..." autocomplete="off" spellcheck="false"></label>
+    <label>SETUP<input id="hmmf-setup" data-hmmf="setup" list="hmmf-setups" value="${v('setup')}" placeholder="CBU" autocomplete="off"><datalist id="hmmf-setups">${setups.map(x=>`<option value="${_hmEsc(x)}">`).join('')}</datalist></label>
+    <label>SYMBOL<input id="hmmf-symbol" data-hmmf="symbol" value="${v('symbol')}" placeholder="MNQ" autocomplete="off" spellcheck="false"></label>
+    <label>SIDE<select id="hmmf-type" data-hmmf="type"><option${d.type!=='SHORT'?' selected':''}>LONG</option><option${d.type==='SHORT'?' selected':''}>SHORT</option></select></label>
+    <label>DATE<input type="date" id="hmmf-date" data-hmmf="date" value="${v('date')}"></label>
+    <label title="the bar you would have entered on - the point score reads the candle that closed just before it">ENTRY TIME (ET)<input type="time" id="hmmf-time" data-hmmf="entryTime" value="${v('entryTime')}"></label>
+    <label>ENTRY (optional)<input type="number" step="any" id="hmmf-entry" data-hmmf="entry" value="${v('entry')}"></label>
+    <label>STOP (optional)<input type="number" step="any" id="hmmf-stop" data-hmmf="stop" value="${v('stop')}"></label>
+    <label>TARGET (optional)<input type="number" step="any" id="hmmf-target" data-hmmf="target" value="${v('target')}"></label>
+    <label style="grid-column:1/-1">NOTE<textarea id="hmmf-note" data-hmmf="note" rows="2">${v('note')}</textarea></label>
+    <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="hm-ghostbtn" id="hmmf-save">${d.id?'SAVE CHANGES':'SAVE'}</button>
+      <button class="hm-ghostbtn" id="hmmf-cancel">CANCEL</button>
+      <span id="hmmf-msg" style="font-size:10px;color:var(--text5);flex:1 1 220px">${d._msg?_hmEsc(d._msg):'Entry time is the bar you would have entered on. Your PC adds the chart and the point score for futures a few minutes after you save.'}</span>
+    </div>
+  </div>`;
+}
+// TradingView prefixes (CME_MINI:) and the continuous-contract suffix (MNQ1!) come off the symbol
+function _hmMissedSym(v){return String(v||'').trim().toUpperCase().replace(/^.*:/,'').replace(/\d*!$/,'');}
+async function _hmMissedSave(){
+  const d=Object.assign({},window._hmMissedEdit||{});
+  const num=k=>{const x=String(d[k]==null?'':d[k]).trim();return (x===''||!isFinite(+x))?null:+x;};
+  const out={url:String(d.url||'').trim(),setup:String(d.setup||'').trim(),symbol:_hmMissedSym(d.symbol),date:String(d.date||'').trim(),
+    entryTime:String(d.entryTime||'').trim().slice(0,5),type:d.type==='SHORT'?'SHORT':'LONG',entry:num('entry'),stop:num('stop'),target:num('target'),note:String(d.note||'')};
+  const bad=!out.symbol?'Add the symbol.':(!/^\d{4}-\d{2}-\d{2}$/.test(out.date)?'Add the date.':(!/^\d{2}:\d{2}$/.test(out.entryTime)?'Add the entry time (ET).'
+    :((out.url&&!/^https?:\/\/\S+$/i.test(out.url))?'The snapshot link is not a link.':'')));
+  if(bad){window._hmMissedEdit=Object.assign(d,{_msg:bad});renderApp();return;}
+  const ref=window._missedRef;if(!ref){window._hmMissedEdit=Object.assign(d,{_msg:'Sign in first.'});renderApp();return;}
+  const ts=firebase.firestore.FieldValue.serverTimestamp();
+  try{
+    if(d.id)await ref.doc(d.id).update(Object.assign(out,{updatedAt:ts}));
+    else await ref.add(Object.assign(out,{source:d.source||'form',createdAt:ts,updatedAt:ts}));
+  }catch(e){window._hmMissedEdit=Object.assign(d,{_msg:'Could not save: '+String(e&&e.message||e)});renderApp();return;}
+  window._hmMissedEdit=null;renderApp();
+}
+function _hmWireMissed(root){
+  const add=root.querySelector('#hm-missed-add');
+  if(add)add.onclick=()=>{window._hmMissedEdit=(window._hmMissedEdit&&!window._hmMissedEdit.id)?null:{type:'LONG',date:_hmEtKey(Date.now()).slice(0,10),source:'form'};renderApp();};
+  const f=root.querySelector('#hm-missed-form');
+  if(f){
+    f.querySelectorAll('[data-hmmf]').forEach(inp=>{const k=inp.dataset.hmmf;
+      const sync=()=>{window._hmMissedEdit=Object.assign(window._hmMissedEdit||{},{[k]:inp.value});};
+      inp.addEventListener('input',sync);inp.addEventListener('change',sync);});
+    const sv=f.querySelector('#hmmf-save');if(sv)sv.onclick=()=>_hmMissedSave();
+    const cc=f.querySelector('#hmmf-cancel');if(cc)cc.onclick=()=>{window._hmMissedEdit=null;renderApp();};
+  }
+  const sec=root.querySelector('#hm-missed');if(!sec)return;
+  sec.querySelectorAll('tr[data-hmmissed]').forEach(tr=>{tr.onclick=()=>{homeSheetId='missed:'+tr.dataset.hmmissed;renderApp();};});
+  sec.querySelectorAll('[data-hmmlink]').forEach(a=>{a.onclick=e=>e.stopPropagation();});
+  sec.querySelectorAll('[data-hmmcandle]').forEach(g=>{
+    g.onclick=e=>{e.stopPropagation();window._hmOpenCandles(g.dataset.hmmcandle,null);};
+    g.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();window._hmOpenCandles(g.dataset.hmmcandle,null);}};});
+  sec.querySelectorAll('[data-hmmedit]').forEach(td=>{td.onclick=e=>{e.stopPropagation();window.hmEditMissed(td.dataset.hmmedit);};});
+  sec.querySelectorAll('[data-hmmdel]').forEach(td=>{td.onclick=e=>{e.stopPropagation();window.hmDeleteMissed(td.dataset.hmmdel);};});
+}
+window.hmEditMissed=function(id){
+  const m=_hmMissedById(id);if(!m)return;
+  window._hmMissedEdit={id:m.id,url:m.url||'',setup:m.setup||'',symbol:m.symbol||'',date:m.date||'',entryTime:String(m.entryTime||'').slice(0,5),
+    type:m.type==='SHORT'?'SHORT':'LONG',entry:m.entry,stop:m.stop,target:m.target,note:m.note||''};
+  homeSheetId=null;renderApp();
+  setTimeout(()=>{const f=document.getElementById('hm-missed-form');if(f)f.scrollIntoView({behavior:'smooth',block:'center'});},60);
+};
+window.hmDeleteMissed=async function(id){
+  const m=_hmMissedById(id);if(!m||!window._missedRef)return;
+  if(!confirm('Delete this SHOULD HAVE TRADED entry ('+String(m.symbol||'')+' '+String(m.date||'')+' '+String(m.entryTime||'')+')?'))return;
+  try{await window._missedRef.doc(String(id)).delete();}catch(e){alert('Could not delete: '+String(e&&e.message||e));return;}
+  if(String(homeSheetId)==='missed:'+id)homeSheetId=null;
+  renderApp();
+};
+// the paste box hands its link to the form: taken back off the trade it was filed on, if any
+window.hmPasteToMissed=async function(){
+  const a=window._hmPasteAsk,l=window._hmPasteLast,url=a?a.url:(l?l.url:'');
+  if(!url)return;
+  if(!a&&l){try{await _hmChartWrites(l.prev||{[String(l.id)]:''});}catch(e){_hmPasteMsg('Could not take the link off that trade: '+_hmEsc(String(e&&e.message||e)));return;}}
+  window._hmPasteAsk=null;window._hmPasteLast=null;window._hmPasteNote=null;
+  window._hmMissedEdit={url:url,type:'LONG',date:_hmEtKey(Date.now()).slice(0,10),source:'paste'};
+  renderApp();
+  setTimeout(()=>{const f=document.getElementById('hm-missed-form');if(f){f.scrollIntoView({behavior:'smooth',block:'center'});const sy=document.getElementById('hmmf-symbol');if(sy)sy.focus({preventScroll:true});}},60);
+};
+function _hmMissedSheetHtml(id){
+  const m=_hmMissedById(id);if(!m)return '';
+  const px=v=>(v==null||v==='')?'--':String(v);
+  const rows=[['SETUP',m.setup||'--'],['SIDE',m.type==='SHORT'?'SHORT':'LONG'],['DATE',m.date||'--'],['ENTRY TIME',String(m.entryTime||'--').slice(0,5)+' ET'],
+    ['ENTRY',px(m.entry)],['STOP',px(m.stop)],['TARGET',px(m.target)],['ADDED FROM',m.source||'--']];
+  return `<button class="hm-sheet-close" id="hm-sheet-close" aria-label="Close">&#10005;</button>
+    <div class="hm-sheet-sym">${_hmEsc(m.symbol||'')}</div>
+    <div class="hm-sheet-sub">SHOULD HAVE TRADED &middot; ${m.type==='SHORT'?'SHORT':'LONG'} &middot; ${_hmEsc(m.date||'')} ${_hmEsc(String(m.entryTime||'').slice(0,5))} ET</div>
+    <div style="font-size:10px;line-height:1.5;color:var(--text5);margin:0 0 14px">A setup you did not take. It is not in your P&amp;L or stats.</div>
+    ${_hmFutInst(m.symbol)&&window._rtSheetCandlesHtml?window._rtSheetCandlesHtml('missed_'+m.id):'<div style="font-size:10px;color:var(--text5);margin:0 0 14px">Charts for stocks arrive once the free Alpaca key is saved.</div>'}
+    ${_hmPtsSheetHtml(_hmMissedPtsHolder(m))}
+    <div>${rows.map(r=>`<div class="hm-dl-row"><div class="dt">${_hmEsc(r[0])}</div><div class="dd">${_hmEsc(r[1])}</div></div>`).join('')}</div>
+    ${m.note?`<div class="hm-notes" style="white-space:pre-wrap;margin-top:10px">${_hmEsc(m.note)}</div>`:''}
+    <div class="hm-sheet-foot">
+      <button id="hm-msheet-edit">EDIT</button>
+      ${m.url?'<button id="hm-msheet-snap" title="your TradingView snapshot">SNAPSHOT &#8599;</button>':''}
+      <button id="hm-msheet-del">DELETE</button>
+    </div>`;
+}
+function _hmWireMissedSheet(sheetEl,id){
+  const m=_hmMissedById(id);if(!m)return;
+  const ed=sheetEl.querySelector('#hm-msheet-edit');if(ed)ed.onclick=()=>window.hmEditMissed(id);
+  const sn=sheetEl.querySelector('#hm-msheet-snap');if(sn)sn.onclick=()=>window.open(m.url,'_blank','noopener');
+  const dl=sheetEl.querySelector('#hm-msheet-del');if(dl)dl.onclick=()=>window.hmDeleteMissed(id);
+}
+// The POINTS breakdown for the chart window (window._openTradeCandles): one summary line with what the
+// trade missed and any NA, and every point with what it was checked against, in a two-column grid.
+window._hmPtsViewerHtml=function(t){
+  const p=_hmPts(t);if(!p)return '';
+  const c=_hmPtsColor(p),pts=p.points||[];
+  const miss=pts.filter(q=>q.hit===false).map(q=>String(q.label||q.k));
+  const na=pts.filter(q=>q.hit==null).map(q=>String(q.label||q.k));
+  const syn=(miss.length?'missed: '+miss.join('; '):'every point that could be checked was hit')+(na.length?' - NA: '+na.join('; '):'')
+    +(p.trend?' - daily trend (10th, not counted): '+_hmPtsLine(p.trend).mark:'');
+  const cell=(q,ten)=>{const l=_hmPtsLine(q),col=q.hit===true?'var(--green)':(q.hit===false?'var(--red)':'var(--text5)');
+    return `<div style="display:flex;gap:6px;align-items:baseline;min-width:0"><span style="color:${col};font-weight:700;min-width:16px">${l.mark}</span><span style="color:var(--text3)">${ten?'10th, not counted: ':''}${_hmEsc(l.label)}</span><span style="color:var(--text5);margin-left:auto;padding-left:8px;white-space:nowrap">${_hmEsc(l.det)}</span></div>`;};
+  return `<summary style="cursor:pointer;font-size:10px;color:var(--text4);display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;list-style:none">
+      <span class="hm-micro">POINTS</span><b style="color:${c};font-size:13px">${p.total}/${p.max}</b>
+      <span>signal candle ${_hmEsc(String(p.signal_bar||'').slice(11,16))} ET</span><span style="color:var(--text5)">${_hmEsc(syn)}</span></summary>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:3px 22px;font-size:10px;margin-top:6px">${pts.map(q=>cell(q,false)).join('')}${p.trend?cell(p.trend,true):''}</div>
+    <div style="font-size:10px;color:var(--text5);margin-top:5px">${_HM_PTS_CTX}</div>`;
+};
 // every chartUrl write of the paste box goes through one batch, so a move is all-or-nothing
 async function _hmChartWrites(map){
   const ids=Object.keys(map);
@@ -12638,6 +12914,7 @@ function _hmPasteAskMsg(url,t){
   window._hmPasteNote='<span>Which trade is this snapshot for? Your newest trade without a link is <b>'+lbl+'</b>, but a stock trade can take up to 30 minutes to reach the journal.</span>'
     +'<button class="hm-ghostbtn" id="hm-paste-file" style="padding:3px 9px">FILE ON '+lbl+'</button>'
     +'<button class="hm-ghostbtn" id="hm-paste-hold" style="padding:3px 9px" title="keep the link and put it on the next stock trade that reaches the journal">HOLD FOR A STOCK TRADE</button>'
+    +'<button class="hm-ghostbtn" id="hm-paste-missed" style="padding:3px 9px" title="a setup you saw and did not take">SHOULD HAVE TRADED</button>'
     +pick+'<span id="hm-paste-x" title="dismiss" style="cursor:pointer;color:var(--text5)">&#10005;</span>';
   renderApp();
 }
@@ -12647,6 +12924,8 @@ window.hmFileChartLink=async function(url,pickId){
   if(!/^https?:\/\/\S+$/i.test(url)){_hmPasteMsg('That is not a link - paste the snapshot link TradingView copies for you.');return;}
   const dup=trades.find(t=>String(t.chartUrl||'')===url);
   if(dup){_hmPasteMsg('That link is already on '+_hmEsc(_hmTradeLbl(dup))+'.');return;}
+  const mdup=(missedTrades||[]).find(m=>String(m.url||'')===url);
+  if(mdup){_hmPasteMsg('That link is already filed under SHOULD HAVE TRADED ('+_hmEsc(String(mdup.symbol||'')+' '+String(mdup.date||'')+' '+String(mdup.entryTime||''))+').');return;}
   const t=pickId?trades.find(x=>String(x.id)===String(pickId)):_hmChartlessTarget();
   if(!t){_hmPasteMsg('Every trade already has a chart link - open a trade and paste it in its chart box instead.');return;}
   if(!pickId&&_hmFutInst(t.symbol)){_hmPasteAskMsg(url,t);return;}
@@ -12899,7 +13178,8 @@ function _hmRenderHome(content){
   // the candle viewer's PREV / NEXT walk your futures trades in the order the ledger shows them
   try{window._hmCandleRows=(homeView==='table'?_hmApplySort(list):list).map(t=>window._hmCandleRow?window._hmCandleRow(t):null).filter(Boolean);
     const _seen=new Set(window._hmCandleRows.map(r=>r._tid));
-    trades.forEach(t=>{if(!_seen.has(String(t.id))){const r=window._hmCandleRow?window._hmCandleRow(t):null;if(r)window._hmCandleRows.push(r);}});}catch(_e){window._hmCandleRows=[];}
+    trades.forEach(t=>{if(!_seen.has(String(t.id))){const r=window._hmCandleRow?window._hmCandleRow(t):null;if(r)window._hmCandleRows.push(r);}});
+    _hmMissedSorted().forEach(m=>{const r=window._hmMissedCandleRow?window._hmMissedCandleRow(m):null;if(r)window._hmCandleRows.push(r);});}catch(_e){window._hmCandleRows=[];}
   content.innerHTML=`<div class="hm-wrap">
     <div class="hm-hero">
       <div class="hm-micro" id="hm-hero-label"></div>
@@ -12959,6 +13239,7 @@ function _hmRenderHome(content){
       </div>
     </div>
     <div id="hm-feed-container"></div>
+    ${_hmMissedSectionHtml()}
     ${_hmJournalSectionHtml()}
   </div>
   <div class="hm-backdrop" id="hm-backdrop"></div>
@@ -12974,6 +13255,7 @@ function _hmRenderHome(content){
   };});
   const viewBtn=content.querySelector('#hm-view-toggle');
   if(viewBtn)viewBtn.onclick=()=>{window._hmJumpPrevView=null;homeView=homeView==='table'?'feed':'table';renderApp();};
+  _hmWireMissed(content);
   const moreBtn=content.querySelector('#hm-morestats-toggle');
   if(moreBtn)moreBtn.onclick=()=>{homeStatsOpen=!homeStatsOpen;renderApp();};
   const searchEl=content.querySelector('#hm-search');
@@ -13098,6 +13380,7 @@ function _hmRenderHome(content){
     backdropEl.classList.add('open');
     const closeBtn=sheetEl.querySelector('#hm-sheet-close');
     if(closeBtn)closeBtn.onclick=()=>{homeSheetId=null;renderApp();};
+    if(String(homeSheetId).startsWith('missed:'))_hmWireMissedSheet(sheetEl,String(homeSheetId).slice(7));
     const editBtn=sheetEl.querySelector('#hm-sheet-edit');
     if(editBtn)editBtn.onclick=()=>{openEditModal(homeSheetId);};
     const chartBtn=sheetEl.querySelector('#hm-sheet-chart');
