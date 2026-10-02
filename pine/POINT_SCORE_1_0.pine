@@ -424,8 +424,8 @@ f_tip(array<float> hv, bool isL) =>
             h += (h == "" ? "" : ", ") + nm
         else
             m += (m == "" ? "" : ", ") + nm
-    float tr = array.get(hv, 9)
-    string trTxt = na(tr) ? "NA" : (tr > 0.5 ? "yes" : "no")
+    float trv = array.get(hv, 9)
+    string trTxt = na(trv) ? "NA" : (trv > 0.5 ? "yes" : "no")
     (isL ? "LONG " : "SHORT ") + f_sc(array.get(hv, 10), array.get(hv, 11)) + " (" + maType + ")\nHit: " + (h == "" ? "none" : h) + "\nMiss: " + (m == "" ? "none" : m) + (n == "" ? "" : "\nNA: " + n) + "\nTrend (not in the score): " + trTxt
 
 // -- Labels --------------------------------------------------------------------
@@ -513,15 +513,16 @@ if barstate.islast
         table.cell(tb, 5, 0, (snapLong ? "L " : "S ") + f_sc(array.get(sv, 10), array.get(sv, 11)) + oneMin, text_color = C_WHITE, text_size = size.small, bgcolor = C_HDR, tooltip = f_tip(sv, snapLong))
         for k = 4 to 8
             table.cell(tb, k - 4, 1, array.get(CMP, k), text_color = C_WHITE, text_size = size.small, bgcolor = f_col(array.get(sv, k)))
-        table.cell(tb, 5, 1, "trend", text_color = C_WHITE, text_size = size.tiny, bgcolor = f_col(array.get(sv, 9)))
+        if showTrend
+            table.cell(tb, 5, 1, "trend", text_color = C_WHITE, text_size = size.tiny, bgcolor = f_col(array.get(sv, 9)))
     else if layout == "Minimal"
         float tot = array.get(sv, 10)
         float mx  = array.get(sv, 11)
         color bc  = na(tot) or na(mx) ? C_NA : (tot >= labThr ? C_HIT : (mx > 0 and tot / mx < 0.5 ? C_MISS : C_NA))
         table.cell(tb, 0, 0, f_sc(tot, mx) + (snapLong ? " L" : " S") + oneMin, text_color = C_WHITE, text_size = size.normal, bgcolor = bc, tooltip = f_tip(sv, snapLong))
-        table.cell(tb, 1, 0, "trend", text_color = C_WHITE, text_size = size.tiny, bgcolor = f_col(array.get(sv, 9)))
+        if showTrend
+            table.cell(tb, 1, 0, "trend", text_color = C_WHITE, text_size = size.tiny, bgcolor = f_col(array.get(sv, 9)))
     else
-
         // row 0: title, bar time, close
         string hdrTxt = "POINT SCORE  " + (na(snapT) ? "(no closed bar yet)" : str.format_time(snapT, "yyyy-MM-dd HH:mm", TZ) + " NY") + "   C " + f_px(array.get(snapR, 13))
         table.cell(tb, 0, 0, hdrTxt, text_color = C_TXT, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
