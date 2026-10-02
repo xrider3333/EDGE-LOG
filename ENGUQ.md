@@ -1403,3 +1403,63 @@ open the file returns the parent's trade list exactly. The boolean fold cannot b
 the two shadow arms carry the crown's fourteen knobs with nothing drifting, take their `live_from`
 through the same mechanism as every other leg, and cannot reach NinjaTrader, the cloud signal path
 or the live gate - each checked by hand.
+
+### 2026-10-02 - round 66, initial risk width as the long-hold selector: FAILS, and it closes the entry-filter direction
+
+Pre-registered in `ENGUQ_R66_PREREG.md` (commit 156c29c8) before any hold length, survival rate or
+profit number was read. Research sibling `augur_strategies/ENGUQ_1M_ETH_R66_1_0.py`: the crown's
+file plus one entry test - the entry-to-swing-low distance must be at least `min_risk_atr` ATRs.
+Exits untouched.
+
+**This round answered the condition MANAGER set after round 65** - say in advance why a rule keeps
+the 35-day trade and drops ordinary survivors - with an argument from the exit rule rather than
+from data. The trail rides `trail_frac x risk` below the running high, fixed in points at entry.
+A trade therefore lives exactly as long as the market never retraces that distance, retracements
+scale with volatility, so survivable days increase with `risk / ATR` at the signal bar. The
+inverse experiment supported it: capping initial risk (`ENGUQ_1M_RC_1_0`) destroyed the edge,
+$453,532 down to -$75,905, and was written up as "ENGU-Q's profit LIVES in the wide stop".
+
+**Result against the raw twin, ADJ_NQ_1m_ETH, drawdown valued daily:**
+
+| | WF trades | WF ROC at $30k | WF Sortino | LB trades | LB ROC at $30k | LB Sortino | LB without its biggest |
+|---|---|---|---|---|---|---|---|
+| raw twin | 1,178 | 26.8% | 3.66 | 116 | 44.4% | 3.38 | -$16,283 |
+| risk >= 8.83 ATR | 960 | 26.5% | 3.06 | 85 | **59.1%** | **4.27** | **+$614** |
+
+**Clause 4 passes for the first time in this family's history.** No ENGU-Q variant has previously
+produced a sealed year that stays profitable without its single biggest trade. That is the clause
+the live cell fails at -$16,283, and the one the owner's yardstick cares most about.
+
+**And three clauses still fail, so no validate is queued.** Walk-forward ROC is flat to slightly
+down (26.5 against 26.8), walk-forward Sortino drops hard (3.06 against 3.66), and the mechanism
+clause fails in two of four eras - the share of trades held longer than three days among kept
+entries against removed ones runs 1.49x, 1.42x, 2.24x and 1.67x against a required 1.5x. One of
+those misses is by 0.01. **The bar does not move**: round 57's stretch cap was left dead on a
+0.34-point miss and round 62 on a 0.07 Sortino miss.
+
+**The plateau is why the +$614 should not be rescued, and this is the most useful thing in the
+round.** Reported and not selected from: at 7.12 ATR the sealed year without its biggest trade is
+-$22,468; at 8.83 it is +$614; at 11.53 it is -$20,652; at 15.02 it is -$17,140. **The result is
+not monotone in the threshold.** If the stated mechanism were driving it, a wider minimum risk
+would mean a wider trail would mean a steadier improvement. Instead a single interior point is
+positive and both neighbours are deeply negative, which is the signature of which particular
+trades happened to survive, not of the mechanism working. Walk-forward ROC tells the same story -
+28.1, 26.5, 15.5, 13.2 - it falls apart as the filter tightens.
+
+**The direction is now closed, and that is the round's real output.** Counting round 57's four
+pre-registered entry rules plus rounds 62, 65 and 66, **seven entry filters have now been tested
+against a bar written in advance and all seven have failed** - every one of them on the
+walk-forward stretch, and every one of them after demonstrating a real, era-stable mechanism
+first. Cash-session timing separates day-one survivors by 25 points; distance below the recent
+high separates them by 12 to 16; risk width separates three-day holds by 1.4x to 2.2x. None of
+it converts. **The conclusion is that ENGU-Q's entry is not improvable by declining signals.**
+The refill effect is the mechanical reason - a declined signal frees the slot and the walk takes
+a later, worse signal of the same move - and it has now beaten three different true mechanisms.
+
+**What this lane should stop doing, and what is left.** Stop proposing entry filters; the prior
+is now seven failures deep and the next one needs an argument for why it escapes the refill
+effect, not merely a mechanism. What remains untried and is not a filter: changing what the
+strategy does with a signal it has already taken, without reducing exposure to winners - which
+rules out the hold cap, the partial exit and risk caps, all already dead. That is a narrow gap,
+and it may be empty. The honest position is that ENGU-Q #335 is a finished strategy and the
+lane's remaining value is in guarding it, not improving it.
