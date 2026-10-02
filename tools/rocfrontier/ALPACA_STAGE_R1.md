@@ -15,13 +15,18 @@ breakout, NQ breadth trigger). Claude never creates the account and never sees t
    account**. Under **User variables** click **New...**:
    - Variable name `ALPACA_API_KEY` - value: the API Key ID - OK.
    - **New...** again: variable name `ALPACA_SECRET_KEY` - value: the Secret Key - OK, then OK to close.
-5. Restart the Claude app so it sees the new settings.
+5. (No longer needed - see below. A saved key is picked up without restarting anything.)
 6. Tell MANAGER only **"Alpaca keys saved"**. Never paste either key into a chat, a file or a message.
 
-Those two names are the ones every Alpaca path in the repo already reads first: the shared loader
-`tools/import_alpaca_stocks.py` (ELWA-FEATURES), PAPER-WB's `tools/backfill_qqq_5m_alpaca.py` and `api/spy_daily.py`;
-a test pins them. (PAPER-WB's earlier instruction wrote a key file to `C:\EdgeLog\secrets\alpaca_keys.json`; the
-shared loader does not read that file, so the environment variables are the one method that works everywhere.)
+Those two names are the ones every Alpaca path in the repo reads, and since 2026-10-02 they are read in ONE
+place: `augur_engine/alpaca_keys.py`. Two things above are now out of date:
+
+- **A saved key works without restarting anything** (step 5 above). The variables are Windows *user*
+  variables, which a process only inherits if it started afterwards, so every runner process and every open
+  session was blind to them. The shared lookup reads `HKCU\Environment` out of the registry when `os.environ`
+  lacks the keys - the same fact from the same place, no restart.
+- **`C:\EdgeLog\secrets\alpaca_keys.json` IS read**, by every path, third in the order. The claim that the
+  shared loader ignored it was true when written and is not now.
 
 ## 2. The loader interface this lane needs (agreed with ELWA-FEATURES)
 
@@ -38,7 +43,12 @@ OneDrive (`C:\EdgeLog\alpaca_cache\`); they never register masters. Asked of the
 - `adjustment` stays a parameter: research needs RAW daily bars for as-of price and ATR filters (a later reverse split
   would otherwise push a $0.50 stock past a $5 filter); library masters stay split-adjusted.
 
-## 3. Data plan once the keys exist (estimates at 195 requests a minute)
+## 3. Data plan once the keys exist
+
+**The times below assume 195 requests a minute, which assumed this lane was pulling alone.** The 200/min cap
+is per ACCOUNT and five lanes share the key, so `augur_engine/alpaca_rate.py` paces every request in every
+process against one shared budget of 180/min. Lanes can run at the same time - nobody needs to sequence them -
+but the budget is shared, so two lanes pulling together each take roughly twice as long as this table says.
 
 | Pull | Size | Requests | Time |
 |---|---|---|---|
@@ -53,6 +63,9 @@ OneDrive (`C:\EdgeLog\alpaca_cache\`); they never register masters. Asked of the
 - Point-in-time Nasdaq-100 membership file (`tools/data/ndx_members.csv`) - built from public sources before any bar
   is read; this lane owns it.
 - Nothing is scheduled; the first pull runs once, by hand, after "Alpaca keys saved".
+- `r5_nqbrd.py` and `r5_siporb.py` each gained one line, `alpaca_rate.wait()` before their HTTP request, so
+  they draw from the shared budget. A pace half the callers bypass paces nothing, which is why those two were
+  edited from outside this lane; a test fails if a new Alpaca request path skips it.
 
 ## Update 2026-09-30 - NQBRD is ready to run
 - Membership: `tools/data/ndx_members.csv` (built before any stock bar; see `build_ndx_members.py`).
