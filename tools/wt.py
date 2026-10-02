@@ -50,6 +50,12 @@ import sys
 import tempfile
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import push_lock
+except Exception:          # an older shared checkout: ship unlocked rather than not at all
+    push_lock = None
+
 BRANCH_PREFIX = 'session/'
 # deliberately OFF OneDrive: a worktree churns thousands of files and the sync client
 # fights git for locks. Override with EDGELOG_WT_ROOT.
@@ -211,6 +217,18 @@ def cmd_ship(name, message):
             raise SystemExit('uncommitted changes here - commit them, or pass --msg to commit now')
         run(['git', '-C', wt, 'add', '-A'])
         run(['git', '-C', wt, 'commit', '-q', '-m', message])
+
+    # ONE LANE AT A TIME FROM HERE TO THE PUSH (2026-10-02). The engine tier runs for any
+    # change under augur_engine/, api/ or tests/ and takes ~23 minutes; with ten sessions
+    # shipping, main moves inside that window and the push is rejected on a stale ref. This
+    # session ran three 23m38s gates in a row and was overtaken every time - nothing was
+    # wrong with any of them. The lock is held across the rebase, the gates and the push, so
+    # the lane that gates is the lane that lands.
+    #
+    # It is never RELEASED here on purpose: it is an OS lock on an open handle, so the kernel
+    # drops it when this process ends, by any route - every `raise SystemExit` below included.
+    # That is the whole reason it is an OS lock and not a lock file with a timestamp in it.
+    _lock_handle = push_lock.hold(who=os.path.basename(wt)) if push_lock else None
 
     run(['git', '-C', wt, 'fetch', '-q', 'origin'])
     ahead = run(['git', '-C', wt, 'rev-list', '--count', 'origin/main..HEAD'])
@@ -512,11 +530,27 @@ def cmd_ship(name, message):
               (' (%d known duplicate row(s) baselined)' % len(dups & KNOWN_DUP_ROWS) if dups else ''))
 
     run(['git', '-C', wt, 'push', '-q', 'origin', 'HEAD:main'])
-    # The push has LANDED. Nothing from here on may stop the steps after it: a print that
-    # raised on this line once skipped sync_shared and left the runner's checkout behind
-    # (2026-09-14, see utf8_console). Hence check=False and safe_print.
+
+    # PROVE IT. `git push` reporting success is not evidence that the sha is on main: piped
+    # into another command it hands back the PIPE's exit code, so a rejection reads as clean
+    # (this session did exactly that today, and NOISE reported 9be7e32e as landed when it
+    # never was). The only answer that counts comes from a fresh fetch.
+    sha = run(['git', '-C', wt, 'rev-parse', 'HEAD'], check=False, quiet=True).strip()
+    run(['git', '-C', wt, 'fetch', '-q', 'origin'], check=False, quiet=True)
+    on_main = subprocess.run(['git', '-C', wt, 'merge-base', '--is-ancestor', sha,
+                              'origin/main'], capture_output=True)
+    if on_main.returncode != 0:
+        now_at = run(['git', '-C', wt, 'rev-parse', '--short', 'origin/main'],
+                     check=False, quiet=True).strip()
+        raise SystemExit('the push reported success but %s is NOT on origin/main (now at '
+                         '%s). Do NOT report this as landed. Re-run ship: it rebases onto '
+                         'the newer main and tries again.' % (sha[:8], now_at))
+
+    # The push has LANDED, and we have checked. Nothing from here on may stop the steps after
+    # it: a print that raised on this line once skipped sync_shared and left the runner's
+    # checkout behind (2026-09-14, see utf8_console). Hence check=False and safe_print.
     head = run(['git', '-C', wt, 'log', '--oneline', '-1'], check=False, quiet=True)
-    safe_print('pushed: ' + head)
+    safe_print('pushed (verified on main): ' + head)
     warn_pages_budget(wt)
     sync_shared(root)
 
