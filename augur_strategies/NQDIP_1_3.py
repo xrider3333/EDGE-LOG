@@ -4,8 +4,8 @@ NQDIP 1.3 — NQDIP 1.1's rules, unchanged, with TRUE contract-roll handling (20
 WHY: ROLL_AUDIT.md 3.6. NQDIP 1.1 found rolls with the day-level house detector (20 of 65 NQ,
 17 of 65 ES switches) and then dropped the WHOLE overnight gap of every flagged night, so real
 gaps vanished (Covid 2020-03-09 ES -208.5 pts, 2020-03-16 NQ -560.5 pts) and DIP drawdowns read
-23-29% too small. 1.3 back-adjusts at the exact switch BAR from tools/data/contract_switches_*.csv
-(+ the audit's 2026 tail rows): only the contract offset leaves the P&L, every real gap stays in,
+23-29% too small. 1.3 back-adjusts at the exact switch BAR from tools/data/rolls_*.csv
+(the maintained roll table): only the contract offset leaves the P&L, every real gap stays in,
 entries and exits on roll days are allowed (1.x skipped them), and each switch a position is held
 across still costs 0.25 pt. Signals read the adjusted series (all shift-invariant); size reads the
 real traded price. On a daily ETF master nothing changes. The original header follows.
@@ -202,10 +202,10 @@ def detect_roll_seams(day_open, day_close, day_ts, ratio_th=2.5, abs_th=15.0,
 # ROLL_AUDIT.md 3.6: the day-level house detector above caught 20 of 65 NQ and 17 of 65 ES
 # switches, and 1.0/1.1 then dropped the WHOLE overnight gap on every flagged night - real
 # move included (ES 2020-03-09 -208.5 pts, NQ 2020-03-16 -560.5 pts disappeared). Here the
-# switch comes from the committed ground-truth table tools/data/contract_switches_<ROOT>.csv
-# (the max-volume contract per UTC day, rebuilt from databento_raw; offset = new - old close
-# at the last common minute) plus the audit's four 2026 tail rows (section 6.3, estimated,
-# after databento_raw ends). Every bar BEFORE a switch is shifted by that switch's offset
+# switch comes from the committed ground-truth table tools/data/rolls_<ROOT>.csv
+# (2026-10-02: the maintained table - exact Databento rows, then each later roll measured the evening
+# it happens by tools/roll_watch.py; it replaced contract_switches_<ROOT>.csv + hard-coded 2026 rows,
+# with identical values for every switch before 2026-09-14). Every bar BEFORE a switch is shifted by that switch's offset
 # (Panama back-adjustment at bar level), so a held position books only the real move: the
 # offset - and only the offset - leaves the P&L, wherever the switch falls (between sessions
 # or, like 2026-09-14 11:30 ET, inside one). An in-bar splice rebuilds its bar as
@@ -213,10 +213,6 @@ def detect_roll_seams(day_open, day_close, day_ts, ratio_th=2.5, abs_th=15.0,
 # Every signal (SMA, RSI, EMA, N-day low, ATR, IBS, gaps) is shift-invariant, so it reads the
 # adjusted series; SIZE reads the real traded price. detect_roll_seams stays in the file for
 # reference only and is no longer called.
-_TAIL_ROLLS = {   # ROLL_AUDIT.md 6.3 - estimated; replace when the Databento re-pull lands
-    "NQ": [("2026-06-15 03:30", 293.0, True), ("2026-09-14 11:30", 295.0, True)],
-    "ES": [("2026-06-15 05:30", 64.0, True), ("2026-09-14 11:30", 67.75, True)],
-}
 # yearly average price, used ONLY to tell an NQ master from an ES one (the engine does not pass
 # the instrument); NQ has traded 1.6x-4x ES every year, so the geometric mean splits them.
 _LEVELS = {2010: (1140, 1900), 2011: (1270, 2250), 2012: (1380, 2650), 2013: (1640, 3050),
@@ -228,21 +224,20 @@ _SWITCH_CACHE = {}
 
 
 def _switches(root):
-    """[(utc_epoch_sec, offset_pts, in_bar), ...] for NQ or ES, sorted."""
+    """[(utc_epoch_sec, offset_pts, in_bar), ...] for NQ or ES, sorted - read from the MAINTAINED roll table
+    tools/data/rolls_<ROOT>.csv (exact Databento rows to 2026-03, then rows measured or estimated by
+    tools/roll_watch.py the evening a roll happens; explicit not_a_roll rows are skipped)."""
     if root in _SWITCH_CACHE:
         return _SWITCH_CACHE[root]
     import csv, os
     path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        "tools", "data", "contract_switches_%s.csv" % root)
+                        "tools", "data", "rolls_%s.csv" % root)
     out = []
-    with open(path, newline="") as f:
+    with open(path, newline="", encoding="utf-8") as f:
         for r in csv.DictReader(f):
-            if r.get("source") != "databento_raw":          # the two 'inferred' tail rows are wrong
+            if r.get("kind") == "not_a_roll" or not (r.get("old") and r.get("new")) or r.get("offset_pts") in ("", None):
                 continue
-            out.append((int(r["switch_sec"]), float(r["contract_offset"]), False))
-    for et, off, inbar in _TAIL_ROLLS[root]:
-        ts = pd.Timestamp(et, tz="America/New_York").tz_convert("UTC")
-        out.append((int(ts.value // 10**9), off, inbar))
+            out.append((int(r["switch_sec"]), float(r["offset_pts"]), r.get("kind") == "in_bar"))
     _SWITCH_CACHE[root] = sorted(out)
     return _SWITCH_CACHE[root]
 

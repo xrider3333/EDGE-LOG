@@ -6,7 +6,7 @@ NQ switches) and dropped the whole overnight gap of each flagged night, which er
 2020-03-16 NQ limit-down open (-560.5 points against a -12.75 offset) and understated DIP drawdowns 23-29%.
 
 What is guarded:
-  1. OFFSET ONLY - on a tape whose true path is known, a switch from tools/data/contract_switches_NQ.csv is
+  1. OFFSET ONLY - on a tape whose true path is known, a switch from tools/data/rolls_NQ.csv is
      removed exactly: the back-adjusted series equals the true path, the real gap stays in.
   2. IN-BAR SPLICE - the 2026-09-14 11:30 ET tail row lands on its own bar, not on the session open.
   3. RECONSTRUCTION - last open value + the exit night's adjusted move - costs - 0.25 pt per switch crossed
@@ -60,7 +60,7 @@ def _rth_tape(first, sessions, level, seed, drift=1.0, jumps=None):
 # ── 1. offset only ──────────────────────────────────────────────────────────────────────────
 def test_a_table_switch_is_removed_exactly_and_the_real_gap_stays():
     mod = _load("NQDIP_1_2.py")
-    # NQH0 -> NQM0 at 2020-03-15 18:00 ET, offset -12.75: the first new-contract RTH bar is 03-16 09:30
+    # NQH0 -> NQM0 at 2020-03-15 18:00 ET, offset -12.75 (rolls_NQ.csv): the first new-contract RTH bar is 03-16 09:30
     sw = pd.Timestamp("2020-03-16 09:30", tz="US/Eastern")
     true = _rth_tape("2020-01-02", 60, 8500.0, seed=5)
     raw = _rth_tape("2020-01-02", 60, 8500.0, seed=5, jumps={sw: -12.75})
@@ -84,14 +84,17 @@ def test_root_is_read_from_the_price_level():
 # ── 2. in-bar splice ───────────────────────────────────────────────────────────────────────
 def test_the_september_2026_splice_lands_inside_its_session():
     mod = _load("NQDIP_1_2.py")
+    import csv
+    off = [float(r["offset_pts"]) for r in csv.DictReader(open(os.path.join(ROOT, "tools", "data", "rolls_NQ.csv")))
+           if r["switch_et"] == "2026-09-14 11:30" and r["kind"] == "in_bar"][0]
     t = _rth_tape("2026-08-31", 15, 24000.0, seed=2,
-                  jumps={pd.Timestamp("2026-09-14 11:30", tz="US/Eastern"): 295.0})
+                  jumps={pd.Timestamp("2026-09-14 11:30", tz="US/Eastern"): off})
     oa, ha, la, ca, ev = mod.roll_adjust(*t[:5], root="NQ")
     bar = [b for b, _ in ev]
     assert len(bar) == 1 and t[4][bar[0]] == pd.Timestamp("2026-09-14 11:30", tz="US/Eastern")
     # the session's open-to-close move no longer contains the +295 splice
     s = np.where(t[5] == t[5][bar[0]])[0]
-    assert abs((ca[s[-1]] - oa[s[0]]) - ((t[3][s[-1]] - 295.0) - t[0][s[0]])) < 1e-9
+    assert abs((ca[s[-1]] - oa[s[0]]) - ((t[3][s[-1]] - off) - t[0][s[0]])) < 1e-9
 
 
 # ── 3. reconstruction ──────────────────────────────────────────────────────────────────────
@@ -99,14 +102,14 @@ def _long_tape():
     """Five years over real 2016-2020 NQ switches, at NQ-like prices with the table's offsets baked in."""
     import csv
     jumps = {}
-    with open(os.path.join(ROOT, "tools", "data", "contract_switches_NQ.csv"), newline="") as f:
+    with open(os.path.join(ROOT, "tools", "data", "rolls_NQ.csv"), newline="") as f:
         for r in csv.DictReader(f):
-            if r["source"] != "databento_raw":
+            if r["kind"] == "not_a_roll" or not r["offset_pts"]:
                 continue
             et = pd.Timestamp(int(r["switch_sec"]), unit="s", tz="UTC").tz_convert("US/Eastern")
             if pd.Timestamp("2016-01-01", tz="US/Eastern") < et < pd.Timestamp("2020-12-01", tz="US/Eastern"):
                 nxt = pd.bdate_range(et.date() + pd.Timedelta(days=1), periods=1)[0]
-                jumps[pd.Timestamp(f"{nxt.date()} 09:30", tz="US/Eastern")] = float(r["contract_offset"])
+                jumps[pd.Timestamp(f"{nxt.date()} 09:30", tz="US/Eastern")] = float(r["offset_pts"])
     return _rth_tape("2016-01-04", 1250, 4500.0, seed=11, drift=2.0, jumps=jumps)
 
 
