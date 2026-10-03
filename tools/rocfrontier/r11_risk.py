@@ -535,10 +535,12 @@ def e3(B, ms, engq_leg):
         # the 58b mechanism inside each of V2's five: ENGU-Q positions entered at m > 1, open at the peak
         diag = []
         for u in uv:
-            pr, tr_ = rows[max(u["i0"] - 1, 0)], rows[u["it"]]
+            # pre-run review round 2, 2026-10-03: a period opening on the span's row 0 peaks BEFORE it (row 0's P&L counts), and only the
+            # span's own rows count (ALLX's excised 2020 rows are not in the drawdown it measures)
+            pr, tr_ = (rows[u["i0"] - 1] if u["i0"] > 0 else rows[0] - 1), rows[u["it"]]
             sel_t = np.flatnonzero((B.leg == engq_leg) & (m[B.erow] > 1.0) & (B.erow <= pr) & (B.xrow > pr))
             if len(sel_t):
-                inc = np.isin(B.inc_t, sel_t) & (B.inc_row > pr) & (B.inc_row <= tr_)
+                inc = np.isin(B.inc_t, sel_t) & (B.inc_row > pr) & (B.inc_row <= tr_) & k[B.inc_row]
                 lost = float(c * (B.inc_v[inc] * m[B.erow[B.inc_t[inc]]]).sum())
             else:
                 lost = 0.0
@@ -553,10 +555,9 @@ def e3(B, ms, engq_leg):
     kw = B.mask(WF0, PRE_END)
     uw = underwater(v2[kw], B.index[kw])
     out["v2_wf_deepest_unscaled"] = {kk: uw[0][kk] for kk in ("depth", "peak", "trough", "end")} if uw else None
-    if uw:
-        a, z = TS(uw[0]["peak"]), TS(uw[0]["trough"])
-        kk = B.mask(a, z)
-        out["v2_wf_deepest_unscaled"]["raw_change_same_dates"] = float(B.raw[kk].sum())
+    if uw:                                   # pre-run review round 2, 2026-10-03: the row after the peak .. the trough (not the peak day's own P&L)
+        rw = np.flatnonzero(kw)
+        out["v2_wf_deepest_unscaled"]["raw_change_same_dates"] = float(B.raw[rw[uw[0]["i0"]:uw[0]["it"] + 1]].sum())
     return out
 
 
@@ -618,19 +619,62 @@ def reports(B, ms, BS_other, legs_meta):
     return rep
 
 
+KRONOS_SKIP = {"__pycache__", "site-packages", "dist-packages", "venv", "virtualenv"}
+
+
+def _kronos_skip_dir(parent, name):
+    n, d = name.lower(), os.path.join(parent, name)                 # hidden folders (.git, .ipynb_checkpoints, .venv), virtualenvs, conda envs
+    return (n.startswith(".") or n in KRONOS_SKIP or n.startswith("venv") or os.path.isfile(os.path.join(d, "pyvenv.cfg"))
+            or os.path.isdir(os.path.join(d, "conda-meta")))
+
+
 def kronos_result():
-    """Kronos step 0 (docs/PREREG_kronos_step0_2026-10-01.md) has no fixed result path in git; report whatever result it has left."""
+    """Kronos step 0 (docs/PREREG_kronos_step0_2026-10-01.md) has no fixed result path in git; report whatever result it has left.
+    pre-run review round 2, 2026-10-03: only regular files named *result*, never under a virtualenv / site-packages / .git / __pycache__
+    folder; the 5 newest by mtime; an unreadable file is recorded with its error, never raised (R5 is report-only)."""
+    import fnmatch
     found = []
     doc = os.path.join(REPO, "docs", "PREREG_kronos_step0_2026-10-01.md")
-    if os.path.exists(doc):
+    if os.path.isfile(doc):
         import re
-        txt = open(doc, encoding="utf-8", errors="replace").read()
-        hit = re.search(r"(?im)^\s*#*\s*RESULT\b", txt)                  # a RESULT heading / line, not a passing mention
-        if hit:
-            found.append({"source": doc, "excerpt": txt[hit.start():hit.start() + 1500]})
-    for p in sorted(glob.glob(os.path.join(os.environ.get("EDGELOG_KRONOS_DIR", r"C:\EdgeLog\kronos"), "**", "*result*"), recursive=True))[:5]:
-        found.append({"source": p, "excerpt": open(p, encoding="utf-8", errors="replace").read()[:1500]})
+        try:
+            with open(doc, encoding="utf-8", errors="replace") as f:
+                txt = f.read()
+            hit = re.search(r"(?im)^\s*#*\s*RESULT\b", txt)              # a RESULT heading / line, not a passing mention
+            if hit:
+                found.append({"source": doc, "excerpt": txt[hit.start():hit.start() + 1500]})
+        except Exception as ex:
+            found.append({"source": doc, "error": f"{type(ex).__name__}: {ex}"})
+    cands = []
+    for dp, dns, fns in os.walk(os.environ.get("EDGELOG_KRONOS_DIR", r"C:\EdgeLog\kronos")):
+        dns[:] = [d for d in dns if not _kronos_skip_dir(dp, d)]         # never descend into them
+        cands += [os.path.join(dp, n) for n in fns if fnmatch.fnmatch(n, "*result*") and os.path.isfile(os.path.join(dp, n))]
+
+    def mtime(p):
+        try:
+            return os.path.getmtime(p)
+        except OSError:
+            return float("-inf")
+    for p in sorted(cands, key=lambda p: (-mtime(p), p))[:5]:
+        try:
+            with open(p, encoding="utf-8", errors="replace") as f:
+                found.append({"source": p, "excerpt": f.read(1500)})
+        except Exception as ex:
+            found.append({"source": p, "error": f"{type(ex).__name__}: {ex}"})
     return found or "no Kronos step-0 result found"
+
+
+def kronos_lines(kr):
+    """VERDICT.txt's Kronos step-0 line(s) - prereg addendum 2: R5 prints any result it finds (source + the excerpt's first line)."""
+    asc = lambda s: str(s).encode("ascii", "backslashreplace").decode("ascii")      # VERDICT.txt and the console stay ASCII (cp1252 on the box)
+    if not isinstance(kr, list) or not kr:
+        return [asc(f"Kronos step 0 (report only): {kr if isinstance(kr, str) and kr else 'no Kronos step-0 result found'}")]
+    out = []
+    for f in kr:
+        ex = str(f.get("excerpt", ""))
+        first = "(binary file)" if ("\ufffd" in ex or "\x00" in ex) else next((s.strip() for s in ex.splitlines() if s.strip()), "")
+        out.append(asc(f"Kronos step 0 (report only): {f.get('source')} - " + (f"unreadable: {f['error']}" if "error" in f else first[:200])))
+    return out
 
 
 def r5(B):
@@ -706,16 +750,15 @@ def run():
     E = {t: bool(all(res[t][r]["pass"] for r in ("U", "S"))) for t in ("E1", "E3")}
     E["E2"] = bool(res["E2"]["U"]["pass"])                                   # addendum 2026-10-03: E2 on rule U; rule S reported
     verdict = "PASS" if all(E.values()) else ("INCONCLUSIVE" if E["E1"] and E["E3"] else "FAIL")   # addendum 2
-    rep = reports(books["U"], {c: books["U"].mult(c) for c in CELLS}, books["S"], legs_meta)
-    save("e1.json", res["E1"]); save("e2.json", res["E2"]); save("e3.json", res["E3"]); save("reports.json", rep)
-    lines = [f"RISK r1 - PRIMARY VERDICT: {verdict}   (E1 {E['E1']}, E2 {E['E2']}, E3 {E['E3']}; E1 and E3 on rule U AND rule S, E2 on rule U - addendum)",
-             f"prereg sha256 {PREREG_SHA}",
-             {"PASS": "PASS -> an explicit owner question: adopt V2 sizing on #463 now as a real BOOK run (book_sizing block), rather than wait for "
-                      "the 12-month VT read.",
-              "INCONCLUSIVE": "INCONCLUSIVE -> V2 helps on the IS* read and at equal net on the five deepest drawdowns, but its timing is not "
-                              "distinguishable from chance with ~15 years of regimes; no adoption from the backtest, the VT shadow decides.",
-              "FAIL": "FAIL -> the backtest case for V2 is closed; the VT line stays a forward shadow under its own pre-registration."}[verdict],
-             "R5 (risk forecast, the only ML role this round funds): " + rep["R5_forecast"]["read"]]
+    save("e1.json", res["E1"]); save("e2.json", res["E2"]); save("e3.json", res["E3"])
+    head = [f"RISK r1 - PRIMARY VERDICT: {verdict}   (E1 {E['E1']}, E2 {E['E2']}, E3 {E['E3']}; E1 and E3 on rule U AND rule S, E2 on rule U - addendum)",
+            f"prereg sha256 {PREREG_SHA}",
+            {"PASS": "PASS -> an explicit owner question: adopt V2 sizing on #463 now as a real BOOK run (book_sizing block), rather than wait for "
+                     "the 12-month VT read.",
+             "INCONCLUSIVE": "INCONCLUSIVE -> V2 helps on the IS* read and at equal net on the five deepest drawdowns, but its timing is not "
+                             "distinguishable from chance with ~15 years of regimes; no adoption from the backtest, the VT shadow decides.",
+             "FAIL": "FAIL -> the backtest case for V2 is closed; the VT line stays a forward shadow under its own pre-registration."}[verdict]]
+    lines = []
     for rule in ("U", "S"):
         e1r, e2r, e3r = res["E1"][rule], res["E2"][rule], res["E3"][rule]
         lines.append(f"[{rule}] E1 IS*: RAW roc {e1r['raw']['roc']:.1f} sort {e1r['raw']['sort']:.3f} cdr {e1r['raw']['cdr']:.1f} | "
@@ -731,8 +774,27 @@ def run():
                 lines.append(f"[{rule}] E3 {s}: V2 shallower at {q['ranks_v2_shallower']}/5 ranks, top-5 sum ${q['sum_v2']:,.0f} vs ${q['sum_raw']:,.0f} -> {q['pass']}")
             else:
                 lines.append(f"[{rule}] E3 {s}: {q.get('note')} -> False")
-    with open(os.path.join(OUT, "VERDICT.txt"), "w") as f:
-        f.write("\n".join(lines) + "\n")
+
+    def write_verdict(ls):
+        with open(os.path.join(OUT, "VERDICT.txt"), "w", encoding="utf-8") as f:
+            f.write("\n".join(ls) + "\n")
+    # pre-run review round 2, 2026-10-03: the primary files (e1-e3 above, a provisional VERDICT.txt here) exist BEFORE the report-only
+    # R1-R5, and a failure in those is recorded (reports.json, VERDICT.txt), never allowed to cost the verdict
+    write_verdict(head + ["R1-R5 (report only): pending - provisional file, written before the reports ran"] + lines)
+    try:
+        rep = reports(books["U"], {c: books["U"].mult(c) for c in CELLS}, books["S"], legs_meta)
+        r5_line = "R5 (risk forecast, the only ML role this round funds): " + rep["R5_forecast"]["read"]
+        kr = rep["R5_forecast"].get("kronos_step0")
+        save("reports.json", rep)
+    except Exception as ex:
+        r5_line = f"R1-R5 report failed: {type(ex).__name__}: {ex}"
+        try:
+            kr = kronos_result()                                              # records per-file errors; guarded anyway
+        except Exception as ex2:
+            kr = f"Kronos step-0 read failed: {type(ex2).__name__}: {ex2}"
+        save("reports.json", {"error": r5_line, "kronos_step0": kr})
+    lines = head + [r5_line] + kronos_lines(kr) + lines
+    write_verdict(lines)
     print("\n".join(lines), flush=True)
     return verdict
 
