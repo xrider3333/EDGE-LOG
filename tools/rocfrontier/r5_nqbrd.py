@@ -10,6 +10,10 @@
 #                               members returned both bars (prereg addendum 2); A2 needs BOOK #463's WF numbers to reproduce
 #   python r5_nqbrd.py B        Stage B (lockbox, once) - refuses unless A2 passed; the READ flag is written only after the lockbox
 #                               data has loaded and BOOK #463's LB numbers reproduce
+# Pre-run review fixes 2026-10-03 (code brought to the registered text; no spec change): theta tolerance (k/n = 0.20 shorts at 0.80);
+#   control on WF only and ranked by RETURN (adj points / RAW 09:30 open); null = one coin per WF session shared by both thetas; asof = month
+#   start; 5xx / connection retries; NQ master length guards; book463_trades.csv read and checked before the READ flag; `big` cut to
+#   [LB0, LBX); read-once guard is a SystemExit, not an assert; Stage A counts WF sessions; Stage B reports coverage + leg stats.
 import json, os, sys, time
 REPO = os.environ.get("EDGELOG_ROOT", r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG"); sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, "tools")); sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -28,20 +32,31 @@ rng = np.random.default_rng(20260930)
 
 # ------------------------------------------------------------------ pull (keys required)
 def fetch_window(symbols, day, key, secret):
-    """09:30-10:00 ET 5-minute bars for many symbols on one day; asof=day maps renamed tickers (FB -> META)."""
+    """09:30-10:00 ET 5-minute bars for many symbols on one day; asof = the month start of `day` = the date of the members_on list, so a
+    ticker renamed later that month (FB -> META 2022-06-09) still maps to its entity."""
     import requests
     t0 = pd.Timestamp(f"{day} 09:30", tz="US/Eastern").tz_convert("UTC")
     t1 = pd.Timestamp(f"{day} 10:00", tz="US/Eastern").tz_convert("UTC")
     heads = {"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret}
-    rows, token = [], None
+    rows, token, fails = [], None, 0
     while True:
         params = {"symbols": ",".join(symbols), "timeframe": "5Min", "start": t0.isoformat(), "end": t1.isoformat(),
                   "limit": 10000, "adjustment": "raw", "feed": "sip", "sort": "asc"}
         if not getattr(fetch_window, "no_asof", False):
-            params["asof"] = day
+            params["asof"] = day[:7] + "-01"
         if token:
             params["page_token"] = token
-        r = requests.get("https://data.alpaca.markets/v2/stocks/bars", headers=heads, params=params, timeout=60)
+        try:
+            r = requests.get("https://data.alpaca.markets/v2/stocks/bars", headers=heads, params=params, timeout=60)
+        except (requests.ConnectionError, requests.Timeout) as ex:   # dropped connection / read timeout: retried like a 5xx
+            r = ex
+        if isinstance(r, Exception) or r.status_code >= 500:
+            why = f"{type(r).__name__}: {r}" if isinstance(r, Exception) else f"HTTP {r.status_code}: {r.text[:200]}"
+            if fails == 5:
+                raise RuntimeError(f"{day}: gave up after 5 retries - {why}")
+            print(f"  {day}: {why[:120]} - retry in {10 * 2 ** fails}s", flush=True)
+            time.sleep(10 * 2 ** fails); fails += 1; continue      # 10 / 20 / 40 / 80 / 160 s, then raise (finished days are on disk; `pull` resumes)
+        fails = 0
         if r.status_code == 429:
             time.sleep(20); continue
         if r.status_code in (401, 403):
@@ -140,6 +155,26 @@ def nq_days(t0, t1):
     return pd.DataFrame(piv).dropna()
 
 
+def nq_raw_open(t0, t1):
+    """09:30 open by day from the RAW (db_noadj_rth) NQ 5m RTH master - the control's RETURN denominator (db_adj is additive back-adjusted)"""
+    from augur_engine import data
+    m = data.find_master("NQ", "5m", "rth", "db_noadj_rth")
+    if not m:
+        raise SystemExit("Stage A refused: no db_noadj_rth NQ 5m RTH master (the control's return denominator) - nothing was computed")
+    a = data.load_master_arrays(m, str(t0.date()), str((t1 - pd.Timedelta(days=1)).date()))
+    ix = pd.DatetimeIndex(a["index"])
+    k = np.asarray((ix.hour * 60 + ix.minute == 570) & (ix >= t0.tz_localize("US/Eastern")) & (ix < t1.tz_localize("US/Eastern")))
+    s = pd.Series(np.asarray(a["open"], float)[k], index=ix[k].tz_localize(None).normalize())
+    return s[~s.index.duplicated() & (s > 0)]
+
+
+def side(B, th):
+    """+1 if B >= theta, -1 if B <= 1 - theta (prereg line 62), else 0; NaN -> 0. The 1e-9 tolerance keeps k/n = 0.20 a short at theta 0.80
+    (1 - 0.8 = 0.19999999999999996 in floating point)."""
+    B = np.asarray(B, float)
+    return np.where(B >= th - 1e-9, 1, np.where(B <= 1 - th + 1e-9, -1, 0))
+
+
 def trades(nq, sign, cost_add=0.0):
     s = sign[sign != 0]
     x = nq.reindex(s.index).dropna()
@@ -189,22 +224,29 @@ def stage_a():
     if miss:
         raise SystemExit(f"Stage A refused: {len(miss)} WF session days of the NQ master are neither in the pull cache nor recorded empty "
                          f"(first {miss[0]}, last {miss[-1]}) - run `pull` first; nothing was computed")
-    empty = sorted(pulled_days(last)[1])
+    nq = nq_days(WF0, LB0)                                                    # WF sessions only (no warm-up is used)
+    if not (len(nq) and nq.index.max() >= pd.Timestamp("2025-06-27")):       # 2025-06-27 = the last pre-lockbox session; a short master would score part of WF
+        raise SystemExit(f"Stage A refused: the NQ master's last full session is {nq.index.max() if len(nq) else 'none'} (< 2025-06-27) - nothing was computed")
+    w0 = f"{WF0:%Y-%m-%d}"
+    empty = sorted(d for d in pulled_days(last)[1] if d >= w0)
     br, dropped = breadth(LB0)
-    nq = nq_days(WF0 - pd.Timedelta(days=400), LB0)
+    dropped = [d for d in dropped if d >= w0]
     days = nq.index
     br = br.reindex(days)
-    print(f"breadth days {br.B.notna().sum()} of {len(days)}; coverage guard dropped {len(dropped)} pulled days (< {COVER:.0%} of that day's members "
+    print(f"breadth days {br.B.notna().sum()} of {len(days)} WF sessions; coverage guard dropped {len(dropped)} pulled days (< {COVER:.0%} of that day's members "
           f"returned both bars; no trade), {len(empty)} days recorded empty; members with bars per day median {br.n.median():.0f} (min {br.n.min():.0f})")
     res, tr = {}, {}
-    ret30 = nq["c955"] - nq["o930"]
+    raw0 = nq_raw_open(WF0, LB0).reindex(days)
+    ret30 = ((nq["c955"] - nq["o930"]) / raw0).dropna()                      # control rank = RETURN (prereg line 65): adj points / RAW 09:30 open; no raw open -> never picked
+    ret30 = ret30[ret30.index >= WF0]
+    print(f"control: {len(ret30)} of {len(days)} WF sessions have a raw 09:30 open (the rest cannot be picked)")
     for th in THETAS:
-        sign = pd.Series(np.where(br.B >= th, 1, np.where(br.B <= 1 - th, -1, 0)), index=days)
+        sign = pd.Series(side(br.B, th), index=days)
         tr[th] = trades(nq, sign)
-        # control: NQ's own first-half-hour direction on the same number of days per year, largest |move| first
+        # control: NQ's own first-half-hour direction on the same number of WF days per year, largest |09:30-10:00 return| first, WF days only
         ctrl = pd.Series(0, index=days)
-        per_year = tr[th].groupby(tr[th].date.dt.year).size()
-        for y, k in per_year.items():
+        wt = tr[th][tr[th].date >= WF0]
+        for y, k in wt.groupby(wt.date.dt.year).size().items():
             r = ret30[ret30.index.year == y]
             pick = r.abs().sort_values(ascending=False).index[:k]
             ctrl.loc[pick] = np.sign(r.loc[pick]).astype(int)
@@ -212,12 +254,16 @@ def stage_a():
         ts_ = trades(nq, sign, STRESS)
         res[th] = {"WF": stats(tr[th], days, WF0, LB0), "control": stats(tc, days, WF0, LB0),
                    "stress_net": float(ts_[ts_.date >= WF0].pnl.sum())}
+    wd = days[days >= WF0]                                                    # null: ONE fair coin per WF session per replicate, shared by both thetas
+    pos = {th: wd.get_indexer(pd.DatetimeIndex(tr[th].date[tr[th].date >= WF0])) for th in THETAS}
+    gro = {th: tr[th].gross[tr[th].date >= WF0].to_numpy() for th in THETAS}
+    if any((p < 0).any() for p in pos.values()):
+        raise SystemExit("Stage A: a trade date is not a WF session (internal) - nothing was saved")
     null = []
     for _ in range(NREP):
-        best = -np.inf
+        coin, best = rng.choice([-1.0, 1.0], size=len(wd)), -np.inf
         for th in THETAS:
-            t = tr[th][tr[th].date >= WF0]
-            x = (rng.choice([-1.0, 1.0], size=len(t)) * t.gross.values - COST) * MULT
+            x = (coin[pos[th]] * gro[th] - COST) * MULT
             if len(x) > 1 and x.std(ddof=1) > 0:
                 best = max(best, float(x.mean() / (x.std(ddof=1) / np.sqrt(len(x)))))
         null.append(best)
@@ -235,7 +281,7 @@ def stage_a():
     print(f"null max-t p95 {p95:.2f}")
     out = {"stageA": {str(k): v for k, v in res.items()}, "null_p95": p95, "passes": passes, "A2": None,
            "coverage": {"guard": f"day kept only if members with both bars >= {COVER} x members_on(day)", "breadth_days": int(br.B.notna().sum()), "sessions": len(days),
-                        "guard_dropped": len(dropped), "guard_dropped_days": dropped, "recorded_empty": len(empty), "recorded_empty_days": empty}}
+                        "control_raw_open_days": len(ret30), "guard_dropped": len(dropped), "guard_dropped_days": dropped, "recorded_empty": len(empty), "recorded_empty_days": empty}}
     if passes:
         base = book(None, WF0, LB0)
         print(f"BOOK #463 WF check (must be {BOOK_WF[0]} / {BOOK_WF[1]}): ROC@30k {base['roc30']:.2f} Sortino {base['sortino']:.3f}")
@@ -265,29 +311,47 @@ def stage_b():
     if not (res.get("A2") or {}).get("pass"):
         print("Stage B refused: no Stage A2 pass on file - the lockbox stays sealed."); return
     flag = os.path.join(OUT, "nqbrd_stageB_READ.flag")
-    assert not os.path.exists(flag), "Stage B was already read once"
+    if os.path.exists(flag):
+        raise SystemExit("Stage B refused: the lockbox was already read once (nqbrd_stageB_READ.flag) - it is never read again")
     th, c = float(res["A2"]["theta"]), int(res["A2"]["c"])
-    miss = missing_days(f"{LB0:%Y-%m-%d}", f"{LB1:%Y-%m-%d}")                 # every lockbox session pulled or recorded empty, else the one read is wasted
+    l0, l1 = f"{LB0:%Y-%m-%d}", f"{LB1:%Y-%m-%d}"
+    miss = missing_days(l0, l1)                                               # every lockbox session pulled or recorded empty, else the one read is wasted
     if miss:
         print(f"Stage B refused: {len(miss)} lockbox session days of the NQ master are neither in the pull cache nor recorded empty - run `pull` first (lockbox NOT read)"); return
-    br, _ = breadth(LBX)                                                      # the lockbox data loads here; nothing is computed or shown from it yet
-    nq = nq_days(LB0, LBX)
+    nq = nq_days(LB0, LBX)                                                    # the lockbox data loads here; nothing is computed or shown from it yet
+    if not (len(nq) and nq.index.max() >= LB1):                              # a short master would score part of the LB as a full year
+        print(f"Stage B refused: the NQ master's last full session is {nq.index.max() if len(nq) else 'none'} (< {l1}) - extend it first (lockbox NOT read)"); return
+    bp = os.path.join(os.path.dirname(BOOK), "book463_trades.csv")
+    try:                                                                      # read and checked BEFORE the flag: a missing / bad book file must not burn the one read
+        bt = pd.read_csv(bp)
+        bt = pd.DataFrame({"date": pd.to_datetime(bt["date"]), "pnl": pd.to_numeric(bt["pnl"])})
+    except Exception as ex:
+        print(f"Stage B refused: {bp} is missing or has no usable date / pnl columns ({type(ex).__name__}: {ex}) (lockbox NOT read)"); return
+    br, dropped = breadth(LBX)
+    lb_drop = [d for d in dropped if l0 <= d <= l1]
+    lb_empty = sorted(d for d in pulled_days(l1)[1] if d >= l0)
     bb = book(None, LB0, LBX, yrs=LBY)                                        # the book's own LB numbers are public (prereg); checked BEFORE the family's lockbox is read
     print(f"BOOK #463 LB check (must be {BOOK_LB[0]} / {BOOK_LB[1]}): ROC@30k {bb['roc30']:.2f} Sortino {bb['sortino']:.3f}")
     if not (abs(bb["roc30"] - BOOK_LB[0]) < 0.006 and abs(bb["sortino"] - BOOK_LB[1]) < 0.0006):
         print("Stage B refused: the book file's LB window does not reproduce #463's prereg LB numbers - settle the end-date convention first (lockbox NOT read)"); return
     open(flag, "w").write(pd.Timestamp.now().isoformat())                     # the one read starts here (a crash above leaves the lockbox unread)
     br = br.reindex(nq.index)
-    sign = pd.Series(np.where(br.B >= th, 1, np.where(br.B <= 1 - th, -1, 0)), index=nq.index)
+    sign = pd.Series(side(br.B, th), index=nq.index)
     t = trades(nq, sign)
     leg = t.groupby("date")["pnl"].sum() * c
     r = book(leg, LB0, LBX, yrs=LBY)
-    bt = pd.read_csv(os.path.join(os.path.dirname(BOOK), "book463_trades.csv"), parse_dates=["date"])
-    big = max(float(bt[bt.date >= LB0]["pnl"].max()), float(t["pnl"].max() * c) if len(t) else 0.0)
-    r["big"] = big
+    bl = bt[(bt.date >= LB0) & (bt.date < LBX)]["pnl"]                        # the book's LB trades on the same [LB0, LBX) rows as r["net"]
+    big = max(float(bl.max()) if len(bl) else 0.0, float(t["pnl"].max() * c) if len(t) else 0.0)   # the biggest single trade of book + leg (prereg line 73)
+    r["big"], r["net_ex_big"] = big, r["net"] - big
+    ls = stats(t, nq.index, LB0, LBX)
+    lg = {"theta": th, "c": c, "n": ls["n"], "net": ls["net"] * c, "pf": ls["pf"], "t": ls["t"]}      # report only
     ok = r["roc30"] >= 164.76 and r["sortino"] >= 4.150 and r["net"] - big > 0 and leg.sum() > 0
-    print(f"Stage B: book LB ROC@30k {r['roc30']:.2f} Sortino {r['sortino']:.3f} | leg LB {len(t)} trades ${leg.sum():,.0f} -> {'PASS' if ok else 'FAIL'}")
-    json.dump({"B": r, "leg_n": len(t), "leg_net": float(leg.sum()), "pass": bool(ok)}, open(os.path.join(OUT, "nqbrd_stageB.json"), "w"), indent=1)
+    print(f"LB coverage: guard dropped {len(lb_drop)} days {lb_drop}; recorded empty {len(lb_empty)} days {lb_empty} (no trade)")
+    print(f"leg theta {th} x{c} LB: n {lg['n']} net ${lg['net']:,.0f} PF {lg['pf']:.2f} t {lg['t']:.2f}")
+    print(f"Stage B: book LB ROC@30k {r['roc30']:.2f} Sortino {r['sortino']:.3f} net ${r['net']:,.0f}, without its biggest trade (${big:,.0f}) ${r['net'] - big:,.0f} "
+          f"| leg LB {len(t)} trades ${leg.sum():,.0f} -> {'PASS' if ok else 'FAIL'}")
+    json.dump({"B": r, "leg_n": len(t), "leg_net": float(leg.sum()), "leg": lg, "lb_guard_dropped_days": lb_drop, "lb_recorded_empty_days": lb_empty,
+               "pass": bool(ok)}, open(os.path.join(OUT, "nqbrd_stageB.json"), "w"), indent=1, default=str)
 
 
 if __name__ == "__main__":
