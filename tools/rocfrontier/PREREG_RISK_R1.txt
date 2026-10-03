@@ -119,3 +119,17 @@ R5 The forecast question - the only ML role this round funds, asked once (no mod
 
 OUTPUT: C:\EdgeLog\_anatomy_cache\rocfrontier\r11\ (outside git; EDGELOG_ROCFRONTIER_R11 overrides): parity.json, records_U.npz,
 records_S.npz, e1.json, e2.json (both null distributions), e3.json, reports.json, VERDICT.txt. Nothing here commits, pushes or queues a job.
+
+ADDENDUM 2026-10-03 (written BEFORE any real-data number exists; from the harness's own synthetic power check, r11_risk.py smoke). Before
+this addendum the file's sha256 was b7d9c5dc1e38ba6818f613b474bef52b525782ca12d67dfc33efec5ca8c9d017.
+- Power check: in a synthetic world with a PLANTED volatility mechanism (the edge per unit of risk turns negative at extreme volatility),
+  V2 halved the five deepest drawdowns at equal net and cleared E1 and E3 under both day clocks, yet E2's family-aware timing null sat at the
+  93rd-96th percentile, so the AND over two clocks (8 conditions) failed it on one. In the NULL synthetic world (a constant edge per unit
+  of risk) E2 sat at the 18th-31st percentile. Fifteen years hold only a couple of dozen independent volatility regimes, so a timing null
+  cannot be sharper than that; requiring it on two clocks doubles the chance of failing by noise.
+- Each clock is internally causal (index and entry stamps share one rule; tests/test_book_sizing*.py prove the multiplier for a day never
+  reads that day), so the second clock adds noise, not protection, to a TIMING test.
+- CHANGE: E2 is decided on rule U - the clock of the engine and of any persisted run - on 4 conditions (Null A and Null B, WF and EX, each
+  >= the 95th percentile). Rule S's E2 is computed and reported beside it. E1 and E3 keep both clocks. Nothing else changes.
+- Code-only fix found by the same check (no rule changes): E3 refuses to scale when EITHER book's net on the span is <= 0 (a negative net
+  made the equal-net factor negative in a synthetic world that lost money).
