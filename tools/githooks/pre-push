@@ -118,6 +118,40 @@ if printf '%s\n' "$changed" | grep -qE '\.py$'; then
     echo "surrogate.py changed -- running the slow surrogate battery (~4 min)"
     run_tier "Surrogate" "$repo_root/tests/test_surrogate.py"
   fi
+
+  # TOOLS TIER (2026-10-02). A change under tools/ alone matched neither tier above, so it got
+  # the strategy-contract tier only and nothing that actually covers the tool. That is not
+  # theoretical: 65a5352c changed tools/wt.py, took the fast tier, and turned main red for
+  # tests/test_wt_ship_console.py - which pins the exact text of ship's "pushed: " line, and
+  # which the renamed line broke. The engine tier would have caught it in the usual 23 minutes;
+  # the fast path is precisely what skipped it.
+  #
+  # So: for each changed tools/<name>.py, run tests/test_<name>.py when one exists, plus the
+  # named companions below. Seconds, not minutes, so a tools-only ship stays quick - the whole
+  # reason that fast path is worth having.
+  tool_tests=""
+  for f in $(printf '%s\n' "$changed" | grep -E '^tools/[A-Za-z0-9_]+\.py$'); do
+    base="$(basename "$f" .py)"
+    [ -f "$repo_root/tests/test_${base}.py" ] && \
+      tool_tests="$tool_tests $repo_root/tests/test_${base}.py"
+    # companions: a test file whose name does not match the tool it covers
+    if [ "$base" = "wt" ]; then
+      [ -f "$repo_root/tests/test_wt_ship_console.py" ] && \
+        tool_tests="$tool_tests $repo_root/tests/test_wt_ship_console.py"
+      [ -f "$repo_root/tests/test_push_lock.py" ] && \
+        tool_tests="$tool_tests $repo_root/tests/test_push_lock.py"
+    fi
+  done
+  tool_tests="$(printf '%s\n' $tool_tests | sort -u | tr '\n' ' ')"
+  if [ -n "$(printf '%s' "$tool_tests" | tr -d ' ')" ]; then
+    # Skipped when the engine tier already ran everything.
+    if printf '%s\n' "$changed" | grep -qE '^(augur_engine/|api/|augur_mp_worker\.py|tests/)'; then
+      echo "tools/ changed, but the engine tier above already covered it."
+    else
+      echo "tools/ changed -- running the tests that cover those tools:$tool_tests"
+      run_tier "Tools" $tool_tests
+    fi
+  fi
 fi
 
 exit 0

@@ -542,6 +542,10 @@ def cmd_ship(name, message):
     if on_main.returncode != 0:
         now_at = run(['git', '-C', wt, 'rev-parse', '--short', 'origin/main'],
                      check=False, quiet=True).strip()
+        # Nothing of OURS landed, but another lane's work may have, so still bring the shared
+        # checkout up to date before stopping - leaving it behind is the 2026-09-14 bug the
+        # comment below warns about, and it does not care whose commit was the reason.
+        sync_shared(root)
         raise SystemExit('the push reported success but %s is NOT on origin/main (now at '
                          '%s). Do NOT report this as landed. Re-run ship: it rebases onto '
                          'the newer main and tries again.' % (sha[:8], now_at))
