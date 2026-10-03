@@ -100,3 +100,17 @@ one lockbox read could be wasted; no threshold, window, cell or pass rule moved.
 - **All:** the read-once and lockbox-cut guards raise instead of `assert` (which `python -O` strips).
 - **If any Stage A already ran on the box before these fixes**, keep its output and report it beside the corrected
   run in the ledger; the corrected run is the registered one.
+
+## Update 2026-10-03 (later) - pre-run review round 2 (fresh reviewers; each finding checked by 2-3 skeptics)
+- **NQBRD:**
+  - **CHOICE, written before any Stage A:** the A2 bar is the registered formula 1.05 x 92.70 = **97.335**, not the
+    printed rounding 97.3, so the stricter number binds (SIPORB already rounds its bar up).
+  - Stage B refuses unless Stage A was written by this exact harness version.
+  - A 429 storm now stops after 30 tries in a row instead of looping silently.
+  - Days pulled before the month-start `asof` change are flagged in Stage A as a warning, not a refusal.
+- **SIPORB:** Stage B refuses unless Stage A was written by this exact harness version and early-close list.
+- **TRANSFER r2:**
+  - Before the read-once flag, Stage B re-runs every passing cell on the pre-lockbox data and requires Stage A's
+    trades back exactly. This catches any change to the engine, a strategy file or prices, including a
+    split-rebased re-pull. The old date-and-count fingerprint ignored prices.
+- **Shared loader:** the early-close list now holds only true NYSE 13:00 closes (holidays and full sessions removed).
