@@ -681,6 +681,13 @@ def _grade_book(run_id, book, tail=False, tail_enforce=False):
     pooled_n = sum(int((r.get("lb") or {}).get("n") or 0) for _, r in results)
     pooled_net = sum(float((r.get("lb") or {}).get("net") or 0.0) for _, r in results)
     doc_lb = book.get("lockbox") or {}
+    _bsz = book.get("book_sizing")
+    if _bsz and ((_bsz.get("raw_twin") or {}).get("lockbox")):
+        # A SIZED book (augur_engine/book_sizing.py, 2026-10-03): the legs above re-run UNSIZED, so the fair
+        # comparison is the run's unsized raw twin, not its sized lockbox.
+        print("  NOTE: run #%s is a SIZED book (book_sizing mode %s); its legs are graded unsized above, so the "
+              "line below is its UNSIZED raw twin's lockbox, not the sized book's." % (run_id, _bsz.get("mode")))
+        doc_lb = _bsz["raw_twin"]["lockbox"]
     print("  POOLED continuous ENTRY-sliced lockbox (sum of legs' guard LOCKBOX rows above): "
          "n=%d  net=$%.0f" % (pooled_n, pooled_net))
     print("  book.lockbox (DAY-sliced P&L -- augur_engine/book.py slices the book's daily "

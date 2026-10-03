@@ -153,3 +153,16 @@ def test_exit_code_is_worst_leg(monkeypatch, verdict_a, verdict_b, expected_exit
     monkeypatch.setattr(qg, "guard", fake_guard)
     _results, worst = qg._grade_book(123, _fake_book())
     assert worst == expected_exit
+
+
+def test_a_sized_book_is_compared_with_its_unsized_raw_twin(monkeypatch, capsys):
+    """A BOOK run with a book_sizing block (augur_engine/book_sizing.py, 2026-10-03) re-sizes every trade, but guard()
+    re-runs each leg UNSIZED - so the pooled line must sit next to the run's unsized raw twin, and say so."""
+    monkeypatch.setattr(qg, "guard", lambda **kw: _fake_result(kw["strategy_file"], "PASS"))
+    book = _fake_book()
+    book["book_sizing"] = {"mode": "vt", "raw_twin": {"lockbox": dict(num_trades=250, total_pnl=41000.0,
+                                                                         profit_factor=1.25, max_drawdown=9000.0)}}
+    qg._grade_book(999, book)
+    out = capsys.readouterr().out
+    assert "SIZED book" in out and "raw twin" in out
+    assert "net=$41000.0" in out and "net=$50000.0" not in out
