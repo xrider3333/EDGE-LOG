@@ -79,8 +79,9 @@ one lockbox read could be wasted; no threshold, window, cell or pass rule moved.
 - **SIPORB** (`r5_siporb.py`): on NYSE half days the 1-minute bars stop at 12:59, so fills end at 12:58 and the
   exit is the 12:59 close, not an after-hours print at 15:59 (CHOICE clarifying prereg lines 27/30: "15:59" means
   the session's last regular bar). Stage B reads the book's trade file and checks every order-name has 1-minute
-  bars BEFORE the flag. The keyword filters' known false positives (IVZ, PFBC, APTS, DJCO, UPL, UCTT, BSF, BRK.B)
-  are a logged CHOICE.
+  bars BEFORE the flag; if the same gaps survive a re-pull of those days they are real, and `B --gaps-ok` counts
+  them as no fill, exactly as Stage A does. A missing or changed prereg now refuses A and B. The keyword filters'
+  known false positives (IVZ, PFBC, APTS, DJCO, UPL, UCTT, BSF, BRK.B) are a logged CHOICE.
 - **TRANSFER r2** (`r8_transfer_etf.py`): Stage B refuses, before the flag, unless the strategy files, the harness,
   the TTM check and every master fingerprint are the ones Stage A ran on.
 - **All:** the read-once and lockbox-cut guards raise instead of `assert` (which `python -O` strips).

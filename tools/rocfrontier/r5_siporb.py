@@ -6,19 +6,21 @@
 #   python r5_siporb.py open5    09:30-09:35 bar of each name that passes filters 1-3 on the day or within the next 14 sessions
 #   python r5_siporb.py min1     1-minute bars: each day's top-20, plus every filtered name on WF days (raw twin); estimate first
 #   python r5_siporb.py A        replication + Stage A + A2, PRE-LOCKBOX ONLY (inputs cut to dates < 2025-06-30 before anything is computed)
-#   python r5_siporb.py B        Stage B (lockbox, once) - refuses unless A2 passed
+#   python r5_siporb.py B        Stage B (lockbox, once) - refuses unless A2 passed; `B --gaps-ok` only after a re-pull left the same 1-minute gaps
 # The pulls need the owner's Alpaca keys (env ALPACA_API_KEY / ALPACA_SECRET_KEY) and write only to the research cache, never a library master.
 # Order: assets, daily, open5, `min1 top`, A (replication check runs on that alone), `min1 twin` (the big one), A again, B only after an A2 pass.
 #   python r5_siporb.py probe    ~15 real requests (auth, the FB/META renamed-ticker test: do the 5-minute and the daily requests answer for the same
 #                                symbols?, the split factor, symbols per request) - run once after `assets`. No request sends asof: every pull
 #                                uses Alpaca's default (today's names), so daily and intraday bars are keyed by the same symbols (prereg addendum 3)
-#   python r5_siporb.py smoke [dir]   offline self-test on synthetic bars through a fake transport - no network, no keys (hidden)
+#   python r5_siporb.py smoke [dir]   offline self-test on synthetic bars through a fake transport - no network, no keys (hidden; the dir's name must contain 'smoke')
+# pre-run review fixes 2026-10-03 (half-day cut, read-before-flag, no spec change)
 import hashlib, json, os, re, sys, time
 from collections import Counter
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.environ.get("EDGELOG_ROOT", os.path.dirname(os.path.dirname(HERE))); sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, "tools")); sys.path.insert(0, HERE)
 import numpy as np, pandas as pd
+from import_alpaca_stocks import EARLY_CLOSE_DATES, EARLY_CLOSE_MIN    # NYSE 13:00 half days: the shared loader's one list (not copied here)
 
 TS = pd.Timestamp
 OUT = os.environ.get("EDGELOG_ALPACA_R1", r"C:\EdgeLog\_anatomy_cache\rocfrontier\alpaca_r1")   # results, outside git
@@ -34,6 +36,9 @@ PX_MIN, VOL_MIN, ATR_MIN = 5.0, 1_000_000.0, 0.50
 SLOT, RISK, LEV, STOPF = 5000.0, 0.01, 4.0, 0.10               # $100k = 20 slots; 1% of the slot at risk; 4x slot cap; stop = 10% of ATR
 COMM, SLIP, SLIP_STRESS = 0.0035, 0.01, 0.02                   # $ per share per side
 NMIN, F0, F1 = 390, 5, 388                                     # 1-minute bars 09:30..15:59; fills allowed on bars 09:35..15:58
+# CHOICE (pre-data, clarifies prereg lines 27/30): "until 15:59" / "the 15:59 bar" = the session's last regular bar. On an NYSE half day
+# (EARLY_CLOSE_DATES) every 1-minute bar from 13:00 on is an extended-hours print and is dropped: fills end on the 12:58 bar, exit = the 12:59 close.
+# Nothing else assumes a closing minute: open5 reads only the 09:30 bar and filters 1-3 read Alpaca's daily bars as served.
 BOOK_WF, BOOK_LB = (187.79, 4.428), (164.76, 4.150)            # BOOK #463 ROC@30k, Sortino (prereg)
 CS = (0.5, 1.0, 2.0)
 RULES = {"rep_sharpe": 1.0, "n": 100, "roc": 15.0, "pf": 1.10, "t": 2.0, "months": 0.60, "twin": True, "stress": True, "exbig": True,
@@ -42,6 +47,7 @@ CHECK_BOOK = True       # refuse to judge if the book file does not reproduce #4
 BARS_URL, ASSETS_URL = "https://data.alpaca.markets/v2/stocks/bars", "https://paper-api.alpaca.markets/v2/assets"
 EXCH = {"NYSE", "NASDAQ", "AMEX", "ARCA", "BATS"}
 # CHOICE: keywords match as whole words (\b), case-insensitive - a substring match would drop Netflix ("etf") and Ultragenyx ("ultra")
+# CHOICE (logged, kept as is): known false positives - real common stocks dropped: IVZ, PFBC, APTS, DJCO, UPL, UCTT, BSF (name) and BRK.B (dot)
 BAD_NAME = re.compile(r"\b(?:ETFs?|ETNs?|Exchange Traded|Funds?|iShares|SPDR|ProShares|Direxion|Vanguard|Invesco|Leveraged|Daily|Ultra|2X|3X"
                       r"|Bull|Bear|Notes|Warrants?|Units|Rights|Preferred|Depositary Shares Representing)\b", re.I)
 PACE, BACKOFF, RETRY, URL_MAX, DAILY_BATCH, SMOKE, BAD = 0.31, 20, 10, 6500, 500, False, []
@@ -55,7 +61,8 @@ except ImportError:
 
 # ------------------------------------------------------------------ transport (keys required; smoke swaps _http_get)
 def _http_get(url, heads, params):
-    assert not SMOKE, "network call during smoke"
+    if SMOKE:
+        raise SystemExit("network call during smoke")
     import requests
     return requests.get(url, headers=heads, params=params, timeout=120)
 
@@ -234,14 +241,18 @@ def assets():
     df = pd.DataFrame(rows)
     df["why"] = [why_not(s, n, e) for s, n, e in zip(df["symbol"], df["name"], df["exchange"])]
     keep = df[df["why"].isna()].drop(columns="why")
+    ex = df[df["why"] == "exchange"]                                                        # survivorship visibility: today's exchange decides
     cnt = {"total": int(len(df)), "kept": int(len(keep)), "kept_by_status": {k: int(v) for k, v in keep["status"].value_counts().items()},
-           "excluded_by_reason": {k: int(v) for k, v in Counter(df["why"].dropna()).most_common()}}
+           "excluded_by_reason": {k: int(v) for k, v in Counter(df["why"].dropna()).most_common()},
+           "excluded_exchange_by_status": {st: {(e or "(blank)"): int(n) for e, n in g["exchange"].value_counts().items()} for st, g in ex.groupby("status")}}
     os.makedirs(path_of(), exist_ok=True)
     keep.to_csv(path_of("assets.csv"), index=False)
     df[df["why"].notna()].to_csv(path_of("assets_excluded.csv"), index=False)              # audit: what each rule removed
     for p in (path_of("assets_counts.json"), os.path.join(OUT, "siporb_assets_counts.json")):
         os.makedirs(os.path.dirname(p), exist_ok=True); json.dump(cnt, open(p, "w"), indent=1)
     print(json.dumps(cnt), flush=True)
+    print("excluded by exchange (today's listing), by status: " + ", ".join(f"{st} {sum(v.values()):,}" for st, v in cnt["excluded_exchange_by_status"].items())
+          + " - an inactive name now on OTC / blank is dropped for its whole listed history (survivorship; see assets_excluded.csv)", flush=True)
 
 
 def universe():
@@ -302,7 +313,8 @@ def read_long(kind, t_end):
         df = pq.read_table(base + ".parquet", filters=[("date", "<", t_end.to_pydatetime())], read_dictionary=["symbol"]).to_pandas()
     else:
         df = load_df(base); df["date"] = pd.to_datetime(df["date"]); df = df[df["date"] < t_end]
-    assert not len(df) or df["date"].max() < t_end          # belt and braces: nothing on/after the cut is ever in memory
+    if len(df) and not df["date"].max() < t_end:            # belt and braces: nothing on/after the cut is ever in memory
+        raise SystemExit(f"daily_{kind}: input not cut - refused")
     df["symbol"] = df["symbol"].astype("category")
     return df
 
@@ -312,7 +324,8 @@ class Data:
     def __init__(self, t_end, open5=True):
         self.t_end = t_end
         raw, spl = read_long("raw", t_end), read_long("split", t_end)
-        assert len(raw) and raw["date"].max() < t_end and spl["date"].max() < t_end, "input not cut"
+        if not (len(raw) and len(spl) and raw["date"].max() < t_end and spl["date"].max() < t_end):
+            raise SystemExit("daily bars empty or not cut - refused")
         cnt = raw.groupby("date").size()
         self.days = days = pd.DatetimeIndex(cnt.index[cnt >= max(3, 0.25 * cnt.median())])   # sessions = dates most names have a bar on
         # a name that never trades above $5 or never 1M shares in a day cannot pass filters 1-2 on any day: dropped here, no result changes
@@ -446,13 +459,21 @@ def dense(bars, names):
     return out
 
 
-def simulate(O, H, L, C, side, E, atr):
-    """entry stop E (buy stop at the first bar's high / sell stop at its low) live on bars 09:35-15:58; fill at the stop or the bar's open if it
-    opens through; protective stop 10% of ATR from the fill, assumed hit if the fill bar also reaches it; else exit at the close of the last bar"""
+def session_bars(bars, day):
+    """the day's regular-session 1-minute bars and the last bar a stop may fill on (column): 15:58, or 12:58 on an NYSE half day (CHOICE above)"""
+    if f"{day:%Y-%m-%d}" in EARLY_CLOSE_DATES:
+        return bars[bars["m"] < EARLY_CLOSE_MIN], EARLY_CLOSE_MIN - 570 - 2
+    return bars, F1
+
+
+def simulate(O, H, L, C, side, E, atr, f1=F1):
+    """entry stop E (buy stop at the first bar's high / sell stop at its low) live on bars 09:35-15:58 (f1 = 12:58 on a half day); fill at the stop or
+    the bar's open if it opens through; protective stop 10% of ATR from the fill, assumed hit if the fill bar also reaches it; else exit at the close
+    of the last bar (the session's bars only: session_bars cuts a half day at 13:00)"""
     n, ar, col = len(side), np.arange(len(side)), np.arange(NMIN)
     lng = side > 0
     with np.errstate(invalid="ignore", divide="ignore"):
-        reach = np.where(lng[:, None], H >= E[:, None], L <= E[:, None]) & ((col >= F0) & (col <= F1))[None, :]
+        reach = np.where(lng[:, None], H >= E[:, None], L <= E[:, None]) & ((col >= F0) & (col <= f1))[None, :]
         got = reach.any(axis=1)
         i = reach.argmax(axis=1)                                                     # first bar that reaches the entry stop
         oi = O[ar, i]
@@ -464,7 +485,7 @@ def simulate(O, H, L, C, side, E, atr):
         hit1 = touch.any(axis=1)
         j = touch.argmax(axis=1)                                                     # later bars: opened through -> open, else the stop
         oj = O[ar, j]
-        last = NMIN - 1 - (~np.isnan(C))[:, ::-1].argmax(axis=1)                     # 15:59 bar, else the last bar before 16:00
+        last = NMIN - 1 - (~np.isnan(C))[:, ::-1].argmax(axis=1)                     # 15:59 bar (12:59 on a half day), else the last bar before it
         px = np.where(hit0, ps, np.where(hit1, np.where(lng, np.minimum(oj, ps), np.maximum(oj, ps)), C[ar, last]))
         sh = np.floor(np.minimum(RISK * SLOT / dist, LEV * SLOT / fill) + 1e-9)     # 1% of the slot / stop distance, or 4x slot / price; rounded down
     ok = got & (sh >= 1)
@@ -477,41 +498,69 @@ def empty_tr():
     return pd.DataFrame({c: pd.Series(dtype="datetime64[ns]" if c == "date" else object if c == "symbol" else float) for c in TRCOLS})
 
 
-def day_trades(D, i, cols, kind):
-    """orders and simulated fills for the names `cols` (columns of D) on session i; kind = top (A1) or twin"""
-    day = D.days[i]
-    assert day < D.t_end, "day outside the cut"
+def orders(D, i, cols):
+    """the names of `cols` that get an order on session i -> (cols, side, stop): close > open -> buy stop at the first bar's high,
+    close < open -> sell stop at its low; equal (or no first bar) -> no order, the slot stays empty"""
     o, h, l, c = (a[i, cols] for a in (D.O5, D.H5, D.L5, D.C5))
     with np.errstate(invalid="ignore"):
-        side = np.sign(c - o)                                                        # close > open -> buy stop at the high; close < open -> sell stop at the low
-    k = np.flatnonzero((side == 1) | (side == -1))                                   # equal (or no first bar) -> no order; the slot stays empty
-    if not len(k):
-        return None
-    cols, side = cols[k], side[k]
-    E = np.where(side > 0, h[k], l[k])
-    O, H, L, C = dense(load_df(path_of(f"min1_{kind}", f"{day:%Y-%m-%d}")), D.syms[cols])
-    r = simulate(O, H, L, C, side, E, D.atr[i, cols])
+        side = np.sign(c - o)
+    k = np.flatnonzero((side == 1) | (side == -1))
+    return cols[k], side[k], np.where(side[k] > 0, h[k], l[k])
+
+
+def min1_bars(D, i, kind):
+    """session i's 1-minute file (min1_top / min1_twin), cut to the regular session -> (bars, last fill column)"""
+    day = D.days[i]
+    if not day < D.t_end:
+        raise SystemExit("day outside the cut - refused")
+    return session_bars(load_df(path_of(f"min1_{kind}", f"{day:%Y-%m-%d}")), day)
+
+
+def day_trades(D, i, cols, kind):
+    """orders and simulated fills for the names `cols` (columns of D) on session i; kind = top (A1) or twin
+    -> (trades or None, order-names with no 1-minute bar in the day's file: they cannot fill, so they are counted, not hidden)"""
+    cols, side, E = orders(D, i, cols)
+    if not len(cols):
+        return None, []
+    bars, f1 = min1_bars(D, i, kind)
+    names = D.syms[cols]
+    miss = sorted(set(names) - set(bars["symbol"].astype(str)))
+    O, H, L, C = dense(bars, names)
+    r = simulate(O, H, L, C, side, E, D.atr[i, cols], f1)
     ok = r["ok"]
     if not ok.any():
-        return None
-    return pd.DataFrame({"date": day, "symbol": D.syms[cols][ok], "side": side[ok].astype(int), "rv": D.RV[i, cols][ok], "atr": D.atr[i, cols][ok],
+        return None, miss
+    return pd.DataFrame({"date": D.days[i], "symbol": names[ok], "side": side[ok].astype(int), "rv": D.RV[i, cols][ok], "atr": D.atr[i, cols][ok],
                          "entry": r["entry"][ok], "exit": r["exit"][ok], "shares": r["shares"][ok].astype(int), "gross": r["gross"][ok],
-                         "fill_min": r["fill_min"][ok], "exit_min": r["exit_min"][ok], "stopped": r["stopped"][ok]})
+                         "fill_min": r["fill_min"][ok], "exit_min": r["exit_min"][ok], "stopped": r["stopped"][ok]}), miss
 
 
 def run(D, t0, t1, kind):
-    """every trade of sessions [t0, t1): kind top = A1 (20 highest RV among filters 1-4), twin = every name passing filters 1-3"""
-    parts = []
+    """every trade of sessions [t0, t1): kind top = A1 (20 highest RV among filters 1-4), twin = every name passing filters 1-3
+    -> (trades, [(day, symbol)] of order-names with no 1-minute bars)"""
+    parts, miss = [], []
     for day in D.days[(D.days >= t0) & (D.days < t1)]:
         i = D.days.get_loc(day)
         cols = D.top20(i) if kind == "top" else np.flatnonzero(D.P[i])
-        t = day_trades(D, i, cols, kind) if len(cols) else None
+        t, m = day_trades(D, i, cols, kind) if len(cols) else (None, [])
+        miss += [(day, s) for s in m]
         if t is not None:
             parts.append(t)
     tr = pd.concat(parts, ignore_index=True) if parts else empty_tr()
     tr["pnl"] = tr["gross"] - tr["shares"] * 2 * (COMM + SLIP)                       # both sides
     tr["pnl_stress"] = tr["gross"] - tr["shares"] * 2 * (COMM + SLIP_STRESS)
-    return tr
+    return tr, miss
+
+
+def min1_gaps(D, t0, t1, kind="top"):
+    """order-names of sessions [t0, t1) with no 1-minute bar in their day's file (Stage B runs it BEFORE the one read; nothing is simulated)"""
+    miss = []
+    for day in D.days[(D.days >= t0) & (D.days < t1)]:
+        i = D.days.get_loc(day)
+        cols = orders(D, i, D.top20(i) if kind == "top" else np.flatnonzero(D.P[i]))[0]
+        if len(cols):
+            miss += [(day, s) for s in sorted(set(D.syms[cols]) - set(min1_bars(D, i, kind)[0]["symbol"].astype(str)))]
+    return miss
 
 
 # ------------------------------------------------------------------ statistics (r5_nqbrd's ddmax / so / book)
@@ -568,13 +617,14 @@ PREREG_SHA = "bda7220312a49c30d9b6857017cf00ba95d9c80fc7c0dfb9050a7d25bbf4f41d" 
 
 
 def prereg_ok():
-    """the frozen spec this file implements must still be the committed one (a changed spec = a new file, r2)"""
+    """the frozen spec this file implements must still be the committed one (a changed spec = a new file, r2): a missing or changed file refuses A and B"""
     p = os.path.join(HERE, "PREREG_ALPACA_R1.txt")
     if not os.path.exists(p):
-        print("prereg check: PREREG_ALPACA_R1.txt not next to this file - not verified"); return None
-    ok = hashlib.sha256(open(p, "rb").read().replace(b"\r\n", b"\n")).hexdigest() == PREREG_SHA
-    print("prereg check: PREREG_ALPACA_R1.txt sha256 " + ("matches the committed blob" if ok else "DIFFERS from the committed blob - this harness may not match the spec"))
-    return ok
+        raise SystemExit("refused: PREREG_ALPACA_R1.txt is not next to this file - the spec cannot be verified (nothing computed, lockbox NOT read)")
+    if hashlib.sha256(open(p, "rb").read().replace(b"\r\n", b"\n")).hexdigest() != PREREG_SHA:
+        raise SystemExit("refused: PREREG_ALPACA_R1.txt DIFFERS from the committed blob - a changed spec is a new file, r2 (nothing computed, lockbox NOT read)")
+    print("prereg check: PREREG_ALPACA_R1.txt sha256 matches the committed blob")
+    return True
 
 
 def counts_by_year(D):
@@ -614,7 +664,8 @@ def judge(w, tw, stress_net):
 def stage_a():
     pok = prereg_ok()
     D = Data(LB0)                                   # every input is cut to dates < 2025-06-30 inside this call, before anything is computed
-    assert D.days.max() < LB0
+    if not D.days.max() < LB0:
+        raise SystemExit("Stage A refused: a session on/after 2025-06-30 is in memory (nothing computed)")
     wf = D.days[(D.days >= WF0) & (D.days < LB0)]
     need_files("open5", [d for d in D.days if O5_0 <= d < LB0])
     cy, cov = counts_by_year(D), coverage_by_year(D)
@@ -631,8 +682,11 @@ def stage_a():
     m = D.P & np.isfinite(D.O5)
     print(f"survivorship / mapping check: names passing 1-3 ever {int(D.P.any(axis=0).sum()):,}; 5-min open differs from the daily open by >5% on "
           f"{float(np.mean(np.abs(D.O5[m] / D.Od[m] - 1.0) > 0.05)):.2%} of {int(m.sum()):,} name-days")
-    a1 = run(D, REP0, LB0, "top")
+    a1, ms = run(D, REP0, LB0, "top")
     a1.to_csv(os.path.join(OUT, "siporb_trades_A1_pre.csv"), index=False)
+    out["no_min1"] = {"A1": len(ms), "A1_first": [f"{d:%Y-%m-%d} {s}" for d, s in ms[:20]]}
+    print(f"order-names with no 1-minute bars in their day's file (cannot fill - counted, not hidden): A1 {len(ms):,}"
+          + (f", first {', '.join(out['no_min1']['A1_first'][:5])}" if ms else ""))
     rep = stats(a1, D.days, REP0, REP1)
     print(f"REPLICATION 2016-01-04 -> 2023-12-29 (the paper's sample, not out-of-sample): A1 {rep['n']:,} trades, net ${rep['net']:,.0f}, "
           f"annualised daily Sharpe {rep['sharpe']:.2f} (paper 2.81; the pipeline check needs >= {RULES['rep_sharpe']:g})")
@@ -643,8 +697,10 @@ def stage_a():
     if not all(have(path_of("min1_twin", f"{d:%Y-%m-%d}")) for d in wf):                # the replication runs on `min1 top` alone: check the pipeline before the big twin pull
         print("Replication check passed. The raw twin's 1-minute bars are not all pulled yet - run `min1 twin`, then A again (Stage A not judged)")
         dump(out, "siporb_stageA.json"); return
-    tw = run(D, WF0, LB0, "twin")
+    tw, mt = run(D, WF0, LB0, "twin")
     tw.to_csv(os.path.join(OUT, "siporb_trades_twin_wf.csv.gz"), index=False)
+    out["no_min1"].update({"twin": len(mt), "twin_first": [f"{d:%Y-%m-%d} {s}" for d, s in mt[:20]]})
+    print(f"order-names with no 1-minute bars: raw twin {len(mt):,}" + (f", first {', '.join(out['no_min1']['twin_first'][:5])}" if mt else ""))
     w, lo, tws = stats(a1, D.days, WF0, LB0), stats(a1[a1["side"] > 0], D.days, WF0, LB0), stats(tw, D.days, WF0, LB0)
     stress = float(a1[(a1["date"] >= WF0) & (a1["date"] < LB0)]["pnl_stress"].sum())
     chk = judge(w, tws, stress)
@@ -657,13 +713,18 @@ def stage_a():
     if not ok:
         print("Stage A: FAIL - SIPORB dead; lockbox stays sealed")
         dump(out, "siporb_stageA.json"); return
-    base = book(None, WF0, LB0)
+    dump(out, "siporb_stageA.json")                 # Stage A's PASS is on file before the book is read (A2 still None: B stays refused)
+    try:
+        base = book(None, WF0, LB0)
+        leg = a1.groupby("date")["pnl"].sum()
+        by_c = {c: book(leg * c, WF0, LB0) for c in CS}
+    except Exception as e:                          # a missing / bad book file: record it, exit non-zero
+        out["A2"] = {"pass": False, "error": f"book read failed - {type(e).__name__}: {e}"}; dump(out, "siporb_stageA.json")
+        raise SystemExit(f"A2 NOT judged: the book file could not be read ({type(e).__name__}: {e}); Stage A is on file in siporb_stageA.json")
     print(f"BOOK #463 WF check (must be {BOOK_WF[0]} / {BOOK_WF[1]}): ROC@30k {base['roc30']:.2f} Sortino {base['sortino']:.3f}")
     if CHECK_BOOK and not (abs(base["roc30"] - BOOK_WF[0]) < 0.006 and abs(base["sortino"] - BOOK_WF[1]) < 0.0006):
         print("A2 NOT judged: the book file does not reproduce #463's prereg numbers - fix the input first")
         out["A2"] = {"pass": False, "error": "book check mismatch", "book_wf": base}; dump(out, "siporb_stageA.json"); return
-    leg = a1.groupby("date")["pnl"].sum()
-    by_c = {c: book(leg * c, WF0, LB0) for c in CS}
     cb = max(CS, key=lambda c: by_c[c]["roc30"])     # best c by WF book ROC@30k (ties -> smaller c), then frozen
     alone = w["roc30"] >= RULES["a2_alone"]
     viab = by_c[cb]["roc30"] >= RULES["a2_book"] and by_c[cb]["sortino"] >= RULES["a2_sort"]
@@ -676,19 +737,27 @@ def stage_a():
     dump(out, "siporb_stageA.json")
 
 
-def stage_b():
+def stage_b(*a):
     pa_ = os.path.join(OUT, "siporb_stageA.json")
     a2 = (json.load(open(pa_)).get("A2") or {}) if os.path.exists(pa_) else {}
     if not a2.get("pass"):
         print("Stage B refused: no Stage A2 pass on file - the lockbox stays sealed."); return
     flag = os.path.join(OUT, "siporb_stageB_READ.flag")
-    assert not os.path.exists(flag), "Stage B was already read once"
-    if CHECK_BOOK:                                   # the book's own LB numbers are public (prereg); check the window BEFORE the family's lockbox is read
-        bb = book(None, LB0, LB1, yrs=LBY)
+    if os.path.exists(flag):
+        raise SystemExit("Stage B refused: the lockbox was already read once (siporb_stageB_READ.flag)")
+    prereg_ok()
+    try:                                             # both book files are read BEFORE the flag: a missing / bad file cannot burn the lockbox
+        bb = book(None, LB0, LB1, yrs=LBY)          # the book's own LB numbers are public (prereg)
+        bt = pd.read_csv(os.path.join(os.path.dirname(BOOK), "book463_trades.csv"), parse_dates=["date"])
+        bt_big = float(bt[(bt["date"] >= LB0) & (bt["date"] < LB1)]["pnl"].max())                 # the book's biggest LB trade (LB1 = LBX, exclusive)
+        if not np.isfinite(bt_big):
+            raise ValueError("no LB trade in book463_trades.csv")
+    except Exception as e:
+        print(f"Stage B refused: a BOOK #463 file is missing or bad ({type(e).__name__}: {e}) (lockbox NOT read)"); return
+    if CHECK_BOOK:
         print(f"BOOK #463 LB check (must be {BOOK_LB[0]} / {BOOK_LB[1]}): ROC@30k {bb['roc30']:.2f} Sortino {bb['sortino']:.3f}")
         if not (abs(bb["roc30"] - BOOK_LB[0]) < 0.006 and abs(bb["sortino"] - BOOK_LB[1]) < 0.0006):
             print("Stage B refused: the book file's LB window does not reproduce #463's prereg LB numbers - settle the end-date convention first (lockbox NOT read)"); return
-    prereg_ok()
     c = float(a2["c"])
     D = Data(LB1)                                    # loads bars only; no LB result has been computed or shown yet
     need_files("open5", [d for d in D.days if O5_0 <= d < LB1]); need_files("min1_top", D.days[(D.days >= LB0) & (D.days < LB1)])
@@ -697,15 +766,25 @@ def stage_b():
     print(f"coverage on the lockbox: {k5:,} of {k:,} name-days passing filters 1-3 have a 09:30 bar ({k5 / max(k, 1):.1%}; needs >= {RULES['cov']:.0%})")
     if not (k and k5 / k >= RULES["cov"]):
         print("Stage B refused: the 09:30 bar is missing for too many lockbox name-days - a symbol-mapping failure; fix the pull first (lockbox NOT read)"); return
+    try:                                             # every lockbox order-name must have 1-minute bars in its day's file (selection only - nothing simulated)
+        gaps = min1_gaps(D, LB0, LB1)
+    except Exception as e:
+        print(f"Stage B refused: a lockbox min1_top file could not be read ({type(e).__name__}: {e}) (lockbox NOT read)"); return
+    print(f"lockbox 1-minute files: {len(gaps):,} order-names without 1-minute bars (needs 0)")
+    if gaps:
+        open(path_of("min1_top_gaps.txt"), "w").write("".join(f"{d:%Y-%m-%d}\t{s}\n" for d, s in gaps))
+        if "--gaps-ok" not in a:                     # a gap that survives a re-pull is real (Alpaca has no bars): `B --gaps-ok` counts it as no fill, as Stage A does
+            print("Stage B refused: delete the min1_top day files listed in min1_top_gaps.txt (cache) and run `min1 top` again; if the same gaps come back, "
+                  "they are real - run `B --gaps-ok` (no fill, as Stage A counts them) (lockbox NOT read)"); return
+        print("--gaps-ok: these order-names get no fill (as in Stage A)")
     open(flag, "w").write(pd.Timestamp.now().isoformat())        # the one read starts here (a crash above leaves the lockbox unread)
-    tr = run(D, LB0, LB1, "top")
+    tr, ms = run(D, LB0, LB1, "top")
     tr.to_csv(os.path.join(OUT, "siporb_trades_A1_lb.csv"), index=False)
     st = stats(tr, D.days, LB0, LB1, yrs=LBY)
     leg = tr.groupby("date")["pnl"].sum() * c
     r = book(leg, LB0, LB1, yrs=LBY)
-    bt = pd.read_csv(os.path.join(os.path.dirname(BOOK), "book463_trades.csv"), parse_dates=["date"])
-    big = max(float(bt[bt.date >= LB0]["pnl"].max()), float(tr["pnl"].max() * c) if len(tr) else 0.0)
-    r["big"] = big
+    big = max(bt_big, float(tr["pnl"].max() * c) if len(tr) else 0.0)
+    r.update({"big": big, "no_min1": len(ms)})
     alone = st["n"] >= RULES["b_n"] and st["roc30"] >= RULES["b_roc"] and st["net_ex_big"] > 0
     viab = r["roc30"] >= RULES["b_roc"] and r["sortino"] >= RULES["b_sort"] and r["net"] - big > 0
     print("Stage B (lockbox, read once)")
@@ -903,6 +982,12 @@ def selftest():
     assert not one({4: (99.9, 100.3, 99.9, 100.2)}, 1, 100, 2.0)["ok"][0], "bars before 09:35 must not fill"
     assert not one({7: (99.0, 99.5, 98.9, 99.2)}, 1, 100, 2.0)["ok"][0], "no touch, no fill"
     assert not one({7: (100.9, 101.0, 100.8, 100.9)}, 1, 100, 1e6)["ok"][0], "shares < 1 -> no trade"
+    hb = pd.DataFrame({"symbol": "X", "m": [575, 600, 779, 840, 959], "o": [99.9, 100.2, 100.4, 100.6, 97.0], "h": [100.3, 100.4, 100.5, 100.7, 97.0],
+                       "l": [99.9, 100.1, 100.3, 100.5, 97.0], "c": [100.1, 100.3, 100.4, 100.6, 97.0], "v": 100})     # 14:00 / 15:59 = after-hours prints on a half day
+    hs = lambda b, day: (lambda s: simulate(*dense(s[0], np.array(["X"])), np.array([1.0]), np.array([100.0]), np.array([2.0]), s[1]))(session_bars(b, TS(day)))
+    for day, ex, em in (("2024-11-29", 100.4, 779), ("2024-11-27", 97.0, 959)):                  # half day: the 12:59 close; a full day: the 15:59 bar (stopped)
+        r = hs(hb, day); assert r["ok"][0] and np.isclose(r["exit"][0], ex) and r["exit_min"][0] == em, (day, r)
+    assert not hs(hb.iloc[[2, 3]], "2024-11-29")["ok"][0] and hs(hb.iloc[[2, 3]], "2024-11-27")["ok"][0], "half day: no fill on the 12:59 bar or after 13:00"
     for sym, name, exch, bad in (("BRK.B", "x", "NYSE", True), ("ABCDW", "x", "NASDAQ", True), ("ABCD", "x", "NASDAQ", False), ("NEWS", "x", "NYSE", False), ("ABCDU", "x", "NYSE", True),
                                  ("ABCDR", "x", "NYSE", True), ("ABCWS", "x", "NYSE", True), ("NFLX", "Netflix, Inc.", "NASDAQ", False), ("QQQ", "Invesco QQQ Trust, Series 1", "NASDAQ", True),
                                  ("SPY", "SPDR S&P 500 ETF Trust", "ARCA", True), ("TQQQ", "ProShares UltraPro QQQ", "NASDAQ", True), ("UCTT", "Ultra Clean Holdings, Inc.", "NASDAQ", True),
@@ -913,16 +998,35 @@ def selftest():
     assert [len(c) for c in chunk_syms(list("abcdefg"), 3, 10 ** 9)] == [3, 3, 1]
     mv = lambda a, b: mapping_verdict([(s, 1) for s in a], [(s, 1) for s in b])
     assert mv(["AAPL", "META"], ["META", "AAPL"])[0] is True and mv(["AAPL", "META"], ["AAPL"])[0] is False and mv(["META"], ["FB"])[0] is False and mv([], [])[0] is None
-    print("selftest ok: simulate (9 paths + 4 no-fill cases), name/symbol filters, chunking, the FB/META mapping verdict")
+    print("selftest ok: simulate (9 paths + 4 no-fill cases), the half-day cut (12:59 exit, no fill from 12:59 on), name/symbol filters, chunking, the FB/META mapping verdict")
+
+
+def smoke_refusal(root):
+    """why the smoke may not wipe `root` (None = it may): its name must contain 'smoke', and it may not be or hold OUT, CACHE, the repo, this
+    harness, the working directory or C:\\EdgeLog"""
+    real = lambda p: os.path.normcase(os.path.realpath(p))
+
+    def holds(p, q):                                                             # p is q or a folder above q
+        try:
+            return os.path.commonpath([real(p), real(q)]) == real(p)
+        except ValueError:                                                       # another drive
+            return False
+    hit = [n for n, q in (("OUT", OUT), ("CACHE", CACHE), ("the repo", REPO), ("this harness", HERE), ("the working directory", os.getcwd())) if holds(root, q)]
+    hit += [r"C:\EdgeLog"] if root.lower().startswith(r"c:\edgelog") else []
+    if "smoke" in os.path.basename(root).lower() and not hit:
+        return None
+    return f"smoke refused: {root} - its name must contain 'smoke' and it may not be or hold OUT, CACHE, the repo or the working directory (holds: {', '.join(hit) or 'none'})"
 
 
 def smoke(*a):
     import contextlib, io, shutil, tempfile
     global OUT, CACHE, BOOK, SMOKE, PACE, BACKOFF, RETRY, URL_MAX, DAILY_BATCH, CHECK_BOOK, EXT, _http_get
     root = os.path.abspath(a[0] if a else os.path.join(tempfile.gettempdir(), "siporb_smoke"))
+    why = smoke_refusal(root)
+    if why:                                                                      # the dir is wiped below: only a smoke dir, never real data
+        raise SystemExit(why)
     if a[1:2] == ("csv",):                                                       # `smoke <dir> csv` = the no-pyarrow cache format (csv.gz)
         EXT = ".csv.gz"
-    assert not root.lower().startswith(r"c:\edgelog"), "smoke must not touch the real caches"
     shutil.rmtree(root, ignore_errors=True); os.makedirs(root)
     OUT, CACHE, BOOK = os.path.join(root, "out"), os.path.join(root, "cache"), os.path.join(root, "r4", "book463_daily.csv")
     os.makedirs(OUT); os.makedirs(os.path.dirname(BOOK))
@@ -1006,15 +1110,28 @@ def smoke(*a):
     dates = re.findall(r"\b20\d\d-\d\d-\d\d\b", txt)
     assert all(d < "2025-06-30" for d in dates), "Stage A printed a lockbox date"
     assert pd.read_csv(os.path.join(OUT, "siporb_trades_A1_pre.csv"))["date"].max() < "2025-06-30" and pd.read_csv(os.path.join(OUT, "siporb_trades_twin_wf.csv.gz"))["date"].max() < "2025-06-30"
-    res = json.load(open(os.path.join(OUT, "siporb_stageA.json"))); assert res["A2"]["pass"] and res["A2"]["c"] in CS
+    res = json.load(open(os.path.join(OUT, "siporb_stageA.json"))); assert res["A2"]["pass"] and res["A2"]["c"] in CS and res["no_min1"]["A1"] == 0 == res["no_min1"]["twin"]
+    half = lambda f, d: (lambda t: t[t["date"].astype(str).str[:10] == d])(pd.read_csv(os.path.join(OUT, f)))
+    hd = half("siporb_trades_A1_pre.csv", "2023-11-24"); assert len(hd) and (hd["fill_min"] <= 778).all() and (hd["exit_min"] <= 779).all(), "half day: nothing after 12:59"
     flag = os.path.join(OUT, "siporb_stageB_READ.flag")
     CHECK_BOOK = True; stage_b(); assert not os.path.exists(flag), "a refused Stage B must not burn the lockbox"      # LB baseline mismatch -> refused
-    CHECK_BOOK = False; stage_b()
-    assert os.path.exists(flag) and os.path.exists(os.path.join(OUT, "siporb_stageB.json"))
+    CHECK_BOOK = False
+    bt = os.path.join(os.path.dirname(BOOK), "book463_trades.csv"); os.replace(bt, bt + ".away")          # the book's trade file is read BEFORE the flag
+    stage_b(); assert not os.path.exists(flag), "a missing book463_trades.csv must refuse before the flag"; os.replace(bt + ".away", bt)
+    Dl = Data(LB1); i = next(i for i in range(len(Dl.days)) if Dl.days[i] >= LB0 and len(orders(Dl, i, Dl.top20(i))[0]))
+    mb = path_of("min1_top", f"{Dl.days[i]:%Y-%m-%d}"); keep = load_df(mb)                               # an order-name with no 1-minute bars: refused before the flag
+    save_df(keep[keep["symbol"].astype(str) != str(Dl.syms[orders(Dl, i, Dl.top20(i))[0][0]])], mb)
+    stage_b(); assert not os.path.exists(flag) and os.path.exists(path_of("min1_top_gaps.txt")), "a lockbox 1-minute gap must refuse before the flag"
+    save_df(keep, mb)
+    stage_b()
+    assert os.path.exists(flag) and os.path.exists(os.path.join(OUT, "siporb_stageB.json")) and json.load(open(os.path.join(OUT, "siporb_stageB.json")))["book_add"]["no_min1"] == 0
+    hd = half("siporb_trades_A1_lb.csv", "2025-07-03"); assert len(hd) and (hd["exit_min"] <= 779).all(), "lockbox half day: nothing after 12:59"
     try:
         stage_b(); raise AssertionError("second Stage B read must be refused")
-    except AssertionError as e:
+    except SystemExit as e:
         assert "already read" in str(e)
+    assert all(smoke_refusal(p) for p in (HERE, REPO, os.getcwd(), root, os.path.join(root, "x"))) and smoke_refusal(os.path.join(root, "x_smoke")) is None
+    print("half days cut at 13:00; Stage B refuses before the flag on a missing book trade file or a lockbox 1-minute gap; the smoke dir guard holds")
     print("SMOKE OK - synthetic numbers mean nothing; every command ran end to end offline")
 
 
