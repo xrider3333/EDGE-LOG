@@ -303,8 +303,8 @@ string scoreTxt = str.tostring(int(totL)) + "/" + str.tostring(int(mxL))
 
 // -- Label ---------------------------------------------------------------------
 if showLbl and fire
-    string t = "CBU  " + scoreTxt + "\nstop " + f_px(stopPx) + "\nBE at +1R " + f_px(bePx) + "\nthen ride"
-    label.new(bar_index, high, t, style = label.style_label_down, color = color.new(#e6e6e6, 10), textcolor = #101318, size = size.small)
+    string tip = "CBU long, candle " + str.format_time(time, "HH:mm", TZ) + " NY, close " + f_px(close) + "\npoint score " + scoreTxt + " (" + maType + ")\nstop " + f_px(stopPx) + " (one tick under the candle)\nbreakeven at +1R " + f_px(bePx) + "\nthen ride to the close"
+    label.new(bar_index, high, "CBU " + scoreTxt, style = label.style_label_down, color = color.new(#e6e6e6, 10), textcolor = #101318, size = size.small, tooltip = tip)
 
 // -- Alerts --------------------------------------------------------------------
 // Classic alert dialog (static text):

@@ -91,6 +91,7 @@ showTrend = input.bool(true, "Show trend point in the table", group = G_SH, tool
 labThr    = input.int(7, "Label threshold (points)", minval = 1, maxval = 9, group = G_SH)
 altThr    = input.int(8, "Alert threshold (points)", minval = 1, maxval = 9, group = G_SH)
 showLbl   = input.bool(true, "Show labels", group = G_SH)
+layout    = input.string("Compact", "Display", options = ["Compact", "Minimal", "Full"], group = G_SH, tooltip = "Compact: two rows of coloured cells (MA 10s 1m 5m 30m / Y-L Y-C Y-H Body Vol), the side and score, and the trend. Minimal: one score badge - Hit colour at or above the label threshold, Miss colour below half the points, NA colour in between - plus the trend. Full: the detailed table.")
 tblPos    = input.string("Top right", "Table position", options = ["Top left", "Top center", "Top right", "Middle left", "Middle center", "Middle right", "Bottom left", "Bottom center", "Bottom right"], group = G_SH)
 
 // -- Constants -----------------------------------------------------------------
@@ -403,13 +404,38 @@ if barstate.isconfirmed
     snapN := curN
     snapT := time
 
+// -- Short names (compact table, labels, tooltips) ----------------------------
+var array<string> CMP = array.from("10s", "1m", "5m", "30m", "Y-L", "Y-C", "Y-H", "Body", "Vol")
+var array<string> SHORTN = array.from("MA 10s", "MA 1m", "MA 5m", "MA 30m", "Y-L", "Y-C", "Y-H", "Body", "Vol")
+
+f_sc(float tot, float mx) => na(tot) or na(mx) ? "-" : str.tostring(int(tot)) + "/" + str.tostring(int(mx))
+
+// The detail behind a short label: hits, misses, NA and the trend (array = curL / curS layout).
+f_tip(array<float> hv, bool isL) =>
+    string h = ""
+    string m = ""
+    string n = ""
+    for i = 0 to 8
+        float x = array.get(hv, i)
+        string nm = array.get(SHORTN, i)
+        if na(x)
+            n += (n == "" ? "" : ", ") + nm
+        else if x > 0.5
+            h += (h == "" ? "" : ", ") + nm
+        else
+            m += (m == "" ? "" : ", ") + nm
+    float trv = array.get(hv, 9)
+    string trTxt = na(trv) ? "NA" : (trv > 0.5 ? "yes" : "no")
+    (isL ? "LONG " : "SHORT ") + f_sc(array.get(hv, 10), array.get(hv, 11)) + " (" + maType + ")\nHit: " + (h == "" ? "none" : h) + "\nMiss: " + (m == "" ? "none" : m) + (n == "" ? "" : "\nNA: " + n) + "\nTrend (not in the score): " + trTxt
+
 // -- Labels --------------------------------------------------------------------
 if showLbl and barstate.isconfirmed and autoTot >= labThr
-    string lblTxt = str.tostring(int(autoTot)) + "/" + str.tostring(int(autoMax))
+    string lblTxt = f_sc(autoTot, autoMax) + (isLongSide ? " L" : " S")
+    string lblTip = f_tip(isLongSide ? curL : curS, isLongSide)
     if isLongSide
-        label.new(bar_index, high, lblTxt, style = label.style_label_down, color = color.new(#e6e6e6, 15), textcolor = #101318, size = size.small)
+        label.new(bar_index, high, lblTxt, style = label.style_label_down, color = color.new(#e6e6e6, 15), textcolor = #101318, size = size.small, tooltip = lblTip)
     else
-        label.new(bar_index, low, lblTxt, style = label.style_label_up, color = color.new(#6b7078, 15), textcolor = #ffffff, size = size.small)
+        label.new(bar_index, low, lblTxt, style = label.style_label_up, color = color.new(#6b7078, 15), textcolor = #ffffff, size = size.small, tooltip = lblTip)
 
 // -- Alerts --------------------------------------------------------------------
 // alertcondition: static text, for the classic alert dialog (one per side). Gated with barstate.isconfirmed so it
@@ -473,62 +499,81 @@ plot(n5,     title = "R n_5m",  display = display.data_window)
 plot(n30,    title = "R n_30m", display = display.data_window)
 
 // -- Table: the LAST CLOSED bar -------------------------------------------------
-var table tb = table.new(f_pos(tblPos), 4, 15, bgcolor = C_BG, border_color = C_BORD, border_width = 1, frame_color = C_BORD, frame_width = 1)
+var table tb = table.new(f_pos(tblPos), 6, 15, bgcolor = C_BG, border_color = C_BORD, border_width = 1, frame_color = C_BORD, frame_width = 1)
 if barstate.islast
     float snapSide = array.get(snapN, 6)
     bool  snapLong = snapSide > 0.5
+    array<float> sv = snapLong ? snapL : snapS
+    string oneMin = timeframe.period != "1" ? " (1m only!)" : ""
+    if layout == "Compact"
+        // row 0: MA + the four averages, then the side and the score; row 1: yesterday's levels, body, volume, trend
+        table.cell(tb, 0, 0, "MA", text_color = C_DIM, text_size = size.small, bgcolor = C_HDR)
+        for k = 0 to 3
+            table.cell(tb, 1 + k, 0, array.get(CMP, k), text_color = C_WHITE, text_size = size.small, bgcolor = f_col(array.get(sv, k)))
+        table.cell(tb, 5, 0, (snapLong ? "L " : "S ") + f_sc(array.get(sv, 10), array.get(sv, 11)) + oneMin, text_color = C_WHITE, text_size = size.small, bgcolor = C_HDR, tooltip = f_tip(sv, snapLong))
+        for k = 4 to 8
+            table.cell(tb, k - 4, 1, array.get(CMP, k), text_color = C_WHITE, text_size = size.small, bgcolor = f_col(array.get(sv, k)))
+        if showTrend
+            table.cell(tb, 5, 1, "trend", text_color = C_WHITE, text_size = size.tiny, bgcolor = f_col(array.get(sv, 9)))
+    else if layout == "Minimal"
+        float tot = array.get(sv, 10)
+        float mx  = array.get(sv, 11)
+        color bc  = na(tot) or na(mx) ? C_NA : (tot >= labThr ? C_HIT : (mx > 0 and tot / mx < 0.5 ? C_MISS : C_NA))
+        table.cell(tb, 0, 0, f_sc(tot, mx) + (snapLong ? " L" : " S") + oneMin, text_color = C_WHITE, text_size = size.normal, bgcolor = bc, tooltip = f_tip(sv, snapLong))
+        if showTrend
+            table.cell(tb, 1, 0, "trend", text_color = C_WHITE, text_size = size.tiny, bgcolor = f_col(array.get(sv, 9)))
+    else
+        // row 0: title, bar time, close
+        string hdrTxt = "POINT SCORE  " + (na(snapT) ? "(no closed bar yet)" : str.format_time(snapT, "yyyy-MM-dd HH:mm", TZ) + " NY") + "   C " + f_px(array.get(snapR, 13))
+        table.cell(tb, 0, 0, hdrTxt, text_color = C_TXT, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
+        table.cell(tb, 1, 0, "", bgcolor = C_HDR)
+        table.cell(tb, 2, 0, "", bgcolor = C_HDR)
+        table.cell(tb, 3, 0, "", bgcolor = C_HDR)
+        table.merge_cells(tb, 0, 0, 3, 0)
 
-    // row 0: title, bar time, close
-    string hdrTxt = "POINT SCORE  " + (na(snapT) ? "(no closed bar yet)" : str.format_time(snapT, "yyyy-MM-dd HH:mm", TZ) + " NY") + "   C " + f_px(array.get(snapR, 13))
-    table.cell(tb, 0, 0, hdrTxt, text_color = C_TXT, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
-    table.cell(tb, 1, 0, "", bgcolor = C_HDR)
-    table.cell(tb, 2, 0, "", bgcolor = C_HDR)
-    table.cell(tb, 3, 0, "", bgcolor = C_HDR)
-    table.merge_cells(tb, 0, 0, 3, 0)
+        // row 1: warning when the chart is not 1-minute, else which side Auto picked
+        string noteTxt = timeframe.period != "1" ? "WARNING: Point Score is defined on 1-minute bars (this chart is " + timeframe.period + ")" : (sideIn == "Auto" ? "Auto side: " + (snapLong ? "LONG (bar closed up)" : "SHORT (bar closed down)") : "Forced side: " + (snapLong ? "LONG" : "SHORT"))
+        table.cell(tb, 0, 1, noteTxt, text_color = timeframe.period != "1" ? C_WHITE : C_DIM, text_halign = text.align_left, text_size = size.small)
+        table.cell(tb, 1, 1, "")
+        table.cell(tb, 2, 1, "")
+        table.cell(tb, 3, 1, "")
+        table.merge_cells(tb, 0, 1, 3, 1)
 
-    // row 1: warning when the chart is not 1-minute, else which side Auto picked
-    string noteTxt = timeframe.period != "1" ? "WARNING: Point Score is defined on 1-minute bars (this chart is " + timeframe.period + ")" : (sideIn == "Auto" ? "Auto side: " + (snapLong ? "LONG (bar closed up)" : "SHORT (bar closed down)") : "Forced side: " + (snapLong ? "LONG" : "SHORT"))
-    table.cell(tb, 0, 1, noteTxt, text_color = timeframe.period != "1" ? C_WHITE : C_DIM, text_halign = text.align_left, text_size = size.small)
-    table.cell(tb, 1, 1, "")
-    table.cell(tb, 2, 1, "")
-    table.cell(tb, 3, 1, "")
-    table.merge_cells(tb, 0, 1, 3, 1)
+        // row 2: column heads (the followed side is starred)
+        table.cell(tb, 0, 2, "Point", text_color = C_DIM, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
+        table.cell(tb, 1, 2, snapLong ? "Long *" : "Long", text_color = C_DIM, text_size = size.small, bgcolor = snapLong ? C_AUTO : C_HDR)
+        table.cell(tb, 2, 2, snapLong ? "Short" : "Short *", text_color = C_DIM, text_size = size.small, bgcolor = snapLong ? C_HDR : C_AUTO)
+        table.cell(tb, 3, 2, "Ref", text_color = C_DIM, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
 
-    // row 2: column heads (the followed side is starred)
-    table.cell(tb, 0, 2, "Point", text_color = C_DIM, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
-    table.cell(tb, 1, 2, snapLong ? "Long *" : "Long", text_color = C_DIM, text_size = size.small, bgcolor = snapLong ? C_AUTO : C_HDR)
-    table.cell(tb, 2, 2, snapLong ? "Short" : "Short *", text_color = C_DIM, text_size = size.small, bgcolor = snapLong ? C_HDR : C_AUTO)
-    table.cell(tb, 3, 2, "Ref", text_color = C_DIM, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
+        // rows 3-11: the nine points
+        for i = 0 to 8
+            float hl = array.get(snapL, i)
+            float hs = array.get(snapS, i)
+            string refTxt = i < 7 ? f_px(array.get(snapR, i)) : (i == 7 ? "L " + f_px(array.get(snapR, 7)) + " | S " + f_px(array.get(snapR, 9)) : "L " + f_int(array.get(snapR, 8)) + " | S " + f_int(array.get(snapR, 10)))
+            table.cell(tb, 0, 3 + i, array.get(LBL, i), text_color = C_TXT, text_halign = text.align_left, text_size = size.small)
+            table.cell(tb, 1, 3 + i, f_mark(hl), text_color = f_col(hl), text_size = size.small, bgcolor = snapLong ? C_AUTO : C_BG)
+            table.cell(tb, 2, 3 + i, f_mark(hs), text_color = f_col(hs), text_size = size.small, bgcolor = snapLong ? C_BG : C_AUTO)
+            table.cell(tb, 3, 3 + i, refTxt, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
 
-    // rows 3-11: the nine points
-    for i = 0 to 8
-        float hl = array.get(snapL, i)
-        float hs = array.get(snapS, i)
-        string refTxt = i < 7 ? f_px(array.get(snapR, i)) : (i == 7 ? "L " + f_px(array.get(snapR, 7)) + " | S " + f_px(array.get(snapR, 9)) : "L " + f_int(array.get(snapR, 8)) + " | S " + f_int(array.get(snapR, 10)))
-        table.cell(tb, 0, 3 + i, array.get(LBL, i), text_color = C_TXT, text_halign = text.align_left, text_size = size.small)
-        table.cell(tb, 1, 3 + i, f_mark(hl), text_color = f_col(hl), text_size = size.small, bgcolor = snapLong ? C_AUTO : C_BG)
-        table.cell(tb, 2, 3 + i, f_mark(hs), text_color = f_col(hs), text_size = size.small, bgcolor = snapLong ? C_BG : C_AUTO)
-        table.cell(tb, 3, 3 + i, refTxt, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
+        // row 12: totals
+        table.cell(tb, 0, 12, "Total (of the 9)", text_color = C_TXT, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
+        table.cell(tb, 1, 12, f_score(array.get(snapL, 10), array.get(snapL, 11)), text_color = C_WHITE, text_size = size.small, bgcolor = snapLong ? C_AUTO : C_HDR)
+        table.cell(tb, 2, 12, f_score(array.get(snapS, 10), array.get(snapS, 11)), text_color = C_WHITE, text_size = size.small, bgcolor = snapLong ? C_HDR : C_AUTO)
+        table.cell(tb, 3, 12, "", bgcolor = C_HDR)
 
-    // row 12: totals
-    table.cell(tb, 0, 12, "Total (of the 9)", text_color = C_TXT, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
-    table.cell(tb, 1, 12, f_score(array.get(snapL, 10), array.get(snapL, 11)), text_color = C_WHITE, text_size = size.small, bgcolor = snapLong ? C_AUTO : C_HDR)
-    table.cell(tb, 2, 12, f_score(array.get(snapS, 10), array.get(snapS, 11)), text_color = C_WHITE, text_size = size.small, bgcolor = snapLong ? C_HDR : C_AUTO)
-    table.cell(tb, 3, 12, "", bgcolor = C_HDR)
+        // row 13: trend point (separate, never in the /9)
+        float trl = array.get(snapL, 9)
+        float trs = array.get(snapS, 9)
+        string trRef = showTrend and not na(array.get(snapN, 4)) and not na(array.get(snapR, 11)) ? "H " + f_px(array.get(snapN, 4)) + " / " + f_px(array.get(snapR, 11)) + "  L " + f_px(array.get(snapN, 5)) + " / " + f_px(array.get(snapR, 12)) : (showTrend ? "-" : "")
+        table.cell(tb, 0, 13, showTrend ? "Daily trend (not in the 9)" : "", text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
+        table.cell(tb, 1, 13, showTrend ? f_mark(trl) : "", text_color = f_col(trl), text_size = size.small)
+        table.cell(tb, 2, 13, showTrend ? f_mark(trs) : "", text_color = f_col(trs), text_size = size.small)
+        table.cell(tb, 3, 13, trRef, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
 
-    // row 13: trend point (separate, never in the /9)
-    float trl = array.get(snapL, 9)
-    float trs = array.get(snapS, 9)
-    string trRef = showTrend and not na(array.get(snapN, 4)) and not na(array.get(snapR, 11)) ? "H " + f_px(array.get(snapN, 4)) + " / " + f_px(array.get(snapR, 11)) + "  L " + f_px(array.get(snapN, 5)) + " / " + f_px(array.get(snapR, 12)) : (showTrend ? "-" : "")
-    table.cell(tb, 0, 13, showTrend ? "Daily trend (not in the 9)" : "", text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
-    table.cell(tb, 1, 13, showTrend ? f_mark(trl) : "", text_color = f_col(trl), text_size = size.small)
-    table.cell(tb, 2, 13, showTrend ? f_mark(trs) : "", text_color = f_col(trs), text_size = size.small)
-    table.cell(tb, 3, 13, trRef, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
-
-    // row 14: warm-up counts (an average's point is NA until its timeframe has minBars bars)
-    string warmTxt = "Bars loaded: " + f_warm("1m", array.get(snapN, 0)) + " | " + f_warm("10s", array.get(snapN, 1)) + " | " + f_warm("5m", array.get(snapN, 2)) + " | " + f_warm("30m", array.get(snapN, 3))
-    table.cell(tb, 0, 14, warmTxt, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
-    table.cell(tb, 1, 14, "")
-    table.cell(tb, 2, 14, "")
-    table.cell(tb, 3, 14, "")
-    table.merge_cells(tb, 0, 14, 3, 14)
+        // row 14: warm-up counts (an average's point is NA until its timeframe has minBars bars)
+        string warmTxt = "Bars loaded: " + f_warm("1m", array.get(snapN, 0)) + " | " + f_warm("10s", array.get(snapN, 1)) + " | " + f_warm("5m", array.get(snapN, 2)) + " | " + f_warm("30m", array.get(snapN, 3))
+        table.cell(tb, 0, 14, warmTxt, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
+        table.cell(tb, 1, 14, "")
+        table.cell(tb, 2, 14, "")
+        table.cell(tb, 3, 14, "")
+        table.merge_cells(tb, 0, 14, 3, 14)

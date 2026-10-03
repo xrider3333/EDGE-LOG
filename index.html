@@ -833,7 +833,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.988';
+const VERSION='73.991';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -851,7 +851,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.988',date:'2026-10-03',notes:['Queue check: two BOOK jobs with different legs, or a sized book and its raw twin, are no longer flagged as repeats of each other.']},
+const CHANGELOG=[{v:'73.991',date:'2026-10-03',notes:['Queue check: two BOOK jobs with different legs, or a sized book and its raw twin, are no longer flagged as repeats of each other.']},
 {v:'73.980',date:'2026-10-02',notes:['NinjaTrader paper: when the PC wakes with NinjaTrader still running and its 10-second bars carry no trade ticks, the watchdog restarts it (account flat only) so Tick Replay rebuilds the buy/sell data for the bars it missed.']},
 {v:'73.981',date:'2026-10-02',notes:['PAPER (NT8 FUTURES): money now counts on the day a trade CLOSES (New York date), not the day it opened - the curve, calendar, TODAY, leg totals, the BOOK figure and the daily reports. A trade still open sits under OPEN NOW with its mark labelled unrealised and is in no day yet; a Sunday-evening exit counts on Monday. Rows show the entry and the exit date and time, day headers read CLOSED, and DAILY REPORTS has CLOSE DAY and BOOK columns. Fixes ENGU-Q entries after 16:10 ET (79 of 380 since 2023) landing on no day and multi-day holds being booked at a mark.']},
 {v:'73.975',date:'2026-10-02',notes:['NinjaTrader paper: an ENGU-Q overnight trade now survives the PC being switched off - on restart ENGU-Q picks its own saved trade back up (entry, stop, trail) instead of the trade being orphaned; a leftover stop from before the shutdown is cancelled once the new one is placed.']},

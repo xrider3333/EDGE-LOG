@@ -112,6 +112,10 @@ LEG_LIVE_FROM = {
     # Added on the evening of 2026-09-30, after that session and its nightly run, so 10-01 is the first
     # session watched end to end.
     "ORB_239":   "2026-10-01",   # run #239 (#234 with breakeven 0.8R) - owner Q6: SHADOW FIRST for BOOK #463
+    # DIP forward shadows (owner GO via MANAGER 2026-10-02; pre-registered docs/DIP_FORWARD.md). Added on
+    # Friday 2026-10-02, so Monday 10-05 is the first session counted. Nothing earlier is forward evidence.
+    "DIP_ES_452": "2026-10-05",  # run #452 (NQDIP_1_3 on ES), frozen - the fresh lockbox DIP is parked for
+    "DIP_NQ_433": "2026-10-05",  # run #433 (NQDIP_1_2 on NQ), frozen
     "ORB_H":     "2026-08-24",   # gate re-based on #234 (its own crowned rf@0.45, re-calibrated)
     "NOISE_225": "2026-08-16",   # leg added
     "NOISE_H":   "2026-08-16",   # gate added; the pre-registered claim starts here
@@ -268,6 +272,23 @@ ORB_257 = dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.5, atr_filt
 # #239's window and master: 2,607 trades, $394,864.38; lockbox 178 trades, 4,713.376 points ($94,267.52)
 # at PF 1.494888 - run #239's stored figures.
 ORB_239 = dict(ORB_234, be_after_R=0.8)
+
+# DIP FORWARD SHADOWS (added 2026-10-02, owner GO via MANAGER on TV's proposal; bar pre-registered in
+# docs/DIP_FORWARD.md before any forward trade). DIP is parked for ROC (owner 2026-09-29) "until new data or a
+# fresh lockbox exists"; the ES/NQ lockboxes to 2026-08-24 are read, so these legs BUILD the fresh lockbox.
+# Each is its run's frozen champion, nothing re-fitted. The files size themselves ($100k notional in whole
+# micros) and return DOLLARS with their costs inside (cost_pts 0, mult 1), remove contract-roll offsets
+# themselves at the true switch bar (they must run on the NO-ADJUST master - the default lookup), and hold
+# for days with no stop. NO ORDERS: not on NinjaTrader, not on Webull, not in any book figure.
+# Reproduced to the cent through the engine on each run's own window before this was written.
+DIP_ES_452 = dict(cap_hold=4, cap_mult=1.0, cap_q=0.25, cost_bps=2.0, cost_pts_rt=0.783, dbl_n=4,
+                  gap_atr=1.0, gap_hold=2, ibs_exit=0.9, ibs_hold=8, ibs_thr=0.1, notional=100000,
+                  pb_ema=5, pb_hold=13, rsi_exit=4, rsi_len=2, rsi_thr=25, streak_hold=5, streak_n=2,
+                  trend_len=300, use_cap=True, use_dbl=True, use_gapdn=True, use_ibs=True, use_pb=True,
+                  use_rsi=True, use_streak=False)
+DIP_NQ_433 = dict(cap_hold=7, cap_mult=1.5, cap_q=0.4, cost_bps=2.0, cost_pts_rt=0.783, dbl_n=3,
+                  notional=100000, pb_ema=5, pb_hold=9, rsi_exit=6, rsi_len=2, rsi_thr=20, trend_len=300,
+                  use_cap=True, use_dbl=True, use_pb=True, use_rsi=True)
 
 # ENGU-Q leg params: NQ_DEPLOY_PARAMS_149 is a clean module-level constant in
 # augur_strategies/ENGUQ_1M_1_0.py — import it directly.
@@ -1008,6 +1029,25 @@ LEG_SOURCE = {
                   "#239's own walk-forward figure is an in-sample replay (pinned card); a re-fitted "
                   "Auto-Validate of its region was queued 2026-09-30.",
     },
+    "DIP_ES_452": {
+        "run": 452, "run_label": "#452 (NQDIP_1_3) DIP on ES, true rolls",
+        "strategy_file": "NQDIP_1_3.py", "picked": "2026-10-02",
+        "note": "Forward SHADOW to give the parked DIP family a fresh lockbox (owner 2026-09-29: parked for "
+                "ROC until new data or a fresh lockbox). Run #452's frozen champion: the seven DIP 1.1 dip "
+                "rules on ES, long only, held for days, no stop, $100k notional in whole micros, roll offsets "
+                "removed at the true switch bar. Judged by docs/DIP_FORWARD.md at 50 closed trades or 9 months.",
+        "caveat": "Forward evidence only, no orders. P&L is in DOLLARS at the file's own size, so the points "
+                  "column carries dollars too (exit prices are the real ones). A trade counts on the day it "
+                  "closes; the bar values open trades daily from the file's own marks.",
+    },
+    "DIP_NQ_433": {
+        "run": 433, "run_label": "#433 (NQDIP_1_2) DIP on NQ, true rolls",
+        "strategy_file": "NQDIP_1_2.py", "picked": "2026-10-02",
+        "note": "Forward SHADOW beside DIP on ES, same purpose and bar (docs/DIP_FORWARD.md). Run #433's frozen "
+                "champion: the four DIP dip rules on NQ, $100k notional in whole micros.",
+        "caveat": "Forward evidence only, no orders. P&L is in DOLLARS at the file's own size. Its walk-forward "
+                  "is the better of the two at matched drawdown, but its lockbox read was concentrated.",
+    },
     "ENGUQ": {
         "run": 226, "run_label": "#226 (ENGU-Q ETH FROZEN)",
         "strategy_file": "ENGUQ_1M_ETH_FROZEN_1_0.py",
@@ -1681,6 +1721,15 @@ PAPER_LEGS = [
     {"key": "ORB_239", "strategy": "ORB_3_6_BE08.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": ORB_239, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB_239"]},
+    # ADDED 2026-10-02 (owner GO via MANAGER; docs/DIP_FORWARD.md). DIP forward shadows - NO ORDERS. The files
+    # return dollars with costs inside (cost 0, mult 1) and their real exit price at index 5 (px_tuple6).
+    # Full history so the 300-session trend filter and every position match the validated run exactly.
+    {"key": "DIP_ES_452", "strategy": "NQDIP_1_3.py", "instrument": "ES", "timeframe": "5m",
+     "session": "rth", "params": DIP_ES_452, "cost_pts": 0.0, "mult": 1.0, "px_tuple6": True,
+     "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["DIP_ES_452"]},
+    {"key": "DIP_NQ_433", "strategy": "NQDIP_1_2.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": DIP_NQ_433, "cost_pts": 0.0, "mult": 1.0, "px_tuple6": True,
+     "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["DIP_NQ_433"]},
     # ADDED 2026-09-08 (owner: "crown R2 once the validate passes, swap the paper leg").
     # THE ENGU-Q family crown -- see ENGUQ_335's comment block above and ENGUQ.md's
     # CROWN CHANGE 2026-09-08 section. An ADDITION, not a swap-in-place: the #309 row

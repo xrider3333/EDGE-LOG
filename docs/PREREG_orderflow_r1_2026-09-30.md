@@ -85,3 +85,6 @@ Found by re-checking the build, not by looking at results:
 - MANAGER build review 2026-09-30 item 1 (ORB window ended at the breakout bar's open) = the fix above (915742f9);
   2026-10-01 adds a regression test (tests/test_orderflow_fill_window.py) and moves the fill detection into one
   function (fill_times) that the AG stop shares.
+- **Capture outage 2026-10-02 00:05 .. 12:33 ET (PAPER-NT8 inbox #42):** the PC slept, and every 10s row in that
+  window has volume but zero buy / sell volume. Those windows fail the 80% delta-coverage rule, so the forward
+  scorer leaves the morning's trades untilted and out of the early stop automatically; no rule change.
