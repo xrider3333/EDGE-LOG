@@ -8,6 +8,7 @@ would fail any test that touched the real C:\\EdgeLog anyway.
 import datetime as dt
 import json
 import os
+import sys
 
 import pytest
 
@@ -320,6 +321,12 @@ def test_finish_dry_run_does_not_write_firestore(monkeypatch, capsys):
 
 
 def test_finish_merge_writes_expected_fields_only(monkeypatch, capsys):
+    # cmd_finish imports firebase_admin only for firestore.SERVER_TIMESTAMP; the database itself is FakeDB. CI's dev deps
+    # do not carry firebase_admin, so stand in a module with just that sentinel.
+    import types
+    fa = types.ModuleType("firebase_admin")
+    fa.firestore = types.SimpleNamespace(SERVER_TIMESTAMP=object())
+    monkeypatch.setitem(sys.modules, "firebase_admin", fa)
     db = FakeDB()
     _start_one(monkeypatch, db)
     capsys.readouterr()
