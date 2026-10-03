@@ -15,6 +15,9 @@
 #   python r5_siporb.py smoke [dir]   offline self-test on synthetic bars through a fake transport - no network, no keys (hidden; the dir's name must contain 'smoke')
 # pre-run review fixes 2026-10-03 (half-day cut, read-before-flag, no spec change)
 # pre-run review round 2, 2026-10-03: Stage A stamps this file's sha256 + the half-day list; B refuses (before the flag) if either changed
+# missed-split scan 2026-10-03 (a report and a re-judge - no rule, filter, trade, verdict, A2 or Stage B logic changed): Stage A also lists the name-days whose raw open
+#   jumps by a standard split ratio the registered split rule cannot see (a split Alpaca never adjusted), counts the trades inside their 15-session windows and
+#   re-judges Stage A without them; the rule is the CHOICE 2026-10-03 below, the output is "missed_split_scan" in siporb_stageA.json
 import hashlib, json, os, re, sys, time
 from collections import Counter
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -63,6 +66,22 @@ def counts_toward_stop(sym):
     return "_DELISTED" not in sym
 
 
+# CHOICE 2026-10-03 (logged before any SIPORB number; another lane found Alpaca's split-adjusted feed left GE's 1-for-8 reverse split of 2021-08-02 unadjusted):
+#   the registered split rule reads the raw / split-adjusted OPEN ratio (F = O / Os), so a split Alpaca never adjusted is invisible to it. SIPORB trades inside
+#   one session on raw 1-minute bars, so a missed split cannot create P&L; it can only skew filters 1-3 and Relative Volume for about 14 sessions. So, a
+#   MISSED-SPLIT SCAN - a report and a check, NOT a rule. For every name-day let R = the session's raw open / the prior session's raw close. The name-day is
+#   FLAGGED when ALL hold: R is finite; |R - 1| > 0.25; the registered split rule did NOT already fire that day; and R is within 2% of a whole number k or of
+#   1/k for some k from 2 to 50 (|R / k - 1| <= 0.02 or |R * k - 1| <= 0.02). A flagged name is EXPOSED for 15 sessions - the flag day and the next 14, the
+#   same window and the same construction as the registered rule's. Nothing here feeds filters 1-3, the trades, the registered verdict, A2 or Stage B. Stage A
+#   (a) lists every flagged name-day, (b) counts and sums the A1 and raw-twin trades inside an exposure window, and (c) re-runs the SAME Stage A statistics
+#   and the SAME pass / fail rules with those trades removed and prints both verdicts; if they differ it says so loudly and the case goes to MANAGER before
+#   any Stage B. Everything is stored under "missed_split_scan" in siporb_stageA.json; the registered verdict, A2 and Stage B never read it. Accepted limits:
+#   a genuine gap that lands on a standard ratio is flagged too (the re-run is then only more cautious); a name with no bar on the prior session has no R that
+#   day and is not scanned; a missed split whose overnight move pushes R more than 2% off its ratio is not flagged.
+MS_GAP, MS_TOL, MS_KMAX = 0.25, 0.02, 50
+MS_RULE = (f"R = raw open / prior session's raw close; a name-day is flagged when R is finite, |R - 1| > {MS_GAP:g}, the registered split rule did not already fire that day "
+           f"and R is within {MS_TOL:.0%} of a whole number k or of 1/k for some k in 2..{MS_KMAX}; exposed = the flag day and the next {LOOK} sessions; "
+           "a report and a check only - no filter, trade, verdict, A2 or Stage B reads it (CHOICE 2026-10-03, logged before any SIPORB number)")
 BAD_NAME = re.compile(r"\b(?:ETFs?|ETNs?|Exchange Traded|Funds?|iShares|SPDR|ProShares|Direxion|Vanguard|Invesco|Leveraged|Daily|Ultra|2X|3X"
                       r"|Bull|Bear|Notes|Warrants?|Units|Rights|Preferred|Depositary Shares Representing)\b", re.I)
 PACE, BACKOFF, RETRY, URL_MAX, DAILY_BATCH, SMOKE, BAD = 0.31, 20, 10, 6500, 500, False, []
@@ -340,6 +359,20 @@ def read_long(kind, t_end):
     return df
 
 
+def missed_split_flags(R, chg):
+    """the missed-split scan (CHOICE 2026-10-03 at the top): one bool per name-day. R = raw open / prior session's raw close, chg = the registered split rule's
+    days. Flag = R finite, |R - 1| > 0.25, not already a registered split, and within 2% of a whole number k or of 1/k for some k in 2..50"""
+    with np.errstate(invalid="ignore"):
+        cand = np.isfinite(R) & (np.abs(R - 1.0) > MS_GAP) & ~chg
+    ti, si = np.nonzero(cand)                                                        # only the (few) big overnight moves are tested against the ratios
+    r, near = R[ti, si], np.zeros(len(ti), bool)
+    for k in range(2, MS_KMAX + 1):
+        near |= (np.abs(r / k - 1.0) <= MS_TOL) | (np.abs(r * k - 1.0) <= MS_TOL)
+    flag = np.zeros(R.shape, bool)
+    flag[ti[near], si[near]] = True
+    return flag
+
+
 class Data:
     """filters 1-3 on raw daily bars and (open5=True) the 09:30 bar + Relative Volume, on the market calendar of the daily data"""
     def __init__(self, t_end, open5=True):
@@ -378,6 +411,11 @@ class Data:
             self.sw = sw = pd.DataFrame(chg.astype(np.float32)).rolling(LOOK + 1, min_periods=1).max().to_numpy() > 0
             self.atr, v14 = roll14(TR), roll14(V)                                    # CHOICE: all 15 sessions (14 TRs + the prior close) must exist
             self.P = (O > PX_MIN) & (v14 >= VOL_MIN) & (self.atr > ATR_MIN) & ~sw    # filters 1-3
+            R = O / Cp                                                               # missed-split scan (CHOICE 2026-10-03 at the top): raw open / prior session's raw close
+            self.msplit = msplit = missed_split_flags(R, chg)                        # INFORMATIONAL: no filter, trade, verdict, A2 or Stage B reads msplit / mflags / mexp
+            ti, si = np.nonzero(msplit)
+            self.mflags = (ti, si, R[ti, si])                                        # (session, symbol, R) of every flagged name-day, in date then symbol order
+            self.mexp = pd.DataFrame(msplit.astype(np.float32)).rolling(LOOK + 1, min_periods=1).max().to_numpy() > 0   # exposure window [flag day, +14 sessions], built like sw
         self.Od = O
         # names to pull a 09:30 bar for on day s: pass filters 1-3 on any of sessions s .. s+14 (so every RV denominator exists)
         self.need = pd.DataFrame(self.P.astype(np.float32)).iloc[::-1].rolling(LOOK + 1, min_periods=1).max().iloc[::-1].to_numpy() > 0
@@ -386,7 +424,7 @@ class Data:
         print(f"universe: {S:,} symbols x {T:,} sessions ({days[0]:%Y-%m-%d} .. {shown(days[-1])}); symbols with split bars {cov:.1%}", flush=True)
         if cov < 0.98:
             print("  WARNING: split-adjusted bars missing for some symbols - splits on them cannot be detected; re-run `daily`", flush=True)
-        del H, L, C, V, Cp, TR, F, Ff, Os, raw, spl
+        del H, L, C, V, Cp, TR, F, Ff, Os, R, raw, spl
         if open5:
             self._open5()
 
@@ -687,6 +725,64 @@ def judge(w, tw, stress_net):
             "months+>=%g" % R["months"]: w["months_pos"] >= R["months"]}
 
 
+# ------------------------------------------------------------------ the missed-split scan, Stage A side (CHOICE 2026-10-03 at the top): informational, never raises
+# CHOICES where the spec is silent (made before any SIPORB number): (1) everything is stored under "missed_split_scan" in siporb_stageA.json - "flagged" from part 1 (so an early-stopping
+#   Stage A, coverage or replication gate, still carries it), "exposed" / "sensitivity" / "flip" from part 2; (2) the re-run re-judges Stage A's own rules only - A2 (the book add) is never
+#   recomputed from it; (3) part 2 also runs when the registered verdict is FAIL (a FAIL that would pass without the exposed trades is the case MANAGER most needs to see); (4) "exposed"
+#   counts A1 over the whole pre-lockbox run (replication + WF) and over WF alone, and the raw twin (WF only); the re-run uses the WF windows exactly as the registered statistics do and adds
+#   the replication Sharpe for information only; (5) a flip is only printed and stored - no code path lets it change the verdict, A2 or Stage B.
+def exposed_mask(D, tr):
+    """bool per trade row: its (session, symbol) is inside a flagged name's 15-session missed-split exposure window"""
+    t, s = D.days.get_indexer(pd.DatetimeIndex(tr["date"])), pd.Index(D.syms).get_indexer(tr["symbol"].astype(str))
+    ok, hit = (t >= 0) & (s >= 0), np.zeros(len(tr), bool)
+    hit[ok] = D.mexp[t[ok], s[ok]]
+    return hit
+
+
+def scan_flagged(D, out):
+    """missed-split scan, part 1: every flagged name-day of the Stage A data -> out['missed_split_scan'] (rule text, count, the whole list) and a printed count +
+    the first 20. Needs only the daily bars, so an early-stopping Stage A (coverage / replication gate) still carries it. A failure is printed and stored, never raised"""
+    try:
+        ti, si, r = D.mflags
+        fl = [{"date": f"{D.days[t]:%Y-%m-%d}", "symbol": str(D.syms[s]), "R": round(float(x), 3)} for t, s, x in zip(ti, si, r)]
+        out["missed_split_scan"] = {"rule": MS_RULE, "flagged_n": len(fl), "flagged": fl}
+        print(f"missed-split scan (a report - no filter, trade or verdict reads it): flagged name-days {len(fl):,}"
+              + (f" (first {min(len(fl), 20)}: " + ", ".join(f"{f['date']} {f['symbol']} R={f['R']:.3f}" for f in fl[:20]) + ")" if fl else ""))
+    except Exception as e:
+        print(f"missed-split scan FAILED ({type(e).__name__}: {e}) - informational only, Stage A goes on")
+        out.setdefault("missed_split_scan", {"rule": MS_RULE})["error_flagged"] = f"{type(e).__name__}: {e}"
+
+
+def scan_sensitivity(D, out, a1, tw, ok):
+    """missed-split scan, part 2, called AFTER the registered verdict `ok` is final: counts and sums the A1 / raw-twin trades inside an exposure window, re-runs the
+    SAME stats() / judge() (same rules, same windows) on the trades outside them, stores it all under out['missed_split_scan'] and prints both verdicts. It works on
+    copies, writes nothing but out['missed_split_scan'], and the verdict, A2 and Stage B never read it; a flip is only printed + stored. A failure is printed and stored, never raised"""
+    try:
+        sc = out.setdefault("missed_split_scan", {"rule": MS_RULE})
+        ha, ht = exposed_mask(D, a1), exposed_mask(D, tw)
+        wf = ((a1["date"] >= WF0) & (a1["date"] < LB0)).to_numpy()
+        part = lambda tr, m: {"n": int(m.sum()), "pnl": float(tr["pnl"].to_numpy()[m].sum())}
+        ex = {"A1_all": part(a1, ha), "A1_WF": part(a1, ha & wf), "twin_WF": part(tw, ht)}   # A1_all = the whole pre-lockbox run (replication + WF); the twin is WF only
+        ka, kt = a1[~ha], tw[~ht]
+        w2, lo2, tw2 = stats(ka, D.days, WF0, LB0), stats(ka[ka["side"] > 0], D.days, WF0, LB0), stats(kt, D.days, WF0, LB0)
+        stress2 = float(ka[(ka["date"] >= WF0) & (ka["date"] < LB0)]["pnl_stress"].sum())
+        chk2 = judge(w2, tw2, stress2)
+        ok2 = all(chk2.values())
+        flip = bool(ok) != bool(ok2)
+        sc.update({"exposed": ex, "flip": flip,
+                   "sensitivity": {"registered_pass": bool(ok), "pass": bool(ok2), "rules": chk2, "A1_WF": w2, "long_only": lo2, "twin": tw2, "stress_net": stress2,
+                                   "A1_replication": stats(ka, D.days, REP0, REP1)}})
+        print(f"missed-split exposure (trades inside a flagged name's 15-session window): A1 {ex['A1_all']['n']:,} trades, net ${ex['A1_all']['pnl']:,.0f} "
+              f"({ex['A1_WF']['n']:,} in the WF stretch, net ${ex['A1_WF']['pnl']:,.0f}); raw twin (WF only) {ex['twin_WF']['n']:,} trades, net ${ex['twin_WF']['pnl']:,.0f}")
+        print("  " + row("A1 ex-exposed", w2, stress2)); print("  " + row("RAW TWIN ex-exposed", tw2))
+        print(f"missed-split sensitivity: registered verdict {'PASS' if ok else 'FAIL'}, without exposed trades {'PASS' if ok2 else 'FAIL'}")
+        if flip:
+            print("*** SENSITIVITY FLIPS THE VERDICT - this goes to MANAGER before any Stage B ***")
+    except Exception as e:
+        print(f"missed-split scan FAILED ({type(e).__name__}: {e}) - informational only, Stage A goes on")
+        out.setdefault("missed_split_scan", {"rule": MS_RULE})["error_sensitivity"] = f"{type(e).__name__}: {e}"
+
+
 # ------------------------------------------------------------------ Stage A (pre-lockbox) and Stage B (lockbox, once)
 def stage_a():
     pok = prereg_ok()
@@ -700,6 +796,7 @@ def stage_a():
     print(f"coverage gate (prereg addendum 3) - name-days passing filters 1-3 that have a 09:30 bar, by year (every year needs >= {RULES['cov']:.0%}):",
           "  ".join(f"{y}: {v['share']:.1%}" for y, v in cov.items()))
     out = {"prereg_sha256_lf": PREREG_SHA, "prereg_verified": pok, **stamp(), "counts_by_year": cy, "coverage_by_year": cov, "judged": False, "A2": None}   # every dump below carries the stamp
+    scan_flagged(D, out)                            # missed-split scan part 1 (CHOICE 2026-10-03 at the top): informational, nothing below reads it
     low = [y for y, v in cov.items() if not v["share"] >= RULES["cov"]]
     if low:
         print(f"Stage A is NOT judged: the 09:30 bar is missing for too many name-days passing filters 1-3 in {low} - a symbol-mapping failure "
@@ -737,6 +834,7 @@ def stage_a():
     flags = ", ".join(k + (" ok" if v else " FAIL") for k, v in chk.items())
     print(f"  Stage A checks: {flags} -> {'PASS' if ok else 'FAIL'}")
     out.update({"judged": True, "stageA": {"A1": w, "long_only": lo, "twin": tws, "stress_net": stress, "checks": chk, "PASS": bool(ok)}})
+    scan_sensitivity(D, out, a1, tw, ok)            # missed-split scan part 2: runs AFTER the registered verdict is final; informational - the verdict, A2 and Stage B never read it
     if not ok:
         print("Stage A: FAIL - SIPORB dead; lockbox stays sealed")
         dump(out, "siporb_stageA.json"); return
@@ -886,6 +984,9 @@ class _Reply:
 class Fake:
     """stand-in for the two endpoints: synthetic bars in Alpaca's JSON shape, small pages, a 429 now and then, one dropped connection; a request that
     carries asof fails the test (one symbol mapping for every pull, prereg addendum 3)"""
+    MSPLIT = ("S18", "2024-04-22", 4.0)    # missed-split scan plant: a split Alpaca never adjusted - from this session on every price is x4 and volume / 4, raw AND split-adjusted alike
+    GAP = ("S23", "2024-05-14", 1.6)       # missed-split scan plant: a genuine +60% overnight gap (R = 1.6, no standard split ratio), raw and adjusted alike
+
     def __init__(self, days, page=2500):
         self.days, self.D, self.page, self.n, self.auth_fail, self._st = [f"{d:%Y-%m-%d}" for d in days], len(days), page, 0, False, {}
         rng = np.random.default_rng(11)
@@ -896,6 +997,8 @@ class Fake:
         self.first, self.last = np.zeros(N, int), np.full(N, self.D - 1)
         self.first[ix("S33")], self.first[ix("S34")], self.last[ix("DLST")] = dx("2016-02-01"), dx("2024-02-01"), dx("2024-05-31")
         self.gday = {ix("SPL"): (dx("2024-03-15"), 2.0), ix("RVS"): (dx("2016-02-17"), 0.2)}   # k: (first post-split session, raw/adjusted price factor before it)
+        self.msp = {ix(self.MSPLIT[0]): (dx(self.MSPLIT[1]), self.MSPLIT[2])}                  # k: (first session on the new basis, factor): served by sc() for every endpoint and adjustment
+        self.jump = {ix(self.GAP[0]): (dx(self.GAP[1]), self.GAP[2])}                          # k: (the gapping session, factor on the previous close): the price path itself moves
         self.daily, self.f5, self.opx = np.full((N, self.D, 5), np.nan), np.full((N, self.D, 5), np.nan), np.full((N, self.D), np.nan)
         for k in range(N):
             px, gr = self.p0[k], np.random.default_rng([k, 6])
@@ -905,6 +1008,8 @@ class Fake:
                 self.daily[k, d] = (o[has][0], h[has].max(), l[has].min(), c[has][-1], v[has].sum())
                 a = has[:5]; self.f5[k, d] = (o[:5][a][0], h[:5][a].max(), l[:5][a].min(), c[:5][a][-1], v[:5][a].sum())
                 px = c[has][-1] * (1 + gr.normal(0, 0.003))
+                if k in self.jump and d + 1 == self.jump[k][0]:                           # a genuine overnight gap: no rng draw is added or skipped, so no other name moves
+                    px *= self.jump[k][1]
 
     def minutes(self, k, d):
         rng = np.random.default_rng([k, d, 5]); px, sg = self.opx[k, d], self.sig[k] / np.sqrt(NMIN)
@@ -923,9 +1028,13 @@ class Fake:
         gd = self.gday.get(k)
         return gd[1] if (adj == "raw" and gd and d < gd[0]) else 1.0
 
+    def unadj(self, k, d):
+        ms = self.msp.get(k)
+        return ms[1] if ms and d >= ms[0] else 1.0                                       # x1.0 for every other name / session: their served bars are bit for bit unchanged
+
     def sc(self, k, d, a, adj):
-        g = self.g(k, d, adj)
-        return [round(float(x * g), 4) for x in a[:4]] + [int(round(a[4] / g))]
+        g, m = self.g(k, d, adj), self.unadj(k, d)
+        return [round(float(x * g * m), 4) for x in a[:4]] + [int(round(a[4] / (g * m)))]
 
     def stamps(self, d):
         if d not in self._st:
@@ -1034,7 +1143,12 @@ def selftest():
     assert all(map(is_placeholder, ("003CVR016", "0029900E0", "004ESC018", "P027445", "611NSP014"))), "placeholders"
     assert not any(map(is_placeholder, ("S01", "AAPL", "GOOGL", "ARII_DELISTED", "ABCDW"))), "real / synthetic / delisted names are not placeholders"
     assert counts_toward_stop("ZZBAD") and not counts_toward_stop("ARII_DELISTED"), "a rejected X_DELISTED name does not count toward the stop"
-    print("selftest ok: simulate (9 paths + 4 no-fill cases), the half-day cut (12:59 exit, no fill from 12:59 on), name/symbol filters, chunking, the FB/META mapping verdict")
+    rr = np.array([[8.01, 0.126, 1.6, 0.5, 2.03, 2.06, 49.6, 52.0, 1.2, 0.02, 0.0192, np.nan, np.inf, 3.0, 3.0, 1.0, 12.0]])    # the missed-split rule on hand-made ratios
+    cg = np.zeros(rr.shape, bool); cg[0, 14] = True                                                                                # index 14 (3.0): a split the registered rule already caught
+    want = [True, True, False, True, True, False, True, False, False, True, False, False, False, True, False, False, True]
+    assert missed_split_flags(rr, cg)[0].tolist() == want, missed_split_flags(rr, cg)[0].tolist()
+    print("selftest ok: simulate (9 paths + 4 no-fill cases), the half-day cut (12:59 exit, no fill from 12:59 on), name/symbol filters, chunking, the FB/META mapping verdict, "
+          "the missed-split rule on hand-made ratios")
 
 
 def smoke_refusal(root):
@@ -1055,7 +1169,7 @@ def smoke_refusal(root):
 
 
 def smoke(*a):
-    import contextlib, io, shutil, tempfile
+    import contextlib, io, shutil, tempfile, types
     global OUT, CACHE, BOOK, SMOKE, PACE, BACKOFF, RETRY, URL_MAX, DAILY_BATCH, CHECK_BOOK, EXT, _http_get
     root = os.path.abspath(a[0] if a else os.path.join(tempfile.gettempdir(), "siporb_smoke"))
     why = smoke_refusal(root)
@@ -1107,6 +1221,21 @@ def smoke(*a):
     assert not any(n in ix and D.P[:, ix.index(n)].any() for n in ("LOWV", "LOWA", "LOWP")), "filters 1-3"
     assert D.P[:, ix.index("DLST")][D.days > TS("2024-05-31")].sum() == 0 and D.days.max() < LB0
     print("universe ok: filters 1-3, split window [t-14, t] both directions, delisted name, cut before the lockbox")
+    # the missed-split scan (CHOICE 2026-10-03): S18 never had its x4 jump adjusted (raw AND split-adjusted bars alike), S23 has a genuine +60% gap
+    (msn, msd, msf), (gpn, gpd, gpf) = Fake.MSPLIT, Fake.GAP
+    rawd = read_long("raw", LB0); rawd["symbol"] = rawd["symbol"].astype(str)
+
+    def rjump(n, day):                                                           # raw open of `day` / raw close of the session before it, from the cached daily bars
+        s = rawd[rawd["symbol"] == n].sort_values("date").reset_index(drop=True); j = int(np.flatnonzero(s["date"] == TS(day))[0])
+        return float(s.loc[j, "o"] / s.loc[j - 1, "c"])
+    assert abs(rjump(msn, msd) / msf - 1) < 0.02 and abs(rjump(gpn, gpd) / gpf - 1) < 0.02, "both plants are in the served daily bars"
+    i1, k1, i2, k2 = D.days.get_loc(TS(msd)), ix.index(msn), D.days.get_loc(TS(gpd)), ix.index(gpn)
+    assert D.msplit[i1, k1] and not D.chg[:, k1].any(), "a split Alpaca never adjusted: the registered rule must not see it, the scan must"
+    assert D.mexp[i1:i1 + 15, k1].all() and not D.mexp[i1 + 15, k1] and not D.mexp[i1 - 1, k1], "exposure = the flag day and the next 14 sessions"
+    assert not D.msplit[i2, k2] and not D.chg[i2, k2], "a genuine +60% gap is not a split ratio"
+    assert not D.msplit[:, ix.index("SPL")].any() and not D.msplit[:, ix.index("RVS")].any(), "a split the registered rule catches is not flagged again"
+    assert [(f"{D.days[t]:%Y-%m-%d}", str(D.syms[s])) for t, s, _ in zip(*D.mflags)] == [(msd, msn)] and int(D.msplit.sum()) == 1, "the planted split is the only flag"
+    print(f"missed-split scan ok on the plants: {msn} x{msf:g} on {msd} flagged (the registered rule is blind to it), the +60% gap of {gpn} on {gpd} and the registered splits are not")
     cv = coverage_by_year(D)                                                     # every synthetic name-day passing filters 1-3 has its 09:30 bar
     assert cv and all(v["share"] == 1.0 and v["name_days_1to3"] > 0 for v in cv.values()), cv
     # the split rule reads the OPEN ratio (prereg addendum 4): double only the split-adjusted CLOSE of one name-day and only the split-adjusted OPEN of another
@@ -1134,15 +1263,29 @@ def smoke(*a):
     assert not res["judged"] and res["coverage_by_year"]["2024"]["share"] < RULES["cov"] <= res["coverage_by_year"]["2016"]["share"] and res["A2"] is None, res
     assert {k: res.get(k) for k in stamp()} == stamp(), "an early-exit Stage A dump carries the harness stamp too"
     assert not os.path.exists(os.path.join(OUT, "siporb_trades_A1_pre.csv")), "the coverage gate must stop Stage A before any trade is simulated"
+    assert "flagged" in res["missed_split_scan"] and "flip" not in res["missed_split_scan"], "an early-exit Stage A dump carries the flagged list but no sensitivity"
     for day, df in o5.items():
         save_df(df, path_of("open5", day))
     print("--- replication gate set out of reach: Stage A must stop before judging")
     RULES["rep_sharpe"] = 1e9; stage_a(); stage_b()
     print("--- replication waived, ROC bar set out of reach: the Stage A FAIL path")
     RULES.update(rep_sharpe=-1e9, roc=1e9); stage_a(); stage_b()
+    res = json.load(open(os.path.join(OUT, "siporb_stageA.json"))); scf = res["missed_split_scan"]
+    assert res["judged"] and not res["stageA"]["PASS"] and scf["flip"] is False and scf["sensitivity"]["registered_pass"] is False and scf["sensitivity"]["pass"] is False, "the scan runs on the FAIL path too"
     print("--- every threshold waived, book check ON (the synthetic book cannot reproduce #463): A2 must refuse to judge")
     RULES.update(waive); CHECK_BOOK = True; stage_a(); stage_b()
     assert not json.load(open(os.path.join(OUT, "siporb_stageA.json")))["A2"]["pass"]
+    print("--- missed-split flip check: the trade-count bar set to exactly the registered A1 count - the registered verdict stays PASS, the re-run without the exposed trades FAILs")
+    n_reg = int(json.load(open(os.path.join(OUT, "siporb_stageA.json")))["stageA"]["A1"]["n"])
+    RULES["n"] = n_reg; buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        stage_a()
+    RULES["n"] = waive["n"]
+    txt = buf.getvalue(); print("\n".join(l for l in txt.splitlines() if l.strip().startswith(("missed-split", "***", "A1 ex-exposed", "RAW TWIN ex-exposed"))))
+    res = json.load(open(os.path.join(OUT, "siporb_stageA.json"))); scf = res["missed_split_scan"]
+    assert "SENSITIVITY FLIPS THE VERDICT - this goes to MANAGER before any Stage B" in txt and scf["flip"] is True and scf["exposed"]["A1_WF"]["n"] > 0, scf
+    assert res["judged"] and res["stageA"]["PASS"] and scf["sensitivity"]["registered_pass"] and not scf["sensitivity"]["pass"], "the registered verdict stays PASS"
+    assert res["A2"]["error"] == "book check mismatch" and "flip" not in res["stageA"], "A2 and the registered block never read the re-run"
     print("--- book check OFF: the pass path, A2 and Stage B run end to end")
     CHECK_BOOK = False
     buf = io.StringIO()
@@ -1154,6 +1297,27 @@ def smoke(*a):
     assert pd.read_csv(os.path.join(OUT, "siporb_trades_A1_pre.csv"))["date"].max() < "2025-06-30" and pd.read_csv(os.path.join(OUT, "siporb_trades_twin_wf.csv.gz"))["date"].max() < "2025-06-30"
     res = json.load(open(os.path.join(OUT, "siporb_stageA.json"))); assert res["A2"]["pass"] and res["A2"]["c"] in CS and res["no_min1"]["A1"] == 0 == res["no_min1"]["twin"]
     assert {k: res.get(k) for k in stamp()} == stamp() and len(res["harness_sha256"]) == 64 and "2024-11-29" in res["early_close"], "A2 pass dump carries the stamp"
+    scn = res["missed_split_scan"]; fl, ex, sn = scn["flagged"], scn["exposed"], scn["sensitivity"]
+    assert scn["flagged_n"] == len(fl) == 1 and (fl[0]["date"], fl[0]["symbol"]) == (msd, msn) and abs(fl[0]["R"] / msf - 1) < 0.02, fl
+    assert not any((f["date"], f["symbol"]) == (gpd, gpn) for f in fl) and not any(f["symbol"] in ("SPL", "RVS") for f in fl), "the +60% gap and the registered splits are not flagged"
+    assert "within 2%" in scn["rule"] and isinstance(scn["flip"], bool) and scn["flip"] is False and sn["pass"] is True and sn["registered_pass"] is True, scn
+    assert sn["A1_WF"]["n"] == res["stageA"]["A1"]["n"] - ex["A1_WF"]["n"] and sn["twin"]["n"] == res["stageA"]["twin"]["n"] - ex["twin_WF"]["n"] and ex["twin_WF"]["n"] > 0, (ex, sn["A1_WF"]["n"], sn["twin"]["n"])
+    t_a1 = pd.read_csv(os.path.join(OUT, "siporb_trades_A1_pre.csv"), parse_dates=["date"]); t_tw = pd.read_csv(os.path.join(OUT, "siporb_trades_twin_wf.csv.gz"), parse_dates=["date"])
+    inw = lambda t: ((t["symbol"] == msn) & t["date"].isin(D.days[i1:i1 + 15])).to_numpy()   # an independent recount: the planted name inside its 15-session window
+    assert int(inw(t_a1).sum()) == ex["A1_all"]["n"] and int(inw(t_tw).sum()) == ex["twin_WF"]["n"], (ex, int(inw(t_a1).sum()), int(inw(t_tw).sum()))
+    w_ind, tw_ind = stats(t_a1[~inw(t_a1)], D.days, WF0, LB0), stats(t_tw[~inw(t_tw)], D.days, WF0, LB0)
+    assert w_ind["n"] == sn["A1_WF"]["n"] and np.isclose(w_ind["net"], sn["A1_WF"]["net"]) and np.isclose(tw_ind["net"], sn["twin"]["net"]), "the re-run = the same statistics on the trades outside the window"
+    assert np.isclose(stats(t_a1, D.days, WF0, LB0)["net"], res["stageA"]["A1"]["net"]), "the registered statistics are those of the FULL trade set"
+    bad = {}
+    with contextlib.redirect_stdout(io.StringIO()) as bb:
+        scan_flagged(None, bad); scan_sensitivity(None, bad, None, None, True)           # broken inputs: reported and stored, never raised
+    assert bb.getvalue().count("missed-split scan FAILED") == 2 and {"error_flagged", "error_sensitivity"} <= set(bad["missed_split_scan"]), bad
+    ne, e0 = np.array([], int), {}
+    with contextlib.redirect_stdout(io.StringIO()) as be:
+        scan_flagged(types.SimpleNamespace(mflags=(ne, ne, ne.astype(float)), days=D.days, syms=D.syms), e0)             # a Data with no flagged name-day at all
+    assert e0["missed_split_scan"]["flagged"] == [] and e0["missed_split_scan"]["flagged_n"] == 0 and "flagged name-days 0" in be.getvalue(), e0
+    print(f"missed-split scan ok in Stage A: flagged list, exposure ({ex['A1_WF']['n']} A1 + {ex['twin_WF']['n']} twin WF trades), the re-run matches an independent recount, "
+          "a flip prints the MANAGER line and changes nothing else, a broken input is reported not raised")
     half = lambda f, d: (lambda t: t[t["date"].astype(str).str[:10] == d])(pd.read_csv(os.path.join(OUT, f)))
     hd = half("siporb_trades_A1_pre.csv", "2023-11-24"); assert len(hd) and (hd["fill_min"] <= 778).all() and (hd["exit_min"] <= 779).all(), "half day: nothing after 12:59"
     flag = os.path.join(OUT, "siporb_stageB_READ.flag")
