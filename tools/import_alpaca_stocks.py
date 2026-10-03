@@ -124,12 +124,13 @@ def fetch_bars(sym, timeframe, start, end, key, secret, feed="sip", adjustment="
 # an unknown year simply keeps the normal 16:00 close, which is the safe direction for a filter
 # that is only ever trimming. 2016-12-23 is NOT one: NYSE traded a full session that day (only the
 # bond market closed early); listing it cut 13:00-16:00 off a WF session (pre-run review 2026-10-03).
+# Removed 2026-07-03 + 2027-12-24 (NYSE closed: July 4 / Christmas observed) and 2027-07-02 (full session, July 4 is a Sunday) - list checked = XNYS 2016-2027 (pre-run review round 2, 2026-10-03).
 EARLY_CLOSE_DATES = {
     "2016-11-25", "2017-07-03", "2017-11-24", "2018-07-03", "2018-11-23",
     "2018-12-24", "2019-07-03", "2019-11-29", "2019-12-24", "2020-11-27", "2020-12-24",
     "2021-11-26", "2022-11-25", "2023-07-03", "2023-11-24", "2024-07-03", "2024-11-29",
-    "2024-12-24", "2025-07-03", "2025-11-28", "2025-12-24", "2026-07-03", "2026-11-27",
-    "2026-12-24", "2027-07-02", "2027-11-26", "2027-12-24",
+    "2024-12-24", "2025-07-03", "2025-11-28", "2025-12-24", "2026-11-27",
+    "2026-12-24", "2027-11-26",
 }
 EARLY_CLOSE_MIN = 13 * 60        # 13:00 ET
 REGULAR_CLOSE_MIN = 16 * 60      # 16:00 ET
