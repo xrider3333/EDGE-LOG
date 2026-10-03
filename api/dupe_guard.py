@@ -25,7 +25,7 @@ numbers a job produces:
   * searched how     -> preset, discover, n_trials, n_rounds, wf_folds, wf_mode,
                         lockbox_months, lockbox, min_trades, transfer_to, dsr, oos,
                         top_n, grid, params, ml_filter, ml_threshold, sizing,
-                        book_legs, run_id
+                        book_legs, run_id, book_sizing
 
 Deliberately EXCLUDED, because two jobs differing only in these compute the same thing:
   note (free text - the four real duplicates carried DIFFERENT notes), provider, workers,
@@ -55,6 +55,9 @@ MATERIAL_FIELDS = (
     "preset", "discover", "n_trials", "n_rounds", "wf_folds", "wf_mode",
     "lockbox_months", "lockbox", "min_trades", "transfer_to", "dsr", "oos", "top_n",
     "grid", "params", "ml_filter", "ml_threshold", "sizing", "book_legs", "run_id",
+    # book-level sizing (augur_engine/book_sizing.py, 2026-10-03): a sized book is not a repeat of its raw twin.
+    # Absent on every older job, so no stored fingerprint moves.
+    "book_sizing",
 )
 
 # Fields this module writes onto job docs. Never part of a fingerprint.

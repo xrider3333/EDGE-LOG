@@ -133,3 +133,22 @@ this addendum the file's sha256 was b7d9c5dc1e38ba6818f613b474bef52b525782ca12d6
   >= the 95th percentile). Rule S's E2 is computed and reported beside it. E1 and E3 keep both clocks. Nothing else changes.
 - Code-only fix found by the same check (no rule changes): E3 refuses to scale when EITHER book's net on the span is <= 0 (a negative net
   made the equal-net factor negative in a synthetic world that lost money).
+
+ADDENDUM 2, 2026-10-03 (still BEFORE any real-data number; from an independent code review of the harness and a re-run of its synthetic
+power check). Before this addendum the file's sha256 was 4c3b667c43b411144a50a858cc68fdb8c4541d6d4d4feb8e3f1fa5b2bcef8853.
+- "T(real) >= the 95th percentile of the null" is read STRICTLY: at most 5% of the null draws are at or above T (p <= 0.05), with no
+  percentile interpolation. Under that reading the planted mechanism of addendum 1 (it halves the five deepest drawdowns at equal net)
+  sat at p 0.042-0.052 on WF alone: on nine years E2 cannot tell a mechanism that strong from chance, so a FAIL there would say nothing.
+- CHANGE: E2's verdict spans are ALL and ALLX (2011-01-03..2025-06-29, ALLX without the 2020-02-15..2020-04-30 rows), rule U, Null A and
+  Null B each p <= 0.05 - about 60% more volatility regimes. Both spans are partly seen, as WF is. WF and EX, and rule S, are computed
+  and reported beside it. Re-run of the power check: planted world E2 ALL p 0.021 / 0.017, ALLX 0.000 / 0.017 -> primary PASS; null world
+  E2 ALL p 0.80 / 0.67 -> FAIL.
+- READINGS (fixed now, so a low-power miss is never read as a refutation):
+    PASS          = E1, E2 and E3 pass -> the owner question above (adopt V2 as a real run now vs wait for the VT read).
+    INCONCLUSIVE  = E1 and E3 pass, E2 fails -> V2 helps where it should, but its timing cannot be told from chance on ~15 years of
+                    regimes; no adoption from the backtest; the VT forward read decides.
+    FAIL          = E1 or E3 fails -> the backtest case for V2 is closed; the VT shadow continues under its own pre-registration.
+- Code-review fixes, no rule changes: READY is bound to the sha256 of the records it validated and a rebuild revokes it; P4 runs only after
+  P2 and P3 pass (its IS* stretch holds E1 inputs); P4's tolerances are exactly the registered 0.001 / 0.0001; R2-R4 use only trades
+  closed by 2025-06-29; R3 counts the contracts actually traded (the NOISE file's own 1.75 tilt included); R4 compares the raw U and S
+  entry stamps and reports shares; R5 prints any Kronos step-0 result it finds.

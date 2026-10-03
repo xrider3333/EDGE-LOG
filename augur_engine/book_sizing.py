@@ -70,6 +70,14 @@ def check_config(cfg):
         raise ValueError("book_sizing lookback and ref must be >= 2")
     if not (0 < out["lo"] <= out["hi"]):
         raise ValueError("book_sizing needs 0 < lo <= hi")
+    # The multiplier is clipped, then rounded (the live shadow's order). That keeps every value inside [lo, hi] only
+    # when lo and hi sit on the rounding grid - decimals 0 would round a 0.5 floor to 0.0 (half to even) and size
+    # trades to nothing (review 2026-10-03).
+    if out["decimals"] < 1:
+        raise ValueError("book_sizing decimals must be >= 1")
+    for k in ("lo", "hi"):
+        if round(out[k], out["decimals"]) != out[k]:
+            raise ValueError("book_sizing %s=%s is not on the %d-decimal grid it is rounded to" % (k, out[k], out["decimals"]))
     sig = str(cfg.get("signal") or "book").lower()
     if sig not in ("book", "selected"):
         raise ValueError("book_sizing signal must be 'book' or 'selected'")
@@ -77,6 +85,8 @@ def check_config(cfg):
     legs = cfg.get("legs")
     if legs is not None and not isinstance(legs, (list, tuple)):
         raise ValueError("book_sizing legs must be a list of leg positions or strategy names")
+    if legs is not None and len(legs) == 0:
+        raise ValueError("book_sizing legs is empty - nothing would be sized, and the raw book would run under a sized label")
     out["legs"] = list(legs) if legs is not None else None
     st = cfg.get("stretches")
     if st is not None:
@@ -151,6 +161,14 @@ def daily_series(incs, index_days=None):
     return s
 
 
+def _day(x):
+    """A window bound as a naive calendar day; a tz-aware one is read on the US/Eastern clock the masters use."""
+    t = pd.Timestamp(x)
+    if t.tzinfo is not None:
+        t = t.tz_convert("US/Eastern").tz_localize(None)
+    return t.normalize()
+
+
 def book_index(incs_lists, date_from=None, date_to=None):
     """Business days of the window plus every day that carries P&L - exactly the index
     api/book_shadow.book463_valued_daily and tools/rocfrontier/r4_book463.py build. Entry days are
@@ -159,8 +177,8 @@ def book_index(incs_lists, date_from=None, date_to=None):
     for incs in incs_lists:
         days.extend(x[0] for x in incs)
     have = pd.to_datetime(np.array(days, dtype="datetime64[D]")) if days else pd.DatetimeIndex([])
-    lo = pd.Timestamp(date_from) if date_from else (have.min() if len(have) else None)
-    hi = pd.Timestamp(date_to) if date_to else (have.max() if len(have) else None)
+    lo = _day(date_from) if date_from else (have.min() if len(have) else None)
+    hi = _day(date_to) if date_to else (have.max() if len(have) else None)
     base = pd.bdate_range(lo, hi) if lo is not None and hi is not None else pd.DatetimeIndex([])
     return base.union(pd.DatetimeIndex(have.unique()) if len(have) else pd.DatetimeIndex([])).sort_values()
 
@@ -261,6 +279,8 @@ def apply(cfg, legs, leg_info, per_leg_mtm, date_from=None, date_to=None):
     sig = sel if cfg["signal"] == "selected" else list(range(len(legs)))
     signal_guard(legs, leg_info, sorted(set(sig) | set(sel)))
     m, M = multipliers(cfg, [per_leg_mtm[k] for k in sig], date_from, date_to)
+    if len(m) and not (m.to_numpy(float) > 0).all():
+        raise ValueError("book_sizing produced a non-positive multiplier")
     cache = {}
 
     def m_of(day):
@@ -302,7 +322,7 @@ def apply(cfg, legs, leg_info, per_leg_mtm, date_from=None, date_to=None):
                        % (cfg["lookback"], cfg["ref"], cfg["lookback"], cfg["lo"], cfg["hi"], cfg["decimals"],
                           cfg["lookback"], cfg["lookback"]))}
     if stretches:
-        idx = M.index
+        idx = book_index(per_leg_mtm, date_from, date_to)      # every leg's days, even when the signal reads a subset
         sized_lists = [rebuilt[k][2] if rebuilt[k] is not None else per_leg_mtm[k] for k in range(len(legs))]
         S = sum((daily_series(x, idx) for x in sized_lists), pd.Series(0.0, index=idx))
         R = sum((daily_series(x, idx) for x in per_leg_mtm), pd.Series(0.0, index=idx))

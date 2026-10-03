@@ -1,6 +1,7 @@
 # Round 11 (2026-10-03): RISK r1 - is book round 62's V2 volatility target a TIMING MECHANISM or two lucky drawdowns?
-# Pre-registered: tools/rocfrontier/PREREG_RISK_R1.txt (commit cff2661, sha256 b7d9c5dc...d017; + a dated pre-data ADDENDUM from this harness's own
-# synthetic power check - E2 is decided on rule U - whose sha256 is PREREG_SHA below), written before any number of this round.
+# Pre-registered: tools/rocfrontier/PREREG_RISK_R1.txt (commit cff2661, sha256 b7d9c5dc...d017), then two dated PRE-DATA addenda from this
+# harness's own synthetic power check and an independent code review (E2 on rule U, strict p <= 0.05, verdict spans ALL / ALLX, the
+# INCONCLUSIVE reading); PREREG_SHA below is the file with both. Written before any real-data number of this round.
 # Every rule, threshold and window is that file; where it is silent the choice is marked CHOICE.
 #   python r11_risk.py build        one engine pass over #463's legs -> per-trade records under both day rules (U = engine UTC stamp, S = ET session day)
 #                                   + P1 (records re-sum to the engine's own series) + the list of round-62 output files already on disk
@@ -18,7 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get("EDGELOG_ROCFRONTIER_R11", r"C:\EdgeLog\_anatomy_cache\rocfrontier\r11")
 R62_DIR = os.environ.get("EDGELOG_R62_DIR", r"C:\EdgeLog\_anatomy_cache\adopt449")
 PREREG = os.path.join(HERE, "PREREG_RISK_R1.txt")
-PREREG_SHA = "4c3b667c43b411144a50a858cc68fdb8c4541d6d4d4feb8e3f1fa5b2bcef8853"
+PREREG_SHA = "bfe9b01d7ab6888c18f2cb47b7a6a093d1110cb2b1e00402065894078b2a2df7"
 TS = pd.Timestamp
 W0, W1 = "2010-06-07", "2026-06-30"                                  # #463's window (its job's own)
 IS0, IS1 = TS("2011-01-03"), TS("2016-06-30")                         # IS* (2010 is V2's warm-up)
@@ -82,7 +83,8 @@ def trade_records(st, days):
     close = np.asarray(st["close"], float) if st.get("close") is not None else None
     ends = np.flatnonzero(days[1:] != days[:-1])
     pm, usd_units = st.get("plugin_marks"), bool(st.get("usd_units"))
-    ent, ext, clo, it, idd, iv = [], [], [], [], [], []
+    fsz = st.get("file_sizes") or {}
+    ent, ext, clo, it, idd, iv, fs = [], [], [], [], [], [], []
     for j, (t, size) in enumerate(st["sized"]):
         try:
             e = min(max(int(t[0]), 0), last)
@@ -92,7 +94,7 @@ def trade_records(st, days):
         except Exception:
             continue
         n = len(ent)
-        ent.append(days[e]); ext.append(days[x]); clo.append(usd)
+        ent.append(days[e]); ext.append(days[x]); clo.append(usd); fs.append(float(fsz.get(id(t), 1.0)) * float(size))
         pieces = None
         if x <= e or days[e] == days[x] or st.get("mtm_failed"):
             pieces = [(days[x], usd)]
@@ -125,7 +127,7 @@ def trade_records(st, days):
             it.append(n); idd.append(d); iv.append(v)
     D = lambda a: np.asarray(a, dtype="datetime64[D]")
     return {"entry": D(ent), "exit": D(ext), "closed": np.asarray(clo, float), "inc_t": np.asarray(it, np.int64),
-            "inc_d": D(idd), "inc_v": np.asarray(iv, float)}
+            "inc_d": D(idd), "inc_v": np.asarray(iv, float), "fsize": np.asarray(fs, float)}
 
 
 def by_day(days, vals):
@@ -139,9 +141,24 @@ def series_equal(a, b, tol=0.01):
     return bool((d <= tol).all()), float(d.max()) if len(d) else 0.0
 
 
+def _ready_path():
+    return os.path.join(OUT, "READY")
+
+
+def _sha_file(path):
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def _record_hashes():
+    return {n: _sha_file(os.path.join(OUT, n)) for n in ("records_U.npz", "records_S.npz", "build.json")}
+
+
 def build():
-    """One engine pass; records for rules U and S; P1."""
+    """One engine pass; records for rules U and S; P1. Revokes any earlier READY first (review 2026-10-03)."""
     check_prereg()
+    if os.path.exists(_ready_path()):
+        os.remove(_ready_path())
     from augur_engine import book as B, book_sizing as BS
     legs = book_legs()
     rec = {"U": [], "S": []}
@@ -167,7 +184,7 @@ def build():
                      "cost_pts": float(leg.get("cost_pts") or 0.0)})
         print(k, leg["strategy"], len(rU["closed"]), "trades", "P1", okm and okc and oks, flush=True)
     for rule in ("U", "S"):
-        cat = {key: np.concatenate([r[key] for r in rec[rule]]) for key in ("entry", "exit", "closed", "leg", "inc_d", "inc_v")}
+        cat = {key: np.concatenate([r[key] for r in rec[rule]]) for key in ("entry", "exit", "closed", "leg", "inc_d", "inc_v", "fsize")}
         off = np.cumsum([0] + [len(r["closed"]) for r in rec[rule]])[:-1]
         cat["inc_t"] = np.concatenate([r["inc_t"] + o for r, o in zip(rec[rule], off)])
         os.makedirs(OUT, exist_ok=True)
@@ -207,6 +224,9 @@ class Book:
         xrow = np.searchsorted(ix, ext, side="left")
         assert (ix[drow] == incd).all() and (ix[xrow] == ext).all()
         self.xrow, self.leg, self.closed = xrow, rec["leg"], rec["closed"]
+        self.entry_day = ent                                                 # the raw entry stamp of the rule (R4)
+        self.fsize = rec["fsize"] if "fsize" in rec else np.ones(len(ent))   # the file's own per-trade size x any gate size (R3)
+        self.pre_trade = self.index[xrow] <= PRE_END                         # trades closed before the lockbox
         self.inc_t, self.inc_row, self.inc_v = rec["inc_t"], drow, rec["inc_v"]
         t = self.inc_t
         self.Am = sparse.csr_matrix((self.inc_v, (self.erow[t], drow)), shape=(n, n))
@@ -324,6 +344,13 @@ def parity():
         out["P3"][s] = {"got": g, "ref": ref, "ok": ok}
         p3 &= ok or not CHECK_REFS
     out["P3"]["avg_size_trades_pre_lockbox"] = float(m[B.erow[B.index[B.erow] <= PRE_END]].mean())
+    if not (p2 and p3):                     # a P2 / P3 miss stops the round before anything else is computed (P4 holds E1 inputs)
+        out["pass"], out["refs_checked"] = False, CHECK_REFS
+        save("parity.json", out)
+        if os.path.exists(_ready_path()):
+            os.remove(_ready_path())
+        raise SystemExit("parity FAILED at P2/P3 - see parity.json; reconcile with round 62's own scripts and write a dated addendum to "
+                         "PREREG_RISK_R1.txt before anything else is computed.")
     # P4: the engine's own sized run
     from augur_engine import book as BK
     stretches = [{"name": "IS*", "from": str(IS0.date()), "to": str(IS1.date())}, {"name": "WF", "from": str(WF0.date()), "to": str(PRE_END.date())}]
@@ -349,17 +376,17 @@ def parity():
     for sname, (lo, hi) in (("IS*", (IS0, IS1)), ("WF", (WF0, PRE_END))):
         mine = unified(B, v2m, lo, hi)
         theirs = [x for x in bs["stretches"] if x["name"] == sname][0]["sized"]
-        okk = abs(mine["roc"] - theirs["roc_30k"]) <= 0.001 + 5e-4 and abs(mine["sort"] - theirs["sortino"]) <= 0.0001 + 5e-5
+        okk = abs(mine["roc"] - theirs["roc_30k"]) <= 0.001 and abs(mine["sort"] - theirs["sortino"]) <= 0.0001   # as registered
         p4[f"stretch_{sname}"] = {"harness": mine, "engine": theirs, "ok": okk}
         ok4 &= okk
     out["P4"] = {"checks": p4, "ok": bool(ok4), "engine_avg_multiplier_trades": bs.get("avg_multiplier_trades")}
     out["pass"] = bool(p2 and p3 and ok4)
     out["refs_checked"] = CHECK_REFS
     save("parity.json", out)
-    ready = os.path.join(OUT, "READY")
+    ready = _ready_path()
     if out["pass"]:
         with open(ready, "w") as f:
-            f.write("P1-P4 passed\n")
+            f.write(json.dumps({"P1-P4": "passed", "sha256": _record_hashes()}, indent=1))
         print("parity PASS - READY", flush=True)
     else:
         if os.path.exists(ready):
@@ -442,8 +469,10 @@ def e2(B, ms):
     pre = B.pre_n
     rng = np.random.default_rng(SEED)
     boots = [stationary_bootstrap(pre, BLOCK, rng) for _ in range(NBOOT)]
-    for name, ex in (("WF", None), ("EX", X20)):
-        k = B.mask(WF0, PRE_END, ex)
+    # addendum 2: the verdict spans are ALL / ALLX (2011-01-03..2025-06-29, without the 2020 rows for ALLX) - ~60% more volatility
+    # regimes than WF alone; WF / EX are computed and reported beside them
+    for name, lo, ex in (("ALL", IS0, None), ("ALLX", IS0, X20), ("WF", WF0, None), ("EX", WF0, X20)):
+        k = B.mask(lo, PRE_END, ex)
         assert not (B.index[k] > PRE_END).any()
         dates = B.index[k]
         base = {s: stats(B.raw[k], dates)[s] for s in ("cdr", "roc")}
@@ -472,14 +501,16 @@ def e2(B, ms):
         for tag, nl in (("A", nullA), ("B", nullB)):
             res["null" + tag] = {
                 "p95_cdr_family": float(np.percentile(nl["cdr"], 95)),
+                "p_cdr_family": float(np.mean(np.asarray(nl["cdr"]) >= real["cdr"][0])),   # share of null draws at or above the real T
                 "pct_cdr_family": float(np.mean(np.asarray(nl["cdr"]) < real["cdr"][0]) * 100),
                 "pct_cdr_v2": float(np.mean(np.asarray(nl["cdr_v2"]) < real["cdr"][1]) * 100),
                 "pct_roc_family": float(np.mean(np.asarray(nl["roc"]) < real["roc"][0]) * 100),
                 "pct_roc_v2": float(np.mean(np.asarray(nl["roc_v2"]) < real["roc"][1]) * 100),
                 "dist_cdr_family": nl["cdr"]}
-        res["pass"] = bool(real["cdr"][0] >= res["nullA"]["p95_cdr_family"] and real["cdr"][0] >= res["nullB"]["p95_cdr_family"])
+        # addendum 2: ">= the 95th percentile" read strictly - at most 5% of the null draws at or above T (p <= 0.05), no interpolation
+        res["pass"] = bool(res["nullA"]["p_cdr_family"] <= 0.05 and res["nullB"]["p_cdr_family"] <= 0.05)
         out[name] = res
-    out["pass"] = bool(out["WF"]["pass"] and out["EX"]["pass"])
+    out["pass"] = bool(out["ALL"]["pass"] and out["ALLX"]["pass"])
     return out
 
 
@@ -552,7 +583,7 @@ def reports(B, ms, BS_other, legs_meta):
     r2 = {}
     for pname, ks in parts.items():
         x = sum((B.Am_leg[k].T @ (m if k in ks else B.ones)) for k in range(len(legs_meta)))
-        sel = np.isin(B.leg, ks)
+        sel = np.isin(B.leg, ks) & B.pre_trade                               # no lockbox trade (review 2026-10-03)
         up, dn = sel & (m[B.erow] > 1.0), sel & (m[B.erow] < 1.0)
         pf = lambda msk: float(B.closed[msk][B.closed[msk] > 0].sum() / -B.closed[msk][B.closed[msk] < 0].sum()) if (B.closed[msk] < 0).any() else float("nan")
         r2[pname] = {"IS*": st_on(B, x, IS0, IS1), "WF": st_on(B, x, WF0, PRE_END), "EX": st_on(B, x, WF0, PRE_END, X20),
@@ -560,7 +591,7 @@ def reports(B, ms, BS_other, legs_meta):
     rep["R2_dissection"] = r2
     # R3 micros
     from scipy import sparse
-    s = np.array([legs_meta[k]["weight"] for k in B.leg]) * m[B.erow]
+    s = np.array([legs_meta[k]["weight"] for k in B.leg]) * B.fsize * m[B.erow]   # contracts actually traded (NOISE's own tilt included)
     full = np.floor(s + 1e-9)
     frac = s - full
     micros = np.round(frac * 10.0)
@@ -568,18 +599,38 @@ def reports(B, ms, BS_other, legs_meta):
     micro_rt = np.array([MICRO_RT.get(legs_meta[k]["instrument"], MICRO_RT["NQ"]) for k in B.leg])
     extra = micros * micro_rt - frac * full_rt
     xc = v2 - np.bincount(B.xrow, weights=extra, minlength=B.n)
-    rep["R3_micros"] = {"IS*": st_on(B, xc, IS0, IS1), "WF": st_on(B, xc, WF0, PRE_END), "extra_cost_total_pre": float(extra[B.index[B.xrow] <= PRE_END].sum()),
-                        "trades_with_micros": int((micros > 0).sum())}
+    rep["R3_micros"] = {"IS*": st_on(B, xc, IS0, IS1), "WF": st_on(B, xc, WF0, PRE_END), "extra_cost_total_pre": float(extra[B.pre_trade].sum()),
+                        "trades_with_micros_pre": int(((micros > 0) & B.pre_trade).sum())}
     # R4 clocks (needs the S book)
     if BS_other is not None:
         mS = BS_other.mult("V2")
-        e_u, e_s = B.index[B.erow], BS_other.index[BS_other.erow]
-        engq_t = np.isin(B.leg, engq)
-        rep["R4_clocks"] = {"engq_entries": int(engq_t.sum()), "engq_entry_day_differs": int((e_u[engq_t] != e_s[engq_t]).sum()),
-                            "sizes_differ_all_trades": int((m[B.erow] != mS[BS_other.erow]).sum()), "trades": int(len(B.erow))}
-    # R5 the forecast question
+        assert len(B.erow) == len(BS_other.erow) and (B.leg == BS_other.leg).all(), "U and S records are not the same trades in the same order"
+        pre = B.pre_trade & BS_other.pre_trade
+        engq_t = np.isin(B.leg, engq) & pre
+        differs = B.entry_day != BS_other.entry_day                          # the raw stamps, not the index rows they map to
+        rep["R4_clocks"] = {"engq_entries_pre": int(engq_t.sum()), "engq_entry_day_differs": int((differs & engq_t).sum()),
+                            "engq_share_differs": float((differs & engq_t).sum() / max(1, engq_t.sum())),
+                            "sizes_differ_pre": int(((m[B.erow] != mS[BS_other.erow]) & pre).sum()), "trades_pre": int(pre.sum()),
+                            "share_sizes_differ_pre": float(((m[B.erow] != mS[BS_other.erow]) & pre).sum() / max(1, pre.sum()))}
+    # R5 the forecast question (+ Kronos step 0 beside it, if it has reported)
     rep["R5_forecast"] = r5(B)
+    rep["R5_forecast"]["kronos_step0"] = kronos_result()
     return rep
+
+
+def kronos_result():
+    """Kronos step 0 (docs/PREREG_kronos_step0_2026-10-01.md) has no fixed result path in git; report whatever result it has left."""
+    found = []
+    doc = os.path.join(REPO, "docs", "PREREG_kronos_step0_2026-10-01.md")
+    if os.path.exists(doc):
+        import re
+        txt = open(doc, encoding="utf-8", errors="replace").read()
+        hit = re.search(r"(?im)^\s*#*\s*RESULT\b", txt)                  # a RESULT heading / line, not a passing mention
+        if hit:
+            found.append({"source": doc, "excerpt": txt[hit.start():hit.start() + 1500]})
+    for p in sorted(glob.glob(os.path.join(os.environ.get("EDGELOG_KRONOS_DIR", r"C:\EdgeLog\kronos"), "**", "*result*"), recursive=True))[:5]:
+        found.append({"source": p, "excerpt": open(p, encoding="utf-8", errors="replace").read()[:1500]})
+    return found or "no Kronos step-0 result found"
 
 
 def r5(B):
@@ -631,9 +682,15 @@ def r5(B):
 
 def run():
     check_prereg()
-    if not os.path.exists(os.path.join(OUT, "READY")):
+    if not os.path.exists(_ready_path()):
         raise SystemExit("refused: parity (P1-P4) has not passed - run build, then parity")
+    with open(_ready_path()) as f:
+        ready = json.loads(f.read() or "{}")
+    if ready.get("sha256") != _record_hashes():
+        raise SystemExit("refused: the records changed after parity passed (build was re-run?) - run parity again")
     b = load_json("build.json")
+    if not b.get("P1_pass"):
+        raise SystemExit("refused: P1 has not passed on these records")
     legs_meta = b["legs"]
     engq_leg = [k for k, l in enumerate(legs_meta) if "ENGUQ" in l["strategy"].upper()]
     engq_leg = engq_leg[0] if engq_leg else -1
@@ -647,22 +704,26 @@ def run():
         print(rule, "E1", res["E1"][rule]["pass"], "E2", res["E2"][rule]["pass"], "E3", res["E3"][rule]["pass"], flush=True)
     E = {t: bool(all(res[t][r]["pass"] for r in ("U", "S"))) for t in ("E1", "E3")}
     E["E2"] = bool(res["E2"]["U"]["pass"])                                   # addendum 2026-10-03: E2 on rule U; rule S reported
-    verdict = "PASS" if all(E.values()) else "FAIL"
+    verdict = "PASS" if all(E.values()) else ("INCONCLUSIVE" if E["E1"] and E["E3"] else "FAIL")   # addendum 2
     rep = reports(books["U"], {c: books["U"].mult(c) for c in CELLS}, books["S"], legs_meta)
     save("e1.json", res["E1"]); save("e2.json", res["E2"]); save("e3.json", res["E3"]); save("reports.json", rep)
     lines = [f"RISK r1 - PRIMARY VERDICT: {verdict}   (E1 {E['E1']}, E2 {E['E2']}, E3 {E['E3']}; E1 and E3 on rule U AND rule S, E2 on rule U - addendum)",
              f"prereg sha256 {PREREG_SHA}",
-             "PASS -> an explicit owner question: adopt V2 sizing on #463 now as a real BOOK run (book_sizing block), rather than wait for the 12-month VT read."
-             if verdict == "PASS" else "FAIL -> the backtest case for V2 is closed; the VT line stays a forward shadow under its own pre-registration.",
+             {"PASS": "PASS -> an explicit owner question: adopt V2 sizing on #463 now as a real BOOK run (book_sizing block), rather than wait for "
+                      "the 12-month VT read.",
+              "INCONCLUSIVE": "INCONCLUSIVE -> V2 helps on the IS* read and at equal net on the five deepest drawdowns, but its timing is not "
+                              "distinguishable from chance with ~15 years of regimes; no adoption from the backtest, the VT shadow decides.",
+              "FAIL": "FAIL -> the backtest case for V2 is closed; the VT line stays a forward shadow under its own pre-registration."}[verdict],
              "R5 (risk forecast, the only ML role this round funds): " + rep["R5_forecast"]["read"]]
     for rule in ("U", "S"):
         e1r, e2r, e3r = res["E1"][rule], res["E2"][rule], res["E3"][rule]
         lines.append(f"[{rule}] E1 IS*: RAW roc {e1r['raw']['roc']:.1f} sort {e1r['raw']['sort']:.3f} cdr {e1r['raw']['cdr']:.1f} | "
                      f"V2 roc {e1r['v2']['roc']:.1f} sort {e1r['v2']['sort']:.3f} cdr {e1r['v2']['cdr']:.1f} -> {e1r['pass']}")
-        for s in ("WF", "EX"):
+        for s in ("ALL", "ALLX", "WF", "EX"):
             q = e2r[s]
-            lines.append(f"[{rule}] E2 {s}{'' if rule == 'U' else ' (reported)'}: family-max dCDR {q['real']['cdr']['family_max']:+.2f}; pct nullA {q['nullA']['pct_cdr_family']:.1f} "
-                         f"nullB {q['nullB']['pct_cdr_family']:.1f} (V2 alone {q['nullA']['pct_cdr_v2']:.1f}/{q['nullB']['pct_cdr_v2']:.1f}) -> {q['pass']}")
+            lines.append(f"[{rule}] E2 {s}{'' if rule == 'U' and s in ('ALL', 'ALLX') else ' (reported)'}: family-max dCDR {q['real']['cdr']['family_max']:+.2f}; "
+                         f"p nullA {q['nullA']['p_cdr_family']:.3f} nullB {q['nullB']['p_cdr_family']:.3f} (pct V2 alone "
+                         f"{q['nullA']['pct_cdr_v2']:.1f}/{q['nullB']['pct_cdr_v2']:.1f}) -> {q['pass']}")
         for s in ("ALL", "ALLX"):
             q = e3r[s]
             if "ranks_v2_shallower" in q:
@@ -771,9 +832,16 @@ def smoke(d, world="null"):
         if world == "planted":
             assert verdict == "PASS", "smoke: a planted volatility mechanism must clear the primary verdict (power check)"
         else:
-            assert load_json("e2.json")["U"]["WF"]["nullA"]["pct_cdr_family"] < 80, "smoke: the null world must sit far from the E2 bar"
-        # refusals
-        os.remove(os.path.join(OUT, "READY"))
+            assert load_json("e2.json")["U"]["ALL"]["nullA"]["p_cdr_family"] > 0.2, "smoke: the null world must sit far from the E2 bar"
+        # refusals: records changed after parity, then no READY at all
+        with open(_ready_path(), "w") as f:
+            f.write(json.dumps({"P1-P4": "passed", "sha256": {"records_U.npz": "0" * 64}}))
+        try:
+            run()
+            raise AssertionError("smoke: run() must refuse when the records are not the ones parity passed")
+        except SystemExit:
+            pass
+        os.remove(_ready_path())
         try:
             run()
             raise AssertionError("smoke: run() must refuse without READY")
