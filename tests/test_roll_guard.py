@@ -327,12 +327,16 @@ def test_write_alert_records_the_event_where_a_human_will_find_it(tmp_path):
     assert "contract switch inside a bar" in saved["message"]
 
 
-def test_write_alert_never_raises_even_on_an_unwritable_path():
+def test_write_alert_never_raises_even_on_an_unwritable_path(tmp_path):
     """A failed alert must not take a refresh down with it."""
     assert rg.write_alert("x.csv", "5m", None) is None
     st, df = _splice_frames()
     _safe, hit = rg.split_tv_frame(df, after_time=st - 3000)
-    assert rg.write_alert("x.csv", "5m", hit, alert_dir="\\?\nonexistent::path") is None
+    # A directory under a regular FILE cannot be created on any OS (the old "\\?\nonexistent::path" literal held a newline
+    # and was a perfectly writable directory name on Linux, so CI wrote the alert into the checkout).
+    blocker = tmp_path / "not_a_dir"
+    blocker.write_text("x")
+    assert rg.write_alert("x.csv", "5m", hit, alert_dir=str(blocker / "alerts")) is None
 
 
 def test_the_yahoo_refresh_tool_actually_calls_the_guard():

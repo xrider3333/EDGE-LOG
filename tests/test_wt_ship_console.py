@@ -98,8 +98,10 @@ def test_ship_finishes_post_push_steps_on_non_ascii_subject(tmp_path, how):
         'the push landed but the shared checkout was NOT fast-forwarded:\n' + out + err)
 
     lines = out.splitlines()
-    report = [ln for ln in lines if ln.startswith('pushed: ')]
-    synced = [ln for ln in lines if ln.startswith('shared checkout: fast-forwarded 1 commit(s)')]
+    # 65a5352 (ship proves the sha is on origin/main) prints 'pushed (verified on main): <sha> <subject>' and indents the
+    # shared-checkout line under it.
+    report = [ln for ln in lines if ln.startswith('pushed (verified on main): ')]
+    synced = [ln for ln in lines if ln.lstrip().startswith('shared checkout: fast-forwarded 1 commit(s)')]
     budget = [ln for ln in lines if 'pushes to main in the last hour' in ln]
     assert len(report) == 1 and 'BUILDER ' in report[0], out
     assert len(synced) == 1 and 'BUILDER ' in synced[0], out
