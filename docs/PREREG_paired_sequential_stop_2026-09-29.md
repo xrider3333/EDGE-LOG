@@ -87,3 +87,8 @@ breakout that fills 5 minutes later at the bar's close (look-ahead). The rule no
 (150/yr; was 35.9%), mean size 1.1599, early-stop series 313 trades (= Frontier's 100-tilted read), B 3.00 (2.5%
 false stops). Context only: the walk-forward paired t is now **-1.96** (was +0.11) - with the look-ahead removed
 the 1.5x trades are, if anything, worse per dollar than the rest. Frontier has recommended dropping the AG line.
+
+## AG RETIRED 2026-10-01 (owner GO via MANAGER #48; Frontier 00ed310e)
+The agreement-tilt book line was dropped from the nightly report (last report 10-01), so the AG paired stop
+(tools/ag_paired_stop.py) is retired with it and will never be read. The fill-time fix (c9154165) stays because
+its fill detection and tests are shared with the order-flow scorer.

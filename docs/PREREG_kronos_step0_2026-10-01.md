@@ -52,3 +52,19 @@ Honest prior (the assessment's): low - outside tests say it ties HAR, not beats 
 - Not done, by scope: synthetic-path / stress tests, fine-tuning, direction calls, gates, any live use.
 
 Driver: tools/kronos_step0.py (baselines run without any download; the Kronos arm only after the download).
+
+## STATUS 2026-10-03 - free baselines scored (after the pre-registration above); Kronos arm not yet run
+`python tools/kronos_step0.py baselines` (EDGELOG_ROOT = the shared checkout). 559 scored sessions (H1 247, H2 312).
+Mean QLIKE after each model's H1-fitted scale (H1 / H2):
+
+| model | NQ | ES |
+|---|---|---|
+| TRAIL5 | 0.3965 / 0.3668 | 0.4724 / 0.4149 |
+| EWMA | 0.5065 / 0.3931 | 0.5925 / 0.4386 |
+| **HAR** | **0.3934 / 0.3522** | **0.4474 / 0.3833** |
+| OVN | 0.4714 / 0.5641 | 0.5373 / 0.6191 |
+
+HAR is the best free forecast in both halves on both markets, so Kronos must reach NQ QLIKE <= 0.3737 (H1) and
+<= 0.3346 (H2), with the DM test, all 5 seeds and ES (< 0.3833 in H2) as written. The Kronos arm waits only on
+the download (code + Kronos-small weights + tokenizer). The Custom ML chat's safety rules let it download only on
+the owner's DIRECT yes in that chat; a relayed go does not count, and two requests were cut off by app restarts.
