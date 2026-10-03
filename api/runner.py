@@ -795,7 +795,10 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 slices=int(job.get("slices", 8) or 8),
                 equity_points=int(job.get("equity_points", 400) or 400),
                 name=job.get("book_name") or job.get("strategy"),
-                progress_cb=progress_cb)
+                progress_cb=progress_cb,
+                # BOOK-LEVEL SIZING (2026-10-03, frontier RISK r1): absent = the book exactly as
+                # before; a block it cannot read raises instead of running unsized.
+                book_sizing=job.get("book_sizing"))
         elif jtype == "gate_validate":
             r = ae.run_gate_validate(
                 job["strategy"], instrument=job.get("instrument"),

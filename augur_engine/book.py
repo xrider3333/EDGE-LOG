@@ -48,11 +48,33 @@ def _leg_mult(leg):
     return float(_MULT.get(str(leg.get("instrument") or "").upper(), 20))
 
 
-def _leg_trades(leg, date_from, date_to):
+def _closed_series(sized, days_idx, sess_idx, last, mult, weight):
+    """Each trade's closed dollars on its exit day: (UTC-truncated stamps, ET session-day stamps).
+    `size` is the gate's (and, with book sizing, the book's) per-trade multiplier."""
+    out, out_sess = [], []
+    for t, size in sized:
+        try:
+            i = min(int(t[1]), last)
+            usd = float(t[2]) * mult * weight * float(size)
+            out.append((days_idx[i], usd))
+            if sess_idx is not None:
+                out_sess.append((sess_idx[i], usd))
+        except Exception:
+            continue
+    if sess_idx is None:                     # a tz-naive master reads the same either way
+        out_sess.extend(out)
+    return out, out_sess
+
+
+def _leg_trades(leg, date_from, date_to, keep_state=False):
     """Run ONE leg over the window; return [(exit_date, pnl_usd), ...] plus a small info dict.
 
     Trades are stamped by EXIT date — one uniform convention across every leg, so a trade
     that spans midnight lands in the day it was actually closed and booked.
+
+    keep_state=True (book-level sizing only, augur_engine/book_sizing.py) also leaves in
+    info["_state"] what is needed to re-price this leg's trades at other sizes without
+    running the strategy again. run_book removes it before returning.
     """
     inst = leg.get("instrument")
     tf = leg.get("timeframe", "5m")
@@ -146,17 +168,7 @@ def _leg_trades(leg, date_from, date_to):
     last = len(days_idx) - 1
     # `size` is the gate's per-trade size multiplier (1.0 everywhere when ungated), so the
     # ungated path is bit-identical to before this feature existed.
-    for t, size in sized:
-        try:
-            i = min(int(t[1]), last)
-            usd = float(t[2]) * mult * weight * float(size)
-            out.append((days_idx[i], usd))
-            if _sess_idx is not None:
-                out_sess.append((_sess_idx[i], usd))
-        except Exception:
-            continue
-    if _sess_idx is None:                    # a tz-naive master reads the same either way
-        out_sess.extend(out)
+    out, out_sess = _closed_series(sized, days_idx, _sess_idx, last, mult, weight)
     info = {"strategy": leg.get("strategy"), "instrument": inst, "timeframe": tf,
             "session": sess, "source": src, "mult": mult, "weight": weight,
             "trades": len(out), "net": round(sum(p for _, p in out), 2),
@@ -175,6 +187,7 @@ def _leg_trades(leg, date_from, date_to):
     info["_session_day"] = out_sess
     # OPEN TRADES VALUED DAILY (2026-09-24) - see _mtm_increments. Reported beside the
     # closed-trade figures as book.mtm; nothing that scores the book reads it.
+    _pm, _usd = None, False
     try:
         _pm, _usd, _pm_note = _plugin_marks(leg, arr, sized)
         _m, _mk, _um = _mtm_increments(days_idx, arr.get("close"), sized, mult, weight,
@@ -190,6 +203,11 @@ def _leg_trades(leg, date_from, date_to):
         _m = list(out)
         info["mtm_error"] = "%s: %s" % (type(_e).__name__, _e)
     info["_mtm_day"] = _m
+    if keep_state:
+        info["_state"] = {"days_idx": days_idx, "sess_idx": _sess_idx, "last": last,
+                          "close": arr.get("close"), "sized": sized, "mult": mult,
+                          "weight": weight, "plugin_marks": _pm, "usd_units": _usd,
+                          "mtm_failed": "mtm_error" in info}
     return out, info
 
 
@@ -414,7 +432,7 @@ def _downsample(cum, boundary_i, n_points):
 
 
 def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
-             slices=8, equity_points=400, name=None, progress_cb=None):
+             slices=8, equity_points=400, name=None, progress_cb=None, book_sizing=None):
     """Run a BOOK: every leg over one window with fixed params, pooled and scored as one.
 
     legs: [{strategy, params, instrument, timeframe, session, source, cost_pts, mult, weight}]
@@ -426,10 +444,20 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
     ordinary run: `best` carries the PRE-LOCKBOX metrics (the same convention a validate run
     uses for best_pnl_usd — the stretch that is not the holdout), while `validate.equity`
     spans the WHOLE window with `lb_idx` marking where the lockbox starts.
+
+    book_sizing: optional {"mode": "vt", ...} block (augur_engine/book_sizing.py). Every trade
+    is then sized by a multiplier read from the UNSIZED book's valued-daily P&L strictly before
+    its entry day, and every figure below is the SIZED book; the unsized raw twin is reported
+    under book.book_sizing.raw_twin. None (the default) leaves the book exactly as before.
     """
     legs = [l for l in (legs or []) if l and l.get("strategy")]
     if not legs:
         raise ValueError("a book needs at least one leg")
+    _bs_cfg = None
+    if book_sizing is not None:
+        from . import book_sizing as _bs
+        _bs_cfg = _bs.check_config(book_sizing)
+        _bs.selected_legs(_bs_cfg, legs)          # a block naming a leg this book lacks fails now
 
     pooled = []
     pooled_sess = []      # the same trades on the ET session day - see _leg_trades
@@ -440,7 +468,10 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
     for i, leg in enumerate(legs):
         if progress_cb:
             progress_cb(int(5 + 70.0 * i / len(legs)), 100)
-        tr, info = _leg_trades(leg, date_from, date_to)
+        if _bs_cfg is None:
+            tr, info = _leg_trades(leg, date_from, date_to)
+        else:
+            tr, info = _leg_trades(leg, date_from, date_to, keep_state=True)
         pooled.extend(tr)
         per_leg.append(tr)
         pooled_sess.extend(info.pop("_session_day", None) or [])
@@ -451,6 +482,27 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
         leg_info.append(info)
     if not pooled:
         raise ValueError("the book produced no trades over this window")
+
+    # ── BOOK-LEVEL SIZING (2026-10-03, frontier RISK r1) - see augur_engine/book_sizing.py.
+    #    Everything below scores the SIZED book; the unsized pile is kept as the raw twin.
+    _bs_report, _raw = None, None
+    if _bs_cfg is not None:
+        _raw = {"pooled": list(pooled), "mtm": list(pooled_mtm)}
+        rebuilt, _bs_report = _bs.apply(_bs_cfg, legs, leg_info, per_leg_mtm, date_from, date_to)
+        pooled, pooled_sess, pooled_mtm, per_leg, per_leg_mtm = [], [], [], [], []
+        for k, info in enumerate(leg_info):
+            st = info.pop("_state", None)
+            if rebuilt[k] is None:                   # an unselected leg: re-priced at x1.0, i.e. unsized
+                tr_k, sess_k, mt_k = _bs.resize(st, lambda t: 1.0)[:3]
+            else:
+                tr_k, sess_k, mt_k = rebuilt[k]
+            info["net"] = round(sum(p for _, p in tr_k), 2)
+            pooled.extend(tr_k)
+            per_leg.append(tr_k)
+            pooled_sess.extend(sess_k)
+            pooled_mtm.extend(mt_k)
+            per_leg_mtm.append(mt_k)
+        pooled.sort(key=lambda t: t[0])
 
     pooled.sort(key=lambda t: t[0])
     if progress_cb:
@@ -569,6 +621,25 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
     except Exception as _e:                     # a reporting extra must never fail a book run
         mtm["error"] = "%s: %s" % (type(_e).__name__, _e)
 
+    if _bs_report is not None:
+        # The unsized raw twin on the same lockbox split, both readings, so a sized book always
+        # carries the comparison it is judged against.
+        def _raw_curve(incs):
+            if not incs:
+                return None
+            _d, _p = _daily(incs)
+            _c = np.cumsum(_p)
+            return {"total_pnl": round(float(_p.sum()), 2),
+                    "max_drawdown": round(abs(float((_c - np.maximum.accumulate(_c)).min())), 2)}
+        _rc = sorted(_raw["pooled"], key=lambda t: t[0])
+        _rm = sorted(_raw["mtm"], key=lambda t: t[0])
+        _in_lb = lambda t: lb_from is not None and t[0] >= lb_from
+        _bs_report["raw_twin"] = {
+            "whole": _stats(_rc), "pre_lockbox": _stats([t for t in _rc if not _in_lb(t)]),
+            "lockbox": _stats([t for t in _rc if _in_lb(t)]),
+            "mtm": {"whole": _raw_curve(_rm), "pre_lockbox": _raw_curve([t for t in _rm if not _in_lb(t)]),
+                    "lockbox": _raw_curve([t for t in _rm if _in_lb(t)])}}
+
     worst = _stretch_attribution(pooled, per_leg, leg_info)
     worst_lb = _stretch_attribution(lb, [[t for t in tr if lb_from is not None and t[0] >= lb_from]
                                          for tr in per_leg], leg_info)
@@ -595,6 +666,7 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
                            if worst else []),
             "day_rule": day_rule,
             "mtm": mtm,
+            **({"book_sizing": _bs_report} if _bs_report is not None else {}),
         },
         # the report card the app already knows how to read. WF is deliberately absent.
         "validate": {
