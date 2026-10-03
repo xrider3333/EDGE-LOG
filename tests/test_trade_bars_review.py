@@ -173,6 +173,7 @@ def test_sweep_counts_its_reads_into_the_runner_meter(monkeypatch):
 
     monkeypatch.setattr(tb, "publish", lambda *a, **k: 0)
     monkeypatch.setattr(tb, "_full_done", set())
+    monkeypatch.setattr(tb, "_sweep_missed", lambda *a, **k: 0)     # this test is about the journal read
     tb.sweep(_D(), "u", log=lambda *_: None, force=True)
     assert got == [("other", 3)]
 

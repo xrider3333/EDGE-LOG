@@ -22,9 +22,21 @@ Prices are NOT back-adjusted, so the fill markers sit on the candles. If a serie
 the entry fill (a roll week: the continuous file is on the other contract month), it is shifted
 by whole ticks onto the fill and the shift is stamped on the doc, so the web can say so.
 
+Chart window (2026-10-02): the 1-minute chart spans the trade's WHOLE Globex session (18:00 ET the
+evening before to 17:00 ET on the session date) so the web can pan and zoom out TradingView-style;
+the 10-second close-up is the trade +/- 30 minutes. A chart is final once its bars reach the session
+end (or 2 h after it, whichever comes first) - until then it is rebuilt every sweep.
+
+SHOULD HAVE TRADED (2026-10-02): setups the owner did NOT take, users/{uid}/missed_trades/{id}, get
+the same chart at users/{uid}/trade_bars/missed_{id} (the entry minute, no exit) and the same point
+score, merged onto the missed_trades doc as pointScore and nothing else.
+
 Firestore quota: nothing here lists the journal on a timer. sweep() reads only trades dated in
 the last few days (a handful of docs), at most every SWEEP_EVERY seconds, plus ONE full read of
-the journal per runner start; a local state file remembers what is already published.
+the journal per runner start; a local state file remembers what is already published. The
+missed_trades collection is read once in full per runner start, then only entries whose updatedAt
+is newer than the last good read (minus 10 minutes); entries still unfinished are kept in memory
+and re-processed from there, so a sweep costs one billed read when nothing changed.
 """
 import hashlib
 import json
@@ -32,7 +44,7 @@ import os
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
@@ -44,17 +56,22 @@ STATE_PATH = os.environ.get("EDGELOG_TRADE_BARS_STATE", r"C:\EdgeLog\trade_bars_
 FILLS_PATH = os.environ.get("EDGELOG_FILLS", r"C:\EdgeLog\fills.csv")
 FUT = {"MNQ": "NQ", "NQ": "NQ", "MES": "ES", "ES": "ES"}
 TICK = 0.25
-M1_BEFORE_MIN, M1_AFTER_MIN = 90, 45       # the 1-minute chart: context around the trade
-S10_BEFORE_SEC, S10_AFTER_SEC = 300, 300   # the 10-second close-up
-MAX_10S = 1500                             # a long hold keeps its first and last 750
+SESSION_OPEN_HM, SESSION_CLOSE_HM = "18:00", "17:00"   # Globex session, ET: opens the evening before
+GIVE_UP_AFTER_SESSION_SEC = 2 * 3600       # an unfinished 1-minute chart is final this long after the session end
+S10_BEFORE_SEC, S10_AFTER_SEC = 1800, 1800 # the 10-second close-up: the trade +/- 30 minutes
+MAX_10S = 1500                             # a long hold keeps its first and last 750 (a 1 h hold is 720 bars)
 SWEEP_EVERY = 300                          # seconds between journal sweeps inside the runner
 RECENT_DAYS = 3
-GIVE_UP_HOURS = 6                          # an unfinished chart is final this long after exit
+MISSED_COLL = "missed_trades"              # SHOULD HAVE TRADED entries (written by the web app)
+MISSED_PREFIX = "missed_"                  # their bars doc id is missed_<id>, never a trade id
+MISSED_OVERLAP = timedelta(minutes=10)     # incremental read: updatedAt >= last good read - this
 PS_RETRY_HOURS = 48                        # a point score still waiting on bars is retried this long after exit
 CAPTURE_SRC = "NinjaTrader 10-second capture"
 
 _last_sweep = {}
 _full_done = set()
+_missed_mem = {}                           # uid -> {missed id: trade-shaped dict} read so far
+_missed_since = {}                         # uid -> UTC start time of the last good missed_trades read
 
 
 # ── trade times ─────────────────────────────────────────────────────────────────────────────
@@ -70,7 +87,22 @@ def _et(date, hhmm):
     s = str(hhmm or "").strip()
     if not date or not re.match(r"^\d{1,2}:\d{2}(:\d{2})?$", s):
         return None
-    return pd.Timestamp(f"{date} {s}", tz=ET)
+    try:
+        return pd.Timestamp(f"{date} {s}", tz=ET)
+    except Exception:                      # a hand-typed date that is not one, or a time that does not exist
+        return None
+
+
+def _session_bounds(e):
+    """(start, end) in epoch seconds of the Globex session an ET time belongs to: 18:00 ET on the
+    calendar day before the session date, to 17:00 ET on the session date. The session date is the
+    time's own date, or the next day for a time at/after 18:00 ET (that evening's open). DST-correct:
+    each end is built from its ET wall-clock, never from a fixed 23-hour offset."""
+    e = e.tz_convert(ET) if e.tzinfo is not None else e.tz_localize(ET)
+    day = e.date() + (timedelta(days=1) if e.hour >= 18 else timedelta(0))
+    start = pd.Timestamp(f"{day - timedelta(days=1)} {SESSION_OPEN_HM}", tz=ET)
+    end = pd.Timestamp(f"{day} {SESSION_CLOSE_HM}", tz=ET)
+    return int(start.timestamp()), int(end.timestamp())
 
 
 def _fills_index(path=FILLS_PATH):
@@ -261,8 +293,11 @@ def build(t, tid, fills=None, cache=None, now=None):
     # 1-minute chart: the capture when it is fresh; otherwise whichever of capture and master
     # has the trade's own bars and reaches furthest (review 2026-09-30 #2: once the capture
     # stopped, ANY master rows in the window won, and a stale master replaced a good chart
-    # with a stub that ended before the entry).
-    w0, w1 = e_s - M1_BEFORE_MIN * 60, x_s + M1_AFTER_MIN * 60
+    # with a stub that ended before the entry). The window is the trade's whole Globex session
+    # (2026-10-02, so the web can zoom out); a trade held across the 17:00 break runs to the end of
+    # the session it exits in.
+    w0, w1 = _session_bounds(e)
+    w1 = max(w1, _session_bounds(x)[1])
     need_to = min(w1, int(now.timestamp()) - 120)          # the last bar that could exist yet
     cands = []
     if ticks is not None and not ticks.empty:
@@ -295,10 +330,10 @@ def build(t, tid, fills=None, cache=None, now=None):
     b1 = _pack(m1, 60, sh1)
     b10 = _pack(s10, 10, sh10) if s10 is not None else None
 
-    last_needed = x_s + M1_AFTER_MIN * 60
+    # final once the 1m bars reach the session end (minus 2 minutes), or 2 h after the session end
     have_to = int(m1["time"].iloc[-1]) + 60
-    complete = bool(have_to >= last_needed - 120
-                    or now >= x + pd.Timedelta(hours=GIVE_UP_HOURS))
+    complete = bool(have_to >= w1 - 120
+                    or now.timestamp() >= w1 + GIVE_UP_AFTER_SESSION_SEC)
     side = "short" if str(t.get("type") or "").upper() == "SHORT" else "long"
     doc = {
         "v": SCHEMA_V, "trade_id": tid, "sym": _sym(t), "inst": inst, "side": side,
@@ -419,15 +454,32 @@ def _same_score(a, b):
     return bool(a) and bool(b) and all(a.get(k) == b.get(k) for k in keys)
 
 
-def publish(db, uid, docs, log=print, dry_run=False, force=False, state=None, fills=None, now=None):
-    """Build + write bars (and the point score) for (tid, trade) pairs. Returns the number written."""
+def _write_score(db, uid, coll, tid, rec):
+    """Merge ONLY the pointScore field onto users/{uid}/{coll}/{tid}. A journal trade is set(merge) as
+    always; a SHOULD HAVE TRADED entry is update()d, which fails (NotFound) instead of re-creating an
+    entry the owner deleted since it was read - a ghost doc with only a score would show as a blank row."""
+    ref = db.collection("users").document(uid).collection(coll).document(tid)
+    if coll == "trades":
+        ref.set({"pointScore": rec}, merge=True)
+    else:
+        ref.update({"pointScore": rec})
+
+
+def publish(db, uid, docs, log=print, dry_run=False, force=False, state=None, fills=None, now=None,
+            coll="trades", bars_prefix="", gone=None):
+    """Build + write bars (and the point score) for (id, trade) pairs. Returns the number written.
+    coll / bars_prefix pick the source collection and the bars doc id: the journal is
+    ("trades", "") -> trade_bars/{id}; SHOULD HAVE TRADED entries are ("missed_trades", "missed_") ->
+    trade_bars/missed_{id}, and their state-file key is that same bars doc id, so the two kinds of id
+    can never collide. gone: optional list that collects the ids whose source doc no longer exists."""
     own_state = state is None
     state = _load_state() if own_state else state
     fills = fills if fills is not None else _fills_index()
     cache, n = {}, 0
     now = now or pd.Timestamp.now(tz=ET)
     for tid, t in docs:
-        sig, st = signature(t), state.get(tid) or {}
+        key = bars_prefix + tid                       # the bars doc id and the state-file key
+        sig, st = signature(t), state.get(key) or {}
         ps_due = False
         if instrument_of(t):
             ps = t.get("pointScore") or {}
@@ -446,33 +498,38 @@ def publish(db, uid, docs, log=print, dry_run=False, force=False, state=None, fi
                 rec = point_score(t, fills)
                 if rec and not _same_score(rec, t.get("pointScore")):
                     if not dry_run:
-                        db.collection("users").document(uid).collection("trades").document(tid).set(
-                            {"pointScore": rec}, merge=True)
-                    log(f"  [point-score] {'(dry) ' if dry_run else ''}{tid} {t.get('date')} {t.get('symbol')} "
+                        _write_score(db, uid, coll, tid, rec)
+                        t["pointScore"] = rec         # what is stored now: the next sweep compares against it
+                    log(f"  [point-score] {'(dry) ' if dry_run else ''}{key} {t.get('date')} {t.get('symbol')} "
                         f"{rec.get('total')}/{rec.get('max')}")
             except Exception as e:
-                log(f"  [point-score] {tid}: {type(e).__name__}: {e}")
+                if type(e).__name__ == "NotFound" and coll != "trades":
+                    log(f"  [point-score] {key}: the entry was deleted - dropped")
+                    if gone is not None:
+                        gone.append(tid)
+                    continue
+                log(f"  [point-score] {key}: {type(e).__name__}: {e}")
         if not force and st.get("sig") == sig and (st.get("complete") or st.get("skip")):
             continue
-        doc, why = build(t, tid, fills, cache, now)
+        doc, why = build(t, key, fills, cache, now)
         if doc is None:
             e, x, _ = trade_times(t, fills)
             final = why in ("no_source", "no_times") or (x is not None and now >= x + pd.Timedelta(days=2))
-            state[tid] = {"sig": sig, "skip": why if final else None, "err": why, "at": time.time()}
+            state[key] = {"sig": sig, "skip": why if final else None, "err": why, "at": time.time()}
             if why != "no_source":
-                log(f"  [trade-bars] {tid} {t.get('date')} {t.get('symbol')}: {why}")
+                log(f"  [trade-bars] {key} {t.get('date')} {t.get('symbol')}: {why}")
             continue
         if not force and st.get("sig") == sig and st.get("covers") and not doc["covers"]:
             # the published chart had the trade's bars and every source now lacks them: keep it
-            log(f"  [trade-bars] {tid}: kept the published chart (new bars do not cover the trade)")
+            log(f"  [trade-bars] {key}: kept the published chart (new bars do not cover the trade)")
             if doc["complete"]:                          # past the give-up time: the kept chart is final
-                state[tid] = dict(st, complete=True, at=time.time())
+                state[key] = dict(st, complete=True, at=time.time())
             continue
         if not dry_run:
-            db.collection("users").document(uid).collection(COLLECTION).document(tid).set(doc)
-        state[tid] = {"sig": sig, "complete": doc["complete"], "covers": doc["covers"], "at": time.time()}
+            db.collection("users").document(uid).collection(COLLECTION).document(key).set(doc)
+        state[key] = {"sig": sig, "complete": doc["complete"], "covers": doc["covers"], "at": time.time()}
         n += 1
-        log(f"  [trade-bars] {'(dry) ' if dry_run else ''}{tid} {t.get('date')} {t.get('symbol')} "
+        log(f"  [trade-bars] {'(dry) ' if dry_run else ''}{key} {t.get('date')} {t.get('symbol')} "
             f"1m={doc['b1m']['s'].count(';') + 1} 10s={(doc['b10s']['s'].count(';') + 1) if doc['b10s'] else 0} "
             f"complete={doc['complete']}")
     if own_state and not dry_run:
@@ -480,25 +537,83 @@ def publish(db, uid, docs, log=print, dry_run=False, force=False, state=None, fi
     return n
 
 
+# ── SHOULD HAVE TRADED: setups the owner did not take ───────────────────────────────────────
+def _num(v):
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if f == f and abs(f) != float("inf") else None
+
+
+def _missed_trade(d):
+    """A missed_trades doc as the trade-shaped dict build() / point_score() take: the entry minute is
+    both the entry and the exit (there is no exit). No price goes in: the owner's entry is a level read
+    off a snapshot, not a fill, so it must never shift the chart onto "his contract month" (the roll
+    shift trusts the price it is given). The web draws the entry marker from the entry doc itself."""
+    return {"date": d.get("date"), "entryTime": d.get("entryTime"), "exitTime": d.get("entryTime"),
+            "entry": None, "exit": None, "type": d.get("type"),
+            "symbol": d.get("symbol"), "size": None, "pointScore": d.get("pointScore")}
+
+
+def _sweep_missed(db, uid, log=print):
+    """Publish bars + point score for the owner's SHOULD HAVE TRADED entries. Reads the collection in
+    full ONCE per runner start; after that only entries whose updatedAt is newer than the last good
+    read (minus MISSED_OVERLAP for clock skew and slow server timestamps). Everything already read
+    stays in _missed_mem, so an entry whose chart is not complete yet, or whose score is still
+    waiting on bars, is re-processed from memory with no read at all. A deleted entry just stops being
+    updated: its bars doc is left alone (the web ignores orphans)."""
+    coll = db.collection("users").document(uid).collection(MISSED_COLL)
+    started = datetime.now(timezone.utc)
+    if uid in _missed_since:
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        snaps = coll.where(filter=FieldFilter("updatedAt", ">=", _missed_since[uid] - MISSED_OVERLAP)).stream()
+    else:
+        snaps = coll.stream()
+    rows = [(s.id, s.to_dict() or {}) for s in snaps]
+    _note_reads(max(1, len(rows)))                       # one query = at least one billed read
+    _missed_since[uid] = started                         # only after the read worked
+    mem = _missed_mem.setdefault(uid, {})
+    for i, d in rows:
+        mem[i] = _missed_trade(d)                        # an edited entry replaces its old copy
+    pairs = [(i, t) for i, t in mem.items() if instrument_of(t)]
+    gone = []
+    n = publish(db, uid, pairs, log=log, fills=({}, {}), coll=MISSED_COLL, bars_prefix=MISSED_PREFIX, gone=gone)
+    for i in gone:
+        mem.pop(i, None)
+    return n
+
+
 def sweep(db, uid, log=print, force=False):
-    """Runner hook (Runner.sync_trades): publish bars for new / changed / unfinished trades.
-    The first call per runner start reads the whole journal once; after that only trades
-    dated in the last RECENT_DAYS, at most every SWEEP_EVERY seconds."""
+    """Runner hook (Runner.sync_trades): publish bars for new / changed / unfinished trades, then for
+    the SHOULD HAVE TRADED entries. The first call per runner start reads the whole journal once; after
+    that only trades dated in the last RECENT_DAYS, at most every SWEEP_EVERY seconds."""
     now = time.time()
     if not force and now - _last_sweep.get(uid, 0) < SWEEP_EVERY:
         return 0
     _last_sweep[uid] = now
-    coll = db.collection("users").document(uid).collection("trades")
-    if uid in _full_done:
-        from google.cloud.firestore_v1.base_query import FieldFilter
-        since = (pd.Timestamp.now(tz=ET) - pd.Timedelta(days=RECENT_DAYS)).strftime("%Y-%m-%d")
-        snaps = coll.where(filter=FieldFilter("date", ">=", since)).stream()
-    else:
-        snaps = coll.stream()
-    docs = [(s.id, s.to_dict() or {}) for s in snaps]
-    _note_reads(max(1, len(docs)))                       # one query = at least one billed read
-    _full_done.add(uid)
-    return publish(db, uid, docs, log=log)
+    n, err = 0, None
+    try:
+        coll = db.collection("users").document(uid).collection("trades")
+        if uid in _full_done:
+            from google.cloud.firestore_v1.base_query import FieldFilter
+            since = (pd.Timestamp.now(tz=ET) - pd.Timedelta(days=RECENT_DAYS)).strftime("%Y-%m-%d")
+            snaps = coll.where(filter=FieldFilter("date", ">=", since)).stream()
+        else:
+            snaps = coll.stream()
+        docs = [(s.id, s.to_dict() or {}) for s in snaps]
+        _note_reads(max(1, len(docs)))                   # one query = at least one billed read
+        _full_done.add(uid)
+        n = publish(db, uid, docs, log=log)
+    except Exception as e:                               # the missed entries still get their turn
+        err = e
+    try:
+        n += _sweep_missed(db, uid, log)
+    except Exception as e:
+        log(f"  [trade-bars] missed entries skipped: {type(e).__name__}: {e}")
+    if err is not None:
+        raise err
+    return n
 
 
 def _note_reads(n):

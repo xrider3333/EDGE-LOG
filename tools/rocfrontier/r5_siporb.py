@@ -49,6 +49,20 @@ BARS_URL, ASSETS_URL = "https://data.alpaca.markets/v2/stocks/bars", "https://pa
 EXCH = {"NYSE", "NASDAQ", "AMEX", "ARCA", "BATS"}
 # CHOICE: keywords match as whole words (\b), case-insensitive - a substring match would drop Netflix ("etf") and Ultragenyx ("ultra")
 # CHOICE (logged, kept as is): known false positives - real common stocks dropped: IVZ, PFBC, APTS, DJCO, UPL, UCTT, BSF (name) and BRK.B (dot)
+# CHOICE 2026-10-03 (logged before any SIPORB number; the first daily pull stopped on > 50 rejected symbols): a symbol longer than five
+#   characters that contains a digit is a CUSIP-style placeholder (CVR, escrow, contra / voluntary-offer line: 003CVR016, 004ESC018, P027445)
+#   - not a common stock, never active, rejected by the bars endpoint as an invalid symbol - and leaves the universe (250 inactive entries in
+#   the 10-03 asset list, every one of the 51 rejected symbols). Names of the form X_DELISTED stay (they may carry a dead listing's history);
+#   if the bars endpoint rejects one it is logged in bad_symbols.txt but does not count toward the 50-rejection stop, which is there to catch
+#   a symbol-mapping failure, not Alpaca's naming of dead listings.
+def is_placeholder(sym):
+    return len(sym) > 5 and any(ch.isdigit() for ch in sym)
+
+
+def counts_toward_stop(sym):
+    return "_DELISTED" not in sym
+
+
 BAD_NAME = re.compile(r"\b(?:ETFs?|ETNs?|Exchange Traded|Funds?|iShares|SPDR|ProShares|Direxion|Vanguard|Invesco|Leveraged|Daily|Ultra|2X|3X"
                       r"|Bull|Bear|Notes|Warrants?|Units|Rights|Preferred|Depositary Shares Representing)\b", re.I)
 PACE, BACKOFF, RETRY, URL_MAX, DAILY_BATCH, SMOKE, BAD = 0.31, 20, 10, 6500, 500, False, []
@@ -124,7 +138,8 @@ def fetch_safe(symbols, *a, **k):
             return fetch_safe(symbols[:h], *a, **k) + fetch_safe(symbols[h:], *a, **k)
         os.makedirs(path_of(), exist_ok=True)
         open(path_of("bad_symbols.txt"), "a").write(f"{symbols[0]}\t{a[0]}\t{a[1]}\t{str(e)[:160]}\n")      # symbol, timeframe, window start, the reply
-        BAD.append(symbols[0])
+        if counts_toward_stop(symbols[0]):                  # CHOICE 2026-10-03 (top of file): a rejected X_DELISTED name is logged, not counted
+            BAD.append(symbols[0])
         if len(BAD) > 50:
             raise RuntimeError("more than 50 symbols rejected in one run - check bad_symbols.txt")
         return []
@@ -226,6 +241,8 @@ def why_not(sym, name, exch):
         return "exchange"
     if "." in sym or "/" in sym:
         return "symbol:dot_slash"
+    if is_placeholder(sym):
+        return "symbol:placeholder"
     if len(sym) >= 5 and sym.endswith(("WS", "W", "U", "R")):
         return "symbol:suffix"
     m = BAD_NAME.search(name or "")
@@ -261,7 +278,8 @@ def assets():
 def universe():
     if not os.path.exists(path_of("assets.csv")):
         raise SystemExit("run `assets` first")
-    return sorted(pd.read_csv(path_of("assets.csv"), dtype=str, keep_default_na=False)["symbol"].unique())
+    s = pd.read_csv(path_of("assets.csv"), dtype=str, keep_default_na=False)["symbol"]
+    return sorted(x for x in s.unique() if not is_placeholder(x))           # CHOICE 2026-10-03: also applies to an assets.csv saved before the rule
 
 
 # ------------------------------------------------------------------ daily bars
@@ -950,7 +968,8 @@ class Fake:
         rows = [(n, f"{n} Inc", "NASDAQ" if k % 2 else "NYSE") for k, n in enumerate(self.names) if (n == "DLST") == (st == "inactive")]
         if st == "active":
             rows += [("SPYX", "Fake S&P 500 ETF Trust", "ARCA"), ("ABCDW", "Abcd Inc Warrants", "NASDAQ"), ("BRK.B", "Berk Class B", "NYSE"), ("OTCX", "Otc Corp", "OTC"),
-                     ("NFXX", "Netflix Like Inc", "NASDAQ"), ("FNDX", "Fundamental Holdings", "NYSE"), ("ZZBAD", "Zzbad Corp", "NYSE")]
+                     ("NFXX", "Netflix Like Inc", "NASDAQ"), ("FNDX", "Fundamental Holdings", "NYSE"), ("ZZBAD", "Zzbad Corp", "NYSE"),
+                     ("003CVR016", "Contra Test Corp", "NASDAQ")]
         return [{"symbol": s, "name": nm, "exchange": ex, "status": st, "tradable": st == "active", "shortable": True, "easy_to_borrow": True} for s, nm, ex in rows]
 
     def handle(self, url, heads, params):
@@ -1012,6 +1031,9 @@ def selftest():
     assert [len(c) for c in chunk_syms(list("abcdefg"), 3, 10 ** 9)] == [3, 3, 1]
     mv = lambda a, b: mapping_verdict([(s, 1) for s in a], [(s, 1) for s in b])
     assert mv(["AAPL", "META"], ["META", "AAPL"])[0] is True and mv(["AAPL", "META"], ["AAPL"])[0] is False and mv(["META"], ["FB"])[0] is False and mv([], [])[0] is None
+    assert all(map(is_placeholder, ("003CVR016", "0029900E0", "004ESC018", "P027445", "611NSP014"))), "placeholders"
+    assert not any(map(is_placeholder, ("S01", "AAPL", "GOOGL", "ARII_DELISTED", "ABCDW"))), "real / synthetic / delisted names are not placeholders"
+    assert counts_toward_stop("ZZBAD") and not counts_toward_stop("ARII_DELISTED"), "a rejected X_DELISTED name does not count toward the stop"
     print("selftest ok: simulate (9 paths + 4 no-fill cases), the half-day cut (12:59 exit, no fill from 12:59 on), name/symbol filters, chunking, the FB/META mapping verdict")
 
 
@@ -1061,6 +1083,11 @@ def smoke(*a):
         pass
     fk.auth_fail = False
     assets(); assert len(universe()) == 43 and json.load(open(path_of("assets_counts.json")))["excluded_by_reason"]["exchange"] == 1
+    assert json.load(open(path_of("assets_counts.json")))["excluded_by_reason"].get("symbol:placeholder") == 1, "assets() drops a CUSIP-style placeholder"
+    _ap = path_of("assets.csv"); _orig = open(_ap).read()
+    open(_ap, "a").write("004ESC018,Escrow Test,NYSE,inactive,False,True,True\n")                  # a placeholder already in a saved asset list
+    assert "004ESC018" not in universe() and len(universe()) == 43, "universe() drops a placeholder already in assets.csv"
+    open(_ap, "w").write(_orig)
     daily(); n1 = fk.n; daily(); assert fk.n == n1, "daily resume must not re-request"
     assert {l.split("\t")[0] for l in open(path_of("bad_symbols.txt")).read().splitlines()} == {"ZZBAD"} and set(BAD) == {"ZZBAD"}, "a rejected symbol is bisected out and logged"
     victim = sorted(os.listdir(path_of("daily_parts")))[0]; os.remove(path_of("daily_parts", victim)); daily(); assert fk.n > n1 and victim in os.listdir(path_of("daily_parts"))
