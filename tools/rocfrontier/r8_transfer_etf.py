@@ -6,10 +6,11 @@
 #   python r8_transfer_etf.py ttmcheck  TTM wrapper acceptance vs the real ES file (local data, no fund needed) - must pass before A
 #   python r8_transfer_etf.py A         Stage A, PRE-LOCKBOX ONLY (nothing on/after 2025-06-30 is loaded into a strategy, computed or printed)
 #   python r8_transfer_etf.py B --ledger-ok   Stage B (lockbox, once, after Stage A is in the ledger) - refuses unless a Stage A pass is on file; the READ flag is
-#                                             written only after the lockbox data has loaded and BOOK #463's WF / LB numbers reproduce
+#                                             written only after A's code / data re-check, the lockbox data has loaded and BOOK #463's WF / LB numbers reproduce
 #   python r8_transfer_etf.py C         Stage C (book add vs BOOK #463) - refuses unless a Stage B survivor is on file
 #   python r8_transfer_etf.py smoke [DIR]   offline self-test on stand-in funds cut from the ES / NQ masters (numbers mean nothing)
 # Run from anywhere; imports augur_engine from the shared checkout (EDGELOG_ROOT overrides) and never chdirs into a worktree.
+# Pre-run review fixes 2026-10-03 (B re-checks A's code and data, no spec change): guards are SystemExit not assert; pull.json records the loader sha + REPO HEAD.
 import datetime as dt, hashlib, importlib.util, inspect, json, math, os, subprocess, sys, time, warnings, zlib
 REPO = os.environ.get("EDGELOG_ROOT", r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG"); sys.path.insert(0, REPO)
 import numpy as np, pandas as pd
@@ -264,8 +265,8 @@ def load(f, tf, d1):
     if m is None:
         raise SystemExit(f"no master for {f} {tf} ({inst}, rth, {src}) - run `pull` first")
     a = D.load_master_arrays(m, D0, d1)
-    if d1 < "2025-06-30":
-        assert len(a["index"]) and a["index"].max() < LBT, "a pre-lockbox load reached the lockbox"
+    if d1 < "2025-06-30" and not (len(a["index"]) and a["index"].max() < LBT):
+        raise SystemExit(f"STOP: a pre-lockbox load of {f} {tf} is empty or reached the lockbox")
     for k in ("open", "high", "low", "close", "volume", "day_id"):
         if isinstance(a.get(k), np.ndarray): a[k].setflags(write=False)     # a strategy writing into shared arrays must fail loudly
     return a
@@ -369,7 +370,8 @@ def effective(strat):
     base = getattr(mod, "_base", mod)
     sig = inspect.signature(base.run_backtest).parameters
     bad = [k for k in P if k not in sig]
-    assert not bad, f"{name}: params the strategy does not have (they would be silently dropped): {bad}"
+    if bad:
+        raise SystemExit(f"STOP: {name}: params the strategy does not have (they would be silently dropped): {bad}")
     skip = {"opens", "highs", "lows", "closes", "volumes", "day_id", "index", "return_trades", "_stop_event", "_pause_event", "return_levels",
             "session_in_progress", "vol_prior_ranges"}
     eff = {k: p.default for k, p in sig.items() if k not in skip and p.default is not inspect.Parameter.empty}
@@ -399,10 +401,23 @@ def lookup_diff(a, b):
 
 
 # ------------------------------------------------------------------ pull (keys required; the smoke test only prints the commands)
+def loader_path():
+    return os.path.join(REPO, "tools", "import_alpaca_stocks.py")     # the shared checkout's loader: the file `pull` actually runs
+
+
 def pull_commands():
-    loader = os.path.join(REPO, "tools", "import_alpaca_stocks.py")
     base = ["--start", D0, "--end", "2026-06-30T23:59:59Z", "--rth", "--adjustment", "split", "--feed", "sip"]     # end must include the 06-30 session
-    return [[sys.executable, loader, "--symbols", ",".join(FUNDS), "--timeframe", tf] + base for tf in ("5Min", "30Min")]
+    return [[sys.executable, loader_path(), "--symbols", ",".join(FUNDS), "--timeframe", tf] + base for tf in ("5Min", "30Min")]
+
+
+def provenance():
+    """What a pull ran: the loader file's sha256 and the shared checkout's git HEAD (best effort: 'unknown' without git)."""
+    try:
+        head = subprocess.run(["git", "-C", REPO, "rev-parse", "HEAD"], capture_output=True, text=True, timeout=30).stdout.strip() or "unknown"
+    except Exception:
+        head = "unknown"
+    p = loader_path()
+    return {"loader": p, "loader_sha256": sha(p) if os.path.exists(p) else "unknown", "repo_head": head, "at": pd.Timestamp.now().isoformat()}
 
 
 def pull():
@@ -419,6 +434,11 @@ def pull():
         save("pull_lookups_before.json", before)
     if lookup_diff(before, now):
         raise SystemExit(f"STOP: find_master already differs from the baseline before any registration: {lookup_diff(before, now)}")
+    pj = os.path.join(OUT, "pull.json")                                # every pull run's provenance is kept, written BEFORE the loader runs
+    runs = (json.load(open(pj)).get("provenance_runs") if os.path.exists(pj) else None) or []
+    runs.append(provenance())
+    print(f"pull provenance: loader sha256 {runs[-1]['loader_sha256']} ({runs[-1]['loader']}), REPO git HEAD {runs[-1]['repo_head']}", flush=True)
+    save("pull.json", {"provenance_runs": runs, "registered": {}, "problems": ["pull started, not finished"], "at": runs[-1]["at"]})
     for cmd in pull_commands():
         print("pull:", " ".join(cmd[1:]), flush=True)
         subprocess.run(cmd, check=True)                                # the loader logs a failed symbol and exits 0, so every master is verified below
@@ -442,7 +462,7 @@ def pull():
                 d = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert("US/Eastern").dt.tz_localize(None).dt.normalize()
                 pd.DataFrame({"date": d, "open": df["open"], "high": df["high"], "low": df["low"], "close": df["close"], "volume": df["volume"]}).to_csv(p, index=False)
             reg[f"{f}|1Day" + ("" if adj == "split" else "_raw")] = {"file": p, "rows": int(len(pd.read_csv(p))), "sha256": sha(p)}
-    save("pull.json", {"registered": reg, "problems": bad, "at": pd.Timestamp.now().isoformat()})
+    save("pull.json", {"provenance_runs": runs, "registered": reg, "problems": bad, "at": pd.Timestamp.now().isoformat()})
     diff = lookup_diff(before, lookups())
     if diff:
         raise SystemExit(f"STOP: find_master for NQ / ES changed after registering the funds: {diff}")
@@ -483,7 +503,13 @@ def gates():
     B, D, E = eng()
     cal_selftest()
     lk = lookups_gate()
-    res = {"created": pd.Timestamp.now().isoformat(), "window": [str(WF0.date()), PRE], "lookups": lk, "funds": {}}
+    pj, lp = os.path.join(OUT, "pull.json"), loader_path()
+    runs = (json.load(open(pj)).get("provenance_runs") if os.path.exists(pj) else None) or []
+    now = sha(lp) if os.path.exists(lp) else "unknown"
+    res = {"created": pd.Timestamp.now().isoformat(), "window": [str(WF0.date()), PRE], "lookups": lk, "pull_provenance": runs, "loader_sha256_now": now, "funds": {}}
+    print("pull provenance: " + ("; ".join(f"{p['at'][:16]} loader sha256 {p['loader_sha256']} REPO git HEAD {p['repo_head']}" for p in runs)
+                                 or "none on file (no pull.json, or written before 2026-10-03)") + f" | loader on disk now {now}"
+          + ("" if not runs or runs[-1]["loader_sha256"] == now else " - CHANGED since the last pull"))
     print(f"gate 3 (NQ / ES lookups unchanged): {'ok' if lk['ok'] else 'FAIL ' + str(lk['diff'])}")
     for f in FUNDS:
         try:
@@ -617,7 +643,8 @@ def as_traded(df, q, unit):
     trade pays COST (STRESS) x unit x (r - 1) more - USO before its 1-for-8 reverse split of 2020-04-28: 8x. Adds 'ratio'; 'pts' stay the engine's."""
     d = pd.DatetimeIndex(df["entry"]).normalize()
     r = q.reindex(q.index.union(d.unique())).ffill().bfill().reindex(d).to_numpy(float) if len(df) else np.zeros(0)   # unique: union keeps duplicate days
-    assert np.isfinite(r).all() and (r > 0).all(), "no split ratio for a trade day"
+    if not (np.isfinite(r).all() and (r > 0).all()):
+        raise SystemExit("STOP: no split ratio for a trade day")
     df["ratio"] = r
     df["pnl"] = df["pnl"].to_numpy() - COST * unit * (r - 1.0)
     if "pnl_stress" in df:
@@ -709,7 +736,8 @@ def compute_cells():
         for s in FUNDS[f]:
             t0 = time.time()
             base, st = run_cell(f, s, arrs, unit, COST, PRE), run_cell(f, s, arrs, unit, STRESS, PRE)
-            assert len(base) == len(st) and (base.entry.values == st.entry.values).all() and (base.exit.values == st.exit.values).all(), "the stress cost changed the trade list"
+            if not (len(base) == len(st) and (base.entry.values == st.entry.values).all() and (base.exit.values == st.exit.values).all()):
+                raise SystemExit(f"STOP: {s} {f}: the stress cost changed the trade list")
             base["pnl_stress"] = st.pnl.values
             base = as_traded(base, q, unit)                            # prereg addendum 2: the cost per share as traded
             base["wf"] = base.date >= WF0
@@ -761,6 +789,25 @@ def stage_a():
 
 
 # ------------------------------------------------------------------ Stage B (lockbox, once) and Stage C (book add)
+def changed_since_a(sa):
+    """Stage B's re-check before anything of the lockbox loads: the strategy files and the harness Stage A ran with, a passing ttmcheck for the same TTM
+    files and wrapper, and each passing cell's pre-lockbox master slice (fingerprint as the gates saw it). -> list of what changed (empty = nothing)."""
+    bad, files, fa = [], stack_shas(), sa.get("files_sha256") or {}
+    bad += [f"strategy file {n}" for n in sorted(set(files) | set(fa)) if files.get(n) != fa.get(n)]
+    if sha(os.path.abspath(__file__)) != sa.get("harness_sha256"):
+        bad.append("the harness file r8_transfer_etf.py")
+    p = os.path.join(OUT, "ttmcheck.json")
+    tj = json.load(open(p)) if os.path.exists(p) else {}
+    if not tj.get("pass") or tj.get("stack_sha256") != stack_shas("TTM") or tj.get("wrapper_sha256") != wrapper_sha():
+        bad.append("ttmcheck (missing, not passed, or a TTM file / the wrapper changed since it ran)")
+    p = os.path.join(OUT, "gates.json")
+    gf = (json.load(open(p)) if os.path.exists(p) else {}).get("funds", {})
+    for f, tf in dict.fromkeys((k.split("|")[1], t) for k in sa["passes"] for t in ("5m",) + (("30m",) if k.startswith("TTM|") else ())):
+        if load(f, tf, PRE)["fingerprint"] != gf.get(f, {}).get("fp" + tf[:-1]):
+            bad.append(f"the {f} {tf} master (pre-lockbox fingerprint differs from gates.json, or no gate on file)")
+    return bad
+
+
 def stage_b(*a):
     sa = need_json("stageA.json", "run `A` first")
     if sa is None or not sa["passes"]:
@@ -770,8 +817,13 @@ def stage_b(*a):
         print("Stage B refused: the pre-registration reads the lockbox only after Stage A is in the ledger - record it, then run `B --ledger-ok`.")
         return
     flag = os.path.join(OUT, "stageB_READ.flag")
-    assert not os.path.exists(flag), "Stage B was already read once"
+    if os.path.exists(flag):
+        raise SystemExit("Stage B refused: the lockbox was already read once (stageB_READ.flag) - it is spent")
     B, D, E = eng()
+    bad = changed_since_a(sa)                                          # pre-run review 2026-10-03: A's code and pre-lockbox data must be what reads the LB
+    if bad:
+        print("Stage B refused - changed since Stage A / the gates / ttmcheck: " + "; ".join(bad) + " - re-run what produced it (lockbox NOT read)")
+        return
     lbdata = {}
     for k in sa["passes"]:                                             # the lockbox data loads FIRST; nothing is run or shown from it yet
         s, f = k.split("|")
@@ -822,7 +874,8 @@ def stage_c():
     bwf, blb, base_ok = book_base()
     print(f"BOOK #463: WF ROC@30k {bwf['roc30']:.2f} Sortino {bwf['sortino']:.3f} | LB ROC@30k {blb['roc30']:.2f} Sortino {blb['sortino']:.3f} (prereg: 92.70 / 3.816 | 164.76 / 4.150)")
     if CHECK_BOOK:
-        assert base_ok, "book463_daily.csv no longer reproduces the pre-registered #463 numbers - stop"
+        if not base_ok:
+            raise SystemExit("STOP: book463_daily.csv no longer reproduces the pre-registered #463 numbers")
     bt = pd.read_csv(os.path.join(R4, "book463_trades.csv"), parse_dates=["date"])
     bmax = float(bt[(bt.date >= LB0) & (bt.date < LBX)]["pnl"].max())
     legs, big = {}, {}
@@ -967,8 +1020,15 @@ def smoke(*a):
         assert not os.path.exists(flag), "B without --ledger-ok must not touch the lockbox"
         CHECK_BOOK = True; stage_b("--ledger-ok"); CHECK_BOOK = False    # the synthetic book cannot reproduce #463: refused after the data loaded, before the flag
         assert not os.path.exists(flag), "a refused Stage B (book base check) must not burn the lockbox"
+        for what, name, edit in (("a strategy file changed since Stage A", "stageA.json", lambda j: j["files_sha256"].update({"ORB_3_6.py": "0"})),
+                                 ("the harness changed since Stage A", "stageA.json", lambda j: j.update(harness_sha256="0")),
+                                 ("ttmcheck no longer matches the wrapper", "ttmcheck.json", lambda j: j.update(wrapper_sha256="0")),
+                                 ("a master slice changed since the gates", "gates.json", lambda j: j["funds"]["FUND1"].update(fp30="0"))):
+            p = os.path.join(OUT, name); orig = json.load(open(p)); j = json.loads(json.dumps(orig)); edit(j); json.dump(j, open(p, "w"))
+            stage_b("--ledger-ok"); json.dump(orig, open(p, "w"))
+            assert not os.path.exists(flag), f"Stage B must refuse before the flag when {what}"
         real_load = load
-        globals()["load"] = lambda *x: (_ for _ in ()).throw(SystemExit("simulated: the lockbox data cannot be loaded"))
+        globals()["load"] = lambda f, tf, d1: real_load(f, tf, d1) if d1 == PRE else (_ for _ in ()).throw(SystemExit("simulated: the lockbox data cannot be loaded"))
         try:
             stage_b("--ledger-ok"); raise AssertionError("a failed lockbox load must stop Stage B")
         except SystemExit:
@@ -976,13 +1036,13 @@ def smoke(*a):
         finally:
             globals()["load"] = real_load
         assert not os.path.exists(flag), "a failed lockbox load must not burn the lockbox"
-        print("Stage B refusals do not burn the lockbox: book base check mismatch and a failed data load both leave no flag file")
+        print("Stage B refusals do not burn the lockbox: book base check mismatch, a changed strategy file / harness / ttmcheck / master slice, and a failed data load all leave no flag file")
         stage_b("--ledger-ok")
         sbj = json.load(open(os.path.join(OUT, "stageB.json")))
         assert all(v["wf_part_identical_to_stageA"] for v in sbj["cells"].values()), "Stage B's pre-lockbox trades must equal Stage A's (same per-share cost)"
         try:
             stage_b("--ledger-ok"); raise AssertionError("a second lockbox read must be refused")
-        except AssertionError as e:
+        except SystemExit as e:
             assert "already read" in str(e)
         print("a second Stage B read is refused (flag file); Stage C on the survivors:")
         stage_c()
