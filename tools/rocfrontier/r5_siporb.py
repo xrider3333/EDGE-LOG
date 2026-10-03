@@ -6,7 +6,7 @@
 #   python r5_siporb.py open5    09:30-09:35 bar of each name that passes filters 1-3 on the day or within the next 14 sessions
 #   python r5_siporb.py min1     1-minute bars: each day's top-20, plus every filtered name on WF days (raw twin); estimate first
 #   python r5_siporb.py A        replication + Stage A + A2, PRE-LOCKBOX ONLY (inputs cut to dates < 2025-06-30 before anything is computed)
-#   python r5_siporb.py B        Stage B (lockbox, once) - refuses unless A2 passed; `B --gaps-ok` only after a re-pull left the same 1-minute gaps
+#   python r5_siporb.py B        Stage B (lockbox, once) - refuses unless A2 passed under this exact file + half-day list; `B --gaps-ok` only after a re-pull left the same 1-minute gaps
 # The pulls need the owner's Alpaca keys (env ALPACA_API_KEY / ALPACA_SECRET_KEY) and write only to the research cache, never a library master.
 # Order: assets, daily, open5, `min1 top`, A (replication check runs on that alone), `min1 twin` (the big one), A again, B only after an A2 pass.
 #   python r5_siporb.py probe    ~15 real requests (auth, the FB/META renamed-ticker test: do the 5-minute and the daily requests answer for the same
@@ -14,6 +14,7 @@
 #                                uses Alpaca's default (today's names), so daily and intraday bars are keyed by the same symbols (prereg addendum 3)
 #   python r5_siporb.py smoke [dir]   offline self-test on synthetic bars through a fake transport - no network, no keys (hidden; the dir's name must contain 'smoke')
 # pre-run review fixes 2026-10-03 (half-day cut, read-before-flag, no spec change)
+# pre-run review round 2, 2026-10-03: Stage A stamps this file's sha256 + the half-day list; B refuses (before the flag) if either changed
 import hashlib, json, os, re, sys, time
 from collections import Counter
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -629,6 +630,12 @@ def prereg_ok():
     return True
 
 
+def stamp():
+    """the version Stage A ran with: this file's LF sha256 + the shared half-day list (pre-run review round 2, 2026-10-03: B refuses on any change)"""
+    return {"harness_sha256": hashlib.sha256(open(os.path.abspath(__file__), "rb").read().replace(b"\r\n", b"\n")).hexdigest(),
+            "early_close": sorted(EARLY_CLOSE_DATES)}
+
+
 def counts_by_year(D):
     """survivorship check: names passing filters 1-3 and 1-4 per session, by year (pre-lockbox only)"""
     with np.errstate(invalid="ignore"):
@@ -674,7 +681,7 @@ def stage_a():
     print("names passing filters 1-3 / 1-4 per session (median), by year:", "  ".join(f"{y}: {v['median_1to3']:.0f}/{v['median_1to4']:.0f}" for y, v in cy.items()))
     print(f"coverage gate (prereg addendum 3) - name-days passing filters 1-3 that have a 09:30 bar, by year (every year needs >= {RULES['cov']:.0%}):",
           "  ".join(f"{y}: {v['share']:.1%}" for y, v in cov.items()))
-    out = {"prereg_sha256_lf": PREREG_SHA, "prereg_verified": pok, "counts_by_year": cy, "coverage_by_year": cov, "judged": False, "A2": None}
+    out = {"prereg_sha256_lf": PREREG_SHA, "prereg_verified": pok, **stamp(), "counts_by_year": cy, "coverage_by_year": cov, "judged": False, "A2": None}   # every dump below carries the stamp
     low = [y for y, v in cov.items() if not v["share"] >= RULES["cov"]]
     if low:
         print(f"Stage A is NOT judged: the 09:30 bar is missing for too many name-days passing filters 1-3 in {low} - a symbol-mapping failure "
@@ -741,9 +748,14 @@ def stage_a():
 
 def stage_b(*a):
     pa_ = os.path.join(OUT, "siporb_stageA.json")
-    a2 = (json.load(open(pa_)).get("A2") or {}) if os.path.exists(pa_) else {}
+    sa = json.load(open(pa_)) if os.path.exists(pa_) else {}
+    a2 = sa.get("A2") or {}
     if not a2.get("pass"):
         print("Stage B refused: no Stage A2 pass on file - the lockbox stays sealed."); return
+    bad = [k for k, v in stamp().items() if sa.get(k) != v]      # pre-run review round 2, 2026-10-03: before the flag and before any lockbox data
+    if bad:
+        print(f"Stage B refused: Stage A was written by a different harness version / early-close list ({', '.join(bad)} differs or is missing) "
+              "- run A again (lockbox NOT read)"); return
     flag = os.path.join(OUT, "siporb_stageB_READ.flag")
     if os.path.exists(flag):
         raise SystemExit("Stage B refused: the lockbox was already read once (siporb_stageB_READ.flag)")
@@ -1093,6 +1105,7 @@ def smoke(*a):
     stage_a(); stage_b()
     res = json.load(open(os.path.join(OUT, "siporb_stageA.json")))
     assert not res["judged"] and res["coverage_by_year"]["2024"]["share"] < RULES["cov"] <= res["coverage_by_year"]["2016"]["share"] and res["A2"] is None, res
+    assert {k: res.get(k) for k in stamp()} == stamp(), "an early-exit Stage A dump carries the harness stamp too"
     assert not os.path.exists(os.path.join(OUT, "siporb_trades_A1_pre.csv")), "the coverage gate must stop Stage A before any trade is simulated"
     for day, df in o5.items():
         save_df(df, path_of("open5", day))
@@ -1113,6 +1126,7 @@ def smoke(*a):
     assert all(d < "2025-06-30" for d in dates), "Stage A printed a lockbox date"
     assert pd.read_csv(os.path.join(OUT, "siporb_trades_A1_pre.csv"))["date"].max() < "2025-06-30" and pd.read_csv(os.path.join(OUT, "siporb_trades_twin_wf.csv.gz"))["date"].max() < "2025-06-30"
     res = json.load(open(os.path.join(OUT, "siporb_stageA.json"))); assert res["A2"]["pass"] and res["A2"]["c"] in CS and res["no_min1"]["A1"] == 0 == res["no_min1"]["twin"]
+    assert {k: res.get(k) for k in stamp()} == stamp() and len(res["harness_sha256"]) == 64 and "2024-11-29" in res["early_close"], "A2 pass dump carries the stamp"
     half = lambda f, d: (lambda t: t[t["date"].astype(str).str[:10] == d])(pd.read_csv(os.path.join(OUT, f)))
     hd = half("siporb_trades_A1_pre.csv", "2023-11-24"); assert len(hd) and (hd["fill_min"] <= 778).all() and (hd["exit_min"] <= 779).all(), "half day: nothing after 12:59"
     flag = os.path.join(OUT, "siporb_stageB_READ.flag")
@@ -1125,6 +1139,16 @@ def smoke(*a):
     save_df(keep[keep["symbol"].astype(str) != str(Dl.syms[orders(Dl, i, Dl.top20(i))[0][0]])], mb)
     stage_b(); assert not os.path.exists(flag) and os.path.exists(path_of("min1_top_gaps.txt")), "a lockbox 1-minute gap must refuse before the flag"
     save_df(keep, mb)
+    sa = os.path.join(OUT, "siporb_stageA.json"); sa_txt = open(sa).read(); sa_js = json.loads(sa_txt)       # pre-run review round 2, 2026-10-03
+    for why, edit in (("another harness version", lambda j: j.update(harness_sha256="0" * 64)), ("another half-day list", lambda j: j.update(early_close=j["early_close"][1:])),
+                      ("no stamp (an older Stage A)", lambda j: [j.pop(k) for k in stamp()])):
+        j = json.loads(sa_txt); edit(j); json.dump(j, open(sa, "w"), indent=1)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            stage_b()
+        assert "different harness version / early-close list" in buf.getvalue() and not os.path.exists(flag), f"Stage A from {why} must refuse B before the flag"
+    open(sa, "w").write(sa_txt); assert json.load(open(sa)) == sa_js
+    print("Stage B refuses before the flag when Stage A was written by another harness version, another half-day list, or without the stamp")
     stage_b()
     assert os.path.exists(flag) and os.path.exists(os.path.join(OUT, "siporb_stageB.json")) and json.load(open(os.path.join(OUT, "siporb_stageB.json")))["book_add"]["no_min1"] == 0
     hd = half("siporb_trades_A1_lb.csv", "2025-07-03"); assert len(hd) and (hd["exit_min"] <= 779).all(), "lockbox half day: nothing after 12:59"
@@ -1133,7 +1157,7 @@ def smoke(*a):
     except SystemExit as e:
         assert "already read" in str(e)
     assert all(smoke_refusal(p) for p in (HERE, REPO, os.getcwd(), root, os.path.join(root, "x"))) and smoke_refusal(os.path.join(root, "x_smoke")) is None
-    print("half days cut at 13:00; Stage B refuses before the flag on a missing book trade file or a lockbox 1-minute gap; the smoke dir guard holds")
+    print("half days cut at 13:00; Stage B refuses before the flag on a missing book trade file, a lockbox 1-minute gap or a stale harness stamp; the smoke dir guard holds")
     print("SMOKE OK - synthetic numbers mean nothing; every command ran end to end offline")
 
 
