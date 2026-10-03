@@ -1,4 +1,5 @@
 """BOOK round 62 V3 - a learned risk forecast in place of V2's trailing 20-day volatility (FRONTIER lane, 2026-10-02).
+Pre-run review fixes 2026-10-03 (save before the tail, provenance, read-once; no spec change).
 
 Owner ask (2026-10-02): "continue to push the frontier models of edgelog and beat them. might have to use an ML".
 Pre-registration: docs/PREREG_frontier_v3_riskml_2026-10-02.txt. The registered run REFUSES unless that file's canonical (LF)
@@ -18,7 +19,10 @@ What it does, in order (it stops at the first thing that fails):
      Harvey-Leybourne-Newbold correction, t(n-1), p < 0.05). A fail ends the round: WF / LB book numbers are NOT computed.
   3. STEP 2: re-sizes every trade by m(its ET entry date) for V2 and V3, scores WF and LB on the owner yardstick, runs the
      delay and the aim checks, prints the RUNBOARD-style table, the sensitivity rows (report only) and the verdict.
-Outputs: <out>/v3_result.json and <out>/v3_daily_multipliers.csv (the series a forward shadow line would read).
+Outputs: <out>/v3_result.json and <out>/v3_daily_multipliers.csv (the series a forward shadow line would read), written as
+soon as the registered evaluation ends - before the optional --tail-to pass, which then rewrites the JSON with its INFO row.
+v3_result.json records the prereg and harness hashes and the git HEAD. READ ONCE: a registered run refuses, before any engine
+build, when <out>/v3_result.json already holds the result table (the lockbox was printed); move that file aside deliberately.
 
 Run from the SHARED checkout (the master registry lives there), CPU only:
     set AUGUR_TRIAL_CACHE=1 & set OMP_NUM_THREADS=1
@@ -37,6 +41,7 @@ import os
 import sys
 import time
 
+_HERE = os.path.abspath(__file__)                 # captured before the chdir below (the harness hash in the provenance)
 if "--selftest" not in sys.argv:
     ROOT = os.environ.setdefault("EDGELOG_ROOT", r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG")
     if sys.path[0] != ROOT:
@@ -267,7 +272,11 @@ def market_features(index, nq, es, stats=None):
 
 
 def target(M, h):
-    """y(p) = log(1 + RMS of M over positions p..p+h-1); NaN where the window runs past the end."""
+    """y(p) = log(1 + RMS of M over positions p..p+h-1); NaN where the window runs past the end.
+
+    Known limitation (pre-run review 2026-10-03, left as registered): the reversed rolling mean is an online sum run from the
+    END of the series, so y(q) carries floating-point error (~1e-7 in log units) from later rows. No information leaks - the
+    value is mathematically the same - but forecasts are not bit-identical when the window is extended (tail, nightly line)."""
     sq = pd.Series(np.asarray(M, float) ** 2)
     fwd = sq[::-1].rolling(h, min_periods=h).mean()[::-1]
     return np.log1p(np.sqrt(fwd.to_numpy()))
@@ -664,6 +673,97 @@ def _jsonable(o):
     return o
 
 
+RESULT_JSON, MULT_CSV = "v3_result.json", "v3_daily_multipliers.csv"
+
+
+def _git_head(path):
+    """Best-effort {dir, ref, commit} of the git checkout holding `path`, read from .git directly (no git process); None
+    when unknown. Handles a worktree (.git is a file pointing at its gitdir) and packed refs."""
+    try:
+        d = os.path.abspath(path if os.path.isdir(path) else os.path.dirname(path))
+        while not os.path.exists(os.path.join(d, ".git")):
+            up = os.path.dirname(d)
+            if up == d:
+                return None
+            d = up
+        g = os.path.join(d, ".git")
+        if os.path.isfile(g):
+            with open(g) as f:
+                line = f.read().strip()
+            if not line.startswith("gitdir:"):
+                return None
+            g = line.split(":", 1)[1].strip()
+            g = g if os.path.isabs(g) else os.path.normpath(os.path.join(d, g))
+        with open(os.path.join(g, "HEAD")) as f:
+            head = f.read().strip()
+        if not head.startswith("ref:"):
+            return {"dir": d, "ref": None, "commit": head}
+        ref = head.split(":", 1)[1].strip()
+        bases = [g]
+        if os.path.exists(os.path.join(g, "commondir")):
+            with open(os.path.join(g, "commondir")) as f:
+                c = f.read().strip()
+            bases.append(c if os.path.isabs(c) else os.path.normpath(os.path.join(g, c)))
+        for base in bases:
+            p = os.path.join(base, *ref.split("/"))
+            if os.path.exists(p):
+                with open(p) as f:
+                    return {"dir": d, "ref": ref, "commit": f.read().strip()}
+        for base in bases:
+            p = os.path.join(base, "packed-refs")
+            if os.path.exists(p):
+                with open(p) as f:
+                    for row in f:
+                        parts = row.strip().split(" ")
+                        if len(parts) == 2 and parts[1] == ref:
+                            return {"dir": d, "ref": ref, "commit": parts[0]}
+        return {"dir": d, "ref": ref, "commit": None}
+    except Exception:
+        return None
+
+
+def _provenance():
+    """What this registered run ran on: the prereg and harness hashes (canonical LF) and the git HEAD, best effort."""
+    here = _HERE
+    root, mine = _git_head(os.getcwd()), _git_head(here)
+    prov = {"prereg_file": PREREG, "prereg_sha256_lf": sha_lf(PREREG), "harness_file": here,
+            "harness_sha256_lf": sha_lf(here), "git_head": root}
+    if mine is not None and (root is None or mine.get("dir") != root.get("dir")):
+        prov["git_head_harness"] = mine             # the harness was launched from another checkout than the engine's
+    return prov
+
+
+def _refuse_if_read(out):
+    """READ ONCE: a registered run refuses, before any engine build, when <out>/v3_result.json already holds the result
+    table - the lockbox was printed by an earlier run. A STEP 1 fail or a parity stop leaves no table, so it does not block."""
+    p = os.path.join(out, RESULT_JSON)
+    if not os.path.exists(p):
+        return
+    try:
+        with open(p) as f:
+            prior = json.load(f)
+    except Exception as e:
+        raise SystemExit("REFUSED (read once): %s exists but cannot be read (%s: %s); it may hold an already printed lockbox. "
+                         "Inspect it and move it aside deliberately before a new registered run." % (p, type(e).__name__, e))
+    if isinstance(prior, dict) and "table" in prior:
+        raise SystemExit("REFUSED (read once): %s already holds the V3 result table - the lockbox was already printed by an "
+                         "earlier registered run (verdict: %s). Move that file aside deliberately before running again."
+                         % (p, prior.get("verdict")))
+
+
+def _save(out, bk, res):
+    """The daily multipliers (when STEP 2 ran) and the result JSON; the JSON goes through a temp file so it is never half written."""
+    ser = res.get("_series")
+    if ser is not None:
+        # lookup rule for a forward line: a fill on ET date X takes the first row whose index_day >= X
+        pd.DataFrame({"index_day": bk.index.strftime("%Y-%m-%d"), "S_forecast": ser["S"], "m_V2": ser["m2"],
+                      "m_V3": ser["m3"]}).to_csv(os.path.join(out, MULT_CSV), index=False)
+    p = os.path.join(out, RESULT_JSON)
+    with open(p + ".tmp", "w") as f:
+        json.dump(_jsonable(res), f, indent=1)
+    os.replace(p + ".tmp", p)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--out", default=None)
@@ -677,9 +777,13 @@ def main(argv=None):
         return 3
     out = a.out or (os.path.join(r"C:\EdgeLog\_anatomy_cache", "frontier_v3") if os.path.isdir(r"C:\EdgeLog")
                     else os.path.join(os.getcwd(), "_frontier_v3_out"))
+    _refuse_if_read(out)                            # before any engine build
+    prov = _provenance()
     os.makedirs(out, exist_ok=True)
     with _beacon("FRONTIER V3 learned risk forecast") as b:
         print("V3 - learned risk forecast vs V2 on #463 (prereg docs/PREREG_frontier_v3_riskml_2026-10-02.txt)")
+        print("  prereg sha256 (LF) %s | harness sha256 (LF) %s | git HEAD %s" % (
+            prov["prereg_sha256_lf"][:12], prov["harness_sha256_lf"][:12], (prov.get("git_head") or {}).get("commit")))
         bk, mkt, _cov = build(W0, W1)
         if b is not None:
             b.step(1)
@@ -690,6 +794,9 @@ def main(argv=None):
             print("PARITY STOP - the rebuild does not equal the production VT series; nothing else is read")
             return 2
         res = evaluate(bk, mkt)
+        res.update(prov)
+        _save(out, bk, res)                         # the registered result is on disk before anything optional runs
+        print("wrote " + out)
         if b is not None:
             b.step(2)
         if a.tail_to and res.get("step1", {}).get("pass"):
@@ -707,16 +814,10 @@ def main(argv=None):
             for k, v in gaps.items():
                 print("  tail data: %-28s %d business days with no bars%s" % (
                     k, len(v), ("  <- CHECK before reading the tail: " + ", ".join(v[:6])) if len(v) > 3 else ""))
-        ser = res.get("_series")
-        if ser is not None:
-            # lookup rule for a forward line: a fill on ET date X takes the first row whose index_day >= X
-            pd.DataFrame({"index_day": bk.index.strftime("%Y-%m-%d"), "S_forecast": ser["S"], "m_V2": ser["m2"],
-                          "m_V3": ser["m3"]}).to_csv(os.path.join(out, "v3_daily_multipliers.csv"), index=False)
-        with open(os.path.join(out, "v3_result.json"), "w") as f:
-            json.dump(_jsonable(res), f, indent=1)
+            _save(out, bk, res)                     # rewrite with the tail INFO row (the registered fields are unchanged)
+            print("rewrote %s with the tail INFO row" % os.path.join(out, RESULT_JSON))
         if b is not None:
             b.step(3)
-        print("wrote " + out)
     return 2 if res.get("verdict") == "PARITY STOP" else 0
 
 
