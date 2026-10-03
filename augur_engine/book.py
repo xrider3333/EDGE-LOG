@@ -496,6 +496,7 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
                 tr_k, sess_k, mt_k = _bs.resize(st, lambda t: 1.0)[:3]
             else:
                 tr_k, sess_k, mt_k = rebuilt[k]
+            info["net_unsized"] = info.get("net")
             info["net"] = round(sum(p for _, p in tr_k), 2)
             pooled.extend(tr_k)
             per_leg.append(tr_k)

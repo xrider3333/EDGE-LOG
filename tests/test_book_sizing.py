@@ -103,7 +103,7 @@ def test_a_flat_half_clip_halves_every_trade_after_warm_up_and_none_during_it(tw
                                            [(t, 1.0) for t in two_legs[leg]["trades"]], 20.0,
                                            1.0 if leg == "A.py" else 2.0)[0]]]
     entries = [two_legs[leg]["days_idx"][t[0]] for leg in ("A.py", "B.py") for t in two_legs[leg]["trades"]]
-    m, _ = BS.multipliers(BS.check_config({"mode": "vt", "lo": 0.5, "hi": 0.5}), unsized, entries,
+    m, _ = BS.multipliers(BS.check_config({"mode": "vt", "lo": 0.5, "hi": 0.5}), unsized,
                           "2020-01-01", "2021-03-31")
     warm = 20 + 250 // 2
     assert (m.iloc[:warm] == 1.0).all() and (m.iloc[warm:] == 0.5).all()
@@ -190,7 +190,7 @@ def test_only_the_selected_leg_is_sized(two_legs):
     unsized = [B._mtm_increments(sp[k]["days_idx"], sp[k]["close"], [(t, 1.0) for t in sp[k]["trades"]], 20.0, w)[0]
                for k, w in (("A.py", 1.0), ("B.py", 2.0))]
     entries = [sp["B.py"]["days_idx"][t[0]] for t in sp["B.py"]["trades"]]
-    m, _ = BS.multipliers(BS.check_config({"mode": "vt", "lo": 0.5, "hi": 0.5}), unsized, entries,
+    m, _ = BS.multipliers(BS.check_config({"mode": "vt", "lo": 0.5, "hi": 0.5}), unsized,
                           "2020-01-01", "2021-03-31")
     assert legs_one["B.py"] == pytest.approx(_expected_net(sp["B.py"], 20.0, 2.0, m), abs=0.05)
 
@@ -202,3 +202,43 @@ def test_only_the_selected_leg_is_sized(two_legs):
 def test_a_block_the_engine_cannot_read_fails_instead_of_running_unsized(two_legs, bad):
     with pytest.raises(ValueError):
         _run(book_sizing=bad)
+
+
+# ------------------------------------------------------------------ 6. refusals that keep the signal valued-daily (review 2026-10-03)
+@pytest.mark.parametrize("bad_info", [{"mtm_error": "ValueError: boom"}, {"mtm_unmarked": 3}, {"source": "db_noadj_rth"}])
+def test_a_degraded_signal_leg_is_refused(bad_info):
+    legs = [{"strategy": "A.py", "source": "db_adj_rth"}]
+    info = [{"strategy": "A.py", "source": "db_adj_rth", **bad_info}]
+    with pytest.raises(ValueError):
+        BS.signal_guard(legs, info, [0])
+    BS.signal_guard(legs, [{"strategy": "A.py", "source": "db_adj_rth"}], [0])        # a clean leg passes
+
+
+# ------------------------------------------------------------------ 7. an entry day off the index reads what the live shadow would
+def test_an_off_index_entry_day_reads_the_shadow_insertion_value():
+    rng = np.random.default_rng(11)
+    idx = pd.bdate_range("2019-01-01", periods=500)
+    M = pd.Series(rng.normal(0, 800, len(idx)), index=idx)
+    cfg = BS.check_config({"mode": "vt"})
+    m = BS.vt_multipliers(M)
+    for sunday in (pd.Timestamp("2019-09-08"), pd.Timestamp("2020-06-14")):
+        assert sunday not in idx
+        M2 = M.reindex(M.index.union(pd.DatetimeIndex([sunday]))).fillna(0.0)          # book_shadow.vt_multiplier_for
+        want = float(BS.vt_multipliers(M2).loc[sunday])
+        assert BS.multiplier_on(m, M, cfg, sunday) == want
+    beyond = idx[-1] + pd.Timedelta(days=3)
+    M3 = M.reindex(M.index.union(pd.DatetimeIndex([beyond]))).fillna(0.0)
+    assert BS.multiplier_on(m, M, cfg, beyond) == float(BS.vt_multipliers(M3).loc[beyond])
+
+
+# ------------------------------------------------------------------ 8. the per-stretch yardstick, sized and unsized
+def test_stretch_readings_are_reported_for_sized_and_raw(two_legs):
+    vt = _run(book_sizing={"mode": "vt", "stretches": [{"name": "late", "from": "2020-09-01", "to": "2021-02-26"}]})
+    st = vt["book"]["book_sizing"]["stretches"][0]
+    assert st["name"] == "late" and st["sized"]["from"] >= "2020-09-01" and st["raw_twin"]["to"] <= "2021-02-26"
+    assert st["sized"]["net"] != st["raw_twin"]["net"]
+    for side in ("sized", "raw_twin"):
+        r = st[side]
+        if r["roc_30k"] is not None:
+            yrs = (pd.Timestamp(r["to"]) - pd.Timestamp(r["from"])).days / 365.25
+            assert r["roc_30k"] == pytest.approx(30.0 * (r["net"] / yrs) / r["max_drawdown"], rel=1e-3)
