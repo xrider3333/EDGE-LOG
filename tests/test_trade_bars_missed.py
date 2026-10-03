@@ -12,6 +12,29 @@ from api import trade_bars as tb
 
 ET = "America/New_York"
 UID = "u"
+
+
+@pytest.fixture(autouse=True)
+def _field_filter_without_google(monkeypatch):
+    """sweep()'s incremental read imports google.cloud's FieldFilter, which the CI dev deps do not carry (main went red
+    on these four tests, 2026-10-03). Without the real package, stand in a FieldFilter with the three attributes the fake
+    db reads, for this module's tests only (monkeypatch restores sys.modules after each test)."""
+    try:
+        from google.cloud.firestore_v1.base_query import FieldFilter  # noqa: F401
+        return
+    except ImportError:
+        pass
+    import sys
+
+    class FieldFilter:
+        def __init__(self, field_path, op_string, value=None):
+            self.field_path, self.op_string, self.value = field_path, op_string, value
+    mod = types.ModuleType("google.cloud.firestore_v1.base_query")
+    mod.FieldFilter = FieldFilter
+    for name in ("google", "google.cloud", "google.cloud.firestore_v1"):
+        if name not in sys.modules:
+            monkeypatch.setitem(sys.modules, name, types.ModuleType(name))
+    monkeypatch.setitem(sys.modules, "google.cloud.firestore_v1.base_query", mod)
 NOBAR = "no 1-minute bar for the signal minute"
 
 
