@@ -59,3 +59,30 @@ OneDrive (`C:\EdgeLog\alpaca_cache\`); they never register masters. Asked of the
 - Harness: `tools/rocfrontier/r5_nqbrd.py pull` then `A` - one multi-symbol request per day (09:30-10:00 bars of that day's members, `asof` maps renamed tickers), about 2,600 requests = ~15 minutes on the free plan.
 - SIPORB: `tools/rocfrontier/r5_siporb.py` - order `probe`, `assets`, `daily`, `open5`, `min1 top`, `A` (replication check), `min1 twin`, `A` again; `B` only after an A2 pass. Roughly 3-4 hours of pulls on the free plan, most of it the raw twin's 1-minute bars.
 - TRANSFER r2 (ETF proxies): `tools/rocfrontier/r8_transfer_etf.py pull`, `gates`, `A` - six funds x 5-minute and 30-minute bars through the shared loader (library masters under the fund tickers), minutes of pulls.
+
+## Update 2026-10-03 - pre-run review fixes (code brought to the registered text; no spec change)
+An independent review of every Alpaca harness ran BEFORE the box's first real Stage A or B, from a cloud session that
+holds no Alpaca bar and no result. Each fix makes the code do what the prereg text already says, or closes a way the
+one lockbox read could be wasted; no threshold, window, cell or pass rule moved.
+- **Shared loader** (`tools/import_alpaca_stocks.py`): 2016-12-23 removed from the early-close list. NYSE traded a
+  full session that day (only the bond market closed early), so `--rth` was cutting 13:00-16:00 off a WF session.
+  A pull made before this fix keeps the cut; re-pull that fund/day and re-run `gates`.
+- **NQBRD** (`r5_nqbrd.py`):
+  - breadth exactly 0.20 now shorts at theta 0.80 (float tolerance; prereg "B <= 1 - theta");
+  - the control is counted and picked on WF days only, and ranks by RETURN (raw 09:30 open from the no-adjust
+    master as the denominator; the adjusted master is Panama-shifted), as prereg line 65 says;
+  - the null flips ONE coin per day, shared by both thetas (prereg "each traded day's direction");
+  - Stage B reads `book463_trades.csv` and checks the NQ master reaches 2026-06-30 BEFORE the read-once flag, and
+    cuts the book's biggest trade to the lockbox.
+  - **CHOICE (written before any Stage A result):** if both thetas pass Stage A, A2 takes the one with the higher WF
+    ROC @ $30k (the prereg is silent; this is what the code always did).
+- **SIPORB** (`r5_siporb.py`): on NYSE half days the 1-minute bars stop at 12:59, so fills end at 12:58 and the
+  exit is the 12:59 close, not an after-hours print at 15:59 (CHOICE clarifying prereg lines 27/30: "15:59" means
+  the session's last regular bar). Stage B reads the book's trade file and checks every order-name has 1-minute
+  bars BEFORE the flag. The keyword filters' known false positives (IVZ, PFBC, APTS, DJCO, UPL, UCTT, BSF, BRK.B)
+  are a logged CHOICE.
+- **TRANSFER r2** (`r8_transfer_etf.py`): Stage B refuses, before the flag, unless the strategy files, the harness,
+  the TTM check and every master fingerprint are the ones Stage A ran on.
+- **All:** the read-once and lockbox-cut guards raise instead of `assert` (which `python -O` strips).
+- **If any Stage A already ran on the box before these fixes**, keep its output and report it beside the corrected
+  run in the ledger; the corrected run is the registered one.
