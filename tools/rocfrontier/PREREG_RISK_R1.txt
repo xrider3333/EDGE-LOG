@@ -1,0 +1,121 @@
+RISK r1 - IS BOOK ROUND 62's V2 VOLATILITY TARGET A TIMING MECHANISM, OR TWO LUCKY DRAWDOWNS? (frontier lane, 2026-10-03)
+Owner ask (2026-10-02): "Continue to push the frontier models on edge log. Might have to use an ML idk. Use deep reasoning to build off it,
+not just random stabs." Written BEFORE any number of this round exists. The session that wrote it had no market data; the run happens on
+the owner's machine. Driver: tools/rocfrontier/r11_risk.py (committed after this file; it refuses to run if this file's sha256 changes).
+
+WHY THIS AND NOT ANOTHER NEW LEG (the reasoning, from the corpus - RESEARCH_LEDGER, BOOK.md 10a-10r):
+- #463's score is set by two drawdowns: WF = the March 2020 crash ($44,849 valued daily), LB = one ENGU-Q open-profit give-back
+  (2026-06-18..26, $49,855). Every single-seat swap moved one of them, never both (10q).
+- What survived kept every trade and re-sized it (NOISE #422's squeeze tilt; V2). What died removed trades (every filter: they cut
+  positive-expectancy trades / the ENGU-Q refill effect), changed exits (closed on every leg), added legs (each added drawdown faster than
+  return; at #463's Sortino ~3.8 a zero-correlation leg needs Sortino ~1.2 just to lift the book 5%), or learned per-trade sizes (none beat
+  its own size-shuffle null in both stretches - docs/ML_SHUFFLE_AUDIT_2026-09-30.md).
+- V2 is the only structural change that beat #463 in BOTH stretches: WF 116.1 vs 92.7, LB 259.3 vs 164.8 %/yr at $30k (10o, old
+  convention). It was parked as a 12-month forward shadow (VT) that only counts if a >$20k drawdown happens, because its whole gain is
+  those two drawdowns and it had the better net/DD in only 7 of 15 years.
+- Theory says that is the signature to expect, not a reason to doubt it: if volatility clusters and the book's edge per unit of risk does
+  not rise with volatility (trades V2 sizes up vs down: PF 1.46 vs 1.43), equal risk through time is the better allocation and its benefit
+  shows up as shallower drawdowns, not as more years won (Moreira & Muir 2017; Barroso & Santa-Clara 2015). Against it: Cederburg,
+  O'Doherty, Wang & Yan (2020, JFE) find real-time vol-managed versions of ~100 strategies do not beat the unmanaged ones in general.
+- The ML question: every ML failure here was on sparse, noisy trade-outcome labels or on learned per-trade sizes. Risk is the one target
+  with a dense label (every day) and strong persistence, so if ML earns a role on this book it is forecasting RISK for the one sizing
+  mechanism that works. R5 below asks that once, with a falsifiable bar, instead of a model bake-off.
+- Nothing on this question was ever tested: no timing null on V2, no drawdown test beyond the worst one, no spanning regression, and the
+  engine could not run a sized book. The engine feature now exists (augur_engine/book_sizing.py, book_sizing block on BOOK jobs).
+
+WHAT HAS ALREADY BEEN SEEN (disclosed first - nothing in this round is a clean holdout):
+- V2 itself on WF and LB (10o) and its per-year net/DD signs 2011-2025 ("7 of 15 years", r62_robust, outside git): the YEAR SIGNS inside
+  IS* are known. The harness lists every round-62 output file it finds in C:\EdgeLog\_anatomy_cache\adopt449\ (name, sha256) before E1.
+- Its family: V (dollar target) FAIL, V2-60 FAIL, V2-500 PASS (10o); round 58's dial 58b (std250/std20 on #397's AT-CLOSE series, clip
+  0.5-1.5, k-scaled bar) FAIL on 2010-2025, which contains IS* (BOOK_ROUND58_ML 58b). V2 is ~2 of 5 vol-target variants that passed;
+  "reading the valued-daily series is what made it work" is a hypothesis, not a finding (58b also differs in book, cap and bar).
+- The legs' settings were chosen on windows that include IS*.
+- The LB year is spent for V2 (10o printed it). This round uses LB only to reproduce numbers 10r / 10o already printed (P2, P3).
+
+BOOK, DATA, BUILD
+- #463's job legs verbatim (api/book_shadow.BOOK463_LEGS), window 2010-06-07..2026-06-30, each leg on its pinned master; a fallback master,
+  a failed daily valuation or an unmarked multi-day trade refuses the round (augur_engine.book_sizing.signal_guard).
+- One engine pass: augur_engine.book._leg_trades(leg, 2010-06-07, 2026-06-30, keep_state=True). Per trade: leg, entry stamp, exit stamp,
+  closed $ and its valued-daily increments, under TWO day rules: U = the engine's UTC-truncated stamp (every stored book uses it) and
+  S = the US/Eastern session day (book.day_rule's alternative). The multiplier index and the entry stamps always use the SAME rule.
+- Index of rule R: business days 2010-06-07..2026-06-30 plus every R-day carrying P&L (api/book_shadow / r4_book463's index).
+- V2 on rule R = augur_engine.book_sizing.vt_multipliers on the UNSIZED book's valued-daily P&L on that index (the live VT shadow's
+  arithmetic, held equal by tests/test_book_sizing.py): vol20 = std of the 20 rows strictly before D, REF = median of vol20 over the 250
+  rows before that (at least 125), m = clip(REF / vol20, 0.5, 2.0) rounded to 0.1, 1.0 while undefined. A trade entering on R-day D is
+  sized m(D); an entry day off the index reads the next row (= the shadow's insert-and-compute value). Sizes apply to the closed dollars
+  and to every daily mark of the trade.
+- Family cells (one change each, exactly 10o's sensitivities): V2-500 = REF over 500 rows (at least 250); V2-60 = vol over 60 rows.
+
+PARITY GATES - each refuses to go on; nothing after it is computed until it passes
+P1 Every leg, rule U: the per-trade increments re-sum to the engine's own valued-daily series for that leg (info _mtm_day) within $0.01 a
+   day, and the closed dollars to its closed series within $0.01 a day. Rule S: the closed dollars re-sum to the engine's session-day series.
+P2 Raw #463 on rule U. Unified convention (BOOK.md 10r: valued-daily net and drawdown inside the stretch, years = (last - first)/365.25):
+   WF 93.81 / Sortino 3.816, LB 155.54 / 4.150. Old convention (net from closed trades, drawdown and Sortino valued daily, WF years =
+   (2025-06-30 - 2016-07-01)/365.25, LB years 365/365.25): WF 92.70 / 3.816, LB 164.76 / 4.150. Tolerance 0.006 ROC, 0.0006 Sortino.
+P3 V2 (rule U, old convention) reproduces 10o: WF 116.1 / 3.91 / DD $35,304, LB 259.3 / 4.79 / DD $32,941 (tolerance 0.06 ROC,
+   0.006 Sortino, $1 DD). A miss STOPS the round: reconcile with round 62's own scripts first and write the difference into a dated
+   addendum to this file before anything else is computed.
+P4 The engine's own run_book(BOOK463_LEGS, book_sizing={"mode": "vt", "stretches": [IS*, WF]}) equals the harness's V2 on rule U: whole
+   and pre-lockbox valued-daily net and drawdown within $0.01, and both stretch readings within 0.001 ROC and 0.0001 Sortino - so a
+   persisted run is exactly what this round tested.
+
+STRETCHES (rows of the rule's index)
+- IS* = 2011-01-03..2016-06-30 (V2's reference first exists in early 2011; 2010 is warm-up and not judged).
+- WF = 2016-07-01..2025-06-29.
+- EX = WF without the rows 2020-02-15..2020-04-30 (statistics on the remaining rows joined end to end).
+- ALL = 2011-01-03..2025-06-29; ALLX = ALL without the rows 2020-02-15..2020-04-30.
+- No stage after P3 may read a row after 2025-06-29 (the harness asserts it).
+
+STATISTICS (scale-free; x = the stretch's daily valued P&L, one value per row, zeros included)
+- ROC  = 30 x (net / years) / maxDD; drawdown from a peak that starts at 0; years = (last row - first row) / 365.25.
+- SORT = mean(x) / sqrt(mean(min(x, 0)^2)) x sqrt(252).
+- CDR  = 30 x (net / years) / CDaR95, where CDaR95 = the mean of the largest ceil(5% x rows) daily drawdown values
+         dd_t = max(0, running peak from 0 - cum_t) (Chekhlov, Uryasev & Zabarankin 2005): the path statistic that sees every bad stretch.
+- UPI  = (net / years) / sqrt(mean(dd_t^2)) (Martin's Ulcer performance index) - reported only.
+
+PRIMARY TESTS (the primary cell is V2; every threshold is fixed here)
+E1 IS* read (partly seen - above). PASS = V2 beats RAW on ROC AND SORT AND CDR, on rule U AND on rule S.
+E2 Timing null, family-aware. T = max over {V2, V2-500, V2-60} of (CDR of the cell - CDR of RAW) on the stretch.
+   Null A: every circular shift k of the multiplier rows of all three cells over the pre-lockbox rows (2010-06-07..2025-06-29),
+           k in [250, N - 250], the same k for every cell; each shifted multiplier re-sizes every trade by its entry row (a trade-level
+           rebuild - closed dollars and every daily mark - not a scaling of daily P&L).
+   Null B: 999 stationary-bootstrap resamples (Politis & Romano 1994) of the same multiplier rows, mean block 60 rows, the same resampled
+           rows for every cell, numpy default_rng seed 20261003.
+   PASS = T(real) >= the 95th percentile of Null A AND of Null B, on WF AND on EX, on rule U AND on rule S (8 conditions).
+   Reported beside it: V2's own percentile in each null; the same nulls with ROC instead of CDR.
+E3 Equal-net worst drawdowns - several episodes, and V2 is charged for the drawdowns it creates by sizing up in calm tape (58b's failure
+   mode). On ALL and on ALLX: scale V2's daily series by c = net(RAW) / net(V2) so both have the same net; split each series into
+   underwater periods (maximal runs of rows below its running peak from 0) and take each one's five deepest. PASS = V2's k-th deepest is
+   shallower than RAW's k-th deepest for at least 4 of k = 1..5 AND the sum of V2's five is smaller - on ALL AND ALLX, on rule U AND S.
+   Reported with it: the dates and depth of every one of those drawdowns for both books (V2's own $35,304 WF episode is named this way
+   before the verdict is read), and for each of V2's five: the dollars lost inside it by ENGU-Q positions entered at m > 1 and still open
+   at its peak (the 58b mechanism).
+
+PRIMARY VERDICT: PASS iff E1, E2 and E3 all pass.
+What a verdict does: a PASS goes to the owner as an explicit question - adopt V2 sizing on #463 now, as a real persisted BOOK run through
+the engine's book_sizing block (micros make the 0.1 steps tradeable), rather than wait for the 12-month VT read. It adopts nothing by itself
+and changes no forward read. A FAIL closes the backtest case for V2: the VT line stays a forward shadow under its own pre-registration.
+
+REPORTED, NEVER A PASS ROUTE
+R1 Spanning regressions (Moreira & Muir 2017), Newey-West 10 lags, on IS*, WF and EX with beta refit on each:
+   V2_t = a + b RAW_t + e_t, and V2_t = a + sum_i b_i LEG_i,t + e_t over the four legs' unsized valued-daily P&L. Report a, t(a), b.
+R2 Dissection (neutral prior: ENGUQ.md 1.3 says risk sizing ENGU-Q de-levers its wide-stop winners; that its long-beta exposure is exactly
+   what vol targeting should protect is as plausible): V2's multiplier (read on the whole book) applied to ENGU-Q's trades only / to ORB +
+   TTM + NOISE only. ROC, SORT, CDR on IS*, WF, EX; raw PF of the trades sized up (m > 1) vs down (m < 1) in each part.
+R3 Tradability: V2 with the fractional part of every size traded as micros - MNQ 1.20 pts x $2, MES 0.63 pts x $5 a round trip, in place
+   of the engine's pro-rata full-contract cost (TTM's size is 3 x m ES). ROC, SORT, CDR on IS* and WF.
+R4 Clocks: the share of ENGU-Q entries whose U day differs from their S day, and how many V2 sizes differ between the rules. The live VT
+   shadow sizes by the report's ET date (PREREG_frontier_shadows), i.e. rule S; the engine and a persisted run use rule U.
+R5 The forecast question - the only ML role this round funds, asked once (no model bake-off): does a risk model forecast the book's next
+   20-row realised variance RV_t = mean(x_t^2 .. x_(t+19)^2) better than V2's own naive forecast vol20^2? Challenger: HAR in levels
+   (Corsi 2009) on the book's own squared P&L, RV_t = b0 + b1 x_(t-1)^2 + b2 mean(x^2 over the 5 rows before t) + b3 mean(x^2 over the 22
+   rows before t), OLS refit every 1 January on rows whose 20-row target ended before that date, forecast floored at 10% of the median RV
+   of the 250 rows before t. Rule U, raw book, scored 2013-01-02..2025-06-29. Loss QLIKE = RV/h - ln(RV/h) - 1 (rows with RV = 0
+   dropped). Diebold-Mariano with the Harvey-Leybourne-Newbold correction, Newey-West 19 lags, one-sided. Read: if HAR's mean QLIKE is
+   at least 5% below naive with p < 0.05 on BOTH 2013-01-02..2016-06-30 and WF, a better risk forecast exists for this book and an
+   HAR-driven VT line may be proposed as a FORWARD SHADOW only (owner call); otherwise a learned risk forecast is not worth building for
+   V2 and the ML question for this role is closed. Kronos step 0 (docs/PREREG_kronos_step0_2026-10-01.md), if it has reported, is printed
+   beside it.
+
+OUTPUT: C:\EdgeLog\_anatomy_cache\rocfrontier\r11\ (outside git; EDGELOG_ROCFRONTIER_R11 overrides): parity.json, records_U.npz,
+records_S.npz, e1.json, e2.json (both null distributions), e3.json, reports.json, VERDICT.txt. Nothing here commits, pushes or queues a job.
