@@ -38,7 +38,8 @@ Options (all optional):
            "selected": only on the selected legs' unsized valued-daily P&L.
   stretches  [{"name", "from", "to"}]: the owner's yardstick (ROC %/yr at a $30k valued-daily
            drawdown, Sortino; house convention BOOK.md 10r) per named stretch, sized and unsized,
-           so a persisted run reads WF / IS / LB directly.
+           so a persisted run reads WF / IS / LB directly. Each needs a name and tz-naive dates with
+           from <= to, checked before any leg runs.
 
 Refusals: a leg whose daily valuation failed, whose multi-day trades went unmarked, or that ran
 on another master than the one it pins makes the block raise (signal_guard) - the signal would
@@ -92,6 +93,33 @@ def check_config(cfg):
     if st is not None:
         if not isinstance(st, (list, tuple)) or not all(isinstance(x, dict) and x.get("from") and x.get("to") for x in st):
             raise ValueError("book_sizing stretches must be a list of {\"name\", \"from\", \"to\"}")
+        # Stretches are read only after every leg has run, so a bad one used to cost the whole book before it showed
+        # (pre-run review round 2, 2026-10-03): each needs a name, two tz-naive dates (the book's day index is naive -
+        # an aware bound raises mid-report) and from <= to (a reversed pair reads as an empty stretch, not an error).
+        for i, x in enumerate(st):
+            nm = x.get("name")
+            if not isinstance(nm, str) or not nm.strip():
+                raise ValueError("book_sizing stretch %d needs a non-empty string name, got %r" % (i, nm))
+            ts = {}
+            for k in ("from", "to"):
+                v = x[k]
+                if isinstance(v, (bool, int, float, np.number)):      # pd.Timestamp reads a number as ns since 1970
+                    raise ValueError("book_sizing stretch %r %s=%r is a number, not a date" % (nm, k, v))
+                try:
+                    t = pd.Timestamp(v)
+                except (ValueError, TypeError, OverflowError) as e:
+                    raise ValueError("book_sizing stretch %r %s=%r is not a date (%s)" % (nm, k, v, e))
+                if pd.isna(t):
+                    raise ValueError("book_sizing stretch %r %s=%r is not a date" % (nm, k, v))
+                if t.tz is not None:
+                    raise ValueError("book_sizing stretch %r %s=%r carries a time zone - give a plain date, the book's "
+                                     "day index is tz-naive" % (nm, k, v))
+                ts[k] = t
+            if ts["from"] > ts["to"]:
+                raise ValueError("book_sizing stretch %r runs backwards: from %s is after to %s" % (nm, x["from"], x["to"]))
+        names = [x["name"].strip() for x in st]
+        if len(set(names)) != len(names):                             # readers look a stretch up by name and take the first
+            raise ValueError("book_sizing stretch names must be unique, got %r" % names)
         st = [{"name": str(x.get("name") or ""), "from": str(x["from"]), "to": str(x["to"])} for x in st]
     out["stretches"] = st
     unknown = sorted(set(cfg) - set(out) - set(VT_DEFAULTS))
