@@ -242,3 +242,64 @@ def test_stretch_readings_are_reported_for_sized_and_raw(two_legs):
         if r["roc_30k"] is not None:
             yrs = (pd.Timestamp(r["to"]) - pd.Timestamp(r["from"])).days / 365.25
             assert r["roc_30k"] == pytest.approx(30.0 * (r["net"] / yrs) / r["max_drawdown"], rel=1e-3)
+
+
+# ------------------------------------------------------------------ 9. code-review regressions (2026-10-03)
+@pytest.mark.parametrize("bad", [
+    {"mode": "vt", "decimals": 0},                 # half-to-even would round the 0.5 floor to 0.0
+    {"mode": "vt", "lo": 0.25},                    # off the 1-decimal grid: rounds to 0.2, under its own floor
+    {"mode": "vt", "legs": []},                    # nothing sized, raw book under a sized label
+])
+def test_configs_that_would_break_the_floor_or_size_nothing_are_refused(bad):
+    with pytest.raises(ValueError):
+        BS.check_config(bad)
+
+
+def test_every_multiplier_stays_inside_lo_hi():
+    rng = np.random.default_rng(9)
+    M = pd.Series(rng.normal(0, 1, 900) * np.repeat(rng.lognormal(0, 1, 30), 30), index=pd.bdate_range("2015-01-01", periods=900))
+    for cfg in ({"mode": "vt"}, {"mode": "vt", "lo": 0.25, "hi": 1.75, "decimals": 2}):
+        c = BS.check_config(cfg)
+        m = BS.vt_multipliers(M, c["lookback"], c["ref"], c["lo"], c["hi"], c["decimals"])
+        assert m.min() >= c["lo"] and m.max() <= c["hi"]
+
+
+def test_a_tz_aware_window_is_read_on_the_eastern_clock():
+    idx = BS.book_index([[(np.datetime64("2020-01-03"), 1.0)]], "2020-01-01T05:00:00Z", "2020-01-10")
+    assert idx[0] == pd.Timestamp("2020-01-01") and idx[-1] == pd.Timestamp("2020-01-10")
+
+
+def test_numeric_leg_positions_are_refused_when_strategy_less_legs_were_dropped(two_legs):
+    with pytest.raises(ValueError):
+        B.run_book([{}] + LEGS, date_from="2020-01-01", date_to="2021-03-31", lockbox_months=3,
+                   book_sizing={"mode": "vt", "legs": [1]})
+    r = B.run_book([{}] + LEGS, date_from="2020-01-01", date_to="2021-03-31", lockbox_months=3,
+                   book_sizing={"mode": "vt", "legs": ["A.py"]})                 # by name it is unambiguous
+    assert [x["strategy"] for x in r["book"]["book_sizing"]["legs_sized"]] == ["A.py"]
+
+
+def test_stretch_readings_keep_an_unselected_legs_off_index_days(monkeypatch):
+    """signal='selected' builds the multiplier index from the selected legs only; the stretch readings must still count
+    every leg's dollars (a 24h leg's weekend-stamped marks fell outside that index before the fix)."""
+    a = _leg_spec(1)
+    days = pd.date_range("2020-01-01", periods=200)                      # 7 days a week: weekend stamps
+    b = {"days_idx": np.repeat(days.values.astype("datetime64[D]"), 2), "close": 1000.0 + np.arange(400.0),
+         "trades": [(2 * k, 2 * k + 1, 1.0 + (k % 3), 1, 1000.0 + 2 * k) for k in range(200)]}
+    _install(monkeypatch, {"A.py": a, "B.py": b})
+    win = {"name": "all", "from": "2020-01-01", "to": "2020-07-31"}
+    r = B.run_book(LEGS, date_from="2020-01-01", date_to="2020-07-31", lockbox_months=1,
+                   book_sizing={"mode": "vt", "legs": ["A.py"], "signal": "selected", "stretches": [win]})
+    raw_net = sum(p for leg in ("A.py", "B.py") for _, p in B._mtm_increments(
+        (a if leg == "A.py" else b)["days_idx"], (a if leg == "A.py" else b)["close"],
+        [(t, 1.0) for t in (a if leg == "A.py" else b)["trades"]], 20.0, 1.0 if leg == "A.py" else 2.0)[0]
+        if pd.Timestamp(_) <= pd.Timestamp("2020-07-31"))
+    assert r["book"]["book_sizing"]["stretches"][0]["raw_twin"]["net"] == pytest.approx(raw_net, abs=0.05)
+
+
+def test_a_sized_book_job_is_not_a_repeat_of_its_raw_twin():
+    from api import dupe_guard as DG
+    j1 = {"type": "book", "strategy": "BOOK 463", "book_legs": ["a"], "date_from": "2010-06-07", "date_to": "2026-06-30",
+          "lockbox_months": 12}
+    j2 = dict(j1, book_sizing={"mode": "vt"})
+    assert DG.job_fingerprint(j1) != DG.job_fingerprint(j2)
+    assert "book_sizing" in DG.explain_difference(j1, j2)

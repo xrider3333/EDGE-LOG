@@ -204,10 +204,13 @@ def _leg_trades(leg, date_from, date_to, keep_state=False):
         info["mtm_error"] = "%s: %s" % (type(_e).__name__, _e)
     info["_mtm_day"] = _m
     if keep_state:
+        _fs = res.get("trade_sizes")             # a file that folds its own size into t[2] (e.g. NOISE's tilt) says so here
+        _fs = ({id(t): float(z) for t, z in zip(raw_trades, _fs)}
+               if _fs is not None and len(_fs) == len(raw_trades) else None)
         info["_state"] = {"days_idx": days_idx, "sess_idx": _sess_idx, "last": last,
                           "close": arr.get("close"), "sized": sized, "mult": mult,
                           "weight": weight, "plugin_marks": _pm, "usd_units": _usd,
-                          "mtm_failed": "mtm_error" in info}
+                          "mtm_failed": "mtm_error" in info, "file_sizes": _fs}
     return out, info
 
 
@@ -450,6 +453,7 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
     its entry day, and every figure below is the SIZED book; the unsized raw twin is reported
     under book.book_sizing.raw_twin. None (the default) leaves the book exactly as before.
     """
+    _n_given = len(legs or [])
     legs = [l for l in (legs or []) if l and l.get("strategy")]
     if not legs:
         raise ValueError("a book needs at least one leg")
@@ -457,6 +461,11 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
     if book_sizing is not None:
         from . import book_sizing as _bs
         _bs_cfg = _bs.check_config(book_sizing)
+        if _n_given != len(legs) and any(isinstance(w, (int, np.integer)) and not isinstance(w, bool)
+                                         for w in (_bs_cfg.get("legs") or [])):
+            raise ValueError("book_sizing names legs by position, but %d leg(s) without a strategy were dropped, "
+                             "which shifts every position - name the legs by strategy file instead"
+                             % (_n_given - len(legs)))
         _bs.selected_legs(_bs_cfg, legs)          # a block naming a leg this book lacks fails now
 
     pooled = []
