@@ -1,5 +1,5 @@
 # Round 11 (2026-10-03): RISK r1 - is book round 62's V2 volatility target a TIMING MECHANISM or two lucky drawdowns?
-# Pre-registered: tools/rocfrontier/PREREG_RISK_R1.txt (commit cff2661, sha256 b7d9c5dc...d017), then three dated PRE-DATA addenda: this
+# Pre-registered: tools/rocfrontier/PREREG_RISK_R1.txt (commit 2d0f6f9 on main, written before the harness 6686b1a; sha256 b7d9c5dc...d017), then three dated PRE-DATA addenda: this
 # harness's own synthetic power check and an independent code review (E2 on rule U, strict p <= 0.05, verdict spans ALL / ALLX, the
 # INCONCLUSIVE reading), and the relation to round 62 V3 (R5 report-only). PREREG_SHA below is the file with all three.
 # Every rule, threshold and window is that file; where it is silent the choice is marked CHOICE.
