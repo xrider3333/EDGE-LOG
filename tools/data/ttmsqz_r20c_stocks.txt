@@ -1,0 +1,88 @@
+TTM round 20c - frozen #299 crown on 35 large US stocks (prereg addendum 2, 388fe584)
+  AAPL: 34143 bars from 2016-01-04
+  GOOGL: 34143 bars from 2016-01-04
+  MSFT: 34143 bars from 2016-01-04
+  XOM: 34119 bars from 2016-01-04
+  AMZN: 34143 bars from 2016-01-04
+  META: 34143 bars from 2016-01-04
+  GE: 34132 bars from 2016-01-04
+  JNJ: 34130 bars from 2016-01-04
+  WFC: 34119 bars from 2016-01-04
+  JPM: 34131 bars from 2016-01-04
+  T: 34119 bars from 2016-01-04
+  PG: 34121 bars from 2016-01-04
+  VZ: 34119 bars from 2016-01-04
+  WMT: 34119 bars from 2016-01-04
+  CVX: 34122 bars from 2016-01-04
+  PFE: 34120 bars from 2016-01-04
+  KO: 34132 bars from 2016-01-04
+  HD: 34131 bars from 2016-01-04
+  ORCL: 34121 bars from 2016-01-04
+  DIS: 34122 bars from 2016-01-04
+  INTC: 34143 bars from 2016-01-04
+  MRK: 34120 bars from 2016-01-04
+  CMCSA: 34143 bars from 2016-01-04
+  PEP: 34144 bars from 2016-01-04
+  BAC: 34121 bars from 2016-01-04
+  CSCO: 34143 bars from 2016-01-04
+  V: 34118 bars from 2016-01-04
+  C: 34122 bars from 2016-01-04
+  GILD: 34143 bars from 2016-01-04
+  IBM: 34131 bars from 2016-01-04
+  UNH: 34119 bars from 2016-01-04
+  AMGN: 34143 bars from 2016-01-04
+  MO: 34121 bars from 2016-01-04
+  CVS: 34121 bars from 2016-01-04
+  MA: 34121 bars from 2016-01-04
+
+GATED (candidate)
+  AAPL                     WF n   251 net $     6,781 ROC@30k   21.0 Sortino  1.60 | LB n   32 net $     -729 ROC@30k  -17.4 Sortino -1.29 ex-big $   -1,243
+  GOOGL                    WF n   240 net $     3,267 ROC@30k    7.1 Sortino  0.79 | LB n   27 net $    1,631 ROC@30k   71.3 Sortino  3.18 ex-big $      651
+  MSFT                     WF n   258 net $       263 ROC@30k    0.4 Sortino  0.05 | LB n   30 net $     -899 ROC@30k  -30.0 Sortino -1.70 ex-big $   -1,160
+  XOM                      WF n   239 net $    -3,333 ROC@30k   -2.6 Sortino -0.54 | LB n   18 net $     -663 ROC@30k  -20.9 Sortino -1.32 ex-big $     -880
+  AMZN                     WF n   193 net $      -302 ROC@30k   -0.3 Sortino -0.07 | LB n   16 net $      688 ROC@30k   51.3 Sortino  1.63 ex-big $      194
+  META                     WF n   235 net $     1,337 ROC@30k    1.2 Sortino  0.26 | LB n   24 net $     -999 ROC@30k  -20.7 Sortino -1.43 ex-big $   -1,300
+  GE                       WF n   216 net $    -1,944 ROC@30k   -2.4 Sortino -0.34 | LB n   30 net $      132 ROC@30k    4.0 Sortino  0.23 ex-big $     -369
+  JNJ                      WF n   318 net $     1,497 ROC@30k    2.9 Sortino  0.41 | LB n   22 net $     -221 ROC@30k   -6.7 Sortino -0.56 ex-big $     -501
+  WFC                      WF n   238 net $    -2,497 ROC@30k   -1.9 Sortino -0.51 | LB n   22 net $     -900 ROC@30k  -26.0 Sortino -1.97 ex-big $   -1,265
+  JPM                      WF n   243 net $      -535 ROC@30k   -0.5 Sortino -0.14 | LB n   25 net $      252 ROC@30k   16.8 Sortino  0.73 ex-big $       34
+  T                        WF n   291 net $    -5,935 ROC@30k   -2.9 Sortino -1.13 | LB n   20 net $     -650 ROC@30k  -17.2 Sortino -1.51 ex-big $     -937
+  PG                       WF n   271 net $       778 ROC@30k    1.6 Sortino  0.23 | LB n   24 net $     -501 ROC@30k  -18.6 Sortino -1.20 ex-big $     -923
+  VZ                       WF n   285 net $    -3,588 ROC@30k   -2.3 Sortino -0.88 | LB n   31 net $   -1,088 ROC@30k  -17.7 Sortino -2.01 ex-big $   -1,586
+  WMT                      WF n   280 net $    -2,083 ROC@30k   -2.1 Sortino -0.57 | LB n   28 net $      449 ROC@30k   24.9 Sortino  1.03 ex-big $       48
+  CVX                      WF n   237 net $      -233 ROC@30k   -0.4 Sortino -0.06 | LB n   21 net $     -192 ROC@30k   -9.0 Sortino -0.48 ex-big $     -383
+  PFE                      WF n   285 net $   -10,290 ROC@30k   -3.2 Sortino -1.93 | LB n   35 net $      547 ROC@30k   17.2 Sortino  0.97 ex-big $     -660
+  KO                       WF n   290 net $    -4,190 ROC@30k   -2.6 Sortino -1.13 | LB n   28 net $     -303 ROC@30k   -7.6 Sortino -0.72 ex-big $     -775
+  HD                       WF n   267 net $     1,209 ROC@30k    2.7 Sortino  0.31 | LB n   22 net $       77 ROC@30k    5.1 Sortino  0.22 ex-big $     -182
+  ORCL                     WF n   268 net $    -2,897 ROC@30k   -1.8 Sortino -0.50 | LB n   22 net $    1,935 ROC@30k   54.8 Sortino  2.35 ex-big $    1,323
+  DIS                      WF n   244 net $     4,307 ROC@30k    7.0 Sortino  1.13 | LB n   29 net $     -409 ROC@30k  -13.0 Sortino -0.86 ex-big $     -763
+  INTC                     WF n   233 net $    -1,326 ROC@30k   -1.7 Sortino -0.20 | LB n   17 net $   -1,972 ROC@30k  -23.9 Sortino -1.67 ex-big $   -2,478
+  MRK                      WF n   264 net $    -2,068 ROC@30k   -2.6 Sortino -0.51 | LB n   18 net $    1,308 ROC@30k   65.2 Sortino  3.63 ex-big $       41
+  CMCSA                    WF n   301 net $    -6,189 ROC@30k   -2.9 Sortino -1.09 | LB n   41 net $   -1,415 ROC@30k  -28.2 Sortino -1.85 ex-big $   -1,841
+  PEP                      WF n   323 net $    -5,967 ROC@30k   -3.0 Sortino -1.00 | LB n   25 net $     -784 ROC@30k  -28.9 Sortino -1.83 ex-big $     -971
+  BAC                      WF n   223 net $    -2,675 ROC@30k   -1.8 Sortino -0.59 | LB n   17 net $     -474 ROC@30k  -23.9 Sortino -1.48 ex-big $     -651
+  CSCO                     WF n   241 net $    -4,282 ROC@30k   -2.6 Sortino -0.92 | LB n   22 net $      612 ROC@30k  116.6 Sortino  2.44 ex-big $      368
+  V                        WF n   253 net $    -1,704 ROC@30k   -2.2 Sortino -0.39 | LB n   31 net $      473 ROC@30k   53.7 Sortino  1.96 ex-big $      162
+  C                        WF n   205 net $    -2,430 ROC@30k   -2.1 Sortino -0.53 | LB n   23 net $   -1,165 ROC@30k  -25.3 Sortino -2.33 ex-big $   -1,460
+  GILD                     WF n   269 net $       423 ROC@30k    0.4 Sortino  0.09 | LB n   31 net $       81 ROC@30k    2.8 Sortino  0.13 ex-big $     -252
+  IBM                      WF n   248 net $      -722 ROC@30k   -1.2 Sortino -0.16 | LB n   15 net $     -932 ROC@30k  -28.5 Sortino -1.74 ex-big $   -1,088
+  UNH                      WF n   269 net $      -621 ROC@30k   -0.7 Sortino -0.13 | LB n   19 net $     -352 ROC@30k  -11.2 Sortino -0.56 ex-big $     -827
+  AMGN                     WF n   303 net $     1,527 ROC@30k    1.4 Sortino  0.28 | LB n   34 net $    1,118 ROC@30k   99.1 Sortino  2.48 ex-big $      332
+  MO                       WF n   277 net $    -1,767 ROC@30k   -1.5 Sortino -0.39 | LB n   24 net $     -150 ROC@30k   -8.0 Sortino -0.38 ex-big $     -653
+  CVS                      WF n   245 net $      -537 ROC@30k   -0.5 Sortino -0.10 | LB n   30 net $     -752 ROC@30k  -21.4 Sortino -1.47 ex-big $   -1,048
+  MA                       WF n   253 net $     2,386 ROC@30k    5.1 Sortino  0.56 | LB n   28 net $      353 ROC@30k   18.4 Sortino  0.81 ex-big $     -207
+  POOLED BOOK              WF n  9056 net $   -44,340 ROC@30k   -3.0 Sortino -1.11 | LB n  881 net $   -5,893 ROC@30k  -15.9 Sortino -1.60 ex-big $   -7,161
+    longs only             WF n  4756 net $   -25,292 ROC@30k   -2.9 Sortino -1.04 | LB n  438 net $    1,703 ROC@30k   15.2 Sortino  0.70 ex-big $      436
+    shorts only            WF n  4300 net $   -19,048 ROC@30k   -2.3 Sortino -0.66 | LB n  443 net $   -7,596 ROC@30k  -25.5 Sortino -2.87 ex-big $   -8,170
+
+UNGATED (plain twin)
+  POOLED BOOK              WF n 25994 net $  -160,699 ROC@30k   -3.1 Sortino -2.03 | LB n 2785 net $  -21,261 ROC@30k  -22.2 Sortino -3.01 ex-big $  -23,831
+
+GATED at $0.05 cost
+  POOLED BOOK              WF n  9056 net $  -141,134 ROC@30k   -3.1 Sortino -3.15 | LB n  881 net $  -13,092 ROC@30k  -23.7 Sortino -3.25 ex-big $  -14,351
+
+REFERENCE (no clause): ES 30m crown cell, same stretches, 1 contract
+  ES 30m #299 settings     WF n   225 net $    36,564 ROC@30k   30.9 Sortino  2.62 | LB n   16 net $    4,992 ROC@30k   47.6 Sortino  2.56 ex-big $    1,686
+  daily correlation, gated stock book vs ES 30m cell: 0.14
+
+VERDICT: (a) >=100 WF / 50 LB trades yes; (b) ROC@30k >= ungated WF and LB yes; (c) WF Sortino >= 1.0 and LB ROC > 0 NO; (d) LB ex-biggest > 0 NO; (e) positive WF and LB at $0.05 NO -> FAIL
