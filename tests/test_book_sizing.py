@@ -298,8 +298,46 @@ def test_stretch_readings_keep_an_unselected_legs_off_index_days(monkeypatch):
 
 def test_a_sized_book_job_is_not_a_repeat_of_its_raw_twin():
     from api import dupe_guard as DG
-    j1 = {"type": "book", "strategy": "BOOK 463", "book_legs": ["a"], "date_from": "2010-06-07", "date_to": "2026-06-30",
-          "lockbox_months": 12}
+    # book jobs carry their legs under "legs" (api/runner.py reads job.get("legs")), not "book_legs" (round 2, 2026-10-03)
+    j1 = {"type": "book", "strategy": "BOOK 463", "legs": [{"strategy": "A.py", "params": {"x": 1}}],
+          "date_from": "2010-06-07", "date_to": "2026-06-30", "lockbox_months": 12}
     j2 = dict(j1, book_sizing={"mode": "vt"})
     assert DG.job_fingerprint(j1) != DG.job_fingerprint(j2)
     assert "book_sizing" in DG.explain_difference(j1, j2)
+
+
+# ------------------------------------------------------------------ 10. stretch blocks refused before any leg runs (pre-run review round 2, 2026-10-03)
+_OK = {"name": "late", "from": "2020-09-01", "to": "2021-02-26"}
+
+
+@pytest.mark.parametrize("bad", [
+    dict(_OK, name=""), dict(_OK, name="   "), dict(_OK, name=5), {k: v for k, v in _OK.items() if k != "name"},
+    dict(_OK, **{"from": "garbage"}), dict(_OK, to="2021-13-45"), dict(_OK, to="NaT"),         # not a date
+    dict(_OK, **{"from": 20200901}), dict(_OK, to=20210226.0),                                  # a number reads as ns since 1970
+    dict(_OK, **{"from": "2020-09-01T00:00:00Z"}), dict(_OK, to=pd.Timestamp("2021-02-26", tz="US/Eastern")),  # tz-aware
+    dict(_OK, **{"from": "2021-02-26", "to": "2020-09-01"}),                                    # from after to
+    dict(_OK, **{"from": "2020-01-02"}), dict(_OK, name=" late "),                               # a second stretch named "late"
+], ids=["empty-name", "blank-name", "int-name", "no-name", "from-garbage", "to-bad-month", "to-NaT",
+        "from-int", "to-float", "from-utc", "to-eastern", "backwards", "dup-name", "dup-name-spaced"])
+def test_a_bad_stretch_is_refused_by_check_config(bad):
+    with pytest.raises(ValueError):
+        BS.check_config({"mode": "vt", "stretches": [_OK, bad]})
+
+
+def test_a_bad_stretch_is_refused_before_any_leg_runs(monkeypatch):
+    ran = []
+    monkeypatch.setattr(B, "_leg_trades", lambda *a, **k: ran.append(a) or ([], {}))
+    with pytest.raises(ValueError, match="time zone"):
+        B.run_book(LEGS, date_from="2020-01-01", date_to="2021-03-31", lockbox_months=3,
+                   book_sizing={"mode": "vt", "stretches": [dict(_OK, to="2021-02-26T00:00:00+00:00")]})
+    assert ran == []
+
+
+def test_good_stretches_pass_unchanged():
+    import datetime as dt
+    st = [{"name": "WF", "from": "2016-07-01", "to": "2025-06-29"}, {"name": "LB", "from": "2025-06-30", "to": "2026-06-30"},
+          {"name": "one day", "from": "2020-01-02", "to": "2020-01-02"},
+          {"name": "objects", "from": dt.date(2020, 1, 2), "to": pd.Timestamp("2020-03-31")}]
+    out = BS.check_config({"mode": "vt", "stretches": st})["stretches"]
+    assert out[:3] == st[:3]                                                   # strings stored exactly as given
+    assert out[3] == {"name": "objects", "from": "2020-01-02", "to": "2020-03-31 00:00:00"}
