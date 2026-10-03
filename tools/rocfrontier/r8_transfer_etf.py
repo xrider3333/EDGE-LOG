@@ -6,11 +6,13 @@
 #   python r8_transfer_etf.py ttmcheck  TTM wrapper acceptance vs the real ES file (local data, no fund needed) - must pass before A
 #   python r8_transfer_etf.py A         Stage A, PRE-LOCKBOX ONLY (nothing on/after 2025-06-30 is loaded into a strategy, computed or printed)
 #   python r8_transfer_etf.py B --ledger-ok   Stage B (lockbox, once, after Stage A is in the ledger) - refuses unless a Stage A pass is on file; the READ flag is
-#                                             written only after A's code / data re-check, the lockbox data has loaded and BOOK #463's WF / LB numbers reproduce
+#                                             written only after A's files re-check + replay, the lockbox data has loaded and BOOK #463's WF / LB numbers reproduce
 #   python r8_transfer_etf.py C         Stage C (book add vs BOOK #463) - refuses unless a Stage B survivor is on file
 #   python r8_transfer_etf.py smoke [DIR]   offline self-test on stand-in funds cut from the ES / NQ masters (numbers mean nothing)
 # Run from anywhere; imports augur_engine from the shared checkout (EDGELOG_ROOT overrides) and never chdirs into a worktree.
 # Pre-run review fixes 2026-10-03 (B re-checks A's code and data, no spec change): guards are SystemExit not assert; pull.json records the loader sha + REPO HEAD.
+# Pre-run review round 2, 2026-10-03: before the flag B replays every passing cell on the pre-lockbox data and needs A's trades back (replay_a); the old
+# gates.json fingerprint (first / last bar + count) ignored prices and is dropped.
 import datetime as dt, hashlib, importlib.util, inspect, json, math, os, subprocess, sys, time, warnings, zlib
 REPO = os.environ.get("EDGELOG_ROOT", r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG"); sys.path.insert(0, REPO)
 import numpy as np, pandas as pd
@@ -664,6 +666,18 @@ def run_cell(f, strat, arrs, unit, cost, d1):
     return run_leg(leg_of(f, strat, unit, cost), D0, d1, arrs[STRAT[strat][2]])
 
 
+def cell_trades(f, s, arrs, unit, q):
+    """One Stage A cell on its pre-lockbox arrays -> the trade table A saves (base + stress cost, per share as traded, WF flag).
+    Stage B replays exactly this before the read-once flag (pre-run review round 2, 2026-10-03)."""
+    base, st = run_cell(f, s, arrs, unit, COST, PRE), run_cell(f, s, arrs, unit, STRESS, PRE)
+    if not (len(base) == len(st) and (base.entry.values == st.entry.values).all() and (base.exit.values == st.exit.values).all()):
+        raise SystemExit(f"STOP: {s} {f}: the stress cost changed the trade list")
+    base["pnl_stress"] = st.pnl.values
+    base = as_traded(base, q, unit)                                    # prereg addendum 2: the cost per share as traded
+    base["wf"] = base.date >= WF0
+    return base
+
+
 def book_corr(d):
     """Reported only: the cell's WF daily P&L vs each BOOK #463 leg's daily marks (L0 ORB, L1 ENGU-Q, L2 TTM, L3 NOISE) and the book."""
     p = os.path.join(R4, "book463_daily.csv")
@@ -735,12 +749,7 @@ def compute_cells():
         funds[f] = {"close_2016_06_30": close0, "unit": unit, "sessions": len(days), "share_ratio": rl}
         for s in FUNDS[f]:
             t0 = time.time()
-            base, st = run_cell(f, s, arrs, unit, COST, PRE), run_cell(f, s, arrs, unit, STRESS, PRE)
-            if not (len(base) == len(st) and (base.entry.values == st.entry.values).all() and (base.exit.values == st.exit.values).all()):
-                raise SystemExit(f"STOP: {s} {f}: the stress cost changed the trade list")
-            base["pnl_stress"] = st.pnl.values
-            base = as_traded(base, q, unit)                            # prereg addendum 2: the cost per share as traded
-            base["wf"] = base.date >= WF0
+            base = cell_trades(f, s, arrs, unit, q)
             base.to_csv(os.path.join(OUT, f"A_{s}_{f}_trades.csv"), index=False)
             w = stats(base, days, WF0, LB0)
             cells[f"{s}|{f}"] = {"strat": s, "fund": f, "unit": unit, "WF": w, "stress_net": float(base.pnl_stress[base.wf].sum()),
@@ -790,8 +799,8 @@ def stage_a():
 
 # ------------------------------------------------------------------ Stage B (lockbox, once) and Stage C (book add)
 def changed_since_a(sa):
-    """Stage B's re-check before anything of the lockbox loads: the strategy files and the harness Stage A ran with, a passing ttmcheck for the same TTM
-    files and wrapper, and each passing cell's pre-lockbox master slice (fingerprint as the gates saw it). -> list of what changed (empty = nothing)."""
+    """Stage B's first re-check, nothing loaded: the strategy files and the harness Stage A ran with, and a passing ttmcheck for the same TTM files and
+    wrapper. -> list of what changed (empty = nothing). The data / engine side is replay_a's (the gates.json fingerprint check is gone: round 2)."""
     bad, files, fa = [], stack_shas(), sa.get("files_sha256") or {}
     bad += [f"strategy file {n}" for n in sorted(set(files) | set(fa)) if files.get(n) != fa.get(n)]
     if sha(os.path.abspath(__file__)) != sa.get("harness_sha256"):
@@ -800,11 +809,65 @@ def changed_since_a(sa):
     tj = json.load(open(p)) if os.path.exists(p) else {}
     if not tj.get("pass") or tj.get("stack_sha256") != stack_shas("TTM") or tj.get("wrapper_sha256") != wrapper_sha():
         bad.append("ttmcheck (missing, not passed, or a TTM file / the wrapper changed since it ran)")
-    p = os.path.join(OUT, "gates.json")
-    gf = (json.load(open(p)) if os.path.exists(p) else {}).get("funds", {})
-    for f, tf in dict.fromkeys((k.split("|")[1], t) for k in sa["passes"] for t in ("5m",) + (("30m",) if k.startswith("TTM|") else ())):
-        if load(f, tf, PRE)["fingerprint"] != gf.get(f, {}).get("fp" + tf[:-1]):
-            bad.append(f"the {f} {tf} master (pre-lockbox fingerprint differs from gates.json, or no gate on file)")
+    return bad
+
+
+def same_trades(got, want):
+    """A replayed cell vs Stage A's saved trade table: the same trades (entry / exit bar, exit day, side) and money within 1e-6 -> '' or what differs."""
+    if len(got) != len(want):
+        return f"{len(got)} trades now vs {len(want)} in Stage A"
+    for c in ("entry", "exit", "date"):
+        x, y = (pd.DatetimeIndex(pd.to_datetime(v[c])).as_unit("ns").asi8 for v in (got, want))
+        if (x != y).any():
+            i = int(np.argmax(x != y))
+            return f"trade {i + 1} {c} {pd.Timestamp(x[i])} now vs {pd.Timestamp(y[i])} in Stage A"
+    if (got["side"].to_numpy(int) != want["side"].to_numpy(int)).any():
+        return "a trade's side differs"
+    for c in ("pnl", "pnl_stress", "pts", "px", "ratio"):
+        d = np.abs(got[c].to_numpy(float) - want[c].to_numpy(float))
+        if not (d <= 1e-6).all():                                          # a NaN fails too
+            return f"{c} differs on {int((~(d <= 1e-6)).sum())} trades (largest {np.nanmax(d) if np.isfinite(d).any() else float('nan'):.6g})"
+    return ""
+
+
+def replay_a(sa):
+    """pre-run review round 2, 2026-10-03: Stage B's main pre-flag check, replacing the gates.json fingerprint (sha1 of first bar | last bar | bar count:
+    blind to prices, and gates.json is rewritable after A). Every passing cell re-runs on today's PRE-lockbox data and code exactly as compute_cells ran
+    it (same load and cut, unit from the 2016-06-30 close, base + stress cost, split ratios cut at the lockbox, same window) and must give back
+    OUT/A_<s>_<f>_trades.csv. One check covers the engine, the strategy files, prices and a split-rebased re-pull; no lockbox bar is loaded or computed.
+    -> list of mismatches (empty = Stage A reproduces)."""
+    bad, fund = [], {}
+    for k in sa["passes"]:
+        s, f = k.split("|")
+        try:
+            if f not in fund:
+                a5 = load(f, "5m", PRE)
+                assert_volume(a5, f)
+                close0, q = close_on(a5, "2016-06-30"), share_ratio(f, LB0)[0]
+                if close0 is None or q is None:
+                    raise SystemExit("no 5-minute bar on 2016-06-30" if close0 is None else "a daily split / raw file is missing (prereg addendum 2)")
+                fund[f] = ({"5m": a5}, int(math.floor(USD / close0)), q)
+            arrs, unit, q = fund[f]
+            if unit != sa["funds"][f]["unit"]:
+                raise SystemExit(f"unit {unit} shares now vs {sa['funds'][f]['unit']} in Stage A (the 2016-06-30 close moved)")
+            if STRAT[s][2] not in arrs:
+                arrs[STRAT[s][2]] = load(f, STRAT[s][2], PRE)
+            p = os.path.join(OUT, f"A_{s}_{f}_trades.csv")
+            if not os.path.exists(p):
+                raise SystemExit(f"A_{s}_{f}_trades.csv is missing")
+            got = cell_trades(f, s, arrs, unit, q)
+            why = same_trades(got, pd.read_csv(p, parse_dates=["entry", "exit", "date"]))
+            if not why:                                                   # the trade table must also be the one stageA.json JUDGED (a stopped
+                c = sa["cells"][k]                                        # A re-run can leave newer CSVs beside an older stageA.json)
+                w = got[(got.date >= WF0) & (got.date < LB0)]
+                tol = 1e-6 * max(1, len(w))
+                if len(w) != c["WF"]["n"] or abs(float(w.pnl.sum()) - c["WF"]["net"]) > tol or abs(float(w.pnl_stress.sum()) - c["stress_net"]) > tol:
+                    why = (f"the trade table no longer matches what stageA.json judged (WF n {len(w)} vs {c['WF']['n']}, net {float(w.pnl.sum()):,.2f} vs "
+                           f"{c['WF']['net']:,.2f}) - re-run A to the end")
+        except (SystemExit, Exception) as e:                               # a crash on today's code is a refusal too, never a half-run B
+            why = str(e) if isinstance(e, SystemExit) else f"{type(e).__name__}: {e}"
+        if why:
+            bad.append(f"{k}: {why}")
     return bad
 
 
@@ -822,8 +885,13 @@ def stage_b(*a):
     B, D, E = eng()
     bad = changed_since_a(sa)                                          # pre-run review 2026-10-03: A's code and pre-lockbox data must be what reads the LB
     if bad:
-        print("Stage B refused - changed since Stage A / the gates / ttmcheck: " + "; ".join(bad) + " - re-run what produced it (lockbox NOT read)")
+        print("Stage B refused - changed since Stage A / ttmcheck: " + "; ".join(bad) + " - re-run what produced it (lockbox NOT read)")
         return
+    bad = replay_a(sa)                                                 # pre-run review round 2, 2026-10-03: A's trades must come back before any LB bar loads
+    if bad:
+        print("Stage B refused - Stage A no longer reproduces on today's code/data: " + "; ".join(bad) + " - re-run A (lockbox NOT read)")
+        return
+    print(f"pre-flag replay: all {len(sa['passes'])} passing cells give back Stage A's trades on today's code and pre-lockbox data", flush=True)
     lbdata = {}
     for k in sa["passes"]:                                             # the lockbox data loads FIRST; nothing is run or shown from it yet
         s, f = k.split("|")
@@ -1022,11 +1090,21 @@ def smoke(*a):
         assert not os.path.exists(flag), "a refused Stage B (book base check) must not burn the lockbox"
         for what, name, edit in (("a strategy file changed since Stage A", "stageA.json", lambda j: j["files_sha256"].update({"ORB_3_6.py": "0"})),
                                  ("the harness changed since Stage A", "stageA.json", lambda j: j.update(harness_sha256="0")),
-                                 ("ttmcheck no longer matches the wrapper", "ttmcheck.json", lambda j: j.update(wrapper_sha256="0")),
-                                 ("a master slice changed since the gates", "gates.json", lambda j: j["funds"]["FUND1"].update(fp30="0"))):
+                                 ("ttmcheck no longer matches the wrapper", "ttmcheck.json", lambda j: j.update(wrapper_sha256="0"))):
             p = os.path.join(OUT, name); orig = json.load(open(p)); j = json.loads(json.dumps(orig)); edit(j); json.dump(j, open(p, "w"))
             stage_b("--ledger-ok"); json.dump(orig, open(p, "w"))
             assert not os.path.exists(flag), f"Stage B must refuse before the flag when {what}"
+        p = os.path.join(OUT, "A_ORB_FUND1_trades.csv"); orig = open(p).read()     # the pre-flag replay (pre-run review round 2, 2026-10-03)
+        t = pd.read_csv(p); t.loc[0, "pnl"] += 0.01; t.to_csv(p, index=False)
+        stage_b("--ledger-ok"); open(p, "w").write(orig)
+        assert not os.path.exists(flag), "Stage B must refuse before the flag when a cell no longer gives back Stage A's trades"
+        real_cell = run_cell
+        globals()["run_cell"] = lambda *x: real_cell(*x).assign(pnl=lambda d: d.pnl + 1e-3)
+        try:
+            stage_b("--ledger-ok")
+        finally:
+            globals()["run_cell"] = real_cell
+        assert not os.path.exists(flag), "Stage B must refuse before the flag when the engine's cell output changes"
         real_load = load
         globals()["load"] = lambda f, tf, d1: real_load(f, tf, d1) if d1 == PRE else (_ for _ in ()).throw(SystemExit("simulated: the lockbox data cannot be loaded"))
         try:
@@ -1036,7 +1114,7 @@ def smoke(*a):
         finally:
             globals()["load"] = real_load
         assert not os.path.exists(flag), "a failed lockbox load must not burn the lockbox"
-        print("Stage B refusals do not burn the lockbox: book base check mismatch, a changed strategy file / harness / ttmcheck / master slice, and a failed data load all leave no flag file")
+        print("Stage B refusals do not burn the lockbox: book base check mismatch, a changed strategy file / harness / ttmcheck, a cell that no longer gives back A's trades (saved table or engine output), and a failed data load all leave no flag file")
         stage_b("--ledger-ok")
         sbj = json.load(open(os.path.join(OUT, "stageB.json")))
         assert all(v["wf_part_identical_to_stageA"] for v in sbj["cells"].values()), "Stage B's pre-lockbox trades must equal Stage A's (same per-share cost)"
