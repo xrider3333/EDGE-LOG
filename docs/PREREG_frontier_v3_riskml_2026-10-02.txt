@@ -1,0 +1,93 @@
+ROUND 62 V3 - A LEARNED RISK FORECAST IN PLACE OF V2's TRAILING VOLATILITY (owner ask 2026-10-02: "continue to push the frontier
+models of edgelog and beat them. might have to use an ML"). Written and committed BEFORE any V3 number exists. Driver:
+tools/frontier_v3_riskml.py (its --selftest runs on synthetic data and reads no master). The driver refuses to run unless this
+file's canonical (LF) sha256 equals the one written into it, so a changed spec is a new file. Adoption stays the owner's call.
+HONEST PRIOR (written before any number): low to moderate. A learned forecast usually beats a plain trailing window AS A FORECAST,
+but V2's whole book gain rests on two episodes, so beating V2 on the book in both stretches is a far higher bar.
+
+WHY THIS AND NOT ANOTHER TRADE GATE. Every learned trade picker on these legs has read as a coin flip (round 58: AUC 0.495, a
+seed-fragile pass; ML_SHUFFLE_AUDIT 2026-09-30: no learned sizing shows aim in both stretches). The one sizing idea that has
+generalised here is volatility targeting (ORB.md 4.7; book round 62 V2). Volatility is forecastable where direction is not, so
+the ML goes on the RISK side: it replaces V2's backward-looking 20-day book volatility with a forecast of the next 5 days of book
+risk built from the book's own recent risk AND the market's (NQ / ES daily ranges). Everything else in V2 is kept verbatim.
+
+BASE / RAW TWIN = #463's job legs verbatim (api/book_shadow.BOOK463_LEGS), each leg's pinned master, no fallback.
+INCUMBENT OVERLAY = V2 (api/book_shadow.vt_multipliers on #463's valued-daily series) - the nightly VT shadow line.
+WINDOW 2010-06-07..2026-06-30. IS 2010-06-07..2016-06-30 (fits and the forecast gate ONLY; never judged) · WF 2016-07-01..
+2025-06-29 · LB 2025-06-30..2026-06-30. Valued-daily series, day index and stamps exactly as book_q.py / bookline_paired_stop.py
+(bdate_range of the window united with every leg's day, zeros filled; UTC-truncated stamps).
+
+THE RULE (V3). Index positions are the book's day-index rows. A trade is sized by m at position p = the number of index days
+strictly before the ET calendar date of its fill. Every row before that date closed by 20:00 ET (19:00 in winter) on the day
+before, so nothing after the fill is read; a Sunday-evening ENGU-Q fill is dated Sunday and reads rows through UTC Saturday.
+V2 is re-scored with the same key (round 62 keyed it by the UTC stamp, so its old read can differ slightly).
+  m(p)   = clip(REF(p) / S(p), 0.5, 2.0) rounded to 0.1; m = 1 where S or REF is undefined.
+  S(p)   = the forecast, made from data before p, of the RMS of #463's valued-daily P&L over positions p..p+4, in dollars,
+           floored at $1.
+  REF(p) = median of S over the 250 positions before p (min 125) - V2's scale-free reference, unchanged.
+  Open trades are valued daily exactly as the engine does (_mtm_increments), each trade's increments scaled by its own m.
+
+THE FORECAST. Target y(p) = log(1 + RMS of #463's valued-daily P&L over positions p..p+4) - the RAW book, never a sized one.
+  Features at p: log(1+|M|) of the last row; log(1+RMS M) over the last 5, 20 and 60 rows; log NQ RTH range (points) of the last
+  market day before p's date, and its mean over 5 and 22 market days; the same for ES over 1 and 5 days; NQ's 20-market-day
+  close change divided by its 22-day mean range. NQ = NQ 5m RTH db_adj_rth (the ORB leg's master); ES = ES 30m RTH db_adj_rth
+  (TTM's). A new roll (a constant shift of all history) changes none of them; a re-estimated offset inside the window moves the
+  trend feature for ~20 market days after it (ranges are untouched). A market feature whose last day is
+  more than 1 business day behind the previous business day is blanked (no forecast, m = 1) - a stalled master is never carried.
+  Fitting: walk-forward, expanding window, refit every 63 positions; ONE schedule for every model, starting where all of them
+  have 500 rows; a training row q is used only if q + 5 <= the refit position (its whole target is known).
+  Models (fixed now, nothing tuned): NAIVE = ridge on the 20-row book feature alone (V2's information - the yardstick);
+  RIDGE = StandardScaler + Ridge(alpha 1.0) on all features - THE PRIMARY MODEL, fixed before any number; GBM =
+  HistGradientBoostingRegressor(max_iter 300, learning_rate 0.05, max_depth 3, min_samples_leaf 40, l2 1.0, early stopping off,
+  random_state 0) - scored and reported only; it can never replace RIDGE after the fact.
+
+STEP 1 - FORECAST GATE, IS ONLY (read before anything else; it decides whether STEP 2 is computed at all).
+  Error at p = log(S / REF_S) - log(R / REF_R): the forecast relative to its own trailing 250-position median, against the
+  realised 5-day RMS R relative to the median of the 250 realised values known before p, each side clipped at +-log 2 (the
+  0.5-2.0 band the rule can act on). A constant level bias cancels here exactly as it cancels in m = REF / S, so the gate
+  scores what the sizing rule uses.
+  Sample: IS positions whose whole target lies in IS and where all three models are scored.
+  PASS = RIDGE's mean squared error <= 0.95 x NAIVE's AND a one-sided Diebold-Mariano test on the squared-error difference
+  (rectangular kernel, 4 lags for the 5-day overlap, Bartlett if that variance is not positive, Harvey-Leybourne-Newbold
+  small-sample factor, Student t with n-1 df) gives p < 0.05.
+  FAIL = V3 is dead. STEP 2 is not computed and nothing is re-tried with other features, horizons or models.
+
+STEP 2 - BOOK BAR (only after STEP 1 passes). Yardstick (owner rule 2026-09-28, convention of 2026-10-01): ROC %/yr at a $30k
+worst drawdown = valued-daily net inside the stretch / ((last - first).days / 365.25) / 1000 x 30000 / the stretch's own
+valued-daily drawdown; Sortino on the valued-daily series (mean / root-mean-square of the negative days x sqrt 252).
+  Stretch rows exactly as tools/rocfrontier/r10_spread.py: WF = [2016-07-01, 2025-06-30), LB = [2025-06-30, 2026-06-30],
+  weekend-dated rows included; years = (last row - first row).days / 365.25; drawdown from a peak that starts at 0.
+  PARITY FIRST: the m = 1 rebuild must equal api/book_shadow.book463_valued_daily over the window to the cent on the SAME day
+  index; V2 built here must equal vt_multipliers on it; and #463 must read the references r10_spread.py reproduces (BOOK.md 10r
+  prints them rounded): WF 93.81 / LB 155.54 at $30k (+-0.006), Sortino 3.816 / 4.150 (+-0.0006), drawdown $44,849 / $49,855
+  (+-$1), LB net without its biggest trade $167,144 (+-$150). A parity miss stops the driver; no V3 number is printed.
+  PASS needs ALL of:
+   1. V3 beats #463 on ROC at $30k AND on Sortino, in WF AND in LB;
+   2. V3 beats V2 on ROC at $30k AND on Sortino, in WF AND in LB (otherwise V2 already does the job);
+   3. >= 100 WF and >= 50 LB trades; LB valued-daily net > 0 without the book's single biggest LB trade;
+   4. DELAY: V3 with its forecast one position staler still beats #463 on ROC at $30k in WF and LB;
+   5. AIM: V3's WF ROC at $30k is above the 95th percentile of 1,000 circular shifts of its own daily multipliers across the WF
+      positions (numpy default_rng 20261002). Shifts keep the multipliers' persistence, so only their timing is tested.
+      LB shifts and independent day shuffles (both stretches) are reported, not required.
+  Reported, never selected on: target horizons 1 and 20 days; the GBM forecast in place of RIDGE; REF window 500; caps 0.5-1.5;
+  relative forecast MSE in WF and LB; per-year net/drawdown 2011-2025 against #463 and V2; the two episodes that carry V2
+  (2020-02-15..04-30, June 2026) with each arm's drawdown inside them; round 62's old-convention V2 read (116.1 / 259.3) as a check.
+
+WHAT A PASS MEANS. These stretches have been read by every book round since 58, and V2 itself was written after V failed on them,
+so a backtest PASS is not evidence on its own. A PASS earns ONE thing: a nightly shadow line book_shadow_v3 beside VT, from its
+first forward day, in which EACH TRADE is sized at m_V3 of its fill's ET date - the first row of the daily series dated on or
+after that date (v3_daily_multipliers.csv, column index_day) - never a report day's multiplier times the exit-day book figure
+(a Monday multiplier reads the UTC-Sunday row, which holds marks after a Sunday-evening fill). FORWARD BAR:
+read after 12 months from per-trade paper records dated by exit day (the 2026-09-30 correction); it must beat BOTH the adopted
+book line and the VT line on ROC at a $30k drawdown and on Sortino, and like VT it only counts if the window holds a book
+drawdown deeper than $20k. The owner decides anything beyond.
+
+COULD FOOL US. (a) V2's whole gain is two episodes; if V3's gain is the same two episodes it is the same bet with more knobs -
+the episode rows and per-year counts say so. (b) The June 2026 ENGU-Q give-back may happen in a calm market, where a market-risk
+forecast cannot see it - V3 could lose LB to V2 for a real reason. (c) The book's dollar risk grew ~10x with the NQ price; the
+regression sees levels, but the walk-forward refit keeps it current and the gate and the rule both cancel level. (d) Overlapping
+5-day targets inflate apparent precision; the rectangular-kernel test and the embargo are the guards.
+
+The driver always prints the sensitivity rows beside the primary cell; the verdict is the primary cell only. --tail-to DATE adds the
+fresh 2026-07-01.. stretch as an INFO row (net and drawdown of #463 / V2 / V3) with each master's missing business days and the
+share of rows where V3 had no forecast (m forced to 1) printed beside it, never part of the bar.
