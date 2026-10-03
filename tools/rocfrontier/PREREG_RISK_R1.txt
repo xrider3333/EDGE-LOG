@@ -152,3 +152,16 @@ power check). Before this addendum the file's sha256 was 4c3b667c43b411144a50a85
   P2 and P3 pass (its IS* stretch holds E1 inputs); P4's tolerances are exactly the registered 0.001 / 0.0001; R2-R4 use only trades
   closed by 2025-06-29; R3 counts the contracts actually traded (the NOISE file's own 1.75 tilt included); R4 compares the raw U and S
   entry stamps and reports shares; R5 prints any Kronos step-0 result it finds.
+
+ADDENDUM 3, 2026-10-03 (still BEFORE any real-data number; informational - no rule of this round changes). Before this addendum the
+file's sha256 was bfe9b01d7ab6888c18f2cb47b7a6a093d1110cb2b1e00402065894078b2a2df7.
+- The frontier lane answered the same owner ask the same evening with ROUND 62 V3 (docs/PREREG_frontier_v3_riskml_2026-10-02.txt,
+  tools/frontier_v3_riskml.py, main 0d19a6d): a learned forecast of the book's next-5-day risk (book + NQ / ES ranges; ridge primary)
+  in place of V2's trailing 20-day volatility, with an IS-only forecast gate before any book figure. V3 is the house's test of the
+  "does a learned risk forecast beat V2's" question. This round's R5 stays REPORT-ONLY: whatever it reads, it never proposes a line
+  of its own (the "forward shadow" sentence of R5 is withdrawn in V3's favour), so the question is not given two shots at a pass.
+- E1-E3 ask a different question (is V2's own gain timing or two episodes) and are unaffected; a V2 that fails here does not void V3,
+  whose bar requires beating V2 as well as #463.
+- Clocks: V3 keys each trade by the ET calendar date of its fill on the UTC-stamped index; this round keys by the engine's UTC stamp
+  (rule U, = round 62 and the engine's book_sizing) and reports the ET session-day clock (rule S). All three are causal; their V2
+  reads can differ slightly, and R4 counts how often.

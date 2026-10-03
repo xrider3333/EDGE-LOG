@@ -1,7 +1,7 @@
 # Round 11 (2026-10-03): RISK r1 - is book round 62's V2 volatility target a TIMING MECHANISM or two lucky drawdowns?
-# Pre-registered: tools/rocfrontier/PREREG_RISK_R1.txt (commit cff2661, sha256 b7d9c5dc...d017), then two dated PRE-DATA addenda from this
+# Pre-registered: tools/rocfrontier/PREREG_RISK_R1.txt (commit cff2661, sha256 b7d9c5dc...d017), then three dated PRE-DATA addenda: this
 # harness's own synthetic power check and an independent code review (E2 on rule U, strict p <= 0.05, verdict spans ALL / ALLX, the
-# INCONCLUSIVE reading); PREREG_SHA below is the file with both. Written before any real-data number of this round.
+# INCONCLUSIVE reading), and the relation to round 62 V3 (R5 report-only). PREREG_SHA below is the file with all three.
 # Every rule, threshold and window is that file; where it is silent the choice is marked CHOICE.
 #   python r11_risk.py build        one engine pass over #463's legs -> per-trade records under both day rules (U = engine UTC stamp, S = ET session day)
 #                                   + P1 (records re-sum to the engine's own series) + the list of round-62 output files already on disk
@@ -19,7 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get("EDGELOG_ROCFRONTIER_R11", r"C:\EdgeLog\_anatomy_cache\rocfrontier\r11")
 R62_DIR = os.environ.get("EDGELOG_R62_DIR", r"C:\EdgeLog\_anatomy_cache\adopt449")
 PREREG = os.path.join(HERE, "PREREG_RISK_R1.txt")
-PREREG_SHA = "bfe9b01d7ab6888c18f2cb47b7a6a093d1110cb2b1e00402065894078b2a2df7"
+PREREG_SHA = "aeb228725526e4070697013e29e45f3f1d1711b29d0d385adab2012dcfa5b5df"
 TS = pd.Timestamp
 W0, W1 = "2010-06-07", "2026-06-30"                                  # #463's window (its job's own)
 IS0, IS1 = TS("2011-01-03"), TS("2016-06-30")                         # IS* (2010 is V2's warm-up)
@@ -675,8 +675,9 @@ def r5(B):
         out[name] = {"n": int(k.sum()), "qlike_naive": float(Ln.mean()), "qlike_har": float(Lh.mean()), "gain_pct": gain, "dm_hln": stat, "p_one_sided": p,
                      "clears": bool(gain >= 5.0 and p < 0.05)}
     out["better_forecast_exists"] = bool(out["2013-2016H1"]["clears"] and out["WF"]["clears"])
-    out["read"] = ("an HAR-driven VT line may be proposed as a FORWARD SHADOW only (owner call)" if out["better_forecast_exists"] else
-                   "a learned risk forecast is not worth building for V2 - the ML question for this role is closed")
+    out["read"] = ("a better risk forecast exists for this book (report only - the house's test of that question is round 62 V3, addendum 3)"
+                   if out["better_forecast_exists"] else
+                   "no better risk forecast than V2's own on this read (report only - round 62 V3 is the house's test, addendum 3)")
     return out
 
 
