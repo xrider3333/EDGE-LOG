@@ -68,3 +68,13 @@ KNOWN LIMITS: the map is conditional on #463's one realised path (its drawdowns 
 is the point - the bars are on that path); synthetic legs have no regime shifts, decay or capacity limits, so the map is
 a NECESSARY condition, never a sufficient one; best-of-3 sizing mirrors what a real leg faces at A2; the LB part is one
 year, so its P(lift) is mostly noise and is shown beside, never instead of, the WF map.
+
+PRE-DATA ADDENDUM 1 (2026-10-04, before any map cell on #463 was computed; found by the harness's own smoke test on a
+synthetic book): standardising z WITHIN each regime removed the book's drawdown-day level, so rho_dd changed only how a
+leg co-moves inside drawdowns, not whether it loses while the book falls - its DO stayed flat across rho_dd (0.056 at
+-0.6, 0 and +0.6), contradicting this file's own QUESTION. Fix: z_t = (the book's P&L - its mean over the WHOLE
+stretch) / the std of its regime, so DD days keep their level below the stretch mean while the daily correlation inside
+each regime stays exactly rho_r; and mu is re-centred so the leg's average stays on target: mu = s x V / (252 p) - sigma
+x the stretch mean of g_t x rho_r x z_t. Checked before any real number: on the synthetic book a positively correlated
+leg now LOSES inside the deepest window, DO falls monotonically as rho_dd rises, and the stretch mean stays within 5% of
+target. Everything else unchanged.
