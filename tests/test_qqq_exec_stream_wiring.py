@@ -18,7 +18,22 @@ import pytest
 from api import qqq_exec as qe
 
 
-def _wait_for(pred, timeout=5.0):
+# WHY THE DEADLINES HERE ARE GENEROUS (2026-10-04). These tests start REAL threads and then
+# wait on wall-clock deadlines. Alone they finish in milliseconds; inside the full 3,600-test
+# suite, running next to the live runner fleet on one machine, a thread can simply not be
+# scheduled within a few hundred milliseconds. That made
+# test_serving_process_stops_the_stream_even_when_tick_keeps_raising fail in the full suite while
+# passing on its own in 10s and with all 802 qqq_exec tests in 70s - and since the pre-push gate
+# runs the full suite, it refused EVERY lane's engine-tier push until this was fixed.
+#
+# A longer deadline does not weaken any of this. The thing being tested is whether the stream is
+# torn down at all: if it is leaked, the predicate never becomes true no matter how long we wait,
+# so a slow pass and a real failure stay as far apart as they were. What a SHORT deadline adds is
+# only the chance of calling a healthy teardown a leak because the box was busy.
+STREAM_WAIT = 30.0
+
+
+def _wait_for(pred, timeout=STREAM_WAIT):
     end = time.time() + timeout
     while time.time() < end:
         if pred():
@@ -257,7 +272,7 @@ def test_serving_process_starts_and_stops_the_stream_around_the_loop(tmp_path, m
     t.start()
     assert _wait_for(lambda: calls["start"] == 1)
     stop.set()
-    t.join(timeout=3)
+    t.join(timeout=STREAM_WAIT)
     assert not t.is_alive()
     assert calls["start"] == 1
     assert calls["stop"] == 1
@@ -269,7 +284,10 @@ def test_serving_process_stops_the_stream_even_when_tick_keeps_raising(tmp_path,
     stop, not leaked because the loop body kept erroring."""
     _thread_paths(tmp_path, monkeypatch)
 
+    ticks = {"n": 0}
+
     def boom_tick(**kw):
+        ticks["n"] += 1
         raise RuntimeError("simulated tick failure")
     monkeypatch.setattr(qe, "tick", boom_tick)
     calls = {"start": 0, "stop": 0}
@@ -283,9 +301,12 @@ def test_serving_process_stops_the_stream_even_when_tick_keeps_raising(tmp_path,
                         kwargs={"stop": stop, "log": lambda *_: None}, daemon=True)
     t.start()
     assert _wait_for(lambda: calls["start"] == 1)
-    time.sleep(0.1)   # let a few failing ticks go by
+    # Wait for the failing ticks to have HAPPENED rather than sleeping for a fixed tenth of a
+    # second and hoping. The point of the test is that the loop keeps going after tick() raises,
+    # so the thing to wait for is the count going up - which is observable, unlike elapsed time.
+    assert _wait_for(lambda: ticks["n"] >= 2), "the loop must keep ticking after tick() raises"
     stop.set()
-    t.join(timeout=3)
+    t.join(timeout=STREAM_WAIT)
     assert not t.is_alive()
     assert calls["stop"] == 1
 
