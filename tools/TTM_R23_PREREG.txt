@@ -1,0 +1,76 @@
+TTM ROUND 23 - PRE-REGISTRATION (written 2026-10-04 BEFORE any number below is computed; revised after MANAGER's
+review C:/EdgeLog/manager/reviews/ttm_r23_review_2026-10-04.md, "GO WITH EDITS")
+Owner ask via MANAGER (2026-10-04): push the frontier - BOOK #463, ROC at a $30k worst drawdown WF 93.8 / LB 155.5,
+Sortino 3.82 / 4.15 (10-01 unified convention: net and drawdown valued daily inside each stretch) - with ONE best
+remaining shot for TTM, as a book test run by FRONTIER.
+
+FAMILY: COMPRESSION-SIZING. This is the SECOND compression-sizing shot this week (shot 1 = NOISE r69, tilt depth on
+#422). Family-wise rule stated in advance: the own-size shuffle bar is the 97.5th percentile (not 95th).
+
+WHY THIS IS TTM'S BEST REMAINING SHOT, AND WHAT WAS RULED OUT
+TTM's leg-level ideas are spent: the clean-engine stack validated WEAK (#479, PBO 0.64), the stack does not travel to
+other cells (21a), breakeven-at-+1R barely acts (22), TTM on 35 stocks loses money (20c), the multi-cell sleeve failed
+inside #463 (#469/#470), TTM on ETF proxies died in TRANSFER r2, the NQ 15m cell failed its own validate (#281, and a
+book result cannot certify a leg). The order-flow lead is forward-only by owner rule.
+What travels is TTM's MECHANISM, the hourly compression check. TTM round 6 pre-registered the transfer; on 2026-09-07 a
+flat 1.5x size on trades entered while the last COMPLETED hourly squeeze was on lifted three unrelated crowns at the
+same or better drawdown (ORB #314 LB $87,132 -> $101,788 at identical DD; ENGU-Q #309 LB $85,511 -> $109,921 at better
+DD; NOISE #304 LB up, better DD). The NOISE half is already in #463 (NOISE #422, 1.75x compression tilt), the one book
+edge round 58 judged real. The ORB #234 and ENGU-Q #335 slots of #463 are still RAW.
+NOVELTY, cited: (a) fixed-sizing r1 (2026-09-28) killed ORB #314's risk-parity / time-of-day tilt - NOT compression -
+and found the compression package near-uniform on TTM (233 of 246 trades); (b) round 62 killed the ORB x NOISE
+same-direction overlap rule (and its "agreement" read was later found to be look-ahead); (c) the compression SIZE on
+ORB #234 and ENGU-Q #335 as BOOK legs has no recorded test (BOOK.md, the ledger and the lane notes searched).
+
+THE BOOKS (FRONTIER runs all of them; identical except the gate blocks named)
+TWIN     = BOOK #463 exactly: ORB #234 (NQ 5m RTH) + ENGU-Q #335 (NQ 1m ETH) + TTM #459 x3 (ES 30m) + NOISE #422, the
+           same job window (2010-06-07 .. 2026-06-30, LB from 2025-07-01), masters, costs, weights, day-stamping.
+           PARITY TO THE CENT FIRST: WF 93.8 / LB 155.5, Sortino 3.82 / 4.15 on the 10-01 convention.
+COIL     = TWIN with the ORB #234 and ENGU-Q #335 legs carrying the book engine's existing leg gate block
+           {"mode": "comp", "mult": 1.5} -> api/paper_gate -> augur_engine/ml_keel.compression_sizes defaults:
+           sq60_on read at each trade's ENTRY bar from the last COMPLETED 60-minute group of the leg's own NQ master
+           (causal), 1.5x when on, 1.0x otherwise, cap 3.0. NO depth 2x, NO Friday, NO event rule. TTM #459 and
+           NOISE #422 unchanged. Same trades; only size changes.  = THE PRIMARY (the joint book).
+ORB-ONLY = TWIN with only the ORB #234 leg carrying the block.     } REPORTED ablations. If only one leg carries a pass
+ENGU-ONLY= TWIN with only the ENGU-Q #335 leg carrying the block.  } the verdict is "one leg", and the single-leg book
+                                                                     is a NEW pre-registration - never a swap here.
+NEAR-UNIFORM GUARD (said first): report each tilted leg's share of 1.5x trades. A leg with > 80% or < 20% of its trades
+tilted is leverage / noise: it is reported, not judged; if that happens the joint verdict is read on the book with
+only the OTHER leg tilted (the matching ablation above), and the result is still at most "one leg".
+
+STAGE A - WALK-FORWARD ONLY (2010-06-07 .. 2025-06-30). The lockbox is NOT read in Stage A.
+PASS needs all of:
+ A1. COIL ROC@$30k >= TWIN (WF). (30 x MAR is scale-free: plain extra size cannot pass - the leverage line.)
+ A2. COIL Sortino (daily) >= TWIN (WF).
+ A3. OWN-SIZE SHUFFLE, 1,000 shuffles, seed 7: each tilted leg keeps its own count of 1.5x trades, reassigned at random
+     across that leg's own WF trades; COIL's WF ROC@$30k >= the 97.5th percentile of the shuffled books.
+ A4. COIL WF drawdown (valued daily) no more than 10% above TWIN's.
+REPORTED CHECKS (RISK r1's lessons; any one failing is stated beside the verdict and flags it as fragile):
+ R1. COIL minus TWIN WF ROC@$30k recomputed WITHOUT 2020-02-01 .. 2020-04-30 keeps its sign.
+ R2. The 2010-06-07 .. 2016-06-30 block (never read for this rule) keeps the sign of COIL minus TWIN.
+ R3. Breadth: per WF calendar year, d = m_coil - c x m_twin, where m = that year's mean daily book P&L and c = COIL's
+     average size relative to TWIN over the whole WF (total weight x size units / total weight units, all four legs).
+     d > 0 in at least two-thirds of the WF calendar years (10 of the 15 calendar years 2010-2025; MANAGER's review
+     said "6 of 9" - the same two-thirds rule scaled to #463's actual WF span, flagged for the re-read).
+Also reported: ORB-ONLY and ENGU-ONLY Stage-A figures, per-leg tilted shares, per-year net difference.
+
+STAGE B - THE LOCKBOX, READ ONCE, ONLY IF STAGE A PASSES (2025-07-01 .. 2026-06-30). A VETO, not evidence.
+The #463 lockbox is one ENGU-Q trade (28-33% of LB net), so the veto reads EX-TOP-TRADE figures: remove the single
+largest LB trade of TWIN from BOTH books (the same trade, at each book's own size) and require
+ B1. COIL ex-top ROC@$30k >= TWIN ex-top; B2. COIL ex-top Sortino >= TWIN ex-top; B3. COIL ex-top LB net > 0;
+ B4. COIL LB drawdown (valued daily) no more than 10% above TWIN's.
+The top trade's own tilt status is reported and cannot carry a pass or a fail. The 09-07 disclosure stands: the rule's
+lockbox was read on ORB #314 / ENGU-Q #309 - different runs from #234 / #335 - so #463's lockbox is unread for this
+rule, but the FAMILY has seen a lockbox; that is why the LB is only a veto.
+
+VERDICT: Stage A pass + Stage B no veto = PASS -> owner adoption call, with a forward check on paper (new no-order
+shadow legs ORB_234_C15 and ENGUQ_335_C15 beside the raw ones; the existing C15 shadows sit on #314 / #309). No
+Auto-Validate: no strategy file changes. Stage A fail = FAIL, lockbox never read. One leg only = "one leg" (new prereg).
+Main ways it could fool us: the coil state can be common (near-uniform = leverage; the guard and A3 cover it); ENGU-Q
+holds for days, so a state read at entry may say little about a multi-day hold; ORB and NOISE are both NQ day-session
+legs, so tilting ORB may stack risk on the same coiled days (A4 / B4 watch it).
+
+WHO DOES WHAT: FRONTIER runs TWIN (parity to the cent), then COIL, ORB-ONLY, ENGU-ONLY as BOOK jobs or its verified
+harness, and exports per-trade rows (leg, entry and exit timestamps, weight, size, dollars) for both stretches; the
+Stage-B rows stay unopened until Stage A is posted. TTM computes A3 and R1-R3 from those rows and reports. ORB and
+ENGUQ lanes are told (their legs are re-sized only). The spec goes to FRONTIER only after MANAGER re-reads this text.
