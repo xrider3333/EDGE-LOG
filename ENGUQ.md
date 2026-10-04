@@ -1463,3 +1463,56 @@ strategy does with a signal it has already taken, without reducing exposure to w
 rules out the hold cap, the partial exit and risk caps, all already dead. That is a narrow gap,
 and it may be empty. The honest position is that ENGU-Q #335 is a finished strategy and the
 lane's remaining value is in guarding it, not improving it.
+
+### 2026-10-04 - the roll-seam book re-read was called off: ENGU-Q already runs on the corrected tape
+
+MANAGER commissioned a reference re-read of BOOK #463 with all four legs swapped onto their
+roll-corrected masters, on the stated premise that #463's ENGU-Q leg runs on "the pre-audit series
+(house roll detector, 19 of 64 switches), NOT the registered roll-corrected master". **The premise
+does not hold, and the re-read was stopped before FRONTIER spent a run on it.**
+
+**There is no pre-audit series.** The source name the book pins for the ENGU-Q leg resolves to
+exactly one registered master - the roll-corrected ADJ NQ 1-minute ETH file - and that file's own
+provenance record names the audited roll table as its input. That table has carried 71 NQ
+switches, 69 of them measured exactly off the raw feed, since the commit that created the adjusted
+masters on 09-26 (591ed863). The house detector's 19-of-64 output is not what any book leg points
+at, and never was.
+
+**Three of #463's four legs already run roll-corrected**, which is the finding that cancels the
+round: ORB on the adjusted NQ 5-minute RTH master, ENGU-Q on the adjusted NQ 1-minute ETH master,
+TTM on the adjusted ES 30-minute RTH master. Only the NOISE leg runs uncorrected, on the no-adjust
+NQ 5-minute RTH master. **This is provable without running anything:** the book shadow REFUSES a
+leg whose realised source differs from the pinned one, so #463 completing at all proves every leg
+ran on its pinned corrected source. The commissioned four-leg swap is a no-op for three legs and a
+one-leg swap for NOISE, which is not this lane's.
+
+**The roll table has moved once since the masters were born, and outside the window.** The
+2026-09-14 switch went from an estimate of 295.00 points to a measurement of 296.50, a 1.50-point
+correction. That date is past #463's sealed end of 2026-06-30, and in a back-adjusted series a
+late switch shifts every earlier bar uniformly, which cannot change point-based profit and loss
+regardless. The adjusted masters were rebuilt by the nightly refresh on 10-04 at 14:26-14:29; that
+rebuild changed nothing inside #463's evaluated span. What does remain true, from the masters' own
+provenance: two applied switches still carry an ESTIMATED offset in the 2026 tail, and because
+back-adjusting leans on every later switch, the price LEVELS of the whole history rest on them.
+
+**The price-level check MANAGER asked for, done, plus the trap it exposed.** None of the four legs
+reads a price LEVEL or a percentage, so a back-adjusted swap is safe for all of them: ENGU-Q's
+efficiency ratio is net move over path length, two distances and therefore shift-invariant;
+NOISE's volume percentile is volume, not price; ORB and TTM carry no such rule. **But the
+back-adjustment here is large and nothing currently warns about it** - June 2010 NQ reads 5,553 on
+the adjusted tape against 1,820 raw, 3.05x. Any future leg reading a percentage return or a
+price-to-price ratio would be badly distorted in the early years.
+
+**Crossing trades, restated: 37 of the crown's 1,949 trades cross a switch, booking $44,845.** This
+supersedes research-ledger row 1.15's figure of 23, and differs from the September audit's
+36 / $38,985 because all 71 NQ switches now carry exact offsets and the September 2026 switch is
+measured rather than estimated. **On an already-corrected tape that $44,845 is exposure, not
+error** - it is how much of the crown's profit is booked across a seam, not how much of it is
+wrong.
+
+**The lesson is the one this lane keeps relearning, in a new place.** A brief named a precise
+quantity - the series a book leg runs on - and the instrument that would have been built measured
+something else. The check that settled it cost four queries and no engine time: read what the
+source name actually resolves to, read the file's own provenance, and diff the input table across
+its versions. **Verify the premise of a commissioned round before running it**, including when the
+commission comes from another lane with a review attached.
