@@ -170,6 +170,72 @@ def detect_session(df):
     return "rth" if inside > 0.98 else "eth"
 
 
+# ── unadjusted splits that `adjustment=split` missed ─────────────────────────────────────
+# FOUND IN THE WILD BY TBIS (2026-10-03), after it had already cost a result. Alpaca's
+# split-adjusted feed did NOT adjust GE's 1-for-8 REVERSE split of 2021-08-02: the stored history
+# runs 12.95 on 07-30 and then opens at 104.48, an 8.07x jump with the earlier years never
+# rebased. TBIS's 10-minute bars read that as a real move and booked a fake +$139k trade, and it
+# took a deliberate >25%-overnight-gap scan of 50 large caps to find it. Its scan found exactly
+# one such defect, so this is rare - and rare is precisely what nobody checks for by hand.
+#
+# TELLING IT FROM REAL NEWS. A 25% overnight move is ordinary (INTC, ORCL, CELG all have real
+# ones). What marks a split is the SIZE being a simple ratio: 8.000, 4.000, 1/8, 3/2. Real news
+# does not land on 8.07x by coincidence, so the test is "a big overnight gap whose ratio sits
+# within a couple of percent of a simple split ratio".
+#
+# Spin-offs are a different thing and are unadjusted BY DESIGN under adjustment=split, so they
+# are not caught here and should not be: their ratios are not simple.
+SPLIT_GAP_MIN = 0.25             # ignore overnight moves smaller than this - all ordinary news
+SPLIT_RATIO_TOL = 0.02           # 2% - far tighter than any news gap lands on a simple ratio
+
+
+def _simple_split_ratios():
+    """Whole-number split ratios only: n:1 and 1:n for n from 2 to 20.
+
+    NOT the fractional ones (3:2, 4:3, 5:4). Measured on real data, they cost more than they are
+    worth: CELG's genuine takeover pop of 1.32x on 2019-01-03 sits within 2% of 4/3 and was
+    refused as a missed split. A 1.3x overnight move is ordinary news; an 8.07x one is not. So the
+    gap has to be at least a doubling or a halving AND land on a whole ratio, which is what makes
+    the test discriminating rather than merely sensitive. TBIS's scan of 50 names across 10 years
+    found exactly one real defect and it was 8:1.
+    """
+    out = set()
+    for n in range(2, 21):
+        out.add(float(n))
+        out.add(1.0 / n)
+    return sorted(out)
+
+
+def split_like_gaps(df, tol=SPLIT_RATIO_TOL, min_gap=SPLIT_GAP_MIN):
+    """Overnight gaps that look like an unadjusted split: [(date, ratio, nearest, name)].
+
+    Overnight only - compared across a change of ET session date, so an intraday move never
+    counts. Returns an empty list for an empty or single-day frame.
+    """
+    if df is None or len(df) < 2:
+        return []
+    d = df.sort_values("time").reset_index(drop=True)
+    et = pd.to_datetime(d["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
+    day = et.dt.strftime("%Y-%m-%d")
+    ratios = _simple_split_ratios()
+    out = []
+    for i in range(1, len(d)):
+        if day.iloc[i] == day.iloc[i - 1]:
+            continue                                   # same session: not an overnight gap
+        prev_close = float(d["close"].iloc[i - 1])
+        nxt_open = float(d["open"].iloc[i])
+        if prev_close <= 0 or nxt_open <= 0:
+            continue
+        ratio = nxt_open / prev_close
+        if abs(ratio - 1.0) < min_gap:
+            continue
+        nearest = min(ratios, key=lambda r: abs(ratio - r))
+        if nearest > 0 and abs(ratio - nearest) / nearest <= tol:
+            name = ("%d:1" % round(nearest)) if nearest >= 2 else ("1:%d" % round(1 / nearest))
+            out.append((day.iloc[i], ratio, nearest, name))
+    return out
+
+
 SPLIT_REBASE_TOLERANCE = 0.005      # 0.5% - far below any split, far above a cent of rounding
 
 
@@ -204,12 +270,26 @@ def split_basis_changed(cur, new, tol=SPLIT_REBASE_TOLERANCE):
                   % (len(j), worst * 100, str(when)[:16],
                      float(j["close_old"].iloc[i]), float(j["close_new"].iloc[i])))
 
-def upsert_master(conn, inst, tf, src, sess, new):
+def upsert_master(conn, inst, tf, src, sess, new, allow_split_gap=False):
     """Create or EXTEND the master for (instrument, timeframe, source). Existing rows win
     on overlap — same additive contract as import_nt_ohlc.py."""
     row = conn.execute(
         "SELECT id, filename FROM csv_files WHERE is_master=1 AND instrument=? "
         "AND timeframe=? AND source=?", (inst, tf, src)).fetchone()
+    # An unadjusted split in the history makes every rule downstream read a fake move, and it
+    # is invisible in a row count or a date span - the only guards a master otherwise has. Stop
+    # before it is registered rather than let a lane discover it in a result (TBIS, +$139k).
+    gaps = split_like_gaps(new)
+    if gaps and not allow_split_gap:
+        when, ratio, _nearest, name = gaps[0]
+        log("  %s %s (%s): REFUSED - %s opens %.2fx its previous close, which is a %s split the "
+            "feed did not adjust (Alpaca missed GE's 1-for-8 on 2021-08-02 the same way). The "
+            "history before it is on the old price basis, so every rule downstream would read a "
+            "fake move. Re-pull with adjustment=raw and rebase it yourself, or pass "
+            "allow_split_gap=True if you have checked this one is real news."
+            % (inst, tf, src, when, ratio, name))
+        return
+
     rebased_note = None
     if row:
         mid, fn = row

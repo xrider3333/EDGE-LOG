@@ -42,6 +42,32 @@ Read a stock master by naming that source. The registry key is
 `(instrument, timeframe, source)`, so an Alpaca `AAPL 5m` and any futures master coexist
 without either touching the other.
 
+## `adjustment=split` is not always right — the loader checks
+
+**Alpaca's split-adjusted feed can still leave a split unadjusted.** TBIS found one in the wild
+(2026-10-03): GE's **1-for-8 reverse split of 2021-08-02** was never applied, so the stored
+history runs 12.95 on 07-30 and then opens at 104.48 — an 8.07x jump with the earlier years on
+the old price basis. Its 10-minute bars read that as a real move and booked a **fake +$139k
+trade**. A scan of 50 large caps across 10 years found exactly one, which is the problem: rare is
+what nobody checks by hand, and neither a row count nor a date span can see it.
+
+`split_like_gaps()` flags an overnight gap of at least a doubling or halving whose ratio lands
+within 2% of a **whole** split ratio (n:1 or 1:n, n up to 20), and `upsert_master` **refuses to
+register** a master holding one, naming the day and the ratio and saying to re-pull with
+`adjustment=raw` and rebase. `allow_split_gap=True` is there for a caller who has looked and
+decided the gap is real news.
+
+Whole ratios only, chosen against real pulled data rather than guessed: CELG's genuine
+Bristol-Myers takeover pop of 1.32x sits within 2% of 4/3 and was refused by the first version.
+A 1.3x overnight move is ordinary news; an 8.07x one is not. Verified on seven real cases — GE
+fires; CELG, INTC, ORCL and KHC (real news) stay clean; AAPL's 4-for-1 and NVDA's 10-for-1, which
+the feed *did* adjust, stay clean. Spin-offs are unadjusted by design and are deliberately not
+caught: their ratios are not whole.
+
+**If you do not register a library master, this does not protect you.** A lane calling
+`fetch_bars` straight into its own research cache (TTM, TBIS, the ROC-frontier harnesses) never
+passes through `upsert_master`, so call `split_like_gaps(df)` yourself before trusting a symbol.
+
 ## Keys — one lookup, in `augur_engine/alpaca_keys.py`
 
 Nothing resolves the key for itself. The order, first hit wins:
