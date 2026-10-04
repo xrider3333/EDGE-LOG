@@ -39,6 +39,7 @@ def _Q():
     return mod
 
 
+FWD = r"C:\EdgeLog\orderflow"      # forward per-trade files (daily difference series for the seat test)
 OHLC = r"C:\EdgeLog\ohlc"
 LOOK_MIN, MIN_SPAN_MIN, BAR_COVER, DELTA_COVER = 30, 5, 0.90, 0.80
 UP, DOWN = 1.5, 0.5
@@ -225,6 +226,10 @@ def forward(since="2026-10-01"):
         m[off], a[off] = 1.0, np.nan                   # capture on another contract that session: no tilt
         v = np.isfinite(a)
         st = Q.read_pair(pnl[k][v], m[v], np.ones(int(v.sum())), None, BOUND[name])
+        os.makedirs(FWD, exist_ok=True)
+        pd.DataFrame({"fill_time": ent[k], "side": side[k], "raw_pnl_usd": pnl[k], "size": m, "aligned_imb": a,
+                      "valid_window": v, "sized_pnl_usd": pnl[k] * m,
+                      "diff_usd": pnl[k] * m - pnl[k]}).to_csv(os.path.join(FWD, f"forward_{name}.csv"), index=False)
         print(f"{name}: forward trades {int(k.sum())} (valid window {int(v.sum())}), raw ${pnl[k].sum():,.0f}, "
               f"sized ${(pnl[k] * m).sum():,.0f}; early stop: {st[0]} at n {st[1]}, t {st[2]:+.2f}")
 
