@@ -1,15 +1,18 @@
 """Nightly SHADOW lines on the adopted BOOK #463 (FRONTIER lane; owner GO via MANAGER, 2026-09-29).
 
 The VT line rides beside the adopted book figure in the paper report and is NEVER the book figure.
-It re-sizes exactly the trades the book figure counts that day (the paper report books a trade on
-its ENTRY day). Pre-registration: docs/PREREG_frontier_shadows_2026-09-29.txt.
+Since 2026-10-02 (377f0f67) the paper report books a trade's money on the US/Eastern day it CLOSES, so the nightly
+VT figure = that day's multiplier x the exit-day book figure: a live MONITOR, not the tradable VT line, which sizes
+each trade at the multiplier of its ENTRY day. The forward read computes that from the per-trade paper records,
+each trade at the multiplier stored in its entry day's report (pre-registration: docs/PREREG_frontier_shadows_
+2026-09-29.txt, correction paragraph).
 
 VT  volatility-targeted #463 (book round 62, V2): every trade entering on day D is sized
     m(D) = clip(REF / vol20, 0.5, 2.0) rounded to 0.1, where vol20 is the std of #463's valued-daily
     book P&L over the 20 index days before D and REF the median of vol20 over the 250 index days
     before that. The series is rebuilt each night by the house book engine from #463's job legs,
     starting three years before D - enough warm-up that the recent year matches the full-history
-    series (checked when this shipped). Line = m(D) x the adopted book figure.
+    series (checked when this shipped). Tradable line = each trade x m(its entry day D).
 
 AG  agreement tilt - RETIRED 2026-10-01 (owner GO via MANAGER #48); last in the 10-01 report. Its in-sample
     evidence was a same-bar look-ahead (bar labels, not fills); on fill times the trades it tilted read
@@ -123,7 +126,7 @@ def vt_block(book_pnl, day):
     m, info = vt_multiplier_for(day)
     return {"pnl_usd": m * float(book_pnl), "multiplier": m, **info, "base_run": 463,
             "rule": "m = clip(median vol20 of the prior 250 days / vol20, 0.5, 2.0), rounded 0.1 (book round 62 V2)",
-            "name": "SHADOW VT: #463 sized by its own 20-day volatility vs its trailing year"}
+            "name": "SHADOW VT (monitor: today's multiplier x the exit-day book figure): #463 sized by its own 20-day volatility vs its trailing year"}
 
 
 # Weighted sums of existing paper legs (each leg's exit-day figure x weight, the book line's own convention).

@@ -1185,6 +1185,38 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10s. Round 62 V3 - a learned risk forecast in place of the vol target's 20-day volatility: FAIL at the forecast gate (2026-10-03)
+
+**What.** Owner ask (2026-10-02, "push the frontier ... might have to use an ML"), built and pre-registered by the owner's
+cloud session (no market data there) and run on this PC by this lane. Pre-registration
+`docs/PREREG_frontier_v3_riskml_2026-10-02.txt` (canonical LF sha256 41b4bb91...), harness `tools/frontier_v3_riskml.py`
+(sha256 976354f6...), run from the shared checkout at 415bfded on 2026-10-03, read once. Output:
+`C:\EdgeLog\_anatomy_cache\frontier_v3\v3_result.json`. The idea: keep the vol target (V2, the nightly VT line) exactly,
+but replace its backward-looking 20-day book volatility with a walk-forward forecast of the next 5 days of book risk, made
+from the book's own recent risk and the market's (NQ and ES daily ranges, NQ's 20-day trend). The ML sits on the risk
+side because direction has never been forecastable here and volatility usually is.
+
+**Parity was exact.** The rebuild equals the production VT series to $0.0000 on the same day index, its V2 sizes equal
+the nightly line's, and #463 reads WF 93.81 / LB 155.54 %/yr at a $30k drawdown, Sortino 3.816 / 4.150, drawdowns
+$44,849 / $49,855, lockbox without its biggest trade $167,144.
+
+**STEP 1 (the forecast gate, IS only) FAILS.** On 1,085 in-sample forecasts (2012-09-30..2016-06-24), scored on what the
+sizing rule actually uses (each forecast against its own trailing-year median, versus realised risk against its own):
+- the pre-specified ridge model's error is 0.942 x the plain 20-day-volatility forecast's (5.8% better, inside the 5%
+  edge the bar asks for), but the Diebold-Mariano test gives p = 0.152 against the required 0.05;
+- the gradient-boosted model, reported only, is worse than the plain forecast (1.21 x, p 0.99).
+
+**Verdict.** V3 is dead as registered: the walk-forward and lockbox book numbers were never computed, and nothing is
+re-tried with other features, horizons or models. The market's ranges add a little to the book's own 20-day volatility
+as a forecast of next week's book risk, but over four in-sample years that little cannot be told apart from noise. The
+vol target (V2) stays the only volatility line; the nightly VT shadow continues unchanged.
+
+**Side finding (ledger 2.47).** Since the paper report switched to counting money on the day a trade CLOSES (377f0f67,
+2026-10-02), the nightly VT figure is that day's multiplier times the exit-day book figure - a monitor, not the tradable
+VT line, which sizes each trade at the multiplier of its ENTRY day. The forward read was already specified on per-trade
+records with each trade's entry-day multiplier (the shadows pre-registration's correction paragraph), so it is unaffected;
+the shadow module's wording now says so.
+
 ### 10r. Build review fixes, one ROC convention for every lane, and Q6 (ORB #239) as a forward shadow (2026-10-01)
 
 **The review (MANAGER #44) found three real things; all are fixed.**
