@@ -1516,3 +1516,32 @@ something else. The check that settled it cost four queries and no engine time: 
 source name actually resolves to, read the file's own provenance, and diff the input table across
 its versions. **Verify the premise of a commissioned round before running it**, including when the
 commission comes from another lane with a review attached.
+
+### 2026-10-04 - the June 2026 roll offset: not measurable from this repo, and worth at most $140
+
+Assignment (b) from the 10-04 standing order. The 2026-06-15 03:30 switch (NQM6 to NQU6) is the
+**one remaining non-exact NQ offset**: 293.00 points with a band of 288 to 300. Every other NQ
+switch in the audited table is measured exactly.
+
+**It cannot be measured from anything this repo holds.** The method that settled the September
+2026 switch compares the master against the live capture spread - flat before the switch, offset
+after - and **the NinjaTrader capture does not reach back to June**: the 10-second, 1-second and
+1-minute capture masters all hold ZERO bars in 2026-06-10..06-20. The three series that DO cover
+June are not independent witnesses. Measured against the no-adjust master over 2026-06-01..06-30,
+TradingView 1-minute RTH differs on 5 bars of 7,882, Yahoo 5-minute ETH on 12 of 5,704, and the
+merged 1-minute ETH series on 0 of 28,056 - the same front month rolling at the same moment, which
+is expected once Databento raw coverage stops on 2026-06-07 and everything after it descends from
+the same Yahoo feed. Unblocking this needs raw coverage extended back over June (Databento, which
+the owner declined) or some other archive.
+
+**And the estimate cannot cost ENGU-Q #335 more than $140, which is the number that closes it.**
+A late switch in a back-adjusted series shifts every earlier bar uniformly, so only a trade OPEN
+ACROSS the switch can be wrong by the offset error. **Exactly one crown trade of 2,053 spans it**
+- 2026-06-11 13:31 to 2026-06-24 13:16, booking +$1,235 - and across the full 288-to-300 band the
+worst mis-shift is 7.00 points, or $140 on that single trade. The sealed year's verdict does not
+turn on $140.
+
+**So this is closed with a bound rather than left open**, and should be re-opened only if a new
+data source arrives. The general form is worth keeping: before chasing a data uncertainty, price
+it - count the trades actually exposed to it and multiply by the width of the band. Here the
+exposure is one trade and the band is 12 points, which is the whole answer.
