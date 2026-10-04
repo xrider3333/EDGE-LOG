@@ -237,12 +237,16 @@ def test_ship_proves_the_sha_is_on_main_before_saying_it_landed():
     """`git push` succeeding is not evidence: piped into anything it reports the PIPE's exit
     code, so a rejection reads as clean. ship's old line printed its own local head."""
     src = _wt_source()
+    # Anchored on the report line, not on a fixed window after the push: narrow re-validation
+    # later inserted a retry block in between, which pushed the report past a 2500-character
+    # window and failed this test on perfectly correct code.
     i_push = src.index("'push', '-q', 'origin', 'HEAD:main'")
-    after = src[i_push:i_push + 2500]
-    assert "merge-base" in after and "--is-ancestor" in after
+    i_report = src.index("safe_print('pushed", i_push)
+    after = src[i_push:i_report]
+    assert "merge-base" in after and "--is-ancestor" in after, (
+        "the proof must come BEFORE anything claims the push landed")
     assert "'fetch'" in after, "it has to fetch first or it checks a stale ref"
-    assert after.index("merge-base") < after.index("safe_print('pushed"), (
-        "the check must come BEFORE anything claims the push landed")
+    assert after.index("'fetch'") < after.index("merge-base")
     assert "NOT on origin/main" in after, "and say so plainly when it did not"
 
 

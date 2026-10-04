@@ -150,8 +150,25 @@ def test_a_transitive_dependency_is_selected_even_when_the_test_never_names_it()
 
 
 def test_a_doc_nothing_reads_affects_nothing():
+    """A name no test can mention affects no test.
+
+    The first version of this named a REAL doc - and failed, because this very file mentions that
+    path two lines up, so the selection was right to pick it. Funny, and the right answer: the
+    rule is "a test that names the file is affected", and a test file naming it counts.
+    """
+    # BUILT, never written literally: a path spelled out here would appear in this very file's
+    # source, so the selection would find it and be right to. The first two versions of this test
+    # fell into that one after the other.
+    unmentioned = "docs/" + "zq" * 9 + ".md"
+    assert at.tests_for([unmentioned], ROOT) == set()
+
+
+def test_a_doc_selects_exactly_the_tests_that_name_it():
     picked = at.tests_for(["docs/ALPACA_STOCK_BARS.md"], ROOT)
-    assert picked == set(), "no test mentions that file, so none can be affected by it"
+    assert picked is not None
+    for t in picked:
+        src = open(os.path.join(ROOT, t), encoding="utf-8", errors="replace").read()
+        assert "ALPACA_STOCK_BARS" in src
 
 
 # ═══════════════════════════════════════════════════ the CLI contract the hook relies on
