@@ -40,6 +40,12 @@ come from back-adjustment distorting NOISE's percentage bands on older days - a 
 this strategy, not information. The 66 trades near a contract switch are real roll exposure and are recorded here.
 Any NOISE_1_x file (percentage bands) must not run on an ADJ_ master; routed to the book lane for BOOK.md and to ELwA
 for the adjusted-master warning.
+*Reader and clarification, 2026-10-04 evening, before any series is judged:* `tools/noise_fixed_subarm_read.py` scores the
+three series from Custom ML's forward log (the primary's real Webull fill P&L per share). A tilt's aim needs the
+untilted trades as its contrast, so each series runs over ALL closed trades (Friday arm = #422 plain x 1.5 on Friday
+entries; FOMC arm = #422 plain x 0.5 before a 14:00 statement; full arm = the package's own size) and 'relevant' counts
+the trades the tilt re-sizes; the final read for a series comes at 50 relevant closed trades. First read (box backup
+2026-10-04): 9 closed trades since 2026-09-30 - 1 Friday, 0 FOMC mornings; nothing to read yet.
 
 ## 🧪 2026-10-04 — ROUND 69: is NOISE #422's compression size-up too small? No - dead at Stage A
 
