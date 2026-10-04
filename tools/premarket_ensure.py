@@ -60,6 +60,43 @@ def runner_pids():
         return []
 
 
+def repair_capture(check_only=False):
+    """Merge the Tick Replay sidecars NinjaTrader wrote at its last start into NQ/ES_10s.csv
+    (tools/repair_10s_from_replay.py): bars written with no trade ticks while the PC slept get
+    their buy/sell back before the readiness check judges overnight coverage. Separate process,
+    never fatal; idempotent (a bar already carrying buy/sell is left alone)."""
+    cmd = [sys.executable, "-u", os.path.join(ROOT, "tools", "repair_10s_from_replay.py")]
+    if check_only:
+        cmd.append("--dry-run")
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=300, cwd=ROOT)
+        for ln in (r.stdout or "").splitlines():
+            if ln.strip():
+                log("repair: " + ln.strip())
+        if r.returncode != 0:
+            log(f"repair exited {r.returncode}: {(r.stderr or '').strip()[-300:]}")
+    except Exception as e:
+        log(f"repair could not run: {type(e).__name__}: {e}")
+
+
+def readiness(check_only=False):
+    """Run the premarket NinjaTrader readiness check (tools/nt_readiness.py) as a separate process
+    so nothing it does can break the wake-up work above. --early: NinjaTrader is probably still
+    starting, so start-up-class failures are recorded but not pushed (the 09:15 / 09:25 ET
+    scheduled runs push those). Outside 08:00-09:35 ET on a trading day it prints SKIPPED."""
+    cmd = [sys.executable, "-u", os.path.join(ROOT, "tools", "nt_readiness.py"), "--early"]
+    if check_only:
+        cmd.append("--dry-run")
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=120, cwd=ROOT)
+        for ln in (r.stdout or "").splitlines():
+            log("readiness: " + ln)
+        if r.returncode not in (0, 1):
+            log(f"readiness check crashed (exit {r.returncode}): {(r.stderr or '').strip()[-300:]}")
+    except Exception as e:
+        log(f"readiness check could not run: {type(e).__name__}: {e}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -94,6 +131,8 @@ def main():
     except Exception as e:
         log(f"adapter check failed: {type(e).__name__}: {e}")
 
+    repair_capture(check_only=a.check)
+    readiness(check_only=a.check)
     log("=== done ===")
 
 
