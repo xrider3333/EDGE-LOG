@@ -29,6 +29,18 @@ adjustment, not a roll defect of the no-adjust tape. NOISE is flat by the close,
 actually traded each session; the only true roll effect on it is the switch-day anchor (prior close from the old
 contract). Recommendation to MANAGER: keep #422 and the book reference on no-adjust.
 
+**DECIDED 2026-10-04 (MANAGER #32).** (1) PRE-STATED FORWARD READ, written before any forward trade is scored: the
+existing no-order shadow NOISE_422_FIXED is read on THREE difference series against NOISE #422 - the full package,
+its Friday-only trades, and its FOMC-only trades - each under the paired sequential stop
+(docs/PREREG_paired_sequential_stop_2026-09-29.md) and each judged at 50 RELEVANT closed trades (the FOMC series will
+take years; it is a report, not a bar). Their lockbox was read on 09-27 and Friday failed the round-47 tilt guard, so a
+forward pass is the only thing that could ever change #422's sizing, and that decision goes to the owner. (2) NOISE
+#422 and the BOOK #463 reference STAY ON THE NO-ADJUST MASTER BY DESIGN: 342 of the 408 differing walk-forward trades
+come from back-adjustment distorting NOISE's percentage bands on older days - a defect of the adjusted series for
+this strategy, not information. The 66 trades near a contract switch are real roll exposure and are recorded here.
+Any NOISE_1_x file (percentage bands) must not run on an ADJ_ master; routed to the book lane for BOOK.md and to ELwA
+for the adjusted-master warning.
+
 ## 🧪 2026-10-04 — ROUND 69: is NOISE #422's compression size-up too small? No - dead at Stage A
 
 Owner ask via MANAGER (inbox #26): one best remaining NOISE shot that could move BOOK #463 (WF 93.8 / LB 155.5). Draft
