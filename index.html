@@ -871,10 +871,11 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1016',date:'2026-10-04',notes:['PAPER review: the daily review lists trades by the day they close, matching the board, and marks which ones count toward the day.']},
+const CHANGELOG=[{v:'73.996',date:'2026-10-04',notes:['POINTS: the four 200 points now read a simple 200 average (SMA) by default. An SMA | EMA switch in the POINTS box (trade panel and chart window) flips every score to the 200 EMA and back, and your choice is remembered.','EL charts draw the matching 200 line in blue on every bar size, so you can see what the signal candle was checked against.']},
+{v:'73.1016',date:'2026-10-04',notes:['PAPER review: the daily review lists trades by the day they close, matching the board, and marks which ones count toward the day.']},
 {v:'73.1015',date:'2026-10-04',notes:['NinjaTrader paper: NOISE now restarts while ENGU-Q is holding its picked-up overnight trade.']},
 {v:'73.1014',date:'2026-10-04',notes:['ALERT: push when the 10-second NinjaTrader capture keeps writing bars but its buy/sell volume goes missing (NQ and ES), with a recovery message when it is back.']},
-{v:'73.998',date:'2026-10-04',notes:['LEDGER > REAL wears the new shared top: the big number, a today line under it, the range line, and the Webull and NinjaTrader sync checks as chips on the right.','The range pills are now TODAY, 1W, 1M, 3M, YTD and ALL on every board, counted back from today. 1Y is gone; a saved 1Y opens on ALL.','Add ?oldboards=1 to the address to see the previous layout for one more version.']},
+{v:'73.1012',date:'2026-10-04',notes:['LEDGER > REAL wears the new shared top: the big number, a today line under it, the range line, and the Webull and NinjaTrader sync checks as chips on the right.','The range pills are now TODAY, 1W, 1M, 3M, YTD and ALL on every board, counted back from today. 1Y is gone; a saved 1Y opens on ALL.','Add ?oldboards=1 to the address to see the previous layout for one more version.']},
 {v:'73.1009',date:'2026-10-04',notes:['PAPER (NT8 FUTURES): the big number is now the adopted BOOK #463 figure - the book legs (ORB, ENGU-Q 335, TTM x3, NOISE #422) at their book weights, listed under a BOOK group at the top of the strategy list. The curve, stats, calendar and tie-out strip follow the same rule. Controls and forward tests (incl. the DIP shadows) sit in a Forward tests & controls group and the strategies with no row stay in Other / shadow; neither counts, and their switches only decide which of their trades the table lists.']},
 {v:'73.1006',date:'2026-10-04',notes:['NinjaTrader paper: ENGU-Q always restarts with adopt so an overnight trade is picked back up; the old broker stop is cancelled only after the new one is accepted.']},
 {v:'73.1002',date:'2026-10-04',notes:['HOME is now called LEDGER on the tab button. Nothing else moved: the boards are still REAL, NT8 PAPER and WEBULL PAPER, and your saved view comes back as before. The deposits strip and the Settings button now say DEPOSITS so they cannot be confused with the ledger.','LEDGER > REAL now follows the shared number rules: a trade counts on the New York day it closed, every range counts back from today in New York, and a $0 trade is neither a win nor a loss.','P&L view: the line starts at $0 at the start of the range, so the big number is the P&L of that range. The EQUITY view still shows your account balance.','The trade list no longer says YESTERDAY for your own trades after 8 pm New York time.']},
@@ -6317,7 +6318,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
   if(!n)return '<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg"></svg>';
   const plotW=W-margin.l-margin.r,plotH=H-margin.t-margin.b;
   const AMBER='#f5c842',NEUTRAL='#7a86a8';
-  const OVCOLORS={vwap:'var(--purple)',ub:AMBER,lb:AMBER};
+  const OVCOLORS={vwap:'var(--purple)',ub:AMBER,lb:AMBER,'200 SMA':'var(--blue)','200 EMA':'var(--blue)'};
 
   const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
@@ -6979,6 +6980,13 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const off=out.length?etOff(out[0].ep):0;out.forEach(b=>{b.t=etStr(b.ep,off,span<60);});
     return out;
   };
+  // The 200 line for one bar size (point score ps1.2): doc.ma[sma|ema][tf] = {t0, step, d}; d holds one slot per
+  // bar from t0, the first value in cents and every later one as its change in cents, an empty slot = no value.
+  // Values are already on the chart's price scale (the doc's roll shift included), so they draw as they are.
+  const maLine=(ma,which,tf,bars)=>{const pk=ma&&ma[which]&&ma[which][tf];if(!pk||!pk.d)return {};
+    const t0=+pk.t0,st=+pk.step,map=new Map();let cur=null;
+    String(pk.d).split(',').forEach((x,i)=>{if(x==='')return;cur=(cur==null)?+x:cur+(+x);map.set(t0+i*st,cur/100);});
+    const o={};o['200 '+which.toUpperCase()]=bars.map(b=>map.has(b.ep)?map.get(b.ep):null);return o;};
   window._rtBarsForTrade=async(x,tf)=>{
     if(!x||!x._tid)return null;
     const doc=await window._rtBarsDoc(x._tid);if(!doc)return null;
@@ -6988,10 +6996,17 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const st0=+pk.step||(base==='10s'?10:60),raw=unpack(pk,base==='10s');if(!raw.length)return null;
     const bars=resample(raw,st0,k),st=st0*k;
     const ei=idxOf(bars,doc.entry&&doc.entry.t,st),xi=idxOf(bars,doc.exit&&doc.exit.t,st),sh=+pk.shift||0;
-    return {bars:bars,entry_idx:ei>=0?ei:null,exit_idx:xi>=0?xi:null,overlays:{},tf:tf,src:'el',final:!!doc.complete,
+    const hasLine=!!(doc.ma&&((doc.ma.sma&&doc.ma.sma[tf])||(doc.ma.ema&&doc.ma.ema[tf])));
+    const rb={bars:bars,entry_idx:ei>=0?ei:null,exit_idx:xi>=0?xi:null,tf:tf,src:'el',final:!!doc.complete,
       has10s:!!doc.b10s,shift:sh,entry_t:doc.entry&&doc.entry.t,exit_t:doc.exit&&doc.exit.t,
       meta:{master:String(pk.src||'')+(sh?(' &middot; moved '+(sh>0?'+':'')+sh.toFixed(2)+' onto your contract month'):'')
-        +(doc.complete?'':' &middot; still filling in after the exit')}};
+        +(doc.complete?'':' &middot; still filling in after the exit')
+        +(hasLine?' &middot; <span style="color:var(--blue)">blue line</span>: the 200 average your POINTS use (SMA or EMA)':'')}};
+    // read at every draw, so flipping SMA | EMA redraws the line from the same doc (one parse per average)
+    const memo={};
+    Object.defineProperty(rb,'overlays',{enumerable:true,get:()=>{const w=window._psMa==='ema'?'ema':'sma';
+      return memo[w]||(memo[w]=maLine(doc.ma,w,tf,bars));}});
+    return rb;
   };
   // ── the compact chart in HOME's trade panel: 1M | 10S, EXPAND on a wide screen ──
   const svgCache={};   // last drawing per trade + bar size: a redraw of the panel shows it at once
@@ -7002,7 +7017,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
   const sheetTf=(tid,x)=>window._rtSheetTfFor[tid]||(x&&x._tf)||'1m';
   const btnCss='background:none;border:1px solid var(--border);color:var(--text3);border-radius:6px;padding:3px 9px;font-size:10px;letter-spacing:.8px;cursor:pointer;font-family:inherit';
   window._rtSheetCandlesHtml=tid=>{
-    const x=rowOf(tid),k=esc(tid),tf=sheetTf(tid,x),cached=svgCache[tid+'|'+tf];
+    const x=rowOf(tid),k=esc(tid),tf=sheetTf(tid,x),cached=svgCache[tid+'|'+tf+'|'+window._psMa];
     const opts=['10s','1m','5m','15m'];if(x&&x._tf&&opts.indexOf(x._tf)<0)opts.push(x._tf);
     opts.sort((a,b)=>window._rtTfSec(a)-window._rtTfSec(b));
     const chip=(v,l)=>'<button type="button" data-rtsheettf="'+v+'" title="'+(x&&x._tf===v?'the timeframe on this trade in the ledger':'draw it on '+l+' bars')+'" style="background:'+(tf===v?'var(--bg2)':'none')+';border:0;color:'+(tf===v?'var(--text)':'var(--text4)')+';font-weight:'+(tf===v?'600':'400')+';border-radius:5px;padding:3px 8px;font-size:10px;letter-spacing:.8px;cursor:pointer;font-family:inherit">'+l+'</button>';
@@ -7048,7 +7063,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
       return;}
     const n=rb.bars.length,e=(rb.entry_idx!=null)?rb.entry_idx:((rb.exit_idx!=null)?rb.exit_idx:0),xx=(rb.exit_idx!=null)?rb.exit_idx:e;
     const pad=window._rtTfSec(tf)<60?18:20,tradeV=[Math.max(0,e-pad),Math.min(n-1,xx+pad)];
-    const key=tid+'|'+tf,MIN=Math.min(8,n);
+    const key=tid+'|'+tf,ckey=key+'|'+window._psMa,MIN=Math.min(8,n);
     let v=(rtView[key]&&rtView[key][1]<n)?rtView[key]:tradeV.slice();
     const entryPx=(x._ep!=null)?x._ep:((rb.entry_idx!=null)?rb.bars[rb.entry_idx].o:null);
     const inT=rb.entry_t?window._rtEtStr(rb.entry_t,true).slice(11):'',outT=rb.exit_t?window._rtEtStr(rb.exit_t,true).slice(11):'';
@@ -7060,9 +7075,10 @@ window.candleSVG=function(bars,overlays,markers,opts){
       if(mk.entryIdx!=null&&mk.exitIdx!=null){mk.shadeFrom=mk.entryIdx;mk.shadeTo=mk.exitIdx;}
       const W=Math.max(300,Math.round(el.clientWidth||388)),H=Math.max(180,Math.min(260,Math.round(W*0.55)));
       const geo=window.CANDLE_GEO;
-      const html='<div class="hm-sheet-candles-svg">'+window.candleSVG(rb.bars.slice(lo,hi+1),{},mk,{width:W,height:H,xTicks:Math.max(3,Math.floor(W/95))})+'</div>';
+      const ovAll=rb.overlays||{},ov={};Object.keys(ovAll).forEach(k2=>{ov[k2]=(ovAll[k2]||[]).slice(lo,hi+1);});
+      const html='<div class="hm-sheet-candles-svg">'+window.candleSVG(rb.bars.slice(lo,hi+1),ov,mk,{width:W,height:H,xTicks:Math.max(3,Math.floor(W/95))})+'</div>';
       window.CANDLE_GEO=geo;   // the full viewer's hover maths reads this - leave it as it was
-      svgCache[key]=html;
+      svgCache[ckey]=html;
       body.style.display='block';body.innerHTML=html;
       const sv=body.querySelector('svg');if(sv){sv.style.width='100%';sv.style.height='auto';sv.style.display='block';sv.style.pointerEvents='none';}
       if(info)info.innerHTML=(inT?((x._missed?'entry bar '+inT:'in '+inT+' &rarr; out '+outT)+' ET &middot; '):'')+(hi-lo+1)+' of '+n+' bars &middot; '
@@ -7536,6 +7552,8 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     const h=(x&&x._psT&&window._hmPtsViewerHtml)?window._hmPtsViewerHtml(x._psT):'';
     box.style.display=h?'block':'none';box.innerHTML=h;box.open=window._cndlPtsOpen!==false;
     box.ontoggle=()=>{window._cndlPtsOpen=box.open;};};
+  // SMA | EMA flipped: the line is read from the bars at every draw, so a redraw is all it takes
+  window._cndlMaRefresh=()=>{if(!_cndlAlive()||!_cndl.r)return;_renderCandle();_cndlPts(_cndl.x);};
 
   const _cndlTitle=t=>{if(!_cndlAlive())return;const el3=_cndl.api.modal.querySelector('div[style*="Bebas"]');if(el3)el3.textContent=t;};
 
@@ -12561,7 +12579,25 @@ function _hmTableHeader(){
 // Context, not a filter (owner via MANAGER 2026-09-30): the pre-registered backfill over the 53 scored trades
 // found no link yet between more points and a better result (docs/POINT_SCORE_BACKFILL_2026-09-30.md).
 const _HM_PTS_CTX='Context, not a filter: over your first 53 scored trades, more points have not meant better results yet.';
-function _hmPts(t){const p=t&&t.pointScore;return (p&&p.max!=null&&p.total!=null)?p:null;}
+// ps1.2 (owner 2026-10-02 via MANAGER): the four '200' points read a SIMPLE 200 average by default and the
+// 200 EMA by setting. The PC stores the SMA record as pointScore with the EMA one under alt.ema, so this
+// toggle only picks which to show - in SCORE / POINTS, the trade panel, the chart window and the chart's
+// 200 line. Remembered per browser (el_ps_ma). A record from before ps1.2 has no ma and is an EMA one.
+window._psMa=(()=>{try{return localStorage.getItem('el_ps_ma')==='ema'?'ema':'sma';}catch(e){return 'sma';}})();
+window._psMaSet=function(m){m=(m==='ema')?'ema':'sma';if(m===window._psMa)return;window._psMa=m;
+  try{localStorage.setItem('el_ps_ma',m);}catch(e){}
+  if(window._cndlMaRefresh)window._cndlMaRefresh();
+  renderApp();};
+function _hmPts(t){const p0=t&&t.pointScore;
+  const p=(p0&&window._psMa==='ema'&&p0.alt&&p0.alt.ema)?Object.assign({},p0,p0.alt.ema):p0;
+  return (p&&p.max!=null&&p.total!=null)?p:null;}
+function _hmPtsMa(p){return String((p&&p.ma)||'ema').toUpperCase();}
+function _hmPtsMaToggle(p){
+  const on=window._psMa==='ema'?'EMA':'SMA',got=_hmPtsMa(p);
+  const b=(m,l)=>`<button type="button" data-psma="${m}" onclick="event.stopPropagation();event.preventDefault();window._psMaSet('${m}')" title="${m==='sma'?'score the four 200 points against the simple 200 average (the default)':'score the four 200 points against the 200 EMA'}" style="background:${on===l?'var(--bg2)':'none'};border:0;color:${on===l?'var(--text)':'var(--text4)'};font-weight:${on===l?'600':'400'};border-radius:5px;padding:2px 7px;font-size:9px;letter-spacing:.8px;cursor:pointer;font-family:inherit">${l}</button>`;
+  return `<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:6px;padding:1px;vertical-align:middle">${b('sma','SMA')}${b('ema','EMA')}</span>`
+    +(got!==on?`<span style="font-size:9px;color:var(--yellow)">this score is the ${got} one - the PC adds the ${on} one within minutes</span>`:'');
+}
 function _hmPtsRatio(t){const p=_hmPts(t);return (p&&p.max)?p.total/p.max:-1;}
 function _hmPtsColor(p){const r=p.max?p.total/p.max:0;return r>=0.78?'var(--green)':(r>=0.5?'var(--yellow)':'var(--red)');}
 function _hmPtsNum(v){if(v==null||v===''||!isFinite(+v))return '--';const n=+v;return Math.abs(n)>=1000?n.toLocaleString(undefined,{maximumFractionDigits:2}):String(Math.round(n*100)/100);}
@@ -12571,7 +12607,7 @@ function _hmPtsLine(q){
   return {mark:mark,label:String(q.label||q.k||''),det:det};
 }
 function _hmPtsTitle(p){
-  return 'POINTS '+p.total+'/'+p.max+(p.na_count?(' ('+p.na_count+' NA)'):'')+' - signal candle '+String(p.signal_bar||'').slice(11)+'\n'
+  return 'POINTS '+p.total+'/'+p.max+(p.na_count?(' ('+p.na_count+' NA)'):'')+' - 200 '+_hmPtsMa(p)+' - signal candle '+String(p.signal_bar||'').slice(11)+'\n'
     +(p.points||[]).map(q=>{const l=_hmPtsLine(q);return l.mark+'  '+l.label+': '+l.det;}).join('\n')
     +(p.trend?('\n10th point, not counted: '+_hmPtsLine(p.trend).mark+'  '+String(p.trend.label||'')):'')+'\n\n'+_HM_PTS_CTX;
 }
@@ -12590,7 +12626,8 @@ function _hmPtsSheetHtml(t){
   return `<div class="hm-sheet-points" style="margin:0 0 16px">
     <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px"><span class="hm-micro">POINTS</span>
       <span style="font-family:'Bebas Neue',monospace;font-size:20px;color:${c}">${p.total}/${p.max}</span>
-      <span style="font-size:10px;color:var(--text5)">${p.na_count?p.na_count+' NA &middot; ':''}signal candle ${_hmEsc(String(p.signal_bar||'').slice(11))} ET</span></div>
+      <span style="font-size:10px;color:var(--text5)">${p.na_count?p.na_count+' NA &middot; ':''}signal candle ${_hmEsc(String(p.signal_bar||'').slice(11))} ET</span>
+      <span style="margin-left:auto;display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap">${_hmPtsMaToggle(p)}</span></div>
     <div style="font-size:10px;line-height:1.5;color:var(--text5);margin:0 0 6px">${_HM_PTS_CTX}</div>
     ${(p.points||[]).map(row).join('')}
     ${p.trend?`<div style="font-size:10px;color:var(--text5);margin-top:6px">10th point, not counted in the score:</div>${row(p.trend)}`:''}
@@ -13018,7 +13055,7 @@ window._hmPtsViewerHtml=function(t){
   const cell=(q,ten)=>{const l=_hmPtsLine(q),col=q.hit===true?'var(--green)':(q.hit===false?'var(--red)':'var(--text5)');
     return `<div style="display:flex;gap:6px;align-items:baseline;min-width:0"><span style="color:${col};font-weight:700;min-width:16px">${l.mark}</span><span style="color:var(--text3)">${ten?'10th, not counted: ':''}${_hmEsc(l.label)}</span><span style="color:var(--text5);margin-left:auto;padding-left:8px;white-space:nowrap">${_hmEsc(l.det)}</span></div>`;};
   return `<summary style="cursor:pointer;font-size:10px;color:var(--text4);display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;list-style:none">
-      <span class="hm-micro">POINTS</span><b style="color:${c};font-size:13px">${p.total}/${p.max}</b>
+      <span class="hm-micro">POINTS</span><b style="color:${c};font-size:13px">${p.total}/${p.max}</b>${_hmPtsMaToggle(p)}
       <span>signal candle ${_hmEsc(String(p.signal_bar||'').slice(11,16))} ET</span><span style="color:var(--text5)">${_hmEsc(syn)}</span></summary>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:3px 22px;font-size:10px;margin-top:6px">${pts.map(q=>cell(q,false)).join('')}${p.trend?cell(p.trend,true):''}</div>
     <div style="font-size:10px;color:var(--text5);margin-top:5px">${_HM_PTS_CTX}</div>`;

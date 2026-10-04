@@ -31,6 +31,12 @@ SHOULD HAVE TRADED (2026-10-02): setups the owner did NOT take, users/{uid}/miss
 the same chart at users/{uid}/trade_bars/missed_{id} (the entry minute, no exit) and the same point
 score, merged onto the missed_trades doc as pointScore and nothing else.
 
+POINT SCORE ps1.2 (owner 2026-10-02): the four '200' points read a simple moving average by default and
+an EMA by setting. pointScore is the SMA record (what the SCORE / POINTS columns show) and carries the EMA
+record under pointScore.alt.ema, so the web's SMA | EMA toggle never recomputes anything. The bars doc
+carries the matching 200 lines (doc.ma.sma / doc.ma.ema, per bar size) computed from the scorer's own
+bars, so a line passes exactly through the reference the score compared the signal candle against.
+
 Firestore quota: nothing here lists the journal on a timer. sweep() reads only trades dated in
 the last few days (a handful of docs), at most every SWEEP_EVERY seconds, plus ONE full read of
 the journal per runner start; a local state file remembers what is already published. The
@@ -46,6 +52,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 
+import numpy as np
 import pandas as pd
 
 COLLECTION = "trade_bars"
@@ -443,14 +450,28 @@ def point_score(t, fills=None):
     side = "SHORT" if str(t.get("type") or "").upper() == "SHORT" else "LONG"
     mod = _point_score_module()
     _ps_fresh_bars(mod)
-    rec = mod.score_trade({"sym": _sym(t), "side": side, "fill": fill})
-    rec = json.loads(json.dumps(rec, default=str))       # plain JSON types for Firestore
+    tr = {"sym": _sym(t), "side": side, "fill": fill}
+    if _ps_has_both(mod):
+        # ps1.2: the SMA record is the score; the EMA record rides along for the web's toggle
+        rec = json.loads(json.dumps(mod.score_trade(tr, ma="sma"), default=str))
+        ema = json.loads(json.dumps(mod.score_trade(tr, ma="ema"), default=str))
+        rec["alt"] = {"ema": {k: ema.get(k) for k in PS_ALT_KEYS}}
+    else:
+        rec = json.loads(json.dumps(mod.score_trade(tr), default=str))   # plain JSON types for Firestore
     rec.update({"fill": fill, "fill_from": how, "sig": signature(t)})
     return rec
 
 
+PS_ALT_KEYS = ("ma", "total", "max", "na_count", "points", "trend")
+
+
+def _ps_has_both(mod):
+    kinds = tuple(getattr(mod, "MA_TYPES", ()) or ())
+    return "sma" in kinds and "ema" in kinds
+
+
 def _same_score(a, b):
-    keys = ("total", "max", "na_count", "points", "trend", "sig", "signal_bar")
+    keys = ("total", "max", "na_count", "points", "trend", "sig", "signal_bar", "ma", "alt")
     return bool(a) and bool(b) and all(a.get(k) == b.get(k) for k in keys)
 
 
@@ -490,7 +511,10 @@ def publish(db, uid, docs, log=print, dry_run=False, force=False, state=None, fi
             mod = _point_score_module()
             # a record from an older spec version is re-scored once (DISCRECTIONALRY-TO-ALGO 2026-10-01)
             stale_v = bool(ps) and ps.get("v") != getattr(mod, "VERSION", ps.get("v"))
-            ps_due = force or ps.get("sig") != sig or stale_v or (recent and _ps_pending(ps, _ps_retry_reasons(mod)))
+            # ps1.2: a record without its EMA twin is re-scored once, so the web toggle has both
+            no_alt = bool(ps) and _ps_has_both(mod) and not (ps.get("alt") or {}).get("ema")
+            ps_due = (force or ps.get("sig") != sig or stale_v or no_alt
+                      or (recent and _ps_pending(ps, _ps_retry_reasons(mod))))
         if not force and st.get("sig") == sig and (st.get("complete") or st.get("skip")) and not ps_due:
             continue
         if ps_due:
@@ -525,6 +549,11 @@ def publish(db, uid, docs, log=print, dry_run=False, force=False, state=None, fi
             if doc["complete"]:                          # past the give-up time: the kept chart is final
                 state[key] = dict(st, complete=True, at=time.time())
             continue
+        if instrument_of(t) and "ma" not in doc:
+            try:
+                _attach_ma(doc, ma_lines(t, doc))
+            except Exception as e:                       # the chart still goes out, without its lines
+                log(f"  [trade-bars] {key}: 200 lines skipped ({type(e).__name__}: {e})")
         if not dry_run:
             db.collection("users").document(uid).collection(COLLECTION).document(key).set(doc)
         state[key] = {"sig": sig, "complete": doc["complete"], "covers": doc["covers"], "at": time.time()}
@@ -535,6 +564,111 @@ def publish(db, uid, docs, log=print, dry_run=False, force=False, state=None, fi
     if own_state and not dry_run:
         _save_state(state)
     return n
+
+
+# ── the 200 lines on the chart (ps1.2) ──────────────────────────────────────────────────────
+# Every bar size the web can draw from a bars doc, except 30s (no point reads it). 10s comes from
+# the capture; the rest from the scorer's 1-minute bars, bucketed on clock boundaries exactly like
+# the web's resample(), so a value's bucket start is the web bar's start.
+MA_TFS = (("10s", 10), ("1m", 60), ("2m", 120), ("3m", 180), ("5m", 300), ("10m", 600),
+          ("15m", 900), ("30m", 1800), ("1h", 3600))
+_MA_CACHE = {}          # (root, ma, secs) -> (Bars object, bucket starts, values in each bar's own contract)
+
+
+def _ma_series(mod, bars, root, ma, secs):
+    """(bucket starts, the 200 average at each bucket close) over the scorer's whole loaded history.
+    1m and up: the average of the Panama-adjusted closes minus the bar's own close shift, i.e. in the
+    price of the contract that bar traded - the score's own reference for a signal on that bar (the
+    average is linear, so shifting the series shifts it). 10s: the raw capture, as the 10s point reads it.
+    The EMA is blank until it has the score's warm-up (600 bars), like the point itself."""
+    key = (root, ma, secs)
+    hit = _MA_CACHE.get(key)
+    if hit is not None and hit[0] is bars:
+        return hit[1], hit[2]
+    if secs == 10:
+        ts = np.asarray(bars.t10, dtype="int64")
+        vals = np.asarray(mod._ma(bars.c10, ma), dtype="float64")
+    else:
+        po, ph, pl, pc, sc = bars.adjusted()
+        if secs == 60:
+            ts, closes, shift = bars.t, pc, sc
+        else:
+            bk, gid = mod._bucketize(bars.t, po, ph, pl, pc, bars.v, secs)
+            ends = np.flatnonzero(np.r_[gid[1:] != gid[:-1], True]) if len(gid) else np.zeros(0, dtype="int64")
+            ts, closes, shift = bk["t"], bk["c"], sc[ends]
+        vals = np.asarray(mod._ma(closes, ma), dtype="float64") - shift
+        ts = np.asarray(ts, dtype="int64")
+    if ma == "ema" and len(vals):
+        vals = vals.copy()
+        vals[:max(0, min(len(vals), int(getattr(mod, "MIN_BARS", 600)) - 1))] = np.nan
+    _MA_CACHE[key] = (bars, ts, vals)
+    return ts, vals
+
+
+def _last_bar(pk):
+    """Start epoch of the last bar in a packed series."""
+    try:
+        return int(pk["t0"]) + int(str(pk["s"]).rsplit(";", 1)[-1].split(",", 1)[0]) * int(pk["step"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _pack_line(times, vals, step):
+    """{t0, step, d}: d is a comma list, one slot per bar from t0 on; the first value is in hundredths, every
+    later one is its change in hundredths from the previous value, and an empty slot is a bar with no average
+    (a gap in the bars). About a fifth of the size of 'off,value' pairs; exact to the cent, no drift."""
+    t0 = times[0]
+    slots, prev = [], None
+    for tm, v in zip(times, vals):
+        idx = (tm - t0) // step
+        slots.extend([""] * (idx - len(slots)))
+        c = int(round(v * 100))
+        slots.append(str(c if prev is None else c - prev))
+        prev = c
+    return {"t0": t0, "step": step, "d": ",".join(slots)}
+
+
+def ma_lines(t, doc):
+    """{'v', 'len', 'sma': {tf: packed}, 'ema': {...}} for the bars doc, or None (packed: _pack_line).
+    Values are on the chart's own price scale (the doc's roll shift added)."""
+    mod = _point_score_module()
+    if not _ps_has_both(mod) or not hasattr(mod, "load_bars"):
+        return None
+    _ps_fresh_bars(mod)
+    root = doc.get("inst") or instrument_of(t)
+    bars = mod.load_bars(root)
+    if bars is None or not len(bars):
+        return None
+    out = {"v": getattr(mod, "VERSION", None), "len": int(getattr(mod, "MA_LEN", 200))}
+    for ma in ("sma", "ema"):
+        lines = {}
+        for tf, secs in MA_TFS:
+            pk = doc.get("b10s") if secs == 10 else doc.get("b1m")
+            last = _last_bar(pk) if pk else None
+            if last is None:
+                continue
+            ts, vals = _ma_series(mod, bars, root, ma, secs)
+            lo = int(pk["t0"]) // secs * secs
+            i0, i1 = int(np.searchsorted(ts, lo, side="left")), int(np.searchsorted(ts, last, side="right"))
+            keep = [i for i in range(i0, i1) if np.isfinite(vals[i])]
+            if not keep:
+                continue
+            sh = float(pk.get("shift") or 0)
+            lines[tf] = _pack_line([int(ts[i]) for i in keep], [float(vals[i]) + sh for i in keep], secs)
+        out[ma] = lines
+    return out
+
+
+def _attach_ma(doc, ml):
+    """Put the 200 lines on the doc inside the size cap: drop the 10-second lines first, then all of it."""
+    if not ml:
+        return
+    doc["ma"] = ml
+    if len(json.dumps(doc)) > DOC_CAP_BYTES:
+        for ma in ("sma", "ema"):
+            (ml.get(ma) or {}).pop("10s", None)
+    if len(json.dumps(doc)) > DOC_CAP_BYTES:
+        doc.pop("ma", None)
 
 
 # ── SHOULD HAVE TRADED: setups the owner did not take ───────────────────────────────────────
