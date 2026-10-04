@@ -833,7 +833,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.996';
+const VERSION='73.997';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -851,7 +851,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.995',date:'2026-10-03',notes:['PAPER board: two new DIP forward shadow legs, DIP ES #452 and DIP NQ #433, counted from Monday 10-05 - no orders, not in any book figure.']},
+const CHANGELOG=[{v:'73.997',date:'2026-10-04',notes:['PAPER (NT8 FUTURES): All time now covers EVERY paper trade, not the newest 500 - the nightly run keeps one compact copy of the whole history (a few documents) and the board reads that. The 31 strategies that had no row now sit in a closed Other / shadow group with switches and their own subtotal; they are NOT counted in the big number, so the big number equals the listed strategies total and the end of the bold line. Alarms that lived only in closed cards (stale runner or nightly report, NinjaTrader heartbeat, preflight, gate audit, reconcile, 10s capture, data feed, failed or missing book strategies) now also show as chips beside the number.']},
+{v:'73.995',date:'2026-10-03',notes:['PAPER board: two new DIP forward shadow legs, DIP ES #452 and DIP NQ #433, counted from Monday 10-05 - no orders, not in any book figure.']},
 {v:'73.991',date:'2026-10-03',notes:['Queue check: two BOOK jobs with different legs, or a sized book and its raw twin, are no longer flagged as repeats of each other.']},
 {v:'73.980',date:'2026-10-02',notes:['NinjaTrader paper: when the PC wakes with NinjaTrader still running and its 10-second bars carry no trade ticks, the watchdog restarts it (account flat only) so Tick Replay rebuilds the buy/sell data for the bars it missed.']},
 {v:'73.981',date:'2026-10-02',notes:['PAPER (NT8 FUTURES): money now counts on the day a trade CLOSES (New York date), not the day it opened - the curve, calendar, TODAY, leg totals, the BOOK figure and the daily reports. A trade still open sits under OPEN NOW with its mark labelled unrealised and is in no day yet; a Sunday-evening exit counts on Monday. Rows show the entry and the exit date and time, day headers read CLOSED, and DAILY REPORTS has CLOSE DAY and BOOK columns. Fixes ENGU-Q entries after 16:10 ET (79 of 380 since 2023) landing on no day and multi-day holds being booked at a mark.']},
@@ -4166,6 +4167,36 @@ window._gateChipTimer=window._gateChipTimer||setInterval(loadGateChip,300000);
 
 // ── PAPER (live forward-test) — one-shot fetch, NOT a listener (Spark quota). Cached in
 //    window._paperTrades/_paperReports; the PAPER tab's REFRESH button forces a re-fetch.
+// ── ALL PAPER TRADES (LEDGER step 3, owner 2026-10-03). The board used to read only the newest 500 trade
+//    docs, so "All" covered ~3 weeks of ~1000 trades. Reading every trade doc on every open would burn the
+//    Firestore read quota (50k a day, shared), so the nightly run (api/paper_bundle.py) writes ONE compact
+//    copy of every trade into users/<uid>/paper_bundle/<n> - about 1 read per 1,200 trades - and this reads
+//    those, plus the newest 40 trade docs directly for freshness, merged by doc id. Before the first nightly
+//    run after that shipped there is no bundle, and it falls back to the old newest-500 read.
+function _paperTradesLoad(base){
+  const NEWEST=40;
+  const bundleP=base.collection('paper_bundle').doc('0').get().then(d0=>{
+    if(!d0.exists)return null;
+    const m0=d0.data()||{};const parts=Math.max(1,+m0.parts||1);
+    const rest=[];for(let p=1;p<parts;p++)rest.push(base.collection('paper_bundle').doc(String(p)).get());
+    return Promise.all(rest).then(ds=>{
+      const docs=[m0].concat(ds.map(x=>x.data()||{}));
+      if(new Set(docs.map(x=>x.gen)).size!==1||docs.some(x=>typeof x.rows!=='string'))return null;   // torn or partial: fall back
+      docs.sort((a,b)=>(+a.part||0)-(+b.part||0));
+      const out=[];
+      docs.forEach(c=>{const F=c.fields||[];JSON.parse(c.rows).forEach(r=>{const o={};for(let i=0;i<F.length;i++){if(r[i]!==null&&r[i]!==undefined)o[F[i]]=r[i];}out.push(o);});});
+      return {rows:out,parts:parts,n_total:+m0.n_total||out.length,written:m0.written_at||null};
+    });
+  }).catch(()=>null);
+  return bundleP.then(bd=>base.collection('paper_trades').orderBy('entryTime','desc').limit(bd?NEWEST:500).get().then(ts=>{
+    const mp=new Map();
+    if(bd)bd.rows.forEach(r=>mp.set(r.id,r));
+    ts.docs.forEach(d=>mp.set(d.id,Object.assign({id:d.id},d.data())));
+    const trades=[...mp.values()].sort((a,b)=>(+b.entryTime||0)-(+a.entryTime||0));
+    return {trades:trades,info:{bundle:!!bd,n_total:bd?bd.n_total:null,parts:bd?bd.parts:0,written:bd?bd.written:null,
+      loaded:trades.length,reads:(bd?bd.parts:0)+Math.max(1,ts.docs.length)}};
+  }));
+}
 function loadPaper(uidArg,force){
   if(!force&&window._paperLoaded)return;
   if(window._paperLoading)return;
@@ -4174,7 +4205,7 @@ function loadPaper(uidArg,force){
   window._paperLoading=true;window._paperErr=null;
   const base=db.collection('users').doc(u);
   Promise.all([
-    base.collection('paper_trades').orderBy('entryTime','desc').limit(500).get(),
+    _paperTradesLoad(base),
     base.collection('paper_reports').where(firebase.firestore.FieldPath.documentId(),'>=',new Date(Date.now()-60*86400000).toLocaleDateString('en-CA')).limit(90).get(),
     base.collection('meta').doc('nt_bridge').get(),
     base.collection('meta').doc('nt_preflight').get(),
@@ -4183,8 +4214,8 @@ function loadPaper(uidArg,force){
     // tools/nt_backtest_match.py. A second, independent answer to "did NinjaTrader see
     // this trade" for every row the live reconcile can say nothing about.
     base.collection('meta').doc('nt_backtest_match').get()
-  ]).then(([ts,rs,nb,np,na,nbm])=>{
-    window._paperTrades=ts.docs.map(d=>({id:d.id,...d.data()}));
+  ]).then(([tl,rs,nb,np,na,nbm])=>{
+    window._paperTrades=tl.trades;window._paperTradeInfo=tl.info;
     window._paperReports=rs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.id.localeCompare(a.id)).slice(0,30);
     window._ntBridge=nb.exists?nb.data():null;
     window._ntPreflight=np.exists?np.data():null;
@@ -38613,6 +38644,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
          ntNote:'Engine-only, and deliberately so. This is a STOCKS-account book; the NinjaTrader demo trades futures and will never run it.'},
         {k:'NOISE_H_RF',label:'NOISE-231 · rf HYBRID♻ 55',   color:'#d98cc4', ctrl:'NOISE_225', nt:'NOISE',
          ntNote:'EdgeLogNOISE on the demo account, MNQ, base size 3. CHANGED 2026-08-26: the two crown filters (short veto, wildest-10-percent skip) were switched ON there at the owner ask, so NinjaTrader now runs CROWN CONFIG + rf GATE - a combination no leg on this board computes. This row is still the nearest match, because it is the only one carrying the same gate, but from 2026-08-26 the nightly reconcile is comparing two configurations that differ by those two filters. Expect the difference to show on days a filter vetoes.'},
+        // ADDED 2026-10-04 (TV lane, inbox 43): the two DIP forward shadows, counted from Monday 2026-10-05.
+        // NO ORDERS: not on NinjaTrader or Webull and in no book figure. Money comes back in DOLLARS at the file
+        // own size (cost 0, multiplier 1); a trade counts on the day it closes. Judged per docs/DIP_FORWARD.md
+        // at 50 closed trades or 9 months. No `nt` field and no control: the honest control for a shadow is
+        // the strategy not existing. Listed = counted in the big number, like every other row here.
+        {k:'DIP_ES_452', label:'DIP ES #452 \u00b7 SHADOW', color:'#c7a86b',
+         chip:'shadow \u00b7 no orders',
+         chipTip:'Run #452, the NQDIP 1.3 dip rules traded on ES. A forward shadow from 2026-10-05: no orders anywhere, in no book figure. Holds last days and a trade counts on the day it closes. Judged at 50 closed trades or 9 months (docs/DIP_FORWARD.md).',
+         ntNote:'Engine-only, and deliberately so: a forward shadow, never traded on NinjaTrader.'},
+        {k:'DIP_NQ_433', label:'DIP NQ #433 \u00b7 SHADOW', color:'#b88f5a',
+         chip:'shadow \u00b7 no orders',
+         chipTip:'Run #433, the NQDIP 1.2 dip rules traded on NQ. A forward shadow from 2026-10-05: no orders anywhere, in no book figure. Holds last days and a trade counts on the day it closes. Judged at 50 closed trades or 9 months (docs/DIP_FORWARD.md).',
+         ntNote:'Engine-only, and deliberately so: a forward shadow, never traded on NinjaTrader.'},
       ];
       // Archived legs stay in PAPER_LEG_DEFS so their colours, labels and history keep
       // resolving -- only the VISIBLE lists below drop them.
@@ -38671,7 +38715,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(r.indexOf('ORB')===0)return 'ORB';
         if(r.indexOf('ENGUQ')===0)return 'ENGU-Q';
         if(r.indexOf('NOISE')===0)return 'NOISE';
-        if(r.indexOf('ETFBOOK')===0)return 'DIP';
+        if(r.indexOf('ETFBOOK')===0||r.indexOf('DIP_')===0)return 'DIP';
         return r;};
       // ML = an ML overlay sits on top (hybrid gate or size tilt). _legGate is the truth
       // where a report carries one; the key suffix covers legs before their first report.
@@ -38709,7 +38753,26 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // Trades follow the table now: archived means archived everywhere, and SHOW ARCHIVED
       // brings the row and its trades back together.
       const _isArchivedLeg=k=>{const d=PAPER_LEG_DEFS.find(x=>x.k===k);return !!(d&&d.archived);};
-      const _legShown=k=>!_legOff.includes(k)&&_passFilter(k)&&(_showArch||!_isArchivedLeg(k));
+      // ── LISTED vs OTHER / SHADOW (LEDGER step 3, owner decision 2026-10-03). A strategy is LISTED when it has an
+      // entry in PAPER_LEG_DEFS above (archived ones are listed behind SHOW ARCHIVED). Every other strategy that
+      // has trades, or that the newest report carries, is OTHER / SHADOW: it gets a row and a switch in its own
+      // closed group in the strategy list, but it is NEVER counted in the big number, the curve, the stats, the
+      // calendar or the CUM column, so the big number = the listed strategies total = the end of the bold line.
+      // The switch on an Other row only decides whether its trades are LISTED in the trades table (tagged OTHER).
+      const _defKeySet=new Set(PAPER_LEG_DEFS.map(d=>d.k));
+      const _otherKeys=(()=>{const st=new Set();
+        _pt.forEach(t=>{const k=legOf(t);if(k&&!_defKeySet.has(k))st.add(k);});
+        const rl=(_pr[0]&&_pr[0].legs)||{};
+        Object.keys(rl).forEach(k=>{const K=String(k).toUpperCase();if(K&&!_defKeySet.has(K))st.add(K);});
+        return [...st].sort();})();
+      const _otherSet=new Set(_otherKeys);
+      const _isOtherLeg=k=>_otherSet.has(k);
+      _otherKeys.forEach(k=>{_legColor[k]='#8a8a8a';_legLabel[k]=k.replace(/_/g,' ');});
+      if(!Array.isArray(window._paperOtherOn))window._paperOtherOn=Array.isArray(APREF.paperOtherOn)?APREF.paperOtherOn.slice():[];
+      if(window._paperOtherOpen==null)window._paperOtherOpen=!!APREF.paperOtherOpen;
+      const _otherOnSet=new Set(window._paperOtherOn);
+      const _ti=window._paperTradeInfo||null;
+      const _legShown=k=>!_legOff.includes(k)&&_passFilter(k)&&(_showArch||!_isArchivedLeg(k))&&!_isOtherLeg(k);
       // What the archive is holding back right now, so nothing disappears silently.
       const _nArchTrades=_showArch?0:_pt.filter(t=>_isArchivedLeg(legOf(t))).length;
       const _nShown=LEGS_VIS.filter(d=>_legShown(d.k)).length;
@@ -38995,7 +39058,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // that leg's curve and filters the matrix/trades below. data-paperleg resolves to
         // 'ALL' when this leg is already selected, so a second click clears it -- that reuses
         // the existing [data-paperleg] handler untouched rather than adding a second one.
-        const sel=_legShown(name), dim=!sel;
+        const _isOth=_isOtherLeg(name);
+        const sel=_isOth?_otherOnSet.has(name):_legShown(name), dim=!sel&&!_isOth;
         // Live state, pinned RIGHT on the tile (owner: "need the status dot on the tile
         // (again pined right)"). Literal hex -- the theme greys out --green/--yellow/--red.
         let dotHtml='',dotMini='';
@@ -39212,11 +39276,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _subBits=[_isEQ?'1m':'5m',_isEQ?'24h':'RTH'];
         if(a.n){_subBits.push(a.n+' tr');_subBits.push(Math.round(a.wr*100)+'% won');if(_pfTxt!=null)_subBits.push('PF '+_pfTxt);}
         else _subBits.push('no trades yet');
+        if(_isOth)_subBits.unshift('other');
         const _hover=[label,'net '+fmtUsd(a.net)+' over '+a.n+' trade'+(a.n===1?'':'s')+' on '+a.days+' day'+(a.days===1?'':'s'),
           (_S.ev!=null?('EV '+fmtUsd(_S.ev)+' per trade'):''),(_S.perDay!=null?(fmtUsd(_S.perDay)+' per calendar day'):''),
           (_sp.nBf?('forward '+_sp.nFw+' tr '+fmtUsd(_sp.netFw)+' / backfill '+_sp.nBf+' tr '+fmtUsd(_sp.netBf)):''),
           (a.lastT?('last trade '+_dOnly(a.lastT)):''),
-          (sel?'Switch is ON: included in the chart, calendar, totals and trades.':'Switch is OFF: excluded everywhere on the right.')].filter(Boolean).join(' \u00b7 ');
+          (_isOth?(sel?'OTHER / SHADOW. Switch is ON: its trades are listed in the trades table, tagged OTHER. They are still NOT counted in the big number, the curve, the stats or the calendar.':'OTHER / SHADOW, not counted in the big number. Switch it on to list its trades in the trades table.')
+            :(sel?'Switch is ON: included in the chart, calendar, totals and trades.':'Switch is OFF: excluded everywhere on the right.'))].filter(Boolean).join(' \u00b7 ');
         const _rtd=(inner,extra)=>'<td style="padding:8px 6px;border-top:1px solid var(--border2);vertical-align:middle;'+(extra||'')+'">'+inner+'</td>';
         // ROLL ARTIFACT note under the headline number (owner call: keep the fake 09-14/
         // 09-16 splice trades, never delete, but the leg total has to say how much of NET
@@ -39224,7 +39290,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // --yellow/--green/--red which all resolve to shades of grey there.
         const _rollNote=a.rollN?('<div title="'+(a.rollN+' trade'+(a.rollN===1?'':'s')+' from the September 2026 contract-roll splice (kept, not deleted - see ROLL_AUDIT.md 4.5.4 and the ROLL badge on the trade rows below)').replace(/"/g,'&quot;')+'" style="font-size:8px;color:var(--attn-amber);margin-top:2px;white-space:nowrap;cursor:help">incl. '+fmtUsd(a.rollUsd)+' roll artifact</div>'):'';
         const _openNote=a.openN?('<div title="'+(a.openN+' trade'+(a.openN===1?' is':'s are')+' still open: the figure is an UNREALISED mark at the last bar, it is not in NET, the curve or any day, and counts on the day the trade closes').replace(/"/g,'&quot;')+'" style="font-size:8px;color:var(--text4);margin-top:2px;white-space:nowrap;cursor:help">+ '+a.openN+' open \u00b7 '+fmtUsd(a.openUsd)+' unrealised</div>'):'';
-        const _mainRow='<tr data-paperleg="'+name+'" class="p2row" title="'+_hover.replace(/"/g,'&quot;')+'" style="cursor:pointer">'
+        const _mainRow='<tr '+(_isOth?'data-paperother="':'data-paperleg="')+name+'" class="p2row" title="'+_hover.replace(/"/g,'&quot;')+'" style="cursor:pointer">'
           +_rtd(dotMini||'<span class="p2live" style="background:var(--text5)"></span>','width:1%;padding-left:14px')
           +_rtd('<div style="font-weight:700;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;color:'+(dim?'var(--text5)':color)+'">'
                +_crownIc(name)+label+wBadge+orbBadge+noteBadge+'</div>'
@@ -39335,6 +39401,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         return '<th data-lsort="'+k+'" title="sort by '+lbl+(on?(_lsDir==='asc'?' (lowest first - click to flip)':' (highest first - click to flip)'):'')
           +'" style="cursor:pointer;user-select:none;padding:4px 6px;text-align:'+al+';font-size:8.5px;letter-spacing:1.2px;color:var(--text5);font-weight:700;border:0">'
           +lbl+'<span style="margin-left:3px;color:'+(on?'var(--text2)':'var(--text5)')+';opacity:'+(on?'1':'.45')+'">'+(on?(_lsDir==='asc'?'\u25b2':'\u25bc'):'\u25be')+'</span></th>';};
+      // OTHER / SHADOW group: a closed group row (subtotal, clearly NOT counted) and, when open, one row + switch
+      // per strategy. Same row builder as the listed rows, so the cell count always matches.
+      const _otherAgg=_otherKeys.map(k=>legAgg(k,PSCOPE));
+      const _otherNet=_otherAgg.reduce((a,x)=>a+x.net,0), _otherN=_otherAgg.reduce((a,x)=>a+x.n,0);
+      const _otherGroupRows=_otherKeys.length?(
+        '<tr data-p2otherhd data-net="'+_otherNet.toFixed(2)+'" data-n="'+_otherN+'" data-legs="'+_otherKeys.length+'" style="cursor:pointer" '
+          +'title="Strategies the runner computes that have no listed row. They are shown here so nothing is hidden, but they are NOT counted in the big number, the curve, the stats or the calendar."'
+          +'><td colspan="4" style="padding:10px 14px 8px;border-top:1px solid var(--border2)">'
+          +'<div style="display:flex;align-items:center;gap:8px"><span style="color:var(--text5);width:10px">'+(window._paperOtherOpen?'\u25be':'\u25b8')+'</span>'
+          +'<span style="font-weight:700;font-size:11.5px">Other / shadow</span>'
+          +'<span style="font-size:9.5px;color:var(--text5)">'+_otherKeys.length+' strategies \u00b7 '+_otherN+' trades</span>'
+          +'<span style="margin-left:auto;font-weight:700;font-size:13px;color:'+(_otherNet>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_otherNet)+'</span></div>'
+          +'<div style="font-size:9px;color:var(--text5);margin:3px 0 0 18px;line-height:1.5">NOT COUNTED in the big number, the curve, the stats or the calendar. Switch a strategy on to list its trades in the trades table.</div>'
+          +'</td></tr>'
+        +(window._paperOtherOpen?_otherKeys.map(k=>legTile(k,_legLabel[k],'#8a8a8a')).join(''):'')):'';
       const legTable='<div id="p2legs" style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
         +'<thead><tr><th style="border:0;padding:0"></th>'+_lth('leg','STRATEGY','left')+_lth('net','NET','right')+'<th style="border:0;padding:0"></th></tr></thead><tbody>'
         +(_legOrder.length?_legOrder.map(d=>legTile(d[0],d[1],d[2])).join('')
@@ -39342,7 +39423,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +(PKIND==='ML'&&PBASE?'BASELINES ONLY hides every ML overlay \u2014 switch it off to see the ML legs.'
               :'No strategy matches these filters \u2014 set FAMILY and TYPE back to ALL.')
             +'</td></tr>'))
-        +'</tbody></table></div>'
+        +_otherGroupRows+'</tbody></table></div>'
         // Footnotes removed 2026-08-29 ("info is cropped" / "simpler"): the
         // more-columns sentence and the crown note both wrapped into grey noise at
         // sidebar width. The crown note now rides as a tooltip on the STRATEGIES
@@ -39524,6 +39605,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const days=new Set(rows.map(t=>_closeDay(t)).filter(Boolean)).size;
         const today=_pt.filter(t=>_legShown(legOf(t))).filter(t=>(_closeDay(t))===_todayET).reduce((a,t)=>a+(+t.pnl_usd||0),0);
         return {n:rows.length,net:net,wr:rows.length?wins/rows.length:0,pf:gl>0?gw/gl:(gw>0?Infinity:null),days:days,today:today};})();
+      // The LISTED strategies total: the sum of the switched-on listed rows' NET (the figure each row shows, so it
+      // follows the Today / All time switch). With the range on All (or Today) it equals the big number.
+      const _listedAgg=PAPER_LEG_DEFS.filter(d=>_legShown(d.k)).map(d=>legAgg(d.k,PSCOPE));
+      const _listedNet=_listedAgg.reduce((a,x)=>a+x.net,0), _listedN=_listedAgg.reduce((a,x)=>a+x.n,0);
       const _winDates=_allDates.filter(d=>!_pcwFrom||d>=_pcwFrom);
       const _i0=_allDates.length-_winDates.length;
       const _winSeries=_curveSeries.map(sr=>{const base=_i0>0?sr.vals[_i0-1]:0;return Object.assign({},sr,{vals:sr.vals.slice(_i0).map(v=>v-base)});});
@@ -39627,6 +39712,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +(_crownGone.length?(' Crowns NOT on this board: '+_crownGone.map(d=>d.label).join(', ')+'.'):''))+'" style="cursor:help">Strategies</span>'
             +'<span class="p2railct">'+_nShown+' of '+LEGS_F.length+' on</span>'
             +(_legOff.length?'<span class="p2link" data-paperlegall>Include all</span>':'')+'</div>'
+          +(()=>{
+            const tie=(_pcw==='ALL'||_pcw==='TODAY')&&Math.abs(_listedNet-_H.net)<0.5;
+            return '<div data-p2listed data-net="'+_listedNet.toFixed(2)+'" data-n="'+_listedN+'" data-tie="'+(tie?'1':'0')+'" style="padding:7px 14px;font-size:10.5px;color:var(--text4);border-bottom:1px solid var(--border2);line-height:1.5" '
+              +'title="The sum of the switched-on listed strategies, each at the NET its row shows. Other / shadow strategies are not in it."'
+              +'>Listed strategies \u00b7 '+(PSCOPE==='TODAY'?'today':'all time')+' <b style="color:'+(_listedNet>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_listedNet)+'</b> \u00b7 '+_listedN+' trades'
+              +(tie?' <span style="color:var(--text5)">= the big number</span>':' <span style="color:var(--text5)">(the big number shows the range you picked)</span>')+'</div>';
+          })()
           +'<div class="p2filt">'
             +'<div class="p2filtrow">'
               +'<div class="p2seg" data-ptray>'+seg('mscope','TODAY',PSCOPE==='TODAY','Today','Only today - '+_todayET+' (New York). Money comes from the EDGELOG engine, not NinjaTrader fills.')
@@ -39644,6 +39736,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'</div>'
           +'</div>'
           +legTable
+          +(()=>{
+            const nL=_pt.length, nSt=(_ti&&_ti.bundle)?_ti.n_total:null;
+            const nOth=_pt.filter(t=>_isOtherLeg(legOf(t))).length;
+            const ld=(_ti&&_ti.bundle===false)?('Loaded only the newest '+nL+' trades: the full history bundle is written by the nightly run and is not there yet')
+              :(nSt==null?('Loaded '+nL+' trades')
+                :(nL===nSt?('Loaded '+nL+' of '+nSt+' stored trades')
+                  :(nL>nSt?('Loaded '+nL+' trades ('+(nL-nSt)+' newer than the nightly bundle)')
+                           :('Loaded '+nL+' of '+nSt+' stored trades \u2014 INCOMPLETE'))));
+            return '<div class="p2railfoot" data-p2loaded data-loaded="'+nL+'" data-stored="'+(nSt==null?'':nSt)+'" data-listed="'+(nL-nOth)+'" data-other="'+nOth+'">'+ld+' \u00b7 '+(nL-nOth)+' listed + '+nOth+' other / shadow</div>';
+          })()
           +'<div class="p2railfoot">Switch = included everywhere on the left \u00b7 dot = live in NinjaTrader \u00b7 \ud83d\udc51 = family champion</div>'
           +'</div>';
       })();
@@ -39703,7 +39805,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _psCol=_PSORTS[window._paperSortCol]?window._paperSortCol:'date';
       const _psDir=(window._paperSortDir==='asc')?'asc':'desc';
       const _psKey=_PSORTS[_psCol];
-      const _tSorted=_pt.filter(t=>_legShown(legOf(t)))
+      const _tSorted=_pt.filter(t=>{const _l=legOf(t);return _legShown(_l)||_otherOnSet.has(_l);})
         .sort((a,b)=>{
           const x=_psKey(a),y=_psKey(b);
           let c;
@@ -39730,6 +39832,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // Values mirror api/paper.py PAPER_LEGS, which is the authority.
       const _legMkt=k=>{
         const f=String(k||'').toUpperCase();
+        // ES legs: the TTM book legs (30m) and the DIP ES shadow. DIP legs return dollars with cost inside.
+        if(f.indexOf('TTM')===0)return {instrument:'ES',timeframe:'30m',session:'rth',cost_pts:0.363};
+        if(f.indexOf('DIP_ES')===0)return {instrument:'ES',timeframe:'5m',session:'rth',cost_pts:0};
+        if(f.indexOf('DIP_NQ')===0)return {instrument:'NQ',timeframe:'5m',session:'rth',cost_pts:0};
         if(f.indexOf('ENGUQ')===0)return {timeframe:'1m',session:'eth'};
         if(f.indexOf('NOISE')===0)return {timeframe:'5m',session:'rth'};
         // The ETF dip book runs on DAILY bars, on four different ETFs. Asking for NQ 5m
@@ -39798,7 +39904,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _cumById=(()=>{
         const chron=_tSorted.slice().sort((a,b)=>(+a.exitTime||+a.entryTime||0)-(+b.exitTime||+b.entryTime||0));
         const m=new Map(); let c=0;
-        chron.forEach(x=>{if(x.open===true){m.set(x,null);return;} c+=(+x.pnl_usd||0); m.set(x,c);});
+        chron.forEach(x=>{if(x.open===true||_isOtherLeg(legOf(x))){m.set(x,null);return;} c+=(+x.pnl_usd||0); m.set(x,c);});
         return m;
       })();
       const _durTxt=t=>{
@@ -39856,9 +39962,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +' '+_engChip('TV –','#8a8a8a','TradingView has no API to poll - it is only ever checked by hand, in bulk. See CROSS-ENGINE, ALL TIME.')
           +'</td>';
       };
-      const _dayTot={};_tSorted.forEach(t=>{const d=_closeDay(t)||'';
+      const _dayTot={};_tSorted.forEach(t=>{if(_isOtherLeg(legOf(t)))return;const d=_closeDay(t)||'';
         if(!_dayTot[d])_dayTot[d]={pnl:0,n:0};_dayTot[d].pnl+=(+t.pnl_usd||0);_dayTot[d].n++;});
       const _nOpenRows=_tSorted.filter(t=>t.open===true).length;
+      const _nOtherRows=_tSorted.filter(t=>_isOtherLeg(legOf(t))).length;
+      const _othBadge='<span title="OTHER / SHADOW strategy: listed here only because its switch is on. Not counted in the big number, the day totals or CUM." style="margin-left:4px;font-size:8px;font-weight:700;letter-spacing:.5px;padding:0 4px;border-radius:4px;border:1px solid #8a8a8a;color:#8a8a8a;cursor:help">OTHER</span>';
       let _lastDay=null;
       const _tRows=_tSorted.slice(0,200).map(t=>{
         const leg=legOf(t),lc=_legColor[leg]||'#5b8def';const pnl=+t.pnl_usd||0;
@@ -39877,8 +39985,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           _et:_etk,_xt2:_xtk,_ep:(t.entry_px!=null?+t.entry_px:null),
           _xp:(t.exit_px!=null?+t.exit_px:null),_pts:(t.pnl_pts!=null?+t.pnl_pts:0),
           _usd:pnl,_side:_sideOf(t.side),
-          _pb:Object.assign({instrument:'NQ'},_legMkt(leg),
-               {include_fresh:true,cost_pts:0.533})});
+          _pb:Object.assign({instrument:'NQ',cost_pts:0.533},_legMkt(leg),
+               {include_fresh:true})});
         const _chartCell=_etk
           ? '<td><span data-ptchart="'+_ci+'" title="open this trade session candles" style="cursor:pointer;display:inline-block;font-size:8px;font-weight:700;letter-spacing:.5px;line-height:1.4;padding:0 6px;border-radius:5px;border:1px solid var(--border);color:var(--text4)">CHART</span></td>'
           : '<td><span title="this trade has no usable entry time, so there is nothing to centre a chart on" style="font-size:8px;color:var(--text5)">—</span></td>';
@@ -39900,7 +40008,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         }
         const _sideTxt=(_sideOf(t.side)||'\u2014').toUpperCase();
         return _dayHdr+'<tr data-ptrow="P'+_ci+'"'+(_selNow?' class="ptsel"':'')+'>'
-          +'<td data-pc="leg" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px">'+_crownIc(leg)+'<span style="color:'+lc+';font-weight:700">'+(_legLabel[leg]||leg)+'</span>'+_laBadge+_rollBadge+'</td>'
+          +'<td data-pc="leg" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px">'+_crownIc(leg)+'<span style="color:'+lc+';font-weight:700">'+(_legLabel[leg]||leg)+'</span>'+_laBadge+_rollBadge+(_isOtherLeg(leg)?_othBadge:'')+'</td>'
           +'<td><span style="display:inline-block;font-size:9px;letter-spacing:1px;font-weight:700;padding:1px 7px;border-radius:6px;border:1px solid var(--border);color:var(--text2)">'+_sideTxt+'</span></td>'
           +'<td style="white-space:nowrap;color:var(--text4)" title="entry date and time \u2192 exit date and time, New York time. The day header above is the day the trade CLOSED'+(t.open===true?'. This trade is still OPEN, so its exit is the last bar seen and its money is an unrealised mark':'')+'">'+(_etKey(t.entryTime)||'\u2014').slice(5)+' \u2192 '+(t.open===true?'<b style="font-size:8px;letter-spacing:.5px;padding:0 4px;border-radius:4px;border:1px solid var(--text4)">OPEN</b> ':'')+(_etKey(t.exitTime)||'\u2014').slice(5)+'</td>'
           +'<td style="white-space:nowrap;color:var(--text4)" title="entry price \u2192 exit price">'+(t.entry_px!=null?(+t.entry_px).toFixed(2):'\u2014')+' \u2192 '+(t.exit_px!=null?(+t.exit_px).toFixed(2):'\u2014')+'</td>'
@@ -39926,7 +40034,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'<span id="pt-selbar" style="margin-left:10px;font-weight:400;letter-spacing:0"></span>'
         +'<span style="margin-left:auto;font-weight:400;letter-spacing:0;font-size:8px;color:var(--text5)">click a row to select &middot; drag across rows for a range &middot; shift-click extends &middot; ctrl-click adds one</span>';
       const _p2dot=(col,txt)=>'<span style="display:inline-flex;align-items:center;gap:5px"><i style="width:7px;height:7px;border-radius:50%;background:'+col+';display:inline-block"></i>'+txt+'</span>';
-      const tradesHtml='<div class="p2sheet"><div class="p2sh" style="flex-wrap:wrap"><span>Trades \u00b7 '+_tSorted.length+(_nOpenRows?' ('+_nOpenRows+' open)':'')+(_tSorted.length>200?' <span style="font-weight:400;letter-spacing:.3px;text-transform:none">(showing 200)</span>':'')+'</span>'
+      const tradesHtml='<div class="p2sheet"><div class="p2sh" style="flex-wrap:wrap"><span>Trades \u00b7 '+(_tSorted.length-_nOtherRows)+(_nOtherRows?' + '+_nOtherRows+' other, not counted':'')+(_nOpenRows?' ('+_nOpenRows+' open)':'')+(_tSorted.length>200?' <span style="font-weight:400;letter-spacing:.3px;text-transform:none">(showing 200)</span>':'')+'</span>'
           +'<span style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:.3px;font-weight:500">'
           +'<span data-psort="date" class="p2chip" style="cursor:pointer;height:26px" title="click to flip the day order">'+(_psCol==='date'?(_psDir==='desc'?'newest first':'oldest first'):'sorted by '+_psCol+' \u00b7 click for day order')+'</span>'
           +_ptSelBar.replace('margin-left:10px;','').replace(/<span style="margin-left:auto[^>]*>.*?<\/span>$/,'')+'</span></div>'
@@ -40388,7 +40496,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // figure the audit could not produce is a dash carrying the AUDIT'S OWN reason on
       // hover — a zero here would read as "the gate was never asked", which is the one
       // wrong answer this panel exists to prevent.
-      let gateAuditHtml='', gateAuditInner='', _gaSub='';
+      let gateAuditHtml='', gateAuditInner='', _gaSub='', _gaVerdict=null;
       {
         const _e=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const _q=s=>_e(s).replace(/"/g,'&quot;');
@@ -40614,6 +40722,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         gateAuditInner='<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px">'+_pill(vTxt,vCol)
           +'<span style="font-size:9px;color:var(--text5)">'+_sess+'</span></div>'+inner;
         gateAuditHtml=tile('<div class="lbl" style="margin-bottom:7px">DID THE GATE DO ITS JOB?</div>'+gateAuditInner);
+        _gaVerdict={txt:String(vTxt),ok:String(vTxt).indexOf('\u2713')===0};
       }
       const _reloadLbl=window._paperLoading?'LOADING…':'⟳ REFRESH';
       const _reloadBtn='<button data-paperrefresh style="height:24px;padding:0 12px;font-size:10px;font-weight:700;letter-spacing:1px;border-radius:7px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);cursor:pointer">'+_reloadLbl+'</button>';
@@ -40710,6 +40819,84 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // ONE-LINE STATUS. Reads the same bridge snapshot the big card does.
         // STATUS CHIPS in the top bar (Robinhood x iOS, owner 2026-09-08). Totals moved
         // into the hero, so this strip only says what is running.
+        // ── WARNINGS IN THE HERO (LEDGER step 3, owner 2026-10-03). Every alarm that used to live only inside a
+        // closed card (or in a line a long way from the number) also shows as a chip in the hero status row, so a
+        // problem is never hidden behind a closed card. A chip opens the card that explains it. State is carried
+        // by the warning sign and the words, not by colour alone (MONO theme has no hue).
+        const _p2WarnChips=(()=>{
+          const W=[];
+          const add=(card,txt,tip)=>W.push({card:card,txt:txt,tip:tip||txt});
+          const _wx=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+          const B=window._ntBridge, Pf=window._ntPreflight, A=window._ntAlert, LR=_pr[0]||null;
+          if(window._paperErr)add('','Load error',String(window._paperErr));
+          if(_ti&&_ti.bundle===false)add('','Trade history: newest 500 only','The full-history bundle is written by the nightly run and is not there yet, so All time covers only the newest 500 trades.');
+          else if(_ti&&_ti.bundle&&_pt.length<_ti.n_total)add('','Trade history incomplete','Loaded '+_pt.length+' trades but the nightly bundle holds '+_ti.n_total+'.');
+          // the nightly report: is the newest one the last completed trading day's?
+          {
+            const etNow=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));
+            const d=new Date(etNow.getTime());
+            if(d.getHours()*60+d.getMinutes()<16*60+20)d.setDate(d.getDate()-1);
+            while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()-1);
+            const ymd=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
+            const expect=ymd(d), last=LR?String(LR.id||LR.date||''):'';
+            if(!LR&&_pr.length===0&&window._paperLoaded)add('reports','No nightly report loaded','The runner has not written a paper report that this board can read.');
+            else if(LR&&/^\d{4}-\d{2}-\d{2}$/.test(last)&&last<expect){
+              let behind=0;const c=new Date(last+'T12:00:00');
+              while(ymd(c)<expect){c.setDate(c.getDate()+1);if(c.getDay()!==0&&c.getDay()!==6)behind++;}
+              const sameDay=(expect===ymd(etNow));
+              if(behind>=2||(behind===1&&!(sameDay&&etNow.getHours()<19)))add('reports','Nightly report stale: last '+last.slice(5),'The newest paper report is '+last+', the last completed trading day is '+expect+' ('+behind+' trading day'+(behind===1?'':'s')+' behind). The runner may be down or the nightly pass failed.');
+            }
+          }
+          // NinjaTrader heartbeat / bridge / preflight / alert
+          let staleShown=false;
+          if(B&&B.checked_at){
+            const ageMin=Math.floor((Date.now()-Date.parse(String(B.checked_at).replace(' ','T')+'Z'))/60000);
+            if(isFinite(ageMin)&&ageMin>15){
+              staleShown=true;
+              const nRt=(B.strategies||[]).filter(r=>String(r.state)==='Realtime').length;
+              add('nt','NinjaTrader heartbeat stale '+ageMin+'m','The bridge snapshot is '+ageMin+' minutes old (over 15). '+(nRt?(nRt+' strategies were Realtime when it was last seen - NinjaTrader, the bridge or the PC may be down while they should be trading.'):'Nothing was Realtime when it was last seen.'));
+            }else if(B.up===false)add('nt','NinjaTrader bridge down','The bridge reports NinjaTrader is not answering.');
+          }
+          const preP=(Pf&&Array.isArray(Pf.problems))?Pf.problems:[];
+          if(preP.length)add('nt','9am preflight: '+preP.length+' problem'+(preP.length===1?'':'s'),preP.join(' | '));
+          if(!staleShown&&A&&(A.severity==='critical'||A.severity==='warning'))add('nt','NinjaTrader alert: '+A.severity,A.message||'');
+          const G=B&&B.gate;
+          if(G&&G.stale_days!=null&&G.stale_days>4)add('nt','Gate models '+G.stale_days+'d old','The gate models re-teach each evening; over 4 days means those refreshes are failing even though the service still answers.');
+          if(LR&&LR.live&&Array.isArray(LR.live.warnings)&&LR.live.warnings.length)add('nt','Fills log: '+LR.live.warnings.length+' warning'+(LR.live.warnings.length===1?'':'s'),LR.live.warnings.join(' | '));
+          // the gate audit and the reconcile
+          if(_gaVerdict&&!_gaVerdict.ok)add('gate','Gate audit: '+_gaVerdict.txt.replace(/^[^A-Za-z0-9]+/,'').toLowerCase(),'The nightly audit of whether the gate did its job did not come back clean: '+_gaVerdict.txt+'. Open the card for the checks.');
+          if(!_rec)add('recon','No reconcile in the latest report','The nightly cross-engine reconcile did not run or is not in the newest report.');
+          else if(_rec.error)add('recon','Reconcile failed',String(_rec.error));
+          else{const pr=(_rec.verdict&&Array.isArray(_rec.verdict.problems))?_rec.verdict.problems:[];
+            if(pr.length)add('recon','Reconcile: '+pr.length+' problem'+(pr.length===1?'':'s'),pr.join(' | '));}
+          // the 10s capture and the data feed
+          {
+            const ch=(_pr.find(r=>r&&r.capture_health&&typeof r.capture_health==='object')||{}).capture_health;
+            if(ch){
+              const bad=[];
+              ['NQ','ES'].forEach(i=>{const rec=ch[i]||{},r=rec.rth;if(r&&((+r.bars_pct<90)||(+r.delta_pct<80)))bad.push(i+' delta '+Math.round(+r.delta_pct)+'%');});
+              if(ch.warning||bad.length)add('','10s capture low'+(bad.length?(': '+bad.join(', ')):''),ch.warning||'The 10-second capture is below its thresholds.');
+            }
+          }
+          {
+            const fw=_dataWarn.filter(w=>String(w).indexOf('exception in run_shadow')!==0);
+            if(fw.length)add('','Data feed: '+fw.length+' warning'+(fw.length===1?'':'s'),fw.join(' | '));
+          }
+          // strategies: failed runs, failed gates, missing book legs
+          if(LR&&LR.legs){
+            const failed=Object.keys(LR.legs).filter(k=>((LR.legs[k]||{}).warnings||[]).some(w=>String(w).indexOf('exception in run_shadow')===0));
+            if(failed.length)add('','Strategy run failed: '+failed.slice(0,3).join(', ')+(failed.length>3?' +'+(failed.length-3):''),'These strategies raised an error in the nightly run and counted nothing: '+failed.join(', '));
+            const gf=Object.keys(LR.legs).filter(k=>{const g=(LR.legs[k]||{}).gate;return g&&g.ok===false;});
+            if(gf.length)add('','Gate failed: '+gf.length+' strateg'+(gf.length===1?'y':'ies')+' ran ungated','The gate failed to load for '+gf.join(', ')+', so they ran ungated.');
+          }
+          if(LR){
+            const bm=((LR.book||{}).missing||[]).concat((LR.book_shadow||{}).missing||[]).filter((v,i,a)=>a.indexOf(v)===i);
+            if(bm.length)add('','Book legs missing: '+bm.slice(0,3).join(', ')+(bm.length>3?' +'+(bm.length-3):''),'These book legs are not in the newest report, so the book figure counted them as $0: '+bm.join(', '));
+            const bf=((LR.book||{}).failed||[]);
+            if(bf.length)add('','Book legs failed: '+bf.join(', '),'These book legs raised an error in the nightly run, so the book figure counted them as $0.');
+          }
+          return W.map(w=>'<span class="p2chip p2warn"'+(w.card?(' data-p2warn="'+w.card+'"'):'')+' title="'+_wx(w.tip)+(w.card?' (click to open the card)':'')+'" style="'+(w.card?'cursor:pointer':'')+'"><span class="p2dot" style="background:#e0a33a"></span>\u26a0 '+_wx(w.txt)+'</span>').join('');
+        })();
         const _p2Status=(()=>{
           const B=window._ntBridge;
           const rt=(B&&B.up)?(B.strategies||[]).filter(x=>String(x.state)==='Realtime'):[];
@@ -40815,9 +41002,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<div style="min-width:0">'
             +'<div class="p2rhcap">NT8 futures paper \u00b7 NQ demo \u00b7 since '+PAPER_START+'</div>'
             +'<div class="p2rhnum" data-p2num style="color:'+_rhAcc+'">'+fmtUsd(_H.net)+'</div>'
-            +'<div class="p2rhsub" data-p2sub>'+_rhToday+'<span>'+_pcwLbl+'</span><span class="p2rhsep">\u00b7</span><span>'+_H.n+' trade'+(_H.n===1?'':'s')+'</span><span class="p2rhsep">\u00b7</span><span>'+_nShown+' of '+LEGS_VIS.length+' strategies</span></div>'
+            +'<div class="p2rhsub" data-p2sub>'+_rhToday+'<span>'+_pcwLbl+'</span><span class="p2rhsep">\u00b7</span><span>'+_H.n+' trade'+(_H.n===1?'':'s')+'</span><span class="p2rhsep">\u00b7</span><span>'+_nShown+' of '+LEGS_VIS.length+' strategies</span>'
+            +(_otherKeys.length?'<span class="p2rhsep">\u00b7</span><span title="Strategies with no listed row. Their trades are not in this number.">'+_otherKeys.length+' other / shadow not counted</span>':'')+'</div>'
           +'</div>'
-          +'<div class="p2status">'+_p2Status+_reloadBtn.replace('height:24px','height:28px').replace('border-radius:7px','border-radius:999px')+'</div></div>';
+          +'<div class="p2status">'+_p2Status+_p2WarnChips+_reloadBtn.replace('height:24px','height:28px').replace('border-radius:7px','border-radius:999px')+'</div></div>';
         const _p2Top=dataHtml+capHtml+_rhChart+_rhTabs+'<div class="p2rhrow">'+_rhStats+_rhCal+'</div>';
         const _p2Main=tradesHtml
           +_p2Card('nt','NinjaTrader \u00b7 detail',bridgeHtml,'live state, fills, orders')
@@ -42777,6 +42965,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       if(_cfgBtn)_cfgBtn.onclick=()=>{window._paperShowCfg=!window._paperShowCfg;renderApp();};
       content.querySelectorAll('[data-paperlegall]').forEach(el=>{
         el.onclick=()=>{window._paperLegOff=[];savePref('paperLegOff',[]);renderApp();};});
+      // OTHER / SHADOW group: the switch lists the strategy trades in the trades table (never counted); the group row folds it.
+      content.querySelectorAll('[data-paperother]').forEach(el=>{el.onclick=()=>{
+        const k=el.getAttribute('data-paperother');
+        const on=Array.isArray(window._paperOtherOn)?window._paperOtherOn.slice():[];
+        const i=on.indexOf(k);
+        if(i>=0)on.splice(i,1);else on.push(k);
+        window._paperOtherOn=on;savePref('paperOtherOn',on);renderApp();};});
+      content.querySelectorAll('[data-p2otherhd]').forEach(el=>{el.onclick=()=>{
+        window._paperOtherOpen=!window._paperOtherOpen;savePref('paperOtherOpen',!!window._paperOtherOpen);renderApp();};});
+      // A warning chip in the hero opens the closed card that explains it.
+      content.querySelectorAll('[data-p2warn]').forEach(el=>{el.onclick=()=>{
+        const k=el.getAttribute('data-p2warn');
+        const m=window._p2Open||(window._p2Open={});
+        m[k]=true;savePref('p2Open',m);renderApp();
+        setTimeout(()=>{const c=document.querySelector('[data-p2card="'+k+'"]');if(c&&c.scrollIntoView)c.scrollIntoView({block:'center',behavior:'smooth'});},60);};});
       const nd=content.querySelector('[data-ntdetail]');if(nd)nd.onclick=()=>{window._paperNtDetail=!window._paperNtDetail;renderApp();};
       content.querySelectorAll('[data-recontab]').forEach(el=>{el.onclick=()=>{window._paperReconTab=el.getAttribute('data-recontab');renderApp();};});
       const rh=content.querySelector('[data-reconhelp]');if(rh)rh.onclick=()=>{window._paperReconHelp=!window._paperReconHelp;renderApp();};

@@ -36,6 +36,10 @@ WHAT IT ASSERTS
   * the crown glyph appears on exactly the legs declared crown:true and nowhere else
   * sorting by every sortable column renders, and never changes the row count
   * the board never silently empties
+  * LEDGER step 3 (owner 2026-10-03), PAPER * layout: the all-time trade count shown equals the stored
+    trade count; the big NET equals the listed strategies total equals the end of the bold line; the
+    Other / shadow group has its own subtotal and is NOT in the big number (also with its trades switched
+    on in the table); alarms that live in closed cards also show as chips in the hero
 
 The declarations (archived / crown / nt) are read out of index.html's own leg
 definitions, so the probe compares what the source DECLARES against what the page
@@ -121,6 +125,18 @@ CASES = [
                           'win': {'_ntBridge': {'checked_at': '2099-01-01 00:00:00',
                                                 'gate': {'up': True, 'stale_days': 0,
                                                          'legs': [{'leg': 'A', 'loaded': True}]}}}}),
+    # LEDGER step 3: the Other / shadow group, its switches, the strategy-list total, and warnings in the hero
+    ('other-open',      {'sub': 'paper2', 'prefs': {}, 'win': {'_paperOtherOpen': True}}),
+    ('other-on',        {'sub': 'paper2', 'prefs': {'paperOtherOn': ['TTM_299_SSOF2'], 'paperOtherOpen': True},
+                         'win': {}}),
+    ('legs-off-p2',     {'sub': 'paper2',
+                         'prefs': {'paperLegOff': ['ORB', 'ORB_H', 'ENGUQ_ER', 'ENGUQ_ER_H', 'ENGUQ_L50']},
+                         'win': {}}),
+    ('warn-stale-bridge', {'sub': 'paper2', 'prefs': {},
+                           'win': {'_ntBridge': {'checked_at': '2020-01-01 00:00:00', 'up': True,
+                                                 'strategies': [{'name': 'EdgeLogORB230', 'state': 'Realtime'}],
+                                                 'gate': {'up': True, 'legs': [{'leg': 'A', 'loaded': True}]}}}}),
+    ('no-bundle',       {'sub': 'paper2', 'prefs': {}, 'win': {'__noinfo': True}}),
     # zero state: an empty board must render a clean "no trades yet", not throw.
     ('empty',           {'sub': 'paper',  'prefs': {}, 'win': {'__empty': True}}),
 ]
@@ -143,7 +159,8 @@ var CASES=__CASES__, FIX=__FIX__;
       for(var i=0;i<CASES.length;i++){
         var nm=CASES[i][0], cfg=CASES[i][1], r={};
         var empty=!!(cfg.win&&cfg.win.__empty);
-        var win=JSON.parse(JSON.stringify(cfg.win||{})); delete win.__empty;
+        var noinfo=!!(cfg.win&&cfg.win.__noinfo);
+        var win=JSON.parse(JSON.stringify(cfg.win||{})); delete win.__empty; delete win.__noinfo;
         r.call=w.eval("(function(){try{"
           +"localStorage.setItem('augurPrefs',"+JSON.stringify(JSON.stringify(cfg.prefs||{}))+");"
           +"var F="+JSON.stringify(FIX)+";"
@@ -151,6 +168,8 @@ var CASES=__CASES__, FIX=__FIX__;
           +"window._paperReports="+(empty?"[]":"F.reports")+";"
           +"window._ntBtMatch=F.ntBt;window._ntBridge=F.ntBridge;"
           +"window._paperLoaded=true;window._paperLoading=false;"
+          +"window._paperOtherOn=null;window._paperOtherOpen=null;window._paperCurveWin=null;"
+          +"window._paperTradeInfo="+(empty?"{bundle:true,n_total:0}":(noinfo?"{bundle:false,n_total:null}":"F.tradeInfo"))+";"
           // every lens-style bit of window state reset per case, so cases cannot bleed
           +"window._paperShowArchived=false;window._paperShowCfg=false;"
           +"window._paperMatrixScope='ALL';window._legSortCol=null;window._legSortDir=null;"
@@ -237,6 +256,22 @@ var CASES=__CASES__, FIX=__FIX__;
         r.heroBig=[].map.call(d.querySelectorAll('.p2big'),function(x){return x.innerText;}).join('|');
         r.closeDayTh=[].filter.call(d.querySelectorAll('th'),function(x){return x.textContent.indexOf('CLOSE DAY')>=0;}).length;
         r.bookTh=[].filter.call(d.querySelectorAll('th'),function(x){return x.textContent.indexOf('BOOK $')>=0;}).length;
+        // LEDGER step 3 readout (PAPER * layout)
+        function _num(t){var m=String(t||'').replace(/,/g,'').match(/(-?)\\$([0-9.]+)/);return m?(m[1]?-1:1)*parseFloat(m[2]):null;}
+        var _hn=d.querySelector('.p2rhnum');
+        r.heroNum=_hn?_num(_hn.textContent):null;
+        try{var _sc=w._p2Scrub;r.boldEnd=(_sc&&_sc.total&&_sc.total.length)?_sc.total[_sc.total.length-1]:null;}catch(_e3){r.boldEnd=null;}
+        var _ls=d.querySelector('[data-p2listed]');
+        r.listed=_ls?{net:parseFloat(_ls.getAttribute('data-net')),n:+_ls.getAttribute('data-n'),tie:_ls.getAttribute('data-tie')}:null;
+        var _oh=d.querySelector('[data-p2otherhd]');
+        r.otherHd=_oh?{net:parseFloat(_oh.getAttribute('data-net')),n:+_oh.getAttribute('data-n'),legs:+_oh.getAttribute('data-legs'),txt:_oh.innerText.replace(/\\s+/g,' ')}:null;
+        r.otherRows=d.querySelectorAll('tr[data-paperother]').length;
+        var _ld=d.querySelector('[data-p2loaded]');
+        r.loaded=_ld?{loaded:+_ld.getAttribute('data-loaded'),stored:_ld.getAttribute('data-stored'),other:+_ld.getAttribute('data-other'),txt:_ld.innerText}:null;
+        r.warns=[].map.call(d.querySelectorAll('.p2warn'),function(x){return x.innerText.replace(/\\s+/g,' ').trim();});
+        var _ntc=d.querySelector('[data-p2card="nt"]');
+        r.ntCardOpen=_ntc?(_ntc.textContent.indexOf('\\u25be')>=0):null;
+        r.tradesHead=(function(){var x=d.querySelector('#ptrades-wrap');var h=x&&x.parentElement?x.parentElement.querySelector('.p2sh'):null;return h?h.innerText.replace(/\\s+/g,' '):'';})();
         out.cases[nm]=r;
       }
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
@@ -332,6 +367,15 @@ def main():
         fixture['trades'].append(dict(_e, id='pt_ENGUQ_335_probe_sun', leg='ENGUQ_335', open=False,
                                       exit_date='2026-09-20', close_day='2026-09-21', pnl_usd=123.0,
                                       exitIso='2026-09-20T19:30:00-04:00', exitTime=1790033400))
+    # LEDGER step 3: trades of strategies that have NO listed row (the Other / shadow group). They must reach
+    # the Other group subtotal and never the big number.
+    _o = next((t for t in fixture['trades'] if t.get('leg') == 'NOISE_SBS_V90'), None)
+    if _o is not None:
+        for _i, (_lg, _usd) in enumerate((('TTM_299_SSOF2', 500.0), ('TTM_299_SSOF2', -120.0), ('ORB_257', 310.0))):
+            fixture['trades'].append(dict(_o, id='pt_%s_probe_%d' % (_lg, _i), leg=_lg, pnl_usd=_usd,
+                                          entryTime=_o['entryTime'] + 60 * (_i + 1), close_day=None, open=False))
+    fixture['tradeInfo'] = {'bundle': True, 'n_total': len(fixture['trades']), 'parts': 1,
+                            'loaded': len(fixture['trades'])}
     fixture['reports'][0]['capture_health'] = {
         'NQ': {'rth': {'bars': 2331, 'expected': 2340, 'bars_pct': 99.6, 'delta_pct': 98.3, 'rt_bars': 2000,
                        'longest_gap_min': 1.5, 'gap_start_et': '10:12'},
@@ -475,6 +519,58 @@ def main():
         fails.append('reports-open: DAILY REPORTS lost its CLOSE DAY / BOOK $ columns')
     if '987,654' in ((cases.get('paper2') or {}).get('heroBig') or ''):
         fails.append('paper2: an open trade mark leaked into the hero net')
+
+    # LEDGER step 3 -- the numbers must tie out on the PAPER * layout.
+    closed = [t for t in fixture['trades'] if t.get('open') is not True]
+    exp_listed = round(sum(t.get('pnl_usd') or 0 for t in closed
+                           if t.get('leg') in defs and not defs[t['leg']]['archived']))
+    exp_other = sum(t.get('pnl_usd') or 0 for t in closed if t.get('leg') not in defs)
+    n_all = len(fixture['trades'])
+    for nm in ('paper2', 'other-open', 'other-on', 'legs-off-p2', 'warn-stale-bridge'):
+        r = cases.get(nm) or {}
+        ld, hn, be, li = r.get('loaded') or {}, r.get('heroNum'), r.get('boldEnd'), r.get('listed') or {}
+        if ld.get('loaded') != n_all or str(ld.get('stored')) != str(n_all):
+            fails.append('%s: all-time trade count shown %s of stored %s, fixture holds %d'
+                         % (nm, ld.get('loaded'), ld.get('stored'), n_all))
+        if hn is None or be is None or li.get('net') is None:
+            fails.append('%s: hero number / bold line end / strategy list total missing (%s, %s, %s)'
+                         % (nm, hn, be, li.get('net')))
+            continue
+        if abs(hn - be) > 1.0 or abs(hn - li['net']) > 1.0 or li.get('tie') != '1':
+            fails.append('%s: big NET %s, end of the bold line %s, strategy list total %s (tie=%s) do not agree'
+                         % (nm, hn, be, li['net'], li.get('tie')))
+    for nm in ('paper2', 'other-open', 'other-on', 'warn-stale-bridge'):
+        r = cases.get(nm) or {}
+        if r.get('heroNum') is not None and abs(r['heroNum'] - exp_listed) > 1.0:
+            fails.append('%s: big NET %s is not the listed strategies total %s (an Other / shadow trade leaked in, '
+                         'or a listed one dropped)' % (nm, r['heroNum'], exp_listed))
+        oh = r.get('otherHd') or {}
+        if not oh or abs(oh.get('net', 0) - exp_other) > 0.5 or not oh.get('legs'):
+            fails.append('%s: Other / shadow group subtotal %s, expected %s' % (nm, oh.get('net'), exp_other))
+        if 'not counted' not in (oh.get('txt') or '').lower():
+            fails.append('%s: the Other group is not labelled as not counted: %r' % (nm, oh.get('txt')))
+    if not (cases.get('other-open') or {}).get('otherRows'):
+        fails.append('other-open: the open Other group drew no strategy rows with switches')
+    if (cases.get('paper2') or {}).get('otherRows'):
+        fails.append('paper2: the Other group should be closed by default but drew rows')
+    r = cases.get('other-on') or {}
+    if not any(l.startswith('TTM 299 SSOF2') for l in (r.get('tradeLegs') or {})):
+        fails.append('other-on: the switched-on Other strategy did not reach the trades table')
+    if 'other, not counted' not in (r.get('tradesHead') or '').lower():
+        fails.append('other-on: the trades heading does not say the other rows are not counted: %r'
+                     % r.get('tradesHead'))
+    # warnings reach the hero while their card is closed
+    r = cases.get('warn-stale-bridge') or {}
+    if not any('heartbeat stale' in w for w in (r.get('warns') or [])) or r.get('ntCardOpen'):
+        fails.append('warn-stale-bridge: a stale NinjaTrader heartbeat is not a chip in the hero '
+                     '(warns %r, card open %r)' % (r.get('warns'), r.get('ntCardOpen')))
+    r = cases.get('paper2') or {}
+    if not any('10s capture low' in w for w in (r.get('warns') or [])):
+        fails.append('paper2: the low 10s capture is not a chip in the hero (warns %r)' % r.get('warns'))
+    # before the first nightly bundle exists the board says so, and still renders
+    r = cases.get('no-bundle') or {}
+    if not any('newest 500 only' in w for w in (r.get('warns') or [])):
+        fails.append('no-bundle: the missing history bundle is not a chip in the hero (warns %r)' % r.get('warns'))
 
     # the top-bar NT GATE chip: snapshot age first, PARTIAL shows a stale age too
     g = (cases.get('gate-old-snapshot') or {}).get('gateChip') or ''

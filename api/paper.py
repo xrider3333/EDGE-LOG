@@ -3088,5 +3088,13 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
                 _log(f"uid={uid} {_day}: exit-day re-merge" + (f" (book ${_bk:,.0f})" if _bk is not None else ""))
         except Exception as e:
             _log(f"uid={uid} exit-day re-merge failed: {type(e).__name__}: {e}")
+        # ONE COMPACT COPY OF EVERY TRADE for the board (api/paper_bundle.py): it reads these few documents
+        # instead of the newest 500 trade docs, so "All" covers every trade at about 1 read per 1,200 trades.
+        # Fail-soft: a bundle problem costs the report nothing, the board falls back to its direct read.
+        try:
+            from . import paper_bundle as _pb
+            _pb.write_bundle(q.db, uid, log=_log, note_reads=_note_reads_other)
+        except Exception as e:
+            _log(f"uid={uid} paper bundle failed: {type(e).__name__}: {e}")
 
     return report
