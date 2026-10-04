@@ -7,6 +7,22 @@
 
 ---
 
+## 🧪 2026-10-04 — ROUND 69: is NOISE #422's compression size-up too small? No - dead at Stage A
+
+Owner ask via MANAGER (inbox #26): one best remaining NOISE shot that could move BOOK #463 (WF 93.8 / LB 155.5). Draft
+reviewed by MANAGER before any run (GO WITH EDITS, then made confirmatory after NOISE disclosed that Custom ML's 09-27
+'fixed' #422 package had already read the walk-forward at ~2.6x on these trades with Friday and FOMC tweaks); Stage B
+(the lockbox Auto-Validate) dropped. Pre-registration `docs/PREREG_noise_r69_tiltdepth_2026-10-04.md` (f30b9b94), power
+line `tools/r69_noise_power.py` (smallest detectable WF gain ~7.7 ROC points), Stage A `tools/r69_noise_stageA.py` ->
+`r37_results/r69_stageA.txt`, walk-forward only, parity with stored run #422 first (84.6 / 4.49).
+**DEAD:** walk-forward ROC at a $30k drawdown FALLS as the compressed-hour size grows - 84.6 at 1.75x, 82.6 at 2.0x, 80.9
+at 2.25x, 78.3 at 2.75x - while Sortino rises (4.49 -> 4.76 -> 4.93). More weight on the compressed trades adds return
+but deepens the drawdown faster, so on the owner's yardstick #422's 1.75x is already at or past the top. Paired block
+bootstrap 5th percentile -6.1 (bar above zero); 2.25x wins 6 of 9 years, which alone would pass breadth. So the 09-27
+fixed package's walk-forward gain did not come from its compression weight; it came from its other parts (Friday 1.5x,
+FOMC 0.5x, the cap), which this round did not test and which have their own weak record (Friday failed the tilt guard in
+round 47). Lockbox not read; #422 stays at 1.75x; no shadow leg.
+
 ## 🧪 2026-10-02 — ROUND 68: breakeven at +1R on a bar close, then ride - dead on #382 and #422
 
 Owner idea via MANAGER (inbox #21, from the CBU review). Pre-registration `docs/PREREG_noise_r68_breakeven_2026-10-02.md`
