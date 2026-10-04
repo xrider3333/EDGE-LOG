@@ -1,4 +1,4 @@
-"""Per-trade candles for the REAL trade journal (HOME ledger chart).
+"""Per-trade candles for the REAL trade journal (LEDGER chart).
 
 Owner ask 2026-09-30 (via MANAGER, "go with defaults"): every real trade gets EL's own candle
 chart automatically - one 1-minute chart with a 10-second close-up - and it has to open on

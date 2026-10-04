@@ -4,7 +4,7 @@ WHY THIS EXISTS (2026-09-09). The web app used to fetch SPY's daily closes strai
 from Yahoo's chart endpoint through the free corsproxy.io CORS relay, because Yahoo
 itself blocks browser-origin requests. corsproxy.io now returns HTTP 403
 `keyless_legacy_url` on every anonymous call, and a direct browser call to Yahoo is
-CORS-blocked outright -- so the OVERVIEW rail and HOME's MORE STATS row both fell back
+CORS-blocked outright -- so the OVERVIEW rail and LEDGER's MORE STATS row both fell back
 to an honest em dash (v73.687) rather than a fabricated number. This module restores
 real data through a path the browser was never going to have: the backend already has
 an Alpaca key (once the owner adds one) and a live Firestore connection, so it can pull
