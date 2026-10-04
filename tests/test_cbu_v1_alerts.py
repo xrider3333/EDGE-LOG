@@ -107,3 +107,25 @@ def test_level_0930_uses_premarket_high_and_later_bars_use_todays_high():
 
 def test_episodes_merge_consecutive_bars_only():
     assert list(C.episodes([5, 6, 7, 9, 12, 13])) == [5, 9, 12]
+
+
+def test_pulled_should_have_traded_entries_join_recall_out_of_sample(tmp_path, monkeypatch):
+    import json
+    import missed_pull as MP
+    assert MP.signal_candle('10:00') == '09:59' and MP.signal_candle('09:31') == '09:30'
+    rec = MP.to_record('NEW1', {'setup': 'CBU', 'symbol': 'MES', 'type': 'LONG', 'date': '2026-10-05',
+                                'entryTime': '09:45', 'entry': 1.0, 'pointScore': {'v': 'ps1.1', 'total': 6, 'max': 9}})
+    assert rec['signal_candle'] == '09:44' and rec['point_score']['total'] == 6
+    cache = {'pulled_at': None, 'entries': {
+        'NEW1': rec,
+        'KHwkzW9C': MP.to_record('KHwkzW9C', {'setup': 'CBU', 'symbol': 'MNQ', 'type': 'LONG', 'date': '2026-09-30',
+                                              'entryTime': '10:00'}),
+        'S1': MP.to_record('S1', {'setup': 'CBD', 'symbol': 'MNQ', 'type': 'SHORT', 'date': '2026-10-05',
+                                  'entryTime': '10:00'})}}
+    p = tmp_path / 'missed.json'
+    p.write_text(json.dumps(cache), encoding='utf-8')
+    monkeypatch.setattr(C, 'MISSED_CACHE', str(p))
+    ex = {e['id']: e for e in C.load_examples()}
+    assert ex['missed NEW1']['sample'] == 'out' and ex['missed NEW1']['root'] == 'ES' and ex['missed NEW1']['S'] == '09:44'
+    assert ex['missed KHwkzW9C']['sample'] == 'in'
+    assert sum(1 for k in ex if k == 'missed KHwkzW9C') == 1 and 'missed S1' not in ex

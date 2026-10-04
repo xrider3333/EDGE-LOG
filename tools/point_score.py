@@ -1,4 +1,4 @@
-# point_score.py - the owner's POINT SCORE (spec v1.1, `ps1.1`): nine yes/no points read at the signal bar of a
+# point_score.py - the owner's POINT SCORE (spec v1.2, `ps1.2`): nine yes/no points read at the signal bar of a
 # trade, for futures from 2026-01 onward (stocks: stub until the Alpaca keys are saved). REFERENCE IMPLEMENTATION
 # of docs/POINT_SCORE_SPEC.md - that file is the ONE definition; pine/POINT_SCORE_1_0.pine is a line-by-line port
 # of it, and `parity` (below) compares the two. If this file and the spec disagree, THIS FILE is wrong.
@@ -8,7 +8,8 @@
 #   python tools/point_score.py backfill --out C:\EdgeLog\point_score\backfill_scores.csv
 #   python tools/point_score.py parity <tradingview_export.csv> --root NQ
 #
-# THE NINE POINTS (LONG; SHORT mirrors each one): close above the 200 EMA on 10s / 1m / 5m / 30m bars, close above
+# THE NINE POINTS (LONG; SHORT mirrors each one): close above the 200 moving average (SMA by default, EMA by
+# choice - v1.2) on 10s / 1m / 5m / 30m bars, close above
 # yesterday's regular-session low / close / high, a green candle with the largest body since today's low, and the
 # largest volume since today's low. The signal bar S is the last CLOSED 1-minute bar before the entry fill
 # (S.start = floor(fill, 1 min) - 1 min). NA is never 0: the maximum drops. A tenth point (daily trend up) is
@@ -18,6 +19,11 @@
 # skipped even when Globex printed a stub that day, and a session whose last regular bar is not 15:59 (13:14 on a listed
 # early-close day) gives NA 'prior session incomplete' instead of a wrong level (it is NOT skipped). The 10-second point
 # is NA '10-second data gap' when the capture lost 3+ minutes the master traded, inside the EMA's 600-bar memory.
+#
+# v1.2 (2026-10-02, owner correction): the four '200' lines are a plain MOVING AVERAGE (SMA, the mean of the last 200
+# closes of that timeframe) by DEFAULT; ma='ema' keeps the v1.1 EMA. An SMA point is NA until its timeframe has a full
+# 200-bar window up to the reference bar (an EMA still needs 600). The 10-second capture-gap rule looks back over the
+# average's own memory: 200 10-second bars for the SMA, 600 for the EMA. Every record carries ma = 'sma' | 'ema'.
 #
 # TWO CODE PATHS, ON PURPOSE. score_trade() is the LITERAL path: it slices the bars to S, re-adjusts them for the
 # contract rolls relative to THIS trade, and runs the spec one point at a time, so nothing at or after t_close can
@@ -57,7 +63,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(ROOT, 'tools', 'data')
 ET = 'America/New_York'
-VERSION = 'ps1.1'
+VERSION = 'ps1.2'
 
 SHARED = os.path.join(os.path.expanduser('~'), 'OneDrive', 'Desktop', 'EDGE-LOG')
 FILLS_CSV = os.path.join('C:' + os.sep, 'EdgeLog', 'fills.csv')
@@ -73,7 +79,10 @@ HOLE_MIN_SECS = 30 * 60              # a master gap of >= 30 minutes inside the 
 TEN_SEC_FROM = '2026-06-23'
 NEAR_ROLL_SECS = 48 * 3600           # the capture rolls about a day after the master: NA for 48 h after a switch
 EMA_SPAN = 200
-MIN_BARS = 600                       # bars of its own timeframe needed up to the reference bar
+MA_LEN = 200                         # the moving average's length (SMA window / EMA span)
+MIN_BARS = 600                       # EMA: bars of its own timeframe needed up to the reference bar
+MA_TYPES = ('sma', 'ema')
+DEFAULT_MA = 'sma'                   # v1.2: the owner's '200' lines are a simple moving average
 RTH_OPEN, RTH_CLOSE = 9 * 60 + 30, 16 * 60          # regular session [09:30, 16:00) ET, in minutes of the day
 WINDOW_OPEN = {'futures': 9 * 60 + 30, 'stock': 4 * 60}
 MAX_SESSION_GAP_DAYS = 7
@@ -115,7 +124,7 @@ POINTS = [
 KEYS = [p[0] for p in POINTS]
 TREND = ('d_trend', 'Daily trend up', 'Daily trend down')
 
-NA_WARM = 'EMA warming up'
+NA_WARM = 'moving average warming up'
 NA_NO10 = 'no 10-second data'
 NA_ROLL = 'near a contract roll'
 NA_NO10BAR = 'no 10-second bar in the signal minute'
@@ -176,6 +185,30 @@ def _ema(x):
     if len(x) == 0:
         return x.copy()
     return pd.Series(x).ewm(span=EMA_SPAN, adjust=False).mean().to_numpy()
+
+
+def _ma_type(ma):
+    m = str(ma or DEFAULT_MA).strip().lower()
+    if m not in MA_TYPES:
+        raise ValueError("ma must be 'sma' or 'ema' (got %r)" % ma)
+    return m
+
+
+def _ma(x, ma=DEFAULT_MA):
+    """The point's moving average of x, element i using x[:i+1]: SMA = mean of the last 200 (Pine ta.sma; NaN until 200
+    values), EMA = _ema."""
+    x = np.asarray(x, dtype='float64')
+    if _ma_type(ma) == 'ema':
+        return _ema(x)
+    if len(x) == 0:
+        return x.copy()
+    return pd.Series(x).rolling(MA_LEN, min_periods=MA_LEN).mean().to_numpy()
+
+
+def _warm(ma=DEFAULT_MA):
+    """Bars of its own timeframe a moving-average point needs up to the reference bar (and the 10-second
+    capture-gap memory): 200 for the SMA (a full window), 600 for the EMA."""
+    return MA_LEN if _ma_type(ma) == 'sma' else MIN_BARS
 
 
 def _et_fields(t):
@@ -351,14 +384,15 @@ class Bars:
         return s + ('+capture10s' if ten_s_used else '')
 
     # ---- the vectorised pass (every 1-minute bar at once)
-    def full(self, side):
-        side = _side(side)
-        if side not in self._full_c:
-            self._full_c[side] = self._compute_full(side)
-        return self._full_c[side]
+    def full(self, side, ma=DEFAULT_MA):
+        side, ma = _side(side), _ma_type(ma)
+        if (side, ma) not in self._full_c:
+            self._full_c[(side, ma)] = self._compute_full(side, ma)
+        return self._full_c[(side, ma)]
 
-    def _compute_full(self, side):
+    def _compute_full(self, side, ma=DEFAULT_MA):
         sg = 1.0 if side == 'LONG' else -1.0
+        W = _warm(ma)
         n = len(self.t)
         t = self.t
         po, ph, pl, pc, A = self.adjusted()
@@ -387,7 +421,7 @@ class Bars:
         elif len(self.t10) == 0:
             put(d, np.zeros(n), pc - A, nan, [(np.ones(n, dtype=bool), _CODE[NA_NO10])])
         else:
-            ema10 = _ema(self.c10)
+            ema10 = _ma(self.c10, ma)
             lo = np.searchsorted(self.t10, t, side='left')
             hi = np.searchsorted(self.t10, t + 60, side='left')
             ref = ema10[np.clip(hi - 1, 0, None)]
@@ -395,25 +429,25 @@ class Bars:
             # minute of the 600th-latest 10-second bar before t_close through the signal minute
             miss = (v > 0) & (hi <= lo)
             cs = np.r_[0, np.cumsum(miss)]
-            j0 = np.searchsorted(t, self.t10[np.clip(hi - MIN_BARS, 0, None)] // 60 * 60, side='left')
-            gap = (hi >= MIN_BARS) & ((cs[idx + 1] - cs[j0]) >= GAP10_MIN_MINUTES)
+            j0 = np.searchsorted(t, self.t10[np.clip(hi - W, 0, None)] // 60 * 60, side='left')
+            gap = (hi >= W) & ((cs[idx + 1] - cs[j0]) >= GAP10_MIN_MINUTES)
             put(d, sg * ((pc - A) - ref) > 0, pc - A, ref,          # the capture is raw: compare the REAL close
-                [(hi < MIN_BARS, _CODE[NA_WARM]), (gap, _CODE[NA_GAP10]), (hi <= lo, _CODE[NA_NO10BAR]),
+                [(hi < W, _CODE[NA_WARM]), (gap, _CODE[NA_GAP10]), (hi <= lo, _CODE[NA_NO10BAR]),
                  (_near_roll(self.sw_inst, t + 60), _CODE[NA_ROLL]), (t < self.t10[0], _CODE[NA_NO10])])
         out['ma200_10s'] = d
         # --- 1m EMA (S itself, so the EMA includes C)
         d = mk()
-        ema1 = _ema(pc)
-        put(d, sg * (pc - ema1) > 0, pc - A, ema1 - A, [(idx + 1 < MIN_BARS, _CODE[NA_WARM])])
+        ema1 = _ma(pc, ma)
+        put(d, sg * (pc - ema1) > 0, pc - A, ema1 - A, [(idx + 1 < W, _CODE[NA_WARM])])
         out['ma200_1m'] = d
         # --- 5m / 30m EMA: the bar BEFORE the one containing S.start, by position in the resampled series
         for key, secs in (('ma200_5m', 300), ('ma200_30m', 1800)):
             d = mk()
             bk, gid = _bucketize(t, po, ph, pl, pc, v, secs)
-            emab = _ema(bk['c'])
+            emab = _ma(bk['c'], ma)
             r = gid - 1
             ref = emab[np.clip(r, 0, None)]
-            put(d, sg * (pc - ref) > 0, pc - A, ref - A, [((r < 0) | (r + 1 < MIN_BARS), _CODE[NA_WARM])])
+            put(d, sg * (pc - ref) > 0, pc - A, ref - A, [((r < 0) | (r + 1 < W), _CODE[NA_WARM])])
             out[key] = d
         # --- yesterday's regular-session low / close / high (and the session before, for the trend point)
         # a listed CME holiday is never a regular session (v1.1), whatever Globex printed that day
@@ -493,6 +527,7 @@ class Bars:
         d['ref2'] = np.where(d['na'] == 0, yyL - A, np.nan)
         out['d_trend'] = d
         out['_ohlcv'] = dict(open=po - A, high=ph - A, low=pl - A, close=pc - A, volume=self.v)
+        out['_ma'] = ma
         return out
 
     def find(self, s_start):
@@ -654,32 +689,39 @@ def _pt(k, side, hit, val, ref, na, **extra):
     return d
 
 
-def _assemble(side, s_start, pts, trend, src, notes):
+def _assemble(side, s_start, pts, trend, src, notes, ma=DEFAULT_MA):
+    ma = _ma_type(ma)
+    if ma == 'sma':                                             # the four moving-average labels name the average used
+        for p in pts:
+            if p['k'].startswith('ma200_'):
+                p['label'] = p['label'].replace('EMA', 'SMA')
     total = sum(1 for p in pts if p['hit'] is True)
     mx = sum(1 for p in pts if p['hit'] is not None)
-    return dict(v=VERSION, side=side, signal_bar=_et_str(s_start), tf='1m', tf_note='1-minute default',
+    return dict(v=VERSION, ma=ma, side=side, signal_bar=_et_str(s_start), tf='1m', tf_note='1-minute default',
                 total=total, max=mx, na_count=9 - mx, points=pts, trend=trend, src=src, notes=notes)
 
 
-def _all_na(side, s_start, reason, src='none', notes=None):
+def _all_na(side, s_start, reason, src='none', notes=None, ma=DEFAULT_MA):
     pts = [_pt(k, side, None, None, None, reason) for k in KEYS]
     tr = _pt('d_trend', side, None, None, None, reason)
-    return _assemble(side, s_start, pts, tr, src, notes or [])
+    return _assemble(side, s_start, pts, tr, src, notes or [], ma)
 
 
 # ------------------------------------------------------------------ the LITERAL path (one trade)
 
-def _literal(bars, s_start, side):
+def _literal(bars, s_start, side, ma=DEFAULT_MA):
     """Score one signal bar exactly as the spec reads, using ONLY bars that start before t_close = s_start + 60.
-    Returns (record, S) where S = the signal bar's real-price OHLCV (or None)."""
+    Returns (record, S) where S = the signal bar's real-price OHLCV (or None). ma: 'sma' (default) | 'ema'."""
+    ma = _ma_type(ma)
+    W = _warm(ma)
     sg = 1.0 if side == 'LONG' else -1.0
     notes = []
     t_close = s_start + 60
     n = int(np.searchsorted(bars.t, t_close, side='left'))     # bars that started before t_close: nothing later is read
     if len(bars) == 0 or s_start < bars.t[0]:
-        return _all_na(side, s_start, NA_PRE, 'none', ['signal bar is before the loaded history']), None
+        return _all_na(side, s_start, NA_PRE, 'none', ['signal bar is before the loaded history'], ma), None
     if n == 0 or bars.t[n - 1] != s_start:
-        return _all_na(side, s_start, NA_NOBAR, 'none', ['no 1-minute bar starts at the signal minute']), None
+        return _all_na(side, s_start, NA_NOBAR, 'none', ['no 1-minute bar starts at the signal minute'], ma), None
     t = bars.t[:n]
     raw = [a[:n] for a in (bars.o, bars.h, bars.l, bars.c)]
     v = np.nan_to_num(bars.v[:n])
@@ -699,7 +741,7 @@ def _literal(bars, s_start, side):
     pts = []
 
     def ema_pt(k, ema, count):
-        if count < MIN_BARS:
+        if count < W:
             return _pt(k, side, None, None, None, NA_WARM)
         return _pt(k, side, bool(sg * (C - ema) > 0), C, ema, None)
 
@@ -714,20 +756,20 @@ def _literal(bars, s_start, side):
         n10 = int(np.searchsorted(bars.t10, t_close, side='left'))
         if n10 == 0 or bars.t10[n10 - 1] < s_start:
             pts.append(_pt('ma200_10s', side, None, None, None, NA_NO10BAR))
-        elif n10 < MIN_BARS:
+        elif n10 < W:
             pts.append(_pt('ma200_10s', side, None, None, None, NA_WARM))
         else:
             # capture gap (v1.1): minutes that traded (volume > 0) with no 10-second bar at all, from the minute of the
-            # 600th-latest 10-second bar before t_close through the signal minute
-            j0 = int(np.searchsorted(t, int(bars.t10[n10 - MIN_BARS]) // 60 * 60, side='left'))
+            # W-th latest 10-second bar before t_close (the average's memory) through the signal minute
+            j0 = int(np.searchsorted(t, int(bars.t10[n10 - W]) // 60 * 60, side='left'))
             t10 = bars.t10[:n10]
             has10 = np.searchsorted(t10, t[j0:] + 60, side='left') > np.searchsorted(t10, t[j0:], side='left')
             if int(((v[j0:] > 0) & ~has10).sum()) >= GAP10_MIN_MINUTES:
                 pts.append(_pt('ma200_10s', side, None, None, None, NA_GAP10))
             else:
-                pts.append(ema_pt('ma200_10s', _ema(bars.c10[:n10])[-1], n10))
+                pts.append(ema_pt('ma200_10s', _ma(bars.c10[:n10], ma)[-1], n10))
     # 2. 1-minute EMA
-    pts.append(ema_pt('ma200_1m', _ema(ac)[-1], n))
+    pts.append(ema_pt('ma200_1m', _ma(ac, ma)[-1], n))
     # 3-4. 5m / 30m EMA: the bar BEFORE the one containing S.start
     for k, secs in (('ma200_5m', 300), ('ma200_30m', 1800)):
         bk, _ = _bucketize(t, ao, ah, al, ac, v, secs)
@@ -735,7 +777,7 @@ def _literal(bars, s_start, side):
         if nb < 2:
             pts.append(_pt(k, side, None, None, None, NA_WARM))
         else:
-            pts.append(ema_pt(k, _ema(bk['c'][:nb - 1])[-1], nb - 1))
+            pts.append(ema_pt(k, _ma(bk['c'][:nb - 1], ma)[-1], nb - 1))
     # 5-7. yesterday's regular-session low / close / high (and the session before it, for the trend point)
     rth = (mod >= RTH_OPEN) & (mod < RTH_CLOSE)
     past = rth & (dord < dS)
@@ -805,7 +847,7 @@ def _literal(bars, s_start, side):
     if bars.from_cap[n - 1]:
         notes.append('signal bar comes from the 10-second capture (the master has no bar there)')
     ten = pts[0]['hit'] is not None
-    return _assemble(side, s_start, pts, trend, bars.src_label(n - 1, ten), notes), S
+    return _assemble(side, s_start, pts, trend, bars.src_label(n - 1, ten), notes, ma), S
 
 
 # ------------------------------------------------------------------ public API
@@ -829,7 +871,7 @@ def _bars_for(trade, bars):
     return load_stock_bars(sym, str(trade['fill'])[:10]), sym
 
 
-def _score(trade, bars=None):
+def _score(trade, bars=None, ma=DEFAULT_MA):
     """(record, S): score_trade plus the signal bar's real-price OHLCV (None when it has none)."""
     tf = str(trade.get('tf') or '1m').strip().lower()
     if tf not in ('1m', '1', '1min'):
@@ -838,15 +880,16 @@ def _score(trade, bars=None):
     s_start = signal_start(trade['fill'])
     b, sym = _bars_for(trade, bars)
     if b is None:
-        return _all_na(side, s_start, NA_NOSTOCK, 'none', ['no stock bars: the Alpaca key is not saved']), None
-    return _literal(b, s_start, side)
+        return _all_na(side, s_start, NA_NOSTOCK, 'none', ['no stock bars: the Alpaca key is not saved'], ma), None
+    return _literal(b, s_start, side, ma)
 
 
-def score_trade(trade, bars=None):
+def score_trade(trade, bars=None, ma=DEFAULT_MA):
     """The spec-section-4 record for one trade. trade = dict(sym, side 'LONG'/'SHORT', fill ET datetime or
     'YYYY-MM-DD HH:MM[:SS]', optional tf '1m'). bars: a Bars object (default: load the root's bars, cached).
+    ma: 'sma' (default, v1.2) or 'ema' - the moving average of the four '200' points; the record says which (ma).
     Points that cannot be computed come back with hit None and an na_reason - never 0."""
-    return _score(trade, bars)[0]
+    return _score(trade, bars, ma)[0]
 
 
 def signal_bar_ohlc(trade, bars=None):
@@ -854,13 +897,13 @@ def signal_bar_ohlc(trade, bars=None):
     return _score(trade, bars)[1]
 
 
-def score_series(root, side, start_date, end_date, bars=None):
+def score_series(root, side, start_date, end_date, bars=None, ma=DEFAULT_MA):
     """The same points for EVERY 1-minute bar with start in [start_date 00:00, end_date + 1 day) ET.
     Columns: open/high/low/close/volume (real at the bar), then per point <k>_val, <k>_ref, <k>_hit (1.0 / 0.0 /
     NaN = NA), <k>_na (reason or ''), for the nine keys and d_trend, then total, max, na_count, pct."""
     side = _side(side)
     b = bars if bars is not None else load_bars(ROOT_OF.get(str(root).upper(), root))
-    f = b.full(side)
+    f = b.full(side, ma)
     lo = np.searchsorted(b.t, _epoch(str(start_date)[:10]), side='left')
     nxt = (pd.Timestamp(str(end_date)[:10]) + pd.Timedelta(days=1)).strftime('%Y-%m-%d')   # ET date, not 24 h (DST)
     hi = np.searchsorted(b.t, _epoch(nxt), side='left')
@@ -891,7 +934,7 @@ def score_series(root, side, start_date, end_date, bars=None):
 
 def format_record(rec, show_notes=True):
     """Plain-text breakdown of a record."""
-    L = ['%s  %s  signal bar %s ET (%s)  src %s' % (rec['v'], rec['side'], rec['signal_bar'], rec['tf_note'], rec['src']),
+    L = ['%s (%s)  %s  signal bar %s ET (%s)  src %s' % (rec['v'], rec.get('ma', 'ema').upper(), rec['side'], rec['signal_bar'], rec['tf_note'], rec['src']),
          'SCORE %d / %d%s' % (rec['total'], rec['max'], ('  (%d NA)' % rec['na_count']) if rec['na_count'] else '')]
     for p in rec['points'] + [rec['trend']]:
         tag = 'NA  ' if p['hit'] is None else ('HIT ' if p['hit'] else 'miss')
@@ -998,7 +1041,7 @@ def resolve_fill(tr, jr, fills, bars):
     return None, 'none', 0, note
 
 
-def backfill(out, el_trades=None, fills_path=FILLS_CSV, quiet=False):
+def backfill(out, el_trades=None, fills_path=FILLS_CSV, quiet=False, ma=DEFAULT_MA):
     """One row per real futures trade in EDGE LOG (read-only): the score and the raw stop candidates. NO outcome
     (R, P&L, win/loss) is computed or printed here."""
     if el_trades is None:
@@ -1020,10 +1063,11 @@ def backfill(out, el_trades=None, fills_path=FILLS_CSV, quiet=False):
                    entry=tr.get('entry'), exit=tr.get('exit'), fill_used=fill, fill_source=src, shift_min=shift,
                    fill_note=note)
         if fill is None or root is None:
-            rec, S = _all_na(side, _epoch(tr['date'] + ' 00:00'), 'no entry time', 'none'), None
+            rec, S = _all_na(side, _epoch(tr['date'] + ' 00:00'), 'no entry time', 'none', None, ma), None
         else:
-            rec, S = _score(dict(sym=tr['symbol'], side=side, fill=fill), bars)
+            rec, S = _score(dict(sym=tr['symbol'], side=side, fill=fill), bars, ma)
         row['signal_bar'] = rec['signal_bar']
+        row['v'], row['ma'] = rec['v'], rec['ma']
         row['journal_signal_candle'] = (jr or {}).get('signal_candle')
         row['journal_signal_iv'] = (jr or {}).get('signal_iv') or (jr or {}).get('interval')
         jc = row['journal_signal_candle']
@@ -1097,7 +1141,7 @@ def _prev_sessions(d, k):
     return out
 
 
-def parity(path, root='NQ', skip_sessions=ROLL_SKIP_SESSIONS, max_list=40, bars=None):
+def parity(path, root='NQ', skip_sessions=ROLL_SKIP_SESSIONS, max_list=40, bars=None, ma=DEFAULT_MA):
     df = pd.read_csv(path)
     low = {str(c).strip().lower().replace('"', ''): c for c in df.columns}
     tcol = low.get('time') or low.get('datetime') or df.columns[0]
@@ -1138,7 +1182,7 @@ def parity(path, root='NQ', skip_sessions=ROLL_SKIP_SESSIONS, max_list=40, bars=
     tot_both = tot_agree = 0
     bad_all = []
     for sd, sname in (('LONG', 'L'), ('SHORT', 'S')):
-        ser = score_series(root, sd, d_from, d_to, bars=bars)
+        ser = score_series(root, sd, d_from, d_to, bars=bars, ma=ma)
         epoch = _idx_epoch(ser.index)
         for k in KEYS + ['d_trend']:
             names = [sname + ' ' + k] + ([sname + ' trend'] if k == 'd_trend' else [])
@@ -1189,31 +1233,35 @@ def parity(path, root='NQ', skip_sessions=ROLL_SKIP_SESSIONS, max_list=40, bars=
 # ------------------------------------------------------------------ CLI
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description='the owner\'s point score (spec ps1.1)')
+    ap = argparse.ArgumentParser(description='the owner\'s point score (spec ps1.2)')
     sub = ap.add_subparsers(dest='cmd', required=True)
     a = sub.add_parser('trade', help='score one trade')
     a.add_argument('--sym', required=True)
     a.add_argument('--side', required=True)
     a.add_argument('--fill', required=True, help='ET "YYYY-MM-DD HH:MM[:SS]"')
     a.add_argument('--json', action='store_true')
+    a.add_argument('--ma', default=DEFAULT_MA, choices=MA_TYPES)
     s = sub.add_parser('series', help='every 1-minute bar of a range')
     s.add_argument('--root', required=True)
     s.add_argument('--side', required=True)
     s.add_argument('--from', dest='d0', required=True)
     s.add_argument('--to', dest='d1', required=True)
     s.add_argument('--out')
+    s.add_argument('--ma', default=DEFAULT_MA, choices=MA_TYPES)
     b = sub.add_parser('backfill', help='scores only, every real futures trade in EL (read-only)')
     b.add_argument('--out', default=os.path.join(OUT_DIR, 'backfill_scores.csv'))
     b.add_argument('--fills', default=FILLS_CSV)
+    b.add_argument('--ma', default=DEFAULT_MA, choices=MA_TYPES)
     p = sub.add_parser('parity', help='TradingView "Export chart data" CSV vs this implementation')
     p.add_argument('csv')
     p.add_argument('--root', default='NQ')
+    p.add_argument('--ma', default=DEFAULT_MA, choices=MA_TYPES)
     args = ap.parse_args(argv)
     if args.cmd == 'trade':
-        rec = score_trade(dict(sym=args.sym, side=args.side, fill=args.fill))
+        rec = score_trade(dict(sym=args.sym, side=args.side, fill=args.fill), ma=args.ma)
         print(json.dumps(rec, indent=1) if args.json else format_record(rec))
     elif args.cmd == 'series':
-        ser = score_series(args.root, args.side, args.d0, args.d1)
+        ser = score_series(args.root, args.side, args.d0, args.d1, ma=args.ma)
         if args.out:
             ser.to_csv(args.out)
             print('wrote %d bars -> %s' % (len(ser), args.out))
@@ -1222,10 +1270,10 @@ def main(argv=None):
             print(ser[cols].to_string())
     elif args.cmd == 'backfill':
         t0 = dt.datetime.now()
-        backfill(args.out, fills_path=args.fills)
+        backfill(args.out, fills_path=args.fills, ma=args.ma)
         print('backfill runtime %.1f s' % (dt.datetime.now() - t0).total_seconds())
     else:
-        sys.exit(0 if parity(args.csv, args.root) else 1)
+        sys.exit(0 if parity(args.csv, args.root, ma=args.ma) else 1)
 
 
 if __name__ == '__main__':

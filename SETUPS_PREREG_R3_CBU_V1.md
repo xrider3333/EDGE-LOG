@@ -379,3 +379,20 @@ direction, and they lose on #382-flat days.
 
 The reference code is `tools/cbu_v1_alerts.py`, the `any` + `day` variant. It replays every session, so any
 live alert can be checked against it.
+
+## 12. Point score v1.2: SMA context lines (2026-10-02)
+
+The owner's correction: the "200" lines were meant to be a plain moving average (SMA). Point score v1.2
+makes SMA the default. The final alert (section 11) follows it: its 5- and 30-minute context lines are now
+the 200 SMA by default, and EMA is a setting in both `tools/cbu_v1_alerts.py --ma` and the indicator.
+
+**Re-measured** (2026-04-07..2026-10-01, 123 sessions, SMA):
+
+- `any` + `day`: 2.75 alerts a day, catching 9 of 13. Under the EMA it was 2.77 a day, also 9 of 13.
+- `any` + `am`: 0.91 a day, catching 6 of 13.
+
+The alert's behaviour is effectively unchanged.
+
+Sections 9-10 (CBU-Q 2.0, run #481) were measured with the EMA and are left as they are. CBU-Q 2.0 is dead
+as a strategy either way.
+

@@ -1,4 +1,4 @@
-"""POINT SCORE (spec v1.1 `ps1.1`, docs/POINT_SCORE_SPEC.md): tools/point_score.py, the reference implementation.
+"""POINT SCORE (spec v1.2 `ps1.2`, docs/POINT_SCORE_SPEC.md): tools/point_score.py, the reference implementation.
 
 Two kinds of test, both against the SPEC, never against the code's own opinion:
 
@@ -92,8 +92,14 @@ def hand(rows):
     return df
 
 
-def rec_of(b, fill, side='LONG', sym='NQ'):
-    return ps.score_trade(dict(sym=sym, side=side, fill=fill), bars=b)
+def rec_of(b, fill, side='LONG', sym='NQ', ma=ps.DEFAULT_MA):
+    return ps.score_trade(dict(sym=sym, side=side, fill=fill), bars=b, ma=ma)
+
+
+def ma_of(series, ma):
+    """The independent reference moving average: SMA = pandas rolling(200).mean(), EMA = ewm(span 200, adjust False)."""
+    series = pd.Series(series)
+    return series.rolling(200).mean() if ma == 'sma' else series.ewm(span=200, adjust=False).mean()
 
 
 def pt(rec, k):
@@ -142,17 +148,21 @@ def test_only_1m_is_supported(long_series):
 def test_record_shape_is_the_agreed_contract(long_series):
     _, b = long_series
     r = rec_of(b, '2026-02-10 09:32:21')
-    assert r['v'] == 'ps1.1' and r['side'] == 'LONG' and r['tf'] == '1m' and r['tf_note'] == '1-minute default'
+    assert r['v'] == 'ps1.2' and r['ma'] == 'sma' and r['side'] == 'LONG' and r['tf'] == '1m' and r['tf_note'] == '1-minute default'
     assert [p['k'] for p in r['points']] == ['ma200_10s', 'ma200_1m', 'ma200_5m', 'ma200_30m', 'y_low', 'y_close',
                                              'y_high', 'big_body', 'big_vol']
     assert r['trend']['k'] == 'd_trend'
     for p in r['points'] + [r['trend']]:
         assert set(['k', 'label', 'hit', 'val', 'ref', 'na_reason']) <= set(p)
-    assert r['points'][0]['label'] == 'Above 200 EMA (10s)'
+    assert r['points'][0]['label'] == 'Above 200 SMA (10s)'
     assert r['points'][4]['label'] == "Above yesterday's low"
     assert r['points'][7]['label'] == "Largest body since today's low"
     s = rec_of(b, '2026-02-10 09:32:21', side='SHORT')
-    assert s['points'][0]['label'] == 'Below 200 EMA (10s)'
+    assert s['points'][0]['label'] == 'Below 200 SMA (10s)'
+    e = rec_of(b, '2026-02-10 09:32:21', ma='ema')
+    assert e['ma'] == 'ema' and e['points'][3]['label'] == 'Above 200 EMA (30m)'
+    with pytest.raises(ValueError):
+        rec_of(b, '2026-02-10 09:32:21', ma='wma')
     assert s['points'][7]['label'] == "Largest body since today's high"
     assert s['points'][8]['label'] == "Largest volume since today's high"
     assert r['total'] == sum(1 for p in r['points'] if p['hit'] is True)
@@ -354,11 +364,12 @@ def test_short_window_starts_at_the_latest_high():
 
 # ------------------------------------------------------------------ 5m / 30m reference bar
 
-def _indep_ema_ref(df, secs_label, s_start):
-    """The spec's reference value, recomputed with pandas resample: EMA of the bar BEFORE the one containing S.start."""
+def _indep_ema_ref(df, secs_label, s_start, ma='sma'):
+    """The spec's reference value, recomputed with pandas resample: the moving average of the bar BEFORE the one
+    containing S.start."""
     rs = df.resample(secs_label, label='left', closed='left').agg(
         {'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last', 'volume': 'sum'}).dropna()
-    ema = rs['close'].ewm(span=200, adjust=False).mean()
+    ema = ma_of(rs['close'], ma)
     containing = pd.Timestamp(s_start).floor(secs_label)
     pos = rs.index.get_loc(containing)
     return ema.iloc[pos - 1], rs.index[pos - 1], len(rs.iloc[:pos])
@@ -367,15 +378,16 @@ def _indep_ema_ref(df, secs_label, s_start):
 @pytest.mark.parametrize('hm,ref5,ref30', [('09:31', '09:25', '09:00'), ('09:34', '09:25', '09:00'),
                                            ('09:35', '09:30', '09:00'), ('09:29', '09:20', '08:30'),
                                            ('10:00', '09:55', '09:30'), ('09:59', '09:50', '09:00')])
-def test_5m_30m_reference_bar_is_the_bar_before_the_one_containing_S(hm, ref5, ref30):
+@pytest.mark.parametrize('ma', ['sma', 'ema'])
+def test_5m_30m_reference_bar_is_the_bar_before_the_one_containing_S(hm, ref5, ref30, ma):
     df = walk(n_days=30, seed=21)
     b = bars_of(df)
     day = '2026-02-12'
     fill = pd.Timestamp('%s %s' % (day, hm)) + pd.Timedelta(minutes=1, seconds=12)
-    r = ps.score_trade(dict(sym='NQ', side='LONG', fill=fill), bars=b)
+    r = ps.score_trade(dict(sym='NQ', side='LONG', fill=fill), bars=b, ma=ma)
     assert r['signal_bar'] == '%s %s' % (day, hm)
     for k, lab, want in (('ma200_5m', '5min', ref5), ('ma200_30m', '30min', ref30)):
-        ema, stamp, count = _indep_ema_ref(df, lab, '%s %s' % (day, hm))
+        ema, stamp, count = _indep_ema_ref(df, lab, '%s %s' % (day, hm), ma)
         assert stamp == pd.Timestamp('%s %s' % (day, want))
         p = pt(r, k)
         assert p['ref'] == pytest.approx(ema, abs=1e-3), (k, hm)
@@ -397,11 +409,12 @@ def test_the_boundary_case_S_0934_is_the_0925_5m_bar_and_S_0935_is_0930():
     assert pt(c, 'ma200_5m')['ref'] == pytest.approx(e2, abs=1e-3)
 
 
-def test_1m_ema_includes_the_signal_bar_itself():
+@pytest.mark.parametrize('ma', ['sma', 'ema'])
+def test_1m_ema_includes_the_signal_bar_itself(ma):
     df = walk(n_days=30, seed=23)
     b = bars_of(df)
-    r = rec_of(b, '2026-02-12 10:20:40')
-    ema = df['close'].ewm(span=200, adjust=False).mean().loc['2026-02-12 10:19']
+    r = rec_of(b, '2026-02-12 10:20:40', ma=ma)
+    ema = ma_of(df['close'], ma).loc['2026-02-12 10:19']
     assert pt(r, 'ma200_1m')['ref'] == pytest.approx(ema, abs=1e-3)
 
 
@@ -412,11 +425,26 @@ def test_600_bar_warmup_1m():
     b = bars_of(df)
     stamp599 = df.index[598]                                    # the 599th bar: 599 bars including S
     stamp600 = df.index[599]
-    a = ps.score_trade(dict(sym='NQ', side='LONG', fill=stamp599 + pd.Timedelta(seconds=70)), bars=b)
-    c = ps.score_trade(dict(sym='NQ', side='LONG', fill=stamp600 + pd.Timedelta(seconds=70)), bars=b)
+    a = ps.score_trade(dict(sym='NQ', side='LONG', fill=stamp599 + pd.Timedelta(seconds=70)), bars=b, ma='ema')
+    c = ps.score_trade(dict(sym='NQ', side='LONG', fill=stamp600 + pd.Timedelta(seconds=70)), bars=b, ma='ema')
     assert a['signal_bar'] == stamp599.strftime('%Y-%m-%d %H:%M')
     assert pt(a, 'ma200_1m')['hit'] is None and pt(a, 'ma200_1m')['na_reason'] == ps.NA_WARM
     assert pt(c, 'ma200_1m')['hit'] is not None and pt(c, 'ma200_1m')['na_reason'] is None
+
+
+def test_sma_needs_a_full_200_bar_window_1m_and_5m():
+    df = walk(first_day='2026-01-05', n_days=3, seed=30)
+    b = bars_of(df)
+    for pos, ok in ((198, False), (199, True)):                 # the 199th / 200th bar, counting S
+        r = ps.score_trade(dict(sym='NQ', side='LONG', fill=df.index[pos] + pd.Timedelta(seconds=70)), bars=b)
+        assert (pt(r, 'ma200_1m')['hit'] is not None) == ok, pos
+        if ok:
+            assert pt(r, 'ma200_1m')['ref'] == pytest.approx(df['close'].iloc[:200].mean(), abs=1e-3)   # records keep 4 dp
+    rs = df.resample('5min', label='left', closed='left').agg({'close': 'last'}).dropna()
+    for pos, ok in ((199, False), (200, True)):                 # 199 / 200 complete 5m bars before S's own bar
+        s = rs.index[pos] + pd.Timedelta(minutes=2)
+        r = ps.score_trade(dict(sym='NQ', side='LONG', fill=s + pd.Timedelta(seconds=70)), bars=b)
+        assert (pt(r, 'ma200_5m')['hit'] is not None) == ok, pos
 
 
 def test_600_bar_warmup_5m_counts_bars_through_the_reference_bar():
@@ -427,7 +455,7 @@ def test_600_bar_warmup_5m_counts_bars_through_the_reference_bar():
     # S in the bar at position 599 has 599 before it -> NA
     for pos, ok in ((599, False), (600, True)):
         s = rs.index[pos] + pd.Timedelta(minutes=2)             # a minute inside that 5m bar
-        r = ps.score_trade(dict(sym='NQ', side='LONG', fill=s + pd.Timedelta(seconds=70)), bars=b)
+        r = ps.score_trade(dict(sym='NQ', side='LONG', fill=s + pd.Timedelta(seconds=70)), bars=b, ma='ema')
         assert (pt(r, 'ma200_5m')['hit'] is not None) == ok, pos
 
 
@@ -436,7 +464,7 @@ def test_10s_ema_warmup_and_reference_bar():
     t10, c10 = ten_sec(df, '2026-02-10 07:30')
     b = bars_of(df, t10=t10, c10=c10)
     # 600 10-second bars = 100 minutes: a signal bar at 09:31 (121 minutes after 07:30) has 726 of them
-    r = rec_of(b, '2026-02-10 09:32:21')
+    r = rec_of(b, '2026-02-10 09:32:21', ma='ema')
     p = pt(r, 'ma200_10s')
     assert p['hit'] is not None
     ema = pd.Series(c10).ewm(span=200, adjust=False).mean()
@@ -444,10 +472,23 @@ def test_10s_ema_warmup_and_reference_bar():
     last = int(np.searchsorted(t10, e + 60, side='left')) - 1
     assert t10[last] == e + 50                                   # the last 10s bar of the signal minute
     assert p['ref'] == pytest.approx(ema.iloc[last], abs=1e-3)
-    early = rec_of(b, '2026-02-10 08:30:10')                     # only 60 minutes = 360 bars in
+    early = rec_of(b, '2026-02-10 08:30:10', ma='ema')           # only 60 minutes = 360 bars in
     assert pt(early, 'ma200_10s')['na_reason'] == ps.NA_WARM
     before = rec_of(b, '2026-02-10 07:00:10')
     assert pt(before, 'ma200_10s')['na_reason'] == ps.NA_NO10
+
+
+def test_10s_sma_warmup_and_reference_bar():
+    df = walk(n_days=30, seed=32)
+    t10, c10 = ten_sec(df, '2026-02-10 07:30')
+    b = bars_of(df, t10=t10, c10=c10)
+    # 200 10-second bars = 33 1/3 minutes: S = 08:02 has 33 x 6 = 198 bars through its own minute (NA), 08:03 has 204
+    assert pt(rec_of(b, '2026-02-10 08:03:10'), 'ma200_10s')['na_reason'] == ps.NA_WARM
+    p = pt(rec_of(b, '2026-02-10 08:04:10'), 'ma200_10s')
+    assert p['hit'] is not None
+    e = ps._epoch('2026-02-10 08:03')
+    last = int(np.searchsorted(t10, e + 60, side='left')) - 1
+    assert p['ref'] == pytest.approx(pd.Series(c10).rolling(200).mean().iloc[last], abs=1e-3)
 
 
 def test_10s_is_na_when_the_signal_minute_has_no_10s_bar():
@@ -527,12 +568,12 @@ def _holiday_stub_week():
     return hand(rows)
 
 
-def _agree(b, idx, sides=('LONG', 'SHORT')):
+def _agree(b, idx, sides=('LONG', 'SHORT'), ma=ps.DEFAULT_MA):
     """The literal path and the vectorised path give the same record (hit, NA reason, val, ref) at every index in idx."""
     for side in sides:
-        f = b.full(side)
+        f = b.full(side, ma)
         for i in idx:
-            rec, _ = ps._literal(b, int(b.t[i]), side)
+            rec, _ = ps._literal(b, int(b.t[i]), side, ma)
             for k, p in zip(ps.KEYS + ['d_trend'], rec['points'] + [rec['trend']]):
                 d = f[k]
                 ha = None if np.isnan(d['hit'][i]) else bool(d['hit'][i])
@@ -664,33 +705,47 @@ def _gap_world(gap_minutes, quiet=None, seed=70):
     return df, bars_of(df, t10=t10[keep], c10=c10[keep])
 
 
-def _p10(b, hm, side='LONG'):
+def _p10(b, hm, side='LONG', ma=ps.DEFAULT_MA):
     """The 10-second point of the bar that STARTS at hm on 2026-02-10 (fill = 30 s into the next minute)."""
     fill = pd.Timestamp('2026-02-10 ' + hm) + pd.Timedelta(seconds=90)
-    return pt(ps.score_trade(dict(sym='NQ', side=side, fill=fill), bars=b), 'ma200_10s')
+    return pt(ps.score_trade(dict(sym='NQ', side=side, fill=fill), bars=b, ma=ma), 'ma200_10s')
 
 
 def test_10s_capture_gap_inside_the_ema_memory_is_na():
     df, b = _gap_world(31)                                       # the capture lost 10:00-10:30 (31 minutes that traded)
-    assert _p10(b, '09:59')['hit'] is not None                  # the window has not reached the gap yet
-    assert _p10(b, '10:00')['na_reason'] == ps.NA_NO10BAR       # the signal minute itself has no 10s bar
-    assert _p10(b, '10:45')['na_reason'] == ps.NA_GAP10          # the gap is inside the last 600 10s bars
+    E = 'ema'
+    assert _p10(b, '09:59', ma=E)['hit'] is not None            # the window has not reached the gap yet
+    assert _p10(b, '10:00', ma=E)['na_reason'] == ps.NA_NO10BAR  # the signal minute itself has no 10s bar
+    assert _p10(b, '10:45', ma=E)['na_reason'] == ps.NA_GAP10   # the gap is inside the last 600 10s bars
     # 600 10s bars = 100 minutes of the capture AFTER the gap: 10:31 .. 12:10 inclusive. One minute earlier, the
     # 600th-latest bar still lies before the gap -> NA; at 12:10 the window starts at 10:31 -> scored again
-    assert _p10(b, '12:09')['na_reason'] == ps.NA_GAP10
-    assert _p10(b, '12:10')['hit'] is not None and _p10(b, '12:10')['na_reason'] is None
+    assert _p10(b, '12:09', ma=E)['na_reason'] == ps.NA_GAP10
+    assert _p10(b, '12:10', ma=E)['hit'] is not None and _p10(b, '12:10', ma=E)['na_reason'] is None
     # the vectorised path says the same on every bar of the day
     i0, i1 = b.find(ps._epoch('2026-02-10 09:50')), b.find(ps._epoch('2026-02-10 12:30'))
-    _agree(b, list(range(i0, i1 + 1, 3)) + [b.find(ps._epoch('2026-02-10 12:09')), b.find(ps._epoch('2026-02-10 12:10'))])
-    f = b.full('SHORT')
+    _agree(b, list(range(i0, i1 + 1, 3)) + [b.find(ps._epoch('2026-02-10 12:09')), b.find(ps._epoch('2026-02-10 12:10'))], ma=E)
+    f = b.full('SHORT', E)
     assert ps._REASONS[f['ma200_10s']['na'][b.find(ps._epoch('2026-02-10 12:09'))]] == ps.NA_GAP10
+
+
+def test_10s_capture_gap_inside_the_sma_memory_is_na():
+    df, b = _gap_world(31)
+    assert _p10(b, '10:45')['na_reason'] == ps.NA_GAP10          # inside the last 200 10s bars
+    # 200 10s bars = 33 1/3 minutes AFTER the gap: at 11:03 (198 bars since 10:31) the 200th-latest bar still lies
+    # before the gap -> NA; at 11:04 (204 bars) the window starts at 10:31 -> scored again
+    assert _p10(b, '11:03')['na_reason'] == ps.NA_GAP10
+    assert _p10(b, '11:04')['hit'] is not None and _p10(b, '11:04')['na_reason'] is None
+    i0, i1 = b.find(ps._epoch('2026-02-10 09:50')), b.find(ps._epoch('2026-02-10 11:30'))
+    _agree(b, list(range(i0, i1 + 1, 3)) + [b.find(ps._epoch('2026-02-10 11:03')), b.find(ps._epoch('2026-02-10 11:04'))])
 
 
 def test_10s_capture_gap_needs_three_lost_minutes():
     _, b2 = _gap_world(2)                                        # two lost minutes: tolerated
     assert _p10(b2, '10:45')['hit'] is not None and _p10(b2, '10:45')['na_reason'] is None
-    _, b3 = _gap_world(3)                                        # three lost minutes: a gap
-    assert _p10(b3, '10:45')['na_reason'] == ps.NA_GAP10
+    _, b3 = _gap_world(3)                                        # three lost minutes (10:00-10:02): a gap ...
+    assert _p10(b3, '10:20')['na_reason'] == ps.NA_GAP10          # ... inside the SMA's 200-bar memory
+    assert _p10(b3, '10:45')['na_reason'] is None                # 10:45's 200 bars start ~10:12: the gap is behind it
+    assert _p10(b3, '10:45', ma='ema')['na_reason'] == ps.NA_GAP10   # the EMA's 600-bar memory still holds it
     _agree(b3, [b3.find(ps._epoch('2026-02-10 10:45')), b3.find(ps._epoch('2026-02-10 10:03'))])
     _agree(b2, [b2.find(ps._epoch('2026-02-10 10:45'))])
 
@@ -719,7 +774,7 @@ def test_10s_the_daily_break_and_the_weekend_are_never_a_gap():
 
 # ------------------------------------------------------------------ rolls: trade-relative adjustment
 
-def _brute(df, sw, fill, side):
+def _brute(df, sw, fill, side, ma='sma'):
     """The spec formula read literally, bar by bar, on clean (between-bars) switches:
     adjusted(t) = raw(t) + sum(offsets of switches after t) - sum(offsets of switches after t_close)."""
     s_start = (ps._epoch(fill) // 60) * 60 - 60
@@ -732,11 +787,11 @@ def _brute(df, sw, fill, side):
     adj = d[['open', 'high', 'low', 'close']].to_numpy() + (after_t - after_c)[:, None]
     a = pd.DataFrame(adj, columns=['open', 'high', 'low', 'close'], index=d.index)
     a['volume'] = d['volume'].to_numpy()
-    out = dict(ema1=a['close'].ewm(span=200, adjust=False).mean().iloc[-1])
+    out = dict(ema1=ma_of(a['close'], ma).iloc[-1])
     rs = a.resample('5min', label='left', closed='left').agg({'close': 'last'}).dropna()
-    out['ema5'] = rs['close'].ewm(span=200, adjust=False).mean().iloc[-2]
+    out['ema5'] = ma_of(rs['close'], ma).iloc[-2]
     rs = a.resample('30min', label='left', closed='left').agg({'close': 'last'}).dropna()
-    out['ema30'] = rs['close'].ewm(span=200, adjust=False).mean().iloc[-2]
+    out['ema30'] = ma_of(rs['close'], ma).iloc[-2]
     day = a.index[-1].normalize()
     rth = a[(a.index.hour * 60 + a.index.minute >= 570) & (a.index.hour * 60 + a.index.minute < 960) & (a.index < day)]
     ydate = rth.index.normalize().max()
@@ -746,14 +801,15 @@ def _brute(df, sw, fill, side):
 
 
 @pytest.mark.parametrize('fill', ['2026-02-13 10:15:20', '2026-02-11 10:15:20', '2026-02-12 09:45:20', '2026-02-09 14:00:20'])
-def test_roll_adjustment_is_relative_to_the_trade(fill):
+@pytest.mark.parametrize('ma', ['sma', 'ema'])
+def test_roll_adjustment_is_relative_to_the_trade(fill, ma):
     df = walk(n_days=30, seed=40)
     # a real switch between two bars on Feb 11 10:00 (offset -37.25) and one on Jan 27 (offset +12.5)
     sw = [dict(inst=ps._epoch('2026-02-11 10:00'), offset=-37.25, status='exact', et='2026-02-11 10:00', kind='mid_session'),
           dict(inst=ps._epoch('2026-01-27 08:00'), offset=12.5, status='exact', et='2026-01-27 08:00', kind='mid_session')]
     b = bars_of(df, switches=sw)
-    want = _brute(df, sw, fill, 'LONG')
-    r = ps.score_trade(dict(sym='NQ', side='LONG', fill=fill), bars=b)
+    want = _brute(df, sw, fill, 'LONG', ma)
+    r = ps.score_trade(dict(sym='NQ', side='LONG', fill=fill), bars=b, ma=ma)
     assert pt(r, 'ma200_1m')['ref'] == pytest.approx(want['ema1'], abs=1e-3)
     assert pt(r, 'ma200_5m')['ref'] == pytest.approx(want['ema5'], abs=1e-3)
     assert pt(r, 'ma200_30m')['ref'] == pytest.approx(want['ema30'], abs=1e-3)
@@ -764,7 +820,7 @@ def test_roll_adjustment_is_relative_to_the_trade(fill):
     s_start = pd.Timestamp(fill).floor('1min') - pd.Timedelta(minutes=1)
     assert pt(r, 'ma200_1m')['val'] == df.loc[s_start, 'close'] == want['C']
     # and the vectorised path agrees
-    f = b.full('LONG')
+    f = b.full('LONG', ma)
     i = b.find(ps._epoch(s_start.strftime('%Y-%m-%d %H:%M')))
     for k, w in (('ma200_1m', want['ema1']), ('ma200_5m', want['ema5']), ('ma200_30m', want['ema30']),
                  ('y_high', want['yH']), ('y_low', want['yL']), ('y_close', want['yC'])):
@@ -1121,7 +1177,8 @@ needs_data = pytest.mark.skipif(not (ps.data_available('NQ') and ps.data_availab
 
 @needs_data
 def test_worked_example_2026_09_30_0932_mnq_long_scores_9_of_9():
-    r = ps.score_trade(dict(sym='MNQ', side='LONG', fill='2026-09-30 09:32:21'))
+    # the v1.1 worked example and the owner's pre-check are EMA numbers: pinned to ma='ema'
+    r = ps.score_trade(dict(sym='MNQ', side='LONG', fill='2026-09-30 09:32:21'), ma='ema')
     assert r['signal_bar'] == '2026-09-30 09:31'
     assert (r['total'], r['max'], r['na_count']) == (9, 9, 0)
     assert all(p['hit'] is True for p in r['points'])
@@ -1139,7 +1196,7 @@ def test_worked_example_2026_09_30_0932_mnq_long_scores_9_of_9():
     assert t['hit'] is False and t['val'] == 30725.5 and t['ref'] == 30759.25     # 09-29 high below 09-28 high
     assert r['src'] == 'master1m+capture10s'
     # the same trade as a short misses almost everything
-    s = ps.score_trade(dict(sym='MNQ', side='SHORT', fill='2026-09-30 09:32:21'))
+    s = ps.score_trade(dict(sym='MNQ', side='SHORT', fill='2026-09-30 09:32:21'), ma='ema')
     assert s['max'] == 9
     assert [p['hit'] for p in s['points'][:7]] == [False] * 7       # above every average and level: no short point
     assert s['points'][7]['hit'] is False                           # a green candle is not a short candle

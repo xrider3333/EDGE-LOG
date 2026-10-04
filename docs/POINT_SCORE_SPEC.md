@@ -1,4 +1,8 @@
-# POINT SCORE - spec v1.1 (`ps1.1`)
+# POINT SCORE - spec v1.2 (`ps1.2`)
+
+**v1.2 (2026-10-02, owner correction):** the four "200" lines are a plain **moving average (SMA)** by
+default. The EMA of v1.1 stays available as a setting (`ma = 'sma' | 'ema'`), and every record says which it
+used. Nothing else changed from v1.1.
 
 The owner's point score for his discretionary trades. The rules are his (2026-09-30), and the defaults were
 approved with "go with defaults". Scope: `C:\EdgeLog\manager\point_score_scope_2026-09-30.md`.
@@ -22,22 +26,29 @@ is wrong.
 
 ## 2. The nine points (LONG; SHORT mirrors each one)
 
-**1-4. `ma200_10s`, `ma200_1m`, `ma200_5m`, `ma200_30m` - close above the 200 EMA of that timeframe.**
+**1-4. `ma200_10s`, `ma200_1m`, `ma200_5m`, `ma200_30m` - close above the 200 moving average of that
+timeframe.**
 
-- **EMA:** alpha = 2/201, seeded with the first close of the loaded history (pandas
-  `ewm(span=200, adjust=False)`, which is Pine's `ta.ema`).
-- **Futures bars:** 24-hour bars. The EMA must have at least **600** bars of its own timeframe up to and
-  including the reference bar, else the point is NA ("EMA warming up").
+- **The moving average (`ma`, v1.2):**
+  - **SMA (the default):** the plain mean of the last 200 closes of that timeframe, up to and including
+    the reference bar (pandas `rolling(200).mean()`, which is Pine's `ta.sma`). It needs a full window
+    of **200** bars of its own timeframe, else the point is NA ("moving average warming up").
+  - **EMA (setting):** alpha = 2/201, seeded with the first close of the loaded history (pandas
+    `ewm(span=200, adjust=False)`, which is Pine's `ta.ema`). It needs at least **600** bars of its own
+    timeframe up to and including the reference bar, else NA.
+- **Futures bars:** 24-hour bars.
 - **Reference bar** for each timeframe:
-  - **1m:** S itself, so the EMA includes C. (Pine: `ta.ema(close,200)` on the 1-minute chart.)
+  - **1m:** S itself, so the average includes C. (Pine: `ta.sma(close,200)` / `ta.ema(close,200)` on the
+    1-minute chart.)
   - **10s:** the last 10-second bar ending at t_close; its close is C. (Pine: the last element of
-    `request.security_lower_tf(..., "10S", ta.ema(close,200))`.)
+    `request.security_lower_tf(..., "10S", <average>)`.)
   - **5m / 30m:** the bar BEFORE the one containing S.start. For S = 09:31, that is the 5m bar starting
     09:25 and the 30m bar starting 09:00. (Pine: `request.security(..., "5",
-    ta.ema(close,200)[1], lookahead=barmerge.lookahead_on)`.)
-  - Above/below does not depend on this choice. The "live" EMA of the forming bar lies between the previous
-    EMA and C, so it is on the same side of C. Only the displayed reference value depends on it.
-- **Hit:** long when C > EMA; short when C < EMA. A tie is not a hit.
+    <average>[1], lookahead=barmerge.lookahead_on)`.)
+  - For the EMA, above/below does not depend on this choice: the "live" EMA of the forming bar lies
+    between the previous EMA and C, so it is on the same side of C. For the SMA it can differ, so the
+    finished bar is the rule.
+- **Hit:** long when C > the average; short when C < it. A tie is not a hit.
 
 **5-7. `y_low`, `y_close`, `y_high` - close above yesterday's regular-session low, close and high.**
 
@@ -119,8 +130,9 @@ VWAP is not scored in v1.
 - NA before 2026-06-23 ("no 10-second data").
 - NA if any real switch in the roll table lies within 48 h before t_close. The capture rolls about a day
   after the master ("near a contract roll").
-- **Capture gaps (v1.1):** NA, "10-second data gap", if the capture is missing data inside the EMA's
-  memory. The memory is the span from the 600th-latest 10-second bar before t_close to t_close.
+- **Capture gaps (v1.1):** NA, "10-second data gap", if the capture is missing data inside the average's
+  memory. The memory is the span from the 200th-latest (SMA) or 600th-latest (EMA) 10-second bar before
+  t_close to t_close.
   - Missing data means 3 or more 1-minute master bars with volume > 0 that have no capture bar at all.
   - Quiet minutes with no trades on either feed are not gaps; TradingView has no bars there either.
   - The scheduled 17:00-18:00 ET break and weekends are never gaps.
@@ -133,7 +145,7 @@ VWAP is not scored in v1.
 ## 4. Output record (agreed with TRADING-LOG)
 
 ```
-pointScore = {v: 'ps1.1', side: 'LONG'|'SHORT', signal_bar: 'YYYY-MM-DD HH:MM' (ET start), tf: '1m',
+pointScore = {v: 'ps1.2', ma: 'sma'|'ema', side: 'LONG'|'SHORT', signal_bar: 'YYYY-MM-DD HH:MM' (ET start), tf: '1m',
   tf_note: '1-minute default', total, max, na_count,
   points: [{k, label, hit: true|false|null, val, ref, na_reason}],   # 9 points, fixed order
   trend: {k:'d_trend', label, hit, val, ref, na_reason},              # separate, not in total
@@ -143,11 +155,12 @@ pointScore = {v: 'ps1.1', side: 'LONG'|'SHORT', signal_bar: 'YYYY-MM-DD HH:MM' (
 **Point keys, in order:** ma200_10s, ma200_1m, ma200_5m, ma200_30m, y_low, y_close, y_high, big_body,
 big_vol.
 
-**Labels:** "Above 200 EMA (10s)" and so on; shorts read "Below ...". Big body is "Largest body since
+**Labels:** "Above 200 SMA (10s)" ("Above 200 EMA (10s)" with `ma = 'ema'`) and so on; shorts read
+"Below ...". Big body is "Largest body since
 today's low" (short: "since today's high"), and big volume follows the same pattern.
 
 - `val` is the compared value: C for points 1-7; the body or volume for 8-9.
-- `ref` is the threshold: the EMA, the level, or the window maximum.
+- `ref` is the threshold: the moving average, the level, or the window maximum.
 
 The writer updates only the `pointScore` field on a trade, never setup / grade / notes.
 
@@ -182,7 +195,7 @@ The writer updates only the `pointScore` field on a trade, never setup / grade /
 - `python tools/point_score.py parity <csv> --root NQ` compares every point on every bar in the regular
   session.
 - **Roll skip (v1.1):** it skips the switch day and the **15** regular sessions after each real switch. On
-  an unadjusted TradingView chart the 30-minute EMA carries the roll gap for about two weeks, and
+  an unadjusted TradingView chart the 30-minute average carries the roll gap for about two weeks, and
   TradingView's continuous contract also rolls a few days after ours.
 - The install note tells the owner to turn on TradingView's back-adjustment for continuous futures. With
   it on, the live label matches EL straight after a roll; parity still skips those sessions, to stay safe.

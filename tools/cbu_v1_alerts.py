@@ -93,9 +93,10 @@ def held_base(ph, pl, i, atr_i):
     return (held >= HELD_MIN) and (base <= BASE_MAX_ATR), held, base
 
 
-def decisions(b):
-    """Per-bar decision columns for one Bars object (point_score.Bars). Every column at i reads bars <= i only."""
-    f = b.full('LONG')
+def decisions(b, ma=None):
+    """Per-bar decision columns for one Bars object (point_score.Bars). Every column at i reads bars <= i only.
+    ma: the 5m / 30m moving average - 'sma' (point score v1.2 default) or 'ema' (as pre-registered in 918059d5)."""
+    f = b.full('LONG', ma or P.DEFAULT_MA)
     po, ph, pl, pc, _A = b.adjusted()
     v = np.nan_to_num(b.v)
     dord, mod = b.fields()
@@ -200,17 +201,18 @@ def ord_str(o):
     return str(np.datetime64(int(o), 'D'))
 
 
-def run(out_dir=None, quiet=False):
+def run(out_dir=None, quiet=False, ma=None):
+    ma = ma or P.DEFAULT_MA
     res = {}
     for root in ('NQ', 'ES'):
         b = P.load_bars(root)
-        d = decisions(b)
+        d = decisions(b, ma)
         res[root] = (b, d, closed_sessions(d))
     # both markets must have closed the session for it to count in the combined rate
     common = sorted(res['NQ'][2] & res['ES'][2])
     lines = []
     say = lines.append
-    say('CBU rules v1 - Test 1, the alert check (no outcomes). Prereg %s.' % PREREG_COMMIT)
+    say('CBU rules v1 - Test 1, the alert check (no outcomes). Prereg %s. Context lines: 200 %s.' % (PREREG_COMMIT, ma.upper()))
     say('Sessions %s..%s: %d closed regular sessions on both NQ and ES.' % (ord_str(common[0]), ord_str(common[-1]), len(common)))
     for root in ('NQ', 'ES'):
         b = res[root][0]
@@ -287,8 +289,9 @@ def run(out_dir=None, quiet=False):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument('--out', default=r'C:\EdgeLog\_anatomy_cache\cbu_v1_alerts')
+    ap.add_argument('--ma', default=None, choices=('sma', 'ema'), help='5m / 30m moving average (default: the point score default, sma)')
     a = ap.parse_args(argv)
-    run(a.out)
+    run(a.out, ma=a.ma)
 
 
 if __name__ == '__main__':

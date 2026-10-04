@@ -111,3 +111,22 @@ The score still does its other jobs:
 
 It should not be read as a trade filter yet. The record grows every week, and the test can be re-run on
 the same pre-registered rules whenever the owner wants.
+
+## ps1.2 re-run (2026-10-02): SMA lines
+
+The owner corrected the spec on 2026-10-02: his "200" lines are a plain moving average (SMA), not an EMA.
+Spec v1.2 makes SMA the default, and the backfill was re-run with it. The pre-registered test is the same
+code and the same rules; only the scores changed.
+
+- **Trades:** 54. The 53 from before, plus one new trade (nt_199027463936).
+- **Scores that moved from EMA to SMA:** 7 of the 53 (3 up, 4 down). No maximum changed.
+  - These came from 7 point flips, all in the four moving-average points: 10s ×1, 1m ×1, 5m ×3, 30m ×2.
+- **Primary result:** Spearman(score %, R) = **-0.007** (95% CI -0.286 to +0.265, n = 54).
+  - On the same 53 trades it is +0.016 (CI -0.264 to +0.293), against +0.029 under the EMA.
+- **Secondary result:** the top half minus the bottom half is **-0.03 R ± 0.26**.
+- **Reading:** unchanged. The score still shows no link to R. The SMA correction moves a few scores by one
+  point and changes nothing in the verdict.
+
+The old file is kept as `C:\EdgeLog\point_score\backfill_scores_ps11_ema.csv`, and `backfill_scores.csv`
+is now ps1.2.
+
