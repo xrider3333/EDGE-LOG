@@ -424,6 +424,19 @@ if (-not (BridgeUp)) {
   }
 
   if (BridgeUp) { Log "bridge is up - no login needed" } else {
+  # NEVER LAUNCH NINJATRADER WITHOUT THE INTERNET (2026-10-03). Boots at 11:52-12:00 Arizona
+  # came up before the network did ('license2.ninjatrader.com could not be resolved'); the
+  # demo account never appeared, and NinjaTrader purged both demo strategy rows from its
+  # database and gutted the chart workspace to an empty shell - a restore from backup by
+  # hand. Starting it a few minutes later costs nothing; starting it early cost the day.
+  $netOk = $false
+  foreach ($h in 'license2.ninjatrader.com', 'live.tradovateapi.com') {
+    try { if (Resolve-DnsName $h -QuickTimeout -ErrorAction Stop) { $netOk = $true; break } } catch {}
+  }
+  if (-not $netOk) {
+    Log "NOT launching NinjaTrader: no internet yet (cannot resolve its servers) - a launch without it purges the demo strategies. Next pass retries."
+    exit 7
+  }
   Log "running unattended login..."
   & powershell -ExecutionPolicy Bypass -File $loginPs1 2>&1 | ForEach-Object { Log "  [login] $_" }
   $deadline = (Get-Date).AddSeconds(90)
@@ -522,14 +535,14 @@ do {
   if ($pending.Count -eq 0) { Start-Sleep -Seconds 10; continue }
   foreach ($s in $pending) {
     if ($s -eq $enguqName -and -not (EnsureEnguqAdopt)) {
-      if ($adoptHold) {
-        # Starting it any other way would leave its own trade unmanaged. The GTC stop at
-        # the broker still covers the position; a person has to decide.
-        Log "STOP: could not set $enguqName to adopt while it holds a trade - NOT enabling it"
-        $expected = @($expected | Where-Object { $_ -ne $enguqName })
-        continue
-      }
-      Log "  (account is flat, so starting $enguqName without adopt is harmless)"
+      # ENGU-Q is NEVER started without adopt. "The account is flat" is not trustworthy
+      # this early: on 2026-10-03 a pass read /positions as empty before the demo account
+      # had connected, while a real overnight trade was open, and only failed to start it
+      # flat because its chart had not loaded. Adopt on a genuinely flat account is an
+      # ordinary flat start, so nothing is lost by insisting on it. Usually a failure here
+      # only means the chart is still loading - leave it pending and retry next pass.
+      Log "  $enguqName is not set to adopt yet (chart still loading?) - not enabling it this pass"
+      continue
     }
     Log "enabling $s..."
     & $py $cli strategy enable --name $s --yes 2>&1 | ForEach-Object { Log "  [enable] $_" }

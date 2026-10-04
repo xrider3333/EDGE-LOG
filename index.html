@@ -836,7 +836,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1005';
+const VERSION='73.1006';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -854,7 +854,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1002',date:'2026-10-04',notes:['HOME is now called LEDGER on the tab button. Nothing else moved: the boards are still REAL, NT8 PAPER and WEBULL PAPER, and your saved view comes back as before. The deposits strip and the Settings button now say DEPOSITS so they cannot be confused with the ledger.','LEDGER > REAL now follows the shared number rules: a trade counts on the New York day it closed, every range counts back from today in New York, and a $0 trade is neither a win nor a loss.','P&L view: the line starts at $0 at the start of the range, so the big number is the P&L of that range. The EQUITY view still shows your account balance.','The trade list no longer says YESTERDAY for your own trades after 8 pm New York time.']},
+const CHANGELOG=[{v:'73.1006',date:'2026-10-04',notes:['NinjaTrader paper: ENGU-Q always restarts with adopt so an overnight trade is picked back up; the old broker stop is cancelled only after the new one is accepted.']},
+{v:'73.1002',date:'2026-10-04',notes:['HOME is now called LEDGER on the tab button. Nothing else moved: the boards are still REAL, NT8 PAPER and WEBULL PAPER, and your saved view comes back as before. The deposits strip and the Settings button now say DEPOSITS so they cannot be confused with the ledger.','LEDGER > REAL now follows the shared number rules: a trade counts on the New York day it closed, every range counts back from today in New York, and a $0 trade is neither a win nor a loss.','P&L view: the line starts at $0 at the start of the range, so the big number is the P&L of that range. The EQUITY view still shows your account balance.','The trade list no longer says YESTERDAY for your own trades after 8 pm New York time.']},
 {v:'73.997',date:'2026-10-04',notes:['PAPER (NT8 FUTURES): All time now covers EVERY paper trade, not the newest 500 - the nightly run keeps one compact copy of the whole history (a few documents) and the board reads that. The 31 strategies that had no row now sit in a closed Other / shadow group with switches and their own subtotal; they are NOT counted in the big number, so the big number equals the listed strategies total and the end of the bold line. Alarms that lived only in closed cards (stale runner or nightly report, NinjaTrader heartbeat, preflight, gate audit, reconcile, 10s capture, data feed, failed or missing book strategies) now also show as chips beside the number.']},
 {v:'73.995',date:'2026-10-03',notes:['PAPER board: two new DIP forward shadow legs, DIP ES #452 and DIP NQ #433, counted from Monday 10-05 - no orders, not in any book figure.']},
 {v:'73.991',date:'2026-10-03',notes:['Queue check: two BOOK jobs with different legs, or a sized book and its raw twin, are no longer flagged as repeats of each other.']},

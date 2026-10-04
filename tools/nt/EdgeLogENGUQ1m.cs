@@ -229,8 +229,9 @@ namespace NinjaTrader.NinjaScript.Strategies
         /// gets a clean disable, so its GTC stop stays resting at the broker (seen 2026-10-02:
         /// the dead instance's EQx stop was still working after NinjaTrader restarted). The
         /// adopted trade then has two sell stops for one contract, and a fast move through both
-        /// would fill twice and leave the account SHORT. Only runs once our own stop has been
-        /// submitted, so the position is never left without one. Never throws.</summary>
+        /// would fill twice and leave the account SHORT. The old stops are only REMEMBERED here;
+        /// they are cancelled in OnOrderUpdate once the broker has ACCEPTED our own stop, so the
+        /// position is never left without one (a rejected new stop keeps the old one). Never throws.</summary>
         private void CancelStaleStops(Order mine)
         {
             try
@@ -251,11 +252,45 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                 if (stale.Count == 0) return;
                 foreach (Order o in stale)
-                    Print("ENGUQ resume: cancelling a stop left by the previous instance - " + o.Name
-                        + " qty " + o.Quantity + " @ " + o.StopPrice.ToString("F2"));
-                Account.Cancel(stale);
+                    Print("ENGUQ resume: stop left by the previous instance - " + o.Name
+                        + " qty " + o.Quantity + " @ " + o.StopPrice.ToString("F2")
+                        + " - will cancel once our own stop is accepted");
+                adoptStop = mine;
+                staleStops = stale;
             }
             catch (Exception ex) { Print("ENGUQ resume: stale-stop cleanup failed: " + ex.Message); }
+        }
+
+        private Order adoptStop;                                        // our stop placed on adopt
+        private System.Collections.Generic.List<Order> staleStops;      // the dead instance's stops
+
+        protected override void OnOrderUpdate(Order order, double limitPrice, double stopPrice,
+            int quantity, int filled, double averageFillPrice, OrderState orderState,
+            DateTime time, ErrorCode error, string comment)
+        {
+            try
+            {
+                if (staleStops == null || adoptStop == null || order == null) return;
+                if (order != adoptStop && !(order.Name == "EQx" && Orders.Contains(order))) return;
+                if (orderState == OrderState.Accepted || orderState == OrderState.Working
+                    || orderState == OrderState.TriggerPending)
+                {
+                    var cancel = new System.Collections.Generic.List<Order>();
+                    foreach (Order o in staleStops)
+                        if (o.OrderState == OrderState.Working || o.OrderState == OrderState.Accepted
+                            || o.OrderState == OrderState.TriggerPending) cancel.Add(o);
+                    staleStops = null; adoptStop = null;
+                    if (cancel.Count == 0) return;
+                    Print("ENGUQ resume: own stop accepted - cancelling " + cancel.Count + " stop(s) left by the previous instance");
+                    Account.Cancel(cancel);
+                }
+                else if (orderState == OrderState.Rejected || orderState == OrderState.Cancelled)
+                {
+                    Print("ENGUQ resume: own stop " + orderState + " - KEEPING the previous instance's stop");
+                    staleStops = null; adoptStop = null;
+                }
+            }
+            catch (Exception ex) { Print("ENGUQ resume: OnOrderUpdate failed: " + ex.Message); }
         }
 
         protected override void OnStateChange()
