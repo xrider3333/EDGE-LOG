@@ -351,6 +351,14 @@ def publish(db, uid):
     except Exception as e:
         print(f"[nt-heartbeat] tick-feed check failed: {type(e).__name__}: {e}")
 
+    # buy/sell-split check rides along too (api/delta_alarm.py): bars flowing but delta lost.
+    try:
+        import time as _time
+        from api import delta_alarm
+        rep["delta_feed"] = delta_alarm.check(_time.time(), (prior_alert or {}).get("delta_feed"), _page)
+    except Exception as e:
+        print(f"[nt-heartbeat] delta-feed check failed: {type(e).__name__}: {e}")
+
     try:
         meta.document("nt_alert").set(rep)
     except Exception as e:
