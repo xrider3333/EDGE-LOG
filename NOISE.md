@@ -7,6 +7,28 @@
 
 ---
 
+## 🧪 2026-10-04 — ROUND 69 follow-ups (walk-forward only, reported not judged): the fixed package taken apart, and #422 on the roll-corrected tape
+
+MANAGER #29 / #30. Nothing below reads the lockbox.
+
+**(b) Which part of Custom ML's 09-27 'fixed' #422 package carried its walk-forward read?** `tools/r69b_noise_fixed_ablation.py`
+-> `r37_results/r69b_fixed_ablation.txt`. WF ROC at a $30k drawdown: #422 84.6; full package 109.0 (reproduces the 09-27
+read); minus compression 100.0, minus Friday 100.4, minus FOMC 98.1; compression 1.5x alone 82.5 (below #422 - the same
+answer as round 69), Friday 1.5x alone 96.6, FOMC 0.5x alone 97.8 (mostly by trimming the worst drawdown, $17.6k ->
+$15.6k). The cap of 3 never binds (1.5 x 1.5 = 2.25). So the calendar parts carry it and the compression weight helps only
+in combination - and calendar cells survive by chance (Friday failed the tilt guard in round 47; ORB's event scan p 0.12).
+No backtest round: the full package is ALREADY a no-order forward shadow (NOISE_422_FIXED, since 2026-09-28), so its
+Friday and FOMC parts can be read forward from that leg's own trades at its paired-stop checkpoints.
+
+**(c) #422 on the ADJ_ (back-adjusted) master vs no-adjust**, `tools/r69c_noise_422_adj_vs_noadj.py` ->
+`r37_results/r69c_adj_vs_noadj.txt`: WF 2,805 vs 2,824 trades (+0.7%), net $448,732 vs $421,939 (-6.0%) - over MANAGER's
+1% line, so the figures went to MANAGER. 2,665 trades match by fill time; 408 differ, and only 66 of those sit within three
+days of a contract switch. NOISE's band, volatility skip and stop are PERCENTAGES of price; back-adjusting shifts every
+older session by the cumulative roll offset, which changes those percentages on every older day - an artifact of the
+adjustment, not a roll defect of the no-adjust tape. NOISE is flat by the close, so no-adjust prices are the contract
+actually traded each session; the only true roll effect on it is the switch-day anchor (prior close from the old
+contract). Recommendation to MANAGER: keep #422 and the book reference on no-adjust.
+
 ## 🧪 2026-10-04 — ROUND 69: is NOISE #422's compression size-up too small? No - dead at Stage A
 
 Owner ask via MANAGER (inbox #26): one best remaining NOISE shot that could move BOOK #463 (WF 93.8 / LB 155.5). Draft

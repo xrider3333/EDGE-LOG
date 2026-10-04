@@ -1,0 +1,9 @@
+NOISE round 69b - fixed-package ablation on #422, WALK-FORWARD ONLY 2016-06-30 .. 2025-07-16 (reported, not judged)
+  NOISE #422 (no package)     ROC@30k  84.6%  Sortino 4.49  ( 49.6%/yr, DD $17,590)  mean size 1.00, max 1.00
+  full package                ROC@30k 109.0%  Sortino 5.48  ( 70.2%/yr, DD $19,330)  mean size 1.14, max 2.25
+  package minus compression   ROC@30k 100.0%  Sortino 4.86  ( 57.8%/yr, DD $17,338)  mean size 1.08, max 1.50
+  package minus Friday        ROC@30k 100.4%  Sortino 5.21  ( 61.6%/yr, DD $18,404)  mean size 1.04, max 1.50
+  package minus FOMC          ROC@30k  98.1%  Sortino 5.32  ( 69.0%/yr, DD $21,088)  mean size 1.15, max 2.25
+  compression 1.5x only       ROC@30k  82.5%  Sortino 5.03  ( 60.3%/yr, DD $21,934)  mean size 1.06, max 1.50
+  Friday 1.5x only            ROC@30k  96.6%  Sortino 4.71  ( 56.7%/yr, DD $17,598)  mean size 1.09, max 1.50
+  FOMC 0.5x only              ROC@30k  97.8%  Sortino 4.66  ( 50.8%/yr, DD $15,568)  mean size 0.99, max 1.00

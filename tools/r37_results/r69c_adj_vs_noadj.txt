@@ -1,0 +1,8 @@
+NOISE #422 walk-forward 2016-06-30 .. 2025-07-16, NO-ADJUST vs ADJ_ (back-adjusted) master
+  no-adjust : 2805 trades, net $448,732
+  ADJ_      : 2824 trades, net $421,939
+  difference: +19 trades (+0.68%), net -5.97%
+  matched by fill time and side: 2665; same exit 2662; only no-adjust 140; only ADJ_ 159
+  matched trades: $ difference total +2197 (same-exit trades +2358)
+  differing trades: 408, of which within 3 days of a contract switch: 66
+  verdict rule: both differences under 1% -> book reference unaffected: OVER 1% - figures to MANAGER
