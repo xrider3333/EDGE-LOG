@@ -628,6 +628,23 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .hm-hero-value{font-family:'Bebas Neue','JetBrains Mono',monospace;font-size:clamp(52px,7vw,76px);line-height:1;color:var(--text);margin-top:6px;font-variant-numeric:tabular-nums}
 .hm-hero-delta{display:flex;align-items:baseline;gap:6px;font-size:13px;margin-top:8px;font-variant-numeric:tabular-nums;flex-wrap:wrap}
 .hm-hero-delta .hm-suffix{color:var(--text5)}
+/* LEDGER shared parts (unify step 4, 2026-10-04): ONE hero and ONE range-pill row that REAL, WEBULL PAPER
+   and NT8 PAPER all draw (REAL first). Hero = a label naming the board and its scope, the big number, a
+   "today" line, the range line, and the status / alarm chips on the right (below the number on a phone). */
+.lg-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:10px 18px;flex-wrap:wrap;padding-top:6px}
+.lg-hero-main{min-width:0;flex:1 1 280px}
+.lg-hero-label{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--text5)}
+.lg-hero-big{font-family:'Bebas Neue','JetBrains Mono',monospace;font-size:clamp(52px,7vw,76px);line-height:1;color:var(--text);margin-top:6px;font-variant-numeric:tabular-nums}
+.lg-hero-today{font-size:13px;margin-top:8px;font-variant-numeric:tabular-nums}
+.lg-hero-range{display:flex;align-items:baseline;gap:6px;font-size:13px;margin-top:3px;font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.lg-hero .hm-suffix,.lg-hero .lg-suffix{color:var(--text5)}
+.lg-hero-chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center;max-width:100%}
+.lg-hero-chips:empty{display:none}
+.lg-chip{display:inline-flex;align-items:center;gap:5px;font-size:10px;letter-spacing:.4px;padding:3px 9px;border-radius:999px;border:1px solid var(--border);background:var(--bg1);white-space:nowrap}
+.lg-pills{display:flex;gap:18px;flex-wrap:wrap}
+.lg-pills button{background:none;border:none;padding:0 0 5px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text5);border-bottom:2px solid transparent;font-family:'JetBrains Mono',monospace;cursor:pointer}
+.lg-pills button.active{color:var(--text);border-bottom-color:var(--text)}
+@media (max-width:600px){.lg-hero-chips{justify-content:flex-start;order:3;flex-basis:100%}.lg-pills{gap:14px}}
 .hm-chart-wrap{position:relative;margin:22px 0 4px}
 .hm-chart-wrap svg{display:block;width:100%;height:260px;cursor:crosshair}
 .hm-range-row{display:flex;align-items:center;justify-content:space-between;margin:2px 0 26px;flex-wrap:wrap;gap:14px}
@@ -836,7 +853,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1011';
+const VERSION='73.1012';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -854,7 +871,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1009',date:'2026-10-04',notes:['PAPER (NT8 FUTURES): the big number is now the adopted BOOK #463 figure - the book legs (ORB, ENGU-Q 335, TTM x3, NOISE #422) at their book weights, listed under a BOOK group at the top of the strategy list. The curve, stats, calendar and tie-out strip follow the same rule. Controls and forward tests (incl. the DIP shadows) sit in a Forward tests & controls group and the strategies with no row stay in Other / shadow; neither counts, and their switches only decide which of their trades the table lists.']},
+const CHANGELOG=[{v:'73.998',date:'2026-10-04',notes:['LEDGER > REAL wears the new shared top: the big number, a today line under it, the range line, and the Webull and NinjaTrader sync checks as chips on the right.','The range pills are now TODAY, 1W, 1M, 3M, YTD and ALL on every board, counted back from today. 1Y is gone; a saved 1Y opens on ALL.','Add ?oldboards=1 to the address to see the previous layout for one more version.']},
+{v:'73.1009',date:'2026-10-04',notes:['PAPER (NT8 FUTURES): the big number is now the adopted BOOK #463 figure - the book legs (ORB, ENGU-Q 335, TTM x3, NOISE #422) at their book weights, listed under a BOOK group at the top of the strategy list. The curve, stats, calendar and tie-out strip follow the same rule. Controls and forward tests (incl. the DIP shadows) sit in a Forward tests & controls group and the strategies with no row stay in Other / shadow; neither counts, and their switches only decide which of their trades the table lists.']},
 {v:'73.1006',date:'2026-10-04',notes:['NinjaTrader paper: ENGU-Q always restarts with adopt so an overnight trade is picked back up; the old broker stop is cancelled only after the new one is accepted.']},
 {v:'73.1002',date:'2026-10-04',notes:['HOME is now called LEDGER on the tab button. Nothing else moved: the boards are still REAL, NT8 PAPER and WEBULL PAPER, and your saved view comes back as before. The deposits strip and the Settings button now say DEPOSITS so they cannot be confused with the ledger.','LEDGER > REAL now follows the shared number rules: a trade counts on the New York day it closed, every range counts back from today in New York, and a $0 trade is neither a win nor a loss.','P&L view: the line starts at $0 at the start of the range, so the big number is the P&L of that range. The EQUITY view still shows your account balance.','The trade list no longer says YESTERDAY for your own trades after 8 pm New York time.']},
 {v:'73.997',date:'2026-10-04',notes:['PAPER (NT8 FUTURES): All time now covers EVERY paper trade, not the newest 500 - the nightly run keeps one compact copy of the whole history (a few documents) and the board reads that. The 31 strategies that had no row now sit in a closed Other / shadow group with switches and their own subtotal; they are NOT counted in the big number, so the big number equals the listed strategies total and the end of the bold line. Alarms that lived only in closed cards (stale runner or nightly report, NinjaTrader heartbeat, preflight, gate audit, reconcile, 10s capture, data feed, failed or missing book strategies) now also show as chips beside the number.']},
@@ -2950,6 +2968,32 @@ function ledgerCloseDay(t){
 function ledgerCloseKey(t){const x=_ledgerHm(t&&(t.exitTime||t.entryTime));return ledgerCloseDay(t)+' '+String(x==null?0:x).padStart(5,'0');}
 function ledgerByClose(list){return (list||[]).slice().sort((a,b)=>{const x=ledgerCloseKey(a),y=ledgerCloseKey(b);return x<y?-1:(x>y?1:0);});}
 function ledgerInRange(list,range){const c=ledgerCutoff(range);return c?(list||[]).filter(t=>ledgerCloseDay(t)>=c):(list||[]);}
+// ── LEDGER shared hero + range pills (unify step 4) ──
+// The range pills every board offers, counted back from today in New York (ledgerCutoff). 1Y is gone: a
+// browser that saved it opens on ALL. ?oldboards=1 shows each board's previous layout for one version.
+const LEDGER_RANGES=['TODAY','1W','1M','3M','YTD','ALL'];
+const LEDGER_RANGE_LABEL={TODAY:'today','1W':'past week','1M':'past month','3M':'past 3 months','YTD':'year to date','1Y':'past year','ALL':'all time'};
+const LEDGER_OLDBOARDS=(()=>{try{return /[?&]oldboards=1(&|$)/.test(location.search);}catch(e){return false;}})();
+function ledgerMoney(v){v=+v||0;return (v<0?'-':'')+'$'+Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
+// o.ids = {label, big, today, range, chips} element ids; o.label / o.big / o.today / o.range / o.chips = html
+function ledgerHeroHtml(o){
+  const id=k=>(o.ids&&o.ids[k])?' id="'+o.ids[k]+'"':'';
+  return '<div class="lg-hero"><div class="lg-hero-main">'
+    +'<div class="lg-hero-label"'+id('label')+'>'+(o.label||'')+'</div>'
+    +'<div class="lg-hero-big"'+id('big')+'>'+(o.big||'')+'</div>'
+    +'<div class="lg-hero-today"'+id('today')+'>'+(o.today||'')+'</div>'
+    +'<div class="lg-hero-range"'+id('range')+'>'+(o.range||'')+'</div>'
+    +'</div><div class="lg-hero-chips"'+id('chips')+'>'+(o.chips||'')+'</div></div>';
+}
+// "+$12.50 today": signed and arrowed, so it reads the same under the MONO theme (no colour needed)
+function ledgerTodayHtml(v){
+  v=+v||0;const up=v>=0;
+  return '<span class="'+(up?'hm-up':'hm-down')+'">'+(up?'&#9650; +':'&#9660; -')+ledgerMoney(Math.abs(v))+'</span> <span class="lg-suffix">today</span>';
+}
+function ledgerRangePillsHtml(active,attr,ranges){
+  return '<div class="lg-pills">'+(ranges||LEDGER_RANGES).map(r=>'<button type="button" '+attr+'="'+r+'" class="'+(active===r?'active':'')
+    +'" aria-pressed="'+(active===r)+'" title="'+(LEDGER_RANGE_LABEL[r]||r)+', counted back from today in New York">'+r+'</button>').join('')+'</div>';
+}
 function calcStats(tds){
   const allTds=ledgerByClose(bScope(tds));
   if(!allTds||!allTds.length)return null;
@@ -11863,7 +11907,7 @@ function _hmSigned(v){return (v>=0?'+':'')+_hmMoney(v);}
 function _hmPct(v){return (v>=0?'+':'')+(v||0).toFixed(2)+'%';}
 function _hmCls(v){return v>=0?'hm-up':'hm-down';}
 function _hmEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-const _HM_RANGE_LABEL={'1W':'past week','1M':'past month','3M':'past 3 months','YTD':'year to date','1Y':'past year','ALL':'all time'};
+const _HM_RANGE_LABEL=LEDGER_RANGE_LABEL;
 // LEDGER rules (step 2): the first New York day inside the range, counted back from today in New York
 // (the old cut used the device clock and then the UTC date, so evenings moved every range edge a day)
 function _hmCutoff(range){return ledgerCutoff(range);}
@@ -11995,7 +12039,7 @@ function _hmFeedList(){
 }
 // The range pills in order, narrowest first. YTD can be narrower than 3M early in the year,
 // so a widen always checks that the pill it picks really covers the date.
-const _HM_RANGES=['1W','1M','3M','YTD','1Y','ALL'];
+const _HM_RANGES=LEDGER_OLDBOARDS?['1W','1M','3M','YTD','1Y','ALL']:LEDGER_RANGES;
 function _hmRangeCovers(range,dateStr){
   const c=_hmCutoff(range);
   return !c||!dateStr||dateStr>=c;
@@ -12125,7 +12169,16 @@ function _hmFmtDateLong(dateStr){
 }
 function _hmHeroLabel(){
   const acct=activeBroker?_hmEsc(activeBroker.toUpperCase()):'ALL ACCOUNTS';
-  return (homeChartMode==='equity'?'ACCOUNT EQUITY &middot; ':'CUMULATIVE P&amp;L &middot; ')+acct+reconBadge()+ntReconBadge();
+  // the shared hero puts the sync badges in its chip row; the old layout kept them on the label line
+  return (homeChartMode==='equity'?'ACCOUNT EQUITY &middot; ':'CUMULATIVE P&amp;L &middot; ')+acct+(LEDGER_OLDBOARDS?reconBadge()+ntReconBadge():'');
+}
+// REAL's status chips: the Webull and NinjaTrader sync checks (each says nothing while all is well)
+function _hmHeroChips(){
+  return [reconBadge(),ntReconBadge()].filter(Boolean).map(b=>'<span class="lg-chip">'+b.replace(/margin-left:8px;?/g,'')+'</span>').join('');
+}
+function _hmTodayNet(){
+  const today=ledgerTodayNY();
+  return +bScope(trades).filter(t=>ledgerCloseDay(t)===today).reduce((s,t)=>s+t.pnl,0).toFixed(2);
 }
 function _hmPaintDelta(delta,pct,suffix){
   const up=delta>=0;
@@ -12136,6 +12189,8 @@ function _hmPaintDelta(delta,pct,suffix){
 }
 function _hmRenderHeroDefault(endVal,startVal){
   const lbl=document.getElementById('hm-hero-label');if(lbl)lbl.innerHTML=_hmHeroLabel();
+  const tdy=document.getElementById('hm-hero-today');if(tdy)tdy.innerHTML=ledgerTodayHtml(_hmTodayNet());
+  const chp=document.getElementById('hm-hero-chips');if(chp)chp.innerHTML=_hmHeroChips();
   const valEl=document.getElementById('hm-hero-value');if(valEl)valEl.textContent=_hmMoney(endVal);
   const dep=homeChartMode==='equity'?_hmRangeDeposits(homeRange):0;
   const delta=endVal-startVal-dep;
@@ -12224,9 +12279,7 @@ function _hmWireChart(root,plotL,plotR,n,ser,startVal,endVal,vals){
   });
 }
 function _hmStatStrip(stats){
-  const today=ledgerTodayNY();
-  const todayTr=bScope(trades).filter(t=>ledgerCloseDay(t)===today);
-  const todayNet=todayTr.reduce((s,t)=>s+t.pnl,0);
+  const todayNet=_hmTodayNet();
   const wr=stats?(stats.wr*100).toFixed(0)+'%':'--';
   const pf=stats?(stats.pf>=99?'infinite':stats.pf.toFixed(2)):'--';
   const dd=stats?_hmMoney(Math.abs(stats.maxDD)):'--';
@@ -13239,6 +13292,7 @@ window.hmOpenNewTrade=function(){
 };
 // Main entry point - builds the whole HOME tab into `content` and wires every control.
 function _hmRenderHome(content){
+  if(!LEDGER_OLDBOARDS&&_HM_RANGES.indexOf(homeRange)<0)homeRange='ALL';   // a saved 1Y opens on ALL
   _hmEnsureSpyData(); // kick off (or continue) the shared SPY fetch so vs SPY resolves without blocking paint
   const rangeTrades=_hmTradesInRange(trades,homeRange);
   const rangeStats=calcStats(rangeTrades);
@@ -13249,16 +13303,16 @@ function _hmRenderHome(content){
     trades.forEach(t=>{if(!_seen.has(String(t.id))){const r=window._hmCandleRow?window._hmCandleRow(t):null;if(r)window._hmCandleRows.push(r);}});
     _hmMissedSorted().forEach(m=>{const r=window._hmMissedCandleRow?window._hmMissedCandleRow(m):null;if(r)window._hmCandleRows.push(r);});}catch(_e){window._hmCandleRows=[];}
   content.innerHTML=`<div class="hm-wrap">
-    <div class="hm-hero">
+    ${LEDGER_OLDBOARDS?`<div class="hm-hero">
       <div class="hm-micro" id="hm-hero-label"></div>
       <div class="hm-hero-value" id="hm-hero-value"></div>
       <div class="hm-hero-delta" id="hm-hero-delta"></div>
-    </div>
+    </div>`:ledgerHeroHtml({ids:{label:'hm-hero-label',big:'hm-hero-value',today:'hm-hero-today',range:'hm-hero-delta',chips:'hm-hero-chips'}})}
     <div class="hm-chart-wrap" id="hm-chart-wrap"></div>
     <div class="hm-range-row">
-      <div class="hm-range-pills" id="hm-range-pills">
+      ${LEDGER_OLDBOARDS?`<div class="hm-range-pills" id="hm-range-pills">
         ${['1W','1M','3M','YTD','1Y','ALL'].map(r=>`<button data-hmrange="${r}" class="${homeRange===r?'active':''}">${r}</button>`).join('')}
-      </div>
+      </div>`:ledgerRangePillsHtml(homeRange,'data-hmrange')}
       <div class="hm-mode-toggle" id="hm-mode-toggle">
         <button data-hmmode="equity" class="${homeChartMode==='equity'?'active':''}">EQUITY</button>
         <button data-hmmode="pnl" class="${homeChartMode==='pnl'?'active':''}">P&amp;L</button>
