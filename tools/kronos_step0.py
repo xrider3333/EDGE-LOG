@@ -127,8 +127,141 @@ def run_baselines():
             print(f"  {m:7s} scale {r['k']:.3f}  QLIKE H1 {r['H1']:.4f}  H2 {r['H2']:.4f}  | MSE(log) H1 {r['mse_H1']:.4f}  H2 {r['mse_H2']:.4f}")
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# KRONOS ARM. Run with the isolated venv: C:\\EdgeLog\\kronos\\venv\\Scripts\\python.exe tools/kronos_step0.py kronos
+# Code: github.com/shiyu-coder/Kronos @ 67b630e6 (model/ only, read before use). Weights: NeoQuasar/Kronos-small @
+# 901c26c1, NeoQuasar/Kronos-Tokenizer-base @ 0e011738 (safetensors). Inference only; HF offline.
+# Registered traps handled here: eval() mode (dropout off); every sampled path kept SEPARATELY (the released
+# auto_regressive_inference averages paths - we re-implement its single-step body without the mean); one device
+# (cuda:0) for every seed; future timestamp = the session date (public calendar), never read from the real bar.
+# Path range = predicted high - predicted low, as registered; paths with high < low are COUNTED and reported.
+KCODE, KHF = os.path.join(OUT, "code"), os.path.join(OUT, "hf")
+TOPP, TEMP, CLIP, BATCH = 0.9, 1.0, 5.0, 8
+
+
+def load_kronos(device="cuda:0"):
+    os.environ["HF_HUB_OFFLINE"] = "1"
+    sys.path.insert(0, KCODE)
+    from model import Kronos, KronosTokenizer
+    tok = KronosTokenizer.from_pretrained(os.path.join(KHF, "Kronos-Tokenizer-base")).to(device).eval()
+    mdl = Kronos.from_pretrained(os.path.join(KHF, "Kronos-small")).to(device).eval()
+    return tok, mdl
+
+
+def stamps(dates):
+    d = pd.DatetimeIndex(dates)
+    return np.stack([d.minute, d.hour, d.weekday, d.day, d.month], axis=1).astype(np.float32)
+
+
+def kronos_paths(tok, mdl, xs, xst, yst, n_paths, device="cuda:0"):
+    """One-step forecast for a batch of normalised windows; returns (batch, n_paths, 6) normalised predictions,
+    every path kept (body of the released auto_regressive_inference for pred_len = 1, minus its mean)."""
+    import torch
+    sys.path.insert(0, KCODE)
+    from model.kronos import sample_from_logits
+    with torch.no_grad():
+        x = torch.clip(torch.from_numpy(xs).to(device), -CLIP, CLIP)
+        x_stamp = torch.from_numpy(xst).to(device)
+        y_stamp = torch.from_numpy(yst).to(device)
+        B, L = x.shape[0], x.shape[1]
+        x = x.unsqueeze(1).repeat(1, n_paths, 1, 1).reshape(-1, L, x.shape[2])
+        x_stamp = x_stamp.unsqueeze(1).repeat(1, n_paths, 1, 1).reshape(-1, L, x_stamp.shape[2])
+        y_stamp = y_stamp.unsqueeze(1).repeat(1, n_paths, 1, 1).reshape(-1, 1, y_stamp.shape[2])
+        s1, s2 = tok.encode(x, half=True)
+        s1_logits, context = mdl.decode_s1(s1, s2, x_stamp)
+        pre = sample_from_logits(s1_logits[:, -1, :], temperature=TEMP, top_k=0, top_p=TOPP, sample_logits=True)
+        s2_logits = mdl.decode_s2(context, pre)
+        post = sample_from_logits(s2_logits[:, -1, :], temperature=TEMP, top_k=0, top_p=TOPP, sample_logits=True)
+        full_pre = torch.cat([s1, pre], dim=1)[:, -L:]
+        full_post = torch.cat([s2, post], dim=1)[:, -L:]
+        z = tok.decode([full_pre.contiguous(), full_post.contiguous()], half=True)
+        return z[:, -1, :].reshape(B, n_paths, -1).cpu().numpy()
+
+
+def run_kronos(seeds=SEEDS, syms=("NQ", "ES")):
+    import random
+    import torch
+    tok, mdl = load_kronos()
+    for sym in syms:
+        S = pd.read_csv(os.path.join(OUT, f"sessions_{sym}.csv"), index_col=0, parse_dates=True)
+        S["amount"] = S.volume * S.close
+        cols = ["open", "high", "low", "close", "volume", "amount"]
+        test = S.index[S.valid & (S.index >= T0) & (S.index <= T1)]
+        pos = {d: i for i, d in enumerate(S.index)}
+        X = S[cols].to_numpy(np.float32)
+        for seed in seeds:
+            random.seed(seed); np.random.seed(seed); torch.manual_seed(seed); torch.cuda.manual_seed_all(seed)
+            rows = []
+            for b0 in range(0, len(test), BATCH):
+                days = test[b0:b0 + BATCH]
+                xs, xst, yst, mu, sd = [], [], [], [], []
+                for d in days:
+                    i = pos[d]
+                    w = X[i - CTX:i]                                   # the 512 sessions BEFORE D
+                    assert len(w) == CTX and S.index[i - 1] < d
+                    m, s = w.mean(axis=0), w.std(axis=0)
+                    xs.append((w - m) / (s + 1e-5)); mu.append(m); sd.append(s)
+                    xst.append(stamps(S.index[i - CTX:i])); yst.append(stamps([d]))
+                z = kronos_paths(tok, mdl, np.stack(xs).astype(np.float32), np.stack(xst), np.stack(yst), PATHS)
+                for j, d in enumerate(days):
+                    p = z[j] * (sd[j] + 1e-5) + mu[j]                  # (paths, 6) back in price units
+                    rng = p[:, 1] - p[:, 2]
+                    rows.append(dict(sess=d, fc=float(rng.mean()), neg_paths=int((rng < 0).sum()),
+                                     **{f"p{k}": float(rng[k]) for k in range(PATHS)}))
+            out = pd.DataFrame(rows).set_index("sess")
+            out.to_csv(os.path.join(OUT, f"kronos_{sym}_seed{seed}.csv"))
+            print(f"{sym} seed {seed}: {len(out)} forecasts, paths with high<low {int(out.neg_paths.sum())}, "
+                  f"forecasts <= 0: {int((out.fc <= 0).sum())}", flush=True)
+
+
+def judge():
+    """The registered bar, read once."""
+    verdict, lines = True, []
+    for sym in ("NQ", "ES"):
+        f = pd.read_csv(os.path.join(OUT, f"baselines_{sym}.csv"), index_col=0, parse_dates=True)
+        per_seed = [pd.read_csv(os.path.join(OUT, f"kronos_{sym}_seed{s}.csv"), index_col=0, parse_dates=True).fc
+                    for s in SEEDS]
+        f["KRONOS"] = pd.concat(per_seed, axis=1).mean(axis=1)
+        for s, fc in zip(SEEDS, per_seed):
+            f[f"K{s}"] = fc
+        models = BASELINES + ("KRONOS",) + tuple(f"K{s}" for s in SEEDS)
+        tst, h1, res, scaled = score(f, models)
+        lines.append(f"{sym}: {len(tst)} sessions (H1 {int(h1.sum())}, H2 {int((~h1).sum())})")
+        for m in BASELINES + ("KRONOS",):
+            lines.append(f"  {m:7s} scale {res[m]['k']:.3f}  QLIKE H1 {res[m]['H1']:.4f}  H2 {res[m]['H2']:.4f}  "
+                         f"| MSE(log) H1 {res[m]['mse_H1']:.4f}  H2 {res[m]['mse_H2']:.4f}")
+        tgt = tst.target.to_numpy()
+        for half, mask in (("H1", h1), ("H2", ~h1)):
+            best = min(BASELINES, key=lambda m: res[m][half])
+            lk = qlike(tgt[mask], scaled["KRONOS"][mask])
+            lb = qlike(tgt[mask], scaled[best][mask])
+            gain = 1 - lk.mean() / lb.mean()
+            t, p = dm_onesided(lk, lb)
+            lines.append(f"  {half}: best baseline {best} {lb.mean():.4f}; Kronos {lk.mean():.4f}; gain {100 * gain:+.1f}% "
+                         f"(need >= +5.0%); DM t {t:+.2f}, one-sided p {p:.3f} (need < 0.05)")
+            if sym == "NQ":
+                verdict &= (gain >= 0.05) and (p < 0.05)
+            if sym == "ES" and half == "H2":
+                verdict &= lk.mean() < lb.mean()
+                lines.append(f"  ES check (Kronos below best baseline in H2): {lk.mean() < lb.mean()}")
+            if sym == "NQ" and half == "H2":
+                seeds_ok = [res[f"K{s}"]["H2"] < res[best]["H2"] for s in SEEDS]
+                verdict &= all(seeds_ok)
+                lines.append(f"  NQ H2 per seed beats {best}: {seeds_ok}")
+        hh = qlike(tgt[~h1], scaled["KRONOS"][~h1]).mean() / qlike(tgt[~h1], scaled["HAR"][~h1]).mean() - 1
+        lines.append(f"  head to head H2: Kronos QLIKE {100 * hh:+.1f}% vs HAR")
+    lines.append("VERDICT: " + ("PASS" if verdict else "FAIL - Kronos is closed for good (registered)"))
+    print("\n".join(lines))
+    open(os.path.join(OUT, "VERDICT.txt"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    return verdict
+
+
 if __name__ == "__main__":
     if sys.argv[1:] == ["baselines"]:
         run_baselines()
+    elif sys.argv[1:] == ["kronos"]:
+        run_kronos()
+    elif sys.argv[1:] == ["judge"]:
+        judge()
     else:
-        raise SystemExit("usage: kronos_step0.py baselines | kronos")
+        raise SystemExit("usage: kronos_step0.py baselines | kronos | judge")
