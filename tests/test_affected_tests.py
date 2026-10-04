@@ -271,3 +271,30 @@ def test_ship_still_proves_the_sha_is_on_main_after_a_retry():
     body = src[src.index("def cmd_ship"):src.index("def warn_pages_budget")]
     assert body.index("EDGELOG_GATE_PASSED_TREE") < body.index("--is-ancestor"), (
         "the on-main proof must come after the retry, not be skipped by it")
+
+
+def test_ship_retries_only_when_the_REMOTE_rejected_not_when_the_GATE_refused():
+    """The two reasons a push fails are not the same thing, and conflating them is expensive.
+
+    MEASURED: the first real run of this code cost 43 minutes. The gate failed, the retry treated
+    that as "overtaken", re-ran the whole 23-minute tier on code that was still broken, and told
+    the hook that a tree which had never passed was already proved. A gate failure must stop.
+    """
+    src = _read("tools/wt.py")
+    body = src[src.index("def cmd_ship"):src.index("def warn_pages_budget")]
+    assert "'[remote rejected]'" in body or "[remote rejected]" in body
+    assert "non-fast-forward" in body and "fetch first" in body
+    assert "overtaken" in body
+    i_guard = body.index("not because main moved")
+    i_retry = body.index("EDGELOG_GATE_PASSED_TREE")
+    assert i_guard < i_retry, "the gate-failure exit must come before the retry"
+
+
+def test_the_passed_tree_claim_is_only_made_after_a_gate_that_really_passed():
+    """EDGELOG_GATE_PASSED_TREE says "the full tier passed HERE". It may only be set on the
+    rejection path, because that is the only path where the gate actually ran green."""
+    src = _read("tools/wt.py")
+    body = src[src.index("def cmd_ship"):src.index("def warn_pages_budget")]
+    i_overtaken = body.index("if overtaken:")
+    i_env = body.index("EDGELOG_GATE_PASSED_TREE")
+    assert i_overtaken < i_env, "the claim is made inside the overtaken branch only"

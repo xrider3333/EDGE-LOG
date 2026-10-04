@@ -537,11 +537,24 @@ def cmd_ship(name, message):
 
     pushed = subprocess.run(['git', '-C', wt, 'push', '-q', 'origin', 'HEAD:main'],
                             capture_output=True, text=True, encoding='utf-8', errors='replace')
-    if pushed.returncode != 0:
-        # OVERTAKEN. We still hold the push lock - a local lane cannot have done this, so it was a
-        # cloud session pushing straight to main from another machine. Rebase and go again without
-        # letting go of the lock, and tell the hook which tree it has already proved.
-        out = (pushed.stdout or '') + (pushed.stderr or '')
+    # A push can fail for TWO quite different reasons, and they must not be confused: the remote
+    # REJECTED it (main moved), or our own pre-push hook REFUSED it (a gate failed). Only the
+    # first is worth retrying. Treating every failure as a rejection cost 43 minutes the first
+    # time this code ran for real: the gate failed, the retry re-ran the whole 23-minute tier on
+    # code that was still broken, and the tree it claimed as "already passed" had never passed.
+    out = (pushed.stdout or '') + (pushed.stderr or '')
+    REJECTED = ('[remote rejected]', 'cannot lock ref', 'fetch first', 'non-fast-forward',
+                'Updates were rejected')
+    overtaken = pushed.returncode != 0 and any(m in out for m in REJECTED)
+    if pushed.returncode != 0 and not overtaken:
+        raise SystemExit('push failed, and not because main moved - so it was the gate. Nothing '
+                         'was pushed and nothing is retried; fix it and ship again.' + chr(10) +
+                         out.strip()[-2000:])
+    if overtaken:
+        # OVERTAKEN. We still hold the push lock, so no local lane did this: it was a cloud
+        # session pushing straight to main from another machine, where the lock cannot reach.
+        # Rebase and go again without letting go of the lock, and tell the hook which tree it has
+        # already proved - which is sound only because the gate above really did pass.
         safe_print('push rejected - main moved while the gate ran (a cloud session pushes '
                    'straight to main, where the machine lock cannot reach it). Rebasing and '
                    'retrying under the same lock hold.')
