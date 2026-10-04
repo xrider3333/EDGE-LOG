@@ -1,0 +1,70 @@
+PRE-REGISTRATION - MDL r1: the MINIMUM DETECTABLE LEG map for BOOK #463, and the SEAT test for the forward shadows
+=====================================================================================================================
+Written 2026-10-04 (MANAGER #27: owner 'push the edges of the frontier models'); MANAGER review 2026-10-04: GO with three
+additions, all below (n = 25 greyed, the re-sizing row, the one-pager in docs/). Written by the
+STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane before any synthetic leg has been drawn or any map cell computed. #463's
+own WF and LB numbers are already published (the frontier), so nothing here is a lockbox read. Results:
+C:\EdgeLog\_anatomy_cache\rocfrontier\mdl_r1\ + the one-page plain-words map in docs/ + RESEARCH_LEDGER.md.
+
+QUESTION. What must a new leg (or a re-sizing of an existing one) look like before it can lift BOOK #463 past the bars
+every lane is judged on - and therefore which hunts cannot matter, whatever they find? Two leg properties decide it to
+first order: what the leg earns for its own risk, and what it does while the book is falling. Adding a small amount w of
+leg L raises the book's walk-forward ROC @ $30k only if L's yearly net / the book's yearly net > L's loss inside the
+book's deepest drawdown / that drawdown's depth (the derivative of 30 x net/DD at w = 0) - so a leg that earns while the
+book falls helps at almost any return, and one that falls with the book needs a large return. The map puts numbers on
+that, with the noise of real stretches included.
+
+BOOK. #463's daily P&L from r11_risk.py's rule-U records (the house convention); the harness refuses to run unless they
+reproduce WF 93.81 / 3.816 and LB 155.54 / 4.150. WF = 2016-07-01 -> 2025-06-29, LB = 2025-06-30 -> 2026-06-30
+inclusive. BARS (the ones every lane's book-add stage uses): WF book ROC @ $30k >= 1.05 x 93.81 = 98.5 with Sortino >=
+3.816; LB >= 155.54 with Sortino >= 4.150; the leg's size c in {0.5, 1, 2} x its unit, chosen by WF book ROC, frozen.
+
+DRAWDOWN WEEKS (per stretch, from the book's own daily equity, peak starting at 0 at the stretch start): a qualifying
+episode = a drawdown at least 1/3 as deep as the stretch's deepest; its days = the day after the peak through the
+trough. A DD week = a calendar week with at least 3 of its trading days inside a qualifying episode. Two leg measures:
+rho_dd = correlation of weekly sums (leg, book) over the DD weeks; DO (drawdown offset) = the leg's P&L summed over the
+qualifying episodes' days / the book's loss over the same days (+ = the leg earns while the book falls).
+
+SYNTHETIC LEGS. On each day the leg trades with probability p = min(1, n / 252); on a trading day its P&L =
+mu + sigma_t x (rho_r x z_t + sqrt(1 - rho_r^2) x e_t), where z_t = the book's P&L that day standardised within its regime
+(DD days / other days), e_t = an independent standard draw, rho_r = rho_dd on DD days and rho_out on other days; off days
+= 0. mu / sigma set the leg's yearly Sharpe s. Unit size: yearly volatility = 1/3 of the book's WF yearly volatility
+(CHOICE: the optimal weight of a Sharpe-1 leg next to a Sharpe-3 book). Grid: s in {0.25, 0.5, 0.75, 1, 1.5, 2, 3};
+rho_dd in {-0.6, -0.3, 0, 0.3, 0.6}; rho_out in {0, rho_dd}; n in {25, 100, 250, 1000} trades a year; tails e_t normal
+or Student-t(3); volatility sigma_t constant, or proportional to the book's trailing 20-day volatility (a leg on the
+same tape, losses clustered with the book's). 1,120 cells x 200 draws, seed 20261004; the WF and LB parts of a draw use
+the same parameters. Every draw's realised rho_dd, DO and standalone ROC @ $30k are measured the same way as a real
+leg's, and the map is binned on the REALISED values.
+
+OUTPUTS (no pass / fail - a planning map):
+- P(lift) per cell: the share of draws whose book add clears the WF bars, and the WF AND LB bars.
+- The map an owner can read (MANAGER addition 3: a one-page file in docs/, plain words, the dollars sentence
+  first): for n = 100 and 250 and the clustered, fat-tailed variant, the 50% and 80% P(lift)
+  contours in (the leg's standalone ROC @ $30k, rho_dd), and in dollars at #463's scale: 'a new leg must earn >= $X a
+  year at a $30k drawdown of its own with rho_dd <= Y to lift #463's walk-forward half the time'. Same for the LB, and
+  what no leg on the grid can do.
+- GREYED (MANAGER addition 1): the n = 25 trades-a-year row is computed and shown but greyed - a leg that trades 25
+  times a year cannot reach the 50 sealed-year trades every Stage B requires, so no threshold sentence uses it.
+- The first-order seat rule above, evaluated on #463's actual deepest WF and LB drawdown windows, in dollars.
+- RE-SIZING ROW (MANAGER addition 2; the power reference for the tilt rounds): for each of #463's four legs and
+  delta in {0.25, 0.5, 1}, the difference series (the leg at 1 + delta minus the leg at 1 = delta x the leg's daily
+  P&L, fractional) added to #463: WF and LB ROC @ $30k and Sortino against the bars, and its rho_dd and DO - what
+  plainly upsizing one leg does, the yardstick a tilt has to beat.
+- Reference points on the map (reported, never judged): leave-one-out for #463's four legs (each leg added back to the
+  other three - every current leg should earn its seat); every leg or shadow with a daily series already on disk
+  (DIP ES #452, DIP NQ #433, ORB #239, ORB #257, NQBRD theta 0.70, and others the lanes point to).
+
+SEAT TEST for the forward shadows (DIP #452 / #433, ORB #239 / #257, KEEL, order-flow sizing, S1 / S2 as named on the
+PAPER board), read when a shadow reaches 50 closed forward trades, then every further 50:
+(a) BACKTEST SEAT: the shadow's daily series added to #463 by the bar rule above on WF and LB; plus rho_dd and DO in
+    each stretch, and where it sits on the map at its own trade rate.
+(b) FORWARD SEAT: rho_dd and DO against #463's forward paper book, over qualifying forward episodes (at least 1/3 as
+    deep as the WF deepest, $14,950); none yet = 'not readable', re-read at the next 50 trades.
+(c) READ: SEAT = (a) clears WF and LB and (b) DO >= 0 when readable; NO SEAT = (a) fails WF; otherwise WAIT. An overlay
+    (KEEL, order-flow sizing) is judged on its difference series (sized minus raw), as a re-sizing, not a new leg.
+    A SEAT is an owner question, never an automatic adoption.
+
+KNOWN LIMITS: the map is conditional on #463's one realised path (its drawdowns are 2020, 2022 and 2025 events, which
+is the point - the bars are on that path); synthetic legs have no regime shifts, decay or capacity limits, so the map is
+a NECESSARY condition, never a sufficient one; best-of-3 sizing mirrors what a real leg faces at A2; the LB part is one
+year, so its P(lift) is mostly noise and is shown beside, never instead of, the WF map.
