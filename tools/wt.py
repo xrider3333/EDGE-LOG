@@ -529,7 +529,36 @@ def cmd_ship(name, message):
         print('STUDIES REGISTRY: OK' +
               (' (%d known duplicate row(s) baselined)' % len(dups & KNOWN_DUP_ROWS) if dups else ''))
 
-    run(['git', '-C', wt, 'push', '-q', 'origin', 'HEAD:main'])
+    # The tree the gates above just passed on. If the push is rejected and we rebase, this is
+    # what lets the retry's gate narrow to the tests the INCOMING commits could break instead of
+    # re-running all 23 minutes. Read before the push, because the rebase below changes it.
+    passed_tree = run(['git', '-C', wt, 'rev-parse', 'HEAD^{tree}'], check=False,
+                      quiet=True).strip()
+
+    pushed = subprocess.run(['git', '-C', wt, 'push', '-q', 'origin', 'HEAD:main'],
+                            capture_output=True, text=True, encoding='utf-8', errors='replace')
+    if pushed.returncode != 0:
+        # OVERTAKEN. We still hold the push lock - a local lane cannot have done this, so it was a
+        # cloud session pushing straight to main from another machine. Rebase and go again without
+        # letting go of the lock, and tell the hook which tree it has already proved.
+        out = (pushed.stdout or '') + (pushed.stderr or '')
+        safe_print('push rejected - main moved while the gate ran (a cloud session pushes '
+                   'straight to main, where the machine lock cannot reach it). Rebasing and '
+                   'retrying under the same lock hold.')
+        run(['git', '-C', wt, 'fetch', '-q', 'origin'], check=False, quiet=True)
+        rb = subprocess.run(['git', '-C', wt, 'rebase', 'origin/main'], capture_output=True,
+                            text=True, encoding='utf-8', errors='replace')
+        if rb.returncode != 0:
+            run(['git', '-C', wt, 'rebase', '--abort'], check=False, quiet=True)
+            raise SystemExit('push was rejected and the rebase onto the newer main hit a '
+                             'conflict - resolve it by hand in ' + wt + chr(10) + out +
+                             (rb.stdout or '') + (rb.stderr or ''))
+        env = dict(os.environ, EDGELOG_GATE_PASSED_TREE=passed_tree)
+        again = subprocess.run(['git', '-C', wt, 'push', 'origin', 'HEAD:main'], env=env,
+                               capture_output=True, text=True, encoding='utf-8', errors='replace')
+        safe_print(((again.stdout or '') + (again.stderr or '')).strip()[-800:])
+        if again.returncode != 0:
+            raise SystemExit('still rejected after rebasing and re-gating. Re-run ship.')
 
     # PROVE IT. `git push` reporting success is not evidence that the sha is on main: piped
     # into another command it hands back the PIPE's exit code, so a rejection reads as clean

@@ -109,9 +109,33 @@ if printf '%s\n' "$changed" | grep -qE '\.py$'; then
   run_tier "Strategy-contract" "$repo_root/tests/test_strategy_contract.py"
 
   if printf '%s\n' "$changed" | grep -qE '^(augur_engine/|api/|augur_mp_worker\.py|tests/)'; then
-    run_tier "Engine" "$repo_root/tests" \
-      --ignore="$repo_root/tests/test_strategy_contract.py" \
-      --ignore="$repo_root/tests/test_surrogate.py"
+    # NARROW RE-VALIDATION (2026-10-04). The engine tier takes ~23 minutes. The push lock stops
+    # local lanes overtaking each other, but the owner's CLOUD sessions push straight to main from
+    # another machine where no local lock reaches them - TRADING-LOG lost a full 25-minute gate to
+    # exactly that. After such a rejection, ship rebases (still holding the lock) and pushes again,
+    # and re-running all 23 minutes to absorb somebody else's unrelated commit is pure waste.
+    #
+    # ship sets EDGELOG_GATE_PASSED_TREE to the tree whose FULL engine tier it has already seen
+    # pass. That is a CLAIM, and this hook verifies it rather than trusting it: it diffs that tree
+    # against the current one itself and asks tools/affected_tests.py which tests those specific
+    # paths could break. A tree that does not exist, a diff it cannot narrow, or any error at all
+    # means the full tier runs. The variable can only ever say "I already ran it HERE" - it cannot
+    # ask for work to be skipped, because this hook, not ship, decides what that implies.
+    narrow=""
+    if [ -n "$EDGELOG_GATE_PASSED_TREE" ] && \
+       git -C "$repo_root" cat-file -e "$EDGELOG_GATE_PASSED_TREE^{tree}" 2>/dev/null; then
+      since="$(git -C "$repo_root" diff --name-only "$EDGELOG_GATE_PASSED_TREE" 'HEAD^{tree}' 2>/dev/null)"
+      narrow="$(printf '%s\n' "$since" | python "$repo_root/tools/affected_tests.py" --root "$repo_root" 2>/dev/null)"
+    fi
+    if [ -n "$narrow" ]; then
+      echo "Narrow re-validation: the full engine tier already passed on this branch's tree;"
+      echo "  since then the tree differs only in files covered by:$narrow"
+      run_tier "Engine (narrowed)" $narrow
+    else
+      run_tier "Engine" "$repo_root/tests" \
+        --ignore="$repo_root/tests/test_strategy_contract.py" \
+        --ignore="$repo_root/tests/test_surrogate.py"
+    fi
   fi
 
   if printf '%s\n' "$changed" | grep -qE '^augur_engine/surrogate\.py$'; then
