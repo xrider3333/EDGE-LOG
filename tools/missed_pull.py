@@ -1,6 +1,6 @@
 """missed_pull.py - pull the owner's SHOULD HAVE TRADED entries from EDGELOG (read only) into a local labelled set.
 
-The owner logs setups he saw and did not take on HOME > REAL > SHOULD HAVE TRADED. The web stores each one at
+The owner logs setups he saw and did not take on LEDGER > REAL > SHOULD HAVE TRADED. The web stores each one at
 users/{uid}/missed_trades/{id} (fields agreed with TRADING-LOG, 2026-10-02): url, setup, symbol (root, e.g. MNQ),
 date YYYY-MM-DD, entryTime HH:MM ET (the bar he would have entered on; the signal candle is the minute before),
 type LONG|SHORT, entry / stop / target, note, source, createdAt, updatedAt, and the PC's pointScore (ps1.1).

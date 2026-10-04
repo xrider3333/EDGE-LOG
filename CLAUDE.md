@@ -81,7 +81,9 @@ Structure EVERY substantive reply top-to-bottom as:
    **RAW · GATE · TILT · HYBRID · HYBRID ♻ · HYBRID 📉** (the last two are the same hybrid at
    REDEPLOY and EQUAL-DRAWDOWN sizing). There is no 2C or 2D section letter any more — those
    are tabs. **IS / WF / LB** stay the names for the three stretches ("LB", never
-   "held-out year"/"lockbox year" alternations). Only the OWNER renames these; if a new concept
+   "held-out year"/"lockbox year" alternations). **LEDGER** is the on-screen name of the tab
+   formerly called HOME (owner-approved 2026-10-03 via MANAGER; internal names stay 'home').
+   Only the OWNER renames these; if a new concept
    truly needs a name, pick it ONCE, say "calling this X from now on", and add it here in the
    same commit.
 3b. **EVERYTHING UNDER THE TABLE IS TLDR AND BULLETED (owner 2026-08-09: "for any info under

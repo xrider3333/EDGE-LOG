@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 tools/qqq_candles_probe.py -- verification probe for the Webull paper candle charts
-(HOME > WEBULL PAPER, owner ask via MANAGER 2026-09-28: "OHLC candles on the Webull paper
+(LEDGER > WEBULL PAPER, owner ask via MANAGER 2026-09-28: "OHLC candles on the Webull paper
 trades so I can judge the price action behind each one").
 
 Boots index.html headless (same technique as tools/qqq_overview_probe.py: serve a copy of

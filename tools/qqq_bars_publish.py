@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """tools/qqq_bars_publish.py -- one small QQQ bars doc per trading day, for the Webull
-paper candle charts on HOME > WEBULL PAPER (owner ask via MANAGER 2026-09-28: "OHLC
+paper candle charts on LEDGER > WEBULL PAPER (owner ask via MANAGER 2026-09-28: "OHLC
 candles on the Webull paper trades so I can judge the price action behind each one").
 
 WHAT IT WRITES

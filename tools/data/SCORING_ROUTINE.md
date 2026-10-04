@@ -1,7 +1,7 @@
 # End-of-day SCORE routine
 
 Runs every weekday after the close as a scheduled Claude session (task "EDGE LOG · end-of-day
-trade scores"). It fills the **SCORE** column (TRADING LOG > HOME table and TRADES table) for every
+trade scores"). It fills the **SCORE** column (TRADING LOG > LEDGER table and TRADES table) for every
 trade taken that day, futures and stocks alike. A trade with no price data is marked **NA**, and
 the pill says why.
 
