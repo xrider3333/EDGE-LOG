@@ -1185,6 +1185,29 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10x. Q15 the bull steepener, held only while the VIX curve is inverted: FAIL - the family null removes its earner pass (2026-10-05)
+
+**What.** The third seat on Q12/Q13's state (prior close of VIX / VIX3M at or above 1.00): long SHY $100,000 and short TLT in the ratio
+of their durations (1.9 / 17.0), a slope bet rather than Q13's level bet. Pre-registered in `docs/PREREG_frontier_steepener_2026-10-05.txt`
+with addendum 1 (MANAGER's review: leverage and funding rows, one-family null over Q12 / Q13 / Q15, power first; the SHY + TLT pair
+counted as one instrument), committed before any number. Walk-forward only; harness `C:\EdgeLog\_anatomy_cache\bookq\q15_seats.py`;
+parity exact; 48 entries (neighbours 92 / 20).
+
+**On its own numbers it passed the earner route** - and that pass did not survive the family test it was registered with.
+- Earns where the book loses, a little: +$2.5k in March 2020, +$8.0k over all of #463's drawdown days (+$2.8k without the best one),
+  own walk-forward net +$7.4k, both neighbours positive. Book with the leg 98.9 ROC at $30k vs 93.8 (Sortino 3.835 vs 3.816), but the
+  book-add report fails A4 (tuning block -3.8 ROC points, 4 of 9 years).
+- **Family null: FAIL.** Shifting the inversion dates at random (500 circular shifts) and taking the best of the three legs each
+  time, the 95th percentile of that best reaches $6.3k of drawdown-day earnings; Q15's $2.8k sits well inside chance. Standalone
+  ROC 1.2 vs a chance level of 7.8.
+- It also needs the leverage MANAGER warned about: the 25%-risk scale holds a median $1.3m gross (13x the account, up to 20x); a
+  0.5%/yr funding charge on the levered long costs $3.6k of the $7.4k. Without its best episode (April 2025, +$10.8k) the leg loses
+  $3.4k. Its residual beta is half a TLT short ($63k of TLT-equivalent per $125k held), so the duration hedge is only half a hedge.
+
+**The family is closed.** Q12, Q13 and Q15 all switch on when the VIX curve inverts; one passes on its own numbers only by the luck the
+family test measures. Together with Q9 this says: market-stress hedges do not earn their seat in #463 - its drawdowns are its own legs
+giving back in orderly markets. No further leg on this state variable is drafted.
+
 ### 10w. Q12 long volatility and Q13 safe havens, held only while the VIX curve is inverted: both FAIL at Stage A (2026-10-05)
 
 **What.** Two state-gated "earns while #463 falls" legs (Q9's lesson: an always-on crisis leg bleeds between crises), pre-registered in
