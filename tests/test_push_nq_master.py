@@ -218,6 +218,8 @@ def test_exes_lists_each_client_once_and_the_one_that_worked_first(tmp_path, mon
     b.mkdir()
     (a / ("ssh" + suffix)).write_text("", encoding="utf-8")
     (b / ("ssh" + suffix)).write_text("", encoding="utf-8")
+    for f in (a / ("ssh" + suffix), b / ("ssh" + suffix)):
+        os.chmod(f, 0o755)          # shutil.which needs the execute bit on Linux (the CI runner); a no-op on Windows
     monkeypatch.setenv("EDGELOG_SSH_DIR", str(a))
     monkeypatch.setenv("PATH", str(a) + os.pathsep + str(b))
     monkeypatch.setattr(P, "_worked", {})

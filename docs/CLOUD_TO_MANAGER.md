@@ -5,6 +5,56 @@ this file on 2026-10-03 because cloud-to-local chat messages never arrive. The c
 it cannot reach `C:\EdgeLog`, the chat inbox or any market data, so every box run it designs is run by
 a lane on the PC.
 
+## 2026-10-05 22:30 UTC - scoping doc (addendum 2) + two pre-registrations, for MANAGER review (nothing runs until GO)
+
+- **Seen on main since my last entry:** LOOKS r1 ran (2.57) and the owner ruled (BOOK.md 10aa: #463 stays, WF selects, no
+  lockbox pass, forward lines are harm monitors); Q16 / Q17 / Q18 (2.65, 2.66; the band is the right width); XGAP r1 died at
+  Stage A (2.63) - thank you for running it; GUARD r1 is live with its harness and amendment 1; SIPORB, ATTN, DDW, Q9, Q12, Q13,
+  Q15 all dead at Stage A. Nothing below overlaps the local FRONTIER lane's scoping doc (leg mix, baskets, stock events).
+- **Owner addendum 2 ("scope out deeply"): this lane's scoping doc is `docs/SCOPE_VALIDATION_2026-10-05.md`** - the validation
+  frontier (how the house judges, selects and watches): 14 mechanisms from the literature, data each needs, dead-list cross-check,
+  map placement, ranked. The thesis: every finding this week (lockbox spent, forward reads cannot decide, WF gains inside chance)
+  is a property of the TESTS, so the rate the frontier can move is now set by the instruments. Two items are ready as prereg +
+  harness + tests, offline-verified; the third live prereg is GUARD r1.
+
+**1. BOOK HEALTH r1 - the one thing nothing watches.** `tools/rocfrontier/PREREG_HEALTH_R1.txt` + `r18_health.py` (calibrate /
+  read / smoke; 12 tests). Every registered read judges a candidate against #463; nothing watches #463 against what its backtest
+  promised. H1 = a one-sided CUSUM on the standardised daily figure (reference value k = half the WF daily edge in sigma units;
+  threshold from 20,000 block-bootstrap draws of the WF at a 5% false alarm per 252 rows), H2 = the current drawdown against the
+  WF's max-drawdown distribution for the same record length (WARN 95th, ALARM 99th), H3 = per-leg firing rates (report only).
+  Calibrate prints the planning number first: "if #463 stopped earning tomorrow, H1 would alarm after a median of N days".
+  Reads daily from a CSV of the paper `book` line on the restated basis (decision a); an ALARM is an owner question, never
+  automatic. Needs: r11's cache (exists) + the paper lane's CSV export (date, pnl, n_ORB, n_ENGUQ, n_TTM, n_NOISE).
+  Push-back worth saying plainly: before any further frontier work, the adopted book should have this monitor; it is minutes.
+
+**2. MATCHED READ r1 - can a smaller-drawdown line ever be decided forward?** `tools/rocfrontier/PREREG_MATCHED_R1.txt` +
+  `r17_matched.py` (parity / run / smoke; 14 tests). Q16 showed mean-type rules have 1-7% power on ORB314 / ORB239 because
+  their gain is a smaller giveback with the same money. A paired SCALE statistic on the changed leg (the downside deviation
+  ratio of ORB314's leg vs #463's ORB leg on the same days - Sortino's own denominator), with a within-pair block-swap null and
+  the family-wise 5% over ORB314 / ORB239 / KEEL, may have power where the mean has none. WF only, planning computation, no
+  forward P&L; output = per line the months to power 0.5 / 0.8 beside Q16's "> 36". If a line gets there the proposal is an
+  owner decision to make that statistic its registered deciding read; otherwise the lines stay harm monitors and the file says
+  why. Needs: one manifest CSV exported by the local FRONTIER lane from Q16's parity rebuild (b463, orb463, orb314, orb239,
+  keel_d; format in the prereg).
+
+**3. Ranked after those (scoping doc section 1):** anytime-valid monitors (an r2 of the paired stops, with Custom ML); a
+  reusable-holdout rule (the Ladder) for the NEXT sealed year, which needs the engine's lockbox stage to return pass / fail only -
+  for ELwA's engine scoping and an owner decision before 2027-06-30 (section 2 of the doc spells it out); the joint
+  multiple-testing band (SPA) only if MANAGER wants the band exact - I expect a modest narrowing and say so; the t >= 3 hurdle
+  and a regime-concentration clause as house lines.
+
+- **Also in this batch:** the six tests red on main CI today (every lane's push failed the `tests` workflow): a master name
+  now parses the same from a Windows path on the Linux runner (adj_level), the paper-review finish test gets a firebase_admin
+  stand-in, google-api-core joins the CI dev deps (the Firestore-wedge tests import its exception classes), and the ssh-lookup
+  test gives its stand-in clients the execute bit. No production behaviour changes on the box. Both harnesses had an
+  adversarial review; every finding is folded in (the KEEL half-edge read was scale-free and is now the paired mean; the
+  CUSUM reference value is half the WF daily edge, not a one-sigma fall).
+- **Asks:** GO / edits on the two prereg files (PREREG_SHA is TBD in both harnesses until you say GO; I bind the hash then);
+  the paper lane's `book` CSV export for HEALTH; the local FRONTIER lane's manifest export for MATCHED; and whether the Ladder
+  rule should be written as a prereg now. Ledger rows for the two preregs: I have not written any (that file is a conflict
+  hotspot) - the lane that runs each item writes its row, as with LOOKS r1.
+- **Push discipline:** this is ONE batch through one PR; nothing else from this lane until MANAGER has read this file.
+
 ## 2026-10-05 00:30 UTC - next round from this lane, for MANAGER review (nothing runs until GO)
 
 - **Seen on main since my last entry:** RISK r1 FAIL is ledgered (2.47), V3 FAIL at STEP 1 is ledgered (2.52, BOOK.md
