@@ -1,0 +1,181 @@
+PRE-REGISTRATION - DDW r1: drawdown-week earners, family 1 = LIQUIDITY PROVISION in US stocks, leaning in when markets are stressed
+=====================================================================================================================
+Drafted 2026-10-04 17:00 MST by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (owner standing order 2026-10-04 via MANAGER
+#33 (c)); reviewed 2026-10-04 by MANAGER (C:\EdgeLog\manager\reviews\ddw_r1_review_2026-10-04.md, GO WITH EDITS, seven edits) and
+TV (C:\EdgeLog\manager\reviews\ddw_r1_review_TV_2026-10-04.md, GO WITH EDITS, five more, T1-T5); adversarial second review
+2026-10-05 by ORB (C:\EdgeLog\manager\reviews\ddw_r1_review_ORB_2026-10-05.md, GO for Stage A once four BLOCKING fixes are in;
+MANAGER #43 endorses them and picks L2's fill rule). All are folded into this text on 2026-10-05, before any number of this
+family exists: [M1]-[M7], [T1]-[T5], ORB's blocking B1-B4 as [O1]-[O4] and its should-fix list as [O5]-[O11]; then, the same
+day and still before any number, MANAGER's XGAP review edits 2 and 4 (c set by volatility; why the sibling rule is sound) and
+MANAGER #48 (the sealed year vetoes the leg only; the book add on it is reported). Stock data is this
+lane's (MANAGER #41). Results: C:\EdgeLog\_anatomy_cache\rocfrontier\ddw_r1\ (Stage A: ddw_stageA.json, which ATTN's Stage B
+also checks) and RESEARCH_LEDGER.md.
+
+WHY THIS FAMILY (the map first). MDL r1: a leg that earns in #463's drawdown weeks lifts the book at almost any positive
+return (rho_dd <= -0.15: half the time from a standalone ROC @ $30k of 5-10; <= -0.45: from ~0); everything else needs ~$15k
+a year at a $30k drawdown of its own and low rho_dd. #463's falling weeks are of two kinds: STRESS weeks (2020-02..04,
+2022, 2025-04: volatility spikes, two-way crashes) and quiet grinds (2025-05..06: breakouts fail). This family targets the
+stress weeks only and stays near flat in the quiet ones.
+Pruned before drafting (house evidence, not opinion): multi-day downside continuation after a wide-range down day - the
+crash-regime short died 18/18 and DIP (buying those days) is a profitable family, so such days revert on average; an
+overnight short after a high-vol down close - ledger 2.13: the LONG overnight after a down session earned (+$90 a trade, 8
+of 12 years); ES-vs-NQ relative short in stress - SPREAD r1: ratio momentum earned in Feb-Mar 2020 and bled everywhere
+else; cross-asset trend (crisis alpha) - TREND r1 (2026-09-24): real in 2008 / 2020 / 2022, too thin between crises.
+
+MECHANISM. When volatility spikes, liquidity providers pull back, forced and liquidity-driven trading pushes prices past
+fair value, and the move reverses; the expected return to supplying liquidity - short-term reversal - rises with market
+volatility (Nagel 2012, RFS "Evaporating Liquidity"; Grossman & Miller 1988; Lehmann 1990; Jegadeesh 1990). Moves WITHOUT
+news reverse, moves WITH news drift (Chan 2003, JFE) - so both legs fade only where there is no sign of news. Both legs are
+dollar-neutral with BOTH sides always filled [T1], so their P&L is not the book's market beta; the realised beta to ES in
+#463's drawdown weeks is reported FIRST [M2] (long losers = long high beta in a crash - the test must see it). This is the
+mirror image of SIPORB (news-driven moves continue). The literature's own warning is built in: a reversal measured and
+traded at the same print earns the bid-ask bounce, not liquidity provision [O1] - neither leg does that (L1, L2 below).
+
+DATA (no new pull, no money): the SIPORB cache C:\EdgeLog\alpaca_cache\siporb (Alpaca SIP daily bars raw + split-adjusted,
+active and inactive names, 2015-11 -> 2026-06-30; the 09:30-09:35 bars of SIPORB's open5 pull) - a photograph of the vendor on
+the pull dates (Alpaca re-adjusts history between pulls, ELwA 10-04): every result records the cache manifest sha256
+(alpaca_r1\siporb_cache_manifest.json; 380b05f2... on 2026-10-05) and is never mixed with a re-pull. ES 5m RTH masters
+(roll-corrected for price changes, unadjusted for levels) for the stress gauge and ES's opening gap. No corporate-actions
+calendar independent of the price series is in house data (the house split guard is not shipped) - a named limit; [O3]
+below is the substitute.
+
+DATA HYGIENE [T2] (before any ranking): a name is excluded from a position, and from the null's pool for that rebalance, when
+any of these falls on a session from 5 sessions before its ranking window through its exit: a registered split (SIPORB's
+split factor moved > 1%), a gap-scan flag (raw open / prior raw close more than 25% from 1 and within 2% of a whole ratio k or
+1/k, k <= 50), a TBIS volume-confirmed flag (C:\EdgeLog\_research_cache\split_qa\siporb_split_flags_voltest.csv), or a raw
+overnight gap beyond +-50% with no split-factor change (spin-off / bad print). Counts reported; the 20 largest name-period
+gains are listed with their dates so a reader can see none is a data event. Flags that fall AFTER the decision (inside the
+hold) are a look-ahead removal - they drop exactly the positions that jumped, in both directions - so every result is also
+reported with those positions kept at their naive raw P&L; the verdict reads the registered removal, and a flip between the
+two readings is said [O3].
+LARGE-MOVE CROSS-CHECK [O3 (i)]: every position whose L1 signal return is beyond +-25% or whose L2 raw gap is beyond +-20% is
+checked three ways - the raw and split-adjusted series agree over the window (no factor change), the move is not a whole
+ratio (the gap scan above), and the raw share volume of the move's session does not jump by about the inverse of the price
+ratio (TBIS's volume test: for L1 the move's session against the 20 sessions before it, inside the ranking window; for L2 the
+09:30-09:35 volume against its 14-session mean, known at 09:35). Per year: the count checked and the count that disagree; a
+disagreement removes the position from the cell and the null.
+
+UNIVERSE, each rebalance (only information known before the decision [M6]): US common stocks in SIPORB's asset list passing
+its symbol / name filters; prior raw close >= $10; the 500 largest by mean dollar volume (raw close x volume) over the
+previous 20 sessions, all 20 present; SIPORB's filters 2-3 on the previous 14 sessions (mean volume >= 1,000,000 shares, ATR
+> $0.50); no registered split in the 14 sessions before (splits are announced in advance). For L2 this set is chosen before
+09:30 and is a subset of the names SIPORB's open5 pull ASKED (asked = names passing SIPORB filters 1-3 on any of sessions t ..
+t+14; filter 1, opening price > $5, is implied by a prior close >= $10 except on a gap beyond -50%, where the name then has no
+09:30 bar and is counted, not replaced). NEWS proxy (known before the decision): a session whose volume is >= 3x the name's
+previous 20-session mean (daily bars); for L2 on day t also a 09:30-09:35 Relative Volume >= 2 (SIPORB's measure).
+
+L1 WEEKLY REVERSAL [M1, T4, O1, O2]. RANK on each week's last session close: the split-safe 5-session return through that
+close minus the universe's mean; exclude names in the news on any of those 5 sessions - all five are complete before the
+fill session, so no volume the trade could not have seen is read (ORB B2 = MANAGER edit 1). FILL at the NEXT session's
+official opening print (usually Monday's open): the print that makes the signal (the rank close) is never the fill price -
+the skip that removes bid-ask bounce from a reversal test (ORB B1). Long the 25 lowest, short the 25 highest, $4,000 each
+(equal dollars, both sides always 25 - the universe has 500 names). HOLD to the next rebalance's fill (the following week's
+first opening print). Positions are valued at every session close from the daily bars (and the fill / exit from their opening
+prints), so drawdown, DO and rho_dd are daily quantities, never weekly closed P&L [O8].
+L2 NO-NEWS GAP FADE [T1, O1]. On each session t, among the universe names with a 09:30-09:35 bar and Relative Volume < 2: raw
+gap = 09:35 price (close of that bar) / prior raw close (split-safe) - 1; ADJUSTED gap = raw gap - beta x ES's gap, ES's gap =
+(ES 09:35 price - ES prior 16:00 close) / that close (roll-corrected changes, unadjusted level), beta = the OLS slope of the
+name's daily close-to-close returns on ES's over the previous 60 sessions (all present). Long the 20 most negative adjusted
+gaps, short the 20 most positive, only |adjusted gap| >= 1%; the session trades ONLY if both sides fill all 20; $5,000 each.
+FILL: open5 holds only the first 5-minute bar, so the signal print is the only print - each name fills at the 09:35 price
+PLUS an adverse 10 bps (a buy 10 bps above it, a sell 10 bps below), 20 bps as the stress, and the cell must pass at both
+(MANAGER #43 (a)); a 1-minute next-bar fill was rejected because min1 bars cover only SIPORB's top names (a selection). Exit
+at the official close of t. Reported per traded day: net dollar exposure and its beta to ES.
+STRESS LEAN [M6, O9] (cells "S"): every position x k_t; k_t = RV20_t / median(RV20 over the previous 252 sessions), clipped to
+[0.5, 2.0]; RV20_t = the standard deviation of ES's last 20 daily returns (sessions t-20 .. t-1), a daily return = (roll-
+corrected 16:00 price change) / prior unadjusted 16:00 price; known at the prior close. The constants (20 sessions, 252,
+the clip) are fixed from the literature's convention before any number, not fitted to 2020 / 2022 / 2025; the ES masters
+start in 2010, so k_t is defined for every session from 2016 on. Cells "F": k_t = 1.
+CELLS: L1-F, L1-S, L2-F, L2-S (the family: 4 cells).
+COSTS [O7]: L2's entry is charged by its adverse fill above (10 bps base, 20 stress) - that IS its cost, the realistic one for
+09:35 fills on the day's biggest gappers (ORB), so nothing more is added to it. Every other side (L1's opening fills and
+exits, L2's closing exit) pays 5 bps of notional (base); stress 10 and 20 bps. Borrow: 0.25%/yr on short notional (base);
+stress rows [M3] 1%/yr and 3%/yr on short notional during sessions with k_t > 1.5 (reported); SQUEEZED WINNERS [O5]: L1
+shorts whose 5-session signal return exceeds +30% pay 20%/yr in a stress row, and a second variant drops them; the short
+side's P&L in the weeks of 2021-01-22 .. 01-29 (GME, AMC) and of June 2020 (HTZ) is reported. A short-sale ban (2008-style)
+is a named risk the backtest cannot price. No compounding.
+SURVIVORSHIP [O6]: a position whose name stops printing during its hold exits at its last raw print (base) and, for a long,
+is also reported at -100% (stress); the share of long positions in names that later went inactive is reported.
+
+NULL (family-aware) [O4]: 500 draws, seed 20261004; in each draw, at every rebalance, each cell's longs and shorts are replaced
+by the same NUMBER of names drawn at random from that rebalance's eligible pool (same hygiene and news exclusion, sizing,
+fills, k_t, costs). Statistics, each over the 4 cells: (i) WF ROC @ $30k, the MAX; (ii) WF DO, the MAX [M2]; (iii) WF rho_dd,
+the MIN [O4]. All at size c = 1.
+
+#463 AND ITS DRAWDOWN DAYS [T5]: #463's daily P&L from r11_risk.py's rule-U records; the harness refuses unless WF 93.81 / 3.816
+with a deepest drawdown of $44,849 and LB 155.54 / 4.150 reproduce. Qualifying drawdowns = peak-to-trough episodes of #463's
+daily equity in the stretch (peak starting at 0 at the stretch start) at least 1/3 as deep as the stretch's deepest ($14,950 in
+WF); their days = the day after each peak through its trough; a DD week = a calendar week with >= 3 trading days inside one
+(MDL r1). DO = the cell's P&L over those days / #463's loss over them; rho_dd = correlation of weekly sums over the DD weeks.
+WF holds 28 qualifying episodes, 460 DD days and 92 DD weeks, all from 2019-08 to 2025-06 (2019 45 days, 2020 30, 2021 52,
+2022 107, 2023 100, 2024 71, 2025 55; none in 2016-18) - #463's own data, printed 2026-10-05 before any cell number. They are
+spread over seven years, not three clusters, so ORB's "2 of 3 clusters" becomes the year test in (d) [O11].
+
+STRETCHES: WF = positions exited 2016-07-01 -> 2025-06-29 (house); LB = exits 2025-06-30 -> 2026-06-30 inclusive, SEALED.
+ONE SEALED-YEAR DAY [M5]: SIPORB, ATTN and DDW r1 read the same sealed window. Every Stage A / A2 of the three runs first; every
+cell that earns a Stage B gets it on ONE day, in one sitting; after that day the SIPORB sealed year is BURNED for this lane - no
+further stock-data strategy is drafted on it. ATTN's pre-registration carries the same dated addendum (addendum 1); SIPORB's is
+not edited - it died at Stage A on 2026-10-05 with its sealed year never read, and its harness refuses a changed spec. XGAP r1
+(drafted 2026-10-05, MANAGER #44) reads the same window and joins the same day if MANAGER registers it before then.
+YARDSTICK: house convention (30 x net / years / max drawdown from the daily P&L; Sortino with zero days).
+
+STAGE A (WF, per cell): (a) >= 100 name-periods AND the independent units [M4]: L1 >= 26 weekly rebalances, L2 >= 60 traded
+sessions; (b) net > 0 at the base AND the first stress costs - L1 at 5 and 10 bps a side, L2 at (entry 10 bps adverse, exit 5
+bps) and (entry 20, exit 10) [O1, O7]; (c) WF ROC @ $30k above the null's 95th percentile (i); (d) THE FAMILY'S POINT - it
+earns while #463 falls: DO above the null's 95th percentile (ii) [M2] AND rho_dd below the null's 5th percentile (iii) [O4] AND
+DO > 0 AND rho_dd < 0, AND [O11] DO > 0 in at least 4 of the 7 years 2019-2025 that hold qualifying DD days (each DD day in
+its calendar year) and DO > 0 without the 2020-03-03 .. 03-27 episode; (e) positive in >= 6 of the 9 July-June WF years; net >
+0 without Feb 15 - Apr 30 2020 (RISK r1 check; the 2010-16 block does not exist for stock data - stated); profitable without
+its best 1% of days AND without its best 1% of NAME-periods (L1) / NAME-days (L2) - one fake split hides inside a day [O3
+(iii)]; (f) [T3] an S cell must also beat its own F twin on WF ROC @ $30k AND Sortino (otherwise "S passes" can be leverage in
+2020 - RISK r1's V2 lesson); (g) [O3 (ii)] BEFORE Stage A is read as a pass, the 50 largest single-name P&L contributors in WF
+(symbol, dates, $) are audited by hand - the split factor, the TBIS volume test, the asset list (name / ticker changes) and a
+public corporate-actions lookup; a data event found removes that name-period from the cell AND the null, Stage A is computed
+again, and the audit table is saved with the result.
+STAGE A2 (WF): BOOK #463 + c x the cell >= 1.05 x 93.81 = 98.5 with Sortino >= 3.816. c is set by VOLATILITY, never picked on
+returns (MANAGER's XGAP review, edit 2 - the Q9 rule - adopted here before any number so the sibling comparison below is like
+for like; it replaces the pick of c in {0.5, 1, 2} that [O10] named as a selection step): the cell's daily P&L standard
+deviation over the first two WF years (2016-07-01 .. 2018-06-29) = 25% of #463's over the same days; the book at 0.5c and 2c
+is reported. Several cells pass -> the highest A2 book ROC goes to Stage B; the others are reported.
+SIBLING RULE (2026-10-05, pre-data): XGAP r1 - the firm-specific overnight gaps of Nasdaq-100 members faded 09:35 -> close - is
+a close relative of L2. If an L2 cell and an XGAP cell both reach Stage B, only the higher A2 book ROC of the two is read on
+the one sealed-year day: one look for one hypothesis. Choosing between the two on the WF stretch and reading the sealed year
+once is select-on-WF, test-on-LB - the sealed read is not biased by that choice; only a second look would be, and the one-day
+rule forbids it (MANAGER's XGAP review, edit 4).
+STAGE B (LB, once, on the one sealed-year day) - rewritten before any number (MANAGER #48, after BOOK LOOKS r1: #463's 2025-26
+lockbox year has already judged 71 candidate books, and a no-edge seat swap clears its bar 42% of the time): the sealed year is
+read as the LEG's standalone veto - >= 50 name-periods AND L1 >= 26 weekly rebalances / L2 >= 30 traded sessions [M4], net > 0,
+and > 0 without its top name-period. The book add on that year (#463 + c x the cell) is REPORTED, never called a pass; a leg
+that survives goes to the forward shadow, and the forward record decides any book add (owner call).
+STAGE C [M7]: no engine job type for a stock basket, so a surviving leg = a computed no-order FORWARD SHADOW line from the daily
+pull, like every other shadow, with its own bar; opening any account is the owner's decision, never a lane's. Logged on the
+RUNBOARD by research id (research rows join the watch tool on 2026-10-05) with ROC @ $30k and drawdown.
+
+REPORTED, never a pass route: the realised beta to ES in #463's drawdown weeks (first); each cell's P&L inside every #463
+qualifying drawdown (dates, $); its place on the MDL map (standalone ROC @ $30k, rho_dd, DO); correlation with #463's legs; the
+news-excluded names' own reversal (should be weaker - Chan 2003); the long and short sides apart; the borrow stress rows and
+the squeezed-winner variant; L2's net dollar exposure and beta by day; data-hygiene counts, the look-ahead removals kept both
+ways, the large-move cross-check counts and the 20 largest name-period gains; the survivorship rows.
+
+KNOWN WAYS IT COULD FOOL US: bid-ask bounce (L1 skips a print; L2 pays an adverse fill - the bounce is priced, not removed);
+survivorship (Alpaca's inactive names only); missed splits with no independent corporate-actions calendar ([O3] is the
+substitute); borrow and short-sale constraints (top-500 names, a flat fee, stress rows, bans unpriced); auction / 09:35 prints
+are not guaranteed fills; the news proxy is volume, not news; 2020 dominating (the without-2020 checks); selection steps - four
+cells (the family null; c is set by volatility, never picked);
+one book path (the map's limit); the cache is one photograph of the vendor.
+
+Zero passes = family 1 dead; the next DDW family is drafted from the next mechanism, never by re-tuning this one.
+
+PRE-DATA ADDENDUM 1 (2026-10-05, before any DDW r1 number; found by the harness's outcome-free dryload; a data hole is fixed by
+a rule, never by a look):
+- ES HOLES: the house ES 5-minute RTH masters (NOADJ_ES_5m_RTH / ADJ_ES_5m_RTH) are incomplete on 2020-02-28 (18 of 78 bars) and
+  2020-06-30 (9 of 78): no 16:00 print, so ES's daily return is undefined on 2020-02-28, 03-02, 06-30 and 07-01. Under L2's 'all
+  60 present' beta rule no name would have a beta on 122 of the 2,260 WF sessions - every day of #463's 2020-03 drawdown episode
+  among them, the weeks this family exists for. The rule becomes: beta needs at least 55 of the previous 60 sessions with both
+  returns present, sessions where ES has no return being skipped for every name; L2 stays out on 2020-03-02 and 07-01 (no ES
+  opening gap). This lane does not edit masters; the holes go to MANAGER for the data owner.
+- DISCLOSED: the dryload printed, by year, the number of sessions on which L2's selection fills both sides - counts only; no
+  price, gap value, return or P&L was printed or kept. Every other count it printed is in the harness's dryload output.
+- HARNESS: tools/rocfrontier/r15_ddw.py (built by a subagent, reviewed by this lane; 29 CHOICEs marked in its comments, the
+  first-reason exclusion tables by year, a 30-mutant test of the A2 / Stage B / beta-hole code). Run from a checkout of the
+  commit that holds it, with the master registry of the shared checkout.

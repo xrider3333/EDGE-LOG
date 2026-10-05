@@ -1,0 +1,114 @@
+PRE-REGISTRATION - XGAP r1: the FIRM-SPECIFIC overnight gap of Nasdaq-100 members, faded inside the cash session, dollar-neutral
+=====================================================================================================================
+Drafted 2026-10-05 07:00 MST by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (MANAGER #44: queue item 3, "place it on the
+map and send the draft before running"; brief: docs/CLOUD_TO_MANAGER.md, 2026-10-05 00:30 UTC, the FRONTIER cloud lane, item
+2). Reviewed 2026-10-05 07:10 by MANAGER (C:\EdgeLog\manager\reviews\sb_xgap_r1_review_2026-10-05.md, GO WITH EDITS, WF only,
+after ATTN and DDW r1); its six edits and MANAGER #48 are folded in below ([X1]-[X6], [B48]) before any number of this family
+exists. TV is the second reviewer; its edits come as a dated pre-data addendum. Results: C:\EdgeLog\_anatomy_cache\rocfrontier\
+xgap_r1\ and RESEARCH_LEDGER.md.
+
+THE MAP FIRST (MDL r1, docs/MDL_MAP_R1.md). A dollar-neutral basket held 09:35 -> 16:00 has no overnight exposure and close to
+zero index beta, so its correlation with #463 in #463's drawdown weeks should sit near 0. At that correlation the map says a
+new leg lifts #463 half the time from about $15,000 a year at a $30,000 drawdown of its own (standalone ROC @ $30k ~ 15) and
+four times in five from about $30,000 (~ 30) [X6: these are the numbers; an earlier inbox note lost a digit to shell quoting].
+Stage A's ROC line below (15) is the half-the-time line; Stage A2 is the real test. A leg that also earns while #463 falls
+would need less - reported here, never a pass route (DDW r1 is the family built for that).
+
+MECHANISM. Berkman, Koch, Tuttle & Zhang (2012, JFQA, "Paying Attention: Overnight Returns and the Hidden Cost of Buying at the
+Open"): attention-driven orders at the open push prices past fair value and the move reverses during the session; it is the
+FIRM-SPECIFIC part of the gap that overshoots. House evidence on the index part: NQ gap fade AND gap continuation cleared 0 of
+40 cells (ledger 2.5; GAPGO dead) - the brief's "GAPGO alive" is corrected here. ATTN r1 (2026-10-05, the overnight side of
+the same paper on SIPORB's stocks in play) died at Stage A: the overnight premium was +7 bps a name-night, under a 10 bps round
+trip. The firm-specific intraday axis is untested in house data. Counter-evidence written in before any number: gaps WITH news
+(earnings) continue (Chan 2003; post-earnings drift) - the CAP8 cell drops the large gaps where most earnings moves sit; the
+member cache has no volume, so no Relative Volume news screen is possible (a named limit, unlike DDW r1's L2).
+
+SIBLING RULE. DDW r1's L2 (no-news gap fade, the top-500 US stocks, ES-beta adjusted, 09:35 -> close) tests a close relative on
+a wider universe. If an L2 cell and an XGAP cell both reach Stage B, only the one with the higher A2 book ROC is read on the one
+sealed-year day: one look for one hypothesis. Why that is sound [X4]: choosing between the two on the WF stretch and reading the
+sealed year once is select-on-WF, test-on-LB - the sealed read is not biased by that choice; only a second look would be, and
+the one-day rule forbids it. Both use the same volatility-set c (A2 below), so the comparison is like for like.
+
+DATA (no new money):
+- tools/data/ndx_members.csv: point-in-time Nasdaq-100 membership (ticker, from, to), 2016-06-01 on.
+- The NQBRD member cache C:\EdgeLog\alpaca_cache\nqbrd\open_bars.csv: Alpaca SIP 5-minute bars 09:30-10:00 ET, RAW, symbols
+  mapped as of each month's start, 2016-06 -> 2026-06. Its sha256 is recorded with every result; never mixed with a re-pull
+  (Alpaca re-adjusts history between pulls, ELwA 10-04).
+- SIPORB's daily raw + split-adjusted bars (prior close, official open, official close, split factor; manifest sha256
+  380b05f2... on 2026-10-05).
+- CORPORATE-ACTIONS CALENDAR [X1]: Alpaca's corporate-actions data (cash dividends, forward and reverse splits, with ex-dates)
+  for every ticker in ndx_members.csv, 2016-06-01 .. 2026-06-30 - in the data subscription already paid for. ONE pull, run by
+  MANAGER through its with_alpaca_keys wrapper (this lane never pulls on a relay; keys never printed), the shared 180/min pace,
+  the raw pages and their sha256 kept. The harness's `capull` command is that pull; Stage A refuses to run without its file.
+  Two uses: (a) an EX-DIVIDEND name-day is EXCLUDED from the universe and the null (CHOICE: exclusion, not adding the dividend
+  back - exclusion needs only the date, an add-back also needs the amount on the right share basis); (b) the split list is the
+  independent check the price-based rules lack: a split ex-date from t-5 through t excludes the name, beside the registered
+  split rule, the gap scan and TBIS's flags, and every disagreement between the calendar and those rules is counted by year.
+- SYMBOL MAP: the member cache is labelled with each month's names, SIPORB's daily bars with today's (FB -> META). A name-day is
+  used only when the two pulls agree: the 09:30 bar's open within 1% of SIPORB's raw official open on that day. A disagreement
+  drops the name for the day (from the cell and the null); counts by year are printed, and a year with more than 2% of
+  member-days dropped is named in the report.
+
+UNIVERSE (session t): members on t (from <= t < to) with a daily bar on t and t-1, a 09:30 and a 09:35 bar on t, the symbol-map
+check passed, no ex-dividend date on t, and none of these from t-5 through t: a split in the calendar, a registered split, a
+gap-scan flag, a TBIS volume-confirmed flag, a raw gap beyond +-50% with no split-factor change. Every exclusion is counted by
+reason and year.
+
+SIGNAL (known at 09:30): raw gap = official open_t / prior official close (split-safe) - 1; RELATIVE gap g = raw gap - the median
+raw gap of that session's universe (the index part removed).
+CELLS (both dollar-neutral, both sides always full):
+- ALL: long the 10 most negative g, short the 10 most positive.
+- CAP8: the same among names with |g| <= 8% (most earnings gaps out).
+FILL: the OPEN of the 09:35 bar (a print 5 minutes after the signal - the signal price is never the fill price, so bid-ask bounce
+is not in the test; ORB's DDW review, B1). $5,000 per name, fractional shares; exit at the official close of t. No compounding.
+COSTS: the 09:35 entry pays 10 bps of notional (base) and 20 bps (stress); the closing exit 5 bps (base) and 10 bps (stress).
+Each cell must pass at both. SIPORB's cents-per-share costs are reported as a third row, never judged.
+
+NULL (family-aware): 500 draws, seed 20261005: in each draw, each session's 10 longs and 10 shorts are drawn at random (without
+replacement) from that session's eligible pool (for CAP8: the |g| <= 8% names), same fills and costs. Statistic: the MAX over
+the 2 cells of WF ROC @ $30k.
+MIRROR (per cell): the opposite basket (long the most positive g, short the most negative) at the same costs.
+
+#463: its daily P&L from r11_risk.py's rule-U records; refused unless WF 93.81 / 3.816 (deepest drawdown $44,849) and LB
+155.54 / 4.150 reproduce. DO and rho_dd exactly as MDL r1 (r12_mdl.Stretch).
+
+STRETCHES: WF = sessions 2016-07-01 -> 2025-06-29; LB = 2025-06-30 -> 2026-06-30 inclusive, SEALED. ONE SEALED-YEAR DAY: XGAP
+reads the window SIPORB, ATTN and DDW r1 read. Its Stage A runs before that day; a Stage B it earns is read ON that day, in the
+same sitting as the others; after it the window is burned for this lane. YARDSTICK: house convention (30 x net / years / max
+drawdown from the daily P&L; Sortino with zero days).
+
+STAGE A (WF, per cell): (a) >= 1,800 traded sessions; (b) WF ROC @ $30k >= 15, PF >= 1.10, Newey-West t (5 lags, daily) >= 2;
+(c) WF ROC above the null's 95th percentile; (d) beats its MIRROR on WF ROC @ $30k; (e) net > 0 at the stress costs; (f)
+profitable without its best 5 days AND without its best 1% of name-days (one fake split hides inside a day); (g) positive in
+>= 6 of the 9 July-June WF years, both halves positive (2016-07 .. 2020-12 / 2021-01 .. 2025-06), net > 0 without Feb 15 -
+Apr 30 2020 (RISK r1 checks; the 2010-16 block does not exist for stock data - stated); (h) BEFORE Stage A is read as a pass,
+the 30 largest single-name P&L contributors (symbol, date, $) are audited by hand - the corporate-actions calendar, the split
+factor, TBIS's volume test, the symbol map; a data event found removes that name-day from the cell AND the null, Stage A is
+computed again, and the audit table is saved with the result.
+STAGE A2 (WF) [X2]: BOOK #463 + c x the cell >= 1.05 x 93.81 = 98.5 with Sortino >= 3.816, and the book's WF max drawdown <= 1.10
+x $44,849 (the brief's cap). c is set by VOLATILITY, never picked on returns (the Q9 rule): the cell's daily P&L standard
+deviation over the first two WF years (2016-07-01 .. 2018-06-29) = 25% of #463's over the same days; the book at 0.5c and 2c is
+reported. Both cells pass -> the higher A2 book ROC goes on; then the sibling rule.
+STAGE B (LB, once, on the one sealed-year day) [B48]: after BOOK LOOKS r1 (#463's 2025-26 lockbox year has already judged 71
+candidate books, and a no-edge seat swap clears its bar 42% of the time), the sealed year is read as the LEG's standalone veto:
+>= 50 name-days and >= 30 traded sessions, net > 0, and > 0 without its top name-day (the ex-top-trade veto). The book add on
+that year (#463 + c x the cell) is REPORTED, never called a pass; a leg that survives goes to the forward shadow, and the
+forward record decides any book add (owner call).
+STAGE C [X5]: no engine job type for a stock basket, so a surviving leg = a computed no-order FORWARD SHADOW line from the daily
+pull, like every other shadow, for 12 months with its own bar; opening any account is the owner's decision, never a lane's.
+Logged on the RUNBOARD by research id (research rows join the watch tool on 2026-10-05) with ROC @ $30k and drawdown.
+
+REPORTED, never a pass route: the realised beta to ES (daily; #463's drawdown weeks first); its MDL map point (standalone ROC
+@ $30k, rho_dd, DO); correlation with #463's legs and with DDW r1's L2 cells when both exist; the BETA-ADJUSTED TWIN [X3] - g_b =
+raw gap - beta_i x the median raw gap, beta_i = the OLS slope of the name's split-safe daily close-to-close returns on the
+universe's median daily return over the previous 60 sessions (all present) - run as both cells with the same rules: a primary
+pass that the twin contradicts (twin net <= 0 or twin ROC under half the primary's) is a beta story and is said so; long and
+short sides apart; P&L by |g| bucket (0-2, 2-4, 4-8, > 8%); the calendar, symbol-map and hygiene counts; the 20 largest
+name-day gains with dates.
+
+KNOWN WAYS IT COULD FOOL US: the symbol map between two pulls (the 1% open check; the audit); missed splits (the calendar, the
+gap scan, TBIS flags, the audit); a calendar that misses an action (its disagreements with the price rules are counted);
+earnings continuation (CAP8); survivorship (point-in-time membership, Alpaca's inactive names only); 09:35 fills are not
+guaranteed (10 / 20 bps); 2020; the caches are photographs of the vendor.
+
+Zero passes = XGAP r1 dead; a gap family is not re-tuned - the next stock family comes from the next mechanism.

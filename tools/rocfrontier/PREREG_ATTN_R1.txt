@@ -102,3 +102,28 @@ dividends (bias against); the hedge is dollar-neutral, not beta-neutral (cell U 
 removes); the SIPORB set was built for intraday continuation, not attention.
 
 Zero passes at any stage = ATTN dead; ledger + memory.
+
+PRE-DATA ADDENDUM 1 (2026-10-05, before any ATTN number; MANAGER's review of DDW r1, edit 5, and the 10-05 data QA):
+- ONE SEALED-YEAR DAY for the stock families that read this window (SIPORB, ATTN, DDW r1): every Stage A / A2 runs
+  first; every cell that earns a Stage B gets it on ONE day, in one sitting; after that day the window is BURNED for
+  this lane's stock-data strategies. SIPORB died at Stage A on 2026-10-05 with its sealed year never read, so ATTN's
+  Stage A runs now (it reads no sealed data) and its Stage B waits for that one day, together with DDW r1's.
+- The cache is the SIPORB cache as fingerprinted on 2026-10-05 (alpaca_r1\siporb_cache_manifest.json, manifest sha256
+  380b05f2...), never mixed with a re-pull: Alpaca re-adjusts history between pulls (ELwA, 2026-10-04).
+- TBIS's split QA of daily_split (C:\EdgeLog\_research_cache\split_qa\siporb_split_flags_voltest.csv, 369 symbol-days,
+  64 of them volume-confirmed): every listed symbol-day is treated exactly like a gap-scan flag - the night ending at
+  that open is removed from both cells and from the random-pick null; the count is reported.
+
+PRE-DATA ADDENDUM 2 (2026-10-05, before any ATTN number; ORB's adversarial review of DDW r1 (B3) and MANAGER #43 / #48):
+- The gap-scan and TBIS removals read the EXIT open - data after the decision - so they drop exactly the nights that
+  jumped, in both directions. Stage A therefore also reports the removed attention nights' naive raw P&L (their sum, the
+  up nights' and the down nights' apart) and H's WF net with them kept. The verdict reads the registered removal; if H's
+  net changes sign between the two readings, the report to MANAGER says so.
+- STAGE B is rewritten (MANAGER #48, after BOOK LOOKS r1: #463's 2025-26 lockbox year has already judged 71 candidate
+  books, and a no-edge seat swap clears its bar 42% of the time): the one sealed-year day reads the LEG's own sealed
+  year as a standalone veto - stock-nights >= 50, net > 0, net > 0 without its best stock-night. The book add on that
+  year (#463 + H at the frozen c) is REPORTED, never called a pass. A leg that survives goes to a forward paper shadow;
+  the forward record decides any book add (owner call).
+- XGAP r1 (drafted 2026-10-05, MANAGER #44) reads the same sealed window: if MANAGER registers it before the one
+  sealed-year day, it joins that day, and ATTN's Stage B also waits for XGAP's Stage A (by procedure; the code checks
+  DDW r1's).

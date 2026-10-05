@@ -5,7 +5,7 @@
 #   python r13_attn.py selftest    hand-made worlds: split-safe P&L, gap-scan removal, unpriceable exits, the hedge and its per-name split, the null, stamping, the statistics, the cut
 #   python r13_attn.py smoke DIR   offline end-to-end on a SYNTHETIC world (r5_siporb's fake Alpaca, a fake NQ master, a fake #463 book); DIR's name must contain 'smoke'
 #   python r13_attn.py stage_a     WF Stage A + A2 + the reports -> attn_stageA.json, PRE-LOCKBOX ONLY (every input is cut to dates < 2025-06-30 when it is read); runs AFTER SIPORB's Stage A
-#   python r13_attn.py stage_b     Stage B (lockbox, once): refuses unless Stage A + A2 passed under this exact file AND SIPORB's lockbox has been read (or SIPORB died before it)
+#   python r13_attn.py stage_b     Stage B (lockbox, once): refuses unless Stage A + A2 passed under this exact file AND SIPORB's lockbox has been read (or SIPORB died before it) AND DDW r1's Stage A is on file (addendum 1)
 # Reads (never writes) the SIPORB cache through r5_siporb (Data, read_long, roll14), the NQ 5m RTH masters through augur_engine.data and the #463 book through r11_risk.
 # Results go to OUT (outside git). Nothing here pulls, commits, pushes or writes anywhere else.
 import contextlib, io, json, math, os, sys, time
@@ -20,7 +20,7 @@ import r11_risk as R11       # the #463 book (records -> Book), stats, underwate
 TS = pd.Timestamp
 OUT = os.environ.get("EDGELOG_ATTN_R1", r"C:\EdgeLog\_anatomy_cache\rocfrontier\attn_r1")      # results, outside git
 PREREG = os.path.join(HERE, "PREREG_ATTN_R1.txt")
-PREREG_SHA = "39a259ecd677a3ce46ad8979e451a21af05026b763749a106b12ba23d5307804"                  # canonical (LF) sha256 of the pre-registration as committed
+PREREG_SHA = "d0aa19461f870378ec371fd2d70f231934d074256a776f132999b9546afb86ce"                  # canonical (LF) sha256 of the pre-registration as committed
 WF0, PRE_END, LB0, LB1 = R11.WF0, R11.PRE_END, R11.LB0, R11.LB1    # WF = exits [2016-07-01, 2025-06-29], LB = exits [2025-06-30, 2026-06-30] INCLUSIVE (the house close-day rule); cuts: S.LB0 / S.END
 BOOK_WF, BOOK_LB, TOL = R11.P2_REF["unified"]["WF"], R11.P2_REF["unified"]["LB"], R11.P2_TOL    # #463's unified-convention ROC@30k / Sortino (93.81 / 3.816, 155.54 / 4.150) and the match tolerance
 SLOT, PX_MIN, ADV_MIN = 5000.0, 5.0, 5_000_000.0           # $5,000 a name; 09:35 price >= $5; 14-session mean raw close x volume >= $5m
@@ -118,7 +118,30 @@ def load_data(t_end):
     """r5_siporb.Data cut at t_end (S.LB0 for Stage A, S.END for Stage B): filters 1-3, the 09:30 bar, Relative Volume, the gap scan; asserted to hold no session on/after the cut"""
     D = S.Data(t_end, open5=True)
     assert_cut("sessions", D.days, t_end)
+    add_tbis_flags(D)
     return D
+
+
+TBIS_QA = os.environ.get("EDGELOG_TBIS_SPLIT_QA", r"C:\EdgeLog\_research_cache\split_qa\siporb_split_flags_voltest.csv")
+
+
+def add_tbis_flags(D, path=None):
+    """prereg addendum 1 (2026-10-05): TBIS's split-QA symbol-days of daily_split are treated exactly like gap-scan flags - OR-ed into
+    D.msplit, so the night ending at that open leaves both cells and the null. A missing file is a refusal, not a silent skip.
+    -> the number of flags added on top of the gap scan"""
+    path = path or TBIS_QA
+    if not os.path.exists(path):
+        raise SystemExit(f"refused: the TBIS split-QA list is missing ({path}) - prereg addendum 1 needs it")
+    q = pd.read_csv(path, dtype={"symbol": str, "day": str})
+    j = pd.Index(D.syms).get_indexer(q["symbol"].astype(str))
+    i = pd.Index(D.days).get_indexer(pd.to_datetime(q["day"]))
+    ok = (i >= 0) & (j >= 0)
+    before = int(D.msplit.sum())
+    D.msplit[i[ok], j[ok]] = True
+    D.tbis_listed, D.tbis_in_data, D.tbis_added = int(len(q)), int(ok.sum()), int(D.msplit.sum()) - before
+    print(f"TBIS split QA (prereg addendum 1): {D.tbis_listed} listed symbol-days, {D.tbis_in_data} inside this data, "
+          f"{D.tbis_added} new flags on top of the gap scan", flush=True)
+    return D.tbis_added
 
 
 def slim(D):
@@ -525,6 +548,8 @@ def reports(B, legs, W, R, rows, lo, hi, bps=COST_BPS):
         if lo <= D.days[rw] <= hi:
             yrs[int(D.days[rw].year)].update(c)
     gl = [{"night": f"{D.days[gi]:%Y-%m-%d}", "symbol": str(D.syms[gs]), "R": gr, "naive_pnl_at_raw_R": gp} for (gi, gj, gs, gr, gp) in R.gaps if lo <= D.days[gj] <= hi]
+    gv = np.array([g["naive_pnl_at_raw_R"] for g in gl], float)                          # addendum 2: the removals read the exit open - report them both ways
+    naive = {"sum": float(gv.sum()), "up_sum": float(gv[gv > 0].sum()), "down_sum": float(gv[gv < 0].sum()), "up_n": int((gv > 0).sum()), "down_n": int((gv < 0).sum())}
     flagged = D.msplit.sum(axis=1)
     sel = np.asarray((D.days >= lo) & (D.days <= hi))
     fy = {int(y): int(flagged[np.asarray(D.days.year == y) & sel].sum()) for y in sorted(set(D.days[sel].year))}
@@ -533,7 +558,8 @@ def reports(B, legs, W, R, rows, lo, hi, bps=COST_BPS):
             "by_session_close_vs_open": by_group(A, pH, dd, inw, ((1.0, "up"), (-1.0, "down"), (0.0, "flat"))),
             "corr_daily": {"H": corrs(B, xH, legs, lo, hi), "U": corrs(B, xU, legs, lo, hi)}, "seat": {"H": seat(B, xH, lo, hi), "U": seat(B, xU, lo, hi)},
             "mnq_rounding": mnq_variants(W, A, rows, B, lo, hi, ys),
-            "gap_scan": {"flagged_symbol_days_by_year": fy, "attention_nights_removed_n": len(gl), "attention_nights_removed": gl[:200]},
+            "gap_scan": {"flagged_symbol_days_by_year": fy, "attention_nights_removed_n": len(gl), "attention_nights_removed_naive_pnl": naive,
+                         "attention_nights_removed": gl[:200]},
             "counts_by_exit_year": {y: dict(c) for y, c in sorted(yrs.items())}}, xH, cnt, pH, inw
 
 
@@ -638,6 +664,11 @@ def stage_a():
     ok = all(chk.values())
     print(f"WF {WF0:%Y-%m-%d} -> {PRE_END:%Y-%m-%d} ({cov['sessions']:,} sessions)")
     print_reports(rep)
+    gn = rep["gap_scan"]["attention_nights_removed_naive_pnl"]
+    print(f"  look-ahead removals both ways (prereg addendum 2): {rep['gap_scan']['attention_nights_removed_n']} attention nights removed by the gap scan / TBIS "
+          f"flags (they read the exit open); kept at their naive raw P&L they add ${gn['sum']:,.0f} ({gn['up_n']} up ${gn['up_sum']:,.0f}, {gn['down_n']} down "
+          f"${gn['down_sum']:,.0f}): H net ${h['net']:,.0f} -> ${h['net'] + gn['sum']:,.0f}"
+          + (" - THE SIGN FLIPS" if (h["net"] > 0) != (h["net"] + gn["sum"] > 0) else "") + "; the verdict reads the registered removal")
     print(f"  random-pick null ({NREP} draws, seed {SEED}): median ROC {null['p50']:.1f}, 95th percentile {p95:.1f}, mean {null['mean']:.1f}; H sits at the {null['real_percentile']:.0f}th percentile")
     print("  Stage A checks: " + ", ".join(kk + (" ok" if v else " FAIL") for kk, v in chk.items()) + f" -> {'PASS' if ok else 'FAIL'}")
     by_c = book_add(B, xH, WF0, PRE_END)                                                   # CHOICE: A2 is computed (informational) even when Stage A failed; a pass needs both
@@ -652,7 +683,7 @@ def stage_a():
                 "book_wf": {"roc": base["roc"], "sortino": base["sort"]}}, "reports": rep})
     dump(out, "attn_stageA.json")
     if ok and a2ok:
-        print(f"ATTN Stage A: PASS and A2: PASS - the hedged overnight basket clears every bar and adds to #463 at c = x{cb:g} (frozen). Stage B may run once, after SIPORB's lockbox has been read.")
+        print(f"ATTN Stage A: PASS and A2: PASS - the hedged overnight basket clears every bar and adds to #463 at c = x{cb:g} (frozen). Stage B may run once, on the one sealed-year day (prereg addendum 1).")
     elif ok:
         print("ATTN Stage A: PASS but A2: FAIL - the leg is real on its own but does not lift #463 enough; ATTN stops here, the lockbox stays sealed.")
     else:
@@ -679,7 +710,26 @@ def siporb_state():
             a2 = sa.get("A2")
             if isinstance(a2, dict) and a2.get("pass") is False and "error" not in a2:
                 return "dead"
+    p = os.path.join(S.OUT, "siporb_stageA_A1_half.json")                                 # prereg addendum 1: SIPORB judged on its A1 half (2026-10-05)
+    if os.path.exists(p):
+        try:
+            ck = json.load(open(p)).get("checks_without_twin") or {}
+        except Exception:
+            return None
+        if ck and any(v is False for v in ck.values()):
+            return "dead"
     return None
+
+
+DDW_STAGE_A = os.path.join(os.path.dirname(S.OUT), "ddw_r1", "ddw_stageA.json")
+
+
+def ddw_state():
+    """prereg addendum 1 (one sealed-year day): DDW r1's Stage A must be on file (judged, any verdict) before any Stage B of this window -> True / False"""
+    try:
+        return json.load(open(DDW_STAGE_A)).get("judged") is True
+    except Exception:
+        return False
 
 
 def stage_b():
@@ -703,6 +753,8 @@ def stage_b():
     if state is None:
         refuse("Stage B refused: SIPORB's lockbox has not been read and SIPORB has not failed before it - ATTN's sealed year opens only after SIPORB's (order of reads); lockbox NOT read")
     print(f"order of reads: SIPORB is '{state}'")
+    if not ddw_state():
+        refuse(f"Stage B refused: DDW r1's Stage A is not on file ({DDW_STAGE_A}) - prereg addendum 1: every Stage A of the window runs before the one sealed-year day; lockbox NOT read")
     B, legs = load_463()                                                                   # every input is loaded and checked BEFORE the flag: a bad file cannot burn the lockbox
     bk = book_check(B, LB0, LB1, BOOK_LB)
     print(f"BOOK #463 LB check (must be {BOOK_LB[0]} / {BOOK_LB[1]}): ROC@30k {bk['roc']:.2f} Sortino {bk['sortino']:.3f}")
@@ -725,19 +777,23 @@ def stage_b():
     leg = rep["cells"]["H"]
     best = float(pH[inw].max()) if inw.any() else float("nan")
     r = by_c[c]
-    chk = {f"book ROC@30k>={RULES['b_roc']:g}": bool(r["roc"] >= RULES["b_roc"]), f"book Sortino>={RULES['b_sort']:g}": bool(r["sortino"] >= RULES["b_sort"]),
-           f"leg stock-nights>={RULES['b_n']}": bool(leg["stock_nights"] >= RULES["b_n"]), "leg net>0": bool(leg["net"] > 0),
+    book_rep = {"roc": r["roc"], "sortino": r["sortino"], "net": r["net"], "old_bar": [RULES["b_roc"], RULES["b_sort"]],     # addendum 2 (MANAGER #48): REPORTED, never a pass
+                "clears_old_bar": bool(r["roc"] >= RULES["b_roc"] and r["sortino"] >= RULES["b_sort"])}
+    chk = {f"leg stock-nights>={RULES['b_n']}": bool(leg["stock_nights"] >= RULES["b_n"]), "leg net>0": bool(leg["net"] > 0),
            "leg net>0 without its best stock-night": bool(leg["net"] - best > 0)}
     ok = all(chk.values())
     text = json.dumps({"c": c, "siporb": state, "book_check": bk, "coverage": cov, "nq_masters": meta, "H": leg, "book_add": {f"{k:g}": v for k, v in by_c.items()}, "best_stock_night": best,
-                       "checks": chk, "pass": bool(ok), "reports": rep, **stamp(), "prereg_sha256_lf": PREREG_SHA}, indent=1, default=R11.js)
+                       "book_add_reported": book_rep, "checks": chk, "pass": bool(ok), "reports": rep, **stamp(), "prereg_sha256_lf": PREREG_SHA}, indent=1, default=R11.js)
     buf = io.StringIO()                                                                    # the whole printout is built here, before the flag: a formatting error cannot burn the lockbox
     with contextlib.redirect_stdout(buf):
         print("Stage B (lockbox, read once)")
-        print(f"  #463 + H x{c:g}: LB ROC@30k {r['roc']:.2f} Sortino {r['sortino']:.3f} net ${r['net']:,.0f}; the leg's best stock-night ${best:,.0f}, net without it ${leg['net'] - best:,.0f}")
+        print(f"  #463 + H x{c:g} on the sealed year (REPORTED, never a pass - prereg addendum 2): LB ROC@30k {r['roc']:.2f} Sortino {r['sortino']:.3f} net ${r['net']:,.0f}"
+              f" (the old bar {RULES['b_roc']:g} / {RULES['b_sort']:g}: {'cleared' if book_rep['clears_old_bar'] else 'not cleared'})")
+        print(f"  the leg's best stock-night ${best:,.0f}, net without it ${leg['net'] - best:,.0f}")
         print_reports(rep)
         print("  Stage B checks: " + ", ".join(k + (" ok" if v else " FAIL") for k, v in chk.items()) + f" -> {'PASS' if ok else 'FAIL'}")
-        print("ATTN Stage B: " + ("PASS - a written forward paper shadow (Webull paper) is the next step, with its own bar and an owner call." if ok else "FAIL - ATTN is dead; ledger + memory."))
+        print("ATTN Stage B: " + ("the LEG survives its sealed year - a forward paper shadow decides any book add (owner call); the sealed-year book add above is a report, not a pass."
+                                  if ok else "FAIL - the leg fails its sealed year: ATTN is dead; ledger + memory."))
     with open(flag, "x") as f:                                                             # exclusive create: the one read starts here - what is left is two writes and a print
         f.write(pd.Timestamp.now().isoformat())
     with open(os.path.join(OUT, "attn_stageB.json"), "w") as f:
@@ -1061,7 +1117,7 @@ def smoke_refusal(root):
 
 def smoke(*a):
     import re, shutil, tempfile
-    global OUT, CHECK_BOOK
+    global OUT, CHECK_BOOK, DDW_STAGE_A
     root = os.path.abspath(a[0] if a else os.path.join(tempfile.gettempdir(), "attn_smoke"))
     why = smoke_refusal(root)
     if why:
@@ -1073,6 +1129,7 @@ def smoke(*a):
     shutil.rmtree(root, ignore_errors=True); os.makedirs(root)
     OUT, R11.OUT = os.path.join(root, "out"), os.path.join(root, "r11")
     S.OUT, S.CACHE, S.BOOK = os.path.join(root, "siporb_out"), os.path.join(root, "cache"), os.path.join(root, "r4", "book463_daily.csv")
+    DDW_STAGE_A = os.path.join(root, "ddw_r1", "ddw_stageA.json")                        # addendum 1: the order-of-reads file, inside the smoke root
     for p in (OUT, R11.OUT, S.OUT):
         os.makedirs(p)
     S.SMOKE, S.PACE, S.BACKOFF, S.RETRY = True, 0.0, 0.0, 0.0
@@ -1234,7 +1291,16 @@ def smoke(*a):
         assert siporb_state() is None
         json.dump({"judged": True, "stageA": {"PASS": False}, "A2": None}, open(sip, "w")); assert siporb_state() == "dead"
         json.dump({"judged": True, "stageA": {"PASS": True}, "A2": {"pass": False}}, open(sip, "w")); assert siporb_state() == "dead"
-        os.remove(sip); open(os.path.join(S.OUT, "siporb_stageB_READ.flag"), "w").write("x"); assert siporb_state() == "read"
+        os.remove(sip)
+        a1h = os.path.join(S.OUT, "siporb_stageA_A1_half.json")                          # addendum 1: SIPORB judged on its A1 half
+        json.dump({"checks_without_twin": {"n>=100": True, "roc>=15": True}}, open(a1h, "w")); assert siporb_state() is None
+        json.dump({"checks_without_twin": {}}, open(a1h, "w")); assert siporb_state() is None
+        json.dump({"checks_without_twin": {"n>=100": True, "roc>=15": False}}, open(a1h, "w")); assert siporb_state() == "dead"
+        must_refuse("DDW r1's Stage A is not on file")                                    # SIPORB dead, DDW r1 not judged yet: the one day has not come
+        os.makedirs(os.path.dirname(DDW_STAGE_A), exist_ok=True)
+        json.dump({"judged": False}, open(DDW_STAGE_A, "w")); must_refuse("DDW r1's Stage A is not on file")
+        json.dump({"judged": True, "stageA": {"PASS": False}}, open(DDW_STAGE_A, "w")); assert ddw_state()    # judged, any verdict
+        os.remove(a1h); open(os.path.join(S.OUT, "siporb_stageB_READ.flag"), "w").write("x"); assert siporb_state() == "read"
         js0 = open(sa).read()
         for edit in (lambda j: j.update(harness_sha256="0" * 64), lambda j: j.update(early_close=j["early_close"][1:]), lambda j: [j.pop(k) for k in stamp()]):
             j = json.loads(js0); edit(j); json.dump(j, open(sa, "w")); must_refuse("different harness version")
@@ -1277,7 +1343,7 @@ def main(argv):
     cmd, args = (argv[0], argv[1:]) if argv else ("", [])
     fn = {"selftest": selftest, "smoke": smoke, "stage_a": stage_a, "stage_b": stage_b}.get(cmd)
     if fn is None:
-        print("usage: r13_attn.py selftest | smoke DIR | stage_a | stage_b   (stage_a runs after SIPORB's Stage A; stage_b only after SIPORB's lockbox has been read)")
+        print("usage: r13_attn.py selftest | smoke DIR | stage_a | stage_b   (stage_a runs after SIPORB's Stage A; stage_b only on the one sealed-year day: SIPORB read or dead, DDW r1's Stage A on file)")
         return
     if cmd in ("stage_a", "stage_b"):
         os.makedirs(OUT, exist_ok=True)
