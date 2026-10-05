@@ -853,7 +853,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1021';
+const VERSION='73.1022';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -871,7 +871,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1021',date:'2026-10-05',notes:['POINTS: the four 200 points now read a simple 200 average (SMA) by default. An SMA | EMA switch in the POINTS box (trade panel and chart window) flips every score to the 200 EMA and back, and your choice is remembered.','EL charts draw the matching 200 line in blue on every bar size, so you can see what the signal candle was checked against.']},
+const CHANGELOG=[{v:'73.1022',date:'2026-10-05',notes:['PAPER: the nightly run tells the strategy research lane when a forward shadow reaches 50, 100 and so on closed trades.']},
+{v:'73.1021',date:'2026-10-05',notes:['POINTS: the four 200 points now read a simple 200 average (SMA) by default. An SMA | EMA switch in the POINTS box (trade panel and chart window) flips every score to the 200 EMA and back, and your choice is remembered.','EL charts draw the matching 200 line in blue on every bar size, so you can see what the signal candle was checked against.']},
 {v:'73.1016',date:'2026-10-04',notes:['PAPER review: the daily review lists trades by the day they close, matching the board, and marks which ones count toward the day.']},
 {v:'73.1015',date:'2026-10-04',notes:['NinjaTrader paper: NOISE now restarts while ENGU-Q is holding its picked-up overnight trade.']},
 {v:'73.1014',date:'2026-10-04',notes:['ALERT: push when the 10-second NinjaTrader capture keeps writing bars but its buy/sell volume goes missing (NQ and ES), with a recovery message when it is back.']},

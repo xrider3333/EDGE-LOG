@@ -3096,5 +3096,12 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
             _pb.write_bundle(q.db, uid, log=_log, note_reads=_note_reads_other)
         except Exception as e:
             _log(f"uid={uid} paper bundle failed: {type(e).__name__}: {e}")
+        # SEAT-TEST cadence (STRATEGY-BEATING, 2026-10-04): one inbox line when a forward shadow reaches
+        # 50, 100, ... closed trades. Reads the bundle just written; fail-soft.
+        try:
+            from . import shadow_seat_count as _ssc
+            _ssc.run_from_bundle(q.db, uid, day=target_date.isoformat(), log=_log, dry_run=dry_run)
+        except Exception as e:
+            _log(f"uid={uid} shadow seat count failed: {type(e).__name__}: {e}")
 
     return report
