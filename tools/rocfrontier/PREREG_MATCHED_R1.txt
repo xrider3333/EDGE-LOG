@@ -1,0 +1,74 @@
+MATCHED READ r1 - can a forward read decide a shadow line whose gain is a smaller drawdown, if the statistic is matched to the
+mechanism? Written 2026-10-05 (FRONTIER cloud lane) before any number of this round; a planning computation on the WALK-FORWARD
+ONLY (no lockbox row, no forward P&L). Posted for MANAGER review; nothing runs until GO. The harness tools/rocfrontier/r17_matched.py
+binds to this file's canonical-LF sha256 (PREREG_SHA, written in before `parity` runs) and refuses to run while it reads TBD. A change
+after the first draw is a dated pre-data addendum or a new file (r2).
+
+WHY. Q16 (BOOK.md 10y) showed that the registered forward rules - ROC at $30k with a margin, and summed dollars - cannot decide
+ORB314, ORB239, Q4 or VT within 36 months: their walk-forward gain over #463 is a smaller drawdown with about the same money, and a
+mean-type statistic has 1-7% power on a difference whose mean is near zero. The owner therefore ruled (10aa) that the forward lines
+are harm monitors. But a smaller giveback is not invisible: it is a claim about the LEFT TAIL of the changed leg's daily results on
+the same days, and a paired scale statistic on that tail has power where a paired mean has none. The paired-stop pre-registration
+already made the case for pairing ("judging the per-trade difference removes the market noise both arms share"); it chose a mean
+because the lines it covered claim more money. This round asks the matched question for the lines that claim less giveback, and
+for KEEL (which claims more money in few trades) so that the family is read together.
+
+QUESTION. For ORB314 and ORB239 (the ORB seat; every other leg identical to #463's) and KEEL (the TTM seat): what is the power of a
+forward read at 12 / 24 / 36 months on a statistic matched to each line's claim, with the family-wise false pass over the three
+lines held at 5%, and which read length, if any, first gives power 0.5 and 0.8? VT (dead on mechanism, RISK r1) and Q4 (post-hoc)
+are not read: harm monitors only, as ruled.
+
+DATA (walk-forward 2016-07-01..2025-06-29, weekday rows as Q16 built them). A manifest CSV exported on the box from Q16's parity
+rebuild and the leg caches: date; b463 (the book, valued daily); orb463 (the ORB leg of #463 as sized in the book); orb314 and
+orb239 (the ORB #314 and #239 legs as sized in their lines); keel_d (KEEL's daily paired difference against #463: the sum over that
+day's TTM trades of d_i per the paired-stop pre-registration, zero on days without a TTM trade, blank before 2016-07-27);
+keel_line (optional, for KEEL's parity on its own convention). No forward row, no lockbox row; the harness refuses either.
+
+PARITY (before any draw; READY written only if it passes). b463 must reproduce 93.81 / 3.816 / $44,849 (ROC at $30k, Sortino,
+worst drawdown; unified convention; within 0.06 / 0.01 / $1); b463 - orb463 + orb314 must reproduce ORB314's recorded 125.6 / 3.95 /
+$33,735 and b463 - orb463 + orb239 must reproduce ORB239's 101.8 / 3.84 / $41,319 (BOOK.md 10r, Q16); keel_line, if supplied,
+KEEL's 118.545 / 4.2755 / $41,376 on keel_eval's own convention (a looser tolerance, labelled as such). A line that misses parity is
+left out and named; if the book misses, nothing runs.
+
+STATISTICS (a = the ORB leg of #463, b = the line's ORB leg, over a read window of n rows).
+  M1 DOWNSIDE RATIO - primary for ORB314 and ORB239: DSD(b) / DSD(a) - 1, DSD(x) = sqrt(mean(min(x, 0)^2)), Sortino's own
+     denominator; the claim is that it is below zero.
+  M2 LOSS-DAY GAIN: mean(b - a) on the days the reference leg lost; the claim is above zero.
+  M3 TAIL: the 5% quantile of b minus that of a; the claim is above zero.
+  R2 DOLLARS: Q16's summed-dollars rule, for contrast only.
+  KEEL - primary T: the registered paired form mean(keel_d) / (sd / sqrt(n)); the claim is above zero (its matched statistic IS
+     the mean).
+NULL (no edge, fixed now): circular block bootstrap of the JOINT walk-forward rows (every column together), block 21, 20,000 draws
+of 756 rows, numpy default_rng(20261020), chunks of 2,500; inside a draw each block takes ONE swap flag with probability one half,
+shared by every line: in a swapped block the pair (a, b) is exchanged for both ORB lines and keel_d changes sign. That is the
+within-pair exchangeability null: the line and the reference leg have the same distribution day by day, and only the days on which
+they differ carry information. TRUTH: the same draws without swaps (the walk-forward edge taken at face value, an UPPER bound - the
+lines were chosen on the walk-forward), and at HALF the edge (b replaced by a + 0.5 x (b - a); keel_d halved).
+FAMILY: per statistic kind and horizon, each line's statistic is standardised by its own null spread (sign set so the claim's
+direction is positive) and the family-wise 5% critical value is the 95th percentile, over null draws, of the maximum over the three
+lines. Single false pass per line and power at full and half edge are read against that one critical value.
+
+PRINTED. Parity; per line x statistic x horizon: single false pass, critical value, power at full and half edge; the HEADLINE table
+last: per line, the read length (12 / 24 / 36 months, else "> 36 months") at which the primary statistic first reaches power 0.5
+and 0.8, at full and half edge, beside Q16's months (> 36 for all three); and, report only, the minimum track record length
+(Bailey and Lopez de Prado 2012) of each line's paired difference, and M1 with and without each leg's single worst day.
+
+WHAT IT DECIDES. Nothing is adopted, killed or read forward. If a line's matched read reaches power 0.8 at full edge and 0.5 at
+half edge within 36 months with the family-wise false pass at 5%, this round PROPOSES to the owner via MANAGER that the matched
+statistic become that line's registered deciding forward read at that length (written down before the read date; the paired
+stops stay as harm monitors); the owner decides. If no line gets there, the lines stay harm monitors and this file records why.
+Forward P&L is not read by this round in any case.
+
+COULD FOOL US. The statistic was chosen after the walk-forward gains were seen; power is an upper bound and is printed at half
+edge for that reason. The null swaps whole three-week blocks, which keeps dependence but assumes the two legs are exchangeable
+inside a block under no edge - a leg that trades on different days than the reference breaks pairing, which is why only same-seat
+lines (same signals, different management) are read here. A forward read on a scale statistic can be moved by one extreme day; M1
+is printed with and without the single worst day of each leg (report only). The 5% family-wise rate is per read, not per look at
+the forward record: if the paired stops look every ten trades, the matched read is still taken ONCE at its registered length.
+
+RUN ORDER (minutes, CPU only).
+  python tools/rocfrontier/r17_matched.py parity <manifest.csv>
+  python tools/rocfrontier/r17_matched.py run <manifest.csv>
+  python tools/rocfrontier/r17_matched.py smoke <scratch>/smoke_matched
+Outputs: C:\EdgeLog\_anatomy_cache\rocfrontier\matched_r1\ (MATCHED.txt, matched.json, power.csv). The ledger row and BOOK.md
+section are written by the lane that runs it.

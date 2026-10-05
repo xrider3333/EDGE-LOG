@@ -1,0 +1,78 @@
+BOOK HEALTH r1 - is the ADOPTED book still performing as its backtest says? A standing daily monitor of BOOK #463's forward record.
+Written 2026-10-05 (FRONTIER cloud lane) before any forward number was read through it. Posted for MANAGER review; nothing runs
+until GO. A change after the first calibration draw is a dated pre-data addendum or a new file (r2). The harness
+tools/rocfrontier/r18_health.py binds to this file's canonical-LF sha256 (PREREG_SHA in the harness, written in before `calibrate`
+runs) and refuses to run while that constant reads TBD.
+
+WHY. Every registered forward read judges a CANDIDATE against #463: the six shadow lines, their paired stops, GUARD r1 for the
+record's integrity. Nothing watches #463 itself against what its backtest promised. The owner's decisions of 2026-10-05 (BOOK.md
+10aa) make #463's own record the baseline every line is read against and the thing live money will follow, and the one question
+with no monitor is "has the adopted book stopped working?". A decay found late costs real drawdown; a decay found by eye is found
+after the owner has lived through it. This round is a planning computation plus a daily read: it says first how long a real decay
+would take to show, then reads the record every day with that error rate fixed in advance.
+
+QUESTION. Given #463's own walk-forward daily results (2016-07-01..2025-06-29, valued daily, the unified convention), does its
+forward record so far look like a draw from that distribution - in its drift (H1) and in the depth of its drawdown for the length
+observed (H2) - and are its legs firing at their backtest rate (H3)? And, before any forward day is read: if the edge halved or
+vanished tomorrow, how many trading days until H1 says so?
+
+THE RECORD READ. The adopted book's paper line (nightly report key `book` = the four paper legs ORB x1 + ENGUQ_335 x1 +
+TTM_299_SSOF2 x3 + NOISE_422 x1), from its first forward day 2026-09-28, on the RESTATED basis the owner ordered on 2026-10-05
+(the paper ENGU-Q leg on the roll-corrected master at 0.783 points a round trip; a read made before the restatement is void).
+The paper lane exports it read-only as a CSV: date, pnl (the day's figure, trades dated by exit day per the house convention),
+n_ORB, n_ENGUQ, n_TTM, n_NOISE (closed trades that day). The harness refuses any row dated on or before 2025-06-29 or before
+2026-09-28, refuses non-increasing dates, and refuses more than 756 rows (the registered horizon; a longer record is r2's
+question). No row of the lockbox year (2025-06-30..2026-06-30) is read by this round: the reference is the walk-forward only,
+and the lockbox is printed once as context (its worst drawdown $49,855, already public), never re-read.
+
+REFERENCE. r11_risk.py's records (records_U.npz; READY and hashes checked exactly as r14_looks.py does): the book's valued-daily
+series on the walk-forward rows, mu0 = its mean per row, sigma0 = its standard deviation; per-leg closed-trade counts per row
+(ORB, ENGU-Q, TTM, NOISE). The same rows reproduce #463's recorded 93.81 / 3.816 / $44,849 (r11's P2 proves it; the harness
+re-asserts it on load).
+
+NULL DRAWS (fixed now). 20,000 circular block-bootstrap draws of 756 rows from the walk-forward rows (block 21, the house's
+three-week block; every row drawn together with its leg counts), numpy default_rng(20261021), in chunks of 2,500. Every horizon
+(252 / 504 / 756 rows) reads the first n rows of the same draws.
+
+MONITORS.
+ H1 DECAY (primary). On z_t = (x_t - mu0) / sigma0, the one-sided CUSUM for a fall in the mean: C_t = max(0, C_(t-1) - z_t - 0.5),
+   C_0 = 0; ALARM when C_t >= h1. h1 = the smallest value on 0.5..20 (step 0.25) at which at most 5% of null draws alarm within
+   252 rows. (The reference value 0.5 is the textbook choice tuned to a one-sigma fall: Page 1954, Lorden 1971.)
+ H1b ZERO (report only). The same CUSUM with mu0 replaced by zero (is the book earning anything), its own threshold at 5%.
+ H2 DRAWDOWN (primary). The forward record's current drawdown from its running peak (peak starting at zero) against the null
+   distribution of the MAXIMUM drawdown over the first n rows, n = the rows observed so far: ALARM at or above the 99th
+   percentile, WARN at or above the 95th. Printed beside it: the share of null paths of this length with a deeper drawdown, and
+   the walk-forward worst ($44,849) and lockbox worst ($49,855) as context.
+ H3 FIRING (report only). Per leg, closed trades so far against the walk-forward rate: the Poisson 2.5 / 97.5% band and the
+   block-bootstrap band from the same draws; UNDER / OVER outside the bootstrap band. It never alarms; a leg gone quiet is a
+   question for GUARD r1 and the paper lane.
+ JOINT. Printed at calibration: the share of null draws alarming on H1 or H2 within 252 rows (near 10% by construction).
+
+POWER (the planning output, printed at calibration, before any forward row). For a forward mean of 0.5 x mu0, 0 and -0.5 x mu0
+(null draws shifted row by row): the share of draws alarming on H1 within 252 / 504 / 756 rows, and the median and 90th-percentile
+day of first alarm. For a forward dispersion of 1.5 x the walk-forward's (deviations from mu0 scaled): the share of draws reaching
+an H2 alarm within 252 rows. The headline sentence: "if #463 stopped earning tomorrow, H1 would alarm after a median of N trading
+days (90% within M)".
+
+READING RULE. Every trading day the paper lane (or MANAGER) runs `read` on the restated CSV; the report prints each monitor's
+statistic, threshold and state (OK / WARN / ALARM) and the rows observed. An ALARM is an owner question via MANAGER, never an
+automatic change of size, leg or book; what the owner does with it (reduce size, pause a leg, re-validate) is decided then, not
+here. A WARN is logged. The monitor never computes ROC or Sortino of the forward record - those belong to the registered forward
+reads - and prints no verdict word about the book beyond the three states. An alarm that turns out to be a record defect (GUARD
+r1's domain) is recorded as such and the monitor continues on the corrected record.
+
+WHAT IT DECIDES. Nothing about any candidate. It gives the owner a fixed-error-rate answer to "is the book behaving" every day,
+and the planning numbers say what that answer is worth. If the median days-to-alarm at zero edge is longer than a year, the round
+says so and proposes the next step (a sharper statistic or a faster reference value) as r2, not by editing this file.
+
+COULD FOOL US. One realised history: the block bootstrap keeps three-week structure, not regimes, so the walk-forward's quiet
+years make the null easier than a regime change would be; H1's false-alarm rate in a volatility regime the walk-forward never saw
+is unknown, and the report says so. The paper record is not live fills (PAPER-NT8's domain). H2's 99th percentile is a loose bar
+on purpose: a drawdown deeper than 99 of 100 backtest paths of the same length is the one thing that should not pass unremarked.
+A CUSUM tuned for a one-sigma fall is slow on a half-sigma fall; the power table prints that honestly.
+
+RUN ORDER (minutes, CPU only, read-only; needs r11's cache and the paper lane's CSV).
+  python tools/rocfrontier/r18_health.py calibrate                      # from r11's records; calibration.json, READY, the power table
+  python tools/rocfrontier/r18_health.py read <paper_daily.csv>         # daily; HEALTH_<date>.txt and health_<date>.json
+  python tools/rocfrontier/r18_health.py smoke <scratch>/smoke_health   # offline, synthetic, never a real cache
+Outputs: C:\EdgeLog\_anatomy_cache\rocfrontier\health_r1\. The ledger row and BOOK.md section are written by the lane that runs it.
