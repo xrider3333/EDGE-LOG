@@ -1,0 +1,28 @@
+BOOK QUEUE Q19 (scoping item A2) - THE INCREMENTAL YARDSTICK: #463 + 0.264 x RESMOM, built once, so every monthly stock-basket seat is
+scored on what is still left. MANAGER approved (#85, 14:24); written 2026-10-05 before any number of this item. Walk-forward only (2016-07-01..2025-06-29);
+no lockbox row; no candidate is judged here - this is construction plus the definitions the seat preregs will cite.
+
+INPUTS (no new data, no backtest). STRATEGY-BEATING's resmom_cells_daily_wf.csv (sha256 bed7bf8b..., columns date, book_mtm, RES, RAW;
+read-only) and resmom_line_gate.json (line prereg 9ab77351...). PARITY first: book_mtm must equal api.book_shadow.book463_valued_daily
+day by day (max gap $0.01) and read 93.81 / 3.816 / $44,849; the line L = book_mtm + c x RES with c = the registered 0.264 must
+reproduce STRATEGY-BEATING's 120.8 / 3.92 (to 0.05 / 0.005); RES's drawdown-day dollars must reproduce the gate file's $105,919 over 460
+days. A miss stops the item.
+
+WHAT IS BUILT.
+ 1. L's walk-forward figures: ROC at $30k, Sortino, worst drawdown (valued daily), net a year; per WF year.
+ 2. #463's 28 drawdown episodes (> $15,000 below its running peak, the house rule): per episode the book's loss, c x RES's dollars, and
+    the RESIDUAL (what the line still loses). Sorted by residual - the episodes RESMOM does not answer.
+ 3. L's OWN drawdown episodes by the same rule (> $15,000 below L's peak): dates, depth, and each of #463's four legs' dollars inside
+    them (which leg gives back), plus c x RES's - the "residual drawdown days" set R.
+ 4. Each leg's and RES's correlation to L on R and on all WF days.
+THE DEFINITIONS THE BASKET SEATS WILL CITE (fixed now, used verbatim by later preregs):
+ - Reference line = L. A candidate seat X is sized by volatility (c_X: X's daily SD over 2016-07-01..2018-06-29 = 25% of L's).
+ - Incremental report: L + c_X x X vs L on ROC at $30k and Sortino (report, house line #45 - never a pass by itself).
+ - Incremental earner reading: X's dollars on R > 0, also without its best episode of R; corr(X, RES) on all WF days and on R printed.
+ - A seat whose dollars on R are below the 95th percentile of the random-name null (same machinery as RESMOM's gate) adds nothing
+   RESMOM does not already give.
+WHAT IT DECIDES. Nothing is adopted; it fixes the yardstick and shows which of #463's drawdowns are still unanswered - the target for the
+basket queue (scoping doc section 5). Output C:/EdgeLog/_anatomy_cache/q19/ (line.csv, episodes.csv, residual_days.csv, a2.json).
+ADDENDUM 1 (before any number): STRATEGY-BEATING #86 - the file's 2,626 rows are #463's own WF day index (UTC stamps; 280 Sunday rows
+where RES is 0), the legs are unscaled ($4,000 a name, 50 + 50, costs in), first fills 2017-01-03, and their line reads 120.82 / 3.916 /
+worst drawdown $36,526 - the parity targets 120.8 / 3.92 stand (tolerances 0.05 / 0.005) and the drawdown is printed beside them.
