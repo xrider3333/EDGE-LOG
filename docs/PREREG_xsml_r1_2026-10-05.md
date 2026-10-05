@@ -71,7 +71,7 @@ up in sell-offs); A and B must clear the first.
   recent years in liquid names. The model is the signal: a rolling PCA factor model + an OU fit per stock.
 - **Model:** each day, PCA on the 252-day correlation matrix of the 500 names' daily returns, 15 factors; each stock's
   60-day residual (return minus its factor regression) is cumulated and fitted as an AR(1) = OU process; s-score =
-  -(cumulated residual - mean) / equilibrium sd. Stocks with mean-reversion speed below 252/30 (half-life over ~30
+  (cumulated residual - its OU mean) / equilibrium sd (the 2010 paper's form; negative = cheap). Stocks with mean-reversion speed below 252/30 (half-life over ~30
   sessions) are not traded.
 - **Rule (the 2010 paper's thresholds, not tuned):** open long when s < -1.25, short when s > +1.25; close a long when
   s > -0.50, a short when s < +0.75. Long and short sides each scaled to equal gross dollars daily.
@@ -86,7 +86,8 @@ up in sell-offs); A and B must clear the first.
   the equal-weight universe 21 and 63, MAX 21, skewness 63, min daily return 21, distance to the 252-day high, log
   dollar volume, turnover proxy, 252..21 momentum, 252-day beta, overnight and intraday 21-day sums.
 - **Rule:** decisions at each month's last close; short the top 50 by predicted crash probability, long the bottom 50;
-  BETA-NEUTRAL (each side scaled by its trailing 252-day beta to the equal-weight universe); hold 21 sessions.
+  BETA-NEUTRAL (each side scaled by its trailing 252-day beta to the equal-weight universe); hold to the next
+  month's fill (about 21 sessions).
 - **Raw twin (no model):** the same rule on plain 63-day IVOL.
 
 ## Stage A bars, per cell (walk-forward only; all must hold)
