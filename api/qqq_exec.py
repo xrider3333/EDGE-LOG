@@ -7712,6 +7712,7 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=Non
     adj = _breaker_fill_shortfall(state, log=log)
     state["_breaker_fill_adj"] = adj
     total = state.get("realized_pnl_today", 0.0) + adj + unrl
+    _note_breaker_input(state, total)
     limit = float(cfg.get("daily_loss_limit_usd", 0) or 0)
     if limit and total <= -abs(limit) and not state.get("breaker_tripped"):
         log(f"[qqq-exec] BREAKER TRIPPED: today's shadow P&L {total:.2f} <= "
@@ -7726,6 +7727,66 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=Non
     return unrl
 
 
+def _note_breaker_input(state, total):
+    """DAILY-STOP BAR (Ledger unify 13, 2026-10-05): keeps the exact figure the daily
+    loss breaker just compared with the limit -- today's realized + the fill shortfall
+    (+ the open marks when lots are open) -- so _build_doc can publish the breaker's own
+    number (today.breaker_input) instead of the tab re-deriving one that can read better
+    than the breaker sees. Stamped with the trading day so a figure from an earlier day
+    is never published. Bookkeeping only: never feeds back into any check. Never raises."""
+    try:
+        state["_breaker_input"] = {"day": state.get("trading_day"),
+                                   "pnl": round(float(total), 2)}
+    except Exception:
+        pass
+
+
+def _published_breaker_input(state, day):
+    """today.breaker_input: the figure _note_breaker_input kept, when it was kept on
+    `day`; else None (the breaker has not checked today, so there is no number of its
+    own to show). Never raises."""
+    try:
+        bi = state.get("_breaker_input") or {}
+        if bi.get("day") != day:
+            return None
+        v = _finite_or_none(bi.get("pnl"))
+        return None if v is None else round(v, 2)
+    except Exception:
+        return None
+
+
+def _refresh_breaker_input(state, log=print, only_worse=False):
+    """DAILY-STOP BAR bookkeeping when the breaker makes no check of its own (already
+    tripped today, no limit set, or the KILL file present), and once more after the
+    tick's broker fill capture: re-notes today's realized + the fill shortfall -- the sum
+    _check_breaker_while_flat compares -- plus, while lots are still open, the LAST
+    per-leg marks the breaker took (state['_unrl_by_leg'], open legs only; this tick's on
+    a normal tick, the last check before the kill on a kill day whose close-out failed or
+    is partial), so today.breaker_input keeps up with a close-out that booked more loss
+    after the trip or the kill flatten (review 2026-10-05).
+
+    only_worse (the after-capture call, review 2026-10-05): a fill Webull reports after
+    the breaker's check can make the figure worse, never better (_breaker_fill_shortfall
+    is never positive) -- the bar takes the new figure only when it is worse than the one
+    already noted today, so it can never read better than the breaker's own check.
+    Never trips, never closes, never raises."""
+    try:
+        adj = _breaker_fill_shortfall(state, log=log)
+        legs = state.get("legs") or {}
+        marks = state.get("_unrl_by_leg") or {}
+        unrl = sum(float(marks[k]) for k in legs if marks.get(k) is not None)
+        total = float(state.get("realized_pnl_today", 0.0) or 0.0) + adj + unrl
+        if only_worse:
+            prev = state.get("_breaker_input") or {}
+            pv = _finite_or_none(prev.get("pnl")) if prev.get("day") == state.get("trading_day") else None
+            if pv is not None and not (round(total, 2) < pv):
+                return
+        state["_breaker_fill_adj"] = adj
+        _note_breaker_input(state, total)
+    except Exception:
+        pass
+
+
 def _check_breaker_while_flat(state, cfg, log=print, nowdt=None):
     """The daily loss breaker's check for a FLAT book (see _mark_and_check_breaker):
     realized today + the fill shortfall against the limit; trips (breaker_tripped, the
@@ -7736,10 +7797,16 @@ def _check_breaker_while_flat(state, cfg, log=print, nowdt=None):
     try:
         limit = float(cfg.get("daily_loss_limit_usd", 0) or 0)
         if not limit or state.get("breaker_tripped"):
+            # no check to make, but keep the published figure current (review 2026-10-05:
+            # after a trip the close-out and any later close by a resting stop book more
+            # loss, and the daily-stop bar must not read better than that). Bookkeeping
+            # only -- the trip decision is unchanged.
+            _refresh_breaker_input(state, log=log)
             return
         adj = _breaker_fill_shortfall(state, log=log)
         state["_breaker_fill_adj"] = adj
         total = float(state.get("realized_pnl_today", 0.0) or 0.0) + adj
+        _note_breaker_input(state, total)
         if total <= -abs(limit):
             state["breaker_tripped"] = True
             log(f"[qqq-exec] BREAKER TRIPPED while flat: today's shadow P&L {total:.2f} <= "
@@ -9149,6 +9216,33 @@ def _curve_pnl(t):
     return _curve_pnl_book(t)
 
 
+def _legs_record_today(trades_all, day):
+    """{leg: {pnl, n, book}} -- each strategy's TODAY figure at the P&L of record (Ledger
+    unify 13, 2026-10-05): the trades that CLOSED on `day` (the New York close day,
+    exit_ts -- a trade opened yesterday and closed today counts today), each at
+    _curve_pnl, the exact rule today.realized_pnl_record sums, so the strategy rows add
+    up to the hero's today figure. `book` = how many of those trades are not at Webull's
+    fills on both sides (a missing or suspect fill, or a book-only trade whose open
+    Webull refused) -- the tab labels them. Open lots are not trades yet and never
+    count. One small map per leg, never per trade. Never raises."""
+    out = {}
+    try:
+        for t in trades_all or []:
+            if str(t.get("exit_ts") or "")[:10] != day:
+                continue
+            leg = str(t.get("leg") or "").strip() or "?"
+            b = out.setdefault(leg, {"pnl": 0.0, "n": 0, "book": 0})
+            b["pnl"] += _curve_pnl(t)
+            b["n"] += 1
+            if str(t.get("pnl_record_src") or "") != "webull":
+                b["book"] += 1
+        for b in out.values():
+            b["pnl"] = round(b["pnl"], 2)
+    except Exception:
+        return {}
+    return out
+
+
 def _curve_pnl_book(t):
     """The BOOK's own figure for one closed trade: `pnl` when it is a real number, else
     the tape-repriced `real_pnl` (merged onto the row by _merge_reprice), else 0 -- the
@@ -9805,6 +9899,13 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
                       _curve_pnl(t) for t in trades_all
                       if str(t.get("exit_ts") or "")[:10] == day), 2),
                   "breaker_fill_adj": state.get("_breaker_fill_adj", 0.0),
+                  # LEDGER UNIFY 13 (2026-10-05): the daily-stop bar shows the
+                  # breaker's OWN number -- the exact figure it last compared with the
+                  # limit today (see _note_breaker_input), None until it has checked
+                  # today -- and each strategy's TODAY figure is at the P&L of record
+                  # (_legs_record_today), never the raw book rows above.
+                  "breaker_input": _published_breaker_input(state, day),
+                  "legs_record": _legs_record_today(trades_all, day),
                   "unrealized_pnl": round(unrealized, 2)},
         "trades_all": trades_all,
         "parity": parity,
@@ -10696,8 +10797,13 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
             state["flat_by_done_date"] = today
 
     unrealized = 0.0
+    tripped_before_check = bool(state.get("breaker_tripped"))
     if not kill_present:
         unrealized = _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=log, nowdt=nowdt)
+    else:
+        # the breaker makes no check on a kill day; keep the daily-stop figure it would
+        # count current after the kill flatten (bookkeeping only, see the helper)
+        _refresh_breaker_input(state, log=log)
 
     # BROKER HOUSEKEEPING (2026-09-14): daily P&L wiring for webull_orders' own
     # (previously dead) loss rail + FIX 2's reconcile scheduling. ONE
@@ -10717,6 +10823,12 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     # BROKER FILL CAPTURE (feature #57, DEFERRED 2026-09-22): queued by _mirror_to_broker,
     # serviced here -- see _maybe_capture_broker_fills for why this is off the order path.
     _maybe_capture_broker_fills(state, cfg, nowdt, active, log=log)
+    # DAILY-STOP BAR (review 2026-10-05): a fill captured just now can only make the
+    # breaker's figure worse; take it now rather than one tick late, so the bar never
+    # reads better than the hero's today line for that tick. Not on the tick the breaker
+    # tripped -- that tick publishes the figure it tripped on. Bookkeeping only.
+    if not (state.get("breaker_tripped") and not tripped_before_check):
+        _refresh_breaker_input(state, log=log, only_worse=True)
     # RESTING ORB STOP (2026-09-29): after fill capture, so ORB's entry reads FILLED at
     # Webull as soon as it is -- see _maybe_manage_resting.
     _maybe_manage_resting(state, cfg, nowdt, active, log=log)
