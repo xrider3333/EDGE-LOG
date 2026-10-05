@@ -26,7 +26,18 @@ Snapshot contents per dated folder (C:\\EdgeLog\\_ntbackup\\YYYY-MM-DD\\):
 
 Idempotent: if today's dated folder already exists, run_nightly() does nothing and
 reports "already done" — safe to call every loop tick without re-copying gigabytes.
-Retention: keeps the newest 14 dated folders, deletes older ones.
+Retention: keeps the newest 14 dated folders, deletes older ones -- but NEVER the
+newest COMPLETE one (see SHORT SNAPSHOTS below).
+
+SHORT SNAPSHOTS (2026-10-05). NT purges strategy rows on a no-network boot. The
+2026-10-03 snapshot was taken AFTER such a purge: it lacked the live NOISE row
+(Id 386606468), and 14 more nights of the same would have pruned away 2026-10-01,
+the last good copy. Now each snapshot's strategy-row Ids are compared with the
+newest earlier complete snapshot; any missing Id writes SHORT_SNAPSHOT.txt into the
+folder (the sweep in tools/nt8_freshness_sweep.py alerts on it), and the prune keeps
+the newest folder without that marker no matter how old it is. When a row is
+removed on purpose, delete the marker from the next snapshot to make it the new
+baseline.
 
 Everything here is exception-proof: a backup job must never take down the watch loop.
 """
@@ -41,6 +52,8 @@ NT_DIR = r"C:\Users\xride\Documents\NinjaTrader 8"
 DEST = r"C:\EdgeLog\_ntbackup"
 
 KEEP_DATED_FOLDERS = 14
+SHORT_MARKER = "SHORT_SNAPSHOT.txt"
+ROWS_JSON = "edgelog_strategy_rows.json"
 
 
 def _backup_sqlite(src_path, dst_path):
@@ -131,21 +144,68 @@ def _copy_file_lenient(src, dst):
         print(f"[nt-backup] skipped {src}: {type(e).__name__}: {e}")
 
 
-def _prune_old_folders():
-    """Keep only the newest KEEP_DATED_FOLDERS dated snapshot folders."""
+def _dated_folders():
+    """Names of the exact YYYY-MM-DD snapshot folders in DEST, oldest first."""
     if not os.path.isdir(DEST):
-        return
+        return []
     dated = []
     for name in os.listdir(DEST):
-        full = os.path.join(DEST, name)
-        if os.path.isdir(full):
+        if os.path.isdir(os.path.join(DEST, name)):
             try:
                 datetime.date.fromisoformat(name)
                 dated.append(name)
             except ValueError:
                 continue
-    dated.sort()
+    return sorted(dated)
+
+
+def _row_ids(folder):
+    """Strategy-row Ids in a snapshot folder, or None when it has no readable rows file."""
+    import json
+    try:
+        with open(os.path.join(DEST, folder, ROWS_JSON), encoding="utf-8") as f:
+            return {r.get("Id") for r in json.load(f)}
+    except Exception:
+        return None
+
+
+def newest_complete(before=None):
+    """Newest dated folder (older than `before`, if given) that has a rows file and no
+    SHORT_MARKER -- the baseline a new snapshot is compared with, and the one folder
+    the prune never deletes."""
+    for name in reversed(_dated_folders()):
+        if before and name >= before:
+            continue
+        if os.path.exists(os.path.join(DEST, name, SHORT_MARKER)):
+            continue
+        if _row_ids(name) is not None:
+            return name
+    return None
+
+
+def _flag_if_short(today):
+    """Write SHORT_MARKER into today's folder when it lacks a strategy-row Id the newest
+    earlier complete snapshot had. Returns the sorted missing Ids ([] when complete)."""
+    ids = _row_ids(today)
+    base = newest_complete(before=today)
+    if ids is None or base is None:
+        return []
+    missing = sorted(i for i in (_row_ids(base) - ids) if i is not None)
+    if missing:
+        with open(os.path.join(DEST, today, SHORT_MARKER), "w", encoding="utf-8") as f:
+            f.write(f"strategy row Id(s) {missing} are missing - present in {base}. NT likely "
+                    f"purged rows (no-network boot or a mid-enable shutdown); restore from {base}. "
+                    f"If the rows were removed on purpose, delete this file.\n")
+    return missing
+
+
+def _prune_old_folders():
+    """Keep only the newest KEEP_DATED_FOLDERS dated snapshot folders, plus the newest
+    complete one wherever it sits."""
+    dated = _dated_folders()
+    keep_complete = newest_complete()
     excess = dated[:-KEEP_DATED_FOLDERS] if len(dated) > KEEP_DATED_FOLDERS else []
+    excess = [n for n in excess if n != keep_complete]
     for name in excess:
         full = os.path.join(DEST, name)
         try:
@@ -190,7 +250,7 @@ def run_nightly():
         try:
             _backup_sqlite(db_src, db_dst)
             n_rows = _extract_strategy_rows(
-                db_dst, os.path.join(out_dir, "edgelog_strategy_rows.json"))
+                db_dst, os.path.join(out_dir, ROWS_JSON))
         except Exception as e:
             failed_steps.append("sqlite")
             print(f"[nt-backup] sqlite snapshot failed: {type(e).__name__}: {e}")
@@ -231,6 +291,15 @@ def run_nightly():
 
     # Pruning runs no matter what happened above -- it is the step that reclaims
     # disk, and it must not be starved by an earlier failure the way it was here.
+    short = []
+    try:
+        short = _flag_if_short(today)
+        if short:
+            print(f"[nt-backup] {today} snapshot is SHORT -- missing strategy row Id(s) {short}")
+    except Exception as e:
+        failed_steps.append("short-check")
+        print(f"[nt-backup] short-snapshot check failed: {type(e).__name__}: {e}")
+
     try:
         _prune_old_folders()
     except Exception as e:
@@ -244,6 +313,8 @@ def run_nightly():
     else:
         msg = (f"[nt-backup] {today} snapshot complete -- "
                f"{n_rows} EdgeLog strategy row(s), {n_src} .cs source file(s)")
+    if short:
+        msg += f" -- SHORT: missing row Id(s) {short}"
     print(msg)
     return msg
 

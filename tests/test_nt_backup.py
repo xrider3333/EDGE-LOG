@@ -248,3 +248,58 @@ def test_run_nightly_no_sqlite_db_still_copies_everything_else(tmp_path, monkeyp
     assert not (out / "NinjaTrader.sqlite").exists()
     assert (out / "Config.xml").exists()
     assert (out / "src" / "AddOns" / "EdgeLogExport.cs").exists()
+
+
+# ── short snapshots (2026-10-05): a purged roster is flagged and never prunes the last good copy ──
+
+def _mk_snap(dest, name, ids, short=False):
+    import json
+    (dest / name).mkdir()
+    (dest / name / B.ROWS_JSON).write_text(json.dumps([{"Id": i} for i in ids]))
+    if short:
+        (dest / name / B.SHORT_MARKER).write_text("x")
+
+
+def test_flag_if_short_marks_a_snapshot_missing_a_row(tmp_path, monkeypatch):
+    dest = tmp_path / "_ntbackup"
+    dest.mkdir()
+    monkeypatch.setattr(B, "DEST", str(dest))
+    _mk_snap(dest, "2026-10-01", [468, 474, 475])
+    _mk_snap(dest, "2026-10-03", [474, 475])
+    assert B._flag_if_short("2026-10-03") == [468]
+    assert (dest / "2026-10-03" / B.SHORT_MARKER).exists()
+    # the next snapshot is compared with 10-01 (10-03 is short), so it stays short too
+    _mk_snap(dest, "2026-10-04", [474, 475])
+    assert B._flag_if_short("2026-10-04") == [468]
+    # restored roster -> complete, no marker
+    _mk_snap(dest, "2026-10-05", [468, 474, 475])
+    assert B._flag_if_short("2026-10-05") == []
+    assert not (dest / "2026-10-05" / B.SHORT_MARKER).exists()
+    assert B.newest_complete() == "2026-10-05"
+
+
+def test_prune_keeps_the_newest_complete_snapshot_past_the_keep_count(tmp_path, monkeypatch):
+    dest = tmp_path / "_ntbackup"
+    dest.mkdir()
+    monkeypatch.setattr(B, "DEST", str(dest))
+    monkeypatch.setattr(B, "KEEP_DATED_FOLDERS", 3)
+    _mk_snap(dest, "2026-09-30", [1, 2])
+    _mk_snap(dest, "2026-10-01", [1, 2])
+    for d in ("2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05"):
+        _mk_snap(dest, d, [2], short=True)
+    B._prune_old_folders()
+    assert sorted(p.name for p in dest.iterdir()) == ["2026-10-01", "2026-10-03", "2026-10-04", "2026-10-05"]
+
+
+def test_run_nightly_flags_a_short_snapshot(tmp_path, monkeypatch):
+    nt = tmp_path / "nt"
+    _mk_nt_dir(nt)
+    dest = tmp_path / "_ntbackup"
+    dest.mkdir()
+    _mk_snap(dest, "2000-01-01", [1, 99])
+    monkeypatch.setattr(B, "NT_DIR", str(nt))
+    monkeypatch.setattr(B, "DEST", str(dest))
+    msg = B.run_nightly()
+    today = datetime.date.today().isoformat()
+    assert "SHORT" in msg and "[99]" in msg
+    assert (dest / today / B.SHORT_MARKER).exists()
