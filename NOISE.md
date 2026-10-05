@@ -7,6 +7,24 @@
 
 ---
 
+## 🧪 2026-10-05 — ROUND 70: size NOISE #422's shorts up - dead at Stage A on the paired test alone
+
+Standing order 10-04 (queue of three, the map first). NOISE #422's shorts earn far more a trade than its longs
+(walk-forward PF 1.83 / $301 against 1.36 / $110, seen while reviewing Custom ML's hedge tilt and disclosed), and they are
+the trades built to earn in sell-offs, the map's main hunt. Pre-registration `docs/PREREG_noise_r70_sidetilt_2026-10-05.md`
+(draft 454aa582, MANAGER review #36 amendment de06c29f: confirmatory, one hunt with Custom ML's hedge tilt, lockbox route
+fixed), Stage A `tools/r70_noise_sidetilt_stageA.py` -> `r37_results/r70_stageA.txt`, walk-forward only, book built only
+to 2025-06-29 and reproducing #463's 93.81 / 3.816 first.
+**DEAD on one bar.** Every short x1.5: NOISE leg walk-forward ROC at a $30k drawdown 84.6 -> 102.6, Sortino 4.49 -> 4.69;
+neighbours 98.6 (x1.25) and 106.7 (x2.0); 6 of 9 years; still ahead without Feb-Apr 2020 (101.6 vs 83.3) and without 2022
+(88.5 vs 72.6). In the book, #463 + tilted NOISE reaches 100.5 / Sortino 4.02 against 97.1 / 3.90 for plain extra NOISE at
+the same mean size (x1.135) and 93.8 / 3.82 for #463. But the paired block bootstrap's 5th percentile is -14.9 (bar above
+zero): one walk-forward cannot tell this gain from luck. Disclosure: the power line the pre-registration promised before
+the run was not computed then; after the fact it is ~14.9 points, so the test could only have passed a much larger gain.
+The tilt adds return, not protection: the book's worst drawdown (2-27 March 2020) is $45.6k against $44.8k, with 23-24%
+of its losing-day dollars on NOISE-short days in all three books. No lockbox read, no Auto-Validate, no variants; the
+daily difference series is exported for Custom ML's hedge tilt (`C:\EdgeLog\custom_ml\noise_r70_sidetilt_wf_daily_diff.csv`).
+
 ## 🧪 2026-10-04 — ROUND 69 follow-ups (walk-forward only, reported not judged): the fixed package taken apart, and #422 on the roll-corrected tape
 
 MANAGER #29 / #30. Nothing below reads the lockbox.

@@ -1,0 +1,41 @@
+NOISE round 70 STAGE A - #422 shorts x 1.50, walk-forward only
+  NOISE #422             WF 2805 tr  ROC@30k  84.6%  Sortino 4.49  ( 49.6%/yr, DD $17,590)
+  shorts x 1.50          WF 2805 tr  ROC@30k 102.6%  Sortino 4.69  ( 61.9%/yr, DD $18,104)
+  shorts x 1.25 (neighbour) WF 2805 tr  ROC@30k  98.6%  Sortino 4.63  ( 55.8%/yr, DD $16,966)
+  shorts x 2.00 (neighbour) WF 2805 tr  ROC@30k 106.7%  Sortino 4.72  ( 74.2%/yr, DD $20,850)
+    year 1 (2016-06-30 .. 2017-06-30): #422   14.0  tilted   21.3
+    year 2 (2017-06-30 .. 2018-06-30): #422   47.5  tilted   30.5
+    year 3 (2018-06-30 .. 2019-06-30): #422  204.5  tilted  201.9
+    year 4 (2019-06-30 .. 2020-06-30): #422  228.8  tilted  258.0
+    year 5 (2020-06-30 .. 2021-06-30): #422   99.5  tilted  107.3
+    year 6 (2021-06-30 .. 2022-06-30): #422  237.5  tilted  281.7
+    year 7 (2022-06-30 .. 2023-06-30): #422  227.1  tilted  222.0
+    year 8 (2023-06-30 .. 2024-06-30): #422   52.4  tilted   59.8
+    year 9 (2024-06-30 .. 2025-07-16): #422  185.5  tilted  253.1
+    without 2020-02..04  #422   83.3  tilted  101.6
+    without 2022         #422   72.6  tilted   88.5
+  per WF year, $ (longs are unchanged by the tilt):
+    year 1: longs $     -135 | shorts #422 $    2,612  tilted $    3,918
+    year 2: longs $   10,646 | shorts #422 $     -164  tilted $     -246
+    year 3: longs $   12,804 | shorts #422 $   27,832  tilted $   41,749
+    year 4: longs $   30,200 | shorts #422 $   14,665  tilted $   21,997
+    year 5: longs $   31,510 | shorts #422 $    5,501  tilted $    8,252
+    year 6: longs $   45,936 | shorts #422 $   47,295  tilted $   70,942
+    year 7: longs $   69,775 | shorts #422 $   15,466  tilted $   23,199
+    year 8: longs $    4,369 | shorts #422 $   16,948  tilted $   25,422
+    year 9: longs $   21,684 | shorts #422 $   91,781  tilted $  137,672
+  BOOK #463 WF (built to 2025-06-29): ROC@30k 93.81  Sortino 3.816
+  BOOK + tilted NOISE   ROC@30k 100.54  Sortino 4.024
+  BOOK + NOISE x c=1.135 ROC@30k 97.10  Sortino 3.902  (plain extra NOISE at the same mean size)
+  #463                   worst WF drawdown $44,848 (2020-03-02 .. 2020-03-27); 23% of its losing-day $ on NOISE-short days
+  #463 + tilted NOISE    worst WF drawdown $45,606 (2020-03-02 .. 2020-03-27); 24% of its losing-day $ on NOISE-short days
+  #463 + NOISE x c       worst WF drawdown $45,406 (2020-03-02 .. 2020-03-27); 23% of its losing-day $ on NOISE-short days
+  difference series exported -> C:\EdgeLog\custom_ml\noise_r70_sidetilt_wf_daily_diff.csv
+
+  A1 NOISE leg beats #422 on WF ROC@30k and Sortino       PASS
+  A2 both neighbours beat #422                            PASS
+  A3 paired bootstrap p5 -14.9 > 0                        FAIL
+  A4 6 of 9 years, 2020-out and 2022-out                  PASS
+  A5 book beats plain extra NOISE at the same mean size   PASS
+
+STAGE A: FAIL - recorded dead, no variants
