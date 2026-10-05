@@ -93,6 +93,17 @@ a scrub at the left edge writes $0.00 and 'start of the range' into the hero, at
 the closed P&L of record, and leaving puts the hero back; a legend switch is remembered.
 ?oldboards=1: the old chart is back and there is no shared chart and no Retired group.
 
+STATS (LEDGER unify step 6, 2026-10-05): the board's own stat tiles are TRADING-LOG's shared strip now.
+Every plain case: the four [data-lgstat] tiles (WIN RATE, PROFIT FACTOR, MAX DRAWDOWN, TRADES) in that
+order under the chart, a percent / a ratio / a positive dollar amount / a count, each equal to a
+recomputation here from the fixture (P&L of record, close day, walked in exit order). Four stats cases
+with today pinned to 2026-10-05: ALL, 1W (trades that closed on or after 09-28) on the laptop and again
+on a 390x844 phone in MONO, and ALL with one September loss turned into a $0 trade, which must be
+neither a win nor a loss in the tiles ('1 even') and in the calendar's month '% won'. The interaction
+run opens and closes the More stats fold (aria-expanded true then false, the choice stored for this
+viewer, Returns / Risk / Mix / Account with the Webull rows). ?oldboards=1: no shared tiles, the old
+Stats section is back.
+
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks; a retry that passes prints a FLAKE line.
 
@@ -109,6 +120,7 @@ import collections
 import http.server
 import io
 import json
+import math
 import os
 import re
 import shutil
@@ -130,6 +142,11 @@ WANT_LIVE = ['ORB', 'NOISE']
 RETIRED_SINCE = '2026-09-28'
 LEG_RE = re.compile(r'^(ORB|ENGU-Q|NOISE) #\d+$')
 MONEY_RE = re.compile(r'^-?\$[\d,]+\.\d\d$')
+# LEDGER step 6: the shared stat tiles, in this order on every board
+STAT_KEYS = ['winrate', 'pf', 'maxdd', 'trades']
+STAT_TODAY = '2026-10-05'      # the stats cases pin ledgerTodayNY() to the fixture's own day
+ACCOUNT_ROWS = ['Account equity', 'Cash', 'Open exposure', 'Daily loss limit', 'Broker made',
+                'Book figure', 'Book-only trades', 'Fill coverage', 'Slippage vs backtest']
 
 
 
@@ -696,6 +713,23 @@ MUTANTS = [
      "data-qbunreal=\"'+key+'\" style=\"font-size:14px;font-weight:600;color:'+(p?(QF.stale?",
      "data-qbunreal=\"'+key+'\" style=\"font-size:14px;font-weight:600;color:'+(p?(false?",
      "the UNREALIZED figure of a position on a silent box stays green / red"),
+    # LEDGER step 6 (shared stats strip + More stats)
+    ('stats-ignore-range',
+     "const qbStatRows=qbRangeTrades.filter(",
+     "const qbStatRows=trades.filter(",
+     "the stat tiles count every trade whatever range is chosen"),
+    ('zero-is-a-loss',
+     "}else if(v<0){losses++;gl-=v;",
+     "}else if(v<=0){losses++;gl-=v;",
+     "a $0 trade counts as a loss in the win rate (TRADING-LOG mistake item 5)"),
+    ('stats-book-pnl',
+     "{pnl:qePnlOf,day:qeTradeDate,sorted:true}",
+     "{pnl:t=>+t.pnl||0,day:qeTradeDate,sorted:true}",
+     "the tiles add up the book's own pnl instead of the P&L of record"),
+    ('more-stats-not-wired',
+     "content.querySelectorAll('[data-lgmore=\"qb\"]').forEach(",
+     "content.querySelectorAll('[data-lgmore=\"qb-off\"]').forEach(",
+     "the More stats fold never opens"),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -704,7 +738,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <iframe id="f" src="../index.html" style="width:1366px;height:768px;border:0;display:block"></iframe>
 <pre id="o" style="display:none"></pre>
 <script>
-var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
+var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=__STATS__;
 (function(){
   var out={cases:{},notes:[]}, reported=false, t0=Date.now(), sink=null, phase=0;
   function finish(why){
@@ -789,7 +823,11 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
     w.__probeTab=cfg.tab||null;
     w.__probeCheckedMs=cfg.checkedMs||cfg.nowMs||NOW;
     w.__probeOffline=!!cfg.offline;w.__probeMissing=!!cfg.missing;w.__probeUnloaded=!!cfg.unloaded;
+    w.__probeRange=cfg.range||null;w.__probeTodayNY=cfg.todayNY||null;w.__probeCalMonth=cfg.calMonth||null;
     return w.eval("(function(){try{"
+      +"if(!window.__probeLTN)window.__probeLTN=ledgerTodayNY;"
+      +"ledgerTodayNY=window.__probeTodayNY?function(){return window.__probeTodayNY;}:window.__probeLTN;"
+      +"try{localStorage.removeItem('el_qb_morestats_open');}catch(e){}window._qbMoreStatsOpen=false;"
       +"try{delete navigator.onLine;}catch(e){}"
       +"if(window.__probeOffline)Object.defineProperty(navigator,'onLine',{configurable:true,get:function(){return false;}});"
       +"try{localStorage.removeItem('el_qb_retired_open');localStorage.removeItem('el_lg_lines_webull');}catch(e){}"
@@ -808,7 +846,8 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
       +"try{var ap=JSON.parse(localStorage.getItem('augurPrefs')||'{}');ap.qqqSystemOpen=window.__probeSystemOpen;localStorage.setItem('augurPrefs',JSON.stringify(ap));}catch(e){}"
       +"window._qqqExecLive=false;window._qqqExecLiveErrorAt=window.__probeLiveErr?Date.now():null;window._qqqExecFetchedAt=window.__probeLiveErr?0:Date.now();"
       +"window._qbChartHoverActive=false;"
-      +"homeRange='ALL';currentUser=currentUser||{uid:'probe-uid'};"
+      +"if(window.__probeCalMonth)window._qqqCalMonth=window.__probeCalMonth;"
+      +"homeRange=window.__probeRange||'ALL';currentUser=currentUser||{uid:'probe-uid'};"
       +"activeTab=window.__probeTab||'augur';augurSub='qqqpaper';window._lastRenderTab=activeTab;"
       +"try{window.scrollTo(0,0);}catch(e){}"
       +"renderApp();return 'OK';"
@@ -848,6 +887,13 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
     r.tradeRows=rows.length;
     r.tradeLegs=[].map.call(rows,function(e){var s=e.querySelector('.qb-trade-leg');return s?(s.textContent||'').trim():null;});
     r.oldChart=!!d.querySelector('#qbCrossCapture');
+    r.stats=[].map.call(d.querySelectorAll('.qbx-lgstats [data-lgstat]'),function(e){
+      var v=e.querySelector('.lg-stat-val'),s=e.querySelector('.lg-stat-sub');
+      return [e.getAttribute('data-lgstat'),v?(v.textContent||'').replace(/\\s+/g,' ').trim():null,s?(s.textContent||'').replace(/\\s+/g,' ').trim():null];});
+    r.statTilesAll=d.querySelectorAll('[data-lgstat]').length;
+    r.oldStats=!!d.querySelector('.qbx-stat-strip');
+    var mbt=q('[data-lgmore="qb"]');r.moreBtn=mbt?mbt.getAttribute('aria-expanded'):null;
+    var act=q('.qbx-activity'),mwon=act?(act.textContent||'').match(/(\\d+)% won/):null;r.calWon=mwon?+mwon[1]:null;
     r.scrollW=d.documentElement.scrollWidth;
     r.clientW=d.documentElement.clientWidth;
     if(r.scrollW>r.clientW+1)r.wide=offenders(d);
@@ -1023,6 +1069,22 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
         var lb2=q('#qb-lg-chart .lg-legend [data-lgline="0"]');lg.off=!!(lb2&&lb2.classList.contains('off'));
         try{lg.stored=w.localStorage.getItem('el_lg_lines_webull');}catch(e){}}
       res.legend=lg;
+      // 4. the More stats fold (LEDGER step 6) opens with the shared groups + Account, closes, and is remembered
+      var mb=q('[data-lgmore="qb"]'),fo={};
+      if(mb){
+        fo.before=mb.getAttribute('aria-expanded');mb.click();await sleep(80);
+        var mb2=q('[data-lgmore="qb"]');fo.open=mb2?mb2.getAttribute('aria-expanded'):null;
+        var pn=q('#qb-more');fo.panel=pn?(pn.hasAttribute('hidden')?'hidden':'shown'):null;
+        fo.groups=[].map.call(d.querySelectorAll('#qb-more [data-lgmsgroup]'),function(g){return g.getAttribute('data-lgmsgroup');});
+        fo.acct=[].map.call(d.querySelectorAll('#qb-more [data-lgmsgroup="Account"] .lg-ms-row .l'),function(e){return (e.textContent||'').trim();});
+        fo.bad=((pn&&pn.innerText)||'').match(/NaN|undefined|\\[object Object\\]/g)||[];
+        try{fo.stored=w.localStorage.getItem('el_qb_morestats_open');}catch(e){}
+        if(mb2){mb2.click();await sleep(80);}
+        var mb3=q('[data-lgmore="qb"]');fo.closed=mb3?mb3.getAttribute('aria-expanded'):null;
+        var pn3=q('#qb-more');fo.panelAfter=pn3?(pn3.hasAttribute('hidden')?'hidden':'shown'):null;
+        try{fo.stored2=w.localStorage.getItem('el_qb_morestats_open');}catch(e){}
+      }
+      res.fold=fo;
     }catch(e){res.threw=String(e&&e.stack?e.stack:e);}
     await sleep(60);
     res.errs=drain();
@@ -1050,6 +1112,13 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
         if(!(await boot()))return;
         for(var i=0;i<CASES.length;i++)await runCase(CASES[i][0],CASES[i][1]);
         try{await interact();}catch(e){out.inter={threw:String(e&&e.stack?e.stack:e)};}
+        out.stats={};
+        for(var k=0;k<STATS.length;k++){
+          var S=STATS[k];
+          await runCase('__st'+k,{vp:S.vp,theme:S.theme,fix:S.doc,range:S.range,todayNY:S.today,calMonth:S.calMonth});
+          out.stats[S.name]=out.cases['__st'+k];delete out.cases['__st'+k];
+        }
+        try{W().eval("ledgerTodayNY=window.__probeLTN||ledgerTodayNY;");}catch(e){}
         out.vars={};
         for(var j=0;j<VARS.length;j++){
           var V=VARS[j];
@@ -1156,6 +1225,87 @@ def money(v):
     return ('-' if v < 0 else '') + '${:,.2f}'.format(abs(v))
 
 
+def _close_day(t):
+    """index.html qeTradeDate: the New York day a trade closed (exit_ts), else its entry day."""
+    d = str(t.get('exit_ts') or '')[:10] or str(t.get('entry_ts') or '')[:10]
+    return d if re.match(r'^\d{4}-\d{2}-\d{2}$', d) else None
+
+
+def _is_shadow(t):
+    return t.get('shadow') is True or str(t.get('shadow') or '').lower() == 'true' or str(t.get('layer') or '').lower() == 'shadow'
+
+
+def _js_round(x):
+    return int(math.floor(x + 0.5))
+
+
+def expected_stats(trades, cutoff=None):
+    """The four LEDGER tiles worked out here, not read off the page: the trades that closed on or after
+    `cutoff` (None = all), shadow rows left out, walked in exit order at the P&L of record. A $0 trade is
+    neither a win nor a loss. Returns {key: (value text, sub text)}."""
+    rows = [t for t in trades if not _is_shadow(t)]
+    if cutoff:
+        rows = [t for t in rows if (_close_day(t) or '') >= cutoff]
+    rows = sorted(rows, key=lambda t: str(t.get('exit_ts') or t.get('entry_ts') or ''))
+    vals = [qe_pnl_of(t) for t in rows]
+    n = len(vals)
+    w = sum(1 for v in vals if v > 0)
+    l = sum(1 for v in vals if v < 0)
+    f = n - w - l
+    gw = sum(v for v in vals if v > 0)
+    gl = -sum(v for v in vals if v < 0)
+    run = peak = dd = 0.0
+    for v in vals:
+        run += v
+        peak = max(peak, run)
+        dd = max(dd, peak - run)
+    days = len(set(d for d in (_close_day(t) for t in rows) if d))
+    if not n:
+        return {'winrate': ('--', ''), 'pf': ('--', ''), 'maxdd': ('--', ''), 'trades': ('0', '')}
+    wr = ('%d%%' % _js_round(w / (w + l) * 100)) if (w + l) else '--'
+    pf = '--' if (not gw and not gl) else ('%.2f' % (gw / gl) if gl > 0 else 'no losses')
+    return {'winrate': (wr, '%d W · %d L' % (w, l) + (' · %d even' % f if f else '')),
+            'pf': (pf, None), 'maxdd': (money(dd), None),
+            'trades': (str(n), 'over %d day%s' % (days, '' if days == 1 else 's'))}
+
+
+def month_won(trades, month):
+    """The calendar's '% won' for one month: wins / (wins + losses), a $0 trade is neither."""
+    vals = [qe_pnl_of(t) for t in trades if (_close_day(t) or '').startswith(month)]
+    w = sum(1 for v in vals if v > 0)
+    l = sum(1 for v in vals if v < 0)
+    return _js_round(w / (w + l) * 100) if (w + l) else None
+
+
+def _zero_doc(fixture):
+    """The fixture with its newest September loss turned into a $0 trade (P&L of record 0)."""
+    doc = json.loads(json.dumps(fixture))
+    for t in doc.get('trades_all') or []:
+        if (_close_day(t) or '').startswith('2026-09') and qe_pnl_of(t) < 0:
+            t['pnl_record'] = 0.0
+            t['pnl'] = '0.0'
+            break
+    return doc
+
+
+def _cutoff(range_key):
+    days = {'1W': 7, '1M': 30, '3M': 90}.get(range_key)
+    if not days:
+        return None
+    y, m, d = map(int, STAT_TODAY.split('-'))
+    import datetime
+    return (datetime.date(y, m, d) - datetime.timedelta(days=days)).isoformat()
+
+
+def _stats_cases(fixture):
+    """(name, range, doc, viewport, theme, calendar month)"""
+    z = _zero_doc(fixture)
+    return [('ALL', 'ALL', fixture, 'laptop', 'dark', None),
+            ('1W', '1W', fixture, 'laptop', 'dark', None),
+            ('1W (MONO, 390x844)', '1W', fixture, 'phone390', 'mono', None),
+            ('$0 trade', 'ALL', z, 'laptop', 'dark', '2026-09')]
+
+
 def _attempt(chrome, alt_index, fixture):
     pdir = tempfile.mkdtemp(prefix='_webullprobe_', dir=ROOT)
     variants = [{'name': nm, 'nowMs': now if isinstance(now, int) else et_ms(now), 'doc': doc,
@@ -1168,7 +1318,10 @@ def _attempt(chrome, alt_index, fixture):
                  'tick': bool(exp.get('tick')), 'fetch': exp.get('fetch'), 'theme': exp.get('theme', 'dark'),
                  'visread': bool(exp.get('visread')), 'cachesnap': bool(exp.get('cachesnap'))}
                 for nm, now, doc, exp in _variant_docs(fixture)]
+    stats = [{'name': nm, 'range': rg, 'doc': doc, 'vp': vp, 'theme': th, 'calMonth': cm, 'today': STAT_TODAY}
+             for nm, rg, doc, vp, th, cm in _stats_cases(fixture)]
     html = (PROBE_HTML.replace('__CASES__', json.dumps(CASES)).replace('__VP__', json.dumps(VIEWPORTS))
+            .replace('__STATS__', json.dumps(stats))
             .replace('__NOW__', json.dumps(et_ms(FRESH_NOW))).replace('__VARS__', json.dumps(variants))
             .replace('__FIX__', json.dumps(fixture)))
     io.open(os.path.join(pdir, 'probe.html'), 'w', encoding='utf-8').write(html)
@@ -1232,6 +1385,30 @@ def _topbox(tag, r, fails):
         why.append('covered by %s' % b.get('coveredBy'))
     if why:
         fails.append('%s: the top bar WEBULL chip is %s' % (tag, '; '.join(why)))
+
+
+def _judge_tiles(tag, r, want, fails):
+    """The four shared tiles: present, in order, the right kind of text, equal to `want`."""
+    st = r.get('stats') or []
+    keys = [x[0] for x in st]
+    if keys != STAT_KEYS:
+        fails.append('%s: the stat tiles under the chart are %r, want %r ([data-lgstat])' % (tag, keys, STAT_KEYS))
+        return
+    got = {x[0]: (x[1] or '', x[2] or '') for x in st}
+    if not re.match(r'^(\d+%|--)$', got['winrate'][0]):
+        fails.append('%s: WIN RATE reads %r, not a percent' % (tag, got['winrate'][0]))
+    if not re.match(r'^(\d+\.\d\d|no losses|--)$', got['pf'][0]):
+        fails.append('%s: PROFIT FACTOR reads %r' % (tag, got['pf'][0]))
+    if not re.match(r'^\$[\d,]+\.\d\d$', got['maxdd'][0]):
+        fails.append('%s: MAX DRAWDOWN reads %r, not a positive dollar amount' % (tag, got['maxdd'][0]))
+    if not re.match(r'^\d+$', got['trades'][0]):
+        fails.append('%s: TRADES reads %r, not a count' % (tag, got['trades'][0]))
+    for k in STAT_KEYS:
+        wv, ws = want[k]
+        if got[k][0] != wv:
+            fails.append('%s: %s reads %r, the fixture says %r' % (tag, k, got[k][0], wv))
+        if ws is not None and got[k][1] != ws:
+            fails.append('%s: the %s tile line reads %r, the fixture says %r' % (tag, k, got[k][1], ws))
 
 
 def _judge(data, fixture):
@@ -1323,10 +1500,42 @@ def _judge(data, fixture):
             fails.append('%s: the board rendered almost nothing (%s chars)' % (nm, r.get('appLen')))
         if 'silent' in (r.get('fresh') or {}):
             fails.append('%s: the fresh doc (24 s old, in the session) shows %r' % (nm, r['fresh']['silent']))
+        _judge_tiles(nm, r, expected_stats(fixture.get('trades_all') or []), fails)
+        if r.get('moreBtn') != 'false':
+            fails.append('%s: the More stats fold is not there closed (aria-expanded=%r)' % (nm, r.get('moreBtn')))
+        if r.get('oldStats'):
+            fails.append('%s: the old stat tiles are still drawn beside the shared ones' % nm)
         if not r.get('top') or r['top'][0] != 'flat':
             fails.append('%s: the top bar WEBULL chip reads %r, want FLAT' % (nm, r.get('top')))
         _topbox(nm, r, fails)
     _judge_variants(data, fixture, fails, unfinished, why)
+    got_st = data.get('stats') or {}
+    for nm, rg, doc, vp, _th, cm in _stats_cases(fixture):
+        tag = 'stats [%s]' % nm
+        r = got_st.get(nm)
+        if r is None:
+            unfinished.append('%s: never ran (why=%s)' % (tag, why))
+            continue
+        if r.get('call') != 'OK':
+            fails.append('%s: renderApp threw -- %s' % (tag, _first(r.get('call'))))
+            continue
+        _errs(tag, r, fails)
+        if r.get('badTok'):
+            fails.append('%s: the page shows %r' % (tag, r['badTok']))
+        tr = doc.get('trades_all') or []
+        want = expected_stats(tr, _cutoff(rg))
+        if want['trades'][0] == '0' or (rg != 'ALL' and want['trades'][0] == str(len(tr))):
+            fails.append('%s: the probe\'s own case is wrong: %s of %s trades in the range' % (tag, want['trades'][0], len(tr)))
+        _judge_tiles(tag, r, want, fails)
+        if nm == '$0 trade':
+            if '1 even' not in (want['winrate'][1] or ''):
+                fails.append('%s: the probe\'s $0 fixture trade did not land (%r)' % (tag, want['winrate'][1]))
+            cw = month_won(tr, cm)
+            if r.get('calWon') != cw:
+                fails.append("%s: the calendar's %s '%% won' reads %r, want %r (a $0 trade is neither a win nor a loss)"
+                             % (tag, cm, r.get('calWon'), cw))
+        if vp.startswith('phone') and (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1:
+            fails.append('%s: the page scrolls sideways on a phone (sticking out: %s)' % (tag, ', '.join(r.get('wide') or []) or '?'))
     res = data.get('inter')
     if res is None:
         unfinished.append('interaction run: never ran (why=%s)' % why)
@@ -1365,6 +1574,23 @@ def _judge(data, fixture):
         lg = res.get('legend') or {}
         if not lg.get('off') or 'ORB' not in (lg.get('stored') or ''):
             fails.append('%s: switching the ORB line off was not remembered (%s)' % (tag, lg))
+        fo = res.get('fold') or {}
+        if not fo:
+            fails.append('%s: no More stats fold ([data-lgmore="qb"])' % tag)
+        else:
+            if fo.get('before') != 'false' or fo.get('open') != 'true' or fo.get('panel') != 'shown' or fo.get('stored') != '1':
+                fails.append('%s: More stats did not open on a tap (aria-expanded %s -> %s, panel %s, stored %r)'
+                             % (tag, fo.get('before'), fo.get('open'), fo.get('panel'), fo.get('stored')))
+            if (fo.get('groups') or [])[:4] != ['Returns', 'Risk', 'Mix', 'Account']:
+                fails.append('%s: More stats groups are %r, want Returns, Risk, Mix, Account' % (tag, fo.get('groups')))
+            miss = [a for a in ACCOUNT_ROWS if not any(x.startswith(a) for x in (fo.get('acct') or []))]
+            if miss:
+                fails.append('%s: the Account group is missing %s (has %r)' % (tag, miss, fo.get('acct')))
+            if fo.get('bad'):
+                fails.append('%s: More stats shows %r' % (tag, fo['bad']))
+            if fo.get('closed') != 'false' or fo.get('panelAfter') != 'hidden' or fo.get('stored2') != '0':
+                fails.append('%s: More stats did not close again (aria-expanded %s, panel %s, stored %r)'
+                             % (tag, fo.get('closed'), fo.get('panelAfter'), fo.get('stored2')))
     r = cases.get('oldboards')
     if r is None:
         unfinished.append('oldboards: never ran (why=%s)' % why)
@@ -1372,6 +1598,9 @@ def _judge(data, fixture):
         fails.append('oldboards: renderApp threw -- %s' % _first(r.get('call')))
     else:
         _errs('oldboards', r, fails)
+        if r.get('statTilesAll') or not r.get('oldStats'):
+            fails.append('oldboards: ?oldboards=1 does not show the old Stats tiles (shared tiles %s, old tiles %s)'
+                         % (r.get('statTilesAll'), r.get('oldStats')))
         if r.get('chart') or not r.get('oldChart') or r.get('retired'):
             fails.append('oldboards: ?oldboards=1 does not show the old Webull chart and strategy list '
                          '(shared chart=%s, old chart=%s, Retired group=%s)'
@@ -1582,10 +1811,11 @@ def _report(t0, attempt, may_retry, chrome, alt_index, fixture):
             print('  note: ' + n)
         return FAIL
     lap = (data.get('cases') or {}).get('laptop/dark') or {}
-    print('WEBULLPROBE: PASS (VERSION=%s, %d cases + interaction + %d freshness variants + oldboards, %.1fs; '
-          'laptop chart %spx, %s dates, %s price labels, %s caveat days, marker %r)'
-          % (data.get('VERSION'), len(CASES), len(data.get('vars') or {}), elapsed, lap.get('chartH'), lap.get('chartDates'),
-             lap.get('chartTicks'), lap.get('chartBands'), lap.get('markText')))
+    print('WEBULLPROBE: PASS (VERSION=%s, %d cases + interaction + %d stats cases + %d freshness variants + oldboards, %.1fs; '
+          'laptop chart %spx, %s dates, %s price labels, %s caveat days, marker %r; tiles %s)'
+          % (data.get('VERSION'), len(CASES), len(data.get('stats') or {}), len(data.get('vars') or {}), elapsed, lap.get('chartH'),
+             lap.get('chartDates'), lap.get('chartTicks'), lap.get('chartBands'), lap.get('markText'),
+             ' | '.join('%s %s' % (x[0], x[1]) for x in (lap.get('stats') or []))))
     if first:
         print('  FLAKE: attempt 1 did not pass on this same file, the retry did. It said:')
         for f in first[1][:4]:

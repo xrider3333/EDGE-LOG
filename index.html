@@ -599,6 +599,10 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-system-body{margin-top:6px}
 .qbx-system-body .qb-section-hd{margin-top:16px}
 .qbx-system-body .qb-section-hd:first-child{margin-top:2px}
+/* WEBULL PAPER on the shared stats (LEDGER unify step 6): the four tiles and the More stats fold sit right
+   under the chart, as on REAL; ?oldboards=1 keeps the old Stats section below Account for one version */
+.qbx-lgstats{padding:16px 0 0}
+.qbx-lgstats .lg-more{margin-bottom:18px}
 @media(min-width:1100px){
   .qb-shell{
     max-width:1320px;
@@ -635,6 +639,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
   .qbx-activity{grid-area:activity}
   .qbx-system{grid-area:system}
   .qbx-footer{grid-area:footer}
+  .qb-shell.qbx-lg6{grid-template-areas:"hero side" "chart side" "stats side" "account side" "history side" "activity side" "system side" "footer side"}
 }
 
 /* ══════════════════════════ HOME tab (v73.651) ══════════════════════════
@@ -38030,9 +38035,6 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         };
         const qeCum=qeCumFromTrades(trades);
         const closedSum=trades.reduce((s,t)=>s+qePnlOf(t),0);
-        const wins=trades.filter(t=>qePnlOf(t)>0).length;
-        const winRate=closedN?(wins/closedN*100):null;
-        const avgTrade=closedN?(closedSum/closedN):null;
         const posCount=Object.keys(positions).length;
         const openExposure=Object.values(positions).reduce((s,p)=>s+(Number(p.shares)||0)*(Number(p.entry_px)||0),0);
         // today's closed trades at the P&L of record (Webull fills) when the doc has it
@@ -38082,7 +38084,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const grossWin=winsA.reduce((s,t)=>s+t.pnl,0);
           const grossLoss=Math.abs(lossA.reduce((s,t)=>s+t.pnl,0));
           const net=nums.reduce((s,t)=>s+t.pnl,0);
-          const wr=n?winsA.length/n:0;
+          const wr=(winsA.length+lossA.length)?winsA.length/(winsA.length+lossA.length):0;   // a $0 trade is neither a win nor a loss
           const pf=grossLoss>0?grossWin/grossLoss:(grossWin>0?99:0);
           const ev=n?net/n:0;
           const avgW=winsA.length?grossWin/winsA.length:0;
@@ -38094,7 +38096,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           let streak=0,sdir=0;
           for(let i=chrono.length-1;i>=0;i--){
             const dir=chrono[i].pnl>0?1:(chrono[i].pnl<0?-1:0);
-            if(dir===0)break;
+            if(dir===0)continue;   // a $0 trade never breaks a streak (LEDGER rule)
             if(streak===0){streak=1;sdir=dir;}else if(dir===sdir)streak++;else break;
           }
           let run=0,peak=0,maxDD=0;
@@ -38164,8 +38166,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const d=qeTradeDate(t);
             if(!d)return;
             const v=qePnlOf(t);
-            if(!byDate[d])byDate[d]={pnl:0,n:0,w:0,rep:0,par:0,bo:0};
-            byDate[d].pnl+=v;byDate[d].n++;if(v>0)byDate[d].w++;if(qeRepriced(t))byDate[d].rep++;
+            if(!byDate[d])byDate[d]={pnl:0,n:0,w:0,l:0,rep:0,par:0,bo:0};
+            byDate[d].pnl+=v;byDate[d].n++;if(v>0)byDate[d].w++;else if(v<0)byDate[d].l++;if(qeRepriced(t))byDate[d].rep++;
             if(qeParityFailed(t))byDate[d].par++;
             if(t&&t.book_only)byDate[d].bo++;
           });
@@ -38179,6 +38181,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const moPnl=moDays.reduce((a,k)=>a+byDate[k].pnl,0);
           const moN=moDays.reduce((a,k)=>a+byDate[k].n,0);
           const moW=moDays.reduce((a,k)=>a+byDate[k].w,0);
+          const moL=moDays.reduce((a,k)=>a+byDate[k].l,0);   // a $0 trade is neither a win nor a loss
           const months=[...new Set(keys.map(k=>k.slice(0,7)))].sort();
           const atFirst=months.length&&cm<=months[0], atLast=months.length&&cm>=months[months.length-1];
           const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
@@ -38259,7 +38262,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<span class="lbl" style="margin:0">'+first.toLocaleString('en',{month:'long'})+' '+cy+'</span>'
             +nav('-1','◀',atFirst)+nav('1','▶',atLast)
             +'<span style="margin-left:auto;font-size:10px;color:'+(moPnl>=0?'var(--green)':'var(--red)')+'">'+qeMoney(Math.round(moPnl))
-            +'<span style="color:var(--text5)"> · '+moN+' trade'+(moN===1?'':'s')+(moN?' · '+Math.round(moW/moN*100)+'% won':'')+'</span></span></div>'
+            +'<span style="color:var(--text5)"> · '+moN+' trade'+(moN===1?'':'s')+((moW+moL)?' · '+Math.round(moW/(moW+moL)*100)+'% won':'')+'</span></span></div>'
             +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">'+cells+'</div>'
             +(!keys.length?'<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text5);text-align:center">no closed trades yet</div>':'');
           return {cal:calOnly,feedStrip:feedStripHtml,signalsStrip:signalsStripHtml,
@@ -39575,6 +39578,66 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbStatsCard=qbTilesHtml
           +'<div class="qb-disclosure qb-tap" data-qbdisclosure="morestats"><span class="qb-disclosure-arrow">'+(moreStatsOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">More stats</span></div>'
           +(moreStatsOpen?qbMoreStatsBody:'');
+        // ── LEDGER UNIFY STEP 6 (2026-10-05): TRADING-LOG's shared stats in place of the tiles above
+        // (?oldboards=1 keeps them for one version). ledgerStats over the trades that CLOSED in the chosen
+        // range, at this board's P&L of record (qePnlOf) on the New York day each one closed (qeTradeDate),
+        // walked in the order they closed (exit time, as the chart walks them), so a drawdown follows the real
+        // sequence. A $0 trade is neither a win nor a loss. Shadow legs never enter the stats: the box keeps
+        // them out of trades_all, and a row flagged shadow is dropped here as well. Four tiles (WIN RATE,
+        // PROFIT FACTOR, MAX DRAWDOWN, TRADES), then one More stats fold: Returns / Risk / Mix + this board's
+        // Account group and its best and worst trade; open / closed remembered per viewer.
+        const qbTsOf=t=>String((t&&(t.exit_ts||t.entry_ts))||'');
+        const qbIsShadowRow=t=>!!t&&(t.shadow===true||String(t.shadow||'').toLowerCase()==='true'||String(t.layer||'').toLowerCase()==='shadow');
+        const qbHoldMins=t=>{const a=Date.parse(String((t&&t.entry_ts)||'').replace(' ','T')+'Z'),b=Date.parse(String((t&&t.exit_ts)||'').replace(' ','T')+'Z');return (isFinite(a)&&isFinite(b)&&b>a)?(b-a)/60000:null;};
+        const qbStatRows=qbRangeTrades.filter(t=>!qbIsShadowRow(t)).map(t=>Object.assign({},t,{durationMins:qbHoldMins(t)}))
+          .sort((a,b)=>qbTsOf(a)<qbTsOf(b)?-1:(qbTsOf(a)>qbTsOf(b)?1:0));
+        const qbLs=ledgerStats(qbStatRows,{pnl:qePnlOf,day:qeTradeDate,sorted:true});
+        const qbMoreOpen=(()=>{let o=!!window._qbMoreStatsOpen;try{const sv=localStorage.getItem('el_qb_morestats_open');if(sv!=null)o=sv==='1';}catch(e){}return o;})();
+        // the board's own rows: the account as of its last read (not the range), then what the range's trades
+        // made at Webull's fills against the book, how many never reached Webull, fill coverage and slippage
+        const qbOwnStatGroups=()=>{
+          const sub=s=>' <span style="color:var(--text5)">'+s+'</span>';
+          const tip=(lbl,t)=>'<span title="'+t+'">'+lbl+'</span>';
+          const acct=[];
+          if(QEQUITY&&QEQUITY.net_liq!=null&&qeFin(QEQUITY.net_liq)!==null){
+            const asOf=String(QEQUITY.as_of_et||''),asDay=asOf.slice(0,10),otherDay=/^\d{4}-\d{2}-\d{2}$/.test(asDay)&&asDay!==QF.todayNY;
+            const when=asOf?((otherDay?(qbDayLabel(asDay)+' '):'')+qeFmtETTime(asOf)):'';
+            acct.push([tip('Account equity','Webull\u2019s own figure for the paper account'+(when?(', read at '+when+' New York time'):'')),ledgerMoney(Number(QEQUITY.net_liq))]);
+            if(QEQUITY.cash!=null&&qeFin(QEQUITY.cash)!==null)acct.push(['Cash',ledgerMoney(Number(QEQUITY.cash))]);
+            const chg=QEQUITY.change_today==null?null:qeFin(QEQUITY.change_today);
+            if(chg!==null){
+              const chgDay=otherDay?qbDayLabel(asDay):(QF.isToday?null:QF.dayLabel);
+              const pct=QEQUITY.change_today_pct==null?null:qeFin(QEQUITY.change_today_pct);
+              acct.push(['Account change '+(chgDay?('on '+chgDay):'today'),ledgerSigned(chg)+(pct!==null?(' ('+(pct>=0?'+':'')+qeNum(pct,2)+'%)'):''),ledgerCls(chg)]);
+            }
+          }else acct.push(['Account equity','not read yet']);
+          acct.push(['Open exposure',ledgerMoney(openExposure)+(posCount?sub(posCount+' open'):'')]);
+          acct.push(['Daily loss limit',rails.daily_loss_limit_usd!=null&&qeFin(rails.daily_loss_limit_usd)!==null?ledgerMoney(-Math.abs(Number(rails.daily_loss_limit_usd))):'--',dllNearLimit?'lg-down':'']);
+          const n=qbStatRows.length;
+          if(n){
+            let bo=0,broker=0,book=0,wb=0,part=0;
+            qbStatRows.forEach(t=>{
+              const v=qePnlOf(t);if(t.book_only)bo++;else broker+=v;
+              const a=qeFinRec(t.pnl),r=qeFinRec(t.real_pnl);book+=a!==null?a:(r!==null?r:0);
+              const s=String(t.pnl_record_src||'');if(s==='webull')wb++;else if(s==='part')part++;
+            });
+            acct.push([tip('Broker made','The P&amp;L of record of the trades in this range that reached Webull; book-only trades left out'),ledgerSigned(broker),ledgerCls(broker)]);
+            acct.push([tip('Book figure','The same trades at the book\u2019s own prices, before Webull\u2019s fills'),ledgerSigned(book),ledgerCls(book)]);
+            acct.push([tip('Book-only trades','Trades in this range that never reached Webull; they are priced from the book'),bo+' of '+n]);
+            acct.push([tip('Fill coverage','Trades in this range priced from Webull\u2019s own fills on both sides'+(part?('; '+part+' more priced from the book on one side'):'')),wb+' of '+n+' ('+Math.round(wb/n*100)+'%)']);
+          }
+          const bd=QBPAR&&QBPAR.board?QBPAR.board:null;
+          acct.push([tip('Slippage vs backtest','Webull\u2019s fills against the backtest\u2019s own prices, averaged over the last '+((bd&&bd.n)||0)+' trades (not the range); design gaps left out'),(bd&&bd.avg_exec_ps!=null)?qeCentsTxtP(bd.avg_exec_ps).replace(' a share','/share'):'not compared yet']);
+          const groups=[{title:'Account',rows:acct}];
+          if(n){
+            const pv=qbStatRows.map(qePnlOf),best=Math.max.apply(null,pv),worst=Math.min.apply(null,pv);
+            groups.push({title:'Best and worst trade',rows:[['Best trade',ledgerSigned(best),ledgerCls(best)],['Worst trade',ledgerSigned(worst),ledgerCls(worst)]]});
+          }
+          return groups;
+        };
+        const qbLgStatsHtml=LEDGER_OLDBOARDS?'':(ledgerStatStripHtml(qbLs,{id:'qb-stat-strip'})
+          +ledgerMoreStatsHtml(qbLs,(qbMoreOpen&&qbLs)?qbOwnStatGroups():[],{open:qbMoreOpen,id:'qb',
+            note:'Returns, Risk, Mix and the trade rows follow the chosen range ('+(LEDGER_RANGE_LABEL[qbRange]||qbRange)+') at the P&amp;L of record: Webull fills, else the book price. Equity, cash, exposure and the loss limit are as of the box\u2019s last update.'}));
 
         // ── 6. ACTIVITY — calendar restyled, feed/signals strips behind a disclosure.
         const qbActivityCard=qeCalHtml.cal
@@ -39733,16 +39796,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbSystemSection='<div class="qb-disclosure qb-tap" data-qbdisclosure="system" style="border-top:none"><span class="qb-disclosure-arrow">'+(systemOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">System — status, orders, readiness, integrity</span></div>'
           +(systemOpen?qbSystemBody:'');
 
-        body='<div class="qb-shell">'
+        body='<div class="qb-shell'+(LEDGER_OLDBOARDS?'':' qbx-lg6')+'">'
           +'<div class="qbx-hero">'+qbHeroHtml+'</div>'
           +'<div class="qbx-chart">'+equityHtml+qbStatusStripHtml+'</div>'
+          +(LEDGER_OLDBOARDS?'':('<div class="qbx-stats qbx-lgstats">'+qbLgStatsHtml+'</div>'))
           +'<div class="qbx-side">'
             +'<div class="qbx-side-hd">Strategies</div>'
             +legListHtml
             +'<div class="qbx-orders-mini">'+qbOrdersCompactHtml+'</div>'
           +'</div>'
           +'<div class="qbx-account qbx-section"><div class="qb-section-hd">Account</div>'+qbAccountHtml+'</div>'
-          +'<div class="qbx-stats qbx-section"><div class="qb-section-hd">Stats</div>'+qbStatsCard+'</div>'
+          +(LEDGER_OLDBOARDS?('<div class="qbx-stats qbx-section"><div class="qb-section-hd">Stats</div>'+qbStatsCard+'</div>'):'')
           +'<div class="qbx-history qbx-section"><div class="qb-section-hd">History</div>'+qbTradesCard+(ordersHtml||'')+'</div>'
           +'<div class="qbx-activity qbx-section"><div class="qb-section-hd">Activity</div>'+qbActivityCard+'</div>'
           +'<div class="qbx-system qbx-section">'+qbSystemSection+'</div>'
@@ -44225,6 +44289,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         try{const sv=localStorage.getItem('el_qb_retired_open');if(sv!=null)o=sv==='1';}catch(e){}
         window._qbRetiredOpen=!o;
         try{localStorage.setItem('el_qb_retired_open',o?'0':'1');}catch(e){}
+        renderApp();};});
+      // LEDGER shared More stats (unify step 6): open / closed, remembered per viewer
+      content.querySelectorAll('[data-lgmore="qb"]').forEach(el=>{el.onclick=()=>{
+        let o=!!window._qbMoreStatsOpen;
+        try{const sv=localStorage.getItem('el_qb_morestats_open');if(sv!=null)o=sv==='1';}catch(e){}
+        window._qbMoreStatsOpen=!o;
+        try{localStorage.setItem('el_qb_morestats_open',o?'0':'1');}catch(e){}
         renderApp();};});
       // Disclosures — each remembers open/closed per browser, same mechanism as the
       // pre-existing qqqModelOpen toggle.
