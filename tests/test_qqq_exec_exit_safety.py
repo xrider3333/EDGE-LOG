@@ -71,6 +71,7 @@ client is always a MagicMock, and tests/conftest.py's autouse fixtures already i
 api.qqq_exec._ORDER_ADAPTER / the live-stream factory / EDGELOG_HOME for every test
 here even when a test does not build its own adapter.
 """
+import sys
 import csv
 import datetime
 import itertools
@@ -81,6 +82,13 @@ from unittest.mock import MagicMock
 
 from api import qqq_exec as qe
 from api import webull_orders as WO
+
+# One generous deadline for every real-thread wait in the suite - see tests/_threadwait.py
+# for why a long deadline cannot mask a bug and a short one blocked every lane's push.
+_THREADWAIT_DIR = os.path.dirname(os.path.abspath(__file__))
+if _THREADWAIT_DIR not in sys.path:
+    sys.path.insert(0, _THREADWAIT_DIR)
+from _threadwait import WAIT_SECONDS  # noqa: E402
 
 NOOP = lambda *a, **k: None  # noqa: E731
 
@@ -2633,4 +2641,4 @@ def test_adapter_apply_unacked_close_fill_moves_toward_zero_never_past_it(tmp_pa
         assert adapter._state["broker_sent_positions"]["NOISE"]["qty"] == -2
     finally:
         done.set()
-        t.join(5)
+        t.join(timeout=WAIT_SECONDS)

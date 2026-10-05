@@ -44,6 +44,7 @@ MagicMock or a tiny local fake, and tests/conftest.py's autouse fixtures already
 isolate api.qqq_exec._ORDER_ADAPTER / the live-stream factory / EDGELOG_HOME for every
 test here even when a test does not build its own adapter.
 """
+import sys
 import csv
 import datetime
 import json
@@ -55,6 +56,13 @@ from unittest.mock import MagicMock
 from api import cloud_signal as cs
 from api import qqq_exec as qe
 from api import webull_orders as WO
+
+# One generous deadline for every real-thread wait in the suite - see tests/_threadwait.py
+# for why a long deadline cannot mask a bug and a short one blocked every lane's push.
+_THREADWAIT_DIR = os.path.dirname(os.path.abspath(__file__))
+if _THREADWAIT_DIR not in sys.path:
+    sys.path.insert(0, _THREADWAIT_DIR)
+from _threadwait import WAIT_SECONDS  # noqa: E402
 
 NOOP = lambda *a, **k: None  # noqa: E731
 
@@ -508,7 +516,7 @@ def test_second_send_while_first_is_hung_returns_blocked_without_waiting(monkeyp
         assert len(calls) == 1, "place_stock_order must never be called for the blocked send"
     finally:
         release.set()
-        t.join(timeout=5.0)
+        t.join(timeout=WAIT_SECONDS)
 
     # even after the hang clears, the blocked send is never retroactively placed
     real_time.sleep(0.05)
@@ -544,7 +552,7 @@ def test_third_send_goes_through_once_the_hang_clears(monkeypatch):
         assert blocked["mode"] == "BLOCKED"
     finally:
         release.set()
-        t.join(timeout=5.0)
+        t.join(timeout=WAIT_SECONDS)
 
     # send 1 has now resolved -- a fresh send must go straight through, not stay blocked
     rec3 = qe._place_stock_order_with_timeout(
@@ -596,7 +604,7 @@ def test_housekeeping_skips_while_a_broker_send_is_hung_on_the_lock(tmp_path, mo
         adapter.reset_daily_pnl.assert_not_called()
     finally:
         release.set()
-        t.join(timeout=5.0)
+        t.join(timeout=WAIT_SECONDS)
 
 
 def test_housekeeping_resumes_once_the_hung_send_resolves(tmp_path, monkeypatch):
@@ -625,7 +633,7 @@ def test_housekeeping_resumes_once_the_hung_send_resolves(tmp_path, monkeypatch)
     assert qe._send_inflight_future() is not None, "still hung -- housekeeping should have skipped"
 
     release.set()
-    t.join(timeout=5.0)
+    t.join(timeout=WAIT_SECONDS)
     # give _send_inflight_future a chance to observe the now-finished future
     for _ in range(200):
         if qe._send_inflight_future() is None:
@@ -698,7 +706,7 @@ def test_save_state_persists_the_reset_streak_on_the_recovery_tick(tmp_path, mon
     while not saved and real_time.time() < deadline:
         real_time.sleep(0.02)
     stop.set()
-    t.join(timeout=3)
+    t.join(timeout=WAIT_SECONDS)
 
     assert len(pushed) == 1, "3 consecutive failures should have paged once"
     assert saved, "the recovery tick never reached save_state"

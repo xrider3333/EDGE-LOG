@@ -19,6 +19,8 @@ FakeWebullBook models ONE Webull paper account on QQQ the way the 2026-09-29 pap
   * DAY expiry (close_session) and a restart on the same state file.
 No real SDK, network or credentials; tests/conftest.py makes the adapter's waits instant.
 """
+import os
+import sys
 import datetime
 import json
 from unittest.mock import MagicMock
@@ -26,6 +28,13 @@ from unittest.mock import MagicMock
 import pytest
 
 from api import webull_orders as WO
+
+# One generous deadline for every real-thread wait in the suite - see tests/_threadwait.py
+# for why a long deadline cannot mask a bug and a short one blocked every lane's push.
+_THREADWAIT_DIR = os.path.dirname(os.path.abspath(__file__))
+if _THREADWAIT_DIR not in sys.path:
+    sys.path.insert(0, _THREADWAIT_DIR)
+from _threadwait import WAIT_SECONDS  # noqa: E402
 
 NOOP = lambda *a, **k: None  # noqa: E731
 TID = "ORB_314-20260929T143500Z-L"
@@ -1064,7 +1073,7 @@ def _lock_free_from_another_thread(ad):
             ad._lock.release()
     t = threading.Thread(target=probe)
     t.start()
-    t.join(5)
+    t.join(timeout=WAIT_SECONDS)
     return got == [True]
 
 
@@ -1110,7 +1119,7 @@ def test_resting_orders_says_none_when_the_lock_stays_busy(tmp_path, monkeypatch
         assert ad.resting_orders(SYM, lock_timeout=0.05) is None
     finally:
         done.set()
-        t.join(5)
+        t.join(timeout=WAIT_SECONDS)
     assert len(ad.resting_orders(SYM, lock_timeout=0.05)) == 1
 
 

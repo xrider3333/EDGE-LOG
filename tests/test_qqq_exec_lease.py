@@ -19,6 +19,7 @@ that can no longer overwrite another host's claim after our own writes lapsed, a
 that stands down the moment it finds the lease taken, and broker sends that need this
 host's own stamp to be fresh.
 """
+import sys
 import copy
 import os
 import threading
@@ -29,6 +30,13 @@ from unittest.mock import MagicMock
 import pytest
 
 from api import qqq_exec as qe
+
+# One generous deadline for every real-thread wait in the suite - see tests/_threadwait.py
+# for why a long deadline cannot mask a bug and a short one blocked every lane's push.
+_THREADWAIT_DIR = os.path.dirname(os.path.abspath(__file__))
+if _THREADWAIT_DIR not in sys.path:
+    sys.path.insert(0, _THREADWAIT_DIR)
+from _threadwait import WAIT_SECONDS  # noqa: E402
 
 
 class _FakeSnap:
@@ -566,7 +574,7 @@ def test_loop_claims_a_free_lease_then_ticks_and_publishes_as_the_holder(tmp_pat
         assert os.path.exists(qe.SERVING_LOCK), "a serving loop keeps its heartbeat"
     finally:
         stop.set()
-        t.join(5)
+        t.join(timeout=WAIT_SECONDS)
     assert not t.is_alive()
     assert not os.path.exists(qe.SERVING_LOCK), "and removes it when it exits"
 
@@ -586,7 +594,7 @@ def test_serving_loop_stands_down_when_another_host_takes_the_lease(tmp_path, mo
         time.sleep(0.6)                            # ...past LEASE_HOLD_SEC
         with store.lock:                           # the other host claims
             store.doc["lease"] = {"host_id": "cloud-vm", "leased_at": time.time()}
-        t.join(5)
+        t.join(timeout=WAIT_SECONDS)
         assert not t.is_alive(), "the loop must stand down, not keep ticking"
         store.fail_writes = False
         writes, ticks = len(store.sets), len(env.ticks)
@@ -601,7 +609,7 @@ def test_serving_loop_stands_down_when_another_host_takes_the_lease(tmp_path, mo
         assert not os.path.exists(qe.SERVING_LOCK)
     finally:
         stop.set()
-        t.join(5)
+        t.join(timeout=WAIT_SECONDS)
 
 
 def test_a_suspended_loop_reclaims_before_its_next_tick(tmp_path, monkeypatch):
@@ -624,7 +632,7 @@ def test_a_suspended_loop_reclaims_before_its_next_tick(tmp_path, monkeypatch):
 
     monkeypatch.setattr(qe, "tick", sleepy_tick)
     t, stop = _start_loop(store, "uid-wake", env)
-    t.join(5)
+    t.join(timeout=WAIT_SECONDS)
     stop.set()
     assert not t.is_alive(), "the loop must stand down on wake"
     assert len(env.ticks) == 2, "no tick after waking into someone else's lease"

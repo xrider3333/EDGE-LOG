@@ -10,12 +10,21 @@ test in the whole suite; these tests explicitly override that stub with their OW
 fakes to exercise the real wiring logic (thread lifecycle, exception containment, the
 standby-must-not-stream rule).
 """
+import os
+import sys
 import threading
 import time
 
 import pytest
 
 from api import qqq_exec as qe
+
+# One generous deadline for every real-thread wait in the suite - see tests/_threadwait.py
+# for why a long deadline cannot mask a bug and a short one blocked every lane's push.
+_THREADWAIT_DIR = os.path.dirname(os.path.abspath(__file__))
+if _THREADWAIT_DIR not in sys.path:
+    sys.path.insert(0, _THREADWAIT_DIR)
+from _threadwait import WAIT_SECONDS  # noqa: E402
 
 
 # WHY THE DEADLINES HERE ARE GENEROUS (2026-10-04). These tests start REAL threads and then
@@ -30,7 +39,7 @@ from api import qqq_exec as qe
 # torn down at all: if it is leaked, the predicate never becomes true no matter how long we wait,
 # so a slow pass and a real failure stay as far apart as they were. What a SHORT deadline adds is
 # only the chance of calling a healthy teardown a leak because the box was busy.
-STREAM_WAIT = 30.0
+STREAM_WAIT = WAIT_SECONDS
 
 
 def _wait_for(pred, timeout=STREAM_WAIT):
@@ -329,7 +338,7 @@ def test_real_fake_streamer_survives_a_full_serve_and_stand_down_cycle(tmp_path,
     inst = qe._qqq_stream_instance()
     assert inst.started is True
     stop.set()
-    t.join(timeout=3)
+    t.join(timeout=WAIT_SECONDS)
     assert not t.is_alive()
     assert qe._qqq_stream_instance() is None
     assert inst.stopped is True
