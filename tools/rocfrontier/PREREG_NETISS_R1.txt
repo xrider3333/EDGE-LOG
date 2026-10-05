@@ -125,3 +125,41 @@ inactive names only); a short-side profile that is only beta.
 
 Zero passes = NETISS r1 dead; no other horizons, thresholds or concepts are tried - the next family comes from the next
 mechanism.
+
+PRE-DATA ADDENDUM 1 (2026-10-05 16:20 MST, before any NETISS number - the data was photographed and hashed, never read for
+returns): MANAGER's review (inbox #89, GO WITH EDITS - walk-forward only, incremental over the RESMOM line, registered for the
+stock families' sealed-year day as a leg veto) and the data route MANAGER chose (GO BULK, inbox #92 / #93; TV ran the pull)
+folded:
+- [A1] DATA PINNED. One GET of https://www.sec.gov/Archives/edgar/daily-index/xbrl/companyfacts.zip by TV, 2026-10-05
+  16:05-16:07 MST, 1,410,049,978 bytes, sha256 db35d36bd7b34ac79fdbd32140b680e580fb6f2e81658657cc59db913f21765c (provenance
+  file beside it), replaces [D1]'s per-CIK requests. [D2]'s flat file is
+  C:\EdgeLog\_research_cache\xbrl_companyfacts\shares_asfiled_wide.csv (sha256
+  02387a4f1140c41872a7b46cf6b9657abec90ef90d09a0a2ee47ff882c2f4433, refused if different; one row per fact x filing, so a
+  value's FIRST filed date = the earliest 'filed' over its rows; facts filed on or after 2025-06-30 not extracted), with the
+  symbol -> CIK map C:\EdgeLog\_research_cache\edgar\symbol_cik_map_wide_symbols_siporb_floor_2016_2025.csv (sha256
+  19adc9badc8e9c2b999d818c9aa4b78f257835e19eacd418cdf55c0fc93f1909, refused if different; only its current-ticker rows that
+  passed TV's name check and its exact former-name rows are used; unmapped, ambiguous, mismatched and debenture / preferred /
+  unit rows give no score and are counted). TV's first build from the XBRL frames API is NOT used: a frame keeps the last-filed
+  value per period with no first-filed date and loses about a third of 2024's facts at the cut.
+- [A2] KNOWN AT THE FILED DATE + 1 SESSION (MANAGER's edit 1): a fact is usable at a rank close r when the first session after
+  its first filed date is on or before r - the draft's 'filed strictly before r's date', restated so the two readings cannot
+  drift.
+- [A3] SPLITS CROSS-CHECKED (edit 2): every split on the pinned corporate-actions calendar (sha256 e5bc8487..., from
+  2016-06-01) between a' and a must show as a change of more than 1% in the cache's split factor F within +-3 sessions, and
+  every such change in F must have its calendar split (the RESMOM pull's split rule); a name-rank whose window fails either way
+  gets NO score and is counted and listed. Before 2016-06-01 only F is available (said beside each rank's count).
+- [A4] FOREIGN FILERS AND NAMES WITHOUT FACTS (edit 3): a CIK whose share facts come only from 20-F / 40-F / 6-K filings or the
+  IFRS taxonomy, or that has no usable fact of either concept, is excluded and counted by rank and by name; the concept order
+  is unchanged.
+- [A5] DECILES (edit 4): at every rank the scored universe is also cut into ten equal-count ISS deciles, each an equal-weight
+  long-only basket at $4,000 a name marked like the cells; each decile's WF net and ROC @ $30k (and their spread over ES) are
+  printed for both horizons, so a crowded shrinker tail is visible. Reported, never a pass route.
+- [A6] BETA (edit 5, the NEWISSUE rule): the two cells stay dollar-neutral and stay primary; each cell's realised beta (its
+  daily $ P&L on ES's daily return, per $ of one side's notional) is printed for #463's drawdown days and for all WF days; a
+  cell with |realised beta| > 0.20 has its drawdown-day profile REPORTED but never credited (no incremental A2 pass, no gate,
+  no line). An ES-hedged twin of each cell - an ES overlay sized ex ante by the OLS beta (with intercept) of the cell's own
+  daily P&L on ES over the 252 sessions before the rank, zero before 252 sessions exist - is REPORTED beside it.
+- [A7] THE COMPOSITE-ISSUANCE TWIN (edit 6; Daniel & Titman 2006): for each horizon, iota_k = ISS_k - ln(total return / price
+  return) of the stock over the same as-of window a' .. a (net issuance less the part of the return paid out as dividends: cash
+  distributions count as negative issuance); a twin of each cell picked by iota_k with the same picks rule, REPORTED beside the
+  cell, never a pass route.
