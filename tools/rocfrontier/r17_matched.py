@@ -10,7 +10,8 @@
 #                                           1.0 and 0.5) -> per statistic x horizon: single false pass, power, critical value -> MATCHED.txt,
 #                                           matched.json, power.csv; refuses without READY or when the prereg or the manifest changed after parity
 #   python r17_matched.py smoke DIR [planted|null]   offline synthetic manifest (DIR's name must contain 'smoke', never under C:\EdgeLog): a
-#                                           planted giveback-cut must be readable by M1 and not by the dollar rule; a null world must not be
+#                                           planted giveback-cut must be readable by M1 and not by the dollar rule; a null world must not be,
+#                                           and 30 fresh null worlds calibrate the read on a fresh 36-month forward stretch
 #   Nothing here reads a forward P&L, commits, pushes, queues a job or writes anywhere but OUT.
 """MATCHED READ r1 - a planning computation on the walk-forward only.
 
@@ -25,9 +26,11 @@ THE STATISTICS, per ORB line, on a window of n rows, with a = the ORB leg of #46
   M2 LOSS-DAY GAIN             mean(b - a) over the rows where a < 0; claim > 0 (NaN when the window has no such row).
   M3 TAIL                      q05(b) - q05(a), the 5% quantiles of the daily leg dollars; claim > 0.
   R2 DOLLARS (Q16's rule)      sum(b - a) / its null sd; claim > 0 - here for contrast, not as a candidate.
-  KEEL                         T = mean(keel_d) / (sd(keel_d, ddof 1) / sqrt(n)) over the rows where keel_d is not NaN (keel_d = the sum over
-                               that day's TTM trades of the paired difference vs #463, 0 on days without a TTM trade); claim > 0. KEEL's
-                               matched statistic IS the mean; it sits here so the family is read together.
+  KEEL                         MEAN (primary) = mean(keel_d) over the rows where keel_d is not NaN (keel_d = the sum over that day's TTM trades of
+                               the paired difference vs #463, 0 on days without a TTM trade); claim > 0. KEEL's matched statistic IS the paired
+                               mean; it sits here so the family is read together. T_self = mean / (sd / sqrt(n)), the self-normalised form, is
+                               REPORT ONLY: it is scale-free, so halving keel_d leaves every draw's T identical and it cannot show a half edge;
+                               it is never in the family or the headline.
 
 THE NULL (no edge) is within-pair exchangeability: a circular block bootstrap of the JOINT walk-forward rows (every column together, the
 same block starts), block 21, draws of 756 rows; inside a draw every block gets ONE swap flag with probability 1/2, shared by every line:
@@ -36,13 +39,16 @@ flip; at SHRINK 0.5, b is replaced by a + 0.5 (b - a) and keel_d by 0.5 keel_d b
 
 THE READING RULE. For each statistic kind S (M1, M2, M3, R2) and horizon n, every line's statistic is computed on the first n rows of every
 null draw and standardised by its own null mean and sd, sign-oriented so that the claim direction is positive (M1 enters as -M1). The family is the
-ORB lines on S plus KEEL on its T (for R2: KEEL on dollars). The family-wise 5% critical value c(S, n) is the 95th percentile over null draws
-of the family MAX of the standardised statistic. A line's single false pass = the share of null draws where its standardised statistic is
-at or above c; its POWER = the share of TRUTH draws at or above c, at SHRINK 1.0 and 0.5. The headline, per line, is the read length at which
-the primary statistic (M1 for the ORB lines, T for KEEL) first reaches power 0.5 and 0.8, beside Q16's months for the registered rules.
+ORB lines on S plus KEEL on its MEAN (for R2: KEEL on dollars). The family-wise 5% critical value c(S, n) is the 95th percentile over null
+draws of the family MAX of the standardised statistic. A line's single false pass = the share of null draws where its standardised statistic
+is at or above c; its POWER = the share of TRUTH draws at or above c, at SHRINK 1.0 and 0.5. The headline, per line, is the read length at
+which the primary statistic (M1 for the ORB lines, MEAN for KEEL) first reaches power 0.5 and 0.8, beside Q16's months for the registered rules.
 
-TRUTH IS AN UPPER BOUND: the lines were chosen on the walk-forward, so their face-value edge carries the winner's curse. Report-only: the
-minimum track record length (Bailey and Lopez de Prado 2012) of each line's paired daily difference, at z 1.645.
+TRUTH IS AN UPPER BOUND: the lines were chosen on the walk-forward, so their face-value edge carries the winner's curse. The 5% family-wise
+rate is per READ, not per look at the forward record: if the paired stops look every ten trades, the matched read is still taken ONCE at its
+registered length. The half-edge power is meaningful only for a line NESTED in the reference (same signals, different management): shrinking
+b toward a also removes half the noise of a non-nested partner. Report-only: the minimum track record length (Bailey and Lopez de Prado 2012)
+of each line's paired daily difference, at z 1.645, and M1 with and without each leg's single worst day.
 """
 import csv, json, math, os, sys, time, warnings
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -63,14 +69,15 @@ REF = {"b463": (93.81, 3.816, 44849.0), "ORB314": (125.6, 3.95, 33735.0), "ORB23
 TOL = {"roc": 0.06, "sort": 0.01, "dd": 1.0}
 KEEL_TOL = {"roc": 0.6, "sort": 0.05, "dd": 10.0}            # KEEL's own convention (keel_eval: WF from 2016-07-27, years to 2025-06-30) - checked loosely
 SHRINK = (1.0, 0.5)                                          # TRUTH at the walk-forward edge taken at face value, and at half of it
-Q16_MONTHS = {"ORB314": "> 36", "ORB239": "> 36", "KEEL": "> 36"}    # the house's earlier read lengths (Q16, BOOK.md 10y) for the registered rules
+Q16_MONTHS = {"ORB314": "> 36", "ORB239": "> 36", "KEEL": "> 36"}    # Q16's months to power 0.5 (BOOK.md 10y) for the registered rules, ROC margin / summed dollars
 REQUIRED = ("date", "b463", "orb463", "orb314", "orb239", "keel_d")
 OPTIONAL = ("keel_line",)
 NONAN = ("b463", "orb463", "orb314", "orb239")
 ORB_LEG = {"ORB314": "orb314", "ORB239": "orb239"}
 FAMILIES = ("M1", "M2", "M3", "R2")
-PRIMARY = "M1"                                               # the headline family: M1 for the ORB lines, KEEL's T read in it
-SIGN = {"M1": -1.0, "M2": 1.0, "M3": 1.0, "R2": 1.0, "T": 1.0}   # orientation so that the claim direction is positive
+PRIMARY = "M1"                                               # the headline family: M1 for the ORB lines, KEEL's MEAN read in it
+SIGN = {"M1": -1.0, "M2": 1.0, "M3": 1.0, "R2": 1.0, "MEAN": 1.0, "T_self": 1.0}   # orientation so that the claim direction is positive
+REPORT_ONLY = "T_self"                                       # KEEL's self-normalised t: printed beside MEAN against the primary family's c, never a member
 Z_ALPHA = 1.645
 CHECK_REFS = True        # a real run holds every figure to the recorded ones; only smoke() switches it (a synthetic world cannot match them)
 SMOKE_TBD_OK = False     # only smoke() tolerates PREREG_SHA == "TBD"
@@ -125,7 +132,9 @@ def read_manifest(path):
     orb463 (the ORB leg of #463, daily $, as sized in the book), orb314 / orb239 (the lines' ORB legs, daily $, as sized in the lines), keel_d
     (KEEL's daily paired difference vs #463; NaN allowed only on the rows BEFORE KEEL's first WF day, which are excluded for KEEL only),
     keel_line (optional: KEEL line's daily $ for the keel_eval parity figure; NaN allowed on the same leading rows). Refuses: a missing column,
-    a date outside WF0..WF1, a non-increasing date, NaN in b463 / orb463 / orb314 / orb239, keel_d NaN after its first finite row."""
+    a date outside WF0..WF1, a non-increasing date, NaN in b463 / orb463 / orb314 / orb239, keel_d NaN after its first finite row, and a manifest
+    that does not cover the whole walk-forward (first row WF0, last row the last weekday on or before WF1); a row count other than the
+    walk-forward's weekday count (holidays) is only noted."""
     sha = manifest_sha(path)
     df = pd.read_csv(path)
     df.columns = [str(c).strip() for c in df.columns]
@@ -172,7 +181,11 @@ def read_manifest(path):
             i = l0 + int(np.flatnonzero(~okl[l0:])[0])
             raise SystemExit(f"refused: manifest keel_line is NaN at row {i} ({str(dates.iloc[i].date())}), after its first finite row {l0}")
     idx = pd.DatetimeIndex(dates)
-    M = {"path": path, "sha": sha, "dates": idx, "n": int(len(df)), "keel_d": kd, "keel_line": kl, "keel_first_row": k0,
+    full = pd.bdate_range(WF0, WF1)
+    if idx[0] != full[0] or idx[-1] != full[-1]:
+        raise SystemExit(f"refused: manifest must cover the whole walk-forward: first row {str(idx[0].date())} (need {str(full[0].date())}), last row "
+                         f"{str(idx[-1].date())} (need {str(full[-1].date())}, the last weekday on or before {WF1})")
+    M = {"path": path, "sha": sha, "dates": idx, "n": int(len(df)), "expected_rows": int(len(full)), "keel_d": kd, "keel_line": kl, "keel_first_row": k0,
          "keel_first": str(idx[k0].date()), "keel_rows": int(ok.sum()), "weekend_rows": int((idx.dayofweek >= 5).sum())}
     M.update(cols)
     return M
@@ -207,10 +220,11 @@ def parity(path):
     t0 = time.time()
     psha = check_prereg()
     M = read_manifest(path)
-    out = {"manifest": os.path.abspath(path), "manifest_sha256": M["sha"], "prereg_sha256": psha, "rows": M["n"], "first": str(M["dates"][0].date()),
-           "last": str(M["dates"][-1].date()), "weekend_rows": M["weekend_rows"], "keel_first": M["keel_first"], "keel_rows": M["keel_rows"],
-           "refs_checked": CHECK_REFS, "figures": {}, "lines_in": [], "lines_out": {}, "keel_parity": None, "keel_flag": False}
+    out = {"manifest": os.path.abspath(path), "manifest_sha256": M["sha"], "prereg_sha256": psha, "rows": M["n"], "expected_rows": M["expected_rows"],
+           "first": str(M["dates"][0].date()), "last": str(M["dates"][-1].date()), "weekend_rows": M["weekend_rows"], "keel_first": M["keel_first"],
+           "keel_rows": M["keel_rows"], "refs_checked": CHECK_REFS, "figures": {}, "lines_in": [], "lines_out": {}, "keel_parity": None, "keel_flag": False}
     print(f"manifest {os.path.basename(path)} sha256 {M['sha']}: {M['n']} rows {out['first']}..{out['last']}"
+          + (f"; NOTE {M['n']} rows against {M['expected_rows']} weekdays in the walk-forward (holidays are fine)" if M["n"] != M["expected_rows"] else "")
           + (f"; NOTE {M['weekend_rows']} weekend rows (the box folds weekend stamps into the Friday)" if M["weekend_rows"] else "")
           + f"; KEEL rows from {M['keel_first']} ({M['keel_rows']} of {M['n']})", flush=True)
     g = figures(M["b463"], M["dates"])
@@ -298,8 +312,17 @@ def r2(a, b):
     return (np.asarray(b, float) - np.asarray(a, float)).sum(axis=-1)
 
 
+def keel_mean(d):
+    """KEEL MEAN (primary): the paired daily difference's mean over the rows where it is not NaN (claim > 0); NaN when there is no such row."""
+    d = np.asarray(d, float)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        return np.nanmean(d, axis=-1)
+
+
 def keel_t(d):
-    """KEEL's registered paired form: mean(d) / (sd(d, ddof 1) / sqrt(n)) over the rows where d is not NaN (claim > 0)."""
+    """KEEL T_self (REPORT ONLY): mean(d) / (sd(d, ddof 1) / sqrt(n)) over the rows where d is not NaN. Self-normalised, so scale-free: halving
+    d leaves it unchanged and it cannot show a half edge - never in the family or the headline."""
     d = np.asarray(d, float)
     n = np.isfinite(d).sum(axis=-1)
     with warnings.catch_warnings():
@@ -322,16 +345,16 @@ def orb_stats(a, b, n):
 
 def keel_stats(d, n):
     d = np.asarray(d, float)[..., :n]
-    return {"T": keel_t(d), "R2": keel_sum(d)}
+    return {"MEAN": keel_mean(d), "R2": keel_sum(d), REPORT_ONLY: keel_t(d)}
 
 
 def own_stat(line, S):
-    """The statistic a line contributes to family S: the ORB lines S itself; KEEL its T, or dollars in the R2 family."""
-    return S if line in ORB_LEG else ("R2" if S == "R2" else "T")
+    """The statistic a line contributes to family S: the ORB lines S itself; KEEL its MEAN, or dollars in the R2 family (T_self is never one)."""
+    return S if line in ORB_LEG else ("R2" if S == "R2" else "MEAN")
 
 
 def kinds_of(line):
-    return ("M1", "M2", "M3", "R2") if line in ORB_LEG else ("T", "R2")
+    return ("M1", "M2", "M3", "R2") if line in ORB_LEG else ("MEAN", "R2", REPORT_ONLY)
 
 
 # ------------------------------------------------------------------ the draws: joint circular block bootstrap with one swap flag per block
@@ -364,11 +387,16 @@ def simulate(M, lines_in, ndraw=None, chunk=None, seed=None):
     A0 = np.asarray(M["orb463"], float)
     B0 = {l: np.asarray(M[ORB_LEG[l]], float) for l in orb}
     D0 = np.asarray(M["keel_d"], float) if keel else None
+    neff = {n: np.zeros(ndraw, np.int64) for n in HORIZONS} if keel else None      # KEEL's effective rows per draw: its NaN rows (before its first day) drop out
     for c0 in range(0, ndraw, chunk):
         m = min(chunk, ndraw - c0)
         idx, swap = block_draws(rng, N, m, hmax)
         A = A0[idx]
         D = D0[idx] if keel else None
+        if keel:
+            fin = np.isfinite(D)
+            for n in HORIZONS:
+                neff[n][c0:c0 + m] = fin[:, :n].sum(axis=1)
         for v, s in [("null", None)] + [(_variant_key(s), s) for s in SHRINK]:
             for l in orb:
                 B = B0[l][idx]
@@ -385,7 +413,8 @@ def simulate(M, lines_in, ndraw=None, chunk=None, seed=None):
                     for k, val in keel_stats(d, n).items():
                         raw[v]["KEEL"][k][n][c0:c0 + m] = val
     meta = {"ndraw": ndraw, "chunk": chunk, "seed": seed, "block": BLOCK, "rows_per_draw": hmax, "blocks_per_draw": -(-hmax // BLOCK), "rows": N,
-            "rng": "numpy default_rng(seed); per chunk: block starts, then swap flags - SEED and CHUNK together fix the draws", "shrink": list(SHRINK)}
+            "rng": "numpy default_rng(seed); per chunk: block starts, then swap flags - SEED and CHUNK together fix the draws", "shrink": list(SHRINK),
+            "keel_rows_eff": ({n: {"mean": float(neff[n].mean()), "min": int(neff[n].min()), "window": n} for n in HORIZONS} if keel else None)}
     return raw, meta
 
 
@@ -409,31 +438,42 @@ def crit(maxz, level=LEVEL):
 
 
 def family_read(raw, lines_in, level=LEVEL):
-    """fam[S][n] = {crit, fwer, lines: {line: {own_stat, sd_null, null_mean, false_pass, power: {shrink: p}}}}.
+    """fam[S][n] = {crit, fwer, members, lines: {line: {own_stat, sd_null, null_mean, false_pass, power: {shrink: p}}}, report_only}.
     Each line's statistic is oriented claim-positive and standardised by its OWN null mean and sd (CHOICE: the null mean is about zero for
-    M1, M3, R2 and T by the swap's symmetry, but M2 conditions on a's losing days and its null mean need not be - centring keeps the family
-    max from being owned by the line with the largest offset; for a single line the pass decision is the same either way)."""
+    M1, M3, R2 and MEAN by the swap's symmetry, but M2 conditions on a's losing days and its null mean need not be - centring keeps the family
+    max from being owned by the line with the largest offset; for a single line the pass decision is the same either way).
+    report_only (the primary family): KEEL's T_self read against the same c as a what-if - it is scale-free, so its power is the same at every
+    shrink; it never enters the family max."""
     fam = {}
     for S in FAMILIES:
         members = [(l, own_stat(l, S)) for l in lines_in]
         fam[S] = {}
         for n in HORIZONS:
             z0, zt, info = {}, {}, {}
-            for l, k in members:
+
+            def standardise(l, k):
                 x0 = SIGN[k] * raw["null"][l][k][n]
                 fin = x0[np.isfinite(x0)]
                 mu = float(fin.mean()) if len(fin) else float("nan")
                 sd = float(np.std(fin, ddof=1)) if len(fin) > 1 else float("nan")
-                z0[l] = _z(x0, mu, sd)
-                zt[l] = {s: _z(SIGN[k] * raw[_variant_key(s)][l][k][n], mu, sd) for s in SHRINK}
-                info[l] = {"own_stat": k, "sd_null": sd, "null_mean": mu, "n_null_nan": int(len(x0) - len(fin)),
-                           "truth_mean": {s: float(np.nanmean(SIGN[k] * raw[_variant_key(s)][l][k][n])) for s in SHRINK}}
+                zt_ = {s: _z(SIGN[k] * raw[_variant_key(s)][l][k][n], mu, sd) for s in SHRINK}
+                rec = {"own_stat": k, "sd_null": sd, "null_mean": mu, "n_null_nan": int(len(x0) - len(fin)),
+                       "truth_mean": {s: float(np.nanmean(SIGN[k] * raw[_variant_key(s)][l][k][n])) for s in SHRINK}}
+                return _z(x0, mu, sd), zt_, rec
+            for l, k in members:
+                z0[l], zt[l], info[l] = standardise(l, k)
             maxz = np.max(np.stack([z0[l] for l, _ in members]), axis=0)
             c = crit(maxz, level)
             for l, k in members:
                 info[l]["false_pass"] = float(np.mean(z0[l] >= c))
                 info[l]["power"] = {s: float(np.mean(zt[l][s] >= c)) for s in SHRINK}
-            fam[S][n] = {"crit": c, "fwer": float(np.mean(maxz >= c)), "members": [l for l, _ in members], "lines": info}
+            extra = {}
+            if S == PRIMARY and "KEEL" in lines_in and REPORT_ONLY in raw["null"]["KEEL"]:
+                zr, ztr, rec = standardise("KEEL", REPORT_ONLY)
+                rec.update({"line": "KEEL", "false_pass": float(np.mean(zr >= c)), "power": {s: float(np.mean(ztr[s] >= c)) for s in SHRINK},
+                            "note": "report only, not in the family: self-normalised and scale-free, so its power is the same at every shrink"})
+                extra["KEEL_" + REPORT_ONLY] = rec
+            fam[S][n] = {"crit": c, "fwer": float(np.mean(maxz >= c)), "members": [l for l, _ in members], "lines": info, "report_only": extra}
     return fam
 
 
@@ -506,7 +546,8 @@ def wf_face_value(M, lines_in):
                      "M1_ex_worst": m1_ex_worst(a, b, M["dates"])}
         else:
             d = M["keel_d"][np.isfinite(M["keel_d"])]
-            wf[l] = {"T": float(keel_t(d)), "R2_sum": float(keel_sum(d)), "rows": int(len(d)), "trade_rows": int((d != 0).sum()), "min_trl": min_trl(d)}
+            wf[l] = {"MEAN": float(keel_mean(d)), REPORT_ONLY: float(keel_t(d)), "R2_sum": float(keel_sum(d)), "rows": int(len(d)),
+                     "trade_rows": int((d != 0).sum()), "min_trl": min_trl(d)}
     return wf
 
 
@@ -553,6 +594,10 @@ def run(path):
                 for s in SHRINK:
                     rows.append({"line": l, "statistic": S, "horizon": n, "shrink": s, "false_pass": r["false_pass"], "power": r["power"][s], "crit": fam[S][n]["crit"],
                                  "own_stat": r["own_stat"]})
+            for r in (fam[S][n].get("report_only") or {}).values():                  # KEEL's T_self rows, own_stat "T_self": report only
+                for s in SHRINK:
+                    rows.append({"line": r["line"], "statistic": S, "horizon": n, "shrink": s, "false_pass": r["false_pass"], "power": r["power"][s],
+                                 "crit": fam[S][n]["crit"], "own_stat": r["own_stat"]})
     os.makedirs(OUT, exist_ok=True)
     pd.DataFrame(rows).to_csv(os.path.join(OUT, "power.csv"), index=False)
     lines = report_lines(summ)
@@ -565,9 +610,11 @@ def run(path):
 def report_lines(s):
     fam, H, wf = s["families"], s["headline"], s["wf_face_value"]
     st = s["settings"]
+    ke = st.get("keel_rows_eff") or {}
     out = [f"MATCHED READ r1 - the power of a forward read on a statistic matched to each line's mechanism (walk-forward only; no forward P&L read)",
            f"prereg sha256 {s['prereg_sha256']}; manifest sha256 {s['manifest_sha256']}; {s['rows']} rows {s['first']}..{s['last']}; KEEL rows from {s['keel_first']} "
-           f"({s['keel_rows']})",
+           f"({s['keel_rows']})" + ("; effective KEEL rows per null draw (its rows before that day drop out of a window): "
+                                   + ", ".join(f"{months(int(n))} months mean {v['mean']:.1f} min {v['min']}" for n, v in ke.items()) if ke else ""),
            f"lines in: {', '.join(s['lines_in'])}" + ("; out: " + "; ".join(f"{l} ({w})" for l, w in s["lines_out"].items()) if s["lines_out"] else "")
            + f"; KEEL parity: {s['keel_parity']}" + (" - FLAG: KEEL's paired difference is unverified" if s["keel_flag"] else "")
            + ("" if s["refs_checked"] else "; recorded figures NOT held (smoke)"),
@@ -575,9 +622,13 @@ def report_lines(s):
            f"null = within-pair exchangeability (one swap flag per block, p 1/2, shared by every line: (a, b) exchanged for both ORB lines, keel_d's sign flipped); "
            f"truth = the same draws unswapped at shrink {', '.join(f'{x:g}' for x in SHRINK)}",
            f"family-wise false pass {s['level']:.0%} per statistic and horizon: c(S, n) = the 95th percentile over null draws of the family max of the standardised "
-           f"(own null mean and sd, claim-positive) statistic; family = the ORB lines on S plus KEEL on T (R2: KEEL on dollars)",
+           f"(own null mean and sd, claim-positive) statistic; family = the ORB lines on S plus KEEL on MEAN (R2: KEEL on dollars)",
            "TRUTH is an UPPER bound: the lines were chosen on the walk-forward, so their face-value edge carries the winner's curse; SHRINK 0.5 halves the "
-           "day-by-day difference and with it the noise in it - read it as a planning sensitivity, not a second truth"]
+           "day-by-day difference and with it the noise in it - read it as a planning sensitivity, not a second truth",
+           "the 5% family-wise rate is per READ, not per look at the forward record: if the paired stops look every ten trades, the matched read is still "
+           "taken ONCE at its registered length",
+           "the half-edge power (shrink 0.5) is meaningful only for a line NESTED in the reference (same signals, different management): shrinking b toward a "
+           "also removes half the noise of a non-nested partner"]
     if s.get("parity_figures"):
         for l, p in s["parity_figures"].items():
             g = p["got"]
@@ -588,16 +639,23 @@ def report_lines(s):
         if l in ORB_LEG:
             out.append(f"WF face value {l}: M1 {w['M1']:+.4f}, M2 {w['M2']:+,.1f} $/loss-day, M3 {w['M3']:+,.1f} $, summed difference {w['R2_sum']:+,.0f} $ over {w['rows']} rows")
         else:
-            out.append(f"WF face value {l}: T {w['T']:+.3f} over {w['rows']} rows ({w['trade_rows']} with a TTM trade), summed difference {w['R2_sum']:+,.0f} $")
+            out.append(f"WF face value {l}: MEAN {w['MEAN']:+,.1f} $/row over {w['rows']} rows ({w['trade_rows']} with a TTM trade), summed difference {w['R2_sum']:+,.0f} $; "
+                       f"{REPORT_ONLY} {w[REPORT_ONLY]:+.3f} (report only)")
     out.append("statistic x horizon (single false pass | power at shrink 1.0 | power at shrink 0.5 | c(S, n) | family-wise false pass):")
-    out.append(f"  {'line':7s} {'stat':5s} {'own':4s} {'months':>6s} {'false':>7s} {'pow1.0':>7s} {'pow0.5':>7s} {'crit':>7s} {'fwer':>6s} {'sd_null':>12s}")
+    out.append(f"  {'line':7s} {'stat':5s} {'own':6s} {'months':>6s} {'false':>7s} {'pow1.0':>7s} {'pow0.5':>7s} {'crit':>7s} {'fwer':>6s} {'sd_null':>12s}")
+    row = lambda l, S, r, f, n, tag="": (f"  {l:7s} {S:5s} {r['own_stat']:6s} {months(n):6d} {r['false_pass']:7.3f} {r['power'][1.0]:7.3f} {r['power'][0.5]:7.3f} "
+                                         f"{f['crit']:7.3f} {f['fwer']:6.3f} {r['sd_null']:12.4g}{tag}")
     for S in FAMILIES:
         for n in HORIZONS:
             f = fam[S][n]
             for l in s["lines_in"]:
-                r = f["lines"][l]
-                out.append(f"  {l:7s} {S:5s} {r['own_stat']:4s} {months(n):6d} {r['false_pass']:7.3f} {r['power'][1.0]:7.3f} {r['power'][0.5]:7.3f} {f['crit']:7.3f} "
-                           f"{f['fwer']:6.3f} {r['sd_null']:12.4g}")
+                out.append(row(l, S, f["lines"][l], f, n))
+            for r in (f.get("report_only") or {}).values():
+                out.append(row(r["line"], S, r, f, n, "  (report only, not in the family)"))
+    if any(f.get("report_only") for S in FAMILIES for f in fam[S].values()):
+        out.append(f"KEEL {REPORT_ONLY} (report only, never in the family or the headline): the self-normalised t is scale-free - halving keel_d leaves every "
+                   f"draw's {REPORT_ONLY} identical, so its power at shrink 0.5 equals its power at 1.0 and it cannot show a half edge; its rows above are read "
+                   f"against the {PRIMARY} family's c as a what-if")
     for l in s["lines_in"]:
         t = wf[l]["min_trl"]
         out.append(f"minTRL (report only) {l}: paired daily difference mean {t.get('mean', float('nan')):,.1f} sd {t.get('sd', float('nan')):,.1f} SR/row "
@@ -608,8 +666,8 @@ def report_lines(s):
             out.append(f"M1 without the worst day (report only) {l}: whole WF {w['M1']:+.4f}; without a's worst day {w['a_worst_day']} ({w['a_worst']:+,.0f}) "
                        f"{w['M1_ex_a_worst']:+.4f}; without b's worst day {w['b_worst_day']} ({w['b_worst']:+,.0f}) {w['M1_ex_b_worst']:+.4f}; without both {w['M1_ex_both']:+.4f}"
                        + (" (the same day)" if w["same_row"] else ""))
-    out.append(f"HEADLINE - read length at which the primary statistic ({PRIMARY} for the ORB lines, T for KEEL) first reaches power 0.5 / 0.8, family-wise false pass "
-               f"{s['level']:.0%}; beside it Q16's months for the registered rules (ROC margin / dollars):")
+    out.append(f"HEADLINE - read length at which the primary statistic ({PRIMARY} for the ORB lines, MEAN for KEEL) first reaches power 0.5 / 0.8, family-wise false "
+               f"pass {s['level']:.0%}; beside it Q16's months to power 0.5 for the registered rules (ROC margin / summed dollars):")
     out.append(f"  {'line':7s} {'stat':4s} {'power 12/24/36 at 1.0':>22s} {'to 0.5 at 1.0':>14s} {'to 0.8 at 1.0':>14s} {'to 0.5 at 0.5':>14s} {'to 0.8 at 0.5':>14s} {'Q16':>6s}")
     for l in s["lines_in"]:
         h = H[l]
@@ -636,45 +694,88 @@ def _planted(a, p_loss, p_win, rng):
     return b
 
 
-def synth_manifest(path, world="planted", seed=7):
-    """2,346 weekday rows WF0..WF1: a = orb463 fat-tailed (t df 4, scaled, small positive edge) with persistent volatility; planted: orb314 = a with
-    the 25% / 60% + 8% / 50% giveback-cut, orb239 the weaker 10% / 3% cut; null: orb314 / orb239 = a's volatility path with independent t
-    innovations (same distribution, no cut); keel_d = a TTM trade on 30% of rows with a small positive mean, NaN before 2016-07-27;
-    b463 = a + two other synthetic legs; keel_line omitted. Returns the planted facts (the mean differences) for the smoke print."""
+KEEL_EDGE = 600.0        # the synthetic world's keel_d mean on a TTM-trade day (30% of rows): large enough that the sign flip in the null is visible
+
+
+def synth_world(world="planted", seed=7, forward=0, keel_edge=KEEL_EDGE):
+    """The synthetic world as arrays: the walk-forward's weekday rows (2,346) plus `forward` more rows generated by the same process after them
+    (the continuation a forward read would see). a = orb463 fat-tailed (t df 4, scaled, small positive edge) with persistent volatility;
+    planted: orb314 = a with the 25% / 60% + 8% / 50% giveback-cut, orb239 the weaker 10% / 3% cut; null: orb314 / orb239 = a's volatility path
+    with independent t innovations (same distribution, no cut); keel_d = a TTM trade on 30% of rows with mean keel_edge on those days (0 for a
+    KEEL with no edge), NaN before 2016-07-27 in the history; b463 = a + two other synthetic legs."""
     rng = np.random.default_rng(seed)
     dates = pd.bdate_range(WF0, WF1)
     N = len(dates)
-    lv = np.zeros(N)
-    for i in range(1, N):
+    T = N + int(forward)
+    lv = np.zeros(T)
+    for i in range(1, T):
         lv[i] = 0.97 * lv[i - 1] + rng.normal(0.0, 0.15)
     sig = np.exp(lv)
-    a = 40.0 + 600.0 * sig * rng.standard_t(4, N)
+    a = 40.0 + 600.0 * sig * rng.standard_t(4, T)
     if world == "planted":
         b314, b239 = _planted(a, 0.25, 0.08, rng), _planted(a, 0.10, 0.03, rng)
     elif world == "null":
-        b314, b239 = 40.0 + 600.0 * sig * rng.standard_t(4, N), 40.0 + 600.0 * sig * rng.standard_t(4, N)
+        b314, b239 = 40.0 + 600.0 * sig * rng.standard_t(4, T), 40.0 + 600.0 * sig * rng.standard_t(4, T)
     else:
         raise SystemExit(f"refused: unknown smoke world {world!r} (planted | null)")
-    trade = rng.random(N) < 0.30
-    keel = np.where(trade, 150.0 + 1500.0 * rng.standard_t(4, N), 0.0)
+    trade = rng.random(T) < 0.30
+    keel = np.where(trade, float(keel_edge) + 1500.0 * rng.standard_t(4, T), 0.0)
     k0 = int(np.searchsorted(dates.values, np.datetime64("2016-07-27")))
     keel[:k0] = np.nan
-    leg2 = 60.0 + 900.0 * sig * rng.standard_t(4, N)
-    leg3 = 30.0 + 400.0 * sig * rng.standard_t(4, N)
+    leg2 = 60.0 + 900.0 * sig * rng.standard_t(4, T)
+    leg3 = 30.0 + 400.0 * sig * rng.standard_t(4, T)
     b463 = a + leg2 + leg3
+    cut = lambda x: x[:N]
+    W = {"dates": dates, "n": N, "b463": cut(b463), "orb463": cut(a), "orb314": cut(b314), "orb239": cut(b239), "keel_d": cut(keel), "keel_first_row": k0,
+         "fwd": ({"orb463": a[N:], "orb314": b314[N:], "orb239": b239[N:], "keel_d": keel[N:], "n": int(forward)} if forward else None)}
+    W["facts"] = {"rows": N, "keel_first_row": k0, "mean_diff_314": float((W["orb314"] - W["orb463"]).mean()), "sd_diff_314": float((W["orb314"] - W["orb463"]).std()),
+                  "mean_diff_239": float((W["orb239"] - W["orb463"]).mean()), "M1_314": float(m1(W["orb463"], W["orb314"])),
+                  "M1_239": float(m1(W["orb463"], W["orb239"])), "keel_mean": float(np.nanmean(W["keel_d"]))}
+    return W
+
+
+def synth_manifest(path, world="planted", seed=7):
+    """synth_world written as a manifest csv (keel_line omitted; keel_d blank before 2016-07-27). Returns the planted facts for the smoke print."""
+    W = synth_world(world, seed)
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(REQUIRED)
-        for i in range(N):
-            w.writerow([str(dates[i].date()), f"{b463[i]:.4f}", f"{a[i]:.4f}", f"{b314[i]:.4f}", f"{b239[i]:.4f}", "" if not np.isfinite(keel[i]) else f"{keel[i]:.4f}"])
-    return {"rows": N, "keel_first_row": k0, "mean_diff_314": float((b314 - a).mean()), "sd_diff_314": float((b314 - a).std()),
-            "mean_diff_239": float((b239 - a).mean()), "M1_314": float(m1(a, b314)), "M1_239": float(m1(a, b239)), "keel_mean": float(np.nanmean(keel))}
+        for i in range(W["n"]):
+            k = W["keel_d"][i]
+            w.writerow([str(W["dates"][i].date()), f"{W['b463'][i]:.4f}", f"{W['orb463'][i]:.4f}", f"{W['orb314'][i]:.4f}", f"{W['orb239'][i]:.4f}",
+                        "" if not np.isfinite(k) else f"{k:.4f}"])
+    return W["facts"]
+
+
+def null_calibration(n_worlds=30, ndraw=200, chunk=200, seed0=1000, horizon=756):
+    """The read calibrated on fresh no-edge worlds: for each of n_worlds null worlds (its own seed; no edge for KEEL either, so every line is null)
+    the null is built from its walk-forward history (ndraw draws) and the primary statistics are read ONCE on a fresh `horizon`-row forward
+    stretch of the same world, standardised by that world's null mean and sd and held to its family critical value. Returns the share of
+    worlds in which ORB314's M1 passes (about its single false pass) and the share in which any line passes (about the family-wise 5%)."""
+    hit314, hitfam, z314 = 0, 0, []
+    for w in range(n_worlds):
+        W = synth_world("null", seed=seed0 + w, forward=horizon, keel_edge=0.0)
+        raw, _ = simulate(W, list(LINES), ndraw=ndraw, chunk=chunk, seed=seed0 + 10000 + w)
+        f = family_read(raw, list(LINES))[PRIMARY][horizon]
+        F = W["fwd"]
+        z = {}
+        for l in LINES:
+            k = own_stat(l, PRIMARY)
+            x = SIGN[k] * (m1(F["orb463"], F[ORB_LEG[l]]) if l in ORB_LEG else keel_mean(F["keel_d"]))
+            z[l] = float((x - f["lines"][l]["null_mean"]) / f["lines"][l]["sd_null"])
+        hit314 += int(z["ORB314"] >= f["crit"])
+        hitfam += int(max(z.values()) >= f["crit"])
+        z314.append(z["ORB314"])
+    return {"n_worlds": n_worlds, "ndraw": ndraw, "horizon": horizon, "share_orb314": hit314 / n_worlds, "share_family": hitfam / n_worlds,
+            "passes_orb314": hit314, "passes_family": hitfam, "z_orb314_mean": float(np.mean(z314)), "z_orb314_sd": float(np.std(z314, ddof=1))}
 
 
 def smoke(d, world="planted"):
     """A synthetic manifest under DIR (name contains 'smoke', never under C:\\EdgeLog), then: the refusals before parity, parity (recorded figures
     reported, not held; KEEL 'not supplied'), run at NDRAW 400 / CHUNK 200, the assertions of the world, the refusals after. The numbers mean
-    nothing; the world only shows the read has power where it should and none where it should not."""
+    nothing; the world only shows the read has power where it should and none where it should not. The null world's power check is a GROSS
+    one (power <= 0.15 at every horizon): the seed-7 realisation happens to have orb314 worse than orb463 by chance, so its face-value M1 sits
+    on the wrong side of the claim; the calibration that matters is null_calibration (30 fresh null worlds, one fresh forward read each)."""
     global OUT, CHECK_REFS, SMOKE_TBD_OK, NDRAW, CHUNK
     root = os.path.abspath(d)
     assert "smoke" in os.path.basename(root).lower() and not os.path.normcase(root).startswith(os.path.normcase(r"C:\EdgeLog")), \
@@ -714,23 +815,40 @@ def smoke(d, world="planted"):
         singles = {l: f["lines"][l]["false_pass"] for l in f["members"]}
         assert all(v <= f["fwer"] + 1e-12 for v in singles.values()) and sum(singles.values()) >= f["fwer"] - 1e-12, (n, singles, f["fwer"])
         assert all(singles[l] >= 0.003 for l in ("ORB314", "ORB239")), f"smoke: an ORB line never passes the M1 null at {n} rows: {singles}"
-        for l in ("ORB314", "ORB239"):                                             # the swap null is centred: M1's null mean is small against its sd
+        for l in ("ORB314", "ORB239", "KEEL"):                                     # the swap / flip null is centred: the null mean is small against its sd
             r = f["lines"][l]
             assert abs(r["null_mean"]) <= 0.25 * r["sd_null"], (n, l, r["null_mean"], r["sd_null"])
+        ro = f["report_only"]["KEEL_" + REPORT_ONLY]                                  # T_self is scale-free: the same power at every shrink
+        assert ro["power"][1.0] == ro["power"][0.5] and ro["own_stat"] == REPORT_ONLY and REPORT_ONLY not in f["members"]
+    rk = fam["M1"][756]["lines"]["KEEL"]                                               # KEEL's planted edge is in force, and the flip alone removes it from the null
+    assert rk["truth_mean"][1.0] >= 2.0 * rk["sd_null"], ("KEEL MEAN truth vs null sd", rk["truth_mean"], rk["sd_null"])
+    assert abs(rk["truth_mean"][0.5] - 0.5 * rk["truth_mean"][1.0]) <= 1e-9 * abs(rk["truth_mean"][1.0]) + 1e-9
     p314 = {n: fam["M1"][n]["lines"]["ORB314"]["power"][1.0] for n in HORIZONS}
     p239 = {n: fam["M1"][n]["lines"]["ORB239"]["power"][1.0] for n in HORIZONS}
+    pk = {n: fam["M1"][n]["lines"]["KEEL"]["power"][1.0] for n in HORIZONS}
     r314 = {n: fam["R2"][n]["lines"]["ORB314"]["power"][1.0] for n in HORIZONS}
+    cal = None
     if world == "planted":
         assert p314[756] > p314[252] and p314[756] > 0.5, f"smoke: M1 power for ORB314 must grow with the read and pass 0.5 at 36 months: {p314}"
         assert p239[756] < p314[756], f"smoke: the weaker cut must read weaker: ORB239 {p239[756]:.3f} vs ORB314 {p314[756]:.3f}"
         assert r314[756] < p314[756], f"smoke: the dollar rule must read a near-zero mean difference below M1: R2 {r314[756]:.3f} vs M1 {p314[756]:.3f}"
     else:
-        assert p314[252] <= 0.10, f"smoke: a line with no edge must not be read by M1: power {p314[252]:.3f} at 12 months"
+        assert all(p314[n] <= 0.15 for n in HORIZONS), f"smoke: a line with no edge must not be read by M1 (gross check): {p314}"
+        cal = null_calibration()
+        print(f"null calibration: {cal['n_worlds']} fresh null worlds (no edge for any line) x {cal['ndraw']} draws, one fresh {months(cal['horizon'])}-month "
+              f"forward read each: ORB314's M1 passes in {cal['passes_orb314']} ({cal['share_orb314']:.3f}; band 0..0.17), any line in {cal['passes_family']} "
+              f"({cal['share_family']:.3f}; about the family-wise 5%); z of ORB314 mean {cal['z_orb314_mean']:+.2f} sd {cal['z_orb314_sd']:.2f}", flush=True)
+        assert 0.0 <= cal["share_orb314"] <= 0.17, f"smoke: the read on fresh null worlds passes ORB314 too often: {cal}"
+        assert cal["share_family"] <= 0.25, f"smoke: the read on fresh null worlds passes some line too often: {cal}"
+        s["null_calibration"] = cal
     for n in ("MATCHED.txt", "matched.json", "power.csv", "parity.json", "READY"):
         assert os.path.exists(os.path.join(OUT, n)), n
-    open(os.path.join(OUT, "MATCHED.txt"), encoding="utf-8").read().encode("ascii")
+    txt = open(os.path.join(OUT, "MATCHED.txt"), encoding="utf-8").read()
+    txt.encode("ascii")
+    assert "per READ, not per look" in txt and "NESTED in the reference" in txt and "effective KEEL rows per null draw" in txt
     pw = pd.read_csv(os.path.join(OUT, "power.csv"))
-    assert list(pw.columns)[:7] == ["line", "statistic", "horizon", "shrink", "false_pass", "power", "crit"] and len(pw) == len(FAMILIES) * len(HORIZONS) * 3 * len(SHRINK)
+    assert list(pw.columns)[:7] == ["line", "statistic", "horizon", "shrink", "false_pass", "power", "crit"]
+    assert len(pw) == len(FAMILIES) * len(HORIZONS) * 3 * len(SHRINK) + len(HORIZONS) * len(SHRINK) and (pw["own_stat"] == REPORT_ONLY).sum() == len(HORIZONS) * len(SHRINK)
     # refusals after a pass: the manifest changed after parity; READY gone
     with open(man) as f:
         txt = f.read()
@@ -750,7 +868,8 @@ def smoke(d, world="planted"):
     except SystemExit:
         pass
     print(f"SMOKE PASS ({world}; M1 power ORB314 {' / '.join(f'{p314[n]:.2f}' for n in HORIZONS)}, ORB239 {' / '.join(f'{p239[n]:.2f}' for n in HORIZONS)}, "
-          f"R2 ORB314 {' / '.join(f'{r314[n]:.2f}' for n in HORIZONS)} - meaningless; {time.time() - t0:.0f}s)", flush=True)
+          f"KEEL MEAN {' / '.join(f'{pk[n]:.2f}' for n in HORIZONS)}, R2 ORB314 {' / '.join(f'{r314[n]:.2f}' for n in HORIZONS)}"
+          + (f"; null calibration ORB314 {cal['share_orb314']:.3f}, family {cal['share_family']:.3f}" if cal else "") + f" - meaningless; {time.time() - t0:.0f}s)", flush=True)
     return s
 
 

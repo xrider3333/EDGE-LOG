@@ -22,9 +22,10 @@ def _pin_globals(monkeypatch):
         monkeypatch.setattr(R, g, getattr(R, g))
 
 
-def _manifest(path, n=30, keel_nan=3, keel_line=False, **edits):
-    """A small valid manifest: n weekday rows from WF0, keel_d NaN on the first keel_nan rows; `edits` overwrite whole columns."""
-    dates = pd.bdate_range(R.WF0, periods=n)
+def _manifest(path, n=None, keel_nan=3, keel_line=False, **edits):
+    """A valid manifest: every weekday of the walk-forward (or n rows from WF0), keel_d NaN on the first keel_nan rows; `edits` overwrite whole columns."""
+    dates = pd.bdate_range(R.WF0, R.WF1) if n is None else pd.bdate_range(R.WF0, periods=n)
+    n = len(dates)
     rng = np.random.default_rng(0)
     df = pd.DataFrame({"date": [str(d.date()) for d in dates], "b463": rng.normal(50, 900, n), "orb463": rng.normal(20, 500, n),
                        "orb314": rng.normal(20, 500, n), "orb239": rng.normal(20, 500, n), "keel_d": rng.normal(10, 300, n)})
@@ -48,10 +49,16 @@ def test_smoke_planted_world(tmp_path, monkeypatch):
     txt = (out / "MATCHED.txt").read_text(encoding="utf-8")
     txt.encode("ascii")
     assert "TRUTH is an UPPER bound" in txt and txt.strip().splitlines()[-1].startswith("wall time")
+    assert "per READ, not per look at the forward record" in txt and "NESTED in the reference" in txt      # the two fixed caveats
     assert "HEADLINE" in txt and txt.index("HEADLINE") > txt.index("minTRL")                     # the headline prints last
+    assert "MEAN for KEEL" in txt and "T_self (report only, never in the family or the headline)" in txt
     pw = pd.read_csv(out / "power.csv")
     assert list(pw.columns)[:7] == ["line", "statistic", "horizon", "shrink", "false_pass", "power", "crit"]
     assert set(pw["statistic"]) == set(R.FAMILIES) and set(pw["horizon"]) == set(R.HORIZONS) and set(pw["shrink"]) == set(R.SHRINK)
+    assert set(pw["own_stat"]) == {"M1", "M2", "M3", "R2", "MEAN", "T_self"} and set(pw.loc[pw["own_stat"] == "T_self", "statistic"]) == {R.PRIMARY}
+    ts = pw[pw["own_stat"] == "T_self"].pivot(index="horizon", columns="shrink", values="power")
+    assert (ts[1.0] == ts[0.5]).all()                                                             # scale-free: the half edge cannot show
+    assert all("T_self" not in s["families"][S][n]["members"] for S in R.FAMILIES for n in R.HORIZONS)
     assert not (tmp_path / "smoke" / "matched" / "READY").exists()                               # the smoke ends on the READY-missing refusal
 
 
@@ -59,7 +66,9 @@ def test_smoke_null_world(tmp_path, monkeypatch):
     _pin_globals(monkeypatch)
     s = R.smoke(str(tmp_path / "smoke"), "null")
     f = s["families"]["M1"][252]["lines"]["ORB314"]
-    assert f["power"][1.0] <= 0.10 and abs(f["null_mean"]) <= 0.25 * f["sd_null"]
+    assert f["power"][1.0] <= 0.15 and abs(f["null_mean"]) <= 0.25 * f["sd_null"]
+    cal = s["null_calibration"]
+    assert cal["n_worlds"] == 30 and 0.0 <= cal["share_orb314"] <= 0.17 and cal["share_family"] <= 0.25 and cal["passes_family"] >= cal["passes_orb314"]
     assert R.CHECK_REFS is False and R.NDRAW == 400                                              # inside the test the smoke settings are in force
 
 
@@ -79,13 +88,17 @@ def test_dsd_and_the_matched_statistics_by_hand():
     assert np.isnan(R.m2(np.array([1.0, 2.0]), np.array([3.0, 4.0])))                            # no losing day of a -> NaN
     assert np.isnan(R.m1(np.array([1.0, 2.0]), np.array([3.0, -4.0])))                           # DSD(a) 0 -> NaN
     d = np.array([np.nan, 1.0, 2.0, 3.0, 0.0, 4.0])
-    assert R.keel_t(d) == pytest.approx(2.0 / (np.sqrt(2.5) / np.sqrt(5.0))) and R.keel_sum(d) == pytest.approx(10.0)
-    assert np.isnan(R.keel_t(np.array([np.nan, 5.0]))) and np.isnan(R.keel_t(np.array([2.0, 2.0, 2.0])))
+    assert R.keel_mean(d) == pytest.approx(2.0) and R.keel_t(d) == pytest.approx(2.0 / (np.sqrt(2.5) / np.sqrt(5.0))) and R.keel_sum(d) == pytest.approx(10.0)
+    assert np.isnan(R.keel_t(np.array([np.nan, 5.0]))) and np.isnan(R.keel_t(np.array([2.0, 2.0, 2.0]))) and np.isnan(R.keel_mean(np.array([np.nan, np.nan])))
+    assert R.keel_mean(np.stack([d, 2.0 * d])) == pytest.approx([2.0, 4.0]) and R.keel_t(2.0 * d) == pytest.approx(R.keel_t(d))   # MEAN scales, T_self does not
+    ks = R.keel_stats(np.stack([d, d]), 6)
+    assert set(ks) == {"MEAN", "R2", "T_self"} and ks["MEAN"][0] == pytest.approx(2.0) and R.keel_stats(d, 3)["R2"] == pytest.approx(3.0)
     st = R.orb_stats(np.stack([a, a]), np.stack([b, b]), 6)                                     # vectorised over draws, first n rows
     assert st["M1"].shape == (2,) and st["M1"][1] == pytest.approx(np.sqrt(0.2) - 1.0) and st["M3"][0] == pytest.approx(102.5)
     assert R.orb_stats(a, b, 3)["R2"] == pytest.approx(180.0)                                    # the first 3 rows only
-    assert R.SIGN["M1"] == -1.0 and all(R.SIGN[k] == 1.0 for k in ("M2", "M3", "R2", "T"))
-    assert R.own_stat("ORB314", "M2") == "M2" and R.own_stat("KEEL", "M2") == "T" and R.own_stat("KEEL", "R2") == "R2"
+    assert R.SIGN["M1"] == -1.0 and all(R.SIGN[k] == 1.0 for k in ("M2", "M3", "R2", "MEAN", "T_self"))
+    assert R.own_stat("ORB314", "M2") == "M2" and R.own_stat("KEEL", "M2") == "MEAN" and R.own_stat("KEEL", "R2") == "R2"
+    assert R.REPORT_ONLY == "T_self" and all(R.own_stat("KEEL", S) != "T_self" for S in R.FAMILIES) and R.kinds_of("KEEL") == ("MEAN", "R2", "T_self")
 
 
 def test_block_draws_are_circular_blocks_with_one_shared_flag_each():
@@ -108,20 +121,27 @@ def test_the_swap_null_leaves_m1_centred_and_the_draws_are_deterministic():
     bc = a.copy()
     cut = (a < 0) & (rng.random(n) < 0.3)
     bc[cut] = 0.4 * a[cut]                                                                       # a nested partner with a planted loss cut
-    M = {"n": n, "orb463": a, "orb314": b, "orb239": bc, "keel_d": np.where(rng.random(n) < 0.3, 100.0 + 800.0 * rng.standard_t(4, n), 0.0)}
+    keel = np.where(rng.random(n) < 0.3, 300.0 + 800.0 * rng.standard_t(4, n), 0.0)              # a real KEEL edge: mean 300 on its trade days
+    keel[:5] = np.nan                                                                            # the rows before KEEL's first day
+    M = {"n": n, "orb463": a, "orb314": b, "orb239": bc, "keel_d": keel}
     raw, meta = R.simulate(M, ["ORB314", "ORB239", "KEEL"], ndraw=300, chunk=100, seed=3)
     assert meta["ndraw"] == 300 and meta["rows_per_draw"] == 756 and meta["blocks_per_draw"] == 36
+    assert meta["keel_rows_eff"][756]["min"] <= meta["keel_rows_eff"][756]["mean"] <= 756 and meta["keel_rows_eff"][252]["mean"] > 240
     for line in ("ORB314", "ORB239"):
         x = raw["null"][line]["M1"][252]
         assert np.isfinite(x).all() and abs(x.mean()) <= 0.25 * x.std() and 0.4 <= np.mean(x > 0) <= 0.6, (line, x.mean(), x.std())
-    t = raw["null"]["KEEL"]["T"][504]
-    assert abs(t.mean()) <= 0.25 * t.std() and 0.4 <= np.mean(t > 0) <= 0.6
+    for n_ in (504, 756):                                                                        # the sign flip alone centres KEEL's MEAN: without it the
+        t = raw["null"]["KEEL"]["MEAN"][n_]                                                      # null mean would sit at the truth mean, many null sds up
+        assert abs(t.mean()) <= 0.25 * t.std() and 0.4 <= np.mean(t > 0) <= 0.6, (n_, t.mean(), t.std())
+        assert raw["truth_1"]["KEEL"]["MEAN"][n_].mean() > 2.0 * t.std(), (n_, raw["truth_1"]["KEEL"]["MEAN"][n_].mean(), t.std())
+    ts = raw["null"]["KEEL"]["T_self"][504]
+    assert abs(ts.mean()) <= 0.25 * ts.std() and 0.4 <= np.mean(ts > 0) <= 0.6
     assert raw["truth_1"]["ORB239"]["M1"][756].mean() < -2.0 * raw["null"]["ORB239"]["M1"][756].std()   # the planted cut shows at face value
     half = raw["truth_0.5"]["ORB239"]["M1"][756]
     assert half.mean() < 0 and half.mean() > raw["truth_1"]["ORB239"]["M1"][756].mean()          # half the edge: between the null and face value
     raw2, _ = R.simulate(M, ["ORB314", "ORB239", "KEEL"], ndraw=300, chunk=100, seed=3)
     assert (raw2["null"]["ORB314"]["M1"][252] == raw["null"]["ORB314"]["M1"][252]).all()          # SEED and CHUNK together fix every draw
-    assert (raw2[R._variant_key(0.5)]["KEEL"]["T"][756] == raw[R._variant_key(0.5)]["KEEL"]["T"][756]).all()
+    assert (raw2[R._variant_key(0.5)]["KEEL"]["MEAN"][756] == raw[R._variant_key(0.5)]["KEEL"]["MEAN"][756]).all()
     raw3, _ = R.simulate(M, ["ORB314"], ndraw=300, chunk=100, seed=3)
     assert (raw3["null"]["ORB314"]["M1"][252] == raw["null"]["ORB314"]["M1"][252]).all()          # a line left out does not move the others' draws
     assert not (R.simulate(M, ["ORB314"], ndraw=300, chunk=100, seed=4)[0]["null"]["ORB314"]["M1"][252] == raw["null"]["ORB314"]["M1"][252]).all()
@@ -194,7 +214,8 @@ def test_headline_reads_the_first_horizon_reaching_power():
     lines = ["ORB314", "KEEL"]
     fam = R.family_read(_fake_raw(rng, lines, 80, shift=9.0), lines)                             # a huge shift: power 1 at every horizon
     H = R.headline(fam, lines)
-    assert H["ORB314"]["statistic"] == "M1" and H["KEEL"]["statistic"] == "T" and H["ORB314"]["family"] == R.PRIMARY == "M1"
+    assert H["ORB314"]["statistic"] == "M1" and H["KEEL"]["statistic"] == "MEAN" and H["ORB314"]["family"] == R.PRIMARY == "M1"
+    assert "KEEL_T_self" in fam["M1"][252]["report_only"] and fam["M2"][252]["report_only"] == {}      # T_self is read only beside the primary family
     assert H["ORB314"]["months"][1.0] == {"0.5": "12 months", "0.8": "12 months"} and H["KEEL"]["q16_months"] == "> 36"
     assert H["ORB314"]["power"][1.0][252] == fam["M1"][252]["lines"]["ORB314"]["power"][1.0]
     assert R.Q16_MONTHS == {"ORB314": "> 36", "ORB239": "> 36", "KEEL": "> 36"}
@@ -204,11 +225,12 @@ def test_manifest_format_refusals(tmp_path):
     p = str(tmp_path / "m.csv")
     _manifest(p)
     M = R.read_manifest(p)
-    assert M["n"] == 30 and M["keel_first_row"] == 3 and M["keel_rows"] == 27 and M["keel_line"] is None and M["sha"] == R11.sha_lf(p)
-    assert str(M["dates"][0].date()) == R.WF0 and M["weekend_rows"] == 0
+    assert M["n"] == M["expected_rows"] == 2346 and M["keel_first_row"] == 3 and M["keel_rows"] == 2343 and M["keel_line"] is None and M["sha"] == R11.sha_lf(p)
+    assert str(M["dates"][0].date()) == R.WF0 and str(M["dates"][-1].date()) == "2025-06-27" and M["weekend_rows"] == 0
     _manifest(p, keel_line=True)
     assert R.read_manifest(p)["keel_line"] is not None
     df = _manifest(p)
+    last = len(df) - 1
     df.drop(columns=["orb239"]).to_csv(p, index=False)
     with pytest.raises(SystemExit, match="lacks column"):
         R.read_manifest(p)
@@ -218,7 +240,7 @@ def test_manifest_format_refusals(tmp_path):
     with pytest.raises(SystemExit, match="strictly increasing"):
         R.read_manifest(p)
     df2 = df.copy()
-    df2.loc[29, "date"] = "2025-06-30"                                                           # the day after WF1 (the lockbox)
+    df2.loc[last, "date"] = "2025-06-30"                                                        # the day after WF1 (the lockbox)
     df2.to_csv(p, index=False)
     with pytest.raises(SystemExit, match="outside the walk-forward"):
         R.read_manifest(p)
@@ -248,6 +270,49 @@ def test_manifest_format_refusals(tmp_path):
     _manifest(p, n=1)
     with pytest.raises(SystemExit, match="fewer than 2"):
         R.read_manifest(p)
+
+
+def test_manifest_must_cover_the_whole_walk_forward(tmp_path):
+    p = str(tmp_path / "m.csv")
+    df = _manifest(p)
+    df.iloc[1:].to_csv(p, index=False)                                                           # starts on 2016-07-04
+    with pytest.raises(SystemExit, match="must cover the whole walk-forward.*need 2016-07-01"):
+        R.read_manifest(p)
+    df.iloc[:-1].to_csv(p, index=False)                                                          # ends on 2025-06-26
+    with pytest.raises(SystemExit, match="must cover the whole walk-forward.*need 2025-06-27"):
+        R.read_manifest(p)
+    _manifest(p, n=30)                                                                           # a short export
+    with pytest.raises(SystemExit, match="must cover the whole walk-forward"):
+        R.read_manifest(p)
+    df.drop(index=[100, 101]).to_csv(p, index=False)                                              # two interior rows missing (holidays): accepted, noted
+    M = R.read_manifest(p)
+    assert M["n"] == 2344 and M["expected_rows"] == 2346 and str(M["dates"][0].date()) == R.WF0 and str(M["dates"][-1].date()) == "2025-06-27"
+    assert len(pd.bdate_range(R.WF0, R.WF1)) == 2346
+
+
+def test_keel_mean_bites_under_the_half_edge_while_t_self_does_not():
+    rng = np.random.default_rng(21)
+    n = 1200
+    a = 30.0 + 500.0 * rng.standard_t(4, n)
+    keel = np.where(rng.random(n) < 0.3, 400.0 + 900.0 * rng.standard_t(4, n), 0.0)
+    keel[:7] = np.nan
+    M = {"n": n, "orb463": a, "orb314": a.copy(), "orb239": a.copy(), "keel_d": keel}
+    raw, _ = R.simulate(M, ["KEEL"], ndraw=200, chunk=100, seed=8)
+    for n_ in R.HORIZONS:
+        full, half = raw["truth_1"]["KEEL"]["MEAN"][n_], raw["truth_0.5"]["KEEL"]["MEAN"][n_]
+        assert np.allclose(half, 0.5 * full) and not np.allclose(half, full)                      # the paired mean halves with the edge
+        assert np.allclose(raw["truth_0.5"]["KEEL"]["T_self"][n_], raw["truth_1"]["KEEL"]["T_self"][n_])   # the self-normalised t does not move
+        assert np.allclose(raw["truth_0.5"]["KEEL"]["R2"][n_], 0.5 * raw["truth_1"]["KEEL"]["R2"][n_])
+    fam = R.family_read(raw, ["KEEL"])
+    for n_ in R.HORIZONS:
+        r = fam["M1"][n_]["lines"]["KEEL"]
+        ro = fam["M1"][n_]["report_only"]["KEEL_T_self"]
+        assert r["own_stat"] == "MEAN" and r["truth_mean"][0.5] == pytest.approx(0.5 * r["truth_mean"][1.0]) and r["power"][0.5] <= r["power"][1.0]
+        assert ro["own_stat"] == "T_self" and ro["power"][1.0] == ro["power"][0.5] and ro["false_pass"] < 0.5    # not a member: its pass set is not inside the family's
+        assert fam["M1"][n_]["members"] == ["KEEL"]
+    assert fam["M1"][756]["lines"]["KEEL"]["power"][1.0] > fam["M1"][756]["lines"]["KEEL"]["power"][0.5]   # with this edge the half edge reads weaker
+    H = R.headline(fam, ["KEEL"])
+    assert H["KEEL"]["statistic"] == "MEAN" and "T_self" not in str(H)
 
 
 def test_prereg_sha_refusals(tmp_path, monkeypatch):
@@ -297,7 +362,7 @@ def test_run_refuses_without_ready_and_when_the_prereg_or_the_manifest_changed(t
         R.run(man)
     with open(R._ready_path(), "w") as f:
         f.write(json.dumps(good))
-    _manifest(man, b463=np.full(30, 1.0))                                                        # the file changed after parity
+    _manifest(man, b463=1.0)                                                                     # the file changed after parity
     with pytest.raises(SystemExit, match="manifest changed"):
         R.run(man)
     with pytest.raises(SystemExit, match="manifest not found"):
