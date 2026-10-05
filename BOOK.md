@@ -1185,6 +1185,68 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10y. Q16 FORWARD BAR r1: no forward line can be decided in 12, 24 or 36 months as the reads stand (2026-10-05)
+
+**What.** If "walk-forward selects, only the 12-month forward shadows decide" (LOOKS r1, 10u), the forward reads need a bar that a
+no-edge line rarely clears. Pre-registered in `docs/PREREG_frontier_forwardbar_2026-10-05.txt` with addendum 1 (MANAGER: the paired
+sequential stops run inside the simulation, read length is the headline, R0 first), committed before any number; only trade COUNTS of
+the forward lines had been read. The six lines (KEEL, VT, Q4, ORB314, ORB239, NOISE125) were rebuilt on the walk-forward at parity with
+every recorded figure, and the three frozen stop constants reproduced exactly. 20,000 three-week block draws of the walk-forward rows:
+NULL = each line's daily difference from #463 with a random sign per block (no edge, same timing); TRUTH = the walk-forward edge taken
+at face value (an UPPER bound - the lines were chosen on the walk-forward). Harness `C:\EdgeLog\_anatomy_cache\bookq\q16_forward_bar.py`.
+
+**The registered rule cannot decide.** "Beats #463 on ROC at $30k AND Sortino" passes at least one of six no-edge lines **89%** of the
+time over 12 months (83% over 24, 79% over 36); the stops barely change that. A single no-edge line passes 29-44% of the time, while a
+line with its full walk-forward edge passes only 45-72% - the read is close to a coin flip either way.
+
+**A fair bar needs margins nothing reaches.** Holding the family-wise false pass at 5%: the ROC margin over #463 must be 97 points over
+12 months (61 over 24, 48 over 36), and the dollar rule needs a summed difference 2.5-2.65 null spreads above zero. Power at those bars,
+even at face value:
+
+| line | WF ROC at $30k (vs 93.8) | WF edge in dollars a year | power, 12 / 24 / 36 months (dollar rule) | power (ROC-margin rule) |
+|---|---|---|---|---|
+| NOISE125 | 99.8 | +$12,021 | 16% / 49% / 77% | under 1% |
+| KEEL | 119.0 | +$23,092 | 7% / 8% / 11% | 6-7% |
+| ORB314 | 125.6 | +$915 | 1% / 1% / 1% | 1-3% |
+| Q4 | 111.0 | -$3,432 | 0% | 2-4% |
+| VT | 117.8 | -$1,539 | 0% | 2-4% |
+| ORB239 | 101.8 | -$85 | 1% | 0% |
+
+**What it means.** Four of the six lines (ORB314, Q4, VT, ORB239) earn no more money than #463 on the walk-forward - their higher ROC at
+$30k is a smaller drawdown. A forward read sees a drawdown difference only if a deep drawdown happens inside it, and even then one
+episode is one observation: no 12-36-month read can confirm them. KEEL earns more, but in a few large TTM trades, too lumpy to read.
+Only NOISE125 (more of a leg that pays steadily) becomes readable - about even odds at 24 months, 77% at 36, as an upper bound. So the
+forward shadows can work as HARM monitors (the paired stops), not as the deciding test. Book decisions rest on the walk-forward plus
+mechanism - the owner's call - and each new forward line raises everyone's bar (six share one family). Nor does the walk-forward
+settle them: every line's walk-forward gain is inside what 71 looks produce by chance (Q17, 10z). Cost and price basis: the paper
+ENGU-Q leg charges 0.533 vs #463's 0.783, and it reproduces the NO-ADJUST master (13 of 13 checked weeks; the registered db_adj_eth
+master 1 of 13 - roll weeks, GUARD r1 / PAPER-NT8), so every forward line carrying ENGU-Q has sat on a different basis from #463's
+backtest at roll seams since 09-14. Both cancel inside a paired forward read (line and adopted book are both paper) and matter only when
+a forward figure is quoted against 93.81 / 155.54; PAPER-NT8 recommends moving the paper leg to 0.783 with the whole record re-priced -
+the fix is PAPER-NT8's, ENGUQ's and the owner's.
+
+### 10z. Q17 WF LOOKS r1: every forward line's walk-forward gain is inside what 71 looks produce by chance (2026-10-05)
+
+**What.** MANAGER's question after Q16: is any forward line's walk-forward gain over #463 beyond luck, given that the walk-forward now
+does the selecting? Pre-registered in `docs/PREREG_frontier_wflooks_2026-10-05.txt` (committed before the bands were computed). No new
+draws: LOOKS r1's registered no-edge nulls (10,000 centred block-bootstrap draws per seat; the 4,202 V2 shifts for sizing), read PER SEAT
+on the walk-forward at K = 71 looks. Harness `C:\EdgeLog\_anatomy_cache\bookq\q17_wf_looks.py`. Check: LOOKS r1's pooled +56% is
+measured on top of the walk-forward bar's 5% premium (98.50) = +64% over 93.81, which the recompute reproduces.
+
+| line | WF ROC at $30k (gain over 93.8) | 71-look chance band (seat) | verdict | band if the null were as narrow as the real reads | forward months to even odds (Q16) |
+|---|---|---|---|---|---|
+| ORB314 | 125.5 (+34%) | +49% (ORB) | inside | +15% - outside | > 36 |
+| KEEL | 119.0 (+27%) | +30% (TTM) | inside | +10% - outside | > 36 |
+| VT | 117.8 (+26%) | +36% (sizing) | inside | +12% - outside | > 36 |
+| Q4 | 111.0 (+18%) | +78% (ORB + ENGU-Q) | inside | +22% - inside | > 36 |
+| ORB239 | 101.8 (+8%) | +49% (ORB) | inside | +15% - inside | > 36 |
+| NOISE125 | 99.8 (+6%) | +64% (NOISE) | inside | +19% - inside | 36 |
+
+**Reading.** No line is shown by the walk-forward, and none can be read in a forward year. ORB314, KEEL and VT clear only the
+narrow-null version (LOOKS r1's own flag: its null spreads ~2.9x wider than the ten real one-change reads), so they stand "not refuted,
+not shown". With Q16 that is the honest state of the book queue: a change to #463 is now a judgement on mechanism, made by the owner,
+with the forward lines watching for harm.
+
 ### 10x. Q15 the bull steepener, held only while the VIX curve is inverted: FAIL - the family null removes its earner pass (2026-10-05)
 
 **What.** The third seat on Q12/Q13's state (prior close of VIX / VIX3M at or above 1.00): long SHY $100,000 and short TLT in the ratio
