@@ -1185,6 +1185,56 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10w. Q12 long volatility and Q13 safe havens, held only while the VIX curve is inverted: both FAIL at Stage A (2026-10-05)
+
+**What.** Two state-gated "earns while #463 falls" legs (Q9's lesson: an always-on crisis leg bleeds between crises), pre-registered in
+`docs/PREREG_frontier_seats3_2026-10-05.txt` with addendum 1 (MANAGER's review and house line #69, committed before any number; Q14
+sector BAB withdrawn as TV's BAB r1). State: the prior close of VIX / VIX3M at or above 1.00 (48 entries in the walk-forward). Q12 =
+long VIXY (VIX futures) while inverted; Q13 = equal-risk long TLT + GLD + FXY (yen) while inverted. Walk-forward only, files already on
+the box, every series cut at 2025-06-29; scale = 25% of #463's trailing risk measured on the always-on version, capped at 2x its own
+recent median. Harness `C:\EdgeLog\_anatomy_cache\bookq\q12_13_seats.py`; parity exact (#463 93.81 / 3.816 / $44,849); VIXY's
+reverse splits are inside the adjusted file (largest daily move 43%, 2024-08-05).
+
+**Both fail - neither the standalone route nor the earner route.**
+- *Q12 long volatility:* the book's walk-forward ROC at $30k rises to 109.3 (Sortino 3.830) only because the leg cuts March 2020's
+  drawdown (+$11.5k there; the Feb-Apr 2020 episode alone +$13.7k). Over all of #463's drawdown days it LOSES $7.1k; the leg loses
+  $2.9k over the walk-forward in total, $15.7k without Feb-Apr 2020; August 2024 (the state turned on after the spike) cost $8.6k. The
+  named failure shape, 2018-02-05, actually made $3.6k. Neighbours split (0.95 loses $21.6k, 1.05 makes $7.4k).
+- *Q13 safe havens:* book ROC 99.2 / Sortino 3.818 for the same reason; the leg loses $3.2k in total and $8.0k over #463's drawdown
+  days (February 2022 -$3.2k: bonds, gold and the yen all fell in that sell-off).
+
+**What it teaches.** Every crisis leg tried this week - fund trend (Q9), long volatility (Q12), safe havens (Q13) - helps in exactly one
+episode, March 2020, and pays for it elsewhere. #463's other drawdowns (2019, 2022, 2025) are not the kind of market stress these
+hedges answer: they are leg-specific give-backs in otherwise orderly markets. A seat that earns in #463's drawdowns has to answer
+the BOOK's own losses, not the market's.
+
+### 10v. Q9 - fund trend as a #463 seat, the "earns while #463 falls" leg: FAIL at Stage A (2026-10-05)
+
+**What.** Pre-registration `docs/PREREG_frontier_trendseat_2026-10-05.txt` with addendum 1 (MANAGER's nine edits and ORB's second
+review, committed before any number); harness `C:\EdgeLog\_anatomy_cache\bookq\q9_trend_seat.py`, output
+`C:\EdgeLog\_anatomy_cache\q9\`. The leg is TREND r1's time-series momentum on 11 bond, gold, currency and commodity funds
+(Moskowitz-Ooi-Pedersen), primary = the literature's equal-weight 1 / 3 / 12-month ensemble, sized each month so its risk is 25% of
+#463's trailing-year risk (vol only, causal). Walk-forward only; the fund loader cannot reach the lockbox year. Parity was exact
+(TREND r1's loop to the cent; #463 93.81 / 3.816 / $44,849).
+
+**Result (walk-forward 2016-07-01..2025-06-29).** #463 plus the leg: ROC at a $30k drawdown 106.36 vs 93.81 (drawdown $40,027 vs
+$44,849) but Sortino 3.707 vs 3.816 - **A1 fails**. The leg does what the literature says where it matters: +$9,505 in March 2020,
++$33,586 over #463's 63 drawdown episodes (days $15k+ below its peak), still +$20,835 without the best episode and +$23,341 without
+its best fund (GLD), with -0.10 correlation to #463 on those days - **A2 and A3 pass**. But it bleeds the rest of the time: about
+$1,700 a year in total, losing in 7 of 9 walk-forward years, so the book's Sortino is better in only 2 of 9 years and the ROC gain
+turns negative without Feb-Apr 2020 (-4.31) - **A4 fails**. Stage A FAIL; per BOOK LOOKS r1 there is no lockbox stage.
+The twins say the same: the fixed-scale 1 / 3 / 12 version passes A1 narrowly (105.01, Sortino 3.832) but also wins only 2 of 9
+years; 1 / 3 / 6 / 12 and the 6-month cell are worse; without USO 112.19 / 3.738. At half size the book reads 107.07 / 3.820 with
+breadth still 2 of 9.
+
+**What it teaches.** On the map, a drawdown-week earner helps at almost any return - but this one's cost between crises is larger
+than its help inside them, and its help is real only in 2019-20. Crisis alpha from fund trend is genuine and too thin to buy a seat
+in #463. No other lookback, universe or scale is tried in its place.
+
+### 10u. BOOK LOOKS r1 - the lockbox year can no longer pass a book candidate (2026-10-05)
+
+**BOOK LOOKS r1 (Q11) - how sure a lockbox pass must be.** Pre-registration `tools/rocfrontier/PREREG_LOOKS_R1.txt` (+ addendum 1, the looks ledger `LOOKS_LEDGER_R1.csv`), harness `tools/rocfrontier/r14_looks.py`, run 2026-10-05 from the RISK r1 cache; one page `docs/LOOKS_R1.md`. Parity was exact (#463 WF 93.81 / LB 155.54, the largest lockbox trade the ENGU-Q $91,152 hold). #463's lockbox year has now been used to judge 71 candidate books (51 seat changes or adds, 20 sizing rules; up to 181 counting aggregate verdicts). On that year a candidate with NO edge clears the lockbox bar about 42% of the time as a seat change and 24% as a sizing rule, so one year cannot tell skill from luck: even a single, first look would need a candidate to beat #463's lockbox ROC by 41% before its pass was under 5% likely to be luck, and after 71 looks no margin up to double is enough. Caveat, in the same breath: the no-edge simulation spreads about three times wider than the ten real one-change reads did (r = 0.35, flagged by the harness), so these margins overstate - but the direction is not in doubt. Every past lockbox pass (58d, #444, #449, round-61 best, V2, V2-500, Q4, Q6) is 'not refuted', none is evidence. The sentence for the owner: **walk-forward selects, only the 12-month forward shadows decide.** Proposed rule (owner decision via MANAGER): a backtest book candidate that clears walk-forward but not the margin is 'not refuted', never 'a pass'; until the owner rules, no lane reads #463's lockbox year for a book candidate (MANAGER #67), and book adds are judged forward.
+
 ### 10t. TTM round 23 as a book test, the NOISE x1.25 forward line, and why the NOISE leg stays on no-adjust (2026-10-04/05)
 
 **TTM round 23 (compression sizing on ORB #234 and ENGU-Q #335) - FAIL at Stage A, lockbox never read.** Pre-registration

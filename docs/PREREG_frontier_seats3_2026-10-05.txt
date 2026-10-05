@@ -1,0 +1,76 @@
+BOOK QUEUE Q12-Q14 - THREE NEW "EARNS WHILE #463 FALLS" SEAT CANDIDATES (owner standing-order addendum 10-05, MANAGER #68). DRAFT for
+MANAGER (and a second reviewer), written 2026-10-05 before any number of these rounds exists. Map placement: docs/MDL_MAP_R1.md - a leg
+that earns in #463's drawdown weeks helps at almost any positive return; Q9 (fund trend) showed the trap: real crisis earnings bought
+with a bleed between crises. All three below are STATE-GATED or HEDGED so they hold risk mostly when the book is in trouble, not all the
+time. Data: only files already on the box (no download). Lane split respected: none trades NQ/ES bars.
+
+SHARED RULES (as Q9, addendum 1): walk-forward only, 2016-07-01..2025-06-29 (#463's own WF, 10-01 convention), parity first (#463
+93.81 / 3.816 / $44,849 from book463_valued_daily). Scale = causal and vol-only: at each month-end the leg's scale for the coming month =
+0.25 x std of #463's valued-daily P&L over the 250 index rows up to that month-end / std of the unscaled leg over the same rows (0 until
+both have 250 rows); for the two STATE-GATED legs (Q12, Q13) the denominator is the ALWAYS-ON version of the same instruments (the
+leg ungated), so a leg that is mostly flat is not scaled up into a crisis by its own quiet trailing year (amended 2026-10-05 before
+any number, while still in review); the fixed-scale version is a reported twin. A leg's P&L for US/Eastern day D lands on #463's row D.
+PASS needs ALL of, at the primary scale:
+ A1 #463 + leg beats #463 on WF ROC at a $30k worst drawdown (valued daily) AND Sortino.
+ A2 over #463's worst WF drawdown 2020-03-02..03-27 the leg's dollars > 0 (or its WF earnings > $3,127 a year per $1,000 lost there),
+    also without its single best component.
+ A3 over the WF days #463 sits > $15,000 below its running peak, the leg's dollars > 0 without the single best episode AND without the
+    single best component.
+ A4 the ROC difference keeps its sign without 2020-02-01..04-30 and on the tuning block 2010-06-07..2016-06-29 (from where the data
+    starts); the paired per-year Sortino difference > 0 in at least 6 of 9 WF years.
+ A5 power: at least 20 independent entries (state switches on) in the WF, else "not judgeable", reported as such.
+ A component is one instrument (fund or sector); for a one-instrument leg (Q12) the 'without its best component' clauses are
+ not applicable and say so. Every price series is cut at 2025-06-29 when it is loaded, so no stage can read the lockbox year.
+Reported, never selected: the fixed-scale twin, 0.5x / 2x, the leg standalone (net a year, drawdown, ROC at $30k, correlation to #463 on
+all days and on drawdown days), per-year rows. Per BOOK LOOKS r1 there is NO lockbox stage: a Stage A pass earns a pinned BOOK run or
+research row on the RUNBOARD the same day, the owner question and a 12-month no-order forward shadow; a FAIL is recorded and nothing is
+re-tried in its place.
+
+Q12 LONGVOL - long VIX futures only while the VIX curve is inverted (Simon and Campasano 2014: the VIX futures basis predicts their
+  return; inversion = a market in stress). Rule: if the prior close of VIX / VIX3M >= 1.00, hold +1 unit of VIXY from the next open
+  (open-to-open), else flat; 5 bp a side. Data: C:\EdgeLog\_anatomy_cache\rocfrontier\r7\ IDX_VIX, IDX_VIX3M, VIXY (Yahoo, hashed in
+  data_sha256.json; VIXY from 2011-01, VIX3M from 2010-12).
+  DISCLOSED: VOLCARRY r1 (ledger 2.39) read the SAME state on the same WF - its always-short twin minus its contango-only short implies
+  that the long side in backwardation made money on VIXY standalone. So the leg's own sign is not new information; what is new is the
+  book test (does it pay for itself against #463's drawdown and Sortino). Could fool us: inversion often arrives after the first leg
+  down, and the roll cost comes back fast when it ends (2-3 day reversals); A3 without the best episode is the guard.
+
+Q13 HAVEN - the safe-haven basket only in the same stressed state: equal-risk long TLT, GLD and FXY (yen) while the prior close of VIX /
+  VIX3M >= 1.00, flat otherwise. Flight-to-quality (Baur and Lucey 2010 on gold; Ranaldo and Soderlind 2010 on the yen; bonds in
+  equity sell-offs). Equal-risk = each fund's notional scaled by its trailing-60-day vol (set at the entry, capped 4x), next-open
+  entry and exit; 2 bp a side TLT / GLD, 5 bp FXY. Data: GLD / TLT library masters, FXY in nonequity_*.csv, the r7 VIX files.
+  Could fool us: 2022 broke the stock-bond hedge (bonds fell with stocks) - A4's breadth and the no-2020 sign are the guard; gold and
+  the yen can sell off in the liquidation phase of a crash (March 2020 first week).
+
+Q14 SECTOR BAB - betting against beta across the nine sector funds, beta-neutral (Frazzini and Pedersen 2014: leverage-constrained
+  investors overpay for high beta, so low-beta assets earn more per unit of risk; a beta-neutral long-low / short-high position should
+  lose less when the market falls). Rule: at each month-end, each sector's beta to SPY over the prior 252 days; long the 3 lowest-beta
+  sectors and short the 3 highest, equal notional within a side, each side scaled by 1 / its average beta so the position is
+  beta-neutral (dollar-unbalanced), from the next open, held a month; 2 bp a side, borrow 0.25 %/yr on the short notional. Data:
+  sector_open.csv / sector_close.csv (XLB XLE XLF XLI XLK XLP XLU XLV XLY + SPY).
+  DIFFERENT from the dead SECTOR r1 (ledger / memory 09-24: momentum 2/24, reversal 0/9): those sorted on past RETURN and were judged
+  long-only against equal weight; this sorts on BETA and is beta-neutral, judged as a #463 seat. Could fool us: BAB lost badly in some
+  rebounds (2009, 2020 Q2 when high beta ripped) - A2/A3 vs A4 split it; the sector cross-section is only nine names.
+
+ADDENDUM 1 (2026-10-05 ~08:20 MST, BEFORE any number of Q12 / Q13 exists; MANAGER review C:/EdgeLog/manager/reviews/frontier_q12_q14_
+review_2026-10-05.md "Q12 + Q13 GO WITH EDITS, Q14 WITHDRAWN", and MANAGER's house line #69). Where this differs from the text above,
+this rules.
+A. Q14 SECTOR BAB IS WITHDRAWN (duplicate of TV's BAB r1, the house's one BAB test). FRONTIER reads TV's cells in the seat frame when
+   TV's Stage A lands, and drafts a different third seat. Nothing of Q14 is run here.
+B. WHAT DECIDES WHAT (house line #69). Q12 and Q13 are NEW legs. Their OWN Stage A decides the RUNBOARD research row (and a pinned run
+   if one can be built): the STANDALONE route = the leg's own WF ROC at a $30k drawdown >= 15 and PF >= 1.10, OR the EARNER route =
+   A2 and A3 both pass, the leg's own WF net > 0, and the 0.95 / 1.05 threshold neighbours have the same sign of WF net. The BOOK-ADD
+   test A1 + A4 is a REPORT: it decides only whether a forward BOOK shadow line (#463 + the leg) is ALSO opened (pass -> line; fail ->
+   standalone forward shadow only). Book adds are judged forward (LOOKS r1); no lockbox stage.
+C. SCALE CAP: the gated legs' month scale (denominator = the always-on version, as amended above) is also capped at 2x the median of
+   that scale over the previous 12 month-ends, so a quiet trailing year cannot lever a crisis entry. The realised risk share (leg std /
+   #463 std over the episode's days) is printed per episode.
+D. Q12 DATA CHECKS before any P&L: VIXY's reverse splits (2012, 2017, 2021, 2024) must be inside the adjusted series - the harness
+   prints the largest daily close-to-close moves and refuses on any |return| > 60% (a 4x / 5x step); the r7 data_sha256.json hashes are
+   recorded. Q12 reports EACH inversion episode (entry, days held, dollars), the leg without its best episode and without Feb-Apr 2020.
+   Known failure shape, named now: 2018-02-05 - the state turns on only after the spike, so the leg buys VIX futures at the top.
+E. Q13: the leg's dollars in the first 5 sessions of each episode versus the rest are reported (the first week of a crash sells bonds,
+   gold and the yen together - March 9-18 2020); FXY 5 bp a side (as above).
+F. NEIGHBOURS: the state threshold 1.00 is one choice; 0.95 and 1.05 are reported for both legs, never selected.
+G. A5 POWER FIRST: the WF entry count is printed before any P&L; under 20 entries the verdict is "not judgeable" and the leg goes to a
+   forward shadow only.

@@ -242,6 +242,11 @@ sit far weaker than the NOISE and ENGU-Q runs, which is at least consistent with
 
 ---
 
+## 3f. Finding 7 for the BOOK bar - BOOK LOOKS r1 (2026-10-05)
+
+**BOOK LOOKS r1 (Q11) - how sure a lockbox pass must be.** Pre-registration `tools/rocfrontier/PREREG_LOOKS_R1.txt` (+ addendum 1, the looks ledger `LOOKS_LEDGER_R1.csv`), harness `tools/rocfrontier/r14_looks.py`, run 2026-10-05 from the RISK r1 cache; one page `docs/LOOKS_R1.md`. Parity was exact (#463 WF 93.81 / LB 155.54, the largest lockbox trade the ENGU-Q $91,152 hold). #463's lockbox year has now been used to judge 71 candidate books (51 seat changes or adds, 20 sizing rules; up to 181 counting aggregate verdicts). On that year a candidate with NO edge clears the lockbox bar about 42% of the time as a seat change and 24% as a sizing rule, so one year cannot tell skill from luck: even a single, first look would need a candidate to beat #463's lockbox ROC by 41% before its pass was under 5% likely to be luck, and after 71 looks no margin up to double is enough. Caveat, in the same breath: the no-edge simulation spreads about three times wider than the ten real one-change reads did (r = 0.35, flagged by the harness), so these margins overstate - but the direction is not in doubt. Every past lockbox pass (58d, #444, #449, round-61 best, V2, V2-500, Q4, Q6) is 'not refuted', none is evidence. The sentence for the owner: **walk-forward selects, only the 12-month forward shadows decide.** Proposed rule (owner decision via MANAGER): a backtest book candidate that clears walk-forward but not the margin is 'not refuted', never 'a pass'; until the owner rules, no lane reads #463's lockbox year for a book candidate (MANAGER #67), and book adds are judged forward. This is the answer to finding 7 (selection accounting) for the BOOK lockbox clause; the per-family count for single strategies
+is still open.
+
 ## 3a. Settled — do not re-open without new evidence
 
 **Tuning breadth stays at 900 configurations per search (owner, 2026-09-20).** The default moved
@@ -311,6 +316,8 @@ sessions"; the direct message to this chat expired unapproved, so it is written 
 ---
 
 ## 4. Open owner decisions (both dives)
+
+- **BOOK LOOKS r1 rule (2026-10-05, section 3f):** adopt 'a backtest book candidate that clears walk-forward but not the lockbox margin is not refuted, never a pass - walk-forward selects, only the 12-month forward shadows decide'? Until then no lane reads #463's lockbox year for a book candidate.
 
 - What COMPARE ranks on (item 8) — until this is settled, the report's 1E walk-forward column keeps its
   current label and the COMPARE audit's F14 stays on hold.

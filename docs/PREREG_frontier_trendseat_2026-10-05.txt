@@ -56,3 +56,29 @@ the TREND strategy file + fund masters queued so the persisted BOOK run (parity 
 recorded in BOOK.md and the ledger; no other lookback, universe or scale is tried in its place.
 COULD FOOL US. Crisis alpha is episodic (A3 / A4 check it); the June 2026 lockbox drawdown was an ENGU-Q give-back in a calm market,
 where trend may not help; dividend-adjusted closes put fund income into the signal and the P&L (disclosed; TREND r1's series).
+
+
+ADDENDUM 1 (2026-10-05 ~07:30 MST, BEFORE any Stage A number exists; ORB's second review C:/EdgeLog/manager/reviews/frontier_q9_
+trendseat_review_ORB_2026-10-05.md, adopted by MANAGER #67 on top of the nine edits above). Where this addendum and the text above
+differ, this addendum rules.
+A. PRIMARY CELL = Hurst-Ooi-Pedersen's equal-weight 1 / 3 / 12-month ensemble (fixed in the literature before our data; it does NOT
+   contain our selected 6-month cell, and MOP 2012's 12-month horizon is our worst TREND r1 cell). Reported twins, never substituted:
+   the 1 / 3 / 6 / 12 ensemble and the 6-month cell. PRIOR, stated now: the primary may well fail A1 - TREND r1's Sharpe table
+   (0.08 / 0.26 / 0.41 / 0.11) puts its three lookbacks at the weak end.
+B. PRIMARY SCALE = causal and vol-only, a fixed RATIO of leg risk to book risk (not a vol target on the book, so RISK r1 does not
+   forbid it): at each month-end rebalance, the leg's scale for the coming month = 0.25 x the standard deviation of #463's valued-daily
+   P&L over the 250 index rows before that month-end / the standard deviation of the unscaled leg's daily P&L over the same rows (both
+   strictly before the rebalance; scale 0 until both have 250 rows). On a fill day the overnight gap of the OLD position keeps the old
+   month's scale and the new position's open-to-close P&L and its trading cost take the new one. The leg's realised share of book
+   volatility is printed per WF year. The fixed-c version (c from 2010-16 volatility, as above) is the reported twin.
+C. A2 AND A3 MUST ALSO HOLD WITHOUT THE SINGLE BEST FUND (the fund whose dollars contribute most to the tested quantity is removed and
+   the test recomputed), as well as A3 without its single best episode. The number of independent drawdown episodes is printed beside
+   A3. The leg WITHOUT USO is reported every time (contango carry; the mid-2020 roll-method change).
+D. USO STRESS ROW (reported): 20 %/yr borrow on short USO notional over 2020-03-09..2020-06-30, and no NEW short USO position opened over
+   the creation halt, taken as 2020-04-21..2020-05-29 (an existing short is held). Cache check done before any number: neither cache
+   file shows an 8x step around 2020-04-28 (USO 04-28 open 17.28 / close 17.04, 04-29 18.01 / 18.00 - the 1:8 reverse split is adjusted).
+E. Everything else above stands: walk-forward only, A1 (ROC at $30k AND Sortino), A2 (March 2020, with its $3,127 per $1,000 rule), A3,
+   A4 (no-2020 sign, 2010-16 sign, Sortino breadth >= 6 of 9), A5 (every WF month-end rebalance present: 107, because June 2025's
+   month-end is 2025-06-30, the first lockbox day), costs 2 / 5 bp per side, and no lockbox read without MANAGER's line. Per BOOK
+   LOOKS r1 (MANAGER #67) a book add is judged FORWARD: a Stage A pass earns the forward shadow and the owner question, and Stage B is
+   not run on #463's lockbox year at all.
