@@ -38,3 +38,6 @@ A seat is an owner question, never automatic.
 **Limits.** #463 has one realised history, so the map is a necessary condition, not a sufficient one. The sealed year is one year, so its half of the map is mostly noise.
 
 Files: `tools/rocfrontier/PREREG_MDL_R1.txt` (with pre-data addendum 1), `r12_mdl.py`, `r12_refs.py`. Results in `C:\EdgeLog\_anatomy_cache\rocfrontier\mdl_r1` (MAP.txt, thresholds.csv, resizing.json, refs.json, leave_one_out.json).
+
+**New-type candidates placed on this map (MANAGER #40, 2026-10-05).** Each states its row and its power line before any real-direction number.
+- **HALFHOUR r1** (NOISE lane; `docs/PREREG_halfhour_r1_2026-10-05.md`): same-half-hour seasonality on NQ, long and short every day. Row: uncorrelated (about $15k a year at a $30k own drawdown). Power line on the book add: minimum detectable lead 12.9 points, 19.5 for four times in five, so a pass needs a leg nearer $25-30k a year.
