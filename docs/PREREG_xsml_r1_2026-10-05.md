@@ -114,3 +114,22 @@ Reported regardless: per-year net, long vs short leg P&L, turnover, average name
 - Published US cross-sectional ML gains are largest in small, illiquid names; this universe is the 500 most liquid, where
   the literature finds a smaller but non-zero effect, and costs here are modelled at 5-10 bps a side.
 - Statistical-arbitrage residual reversal decayed after the mid-2000s in the 2010 paper's own data.
+
+---
+
+## ADDENDUM 1 (2026-10-05 08:00 MST, before any cell or twin number) - MANAGER house line #63 for new standalone legs
+MANAGER #63 (07:48, all lanes, names "Custom ML XSML"): for a NEW STANDALONE leg the standalone Stage A bars decide; the
+book-add test is a REPORT that only decides whether a forward BOOK shadow line is also opened. Binding changes:
+1. **Bar 4 (rho_dd <= +0.15) becomes a REPORT**, printed beside the result with DO. It still enters bar 1 for Cell C's
+   earner route (DO > 0 and rho_dd <= -0.15 when C's ROC is below 15).
+2. **Bar 7, PF >= 1.0:** A and C - profit factor of name-periods (each name over one holding period) net of a 5 bps
+   round trip; B - profit factor of its WF daily net P&L (its positions change daily, so name-days are not trades).
+3. **Bar 8, neighbours:** both neighbours' net WF ROC @ $30k > 0 - A and C at 25 and 100 names a side (registered 50);
+   B at open thresholds 1.0 and 1.5 (registered 1.25, closes unchanged). Never picked from.
+4. **A pass** goes to the RUNBOARD as a research row the same day and to MANAGER for the leg's own sealed-year veto on
+   the shared stock sealed-year day (#63: the book add on that year is a report). These cross-sectional books cannot be
+   expressed as an EDGELOG engine run, so there is no pinned Auto-Validate.
+5. **Harness facts printed before this addendum (no P&L):** the universe holds 500 names every session from 2017;
+   1,293 symbols are ever in it; 313 symbols carry a quarantined split window; #463's WF drawdown episodes / days /
+   ISO weeks reproduce DDW r1 exactly (28 / 460 / 92) and are asserted at run time; 391 weekly (A) and 90 monthly (C)
+   WF decisions, 1,887 daily (B).
