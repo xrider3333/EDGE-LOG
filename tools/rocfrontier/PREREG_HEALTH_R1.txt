@@ -35,10 +35,13 @@ three-week block; every row drawn together with its leg counts), numpy default_r
 (252 / 504 / 756 rows) reads the first n rows of the same draws.
 
 MONITORS.
- H1 DECAY (primary). On z_t = (x_t - mu0) / sigma0, the one-sided CUSUM for a fall in the mean: C_t = max(0, C_(t-1) - z_t - 0.5),
-   C_0 = 0; ALARM when C_t >= h1. h1 = the smallest value on 0.5..20 (step 0.25) at which at most 5% of null draws alarm within
-   252 rows. (The reference value 0.5 is the textbook choice tuned to a one-sigma fall: Page 1954, Lorden 1971.)
- H1b ZERO (report only). The same CUSUM with mu0 replaced by zero (is the book earning anything), its own threshold at 5%.
+ H1 DECAY (primary). On z_t = (x_t - mu0) / sigma0, the one-sided CUSUM for a fall in the mean: C_t = max(0, C_(t-1) - z_t - k),
+   C_0 = 0; ALARM when C_t >= h1. k = half of mu0 / sigma0, the textbook reference value k = delta / 2 (Page 1954, Lorden 1971)
+   for the fall that matters most, the whole edge vanishing (delta = mu0 / sigma0, about a fifth of a sigma for #463, so k is
+   about 0.1; computed at calibration from the reference rows and printed). A one-sigma reference value would never accumulate
+   at zero edge, because the book's daily edge is far smaller than its daily spread. h1 = the smallest value on 0.5..20 (step
+   0.25) at which at most 5% of null draws alarm within 252 rows; the harness refuses a value at the top of that grid.
+ H1b ZERO (report only). The same CUSUM, same k, with mu0 replaced by zero (is the book earning anything), its own threshold at 5%.
  H2 DRAWDOWN (primary). The forward record's current drawdown from its running peak (peak starting at zero) against the null
    distribution of the MAXIMUM drawdown over the first n rows, n = the rows observed so far: ALARM at or above the 99th
    percentile, WARN at or above the 95th. Printed beside it: the share of null paths of this length with a deeper drawdown, and
@@ -69,7 +72,7 @@ COULD FOOL US. One realised history: the block bootstrap keeps three-week struct
 years make the null easier than a regime change would be; H1's false-alarm rate in a volatility regime the walk-forward never saw
 is unknown, and the report says so. The paper record is not live fills (PAPER-NT8's domain). H2's 99th percentile is a loose bar
 on purpose: a drawdown deeper than 99 of 100 backtest paths of the same length is the one thing that should not pass unremarked.
-A CUSUM tuned for a one-sigma fall is slow on a half-sigma fall; the power table prints that honestly.
+A CUSUM tuned for the whole edge vanishing is slower on a half fall; the power table prints that honestly.
 
 RUN ORDER (minutes, CPU only, read-only; needs r11's cache and the paper lane's CSV).
   python tools/rocfrontier/r18_health.py calibrate                      # from r11's records; calibration.json, READY, the power table
