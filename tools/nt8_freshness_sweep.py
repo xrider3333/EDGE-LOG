@@ -259,10 +259,31 @@ def check_repair(now_ts, ohlc_dir=None):
         blind = [r for r in rows if r[0] >= now_ts - 3 * 86400 and r[1] > 0 and r[3] == "3"]
         if len(blind) >= 360:            # an hour or more of no-tick bars still in the 3-day replay reach
             first = dt.datetime.fromtimestamp(blind[0][0], ET)
+            if os.path.exists(os.path.join(EL, "nt_replay_retry.OFF")):
+                why = ("prices and volume are complete, only the buy/sell split is missing; the empty-replay retry "
+                       "is OFF because fresh NinjaTrader starts load no Tick Replay history since 10-04")
+            else:
+                why = "the next empty-replay retry or NinjaTrader restart outside the cash session rebuilds them"
             out.append(_item(f"repair_{sym}", "warn", f"10s repair {sym}",
-                             f"{len(blind)} no-tick bars since {first:%m-%d %H:%M} ET are not yet rebuilt "
-                             "(the next empty-replay retry or NinjaTrader restart outside the cash session rebuilds them)"))
+                             f"{len(blind)} no-tick bars since {first:%m-%d %H:%M} ET are not yet rebuilt ({why})"))
     return out or [_item("repair", "pass", "10s repair", "no unrepaired no-tick hour in the last 3 days")]
+
+
+# DECEMBER ROLL WATCH (owner decision 2026-10-05): the ENGU-Q #335 paper legs run on the roll-corrected
+# master from 10-05. At the first roll after that (NQ Dec, about 12-10) someone must confirm the legs still
+# rebuild with the live 10s tail (no "different contract" refusal in the nightly report) and that their
+# trades did not jump. The sweep warns from 12-07 until C:\\EdgeLog\\enguq_dec_roll_checked exists.
+ROLL_WATCH = (dt.date(2026, 12, 7), dt.date(2026, 12, 31))
+
+
+def check_roll_watch(now_local, flag=None):
+    flag = flag or os.path.join(EL, "enguq_dec_roll_checked")
+    d = now_local.date()
+    if not (ROLL_WATCH[0] <= d <= ROLL_WATCH[1]) or os.path.exists(flag):
+        return []
+    return [_item("roll_watch", "warn", "ENGU-Q December roll check",
+                  "first roll on the roll-corrected master: confirm the nightly report rebuilt the ENGU-Q #335 "
+                  "legs with no contract refusal and no trade jump, then create " + flag)]
 
 
 def check_readiness(now_ts, path=None):
@@ -381,7 +402,7 @@ def main(argv=None):
                                f"the daytime snapshot crashed: {type(e).__name__}: {e}"))
     for fn in (lambda: check_tasks(now_local), lambda: check_box_push(now_local), lambda: check_nt_backup(now_local),
                lambda: check_roster(now_local), lambda: check_capture(now_ts), lambda: check_repair(now_ts),
-               lambda: check_readiness(now_ts)):
+               lambda: check_readiness(now_ts), lambda: check_roll_watch(now_local)):
         try:
             items += fn()
         except Exception as e:

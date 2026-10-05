@@ -45,6 +45,9 @@ WHAT IT ASSERTS
     it; ONE pill row TODAY 1W 1M 3M YTD ALL (counted back from today) replaces the old 1W / 1M / All tabs and the
     Today / All time switch, and every pill moves the big number, the bold line, the stats, the calendar, the
     trade list and the strategy rows together; ALL is the old all-time figure
+  * LEDGER step 5 (owner 2026-10-05): the curve is the shared ledgerChartRender - drawn at least 200 px tall on the
+    laptop, with dates and a price scale, one faint line per shown book leg and a legend for them; the LAST point is
+    the big number; a mouse hover and a finger drag write the hero number and the range line, and leaving puts them back
   * money colours FOLLOW THE THEME (owner decision 8, 2026-10-05): no fixed green / red hex on a money cell, and
     every headline money cell carries an arrow and a sign, every dense one a sign
   * BOOK (owner 2026-10-04): the big number is the BOOK #463 figure - exactly the legs of api/paper.py _BOOK at
@@ -300,6 +303,24 @@ var CASES=__CASES__, FIX=__FIX__;
         r.calMarks=[].map.call(d.querySelectorAll('[data-pcalday] > div:last-child'),function(x){return x.innerText.trim();});
         r.grpMarks=[].map.call(d.querySelectorAll('tr[data-p2bookhd] span:last-child, tr[data-p2fwdhd] > td > div > span:last-child, tr[data-p2otherhd] > td > div > span:last-child'),function(x){return x.innerText.trim();}).filter(function(x){return x.indexOf('$')>=0;});
         r.maxDD=(function(){var o=null;[].forEach.call(d.querySelectorAll('.p2rhstat'),function(x){var l=x.querySelector('.p2rhsl');if(l&&/max drawdown/i.test(l.textContent))o=(x.querySelector('.p2rhsv')||{}).innerText||'';});return o;})();
+        var _cs=d.querySelector('#p2-chart svg'),_pc=w._p2Chart||null;
+        r.chart=_cs?{h:+_cs.getAttribute('height'),dates:_cs.querySelectorAll('[data-lgdate]').length,ticks:_cs.querySelectorAll('[data-lgtick]').length,
+          legend:d.querySelectorAll('#p2-chart .lg-legend [data-lgline]').length,n:_pc?_pc.pts.length:0,last:(_pc&&_pc.pts.length)?_pc.pts[_pc.pts.length-1].v:null,
+          faint:_cs.querySelectorAll('path[stroke-dasharray]').length}:null;
+        r.scrub=null;
+        if(_cs&&nm==='paper2'){
+          try{
+            var big=d.getElementById('p2-hero-value'),rng=d.getElementById('p2-hero-range');
+            var b0=big.textContent,g0=rng.innerHTML,rc=_cs.getBoundingClientRect();
+            var mk=function(t,x,pt){return new w.PointerEvent(t,{clientX:rc.left+x,clientY:rc.top+40,pointerType:pt,bubbles:true,pointerId:7});};
+            _cs.dispatchEvent(mk('pointermove',rc.width*0.5,'mouse'));var m1=big.textContent,m1r=rng.innerText;
+            _cs.dispatchEvent(mk('pointerleave',0,'mouse'));var mBack=(big.textContent===b0&&rng.innerHTML===g0);
+            _cs.dispatchEvent(mk('pointerdown',rc.width*0.02,'touch'));var t1=big.textContent;
+            _cs.dispatchEvent(mk('pointermove',rc.width*0.6,'touch'));var t2=big.textContent;
+            _cs.dispatchEvent(mk('pointerup',0,'touch'));var tBack=(big.textContent===b0&&rng.innerHTML===g0);
+            r.scrub={b0:b0,m1:m1,m1r:m1r,mBack:mBack,t1:t1,t2:t2,tBack:tBack};
+          }catch(e){r.scrub={err:String(e)};}
+        }
         r.rowNets=[].map.call(d.querySelectorAll('tr[data-paperleg]'),function(x){return x.getAttribute('data-paperleg')+'|'+_num(x.innerText);});
         try{var _sc=w._p2Scrub;r.boldEnd=(_sc&&_sc.total&&_sc.total.length)?_sc.total[_sc.total.length-1]:null;}catch(_e3){r.boldEnd=null;}
         var _ls=d.querySelector('[data-p2listed]');
@@ -745,6 +766,39 @@ def main():
             fails.append('%s: Max drawdown reads %r, expected a positive dollar figure like REAL' % (nm, v))
     if not ((cases.get('paper2') or {}).get('moneyMarks')):
         fails.append('paper2: the colour check found no money cells to read')
+
+    # LEDGER step 5 -- the shared chart: drawn, the last point is the big number, scrub writes the hero and restores it
+    for nm in ('paper2', 'other-open', 'other-on', 'legs-off-p2', 'range-3m', 'range-ytd', 'range-1m', 'range-saved'):
+        r = cases.get(nm) or {}
+        c, hn = r.get('chart'), r.get('heroNum')
+        if not c:
+            if nm in ('range-1m', 'range-saved') and not (r.get('statTrades') or 0):
+                continue
+            fails.append('%s: the shared equity chart did not draw' % nm)
+            continue
+        if c.get('last') is None or hn is None or abs(c['last'] - hn) > 1.0:
+            fails.append('%s: the last chart point %s is not the big number %s' % (nm, c.get('last'), hn))
+        if (c.get('h') or 0) < 200:
+            fails.append('%s: the chart is %spx tall, expected at least 200 on a laptop' % (nm, c.get('h')))
+    r = cases.get('paper2') or {}
+    c = r.get('chart') or {}
+    if (c.get('dates') or 0) < 2 or (c.get('ticks') or 0) < 2:
+        fails.append('paper2: the chart shows %s dates and %s price labels, expected at least 2 of each'
+                     % (c.get('dates'), c.get('ticks')))
+    if c.get('legend') != len(book_w) or (c.get('faint') or 0) < 1:
+        fails.append('paper2: the chart legend has %s switches and %s faint lines, expected one per shown book leg (%d)'
+                     % (c.get('legend'), c.get('faint'), len(book_w)))
+    sc = r.get('scrub') or {}
+    if sc.get('err') or not sc:
+        fails.append('paper2: the scrub probe failed: %s' % sc.get('err'))
+    else:
+        if not sc.get('mBack') or not sc.get('tBack'):
+            fails.append('paper2: the hero was not restored after a scrub (mouse %s, finger %s)' % (sc.get('mBack'), sc.get('tBack')))
+        if sc.get('m1') == sc.get('b0') or 'that day' not in (sc.get('m1r') or ''):
+            fails.append('paper2: a mouse hover did not write the hero (%r, line %r)' % (sc.get('m1'), sc.get('m1r')))
+        if sc.get('t1') != '$0.00' or sc.get('t2') == sc.get('b0'):
+            fails.append('paper2: a finger drag did not write the hero (start %r, later %r, big number %r)'
+                         % (sc.get('t1'), sc.get('t2'), sc.get('b0')))
 
     # warnings reach the hero while their card is closed
     r = cases.get('warn-stale-bridge') or {}

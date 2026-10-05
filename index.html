@@ -958,7 +958,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1046';
+const VERSION='73.1047';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -40606,6 +40606,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _rhX=i=>_rhN<=1?50:(i/(_rhN-1))*100;          // percent of the chart width
       const _rhY=v=>(1-(v-_rhMin)/_rhRng)*100;             // percent of the chart height
       const _rhChart=(()=>{
+        if(_p2New&&_rhN)return '<div class="hm-chart-wrap" id="p2-chart"></div>';
         if(!_rhN)return '<div class="p2rhempty">'+((_p2New&&_allDates.length)?'NO CLOSED TRADES IN THIS RANGE':('NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START))+'</div>';
         // The SVG stretches to the box (preserveAspectRatio none) so the chart can take a
         // share of the screen HEIGHT; strokes stay crisp through vector-effect, and every
@@ -40627,6 +40628,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       })();
       // read by the scrub handler in the wiring section - plain numbers, no DOM
       window._p2Scrub={dates:_winDates,total:_rhTotal,ys:_rhTotal.map(_rhY),pos:PNL_POS,neg:PNL_NEG};
+      // THE SHARED EQUITY CHART (LEDGER step 5, TRADING-LOG ledgerChartRender): one point per closing day, the total on
+      // top, each book leg as a faint line under it. The first point is the range start at $0, and the LAST point is the
+      // big number - both come from the same _rhTotal the hero and the strategy rows are built on.
+      window._p2Chart=null;
+      if(_p2New&&_rhN){
+        let _lgOff={};try{_lgOff=JSON.parse(localStorage.getItem('el_lg_lines_nt8')||'{}')||{};}catch(e){_lgOff={};}
+        // one point per day the BOOK closed a trade (a day only a control or shadow traded would be a flat stretch)
+        const _bkDays=new Set(_pt.filter(t=>_legShown(legOf(t))&&t.open!==true).map(t=>_closeDay(t)).filter(Boolean));
+        const _chIdx=_winDates.map((d,i)=>_bkDays.has(d)?i:-1).filter(i=>i>=0);
+        window._p2Chart={
+          pts:[{v:0,date:null}].concat(_chIdx.map(i=>({v:_rhTotal[i],date:_winDates[i]}))),
+          up:_H.net>=0,
+          aria:'NT8 paper, BOOK #'+_bookRun+' cumulative P and L, '+(LEDGER_RANGE_LABEL[_pcw]||_pcw),
+          lines:_winSeries.map(sr=>({name:sr.label,color:sr.color,vals:[0].concat(_chIdx.map(i=>sr.vals[i])),on:!_lgOff[sr.label]}))};
+      }
       const _rhTabs=_p2New?('<div class="hm-range-row" data-p2range>'+ledgerRangePillsHtml(_pcw,'data-pcwin')
           +'<span class="p2rhkey">bold line = the book legs together \u00b7 faint lines = each leg \u00b7 hover the chart to scrub</span></div>')
         :(PSCOPE==='TODAY')?''
@@ -41957,6 +41973,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'@media (max-width:700px){.p2rhstats{grid-template-columns:repeat(2,minmax(0,1fr))}.p2rhnum{font-size:36px}}'
           +'.lg-hero-chips .p2chip{height:24px;padding:0 9px;font-size:10px;gap:5px}'
           +'.lg-hero-chips button[data-paperrefresh]{height:24px}'
+          // the shared chart's rule .lg-chart svg (width 100%) would stretch the legend swatches; pin them here, scoped to this board
+          +'#p2-chart .lg-legend svg{width:16px!important;height:4px!important}'
           +'</style>';
         const _rhToday=(_pcw!=='TODAY')
           ?('<span style="color:'+(_H.today>=0?PNL_POS:PNL_NEG)+'">'+(_H.today>0?'+':'')+fmtUsd(_H.today)+' today</span><span class="p2rhsep">\u00b7</span>'):'';
@@ -44044,6 +44062,23 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
          ch.onpointerleave=()=>{ch.classList.remove('scrub');
            if(num){num.textContent=num0;num.style.color=col0;}
            if(sub)sub.innerHTML=sub0;};
+       }}
+      // The shared chart: mouse hover on a laptop, finger drag on a phone. onScrub writes the hero number and the range
+      // line (nothing re-renders), onLeave puts them back. The legend switches each faint leg line and is remembered.
+      {const wrapEl=content.querySelector('#p2-chart'),C=window._p2Chart;
+       if(wrapEl&&C){
+         const num=content.querySelector('#p2-hero-value'),rng=content.querySelector('#p2-hero-range');
+         const num0=num?num.textContent:'',rng0=rng?rng.innerHTML:'';
+         ledgerChartRender(wrapEl,{id:'p2',pts:C.pts,up:C.up,aria:C.aria,lines:C.lines,
+           onToggle:(nm,on)=>{try{const off=JSON.parse(localStorage.getItem('el_lg_lines_nt8')||'{}')||{};if(on)delete off[nm];else off[nm]=1;localStorage.setItem('el_lg_lines_nt8',JSON.stringify(off));}catch(e){}},
+           onScrub:(i,p)=>{
+             if(num)num.textContent=ledgerMoney(p.v);
+             if(!rng)return;
+             if(!p.date||i===0){rng.innerHTML='<span>start of the range</span>';return;}
+             const dd=p.v-C.pts[i-1].v;
+             let dl=p.date;try{dl=new Date(p.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});}catch(_e){}
+             rng.innerHTML='<span class="'+(dd>=0?'hm-up':'hm-down')+'">'+(dd>=0?'\u25b2 ':'\u25bc ')+ledgerSigned(dd)+'</span><span class="lg-suffix">that day</span><span class="lg-suffix">\u00b7</span><span>'+dl+'</span>';},
+           onLeave:()=>{if(num)num.textContent=num0;if(rng)rng.innerHTML=rng0;}});
        }}
       const mh=content.querySelector('[data-mcphelp]');if(mh)mh.onclick=()=>{window._paperMcpHelp=!window._paperMcpHelp;renderApp();};
       // Archived legs (ORB): hidden by default, one click brings the whole history back.
