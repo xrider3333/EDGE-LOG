@@ -1,0 +1,20 @@
+ROUND r1 - NQ 5m RTH no-adjust (raw front-month prices), 3750 full sessions, 2240 in the WF stretch
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816
+  CROSS G100 H30  PRIMARY    n  6650 ( 739/yr)  net $ -119,754  PF 0.948  DD $159,822  own ROC@30k  -2.50  Sortino -0.57  gross -0.37 pt/trade  years + 2/9
+  CROSS G100 H60             n  4940 ( 549/yr)  net $   70,439  PF 1.032  DD $ 57,294  own ROC@30k   4.10  Sortino  0.35  gross 1.25 pt/trade  years + 6/9
+  CROSS G50 H30              n 11010 (1224/yr)  net $ -188,271  PF 0.946  DD $220,465  own ROC@30k  -2.85  Sortino -0.73  gross -0.32 pt/trade  years + 1/9
+  REVERSE G100 H30           n  6493 ( 722/yr)  net $  -50,665  PF 0.977  DD $112,342  own ROC@30k  -1.50  Sortino -0.30  gross 0.14 pt/trade  years + 2/9
+  family null (200 off-round grids): family-max own ROC@30k p95 8.26; primary-cell null median -2.56
+  REPORT overlap with #463 legs on ROUND's held bars: ORB same 30% / opposite 18%; NOISE same 22% / opposite 8%; same-side with either 39% of its held bars
+  REPORT calendar 2022: #463 $223,036, ROUND primary at 1 NQ $51,443
+  REPORT book #463 + ROUND at VOL scale          (x1.283 NQ): ROC@30k 44.49  Sortino 2.467  bootstrap p5 -78.8 (SD 21.8)
+  REPORT book #463 + ROUND at $30k own DD (twin) (x0.188 NQ): ROC@30k 94.58  Sortino 3.687  bootstrap p5 -12.5 (SD 5.3)
+  ROUND in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $6,184 at 1 NQ, $-19,365 without its 3 best days; without 2020: own ROC@30k -2.47, net $-114,219
+
+  A1 own ROC@30k >= 15 or earner route (neither route), PF > 1, >= 100 and 50/yr, >= 6 of 9 years FAIL
+  A1b no-2020: the same route holds without calendar 2020                          FAIL
+  A2 primary above the off-round family null's p95                                 FAIL
+  A3 both CROSS neighbours net positive after cost                                 FAIL
+  A4 (REPORT, house line #45) vol-scale book add >= 98.50 / 3.816 with p5 > 0: no -> standalone only
+
+STAGE A: FAIL - recorded dead, no variants

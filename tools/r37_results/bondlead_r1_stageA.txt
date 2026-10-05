@@ -1,0 +1,24 @@
+BONDLEAD r1 - NQ 5m RTH no-adjust + IEF/GLD 5m RTH (Alpaca), 2365 full NQ sessions from 2016-01-04, 2240 in the WF stretch; IEF missing on 2 of them
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816
+  IEF to bar 30 z0 0.1  PRIMARY      n  1265 ( 141/yr)  net $  -80,629  PF 0.893  DD $132,358  own ROC@30k  -2.03  Sortino -0.52  years + 4/9
+  IEF to bar 30 z0 0.2               n   805 (  90/yr)  net $  -68,056  PF 0.859  DD $115,047  own ROC@30k  -1.97  Sortino -0.53  years + 2/9
+  IEF to bar 18 z0 0.1               n  1250 ( 139/yr)  net $  -89,724  PF 0.900  DD $124,221  own ROC@30k  -2.41  Sortino -0.52  years + 2/9
+  IEF+GLD to bar 30 z0 0.1           n  1500 ( 167/yr)  net $  -78,824  PF 0.916  DD $118,444  own ROC@30k  -2.22  Sortino -0.46  years + 1/9
+  TWIN: NQ's own morning move        n  2036 ( 226/yr)  net $  150,036  PF 1.130  DD $ 46,667  own ROC@30k  10.72  Sortino  0.75  years + 7/9
+  family null (200 day-permuted fund mornings): family-max own ROC@30k p95 12.18; primary-cell null median -0.28
+  REPORT overlap with #463 legs on BONDLEAD's held bars: ORB same 30% / opposite 19%; NOISE same 21% / opposite 13%; same-side with either 39% of its held bars
+  REPORT 2020-03-02 .. 2020-03-27: #463 $-36,875, BONDLEAD primary at a $30k own drawdown $-6,023
+  REPORT 2022-01-03 .. 2022-12-30: #463 $223,036, BONDLEAD primary at a $30k own drawdown $1,011
+  REPORT 2025-02-19 .. 2025-04-30: #463 $157,561, BONDLEAD primary at a $30k own drawdown $8,496
+  REPORT book #463 + BONDLEAD at VOL scale          (x0.804 NQ): ROC@30k 58.39  Sortino 3.412  bootstrap p5 -48.2 (SD 15.4)
+  REPORT book #463 + BONDLEAD at $30k own DD (twin) (x0.227 NQ): ROC@30k 81.50  Sortino 3.738  bootstrap p5 -16.3 (SD 6.2)
+  BONDLEAD in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $-26,576 at 1 NQ, $-40,599 without its 3 best days; without 2020: own ROC@30k -1.55, net $-44,757
+
+  A1 own ROC@30k >= 15 or earner route (neither route), PF > 1, >= 100 and 50/yr, >= 6 of 9 years FAIL
+  A1b no-2020: the same route holds without calendar 2020                          FAIL
+  A2 primary above the day-permuted family null's p95                              FAIL
+  A3 all three neighbours net positive after cost                                  FAIL
+  A5 primary beats NQ's own-morning twin on own ROC@30k                            FAIL
+  A4 (REPORT, house line #45) vol-scale book add >= 98.50 / 3.816 with p5 > 0: no -> standalone only
+
+STAGE A: FAIL - recorded dead, no variants

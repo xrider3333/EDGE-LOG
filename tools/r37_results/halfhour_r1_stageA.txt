@@ -1,0 +1,21 @@
+HALFHOUR r1 - NQ 5m RTH no-adjust, 3750 full sessions loaded (2010-06-07 .. 2025-06-27), 2240 in the WF stretch; 0 WF sessions not on the book's day index
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816
+  L 40 z 1.0  PRIMARY    n  8290 ( 922/yr)  net $ -306,571  PF 0.865  DD $312,474  own ROC@30k  -3.27  Sortino -1.51  gross -1.32 pt/trade  years + 0/9
+  L 20 z 1.0             n  8429 ( 937/yr)  net $ -301,918  PF 0.878  DD $305,005  own ROC@30k  -3.30  Sortino -1.51  gross -1.26 pt/trade  years + 0/9
+  L 40 z 2.0             n  1541 ( 171/yr)  net $  -37,152  PF 0.922  DD $ 42,782  own ROC@30k  -2.90  Sortino -0.42  gross -0.67 pt/trade  years + 2/9
+  L 20 z 2.0             n  1828 ( 203/yr)  net $ -105,661  PF 0.832  DD $107,314  own ROC@30k  -3.28  Sortino -1.02  gross -2.36 pt/trade  years + 3/9
+  family null (200 wrong-slot derangements): family-max own ROC@30k p95 5.40; primary-cell null median -2.72
+  REPORT mid-day slots only (10:00-15:30): n 7027  net $-209,167  own ROC@30k -3.26  (full 13: -3.27)
+  REPORT per slot $ (09:30 .. 15:30 starts): -61,246, -43,272, -8,210, -30,992, -10,529, -14,533, -37,341, -14,193, 7,236, -21,677, -17,212, -18,441, -36,157
+  REPORT overlap with #463 legs on HALFHOUR's held bars: ORB same 23% / opposite 22%; NOISE same 15% / opposite 15%; same-side with either 29% of its held bars
+  REPORT book #463 + HALFHOUR at VOL scale          (x0.843 NQ): ROC@30k 58.27  Sortino 2.555  bootstrap p5 -62.8 (SD 14.6)
+  REPORT book #463 + HALFHOUR at $30k own DD (twin) (x0.096 NQ): ROC@30k 90.42  Sortino 3.681  bootstrap p5 -7.8 (SD 2.4)
+  HALFHOUR in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $-6,165 at 1 NQ, $-28,608 without its 3 best days; without 2020: own ROC@30k -3.27, net $-289,947
+
+  A1 own ROC@30k >= 15 or earner route (neither route), PF > 1, >= 100 and 50/yr, >= 6 of 9 years FAIL
+  A1b no-2020: the same route holds without calendar 2020                          FAIL
+  A2 primary above the wrong-slot family null's p95                                FAIL
+  A3 all three neighbours net positive after cost                                  FAIL
+  A4 (REPORT, house line #45) vol-scale book add >= 98.50 / 3.816 with p5 > 0: no -> standalone only
+
+STAGE A: FAIL - recorded dead, no variants

@@ -1,0 +1,22 @@
+=== ROUND r1 - MANAGER #46 edits (post-verdict report) ===
+  (1) null with G100 offsets kept away from the 50s: family-max p95 6.69; primary-cell null median -2.60 (the primary was -2.50)
+  (2) by calendar year: primary G100 crossings / trades / $   |   0.5%-of-price grid G / trades / $
+      2016    221 /   115 / $      -15   |   G 50 /   217 / $   -1,028
+      2017    407 /   194 / $   -7,578   |   G 50 /   383 / $   -7,157
+      2018    984 /   478 / $  -21,850   |   G 50 /   926 / $  -26,051
+      2019    805 /   376 / $  -12,058   |   G 50 /   724 / $   -5,647
+      2020   1888 /   886 / $   -5,534   |   G 50 /  1429 / $  -64,158
+      2021   1720 /   823 / $  -47,843   |   G 50/100 /  1185 / $  -73,987
+      2022   2838 /  1244 / $   51,443   |   G 50/100 /  1821 / $   65,763
+      2023   1837 /   882 / $  -27,232   |   G 50/100 /  1243 / $  -33,725
+      2024   2281 /  1029 / $  -20,979   |   G 100 /  1029 / $  -20,979
+      2025   1559 /   623 / $  -28,106   |   G 100 /   623 / $  -28,106
+      0.5%-of-price twin whole WF: n 9580  net $-195,077  own ROC@30k -2.77 (primary -2.50)
+  (3) roll-day sessions in the WF: 36; primary trades on them 118, $3,772; on all other sessions 6532, $-123,526
+=== BONDLEAD r1 - MANAGER #46 edits (post-verdict report) ===
+  (2) the 60-session slope changed sign 52 times in the WF; positive on 23% of WF days
+      slope > 0 (bonds and NQ move together)     trades  237  $-20,146
+      slope < 0 (bonds up when NQ down)          trades 1028  $-60,483
+      without calendar 2022: own ROC@30k -2.07, net $-85,092 (whole WF -2.03)
+  (4) sign-only twin (bonds up in the morning -> buy NQ at noon, no slope): n 2214  net $68,103  own ROC@30k 1.61
+  (1) second-master question to ELwA: moot (BONDLEAD dead); not raised

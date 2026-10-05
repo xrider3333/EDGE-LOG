@@ -3374,3 +3374,26 @@ from 2 to 6 reaches the incumbent's annualised MAR of 1.692, though all five bea
 VERDICT: do not re-declare this range, and do not re-test values 1 to 4 (round 45 closed those).
 The open half, honestly stated: values 5 and 6 win on profit factor and drawdown while losing on
 dollars, and that trade-off has only been read on years already spent.
+
+## New strategy types round 1 (2026-10-05, MANAGER #40) - HALFHOUR, ROUND, BONDLEAD: all dead at Stage A
+
+The NOISE family's own levers were exhausted in rounds 63-70, so MANAGER #40 asked this lane for three new mechanisms
+from theory or the literature, on NQ, each pre-registered with its power line before any real number. All three were
+reviewed or ruled on before the run (MANAGER #44 review, house line #45: for a new standalone leg the standalone bars
+decide; the book add is a volatility-sized report). All three ran walk-forward only, from frozen scripts, with BOOK
+#463's walk-forward parity (93.81 / Sortino 3.816) checked first.
+
+- **HALFHOUR** (does a half-hour repeat at the same time on later days?): no. Every cell lost, before costs as well as
+  after, and handing each half-hour a different half-hour's signal lost about as much - so whatever loses here is not
+  the same-slot effect the literature found in single stocks. ROC@30k -3.3.
+- **ROUND** (does crossing a multiple of 100 set off stop orders?): no. The same rule on a grid moved off the round
+  numbers did the same (-2.5 vs -2.6), so round numbers add nothing to an ordinary level cross.
+- **BONDLEAD** (does the bond market's morning tell NQ's afternoon?): no. It lost money, did worse than shuffled bond
+  mornings, and lost in #463's March 2020 drawdown. NQ's own morning move did better (+10.7) - but that is plain
+  intraday continuation, a family already on the dead list (ledger 2.5), not a new lead.
+
+**What it means:** three more independent mechanisms on the NQ cash-session tape find nothing, consistent with the dead
+list's reading that this tape is mined out at intraday horizons for anything that is not a breakout. No variants, no
+Auto-Validate. Records: ledger rows 2.72 / 2.73 / 2.74; `tools/r37_results/{halfhour,round,bondlead}_r1_stageA.txt`.
+
+**Disclosed:** MANAGER's 08:03 review of ROUND and BONDLEAD (#46) was missed before their 08:50 / 09:00 runs. Its edits (a null kept away from the 50s, per-year rows, a 0.5%-of-price grid twin, roll days apart; slope-sign regimes, without 2022, a sign-only twin) were run afterwards as a labelled post-verdict report - nothing changed: ROUND's null median -2.60 vs the primary's -2.50 and it loses every year but 2022; BONDLEAD loses in both slope regimes and without 2022 (-2.07). `tools/newtype_r1_addendum46.py`, `tools/r37_results/newtype_r1_addendum46.txt`.
