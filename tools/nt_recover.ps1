@@ -471,7 +471,18 @@ if ($posJson -and $posJson -notmatch '"positions"\s*:\s*\[\s*\]') {
   # The one exception (2026-10-02): the position is ENGU-Q's own saved overnight trade and
   # ENGU-Q is not running - enable it with AdoptAccountPosition and it resumes the trade.
   $why = EnguqAdoptRefusal $posJson
-  if (-not $why -and @(RealtimeNames) -notcontains $enguqName) {
+  # ENGU-Q already running and holding that trade (2026-10-04: it was adopted, then a restart
+  # brought back only ENGU-Q) - the position is managed, so the other strategies, on other
+  # instruments, may start; refusing here left NOISE down with nothing wrong.
+  $eqRow = @(Roster | Where-Object { $_.name -eq $enguqName -and $_.state -eq 'Realtime' })
+  $eqManaged = $false
+  if (-not $why -and $eqRow.Count -gt 0) {
+    try { $q = [int](@(($posJson | ConvertFrom-Json).positions)[0].qty) } catch { $q = -1 }
+    $eqManaged = ("$($eqRow[0].position)" -match "^Long $q$")
+  }
+  if (-not $why -and $eqManaged) {
+    Log "the account holds ENGU-Q's trade and ENGU-Q is running and managing it ($($eqRow[0].position)) - starting the others"
+  } elseif (-not $why -and @(RealtimeNames) -notcontains $enguqName) {
     Log "the account holds ENGU-Q's own saved trade: $posJson"
     Log "enabling with adopt so ENGU-Q resumes managing it (entry, stop and trail from $enguqState)"
     $adoptHold = $true

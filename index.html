@@ -853,7 +853,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1014';
+const VERSION='73.1015';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -871,7 +871,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1014',date:'2026-10-04',notes:['ALERT: push when the 10-second NinjaTrader capture keeps writing bars but its buy/sell volume goes missing (NQ and ES), with a recovery message when it is back.']},
+const CHANGELOG=[{v:'73.1015',date:'2026-10-04',notes:['NinjaTrader paper: NOISE now restarts while ENGU-Q is holding its picked-up overnight trade.']},
+{v:'73.1014',date:'2026-10-04',notes:['ALERT: push when the 10-second NinjaTrader capture keeps writing bars but its buy/sell volume goes missing (NQ and ES), with a recovery message when it is back.']},
 {v:'73.998',date:'2026-10-04',notes:['LEDGER > REAL wears the new shared top: the big number, a today line under it, the range line, and the Webull and NinjaTrader sync checks as chips on the right.','The range pills are now TODAY, 1W, 1M, 3M, YTD and ALL on every board, counted back from today. 1Y is gone; a saved 1Y opens on ALL.','Add ?oldboards=1 to the address to see the previous layout for one more version.']},
 {v:'73.1009',date:'2026-10-04',notes:['PAPER (NT8 FUTURES): the big number is now the adopted BOOK #463 figure - the book legs (ORB, ENGU-Q 335, TTM x3, NOISE #422) at their book weights, listed under a BOOK group at the top of the strategy list. The curve, stats, calendar and tie-out strip follow the same rule. Controls and forward tests (incl. the DIP shadows) sit in a Forward tests & controls group and the strategies with no row stay in Other / shadow; neither counts, and their switches only decide which of their trades the table lists.']},
 {v:'73.1006',date:'2026-10-04',notes:['NinjaTrader paper: ENGU-Q always restarts with adopt so an overnight trade is picked back up; the old broker stop is cancelled only after the new one is accepted.']},
