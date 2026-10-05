@@ -1,0 +1,52 @@
+NOTE 1 to PREREG_RESMOM_LINE_R1.txt - the forward line's computation, fixed before its constants are computed
+=====================================================================================================================
+Written 2026-10-05 by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane. It adds to PREREG_RESMOM_LINE_R1.txt (LF sha256
+9ab77351..., unchanged so r17_resmom_gate.py still verifies) the details its [F2] leaves to the implementation. Written BEFORE
+the harm monitor's constants below are computed and before any forward data exists (the first photograph is the 2026-10-30
+month-end). The tool is tools/rocfrontier/r17_resmom_line.py; its outputs live in
+C:\EdgeLog\_anatomy_cache\rocfrontier\resmom_line\.
+
+[N1] THE HARM MONITOR'S CONSTANTS (computed ONCE by `r17_resmom_line.py freeze` from walk-forward data only, then frozen in the
+  tool):
+  (a) d_k = 0.264 x RES's net P&L of walk-forward rebalance k, k = 1 .. 101, each hold's P&L as Stage A's registered reading
+      books it (from its fill at the open after the rank to the next rebalance's fill; costs, borrow and dividends in); the 101
+      must sum to Stage A's RES walk-forward net (resmom_stageA.json) within $1, else the freeze refuses.
+  (b) B = the smallest of 3.00, 3.25, ... 8.00 whose false-stop rate is at most 5%: 4,000 paths, numpy default_rng(20260929); a
+      path is 36 draws with replacement from the 101 d_k with their mean removed; it is read at 12, 18, 24, 30 and 36
+      rebalances (t = mean / (sd with ddof 1 / sqrt(n))) and STOPS at the first look where t >= B with t still >= 2.0 without
+      its largest d, or t <= -B with t still <= -2.0 without its smallest d (either side counts, as
+      docs/PREREG_paired_sequential_stop_2026-09-29.md counts them). The forward monitor itself acts on the FAIL side only
+      ([F2]).
+  (c) The dollar read's null spread: RES's walk-forward daily series (resmom_cells_daily_wf.csv, sha256 bed7bf8b..., refused if
+      different), one row per weekday with weekend stamps folded into the Friday (as Q16's rows), from RES's first fill
+      2017-01-03 through 2025-06-29 (the leg did not exist before its first fill; the same figure on all rows from 2016-07-01
+      is printed beside, never used); 20,000 draws of 756 rows (36 months x 21 sessions) by circular block bootstrap, block 21,
+      each block carrying one common random sign (+1 / -1), numpy default_rng(20261016), drawn in chunks of 2,500; SPREAD =
+      0.264 x the standard deviation of the draws' sums. At the read the spread is scaled by sqrt(n / 756), n = the weekday
+      rows actually inside the 36 holds. The read passes when the summed forward 0.264 x RES daily P&L / the scaled spread >=
+      2.47 (Q16's 36-month family-wise c*).
+
+[N2] EACH MONTH-END, IN THIS ORDER. (1) PIN: before reading any bar of a photograph (the folder r17_resmom_pull.py publishes
+  for that month-end), the tool hashes every file the manifest lists, refuses on any mismatch, and appends one dated row
+  (through date, manifest sha256, calendar sha256, UTC time) to resmom_line\pins.csv - the "own dated note" [F2] asks for; a
+  photograph is read only through its pin. (2) RANK with the registered harness's own code (r17_resmom.py's universe, hygiene,
+  regression, score and pick functions, unchanged) on that photograph's bars and calendar and the house ES master through the
+  month-end close; it writes rank_<date>.csv (cell, side, symbol, score) and hold_next.txt = the union of the last TWO ranks'
+  names in both cells (a hold's exit is the open AFTER the next month-end, which only the photograph after that holds). (3)
+  MARK: every session after the previous photograph's month-end up to this one is valued from THIS photograph's bars alone (its
+  prior close included) - fills, daily marks, exits at the open after a rank, costs at 5 bps a side, borrow, and dividends from
+  this photograph's calendar, all by the registered rules - and appended once to line_daily.csv (date, RES, RAW, 0.264 x RES,
+  0.233 x RAW); a session is never re-valued from a later photograph. The bars the two photographs share (the previous
+  month-end and before) are compared and every difference is printed, never patched. A hold's P&L is complete at the photograph
+  after its exit and is appended once to line_log.csv (k, rank date, fill date, exit date, RES, RAW, d_k).
+
+[N3] THE MONITOR READS at holds 12, 18, 24, 30 and 36 by the frozen B and paired_seq_stop's t rule on d_1 .. d_k; EARLY FAIL
+  only ([F2]); the dollar read once, at hold 36. Every read prints the forward rows used and the pins they came through.
+
+[N4] THE SEALED YEAR (2025-06-30 .. 2026-06-30) enters only as RANKING INPUTS of forward ranks (their 252-session regression
+  and formation windows); no P&L, statistic or figure on it is computed or printed. The first hold is the 2026-10-30 rank's
+  (first fills 2026-11-02 at the open).
+
+[N5] WHAT THIS LANE DOES NOT DO: #463's own forward daily P&L comes from the house's nightly book report; this lane writes
+  RES's (line_daily.csv) and asks the report's owner to add the line #463 + 0.264 x RES beside its other shadow lines. No
+  orders, ever.
