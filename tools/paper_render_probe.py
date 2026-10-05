@@ -664,7 +664,7 @@ def main():
         fails.append('other-open: the open Other group drew no unlisted strategy rows with switches')
     r = cases.get('other-on') or {}
     tl = list((r.get('tradeLegs') or {}).keys())
-    if not any(l.startswith('ORB 257') for l in tl) or not any(l.startswith('NOISE-225') for l in tl):
+    if not any(l.startswith('ORB 257') for l in tl) or not any(l.startswith('NOISE #225') for l in tl):
         fails.append('other-on: switched-on not-counted strategies did not reach the trades table: %s' % tl)
     if 'other, not counted' not in (r.get('tradesHead') or '').lower():
         fails.append('other-on: the trades heading does not say the other rows are not counted: %r'

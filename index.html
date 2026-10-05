@@ -958,7 +958,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1059';
+const VERSION='73.1060';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -39378,11 +39378,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // NinjaTrader on 08-17 and replaced by EdgeLogORB230, a real port of run #230 running
         // the identical params this leg computes. What NinjaTrader actually trades has to be
         // visible here. (Re-archive freely -- the runner computes both legs nightly either way.)
-        {k:'ORB',       label:'ORB-234 · RAW',              color:'#5b8def', nt:'ORB230',
+        {k:'ORB',       label:'ORB #234 · RAW',              color:'#5b8def', nt:'ORB230',
          crown:true,
          crownTip:'The standing ORB champion: run #234, crowned 2026-08-17 and confirmed 2026-08-21 when an open re-search over the same settings could not find anything better that survived its lockbox. This leg runs that exact configuration, and so does the NinjaTrader strategy beside it.',
          ntNote:'EdgeLogORB230 went live 2026-08-18 on NQ 5-min -- a real port of run #230 (close-confirmed entry, partial at 3R, trailed runner) running the same params as this leg. Its first fills still owe a reconcile against the engine blotter.'},
-        {k:'ORB_H',     label:'ORB-234 · rf HYBRID♻ 45',     color:'#9dc0fb', ctrl:'ORB'},
+        {k:'ORB_H',     label:'ORB #234 · rf HYBRID♻ 45',     color:'#9dc0fb', ctrl:'ORB'},
         // RETIRED 2026-08-21: replaced on the board by the #265 efficiency config below
         // (owner's call). It is kept rather than deleted, so nothing about the record it
         // already produced is rewritten.
@@ -39393,15 +39393,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // archived leg is now archived everywhere and SHOW ARCHIVED brings the row and its
         // trades back together. Its cross-engine record is the one exception and stays
         // visible: that is a ledger of checks, not a live board.
-        {k:'ENGUQ',     label:'ENGU-Q-226 · RAW',           color:'#c090ff', archived:true,
+        {k:'ENGUQ',     label:'ENGU-Q #226 · RAW',           color:'#c090ff', archived:true,
          chip:'ex-crown · retired 08-21',
          chipTip:'It was the ENGU-Q CHAMPION until 2026-09-05, when the crown moved to run #309, and the board baseline until 2026-08-21, when run #265 (the efficiency floor) replaced it. It stopped producing trades that day. Its history is kept so the curve and the totals stay honest.'},
         // The CURRENT ENGU-Q baseline. Runs nightly as ENGUQ_ER and is what NinjaTrader's
         // EdgeLogENGUQ1m is pointed at.
-        {k:'ENGUQ_ER',  label:'ENGU-Q-265 · RAW',           color:'#c090ff', nt:'ENGUQ',
+        {k:'ENGUQ_ER',  label:'ENGU-Q #265 · RAW',           color:'#c090ff', nt:'ENGUQ',
          chip:'efficiency 0.25',
          chipTip:'The #226 config plus a momentum-quality floor: the last hour\u2019s efficiency ratio must reach 0.25 at the signal. Validate #265 held its lockbox ($135,983, PF 2.29). Replaced the #226 raw leg on 2026-08-21.'},
-        {k:'ENGUQ_ER_H',label:'ENGU-Q-265 · logistic HYBRID♻ 55', color:'#b57edc', ctrl:'ENGUQ_ER',
+        {k:'ENGUQ_ER_H',label:'ENGU-Q #265 · logistic HYBRID♻ 55', color:'#b57edc', ctrl:'ENGUQ_ER',
          chip:'forward test only',
          chipTip:'The same #265 config with its ML overlay (logistic, 55% cut-off, survivors sized by score). On the held-out year the overlay did NOT beat ungated, so this is forward evidence only and must never be crowned off backtest numbers. ENGU-Q-265 RAW is its exact control.'},
         // ADDED to the board 2026-08-20. The leg itself has been computed nightly since
@@ -39438,7 +39438,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // leg trades the R2 DEFAULTS the owner compared, not that cell; the run certifies the
         // landscape. #309 stays as the control directly below. NinjaTrader followed at 21:41 the
         // same night (RegimeLen dll deployed, R2 knobs set through the bridge) - reconcile from 09-09.
-        {k:'ENGUQ_335', label:'ENGU-Q-335 · RAW',           color:'#6f4fc8',
+        {k:'ENGUQ_335', label:'ENGU-Q #335 · RAW',           color:'#6f4fc8',
          crown:true, ctrl:'ENGUQ_309',
          crownTip:'The standing ENGU-Q champion since 2026-09-08: run #335, the R2 sibling of #309 - the same configuration with the breakeven moved from 3.0 R to 2.0 R and the stop from 1.3 to 1.0 ATR. Measured on one continuous run sliced by entry time - selection window 1,830 trades, profit factor 1.71, EV R 0.51, R / YR 61.7; held-out year 118 trades, profit factor 1.68, EV R 0.49, R / YR 57.5. Beats #309 on every one of those reads with a lower top-10 share (52% vs 53%) and half the longest hold (142 days vs 282). Auto-Validate #335: PASS, 6 of 6 checks, 8 of 8 walk-forward folds held, lockbox held. Note: the validate searched the whole file and its own best cell is a different configuration with a weaker held-out year; this leg trades the R2 defaults the owner compared, and #309 runs beside it as the control.',
          chip:'crown 09-08',
@@ -39449,10 +39449,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // NO ORDERS on either arm and no NinjaTrader row. Bar written first, in
         // ENGUQ_R62_FORWARD_PREREG.md; judged on day-one survival, read only at 60 and 150 gated
         // entries. Round 62 itself FAILED two of six clauses, so neither arm is a candidate.
-        {k:'ENGUQ_335_S1', label:'ENGU-Q-335 · CASH SESSION', color:'#7fd4b0', ctrl:'ENGUQ_335',
+        {k:'ENGUQ_335_S1', label:'ENGU-Q #335 · CASH SESSION', color:'#7fd4b0', ctrl:'ENGUQ_335',
          chip:'shadow · no orders',
          chipTip:'Takes the same trades as the crown, but only when the signal happens between 9:30am and 4pm New York time, and then manages them exactly as the crown does - the trade can still run for weeks. The idea: this strategy reads the balance of buyers and sellers, and outside the US cash session there is not enough size trading for that balance to mean anything. On history, trades signalled inside those hours survived their first day 36-39% of the time against 11-15% outside, in every one of four eras. It places NO orders and NinjaTrader does not run it. Its own backtest round missed two of six pre-set conditions, so this rides forward as evidence only, judged against the crown row.'},
-        {k:'ENGUQ_335_S2', label:'ENGU-Q-335 · WIDE SESSION', color:'#5fae91', ctrl:'ENGUQ_335',
+        {k:'ENGUQ_335_S2', label:'ENGU-Q #335 · WIDE SESSION', color:'#5fae91', ctrl:'ENGUQ_335',
          chip:'shadow · exploratory',
          chipTip:'The same idea over a wider window, 8am to 5pm New York time - the hours picked by a rule that looks only at trading volume and never at profit. On history this is the one window whose held-out year still makes money after deleting its single biggest trade. It is labelled exploratory because the volume rule was written down AFTER that table had been read, so it cannot be adopted on its own: it rides to answer whether the wider window behaves like the cash session or not. No orders, and NinjaTrader does not run it.'},
         // VALIDATE PICK (owner 2026-09-08 evening: "go for all"): run #335 searched the whole R2
@@ -39462,29 +39462,29 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // / $541k; entry-sliced held-out year 128 trades / PF 1.455 / $49,812 / DD $47,779, weaker
         // than the crown's $88,380 / PF 1.675. It rides beside the crown as a FORWARD TEST so the
         // two cells are judged on the same tape from here on. Not the crown; ENGUQ_335 is.
-        {k:'ENGUQ_335_VC', label:'ENGU-Q-335 · VALIDATE PICK', color:'#c9b3ff', ctrl:'ENGUQ_335',
+        {k:'ENGUQ_335_VC', label:'ENGU-Q #335 · VALIDATE PICK', color:'#c9b3ff', ctrl:'ENGUQ_335',
          chip:'forward test 09-08',
          chipTip:'The configuration run #335 itself selected when it searched the whole R2 file - a different cell from the R2 defaults the crown trades (ema 1340, trail 4.0, breakeven 1.0 R, no volume filter). Its held-out year was weaker than the crown on the same tape (49,812 dollars at profit factor 1.46 against 88,380 at 1.68), so it runs here as a forward test beside the crown, not as the crown. Every trade from 2026-09-08 on is forward evidence.'},
         // EX-CROWN since 2026-09-08: run #335 (the R2 sibling, ENGUQ_335 below) took the crown.
         // #309 stays on the board as the matched control - same file lineage, same window, the
         // only differences are breakeven 3.0 R -> 2.0 R and stop 1.3 -> 1.0 ATR - so any gap
         // between the two rows from here on is those two knobs and nothing else.
-        {k:'ENGUQ_309', label:'ENGU-Q-309 · RAW',           color:'#8f6fd8',
+        {k:'ENGUQ_309', label:'ENGU-Q #309 · RAW',           color:'#8f6fd8',
          chip:'ex-crown · control',
          chipTip:'Crowned 2026-09-05 (run #309), replaced 2026-09-08 by run #335 - the same configuration with the breakeven moved from 3.0 R to 2.0 R and the stop from 1.3 to 1.0 ATR. Kept running as the matched control for the new crown: every trade from 2026-09-05 on is forward evidence, anything earlier is a backtest.'},
-        {k:'ENGUQ_L50',  label:'ENGU-Q-249 · LIMIT 0.50',    color:'#8ad4ff', ctrl:'ENGUQ_ER',
+        {k:'ENGUQ_L50',  label:'ENGU-Q #249 · LIMIT 0.50',    color:'#8ad4ff', ctrl:'ENGUQ_ER',
          chip:'limit entry',
          chipTip:'Same 24-hour ENGU-Q settings as ENGU-Q RAW. The ONLY difference is the entry: instead of buying at the signal close, it rests a limit order half an ATR BELOW it and drops the trade entirely if that never fills within ten bars. RAW is its matched control, so any difference between the two rows is the entry and nothing else. Caveat from validate #249: entering lower against the same stop widens risk, so it FAILS the pre-registered net-per-drawdown bar (8.32 vs the control 8.62). Candidate, not a winner.',
          ntNote:'Engine-only by design. It tests a resting limit entry half an ATR below the signal close, so it can only be compared against ENGU-Q RAW, never traded alongside it.'},
         // The hand-built NOISE config was retired 2026-08-16: never crowned by any
         // validate, superseded by NOISE-225 (picked by three consecutive validates and
         // now what NinjaTrader actually runs). It kept its teal colour here.
-        {k:'NOISE_225', label:'NOISE-225 · RAW',        color:'#2dd4bf'},
+        {k:'NOISE_225', label:'NOISE #225 · RAW',        color:'#2dd4bf'},
         // ADDED 2026-08-21 when the owner crowned run #241 (Short Veto); ARCHIVED
         // 2026-08-23 when the crown moved on to run #243 -- the crown leg tracks the
         // crown, and the V90 leg below replaced it. Kept in the defs so its two days
         // of nightly history keep resolving.
-        {k:'NOISE_SBS', label:'NOISE-241 · SHORT VETO', color:'#4fe08c', ctrl:'NOISE_225', archived:true,
+        {k:'NOISE_SBS', label:'NOISE #241 · SHORT VETO', color:'#4fe08c', ctrl:'NOISE_225', archived:true,
          chipTip:'Held the NOISE crown 2026-08-21 to 2026-08-23. Retired when the owner moved the crown to run #243 (the same filter plus the wildest-10%-of-days skip); the NOISE-243 leg replaced it on the board.',
          ntNote:'Was engine-only for its whole two-day life; NinjaTrader never ran this filter.'},
         // ADDED 2026-08-23, the day the owner crowned run #243 (Short Veto + Wild10).
@@ -39497,7 +39497,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // that was no longer the champion - the same split the owner had just had fixed on
         // ENGU-Q. #304 is #243 with two knobs one step apart (volatility skip 90 -> 95,
         // lookback 44 -> 40 sessions), which is what makes #243 a real control for it.
-        {k:'NOISE_304', label:'NOISE-304 · NBHD', color:'#5fd39a', ctrl:'NOISE_SBS_V90',
+        {k:'NOISE_304', label:'NOISE #304 · NBHD', color:'#5fd39a', ctrl:'NOISE_SBS_V90',
          crown:true,
          crownTip:'The standing NOISE champion since 2026-09-05: run #304, the first NOISE crown found by a real neighbourhood search (495 configurations, 6 of 6 checks, 8 of 8 walk-forward folds) rather than a pinned card. Graded on one continuous run sliced by entry time, it beats #243 on the held-out year on every read - 409 trades at profit factor 1.33 and $82,123 against 375 at 1.27 and $60,615, expectancy per trade 0.21 R against 0.17, R / YR 56 against 43 - on a smaller drawdown and MORE trades. What #243 keeps is per-trade quality before the lockbox (profit factor 1.42 against 1.38). Deleting the ten best trades costs 22% of this config selection-window profit, so the edge is broad rather than a handful of trades.',
          chip:'crown 09-05',
@@ -39509,7 +39509,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         {k:'NOISE_422', label:'NOISE #422 · SIZE TILT', color:'#3fb88a', ctrl:'NOISE_304',
          chip:'BOOK #463 leg · paper only',
          chipTip:'The NOISE leg of the adopted BOOK #463 (run #422): the NOISE-304 crown trades, every one kept, but those decided while the hourly squeeze is compressed are sized 1.75 contracts instead of one. Sized by a tilt, paper-only - NinjaTrader NOISE has no size tilt. NOISE-304 above is its matched control, so any gap between the two rows is the tilt and nothing else. Forward evidence from 2026-09-28; it must keep beating its raw twin on return at matched drawdown and on Sortino.'},
-        {k:'NOISE_SBS_V90', label:'NOISE-243 · VETO+WILD10', color:'#7fe8a8', ctrl:'NOISE_225',
+        {k:'NOISE_SBS_V90', label:'NOISE #243 · VETO+WILD10', color:'#7fe8a8', ctrl:'NOISE_225',
          chip:'ex-crown · control',
          chipTip:'The crowned NOISE configuration since 2026-08-23: the NOISE-225 settings plus two filters - skip short trades the day after the prior session closed in the bottom fifth of its own range, and skip ALL trades on a day whose prior session was among the wildest 10 percent of the last year. The owner crowned it for the risk profile: about 2 percent less profit than the single filter for about 41 percent less drawdown, a better profit factor and the best ES transfer in the family (run #243, PASS 6/6). NOISE-225 RAW is its matched control, so any difference between the two rows is the filters and nothing else.',
          ntNote:'The two crown filters were switched ON in NinjaTrader on 2026-08-26 at the owner ask, through the bridge - no restart needed, both knobs read back True on the live strategy and the range pre-flight passed. So the NinjaTrader demo now applies the same short veto and the same wildest-10-percent skip this leg does. It is still not an exact twin: NinjaTrader also runs the rf gate on top (see NOISE-231), which this leg does not, so the closest NinjaTrader row remains that one.'},
@@ -39518,7 +39518,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // NOISE-243 RAW above is its matched control. FORWARD EVIDENCE ONLY -- the gate
         // family is closed for backtest adoption (two lockbox failures), and run #243's
         // own card says LOCKBOX FAILED for its gate.
-        {k:'NOISE_SBS_V90_H', label:'NOISE-243 · et HYBRID♻ 50', color:'#c9a2f5', ctrl:'NOISE_SBS_V90',
+        {k:'NOISE_SBS_V90_H', label:'NOISE #243 · et HYBRID♻ 50', color:'#c9a2f5', ctrl:'NOISE_SBS_V90',
          chip:'forward test',
          chipTip:'The crowned NOISE-243 configuration with run #243 own chosen gate switched on: a second model, trained only on trades that had already finished, skips trades scoring under 50 percent and sizes the survivors by score. Two honesty notes. First, the model is extra-trees, the one run #243 own selection rule picked on the years it is allowed to see - NOT the xgb tab shown on the report, which does not clear the ungated baseline on those years and has the worst lockbox slice of the five. Second, this is a forward test and can never be adopted from backtest numbers: the gate family failed its lockbox twice before, and run #243 own card says LOCKBOX FAILED for its gate. The written-down claim: from 2026-08-24 this leg beats NOISE-243 RAW on recovery factor. If it does not, the in-sample shine was fit.',
          ntNote:'Engine-only. The NinjaTrader demo does not run this gate; it still runs the baseline core with the forest gate.'},
@@ -39528,11 +39528,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // (pre-lockbox recovery), NOT the lockbox-winning et/tier. FORWARD EVIDENCE ONLY:
         // the tilt mechanism was pre-registered dead for backtest adoption (0/12,
         // 2026-08-10).
-        {k:'NOISE_SBS_V90_T', label:'NOISE-243 · xgb TILT tier', color:'#f2a0c0', ctrl:'NOISE_SBS_V90',
+        {k:'NOISE_SBS_V90_T', label:'NOISE #243 · xgb TILT tier', color:'#f2a0c0', ctrl:'NOISE_SBS_V90',
          chip:'forward test',
          chipTip:'The crowned NOISE-243 configuration with run #243 size tilt: every trade the crown takes is taken, and a second model score only sets the SIZE - half size under a 45 percent score, normal size from 45 to 55, double size above 55, normalised so the average size matches the raw leg. The model and rule were picked by the standing pre-registered tilt selection metric, recovery on the years the rule may legally see, where xgb/tier ranks first of ten - NOT the extra-trees tilt, which happens to win the lockbox and would be hindsight to pick. Honesty note: the tilt mechanism was pre-registered DEAD for backtest adoption on 2026-08-10, when zero of twelve tilts cleared the bar on honest scores. This leg gathers forward evidence only. The written-down claim: from 2026-08-24 it beats NOISE-243 RAW on recovery factor.',
          ntNote:'Engine-only. The NinjaTrader demo does not run this tilt.'},
-        {k:'NOISE_H',   label:'NOISE-225 · tree HYBRID♻ 55', color:'#f0c674', ctrl:'NOISE_225'},
+        {k:'NOISE_H',   label:'NOISE #225 · tree HYBRID♻ 55', color:'#f0c674', ctrl:'NOISE_225'},
         // THIS is what NinjaTrader runs: EdgeLogNOISE carries the #225 params and its gate
         // call points at leg=NOISE_H_RF. (It trades MNQ micros at base 3 while the paper leg
         // computes one lot -- proportional, so the curves compare shape for shape.)
@@ -39544,11 +39544,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // through leg-level Auto-Validate that day (runs 354-359) and six of six FAILED,
         // every one on walk-forward efficiency. Archived rather than deleted so its colour,
         // label and key keep resolving -- the same treatment every other retired leg gets.
-        {k:'ETFBOOK_332', label:'ETF DIP BOOK-332 · SHADOW', color:'#e0b877', archived:true,
+        {k:'ETFBOOK_332', label:'ETF DIP BOOK #332 · SHADOW', color:'#e0b877', archived:true,
          chip:'retired 09-09 · never traded',
          chipTip:'The ROUND-25 weak-edge book after it passed BOOK validate #332: seven ETF dip legs - GLD and TLT buying the 7-day closing low, IWM trading RSI-2 both ways, and QQQ on the 7-day low, RSI-2 long, RSI-2 both ways and the 20-day pullback - pooled and scored as one strategy. Daily bars, 100,000 dollars notional a trade, 20 dollars a round trip, signals read on a close and filled at the next open. SHADOW ONLY: it records what the book would have done and never sends anything to a broker. Honest marks carried from run #332: the lockbox year took a 61,419 dollar drawdown against its 85,335 dollar gain, three of the seven legs are QQQ so the book is more correlated than seven names suggests, and the prices are Yahoo total-return bars frozen as master files, which the live series will not match tick for tick.',
          ntNote:'Engine-only, and deliberately so. This is a STOCKS-account book; the NinjaTrader demo trades futures and will never run it.'},
-        {k:'NOISE_H_RF',label:'NOISE-231 · rf HYBRID♻ 55',   color:'#d98cc4', ctrl:'NOISE_225', nt:'NOISE',
+        {k:'NOISE_H_RF',label:'NOISE #231 · rf HYBRID♻ 55',   color:'#d98cc4', ctrl:'NOISE_225', nt:'NOISE',
          ntNote:'EdgeLogNOISE on the demo account, MNQ, base size 3. CHANGED 2026-08-26: the two crown filters (short veto, wildest-10-percent skip) were switched ON there at the owner ask, so NinjaTrader now runs CROWN CONFIG + rf GATE - a combination no leg on this board computes. This row is still the nearest match, because it is the only one carrying the same gate, but from 2026-08-26 the nightly reconcile is comparing two configurations that differ by those two filters. Expect the difference to show on days a filter vetoes.'},
         // ADDED 2026-10-04 (owner: list and count every adopted BOOK #463 leg). The book leg api/paper.py _BOOK
         // weights x3: the combined TTM squeeze leg on ES (run #369, re-validated fixed as #459). Paper only: NinjaTrader
