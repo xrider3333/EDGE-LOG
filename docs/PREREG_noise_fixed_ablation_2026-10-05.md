@@ -62,3 +62,30 @@ lead over its twin, ROC and Sortino; per-year leads.
   #422 2.82 - both the squeeze and Friday+FOMC looked positive standalone; never read against plain extra NOISE.
 - The ML shuffle audit (09-30): no ML-sized leg beat its own shuffled sizes at the 95th pct in both stretches.
 - NOISE round 69 (10-04): more weight on #422's own compressed hours LOWERS WF ROC at $30k (84.6 -> 80.9 at 2.25x).
+
+---
+
+## ADDENDUM 2026-10-05 07:15 MST - reviews folded in BEFORE any arm number (MANAGER #58 GO + #60; NOISE #59)
+Binding changes:
+1. **Disclosure (NOISE #59 A):** NOISE round 69b (10-04, eb4443a7, tools/r69b_noise_fixed_ablation.py) already ran this
+   leave-one-out on #422 STANDALONE in walk-forward: #422 84.6; full package 109.0; minus squeeze 100.0, minus Friday
+   100.4, minus FOMC 98.1; squeeze alone 82.5, Friday alone 96.6, FOMC alone 97.8. This round is therefore CONFIRMATORY
+   for the parts and NEW ONLY at the book level, against plain extra NOISE. No standalone claim goes in the owner line.
+2. **Power line first (MANAGER #58-1):** `python tools/noise_fixed_ablation.py power` prints each arm's own-size shuffle
+   null (1,000) 50th / 95th / 98.3rd pct lead and the squeeze time-shift null BEFORE any arm's own P&L is read; POWER.txt
+   is committed before `run`. Expectation stated now: leads of NOISE r70's size (~3 ROC points in the book) may sit
+   inside these nulls and then cannot be told from luck.
+3. **Friday calendar null (MANAGER #58-2):** four weekday placebos (Mon..Thu x1.5, each vs its own twin); Friday's bar 7
+   = its lead beats all four.
+4. **Squeeze time-shift null (MANAGER #58-3):** the sq60 flag read k sessions later at the same time of day, k uniform
+   in 60..250 sessions, wrapped inside the WF sessions, 200 shifts (seed 20261006); squeeze's bar 8 = its lead above the
+   null's 95th pct. The own-size shuffle stays as bar 5.
+5. **Twin worst-drawdown window (NOISE #59 B):** for every arm, the lead over its twin with the TWIN's own worst WF
+   drawdown window (peak..trough) removed - reported, and said plainly in the owner line if a lead lives there.
+6. **Book to 2025-06-29 only (NOISE #59 C):** every leg is built 2010-06-07..2025-06-29 exactly as
+   api.book_shadow.book463_valued_daily; parity 93.81 / 3.816 is asserted or the run stops.
+7. **If P fails bar 1 (MANAGER #58-4)** the owner line reads: "the 09-27 package's standalone 109-vs-85 walk-forward gain
+   was extra size, not aim."
+8. **Stated limits:** single-arm bars cannot credit a combination-only squeeze effect (69b: the squeeze helps only inside
+   the package); KEEL v12's Friday and FOMC multipliers were chosen on other families' full histories, so the 2011-16
+   block is untuned for NOISE but not blind (bar 4 is a consistency check, not out-of-sample evidence).
