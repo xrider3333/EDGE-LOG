@@ -55,6 +55,10 @@ try:
     import push_lock
 except Exception:          # an older shared checkout: ship unlocked rather than not at all
     push_lock = None
+try:
+    import push_queue
+except Exception:          # same: an unfair ship beats no ship
+    push_queue = None
 
 BRANCH_PREFIX = 'session/'
 # deliberately OFF OneDrive: a worktree churns thousands of files and the sync client
@@ -228,6 +232,14 @@ def cmd_ship(name, message):
     # It is never RELEASED here on purpose: it is an OS lock on an open handle, so the kernel
     # drops it when this process ends, by any route - every `raise SystemExit` below included.
     # That is the whole reason it is an OS lock and not a lock file with a timestamp in it.
+    # FIRST COME, FIRST SERVED (2026-10-05). The lock alone is not fair - a waiter takes it
+    # whenever it finds it free, so arrival order meant nothing and the rocfrontier lane once
+    # waited 80+ minutes while later arrivals went ahead. The ticket establishes WHOSE TURN it
+    # is; the lock below still establishes who HOLDS it. Two separate things on purpose, so a
+    # failure in the queue can never let two lanes gate at once - it only makes them unfair
+    # again, which is where we started.
+    _queue_ticket = (push_queue.hold_turn(who=os.path.basename(wt))
+                     if push_queue else (None, None))
     _lock_handle = push_lock.hold(who=os.path.basename(wt)) if push_lock else None
 
     run(['git', '-C', wt, 'fetch', '-q', 'origin'])
