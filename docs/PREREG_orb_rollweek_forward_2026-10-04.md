@@ -1,4 +1,8 @@
-# PRE-REGISTRATION (DRAFT for MANAGER review) — ORB expiry-week ("roll week") size tilt: FORWARD READ ONLY (2026-10-04)
+# PRE-REGISTRATION — ORB expiry-week ("roll week") size tilt: FORWARD READ ONLY (2026-10-04)
+
+**Status: REVIEWED - MANAGER GO as written (inbox #32, 2026-10-04 16:46).** Two conditions:
+(1) no backtest number on this calendar definition, ever, unless a separate pre-registration says so;
+(2) the read is one line in ORB.md, not a round.
 
 MANAGER assignment (standing order, inbox #30 (a)). This is a forward read with the bar written now. **No backtest of
 this calendar may be run**: its in-sample figure was seen by accident in the round 65 smoke run and disclosed there.
