@@ -181,6 +181,16 @@ _NQ_MULT = 20.0
 _ES_MULT = 50.0
 _ES_COST_PTS = 0.363
 _NQ_COST_PTS = 0.533
+# ENGU-Q #335 family (owner decision 2026-10-05 12:40 MST, MANAGER inbox #74, option (a)): these legs
+# trade the overnight session, and BOOK #463 charges ENGU-Q its 24-hour cost of 0.783 points a round
+# trip on the roll-corrected master db_adj_eth. The paper legs used 0.533 on the no-adjust master, so
+# around every contract roll they took trades #463 never would (GUARD r1 dry run: 1 of 13 matched).
+# Both now follow #463. Every leg is rebuilt from its master each night, so the whole forward record
+# restates in one go (one board note). Live NinjaTrader orders are unchanged: the NT strategy trades
+# its own single-contract chart, which already behaves like the roll-corrected master.
+# WATCH at the December roll (~2026-12-10): the 10s tail must still pass _capture_tail_contract_check.
+_ENGUQ_COST_PTS = 0.783
+_ENGUQ_MASTER = "db_adj_eth"
 
 # ORB leg params: ORB_125 is defined inline in tools/t5_runboard.py (line ~26), a
 # top-level research SCRIPT that runs full 16yr backtests as a side effect of being
@@ -1737,7 +1747,8 @@ PAPER_LEGS = [
     # only the breakeven and stop differ). No ML gate on this leg.
     {"key": "ENGUQ_335", "strategy": "ENGUQ_1M_ETH_R2_1_0.py", "instrument": "NQ",
      "timeframe": "1m", "session": "eth", "params": ENGUQ_335,
-     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ_335"]},
+     "cost_pts": _ENGUQ_COST_PTS, "master_source": _ENGUQ_MASTER, "mult": _NQ_MULT,
+     "source": LEG_SOURCE["ENGUQ_335"]},
     # ADDED 2026-09-08 evening (owner: "go for all"): run #335's own selected cell as a
     # FORWARD TEST beside the crown -- see ENGUQ_335_VC's comment block. Control = ENGUQ_335.
     # ADDED 2026-09-29 (owner GO via MANAGER on round 62 option (a)): the cash-session entry
@@ -1745,13 +1756,16 @@ PAPER_LEGS = [
     # first, in ENGUQ_R62_FORWARD_PREREG.md. Neither arm carries a NinjaTrader row.
     {"key": "ENGUQ_335_S1", "strategy": "ENGUQ_1M_ETH_R62_1_0.py", "instrument": "NQ",
      "timeframe": "1m", "session": "eth", "params": ENGUQ_335_S1,
-     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ_335_S1"]},
+     "cost_pts": _ENGUQ_COST_PTS, "master_source": _ENGUQ_MASTER, "mult": _NQ_MULT,
+     "source": LEG_SOURCE["ENGUQ_335_S1"]},
     {"key": "ENGUQ_335_S2", "strategy": "ENGUQ_1M_ETH_R62_1_0.py", "instrument": "NQ",
      "timeframe": "1m", "session": "eth", "params": ENGUQ_335_S2,
-     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ_335_S2"]},
+     "cost_pts": _ENGUQ_COST_PTS, "master_source": _ENGUQ_MASTER, "mult": _NQ_MULT,
+     "source": LEG_SOURCE["ENGUQ_335_S2"]},
     {"key": "ENGUQ_335_VC", "strategy": "ENGUQ_1M_ETH_R2_1_0.py", "instrument": "NQ",
      "timeframe": "1m", "session": "eth", "params": ENGUQ_335_VC,
-     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ_335_VC"]},
+     "cost_pts": _ENGUQ_COST_PTS, "master_source": _ENGUQ_MASTER, "mult": _NQ_MULT,
+     "source": LEG_SOURCE["ENGUQ_335_VC"]},
     # ADDED 2026-09-05 (owner: "crown #309 and swap the paper leg to it"). The NEW
     # ENGU-Q family crown -- see ENGUQ_309's own comment block above for the full
     # evidence and ENGUQ.md's CROWN CHANGE 2026-09-05 section for the writeup. This is
@@ -2395,7 +2409,10 @@ def run_shadow(leg, today):
     try:
         today_d = pd.Timestamp(today).date()
 
-        master = find_master(leg["instrument"], leg["timeframe"], leg.get("session", "rth"))
+        # master_source names a roll-corrected master explicitly (find_master never returns one
+        # unless asked); legs without it keep the default no-adjust master.
+        master = find_master(leg["instrument"], leg["timeframe"], leg.get("session", "rth"),
+                             source=leg.get("master_source"))
         if master is None:
             warnings.append(
                 f"no master for {leg['instrument']} {leg['timeframe']} {leg.get('session')}")

@@ -268,7 +268,9 @@ def test_main_builds_both_learned_legs_under_their_own_names_reading_the_master_
     monkeypatch.setattr(kls, "load_master", lambda f, log=print: loads.append(f) or real_load(f, log=QUIET))
     assert _run_main(["--nq-file", str(nq), "--out-dir", str(out)], monkeypatch) is None
     assert seen == ["NOISE_382", "NOISE_422_KEEL"] and len(loads) == 1
-    names = sorted(p.name for p in out.iterdir())
+    # the synthetic master is years old, so the NQ FRESHNESS ALERT (2026-10-05) also leaves
+    # its one-push marker -- not a leg file
+    names = sorted(p.name for p in out.iterdir() if p.name != kls.STALE_MARKER)
     assert names == ["NOISE_382_v12_state.joblib", "NOISE_382_v12_summary.json",
                      "NOISE_422_KEEL_v12_state.joblib", "NOISE_422_KEEL_v12_summary.json"]
     # exactly the files the two legs' cfgs read

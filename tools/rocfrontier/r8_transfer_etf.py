@@ -375,7 +375,7 @@ def effective(strat):
     if bad:
         raise SystemExit(f"STOP: {name}: params the strategy does not have (they would be silently dropped): {bad}")
     skip = {"opens", "highs", "lows", "closes", "volumes", "day_id", "index", "return_trades", "_stop_event", "_pause_event", "return_levels",
-            "session_in_progress", "vol_prior_ranges"}
+            "session_in_progress", "vol_prior_ranges", "return_decisions"}
     eff = {k: p.default for k, p in sig.items() if k not in skip and p.default is not inspect.Parameter.empty}
     eff.update(getattr(mod, "_CHAMP", {}))
     eff.update(P)

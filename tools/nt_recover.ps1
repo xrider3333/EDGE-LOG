@@ -390,7 +390,12 @@ function ReplayLineSinceStart($sym, $since) {
   }
   return $last
 }
+# OFF SWITCH (2026-10-05): the 13:05 retry restarted NinjaTrader as designed, but the fresh start again
+# loaded NO historical bars into the Tick Replay charts (every fresh start since 10-04 15:05 does this;
+# the ticks ARE in NT's local tick cache, cause not found yet). A restart that cannot help is only risk,
+# so while C:\EdgeLog\nt_replay_retry.OFF exists the retry is skipped. Delete the file to re-arm it.
 function MaybeReplayRetry {
+  if (Test-Path 'C:\EdgeLog\nt_replay_retry.OFF') { return $false }
   try {
     $p = @(Get-Process NinjaTrader -ErrorAction SilentlyContinue)
     if ($p.Count -eq 0) { return $false }

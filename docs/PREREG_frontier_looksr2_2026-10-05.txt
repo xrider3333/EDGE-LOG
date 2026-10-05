@@ -1,0 +1,38 @@
+BOOK QUEUE Q18 - LOOKS r2 CALIBRATION: is the 71-look chance band on the walk-forward the right width? Sent to MANAGER as a draft (#391, 12:55 MST;
+#80 GO to draft); no answer within 60 minutes, so STEP 1 runs under the standing order. Written 2026-10-05 before any number of this item. Walk-forward only (2016-07-01..2025-06-29); no lockbox row is read.
+
+WHY. Q17 put every forward line inside LOOKS r1's 71-look chance band, and ORB314 / KEEL / VT outside only a "narrow" version that
+shrank the null by r = 0.346. That r was measured on the LOCKBOX (sd of ln(LB ratio): ten real one-change reads 0.086 vs the N-LEG null
+0.248). It was never measured on the walk-forward, where Q17 applied it. If the walk-forward null is about right, the standard band
+stands and ORB314 / KEEL / VT are simply inside; if it is too wide, the band shrinks and they may be outside. That single fact decides
+the owner page's "not refuted, not shown" line.
+
+STEP 1 - THE WALK-FORWARD CALIBRATION, from draws that already exist (no new backtest).
+ Real reads: the same ten one-change reads LOOKS r1 used (#468, #469, #470, Q1a, Q1b, Q2, Q2ctx, Q3, Q5, Q6), their WF ROC at $30k on
+ the 10-01 convention where printed (LOOKS_LEDGER_R1.csv rows L113-L120), otherwise the old-convention figure against the old reference
+ 92.7 (#468 / #469 / #470); x_i = ln(WF ROC_i / reference). sd_real_WF = their sample sd (n = 10).
+ Null: LOOKS r1's N-LEG draws (looks_r1/draws.npz, 4 x 10,000), each centred on its seat's median WF ROC; sd_null_WF = the sd of the
+ pooled centred ln ratios. r_WF = sd_real_WF / sd_null_WF, with a bootstrap 90% interval over the ten reads (10,000 resamples, seed
+ 20261018).
+ Reading, fixed now: r_WF in [0.5, 2.0] -> the WF null is calibrated as LOOKS r1 defined it; Q17's standard column stands and its
+ narrow column is withdrawn (the owner page is corrected). r_WF < 0.5 -> STEP 2 runs. r_WF > 2.0 -> the null is too NARROW: the
+ bands widen by r_WF and that is printed.
+ Disclosed: the ten reads were chosen by lanes reading the walk-forward, so their spread includes selection; n = 10 is small, and the
+ interval is printed beside r_WF every time.
+
+STEP 2 (only if r_WF < 0.5) - A REALISTIC SEAT-SWAP NULL from each leg's own neighbours.
+ For each seat (ORB #234, ENGU-Q R2, TTM ES30SSOF2, NOISE CT304H): every one-step neighbour of #463's leg config on the strategy
+ file's own declared grid (tools/ryr_neighbourhood.py's rule: one parameter moved one step, all others fixed; no neighbour chosen by
+ reading any result), swapped into the seat; book = #463 with that one leg replaced; WF ROC at $30k and Sortino on the 10-01
+ convention. Each seat's null = its neighbour books' ln(ROC / seat median), Sortino above the seat median (as LOOKS r1).
+ The swap-null spread is compared with the ten real reads (r_swap); the per-seat 71-look band (K = 71; and LOOKS r1's split 51 leg +
+ 20 size) is re-printed from the neighbour null, and every forward line is marked inside / outside. Sizing lines (VT, NOISE125) keep
+ the N-SIZE null (uncentred V2 shifts, already a real member of the family); KEEL's seat (TTM) has only four neighbours (two knobs),
+ so its band is printed with that count and called thin.
+ Cost: about 70 leg backtests (ORB ~24, ENGU-Q ~28, TTM 4, NOISE 6) on the box's masters, read per BACKTEST_SPEED.md; the run is
+ detached and fits one evening.
+
+WHAT IT DECIDES. Only the width of the chance band, hence whether ORB314 / KEEL / VT stay "not refuted, not shown" or become
+"inside" (or "outside"). It adopts nothing; the owner page is re-issued with the result. No lockbox stage, no forward stage.
+COULD FOOL US. Neighbours are near-copies of the crown, so a neighbour null can be TOO narrow (a swap to a genuinely different config
+is a bigger change than a one-step move) - printed beside the band; the ten real reads mix seat swaps, adds and a gate.

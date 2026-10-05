@@ -244,7 +244,7 @@ var NOISE_ID='NOISE_382-20260928T141500Z-S', ENGU_ID='ENGUQ_335-20260928T163200Z
       +"window._qqqExecLoaded=true;window._qqqExecLoading=false;window._qqqExecErr=null;"
       +"window._qqqPaper=null;window._qqqPaperLoaded=true;window._qqqPaperLoading=false;window._qqqPaperErr=null;"
       +"window._qqqCalMonth=null;window._qeDrawerIdx=null;window._qeChartHidden={};window._qeTradesShown=50;window._qeEventsShown=30;"
-      +"window._qbSheet=null;window._qbLegOpen=new Set();window._qbLegNoteOpen={};window._qeTradesView='list';window._qeChartPeriod='ALL';"
+      +"window._qbSheet=null;window._qbLegOpen=new Set();window._qbLegNoteOpen={};window._qeTradesView='list';window._qeChartPeriod='ALL';homeRange='ALL';"
       +"window._oldCandleSVG="+(OLDSVG?OLDSVG:'null')+";"
       +"activeTab='augur';augurSub='qqqpaper';renderApp();return 'OK';"
       +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");

@@ -741,7 +741,7 @@ def test_auto_restart_flag_off_never_restarts(tmp_path):
     assert out["decision"]["action"] == "blocked" and _sudo_calls(h) == []
 
 
-def test_auto_restart_flag_on_outside_hours_flat_once_per_hour(tmp_path):
+def test_auto_restart_flag_on_outside_hours_flat_once_a_day(tmp_path):
     h = Home(tmp_path, SAT_1200)
     h.config(auto_restart_exec=True)
     h.exec_state(publish_ago=3600)
@@ -752,6 +752,10 @@ def test_auto_restart_flag_on_outside_hours_flat_once_per_hour(tmp_path):
     h.run(SAT_1200 + dt.timedelta(minutes=30))
     assert len(_sudo_calls(h)) == 1                              # cooldown
     h.run(SAT_1200 + dt.timedelta(minutes=62))
+    assert len(_sudo_calls(h)) == 1                              # owner: once a day
+    assert h.run(SAT_1200 + dt.timedelta(hours=11, minutes=50))["decision"]["why"] == \
+        "at most once a day (owner rule 2026-10-05)"           # Sat 23:50, same day
+    h.run(SAT_1200 + dt.timedelta(hours=24))                     # Sunday 12:00
     assert len(_sudo_calls(h)) == 2
     assert all(c[3:] == ["restart", "edgelog-qqq-exec.service"] for c in _sudo_calls(h))
 
@@ -787,6 +791,17 @@ def test_restart_decision_rules():
     assert wf.restart_decision(et(2026, 11, 26, 12, 0), ev_down, {}, True)["action"] == "restart"
     recent = {"restart": {"last_restart_epoch": sat.timestamp() - 1800}}
     assert wf.restart_decision(sat, ev_down, recent, True)["why"] == "at most once per hour"
+    today = {"restart": {"last_restart_epoch": sat.timestamp() - 5 * 3600,
+                         "last_restart_day": "2026-10-03"}}
+    assert wf.restart_decision(sat, ev_down, today, True)["why"].startswith("at most once a day")
+    yday = {"restart": {"last_restart_epoch": sat.timestamp() - 13 * 3600,
+                        "last_restart_day": "2026-10-02"}}
+    assert wf.restart_decision(sat, ev_down, yday, True)["action"] == "restart"
+    # 00:10 after a 23:40 restart: a new day, but still inside the hour floor
+    late = {"restart": {"last_restart_epoch": et(2026, 10, 3, 23, 40).timestamp(),
+                        "last_restart_day": "2026-10-03"}}
+    assert wf.restart_decision(et(2026, 10, 4, 0, 10), ev_down, late, True)["why"] == \
+        "at most once per hour"
     assert wf.restart_decision(sat, dict(ev_down, flat=None), {}, True)["action"] == "blocked"
 
 
@@ -954,12 +969,13 @@ def test_restart_cooldown_is_saved_before_the_restart_runs(tmp_path):
     assert len(_sudo_calls(h)) == 1
     state = json.load(open(h.paths["monitor_state"], encoding="utf-8"))
     assert state["restart"]["last_restart_epoch"] == SAT_1200.timestamp()
+    assert state["restart"]["last_restart_day"] == "2026-10-03"
     assert state["alerts"]["failed_unit:logrotate.service"]["open"] is True
     queued = json.load(open(h.paths["outbox"], encoding="utf-8"))
     assert any("logrotate.service" in x["message"] for x in queued)  # its page is not lost
     h.restart_hook = None
     out = h.run(SAT_1200 + dt.timedelta(minutes=2))
-    assert out["decision"]["why"] == "at most once per hour"
+    assert out["decision"]["why"].startswith("at most once a day")
     assert len(_sudo_calls(h)) == 1
     assert any("logrotate.service" in p["message"] for p in h.pushes)
 

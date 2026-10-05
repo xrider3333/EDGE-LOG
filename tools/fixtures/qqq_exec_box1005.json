@@ -1,0 +1,4776 @@
+{
+ "mode": "SHADOW",
+ "updated_at": "2026-10-05 10:03:06",
+ "live_from": "2026-09-03",
+ "signal_source": "engine",
+ "price_status": {
+  "source": "WEBULL",
+  "age_sec": 187
+ },
+ "run_location": {
+  "label": "THIS PC",
+  "host": "PROBE-PC"
+ },
+ "keel": {
+  "NOISE": {
+   "version": "v12",
+   "trained_through": "2026-09-29",
+   "last_trade_session": "2026-09-28",
+   "n_trades": 4862
+  }
+ },
+ "feed_stale": false,
+ "breaker_tripped": false,
+ "px_feed_stale": false,
+ "kill": false,
+ "calib": {
+  "ratio": 41.17517575599396,
+  "source": "yfinance+NQ_10s",
+  "at": "2026-09-11 12:55:10"
+ },
+ "positions": {},
+ "positions_live": {
+  "legs": [],
+  "total_open_pnl": 0.0,
+  "legs_net_qty": 0,
+  "broker_net_qty": 0,
+  "mismatch": false
+ },
+ "equity": {
+  "net_liq": 999831.18,
+  "cash": 999831.18,
+  "change_today": -6.97,
+  "change_today_pct": -0.001,
+  "as_of_et": "2026-10-05 10:01:35",
+  "age_min": 1.5,
+  "stale": false,
+  "note": null
+ },
+ "today": {
+  "orders": [
+   {
+    "ts_et": "2026-10-05 09:40:08",
+    "leg": "NOISE",
+    "action": "ENTER",
+    "side": "long",
+    "shares": "10",
+    "nq_px": "",
+    "qqq_px": "752.13",
+    "px_source": "engine_webull",
+    "reason": "signal entry",
+    "latency_s": "8.413",
+    "signal_source": "engine",
+    "size": "1.0",
+    "shares_wanted": "10",
+    "after_close_s": "8.413"
+   },
+   {
+    "ts_et": "2026-10-05 10:00:08",
+    "leg": "NOISE",
+    "action": "EXIT",
+    "side": "long",
+    "shares": "10",
+    "nq_px": "",
+    "qqq_px": "751.73",
+    "px_source": "engine_webull",
+    "reason": "signal exit",
+    "latency_s": "8.954",
+    "signal_source": "engine",
+    "size": "1.0",
+    "shares_wanted": "10",
+    "after_close_s": "8.954"
+   }
+  ],
+  "trades": [
+   {
+    "leg": "NOISE",
+    "entry_ts": "2026-10-05 09:40:08",
+    "exit_ts": "2026-10-05 10:00:09",
+    "side": "long",
+    "shares": "10",
+    "entry_px": "752.13",
+    "exit_px": "751.73",
+    "pnl": "-4.0",
+    "nq_pnl_points": "",
+    "exit_reason": "signal exit",
+    "nt_entry_exec_id": "",
+    "nt_entry_ts": "",
+    "nt_entry_px": "",
+    "nt_exit_exec_id": "",
+    "nt_exit_ts": "",
+    "nt_exit_px": "",
+    "nt_qty": "",
+    "ratio_at_entry": "41.17517575599396",
+    "ratio_at_exit": "41.17517575599396",
+    "nt_reconstructed": "",
+    "nt_mult": "",
+    "nt_notional_usd": "",
+    "shadow_notional_usd": "7521.3",
+    "notional_ratio": "",
+    "signal_source": "engine",
+    "trade_id": "NOISE_382-20261005T134000Z-L",
+    "size": "1.0",
+    "shares_wanted": "10",
+    "keel_size": "1.0"
+   }
+  ],
+  "realized_pnl": -4.0,
+  "realized_pnl_record": -6.8,
+  "breaker_fill_adj": -2.8,
+  "breaker_input": null,
+  "legs_record": {
+   "NOISE": {
+    "pnl": -6.8,
+    "n": 1,
+    "book": 0
+   }
+  },
+  "unrealized_pnl": 0
+ },
+ "trades_all": [
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-10-05 09:40:08",
+   "exit_ts": "2026-10-05 10:00:09",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "752.13",
+   "exit_px": "751.73",
+   "pnl": "-4.0",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7521.3",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20261005T134000Z-L",
+   "size": "1.0",
+   "shares_wanted": "10",
+   "keel_size": "1.0",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "pnl_record": -6.8,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -4.3,
+   "broker_parity_ok": false,
+   "broker_parity_note": "FLAGGED, a fill over 15c a share worse -- Webull vs backtest a share: entry 8.0c worse, exit 17.0c worse; -$2.50 at 10 sh",
+   "fp": {
+    "st": "entry and exit",
+    "en": "752.11|752.19|o|-0.08|0|-0.08|0|",
+    "ex": "751.68|751.51|o|-0.17|0|-0.17|0|",
+    "exec_ps": -0.25,
+    "gap_usd": -2.5,
+    "dsg_usd": 0.0,
+    "exec_usd": -2.5,
+    "flag": true
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "ORB",
+   "entry_ts": "2026-10-02 11:25:07",
+   "exit_ts": "2026-10-02 15:59:05",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "747.78",
+   "exit_px": "749.34",
+   "pnl": "-15.6",
+   "nq_pnl_points": "",
+   "exit_reason": "EOD (px: live_stream)",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7477.8",
+   "signal_source": "engine",
+   "trade_id": "ORB_R6-20261002T152000Z-S",
+   "size": "1.0",
+   "shares_wanted": "10",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "747.69",
+   "real_exit_px": "749.39",
+   "real_pnl": "-17.0",
+   "slip_entry_ps": "-0.09",
+   "slip_exit_ps": "0.05",
+   "repriced_at": "2026-10-02 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "backtest_exit_px": 749.58,
+   "backtest_exit_ts": "2026-10-02T15:55:00-04:00",
+   "pnl_record": -17.0,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -17.9,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "747.79|747.69|o|-0.1|0|-0.1|0|",
+    "ex": "749.58|749.39|o|0.19|0.24|-0.05|0|eod",
+    "exec_ps": -0.15,
+    "gap_usd": 0.9,
+    "dsg_usd": 2.4,
+    "exec_usd": -1.5,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-10-02 10:05:10",
+   "exit_ts": "2026-10-02 10:55:07",
+   "side": "long",
+   "shares": "15",
+   "entry_px": "753.77",
+   "exit_px": "751.75",
+   "pnl": "-30.3",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "11306.55",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20261002T140500Z-L",
+   "size": "1.5",
+   "shares_wanted": "15",
+   "keel_size": "1.5",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "753.79",
+   "real_exit_px": "751.8",
+   "real_pnl": "-29.85",
+   "slip_entry_ps": "0.02",
+   "slip_exit_ps": "0.05",
+   "repriced_at": "2026-10-02 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": -29.85,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -30.37,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "753.715|753.79|o|-0.075|0|-0.075|0|",
+    "ex": "751.69|751.8|o|0.11|0|0.11|0|",
+    "exec_ps": 0.035,
+    "gap_usd": 0.53,
+    "dsg_usd": 0.0,
+    "exec_usd": 0.53,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-30 15:50:10",
+   "exit_ts": "2026-09-30 15:55:11",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "743.175",
+   "exit_px": "740.71",
+   "pnl": "-24.65",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7431.75",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20260930T195000Z-L",
+   "size": "1.0",
+   "shares_wanted": "10",
+   "keel_size": "1.0",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "742.47",
+   "real_exit_px": "740.33",
+   "real_pnl": "-21.4",
+   "slip_entry_ps": "-0.705",
+   "slip_exit_ps": "-0.38",
+   "repriced_at": "2026-09-30 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": -21.4,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -24.3,
+   "broker_parity_ok": false,
+   "broker_parity_note": "FLAGGED, a fill over 15c a share worse -- Webull vs backtest a share: entry 68.0c better, exit 39.0c worse; +$2.90 at 10 sh",
+   "fp": {
+    "st": "entry and exit",
+    "en": "743.15|742.47|o|0.68|0|0.68|0|",
+    "ex": "740.72|740.33|o|-0.39|0|-0.39|0|",
+    "exec_ps": 0.29,
+    "gap_usd": 2.9,
+    "dsg_usd": 0.0,
+    "exec_usd": 2.9,
+    "flag": true
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-30 15:05:09",
+   "exit_ts": "2026-09-30 15:45:10",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "743.54",
+   "exit_px": "743.15",
+   "pnl": "-3.9",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7435.4",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20260930T190500Z-L",
+   "size": "1.0",
+   "shares_wanted": "10",
+   "keel_size": "1.0",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "743.55",
+   "real_exit_px": "743.23",
+   "real_pnl": "-3.2",
+   "slip_entry_ps": "0.01",
+   "slip_exit_ps": "0.08",
+   "repriced_at": "2026-09-30 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": -3.2,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -3.99,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "743.5689|743.55|o|0.0189|0|0.0189|0|",
+    "ex": "743.17|743.23|o|0.06|0|0.06|0|",
+    "exec_ps": 0.0789,
+    "gap_usd": 0.79,
+    "dsg_usd": 0.0,
+    "exec_usd": 0.79,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-30 14:40:06",
+   "exit_ts": "2026-09-30 14:45:07",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "743.26",
+   "exit_px": "743.17",
+   "pnl": "-0.9",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7432.6",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20260930T184000Z-L",
+   "size": "1.0",
+   "shares_wanted": "10",
+   "keel_size": "1.0",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "743.21",
+   "real_exit_px": "743.1",
+   "real_pnl": "-1.1",
+   "slip_entry_ps": "-0.05",
+   "slip_exit_ps": "-0.07",
+   "repriced_at": "2026-09-30 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": -1.1,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -0.19,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "743.219|743.21|o|0.009|0|0.009|0|",
+    "ex": "743.2|743.1|o|-0.1|0|-0.1|0|",
+    "exec_ps": -0.091,
+    "gap_usd": -0.91,
+    "dsg_usd": 0.0,
+    "exec_usd": -0.91,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-30 14:30:06",
+   "exit_ts": "2026-09-30 14:35:07",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "743.37",
+   "exit_px": "742.51",
+   "pnl": "-8.6",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7433.7",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20260930T183000Z-L",
+   "size": "1.0",
+   "shares_wanted": "10",
+   "keel_size": "1.0",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "743.43",
+   "real_exit_px": "742.59",
+   "real_pnl": "-8.4",
+   "slip_entry_ps": "0.06",
+   "slip_exit_ps": "0.08",
+   "repriced_at": "2026-09-30 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": -8.4,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -7.5,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "743.35|743.43|o|-0.08|0|-0.08|0|",
+    "ex": "742.6|742.59|o|-0.01|0|-0.01|0|",
+    "exec_ps": -0.09,
+    "gap_usd": -0.9,
+    "dsg_usd": 0.0,
+    "exec_usd": -0.9,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-30 13:40:08",
+   "exit_ts": "2026-09-30 14:25:07",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "743.1827",
+   "exit_px": "743.01",
+   "pnl": "-1.73",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7431.83",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20260930T174000Z-L",
+   "size": "1.0",
+   "shares_wanted": "10",
+   "keel_size": "1.0",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "743.15",
+   "real_exit_px": "743.06",
+   "real_pnl": "-0.9",
+   "slip_entry_ps": "-0.0327",
+   "slip_exit_ps": "0.05",
+   "repriced_at": "2026-09-30 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": -0.9,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -1.6,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "743.18|743.15|o|0.03|0|0.03|0|",
+    "ex": "743.02|743.06|o|0.04|0|0.04|0|",
+    "exec_ps": 0.07,
+    "gap_usd": 0.7,
+    "dsg_usd": 0.0,
+    "exec_usd": 0.7,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-30 10:50:07",
+   "exit_ts": "2026-09-30 13:20:06",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "743.76",
+   "exit_px": "742.375",
+   "pnl": "-13.85",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7437.6",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20260930T145000Z-L",
+   "size": "1.0",
+   "shares_wanted": "10",
+   "keel_size": "1.0",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "743.82",
+   "real_exit_px": "742.29",
+   "real_pnl": "-15.3",
+   "slip_entry_ps": "0.06",
+   "slip_exit_ps": "-0.085",
+   "repriced_at": "2026-09-30 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": -15.3,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -14.31,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "743.81|743.82|o|-0.01|0|-0.01|0|",
+    "ex": "742.3789|742.29|o|-0.0889|0|-0.0889|0|",
+    "exec_ps": -0.0989,
+    "gap_usd": -0.99,
+    "dsg_usd": 0.0,
+    "exec_usd": -0.99,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-30 10:40:07",
+   "exit_ts": "2026-09-30 10:45:08",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "742.66",
+   "exit_px": "742.5",
+   "pnl": "-1.6",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7426.6",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20260930T144000Z-L",
+   "size": "1.0",
+   "shares_wanted": "10",
+   "keel_size": "1.0",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "742.59",
+   "real_exit_px": "742.64",
+   "real_pnl": "0.5",
+   "slip_entry_ps": "-0.07",
+   "slip_exit_ps": "0.14",
+   "repriced_at": "2026-09-30 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": 0.5,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -1.95,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "742.69|742.59|o|0.1|0|0.1|0|",
+    "ex": "742.495|742.64|o|0.145|0|0.145|0|",
+    "exec_ps": 0.245,
+    "gap_usd": 2.45,
+    "dsg_usd": 0.0,
+    "exec_usd": 2.45,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-30 09:40:08",
+   "exit_ts": "2026-09-30 10:35:08",
+   "side": "long",
+   "shares": "20",
+   "entry_px": "741.7299",
+   "exit_px": "742.365",
+   "pnl": "12.7",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "14834.6",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20260930T134000Z-L",
+   "size": "2.0",
+   "shares_wanted": "20",
+   "keel_size": "1.0",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "741.34",
+   "real_exit_px": "742.33",
+   "real_pnl": "19.8",
+   "slip_entry_ps": "-0.3899",
+   "slip_exit_ps": "-0.035",
+   "repriced_at": "2026-09-30 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": 19.8,
+   "pnl_record_src": "webull",
+   "pnl_backtest": 14.2,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "741.71|741.34|o|0.37|0|0.37|0|",
+    "ex": "742.42|742.33|o|-0.09|0|-0.09|0|",
+    "exec_ps": 0.28,
+    "gap_usd": 5.6,
+    "dsg_usd": 0.0,
+    "exec_usd": 5.6,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "ENGUQ",
+   "entry_ts": "2026-09-28 12:33:38",
+   "exit_ts": "2026-09-28 15:59:01",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "738.0395",
+   "exit_px": "736.66",
+   "pnl": "-13.8",
+   "nq_pnl_points": "",
+   "exit_reason": "EOD (px: live_stream)",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7380.39",
+   "signal_source": "engine",
+   "trade_id": "ENGUQ_335-20260928T163200Z-L",
+   "size": "1.0",
+   "shares_wanted": "10",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "738.56",
+   "real_exit_px": "736.58",
+   "real_pnl": "-19.8",
+   "slip_entry_ps": "0.5205",
+   "slip_exit_ps": "-0.08",
+   "repriced_at": "2026-09-29 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": -19.8,
+   "pnl_record_src": "webull",
+   "pnl_backtest": null,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry only",
+    "en": "738.0295|738.56|o|-0.5305|-0.5305|0|0|limit",
+    "ex": "|736.58|o|||||noexit",
+    "exec_ps": 0.0,
+    "gap_usd": -5.3,
+    "dsg_usd": -5.3,
+    "exec_usd": 0.0,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "ORB",
+   "entry_ts": "2026-09-28 10:50:06",
+   "exit_ts": "2026-09-28 15:59:01",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "732.32",
+   "exit_px": "736.76",
+   "pnl": "-44.4",
+   "nq_pnl_points": "",
+   "exit_reason": "EOD (px: live_stream)",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7323.2",
+   "signal_source": "engine",
+   "trade_id": "ORB_R6-20260928T144500Z-S",
+   "size": "1.0",
+   "shares_wanted": "10",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "732.58",
+   "real_exit_px": "736.57",
+   "real_pnl": "-39.9",
+   "slip_entry_ps": "0.26",
+   "slip_exit_ps": "-0.19",
+   "repriced_at": "2026-09-29 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": -39.9,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -42.0,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "732.33|732.58|o|0.25|0|0.25|0|",
+    "ex": "736.53|736.57|o|-0.04|-0.23|0.19|0|eod",
+    "exec_ps": 0.44,
+    "gap_usd": 2.1,
+    "dsg_usd": -2.3,
+    "exec_usd": 4.4,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-28 12:15:09",
+   "exit_ts": "2026-09-28 12:20:10",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "735.455",
+   "exit_px": "736.89",
+   "pnl": "-14.35",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7354.55",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20260928T161500Z-S",
+   "size": "1.0",
+   "shares_wanted": "10",
+   "keel_size": "1.0",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "735.57",
+   "real_exit_px": "736.74",
+   "real_pnl": "-11.7",
+   "slip_entry_ps": "0.115",
+   "slip_exit_ps": "-0.15",
+   "repriced_at": "2026-09-29 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": -11.7,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -14.35,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "735.43|735.57|o|0.14|0|0.14|0|",
+    "ex": "736.865|736.74|o|0.125|0|0.125|0|",
+    "exec_ps": 0.265,
+    "gap_usd": 2.65,
+    "dsg_usd": 0.0,
+    "exec_usd": 2.65,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-28 12:05:08",
+   "exit_ts": "2026-09-28 12:10:09",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "735.3",
+   "exit_px": "735.63",
+   "pnl": "-3.3",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7353.0",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20260928T160500Z-S",
+   "size": "1.0",
+   "shares_wanted": "10",
+   "keel_size": "1.0",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "735.15",
+   "real_exit_px": "735.73",
+   "real_pnl": "-5.8",
+   "slip_entry_ps": "-0.15",
+   "slip_exit_ps": "0.1",
+   "repriced_at": "2026-09-29 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": -5.8,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -4.6,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "735.18|735.15|o|-0.03|0|-0.03|0|",
+    "ex": "735.64|735.73|o|-0.09|0|-0.09|0|",
+    "exec_ps": -0.12,
+    "gap_usd": -1.2,
+    "dsg_usd": 0.0,
+    "exec_usd": -1.2,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-28 11:45:09",
+   "exit_ts": "2026-09-28 12:00:08",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "734.44",
+   "exit_px": "735.64",
+   "pnl": "-12.0",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7344.4",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20260928T154500Z-S",
+   "size": "1.0",
+   "shares_wanted": "10",
+   "keel_size": "1.0",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "734.35",
+   "real_exit_px": "735.68",
+   "real_pnl": "-13.3",
+   "slip_entry_ps": "-0.09",
+   "slip_exit_ps": "0.04",
+   "repriced_at": "2026-09-29 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": -13.3,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -11.56,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "734.44|734.35|o|-0.09|0|-0.09|0|",
+    "ex": "735.5963|735.68|o|-0.0837|0|-0.0837|0|",
+    "exec_ps": -0.1737,
+    "gap_usd": -1.74,
+    "dsg_usd": 0.0,
+    "exec_usd": -1.74,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-28 10:15:11",
+   "exit_ts": "2026-09-28 11:40:09",
+   "side": "short",
+   "shares": "20",
+   "entry_px": "735.6499",
+   "exit_px": "735.705",
+   "pnl": "-1.1",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "14713.0",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20260928T141500Z-S",
+   "size": "2.0",
+   "shares_wanted": "20",
+   "keel_size": "1.0",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "735.87",
+   "real_exit_px": "735.57",
+   "real_pnl": "6.0",
+   "slip_entry_ps": "0.2201",
+   "slip_exit_ps": "-0.135",
+   "repriced_at": "2026-09-29 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": 6.0,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -1.4,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "735.66|735.87|o|0.21|0|0.21|0|",
+    "ex": "735.73|735.57|o|0.16|0|0.16|0|",
+    "exec_ps": 0.37,
+    "gap_usd": 7.4,
+    "dsg_usd": 0.0,
+    "exec_usd": 7.4,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-25 12:15:09",
+   "exit_ts": "2026-09-25 15:59:03",
+   "side": "long",
+   "shares": "15",
+   "entry_px": "745.5",
+   "exit_px": "744.92",
+   "pnl": "-8.7",
+   "nq_pnl_points": "",
+   "exit_reason": "EOD",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "11182.5",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20260925T161000Z-L",
+   "size": "1.5",
+   "shares_wanted": "15",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "745.35",
+   "real_exit_px": "744.6",
+   "real_pnl": "-11.25",
+   "slip_entry_ps": "-0.15",
+   "slip_exit_ps": "-0.32",
+   "repriced_at": "2026-09-29 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": -11.25,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -14.85,
+   "broker_parity_ok": false,
+   "broker_parity_note": "FLAGGED, a fill over 15c a share worse -- Webull vs backtest a share: entry 14.0c better (design 14.0c better, slippage level), exit 10.0c better (design 42.0c better, slippage 32.0c worse); +$3.60 at 15 sh",
+   "fp": {
+    "st": "entry and exit",
+    "en": "745.49|745.35|o|0.14|0.14|0|0|late",
+    "ex": "744.5|744.6|o|0.1|0.42|-0.32|0|eod",
+    "exec_ps": -0.32,
+    "gap_usd": 3.6,
+    "dsg_usd": 8.4,
+    "exec_usd": -4.8,
+    "flag": true
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-25 09:45:11",
+   "exit_ts": "2026-09-25 10:10:13",
+   "side": "long",
+   "shares": "15",
+   "entry_px": "744.1",
+   "exit_px": "742.48",
+   "pnl": "-24.3",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "11161.5",
+   "signal_source": "engine",
+   "trade_id": "NOISE_382-20260925T134000Z-L",
+   "size": "1.5",
+   "shares_wanted": "15",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "744.21",
+   "real_exit_px": "742.42",
+   "real_pnl": "-26.85",
+   "slip_entry_ps": "0.11",
+   "slip_exit_ps": "-0.06",
+   "repriced_at": "2026-09-29 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "ok",
+   "exit_fill_check": "ok",
+   "pnl_record": -26.85,
+   "pnl_record_src": "webull",
+   "pnl_backtest": -24.0,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "744.09|744.21|o|-0.12|-0.12|0|0|late",
+    "ex": "742.49|742.42|o|-0.07|-0.07|0|0|late",
+    "exec_ps": 0.0,
+    "gap_usd": -2.85,
+    "dsg_usd": -2.85,
+    "exec_usd": 0.0,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "ENGUQ",
+   "entry_ts": "2026-09-24 12:18:25",
+   "exit_ts": "2026-09-24 15:59:00",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "739.3817",
+   "exit_px": "741.345",
+   "pnl": "19.63",
+   "nq_pnl_points": "",
+   "exit_reason": "EOD",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7393.82",
+   "signal_source": "engine",
+   "trade_id": "ENGUQ_335-20260924T161700Z-L",
+   "size": "1.0",
+   "shares_wanted": "10",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "739.49",
+   "real_exit_px": "741.32",
+   "real_pnl": "18.2",
+   "slip_entry_ps": "0.1083",
+   "slip_exit_ps": "-0.025",
+   "repriced_at": "2026-09-29 16:20:04",
+   "source": "webull_fill+webull_stream_1m",
+   "price_source": "webull_fill+webull_stream_1m",
+   "note": "entry: Webull fill 737.88 is outside the 738.77-740.77 range traded at 12:18-12:19 -- minute close used",
+   "entry_px_source": "webull_stream_1m",
+   "exit_px_source": "webull_fill",
+   "entry_fill_check": "suspect",
+   "pnl_record": 19.38,
+   "pnl_record_src": "part",
+   "pnl_record_note": "Webull entry fill looks wrong, book price used",
+   "pnl_backtest": -47.42,
+   "broker_parity_ok": false,
+   "broker_parity_note": "FLAGGED, a Webull fill does not fit the tape -- Webull vs backtest a share: entry 149.2c better (fill does not fit the tape), exit 669.0c better (design 671.5c better, slippage 2.5c worse); +$81.82 at 10 sh",
+   "fp": {
+    "st": "entry and exit",
+    "en": "739.3717|737.88|s|1.4917|0|0|1.4917|suspect",
+    "ex": "734.6301|741.32|o|6.6899|6.7149|-0.025|0|eod",
+    "exec_ps": 1.4667,
+    "gap_usd": 81.82,
+    "dsg_usd": 67.15,
+    "exec_usd": 14.67,
+    "flag": true
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "ENGUQ",
+   "entry_ts": "2026-09-23 14:01:29",
+   "exit_ts": "2026-09-23 15:59:03",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "741.1247",
+   "exit_px": "740.89",
+   "pnl": "-2.35",
+   "nq_pnl_points": "",
+   "exit_reason": "EOD",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7411.25",
+   "signal_source": "engine",
+   "trade_id": "ENGUQ_335-20260923T180000Z-L",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "741.08",
+   "real_exit_px": "740.95",
+   "real_pnl": "-1.3",
+   "slip_entry_ps": "-0.0447",
+   "slip_exit_ps": "0.06",
+   "repriced_at": "2026-09-29 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "pnl_record": -1.3,
+   "pnl_record_src": "webull",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: the backtest never took this trade (the engine withdrew the entry)",
+   "fp": {
+    "st": "not compared",
+    "en": "|741.08|o|||||void",
+    "ex": "|740.95|o|||||void",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 15:50:21",
+   "exit_ts": "2026-09-23 15:55:30",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "740.63",
+   "exit_px": "741.12",
+   "pnl": "-4.9",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7406.3",
+   "signal_source": "engine",
+   "trade_id": "NOISE_304-20260923T194500Z-S",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "740.3706",
+   "real_exit_px": "740.59",
+   "real_pnl": "-2.39",
+   "slip_entry_ps": "-0.2594",
+   "slip_exit_ps": "-0.53",
+   "repriced_at": "2026-09-23 16:20:00",
+   "source": "yfinance_1m",
+   "pnl_record": -4.9,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": -4.7,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no Webull fill",
+   "fp": {
+    "st": "not compared",
+    "en": "740.64||n|||||nofill",
+    "ex": "741.11||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": true,
+   "book_only_reason": "ServerException: HTTP Status: 417, Code: OPENAPI_ORDER_SIDE_NOT_MATCH_WITH_POSITION_OPEN, Msg: Please close your existing long positions of this security before placing a short order., RequestID: redacted"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 15:20:14",
+   "exit_ts": "2026-09-23 15:40:10",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "741.045",
+   "exit_px": "741.27",
+   "pnl": "-2.25",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7410.45",
+   "signal_source": "engine",
+   "trade_id": "NOISE_304-20260923T191500Z-S",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "740.65",
+   "real_exit_px": "741.08",
+   "real_pnl": "-4.5",
+   "slip_entry_ps": "-0.395",
+   "slip_exit_ps": "-0.19",
+   "repriced_at": "2026-09-23 16:20:00",
+   "source": "yfinance_1m",
+   "pnl_record": -2.25,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": -2.05,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no Webull fill",
+   "fp": {
+    "st": "not compared",
+    "en": "741.055||n|||||nofill",
+    "ex": "741.26||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": true,
+   "book_only_reason": "ServerException: HTTP Status: 417, Code: OPENAPI_ORDER_SIDE_NOT_MATCH_WITH_POSITION_OPEN, Msg: Please close your existing long positions of this security before placing a short order., RequestID: redacted"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 15:10:31",
+   "exit_ts": "2026-09-23 15:15:36",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "740.61",
+   "exit_px": "741.2324",
+   "pnl": "-6.22",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7406.1",
+   "signal_source": "engine",
+   "trade_id": "NOISE_304-20260923T190500Z-S",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "741.17",
+   "real_exit_px": "740.695",
+   "real_pnl": "4.55",
+   "slip_entry_ps": "0.56",
+   "slip_exit_ps": "-0.5374",
+   "repriced_at": "2026-09-23 16:20:00",
+   "source": "yfinance_1m",
+   "pnl_record": -6.22,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": -6.02,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no Webull fill",
+   "fp": {
+    "st": "not compared",
+    "en": "740.62||n|||||nofill",
+    "ex": "741.2224||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": true,
+   "book_only_reason": "ServerException: HTTP Status: 417, Code: OPENAPI_ORDER_SIDE_NOT_MATCH_WITH_POSITION_OPEN, Msg: Please close your existing long positions of this security before placing a short order., RequestID: redacted"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 15:00:14",
+   "exit_ts": "2026-09-23 15:05:23",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "740.74",
+   "exit_px": "741.055",
+   "pnl": "-3.15",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7407.4",
+   "signal_source": "engine",
+   "trade_id": "NOISE_304-20260923T185500Z-S",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "741.04",
+   "real_exit_px": "740.7339",
+   "real_pnl": "2.86",
+   "slip_entry_ps": "0.3",
+   "slip_exit_ps": "-0.3211",
+   "repriced_at": "2026-09-23 16:20:00",
+   "source": "yfinance_1m",
+   "pnl_record": -3.15,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": -2.95,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no Webull fill",
+   "fp": {
+    "st": "not compared",
+    "en": "740.75||n|||||nofill",
+    "ex": "741.045||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": true,
+   "book_only_reason": "ServerException: HTTP Status: 417, Code: OPENAPI_ORDER_SIDE_NOT_MATCH_WITH_POSITION_OPEN, Msg: Please close your existing long positions of this security before placing a short order., RequestID: redacted"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 14:30:36",
+   "exit_ts": "2026-09-23 14:55:10",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "741.055",
+   "exit_px": "741.07",
+   "pnl": "-0.15",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7410.55",
+   "signal_source": "engine",
+   "trade_id": "NOISE_304-20260923T182500Z-S",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "740.672",
+   "real_exit_px": "741.035",
+   "real_pnl": "-3.83",
+   "slip_entry_ps": "-0.383",
+   "slip_exit_ps": "-0.035",
+   "repriced_at": "2026-09-23 16:20:00",
+   "source": "yfinance_1m",
+   "pnl_record": -0.15,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": 0.05,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no Webull fill",
+   "fp": {
+    "st": "not compared",
+    "en": "741.065||n|||||nofill",
+    "ex": "741.06||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": true,
+   "book_only_reason": "ServerException: HTTP Status: 417, Code: OPENAPI_ORDER_SIDE_NOT_MATCH_WITH_POSITION_OPEN, Msg: Please close your existing long positions of this security before placing a short order., RequestID: redacted"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 14:10:11",
+   "exit_ts": "2026-09-23 14:25:33",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "740.242",
+   "exit_px": "741.04",
+   "pnl": "-7.98",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7402.42",
+   "signal_source": "engine",
+   "trade_id": "NOISE_304-20260923T180500Z-S",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "740.51",
+   "real_exit_px": "740.925",
+   "real_pnl": "-4.35",
+   "slip_entry_ps": "0.268",
+   "slip_exit_ps": "-0.115",
+   "repriced_at": "2026-09-23 16:20:00",
+   "source": "yfinance_1m",
+   "pnl_record": -7.98,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": -7.78,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no Webull fill",
+   "fp": {
+    "st": "not compared",
+    "en": "740.252||n|||||nofill",
+    "ex": "741.03||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": true,
+   "book_only_reason": "ServerException: HTTP Status: 417, Code: OPENAPI_ORDER_SIDE_NOT_MATCH_WITH_POSITION_OPEN, Msg: Please close your existing long positions of this security before placing a short order., RequestID: redacted"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 11:35:17",
+   "exit_ts": "2026-09-23 14:05:33",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "741.321",
+   "exit_px": "741.28",
+   "pnl": "0.41",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7413.21",
+   "signal_source": "engine",
+   "trade_id": "NOISE_304-20260923T153000Z-S",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "741.09",
+   "real_exit_px": "740.23",
+   "real_pnl": "8.6",
+   "slip_entry_ps": "-0.231",
+   "slip_exit_ps": "-1.05",
+   "repriced_at": "2026-09-29 16:20:04",
+   "source": "webull_fill",
+   "price_source": "webull_fill",
+   "entry_px_source": "webull_fill",
+   "exit_px_source": "webull_fill",
+   "pnl_record": 8.6,
+   "pnl_record_src": "webull",
+   "pnl_backtest": 0.61,
+   "broker_parity_ok": true,
+   "fp": {
+    "st": "entry and exit",
+    "en": "741.331|741.09|o|-0.241|-0.241|0|0|late",
+    "ex": "741.27|740.23|o|1.04|1.04|0|0|late",
+    "exec_ps": 0.0,
+    "gap_usd": 7.99,
+    "dsg_usd": 7.99,
+    "exec_usd": 0.0,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 11:20:29",
+   "exit_ts": "2026-09-23 11:30:09",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "741.705",
+   "exit_px": "742.18",
+   "pnl": "-4.75",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7417.05",
+   "signal_source": "engine",
+   "trade_id": "NOISE_304-20260923T151500Z-S",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "741.6482",
+   "real_exit_px": "741.28",
+   "real_pnl": "3.48",
+   "slip_entry_ps": "-0.0568",
+   "slip_exit_ps": "-0.9",
+   "repriced_at": "2026-09-23 16:20:00",
+   "source": "yfinance_1m",
+   "pnl_record": -4.75,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": -4.55,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no Webull fill",
+   "fp": {
+    "st": "not compared",
+    "en": "741.715||n|||||nofill",
+    "ex": "742.17||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": true,
+   "book_only_reason": "ServerException: HTTP Status: 417, Code: OPENAPI_GENERATE_NEW_SHORT_POSITION, Msg: This order will generate new short stock positions, which do not match your account type., RequestID: redacted"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-23 10:10:29",
+   "exit_ts": "2026-09-23 11:00:33",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "742.7798",
+   "exit_px": "742.29",
+   "pnl": "4.9",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7427.8",
+   "signal_source": "engine",
+   "trade_id": "NOISE_304-20260923T140500Z-S",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "740.78",
+   "real_exit_px": "742.29",
+   "real_pnl": "-15.3",
+   "slip_entry_ps": "-1.9998",
+   "slip_exit_ps": "-0.0",
+   "repriced_at": "2026-09-23 16:20:00",
+   "source": "yfinance_1m",
+   "pnl_record": 4.9,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": 5.1,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no Webull fill",
+   "fp": {
+    "st": "not compared",
+    "en": "742.7898||n|||||nofill",
+    "ex": "742.28||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": true,
+   "book_only_reason": "ServerException: HTTP Status: 417, Code: OPENAPI_GENERATE_NEW_SHORT_POSITION, Msg: This order will generate new short stock positions, which do not match your account type., RequestID: redacted"
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 12:50:31",
+   "exit_ts": "2026-09-22 15:59:00",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "744.65",
+   "exit_px": "747.69",
+   "pnl": "30.4",
+   "nq_pnl_points": "",
+   "exit_reason": "EOD",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7446.5",
+   "signal_source": "engine",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "745.3499",
+   "real_exit_px": "747.465",
+   "real_pnl": "20.95",
+   "slip_entry_ps": "0.6999",
+   "slip_exit_ps": "-0.225",
+   "repriced_at": "2026-09-22 16:20:05",
+   "source": "yfinance_1m",
+   "pnl_record": 30.4,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 12:40:15",
+   "exit_ts": "2026-09-22 12:50:31",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "744.74",
+   "exit_px": "744.37",
+   "pnl": "-3.7",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7447.4",
+   "signal_source": "engine",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "744.34",
+   "real_exit_px": "745.3499",
+   "real_pnl": "9.9",
+   "slip_entry_ps": "-0.4",
+   "slip_exit_ps": "0.9799",
+   "repriced_at": "2026-09-22 16:20:05",
+   "source": "yfinance_1m",
+   "pnl_record": -3.7,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 12:30:34",
+   "exit_ts": "2026-09-22 12:40:15",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "744.26",
+   "exit_px": "744.08",
+   "pnl": "-1.8",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7442.6",
+   "signal_source": "engine",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "744.26",
+   "real_exit_px": "744.34",
+   "real_pnl": "0.6",
+   "slip_entry_ps": "0.0",
+   "slip_exit_ps": "0.26",
+   "repriced_at": "2026-09-22 16:20:05",
+   "source": "yfinance_1m",
+   "pnl_record": -1.8,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 12:15:15",
+   "exit_ts": "2026-09-22 12:30:34",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "744.96",
+   "exit_px": "744.54",
+   "pnl": "-4.2",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7449.6",
+   "signal_source": "engine",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "744.66",
+   "real_exit_px": "744.26",
+   "real_pnl": "-4.2",
+   "slip_entry_ps": "-0.3",
+   "slip_exit_ps": "-0.28",
+   "repriced_at": "2026-09-22 16:20:05",
+   "source": "yfinance_1m",
+   "pnl_record": -4.2,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 12:05:34",
+   "exit_ts": "2026-09-22 12:15:15",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "744.5774",
+   "exit_px": "744.49",
+   "pnl": "-0.87",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7445.77",
+   "signal_source": "engine",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "744.58",
+   "real_exit_px": "744.66",
+   "real_pnl": "0.6",
+   "slip_entry_ps": "0.0026",
+   "slip_exit_ps": "0.17",
+   "repriced_at": "2026-09-22 16:20:05",
+   "source": "yfinance_1m",
+   "pnl_record": -0.87,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 11:55:18",
+   "exit_ts": "2026-09-22 12:05:34",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "744.48",
+   "exit_px": "744.195",
+   "pnl": "-2.85",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7444.8",
+   "signal_source": "engine",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "744.195",
+   "real_exit_px": "744.58",
+   "real_pnl": "3.65",
+   "slip_entry_ps": "-0.285",
+   "slip_exit_ps": "0.385",
+   "repriced_at": "2026-09-22 16:20:05",
+   "source": "yfinance_1m",
+   "pnl_record": -2.85,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 11:15:26",
+   "exit_ts": "2026-09-22 11:50:11",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "744.6295",
+   "exit_px": "744.2",
+   "pnl": "-4.29",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7446.3",
+   "signal_source": "engine",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "744.96",
+   "real_exit_px": "744.51",
+   "real_pnl": "-4.7",
+   "slip_entry_ps": "0.3305",
+   "slip_exit_ps": "0.31",
+   "repriced_at": "2026-09-22 16:20:05",
+   "source": "yfinance_1m",
+   "pnl_record": -4.29,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 10:55:30",
+   "exit_ts": "2026-09-22 11:15:26",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "745.285",
+   "exit_px": "744.592",
+   "pnl": "-6.93",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7452.85",
+   "signal_source": "engine",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "745.2474",
+   "real_exit_px": "744.96",
+   "real_pnl": "-3.07",
+   "slip_entry_ps": "-0.0376",
+   "slip_exit_ps": "0.368",
+   "repriced_at": "2026-09-22 16:20:05",
+   "source": "yfinance_1m",
+   "pnl_record": -6.93,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-22 09:45:28",
+   "exit_ts": "2026-09-22 10:55:30",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "744.14",
+   "exit_px": "744.61",
+   "pnl": "4.7",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7441.4",
+   "signal_source": "engine",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "744.45",
+   "real_exit_px": "745.2474",
+   "real_pnl": "7.77",
+   "slip_entry_ps": "0.31",
+   "slip_exit_ps": "0.6374",
+   "repriced_at": "2026-09-22 16:20:05",
+   "source": "yfinance_1m",
+   "pnl_record": 4.7,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-21 09:45:12",
+   "exit_ts": "2026-09-21 15:59:00",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "729.82",
+   "exit_px": "741.58",
+   "pnl": "117.6",
+   "nq_pnl_points": "",
+   "exit_reason": "EOD",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7298.2",
+   "signal_source": "engine",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "731.41",
+   "real_exit_px": "741.45",
+   "real_pnl": "100.2",
+   "slip_entry_ps": "1.59",
+   "slip_exit_ps": "-0.13",
+   "repriced_at": "2026-09-22 16:20:05",
+   "source": "yfinance_1m",
+   "pnl_record": 117.6,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "ORB",
+   "entry_ts": "2026-09-18 15:50:37",
+   "exit_ts": "2026-09-18 16:00:05",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "720.07",
+   "exit_px": "nan",
+   "pnl": "nan",
+   "nq_pnl_points": "",
+   "exit_reason": "EOD",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7200.7",
+   "signal_source": "engine",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "720.15",
+   "real_exit_px": "721.36",
+   "real_pnl": "11.9",
+   "slip_entry_ps": "0.08",
+   "slip_exit_ps": "nan",
+   "repriced_at": "2026-09-18 23:46:59",
+   "source": "yfinance_1m",
+   "note": "exit: nearest bar 1.0 min away",
+   "pnl_record": 12.9,
+   "pnl_record_src": "book",
+   "pnl_record_note": "entry at the book price, no Webull fill; exit at the re-price minute close, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "ENGUQ",
+   "entry_ts": "2026-09-18 13:11:45",
+   "exit_ts": "2026-09-18 16:00:03",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "716.851",
+   "exit_px": "nan",
+   "pnl": "nan",
+   "nq_pnl_points": "",
+   "exit_reason": "EOD",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7168.51",
+   "signal_source": "engine",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "716.82",
+   "real_exit_px": "721.36",
+   "real_pnl": "45.2",
+   "slip_entry_ps": "-0.031",
+   "slip_exit_ps": "nan",
+   "repriced_at": "2026-09-18 23:46:59",
+   "source": "yfinance_1m",
+   "note": "exit: nearest bar 1.0 min away",
+   "pnl_record": 45.09,
+   "pnl_record_src": "book",
+   "pnl_record_note": "entry at the book price, no Webull fill; exit at the re-price minute close, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "ENGUQ",
+   "entry_ts": "2026-09-17 15:08:24",
+   "exit_ts": "2026-09-17 16:00:04",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "716.8692",
+   "exit_px": "nan",
+   "pnl": "nan",
+   "nq_pnl_points": "",
+   "exit_reason": "EOD",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7168.69",
+   "signal_source": "engine",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "716.785",
+   "real_exit_px": "716.87",
+   "real_pnl": "0.65",
+   "slip_entry_ps": "-0.0842",
+   "slip_exit_ps": "nan",
+   "repriced_at": "2026-09-17 16:20:04",
+   "source": "yfinance_1m",
+   "note": "exit: nearest bar 1.0 min away",
+   "pnl_record": 0.01,
+   "pnl_record_src": "book",
+   "pnl_record_note": "entry at the book price, no Webull fill; exit at the re-price minute close, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-16 14:10:17",
+   "exit_ts": "2026-09-16 14:35:20",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "710.95",
+   "exit_px": "709.64",
+   "pnl": "-13.1",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7109.5",
+   "signal_source": "engine",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "710.36",
+   "real_exit_px": "706.93",
+   "real_pnl": "-34.5",
+   "slip_entry_ps": "-0.59",
+   "slip_exit_ps": "-2.71",
+   "repriced_at": "2026-09-16 16:20:06",
+   "source": "yfinance_1m",
+   "pnl_record": -13.1,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-16 09:55:11",
+   "exit_ts": "2026-09-16 13:15:31",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "709.78",
+   "exit_px": "709.465",
+   "pnl": "-3.15",
+   "nq_pnl_points": "",
+   "exit_reason": "signal exit",
+   "ratio_at_entry": "41.17517575599396",
+   "ratio_at_exit": "41.17517575599396",
+   "shadow_notional_usd": "7097.8",
+   "signal_source": "engine",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": null,
+   "expected_usd": null,
+   "track_err_usd": null,
+   "parity_ok": null,
+   "parity_note": "insufficient NT fill data to check parity",
+   "real_entry_px": "709.965",
+   "real_exit_px": "709.725",
+   "real_pnl": "-2.6",
+   "slip_entry_ps": "0.185",
+   "slip_exit_ps": "0.26",
+   "repriced_at": "2026-09-16 16:20:06",
+   "source": "yfinance_1m",
+   "pnl_record": -3.15,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "ORB",
+   "entry_ts": "2026-09-03 12:30:18",
+   "exit_ts": "2026-09-03 15:58:05",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "719.2731",
+   "exit_px": "719.8505",
+   "pnl": "2.89",
+   "nq_pnl_points": "24.5",
+   "exit_reason": "EOD",
+   "nt_entry_exec_id": "redacted",
+   "nt_entry_ts": "2026-09-03 12:30:01",
+   "nt_entry_px": "29498.25",
+   "nt_exit_exec_id": "redacted",
+   "nt_exit_ts": "2026-09-03 15:59:51",
+   "nt_exit_px": "29520.5",
+   "nt_qty": "2",
+   "ratio_at_entry": "41.011196",
+   "ratio_at_exit": "41.012335",
+   "nt_reconstructed": "1",
+   "signal_source": "",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": 22.25,
+   "expected_usd": 2.71,
+   "track_err_usd": 0.18,
+   "parity_ok": false,
+   "parity_note": "reconstructed",
+   "real_entry_px": "716.75",
+   "real_exit_px": "717.31",
+   "real_pnl": "2.7",
+   "slip_entry_ps": "-2.5231",
+   "slip_exit_ps": "-2.5405",
+   "repriced_at": "2026-09-06 15:52:12",
+   "source": "yfinance_1m",
+   "pnl_record": 2.89,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  },
+  {
+   "leg": "NOISE",
+   "entry_ts": "2026-09-03 12:30:16",
+   "exit_ts": "2026-09-03 15:58:05",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "719.2731",
+   "exit_px": "719.8505",
+   "pnl": "2.89",
+   "nq_pnl_points": "24.5",
+   "exit_reason": "EOD",
+   "nt_entry_exec_id": "459311891613_1",
+   "nt_entry_ts": "2026-09-03 12:30:00",
+   "nt_entry_px": "29498.25",
+   "nt_exit_exec_id": "459311891630_1",
+   "nt_exit_ts": "2026-09-03 15:59:31",
+   "nt_exit_px": "29513.5",
+   "nt_qty": "13",
+   "ratio_at_entry": "41.011196",
+   "ratio_at_exit": "41.012335",
+   "nt_reconstructed": "1",
+   "signal_source": "",
+   "trade_id": "",
+   "size": "",
+   "shares_wanted": "",
+   "keel_size": "",
+   "nt_points": 15.25,
+   "expected_usd": 1.86,
+   "track_err_usd": 1.03,
+   "parity_ok": false,
+   "parity_note": "reconstructed",
+   "real_entry_px": "716.75",
+   "real_exit_px": "717.31",
+   "real_pnl": "2.7",
+   "slip_entry_ps": "-2.5231",
+   "slip_exit_ps": "-2.5405",
+   "repriced_at": "2026-09-06 15:52:12",
+   "source": "yfinance_1m",
+   "pnl_record": 2.89,
+   "pnl_record_src": "book",
+   "pnl_record_note": "book price, no Webull fill",
+   "pnl_backtest": null,
+   "broker_parity_ok": null,
+   "broker_parity_note": "not compared: no trade id (closed before 09-22)",
+   "fp": {
+    "st": "not compared",
+    "en": "||n|||||nofill",
+    "ex": "||n|||||nofill",
+    "exec_ps": null,
+    "gap_usd": null,
+    "dsg_usd": null,
+    "exec_usd": null,
+    "flag": false
+   },
+   "book_only": false,
+   "book_only_reason": ""
+  }
+ ],
+ "parity": {
+  "checked": 0,
+  "ok": 0,
+  "failed": 0,
+  "reconstructed": 2,
+  "reconstructed_worst_err_usd": 1.03,
+  "worst_err_usd": 0.0,
+  "note": "no live-captured trade has been checked yet -- the 2 row(s) on the board were reconstructed from the fill log after the fact and are reference only"
+ },
+ "broker_parity": {
+  "checked": 20,
+  "ok": 16,
+  "failed": 4,
+  "not_checked": 26,
+  "checked_all": 21,
+  "flagged_all": 4,
+  "board": {
+   "n": 20,
+   "fills": 34,
+   "fills_compared": 38,
+   "suspect_fills": 1,
+   "design_only_fills": 4,
+   "avg_exec_ps": 0.0222,
+   "avg_gap_ps": 0.1926,
+   "avg_dsg_ps": 0.1727,
+   "med_dsg_ps": 0.035,
+   "dsg_fills": 8,
+   "flagged": 4,
+   "flag": false
+  },
+  "legs": {
+   "NOISE": {
+    "n": 17,
+    "fills": 29,
+    "fills_compared": 34,
+    "suspect_fills": 0,
+    "design_only_fills": 5,
+    "avg_exec_ps": 0.0169,
+    "avg_gap_ps": 0.0488,
+    "avg_dsg_ps": 0.0344,
+    "med_dsg_ps": 0.035,
+    "dsg_fills": 6,
+    "flagged": 3,
+    "flag": false
+   },
+   "ENGUQ": {
+    "n": 2,
+    "fills": 1,
+    "fills_compared": 2,
+    "suspect_fills": 1,
+    "design_only_fills": 1,
+    "avg_exec_ps": -0.025,
+    "avg_gap_ps": 3.0797,
+    "avg_dsg_ps": 3.0922,
+    "med_dsg_ps": 3.0922,
+    "dsg_fills": 2,
+    "flagged": 1,
+    "flag": false
+   },
+   "ORB": {
+    "n": 2,
+    "fills": 4,
+    "fills_compared": 4,
+    "suspect_fills": 0,
+    "design_only_fills": 0,
+    "avg_exec_ps": 0.0725,
+    "avg_gap_ps": 0.075,
+    "avg_dsg_ps": 0.0025,
+    "med_dsg_ps": 0.005,
+    "dsg_fills": 2,
+    "flagged": 0,
+    "flag": false
+   }
+  },
+  "board_flag": false,
+  "worst_exec_ps": -0.32,
+  "worst_note": "FLAGGED, a fill over 15c a share worse -- Webull vs backtest a share: entry 14.0c better (design 14.0c better, slippage level), exit 10.0c better (design 42.0c better, slippage 32.0c worse); +$3.60 at 15 sh",
+  "tol_trade_ps": 0.15,
+  "tol_roll_ps": 0.05,
+  "round_trip_check": false,
+  "roll_n": 20,
+  "why_text": {
+   "nofill": "no Webull fill",
+   "nobt": "backtest price not on record",
+   "noexit": "the backtest has not exited this trade yet",
+   "void": "the backtest never took this trade (the engine withdrew the entry)",
+   "limit": "the backtest enters at its resting limit; live sends a market order after the fill bar",
+   "late": "before 09-26 the book acted one bar after the backtest's fill",
+   "nodac": "the bar-close decision did not run for this bar, so the book acted one bar after the backtest's fill",
+   "level": "the backtest exits at its stop or target level; live sends a market order after the bar",
+   "eod": "the book flattens at 15:59; the backtest exits on its own bar",
+   "kill": "the kill switch closed the book; the backtest exits on its own bar",
+   "breaker": "the daily loss breaker closed the book; the backtest exits on its own bar",
+   "suspect": "the Webull fill is outside the prices traded in that minute"
+  },
+  "webull_usd": -177.85,
+  "backtest_usd": -204.36,
+  "n_both": 19,
+  "note": "last 20 compared trade(s): Webull fills averaged 2.2 cents a share better than the backtest on slippage over 34 fill(s), known design gaps left out (flag at 5 cents worse); 1 fill(s) that do not fit the tape left out of the average; the typical design gap (middle of 8 fill(s)) was 3.5 cents a share better than the backtest; 4 trade(s) flagged (a fill more than 15 cents a share worse, or a fill that does not fit the tape)"
+ },
+ "book_only_summary": {
+  "book_net": -45.85,
+  "record_net": -28.48,
+  "broker_net": -3.98,
+  "book_only_count": 8
+ },
+ "feed_days": [
+  {
+   "date": "2026-09-03",
+   "ticks": 4800,
+   "expected_ticks": 4740,
+   "coverage_pct": 1.0,
+   "uptime_pct": 0.5375,
+   "stale_min": 185.0,
+   "first_tick": "12:30",
+   "last_tick": "16:00",
+   "valid": false,
+   "note": "reconstructed from the recovery log -- feed was down ~185 min after the open while NinjaTrader was restarting; the adapter's first shadow fill that day was 12:30 ET"
+  },
+  {
+   "date": "2026-09-08",
+   "ticks": 2386,
+   "expected_ticks": 4740,
+   "coverage_pct": 0.5034,
+   "uptime_pct": 0.5034,
+   "stale_min": 0.0,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": false,
+   "note": "adapter absent ~196 min (restarts or publish stalls) -- day not valid evidence"
+  },
+  {
+   "date": "2026-09-09",
+   "ticks": 4405,
+   "expected_ticks": 4740,
+   "coverage_pct": 0.9293,
+   "uptime_pct": 0.9291,
+   "stale_min": 0.1,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": false,
+   "note": "adapter absent ~28 min (restarts or publish stalls); feed stale ~0 min while ticking -- day not valid evidence"
+  },
+  {
+   "date": "2026-09-10",
+   "ticks": 1968,
+   "expected_ticks": 4740,
+   "coverage_pct": 0.4152,
+   "uptime_pct": 0.3979,
+   "stale_min": 6.8,
+   "first_tick": "13:20",
+   "last_tick": "16:05",
+   "valid": false,
+   "note": "adapter absent ~231 min (restarts or publish stalls); feed stale ~7 min while ticking; didn't start watching until 13:20 ET -- day not valid evidence"
+  },
+  {
+   "date": "2026-09-11",
+   "ticks": 4636,
+   "expected_ticks": 4740,
+   "coverage_pct": 0.9781,
+   "uptime_pct": 0.9697,
+   "stale_min": 3.3,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-14",
+   "ticks": 4773,
+   "expected_ticks": 4740,
+   "coverage_pct": 1.0,
+   "uptime_pct": 0.9985,
+   "stale_min": 0.6,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-15",
+   "ticks": 4737,
+   "expected_ticks": 4740,
+   "coverage_pct": 0.9994,
+   "uptime_pct": 0.9994,
+   "stale_min": 0.0,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-16",
+   "ticks": 4728,
+   "expected_ticks": 4740,
+   "coverage_pct": 0.9975,
+   "uptime_pct": 0.9975,
+   "stale_min": 0.0,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-17",
+   "ticks": 4736,
+   "expected_ticks": 4740,
+   "coverage_pct": 0.9992,
+   "uptime_pct": 0.9992,
+   "stale_min": 0.0,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-18",
+   "ticks": 4729,
+   "expected_ticks": 4740,
+   "coverage_pct": 0.9977,
+   "uptime_pct": 0.9977,
+   "stale_min": 0.0,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-21",
+   "ticks": 4769,
+   "expected_ticks": 4740,
+   "coverage_pct": 1.0,
+   "uptime_pct": 0.9975,
+   "stale_min": 1.0,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-22",
+   "ticks": 4766,
+   "expected_ticks": 4740,
+   "coverage_pct": 1.0,
+   "uptime_pct": 1.0,
+   "stale_min": 0.0,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-23",
+   "ticks": 4762,
+   "expected_ticks": 4740,
+   "coverage_pct": 1.0,
+   "uptime_pct": 1.0,
+   "stale_min": 0.0,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-24",
+   "ticks": 4746,
+   "expected_ticks": 4740,
+   "coverage_pct": 1.0,
+   "uptime_pct": 1.0,
+   "stale_min": 0.0,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-25",
+   "ticks": 4746,
+   "expected_ticks": 4740,
+   "coverage_pct": 1.0,
+   "uptime_pct": 1.0,
+   "stale_min": 0.0,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-28",
+   "ticks": 4731,
+   "expected_ticks": 4740,
+   "coverage_pct": 0.9981,
+   "uptime_pct": 0.9981,
+   "stale_min": 0.0,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-29",
+   "ticks": 4747,
+   "expected_ticks": 4740,
+   "coverage_pct": 1.0,
+   "uptime_pct": 1.0,
+   "stale_min": 0.0,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-30",
+   "ticks": 4732,
+   "expected_ticks": 4740,
+   "coverage_pct": 0.9983,
+   "uptime_pct": 0.9983,
+   "stale_min": 0.0,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-10-01",
+   "ticks": 4745,
+   "expected_ticks": 4740,
+   "coverage_pct": 1.0,
+   "uptime_pct": 1.0,
+   "stale_min": 0.0,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-10-02",
+   "ticks": 4732,
+   "expected_ticks": 4740,
+   "coverage_pct": 0.9983,
+   "uptime_pct": 0.9983,
+   "stale_min": 0.0,
+   "first_tick": "09:25",
+   "last_tick": "16:05",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-10-05",
+   "ticks": 440,
+   "expected_ticks": 4740,
+   "coverage_pct": 0.0928,
+   "uptime_pct": 0.0928,
+   "stale_min": 0.0,
+   "first_tick": "09:25",
+   "last_tick": "10:02",
+   "valid": false,
+   "note": "adapter absent ~358 min (restarts or publish stalls); stopped watching by 10:02 ET -- day not valid evidence"
+  }
+ ],
+ "ratio_hist": [
+  {
+   "at": "2026-09-08 09:30:48",
+   "ratio": 40.93524611800079,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-08 13:00:56",
+   "ratio": 40.928152359045875,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-09 09:25:05",
+   "ratio": 40.928152359045875,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-09 12:56:03",
+   "ratio": 41.3093094832646,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-10 13:20:37",
+   "ratio": 41.57366957543776,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-11 09:25:09",
+   "ratio": 41.57366957543776,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-11 12:55:10",
+   "ratio": 41.17517575599396,
+   "source": "yfinance+NQ_10s"
+  }
+ ],
+ "ratio_health": {
+  "current": 41.17517575599396,
+  "at": "2026-09-11 12:55:10",
+  "source": "yfinance+NQ_10s",
+  "age_min": 34387.9,
+  "mean_20": 41.20334,
+  "drift_pct": -0.068,
+  "band_lo": 40.79131,
+  "band_hi": 41.61537,
+  "warn": false,
+  "used": false,
+  "note": "not used -- prices come straight from Webull"
+ },
+ "cum_pnl": {
+  "ORB": [
+   {
+    "date": "2026-09-03",
+    "cum_pnl": 2.89
+   },
+   {
+    "date": "2026-09-18",
+    "cum_pnl": 15.79
+   },
+   {
+    "date": "2026-09-28",
+    "cum_pnl": -24.11
+   },
+   {
+    "date": "2026-10-02",
+    "cum_pnl": -41.11
+   }
+  ],
+  "ENGUQ": [
+   {
+    "date": "2026-09-17",
+    "cum_pnl": 0.01
+   },
+   {
+    "date": "2026-09-18",
+    "cum_pnl": 45.1
+   },
+   {
+    "date": "2026-09-23",
+    "cum_pnl": 43.8
+   },
+   {
+    "date": "2026-09-24",
+    "cum_pnl": 63.18
+   },
+   {
+    "date": "2026-09-28",
+    "cum_pnl": 43.38
+   }
+  ],
+  "NOISE": [
+   {
+    "date": "2026-09-03",
+    "cum_pnl": 2.89
+   },
+   {
+    "date": "2026-09-16",
+    "cum_pnl": -13.36
+   },
+   {
+    "date": "2026-09-21",
+    "cum_pnl": 104.24
+   },
+   {
+    "date": "2026-09-22",
+    "cum_pnl": 114.7
+   },
+   {
+    "date": "2026-09-23",
+    "cum_pnl": 98.8
+   },
+   {
+    "date": "2026-09-25",
+    "cum_pnl": 60.7
+   },
+   {
+    "date": "2026-09-28",
+    "cum_pnl": 35.9
+   },
+   {
+    "date": "2026-09-30",
+    "cum_pnl": 5.9
+   },
+   {
+    "date": "2026-10-02",
+    "cum_pnl": -23.95
+   },
+   {
+    "date": "2026-10-05",
+    "cum_pnl": -30.75
+   }
+  ],
+  "total": [
+   {
+    "date": "2026-09-03",
+    "cum_pnl": 5.78
+   },
+   {
+    "date": "2026-09-16",
+    "cum_pnl": -10.47
+   },
+   {
+    "date": "2026-09-17",
+    "cum_pnl": -10.46
+   },
+   {
+    "date": "2026-09-18",
+    "cum_pnl": 47.53
+   },
+   {
+    "date": "2026-09-21",
+    "cum_pnl": 165.13
+   },
+   {
+    "date": "2026-09-22",
+    "cum_pnl": 175.59
+   },
+   {
+    "date": "2026-09-23",
+    "cum_pnl": 158.39
+   },
+   {
+    "date": "2026-09-24",
+    "cum_pnl": 177.77
+   },
+   {
+    "date": "2026-09-25",
+    "cum_pnl": 139.67
+   },
+   {
+    "date": "2026-09-28",
+    "cum_pnl": 55.17
+   },
+   {
+    "date": "2026-09-30",
+    "cum_pnl": 25.17
+   },
+   {
+    "date": "2026-10-02",
+    "cum_pnl": -21.68
+   },
+   {
+    "date": "2026-10-05",
+    "cum_pnl": -28.48
+   }
+  ]
+ },
+ "latency": {
+  "n": 2,
+  "median_s": 8.684,
+  "p95_s": 8.954,
+  "max_s": 8.954,
+  "last_s": 8.954,
+  "after_close": {
+   "n": 2,
+   "median_s": 8.684,
+   "p95_s": 8.954,
+   "max_s": 8.954,
+   "last_s": 8.954,
+   "warn": false
+  }
+ },
+ "signals_day": [
+  {
+   "date": "2026-09-09",
+   "fired": 0,
+   "taken": 0,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-10",
+   "fired": 0,
+   "taken": 0,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-11",
+   "fired": 0,
+   "taken": 0,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-14",
+   "fired": 0,
+   "taken": 0,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-15",
+   "fired": 0,
+   "taken": 0,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-16",
+   "fired": 2,
+   "taken": 2,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 2,
+     "taken": 2,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-17",
+   "fired": 1,
+   "taken": 1,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 1,
+     "taken": 1,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-18",
+   "fired": 2,
+   "taken": 2,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 1,
+     "taken": 1,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 1,
+     "taken": 1,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-21",
+   "fired": 1,
+   "taken": 1,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 1,
+     "taken": 1,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-22",
+   "fired": 9,
+   "taken": 9,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 9,
+     "taken": 9,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-23",
+   "fired": 10,
+   "taken": 10,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 1,
+     "taken": 1,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 9,
+     "taken": 9,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-24",
+   "fired": 1,
+   "taken": 1,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 1,
+     "taken": 1,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-25",
+   "fired": 2,
+   "taken": 2,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 2,
+     "taken": 2,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-28",
+   "fired": 6,
+   "taken": 6,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 1,
+     "taken": 1,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 1,
+     "taken": 1,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 4,
+     "taken": 4,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-29",
+   "fired": 0,
+   "taken": 0,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-30",
+   "fired": 8,
+   "taken": 8,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 8,
+     "taken": 8,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-10-01",
+   "fired": 0,
+   "taken": 0,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-10-02",
+   "fired": 2,
+   "taken": 2,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 1,
+     "taken": 1,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 1,
+     "taken": 1,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-10-05",
+   "fired": 1,
+   "taken": 1,
+   "refused": 0,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 1,
+     "taken": 1,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  }
+ ],
+ "events": [
+  {
+   "ts_et": "2026-10-05 09:13:03",
+   "kind": "boot",
+   "text": "QQQ SHADOW adapter started"
+  },
+  {
+   "ts_et": "2026-10-05 09:01:23",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 110 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 08:47:16",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 107 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 08:32:33",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 104 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 08:17:58",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 101 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 08:07:57",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 99 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 07:57:40",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 97 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 07:47:10",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 95 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 07:32:45",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 92 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 07:17:43",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 89 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 07:02:57",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 86 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 06:48:09",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 83 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 06:37:44",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 81 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 06:27:41",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 79 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 06:13:43",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 76 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 05:59:00",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 73 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 05:44:27",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 70 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 05:34:14",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 68 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 05:19:52",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 65 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 05:05:09",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 62 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 04:54:58",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 60 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 04:40:46",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 57 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 04:30:39",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 55 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 04:15:47",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 52 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 04:01:14",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 49 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 03:47:12",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 46 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 03:37:11",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 44 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 03:27:06",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 42 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 03:16:43",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 40 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 03:02:13",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 37 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 02:52:05",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 35 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 02:37:27",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 32 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 02:23:15",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 29 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 02:13:10",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 27 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 02:03:00",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 25 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 01:52:53",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 23 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 01:42:48",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 21 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 01:28:12",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 18 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 01:13:24",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 15 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 01:03:15",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 13 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 00:52:37",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 11 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 00:37:58",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 8 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 00:23:14",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 5 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-05 00:08:22",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 2 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 23:54:01",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 287 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 23:43:53",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 285 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 23:33:23",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 283 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 23:18:32",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 280 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 23:08:16",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 278 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 22:58:04",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 276 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 22:43:34",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 273 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 22:29:01",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 270 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 22:19:01",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 268 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 22:04:01",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 265 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 21:49:03",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 262 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 21:34:25",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 259 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 21:24:15",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 257 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 21:10:05",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 254 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 20:55:31",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 251 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 20:45:19",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 249 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 20:30:49",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 246 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 20:20:45",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 244 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 20:10:13",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 242 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 20:00:10",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 240 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 19:49:41",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 238 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 19:39:29",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 236 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 19:25:02",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 233 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 19:14:39",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 231 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 18:59:32",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 228 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 18:49:10",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 226 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 18:34:27",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 223 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 18:19:22",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 220 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 18:09:14",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 218 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 17:58:59",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 216 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 17:48:59",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 214 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 17:34:17",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 211 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 17:23:59",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 209 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 17:13:53",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 207 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 16:58:45",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 204 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 16:44:00",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 201 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 16:33:44",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 199 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 16:19:00",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 196 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 16:08:44",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 194 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 15:58:18",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 192 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 15:43:47",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 189 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 15:29:18",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 186 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 15:19:07",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 184 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 15:04:23",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 181 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 14:54:04",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 179 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 14:39:06",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 176 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 14:28:48",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 174 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 14:13:43",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 171 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 14:03:17",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 169 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 13:48:51",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 166 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 13:38:20",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 164 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 13:23:03",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 161 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 13:12:41",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 159 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 12:57:40",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 156 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 12:47:07",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 154 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 12:36:41",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 152 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 12:26:23",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 150 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 12:11:45",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 147 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 12:01:32",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 145 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 11:46:25",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 142 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 11:36:11",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 140 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 11:25:41",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 138 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 11:15:24",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 136 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 11:00:39",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 133 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 10:50:39",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 131 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 10:35:27",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 128 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 10:25:16",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 126 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 10:10:23",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 123 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 10:00:20",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 121 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 09:45:11",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 118 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 09:30:23",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 115 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 09:15:40",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 112 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 09:00:46",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 109 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 08:46:26",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 106 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 08:36:25",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 104 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 08:21:52",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 101 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 08:11:45",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 99 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 07:56:39",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 96 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 07:46:37",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 94 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 07:32:10",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 91 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 07:22:08",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 89 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 07:12:00",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 87 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 07:01:36",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 85 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 06:46:34",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 82 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 06:36:20",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 80 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 06:21:30",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 77 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 06:06:43",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 74 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 05:56:28",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 72 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 05:41:52",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 69 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 05:27:05",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 66 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 05:16:55",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 64 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 05:02:23",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 61 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 04:51:57",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 59 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 04:41:41",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 57 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 04:27:07",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 54 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 04:16:56",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 52 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 04:02:04",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 49 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 03:51:43",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 47 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 03:41:13",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 45 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 03:26:45",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 42 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 03:16:36",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 40 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 03:06:35",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 38 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 02:51:41",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 35 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 02:41:15",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 33 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 02:26:30",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 30 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 02:16:18",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 28 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 02:06:04",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 26 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 01:55:37",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 24 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 01:45:34",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 22 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 01:35:34",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 20 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 01:20:59",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 17 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 01:10:58",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 15 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 00:55:45",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 12 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 00:45:25",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 10 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 00:30:59",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 7 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 00:20:31",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 5 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-04 00:05:59",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 2 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 23:55:53",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 82 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 23:41:19",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 79 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 23:26:33",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 76 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 23:16:21",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 74 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 23:06:07",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 72 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 22:51:19",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 69 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 22:36:26",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 66 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 22:21:32",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 63 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 22:11:28",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 61 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 21:56:46",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 58 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 21:46:25",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 56 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 21:31:50",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 53 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 21:17:15",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 50 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 21:02:35",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 47 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 20:52:05",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 45 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 20:41:33",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 43 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 20:27:29",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 40 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 20:17:06",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 38 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 20:02:02",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 35 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 19:47:08",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 32 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 19:36:35",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 30 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 19:26:20",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 28 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 19:16:03",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 26 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 19:01:18",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 23 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 18:51:05",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 21 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 18:41:00",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 19 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 18:26:14",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 16 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 18:11:08",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 13 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 18:01:03",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 11 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 17:46:26",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 8 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 17:36:21",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 6 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 17:21:47",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 3 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-03 17:11:40",
+   "kind": "publish_down",
+   "text": "Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 1 failure(s) today"
+  },
+  {
+   "ts_et": "2026-10-02 16:20:04",
+   "kind": "reprice",
+   "text": "Daily broker reprice reconciliation ran"
+  },
+  {
+   "ts_et": "2026-10-02 16:05:00",
+   "kind": "eod_summary",
+   "text": "Trades 2 | P&L $-46.85 at Webull fills (book $-45.90) | fills vs backtest checked/flagged last 20/3, all 20/3 | feed uptime 99.6% | rail trips 0 | Webull flat: yes"
+  },
+  {
+   "ts_et": "2026-10-02 15:59:05",
+   "kind": "eod_flatten",
+   "text": "End-of-day flatten closed: ORB"
+  },
+  {
+   "ts_et": "2026-10-02 15:59:04",
+   "kind": "orb_resting",
+   "text": "ORB resting (log_only): log only: would cancel and confirm the resting BUY 10 QQQ stop 753.77 before the EOD flatten"
+  },
+  {
+   "ts_et": "2026-10-02 11:25:13",
+   "kind": "orb_resting",
+   "text": "ORB resting (log_only): log only: would rest BUY 10 QQQ stop 753.77 (account net -10); the 717.91 target stays on the engine exit in 'stop' mode, OCO in 'stop_target'"
+  },
+  {
+   "ts_et": "2026-10-01 16:37:52",
+   "kind": "boot",
+   "text": "QQQ SHADOW adapter started"
+  }
+ ],
+ "readiness": {
+  "ready": false,
+  "days_valid": 16,
+  "days_required": 10,
+  "live_parity_checked": 20,
+  "live_parity_failed": 4,
+  "live_parity_flagged_all": 4,
+  "uptime_mean_10": 0.9088,
+  "rail_trips_unexplained": 0,
+  "reprice_coverage_pct": 0.9787,
+  "missing": [
+   "4 of the last 20 compared trade(s) are past the per-trade Webull fill limit",
+   "average feed uptime over the last 10 day(s) is 90.9% (need at least 95%)"
+  ],
+  "note": "4 of the last 20 compared trade(s) are past the per-trade Webull fill limit; average feed uptime over the last 10 day(s) is 90.9% (need at least 95%)"
+ },
+ "health": {
+  "publish_fail_today": 111,
+  "last_publish_ok_et": "10:01:51",
+  "tick_gap_max_s_today": 5.54
+ },
+ "reprice": {
+  "covered": 46,
+  "total": 47,
+  "coverage_pct": 0.9787,
+  "mean_slip_ps": NaN,
+  "last_run": "2026-10-02 16:20:04"
+ },
+ "rails": {
+  "shares": {
+   "ORB": 10,
+   "ENGUQ": 10,
+   "NOISE": 10
+  },
+  "max_shares_per_leg": 60,
+  "daily_loss_limit_usd": 400,
+  "session": {
+   "open": "09:31",
+   "last_entry": "15:55",
+   "flat_by": "15:59"
+  },
+  "slippage_per_share": 0.01,
+  "kill_file": "/home/ubuntu/edgelog/qqq_exec/KILL",
+  "size_mode": "fixed",
+  "size_fraction": 0.01
+ },
+ "broker": {
+  "requested_mode": "OFF",
+  "effective_mode": "OFF",
+  "mode_reason": "mode=OFF (default)",
+  "environment": null,
+  "paper_credentials_present": false,
+  "live_credentials_present": false,
+  "live_armed": false,
+  "kill_file_present": false,
+  "halted": false,
+  "halt_reason": null,
+  "last_error": null,
+  "last_error_plain": null,
+  "last_order": {
+   "leg": null,
+   "symbol": null,
+   "side": null,
+   "qty": null,
+   "intent": null,
+   "mode": null,
+   "ok": null,
+   "sent": null,
+   "reason": null,
+   "reason_plain": null,
+   "ts_et": null
+  },
+  "daily_pnl": 0.0,
+  "open_legs": [],
+  "lease_ok_to_send": true,
+  "lease_block_reason": "lease ok (free or already ours)",
+  "last_reconcile_at": null,
+  "last_reconcile_result": null,
+  "daily_pnl_source": "broker_fills"
+ },
+ "trade_ids": {
+  "day": "2026-10-05",
+  "today": {
+   "exit_id_mismatch": 0,
+   "exit_no_id": 0,
+   "exit_no_lot": 0,
+   "entry_no_id": 0,
+   "entry_id_conflict": 0,
+   "entry_other_session": 0,
+   "entry_duplicate": 0,
+   "entry_leg_busy": 0
+  },
+  "total": {
+   "exit_id_mismatch": 0,
+   "exit_no_id": 0,
+   "exit_no_lot": 9,
+   "entry_no_id": 0,
+   "entry_id_conflict": 0,
+   "entry_other_session": 0,
+   "entry_duplicate": 1,
+   "entry_leg_busy": 2
+  },
+  "refused_today": 0,
+  "last": {
+   "kind": "exit_no_lot",
+   "ts_et": "2026-09-29 09:30:19",
+   "text": "engine EXIT for ORB with no open shadow lot -- skipped (ORB_R6 short entered 2026-09-28 10:45 ET; nothing to close)",
+   "leg": "ORB",
+   "event": "EXIT",
+   "row_trade_id": "ORB_R6-20260928T144500Z-S",
+   "ref_time": "2026-09-28T15:55:00-04:00",
+   "lot_trade_id": null
+  }
+ },
+ "lease": {
+  "host_id": "PROBE-PC",
+  "leased_at": 1791208986.9350672
+ },
+ "orb_resting": {
+  "mode": "log_only",
+  "day": "2026-10-05",
+  "resting": null,
+  "last": {
+   "at": "2026-10-05 00:03:45",
+   "kind": "idle",
+   "text": "no ORB trade open"
+  },
+  "counts": {
+   "armed": 0,
+   "rearmed": 0,
+   "replaced": 0,
+   "cancelled": 0,
+   "crossing": 0,
+   "crossed": 0,
+   "filled": 0,
+   "fallback": 0
+  }
+ },
+ "trades_all_trimmed": 0
+}

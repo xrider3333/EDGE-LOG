@@ -1446,6 +1446,126 @@ def _leg_accepts_return_levels(strategy):
     return "return_levels" in sp
 
 
+# ── DECISION BARS (2026-10-05, NOISE lane audit / MANAGER #65) ───────────────────────────
+# The Webull box decides NOISE on live 5m QQQ bars that Webull sometimes revises afterwards,
+# and the bar cache keeps only the revised bar -- so an audit could only INFER what the
+# engine saw (09-25: a close 2.2c higher made an extra long; 09-28: a thinner opening bar
+# moved the VWAP and exited a short early). A leg whose strategy chain names a
+# `return_decisions` keyword (NOISE_1_0.py, reached through NOISE_1_1_NBHD.py and
+# NOISE_1_8_CT304.py / NOISE_1_8_CT304H.py, which forward it) gets return_decisions=True on
+# a PER-CALL copy of its params; the plugin then reports, per trade, the bar, VWAP and band
+# its own loop compared at the entry decision and at the exit decision (NOISE_1_0.py's
+# DECISION RECORD). run_leg_trades hangs them on the trade as t["decision"] and _diff_leg
+# writes them into SIGNAL_COLS' dec_* columns on the ENTRY / EXIT row. LOGGING ONLY: no
+# trade, size, time or price changes (tests/test_noise_decision_log.py runs the step with
+# and without it and compares every decision field). No extra network: the record rides on
+# the engine call step() already makes. LOG_DECISION_BARS = False switches it off whole.
+LOG_DECISION_BARS = True
+
+
+def _leg_accepts_return_decisions(strategy):
+    """True iff `strategy` -- or a module down its `_base` chain (the
+    _leg_accepts_vol_prior_ranges walk: NOISE's wrappers forward this keyword) -- has a
+    run_backtest that explicitly names `return_decisions`. A bare **kwargs does not count.
+    Best-effort/never-raises."""
+    mod = _strategy_module_for_sizing(strategy)
+    seen = set()
+    while mod is not None and id(mod) not in seen:
+        seen.add(id(mod))
+        if hasattr(mod, "run_backtest"):
+            try:
+                sp = inspect.signature(mod.run_backtest).parameters
+            except (TypeError, ValueError):
+                sp = {}
+            if "return_decisions" in sp:
+                return True
+        mod = getattr(mod, "_base", None)
+    return False
+
+
+def _dec_num(x):
+    """A decision-record number for the ledger: the float exactly as the engine held it
+    (shortest repr, no rounding -- a 0.1c gap is the whole point of the audit); a volume
+    that is a whole number prints as one; None/NaN -> ""."""
+    try:
+        x = float(x)
+    except (TypeError, ValueError):
+        return ""
+    if not math.isfinite(x):
+        return ""
+    return x
+
+
+def _trade_decision(rec, entry_bar, side, idx, n_bars, tf):
+    """{"entry": {dec_* row fields}, "exit": {...}} from one entry of the engine's
+    out["decisions"] (see DECISION BARS), or None when the record does not describe THIS
+    trade (its entry decision must be the bar right before `entry_bar`, on this trade's
+    side). A side whose bar index falls outside `idx` is None. NEVER RAISES: this is
+    logging only, so a malformed record (any exception at all) just blanks the dec_*
+    columns -- it must never cost the leg its trades for the tick."""
+    try:
+        return _trade_decision_inner(rec, entry_bar, side, idx, n_bars, tf)
+    except Exception:
+        return None
+
+
+def _trade_decision_inner(rec, entry_bar, side, idx, n_bars, tf):
+    if not isinstance(rec, dict):
+        return None
+    try:
+        ent = rec.get("entry") or {}
+        if int(ent.get("bar")) != int(entry_bar) - 1:
+            return None
+        if (ent.get("rule") == "close>upper") != (side > 0):
+            return None
+    except (TypeError, ValueError):
+        return None
+    step_td = None
+    if tf in TIMEFRAME_SECONDS:
+        step_td = _dt.timedelta(seconds=TIMEFRAME_SECONDS[tf])
+
+    def one(d):
+        if not isinstance(d, dict):
+            return None
+        try:
+            b = int(d.get("bar"))
+        except (TypeError, ValueError):
+            return None
+        if not 0 <= b < n_bars:
+            return None
+        start = idx[b]
+        vol = _dec_num(d.get("volume"))
+        if vol != "" and float(vol).is_integer():
+            vol = int(vol)
+        return {
+            "_bar": b,            # index into THIS call's arrays; never written to the ledger
+            "dec_bar_start": start.isoformat(),
+            "dec_bar_end": (start + step_td).isoformat() if step_td is not None else "",
+            "dec_open": _dec_num(d.get("open")), "dec_high": _dec_num(d.get("high")),
+            "dec_low": _dec_num(d.get("low")), "dec_close": _dec_num(d.get("close")),
+            "dec_volume": vol, "dec_vwap": _dec_num(d.get("vwap")),
+            "dec_band_upper": _dec_num(d.get("upper")),
+            "dec_band_lower": _dec_num(d.get("lower")),
+            "dec_rule": str(d.get("rule") or ""), "dec_level": _dec_num(d.get("level")),
+        }
+    out = {"entry": one(rec.get("entry")), "exit": one(rec.get("exit"))}
+    return out if out["entry"] is not None else None
+
+
+def _decision_cols(t, which, bar_source):
+    """The dec_* fields for one ENTRY ("entry") or EXIT ("exit") row of trade `t`, or {}
+    when it carries no record for that side (every non-NOISE leg) -- the row then leaves
+    every dec_* column blank, exactly as before they existed."""
+    dec = t.get("decision") if isinstance(t, dict) else None
+    side = dec.get(which) if isinstance(dec, dict) else None
+    if not side:
+        return {}
+    out = {k: v for k, v in side.items() if k in DECISION_COLS}
+    # "cache": an offline step (replay, a test) read the on-disk bars with no feed named
+    out["dec_bar_source"] = bar_source or "cache"
+    return out
+
+
 def _cent_level(px, up):
     """`px` rounded to a whole cent, UP (ceil) or DOWN (floor) -- see RESTING LEVELS. None
     for a missing or non-finite price."""
@@ -1613,12 +1733,23 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, f
     also gets return_levels=True (per-call copy again) and every trade dict gains a
     "levels" key (_trade_levels, or None when the engine's row cannot be rested from).
     Every other leg's call and trade dicts are exactly as before -- no "levels" key.
+
+    DECISION BARS (2026-10-05, see the block above _leg_accepts_return_decisions). Only for
+    a leg whose strategy chain names `return_decisions` (NOISE): the call also gets
+    return_decisions=True (per-call copy) and every trade dict gains a "decision" key --
+    {"entry": dec_* fields, "exit": dec_* fields or None while the trade is still open},
+    or None when the engine's record does not line up with the trade. Read-only: no other
+    key of any trade dict changes. Every other leg: no "decision" key.
     """
     params = cfg["params"]
     extra = {}
     want_levels = bool(cfg.get("resting_levels")) and _leg_accepts_return_levels(cfg["strategy"])
     if want_levels:
         extra["return_levels"] = True
+    # DECISION BARS (see the block above _leg_accepts_return_decisions): read-only record
+    want_decisions = LOG_DECISION_BARS and _leg_accepts_return_decisions(cfg["strategy"])
+    if want_decisions:
+        extra["return_decisions"] = True
     if now is not None and _leg_accepts_session_in_progress(cfg["strategy"]) \
             and _session_in_progress(arrays, now):
         extra["session_in_progress"] = True
@@ -1648,6 +1779,16 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, f
                 f"({'none' if levels_raw is None else len(levels_raw)} for "
                 f"{len(trades_raw)} trade(s)) -- no resting levels this call")
             levels_raw = None
+    decisions_raw = None
+    if want_decisions:
+        decisions_raw = res.get("decisions")
+        if not isinstance(decisions_raw, (list, tuple)) or len(decisions_raw) != len(trades_raw):
+            # never guess which record belongs to which trade -- the rows just stay blank,
+            # and say so (a blank dec_bar_source otherwise reads like a non-NOISE row)
+            log(f"[cloud-signal] {label}: engine decision records missing or misaligned "
+                f"({'none' if decisions_raw is None else (len(decisions_raw) if isinstance(decisions_raw, (list, tuple)) else type(decisions_raw).__name__)} for "
+                f"{len(trades_raw)} trade(s)) -- dec_* columns blank this call")
+            decisions_raw = None
     try:
         leg_sizes, size_cost_pts = _resolve_trade_sizes(res, len(trades_raw), label)
     except _TradeSizeContractError as e:
@@ -1715,10 +1856,13 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, f
     # the engine's levels ride with their trade through the sort (same order as trades_raw)
     paired = [p + (levels_raw[n] if levels_raw is not None else None,)
               for n, p in enumerate(paired)]
+    # ... and so does each trade's decision record (DECISION BARS)
+    paired = [p + (decisions_raw[n] if decisions_raw is not None else None,)
+              for n, p in enumerate(paired)]
     paired.sort(key=lambda p: p[0][0])
 
     out = []
-    for (entry_bar, exit_bar, pnl_pts, side, entry_px), size, lv in paired:
+    for (entry_bar, exit_bar, pnl_pts, side, entry_px), size, lv, dec in paired:
         entry_bar = int(entry_bar); exit_bar = int(exit_bar)
         entry_px = float(entry_px)
         if sizes_declared:
@@ -1789,6 +1933,17 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, f
         })
         if want_levels:
             out[-1]["levels"] = _trade_levels(lv, entry_bar, side, entry_px, idx, n_bars)
+        if want_decisions:
+            d = _trade_decision(dec, entry_bar, side, idx, n_bars, _tf)
+            if d is None and decisions_raw is not None:
+                # the list lined up but THIS record did not describe this trade (entry bar
+                # or side mismatch, or malformed) -- logging only, the trade is unchanged
+                log(f"[cloud-signal] {label}: decision record rejected for the "
+                    f"{'long' if side > 0 else 'short'} entry at bar {entry_bar} "
+                    f"({idx[entry_bar].isoformat()}) -- dec_* columns blank on its rows")
+            if d is not None and still_open:
+                d["exit"] = None          # the engine's data-end mark is not an exit decision
+            out[-1]["decision"] = d
     return out
 
 
@@ -2194,7 +2349,46 @@ SIGNAL_COLS = ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "s
               # only for a cfg["resting_levels"] leg (ORB_R6): the initial stop and the
               # target on its ENTRY row, the moved stop and the same target on a LEVELS row.
               # Blank on every other row and leg, and on rows written before these existed.
-              "stop_px", "target_px"]
+              "stop_px", "target_px",
+              # appended, never inserted (2026-10-05, NOISE lane audit / MANAGER #65) -- the
+              # DECISION BAR exactly as the engine saw it when it decided, read from the
+              # plugin's own DECISION RECORD (NOISE_1_0.py's return_decisions; see DECISION
+              # BARS above run_leg_trades), never re-derived from the bar cache later (the
+              # feed revises bars after the fact and the cache keeps only the revision).
+              # On a NOISE leg's ENTRY row: the bar at whose close the entry was decided
+              # (the bar before the fill). On its EXIT row: the bar the exit was decided on
+              # (the bar before the fill for a mid-session VWAP / band close; the fill bar
+              # itself for a stop, a boundary touch, a VWAP / band close on the session's
+              # last bar -- it fills at that same bar's close -- or the flatten). dec_bar_start/dec_bar_end = that bar's
+              # start and close (ET, ISO); dec_open..dec_volume = its OHLCV; dec_vwap = the
+              # session VWAP at its close; dec_band_upper/dec_band_lower = the noise band at
+              # that bar; dec_rule = the comparison the rule made ("close>upper",
+              # "close<lower", "close<vwap", "close>vwap", "low<=stop", "high>=stop",
+              # "open<stop", "open>stop", "session_last_bar", ...); dec_level = the exact
+              # value on the other side of it (the band, the VWAP or the stop; blank for
+              # session_last_bar); dec_bar_source = the feed that served this tick's bars
+              # (bar_source's value -- "webull"/"yfinance"/"stream" -- or "cache" for an
+              # offline step that named none; never blank, so a non-blank dec_bar_source
+              # marks a row that HAS a decision record). LOGGING ONLY: nothing reads these to
+              # decide anything (api/cloud_signal_stream.py's _DECISION_FIELDS leaves them
+              # out). Blank on SEED/LEVELS rows, on every non-NOISE leg (ORB, ENGU-Q), on a
+              # NOISE row whose record did not line up with its trade (run_leg_trades logs
+              # that), and on rows written before these existed.
+              # NOT LOGGED HERE (2026-10-05 review): (a) the CT304/CT304H compression size
+              # tilt -- its gate (BB/KC width on the 30m/60m frame vs gate_ratio) is built
+              # from intraday bars that include the decision bar, so a revision CAN flip it,
+              # but only its outcome is recorded, in the "size" column (1.0 vs tilt_mult);
+              # (b) the bandwidth stop level set at entry -- it appears as dec_level only on
+              # the stop-exit row that hits it; (c) the vol_skip / daytype session gates,
+              # which read prior sessions only and so cannot move on a same-day revision.
+              # dec_rule names the last bar's comparison ("close>upper"); with
+              # confirm_bars > 1 the rule is a streak of such closes (live legs use 1).
+              "dec_bar_start", "dec_bar_end", "dec_open", "dec_high", "dec_low", "dec_close",
+              "dec_volume", "dec_vwap", "dec_band_upper", "dec_band_lower", "dec_rule",
+              "dec_level", "dec_bar_source"]
+
+# The decision-bar columns above, in order -- the only columns _decision_cols fills.
+DECISION_COLS = SIGNAL_COLS[SIGNAL_COLS.index("dec_bar_start"):]
 
 
 def _read_signals_header(path):
@@ -2392,14 +2586,26 @@ def _decide_at_close_probe(arrays, trades, tf, now, run, log=print):
         tag = (f"{DECIDE_AT_CLOSE_TAG}: decided at the close of the {d_start.strftime('%H:%M')} "
                f"bar, priced at that close")
         new_entries, early_exits, entered_on_d = [], set(), {}
+        # DECISION BARS: the probe run's own exit record for each early exit -- decided at D's
+        # close, a REAL bar (index n - 1); a record on a stand-in (index >= n) is dropped.
+        exit_decisions = {}
+
+        def _real_exit_decision(t):
+            dx = (t.get("decision") or {}).get("exit")
+            if dx and isinstance(dx.get("_bar"), int) and dx["_bar"] <= n - 1:
+                return dx
+            return None
         for t in run(probe_arrays):
             key = (t["entry_time"], t["side"])
             if t["entry_bar"] == n:
+                dec = t.get("decision")
                 new_entries.append(dict(t, still_open=True, exit_time=None, exit_px=None,
-                                        probe_entry=tag))
+                                        probe_entry=tag,
+                                        decision=(dict(dec, exit=None) if dec else dec)))
             elif t["exit_time"] == s1_time:
                 if t["entry_bar"] < n - 1:
                     early_exits.add(key)
+                    exit_decisions[key] = _real_exit_decision(t)
                 elif t["entry_bar"] == n - 1:
                     entered_on_d[key] = t["side"]
         # CONFIRM RUN (entered on D): same bars, the stand-ins moved far onto the winning side
@@ -2412,12 +2618,16 @@ def _decide_at_close_probe(arrays, trades, tf, now, run, log=print):
                 if (entered_on_d.get(key) == side and t["exit_time"] == s1_time
                         and abs(float(t["exit_px"]) - far) <= 1e-6 * far):
                     early_exits.add(key)
+                    exit_decisions[key] = _real_exit_decision(t)
         if not new_entries and not early_exits:
             return trades, arrays
         out = []
         for t in trades:
             if t["still_open"] and (t["entry_time"], t["side"]) in early_exits:
                 t = dict(t, still_open=False, exit_time=s1_time, exit_px=d_close, probe_exit=tag)
+                if t.get("decision"):
+                    t["decision"] = dict(t["decision"],
+                                         exit=exit_decisions.get((t["entry_time"], t["side"])))
             out.append(t)
         return out + new_entries, probe_arrays
     except Exception as e:
@@ -2850,6 +3060,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 "trade_id": tid,
                 "size": final_size,
                 "keel_size": keel_size,
+                # DECISION BARS: the bar this entry was decided on (blank off NOISE)
+                **_decision_cols(t, "entry", bar_source),
             })
             lv = t.get("levels") if levels_on else None
             if lv:
@@ -2908,6 +3120,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 # the same per-trade size as the ENTRY event -- see SIGNAL_COLS
                 "size": exit_size,
                 "keel_size": exit_keel_size,
+                # DECISION BARS: the bar this exit was decided on (blank off NOISE)
+                **_decision_cols(t, "exit", bar_source),
             })
     return events
 
@@ -3580,8 +3794,10 @@ def cloud_signal_thread(stop=None, log=print):
     # runner restart after the close then upgrades it while nobody is consuming). Atomic
     # either way -- see _migrate_signals_header.
     try:
-        if os.path.exists(DEFAULT_PATHS["signals_path"]):
-            _migrate_signals_header(DEFAULT_PATHS["signals_path"], SIGNAL_COLS)
+        # ... and the shadow ledger's (same SIGNAL_COLS; its own first append would do it too)
+        for _ledger in (DEFAULT_PATHS["signals_path"], shadow_paths()["signals_path"]):
+            if os.path.exists(_ledger):
+                _migrate_signals_header(_ledger, SIGNAL_COLS)
     except Exception as e:
         log(f"[cloud-signal] ledger header check failed (next append retries): {type(e).__name__}: {e}")
     last_fetch_wall = 0.0

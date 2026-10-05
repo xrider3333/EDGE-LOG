@@ -64,7 +64,8 @@ freshness_heartbeat.json (this monitor's own liveness), state.json (its memory),
 push-heartbeat URL, never logged), each completed run GETs it, so a dead box or timer pages
 from outside (#4).
 
-AUTO-RESTART (#2) -- PENDING THE OWNER'S OK, SO IT IS OFF BY DEFAULT. When the executor's
+AUTO-RESTART (#2) -- ADOPTED BY THE OWNER 2026-10-05 (MANAGER #69): switched on by the box
+config below, still OFF by default in code. When the executor's
 publish has been down over 10 min (or 1.5x its advertised publish cadence when that is longer:
 an unarmed executor publishes only every 600 s) OR its tick loop has been silent over 10 min,
 the rule is:
@@ -72,8 +73,10 @@ restart edgelog-qqq-exec (and nothing else -- never cloud-signal or any other un
 outside 09:25-16:10 ET on a session day (any time on a non-session day), ONLY while the book
 is flat (state.json legs, _broker_resend and _broker_fill_capture all empty), ONLY while
 `systemctl is-active` says the unit is active (wedged) or failed -- an inactive unit was
-stopped on purpose and is never started -- at most once per hour (the cooldown is saved before
-the restart is issued), logged and pushed. It acts only when <home>/freshness/config.json says
+stopped on purpose and is never started -- at most ONCE A DAY (New York date, the owner's
+rule) and never twice within an hour across midnight (both saved before the restart is
+issued), logged, pushed, and posted to the MANAGER and PAPER-WB inboxes by the PC relay
+(tools/webull_freshness_pc.py reads status.json auto_restart.last_restart_et). It acts only when <home>/freshness/config.json says
 {"auto_restart_exec": true} (the JSON literal true; any other value, a "true" string included,
 is OFF); until then the same gate runs and only logs "would restart"
 (once an hour), so the owner can read what it would have done before switching it on.
@@ -1003,6 +1006,9 @@ def restart_decision(now_et, ev, mstate, enabled):
                 "why": "book not confirmed flat (open leg, pending resend/fill capture, or "
                        "state.json unreadable)"}
     rs = mstate.get("restart") or {}
+    if enabled and rs.get("last_restart_day") == now_et.date().isoformat():
+        return {"action": "blocked", "reasons": reasons,
+                "why": "at most once a day (owner rule 2026-10-05)"}
     last = float(rs.get("last_restart_epoch" if enabled else "last_would_epoch") or 0.0)
     if now_et.timestamp() - last < RESTART_COOLDOWN_SEC:
         return {"action": "blocked", "reasons": reasons, "why": "at most once per hour"}
@@ -1167,6 +1173,7 @@ def run_once(paths=None, now=None, cfg=None, push_fn=None, run_cmd=None, dry_run
             # restart alone may take 60 s) must not let the next pass, 2 minutes later,
             # restart again.
             rs["last_restart_epoch"] = now_epoch
+            rs["last_restart_day"] = now_et.date().isoformat()
             rs["last_restart_et"] = label
             rs["last_restart_result"] = "started; the pass ended before the result was known"
             queue_pushes()

@@ -12,7 +12,7 @@
 Standing order 10-04 (queue of three, the map first). NOISE #422's shorts earn far more a trade than its longs
 (walk-forward PF 1.83 / $301 against 1.36 / $110, seen while reviewing Custom ML's hedge tilt and disclosed), and they are
 the trades built to earn in sell-offs, the map's main hunt. Pre-registration `docs/PREREG_noise_r70_sidetilt_2026-10-05.md`
-(draft 454aa582, MANAGER review #36 amendment de06c29f: confirmatory, one hunt with Custom ML's hedge tilt, lockbox route
+(draft 692dfebd, MANAGER review #36 amendment be31b7ea: confirmatory, one hunt with Custom ML's hedge tilt, lockbox route
 fixed), Stage A `tools/r70_noise_sidetilt_stageA.py` -> `r37_results/r70_stageA.txt`, walk-forward only, book built only
 to 2025-06-29 and reproducing #463's 93.81 / 3.816 first.
 **DEAD on one bar.** Every short x1.5: NOISE leg walk-forward ROC at a $30k drawdown 84.6 -> 102.6, Sortino 4.49 -> 4.69;

@@ -458,6 +458,32 @@ def _daytype_pos(h, l, c, sess_bounds):
     return cp
 
 
+# DECISION RECORD (2026-10-05, NOISE lane audit / MANAGER #65). `return_decisions` is an
+# opt-in RUNTIME kwarg (like vol_prior_ranges: never a DEFAULT_PARAMS knob, so no search
+# ever sweeps it). With return_trades=True AND return_decisions=True the result gains
+# out["decisions"], ONE dict per out["trades"] row, same order, naming the bar each side of
+# that trade was DECIDED on and the exact numbers this loop compared there:
+#     {"entry": {...}, "exit": {...}}, each {"bar": absolute index, "open", "high", "low",
+#      "close", "volume" (None without volumes), "vwap" (session VWAP at that bar's close;
+#      None outside exit_mode="vwap"), "upper", "lower" (the noise band at that bar),
+#      "rule" (what was compared, e.g. "close>upper", "close<vwap", "low<=stop",
+#      "session_last_bar"), "level" (the exact value on the right of that comparison; None
+#      for session_last_bar)}
+# The entry is decided at the close of the bar BEFORE its fill (STEP D -> STEP A); an exit
+# at the close before its fill (STEP C -> STEP A), or on the fill bar itself for a stop,
+# a boundary touch, a last-bar VWAP/band close or the STEP E flatten. It is a READ of the
+# loop's own locals -- it decides nothing: every trade, pnl and metric is computed exactly
+# as without it, and the default (False) never builds any of it (tested:
+# tests/test_noise_decision_log.py). A live caller (api/cloud_signal.py) logs it so an
+# audit can see the bar Webull served at decision time even after the feed revises it.
+def _f_or_none(x):
+    try:
+        x = float(x)
+    except (TypeError, ValueError):
+        return None
+    return None if x != x else x
+
+
 def run_backtest(
     opens, highs, lows, closes,
     volumes=None,
@@ -471,6 +497,7 @@ def run_backtest(
     vol_prior_ranges=None,
     day_id=None,
     return_trades: bool = False, _stop_event=None, _pause_event=None,
+    return_decisions: bool = False,
 ):
     o = np.asarray(opens, float); h = np.asarray(highs, float)
     l = np.asarray(lows, float);  c = np.asarray(closes, float)
@@ -528,6 +555,11 @@ def run_backtest(
     dt_pos = _daytype_pos(h, l, c, sess_bounds) if daytype_mode != "off" else None
 
     pnl_list, trade_log = [], []
+    # DECISION RECORD (see above run_backtest): None unless asked for -- then one
+    # (session, rule, decided bar, level) per trade_log row, in the same order.
+    _dl = [] if (return_trades and return_decisions) else None
+    _sess_ctx = {}
+    _pend_exit = None
     prev_close = None
     for si, (a, b) in enumerate(sess_bounds):
         if _stop_event is not None and _stop_event.is_set():
@@ -572,6 +604,8 @@ def run_backtest(
             cum_v = np.cumsum(sv)
             with np.errstate(invalid="ignore", divide="ignore"):
                 VWAP = cum_tpv / cum_v
+        if _dl is not None:
+            _sess_ctx[si] = (a, UB, LB, VWAP)
 
         pos = 0; entry_px = 0.0; entry_k = -1
         entry_pending = 0        # queued long(+1)/short(-1) entry, fills at THIS bar's open
@@ -588,6 +622,7 @@ def run_backtest(
                 pnl = (ex_px - entry_px) if pos > 0 else (entry_px - ex_px)
                 pnl_list.append(pnl)
                 if return_trades: trade_log.append((a + entry_k, a + k, pnl, pos, entry_px))
+                if _dl is not None: _dl.append(_pend_exit)
                 pos = 0; exit_pending = False
             if entry_pending != 0 and pos == 0:
                 pos = entry_pending; entry_px = so[k]; entry_k = k; entry_pending = 0
@@ -619,22 +654,26 @@ def run_backtest(
                         ex_px = so[k]
                         pnl_list.append(ex_px - entry_px)
                         if return_trades: trade_log.append((a + entry_k, a + k, ex_px - entry_px, 1, entry_px))
+                        if _dl is not None: _dl.append((si, 'open<stop', a + k, stop_level))
                         pos = 0
                     elif sl[k] <= stop_level:
                         ex_px = stop_level
                         pnl_list.append(ex_px - entry_px)
                         if return_trades: trade_log.append((a + entry_k, a + k, ex_px - entry_px, 1, entry_px))
+                        if _dl is not None: _dl.append((si, 'low<=stop', a + k, stop_level))
                         pos = 0
                 else:
                     if so[k] > stop_level:
                         ex_px = so[k]
                         pnl_list.append(entry_px - ex_px)
                         if return_trades: trade_log.append((a + entry_k, a + k, entry_px - ex_px, -1, entry_px))
+                        if _dl is not None: _dl.append((si, 'open>stop', a + k, stop_level))
                         pos = 0
                     elif sh[k] >= stop_level:
                         ex_px = stop_level
                         pnl_list.append(entry_px - ex_px)
                         if return_trades: trade_log.append((a + entry_k, a + k, entry_px - ex_px, -1, entry_px))
+                        if _dl is not None: _dl.append((si, 'high>=stop', a + k, stop_level))
                         pos = 0
 
             # STEP B -- boundary-mode intrabar exit (checked while in a position).
@@ -645,10 +684,12 @@ def run_backtest(
                         if so[k] < band:
                             pnl_list.append(so[k] - entry_px)
                             if return_trades: trade_log.append((a + entry_k, a + k, so[k] - entry_px, 1, entry_px))
+                            if _dl is not None: _dl.append((si, 'open<upper', a + k, band))
                             pos = 0
                         elif sl[k] <= band:
                             pnl_list.append(band - entry_px)
                             if return_trades: trade_log.append((a + entry_k, a + k, band - entry_px, 1, entry_px))
+                            if _dl is not None: _dl.append((si, 'low<=upper', a + k, band))
                             pos = 0
                 elif pos < 0:
                     band = LB[k]
@@ -656,10 +697,12 @@ def run_backtest(
                         if so[k] > band:
                             pnl_list.append(entry_px - so[k])
                             if return_trades: trade_log.append((a + entry_k, a + k, entry_px - so[k], -1, entry_px))
+                            if _dl is not None: _dl.append((si, 'open>lower', a + k, band))
                             pos = 0
                         elif sh[k] >= band:
                             pnl_list.append(entry_px - band)
                             if return_trades: trade_log.append((a + entry_k, a + k, entry_px - band, -1, entry_px))
+                            if _dl is not None: _dl.append((si, 'high>=lower', a + k, band))
                             pos = 0
 
             # STEP C -- vwap/band exit trigger evaluated at THIS bar's close.
@@ -676,14 +719,22 @@ def run_backtest(
                     elif pos < 0 and not np.isnan(LB[k]) and sc[k] > LB[k]:
                         trig = True
                 if trig:
+                    if _dl is not None:
+                        if exit_mode == "vwap":
+                            _x = (si, "close<vwap" if pos > 0 else "close>vwap", a + k, VWAP[k])
+                        else:
+                            _x = (si, "close<upper" if pos > 0 else "close>lower", a + k,
+                                  UB[k] if pos > 0 else LB[k])
                     if is_last:
                         ex_px = sc[k]
                         pnl = (ex_px - entry_px) if pos > 0 else (entry_px - ex_px)
                         pnl_list.append(pnl)
                         if return_trades: trade_log.append((a + entry_k, a + k, pnl, pos, entry_px))
+                        if _dl is not None: _dl.append(_x)
                         pos = 0
                     else:
                         exit_pending = True
+                        if _dl is not None: _pend_exit = _x
 
             # confirm_bars streak bookkeeping (2026-08-17): consecutive closes outside
             # each band, each bar's close judged against THAT bar's own band level --
@@ -720,6 +771,7 @@ def run_backtest(
                 pnl = (ex_px - entry_px) if pos > 0 else (entry_px - ex_px)
                 pnl_list.append(pnl)
                 if return_trades: trade_log.append((a + entry_k, a + k, pnl, pos, entry_px))
+                if _dl is not None: _dl.append((si, "session_last_bar", a + k, None))
                 pos = 0
 
         prev_close = sc[-1]
@@ -739,7 +791,38 @@ def run_backtest(
     }
     if return_trades:
         out["trades"] = trade_log
+    if _dl is not None and len(_dl) == len(trade_log):
+        # Logging only: a fault building the record must never cost the caller its trades.
+        try:
+            out["decisions"] = _decision_records(trade_log, _dl, _sess_ctx, o, h, l, c, v)
+        except Exception:
+            pass
     return out
+
+
+def _decision_records(trade_log, dl, sess_ctx, o, h, l, c, v):
+    """out["decisions"] (see DECISION RECORD above run_backtest) from the loop's own log:
+    every number is read from the arrays and band/VWAP vectors the loop itself compared,
+    at the index it compared them -- nothing is re-derived."""
+    def bar(si, i):
+        a, UB, LB, VWAP = sess_ctx[si]
+        k = i - a
+        return {"bar": int(i), "open": _f_or_none(o[i]), "high": _f_or_none(h[i]),
+                "low": _f_or_none(l[i]), "close": _f_or_none(c[i]),
+                "volume": _f_or_none(v[i]) if v is not None else None,
+                "vwap": _f_or_none(VWAP[k]) if VWAP is not None else None,
+                "upper": _f_or_none(UB[k]), "lower": _f_or_none(LB[k])}
+    recs = []
+    for t, (si, rule, dec_i, level) in zip(trade_log, dl):
+        entry = bar(si, int(t[0]) - 1)          # STEP D decided at the close before the fill
+        long_ = t[3] > 0
+        entry["rule"] = "close>upper" if long_ else "close<lower"
+        entry["level"] = entry["upper"] if long_ else entry["lower"]
+        ex = bar(si, int(dec_i))
+        ex["rule"] = rule
+        ex["level"] = _f_or_none(level)
+        recs.append({"entry": entry, "exit": ex})
+    return recs
 
 
 # ─────────────────────────────────────────────────────────────────────────────

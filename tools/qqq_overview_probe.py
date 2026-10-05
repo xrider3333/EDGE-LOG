@@ -120,7 +120,42 @@ the P&L is the Webull figure, and today's orders show AFTER CLOSE instead of the
 bar-start latency. `python tools/qqq_overview_probe.py <out_dir> --parity` runs only
 this pass.
 
-Not wired into wt.py ship (ad hoc verification tool), but written the same way as
+LEDGER UNIFY STEP 4 (2026-10-05): the board now wears TRADING-LOG's shared hero
+(ledgerHeroHtml: label, big number = P&L of record since the start, today line, range
+line, alarm chips in the chip slot, the since line and broker caveat in its note slot)
+and the shared range pills (TODAY 1W 1M 3M YTD ALL, data-qbrange) under the chart, on
+REAL's own saved range (homeRange in el_view). Every older case starts on ALL
+(homeRange='ALL', like window._qeChartPeriod='ALL') so its counts are unchanged.
+`--ledger` runs only the new pass: the 'flat' fixture re-dated to end today, at
+1366x768 and 390x844 in mono and dark -- the hero numbers against an independent sum
+here, each pill click moving the range line / chart / list / stats to the trades that
+closed inside it, the pick surviving a live-listener redraw and a page reload, no
+undefined/NaN, no sideways scroll -- plus one ?oldboards=1 case that must still show the
+old layout.
+
+LEDGER UNIFY 13 (2026-10-05, review fix): `--record` runs only the record pass on the
+parity0928 fixture: every strategy row opened, each row's TODAY figure against
+today.legs_record (and the rows adding up to today.realized_pnl_record), the row's note in
+words, the POSITION column in line across rows, the daily-stop line reading
+today.breaker_input ('breaker figure'), and the CSV's 19 added columns after the original
+ones with each trade's P&L of record. Then the same on a copy from an older box (no
+legs_record, no breaker_input: the page's own sums, the stop line saying 'estimate') and on
+a copy whose breaker_input is null (the breaker has not checked today): the estimate, never
+$0.00 as the breaker figure. Review 2026-10-05 added two: the older box's copy last written
+on a later day than its trading day (the rows still add up to the hero's today), and TODAY
+figures of different widths ($0.00 against -$1,234.56) with the POSITION column in line.
+
+LEDGER UNIFY STEP 5 (2026-10-05): the board's own svg chart is replaced by TRADING-LOG's
+shared ledgerChartRender (#qb-lg-chart; the old svg stays behind ?oldboards=1 for one
+version). The period-control and range checks now count the points on the shared chart's
+total line (the range start, then one per day, or one per trade when the range holds one or
+two days); the version-marker check reads the <text> after the [data-lgmark] line. ENGU-Q #335
+sits in a collapsed Retired group (owner decision 9) while it is flat and closed nothing
+today, so the record pass opens that group before it opens every strategy row.
+
+This file is not wired into wt.py ship (ad hoc verification tool); the board's ship gate is
+tools/webull_board_probe.py (short, offline, wired as REAL's home_render_probe.py is). It is
+written the same way as
 tools/paper_render_probe.py: stdlib + a subprocess call to local headless Chrome,
 serving the repo over loopback so index.html's own fetches never fire.
 """
@@ -173,7 +208,7 @@ def make_handler(root):
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>qqq overview probe</title></head>
 <body style="margin:0;background:#0a0a12">
-<iframe id="f" src="../index.html" style="width:__IW__px;height:__IH__px;border:0"></iframe>
+<iframe id="f" src="../index.html__QS__" style="width:__IW__px;height:__IH__px;border:0"></iframe>
 <!-- REVIEW FIX (2026-09-24): this debug readout used to sit in normal flow right below
      the iframe, so every screenshot showed a line of raw JSON (and, on some fixtures, a
      harness-page horizontal scrollbar caused by THAT long unwrapped line) that had
@@ -203,11 +238,18 @@ var IW=__IW__;
 // below the ROBINHOOD_SIZES comment for what each one drives.
 var LIVEPNL=__LIVEPNL__;
 var LISTENERCHECK=__LISTENERCHECK__;
+// LEDGER (2026-10-05, unify step 4): the range-pill pass, in two phases around a reload
+var LEDGER=__LEDGER__;
+// RECORD (2026-10-05, ledger unify 13 review): the strategy rows' TODAY, the daily stop, the CSV
+var RECORD=__RECORD__;
+var SETRANGE=true;
 (function(){
   var reported=false;
   function report(why){
     if(reported)return; reported=true;
-    var out={why:why};
+    var out=window._ledgerOut||{why:why};
+    var phase2=!!window._ledgerOut;
+    if(phase2)SETRANGE=false;
     try{
       var fr=document.getElementById('f'), w=fr.contentWindow, d=fr.contentDocument;
       out.VERSION=w.eval('typeof VERSION!=="undefined"?VERSION:null');
@@ -222,17 +264,22 @@ var LISTENERCHECK=__LISTENERCHECK__;
         +"window._qqqPaper=null;window._qqqPaperLoaded=true;window._qqqPaperLoading=false;window._qqqPaperErr=null;"
         +"window._qqqCalMonth=null;window._qeDrawerIdx=null;window._qeChartHidden={};window._qeTradesShown=50;window._qeEventsShown=30;"
         +"window._qbSheet=null;window._qbLegOpen=new Set();window._qbLegNoteOpen={};window._qeTradesView='list';window._qeChartPeriod='ALL';"
+        +(SETRANGE?"homeRange='ALL';":"")
         +"activeTab='augur';augurSub='qqqpaper';renderApp();return 'OK';"
         +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
       out.themeApplied=d.documentElement.getAttribute('data-theme');
 
       function fire(sel){var el=d.querySelector(sel);if(el){el.click();return true;}return false;}
       function html(){var ap=d.getElementById('app')||d.body;return ap?ap.innerHTML:'';}
+      // LEDGER step 5: points on the shared chart's total line (one per day, the range start
+      // first; a range of one or two days keeps every trade); 0 when the range draws no chart
+      function chartPts(){var pl=d.querySelector('#qb-lg-chart svg polyline');
+        return pl?String(pl.getAttribute('points')||'').trim().split(/\\s+/).filter(Boolean).length:0;}
 
       // ── structural counts on the FIRST paint (ALL cases) ──
       out.hasQbShell=!!d.querySelector('.qb-shell');
-      out.hasHero=!!d.querySelector('.qb-hero-num');
-      out.heroText=(d.querySelector('.qb-hero-num')||{}).textContent||null;
+      out.hasHero=!!d.querySelector('.qb-hero-num, #qb-hero-value');
+      out.heroText=(d.querySelector('.qb-hero-num, #qb-hero-value')||{}).textContent||null;
       out.hasChart=!!d.querySelector('.qb-chart-wrap svg');
       // ROBINHOOD RE-COMPOSITION (2026-09-24): the 4 boxed qb-tiles are now a plain
       // qbx-stat-strip/qbx-stat-cell key-value row (owner spec: "a clean key-value
@@ -272,7 +319,7 @@ var LISTENERCHECK=__LISTENERCHECK__;
       // whole hero-height lower. Measured on the OUTER document (both labels are
       // plain HTML, not SVG) via getBoundingClientRect().top -- viewport-relative,
       // so this is meaningful at >=1100px where the two sit side by side in the grid.
-      var heroLabelEl=d.querySelector('.qb-hero-title');
+      var heroLabelEl=d.querySelector('.qb-hero-title, .lg-hero-label');
       out.heroLabelTop=heroLabelEl?heroLabelEl.getBoundingClientRect().top:null;
       var sideHdEl=d.querySelector('.qbx-side-hd');
       out.sideHdTop=sideHdEl?sideHdEl.getBoundingClientRect().top:null;
@@ -290,7 +337,10 @@ var LISTENERCHECK=__LISTENERCHECK__;
       // so this is exact regardless of the CSS-rendered chart width).
       var chartSvgEl=d.querySelector('.qb-chart-wrap svg');
       out.chartViewBoxW=(chartSvgEl&&chartSvgEl.viewBox&&chartSvgEl.viewBox.baseVal)?chartSvgEl.viewBox.baseVal.width:null;
-      var markerTextEl=d.querySelector('.qb-chart-wrap svg text');
+      // LEDGER step 5: the shared chart draws price labels as svg text too -- the marker's own
+      // label is the <text> right after its [data-lgmark] line (the old svg: its only <text>)
+      var markLineEl=d.querySelector('.qb-chart-wrap svg [data-lgmark]');
+      var markerTextEl=markLineEl?markLineEl.nextElementSibling:d.querySelector('.qb-chart-wrap svg text');
       out.markerText=markerTextEl?markerTextEl.textContent:null;
       out.markerBBox=null;
       if(markerTextEl){
@@ -373,11 +423,12 @@ var LISTENERCHECK=__LISTENERCHECK__;
 
         // ── period control changes the plotted point count (hover-dot circles on the
         // TOTAL line, one per plotted date) ──
-        var dotSel='.qb-chart-wrap svg circle[fill="transparent"]';
-        out.chartDotsAll=d.querySelectorAll(dotSel).length;
-        fire('[data-qbseg="period"] [data-qbsegval="1W"]');
-        out.chartDots1W=d.querySelectorAll(dotSel).length;
-        fire('[data-qbseg="period"] [data-qbsegval="ALL"]');
+        // LEDGER step 5: the shared chart's total-line points (see chartPts)
+        out.chartDotsAll=chartPts();
+        // LEDGER unify step 4: the shared range pills replaced the 1W/1M/3M/ALL tabs
+        fire('[data-qbseg="period"] [data-qbsegval="1W"]')||fire('.qbx-range-row [data-qbrange="1W"]');
+        out.chartDots1W=chartPts();
+        fire('[data-qbseg="period"] [data-qbsegval="ALL"]')||fire('.qbx-range-row [data-qbrange="ALL"]');
       }
 
       if(KEEPSHEET){
@@ -458,6 +509,99 @@ var LISTENERCHECK=__LISTENERCHECK__;
         w.eval("(function(){try{if(window._qqqExecUnsub){window._qqqExecUnsub();}window._qqqExecUnsub=null;window._qqqExecLive=false;db=null;auth=null;return 'OK';}catch(e){return 'ERR '+e;}})()");
       }
 
+      if(LEDGER){
+        var txt=function(sel){var el=d.querySelector(sel);return el?el.textContent.replace(/\\s+/g,' ').trim():null;};
+        var snap=function(){
+          var act=d.querySelector('.qbx-range-row button.active');
+          var cells=[].slice.call(d.querySelectorAll('.qbx-stat-cell')).map(function(c){return c.textContent.replace(/\\s+/g,' ').trim();});
+          var hd=[].slice.call(d.querySelectorAll('.qb-section-hd span')).map(function(s){return s.textContent;}).filter(function(s){return /^Trades \\(/.test(s);});
+          var h=html();
+          var sv=null;try{sv=JSON.parse(w.localStorage.getItem('el_view')||'{}').homeRange||null;}catch(e){}
+          return {active:act?act.getAttribute('data-qbrange'):null,range:txt('#qb-hero-range'),big:txt('#qb-hero-value'),
+            today:txt('#qb-hero-today'),cap:txt('.qbx-chart-cap'),dots:chartPts(),
+            listRows:d.querySelectorAll('[data-qbtraderow]').length,tradesHd:hd[0]||null,stats:cells,saved:sv,
+            undef:(h.match(/undefined/g)||[]).length,nan:(h.match(/NaN/g)||[]).length,
+            scrollW:d.body?d.body.scrollWidth:null};
+        };
+        if(!phase2){
+          out.todayNY=w.eval('ledgerTodayNY()');
+          out.cutoffs=w.eval('JSON.stringify(LEDGER_RANGES.map(function(r){return [r,ledgerCutoff(r)];}))');
+          out.oldboards=w.eval('LEDGER_OLDBOARDS');
+          out.heroLabel=txt('#qb-hero-label');out.heroNote=txt('#qb-hero-note');
+          out.heroChipsHtml=(d.querySelector('#qb-hero-chips')||{}).innerHTML||'';
+          out.pills=[].slice.call(d.querySelectorAll('.qbx-range-row [data-qbrange]')).map(function(b){return b.getAttribute('data-qbrange');});
+          out.oldTabs=!!d.querySelector('[data-qbseg="period"]');
+          out.oldHero=!!d.querySelector('.qb-hero-num');
+          out.first=snap();
+          out.byRange={};
+          (out.pills||[]).forEach(function(r){fire('.qbx-range-row [data-qbrange="'+r+'"]');out.byRange[r]=snap();});
+          // an empty range says so in words and offers "Show all" (only when TODAY has no trades)
+          fire('.qbx-range-row [data-qbrange="TODAY"]');
+          var hist=d.querySelector('.qbx-history');
+          out.todayHistText=hist?hist.textContent.replace(/\\s+/g,' ').trim():null;
+          out.showAll=fire('.qbx-history [data-qbrange="ALL"]');
+          out.afterShowAll=snap();
+          // a live-listener redraw: a fake db hands the page a fresh copy of the doc through
+          // _qqqExecEnsureLive's own onSnapshot callback (which renders at once when the last
+          // render is old enough); the pick must survive it
+          fire('.qbx-range-row [data-qbrange="1M"]');
+          out.beforeRedraw=snap();
+          var oldShell=d.querySelector('.qb-shell');if(oldShell)oldShell.setAttribute('data-probe-old','1');
+          out.redrawCall=w.eval("(function(){try{var cb=null,ref={};ref.collection=function(){return ref;};ref.doc=function(){return ref;};"
+            +"ref.onSnapshot=function(f){cb=f;return function(){};};db=ref;auth={currentUser:{uid:'probe-uid'}};"
+            +"window._qqqExecUnsub=null;window._qqqExecLiveErrorAt=0;_qqqExecEnsureLive();if(!cb)return 'NO_LISTENER';"
+            +"var doc=JSON.parse(JSON.stringify(window._qqqExec));doc.updated_at=String(doc.updated_at||'')+' ';"
+            +"window._qqqExecLastRenderAt=0;window._qeProbeRenders=0;var _ra=renderApp;"
+            +"cb({exists:true,data:function(){return doc;}});"
+            +"if(window._qqqExecUnsub){window._qqqExecUnsub();}window._qqqExecUnsub=null;window._qqqExecLive=false;db=null;auth=null;"
+            +"return window._qqqExec===doc?'OK':'NOT_APPLIED';}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
+          out.afterRedraw=snap();
+          out.redrawFresh=!!d.querySelector('.qb-shell')&&!d.querySelector('[data-probe-old]');
+          // then a reload: phase 2 boots the page again WITHOUT setting the range
+          window._ledgerOut=out;reported=false;
+          fr.contentWindow.location.reload();
+          return;
+        }
+        out.afterReload=snap();
+      }
+
+      if(RECORD){
+        var clean=function(el){return el?el.textContent.replace(/\\s+/g,' ').trim():null;};
+        var recKeys=[];
+        // decision 9: a retired strategy's row sits in the collapsed Retired group -- open it first
+        var retBtn=d.querySelector('[data-qbretired]');
+        out.recRetired=retBtn?retBtn.getAttribute('aria-expanded'):null;
+        if(retBtn&&retBtn.getAttribute('aria-expanded')!=='true')retBtn.click();
+        [].slice.call(d.querySelectorAll('[data-qblegrow]')).forEach(function(e){var k=e.getAttribute('data-qblegrow');if(recKeys.indexOf(k)<0)recKeys.push(k);});
+        out.recKeys=recKeys;
+        // open every strategy row (each tap re-renders, so look the row up again each time)
+        recKeys.forEach(function(k){fire('[data-qblegrow="'+k+'"]');});
+        out.recLegs={};
+        recKeys.forEach(function(k){
+          var top=d.querySelector('[data-qblegrow="'+k+'"]');
+          var row=top?top.closest('.qb-leg-row'):null;
+          var det=row?row.querySelector('.qb-leg-detail'):null;
+          if(!det){out.recLegs[k]={open:false};return;}
+          var dl=det.getBoundingClientRect().left, cells={};
+          [].slice.call(det.children).forEach(function(c){
+            var lb=c.querySelector('.qb-row-sublabel');
+            if(lb&&lb.parentElement===c)cells[lb.textContent.trim()]={val:clean(lb.nextElementSibling),left:Math.round(c.getBoundingClientRect().left-dl),txt:clean(c)};
+          });
+          out.recLegs[k]={open:true,today:cells.TODAY?cells.TODAY.val:null,todayCell:cells.TODAY?cells.TODAY.txt:null,
+            todayLeft:cells.TODAY?cells.TODAY.left:null,posLeft:cells.POSITION?cells.POSITION.left:null,
+            note:clean(det.querySelector('.qb-leg-today-note'))};
+        });
+        // every daily-stop line on the page (the sidebar's short one, and the Orders card's if drawn)
+        out.recStops=[];
+        var it=d.createTreeWalker(d.getElementById('app')||d.body,NodeFilter.SHOW_TEXT,null),nd;
+        while((nd=it.nextNode())){if(/daily stop used/.test(nd.nodeValue)&&!/^(SCRIPT|STYLE)$/.test(nd.parentElement.tagName)){var pe=nd.parentElement;out.recStops.push({text:clean(pe),title:pe.getAttribute('title'),next:clean(pe.nextElementSibling&&pe.nextElementSibling.nextElementSibling)});}}
+        // the CSV download, caught before it leaves the page
+        var got=null;w._libDownload=function(nm,c){got={name:nm,content:String(c)};};
+        out.recCsvClicked=fire('[data-qeexportcsv]');
+        if(got){var ln=got.content.split('\\r\\n');out.recCsvName=got.name;out.recCsvHeader=ln[0];out.recCsvRows=ln.slice(1);}
+        out.recScrollW=d.body?d.body.scrollWidth:null;
+      }
+
       out.consoleErrors=w.eval('window._qeProbeErrors||[]');
       out.html=html();
       var undef=(out.html.match(/undefined/g)||[]).length;
@@ -496,6 +640,7 @@ var LISTENERCHECK=__LISTENERCHECK__;
     document.getElementById('o').textContent='QQQOVPROBE: '+JSON.stringify(out);
   }
   document.getElementById('f').addEventListener('load',function(){setTimeout(function(){report('load');},2500);});
+  // (LEDGER) the reload in phase 1 fires this load listener a second time -> phase 2
   setTimeout(function(){report('backstop');},30000);
 })();
 </script>
@@ -532,6 +677,13 @@ def build_parity0928_fixture(base):
     day = '2026-09-28'
     with io.open(os.path.join(fx_dir, 'orders.csv'), encoding='utf-8', newline='') as f:
         orders = [o for o in _csv.DictReader(f) if str(o.get('ts_et') or '')[:10] == day]
+    # LEDGER UNIFY 13 (2026-10-05): the two today fields the box now sends -- each
+    # strategy's TODAY at the P&L of record, and the daily loss breaker's own input (a flat
+    # book after the close: realized + the fill shortfall), both from the box's own code
+    realized = round(sum(float(r['pnl']) for r in rows
+                         if str(r.get('exit_ts') or '')[:10] == day), 2)
+    qe._BREAKER_ADJ_CACHE['key'] = None
+    fill_adj = qe._breaker_fill_shortfall({'trading_day': day, 'legs': {}}, log=quiet)
     fx = copy.deepcopy(base)
     fx.update({
         'updated_at': '2026-09-28 16:30:00', 'live_from': '2026-09-03',
@@ -545,11 +697,12 @@ def build_parity0928_fixture(base):
         'latency': qe._build_latency(orders, log=quiet),
         'today': {'orders': orders,
                   'trades': [r for r in rows if str(r.get('exit_ts') or '')[:10] == day],
-                  'realized_pnl': round(sum(float(r['pnl']) for r in rows
-                                            if str(r.get('exit_ts') or '')[:10] == day), 2),
+                  'realized_pnl': realized,
                   'realized_pnl_record': round(sum(qe._curve_pnl(r) for r in rows
                                                    if str(r.get('exit_ts') or '')[:10] == day), 2),
-                  'unrealized_pnl': 0.0, 'breaker_fill_adj': 0.0},
+                  'unrealized_pnl': 0.0, 'breaker_fill_adj': fill_adj,
+                  'breaker_input': round(realized + fill_adj, 2),
+                  'legs_record': qe._legs_record_today(rows, day)},
         'positions': {},
     })
     fx['readiness'] = qe._build_readiness(fx.get('feed_days') or [], broker_parity, reprice,
@@ -559,9 +712,388 @@ def build_parity0928_fixture(base):
     return fx
 
 
+def qe_pnl_of(t):
+    """The board's P&L of record for one trade (index.html qePnlOf): pnl_record, else the
+    book pnl, else the re-priced real_pnl, else 0 -- re-derived here, not read off the page."""
+    for k in ('pnl_record', 'pnl', 'real_pnl'):
+        try:
+            v = float(t.get(k))
+        except (TypeError, ValueError):
+            continue
+        if v == v and v not in (float('inf'), float('-inf')):
+            return v
+    return 0.0
+
+
+def build_ledger_fixture(base, today):
+    """The 'flat' fixture (no open positions) with its 40 trades re-dated to end on `today`
+    (New York): trade i closes i*i/4 days back (0, 0, 1, 2, 4, 6 ... 380), so TODAY, 1W, 1M,
+    3M, YTD and ALL each hold a different set. Times of day are kept."""
+    import copy
+    import datetime as _dt
+    fx = copy.deepcopy(base)
+    t0 = _dt.date.fromisoformat(today)
+    for i, t in enumerate(fx['trades_all']):  # newest first
+        d = (t0 - _dt.timedelta(days=int(i * i / 4))).isoformat()
+        for k in ('entry_ts', 'exit_ts'):
+            if t.get(k):
+                t[k] = d + str(t[k])[10:]
+    todays = [t for t in fx['trades_all'] if str(t.get('exit_ts') or '')[:10] == today]
+    fx['today'] = dict(fx.get('today') or {}, trades=todays,
+                       realized_pnl_record=round(sum(qe_pnl_of(t) for t in todays), 2),
+                       unrealized_pnl=0.0)
+    fx['updated_at'] = today + ' 15:30:00'
+    return fx
+
+
+def money(v):
+    """_hmMoney's text: -$1,234.56 / $0.00"""
+    return ('-' if v < 0 else '') + '${:,.2f}'.format(abs(v))
+
+
+def check_ledger(name, r, fx, w):
+    """Assertions for one LEDGER case; returns a list of failure strings."""
+    f = []
+    if r.get('err'):
+        return ['%s: %s' % (name, r['err'])]
+    if r.get('call') != 'OK':
+        return ['%s: renderApp threw -- %s' % (name, r.get('call'))]
+    trades = fx['trades_all']
+    want_pills = ['TODAY', '1W', '1M', '3M', 'YTD', 'ALL']
+    if r.get('pills') != want_pills:
+        f.append('%s: range pills are %s, want %s' % (name, r.get('pills'), want_pills))
+    if r.get('oldTabs') or r.get('oldHero'):
+        f.append('%s: the old 1W/1M/3M/ALL tabs or old hero are still on the page' % name)
+    cut = dict(json.loads(r.get('cutoffs') or '[]'))
+    if not cut or cut.get('TODAY') != r.get('todayNY'):
+        f.append('%s: could not read the ranges from the page (%s)' % (name, r.get('cutoffs')))
+        return f
+    total = round(sum(qe_pnl_of(t) for t in trades), 2)
+    first = r.get('first') or {}
+    if first.get('big') != money(total):
+        f.append('%s: big number %r, want the P&L of record since the start %r' % (name, first.get('big'), money(total)))
+    tv = round(sum(qe_pnl_of(t) for t in trades if str(t.get('exit_ts'))[:10] == r['todayNY']), 2)
+    want_today = ('▲ +' if tv >= 0 else '▼ -') + money(abs(tv)) + ' today'
+    if first.get('today') != want_today:
+        f.append('%s: today line %r, want %r' % (name, first.get('today'), want_today))
+    if 'P&L of record' not in (r.get('heroLabel') or ''):
+        f.append('%s: hero label %r does not say P&L of record' % (name, r.get('heroLabel')))
+    if 'since ' not in (r.get('heroNote') or '') or '40 closed trades' not in (r.get('heroNote') or ''):
+        f.append('%s: the since line is missing under the hero (%r)' % (name, r.get('heroNote')))
+    labels = {'TODAY': 'today', '1W': 'past week', '1M': 'past month', '3M': 'past 3 months',
+              'YTD': 'year to date', 'ALL': 'all time'}
+    seen_ranges = set()
+    for rg in want_pills:
+        s = (r.get('byRange') or {}).get(rg) or {}
+        c = cut.get(rg)
+        inr = [t for t in trades if not c or str(t.get('exit_ts'))[:10] >= c]
+        v = round(sum(qe_pnl_of(t) for t in inr), 2)
+        want_rng = ('▲' if v >= 0 else '▼') + money(abs(v)) + labels[rg]
+        if (s.get('range') or '').replace(' ', '') != want_rng.replace(' ', ''):
+            f.append('%s %s: range line %r, want %r' % (name, rg, s.get('range'), want_rng))
+        seen_ranges.add(s.get('range'))
+        if s.get('active') != rg:
+            f.append('%s %s: active pill is %r' % (name, rg, s.get('active')))
+        if s.get('saved') != rg:
+            f.append('%s %s: the pick was not saved for a reload (el_view.homeRange=%r)' % (name, rg, s.get('saved')))
+        if s.get('big') != money(total):
+            f.append('%s %s: the big number moved with the range (%r)' % (name, rg, s.get('big')))
+        days = len(set(str(t.get('exit_ts'))[:10] for t in inr))
+        # LEDGER step 5 (shared chart): the range start + one point per day, or + one per trade
+        # when the range holds only one or two days; no chart at all for an empty range
+        want_pts = 0 if not inr else (days + 1 if days > 2 else len(inr) + 1)
+        if s.get('dots') != want_pts:
+            f.append('%s %s: chart plots %s points, want %s (%d days, %d trades)'
+                     % (name, rg, s.get('dots'), want_pts, days, len(inr)))
+        if s.get('listRows') != min(len(inr), 50):
+            f.append('%s %s: list shows %s rows, want %s' % (name, rg, s.get('listRows'), min(len(inr), 50)))
+        want_cell = 'TRADES' + (str(len(inr)) if inr else '—')
+        if not any(x.replace(' ', '').upper() == want_cell for x in (s.get('stats') or [])):
+            f.append('%s %s: stats Trades cell is not %d (%s)' % (name, rg, len(inr), s.get('stats')))
+        if not (s.get('tradesHd') or '').startswith('Trades (%d' % len(inr)):
+            f.append('%s %s: list header %r, want Trades (%d...' % (name, rg, s.get('tradesHd'), len(inr)))
+        if rg != 'ALL' and labels[rg] not in (s.get('cap') or ''):
+            f.append('%s %s: chart caption %r does not name the range' % (name, rg, s.get('cap')))
+        if s.get('undef') or s.get('nan'):
+            f.append('%s %s: undefined x%s / NaN x%s on the page' % (name, rg, s.get('undef'), s.get('nan')))
+        if s.get('scrollW') is not None and s['scrollW'] > w + 2:
+            f.append('%s %s: sideways scroll (scrollWidth %s at %dpx)' % (name, rg, s['scrollW'], w))
+    if len(seen_ranges) < 5:
+        f.append('%s: the range line did not change across the pills (%s)' % (name, sorted(map(str, seen_ranges))))
+    b, a = r.get('beforeRedraw') or {}, r.get('afterRedraw') or {}
+    if r.get('redrawCall') != 'OK':
+        f.append('%s: the live-listener redraw did not run (%s)' % (name, r.get('redrawCall')))
+    if not r.get('redrawFresh'):
+        f.append('%s: the live-listener snapshot did not redraw the board' % name)
+    if a.get('active') != '1M' or a.get('range') != b.get('range') or a.get('dots') != b.get('dots'):
+        f.append('%s: the 1M pick did not survive a live redraw (before %s / after %s)'
+                 % (name, (b.get('active'), b.get('range')), (a.get('active'), a.get('range'))))
+    z = r.get('afterReload') or {}
+    if z.get('active') != '1M' or z.get('range') != b.get('range'):
+        f.append('%s: the 1M pick did not survive a reload (got %s)' % (name, (z.get('active'), z.get('range'))))
+    if r.get('consoleErrors'):
+        f.append('%s: console errors -- %s' % (name, r['consoleErrors']))
+    if r.get('undefCount') or r.get('nanCount'):
+        f.append('%s: undefined x%s / NaN x%s' % (name, r.get('undefCount'), r.get('nanCount')))
+    if not r.get('overflowOk'):
+        f.append('%s: horizontal overflow at %dpx (scrollWidth=%s)' % (name, w, r.get('bodyScrollW')))
+    return f
+
+
+def ledger_pass(chrome, out_dir, fx):
+    """LEDGER unify step 4 on the Webull board (see the module docstring)."""
+    import datetime as _dt
+    fails = []
+    # today in New York, as the page counts it (ledgerTodayNY) -- read off a first render
+    probe = run_case(chrome, ROOT, fx['flat'], 'ledger_today', None, width=1366, height=768,
+                     theme='mono', ledger=True)
+    today = probe.get('todayNY')
+    if not today:
+        return ['ledger_today: could not read today in New York from the page (%s)' % probe.get('err')]
+    lfx = build_ledger_fixture(fx['flat'], today)
+    for (w, h) in ((1366, 768), (390, 844)):
+        for theme in ('mono', 'dark'):
+            name = 'ledger_%dx%d_%s' % (w, h, theme)
+            shot = os.path.join(out_dir, '%s.png' % name)
+            r = run_case(chrome, ROOT, lfx, name, shot, width=w, height=h, theme=theme, ledger=True)
+            print('%s shot -> %s' % (name, shot))
+            print(name.upper(), ':', json.dumps({k: v for k, v in r.items()
+                                                 if k not in ('html', 'moreStatsHtml', 'listHtml', 'attnRed',
+                                                              'attnAmber', 'attnOk')})[:3000])
+            fails.extend(check_ledger(name, r, lfx, w))
+            if theme == 'mono' and r.get('themeApplied') != 'mono':
+                fails.append('%s: mono theme was not applied' % name)
+    # the alarm chips sit in the hero's chip slot, said in words
+    ra = run_case(chrome, ROOT, fx['alarms'], 'ledger_alarms', os.path.join(out_dir, 'ledger_alarms_1366x768_mono.png'),
+                  width=1366, height=768, theme='mono', ledger=True)
+    chips = ra.get('heroChipsHtml') or ''
+    for word in ('BREAKER TRIPPED', 'KILL ACTIVE', 'FEED STALE'):
+        if word not in chips:
+            fails.append('ledger_alarms: hero chip slot is missing %r' % word)
+    # an empty range: the same book one day older, so nothing closed today -- the list says
+    # so in words and its "Show all" button moves the pills to ALL
+    import copy as _copy
+    import datetime as _dt2
+    efx = build_ledger_fixture(fx['flat'], (_dt2.date.fromisoformat(today) - _dt2.timedelta(days=1)).isoformat())
+    efx['today'] = dict(efx['today'], trades=[], realized_pnl_record=0.0)
+    re_ = run_case(chrome, ROOT, efx, 'ledger_empty_today', os.path.join(out_dir, 'ledger_empty_today_1366x768_mono.png'),
+                   width=1366, height=768, theme='mono', ledger=True)
+    fails.extend(check_ledger('ledger_empty_today', re_, efx, 1366))
+    ht = re_.get('todayHistText') or ''
+    if 'no trades closed today' not in ht or '40 more outside this range' not in ht:
+        fails.append('ledger_empty_today: the empty TODAY list does not say so in words (%r)' % ht[:300])
+    if not re_.get('showAll') or (re_.get('afterShowAll') or {}).get('active') != 'ALL':
+        fails.append('ledger_empty_today: "Show all" did not move the range to ALL (%s)'
+                     % ((re_.get('afterShowAll') or {}).get('active'),))
+    # ?oldboards=1 keeps the old Webull layout for one version
+    ro = run_case(chrome, ROOT, lfx, 'ledger_oldboards', None, width=1366, height=768, theme='mono',
+                  query='?oldboards=1')
+    oh = ro.get('html') or ''
+    if ro.get('err') or ro.get('call') != 'OK':
+        fails.append('ledger_oldboards: %s' % (ro.get('err') or ro.get('call')))
+    elif ('qb-hero-num' not in oh or 'data-qbseg="period"' not in oh or 'data-qbrange' in oh
+          or 'lg-hero' in oh):
+        fails.append('ledger_oldboards: ?oldboards=1 does not show the old Webull layout')
+    return fails
+
+
+RECORD_XCOLS = ['trade_id', 'close_day_ny', 'pnl_record', 'pnl_record_source', 'pnl_record_note',
+                'pnl_backtest', 'book_only', 'book_only_reason', 'fills_vs_backtest',
+                'fills_vs_backtest_note', 'entry_backtest_px', 'entry_webull_px', 'entry_fill',
+                'exit_backtest_px', 'exit_webull_px', 'exit_fill', 'fill_gap_usd', 'design_gap_usd',
+                'execution_gap_usd']
+RECORD_LEGS = ('ORB', 'ENGUQ', 'NOISE')
+
+
+def record_want_legs(fx):
+    """{leg: {pnl, n, book}} the rows must show: today.legs_record when the box sends it,
+    else the page's own sum by the same rule (trades closed on the box's day, each at the
+    P&L of record; `book` = not at Webull's fills on both sides), re-derived here."""
+    rec = (fx.get('today') or {}).get('legs_record')
+    if isinstance(rec, dict):
+        return rec
+    # the box's day = the hero's day: the newest close day among today's own trades, else
+    # today's orders, else the day it last wrote (index.html qeBoxDay)
+    ok = lambda s: bool(re.match(r'^\d{4}-\d{2}-\d{2}$', s))
+    td = sorted(d for d in (str(t.get('exit_ts') or '')[:10] for t in (fx.get('today') or {}).get('trades') or []) if ok(d))
+    od = sorted(d for d in (str(o.get('ts_et') or '')[:10] for o in (fx.get('today') or {}).get('orders') or []) if ok(d))
+    day = td[-1] if td else (od[-1] if od else str(fx.get('updated_at') or '')[:10])
+    out = {}
+    for t in fx.get('trades_all') or []:
+        if str(t.get('exit_ts') or '')[:10] != day:
+            continue
+        b = out.setdefault(t.get('leg') or '?', {'pnl': 0.0, 'n': 0, 'book': 0})
+        b['pnl'] += qe_pnl_of(t)
+        b['n'] += 1
+        if str(t.get('pnl_record_src') or '') != 'webull':
+            b['book'] += 1
+    for b in out.values():
+        b['pnl'] = round(b['pnl'], 2)
+    return out
+
+
+def check_record(name, r, fx, kind, w):
+    """kind: 'box' (the box sends legs_record + breaker_input), 'old' (it sends neither),
+    'null' (breaker_input is null: the breaker has not checked today)."""
+    f = []
+    if r.get('err'):
+        return ['%s: %s' % (name, r['err'])]
+    if r.get('call') != 'OK':
+        return ['%s: renderApp threw -- %s' % (name, r.get('call'))]
+    t = fx.get('today') or {}
+    want = record_want_legs(fx)
+    # every kind: the rows add up to the hero's today figure -- an older box's rows too,
+    # even when it last wrote on a later day than its trading day (review 2026-10-05)
+    tot = round(sum(float(b['pnl']) for b in want.values()), 2)
+    if tot != round(float(t.get('realized_pnl_record')), 2):
+        f.append('%s: the strategy rows add up to %s, the hero today is %s'
+                 % (name, tot, t.get('realized_pnl_record')))
+    legs = r.get('recLegs') or {}
+    if sorted(legs) != sorted(RECORD_LEGS):
+        f.append('%s: strategy rows %s, want %s' % (name, sorted(legs), sorted(RECORD_LEGS)))
+    pos = set()
+    for k in RECORD_LEGS:
+        g = legs.get(k) or {}
+        if not g.get('open'):
+            f.append('%s %s: the strategy row did not open' % (name, k))
+            continue
+        b = want.get(k) or {'pnl': 0.0, 'n': 0, 'book': 0}
+        if g.get('today') != money(round(float(b['pnl']), 2)):
+            f.append('%s %s: TODAY reads %r, want %r' % (name, k, g.get('today'), money(float(b['pnl']))))
+        if g.get('todayCell') != 'TODAY' + str(g.get('today')):
+            f.append('%s %s: the TODAY cell holds more than its figure (%r)' % (name, k, g.get('todayCell')))
+        if b['book']:
+            wn = 'Today: %d of %d not fully at Webull fills' % (b['book'], b['n'])
+        elif b['n']:
+            wn = 'Today: %d closed, all at Webull fills' % b['n']
+        else:
+            wn = None
+        if g.get('note') != wn:
+            f.append('%s %s: note %r, want %r' % (name, k, g.get('note'), wn))
+        pos.add(g.get('posLeft'))
+    if len(pos) != 1 or None in pos:
+        f.append('%s: the POSITION column is not in line across the rows (%s)' % (name, sorted(map(str, pos))))
+    limit = abs(float((fx.get('rails') or {}).get('daily_loss_limit_usd')))
+    if kind in ('box', 'wide'):
+        fig, word = float(t['breaker_input']), 'breaker figure'
+    else:
+        fig = float(t.get('realized_pnl_record')) + float(t.get('unrealized_pnl') or 0)
+        word = 'estimate, box not updated yet'
+    want_stop = '%s of %s daily stop used' % (money(abs(min(0.0, fig))), money(limit))
+    stops = r.get('recStops') or []
+    if not stops:
+        f.append('%s: no daily-stop line on the page' % name)
+    for st in stops:
+        txt = (st.get('text') or '') + ' ' + (st.get('title') or '') + ' ' + (st.get('next') or '')
+        if not (st.get('text') or '').startswith(want_stop):
+            f.append('%s: daily-stop line %r, want it to start %r' % (name, st.get('text'), want_stop))
+        if kind in ('box', 'wide'):
+            if 'breaker' not in txt or 'Estimate' in txt or 'estimate' in txt:
+                f.append('%s: daily-stop line does not say it is the breaker figure (%r)' % (name, txt))
+        else:
+            if 'stimate' not in txt:
+                f.append('%s: daily-stop line does not say estimate (%r)' % (name, txt))
+            if 'as the daily loss breaker counts it' in txt:
+                f.append('%s: an estimate is labelled as the breaker figure (%r)' % (name, txt))
+    mini = [st for st in stops if st.get('title')]
+    if mini and word not in (mini[0].get('text') or ''):
+        f.append('%s: the short daily-stop line does not end in %r (%r)' % (name, word, mini[0].get('text')))
+    # the CSV: the original columns, then the 19 added ones, one row per closed trade
+    hdr = (r.get('recCsvHeader') or '').split(',')
+    if not r.get('recCsvClicked') or not hdr or hdr[-len(RECORD_XCOLS):] != RECORD_XCOLS:
+        f.append('%s: CSV header does not end in the 19 added columns (%s)' % (name, hdr[-21:]))
+    elif hdr[:3] != ['entry_ts', 'exit_ts', 'leg']:
+        f.append('%s: CSV no longer starts with the original columns (%s)' % (name, hdr[:3]))
+    else:
+        import csv as _csv
+        rows = list(_csv.reader(io.StringIO('\r\n'.join(r.get('recCsvRows') or []))))
+        trades = fx.get('trades_all') or []
+        if len(rows) != len(trades):
+            f.append('%s: CSV has %d rows, want %d' % (name, len(rows), len(trades)))
+        ix = {c: i for i, c in enumerate(hdr)}
+        srcs = {'Webull fills', 'part book price', 'book price', 're-price minute close', 'none'}
+        # a trade by its id, else (older rows with no id) by leg + entry + exit time
+        key = lambda tid, leg, en, ex: tid or '%s|%s|%s' % (leg, en, ex)
+        by_id = {key(tr.get('trade_id'), tr.get('leg'), tr.get('entry_ts'), tr.get('exit_ts')): tr for tr in trades}
+        bad = []
+        for row in rows:
+            if len(row) != len(hdr):
+                bad.append('row width %d' % len(row))
+                continue
+            tr = by_id.get(key(row[ix['trade_id']], row[ix['leg']], row[ix['entry_ts']], row[ix['exit_ts']]))
+            if tr is None:
+                bad.append('unknown trade %r' % row[ix['trade_id']])
+                continue
+            if row[ix['pnl_record']] != '%.2f' % qe_pnl_of(tr):
+                bad.append('%s pnl_record %s want %.2f' % (row[ix['trade_id']], row[ix['pnl_record']], qe_pnl_of(tr)))
+            if row[ix['pnl_record_source']] not in srcs:
+                bad.append('%s source %r' % (row[ix['trade_id']], row[ix['pnl_record_source']]))
+            if row[ix['close_day_ny']] != str(tr.get('exit_ts') or tr.get('entry_ts'))[:10]:
+                bad.append('%s close day %r' % (row[ix['trade_id']], row[ix['close_day_ny']]))
+        if bad:
+            f.append('%s: CSV rows wrong -- %s' % (name, bad[:5]))
+    if r.get('consoleErrors'):
+        f.append('%s: console errors -- %s' % (name, r['consoleErrors']))
+    if r.get('undefCount') or r.get('nanCount'):
+        f.append('%s: undefined x%s / NaN x%s' % (name, r.get('undefCount'), r.get('nanCount')))
+    if r.get('recScrollW') is not None and r['recScrollW'] > w + 2:
+        f.append('%s: sideways scroll with the rows open (scrollWidth %s at %dpx)' % (name, r['recScrollW'], w))
+    return f
+
+
+def record_pass(chrome, out_dir, fx_par):
+    """LEDGER UNIFY 13 review: the strategy rows' TODAY, the daily stop and the CSV (see the
+    module docstring) on parity0928, an older box's copy and a null-breaker copy."""
+    import copy as _copy
+    old = _copy.deepcopy(fx_par)
+    old['today'].pop('legs_record', None)
+    old['today'].pop('breaker_input', None)
+    nul = _copy.deepcopy(fx_par)
+    nul['today']['breaker_input'] = None
+    # a strategy with trades not fully at Webull fills: the note must say so in words
+    nul['today']['legs_record'] = _copy.deepcopy(nul['today']['legs_record'])
+    nul['today']['legs_record']['NOISE']['book'] = 2
+    if float(nul['today']['realized_pnl_record']) >= 0:
+        return ['record: the parity0928 fixture no longer has a loss today -- the null case proves nothing']
+    # review 2026-10-05: an older box that last wrote on a LATER day than its trading day
+    # (a weekend, or the runner stopped overnight) -- the rows must still read the hero's day
+    wknd = _copy.deepcopy(old)
+    wknd['updated_at'] = '2026-10-03 12:00:00'
+    if not (wknd['today'].get('trades') or []):
+        return ['record: the parity0928 fixture has no trades today -- the later-day case proves nothing']
+    # review 2026-10-05: TODAY figures of different widths ($0.00 against -$1,234.56) --
+    # the POSITION column must still line up across the rows
+    wide = _copy.deepcopy(fx_par)
+    wide['today']['legs_record'] = {'ENGUQ': {'pnl': -1234.56, 'n': 3, 'book': 0},
+                                    'NOISE': {'pnl': 7.5, 'n': 1, 'book': 1}}
+    wide['today']['realized_pnl_record'] = -1227.06
+    plan = [('record_box_1366x768_mono', fx_par, 'box', 1366, 768, 'mono'),
+            ('record_box_1366x768_dark', fx_par, 'box', 1366, 768, 'dark'),
+            ('record_box_390x844_mono', fx_par, 'box', 390, 844, 'mono'),
+            ('record_oldbox_1366x768_mono', old, 'old', 1366, 768, 'mono'),
+            ('record_oldbox_390x844_mono', old, 'old', 390, 844, 'mono'),
+            ('record_nullbreaker_1366x768_mono', nul, 'null', 1366, 768, 'mono'),
+            ('record_nullbreaker_390x844_mono', nul, 'null', 390, 844, 'mono'),
+            ('record_oldbox_laterday_1366x768_mono', wknd, 'old', 1366, 768, 'mono'),
+            ('record_widetoday_1366x768_mono', wide, 'wide', 1366, 768, 'mono'),
+            ('record_widetoday_390x844_mono', wide, 'wide', 390, 844, 'mono')]
+    fails = []
+    for name, fx, kind, w, h, theme in plan:
+        shot = os.path.join(out_dir, '%s.png' % name)
+        r = run_case(chrome, ROOT, fx, name, shot, width=w, height=h, theme=theme, record=True)
+        print('%s shot -> %s' % (name, shot))
+        print(name.upper(), ':', json.dumps({k: v for k, v in r.items()
+                                             if k in ('err', 'call', 'recLegs', 'recStops', 'recCsvClicked',
+                                                      'recScrollW', 'consoleErrors')}))
+        fails.extend(check_record(name, r, fx, kind, w))
+        if theme == 'mono' and r.get('themeApplied') != 'mono':
+            fails.append('%s: mono theme was not applied' % name)
+    return fails
+
+
 def run_case(chrome, root, fixture, name, shot_path, width=1600, height=1400, theme='dark',
              deep=False, keep_sheet=False, open_checks=False, livepnl=False, listener_check=False,
-             open_parity=False, trade_idx=-1):
+             open_parity=False, trade_idx=-1, ledger=False, query='', record=False):
     pdir = os.path.join(root, '_qqqovprobe')
     if not os.path.isdir(pdir):
         os.makedirs(pdir)
@@ -575,6 +1107,9 @@ def run_case(chrome, root, fixture, name, shot_path, width=1600, height=1400, th
             .replace('__LISTENERCHECK__', 'true' if listener_check else 'false')
             .replace('__OPENPARITY__', 'true' if open_parity else 'false')
             .replace('__TRADEIDX__', str(int(trade_idx)))
+            .replace('__LEDGER__', 'true' if ledger else 'false')
+            .replace('__RECORD__', 'true' if record else 'false')
+            .replace('__QS__', query)
             .replace('__IW__', str(width)).replace('__IH__', str(height)))
     io.open(ppath, 'w', encoding='utf-8').write(html)
 
@@ -645,12 +1180,36 @@ def main():
 
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     parity_only = '--parity' in sys.argv[1:]
+    ledger_only = '--ledger' in sys.argv[1:]
+    record_only = '--record' in sys.argv[1:]
     out_dir = os.path.abspath(args[0]) if args else ROOT
     if not os.path.isdir(out_dir):
         os.makedirs(out_dir)
 
-    # ── FILL PARITY PASS (2026-09-28) ──
+    # ── LEDGER UNIFY 13 review (2026-10-05): strategy TODAY, daily stop, CSV ──
     fx['parity0928'] = build_parity0928_fixture(fx['flat'])
+    record_fails = [] if parity_only else record_pass(chrome, out_dir, fx['parity0928'])
+    if record_only:
+        if record_fails:
+            print('QQQOVPROBE RECORD: FAIL')
+            for f in record_fails:
+                print('  - ' + f)
+            return 1
+        print('QQQOVPROBE RECORD: PASS')
+        return 0
+
+    # ── LEDGER UNIFY STEP 4 (2026-10-05): shared hero + range pills ──
+    ledger_fails = [] if parity_only else ledger_pass(chrome, out_dir, fx)
+    if ledger_only:
+        if ledger_fails:
+            print('QQQOVPROBE LEDGER: FAIL')
+            for f in ledger_fails:
+                print('  - ' + f)
+            return 1
+        print('QQQOVPROBE LEDGER: PASS')
+        return 0
+
+    # ── FILL PARITY PASS (2026-09-28) ── (fx['parity0928'] is built above)
     p_trades = fx['parity0928']['trades_all']
     def _idx(tid):
         return next(i for i, t in enumerate(p_trades) if t.get('trade_id') == tid)
@@ -1197,6 +1756,8 @@ def main():
         print(nm.upper(), ':', json.dumps({k: v for k, v in r.items() if k not in ('html', 'moreStatsHtml', 'listHtml')}, indent=1))
 
     fails.extend(parity_fails)
+    fails.extend(ledger_fails)
+    fails.extend(record_fails)
     if fails:
         print('QQQOVPROBE: FAIL')
         for f in fails:

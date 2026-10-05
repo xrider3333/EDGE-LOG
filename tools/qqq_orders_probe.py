@@ -100,7 +100,7 @@ var IW=__IW__;
         +"window._qqqExecLoaded=true;window._qqqExecLoading=false;window._qqqExecErr=null;"
         +"window._qqqPaper=null;window._qqqPaperLoaded=true;window._qqqPaperLoading=false;window._qqqPaperErr=null;"
         +"window._qqqCalMonth=null;window._qeDrawerIdx=null;window._qeChartHidden={};window._qeTradesShown=50;window._qeEventsShown=30;"
-        +"window._qbSheet=null;window._qbLegOpen=new Set();window._qeTradesView='list';window._qeChartPeriod='ALL';"
+        +"window._qbSheet=null;window._qbLegOpen=new Set();window._qeTradesView='list';window._qeChartPeriod='ALL';homeRange='ALL';"
         +"activeTab='augur';augurSub='qqqpaper';renderApp();return 'OK';"
         +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
       out.themeApplied=d.documentElement.getAttribute('data-theme');

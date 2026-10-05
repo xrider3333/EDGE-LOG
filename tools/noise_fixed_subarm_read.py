@@ -7,6 +7,12 @@ form: it tests AIM - are the bigger sizes on the better trades - not leverage):
   FULL     arm = the package's size (m_422fixed)                    relevant = every trade
   FRIDAY   arm = #422 plain x 1.5 on Friday entries, else x 1        relevant = Friday trades
   FOMC     arm = #422 plain x 0.5 before a 14:00 ET FOMC statement   relevant = FOMC-morning trades
+  SHORTS   arm = #422 plain x 1.5 on short trades (REPORT-ONLY, MANAGER #37 after round 70 died at Stage A on the paired
+           bootstrap alone)                                       relevant = short trades
+  SQUEEZE  arm = #422 plain x 1.5 on trades entered while KEEL's 60-minute squeeze (ml_keel sq60_on, logged as
+           keel_sq60_on at the decision bar) is set - Custom ML's fixed-package ablation found this part carries inside
+           #463 on the walk-forward (MANAGER #43, REPORT-ONLY; caveat: the top 20 of 308 WF squeeze trades carry
+           the lead)                                              relevant = squeeze-on trades
 A tilt's aim needs the untilted trades as its contrast, so every series runs over ALL closed trades; "relevant" counts
 the trades the tilt actually re-sizes, and a series is judged once it has 50 relevant closed trades (the FOMC series
 will take years - a report, not a bar). Unit P&L = the primary's real Webull fill P&L per share (pnl_per_share).
@@ -42,9 +48,13 @@ def series(d):
     plain = d.m_422plain.to_numpy(float)
     fri = d.friday.astype(int).to_numpy() == 1
     fomc = d.fomc_pre14.astype(int).to_numpy() == 1
+    short = d.side.astype(str).str.lower().str.startswith("s").to_numpy() | (pd.to_numeric(d.side, errors="coerce").to_numpy() < 0)
+    sq = pd.to_numeric(d.keel_sq60_on, errors="coerce").fillna(0).astype(int).to_numpy() == 1
     return (("FULL package", d.m_422fixed.to_numpy(float), np.ones(len(d), bool)),
             ("FRIDAY 1.5x", plain * np.where(fri, 1.5, 1.0), fri),
-            ("FOMC 0.5x", plain * np.where(fomc, 0.5, 1.0), fomc))
+            ("FOMC 0.5x", plain * np.where(fomc, 0.5, 1.0), fomc),
+            ("SHORTS 1.5x", plain * np.where(short, 1.5, 1.0), short),
+            ("SQUEEZE 1.5x", plain * np.where(sq, 1.5, 1.0), sq))
 
 
 def main(argv=None):
@@ -53,12 +63,22 @@ def main(argv=None):
     a = ap.parse_args(argv)
     home = a.home or sorted(glob.glob(r"C:\EdgeLog\box_backup\*\cloud_signal\shadow\noise_forward_log.csv"))[-1] \
         .split(r"\cloud_signal")[0]
-    d = joined(home)
-    d = d[np.isfinite(pd.to_numeric(d.pnl_per_share, errors="coerce"))].copy()
-    d = d.sort_values("entry_bar_time").reset_index(drop=True)
-    u = d.pnl_per_share.astype(float).to_numpy()
-    print("NOISE_422_FIXED sub-arm reads - forward log %s, %d closed trades (%s .. %s)" % (
-        home, len(d), str(d.entry_bar_time.iloc[0])[:10] if len(d) else "-", str(d.entry_bar_time.iloc[-1])[:10] if len(d) else "-"))
+    full = joined(home)
+    for unit, label in (("pnl_per_share", "REAL Webull fills (the pre-stated read)"),
+                        ("pnl_per_share_book", "BOOK would-be fills incl. broker-blocked rows (flagged: Webull netting "
+                                               "refuses a NOISE short while the account is long)")):
+        if unit not in full.columns:
+            print("  (%s: column %s missing in the joined log)" % (label, unit))
+            continue
+        d = full[np.isfinite(pd.to_numeric(full[unit], errors="coerce"))].copy()
+        d = d.sort_values("entry_bar_time").reset_index(drop=True)
+        print("NOISE_422_FIXED sub-arm reads on %s - forward log %s, %d closed trades (%s .. %s)" % (
+            label, home, len(d), str(d.entry_bar_time.iloc[0])[:10] if len(d) else "-",
+            str(d.entry_bar_time.iloc[-1])[:10] if len(d) else "-"))
+        read(d, d[unit].astype(float).to_numpy())
+
+
+def read(d, u):
     for name, m_arm, rel in series(d):
         nrel = int(rel.sum())
         if len(d) >= P.FIRST:

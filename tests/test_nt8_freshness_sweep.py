@@ -73,3 +73,11 @@ def test_cme_hours():
     assert not S.cme_open(dt.datetime(2026, 10, 5, 17, 30, tzinfo=E))
     assert not S.cme_open(dt.datetime(2026, 10, 3, 12, 0, tzinfo=E))
     assert S.cme_open(dt.datetime(2026, 10, 4, 18, 30, tzinfo=E))
+
+
+def test_december_roll_watch_warns_until_checked(tmp_path, monkeypatch):
+    monkeypatch.setattr(S, "EL", str(tmp_path))
+    assert S.check_roll_watch(dt.datetime(2026, 12, 6, 9, 0)) == []
+    assert S.check_roll_watch(dt.datetime(2026, 12, 10, 9, 0))[0]["status"] == "warn"
+    (tmp_path / "enguq_dec_roll_checked").write_text("ok")
+    assert S.check_roll_watch(dt.datetime(2026, 12, 10, 9, 0)) == []
