@@ -1,0 +1,58 @@
+BOOK QUEUE Q9 - TREND AS A #463 SEAT: fund time-series momentum as the "earns while #463 falls" leg. Written 2026-10-05 before any
+number of this round exists; MANAGER review "GO WITH EDITS, walk-forward only" (C:/EdgeLog/manager/reviews/frontier_q9_trendseat_
+review_2026-10-05.md) folded in below, all nine edits, before Stage A runs. Second reviewer: TTM. Lane split (MANAGER #64): FRONTIER =
+the fund time-series-momentum seat; STRATEGY-BEATING = NQ/ES intraday and overnight; TV = NQ/ES daily bars.
+
+WHY (docs/MDL_MAP_R1.md). A leg that earns while #463 falls helps at almost any positive return; every walk-forward-passing add so far
+died because it fell in the book's own drawdown weeks. Time-series momentum on bonds, gold, currencies and commodities is the
+documented crisis alpha (Moskowitz, Ooi and Pedersen 2012; Hurst, Ooi and Pedersen 2017). TREND r1 (2026-09-24,
+tools/tsm1_trend_triage.py) saw that shape on our data (2008, 2020, 2022) and died on a different question (widening the DIP fund book).
+
+THE LEG. TREND r1's rule, every knob as it was: universe IEF TIP SLV DBC USO UUP FXE FXY FXA (Yahoo daily) + GLD TLT (library masters);
+on each month's last close, the sign of the last L months' return -> long or short from the next open, held a month; notional
+$100,000 x (median trailing-60-day vol of GLD TLT IWM QQQ / the fund's trailing-60-day vol), capped 4x, set at the signal.
+PRIMARY CELL (edit 1): the EQUAL-WEIGHT ENSEMBLE of the four lookbacks L = 1, 3, 6, 12 months (each leg's daily P&L averaged), the
+standard robust construction, never selected on our data. TREND r1's 6-month cell (Sharpe 0.41, the max of four looks on years that
+include the walk-forward; its plateau test failed 1 of 4) is reported beside it as the disclosed-selection twin, never substituted.
+COSTS (edit 4): 2 bp per side on every dollar traded for GLD TLT IEF TIP SLV DBC USO, 5 bp per side for FXE FXY FXA UUP (TREND r1's code
+charged 1 bp per side; its figures are reproduced first as a parity check, then the costs here apply). Reported sensitivity: a borrow
+charge of 0.5 %/yr on short notional. USO in April 2020 (creations halted, hard to borrow, 1:8 reverse split) is a stretch where a
+short may not have been fillable at the modelled price - named, not modelled.
+PRICES (edit 3): the cache's opens and closes are on the same dividend-and-split-adjusted basis (median open/close of the same day =
+1.000 in 2008, 2012, 2016, 2020, 2024 and 2026 for IEF TIP UUP FXE USO; same for the GLD / TLT masters master_27f8f2bd.csv /
+master_03f1bd43.csv), so a next-open fill carries no phantom ex-dividend gap. The cache is a photograph (adjusted series are re-scaled
+at every dividend): nonequity_open.csv sha256 3445e27cfabd0b87..., nonequity_close.csv 210a504e49780085... (full hashes printed by the
+harness). STAGE A CANNOT READ THE LOCKBOX: the fund loader ends its day range at 2025-06-30.
+
+SCALE IN THE BOOK, FIXED BEFORE ANY RETURN IS READ. c = the multiple of the ensemble such that its daily P&L standard deviation over the
+legs' tuning block 2010-06-07..2016-06-29 equals 25% of #463's valued-daily standard deviation over the same block (volatility only).
+Reported, never selected: 0.5c and 2c. Day alignment: a fund's P&L for US/Eastern trading day D lands on #463's row stamped D.
+
+STAGE A - WALK-FORWARD ONLY, 2016-07-01..2025-06-29 (#463's own WF, 10-01 convention). Parity first: #463 must read 93.81 / 3.816 /
+$44,849 (book463_valued_daily), and the 6-month cell at 1 bp per side must equal tools/tsm1_trend_triage.trend_leg to the cent.
+PASS needs ALL of, on the PRIMARY ensemble at size c:
+ A1. #463 + c x TREND beats #463 on ROC %/yr at a $30k worst drawdown (valued daily) AND on Sortino (daily).
+ A2. Over #463's worst WF drawdown, 2020-03-02..2020-03-27, the leg's dollars are positive - or, if negative, its WF earnings exceed
+     $3,127 a year per $1,000 lost there (the map's first-order rule: #463 earns $140,235 a year against that $44,849 drawdown, so a
+     leg that loses L dollars there adds drawdown worth 140,235 / 44,849 = $3,127 a year per $1,000).
+ A3 (edit 2). Split the WF days on which #463 sits more than $15,000 below its running peak into contiguous episodes; the leg's summed
+     dollars over those days stay > 0 WITH THE SINGLE BEST EPISODE REMOVED. Per-episode and per-fund dollars are printed.
+ A4 (edit 5). The ROC difference of A1 keeps its sign without 2020-02-01..2020-04-30 and on the tuning block 2010-06-07..2016-06-29;
+     BREADTH = the paired per-year difference in daily Sortino (book with the leg minus #463) is > 0 in at least 6 of the 9 WF years
+     (one-year blocks from 2016-07-01). The leg's own dollars per WF year are printed beside it.
+ A5 (edit 6). Units: the independent unit is the monthly rebalance - 108 in the WF and 12 in the lockbox year (not 11 funds x months).
+     A5 = all 108 WF rebalances present. The 12-rebalance lockbox veto has almost no power either way; the 12-month forward shadow is
+     the real test, and the owner line says so.
+REPORTED (edit 7, the map placement): at size c, the leg standalone - net a year, worst drawdown valued daily, ROC at $30k - and its
+daily correlation to #463 over the drawdown days versus all WF days. Also the 6-month twin, 0.5c / 2c, the borrow line, per-fund rows.
+
+STAGE B - the lockbox once, ONLY if Stage A passes AND MANAGER gives the line: #463 + c x TREND beats #463 on ROC at $30k AND Sortino over
+2025-06-30..2026-06-30, and the book's LB net stays positive without its single biggest trade. A veto, not evidence.
+DATA TWIN (edit 8), before any forward shadow: Yahoo's unadjusted closes for the 11 funds are cross-checked against TRANSFER's Alpaca
+etf_daily cache on overlapping dates (differences > 0.5% flagged), routed to TBIS as data QA; the shadow then runs on whichever source
+the paper book already pulls daily.
+WHAT A PASS EARNS (edit 9), the same day: a RUNBOARD watch entry by research id (no run number exists yet), the owner question, and
+the TREND strategy file + fund masters queued so the persisted BOOK run (parity to this harness to the cent) lands this week. FAIL:
+recorded in BOOK.md and the ledger; no other lookback, universe or scale is tried in its place.
+COULD FOOL US. Crisis alpha is episodic (A3 / A4 check it); the June 2026 lockbox drawdown was an ENGU-Q give-back in a calm market,
+where trend may not help; dividend-adjusted closes put fund income into the signal and the P&L (disclosed; TREND r1's series).

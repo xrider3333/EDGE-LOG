@@ -1185,6 +1185,30 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10t. TTM round 23 as a book test, the NOISE x1.25 forward line, and why the NOISE leg stays on no-adjust (2026-10-04/05)
+
+**TTM round 23 (compression sizing on ORB #234 and ENGU-Q #335) - FAIL at Stage A, lockbox never read.** Pre-registration
+`tools/TTM_R23_PREREG.txt` (a4260281 + 8f574275); TTM ruled the verdict, this lane ran the books
+(`C:\EdgeLog\_anatomy_cache\bookq\ttm23.py`, exports in `C:\EdgeLog\_anatomy_cache\ttm23\`). The tilt is the book engine's
+existing leg gate (1.5x size on a trade entered while the last completed hourly squeeze is on), the same code the paper legs use.
+Parity was exact (#463 WF 93.81 / LB 155.54, Sortino 3.816 / 4.150). Walk-forward 2016-07-01..2025-06-29, ROC %/yr at a $30k
+valued-daily drawdown: #463 93.81 (drawdown $44,849); both legs tilted 90.22 ($50,556, 113% of #463's); ORB only 90.43; ENGU-Q only
+93.40. More money (+$106k on both legs) but a deeper drawdown, so none beats #463 at $30k. The tilt fires on only 12.9% of ORB and 17.7%
+of ENGU-Q trades. TTM's checks: without Feb-Apr 2020 the tilt would have won by 11.4 - it loads size into the coiled tape just before
+the 2020 crash. No lockbox figure was computed for any tilted book.
+
+**Q8 - "#463 + NOISE x1.25" as a forward shadow line** (owner standing order 2026-10-04, MANAGER GO with two edits). Report key
+book_shadow_noise125, from the 2026-10-06 report; pre-registration `docs/PREREG_frontier_noise125_2026-10-05.txt`. MDL r1's map
+found NOISE the only leg whose plain upsizing lifts both stretches (x1.25: 99.8 / 156.3), but re-weighting has never shown forward
+skill (round 56), so this is a forward test only. The line equals the book plus a quarter of the NOISE leg, so it is not a second,
+independent read beside the NOISE #422 shadow. Read once after 12 months from per-trade records; a pass is an owner question.
+
+**The NOISE leg stays on no-adjust data by design** (NOISE lane, MANAGER decision #32, 2026-10-04). #463 runs ORB, ENGU-Q and TTM on
+the roll-corrected masters and NOISE #422 on `db_noadj_rth`. NOISE #422 on the roll-corrected master differs by -6.0% net in
+walk-forward, but 342 of the 408 differing trades come from back-adjustment distorting NOISE's percentage-based band, volatility skip
+and stop on older days, not from rolls; the 66 roll-near trades are in NOISE.md (round 69 follow-ups, eb4443a7). No NOISE_1_x file
+should run on a roll-corrected master.
+
 ### 10s. Round 62 V3 - a learned risk forecast in place of the vol target's 20-day volatility: FAIL at the forecast gate (2026-10-03)
 
 **What.** Owner ask (2026-10-02, "push the frontier ... might have to use an ML"), built and pre-registered by the owner's

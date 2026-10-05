@@ -1,0 +1,40 @@
+BOOK QUEUE Q8 - FORWARD SHADOW LINE "#463 + NOISE x1.25" (owner standing order 2026-10-04 via MANAGER #61 (b); MANAGER review #64
+"GO WITH TWO EDITS", both folded in below). Written 2026-10-04 (draft) and 2026-10-05 (this file) before any forward number for this line
+exists; committed to git with the code that computes it.
+
+WHAT. A no-order shadow book line in the nightly paper report, key book_shadow_noise125 = the adopted book's paper legs with ONE weight
+changed: ORB x1 + ENGUQ_335 x1 + TTM_299_SSOF2 x3 + NOISE_422 x1.25 (the adopted book carries NOISE_422 x1). Same trades, same paper
+fills; only the NOISE leg's weight differs. It is never the book figure and places no order. Forward days start with the 2026-10-06
+report (the first after the code ships and the runner restarts outside market hours); any earlier report figure is ignored.
+
+THE ARITHMETIC, PLAINLY (MANAGER edit 1). This line minus the adopted book line = 0.25 x the NOISE_422 paper leg's P&L, trade for trade.
+So its verdict is a function of NOISE #422's own forward P&L against the book's drawdown profile, and it is NOT independent evidence
+beside the NOISE_422 shadow read: nobody may count the two reads twice (one NOISE forward record feeds both).
+
+WHY (and why it is only a forward test). MDL r1's re-sizing map (docs/MDL_MAP_R1.md) found NOISE the only #463 leg whose plain upsizing
+lifts both stretches: x1.25 reads WF 99.8 / Sortino 3.97 and LB 156.3 / 4.24 against #463's 93.8 / 3.82 and 155.5 / 4.15 (ROC %/yr at a
+$30k valued-daily worst drawdown, 10-01 convention). But that weight was read off the same history every book round has used, and book
+round 56 found that re-weighting has shown no forward skill. So the backtest numbers are the yardstick a NOISE tilt must beat (MDL map),
+not evidence; this line asks the forward question only.
+Mechanism, stated before any forward day: NOISE has the best return per unit of the book's drawdown-week risk of the four legs (it
+carries the walk-forward return with ENGU-Q, and its losses are not concentrated in March 2020 or June 2026), so a little more of it
+should raise the book's return per dollar of drawdown. Could fool us: (a) NOISE's edge has been improving recently, so a weight set on
+that history may be chasing it; (b) NOISE and ORB both trade the NQ open, so more NOISE adds to days ORB already loads; (c) 12 months is
+short, and the read can be dominated by one drawdown or one large ENGU-Q hold.
+
+FORWARD BAR (the verdict). Read ONCE, after 12 months of forward days, from the per-trade paper records (users/{uid}/paper_trades,
+final P&L, each trade dated by its EXIT day - the 2026-09-30 correction), each leg's weight applied per trade. The line must beat the
+adopted book line over the same days on BOTH ROC %/yr at a $30k worst drawdown of the daily figure AND Sortino of the daily figure.
+Reported beside it, never part of the bar (MANAGER edit 2): the line and the book each WITH and WITHOUT the single biggest trade of the
+window (the same trade removed from both at each line's own weight - the ENGU-Q holds dominate both books; the difference between the
+lines is NOISE-only, so this mainly guards the ROC denominator). The daily report figure is a monitor only.
+EARLY STOP: Custom ML's paired sequential stop as its own document (docs/PREREG_paired_sequential_stop_2026-09-29.md, the risk-normalised
+form used for the orb314 / q4 / orb239 lines; Custom ML sets sigma from the WF weekday std of this line's daily closed P&L). A stop for
+harm ends the line; a stop for benefit only brings the read forward to that day - the bar above is still the verdict.
+REALISABILITY: x1.25 NQ = 1 NQ + 2.5 MNQ; a live version would round to 1 NQ + 2 or 3 MNQ (x1.2 / x1.3). The paper line is exact.
+WHAT A PASS EARNS: an owner question (re-weight the adopted book's NOISE leg), never an automatic change. #463 stays the adopted book.
+FAIL or stop: the line is retired and recorded; no other weight is tried in its place (no x1.5 / x2 follow-on without a new prereg).
+
+CODE: one entry in api/book_shadow.SUM_SHADOWS (key book_shadow_noise125, weights {"ORB": 1.0, "ENGUQ_335": 1.0, "TTM_299_SSOF2": 3.0,
+"NOISE_422": 1.25}, "from": "2026-10-06"), and tests that it names real paper legs, equals the adopted book's weights except NOISE_422,
+and differs from the book by exactly 0.25 x the NOISE_422 figure.

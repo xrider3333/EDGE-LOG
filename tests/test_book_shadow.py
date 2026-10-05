@@ -63,3 +63,18 @@ def test_agreement_tilt_line_is_retired():
     from api import paper as P
     assert not hasattr(bs, "ag_block") and not hasattr(bs, "agreement_tilted")
     assert "book_shadow_ag" not in inspect.getsource(P)
+
+
+def test_noise125_line_is_the_book_plus_a_quarter_of_noise():
+    # Q8 (docs/PREREG_frontier_noise125_2026-10-05.txt): the line differs from the adopted book ONLY in the NOISE_422 weight,
+    # so line - book = 0.25 x the NOISE_422 figure - the arithmetic the prereg says must never be counted as a second read.
+    from api import paper as P
+    spec = bs.SUM_SHADOWS["book_shadow_noise125"]
+    book = {"ORB": 1.0, "ENGUQ_335": 1.0, "TTM_299_SSOF2": 3.0, "NOISE_422": 1.0}
+    assert {k: v for k, v in spec["weights"].items() if k != "NOISE_422"} == {k: v for k, v in book.items() if k != "NOISE_422"}
+    assert spec["weights"]["NOISE_422"] == 1.25
+    assert set(spec["weights"]) <= {l["key"] for l in P.PAPER_LEGS}
+    reports = {"ORB": {"pnl_usd": 120.0}, "ENGUQ_335": {"pnl_usd": -40.0}, "TTM_299_SSOF2": {"pnl_usd": 15.0}, "NOISE_422": {"pnl_usd": 200.0}}
+    line = bs.sum_blocks(reports)["book_shadow_noise125"]["pnl_usd"]
+    adopted = sum(reports[k]["pnl_usd"] * w for k, w in book.items())
+    assert abs(line - adopted - 0.25 * 200.0) < 1e-9

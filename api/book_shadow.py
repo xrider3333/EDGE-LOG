@@ -150,6 +150,12 @@ SUM_SHADOWS = {
         "prereg": "C:/EdgeLog/_anatomy_cache/bookq/PREREG_BOOKQ.txt Q6 FORWARD SHADOW (owner: shadow first, 09-30; read after 12 months)",
         "from": "2026-10-01",
     },
+    "book_shadow_noise125": {
+        "weights": {"ORB": 1.0, "ENGUQ_335": 1.0, "TTM_299_SSOF2": 3.0, "NOISE_422": 1.25},
+        "name": "SHADOW NOISE125: #463 with the NOISE leg at 1.25x (= the book + 0.25 x NOISE_422; not independent of the NOISE_422 read)",
+        "prereg": "docs/PREREG_frontier_noise125_2026-10-05.txt (Q8; owner standing order + MANAGER GO 10-04; read once after 12 months)",
+        "from": "2026-10-06",
+    },
 }
 
 
