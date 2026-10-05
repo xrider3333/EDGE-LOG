@@ -1,0 +1,127 @@
+PRE-REGISTRATION - NETISS r1: NET SHARE ISSUANCE in US large caps - long the biggest shrinkers, short the biggest issuers,
+monthly
+=====================================================================================================================
+DRAFT v1 2026-10-05 15:35 MST for MANAGER review, by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (owner standing order
+10-04 + addendum 2 of 10-05: a queue that never drops below 3 live preregs; MANAGER #84 keeps net share issuance in this lane
+as a characteristic sort on the RESMOM harness; this lane's queue after DIVRUN r1's death on 2026-10-05: EDRIFT r1, NEWISSUE
+r1, this). Written before any number of this family exists and before its data is pulled. Nothing runs until MANAGER's GO, the
+data photograph below and the two items queued ahead of it. Results: C:\EdgeLog\_anatomy_cache\rocfrontier\netiss_r1\ and
+RESEARCH_LEDGER.md.
+
+WHAT IS DIFFERENT (one line): the first EL family whose signal comes from the firm's own FILINGS - how many shares it has
+issued or bought back over a year, read from SEC XBRL facts - not from prices, volumes or a corporate-actions calendar.
+
+WHY NOW (house evidence first). RESMOM r1 showed that a monthly 50-long / 50-short basket of the 500 most liquid US stocks
+survives a 10 bps round trip and that WHERE a leg earns decides its book value: RES earned in #463's drawdown days (DO 0.160,
+above all 500 random books), enough to lift #463's WF from 93.8 to 120.8. DIVRUN r1 (same day) showed the other side of the
+house rule: a real but small event edge (+28 bps a quarter) dies on costs at event turnover. Net issuance is a slow
+characteristic (a firm's share count moves a few percent a year), so a monthly sort on it turns over little, and its short side
+- firms that keep issuing stock, mostly through stock compensation and stock-paid deals - is the growth corner that falls
+hardest in the sell-offs that make #463's drawdown weeks.
+
+THE MAP FIRST (MDL r1). A dollar-neutral basket; the mechanism predicts it EARNS in growth sell-offs (short issuers), so it is
+placed as a drawdown-week candidate first and a standalone leg second. Its standalone bar is the half-the-time line, ROC @ $30k
+>= 15; the house route for a cell that fails it but earns in the book's drawdowns is MANAGER #70's (a gate against the
+random-name null, then at most one forward book line), judged INCREMENTALLY over #463 + 0.264 x RES. Placed honestly: the
+literature's long-short spread is a few percent a year in large caps; at $200,000 a side that is ~$6,000 a year against a
+drawdown of perhaps $20,000-40,000 (ROC 5-9) - the family is worth the round only for its drawdown-day profile.
+
+MECHANISM. Firms issue stock when it is expensive and buy it back when it is cheap, and investors under-react to both
+(Ikenberry, Lakonishok & Vermaelen 1995; Loughran & Ritter 1995); the 12-month change in split-adjusted shares outstanding
+predicts returns with a negative sign in every size group, the largest included (Pontiff & Woodgate 2008; Fama & French 2008,
+'pervasive'), and the composite issuance measure of Daniel & Titman (2006) adds the stock-paid acquisitions (Loughran & Vijh
+1997). It is one of the anomalies that replicate out of sample in modern data (Jensen, Kelly & Pedersen 2023). Counter-evidence
+written in now: much of the issuance in 2016-25 large caps is stock compensation at growth firms that kept rising until 2021 -
+the short side can lose for years in a growth boom; buybacks became so common that the 'shrinker' tail may be crowded; and the
+effect may be mostly in small stocks outside this universe.
+
+DATA - ONE NEW PUBLIC PULL (no keys, no money; run by TV, the house's public-data scout, never by this lane), plus held data.
+[D1] SEC XBRL company facts: https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json, one request per CIK, SEC's
+fair-access rule (a declared User-Agent, at most 10 requests a second), every raw JSON saved byte for byte with its URL, UTC
+time, size and sha256 (the photograph rule); symbols = the base list
+C:\EdgeLog\alpaca_cache\xgap\wide_symbols_siporb_floor_2016_2025.txt (sha256 ab646462..., 5,367 symbols), mapped to CIKs by
+SEC's company_tickers.json plus TV's hand map for delisted names (the same method as TV's earnings calendar; unmapped symbols
+counted and listed - they get no score). [D2] TV extracts ONE flat file (pinned by sha256 in a dated pre-data addendum before
+any number): cik, symbol(s) as ndx-style ';' lists, concept, unit, val, start, end, accn, fy, fp, form, filed, frame - for the
+concepts dei:EntityCommonStockSharesOutstanding, us-gaap:CommonStockSharesOutstanding and
+us-gaap:WeightedAverageNumberOfSharesOutstandingBasic (units 'shares'); facts FILED on or after 2025-06-30 are not extracted
+(the sealed year) and are cut again at read. [D3] held: the SIPORB cache (raw + split-adjusted daily bars, manifest sha256
+380b05f2..., never mixed with a re-pull) for prices AND for the split factor F(t) = raw close / split-adjusted close; the wide
+corporate-actions calendar pinned for RESMOM (sha256 e5bc8487...; dividends [R1], spin-offs [D2] exactly as RESMOM); ES
+5-minute RTH masters for the hedge-free dollar-neutral basket's beta reports (RESMOM's series).
+
+UNIVERSE (each rebalance, only information known before the fill): RESMOM's - prior raw close >= $10, the 500 largest by mean
+raw dollar volume over the previous 20 sessions, mean volume >= 1,000,000 shares and ATR > $0.50 over the previous 14, no
+registered split in the previous 14 sessions, >= 230 split-safe returns and ES pairs in the 252-session window (RESMOM's
+universe exactly, so the two baskets are comparable).
+
+SHARES KNOWN AT A RANK CLOSE r (point in time). For a name and a concept, a fact is usable at r when its FIRST filed date (the
+earliest filing that carries that value for that end date) is strictly before r's date (a filing accepted after the close on
+r's own date is not yet tradable). S(r) = the usable value with the latest end date (its as-of date a = end); amendments never
+replace a value already usable. CONCEPT ORDER per name and rank: dei:EntityCommonStockSharesOutstanding (the cover page,
+non-dimensional), else us-gaap:CommonStockSharesOutstanding; the two values of one score always come from the SAME concept
+(never mixed); the weighted-average concept is a reported cross-check only.
+
+SCORE. ISS_k(r) = ln( S(r) x F(a) / ( S' x F(a') ) ), where S' is the usable value (same concept, filed before r) whose as-of
+date a' is closest to a - k years inside a +-35-day band (k = 1 or 2), and F is the SIPORB cache's split factor on the as-of
+date (the previous session when the as-of date is not one) - so a split between a' and a cancels and a real issuance or buyback
+remains. A name has NO score when: either value is missing or not positive; a' falls before the cache's first session
+2016-01-04 (F unknown - no split history is held before it; the first ranks are therefore partly unscored, counted by rank);
+|ISS| > ln(10) (a unit or scale error in a filing, or a merger that remade the firm - counted and listed by name, never kept).
+
+CELLS (the family: 2): N12 (k = 1, Pontiff & Woodgate's one-year change) and N24 (k = 2, between it and Daniel & Titman's
+five-year composite). At each month's last session close r, among the universe names WITH a score: long the 50 LOWEST (the
+biggest shrinkers), short the 50 HIGHEST (the biggest issuers); a month with fewer than 150 scored names trades the bottom /
+top third, at least 20 a side, else nothing (counted). $4,000 each, fractional shares, dollar-neutral, FILL at the next
+session's official open, HOLD to the next rebalance's fill, daily marks, no compounding - RESMOM's engine unchanged. COSTS: 5
+bps a side base, stress 10 and 20; borrow 0.25%/yr on short notional, stress 1% and 3%/yr on high-volatility sessions (RESMOM's
+rule); dividends paid and owed exactly as RESMOM [R1].
+
+NULL (family-aware): 500 draws, seed 20261008; at every rebalance each cell's longs and shorts are replaced by the same number
+of names drawn at random from that rebalance's eligible SCORED pool (same hygiene, sizing, fills, costs); statistic = the MAX
+over the 2 cells of WF ROC @ $30k.
+
+#463 and the map: exactly RESMOM's (r11_risk's rule-U records, refused unless WF 93.81 / 3.816 / $44,849 and LB 155.54 / 4.150
+reproduce; DO and rho_dd by r12_mdl.Stretch; 28 episodes / 460 days) - and the REFERENCE book below.
+
+STRETCHES: WF = positions exited 2016-07-01 -> 2025-06-29 (N12's first rank with any score is 2016-12-30, its first fully
+covered one about 2017-01-31; N24's about 2018-01-31 - both printed); LB = 2025-06-30 -> 2026-06-30, SEALED; this family joins
+the stock families' ONE sealed-year day as a leg veto (MANAGER #48), and under the owner's lockbox rule of 2026-10-05 the
+sealed year can never pass it.
+
+STAGE A (WF, per cell; the standalone bars decide - MANAGER #56): RESMOM's (a)-(f) - (a) >= 60 rebalances; (b) WF ROC @ $30k >=
+15 and net > 0 at 5 AND 10 bps; (c) above the null's 95th percentile; (d) positive in >= 6 of the cell's July-June WF years
+(N24: >= two thirds of its years, rounded up) and net > 0 without 2020-02-15 .. 2020-04-30; (e) profitable without its best 1%
+of days AND of name-months; (f) the 50 largest contributors audited by hand (with each one's two share facts, their filings and
+the split factor) before a pass is read.
+
+A2 (WF, a REPORT): the REFERENCE book #463 + 0.264 x RES (RESMOM's registered WF daily P&L, resmom_cells_daily_wf.csv, sha256
+bed7bf8b..., refused if different; WF ROC @ $30k 120.82 / Sortino 3.916 / worst drawdown $36,526) + c x the cell against the
+reference, c by volatility (25% of #463's daily std / the cell's over the cell's first two fully covered years - N12 2017-02-01
+.. 2019-01-31, N24 2018-02-01 .. 2020-01-31; 0.5c and 2c reported); an incremental pass = ROC and Sortino both strictly above
+the reference's; the plain #463 + c x cell book is a reported row. An incremental pass follows MANAGER #70's route: a gate
+registered first (the cell's DO over the REFERENCE book's drawdown days above the random-name null's 95th percentile AND
+positive without its best episode), then at most ONE forward book line.
+
+STAGE B / C: as RESMOM (the leg's veto on the shared day; a computed no-order line on the RUNBOARD).
+
+DIAGNOSTICS (owner standing order addendum 2; none is a pass route), every cell: the cost curve at 0 / 5 / 10 / 20 bps a side;
+a row per July-June year; the regime halves 2016-07 .. 2021-12 and 2022-01 .. 2025-06; a row per drawdown episode of the
+reference book (the cell's P&L inside it); the LONG and SHORT sides apart; the realised beta to ES on #463's drawdown days and
+all days (a drawdown profile that is only a short lean is never credited); the correlation of each cell's daily P&L with
+RESMOM's RES and the overlap of their picks (issuers are often recent winners); the score's persistence (the share of names
+still in the same tail one rebalance later) and turnover; the concept used (cover page / balance sheet) per rank; the
+scored-name count per rank and the names lost to each no-score rule; the 20 largest name-month gains.
+
+BEFORE ANY P&L the output prints (counts and score facts only): scored names per rank and per cell, the concept split, the
+excluded |ISS| > ln(10) names, the median and the 5th / 95th percentiles of ISS per year, the share of scores whose two as-of
+dates straddle a split (they cancel through F), and the share of S(r) values filed in the last 60 days before r (staleness).
+
+KNOWN WAYS IT COULD FOOL US: a filing's share count can be wrong in scale or class (the ln(10) rule and the hand audit);
+dual-class firms may report only by class on the cover page (the balance-sheet concept then stands in - counted); the split
+factor is the cache's photograph of Alpaca's adjustment (registered, never mixed with a re-pull); issuers in 2016-21 were the
+growth winners (a regime the short side loses in - the halves row); one regime overall (2016-25); survivorship (Alpaca's
+inactive names only); a short-side profile that is only beta.
+
+Zero passes = NETISS r1 dead; no other horizons, thresholds or concepts are tried - the next family comes from the next
+mechanism.
