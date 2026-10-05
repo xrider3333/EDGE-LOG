@@ -187,13 +187,33 @@ def _window_years(arrays):
         return None
 
 
+def _adj_level_warning(mod, arrays, master):
+    """The back-adjusted-master warning, or None. Import is local and failure is silent: this is
+    a courtesy to the reader and must never be why a backtest does not return."""
+    try:
+        from . import adj_level
+        name = (master or {}).get("filename") if isinstance(master, dict) else None
+        if not name:
+            name = (arrays.get("meta") or {}).get("filename") or \
+                   (arrays.get("meta") or {}).get("name")
+        return adj_level.warning_for(mod, arrays, name)
+    except Exception:
+        return None
+
+
 def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
                  source=None, params=None, master=None, arrays=None,
                  cost_pts=0.0, return_trades=False, mc_sims=0, mc_block=1,
                  date_from=None, date_to=None, sizing=None,
                  ml_filter=None, ml_threshold=0.50, ml_min_history=30,
-                 ml_refit_every=25):
+                 ml_refit_every=25, adj_warn=False):
     """Run one backtest and return the metrics dict (with a "_meta" block).
+
+    adj_warn: check whether a BACK-ADJUSTED master is being paired with a strategy whose
+    decisions move with the price level, and report it in _meta["adj_level_warning"]
+    (augur_engine/adj_level.py). Off by default because the check runs the strategy twice over
+    400 sessions - cheap once per job, not something to pay per trial. The callers that turn it
+    on are the ones that put a number in front of a person.
 
     strategy   : plugin filename ('ORB_3_0.py'), path, or a loaded module.
     Data is resolved in priority order: explicit `arrays` -> explicit `master` row
@@ -412,6 +432,12 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
             "bars": int(len(C)),
             "cost_pts": float(cost_pts),
         }
+        if adj_warn:
+            # Additive only, and never fatal: adj_level swallows its own failures and returns
+            # None, so a run that would have finished still finishes.
+            _w = _adj_level_warning(mod, arrays, master)
+            if _w:
+                res["_meta"]["adj_level_warning"] = _w
         # `res` is trades-free here whenever _cache_key was set (that branch only
         # ever fires when not return_trades, and the pop() two lines up already
         # ran) — safe to store as-is; a write failure never surfaces as a
