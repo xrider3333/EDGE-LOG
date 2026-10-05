@@ -84,6 +84,8 @@ def build():
     D["value"] = D["shares"] * D["price"]
     D = D.rename(columns={"FILING_DATE": "filing_date", "TRANS_DATE": "trans_date", "ISSUERCIK": "issuer_cik", "TRANS_CODE": "code",
                           "TRANS_ACQUIRED_DISP_CD": "acq_disp", "ACCESSION_NUMBER": "accession"})
+    for c in ("filing_date", "trans_date"):              # the data sets write 31-MAR-2006; consumers get ISO dates
+        D[c] = pd.to_datetime(D[c], format="%d-%b-%Y", errors="coerce").dt.strftime("%Y-%m-%d")
     cols = ["filing_date", "trans_date", "ticker", "issuer_cik", "owner", "roles", "code", "acq_disp", "shares", "price", "value", "accession"]
     D[cols].to_csv(OUT, index=False)
     print("form4 open-market rows %d (P %d / S %d), %d tickers -> %s" % (len(D), (D["code"] == "P").sum(), (D["code"] == "S").sum(),
