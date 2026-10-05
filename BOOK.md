@@ -14,6 +14,11 @@
 > ORB #234 + ENGU-Q #335 + TTM #369 (fixed = #459) at three ES + NOISE #422. On the owner's yardstick
 > (ROC %/yr at a $30k worst drawdown valued daily): 60.3 before / 164.8 in the lockbox,
 > against #366's re-run 57.1 / 151.7. Section 10n. The staged #397 flip was dropped.
+>
+> **OWNER DECISIONS 2026-10-05 (via MANAGER #81, section 10aa):** #463 stays adopted. No backtest book candidate is ever passed on
+> #463's lockbox year; the walk-forward selects, forward shadow lines are HARM MONITORS (paired stops), and adoption is the owner's
+> call on walk-forward plus mechanism, from an adoption page. ORB314 / Q4 / VT / ORB239 are NOT ADOPTED (harm monitors only); KEEL
+> stays a monitored shadow; NOISE #422 stays at 1.0x and the x1.25 line is read on dollars at 36 months.
 
 ---
 
@@ -1184,6 +1189,27 @@ leg here is the roll-corrected paper leg, valued daily.
   losses.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
+
+### 10aa. OWNER DECISIONS 2026-10-05: the lockbox rule, the six forward lines, the NOISE size
+
+The owner, 12:40 MST via MANAGER (#81): "I will take your recommendations", read from the adoption page (https://claude.ai/artifact/62JrTFEnxCnfqZNXovfn8z), which
+was built from 10u, 10y, 10z and Q18.
+- **(b) The lockbox rule is adopted.** The walk-forward selects. No backtest candidate is ever "passed" on #463's 2025-26 lockbox
+  year (71 looks have spent it, 10u). Forward shadow lines are HARM MONITORS under the paired sequential stops, not the deciding test:
+  as registered they pass a no-edge line 89% of the time over 12 months, and a gain that is only a smaller drawdown cannot be read
+  within 36 months (10y). Adoption rests on the walk-forward plus a stated mechanism and is the owner's call, from an adoption page.
+- **(c) Not adopted: ORB314, Q4, VT and ORB239.** Each one's walk-forward gain is a smaller drawdown with no more money, inside the
+  71-look chance band (10z; Q18 confirmed the band's width on the walk-forward). They keep running as harm monitors. KEEL stays a
+  monitored shadow.
+- **(d) NOISE #422 stays at 1.0x in #463.** The x1.25 line (Q8, 10t) is read once, on the dollar rule, at 36 months (2029-10-06):
+  about even odds at 24 months and 77% at 36 as an upper bound (10y).
+- **(a), recorded here because it sets the forward basis:** the paper ENGU-Q legs move to the roll-corrected master (db_adj_eth)
+  and to #463's 0.783 points a round trip, as ONE restatement of the forward record with one board note (PAPER-NT8 / ENGUQ). After
+  it, the forward book lines sit on #463's own basis.
+
+**What this changes for every lane.** A new book candidate is judged on the walk-forward with the 71-look chance band and the Q16
+power line printed beside it, and with its mechanism written down; lockbox figures appear for reference only. No new forward book
+line is opened without saying what it can and cannot detect, and each one raises the bar for the lines already running.
 
 ### 10y. Q16 FORWARD BAR r1: no forward line can be decided in 12, 24 or 36 months as the reads stand (2026-10-05)
 

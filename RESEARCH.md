@@ -50,6 +50,10 @@ section. Data and scripts: see §5.
 7. **Selection accounting is incomplete.** The engine's deflated-Sharpe and backtest-overfit checks
    count one run's own search only — not the 300 candidates × 8 folds inside it, not the repeated
    rounds per family, not the cross-run leaderboard.
+   **Book bar, decided 2026-10-05 (owner via MANAGER #81):** after LOOKS r1 (section 3f) and Q16 / Q17 / Q18 (BOOK.md 10y / 10z),
+   the walk-forward selects with the 71-look chance band printed; no candidate is passed on the spent lockbox year; forward shadow
+   lines are harm monitors under the paired stops, not the deciding test; adoption is the owner's call on walk-forward plus mechanism
+   (BOOK.md 10aa).
 8. **Straddling trades leak.** Scoring a window by trade ENTRY lets post-cut money count toward a
    pre-cut score; it moved 26–41% of ENGU-Q's short-window picks in testing (small, unsigned effect on
    outcome, but a real channel).
@@ -317,7 +321,7 @@ sessions"; the direct message to this chat expired unapproved, so it is written 
 
 ## 4. Open owner decisions (both dives)
 
-- **BOOK LOOKS r1 rule (2026-10-05, section 3f):** adopt 'a backtest book candidate that clears walk-forward but not the lockbox margin is not refuted, never a pass - walk-forward selects, only the 12-month forward shadows decide'? Until then no lane reads #463's lockbox year for a book candidate.
+- **BOOK LOOKS r1 rule - DECIDED 2026-10-05 (owner via MANAGER #81):** adopted in its refined form - the walk-forward selects, forward shadow lines are harm monitors (Q16 showed a forward year cannot decide), no candidate is passed on #463's lockbox year, and adoption is the owner's call on walk-forward plus mechanism (finding 7; BOOK.md 10aa).
 
 - What COMPARE ranks on (item 8) — until this is settled, the report's 1E walk-forward column keeps its
   current label and the COMPARE audit's F14 stays on hold.
