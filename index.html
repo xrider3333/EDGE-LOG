@@ -526,6 +526,8 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qb-disclosure-arrow{font-size:11px;color:var(--text5);width:12px;flex:0 0 auto}
 .qb-spark-cell{width:60px;flex:0 0 60px}
 .qb-leg-detail{margin-top:10px;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;gap:18px;flex-wrap:wrap;font-size:12px;width:100%}
+.qb-leg-detail>div{min-width:88px}
+.qb-leg-today-note{width:100%;margin-top:-12px;font-size:10px;color:var(--text5);line-height:1.4}
 .qb-leg-row{flex-direction:column;align-items:stretch}
 .qb-leg-row-top{display:flex;align-items:center;gap:10px;width:100%}
 /* bottom sheet */
@@ -561,6 +563,8 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-chart-tabs{display:flex;align-items:center;gap:20px;margin-top:8px;flex-wrap:wrap}
 .qbx-chart-tabs button{background:none;border:none;padding:0 0 5px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text5);border-bottom:2px solid transparent;cursor:pointer;font-family:inherit}
 .qbx-chart-tabs button.on{color:var(--text);border-bottom-color:var(--text)}
+.qbx-range-row{margin-top:10px}
+.qbx-hero .lg-hero{padding-bottom:12px}
 .qbx-chart-readout{position:absolute;top:4px;right:0;font-size:11px;color:var(--text3);background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:3px 8px;pointer-events:none;opacity:0;transition:opacity .1s;white-space:nowrap;font-variant-numeric:tabular-nums}
 .qbx-chart-readout.on{opacity:1}
 .qbx-status-strip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);font-size:12px;color:var(--text4)}
@@ -637,6 +641,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .lg-hero-big{font-family:'Bebas Neue','JetBrains Mono',monospace;font-size:clamp(52px,7vw,76px);line-height:1;color:var(--text);margin-top:6px;font-variant-numeric:tabular-nums}
 .lg-hero-today{font-size:13px;margin-top:8px;font-variant-numeric:tabular-nums}
 .lg-hero-range{display:flex;align-items:baseline;gap:6px;font-size:13px;margin-top:3px;font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.lg-hero-note{font-size:12px;color:var(--text4);margin-top:6px;line-height:1.5}
 .lg-hero .hm-suffix,.lg-hero .lg-suffix{color:var(--text5)}
 .lg-hero-chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center;max-width:100%}
 .lg-hero-chips:empty{display:none}
@@ -3114,7 +3119,8 @@ const LEDGER_RANGES=['TODAY','1W','1M','3M','YTD','ALL'];
 const LEDGER_RANGE_LABEL={TODAY:'today','1W':'past week','1M':'past month','3M':'past 3 months','YTD':'year to date','1Y':'past year','ALL':'all time'};
 const LEDGER_OLDBOARDS=(()=>{try{return /[?&]oldboards=1(&|$)/.test(location.search);}catch(e){return false;}})();
 function ledgerMoney(v){v=+v||0;return (v<0?'-':'')+'$'+Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
-// o.ids = {label, big, today, range, chips} element ids; o.label / o.big / o.today / o.range / o.chips = html
+// o.ids = {label, big, today, range, chips, note} element ids; o.label / o.big / o.today / o.range / o.chips = html
+// o.note (optional, html) = extra lines under the range line; left out, the hero html is exactly as before
 function ledgerHeroHtml(o){
   const id=k=>(o.ids&&o.ids[k])?' id="'+o.ids[k]+'"':'';
   return '<div class="lg-hero"><div class="lg-hero-main">'
@@ -3122,6 +3128,7 @@ function ledgerHeroHtml(o){
     +'<div class="lg-hero-big"'+id('big')+'>'+(o.big||'')+'</div>'
     +'<div class="lg-hero-today"'+id('today')+'>'+(o.today||'')+'</div>'
     +'<div class="lg-hero-range"'+id('range')+'>'+(o.range||'')+'</div>'
+    +(o.note!=null?'<div class="lg-hero-note"'+id('note')+'>'+o.note+'</div>':'')
     +'</div><div class="lg-hero-chips"'+id('chips')+'>'+(o.chips||'')+'</div></div>';
 }
 // "+$12.50 today": signed and arrowed, so it reads the same under the MONO theme (no colour needed)
@@ -37094,12 +37101,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const qbSheet=window._qbSheet||null; // {kind:'trade',idx}|{kind:'integrity',key}|null
       const qbTradesView=window._qeTradesView||'list';
       const qbChartPeriod=window._qeChartPeriod||'ALL';
+      // LEDGER unify step 4 (shared hero + range pills, as REAL): the range is REAL's own saved
+      // choice (homeRange, kept in el_view by _saveView), so it survives every live redraw and a
+      // reload, and a range no longer offered (1Y) reads as ALL. ?oldboards=1 keeps the old layout
+      // and its own 1W/1M/3M/ALL chart tabs (qbChartPeriod) for one version.
+      const qbRange=LEDGER_OLDBOARDS?null:(LEDGER_RANGES.indexOf(homeRange)>=0?homeRange:'ALL');
 
       // ── QB HERO — Robinhood-style single hero number, redesigned 2026-09-08 (owner ask:
       // "modern, slick, robinhood + iOS"). Reads the SAME QE/mOpen/mLabel/QLAT/QRHEALTH/
       // QREADY fields the old badge row read; nothing recomputed. Alarm chips only render
       // when something is actually wrong -- a clean book shows one quiet status sentence.
-      const qbChip=(txt,col)=>'<span class="qb-chip" style="color:'+col+'">'+txt+'</span>';
+      const qbChip=(txt,col)=>LEDGER_OLDBOARDS?'<span class="qb-chip" style="color:'+col+'">'+txt+'</span>'
+        :'<span class="lg-chip" style="color:'+col+';border-color:currentColor;font-weight:700">'+txt+'</span>';
       // ROBINHOOD RE-COMPOSITION (2026-09-24, owner: "make more like robinhood pls"):
       // qbHeroBuild now returns {main,strip} instead of one string -- `main` is JUST the
       // headline (title/number/today-delta/since-label/book-only note), `strip` is the
@@ -37108,7 +37121,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // SAME statusBits/chips computation, only re-homed -- see qbx-status-strip below).
       // todayVal/todayPct are nullable: the caller passes the book's own today (realized +
       // open) and no percent - see heroTodayVal below for why not the account's move.
-      const qbHeroBuild=(netVal,sinceLabel,parFailedForHero,brokerInfo,todayVal,todayPct)=>{
+      // rangeInfo {val,suffix}: the P&L of record of the trades that closed inside the chosen
+      // range (shared hero only; null on the old layout and before a doc has loaded)
+      const qbHeroBuild=(netVal,sinceLabel,parFailedForHero,brokerInfo,todayVal,todayPct,rangeInfo)=>{
         const chips=[];
         if(QE&&QE.breaker_tripped)chips.push(qbChip('BREAKER TRIPPED','var(--attn-red)'));
         if(QE&&QE.kill)chips.push(qbChip('KILL ACTIVE','var(--attn-red)'));
@@ -37133,6 +37148,29 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +(todayVal>=0?'+':'')+qeMoney(todayVal)
           +(todayPct!=null&&!isNaN(todayPct)?(' ('+(todayPct>=0?'+':'')+qeNum(todayPct,2)+'%)'):'')
           +'<span class="qbx-today-suffix">today</span></div>');
+        const brokerLine=(brokerInfo&&brokerInfo.book_only_count>0)?('<div style="color:var(--attn-amber)" title="'+brokerInfo.book_only_count+' trade'+(brokerInfo.book_only_count===1?'':'s')+' never reached the broker - see the BOOK ONLY tag in the trade list below">broker made '+qeMoney(brokerInfo.broker_net)+' of that ('+brokerInfo.book_only_count+' book-only trade'+(brokerInfo.book_only_count===1?'':'s')+' excluded)</div>'):'';
+        if(!LEDGER_OLDBOARDS){
+          // SHARED HERO (LEDGER unify step 4): the big number stays the P&L of record since the
+          // start (closed trades + open P&L), the today line is today's closed + open, the range
+          // line is the P&L of record of the trades that closed inside the chosen range; the alarm
+          // chips sit in the hero's chip slot; the since line and the broker caveat sit under it.
+          const rv=rangeInfo&&isFinite(Number(rangeInfo.val))?Number(rangeInfo.val):null;
+          const rc=rv!=null&&rv>=0?'hm-up':'hm-down';
+          const rangeLine=rv==null?'':('<span class="'+rc+'">'+(rv>=0?'&#9650;':'&#9660;')+'</span><span class="'+rc+'">'+_hmMoney(Math.abs(rv))+'</span><span class="hm-suffix">'+(rangeInfo.suffix||'')+'</span>');
+          const heroMain=ledgerHeroHtml({
+            ids:{label:'qb-hero-label',big:'qb-hero-value',today:'qb-hero-today',range:'qb-hero-range',chips:'qb-hero-chips',note:'qb-hero-note'},
+            label:'Webull paper trading &middot; P&amp;L of record',
+            big:(netVal==null||!isFinite(Number(netVal)))?'—':_hmMoney(Number(netVal)),
+            today:(todayVal==null||!isFinite(Number(todayVal)))?'':ledgerTodayHtml(Number(todayVal)),
+            range:rangeLine,
+            chips:chips.join(''),
+            note:'<div>'+sinceLabel+'</div>'+brokerLine});
+          const heroStrip='<div class="qbx-status-strip">'
+            +'<span>'+statusBits+'</span>'
+            +'<button class="qb-hero-refresh" data-qqqrefresh>'+(qeLoading?'Loading…':'⟳ Refresh')+'</button>'
+            +'</div>';
+          return {main:heroMain,strip:heroStrip};
+        }
         const mainHtml='<div class="qb-hero">'
           +'<div class="qb-hero-left">'
           +'<div class="qb-hero-title">Webull Paper Trading</div>'
@@ -37481,8 +37519,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // price per side (labelled "book price, no Webull fill") -- api/qqq_exec.py's
         // pnl_record, the same figure its equity curve adds up. An older doc without it
         // falls back to the book's own pnl, then the re-priced real_pnl, exactly as before.
-        const qePnlOf=t=>{const r=qeFin(t&&t.pnl_record);if(r!==null)return r;const a=qeFin(t&&t.pnl);if(a!==null)return a;const b=qeFin(t&&t.real_pnl);return b!==null?b:0;};
-        const qeRepriced=t=>qeFin(t&&t.pnl)===null&&qeFin(t&&t.real_pnl)!==null;
+        // A null or empty field counts as MISSING here, never $0 -- the box's _curve_pnl
+        // rule, and the CSV export's, so all three agree on such a row (review 2026-10-05).
+        const qeFinRec=v=>(v===null||v===undefined||v==='')?null:qeFin(v);
+        const qePnlOf=t=>{const r=qeFinRec(t&&t.pnl_record);if(r!==null)return r;const a=qeFinRec(t&&t.pnl);if(a!==null)return a;const b=qeFinRec(t&&t.real_pnl);return b!==null?b:0;};
+        const qeRepriced=t=>qeFinRec(t&&t.pnl)===null&&qeFinRec(t&&t.real_pnl)!==null;
         // CURVE FROM THE TRADES (2026-09-21, owner: "webull paper chart doesnt show all the
         // trades"). The chart and the leg sparklines used to read the server-built
         // cum_pnl, which summed raw pnl -- so the first unmarked exit ("nan") made that
@@ -37534,13 +37575,30 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const rails=QE.rails||{};
         // within 20% of the daily loss limit -> loud, this is the "stop trading" rail
         const dllLimitAbs=rails.daily_loss_limit_usd!=null?Math.abs(Number(rails.daily_loss_limit_usd)):null;
-        const dllNearLimit=dllLimitAbs!=null&&todayPnl<0&&Math.abs(todayPnl)>=dllLimitAbs*0.8;
+        // DAILY STOP = THE BREAKER'S OWN NUMBER (Ledger unify 13, 2026-10-05): today.breaker_input
+        // is the exact figure the box's daily loss breaker last compared with the limit today
+        // (closed today + open trades, Webull fills counted where they are worse -- see
+        // api/qqq_exec.py _note_breaker_input), never re-derived here. A doc from a box that
+        // does not send it yet falls back to the hero's today figure, labelled as an estimate.
+        // null (the breaker has not checked today, or its figure was not a number) is NO
+        // figure too -- read before qeFin, which would turn null into $0 (review 2026-10-05).
+        const qeStopRaw=QE.today?QE.today.breaker_input:null;
+        const qeStopIn=(qeStopRaw===null||qeStopRaw===undefined||qeStopRaw==='')?null:qeFin(qeStopRaw);
+        const stopPnl=qeStopIn!==null?qeStopIn:todayPnl;
+        const dllStopLbl=qeStopIn!==null
+          ?'Counted as the daily loss breaker counts it: closed and open trades today, Webull fills used where they are worse than the book.'
+          :'Estimate from today\u2019s P&amp;L: the box has not sent the breaker\u2019s own figure for today yet.';
+        const dllStopShort=qeStopIn!==null?'breaker figure':'estimate, box not updated yet';
+        const dllNearLimit=dllLimitAbs!=null&&stopPnl<0&&Math.abs(stopPnl)>=dllLimitAbs*0.8;
+        const dllTripped=dllLimitAbs!=null&&(QE.breaker_tripped===true||stopPnl<=-dllLimitAbs);
 
         // ── Local stats over QE.trades_all — deliberately NOT calcStats()/bScope(), which
         // are scoped to the broker journal and would silently drop or mis-scope shadow
         // trades. Numbers in the doc arrive as strings, so every field is Number()-coerced.
         // trades_all is newest-first; a running/streak read needs chronological order.
-        const qeTradeDate=t=>{const raw=(t&&(t.exit_ts||t.entry_ts))||'';const m=String(raw).match(/^(\d{4}-\d{2}-\d{2})/);return m?m[1]:null;};
+        // the New York day a trade CLOSED (exit_ts is box New York time), through the shared
+        // ledgerCloseDay rule every LEDGER board uses; a row with no exit keeps its entry day
+        const qeTradeDate=t=>{const x=String((t&&t.exit_ts)||'').slice(0,10),e=String((t&&t.entry_ts)||'').slice(0,10);const d=ledgerCloseDay({exitDate:x||null,date:e});return /^\d{4}-\d{2}-\d{2}$/.test(d)?d:null;};
         const qqqStats=rows=>{
           const nums=rows.map(t=>({date:qeTradeDate(t),leg:t.leg,pnl:qePnlOf(t)}));
           const n=nums.length;
@@ -37569,6 +37627,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           return {n,wins:winsA.length,losses:lossA.length,wr,pf,ev,avgW,avgL,payoff,best,worst,streak,sdir,net,maxDD,recovery};
         };
         const QST=qqqStats(trades);
+        // THE CHOSEN RANGE (LEDGER unify step 4): the trades that CLOSED inside it, through the shared
+        // ledgerInRange / ledgerCloseDay rules (counted back from today in New York). The chart, the
+        // stats and the trade list follow it, as on REAL; the big number, the today line, the
+        // strategies, the calendar and the account do not. ALL (and the old layout) = every trade.
+        const qbRangeTrades=qbRange?ledgerInRange(trades.map(t=>({exitDate:qeTradeDate(t),_t:t})),qbRange).map(r=>r._t):trades;
+        const qbRangePnl=Math.round(qbRangeTrades.reduce((s,t)=>s+qePnlOf(t),0)*100)/100;
+        const QSTR=qbRange?qqqStats(qbRangeTrades):QST;
+        // P&L curve restarts at $0 at the start of the range (the LEDGER rule REAL's chart follows)
+        const qbRangeCum=(qbRange&&qbRange!=='ALL')?qeCumFromTrades(qbRangeTrades):qeCum;
+        const qbRangeWord=qbRange?(LEDGER_RANGE_LABEL[qbRange]||qbRange):'';
+        const qbRangeNone=qbRange==='TODAY'?'no trades closed today':(qbRange==='YTD'?'no trades closed this year':('no trades closed in the '+qbRangeWord));
 
         // NT PARITY rail figure — prefer the published QE.parity summary; fall back to
         // counting parity_ok across trades_all when only per-trade flags are present.
@@ -37729,6 +37798,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // legClosedSum/sparkData/notionalHtml), built inside the same forEach so nothing
         // is recomputed twice.
         const qbLegOpenSet=window._qbLegOpen||(window._qbLegOpen=new Set());
+        // STRATEGY TODAY AT THE P&L OF RECORD (Ledger unify 13, 2026-10-05): the box's own
+        // per-strategy figure (today.legs_record: trades that CLOSED today in New York, each
+        // at its P&L of record -- the same rule as the hero's today), never the raw book
+        // rows of today.trades (where an unmarked exit read $0). A doc from a box that does
+        // not send it yet is summed here from trades_all by the same rule, on the box's day:
+        // its trading day, read off today's own trades (or orders), which the box files under
+        // that day -- the day the hero's today figure counts -- else the day it last wrote
+        // (review 2026-10-05: a weekend or a stopped runner put the two on different days).
+        const qeBoxDay=(()=>{const ok=s=>/^\d{4}-\d{2}-\d{2}$/.test(s);const td=(QE.today&&Array.isArray(QE.today.trades))?QE.today.trades.map(t=>String((t&&t.exit_ts)||'').slice(0,10)).filter(ok).sort():[];if(td.length)return td[td.length-1];const od=(QE.today&&Array.isArray(QE.today.orders))?QE.today.orders.map(o=>String((o&&o.ts_et)||'').slice(0,10)).filter(ok).sort():[];if(od.length)return od[od.length-1];return String(QE.updated_at||'').slice(0,10)||ledgerTodayNY();})();
+        const qeLegsRecord=(QE.today&&QE.today.legs_record&&typeof QE.today.legs_record==='object')
+          ?QE.today.legs_record
+          :(()=>{const o={};trades.forEach(t=>{if(qeTradeDate(t)!==qeBoxDay)return;const k=(t&&t.leg)||'?';const b=o[k]||(o[k]={pnl:0,n:0,book:0});b.pnl+=qePnlOf(t);b.n++;if(String(t.pnl_record_src||'')!=='webull')b.book++;});return o;})();
         let legListHtml='<div class="qb-list">';
         QE_LEGS.forEach(([key,label,color,runNo,caveat])=>{
           const p=positions[key];
@@ -37736,8 +37817,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const badgeColor=p?(p.side==='long'?'var(--green)':'var(--red)'):'var(--text4)';
           const legTradesArr=trades.filter(t=>t.leg===key);
           const legClosedSum=legTradesArr.reduce((s,t)=>s+qePnlOf(t),0);
-          const todayTradesArr=((QE.today&&QE.today.trades)||[]).filter(t=>t.leg===key);
-          const legTodayRealized=todayTradesArr.reduce((s,t)=>s+qePnlOf(t),0);
+          const legRec=qeLegsRecord[key]||{};
+          const legTodayRealized=qeFin(legRec.pnl)!==null?Number(legRec.pnl):0;
+          const legTodayN=Number(legRec.n)||0,legTodayBook=Number(legRec.book)||0;
+          // a trade with no usable Webull fill on a side counts at the book price there -- say so.
+          // `book` counts every trade not at Webull's fills on BOTH sides (one side is enough),
+          // so the words say "not fully", never "at book price". A line of its own under the
+          // three figures, so it never widens the TODAY column (review 2026-10-05).
+          const legTodayNote=legTodayBook>0
+            ?('<div class="qb-leg-today-note" style="color:var(--text4)" title="No usable Webull fill on at least one side, so the book price counts there.">Today: '+legTodayBook+' of '+legTodayN+' not fully at Webull fills</div>')
+            :(legTodayN?('<div class="qb-leg-today-note">Today: '+legTodayN+' closed, all at Webull fills</div>'):'');
           const legUnreal=p?(Number(p.unrealized)||0):0;
           const cumSeries=qeCum[key]||[];  // from trades_all -- see CURVE FROM THE TRADES
           const sparkData=cumSeries.map(pt=>Number((pt&&pt.cum_pnl!==undefined)?pt.cum_pnl:((pt||[])[1]))||0);
@@ -37817,6 +37906,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'<div><div class="qb-row-sublabel">UNREALIZED</div><div style="font-size:14px;font-weight:600;color:'+(p?pnlCol(legUnreal):'var(--text5)')+'">'+(p?qeMoney(legUnreal):'—')+'</div></div>'
               +'<div><div class="qb-row-sublabel">TODAY</div><div style="font-size:14px;font-weight:600;color:'+pnlCol(legTodayRealized)+'">'+qeMoney(legTodayRealized)+'</div></div>'
               +'<div><div class="qb-row-sublabel">POSITION</div><div style="font-size:14px;font-weight:600">'+(p?(qeInt(p.shares)+' sh @ '+qeMoney(p.entry_px)):'no open lot')+'</div></div>'
+              +legTodayNote
               +(notionalHtml?('<div style="width:100%">'+notionalHtml+'</div>'):'')
               +'</div>'):'')
             +'</div>';
@@ -37846,7 +37936,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +options.map(([val,lbl])=>'<button data-qbsegval="'+val+'" class="'+(active===val?'on':'')+'">'+lbl+'</button>').join('')+'</div>';
         let equityHtml;
         {
-          const cum=qbPeriodFilter(qeCum,qbChartPeriod);
+          const cum=qbRange?qbRangeCum:qbPeriodFilter(qeCum,qbChartPeriod);
           const cD=p=>(p&&p.date!==undefined)?p.date:((p||[])[0]);
           const cV=p=>Number((p&&p.cum_pnl!==undefined)?p.cum_pnl:((p||[])[1]))||0;
           const totalSeries=cum.total||[];
@@ -37854,12 +37944,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // qb-seg ABOVE the chart to a plain text/underline tab row BELOW it (matching
           // the TRADING LOG home tab's own hm-range-pills) -- same data-qbseg="period" /
           // data-qbsegval attributes, so the EXISTING wiring below keeps working untouched.
-          const periodTabsHtml='<div class="qbx-chart-tabs" data-qbseg="period">'
+          // LEDGER unify step 4: the shared range pills in the same place (under the chart, as REAL)
+          const periodTabsHtml=qbRange?('<div class="qbx-range-row">'+ledgerRangePillsHtml(qbRange,'data-qbrange')+'</div>')
+            :('<div class="qbx-chart-tabs" data-qbseg="period">'
             +[['1W','1W'],['1M','1M'],['3M','3M'],['ALL','ALL']].map(([val,lbl])=>'<button data-qbsegval="'+val+'" class="'+(qbChartPeriod===val?'on':'')+'">'+lbl+'</button>').join('')
-            +'</div>';
+            +'</div>');
+          const qbRangeCap=(qbRange&&qbRange!=='ALL')?('Cumulative P&amp;L, '+qbRangeWord+', counted from the start of the range'):null;
           if(!totalSeries.length){
-            equityHtml='<div class="qb-chart-wrap"><div class="qbx-chart-cap">Cumulative P&amp;L</div>'
-              +'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:8px 0 0">curve starts with the first closed trade</div>'
+            equityHtml='<div class="qb-chart-wrap"><div class="qbx-chart-cap">'+(qbRangeCap||'Cumulative P&amp;L')+'</div>'
+              +'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:8px 0 0">'+((qbRangeCap&&closedN)?qbRangeNone:'curve starts with the first closed trade')+'</div>'
               +'<svg class="qb-chart-svg" viewBox="0 0 760 50" preserveAspectRatio="none"><line x1="10" y1="25" x2="750" y2="25" stroke="var(--border)" stroke-dasharray="3,3"/></svg>'
               +periodTabsHtml+'</div>';
           }else{
@@ -37972,7 +38065,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // order never existed at the broker at all. Same amber family, so it
               // still reads as "a caveat" at a glance, never as an error (red).
               +(QBO&&QBO.book_only_count>0?'<span title="a muted BOOK ONLY tag on a trade row means its order was refused or blocked before it ever reached the broker - see the trade list below" style="display:inline-flex;align-items:center;gap:5px;margin-right:14px"><span style="width:9px;height:9px;border-radius:2px;border:1px solid var(--attn-amber)"></span><span style="font-size:var(--fsxs);color:var(--text3)">book only</span></span>':'');
-            equityHtml='<div class="qb-chart-wrap"><div class="qbx-chart-cap">Cumulative P&amp;L since '+naS(QE.live_from)+'</div>'+svg
+            equityHtml='<div class="qb-chart-wrap"><div class="qbx-chart-cap">'+(qbRangeCap||('Cumulative P&amp;L since '+naS(QE.live_from)))+'</div>'+svg
               +'<div class="qbx-chart-readout" id="qbChartReadout"></div>'
               +periodTabsHtml
               +'<div class="qb-chart-legend">'+legend+'</div></div>';
@@ -38021,12 +38114,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         let tradesHtml,tradesListHtml,qbBuildDrawerFn=null;
         {
           const shown=window._qeTradesShown||50;
-          if(!closedN){
-            tradesHtml='<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:14px">no trades yet</div>';
+          if(!qbRangeTrades.length){
+            // a range with no closed trades says so and offers the way out (as REAL's empty state)
+            tradesHtml=!closedN?'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:14px">no trades yet</div>'
+              :('<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:14px">'+qbRangeNone+' &middot; '+closedN+' more outside this range'
+                +'<div><button type="button" class="qb-hero-refresh" data-qbrange="ALL" style="margin-top:10px">Show all</button></div></div>');
             tradesListHtml=tradesHtml;
           }else{
-            const visible=trades.slice(0,shown);  // trades[] is already newest-first
-            const chrono=trades.slice().reverse();
+            const visible=qbRangeTrades.slice(0,shown);  // trades[] is already newest-first
+            const chrono=qbRangeTrades.slice().reverse();
             let run=0;
             const cumChrono=chrono.map(t=>{run+=qePnlOf(t);return run;});
             const runningFor=i=>cumChrono[chrono.length-1-i];
@@ -38257,7 +38353,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +'</tr>';
               return rowHtml+(drawerIdx===i?('<tr><td colspan="16" style="padding:0">'+buildDrawer(t)+'</td></tr>'):'');
             }).join('');
-            const showMoreBtn=shown<closedN?('<div style="text-align:center;margin-top:10px"><button class="btn-ghost" data-qeshowmore style="border:1px solid var(--border);border-radius:6px;padding:5px 14px;font-size:var(--fsxs)">SHOW MORE ('+(closedN-shown)+' more)</button></div>'):'';
+            const showMoreBtn=shown<qbRangeTrades.length?('<div style="text-align:center;margin-top:10px"><button class="btn-ghost" data-qeshowmore style="border:1px solid var(--border);border-radius:6px;padding:5px 14px;font-size:var(--fsxs)">SHOW MORE ('+(qbRangeTrades.length-shown)+' more)</button></div>'):'';
             // ── QB TABLE view — the exact table this tab has always shown, just without its
             // own header (the List|Table toggle + EXPORT CSV button now live once, in the
             // shared TRADES card header at composition time).
@@ -38446,7 +38542,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // account's own move stays in the ACCOUNT section.
         const heroTodayVal=qeTodayRealized+openMarkPnl;
         const heroTodayPct=null;
-        const qbHero=qbHeroBuild(sinceStartPnl,qbSinceLabel,parFailed,QBO,heroTodayVal,heroTodayPct);
+        // the range line counts closed trades only; with a position open it says so, since the
+        // big number and the today line also carry the open P&L
+        const qbHero=qbHeroBuild(sinceStartPnl,qbSinceLabel,parFailed,QBO,heroTodayVal,heroTodayPct,
+          qbRange?{val:qbRangePnl,suffix:qbRangeWord+(posCount>0?' &middot; closed trades':'')}:null);
         const qbHeroHtml=qbHero.main;
         const qbStatusStripHtml=qbHero.strip;
 
@@ -38564,21 +38663,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +modePill(pillTxt,pillCol,filled)
               +'<span style="font-size:13px;color:var(--text2)">'+sentence+'</span></div>';
 
-            // -- today's loss vs the daily stop. Reuses todayPnl/rails/dllLimitAbs/
-            // dllNearLimit already computed above (the RAILS panel + More-stats row read
-            // the exact same numbers) rather than the broker's own daily_pnl tracker,
-            // which nothing feeds yet (update_daily_pnl has no caller in qqq_exec.py as
-            // of this build, so it would always read $0 -- see the ship report).
+            // -- today's loss vs the daily stop: the breaker's own figure (stopPnl, see
+            // DAILY STOP above; the More-stats row reads the same dllNearLimit), labelled
+            // with what it counts.
             let lossRow='';
             if(dllLimitAbs!=null){
-              const used=Math.abs(Math.min(0,todayPnl));
+              const used=Math.abs(Math.min(0,stopPnl));
               const usedPct=Math.min(100,Math.round(used/dllLimitAbs*100));
-              const stopTripped=todayPnl<=-dllLimitAbs;
+              const stopTripped=dllTripped;
               const barCol=stopTripped?'var(--attn-red)':(dllNearLimit?'var(--attn-amber)':'var(--attn-ok)');
               lossRow='<div style="margin-bottom:10px">'
                 +'<div style="font-size:13px;color:var(--text2)">'+qeMoney(used)+' of '+qeMoney(dllLimitAbs)+' daily stop used'
                 +(stopTripped?' — <b style="color:var(--attn-red)">stopped for the day</b>':'')+'</div>'
                 +'<div class="qb-bar"><div style="width:'+usedPct+'%;background:'+barCol+'"></div></div>'
+                +'<div style="font-size:11px;color:var(--text4);margin-top:4px">'+dllStopLbl+'</div>'
                 +'</div>';
             }
 
@@ -38698,12 +38796,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             else{pillTxt='OFF';pillCol='var(--text4)';filled=false;}
             let barHtml='';
             if(dllLimitAbs!=null){
-              const used=Math.abs(Math.min(0,todayPnl));
+              const used=Math.abs(Math.min(0,stopPnl));
               const usedPct=Math.min(100,Math.round(used/dllLimitAbs*100));
-              const stopTripped=todayPnl<=-dllLimitAbs;
+              const stopTripped=dllTripped;
               const barCol=stopTripped?'var(--attn-red)':(dllNearLimit?'var(--attn-amber)':'var(--attn-ok)');
               barHtml='<div class="qb-bar" style="margin-top:8px"><div style="width:'+usedPct+'%;background:'+barCol+'"></div></div>'
-                +'<div style="font-size:11px;color:var(--text4);margin-top:4px">'+qeMoney(used)+' of '+qeMoney(dllLimitAbs)+' daily stop used</div>';
+                +'<div style="font-size:11px;color:var(--text4);margin-top:4px" title="'+dllStopLbl+'">'+qeMoney(used)+' of '+qeMoney(dllLimitAbs)+' daily stop used'+(stopTripped?' · stopped for the day':' · '+dllStopShort)+'</div>';
             }
             const LO=BR.last_order||{};
             const legDisplayMini=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:(k||'—');};
@@ -38812,35 +38910,35 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // whitespace-separated row (qbx-stat-strip/qbx-stat-cell), no card, no dividers.
         const qbTile=(lbl,val,col)=>'<div class="qbx-stat-cell"><div class="qbx-stat-lbl">'+lbl+'</div><div class="qbx-stat-val" style="'+(col?('color:'+col):'')+'">'+val+'</div></div>';
         const qbTilesHtml='<div class="qbx-stat-strip">'
-          +qbTile('Win rate',QST.n?Math.round(QST.wr*100)+'%':'—',QST.n?(QST.wr>=0.5?'var(--green)':'var(--red)'):null)
-          +qbTile('Profit factor',QST.n?(QST.pf>=99?'∞':QST.pf.toFixed(2)):'—',QST.n?(QST.pf>=1?'var(--green)':'var(--red)'):null)
-          +qbTile('Trades',QST.n||'—')
+          +qbTile('Win rate',QSTR.n?Math.round(QSTR.wr*100)+'%':'—',QSTR.n?(QSTR.wr>=0.5?'var(--green)':'var(--red)'):null)
+          +qbTile('Profit factor',QSTR.n?(QSTR.pf>=99?'∞':QSTR.pf.toFixed(2)):'—',QSTR.n?(QSTR.pf>=1?'var(--green)':'var(--red)'):null)
+          +qbTile('Trades',QSTR.n||'—')
           // REVIEW FIX 4 (2026-09-24, owner rule): drawdown is shown as a POSITIVE
           // number since the label already says "drawdown" -- was qeMoney(-QST.maxDD).
           // QST.maxDD is already a plain magnitude (peak-run, never negative -- see
           // qqqStats above), so this is just dropping the sign flip; the loss colour
           // stays.
-          +qbTile('Max drawdown',QST.n?qeMoney(QST.maxDD):'—','var(--red)')
+          +qbTile('Max drawdown',QSTR.n?qeMoney(QSTR.maxDD):'—','var(--red)')
           +'</div>';
         const qbStatRow=(label,val,col)=>'<div class="qb-row"><span class="qb-row-label">'+label+'</span><span class="qb-row-value" style="'+(col?('color:'+col):'')+'">'+val+'</span></div>';
         const qbMoreStatsBody='<div class="qb-section-hd" style="margin-top:8px">Ratios</div><div class="qb-list">'
-          +qbStatRow('Win rate',QST.n?Math.round(QST.wr*100)+'%':'—',QST.n?(QST.wr>=0.5?'var(--green)':'var(--red)'):null)
-          +qbStatRow('Profit factor',QST.n?(QST.pf>=99?'∞':QST.pf.toFixed(2)):'—',QST.n?(QST.pf>=1?'var(--green)':'var(--red)'):null)
-          +qbStatRow('Expectancy',QST.n?qeMoney(QST.ev):'—',QST.n?pnlCol(QST.ev):null)
-          +qbStatRow('Payoff',QST.n&&QST.losses?(QST.payoff>=99?'∞':QST.payoff.toFixed(2)):'—')
+          +qbStatRow('Win rate',QSTR.n?Math.round(QSTR.wr*100)+'%':'—',QSTR.n?(QSTR.wr>=0.5?'var(--green)':'var(--red)'):null)
+          +qbStatRow('Profit factor',QSTR.n?(QSTR.pf>=99?'∞':QSTR.pf.toFixed(2)):'—',QSTR.n?(QSTR.pf>=1?'var(--green)':'var(--red)'):null)
+          +qbStatRow('Expectancy',QSTR.n?qeMoney(QSTR.ev):'—',QSTR.n?pnlCol(QSTR.ev):null)
+          +qbStatRow('Payoff',QSTR.n&&QSTR.losses?(QSTR.payoff>=99?'∞':QSTR.payoff.toFixed(2)):'—')
           +'</div><div class="qb-section-hd" style="margin-top:14px">Performance</div><div class="qb-list">'
-          +qbStatRow('Trades',QST.n||'—')
-          +qbStatRow('Avg $/trade',QST.n?qeMoney(QST.ev):'—',QST.n?pnlCol(QST.ev):null)
-          +qbStatRow('Avg win',QST.wins?'+'+qeMoney(QST.avgW):'—','var(--green)')
-          +qbStatRow('Avg loss',QST.losses?qeMoney(-QST.avgL):'—','var(--red)')
-          +qbStatRow('Best',QST.n?qeMoney(QST.best):'—',QST.n?pnlCol(QST.best):null)
-          +qbStatRow('Worst',QST.n?qeMoney(QST.worst):'—',QST.n?pnlCol(QST.worst):null)
-          +qbStatRow('Current streak',QST.n?((QST.sdir>0?'+':'-')+QST.streak+(QST.sdir>0?'W':'L')):'—',QST.n?(QST.sdir>0?'var(--green)':'var(--red)'):null)
+          +qbStatRow('Trades',QSTR.n||'—')
+          +qbStatRow('Avg $/trade',QSTR.n?qeMoney(QSTR.ev):'—',QSTR.n?pnlCol(QSTR.ev):null)
+          +qbStatRow('Avg win',QSTR.wins?'+'+qeMoney(QSTR.avgW):'—','var(--green)')
+          +qbStatRow('Avg loss',QSTR.losses?qeMoney(-QSTR.avgL):'—','var(--red)')
+          +qbStatRow('Best',QSTR.n?qeMoney(QSTR.best):'—',QSTR.n?pnlCol(QSTR.best):null)
+          +qbStatRow('Worst',QSTR.n?qeMoney(QSTR.worst):'—',QSTR.n?pnlCol(QSTR.worst):null)
+          +qbStatRow('Current streak',QSTR.n?((QSTR.sdir>0?'+':'-')+QSTR.streak+(QSTR.sdir>0?'W':'L')):'—',QSTR.n?(QSTR.sdir>0?'var(--green)':'var(--red)'):null)
           +'</div><div class="qb-section-hd" style="margin-top:14px">Risk</div><div class="qb-list">'
           // REVIEW FIX 4 (2026-09-24): same positive-magnitude convention as the
           // primary stats row above -- was qeMoney(-QST.maxDD).
-          +qbStatRow('Max drawdown',QST.n?qeMoney(QST.maxDD):'—','var(--red)')
-          +qbStatRow('Recovery factor',(QST.n&&QST.maxDD>0)?QST.recovery.toFixed(2)+'×':'—',(QST.n&&QST.maxDD>0)?(QST.recovery>=1?'var(--green)':'var(--red)'):null)
+          +qbStatRow('Max drawdown',QSTR.n?qeMoney(QSTR.maxDD):'—','var(--red)')
+          +qbStatRow('Recovery factor',(QSTR.n&&QSTR.maxDD>0)?QSTR.recovery.toFixed(2)+'×':'—',(QSTR.n&&QSTR.maxDD>0)?(QSTR.recovery>=1?'var(--green)':'var(--red)'):null)
           +qbStatRow('Open exposure',qeMoney(openExposure),posCount?(posCount+' leg'+(posCount===1?'':'s')+' open'):null)
           +qbStatRow('Daily loss limit',rails.daily_loss_limit_usd!=null?qeMoney(-Math.abs(Number(rails.daily_loss_limit_usd))):'—',dllNearLimit?'var(--attn-red)':null)
           +'</div>';
@@ -38859,7 +38957,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbCsvBtn='<button class="qb-hero-refresh" data-qeexportcsv title="Export CSV" style="padding:5px 10px">⬇</button>';
         const qbTradesCard='<div id="qe-trades-section"></div>'
           +'<div class="qb-section-hd" style="justify-content:space-between">'
-          +'<span>Trades ('+closedN+')</span>'
+          +'<span>Trades ('+qbRangeTrades.length+((qbRange&&qbRange!=='ALL')?(', '+qbRangeWord):'')+')</span>'
           +'<span style="display:flex;gap:8px;align-items:center;flex:0 0 auto">'+qbTradesSeg+qbCsvBtn+'</span>'
           +'</div>'
           +(qbTradesView==='table'?tradesHtml:tradesListHtml);
@@ -38910,7 +39008,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(qbSheet){
           let sheetTitle='',sheetBody='';
           if(qbSheet.kind==='trade'){
-            let t=trades[qbSheet.idx];
+            let t=qbRangeTrades[qbSheet.idx];  // the row number counts in the list as shown
             // follow the TRADE, not the row number, if the list shifted under the sheet --
             // by the row's own key (trade id, else leg + entry + exit time), so a legacy
             // row with no trade id never shows another trade; gone = no sheet body
@@ -43416,8 +43514,39 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           'nt_entry_ts','nt_exit_ts','nt_qty','nt_mult','nt_notional_usd','shadow_notional_usd','notional_ratio',
           'latency_s','real_entry_px','real_exit_px','real_pnl','slip_entry_ps','slip_exit_ps','repriced_at',
           'nt_points','expected_usd','track_err_usd','parity_ok','parity_note','note','size','shares_wanted'];
-        const esc=v=>{if(v===null||v===undefined)return '';const s=String(v);return /[",\n]/.test(s)?('"'+s.replace(/"/g,'""')+'"'):s;};
-        const csv=[cols.join(',')].concat(rows.map(t=>cols.map(c=>esc(t[c])).join(','))).join('\r\n');
+        // Ledger unify 13 (2026-10-05): the P&L of record and where it came from, the trade id,
+        // book-only and the fills-vs-backtest read, appended after the original columns.
+        // pnl_record follows the board rule (qePnlOf, and the box's _curve_pnl): record, else
+        // the book pnl, else the tape re-price, a null or empty field counting as missing
+        // in all three; close_day_ny is the New York day the trade counts on.
+        const xcols=['trade_id','close_day_ny','pnl_record','pnl_record_source','pnl_record_note','pnl_backtest',
+          'book_only','book_only_reason','fills_vs_backtest','fills_vs_backtest_note',
+          'entry_backtest_px','entry_webull_px','entry_fill','exit_backtest_px','exit_webull_px','exit_fill',
+          'fill_gap_usd','design_gap_usd','execution_gap_usd'];
+        const fin=v=>{if(v===null||v===undefined||v==='')return null;const n=Number(v);return isFinite(n)?n:null;};
+        const side=s=>{if(s===null||s===undefined)return null;if(typeof s!=='string')return s;const p=s.split('|');const n=v=>(v===undefined||v==='')?null:Number(v);return {bt:n(p[0]),wb:n(p[1]),fs:({o:'ok',s:'suspect'})[p[2]]||'none'};};
+        const fillWord=s=>!s?'':(s.fs==='ok'?'Webull fill':(s.fs==='suspect'?'Webull fill looks wrong, not used':'no Webull fill'));
+        const srcWord={webull:'Webull fills',part:'part book price',book:'book price'};
+        const extra=t=>{
+          const rec=fin(t.pnl_record),bk=fin(t.pnl),tape=fin(t.real_pnl);
+          const val=rec!==null?rec:(bk!==null?bk:(tape!==null?tape:0));
+          const src=rec!==null?(srcWord[String(t.pnl_record_src||'')]||'book price'):(bk!==null?'book price':(tape!==null?'re-price minute close':'none'));
+          const fp=t.fp||null,en=fp?side(fp.en):null,ex=fp?side(fp.ex):null;
+          const ok=t.broker_parity_ok;
+          return {trade_id:t.trade_id||'',
+            close_day_ny:ledgerCloseDay({exitDate:String(t.exit_ts||'').slice(0,10)||null,date:String(t.entry_ts||'').slice(0,10)}),
+            pnl_record:val.toFixed(2),pnl_record_source:src,pnl_record_note:t.pnl_record_note||'',
+            pnl_backtest:fin(t.pnl_backtest)!==null?Number(t.pnl_backtest).toFixed(2):'',
+            book_only:t.book_only?'yes':'',book_only_reason:t.book_only?(t.book_only_reason||''):'',
+            fills_vs_backtest:ok===true?'within band':(ok===false?'flagged':(fp||'broker_parity_ok' in t?'not compared':'')),
+            fills_vs_backtest_note:t.broker_parity_note||'',
+            entry_backtest_px:en&&en.bt!=null?en.bt:'',entry_webull_px:en&&en.wb!=null?en.wb:'',entry_fill:fillWord(en),
+            exit_backtest_px:ex&&ex.bt!=null?ex.bt:'',exit_webull_px:ex&&ex.wb!=null?ex.wb:'',exit_fill:fillWord(ex),
+            fill_gap_usd:fp&&fp.gap_usd!=null?fp.gap_usd:'',design_gap_usd:fp&&fp.dsg_usd!=null?fp.dsg_usd:'',
+            execution_gap_usd:fp&&fp.exec_usd!=null?fp.exec_usd:''};
+        };
+        const esc=v=>{if(v===null||v===undefined)return '';const s=String(v);return /[",\r\n]/.test(s)?('"'+s.replace(/"/g,'""')+'"'):s;};
+        const csv=[cols.concat(xcols).join(',')].concat(rows.map(t=>{const x=extra(t);return cols.map(c=>esc(t[c])).concat(xcols.map(c=>esc(x[c]))).join(',');})).join('\r\n');
         _libDownload('qqq_shadow_book_closed_trades.csv',csv);
       };
       // G. equity-chart legend toggle
@@ -43435,6 +43564,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(seg==='period')window._qeChartPeriod=val;
         else if(seg==='tradesview'){window._qeTradesView=val;savePref('qqqTradesView',val);}
         renderApp();};});
+      // LEDGER shared range pills (unify step 4) and the empty list's "Show all": REAL's own saved
+      // range (homeRange; renderApp -> _saveView keeps it in el_view across redraws and reloads).
+      // The table's open row is dropped, since its row number counts in the old list.
+      content.querySelectorAll('[data-qbrange]').forEach(el=>{el.onclick=()=>{
+        homeRange=el.getAttribute('data-qbrange');window._qeDrawerIdx=null;renderApp();};});
       // Disclosures — each remembers open/closed per browser, same mechanism as the
       // pre-existing qqqModelOpen toggle.
       const QB_DISC_PREF={morestats:'qqqMoreStatsOpen',allchecks:'qqqChecksOpen',
