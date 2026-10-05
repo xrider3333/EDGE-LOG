@@ -24,6 +24,9 @@ OUT = r"C:\EdgeLog\_anatomy_cache\tv_insider_r1"
 FORM4 = r"C:\EdgeLog\_research_cache\form4\form4_ndx_open_market.csv"
 FILINGS = r"C:\EdgeLog\_research_cache\edgar\filings_ndx.csv"
 BARS = r"C:\EdgeLog\alpaca_cache\siporb\daily_split.parquet"
+BARS_RAW = r"C:\EdgeLog\alpaca_cache\siporb\daily_raw.parquet"
+CORP = r"C:\EdgeLog\alpaca_cache\xgap\corporate_actions_wide.csv"       # Alpaca corporate actions 2016-06 .. (cash dividends)
+EXTRA = ("EA", "ATVI", "DISH", "HOLX", "QVCA", "QRTEA", "LVNTA", "WBA", "BBBY", "ENDP", "SGEN", "SRCL")   # MANAGER pull (addendum 1)
 MEMBERS = os.path.join(SHARED, "tools", "data", "ndx_members.csv")
 CUT, WF = T1.CUT, T1.WF
 NOTL, HS, MINV = 50000.0, (5, 20, 60), (0.0, 100000.0)
@@ -58,10 +61,10 @@ def classify(D):
     return D
 
 
-def load_events(bar_syms, sessions):
+def load_events(spans, sessions):
     """One EVENT = one issuer x Form 4 filing date with >= 1 officer / director open-market purchase, inside the company's
-    membership spell. Known at the EARLIEST acceptance time that day; entry = that session's open if accepted before 09:30 ET on
-    a session day, else the next session's open."""
+    membership spell. Known at the EARLIEST acceptance time that day; entry = the first 09:30 open at least 30 minutes after
+    acceptance (addendum 1, MANAGER #68): accepted before 09:00 ET on a session day -> that session, else the next session."""
     D = classify(pd.read_csv(FORM4, low_memory=False))
     P = D[(D["code"] == "P") & D["roles"].fillna("").str.contains("Officer|Director", case=False) & D["accepted_et"].notna()].copy()
     M = pd.read_csv(MEMBERS); M["to"] = M["to"].fillna(str(CUT.date()))
@@ -78,19 +81,23 @@ def load_events(bar_syms, sessions):
                 return True
         return False
 
-    def symbol(ndx, cik):
-        for t in str(ndx).split(";"):
-            if t in bar_syms:
-                return t
+    def symbol(ndx, cik, d):
+        """the ticker that was a member on the filing date AND has bars spanning it (QVCA vs LVNTA, DISCA vs DISCK: first
+        alphabetically among those); else any listed ticker with bars spanning it (FB's history sits under META); else EDGAR's."""
+        ts = str(ndx).split(";"); dd = pd.Timestamp(d)
+        live = [t for t in ts if t in spans and spans[t][0] <= dd <= spans[t][1]]
+        both = [t for t in live if member(t, d)]
+        if both or live:
+            return (both or live)[0]
         c = cur.get(cik)
-        return c if c in bar_syms else None
+        return c if c in spans else None
 
     ev = ev[[member(n, d) for n, d in zip(ev["ndx"], ev["filing_date"])]].copy()
-    ev["sym"] = [symbol(n, c) for n, c in zip(ev["ndx"], ev["issuer_cik"])]
+    ev["sym"] = [symbol(n, c, d) for n, c, d in zip(ev["ndx"], ev["issuer_cik"], ev["filing_date"])]
     info = dict(member_events=len(ev), no_bars=int(ev["sym"].isna().sum()),
                 no_bar_companies=sorted(ev.loc[ev["sym"].isna(), "ndx"].unique().tolist()))
     ev = ev[ev["sym"].notna()].copy()
-    d0 = ev["acc"].dt.normalize(); early = ev["acc"].dt.hour * 60 + ev["acc"].dt.minute < 570
+    d0 = ev["acc"].dt.normalize(); early = ev["acc"].dt.hour * 60 + ev["acc"].dt.minute < 540
     sv = sessions.values
     k = np.searchsorted(sv, d0.values.astype("datetime64[ns]"))            # first session >= acceptance day
     same = (k < len(sv)) & (sv[np.minimum(k, len(sv) - 1)] == d0.values.astype("datetime64[ns]"))
@@ -103,12 +110,55 @@ def load_events(bar_syms, sessions):
     return ev.sort_values("entry").reset_index(drop=True), info
 
 
+def extra_bars(adj="split"):
+    """Daily masters the house importer wrote for EXTRA (tools/import_alpaca_stocks.py, source alpaca_<adj>_<session>) as rows
+    symbol, date, o, h, l, c, v; empty when the pull has not run. Cut before the lockbox at read time."""
+    os.chdir(SHARED); sys.path.insert(0, SHARED)
+    from augur_engine.data import find_master, load_master_arrays
+    out = []
+    for sym in EXTRA:
+        m = None
+        for sess in ("rth", "eth"):
+            m = m or find_master(sym, "1D", sess, "alpaca_%s_%s" % (adj, sess))
+        if not m:
+            continue
+        A = load_master_arrays(m, date_to="2025-06-29")
+        d = pd.DatetimeIndex(A["index"]); d = (d.tz_convert("US/Eastern") if d.tz is not None else d).normalize()
+        d = d.tz_localize(None) if d.tz is not None else d
+        out.append(pd.DataFrame({"symbol": sym, "date": d, "o": A["open"], "h": A["high"], "l": A["low"], "c": A["close"], "v": A["volume"]}))
+    return pd.concat(out, ignore_index=True) if out else pd.DataFrame(columns=["symbol", "date", "o", "h", "l", "c", "v"])
+
+
+def all_bars(adj="split", cols=None):
+    B = pd.read_parquet(BARS if adj == "split" else BARS_RAW)
+    X = extra_bars(adj)
+    X = X[~X["symbol"].isin(set(B["symbol"].unique()))]
+    B = pd.concat([B, X], ignore_index=True) if len(X) else B
+    return B[cols] if cols else B
+
+
 def load_bars(syms):
-    B = pd.read_parquet(BARS); B = B[B["symbol"].isin(syms) & (B["date"] < CUT)]
+    B = all_bars("split"); B = B[B["symbol"].isin(syms) & (B["date"] < CUT)]
     O = B.pivot(index="date", columns="symbol", values="o").sort_index(); C = B.pivot(index="date", columns="symbol", values="c").sort_index()
     have = C.notna()
     C = C.ffill(); O = O.where(O.notna(), C.shift(1)).where(O.notna() | C.shift(1).notna(), C)
     return O, C, have
+
+
+def div_yield(syms, sessions):
+    """sessions x symbols: cash dividend / previous RAW close, placed on the ex-date session (0 elsewhere). A position held at the
+    close before the ex-date earns it on its held notional (shares x split-adjusted close), so no split factor is needed."""
+    A = pd.read_csv(CORP, low_memory=False)
+    A = A[(A["type"] == "cash_dividend") & A["symbol"].isin(syms)].copy()
+    A["ex"] = pd.to_datetime(A["ex_date"], errors="coerce"); A = A[A["ex"].notna() & (A["ex"] < CUT)]
+    R = all_bars("raw"); R = R[R["symbol"].isin(syms) & (R["date"] < CUT)]
+    RC = R.pivot(index="date", columns="symbol", values="c").sort_index().reindex(sessions).ffill()
+    DY = pd.DataFrame(0.0, index=sessions, columns=sorted(syms))
+    for sym, ex, rate in zip(A["symbol"], A["ex"], pd.to_numeric(A["rate"], errors="coerce")):
+        k = sessions.searchsorted(ex)
+        if 0 < k < len(sessions) and np.isfinite(rate) and sym in RC and np.isfinite(RC[sym].iloc[k - 1]) and RC[sym].iloc[k - 1] > 0:
+            DY.iloc[k, DY.columns.get_loc(sym)] += rate / RC[sym].iloc[k - 1]
+    return DY
 
 
 def load_nq(sessions):
@@ -156,7 +206,10 @@ def positions(ev, H, minv, n):
     return [p for p in out if p[2] > p[1]]
 
 
-def run(pos, O, C, nq, roll, stock_bp=STOCK_BP, hedge=True):
+DIV = {"DY": None}                                  # set by main(); None = no dividends (the addendum-1 'without' report)
+
+
+def run(pos, O, C, nq, roll, stock_bp=STOCK_BP, hedge=True, divs=True):
     """Daily P&L (stock leg, hedge leg) on the session calendar, plus one trade row per position (exit date, pnl, sym)."""
     n = len(O); cols = {s: k for k, s in enumerate(O.columns)}; Ov, Cv = O.values, C.values
     stock = np.zeros(n); notl_open = np.zeros(n); trades = []
@@ -168,6 +221,8 @@ def run(pos, O, C, nq, roll, stock_bp=STOCK_BP, hedge=True):
             seg[1:j - i] = Cv[i + 1:j, k] - Cv[i:j - 1, k]
         seg[j - i] = Ov[j, k] - Cv[j - 1, k]
         p = sh * seg; p[0] -= NOTL * stock_bp / 1e4; p[-1] -= sh * Ov[j, k] * stock_bp / 1e4
+        if divs and DIV["DY"] is not None:                # ex-dates i+1 .. j: held at the previous close
+            p[1:] += sh * Cv[i:j, k] * DIV["DY"][i + 1:j + 1, k]
         stock[i:j + 1] += p
         notl_open[i] += NOTL
         if j - i > 1:
@@ -249,14 +304,16 @@ def selftest():
 # ------------------------------------------------------------------------------------------------ main
 def main(mode):
     os.makedirs(OUT, exist_ok=True)
-    B = pd.read_parquet(BARS, columns=["symbol", "date"]); sessions = pd.DatetimeIndex(sorted(B.loc[B["date"] < CUT, "date"].unique()))
-    ev, info = load_events(set(B["symbol"].unique()), sessions)
+    B = all_bars("split", ["symbol", "date"]); sessions = pd.DatetimeIndex(sorted(pd.read_parquet(BARS, columns=["date"]).query("date < @CUT")["date"].unique()))
+    sp = B.groupby("symbol")["date"].agg(["min", "max"]); ev, info = load_events({k: (r["min"], r["max"]) for k, r in sp.iterrows()}, sessions)
     O, C, have = load_bars(sorted(ev["sym"].unique()))
     O, C, have = O.reindex(sessions), C.reindex(sessions).ffill(), have.reindex(sessions, fill_value=False)
     O = O.fillna(C.shift(1)).fillna(C)
     ev["i"] = sessions.get_indexer(pd.DatetimeIndex(ev["entry"]))
     nq, roll = load_nq(sessions)
-    shas = {k: sha(p) for k, p in (("form4", FORM4), ("bars", BARS), ("members", MEMBERS))}
+    DIV["DY"] = div_yield(list(O.columns), sessions).reindex(columns=O.columns, fill_value=0.0).values
+    shas = {k: sha(p) for k, p in (("form4", FORM4), ("bars", BARS), ("bars_raw", BARS_RAW), ("corporate_actions", CORP), ("members", MEMBERS))}
+    info["extra_symbols_with_bars"] = sorted(set(EXTRA) & set(O.columns))
     info.update(companies=int(ev["sym"].nunique()), per_cell_positions={"H%d_v%d" % (h, v): len(positions(ev, h, v, len(sessions))) for h, v in CELLS})
     print(json.dumps(info, indent=1))
     if mode == "null":
@@ -288,6 +345,8 @@ def july_years():
 def real(ev, O, C, nq, roll, nl):
     """The pre-registered Stage A (docs/INSIDER_R1.md): six cells, the best judged on the bars, every diagnostic REPORTED."""
     n = len(O); cells = {}; runs = {}
+    path = event_path(ev, O, C, nq)                                       # addendum 1 item 4: printed FIRST
+    print("EVENT-TIME PATH (all events, mean cumulative stock - NQ, %, from the close before entry):", path, flush=True)
     for H, v in CELLS:
         pos = positions(ev, H, v, n); s, h, tr = run(pos, O, C, nq, roll)
         y = cell_stats(s, h, tr); cells["H%d_v%d" % (H, v)] = {k: (round(x, 3) if isinstance(x, float) else x) for k, x in y.items()}
@@ -319,7 +378,7 @@ def real(ev, O, C, nq, roll, nl):
         if len(sub):
             s4, h4, t4 = run(positions(sub, H, v, n), O, C, nq, roll); y4 = cell_stats(s4, h4, t4)
             splits[nm] = dict(n=y4["n"], net=round(y4["net"]), roc30=round(y4["roc30"], 2))
-    path = event_path(ev[ev["value"] >= v], O, C, nq)
+    s0, h0, t0 = run(pos, O, C, nq, roll, divs=False); nodiv = cell_stats(s0, h0, t0)
     seat = None
     try:
         bk = pd.read_csv(T1.BOOK, parse_dates=["date"]).set_index("date"); bwf = T1.window(bk, *WF)
@@ -329,7 +388,7 @@ def real(ev, O, C, nq, roll, nl):
     verdict = "PASS (Stage A)" if all(checks.values()) else "FAIL: " + ", ".join(k for k, x in checks.items() if not x)
     return dict(cells=cells, best=dict(cell=key, **b), checks=checks, report=rep, halves=halves, cost_curve=curve,
                 unhedged=dict(roc30=round(unhedged["roc30"], 2), net=round(unhedged["net"])), splits=splits, event_path=path,
-                seat=seat, verdict=verdict)
+                seat=seat, without_dividends=dict(roc30=round(nodiv["roc30"], 2), net=round(nodiv["net"])), verdict=verdict)
 
 
 def event_path(ev, O, C, nq, lo=-10, hi=60):

@@ -84,3 +84,24 @@ open risk is the lockbox count, not walk-forward power.
 
 Plumbing check (`--dry`): one random-date draw through the real-run code completes every report block (no real-direction
 number read).
+
+## Addendum 1 (2026-10-05, MANAGER review #68 "GO WITH EDITS", applied BEFORE any real-direction run)
+
+1. **Fill timing.** Entry = the first 09:30 open at least 30 minutes after the EDGAR acceptance: accepted before 09:00 ET on a
+   session day -> that session's open, else the next session's open (was: before 09:30). An acceptance at 09:29 cannot be acted
+   on at 09:30.
+2. **Dividends.** Cash dividends from `C:\EdgeLog\alpaca_cache\xgap\corporate_actions_wide.csv` (Alpaca corporate actions, sha
+   pinned in the output JSON) are added on held notional: a position held at the close before an ex-date earns cash / previous
+   RAW close x shares x split-adjusted close. The verdict reads the WITH-dividends book; the without-dividends cell is reported
+   beside it.
+3. **Survivorship.** MANAGER pulls daily split + raw bars for the 12 member tickers missing from the SIPORB set (EA, ATVI, DISH,
+   HOLX, QVCA, QRTEA, LVNTA, WBA, BBBY, ENDP, SGEN, SRCL) through `tools/import_alpaca_stocks.py`; the harness reads them from the
+   library masters (`alpaca_split_*` / `alpaca_raw_*`, 1D) and lists which arrived. Alpaca history starts 2016-01, which covers
+   the walk-forward window. Any company still without bars is dropped and counted, and the long-only survivorship tilt is stated
+   with that count.
+4. **Splits and path.** CMP opportunistic / routine / unclassified and clustered buys stay REPORTED rows; the event-time path
+   (all events, -10 .. +60 sessions, stock minus NQ) is printed FIRST, before any cell.
+5. **Stage B** = the leg's own sealed-year veto (one read, after MANAGER's line; the count flag stands). The book add is a
+   report at the volatility c.
+6. **The family null is re-run** with items 1-3 in place before the real run (same seed, same 6 cells); the power line below is
+   replaced by the re-run's and the first run is kept for the record.
