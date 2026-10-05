@@ -1,0 +1,55 @@
+BOOK QUEUE Q15 - THIRD NEW SEAT (replaces the withdrawn Q14 BAB, MANAGER #70): the BULL STEEPENER in stress. Written
+2026-10-05 before any number of this leg exists; MANAGER review "GO WITH EDITS, WF only" (09:00) folded in as ADDENDUM 1. Same shared rules as docs/PREREG_frontier_seats3_2026-10-05.txt (walk-forward only;
+every series cut at 2025-06-29; causal scale = 25% of #463's trailing-250-row risk with the always-on version as the denominator and the
+2x cap; A2 / A3 incl. without the best episode and best component; A4 reported; house line #69: the leg's own standalone or earner route
+decides the RUNBOARD research row, the book-add test is a report that decides only a forward #463 + leg line; no lockbox stage).
+
+MECHANISM. When equity markets are in stress, the Fed's reaction function makes the FRONT of the Treasury curve rally harder than the
+long end (cuts are priced at the short end; the long end also carries inflation and term-premium risk): the curve bull-steepens - 2008,
+August 2011 to a lesser degree, 2019, March 2020, the 2024-25 cutting turns. A DURATION-NEUTRAL steepener (long short-duration Treasuries,
+short long-duration Treasuries in the ratio of their durations) holds no level bet, only the slope bet, so unlike Q13's long TLT it does
+not depend on long yields falling - the failure that broke the stock-bond hedge in 2022 (long yields rose) hurts a level bet, not a
+duration-neutral slope bet as directly. Literature: the slope's response to monetary easing (e.g. Gurkaynak, Sack and Swanson 2005); the
+"flight to the front end" in risk-off.
+RULE. State as Q12 / Q13: prior close of VIX / VIX3M >= 1.00 (r7 files). While on: long SHY $100,000 and short TLT $100,000 x D_SHY / D_TLT
+with D the funds' effective durations taken as fixed constants stated now (SHY 1.9, TLT 17.0), set at the entry and held through the
+episode; flat otherwise; next-open fills; 2 bp a side, borrow 0.25 %/yr on the TLT short. Always-on version for the scale denominator:
+the same steepener held always, re-set monthly. Neighbours 0.95 / 1.05 reported. Data: SHY in nonequity_*.csv (Yahoo adjusted), TLT
+library master.
+DISCLOSED: this is the third leg on the SAME state variable as Q12 and Q13; their daily correlation on #463's drawdown days is reported
+beside the verdict, and only one of the three may become a forward book line without a new pre-registration. SHY's dividend-adjusted
+price carries its coupon accrual (a small positive carry on the long side) - disclosed, not removed.
+COULD FOOL US. 2022-style BEAR flattening (front-end yields up faster) during an equity sell-off - the state was on for a few days in
+2022 - is the failure shape, named now; the fixed durations drift (TLT 16-19 over the years), so the leg carries a small residual level
+bet; short TLT is cheap to borrow but not free.
+POWER: entries are the same inversion episodes as Q12 / Q13 (A5 printed first; < 20 = not judgeable).
+
+ADDENDUM 1 (2026-10-05, before any Q15 number): MANAGER review C:/EdgeLog/manager/reviews/frontier_q15_review_2026-10-05.md, all four
+edits, plus the fixed implementation details. DISCLOSED: Q12 and Q13 had already been read when this addendum was written (both FAIL,
+BOOK.md 10w); nothing in Q15's rule was changed after them, and the review that gave the GO predates them. FRONTIER rated Q15's prior
+low after Q12/Q13 and offered MANAGER its withdrawal; with no answer the standing order runs it.
+A. LEVERAGE AND FUNDING (edit 1). Printed: the scaled gross notional (long SHY + short TLT) at each WF entry, in dollars and as a
+   multiple of the $100k account, with its median and max; the gross notional per $1 of the leg's daily P&L standard deviation while
+   held; the unscaled leg's WF net (long SHY $100,000). FUNDING STRESS ROW: the primary minus 0.5 %/yr x max(0, scaled long SHY
+   notional - $100,000), charged daily on held days; the TLT borrow (0.25 %/yr) is inside the primary. If the stress row flips a route
+   outcome, the owner line says the pass needs free financing; if the median scaled gross notional exceeds 10x the account, the owner
+   line says the leg passes only levered.
+B. ONE FAMILY (edit 2). Q12, Q13 and Q15 are one family on one state. Printed for all three: pairwise correlation of daily leg P&L on
+   #463's WF drawdown days (> $15,000 below its peak) and on all WF days. FAMILY NULL, computed only if Q15 passes a route on its own
+   numbers (the null can only remove a pass): 500 circular shifts of the inversion state on the CBOE calendar (shift k drawn with
+   numpy default_rng(20261005) from 250 .. n-250 rows), each leg re-run at its own primary causal scale (the scale comes from the
+   always-on version, so a shift does not move it); route statistics = A3 dollars without the best episode (earner) and own WF ROC
+   at $30k (standalone); per shift the MAX over the three legs; Q15's real statistic must beat the 95th percentile of that max. At
+   most one of Q12 / Q13 / Q15 becomes a forward book line without a new pre-registration.
+C. DURATIONS (edit 3). The box holds no effective-duration history for SHY or TLT (C:/EdgeLog/_research_cache has only treasury
+   auction results), so the actual-duration twin is NOT run and the residual level bet is unmeasured as a twin; instead the leg's
+   daily beta to TLT's daily return over held WF days is printed (report only).
+D. POWER FIRST (edit 4). A5 (WF entries, >= 20) and the 0.95 / 1.05 neighbours' entry counts print before any P&L.
+E. IMPLEMENTATION, fixed now. SHY = nonequity cache (Yahoo adjusted open/close), TLT = the library master; days = the intersection of
+   the two. On the close of the first 'on' day: long SHY $100,000 / close and short TLT $100,000 x 1.9 / 17.0 / close, filled at the
+   next open, shares held through the episode, flat at the next open after the first 'off' close. Always-on version: the same pair
+   re-set at every month-end close. 2 bp a side on every dollar traded for both funds. The leg's verdict uses the seats3 harness's
+   judge() and routes unchanged (house line #69).
+F. COMPONENTS (clarified before any number; the shared rules' "without the best component" clause). The duration-neutral pair is ONE
+   bet: dropping a side turns it into a level bet, so the component clauses treat SHY + TLT as one instrument. Per-side dollars on
+   #463's drawdown days and in March 2020 are printed, and the strict two-component reading is printed beside the verdict as a report.
