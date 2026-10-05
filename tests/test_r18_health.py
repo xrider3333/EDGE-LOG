@@ -35,6 +35,16 @@ def test_cusum_recursion_by_hand_on_five_rows():
     z = rng.normal(0.0, 1.0, (50, 300))
     d0, d1 = H.first_cross(H.cusum(z, 0.5), 5.0), H.first_cross(H.cusum(z - 1.0, 0.5), 5.0)
     assert (d1 > 0).all() and all(b <= a for a, b in zip(d0, d1) if a > 0)
+    # the day quantiles run over ALL draws, a never-alarmed draw beyond the horizon (inverted-cdf rule): 10 draws, 3 alarm on days 3, 5, 9
+    first = np.array([0, 5, 3, 0, 9, 0, 0, 0, 0, 0])
+    assert H.day_quantile(first, 0.1) == 3.0 and H.day_quantile(first, 0.3) == 9.0 and H.day_quantile(first, 0.5) is None
+    days = np.where(first > 0, first, np.inf).astype(float)
+    assert H.day_quantile(first, 0.3) == float(np.quantile(days, 0.3, method="inverted_cdf"))
+    assert not np.isfinite(np.quantile(days, 0.5, method="inverted_cdf"))
+    assert H.day_quantile(np.array([4, 2, 2, 8]), 0.5) == 2.0 and H.day_quantile(np.array([4, 2, 2, 8]), 0.9) == 8.0
+    s = H.alarm_summary(first)
+    assert s["share"]["252"] == pytest.approx(0.3) and s["n_alarm_756"] == 3 and s["median_day"] is None and s["p90_day"] is None
+    assert H.dfmt(None) == ">756" and H.dfmt(9.0) == "9"
 
 
 def test_h1_search_picks_the_smallest_grid_value_meeting_the_level():
@@ -184,7 +194,16 @@ def test_forward_csv_refusals_and_the_asof_trim(tmp_path):
         H.read_forward(_csv(tmp_path / "wf.csv", [pd.Timestamp("2025-06-29")] + list(d), [1.0] * 6))
     with pytest.raises(SystemExit, match="pretending to be forward"):                   # a row before the forward start
         H.read_forward(_csv(tmp_path / "early.csv", pd.bdate_range("2026-09-21", periods=5), [1.0] * 5))
-    assert len(H.read_forward(_csv(tmp_path / "early.csv", pd.bdate_range("2026-09-21", periods=5), [1.0] * 5), frm="2026-09-21")[0]) == 5
+    with pytest.raises(SystemExit, match="earlier than the registered forward start"):   # --from can only move the start later
+        H.read_forward(_csv(tmp_path / "early.csv", pd.bdate_range("2026-09-21", periods=5), [1.0] * 5), frm="2026-09-21")
+    later = _csv(tmp_path / "later.csv", pd.bdate_range("2026-10-05", periods=3), [1.0] * 3)
+    assert len(H.read_forward(later, frm="2026-10-05")[0]) == 3                        # a later start is accepted...
+    with pytest.raises(SystemExit, match="pretending to be forward"):                   # ...and every row must respect it
+        H.read_forward(ok, frm="2026-10-05")
+    with pytest.raises(SystemExit, match="weekday 2026-09-30 is missing"):               # one row per weekday: a gap is refused
+        H.read_forward(_csv(tmp_path / "gap.csv", [d[0], d[1], d[3]], [1.0, 2.0, 3.0]))
+    hol = _csv(tmp_path / "holiday.csv", pd.bdate_range("2026-11-25", periods=3), [5.0, 0.0, 7.0])   # Thanksgiving as a 0 row
+    assert H.read_forward(hol)[1].tolist() == [5.0, 0.0, 7.0]
     with pytest.raises(SystemExit, match="not strictly increasing"):
         H.read_forward(_csv(tmp_path / "order.csv", [d[0], d[2], d[1]], [1.0, 2.0, 3.0]))
     with pytest.raises(SystemExit, match="not strictly increasing"):
@@ -262,7 +281,7 @@ def test_smoke_runs_offline_end_to_end_and_restores_the_module(tmp_path, capsys)
     assert "SMOKE PASS" in out.splitlines()[-1]
     d = tmp_path / "smoke_health" / "health"
     cal = json.load(open(d / "calibration.json"))
-    assert cal["H1"]["h1"] in H.H_GRID.tolist() and cal["H1"]["fa_at_h1_252"] <= H.FA_LEVEL + 0.02 and cal["ndraw"] == 400
+    assert cal["H1"]["h1"] in H.H_GRID.tolist() and cal["H1"]["fa_at_h1_252"] <= H.FA_LEVEL and cal["ndraw"] == 400
     assert cal["H1"]["k"] == pytest.approx(0.5 * cal["mu0"] / cal["sigma0"]) and cal["H1"]["k_fraction"] == 0.5 and cal["H1b"]["k"] == cal["H1"]["k"]
     assert cal["H1"]["h1"] < H.H_GRID[-1] and cal["power"]["H1"]["0.0"]["share"]["756"] >= 0.5 and cal["power"]["H1"]["0.0"]["median_day"] is not None
     assert ready_k(d) == cal["H1"]["k"]

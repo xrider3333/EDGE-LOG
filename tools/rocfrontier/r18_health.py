@@ -28,16 +28,20 @@ THE MONITORS.
      band from the same draws; UNDER / OVER outside the bootstrap band. It never alarms.
   JOINT (calibration only): the share of null draws alarming on H1 or H2 within 252 rows - the pair's false-alarm rate.
   POWER (calibration only): null draws shifted row by row to a forward mean of 0.5 x / 0 x / -0.5 x mu0 -> the share H1 alarms on within
-     252 / 504 / 756 rows and the median / 90th-percentile day of first alarm; deviations from mu0 scaled by SCALE_ALT -> the share H2
-     alarms on within 252 rows. The headline: "if #463 stopped earning tomorrow, H1 would alarm after a median of N trading days".
+     252 / 504 / 756 rows and the median / 90th-percentile day of first alarm, taken over ALL draws with a never-alarmed draw counted as
+     beyond the horizon (a quantile past 756 prints ">756", json null); deviations from mu0 scaled by SCALE_ALT -> the share H2 alarms on
+     within 252 rows. The headline: "if #463 stopped earning tomorrow, H1 would alarm after a median of N trading days".
 
 THE READING RULES.
   * The only forward figures printed are the CUSUM values, the current drawdown depth and the trade counts. No ROC, no Sortino, no net.
   * The only words about the book are the monitor states OK / WARN / ALARM (and within / UNDER / OVER for H3). Never a verdict.
   * An ALARM is an owner question via MANAGER, never automatic; a WARN is logged; the harness changes nothing. H1 does not un-alarm: once
     C_t has reached h1 the alarm stands on every later read until the owner has acted (a reset is an owner decision, outside this file).
-  * A forward row dated on or before WF1 (2025-06-29) or before --from (default FORWARD_FROM_DEFAULT) is refused: a backtest row is
-    pretending to be forward. Non-increasing dates, weekend dates and a missing pnl are refused.
+  * A forward row dated on or before WF1 (2025-06-29) or before --from is refused: a backtest row is pretending to be forward. --from
+    defaults to FORWARD_FROM_DEFAULT and can only move the start LATER; an earlier --from is refused (it could admit lockbox rows).
+  * The forward csv is one row per WEEKDAY, a holiday as a 0 row - the reference's own row convention (Book.index is every weekday), so
+    n forward rows line up with the first n rows of a null draw. A missing weekday between two rows, a non-increasing date, a weekend
+    date and a missing pnl are refused.
   * The registered horizon is 756 forward rows; more rows observed are refused - a longer record is r2's question.
 
 COMMANDS (results go to OUT, outside git; nothing here commits, pushes, queues a job or touches the box's caches from a smoke):
@@ -149,7 +153,7 @@ def reference(B, meta):
     if not np.isfinite(x).all():
         raise SystemExit("refused: a reference row is not finite")
     C, fams = leg_counts(B, meta, rows)
-    mu0, sigma0 = float(x.mean()), float(x.std(ddof=1))
+    mu0, sigma0 = float(x.mean()), float(x.std(ddof=1))                   # CHOICE: sample sd (ddof 1), as r14's calibration
     if not sigma0 > 0:
         raise SystemExit("refused: the reference rows have no dispersion")
     if not mu0 > 0:
@@ -333,15 +337,24 @@ def pass_power(ref, starts, h1, h1b, q99):
     return {"first": first, "first_zero": first0, "h2_null": h2_null, "h2_scale": h2_scale}
 
 
+def day_quantile(first, q):
+    """The q-quantile of the first-alarm day over ALL draws, a never-alarmed draw counted as beyond the horizon: the smallest day d with
+    share(first alarm <= d) >= q (np.quantile's inverted_cdf rule on the days with +inf for 'never'); None when fewer than a share q of the
+    draws alarm within HMAX rows (printed '>756', json null)."""
+    f = np.asarray(first)
+    al = np.sort(f[f > 0])
+    need = max(1, int(math.ceil(q * len(f) - 1e-9)))
+    return float(al[need - 1]) if len(al) >= need else None
+
+
 def alarm_summary(first):
     f = np.asarray(first)
-    al = f[f > 0]
-    return {"share": {str(H): float(np.mean((f > 0) & (f <= H))) for H in HORIZONS}, "n_alarm_756": int(len(al)), "n_draws": int(len(f)),
-            "median_day": float(np.median(al)) if len(al) else None, "p90_day": float(np.quantile(al, 0.9)) if len(al) else None}
+    return {"share": {str(H): float(np.mean((f > 0) & (f <= H))) for H in HORIZONS}, "n_alarm_756": int((f > 0).sum()), "n_draws": int(len(f)),
+            "median_day": day_quantile(f, 0.5), "p90_day": day_quantile(f, 0.9)}
 
 
 def dfmt(d):
-    return "none" if d is None else f"{d:.0f}"
+    return f">{HMAX}" if d is None else f"{d:.0f}"
 
 
 # ------------------------------------------------------------------ calibrate
@@ -375,7 +388,7 @@ def calibrate():
     h1_252 = (pw["first"][1.0] > 0) & (pw["first"][1.0] <= 252)
     zero = power["0.0"]
     headline = (f"if #463 stopped earning tomorrow, H1 would alarm after a median of {dfmt(zero['median_day'])} trading days "
-                f"(90% within {dfmt(zero['p90_day'])}; {zero['share']['252']:.1%} of such paths alarm within a year, "
+                f"(90% of such paths within {dfmt(zero['p90_day'])} days; {zero['share']['252']:.1%} alarm within a year, "
                 f"{zero['share']['756']:.1%} within three)")
     cal = {"prereg_sha256": PREREG_SHA, "prereg_file_sha256": psha, "records": hashes, "seed": SEED, "ndraw": NDRAW, "block": BLOCK, "chunk": CHUNK,
            "horizons": list(HORIZONS), "wf": {"from": WF0, "to": WF1, "first_row": ref["first"], "last_row": ref["last"], "n_rows": ref["n_rows"],
@@ -465,6 +478,9 @@ def read_forward(path, frm=None, asof=None):
         asof = pd.Timestamp(asof) if asof else None
     except (ValueError, TypeError) as ex:
         raise SystemExit(f"refused: bad --from / --asof date ({ex})")
+    if frm < pd.Timestamp(FORWARD_FROM_DEFAULT):
+        raise SystemExit(f"refused: --from {frm.date()} is earlier than the registered forward start {FORWARD_FROM_DEFAULT} - --from can only move "
+                         "the start later (an earlier start could admit lockbox rows)")
     if (d <= wf1).any():
         raise SystemExit(f"refused: row dated {d[d <= wf1][0].date()} is on or before WF1 {WF1} - a backtest row is pretending to be forward")
     if (d < frm).any():
@@ -474,6 +490,11 @@ def read_forward(path, frm=None, asof=None):
     if len(d) > 1 and not (np.diff(d.values.astype('datetime64[D]')).astype(int) > 0).all():
         i = int(np.flatnonzero(~(np.diff(d.values.astype('datetime64[D]')).astype(int) > 0))[0])
         raise SystemExit(f"refused: dates are not strictly increasing at row {i + 2} ({d[i].date()} then {d[i + 1].date()})")
+    gaps = pd.bdate_range(d[0], d[-1]).difference(d)                      # one row per weekday, a holiday as a 0 row (the reference's convention)
+    if len(gaps):
+        g = gaps[0]
+        raise SystemExit(f"refused: weekday {g.date()} is missing between {d[d < g][-1].date()} and {d[d > g][0].date()} - the forward record is one row "
+                         "per weekday (a holiday is a 0 row), the reference's own row convention, or n runs short of the null's prefix")
     pnl = pd.to_numeric(df[cols["pnl"]], errors="coerce").to_numpy(float)
     if not np.isfinite(pnl).all():
         i = int(np.flatnonzero(~np.isfinite(pnl))[0])
@@ -557,13 +578,15 @@ def health_lines(r):
     H1, H1b, H2, H3 = r["H1"], r["H1b"], r["H2"], r["H3"]
     n = r["rows"]
     out = [f"BOOK HEALTH r1 - #463 forward record through {r['asof']}: H1 DECAY {H1['state']}; H2 DRAWDOWN {H2['state']}; H3 FIRING report only",
-           f"rows observed: {n} forward rows {r['first']}..{r['last']} (from {r['from']}; registered horizon {HMAX}, {HMAX - n} rows left); "
+           f"rows observed: {n} forward rows {r['first']}..{r['last']}, one row per weekday with a holiday as a 0 row (from {r['from']}; "
+           f"registered horizon {HMAX}, {HMAX - n} rows left); "
            f"reference WF {r['wf']['from']}..{r['wf']['to']} ({r['wf']['n_rows']} rows), mu0 ${r['mu0']:,.2f}/row, sigma0 ${r['sigma0']:,.2f}/row",
            f"calibration sha256 {r['calibration_sha256'][:16]}... (READY); prereg sha256 {r['prereg_sha256']}; null {r['ndraw']:,} draws, seed {r['seed']}",
            f"H1 DECAY: CUSUM C_n = {H1['statistic']:.3f} after {n} rows (k {H1['k']:.4f}, threshold h1 {H1['threshold']:.2f}, max so far {H1['max']:.3f}) -> {H1['state']}"
            + (f" (first reached on {H1['first_alarm_date']}, row {H1['first_alarm_row']}) - {MANAGER}" if H1["state"] == "ALARM" else ""),
            f"H1b ZERO (report only): CUSUM against a zero mean C_n = {H1b['statistic']:.3f} (threshold h1b {H1b['threshold']:.2f}, max so far {H1b['max']:.3f}) -> {H1b['state']}"
            + (f" (first reached on {H1b['first_alarm_date']}, row {H1b['first_alarm_row']})" if H1b["state"] == "ALARM" else ""),
+           "H1b reading: with the same k, H1b asks whether the book is losing at half its backtest edge or worse",
            f"H2 DRAWDOWN: current depth ${H2['statistic']:,.0f} below the running peak after {n} rows; null max drawdown over {n} rows q95 ${H2['q95']:,.0f}, "
            f"q99 ${H2['q99']:,.0f} -> {H2['state']}" + (f" - {MANAGER}" if H2["state"] == "ALARM" else " (logged)" if H2["state"] == "WARN" else ""),
            f"H2 context: share of backtest paths this length with a deeper drawdown {H2['share_deeper_this_length']:.3f} (over a full 252-row year "
@@ -684,7 +707,7 @@ def smoke(d):
         cal = calibrate()
         h1 = cal["H1"]["h1"]
         assert h1 is not None and np.isfinite(h1) and h1 in H_GRID, h1
-        assert cal["H1"]["fa_at_h1_252"] <= FA_LEVEL + 0.02, cal["H1"]["fa_at_h1_252"]
+        assert cal["H1"]["fa_at_h1_252"] <= FA_LEVEL, cal["H1"]["fa_at_h1_252"]        # exact: h_search guarantees it
         assert abs(cal["H1"]["k"] - K_FRACTION * cal["mu0"] / cal["sigma0"]) < 1e-12 and cal["H1b"]["k"] == cal["H1"]["k"]
         z0 = cal["power"]["H1"]["0.0"]
         assert z0["share"]["756"] >= 0.5 and z0["median_day"] is not None and np.isfinite(z0["median_day"]), z0   # +k a row at zero edge: it gets there
@@ -743,6 +766,9 @@ def smoke(d):
         _expect_refusal(lambda: read(f_bad), "a row on WF1", "pretending to be forward")
         f_early = write_forward_csv(os.path.join(root, "forward_early.csv"), pd.bdate_range("2026-09-21", periods=3), [1.0, 2.0, 3.0])
         _expect_refusal(lambda: read(f_early), "a row before --from", "pretending to be forward")
+        _expect_refusal(lambda: read(f_early, frm="2026-09-21"), "--from before the registered start", "earlier than the registered")
+        f_gap = write_forward_csv(os.path.join(root, "forward_gap.csv"), [pd.Timestamp("2026-09-28"), pd.Timestamp("2026-09-29"), pd.Timestamp("2026-10-01")], [1.0, 2.0, 3.0])
+        _expect_refusal(lambda: read(f_gap), "a missing weekday", "weekday 2026-09-30 is missing")
         f_long = write_forward_csv(os.path.join(root, "forward_long.csv"), pd.bdate_range(FORWARD_FROM_DEFAULT, periods=HMAX + 1), np.full(HMAX + 1, mu0))
         _expect_refusal(lambda: read(f_long), "757 rows", "horizon")
         with open(os.path.join(root, "forward_nan.csv"), "w") as f:
