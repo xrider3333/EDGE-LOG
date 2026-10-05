@@ -512,6 +512,39 @@ def cmd_ship(name, message):
             raise SystemExit('HOME gate SELF-TEST FAILED - the gate no longer catches a deliberately '
                              'broken build - not pushing')
 
+    # WEBULL GATE (2026-10-05): LEDGER > WEBULL PAPER, the same per-board render probe as HOME's
+    # (LEDGER adoption contract section 5). webull_board_probe.py hands the board a fixed copy of the
+    # box's status doc (tools/fixtures/qqq_exec_box1005.json, no network, no Firestore), renders it on
+    # a laptop and a phone in dark and MONO, and fails on any throw or console.error, a hero or pill
+    # row out of shape, a squashed shared chart or one missing its dates, price labels, caveat days,
+    # run-change marker or strategy lines, a Retired group that is missing or open by default, a trade
+    # row without family + run number, a phone page that scrolls sideways, a scrub that does not write
+    # the hero and put it back, or ?oldboards=1 not showing the old layout. Only runs when index.html
+    # changed; its --selftest (six deliberately broken copies must FAIL) runs when the probe or its
+    # fixture changed. INCONCLUSIVE never blocks.
+    wp = os.path.join(wt, 'tools', 'webull_board_probe.py')
+    if touched_index.strip() and os.path.isfile(wp):
+        r = subprocess.run([sys.executable, wp], cwd=wt, capture_output=True, text=True,
+                           encoding='utf-8', errors='replace')
+        out = (r.stdout or '') + (r.stderr or '')
+        verdict = [l for l in out.strip().splitlines() if l.startswith('WEBULLPROBE:')]
+        print(verdict[-1] if verdict else '(WEBULL probe produced no output)')
+        if r.returncode == 1:
+            sys.stderr.write(out)
+            raise SystemExit('WEBULL PAPER render gate FAILED - not pushing')
+    touched_wp = run(['git', '-C', wt, 'diff', '--name-only', 'origin/main', '--',
+                      'tools/webull_board_probe.py', 'tools/fixtures/qqq_exec_box1005.json'], check=False)
+    if touched_wp.strip() and os.path.isfile(wp):
+        r = subprocess.run([sys.executable, wp, '--selftest'], cwd=wt, capture_output=True,
+                           text=True, encoding='utf-8', errors='replace')
+        out = (r.stdout or '') + (r.stderr or '')
+        last = [l for l in out.strip().splitlines() if l.startswith('SELFTEST:')]
+        print(last[-1] if last else '(WEBULL probe self-test produced no output)')
+        if r.returncode == 1:
+            sys.stderr.write(out)
+            raise SystemExit('WEBULL gate SELF-TEST FAILED - the gate no longer catches a deliberately '
+                             'broken build - not pushing')
+
     # FOURTH GATE: STUDIES row numbers must stay unique (2026-08-26). The render probe proves
     # the board DRAWS; it says nothing about the registry contract. Two sessions numbering rows
     # at the same time silently produced 27 collisions, and a row number is the board's permanent

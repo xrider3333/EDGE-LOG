@@ -145,7 +145,17 @@ $0.00 as the breaker figure. Review 2026-10-05 added two: the older box's copy l
 on a later day than its trading day (the rows still add up to the hero's today), and TODAY
 figures of different widths ($0.00 against -$1,234.56) with the POSITION column in line.
 
-Not wired into wt.py ship (ad hoc verification tool), but written the same way as
+LEDGER UNIFY STEP 5 (2026-10-05): the board's own svg chart is replaced by TRADING-LOG's
+shared ledgerChartRender (#qb-lg-chart; the old svg stays behind ?oldboards=1 for one
+version). The period-control and range checks now count the points on the shared chart's
+total line (the range start, then one per day, or one per trade when the range holds one or
+two days); the version-marker check reads the <text> after the [data-lgmark] line. ENGU-Q #335
+sits in a collapsed Retired group (owner decision 9) while it is flat and closed nothing
+today, so the record pass opens that group before it opens every strategy row.
+
+This file is not wired into wt.py ship (ad hoc verification tool); the board's ship gate is
+tools/webull_board_probe.py (short, offline, wired as REAL's home_render_probe.py is). It is
+written the same way as
 tools/paper_render_probe.py: stdlib + a subprocess call to local headless Chrome,
 serving the repo over loopback so index.html's own fetches never fire.
 """
@@ -261,6 +271,10 @@ var SETRANGE=true;
 
       function fire(sel){var el=d.querySelector(sel);if(el){el.click();return true;}return false;}
       function html(){var ap=d.getElementById('app')||d.body;return ap?ap.innerHTML:'';}
+      // LEDGER step 5: points on the shared chart's total line (one per day, the range start
+      // first; a range of one or two days keeps every trade); 0 when the range draws no chart
+      function chartPts(){var pl=d.querySelector('#qb-lg-chart svg polyline');
+        return pl?String(pl.getAttribute('points')||'').trim().split(/\\s+/).filter(Boolean).length:0;}
 
       // ── structural counts on the FIRST paint (ALL cases) ──
       out.hasQbShell=!!d.querySelector('.qb-shell');
@@ -323,7 +337,10 @@ var SETRANGE=true;
       // so this is exact regardless of the CSS-rendered chart width).
       var chartSvgEl=d.querySelector('.qb-chart-wrap svg');
       out.chartViewBoxW=(chartSvgEl&&chartSvgEl.viewBox&&chartSvgEl.viewBox.baseVal)?chartSvgEl.viewBox.baseVal.width:null;
-      var markerTextEl=d.querySelector('.qb-chart-wrap svg text');
+      // LEDGER step 5: the shared chart draws price labels as svg text too -- the marker's own
+      // label is the <text> right after its [data-lgmark] line (the old svg: its only <text>)
+      var markLineEl=d.querySelector('.qb-chart-wrap svg [data-lgmark]');
+      var markerTextEl=markLineEl?markLineEl.nextElementSibling:d.querySelector('.qb-chart-wrap svg text');
       out.markerText=markerTextEl?markerTextEl.textContent:null;
       out.markerBBox=null;
       if(markerTextEl){
@@ -406,11 +423,11 @@ var SETRANGE=true;
 
         // ── period control changes the plotted point count (hover-dot circles on the
         // TOTAL line, one per plotted date) ──
-        var dotSel='.qb-chart-wrap svg circle[fill="transparent"]';
-        out.chartDotsAll=d.querySelectorAll(dotSel).length;
+        // LEDGER step 5: the shared chart's total-line points (see chartPts)
+        out.chartDotsAll=chartPts();
         // LEDGER unify step 4: the shared range pills replaced the 1W/1M/3M/ALL tabs
         fire('[data-qbseg="period"] [data-qbsegval="1W"]')||fire('.qbx-range-row [data-qbrange="1W"]');
-        out.chartDots1W=d.querySelectorAll(dotSel).length;
+        out.chartDots1W=chartPts();
         fire('[data-qbseg="period"] [data-qbsegval="ALL"]')||fire('.qbx-range-row [data-qbrange="ALL"]');
       }
 
@@ -494,7 +511,6 @@ var SETRANGE=true;
 
       if(LEDGER){
         var txt=function(sel){var el=d.querySelector(sel);return el?el.textContent.replace(/\\s+/g,' ').trim():null;};
-        var lDot='.qb-chart-wrap svg circle[fill="transparent"][r="7"]';
         var snap=function(){
           var act=d.querySelector('.qbx-range-row button.active');
           var cells=[].slice.call(d.querySelectorAll('.qbx-stat-cell')).map(function(c){return c.textContent.replace(/\\s+/g,' ').trim();});
@@ -502,7 +518,7 @@ var SETRANGE=true;
           var h=html();
           var sv=null;try{sv=JSON.parse(w.localStorage.getItem('el_view')||'{}').homeRange||null;}catch(e){}
           return {active:act?act.getAttribute('data-qbrange'):null,range:txt('#qb-hero-range'),big:txt('#qb-hero-value'),
-            today:txt('#qb-hero-today'),cap:txt('.qbx-chart-cap'),dots:d.querySelectorAll(lDot).length,
+            today:txt('#qb-hero-today'),cap:txt('.qbx-chart-cap'),dots:chartPts(),
             listRows:d.querySelectorAll('[data-qbtraderow]').length,tradesHd:hd[0]||null,stats:cells,saved:sv,
             undef:(h.match(/undefined/g)||[]).length,nan:(h.match(/NaN/g)||[]).length,
             scrollW:d.body?d.body.scrollWidth:null};
@@ -552,6 +568,10 @@ var SETRANGE=true;
       if(RECORD){
         var clean=function(el){return el?el.textContent.replace(/\\s+/g,' ').trim():null;};
         var recKeys=[];
+        // decision 9: a retired strategy's row sits in the collapsed Retired group -- open it first
+        var retBtn=d.querySelector('[data-qbretired]');
+        out.recRetired=retBtn?retBtn.getAttribute('aria-expanded'):null;
+        if(retBtn&&retBtn.getAttribute('aria-expanded')!=='true')retBtn.click();
         [].slice.call(d.querySelectorAll('[data-qblegrow]')).forEach(function(e){var k=e.getAttribute('data-qblegrow');if(recKeys.indexOf(k)<0)recKeys.push(k);});
         out.recKeys=recKeys;
         // open every strategy row (each tap re-renders, so look the row up again each time)
@@ -779,8 +799,12 @@ def check_ledger(name, r, fx, w):
         if s.get('big') != money(total):
             f.append('%s %s: the big number moved with the range (%r)' % (name, rg, s.get('big')))
         days = len(set(str(t.get('exit_ts'))[:10] for t in inr))
-        if s.get('dots') != days:
-            f.append('%s %s: chart plots %s days, want %s' % (name, rg, s.get('dots'), days))
+        # LEDGER step 5 (shared chart): the range start + one point per day, or + one per trade
+        # when the range holds only one or two days; no chart at all for an empty range
+        want_pts = 0 if not inr else (days + 1 if days > 2 else len(inr) + 1)
+        if s.get('dots') != want_pts:
+            f.append('%s %s: chart plots %s points, want %s (%d days, %d trades)'
+                     % (name, rg, s.get('dots'), want_pts, days, len(inr)))
         if s.get('listRows') != min(len(inr), 50):
             f.append('%s %s: list shows %s rows, want %s' % (name, rg, s.get('listRows'), min(len(inr), 50)))
         want_cell = 'TRADES' + (str(len(inr)) if inr else '—')

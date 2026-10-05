@@ -530,6 +530,21 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qb-leg-today-note{width:100%;margin-top:-12px;font-size:10px;color:var(--text5);line-height:1.4}
 .qb-leg-row{flex-direction:column;align-items:stretch}
 .qb-leg-row-top{display:flex;align-items:center;gap:10px;width:100%}
+/* WEBULL PAPER: retired strategies (owner decision 9), collapsed under the live ones */
+.qb-retired{margin-top:4px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)}
+.qb-retired-hd{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;padding:10px 0;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text4);text-align:left}
+.qb-retired-sub{text-transform:none;letter-spacing:0;font-weight:400;color:var(--text5)}
+.qb-retired-chev{width:12px;color:var(--text5);flex:0 0 auto}
+.qb-retired-note{font-size:10px;color:var(--text5);line-height:1.4;padding:0 0 6px}
+.qb-trade-leg{white-space:nowrap}
+/* WEBULL PAPER: the chart's own key under the shared chart (caveat hatch, book only) */
+/* the shared .lg-chart svg rule (width:100%) also catches the legend's 16px line icons; keep them 16px here */
+.qbx-lgchart .lg-legend svg{display:inline-block;width:16px;flex:0 0 16px}
+.qbx-lg-key{display:flex;flex-wrap:wrap;gap:4px 14px;margin:6px 2px 0;font-size:10px;color:var(--text4);line-height:1.4}
+.qbx-lg-key span{display:inline-flex;align-items:center;gap:5px}
+.qbx-lg-key i{display:inline-block;width:9px;height:9px;border-radius:2px;flex:0 0 auto}
+.qbx-lg-key i.qbx-lg-hatch{background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--yellow) 60%,transparent) 0 2px,transparent 2px 4px)}
+.qbx-lg-key i.qbx-lg-book{border:1px solid var(--attn-amber)}
 /* bottom sheet */
 .qb-sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:900;display:flex;align-items:flex-end;justify-content:center}
 .qb-sheet{background:var(--bg1);border-radius:20px 20px 0 0;width:100%;max-width:720px;max-height:86vh;overflow-y:auto;padding:10px 20px 26px;box-shadow:0 -8px 30px rgba(0,0,0,.4)}
@@ -940,7 +955,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1038';
+const VERSION='73.1039';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -36997,6 +37012,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // underlying run, so the LEGS list, the trades table and the chart can all say which
       // version is live without hardcoding it more than once. Add ONE row here the next
       // time a leg's run changes; nothing else on this tab needs editing.
+      // ── RETIRED STRATEGIES (owner decision 9, LEDGER unify 2026-10-05): a leg that no longer
+      // trades on Webull. While it holds no position and closed nothing on the box's day, its
+      // strategy row sits in a collapsed "Retired" group under the live legs, labelled with the
+      // day it went flat (its last close, read off its trades). Its old trades still count in
+      // the account number, the chart total, the stats and the trade list.
+      const QE_LEGS_RETIRED=['ENGUQ'];
       const QE_LEG_VERSIONS=[{leg:'NOISE',date:'2026-09-24',from:'#304',to:'#382',note:'the #304 crown’s own core plus the validated compression size tilt (squeeze on the 30-minute chart doubles the trade)'}];
       // "#382 since Sep 24 &middot; was #304" for a leg QE_LEG_VERSIONS covers; the plain
       // runNo (e.g. "#314") for one it does not.
@@ -37038,6 +37059,26 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // (nothing rendered) for a leg with no version history, or a trade whose id cannot
       // be read (see qeTradeVersionTag).
       const qeVerTagHtml=t=>{const v=t&&t.leg==='NOISE'?qeTradeVersionTag(t):null;return v?(' <span style="font-size:8px;color:var(--text5);font-weight:600" title="run '+v+' took this trade, from its trade id">'+v+'</span>'):'';};
+      // FAMILY + RUN NUMBER ON EVERY TRADE ROW (TRADING-LOG mistake #60 item 4, 2026-10-05): a
+      // trade names its strategy the way the strategy list does ('ORB #314', 'ENGU-Q #335',
+      // 'NOISE #382'), never the box's bare leg key ('ENGUQ', 'ORB'). The run is the one that
+      // took the trade: read off its trade id when the id carries a number (NOISE_304-...),
+      // else from QE_LEG_VERSIONS by the day it was entered, else the leg's current run.
+      const qeTradeRunNo=t=>{
+        const k=t&&t.leg;
+        const m=/^([A-Za-z0-9_]+)-\d{8}T\d{6}Z-[LS]$/.exec(String((t&&t.trade_id)||''));
+        const dg=m?/_(\d+)$/.exec(m[1]):null;
+        if(dg)return '#'+dg[1];
+        const vs=QE_LEG_VERSIONS.filter(v=>v.leg===k).sort((a,b)=>a.date<b.date?-1:1);
+        const d=String((t&&(t.entry_ts||t.exit_ts))||'').slice(0,10);
+        if(vs.length&&/^\d{4}-\d{2}-\d{2}$/.test(d)){
+          if(d<vs[0].date)return vs[0].from;
+          let r=vs[0].to;vs.forEach(v=>{if(v.date<=d)r=v.to;});return r;
+        }
+        const f=QE_LEGS.find(x=>x[0]===k);return f?f[3]:'';
+      };
+      const qeTradeLegName=t=>{const k=t&&t.leg;const f=QE_LEGS.find(x=>x[0]===k);const r=qeTradeRunNo(t);return (f?f[1]:String(naS(k)))+(r?' '+r:'');};
+      const qeTradeLegHtml=t=>'<span class="qb-trade-leg" title="the strategy (family and run number) that took this trade">'+qeTradeLegName(t)+'</span>';
       const legColorQE=k=>({ORB:'var(--blue)',ENGUQ:'var(--purple)',NOISE:'var(--green)'}[k]||'var(--text3)');
       const qePill=(txt,col,filled)=>'<span style="font-size:9px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:999px;white-space:nowrap;border:1px solid '+col+';color:'+(filled?'var(--bg)':col)+(filled?';background:'+col:'')+'">'+txt+'</span>'; const qeKeelSizeHtml=(t,shares)=>{const hasKeel=t&&t.keel_size!=null&&String(t.keel_size)!==''&&!isNaN(Number(t.keel_size));const sizeNum=Number(t.size);const wantedSuffix=(t.shares_wanted!=null&&Number(t.shares_wanted)!==shares)?(' &rarr; wanted '+qeInt(t.shares_wanted)+' sh, capped to '+qeInt(shares)):'';if(!hasKeel)return '<br><span style="color:var(--text4)">signal size</span> '+sizeNum.toFixed(2)+'x'+wantedSuffix;const keelNum=Number(t.keel_size);const pluginNum=keelNum!==0?(sizeNum/keelNum):sizeNum;const tag=qeTradeVersionTag(t);const label=(tag?tag+' ':'')+pluginNum.toFixed(2)+' x KEEL '+keelNum.toFixed(2)+' = '+sizeNum.toFixed(2);return '<br><span style="color:var(--text4)">size</span> '+label+wantedSuffix;};
 
@@ -37811,6 +37852,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           ?QE.today.legs_record
           :(()=>{const o={};trades.forEach(t=>{if(qeTradeDate(t)!==qeBoxDay)return;const k=(t&&t.leg)||'?';const b=o[k]||(o[k]={pnl:0,n:0,book:0});b.pnl+=qePnlOf(t);b.n++;if(String(t.pnl_record_src||'')!=='webull')b.book++;});return o;})();
         let legListHtml='<div class="qb-list">';
+        const qbLiveRows=[],qbRetiredRows=[],qbRetiredInfo=[];
         QE_LEGS.forEach(([key,label,color,runNo,caveat])=>{
           const p=positions[key];
           const badge=p?(p.side==='long'?'LONG':'SHORT'):'FLAT';
@@ -37888,7 +37930,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const legNoteOpenMap=window._qbLegNoteOpen||(window._qbLegNoteOpen={});
           const noteOpen=!!legNoteOpenMap[key];
           const infoToggleHtml=hasNote?('<span class="qb-tap" data-qbleginfo="'+key+'" title="'+(noteOpen?'hide note':'show note')+'" style="font-size:10px;color:var(--text5);line-height:1;padding:0 1px">ⓘ</span>'):'';
-          legListHtml+='<div class="qb-row qb-leg-row">'
+          // RETIRED (owner decision 9): no position (book or live) and nothing closed on the box's day
+          const qbHeldLive=(QPOSLIVE&&Array.isArray(QPOSLIVE.legs))?QPOSLIVE.legs.some(l=>l&&l.leg===key):false;
+          const qbRetiredNow=!LEDGER_OLDBOARDS&&QE_LEGS_RETIRED.indexOf(key)>=0&&!p&&!qbHeldLive&&!legTodayN;
+          if(qbRetiredNow)qbRetiredInfo.push({key:key,label:label+' '+qeLegShortTag(key,runNo),
+            since:legTradesArr.map(qeTradeDate).filter(Boolean).sort().pop()||null});
+          const legRowHtml='<div class="qb-row qb-leg-row"'+(qbRetiredNow?' data-qbretiredrow="'+key+'"':'')+'>'
             +'<div class="qb-leg-row-top qb-tap" data-qblegrow="'+key+'">'
             +'<span style="font-size:13px;font-weight:600;color:'+color+';white-space:nowrap;flex-shrink:0">'+label+'</span>'
             +'<span style="font-size:10px;color:var(--text5);font-weight:600;white-space:nowrap">'+qeLegShortTag(key,runNo)+'</span>'
@@ -37910,9 +37957,26 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +(notionalHtml?('<div style="width:100%">'+notionalHtml+'</div>'):'')
               +'</div>'):'')
             +'</div>';
+          (qbRetiredNow?qbRetiredRows:qbLiveRows).push(legRowHtml);
         });
         legCardsHtml+='</div>';
-        legListHtml+='</div>';
+        let qbRetiredHtml='';
+        if(qbRetiredRows.length){
+          // open / closed is remembered per viewer (closed until opened); storage can be blocked
+          let qbRetOpen=!!window._qbRetiredOpen;
+          try{const sv=localStorage.getItem('el_qb_retired_open');if(sv!=null)qbRetOpen=sv==='1';}catch(e){}
+          const one=qbRetiredInfo.length===1?qbRetiredInfo[0]:null;
+          const sub=one?(one.since?'flat since '+one.since:'no trades yet'):(qbRetiredInfo.length+' strategies');
+          qbRetiredHtml='<div class="qb-retired" data-qbretiredgroup="'+(qbRetOpen?'open':'closed')+'">'
+            +'<button type="button" class="qb-retired-hd" data-qbretired aria-expanded="'+qbRetOpen+'" title="strategies that no longer trade on Webull; tap to '+(qbRetOpen?'hide':'show')+' them">'
+            +'<span class="qb-retired-chev" aria-hidden="true">'+(qbRetOpen?'&#8964;':'&rsaquo;')+'</span><span>Retired</span>'
+            +'<span class="qb-retired-sub">&middot; '+sub+'</span></button>'
+            +(qbRetOpen?('<div class="qb-retired-note">'+qbRetiredInfo.map(x=>x.label+(x.since?' last traded on '+x.since:' has no trades')).join('; ')
+              +'. No longer trading on Webull; its old trades still count in the account number and the chart total.</div>'
+              +'<div class="qb-list">'+qbRetiredRows.join('')+'</div>'):'')
+            +'</div>';
+        }
+        legListHtml+=qbLiveRows.join('')+'</div>'+qbRetiredHtml;
 
         // ── QB PERIOD FILTER — 1W/1M/3M/ALL, anchored on the newest plotted date (this is
         // a forward-test book, not "today"). Filters qeCum, the series built from
@@ -37935,7 +37999,126 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbSegHtml=(name,options,active)=>'<div class="qb-seg" data-qbseg="'+name+'">'
           +options.map(([val,lbl])=>'<button data-qbsegval="'+val+'" class="'+(active===val?'on':'')+'">'+lbl+'</button>').join('')+'</div>';
         let equityHtml;
-        {
+        if(!LEDGER_OLDBOARDS){
+          // ── LEDGER UNIFY STEP 5 (2026-10-05): TRADING-LOG's shared equity chart (ledgerChartRender) in
+          // place of the board's own svg. The total line is the P&L of record of the trades that closed
+          // in the chosen range, restarting at $0 at the range start, one point per day (a range of one
+          // or two days keeps every trade). Faint lines: each strategy's own P&L of record in its leg
+          // colour, legend switches remembered per viewer (MONO keeps them apart by the shared dashes).
+          // Hatched columns: the data-caveat days (tooltip says why). Dotted markers: the run changes
+          // in QE_LEG_VERSIONS. A scrub writes the hero (number, day line, range line) and puts it back
+          // on leave without re-rendering; the live listener holds its redraw while a scrub is held.
+          // Only the account's own trades build o.pts (shadow lines never enter it, owner rule).
+          // ?oldboards=1 keeps the old svg below for one version.
+          window._qbChartHover=null;
+          const periodTabsHtml='<div class="qbx-range-row">'+ledgerRangePillsHtml(qbRange,'data-qbrange')+'</div>';
+          const qbRangeCap=(qbRange&&qbRange!=='ALL')?('Cumulative P&amp;L, '+qbRangeWord+', counted from the start of the range'):('Cumulative P&amp;L since '+naS(QE.live_from));
+          if(!qbRangeTrades.length){
+            window._qbLgChart=null;
+            equityHtml='<div class="qb-chart-wrap"><div class="qbx-chart-cap">'+qbRangeCap+'</div>'
+              +'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:18px 0">'+(closedN?qbRangeNone:'curve starts with the first closed trade')+'</div>'
+              +periodTabsHtml+'</div>';
+          }else{
+            const tsOf=t=>String((t&&(t.exit_ts||t.entry_ts))||'');
+            const chrono=qbRangeTrades.slice().sort((a,b)=>tsOf(a)<tsOf(b)?-1:tsOf(a)>tsOf(b)?1:0);
+            const flags={},legRun={};
+            let run=0;
+            const raw=[{v:0,date:null,legs:{}}];
+            chrono.forEach(t=>{
+              const pv=qePnlOf(t),k=(t&&t.leg)||'?',d=qeTradeDate(t);
+              run=Math.round((run+pv)*100)/100;legRun[k]=Math.round(((legRun[k]||0)+pv)*100)/100;
+              raw.push({v:run,date:d,legs:Object.assign({},legRun)});
+              if(d){const f=(flags[d]=flags[d]||{n:0,rep:0,par:0,bo:0});f.n++;if(qeRepriced(t))f.rep++;if(qeParityFailed(t))f.par++;if(t.book_only)f.bo++;}
+            });
+            const pts=ledgerDailyPoints(raw),n=pts.length;
+            const famOf=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:k;};
+            // DATA-CAVEAT DAYS (kept from 2026-09-21): a day whose trades include an exit priced from
+            // the 1-minute tape, a failed parity check or a book-only trade -- one column per day
+            const bands=[];
+            pts.forEach((p,i)=>{
+              if(!i||!p.date)return;   // every point of the day: a one- or two-day range keeps one point per trade
+              let e=i;while(e+1<n&&pts[e+1].date===p.date)e++;   // the day's last point holds the day's total
+              const f=flags[p.date];if(!f||!(f.rep||f.par||f.bo))return;
+              let tip='Data caveat - '+p.date+' \u00b7 '+qeMoney(pts[e].v)+' \u00b7 '+f.n+' trade'+(f.n===1?'':'s')+' closed';
+              if(f.rep)tip+=' \u00b7 '+f.rep+' exit'+(f.rep===1?'':'s')+' priced from the 1-minute tape';
+              if(f.par)tip+=' \u00b7 '+f.par+' failed the parity check';
+              if(f.bo)tip+=' \u00b7 '+f.bo+' never reached the broker (book only)';
+              bands.push({i:i,title:tip+'. These trades still count.'});
+            });
+            // VERSION MARKERS (kept from 2026-09-24): family + run numbers, e.g. "NOISE #304 -> #382";
+            // the label sits right of the marker, so where it would not fit only the new run is named
+            const marks=[];
+            const dated=pts.map((p,i)=>(i&&p.date)?i:-1).filter(i=>i>0);
+            if(dated.length){
+              const d0=pts[dated[0]].date,d1=pts[dated[dated.length-1]].date;
+              Array.from(new Set(QE_LEG_VERSIONS.map(v=>v.date))).sort().forEach(md=>{
+                if(md<d0||md>d1)return;
+                const idx=dated.find(i=>pts[i].date>=md);if(idx==null)return;
+                const vsAt=QE_LEG_VERSIONS.filter(v=>v.date===md);
+                const full=vsAt.map(v=>famOf(v.leg)+' '+v.from+' \u2192 '+v.to).join(', '),short=vsAt.map(v=>famOf(v.leg)+' '+v.to).join(', ');
+                // read at draw time (the chart redraws on resize): the full label only when the pixels left
+                // to the plot's right edge hold it (about 5 px a letter at 8 px), so on a phone it never runs
+                // into the price labels; the plot = the box width less the shared chart's side margins
+                const mk={i:idx};
+                Object.defineProperty(mk,'label',{enumerable:true,get:()=>{
+                  const el=document.getElementById('qb-lg-chart'),W=Math.max(240,Math.round((el&&el.clientWidth)||600));
+                  const room=(n>1?(1-idx/(n-1)):0.5)*(W-4-(W<600?54:66));
+                  return room>=full.length*5+8?full:short;}});
+                marks.push(mk);
+              });
+            }
+            // per-strategy faint lines (only when two or more strategies closed trades in the range)
+            let lgOff={};try{lgOff=JSON.parse(localStorage.getItem('el_lg_lines_webull')||'{}')||{};}catch(e){lgOff={};}
+            const lineLegs=QE_LEGS.filter(l=>legRun[l[0]]!==undefined),nameKey={};
+            const lines=lineLegs.length<2?[]:lineLegs.map(([key,label,color,runNo])=>{
+              const nm=label+' '+qeLegShortTag(key,runNo);nameKey[nm]=key;
+              return {name:nm,color:color,on:!lgOff[key],
+                vals:pts.map((p,i)=>i===0?0:((p.legs&&p.legs[key]!=null)?p.legs[key]:0))};});
+            // the hero while scrubbing: the big number = P&L of record since the start through that
+            // point (what closed before the range + the curve), the day line = that day's change,
+            // the range line = the range's P&L through that point
+            const qbBase=Math.round((closedSum-qbRangePnl)*100)/100;
+            const lastV=pts[n-1].v;
+            let heroSaved=null;
+            const heroEls=()=>({big:document.getElementById('qb-hero-value'),today:document.getElementById('qb-hero-today'),range:document.getElementById('qb-hero-range')});
+            window._qbLgChart={id:'qbwb',pts:pts,up:lastV>=0,lines:lines,bands:bands,marks:marks,
+              aria:'Webull paper P&L of record, '+(LEDGER_RANGE_LABEL[qbRange]||qbRange),
+              onToggle:(nm,on)=>{const k=nameKey[nm]||nm;try{const o=JSON.parse(localStorage.getItem('el_lg_lines_webull')||'{}')||{};if(on)delete o[k];else o[k]=1;localStorage.setItem('el_lg_lines_webull',JSON.stringify(o));}catch(e){}},
+              onScrub:(i,p)=>{
+                window._qbChartHoverActive=true;   // the live listener holds its redraw until the scrub ends
+                const h=heroEls();if(!h.big)return;
+                if(!heroSaved)heroSaved={big:h.big.innerHTML,today:h.today?h.today.innerHTML:null,range:h.range?h.range.innerHTML:null};
+                // the last point is now: with a position open the resting big number also carries its open
+                // P&L (openMarkPnl), so add it there too and the number does not jump when the mouse comes in
+                const atNow=i===n-1&&posCount>0;
+                h.big.textContent=_hmMoney(qbBase+p.v+(atNow?openMarkPnl:0));
+                let j=i;while(j>0&&pts[j-1].date&&pts[j-1].date===p.date)j--;
+                const dayV=i?Math.round((p.v-(j>0?pts[j-1].v:0)+(atNow&&p.date===qeBoxDay?openMarkPnl:0))*100)/100:0;
+                const when=p.date?_lgDateLbl(p.date,true):'';
+                if(h.today)h.today.innerHTML=i?('<span class="'+(dayV>=0?'hm-up':'hm-down')+'">'+(dayV>=0?'&#9650; +':'&#9660; -')+_hmMoney(Math.abs(dayV))+'</span> <span class="lg-suffix">on '+when+'</span>')
+                  :'<span class="lg-suffix">start of the range</span>';
+                const rc=p.v>=0?'hm-up':'hm-down';
+                if(h.range)h.range.innerHTML='<span class="'+rc+'">'+(p.v>=0?'&#9650;':'&#9660;')+'</span><span class="'+rc+'">'+_hmMoney(Math.abs(p.v))+'</span>'
+                  +'<span class="hm-suffix">'+qbRangeWord+(i?' &middot; through '+when:' &middot; start')+(posCount>0?' &middot; closed trades':'')+'</span>';
+              },
+              onLeave:()=>{
+                const h=heroEls();
+                if(heroSaved){if(h.big)h.big.innerHTML=heroSaved.big;if(h.today&&heroSaved.today!=null)h.today.innerHTML=heroSaved.today;if(h.range&&heroSaved.range!=null)h.range.innerHTML=heroSaved.range;}
+                heroSaved=null;
+                window._qbChartHoverActive=false;
+                _qqqExecCatchUp();   // a snapshot that landed mid-scrub was held back -- show it now
+              }};
+            // the board's own key under the chart (the shared legend covers the lines only)
+            const hasBookPriced=qbRangeTrades.some(t=>t.book_only||/^(book|part)$/.test(String(t.pnl_record_src||'')));
+            const keyHtml=(bands.length||hasBookPriced)?('<div class="qbx-lg-key">'
+              +(bands.length?'<span title="days whose trades include an exit priced from the 1-minute tape, a failed parity check, or a trade that never reached the broker; hover a column for that day"><i class="qbx-lg-hatch"></i>hatched = a data caveat day; its trades still count</span>':'')
+              +(hasBookPriced?'<span title="marked BOOK ONLY or BOOK PRICE on the trade rows below"><i class="qbx-lg-book"></i>book only = a side priced from the book because no Webull fill was captured</span>':'')
+              +'</div>'):'';
+            equityHtml='<div class="qb-chart-wrap"><div class="qbx-chart-cap">'+qbRangeCap+'</div>'
+              +'<div class="qbx-lgchart" id="qb-lg-chart"></div>'+keyHtml+periodTabsHtml+'</div>';
+          }
+        }else{
+          window._qbLgChart=null;
           const cum=qbRange?qbRangeCum:qbPeriodFilter(qeCum,qbChartPeriod);
           const cD=p=>(p&&p.date!==undefined)?p.date:((p||[])[0]);
           const cV=p=>Number((p&&p.cum_pnl!==undefined)?p.cum_pnl:((p||[])[1]))||0;
@@ -38090,7 +38273,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             };
             const rows=orders.slice().reverse().map(o=>'<tr>'
               +'<td>'+qeFmtETTime(o.ts_et)+'</td>'
-              +'<td style="color:'+legColorQE(o.leg)+'">'+naS(o.leg)+'</td>'
+              +'<td style="color:'+legColorQE(o.leg)+'">'+qeTradeLegHtml({leg:o.leg,trade_id:o.trade_id,entry_ts:o.ts_et})+'</td>'
               +'<td>'+naS(o.action)+'</td><td>'+naS(o.side)+'</td>'
               +'<td style="text-align:right">'+qeInt(o.shares)+'</td>'
               +'<td style="text-align:right">'+qeMoney(o.nq_px)+'</td>'
@@ -38322,7 +38505,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const pnl=qePnlOf(t);
               const _qeEt=_qeMin(t.entry_ts),_qeXt=_qeMin(t.exit_ts);
               _qeCandleRows.push({_no:_qeKey(t),_tid:(t.trade_id?String(t.trade_id):null),_tf:_qeTf(t.leg),_qbars:1,
-                _label:naS(t.leg)+' · '+(_qeEt||'?'),
+                _label:qeTradeLegName(t)+' · '+(_qeEt||'?'),
                 _srcLbl:'Webull paper trade (QQQ shares)',
                 _et:_qeEt,_xt2:_qeXt,
                 _ep:(t.entry_px!=null&&isFinite(Number(t.entry_px))?Number(t.entry_px):null),
@@ -38335,7 +38518,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const slip=avgSlip(t);
               const rowHtml='<tr data-qetraderow="'+i+'" style="cursor:pointer'+(drawerIdx===i?';background:color-mix(in srgb,var(--blue) 8%,transparent)':'')+'">'
                 +'<td>'+qeFmtET(t.entry_ts)+'</td><td>'+qeFmtET(t.exit_ts)+'</td>'
-                +'<td style="color:'+legColorQE(t.leg)+'">'+naS(t.leg)+qeVerTagHtml(t)+parityChip(t)+bookOnlyChip(t)+'</td>'
+                +'<td style="color:'+legColorQE(t.leg)+'">'+qeTradeLegHtml(t)+parityChip(t)+bookOnlyChip(t)+'</td>'
                 +'<td>'+naS(t.side?String(t.side).toUpperCase():null)+'</td>'
                 +'<td style="text-align:right">'+qeInt(t.shares)+'</td>'
                 +'<td style="text-align:right">'+qeMoney(t.entry_px)+'</td>'
@@ -38380,7 +38563,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const sideTxt=t.side?String(t.side).toUpperCase():'—';
               return '<div class="qb-row qb-tap" data-qbtraderow="'+i+'"'+(t.trade_id?(' data-qbtid="'+String(t.trade_id).replace(/"/g,'&quot;')+'"'):'')
                 +(window._qeRowKey?(' data-qbkey="'+String(window._qeRowKey(t)).replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'"'):'')+'>'
-                +'<span style="font-size:11px;font-weight:700;color:'+legColorQE(t.leg)+';flex:0 0 auto">'+naS(t.leg)+qeVerTagHtml(t)+'</span>'
+                +'<span style="font-size:11px;font-weight:700;color:'+legColorQE(t.leg)+';flex:0 0 auto">'+qeTradeLegHtml(t)+'</span>'
                 +'<div class="qb-row-label" style="flex:1.6">'+sideTxt+' '+qeInt(t.shares)+' sh<div class="qb-row-sublabel">'+qbDateRange(t)+(tag?(' '+tag):'')+'</div></div>'
                 +'<span class="qb-row-value" style="color:'+pnlCol(pnl)+'">'+qeMoney(pnl)+'</span>'
                 +'<span class="qb-chevron">›</span>'
@@ -39015,11 +39198,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if(qbSheet.rk&&window._qeRowKey){const k2=trades.findIndex(q=>q&&window._qeRowKey(q)===qbSheet.rk);t=(k2>=0)?trades[k2]:null;}
             else if(qbSheet.tid){const k2=trades.findIndex(q=>q&&q.trade_id===qbSheet.tid);if(k2>=0)t=trades[k2];}
             if(t){
-              sheetTitle=naS(t.leg)+' · '+qeFmtET(t.entry_ts)+' → '+qeFmtET(t.exit_ts);
+              sheetTitle=qeTradeLegName(t)+' · '+qeFmtET(t.entry_ts)+' → '+qeFmtET(t.exit_ts);
               // PRICE ACTION (owner 2026-09-28): the trade's candles, compact, above the breakdown
               const _cx=(window._qeCandleRows||[]).find(q=>q&&window._qeRowKey&&q._no===window._qeRowKey(t))
                 ||(window._qeCandleRows||[]).find(q=>q&&t.trade_id&&q._tid===String(t.trade_id))
-                ||(window._qeCandleRows||[]).find(q=>q&&!q._tid&&q._et&&q._et===String(t.entry_ts||'').slice(0,16)&&q._label.indexOf(naS(t.leg))===0);
+                ||(window._qeCandleRows||[]).find(q=>q&&!q._tid&&q._et&&q._et===String(t.entry_ts||'').slice(0,16)&&q._label.indexOf(qeTradeLegName(t))===0);
               sheetBody=((_cx&&_cx._et&&window._qbSheetCandlesHtml)?window._qbSheetCandlesHtml(_cx):'')
                 +(qbBuildDrawerFn?qbBuildDrawerFn(t):'');
             }
@@ -43569,6 +43752,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // The table's open row is dropped, since its row number counts in the old list.
       content.querySelectorAll('[data-qbrange]').forEach(el=>{el.onclick=()=>{
         homeRange=el.getAttribute('data-qbrange');window._qeDrawerIdx=null;renderApp();};});
+      // LEDGER shared equity chart (unify step 5): drawn into its box now that the page is in place
+      if(window._qbLgChart){const lgw=content.querySelector('#qb-lg-chart');if(lgw)ledgerChartRender(lgw,window._qbLgChart);}
+      // Retired strategies (owner decision 9): open / closed, remembered per viewer
+      content.querySelectorAll('[data-qbretired]').forEach(el=>{el.onclick=()=>{
+        let o=!!window._qbRetiredOpen;
+        try{const sv=localStorage.getItem('el_qb_retired_open');if(sv!=null)o=sv==='1';}catch(e){}
+        window._qbRetiredOpen=!o;
+        try{localStorage.setItem('el_qb_retired_open',o?'0':'1');}catch(e){}
+        renderApp();};});
       // Disclosures — each remembers open/closed per browser, same mechanism as the
       // pre-existing qqqModelOpen toggle.
       const QB_DISC_PREF={morestats:'qqqMoreStatsOpen',allchecks:'qqqChecksOpen',
