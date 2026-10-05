@@ -26,3 +26,9 @@ basket queue (scoping doc section 5). Output C:/EdgeLog/_anatomy_cache/q19/ (lin
 ADDENDUM 1 (before any number): STRATEGY-BEATING #86 - the file's 2,626 rows are #463's own WF day index (UTC stamps; 280 Sunday rows
 where RES is 0), the legs are unscaled ($4,000 a name, 50 + 50, costs in), first fills 2017-01-03, and their line reads 120.82 / 3.916 /
 worst drawdown $36,526 - the parity targets 120.8 / 3.92 stand (tolerances 0.05 / 0.005) and the drawdown is printed beside them.
+ADDENDUM 2 (after the first run stopped at PARITY, before any figure past parity): the drawdown-day set is the HOUSE rule that
+RESMOM's gate used (MDL r1 / DDW r1 [T5]): peak-to-trough episodes of the daily equity (peak starting at 0) at least 1/3 as deep as
+the stretch's deepest ($14,950 for #463), days = the day after each peak through its trough - 28 episodes, 460 days. The first run
+used 'more than $15,000 below the running peak' (Q9-Q15's registered A3 rule) and stopped at parity: 314 days, RES $116,537 on them,
+against the gate's $105,919 over 460. Everything in this item (the 28 episodes, the line's own episodes R, the seat definitions) uses
+the house rule, applied to the line with ITS deepest; parity adds 'exactly 28 episodes'.
