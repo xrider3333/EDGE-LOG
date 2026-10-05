@@ -96,13 +96,21 @@ the closed P&L of record, and leaving puts the hero back; a legend switch is rem
 STATS (LEDGER unify step 6, 2026-10-05): the board's own stat tiles are TRADING-LOG's shared strip now.
 Every plain case: the four [data-lgstat] tiles (WIN RATE, PROFIT FACTOR, MAX DRAWDOWN, TRADES) in that
 order under the chart, a percent / a ratio / a positive dollar amount / a count, each equal to a
-recomputation here from the fixture (P&L of record, close day, walked in exit order). Four stats cases
-with today pinned to 2026-10-05: ALL, 1W (trades that closed on or after 09-28) on the laptop and again
-on a 390x844 phone in MONO, and ALL with one September loss turned into a $0 trade, which must be
-neither a win nor a loss in the tiles ('1 even') and in the calendar's month '% won'. The interaction
-run opens and closes the More stats fold (aria-expanded true then false, the choice stored for this
-viewer, Returns / Risk / Mix / Account with the Webull rows). ?oldboards=1: no shared tiles, the old
-Stats section is back.
+recomputation here from the fixture (P&L of record, close day, walked in exit order), the PROFIT FACTOR
+line ('$276 won · $304 lost') and the MAX DRAWDOWN line included. Eight stats cases with today pinned to
+2026-10-05: ALL; 1W (trades that closed on or after 09-28) on the laptop; 1W again on a 390x844 phone in
+MONO with More stats open; ALL with one September loss turned into a $0 trade, which must be neither a
+win nor a loss in the tiles ('1 even') and in the calendar's month '% won'; TODAY (one trade); 1M on a
+375x812 phone with More stats open; TODAY with today pinned to 2026-10-06 (no trade closed yet) with More
+stats open, which must still show the Account rows (equity, cash, Open exposure, Daily loss limit,
+slippage) under 'No trades in this range.'; and ALL with a shadow row worth $5,000 closed today, which
+must leave the tiles and More stats unchanged. Each 'More stats open' case opens it the way a reload
+does (stored '1', nothing in memory) and must draw it open; its values are checked against the fixture
+(Net P&L, Max drawdown, Broker made, Book figure over the same trades, Book-only trades, Fill coverage,
+best and worst trade), and on a phone it must not scroll sideways. The interaction run opens and closes
+the More stats fold (aria-expanded true then false, the choice stored for this viewer, Returns / Risk /
+Mix / Account with the Webull rows, and on ALL the Webull rows' values). ?oldboards=1: no shared tiles,
+the old Stats section is back.
 
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks; a retry that passes prints a FLAKE line.
@@ -147,6 +155,8 @@ STAT_KEYS = ['winrate', 'pf', 'maxdd', 'trades']
 STAT_TODAY = '2026-10-05'      # the stats cases pin ledgerTodayNY() to the fixture's own day
 ACCOUNT_ROWS = ['Account equity', 'Cash', 'Open exposure', 'Daily loss limit', 'Broker made',
                 'Book figure', 'Book-only trades', 'Fill coverage', 'Slippage vs backtest']
+# the Account rows that do not depend on the range: there even when no trade closed in it
+ACCOUNT_ROWS_ANY_RANGE = ['Account equity', 'Cash', 'Open exposure', 'Daily loss limit', 'Slippage vs backtest']
 
 
 
@@ -730,6 +740,31 @@ MUTANTS = [
      "content.querySelectorAll('[data-lgmore=\"qb\"]').forEach(",
      "content.querySelectorAll('[data-lgmore=\"qb-off\"]').forEach(",
      "the More stats fold never opens"),
+    # LEDGER step 6 review fixes
+    ('more-stats-not-remembered',
+     "const qbMoreOpen=(()=>{let o=!!window._qbMoreStatsOpen;try{const sv=localStorage.getItem('el_qb_morestats_open');if(sv!=null)o=sv==='1';}catch(e){}return o;})();",
+     "const qbMoreOpen=!!window._qbMoreStatsOpen;",
+     "an open More stats fold is closed again after a reload"),
+    ('account-gone-on-empty-range',
+     "+((qbMoreOpen&&!qbLs)?qbMoreEmptyHtml():",
+     "+(false?qbMoreEmptyHtml():",
+     "with no trade closed in the range (TODAY before the first exit) More stats loses equity, open exposure and the loss limit"),
+    ('book-figure-counts-book-only',
+     "if(t.book_only)bo++;else{broker+=v;const a=qeFinRec(t.pnl),r=qeFinRec(t.real_pnl);book+=a!==null?a:(r!==null?r:0);}",
+     "const a=qeFinRec(t.pnl),r=qeFinRec(t.real_pnl);book+=a!==null?a:(r!==null?r:0);if(t.book_only)bo++;else{broker+=v;}",
+     "Book figure adds up the book-only trades that Broker made leaves out, so the two rows are not like for like"),
+    ('shadow-in-stats',
+     "const qbStatRows=qbRangeTrades.filter(t=>!qbIsShadowRow(t))",
+     "const qbStatRows=qbRangeTrades.filter(t=>true)",
+     "a shadow row enters the stat tiles and More stats"),
+    ('pf-line-swapped',
+     "ledgerShortMoney(s.grossWin).slice(1)+' won &middot; '+ledgerShortMoney(s.grossLoss).slice(1)+' lost'",
+     "ledgerShortMoney(s.grossLoss).slice(1)+' won &middot; '+ledgerShortMoney(s.grossWin).slice(1)+' lost'",
+     "the PROFIT FACTOR line swaps what was won and what was lost"),
+    ('best-trade-is-worst',
+     "best=Math.max.apply(null,pv)",
+     "best=Math.min.apply(null,pv)",
+     "More stats' best trade shows the worst one"),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -797,6 +832,23 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
   // the opacity an element is drawn at: its own times every ancestor's (null when it is not there)
   function effOp(e){if(!e)return null;var o=1,w=W();for(var n=e;n&&n.nodeType===1;n=n.parentElement){o*=parseFloat(w.getComputedStyle(n).opacity)||0;}return Math.round(o*100)/100;}
   function txt(sel){var e=q(sel);return e?(e.textContent||'').replace(/\\s+/g,' ').trim():null;}
+  // the More stats panel: shown or hidden, its groups, and every row as 'Group|Label' -> value text
+  function moreRead(){
+    var mp=q('#qb-more'),m={panel:mp?(mp.hasAttribute('hidden')?'hidden':'shown'):null,groups:[],vals:{},
+      empty:!!mp&&(mp.textContent||'').indexOf('No trades in this range.')>=0};
+    if(mp)[].forEach.call(mp.querySelectorAll('[data-lgmsgroup]'),function(g){
+      var gt=g.getAttribute('data-lgmsgroup');m.groups.push(gt);
+      [].forEach.call(g.querySelectorAll('.lg-ms-row'),function(row){
+        var l=row.querySelector('.l'),v=row.querySelector('.v');
+        m.vals[gt+'|'+(l?(l.textContent||'').replace(/\\s+/g,' ').trim():'')]=v?(v.textContent||'').replace(/\\s+/g,' ').trim():null;});});
+    return m;
+  }
+  // wait until the top bar has kept one height for three checks in a row (a busy machine draws late)
+  async function settleTopbar(){
+    var last=-1,same=0,a=Date.now();
+    while(Date.now()-a<3000){var t=D().querySelector('#app .topbar'),h=t?t.offsetHeight:0;
+      if(h===last){if(++same>=3)return;}else{same=0;last=h;}await sleep(50);}
+  }
   function offenders(d){
     var cw=d.documentElement.clientWidth,res=[],fix=[];
     var all=d.querySelectorAll('body *');
@@ -824,10 +876,12 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     w.__probeCheckedMs=cfg.checkedMs||cfg.nowMs||NOW;
     w.__probeOffline=!!cfg.offline;w.__probeMissing=!!cfg.missing;w.__probeUnloaded=!!cfg.unloaded;
     w.__probeRange=cfg.range||null;w.__probeTodayNY=cfg.todayNY||null;w.__probeCalMonth=cfg.calMonth||null;
+    w.__probeMoreOpen=!!cfg.moreOpen;
     return w.eval("(function(){try{"
       +"if(!window.__probeLTN)window.__probeLTN=ledgerTodayNY;"
       +"ledgerTodayNY=window.__probeTodayNY?function(){return window.__probeTodayNY;}:window.__probeLTN;"
-      +"try{localStorage.removeItem('el_qb_morestats_open');}catch(e){}window._qbMoreStatsOpen=false;"
+      // More stats open is stored for this viewer but not in memory: the way a reload finds it
+      +"try{if(window.__probeMoreOpen)localStorage.setItem('el_qb_morestats_open','1');else localStorage.removeItem('el_qb_morestats_open');}catch(e){}window._qbMoreStatsOpen=false;"
       +"try{delete navigator.onLine;}catch(e){}"
       +"if(window.__probeOffline)Object.defineProperty(navigator,'onLine',{configurable:true,get:function(){return false;}});"
       +"try{localStorage.removeItem('el_qb_retired_open');localStorage.removeItem('el_lg_lines_webull');}catch(e){}"
@@ -893,6 +947,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     r.statTilesAll=d.querySelectorAll('[data-lgstat]').length;
     r.oldStats=!!d.querySelector('.qbx-stat-strip');
     var mbt=q('[data-lgmore="qb"]');r.moreBtn=mbt?mbt.getAttribute('aria-expanded'):null;
+    r.more=moreRead();
     var act=q('.qbx-activity'),mwon=act?(act.textContent||'').match(/(\\d+)% won/):null;r.calWon=mwon?+mwon[1]:null;
     r.scrollW=d.documentElement.scrollWidth;
     r.clientW=d.documentElement.clientWidth;
@@ -996,27 +1051,35 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         // let renderApp's own pins (rAF, 400 ms, fonts.ready) all run first: only the chip's refresh may re-pin after the read
         try{var fr0=D().fonts;if(fr0&&fr0.ready)await Promise.race([fr0.ready,sleep(5000)]);}catch(e){}
         await sleep(700);
+        await settleTopbar();
         var tb0=D().querySelector('#app .topbar');pinTb0=tb0?tb0.offsetHeight:null;
+        // Measured in the same turn as the read, right after the page's own handler (the next callback on
+        // the same promise), scrolled 600 px with layout forced. Nothing else can run in between: on a busy
+        // machine headless Chrome delivers the phone resize event and renderApp's first-frame pin late, and
+        // either one landing after the read re-pinned the strip and hid a chip that does not (review 6).
+        w.__probeMeasurePin=function(){
+          var d=D(),tb=d.querySelector('#app .topbar'),sb=tb&&tb.nextElementSibling,ct=d.querySelector('#app .content'),sp=d.createElement('div');
+          sp.style.height='3000px';if(ct)ct.appendChild(sp);
+          w.scrollTo(0,600);
+          var pin={tbH0:pinTb0,scrollY:Math.round(w.scrollY)};
+          if(tb&&sb){var tr=tb.getBoundingClientRect(),sr=sb.getBoundingClientRect();
+            pin.tbH1=tb.offsetHeight;pin.tbBottom=Math.round(tr.bottom);pin.subTop=Math.round(sr.top);pin.subStyleTop=sb.style.top;pin.subPos=sb.style.position;}
+          w.scrollTo(0,0);sp.remove();
+          return pin;
+        };
       }
-      w.__probeFetchJson=JSON.stringify(cfg.fetch);w.__qbNowMs=cfg.tickTo;
+      w.__probeFetchJson=JSON.stringify(cfg.fetch);w.__qbNowMs=cfg.tickTo;w.__probePinNow=!!cfg.pin;
       var res=w.eval("(function(){var sd=db,sa=auth;window.__probeRestore=function(){db=sd;auth=sa;};try{"
         +"var doc=JSON.parse(window.__probeFetchJson),snap={exists:true,data:function(){return doc;},metadata:{fromCache:false}};"
-        +"var ref={get:function(){return Promise.resolve(snap);},onSnapshot:function(){return function(){};}};"
+        +"var got=Promise.resolve(snap),ref={get:function(){return got;},onSnapshot:function(){return function(){};}};"
         +"db={collection:function(){return {doc:function(){return {collection:function(){return {doc:function(){return ref;}};}};}};}};"
-        +"auth={currentUser:{uid:'probe-uid'}};window._qqqExecLoading=false;loadQqqExec(null,true);return 'OK';"
+        +"auth={currentUser:{uid:'probe-uid'}};window._qqqExecLoading=false;loadQqqExec(null,true);"
+        +"if(window.__probePinNow)got.then(function(){try{window.__probePin=window.__probeMeasurePin();}catch(e){window.__probePin={err:String(e)};}});"
+        +"return 'OK';"
         +"}catch(e){window.__probeRestore();return 'ERR '+(e&&e.stack?e.stack:e);}})()");
       await sleep(150);
       try{w.__probeRestore();}catch(e){}
-      if(cfg.pin){
-        var d=D(),tb=d.querySelector('#app .topbar'),sb=tb&&tb.nextElementSibling,ct=d.querySelector('#app .content'),sp=d.createElement('div');
-        sp.style.height='3000px';if(ct)ct.appendChild(sp);
-        w.scrollTo(0,600);await sleep(80);
-        var pin={tbH0:pinTb0,scrollY:Math.round(w.scrollY)};
-        if(tb&&sb){var tr=tb.getBoundingClientRect(),sr=sb.getBoundingClientRect();
-          pin.tbH1=tb.offsetHeight;pin.tbBottom=Math.round(tr.bottom);pin.subTop=Math.round(sr.top);pin.subStyleTop=sb.style.top;pin.subPos=sb.style.position;}
-        w.__probePin=pin;
-        w.scrollTo(0,0);sp.remove();
-      }
+      w.__probePinNow=false;
       return res;
     }
     return null;
@@ -1077,6 +1140,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         var pn=q('#qb-more');fo.panel=pn?(pn.hasAttribute('hidden')?'hidden':'shown'):null;
         fo.groups=[].map.call(d.querySelectorAll('#qb-more [data-lgmsgroup]'),function(g){return g.getAttribute('data-lgmsgroup');});
         fo.acct=[].map.call(d.querySelectorAll('#qb-more [data-lgmsgroup="Account"] .lg-ms-row .l'),function(e){return (e.textContent||'').trim();});
+        fo.vals=moreRead().vals;
         fo.bad=((pn&&pn.innerText)||'').match(/NaN|undefined|\\[object Object\\]/g)||[];
         try{fo.stored=w.localStorage.getItem('el_qb_morestats_open');}catch(e){}
         if(mb2){mb2.click();await sleep(80);}
@@ -1115,7 +1179,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         out.stats={};
         for(var k=0;k<STATS.length;k++){
           var S=STATS[k];
-          await runCase('__st'+k,{vp:S.vp,theme:S.theme,fix:S.doc,range:S.range,todayNY:S.today,calMonth:S.calMonth});
+          await runCase('__st'+k,{vp:S.vp,theme:S.theme,fix:S.doc,range:S.range,todayNY:S.today,calMonth:S.calMonth,moreOpen:S.more});
           out.stats[S.name]=out.cases['__st'+k];delete out.cases['__st'+k];
         }
         try{W().eval("ledgerTodayNY=window.__probeLTN||ledgerTodayNY;");}catch(e){}
@@ -1239,14 +1303,78 @@ def _js_round(x):
     return int(math.floor(x + 0.5))
 
 
+def signed(v):
+    """index.html ledgerSigned: '+$1.00' / '-$1.00' (a zero reads '+$0.00')."""
+    return ('+' if v >= 0 else '-') + money(abs(v))
+
+
+def short_money(v):
+    """index.html ledgerShortMoney without its sign: $276, $1.2k, $12k."""
+    a = abs(v)
+    if a >= 10000:
+        return '$%dk' % _js_round(a / 1000)
+    if a >= 1000:
+        s = '%.1f' % (a / 1000)
+        return '$' + (s[:-2] if s.endswith('.0') else s) + 'k'
+    return '$%d' % _js_round(a)
+
+
+def _fin(v):
+    """index.html qeFinRec: a finite number, else None (null / '' / text / NaN are missing)."""
+    if v is None or v == '':
+        return None
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return None
+    return v if (v == v and v not in (float('inf'), float('-inf'))) else None
+
+
+def _range_rows(trades, cutoff=None):
+    """The trades the stats count: shadow rows left out, closed on or after `cutoff`, in exit order."""
+    rows = [t for t in trades if not _is_shadow(t)]
+    if cutoff:
+        rows = [t for t in rows if (_close_day(t) or '') >= cutoff]
+    return sorted(rows, key=lambda t: str(t.get('exit_ts') or t.get('entry_ts') or ''))
+
+
+def expected_more(trades, cutoff=None):
+    """More stats rows worked out here: {'Group|Label': value text}, or {} when the range is empty."""
+    rows = _range_rows(trades, cutoff)
+    if not rows:
+        return {}
+    vals = [qe_pnl_of(t) for t in rows]
+    net = run = peak = dd = 0.0
+    for v in vals:
+        net += v
+        run += v
+        peak = max(peak, run)
+        dd = max(dd, peak - run)
+    broker = book = 0.0
+    bo = wb = 0
+    for t in rows:
+        if t.get('book_only'):
+            bo += 1
+        else:
+            broker += qe_pnl_of(t)
+            a, r = _fin(t.get('pnl')), _fin(t.get('real_pnl'))
+            book += a if a is not None else (r if r is not None else 0.0)
+        if str(t.get('pnl_record_src') or '') == 'webull':
+            wb += 1
+    n = len(rows)
+    return {'Returns|Net P&L': signed(net), 'Risk|Max drawdown': money(dd),
+            'Account|Broker made': signed(broker), 'Account|Book figure': signed(book),
+            'Account|Book-only trades': '%d of %d' % (bo, n),
+            'Account|Fill coverage': '%d of %d (%d%%)' % (wb, n, _js_round(wb / n * 100)),
+            'Best and worst trade|Best trade': signed(max(vals)),
+            'Best and worst trade|Worst trade': signed(min(vals))}
+
+
 def expected_stats(trades, cutoff=None):
     """The four LEDGER tiles worked out here, not read off the page: the trades that closed on or after
     `cutoff` (None = all), shadow rows left out, walked in exit order at the P&L of record. A $0 trade is
     neither a win nor a loss. Returns {key: (value text, sub text)}."""
-    rows = [t for t in trades if not _is_shadow(t)]
-    if cutoff:
-        rows = [t for t in rows if (_close_day(t) or '') >= cutoff]
-    rows = sorted(rows, key=lambda t: str(t.get('exit_ts') or t.get('entry_ts') or ''))
+    rows = _range_rows(trades, cutoff)
     vals = [qe_pnl_of(t) for t in rows]
     n = len(vals)
     w = sum(1 for v in vals if v > 0)
@@ -1265,7 +1393,8 @@ def expected_stats(trades, cutoff=None):
     wr = ('%d%%' % _js_round(w / (w + l) * 100)) if (w + l) else '--'
     pf = '--' if (not gw and not gl) else ('%.2f' % (gw / gl) if gl > 0 else 'no losses')
     return {'winrate': (wr, '%d W · %d L' % (w, l) + (' · %d even' % f if f else '')),
-            'pf': (pf, None), 'maxdd': (money(dd), None),
+            'pf': (pf, ('%s won · %s lost' % (short_money(gw), short_money(gl))) if (gw or gl) else ''),
+            'maxdd': (money(dd), 'worst drop from a high' if dd > 0 else ''),
             'trades': (str(n), 'over %d day%s' % (days, '' if days == 1 else 's'))}
 
 
@@ -1288,22 +1417,52 @@ def _zero_doc(fixture):
     return doc
 
 
-def _cutoff(range_key):
+def _cutoff(range_key, today=STAT_TODAY):
+    """index.html ledgerCutoff: the first New York day a range keeps (None = ALL)."""
+    if range_key == 'TODAY':
+        return today
+    if range_key == 'YTD':
+        return today[:4] + '-01-01'
     days = {'1W': 7, '1M': 30, '3M': 90}.get(range_key)
     if not days:
         return None
-    y, m, d = map(int, STAT_TODAY.split('-'))
+    y, m, d = map(int, today.split('-'))
     import datetime
     return (datetime.date(y, m, d) - datetime.timedelta(days=days)).isoformat()
 
 
+SHADOW_PNL = 5000.0
+
+
+def _shadow_doc(fixture):
+    """The fixture plus one shadow row worth $5,000 that closed today: it must change no stat."""
+    doc = json.loads(json.dumps(fixture))
+    tr = doc.get('trades_all') or []
+    last = max(tr, key=lambda t: str(t.get('exit_ts') or ''))
+    s = json.loads(json.dumps(last))
+    s.update({'shadow': True, 'pnl_record': SHADOW_PNL, 'pnl': str(SHADOW_PNL), 'real_pnl': str(SHADOW_PNL),
+              'exit_ts': STAT_TODAY + ' 15:50:00', 'trade_id': 'NOISE-20261005T195000Z-L', 'book_only': False})
+    tr.append(s)
+    return doc
+
+
 def _stats_cases(fixture):
-    """(name, range, doc, viewport, theme, calendar month)"""
+    """Each: name, range, doc, vp, theme, calendar month, today, more (More stats open as a reload finds
+    it), empty (no trade closed in the range)."""
     z = _zero_doc(fixture)
-    return [('ALL', 'ALL', fixture, 'laptop', 'dark', None),
-            ('1W', '1W', fixture, 'laptop', 'dark', None),
-            ('1W (MONO, 390x844)', '1W', fixture, 'phone390', 'mono', None),
-            ('$0 trade', 'ALL', z, 'laptop', 'dark', '2026-09')]
+
+    def c(name, rg, doc, vp='laptop', th='dark', cal=None, today=STAT_TODAY, more=False, empty=False):
+        return {'name': name, 'range': rg, 'doc': doc, 'vp': vp, 'theme': th, 'cal': cal, 'today': today,
+                'more': more, 'empty': empty}
+    return [c('ALL', 'ALL', fixture),
+            c('1W', '1W', fixture),
+            c('1W (MONO, 390x844, More stats open)', '1W', fixture, vp='phone390', th='mono', more=True),
+            c('$0 trade', 'ALL', z, cal='2026-09'),
+            c('TODAY', 'TODAY', fixture),
+            c('1M (375x812, More stats open)', '1M', fixture, vp='phone', more=True),
+            c('TODAY before the first exit (2026-10-06, More stats open)', 'TODAY', fixture, today='2026-10-06',
+              more=True, empty=True),
+            c('a shadow row closed today (ALL, More stats open)', 'ALL', _shadow_doc(fixture), th='mono', more=True)]
 
 
 def _attempt(chrome, alt_index, fixture):
@@ -1318,8 +1477,9 @@ def _attempt(chrome, alt_index, fixture):
                  'tick': bool(exp.get('tick')), 'fetch': exp.get('fetch'), 'theme': exp.get('theme', 'dark'),
                  'visread': bool(exp.get('visread')), 'cachesnap': bool(exp.get('cachesnap'))}
                 for nm, now, doc, exp in _variant_docs(fixture)]
-    stats = [{'name': nm, 'range': rg, 'doc': doc, 'vp': vp, 'theme': th, 'calMonth': cm, 'today': STAT_TODAY}
-             for nm, rg, doc, vp, th, cm in _stats_cases(fixture)]
+    stats = [{'name': c['name'], 'range': c['range'], 'doc': c['doc'], 'vp': c['vp'], 'theme': c['theme'],
+              'calMonth': c['cal'], 'today': c['today'], 'more': c['more']}
+             for c in _stats_cases(fixture)]
     html = (PROBE_HTML.replace('__CASES__', json.dumps(CASES)).replace('__VP__', json.dumps(VIEWPORTS))
             .replace('__STATS__', json.dumps(stats))
             .replace('__NOW__', json.dumps(et_ms(FRESH_NOW))).replace('__VARS__', json.dumps(variants))
@@ -1399,7 +1559,7 @@ def _judge_tiles(tag, r, want, fails):
         fails.append('%s: WIN RATE reads %r, not a percent' % (tag, got['winrate'][0]))
     if not re.match(r'^(\d+\.\d\d|no losses|--)$', got['pf'][0]):
         fails.append('%s: PROFIT FACTOR reads %r' % (tag, got['pf'][0]))
-    if not re.match(r'^\$[\d,]+\.\d\d$', got['maxdd'][0]):
+    if not re.match(r'^(\$[\d,]+\.\d\d|--)$', got['maxdd'][0]) or (got['maxdd'][0] == '--') != (want['maxdd'][0] == '--'):
         fails.append('%s: MAX DRAWDOWN reads %r, not a positive dollar amount' % (tag, got['maxdd'][0]))
     if not re.match(r'^\d+$', got['trades'][0]):
         fails.append('%s: TRADES reads %r, not a count' % (tag, got['trades'][0]))
@@ -1409,6 +1569,50 @@ def _judge_tiles(tag, r, want, fails):
             fails.append('%s: %s reads %r, the fixture says %r' % (tag, k, got[k][0], wv))
         if ws is not None and got[k][1] != ws:
             fails.append('%s: the %s tile line reads %r, the fixture says %r' % (tag, k, got[k][1], ws))
+
+
+def _judge_more(tag, r, sc_, trades, cutoff, fixture, fails):
+    """A stats case's More stats fold: closed unless the case stored it open (as a reload finds it), then
+    shown with the right groups and values; with no trade in the range, still the Account rows."""
+    m = r.get('more') or {}
+    if not sc_['more']:
+        if r.get('moreBtn') != 'false' or m.get('panel') != 'hidden':
+            fails.append('%s: More stats is not closed (aria-expanded %r, panel %r)' % (tag, r.get('moreBtn'), m.get('panel')))
+        return
+    if r.get('moreBtn') != 'true' or m.get('panel') != 'shown':
+        fails.append('%s: More stats was stored open for this viewer but draws %s (aria-expanded %r) -- an open fold '
+                     'is not remembered on reload' % (tag, m.get('panel'), r.get('moreBtn')))
+        return
+    vals = m.get('vals') or {}
+    acct = [k.split('|', 1)[1] for k in vals if k.startswith('Account|')]
+    if sc_['empty']:
+        if not m.get('empty'):
+            fails.append("%s: More stats does not say 'No trades in this range.' (groups %r)" % (tag, m.get('groups')))
+        miss = [a for a in ACCOUNT_ROWS_ANY_RANGE if not any(x.startswith(a) for x in acct)]
+        if miss:
+            fails.append('%s: with no trade closed in the range More stats loses the Account rows %s (has %r)'
+                         % (tag, miss, acct))
+        eq = fixture.get('equity') or {}
+        rails = fixture.get('rails') or {}
+        checks = [('Account|Daily loss limit', money(-abs(float(rails['daily_loss_limit_usd'])))
+                   if rails.get('daily_loss_limit_usd') is not None else '--')]
+        if eq.get('net_liq') is not None:
+            checks.append(('Account|Account equity', money(float(eq['net_liq']))))
+        for k, w in checks:
+            if k in vals and vals[k] != w:
+                fails.append('%s: More stats %s reads %r, the fixture says %r' % (tag, k.split('|')[1], vals[k], w))
+        ox = vals.get('Account|Open exposure') or ''
+        if 'Account|Open exposure' in vals and not re.match(r'^-?\$[\d,]+\.\d\d', ox):
+            fails.append('%s: More stats Open exposure reads %r, not a dollar amount' % (tag, ox))
+        return
+    if (m.get('groups') or [])[:4] != ['Returns', 'Risk', 'Mix', 'Account'] or 'Best and worst trade' not in (m.get('groups') or []):
+        fails.append('%s: More stats groups are %r, want Returns, Risk, Mix, Account, Best and worst trade' % (tag, m.get('groups')))
+    miss = [a for a in ACCOUNT_ROWS if not any(x.startswith(a) for x in acct)]
+    if miss:
+        fails.append('%s: the Account group is missing %s (has %r)' % (tag, miss, acct))
+    for k, w in expected_more(trades, cutoff).items():
+        if vals.get(k) != w:
+            fails.append('%s: More stats %s reads %r, the fixture says %r' % (tag, k.replace('|', ' > '), vals.get(k), w))
 
 
 def _judge(data, fixture):
@@ -1510,7 +1714,8 @@ def _judge(data, fixture):
         _topbox(nm, r, fails)
     _judge_variants(data, fixture, fails, unfinished, why)
     got_st = data.get('stats') or {}
-    for nm, rg, doc, vp, _th, cm in _stats_cases(fixture):
+    for sc_ in _stats_cases(fixture):
+        nm, rg, doc, vp, cm = sc_['name'], sc_['range'], sc_['doc'], sc_['vp'], sc_['cal']
         tag = 'stats [%s]' % nm
         r = got_st.get(nm)
         if r is None:
@@ -1523,10 +1728,17 @@ def _judge(data, fixture):
         if r.get('badTok'):
             fails.append('%s: the page shows %r' % (tag, r['badTok']))
         tr = doc.get('trades_all') or []
-        want = expected_stats(tr, _cutoff(rg))
-        if want['trades'][0] == '0' or (rg != 'ALL' and want['trades'][0] == str(len(tr))):
+        cut = _cutoff(rg, sc_['today'])
+        want = expected_stats(tr, cut)
+        n_plain = len([t for t in tr if not _is_shadow(t)])
+        if (want['trades'][0] == '0') != sc_['empty'] or (rg != 'ALL' and want['trades'][0] == str(n_plain)):
             fails.append('%s: the probe\'s own case is wrong: %s of %s trades in the range' % (tag, want['trades'][0], len(tr)))
+        if any(_is_shadow(t) for t in tr):
+            # a shadow row must change nothing: the tiles equal the fixture's own
+            if want != expected_stats(fixture.get('trades_all') or [], cut):
+                fails.append("%s: the probe's own case is wrong: its shadow row moved the recomputation" % tag)
         _judge_tiles(tag, r, want, fails)
+        _judge_more(tag, r, sc_, tr, cut, fixture, fails)
         if nm == '$0 trade':
             if '1 even' not in (want['winrate'][1] or ''):
                 fails.append('%s: the probe\'s $0 fixture trade did not land (%r)' % (tag, want['winrate'][1]))
@@ -1588,6 +1800,12 @@ def _judge(data, fixture):
                 fails.append('%s: the Account group is missing %s (has %r)' % (tag, miss, fo.get('acct')))
             if fo.get('bad'):
                 fails.append('%s: More stats shows %r' % (tag, fo['bad']))
+            # on ALL the Webull rows against the fixture (Book figure over the same trades as Broker made)
+            fvals = fo.get('vals') or {}
+            for k, w in expected_more(fixture.get('trades_all') or []).items():
+                if k.startswith('Account|') and fvals.get(k) != w:
+                    fails.append('%s: More stats %s reads %r on ALL, the fixture says %r'
+                                 % (tag, k.split('|')[1], fvals.get(k), w))
             if fo.get('closed') != 'false' or fo.get('panelAfter') != 'hidden' or fo.get('stored2') != '0':
                 fails.append('%s: More stats did not close again (aria-expanded %s, panel %s, stored %r)'
                              % (tag, fo.get('closed'), fo.get('panelAfter'), fo.get('stored2')))

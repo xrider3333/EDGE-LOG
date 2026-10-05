@@ -39617,12 +39617,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           if(n){
             let bo=0,broker=0,book=0,wb=0,part=0;
             qbStatRows.forEach(t=>{
-              const v=qePnlOf(t);if(t.book_only)bo++;else broker+=v;
-              const a=qeFinRec(t.pnl),r=qeFinRec(t.real_pnl);book+=a!==null?a:(r!==null?r:0);
+              // Broker made and Book figure count the same trades: the book-only ones are left out of both
+              const v=qePnlOf(t);
+              if(t.book_only)bo++;else{broker+=v;const a=qeFinRec(t.pnl),r=qeFinRec(t.real_pnl);book+=a!==null?a:(r!==null?r:0);}
               const s=String(t.pnl_record_src||'');if(s==='webull')wb++;else if(s==='part')part++;
             });
             acct.push([tip('Broker made','The P&amp;L of record of the trades in this range that reached Webull; book-only trades left out'),ledgerSigned(broker),ledgerCls(broker)]);
-            acct.push([tip('Book figure','The same trades at the book\u2019s own prices, before Webull\u2019s fills'),ledgerSigned(book),ledgerCls(book)]);
+            acct.push([tip('Book figure','The same trades at the book\u2019s own prices, before Webull\u2019s fills; book-only trades left out'),ledgerSigned(book),ledgerCls(book)]);
             acct.push([tip('Book-only trades','Trades in this range that never reached Webull; they are priced from the book'),bo+' of '+n]);
             acct.push([tip('Fill coverage','Trades in this range priced from Webull\u2019s own fills on both sides'+(part?('; '+part+' more priced from the book on one side'):'')),wb+' of '+n+' ('+Math.round(wb/n*100)+'%)']);
           }
@@ -39635,9 +39636,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           }
           return groups;
         };
+        // No trade closed in the chosen range (TODAY before the first exit, a weekend, a holiday): the shared
+        // fold then shows only 'No trades in this range.' and leaves the board's own groups out, but the
+        // Account rows (equity, cash, open exposure, the daily loss limit) do not depend on the range, so
+        // they are drawn under that line here. Asked of TRADING-LOG: ledgerMoreStatsHtml drawing ownGroups
+        // when s is null, after which this wrapper can go.
+        const qbMoreEmptyHtml=()=>{
+          const h=ledgerMoreStatsHtml(null,[],{open:true,id:'qb'}),k=h.lastIndexOf('</div>');
+          const g=qbOwnStatGroups().map(gr=>'<div class="lg-ms-group" data-lgmsgroup="'+String(gr.title).replace(/"/g,'')+'"><h4>'+gr.title+'</h4>'
+            +(gr.rows||[]).map(r=>ledgerMsRow(r[0],r[1],r[2])+(r[3]||'')).join('')+'</div>').join('');
+          return k<0?h:(h.slice(0,k)+'<div class="lg-ms-grid">'+g+'</div><div class="lg-ms-note">Equity, cash, exposure and the loss limit are as of the box\u2019s last update.</div>'+h.slice(k));
+        };
         const qbLgStatsHtml=LEDGER_OLDBOARDS?'':(ledgerStatStripHtml(qbLs,{id:'qb-stat-strip'})
-          +ledgerMoreStatsHtml(qbLs,(qbMoreOpen&&qbLs)?qbOwnStatGroups():[],{open:qbMoreOpen,id:'qb',
-            note:'Returns, Risk, Mix and the trade rows follow the chosen range ('+(LEDGER_RANGE_LABEL[qbRange]||qbRange)+') at the P&amp;L of record: Webull fills, else the book price. Equity, cash, exposure and the loss limit are as of the box\u2019s last update.'}));
+          +((qbMoreOpen&&!qbLs)?qbMoreEmptyHtml():ledgerMoreStatsHtml(qbLs,qbMoreOpen?qbOwnStatGroups():[],{open:qbMoreOpen,id:'qb',
+            note:'Returns, Risk, Mix and the trade rows follow the chosen range ('+(LEDGER_RANGE_LABEL[qbRange]||qbRange)+') at the P&amp;L of record: Webull fills, else the book price. Equity, cash, exposure and the loss limit are as of the box\u2019s last update.'})));
 
         // ── 6. ACTIVITY — calendar restyled, feed/signals strips behind a disclosure.
         const qbActivityCard=qeCalHtml.cal
