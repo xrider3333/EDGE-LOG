@@ -740,11 +740,14 @@ def _notify(msg, title, log=print, priority=None):
     exit re-send queue giving up), 'urgent' for the one case worse than that (Webull
     still holds shares after the close). Omitted (the default) keeps the original
     'default' priority for every routine fill/summary ping -- every call site from
-    before this date passes nothing and is unaffected."""
+    before this date passes nothing and is unaffected.
+
+    Returns True when the POST went out, False when it was tried and failed, None when no
+    topic is set (nothing to retry). Callers that ignore the result are unaffected."""
     topic = (os.environ.get("NTFY_TOPIC") or "").strip()
     if not topic:
         log(f"[qqq-exec] NTFY_TOPIC unset, push skipped: {title}: {msg}")
-        return
+        return None
     headers = {"Title": title, "Priority": priority or "default"}
     # Private topic (WEBULL_GO_LIVE 1.10): same NTFY_TOKEN / NTFY_SERVER contract as
     # api/ntfy_push.py; unset keeps today's public ntfy.sh behaviour.
@@ -759,6 +762,8 @@ def _notify(msg, title, log=print, priority=None):
         urllib.request.urlopen(req, timeout=4)
     except Exception as e:
         log(f"[qqq-exec] ntfy push failed: {type(e).__name__}: {e}")
+        return False
+    return True
 
 
 # -- event timeline (feature #52) ---------------------------------------------------
@@ -10129,26 +10134,64 @@ class _Publisher:
         Firestore call) makes this one fail at once instead of queueing behind it. The next
         tick carries a newer doc anyway, and a backlog of stale docs -- each possibly a
         compare-and-set transaction -- would otherwise all go out when the hang clears."""
-        prev = self._inflight
-        if prev is not None and not prev.done():
-            _record_publish_result(state, False, err="previous publish still running", log=log)
-            return
         # ADVERTISED CADENCE (2026-09-25, LEASE PROTOCOL step 3.1): the interval THIS
         # publish was throttled to (see publish_async/publish_now, which stash it here
         # right after calling _should_publish) rides along so _do_set can tell a claimer
         # how often this host promises to renew -- see _lease_stale_bound. None (a caller
         # that never set it, e.g. a test driving write_one directly) reproduces the
         # pre-fix lease shape exactly: _do_set omits the field entirely.
-        fut = self._ex.submit(self._do_set, db, uid, doc, state.get("_lease_renew_every_sec"))
-        self._inflight = fut
+        renew = state.get("_lease_renew_every_sec")
+        # The check, the submit and the bookkeeping happen under _lock, the same lock
+        # reset_worker takes: a rebuild on the loop thread can then never land between
+        # them and have this thread put the OLD worker's write back as the one in flight.
+        with self._lock:
+            prev = self._inflight
+            busy = prev is not None and not prev.done()
+            if not busy:
+                fut = self._ex.submit(self._do_set, db, uid, doc, renew)
+                self._inflight = fut
+        if busy:
+            _FS_HEALTH.note_fail("previous publish still running")
+            _record_publish_result(state, False, err="previous publish still running", log=log)
+            return
+        # FIRESTORE WEDGE RECOVERY (2026-10-05): every outcome reports to _FS_HEALTH. A
+        # publish refused because we no longer hold the lease never reached Firestore, so
+        # it is neither a failure nor proof the connection works.
         try:
             fut.result(timeout=PUBLISH_TIMEOUT_SEC)
+            _FS_HEALTH.note_ok(log=log)
             _record_publish_result(state, True, log=log)
         except concurrent.futures.TimeoutError:
-            _record_publish_result(state, False,
-                                   err=f"timed out after {PUBLISH_TIMEOUT_SEC:g}s", log=log)
+            err = f"timed out after {PUBLISH_TIMEOUT_SEC:g}s"
+            _FS_HEALTH.note_fail(err)
+            _record_publish_result(state, False, err=err, log=log)
         except Exception as e:
+            if not isinstance(e, _LeaseNotHeld):
+                _FS_HEALTH.note_fail(e)
             _record_publish_result(state, False, err=f"{type(e).__name__}: {e}", log=log)
+
+    def reset_worker(self):
+        """FIRESTORE WEDGE RECOVERY (2026-10-05): after a rebuild, a write still hung on
+        the OLD connection would hold this publisher's one worker -- and fail every new
+        write as "previous publish still running" -- until it gave up. Give the next
+        write a fresh worker. The old one is abandoned, not shut down (a shutdown could
+        race write_one's submit on the publisher thread); its call fails once the old
+        channel is closed, or runs out its own PUBLISH_TIMEOUT_SEC. Under _lock, like
+        write_one's submit (see there).
+
+        KNOWN, BOUNDED GAP: in the runner's fallback thread (owns_client=False) the old
+        channel is dropped, not closed, so the abandoned renewal can still be in flight
+        when the new worker sends the next one, and the two may commit out of order. The
+        server's leased_at can then sit up to one PUBLISH_TIMEOUT_SEC behind our local
+        committed_at (note_committed keeps the max). It never loosens a send: both writes
+        are single attempts with their own deadline, it can only happen right after a
+        rebuild, and the broker gate still needs a fresh server read
+        (_check_lease_for_broker) as well as send_gate."""
+        ex = concurrent.futures.ThreadPoolExecutor(max_workers=1,
+                                                   thread_name_prefix="qqq-publish")
+        with self._lock:
+            self._ex = ex
+            self._inflight = None
 
     @staticmethod
     def _do_set(db, uid, doc, renew_every_sec=None):
@@ -10853,6 +10896,9 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
             "claiming the lease, never ticking, never sending")
         return
     lease_uid = uids[0] if uids else None
+    # FIRESTORE WEDGE RECOVERY (2026-10-05): one handle for every Firestore holder below
+    # (tick's lease reads, the claim, the publisher), so a rebuild reaches all of them
+    db = _as_firestore_handle(db)
     managed = db is not None and bool(lease_uid)
     slot, why = _enter_host_slot(log=log)
     if slot is None:
@@ -10903,6 +10949,10 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
                 if not _LEASE.held:
                     _stand_down(state, lease_uid, _LEASE.lost_reason, log=log)
                     return
+                # FIRESTORE WEDGE RECOVERY (2026-10-05): a client stuck on a dead channel
+                # is rebuilt here, in-process, instead of blocking every order until a
+                # restart -- see _maybe_rebuild_firestore. Never raises.
+                _maybe_rebuild_firestore(db, state, log=log)
             last_pass = time.time()
             try:
                 cfg = load_config(log=log)
@@ -11416,12 +11466,15 @@ def _check_lease(db, uid, log=print):
     if db is None or not uid:
         return True, "no Firestore/uid configured -- lease check skipped"
     try:
-        snap = db.collection("users").document(uid).collection("meta").document("qqq_exec").get()
-        d = snap.to_dict() if getattr(snap, "exists", True) else None
+        # FIRESTORE WEDGE RECOVERY (2026-10-05): under a hard wall-clock limit -- a
+        # timeout is a failed read like any other (still fail-open here)
+        d = _read_lease_doc(db, uid)
     except Exception as e:
+        _FS_HEALTH.note_fail(e)
         log(f"[qqq-exec] lease check could not read Firestore ({type(e).__name__}: {e}) -- "
             "proceeding (fail-open)")
         return True, "lease read failed -- fail-open"
+    _FS_HEALTH.note_ok(log=log)
     return _lease_claimable(d, _lease_host_id(), time.time())
 
 
@@ -11514,12 +11567,16 @@ def _check_lease_for_broker(db, uid, log=print):
     if db is None or not uid:
         return False, "lease unverifiable: no Firestore/uid configured"
     try:
-        snap = db.collection("users").document(uid).collection("meta").document("qqq_exec").get()
-        d = snap.to_dict() if getattr(snap, "exists", True) else None
+        # FIRESTORE WEDGE RECOVERY (2026-10-05): this read once held the loop for the
+        # client's 300s default retry on a dead channel -- now a hard wall-clock limit,
+        # and a timeout fails CLOSED exactly like any other read failure
+        d = _read_lease_doc(db, uid)
     except Exception as e:
+        _FS_HEALTH.note_fail(e)
         log(f"[qqq-exec] broker lease check could not read Firestore ({type(e).__name__}: "
             f"{e}) -- suppressing broker sends this tick (fail-CLOSED for real orders)")
         return False, f"lease unverifiable: Firestore read failed ({type(e).__name__}: {e})"
+    _FS_HEALTH.note_ok(log=log)
     lease = _lease_of(d)
     other_host = lease.get("host_id")
     leased_at = lease.get("leased_at")
@@ -11633,6 +11690,432 @@ def _lease_ref(db, uid):
     return db.collection("users").document(uid).collection("meta").document("qqq_exec")
 
 
+# -- FIRESTORE WEDGE RECOVERY (2026-10-05) ----------------------------------------------
+# THE INCIDENT. From the 2026-10-02 close until a manual restart on Monday 10-05 09:13 ET
+# the box's executor logged the same four lines every ~5 minutes: the broker lease read
+# hung for its client's whole 300s default retry ("RetryError: Timeout of 300.0s exceeded,
+# last exception: 503 failed to connect to all addresses ... FD Shutdown"), every publish
+# timed out after 8s, and the loop then saw a ~280s gap and re-claimed the lease -- which
+# timed out after 15s too. Plain HTTPS to firestore.googleapis.com worked from the box the
+# whole time (DNS had moved it to IPv6) and the restart fixed it at once: the process's
+# ONE long-lived gRPC client was stuck on a dead channel. While the lease cannot be read
+# every Webull order is blocked (fail closed, correctly), so one stuck client blocked the
+# book -- and no tick finished on time -- for 2.5 days with nobody told.
+#
+# THE FIX, three parts:
+#   1. A HARD WALL-CLOCK LIMIT on the lease read (_read_lease_doc, LEASE_READ_TIMEOUT_SEC),
+#      the same throwaway-worker pattern as _reconcile_with_timeout, and only one read in
+#      flight at a time: a stuck read can no longer hold the 5s loop for ~5 minutes. Its
+#      own retry is bounded to the same limit (_lease_read_retry), so a one-off 503 is
+#      still retried instead of blocking new entries for a whole verify interval.
+#   2. A HEALTH COUNT (_FS_HEALTH): every Firestore call this adapter makes -- the lease
+#      reads, the claim, every publish -- reports in. Connection-class failures (503,
+#      UNAVAILABLE, "failed to connect", deadline, our own hard timeouts) count; any call
+#      that works resets it (the count -- see the episode rule below); anything else (quota, permission, a lease we no longer hold)
+#      is neither -- a rebuild would not help those, and they must not hide a wedge.
+#   3. AN IN-PROCESS REBUILD (_FirestoreHandle, _maybe_rebuild_firestore): once the count
+#      reaches FS_REBUILD_AFTER_FAILS in a row, or failures have run FS_REBUILD_AFTER_SEC,
+#      the loop builds a new client and closes the old one -- only when this adapter owns
+#      it: the runner's fallback thread hands in the runner's SHARED client, which is
+#      dropped here, never closed (_FirestoreHandle, owns_client). Every holder sees the new one
+#      at once -- the tick's lease reads, the claim and the publisher all go through the
+#      same handle -- and the publisher's worker and the lease-read slot (which may still
+#      be stuck on the old channel) are replaced too. Rebuilds back off (FS_REBUILD_
+#      BACKOFF_SEC doubling to FS_REBUILD_BACKOFF_MAX_SEC). Still failing after a rebuild:
+#      one log line and ONE high push per episode (a push that fails to send is tried
+#      again every FS_ALERT_RETRY_SEC until one goes out). A process that cannot rebuild (no way
+#      to make a new client, e.g. the runner given a test double) pushes the same once.
+#      AN EPISODE ENDS only after SUSTAINED health -- FS_HEALTHY_AFTER_OKS working calls in
+#      a row AND FS_HEALTHY_AFTER_SEC with no connection failure -- so a flapping
+#      connection (many 503s, the odd success) keeps its backoff and its one push.
+# LEASE SEMANTICS ARE UNCHANGED: a read that times out is a read that failed, so broker
+# sends stay blocked (fail closed) exactly as before; the shadow book's own checks stay
+# fail-open; a rebuild never marks the lease held -- sends open again only once a stamp of
+# ours lands through the new client and a fresh read confirms it (send_gate +
+# _check_lease_for_broker, both untouched).
+LEASE_READ_TIMEOUT_SEC = 10.0
+FS_REBUILD_AFTER_FAILS = 8
+FS_REBUILD_AFTER_SEC = 5 * 60.0
+FS_REBUILD_BACKOFF_SEC = 2 * 60.0
+FS_REBUILD_BACKOFF_MAX_SEC = 30 * 60.0
+FS_HEALTHY_AFTER_OKS = 5
+FS_HEALTHY_AFTER_SEC = 2 * 60.0
+FS_ALERT_RETRY_SEC = 2 * 60.0
+
+_FS_CONN_MARKERS = ("503", "unavailable", "failed to connect", "deadline", "timed out",
+                    "timeout", "retryerror", "connection", "fd shutdown", "socket closed",
+                    "still running", "unreachable")
+
+
+class _FsCallTimeout(TimeoutError):
+    """A Firestore call this adapter gave up waiting on (its own hard wall-clock limit)."""
+
+
+def _fs_conn_error(err):
+    """True when `err` (an exception, or the text a caller already made of one) reads as
+    "could not reach Firestore" -- the failures a rebuilt connection can fix. A quota,
+    permission or bad-request error means the server answered: False."""
+    if isinstance(err, (TimeoutError, concurrent.futures.TimeoutError, ConnectionError)):
+        return True
+    if isinstance(err, BaseException):
+        text = f"{type(err).__name__}: {err}"
+    else:
+        text = str(err or "")
+    text = text.lower()
+    return any(m in text for m in _FS_CONN_MARKERS)
+
+
+class _FsHealth:
+    """Consecutive connection-class Firestore failures for this process -- see FIRESTORE
+    WEDGE RECOVERY above. Thread-safe: the loop, the publisher thread and the lease-read
+    workers all report here. In memory only: a fresh process starts healthy."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self.streak = 0
+        self.first_fail_at = None
+        self.last_err = None
+        self.rebuilds = 0           # rebuilds during the current episode
+        self.alerted = False        # the episode's one push already went out
+        self.alert_tries = 0        # pushes tried this episode (the first logs + files an event)
+        self.next_alert_at = 0.0    # a push that failed to send is tried again after this
+        self.next_rebuild_at = 0.0
+        self.backoff = None         # None = FS_REBUILD_BACKOFF_SEC (read when used)
+        self.oks = 0                # working calls in a row
+        self.last_fail_at = None    # the latest connection-class failure
+
+    def note_ok(self, log=print, now=None):
+        """A call that worked. Resets the in-a-row failure count at once; ENDS the episode
+        (rebuild count, backoff, the one-push flag) only after sustained health -- see
+        FS_HEALTHY_AFTER_OKS / FS_HEALTHY_AFTER_SEC -- so one lucky call in a flapping run
+        does not start the next run of failures from scratch."""
+        now = time.time() if now is None else now
+        with self._lock:
+            self.streak, self.first_fail_at, self.last_err = 0, None, None
+            self.oks += 1
+            in_episode = bool(self.rebuilds or self.alerted or self.alert_tries
+                              or self.backoff is not None)
+            if not in_episode:
+                return
+            if self.oks < FS_HEALTHY_AFTER_OKS or (
+                    self.last_fail_at is not None
+                    and now - self.last_fail_at < FS_HEALTHY_AFTER_SEC):
+                return
+            rebuilds, alerted = self.rebuilds, self.alerted
+            self.rebuilds, self.alerted = 0, False
+            self.alert_tries, self.next_alert_at = 0, 0.0
+            self.next_rebuild_at, self.backoff = 0.0, None
+        try:
+            log("[qqq-exec] Firestore reachable again"
+                + (f" after rebuilding the connection {rebuilds} time(s)" if rebuilds else "")
+                + (" (the outage push went out)" if alerted else ""))
+        except Exception:
+            pass
+
+    def note_fail(self, err, now=None):
+        """Count `err` if it is connection-class; anything else changes nothing."""
+        if not _fs_conn_error(err):
+            return
+        now = time.time() if now is None else now
+        text = f"{type(err).__name__}: {err}" if isinstance(err, BaseException) else str(err)
+        with self._lock:
+            self.streak += 1
+            self.oks = 0
+            self.last_fail_at = now
+            if self.first_fail_at is None:
+                self.first_fail_at = now
+            self.last_err = text[:300]
+
+    def tripped(self, now):
+        """Caller holds _lock."""
+        if self.streak >= FS_REBUILD_AFTER_FAILS:
+            return True
+        return (self.first_fail_at is not None and self.streak >= 2
+                and now - self.first_fail_at >= FS_REBUILD_AFTER_SEC)
+
+
+_FS_HEALTH = _FsHealth()
+
+
+def _close_firestore_client(client, log=print):
+    """Best-effort close of a Firestore client we are replacing, on a daemon thread that
+    nobody waits for -- closing a channel that is itself stuck must not stall the loop.
+    The gRPC channel (the part that wedged) is closed through the client's transport; any
+    call still running on it then fails instead of hanging on."""
+    def _close():
+        try:
+            transport = getattr(client, "_transport", None)
+            if transport is None:
+                api = getattr(client, "_firestore_api_internal", None)
+                transport = getattr(api, "transport", None) if api is not None else None
+            if transport is not None and callable(getattr(transport, "close", None)):
+                transport.close()
+        except Exception as e:
+            log(f"[qqq-exec] closing the old Firestore connection failed (ignored): "
+                f"{type(e).__name__}: {e}")
+        try:
+            close = getattr(client, "close", None)
+            if callable(close):
+                close()
+        except Exception:
+            pass
+    threading.Thread(target=_close, name="qqq-fs-close", daemon=True).start()
+
+
+def _new_firestore_client():
+    """A brand-new Firestore client for the firebase_admin app this process already
+    initialised. Built directly rather than through firebase_admin.firestore.client(),
+    which hands back the SAME cached (stuck) client every time. No network here -- the
+    client connects lazily on its first call."""
+    import firebase_admin
+    from google.cloud import firestore as _gcf
+    app = firebase_admin.get_app()
+    return _gcf.Client(credentials=app.credential.get_credential(), project=app.project_id)
+
+
+class _FirestoreHandle:
+    """Stands in for the Firestore client everywhere this adapter uses one, forwarding
+    every attribute to the CURRENT client, so rebuild() swaps the connection under every
+    holder at once (see FIRESTORE WEDGE RECOVERY). `factory` builds a replacement; None
+    means this process has no way to (rebuild() then refuses, and the health check only
+    alerts).
+
+    `owns_client`: may rebuild() CLOSE the client it replaces? False for a client a caller
+    handed in that other code in the process still uses -- api/runner.py's shared `self.db`,
+    which is also firebase_admin's cached firestore.client(): closing its channel would
+    kill the runner's queue listener, job writes and command channel, and every later
+    firestore.client() call in that process. A client this handle built itself is always
+    its own, so every rebuild after the first closes the one it replaces."""
+
+    def __init__(self, client, factory=None, owns_client=True):
+        self._client = client
+        self._factory = factory
+        self._owns_client = bool(owns_client)
+        self._lock = threading.Lock()
+        self.generation = 0
+
+    @property
+    def client(self):
+        return self._client
+
+    @property
+    def can_rebuild(self):
+        return self._factory is not None
+
+    def __getattr__(self, name):
+        client = self.__dict__.get("_client")
+        if client is None:
+            raise AttributeError(name)
+        return getattr(client, name)
+
+    def rebuild(self, log=print):
+        """(ok, why). Builds the new client FIRST and only then swaps and closes the old
+        one, so a factory that fails leaves the old client in place. The old client is
+        closed only if this handle owns it (see `owns_client`); one it does not own is
+        just dropped from this adapter, and its other users keep it."""
+        if self._factory is None:
+            return False, "this process has no way to build a new Firestore client"
+        try:
+            new = self._factory()
+        except Exception as e:
+            return False, f"building a new Firestore client failed ({type(e).__name__}: {e})"
+        if new is None:
+            return False, "building a new Firestore client returned nothing"
+        with self._lock:
+            old, self._client = self._client, new
+            close_old, self._owns_client = self._owns_client, True
+            self.generation += 1
+        if close_old:
+            _close_firestore_client(old, log=log)
+        return True, None
+
+
+def _as_firestore_handle(db):
+    """`db` as a _FirestoreHandle (unchanged if it already is one; None stays None). A real
+    google-cloud-firestore client handed in raw (api/runner.py's fallback thread) gets the
+    firebase_admin factory; anything else (a test double) gets none. A client handed in
+    raw is never this adapter's to close: the runner's is its shared `self.db` (see
+    _FirestoreHandle, `owns_client`)."""
+    if db is None or isinstance(db, _FirestoreHandle):
+        return db
+    real = type(db).__module__.startswith("google.cloud.firestore")
+    return _FirestoreHandle(db, factory=_new_firestore_client if real else None,
+                            owns_client=False)
+
+
+def _bounded_call(fn, name):
+    """fn() on a fresh daemon thread; returns a Future. The caller decides how long to
+    wait. Daemon, so a call that never returns cannot keep the process from exiting."""
+    fut = concurrent.futures.Future()
+
+    def _run():
+        if not fut.set_running_or_notify_cancel():
+            return
+        try:
+            fut.set_result(fn())
+        except BaseException as e:
+            fut.set_exception(e)
+    threading.Thread(target=_run, name=name, daemon=True).start()
+    return fut
+
+
+_lease_read_lock = threading.Lock()
+_lease_read_inflight = {"future": None}
+
+
+def _reset_lease_read():
+    """Forget a lease read still stuck on the old connection (after a rebuild), so the
+    next read goes out through the new one instead of failing as "still running"."""
+    with _lease_read_lock:
+        _lease_read_inflight["future"] = None
+
+
+def _lease_read_retry(timeout):
+    """The lease read's retry: the client default's quick retry of a one-off 503 /
+    deadline / internal error -- the routine blip when Google's front end resets a
+    long-lived gRPC connection -- but ending at `timeout` instead of the default's five
+    minutes. With NO retry, one such blip failed the broker check closed and the cached
+    verdict then blocked every OPEN for lease_verify_interval_sec (the real Webull entry
+    lost while the shadow book took it); with the default retry, a read abandoned by
+    _read_lease_doc kept retrying in the background for up to five minutes, holding the
+    one lease-read slot. None when google-api-core is not installed."""
+    try:
+        from google.api_core import exceptions as _gex
+        from google.api_core import retry as _gretry
+    except Exception:
+        return None
+    kw = dict(initial=0.1, maximum=1.0, multiplier=1.3,
+              predicate=_gretry.if_exception_type(_gex.ServiceUnavailable,
+                                                  _gex.DeadlineExceeded,
+                                                  _gex.InternalServerError))
+    try:
+        return _gretry.Retry(timeout=timeout, **kw)
+    except TypeError:
+        return _gretry.Retry(deadline=timeout, **kw)   # older google-api-core
+
+
+def _get_lease_doc(db, uid, timeout):
+    ref = _lease_ref(db, uid)
+    # A bounded retry (see _lease_read_retry): a single blip is retried, and the whole
+    # read still ends near its wall-clock limit.
+    try:
+        snap = ref.get(retry=_lease_read_retry(timeout), timeout=timeout)
+    except TypeError:
+        if type(ref).__module__.startswith("google.cloud.firestore"):
+            # A real client: never drop to the bare get(), whose default retry runs for
+            # up to five minutes and would hold the one lease-read slot that long. One
+            # more single attempt, still bounded by `timeout`; a second TypeError is a
+            # failed read (broker sends fail closed).
+            snap = ref.get(retry=None, timeout=timeout)
+        else:
+            snap = ref.get()   # test doubles whose get() takes no keyword arguments
+    return snap.to_dict() if getattr(snap, "exists", True) else None
+
+
+def _read_lease_doc(db, uid, timeout=None):
+    """The status doc (dict or None) read under a HARD wall-clock limit -- FIRESTORE WEDGE
+    RECOVERY part 1. Raises the read's own error, or _FsCallTimeout when it ran past
+    `timeout` (default LEASE_READ_TIMEOUT_SEC) or the previous read is still stuck."""
+    timeout = LEASE_READ_TIMEOUT_SEC if timeout is None else float(timeout)
+    with _lease_read_lock:
+        prev = _lease_read_inflight.get("future")
+        if prev is not None and not prev.done():
+            raise _FsCallTimeout("the previous lease read is still running "
+                                 f"(stuck past {timeout:g}s)")
+        fut = _bounded_call(lambda: _get_lease_doc(db, uid, timeout), "qqq-lease-read")
+        _lease_read_inflight["future"] = fut
+    try:
+        return fut.result(timeout=timeout)
+    except concurrent.futures.TimeoutError:
+        raise _FsCallTimeout(f"lease read timed out after {timeout:g}s") from None
+
+
+def _maybe_rebuild_firestore(db, state=None, log=print, now=None):
+    """FIRESTORE WEDGE RECOVERY part 3, called once per loop pass. Does nothing until
+    _FS_HEALTH trips; then rebuilds the connection (on backoff) and, if it is still
+    failing after a rebuild -- or this process cannot rebuild at all -- says so ONCE per
+    episode: a log line, an event and a high push. Returns "rebuilt", "alerted",
+    "alerted+rebuilt" or None. Never raises."""
+    try:
+        now = time.time() if now is None else now
+        h = _FS_HEALTH
+        can = isinstance(db, _FirestoreHandle) and db.can_rebuild
+        with h._lock:
+            if not h.tripped(now):
+                return None
+            streak, since, err, rebuilds = h.streak, h.first_fail_at, h.last_err, h.rebuilds
+            do_alert = ((not h.alerted) and (rebuilds >= 1 or not can)
+                        and now >= h.next_alert_at)
+            do_rebuild = can and now >= h.next_rebuild_at
+            first_alert = do_alert and h.alert_tries == 0
+            if do_alert:
+                h.alert_tries += 1
+            if do_rebuild:
+                backoff = h.backoff if h.backoff is not None else FS_REBUILD_BACKOFF_SEC
+                h.rebuilds += 1
+                h.streak, h.first_fail_at = 0, None
+                h.next_rebuild_at = now + backoff
+                h.backoff = min(backoff * 2.0, FS_REBUILD_BACKOFF_MAX_SEC)
+        mins = max(0.0, (now - since) / 60.0) if since else 0.0
+        did = []
+        if do_alert:
+            if can:
+                msg = (f"QQQ EXEC: Firestore is still unreachable after rebuilding the "
+                       f"connection {rebuilds} time(s) -- {streak} failed call(s) in a row "
+                       f"over {mins:.0f} min (latest: {err}). Webull orders stay blocked "
+                       "until this host's lease can be confirmed; it keeps retrying, or "
+                       "restart edgelog-qqq-exec.")
+            else:
+                msg = (f"QQQ EXEC: Firestore unreachable -- {streak} failed call(s) in a "
+                       f"row over {mins:.0f} min (latest: {err}). This process cannot "
+                       "rebuild its Firestore connection; Webull orders stay blocked until "
+                       "the lease can be confirmed -- restart the executor.")
+            if first_alert:
+                # the log line and the event once per episode; only the push is retried
+                log(f"[qqq-exec] {msg}")
+                if state is not None:
+                    _log_event(state, "firestore_down", msg, log=log)
+            try:
+                sent = _notify(msg, "EDGELOG QQQ FIRESTORE", log, priority="high")
+            except Exception as e:
+                log(f"[qqq-exec] Firestore alert push failed: {type(e).__name__}: {e}")
+                sent = False
+            # The episode's one push counts only once it went out: False (tried, failed --
+            # the network may be down too) tries again after FS_ALERT_RETRY_SEC. None (no
+            # topic set) or True ends it.
+            with h._lock:
+                if sent is False:
+                    h.next_alert_at = now + FS_ALERT_RETRY_SEC
+                else:
+                    h.alerted = True
+            if sent is False:
+                log(f"[qqq-exec] the Firestore outage push did not go out -- trying again in "
+                    f"{FS_ALERT_RETRY_SEC:.0f}s")
+            did.append("alerted")
+        if do_rebuild:
+            ok, why = db.rebuild(log=log)
+            if ok:
+                _publisher.reset_worker()
+                _reset_lease_read()
+                if state is not None:
+                    # re-read the lease on the next tick, through the new connection --
+                    # dropping a cached "blocked" verdict early never loosens the gate
+                    state.pop("_lease_verify_at", None)
+                line = (f"Firestore calls failing ({streak} in a row over {mins:.0f} min, "
+                        f"latest: {err}) -- rebuilt the Firestore connection in-process "
+                        f"(rebuild {rebuilds + 1} this episode)")
+            else:
+                line = f"Firestore calls failing ({streak} in a row) -- rebuild failed: {why}"
+            log(f"[qqq-exec] {line}")
+            if state is not None:
+                _log_event(state, "firestore_rebuild", line, log=log)
+            did.append("rebuilt")
+        return "+".join(did) or None
+    except Exception as e:
+        log(f"[qqq-exec] Firestore rebuild check failed (non-fatal): {type(e).__name__}: {e}")
+        return None
+
+
 def _lease_txn(db, ref, decide, merge):
     """Run decide(current_doc) -> (doc_to_write or None, result) as ONE compare-and-set on
     `ref` and return `result`. On a real Firestore client that is a transaction: the read
@@ -11695,11 +12178,15 @@ def _claim_lease(db, uid, log=print, timeout=LEASE_CLAIM_TIMEOUT_SEC):
     fut = ex.submit(lambda: _lease_txn(db, _lease_ref(db, uid), decide, True))
     ex.shutdown(wait=False)
     try:
-        return fut.result(timeout=timeout)
+        result = fut.result(timeout=timeout)
+        _FS_HEALTH.note_ok(log=log)   # claimed or refused, Firestore answered
+        return result
     except concurrent.futures.TimeoutError:
         why = f"lease claim timed out after {timeout:g}s"
+        _FS_HEALTH.note_fail(why)
     except Exception as e:
         why = f"lease claim failed ({type(e).__name__}: {e})"
+        _FS_HEALTH.note_fail(e)
     log(f"[qqq-exec] {why} -- proceeding (fail-open for the shadow book; broker sends stay "
         "blocked until this host's lease lands)")
     return True, f"{why} -- fail-open", None
@@ -11800,7 +12287,10 @@ def main():
             if not firebase_admin._apps:
                 cred = credentials.Certificate(a.cred) if a.cred else credentials.ApplicationDefault()
                 firebase_admin.initialize_app(cred)
-            db = firestore.client()
+            # FIRESTORE WEDGE RECOVERY (2026-10-05): a handle the loop can rebuild in-process
+            # -- the process's only Firestore user, so it owns (and may close) the client
+            db = _FirestoreHandle(firestore.client(), factory=_new_firestore_client,
+                                  owns_client=True)
         except Exception as e:
             print(f"[qqq-exec] Firestore unavailable ({type(e).__name__}: {e}) -- "
                  f"running --once without publish")

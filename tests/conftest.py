@@ -346,6 +346,46 @@ def _isolate_inflight_send(live_system_guard, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _isolate_firestore_health(monkeypatch):
+    """api.qqq_exec counts Firestore connection failures (_FS_HEALTH) and remembers a
+    lease read still stuck on a dead connection (_lease_read_inflight) at MODULE level
+    (FIRESTORE WEDGE RECOVERY, 2026-10-05). Fresh for every test, so one test's wedge can
+    never trip another test's rebuild or make its first lease read "still running"."""
+    try:
+        from api import qqq_exec as qe
+    except ImportError:
+        yield
+        return
+    if hasattr(qe, "_FsHealth"):
+        monkeypatch.setattr(qe, "_FS_HEALTH", qe._FsHealth())
+        monkeypatch.setattr(qe, "_lease_read_inflight", {"future": None})
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _no_shell_ntfy_topic(monkeypatch):
+    """No test may reach ntfy through the shell's own NTFY_TOPIC. api.qqq_exec._notify (and
+    the other senders) skip the POST with no topic, so a test that never set one -- e.g. a
+    loop test whose fake Firestore trips the FIRESTORE WEDGE RECOVERY alert -- can never send
+    a real high push. A test that checks the sender sets its own topic and fakes urlopen."""
+    monkeypatch.delenv("NTFY_TOPIC", raising=False)
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _no_keel_stale_push(monkeypatch):
+    """tools/keel_live_state.py pushes (once a stale trading day) when its NQ master is older than the last completed
+    trading day (NQ FRESHNESS ALERT, 2026-10-05) -- and every synthetic master a test builds is.
+    A test run must never reach ntfy (NTFY_TOPIC may be set in this shell), so the default
+    sender is a no-op here; a test that checks the push passes its own `push`."""
+    import sys
+    kls = sys.modules.get("tools.keel_live_state")
+    if kls is not None and hasattr(kls, "_default_stale_push"):
+        monkeypatch.setattr(kls, "_default_stale_push", lambda msg, title, log=print: None)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _no_order_path_waits(monkeypatch):
     """api.webull_orders spaces its order lookups (an unclear send, a split's part 1)
     over a few seconds through its one _sleep seam -- never really wait in a test."""
