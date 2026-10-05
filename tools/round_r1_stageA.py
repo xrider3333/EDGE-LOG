@@ -83,6 +83,7 @@ def trades(X, s, H, coin=None):
     hb = H // 5
     P = np.zeros(s.shape)
     on = np.zeros(s.shape, bool)
+    held = np.zeros(s.shape)
     dd_, kk_ = np.nonzero(s)
     free_d, free_k = -1, -1
     for d, k in zip(dd_, kk_):
@@ -94,8 +95,10 @@ def trades(X, s, H, coin=None):
         side = s[d, k] if coin is None else coin[d, k]
         P[d, k] = (side * (C[d, e] - O[d, k + 1]) - COST) * M
         on[d, k] = True
+        held[d, k + 1:e + 1] = side
         free_d, free_k = d, e
     assert D == s.shape[0]
+    trades.held = held
     return P, on
 
 
@@ -118,14 +121,9 @@ def main(argv):
     if "--power" in argv:
         coin = np.random.default_rng(SEED).choice([-1.0, 1.0], size=X["close"].shape)
         P, on = run_cell(Xw, PRIMARY, coin=coin)
-        x, dd = HH.scaled(HH.daily(P, days, bdays).to_numpy())
-        r = PL.power_line(B.to_numpy() + x, B.to_numpy(), years)
-        yr = pd.Series(on.sum(axis=1), index=days).groupby(days.year).sum()
-        print("POWER LINE (coin-flip directions on the primary's schedule: %d trades, %.0f a year; scaled to a $30k "
-              "own drawdown, x%.3f NQ)" % (int(on.sum()), on.sum() / years, 30000.0 / dd))
-        print("  trades by calendar year: %s" % ", ".join("%d %d" % (y, n) for y, n in yr.items() if n))
-        print("  SD of the bootstrapped book-add ROC@$30k lead %.1f points; 5%% line %.1f; 80%% line %.1f" % (
-            r["sd"], r["line_5pct"], r["line_80pct"]))
+        print("POWER LINES (coin-flip directions on the primary's schedule: %d trades, %.0f a year; amendment 1)" % (
+            int(on.sum()), on.sum() / years))
+        HH.power_lines(HH.daily(P, days, bdays).to_numpy(), B, years)
         print("  (no real direction was computed)")
         return
 
@@ -156,36 +154,26 @@ def main(argv):
         q95, float(np.median(null_prim))))
 
     pr = rows[PRIMARY]
-    x, dd1 = HH.scaled(pr["x"])
-    bb = HH.own(B.to_numpy() + x, bdays)
-    print("  BOOK #463 + ROUND primary at a $30k own drawdown (x%.3f NQ): ROC@30k %.2f  Sortino %.3f" % (
-        30000.0 / dd1, bb["roc"], bb["sort"]))
-    idx = PL.stationary_indices(len(x), 1000, 20, np.random.default_rng(SEED))
-    lead = PL.roc30((B.to_numpy() + x)[idx], years) - PL.roc30(B.to_numpy()[idx], years)
-    lead = lead[np.isfinite(lead)]
-    p5 = float(np.percentile(lead, 5))
-    print("  paired bootstrap (mean block 20, 1,000 draws) book-add lead: 5th percentile %+.1f (SD %.1f)" % (
-        p5, float(lead.std(ddof=1))))
-    m20 = (bdays >= pd.Timestamp("2020-03-02")) & (bdays <= pd.Timestamp("2020-03-27"))
-    print("  #463's worst WF drawdown weeks (2020-03-02 .. 03-27): ROUND primary at that size $%s" % format(
-        int(x[m20].sum()), ","))
-
-    st = pr["st"]
-    a1 = st["roc"] >= HH.BAR_OWN and pr["pf"] > 1 and pr["n"] >= 100 and pr["n"] / years >= 50 and sum(
-        v > 0 for v in pr["yrs"]) >= 6
-    a2 = st["roc"] > q95
+    P, on = run_cell(Xw, PRIMARY)
+    print("  REPORT overlap with #463 legs on ROUND's held bars: %s" % HH.overlap(trades.held, HH.book_positions(days)))
+    m20 = (bdays >= pd.Timestamp("2022-01-01")) & (bdays <= pd.Timestamp("2022-12-31"))
+    print("  REPORT calendar 2022: #463 $%s, ROUND primary at 1 NQ $%s" % (
+        format(int(B.to_numpy()[m20].sum()), ","), format(int(pr["x"][m20].sum()), ",")))
+    shadow = HH.book_report(pr["x"], B, years, "ROUND")
+    a1, no2020, route = HH.standalone(pr["st"], pr["pf"], pr["n"], years, pr["yrs"], pr["x"], bdays, B, "ROUND")
+    a2 = pr["st"]["roc"] > q95
     a3 = all(rows[c]["st"]["net"] > 0 for c in CELLS[1:3])
-    a4 = bb["roc"] >= HH.BAR_BOOK_ROC and bb["sort"] >= HH.BAR_BOOK_SORT and p5 > 0
     print("")
-    for lab, ok in (("A1 own ROC@30k >= 15, PF > 1, >= 100 trades and 50 a year, >= 6 of 9 years", a1),
+    for lab, ok in (("A1 own ROC@30k >= 15 or earner route (%s), PF > 1, >= 100 and 50/yr, >= 6 of 9 years" % route, a1),
+                    ("A1b no-2020: the same route holds without calendar 2020", no2020),
                     ("A2 primary above the off-round family null's p95", a2),
-                    ("A3 both CROSS neighbours net positive after cost", a3),
-                    ("A4 book add >= 98.50 / Sortino 3.816 and bootstrap p5 > 0", a4)):
-        print("  %-75s %s" % (lab, "PASS" if ok else "FAIL"))
+                    ("A3 both CROSS neighbours net positive after cost", a3)):
+        print("  %-80s %s" % (lab, "PASS" if ok else "FAIL"))
+    print("  A4 (REPORT, house line #45) vol-scale book add >= 98.50 / 3.816 with p5 > 0: %s -> %s" % (
+        "yes" if shadow else "no", "forward BOOK shadow line too" if shadow else "standalone only"))
     print("")
     print("STAGE A: %s" % ("PASS -> pinned Auto-Validate the same day (ROUND_1_0 plugin, parity first)"
-                         if all((a1, a2, a3, a4)) else "FAIL - recorded dead, no variants"))
-
+                         if all((a1, no2020, a2, a3)) else "FAIL - recorded dead, no variants"))
 
 if __name__ == "__main__":
     main(sys.argv[1:])

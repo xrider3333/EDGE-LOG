@@ -139,12 +139,9 @@ def main(argv):
         z = cell_z(PRIMARY, O, C, funds)
         coin = np.random.default_rng(SEED).choice([-1.0, 1.0], size=len(days))
         P, on = leg(O, C, z, PRIMARY[1], PRIMARY[2], wf, coin=coin)
-        x, dd = HH.scaled(pd.Series(P, index=days).reindex(bdays, fill_value=0.0).to_numpy())
-        r = PL.power_line(B.to_numpy() + x, B.to_numpy(), years)
-        print("POWER LINE (coin-flip directions on the primary's schedule: %d trades, %.0f a year; scaled to a $30k "
-              "own drawdown, x%.3f NQ)" % (int(on.sum()), on.sum() / years, 30000.0 / dd))
-        print("  SD of the bootstrapped book-add ROC@$30k lead %.1f points; 5%% line %.1f; 80%% line %.1f" % (
-            r["sd"], r["line_5pct"], r["line_80pct"]))
+        print("POWER LINES (coin-flip directions on the primary's schedule: %d trades, %.0f a year; amendment 1)" % (
+            int(on.sum()), on.sum() / years))
+        HH.power_lines(pd.Series(P, index=days).reindex(bdays, fill_value=0.0).to_numpy(), B, years)
         print("  (no real direction was computed)")
         return
 
@@ -186,39 +183,33 @@ def main(argv):
           "%.2f" % (q95, float(np.median(null_prim))))
 
     pr = rows[PRIMARY]
-    x, dd1 = HH.scaled(pr["x"])
-    bb = HH.own(B.to_numpy() + x, bdays)
-    print("  BOOK #463 + BONDLEAD primary at a $30k own drawdown (x%.3f NQ): ROC@30k %.2f  Sortino %.3f" % (
-        30000.0 / dd1, bb["roc"], bb["sort"]))
-    idx = PL.stationary_indices(len(x), 1000, 20, np.random.default_rng(SEED))
-    lead = PL.roc30((B.to_numpy() + x)[idx], years) - PL.roc30(B.to_numpy()[idx], years)
-    lead = lead[np.isfinite(lead)]
-    p5 = float(np.percentile(lead, 5))
-    print("  paired bootstrap (mean block 20, 1,000 draws) book-add lead: 5th percentile %+.1f (SD %.1f)" % (
-        p5, float(lead.std(ddof=1))))
+    z = cell_z(PRIMARY, O, C, funds)
+    _, on = leg(O, C, z, PRIMARY[1], PRIMARY[2], wf)
+    cand = np.zeros((len(days), 78))
+    cand[:, PRIMARY[1]:] = np.where(on, np.sign(z), 0.0)[:, None]
+    print("  REPORT overlap with #463 legs on BONDLEAD's held bars: %s" % HH.overlap(cand, HH.book_positions(days)))
+    xd, _ = HH.scaled(pr["x"])
     for a, b in (("2020-03-02", "2020-03-27"), ("2022-01-03", "2022-12-30"), ("2025-02-19", "2025-04-30")):
         m = (bdays >= pd.Timestamp(a)) & (bdays <= pd.Timestamp(b))
-        print("  %s .. %s: #463 $%s, BONDLEAD primary at that size $%s" % (
-            a, b, format(int(B.to_numpy()[m].sum()), ","), format(int(x[m].sum()), ",")))
-
-    st = pr["st"]
-    a1 = st["roc"] >= HH.BAR_OWN and pr["pf"] > 1 and pr["n"] >= 100 and pr["n"] / years >= 50 and sum(
-        v > 0 for v in pr["yrs"]) >= 6
-    a2 = st["roc"] > q95
+        print("  REPORT %s .. %s: #463 $%s, BONDLEAD primary at a $30k own drawdown $%s" % (
+            a, b, format(int(B.to_numpy()[m].sum()), ","), format(int(xd[m].sum()), ",")))
+    shadow = HH.book_report(pr["x"], B, years, "BONDLEAD")
+    a1, no2020, route = HH.standalone(pr["st"], pr["pf"], pr["n"], years, pr["yrs"], pr["x"], bdays, B, "BONDLEAD")
+    a2 = pr["st"]["roc"] > q95
     a3 = all(rows[c]["st"]["net"] > 0 for c in CELLS[1:])
-    a4 = bb["roc"] >= HH.BAR_BOOK_ROC and bb["sort"] >= HH.BAR_BOOK_SORT and p5 > 0
-    a5 = st["roc"] > twin["st"]["roc"]
+    a5 = pr["st"]["roc"] > twin["st"]["roc"]
     print("")
-    for lab, ok in (("A1 own ROC@30k >= 15, PF > 1, >= 100 trades and 50 a year, >= 6 of 9 years", a1),
+    for lab, ok in (("A1 own ROC@30k >= 15 or earner route (%s), PF > 1, >= 100 and 50/yr, >= 6 of 9 years" % route, a1),
+                    ("A1b no-2020: the same route holds without calendar 2020", no2020),
                     ("A2 primary above the day-permuted family null's p95", a2),
                     ("A3 all three neighbours net positive after cost", a3),
-                    ("A4 book add >= 98.50 / Sortino 3.816 and bootstrap p5 > 0", a4),
                     ("A5 primary beats NQ's own-morning twin on own ROC@30k", a5)):
-        print("  %-75s %s" % (lab, "PASS" if ok else "FAIL"))
+        print("  %-80s %s" % (lab, "PASS" if ok else "FAIL"))
+    print("  A4 (REPORT, house line #45) vol-scale book add >= 98.50 / 3.816 with p5 > 0: %s -> %s" % (
+        "yes" if shadow else "no", "forward BOOK shadow line too" if shadow else "standalone only"))
     print("")
     print("STAGE A: %s" % ("PASS -> pinned Auto-Validate the same day (BONDLEAD_1_0 plugin, parity first)"
-                         if all((a1, a2, a3, a4, a5)) else "FAIL - recorded dead, no variants"))
-
+                         if all((a1, no2020, a2, a3, a5)) else "FAIL - recorded dead, no variants"))
 
 if __name__ == "__main__":
     main(sys.argv[1:])

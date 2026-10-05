@@ -129,3 +129,14 @@ gate.
 - **FAIL:** recorded dead; no other fund, window or lookback is tried.
 - **Either way:** a RUNBOARD research verdict with ROC@$30k and DD%, a RESEARCH_LEDGER row and a NOISE.md note. Nothing
   live or in the adopted book changes without the owner.
+
+## AMENDMENT 1 - house line #45 + the HALFHOUR review's #44 edits applied alike (2026-10-05 ~08:15 MST, before any real-direction run)
+- **Standalone bars decide** (Auto-Validate + RUNBOARD row). A1 = own ROC@$30k >= 15, OR the earner route (own ROC@$30k >= 5 AND positive in #463's
+  worst walk-forward drawdown, peak to trough on its daily series, also without the leg's 3 best days there), plus PF > 1, >= 100 trades and >= 50 a
+  year, >= 6 of 9 years. A1b no-2020 = the same route holds with calendar 2020 removed (my reading of #45; MANAGER may correct). A2 null, A3 neighbours.
+- **A4 is a REPORT**: it decides only whether a forward BOOK shadow line is also opened. Sized by VOLATILITY (leg daily SD over 2016-07-01 .. 2018-06-30 =
+  25% of #463's daily SD on the same days), the $30k-own-drawdown version reported as the twin. Power lines recomputed BEFORE the run (same coin-flip
+  leg): VOL scale (x0.807 NQ) SD 17.7, minimum detectable 29.1, four in five 44.0; $30k own drawdown (x0.759 NQ) SD 17.3, 28.4, 42.9.
+- **Overlap report**: share of the leg's held 5m bars on which ORB #314 or NOISE #422 holds the same side / the opposite side (ENGU-Q 1m ETH and TTM on ES
+  not included). The question in the draft is answered by #45: A4 is a report. A5 (beat the own-morning twin) stays a standalone bar.
+- Unchanged: cells, rules, null, cost, stretch, no variants on a fail.
