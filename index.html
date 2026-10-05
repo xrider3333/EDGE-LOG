@@ -853,7 +853,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1024';
+const VERSION='73.1025';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -871,7 +871,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1022',date:'2026-10-05',notes:['PAPER: the nightly run tells the strategy research lane when a forward shadow reaches 50, 100 and so on closed trades.']},
+const CHANGELOG=[{v:'73.1025',date:'2026-10-05',notes:['PAPER (NT8 FUTURES): the board moves onto the shared LEDGER hero and range pills, like REAL - BOOK #463 label, the big number, the today line, the range line and the status and warning chips on the right. One pill row (TODAY 1W 1M 3M YTD ALL, counted back from today) now drives the number, chart, stats, calendar, trade list and every strategy row together; the 1W / 1M / All tabs and the Today / All time switch are gone. ?oldboards=1 shows the previous layout for one version.']},
+{v:'73.1022',date:'2026-10-05',notes:['PAPER: the nightly run tells the strategy research lane when a forward shadow reaches 50, 100 and so on closed trades.']},
 {v:'73.1021',date:'2026-10-05',notes:['POINTS: the four 200 points now read a simple 200 average (SMA) by default. An SMA | EMA switch in the POINTS box (trade panel and chart window) flips every score to the 200 EMA and back, and your choice is remembered.','EL charts draw the matching 200 line in blue on every bar size, so you can see what the signal candle was checked against.']},
 {v:'73.1016',date:'2026-10-04',notes:['PAPER review: the daily review lists trades by the day they close, matching the board, and marks which ones count toward the day.']},
 {v:'73.1015',date:'2026-10-04',notes:['NinjaTrader paper: NOISE now restarts while ENGU-Q is holding its picked-up overnight trade.']},
@@ -38972,9 +38973,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // all-time number under a TODAY label -- the worst kind of wrong, because it looks
       // like an answer.
       const legAgg=(name,scope)=>{
-        let rows=legRows(name);
-        if(scope==='TODAY')
-          rows=rows.filter(t=>(_closeDay(t))===_todayET);
+        const rows=legRows(name).filter(t=>_inScope(t,scope));
         const days=new Set(rows.map(t=>_closeDay(t)).filter(Boolean));
         const net=rows.reduce((s,t)=>s+(+t.pnl_usd||0),0);
         const wins=rows.filter(t=>(+t.pnl_usd||0)>0).length;
@@ -38996,7 +38995,23 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // TODAY / ALL TIME now lives ON the tile strip (owner: "need the time selector
       // (today/alltime) make those the tab selectors like in results tab 1e matrix"), and
       // drives the cross-engine block inside each tile. Same pill language as 1E.
-      const PSCOPE=(window._paperMatrixScope==='TODAY')?'TODAY':'ALL';
+      // ── ONE RANGE (LEDGER step 4, owner 2026-10-05). The NT8 board moves onto the shared hero and the one pill row
+      // (TODAY 1W 1M 3M YTD ALL, counted back from today in New York by ledgerCutoff). That one range now drives the
+      // hero, the chart, the stats, the calendar, the trade list AND every strategy row NET, so the two controls that
+      // used to fight (the 1W / 1M / All tabs counted from the newest trade, and the rail's Today / All time switch)
+      // are gone. ?oldboards=1 keeps the previous layout for one version (_p2New false).
+      const _p2New=(augurSub==='paper2')&&!LEDGER_OLDBOARDS;
+      const _rangeSel=(LEDGER_RANGES.indexOf(window._paperCurveWin)>=0)?window._paperCurveWin
+        :((APREF.paperRange&&LEDGER_RANGES.indexOf(APREF.paperRange)>=0)?APREF.paperRange:'ALL');
+      const PSCOPE=_p2New?_rangeSel:((window._paperMatrixScope==='TODAY')?'TODAY':'ALL');
+      const _rangeFrom=_p2New?(ledgerCutoff(PSCOPE)||''):'';
+      // a trade is in scope on the day it CLOSED (the close-day rule); a trade still open is in no range
+      const _inScope=(t,scope)=>{if(!scope||scope==='ALL')return true;
+        const d=_closeDay(t);if(!d)return false;
+        if(_p2New){const c=ledgerCutoff(scope);return !c||d>=c;}
+        return d===_todayET;};
+      // the trades table also keeps OPEN rows (they sit under OPEN NOW, in no total) whatever the range
+      const _rowInRange=t=>{if(!_p2New||!_rangeFrom)return true;const d=_closeDay(t);return !d||d>=_rangeFrom;};
       const _psScopeTab=(v,lbl)=>'<span data-mscope="'+v+'" style="cursor:pointer;user-select:none;font-weight:700;font-size:9px;letter-spacing:1px;padding:2px 8px;border-radius:5px;border:1px solid '
         +(PSCOPE===v?'var(--blue)':'var(--border)')+';color:'+(PSCOPE===v?'var(--blue)':'var(--text4)')+'">'+lbl+'</span>';
       // ── PROVENANCE — which run + which config each leg came from ──────────────
@@ -39122,8 +39137,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         return isFinite(d)?d:null;};
       const legStats=(name,scope)=>{
         const a=legAgg(name,scope), sp=legSplit(name);
-        let rows=legRows(name);
-        if(scope==='TODAY')rows=rows.filter(t=>(_closeDay(t))===_todayET);
+        const rows=legRows(name).filter(t=>_inScope(t,scope));
         let gw=0,gl=0,fw=0,fl=0;
         rows.forEach(t=>{const p=+t.pnl_usd||0;
           if(p>0)gw+=p;else if(p<0)gl+=-p;
@@ -39137,7 +39151,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const D=sp.liveFrom?_daySpan(from,_lastSessionET):null;
         // A leg added today has genuinely observed ZERO sessions, so it dashes rather than
         // claiming a one-day rate. Zero forward dollars over real days IS a rate, and prints.
-        const perDay=(scope==='TODAY'||name==='BLEND')?null:((D!=null&&D>=1)?(sp.netFw/D):null);
+        const perDay=((scope&&scope!=='ALL')||name==='BLEND')?null:((D!=null&&D>=1)?(sp.netFw/D):null);
         return {a:a,sp:sp,pf:pf,pfFw:pfFw,ev:ev,perDay:perDay,dFrom:from,dDays:D};
       };
       const _fmtPf=v=>(v==null)?null:(v===Infinity?'\u221e':v.toFixed(2));
@@ -39414,8 +39428,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                :_num(_S.ev,'EV - expected value, the average net dollars this leg makes per trade. Net divided by '+a.n+' trade'+(a.n===1?'':'s')+', forward and backfilled together. The same figure the run report 1E matrix calls EV.'
                  +(_S.sp.nFw?(' Forward-observed trades only: '+fmtUsd(_S.sp.netFw/_S.sp.nFw)+' over '+_S.sp.nFw+'.'):''))),
           perday:_td(_S.perDay==null
-               ?_dashR(PSCOPE==='TODAY'
-                  ?'TODAY is a single session, so its dollars-per-day IS the NET column. Switch to ALL TIME.'
+               ?_dashR((PSCOPE&&PSCOPE!=='ALL')
+                  ?'A dated range is not a forward rate: dollars per calendar day reads on ALL.'
                   :'This leg has not recorded the day its configuration joined the board, so there is no calendar to measure a rate over.')
                :_num(_S.perDay,'Forward dollars per CALENDAR day: the '+_S.sp.nFw+' trade'+(_S.sp.nFw===1?'':'s')+' observed since this configuration joined the board on '+_S.dFrom+', divided by the '+_S.dDays+' calendar day'+(_S.dDays===1?'':'s')+' from then to the last completed session ('+_lastSessionET+'). Weekends are counted, exactly like every other dollars-per-day figure in this app. The '+_S.sp.nBf+' BACKFILLED trade'+(_S.sp.nBf===1?'':'s')+' are excluded - a backtest has no calendar to spread over. With this few trades, read it as a direction and not a forecast.')),
           n:_td(a.n),
@@ -39664,6 +39678,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         _pt.filter(t=>_legShown(legOf(t))).forEach(t=>{
           const d=_closeDay(t);
           if(!d)return;
+          if(_p2New&&_rangeFrom&&d<_rangeFrom)return;
           if(!m[d])m[d]={pnl:0,n:0,w:0};
           const v=+t.pnl_usd||0;
           m[d].pnl+=v; m[d].n++; if(v>0)m[d].w++;
@@ -39768,15 +39783,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // picker, then the curve. The picker is a lens (not saved): 1W / 1M / ALL count
       // back from the newest trade on the board, because this is a forward test and
       // 'the last 7 days' of a quiet week would be an empty chart.
-      const _pcw=(PSCOPE==='TODAY')?'TODAY':(['1W','1M','ALL'].indexOf(window._paperCurveWin)>=0?window._paperCurveWin:'ALL');
+      const _pcw=_p2New?PSCOPE:((PSCOPE==='TODAY')?'TODAY':(['1W','1M','ALL'].indexOf(window._paperCurveWin)>=0?window._paperCurveWin:'ALL'));
       const _pcwFrom=(()=>{
+        if(_p2New)return _rangeFrom;
         if(_pcw==='TODAY')return _todayET;
         if(_pcw==='ALL'||!_allDates.length)return '';
         const last=new Date(_allDates[_allDates.length-1]+'T12:00:00');
         last.setDate(last.getDate()-(_pcw==='1W'?7:30));
         return last.toISOString().slice(0,10);
       })();
-      const _heroRows=_pt.filter(t=>_legShown(legOf(t))&&t.open!==true).filter(t=>{const d=_closeDay(t)||'';return _pcw==='TODAY'?d===_todayET:(!_pcwFrom||d>=_pcwFrom);});
+      const _heroRows=_pt.filter(t=>_legShown(legOf(t))&&t.open!==true).filter(t=>{const d=_closeDay(t)||'';return (_pcw==='TODAY'&&!_p2New)?d===_todayET:(!_pcwFrom||d>=_pcwFrom);});
       const _H=(()=>{const rows=_heroRows;
         const net=rows.reduce((a,t)=>a+(+t.pnl_usd||0),0);
         const gw=rows.reduce((a,t)=>a+Math.max(0,+t.pnl_usd||0),0), gl=rows.reduce((a,t)=>a+Math.max(0,-(+t.pnl_usd||0)),0);
@@ -39792,7 +39808,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _winSeries=_curveSeries.map(sr=>{const base=_i0>0?sr.vals[_i0-1]:0;return Object.assign({},sr,{vals:sr.vals.slice(_i0).map(v=>v-base)});});
       const _pcwSeg=(PSCOPE==='TODAY')?''
         :('<div class="p2seg" data-ptray style="margin-top:14px;max-width:300px">'+['1W','1M','ALL'].map(w=>'<span data-pcwin="'+w+'"'+(_pcw===w?' class="on"':'')+' title="'+(w==='ALL'?'The whole forward test':(w==='1W'?'The 7 days up to the newest trade':'The 30 days up to the newest trade'))+'">'+(w==='ALL'?'All':w)+'</span>').join('')+'</div>');
-      const _pcwLbl=_pcw==='TODAY'?('today \u00b7 '+_todayET):(_pcw==='ALL'?'all time':(_pcw==='1W'?'last 7 days':'last 30 days'));
+      const _pcwLbl=_p2New?(LEDGER_RANGE_LABEL[_pcw]||_pcw):(_pcw==='TODAY'?('today \u00b7 '+_todayET):(_pcw==='ALL'?'all time':(_pcw==='1W'?'last 7 days':'last 30 days')));
       const curveHtmlNoLegs='<div class="p2sheet"><div class="p2hero">'
         +'<div class="p2lbl">Net \u00b7 '+_pcwLbl+' \u00b7 '+_nShown+' of '+_bookDefs.length+' book legs</div>'
         +'<div class="p2big" style="color:'+(_H.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_H.net)+'</div>'
@@ -39819,7 +39835,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _rhX=i=>_rhN<=1?50:(i/(_rhN-1))*100;          // percent of the chart width
       const _rhY=v=>(1-(v-_rhMin)/_rhRng)*100;             // percent of the chart height
       const _rhChart=(()=>{
-        if(!_rhN)return '<div class="p2rhempty">NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START+'</div>';
+        if(!_rhN)return '<div class="p2rhempty">'+((_p2New&&_allDates.length)?'NO CLOSED TRADES IN THIS RANGE':('NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START))+'</div>';
         // The SVG stretches to the box (preserveAspectRatio none) so the chart can take a
         // share of the screen HEIGHT; strokes stay crisp through vector-effect, and every
         // label is HTML positioned in percent so text never stretches with it.
@@ -39840,7 +39856,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       })();
       // read by the scrub handler in the wiring section - plain numbers, no DOM
       window._p2Scrub={dates:_winDates,total:_rhTotal,ys:_rhTotal.map(_rhY),pos:PNL_POS,neg:PNL_NEG};
-      const _rhTabs=(PSCOPE==='TODAY')?''
+      const _rhTabs=_p2New?('<div class="hm-range-row" data-p2range>'+ledgerRangePillsHtml(_pcw,'data-pcwin')
+          +'<span class="p2rhkey">bold line = the book legs together \u00b7 faint lines = each leg \u00b7 hover the chart to scrub</span></div>')
+        :(PSCOPE==='TODAY')?''
         :('<div class="p2rhtabs">'+['1W','1M','ALL'].map(w=>'<span data-pcwin="'+w+'"'
             +(_pcw===w?(' class="on" style="color:'+_rhAcc+';border-bottom-color:'+_rhAcc+'"'):'')
             +' title="'+(w==='ALL'?'The whole forward test':(w==='1W'?'The 7 days up to the newest trade':'The 30 days up to the newest trade'))+'">'+(w==='ALL'?'All':w)+'</span>').join('')
@@ -39890,17 +39908,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +(_crownGone.length?(' Crowns NOT on this board: '+_crownGone.map(d=>d.label).join(', ')+'.'):''))+'" style="cursor:help">Strategies</span>'
             +'<span class="p2railct">'+_nShown+' of '+_bookDefs.length+' book legs on</span>'
             +(_legOff.length?'<span class="p2link" data-paperlegall>Include all</span>':'')+'</div>'
-          +(()=>{
-            const tie=(_pcw==='ALL'||_pcw==='TODAY')&&Math.abs(_listedNet-_H.net)<0.5;
-            return '<div data-p2listed data-net="'+_listedNet.toFixed(2)+'" data-n="'+_listedN+'" data-tie="'+(tie?'1':'0')+'" style="padding:7px 14px;font-size:10.5px;color:var(--text4);border-bottom:1px solid var(--border2);line-height:1.5" '
-              +'title="The BOOK group total: the switched-on legs of the adopted book, each at the NET its row shows (book weights applied). Nothing outside the book is in it."'
-              +'>BOOK #'+_bookRun+' group total \u00b7 '+(PSCOPE==='TODAY'?'today':'all time')+' <b style="color:'+(_listedNet>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_listedNet)+'</b> \u00b7 '+_listedN+' trades'
-              +(tie?' <span style="color:var(--text5)">= the big number</span>':' <span style="color:var(--text5)">(the big number shows the range you picked)</span>')+'</div>';
-          })()
           +'<div class="p2filt">'
-            +'<div class="p2filtrow">'
-              +'<div class="p2seg" data-ptray>'+seg('mscope','TODAY',PSCOPE==='TODAY','Today','Only today - '+_todayET+' (New York). Money comes from the EDGELOG engine, not NinjaTrader fills.')
-                +seg('mscope','ALL',PSCOPE==='ALL','All time','The whole forward test.')+'</div>'
+            +'<div class="p2filtrow"'+(_p2New?' style="grid-template-columns:minmax(0,1fr)"':'')+'>'
+              +(_p2New?'':('<div class="p2seg" data-ptray>'+seg('mscope','TODAY',PSCOPE==='TODAY','Today','Only today - '+_todayET+' (New York). Money comes from the EDGELOG engine, not NinjaTrader fills.')
+                +seg('mscope','ALL',PSCOPE==='ALL','All time','The whole forward test.')+'</div>'))
               +'<div class="p2seg" data-ptray>'+seg('pkind','ALL',PKIND==='ALL','Both','raw configs and ML overlays together')
                 +seg('pkind','RAW',PKIND==='RAW','Raw','only plain configs, no ML overlay')
                 +seg('pkind','ML',PKIND==='ML','ML','only the ML overlays (hybrid gates and size tilts)')+'</div>'
@@ -39983,7 +39994,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _psCol=_PSORTS[window._paperSortCol]?window._paperSortCol:'date';
       const _psDir=(window._paperSortDir==='asc')?'asc':'desc';
       const _psKey=_PSORTS[_psCol];
-      const _tSorted=_pt.filter(t=>{const _l=legOf(t);return _legShown(_l)||_otherOnSet.has(_l);})
+      const _tSorted=_pt.filter(t=>{const _l=legOf(t);return (_legShown(_l)||_otherOnSet.has(_l))&&_rowInRange(t);})
         .sort((a,b)=>{
           const x=_psKey(a),y=_psKey(b);
           let c;
@@ -40185,7 +40196,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<span class="p2num" style="font-size:15px;letter-spacing:.4px;color:'+(_dt.pnl>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_dt.pnl)+' <span style="font-family:inherit;font-size:9px;color:var(--text5)">\u00b7 '+_dt.n+' trade'+(_dt.n===1?'':'s')+(_dsRow?'':' \u00b7 unrealised')+'</span></span></span></td></tr>';
         }
         const _sideTxt=(_sideOf(t.side)||'\u2014').toUpperCase();
-        return _dayHdr+'<tr data-ptrow="P'+_ci+'"'+(_selNow?' class="ptsel"':'')+'>'
+        return _dayHdr+'<tr data-ptrow="P'+_ci+'" data-pcd="'+(_closeDay(t)||'')+'"'+(_selNow?' class="ptsel"':'')+'>'
           +'<td data-pc="leg" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px">'+_crownIc(leg)+'<span style="color:'+lc+';font-weight:700">'+(_legLabel[leg]||leg)+'</span>'+_laBadge+_rollBadge+(_isUnc(leg)?_othBadge:'')+'</td>'
           +'<td><span style="display:inline-block;font-size:9px;letter-spacing:1px;font-weight:700;padding:1px 7px;border-radius:6px;border:1px solid var(--border);color:var(--text2)">'+_sideTxt+'</span></td>'
           +'<td style="white-space:nowrap;color:var(--text4)" title="entry date and time \u2192 exit date and time, New York time. The day header above is the day the trade CLOSED'+(t.open===true?'. This trade is still OPEN, so its exit is the last bar seen and its money is an unrealised mark':'')+'">'+(_etKey(t.entryTime)||'\u2014').slice(5)+' \u2192 '+(t.open===true?'<b style="font-size:8px;letter-spacing:.5px;padding:0 4px;border-radius:4px;border:1px solid var(--text4)">OPEN</b> ':'')+(_etKey(t.exitTime)||'\u2014').slice(5)+'</td>'
@@ -41073,7 +41084,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const bf=((LR.book||{}).failed||[]);
             if(bf.length)add('','Book legs failed: '+bf.join(', '),'These book legs raised an error in the nightly run, so the book figure counted them as $0.');
           }
-          return W.map(w=>'<span class="p2chip p2warn"'+(w.card?(' data-p2warn="'+w.card+'"'):'')+' title="'+_wx(w.tip)+(w.card?' (click to open the card)':'')+'" style="'+(w.card?'cursor:pointer':'')+'"><span class="p2dot" style="background:#e0a33a"></span>\u26a0 '+_wx(w.txt)+'</span>').join('');
+          return W.map(w=>'<span class="'+(_p2New?'lg-chip':'p2chip')+' p2warn"'+(w.card?(' data-p2warn="'+w.card+'"'):'')+' title="'+_wx(w.tip)+(w.card?' (click to open the card)':'')+'" style="'+(w.card?'cursor:pointer':'')+'"><span class="p2dot" style="background:#e0a33a"></span>\u26a0 '+_wx(w.txt)+'</span>').join('');
         })();
         const _p2Status=(()=>{
           const B=window._ntBridge;
@@ -41081,7 +41092,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const nStrat=(B&&B.up)?(B.strategies||[]).length:0;
           const held=(B&&B.up)?(B.positions||[]).length:0;
           const G=(B&&B.gate)||{};
-          const chip=(txt,col,tip)=>'<span class="p2chip" title="'+String(tip||'').replace(/"/g,'&quot;')+'"><span class="p2dot" style="background:'+col+'"></span>'+txt+'</span>';
+          const chip=(txt,col,tip)=>'<span class="'+(_p2New?'lg-chip':'p2chip')+'" title="'+String(tip||'').replace(/"/g,'&quot;')+'"><span class="p2dot" style="background:'+col+'"></span>'+txt+'</span>';
           const ntCol=!B?'#8a8a8a':(rt.length&&rt.length===nStrat?PNL_POS:'#e0a33a');
           const gCol=!G.up?PNL_NEG:(G.error?'#e0a33a':PNL_POS);
           return chip(!B?'No snapshot':(rt.length+' / '+nStrat+' live in NinjaTrader'),ntCol,
@@ -41173,10 +41184,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'.p2railfoot{font-size:9.5px;color:var(--text5);padding:8px 14px 10px;line-height:1.5;border-top:1px solid var(--border2)}'
           +'@media (max-width:1500px){.p2rhrow{grid-template-columns:1fr}.p2rhcal{max-width:620px}.p2rhkey{display:none}}'
           +'@media (max-width:700px){.p2rhstats{grid-template-columns:repeat(2,minmax(0,1fr))}.p2rhnum{font-size:36px}}'
+          +'.lg-hero-chips .p2chip{height:24px;padding:0 9px;font-size:10px;gap:5px}'
+          +'.lg-hero-chips button[data-paperrefresh]{height:24px}'
           +'</style>';
         const _rhToday=(_pcw!=='TODAY')
           ?('<span style="color:'+(_H.today>=0?PNL_POS:PNL_NEG)+'">'+(_H.today>0?'+':'')+fmtUsd(_H.today)+' today</span><span class="p2rhsep">\u00b7</span>'):'';
-        const _p2Head=_p2Css+_rhCss+'<div class="p2rhhero">'
+        const _p2HeadOld='<div class="p2rhhero">'
           +'<div style="min-width:0">'
             +'<div class="p2rhcap" data-p2cap>BOOK #'+_bookRun+' \u00b7 NT8 futures paper \u00b7 since '+PAPER_START+'</div>'
             +'<div class="p2rhnum" data-p2num style="color:'+_rhAcc+'">'+fmtUsd(_H.net)+'</div>'
@@ -41184,6 +41197,25 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +((_fwdDefs.length+_otherKeys.length)?'<span class="p2rhsep">\u00b7</span><span title="Controls, forward tests and shadow strategies. Their trades are not in this number.">'+(_fwdDefs.length+_otherKeys.length)+' other strategies not counted</span>':'')+'</div>'
           +'</div>'
           +'<div class="p2status">'+_p2Status+_p2WarnChips+_reloadBtn.replace('height:24px','height:28px').replace('border-radius:7px','border-radius:999px')+'</div></div>';
+        // THE SHARED HERO (TRADING-LOG ledgerHeroHtml): label, big number, today line, range line, status chips on the
+        // right - the same structure REAL uses. Big = the BOOK total for the range; the warning chips ride in o.chips.
+        const _nUncounted=_fwdDefs.length+_otherKeys.length;
+        const _p2HeadNew=ledgerHeroHtml({ids:{label:'p2-hero-label',big:'p2-hero-value',today:'p2-hero-today',range:'p2-hero-range',chips:'p2-hero-chips'},
+          label:'BOOK #'+_bookRun+' \u00b7 NT8 futures paper',
+          big:ledgerMoney(_H.net),
+          today:ledgerTodayHtml(_H.today),
+          range:'<span>'+_pcwLbl+'</span><span class="lg-suffix">\u00b7</span><span>'+_H.n+' trade'+(_H.n===1?'':'s')+'</span><span class="lg-suffix">\u00b7</span><span>'+_nShown+' of '+_bookDefs.length+' book legs</span>'
+            +(_nUncounted?'<span class="lg-suffix">\u00b7</span><span title="Controls, forward tests and shadow strategies. Their trades are not in this number.">'+_nUncounted+' other strategies not counted</span>':''),
+          chips:_p2Status+_p2WarnChips+_reloadBtn.replace('border-radius:7px','border-radius:999px')});
+        // the tie-out: the BOOK group total equals the big number (rows follow the same range, so it holds on every pill)
+        const _tieStrip=(()=>{
+          const tie=Math.abs(_listedNet-_H.net)<0.5;
+          return '<div data-p2listed data-net="'+_listedNet.toFixed(2)+'" data-n="'+_listedN+'" data-tie="'+(tie?'1':'0')+'" style="margin:10px 0 0;font-size:11px;color:var(--text4);line-height:1.5" '
+            +'title="The BOOK group total: the switched-on legs of the adopted book, each at the NET its row shows (book weights applied), over the same range. Nothing outside the book is in it."'
+            +'>BOOK #'+_bookRun+' group total \u00b7 '+_pcwLbl+' <b>'+ledgerMoney(_listedNet)+'</b> \u00b7 '+_listedN+' trades'
+            +(tie?' <span style="color:var(--text5)">= the big number</span>':' <span style="color:var(--text5)">(does not match the big number: check the switches)</span>')+'</div>';
+        })();
+        const _p2Head=_p2Css+_rhCss+(_p2New?_p2HeadNew:_p2HeadOld)+_tieStrip;
         const _p2Top=dataHtml+capHtml+_rhChart+_rhTabs+'<div class="p2rhrow">'+_rhStats+_rhCal+'</div>';
         const _p2Main=tradesHtml
           +_p2Card('nt','NinjaTrader \u00b7 detail',bridgeHtml,'live state, fills, orders')
@@ -43167,13 +43199,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         else {window._paperSortCol=k;window._paperSortDir='desc';}
         renderApp();};});
       content.querySelectorAll('[data-mscope]').forEach(el=>{el.onclick=()=>{window._paperMatrixScope=el.getAttribute('data-mscope');renderApp();};});
-      content.querySelectorAll('[data-pcwin]').forEach(el=>{el.onclick=()=>{window._paperCurveWin=el.getAttribute('data-pcwin');renderApp();};});
+      content.querySelectorAll('[data-pcwin]').forEach(el=>{el.onclick=()=>{window._paperCurveWin=el.getAttribute('data-pcwin');savePref('paperRange',window._paperCurveWin);renderApp();};});
       // ROBINHOOD SCRUB (2026-09-14): hovering the chart walks the bold line and the big
       // number + the line under it follow the cursor; leaving puts them back. No re-render.
       {const ch=content.querySelector('[data-p2chart]'), S=window._p2Scrub;
        if(ch&&S&&S.dates&&S.dates.length>1){
-         const $=v=>((v||0)<0?'-$':'$')+Math.abs(Math.round(v||0)).toLocaleString();
-         const num=content.querySelector('[data-p2num]'), sub=content.querySelector('[data-p2sub]');
+         const _newHero=!!content.querySelector('#p2-hero-value');
+         const $=_newHero?(v=>ledgerMoney(v)):(v=>((v||0)<0?'-$':'$')+Math.abs(Math.round(v||0)).toLocaleString());
+         const num=content.querySelector('#p2-hero-value')||content.querySelector('[data-p2num]'), sub=content.querySelector('#p2-hero-range')||content.querySelector('[data-p2sub]');
          const cur=ch.querySelector('[data-p2cur]'), dot=ch.querySelector('[data-p2dot]');
          const num0=num?num.textContent:'', col0=num?num.style.color:'', sub0=sub?sub.innerHTML:'';
          const n=S.dates.length;
@@ -43184,7 +43217,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
            ch.classList.add('scrub');
            if(cur)cur.style.left=xp+'%';
            if(dot){dot.style.left=xp+'%';dot.style.top=S.ys[i]+'%';dot.style.background=c;}
-           if(num){num.textContent=$(v);num.style.color=c;}
+           if(num){num.textContent=$(v);if(!_newHero)num.style.color=c;}
            if(sub){
              let dl=S.dates[i];
              try{dl=new Date(S.dates[i]+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});}catch(_e){}

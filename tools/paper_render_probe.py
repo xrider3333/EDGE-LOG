@@ -40,6 +40,11 @@ WHAT IT ASSERTS
     trade count; the big NET equals the listed strategies total equals the end of the bold line; the
     Other / shadow group has its own subtotal and is NOT in the big number (also with its trades switched
     on in the table); alarms that live in closed cards also show as chips in the hero
+  * LEDGER step 4 (owner 2026-10-05), PAPER * layout: the hero is the shared one (same parts as REAL: label, big
+    number, today line, range line, chips), labelled BOOK #463 - NT8 futures paper, with the warning chips inside
+    it; ONE pill row TODAY 1W 1M 3M YTD ALL (counted back from today) replaces the old 1W / 1M / All tabs and the
+    Today / All time switch, and every pill moves the big number, the bold line, the stats, the calendar, the
+    trade list and the strategy rows together; ALL is the old all-time figure
   * BOOK (owner 2026-10-04): the big number is the BOOK #463 figure - exactly the legs of api/paper.py _BOOK at
     their weights (TTM x3), read from the source, never a list kept here - and equals the BOOK group total
     equals the end of the bold line; "Forward tests & controls" and "Other / shadow" carry labelled subtotals
@@ -135,6 +140,12 @@ CASES = [
     ('other-on',        {'sub': 'paper2', 'prefs': {'paperOtherOn': ['ORB_257', 'NOISE_H'], 'paperOtherOpen': True},
                          'win': {}}),
     ('fwd-closed',      {'sub': 'paper2', 'prefs': {'paperFwdOpen': False}, 'win': {}}),
+    ('range-today',     {'sub': 'paper2', 'prefs': {}, 'win': {'_paperCurveWin': 'TODAY'}}),
+    ('range-1w',        {'sub': 'paper2', 'prefs': {}, 'win': {'_paperCurveWin': '1W'}}),
+    ('range-1m',        {'sub': 'paper2', 'prefs': {}, 'win': {'_paperCurveWin': '1M'}}),
+    ('range-3m',        {'sub': 'paper2', 'prefs': {}, 'win': {'_paperCurveWin': '3M'}}),
+    ('range-ytd',       {'sub': 'paper2', 'prefs': {}, 'win': {'_paperCurveWin': 'YTD'}}),
+    ('range-saved',     {'sub': 'paper2', 'prefs': {'paperRange': '1M'}, 'win': {}}),
     ('book-fallback',   {'sub': 'paper2', 'prefs': {}, 'win': {'__nobook': True}}),
     ('legs-off-p2',     {'sub': 'paper2',
                          'prefs': {'paperLegOff': ['ORB', 'ORB_H', 'ENGUQ_ER', 'ENGUQ_ER_H', 'ENGUQ_L50']},
@@ -268,8 +279,21 @@ var CASES=__CASES__, FIX=__FIX__;
         r.bookTh=[].filter.call(d.querySelectorAll('th'),function(x){return x.textContent.indexOf('BOOK $')>=0;}).length;
         // LEDGER step 3 readout (PAPER * layout)
         function _num(t){var m=String(t||'').replace(/,/g,'').match(/(-?)\\$([0-9.]+)/);return m?(m[1]?-1:1)*parseFloat(m[2]):null;}
-        var _hn=d.querySelector('.p2rhnum');
+        var _hn=d.querySelector('#p2-hero-value');
         r.heroNum=_hn?_num(_hn.textContent):null;
+        var _hh=d.querySelector('.lg-hero');
+        r.hero=_hh?{label:(_hh.querySelector('.lg-hero-label')||{}).innerText||'',today:(_hh.querySelector('.lg-hero-today')||{}).innerText||'',
+          range:(_hh.querySelector('.lg-hero-range')||{}).innerText||'',
+          parts:['.lg-hero-main','.lg-hero-label','.lg-hero-big','.lg-hero-today','.lg-hero-range','.lg-hero-chips'].map(function(q){return _hh.querySelector(q)?1:0;}).join(''),
+          warnInChips:_hh.querySelectorAll('.lg-hero-chips .p2warn').length,chips:_hh.querySelectorAll('.lg-hero-chips .lg-chip').length}:null;
+        r.pills=[].map.call(d.querySelectorAll('.lg-pills button'),function(x){return x.textContent.trim();});
+        r.pillActive=[].map.call(d.querySelectorAll('.lg-pills button.active'),function(x){return x.textContent.trim();});
+        r.oldTabs=d.querySelectorAll('.p2rhtabs').length;
+        r.mscopeCtl=d.querySelectorAll('.p2rail [data-mscope]').length;
+        r.rowDays=[].map.call(d.querySelectorAll('#ptrades-body tr[data-ptrow]'),function(x){return x.getAttribute('data-pcd');});
+        r.calDays=[].map.call(d.querySelectorAll('[data-pcalday]'),function(x){return x.getAttribute('data-pcalday');});
+        var _sv=d.querySelector('.p2rhstat .p2rhsv');r.statTrades=_sv?parseInt(_sv.textContent,10):null;
+        r.rowNets=[].map.call(d.querySelectorAll('tr[data-paperleg]'),function(x){return x.getAttribute('data-paperleg')+'|'+_num(x.innerText);});
         try{var _sc=w._p2Scrub;r.boldEnd=(_sc&&_sc.total&&_sc.total.length)?_sc.total[_sc.total.length-1]:null;}catch(_e3){r.boldEnd=null;}
         var _ls=d.querySelector('[data-p2listed]');
         r.listed=_ls?{net:parseFloat(_ls.getAttribute('data-net')),n:+_ls.getAttribute('data-n'),tie:_ls.getAttribute('data-tie')}:null;
@@ -278,7 +302,7 @@ var CASES=__CASES__, FIX=__FIX__;
         r.otherRows=d.querySelectorAll('tr[data-paperother]').length;
         function _hd(sel){var e=d.querySelector(sel);return e?{net:parseFloat(e.getAttribute('data-net')),n:+e.getAttribute('data-n'),legs:+e.getAttribute('data-legs'),txt:e.innerText.replace(/\\s+/g,' ')}:null;}
         r.bookHd=_hd('[data-p2bookhd]');r.fwdHd=_hd('[data-p2fwdhd]');
-        r.cap=(function(){var e=d.querySelector('[data-p2cap]');return e?e.innerText:'';})();
+        r.cap=(function(){var e=d.querySelector('.lg-hero-label');return e?e.innerText:'';})();
         r.bookW=w._paperBookW||null;
         var _ld=d.querySelector('[data-p2loaded]');
         r.loaded=_ld?{loaded:+_ld.getAttribute('data-loaded'),stored:_ld.getAttribute('data-stored'),other:+_ld.getAttribute('data-other'),txt:_ld.innerText}:null;
@@ -571,8 +595,8 @@ def main():
         if abs(hn - be) > 1.0 or abs(hn - li['net']) > 1.0 or li.get('tie') != '1':
             fails.append('%s: big NET %s, end of the bold line %s, BOOK group total %s (tie=%s) do not agree'
                          % (nm, hn, be, li['net'], li.get('tie')))
-        if 'BOOK #463' not in (r.get('cap') or ''):
-            fails.append('%s: the hero does not say it is the BOOK #463 figure: %r' % (nm, r.get('cap')))
+        if 'book #463 \u00b7 nt8 futures paper' not in (r.get('cap') or '').lower():
+            fails.append('%s: the hero label is not BOOK #463 - NT8 futures paper: %r' % (nm, r.get('cap')))
     for nm in ('paper2', 'other-open', 'other-on', 'warn-stale-bridge', 'fwd-closed', 'book-fallback'):
         r = cases.get(nm) or {}
         if r.get('heroNum') is not None and abs(r['heroNum'] - exp_book) > 1.0:
@@ -617,6 +641,81 @@ def main():
     if 'other, not counted' not in (r.get('tradesHead') or '').lower():
         fails.append('other-on: the trades heading does not say the other rows are not counted: %r'
                      % r.get('tradesHead'))
+    # LEDGER step 4 -- the shared hero and the ONE pill row. Expected figures come from the fixture, with the
+    # range counted back from today in New York, a trade counted on the day it CLOSED.
+    import datetime as _dt
+    try:
+        from zoneinfo import ZoneInfo
+        today_ny = _dt.datetime.now(ZoneInfo('America/New_York')).date()
+    except Exception:
+        today_ny = (_dt.datetime.utcnow() - _dt.timedelta(hours=4)).date()
+
+    def _close(t):
+        if t.get('open') is True:
+            return ''
+        if t.get('close_day'):
+            return t['close_day']
+        x = str(t.get('exitIso') or '')[:10]
+        d = _dt.date.fromisoformat(x)
+        while d.weekday() >= 5:
+            d += _dt.timedelta(days=1)
+        return d.isoformat()
+
+    def _cut(rng):
+        if rng == 'TODAY':
+            return today_ny.isoformat()
+        if rng == 'YTD':
+            return '%d-01-01' % today_ny.year
+        n = {'1W': 7, '1M': 30, '3M': 90}.get(rng)
+        return (today_ny - _dt.timedelta(days=n)).isoformat() if n else ''
+
+    def _exp_range(rng):
+        c = _cut(rng)
+        rows = [t for t in closed if _w(t) and (not c or _close(t) >= c)]
+        return round(sum((t.get('pnl_usd') or 0) * _w(t) for t in rows)), len(rows), c
+    PILLS = ['TODAY', '1W', '1M', '3M', 'YTD', 'ALL']
+    for nm, rng in (('range-today', 'TODAY'), ('range-1w', '1W'), ('range-1m', '1M'), ('range-3m', '3M'),
+                    ('range-ytd', 'YTD'), ('range-saved', '1M'), ('paper2', 'ALL')):
+        r = cases.get(nm) or {}
+        exp, n_exp, cut = _exp_range(rng)
+        hn, be, li = r.get('heroNum'), r.get('boldEnd'), r.get('listed') or {}
+        if hn is None or abs(hn - exp) > 1.0:
+            fails.append('%s: big NET %s, expected the BOOK figure %s for %s (cutoff %r)' % (nm, hn, exp, rng, cut))
+        if be is not None and hn is not None and abs(be - hn) > 1.0 and not (be is None):
+            fails.append('%s: end of the bold line %s differs from the big NET %s' % (nm, be, hn))
+        if li.get('net') is None or abs(li['net'] - exp) > 1.0 or li.get('tie') != '1':
+            fails.append('%s: BOOK group total %s (tie %s), expected %s - the rows do not follow the range'
+                         % (nm, li.get('net'), li.get('tie'), exp))
+        if r.get('statTrades') != n_exp:
+            fails.append('%s: the Trades stat reads %s, expected %d closed book trades in the range'
+                         % (nm, r.get('statTrades'), n_exp))
+        if cut:
+            early = [x for x in (r.get('rowDays') or []) if x and x < cut]
+            if early:
+                fails.append('%s: the trade list shows trades closed before %s: %s' % (nm, cut, early[:3]))
+            early = [x for x in (r.get('calDays') or []) if x < cut]
+            if early:
+                fails.append('%s: the calendar shows days before %s: %s' % (nm, cut, early[:3]))
+        if r.get('pills') != PILLS or r.get('pillActive') != [rng]:
+            fails.append('%s: the pill row reads %s with %s active, expected %s with %s'
+                         % (nm, r.get('pills'), r.get('pillActive'), PILLS, rng))
+        if r.get('oldTabs') or r.get('mscopeCtl'):
+            fails.append('%s: an old range control is still on the board (tabs %s, Today/All switch %s)'
+                         % (nm, r.get('oldTabs'), r.get('mscopeCtl')))
+        h = r.get('hero') or {}
+        if h.get('parts') != '111111':
+            fails.append('%s: the hero is missing a shared part (main/label/big/today/range/chips = %s)' % (nm, h.get('parts')))
+        if rng.lower() not in ('all',) and False:
+            pass
+    # the pills really change the number: a narrower range cannot be the all-time figure unless nothing differs
+    allv = (cases.get('paper2') or {}).get('heroNum')
+    if allv is not None and (cases.get('range-today') or {}).get('heroNum') == allv and exp_book:
+        fails.append('range-today: TODAY shows the all-time figure - the pill is not driving the number')
+    # the warning chips live INSIDE the shared hero
+    r = cases.get('paper2') or {}
+    if not (r.get('hero') or {}).get('warnInChips'):
+        fails.append('paper2: the warning chips are not inside the hero chip row')
+
     # warnings reach the hero while their card is closed
     r = cases.get('warn-stale-bridge') or {}
     if not any('heartbeat stale' in w for w in (r.get('warns') or [])) or r.get('ntCardOpen'):
