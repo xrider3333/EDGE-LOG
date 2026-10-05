@@ -89,3 +89,18 @@ Binding changes:
 8. **Stated limits:** single-arm bars cannot credit a combination-only squeeze effect (69b: the squeeze helps only inside
    the package); KEEL v12's Friday and FOMC multipliers were chosen on other families' full histories, so the 2011-16
    block is untuned for NOISE but not blind (bar 4 is a consistency check, not out-of-sample evidence).
+
+## POWER LINE (committed before `run`; nulls only, no arm's own P&L read) - C:\EdgeLog\custom_ml\fixed_ablation\POWER.txt
+```
+#463 parity, built to 2025-06-29: WF ROC@$30k 93.81  Sortino 3.816 (93.81 / 3.816)
+POWER LINE - nulls only, no arm's own P&L read. Minimum detectable WF ROC lead over the twin:
+  P          own-size shuffle (1,000): 50th +0.05  95th +3.52  98.3th +4.62
+  P-squeeze  own-size shuffle (1,000): 50th +0.11  95th +2.70  98.3th +3.31
+  P-Friday   own-size shuffle (1,000): 50th +0.06  95th +2.24  98.3th +2.92
+  P-FOMC     own-size shuffle (1,000): 50th +0.15  95th +3.24  98.3th +4.18
+  squeeze    own-size shuffle (1,000): 50th +0.07  95th +1.79  98.3th +2.21
+  Friday     own-size shuffle (1,000): 50th +0.21  95th +2.27  98.3th +2.98
+  FOMC       own-size shuffle (1,000): 50th -0.02  95th +1.26  98.3th +1.74
+  squeeze time-shift (200, 60..250 sessions): 50th +0.22  95th +1.50
+Expectation stated now (MANAGER #58): real leads of NOISE r70's size (~3 ROC points in the book) may sit inside these nulls and then cannot be told from luck.
+```
