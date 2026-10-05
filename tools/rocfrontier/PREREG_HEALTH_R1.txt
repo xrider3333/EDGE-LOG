@@ -39,7 +39,7 @@ MONITORS.
    C_0 = 0; ALARM when C_t >= h1. k = half of mu0 / sigma0, the textbook reference value k = delta / 2 (Page 1954, Lorden 1971)
    for the fall that matters most, the whole edge vanishing (delta = mu0 / sigma0, about a fifth of a sigma for #463, so k is
    about 0.1; computed at calibration from the reference rows and printed). A one-sigma reference value would never accumulate
-   at zero edge, because the book's daily edge is far smaller than its daily spread. h1 = the smallest value on 0.5..20 (step
+   at zero edge, because the book's daily edge is far smaller than its daily spread. h1 = the smallest value on 0.5..60 (step
    0.25) at which at most 5% of null draws alarm within 252 rows; the harness refuses a value at the top of that grid.
  H1b ZERO (report only). The same CUSUM, same k, with mu0 replaced by zero (is the book earning anything), its own threshold at 5%.
  H2 DRAWDOWN (primary). The forward record's current drawdown from its running peak (peak starting at zero) against the null
