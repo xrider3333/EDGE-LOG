@@ -1,0 +1,65 @@
+BOOK QUEUE Q16 - FORWARD BAR r1: what a 12-month forward read of a #463 shadow line can decide, fixed BEFORE any line's P&L is read.
+Written 2026-10-05 before any number of this item; MANAGER review folded in as ADDENDUM 1. Only closed-trade COUNTS of the forward lines have been read (bookq/forward_read.py refuses P&L before
+each line's read date), so the bar can still be set blind.
+
+WHY. LOOKS r1: a no-edge one-change candidate beats #463 on ROC at $30k AND Sortino over a 12-month stretch about 42% of the time as a
+seat swap and 24% as a sizing rule. The forward book lines are read on 12 months under that same two-figure rule (PREREG_SHADOWS_0929,
+the Q4 / ORB314 / ORB239 entries in BOOK.md 10q-10r, the NOISE125 prereg), and six lines share the same 12 months. As registered, the
+forward read would pass a no-edge line about as often as the lockbox did - and the owner's sentence makes these reads THE decision.
+
+LINES (K = 6): KEEL (book_shadow), VT, Q4, ORB314, ORB239, NOISE125 (AG retired). For each, the walk-forward daily series S_k over
+2016-07-01..2025-06-29 is rebuilt first, at parity with its recorded figure: #463 93.81 / 3.816 / $44,849; ORB314 125.6 / 3.95 /
+$33,735, Q4 111.0 / 4.03 / $36,949, ORB239 101.8 / 3.84 / $41,319 (BOOK.md 10r, 10-01 convention, to 0.06 ROC); KEEL 118.545 / 4.2755 /
+$41,376 on keel_eval's own convention (adopt449/keel_results.json, WF from 2016-07-27, years counted to 2025-06-30); VT has no recorded 10-01 figure, so its parity
+is the round-62 per-trade rebuild equal to #463's valued-daily series to the cent; NOISE125 = #463 + 0.25 x the NOISE leg. A line that
+misses parity is reported and left out, never patched. D_k = S_k - #463, day by day. Every series is cut at 2025-06-29 before any
+figure is computed. Disclosed: KEEL's TTM part is the exported close-day file (not valued daily), so its daily differences are lumpier
+than a valued series.
+
+NULL (no edge), fixed now: draws of 252 rows by circular block bootstrap of the JOINT walk-forward rows (#463, D_1..D_6), block 21 (as
+LOOKS r1), 20,000 draws in chunks of 2,500, numpy default_rng(20261016) used in that order; within a draw every block's D's take one common random sign (+1 / -1). A null line
+= #463* + s x D*: no edge, same size and timing of differences, cross-line correlation kept. TRUTH (the walk-forward edge taken at face
+value): the same draws without sign flips.
+
+READ RULES evaluated (each per line, and family-wise = any of the six passes):
+ R0 (as registered): the line beats #463 on 12-month ROC at $30k (valued daily) AND daily Sortino.
+ R1 (margin): line ROC at $30k minus #463's >= g ROC points AND Sortino higher, g the smallest value on 0..200 (step 1) with
+    family-wise false pass <= 5% (none = said so).
+ R2 (paired dollars): the read's summed daily difference / its null spread (the line's own sd of that sum under NULL) >= c, one c for
+    all lines set so the family-wise false pass <= 5%.
+PRINTED: per line and rule - single false pass, family-wise false pass, and power under TRUTH; then the read length (12 / 24 / 36
+months) at which R1 or R2 reaches power 0.5 and 0.8 with the family-wise false pass held at 5%; and for VT, the share of 12-month draws
+holding a book drawdown > $20,000 (its claimed value needs one).
+
+WHAT IT DECIDES. Nothing is adopted or killed. It proposes ONE forward rule per line (R1 or R2, read length) to the owner via MANAGER,
+written down before the first read date (2027-09-29). The paired sequential stops (docs/PREREG_paired_sequential_stop_2026-09-29.md)
+stay as they are; this sets the final read they fall back to.
+
+COULD FOOL US. TRUTH uses walk-forward edges of lines that were SELECTED on the walk-forward, so power is an upper bound (winner's
+curse), said beside every power figure; one history, block 21 keeps three-week structure only; a seat swap's difference is lumpy (few
+large trades), which the sign-flip null keeps but a normal approximation would not - so no normal approximation is used.
+
+ADDENDUM 1 (2026-10-05, before any Q16 number): MANAGER review "GO as a planning computation, WF only"
+(C:/EdgeLog/manager/reviews/frontier_q16_forward_bar_review_2026-10-05.md), all five edits, plus the implementation fixed now. The
+harness's parity step (no bootstrap figure) was run before this addendum: all five recorded figures reproduce, VT's per-trade rebuild
+equals #463 to the cent, and the three frozen book-line stop constants reproduce exactly.
+A. ROWS. One row per weekday of 2016-07-01..2025-06-29 (2,346 rows), weekend UTC stamps folded into the Friday, exactly as the forward
+   report and tools/bookline_paired_stop.py build them; a 12 / 24 / 36-month read = 252 / 504 / 756 rows.
+B. THE STOPS ARE PART OF THE BAR (edit 1). In every draw each line runs its registered paired sequential stop on its daily CLOSED-trade
+   P&L: d = line / sigma_s - #463 / sigma_b, looks at rows 20, 30, ... 250, EARLY FAIL at t <= -B with t still <= -2.0 without the most
+   negative d (the line can no longer pass); EARLY PASS at t >= B with t still >= 2.0 without the largest d, whereupon the rule is read
+   on the rows so far - a pass there is a pass, otherwise the read continues. ORB314 / Q4 / ORB239 use the frozen constants
+   (sigma_b 3910.94; sigma_s 3868.12 / 3751.85 / 3899.75; B 3.0). NOISE125 and KEEL have no frozen constants yet: they are built here by
+   the same method (weekday sigmas; the smallest B on 3.00..8.00 step 0.25 with <= 5% false stops on 4,000 iid redraws of the
+   mean-removed WF d, seed 20260930) and are PROVISIONAL - Custom ML freezes the real ones. KEEL's registered stop is the TTM trade-level
+   pair; the book-line daily form stands in for it here, said beside its rows. VT has no stop (registered). The stops look only at rows
+   20..250, as registered, also inside 24 / 36-month reads. Every rate is printed WITH the stops; R0's is also printed for the final
+   read alone. R2 at an early look scales the null spread by the square root of the rows read.
+C. COST BASIS (edit 2), stated once: the paper ENGU-Q leg charges 0.533 points a round trip, #463's backtest 0.783, and paper legs run on
+   no-adjust prices. Inside a forward read both the line and the adopted book are paper, so the mismatch cancels; it bites only when a
+   forward figure is quoted against the backtest's 93.81 / 155.54 - and the owner line says so. PAPER-NT8 and ENGUQ are asked whether
+   the paper cost should move to 0.783.
+D. HEADLINE (edit 3): per line, the read length (12 / 24 / 36 months, else "> 36 months") at which R1 or R2 reaches power 0.5 and 0.8 with
+   the family-wise false pass held at 5% (stops active) - printed last, as the owner's first sentence.
+E. R0 FIRST (edit 4): R0's family-wise false pass prints first for each read length, on its own line.
+F. NOT IN THIS ITEM (edit 5): no book-state seat; the third queue slot is proposed separately.
