@@ -206,33 +206,104 @@ def _simple_split_ratios():
     return sorted(out)
 
 
-def split_like_gaps(df, tol=SPLIT_RATIO_TOL, min_gap=SPLIT_GAP_MIN):
-    """Overnight gaps that look like an unadjusted split: [(date, ratio, nearest, name)].
+# TBIS's volume test (QA pass, 2026-10-04). A real split changes the SHARE COUNT, so volume
+# scales by about 1/price_ratio: an 8:1 reverse split that multiplies the price by 8 divides the
+# volume by 8, and price_ratio * volume_ratio lands near 1. A genuine news gap moves price without
+# touching the share count, so the product lands near the price ratio instead - nowhere near 1.
+# Measured on siporb's daily cache: 369 whole-ratio flags, 64 of which pass this. GE 2021-08-02
+# gives price 8.068 x volume 0.143 = 1.15 (passes); AACG 2018-08-27 gives 0.1265 x 1.817 = 0.23
+# (fails, correctly - that one is not a split).
+SPLIT_VOLUME_TOL = 1.6              # "within 1.6x of 1", i.e. 0.625 .. 1.6
+SPLIT_VOLUME_SESSIONS = 20          # 20-day median each side, so one heavy day cannot carry it
 
-    Overnight only - compared across a change of ET session date, so an intraday move never
-    counts. Returns an empty list for an empty or single-day frame.
+RTH_OPEN_MIN = 9 * 60 + 30          # 09:30 ET
+
+
+def _session_bounds(day_strs, minutes, dates):
+    """{date: (first_rth_idx, last_rth_idx)} using each day's ACTUAL close.
+
+    The regular session is what a split is quoted against, and it is also the only boundary that
+    means the same thing on an RTH frame and an ETH one. A day with no regular-session bar at all
+    (a pure premarket row) simply gets no entry.
+    """
+    out = {}
+    for i, day in enumerate(day_strs):
+        close_min = EARLY_CLOSE_MIN if day in EARLY_CLOSE_DATES else REGULAR_CLOSE_MIN
+        if minutes[i] < RTH_OPEN_MIN or minutes[i] >= close_min:
+            continue
+        first, last = out.get(day, (i, i))
+        out[day] = (min(first, i), max(last, i))
+    return out
+
+
+def _median(vals):
+    v = sorted(float(x) for x in vals if x is not None and float(x) > 0)
+    if not v:
+        return None
+    n = len(v)
+    return v[n // 2] if n % 2 else 0.5 * (v[n // 2 - 1] + v[n // 2])
+
+
+def split_like_gaps(df, tol=SPLIT_RATIO_TOL, min_gap=SPLIT_GAP_MIN,
+                    require_volume=False, vol_tol=SPLIT_VOLUME_TOL):
+    """Session gaps that look like an unadjusted split: [(date, ratio, nearest, name)].
+
+    Measured REGULAR SESSION CLOSE to the NEXT REGULAR SESSION OPEN - not last-bar-to-first-bar.
+    On an extended-hours frame the latter compares an after-hours close (17:50) with a premarket
+    open (04:30), which read GE's 1-for-8 as 7.80x and slipped outside the 2% window while the
+    regular-session boundary reads 8.06x and fires (TBIS's QA, 2026-10-04). The regular session is
+    also the basis a split is actually quoted against, and the one boundary that means the same
+    thing on an RTH frame and an ETH one.
+
+    require_volume adds TBIS's volume test, and is OFF by default because the two callers want
+    opposite things. The WRITE guard in upsert_master must stay strict: a false refusal costs the
+    caller a look and an `allow_split_gap=True`, while a false accept once wrote a fake +$139k
+    trade. A SCAN across thousands of cached symbols wants precision instead - siporb's daily
+    cache throws 369 whole-ratio flags, of which 64 pass the volume test - so a scan passes
+    require_volume=True and accepts that a split with atypical volume will be missed.
     """
     if df is None or len(df) < 2:
         return []
     d = df.sort_values("time").reset_index(drop=True)
     et = pd.to_datetime(d["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
-    day = et.dt.strftime("%Y-%m-%d")
+    day = et.dt.strftime("%Y-%m-%d").tolist()
+    minutes = (et.dt.hour * 60 + et.dt.minute).tolist()
+    bounds = _session_bounds(day, minutes, None)
+    sessions = sorted(bounds)
+    if len(sessions) < 2:
+        return []
+    has_vol = "volume" in d.columns
     ratios = _simple_split_ratios()
     out = []
-    for i in range(1, len(d)):
-        if day.iloc[i] == day.iloc[i - 1]:
-            continue                                   # same session: not an overnight gap
-        prev_close = float(d["close"].iloc[i - 1])
-        nxt_open = float(d["open"].iloc[i])
+    for k in range(1, len(sessions)):
+        prev_day, this_day = sessions[k - 1], sessions[k]
+        prev_close = float(d["close"].iloc[bounds[prev_day][1]])
+        nxt_open = float(d["open"].iloc[bounds[this_day][0]])
         if prev_close <= 0 or nxt_open <= 0:
             continue
         ratio = nxt_open / prev_close
         if abs(ratio - 1.0) < min_gap:
             continue
         nearest = min(ratios, key=lambda r: abs(ratio - r))
-        if nearest > 0 and abs(ratio - nearest) / nearest <= tol:
-            name = ("%d:1" % round(nearest)) if nearest >= 2 else ("1:%d" % round(1 / nearest))
-            out.append((day.iloc[i], ratio, nearest, name))
+        if not (nearest > 0 and abs(ratio - nearest) / nearest <= tol):
+            continue
+        if require_volume and has_vol:
+            before, after = [], []
+            for s in sessions[max(0, k - SPLIT_VOLUME_SESSIONS):k]:
+                a, b = bounds[s]
+                before.append(float(d["volume"].iloc[a:b + 1].sum()))
+            for s in sessions[k:k + SPLIT_VOLUME_SESSIONS]:
+                a, b = bounds[s]
+                after.append(float(d["volume"].iloc[a:b + 1].sum()))
+            mb, ma = _median(before), _median(after)
+            if mb is None or ma is None:
+                pass                      # no volume to judge by - fall back to the price test
+            else:
+                product = ratio * (ma / mb)
+                if not (1.0 / vol_tol <= product <= vol_tol):
+                    continue              # price moved, share count did not: ordinary news
+        name = ("%d:1" % round(nearest)) if nearest >= 2 else ("1:%d" % round(1 / nearest))
+        out.append((this_day, ratio, nearest, name))
     return out
 
 
