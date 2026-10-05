@@ -132,3 +132,13 @@ a filter on the events:
   session list moves to the next session that is), and the share of those names' reaction sessions inside the 63-session event
   windows that carry NO event (the releases the K rule misses). Printed before any P&L, beside [E3]. Only release dates inside
   the walk-forward stretch are read.
+
+PRE-DATA ADDENDUM 4 (2026-10-05, before any EDRIFT number): TV rebuilt the calendar at 14:46 MST from its saved photographs
+(inbox #83): the 39 delisted Nasdaq-100 tickers are now mapped (176 companies, 13,073 releases) and a new column ndx_tickers
+carries every members-file ticker a company had (FB;META, PCLN;BKNG, DISCA;DISCK;WBD ...), while 'ticker' is EDGAR's current
+one. The file addendum 3 pinned (sha256 09b815b7...) no longer exists. [E5] is changed in two places only, everything else in
+it unchanged and still REPORTED only:
+- [E5'] the calendar read is C:\EdgeLog\_research_cache\edgar\earnings_calendar_ndx.csv with sha256
+  8f4f9f4bc61dc671a6f169f37f72c334fa3aecafff87a06af5ab250bcc85d4db (refused if different); the join is on ndx_tickers, split on
+  ';' - a cache symbol matches a release when it is one of that release's ndx_tickers - instead of on ticker. Foreign filers on
+  6-K (13 names) stay absent and are listed.
