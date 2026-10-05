@@ -105,3 +105,5 @@ number read).
    report at the volatility c.
 6. **The family null is re-run** with items 1-3 in place before the real run (same seed, same 6 cells); the power line below is
    replaced by the re-run's and the first run is kept for the record.
+
+**Re-run null with addendum 1 in place (2026-10-05, same seed, same 6 cells; run 1 kept as null_power_run1_pre_addendum.json):** events 648 inside membership spells, 0 without bars, **643 entering inside the walk-forward**, 110 companies (the 12 pulled names: ATVI, DISH, EA, HOLX, QRTEA, WBA). Positions per cell: H5_v0 539, H5_v100000 400, H20_v0 445, H20_v100000 336, H60_v0 354, H60_v100000 276. **Family null: 50th -1.85, 95th 1.84; power line 3.69.** The binding bar stays the map line ROC >= 15. Input sha256: form4 33c5f7f9..., bars 083f8c23..., bars_raw fa42412d..., corporate_actions e5bc8487..., members cfca0f85....
