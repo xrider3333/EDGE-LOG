@@ -303,4 +303,17 @@ nothing.
 
 ## AMENDMENTS
 
-(none yet)
+**Amendment 1 - 2026-10-05, after the first (dry-run) read of cut-off 2026-09-30. No threshold, band, rule or leg changed.**
+Prereg commit 220e9064, harness af3c0f7f.
+
+1. *Harness correction (conforms the code to section 8):* a line whose start date is after the cut-off has an empty
+   window. The first run reported such lines (q4, orb314, orb239, noise125 at a 2026-09-30 cut-off) INCOMPLETE because
+   `sessions_between` swaps reversed arguments; they now read NO DAYS. A test pins it.
+2. *Post-hoc diagnostic (not a rule; labelled so):* the dry run's one leg FAIL, ENGUQ_335, was re-run by hand on three
+   masters. The paper record equals the cold run on the NO-ADJUST ETH master 13 of 13 forward trades, with the full
+   history and with the 150-day warm-up alike; it equals the cold run on the registered ADJ master 1 of 13. So the cause is
+   the master (the strategy's lookbacks span the September roll, and the no-adjust master carries the fake gap), not the
+   warm-up, the capture tail or a stamping shift. Under section 6 this stays a FAIL: "the ADJ-master cold reference and
+   the no-adjust record can differ ... a FAIL until the owner lists it". It is a finding about the pinned source, for
+   MANAGER, not an excuse built into the harness.
+3. *Note:* `book_staged` appears in the reports and is not registered here; the harness prints it as a NOTE (section 2).

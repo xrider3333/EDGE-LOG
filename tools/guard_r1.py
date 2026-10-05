@@ -704,7 +704,7 @@ def check_lines(reports, cutoff, *, cold_vt=None, session_days=None):
     for line, w_reg in LINES.items():
         rec = {"days": 0, "defects": [], "missing_days": []}
         start = _to_date(LINE_FROM.get(line, VT_FIRST_DAY if line == "book_shadow_vt" else PAPER_START))
-        if session_days is not None:
+        if session_days is not None and start <= cutoff_d:       # a line that starts after the cut-off has no window yet
             for d in session_days(start, cutoff_d):
                 if not reports.get(d.isoformat()):
                     rec["missing_days"].append(d.isoformat())

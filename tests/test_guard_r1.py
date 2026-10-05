@@ -394,6 +394,14 @@ def test_a_missing_report_day_makes_the_line_incomplete():
     assert rec["missing_days"] == ["2026-10-05", "2026-10-07"] and G.line_verdict(rec) == "INCOMPLETE"
 
 
+def test_a_line_that_starts_after_the_cutoff_has_no_window_and_is_not_incomplete():
+    days = lambda a, b: [a, b]      # noqa: E731  (what sessions_between does when its arguments are swapped)
+    rec = G.check_lines({}, dt.date(2026, 9, 30), session_days=days)["book_shadow_q4"]      # q4 starts 2026-10-01
+    assert rec["missing_days"] == [] and G.line_verdict(rec) == "NO DAYS"
+    rec = G.check_lines({}, dt.date(2026, 9, 30), session_days=days)["book_shadow"]          # starts 2026-09-29: a real window
+    assert G.line_verdict(rec) == "INCOMPLETE"
+
+
 def test_vt_unrounded_matches_the_nightly_multiplier():
     from api import book_shadow as bs
     rng = np.random.default_rng(7)
