@@ -39,7 +39,7 @@ read and can run any time.
 
 DD-WEEK r1 OVERNIGHT (TV's prereg `docs/DDWEEK_OVERNIGHT_R1.md` + this lane's pre-data addendum 2; harness `tools/ddw1_overnight.py`, TV's adapted): DEAD at Stage A 2026-10-05 (ledger 2.64) - the overnight drift after a sell-off is small and does not earn in #463's drawdown weeks.
 
-RESMOM r1 (`PREREG_RESMOM_R1.txt` + pre-data addenda 1-3, harness `r17_resmom.py`): DEAD at Stage A 2026-10-05 as a standalone leg (ledger 2.73; ROC 7.1 / 7.6 vs 15); its registered book-add report passes (#463 WF 120.8 / 116.4); the forward BOOK line's gate (`PREREG_RESMOM_LINE_R1.txt`, `r17_resmom_gate.py`) passed - #463 + 0.264 x RES runs as a no-order line from the 2026-10-30 rank (MANAGER #70).
+RESMOM r1 (`PREREG_RESMOM_R1.txt` + pre-data addenda 1-3, harness `r17_resmom.py`): DEAD at Stage A 2026-10-05 as a standalone leg (ledger 2.76; ROC 7.1 / 7.6 vs 15); its registered book-add report passes (#463 WF 120.8 / 116.4); the forward BOOK line's gate (`PREREG_RESMOM_LINE_R1.txt`, `r17_resmom_gate.py`) passed - #463 + 0.264 x RES runs as a no-order line from the 2026-10-30 rank (MANAGER #70).
 - `IDEAS_R4.md` — round 4 (2026-09-28): ten new-family ideas vs BOOK #463; three triaged, all dead (ledger 2.33).
 - `r4_book463.py` — BOOK #463's daily leg P&L (at close + valued daily), reproduces the frontier lane's 60.34 / 164.76 exactly.
 - `r4_triage.py` + `PREREG_WKND_FOMCWK_R1.txt` — WKND (weekend gap) and FOMCWK (FOMC-cycle weeks) Stage A, pre-lockbox only.
