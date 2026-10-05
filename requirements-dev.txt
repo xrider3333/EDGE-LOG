@@ -10,3 +10,4 @@ scikit-learn      # ml_gate / analytics relationship-scores paths
 requests          # augur_engine.ai imports it at package-init time
 tzdata            # load_master_arrays converts to US/Eastern; needed where the OS lacks tz data
 pytest
+google-api-core   # api/qqq_exec retries on its exception classes; tests/test_qqq_exec_firestore_wedge.py imports them (no Firestore client needed)
