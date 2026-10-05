@@ -46,3 +46,36 @@ Book = #463's four legs exactly as api/book_shadow.BOOK463_LEGS, valued daily, t
   otherwise a forward no-order shadow book line with the paired early stop); the RUNBOARD gets the run either way.
 
 Driver (to be written after review): tools/noise_hedge_tilt.py.
+
+## ADDENDUM 2026-10-05 06:30 - reviews folded in BEFORE any number (MANAGER GO WITH EDITS; NOISE lane second review)
+Reviews: C:\EdgeLog\manager\reviews\cml_noise_hedge_tilt_review_2026-10-05.md and
+C:\EdgeLog\custom_ml\REVIEW_noise_hedge_tilt_by_NOISE_2026-10-05.md. Changes, all binding:
+1. **ENGU-Q is long-only:** the strategy file sets DIRECTION = "LONG"; the driver also asserts zero short entries in
+   #463's ENGU-Q trade list. So no symmetric rule is needed (if the assert ever fails, the run stops).
+2. **Clocks:** both masters are open-stamped and naive US/Eastern. NOISE fills at its entry bar's OPEN = its decision
+   time t (the signal bar's close), detected per trade from the engine's entry price. ENGU-Q's entry fill is
+   taken as its entry 1m bar's OPEN when the entry price equals that open, else that bar's END (label + 1 min). The
+   ENGU-Q exit is placed at its exit bar's START. ENGU-Q counts as OPEN at t only if its fill <= t AND its exit bar
+   starts strictly after t (an exit in the same minute as the NOISE decision counts as flat). Both trade lists come from
+   the identical #463 leg runs (api/book_shadow.BOOK463_LEGS through augur_engine.book._leg_trades' own master
+   resolution), with parity asserted to the cent.
+3. **Twin at matched SIZE:** c = mean(m x s) / mean(s) over WF NOISE trades, where s = #422's own size (1 or 1.75), so
+   a rule that happens to tilt the 1.75x trades is not mis-leveraged.
+4. **Side tilt control (NOISE lane):** #422's WF shorts earn more per trade than its longs, so "1.5x shorts / 0.5x
+   longs on ENGU-Q days" could beat the plain twin with no hedging. Bars 1-4 must therefore ALSO beat the median
+   placebo book, i.e. the arm's lead over its own twin must exceed the median placebo lead over the placebo's own
+   twin (the placebos carry the same side tilt at random times).
+5. **Placebos:** each placebo is scored against its OWN twin at its OWN c; the circular shift of ENGU-Q's position
+   calendar (random 20..250 sessions, 200 draws, seed 20261004) wraps INSIDE the walk-forward window, so no placebo
+   imports lockbox-era positions. Bar 5 = the arm's WF ROC lead above the 95th percentile of the placebo leads.
+6. **Prior to disclose:** book round 62 arm O (halving ORB x NOISE same-direction trades) FAILED because those
+   agreement trades were the BEST (PF 1.56 vs 1.30); the 0.5x stacked side may cost more than the 1.5x hedge earns.
+7. **Reported regardless:** WF NOISE trade counts per state (hedge = short while ENGU-Q long; stacked = long while
+   ENGU-Q long; flat long; flat short), mean $ per trade by side in each state, and the placebo spread (the smallest
+   lead the test can resolve).
+8. **Live note:** this would apply to the #422 PAPER leg and the paper book, which knows ENGU-Q's paper position; the
+   live Webull NOISE is #382 + KEEL on one netted QQQ account with per-leg caps (20 / 40), where a short against a
+   long nets and 1.5x is truncated. A pass changes nothing live without the owner.
+9. **After a pass:** a BOOK run only if the book engine can express a per-trade size from another leg's position
+   (Frontier says which); otherwise a forward no-order shadow book line with the paired early stop. The RUNBOARD
+   gets an entry either way.
