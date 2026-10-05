@@ -180,7 +180,7 @@ def _variant_docs(fixture):
                today='today', top=('stale', 'WEBULL STALE 5 min'),
                strip_has=['BOX SILENT 5 min', 'last update from the box Mon 10:03'], strip_lacks=['feed OK'],
                stop='today', orders='today', legtoday='TODAY', asof_has='as of 10:01:35', eq_stale=True,
-               mini_silent='Last known: OFF, as of Mon 10:03.')))
+               eq_why='the box has been silent', mini_silent='Last known: OFF, as of Mon 10:03.')))
     out.append(("Saturday noon, Friday's doc", '2026-10-03 12:00:00', fri(base()), dict(none,
                silent='BOX SILENT since Fri 15:58', today='Fri 10-02', top=('stale', 'WEBULL STALE since Fri 15:58'),
                strip_has=['BOX SILENT since Fri 15:58'], strip_lacks=['feed OK'], stop='Fri 10-02',
@@ -247,7 +247,7 @@ def _variant_docs(fixture):
     out.append(("the page's own read failed, Friday's doc on Monday 08:50", '2026-10-05 08:50:00', fri(base()), dict(none,
                noread='THIS PAGE CANNOT READ (copy from Fri 15:58)', today='Fri 10-02', top=('noread', 'WEBULL NO STATUS'),
                strip_has=['THIS PAGE CANNOT READ', 'its last copy is from Fri 15:58'], strip_lacks=['BOX SILENT', 'feed OK'],
-               eq_stale=True, liveErr=True)))
+               eq_stale=True, eq_why='this page cannot read', liveErr=True, system=True)))
     # review fixes (2026-10-05, third pass)
     # saves kept failing after the box's one publish_down event (it logs one per 10 min at most):
     # the event is 13.5 min old, but this page saw the count go 5 -> 7 on the 10:03:06 save
@@ -276,8 +276,9 @@ def _variant_docs(fixture):
                today='today', top=('flat', 'WEBULL FLAT'), strip_lacks=['BOX SILENT'], eq_stale=False,
                keelline='the next session is Tue Oct 6 - up to date')))
     for vp in ('laptop', 'phone'):
+        # a phone keeps 'checked HH:MM' in the tooltip while the check is fresh (the sticky top bar stays two rows)
         out.append(("HOME tab (%s), Friday's doc on Saturday" % vp, '2026-10-03 12:00:00', fri(base()), dict(none,
-                   tab='home', vp=vp, top=('stale', 'WEBULL STALE since Fri 15:58, checked 12:00'))))
+                   tab='home', vp=vp, top=('stale', 'WEBULL STALE since Fri 15:58' + (', checked 12:00' if vp == 'laptop' else '')))))
     # review fixes (2026-10-05, fourth pass)
     # a page back hours later the same day with a higher failed-save count: not two saves in a row
     back_prev = move_to(base(), '2026-10-05 10:00:00', '2026-10-05', '2026-10-05 09:59:30', '09:59:40', fails=0)
@@ -338,6 +339,36 @@ def _variant_docs(fixture):
     # HOME: the chip judges its copy as of the page's last check and says when that was
     out.append(('HOME tab, checked 30 min ago on a fresh doc', '2026-10-05 10:33:30', base(), dict(none,
                tab='home', vp='laptop', top=('flat', 'WEBULL FLAT, checked 10:03'), checked_at=FRESH_NOW)))
+    # review fixes (2026-10-05, fifth pass)
+    # 09:25 the box goes from every 10 min to every minute: the gap before the first faster save ran
+    # under the 10 min rule, so a day with failed saves must not flash UPDATES PAUSED
+    flash = move_to(base(), '2026-10-05 09:25:05', '2026-10-05', '2026-10-05 09:24:30', '09:16:40', fails=5)
+    flash['lease']['renew_every_sec'] = 60.0
+    flash['events'] = [e for e in flash['events'] if e.get('kind') != 'publish_down']
+    out.append(('09:25 switch to the faster cadence, failed saves earlier today', '2026-10-05 09:25:20', flash, dict(none,
+               today='today', top=('flat', 'WEBULL FLAT'), strip_lacks=['updates paused', 'BOX SILENT'], eq_stale=False)))
+    # the clocks go back: a doc written at 01:30 in the repeated (winter time) hour, seen at 01:35 winter time
+    dst = move_to(base('2026-10-30'), '2026-11-01 01:30:00', '2026-10-30', '2026-10-30 15:59:30', '01:20:00')
+    out.append(('the repeated 01:00 hour when the clocks go back', et_ms('2026-11-01 01:35:00') + 3600000, dst, dict(none,
+               today='Fri 10-30', top=('flat', 'WEBULL FLAT'), strip_has=['box updated 5 min ago'], strip_lacks=['BOX SILENT'],
+               stop='Fri 10-30', orders='Fri 10-30', eq_stale=False)))
+    # this device lost its own network: no listener error arrives, the copy just ages
+    out.append(('this device offline, its copy 5 min old in the session', '2026-10-05 10:08:06', base(), dict(none,
+               noread='THIS PAGE CANNOT READ (copy from Mon 10:03)', today='today', top=('noread', 'WEBULL NO STATUS'),
+               strip_has=['THIS PAGE CANNOT READ'], strip_lacks=['BOX SILENT', 'feed OK'], eq_stale=True,
+               eq_why='this page cannot read', offline=True)))
+    # a HOME tab left visible overnight: the check is from yesterday and says which day
+    eve = move_to(base(), '2026-10-05 19:55:00', '2026-10-05', '2026-10-05 15:59:30', '19:45:00')
+    for vp in ('laptop', 'phone'):
+        out.append(('HOME tab (%s) left open overnight, checked the evening before' % vp, '2026-10-06 10:00:00', eve, dict(none,
+                   tab='home', vp=vp, top=('flat', 'WEBULL FLAT, checked Mon 19:56'), checked_at='2026-10-05 19:56:00')))
+    # an account with no Webull paper box: no chip at all
+    out.append(('HOME tab, an account with no Webull box', FRESH_NOW, base(), dict(none,
+               tab='home', vp='laptop', top=None, top_hidden=True, missing=True)))
+    # a phone's first read lands a stale doc away from the board: the longer chip wraps the top bar,
+    # and the sticky sub-tab strip must move down with it (scrolled 600 px)
+    out.append(('HOME tab (phone), the first read lands a stale doc', '2026-10-03 12:00:00', fri(base()), dict(none,
+               tab='home', vp='phone', top=('stale', 'WEBULL STALE since Fri 15:58'), unloaded=True, fetch=fri(base()), pin=True)))
     halted = base()
     halted['updated_at'] = '2026-10-05 10:19:50'
     halted['broker'].update({'halted': True, 'halt_reason': 'kill file present'})
@@ -387,7 +418,7 @@ MUTANTS = [
      "        if(false)out.push(qbFreshChip(",
      'a silent box never gets its BOX SILENT chip'),
     ('fetch-clock-age',
-     "  const t=qbEtWallMs(QE.updated_at);",
+     "  const t=qbEtWallMs(QE.updated_at,nowMs);",
      "  const t=window._qqqExecFetchedAt||qbNowMs();",
      "the doc's age is measured from when the page fetched it, not when the box wrote it (finding 8)"),
     ('evening-false-alarm',
@@ -416,12 +447,12 @@ MUTANTS = [
      "    r.stale=(nowMs-t)/1000>90;",
      "a healthy pre-open doc reads silent in the first 90 s after the open"),
     ('orders-summary-pill-not-silent',
-     "            if(QF.stale){pillTxt=qbSilentWord;pillCol='var(--attn-red)';filled=true;}",
+     "            if(QF.stale){pillTxt=qbSilentWord;pillCol=qbNoRead?'var(--attn-amber)':'var(--attn-red)';filled=true;}",
      "",
      "the sidebar Orders pill keeps PAPER while the box is silent (finding 8)"),
     ('orders-card-not-silent',
-     "if(QF.stale){sentence='No news from the box since '",
-     "if(false){sentence='No news from the box since '",
+     "if(QF.stale){sentence=(qbNoRead?",
+     "if(false){sentence=(qbNoRead?",
      "the full Orders card keeps PAPER / 'Sending orders' while the box is silent (finding 8)"),
     ('past-day-not-dimmed',
      "const qbDimCss=QF.isToday?'':'opacity:.55;';",
@@ -533,6 +564,43 @@ MUTANTS = [
      "txt=(nOpen>0?('WEBULL '+nOpen+' OPEN'):'WEBULL FLAT')+chkTxt",
      "txt='WEBULL FLAT'+chkTxt",
      "the top bar chip says FLAT with a position open"),
+    # review fixes (fifth pass)
+    ('pause-judged-by-new-cadence',
+     "const cadOk=Math.max(Number(QE.lease&&QE.lease.renew_every_sec)||0,qbBoxRuleS(okMs));",
+     "const cadOk=qbCadenceS(QE,okMs);",
+     "the 09:25 switch to the faster cadence flashes UPDATES PAUSED on any day with a failed save"),
+    ('fallback-hour-read-early',
+     "if(typeof refMs==='number'&&isFinite(refMs)&&refMs-t>1800e3){",
+     "if(false){",
+     "a doc written in the repeated 01:00 hour in November reads an hour old (BOX SILENT for about 70 min)"),
+    ('offline-blames-box',
+     "try{if(typeof navigator!=='undefined'&&navigator.onLine===false)return true;}catch(e){}",
+     "",
+     "a viewer whose own network dropped is told the box is silent"),
+    ('check-day-left-out',
+     "chkOld=!!chkP&&chkP.date!==qbNyParts(nowMs).date;",
+     "chkOld=false;",
+     "a HOME tab left open overnight shows yesterday's check as 'checked 19:56', which reads as today"),
+    ('chip-for-no-box',
+     "if(!QE&&window._qqqExecMissing)return empty;",
+     "",
+     "an account with no Webull box gets a 'WEBULL ?' chip on every tab"),
+    ('sub-strip-not-repinned',
+     "if(tb&&sb&&sb.style.position==='sticky')sb.style.top=tb.offsetHeight+'px';",
+     "",
+     "on a phone the chip wraps the top bar after a read and the sticky sub-tab strip slides under it"),
+    ('noread-pill-red',
+     "if(QF.stale){pillTxt=qbSilentWord;pillCol=qbNoRead?'var(--attn-amber)':'var(--attn-red)';filled=true;}",
+     "if(QF.stale){pillTxt=qbSilentWord;pillCol='var(--attn-red)';filled=true;}",
+     "the Orders pill says NO STATUS in BOX SILENT's red when it is this page that cannot read"),
+    ('noread-card-pill-red',
+     "That may no longer be true.';pillTxt=qbSilentWord;pillCol=qbNoRead?'var(--attn-amber)':'var(--attn-red)';",
+     "That may no longer be true.';pillTxt=qbSilentWord;pillCol='var(--attn-red)';",
+     "the System Orders card says NO STATUS in BOX SILENT's red when it is this page that cannot read"),
+    ('account-stale-blames-box',
+     "const eqStaleWhy=qbNoRead?(",
+     "const eqStaleWhy=false?(",
+     "the Account STALE flag says the box is silent when it is this page that cannot read"),
     ('blocked-never-shown',
      "else if((mode==='PAPER'||mode==='LIVE')&&BR.lease_ok_to_send===false){st='blocked'",
      "else if(false){st='blocked'",
@@ -553,7 +621,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
     out.why=why; out.ms=Date.now()-t0;
     document.getElementById('o').textContent='WEBULLPROBE: '+JSON.stringify(out);
   }
-  setTimeout(function(){finish('backstop');},52000);
+  setTimeout(function(){finish('backstop');},110000);
   var fr=document.getElementById('f');
   function W(){return fr.contentWindow;}
   function D(){return fr.contentDocument;}
@@ -629,14 +697,19 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
     w.__probePrevCache=!!cfg.prevCache;
     w.__probeTab=cfg.tab||null;
     w.__probeCheckedMs=cfg.checkedMs||cfg.nowMs||NOW;
+    w.__probeOffline=!!cfg.offline;w.__probeMissing=!!cfg.missing;w.__probeUnloaded=!!cfg.unloaded;
     return w.eval("(function(){try{"
+      +"try{delete navigator.onLine;}catch(e){}"
+      +"if(window.__probeOffline)Object.defineProperty(navigator,'onLine',{configurable:true,get:function(){return false;}});"
       +"try{localStorage.removeItem('el_qb_retired_open');localStorage.removeItem('el_lg_lines_webull');}catch(e){}"
       +"window._qbRetiredOpen=false;"
       +"prefs.theme="+JSON.stringify(cfg.theme)+";applyTheme();"
       +"window._qqqExec=JSON.parse(window.__probeFixJson);"
       +"window._qbPubFailSeen=null;if(typeof qbNotePubFails==='function'){if(window.__probePrevJson)qbNotePubFails(JSON.parse(window.__probePrevJson),window.__probePrevCache);qbNotePubFails(window._qqqExec);}"
       +"window._qbCheckedMs=window.__probeCheckedMs;window._qqqExecTriedAt=0;"
-      +"window._qqqExecLoaded=true;window._qqqExecLoading=false;window._qqqExecErr=null;"
+      +"window._qqqExecLoaded=true;window._qqqExecLoading=false;window._qqqExecErr=null;window._qqqExecMissing=false;"
+      +"if(window.__probeMissing){window._qqqExec=null;window._qqqExecMissing=true;}"
+      +"if(window.__probeUnloaded){window._qqqExec=null;window._qqqExecLoaded=false;window._qbCheckedMs=0;}"
       +"window._qqqPaper=null;window._qqqPaperLoaded=true;window._qqqPaperLoading=false;window._qqqPaperErr=null;"
       +"window._qqqCalMonth=null;window._qeDrawerIdx=null;window._qeChartHidden={};window._qeTradesShown=50;window._qeEventsShown=30;"
       +"window._qbSheet=null;window._qbLegOpen=new Set(window.__probeOpenLeg?[window.__probeOpenLeg]:[]);window._qeTradesView='list';window._qeChartPeriod='ALL';"
@@ -713,6 +786,11 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
     r.keelwarn=txt('[data-qbkeelwarn]');
     r.miniSilent=txt('[data-qbminisilent]');
     r.miniPill=txt('[data-qbminipill]');
+    var mp=q('[data-qbminipill]');r.miniPillHtml=mp?mp.innerHTML:null;
+    var om=q('[data-qbordmode]');r.ordModeHtml=om?om.innerHTML:null;
+    var eqs=q('[data-qbeqstale]');r.eqWhy=eqs?eqs.getAttribute('title'):null;
+    r.pin=w.__probePin||null;w.__probePin=null;
+    r.onLine=w.navigator.onLine;
     r.miniTxt=txt('.qbx-orders-mini');
     r.ordMode=txt('[data-qbordmode]');
     r.keelLine=txt('[data-qbkeelline="NOISE"]');
@@ -746,6 +824,13 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
       return w.eval("(function(){try{qbFreshTick();return 'OK';}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
     }
     if(cfg.fetch){
+      var pinTb0=null;
+      if(cfg.pin){
+        // let renderApp's own pins (rAF, 400 ms, fonts.ready) all run first: only the chip's refresh may re-pin after the read
+        try{var fr0=D().fonts;if(fr0&&fr0.ready)await Promise.race([fr0.ready,sleep(5000)]);}catch(e){}
+        await sleep(700);
+        var tb0=D().querySelector('#app .topbar');pinTb0=tb0?tb0.offsetHeight:null;
+      }
       w.__probeFetchJson=JSON.stringify(cfg.fetch);w.__qbNowMs=cfg.tickTo;
       var res=w.eval("(function(){var sd=db,sa=auth;window.__probeRestore=function(){db=sd;auth=sa;};try{"
         +"var doc=JSON.parse(window.__probeFetchJson),snap={exists:true,data:function(){return doc;},metadata:{fromCache:false}};"
@@ -755,6 +840,16 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
         +"}catch(e){window.__probeRestore();return 'ERR '+(e&&e.stack?e.stack:e);}})()");
       await sleep(150);
       try{w.__probeRestore();}catch(e){}
+      if(cfg.pin){
+        var d=D(),tb=d.querySelector('#app .topbar'),sb=tb&&tb.nextElementSibling,ct=d.querySelector('#app .content'),sp=d.createElement('div');
+        sp.style.height='3000px';if(ct)ct.appendChild(sp);
+        w.scrollTo(0,600);await sleep(80);
+        var pin={tbH0:pinTb0,scrollY:Math.round(w.scrollY)};
+        if(tb&&sb){var tr=tb.getBoundingClientRect(),sr=sb.getBoundingClientRect();
+          pin.tbH1=tb.offsetHeight;pin.tbBottom=Math.round(tr.bottom);pin.subTop=Math.round(sr.top);pin.subStyleTop=sb.style.top;pin.subPos=sb.style.position;}
+        w.__probePin=pin;
+        w.scrollTo(0,0);sp.remove();
+      }
       return res;
     }
     return null;
@@ -838,9 +933,11 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
         for(var j=0;j<VARS.length;j++){
           var V=VARS[j];
           await runCase('__var'+j,{vp:V.vp||'laptop',theme:'dark',fix:V.doc,nowMs:V.renderMs||V.nowMs,openLeg:'NOISE',systemOpen:V.systemOpen,
-            liveErr:V.liveErr,prev:V.prev,prevCache:V.prevCache,tab:V.tab,checkedMs:V.checkedMs,tick:V.tick,tickTo:V.nowMs,fetch:V.fetch});
+            liveErr:V.liveErr,prev:V.prev,prevCache:V.prevCache,tab:V.tab,checkedMs:V.checkedMs,tick:V.tick,tickTo:V.nowMs,fetch:V.fetch,
+            offline:V.offline,missing:V.missing,unloaded:V.unloaded,pin:V.pin});
           out.vars[V.name]=out.cases['__var'+j];delete out.cases['__var'+j];
         }
+        try{W().eval('delete navigator.onLine');}catch(e){}
         try{var ap0=JSON.parse(W().localStorage.getItem('augurPrefs')||'{}');ap0.qqqSystemOpen=0;W().localStorage.setItem('augurPrefs',JSON.stringify(ap0));}catch(e){}
         fr.src='../index.html?oldboards=1';
         return;
@@ -940,7 +1037,9 @@ def money(v):
 
 def _attempt(chrome, alt_index, fixture):
     pdir = tempfile.mkdtemp(prefix='_webullprobe_', dir=ROOT)
-    variants = [{'name': nm, 'nowMs': et_ms(now), 'doc': doc, 'systemOpen': bool(exp.get('ordmode') or exp.get('system')),
+    variants = [{'name': nm, 'nowMs': now if isinstance(now, int) else et_ms(now), 'doc': doc,
+                 'offline': bool(exp.get('offline')), 'missing': bool(exp.get('missing')), 'unloaded': bool(exp.get('unloaded')),
+                 'pin': bool(exp.get('pin')), 'systemOpen': bool(exp.get('ordmode') or exp.get('system')),
                  'liveErr': bool(exp.get('liveErr')), 'prev': exp.get('prev'), 'prevCache': bool(exp.get('prev_cache')),
                  'tab': exp.get('tab'), 'vp': exp.get('vp', 'laptop'),
                  'renderMs': et_ms(exp['render_at']) if exp.get('render_at') else None,
@@ -957,9 +1056,9 @@ def _attempt(chrome, alt_index, fixture):
     try:
         out = subprocess.run(
             [chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
-             '--user-data-dir=' + prof, '--virtual-time-budget=56000', '--window-size=1500,1000',
+             '--user-data-dir=' + prof, '--virtual-time-budget=115000', '--window-size=1500,1000',
              '--dump-dom', 'http://127.0.0.1:%d/%s/probe.html' % (port, os.path.basename(pdir))],
-            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=170).stdout
+            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=300).stdout
     except Exception as e:
         return INCONCLUSIVE, ['chrome failed: %s' % e], [], None, True
     finally:
@@ -1188,7 +1287,24 @@ def _judge_variants(data, fixture, fails, unfinished, why):
         if r.get('timer') != 'number':
             fails.append('%s: the 30 s freshness timer is not running (_qbFreshTimer is %r) -- a page left open never '
                          'turns stale while the box is silent (finding 8)' % (tag, r.get('timer')))
-        _topbox(tag, r, fails)
+        if ex.get('top_hidden'):
+            b = r.get('topBox')
+            if r.get('top') is not None or (b and b.get('disp') != 'none'):
+                fails.append('%s: the top bar shows a WEBULL chip %r for an account with no Webull box' % (tag, r.get('top')))
+        else:
+            _topbox(tag, r, fails)
+        if ex.get('pin'):
+            p = r.get('pin') or {}
+            if not p.get('tbH1'):
+                fails.append('%s: the probe could not measure the top bar and sub-tab strip (%r)' % (tag, p))
+            else:
+                if (p.get('tbH0') or 0) >= p['tbH1']:
+                    fails.append('%s: the stale chip did not make the phone top bar taller (%r to %r px), so this check '
+                                 'proves nothing -- give it a longer chip text' % (tag, p.get('tbH0'), p['tbH1']))
+                if p.get('subStyleTop') != '%dpx' % p['tbH1'] or p.get('subTop', 0) < p.get('tbBottom', 0) - 1:
+                    fails.append('%s: after the read the sticky sub-tab strip is pinned at %s (top %s) under a %s px top bar '
+                                 '(bottom %s, scrolled %s) -- it slides under the bar' % (tag, p.get('subStyleTop'), p.get('subTop'),
+                                 p['tbH1'], p.get('tbBottom'), p.get('scrollY')))
         if ex.get('calendar'):
             want_cal = [False, True, True, 780, True]
             try:
@@ -1203,7 +1319,7 @@ def _judge_variants(data, fixture, fails, unfinished, why):
             # another tab: only the top bar chip is the board's business there
             if r.get('tab') != ex['tab']:
                 fails.append('%s: the probe could not open %s (activeTab=%r)' % (tag, ex['tab'], r.get('tab')))
-            if tuple(r.get('top') or ()) != tuple(ex['top']):
+            if tuple(r.get('top') or ()) != tuple(ex['top'] or ()):
                 fails.append('%s: the top bar WEBULL chip is %r away from the board, want %r' % (tag, r.get('top'), ex['top']))
             if ex.get('vp') == 'phone' and (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1:
                 fails.append('%s: the page scrolls sideways on a phone (sticking out: %s)'
@@ -1241,6 +1357,8 @@ def _judge_variants(data, fixture, fails, unfinished, why):
             fails.append('%s: the Account line reads %r, want %r' % (tag, r.get('asof'), ex['asof_has']))
         if 'eq_stale' in ex and bool(r.get('eqStale')) != ex['eq_stale']:
             fails.append('%s: the Account STALE flag is %s, want %s' % (tag, bool(r.get('eqStale')), ex['eq_stale']))
+        if ex.get('eq_why') and ex['eq_why'] not in (r.get('eqWhy') or ''):
+            fails.append('%s: the Account STALE flag says why as %r, want it to contain %r' % (tag, r.get('eqWhy'), ex['eq_why']))
         if ex.get('keelwarn') and r.get('keelwarn') != ex['keelwarn']:
             fails.append('%s: the NOISE row KEEL warning reads %r, want %r' % (tag, r.get('keelwarn'), ex['keelwarn']))
         if ex.get('silent') and ex.get('mini_silent') and r.get('miniSilent') != ex['mini_silent']:
@@ -1251,6 +1369,11 @@ def _judge_variants(data, fixture, fails, unfinished, why):
             want_pill = 'BOX SILENT' if ex.get('silent') else 'NO STATUS'
             if r.get('miniPill') != want_pill:
                 fails.append('%s: the sidebar Orders pill reads %r on a stale copy, want %s' % (tag, r.get('miniPill'), want_pill))
+            # a page that cannot read is not the box's fault: amber, never BOX SILENT's red
+            want_col, bad_col = ('var(--attn-red)', 'var(--attn-amber)') if ex.get('silent') else ('var(--attn-amber)', 'var(--attn-red)')
+            for what, h in (('sidebar Orders pill', r.get('miniPillHtml')), ('Orders card pill (System)', r.get('ordModeHtml'))):
+                if h is not None and (want_col not in h.split('</span>')[0] or bad_col in h.split('</span>')[0]):
+                    fails.append('%s: the %s is not drawn in %s (%r)' % (tag, what, want_col, _first(h, 160)))
             if 'Sending orders' in (r.get('miniTxt') or ''):
                 fails.append('%s: the sidebar Orders summary still says it is sending orders (%r)' % (tag, r.get('miniTxt')))
         if ex.get('ordmode'):
