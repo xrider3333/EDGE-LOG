@@ -114,17 +114,23 @@ def test_calibration_scale_and_adjusted_margin_use_max_of_one_and_r():
 def test_past_pass_is_judged_at_the_k_in_force_then_and_now():
     looks = L.counts(TINY)[1]
     row = L.find_row(TINY, "58d")
-    kt = L.k_then(looks, row)
-    assert kt == {"K_book": 3, "K_leg": 3, "K_size": 0}                                # L1, L2, L3 dated on or before it
-    assert L.k_then(looks, L.find_row(TINY, "Q6")) == {"K_book": 6, "K_leg": 4, "K_size": 2}
+    kt = L.k_then(looks, "58d", row)                                                  # the REGISTERED count (addendum 1), split as the first K looks
+    assert kt["K_book"] == L.K_THEN["58d"] == 17 and kt["K_leg"] + kt["K_size"] == 17
+    assert kt["K_by_date"] == 3                                                        # cross-check only: L1, L2, L3 dated on or before it
+    assert L.k_then(looks, "Q6", L.find_row(TINY, "Q6"))["K_book"] == 63
+    long = looks * 4                                                                   # a ledger longer than the registered 17: exact first-K split
+    assert L.k_then(long, "58d")["K_size"] == sum(1 for r in long[:17] if L._typ(r) == "SIZE")
+    assert L.k_then(looks, "58d")["K_leg"] + L.k_then(looks, "58d")["K_size"] == 17    # shorter than 17: the rest split by proportion
+    assert [r["K"] for r in [{"K": k} for k in (1, 10, 50, 71, 100, 142, 181, 500)]] == [1, 10, 50, 71, 100, 142, 181, 500]
     assert L.judge(1.273, 0.20) is True and L.judge(1.273, 0.30) is False and L.judge(1.273, None) is False
     assert L.judge(2.5, None) is None and L.judge(float("nan"), 0.1) is None
     # the margin a K-look read must carry: with p_leg(g) falling down the grid, more looks then means a smaller margin then
     p_leg = np.maximum(0.0, 0.05 - L.GRID * 0.5) ** 1 * 2                             # 0.10 at g = 0, 0 from g = 0.10
     p_size = np.zeros(201)
-    g_then = L.g_star(L.fwer(p_leg, p_size, kt["K_leg"], kt["K_size"]))
-    g_now = L.g_star(L.fwer(p_leg, p_size, 4, 2))
-    assert g_now >= g_then > 0
+    g_17 = L.g_star(L.fwer(p_leg, p_size, kt["K_leg"], kt["K_size"]))                 # 58d was read at K 17
+    kq = L.k_then(looks, "Q6")                                                         # Q6 at K 63: more looks, a larger margin
+    g_63 = L.g_star(L.fwer(p_leg, p_size, kq["K_leg"], kq["K_size"]))
+    assert g_63 >= g_17 > 0 and kq["K_leg"] + kq["K_size"] == 63
 
 
 def test_refusals_no_ready_tbd_ledger_and_a_changed_prereg(tmp_path, monkeypatch):

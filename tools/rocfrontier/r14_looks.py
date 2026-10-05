@@ -39,7 +39,11 @@ PAST = (("58d", ("58d",)), ("#444", ("#444",)), ("#449", ("#449",)),
         ("V2", ("V2",)), ("V2-500", ("V2-500",)), ("Q4", ("Q4",)), ("Q6", ("Q6",)))
 CONTEXT = {"#449": "adopted on more than the lockbox (clauses 1-8, BOOK.md 10m)", "V2": "failed RISK r1", "Q4": "post-hoc",
            "Q6": "ORB #239 in the ORB seat is a forward shadow"}
-LADDER = (1, 10, 50, 100, "K_book", "2K_book", 500)
+LADDER = (1, 10, 50, "K_book", 100, "2K_book", "K_ceiling", 500)        # addendum 1: K = 1, 10, 50, 71, 100, 142, 181, 500
+K_CEILING = 181                                                          # addendum 1: every candidate scored on the lockbox, printed or not
+# addendum 1: the cumulative K_book in force when each past pass was read (ledger order within a day; a pass that is itself a dup row
+# does not add to its own count) - registered numbers, not recomputed from dates
+K_THEN = {"58d": 17, "#444": 30, "#449": 31, "round-61 best": 35, "V2": 49, "V2-500": 50, "Q4": 63, "Q6": 63}
 R_BAND = (0.5, 2.0)
 TOP_EXPECT = ("ENGU-Q", "2026-05-12", 91152.0, 1.0)          # (leg, exit day, closed $, $ tolerance) - BOOK.md 10l addendum C
 FAM = (("ENGUQ", "ENGU-Q"), ("ORB", "ORB"), ("TTM", "TTM"), ("NOISE", "NOISE"))
@@ -333,11 +337,12 @@ def g_adj(gs, r):
 def calibration(ratios, e_pool):
     lr = np.log([x for x in ratios if np.isfinite(x) and x > 0])
     ef = np.asarray(e_pool, float)
+    n_all = int(len(ef))
     ef = ef[np.isfinite(ef)]
     sd_real = float(np.std(lr, ddof=1)) if len(lr) >= 2 else float("nan")          # CHOICE: sample sd (ddof 1) on both sides
     sd_null = float(np.std(ef, ddof=1)) if len(ef) >= 2 else float("nan")
     r = sd_real / sd_null if np.isfinite(sd_real) and np.isfinite(sd_null) and sd_null > 0 else float("nan")
-    return {"n_real": int(len(lr)), "n_null": int(len(ef)), "sd_real": sd_real, "sd_null": sd_null, "r": r,
+    return {"n_real": int(len(lr)), "n_null": int(len(ef)), "n_null_dropped": n_all - int(len(ef)), "sd_real": sd_real, "sd_null": sd_null, "r": r,
             "flag": bool(not np.isfinite(r) or not (R_BAND[0] <= r <= R_BAND[1]))}
 
 
@@ -346,16 +351,20 @@ def k_split(k, K):
     return (k * K["K_leg"] / K["K_book"], k * K["K_size"] / K["K_book"]) if K["K_book"] > 0 else (float(k), 0.0)
 
 
-def k_then(looks, row):
-    """The looks in force when `row` was read: every look dated on or before it (CHOICE: same-day looks count; an undated look counts; an
-    undated row reads at its csv position)."""
-    d = _date(row.get("date"))
-    if d is None:
-        sel = looks[:looks.index(row) + 1] if row in looks else looks
-    else:
-        sel = [r for r in looks if _date(r.get("date")) is None or _date(r.get("date")) <= d]
+def k_then(looks, name, row=None):
+    """The looks in force when past pass `name` was read: the REGISTERED cumulative count K_THEN[name] (addendum 1), split into leg / size
+    as the FIRST K looks in ledger order. `row` only feeds the cross-check: the count by date (looks dated on or before the row) is
+    returned beside it, never used."""
+    k = K_THEN[name]
+    sel = looks[:k]
     ks = sum(1 for r in sel if _typ(r) == "SIZE")
-    return {"K_book": len(sel), "K_leg": len(sel) - ks, "K_size": ks}
+    if k > len(looks) and looks:                                       # a shorter ledger than the registered count (smoke): split the rest by proportion
+        ks += (k - len(looks)) * sum(1 for r in looks if _typ(r) == "SIZE") / len(looks)
+    out = {"K_book": k, "K_leg": k - ks, "K_size": ks}
+    if row is not None:
+        d = _date(row.get("date"))
+        out["K_by_date"] = len([r for r in looks if _date(r.get("date")) is None or (d is not None and _date(r.get("date")) <= d)])
+    return out
 
 
 def judge(ratio, g):
@@ -511,7 +520,8 @@ def run():
                         "cells": {c: _size_pass(S[c], key, skey, bar[bkey]) for c in R11.CELLS if c != "V2"}}
     C = curves["LB"]
     gs = C["g"][0.05]
-    lad = [(lab, (K["K_book"] if lab == "K_book" else 2 * K["K_book"] if lab == "2K_book" else int(lab))) for lab in LADDER]
+    lad = [(lab, (K["K_book"] if lab == "K_book" else 2 * K["K_book"] if lab == "2K_book" else K_CEILING if lab == "K_ceiling" else int(lab)))
+           for lab in LADDER]
     ladder = [{"label": str(lab), "K": k, "g_star": g_star(fwer(C["p_leg"], C["p_size"], *k_split(k, K)))} for lab, k in lad]
     cal_rows = calibration_rows(rows)
     cal = calibration([ratio_of(r) for _, r in cal_rows if r is not None], np.concatenate([p["e"] for p in C["per_leg"].values()]))
@@ -524,11 +534,12 @@ def run():
         if r is None:
             past.append({"candidate": name, "found": False, "context": CONTEXT.get(name, "")})
             continue
-        kt = k_then(looks, r)
+        kt = k_then(looks, name, r)
         g_then = g_adj(g_star(fwer(C["p_leg"], C["p_size"], kt["K_leg"], kt["K_size"])), cal["r"])
         ratio = ratio_of(r)
         past.append({"candidate": name, "found": True, "id": r.get("id"), "date": r.get("date"), "ratio": ratio, "verdict_as_printed": r.get("verdict_as_printed"),
-                     "K_then": kt["K_book"], "g_adj_then": g_then, "survives_then": judge(ratio, g_then),
+                     "K_then": kt["K_book"], "K_then_leg": kt["K_leg"], "K_then_size": kt["K_size"], "K_by_date": kt.get("K_by_date"),
+                     "g_adj_then": g_then, "survives_then": judge(ratio, g_then),
                      "K_now": K["K_book"], "g_adj_now": ga, "survives_now": judge(ratio, ga), "context": CONTEXT.get(name, "")})
     f0 = float(C["F"][0])
     h0 = f0 <= 0.05
@@ -611,13 +622,15 @@ def looks_lines(s):
     out.append(f"WF analogue (report only; the WF clause keeps its {WF_PREM - 1:.2%} premium): p_WF(0) leg {share(cw['n_leg_pass_0'], cw['n_leg'])}, "
                f"size {share(cw['n_size_pass_0'], cw['n_size'])}; FWER_WF(0) {w['FWER_0']:.4f}; WF margin at FWER 0.05 {gfmt(w['g_at_0.05'])}")
     out.append("ladder g*(K): " + ", ".join(f"K={r['K']}{'' if str(r['label']).isdigit() else ' (' + r['label'] + ')'} {gfmt(r['g_star'])}" for r in s["ladder"]))
-    out.append(f"calibration: sd_real {cal['sd_real']:.4f} (n {cal['n_real']} of {len(CALIB)}) / sd_null {cal['sd_null']:.4f} (n {cal['n_null']:,}) = r {cal['r']:.3f}; "
+    out.append(f"calibration: sd_real {cal['sd_real']:.4f} (n {cal['n_real']} of {len(CALIB)}) / sd_null {cal['sd_null']:.4f} (n {cal['n_null']:,}, "
+               f"{cal['n_null_dropped']:,} draws without a positive LB ROC dropped) = r {cal['r']:.3f}; "
                f"g_adj = g* x max(1, r) = {gfmt(s['g_adj'])}" + (f" - FLAG: r outside [{R_BAND[0]}, {R_BAND[1]}], the null does not describe the real swaps' spread" if cal["flag"] else ""))
     for p in s["past_passes"]:
         if not p["found"]:
             out.append(f"past pass {p['candidate']:14s}: NOT IN THE LEDGER")
             continue
-        out.append(f"past pass {p['candidate']:14s}: LB ratio {p['ratio']:.4f} (printed {asc(p['verdict_as_printed'])}); K then {p['K_then']} g_adj {gfmt(p['g_adj_then'])} -> "
+        out.append(f"past pass {p['candidate']:14s}: LB ratio {p['ratio']:.4f} (printed {asc(p['verdict_as_printed'])}); K then {p['K_then']} (registered; "
+                   f"{p['K_then_leg']} leg + {p['K_then_size']} size; by date {p['K_by_date']}) g_adj {gfmt(p['g_adj_then'])} -> "
                    f"{'survives' if p['survives_then'] else 'does not survive' if p['survives_then'] is False else 'undecided'}; K now {p['K_now']} g_adj {gfmt(p['g_adj_now'])} -> "
                    f"{'survives' if p['survives_now'] else 'does not survive' if p['survives_now'] is False else 'undecided'}" + (f" ({p['context']})" if p["context"] else ""))
     out.append("rule proposed: " + s["rule_proposed"])
@@ -647,10 +660,11 @@ def write_doc(path, s):
          + (f" (there p_leg = {share(s['at_g_star']['n_leg_pass'], s['at_g_star']['n_leg'])}, p_size = {share(s['at_g_star']['n_size_pass'], s['at_g_star']['n_size'])})" if s["at_g_star"] else "")
          + f"; band: {gfmt(s['band']['0.025'])} at 0.025, {gfmt(s['band']['0.10'])} at 0.10. "
          f"Per seat: " + ", ".join(f"{f} {gfmt(v)}" for f, v in lb["g_star_per_leg"].items()) + f". With the top lockbox trade removed g*_x = {gfmt(s['g_star_x'])}; "
-         f"with CDR in place of ROC g*_CDR = {gfmt(s['g_star_cdr'])}. The walk-forward analogue (report only): p_WF(0) = {s['wf_analogue']['p_leg_0']:.4f} leg / "
-         f"{s['wf_analogue']['p_size_0']:.4f} size, WF margin at 5 % = {gfmt(s['wf_analogue']['g_at_0.05'])}.", "",
+         f"with CDR in place of ROC g*_CDR = {gfmt(s['g_star_cdr'])}. The walk-forward analogue (report only): p_WF(0) = {share(s['clauses']['WF']['n_leg_pass_0'], s['clauses']['WF']['n_leg'])} leg / "
+         f"{share(s['clauses']['WF']['n_size_pass_0'], s['clauses']['WF']['n_size'])} size, WF margin at 5 % = {gfmt(s['wf_analogue']['g_at_0.05'])}.", "",
          f"**Calibration.** The ten real one-change reads spread sd_real = {cal['sd_real']:.3f} in ln(LB ratio) (n = {cal['n_real']} of {len(CALIB)}); the null's "
-         f"centred spread is sd_null = {cal['sd_null']:.3f} (n = {cal['n_null']:,} draws); r = {cal['r']:.2f}, so g_adj = g* x max(1, r) = {gfmt(ga)}"
+         f"centred spread is sd_null = {cal['sd_null']:.3f} (n = {cal['n_null']:,} draws, {cal['n_null_dropped']:,} without a positive LB ROC dropped); "
+         f"r = {cal['r']:.2f}, so g_adj = g* x max(1, r) = {gfmt(ga)}"
          + (f". **FLAG: r is outside [{R_BAND[0]}, {R_BAND[1]}] - the null does not describe the real swaps' spread.**" if cal["flag"] else "."), "",
          "**What a future read costs (margin ladder, FWER 5 %).**", "", "| K looks | g*(K) |", "|---|---|"]
     L += [f"| {r['K']}{'' if str(r['label']).isdigit() else ' (' + r['label'] + ')'} | {gfmt(r['g_star'])} |" for r in s["ladder"]]
@@ -815,7 +829,8 @@ def smoke(d, world="null"):
     assert kLB[B.xrow[j]] and B.closed[j] * mk[B.erow[j]] >= (B.closed * mk[B.erow])[kLB[B.xrow]].max() - 1e-9
     gl = [s["clauses"]["LB"]["g_star"][k] for k in ("0.025", "0.05", "0.1")]
     assert all(a is None or b is None or a >= b for a, b in zip(gl, gl[1:])), gl                  # a stricter level never needs less margin
-    assert s["ladder"][4]["g_star"] == s["g_star"]                                                 # g*(K_book) is g*
+    assert s["ladder"][3]["label"] == "K_book" and s["ladder"][3]["g_star"] == s["g_star"]           # g*(K_book) is g*
+    assert [r["K"] for r in s["ladder"]][-2:] == [K_CEILING, 500] and s["ladder"][6]["label"] == "K_ceiling"
     assert all(os.path.exists(os.path.join(OUT, n)) for n in ("LOOKS.txt", "margin_curve.csv", "past_passes.csv", "nulls.json", "READY")) and os.path.exists(DOC)
     for n in ("LOOKS.txt", "LOOKS_R1.md"):
         open(os.path.join(OUT, n), encoding="utf-8").read().encode("ascii")
