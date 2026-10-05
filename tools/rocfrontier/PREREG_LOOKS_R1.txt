@@ -1,0 +1,161 @@
+PRE-REGISTRATION - BOOK LOOKS r1: how many lockbox looks the frontier bar has absorbed, and the margin a
+pass must carry to be more than luck
+======================================================================================================
+Written 2026-10-04 by the FRONTIER cloud lane, BEFORE any number of this round exists. The cloud lane
+holds no market data; a PC lane runs steps 2-4 on files the box already has (the RISK r1 cache). Any
+change after the first null draw is a dated pre-data addendum or a new file (r2). Posted for MANAGER
+review through docs/CLOUD_TO_MANAGER.md; nothing runs until MANAGER says GO.
+Family: BOOK (MISC accounting). Harness: tools/rocfrontier/r14_looks.py, sha-bound to this file exactly
+as r11_risk.py is bound to PREREG_RISK_R1.txt. Results: C:\EdgeLog\_anatomy_cache\rocfrontier\looks_r1
+and docs/LOOKS_R1.md (one page, dollars sentence first), ledger row to follow.
+
+QUESTION (plain words). Every lane judges a candidate book on the same two bars: walk-forward 98.5 %/yr
+at a $30k drawdown with Sortino 3.816, and the lockbox year 155.54 with Sortino 4.150, where the lockbox
+is BOOK #463's own 2025-06-30 .. 2026-06-30. That year has now been printed against for many candidates
+(round 58's ~71 books, round 61's 18, the round-62 sizing rules, the Q1-Q6 queue, the crash-short and
+rebalancing cells ...). The lockbox clause is close to a coin flip for a candidate with no edge (RESEARCH.md
+finding 4: a no-edge series passes a 12-36 month sign test 44-53% of the time; of the ten one-change reads in
+BOOK.md 10n/10p/10r, 3 cleared the full LB clause). So: after K looks, how likely is it that a no-edge
+candidate has ALREADY cleared today's lockbox bar somewhere in the pile, and by what MARGIN over #463 must
+a future candidate beat the lockbox for that chance to be under 5%? RESEARCH.md finding 7 and section 3e
+("counting trials per FAMILY is still the test that matters, and it is still open") name this as the
+missing input to every correction the engine makes. MDL r1 (ledger 2.51) says what a leg must EARN; this
+round says how SURE a pass must be. It is an accounting round: no candidate is proposed, no sealed row of
+any candidate is read, and its product is a number and a rule, not a discovery.
+
+REFERENCE (unified convention, BOOK.md 10r; = r11_risk.py P2_REF). #463 WF 2016-07-01..2025-06-29:
+ROC@$30k 93.81 / Sortino 3.816 / DD $44,849. LB 2025-06-30..2026-06-30 inclusive: 155.54 / 4.150 /
+DD $49,855. Today's bar: WF ROC >= 98.50 AND WF Sortino >= 3.816 AND LB ROC >= 155.54 AND LB Sortino >=
+4.150. Statistics are r11_risk.stats / unified verbatim: x = valued-daily P&L per index row (zeros
+included); ROC = 30 x (net / years) / max drawdown, drawdown from a peak that starts at 0, years = (last
+row - first row) / 365.25; Sortino = mean(x) / sqrt(mean(min(x, 0)^2)) x sqrt(252); CDR = 30 x (net /
+years) / CDaR95 (report only). The WF clause is where candidates were CHOSEN, so a WF pass is a selection
+event, not a test; the family-wise question is asked of the LB clause, with the WF analogue reported.
+
+STEP 1 - THE LOOKS LEDGER (cloud lane; built, counted and hashed BEFORE any null draw).
+File tools/rocfrontier/LOOKS_LEDGER_R1.csv, one row per look, every row with its source (BOOK.md
+section or ledger row), the reference in force, the printed WF and LB figures and the LB ratio to the
+reference in the same table. COUNTING RULE (the rule is what is registered; the number is whatever the
+rule gives): one LOOK = one candidate book, seat swap, leg add, combination or book-level / leg-level
+SIZING rule whose figure on the lockbox year (or the round-61 sub-window 2025-08-14..2026-06-24 inside
+it) was printed against a frontier bar or reference. A re-read of the SAME candidate by another lane
+adds no row. Reference re-runs of the frontier itself (#435-#438, #460, #461, #463, raw twins) are
+context rows, not looks. MDL r1's 224,000 synthetic legs are not looks (synthetic); its printed real
+reference seats (ORB #239 / #257, S1 / S2, DIP #433 / #452) are looks where not already counted. Types:
+SWAP, ADD, COMBO, SIZE. K_book = all looks; K_size = type SIZE; K_leg = K_book - K_size. Leg-level
+lockbox reads of #463's own legs by the family lanes are K_lane, reported, NOT in the formula. The csv's
+sha256 is written into this file as pre-data addendum 1 before step 2 runs; the margin curve of step 4
+is printed at every K anyway, so a miscount changes the headline, never the curve.
+
+STEP 2 - PARITY (box; the only read of #463's lockbox rows, which are public since BOOK.md 10r).
+Load C:\EdgeLog\_anatomy_cache\rocfrontier\r11\records_U.npz through r11_risk.load_book("U", legs_meta)
+(legs = api/book_shadow.BOOK463_LEGS as r11's build.json lists them); refuse unless r11's READY exists and
+its record hashes match. Raw book = the four legs' Am_leg[k].T @ ones summed. Must reproduce WF 93.81 /
+3.816 and LB 155.54 / 4.150 within 0.006 ROC / 0.0006 Sortino (r11 P2_TOL); print each leg's WF and LB
+trade counts and the book's largest LB closed trade (expected: ENGU-Q, exit 2026-05-12, +$91,152;
+BOOK.md 10l addendum C). If the r11 cache is gone: `python r11_risk.py build` then `parity`; no other
+data path. A parity miss stops the round (INCONCLUSIVE).
+
+STEP 3 - TWO NULLS, NO CANDIDATE, NO EDGE (box). Every draw keeps #463's expected return in each
+stretch and changes only what a no-information candidate of that type would change.
+ N-LEG (the stand-in for a seat swap, a leg add or a combination): for leg i in {ORB, ENGU-Q, TTM, NOISE},
+   B = 10,000 draws per leg (40,000 in all), numpy default_rng(20261004 + i): within the WF rows and
+   within the LB rows SEPARATELY, draw r11_risk.stationary_bootstrap(n_rows, block=21, rng) over leg i's
+   own valued-daily rows (Am_leg[i].T @ ones restricted to the stretch) and place the resampled rows on
+   the stretch's rows in order; null book = the other three legs' original rows + the resampled leg.
+   Score unified WF and LB (ROC, Sortino; CDR reported). Resampling breaks the leg's day alignment with
+   the other legs, so N-LEG is CENTRED: a draw's LB excess is e = ln(ROC_LB,draw) - ln(median ROC_LB over
+   that leg's draws), likewise for WF and for Sortino; a draw passes the LB clause at margin g iff
+   e >= ln(1 + g) AND (Sortino_draw - median Sortino_draw) >= 0. The pooled N-LEG set = the four legs'
+   draws with equal weight. The median shift of each leg (median ROC_LB,draw vs 155.54) is REPORTED; it is
+   the alignment artefact the centring removes, not a stop.
+ N-SIZE (the stand-in for a sizing rule; RISK r1's Null A read on the lockbox this time): V2 multipliers
+   = augur_engine.book_sizing.vt_multipliers on the raw book over the FULL rule-U index 2010-06-07 ..
+   2026-06-30 (lookback 20, reference 250, clip 0.5-2.0, 0.1 steps); every circular shift k in
+   [250, N - 250] of the multiplier rows (about 3,680 shifts, deterministic, no seed), each applied
+   trade by trade through Book.sized(m) (every daily mark re-sized by its entry row). UNCENTRED: a
+   shifted V2 is a genuine no-information member of the sizing family, so its pass at today's bar is read
+   as printed. V2-500 and V2-60 shifts are run and reported, not pooled. Disclosure: the lockbox year is
+   spent for V2's family (BOOK.md 10o printed it; RISK r1 closed its backtest case); these shifts are
+   nulls and no shift may be proposed as a candidate.
+ Also, per draw where trade identity exists: LB_x = LB with the top trade removed (N-SIZE: the sized
+   book's largest LB closed trade; N-LEG for the three legs other than ENGU-Q: the ENGU-Q 2026-04-07 ..
+   05-12 trade's rows removed from the fixed ENGU-Q leg and from the reference; not computed for the
+   ENGU-Q-seat draws and said so).
+
+STEP 4 - THE NUMBERS (box). Margin grid g = 0, 0.005, ..., 1.000 (ratio units: the LB clause becomes
+LB ROC >= 155.54 x (1 + g), the Sortino clause unchanged).
+ p_leg(g) = share of pooled N-LEG draws passing the LB clause at g; p_size(g) = share of N-SIZE shifts.
+ FWER(g) = 1 - (1 - p_leg(g))^K_leg x (1 - p_size(g))^K_size.
+ Reported: p_leg(0), p_size(0), FWER(0) = "how likely a no-edge candidate has already cleared today's
+ bar"; g* = the smallest grid g with FWER(g) <= 0.05, with the g at FWER 0.025 and 0.10 as its band; the
+ per-leg g* for each N-LEG seat; g*_x on LB_x; g*_CDR with CDR in place of ROC; the WF analogue (p_WF(0)
+ under both nulls and the WF margin at FWER 0.05), report only; the margin ladder g*(K) at K = 1, 10, 50,
+ 100, K_book, 2 x K_book, 500 (what a future read costs). Resolution: FWER <= 0.05 at K_leg ~ 156 needs
+ p_leg <= 0.00033 = about 13 of 40,000 draws, and p_size <= 0.0051 at K_size ~ 10 = about 19 of 3,680
+ shifts; plain counts, no smoothing; the harness prints the counts beside every share.
+ CALIBRATION (registered scale, never a stop): the ten real one-change reads on #463 in BOOK.md
+ 10n / 10p / 10r (#468, #469, #470, Q1a, Q1b, Q2, Q2ctx, Q3, Q5, Q6; each as its printed LB ROC over
+ #463's LB ROC in the same table, from the step-1 csv) give sd_real = sd of ln(LB ratio); sd_null = sd of
+ the pooled N-LEG centred LB excess e; r = sd_real / sd_null. ADJUSTED MARGIN g_adj = g* x max(1, r): the
+ null's spread is scaled UP to the real swaps' when they are noisier, never down. r is printed; r outside
+ [0.5, 2.0] is flagged as "the null does not describe the real swaps' spread" beside g_adj.
+
+STEP 5 - WHAT IS READ FROM IT (fixed now; this is a planning round, not a pass / fail on a candidate).
+ H0: "today's bar controls the family-wise false-pass rate at the looks already spent". The registered
+ reading is the number FWER(0): <= 0.05 means the bar stands as written and the ledger records K and the
+ curve; > 0.05 (expected by the program's own record: p_leg(0) is near a coin flip) means the bar does
+ NOT control it, the FAIL is not a discovery, and the round's product is g_adj and the tables.
+ PAST-PASS TABLE (candidates fixed here; each judged by its printed LB ratio to its own reference, from
+ the step-1 csv, against ln(1 + g_adj) at the K in force when it was read AND at today's K): round 58's
+ 58d; #444; #449 (the adoption read that became #463); the round-61 best; V2 and V2-500 (10o); Q4 and Q6
+ (10r). "Survives" = ratio >= 1 + g_adj. Context lines, not re-verdicts: #449 was adopted on more than
+ the lockbox (clauses 1-8, BOOK.md 10m), V2 failed RISK r1, Q4 is post-hoc, Q6 = ORB #239 in the ORB
+ seat is a forward shadow.
+ THE RULE THIS ROUND PROPOSES (an owner decision via MANAGER, never automatic): for any BACKTEST
+ candidate judged on the spent lockbox year from now on, the LB clause reads LB ROC >= 155.54 x (1 +
+ g_adj) with Sortino >= 4.150 unchanged (or the ex-top-trade form if g*_x < g*), and a candidate that
+ clears WF but not that margin is "not refuted", never "a pass"; FORWARD reads (the shadows, the SEAT
+ test, TTM r23's veto, ORB r65's fenced Auto-Validate) are untouched - they read new data, which this
+ accounting does not concern. Rounds already registered (TTM r23, MDL r1, ATTN r1, ORB r65, NOISE r69)
+ keep their written bars.
+ INCONCLUSIVE: step 2 parity misses, or the r11 records cannot be loaded. Nothing else stops the round.
+
+WHAT IS NOT CLAIMED. The nulls are stand-ins for "a candidate of that type with no information", not
+for any particular candidate; a real swap carries its own return and its own drawdown timing, which is
+exactly why the calibration scale r exists and why MDL r1's map, not this round, says what a leg must
+earn. K counts printed looks; unprinted scans that were run and discarded are not counted, so K is a
+floor and FWER(0) a lower bound. One realised history: the block-21 bootstrap keeps three-week
+structure, not regimes; the N-SIZE shifts keep everything but the timing.
+
+LOOK-AHEAD / DOUBLE USE. None of the nulls uses a candidate; #463's lockbox rows are public (BOOK.md 10r)
+and are the only lockbox rows touched. Seeds, block, grid, K-rule, calibration set and the past-pass
+list are fixed here; the csv is hashed before any draw. The round reads no sealed row of any candidate
+and proposes bar changes for FUTURE reads only.
+
+RUN ORDER (PC lane with the r11 cache; minutes, CPU only, from the shared checkout):
+  python tools/rocfrontier/r14_looks.py ledger    (verifies LOOKS_LEDGER_R1.csv's sha and totals)
+  python tools/rocfrontier/r14_looks.py parity    (step 2; writes READY only on a pass)
+  python tools/rocfrontier/r14_looks.py run       (steps 3-5; refuses without READY; writes LOOKS.txt,
+                                                   margin_curve.csv, past_passes.csv, docs/LOOKS_R1.md)
+  python tools/rocfrontier/r14_looks.py smoke DIR  (offline synthetic world; numbers mean nothing)
+
+PRE-DATA ADDENDUM 1 (2026-10-05, cloud lane, before any null draw) - the step-1 ledger is built and hashed.
+- tools/rocfrontier/LOOKS_LEDGER_R1.csv, 141 rows, canonical-LF sha256
+  f55656b4f1481917efdcef1c7e779bd6fb8f5728ac31396cb2fc86174d118f52; the count and every judgment call are in
+  tools/rocfrontier/LOOKS_COUNT_R1.md (generated from the csv).
+- Registered counts (the rule applied literally, printed figures only): K_book = 71, K_size = 20, K_leg = 51
+  (SWAP 25, ADD 14, COMBO 12), K_lane = 26 (reported, not in the formula). The draft's guesses of ~166 / ~10
+  counted candidates whose lockbox figure was never printed (covered only by an aggregate verdict such as
+  "no pass in 60"); those are a CEILING, K_ceiling = 181, which the margin ladder also prints. Cumulative K_book
+  when each past pass was read: 58d 17, #444 30, #449 31, round-61 best 35, V2 49, V2-500 50, Q4 63, Q6 63.
+- Resolution restated at the registered counts: FWER <= 0.05 at K_leg = 51 needs p_leg <= 0.0010 = about 40 of
+  40,000 draws; at K_size = 20, p_size <= 0.0026 = about 9-10 of ~3,680 shifts. Both plain counts, printed.
+- The margin ladder of step 4 is printed at K = 1, 10, 50, 71, 100, 142, 181, 500.
+- Calibration set as printed (LB ratio to #463 in the same table, unified): #468 0.9927, #469 0.9075, #470 1.0158,
+  Q1a 0.9473, Q1b 0.9408, Q2 1.0868, Q2ctx 0.9363, Q3 1.2116, Q5 0.9621, Q6 1.0206; sd of ln(ratio) = 0.0859.
+- Past-pass ratios as printed, each to its own reference in its own table (convention named in the csv): 58d
+  1.0480, #444 1.0563, #449 1.0557, round-61 best 1.4425 (sub-window), V2 1.5734, V2-500 1.4533, Q4 1.1421,
+  Q6 1.0206.
+- No other line of this file changes. The harness r14_looks.py binds to this file's sha WITH this addendum and
+  to the csv's sha above; a changed csv is a new count and a dated addendum, never a silent edit.
