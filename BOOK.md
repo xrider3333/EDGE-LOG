@@ -1247,6 +1247,13 @@ narrow-null version (LOOKS r1's own flag: its null spreads ~2.9x wider than the 
 not shown". With Q16 that is the honest state of the book queue: a change to #463 is now a judgement on mechanism, made by the owner,
 with the forward lines watching for harm.
 
+**Q18 (LOOKS r2 calibration, step 1) - the narrow-null column above is WITHDRAWN.** Its r = 0.346 was LOOKS r1's LOCKBOX calibration
+and had never been measured on the walk-forward. Measured there (`docs/PREREG_frontier_looksr2_2026-10-05.txt`, committed first; run
+under the standing order when MANAGER had not answered within 60 minutes; `C:\EdgeLog\_anatomy_cache\bookq\q18_step1.py`): the ten
+real one-change reads spread 0.185 in ln(WF ROC ratio), the N-LEG null 0.157, so r_WF = 1.18 (bootstrap 90% 0.74-1.44), inside the
+registered [0.5, 2.0]. The walk-forward null is calibrated, the standard band stands, and ORB314, KEEL and VT are plainly INSIDE - no
+longer "not refuted, not shown". Step 2 (a neighbour-swap null) does not run. The owner page was corrected the same day.
+
 ### 10x. Q15 the bull steepener, held only while the VIX curve is inverted: FAIL - the family null removes its earner pass (2026-10-05)
 
 **What.** The third seat on Q12/Q13's state (prior close of VIX / VIX3M at or above 1.00): long SHY $100,000 and short TLT in the ratio
