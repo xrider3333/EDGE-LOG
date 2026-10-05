@@ -1,0 +1,121 @@
+PRE-REGISTRATION - EDRIFT r1: the DRIFT after a volume-confirmed earnings-type reaction in US large caps, monthly, dollar-neutral
+=====================================================================================================================
+DRAFT v1 2026-10-05 12:40 MST for MANAGER review, by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (owner standing order
+10-04 + MANAGER #49: a queue of 3 NEW-TYPE items; this lane's queue after RESMOM r1 on 2026-10-05: DIVRUN r1, this, NEWISSUE r1).
+Written before any number of this family exists. Nothing runs until MANAGER's GO or the standing order's 60-minute rule (then
+Stage A walk-forward only, the review folded in as a dated addendum), and not before DIVRUN r1. Results:
+C:\EdgeLog\_anatomy_cache\rocfrontier\edrift_r1\ and RESEARCH_LEDGER.md.
+
+WHAT IS DIFFERENT (one line): the first EL family that ranks stocks on their reaction to a single NEWS EVENT (a day of 3x or 5x
+normal volume, typically an earnings release) rather than on a price trend or a calendar - the earnings-announcement-return
+drift of Brandt, Kishore, Santa-Clara & Venkatachalam (2008) and the news-continuation result of Chan (2003).
+
+WHY NOW (house evidence first). RESMOM r1 (ledger 2.65) showed that in 2016-25 US large caps, monthly cross-sectional
+continuation survives a 10 bps round trip (+$234k / 9 yrs) and - the part that matters - earns in #463's drawdown days (DO 0.160,
+above all 500 random books), enough to lift #463's WF from 93.8 to 120.8 as a book add. The intraday version of event
+continuation is dead (XGAP r1: no drift from 09:35 to the close). The open question is the MONTHLY horizon after a news event:
+whether the market under-reacts to a firm's own news for weeks, and whether that drift, like RESMOM's, lands in the book's
+drawdown weeks.
+
+THE MAP FIRST (MDL r1). A dollar-neutral stock basket; rho_dd likely near zero (RESMOM: +0.08). Its standalone bar is the
+half-the-time line, ROC @ $30k >= 15; RESMOM showed a cell can fail that bar and still pass the book-add report, and the house
+route for that case is MANAGER #70's (the gate against the random-name null, then one forward book line). Placed honestly: a
+RESMOM-like cell would sit near ROC 7; the family is worth the round only for its drawdown-day profile.
+
+MECHANISM. Investors under-react to firm-specific news, most of all to earnings, so prices keep drifting in the direction of the
+news for weeks (Bernard & Thomas 1989; Chan, Jegadeesh & Lakonishok 1996). Brandt et al. (2008) show the drift is captured by the
+market's own reaction - the abnormal return around the announcement - without the earnings numbers, and Chan (2003) finds that
+large moves WITH news continue while large moves without news reverse. Volume is the news proxy here (no earnings calendar is
+needed: a day of several times normal volume is, for a large cap, almost always an earnings release, guidance or a deal).
+Counter-evidence written in now: the earnings drift has shrunk in large caps since the mid-2000s and may be gone (Chordia,
+Subrahmanyam & Tong 2014; Martineau 2021, "Rest in peace post-earnings announcement drift"); the reaction-day signal overlaps
+12-1 momentum (RESMOM's) - the correlation is reported and, if both lines run, the owner hears ONE finding on continuation.
+
+DATA (no new pull, no money): the SIPORB cache (Alpaca SIP daily bars raw + split-adjusted, manifest sha256 380b05f2..., never
+mixed with a re-pull); the wide corporate-actions calendar pinned for RESMOM (sha256 e5bc8487...; dividends added back exactly as
+RESMOM [R1], spin-offs / stock dividends as RESMOM [D2], its 2016-06-01 start as RESMOM [D1]); ES 5-minute RTH masters for the
+market factor (RESMOM's series, the two ES holes skipped). Hygiene exactly as RESMOM (DDW r1 [T2], TBIS flags, raw gaps beyond
++-50% without a factor change); a flag inside the hold removes the position (look-ahead removal, reported both ways), and a flag
+on an EVENT day voids that event (a split or a bad print is not news).
+
+UNIVERSE (each rebalance, only information known before the fill): RESMOM's - prior raw close >= $10, the 500 largest by mean
+raw dollar volume over the previous 20 sessions, mean volume >= 1,000,000 shares and ATR > $0.50 over the previous 14, no
+registered split in the previous 14 sessions, >= 230 split-safe returns and ES pairs in the 252-session window.
+
+EVENT (for a universe name, on a session t inside the 63 sessions before the rank close r): volume_t >= K x the name's mean volume
+over t-21 .. t-2 (K = 3 or 5 by cell; at least 15 of those 20 sessions present); no hygiene flag on t-1 .. t+1. Its REACTION =
+the abnormal return over t-1 .. t+1 = the sum of (split-safe total return - beta x ES return) over those three sessions, beta =
+the name's RESMOM regression beta at the rank close (the event's own days are inside that window - disclosed, as RESMOM [S2]);
+t+1 <= r. A name's SCORE at r = the reaction of its MOST RECENT event in the window (none -> no score).
+CELLS (the family: 2): V3 (K = 3) and V5 (K = 5). At each month's last session close r: among the universe names with a score,
+long the 50 highest, short the 50 lowest (both sides always 50; a month with fewer than 150 scored names trades the top / bottom
+third, at least 20 a side, else nothing - counted), $4,000 each, fractional shares, dollar-neutral; FILL at the next session's
+official open; HOLD to the next rebalance's fill; daily marks; no compounding. COSTS: 5 bps a side base, stress 10 and 20;
+borrow 0.25%/yr on short notional, stress 1% and 3%/yr on high-volatility sessions (RESMOM's rule).
+
+NULL (family-aware): 500 draws, seed 20261005; at every rebalance each cell's longs and shorts are replaced by the same number of
+names drawn at random from that rebalance's eligible SCORED pool (same hygiene, sizing, fills, costs); statistic = the MAX over the
+2 cells of WF ROC @ $30k.
+
+#463 and the map: exactly RESMOM's (r11_risk's rule-U records, refused unless WF 93.81 / 3.816 / $44,849 and LB 155.54 / 4.150
+reproduce; DO and rho_dd by r12_mdl.Stretch; 28 episodes / 460 days).
+
+STRETCHES: WF = positions exited 2016-07-01 -> 2025-06-29 (the first rank with a full 252-session window is 2016-12-30, as RESMOM);
+LB = 2025-06-30 -> 2026-06-30, SEALED; this family joins the stock families' ONE sealed-year day if MANAGER registers it; its
+Stage B is the leg's own veto, the book add on that year reported (MANAGER #48).
+
+STAGE A (WF, per cell; the standalone bars decide - MANAGER #56): exactly RESMOM's (a)-(f): >= 60 rebalances; WF ROC @ $30k >= 15
+and net > 0 at 5 AND 10 bps; above the null's 95th percentile; positive in >= 6 of 9 July-June years and net > 0 without Feb 15 -
+Apr 30 2020; profitable without its best 1% of days AND of name-months; the 50 largest contributors audited by hand before a pass
+is read.
+A2 (WF, a REPORT): #463 + c x the cell, c by volatility (25% of #463's daily std over 2017-01-03 .. 2018-12-31; 0.5c and 2c
+reported); ALSO reported on top of #463 + 0.264 x RESMOM's RES (the line already open), so the owner sees what EDRIFT adds beyond
+it. An A2 pass follows MANAGER #70's route: a gate registered first (the cell's drawdown-day DO above the random-name null's 95th
+percentile AND positive without its best episode), then at most ONE forward book line.
+STAGE B / C: as RESMOM (the leg's veto on the shared day; a computed no-order line on the RUNBOARD).
+
+REPORTED, never a pass route: the correlation of each cell's daily P&L with RESMOM's RES and the overlap of their picks; events per
+month and per name; the share of events in the four earnings months after quarter-ends; long and short sides apart; the
+drawdown-day map point and episode table; the event-time path (mean abnormal return from t+2 to t+60, by reaction decile, all
+years and by year); turnover; the 20 largest name-month gains.
+
+KNOWN WAYS IT COULD FOOL US: volume spikes that are not news (index rebalances, option expiries - K and the event-day hygiene
+guard part of it); the reaction window overlaps the formation of RESMOM, so it can be momentum by another name (the correlation
+row); one regime (2016-25); survivorship (Alpaca's inactive names only); the sample has few earnings seasons per year (4).
+
+Zero passes = EDRIFT r1 dead; no other windows, K or horizons are tried - the next family comes from the next mechanism.
+
+PRE-DATA ADDENDUM 1 (2026-10-05, before any EDRIFT number): MANAGER's review (inbox #73, GO WITH EDITS, walk-forward only,
+queue after DIVRUN, registered for the sealed-year day as a leg veto), its edits folded:
+- [B] THE BOOK-ADD REPORT IS INCREMENTAL. The RESMOM forward line already exists, so A2 compares #463 + 0.264 x RESMOM's RES +
+  c x the cell AGAINST #463 + 0.264 x RES (c by the registered volatility rule; 0.5c and 2c reported); a pass on top of that
+  line is the only one that matters, and MANAGER #70's gate (drawdown-day DO above the random-name null's 95th percentile AND
+  positive without the best episode) is computed on the same incremental basis. The plain #463 + c x cell book is a reported
+  row. The family is registered for the stock families' one sealed-year day as a leg veto.
+- [E1] MECHANICAL VOLUME DAYS ARE NOT NEWS. An event day that is the third Friday of March, June, September or December (index
+  option and futures expiry; also the S&P quarterly rebalance day) or the Russell reconstitution day (the June date FTSE
+  Russell's published calendar names each year - usually the fourth Friday, e.g. 2023-06-23 - listed date by date in the
+  harness) is excluded from the event set, and so is the session after it. The count of excluded events is printed by year.
+- [E2] A SECOND NULL, REPORTED: the PLACEBO IN TIME - each scored name keeps its rank date but takes its score from a random
+  NON-event 3-session window inside the same 63-session lookback (no event day within 2 sessions of it), 500 draws, seed
+  20261006, statistic as the registered null's. It tests the event alignment, which the random-name null does not; the
+  registered null stays the random-name one.
+- [E3] BEFORE ANY P&L the output prints: the scores split by event age (0-21 vs 22-63 sessions before the rank close; the drift
+  should decay) - count and mean |score| by age - and the cross-sectional rank correlation of each cell's score with RESMOM's
+  RES score at every rebalance (mean and range).
+- [E4] If both EDRIFT and RESMOM carry a forward line, the owner hears ONE finding on continuation (as the draft says).
+
+PRE-DATA ADDENDUM 2 (2026-10-05, before any EDRIFT number): the owner's standing order addendum 2 (MANAGER #74) folded (it
+makes addendum 1's [B] concrete):
+- [X1] THE BOOK-ADD REPORT IS INCREMENTAL OVER THE RESMOM LINE (owner standing order addendum 2, 10-05 12:45 MST, via MANAGER
+  #74). RES's registered WF daily P&L is read from C:\EdgeLog\_anatomy_cache\rocfrontier\resmom_r1\resmom_cells_daily_wf.csv
+  (sha256 bed7bf8b98d201894471cd3e72bd146bb87260c6cc8d1ac54b8167f923d41819, written by r17_resmom_export.py from Stage A's
+  reading; refused if different). The REFERENCE book is #463 + 0.264 x RES (WF ROC @ $30k 120.82, Sortino 3.916, worst drawdown
+  $36,526). A2 reports the reference + c x the cell against the reference (c by the registered volatility rule; 0.5c and 2c);
+  an incremental pass = both figures above the reference's. MANAGER #70's gate, if A2 passes, uses the REFERENCE book's
+  drawdown days (MDL r1's episode rule applied to the reference) for the cell's DO and for its null. The plain #463 + c x cell
+  book is a reported row.
+- [X2] DEEPER DIAGNOSTICS (the same addendum: 'a 7-at-$30k result must teach something'). Every cell also prints: the cost
+  curve at 0 / 5 / 10 / 20 bps a side; a row per July-June year; the regime halves 2016-07 .. 2021-12 and 2022-01 .. 2025-06; a
+  row per drawdown episode of the reference book (the cell's P&L inside it); the long and short sides apart; the event-time
+  path by reaction decile (already registered). None of these is a pass route.
