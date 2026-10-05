@@ -1,0 +1,22 @@
+BOOK QUEUE Q17 - WF LOOKS r1: is each forward line's walk-forward gain over #463 outside what 71 looks produce by chance? Written
+2026-10-05 before the per-seat bands below are computed (MANAGER GO #77 / #79: a planning computation, WF only, no lockbox; one table for
+the owner). Already known when written, and disclosed: every line's WF figure (Q16 parity, BOOK.md 10y) and LOOKS r1's POOLED walk-forward
+analogue (margin +56% at a 5% family-wise rate, K = 71; C:/EdgeLog/_anatomy_cache/rocfrontier/looks_r1/LOOKS.txt line 14).
+
+NO NEW DRAWS. The nulls are LOOKS r1's registered draws, read from looks_r1/draws.npz (its prereg tools/rocfrontier/PREREG_LOOKS_R1.txt,
+sha 26957d92...): N-LEG = 10,000 centred stationary-bootstrap draws per seat (ORB, ENGU-Q, TTM, NOISE; block 21); N-SIZE = the 4,202
+circular shifts of the V2 multipliers (uncentred). A no-edge draw passes at margin g iff ln(ROC_WF,draw / median ROC_WF over that seat's
+draws) >= ln(1 + g) AND Sortino_WF,draw >= the seat's median Sortino (N-SIZE: ROC_WF,draw >= 93.81 x (1 + g) AND Sortino_WF,draw >= 3.816).
+
+THE CHANCE BAND for a line = the smallest g (grid 0.000..2.000, step 0.005) with family-wise rate 1 - (1 - p(g))^K <= 0.05 at K = 71,
+p(g) read from the line's own seat: ORB314 and ORB239 = ORB; Q4 = the larger of ORB and ENGU-Q (it changes both seats); KEEL = TTM;
+NOISE125 = NOISE; VT = N-SIZE V2. Also printed: the POOLED band (LOOKS r1's 0.56, recomputed as a check) and the bands at K = 1, 10 and
+181 (LOOKS r1's ladder). A line is OUTSIDE the band when its WF ROC / 93.81 - 1 >= g AND its WF Sortino >= 3.816; otherwise INSIDE.
+
+CALIBRATION, reported beside every band, never substituted: LOOKS r1 flagged its N-LEG spread as ~2.9x the ten real one-change reads'
+(r = 0.346). The band is therefore also printed with each draw's centred excess shrunk by r (e x 0.346) - "if the null were as narrow as
+the real reads" - and a line outside only that version is "not refuted, not shown", never "outside".
+
+THE OWNER TABLE: line | WF ROC at $30k (gain over 93.81) | 71-look chance band (seat) | inside / outside | narrow-null band | Q16 read
+length (months to power 0.5 on the better rule, else "> 36"). If every line is inside, the first sentence says so.
+Harness: C:/EdgeLog/_anatomy_cache/bookq/q17_wf_looks.py. Output C:/EdgeLog/_anatomy_cache/q17/q17.json.
