@@ -645,6 +645,86 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .lg-pills button{background:none;border:none;padding:0 0 5px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text5);border-bottom:2px solid transparent;font-family:'JetBrains Mono',monospace;cursor:pointer}
 .lg-pills button.active{color:var(--text);border-bottom-color:var(--text)}
 @media (max-width:600px){.lg-hero-chips{justify-content:flex-start;order:3;flex-basis:100%}.lg-pills{gap:14px}}
+/* LEDGER shared equity chart (unify step 5): drawn at the box's real pixel size (no squashed phone line) */
+.lg-chart{position:relative}
+.lg-chart svg{display:block;width:100%;cursor:crosshair;user-select:none;-webkit-user-select:none}
+.lg-legend{display:flex;flex-wrap:wrap;gap:6px 12px;margin:6px 2px 0;font-size:10px;letter-spacing:.4px}
+.lg-legend button{background:none;border:none;padding:0;cursor:pointer;color:var(--text4);font-family:'JetBrains Mono',monospace;font-size:10px;display:inline-flex;align-items:center;gap:5px}
+.lg-legend button.off{opacity:.45;text-decoration:line-through}
+.lg-legend i{display:inline-block;width:12px;height:2px;border-radius:1px}
+/* LEDGER shared stats strip + More stats (unify step 6): the same four tiles and the same fold on every board */
+.lg-stats{display:grid;grid-template-columns:repeat(4,1fr);background:var(--bg1);border-radius:12px;margin-bottom:14px}
+.lg-stat{padding:18px 20px;border-left:1px solid var(--border2);min-width:0}
+.lg-stat:first-child{border-left:none}
+.lg-stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--text5)}
+.lg-stat-val{font-size:20px;color:var(--text);margin-top:8px;font-variant-numeric:tabular-nums;font-weight:500;white-space:nowrap}
+.lg-stat-sub{font-size:10px;color:var(--text5);margin-top:4px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lg-up{color:var(--green)}
+.lg-down{color:var(--red)}
+.lg-more{display:flex;align-items:center;gap:6px;width:100%;background:transparent;border:none;border-top:1px solid var(--border2);padding:12px 4px 0;margin-bottom:24px;font-family:'JetBrains Mono',monospace;text-align:left;cursor:pointer;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text5)}
+.lg-more:hover{color:var(--text3)}
+.lg-more .lg-chev{font-size:10px;display:inline-block;transition:transform .18s ease}
+.lg-more[aria-expanded="true"] .lg-chev{transform:rotate(180deg)}
+.lg-more-panel{background:var(--bg1);border-radius:12px;padding:20px;margin:-10px 0 30px}
+.lg-more-panel[hidden]{display:none}
+.lg-ms-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:20px 24px}
+.lg-ms-group h4{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--text5);font-weight:500;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--border2)}
+.lg-ms-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;gap:10px}
+.lg-ms-row .l{font-size:11px;color:var(--text3)}
+.lg-ms-row .v{font-size:12px;color:var(--text);font-variant-numeric:tabular-nums;text-align:right}
+.lg-ms-row .v.lg-up{color:var(--green)}
+.lg-ms-row .v.lg-down{color:var(--red)}
+.lg-ms-bar{display:flex;height:4px;border-radius:2px;overflow:hidden;margin:6px 0 2px;background:var(--bg2)}
+.lg-ms-bar .w{background:var(--green)}
+.lg-ms-bar .e{background:var(--text5)}
+.lg-ms-bar .l{background:var(--red)}
+.lg-ms-note{font-size:9px;color:var(--text5);margin-top:16px;letter-spacing:.5px}
+/* LEDGER shared calendar (unify step 7): one month, a week column, money in theme colours plus a sign, caveat days hatched */
+.lg-cal-panel{background:var(--bg1);border-radius:12px;padding:16px 18px;margin:-10px 0 30px}
+.lg-cal-panel[hidden]{display:none}
+.lg-cal-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.lg-cal-title{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);min-width:118px}
+.lg-cal-nav{background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:10px;padding:2px 9px;cursor:pointer;font-family:inherit}
+.lg-cal-nav[disabled]{opacity:.25;cursor:default}
+.lg-cal-sum{margin-left:auto;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.lg-cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr)) minmax(0,1.15fr);gap:3px}
+.lg-cal-dow{text-align:center;font-size:9px;color:var(--text5);letter-spacing:1px;padding:2px 0}
+.lg-cal-dow.wk{border-left:1px solid var(--border2)}
+.lg-cal-day{position:relative;min-height:50px;border-radius:6px;border:1px solid transparent;padding:4px 1px 3px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:transparent;color:var(--text5);font-family:inherit;min-width:0;overflow:hidden}
+.lg-cal-day .d{font-size:10px;line-height:1}
+.lg-cal-day .m{font-size:11px;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap}
+.lg-cal-day .n{font-size:9px;line-height:1;color:var(--text5)}
+button.lg-cal-day{cursor:pointer}
+button.lg-cal-day:hover{border-color:var(--text5)}
+.lg-cal-day.up{background:color-mix(in srgb,var(--green) 14%,transparent);border-color:color-mix(in srgb,var(--green) 38%,transparent)}
+.lg-cal-day.down{background:color-mix(in srgb,var(--red) 14%,transparent);border-color:color-mix(in srgb,var(--red) 38%,transparent)}
+.lg-cal-day.up .m{color:var(--green)}
+.lg-cal-day.down .m{color:var(--red)}
+.lg-cal-day.today .d{color:var(--text);font-weight:700;text-decoration:underline;text-underline-offset:2px}
+.lg-cal-day.cav{background-image:repeating-linear-gradient(135deg,color-mix(in srgb,var(--attn-amber) 32%,transparent) 0 3px,transparent 3px 7px)}
+.lg-cal-day.cav::after{content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--attn-amber)}
+.lg-cal-wk{border-left:1px solid var(--border2);border-radius:0;padding-left:2px}
+.lg-cal-wk .d{letter-spacing:.5px}
+.lg-cal-note{font-size:9px;color:var(--text5);margin-top:8px;letter-spacing:.3px}
+/* MONO turns red into #4d4d4d, unreadable as text on black: LEDGER loss text uses the theme's mid grey instead
+   (still apart from the white gains, and every loss also carries a minus sign or a loss label) */
+[data-theme="mono"] .lg-down,[data-theme="mono"] .lg-ms-row .v.lg-down,[data-theme="mono"] .lg-cal-day.down .m,[data-theme="mono"] .lg-hero .hm-down{color:var(--text3)}
+.lg-flash{animation:lgFlash 1.6s ease}
+@keyframes lgFlash{0%,40%{box-shadow:0 0 0 2px var(--text3)}100%{box-shadow:0 0 0 0 transparent}}
+@media (max-width:760px){
+  .lg-cal-panel{padding:12px 10px}
+  .lg-cal-day{min-height:42px}
+  .lg-cal-day .n{display:none}
+  .lg-cal-day .m{font-size:10px}
+  .lg-cal-sum{margin-left:0;flex-basis:100%}
+}
+@media (max-width:760px){
+  .lg-stats{grid-template-columns:repeat(2,1fr)}
+  .lg-stat{padding:14px 16px}
+  .lg-stat:nth-child(3){border-left:none}
+  .lg-stat:nth-child(n+3){border-top:1px solid var(--border2)}
+  .lg-stat-val{font-size:18px}
+}
 .hm-chart-wrap{position:relative;margin:22px 0 4px}
 .hm-chart-wrap svg{display:block;width:100%;height:260px;cursor:crosshair}
 .hm-range-row{display:flex;align-items:center;justify-content:space-between;margin:2px 0 26px;flex-wrap:wrap;gap:14px}
@@ -853,7 +933,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1032';
+const VERSION='73.1033';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -871,7 +951,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1030',date:'2026-10-05',notes:['NinjaTrader paper: a sweep every half hour checks every scheduled push, pull, rebuild and readiness step and alerts on a silent failure; the NinjaTrader backup now runs in the afternoon, flags a snapshot that lost a strategy, and never deletes the last complete one.']},
+const CHANGELOG=[{v:'73.1026',date:'2026-10-05',notes:['LEDGER > REAL has the new shared chart: one point per day, a price scale and dates, full height on a phone, faint per-broker lines you can switch off, and a finger or mouse scrub that reads any day into the big number.','The four tiles under the chart are now WIN RATE, PROFIT FACTOR, MAX DRAWDOWN and TRADES, the same four every LEDGER board will show. Money made today moved up into the big number.','Profit factor reads no losses instead of infinite, max drawdown is always a positive amount, and the top bar net has its dollar sign (+$160.00, was +160.00).','MORE STATS is one fold: Returns, Risk and Mix (best and worst day, green days, average hold, longs and shorts) plus an Account group for balance, fees and vs SPY. The numbers match the old panel exactly.','A calendar is back under MORE STATS: one month with a week column, each day showing its money with a + or - sign. Tap a day to jump the trade list there. It starts open on a laptop and closed on a phone, and remembers your choice.','WEBULL PAPER: the small strategy charts no longer show as solid black blocks on the light theme.']},
+{v:'73.1030',date:'2026-10-05',notes:['NinjaTrader paper: a sweep every half hour checks every scheduled push, pull, rebuild and readiness step and alerts on a silent failure; the NinjaTrader backup now runs in the afternoon, flags a snapshot that lost a strategy, and never deletes the last complete one.']},
 {v:'73.1029',date:'2026-10-05',notes:['NinjaTrader paper: if NinjaTrader starts with an empty Tick Replay it is restarted once outside the cash session, and every new replay is merged into the 10-second data automatically.']},
 {v:'73.1027',date:'2026-10-05',notes:['PAPER (NT8 FUTURES): money colours now follow the theme like REAL and WEBULL (green turns white, red turns grey under MONO), and every money cell carries a direction marker - an arrow and a plus or minus sign on the big cells, a sign on the small ones. Max drawdown now prints as a positive dollar figure, the way REAL prints it.']},
 {v:'73.1025',date:'2026-10-05',notes:['PAPER (NT8 FUTURES): the board moves onto the shared LEDGER hero and range pills, like REAL - BOOK #463 label, the big number, the today line, the range line and the status and warning chips on the right. One pill row (TODAY 1W 1M 3M YTD ALL, counted back from today) now drives the number, chart, stats, calendar, trade list and every strategy row together; the 1W / 1M / All tabs and the Today / All time switch are gone. ?oldboards=1 shows the previous layout for one version.']},
@@ -2977,6 +3058,52 @@ function ledgerCloseDay(t){
 function ledgerCloseKey(t){const x=_ledgerHm(t&&(t.exitTime||t.entryTime));return ledgerCloseDay(t)+' '+String(x==null?0:x).padStart(5,'0');}
 function ledgerByClose(list){return (list||[]).slice().sort((a,b)=>{const x=ledgerCloseKey(a),y=ledgerCloseKey(b);return x<y?-1:(x>y?1:0);});}
 function ledgerInRange(list,range){const c=ledgerCutoff(range);return c?(list||[]).filter(t=>ledgerCloseDay(t)>=c):(list||[]);}
+// ── LEDGER shared stats (unify step 6) ──
+// One stats engine for every board's four headline tiles and its More stats fold. list = the range's closed trades.
+//   o.pnl(t)     the result that decides win / loss / profit factor (default t.pnl)
+//   o.net(t)     the money that adds up to net, drawdown, day totals and long / short totals (default o.pnl)
+//   o.include(t) false = left out of win rate, profit factor, streak and day stats, still counted in net and drawdown
+//   o.day(t)     the day a trade belongs to (default ledgerCloseDay); o.sorted: true = list is already in close order
+// Drawdown and the largest loss come back POSITIVE; profit factor is Infinity when nothing lost (shown "no losses").
+function ledgerStats(list,o){
+  o=o||{};
+  const P=o.pnl||(t=>+t.pnl||0),N=o.net||P,D=o.day||ledgerCloseDay,inc=o.include||(()=>true);
+  const all=o.sorted?(list||[]).slice():ledgerByClose(list);
+  if(!all.length)return null;
+  const tds=all.filter(inc);
+  let net=0,peak=0,cur=0,maxDD=0;
+  all.forEach(t=>{const v=+N(t)||0;net+=v;cur+=v;if(cur>peak)peak=cur;if(peak-cur>maxDD)maxDD=peak-cur;});
+  let wins=0,losses=0,flat=0,gw=0,gl=0,sumP=0,largestLoss=0,longs=0,shorts=0,longNet=0,shortNet=0,holdSum=0,holdN=0;
+  const byDay={};
+  tds.forEach(t=>{
+    const v=+P(t)||0,m=+N(t)||0;sumP+=v;
+    if(v>0){wins++;gw+=v;}else if(v<0){losses++;gl-=v;if(-v>largestLoss)largestLoss=-v;}else flat++;
+    const k=D(t);if(k)byDay[k]=(byDay[k]||0)+m;
+    const dir=String(t.type||t.side||t.direction||'').toUpperCase();
+    if(dir==='LONG'||dir==='BUY'||dir==='L'){longs++;longNet+=m;}else if(dir==='SHORT'||dir==='SELL'||dir==='S'){shorts++;shortNet+=m;}
+    const h=+t.durationMins;if(isFinite(h)&&h>0){holdSum+=h;holdN++;}
+  });
+  let sn=0,sd=0;
+  for(let i=tds.length-1;i>=0;i--){const v=+P(tds[i])||0;if(!v)continue;const d=v>0?1:-1;if(!sn){sn=1;sd=d;}else if(d===sd)sn++;else break;}
+  const days=Object.keys(byDay).sort(),dv=days.map(k=>byDay[k]);
+  let bestDay=null,worstDay=null;
+  days.forEach(k=>{if(!bestDay||byDay[k]>bestDay.v)bestDay={date:k,v:byDay[k]};if(!worstDay||byDay[k]<worstDay.v)worstDay={date:k,v:byDay[k]};});
+  const meanD=dv.length?dv.reduce((a,b)=>a+b,0)/dv.length:0;
+  return {trades:tds.length,excluded:all.length-tds.length,wins,losses,flat,
+    winRate:(wins+losses)?wins/(wins+losses):null,
+    pf:!tds.length||(!gw&&!gl)?null:(gl>0?gw/gl:Infinity),
+    net,grossWin:gw,grossLoss:gl,avgTrade:tds.length?sumP/tds.length:null,
+    avgWin:wins?gw/wins:null,avgLoss:losses?-gl/losses:null,payoff:(wins&&losses)?(gw/wins)/(gl/losses):null,
+    maxDD,largestLoss,recovery:maxDD>0?net/maxDD:null,
+    sharpe:dv.length>1?(meanD/(stdDev(dv)||1))*Math.sqrt(252):null,
+    bestDay,worstDay,greenDays:dv.filter(v=>v>0).length,days:days.length,
+    longs,shorts,longNet,shortNet,avgHoldMins:holdN?holdSum/holdN:null,streak:{n:sn,dir:sd}};
+}
+function ledgerPfText(pf){return pf==null?'--':(isFinite(pf)?pf.toFixed(2):'no losses');}
+function ledgerSigned(v){v=+v||0;return (v>=0?'+':'-')+ledgerMoney(Math.abs(v));}
+function ledgerCls(v){return (+v||0)>=0?'lg-up':'lg-down';}
+function ledgerShortMoney(v){v=+v||0;const a=Math.abs(v),sg=v<0?'-':'+';
+  return sg+'$'+(a>=10000?Math.round(a/1000)+'k':a>=1000?(a/1000).toFixed(1).replace(/\.0$/,'')+'k':Math.round(a));}
 // ── LEDGER shared hero + range pills (unify step 4) ──
 // The range pills every board offers, counted back from today in New York (ledgerCutoff). 1Y is gone: a
 // browser that saved it opens on ALL. ?oldboards=1 shows each board's previous layout for one version.
@@ -3002,6 +3129,209 @@ function ledgerTodayHtml(v){
 function ledgerRangePillsHtml(active,attr,ranges){
   return '<div class="lg-pills">'+(ranges||LEDGER_RANGES).map(r=>'<button type="button" '+attr+'="'+r+'" class="'+(active===r?'active':'')
     +'" aria-pressed="'+(active===r)+'" title="'+(LEDGER_RANGE_LABEL[r]||r)+', counted back from today in New York">'+r+'</button>').join('')+'</div>';
+}
+// ── LEDGER shared equity chart (unify step 5) ──
+// One chart for every board: one point per day (a range of one or two days keeps every trade), a price scale on
+// the right, dates along the bottom, a bold total line (green when the range is up, red when down - under MONO the
+// theme turns those white and grey, and the hero's arrow and sign carry the direction), optional faint lines with a
+// legend that switches each one, and a scrub by mouse OR finger that hands the point to the board (onScrub /
+// onLeave). It draws at the box's real pixel width and redraws when that width changes, so a phone never squashes it.
+// pts: [{v, date}] - the first point is the start of the range (date may be null). Optional extras for the boards:
+//   o.lines = [{name, color, vals (one per point, null = gap), on}]  faint lines + legend toggles (onToggle(name, on))
+//   o.bands = [{i, title}]  a hatched amber column on point i (a caveat day; the hatch survives MONO)
+//   o.marks = [{i, label}]  a dotted vertical marker on point i with a small label at the top (a version change)
+function ledgerDailyPoints(pts){
+  pts=pts||[];
+  const days=new Set(pts.map(p=>p.date).filter(Boolean));
+  if(days.size<=2)return pts;
+  const out=[pts[0]];
+  for(let i=1;i<pts.length;i++){const p=pts[i],last=out[out.length-1];
+    if(out.length>1&&last.date&&last.date===p.date)out[out.length-1]=p;else out.push(p);}
+  return out;
+}
+function _lgNiceTicks(lo,hi,count){
+  const raw=(hi-lo||1)/Math.max(1,count),mag=Math.pow(10,Math.floor(Math.log10(raw))),f=raw/mag;
+  const step=(f<1.5?1:f<3?2:f<7?5:10)*mag,out=[];
+  for(let v=Math.ceil(lo/step)*step;v<=hi+step*1e-6;v+=step)out.push(Math.abs(v)<step*1e-6?0:v);
+  return out;
+}
+const _LG_DASHES=['none','5 3','1.5 3','7 2 1.5 2'];
+function _lgDash(l,all){return l.dash||_LG_DASHES[Math.max(0,(all||[]).indexOf(l))%_LG_DASHES.length];}
+function _lgAxisMoney(v){const a=Math.abs(v);return (v<0?'-':'')+'$'+a.toLocaleString(undefined,{maximumFractionDigits:a<10?2:0});}
+function _lgDateLbl(ds,withYear){
+  if(!ds)return '';const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return M[+ds.slice(5,7)-1]+' '+(+ds.slice(8,10))+(withYear?" '"+ds.slice(2,4):'');
+}
+// ── LEDGER shared stats strip + More stats (unify step 6) ──
+// The same four tiles on every board: WIN RATE, PROFIT FACTOR, MAX DRAWDOWN (positive), TRADES. Today's money
+// lives in the hero, not here. o.winNote = extra html at the end of the WIN RATE sub-line; o.id = the strip's element id.
+function ledgerStatStripHtml(s,o){
+  o=o||{};
+  const tile=(k,lbl,val,sub)=>'<div class="lg-stat" data-lgstat="'+k+'"><div class="lg-stat-lbl">'+lbl+'</div><div class="lg-stat-val">'+val+'</div><div class="lg-stat-sub">'+(sub||'&nbsp;')+'</div></div>';
+  const wr=s&&s.winRate!=null?Math.round(s.winRate*100)+'%':'--';
+  const wl=s?s.wins+' W &middot; '+s.losses+' L'+(s.flat?' &middot; '+s.flat+' even':''):'';
+  return '<div class="lg-stats"'+(o.id?' id="'+o.id+'"':'')+'>'
+    +tile('winrate','Win rate',wr,wl+(o.winNote||''))
+    +tile('pf','Profit factor',s?ledgerPfText(s.pf):'--',s&&s.pf!=null?ledgerShortMoney(s.grossWin).slice(1)+' won &middot; '+ledgerShortMoney(s.grossLoss).slice(1)+' lost':'')
+    +tile('maxdd','Max drawdown',s?ledgerMoney(s.maxDD):'--',s&&s.maxDD>0?'worst drop from a high':'')
+    +tile('trades','Trades',s?String(s.trades):'0',s?'over '+s.days+' day'+(s.days===1?'':'s'):'')
+    +'</div>';
+}
+function ledgerMsRow(label,value,cls){return '<div class="lg-ms-row"><div class="l">'+label+'</div><div class="v'+(cls?' '+cls:'')+'">'+value+'</div></div>';}
+// One fold: Returns / Risk / Mix in that order, then the board's own groups ([{title, rows:[[label, valueHtml, cls]]}]).
+// o.open = start open; o.id = prefix ("hm" -> button data-lgmore="hm", panel id "hm-more"); o.note = a small footer.
+// The board wires [data-lgmore] clicks and remembers open / closed; the body is only built while open.
+function ledgerMoreStatsHtml(s,ownGroups,o){
+  o=o||{};const id=o.id||'lg',open=!!o.open;
+  const btn='<button type="button" class="lg-more" data-lgmore="'+id+'" aria-expanded="'+open+'" aria-controls="'+id+'-more"><span>More stats</span><span class="lg-chev" aria-hidden="true">&#9662;</span></button>';
+  if(!open)return btn+'<div class="lg-more-panel" id="'+id+'-more" hidden></div>';
+  if(!s)return btn+'<div class="lg-more-panel" id="'+id+'-more"><div class="lg-ms-note">No trades in this range.</div></div>';
+  const M=v=>v==null?'--':ledgerSigned(v),C=v=>v==null?'':ledgerCls(v);
+  const dayTxt=d=>d?ledgerSigned(d.v)+' <span style="color:var(--text5)">'+_lgDateLbl(d.date)+'</span>':'--';
+  const streak=s.streak&&s.streak.n?s.streak.n+(s.streak.dir>0?(s.streak.n>1?' wins':' win'):(s.streak.n>1?' losses':' loss')):'--';
+  const tot=(s.wins+s.losses+s.flat)||1;
+  const hold=s.avgHoldMins==null?'--':(typeof fmtDur==='function'?fmtDur(Math.round(s.avgHoldMins)):Math.round(s.avgHoldMins)+'m');
+  const groups=[
+    {title:'Returns',rows:[['Net P&amp;L',M(s.net),C(s.net)],['Average trade',M(s.avgTrade),C(s.avgTrade)],['Average win',M(s.avgWin),s.avgWin==null?'':'lg-up'],
+      ['Average loss',s.avgLoss==null?'--':ledgerMoney(-s.avgLoss),s.avgLoss==null?'':'lg-down'],['Win / loss size',s.payoff==null?'--':s.payoff.toFixed(2)+'x'],
+      ['Best day',dayTxt(s.bestDay),s.bestDay?ledgerCls(s.bestDay.v):''],['Worst day',dayTxt(s.worstDay),s.worstDay?ledgerCls(s.worstDay.v):'']]},
+    {title:'Risk',rows:[['Max drawdown',ledgerMoney(s.maxDD)],['Largest loss',ledgerMoney(s.largestLoss),s.largestLoss>0?'lg-down':''],
+      ['Net / drawdown',s.recovery==null?'--':s.recovery.toFixed(2)+'x'],['Sharpe (daily)',s.sharpe==null?'--':s.sharpe.toFixed(2)],
+      ['Current streak',streak,s.streak&&s.streak.n?(s.streak.dir>0?'lg-up':'lg-down'):''],['Green days',s.greenDays+' of '+s.days]]},
+    {title:'Mix',rows:[['Longs',s.longs+' &middot; '+M(s.longNet),C(s.longNet)],['Shorts',s.shorts+' &middot; '+M(s.shortNet),C(s.shortNet)],
+      ['Wins / losses',s.wins+' W &middot; '+s.losses+' L'+(s.flat?' &middot; '+s.flat+' even':''),'',
+        '<div class="lg-ms-bar"><div class="w" style="width:'+(s.wins/tot*100).toFixed(1)+'%"></div><div class="e" style="width:'+(s.flat/tot*100).toFixed(1)+'%"></div><div class="l" style="width:'+(s.losses/tot*100).toFixed(1)+'%"></div></div>'],
+      ['Average hold',hold],['Trades per day',s.days?(s.trades/s.days).toFixed(1):'--']]}
+  ].concat(ownGroups||[]);
+  const body='<div class="lg-ms-grid">'+groups.map(g=>'<div class="lg-ms-group" data-lgmsgroup="'+String(g.title).replace(/"/g,'')+'"><h4>'+g.title+'</h4>'
+    +(g.rows||[]).map(r=>ledgerMsRow(r[0],r[1],r[2])+(r[3]||'')).join('')+'</div>').join('')+'</div>'
+    +(o.note?'<div class="lg-ms-note">'+o.note+'</div>':'');
+  return btn+'<div class="lg-more-panel" id="'+id+'-more">'+body+'</div>';
+}
+// ── LEDGER shared calendar (unify step 7) ──
+// One month at a time with a week column. Each day shows its money (a sign as well as a colour, so MONO reads)
+// and how many trades closed that day; a caveat day is hatched amber with a dot. The board decides which trades
+// go in (the chosen range), remembers the month, and wires three things:
+//   [data-lgcalfold="<id>"] open / close, [data-lgcal="<id>"][data-lgcalmo="-1|1"] month arrows,
+//   [data-lgcal="<id>"] [data-lgcalday="YYYY-MM-DD"] a day with trades (jump the trade list there).
+// ledgerCalDays(list, {pnl, net, include, day}) -> {date: {v, n, w, l}}: v = money (net), n = trades, w / l by pnl
+// (a trade left out by include still adds its money and its count, it just is not a win or a loss).
+function ledgerCalDays(list,o){
+  o=o||{};const P=o.pnl||(t=>+t.pnl||0),N=o.net||P,D=o.day||ledgerCloseDay,inc=o.include||(()=>true),out={};
+  (list||[]).forEach(t=>{const k=D(t);if(!k)return;const c=out[k]||(out[k]={v:0,n:0,w:0,l:0});c.v+=+N(t)||0;c.n++;
+    if(inc(t)){const p=+P(t)||0;if(p>0)c.w++;else if(p<0)c.l++;}});
+  return out;
+}
+function ledgerCalMonths(days){const m={};Object.keys(days||{}).forEach(d=>{m[d.slice(0,7)]=1;});return Object.keys(m).sort();}
+// the month to show: the asked one when it has trades in range, else the newest month with trades, else this month
+function ledgerCalPick(days,want){const ms=ledgerCalMonths(days);if(want&&ms.indexOf(want)>=0)return want;return ms.length?ms[ms.length-1]:ledgerTodayNY().slice(0,7);}
+// o = {id, month 'YYYY-MM', days (ledgerCalDays), caveats {date: reason}, open, note}
+function ledgerCalendarHtml(o){
+  o=o||{};const id=o.id||'lg',days=o.days||{},cav=o.caveats||{},open=!!o.open;
+  const ms=ledgerCalMonths(days),mo=o.month||ledgerCalPick(days),y=+mo.slice(0,4),m=+mo.slice(5,7);
+  const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  let mv=0,mn=0,mw=0,ml=0;Object.keys(days).forEach(d=>{if(d.slice(0,7)===mo){const c=days[d];mv+=c.v;mn+=c.n;mw+=c.w;ml+=c.l;}});
+  const sum=mn?'<span class="'+ledgerCls(mv)+'">'+ledgerSigned(mv)+'</span><span style="color:var(--text5)"> &middot; '+mn+' trade'+(mn===1?'':'s')
+    +((mw+ml)?' &middot; '+Math.round(mw/(mw+ml)*100)+'% won':'')+'</span>':'<span style="color:var(--text5)">no trades this month</span>';
+  const btn='<button type="button" class="lg-more" data-lgcalfold="'+id+'" aria-expanded="'+open+'" aria-controls="'+id+'-cal">'
+    +'<span>Calendar</span><span style="letter-spacing:.5px;text-transform:none;color:var(--text5)">'+MN[m-1]+' '+y+(mn?' &middot; '+ledgerSigned(mv):'')+'</span>'
+    +'<span class="lg-chev" aria-hidden="true">&#9662;</span></button>';
+  if(!open)return btn+'<div class="lg-cal-panel" id="'+id+'-cal" hidden></div>';
+  const today=ledgerTodayNY(),first=new Date(Date.UTC(y,m-1,1)).getUTCDay(),nDays=new Date(Date.UTC(y,m,0)).getUTCDate();
+  const slots=[];for(let i=0;i<first;i++)slots.push(null);for(let d=1;d<=nDays;d++)slots.push(d);while(slots.length%7)slots.push(null);
+  let cells=['S','M','T','W','T','F','S'].map(d=>'<div class="lg-cal-dow">'+d+'</div>').join('')+'<div class="lg-cal-dow wk">WEEK</div>';
+  for(let w=0;w<slots.length;w+=7){
+    let wv=0,wn=0,wd=0;
+    slots.slice(w,w+7).forEach(d=>{
+      if(d==null){cells+='<div></div>';return;}
+      const ds=mo+'-'+String(d).padStart(2,'0'),c=days[ds],why=cav[ds];
+      const cls='lg-cal-day'+(c?(c.v>=0?' up':' down'):'')+(ds===today?' today':'')+(why?' cav':'');
+      const lbl=_lgDateLbl(ds)+': '+(c?ledgerSigned(c.v)+', '+c.n+' trade'+(c.n===1?'':'s')+((c.w+c.l)?', '+c.w+' won':''):'no trades')+(why?' - '+why:'');
+      const inner='<span class="d">'+d+'</span>'+(c?'<span class="m">'+ledgerShortMoney(c.v)+'</span><span class="n">'+c.n+' tr</span>':'');
+      if(c){wv+=c.v;wn+=c.n;wd++;cells+='<button type="button" class="'+cls+'" data-lgcalday="'+ds+'" title="'+lbl.replace(/"/g,'&quot;')+'" aria-label="'+lbl.replace(/"/g,'&quot;')+'">'+inner+'</button>';}
+      else cells+='<div class="'+cls+'" title="'+lbl.replace(/"/g,'&quot;')+'">'+inner+'</div>';
+    });
+    // a week with no trades stays empty - no trades is not a flat week
+    cells+=wd?'<div class="lg-cal-day lg-cal-wk '+(wv>=0?'up':'down')+'" style="background:none;border-color:transparent" title="week: '+ledgerSigned(wv)+', '+wn+' trade'+(wn===1?'':'s')+'"><span class="d">WK</span><span class="m">'+ledgerShortMoney(wv)+'</span><span class="n">'+wn+' tr</span></div>'
+      :'<div class="lg-cal-day lg-cal-wk"></div>';
+  }
+  const i=ms.indexOf(mo),atFirst=i<=0,atLast=i<0||i>=ms.length-1;
+  const nav=(dir,lbl,dis)=>'<button type="button" class="lg-cal-nav" data-lgcal="'+id+'" data-lgcalmo="'+dir+'"'+(dis?' disabled':'')+' aria-label="'+(dir<0?'earlier':'later')+' month">'+lbl+'</button>';
+  return btn+'<div class="lg-cal-panel" id="'+id+'-cal"><div class="lg-cal" data-lgcal="'+id+'" data-lgcalmonth="'+mo+'">'
+    +'<div class="lg-cal-hd"><span class="lg-cal-title">'+MN[m-1]+' '+y+'</span>'+nav(-1,'&#9664;',atFirst)+nav(1,'&#9654;',atLast)+'<span class="lg-cal-sum">'+sum+'</span></div>'
+    +'<div class="lg-cal-grid">'+cells+'</div>'
+    +'<div class="lg-cal-note">'+(o.note||'Each day is the money from trades that closed that day, in the chosen range. Tap a day to jump the trade list there.')+'</div></div></div>';
+}
+// month arithmetic for the arrows: 'YYYY-MM' moved by n months, clamped to the months that have trades
+function ledgerCalStep(days,mo,n){const ms=ledgerCalMonths(days);if(!ms.length)return mo;let i=ms.indexOf(mo);if(i<0)i=ms.length-1;return ms[Math.max(0,Math.min(ms.length-1,i+n))];}
+function ledgerChartRender(wrap,o){
+  if(!wrap)return;
+  wrap.classList.add('lg-chart');
+  const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const draw=()=>{
+    const W=Math.max(240,Math.round(wrap.clientWidth||600)),H=o.height||(W<600?200:260);
+    wrap._lgW=W;
+    const pts=o.pts&&o.pts.length?o.pts:[{v:0,date:null}],n=pts.length;
+    const lines=(o.lines||[]).filter(l=>l.on!==false);
+    let lo=Infinity,hi=-Infinity;
+    pts.forEach(p=>{if(p.v<lo)lo=p.v;if(p.v>hi)hi=p.v;});
+    lines.forEach(l=>(l.vals||[]).forEach(v=>{if(v!=null){if(v<lo)lo=v;if(v>hi)hi=v;}}));
+    if(lo===hi){lo-=1;hi+=1;}
+    const pv=(hi-lo)*0.12;lo-=pv;hi+=pv;
+    const L=4,R=W<600?54:66,T=12,B=22,pw=W-L-R,ph=H-T-B;
+    const X=i=>L+(n<=1?pw/2:(i/(n-1))*pw),Y=v=>T+(1-(v-lo)/(hi-lo))*ph;
+    const col=o.up===false?'var(--red)':'var(--green)',gid='lgGrad_'+(o.id||'c');
+    let h='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" style="height:'+H+'px;touch-action:pan-y" role="img" aria-label="'+esc(o.aria||'equity chart')+'">'
+      +'<defs><linearGradient id="'+gid+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color:'+col+'" stop-opacity="0.12"/><stop offset="100%" style="stop-color:'+col+'" stop-opacity="0"/></linearGradient></defs>';
+    const hid='lgHatch_'+(o.id||'c'),half=n>1?pw/(n-1)/2:pw/2;
+    if(o.bands&&o.bands.length){h+='<defs><pattern id="'+hid+'" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" style="stroke:var(--yellow)" stroke-width="2" stroke-opacity="0.45"/></pattern></defs>';
+      o.bands.forEach(b=>{if(b.i==null||b.i<0||b.i>=n)return;const x0=Math.max(L,X(b.i)-half),x1=Math.min(L+pw,X(b.i)+half);
+        h+='<rect data-lgband="1" x="'+x0.toFixed(1)+'" y="'+T+'" width="'+Math.max(1,x1-x0).toFixed(1)+'" height="'+ph+'" fill="url(#'+hid+')"><title>'+esc(b.title||'')+'</title></rect>';});}
+    _lgNiceTicks(lo,hi,W<600?3:4).forEach(tv=>{const yy=Y(tv).toFixed(1);
+      h+='<line x1="'+L+'" x2="'+(L+pw)+'" y1="'+yy+'" y2="'+yy+'" style="stroke:var(--border2)" stroke-width="1"/>'
+        +'<text data-lgtick="1" x="'+(L+pw+6)+'" y="'+(+yy+3)+'" font-size="9" style="fill:var(--text5)" font-family="JetBrains Mono, monospace">'+esc((o.fmtAxis||_lgAxisMoney)(tv))+'</text>';});
+    const by=Y(pts[0].v).toFixed(1);
+    h+='<line x1="'+L+'" x2="'+(L+pw)+'" y1="'+by+'" y2="'+by+'" style="stroke:var(--text5)" stroke-opacity="0.5" stroke-width="1" stroke-dasharray="4 4"/>';
+    // each faint line also gets its own dash, so the lines stay apart under MONO where every colour turns grey
+    lines.forEach(l=>{let d='',pen=false;(l.vals||[]).forEach((v,i)=>{if(v==null){pen=false;return;}d+=(pen?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1);pen=true;});
+      if(d)h+='<path d="'+d+'" fill="none" style="stroke:'+(l.color||'var(--text4)')+'" stroke-opacity="0.6" stroke-width="1.2" stroke-dasharray="'+_lgDash(l,o.lines)+'"/>';});
+    (o.marks||[]).forEach(m=>{if(m.i==null||m.i<0||m.i>=n)return;const xx=X(m.i).toFixed(1);
+      h+='<line data-lgmark="1" x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(T+ph)+'" style="stroke:var(--text4)" stroke-width="1" stroke-dasharray="2 3"/>'
+        +'<text x="'+(+xx+3)+'" y="'+(T+8)+'" font-size="8" style="fill:var(--text4)" font-family="JetBrains Mono, monospace">'+esc(m.label||'')+'</text>';});
+    const line=pts.map((p,i)=>X(i).toFixed(1)+','+Y(p.v).toFixed(1)).join(' ');
+    h+='<polygon points="'+X(0).toFixed(1)+','+(T+ph)+' '+line+' '+X(n-1).toFixed(1)+','+(T+ph)+'" fill="url(#'+gid+')"/>'
+      +'<polyline points="'+line+'" fill="none" style="stroke:'+col+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+      +'<circle cx="'+X(n-1).toFixed(1)+'" cy="'+Y(pts[n-1].v).toFixed(1)+'" r="3.5" style="fill:'+col+'"/>';
+    // dates along the bottom: evenly spread, about 110 px apart; the year shows when the range crosses one
+    const dated=pts.map((p,i)=>p.date?i:-1).filter(i=>i>=0);
+    if(dated.length){const k=Math.max(1,Math.min(dated.length,Math.floor(pw/110)+1));
+      const yrs=new Set(dated.map(i=>pts[i].date.slice(0,4))).size>1,used=new Set();
+      for(let j=0;j<k;j++){const i=dated[Math.round(j*(dated.length-1)/Math.max(1,k-1))];if(used.has(i))continue;used.add(i);
+        const xx=X(i),anchor=xx<L+24?'start':(xx>L+pw-24?'end':'middle');
+        h+='<text data-lgdate="1" x="'+xx.toFixed(1)+'" y="'+(H-6)+'" text-anchor="'+anchor+'" font-size="9" style="fill:var(--text5)" font-family="JetBrains Mono, monospace">'+esc(_lgDateLbl(pts[i].date,yrs))+'</text>';}}
+    h+='<line data-lgx="1" x1="0" x2="0" y1="'+T+'" y2="'+(T+ph)+'" style="stroke:var(--text5)" stroke-opacity="0.6" stroke-width="1" visibility="hidden"/>'
+      +'<circle data-lgdot="1" cx="0" cy="0" r="4" style="fill:'+col+'" visibility="hidden"/></svg>';
+    if(o.lines&&o.lines.length)h+='<div class="lg-legend">'+o.lines.map((l,i)=>'<button type="button" data-lgline="'+i+'" class="'+(l.on===false?'off':'')+'" title="show or hide this line"><svg width="16" height="4" style="display:inline-block"><line x1="0" y1="2" x2="16" y2="2" style="stroke:'+(l.color||'var(--text4)')+'" stroke-width="2" stroke-dasharray="'+_lgDash(l,o.lines)+'"/></svg>'+esc(l.name)+'</button>').join('')+'</div>';
+    wrap.innerHTML=h;
+    const sv=wrap.querySelector('svg'),xl=sv.querySelector('[data-lgx]'),dot=sv.querySelector('[data-lgdot]');
+    let held=false;
+    const at=ev=>{const r=sv.getBoundingClientRect();const fx=(ev.clientX-r.left)*(W/(r.width||W));
+      return Math.max(0,Math.min(n-1,Math.round(n<=1?0:((fx-L)/pw)*(n-1))));};
+    const show=i=>{const xx=X(i).toFixed(1);xl.setAttribute('x1',xx);xl.setAttribute('x2',xx);xl.setAttribute('visibility','visible');
+      dot.setAttribute('cx',xx);dot.setAttribute('cy',Y(pts[i].v).toFixed(1));dot.setAttribute('visibility','visible');
+      if(o.onScrub)o.onScrub(i,pts[i]);};
+    const hide=()=>{held=false;xl.setAttribute('visibility','hidden');dot.setAttribute('visibility','hidden');if(o.onLeave)o.onLeave();};
+    sv.addEventListener('pointerdown',ev=>{held=true;try{sv.setPointerCapture(ev.pointerId);}catch(_e){}show(at(ev));});
+    sv.addEventListener('pointermove',ev=>{if(ev.pointerType==='mouse'||held)show(at(ev));});
+    sv.addEventListener('pointerup',ev=>{if(ev.pointerType!=='mouse')hide();else held=false;});
+    sv.addEventListener('pointercancel',hide);
+    sv.addEventListener('pointerleave',ev=>{if(ev.pointerType==='mouse')hide();});
+    wrap.querySelectorAll('[data-lgline]').forEach(b=>{b.onclick=()=>{const l=o.lines[+b.getAttribute('data-lgline')];l.on=(l.on===false);
+      if(o.onToggle)o.onToggle(l.name,l.on);draw();};});
+  };
+  draw();
+  if(wrap._lgRO)wrap._lgRO.disconnect();
+  if(window.ResizeObserver){wrap._lgRO=new ResizeObserver(()=>{const w=Math.round(wrap.clientWidth||0);if(w&&Math.abs(w-(wrap._lgW||0))>2)draw();});wrap._lgRO.observe(wrap);}
 }
 function calcStats(tds){
   const allTds=ledgerByClose(bScope(tds));
@@ -5910,7 +6240,11 @@ function sparkline(data,color,w,h,showAxis){
     axis+=`<text x="1" y="9" text-anchor="start" fill="#505070" font-size="7" font-family="JetBrains Mono,monospace">$${max.toFixed(0)}</text>`;
     if(min<0)axis+=`<text x="1" y="${h-2}" text-anchor="start" fill="#505070" font-size="7" font-family="JetBrains Mono,monospace">$${min.toFixed(0)}</text>`;
   }
-  return`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;overflow:visible"><defs><linearGradient id="sg${color.replace('#','')}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity=".25"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><path d="${fill}" fill="url(#sg${color.replace('#','')})"/><path d="${path}" stroke="${color}" stroke-width="1.5" fill="none"/>` +axis+'</svg>';
+  // every sparkline gets its OWN gradient id (2026-10-05): sharing one id per colour painted the fill solid black
+  // whenever the first copy sat in a hidden section (the black WEBULL PAPER sparklines on the light theme), and a
+  // theme colour like var(--green) made an id that does not parse; style= stop colours accept var() too
+  const gid='sg'+(window._sparkSeq=(window._sparkSeq||0)+1);
+  return`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;overflow:visible"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color:${color}" stop-opacity=".25"/><stop offset="100%" style="stop-color:${color}" stop-opacity="0"/></linearGradient></defs><path d="${fill}" fill="url(#${gid})"/><path d="${path}" style="stroke:${color}" stroke-width="1.5" fill="none"/>` +axis+'</svg>';
 }
 function svgLineLabeled(pts,color,W,H,showTradeAmounts,spyPts,yUnit){
   // Same as svgLine but adds P&L amount labels at each dot
@@ -12227,7 +12561,20 @@ const _HM_VB_W=1000,_HM_VB_H=260,_HM_PAD_L=6,_HM_PAD_R=76,_HM_PAD_T=26,_HM_PAD_B
 // Draws the scrub chart + wires its mousemove/mouseleave interaction. The scrub handler
 // below writes straight to the hero + crosshair DOM nodes and NEVER calls renderApp() -
 // a full repaint on every mousemove would be unusable.
+// REAL on the shared chart (unify step 5): one point per day; in P&L view with ALL accounts, a faint line per
+// broker (switch each from the legend, remembered per browser). ?oldboards=1 keeps the previous chart.
+function _hmBrokerLines(ser){
+  if(homeChartMode==='equity'||activeBroker)return [];
+  const tr=ledgerByClose(_hmTradesInRange(bScope(trades),homeRange)),names=[...new Set(tr.map(t=>t.broker||'Other'))];
+  if(names.length<2)return [];
+  let off={};try{off=JSON.parse(localStorage.getItem('el_lg_lines_real')||'{}')||{};}catch(e){}
+  const colors=['var(--blue)','var(--purple)','var(--yellow)','var(--text3)'];
+  return names.map((nm,k)=>{let c=0,j=0;const vals=ser.map((p,i)=>{if(i===0)return 0;
+      while(j<tr.length&&ledgerCloseDay(tr[j])<=p.date){if((tr[j].broker||'Other')===nm)c+=tr[j].pnl;j++;}return +c.toFixed(2);});
+    return {name:nm,color:colors[k%colors.length],vals:vals,on:!off[nm]};});
+}
 function _hmRenderChartInto(root){
+  if(!LEDGER_OLDBOARDS)return _hmRenderSharedChart(root);
   const ser=_hmRangeSeries(homeRange,homeChartMode);
   const vals=ser.length>=2?ser.map(p=>p.v):(ser.length===1?[ser[0].v,ser[0].v]:[0,0]);
   const n=vals.length;
@@ -12267,6 +12614,27 @@ function _hmRenderChartInto(root){
   wrapEl.innerHTML=svg;
   _hmRenderHeroDefault(endVal,startVal);
   _hmWireChart(root,plotL,plotR,n,ser,startVal,endVal,vals);
+}
+function _hmRenderSharedChart(root){
+  const wrapEl=root.querySelector('#hm-chart-wrap');
+  if(!wrapEl)return;
+  const ser=ledgerDailyPoints(_hmRangeSeries(homeRange,homeChartMode));
+  // P&L mode: the range's own P&L (the curve restarts at $0 at the range start); EQUITY: the account balance
+  const endVal=homeChartMode==='equity'?liveBalance():(ser.length?ser[ser.length-1].v:0);
+  const startVal=ser.length?ser[0].v:0;
+  const up=(endVal-startVal-(homeChartMode==='equity'?_hmRangeDeposits(homeRange):0))>=0;
+  _hmRenderHeroDefault(endVal,startVal);
+  ledgerChartRender(wrapEl,{id:'hm',pts:ser,up:up,aria:'REAL '+(homeChartMode==='equity'?'account equity':'P&L')+', '+(_HM_RANGE_LABEL[homeRange]||''),
+    lines:_hmBrokerLines(ser),
+    onToggle:(nm,on)=>{try{const off=JSON.parse(localStorage.getItem('el_lg_lines_real')||'{}')||{};if(on)delete off[nm];else off[nm]=1;localStorage.setItem('el_lg_lines_real',JSON.stringify(off));}catch(e){}},
+    onScrub:(i,p)=>{
+      const valEl=document.getElementById('hm-hero-value');if(valEl)valEl.textContent=_hmMoney(p.v);
+      const ptDate=p.date;
+      const dep=homeChartMode==='equity'?_hmRangeDeposits(homeRange,i===0?'':ptDate):0;
+      const delta=p.v-startVal-dep;
+      const pctBase=homeChartMode==='equity'?(Math.abs(startVal+dep)>0.005?Math.abs(startVal+dep):null):_hmPnlPctBase(homeRange,ptDate);
+      _hmPaintDelta(delta,pctBase?(delta/pctBase)*100:null,ptDate?_hmFmtDateLong(ptDate):(_HM_RANGE_LABEL[homeRange]||''));},
+    onLeave:()=>_hmRenderHeroDefault(endVal,startVal)});
 }
 function _hmWireChart(root,plotL,plotR,n,ser,startVal,endVal,vals){
   const svgEl=root.querySelector('#hm-chart-wrap svg');
@@ -12314,6 +12682,35 @@ function _hmStatStrip(stats){
     <div class="hm-stat-cell"><div class="hm-micro">PROFIT FACTOR</div><div class="hm-stat-val">${pf}</div></div>
     <div class="hm-stat-cell"><div class="hm-micro">MAX DD</div><div class="hm-stat-val">${dd}</div></div>
     <div class="hm-stat-cell"><div class="hm-micro">TODAY</div><div class="hm-stat-val ${_hmCls(todayNet)}">${_hmSigned(todayNet)}</div></div>`;
+}
+// REAL on the shared calendar (unify step 7): the range's trades by the day they closed, the same money the trade
+// list's day headers add up. Open on a laptop and closed on a phone until you choose (remembered per browser).
+var homeCalOpen=(()=>{try{const v=localStorage.getItem('el_lg_cal_real');if(v==='1'||v==='0')return v==='1';}catch(e){}return (window.innerWidth||1200)>=760;})();
+function _hmCalDays(rangeTrades){return ledgerCalDays(bScope(rangeTrades),{pnl:pnlVal,net:t=>+t.pnl||0,include:t=>!(t&&t.statsExcluded)});}
+function _hmCalendarHtml(rangeTrades){
+  const days=_hmCalDays(rangeTrades);
+  window._hmCalMonth=ledgerCalPick(days,window._hmCalMonth);
+  return ledgerCalendarHtml({id:'hm',month:window._hmCalMonth,days:days,open:homeCalOpen});
+}
+// tap a calendar day: scroll the feed to that day's header and flash it; the table view (or a day the
+// search / chips hide) goes through the long-standing jump that widens the range and flashes the rows
+function _hmJumpToDay(ds){
+  const c=document.getElementById('hm-feed-container');
+  const el=homeView!=='table'&&c?c.querySelector('[data-hmday="'+ds+'"]'):null;
+  if(!el){if(window.hmShowTrades)window.hmShowTrades({date:ds});return;}
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+  el.classList.remove('lg-flash');void el.offsetWidth;el.classList.add('lg-flash');
+  setTimeout(()=>el.classList.remove('lg-flash'),1700);
+}
+// REAL on the shared stats (unify step 6): win / loss by the gross-or-net switch, money by the trade's own P&L,
+// trades marked IGNORE IN METRICS stay in net and drawdown only - the same split calcStats has always made
+function _hmLedgerStats(rangeTrades){return ledgerStats(bScope(rangeTrades),{pnl:pnlVal,net:t=>+t.pnl||0,include:t=>!(t&&t.statsExcluded)});}
+function _hmOwnStatGroups(stats){
+  if(!stats)return [];
+  const a=_hmVsSpyValue();
+  return [{title:'Account',rows:[['Account balance',_hmMoney(liveBalance())],['Balance at range start',_hmMoney(_hmWindowStartEquity(homeRange))],
+    ['Gross P&amp;L (before fees)',_hmSigned(stats.grossNet),_hmCls(stats.grossNet).replace('hm-','lg-')],['Total fees',_hmMoney(stats.totalFees)],
+    ['Fees % of gross',stats.feeImpact.toFixed(1)+'%'],['vs SPY',a==null?'&mdash;':_hmPct(a),a==null?'':_hmCls(a).replace('hm-','lg-')]]}];
 }
 function _hmMsRow(label,value,cls){
   return `<div class="hm-ms-row"><div class="l">${label}</div><div class="v${cls?(' '+cls):''}">${value}</div></div>`;
@@ -12430,7 +12827,7 @@ function _hmRenderFeedTrade(list){
     const grp=byDay[date];
     const trs=grp.trades.slice().sort((a,b)=>(b.entryTime||'')<(a.entryTime||'')?-1:((b.entryTime||'')>(a.entryTime||'')?1:0));
     const net=trs.reduce((s,t)=>s+t.pnl,0);
-    html+=`<div class="hm-day-group"><div class="hm-day-header"><div class="dlabel">${_hmDayLabel(date)}</div><div class="dnet ${_hmCls(net)}">${_hmSigned(net)}</div></div>`;
+    html+=`<div class="hm-day-group" data-hmday="${date}"><div class="hm-day-header"><div class="dlabel">${_hmDayLabel(date)}</div><div class="dnet ${_hmCls(net)}">${_hmSigned(net)}</div></div>`;
     grp.deps.forEach(ev=>{html+=_hmDepositRow(ev);});
     trs.forEach(t=>{html+=_hmTradeRow(t);});
     html+='</div>';
@@ -12449,7 +12846,7 @@ function _hmRenderFeedDay(list){
     items.forEach(t=>{net+=t.pnl;if(t.pnl>0)wins++;else if(t.pnl<0)losses++;});   // a $0 trade is neither
     const wrp=(wins+losses)?Math.round((wins/(wins+losses))*100):0;
     const d=new Date(date+'T12:00:00');
-    html+=`<div class="hm-row hm-row-static">
+    html+=`<div class="hm-row hm-row-static" data-hmday="${date}">
       <div class="hm-tile day">${d.getDate()}</div>
       <div class="hm-rowmain"><div class="l1">${_hmDayLabel(date)}</div><div class="l2">${items.length} trade${items.length!==1?'s':''} &middot; ${wins}W ${losses}L${items.length-wins-losses?(' '+(items.length-wins-losses)+' even'):''}</div></div>
       <div class="hm-rowend"><div class="r1 ${_hmCls(net)}">${_hmSigned(net)}</div><div class="r2">win rate ${wrp}%</div></div>
@@ -13363,11 +13760,16 @@ function _hmRenderHome(content){
         <button data-hmmode="pnl" class="${homeChartMode==='pnl'?'active':''}">P&amp;L</button>
       </div>
     </div>
-    <div class="hm-stat-strip" id="hm-stat-strip">${_hmStatStrip(rangeStats)}</div>
+    ${LEDGER_OLDBOARDS?`<div class="hm-stat-strip" id="hm-stat-strip">${_hmStatStrip(rangeStats)}</div>
     <button class="hm-morestats-toggle" id="hm-morestats-toggle" aria-expanded="${homeStatsOpen?'true':'false'}" aria-controls="hm-morestats-panel">
       <span class="hm-micro">MORE STATS</span><span class="hm-chev" aria-hidden="true">&#9662;</span>
     </button>
-    <div class="hm-morestats-panel${homeStatsOpen?' open':''}" id="hm-morestats-panel">${homeStatsOpen?_hmMoreStats(rangeStats):''}</div>
+    <div class="hm-morestats-panel${homeStatsOpen?' open':''}" id="hm-morestats-panel">${homeStatsOpen?_hmMoreStats(rangeStats):''}</div>`
+    :(()=>{const ls=_hmLedgerStats(rangeTrades);
+      const ign=ls&&ls.excluded?`<span title="${ls.excluded} trade${ls.excluded>1?'s':''} marked IGNORE IN METRICS are left out of win rate, profit factor and the streak, but still count in P&amp;L and drawdown" style="color:var(--yellow)"> &middot; ${ls.excluded} ignored</span>`:'';
+      return ledgerStatStripHtml(ls,{id:'hm-stat-strip',winNote:ign})
+        +ledgerMoreStatsHtml(ls,_hmOwnStatGroups(rangeStats),{open:homeStatsOpen,id:'hm',note:'Scoped to the chosen account and range'})
+        +_hmCalendarHtml(rangeTrades);})()}
     <!-- v73.7xx: AI ASSESSMENT carried over from the retired OVERVIEW tab so this insight
          does not disappear now that HOME is the default landing tab. -->
     <div class="section" style="margin:14px 0">
@@ -13425,6 +13827,12 @@ function _hmRenderHome(content){
   _hmWireMissed(content);
   const moreBtn=content.querySelector('#hm-morestats-toggle');
   if(moreBtn)moreBtn.onclick=()=>{homeStatsOpen=!homeStatsOpen;renderApp();};
+  content.querySelectorAll('[data-lgmore="hm"]').forEach(b=>{b.onclick=()=>{homeStatsOpen=!homeStatsOpen;renderApp();};});
+  content.querySelectorAll('[data-lgcalfold="hm"]').forEach(b=>{b.onclick=()=>{homeCalOpen=!homeCalOpen;
+    try{localStorage.setItem('el_lg_cal_real',homeCalOpen?'1':'0');}catch(e){}renderApp();};});
+  content.querySelectorAll('[data-lgcal="hm"][data-lgcalmo]').forEach(b=>{b.onclick=()=>{if(b.disabled)return;
+    window._hmCalMonth=ledgerCalStep(_hmCalDays(_hmTradesInRange(trades,homeRange)),window._hmCalMonth,+b.getAttribute('data-lgcalmo'));renderApp();};});
+  content.querySelectorAll('[data-lgcal="hm"] [data-lgcalday]').forEach(b=>{b.onclick=()=>_hmJumpToDay(b.getAttribute('data-lgcalday'));});
   const searchEl=content.querySelector('#hm-search');
   if(searchEl){
     searchEl.oninput=(e)=>{homeQuery=e.target.value;window._hmSearchTyping=true;renderApp();};
@@ -14119,7 +14527,7 @@ function renderApp(){
         <div style="font-size:var(--fsxs);color:var(--text5);letter-spacing:1px;margin-top:1px;display:flex;align-items:center;gap:6px">
           <span class="vbadge">v${VERSION}</span><span style="color:var(--text5)">·</span>
           <span>${bScope(trades).length}${activeBroker?' '+activeBroker:''} trades</span><span style="color:var(--text5)">·</span>
-          <span style="color:${S?gch(S.net):'var(--text5)'}">${S?fmt(S.net):'—'}</span>
+          <span class="${S?ledgerCls(S.net):''}" style="${S?'':'color:var(--text5)'}" title="Net P&amp;L of every trade in this account, all time">${S?ledgerSigned(S.net):'—'}</span>
           ${autoHandle?'<span style="color:var(--text5)">·</span><span style="color:var(--yellow)"><span class="pulse-y"></span> AUTO</span>':''}
           ${(()=>{const w=window._dataFeedWarn?window._dataFeedWarn():[];return w.length?'<span style="color:var(--text5)">·</span><span title="'+w.join(' | ').replace(/"/g,'&quot;')+' - shared 10s tick capture, affects every leg equally" style="cursor:help;color:#e0c341">&#9888; DATA</span>':'';})()}
           ${(()=>{

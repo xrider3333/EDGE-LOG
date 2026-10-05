@@ -270,3 +270,89 @@ For the builders, not the owner. Line numbers drift with every ship.
 **Paper boards:** see the two inventories named at the top. NT8 branch starts at about 38098; WEBULL branch at about 36012.
 
 **Probes that open the paper boards by internal id:** `tools/paper_render_probe.py`, `tools/qqq_candles_probe.py`, `tools/qqq_orders_probe.py`, `tools/qqq_overview_probe.py`.
+
+## Appendix B: shared parts - adoption contract (TRADING-LOG, 2026-10-05)
+
+Owner of these parts: TRADING-LOG. Paper lanes call them from their OWN board sections and never edit them;
+need a change? one inbox line to TRADING-LOG and it ships in the shared code. Everything lives in index.html at
+global scope, next to `calcStats` (search for "LEDGER number rules"). Each board keeps its previous layout behind
+`LEDGER_OLDBOARDS` (`?oldboards=1`) for one version, then the old code is removed (step 11).
+
+## 1. Rules (step 2, live)
+- `ledgerTodayNY()` -> 'YYYY-MM-DD' in New York. `ledgerShiftDay(ds, n)` -> ds moved n days.
+- `ledgerCutoff(range)` -> first NY day inside the range ('TODAY','1W'=7d,'1M'=30d,'3M'=90d,'YTD','ALL'->null), counted from today.
+- `ledgerCloseDay(t)` -> the NY day a trade CLOSED: `t.exitDate` if set, else `t.date` moved on by the midnights
+  `t.entryTime` + `t.durationMins` cross, else `t.date`. A paper board whose rows carry a close day under another
+  name maps it into `exitDate` (or passes its own day function to `ledgerStats`, section 4).
+- `ledgerByClose(list)`, `ledgerInRange(list, range)`.
+- A $0 trade is neither a win nor a loss. Money colours follow the theme (decision 8): `var(--green)` / `var(--red)`
+  on changes and rows only, never a fixed hex; the big number stays `var(--text)`; direction is always ALSO carried by
+  an arrow (▲/▼) and a sign (+/-) so MONO reads.
+
+## 2. Hero + range pills (step 4, live on REAL v73.1012)
+- `ledgerHeroHtml({ids:{label,big,today,range,chips}, label, big, today, range, chips})` -> `.lg-hero` markup:
+  `.lg-hero-label` (board + scope, e.g. "BOOK #463 · NT8 FUTURES PAPER"), `.lg-hero-big`, `.lg-hero-today`,
+  `.lg-hero-range`, `.lg-hero-chips` (status + alarm chips; wrap each in `<span class="lg-chip">`; the row hides itself
+  when empty and drops under the number on a phone). Give the ids so your scrub code can write into them.
+- `ledgerTodayHtml(v)` -> "▲ +$12.50 today" (signed + arrowed). `ledgerMoney(v)` -> "$1,234.56" / "-$1,234.56".
+- `ledgerRangePillsHtml(active, attrName)` -> `.lg-pills` with one button per `LEDGER_RANGES`
+  (TODAY 1W 1M 3M YTD ALL), each carrying `attrName="<range>"`; you wire the clicks and remember the choice.
+  Labels: `LEDGER_RANGE_LABEL[range]` ("past 3 months" ...). A saved range not in the list opens on ALL.
+- The range drives the hero, chart, stats, calendar AND trade list; the curve restarts at $0 at the range start.
+
+## 3. Equity chart (step 5, shipping today on REAL)
+`ledgerChartRender(wrapEl, o)` draws into `wrapEl` (an empty div you own) at its real pixel width (200 px tall on a
+phone, 260 on a laptop; `o.height` overrides) and redraws itself when the width changes.
+- `o.pts = [{v, date}]` - the total line; first point = the range start (date may be null). Reduce per-trade points with
+  `ledgerDailyPoints(pts)` (keeps every trade when the range has only 1-2 days).
+- `o.up` - false paints the total red. `o.id` - unique per board (gradient ids). `o.aria` - a label.
+- `o.lines = [{name, color, vals, on, dash?}]` - faint lines (vals: one per point, null = gap) with a legend that
+  switches each; `o.onToggle(name, on)` lets you remember it. Each line gets its own dash so MONO keeps them apart.
+- `o.bands = [{i, title}]` - hatched amber column on point i (caveat days). `o.marks = [{i, label}]` - dotted marker.
+- `o.onScrub(i, point)` / `o.onLeave()` - mouse hover or finger drag; write the hero from them, never re-render.
+- `o.fmtAxis(v)` - price-scale labels (default "$4,650").
+- Probe markers in the svg: `[data-lgdate]` (dates), `[data-lgtick]` (price labels), `[data-lgband]`, `[data-lgmark]`,
+  `.lg-legend [data-lgline]`. The drawn height is the svg viewBox height (no scaling).
+
+## 4. Stats strip + More stats (step 6, shipping today on REAL)
+- `ledgerStats(list, {pnl, net, include, day, sorted})` -> null for no trades, else `{trades, excluded, wins, losses,
+  flat, winRate (0-1 or null), pf (Infinity = no losses, null = nothing won or lost), net, grossWin, grossLoss,
+  avgTrade, avgWin, avgLoss (negative), payoff, maxDD (POSITIVE), largestLoss (POSITIVE), recovery, sharpe,
+  bestDay {date,v}, worstDay {date,v}, greenDays, days, longs, shorts, longNet, shortNet, avgHoldMins,
+  streak {n, dir}}`.
+  `pnl(t)` decides win / loss / profit factor (default `t.pnl`); `net(t)` is the money for net, drawdown and day
+  totals (default `pnl`); `include(t)` false = out of win rate / PF / streak / day stats but still in net and
+  drawdown; `day(t)` defaults to `ledgerCloseDay`; trades are walked in close order unless `sorted:true`.
+  Long / short read `t.type` / `t.side` / `t.direction` (LONG, SHORT, BUY, SELL, L, S). Hold reads `t.durationMins`.
+  Parity: on REAL it matches the old engine on all 19 shared figures, gross and net (headless check, 300 trades).
+- `ledgerStatStripHtml(s, {id, winNote})` -> `.lg-stats`, four tiles in this order, same on every board: WIN RATE,
+  PROFIT FACTOR ("no losses" when nothing lost), MAX DRAWDOWN (positive), TRADES; each `[data-lgstat=
+  "winrate|pf|maxdd|trades"]` with `.lg-stat-val` + a small `.lg-stat-sub`. Today's money lives in the hero.
+- `ledgerMoreStatsHtml(s, ownGroups, {open, id, note})` -> the `.lg-more` button (`data-lgmore="<id>"`,
+  `aria-expanded`) + panel `#<id>-more`: groups Returns / Risk / Mix (`[data-lgmsgroup]`), then your own
+  `ownGroups = [{title, rows:[[label, valueHtml, cls]]}]` (REAL and WEBULL "Account", NT8 "Strategy vs control").
+  You wire `[data-lgmore="<id>"]` clicks, keep open / closed, and re-render; the body is built only while open.
+- Small helpers: `ledgerPfText(pf)`, `ledgerSigned(v)` ("+$1.00" / "-$1.00"), `ledgerCls(v)` (`lg-up` / `lg-down`,
+  theme colours), `ledgerMsRow(label, valueHtml, cls)`.
+
+## 4b. Calendar (step 7, shipping today on REAL)
+- `ledgerCalDays(list, {pnl, net, include, day})` -> `{date: {v, n, w, l}}` (v = money, n = trades closed that day).
+- `ledgerCalendarHtml({id, month, days, caveats, open, note})` -> a `.lg-more` fold button `[data-lgcalfold="<id>"]`
+  + panel `#<id>-cal`: one month, Sunday-first, a WEEK column (empty week = empty cell, never $0), each traded day a
+  `button[data-lgcalday="YYYY-MM-DD"]` with signed short money and a trade count; `caveats = {date: reason}` hatches
+  that day amber with a dot (Webull: book-priced / repriced / parity / feed days). Arrows
+  `[data-lgcal="<id>"][data-lgcalmo="-1|1"]` are disabled at the first / last month with trades.
+- Helpers: `ledgerCalPick(days, want)` (the month to show: wanted, else newest with trades, else this month),
+  `ledgerCalStep(days, month, n)` (arrow), `ledgerCalMonths(days)`, `ledgerShortMoney(v)` ("+$1.2k").
+- The board decides what a day tap does (REAL: scroll the list to that day; NT8: select that day's rows) and
+  remembers open / closed and the month. The calendar takes the chosen RANGE's trades, like everything else.
+
+## 5. Per-board render probe (each lane, in its own probe)
+Check: hero ids present, the four `[data-lgstat]` tiles in order with drawdown a positive dollar amount, More
+stats opening with Returns, Risk, Mix + your groups, and the big number reads as money; pills read TODAY 1W 1M 3M YTD ALL; chart drawn height
+>= 150 px on a 375 px phone and >= 200 px on a laptop; >= 2 `[data-lgdate]` and >= 2 `[data-lgtick]`; no page that
+scrolls sideways on a phone. `tools/home_render_probe.py` does exactly this for REAL - copy its checks.
+
+## 6. Review
+Before a paper-board adoption ships, post TRADING-LOG one inbox line (worktree + what changed); TRADING-LOG answers with
+one line (go / fix X) and checks the landing in the owner's Chrome.

@@ -125,6 +125,14 @@ MUTANTS = [
      "if(z==='out')zoomAt(1.6,0.5);",
      "if(z==='out')zoomAt(1.6,0.5,_hmProbeNoSuchHelper());",
      'the chart\'s zoom-out button throws when clicked'),
+    ('drawdown-negative',
+     "tile('maxdd','Max drawdown',s?ledgerMoney(s.maxDD):'--'",
+     "tile('maxdd','Max drawdown',s?ledgerMoney(-s.maxDD):'--'",
+     'the shared stats strip prints max drawdown as a negative number again'),
+    ('calendar-jump-lost',
+     '<div class="hm-day-group" data-hmday="${date}">',
+     '<div class="hm-day-group">',
+     'the trade list lost its day markers, so a calendar day no longer jumps the list there'),
     ('phone-overflow',
      'content.innerHTML=`<div class="hm-wrap">',
      'content.innerHTML=`<div class="hm-wrap" style="min-width:640px">',
@@ -234,6 +242,37 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     r.heroBig=hv?(hv.textContent||'').trim():null;
     r.heroToday=ht?(ht.textContent||'').replace(/\\s+/g,' ').trim():null;
     r.pills=Array.prototype.map.call(d.querySelectorAll('#hm-feed-container ~ * [data-hmrange], .hm-range-row [data-hmrange]'),function(b){return b.getAttribute('data-hmrange');}).join(',');
+    // LEDGER shared equity chart (unify step 5): real height on every width, dates and a price scale
+    var csv=d.querySelector('#hm-chart-wrap svg');
+    // the DRAWN height: a viewBox scaled down to fit a narrow box draws a short band in a tall box (the old phone bug)
+    r.chartH=0;
+    if(csv){var cr=csv.getBoundingClientRect(),vb=(csv.getAttribute('viewBox')||'').split(/[ ,]+/).map(Number);
+      r.chartH=Math.round(vb.length===4&&vb[2]>0&&vb[3]>0?vb[3]*Math.min(cr.width/vb[2],cr.height/vb[3]):cr.height);}
+    r.chartDates=csv?csv.querySelectorAll('[data-lgdate]').length:0;
+    r.chartTicks=csv?csv.querySelectorAll('[data-lgtick]').length:0;
+    // LEDGER shared stats strip (unify step 6): four tiles in order, drawdown positive, the More stats fold opens
+    r.stats=Array.prototype.map.call(d.querySelectorAll('#hm-stat-strip [data-lgstat]'),function(e){
+      var v=e.querySelector('.lg-stat-val');return e.getAttribute('data-lgstat')+'='+(v?(v.textContent||'').trim():'');});
+    var mb=d.querySelector('[data-lgmore="hm"]');
+    r.moreGroups='';
+    if(mb){mb.click();
+      r.moreGroups=Array.prototype.map.call(d.querySelectorAll('#hm-more [data-lgmsgroup]'),function(g){return g.getAttribute('data-lgmsgroup');}).join(',');
+      var mb2=d.querySelector('[data-lgmore="hm"]');if(mb2)mb2.click();}
+    // LEDGER shared calendar (unify step 7): the fold opens, the month's day counts add up to its header, and
+    // tapping a day in the feed flashes that day's group
+    var cf=d.querySelector('[data-lgcalfold="hm"]');
+    r.cal=null;
+    if(cf){var wasOpen=cf.getAttribute('aria-expanded')==='true';
+      if(!wasOpen){cf.click();}
+      var cg=d.querySelector('[data-lgcal="hm"].lg-cal'),c={days:0,sumN:0,hdN:null};
+      if(cg){var ds=cg.querySelectorAll('[data-lgcalday]');c.days=ds.length;
+        Array.prototype.forEach.call(ds,function(b){var n=b.querySelector('.n');c.sumN+=n?parseInt(n.textContent,10)||0:0;});
+        var sm=(cg.querySelector('.lg-cal-sum')||{textContent:''}).textContent.match(/(\\d+) trades?/);c.hdN=sm?+sm[1]:0;
+        c.cells=cg.querySelectorAll('.lg-cal-grid > *').length;
+        if(cfg.view!=='table'&&ds.length){var pick=ds[ds.length-1].getAttribute('data-lgcalday');ds[ds.length-1].click();
+          var g=d.querySelector('#hm-feed-container [data-hmday="'+pick+'"]');c.jump=!!(g&&g.classList.contains('lg-flash'));}}
+      r.cal=c;
+      if(!wasOpen){var cf2=d.querySelector('[data-lgcalfold="hm"]');if(cf2)cf2.click();}}
     r.scrollW=d.documentElement.scrollWidth;
     r.clientW=d.documentElement.clientWidth;
     if(r.scrollW>r.clientW+1)r.wide=offenders(d);
@@ -719,6 +758,37 @@ def _judge(data, data_obj):
             fails.append('%s: the hero has no "today" line (got %r)' % (nm, r.get('heroToday')))
         if r.get('pills') != ','.join(LEDGER_RANGES):
             fails.append('%s: the range pills read %r, not %s' % (nm, r.get('pills'), ' '.join(LEDGER_RANGES)))
+        min_h = 150 if cfg['vp'] == 'phone' else 200
+        if (r.get('chartH') or 0) < min_h:
+            fails.append('%s: the equity chart is %spx tall (squashed; needs %s+)' % (nm, r.get('chartH'), min_h))
+        if (r.get('chartDates') or 0) < 2 or (r.get('chartTicks') or 0) < 2:
+            fails.append('%s: the equity chart has %s date labels and %s price labels (needs 2+ of each)'
+                         % (nm, r.get('chartDates'), r.get('chartTicks')))
+        st = r.get('stats') or []
+        if [x.split('=')[0] for x in st] != ['winrate', 'pf', 'maxdd', 'trades']:
+            fails.append('%s: the stats strip reads %r, not the four tiles win rate, profit factor, max drawdown, '
+                         'trades' % (nm, st))
+        else:
+            vals = dict(x.split('=', 1) for x in st)
+            if not re.match(r'^\$[\d,]+\.\d\d$', vals['maxdd']):
+                fails.append('%s: max drawdown reads %r (must be a positive dollar amount)' % (nm, vals['maxdd']))
+            if not re.match(r'^(\d+\.\d\d|no losses|--)$', vals['pf']):
+                fails.append('%s: profit factor reads %r' % (nm, vals['pf']))
+        if r.get('moreGroups') != 'Returns,Risk,Mix,Account':
+            fails.append('%s: More stats opened with groups %r, not Returns, Risk, Mix, Account'
+                         % (nm, r.get('moreGroups')))
+        cal = r.get('cal')
+        if not cal:
+            fails.append('%s: the LEDGER calendar fold is missing' % nm)
+        else:
+            if not cal.get('days') or cal.get('cells', 0) % 8:
+                fails.append('%s: the calendar shows %s traded days in %s cells (needs 1+ days, rows of 7 days + a week)'
+                             % (nm, cal.get('days'), cal.get('cells')))
+            elif cal.get('sumN') != cal.get('hdN'):
+                fails.append('%s: the calendar days add up to %s trades but its header says %s'
+                             % (nm, cal.get('sumN'), cal.get('hdN')))
+            if cfg['view'] != 'table' and not cal.get('jump'):
+                fails.append('%s: tapping a calendar day did not jump the trade list to that day' % nm)
         if (r.get('appLen') or 0) < 3000:
             fails.append('%s: HOME rendered almost nothing (%s chars)' % (nm, r.get('appLen')))
 
