@@ -162,7 +162,7 @@ def decision_dates(D, kind):
 
 
 # ------------------------------------------------------------------------------------------------ book P&L
-def periodic_book(D, books, cost=0.0, borrow=0.0):
+def periodic_book(D, books, cost=0.0, borrow=0.0, periods=None):
     """books: list of (decision t, {sym_index: signed dollars}); each fills at t+1 OPEN and is held to the next
     book's fill (the last to END's close). Shares fixed at the fill; a name whose price goes missing exits at its last
     close. Returns the daily P&L Series (gross if cost = borrow = 0)."""
@@ -199,6 +199,8 @@ def periodic_book(D, books, cost=0.0, borrow=0.0):
         ch = np.diff(path, axis=0) * sh                        # rows: day f, f+1, ..., last, (e)
         days = list(range(f, last + 1)) + ([e] if e is not None else [])
         pnl[days] += ch.sum(axis=1)
+        if periods is not None and D.dates[f] >= WF0:          # name-period P&L net of a round trip (for PF)
+            periods.extend((ch.sum(axis=0) - 2.0 * cost * np.abs(dol)).tolist())
         if borrow:
             short = -dol[dol < 0].sum()
             pnl[f:last + 1] -= borrow / 252.0 * short
@@ -385,7 +387,7 @@ def statarb_scores(D, z_raw=False):
     return out
 
 
-def statarb_book(D, scores, cost=0.0, borrow=0.0, perm_rng=None):
+def statarb_book(D, scores, cost=0.0, borrow=0.0, perm_rng=None, open_thr=B_OPEN):
     """Daily state machine (signal at close t, trade at open t+1), equal gross per side, rescaled daily."""
     T, N = len(D.dates), len(D.syms)
     state = np.zeros(N)
@@ -415,8 +417,8 @@ def statarb_book(D, scores, cost=0.0, borrow=0.0, perm_rng=None):
         state[(state != 0) & ~np.isfinite(sv)] = 0
         # entries
         flat = (state == 0) & tv
-        state[flat & (sv < -B_OPEN)] = 1
-        state[flat & (sv > B_OPEN)] = -1
+        state[flat & (sv < -open_thr)] = 1
+        state[flat & (sv > open_thr)] = -1
         f = p + 1
         state[~valid[f]] = 0
         nl, ns = (state > 0).sum(), (state < 0).sum()
@@ -496,7 +498,7 @@ def years_ok(x):
     return ys
 
 
-def judge(name, net, net_s, gross, twin, null95, w463, days, weeks, info):
+def judge(name, net, net_s, gross, twin, null95, w463, days, weeks, info, pf, nbrs):
     r, s = roc_sortino(net)
     rs, _ = roc_sortino(net_s)
     rg, _ = roc_sortino(gross)
@@ -518,13 +520,16 @@ def judge(name, net, net_s, gross, twin, null95, w463, days, weeks, info):
         "5 RISK r1: no Feb-Apr 2020 > 0, >= 5 of 7 years > 0, both halves > 0":
             bool(no20 > 0 and sum(v > 0 for v in ys) >= 5 and h1 > 0 and h2 > 0),
         "6 >= 100 name-positions and >= 26 decision dates": bool(info["positions"] >= 100 and info["decisions"] >= 26),
+        "7 PF >= 1.0 (A/C name-periods net of a round trip; B daily)": bool(pf >= 1.0),
+        "8 both neighbours net WF ROC > 0": bool(all(v > 0 for v in nbrs.values())),
     }
     lines = [f"\n{name}: net WF ROC@$30k {r:.1f} Sortino {s:.2f} | stress {rs:.1f} | gross {rg:.1f} vs shuffle 95th "
              f"{null95:.1f} | raw twin net {rt:.1f} / {st:.2f} | rho_dd {rho:+.2f} DO {do:+.2f} | WF net "
              f"${wf.sum():,.0f}",
              "  July-June years: " + ", ".join(f"{2018 + i}/{(2019 + i) % 100:02d} ${v:,.0f}" for i, v in enumerate(ys))
              + f" | no-2020 ${no20:,.0f} | halves ${h1:,.0f} / ${h2:,.0f}",
-             "  " + ", ".join(f"{k} {v}" for k, v in info.items())]
+             "  " + ", ".join(f"{k} {v}" for k, v in info.items()) + f" | PF {pf:.3f} | neighbours "
+             + ", ".join(f"{k} {v:.1f}" for k, v in nbrs.items())]
     lines += [f"  [{'PASS' if v else 'fail'}] {k}" for k, v in bars.items()]
     lines.append(f"  -> {name}: " + ("STAGE A PASS -> MANAGER (shared stock sealed-year day, else forward shadow)"
                                       if all(bars.values()) else "dead (no variants)"))
@@ -540,45 +545,66 @@ def run():
     lines = [open(os.path.join(OUT, "POWER.txt"), encoding="utf-8").read().rstrip()]
     verdict = {}
 
+    def pf_of(v):
+        v = np.asarray(v, float)
+        return float(v[v > 0].sum() / -v[v < 0].sum()) if (v < 0).any() else float("inf")
+
+    def wf_daily(x):
+        return x[(x.index >= WF0) & (x.index <= WF1)]
+
     # ---- A PATTERN ----
     log("A: walk-forward model")
     PA = model_scores(D, FA, list(wk), 5, fwd_rank(D, 5))
     wA = [t for t in wf_decisions(D, wk) if t in PA]
-    booksA = [(t, side_books(D, t, PA[t][0], -PA[t][1])) for t in wA]
+
+    def books_A(n):
+        return [(t, side_books(D, t, PA[t][0], -PA[t][1], n=n)) for t in wA]
+    booksA = books_A(N_SIDE)
     r5, m12 = FA["r5"], FA["mom12"]
     twinA = []
     for t in wA:
         names = PA[t][0]
         x = xs_rank({"a": -r5, "b": m12}, t, D.syms[names])
         twinA.append((t, side_books(D, t, names, -np.nanmean(x, axis=1))))
+    per = []
+    netA = periodic_book(D, booksA, COST, BORROW, periods=per)
+    nbA = {f"n={n}": roc_sortino(periodic_book(D, books_A(n), COST, BORROW))[0] for n in (25, 100)}
     infoA = dict(decisions=len(booksA), positions=sum(len(b) for _, b in booksA))
-    L, okA = judge("A PATTERN", periodic_book(D, booksA, COST, BORROW), periodic_book(D, booksA, COST_STRESS, BORROW),
-                   periodic_book(D, booksA), periodic_book(D, twinA, COST, BORROW),
-                   float(np.percentile(nulls.A, 95)), w463, days, weeks, infoA)
+    L, okA = judge("A PATTERN", netA, periodic_book(D, booksA, COST_STRESS, BORROW), periodic_book(D, booksA),
+                   periodic_book(D, twinA, COST, BORROW), float(np.percentile(nulls.A, 95)), w463, days, weeks, infoA,
+                   pf_of(per), nbA)
     lines += L; verdict["A"] = okA
 
     # ---- C CRASH ----
     log("C: walk-forward classifier")
     PC = model_scores(D, FC, list(mo), 21, fwd_crash(D, 21), classify=True)
     wC = [t for t in wf_decisions(D, mo) if t in PC]
-    booksC = [(t, side_books(D, t, PC[t][0], PC[t][1], beta=beta[D.pos(t)])) for t in wC]
+
+    def books_C(n):
+        return [(t, side_books(D, t, PC[t][0], PC[t][1], n=n, beta=beta[D.pos(t)])) for t in wC]
+    booksC = books_C(N_SIDE)
     iv = FC["ivol63"]
     twinC = [(t, side_books(D, t, PC[t][0], iv.loc[t, D.syms[PC[t][0]]].to_numpy(float), beta=beta[D.pos(t)]))
              for t in wC]
+    per = []
+    netC = periodic_book(D, booksC, COST, BORROW, periods=per)
+    nbC = {f"n={n}": roc_sortino(periodic_book(D, books_C(n), COST, BORROW))[0] for n in (25, 100)}
     infoC = dict(decisions=len(booksC), positions=sum(len(b) for _, b in booksC))
-    L, okC = judge("C CRASH", periodic_book(D, booksC, COST, BORROW), periodic_book(D, booksC, COST_STRESS, BORROW),
-                   periodic_book(D, booksC), periodic_book(D, twinC, COST, BORROW),
-                   float(np.percentile(nulls.C, 95)), w463, days, weeks, infoC)
+    L, okC = judge("C CRASH", netC, periodic_book(D, booksC, COST_STRESS, BORROW), periodic_book(D, booksC),
+                   periodic_book(D, twinC, COST, BORROW), float(np.percentile(nulls.C, 95)), w463, days, weeks, infoC,
+                   pf_of(per), nbC)
     lines += L; verdict["C"] = okC
 
     # ---- B STATARB ----
     log("B: s-scores + twin")
     SB, SBt = statarb_scores(D), statarb_scores(D, z_raw=True)
     net, nl = statarb_book(D, SB, COST, BORROW)
+    nbB = {f"open {o}": roc_sortino(statarb_book(D, SB, COST, BORROW, open_thr=o)[0])[0] for o in (1.0, 1.5)}
     infoB = dict(decisions=len(SB), positions=int(nl.sum()), avg_long=round(float(nl[:, 0].mean()), 1),
                  avg_short=round(float(nl[:, 1].mean()), 1))
     L, okB = judge("B STATARB", net, statarb_book(D, SB, COST_STRESS, BORROW)[0], statarb_book(D, SB)[0],
-                   statarb_book(D, SBt, COST, BORROW)[0], float(np.percentile(nulls.B, 95)), w463, days, weeks, infoB)
+                   statarb_book(D, SBt, COST, BORROW)[0], float(np.percentile(nulls.B, 95)), w463, days, weeks, infoB,
+                   pf_of(wf_daily(net).to_numpy()), nbB)
     lines += L; verdict["B"] = okB
 
     lines.append("\nSTAGE A: " + (", ".join(k for k, v in verdict.items() if v) or "no cell passes")
