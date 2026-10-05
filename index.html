@@ -858,8 +858,11 @@ button.lg-cal-day:hover{border-color:var(--text5)}
 .hm-rowend .r2{font-size:10px;color:var(--text5);margin-top:3px;font-variant-numeric:tabular-nums}
 .hm-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .22s ease;z-index:200}
 .hm-backdrop.open{opacity:1;pointer-events:auto}
-.hm-sheet{position:fixed;top:0;right:0;height:100vh;width:440px;max-width:92vw;background:var(--bg1);border-left:1px solid var(--border);transform:translateX(100%);transition:transform .22s ease;z-index:201;overflow-y:auto;padding:26px 26px 30px}
-.hm-sheet.open{transform:translateX(0)}
+/* the CLOSED trade panel takes no room at all: parked off-screen with a transform, it still widened the page, so a
+   laptop could scroll 440 px sideways onto a blank strip and a phone a whole screen (LEDGER mistake #13) */
+.hm-sheet{display:none;position:fixed;top:0;right:0;height:100vh;width:440px;max-width:92vw;background:var(--bg1);border-left:1px solid var(--border);z-index:201;overflow-y:auto;padding:26px 26px 30px}
+.hm-sheet.open{display:block;animation:hmSheetIn .22s ease}
+@keyframes hmSheetIn{from{transform:translateX(100%)}to{transform:none}}
 .hm-sheet-close{position:absolute;top:20px;right:20px;background:transparent;border:1px solid var(--border);color:var(--text3);width:30px;height:30px;border-radius:8px;font-size:14px;cursor:pointer}
 .hm-sheet-close:hover{color:var(--text)}
 .hm-sheet-sym{font-family:'Bebas Neue','JetBrains Mono',monospace;font-size:32px;color:var(--text);margin-top:4px}
@@ -955,7 +958,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1045';
+const VERSION='73.1046';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -973,7 +976,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1035',date:'2026-10-05',notes:['LEDGER > REAL: the chart legend (Webull, NinjaTrader) is a small line again. It drew each name as a block the full height of the chart.','The 73.1033 entry below now carries its real version number.']},
+const CHANGELOG=[{v:'73.1050',date:'2026-10-05',notes:['LEDGER > REAL: the page no longer scrolls sideways onto a blank strip (440 px on a laptop, a full screen on a phone). The closed trade panel was parked just off the right edge and still made the page wider; now it takes no room until you open a trade, and it slides in when you do.']},
+{v:'73.1035',date:'2026-10-05',notes:['LEDGER > REAL: the chart legend (Webull, NinjaTrader) is a small line again. It drew each name as a block the full height of the chart.','The 73.1033 entry below now carries its real version number.']},
 {v:'73.1033',date:'2026-10-05',notes:['LEDGER > REAL has the new shared chart: one point per day, a price scale and dates, full height on a phone, faint per-broker lines you can switch off, and a finger or mouse scrub that reads any day into the big number.','The four tiles under the chart are now WIN RATE, PROFIT FACTOR, MAX DRAWDOWN and TRADES, the same four every LEDGER board will show. Money made today moved up into the big number.','Profit factor reads no losses instead of infinite, max drawdown is always a positive amount, and the top bar net has its dollar sign (+$160.00, was +160.00).','MORE STATS is one fold: Returns, Risk and Mix (best and worst day, green days, average hold, longs and shorts) plus an Account group for balance, fees and vs SPY. The numbers match the old panel exactly.','A calendar is back under MORE STATS: one month with a week column, each day showing its money with a + or - sign. Tap a day to jump the trade list there. It starts open on a laptop and closed on a phone, and remembers your choice.','WEBULL PAPER: the small strategy charts no longer show as solid black blocks on the light theme.']},
 {v:'73.1030',date:'2026-10-05',notes:['NinjaTrader paper: a sweep every half hour checks every scheduled push, pull, rebuild and readiness step and alerts on a silent failure; the NinjaTrader backup now runs in the afternoon, flags a snapshot that lost a strategy, and never deletes the last complete one.']},
 {v:'73.1029',date:'2026-10-05',notes:['NinjaTrader paper: if NinjaTrader starts with an empty Tick Replay it is restarted once outside the cash session, and every new replay is merged into the 10-second data automatically.']},
@@ -14038,8 +14042,8 @@ function _hmRenderHome(content){
   const backdropEl=content.querySelector('#hm-backdrop');
   if(homeSheetId){
     sheetEl.innerHTML=_hmSheetHtml(homeSheetId);
+    sheetEl.classList.add('open');   // open BEFORE the chart fill: a closed panel is display:none and measures 0 wide
     sheetEl.querySelectorAll('[data-rtcandles]').forEach(el=>{if(window._rtSheetCandlesFill)window._rtSheetCandlesFill(el);});
-    sheetEl.classList.add('open');
     backdropEl.classList.add('open');
     const closeBtn=sheetEl.querySelector('#hm-sheet-close');
     if(closeBtn)closeBtn.onclick=()=>{homeSheetId=null;renderApp();};

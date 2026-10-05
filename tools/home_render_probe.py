@@ -137,6 +137,10 @@ MUTANTS = [
      '.lg-chart .lg-legend svg{display:inline-block;width:16px;height:4px;flex:none}',
      '.lg-chart .lg-legend svg{display:block;width:100%;height:260px}',
      'a chart-size rule reaches the legend swatches again, so each legend name is a block the height of the chart'),
+    ('closed-panel-takes-room',
+     '.hm-sheet.open{display:block;animation:hmSheetIn .22s ease}',
+     '.hm-sheet.open{display:block;animation:hmSheetIn .22s ease}.hm-sheet:not(.open){display:block;transform:translateX(100%)}',
+     'the closed trade panel is parked off-screen again and makes the page scroll sideways'),
     ('phone-overflow',
      'content.innerHTML=`<div class="hm-wrap">',
      'content.innerHTML=`<div class="hm-wrap" style="min-width:640px">',
@@ -283,6 +287,8 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     var lgb=d.querySelectorAll('#hm-chart-wrap .lg-legend button');r.legendN=lgb.length;
     r.legendH=Math.max.apply(null,[0].concat(Array.prototype.map.call(lgb,function(b){return Math.round(b.getBoundingClientRect().height);})));
     W().eval("homeChartMode='equity';renderApp();");
+    // the CLOSED trade panel must take no room (parked off-screen it widened the page: LEDGER mistake #13)
+    var shc=d.getElementById('hm-sheet');r.sheetClosed=shc&&!shc.classList.contains('open')?W().getComputedStyle(shc).display:'open';
     r.scrollW=d.documentElement.scrollWidth;
     r.clientW=d.documentElement.clientWidth;
     if(r.scrollW>r.clientW+1)r.wide=offenders(d);
@@ -758,6 +764,9 @@ def _judge(data, data_obj):
                                                                         want_kind.upper()))
         elif r.get('ledgerRows') != n_trades:
             fails.append('%s: the ledger shows %s rows for %s trades' % (nm, r.get('ledgerRows'), n_trades))
+        if r.get('sheetClosed') not in ('none', 'open'):
+            fails.append('%s: the closed trade panel is display:%s - parked off-screen it widens the page sideways'
+                         % (nm, r.get('sheetClosed')))
         if cfg['vp'] == 'phone' and (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1:
             fails.append('%s: the page scrolls sideways on a phone (scrollWidth %s > clientWidth %s; '
                          'sticking out: %s)' % (nm, r.get('scrollW'), r.get('clientW'),
