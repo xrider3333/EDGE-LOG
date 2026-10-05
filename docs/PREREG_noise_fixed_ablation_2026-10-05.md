@@ -104,3 +104,49 @@ POWER LINE - nulls only, no arm's own P&L read. Minimum detectable WF ROC lead o
   squeeze time-shift (200, 60..250 sessions): 50th +0.22  95th +1.50
 Expectation stated now (MANAGER #58): real leads of NOISE r70's size (~3 ROC points in the book) may sit inside these nulls and then cannot be told from luck.
 ```
+
+---
+
+## RESULT 2026-10-05 ~07:40 MST - SQUEEZE CARRIES inside the book; Friday and FOMC do not. Lockbox never read.
+`python tools/noise_fixed_ablation.py run` -> C:\EdgeLog\custom_ml\fixed_ablation\ (STAGE_A.txt, arms.csv, nulls.csv).
+Book built to 2025-06-29, parity 93.81 / 3.816 exact. WF 2016-07-01..2025-06-29, ROC %/yr at a $30k drawdown, valued daily.
+
+| arm | WF ROC / Sortino | its twin (plain extra NOISE, same mean size) | lead | no Feb-Apr 2020 | ex twin's worst-DD window (2020-03-02..03-27) | 2011-16 | years | own-shuffle pct |
+|---|---|---|---|---|---|---|---|---|
+| P (full package) | 107.8 / 4.28 | 97.9 / 3.92 | +9.82 / +0.353 | +5.21 | +5.36 | -0.19 | 9/9 | 100.0 |
+| P-squeeze | 99.3 / 3.99 | 95.7 / 3.87 | +3.57 | +2.78 | +2.65 | +0.31 | 8/9 | 98.7 |
+| P-Friday | 101.9 / 4.10 | 95.6 / 3.86 | +6.38 | +4.20 | +4.53 | +1.55 | 9/9 | 100.0 |
+| P-FOMC | 106.9 / 4.23 | 98.2 / 3.93 | +8.66 | +3.42 | +3.57 | -1.06 | 9/9 | 100.0 |
+| **squeeze alone** | **101.1 / 4.06** | 95.9 / 3.87 | **+5.21 / +0.186** | +2.35 | +2.68 | +0.56 | 9/9 | 100.0 |
+| Friday alone | 98.5 / 3.95 | 96.0 / 3.87 | +2.52 / +0.077 | +1.04 | +0.91 | -0.47 | 7/9 | 96.5 |
+| FOMC alone | 94.6 / 3.86 | 93.5 / 3.81 | +1.06 / +0.050 | +1.79 | +1.79 | +0.83 | 9/9 | 93.9 |
+BOOK #463 itself: 93.81 / 3.816.
+
+- **Squeeze: all 7 of its bars PASS** - beats its twin and #463 on ROC and Sortino; holds without Feb-Apr 2020; 9 of 9
+  years; the 2011-16 block; above its own-size shuffle's 98.3rd pct (+2.21) and the time-shift null's 95th pct (+1.50).
+- **Friday: does not carry** - fails the 2011-16 block (-0.47) and its shuffle cut (+2.52 vs +2.98); it does beat all
+  four weekday placebos (Mon +0.74, Tue +0.55, Wed -4.69, Thu +1.09).
+- **FOMC: does not carry** - 66 trades (report-only by power) and below its shuffle cut (+1.06 vs +1.74).
+- **Leave-one-out inside P** (drop in P's lead when the part is removed): squeeze +6.25, Friday +3.45, FOMC +1.16.
+- **P beats its twin AND #463 inside the book**, so the 09-27 package is NOT "extra size only"; most of it is the squeeze.
+
+**Post-hoc checks (C:\EdgeLog\custom_ml\fixed_ablation\POSTHOC.txt; reported, they cannot change the verdict):**
+- No look-ahead: the squeeze flag recomputed on data cut at the fill (bar E's own high/low/close blanked) matches on
+  300 of 300 random WF fills. The flag reads the last COMPLETE 60-minute block, which ends at or before the decision.
+- **Concentration - the main caveat:** the 308 squeeze-on WF trades average $635 against $101 for the rest (#422 sizes)
+  and hold 44% of WF NOISE dollars. Removing the extra size from the top 1 / 5 / 10 / 20 of them leaves a lead of
+  +4.76 / +3.51 / +2.28 / +0.29. The edge is the squeeze's big winners (the survivors), as in every NOISE read.
+- Standalone the squeeze LOWERS #422's own ROC (NOISE 69b: 82.5 vs 84.6); the gain exists only in the book, where NOISE's
+  own drawdown is diluted by the other legs - extra money per unit of size, not a smoother NOISE.
+- About half the lead sits in March 2020 (no-2020 +2.35; ex twin-DD window +2.68).
+
+**Seen-ness, stated plainly:** confirmatory. KEEL v12's 1.5x squeeze was chosen on other families' full histories, the
+package (squeeze inside) was read at book level with the lockbox in round 61 (run #457), and 69b read it standalone.
+What is new: the squeeze alone, inside #463, beats plain extra NOISE and both its nulls in walk-forward.
+
+**Next, per the registration:** a forward no-order SQUEEZE sub-arm in NOISE's reader (tools/noise_fixed_subarm_read.py),
+judged by the paired sequential stop at 50 closed squeeze-on trades (request to NOISE). Any BOOK run (#463 with the
+squeeze on its NOISE leg) reads a partly seen lockbox and waits for MANAGER's line. Nothing live changes.
+
+Hedge-tilt follow-up (MANAGER #56): the hedge arm's daily difference vs its twin correlates +0.67 with NOISE round 70's
+shorts-x1.5 difference over the WF days (+0.67 on the 1,394 days either moved) - the same side-tilt hunt, both dead.
