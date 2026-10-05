@@ -7,6 +7,56 @@
 
 ---
 
+## 🧪 2026-10-04 — ROUND 69 follow-ups (walk-forward only, reported not judged): the fixed package taken apart, and #422 on the roll-corrected tape
+
+MANAGER #29 / #30. Nothing below reads the lockbox.
+
+**(b) Which part of Custom ML's 09-27 'fixed' #422 package carried its walk-forward read?** `tools/r69b_noise_fixed_ablation.py`
+-> `r37_results/r69b_fixed_ablation.txt`. WF ROC at a $30k drawdown: #422 84.6; full package 109.0 (reproduces the 09-27
+read); minus compression 100.0, minus Friday 100.4, minus FOMC 98.1; compression 1.5x alone 82.5 (below #422 - the same
+answer as round 69), Friday 1.5x alone 96.6, FOMC 0.5x alone 97.8 (mostly by trimming the worst drawdown, $17.6k ->
+$15.6k). The cap of 3 never binds (1.5 x 1.5 = 2.25). So the calendar parts carry it and the compression weight helps only
+in combination - and calendar cells survive by chance (Friday failed the tilt guard in round 47; ORB's event scan p 0.12).
+No backtest round: the full package is ALREADY a no-order forward shadow (NOISE_422_FIXED, since 2026-09-28), so its
+Friday and FOMC parts can be read forward from that leg's own trades at its paired-stop checkpoints.
+
+**(c) #422 on the ADJ_ (back-adjusted) master vs no-adjust**, `tools/r69c_noise_422_adj_vs_noadj.py` ->
+`r37_results/r69c_adj_vs_noadj.txt`: WF 2,805 vs 2,824 trades (+0.7%), net $448,732 vs $421,939 (-6.0%) - over MANAGER's
+1% line, so the figures went to MANAGER. 2,665 trades match by fill time; 408 differ, and only 66 of those sit within three
+days of a contract switch. NOISE's band, volatility skip and stop are PERCENTAGES of price; back-adjusting shifts every
+older session by the cumulative roll offset, which changes those percentages on every older day - an artifact of the
+adjustment, not a roll defect of the no-adjust tape. NOISE is flat by the close, so no-adjust prices are the contract
+actually traded each session; the only true roll effect on it is the switch-day anchor (prior close from the old
+contract). Recommendation to MANAGER: keep #422 and the book reference on no-adjust.
+
+**DECIDED 2026-10-04 (MANAGER #32).** (1) PRE-STATED FORWARD READ, written before any forward trade is scored: the
+existing no-order shadow NOISE_422_FIXED is read on THREE difference series against NOISE #422 - the full package,
+its Friday-only trades, and its FOMC-only trades - each under the paired sequential stop
+(docs/PREREG_paired_sequential_stop_2026-09-29.md) and each judged at 50 RELEVANT closed trades (the FOMC series will
+take years; it is a report, not a bar). Their lockbox was read on 09-27 and Friday failed the round-47 tilt guard, so a
+forward pass is the only thing that could ever change #422's sizing, and that decision goes to the owner. (2) NOISE
+#422 and the BOOK #463 reference STAY ON THE NO-ADJUST MASTER BY DESIGN: 342 of the 408 differing walk-forward trades
+come from back-adjustment distorting NOISE's percentage bands on older days - a defect of the adjusted series for
+this strategy, not information. The 66 trades near a contract switch are real roll exposure and are recorded here.
+Any NOISE_1_x file (percentage bands) must not run on an ADJ_ master; routed to the book lane for BOOK.md and to ELwA
+for the adjusted-master warning.
+
+## 🧪 2026-10-04 — ROUND 69: is NOISE #422's compression size-up too small? No - dead at Stage A
+
+Owner ask via MANAGER (inbox #26): one best remaining NOISE shot that could move BOOK #463 (WF 93.8 / LB 155.5). Draft
+reviewed by MANAGER before any run (GO WITH EDITS, then made confirmatory after NOISE disclosed that Custom ML's 09-27
+'fixed' #422 package had already read the walk-forward at ~2.6x on these trades with Friday and FOMC tweaks); Stage B
+(the lockbox Auto-Validate) dropped. Pre-registration `docs/PREREG_noise_r69_tiltdepth_2026-10-04.md` (f30b9b94), power
+line `tools/r69_noise_power.py` (smallest detectable WF gain ~7.7 ROC points), Stage A `tools/r69_noise_stageA.py` ->
+`r37_results/r69_stageA.txt`, walk-forward only, parity with stored run #422 first (84.6 / 4.49).
+**DEAD:** walk-forward ROC at a $30k drawdown FALLS as the compressed-hour size grows - 84.6 at 1.75x, 82.6 at 2.0x, 80.9
+at 2.25x, 78.3 at 2.75x - while Sortino rises (4.49 -> 4.76 -> 4.93). More weight on the compressed trades adds return
+but deepens the drawdown faster, so on the owner's yardstick #422's 1.75x is already at or past the top. Paired block
+bootstrap 5th percentile -6.1 (bar above zero); 2.25x wins 6 of 9 years, which alone would pass breadth. So the 09-27
+fixed package's walk-forward gain did not come from its compression weight; it came from its other parts (Friday 1.5x,
+FOMC 0.5x, the cap), which this round did not test and which have their own weak record (Friday failed the tilt guard in
+round 47). Lockbox not read; #422 stays at 1.75x; no shadow leg.
+
 ## 🧪 2026-10-02 — ROUND 68: breakeven at +1R on a bar close, then ride - dead on #382 and #422
 
 Owner idea via MANAGER (inbox #21, from the CBU review). Pre-registration `docs/PREREG_noise_r68_breakeven_2026-10-02.md`

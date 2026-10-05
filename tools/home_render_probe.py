@@ -82,6 +82,7 @@ VIEWPORTS = {'laptop': [1366, 768], 'phone': [375, 812]}
 THEMES = ['glass', 'paper']
 LEDGERS = [('simple', 'table', 'simple'), ('full', 'table', 'full'), ('feed', 'feed', 'simple')]
 
+LEDGER_RANGES = ['TODAY', '1W', '1M', '3M', 'YTD', 'ALL']    # the shared range pills (LEDGER unify step 4)
 CASES = []
 for _vp in ('laptop', 'phone'):
     for _th in THEMES:
@@ -228,6 +229,11 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
       r.ledgerKind=fc&&fc.querySelector('.hm-row[data-hmid]')?'feed':'';
       r.ledgerRows=fc?fc.querySelectorAll('.hm-row[data-hmid]').length:0;
     }
+    // LEDGER shared hero + range pills (unify step 4): the big number, the today line, the six pills
+    var hv=d.getElementById('hm-hero-value'),ht=d.getElementById('hm-hero-today');
+    r.heroBig=hv?(hv.textContent||'').trim():null;
+    r.heroToday=ht?(ht.textContent||'').replace(/\\s+/g,' ').trim():null;
+    r.pills=Array.prototype.map.call(d.querySelectorAll('#hm-feed-container ~ * [data-hmrange], .hm-range-row [data-hmrange]'),function(b){return b.getAttribute('data-hmrange');}).join(',');
     r.scrollW=d.documentElement.scrollWidth;
     r.clientW=d.documentElement.clientWidth;
     if(r.scrollW>r.clientW+1)r.wide=offenders(d);
@@ -707,6 +713,12 @@ def _judge(data, data_obj):
             fails.append('%s: the page scrolls sideways on a phone (scrollWidth %s > clientWidth %s; '
                          'sticking out: %s)' % (nm, r.get('scrollW'), r.get('clientW'),
                                                 ', '.join(r.get('wide') or []) or '?'))
+        if not re.match(r'^-?\$[\d,]+\.\d\d$', r.get('heroBig') or ''):
+            fails.append('%s: the hero big number reads %r, not a dollar amount' % (nm, r.get('heroBig')))
+        if not (r.get('heroToday') or '').endswith('today'):
+            fails.append('%s: the hero has no "today" line (got %r)' % (nm, r.get('heroToday')))
+        if r.get('pills') != ','.join(LEDGER_RANGES):
+            fails.append('%s: the range pills read %r, not %s' % (nm, r.get('pills'), ' '.join(LEDGER_RANGES)))
         if (r.get('appLen') or 0) < 3000:
             fails.append('%s: HOME rendered almost nothing (%s chars)' % (nm, r.get('appLen')))
 

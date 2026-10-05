@@ -38,7 +38,9 @@ NEAR-UNIFORM GUARD (said first): report each tilted leg's share of 1.5x trades. 
 tilted is leverage / noise: it is reported, not judged; if that happens the joint verdict is read on the book with
 only the OTHER leg tilted (the matching ablation above), and the result is still at most "one leg".
 
-STAGE A - WALK-FORWARD ONLY (2010-06-07 .. 2025-06-30). The lockbox is NOT read in Stage A.
+STAGE A - WALK-FORWARD ONLY: 2016-06-30 .. 2025-06-30, 9 years - #463's own WF stretch on the unified convention
+(30 x $1,261,253 / ($44,849 x 93.81) = 8.99 years; MDL r1 uses the same window). 2010-06-07 .. 2016-06-29 is the legs'
+tuning period: never part of A1-A4 or breadth, reported separately as R2. The lockbox is NOT read in Stage A.
 PASS needs all of:
  A1. COIL ROC@$30k >= TWIN (WF). (30 x MAR is scale-free: plain extra size cannot pass - the leverage line.)
  A2. COIL Sortino (daily) >= TWIN (WF).
@@ -47,11 +49,11 @@ PASS needs all of:
  A4. COIL WF drawdown (valued daily) no more than 10% above TWIN's.
 REPORTED CHECKS (RISK r1's lessons; any one failing is stated beside the verdict and flags it as fragile):
  R1. COIL minus TWIN WF ROC@$30k recomputed WITHOUT 2020-02-01 .. 2020-04-30 keeps its sign.
- R2. The 2010-06-07 .. 2016-06-30 block (never read for this rule) keeps the sign of COIL minus TWIN.
- R3. Breadth: per WF calendar year, d = m_coil - c x m_twin, where m = that year's mean daily book P&L and c = COIL's
-     average size relative to TWIN over the whole WF (total weight x size units / total weight units, all four legs).
-     d > 0 in at least two-thirds of the WF calendar years (10 of the 15 calendar years 2010-2025; MANAGER's review
-     said "6 of 9" - the same two-thirds rule scaled to #463's actual WF span, flagged for the re-read).
+ R2. The legs' tuning period 2010-06-07 .. 2016-06-29 (never read for this rule) keeps the sign of COIL minus TWIN
+     (ROC@$30k on that block alone).
+ R3. Breadth: for each of the 9 WF years (one-year blocks 2016-06-30 .. 2017-06-29, ..., 2024-06-30 .. 2025-06-29),
+     d = m_coil - c x m_twin, where m = that year's mean daily book P&L and c = COIL's average size relative to TWIN over
+     the whole WF (total weight x size units / total weight units, all four legs); d > 0 in at least 6 of the 9 years.
 Also reported: ORB-ONLY and ENGU-ONLY Stage-A figures, per-leg tilted shares, per-year net difference.
 
 STAGE B - THE LOCKBOX, READ ONCE, ONLY IF STAGE A PASSES (2025-07-01 .. 2026-06-30). A VETO, not evidence.

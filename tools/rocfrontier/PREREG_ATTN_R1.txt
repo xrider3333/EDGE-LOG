@@ -1,0 +1,104 @@
+PRE-REGISTRATION - ATTN r1: the overnight attention premium on the day's stocks in play, as a hedged leg for BOOK #463
+=====================================================================================================================
+Written 2026-10-04 by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (owner ask via MANAGER: every lane pushes the
+frontier), BEFORE any overnight return, next-day return or P&L of these stocks has been computed. Draft reviewed by
+MANAGER (Fable) 2026-10-04: GO WITH EDITS (C:\EdgeLog\manager\reviews\attn_r1_review_2026-10-04.md) - this file
+includes every edit. What has been seen of the data: file names, the schema (symbol, date, o, h, l, c, v) and row
+counts only (11.45M daily rows). SIPORB itself has not been run. Committed to main through wt.py ship before Stage A;
+any later change = a dated pre-data addendum, or a new file (r2) once any number exists. Results:
+C:\EdgeLog\_anatomy_cache\rocfrontier\attn_r1\ and RESEARCH_LEDGER.md.
+
+DATA (no new pull, no money): the SIPORB cache C:\EdgeLog\alpaca_cache\siporb (Alpaca SIP daily bars, raw AND
+split-adjusted, 2015-11-01 -> 2026-06-30, active and inactive common stocks; the 09:30-09:35 bars of SIPORB's open5
+pull), pulled by MANAGER on the owner's go; the NQ 5m RTH masters (roll-corrected for the hedge's P&L, unadjusted for
+its notional). Nothing on or after the cut of the stretch being judged is read (SIPORB's read_long cut, at read time).
+
+MECHANISM. Retail investors buy what grabs their attention: individuals are net BUYERS of attention-grabbing stocks after
+up AND down news, because buying needs a search and selling only covers what they already own (Barber & Odean 2008,
+RFS; abnormal volume is one of their attention measures). Their orders, placed after the close and overnight, execute at
+the next open, so high-attention stocks earn a premium from the close to the next open that reverses during the next
+day (Berkman, Koch, Tuttle & Zhang 2012, JFQA, "Paying Attention: Overnight Returns and the Hidden Cost of Buying at the
+Open"; Lou, Polk & Skouras 2019, JFE; Aboody, Even-Tov, Lehavy & Trueman 2018, JFQA). Those samples end 2008-2014; the
+walk-forward here (2016-2025) is after them and covers the zero-commission retail boom (2019 on). The premium is
+stock-specific and the basket is hedged with NQ while the book is flat overnight except its ENGU-Q leg, so the leg
+should be close to uncorrelated with #463.
+
+RULES
+- Attention set, session t: SIPORB's "stocks in play" EXACTLY as PREREG_ALPACA_R1.txt family A defines them (filters
+  1-3 on raw daily bars as they stood, the split-window exclusion, Relative Volume >= 100% on the 09:30-09:35 bar, the
+  20 highest Relative Volume, ties by symbol; r5_siporb.py Data.top20 is the implementation), known at 09:35 ET on t.
+  Every selected name is in the set whatever its first 5-minute bar did (the mechanism is buying after up AND down
+  news). Then dropped, not replaced: a name whose 09:35 price (close of its 09:30-09:35 bar) is under $5, or whose
+  average daily dollar volume (raw close x volume, mean of the previous 14 sessions) is under $5m. No rule reads
+  session t after 09:35, or anything of session t+1.
+- Trade: buy each name at session t's closing-auction print (Alpaca daily raw close); sell at the next session's
+  opening-auction print (raw open of t+1). A Friday-to-Monday or holiday night is one night. Shares = floor($5,000 /
+  close_t); at most 20 x $5,000 = $100k gross long a night, fixed (no compounding). CAPACITY: $100k a night per side
+  (long stocks, short NQ) - a paper-book scale, stated as such.
+- Split-safe P&L: shares x (open_t+1 x F_t / F_t+1 - close_t), F = raw open / split-adjusted open (SIPORB's split
+  factor, known at each open).
+- Hedge (cell H): sell NQ at session t's 16:00 ET print (close of the 15:55 bar; 13:00 = close of the 12:55 bar on NYSE
+  half days) and buy it back at the 09:30 print of t+1 (open of the 09:30 bar); contracts = the basket's cost at the
+  close / (unadjusted NQ 16:00 price x $20), fractional; P&L from the roll-corrected master's change. Whole-MNQ rounding
+  is reported, not judged. Cell U: no hedge.
+- Exit that cannot be priced (no bar at t+1: halt, delisting): the first raw open within the next 10 sessions,
+  split-safe; none within 10 sessions = a loss of 100% of the position (conservative), counted; 0% reported beside it.
+- GAP SCAN (the killer risk - an unadjusted split prints a fake overnight move, GE's 1-for-8): BEFORE any number, every
+  symbol-day of the universe gets R = raw open / prior session's raw close; it is FLAGGED when R is finite, |R - 1| >
+  0.25, the registered split rule (F moved > 1%) did not fire that day, and R is within 2% of a whole number k or of 1/k
+  for some k in 2..50 (SIPORB's missed_split_flags). Every flagged symbol-day is REMOVED - the night ending at that open
+  is not traded in either cell or in the random-pick null; the count is reported, by year (and, report only, the
+  attention set's nights at the raw R).
+- Dividends: no dividend calendar is on the machine; Alpaca's split adjustment keeps dividends in the price, so on an
+  ex-date the long side loses the dividend at the open. The bias is AGAINST the strategy; stated, not corrected.
+- Costs: 5 bps of the stock notional a side (base); stress 10 and 20 bps a side. Hedge: 0.533 NQ points a round trip
+  per contract ($10.66), pro rata.
+
+CELLS: H = hedged = the ONLY primary cell. U = unhedged = reported only, never a pass route, never swapped in.
+NULL: 500 draws; in each, every night, the same number of names as that night's attention set drawn at random from the
+same day's eligible universe (filters 1-3, the $5 / $5m exclusions, gap-scan removals), same sizing, hedge and costs;
+seed 20261004. Statistic = the hedged basket's WF ROC @ $30k.
+
+STRETCHES (nights stamped on the EXIT session, the house close-day rule): WF = exits 2016-07-01 -> 2025-06-29; LB =
+exits 2025-06-30 -> 2026-06-30 INCLUSIVE. The LB is SEALED until Stage A and A2 are in the ledger; then once. ORDER OF
+READS (MANAGER edit): SIPORB's verdict comes first - ATTN's Stage A runs after SIPORB's Stage A, and ATTN's sealed-year
+read only after SIPORB's lockbox has been read (or SIPORB has died before it), so one harness's sealed-year knowledge
+cannot leak into the other; both use the same sealed window. One read-once flag, written only after the LB data load
+and the #463 LB check.
+
+YARDSTICK (house convention 2026-10-01): ROC %/yr at $30k = 30 x (net / years) / max drawdown, net and drawdown from the
+daily P&L, years = (last - first) / 365.25; Sortino = mean / RMS(negative days) x sqrt(252), zero days included.
+BOOK #463 daily from r11_risk.py's rule-U records; the harness refuses to judge unless they reproduce WF 93.81 / 3.816
+and LB 155.54 / 4.150. UNITS: a stock-night is the trade unit (100 WF / 50 LB); per-night book units are reported beside.
+
+STAGE A (WF, cell H):
+- >= 100 stock-nights; open5 present on >= 98% of WF sessions (SIPORB's coverage gate);
+- ROC @ $30k >= 15; profit factor of nightly P&L >= 1.10; t of nightly P&L >= 2.0 (Newey-West, 5 lags; one primary
+  cell, so no multiple-cell correction);
+- WF ROC @ $30k above the null's 95th percentile;
+- net > 0 at 10 bps a side (20 bps reported); profitable without its best 1% of nights;
+- breadth: positive in at least 6 of the 9 WF years (July-June years 2016-17 .. 2024-25).
+STAGE A2 (WF): BOOK #463 + H at c in {0.5, 1, 2} x the sizing above (best c by WF book ROC @ $30k, then frozen)
+>= 1.05 x 93.81 = 98.5 with Sortino >= 3.816.
+SEAT MEASURE (reported per stretch, never a pass route): from #463's own daily equity in the stretch (peak starting at
+0), a qualifying drawdown = one at least 1/3 as deep as the stretch's deepest, its days = the day after the peak
+through the trough; a DD week = a calendar week with at least 3 trading days inside one; rho_dd = correlation of weekly
+sums (leg, #463) over the DD weeks; DO = the leg's P&L over the qualifying days / #463's loss over them (+ = it earns
+while the book falls). The hedge should put rho_dd near zero.
+STAGE B (LB, once, after SIPORB's lockbox per the order of reads): the frozen book add >= 155.54 with Sortino >= 4.150;
+the leg's own LB has >= 50 stock-nights, net > 0, and is profitable without its top stock-night.
+STAGE C: the engine has no multi-stock job type, so a pass becomes a written FORWARD PAPER SHADOW (Webull paper:
+buys at the close, sells at the open, MNQ or QQQ hedge) with its own bar + an owner call; no Auto-Validate applies.
+
+REPORTED, never a pass route: cell U; the same names' next-day open-to-close return (the "cost of buying at the open"
+- useful to the SIPORB and Webull lanes); the split by first-candle direction and by session t's close vs open; daily
+correlation with #463 and with each of its legs; the hedge's whole-MNQ rounding; gap-scan removals and unpriceable
+name-nights.
+
+KNOWN WAYS IT COULD FOOL US: auction prints are not guaranteed fills for a retail order (the 5 bps base and 10 / 20 bps
+stress price that); survivorship (only Alpaca's inactive names; the -100% rule for unpriceable exits); missed splits
+(the gap scan removes the ones on whole-number ratios; a missed split hidden by a large real move is not caught);
+dividends (bias against); the hedge is dollar-neutral, not beta-neutral (cell U and the correlation report show what it
+removes); the SIPORB set was built for intraday continuation, not attention.
+
+Zero passes at any stage = ATTN dead; ledger + memory.

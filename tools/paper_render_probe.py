@@ -40,6 +40,11 @@ WHAT IT ASSERTS
     trade count; the big NET equals the listed strategies total equals the end of the bold line; the
     Other / shadow group has its own subtotal and is NOT in the big number (also with its trades switched
     on in the table); alarms that live in closed cards also show as chips in the hero
+  * BOOK (owner 2026-10-04): the big number is the BOOK #463 figure - exactly the legs of api/paper.py _BOOK at
+    their weights (TTM x3), read from the source, never a list kept here - and equals the BOOK group total
+    equals the end of the bold line; "Forward tests & controls" and "Other / shadow" carry labelled subtotals
+    that are not in it, and their switches never move it; the hero says BOOK #463; with no report weights the
+    board's fallback equals _BOOK
 
 The declarations (archived / crown / nt) are read out of index.html's own leg
 definitions, so the probe compares what the source DECLARES against what the page
@@ -78,7 +83,7 @@ CASES = [
     ('legs-off',        {'sub': 'paper',
                          'prefs': {'paperLegOff': ['ORB', 'ORB_H', 'ENGUQ_ER', 'ENGUQ_ER_H',
                                                    'ENGUQ_L50', 'NOISE_225']}, 'win': {}}),
-    ('show-archived',   {'sub': 'paper',  'prefs': {}, 'win': {'_paperShowArchived': True}}),
+    ('show-archived',   {'sub': 'paper',  'prefs': {'paperOtherOn': ['ENGUQ']}, 'win': {'_paperShowArchived': True}}),
     ('scope-today',     {'sub': 'paper',  'prefs': {}, 'win': {'_paperMatrixScope': 'TODAY'}}),
     ('reports-open',    {'sub': 'paper2', 'prefs': {}, 'win': {'_p2Open': {'reports': True}}}),
     ('detail-open',     {'sub': 'paper',  'prefs': {'paperCols': 'all'},
@@ -127,8 +132,10 @@ CASES = [
                                                          'legs': [{'leg': 'A', 'loaded': True}]}}}}),
     # LEDGER step 3: the Other / shadow group, its switches, the strategy-list total, and warnings in the hero
     ('other-open',      {'sub': 'paper2', 'prefs': {}, 'win': {'_paperOtherOpen': True}}),
-    ('other-on',        {'sub': 'paper2', 'prefs': {'paperOtherOn': ['TTM_299_SSOF2'], 'paperOtherOpen': True},
+    ('other-on',        {'sub': 'paper2', 'prefs': {'paperOtherOn': ['ORB_257', 'NOISE_H'], 'paperOtherOpen': True},
                          'win': {}}),
+    ('fwd-closed',      {'sub': 'paper2', 'prefs': {'paperFwdOpen': False}, 'win': {}}),
+    ('book-fallback',   {'sub': 'paper2', 'prefs': {}, 'win': {'__nobook': True}}),
     ('legs-off-p2',     {'sub': 'paper2',
                          'prefs': {'paperLegOff': ['ORB', 'ORB_H', 'ENGUQ_ER', 'ENGUQ_ER_H', 'ENGUQ_L50']},
                          'win': {}}),
@@ -160,15 +167,16 @@ var CASES=__CASES__, FIX=__FIX__;
         var nm=CASES[i][0], cfg=CASES[i][1], r={};
         var empty=!!(cfg.win&&cfg.win.__empty);
         var noinfo=!!(cfg.win&&cfg.win.__noinfo);
-        var win=JSON.parse(JSON.stringify(cfg.win||{})); delete win.__empty; delete win.__noinfo;
+        var nobook=!!(cfg.win&&cfg.win.__nobook);
+        var win=JSON.parse(JSON.stringify(cfg.win||{})); delete win.__empty; delete win.__noinfo; delete win.__nobook;
         r.call=w.eval("(function(){try{"
           +"localStorage.setItem('augurPrefs',"+JSON.stringify(JSON.stringify(cfg.prefs||{}))+");"
           +"var F="+JSON.stringify(FIX)+";"
           +"window._paperTrades="+(empty?"[]":"F.trades")+";"
-          +"window._paperReports="+(empty?"[]":"F.reports")+";"
+          +"window._paperReports="+(empty?"[]":(nobook?"F.reports.map(function(r){var c=Object.assign({},r);delete c.book;return c;})":"F.reports"))+";"
           +"window._ntBtMatch=F.ntBt;window._ntBridge=F.ntBridge;"
           +"window._paperLoaded=true;window._paperLoading=false;"
-          +"window._paperOtherOn=null;window._paperOtherOpen=null;window._paperCurveWin=null;"
+          +"window._paperOtherOn=null;window._paperOtherOpen=null;window._paperFwdOpen=null;window._paperCurveWin=null;"
           +"window._paperTradeInfo="+(empty?"{bundle:true,n_total:0}":(noinfo?"{bundle:false,n_total:null}":"F.tradeInfo"))+";"
           // every lens-style bit of window state reset per case, so cases cannot bleed
           +"window._paperShowArchived=false;window._paperShowCfg=false;"
@@ -181,7 +189,7 @@ var CASES=__CASES__, FIX=__FIX__;
         var ap=d.getElementById('app');
         r.appLen=ap?ap.innerHTML.length:-1;
         // ---- the LEGS table: the one whose rows carry data-paperleg
-        var legRows=d.querySelectorAll('tr[data-paperleg]');
+        var legRows=d.querySelectorAll('tr[data-paperleg],tr[data-paperother]');
         r.legRows=legRows.length;
         r.legHead=0; r.colBad=[];
         if(legRows.length){
@@ -217,7 +225,9 @@ var CASES=__CASES__, FIX=__FIX__;
               for(var _ti=0;_ti<_trays.length;_ti++)
                 r.sideTrayMax=Math.max(r.sideTrayMax,_trays[_ti].clientHeight);}}catch(_e2){}
         // NOISE #422 row + the 10s capture-health lines (both injected into the fixture by main())
-        r.legKeys=[];for(var lk=0;lk<legRows.length;lk++)r.legKeys.push(legRows[lk].getAttribute('data-paperleg'));
+        r.legKeys=[];for(var lk=0;lk<legRows.length;lk++)r.legKeys.push(legRows[lk].getAttribute('data-paperleg')||legRows[lk].getAttribute('data-paperother'));
+        r.bookRowKeys=[].map.call(d.querySelectorAll('tr[data-paperleg]'),function(x){return x.getAttribute('data-paperleg');});
+        r.otherRowKeys=[].map.call(d.querySelectorAll('tr[data-paperother]'),function(x){return x.getAttribute('data-paperother');});
         var _bt=d.body?d.body.innerText:'';
         r.capNQ=(_bt.match(/10s capture NQ: [^\\n]*/)||[''])[0];
         r.capES=(_bt.match(/10s capture ES: [^\\n]*/)||[''])[0];
@@ -246,7 +256,7 @@ var CASES=__CASES__, FIX=__FIX__;
         }
         // ---- crowns actually drawn, by leg key, in the LEGS table
         for(var q=0;q<legRows.length;q++){
-          var key=legRows[q].getAttribute('data-paperleg');
+          var key=legRows[q].getAttribute('data-paperleg')||legRows[q].getAttribute('data-paperother');
           r.crowned[key]=(legRows[q].innerHTML.indexOf('\\uD83D\\uDC51')>=0)?1:0;
         }
         // EXIT-DAY money (owner GO 2026-10-02): day headers read CLOSED, a still-open trade sits under its own
@@ -266,6 +276,10 @@ var CASES=__CASES__, FIX=__FIX__;
         var _oh=d.querySelector('[data-p2otherhd]');
         r.otherHd=_oh?{net:parseFloat(_oh.getAttribute('data-net')),n:+_oh.getAttribute('data-n'),legs:+_oh.getAttribute('data-legs'),txt:_oh.innerText.replace(/\\s+/g,' ')}:null;
         r.otherRows=d.querySelectorAll('tr[data-paperother]').length;
+        function _hd(sel){var e=d.querySelector(sel);return e?{net:parseFloat(e.getAttribute('data-net')),n:+e.getAttribute('data-n'),legs:+e.getAttribute('data-legs'),txt:e.innerText.replace(/\\s+/g,' ')}:null;}
+        r.bookHd=_hd('[data-p2bookhd]');r.fwdHd=_hd('[data-p2fwdhd]');
+        r.cap=(function(){var e=d.querySelector('[data-p2cap]');return e?e.innerText:'';})();
+        r.bookW=w._paperBookW||null;
         var _ld=d.querySelector('[data-p2loaded]');
         r.loaded=_ld?{loaded:+_ld.getAttribute('data-loaded'),stored:_ld.getAttribute('data-stored'),other:+_ld.getAttribute('data-other'),txt:_ld.innerText}:null;
         r.warns=[].map.call(d.querySelectorAll('.p2warn'),function(x){return x.innerText.replace(/\\s+/g,' ').trim();});
@@ -374,6 +388,13 @@ def main():
         for _i, (_lg, _usd) in enumerate((('TTM_299_SSOF2', 500.0), ('TTM_299_SSOF2', -120.0), ('ORB_257', 310.0))):
             fixture['trades'].append(dict(_o, id='pt_%s_probe_%d' % (_lg, _i), leg=_lg, pnl_usd=_usd,
                                           entryTime=_o['entryTime'] + 60 * (_i + 1), close_day=None, open=False))
+    # the newest report carries the book weights the way the nightly run writes them (read from api/paper.py)
+    try:
+        _bm = re.search(r"^    _BOOK = (\{[^}]*\})", io.open(os.path.join(root, 'api', 'paper.py'), encoding='utf-8').read(), re.M)
+        fixture['reports'][0]['book'] = {'weights': __import__('ast').literal_eval(_bm.group(1)), 'source_run': 463,
+                                          'pnl_usd': 0.0, 'missing': [], 'failed': []}
+    except Exception:
+        pass
     fixture['tradeInfo'] = {'bundle': True, 'n_total': len(fixture['trades']), 'parts': 1,
                             'loaded': len(fixture['trades'])}
     fixture['reports'][0]['capture_health'] = {
@@ -520,42 +541,79 @@ def main():
     if '987,654' in ((cases.get('paper2') or {}).get('heroBig') or ''):
         fails.append('paper2: an open trade mark leaked into the hero net')
 
-    # LEDGER step 3 -- the numbers must tie out on the PAPER * layout.
+    # LEDGER step 3 + BOOK -- the numbers must tie out on the PAPER * layout. The book is READ from api/paper.py
+    # (_BOOK), never kept here, so a changed book fails this probe until the board follows.
+    book_w = {}
+    try:
+        _m = re.search(r"^    _BOOK = (\{[^}]*\})", io.open(os.path.join(root, 'api', 'paper.py'), encoding='utf-8').read(), re.M)
+        book_w = {k: float(v) for k, v in __import__('ast').literal_eval(_m.group(1)).items()}
+    except Exception as e:
+        fails.append('could not read _BOOK out of api/paper.py: %s' % e)
     closed = [t for t in fixture['trades'] if t.get('open') is not True]
-    exp_listed = round(sum(t.get('pnl_usd') or 0 for t in closed
-                           if t.get('leg') in defs and not defs[t['leg']]['archived']))
-    exp_other = sum(t.get('pnl_usd') or 0 for t in closed if t.get('leg') not in defs)
+    def _w(t):
+        return book_w.get(str(t.get('leg') or '').upper(), 0.0)
+    exp_book = round(sum((t.get('pnl_usd') or 0) * _w(t) for t in closed))
+    exp_fwd = sum(t.get('pnl_usd') or 0 for t in closed
+                  if t.get('leg') in defs and not _w(t) and not defs[t['leg']]['archived'])
+    exp_other = sum(t.get('pnl_usd') or 0 for t in closed if t.get('leg') not in defs and not _w(t))
     n_all = len(fixture['trades'])
-    for nm in ('paper2', 'other-open', 'other-on', 'legs-off-p2', 'warn-stale-bridge'):
+    TIE = ('paper2', 'other-open', 'other-on', 'legs-off-p2', 'warn-stale-bridge', 'fwd-closed', 'book-fallback')
+    for nm in TIE:
         r = cases.get(nm) or {}
         ld, hn, be, li = r.get('loaded') or {}, r.get('heroNum'), r.get('boldEnd'), r.get('listed') or {}
         if ld.get('loaded') != n_all or str(ld.get('stored')) != str(n_all):
             fails.append('%s: all-time trade count shown %s of stored %s, fixture holds %d'
                          % (nm, ld.get('loaded'), ld.get('stored'), n_all))
         if hn is None or be is None or li.get('net') is None:
-            fails.append('%s: hero number / bold line end / strategy list total missing (%s, %s, %s)'
+            fails.append('%s: hero number / bold line end / BOOK group total missing (%s, %s, %s)'
                          % (nm, hn, be, li.get('net')))
             continue
         if abs(hn - be) > 1.0 or abs(hn - li['net']) > 1.0 or li.get('tie') != '1':
-            fails.append('%s: big NET %s, end of the bold line %s, strategy list total %s (tie=%s) do not agree'
+            fails.append('%s: big NET %s, end of the bold line %s, BOOK group total %s (tie=%s) do not agree'
                          % (nm, hn, be, li['net'], li.get('tie')))
-    for nm in ('paper2', 'other-open', 'other-on', 'warn-stale-bridge'):
+        if 'BOOK #463' not in (r.get('cap') or ''):
+            fails.append('%s: the hero does not say it is the BOOK #463 figure: %r' % (nm, r.get('cap')))
+    for nm in ('paper2', 'other-open', 'other-on', 'warn-stale-bridge', 'fwd-closed', 'book-fallback'):
         r = cases.get(nm) or {}
-        if r.get('heroNum') is not None and abs(r['heroNum'] - exp_listed) > 1.0:
-            fails.append('%s: big NET %s is not the listed strategies total %s (an Other / shadow trade leaked in, '
-                         'or a listed one dropped)' % (nm, r['heroNum'], exp_listed))
-        oh = r.get('otherHd') or {}
+        if r.get('heroNum') is not None and abs(r['heroNum'] - exp_book) > 1.0:
+            fails.append('%s: big NET %s is not the BOOK figure %s (a leg outside _BOOK leaked in, a book leg dropped, '
+                         'or the TTM weight is not applied)' % (nm, r['heroNum'], exp_book))
+        bh, fh, oh = r.get('bookHd') or {}, r.get('fwdHd') or {}, r.get('otherHd') or {}
+        if not bh or abs(bh.get('net', 0) - exp_book) > 1.0 or bh.get('legs') != len(book_w):
+            fails.append('%s: BOOK group total %s over %s legs, expected %s over %d' % (nm, bh.get('net'), bh.get('legs'), exp_book, len(book_w)))
+        if not fh or abs(fh.get('net', 0) - exp_fwd) > 0.5:
+            fails.append('%s: Forward tests & controls subtotal %s, expected %s' % (nm, fh.get('net'), exp_fwd))
+        if 'not counted' not in (fh.get('txt') or '').lower():
+            fails.append('%s: Forward tests & controls is not labelled as not counted: %r' % (nm, fh.get('txt')))
         if not oh or abs(oh.get('net', 0) - exp_other) > 0.5 or not oh.get('legs'):
             fails.append('%s: Other / shadow group subtotal %s, expected %s' % (nm, oh.get('net'), exp_other))
         if 'not counted' not in (oh.get('txt') or '').lower():
             fails.append('%s: the Other group is not labelled as not counted: %r' % (nm, oh.get('txt')))
-    if not (cases.get('other-open') or {}).get('otherRows'):
-        fails.append('other-open: the open Other group drew no strategy rows with switches')
-    if (cases.get('paper2') or {}).get('otherRows'):
-        fails.append('paper2: the Other group should be closed by default but drew rows')
+        keys = list(r.get('bookRowKeys') or [])
+        if sorted(keys) != sorted(book_w) or len(keys) != len(book_w):
+            fails.append('%s: BOOK rows %s are not exactly the _BOOK legs %s' % (nm, keys, sorted(book_w)))
+        if (r.get('bookW') or {}) != book_w:
+            fails.append('%s: the board used book weights %s, api/paper.py _BOOK says %s' % (nm, r.get('bookW'), book_w))
+    # the book rows come first and are the only switches that move the big number; the group rows are closed/open as set
+    r = cases.get('paper2') or {}
+    unl = [k for k in (r.get('otherRowKeys') or []) if k not in defs]
+    lst = [k for k in (r.get('otherRowKeys') or []) if k in defs]
+    if unl:
+        fails.append('paper2: the Other / shadow group should be closed by default but drew %s' % unl)
+    if not lst:
+        fails.append('paper2: the Forward tests & controls group drew no rows by default')
+    if any(k in book_w for k in lst):
+        fails.append('paper2: a book leg is also listed under Forward tests & controls')
+    r = cases.get('fwd-closed') or {}
+    if r.get('otherRows'):
+        fails.append('fwd-closed: the folded Forward tests & controls group still drew rows')
+    r = cases.get('other-open') or {}
+    if 'ORB_257' not in (r.get('otherRowKeys') or []):
+        fails.append('other-open: the open Other group drew no unlisted strategy rows with switches')
     r = cases.get('other-on') or {}
-    if not any(l.startswith('TTM 299 SSOF2') for l in (r.get('tradeLegs') or {})):
-        fails.append('other-on: the switched-on Other strategy did not reach the trades table')
+    tl = list((r.get('tradeLegs') or {}).keys())
+    if not any(l.startswith('ORB 257') for l in tl) or not any(l.startswith('NOISE-225') for l in tl):
+        fails.append('other-on: switched-on not-counted strategies did not reach the trades table: %s' % tl)
     if 'other, not counted' not in (r.get('tradesHead') or '').lower():
         fails.append('other-on: the trades heading does not say the other rows are not counted: %r'
                      % r.get('tradesHead'))

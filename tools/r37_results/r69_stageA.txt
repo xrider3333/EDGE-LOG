@@ -1,0 +1,25 @@
+NOISE round 69 STAGE A - walk-forward only, 2016-06-30 .. 2025-07-16, cost 0.533, $20/pt
+
+  NOISE #422 (1.75x)     WF 2805 tr  ROC@30k  84.6%  Sortino 4.49  ( 49.6%/yr, DD $17,590)
+  parity: reproduces stored run #422 (WF 2,805 trades, 84.6, 4.49)
+  2.25x                  WF 2805 tr  ROC@30k  80.9%  Sortino 4.76  ( 58.3%/yr, DD $21,626)
+  2.00x (neighbour)      WF 2805 tr  ROC@30k  82.6%  Sortino 4.64  ( 54.0%/yr, DD $19,608)
+  2.75x (neighbour)      WF 2805 tr  ROC@30k  78.3%  Sortino 4.93  ( 67.0%/yr, DD $25,662)
+    year 1 (2016-06-30 .. 2017-06-30): 1.75x   14.0  2.25x   18.9  2.25x
+    year 2 (2017-06-30 .. 2018-06-30): 1.75x   47.5  2.25x   36.7  1.75x
+    year 3 (2018-06-30 .. 2019-06-30): 1.75x  204.5  2.25x  206.0  2.25x
+    year 4 (2019-06-30 .. 2020-06-30): 1.75x  228.8  2.25x  274.2  2.25x
+    year 5 (2020-06-30 .. 2021-06-30): 1.75x   99.5  2.25x  107.5  2.25x
+    year 6 (2021-06-30 .. 2022-06-30): 1.75x  237.5  2.25x  265.7  2.25x
+    year 7 (2022-06-30 .. 2023-06-30): 1.75x  227.1  2.25x  223.9  1.75x
+    year 8 (2023-06-30 .. 2024-06-30): 1.75x   52.4  2.25x   69.6  2.25x
+    year 9 (2024-06-30 .. 2025-07-16): 1.75x  185.5  2.25x  178.8  1.75x
+
+  A1 2.25x beats #422 on WF ROC@30k and Sortino, >=100 trades : FAIL
+  A2 both neighbours beat #422's WF ROC@30k                   : FAIL
+     shape 1.75 / 2.0 / 2.25 / 2.75 = 84.6 / 82.6 / 80.9 / 78.3
+  A3 paired block bootstrap, 5th pct of WF ROC@30k difference  : -6.1 -> FAIL
+  A4 2.25x wins 6 of 9 WF years (need 6)                      : PASS
+  sanity: 2.25x WF ROC@30k beats 96% of 1,000 shuffles of its own sizes
+
+STAGE A (own conditions A1-A4): FAIL - recorded dead, #422 stays at 1.75x
