@@ -107,6 +107,30 @@ def bad_keys(out):
     return {v["key"] for v in out["verdicts"] if v["ok"] is False}
 
 
+def test_box_auto_restart_is_posted_to_both_inboxes_once(tmp_path):
+    """Owner rule 2026-10-05 (MANAGER #69): an executor auto-restart reaches the inboxes."""
+    p = PC(tmp_path, MON_1100)
+    p.ssh.status["auto_restart"] = {"enabled": True, "last_restart_et": "Sat 10-03 17:21 ET",
+                                     "last_restart_result": "ok"}
+    p.run()
+    texts = [t for _c, t, _f in p.posts]
+    assert len(p.posts) == len(pc.INBOXES)
+    assert all("AUTO-RESTART" in t and "Sat 10-03 17:21 ET" in t for t in texts)
+    p.run(MON_1100 + dt.timedelta(minutes=10))
+    assert len(p.posts) == len(pc.INBOXES)                     # relayed once
+    p.ssh.status["auto_restart"]["last_restart_et"] = "Sun 10-04 03:05 ET"
+    p.run(MON_1100 + dt.timedelta(minutes=20))
+    assert len(p.posts) == 2 * len(pc.INBOXES)                 # a new restart, once more
+
+
+def test_box_auto_restart_not_relayed_when_the_box_read_failed(tmp_path):
+    p = PC(tmp_path, MON_1100)
+    p.ssh.fail = "rc"
+    p.ssh.status["auto_restart"] = {"last_restart_et": "Sat 10-03 17:21 ET"}
+    p.run()
+    assert not any("AUTO-RESTART" in t for _c, t, _f in p.posts)
+
+
 def test_healthy_run_posts_nothing(tmp_path):
     p = PC(tmp_path, MON_1100)
     out = p.run()

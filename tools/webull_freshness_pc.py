@@ -412,6 +412,17 @@ def run_once(paths=None, now=None, run_cmd=None, post_fn=None, dry_run=False, lo
         log(f"[freshness-pc] PC log checks failed: {type(e).__name__}: {e}")
     opened, recovered, expired = wf.apply_verdicts(alerts, verdicts, groups, now_epoch, label)
     text = compose_post(opened, recovered, expired)
+    # AUTO-RESTART inbox alert (owner rule 2026-10-05, MANAGER #69): the box restarts a stuck
+    # executor at most once a day and says so in status.json; relay each new restart once.
+    ar = (box.get("status") or {}).get("auto_restart") if box.get("ok") else None
+    if isinstance(ar, dict) and ar.get("last_restart_et") and \
+            ar.get("last_restart_et") != state.get("relayed_restart_et"):
+        rtext = (f"AUTO-RESTART: the box restarted the Webull executor at "
+                 f"{ar['last_restart_et']} (it was stuck; book flat, outside 09:25-16:10 ET; "
+                 f"at most once a day): {ar.get('last_restart_result') or 'result not known'}")
+        text = (text + " | " + rtext) if text else rtext
+        if not dry_run:
+            state["relayed_restart_et"] = ar["last_restart_et"]
     posted = []
     if text:
         log(f"[freshness-pc] {text}")
