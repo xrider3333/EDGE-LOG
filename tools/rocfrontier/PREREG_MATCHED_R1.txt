@@ -36,8 +36,10 @@ STATISTICS (a = the ORB leg of #463, b = the line's ORB leg, over a read window 
   M2 LOSS-DAY GAIN: mean(b - a) on the days the reference leg lost; the claim is above zero.
   M3 TAIL: the 5% quantile of b minus that of a; the claim is above zero.
   R2 DOLLARS: Q16's summed-dollars rule, for contrast only.
-  KEEL - primary T: the registered paired form mean(keel_d) / (sd / sqrt(n)); the claim is above zero (its matched statistic IS
-     the mean).
+  KEEL - primary MEAN: the paired mean of keel_d over the window; the claim is above zero (its matched statistic IS the mean).
+     It is standardised like every other statistic by its null spread, so the half-edge sensitivity bites; the registered
+     self-normalised form mean / (sd / sqrt(n)) is printed beside it as report only, because it is scale-free and cannot
+     show a half edge at all.
 NULL (no edge, fixed now): circular block bootstrap of the JOINT walk-forward rows (every column together), block 21, 20,000 draws
 of 756 rows, numpy default_rng(20261020), chunks of 2,500; inside a draw each block takes ONE swap flag with probability one half,
 shared by every line: in a swapped block the pair (a, b) is exchanged for both ORB lines and keel_d changes sign. That is the
@@ -53,7 +55,9 @@ half edge are read against that one critical value.
 PRINTED. Parity; per line x statistic x horizon: single false pass, critical value, power at full and half edge; the HEADLINE table
 last: per line, the read length (12 / 24 / 36 months, else "> 36 months") at which the primary statistic first reaches power 0.5
 and 0.8, at full and half edge, beside Q16's months (> 36 for all three); and, report only, the minimum track record length
-(Bailey and Lopez de Prado 2012) of each line's paired difference, and M1 with and without each leg's single worst day.
+(Bailey and Lopez de Prado 2012) of each line's paired difference, M1 with and without each leg's single worst day, and the
+effective KEEL rows per window (its rows before 2016-07-27 are blank). The manifest must cover the whole walk-forward (first
+row 2016-07-01, last row the last weekday on or before 2025-06-29); a shorter file is refused.
 
 WHAT IT DECIDES. Nothing is adopted, killed or read forward. If a line's matched read reaches power 0.8 at full edge and 0.5 at
 half edge within 36 months with the family-wise false pass at 5%, this round PROPOSES to the owner via MANAGER that the matched
