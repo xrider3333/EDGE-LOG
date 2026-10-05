@@ -647,11 +647,13 @@ select option:checked{background:var(--bg3);color:var(--text)}
 @media (max-width:600px){.lg-hero-chips{justify-content:flex-start;order:3;flex-basis:100%}.lg-pills{gap:14px}}
 /* LEDGER shared equity chart (unify step 5): drawn at the box's real pixel size (no squashed phone line) */
 .lg-chart{position:relative}
-.lg-chart svg{display:block;width:100%;cursor:crosshair;user-select:none;-webkit-user-select:none}
+.lg-chart > svg{display:block;width:100%;cursor:crosshair;user-select:none;-webkit-user-select:none}
 .lg-legend{display:flex;flex-wrap:wrap;gap:6px 12px;margin:6px 2px 0;font-size:10px;letter-spacing:.4px}
 .lg-legend button{background:none;border:none;padding:0;cursor:pointer;color:var(--text4);font-family:'JetBrains Mono',monospace;font-size:10px;display:inline-flex;align-items:center;gap:5px}
 .lg-legend button.off{opacity:.45;text-decoration:line-through}
 .lg-legend i{display:inline-block;width:12px;height:2px;border-radius:1px}
+/* the legend's line swatches are small svgs: the chart-size rules above only reach the chart's own svg (direct child) */
+.lg-chart .lg-legend svg{display:inline-block;width:16px;height:4px;flex:none}
 /* LEDGER shared stats strip + More stats (unify step 6): the same four tiles and the same fold on every board */
 .lg-stats{display:grid;grid-template-columns:repeat(4,1fr);background:var(--bg1);border-radius:12px;margin-bottom:14px}
 .lg-stat{padding:18px 20px;border-left:1px solid var(--border2);min-width:0}
@@ -726,7 +728,7 @@ button.lg-cal-day:hover{border-color:var(--text5)}
   .lg-stat-val{font-size:18px}
 }
 .hm-chart-wrap{position:relative;margin:22px 0 4px}
-.hm-chart-wrap svg{display:block;width:100%;height:260px;cursor:crosshair}
+.hm-chart-wrap > svg{display:block;width:100%;height:260px;cursor:crosshair}
 .hm-range-row{display:flex;align-items:center;justify-content:space-between;margin:2px 0 26px;flex-wrap:wrap;gap:14px}
 .hm-range-pills{display:flex;gap:18px}
 .hm-range-pills button{background:none;border:none;padding:0 0 5px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text5);border-bottom:2px solid transparent;font-family:'JetBrains Mono',monospace;cursor:pointer}
@@ -933,7 +935,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1034';
+const VERSION='73.1035';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -951,7 +953,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1026',date:'2026-10-05',notes:['LEDGER > REAL has the new shared chart: one point per day, a price scale and dates, full height on a phone, faint per-broker lines you can switch off, and a finger or mouse scrub that reads any day into the big number.','The four tiles under the chart are now WIN RATE, PROFIT FACTOR, MAX DRAWDOWN and TRADES, the same four every LEDGER board will show. Money made today moved up into the big number.','Profit factor reads no losses instead of infinite, max drawdown is always a positive amount, and the top bar net has its dollar sign (+$160.00, was +160.00).','MORE STATS is one fold: Returns, Risk and Mix (best and worst day, green days, average hold, longs and shorts) plus an Account group for balance, fees and vs SPY. The numbers match the old panel exactly.','A calendar is back under MORE STATS: one month with a week column, each day showing its money with a + or - sign. Tap a day to jump the trade list there. It starts open on a laptop and closed on a phone, and remembers your choice.','WEBULL PAPER: the small strategy charts no longer show as solid black blocks on the light theme.']},
+const CHANGELOG=[{v:'73.1035',date:'2026-10-05',notes:['LEDGER > REAL: the chart legend (Webull, NinjaTrader) is a small line again. It drew each name as a block the full height of the chart.','The 73.1033 entry below now carries its real version number.']},
+{v:'73.1033',date:'2026-10-05',notes:['LEDGER > REAL has the new shared chart: one point per day, a price scale and dates, full height on a phone, faint per-broker lines you can switch off, and a finger or mouse scrub that reads any day into the big number.','The four tiles under the chart are now WIN RATE, PROFIT FACTOR, MAX DRAWDOWN and TRADES, the same four every LEDGER board will show. Money made today moved up into the big number.','Profit factor reads no losses instead of infinite, max drawdown is always a positive amount, and the top bar net has its dollar sign (+$160.00, was +160.00).','MORE STATS is one fold: Returns, Risk and Mix (best and worst day, green days, average hold, longs and shorts) plus an Account group for balance, fees and vs SPY. The numbers match the old panel exactly.','A calendar is back under MORE STATS: one month with a week column, each day showing its money with a + or - sign. Tap a day to jump the trade list there. It starts open on a laptop and closed on a phone, and remembers your choice.','WEBULL PAPER: the small strategy charts no longer show as solid black blocks on the light theme.']},
 {v:'73.1030',date:'2026-10-05',notes:['NinjaTrader paper: a sweep every half hour checks every scheduled push, pull, rebuild and readiness step and alerts on a silent failure; the NinjaTrader backup now runs in the afternoon, flags a snapshot that lost a strategy, and never deletes the last complete one.']},
 {v:'73.1029',date:'2026-10-05',notes:['NinjaTrader paper: if NinjaTrader starts with an empty Tick Replay it is restarted once outside the cash session, and every new replay is merged into the 10-second data automatically.']},
 {v:'73.1027',date:'2026-10-05',notes:['PAPER (NT8 FUTURES): money colours now follow the theme like REAL and WEBULL (green turns white, red turns grey under MONO), and every money cell carries a direction marker - an arrow and a plus or minus sign on the big cells, a sign on the small ones. Max drawdown now prints as a positive dollar figure, the way REAL prints it.']},

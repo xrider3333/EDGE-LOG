@@ -133,6 +133,10 @@ MUTANTS = [
      '<div class="hm-day-group" data-hmday="${date}">',
      '<div class="hm-day-group">',
      'the trade list lost its day markers, so a calendar day no longer jumps the list there'),
+    ('legend-swatch-giant',
+     '.lg-chart .lg-legend svg{display:inline-block;width:16px;height:4px;flex:none}',
+     '.lg-chart .lg-legend svg{display:block;width:100%;height:260px}',
+     'a chart-size rule reaches the legend swatches again, so each legend name is a block the height of the chart'),
     ('phone-overflow',
      'content.innerHTML=`<div class="hm-wrap">',
      'content.innerHTML=`<div class="hm-wrap" style="min-width:640px">',
@@ -273,6 +277,12 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
           var g=d.querySelector('#hm-feed-container [data-hmday="'+pick+'"]');c.jump=!!(g&&g.classList.contains('lg-flash'));}}
       r.cal=c;
       if(!wasOpen){var cf2=d.querySelector('[data-lgcalfold="hm"]');if(cf2)cf2.click();}}
+    // the legend under the chart (P&L view, two brokers): each name is one short line - a chart-size rule once
+    // made every swatch 260px tall. Switch to P&L, measure, switch back.
+    W().eval("homeChartMode='pnl';renderApp();");
+    var lgb=d.querySelectorAll('#hm-chart-wrap .lg-legend button');r.legendN=lgb.length;
+    r.legendH=Math.max.apply(null,[0].concat(Array.prototype.map.call(lgb,function(b){return Math.round(b.getBoundingClientRect().height);})));
+    W().eval("homeChartMode='equity';renderApp();");
     r.scrollW=d.documentElement.scrollWidth;
     r.clientW=d.documentElement.clientWidth;
     if(r.scrollW>r.clientW+1)r.wide=offenders(d);
@@ -761,6 +771,10 @@ def _judge(data, data_obj):
         min_h = 150 if cfg['vp'] == 'phone' else 200
         if (r.get('chartH') or 0) < min_h:
             fails.append('%s: the equity chart is %spx tall (squashed; needs %s+)' % (nm, r.get('chartH'), min_h))
+        if (r.get('legendN') or 0) < 2:
+            fails.append('%s: the P&L chart shows %s broker lines in its legend (the probe data has two brokers)' % (nm, r.get('legendN')))
+        if (r.get('legendH') or 0) > 40:
+            fails.append('%s: a chart legend entry is %spx tall (should be one short line)' % (nm, r.get('legendH')))
         if (r.get('chartDates') or 0) < 2 or (r.get('chartTicks') or 0) < 2:
             fails.append('%s: the equity chart has %s date labels and %s price labels (needs 2+ of each)'
                          % (nm, r.get('chartDates'), r.get('chartTicks')))
