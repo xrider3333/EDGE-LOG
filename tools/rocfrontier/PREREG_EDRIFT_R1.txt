@@ -119,3 +119,16 @@ makes addendum 1's [B] concrete):
   curve at 0 / 5 / 10 / 20 bps a side; a row per July-June year; the regime halves 2016-07 .. 2021-12 and 2022-01 .. 2025-06; a
   row per drawdown episode of the reference book (the cell's P&L inside it); the long and short sides apart; the event-time
   path by reaction decile (already registered). None of these is a pass route.
+
+PRE-DATA ADDENDUM 3 (2026-10-05, before any EDRIFT number): TV's EDGAR earnings calendar arrived (inbox #81, 14:29 MST):
+C:\EdgeLog\_research_cache\edgar\earnings_calendar_ndx.csv, sha256
+09b815b7eb2dc858e538e6c04edd54b0c360105f7f303f4996c3143dbde5c9a5 (refused if different) - 11,091 8-K item 2.02 releases of the
+146 Nasdaq-100 members ever listed, 2004-08 .. 2026-10, built by TV's fetch_edgar_calendar.py with byte-for-byte provenance (39
+delisted tickers not yet mapped; foreign filers, who file 6-K, absent). It adds ONE REPORTED check - never a pass route, never
+a filter on the events:
+- [E5] DO THE VOLUME DAYS MARK EARNINGS? For the universe names the calendar holds (joined on the calendar's ticker = the
+  cache's symbol; the unmatched names counted and listed), per cell and per July-June year: the share of EDRIFT's events whose
+  session t is a release's reaction session or the session after it (a reaction session that is not in the harness's own
+  session list moves to the next session that is), and the share of those names' reaction sessions inside the 63-session event
+  windows that carry NO event (the releases the K rule misses). Printed before any P&L, beside [E3]. Only release dates inside
+  the walk-forward stretch are read.
