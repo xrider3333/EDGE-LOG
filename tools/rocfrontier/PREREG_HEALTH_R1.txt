@@ -20,13 +20,15 @@ THE RECORD READ. The adopted book's paper line (nightly report key `book` = the 
 TTM_299_SSOF2 x3 + NOISE_422 x1), from its first forward day 2026-09-28, on the RESTATED basis the owner ordered on 2026-10-05
 (the paper ENGU-Q leg on the roll-corrected master at 0.783 points a round trip; a read made before the restatement is void).
 The paper lane exports it read-only as a CSV: date, pnl (the day's figure, trades dated by exit day per the house convention),
-n_ORB, n_ENGUQ, n_TTM, n_NOISE (closed trades that day). The harness refuses any row dated on or before 2025-06-29 or before
-2026-09-28, refuses non-increasing dates, and refuses more than 756 rows (the registered horizon; a longer record is r2's
-question). No row of the lockbox year (2025-06-30..2026-06-30) is read by this round: the reference is the walk-forward only,
+n_ORB, n_ENGUQ, n_TTM, n_NOISE (closed trades that day). ONE ROW PER WEEKDAY, a holiday as a zero row - the same row convention
+as the reference (r11's Book.index), so that n forward rows compare with the first n rows of a null draw; a missing weekday is
+refused. The harness refuses any row dated on or before 2025-06-29 or before 2026-09-28 (`--from` can only move the start
+LATER, never earlier), refuses non-increasing dates, and refuses more than 756 rows (the registered horizon; a longer record
+is r2's question). No row of the lockbox year (2025-06-30..2026-06-30) is read by this round: the reference is the walk-forward only,
 and the lockbox is printed once as context (its worst drawdown $49,855, already public), never re-read.
 
 REFERENCE. r11_risk.py's records (records_U.npz; READY and hashes checked exactly as r14_looks.py does): the book's valued-daily
-series on the walk-forward rows, mu0 = its mean per row, sigma0 = its standard deviation; per-leg closed-trade counts per row
+series on the walk-forward rows, mu0 = its mean per row, sigma0 = its sample standard deviation (n - 1); per-leg closed-trade counts per row
 (ORB, ENGU-Q, TTM, NOISE). The same rows reproduce #463's recorded 93.81 / 3.816 / $44,849 (r11's P2 proves it; the harness
 re-asserts it on load).
 
@@ -41,7 +43,8 @@ MONITORS.
    about 0.1; computed at calibration from the reference rows and printed). A one-sigma reference value would never accumulate
    at zero edge, because the book's daily edge is far smaller than its daily spread. h1 = the smallest value on 0.5..60 (step
    0.25) at which at most 5% of null draws alarm within 252 rows; the harness refuses a value at the top of that grid.
- H1b ZERO (report only). The same CUSUM, same k, with mu0 replaced by zero (is the book earning anything), its own threshold at 5%.
+ H1b ZERO (report only). The same CUSUM, same k, with mu0 replaced by zero, its own threshold at 5%: with that k it asks
+   whether the book is losing at half its backtest edge or worse, which is the plain reading of "is it earning anything".
  H2 DRAWDOWN (primary). The forward record's current drawdown from its running peak (peak starting at zero) against the null
    distribution of the MAXIMUM drawdown over the first n rows, n = the rows observed so far: ALARM at or above the 99th
    percentile, WARN at or above the 95th. Printed beside it: the share of null paths of this length with a deeper drawdown, and
@@ -53,7 +56,8 @@ MONITORS.
 
 POWER (the planning output, printed at calibration, before any forward row). For a forward mean of 0.5 x mu0, 0 and -0.5 x mu0
 (null draws shifted row by row): the share of draws alarming on H1 within 252 / 504 / 756 rows, and the median and 90th-percentile
-day of first alarm. For a forward dispersion of 1.5 x the walk-forward's (deviations from mu0 scaled): the share of draws reaching
+day of first alarm over ALL draws (a draw that never alarms counts as beyond the horizon, printed "> 756"; the quantiles are never
+conditional on alarming). For a forward dispersion of 1.5 x the walk-forward's (deviations from mu0 scaled): the share of draws reaching
 an H2 alarm within 252 rows. The headline sentence: "if #463 stopped earning tomorrow, H1 would alarm after a median of N trading
 days (90% within M)".
 
