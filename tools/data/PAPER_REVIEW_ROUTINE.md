@@ -130,3 +130,7 @@ does this on its own.
 read per trading day in range (a few dozen by now, well inside the free-tier budget). The
 Webull book's `cum_pnl` field on `meta/qqq_exec` is already cumulative (computed from the
 full trade history each publish) and is used as-is.
+
+## Close-day counting (v73.981, 2026-10-02)
+
+The report counts each trade on the day it CLOSES (Eastern; a weekend close counts on Monday). `nt_book.trades_today` lists the trades that closed this day plus the ones that opened this day; only rows with `counted_today: true` add up to the day's leg figures. Trades written before v73.981 have no close day and are counted on their entry day.

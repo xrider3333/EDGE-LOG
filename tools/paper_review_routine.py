@@ -200,16 +200,30 @@ def _cumulative(db, date_str):
 
 
 def _trades_for_date(db, date_str):
+    """The day's trades as the report now counts them (v73.981, owner GO 2026-10-02): a trade
+    belongs to the day it CLOSES (`close_day`), not the day it opened (`run_date`). Trades that
+    OPENED this day are listed too so the reviewer sees new positions, but only rows with
+    counted_today=True add up to the day's leg figures. A doc written before v73.981 has no
+    close_day; it falls back to its entry day, as the report did then."""
+    coll = db.collection("users").document(UID).collection("paper_trades")
     try:
-        docs = (db.collection("users").document(UID).collection("paper_trades")
-                .where("run_date", "==", date_str).stream())
+        docs = list(coll.where("close_day", "==", date_str).stream())
+        docs += list(coll.where("run_date", "==", date_str).stream())
     except Exception as e:
         return [], f"paper_trades query failed: {type(e).__name__}: {e}"
     out = []
     roll_flagged = []
+    seen = set()
     for d in docs:
+        if d.id in seen:
+            continue
+        seen.add(d.id)
         t = d.to_dict() or {}
         t["_id"] = d.id
+        if "close_day" in t:
+            t["counted_today"] = (t.get("close_day") == date_str)
+        else:
+            t["counted_today"] = (t.get("run_date") == date_str)
         if t.get("roll_artifact") or "roll_artifact" in (t.get("flags") or []):
             roll_flagged.append(d.id)
         out.append(t)

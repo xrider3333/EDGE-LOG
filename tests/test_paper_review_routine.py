@@ -8,7 +8,6 @@ would fail any test that touched the real C:\\EdgeLog anyway.
 import datetime as dt
 import json
 import os
-import sys
 
 import pytest
 
@@ -237,6 +236,30 @@ def test_trades_and_roll_artifact_surface(monkeypatch, capsys):
     assert facts["nt_book"]["roll_artifact_trade_ids"] == ["pt_ORB_1"]
 
 
+def test_trades_listed_by_close_day(monkeypatch, capsys):
+    db = FakeDB()
+    monkeypatch.setattr(R, "_db", lambda: db)
+    monkeypatch.setattr(R, "et_now", lambda: dt.datetime(2026, 9, 24, 17, 0))
+    db.seed_report("2026-09-24", _basic_report(pnl=10))
+    # multi-day hold: opened 09-22, closed 09-24 -> counted on 09-24
+    db.seed_trade("pt_EQ_hold", {"leg": "ENGUQ_335", "run_date": "2026-09-22",
+                                 "close_day": "2026-09-24", "open": False, "pnl_usd": 900})
+    # opened 09-24, still open -> listed, not counted
+    db.seed_trade("pt_EQ_new", {"leg": "ENGUQ_335", "run_date": "2026-09-24",
+                                "close_day": None, "open": True, "pnl_usd": 50})
+    # opened 09-24, closed 09-25 -> listed (opened today), not counted today
+    db.seed_trade("pt_ORB_late", {"leg": "ORB", "run_date": "2026-09-24",
+                                  "close_day": "2026-09-25", "open": False, "pnl_usd": 5})
+    # unrelated day
+    db.seed_trade("pt_ORB_old", {"leg": "ORB", "run_date": "2026-09-20",
+                                 "close_day": "2026-09-20", "open": False, "pnl_usd": 7})
+    R.cmd_start(_Args(date="2026-09-24"))
+    capsys.readouterr()
+    facts = json.loads(open(os.path.join(R.INBOX, "facts.json"), encoding="utf-8").read())
+    got = {t["_id"]: t["counted_today"] for t in facts["nt_book"]["trades_today"]}
+    assert got == {"pt_EQ_hold": True, "pt_EQ_new": False, "pt_ORB_late": False}
+
+
 def test_webull_doc_missing_is_reported_not_fatal(monkeypatch, capsys):
     db = FakeDB()
     monkeypatch.setattr(R, "_db", lambda: db)
@@ -321,12 +344,6 @@ def test_finish_dry_run_does_not_write_firestore(monkeypatch, capsys):
 
 
 def test_finish_merge_writes_expected_fields_only(monkeypatch, capsys):
-    # cmd_finish imports firebase_admin only for firestore.SERVER_TIMESTAMP; the database itself is FakeDB. CI's dev deps
-    # do not carry firebase_admin, so stand in a module with just that sentinel.
-    import types
-    fa = types.ModuleType("firebase_admin")
-    fa.firestore = types.SimpleNamespace(SERVER_TIMESTAMP=object())
-    monkeypatch.setitem(sys.modules, "firebase_admin", fa)
     db = FakeDB()
     _start_one(monkeypatch, db)
     capsys.readouterr()
