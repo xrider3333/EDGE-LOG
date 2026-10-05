@@ -44,9 +44,11 @@ shared by every line: in a swapped block the pair (a, b) is exchanged for both O
 within-pair exchangeability null: the line and the reference leg have the same distribution day by day, and only the days on which
 they differ carry information. TRUTH: the same draws without swaps (the walk-forward edge taken at face value, an UPPER bound - the
 lines were chosen on the walk-forward), and at HALF the edge (b replaced by a + 0.5 x (b - a); keel_d halved).
-FAMILY: per statistic kind and horizon, each line's statistic is standardised by its own null spread (sign set so the claim's
-direction is positive) and the family-wise 5% critical value is the 95th percentile, over null draws, of the maximum over the three
-lines. Single false pass per line and power at full and half edge are read against that one critical value.
+FAMILY: per statistic kind and horizon, each line's statistic is centred on its own null mean and standardised by its own null
+spread (sign set so the claim's direction is positive; the centring matters for M2, whose null mean is not zero because it
+conditions on the reference leg's losing days) and the family-wise 5% critical value is the 95th percentile, over null draws, of
+the maximum over the three lines. Single false pass per line (about a third of 5% each, by construction) and power at full and
+half edge are read against that one critical value.
 
 PRINTED. Parity; per line x statistic x horizon: single false pass, critical value, power at full and half edge; the HEADLINE table
 last: per line, the read length (12 / 24 / 36 months, else "> 36 months") at which the primary statistic first reaches power 0.5
@@ -65,6 +67,8 @@ inside a block under no edge - a leg that trades on different days than the refe
 lines (same signals, different management) are read here. A forward read on a scale statistic can be moved by one extreme day; M1
 is printed with and without the single worst day of each leg (report only). The 5% family-wise rate is per read, not per look at
 the forward record: if the paired stops look every ten trades, the matched read is still taken ONCE at its registered length.
+Halving the edge also halves the day-by-day difference's noise, so the half-edge power is meaningful only for a line nested in
+the reference (same signals, different management - the three lines here); it is printed with that caveat.
 
 RUN ORDER (minutes, CPU only).
   python tools/rocfrontier/r17_matched.py parity <manifest.csv>
