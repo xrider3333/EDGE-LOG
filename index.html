@@ -732,6 +732,37 @@ button.lg-cal-day:hover{border-color:var(--text5)}
    (still apart from the white gains, and every loss also carries a minus sign or a loss label) */
 [data-theme="mono"] .lg-down,[data-theme="mono"] .lg-ms-row .v.lg-down,[data-theme="mono"] .lg-cal-day.down .m,[data-theme="mono"] .lg-hero .hm-down{color:var(--text3)}
 .lg-flash{animation:lgFlash 1.6s ease}
+/* LEDGER shared strategy / account list (unify step 10): one row per strategy or account, groups that fold,
+   a switch where a row can be left out; on a phone each row is one line (name, money, switch) */
+.lg-list{background:var(--bg1);border-radius:12px;margin:0 0 24px;overflow:hidden}
+.lg-list-hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:13px 16px 9px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text5)}
+.lg-list-hd .n{letter-spacing:.5px;text-transform:none}
+.lg-grp-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;background:none;border:none;border-top:1px solid var(--border2);padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text5);text-align:left}
+button.lg-grp-hd{cursor:pointer}
+button.lg-grp-hd:hover{color:var(--text3)}
+.lg-grp-hd .lg-chev{transition:transform .18s ease}
+.lg-grp-hd[aria-expanded="true"] .lg-chev{transform:rotate(180deg)}
+.lg-grp-note{font-size:10px;color:var(--text5);padding:0 16px 8px;line-height:1.5}
+.lg-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:6px 14px;width:100%;padding:10px 16px;border:none;border-top:1px solid var(--border2);background:none;font-family:inherit;color:inherit;text-align:left}
+button.lg-row{cursor:pointer}
+button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
+.lg-row.sel{box-shadow:inset 3px 0 0 var(--text);background:color-mix(in srgb,var(--text) 6%,transparent)}
+.lg-row.off .lg-row-name,.lg-row.off .lg-row-val{opacity:.45}
+.lg-row-name{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lg-row-name i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:0}
+.lg-row-tag{color:var(--text5);font-size:10px;margin-left:6px}
+.lg-row-sub{display:block;font-size:10px;color:var(--text5);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lg-row-val{font-size:13px;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.lg-row-val small{display:block;font-size:10px;color:var(--text5);margin-top:2px}
+.lg-sw{position:relative;width:30px;height:17px;border-radius:9px;background:var(--border);border:none;padding:0;cursor:pointer;flex:none}
+.lg-sw::after{content:'';position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:var(--text5);transition:left .15s ease}
+.lg-sw.on{background:color-mix(in srgb,var(--green) 60%,transparent)}
+.lg-sw.on::after{left:15px;background:var(--bg)}
+@media (max-width:760px){
+  .lg-row{padding:9px 12px}
+  .lg-row-sub,.lg-row-val small{display:none}
+  .lg-list-hd,.lg-grp-hd{padding-left:12px;padding-right:12px}
+}
 @keyframes lgFlash{0%,40%{box-shadow:0 0 0 2px var(--text3)}100%{box-shadow:0 0 0 0 transparent}}
 @media (max-width:760px){
   .lg-cal-panel{padding:12px 10px}
@@ -958,7 +989,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1062';
+const VERSION='73.1063';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -976,8 +1007,9 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1047',date:'2026-10-05',notes:['NT8 PAPER (owner decision 10-05): the ENGU-Q #335 legs (crown, S1, S2, VC) now run on the roll-corrected NQ master and charge 0.783 points a round trip, the way BOOK #463 does. Their whole forward record restates once, at the 10-06 nightly report (the crown leg: one long held since 09-16 instead of 14 shorter trades). Live NinjaTrader orders do not change. Also in v73.1047: the NT8 equity curve is the shared LEDGER chart.']},
-{v:'73.1051',date:'2026-10-05',notes:['LEDGER > REAL: the page no longer scrolls sideways onto a blank strip (440 px on a laptop, a full screen on a phone). The closed trade panel was parked just off the right edge and still made the page wider; now it takes no room until you open a trade, and it slides in when you do.']},
+const CHANGELOG=[{v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
+{v:'73.1047',date:'2026-10-05',notes:['NT8 PAPER (owner decision 10-05): the ENGU-Q #335 legs (crown, S1, S2, VC) now run on the roll-corrected NQ master and charge 0.783 points a round trip, the way BOOK #463 does. Their whole forward record restates once, at the 10-06 nightly report (the crown leg: one long held since 09-16 instead of 14 shorter trades). Live NinjaTrader orders do not change. Also in v73.1047: the NT8 equity curve is the shared LEDGER chart.']},
+{v:'73.1046',date:'2026-10-05',notes:['LEDGER > REAL: the page no longer scrolls sideways onto a blank strip (440 px on a laptop, a full screen on a phone). The closed trade panel was parked just off the right edge and still made the page wider; now it takes no room until you open a trade, and it slides in when you do.']},
 {v:'73.1035',date:'2026-10-05',notes:['LEDGER > REAL: the chart legend (Webull, NinjaTrader) is a small line again. It drew each name as a block the full height of the chart.','The 73.1033 entry below now carries its real version number.']},
 {v:'73.1033',date:'2026-10-05',notes:['LEDGER > REAL has the new shared chart: one point per day, a price scale and dates, full height on a phone, faint per-broker lines you can switch off, and a finger or mouse scrub that reads any day into the big number.','The four tiles under the chart are now WIN RATE, PROFIT FACTOR, MAX DRAWDOWN and TRADES, the same four every LEDGER board will show. Money made today moved up into the big number.','Profit factor reads no losses instead of infinite, max drawdown is always a positive amount, and the top bar net has its dollar sign (+$160.00, was +160.00).','MORE STATS is one fold: Returns, Risk and Mix (best and worst day, green days, average hold, longs and shorts) plus an Account group for balance, fees and vs SPY. The numbers match the old panel exactly.','A calendar is back under MORE STATS: one month with a week column, each day showing its money with a + or - sign. Tap a day to jump the trade list there. It starts open on a laptop and closed on a phone, and remembers your choice.','WEBULL PAPER: the small strategy charts no longer show as solid black blocks on the light theme.']},
 {v:'73.1030',date:'2026-10-05',notes:['NinjaTrader paper: a sweep every half hour checks every scheduled push, pull, rebuild and readiness step and alerts on a silent failure; the NinjaTrader backup now runs in the afternoon, flags a snapshot that lost a strategy, and never deletes the last complete one.']},
@@ -3294,6 +3326,32 @@ function ledgerCalendarHtml(o){
 }
 // month arithmetic for the arrows: 'YYYY-MM' moved by n months, clamped to the months that have trades
 function ledgerCalStep(days,mo,n){const ms=ledgerCalMonths(days);if(!ms.length)return mo;let i=ms.indexOf(mo);if(i<0)i=ms.length-1;return ms[Math.max(0,Math.min(ms.length-1,i+n))];}
+// ── LEDGER shared strategy / account list (unify step 10) ──
+// groups = [{key, title, count, note, fold, open, rows:[row]}]; a group with fold:true has a header button
+//   [data-lggrp="<key>"] (aria-expanded) and shows its rows only while open. A group without a title just lists rows.
+// row = {key, name, color, tag, sub, value (html), value2 (html, a quieter second line), cls, sel, off, sw}
+//   sel: the row is the board's current choice (REAL: the account in view); off: drawn faded (left out)
+//   sw:  {on} draws a switch [data-lgsw="<key>"] (a leg that counts or not); omit for a pick-one list.
+// o = {id, title, count}. The board wires [data-lglist="<id>"] [data-lgrow] (row tap), [data-lgsw] (switch - stop
+// the row tap) and [data-lggrp] (fold), and re-renders; flipping a row must move hero, chart, stats, calendar and list.
+function ledgerListHtml(groups,o){
+  o=o||{};const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const row=r=>'<button type="button" class="lg-row'+(r.sel?' sel':'')+(r.off?' off':'')+'" data-lgrow="'+esc(r.key)+'"'+(r.sel?' aria-current="true"':'')+'>'
+    +'<span style="min-width:0"><span class="lg-row-name" style="display:block">'+(r.color?'<i style="background:'+r.color+'"></i>':'')+r.name+(r.tag?'<span class="lg-row-tag">'+r.tag+'</span>':'')+'</span>'
+    +(r.sub?'<span class="lg-row-sub">'+r.sub+'</span>':'')+'</span>'
+    +'<span class="lg-row-val'+(r.cls?' '+r.cls:'')+'">'+(r.value==null?'':r.value)+(r.value2?'<small>'+r.value2+'</small>':'')+'</span>'
+    +(r.sw?'<span class="lg-sw'+(r.sw.on?' on':'')+'" role="switch" aria-checked="'+!!r.sw.on+'" aria-label="count '+esc(String(r.name).replace(/<[^>]*>/g,''))+'" data-lgsw="'+esc(r.key)+'"></span>':'<span></span>')
+    +'</button>';
+  return '<div class="lg-list" data-lglist="'+esc(o.id||'lg')+'">'
+    +(o.title?'<div class="lg-list-hd"><span>'+o.title+'</span>'+(o.count?'<span class="n">'+o.count+'</span>':'')+'</div>':'')
+    +(groups||[]).map(g=>{
+      const hd=g.title?(g.fold
+        ?'<button type="button" class="lg-grp-hd" data-lggrp="'+esc(g.key)+'" aria-expanded="'+!!g.open+'"><span>'+g.title+(g.count!=null?' &middot; '+g.count:'')+'</span><span class="lg-chev" aria-hidden="true">&#9662;</span></button>'
+        :'<div class="lg-grp-hd"><span>'+g.title+(g.count!=null?' &middot; '+g.count:'')+'</span></div>'):'';
+      const body=(!g.fold||g.open)?((g.note?'<div class="lg-grp-note">'+g.note+'</div>':'')+(g.rows||[]).map(row).join('')):'';
+      return '<div class="lg-grp" data-lggroup="'+esc(g.key||'')+'">'+hd+body+'</div>';
+    }).join('')+'</div>';
+}
 function ledgerChartRender(wrap,o){
   if(!wrap)return;
   wrap.classList.add('lg-chart');
@@ -12776,6 +12834,23 @@ function _hmStatStrip(stats){
     <div class="hm-stat-cell"><div class="hm-micro">MAX DD</div><div class="hm-stat-val">${dd}</div></div>
     <div class="hm-stat-cell"><div class="hm-micro">TODAY</div><div class="hm-stat-val ${_hmCls(todayNet)}">${_hmSigned(todayNet)}</div></div>`;
 }
+// REAL on the shared list (unify step 10, owner decision 10): the ACCOUNT switch is this list on the LEDGER board -
+// ALL plus one row per broker, each with its balance and the chosen range's P&L; tapping a row scopes the whole
+// board (the same activeBroker the tab-row pill sets, which stays on ANALYTICS only)
+function _hmAccountListHtml(){
+  const brokers=[...new Set(trades.map(t=>t.broker).filter(Boolean))].sort();
+  if(!brokers.length)return '';
+  const rowFor=(key,name,list,bal)=>{
+    const r=ledgerInRange(list,homeRange);let net=0,w=0,l=0,n=0;   // counts follow the stats tiles: IGNORE IN METRICS trades add money only
+    r.forEach(t=>{const p=+t.pnl||0;net+=p;if(t&&t.statsExcluded)return;n++;const q=+pnlVal(t)||0;if(q>0)w++;else if(q<0)l++;});
+    return {key:key,name:name,sel:(activeBroker||'')===key,cls:r.length?ledgerCls(net):'',
+      value:r.length?ledgerSigned(net):'&mdash;',value2:'balance '+ledgerMoney(bal),
+      sub:n+' trade'+(n===1?'':'s')+((w+l)?' &middot; '+Math.round(w/(w+l)*100)+'% won':'')+' &middot; '+(LEDGER_RANGE_LABEL[homeRange]||'')};
+  };
+  const all=_brokerList().reduce((s,b)=>s+brokerBalance(b),0);
+  const rows=[rowFor('','All accounts',trades,all)].concat(brokers.map(b=>rowFor(b,_hmEsc(b),trades.filter(t=>t.broker===b),brokerBalance(b))));
+  return ledgerListHtml([{key:'acct',rows:rows}],{id:'hm',title:'Accounts',count:'tap one to show only it'});
+}
 // REAL on the shared calendar (unify step 7): the range's trades by the day they closed, the same money the trade
 // list's day headers add up. Open on a laptop and closed on a phone until you choose (remembered per browser).
 var homeCalOpen=(()=>{try{const v=localStorage.getItem('el_lg_cal_real');if(v==='1'||v==='0')return v==='1';}catch(e){}return (window.innerWidth||1200)>=760;})();
@@ -13862,7 +13937,7 @@ function _hmRenderHome(content){
       const ign=ls&&ls.excluded?`<span title="${ls.excluded} trade${ls.excluded>1?'s':''} marked IGNORE IN METRICS are left out of win rate, profit factor and the streak, but still count in P&amp;L and drawdown" style="color:var(--yellow)"> &middot; ${ls.excluded} ignored</span>`:'';
       return ledgerStatStripHtml(ls,{id:'hm-stat-strip',winNote:ign})
         +ledgerMoreStatsHtml(ls,_hmOwnStatGroups(rangeStats),{open:homeStatsOpen,id:'hm',note:'Scoped to the chosen account and range'})
-        +_hmCalendarHtml(rangeTrades);})()}
+        +_hmCalendarHtml(rangeTrades)+_hmAccountListHtml();})()}
     <!-- v73.7xx: AI ASSESSMENT carried over from the retired OVERVIEW tab so this insight
          does not disappear now that HOME is the default landing tab. -->
     <div class="section" style="margin:14px 0">
@@ -13923,6 +13998,7 @@ function _hmRenderHome(content){
   content.querySelectorAll('[data-lgmore="hm"]').forEach(b=>{b.onclick=()=>{homeStatsOpen=!homeStatsOpen;renderApp();};});
   content.querySelectorAll('[data-lgcalfold="hm"]').forEach(b=>{b.onclick=()=>{homeCalOpen=!homeCalOpen;
     try{localStorage.setItem('el_lg_cal_real',homeCalOpen?'1':'0');}catch(e){}renderApp();};});
+  content.querySelectorAll('[data-lglist="hm"] [data-lgrow]').forEach(b=>{b.onclick=()=>{const k=b.getAttribute('data-lgrow');if(k!==(activeBroker||''))setBroker(k);};});
   content.querySelectorAll('[data-lgcal="hm"][data-lgcalmo]').forEach(b=>{b.onclick=()=>{if(b.disabled)return;
     window._hmCalMonth=ledgerCalStep(_hmCalDays(_hmTradesInRange(trades,homeRange)),window._hmCalMonth,+b.getAttribute('data-lgcalmo'));renderApp();};});
   content.querySelectorAll('[data-lgcal="hm"] [data-lgcalday]').forEach(b=>{b.onclick=()=>_hmJumpToDay(b.getAttribute('data-lgcalday'));});
@@ -14795,7 +14871,7 @@ function renderApp(){
   // least one broker is tagged on trades. Right-aligned; clicking sets the global scope.
   const _brokers=[...new Set(trades.map(t=>t.broker).filter(Boolean))].sort();
   let _acctTog='';
-  if(_master==='log'&&_brokers.length){
+  if(_master==='log'&&_brokers.length&&(LEDGER_OLDBOARDS||activeTab!=='home')){
     const _pill=(v,l)=>`<button class="btn-ghost" onclick="setBroker('${String(v).replace(/'/g,"\\'")}')" title="Show ${l} only" style="padding:3px 9px;font-size:var(--fsxs);border-radius:6px;${activeBroker===v?'background:var(--green);color:#04120d;font-weight:600':'color:var(--text4)'}">${l}</button>`;
     _acctTog=`<span style="margin-left:auto;display:flex;gap:3px;align-items:center"><span class="lbl" style="font-size:8px;margin-right:3px">ACCOUNT</span>${_pill('','ALL')}${_brokers.map(b=>_pill(b,b)).join('')}</span>`;
   }

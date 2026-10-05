@@ -141,6 +141,10 @@ MUTANTS = [
      '.hm-sheet.open{display:block;animation:hmSheetIn .22s ease}',
      '.hm-sheet.open{display:block;animation:hmSheetIn .22s ease}.hm-sheet:not(.open){display:block;transform:translateX(100%)}',
      'the closed trade panel is parked off-screen again and makes the page scroll sideways'),
+    ('account-row-dead',
+     "if(k!==(activeBroker||''))setBroker(k);",
+     "if(k===null)setBroker(k);",
+     'tapping an account row in the list no longer scopes the board'),
     ('phone-overflow',
      'content.innerHTML=`<div class="hm-wrap">',
      'content.innerHTML=`<div class="hm-wrap" style="min-width:640px">',
@@ -289,6 +293,14 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     W().eval("homeChartMode='equity';renderApp();");
     // the CLOSED trade panel must take no room (parked off-screen it widened the page: LEDGER mistake #13)
     var shc=d.getElementById('hm-sheet');r.sheetClosed=shc&&!shc.classList.contains('open')?W().getComputedStyle(shc).display:'open';
+    // LEDGER shared account list (unify step 10): ALL + one row per broker, the tab-row ACCOUNT pill gone on LEDGER,
+    // and tapping a broker row scopes the board (the hero label names it), then ALL again
+    var lr=d.querySelectorAll('[data-lglist="hm"] [data-lgrow]');r.acctRows=lr.length;
+    r.acctSel=(d.querySelector('[data-lglist="hm"] [data-lgrow].sel')||{getAttribute:function(){return null;}}).getAttribute('data-lgrow');
+    r.acctPill=Array.prototype.some.call(d.querySelectorAll('button'),function(b){return /setBroker\\(/.test(b.getAttribute('onclick')||'');});
+    var nb=d.querySelector('[data-lglist="hm"] [data-lgrow="NinjaTrader"]');r.acctScoped=null;
+    if(nb){nb.click();var hl=d.getElementById('hm-hero-label');r.acctScoped=hl?(hl.textContent||'').indexOf('NINJATRADER')>=0:false;
+      var ab=d.querySelector('[data-lglist="hm"] [data-lgrow=""]');if(ab)ab.click();}
     r.scrollW=d.documentElement.scrollWidth;
     r.clientW=d.documentElement.clientWidth;
     if(r.scrollW>r.clientW+1)r.wide=offenders(d);
@@ -780,6 +792,13 @@ def _judge(data, data_obj):
         min_h = 150 if cfg['vp'] == 'phone' else 200
         if (r.get('chartH') or 0) < min_h:
             fails.append('%s: the equity chart is %spx tall (squashed; needs %s+)' % (nm, r.get('chartH'), min_h))
+        if r.get('acctRows') != 3 or r.get('acctSel') != '':
+            fails.append('%s: the account list shows %s rows with %r selected (expected ALL + 2 brokers, ALL selected)'
+                         % (nm, r.get('acctRows'), r.get('acctSel')))
+        if r.get('acctPill'):
+            fails.append('%s: the tab-row ACCOUNT pill still shows on LEDGER (the account list replaces it there)' % nm)
+        if r.get('acctScoped') is not True:
+            fails.append('%s: tapping the NinjaTrader row did not scope the board (hero label)' % nm)
         if (r.get('legendN') or 0) < 2:
             fails.append('%s: the P&L chart shows %s broker lines in its legend (the probe data has two brokers)' % (nm, r.get('legendN')))
         if (r.get('legendH') or 0) > 40:

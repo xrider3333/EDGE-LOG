@@ -347,6 +347,16 @@ phone, 260 on a laptop; `o.height` overrides) and redraws itself when the width 
 - The board decides what a day tap does (REAL: scroll the list to that day; NT8: select that day's rows) and
   remembers open / closed and the month. The calendar takes the chosen RANGE's trades, like everything else.
 
+## 4c. Strategy / account list (step 10, shipping on REAL)
+- `ledgerListHtml(groups, {id, title, count})` -> `.lg-list[data-lglist="<id>"]`. `groups = [{key, title, count, note,
+  fold, open, rows}]`; a `fold:true` group has a header `[data-lggrp="<key>"]` (aria-expanded) and lists its rows
+  only while open (use it for "Retired" and "Other / shadow - not counted"). `row = {key, name, color, tag (run
+  number), sub, value (html), value2 (quieter second line), cls, sel, off, sw:{on}}`: `sw` draws a switch
+  `[data-lgsw="<key>"]` (a leg that counts or not; stop the row tap in its handler); `sel` marks the current pick;
+  `off` fades a left-out row. On a phone every row is one line (name, value, switch).
+- The board wires `[data-lglist="<id>"] [data-lgrow]`, `[data-lgsw]` and `[data-lggrp]`, re-renders, and a flip must
+  move hero, chart, stats, calendar and trade list together. REAL: rows All / each broker, tap = scope the board.
+
 ## 5. Per-board render probe (each lane, in its own probe)
 Check: hero ids present, the four `[data-lgstat]` tiles in order with drawdown a positive dollar amount, More
 stats opening with Returns, Risk, Mix + your groups, and the big number reads as money; pills read TODAY 1W 1M 3M YTD ALL; chart drawn height
