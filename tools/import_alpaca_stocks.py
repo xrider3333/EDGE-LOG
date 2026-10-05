@@ -46,6 +46,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 from augur_engine import alpaca_keys  # noqa: E402
 from augur_engine import alpaca_rate  # noqa: E402
+from augur_engine import pull_provenance  # noqa: E402
 from augur_engine.master_write import write_master_csv  # noqa: E402
 LOG  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "import_alpaca_stocks.log")
 
@@ -106,6 +107,8 @@ def fetch_bars(sym, timeframe, start, end, key, secret, feed="sip", adjustment="
             log(f"    …{len(rows):,} bars so far")
         time.sleep(0.31)                               # ~195/min, under the 200/min cap
     if not rows:
+        pull_provenance.record(sym, timeframe, start, end, pd.DataFrame(),
+                               adjustment=adjustment, feed=feed)
         return pd.DataFrame()
     df = pd.DataFrame(rows)
     out = pd.DataFrame({
@@ -114,7 +117,15 @@ def fetch_bars(sym, timeframe, start, end, key, secret, feed="sip", adjustment="
         "low":    df["l"].astype(float), "close": df["c"].astype(float),
         "volume": df["v"].astype("int64"),
     })
-    return out.drop_duplicates(subset="time").sort_values("time").reset_index(drop=True)
+    out = out.drop_duplicates(subset="time").sort_values("time").reset_index(drop=True)
+    # WHICH PHOTOGRAPH OF THE VENDOR THIS IS (augur_engine/pull_provenance.py). Recorded HERE,
+    # in fetch_bars, because TTM, TBIS and the ROC-frontier harnesses call this straight into
+    # their own research caches and never reach upsert_master - recording on the library path
+    # alone would miss exactly the pulls that matter. Never fatal: a pull that worked must not
+    # fail because its receipt could not be filed.
+    pull_provenance.record(sym, timeframe, start, end, out,
+                           adjustment=adjustment, feed=feed)
+    return out
 
 
 # NYSE closes at 13:00 ET on about three sessions a year. SIP keeps printing afterwards, and
