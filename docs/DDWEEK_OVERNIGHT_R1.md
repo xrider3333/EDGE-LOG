@@ -109,3 +109,40 @@ MANAGER #30 (2026-10-04) split the drawdown-week hunt: overnight and intraday NQ
 and multi-day to TV. This draft was handed to STRATEGY-BEATING (their inbox #39) to run or drop under their own name; TV
 does not run it. Kept on main as the dated pre-registration it is. Note DAILYFADE (docs/DDWEEK_FADE_R1.md) shares its
 long-after-a-down-session piece; if both run they are one piece of evidence.
+
+## Addendum 2 (2026-10-05, before any number): run by STRATEGY-BEATING, the house rules of 10-05 folded in
+
+Written by STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y, which runs this family under its own name (MANAGER #30 / #43; its
+queue, MANAGER #59). No number of this family had been computed when this was written. These replace the matching text
+above; nothing else changes.
+
+1. HARNESS. TV's `tools/ddw1_overnight.py`, adapted by this lane: it stops unless this file's LF sha256 is the
+   registered one, and it stamps that sha and its own into stage_a.json.
+2. POINTS, NOT PERCENTAGES (MANAGER's DAILYFADE review, edit 2; the 10-05 percent-read audit). The masters are
+   back-adjusted, so a percentage read off them is distorted up to ~3x in the early years. r is now in POINTS: close of
+   the 15:50 bar - open of the 09:30 bar. The scale is the median |r| in points over the previous 60 eligible sessions
+   (at least 40). S0 / S1 / S2 keep their form (r < 0; r <= -1 x scale; r <= -2 x scale), and the null shuffles the
+   point values. Points are shift-invariant; the trade P&L was already in points.
+3. NO SKIP ON WHAT HAPPENS AFTER THE ENTRY (ORB's DAILYFADE fix 2). A night is no longer skipped because its exit bar is
+   missing or the next session is more than 4 calendar days away: the exit is the open of the first bar at or after the
+   exit time on or after the next date with RTH bars, however late. A data hole holds the position through it, as it
+   would in a real account. Reported: the nights that cross a weekday without RTH bars (a holiday or a hole) and the
+   exits filled more than 30 minutes after their target or on a later date (count and P&L).
+4. #463's DRAWDOWN DAYS = MDL r1's. The episode rule must give the house count, 460 WF days in 28 episodes, or nothing
+   runs.
+5. A2 IS A REPORT, AND c IS SET BY VOLATILITY (MANAGER #45 / #56; the Q9 rule). The pick of the best c in {1, 2, 3} by
+   book ROC is withdrawn. Instead c = 25% x std(#463's daily P&L, 2016-07-01 .. 2018-06-29) / std(the cell's daily P&L
+   at one contract over the same days), in whole micros (0.1 contract, at least one); the book at 0.5c and 2c is
+   reported. An A2 pass (book WF ROC @ $30k >= 98.50 and Sortino >= 3.816) opens a forward BOOK shadow line beside the
+   leg's own, nothing more. With no Stage A pass, the S0 cells' A2 rows are still reported at their volatility c, as
+   registered.
+6. STAGE B IS THE LEG'S OWN VETO (MANAGER #48). Nobody reads #463's lockbox year to pass a book candidate. On MANAGER's
+   line, the frozen cell at its frozen c is read once on 2025-06-30 -> 2026-06-30 inclusive. It vetoes unless the leg's
+   own LB net > 0 on >= 50 LB trades and > 0 without its biggest trade. The book add on that year is REPORTED, never a
+   pass. Stage C is unchanged (MANAGER's line).
+7. DISCLOSURE - DAILYFADE (DD-WEEK r2, TV, dead at Stage A 0 / 8 on 2026-10-05, WF only, lockbox untouched). Its money
+   was the long side after down sessions held to the next close (NQ +$107k in its every-day flat cell; the short side
+   -$58k). The family failed the drawdown-day test: NQ +$8k to +$19k over #463's 460 drawdown days against the null's
+   95th percentile of $93k, and negative without its 3 best days; ES lost there (-$17k to -$31k). That long side
+   contains this family's mechanism held longer, so this run's drawdown-day test (h) is NOT independent of it. If a cell
+   passes here, the owner hears ONE finding with DAILYFADE's failure beside it (as addendum 1 says).
