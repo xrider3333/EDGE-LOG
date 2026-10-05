@@ -1,0 +1,157 @@
+PRE-REGISTRATION - DIVRUN r1: the RUN-UP into a large-cap stock's ex-dividend date, ES-hedged, US stocks, event-driven
+=====================================================================================================================
+DRAFT v1 2026-10-05 11:10 MST for MANAGER review, by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (owner standing order
+10-04 + MANAGER #49: a lane whose family is used up keeps a queue of 3 NEW-TYPE items; this lane's queue after XGAP r1's death
+on 2026-10-05: TV's overnight r1, RESMOM r1, and this). Written before any number of this family exists. Nothing runs until
+MANAGER's GO or the standing order's 60-minute rule (then Stage A walk-forward only, the review folded in as a dated addendum),
+and not before the two items queued ahead of it. Results: C:\EdgeLog\_anatomy_cache\rocfrontier\divrun_r1\ and
+RESEARCH_LEDGER.md.
+
+WHAT IS DIFFERENT (one line): the first EL family whose signal is a CORPORATE CALENDAR - a flow that is known weeks ahead - not
+a price pattern; the holding is two to four weeks around a date the stock itself announces, not a daily or weekly rank.
+
+WHY NOW (house evidence first). Today's four stock deaths (SIPORB, ATTN, DDW r1, XGAP r1) share one cause: price-pattern edges
+of 1-15 bps a trade at daily / weekly turnover, eaten by a 10-15 bps round trip. The dividend month premium is a documented ~40
+bps per predicted month, paid once a quarter per name, and the dates come from the corporate-actions calendar MANAGER pulled
+and pinned this morning for RESMOM (no new pull, no money). The ES hedge costs a fraction of a bp.
+
+THE MAP FIRST (MDL r1). An ES-hedged basket of dividend payers held around their own calendar should sit near zero correlation
+with #463's NQ / ES intraday legs in #463's drawdown weeks (rho_dd ~ 0: #463's drawdowns are leg-specific give-backs, ledger
+2.59); there a new leg lifts #463 half the time from about $15,000 a year at a $30,000 drawdown of its own (standalone ROC @
+$30k ~ 15). Rough placement before any number: ~1,400 quarterly events a year among the top 500 (about 350 regular payers) at
+$4,000 each; at a net 15 bps per event that is ~$8,400 a year against an estimated drawdown of $20,000-30,000 (ROC ~ 8-13); at
+30 bps ~$16,800 (ROC ~ 17-25). So it reaches the half-the-time line only if the run-up in 2016-25 large caps is at least ~25-30
+bps before costs inside the window - plausible from the literature below, not likely. Stage A's ROC line is the half-the-time
+line.
+
+MECHANISM. Investors treat dividends as free income (Hartzmark & Solomon 2019, "The dividend disconnect"), so demand for a
+stock rises as its dividend nears: stocks earn abnormal returns of about 40 bps in the months they are predicted to pay (the
+dividend month premium, Hartzmark & Solomon 2013, JFE; 1927-2011, large caps included), which they trace to that demand rather
+than to risk. The two windows (10 and 20 sessions before the predicted ex-date) bet that the pressure builds into the last
+cum-dividend close; selling at that close keeps the run-up and skips the ex-day drop and the dividend itself (no tax or ex-day
+arithmetic in the P&L). Where in the month the premium actually sits is measured, not assumed (the event-time path is
+reported). Counter-evidence written in now: the premium was measured mostly before 2012; demand for dividends was strongest
+when rates were near zero (2016-21) and may be weaker in 2022-25; large caps are the most arbitraged names; and the premium may
+sit earlier in the month, or after the ex-day, outside both windows. The index-level cousin (market returns on days of big
+aggregate dividend PAYMENTS - reinvestment flows) is ES on daily bars, TV's lane, and is routed there as an idea, not tested
+here.
+
+DATA (no new pull, no money): the SIPORB cache C:\EdgeLog\alpaca_cache\siporb (Alpaca SIP daily bars raw + split-adjusted,
+active and inactive names; manifest sha256 380b05f2... on 2026-10-05, never mixed with a re-pull); the WIDE corporate-actions
+calendar C:\EdgeLog\alpaca_cache\xgap\corporate_actions_wide.csv (MANAGER's pull 2026-10-05 10:45, sha256
+e5bc8487daf94a6124823bc24b6c382e9fd00237acbab81457fa42ef3b0d83a5; raw .jsonl sha256 2bc9f212...; it starts 2016-06-01); ES
+5-minute RTH masters for the hedge (16:00 prints; roll-corrected; the two ES holes 2020-02-28 and 2020-06-30 handled as in DDW
+r1's addendum 1). Hygiene exactly as DDW r1 [T2] and RESMOM [D2] (registered split, gap scan, TBIS flags, raw gaps beyond
++-50% without a factor change, spin-off / stock-dividend ex-dates); a flag inside a hold is a look-ahead removal and every
+result is ALSO reported with those trades kept at naive raw P&L.
+
+UNIVERSE (at each entry close, only information known then): DDW r1's - prior raw close >= $10, the 500 largest by mean raw
+dollar volume over the previous 20 sessions (all present), mean volume >= 1,000,000 shares and ATR > $0.50 over the previous
+14, no registered split in the previous 14 sessions - plus a REGULAR QUARTERLY PAYER: its last three regular (non-special)
+cash dividends on the calendar have ex-dates E3 < E2 < E1 <= the entry session with both gaps (E1 - E2, E2 - E3) inside 77 ..
+105 calendar days. (Monthly, semi-annual and annual payers are out; special dividends never define the cycle.)
+
+EVENT. PREDICTED ex-date P = E1 + (E1 - E2) calendar days, moved to the next session if it is not one (the firm's own last
+quarter, known on E1). The ACTUAL next ex-date X = the first regular cash dividend ex-date after E1 on the calendar.
+CELLS (the family: 2) - entry at the official CLOSE of the session K sessions before P, long $4,000 of the stock (fractional
+shares), with an ES hedge sold at the same 16:00 print:
+- R10: K = 10.   - R20: K = 20.
+EXIT at the official close of the session BEFORE X (the last cum-dividend close: no dividend received, no ex-day drop), if X
+falls at least two sessions after the entry and no later than P + 10 sessions; X is public by then (US issuers declare at least
+ten calendar days before the record date, i.e. before that close). If X does not arrive by P + 10 (a skipped, late or cut
+dividend), exit at the close of P + 10. No trade when X has already passed at the entry close or is the next session.
+Entry and exit are calendar decisions made days ahead, not price signals, so the closing auction is the fill (an MOC order);
+the trade's own close never decides it. No compounding; positions are valued at every close (house daily marks).
+HEDGE: short ES notional = beta x $4,000, beta = the stock's OLS beta on ES over sessions entry-251 .. entry (>= 230
+split-safe pairs, intercept; ES-hole sessions skipped) - known at the entry close; held to the exit close. The unhedged leg is
+a REPORTED row.
+COSTS: 5 bps of notional a side on the stock (base), stress 10 and 20 bps; ES 0.5 bps a side on the hedge notional. No borrow
+(the stocks are only bought).
+
+NULL (family-aware, the timing test): 500 draws, seed 20261005. Each real trade keeps its name, its holding length h and its
+hedge rule but moves to an entry session drawn uniformly from E1 + 11 .. P - 26 - h - the middle of the same quarter, after the
+previous ex-date's aftermath and ending before the run-up window P - 25 (a trade with no such session is left out of that draw;
+the count is reported); statistic = the MAX over the 2 cells of WF ROC @ $30k. It asks whether the ex-date matters beyond
+simply holding hedged dividend payers.
+
+#463: daily P&L from r11_risk.py's rule-U records; refused unless WF 93.81 / 3.816 (deepest $44,849) and LB 155.54 / 4.150
+reproduce; DO and rho_dd exactly as MDL r1 (r12_mdl.Stretch).
+
+STRETCHES: trades EXITED in WF 2016-07-01 -> 2025-06-29 (the first predictable events need three ex-dates on a calendar that
+starts 2016-06-01, so the first entries are ~2017-02; counted by the dryload); LB = 2025-06-30 -> 2026-06-30 inclusive,
+SEALED. Stock-data sealed year: this family joins the ONE sealed-year day of the stock families (PREREG_DDW_R1.txt [M5]) if
+MANAGER registers it before that day; its Stage B is the LEG's own veto and the book add on that year is reported, never a
+pass (MANAGER #48).
+
+STAGE A (WF, per cell; the standalone bars decide - MANAGER #56): (a) >= 1,000 trades; (b) WF ROC @ $30k >= 15 and net > 0
+at 5 AND at 10 bps a side; (c) WF ROC above the null's 95th percentile; (d) positive in >= 6 of the 9 July-June WF years; net
+> 0 without Feb 15 - Apr 30 2020 (RISK r1 check); (e) profitable without its best 1% of days AND without its best 1% of
+trades; (f) BEFORE a pass is read, the 50 largest single-trade contributors (symbol, dates, $) are audited by hand (split
+factor, TBIS volume test, asset list, the calendar row); a data event found removes that trade from the cell AND the null and
+Stage A is computed again.
+A2 (WF, a REPORT - MANAGER #56): #463 + c x the cell, c set by volatility (the cell's daily std over 2017-03-01 .. 2019-02-28,
+its first two full years, = 25% of #463's over the same days; 0.5c and 2c reported); an A2 pass (book ROC >= 98.5, Sortino >=
+3.816) opens a forward BOOK shadow line beside the standalone one, nothing more.
+STAGE B (LB, once, on the stock families' one sealed-year day): the leg's veto - >= 100 trades, net > 0, > 0 without its top
+1% of trades; the book add on that year is reported.
+STAGE C: a computed no-order forward shadow line, logged on the RUNBOARD by research id with ROC @ $30k and drawdown; any
+account is the owner's call.
+
+REPORTED, never a pass route: the event-time path (hedged, cost-free mean return from X - 25 to X + 5 sessions, all years and
+by year - where the run-up actually sits); R10 vs R20; the unhedged leg; the realised beta to ES in #463's drawdown weeks and
+the cell's P&L inside every qualifying #463 drawdown; the MDL map point (standalone ROC, rho_dd, DO); the late / skipped
+dividend exits (count, P&L); trades by calendar month; yield buckets (dividend / price at entry: top third vs the rest);
+hygiene counts both ways; the 20 largest trade gains.
+
+KNOWN WAYS IT COULD FOOL US: only ~8.5 WF years (one rate regime switch, 2022); the prediction rule misses firms that move
+their ex-date (the late / skipped exits); payers are defensive, so an imperfect beta hedge earns in sell-offs (the unhedged
+and drawdown-week rows); survivorship (Alpaca's inactive names only); missed splits; the market factor is ES; the calendar
+and the bars are each one photograph of the vendor.
+
+Zero passes = DIVRUN r1 dead; the windows are not re-tuned (no other K, no other exit) - the next family comes from the next
+mechanism.
+
+PRE-DATA ADDENDUM 1 (2026-10-05, before any DIVRUN number): MANAGER's review
+(C:\EdgeLog\manager\reviews\sb_divrun_r1_review_2026-10-05.md, GO WITH EDITS, walk-forward only, REGISTERED for the stock
+families' one sealed-year day as a leg veto), its edits 1-5 folded:
+- [V1] THE EXIT MUST NOT NEED X. The calendar has no declaration date, and its process_date is no proxy: it equals the ex-date
+  on 36.0% of the 70,484 cash-dividend rows and falls after it on 63.96% (median 14 days later; it is Alpaca's own processing
+  date) and before it on 0.07%; so every exit at 'the close before X' is a read of the file after the fact. Each cell therefore
+  also runs with a rule that does not know X: NO-X = exit at the close of P - 1 (the PREDICTED last cum-dividend close). If X
+  has already passed by then, the long received the cash dividend on X (per share held) and carried the ex-day drop in its
+  price P&L. This lane chose P - 1 over the review's P + 10 as the binding twin because it changes only the knowledge, not the
+  trade. P + 10 also holds through the ex-day and ten sessions after, so a gap between it and the X-rule could be a real
+  post-ex move rather than look-ahead. P + 10 is a REPORTED third row. If the X-rule and NO-X verdicts differ, the NO-X verdict
+  is the registered one. Reported: the share of events whose X fell before, at, and after P - 1.
+- [V2] NULLS. The registered null stays the PLACEBO IN TIME (draft text: the same stock and holding length moved into E1 + 11
+  .. P - 26 - h; a placebo window that touches any ex-date of that stock is redrawn, up to 20 tries, then left out and
+  counted). Added as a REPORTED second null: random names at the same entry and exit sessions - a universe payer whose own
+  window P' - 25 .. X' does not overlap the hold - same hedge rule and costs.
+- [V3] HYGIENE INSIDE THE HOLD. A SPECIAL dividend, spin-off or stock-dividend ex-date inside a hold drops the price
+  mechanically. The trade is flagged and removed from the cell and the null (like a split flag), and the count is reported.
+- [V4] THE EVENT-TIME PATH FIRST. Before any cell is read, the output prints the hedged, cost-free mean abnormal return per
+  session from P - 20 to X - 1, for all years and by year. A pass whose gain sits wholly in X - 2 .. X - 1 is a different
+  effect (the ex-day tax trade) and is read as that. Every cell is also reported for 2016-07 .. 2021-12 and 2022-01 .. 2025-06
+  apart (the rates regime the counter-evidence names).
+- [V5] COSTS AND THE HEDGE AS TRADED. Stock 5 / 10 / 20 bps a side; MOC orders assumed filled at the official close. The ES
+  hedge is held as ONE aggregate position: at each 16:00 print, the sum of beta x $4,000 over the open trades is rounded to
+  whole MES ($5 a point; 0 when under half a contract). Each change pays the house micro cost - 0.363 pt x $5 + $1.00
+  commission per round trip, half a side. The cell's daily P&L uses that rounded hedge. Each trade's exact fractional hedge is
+  kept for trade-level statistics only (the best 1% of trades, the top contributors), and the gap between the two hedges is
+  reported. Borrow is nil (long only). Standalone bars decide; A2 is a report at the volatility c; Stage B = the leg's veto on
+  the shared day; a pass -> RUNBOARD research row + a written forward shadow; zero passes = dead, and the next family comes
+  from a new mechanism.
+
+PRE-DATA ADDENDUM 2 (2026-10-05, before any DIVRUN number): the owner's standing order addendum 2 (MANAGER #74) folded:
+- [X1] THE BOOK-ADD REPORT IS INCREMENTAL OVER THE RESMOM LINE (owner standing order addendum 2, 10-05 12:45 MST, via MANAGER
+  #74). RES's registered WF daily P&L is read from C:\EdgeLog\_anatomy_cache\rocfrontier\resmom_r1\resmom_cells_daily_wf.csv
+  (sha256 bed7bf8b98d201894471cd3e72bd146bb87260c6cc8d1ac54b8167f923d41819, written by r17_resmom_export.py from Stage A's
+  reading; refused if different). The REFERENCE book is #463 + 0.264 x RES (WF ROC @ $30k 120.82, Sortino 3.916, worst drawdown
+  $36,526). A2 reports the reference + c x the cell against the reference (c by the registered volatility rule; 0.5c and 2c);
+  an incremental pass = both figures above the reference's. MANAGER #70's gate, if A2 passes, uses the REFERENCE book's
+  drawdown days (MDL r1's episode rule applied to the reference) for the cell's DO and for its null. The plain #463 + c x cell
+  book is a reported row.
+- [X2] DEEPER DIAGNOSTICS (the same addendum: 'a 7-at-$30k result must teach something'). Every cell also prints: the cost
+  curve at 0 / 5 / 10 / 20 bps a side; a row per July-June year; the regime halves 2016-07 .. 2021-12 and 2022-01 .. 2025-06; a
+  row per drawdown episode of the reference book (the cell's P&L inside it); the event-time path ([V4]); the stock leg and the
+  ES hedge leg apart; the X-rule, NO-X and P+10 exits side by side on every one of these rows. None of these is a pass route.
