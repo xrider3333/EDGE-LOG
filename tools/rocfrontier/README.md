@@ -38,6 +38,8 @@ read and can run any time.
 - `PREREG_XGAP_R1.txt` - XGAP r1 (2026-10-05, MANAGER-reviewed GO WITH EDITS, folded; TV second reviewer): the firm-specific overnight gaps of Nasdaq-100 members faded 09:35 -> close, dollar-neutral; needs Alpaca's corporate-actions calendar (MANAGER's pull) before Stage A; sibling of DDW r1's L2. Harness `r16_xgap.py` (capull = MANAGER's pull: NDX and --names/--tag wide). DEAD at Stage A 2026-10-05 (ledger 2.63): no drift after 09:35 either way - the loss is the cost.
 
 DD-WEEK r1 OVERNIGHT (TV's prereg `docs/DDWEEK_OVERNIGHT_R1.md` + this lane's pre-data addendum 2; harness `tools/ddw1_overnight.py`, TV's adapted): DEAD at Stage A 2026-10-05 (ledger 2.64) - the overnight drift after a sell-off is small and does not earn in #463's drawdown weeks.
+
+RESMOM r1 (`PREREG_RESMOM_R1.txt` + pre-data addenda 1-3, harness `r17_resmom.py`): DEAD at Stage A 2026-10-05 as a standalone leg (ledger 2.73; ROC 7.1 / 7.6 vs 15); its registered book-add report passes (#463 WF 120.8 / 116.4) - a forward BOOK shadow line is MANAGER's call.
 - `IDEAS_R4.md` — round 4 (2026-09-28): ten new-family ideas vs BOOK #463; three triaged, all dead (ledger 2.33).
 - `r4_book463.py` — BOOK #463's daily leg P&L (at close + valued daily), reproduces the frontier lane's 60.34 / 164.76 exactly.
 - `r4_triage.py` + `PREREG_WKND_FOMCWK_R1.txt` — WKND (weekend gap) and FOMCWK (FOMC-cycle weeks) Stage A, pre-lockbox only.
