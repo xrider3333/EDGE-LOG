@@ -853,7 +853,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1026';
+const VERSION='73.1027';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -871,7 +871,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1025',date:'2026-10-05',notes:['PAPER (NT8 FUTURES): the board moves onto the shared LEDGER hero and range pills, like REAL - BOOK #463 label, the big number, the today line, the range line and the status and warning chips on the right. One pill row (TODAY 1W 1M 3M YTD ALL, counted back from today) now drives the number, chart, stats, calendar, trade list and every strategy row together; the 1W / 1M / All tabs and the Today / All time switch are gone. ?oldboards=1 shows the previous layout for one version.']},
+const CHANGELOG=[{v:'73.1027',date:'2026-10-05',notes:['PAPER (NT8 FUTURES): money colours now follow the theme like REAL and WEBULL (green turns white, red turns grey under MONO), and every money cell carries a direction marker - an arrow and a plus or minus sign on the big cells, a sign on the small ones. Max drawdown now prints as a positive dollar figure, the way REAL prints it.']},
+{v:'73.1025',date:'2026-10-05',notes:['PAPER (NT8 FUTURES): the board moves onto the shared LEDGER hero and range pills, like REAL - BOOK #463 label, the big number, the today line, the range line and the status and warning chips on the right. One pill row (TODAY 1W 1M 3M YTD ALL, counted back from today) now drives the number, chart, stats, calendar, trade list and every strategy row together; the 1W / 1M / All tabs and the Today / All time switch are gone. ?oldboards=1 shows the previous layout for one version.']},
 {v:'73.1022',date:'2026-10-05',notes:['PAPER: the nightly run tells the strategy research lane when a forward shadow reaches 50, 100 and so on closed trades.']},
 {v:'73.1021',date:'2026-10-05',notes:['POINTS: the four 200 points now read a simple 200 average (SMA) by default. An SMA | EMA switch in the POINTS box (trade panel and chart window) flips every score to the 200 EMA and back, and your choice is remembered.','EL charts draw the matching 200 line in blue on every bar size, so you can see what the signal candle was checked against.']},
 {v:'73.1016',date:'2026-10-04',notes:['PAPER review: the daily review lists trades by the day they close, matching the board, and marks which ones count toward the day.']},
@@ -38814,7 +38815,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // #f0f0f0 / #4d4d4d on the monochrome theme -- i.e. no colour, and the loss shade is
       // nearly invisible on the dark ground. The owner asked for green/red on the money
       // column specifically, so this is one of the few deliberate theme overrides.
-      const PNL_POS='#1d9e75', PNL_NEG='#e24b4a';
+      // CHANGED 2026-10-05 (LEDGER owner decision 8): money now FOLLOWS THE THEME like REAL and WEBULL - green turns
+      // white and red turns grey under MONO - so every money cell also carries a direction marker that needs no colour:
+      // _dm = arrow + sign (headline cells, the shared ledgerTodayHtml look), _sg = sign only (dense cells).
+      // Status dots and engine chips keep their own literal hex: they are state, not money.
+      const PNL_POS='var(--green)', PNL_NEG='var(--red)';
+      const _sg=v=>(v>=0?'+':'')+fmtUsd(v);
+      const _dm=v=>'<span aria-hidden="true" style="font-size:.78em">'+(v>=0?'\u25b2':'\u25bc')+'</span> '+_sg(v);
       // ── CROWN (owner ask 2026-08-26: "just put a crown icon to the left of whatever is
       // the champion config"). It marks the leg whose CONFIGURATION is the standing
       // champion of its family and nothing else -- not "is it doing well", not "is it in
@@ -39466,7 +39473,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +_rtd('<div style="font-weight:700;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;color:'+(dim?'var(--text5)':color)+'">'
                +_crownIc(name)+label+wBadge+orbBadge+noteBadge+bookBadge+'</div>'
                +'<div style="font-size:9.5px;color:var(--text5);margin-top:2px;white-space:nowrap">'+_subBits.join(' \u00b7 ')+'</div>','min-width:0;opacity:'+(dim?.55:1))
-          +_rtd((a.n?('<span class="p2num" style="font-size:18px;color:'+(a.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(a.net)+'</span>')
+          +_rtd((a.n?('<span class="p2num" style="font-size:18px;color:'+(a.net>=0?PNL_POS:PNL_NEG)+'">'+_dm(a.net)+'</span>')
                    :'<span style="color:var(--text5)">\u2014</span>')+_rollNote+_openNote,'text-align:right;white-space:nowrap;opacity:'+(dim?.55:1))
           +_rtd('<span class="p2sw'+(sel?' on':'')+'" role="switch" aria-checked="'+(sel?'true':'false')+'"></span>','width:1%;padding-right:14px')
           +'</tr>';
@@ -39578,7 +39585,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'<div style="display:flex;align-items:center;gap:8px"><span style="color:var(--text5);width:10px">'+(fold?(open?'\u25be':'\u25b8'):'')+'</span>'
         +'<span style="font-weight:700;font-size:11.5px">'+title+'</span>'
         +'<span style="font-size:9.5px;color:var(--text5)">'+sub+'</span>'
-        +'<span style="margin-left:auto;font-weight:700;font-size:13px;color:'+(net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(net)+'</span></div>'
+        +'<span style="margin-left:auto;white-space:nowrap;font-weight:700;font-size:13px;color:'+(net>=0?PNL_POS:PNL_NEG)+'">'+_dm(net)+'</span></div>'
         +'<div style="font-size:9px;color:var(--text5);margin:3px 0 0 18px;line-height:1.5">'+note+'</div></td></tr>';
       // BOOK group: the legs counted in the big number, at book weights, with the group total.
       const _bookGAgg=_bookDefs.filter(d=>_legShown(d.k)).map(d=>legAgg(d.k,PSCOPE));
@@ -39605,7 +39612,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<div style="display:flex;align-items:center;gap:8px"><span style="color:var(--text5);width:10px">'+(window._paperOtherOpen?'\u25be':'\u25b8')+'</span>'
           +'<span style="font-weight:700;font-size:11.5px">Other / shadow</span>'
           +'<span style="font-size:9.5px;color:var(--text5)">'+_otherKeys.length+' strategies \u00b7 '+_otherN+' trades</span>'
-          +'<span style="margin-left:auto;font-weight:700;font-size:13px;color:'+(_otherNet>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_otherNet)+'</span></div>'
+          +'<span style="margin-left:auto;white-space:nowrap;font-weight:700;font-size:13px;color:'+(_otherNet>=0?PNL_POS:PNL_NEG)+'">'+_dm(_otherNet)+'</span></div>'
           +'<div style="font-size:9px;color:var(--text5);margin:3px 0 0 18px;line-height:1.5">NOT COUNTED in the big number, the curve, the stats or the calendar. Switch a strategy on to list its trades in the trades table.</div>'
           +'</td></tr>'
         +(window._paperOtherOpen?_otherKeys.map(k=>legTile(k,_legLabel[k],'#8a8a8a')).join(''):'')):'';
@@ -39730,7 +39737,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                     :(ds+' \u00b7 no paper trades');
           return '<div'+(c?' data-pcalday="'+ds+'"':'')+' title="'+tip+'" style="text-align:center;padding:3px 2px;background:'+bg+';border:'+bd+';border-radius:4px;min-height:38px;display:flex;flex-direction:column;justify-content:center;'+(c?'cursor:pointer':'')+'">'
             +'<div style="font-family:\'Bebas Neue\',monospace;font-size:11px;color:'+(isToday?'var(--yellow)':c?dc:'var(--text5)')+'">'+day+'</div>'
-            +(c?'<div style="font-family:\'Bebas Neue\',monospace;font-size:10px;margin-top:1px;color:'+dc+'">'+fmtUsd(Math.round(c.pnl))+'</div>':'')
+            +(c?'<div style="font-family:\'Bebas Neue\',monospace;font-size:10px;margin-top:1px;color:'+dc+'">'+_sg(Math.round(c.pnl))+'</div>':'')
             +'</div>';
         };
         for(let w=0;w<_slots.length;w+=7){
@@ -39751,7 +39758,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +' \u00b7 '+Math.round(wW/wN*100)+'% won \u00b7 week total '+fmtUsd(Math.round(wPnl));
           cells+='<div title="'+wtip+'" style="text-align:center;padding:3px 2px;min-height:38px;display:flex;flex-direction:column;justify-content:center;border-left:1px solid var(--border);border-radius:4px;background:color-mix(in srgb,'+wc+' 10%,transparent)">'
             +'<div style="font-size:8px;color:var(--text5);letter-spacing:.5px">WK</div>'
-            +'<div style="font-family:\'Bebas Neue\',monospace;font-size:11px;margin-top:1px;color:'+wc+'">'+fmtUsd(Math.round(wPnl))+'</div>'
+            +'<div style="font-family:\'Bebas Neue\',monospace;font-size:11px;margin-top:1px;color:'+wc+'">'+_sg(Math.round(wPnl))+'</div>'
             +'</div>';
         }
         const nav=(dir,lbl,dis)=>'<span'+(dis?'':' data-pcalmo="'+dir+'"')+' style="'+(dis?'opacity:.25;':'cursor:pointer;')
@@ -39759,7 +39766,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;flex-wrap:wrap">'
           +'<span class="lbl" style="margin:0">'+first.toLocaleString('en',{month:'long'})+' '+cy+'</span>'
           +nav('-1','\u25c0',atFirst)+nav('1','\u25b6',atLast)
-          +'<span style="margin-left:auto;font-size:9px;color:'+(moPnl>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(Math.round(moPnl))
+          +'<span style="margin-left:auto;font-size:9px;color:'+(moPnl>=0?PNL_POS:PNL_NEG)+'">'+_sg(Math.round(moPnl))
           +'<span style="color:var(--text5)"> \u00b7 '+moN+' trade'+(moN===1?'':'s')+(moN?' \u00b7 '+Math.round(moW/moN*100)+'% won':'')+'</span></span></div>'
           +'<div style="display:grid;grid-template-columns:repeat(7,1fr) 1.15fr;gap:2px">'+cells+'</div>'
           +'<div style="margin-top:7px;font-size:8px;color:var(--text5)">Each square is one day of paper trading, coloured by that day\u2019s money. It follows the same strategies the curve shows. Click a day to select its trades in the table below.</div>';
@@ -39875,7 +39882,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const worst=dv.length?dv.reduce((a,b)=>b[1]<a[1]?b:a):null;
         const upDays=dv.filter(x=>x[1]>0).length;
         let pk=0,mdd=0;_rhTotal.forEach(v=>{pk=Math.max(pk,v);mdd=Math.min(mdd,v-pk);});
-        const money=v=>v==null?'\u2014':('<span style="color:'+(v>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(v)+'</span>');
+        const money=v=>v==null?'\u2014':('<span style="color:'+(v>=0?PNL_POS:PNL_NEG)+'">'+_sg(v)+'</span>');
         const dshort=d=>{try{return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}catch(e){return d;}};
         const cell=(lbl,val,sub,tip)=>'<div class="p2rhstat" title="'+String(tip||'').replace(/"/g,'&quot;')+'">'
           +'<div class="p2rhsl">'+lbl+'</div><div class="p2rhsv">'+val+'</div><div class="p2rhss">'+(sub||'&nbsp;')+'</div></div>';
@@ -39888,7 +39895,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +cell('Avg loss',money(avg(losses)),'','Average dollars on a losing trade.')
           +cell('Best day',best?money(best[1]):'\u2014',best?dshort(best[0]):'','The single best day in this range.')
           +cell('Worst day',worst?money(worst[1]):'\u2014',worst?dshort(worst[0]):'','The single worst day in this range.')
-          +cell('Max drawdown',money(mdd),'from the prior high','Deepest fall of the bold line below its previous high, measured day by day.')
+          +cell('Max drawdown',_hmMoney(Math.abs(mdd)),'from the prior high','Deepest fall of the bold line below its previous high, measured day by day.')
           +cell('Green days',dv.length?(upDays+' / '+dv.length):'\u2014',dv.length?(Math.round(upDays/dv.length*100)+'% of days'):'','Days that finished with money made, out of days that traded.')
           +'</div>';
       })();
@@ -39966,7 +39973,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           '<div style="display:flex;gap:20px;flex-wrap:wrap;font-size:9px;color:var(--text4)">'
           +'<div><b style="color:var(--text2);font-size:16px">'+_liveTotalFills+'</b><br>total fills</div>'
           +'<div><b style="color:var(--text2);font-size:16px">'+_liveDaysWithFills+'</b><br>days with fills</div>'
-          +'<div><b style="color:'+(_liveCumNet>=0?'var(--green)':'var(--red)')+';font-size:16px">'+fmtUsd(_liveCumNet)+'</b><br>cumulative net $</div>'
+          +'<div><b style="color:'+(_liveCumNet>=0?'var(--green)':'var(--red)')+';font-size:16px">'+_sg(_liveCumNet)+'</b><br>cumulative net $</div>'
           +'<div><b style="color:var(--text2);font-size:16px">'+_fmtMs(_liveLastMs)+'</b><br>last fill</div>'
           +'</div>'
           +(_liveWarnings.length?'<div style="margin-top:10px;font-size:10px;color:var(--yellow)">⚠ '+_liveWarnings.join(' · ').replace(/</g,'&lt;')+'</div>':'')
@@ -40193,7 +40200,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           let _lbl=_dsRow;try{_lbl=new Date(_dsRow+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}).replace(', ',' \u00b7 ');}catch(e){}
           // The day is the day the trade CLOSED. Trades still open sit under their own header: their money is an unrealised mark and is in no day yet.
           _dayHdr='<tr class="p2day"><td colspan="11"><span style="display:flex;align-items:baseline;justify-content:space-between"><span>'+(_dsRow?('closed \u00b7 '+_lbl+' <span style="letter-spacing:0;text-transform:none;font-weight:400">'+_dsRow+'</span>'):'open now \u00b7 not counted on any day yet')+'</span>'
-            +'<span class="p2num" style="font-size:15px;letter-spacing:.4px;color:'+(_dt.pnl>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_dt.pnl)+' <span style="font-family:inherit;font-size:9px;color:var(--text5)">\u00b7 '+_dt.n+' trade'+(_dt.n===1?'':'s')+(_dsRow?'':' \u00b7 unrealised')+'</span></span></span></td></tr>';
+            +'<span class="p2num" style="font-size:15px;letter-spacing:.4px;color:'+(_dt.pnl>=0?PNL_POS:PNL_NEG)+'">'+_dm(_dt.pnl)+' <span style="font-family:inherit;font-size:9px;color:var(--text5)">\u00b7 '+_dt.n+' trade'+(_dt.n===1?'':'s')+(_dsRow?'':' \u00b7 unrealised')+'</span></span></span></td></tr>';
         }
         const _sideTxt=(_sideOf(t.side)||'\u2014').toUpperCase();
         return _dayHdr+'<tr data-ptrow="P'+_ci+'" data-pcd="'+(_closeDay(t)||'')+'"'+(_selNow?' class="ptsel"':'')+'>'
@@ -40211,8 +40218,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                  +(sl==null?'\u2014':(sl>0?'+':'')+sl.toFixed(2))+'</td>'
                  +'<td style="text-align:right;color:'+(dd==null?'var(--text5)':(dd>=0?PNL_POS:PNL_NEG))+'" title="live P and L minus engine P and L on this matched trade">'
                  +(dd==null?'\u2014':fmtUsd(dd))+'</td>';})()
-          +'<td style="text-align:right;white-space:nowrap"'+(t.open===true?' title="UNREALISED mark at the last bar seen - the trade is still open, so this is in no day and no total until it closes"':'')+'><span class="p2num" style="font-size:17px;color:'+(pnl>=0?PNL_POS:PNL_NEG)+(t.open===true?';opacity:.55;font-style:italic':'')+'">'+fmtUsd(pnl)+'</span>'+(t.open===true?' <span style="font-size:8px;color:var(--text4)">unrealised</span>':'')+'</td>'
-          +(()=>{const c=_cumById.get(t);return '<td style="text-align:right;color:'+((c||0)>=0?PNL_POS:PNL_NEG)+';opacity:.7" title="running total of the rows currently shown, in date order">'+(c==null?'\u2014':fmtUsd(c))+'</td>';})()
+          +'<td style="text-align:right;white-space:nowrap"'+(t.open===true?' title="UNREALISED mark at the last bar seen - the trade is still open, so this is in no day and no total until it closes"':'')+'><span class="p2num" style="font-size:17px;color:'+(pnl>=0?PNL_POS:PNL_NEG)+(t.open===true?';opacity:.55;font-style:italic':'')+'">'+_dm(pnl)+'</span>'+(t.open===true?' <span style="font-size:8px;color:var(--text4)">unrealised</span>':'')+'</td>'
+          +(()=>{const c=_cumById.get(t);return '<td style="text-align:right;color:'+((c||0)>=0?PNL_POS:PNL_NEG)+';opacity:.7" title="running total of the rows currently shown, in date order">'+(c==null?'\u2014':_sg(c))+'</td>';})()
           +_engineCell(t).replace('<td ','<td data-pc="eng" ')
           +_chartCell+'</tr>';
       }).join('');
@@ -40515,7 +40522,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         };
         const _num=(v,suffix)=>v==null?'<span style="color:var(--text5)">—</span>':(v+(suffix||''));
         const _usd=v=>v==null?'<span style="color:var(--text5)">—</span>'
-          :'<span style="color:'+(v>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(v)+'</span>';
+          :'<span style="color:'+(v>=0?'var(--green)':'var(--red)')+'">'+_sg(v)+'</span>';
         const legKeys=LEGS_VIS.map(d=>d.k).filter(_legRecon);
         let mRows='',mHead='',mNote='';
         if(MSCOPE==='TODAY'){

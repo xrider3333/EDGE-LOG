@@ -45,6 +45,8 @@ WHAT IT ASSERTS
     it; ONE pill row TODAY 1W 1M 3M YTD ALL (counted back from today) replaces the old 1W / 1M / All tabs and the
     Today / All time switch, and every pill moves the big number, the bold line, the stats, the calendar, the
     trade list and the strategy rows together; ALL is the old all-time figure
+  * money colours FOLLOW THE THEME (owner decision 8, 2026-10-05): no fixed green / red hex on a money cell, and
+    every headline money cell carries an arrow and a sign, every dense one a sign
   * BOOK (owner 2026-10-04): the big number is the BOOK #463 figure - exactly the legs of api/paper.py _BOOK at
     their weights (TTM x3), read from the source, never a list kept here - and equals the BOOK group total
     equals the end of the bold line; "Forward tests & controls" and "Other / shadow" carry labelled subtotals
@@ -262,7 +264,7 @@ var CASES=__CASES__, FIX=__FIX__;
             var t=(chips[c].textContent||'').trim();
             if(t.indexOf('NT')!==0)continue;
             var col=(chips[c].getAttribute('style')||'');
-            if(col.indexOf('e24b4a')>=0&&t.indexOf('\\u2717')>0)r.redNoNt.push(legTxt);
+            if((col.indexOf('e24b4a')>=0||col.indexOf('var(--red)')>=0)&&t.indexOf('\\u2717')>0)r.redNoNt.push(legTxt);
           }
         }
         // ---- crowns actually drawn, by leg key, in the LEGS table
@@ -293,6 +295,11 @@ var CASES=__CASES__, FIX=__FIX__;
         r.rowDays=[].map.call(d.querySelectorAll('#ptrades-body tr[data-ptrow]'),function(x){return x.getAttribute('data-pcd');});
         r.calDays=[].map.call(d.querySelectorAll('[data-pcalday]'),function(x){return x.getAttribute('data-pcalday');});
         var _sv=d.querySelector('.p2rhstat .p2rhsv');r.statTrades=_sv?parseInt(_sv.textContent,10):null;
+        r.moneyHex=[].filter.call(d.querySelectorAll('#ptrades-body span.p2num, #p2legs span.p2num, .p2rhstat .p2rhsv span, [data-pcalday] div, tr[data-p2bookhd] span, tr[data-p2fwdhd] span, tr[data-p2otherhd] span'),function(x){return /#1d9e75|#e24b4a/i.test(x.getAttribute('style')||'');}).length;
+        r.moneyMarks=[].map.call(d.querySelectorAll('#ptrades-body span.p2num, #p2legs span.p2num'),function(x){return x.innerText.trim();});
+        r.calMarks=[].map.call(d.querySelectorAll('[data-pcalday] > div:last-child'),function(x){return x.innerText.trim();});
+        r.grpMarks=[].map.call(d.querySelectorAll('tr[data-p2bookhd] span:last-child, tr[data-p2fwdhd] > td > div > span:last-child, tr[data-p2otherhd] > td > div > span:last-child'),function(x){return x.innerText.trim();}).filter(function(x){return x.indexOf('$')>=0;});
+        r.maxDD=(function(){var o=null;[].forEach.call(d.querySelectorAll('.p2rhstat'),function(x){var l=x.querySelector('.p2rhsl');if(l&&/max drawdown/i.test(l.textContent))o=(x.querySelector('.p2rhsv')||{}).innerText||'';});return o;})();
         r.rowNets=[].map.call(d.querySelectorAll('tr[data-paperleg]'),function(x){return x.getAttribute('data-paperleg')+'|'+_num(x.innerText);});
         try{var _sc=w._p2Scrub;r.boldEnd=(_sc&&_sc.total&&_sc.total.length)?_sc.total[_sc.total.length-1]:null;}catch(_e3){r.boldEnd=null;}
         var _ls=d.querySelector('[data-p2listed]');
@@ -715,6 +722,29 @@ def main():
     r = cases.get('paper2') or {}
     if not (r.get('hero') or {}).get('warnInChips'):
         fails.append('paper2: the warning chips are not inside the hero chip row')
+
+    # money colours follow the theme and carry a marker that needs no colour
+    import re as _re
+    for nm in ('paper2', 'other-open', 'other-on', 'range-1m'):
+        r = cases.get(nm) or {}
+        if r.get('moneyHex'):
+            fails.append('%s: %d money cell(s) still use a fixed green / red hex instead of the theme colours' % (nm, r['moneyHex']))
+        bad = [x for x in (r.get('moneyMarks') or []) if x and not _re.match(r'^[\u25b2\u25bc] [+-]\$', x) and x != '\u2014']
+        if bad:
+            fails.append('%s: money cells without an arrow and a sign: %s' % (nm, bad[:3]))
+        bad = [x for x in (r.get('calMarks') or []) if not _re.match(r'^[+-]\$', x)]
+        if bad:
+            fails.append('%s: calendar money without a sign: %s' % (nm, bad[:3]))
+        bad = [x for x in (r.get('grpMarks') or []) if not _re.search(r'[\u25b2\u25bc] [+-]\$', x)]
+        if bad:
+            fails.append('%s: group totals without an arrow and a sign: %s' % (nm, bad[:3]))
+    # Max drawdown prints POSITIVE, the way REAL prints it ($1,234.56, no minus sign)
+    for nm in ('paper2', 'range-1m', 'range-1w', 'other-on'):
+        v = (cases.get(nm) or {}).get('maxDD')
+        if v is None or not _re.match(r'^\$[0-9,]+(\.[0-9]{2})?$', v.strip()):
+            fails.append('%s: Max drawdown reads %r, expected a positive dollar figure like REAL' % (nm, v))
+    if not ((cases.get('paper2') or {}).get('moneyMarks')):
+        fails.append('paper2: the colour check found no money cells to read')
 
     # warnings reach the hero while their card is closed
     r = cases.get('warn-stale-bridge') or {}
