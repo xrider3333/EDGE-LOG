@@ -1190,6 +1190,33 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10ab. Q19 (scoping item A2): the yardstick every monthly stock-basket seat is now scored on - #463 + 0.264 x RESMOM (2026-10-05)
+
+**What.** Construction, not a test (`docs/PREREG_frontier_a2yardstick_2026-10-05.txt` + addenda 1-2, MANAGER #85; harness
+`C:\EdgeLog\_anatomy_cache\bookq\q19_a2.py`; output `C:\EdgeLog\_anatomy_cache\q19\`). STRATEGY-BEATING's RESMOM r1 daily file
+(read-only, sha256 bed7bf8b...) reproduces #463 to the cent, the line #463 + 0.264 x RES reads 120.82 / 3.916, and RES earns $105,919
+over #463's 460 drawdown days. Addendum 2: the drawdown days are the HOUSE rule (peak-to-trough episodes at least a third as deep as the
+deepest, the day after the peak through the trough - 28 episodes, 460 days); the first run used Q9-Q15's "more than $15,000 below the
+peak" rule and stopped at parity (314 days).
+
+**The line, walk-forward.** ROC at $30k 120.8 (93.8), Sortino 3.916 (3.816), worst drawdown $36,526 ($44,849), net $147,105 a year
+($140,235). The gain is mostly the smaller worst drawdown, and most of that is March 2020 (RESMOM +$8,323 inside it). The line now has
+two near-equal worst episodes: March 2020 ($36,526) and 20 May - 20 June 2025 ($36,270, where RESMOM adds only $2,124).
+
+**What RESMOM answers.** At its seat size it is positive in 18 of #463's 28 episodes but covers $27,963 of the $662,685 the book loses on
+those days (4%). The episodes it leaves almost untouched are ENGU-Q and ORB give-backs: 2025 May-June, 2022 June, 2022 late April,
+2025 April, 2024 March.
+
+**The residual drawdown days R** (the line's own episodes by the same house rule, threshold $12,175): 45 episodes, 762 days. On R the line
+moves with ENGU-Q (correlation 0.68), ORB (0.58) and NOISE (0.49); TTM (0.23) and RES (0.22) much less. ENGU-Q is the largest loser in
+most of them. **That is the target for the next seat:** a monthly basket that earns on R - above the random-name null, without its best
+episode, and not just more RESMOM (its correlation to RES printed).
+
+**Definitions fixed for every basket-seat prereg** (cite this section): reference line L = #463 + 0.264 x RES; seat X sized by volatility
+(X's daily SD over 2016-07-01..2018-06-29 = 25% of L's); incremental report L + c_X x X vs L on ROC at $30k and Sortino (report only);
+incremental earner reading = X's dollars on R > 0, also without its best R episode, and above the random-name null's 95th percentile;
+corr(X, RES) on all days and on R.
+
 ### 10aa. OWNER DECISIONS 2026-10-05: the lockbox rule, the six forward lines, the NOISE size
 
 The owner, 12:40 MST via MANAGER (#81): "I will take your recommendations", read from the adoption page (https://claude.ai/artifact/62JrTFEnxCnfqZNXovfn8z), which
