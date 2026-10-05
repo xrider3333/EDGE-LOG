@@ -1,0 +1,15 @@
+[Unit]
+# Fires edgelog-freshness.service every 2 minutes, 24/7 (the PC is off most nights, so the
+# box is the only watcher then). Clock-aligned (OnCalendar, not OnUnitActiveSec) so the 08:30
+# and 09:15 ET pre-open slots and the 16:10 / 19:00 ET checks land on time. Persistent=false:
+# a missed pass is simply the next pass -- there is nothing to catch up.
+Description=Webull pipeline freshness monitor every 2 minutes
+
+[Timer]
+OnCalendar=*-*-* *:00/2:00
+AccuracySec=5s
+Persistent=false
+Unit=edgelog-freshness.service
+
+[Install]
+WantedBy=timers.target

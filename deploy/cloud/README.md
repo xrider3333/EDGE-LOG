@@ -382,6 +382,30 @@ at its source) shipped alongside this backstop. `copytruncate` is required (not 
 usual rename-and-reopen) because these services write through systemd's own held-open
 file handle, not one they reopen per line — see the template's own comments for detail.
 
+**Every log must belong to the box user, never root** (2026-10-05). logrotate rotates as
+the box user (`su` in the template), and systemd creates a *missing* `append:` log file as
+root — that is how `qqq_bars.log` broke logrotate every night from 10-02. `install.sh`
+now pre-creates and chowns every log, and `edgelog-qqq-bars.service` opens its log from a
+shell running as the user. If `systemctl --failed` ever lists `logrotate.service` again:
+`ls -l ~/edgelog/logs` for a root-owned file, `sudo chown ubuntu:ubuntu` it, then
+`sudo systemctl reset-failed logrotate.service && sudo systemctl start logrotate.service`.
+
+### Webull freshness monitor (2026-10-05)
+
+`edgelog-freshness.timer` runs `tools/webull_freshness.py` every 2 minutes, 24/7, as the
+box user. It reads local files only (no Firestore, no Webull) and pages ntfy once per
+problem plus once when it clears: executor publish down / blocking broker sends / tick
+loop dead, failed units, disk, NQ master and KEEL behind after 19:00 ET, the signal
+engine, bars and tick gaps in session, the EOD flatten and Webull-flat check from 16:10 ET,
+and a pre-open gate at 08:30 and 09:15 ET that pushes "QQQ book ready" or an URGENT list of
+what is missing. Its docstring lists every check. Its state, open alerts and outbox are in
+`~/edgelog/freshness/` (`status.json` is what the PC task "EdgeLog Webull freshness",
+`tools/webull_freshness_pc.py`, reads over ssh to relay alerts to the chat inboxes).
+`venv/bin/python tools/webull_freshness.py --dry-run` prints every verdict without pushing
+or writing anything. Its auto-restart of `edgelog-qqq-exec` is **off** until the owner
+writes `{"auto_restart_exec": true}` to `~/edgelog/freshness/config.json`; until then it
+only logs "would restart".
+
 ---
 
 ## ntfy alerts — moving to a private topic (WEBULL_GO_LIVE.md 1.10)

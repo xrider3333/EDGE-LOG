@@ -12,7 +12,8 @@
 #   4. create ~/edgelog/{ohlc,qqq_exec,logs,webull_token}
 #   5. write ~/edgelog/edgelog.env ONCE (fill in the CHANGE-ME lines yourself)
 #   6. install + enable the systemd units (edgelog-runner.service,
-#      edgelog-healthcheck.timer/.service, edgelog-keel-state.timer/.path/.service)
+#      edgelog-healthcheck.timer/.service, edgelog-keel-state.timer/.path/.service,
+#      edgelog-freshness.timer/.service)
 #   7. install /etc/logrotate.d/edgelog (daily, size-capped -- see
 #      deploy/cloud/edgelog.logrotate)
 #
@@ -74,7 +75,16 @@ echo "==> creating ${EDGELOG_HOME}/{ohlc,qqq_exec,logs,webull_token,webull_paper
 mkdir -p "${EDGELOG_HOME}/ohlc" "${EDGELOG_HOME}/qqq_exec" "${EDGELOG_HOME}/logs" \
          "${EDGELOG_HOME}/webull_token" "${EDGELOG_HOME}/webull_paper_token" \
          "${EDGELOG_HOME}/webull_orders"
-touch "${EDGELOG_HOME}/logs/runner.log" "${EDGELOG_HOME}/logs/qqq_exec.log"
+# Every log a unit appends to is created HERE, as ${RUN_USER} (finding #33, 2026-10-05): a
+# unit with StandardOutput=append: makes systemd create a missing file AS ROOT, and a
+# root-owned log makes logrotate (which rotates as ${RUN_USER}, see edgelog.logrotate) fail
+# with "Permission denied" every night. The chown repairs a box where that already happened;
+# it runs FIRST because `touch` on a root-owned file fails, and set -e would stop here. -h:
+# a symlink among the logs has the LINK chowned, never the file it points at.
+sudo chown -h "${RUN_USER}:${RUN_USER}" "${EDGELOG_HOME}"/logs/*.log 2>/dev/null || true
+for log in runner qqq_exec cloud_signal keel_state qqq_bars freshness; do
+  touch "${EDGELOG_HOME}/logs/${log}.log"
+done
 
 # 5. env file -- write once, never clobber an owner-edited file --------------------
 ENV_FILE="${EDGELOG_HOME}/edgelog.env"
@@ -134,7 +144,7 @@ fi
 # 6. systemd units ------------------------------------------------------------------
 echo "==> installing systemd units"
 UNIT_SRC="${REPO_DIR}/deploy/cloud"
-for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-cloud-signal.service edgelog-healthcheck.service edgelog-healthcheck.timer edgelog-keel-state.service edgelog-keel-state.timer edgelog-keel-state.path; do
+for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-cloud-signal.service edgelog-healthcheck.service edgelog-healthcheck.timer edgelog-keel-state.service edgelog-keel-state.timer edgelog-keel-state.path edgelog-freshness.service edgelog-freshness.timer; do
   sed \
     -e "s#__EDGELOG_USER__#${RUN_USER}#g" \
     -e "s#__EDGELOG_REPO__#${REPO_DIR}#g" \
@@ -152,6 +162,11 @@ sudo systemctl enable edgelog-qqq-exec.service edgelog-cloud-signal.service
 # rebuilds immediately whenever the NQ master itself changes (item E, 2026-09-25 --
 # closes the gap a late/overnight push left, see edgelog-keel-state.path's own comment).
 sudo systemctl enable edgelog-keel-state.timer edgelog-keel-state.path
+# Webull pipeline freshness monitor (2026-10-05): read-only checks every 2 minutes, 24/7,
+# paging ntfy once per episode -- see tools/webull_freshness.py. Its executor auto-restart is
+# OFF until the owner writes {"auto_restart_exec": true} to
+# ${EDGELOG_HOME}/freshness/config.json, so enabling it here restarts nothing.
+sudo systemctl enable edgelog-freshness.timer
 # The job runner does NOT run on this box (2026-09-21 -- api/runner.py refuses on
 # EDGELOG_HOST_ROLE=cloud; see _cloud_runner_refusal there for what went wrong when one
 # did). Its unit is still installed so the refusal is logged if anyone starts it, but it

@@ -13,11 +13,16 @@
 # and refuses unless the book is flat and outside its protected windows -- so run it after
 # the close with the book flat. The publisher itself never needs either service restarted.
 # To add the unit by hand after the owner's go and that deploy, with the placeholders
-# filled exactly as install.sh fills its own units:
+# filled exactly as install.sh fills its own units (the uid is read from install.sh, never
+# typed, and the render is refused if any placeholder is left):
+#   ALLOW_UID=$(sed -n 's/^ALLOW_UID="\(.*\)"$/\1/p' deploy/cloud/install.sh)
+#   test -n "$ALLOW_UID" || echo "NO UID - STOP"
 #   sed -e "s#__EDGELOG_USER__#ubuntu#g" -e "s#__EDGELOG_REPO__#$HOME/edgelog/EDGE-LOG#g" \
 #       -e "s#__EDGELOG_VENV__#$HOME/edgelog/venv#g" -e "s#__EDGELOG_HOME__#$HOME/edgelog#g" \
-#       -e "s#__EDGELOG_ALLOW_UID__#<uid>#g" deploy/cloud/edgelog-qqq-bars.service \
-#       | sudo tee /etc/systemd/system/edgelog-qqq-bars.service
+#       -e "s#__EDGELOG_ALLOW_UID__#${ALLOW_UID}#g" deploy/cloud/edgelog-qqq-bars.service \
+#       > /tmp/edgelog-qqq-bars.service
+#   grep -v '^#' /tmp/edgelog-qqq-bars.service | grep '__EDGELOG_\|<uid>' && echo "PLACEHOLDER LEFT - STOP"
+#   sudo cp /tmp/edgelog-qqq-bars.service /etc/systemd/system/edgelog-qqq-bars.service
 #   (same for edgelog-qqq-bars.timer), then: sudo systemctl daemon-reload &&
 #   sudo systemctl enable --now edgelog-qqq-bars.timer
 # One-off backfill from the book's start, run by hand once (dry run first). Days whose
@@ -25,7 +30,7 @@
 # ledger" and show "not on file" rather than "no Webull order"; a later rewrite keeps any
 # Webull rows the published copy already has. More than 40 days needs --yes-many.
 #   venv/bin/python tools/qqq_bars_publish.py --backfill 2026-09-03 --dry-run
-#   venv/bin/python tools/qqq_bars_publish.py --backfill 2026-09-03 --uid <uid> --cred serviceAccount.json
+#   venv/bin/python tools/qqq_bars_publish.py --backfill 2026-09-03 --uid "$ALLOW_UID" --cred serviceAccount.json
 Description=EDGE-LOG QQQ bars day docs for the Webull paper candle charts
 After=network-online.target
 Wants=network-online.target
@@ -37,8 +42,21 @@ WorkingDirectory=__EDGELOG_REPO__
 EnvironmentFile=__EDGELOG_HOME__/edgelog.env
 # --recent 2 = today (if it traded) + the previous trading day, which by the next run has
 # its last bar and is marked final (the browser then keeps it forever).
-ExecStart=__EDGELOG_VENV__/bin/python -u tools/qqq_bars_publish.py --recent 2 --uid __EDGELOG_ALLOW_UID__ --cred serviceAccount.json
+#
+# LOG OWNERSHIP (2026-10-05, finding #33 of WEBULL_SILENT_FAILURES.md): this unit used to say
+# StandardOutput=append:/StandardError=append:__EDGELOG_HOME__/logs/qqq_bars.log. systemd opens
+# such a file itself, AS ROOT, before dropping to User=, so the first run created qqq_bars.log
+# root-owned -- and logrotate (which rotates as __EDGELOG_USER__, see edgelog.logrotate's `su`
+# line, with copytruncate) then failed with "Permission denied" every night from 10-02, leaving
+# logrotate.service failed and the log-flood backstop off for every edgelog log. Now the shell
+# below opens the log as __EDGELOG_USER__ (the >> redirect runs after systemd dropped
+# privileges), so the file can never be created root-owned again. The ExecStartPre line ('+' =
+# run with full privileges) is a self-heal for a box that already has a root-owned copy: it
+# makes sure the file exists and belongs to __EDGELOG_USER__ before the main command appends.
+# It runs as root in a directory the box user can write, so it refuses a SYMLINK there (test ! -L:
+# the unit then fails, and the freshness monitor pages the failed unit) and chowns with -h, so a
+# link planted at that path can never redirect root's touch/chown to another file.
+ExecStartPre=+/bin/sh -c 'test ! -L __EDGELOG_HOME__/logs/qqq_bars.log && touch __EDGELOG_HOME__/logs/qqq_bars.log && chown -h __EDGELOG_USER__:__EDGELOG_USER__ __EDGELOG_HOME__/logs/qqq_bars.log'
+ExecStart=/bin/sh -c 'exec __EDGELOG_VENV__/bin/python -u tools/qqq_bars_publish.py --recent 2 --uid __EDGELOG_ALLOW_UID__ --cred serviceAccount.json >> __EDGELOG_HOME__/logs/qqq_bars.log 2>&1'
 TimeoutStartSec=300
 Nice=10
-StandardOutput=append:__EDGELOG_HOME__/logs/qqq_bars.log
-StandardError=append:__EDGELOG_HOME__/logs/qqq_bars.log

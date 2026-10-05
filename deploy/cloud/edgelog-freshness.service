@@ -1,0 +1,35 @@
+[Unit]
+# WEBULL PIPELINE FRESHNESS MONITOR (2026-10-05, after the Sat 17:11 ET -> Mon 09:13 ET wedge:
+# C:\EdgeLog\manager\webull_sweep_1005\WEBULL_SILENT_FAILURES.md). One pass of
+# tools/webull_freshness.py, fired every 2 minutes, 24/7, by edgelog-freshness.timer. It reads
+# local files only (the executor's and engine's state/heartbeats, bar caches, the NQ master,
+# KEEL summaries, the Webull token's expiry/status lines, systemctl --failed, disk use) and
+# pages ntfy through api/ntfy_push once per episode plus a recovery push, from a persisted
+# outbox. See the tool's docstring for every check and its window.
+#
+# Runs as the box user (no root): it never needs root for its checks. The ONE privileged act
+# it can take -- `sudo -n systemctl restart edgelog-qqq-exec` under the AUTO-RESTART rule -- is
+# OFF until the owner writes {"auto_restart_exec": true} into __EDGELOG_HOME__/freshness/
+# config.json; until then it only logs "would restart". The default Oracle Ubuntu image gives
+# the ubuntu user passwordless sudo (cloud-init's 90-cloud-init-users); `-n` makes a missing
+# rule fail fast instead of hanging.
+#
+# Logging: the tool appends its own __EDGELOG_HOME__/logs/freshness.log (opened by the tool, as
+# the service user) and echoes to the journal. Deliberately NO StandardOutput=append: here --
+# systemd opens such a file as root before dropping privileges, which is exactly how
+# qqq_bars.log ended up root-owned and broke logrotate every night (finding #33).
+Description=EDGE-LOG Webull pipeline freshness monitor (one pass)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__EDGELOG_USER__
+WorkingDirectory=__EDGELOG_REPO__
+EnvironmentFile=__EDGELOG_HOME__/edgelog.env
+ExecStart=__EDGELOG_VENV__/bin/python -u tools/webull_freshness.py
+# A pass reads a few small files and at most 5 ntfy POSTs (8 s timeout each; the outbox stops
+# at the first failure, sends at most 5 a run and is rewritten after each delivered push, so
+# even a kill at the limit re-sends nothing) -- 100 s is far past any healthy run.
+TimeoutStartSec=100
+Nice=5

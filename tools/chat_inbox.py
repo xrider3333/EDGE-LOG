@@ -65,6 +65,16 @@ def now():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
 
+def post(chat, text, frm):
+    """Append one open item to CHAT's inbox; returns its id. The `post` command, callable from
+    another tool (tools/webull_freshness_pc.py posts this way: no console, no subprocess)."""
+    items = load(chat)
+    nid = max([i["id"] for i in items] + [0]) + 1
+    items.append({"id": nid, "at": now(), "from": norm(frm), "text": str(text).strip(), "status": "open"})
+    save(chat, items)
+    return nid
+
+
 def show(chat, items, only_open=True):
     rows = [i for i in items if not (only_open and i.get("status") == "done")]
     if not rows:
@@ -86,10 +96,7 @@ def main():
     if a.cmd == "read":
         show(a.chat, load(a.chat), only_open=not a.all)
     elif a.cmd == "post":
-        items = load(a.chat)
-        nid = max([i["id"] for i in items] + [0]) + 1
-        items.append({"id": nid, "at": now(), "from": norm(a.frm), "text": a.text.strip(), "status": "open"})
-        save(a.chat, items)
+        nid = post(a.chat, a.text, a.frm)
         print(f"posted #{nid} to {norm(a.chat)}")
     elif a.cmd == "done":
         items = load(a.chat)

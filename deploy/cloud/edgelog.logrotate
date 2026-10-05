@@ -19,11 +19,17 @@
 # current content out, then truncates the SAME inode in place, so the already-open
 # handle keeps appending to it with no restart and no gap.
 #
-# su runs logrotate's own file access as the service user/group rather than root, to
-# match the ownership these append-mode log files already have (created by each
-# service's own `User=__EDGELOG_USER__`); this assumes that user's primary group
-# shares its name, true for the default Ubuntu user this installer already relies on
-# elsewhere (see install.sh's RUN_USER).
+# su runs logrotate's own file access as the service user/group rather than root; this
+# assumes that user's primary group shares its name, true for the default Ubuntu user this
+# installer already relies on elsewhere (see install.sh's RUN_USER).
+#
+# EVERY LOG HERE MUST THEREFORE BE OWNED BY __EDGELOG_USER__ (finding #33, 2026-10-05). A unit's
+# StandardOutput=append: file is opened by systemd itself, AS ROOT, so a log that did not exist
+# yet is created root-owned -- copytruncate then fails with "Permission denied" and
+# logrotate.service stays failed, which is what happened to qqq_bars.log from 10-02. Guarded
+# three ways: install.sh pre-creates (and chowns) every log, edgelog-qqq-bars.service now
+# opens its log from a shell running as the user, and the freshness monitor
+# (tools/webull_freshness.py) pages when `systemctl --failed` lists logrotate.service.
 __EDGELOG_HOME__/logs/*.log {
     daily
     rotate 14

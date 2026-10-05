@@ -118,3 +118,81 @@ def test_new_item_c_and_e_files_are_utf8_text_with_no_crlf_surprises():
         raw = open(os.path.join(CLOUD_DIR, fname), "rb").read()
         assert b"\x00" not in raw
         raw.decode("utf-8")   # must not raise
+
+
+# ── 2026-10-05: Webull freshness monitor units + the root-owned qqq_bars.log fix (#33) ───────
+def _active_lines(text):
+    return [ln.strip() for ln in text.splitlines() if ln.strip() and not ln.strip().startswith("#")]
+
+
+def test_freshness_service_runs_the_monitor_as_the_box_user_without_append_logs():
+    text = _read("edgelog-freshness.service")
+    lines = _active_lines(text)
+    assert "Type=oneshot" in lines
+    assert "User=__EDGELOG_USER__" in lines
+    assert "EnvironmentFile=__EDGELOG_HOME__/edgelog.env" in lines
+    assert any(ln.startswith("ExecStart=") and "tools/webull_freshness.py" in ln for ln in lines)
+    # the tool logs itself: systemd must not open (and root-own) a log file for it
+    assert not any(ln.startswith(("StandardOutput=append:", "StandardError=append:",
+                                  "StandardOutput=file:", "StandardError=file:"))
+                   for ln in lines)
+    # it must never restart anything on its own say-so: no Exec line names systemctl
+    assert not any("systemctl" in ln for ln in lines if ln.startswith("Exec"))
+
+
+def test_freshness_timer_every_two_minutes_around_the_clock():
+    lines = _active_lines(_read("edgelog-freshness.timer"))
+    assert "OnCalendar=*-*-* *:00/2:00" in lines
+    assert "Unit=edgelog-freshness.service" in lines
+    assert "WantedBy=timers.target" in lines
+    assert not any(ln.startswith("OnCalendar=") and "Mon..Fri" in ln for ln in lines)
+
+
+def test_freshness_units_are_installed_and_the_timer_enabled_by_install_sh():
+    sh = _install_sh()
+    units = re.search(r"for unit in ([^\n]+); do", sh).group(1).split()
+    assert "edgelog-freshness.service" in units and "edgelog-freshness.timer" in units
+    enable_lines = [ln for ln in sh.splitlines()
+                    if "systemctl enable" in ln and not ln.strip().startswith("#")]
+    assert any("edgelog-freshness.timer" in ln for ln in enable_lines)
+
+
+def test_qqq_bars_unit_never_lets_systemd_create_its_log_as_root():
+    """finding #33: StandardOutput=append: made systemd create qqq_bars.log as root, and
+    logrotate (su to the box user, copytruncate) then failed every night."""
+    lines = _active_lines(_read("edgelog-qqq-bars.service"))
+    assert not any(ln.startswith(("StandardOutput=append:", "StandardError=append:"))
+                   for ln in lines)
+    start = [ln for ln in lines if ln.startswith("ExecStart=")]
+    assert len(start) == 1
+    assert ">> __EDGELOG_HOME__/logs/qqq_bars.log 2>&1" in start[0]
+    assert "tools/qqq_bars_publish.py --recent 2" in start[0]
+    pre = [ln for ln in lines if ln.startswith("ExecStartPre=+")]
+    assert pre and "chown -h __EDGELOG_USER__:__EDGELOG_USER__ __EDGELOG_HOME__/logs/qqq_bars.log" in pre[0]
+    # runs as root in a user-writable dir: refuse a symlink before touch (which follows links)
+    assert pre[0].index("test ! -L __EDGELOG_HOME__/logs/qqq_bars.log &&") < pre[0].index("touch ")
+    # systemd expands $VAR / ${VAR} in Exec lines: the root command must not rely on any
+    assert "$" not in pre[0]
+
+
+def test_install_sh_precreates_and_chowns_every_appended_log():
+    """Every log a unit appends to (StandardOutput=append:<home>/logs/X.log) must be created
+    by install.sh as the run user, or systemd creates it root-owned and breaks logrotate."""
+    sh = _install_sh()
+    m = re.search(r"for log in ([^;\n]+); do", sh)
+    assert m, "install.sh must pre-create the log files"
+    precreated = set(m.group(1).split())
+    appended = set()
+    for fname in os.listdir(CLOUD_DIR):
+        if fname.endswith(".service"):
+            appended |= set(re.findall(r"append:__EDGELOG_HOME__/logs/([A-Za-z0-9_]+)\.log",
+                                       _read(fname)))
+    appended |= {"qqq_bars", "freshness"}
+    assert appended <= precreated, f"logs not pre-created: {appended - precreated}"
+    assert re.search(r'sudo chown -h "\$\{RUN_USER\}:\$\{RUN_USER\}" "\$\{EDGELOG_HOME\}"/logs/\*\.log', sh)
+
+
+def test_logrotate_still_rotates_as_the_box_user_with_copytruncate():
+    text = _read("edgelog.logrotate")
+    assert re.search(r"^\s*su __EDGELOG_USER__ __EDGELOG_USER__\s*$", text, re.MULTILINE)
+    assert re.search(r"^\s*copytruncate\s*$", text, re.MULTILINE)

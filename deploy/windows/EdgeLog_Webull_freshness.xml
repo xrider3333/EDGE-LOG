@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Scheduled task "EdgeLog Webull freshness" - the PC half of the Webull pipeline freshness
+  monitor (tools/webull_freshness_pc.py; the box half is deploy/cloud/edgelog-freshness.*).
+  Every 10 minutes while the owner is logged on, plus at logon and on resume from sleep.
+  Runs pythonw (no console window) as the logged-on user; never needs a stored password.
+  Allowed on battery and not stopped on battery: this is a laptop, and a monitor that only
+  runs on AC misses exactly the evenings it is for.
+
+  Principal and LogonTrigger are both pinned to the owner's account (xride, SID
+  S-1-5-21-2244472808-2525872006-826183432-1001), as the working "EdgeLog push NQ master to box"
+  task pins its Principal. Without a UserId a LogonTrigger means "at logon of ANY user", which
+  only an administrator may register, and an elevated registration would bind the task to the
+  elevating account. Pinned, the owner registers it from a normal (non-elevated) PowerShell;
+  if Windows still answers "Access is denied", run the same command from an elevated
+  PowerShell - the UserId keeps it running as xride either way.
+
+  First bring the main checkout (on main, clean apart from .claude/settings.json) up to the
+  merged sha, then confirm it has the files (pythonw exits silently, with no log line, if the
+  script is missing):
+    git -C "C:\Users\xride\OneDrive\Desktop\EDGE-LOG" -c pull.ff=only pull origin main
+  (pull.ff=only = fast-forward only; spelled this way because an XML comment may not hold a
+  double hyphen)
+    Test-Path "C:\Users\xride\OneDrive\Desktop\EDGE-LOG\tools\webull_freshness_pc.py"
+    git -C "C:\Users\xride\OneDrive\Desktop\EDGE-LOG" show -s HEAD
+  Register (PowerShell, as the owner, once):
+    Register-ScheduledTask -TaskName "EdgeLog Webull freshness" -Xml (Get-Content -Raw "C:\Users\xride\OneDrive\Desktop\EDGE-LOG\deploy\windows\EdgeLog_Webull_freshness.xml")
+  Check:   schtasks /Query /TN "EdgeLog Webull freshness" /V /FO LIST
+           (Next Run Time within 10 min; Run As User = xride)
+  Run now: schtasks /Run /TN "EdgeLog Webull freshness"; a minute later
+           (Get-Item C:\EdgeLog\freshness_pc\state.json).LastWriteTime must be just now
+  Remove:  schtasks /Delete /TN "EdgeLog Webull freshness" /F
+-->
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>EDGE-LOG Webull pipeline freshness monitor, PC side: reads the box monitor over read-only ssh and the PC's own push/pull/backup logs; posts new problems to the MANAGER and PAPER-WB chat inboxes once per episode.</Description>
+    <URI>\EdgeLog Webull freshness</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <TimeTrigger>
+      <Repetition>
+        <Interval>PT10M</Interval>
+        <StopAtDurationEnd>false</StopAtDurationEnd>
+      </Repetition>
+      <StartBoundary>2026-10-05T07:00:00</StartBoundary>
+      <Enabled>true</Enabled>
+    </TimeTrigger>
+    <LogonTrigger>
+      <Enabled>true</Enabled>
+      <UserId>S-1-5-21-2244472808-2525872006-826183432-1001</UserId>
+      <Delay>PT2M</Delay>
+    </LogonTrigger>
+    <EventTrigger>
+      <Enabled>true</Enabled>
+      <Delay>PT2M</Delay>
+      <Subscription>&lt;QueryList&gt;&lt;Query Id="0" Path="System"&gt;&lt;Select Path="System"&gt;*[System[Provider[@Name='Microsoft-Windows-Power-Troubleshooter'] and EventID=1]]&lt;/Select&gt;&lt;/Query&gt;&lt;/QueryList&gt;</Subscription>
+    </EventTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>S-1-5-21-2244472808-2525872006-826183432-1001</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT5M</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>C:\Users\xride\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\pythonw.exe</Command>
+      <Arguments>"C:\Users\xride\OneDrive\Desktop\EDGE-LOG\tools\webull_freshness_pc.py"</Arguments>
+      <WorkingDirectory>C:\Users\xride\OneDrive\Desktop\EDGE-LOG</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>
