@@ -1,0 +1,149 @@
+PRE-REGISTRATION - RESMOM r1: RESIDUAL (firm-specific) 12-1 month momentum in US stocks, monthly, dollar-neutral
+=====================================================================================================================
+DRAFT v2 2026-10-05 09:40 MST for MANAGER review (v1 09:00 + one pre-data fix, below), by the
+STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (owner standing order 10-05
+via MANAGER #49: a lane whose family is used up drafts NEW STRATEGY TYPES, queue of 3; this lane's stock families SIPORB, ATTN and
+DDW r1 died at Stage A on 2026-10-05). Written before any number of this family exists. Nothing runs until MANAGER's GO or the
+standing order's 60-minute rule (then Stage A walk-forward only, the review folded in as a dated addendum). Results:
+C:\EdgeLog\_anatomy_cache\rocfrontier\resmom_r1\ and RESEARCH_LEDGER.md.
+
+WHAT IS DIFFERENT (one line, as the standing order asks): single-stock FIRM-SPECIFIC momentum over months, rebalanced monthly -
+not ETF / sector / time-series momentum (ROTATION r1 0/16, SECTOR r1 momentum 2/24, TREND r1 1/4: all dead) and not the one-week
+reversal DDW r1's L1 tested (it skips the last month exactly to stay clear of that horizon).
+
+WHY NOW (house evidence first). Today's three stock deaths share one cause: the edges sat at 1-15 bps a trade and the trades came
+daily or weekly, so costs ate them (SIPORB under a cent a share; ATTN +7 bps a night under a 10 bps round trip; DDW L2's reversal
+under a 15 bps round trip; DDW L1 broke even at 10 bps a side). A MONTHLY strategy pays the round trip twelve times a year instead
+of fifty-two or 250; momentum's documented spread is hundreds of bps a year, not a handful a trade.
+
+THE MAP FIRST (MDL r1). A dollar-neutral stock basket should sit near zero correlation with #463's NQ / ES legs in its drawdown
+weeks; at that correlation a new leg lifts #463 half the time from about $15,000 a year at a $30,000 drawdown of its own
+(standalone ROC @ $30k ~ 15) and four times in five from about $30,000 (~ 30). Stage A's ROC line is the half-the-time line.
+Momentum crashes (sharp junk rallies: 2009, April 2020, November 2020, 2022-23) are where it could fall WITH the book - the
+realised beta and DO in #463's drawdown weeks are reported first.
+
+MECHANISM. Investors under-react to firm-specific news, so stock-specific returns drift for months (Jegadeesh & Titman 1993;
+Grundy & Martin 2001). Ranking on RESIDUAL returns - the part a market model does not explain - removes the time-varying market
+beta that makes plain momentum crash when the market turns (Daniel & Moskowitz 2016), and roughly doubles momentum's Sharpe
+ratio with smaller drawdowns (Blitz, Huij & Martens 2011, J. Empirical Finance; Gutierrez & Pirinsky 2007). Counter-evidence
+written in now: momentum has been weak in US large caps in parts of 2016-2025, and residual momentum's published edge is mostly
+pre-2010; this test is a fresh, costed, point-in-time read.
+
+DATA (no new pull, no money): the SIPORB cache C:\EdgeLog\alpaca_cache\siporb (Alpaca SIP daily bars raw + split-adjusted, active
+and inactive names, 2015-11 -> 2026-06; manifest sha256 380b05f2... on 2026-10-05, never mixed with a re-pull); ES 5-minute RTH
+masters for the market factor (daily return = roll-corrected 16:00 change / prior unadjusted 16:00 price; the two ES holes,
+2020-02-28 and 2020-06-30, are skipped like DDW r1's addendum 1). Data hygiene exactly as DDW r1 [T2] (registered split, gap scan,
+TBIS flags - dated t-5 .. t-1 when they need a full session's volume -, raw gaps beyond +-50% without a factor change); flags that
+fall inside the hold are a look-ahead removal and every result is ALSO reported with those positions kept at naive raw P&L.
+
+UNIVERSE (each rebalance, only information known before it): DDW r1's - prior raw close >= $10, the 500 largest by mean raw dollar
+volume over the previous 20 sessions (all present), mean volume >= 1,000,000 shares and ATR > $0.50 over the previous 14, no
+registered split in the previous 14 sessions - plus at least 230 split-safe daily returns in the 252-session window below.
+
+SIGNAL (at each month's last session close r). For every universe name: regress its split-safe daily returns on ES's over sessions
+r-251 .. r (at least 230 pairs, with an intercept) for its BETA; residual e_d = return - beta x ES return - the fitted alpha is
+NOT subtracted (v2 fix, found by the harness build before any number: over a window that contains the formation period, the
+OLS residuals sum to zero, so subtracting alpha would make the formation sum exactly minus the skipped month's - a one-month
+reversal, not momentum; Blitz et al. avoid it with a 36-month window that this cache, starting 2015-11, cannot hold without losing
+two of the nine WF years). FORMATION = sessions r-251 .. r-21 (12 months, skipping the last month); score = sum of e_d over the
+formation window / their standard deviation (the beta-neutral form of Blitz et al.'s standardised residual momentum).
+CELLS (the family: 2):
+- RES: long the 50 highest scores, short the 50 lowest.
+- RAW (the plain 12-1 twin): the same with the formation window's total split-safe return as the score.
+Both sides always 50 names, $4,000 each, fractional shares (dollar-exact, dollar-neutral). FILL at the NEXT session's official
+opening print (the print that makes the signal is never the fill); HOLD to the next rebalance's fill. Positions are valued at
+every close (house daily marks). No compounding.
+COSTS: 5 bps of notional a side (base); stress 10 and 20 bps. Borrow: 0.25%/yr on short notional (base); stress 1% and 3%/yr
+on sessions when ES's 20-day realised volatility is above 1.5x its one-year median (DDW r1's k_t > 1.5).
+
+NULL (family-aware): 500 draws, seed 20261005; at every rebalance each cell's longs and shorts are replaced by the same number of
+names drawn at random from that rebalance's eligible pool (same hygiene, sizing, fills, costs); statistic = the MAX over the 2
+cells of WF ROC @ $30k.
+
+#463: daily P&L from r11_risk.py's rule-U records; refused unless WF 93.81 / 3.816 (deepest $44,849) and LB 155.54 / 4.150
+reproduce; DO and rho_dd exactly as MDL r1 (r12_mdl.Stretch).
+
+STRETCHES: positions EXITED in WF 2016-07-01 -> 2025-06-29 (the first rank with a full 252-session window is 2016-12-30, filled
+2017-01-03, so WF holds 101 monthly rebalances - counted by the dryload); LB = 2025-06-30 -> 2026-06-30 inclusive, SEALED.
+Stock-data sealed year: this family joins
+the ONE sealed-year day of the stock families (PREREG_DDW_R1.txt [M5]; today only XGAP r1 is left in it) if MANAGER registers it
+before that day; its Stage B is the LEG's own veto and the book add on that year is reported, never a pass (MANAGER #48).
+
+STAGE A (WF, per cell; the standalone bars decide - MANAGER #56): (a) >= 60 monthly rebalances; (b) WF ROC @ $30k >= 15 and net >
+0 at 5 AND at 10 bps a side; (c) WF ROC above the null's 95th percentile; (d) positive in >= 6 of the 9 July-June WF years
+(2016-17 is short - it counts as a year); net > 0 without Feb 15 - Apr 30 2020 (RISK r1 check; the 2010-16 block does not exist
+for stock data - stated); (e) profitable without its best 1% of days AND without its best 1% of name-months; (f) BEFORE a pass is
+read, the 50 largest single-name contributors (symbol, dates, $) are audited by hand (split factor, TBIS volume test, asset
+list); a data event found removes that name-month from the cell AND the null and Stage A is computed again.
+A2 (WF, a REPORT - MANAGER #56): #463 + c x the cell, c set by volatility (the cell's daily std over 2017-01-03 .. 2018-12-31,
+its first two years, = 25% of #463's over the same days; 0.5c and 2c reported); an A2 pass (book ROC >= 98.5, Sortino >= 3.816)
+opens a forward BOOK shadow line beside the standalone one, nothing more.
+STAGE B (LB, once, on the stock families' one sealed-year day): the leg's veto - >= 10 monthly rebalances, net > 0, > 0 without
+its top name-month; the book add on that year is reported.
+STAGE C: a computed no-order forward shadow line, logged on the RUNBOARD by research id with ROC @ $30k and drawdown; any account
+is the owner's call.
+
+REPORTED, never a pass route: the realised beta to ES (#463's drawdown weeks first) and each cell's P&L inside every qualifying
+#463 drawdown; the MDL map point (standalone ROC, rho_dd, DO); RES vs RAW (the residual's claimed advantage: smaller crashes); long
+and short sides apart; the momentum-crash months (2020-04, 2020-11, 2022-01, 2023-01) named with their P&L; turnover per
+rebalance; the borrow stress rows; hygiene counts both ways; the 20 largest name-month gains.
+
+KNOWN WAYS IT COULD FOOL US: only ~8.5 WF years of momentum (one regime); momentum crashes; survivorship (Alpaca's inactive names
+only); borrow on the short losers (the stress rows; bans unpriced); missed splits inside a 12-month window (hygiene, the audit);
+the market factor is ES, not the stocks' own index; the cache is one photograph of the vendor.
+
+Zero passes = RESMOM r1 dead; momentum is not re-tuned (no other windows, no other N) - the next family comes from the next
+mechanism.
+
+PRE-DATA ADDENDUM 1 (2026-10-05, before any RESMOM number): MANAGER's review
+(C:\EdgeLog\manager\reviews\sb_resmom_r1_review_2026-10-05.md, GO WITH EDITS, walk-forward only, REGISTERED for the stock
+families' one sealed-year day as a leg veto), its edits 1-4 folded:
+- [R1] DIVIDENDS. Cash dividends from Alpaca's corporate-actions calendar are added back on their ex-dates - into the formation
+  returns (RAW's score), into the daily returns of the residual regression (RES's beta and residuals) and, by this lane's
+  choice, into the positions' P&L (a long receives, a short pays the dividend on the ex-date, per share held). The calendar is
+  the WIDE pull MANAGER runs for this lane and Custom ML (every cached stock above SIPORB's floor, 5,367 symbols, through the
+  same capull code with --names / --tag wide); Stage A waits for it, and its sha256 is pinned by a dated addendum before any
+  number. The calendar's splits are cross-checked against the registered split rule (counts by year). The no-dividend version of
+  both cells is a REPORTED row.
+- [R2] DELISTED SHORTS: each cell's short leg is also reported with a name that stops printing during the hold valued at zero
+  (the short's full gain - XSML's rule), beside the base (exit at its last close).
+- [R3] THE RESIDUAL'S CLAIM: a signed reported line - RES's P&L minus RAW's, summed over the four named crash months (2020-04,
+  2020-11, 2022-01, 2023-01) - and RES's and RAW's worst WF drawdowns side by side. If RES passes and RAW does not, that line is
+  the evidence the owner reads.
+- [R4] OVERLAP: Custom ML's XSML r1 cell A ranks weekly with 12-1 momentum among 18 inputs - a different horizon (weekly vs
+  monthly) on the same cache; if both run, the correlation of the two legs' daily P&L is reported, and if both pass the owner
+  hears ONE finding on momentum.
+
+PRE-DATA ADDENDUM 2 (2026-10-05, before any RESMOM number): MANAGER's GO on v2 (inbox #63, 10:04) - the same edits R1-R4; the A2
+window 2017-01-03 .. 2018-12-31 accepted; REGISTERED for the stock families' one sealed-year day as v2. Two lines it asked
+written in:
+- [S1] WHAT THE v2 SCORE IS. W = sessions r-251 .. r (252), F = r-251 .. r-21 (231, the formation), S = r-20 .. r (21, the
+  skipped month). The regression over W gives alpha a and beta b; its residuals u_d = r_d - a - b x ES_d sum to zero over W. The
+  v2 residual is e_d = r_d - b x ES_d = u_d + a, so the formation sum is EXACTLY sum_F e_d = 231 x a - sum_S u_d = sum_W e_d -
+  sum_S e_d: the stock's twelve-month return net of its market beta with the last month taken out (equivalently 231 x its daily
+  alpha minus the skipped month's residual). The score divides that sum by the standard deviation of e_d over F (the same as
+  u_d's, a being a constant). The harness proves the identity on synthetic data in its selftest.
+- [S2] IN-SAMPLE BETA (disclosed): b is fitted over W, which contains the formation months and the skipped month, so the beta
+  removed is fitted on the same returns that are ranked - not an out-of-sample beta (Blitz, Huij & Martens use 36 prior months,
+  which this cache cannot hold without losing two of the nine WF years). Every input is known at the rank close r, so it is not
+  look-ahead; what it changes is that the score is beta-neutral over W by construction. The held positions' realised beta to ES
+  is measured after the fill, out of sample, and reported (#463's drawdown weeks first).
+
+PRE-DATA ADDENDUM 3 (2026-10-05, before any RESMOM number): THE DIVIDEND CALENDAR ON FILE ([R1]). MANAGER ran the wide pull on
+2026-10-05 10:45 through its wrapper (r16_xgap.py capull --names --tag wide: 128 requests; 75,121 records -> 74,082 rows: 70,484
+cash dividends, 268 forward / 1,698 reverse / 241 unit splits, 68 stock dividends, 1,151 name changes, 172 spin-offs; names file
+= the 5,367 symbols, sha256 ab646462ffc0ee256f0272b7e5203efbe631d10f83b84d3fbda632430814852c). Pinned - this lane re-hashed both
+files: corporate_actions_wide.csv sha256 e5bc8487daf94a6124823bc24b6c382e9fd00237acbab81457fa42ef3b0d83a5,
+corporate_actions_wide_raw.jsonl sha256 2bc9f212bbc1f1021b3335e3d1724896d6ab9a55eb74608610a34422b0116acd. Stage A and B refuse
+any other file; a re-pull is a new photograph and a new addendum.
+- [D1] COVERAGE. The calendar starts 2016-06-01 (capull's fixed start, set for XGAP). RESMOM's first five ranks (2016-12-30,
+  2017-01-31, 2017-02-28, 2017-03-31, 2017-04-28) have 103, 83, 64, 41 and 22 of their 231 formation sessions before it; from
+  the 2017-05-31 rank on every window is covered, and every position's P&L (held from 2017-01-03) is covered. Dividends before
+  2016-06-01 count as zero in those five windows (the ex-date drop then reads as a price return, as in the no-dividend row);
+  Stage A is ALSO reported without those five rebalances (96 remain). If MANAGER fills the gap before any number (capull needs a
+  start option first), the fill is pinned by its own addendum and this fallback lapses.
+- [D2] SPIN-OFFS AND STOCK DIVIDENDS (the calendar names them; no credit is computed for the new shares). On a name's spin-off
+  or stock-dividend ex-date the price drops while the holder receives new shares - not a return, so: inside the regression /
+  formation window that session's return is left out for that name (like an ES-hole session; the 230-return rule still applies);
+  inside a hold it is a data event like a hygiene flag - the base removes that name-month from the cell AND the null, and every
+  result is also reported with it kept at naive price P&L. The counts (window, hold; long, short) are reported.
