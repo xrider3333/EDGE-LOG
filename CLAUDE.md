@@ -158,6 +158,10 @@ nobody clicks - so the durable channel is a file inbox per chat at `C:\EdgeLog\c
   - one self-contained item (what, where, evidence, what you need) - THEN also try SendMessage (faster
   when it gets through). Never rely on SendMessage alone.
 - `python tools/chat_inbox.py all` = every chat's open items; say "check the inboxes" to see them.
+- A name with no inbox file is REFUSED (lists the known chats, suggests the nearest - "ENGUQ" for "ENGUQQ"); a
+  genuinely new chat's first message is `post <NAME> --from <YOU> "..." --new`.
+- Short names are ALIASES of the live inbox (`ALIASES` in the tool): FRONTIER, STRATEGY-BEATING, NQBRD, CUSTOM-ML, ELWA,
+  ENGU-Q. They had grown stray files nobody read (2026-10-05); add a line there rather than creating a new short inbox.
 
 ## RUNBOARD watch list - edit COMPARE > RUNBOARD without a code ship (owner go via MANAGER 2026-09-26)
 MANAGER and the strategy chats add or track runs on the RUNBOARD's WATCH chip by writing ONE Firestore

@@ -104,7 +104,7 @@ def test_provisional_run_is_renumbered_and_its_job_repointed(monkeypatch):
     jobs = _Col({"jobA": {"run_id": 1788836275, "status": "done"}})
     q = _queue(runs, jobs)
     monkeypatch.setattr(q, "_next_run_id", lambda uid: 328)
-    monkeypatch.setattr(q, "_assign_family", lambda uid, strat: ("ENGUQ", 41))
+    monkeypatch.setattr(q, "_assign_family", lambda uid, strat, is_book=False: ("ENGUQ", 41))
 
     assert q.repair_provisional_run_ids(log=lambda *a: None) == 1
     assert "1788836275" not in runs.docs
@@ -132,7 +132,7 @@ def test_two_provisionals_are_renumbered_oldest_first(monkeypatch):
     q = _queue(runs, _Col())
     seq = iter([328, 329])
     monkeypatch.setattr(q, "_next_run_id", lambda uid: next(seq))
-    monkeypatch.setattr(q, "_assign_family", lambda uid, strat: (None, None))
+    monkeypatch.setattr(q, "_assign_family", lambda uid, strat, is_book=False: (None, None))
     assert q.repair_provisional_run_ids(log=lambda *a: None) == 2
     assert runs.docs["328"]["strategy"] == "A.py"
     assert runs.docs["329"]["strategy"] == "B.py"

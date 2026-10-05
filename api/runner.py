@@ -1441,12 +1441,17 @@ class FirestoreQueue:
         m = re.match(r"[A-Z][A-Z0-9]*", base)
         return m.group(0) if m else "MISC"
 
-    def _assign_family(self, uid, strategy):
+    def _assign_family(self, uid, strategy, is_book=False):
         """Next STABLE per-family number via a transaction on meta/familyCounters (concurrent-safe;
-        never renumbers, deleting a run leaves a gap). Returns (famKey, famSeq) or (None, None)."""
+        never renumbers, deleting a run leaves a gap). Returns (famKey, famSeq) or (None, None).
+
+        is_book: a BOOK job is BOOK whatever its title says. Found 2026-10-05 (TV, percent-read audit):
+        runs #460-#470 - ten book re-runs INCLUDING the adopted reference #463 - were titled "#449 RE-RUN
+        on ..." and the title resolver, which only knows "BOOK..." / "COMBINED..." prefixes, stamped them
+        MISC-1..10."""
         try:
             from firebase_admin import firestore
-            famkey = self._family_of(strategy)
+            famkey = "BOOK" if is_book else self._family_of(strategy)
             ref = (self.db.collection("users").document(uid)
                    .collection("meta").document("familyCounters"))
             txn = self.db.transaction()
@@ -1538,7 +1543,7 @@ class FirestoreQueue:
         _provisional = rid is None
         if _provisional:
             rid = int(time.time())      # unique, obviously not a run number, flagged below
-        famkey, famseq = self._assign_family(uid, job.get("strategy", ""))
+        famkey, famseq = self._assign_family(uid, job.get("strategy", ""), is_book=(job.get("type") == "book"))
         mm = self._master_of(job)
         df, dt, days = self._run_window(job, result, mm)
         equity = result.get("equity") or self._winner_equity(job, result.get("best_params"))
@@ -2099,7 +2104,8 @@ class FirestoreQueue:
                     d.pop("id_provisional", None)
                     d["id_was_provisional"] = old
                     if not d.get("famKey"):
-                        fk, fs = self._assign_family(uid, d.get("strategy") or "")
+                        fk, fs = self._assign_family(uid, d.get("strategy") or "",
+                                                     is_book=bool((d.get("book") or {}).get("legs")))
                         if fk:
                             d["famKey"], d["famSeq"] = fk, fs
                     runs.document(str(rid)).set(d)

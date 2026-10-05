@@ -935,7 +935,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1037';
+const VERSION='73.1038';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -11622,20 +11622,23 @@ function _loadRbWatch(){
   //   stay 'idle' so the next render tries again (lead review; 'none' here hid the chip for the
   //   whole page load)
   if(!db||!auth||!auth.currentUser)return;
-  window._rbWatch={state:'loading',runs:window._rbWatch.runs||[],at:window._rbWatch.at||0};
+  window._rbWatch={state:'loading',runs:window._rbWatch.runs||[],research:window._rbWatch.research||[],at:window._rbWatch.at||0};
   const uid=auth.currentUser.uid;
   db.collection('users').doc(uid).collection('meta').doc('runboard_watch').get()
     .then(snap=>{
       const data=snap.exists?snap.data():null;
       const runs=(data&&Array.isArray(data.runs))?data.runs.filter(w=>w&&w.id!=null&&/^\d+$/.test(String(w.id).trim())):[];
-      window._rbWatch={state:(runs.length?'ok':'none'),runs:runs,at:Date.now()};
+      // RESEARCH ROWS (MANAGER #38, 2026-10-05): a script-only verdict with no engine run - its id is not a run
+      //   number, it carries its own numbers, and only _rbResearchPlane reads it (never _wFind / any run pool).
+      const research=(data&&Array.isArray(data.runs))?data.runs.filter(w=>w&&w.kind==='research'&&w.id!=null&&!/^\d+$/.test(String(w.id).trim())):[];
+      window._rbWatch={state:((runs.length||research.length)?'ok':'none'),runs:runs,research:research,at:Date.now()};
       // fetch whatever the doc names that neither pool already has - once per successful doc
       //   read (this page load, and again on every WATCH-chip refresh), never from a render path.
       if(window._rbWatch.state==='ok')_rbWatchRunsMaybeLoad(uid);
       renderApp();
     })
     .catch(e=>{console.warn('MANAGER watch list not available:',(e&&e.message)||e);
-      window._rbWatch={state:'err',runs:[],at:Date.now()};
+      window._rbWatch={state:'err',runs:[],research:[],at:Date.now()};
       renderApp();});
 }
 // Diff the watched ids against runHistory + window._starRuns (compared as strings) and fetch
@@ -11661,6 +11664,66 @@ function _rbWatchOf(id){
   const list=(window._rbWatch&&window._rbWatch.runs)||[];
   for(let i=0;i<list.length;i++){if(list[i]&&String(list[i].id).trim()===String(id))return list[i];}
   return null;
+}
+// RESEARCH VERDICTS on the WATCH view (owner standing order 2026-10-04 via MANAGER #38: every research verdict goes
+//   on the RUNBOARD with ROC %/yr and DD%). A script-only round has no engine run, so tools/runboard_watch.py
+//   `research` stores its own numbers: wf / lb = {roc30, dd_usd, dd_pct, roc_pct}. ONE plane, the same two axes as
+//   EXPLORE's LEVERAGE LINE - ROC % / YR up the side, worst drawdown as % of the account across - with the watched
+//   engine runs as FILLED dots (the board's own figures on the stage in view) and each research row as a HOLLOW ring
+//   tagged "no engine run". Research figures are re-based on the account chip (DD % = dd / account, ROC % / YR =
+//   ROC@$30K / 30 x dd / account), so both kinds share one scale. Research rows show their walk-forward figures, or
+//   their lockbox pair on the LB stage when they have one. A row with no numbers (it died before any ROC was
+//   computed) is listed under the plane, never plotted. Returns '' when the doc has no research rows.
+function _rbResearchPlane(eng,acct,stage){
+  const R=(window._rbWatch&&Array.isArray(window._rbWatch.research))?window._rbWatch.research:[];
+  if(!R.length)return '';
+  try{
+    const esc=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const A=(isFinite(+acct)&&+acct>0)?+acct:100000, useLb=(stage==='lb');
+    const col=f=>((typeof stratColor==='function')&&f&&stratColor(f))||'var(--text3)';
+    const money=v=>'$'+Math.round(+v).toLocaleString('en-US');
+    const pts=[];
+    R.forEach(w=>{const st=useLb?w.lb:w.wf;
+      if(st&&isFinite(+st.roc30)&&isFinite(+st.dd_usd)&&+st.dd_usd>0)
+        pts.push({kind:'r',id:String(w.id),name:w.name||String(w.id),fam:w.family||'',lane:w.lane||'',verdict:w.verdict||'',
+          x:+st.dd_usd/A*100,y:(+st.roc30/30*(+st.dd_usd))/A*100,roc30:+st.roc30,dd:+st.dd_usd,tag:useLb?'LB':'WF'});});
+    (Array.isArray(eng)?eng:[]).forEach(e=>{if(e&&isFinite(+e.x)&&isFinite(+e.y)&&+e.x>0)pts.push(Object.assign({kind:'e'},e));});
+    const W=560,H=230,L=44,B=28,T=10,Rt=12;
+    const xs=pts.map(q=>q.x),ys=pts.map(q=>q.y);
+    const xMax=Math.max(10,...xs)*1.12, yMin=Math.min(0,...ys), yMax0=Math.max(5,...ys);
+    const yMax=yMax0+(yMax0-yMin)*0.12;
+    const X=v=>L+(v/xMax)*(W-L-Rt), Y=v=>T+(1-(v-yMin)/((yMax-yMin)||1))*(H-T-B);
+    const tick=(lo,hi)=>{const span=hi-lo,raw=span/5,mag=Math.pow(10,Math.floor(Math.log10(raw||1))),st=[1,2,5,10].map(k=>k*mag).find(k=>k>=raw)||mag;
+      const out=[];for(let v=Math.ceil(lo/st)*st;v<=hi+1e-9;v+=st)out.push(+v.toFixed(6));return out;};
+    let g='';
+    tick(0,xMax).forEach(v=>{g+='<line x1="'+X(v)+'" y1="'+T+'" x2="'+X(v)+'" y2="'+(H-B)+'" stroke="var(--border)" stroke-width="0.5"/>'
+      +'<text x="'+X(v)+'" y="'+(H-B+11)+'" font-size="8" text-anchor="middle" fill="var(--text5)">'+v+'%</text>';});
+    tick(yMin,yMax).forEach(v=>{g+='<line x1="'+L+'" y1="'+Y(v)+'" x2="'+(W-Rt)+'" y2="'+Y(v)+'" stroke="'+(v===0?'var(--text5)':'var(--border)')+'" stroke-width="'+(v===0?0.9:0.5)+'"/>'
+      +'<text x="'+(L-4)+'" y="'+(Y(v)+3)+'" font-size="8" text-anchor="end" fill="var(--text5)">'+v+'</text>';});
+    g+='<text x="'+((L+W-Rt)/2)+'" y="'+(H-3)+'" font-size="8" text-anchor="middle" fill="var(--text4)">WORST DRAWDOWN % OF '+money(A)+'</text>'
+      +'<text x="10" y="'+((T+H-B)/2)+'" font-size="8" text-anchor="middle" fill="var(--text4)" transform="rotate(-90 10 '+((T+H-B)/2)+')">ROC % / YR</text>';
+    pts.filter(q=>q.kind==='e').forEach(q=>{
+      g+='<circle data-rbres-eng="'+esc(q.id)+'" cx="'+X(q.x).toFixed(1)+'" cy="'+Y(q.y).toFixed(1)+'" r="4" fill="'+col(q.fam)+'" stroke="none"><title>'
+        +esc('#'+q.id+' '+(q.name||'')+' - engine run on this board - ROC '+q.y.toFixed(1)+' %/yr, DD '+q.x.toFixed(1)+'% of '+money(A))+'</title></circle>';});
+    pts.filter(q=>q.kind==='r').forEach(q=>{
+      const cx=X(q.x).toFixed(1),cy=Y(q.y).toFixed(1);
+      g+='<circle data-rbres="'+esc(q.id)+'" cx="'+cx+'" cy="'+cy+'" r="5.5" fill="none" stroke="'+col(q.fam)+'" stroke-width="2"><title>'
+        +esc(q.id+' '+q.name+' - '+q.fam+(q.lane?' - '+q.lane:'')+' - no engine run (research verdict) - '+q.tag+' ROC @ $30K '+q.roc30.toFixed(1)
+          +' = '+q.y.toFixed(1)+' %/yr, worst DD '+money(q.dd)+' ('+q.x.toFixed(1)+'% of '+money(A)+') - '+q.verdict)+'</title></circle>'
+        +'<text x="'+(+cx+8)+'" y="'+(+cy+3)+'" font-size="8" fill="var(--text4)">'+esc(q.name)+'</text>';});
+    const nE=pts.filter(q=>q.kind==='e').length, nR=pts.filter(q=>q.kind==='r').length;
+    const rows=R.map(w=>{const f=(st,lbl)=>(st&&isFinite(+st.roc30)&&isFinite(+st.dd_usd))?(lbl+' '+(+st.roc30).toFixed(1)+' @ $30K, DD '+money(st.dd_usd)+' ('+(+st.dd_usd/A*100).toFixed(1)+'%)'):'';
+      const nums=[f(w.wf,'WF'),f(w.lb,'LB')].filter(Boolean).join(' · ')||'no ROC computed - listed, not plotted';
+      return '<div data-rbres-row="'+esc(w.id)+'" style="font-size:8.5px;color:var(--text3);padding:2px 0;border-top:1px solid var(--border)">'
+        +'<b style="color:var(--text2)">'+esc(w.id)+'</b> '+esc(w.name||'')+' <span style="color:var(--text5)">'+esc(w.family||'')+(w.lane?' · '+esc(w.lane):'')+'</span>'
+        +' - '+esc(w.verdict||'(no verdict yet)')+' <span style="color:var(--text5)">· '+nums+' · no engine run</span></div>';}).join('');
+    return '<div data-rbres-tile style="margin-top:10px;border-top:1px solid var(--border);padding-top:7px">'
+      +'<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px"><span class="lbl" style="font-size:9px;letter-spacing:1.4px;color:var(--text4)">RESEARCH VERDICTS</span>'
+      +'<span title="Script-only research rounds have no engine run, so their row carries its own numbers (written by tools/runboard_watch.py research). Hollow ring = research verdict, no engine run; filled dot = a watched engine run on the stage in view. ROC % / YR against worst drawdown as a % of the account, the same axes as EXPLORE LEVERAGE LINE; research figures are re-based on the account chip." style="font-size:8px;color:var(--text5);cursor:help">'
+      +R.length+' research row'+(R.length===1?'':'s')+' · '+nR+' plotted hollow (no engine run) · '+nE+' engine run'+(nE===1?'':'s')+' filled · '
+      +(useLb?'lockbox figures where a row has them':'walk-forward figures')+'</span></div>'
+      +'<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:'+W+'px;height:auto;display:block">'+g+'</svg>'+rows+'</div>';
+  }catch(e){console.warn('RUNBOARD research plane skipped:',(e&&e.message)||e);return '';}
 }
 // Calculate SPY return % between two dates using real data (if cached) or approx
 function spyReturnReal(startDate,endDate,spyData){
@@ -34930,7 +34993,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           :((_rbFam==='__WATCH__'&&!_rbWatching)?'<div style="font-size:8px;color:var(--text5);margin-bottom:6px">the watch list could not be read right now - showing one champion per family</div>':'');
         const boardTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">RUNBOARD</span><span style="font-size:8px;color:var(--text5)">top run per strategy · auto-populates from run history · ordered by the RANK BY pick</span></div>'
           +_rbFamBar+_rbWLoadingNote+'<div style="overflow:auto;max-height:'+(_rbSide?'38vh':'74vh')+'">'+runs.map(_famRowOf).join('')+'</div>'
-          +_famMoreNote);
+          +_famMoreNote
+          // RESEARCH VERDICTS (MANAGER #38): only on the WATCH view; engine dots use this board's own stage figures
+          +(_rbWatching?_rbResearchPlane(runs.map(r=>{const roc=_rocYr(_netOf(r),_rbYrs(r)),dd=_ddOf2(r);
+              return (roc!=null&&dd!=null&&isFinite(+dd)&&+dd>0)?{id:String(r.id),name:(r.runTag||''),fam:(r.famKey||''),x:+dd/_rocAcct()*100,y:roc}:null;}).filter(Boolean),_rocAcct(),_rbS):''));
         // v71.27: saved chart height + a drag HANDLE ROW under the chart, the same grip the
         //   section-1 charts use (rsRow). cmpOvlMount reads window._cmpOvlH when it draws.
         const _rbFH=Math.max(170,Math.min(900,Math.round(+APREF.rbFunnelH||300)));

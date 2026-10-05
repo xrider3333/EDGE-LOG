@@ -37,7 +37,7 @@ def _persist(job, result):
 
     q.db = types.SimpleNamespace(collection=lambda *a: _Col())
     q._next_run_id = lambda uid: 999
-    q._assign_family = lambda uid, s: (None, None)
+    q._assign_family = lambda uid, s, is_book=False: (None, None)
     q._master_of = lambda job: None
     q._run_window = lambda job, result, mm: (job.get("date_from"), job.get("date_to"), 100)
     q._winner_equity = lambda job, bp: None

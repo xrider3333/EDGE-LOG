@@ -267,3 +267,63 @@ def test_dry_verdict_note_remove_import_write_nothing(db, tmp_path):
 # ── family vocabulary stays in step with the house list ─────────────────────────────────────
 def test_family_vocabulary_matches_house_list():
     assert rw.FAMILIES == _house_vocab()
+
+
+# ── research rows (no engine run; MANAGER #38, 2026-10-05) ───────────────────────────────────
+def test_research_row_carries_its_own_numbers_and_never_checks_runs(db):
+    wf = rw.stretch_numbers(6.1, 31200)
+    doc = rw.cmd_research(db, "R2.55", "DAILYFADE", "MISC", "TV", "DEAD at Stage A, 0 of 8 cells", wf, None,
+                          None, "TV", False)
+    e = doc["runs"][0]
+    assert e["id"] == "R2.55" and e["kind"] == "research" and e["name"] == "DAILYFADE"
+    assert e["wf"] == {"roc30": 6.1, "dd_usd": 31200.0, "dd_pct": 31.2, "roc_pct": 6.34}
+    assert "lb" not in e and e["verdict_by"] == "TV" and e["verdict_at"]
+
+
+def test_research_update_in_place_and_shares_verdict_note_remove(db):
+    rw.cmd_research(db, "R2.55", "DAILYFADE", "MISC", "TV", "DEAD", rw.stretch_numbers(6.1, 31200), None,
+                    None, "TV", False)
+    doc = rw.cmd_research(db, "R2.55", None, None, None, None, None, rw.stretch_numbers(2.0, 20000), "lb read",
+                          "TV", False)
+    e = doc["runs"][0]
+    assert len(doc["runs"]) == 1 and e["verdict"] == "DEAD" and e["lb"]["dd_pct"] == 20.0 and e["note"] == "lb read"
+    rw.cmd_verdict(db, rw.parse_id("R2.55"), "DEAD - confirmed", "MANAGER", None, False)
+    rw.cmd_note(db, rw.parse_id("R2.55"), "see ledger", "TV", False)
+    e = rw._read(rw.watch_ref(db))["runs"][0]
+    assert e["verdict"] == "DEAD - confirmed" and e["note"] == "see ledger"
+    doc = rw.cmd_remove(db, [rw.parse_id("R2.55")], "TV", False)
+    assert doc["runs"] == []
+
+
+def test_research_rows_sit_beside_engine_runs_without_touching_them(db):
+    _seed_run(db, 382, famKey="NOISE")
+    rw.cmd_add(db, [382], None, None, None, None, "MANAGER", False, False)
+    doc = rw.cmd_research(db, "SIPORB-R2", "SIPORB", "MISC", "STRATEGY-BEATING", "DEAD",
+                          rw.stretch_numbers(3.0, 45000, dd_pct=45.0), None, None, "TV", False)
+    assert [r["id"] for r in doc["runs"]] == [382, "SIPORB-R2"]
+    assert "kind" not in doc["runs"][0]
+
+
+def test_research_refusals(db):
+    with pytest.raises(rw.ToolError, match="research id"):
+        rw.cmd_research(db, "2.55", None, "MISC", "TV", "x", rw.stretch_numbers(1, 1000), None, None, "TV", False)
+    with pytest.raises(rw.ToolError, match="needs --family"):
+        rw.cmd_research(db, "R2.60", None, None, "TV", "x", rw.stretch_numbers(1, 1000), None, None, "TV", False)
+    doc = rw.cmd_research(db, "R2.52", "V3", "BOOK", "FRONTIER", "STEP 1 FAIL - no ROC computed", None, None, None,
+                          "TV", False)
+    assert "wf" not in doc["runs"][-1]                 # a verdict with no numbers is listed, not plotted
+    with pytest.raises(rw.ToolError, match="BOTH"):
+        rw.stretch_numbers(6.1, None)
+    with pytest.raises(rw.ToolError, match="vocabulary"):
+        rw.cmd_research(db, "R2.61", None, "DAILYFADE", "TV", "x", rw.stretch_numbers(1, 1000), None, None, "TV", False)
+    _seed_run(db, 382, famKey="NOISE")
+    rw.cmd_add(db, [382], None, None, None, None, "MANAGER", False, False)
+    assert rw.parse_id("382") == 382 and rw.parse_id(" R2.55 ") == "R2.55"
+
+
+def test_import_accepts_research_ids(db, tmp_path):
+    f = tmp_path / "seed.json"
+    f.write_text(json.dumps([{"id": "R2.53", "kind": "research", "family": "MISC", "verdict": "DEAD",
+                              "wf": rw.stretch_numbers(3.0, 45000)}, {"id": "382", "family": "NOISE"}]))
+    doc = rw.cmd_import(db, str(f), "MANAGER", False)
+    assert [r["id"] for r in doc["runs"]] == ["R2.53", 382]

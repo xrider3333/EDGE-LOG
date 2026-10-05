@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 146
+N_CASES = 147
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -4631,6 +4631,60 @@ var FIX = __FIX__;
         }, {out1ColLoading:out1ColLoading,out1ColDone:out1ColDone,watchCols2:watchCols2,champHasOut1:champHasOut1,champCols3:champCols3,loadingNoteOk:loadingNoteOk,noLoadingLeft:noLoadingLeft});
       })();
 
+      // -- k4 (RESEARCH VERDICTS, MANAGER #38 2026-10-05): a watch doc may carry research rows - no engine run, a
+      //    non-numeric id, their own wf / lb numbers. They must never become a board column or a "not loaded"
+      //    warning, and the WATCH view draws them as HOLLOW rings on the RESEARCH VERDICTS plane next to the
+      //    watched engine runs (filled dots); a row with no numbers is listed, not plotted; LB stage reads lb.
+      (function(){
+        var R1=JSON.parse(JSON.stringify(FIX));R1.id=String(+FIX.id+690101);R1.starred=false;R1.multiplier=1;
+        var wc="var RS="+JSON.stringify([R1])+";"
+          +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+          +"runHistory=RS.map(f);window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();window._starRuns=[];"
+          +"window._rbWatchRuns=[];window._rbWatchRunsState='idle';window._rbWatchRunsWant=[];";
+        var RES=[{id:'R2.55',kind:'research',name:'ZDAILYFADE',family:'MISC',lane:'TV',verdict:'DEAD at Stage A',
+                  wf:{roc30:6.1,dd_usd:48604,dd_pct:48.6,roc_pct:9.88}},
+                 {id:'R2.52',kind:'research',name:'ZV3',family:'BOOK',lane:'FRONTIER',verdict:'STEP 1 FAIL'},
+                 {id:'R2.47',kind:'research',name:'ZRISK',family:'BOOK',lane:'SB',verdict:'FAIL',
+                  wf:{roc30:90,dd_usd:40000,dd_pct:40,roc_pct:120},lb:{roc30:150,dd_usd:30000,dd_pct:30,roc_pct:150}}];
+        var wOk="window._rbWatch={state:'ok',runs:"+JSON.stringify([{id:+R1.id,family:'ORB',lane:'ORB',verdict:'CANDIDATE'}])
+          +",research:"+JSON.stringify(RES)+",at:Date.now()};";
+        var allErrors=[],allUncaught=[];
+        function acc(){allErrors=allErrors.concat(sink.errors);allUncaught=allUncaught.concat(sink.uncaught);}
+        var c1=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full',rbFam:'__WATCH__'}, wc+wOk); acc();
+        var tile1=!!d.querySelector('[data-rbres-tile]');
+        var rings1=d.querySelectorAll('circle[data-rbres]').length;
+        var hollow1=Array.prototype.every.call(d.querySelectorAll('circle[data-rbres]'),function(c){return c.getAttribute('fill')==='none';});
+        var rowsListed=d.querySelectorAll('[data-rbres-row]').length;
+        var txt1=(d.body&&(d.body.innerText||d.body.textContent))||'';
+        var noEngineTag=txt1.indexOf('no engine run')>=0;
+        var notPlottedNote=txt1.indexOf('no ROC computed - listed, not plotted')>=0;
+        var noResCol=!d.querySelector('#rb-mtx-box table thead th[data-rbc="R2.55"]');
+        var noResWarn=txt1.indexOf('#R2.55')<0;
+        var c2=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'lb',rbFam:'__WATCH__'}, wc+wOk); acc();
+        var rings2=d.querySelectorAll('circle[data-rbres]').length;
+        var lbOnly=rings2===1&&!!d.querySelector('circle[data-rbres="R2.47"]');
+        var c3=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full'}, wc+wOk); acc();
+        var champNoTile=!d.querySelector('[data-rbres-tile]');
+        var wNone="window._rbWatch={state:'ok',runs:"+JSON.stringify([{id:+R1.id,family:'ORB',lane:'ORB',verdict:'CANDIDATE'}])+",at:Date.now()};";
+        var c4=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full',rbFam:'__WATCH__'}, wc+wNone); acc();
+        var oldDocNoTile=!d.querySelector('[data-rbres-tile]');
+        dfxCase('k4_watch_research', [c1,c2,c3,c4], {
+          'renders OK on the WATCH view (FULL, LB), the champion view and a doc without research rows': [c1,c2,c3,c4].every(function(c){return c==='OK';}),
+          'the WATCH view shows the RESEARCH VERDICTS tile': tile1,
+          'the two rows with walk-forward numbers are plotted as rings (FULL stage)': rings1===2,
+          'every research marker is hollow (fill none)': hollow1,
+          'all three research rows are listed under the plane': rowsListed===3,
+          'research rows are tagged "no engine run"': noEngineTag,
+          'a row without numbers says it is listed, not plotted': notPlottedNote,
+          'a research id never becomes a board column': noResCol,
+          'a research id never raises a "not loaded" warning': noResWarn,
+          'on the LB stage only the row with a lockbox pair is plotted': lbOnly,
+          'the champion view (rbFam cleared) has no research tile': champNoTile,
+          'a watch doc without research rows draws no tile': oldDocNoTile,
+          'no console errors or uncaught exceptions across any render': allErrors.length===0&&allUncaught.length===0
+        }, {tile1:tile1,rings1:rings1,hollow1:hollow1,rowsListed:rowsListed,rings2:rings2,champNoTile:champNoTile,oldDocNoTile:oldDocNoTile,errors:allErrors.slice(0,3)});
+      })();
+
         dfxCase('i1_f25_window_stage', calls, {
           'renders OK on IS / LB / FULL / WF': calls.every(function(c){return c==='OK';}),
           'IS and LB use the label WINDOW (not RUN WINDOW)': !!per.is['WINDOW']&&!!per.lb['WINDOW'],
@@ -7684,6 +7738,7 @@ def main(argv=None):
            'j1_roc_sortino_rows']
     DFX += ['k1_watch_list']
     DFX += ['k2_watch_fetch']
+    DFX += ['k4_watch_research']
     DFX += ['z1_explore_pills_r30']
     DFX += ['x1_explore_flags']
     DFX += ['y1_explore_money']

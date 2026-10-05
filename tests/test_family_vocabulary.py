@@ -55,3 +55,19 @@ def test_every_strategy_file_gets_a_short_family_name():
         if not re.fullmatch(r"[A-Z][A-Z0-9]*(-[A-Z])?", f) or f.startswith(("NQ", "ES", "ETF")):
             bad.append((b, f))
     assert not bad, bad
+
+
+def test_a_book_job_is_BOOK_whatever_its_title():
+    """#460-#470 (incl. the adopted #463) were titled "#449 RE-RUN ..." and stamped MISC (found 2026-10-05)."""
+    title = "#449 RE-RUN on the fixed TTM files (b3242e77): BOOK #396 roll-corrected"
+    assert _runner_family()(title) == 'MISC'           # the title alone cannot say BOOK
+    import api.runner as R
+    src = open(R.__file__, encoding='utf-8').read()
+    assert 'famkey = "BOOK" if is_book else self._family_of(strategy)' in src
+    assert 'is_book=(job.get("type") == "book")' in src
+    tool_src = open(os.path.join(ROOT, 'tools', 'family_rename.py'), encoding='utf-8').read()
+    ns = {}
+    exec('import re\nRENAME = ' + repr({'COMBINED': 'BOOK'}) + '\n' + tool_src[tool_src.index('def resolve('):tool_src.index('\ndef main(')], ns)
+    assert ns['target']({'book': True, 'key': 'MISC', 'strat': title}) == 'BOOK'
+    assert ns['target']({'book': False, 'key': None, 'strat': 'ORB_3_6.py'}) == 'ORB'
+    assert ns['target']({'book': False, 'key': 'COMBINED', 'strat': 'x'}) == 'BOOK'

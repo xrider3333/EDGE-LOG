@@ -22,7 +22,20 @@ Never print, copy or commit the credentials.
     python tools/runboard_watch.py note 382 "keep an eye on the tail" --from NOISE
     python tools/runboard_watch.py remove 382 [383 ...] --from MANAGER
     python tools/runboard_watch.py import seed.json --from MANAGER
+    python tools/runboard_watch.py research R2.55 --name DAILYFADE --family MISC --lane TV
+                                    --verdict "DEAD at Stage A, 0 of 8 cells" --wf-roc30 6.1 --wf-dd 31200
+                                    [--lb-roc30 X --lb-dd Y] [--dd-pct P] [--note "..."] --from TV
     --dry on every write command prints the resulting doc and writes nothing.
+
+RESEARCH ROWS (owner standing order 2026-10-04 via MANAGER #38: "every run AND every research verdict goes on the
+RUNBOARD with ROC %/yr at $30k and DD%"). A script-only round has no engine run doc, so its row carries its own
+numbers (a round that died before any ROC was computed - a failed Step 0 / Step 1 - has a verdict and no numbers,
+and is listed but not plotted): id = a research id that is NOT a plain number (a ledger row "R2.55" or a slug "DAILYFADE-R1"), kind =
+"research", name, family (house vocabulary - MISC for a hunt outside the named families), lane, verdict, and
+wf / lb = {roc30, dd_usd, dd_pct, roc_pct}: ROC %/yr at a $30k worst drawdown (30 x MAR), the worst drawdown in
+dollars, the same drawdown as % of the $100,000 house account, and the plain ROC %/yr that implies
+(roc30 x dd_usd / 30,000). The web app draws these hollow, tagged "no engine run". verdict / note / remove take a
+research id the same way they take a run number; a research row never checks users/{uid}/runs.
 
 `add` is idempotent: only the fields you pass change on a run already on the list; a new run
 appends at the end. Each run must already exist in users/{uid}/runs (add refuses an unknown run
@@ -50,6 +63,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FAMILIES = {"ORB", "NOISE", "ENGU-Q", "ENGU", "CBU-Q", "TTM", "DIP", "GAPGO", "TTIBS", "VWAP",
             "REVERT", "SUPERTREND", "RSIDIV", "OVERNIGHT", "EMAPB", "REPLAY", "RFML", "BOOK", "MISC"}
 MAX_VERDICT = 80
+ACCOUNT = 100000.0          # the house account the drawdown % is measured against (owner yardstick)
 
 
 class ToolError(Exception):
@@ -159,6 +173,35 @@ def _find(runs, run_id):
     return next((r for r in runs if r.get("id") == run_id), None)
 
 
+def parse_id(text):
+    """A run number (all digits) -> int; anything else is a research id and stays a string."""
+    t = str(text).strip()
+    if t.isdigit():
+        return int(t)
+    _check_research_id(t)
+    return t
+
+
+def _check_research_id(rid):
+    import re
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9._-]{1,39}", str(rid)):
+        raise ToolError(f"research id {rid!r}: use a ledger row like R2.55 or a slug like DAILYFADE-R1 "
+                        "(letter first, then letters / digits / . _ -, at most 40 characters)")
+
+
+def stretch_numbers(roc30, dd_usd, dd_pct=None):
+    """{roc30, dd_usd, dd_pct, roc_pct} for one stretch, or None when nothing was given."""
+    if roc30 is None and dd_usd is None:
+        return None
+    if roc30 is None or dd_usd is None:
+        raise ToolError("a stretch needs BOTH its ROC @ $30k and its worst drawdown in dollars")
+    if dd_usd <= 0:
+        raise ToolError(f"worst drawdown must be a positive dollar figure, got {dd_usd}")
+    pct = float(dd_pct) if dd_pct is not None else round(100.0 * float(dd_usd) / ACCOUNT, 2)
+    return {"roc30": round(float(roc30), 2), "dd_usd": round(float(dd_usd), 2), "dd_pct": pct,
+            "roc_pct": round(float(roc30) * float(dd_usd) / 30000.0, 2)}
+
+
 # ── commands ──────────────────────────────────────────────────────────────────────────────────
 def cmd_list(db):
     """Print the watch list, one line per run: id, family, verdict, lane, verdict date. 1 read."""
@@ -170,9 +213,12 @@ def cmd_list(db):
     print(f"[RUNBOARD WATCH] {len(runs)} run(s) - updated {doc.get('updated_at', '?')} "
           f"by {doc.get('updated_by', '?')}")
     for r in runs:
-        print("  #%-6s %-10s %-44s lane=%-10s verdict_at=%s" % (
-            r.get("id"), r.get("family") or "-", (r.get("verdict") or "(no verdict yet)")[:44],
-            r.get("lane") or "-", r.get("verdict_at") or "-"))
+        tag = "R " if r.get("kind") == "research" else "#"
+        wf = r.get("wf") or {}
+        nums = (" WF %.1f @30k DD %.1f%%" % (wf.get("roc30", 0), wf.get("dd_pct", 0))) if wf else ""
+        print("  %s%-10s %-10s %-44s lane=%-10s verdict_at=%s%s" % (
+            tag, r.get("id"), r.get("family") or "-", (r.get("verdict") or "(no verdict yet)")[:44],
+            r.get("lane") or "-", r.get("verdict_at") or "-", nums))
 
 
 def cmd_add(db, ids, family, lane, verdict, note, frm, force, dry):
@@ -234,6 +280,44 @@ def cmd_add(db, ids, family, lane, verdict, note, frm, force, dry):
     return _finish(new, dry, f"add: {len(ids)} id(s) processed by {frm}: {ids}")
 
 
+def cmd_research(db, rid, name, family, lane, verdict, wf, lb, note, frm, dry):
+    """Add or update a research row (no engine run). Only the fields given change on an existing row."""
+    _check_research_id(rid)
+    if family is not None:
+        _check_family(family)
+    if verdict is not None:
+        _check_verdict(verdict)
+    today = _et_today()
+
+    def mutate(cur):
+        runs = list((cur or {}).get("runs") or [])
+        entry = _find(runs, rid)
+        if entry is None:
+            if family is None or verdict is None:
+                raise ToolError(f"research {rid}: a new research row needs --family and --verdict (and the "
+                                "walk-forward numbers --wf-roc30 / --wf-dd whenever the round computed them)")
+            entry = {"id": rid, "kind": "research", "name": name or rid, "family": family, "lane": lane or "",
+                     "verdict": verdict, "verdict_by": lane or frm, "verdict_at": today, "note": note or "",
+                     "added_by": frm, "added_at": today}
+            if wf is not None:
+                entry["wf"] = wf
+            if lb is not None:
+                entry["lb"] = lb
+            runs.append(entry)
+        else:
+            if entry.get("kind") != "research":
+                raise ToolError(f"{rid} is on the list but is not a research row")
+            for k, v in (("name", name), ("family", family), ("lane", lane), ("note", note), ("wf", wf), ("lb", lb)):
+                if v is not None:
+                    entry[k] = v
+            if verdict is not None:
+                entry.update(verdict=verdict, verdict_by=lane or frm, verdict_at=today)
+        return _finalize(runs, frm)
+
+    new = _dry_or_apply(db, watch_ref(db), mutate, dry)
+    return _finish(new, dry, f"research: {rid} written by {frm}")
+
+
 def cmd_verdict(db, run_id, text, frm, lane, dry):
     _check_verdict(text)
     today = _et_today()
@@ -291,7 +375,7 @@ def cmd_import(db, path, frm, dry):
         if "id" not in e:
             raise ToolError(f"import entry missing id: {e!r}")
         e = dict(e)
-        e["id"] = int(e["id"])
+        e["id"] = parse_id(e["id"])
         if e.get("family"):
             _check_family(e["family"])
         if e.get("verdict"):
@@ -342,21 +426,36 @@ def main():
     a.add_argument("--force", action="store_true")
     a.add_argument("--dry", action="store_true")
 
+    rs = sub.add_parser("research")
+    rs.add_argument("id")
+    rs.add_argument("--name")
+    rs.add_argument("--family")
+    rs.add_argument("--lane")
+    rs.add_argument("--verdict")
+    rs.add_argument("--wf-roc30", type=float)
+    rs.add_argument("--wf-dd", type=float, help="walk-forward worst drawdown, dollars")
+    rs.add_argument("--lb-roc30", type=float)
+    rs.add_argument("--lb-dd", type=float, help="lockbox worst drawdown, dollars")
+    rs.add_argument("--dd-pct", type=float, help="override the walk-forward DD %% (default dd / $100,000)")
+    rs.add_argument("--note")
+    rs.add_argument("--from", dest="frm", required=True)
+    rs.add_argument("--dry", action="store_true")
+
     v = sub.add_parser("verdict")
-    v.add_argument("id", type=int)
+    v.add_argument("id", type=parse_id)
     v.add_argument("text")
     v.add_argument("--from", dest="frm", required=True)
     v.add_argument("--lane")
     v.add_argument("--dry", action="store_true")
 
     n = sub.add_parser("note")
-    n.add_argument("id", type=int)
+    n.add_argument("id", type=parse_id)
     n.add_argument("text")
     n.add_argument("--from", dest="frm", required=True)
     n.add_argument("--dry", action="store_true")
 
     r = sub.add_parser("remove")
-    r.add_argument("ids", nargs="+", type=int)
+    r.add_argument("ids", nargs="+", type=parse_id)
     r.add_argument("--from", dest="frm", required=True)
     r.add_argument("--dry", action="store_true")
 
@@ -380,6 +479,10 @@ def main():
         elif args.cmd == "add":
             cmd_add(db, args.ids, args.family, args.lane, args.verdict, args.note, args.frm,
                     args.force, args.dry)
+        elif args.cmd == "research":
+            cmd_research(db, args.id, args.name, args.family, args.lane, args.verdict,
+                         stretch_numbers(args.wf_roc30, args.wf_dd, args.dd_pct),
+                         stretch_numbers(args.lb_roc30, args.lb_dd), args.note, args.frm, args.dry)
         elif args.cmd == "verdict":
             cmd_verdict(db, args.id, args.text, args.frm, args.lane, args.dry)
         elif args.cmd == "note":

@@ -6,6 +6,8 @@ several keys. This maps every stored key onto the one vocabulary in api/runner.p
 
     TTMSQZ -> TTM   VWAP-FADE -> VWAP   NQDIP + ETFDIP -> DIP   COMBINED -> BOOK   ORB-FADE -> ORB
     (no key at all) -> whatever the resolver says for the run's strategy
+    a BOOK-shaped run (it has book.name) -> BOOK whatever key or title it carries (2026-10-05: #460-#470,
+    ten book re-runs incl. the adopted #463, titled "#449 RE-RUN ..." had been stamped MISC-1..10)
 
 NUMBERS, under the stable-v1 promise that a family number never moves:
   * a pure RENAME keeps every number (TTMSQZ-25 becomes TTM-25);
@@ -50,6 +52,13 @@ def resolve(strategy):
     return m.group(0) if m else "MISC"
 
 
+def target(r):
+    """The family a stored run belongs on: BOOK for any book-shaped run, else the rename map / resolver."""
+    if r.get("book"):
+        return "BOOK"
+    return RENAME.get(r["key"], r["key"]) if r["key"] else resolve(r["strat"])
+
+
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--dry", action="store_true"); ap.add_argument("--max", type=int, default=600)
     a = ap.parse_args()
@@ -59,16 +68,17 @@ def main():
     runs = []
     for lo in range(1, a.max + 1, 100):
         refs = [u.collection("runs").document(str(i)) for i in range(lo, min(lo + 100, a.max + 1))]
-        for d in db.get_all(refs, field_paths=["strategy", "famKey", "famSeq"]):
+        for d in db.get_all(refs, field_paths=["strategy", "famKey", "famSeq", "book.name"]):
             if d.exists:
                 y = d.to_dict() or {}
-                runs.append(dict(id=int(d.id), strat=y.get("strategy"), key=y.get("famKey"), seq=y.get("famSeq")))
+                runs.append(dict(id=int(d.id), strat=y.get("strategy"), key=y.get("famKey"), seq=y.get("famSeq"),
+                                 book=bool((y.get("book") or {}).get("name"))))
     runs.sort(key=lambda r: r["id"])
     # the stored counters, not just the numbers still on runs: a deleted run leaves a gap, and its
     # number must never be handed out again
     stored = (u.collection("meta").document("familyCounters").get().to_dict() or {}).get("counters") or {}
     for r in runs:
-        r["new"] = RENAME.get(r["key"], r["key"]) if r["key"] else resolve(r["strat"])
+        r["new"] = target(r)
 
     # which OLD key keeps its numbers inside each NEW family: the new key itself if already in use,
     # else the old key whose first run is earliest
@@ -89,6 +99,10 @@ def main():
                 top += 1
                 plan.append((r, new, top))                    # absorbed or never stamped: appended
         counters[new] = max([top, int(stored.get(new) or 0)] + [r["seq"] or 0 for r in rs if r["key"] == new])
+    # a family left with no runs (MISC after the 2026-10-05 BOOK re-stamp) keeps its stored counter, or its
+    #   numbers would be handed out again - the stable-v1 promise
+    for k, v in stored.items():
+        counters[k] = max(int(v or 0), int(counters.get(k) or 0))
     moved = [(r, k, s) for r, k, s in plan if s != r["seq"]]
     print("runs read %d | re-stamps %d | numbers that move %d" % (len(runs), len(plan), len(moved)))
     for r, k, s in plan:

@@ -16,20 +16,37 @@ upper-cased with spaces and punctuation turned into '-' (e.g. "Paper: WB" -> PAP
     python tools/chat_inbox.py post  NOISE --from TV "text"       # hand an issue to NOISE
     python tools/chat_inbox.py done  NOISE 3 "what was done"      # close item 3 in NOISE's inbox
     python tools/chat_inbox.py all                                # every chat's open items (owner view)
+    python tools/chat_inbox.py post  NEWCHAT --from TV "text" --new   # first message to a chat that has no inbox yet
+
+UNKNOWN NAMES ARE REFUSED (2026-10-05, MANAGER #33 after ENGUQ #274): a lane read its inbox all day as "ENGU-Q" while
+its items sat in ENGUQ.jsonl, and every read printed "inbox empty". A chat name is known only if its inbox file exists;
+read / done / post on any other name exit non-zero, list the known names and suggest the nearest one. Creating a new
+chat's inbox takes an explicit `post ... --new`. A `--from` name that has no inbox only warns (the post still lands).
 
 THE RULE every chat follows (CLAUDE.md "Chat inbox"): run `read <your name>` when you start a task and
 again before you finish one; act on anything addressed to you or reply by posting back; close what you
 handle with `done`. When you find an issue another chat owns, `post` it there - and ALSO try
 SendMessage, which is faster when it does get through.
 """
-import argparse, datetime, json, os, re, sys
+import argparse, datetime, difflib, json, os, re, sys
 
 BOX = os.environ.get("EDGELOG_CHAT_INBOX", r"C:\EdgeLog\chat_inbox")
 
 
+# Short names that grew their own inbox files nobody reads (found 2026-10-05: an actionable XGAP note and two research
+# hand-offs sat in FRONTIER / STRATEGY-BEATING / CUSTOM-ML / NQBRD while the chats read their long names). The refusal
+# above cannot catch these - the stray files make the short names "known" - so each one resolves to the live inbox.
+ALIASES = {"FRONTIER": "FRONTIER-MODELS-ROC-YR-OPTIMIZATION",
+           "STRATEGY-BEATING": "STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y",
+           "NQBRD": "STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y",      # a family of that lane, not a chat
+           "CUSTOM-ML": "CUSTOM-ML-MODEL-OPTIMIZATION",
+           "ELWA": "ELWA-FEATURES",
+           "ENGU-Q": "ENGUQ"}
+
+
 def norm(name):
     s = re.sub(r"[^A-Z0-9]+", "-", str(name or "").upper()).strip("-")
-    return s or "UNKNOWN"
+    return ALIASES.get(s, s) or "UNKNOWN"
 
 
 def path(chat):
@@ -61,6 +78,28 @@ def save(chat, items):
     os.replace(tmp, path(chat))
 
 
+def known():
+    if not os.path.isdir(BOX):
+        return []
+    return sorted(fn[:-6] for fn in os.listdir(BOX) if fn.endswith(".jsonl"))
+
+
+def require_known(chat, verb):
+    """Exit non-zero on a chat name with no inbox file, listing the known names and the nearest match."""
+    name, names = norm(chat), known()
+    if name in names:
+        return
+    squash = {n.replace("-", ""): n for n in names}
+    near = [squash[name.replace("-", "")]] if name.replace("-", "") in squash else difflib.get_close_matches(name, names, n=3, cutoff=0.6)
+    msg = [f"REFUSED: no chat named {name} - its inbox file does not exist, so {verb} would {'read nothing' if verb != 'post' else 'go to a dead inbox'}."]
+    if near:
+        msg.append("  did you mean: " + ", ".join(near))
+    msg.append("  known chats: " + (", ".join(names) or "(none yet)"))
+    if verb == "post":
+        msg.append("  a genuinely new chat: add --new to create its inbox.")
+    sys.exit("\n".join(msg))
+
+
 def now():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
@@ -90,15 +129,22 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("read"); r.add_argument("chat"); r.add_argument("--all", action="store_true")
     p = sub.add_parser("post"); p.add_argument("chat"); p.add_argument("text"); p.add_argument("--from", dest="frm", required=True)
+    p.add_argument("--new", action="store_true", help="create the inbox of a chat that has none yet")
     d = sub.add_parser("done"); d.add_argument("chat"); d.add_argument("id", type=int); d.add_argument("note", nargs="?", default="")
     sub.add_parser("all")
     a = ap.parse_args()
     if a.cmd == "read":
+        require_known(a.chat, "read")
         show(a.chat, load(a.chat), only_open=not a.all)
     elif a.cmd == "post":
+        if not a.new:
+            require_known(a.chat, "post")
+        if norm(a.frm) not in known() and norm(a.frm) != norm(a.chat):
+            print(f"warning: sender {norm(a.frm)} has no inbox - replies to it would be refused; check the name", file=sys.stderr)
         nid = post(a.chat, a.text, a.frm)
         print(f"posted #{nid} to {norm(a.chat)}")
     elif a.cmd == "done":
+        require_known(a.chat, "done")
         items = load(a.chat)
         hit = [i for i in items if i["id"] == a.id]
         if not hit:
