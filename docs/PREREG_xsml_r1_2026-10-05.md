@@ -173,3 +173,10 @@ ROC under ~10) cannot be told from luck here.
 A pass -> RUNBOARD research row the same day + the leg's own sealed-year veto on the one stock day; the forward shadow
 decides. Code: tools/xsml_r1.py (the rewrite reproduces the committed nulls exactly: first three A shuffles
 +5.899154 / +0.169021 / -2.757513 both ways).
+
+## POWER LINE 2 (review #64 edits 4 + 5; committed before any cell or twin number) - C:\EdgeLog\custom_ml\xsml_r1\POWER2.txt
+```
+B STATARB turnover (positions only): 27.4% of the $2M gross a day; $137,727,611 traded a year -> cost $68,864/yr at 5 bps a side ($137,728 at 10 bps); avg names long / short 96.5 / 82.1
+C CRASH earner-route null (1,000 random beta-neutral books, gross): DO 50th -0.004 95th +0.209; rho_dd 5th -0.170 50th -0.005
+```
+Read: cell B must earn about $69,000 a year before costs just to break even at 5 bps a side on $1M a side; cell C's earner route needs DO above +0.209.
