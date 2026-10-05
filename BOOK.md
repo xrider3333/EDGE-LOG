@@ -1190,6 +1190,50 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10ac. Q20 (scoping item A1) SEAT CAPACITY: size a basket seat at about 10% of the line's volatility; the generator gets the shape, not the level (2026-10-05)
+
+**What.** A planning map, not a test (`docs/PREREG_frontier_a1capacity_2026-10-05.txt` + addendum 1, MANAGER #85 / #90; harness
+`C:\EdgeLog\_anatomy_cache\bookq\q20_a1.py`; output `C:\EdgeLog\_anatomy_cache\q20\a1.json`, log `bookq\q20_run.log`). Synthetic
+seats from MDL r1's generator on the RESMOM line L (parity: 120.82 / 3.916, 45 episodes, 762 drawdown days), 2,000 draws per cell,
+walk-forward only. Nothing is adopted.
+
+**Calibration first (MANAGER's edit): NOT CALIBRATED, so the map is shape only.** The real RESMOM fed as a seat on #463 (parity 93.81,
+28 episodes, 460 days; 0.264 x RES = 120.82, which is c0 = 0.175 of the generator's unit seat), beside the generator cell nearest to
+it (s 0.516 so its mean matches; daily correlation with #463 on #463's drawdown days -0.153; 0 elsewhere):
+
+| Seat size c | Real RESMOM ROC | Generator median (10-90%) |
+|---|---|---|
+| 0 | 93.8 | 93.8 |
+| 0.10 | 107.9 | 98.6 (91.9-105.5) |
+| 0.175 = registered size | 120.8 | 99.9 (85.9-112.6) |
+| 0.20 | 123.4 | 99.6 (82.7-114.7) |
+| 0.35 = twice the size | 88.0 | 90.8 (63.1-114.7) |
+| 0.50 | 67.3 | 77.9 (48.9-106.0) |
+| 1.00 | 38.2 | 48.1 (26.8-75.4) |
+
+- **Passes:** the peak is in the right place (real best c 0.20, generator 0.17), and so is the fall at twice the size (88.0, inside
+  the band).
+- **Fails:** the level at the registered size. 120.8 is above the generator's 90th percentile (112.6).
+- **Why:** RESMOM's help is concentrated in March 2020, the one episode that sets the $30k scaling (10ab). The generator spreads the
+  same average correlation over all 460 days. Adding RESMOM's own off-drawdown correlation (-0.039) changes nothing (99.8).
+- **Open oddity, routed to STRATEGY-BEATING:** on the drawdown days RES moves against #463 day by day (-0.153) but slightly WITH it
+  week by week (+0.078; the generator's seats read -0.050). A one-day stamp lag between #463's UTC days and stock closes would do this.
+
+**The map (shape only).**
+- **Seats that earn while the line falls** (rho_dd -0.3) peak at c = 0.10 of L's daily SD each (0.15 at s 0.75). Each extra
+  independent seat adds about as much as the first, up to 4: s 0.5 adds +5.6, +7.1, +7.0, +6.4 ROC; s 0.25 adds +3.9 to +4.5; s 0.75
+  adds +8.2 to +10.4.
+- **Seats unrelated to the line's drawdowns** add 0 to +1.6, at c 0 to 0.05.
+- **Cross-seat correlation 0.3 cuts it:** c falls to 0.05-0.10. At s 0.5, seats 2-4 reach 130.9 / 133.0 / 134.4 instead of
+  133.5 / 140.5 / 146.9.
+- The 71-look band (Q17) applies to any real seat read.
+
+**What it proposes (to MANAGER; not adopted).**
+- **Size:** report basket seats at c = 0.10 of L's daily SD. 10ab's 25% is past the peak of every cell of the map, and past RESMOM's
+  own real peak on #463 (0.20); keep 25% as a stress row.
+- **Count:** aim the queue at several seats, not one more. Only seats that earn on R count, and seats must be checked against each
+  other (at correlation 0.3 the 3rd and 4th seat add about half).
+
 ### 10ab. Q19 (scoping item A2): the yardstick every monthly stock-basket seat is now scored on - #463 + 0.264 x RESMOM (2026-10-05)
 
 **What.** Construction, not a test (`docs/PREREG_frontier_a2yardstick_2026-10-05.txt` + addenda 1-2, MANAGER #85; harness
