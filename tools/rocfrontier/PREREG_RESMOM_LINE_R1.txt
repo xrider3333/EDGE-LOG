@@ -1,0 +1,50 @@
+PRE-REGISTRATION - RESMOM r1's FORWARD BOOK LINE: the gate, the line, its harm monitor and its read (MANAGER #70)
+=====================================================================================================================
+Written 2026-10-05 12:25 MST by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane, AFTER RESMOM r1's Stage A verdict and
+BEFORE the gate below is computed. It extends tools/rocfrontier/PREREG_RESMOM_R1.txt (LF sha256
+a4f34e87d8083930a8c3344da861e1ae0dbf1abdcf864c55bd5085e200121dd1, unchanged so its harness still verifies) the way MANAGER
+asked ("three conditions written into the prereg before it opens"); a separate file keeps that registered text and its harness
+stamps intact.
+
+WHAT IS ALREADY KNOWN (Stage A, 2026-10-05, ledger 2.65; resmom_stageA.json): both cells DEAD as standalone legs (RES ROC @
+$30k 7.1, RAW 7.6, against the 15 bar). The registered A2 REPORT passed for both: #463 + c x RES at the volatility c 0.264
+reads WF 120.8 / Sortino 3.92 (RAW at c 0.233: 116.4 / 3.90) against 93.8 / 3.82; RES earned $105,919 over #463's 460 drawdown
+days (DO 0.160; 18 of 28 episodes positive; its best episode, 2020-03-03 .. 03-27, $31,525); at 2c the book reads 88.1. Under
+MANAGER #56 an A2 pass opens a forward BOOK shadow line; MANAGER said YES to ONE line (inbox #70) on the conditions below.
+
+[F1] THE GATE (computed once, by tools/rocfrontier/r17_resmom_gate.py, after this file is committed; WF only, the sealed year
+never read). Two parts, both must hold:
+  (a) RES's DO over #463's 460 WF drawdown days (0.160 at Stage A) is ABOVE the 95th percentile of the DO of the registered
+      random-name null - the 500 Stage A draws of RES's own stream (seed [20261005, 0, 0]: the same pools, hygiene, sizing,
+      fills, costs and borrow; each draw's 50 longs and 50 shorts at every rebalance drawn at random from that rebalance's
+      eligible pool) - recomputed by the same code with the same seed, so the draws are the Stage A draws;
+  (b) RES's drawdown-day dollars stay POSITIVE without its single best #463 drawdown episode (by the episode table Stage A
+      reports).
+  If either fails, the record reads "book-add report PASS, drawdown help at chance level" and NO line opens. RAW's DO and its
+  null percentile are reported beside, never a route. The script also prints where RES's DO sits in the null (its percentile).
+
+[F2] THE LINE (only if F1 holds). #463 + c x RES with c = 0.264 (the registered volatility c, frozen), computed daily from the
+month-end rank of 2026-10-30 (first fills 2026-11-02 at the open) with the registered harness rules (universe, hygiene, the wide
+dividend calendar - a forward stretch needs a fresh calendar pull, pinned by its own dated note before it is read), NO orders,
+RAW logged beside it at its c 0.233. A computed line, logged on the RUNBOARD by research id.
+  HARM MONITOR (Q16): the paired sequential stop of docs/PREREG_paired_sequential_stop_2026-09-29.md applied to d_k = c x RES's
+  net P&L of rebalance k (the line minus #463 is exactly that, so the pair is the book with and without the leg); looks at
+  rebalances 12, 18, 24, 30 and 36; the boundary B set by that document's rule on RES's 101 WF rebalance P&Ls (mean removed,
+  4,000 draws, seed 20260929, at most 5% false stops over 36 rebalances, either side counted as in that document); EARLY FAIL
+  only (t <= -B AND t still <= -2.0 without the single most negative d) - an early fail ends the line; there is NO early pass.
+  THE READ is in DOLLARS at rebalance 36 (Q16's R2): the line's summed daily difference over the 36 holds (= c x RES's forward
+  daily P&L) divided by its null spread (the sd of that 36-rebalance sum under Q16's sign-flip block null, block 21 sessions,
+  built on RES's WF daily series) must be >= 2.47 (Q16's 36-month family-wise c*); below that the line ends without adoption.
+  Nothing is adopted by the line; adoption is the owner's alone.
+
+[F3] THE RUNBOARD research row reads: "standalone DEAD (7.1 vs 15); book-add report PASS (120.8 / 3.92 vs 93.8 / 3.82, $106k over
+the book drawdown days, corr -0.06); forward book line opened" with the size caveat "at 2c the book reads 88". If F1 fails it
+reads "standalone DEAD (7.1 vs 15); book-add report PASS (120.8 / 3.92 vs 93.8 / 3.82); drawdown help at chance level; no line".
+
+[F4] The leg's own sealed-year veto on the stock families' shared day stays registered as PREREG_RESMOM_R1.txt has it (>= 10
+monthly rebalances, net > 0, > 0 without its top name-month; the book add on that year reported, never a pass).
+
+KNOWN WAYS IT COULD FOOL US: the gate reads the same WF stretch that produced the A2 pass (it asks whether that stretch's
+drawdown help is distinguishable from random books, not whether it will recur); RES leans short the market (-$329 per 1% ES,
+t -2.7) and random books do not, so part of a pass can be that lean; the line's value rests on a few drawdown episodes a year;
+the book gain is size-sensitive (88 at 2c).
