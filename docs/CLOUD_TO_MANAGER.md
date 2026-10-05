@@ -16,9 +16,14 @@ a lane on the PC.
   (every WF-passing add died on co-timed drawdown), by the forward reads being trustworthy, and by knowing how sure a
   pass on the spent lockbox must be. That gives three items, in this order.
 
-**1. BOOK LOOKS r1 - ready for review now.** `tools/rocfrontier/PREREG_LOOKS_R1.txt` + `LOOKS_LEDGER_R1.csv`
-  (every lockbox look the frontier bar has absorbed, one row each with its source) + `r14_looks.py` (reuses
-  r11_risk.py; `ledger`, `parity`, `run`, `smoke`).
+**1. BOOK LOOKS r1 - ready for review now.** `tools/rocfrontier/PREREG_LOOKS_R1.txt` (+ pre-data addendum 1) +
+  `LOOKS_LEDGER_R1.csv` (every lockbox look the frontier bar has absorbed, one row each with its source; 141 rows =
+  71 looks, 23 reference re-runs, 21 repeats, 26 leg-level lane reads; the count and every judgment call in
+  `LOOKS_COUNT_R1.md`) + `r14_looks.py` (reuses r11_risk.py; `ledger`, `parity`, `run`, `smoke`; 21 tests and two
+  offline smokes pass).
+  - **The count:** K_book = 71 (51 seat changes or adds, 20 sizing rules), printed figures only; counting every
+    candidate scored on the lockbox but reported only as an aggregate verdict gives a ceiling of 181. The margin
+    ladder prints both, so the rule does not hinge on the count.
   - **Question:** after K looks at the same sealed year, how likely is it that a no-edge candidate has already
     cleared today's lockbox bar, and by what margin over #463 must a future candidate beat the lockbox for that
     chance to be under 5%? RESEARCH.md item 7 / section 3e call this the open test; MDL r1 says what a leg must

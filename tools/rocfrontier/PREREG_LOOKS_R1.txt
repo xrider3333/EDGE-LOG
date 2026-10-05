@@ -139,3 +139,23 @@ RUN ORDER (PC lane with the r11 cache; minutes, CPU only, from the shared checko
   python tools/rocfrontier/r14_looks.py run       (steps 3-5; refuses without READY; writes LOOKS.txt,
                                                    margin_curve.csv, past_passes.csv, docs/LOOKS_R1.md)
   python tools/rocfrontier/r14_looks.py smoke DIR  (offline synthetic world; numbers mean nothing)
+
+PRE-DATA ADDENDUM 1 (2026-10-05, cloud lane, before any null draw) - the step-1 ledger is built and hashed.
+- tools/rocfrontier/LOOKS_LEDGER_R1.csv, 141 rows, canonical-LF sha256
+  f55656b4f1481917efdcef1c7e779bd6fb8f5728ac31396cb2fc86174d118f52; the count and every judgment call are in
+  tools/rocfrontier/LOOKS_COUNT_R1.md (generated from the csv).
+- Registered counts (the rule applied literally, printed figures only): K_book = 71, K_size = 20, K_leg = 51
+  (SWAP 25, ADD 14, COMBO 12), K_lane = 26 (reported, not in the formula). The draft's guesses of ~166 / ~10
+  counted candidates whose lockbox figure was never printed (covered only by an aggregate verdict such as
+  "no pass in 60"); those are a CEILING, K_ceiling = 181, which the margin ladder also prints. Cumulative K_book
+  when each past pass was read: 58d 17, #444 30, #449 31, round-61 best 35, V2 49, V2-500 50, Q4 63, Q6 63.
+- Resolution restated at the registered counts: FWER <= 0.05 at K_leg = 51 needs p_leg <= 0.0010 = about 40 of
+  40,000 draws; at K_size = 20, p_size <= 0.0026 = about 9-10 of ~3,680 shifts. Both plain counts, printed.
+- The margin ladder of step 4 is printed at K = 1, 10, 50, 71, 100, 142, 181, 500.
+- Calibration set as printed (LB ratio to #463 in the same table, unified): #468 0.9927, #469 0.9075, #470 1.0158,
+  Q1a 0.9473, Q1b 0.9408, Q2 1.0868, Q2ctx 0.9363, Q3 1.2116, Q5 0.9621, Q6 1.0206; sd of ln(ratio) = 0.0859.
+- Past-pass ratios as printed, each to its own reference in its own table (convention named in the csv): 58d
+  1.0480, #444 1.0563, #449 1.0557, round-61 best 1.4425 (sub-window), V2 1.5734, V2-500 1.4533, Q4 1.1421,
+  Q6 1.0206.
+- No other line of this file changes. The harness r14_looks.py binds to this file's sha WITH this addendum and
+  to the csv's sha above; a changed csv is a new count and a dated addendum, never a silent edit.
