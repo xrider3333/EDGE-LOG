@@ -1,0 +1,126 @@
+PRE-REGISTRATION - NEWISSUE r1: recent US listings against seasoned stocks of the same liquidity, monthly, dollar-neutral
+=====================================================================================================================
+DRAFT v1 2026-10-05 13:00 MST for MANAGER review, by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (owner standing order
+10-04 + MANAGER #49: a queue of 3 NEW-TYPE items; this lane's queue on 2026-10-05: DIVRUN r1, EDRIFT r1, this). Written before
+any number of this family exists. Nothing runs until MANAGER's GO or the standing order's 60-minute rule (then Stage A
+walk-forward only, the review folded in as a dated addendum), and not before the two items ahead of it. Results:
+C:\EdgeLog\_anatomy_cache\rocfrontier\newissue_r1\ and RESEARCH_LEDGER.md.
+
+WHAT IS DIFFERENT (one line): the first EL family whose signal is a firm's AGE ON THE EXCHANGE - the new-issues puzzle (Ritter
+1991; Loughran & Ritter 1995) - not a price pattern, a news event or a dividend date.
+
+WHY NOW (house evidence first). RESMOM r1 (ledger 2.65) showed that a monthly, low-turnover stock basket can survive costs and
+earn in #463's drawdown days; its biggest drawdown-day gains came in 2022, when the growth names #463's NQ legs trade fell
+hardest. Recent listings are the purest growth-and-attention names in the market; the mechanism below says they underperform for
+two years after the lockup, and a basket short them is the most direct test of whether that underperformance is a lasting
+premium or one boom-and-bust (2020-22) - which is why the registered bars below include "net > 0 without 2022".
+
+THE MAP FIRST (MDL r1). A dollar-neutral basket of tens of names a side; rho_dd unknown (the short side is growth-heavy, so the
+drawdown-week profile could be strongly positive, like RESMOM's, or concentrated in one year). Standalone bar ROC @ $30k >= 15;
+the MANAGER #70 route (gate, then one forward book line) applies if only the book-add report passes. Placed honestly: few names,
+a lumpy cohort structure and one dominant episode - a long shot whose value would be its drawdown-day profile.
+
+MECHANISM. Firms list when investors are most optimistic about them ("windows of opportunity"); the optimism fades as the story
+meets results, and the supply of tradable shares jumps when lockups expire (~180 days; Field & Hanka 2001), so new issues
+underperform seasoned firms of similar size for three to five years (Ritter 1991; Loughran & Ritter 1995; Ritter & Welch 2002).
+Counter-evidence written in now: the underperformance is concentrated in small, non-VC-backed issues and shrinks when issues
+are matched on size and book-to-market (Brav & Gompers 1997; Brav, Geczy & Gompers 2000) - this family trades only the 500 most
+liquid names, where the effect should be weakest; borrowing recent issues can be costly; and 2016-25 holds one great listing
+boom (2020-21) and its bust (2022), so any result may be that one episode.
+
+DATA (no new pull, no money): the SIPORB cache (Alpaca SIP daily bars raw + split-adjusted, active and inactive names, manifest
+sha256 380b05f2..., never mixed with a re-pull) - a name's LISTING SESSION is its first session with a bar in the cache; the wide
+corporate-actions calendar pinned for RESMOM (sha256 e5bc8487...) for spin-offs, name changes, dividends (added back as RESMOM
+[R1]) and splits; ES 5-minute RTH masters for the hedge cell. Hygiene exactly as RESMOM; a flag inside the hold removes the
+position (look-ahead removal, reported both ways).
+
+WHO IS NEW, WHO IS SEASONED (at each rank close r, information known then):
+- NEW: a universe name whose listing session is 6 to 24 months before r (126 .. 504 sessions), and which is NOT a spin-off's new
+  symbol on the calendar (spincos are a different effect, excluded and counted) and has NO name change on the calendar in the 24
+  months before r (de-SPACs and rebrands cannot be dated cleanly; excluded and counted; their P&L had they been included is a
+  REPORTED row).
+- SEASONED: a universe name listed more than 36 months before r or present at the cache's first session (2016-01-04), with no name
+  change in the 24 months before r.
+- Because the cache starts 2016-01-04, a listing is dated only from 2016-01-05 on; the first rank whose 24-month window is fully
+  observable is 2018-01-31, so WF = positions EXITED 2018-02-01 -> 2025-06-29 (89 rebalances; counted by the dryload).
+UNIVERSE: RESMOM's (prior raw close >= $10, top 500 by mean raw dollar volume over the previous 20 sessions, mean volume >=
+1,000,000 shares, ATR > $0.50, no registered split in the previous 14 sessions); no 252-session history is required of NEW names.
+
+CELLS (the family: 2), at each month's last session close r, filled at the next session's official open, held to the next
+rebalance's fill, $4,000 a name, fractional shares, daily marks, no compounding:
+- M (matched): SHORT every NEW name in the universe; LONG, for each, the SEASONED universe name nearest to it in 20-session mean
+  dollar volume (each seasoned name used once, ties by symbol). Dollar-neutral.
+- E (ES-hedged): SHORT every NEW name; LONG ES at the short side's notional x 1.0 (a market hedge, not a beta estimate - new names
+  lack the 252-session history). Market-neutral to first order.
+A month with fewer than 10 NEW names trades nothing in either cell (counted).
+COSTS: 5 bps a side on the stocks (base), stress 10 and 20; ES 0.5 bps a side. BORROW on the short side: 2%/yr base (recent
+listings are often special), stress 10%/yr and 25%/yr on every short day.
+
+NULL (family-aware): 500 draws, seed 20261005; at every rebalance the NEW set is replaced by the same number of SEASONED universe
+names drawn at random (not NEW), and cell M's matched longs are re-matched to them by the same rule; statistic = the MAX over the 2
+cells of WF ROC @ $30k. It asks whether being NEW matters beyond being a random liquid stock of the same count.
+
+#463 and the map: exactly RESMOM's (reproduction refused unless WF 93.81 / 3.816 / $44,849 and LB 155.54 / 4.150; DO and rho_dd by
+r12_mdl.Stretch; 28 episodes / 460 days - note WF here starts 2018-02, so the map point uses the drawdown days from 2018-02 on).
+
+STAGE A (WF, per cell; the standalone bars decide - MANAGER #56): (a) >= 60 rebalances traded; (b) WF ROC @ $30k >= 15 and net > 0
+at 5 AND 10 bps AND at the 10%/yr borrow stress; (c) above the null's 95th percentile; (d) positive in >= 5 of the 8 July-June WF
+years (2017-18 is short and counts), net > 0 without Feb 15 - Apr 30 2020, AND net > 0 without calendar 2022 (the bust year);
+(e) profitable without its best 1% of days AND of name-months; (f) the 50 largest contributors audited by hand (split, TBIS,
+asset list, the calendar - is it really a new listing?) before a pass is read.
+A2 (WF, a REPORT): as RESMOM (c by volatility over the cell's first two full years, 2018-02-01 .. 2020-01-31; 0.5c and 2c), also
+on top of #463 + 0.264 x RES; an A2 pass follows MANAGER #70's route (gate first, then at most one forward book line).
+STAGE B / C: as RESMOM (the leg's veto on the stock families' shared sealed-year day if MANAGER registers it; a computed no-order
+line on the RUNBOARD).
+
+REPORTED, never a pass route: NEW names per month and by listing cohort year; the P&L by cohort and by months since listing (6-12
+vs 12-24); 2020-21 and 2022 apart; long and short sides apart; the spin-off and name-change exclusions (counts, and the P&L had
+they been included); borrow stress rows; the correlation with RESMOM's RES; the drawdown-day map point and episode table.
+
+KNOWN WAYS IT COULD FOOL US: the listing date is the first bar in one vendor's cache (uplistings from OTC, ticker reuse and
+direct listings look like IPOs - the hand audit and the exclusions guard part of it); one boom-bust; borrow costs are guessed;
+survivorship (Alpaca's inactive names only; failed listings that left the exchange may be missing - which would flatter the
+short side's losses less, not more); few names.
+
+Zero passes = NEWISSUE r1 dead; no other age windows or matching rules are tried.
+
+PRE-DATA ADDENDUM 1 (2026-10-05, before any NEWISSUE number): MANAGER's review (inbox #73, GO WITH EDITS, walk-forward only,
+queue after DIVRUN and EDRIFT, registered for the sealed-year day as a leg veto), its edits folded:
+- [B] THE BOOK-ADD REPORT IS INCREMENTAL. The RESMOM forward line already exists, so A2 compares #463 + 0.264 x RESMOM's RES +
+  c x the cell AGAINST #463 + 0.264 x RES (c by the registered volatility rule; 0.5c and 2c reported); a pass on top of that
+  line is the only one that matters, and MANAGER #70's gate (drawdown-day DO above the random-name null's 95th percentile AND
+  positive without the best episode) is computed on the same incremental basis. The plain #463 + c x cell book is a reported
+  row. The family is registered for the stock families' one sealed-year day as a leg veto.
+- [N1] BORROW IS THE QUESTION. Stage A is judged with every NEW short paying 3%/yr (this replaces the draft's 2% base); 10%/yr
+  and 25%/yr are reported stress rows. Availability is not modelled: a recent listing can be impossible to borrow in size at
+  any price, so even a pass is a paper result until a broker's locate list is checked - written into any line it opens.
+- [N2] BETA. The short side is high-beta growth, so a drawdown-week profile could be a short-market bet. Cell E becomes the
+  PRIMARY and its hedge is set ex ante by beta, not 1.0: ES notional long = the OLS beta of the equal-weight NEW basket's daily
+  return on ES over the 126 sessions before the rank close x the short notional (every NEW name is at least 126 sessions old).
+  For BOTH cells the realised beta (the cell's daily $ P&L on ES's daily return, per $ of short notional) is printed; a cell
+  with |realised beta| > 0.20 has its drawdown-day profile REPORTED but never credited (no A2 pass, no gate, no line).
+- [N3] A REPORTED 4-8-MONTH ROW: the same short / match / hedge on names 4 to 8 months after listing (84 .. 168 sessions) - the
+  lockup-expiry supply shock sits there; the registered 6-24-month window starts after most lockups on purpose (the post-lockup
+  drift, not the expiry event).
+- [N4] FIRST-SESSION SANITY: a listing session counts only if the name has a raw close and volume on at least 18 of the 20
+  sessions after it (a stray bar before a real listing, or a relisting gap, is not a listing); failures are excluded from NEW
+  and from SEASONED and counted by year.
+- [N5] P&L BY LISTING-YEAR COHORT is printed beside the cells (2016 .. 2024 cohorts), so the 2020-21 boom's share is visible
+  beside the registered 'net > 0 without 2022' bar.
+- [N6] SIZE FLOOR: a month with fewer than 20 NEW names trades nothing in either cell (the draft's 10 becomes 20, as the review
+  reads it); such months are counted and a cell needs >= 60 traded rebalances (bar (a)).
+
+PRE-DATA ADDENDUM 2 (2026-10-05, before any NEWISSUE number): the owner's standing order addendum 2 (MANAGER #74) folded (it
+makes addendum 1's [B] concrete):
+- [X1] THE BOOK-ADD REPORT IS INCREMENTAL OVER THE RESMOM LINE (owner standing order addendum 2, 10-05 12:45 MST, via MANAGER
+  #74). RES's registered WF daily P&L is read from C:\EdgeLog\_anatomy_cache\rocfrontier\resmom_r1\resmom_cells_daily_wf.csv
+  (sha256 bed7bf8b98d201894471cd3e72bd146bb87260c6cc8d1ac54b8167f923d41819, written by r17_resmom_export.py from Stage A's
+  reading; refused if different). The REFERENCE book is #463 + 0.264 x RES (WF ROC @ $30k 120.82, Sortino 3.916, worst drawdown
+  $36,526). A2 reports the reference + c x the cell against the reference (c by the registered volatility rule; 0.5c and 2c);
+  an incremental pass = both figures above the reference's. MANAGER #70's gate, if A2 passes, uses the REFERENCE book's
+  drawdown days (MDL r1's episode rule applied to the reference) for the cell's DO and for its null. The plain #463 + c x cell
+  book is a reported row.
+- [X2] DEEPER DIAGNOSTICS (the same addendum: 'a 7-at-$30k result must teach something'). Every cell also prints: the cost
+  curve at 0 / 5 / 10 / 20 bps a side; a row per July-June year; the regime halves 2016-07 .. 2021-12 and 2022-01 .. 2025-06; a
+  row per drawdown episode of the reference book (the cell's P&L inside it); the long (matched or ES) and short sides apart;
+  the path by months since listing (4 .. 24, one row per month). None of these is a pass route.
