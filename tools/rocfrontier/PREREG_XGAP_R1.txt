@@ -112,3 +112,57 @@ earnings continuation (CAP8); survivorship (point-in-time membership, Alpaca's i
 guaranteed (10 / 20 bps); 2020; the caches are photographs of the vendor.
 
 Zero passes = XGAP r1 dead; a gap family is not re-tuned - the next stock family comes from the next mechanism.
+
+PRE-DATA ADDENDUM 1 (2026-10-05, before any XGAP number): TV's second review
+(C:\EdgeLog\manager\reviews\xgap_r1_review_TV_2026-10-05.md, X1-X6) and NOISE's third review
+(xgap_r1_third_review_by_NOISE_2026-10-05.md, H1-H4), both GO WITH EDITS. DDW r1 died at Stage A on 2026-10-05 (ledger 2.59; its
+gap-fade cells lost at their base cost) before any XGAP number existed.
+- [TV X1] IDENTITY: the symbol-map check becomes the house auction tolerance - the member cache's raw 09:30 open within 1 cent
+  or 0.10% (whichever is larger) of SIPORB's raw official open - and a name of a share-class pair (GOOG/GOOGL, FOX/FOXA,
+  NWS/NWSA, LBTYA/LBTYB/LBTYK, DISCA/DISCB/DISCK, LILA/LILAK, BATRA/BATRK, LBRDA/LBRDK, VIAC/VIACA, plus any other member pair
+  with a shared root the harness finds and prints) must map to its OWN ticker in both pulls, never across classes.
+- [TV X2] DROPS vs THE SIGNAL: the identity drops are reported by |g| bucket and side. If the names that would rank among the 10
+  most negative or 10 most positive g drop at more than 1.5x the rate of the rest, Stage A is also computed with each dropped
+  name's slot left EMPTY that day (its side trades fewer names, the same dollars a name), and a cell passes only if both
+  readings pass.
+- [TV X3] SIBLINGS: two families tested the gap-reversal hypothesis (DDW r1's two L2 cells, now dead, and XGAP's two cells), so
+  XGAP's check (c) reads its null at the 97.5th percentile (Bonferroni for two), the report states the four sibling cells tried,
+  and there is no fall-back read of any runner-up - one look for one hypothesis.
+- [TV X4, MANAGER X3] THE BETA-ADJUSTED TWIN IS A VETO, not only a report: a cell passes Stage A only if its twin (g_b = raw gap
+  - beta_i x the median raw gap, beta_i from the previous 60 sessions' daily returns on the universe's median return - MANAGER's
+  definition, kept: the median member gap is the index gap of these same names, known at 09:30) has net > 0 at the base and the
+  stress costs and a WF ROC @ $30k of at least half the primary's. TV's NQ-gap variant is not used (a second instrument and its
+  rolls for no gain).
+- [TV X5] DIVIDENDS: ex-dividend name-days are excluded via the calendar (MANAGER X1); the share of dividend payers (a cash
+  dividend in the trailing 12 months) in the long and the short bucket is reported.
+- [TV X6] EARNINGS: CAP8 stays the judged second cell (MANAGER kept both cells). An ex-earnings reading - sessions after a
+  scheduled release removed, from tools/data/megacap_earnings.csv (EARN r1, ledger 2.33) where it covers the members, its
+  coverage printed - is REPORTED, never judged.
+- [NOISE H1] FLAGS DATED t MUST BE KNOWN BY THE 09:35 FILL: the TBIS volume-confirmed flag reads t-5 .. t-1 only (its volume
+  ratio needs a full session); the gap scan, the registered split (open-based factor), the +-50% raw-gap rule and the calendar's
+  ex-dates are known by the open and stay on t. Day-t removals are counted under both versions.
+- [NOISE H2] ONE PRICE BASIS A NAME-DAY: g = (official open_t / F_t) / (prior official close / F_(t-1)) - 1 with F SIPORB's
+  split factor; the entry is the member cache's RAW 09:35 bar open; the exit is SIPORB's RAW official close of t; the identity
+  check compares the cache's raw 09:30 open with SIPORB's raw official open - entry and exit share day t's raw basis.
+- [NOISE H3] MISSING PIECES, BY YEAR: member-days with no Alpaca data at all (after the calendar's rename chain) are counted and
+  named as the survivorship the draft lists (the dryload, counts only: 17.5% of 2016's member-days have no SIPORB bar, falling
+  to 2.0% in 2025, mostly delisted or acquired names); a name-day with an entry but no official close is dropped from the cells
+  AND the null; a half-day session exits at that session's official close. The 2% rule of the symbol map counts the
+  identity-check drops only; the no-data drops are this survivorship line.
+- [NOISE H4] every exclusion above also leaves the null's pool.
+- COSTS, clarified: 'each cell must pass at both' means net > 0 at the base AND the stress costs (check (e) carries the stress);
+  every other check reads the base costs.
+- [MANAGER #56, house line 2026-10-05 07:48] A2 IS A REPORT, NOT A GATE: Stage A's standalone bars alone decide whether the leg
+  goes on - to the RUNBOARD research row the same day and to its own sealed-year veto (Stage B) on the one sealed-year day.
+  Stage A2 (#463 + c x the cell, c set by volatility, the book's WF numbers and drawdown cap) is computed and printed with the
+  power line first, and decides only whether a forward BOOK shadow line is ALSO opened (A2 pass -> book shadow line; fail -> the
+  standalone shadow only). With DDW r1 dead the sibling rule ranks nothing.
+- [MANAGER #57] the source for an earnings exclusion is tools/data/megacap_earnings.csv, which covers mega caps only - so CAP8
+  stays the judged cell and the ex-earnings reading is a report (X6 above). The corporate-actions pull lands in the shared cache
+  C:\EdgeLog\alpaca_cache\xgap\ for other lanes (Custom ML's XSML).
+- [MANAGER #58] THE CALENDAR ON FILE: MANAGER ran the corporate-actions pull on 2026-10-05 08:47 through its wrapper (probe
+  first: HTTP 200, no type rejected): 6 requests, 206 member tickers + 17 names revealed by name changes, 3,078 rows - 2,977
+  cash dividends, 48 forward splits, 10 reverse splits, 27 name changes, 15 spin-offs, 1 unit split; corporate_actions_raw.jsonl
+  sha256 eac8ccef7d6c22315b2fe5cc770534aa48eab988dc04c0903892f253c7c61f8d, corporate_actions.csv sha256
+  d7acffbe5de0c5eccf3e13625c55d30ab4a173b9ce7952f576d1f0ac659b81b2. Stage A and B refuse any other file; a re-pull is a new
+  photograph and a new addendum.
