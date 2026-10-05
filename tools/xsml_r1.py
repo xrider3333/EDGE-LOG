@@ -593,7 +593,8 @@ def power2():
     SB = statarb_scores(D)
     turn = []
     _, nl = statarb_book(D, SB, turnover=turn)
-    sd = pd.Series(turn, index=[D.dates[D.pos(t) + 1] for t in sorted(SB)][:len(turn)])
+    fdays = [D.dates[D.pos(t) + 1] for t in sorted(SB) if D.pos(t) + 1 < len(D.dates)]
+    sd = pd.Series(turn, index=fdays[:len(turn)])
     sd = sd[(sd.index >= WF0) & (sd.index <= WF1)]
     yrs = (WF1 - WF0).days / 365.25
     lines = [f"B STATARB turnover (positions only): {sd.mean() / (2 * GROSS):.1%} of the $2M gross a day; "
