@@ -370,6 +370,78 @@ function MaybeStaleRestart {
   } catch { return $false }
 }
 
+# EMPTY TICK REPLAY -> ONE RETRY (2026-10-05). After the PC slept 23:43-08:56 ET, NinjaTrader (hung
+# through the sleep) was killed and relaunched at 09:06 ET, and its 10s charts loaded NO historical bars
+# ('replay sidecar: no historical bars'): the night arrived as live bars without ticks and the replay that
+# rebuilds them had nothing to give. A fresh start normally loads 3 days with Tick Replay (10-03: 24,591
+# bars, all with ticks). So: if the CURRENT NinjaTrader process's exporter logged an empty replay, the
+# account is flat with no working orders, it is outside the 09:25-16:05 ET cash session and this has not
+# been tried today, restart it once.
+$replayState = 'C:\EdgeLog\nt_replay_retry.json'
+$repairState = 'C:\EdgeLog\nt_replay_repair.json'
+function ReplayLineSinceStart($sym, $since) {
+  $lp = "C:\EdgeLog\ohlc\_export_$sym.log"
+  if (-not (Test-Path $lp)) { return $null }
+  $last = $null
+  foreach ($ln in @(Get-Content $lp -Tail 60)) {
+    if ($ln -notmatch 'replay sidecar') { continue }
+    $t = $null; try { $t = [datetime]::ParseExact($ln.Substring(0, 19), 'yyyy-MM-dd HH:mm:ss', $null) } catch { continue }
+    if ($t -ge $since) { $last = $ln }
+  }
+  return $last
+}
+function MaybeReplayRetry {
+  try {
+    $p = @(Get-Process NinjaTrader -ErrorAction SilentlyContinue)
+    if ($p.Count -eq 0) { return $false }
+    $since = $p[0].StartTime
+    $bad = @()
+    foreach ($s in 'NQ', 'ES') {
+      $ln = ReplayLineSinceStart $s $since
+      if ($ln -and $ln -match 'no historical bars|ZERO ticks') { $bad += $s }
+    }
+    if ($bad.Count -eq 0) { return $false }
+    $et = [TimeZoneInfo]::ConvertTimeBySystemTimeZoneId((Get-Date), 'Eastern Standard Time')
+    $m = $et.Hour * 60 + $et.Minute
+    if ($m -ge (9 * 60 + 25) -and $m -lt (16 * 60 + 5) -and $et.DayOfWeek -notin 'Saturday', 'Sunday') {
+      Log "Tick Replay came back EMPTY for $($bad -join '/') but it is the cash session - not restarting now"
+      return $false
+    }
+    $today = (Get-Date).ToString('yyyy-MM-dd')
+    if (Test-Path $replayState) {
+      try { if ((Get-Content $replayState -Raw | ConvertFrom-Json).day -eq $today) { return $false } } catch {}
+    }
+    $pos = (Invoke-WebRequest -Uri "$bridge/positions" -TimeoutSec 8 -UseBasicParsing).Content
+    $ord = (Invoke-WebRequest -Uri "$bridge/orders" -TimeoutSec 8 -UseBasicParsing).Content
+    if ($pos -notmatch '"positions"\s*:\s*\[\s*\]' -or $ord -notmatch '"orders"\s*:\s*\[\s*\]') {
+      Log "Tick Replay came back EMPTY for $($bad -join '/') but a position or order is open - not restarting"
+      return $false
+    }
+    Log "Tick Replay came back EMPTY for $($bad -join '/') (the night's bars have no buy/sell) - restarting NinjaTrader once so it reloads them"
+    @{ day = $today; at = (Get-Date).ToString('s'); syms = $bad } | ConvertTo-Json | Set-Content $replayState -Encoding utf8
+    # force-kill: flat here, and a kill never runs a clean disable that could cancel anything
+    foreach ($q in $p) { try { Stop-Process -Id $q.Id -Force -ErrorAction Stop } catch {} }
+    Start-Sleep -Seconds 8
+    return $true
+  } catch { return $false }
+}
+# When a new replay sidecar appears, merge it into the 10s files (tools/repair_10s_from_replay.py:
+# rewrites no-tick rows, inserts missing bars, never deletes, atomic with a backup). Idempotent.
+function MaybeRepair {
+  try {
+    $newest = @(Get-ChildItem 'C:\EdgeLog\ohlc\replay' -Filter '*_replay.csv' -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending)[0]
+    if (-not $newest) { return }
+    $done = $null
+    if (Test-Path $repairState) { try { $done = [datetime](Get-Content $repairState -Raw | ConvertFrom-Json).sidecar } catch {} }
+    if ($done -and $newest.LastWriteTime -le $done) { return }
+    Log "new Tick Replay file ($($newest.Name), $($newest.LastWriteTime)) - merging it into the 10s files"
+    $repo = Split-Path -Parent (Split-Path -Parent $cli)
+    & $py (Join-Path $repo 'tools\repair_10s_from_replay.py') 2>&1 | ForEach-Object { Log "  [repair] $_" }
+    @{ sidecar = $newest.LastWriteTime.ToString('s'); at = (Get-Date).ToString('s') } | ConvertTo-Json | Set-Content $repairState -Encoding utf8
+  } catch { Log "WARN: repair step failed: $_" }
+}
+
 Log "=== recover start (WhatIf=$WhatIf) ==="
 
 # ── 1. already healthy? ────────────────────────────────────────────────────────────
@@ -386,7 +458,9 @@ if (BridgeUp) {
     }
     if (MaybeRecycle) { Log "recycled - continuing to bring it back up" }
     elseif ((-not $WhatIf) -and (MaybeStaleRestart)) { Log "restarted for stale data - continuing to bring it back up" }
+    elseif ((-not $WhatIf) -and (MaybeReplayRetry)) { Log "restarted for an empty Tick Replay - continuing to bring it back up" }
     else {
+      if (-not $WhatIf) { MaybeRepair }
       Log "healthy: bridge up, all expected strategies Realtime ($($expected -join ', ')), in sync with the account"
       exit 0
     }
