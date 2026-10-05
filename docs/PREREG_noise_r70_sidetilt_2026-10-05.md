@@ -1,4 +1,4 @@
-# PRE-REGISTRATION (DRAFT for MANAGER review) — NOISE round 70: size NOISE #422's SHORTS up (2026-10-05)
+# PRE-REGISTRATION (DRAFT for MANAGER review) — NOISE round 70: size NOISE #422's SHORTS up (2026-10-05; amended per MANAGER review #36)
 
 Standing order 10-04 (queue of three; the map first). Draft sent to MANAGER before any tilted number exists; if no answer
 in 60 minutes, Stage A (walk-forward only, no lockbox) runs and the review is folded in as a dated addendum.
@@ -39,4 +39,18 @@ A5. BOOK bar (the map's): #463 with this NOISE leg beats #463 with plain NOISE s
 PASS on every bar -> MANAGER decides the one lockbox read (a pinned, fenced Auto-Validate of a CT304H sibling with a
 short_mult knob {1.0, 1.25, 1.5, 2.0} only, or a no-order forward shadow if MANAGER rules the partly-seen WF makes a
 lockbox read worthless). FAIL on any -> dead, no variants.
-Live note: Webull netting and caps (20 / leg, 40 total) truncate 1.5x shorts; nothing changes live without the owner.
+
+## AMENDMENT - MANAGER review #36 (C:\EdgeLog\manager\reviews\noise_r70_sidetilt_review_2026-10-05.md), before any run
+1. FAMILY: Custom ML's NOISE hedge tilt (1.5x NOISE shorts / 0.5x longs while ENGU-Q is long) and this round both
+   up-weight NOISE shorts in sell-offs - ONE hunt; if both pass it is one finding, not two. The correlation of the two
+   tilted legs' daily difference series is reported once Custom ML's series exists (NOISE exports its own difference
+   series for that).
+2. Reported with Stage A: per-WF-year long and short P&L, tilted vs #422.
+3. Reported with A5: the book's worst walk-forward drawdown in dollars, and the share of that drawdown's dollars that
+   fall on days carrying a NOISE short (for #463, the tilted book and the twin).
+4. Live note: Webull netting REFUSES a NOISE short while ENGU-Q is long (v73.878) and the caps truncate the rest; the
+   full expression exists only on the paper book and the NQ shadows. Nothing changes live without the owner.
+5. LOCKBOX ROUTE (decided now): a Stage A pass on every bar -> the pinned, fenced house Auto-Validate of a CT304H
+   sibling with short_mult in {1.0, 1.25, 1.5, 2.0} only (date_from 2010-06-07 / date_to 2026-07-16, 900 trials), queued
+   the SAME DAY - the one lockbox read and the RUNBOARD entry; runboard_watch verdict with ROC at $30k and DD%; the run
+   note says the partly-seen walk-forward makes that read a VETO, not a discovery. Fail = dead, no variants.

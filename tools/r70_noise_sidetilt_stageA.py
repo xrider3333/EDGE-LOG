@@ -116,6 +116,21 @@ if __name__ == "__main__":
         print("    %-20s #422 %6.1f  tilted %6.1f" % (lab, outs[lab][0], outs[lab][1]))
     a4 = wins >= 6 and all(v[1] > v[0] for v in outs.values())
 
+    # amendment #36 (2): per-WF-year long / short P&L, tilted vs #422 (reported, not judged)
+    kk0 = np.array([int(t[0]) for t in tr])
+    sd0 = np.array([np.sign(t[3]) for t in tr])
+    d0 = R.DATE[kk0 - 1]
+    v0 = np.array([p[1] for p in base]) * R.M
+    vt = np.array([p[1] for p in cells[K_MAIN]]) * R.M
+    print("  per WF year, $ (longs are unchanged by the tilt):")
+    for y in range(9):
+        a = (pd.Timestamp(R.WF0) + pd.DateOffset(years=y)).date()
+        b = R.LB0 if y == 8 else (pd.Timestamp(R.WF0) + pd.DateOffset(years=y + 1)).date()
+        m = (d0 >= a) & (d0 < b)
+        print("    year %d: longs $%9s | shorts #422 $%9s  tilted $%9s" % (
+            y + 1, format(int(v0[m & (sd0 > 0)].sum()), ","), format(int(v0[m & (sd0 < 0)].sum()), ","),
+            format(int(vt[m & (sd0 < 0)].sum()), ",")))
+
     # ---- A5: the book, walk-forward only, built to 2025-06-29 -------------------------------------------------------
     from api.book_shadow import book463_valued_daily
     B = book463_valued_daily("2010-06-07", BPRE.strftime("%Y-%m-%d"))
@@ -139,6 +154,30 @@ if __name__ == "__main__":
     print("  BOOK + tilted NOISE   ROC@30k %.2f  Sortino %.3f" % (tb["roc"], tb["sort"]))
     print("  BOOK + NOISE x c=%.3f ROC@30k %.2f  Sortino %.3f  (plain extra NOISE at the same mean size)" % (c, tw["roc"], tw["sort"]))
     a5 = tb["roc"] > tw["roc"] and tb["sort"] > tw["sort"]
+
+    # amendment #36 (3): each book's worst WF drawdown in $, and the share of its $ on days carrying a NOISE short
+    short_days = set(pd.Timestamp(x) for x in d0[(sd0 < 0) & wfm])
+    for lab, ser in (("#463", B), ("#463 + tilted NOISE", tilted_book), ("#463 + NOISE x c", twin_book)):
+        x = ser.to_numpy()
+        cum = np.cumsum(x)
+        peak = np.maximum.accumulate(cum)
+        t1 = int(np.argmax(peak - cum))
+        t0 = int(np.argmax(cum[:t1 + 1])) if t1 > 0 else 0
+        win = ser.iloc[t0 + 1:t1 + 1]
+        loss = -win[win < 0]
+        on = loss[[d in short_days for d in loss.index]].sum()
+        print("  %-22s worst WF drawdown $%s (%s .. %s); %.0f%% of its losing-day $ on NOISE-short days" % (
+            lab, format(int(peak[t1] - cum[t1]), ","), ser.index[t0].date(), ser.index[t1].date(),
+            100 * on / loss.sum() if loss.sum() > 0 else 0.0))
+
+    # amendment #36 (1): export this round's daily difference series (tilted minus plain NOISE, WF book days) so the
+    # correlation with Custom ML's hedge-tilt series can be computed when theirs exists
+    out = os.path.join(r"C:\EdgeLog\custom_ml", "noise_r70_sidetilt_wf_daily_diff.csv")
+    try:
+        (tilt_day - noise_day).rename("diff_usd").to_csv(out, index_label="date")
+        print("  difference series exported -> %s" % out)
+    except OSError as e:
+        print("  difference series NOT exported (%s)" % e)
 
     print("")
     for lab, ok in (("A1 NOISE leg beats #422 on WF ROC@30k and Sortino", a1), ("A2 both neighbours beat #422", a2),
