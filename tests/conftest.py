@@ -430,6 +430,25 @@ def _isolate_alpaca_keys(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def _isolate_pull_provenance(monkeypatch, tmp_path):
+    """augur_engine/pull_provenance.py files a receipt for every Alpaca pull - when it happened
+    and a hash of exactly what came back - from inside fetch_bars, so that the research harnesses
+    that never reach upsert_master are covered too. The consequence for tests is the same one
+    _isolate_alpaca_rate has: the manifest must not be the real file under EDGELOG_HOME. Guard #2
+    blocks that write and fails the test, which is how this was found - four existing fetch_bars
+    tests went red the moment the hook landed. A private path keeps the real code running;
+    tests/test_pull_provenance.py drives it with its own EDGELOG_HOME."""
+    try:
+        from augur_engine import pull_provenance as pp
+    except ImportError:
+        yield
+        return
+    monkeypatch.setattr(pp, "manifest_path",
+                        lambda: str(tmp_path / "pull_provenance" / "alpaca_pulls.jsonl"))
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _isolate_alpaca_rate(monkeypatch, tmp_path):
     """augur_engine/alpaca_rate.py paces every Alpaca request through one small file so the
     five lanes sharing the account stay under its 200/min cap. Two consequences for tests:
