@@ -106,4 +106,29 @@ number read).
 6. **The family null is re-run** with items 1-3 in place before the real run (same seed, same 6 cells); the power line below is
    replaced by the re-run's and the first run is kept for the record.
 
-**Re-run null with addendum 1 in place (2026-10-05, same seed, same 6 cells; run 1 kept as null_power_run1_pre_addendum.json):** events 648 inside membership spells, 0 without bars, **643 entering inside the walk-forward**, 110 companies (the 12 pulled names: ATVI, DISH, EA, HOLX, QRTEA, WBA). Positions per cell: H5_v0 539, H5_v100000 400, H20_v0 445, H20_v100000 336, H60_v0 354, H60_v100000 276. **Family null: 50th -1.85, 95th 1.84; power line 3.69.** The binding bar stays the map line ROC >= 15. Input sha256: form4 33c5f7f9..., bars 083f8c23..., bars_raw fa42412d..., corporate_actions e5bc8487..., members cfca0f85....
+**Re-run null with addendum 1 in place (2026-10-05, same seed, same 6 cells; run 1 kept as null_power_run1_pre_addendum.json):** events 648 inside membership spells, 0 without bars, **643 entering inside the walk-forward**, 110 companies (pulled names carrying events: ATVI, DISH, EA, HOLX, QRTEA, WBA). Positions per cell: H5_v0 539, H5_v100000 400, H20_v0 445, H20_v100000 336, H60_v0 354, H60_v100000 276. **Family null: 50th -1.85, 95th 1.84; power line 3.69.** The binding bar stays the map line ROC >= 15. Input sha256: form4 33c5f7f9..., bars 083f8c23..., bars_raw fa42412d..., corporate_actions e5bc8487..., members cfca0f85....
+
+## Stage A RESULT (2026-10-05 15:47 MST, `--real`, after addendum 1 and the re-run null were committed) - **DEAD**
+
+**Verdict: FAIL (roc30_ge_15, years_6_of_9).** Best cell H5_v100000: ROC@$30k **1.88** (net $+18k over 9 walk-forward years, drawdown $32k, Sortino 0.20,
+400 positions) against the map line 15 (and the null 95th 1.84, which it clears by a hair - a max-cell that size is a ~5 %
+event under the null). No cell is near the line.
+
+- All 6 cells (ROC@$30k): H5_v0 -0.85 (net $-11k, DD $45k, n 539); H5_v100000 1.88 (net $+18k, DD $32k, n 400); H20_v0 0.56 (net $+21k, DD $123k, n 445); H20_v100000 1.24 (net $+36k, DD $97k, n 336); H60_v0 -1.95 (net $-225k, DD $386k, n 354); H60_v100000 -2.34 (net $-223k, DD $319k, n 276).
+- Event-time path (all 643 events, mean cumulative stock minus NQ, %, zero at the close before entry): -10 2.292, -5 1.157,
+  entry 0.54, +5 0.676, +20 1.041, +40 1.08, +60 1.057. Insiders buy AFTER a ~2.3 % relative slide over the 9 sessions before (part of the +0.5 entry-day move is the overnight gap, before the open fill); the drift
+  after the buy is ~+0.5 % over 60 sessions - a fraction of the published ~1 % a month, and too small to pay costs and the
+  hedge's tracking.
+- Best cell, July-years: 2016-17 +8k, 2017-18 +3k, 2018-19 +4k, 2019-20 -23k, 2020-21 +16k, 2021-22 +20k, 2022-23 -1k, 2023-24 -5k, 2024-25 -3k (5 of 9 positive). Without Feb-Apr 2020 $+34k. Halves: 2016-21 ROC 1.30, 2021-25 ROC 3.12.
+- Legs: stock $+135k, NQ hedge $-117k. Unhedged long ROC 11.22 (that is the market, not the signal). Without dividends ROC
+  0.91. Cost curve (stock bp a side): 0bp 4.37, 2bp 3.33, 5bp 1.88, 10bp -0.17, 20bp -2.79.
+- Concentration: top-10 trades = 128 % of net; top-10 companies = 146 % of net; worst leave-one-company-out AKAM $+4k.
+- Reported splits (best cell's H and floor): opportunistic n 60 ROC 1.57; routine n 22 ROC 4.99; unclassified n 330 ROC 0.06; clustered n 39 ROC 1.78. The published "opportunistic" class does not carry in Nasdaq-100 names.
+- The 60-session cells lose ~$225k: repeat buyers restart the clock and keep a position through long relative slides (H60, all
+  events: WBA -$63k over 605 sessions held, WBD -$39k, AAL -$36k, ATVI -$27k, INTC -$22k over 1,365 sessions; best ALGN +$84k,
+  FAST +$48k), while the short-NQ hedge pays the 2016-25 NQ rally. Bars were checked for unadjusted splits (AAPL, NVDA,
+  TSLA, GOOGL, AMZN, AVGO split dates clean; the only < -45 % member day outside real crashes is KDP 2018-07-10, the Keurig
+  merger's special dividend, before KDP's membership spell - no position can hold it).
+
+**Next:** no Stage B (dead on the walk-forward). Ledger row + RUNBOARD research row filed. Per MANAGER #68 the queue moves
+to the non-earnings 8-K drift (map check first - scope addendum B says its prior is under the line) and the catalog mechanisms.
