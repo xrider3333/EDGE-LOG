@@ -22,6 +22,12 @@ from types import SimpleNamespace
 import pytest
 
 from api import qqq_exec as qe
+import os as _os
+import sys as _sys
+_THREADWAIT_DIR = _os.path.dirname(_os.path.abspath(__file__))
+if _THREADWAIT_DIR not in _sys.path:
+    _sys.path.insert(0, _THREADWAIT_DIR)
+from _threadwait import join_done  # noqa: E402
 
 NOOP = lambda *a, **k: None  # noqa: E731
 
@@ -476,14 +482,13 @@ def test_a_rebuild_during_a_submit_cannot_put_the_old_write_back(monkeypatch, fr
             # the rebuild arrives right now, from the loop thread
             t = threading.Thread(target=pub.reset_worker, daemon=True)
             t.start()
-            t.join(0.3)
+            time.sleep(0.3)   # let it reach the lock write_one holds (it may or may not; the reset wins either way)
             resetter["t"] = t
             return stuck
 
     pub._ex = _OldWorker()
     pub.write_one(_Client(_Store()), "uid1", {"mode": "SHADOW"}, {}, log=NOOP)
-    resetter["t"].join(2)
-    assert not resetter["t"].is_alive()
+    assert join_done(resetter["t"])
     assert pub._inflight is None, "the reset wins: the old worker's write is forgotten"
     assert not isinstance(pub._ex, _OldWorker)
     stuck.set_result(None)
@@ -562,8 +567,7 @@ def test_wedged_loop_rebuilds_then_the_lease_lands_and_sends_unblock(tmp_path, m
             "after the rebuild the lease must land and sends unblock"
     finally:
         stop.set()
-        t.join(5)
-    assert not t.is_alive()
+    assert join_done(t)
     assert h.generation == 1 and wedged.closed
     before = [ok for g, ok in env.verdicts if g == 0]
     assert before and not any(before), "every send stays blocked while the lease is unverifiable"
@@ -596,8 +600,7 @@ def test_wedged_loop_that_cannot_recover_keeps_sends_blocked_and_pages_once(tmp_
         assert _wait_for(lambda: h.generation >= 3 and pushes, timeout=10)
     finally:
         stop.set()
-        t.join(5)
-    assert not t.is_alive()
+    assert join_done(t)
     assert env.verdicts and not any(ok for _g, ok in env.verdicts), \
         "no send may pass while no connection can confirm the lease"
     assert len(pushes) == 1 and pushes[0][2] == "high"
