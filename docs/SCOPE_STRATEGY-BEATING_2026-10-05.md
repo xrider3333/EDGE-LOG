@@ -79,10 +79,14 @@ queue is re-cut by owner:
    additions are held in tools/data/ndx_members.csv, but the effect is arbitraged away) and RUSSELL have too few events
    for the 60-rebalance bar.
 
-**Handed to FRONTIER's seat list (MANAGER #80), with this doc's literature and data notes:** NETISS as a characteristic
-sort (net share issuance), SHORTINT (FINRA days to cover), IVOL (BAB's sibling), SEASON (same-month seasonality) and 52WH.
-NETISS stays the strongest mechanism on this map for a drawdown-week earner; if MANAGER prefers, BUYBACK r1 above is
-where this lane tests it as events.
+**SUPERSEDED the same afternoon by MANAGER #84 (15:19 MST, the final split - it replaces the paragraph that stood here):**
+earnings is ONE family in this lane (EDRIFT r1 on volume days + EDRIFT r2 on TV's calendar + EAP, counted once); TV runs
+INSIDER r1 on its Form 4 data (this lane is second reviewer; item 4 above folds into it) and the non-earnings 8-K event
+drift; BUYBACK, **NETISS and SHORTINT stay in this lane as characteristic sorts on the RESMOM harness**; FRONTIER keeps
+BAB / IVOL, quality, seasonality and 52WH as seats. **The live queue after DIVRUN r1 died (10-05):** EDRIFT r1 -> NEWISSUE r1
+-> **NETISS r1** (draft v1 for MANAGER's review: the 1- and 2-year change in split-adjusted shares outstanding from SEC XBRL
+company facts, long the 50 biggest shrinkers / short the 50 biggest issuers, monthly; TV's public pull after the GO), then
+EAP / EDRIFT r2, BUYBACK events and SHORTINT.
 
 ## What every one of these will print (standing order addendum 2)
 
@@ -97,8 +101,9 @@ the correlation with RESMOM's RES. A near-miss must say WHY it missed.
   (www.sec.gov/files/company_tickers.json): public, no keys; SEC's fair-access rule asks for a declared User-Agent and
   at most 10 requests a second - TV's scout catalog sets the house's User-Agent and provenance (the owner's contact
   details are the owner's to give, not a lane's).
-- **FINRA consolidated short interest**, 2016-25, twice-monthly files: public; coverage to be confirmed (SHORTINT is
-  FRONTIER's now - MANAGER #80; listed here for its catalog entry).
+- **FINRA consolidated short interest**, 2016-25, twice-monthly files: public; TV's catalog (docs/PUBLIC_DATA_CATALOG.md
+  row 6) finds the public archive starts ~2018-06, so SHORTINT's walk-forward would be 2018-07 .. 2025-06 (about 84
+  rebalances); it stays in this lane (MANAGER #84). SEC XBRL company facts (row 3): per-company API reachable, 2009-.
 - **SEC EDGAR Form 4 index + XML** from 2013: public; the largest of the three (millions of filings); scoped by CIK of the
   ~1,900 names ever in the universe. TV's pull is next (10-05); asked for the transaction code, the filer's role, shares,
   price and acceptance time.
