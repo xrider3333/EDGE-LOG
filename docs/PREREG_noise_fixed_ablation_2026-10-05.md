@@ -107,7 +107,7 @@ Expectation stated now (MANAGER #58): real leads of NOISE r70's size (~3 ROC poi
 
 ---
 
-## RESULT 2026-10-05 ~07:40 MST - SQUEEZE CARRIES inside the book; Friday and FOMC do not. Lockbox never read.
+## RESULT 2026-10-05 07:25 MST - SQUEEZE CARRIES inside the book; Friday and FOMC do not. Lockbox never read.
 `python tools/noise_fixed_ablation.py run` -> C:\EdgeLog\custom_ml\fixed_ablation\ (STAGE_A.txt, arms.csv, nulls.csv).
 Book built to 2025-06-29, parity 93.81 / 3.816 exact. WF 2016-07-01..2025-06-29, ROC %/yr at a $30k drawdown, valued daily.
 
