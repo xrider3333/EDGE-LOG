@@ -131,6 +131,14 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
     # absent from kw (the normal backtest path), this is a no-op.
     if "vol_prior_ranges" in kw and ("vol_prior_ranges" in sp or hk):
         call["vol_prior_ranges"] = kw["vol_prior_ranges"]
+    # return_decisions (2026-10-05, NOISE lane audit): opt-in runtime kwarg, forwarded the
+    # same way -- NOISE_1_0.py's DECISION RECORD (the bar, VWAP and band each trade was
+    # decided on). Read-only: it changes no trade, size or metric below; absent or False
+    # (every backtest) it is never forwarded at all.
+    want_decisions = bool(kw.get("return_decisions")) and return_trades \
+        and ("return_decisions" in sp or hk)
+    if want_decisions:
+        call["return_decisions"] = True
     r = _base.run_backtest(opens, highs, lows, closes, return_trades=True, **call)
     if not r or not r.get("trades"):
         return None
@@ -184,4 +192,9 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
         # preserves unknown extra keys via `out = dict(m)`.
         out["trade_sizes"] = sizes
         out["size_cost_pts"] = _COST_PTS
+        # DECISION RECORD, passed through untouched: one per trade, the same order as
+        # out_trades (the loop above keeps r["trades"]' order); dropped if it does not line up.
+        dec = r.get("decisions") if want_decisions else None
+        if isinstance(dec, list) and len(dec) == len(out_trades):
+            out["decisions"] = dec
     return out

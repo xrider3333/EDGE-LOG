@@ -438,7 +438,9 @@ def test_0921_long_emits_entry_levels_then_one_levels_row(tmp_path):
         header = next(csv.reader(f))
         f.seek(0)
         rows = list(csv.DictReader(f))
-    assert header == cs.SIGNAL_COLS and header[-2:] == ["stop_px", "target_px"]
+    assert header == cs.SIGNAL_COLS and header[header.index("stop_px"):][:2] == ["stop_px", "target_px"]
+    # ORB is not a NOISE leg: its rows never carry a decision-bar record
+    assert all(r[c] == "" for r in rows for c in cs.DECISION_COLS)
     by_ev = {r["event"]: r for r in rows}
     assert by_ev["SEED"]["stop_px"] == "" and by_ev["SEED"]["target_px"] == ""
     assert (by_ev["ENTRY"]["stop_px"], by_ev["ENTRY"]["target_px"]) == ("725.53", "757.03")
