@@ -36,6 +36,7 @@ on a window too short to judge is the one answer that would do real damage.
 import hashlib
 import inspect
 import os
+import re
 
 import numpy as np
 
@@ -53,6 +54,13 @@ FALLBACK_OFFSET_PTS = 2000.0
 _VERDICT_CACHE = {}
 
 
+def _basename(filename):
+    """The file name after the last separator of EITHER kind: a Windows path from the box
+    (C:\\EdgeLog\\augur_uploads\\ADJ_NQ_1m_ETH.csv) must parse the same on the Linux CI runner,
+    where os.path.basename stops only at '/'."""
+    return re.split(r"[\\/]", str(filename or ""))[-1]
+
+
 def is_back_adjusted(filename):
     """Is this master's price series back-adjusted?
 
@@ -60,13 +68,13 @@ def is_back_adjusted(filename):
     ([[edgelog-adjusted-masters-optin]]). A raw master needs no warning, because there is no
     adjustment for a strategy's level reads to be distorted by.
     """
-    base = os.path.basename(str(filename or "")).upper()
+    base = _basename(filename).upper()
     return base.startswith("ADJ_") or base.startswith("FADJ_")
 
 
 def _root_of(filename):
     """NQ / ES / ... out of 'ADJ_NQ_5m_RTH.csv'. None when it does not parse."""
-    base = os.path.basename(str(filename or ""))
+    base = _basename(filename)
     parts = base.split("_")
     if len(parts) >= 2 and parts[0].upper() in ("ADJ", "FADJ"):
         return parts[1].upper()

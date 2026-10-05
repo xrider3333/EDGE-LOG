@@ -11,6 +11,22 @@ import os
 
 import pytest
 
+try:
+    import firebase_admin  # noqa: F401
+except ImportError:
+    # The CI runner has no firebase_admin (not part of the dev deps). cmd_finish only touches it for the
+    # SERVER_TIMESTAMP sentinel, so a stand-in module carrying that one name lets the finish path run against
+    # the FakeDB below; on the box the real package is imported and this block is skipped.
+    import sys
+    import types
+    _fa = types.ModuleType("firebase_admin")
+    _fs = types.ModuleType("firebase_admin.firestore")
+    _fs.SERVER_TIMESTAMP = "SERVER_TIMESTAMP"
+    _fa.firestore = _fs
+    _fa._apps = []
+    sys.modules.setdefault("firebase_admin", _fa)
+    sys.modules.setdefault("firebase_admin.firestore", _fs)
+
 from tools import paper_review_routine as R
 
 
