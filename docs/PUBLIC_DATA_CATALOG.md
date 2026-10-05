@@ -1,0 +1,49 @@
+# PUBLIC DATA CATALOG - free, no-key sources the house can pull (TV, public-data scout; MANAGER #62, 2026-10-05)
+
+Owner standing-order addendum 2 (10-05 12:45 MST): "NEW DATA IS IN SCOPE: public no-key sources ... each with URL / time /
+size / sha256 provenance and the 'photograph' rule; TV is the house's public-data scout (catalog first)."
+Every entry below was checked from this PC on 2026-10-05 (status as found that day). Nothing here needs an account or a key.
+
+## The rules every pull follows (the photograph rule)
+
+1. **Save the response byte for byte** under `C:\EdgeLog\_research_cache\<source>\` and record URL, fetch time, bytes and
+   sha256 in a provenance JSON beside it before any number is computed. Derived CSVs are rebuilt from the saved bytes.
+2. **Never re-fetch into a result.** A fetcher refuses to overwrite an existing raw file; a fresh pull is a new photograph in a
+   new folder, compared with the old one, never silently replacing it (feeds restate - memory `edgelog-feed-restates-recent-bars`).
+3. **Cut before the lockbox** (2025-06-30) inside every harness; the sealed year is never loaded.
+4. **No personal data, no credentials.** SEC asks each client to declare a contact in its User-Agent; the house sends a
+   neutral string (`EdgeLog research tool edgelog-research@example.com`, as `tools/fetch_megacap_earnings.py` has since
+   09-09), never the owner's address. OWNER DECISION PENDING (TV #403): whether to declare a real contact instead.
+5. **Pace**: SEC <= 10 requests a second (house tools use 0.15-0.3 s gaps); other hosts one request at a time.
+
+## Catalog
+
+| # | Source | What it gives the house | URL (pattern) | Format / cadence / history | Status 10-05 |
+|---|---|---|---|---|---|
+| 1 | **SEC EDGAR submissions index** | every filing of a company with its EDGAR ACCEPTANCE TIME: the **earnings calendar** (8-K item 2.02), 10-Q / 10-K dates, any 8-K item (M&A 1.01/2.01, guidance 7.01, officer changes 5.02) | `https://data.sec.gov/submissions/CIK##########.json` (+ its older `files` pages); ticker map `https://www.sec.gov/files/company_tickers.json` | JSON per company; real time; 2001- | **FETCHED** (`tools/fetch_edgar_calendar.py`): 161 NDX CIKs, 51,364 filings, 11,091 earnings releases 2004-2026 (6,932 after the close, 3,668 before the open, 491 intraday). Gaps: 39 delisted tickers need a hand CIK map; ~15 foreign filers file 6-K, not 8-K |
+| 2 | **SEC insider transactions data sets** (Forms 3 / 4 / 5) | every insider open-market buy / sell (transaction code P / S), price, shares, role (officer / director / 10% owner), filing date | `https://www.sec.gov/files/structureddata/data/insider-transactions-data-sets/YYYYqN_form345.zip` | quarterly zip of TSV tables (SUBMISSION, REPORTINGOWNER, NONDERIV_TRANS, ...); 2006Q1-; ~14-17 MB a quarter (~1.3 GB total) | reachable (neutral UA); NEXT to fetch |
+| 3 | SEC XBRL company facts | every reported financial fact per company (revenue, EPS, shares out, ...) with its filing date - point-in-time fundamentals | `https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json`; bulk `https://www.sec.gov/Archives/edgar/daily-index/xbrl/companyfacts.zip` | JSON; nightly bulk 1.41 GB; 2009- | per-company API reachable; the `frames` API refused (403) |
+| 4 | SEC fails-to-deliver | per-security settlement fails, twice a month | `https://www.sec.gov/files/data/fails-deliver-data/cnsfailsYYYYMMa.zip` (a / b halves) | zip of pipe text; ~1 MB each; 2004- | reachable |
+| 5 | SEC Form 13F data sets | institutional holdings per quarter | sec.gov 13F data sets page (quarterly zips) | quarterly; 2013- | not checked yet |
+| 6 | **FINRA consolidated short interest** | short interest per US-listed and OTC stock, twice a month (NNM / NYSE / ARCA / BZX / AMEX / OTC) | `https://cdn.finra.org/equity/otcmarket/biweekly/shrtYYYYMMDD.csv` (settlement dates) | pipe-delimited ~1.9 MB; **public archive starts ~2018** (2018-06-15 found; 2011-2017 not on the CDN) | reachable - history too short for a 2016 walk-forward |
+| 7 | FINRA Reg SHO daily short-sale volume | daily short volume / total volume per symbol (consolidated NMS) | `https://cdn.finra.org/equity/regsho/daily/CNMSshvolYYYYMMDD.txt` | pipe text daily; **CDN starts ~2018-12** (the old regsho.finra.org host now serves a web page) | reachable - short history |
+| 8 | **CBOE index histories** | VIX, VIX3M, VVIX, SKEW daily OHLC - the volatility term structure (VIX / VIX3M), vol-of-vol, tail pricing | `https://cdn.cboe.com/api/global/us_indices/daily_prices/<INDEX>_History.csv` | CSV daily; VIX OHLC 1990-01-02- (9,286 rows), VIX3M OHLC 2009-09-18-, VVIX close 2006-03-06-, SKEW close 1990- (checked 10-05, all through 2026-10-02) | reachable |
+| 9 | CBOE VIX futures settlements | per-contract daily settlements - the futures curve, roll yield | `https://cdn.cboe.com/data/us/futures/market_statistics/historical_data/VX/VX_<expiry YYYY-MM-DD>.csv` | CSV per contract (named by expiry); start year not yet established | reachable for 2024 contracts; a 2010 name refused - map the expiry list before a pull |
+| 10 | CBOE put / call ratios | total / equity / index put-call daily | `https://cdn.cboe.com/resources/options/volume_and_call_put_ratios/{totalpc,equitypc,indexpc}.csv` | CSV; **archive ends Oct 2019** (later only as web pages) | reachable - stops before most of the WF window |
+| 11 | **US Treasury** | auctions (DONE: `treasury_auctions_raw.json`, 1,905 note/bond rows, TV r2); the DAILY YIELD CURVE 1m-30y | auctions: Fiscal Data `auctions_query` API; yields: `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/YYYY/all?type=daily_treasury_yield_curve&field_tdr_date_value=YYYY&page&_format=csv` | JSON / CSV; daily; 1990- | auctions FETCHED; yields reachable |
+| 12 | **CFTC Commitments of Traders** | weekly positions by trader class for every futures market | `https://publicreporting.cftc.gov/resource/6dca-aqww.json` (legacy futures-only; disaggregated and TFF sets on the same portal) | Socrata JSON; weekly (Tuesday data, Friday release); 1986- | FETCHED for 11 markets (`cot_legacy_futures_raw.json`, TV r2) |
+| 13 | FRED (St. Louis Fed) | any macro / rate series | `https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SERIES>` | CSV | **times out from this PC** (twice, 60 s); the FRED API needs a free key the OWNER would create - Treasury (11) covers rates meanwhile |
+| 14 | House calendars already held | FOMC, CPI, payrolls, BLS, month/quarter ends, quad witching, Fed blackout, mega-cap earnings, NDX membership | `tools/data/*.csv` | - | held |
+
+## What to fetch next, and for whom (MANAGER #62 order)
+
+1. **Earnings calendar** - DONE today (row 1); files: `C:\EdgeLog\_research_cache\edgar\earnings_calendar_ndx.csv` (reaction
+   session + before-open / after-close timing per release) and `filings_ndx.csv` (all 8-K / 10-Q / 10-K). For STRATEGY-BEATING
+   (XGAP's earnings exclusion, DIVRUN) and Custom ML. Next step: hand-map the 39 delisted tickers' CIKs.
+2. **Form 4 insider trades** (row 2) - fetch all quarters 2006Q1-2025Q2 (~1.3 GB, ~80 requests), keep only NDX members' open-
+   market P / S rows in the derived file. For Custom ML and STRATEGY-BEATING; TV drafts mechanisms on it (scoping doc).
+3. CBOE volatility indices (row 8) - small, daily, 1990-: VIX / VIX3M term structure is the one stress measure the house has
+   never held (ORB's NT3 used a price trigger; FRONTIER's Q15 needed VIX / VIX3M - check what it read).
+4. Treasury yield curve (row 11) - small; replaces FRED for rates.
+Short-history sources (FINRA rows 6-7, CBOE put/call row 10) are catalogued but cannot carry a 2016-2025 walk-forward; they are
+forward-shadow material only.
