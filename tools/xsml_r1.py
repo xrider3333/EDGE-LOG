@@ -516,7 +516,6 @@ def judge(name, net, net_s, gross, twin, null95, w463, days, weeks, info, pf, nb
                  and net_s[(net_s.index >= WF0)].sum() > 0),
         "2 gross WF ROC above the matched-risk shuffle 95th pct": bool(rg > null95),
         "3 beats its raw twin on net WF ROC AND Sortino": bool(r > rt and s > st),
-        "4 map: rho_dd <= +0.15": bool(map_ok),
         "5 RISK r1: no Feb-Apr 2020 > 0, >= 5 of 7 years > 0, both halves > 0":
             bool(no20 > 0 and sum(v > 0 for v in ys) >= 5 and h1 > 0 and h2 > 0),
         "6 >= 100 name-positions and >= 26 decision dates": bool(info["positions"] >= 100 and info["decisions"] >= 26),
@@ -530,6 +529,7 @@ def judge(name, net, net_s, gross, twin, null95, w463, days, weeks, info, pf, nb
              + f" | no-2020 ${no20:,.0f} | halves ${h1:,.0f} / ${h2:,.0f}",
              "  " + ", ".join(f"{k} {v}" for k, v in info.items()) + f" | PF {pf:.3f} | neighbours "
              + ", ".join(f"{k} {v:.1f}" for k, v in nbrs.items())]
+    lines.append(f"  REPORT (book-add information, MANAGER #63 - not a gate): rho_dd {rho:+.2f} (map wants <= +0.15: {map_ok}), DO {do:+.2f}")
     lines += [f"  [{'PASS' if v else 'fail'}] {k}" for k, v in bars.items()]
     lines.append(f"  -> {name}: " + ("STAGE A PASS -> MANAGER (shared stock sealed-year day, else forward shadow)"
                                       if all(bars.values()) else "dead (no variants)"))
