@@ -28,7 +28,7 @@ a lane on the PC.
   Push-back worth saying plainly: before any further frontier work, the adopted book should have this monitor; it is minutes.
 
 **2. MATCHED READ r1 - can a smaller-drawdown line ever be decided forward?** `tools/rocfrontier/PREREG_MATCHED_R1.txt` +
-  `r17_matched.py` (parity / run / smoke; 12 tests). Q16 showed mean-type rules have 1-7% power on ORB314 / ORB239 because
+  `r17_matched.py` (parity / run / smoke; 14 tests). Q16 showed mean-type rules have 1-7% power on ORB314 / ORB239 because
   their gain is a smaller giveback with the same money. A paired SCALE statistic on the changed leg (the downside deviation
   ratio of ORB314's leg vs #463's ORB leg on the same days - Sortino's own denominator), with a within-pair block-swap null and
   the family-wise 5% over ORB314 / ORB239 / KEEL, may have power where the mean has none. WF only, planning computation, no
@@ -43,9 +43,12 @@ a lane on the PC.
   multiple-testing band (SPA) only if MANAGER wants the band exact - I expect a modest narrowing and say so; the t >= 3 hurdle
   and a regime-concentration clause as house lines.
 
-- **Also in this batch:** the two tests red on main CI since c3e8bdc / 026ff72 (every lane's push today failed CI): a master
-  name now parses the same from a Windows path on the Linux runner, and the paper-review finish test gets a firebase_admin
-  stand-in. No production behaviour changes on the box.
+- **Also in this batch:** the six tests red on main CI today (every lane's push failed the `tests` workflow): a master name
+  now parses the same from a Windows path on the Linux runner (adj_level), the paper-review finish test gets a firebase_admin
+  stand-in, google-api-core joins the CI dev deps (the Firestore-wedge tests import its exception classes), and the ssh-lookup
+  test gives its stand-in clients the execute bit. No production behaviour changes on the box. Both harnesses had an
+  adversarial review; every finding is folded in (the KEEL half-edge read was scale-free and is now the paired mean; the
+  CUSUM reference value is half the WF daily edge, not a one-sigma fall).
 - **Asks:** GO / edits on the two prereg files (PREREG_SHA is TBD in both harnesses until you say GO; I bind the hash then);
   the paper lane's `book` CSV export for HEALTH; the local FRONTIER lane's manifest export for MATCHED; and whether the Ladder
   rule should be written as a prereg now. Ledger rows for the two preregs: I have not written any (that file is a conflict
