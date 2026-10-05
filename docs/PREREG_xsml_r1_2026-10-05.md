@@ -133,3 +133,43 @@ book-add test is a REPORT that only decides whether a forward BOOK shadow line i
    1,293 symbols are ever in it; 313 symbols carry a quarantined split window; #463's WF drawdown episodes / days /
    ISO weeks reproduce DDW r1 exactly (28 / 460 / 92) and are asserted at run time; 391 weekly (A) and 90 monthly (C)
    WF decisions, 1,887 daily (B).
+
+## POWER LINE (committed before any cell or twin number) - C:\EdgeLog\custom_ml\xsml_r1\POWER.txt
+```
+data sha256 083f8c23d1d62cf7bda99d5c9a6373130c336ac605f57db5eeac832504281f6d; 1,293 symbols ever in the universe; 313 quarantined
+#463 parity 93.81 / 3.816 OK; WF drawdown episodes >= 1/3 of $44,849: 28; DD days 460; DD weeks 92 (DDW r1 printed 28 / 460 / 92)
+POWER LINE - matched-risk shuffles (random books, same rule, GROSS), no cell or twin P&L read:
+  A PATTERN  (391 weekly decisions): gross WF ROC 50th -0.1  95th +10.3
+  C CRASH    (90 monthly decisions): gross WF ROC 50th -0.0  95th +9.2
+  B STATARB  (1887 daily decisions): gross WF ROC 50th +0.2  95th +10.0
+Map bar: net WF ROC @ $30k >= 15 with rho_dd <= 0.15 (or DO > 0 and rho_dd <= -0.15 for C).
+```
+Read: a random dollar-neutral book of 50 / 50 names from this universe reaches a gross WF ROC @ $30k of about 10 at its
+95th percentile in every cell. Bar 2 (edit 6 below) asks the cell's NET ROC to clear that, so a real but thin edge (net
+ROC under ~10) cannot be told from luck here.
+
+---
+
+## ADDENDUM 2 (2026-10-05 08:20 MST, before any cell or twin number) - MANAGER review #64 GO WITH EDITS, all six adopted
+1. **Concentration (bar 5 widened):** net WF > 0 without the best 1% of name-periods (B: name-days) AND without the best
+   5 decision periods (A: weeks, C: months, B: days). The run prints the 30 largest single-name contributors; before any
+   pass is spoken they are hand-audited (split factor, TBIS flag, symbol map, a public corporate-actions lookup), and a data
+   event removes that name-period from the cell AND the shuffle.
+2. **Delisting:** reported beside the base - (a) the cell with DELISTED LONGS marked to zero the session after their last row
+   (the cell's worst case); (b) the short leg's WF P&L at the base (last close) and with delisted SHORTS to zero. If the
+   short leg's sign needs (b), the short side is called a data artefact. "Delisted" = no row after a date more than 5
+   sessions before 2025-06-29.
+3. **Corporate actions:** STRATEGY-BEATING's Alpaca dividends + splits file for XGAP is used (no second pull). Dividends
+   are paid to holders of record (ex-dates after the fill through the exit open; shorts pay), added back to the A / C
+   training targets, and to B's overnight return on the ex-date; every listed split not already in the 369 flags is
+   quarantined the same way. `run` refuses to start without the file. Its column mapping goes in addendum 3 when the format
+   is posted.
+4. **Cell B turnover and cost per year** are printed and committed (POWER2.txt) before any number.
+5. **Cell C's earner route** needs DO above its null's 95th percentile (1,000 random beta-neutral books, re-drawn with seed
+   20261007, in POWER2.txt) AND rho_dd <= -0.15; "DO > 0" is retired.
+6. **Bar 2 is now NET:** the cell's NET WF ROC at base costs must clear the matched-risk shuffle's 95th percentile (the null
+   stays gross); the net and gross leads are printed side by side. With bar 3 (beat the raw twin), this is what it takes to
+   overturn the 09-27 prior ("learned ML = coin flip").
+A pass -> RUNBOARD research row the same day + the leg's own sealed-year veto on the one stock day; the forward shadow
+decides. Code: tools/xsml_r1.py (the rewrite reproduces the committed nulls exactly: first three A shuffles
++5.899154 / +0.169021 / -2.757513 both ways).
