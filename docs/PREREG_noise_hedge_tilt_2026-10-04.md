@@ -79,3 +79,49 @@ C:\EdgeLog\custom_ml\REVIEW_noise_hedge_tilt_by_NOISE_2026-10-05.md. Changes, al
 9. **After a pass:** a BOOK run only if the book engine can express a per-trade size from another leg's position
    (Frontier says which); otherwise a forward no-order shadow book line with the paired early stop. The RUNBOARD
    gets an entry either way.
+
+(Timestamp note: the addendum above was committed at 06:16 MST on 2026-10-05 as f6a98a51; its "06:30" header is a typo.)
+
+---
+
+## RESULT 2026-10-05 - STAGE A FAIL: dead, no variants (registered). Lockbox never read.
+
+`python tools/noise_hedge_tilt.py` (cwd and EDGELOG_ROOT = the shared checkout) -> C:\EdgeLog\custom_ml\hedge_tilt\
+STAGE_A.txt, placebos.csv, noise_trades.csv; re-run once with the post-hoc block added, STAGE_A.txt byte-identical.
+Parity: #463 rebuilt from the identical leg runs = WF ROC@$30k 93.8, Sortino 3.82 (reference 93.8 / 3.82); both trade
+lists match book._leg_trades to the cent; ENGU-Q long-only assert held; every NOISE fill is at its entry bar's open.
+
+| book, WF 2016-07-01..2025-06-29 | ROC %/yr @ $30k | Sortino |
+|---|---|---|
+| BOOK #463 | 93.8 | 3.82 |
+| hedge arm (NOISE 1.5x hedge / 0.5x stacked / 1x flat) | 90.5 | 3.63 |
+| twin = plain extra NOISE at matched size (x0.7819) | 88.3 | 3.66 |
+
+| bar | result |
+|---|---|
+| 1 beats twin AND #463, lead > median placebo | **fail** - lead +2.19 ROC / -0.027 Sortino; placebo median +2.64 / +0.139; below #463 |
+| 2 without Feb-Apr 2020 | **fail** - arm 106.2 vs twin 106.8 (lead -0.62; placebo median +9.15) |
+| 3 >= 6 of 9 WF years | **fail** - 3 of 9 (only the last three years) |
+| 4 untuned 2011-01..2016-06 block | pass - 48.2 vs 47.7 |
+| 5 lead above placebo 95th pct | **fail** - placebo 5th/50th/95th -0.42 / +2.64 / +6.44; arm at the 39th percentile |
+| 6 >= 100 tilted WF trades | pass - 1,593 of 2,797 |
+
+**Per-state attribution (WF NOISE $ per trade, #422 sizes, before the tilt):** flat long 654 trades $65.7; flat short
+550 $378.5; hedge (short while ENGU-Q long) 184 $100.9; stacked (long while ENGU-Q long) 1,409 $126.3. The hedge shorts
+are NOISE's WORST shorts and the stacked longs its BEST longs - the round 62 arm O prior again: same-direction agreement
+trades are the good ones, so halving them costs more than the 1.5x hedge earns. ENGU-Q is open on 57% of WF NOISE trades.
+
+**POST-HOC (reviews #54 / #55 arrived as the addendum froze; reported, they cannot change the verdict):**
+- MANAGER #54 side-matched twin (every short x1.522, every long x0.507, same mean size, regardless of ENGU-Q):
+  WF 93.3 / Sortino 3.91 - it BEATS the hedge arm by 2.78 ROC / 0.281 Sortino. What edge the arm shows is NOISE's side
+  skew (#52), not the hedge; the ENGU-Q state subtracts. (Not a new candidate: a side tilt is NOISE's lane and it does
+  not beat #463's ROC.)
+- ORB #55 placebo floor: the longest WF ENGU-Q hold is 67 calendar days; with shifts 60..250 sessions the placebo
+  5th/50th/95th is +0.13 / +2.76 / +6.11 and the arm sits at the 30.5th percentile - same answer.
+- ORB #55 survivors: inside ENGU-Q's 5 biggest winning holds the tilt costs $682-$5,158 each (it halves NOISE's longs
+  riding alongside); inside its 5 biggest losers it moves -$3,002..+$538 (three have no NOISE trade at all). The hedge
+  does not pay where it should.
+- ORB #55 power: hedge-state NOISE trades inside #463's WF drawdown episodes = 1 (2020-02..04), 11 (2022), 3
+  (2025-H1); the drawdown-week claim could never have been shown. Tilt-minus-twin there: -$2,396 / -$3,362 / +$6,048.
+
+Verdict: dead - ledger + lane doc, no other multipliers, no forward shadow, nothing live. #422's paper leg is unchanged.
