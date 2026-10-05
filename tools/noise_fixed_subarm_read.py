@@ -9,6 +9,10 @@ form: it tests AIM - are the bigger sizes on the better trades - not leverage):
   FOMC     arm = #422 plain x 0.5 before a 14:00 ET FOMC statement   relevant = FOMC-morning trades
   SHORTS   arm = #422 plain x 1.5 on short trades (REPORT-ONLY, MANAGER #37 after round 70 died at Stage A on the paired
            bootstrap alone)                                       relevant = short trades
+  SQUEEZE  arm = #422 plain x 1.5 on trades entered while KEEL's 60-minute squeeze (ml_keel sq60_on, logged as
+           keel_sq60_on at the decision bar) is set - Custom ML's fixed-package ablation found this part carries inside
+           #463 on the walk-forward (MANAGER #43, REPORT-ONLY; caveat: the top 20 of 308 WF squeeze trades carry
+           the lead)                                              relevant = squeeze-on trades
 A tilt's aim needs the untilted trades as its contrast, so every series runs over ALL closed trades; "relevant" counts
 the trades the tilt actually re-sizes, and a series is judged once it has 50 relevant closed trades (the FOMC series
 will take years - a report, not a bar). Unit P&L = the primary's real Webull fill P&L per share (pnl_per_share).
@@ -45,10 +49,12 @@ def series(d):
     fri = d.friday.astype(int).to_numpy() == 1
     fomc = d.fomc_pre14.astype(int).to_numpy() == 1
     short = d.side.astype(str).str.lower().str.startswith("s").to_numpy() | (pd.to_numeric(d.side, errors="coerce").to_numpy() < 0)
+    sq = pd.to_numeric(d.keel_sq60_on, errors="coerce").fillna(0).astype(int).to_numpy() == 1
     return (("FULL package", d.m_422fixed.to_numpy(float), np.ones(len(d), bool)),
             ("FRIDAY 1.5x", plain * np.where(fri, 1.5, 1.0), fri),
             ("FOMC 0.5x", plain * np.where(fomc, 0.5, 1.0), fomc),
-            ("SHORTS 1.5x", plain * np.where(short, 1.5, 1.0), short))
+            ("SHORTS 1.5x", plain * np.where(short, 1.5, 1.0), short),
+            ("SQUEEZE 1.5x", plain * np.where(sq, 1.5, 1.0), sq))
 
 
 def main(argv=None):
