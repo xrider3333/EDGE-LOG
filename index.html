@@ -4801,14 +4801,18 @@ window._qqqExecTimer=window._qqqExecTimer||setInterval(function(){
 },60000);
 if(!window._qqqExecVisWired){
   window._qqqExecVisWired=true;
-  document.addEventListener('visibilitychange',function(){
-    try{
-      _qqqExecEnsureLive(); // attach the live listener on show, detach on hide (defined below)
-      // one .get() each time the page is shown again, on ANY tab: away from the board it is the
-      // top bar WEBULL chip's only read (no listener there, see QUOTA below); at most one per 30 s
-      if(document.visibilityState==='visible'&&!window._qqqExecLoading&&Date.now()-(window._qqqExecTriedAt||0)>30000)loadQqqExec(null,true);
-    }catch(e){}
-  });
+  document.addEventListener('visibilitychange',qbOnPageShown);
+}
+function qbOnPageShown(){
+  try{
+    _qqqExecEnsureLive(); // attach the live listener on show, detach on hide (defined below)
+    // one .get() each time the page is shown again, on ANY tab: away from the board it is the
+    // top bar WEBULL chip's only read (no listener there, see QUOTA below). At most one per 30 s on
+    // the board, one per 5 min elsewhere: every read is the whole doc (about 134 KB), and Chrome on
+    // Windows hides and shows a window each time other windows cover and uncover it
+    const onBoard=activeTab==='augur'&&augurSub==='qqqpaper';
+    if(document.visibilityState==='visible'&&!window._qqqExecLoading&&Date.now()-(window._qqqExecTriedAt||0)>(onBoard?30000:300000))loadQqqExec(null,true);
+  }catch(e){}
 }
 // ── QQQ EXEC LIVE LISTENER (2026-09-25, owner: "whyd doesnt it show live pnl") -- while the
 //    WEBULL PAPER board is the open tab of a signed-in, visible page, ONE onSnapshot listener on
@@ -4828,8 +4832,8 @@ window._qqqExecRenderPending=window._qqqExecRenderPending||false;
 // month (check the console) - one board left visible all day would use it up in about two weeks,
 // and then the whole app's Firestore stops until the cap resets. So the top bar WEBULL chip on
 // every other tab does NOT listen: it judges the copy already in memory, read once when the page
-// loads (renderApp) and once each time the page is shown again (the visibility hook above, at most
-// one per 30 s) - no polling - and it says when it last checked. A small summary doc written by
+// loads (renderApp) and once each time the page is shown again (qbOnPageShown above, at most one
+// per 5 min away from the board) - no polling - and it says when it last checked. A small summary doc written by
 // the box (updated_at, mode, halted, lease, open count, failed saves) is the proper cheap feed for
 // a chip that listens (not built; routed 10-05).
 function _qqqExecWantsLive(){
@@ -4876,12 +4880,15 @@ function _qqqExecEnsureLive(){
       if(window._qqqExecLiveErrorAt&&Date.now()-window._qqqExecLiveErrorAt<60000)return;
       const u=auth.currentUser.uid;
       window._qqqExecUnsub=db.collection('users').doc(u).collection('meta').doc('qqq_exec').onSnapshot(function(d){
+        const fc=!!(d&&d.metadata&&d.metadata.fromCache);
         window._qqqExec=d.exists?d.data():null;window._qqqExecMissing=!d.exists;
         // the first snapshot can be this browser's cached copy: never a starting count for UPDATES FAILING
-        if(typeof qbNotePubFails==='function')qbNotePubFails(window._qqqExec,!!(d.metadata&&d.metadata.fromCache));
+        if(typeof qbNotePubFails==='function')qbNotePubFails(window._qqqExec,fc);
         window._qqqExecLoaded=true;window._qqqExecLoading=false;
-        window._qqqExecFetchedAt=Date.now();window._qqqExecTriedAt=Date.now();window._qbCheckedMs=qbNowMs();
-        window._qqqExecLive=true;
+        // a cached copy is not a read of the box (the same rule as loadQqqExec): it must not clear
+        // THIS PAGE CANNOT READ after a listener error, nor count as this page's last check. The box's
+        // next write, or the 60 s poll's .get() from the server, clears it
+        if(!fc){window._qqqExecFetchedAt=Date.now();window._qqqExecTriedAt=Date.now();window._qbCheckedMs=qbNowMs();window._qqqExecLive=true;}
         qbTopChipRefresh(); // the top bar's WEBULL chip, in place
         _qqqExecLiveRender();
       },function(e){
@@ -4977,6 +4984,8 @@ function qbBoxRuleS(ms){const p=qbNyParts(ms),w=_qbDow(p.date);return (w>=1&&w<=
 // saves IN A ROW: the save before must be at most (failed saves in between + 3) write intervals
 // earlier. A page that comes back after a gap (hidden on a phone, the board closed, a reload)
 // only takes a new starting count, and a copy from this browser's cache never becomes one.
+// One failed save between two good ones is a blip (an 8 s timeout, and the next save worked): it
+// takes 2 or more failed saves within 10 min, seen save to save, to say UPDATES FAILING.
 function qbNotePubFails(QE,fromCache){
   try{
     if(!QE||fromCache)return;
@@ -4986,10 +4995,13 @@ function qbNotePubFails(QE,fromCache){
     if(m&&m.day===day){
       if(t<m.docMs)return; // an older copy (the poll racing the listener)
       const rise=Math.max(0,n-m.n),inARow=(t-m.docMs)<=(rise+3)*qbCadenceS(QE,t)*1000+30e3;
-      if(rise>0&&inARow)m.riseMs=t;
+      if(rise>0&&inARow){
+        m.rises=(m.rises||[]).filter(x=>t-x[0]<=600e3);m.rises.push([t,rise]);
+        if(m.rises.reduce((s,x)=>s+x[1],0)>=2)m.riseMs=t;
+      }else if(!inARow)m.rises=[];
       m.n=n;m.docMs=t;return;
     }
-    window._qbPubFailSeen={day:day,n:n,docMs:t,riseMs:null};
+    window._qbPubFailSeen={day:day,n:n,docMs:t,riseMs:null,rises:[]};
   }catch(e){}
 }
 // One verdict on the box doc, used by the board and the top bar chip.
@@ -5000,9 +5012,13 @@ function qbNotePubFails(QE,fromCache){
 //  how often it promised to write (lease.renew_every_sec), going 3 of those (30 min at least)
 //  without a write is STALE too - that is what shows a weekend wedge before Monday's open.
 //  TODAY: the doc's trading day (the day its today figures belong to) against New York's date.
-//  KEEL: sessions between the data KEEL was built on and the latest session.
-//  PUBLISHING: a failed save in the last 10 min (the box's own publish_down event, or a gap
-//  before this write longer than two of its write intervals), and the longest pause today.
+//  KEEL: sessions between the data KEEL was built on and the latest session decide STALE; the words
+//  count only CLOSED sessions (the one under way, or about to open, is not one it could be built on).
+//  A rebuild that did not land after the last close raises the chip too (a missed Friday shows all
+//  weekend, not only from Monday 00:00).
+//  PUBLISHING: failed saves in the last 10 min (the box's own publish_down event on a day with 2 or
+//  more failed saves, or 2 or more seen save to save; one failed save alone is a blip), a gap
+//  before this write longer than two of its write intervals, and the longest pause today.
 function qbFreshness(QE,nowMs){
   if(nowMs==null)nowMs=qbNowMs();
   const np=qbNyParts(nowMs);
@@ -5019,6 +5035,7 @@ function qbFreshness(QE,nowMs){
   // (tools/keel_live_state.py): from the latest session's close it is due to catch up to that
   // session, and from 18:30 it should have
   const lsClosed=nowMs>=_qbAtMs(r.lastSession,qbCloseMins(r.lastSession)),lsRebuilt=nowMs>=_qbAtMs(r.lastSession,1110);
+  r.lastDone=lsClosed?r.lastSession:qbPrevSessionDay(r.lastSession); // the last CLOSED session
   const td=QE.today||{};
   const lastOf=(arr,k)=>Array.isArray(arr)?(arr.map(x=>String((x&&x[k])||'').slice(0,10)).filter(okD).sort().pop()||null):null;
   r.docDay=(QE.trade_ids&&okD(QE.trade_ids.day)?QE.trade_ids.day:null)||(okD(td.day)?td.day:null)
@@ -5028,14 +5045,17 @@ function qbFreshness(QE,nowMs){
   Object.keys(QE.keel||{}).forEach(k=>{
     const kk=QE.keel[k]||{},th=String(kk.trained_through||'').slice(0,10);if(!okD(th))return;
     const behind=qbSessionsAfter(th,r.lastSession);
-    r.keel[k]={through:th,behind:behind,stale:behind>1,version:kk.version||null,
-      rebuild:behind===1?(lsRebuilt?'missed':(lsClosed?'pending':null)):null,
-      chip:'KEEL on '+qbMonDay(th)+' data - '+behind+' session'+(behind===1?'':'s')+' old'};
+    // Monday 08:00 on Thursday's data is 1 closed session old (Friday's), not 2
+    const done=qbSessionsAfter(th,r.lastDone);
+    const rebuild=behind===1?(lsRebuilt?'missed':(lsClosed?'pending':null)):null;
+    r.keel[k]={through:th,behind:behind,done:done,stale:behind>1,version:kk.version||null,rebuild:rebuild,
+      warn:behind>1||rebuild==='missed',
+      chip:'KEEL on '+qbMonDay(th)+' data - '+done+' session'+(done===1?'':'s')+' old'};
   });
   const t=qbEtWallMs(QE.updated_at,nowMs);
   if(t==null)return r;
   r.ok=true;r.docMs=t;r.ageS=Math.max(0,Math.round((nowMs-t)/1000));
-  const dp=qbNyParts(t);r.docDate=dp.date;r.sinceTxt=_QB_WD[_qbDow(dp.date)]+' '+dp.hm;
+  const dp=qbNyParts(t);r.docDate=dp.date;r.docHm=dp.hm;r.sinceTxt=_QB_WD[_qbDow(dp.date)]+' '+dp.hm;
   const cad=Number(QE.lease&&QE.lease.renew_every_sec);
   // the promised cadence; without lease.renew_every_sec the box's slowest rule (10 min), so a doc
   // frozen after the close still turns STALE after 30 min instead of at the next open
@@ -5057,11 +5077,13 @@ function qbFreshness(QE,nowMs){
   r.pubFails=Number(H.publish_fail_today)||0;
   r.lastOk=H.last_publish_ok_et||null;
   // (1) the box's own publish_down event: it logs one at most every 10 min while saves fail, and it
-  //     only reaches this page with the next save that works, so the window is 10 min plus two writes
+  //     only reaches this page with the next save that works, so the window is 10 min plus two writes.
+  //     It logs on the FIRST failure once its cooldown has passed, so with 1 failed save today it is a
+  //     blip the next save already got past: that takes 2 or more
   let lastFail=null;
   (Array.isArray(QE.events)?QE.events:[]).forEach(e=>{if(e&&e.kind==='publish_down'){const m=qbEtWallMs(e.ts_et,nowMs);if(m!=null&&(lastFail==null||m>lastFail))lastFail=m;}});
   const cadNow=(isFinite(cad)&&cad>0)?cad:(r.inSession?60:600);
-  if(lastFail!=null&&nowMs-lastFail<=600e3+2e3*cadNow&&lastFail-nowMs<=60e3)r.pubFailing=true;
+  if(lastFail!=null&&r.pubFails>=2&&nowMs-lastFail<=600e3+2e3*cadNow&&lastFail-nowMs<=60e3)r.pubFailing=true;
   // (1b) this page saw publish_fail_today go up (qbNotePubFails): failing until 10 min after that
   const PM=window._qbPubFailSeen;
   if(PM&&PM.riseMs!=null&&PM.day===r.docDate&&nowMs-PM.riseMs<=600e3&&PM.riseMs-nowMs<=60e3)r.pubFailing=true;
@@ -5123,13 +5145,15 @@ function qbTopChipHtml(){
     const Fnow=qbFreshness(QE,nowMs);
     const F=live?Fnow:qbFreshness(QE,chk?Math.min(chk,nowMs):nowMs);
     // a check from an earlier New York day carries its weekday ('checked Sun 19:56'). On a phone
-    // the words stay in the tooltip unless the check is over 15 min old, so the sticky top bar does
-    // not grow a row for nothing
+    // the words stay in the tooltip unless the check is over 15 min old, so the chip is no longer than
+    // it must be. Even so, below about 600 px the chip takes a row of its own in the top bar (70 to
+    // 90 px on every tab, even 'WEBULL FLAT'); a shorter phone chip is a shared top bar layout call,
+    // routed to TRADING-LOG (10-05)
     const chkP=chk?qbNyParts(chk):null,chkOld=!!chkP&&chkP.date!==qbNyParts(nowMs).date;
     const chkWhen=chkP?((chkOld?(_QB_WD[_qbDow(chkP.date)]+' '):'')+chkP.hm):'';
     const narrow=(+window.innerWidth||1366)<600,chkShow=!narrow||(nowMs-chk>900e3);
     const chkTxt=(live||!chk||!chkShow)?'':(', checked '+chkWhen);
-    const chkTip=(live||!chk)?'':(' This page last checked at '+(chkOld?(qbDayLabel(chkP.date)+' '):'')+chkP.hm+' New York time; it checks again when the page is shown again or the board is opened.');
+    const chkTip=(live||!chk)?'':(' This page last checked at '+(chkOld?(qbDayLabel(chkP.date)+' '):'')+chkP.hm+' New York time; it checks again when the board is opened, or when the page is shown again 5 min or more after its last check.');
     const BR=(QE&&QE.broker)||{},mode=BR.effective_mode||'OFF';
     const PL=QE&&QE.positions_live&&Array.isArray(QE.positions_live.legs)?QE.positions_live.legs:null;
     const nOpen=PL?PL.length:Object.keys((QE&&QE.positions)||{}).length;
@@ -37413,11 +37437,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const k=QE&&QE.keel&&QE.keel[key];
         if(k&&k.version){
           // KEEL vs the latest session, in words (finding 21): it is rebuilt after each close, so
-          // one session behind during the day is normal; more than one is a warning chip too
+          // one session behind during the day is normal; more than one is a warning chip too. How far
+          // behind counts only closed sessions, so a stale model is measured from the last close
           const kf=QF.keel[key];
-          parts.push('<span data-qbkeelline="'+key+'">KEEL '+k.version+(kf?(' uses NQ data through '+qbMonDay(kf.through)+'; '+QF.sessionWord+' is '
-            +_QB_WD[_qbDow(QF.lastSession)]+' '+qbMonDay(QF.lastSession)
-            +(kf.stale?(', so it is <b>'+kf.behind+' sessions behind</b>')
+          const kRef=(kf&&kf.stale)?QF.lastDone:QF.lastSession;
+          const kWord=(kf&&kf.stale&&QF.lastDone!==QF.lastSession)?'the last closed session':QF.sessionWord;
+          parts.push('<span data-qbkeelline="'+key+'">KEEL '+k.version+(kf?(' uses NQ data through '+qbMonDay(kf.through)+'; '+kWord+' is '
+            +_QB_WD[_qbDow(kRef)]+' '+qbMonDay(kRef)
+            +(kf.stale?(', so it is <b>'+kf.done+' session'+(kf.done===1?'':'s')+' behind</b>')
               :(kf.rebuild==='missed'?', so it is <b>1 session behind - the last rebuild (due by 18:30 after the close) did not land</b>'
               :(kf.rebuild==='pending'?' - 1 session behind until tonight\u2019s rebuild (after the close, by 18:30)'
               :' - up to date (it is rebuilt after each close)')))):'')+'</span>');
@@ -37548,7 +37575,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const out=[];
         if(QF.stale&&!qbNoRead)out.push(qbFreshChip(QF.silentTxt,'var(--attn-red)','silent','The box has not updated this page since '+QF.sinceTxt+' New York time ('+qbAgoText(QF.ageS)+' ago). Every number and flag here is from then.'));
         if(qbNoRead)out.push(qbFreshChip('THIS PAGE CANNOT READ (copy from '+QF.sinceTxt+')','var(--attn-amber)','noread','This page cannot reach the Webull status right now (its last read failed; it tries again every minute). Its last copy was written by the box at '+QF.sinceTxt+' New York time ('+qbAgoText(QF.ageS)+' ago), so it cannot tell whether the box is still running. Every number and flag here is from then.'));
-        Object.keys(QF.keel).forEach(k=>{const kf=QF.keel[k];if(kf.stale)out.push(qbFreshChip(kf.chip,'var(--attn-amber)','keel','KEEL sizes NOISE from a model built on NQ data through '+qbMonDay(kf.through)+'; '+QF.sessionWord+' is '+qbMonDay(QF.lastSession)+'. It should be rebuilt after each close.'));});
+        Object.keys(QF.keel).forEach(k=>{const kf=QF.keel[k];if(kf.warn)out.push(qbFreshChip(kf.chip,'var(--attn-amber)','keel','KEEL sizes NOISE from a model built on NQ data through '+qbMonDay(kf.through)+'; the last closed session is '+qbMonDay(QF.lastDone)+'. It should be rebuilt after each close'+(kf.rebuild==='missed'?(', and the rebuild after '+qbMonDay(QF.lastDone)+' (due by 18:30) did not land'):'')+'.'));});
         if(QF.pubFailing)out.push(qbFreshChip('UPDATES FAILING'+(QF.pubFails?(' ('+QF.pubFails+' today)'):''),'var(--attn-amber)','publish','The box could not save its status '+QF.pubFails+' time'+(QF.pubFails===1?'':'s')+' today, the latest within the last 10 minutes'+(QF.lastOk?('; its last good save before this one was at '+QF.lastOk):'')+'.'));
         if(QF.pubGap)out.push(qbFreshChip('UPDATES PAUSED'+(QF.pubGapDayUnknown?'':(' '+qbAgoText(QF.pubGap))),'var(--attn-amber)','pubgap','Just before this update the box went '
           +(QF.pubGapDayUnknown?('without a good save since '+QF.lastOk+' New York time (the box gives only the time of day of that save, not the date, so the pause may be more than a day)')
@@ -38298,7 +38325,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'</div>'
             +(p?('<div style="margin-top:6px;font-size:var(--fsxs);color:var(--text3)">'+qeInt(p.shares)+' sh @ '+qeMoney(p.entry_px)+'</div>'):'<div style="margin-top:6px;font-size:var(--fsxs);color:var(--text5)">no open lot</div>')
             +'<div style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fsxs)">'
-            +'<div><div style="color:var(--text5)">UNREALIZED</div><div style="color:'+(p?pnlCol(legUnreal):'var(--text5)')+';font-weight:700">'+(p?qeMoney(legUnreal):'—')+'</div></div>'
+            +'<div><div style="color:var(--text5)">UNREALIZED</div><div style="color:'+(p?(QF.stale?'var(--text4)':pnlCol(legUnreal)):'var(--text5)')+';font-weight:700">'+(p?qeMoney(legUnreal):'—')+'</div></div>'
             +'<div style="'+qbDimCss+'"><div style="color:var(--text5)">'+qbDayWord.toUpperCase()+'</div><div style="color:'+pnlCol(legTodayRealized)+';font-weight:700">'+qeMoney(legTodayRealized)+'</div></div>'
             +'<div><div style="color:var(--text5)">SINCE START</div><div style="color:'+pnlCol(legClosedSum)+';font-weight:700">'+qeMoney(legClosedSum)+'</div></div>'
             +'</div>'
@@ -38322,12 +38349,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // (this row's own closed P&L, already shown in qb-row-value) + that open P&L.
           const legOpenPnl=(liveLeg&&liveLeg.open_pnl!=null&&isFinite(Number(liveLeg.open_pnl)))?Number(liveLeg.open_pnl):null;
           const legTotalPnl=legClosedSum+(legOpenPnl!=null?legOpenPnl:0);
-          const liveLineHtml=liveLeg?('<div class="qbx-leg-live">'
+          // a silent box (or a page that cannot read): the price is the last one seen, with its time,
+          // and the open figures are grey like the leg pill - the page has no current price (finding 8)
+          const liveLastSeen=QF.stale?(' · last seen '+(liveLeg&&liveLeg.live_px!=null?qeMoney(liveLeg.live_px):'—')+' at '+(QF.docDate===QF.todayNY?QF.docHm:QF.sinceTxt)):'';
+          const liveLineHtml=liveLeg?('<div class="qbx-leg-live" data-qblive="'+key+'">'
             +'<div>'+(liveLeg.side==='long'?'Long':liveLeg.side==='short'?'Short':naS(liveLeg.side))+' '+qeInt(liveLeg.shares)
             +' @ '+(liveLeg.entry_px!=null?qeMoney(liveLeg.entry_px):'—')
-            +' · now '+(liveLeg.live_px!=null?qeMoney(liveLeg.live_px):'—')+'</div>'
-            +'<div style="margin-top:2px"><b style="color:'+(legOpenPnl!=null?pnlCol(legOpenPnl):'var(--text5)')+'">Open '+(legOpenPnl!=null?qeMoney(legOpenPnl):'—')+'</b>'
-            +' · <b style="color:'+pnlCol(legTotalPnl)+'">Total '+qeMoney(legTotalPnl)+'</b></div>'
+            +(QF.stale?liveLastSeen:(' · now '+(liveLeg.live_px!=null?qeMoney(liveLeg.live_px):'—')))+'</div>'
+            +'<div style="margin-top:2px"><b data-qbopenpnl="'+key+'" style="color:'+(QF.stale?'var(--text4)':(legOpenPnl!=null?pnlCol(legOpenPnl):'var(--text5)'))+'">Open '+(legOpenPnl!=null?qeMoney(legOpenPnl):'—')+'</b>'
+            +' · <b style="color:'+(QF.stale?'var(--text4)':pnlCol(legTotalPnl))+'">Total '+qeMoney(legTotalPnl)+'</b></div>'
             +'</div>'):'';
           // NOTES UNDER AN EXPANDER (2026-09-25, owner: "make it simple. ... hid that
           // under an expander"). The ENGU-Q ETH-fit caveat and NOISE's since/was/KEEL
@@ -38357,11 +38387,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<span class="qb-chevron">'+(legOpenNow?'⌄':'›')+'</span>'
             +'</div>'
             +(noteOpen?subLineHtml:'')
-            +((QF.keel[key]&&QF.keel[key].stale)?('<div data-qbkeelwarn="'+key+'" style="padding:0 0 6px;font-size:11px;font-weight:700;color:var(--attn-amber)" title="KEEL is rebuilt after each close; it is '+QF.keel[key].behind+' sessions behind">'+QF.keel[key].chip+'</div>'):'')
+            +((QF.keel[key]&&QF.keel[key].warn)?('<div data-qbkeelwarn="'+key+'" style="padding:0 0 6px;font-size:11px;font-weight:700;color:var(--attn-amber)" title="KEEL is rebuilt after each close; it is '+QF.keel[key].done+' closed session'+(QF.keel[key].done===1?'':'s')+' behind">'+QF.keel[key].chip+'</div>'):'')
             +liveLineHtml
             +(noteOpen&&caveat?('<div style="padding:0 0 8px;font-size:10px;color:var(--text4);line-height:1.4">'+caveat+'</div>'):'')
             +(legOpenNow?('<div class="qb-leg-detail">'
-              +'<div><div class="qb-row-sublabel">UNREALIZED</div><div style="font-size:14px;font-weight:600;color:'+(p?pnlCol(legUnreal):'var(--text5)')+'">'+(p?qeMoney(legUnreal):'—')+'</div></div>'
+              +'<div><div class="qb-row-sublabel">UNREALIZED</div><div data-qbunreal="'+key+'" style="font-size:14px;font-weight:600;color:'+(p?(QF.stale?'var(--text4)':pnlCol(legUnreal)):'var(--text5)')+'">'+(p?qeMoney(legUnreal):'—')+'</div></div>'
               +'<div style="'+qbDimCss+'"><div class="qb-row-sublabel" data-qblegtoday="'+key+'">'+qbDayWord.toUpperCase()+'</div><div style="font-size:14px;font-weight:600;color:'+pnlCol(legTodayRealized)+'">'+qeMoney(legTodayRealized)+'</div></div>'
               +'<div><div class="qb-row-sublabel">POSITION</div><div style="font-size:14px;font-weight:600">'+(p?(qeInt(p.shares)+' sh @ '+qeMoney(p.entry_px)):'no open lot')+'</div></div>'
               +legTodayNote

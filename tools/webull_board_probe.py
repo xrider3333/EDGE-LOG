@@ -62,6 +62,15 @@ the box's own NOT READY flag must be greyed on every silent doc. Each asserts th
 hero's today word, the daily-stop caption, the orders header, the leg's TODAY label, the dimming
 of every figure from an earlier day, the Account 'as of' + STALE + the dated change + the grey
 reconcile line, the NOISE KEEL sentence, the Orders pill, and the top bar WEBULL chip.
+Sixth pass (review 2026-10-05): one failed save (a publish_down event with a count of 1, or a rise
+of 1 between two saves) never raises UPDATES FAILING; KEEL counts only closed sessions (Monday 08:00
+on Thursday's data is 1 session old; Monday in the session on Tuesday's data is 3) and a missed
+rebuild raises its chip on Saturday; a cached listener snapshot after a read error still reads THIS
+PAGE CANNOT READ; a page shown again away from the board reads at most once per 5 min (30 s on the
+board); an open position on a silent box says 'last seen $600.52 at 10:03', never 'now', with its
+Open and UNREALIZED figures grey; and three key variants again in MONO at 390x844 (Saturday with
+Friday's doc, the page's own failed read, the open position on a silent box). Every variant: no
+NaN / undefined / [object Object] on the page, and a phone variant does not scroll sideways.
 
 WHAT IT ASSERTS
 ---------------
@@ -113,7 +122,7 @@ PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIXTURE = os.path.join(ROOT, 'tools', 'fixtures', 'qqq_exec_box1005.json')
 
-VIEWPORTS = {'laptop': [1366, 768], 'phone': [375, 812]}
+VIEWPORTS = {'laptop': [1366, 768], 'phone': [375, 812], 'phone390': [390, 844]}
 CASES = [['%s/%s' % (vp, th), {'vp': vp, 'theme': th}] for vp in ('laptop', 'phone') for th in ('dark', 'mono')]
 LEDGER_RANGES = ['TODAY', '1W', '1M', '3M', 'YTD', 'ALL']
 WANT_LINES = ['ORB #314', 'ENGU-Q #335', 'NOISE #382']
@@ -190,8 +199,9 @@ def _variant_docs(fixture):
                strip_has=['BOX SILENT since Fri 15:58'], strip_lacks=['feed OK'], stop='Fri 10-02',
                orders='Fri 10-02', legtoday='FRI 10-02', asof_has='as of Fri 10-02', eq_stale=True,
                keelline='the next session is Mon Oct 5 - up to date')))
+    # KEEL rebuilt that evening (a missed rebuild would raise its own chip): only the doc's age is under test
     out.append(('quiet evening, 6 minutes old', '2026-10-05 20:41:00',
-               move_to(base(), '2026-10-05 20:35:00', '2026-10-05', '2026-10-05 15:59:30', '20:25:00', fails=111),
+               move_to(base('2026-10-05'), '2026-10-05 20:35:00', '2026-10-05', '2026-10-05 15:59:30', '20:25:00', fails=111),
                dict(none, today='today', top=('flat', 'WEBULL FLAT'), strip_has=['box updated 6 min ago', 'feed OK'],
                     strip_lacks=['BOX SILENT'], stop='today', orders='today', legtoday='TODAY',
                     asof_has='as of 15:59:30', eq_stale=False, system=True, lasttick='ok')))
@@ -206,9 +216,10 @@ def _variant_docs(fixture):
                silent='BOX SILENT since Sat 17:11', today='Fri 10-02', top=('stale', 'WEBULL STALE since Sat 17:11'),
                strip_has=['BOX SILENT since Sat 17:11'], strip_lacks=['feed OK'], stop='Fri 10-02',
                orders='Fri 10-02', legtoday='FRI 10-02', eq_stale=True)))
-    out.append(('KEEL 4 sessions old', FRESH_NOW, base('2026-09-29'), dict(none,
-               keel='KEEL on Sep 29 data - 4 sessions old', keelwarn='KEEL on Sep 29 data - 4 sessions old',
-               keelline='the latest session is Mon Oct 5, so it is 4 sessions behind',
+    # Monday in the session on Tuesday's data: 3 CLOSED sessions old (Wed, Thu, Fri), Monday's is under way
+    out.append(("KEEL on Tuesday's data, Monday in the session", FRESH_NOW, base('2026-09-29'), dict(none,
+               keel='KEEL on Sep 29 data - 3 sessions old', keelwarn='KEEL on Sep 29 data - 3 sessions old',
+               keelline='the last closed session is Fri Oct 2, so it is 3 sessions behind',
                today='today', top=('flat', 'WEBULL FLAT'), strip_lacks=['BOX SILENT'], eq_stale=False)))
     pf = base()
     pf['health'] = {'publish_fail_today': 5, 'last_publish_ok_et': '10:00:41', 'tick_gap_max_s_today': 75.0}
@@ -265,6 +276,7 @@ def _variant_docs(fixture):
     out.append(("quiet Saturday, KEEL missed Friday's rebuild", '2026-10-03 12:00:00',
                move_to(base('2026-10-01'), '2026-10-03 11:55:00', '2026-10-02', '2026-10-02 15:59:30', '11:45:00'),
                dict(none, today='Fri 10-02', top=('flat', 'WEBULL FLAT'), strip_lacks=['BOX SILENT'], eq_stale=False,
+                    keel='KEEL on Oct 1 data - 1 session old', keelwarn='KEEL on Oct 1 data - 1 session old',
                     keelline='the latest session is Fri Oct 2, so it is 1 session behind - the last rebuild')))
     out.append(('Monday 17:00 after the close, KEEL rebuild still to come', '2026-10-05 17:00:00',
                move_to(base(), '2026-10-05 16:58:00', '2026-10-05', '2026-10-05 15:59:30', '16:57:00'),
@@ -276,7 +288,8 @@ def _variant_docs(fixture):
                today='today', top=('flat', 'WEBULL FLAT'), strip_lacks=['BOX SILENT'], eq_stale=False,
                keelline='the next session is Tue Oct 6 - up to date')))
     for vp in ('laptop', 'phone'):
-        # a phone keeps 'checked HH:MM' in the tooltip while the check is fresh (the sticky top bar stays two rows)
+        # a phone keeps 'checked HH:MM' in the tooltip while the check is fresh (the chip still takes a row of
+        # its own in the phone top bar, 70 to 90 px, even when short: a shared top bar call, routed to TRADING-LOG)
         out.append(("HOME tab (%s), Friday's doc on Saturday" % vp, '2026-10-03 12:00:00', fri(base()), dict(none,
                    tab='home', vp=vp, top=('stale', 'WEBULL STALE since Fri 15:58' + (', checked 12:00' if vp == 'laptop' else '')))))
     # review fixes (2026-10-05, fourth pass)
@@ -317,9 +330,11 @@ def _variant_docs(fixture):
                                'total_open_pnl': 4.2, 'legs_net_qty': 10, 'broker_net_qty': 10, 'mismatch': False}
         return d
     out.append(('an open position', FRESH_NOW, opened(base()), dict(none, today='today', top=('open', 'WEBULL 1 OPEN'),
-               legpill='colour', eq_stale=False)))
+               legpill='colour', live_has='now $600.52', live_lacks='last seen', openpnl='colour', unreal='colour', eq_stale=False)))
+    # silent: no current price - 'last seen ... at' the box's time, never 'now', and the open figures grey
     out.append(('an open position, box silent 5 min', '2026-10-05 10:08:06', opened(base()), dict(none,
-               silent='BOX SILENT 5 min', today='today', top=('stale', 'WEBULL STALE 5 min'), legpill='grey', eq_stale=True)))
+               silent='BOX SILENT 5 min', today='today', top=('stale', 'WEBULL STALE 5 min'), legpill='grey',
+               live_has='last seen $600.52 at 10:03', live_lacks=' now ', openpnl='grey', unreal='grey', eq_stale=True)))
     blk = base()
     blk['broker'].update({'effective_mode': 'PAPER', 'requested_mode': 'PAPER', 'lease_ok_to_send': False,
                           'lease_block_reason': 'lease held by another host'})
@@ -375,6 +390,45 @@ def _variant_docs(fixture):
     out.append(('HOME tab, a .get() lands a halted doc', '2026-10-05 10:20:00', base(), dict(none,
                tab='home', vp='laptop', top=('halted', 'WEBULL HALTED, checked 10:20'), checked_at=FRESH_NOW,
                fetch=halted)))
+    # review fixes (2026-10-05, sixth pass)
+    # one failed save, logged by the box (its publish_down comes on the FIRST failure), the next save
+    # worked 60 s later: a blip, not UPDATES FAILING (and a 60 s gap is not UPDATES PAUSED either)
+    one = base()
+    one['health'] = {'publish_fail_today': 1, 'last_publish_ok_et': '10:02:06', 'tick_gap_max_s_today': 4.2}
+    one['events'] = [{'ts_et': '2026-10-05 10:02:30', 'kind': 'publish_down',
+                      'text': 'Firestore publish failing (timed out after 8s) -- shadow keeps ticking, 1 failure(s) today'}] + \
+        [e for e in one['events'] if e.get('kind') != 'publish_down']
+    out.append(('one failed save, the box logged it', FRESH_NOW, one, dict(none, today='today', top=('flat', 'WEBULL FLAT'),
+               strip_lacks=['saves failing', 'updates paused', 'BOX SILENT'], eq_stale=False)))
+    # this page saw the count go 0 -> 1 between two saves in a row: also a blip
+    rise_prev = base()
+    rise_prev['updated_at'] = '2026-10-05 10:02:06'
+    rise_prev['health'] = {'publish_fail_today': 0, 'last_publish_ok_et': '10:01:56', 'tick_gap_max_s_today': 4.2}
+    rise_prev['events'] = [e for e in rise_prev['events'] if e.get('kind') != 'publish_down']
+    rise1 = base()
+    rise1['health'] = {'publish_fail_today': 1, 'last_publish_ok_et': '10:02:46', 'tick_gap_max_s_today': 4.2}
+    rise1['events'] = [e for e in rise1['events'] if e.get('kind') != 'publish_down']
+    out.append(('one failed save seen save to save', FRESH_NOW, rise1, dict(none, today='today', top=('flat', 'WEBULL FLAT'),
+               strip_lacks=['saves failing'], eq_stale=False, prev=rise_prev)))
+    # Monday 08:00 on Thursday's data: only Friday's rebuild was missed (1 closed session), and it is flagged
+    out.append(("Monday 08:00, KEEL on Thursday's data", '2026-10-05 08:00:00',
+               move_to(base('2026-10-01'), '2026-10-05 07:55:00', '2026-10-02', '2026-10-02 15:59:30', '07:45:00'),
+               dict(none, today='Fri 10-02', top=('flat', 'WEBULL FLAT'), strip_lacks=['BOX SILENT'], eq_stale=False,
+                    keel='KEEL on Oct 1 data - 1 session old', keelwarn='KEEL on Oct 1 data - 1 session old',
+                    keelline='the last closed session is Fri Oct 2, so it is 1 session behind')))
+    # the board's listener re-attaches after an error and its first snapshot is this browser's cached
+    # copy: that is not a read, so the page still cannot read (it must not start blaming the box)
+    out.append(('a cached listener snapshot after a read error', '2026-10-05 08:50:00', fri(base()), dict(none,
+               noread='THIS PAGE CANNOT READ (copy from Fri 15:58)', today='Fri 10-02', top=('noread', 'WEBULL NO STATUS'),
+               strip_has=['THIS PAGE CANNOT READ'], strip_lacks=['BOX SILENT'], eq_stale=True, liveErr=True, cachesnap=True)))
+    # shown again away from the board: one read per 5 min at most there (each read is the whole doc), 30 s on the board
+    out.append(('page shown again, HOME and the board', FRESH_NOW, base(), dict(none,
+               tab='home', vp='laptop', top=('flat', 'WEBULL FLAT, checked 10:03'), visread=[0, 1, 1])))
+    # three key variants again in MONO at 390x844
+    for nm, now, doc, ex in [o for o in out if o[0] in ("Saturday noon, Friday's doc",
+                                                        "the page's own read failed, Friday's doc on Monday 08:50",
+                                                        'an open position, box silent 5 min')]:
+        out.append((nm + ' (MONO, 390x844)', now, doc, dict(ex, vp='phone390', theme='mono')))
     return out
 
 
@@ -492,8 +546,8 @@ MUTANTS = [
      "",
      "saves that keep failing after the box's one 10-minute event go unreported (finding 22)"),
     ('keel-missed-reads-up-to-date',
-     "(kf.rebuild==='missed'?",
-     "(false?",
+     "(kf.rebuild==='missed'?', so it is",
+     "(false?', so it is",
      "KEEL one session behind after a missed rebuild says 'up to date' (finding 21)"),
     ('stall-last-session-as-today',
      "  const gapToday=r.isToday&&dp.date===np.date&&qbIsSessionDay(dp.date)&&dp.mins>=565;",
@@ -509,8 +563,8 @@ MUTANTS = [
      'System LAST TICK goes back to the fixed 90 s rule and calls a quiet evening STALE (finding 20)'),
     # review fixes (fourth pass)
     ('fail-memory-not-in-a-row',
-     "if(rise>0&&inARow)m.riseMs=t;",
-     "if(rise>0)m.riseMs=t;",
+     "if(rise>0&&inARow){",
+     "if(rise>0){",
      'a page back hours later reads every failed save since as UPDATES FAILING (false alarm)'),
     ('cached-copy-counts',
      "    if(!QE||fromCache)return;",
@@ -605,6 +659,43 @@ MUTANTS = [
      "else if((mode==='PAPER'||mode==='LIVE')&&BR.lease_ok_to_send===false){st='blocked'",
      "else if(false){st='blocked'",
      'a blocked book reads FLAT in the top bar'),
+    # review fixes (sixth pass)
+    ('one-event-alarms',
+     "r.pubFails>=2&&nowMs-lastFail",
+     "nowMs-lastFail",
+     "one failed save (the box logs publish_down on the first one) shows UPDATES FAILING for 10 min"),
+    ('one-rise-alarms',
+     ">=2)m.riseMs=t;",
+     ">=1)m.riseMs=t;",
+     "a failed-save count going up by 1 between two saves shows UPDATES FAILING"),
+    ('keel-counts-open-session',
+     "    const done=qbSessionsAfter(th,r.lastDone);",
+     "    const done=behind;",
+     "KEEL's age counts the session under way ('2 sessions old' on Monday morning when only Friday's rebuild was missed)"),
+    ('keel-missed-no-chip',
+     "warn:behind>1||rebuild==='missed',",
+     "warn:behind>1,",
+     "a rebuild missed on Friday evening raises no KEEL chip until Monday"),
+    ('cached-snapshot-reads',
+     "if(!fc){window._qqqExecFetchedAt=Date.now();window._qqqExecTriedAt=Date.now();",
+     "if(true){window._qqqExecFetchedAt=Date.now();window._qqqExecTriedAt=Date.now();",
+     "a cached listener snapshot after a read error clears THIS PAGE CANNOT READ, so the page blames the box"),
+    ('vis-read-30s-everywhere',
+     "(onBoard?30000:300000)",
+     "30000",
+     "every tab reads the whole doc each time the page is shown again, up to twice a minute"),
+    ('live-line-says-now',
+     "(QF.stale?liveLastSeen:(' · now '",
+     "(false?liveLastSeen:(' · now '",
+     "an open position on a silent box still says 'now' with a price the page does not have"),
+    ('open-pnl-not-greyed',
+     "<b data-qbopenpnl=\"'+key+'\" style=\"color:'+(QF.stale?",
+     "<b data-qbopenpnl=\"'+key+'\" style=\"color:'+(false?",
+     "the Open figure of a position on a silent box stays green / red"),
+    ('unreal-not-greyed',
+     "data-qbunreal=\"'+key+'\" style=\"font-size:14px;font-weight:600;color:'+(p?(QF.stale?",
+     "data-qbunreal=\"'+key+'\" style=\"font-size:14px;font-weight:600;color:'+(p?(false?",
+     "the UNREALIZED figure of a position on a silent box stays green / red"),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -777,6 +868,12 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
     r.timer=typeof w._qbFreshTimer;
     r.vis=d.visibilityState;
     var lp=q('[data-qblegpill="NOISE"]');r.legPill=lp?(w.getComputedStyle(lp).color===greyCol()?'grey':'colour'):null;r.legPillTxt=lp?(lp.textContent||'').trim():null;
+    r.liveLine=txt('[data-qblive="NOISE"]');
+    var op=q('[data-qbopenpnl="NOISE"]');r.openPnl=op?(w.getComputedStyle(op).color===greyCol()?'grey':'colour'):null;
+    var ur=q('[data-qbunreal="NOISE"]');r.unreal=ur?(w.getComputedStyle(ur).color===greyCol()?'grey':'colour'):null;
+    var at=(d.getElementById('app')||{innerText:''}).innerText||'';r.badTok=(at.match(/NaN|undefined|\\[object Object\\]/g)||[]).slice(0,4);
+    try{r.cantRead=w.eval('qbCantRead()');}catch(e){r.cantRead='ERR '+e;}
+    r.visRead=w.__probeVisRead||null;w.__probeVisRead=null;
     try{r.cal=w.eval("JSON.stringify([qbIsSessionDay('2026-11-26'),qbIsSessionDay('2027-12-31'),qbIsSessionDay('2027-12-30'),qbCloseMins('2026-11-27'),qbIsSessionDay('2026-10-05')])");}catch(e){r.cal=null;}
     var sp=d.querySelector('[data-qbstop]');r.stop=sp?sp.getAttribute('data-qbstop'):null;r.stopTxt=sp?(sp.textContent||'').trim():null;
     var od=d.querySelector('[data-qbordersday]');r.orders=od?od.getAttribute('data-qbordersday'):null;r.ordersTxt=od?(od.textContent||'').trim():null;
@@ -819,6 +916,30 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
   // after the seed render: run the 30 s timer's body with the clock moved on, or land a .get() on HOME
   async function after(cfg){
     var w=W();
+    if(cfg.visread){
+      // the page shown again: on HOME 60 s and 400 s after the last read, then on the board 60 s after it.
+      // loadQqqExec is swapped for a counter (no Firestore), qbOnPageShown is the visibility hook's body
+      w.__probeVisRead=w.eval("(function(){var orig=loadQqqExec,n=0,res=[];try{loadQqqExec=function(){n++;};"
+        +"Object.defineProperty(document,'visibilityState',{configurable:true,get:function(){return 'visible';}});"
+        +"[['home',60000],['home',400000],['augur',60000]].forEach(function(c){activeTab=c[0];window._qqqExecLoading=false;window._qqqExecTriedAt=Date.now()-c[1];n=0;qbOnPageShown();res.push(n);});"
+        +"return res;}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}finally{loadQqqExec=orig;activeTab=window.__probeTab||'augur';window._qqqExecTriedAt=0;try{delete document.visibilityState;}catch(e2){}}})()");
+      return 'OK';
+    }
+    if(cfg.cachesnap){
+      // the listener error was 61 s ago, so the board's listener re-attaches; its first snapshot is cached
+      var rc=w.eval("(function(){var sd=db,sa=auth;window.__probeRestore=function(){db=sd;auth=sa;try{delete document.visibilityState;}catch(e2){}};try{"
+        +"window._qqqExecLiveErrorAt=Date.now()-61000;window._qqqExecUnsub=null;window._qqqExecLive=false;"
+        +"var doc=JSON.parse(window.__probeFixJson),snap={exists:true,data:function(){return doc;},metadata:{fromCache:true}};"
+        +"var ref={get:function(){return new Promise(function(){});},onSnapshot:function(a,b){var next=typeof a==='function'?a:b;setTimeout(function(){next(snap);},0);return function(){};}};"
+        +"db={collection:function(){return {doc:function(){return {collection:function(){return {doc:function(){return ref;}};}};}};}};"
+        +"auth={currentUser:{uid:'probe-uid'}};"
+        +"Object.defineProperty(document,'visibilityState',{configurable:true,get:function(){return 'visible';}});"
+        +"_qqqExecEnsureLive();window.__probeRestore();return window._qqqExecUnsub?'OK':'the listener did not attach';"
+        +"}catch(e){window.__probeRestore();return 'ERR '+(e&&e.stack?e.stack:e);}})()");
+      await sleep(150);
+      w.eval("window._qqqExecUnsub=null;window._qqqExecLastRenderAt=0;if(typeof qbFreshTick==='function')qbFreshTick();renderApp();");
+      return rc;
+    }
     if(cfg.tick){
       w.__qbNowMs=cfg.tickTo;w._qqqExecLastRenderAt=0;
       return w.eval("(function(){try{qbFreshTick();return 'OK';}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
@@ -860,7 +981,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
     drain();
     try{r.call=seed(cfg);}catch(e){r.call='ERR '+(e&&e.stack?e.stack:e);}
     await sleep(200);
-    if(cfg.tick||cfg.fetch){try{r.after=await after(cfg);}catch(e){r.after='ERR '+(e&&e.stack?e.stack:e);}await sleep(300);}
+    if(cfg.tick||cfg.fetch||cfg.visread||cfg.cachesnap){try{r.after=await after(cfg);}catch(e){r.after='ERR '+(e&&e.stack?e.stack:e);}await sleep(300);}
     try{Object.assign(r,sample());}catch(e){r.sampleErr=String(e&&e.stack?e.stack:e);}
     Object.assign(r,drain());
     out.cases[nm]=r;
@@ -932,9 +1053,9 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__;
         out.vars={};
         for(var j=0;j<VARS.length;j++){
           var V=VARS[j];
-          await runCase('__var'+j,{vp:V.vp||'laptop',theme:'dark',fix:V.doc,nowMs:V.renderMs||V.nowMs,openLeg:'NOISE',systemOpen:V.systemOpen,
+          await runCase('__var'+j,{vp:V.vp||'laptop',theme:V.theme||'dark',fix:V.doc,nowMs:V.renderMs||V.nowMs,openLeg:'NOISE',systemOpen:V.systemOpen,
             liveErr:V.liveErr,prev:V.prev,prevCache:V.prevCache,tab:V.tab,checkedMs:V.checkedMs,tick:V.tick,tickTo:V.nowMs,fetch:V.fetch,
-            offline:V.offline,missing:V.missing,unloaded:V.unloaded,pin:V.pin});
+            offline:V.offline,missing:V.missing,unloaded:V.unloaded,pin:V.pin,visread:V.visread,cachesnap:V.cachesnap});
           out.vars[V.name]=out.cases['__var'+j];delete out.cases['__var'+j];
         }
         try{W().eval('delete navigator.onLine');}catch(e){}
@@ -1044,7 +1165,9 @@ def _attempt(chrome, alt_index, fixture):
                  'tab': exp.get('tab'), 'vp': exp.get('vp', 'laptop'),
                  'renderMs': et_ms(exp['render_at']) if exp.get('render_at') else None,
                  'checkedMs': et_ms(exp['checked_at']) if exp.get('checked_at') else None,
-                 'tick': bool(exp.get('tick')), 'fetch': exp.get('fetch')} for nm, now, doc, exp in _variant_docs(fixture)]
+                 'tick': bool(exp.get('tick')), 'fetch': exp.get('fetch'), 'theme': exp.get('theme', 'dark'),
+                 'visread': bool(exp.get('visread')), 'cachesnap': bool(exp.get('cachesnap'))}
+                for nm, now, doc, exp in _variant_docs(fixture)]
     html = (PROBE_HTML.replace('__CASES__', json.dumps(CASES)).replace('__VP__', json.dumps(VIEWPORTS))
             .replace('__NOW__', json.dumps(et_ms(FRESH_NOW))).replace('__VARS__', json.dumps(variants))
             .replace('__FIX__', json.dumps(fixture)))
@@ -1287,6 +1410,18 @@ def _judge_variants(data, fixture, fails, unfinished, why):
         if r.get('timer') != 'number':
             fails.append('%s: the 30 s freshness timer is not running (_qbFreshTimer is %r) -- a page left open never '
                          'turns stale while the box is silent (finding 8)' % (tag, r.get('timer')))
+        if r.get('badTok'):
+            fails.append('%s: the page shows %r' % (tag, r['badTok']))
+        if ex.get('vp', 'laptop') != 'laptop' and (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1:
+            fails.append('%s: the page scrolls sideways at %s (sticking out: %s)'
+                         % (tag, ex.get('vp'), ', '.join(r.get('wide') or []) or '?'))
+        if ex.get('visread') and r.get('visRead') != ex['visread']:
+            fails.append('%s: reads when the page is shown again [HOME 60 s after the last, HOME 400 s after, board 60 s after] '
+                         'are %r, want %r -- away from the board at most one per 5 min (each is the whole doc)'
+                         % (tag, r.get('visRead'), ex['visread']))
+        if ex.get('cachesnap') and r.get('cantRead') is not True:
+            fails.append("%s: after a cached listener snapshot qbCantRead() is %r, want true -- a copy from this browser's "
+                         'cache is not a read, so the page must not start blaming the box' % (tag, r.get('cantRead')))
         if ex.get('top_hidden'):
             b = r.get('topBox')
             if r.get('top') is not None or (b and b.get('disp') != 'none'):
@@ -1321,9 +1456,6 @@ def _judge_variants(data, fixture, fails, unfinished, why):
                 fails.append('%s: the probe could not open %s (activeTab=%r)' % (tag, ex['tab'], r.get('tab')))
             if tuple(r.get('top') or ()) != tuple(ex['top'] or ()):
                 fails.append('%s: the top bar WEBULL chip is %r away from the board, want %r' % (tag, r.get('top'), ex['top']))
-            if ex.get('vp') == 'phone' and (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1:
-                fails.append('%s: the page scrolls sideways on a phone (sticking out: %s)'
-                             % (tag, ', '.join(r.get('wide') or []) or '?'))
             continue
         fresh = r.get('fresh') or {}
         names = {'silent': 'BOX SILENT', 'keel': 'KEEL', 'publish': 'UPDATES FAILING', 'pubgap': 'UPDATES PAUSED',
@@ -1415,6 +1547,14 @@ def _judge_variants(data, fixture, fails, unfinished, why):
         if ex.get('legpill') and r.get('legPill') != ex['legpill']:
             fails.append("%s: the NOISE row's position pill (%r) is drawn %s, want %s"
                          % (tag, r.get('legPillTxt'), r.get('legPill'), ex['legpill']))
+        if ex.get('live_has') and ex['live_has'] not in (r.get('liveLine') or ''):
+            fails.append("%s: the NOISE row's position line reads %r, want it to contain %r" % (tag, r.get('liveLine'), ex['live_has']))
+        if ex.get('live_lacks') and ex['live_lacks'] in (r.get('liveLine') or ''):
+            fails.append("%s: the NOISE row's position line reads %r, it must not say %r" % (tag, r.get('liveLine'), ex['live_lacks']))
+        for key, what in (('openpnl', 'Open figure'), ('unreal', 'UNREALIZED figure')):
+            if ex.get(key) and r.get(key if key != 'openpnl' else 'openPnl') != ex[key]:
+                fails.append("%s: the NOISE row's %s is drawn %s, want %s"
+                             % (tag, what, r.get(key if key != 'openpnl' else 'openPnl'), ex[key]))
 
 
 def _report(t0, attempt, may_retry, chrome, alt_index, fixture):
