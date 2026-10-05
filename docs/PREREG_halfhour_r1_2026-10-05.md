@@ -108,3 +108,26 @@ open of its 1st, in points. A slot with any missing bar is invalid in both histo
 - **FAIL:** recorded dead with no variants, and no other slot length or lookback is tried.
 - **Either way:** a RUNBOARD research verdict with ROC@$30k and DD%, a RESEARCH_LEDGER row and a NOISE.md note. Nothing
   live or in the adopted book changes without the owner.
+
+## AMENDMENT 1 - MANAGER review #44 + house line #45 (2026-10-05 ~08:10 MST, before any real-direction run)
+- **The bars that decide (house line #45).** The standalone bars decide the pinned Auto-Validate and the RUNBOARD row.
+  - **A1:** own ROC@$30k >= 15, OR the earner route, plus PF > 1, >= 100 trades and >= 50 a year, and >= 6 of 9 years.
+    The earner route is own ROC@$30k >= 5 AND positive P&L in #463's worst walk-forward drawdown (peak to trough on its
+    daily series, computed), also without the leg's 3 best days in that window.
+  - **A1b no-2020:** the same route still holds with calendar 2020 removed. This is my reading of #45's "no-2020";
+    MANAGER may correct it.
+  - **A2:** wrong-slot family null.
+  - **A3:** neighbours.
+- **A4 becomes a REPORT.** It decides only whether a forward BOOK shadow line is also opened.
+- **A4 sizing (#44 edit 1).** The leg is scaled by VOLATILITY, not by the outcome: its daily SD over the first two WF
+  years (2016-07-01 .. 2018-06-30) is set to 25% of #463's daily SD on the same days. The $30k-own-drawdown version is
+  reported as the twin. Power lines, recomputed BEFORE the run with the same coin-flip leg:
+  - **VOL scale (x0.715 NQ):** SD 19.3; minimum detectable 31.8; four in five 48.0.
+  - **$30k own drawdown (x0.180 NQ):** SD 7.8; minimum detectable 12.9; four in five 19.5.
+- **Overlap report (#44 edit 2).** On HALFHOUR's held 5m bars, the share on which ORB #314 or NOISE #422 holds the SAME
+  side, and the share on which it holds the opposite side. ENGU-Q (1m ETH) and TTM (ES) are not included. Also the
+  dollars per slot.
+- **Mechanism check (#44 edit 3, report only).** The primary restricted to the mid-day slots (10:00 .. 15:30) beside all
+  13. If a pass lives only in the 09:30 or 15:30 slot, it is read as the known open or close effect, not the
+  fixed-clock story.
+- Unchanged: cells, signal, null, cost, stretch, and no variants on a fail.
