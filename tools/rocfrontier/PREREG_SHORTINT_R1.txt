@@ -173,3 +173,33 @@ stock families' one sealed-year day as a leg veto) folded:
   for each cell and for the max over the 2 cells are printed before any cell number. Zero passes = SHORTINT r1 dead: no
   variants, and the next family comes from a new mechanism.
 The FINRA files and the flat file are pinned by sha256 in pre-data addendum 2, after TV's pull and before any score.
+
+PRE-DATA ADDENDUM 2 (2026-10-05 21:05 MST, before any SHORTINT score - only provenance counts were read: rows, files, market
+codes, FINRA's revision and split flags, the schedule's release lags): TV's FINRA pull (inbox #103, rebuilt per #106 / #107)
+pinned under MANAGER's decision #104:
+- [A7] DATA PINNED, each refused if its sha256 differs. Folder C:\EdgeLog\_research_cache\finra_shortint: the flat file
+  finra_shortint_flat.csv (sha256 9c72cc2712270aa7516a5bdb2b1c18c7aa04870242956fb0b5d2d58e1871bb4a; 3,136,392 rows from 168
+  settlement files 2018-06-15 .. 2025-05-30, two a month, no gaps; columns settlement_date, symbol, issue_name, exchange_code,
+  market_code, short_interest, prev_short_interest, split_flag, avg_daily_volume, days_to_cover, revision_flag, source_file);
+  its manifest finra_shortint_manifest.json (sha256 a99fe890829751fefece7742e63303d6307cde9e893659fc9e8ae817202337f6); the
+  photographed schedule finra_schedule_2018_2025.csv (sha256 ff4005d01e2807da7ec12cd49804c039706a29f5194f7852372ff7a7beaa1948;
+  197 settlements parsed from 22 Internet Archive snapshots of FINRA's page); the per-file provenance
+  finra_shortint_provenance.json (sha256 5d306bcc1ba45c29c6df48f8c0772ca6446b88d305b93ee2af9462bce8b997f0; every file's URL,
+  UTC time, size, sha256 and CDN Last-Modified - 108 entries were rebuilt from the saved files after a concurrent run overwrote
+  them, each says so, sizes match FINRA's, no file was fetched twice); the date probe probe_settlement_dates.json (sha256
+  80f673344b0e3600c01a597e75d348e4d6df56d6b9d22d454f239946e788282c). The raw files stay in files/ under their provenance shas.
+- [A8] THE SEALED-YEAR FILE IS OUT (MANAGER #104): shrt20250613.csv (settlement 2025-06-13) is quarantined - its CDN copy was
+  modified 2025-06-30 10:00 GMT, after the cut, and it could only serve the 2025-06-30 rank, which is sealed; it is not in the
+  flat file and is never read. The last usable settlement is 2025-05-30 (published 2025-06-10).
+- [A9] KNOWN-AT, AS FOUND. The photographed release dates run 9-12 calendar days after settlement (159 of the 168 files have
+  one; the first nine, 2018-06-15 .. 2018-10-15, have none), so [A3]'s 'later of s + 12 sessions and the photographed date' is
+  always s + 12 sessions; both are printed per settlement.
+- [A10] COVERAGE, AS FOUND. Exchange-listed names are in the files from the first one (2018-06-15: NYSE 3,114, Nasdaq (NNM)
+  2,334, NYSE Arca 1,435, SC 881, NYSE American 328, Cboe BZX 239 rows beside 7,219 OTC); [A2]'s 90% universe-coverage check
+  still runs per rank before any score.
+- [A11] REVISED ROWS. 22,644 rows (0.7%) carry FINRA's revision flag 'R' (by year 2018 3,051; 2019 1,547; 2020 5,273; 2021
+  8,559; 2022 55; 2023 3,938; 2024 174; 2025 47) - FINRA re-uploaded the old files in 2023, so a revised value is not the one
+  disseminated at the time. A name whose row at s* is revised has NO score at that rank (counted per rank and year); a REPORTED
+  twin scores those rows as they stand. FINRA's split flag 'S' (4,494 rows) is printed as a cross-check beside D1's split rule
+  (a split in the 20-session volume window = no score) and never replaces it.
+The harness is r22_shortint.py; SHORTINT runs after NETISS and NEWISSUE (MANAGER #104).
