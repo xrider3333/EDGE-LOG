@@ -395,7 +395,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .filter-inp{background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:var(--fsxs);padding:3px 5px;width:100%;outline:none}
 .filter-inp:focus{border-bottom-color:var(--green)}
 .vbadge{font-size:var(--fsxs);color:var(--text5);letter-spacing:1px;font-family:'JetBrains Mono',monospace}
-.lesson-card{background:var(--bg3);border:1px solid var(--border2);padding:13px 15px;margin-bottom:8px}
+.lesson-card{background:var(--bg3);border:1px solid var(--border2);padding:13px 15px;margin-bottom:8px;overflow-wrap:anywhere}
 /* spinner / pulse */
 .pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;vertical-align:middle}
 .pulse-y{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--yellow);animation:pulse 2s infinite;vertical-align:middle}
@@ -782,6 +782,121 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .lg-stat:nth-child(n+3){border-top:1px solid var(--border2)}
   .lg-stat-val{font-size:18px}
 }
+/* LEDGER shared trade list frame (unify step 8): a toolbar, day headers with the day net, the common columns first and then the
+   board's own; on a phone a row keeps five cells (time, symbol, side, net, chart). Money colours come from the theme
+   (var(--green) / var(--red)) and every change also carries a sign, so MONO reads. */
+.lg-tl{margin:0 0 24px}
+.lg-tl-bar{display:flex;flex-direction:column;gap:10px;margin:2px 2px 8px}
+.lg-tl-top{display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap}
+.lg-tl-count{font-size:10px;color:var(--text5);letter-spacing:.3px;display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap}
+.lg-seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none}
+.lg-seg button{background:transparent;border:none;padding:7px 13px;font-size:10px;letter-spacing:1px;color:var(--text5);font-family:'JetBrains Mono',monospace;cursor:pointer}
+.lg-seg button.active{background:var(--bg1);color:var(--text)}
+.lg-tl-find{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;min-width:0}
+.lg-tl-search{background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:12px;padding:6px 2px;min-width:200px;flex:1;max-width:320px;font-family:'JetBrains Mono',monospace}
+.lg-tl-search::placeholder{color:var(--text5)}
+.lg-tl-search:focus{border-bottom-color:var(--text4);outline:none}
+.lg-tl-chips{display:flex;gap:6px;flex-wrap:wrap;min-width:0}
+.lg-fchip{background:transparent;border:1px solid var(--border);color:var(--text5);padding:5px 10px;border-radius:999px;font-size:10px;letter-spacing:.5px;font-family:'JetBrains Mono',monospace;cursor:pointer}
+.lg-fchip.active{background:var(--bg2);color:var(--text);border-color:var(--text4)}
+.lg-tl-slot{display:flex;flex-direction:column;gap:8px;min-width:0}
+.lg-tl-empty{padding:40px 10px;text-align:center;color:var(--text5);font-size:12px}
+.lg-flat{color:var(--text3)}
+.lg-side{display:inline-block;font-size:9px;padding:2px 6px;border-radius:4px;letter-spacing:.5px}
+.lg-side.long{background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green)}
+.lg-side.short{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
+[data-theme="mono"] .lg-side.short{color:var(--text3)}
+.lg-tl-dayhd{display:flex;align-items:baseline;gap:6px 12px;padding:18px 2px 8px}
+.lg-tl-daylbl{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text3)}
+.lg-tl-daymeta{font-size:10px;color:var(--text5)}
+.lg-tl-daynet{margin-left:auto;font-family:'Bebas Neue','JetBrains Mono',monospace;font-size:20px;font-variant-numeric:tabular-nums}
+.lg-tl-day{margin-bottom:2px}
+.lg-tl-row{display:flex;align-items:center;gap:12px;min-height:54px;padding:6px 2px;border-bottom:1px solid var(--border2);cursor:pointer}
+.lg-tl-row:hover{background:var(--bg1)}
+.lg-tl-row .lg-c{min-width:0}
+.lg-tl-row .lg-c-time{flex:0 0 78px;font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums}
+.lg-tl-row .lg-c-time small,.lg-tl-row .lg-c-sym small{display:block;font-size:10px;color:var(--text5);margin-top:2px;font-weight:400}
+.lg-tl-row .lg-c-sym{flex:0 0 150px;font-size:14px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg-tl-row .lg-c-side{flex:0 0 62px}
+.lg-tl-row .lg-c-size{flex:0 0 40px;text-align:right;font-size:12px;color:var(--text3)}
+.lg-tl-row .lg-c-pnl{flex:0 0 96px;text-align:right;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.lg-tl-row .lg-c-pts{flex:0 0 92px;text-align:right;font-size:11px;color:var(--text4);font-variant-numeric:tabular-nums;white-space:nowrap}
+.lg-tl-row .lg-c-strat{flex:1 1 110px;font-size:11px;color:var(--text4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg-tl-row .lg-c-chart{flex:0 0 46px;text-align:center;white-space:nowrap}
+.lg-tl-row .lg-c-slot{flex:0 0 132px;display:flex;align-items:center;justify-content:flex-end;gap:6px;font-size:10px;color:var(--text4)}
+.lg-tl-dayrow{cursor:default}
+.lg-tl-dayrow:hover{background:none}
+.lg-tl-tile{width:34px;height:34px;min-width:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;background:var(--bg2);color:var(--text2)}
+.lg-tl-daymain{flex:1;min-width:0}
+.lg-tl-daymain b{display:block;font-size:14px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lg-tl-daymain small,.lg-tl-dayend small{display:block;font-size:10px;color:var(--text5);margin-top:3px}
+.lg-tl-dayend{text-align:right;flex-shrink:0}
+.lg-tl-dayend .lg-tl-daynet{margin-left:0;font-size:18px}
+.lg-tl-tag{display:inline-block;padding:1px 6px;border-radius:4px;background:var(--bg2);color:var(--text4);font-size:9px;letter-spacing:.5px}
+.lg-tl-wrap{overflow:auto;max-height:72vh}
+.lg-tl-topscroll{overflow-x:auto;overflow-y:hidden;margin-bottom:2px}
+.lg-tl-table{border-collapse:collapse;width:100%;font-size:11px}
+.lg-tl-table th{position:sticky;top:0;z-index:2;background:var(--bg2);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text5);padding:9px 10px;border-bottom:1px solid var(--border2);white-space:nowrap;cursor:default}
+.lg-tl-table td{padding:8px 10px;border-bottom:1px solid var(--border2);white-space:nowrap;color:var(--text)}
+.lg-tl-table tbody tr[data-lgtrade]{cursor:pointer}
+.lg-tl-table tbody tr[data-lgtrade]:hover{background:var(--bg1)}
+.lg-tl-table td.lg-c-size,.lg-tl-table td.lg-c-pnl,.lg-tl-table td.lg-c-pts{text-align:right;font-variant-numeric:tabular-nums}
+.lg-tl-table .lg-d-short{display:none}
+.lg-tl-table tr.lg-tl-dayhdrow td{padding:0;background:var(--bg);border-bottom:1px solid var(--border2)}
+.lg-tl-table tr.lg-tl-dayhdrow .lg-tl-dayhd{position:sticky;left:0;width:max-content;min-width:min(420px,88vw);padding:12px 10px 6px}
+.lg-tl-table tr.lg-tl-dayhdrow.lg-flash td{animation:lgFlashBg 1.6s ease}
+@keyframes lgFlashBg{0%,40%{background:color-mix(in srgb,var(--text) 16%,var(--bg))}100%{background:var(--bg)}}
+/* REAL's slots in the frame (LEDGER unify step 8): BY TRADE | BY DAY or SIMPLE | FULL, the PASTE box and the action buttons */
+.hm-slot{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;min-width:0}
+.hm-slot .hm-paste{min-width:0;width:230px;flex:0 1 230px;font-size:11px;max-width:none}
+.hm-slot .hm-tools-toggle{display:none}
+/* REAL's page order on a phone (LEDGER mistake #12): hero, chart, pills, the four tiles and the account line first, then the
+   trade list; More stats, the calendar, the AI assessment and the other sections follow it, folded */
+.hm-sec-acct .hm-acct-fold{display:none}
+.hm-sec-ai .lg-more-panel{padding:14px 16px}
+@media (max-width:600px){
+  .hm-wrap.lg-flow{display:flex;flex-direction:column}
+  .hm-wrap.lg-flow>*{min-width:0}
+  .hm-wrap.lg-flow>.lg-hero{order:1}
+  .hm-wrap.lg-flow>.hm-chart-wrap{order:2;margin-top:14px}
+  .hm-wrap.lg-flow>.hm-range-row{order:3;margin-bottom:14px}
+  .hm-wrap.lg-flow>.lg-stats{order:4}
+  .hm-wrap.lg-flow>.hm-sec-acct{order:5}
+  .hm-wrap.lg-flow>#hm-feed-container{order:6}
+  .hm-wrap.lg-flow>.hm-sec-deps{order:7}
+  .hm-wrap.lg-flow>.hm-sec-more{order:8}
+  .hm-wrap.lg-flow>.hm-sec-cal{order:9}
+  .hm-wrap.lg-flow>.hm-sec-ai{order:10}
+  .hm-wrap.lg-flow>#hm-missed{order:11}
+  .hm-wrap.lg-flow>.hm-sec-journal{order:12}
+  .hm-wrap.lg-flow .lg-more{margin-bottom:14px}
+  .hm-sec-acct .hm-acct-fold{display:flex;margin-bottom:10px}
+  .hm-sec-acct:not(.open) .lg-list{display:none}
+  .hm-sec-acct .lg-list{margin-bottom:14px}
+  .lg-tl-bar{gap:8px}
+  .lg-tl-search{min-width:0;max-width:none;flex:1 1 100%}
+  .lg-tl-chips{flex-wrap:nowrap;overflow-x:auto;flex:1 1 100%;scrollbar-width:none}
+  .lg-tl-chips::-webkit-scrollbar{display:none}
+  .lg-fchip{flex:none}
+  .lg-tl-row .lg-nph,.lg-tl-table .lg-nph{display:none}
+  .lg-tl-row{gap:8px;min-height:48px}
+  .lg-tl-row .lg-c-time{flex:0 0 44px;font-size:11px}
+  .lg-tl-row .lg-c-time small{display:none}
+  .lg-tl-row .lg-c-sym{flex:1 1 0;font-size:13px}
+  .lg-tl-row .lg-c-sym small{display:none}
+  .lg-tl-row .lg-c-side{flex:0 0 50px}
+  .lg-tl-row .lg-c-pnl{flex:0 0 78px;font-size:14px}
+  .lg-tl-row .lg-c-chart{flex:0 0 32px}
+  .lg-tl-table td,.lg-tl-table th{padding-left:5px;padding-right:5px}
+  .lg-tl-table .lg-d-full{display:none}
+  .lg-tl-table .lg-d-short{display:inline}
+  .lg-tl-table .lg-c-chart .inline-txt{display:none}
+  .lg-tl-wrap{max-height:none}
+  .hm-slot .hm-paste{flex:1 1 120px;width:auto}
+  .hm-slot .hm-tools-toggle{display:inline-block}
+  .hm-slot .hm-toolbar-actions{display:none;flex-basis:100%}
+  .hm-slot .hm-toolbar-actions.open{display:flex}
+}
 .hm-chart-wrap{position:relative;margin:22px 0 4px}
 .hm-chart-wrap > svg{display:block;width:100%;height:260px;cursor:crosshair}
 .hm-range-row{display:flex;align-items:center;justify-content:space-between;margin:2px 0 26px;flex-wrap:wrap;gap:14px}
@@ -1011,7 +1126,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1085',date:'2026-10-06',notes:['LEDGER steps 6, 7, 10 on NT8 PAPER: shared stats strip + More stats, shared month calendar, shared strategy list (BOOK #463 / forward tests / shadow / retired) - max drawdown positive, phone list within one screen']},
+const CHANGELOG=[{v:'73.1084',date:'2026-10-06',notes:['LEDGER step 8: shared trade list frame on REAL (toolbar, day headers, common columns, phone five-column rows); legacy TRADES and JOURNAL tabs no longer scroll sideways on a phone']},{v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
+{v:'73.1085',date:'2026-10-06',notes:['LEDGER steps 6, 7, 10 on NT8 PAPER: shared stats strip + More stats, shared month calendar, shared strategy list (BOOK #463 / forward tests / shadow / retired) - max drawdown positive, phone list within one screen']},
 {v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
 {v:'73.1047',date:'2026-10-05',notes:['NT8 PAPER (owner decision 10-05): the ENGU-Q #335 legs (crown, S1, S2, VC) now run on the roll-corrected NQ master and charge 0.783 points a round trip, the way BOOK #463 does. Their whole forward record restates once, at the 10-06 nightly report (the crown leg: one long held since 09-16 instead of 14 shorter trades). Live NinjaTrader orders do not change. Also in v73.1047: the NT8 equity curve is the shared LEDGER chart.']},
 {v:'73.1046',date:'2026-10-05',notes:['LEDGER > REAL: the page no longer scrolls sideways onto a blank strip (440 px on a laptop, a full screen on a phone). The closed trade panel was parked just off the right edge and still made the page wider; now it takes no room until you open a trade, and it slides in when you do.']},
@@ -2827,6 +2943,8 @@ try{const _lv=JSON.parse(localStorage.getItem('el_view')||'{}');
   if(_lv.homeView)homeView=_lv.homeView;
   if(_lv.homeChip)homeChip=_lv.homeChip;
 }catch(e){}
+// the LIST | TABLE choice is remembered per board by the shared trade list frame (el_lg_view_hm)
+try{const _lgv=localStorage.getItem('el_lg_view_hm');if(_lgv==='table')homeView='table';else if(_lgv==='list')homeView='feed';}catch(e){}
 // v73.7xx SHIP TWO: OVERVIEW left the tab bar - a browser (including the owner's own,
 //   right now) that saved 'overview' as its last-viewed tab must land on HOME instead of
 //   a tab with no button, not a blank screen. ?overview=1 in the URL is a one-version
@@ -3356,6 +3474,183 @@ function ledgerListHtml(groups,o){
       const body=(!g.fold||g.open)?((g.note?'<div class="lg-grp-note">'+g.note+'</div>':'')+(g.rows||[]).map(row).join('')):'';
       return '<div class="lg-grp" data-lggroup="'+esc(g.key||'')+'">'+hd+body+'</div>';
     }).join('')+'</div>';
+}
+// ── LEDGER shared trade list frame (unify step 8) ──
+// One frame for every board's trade list: a toolbar (the count, a search box, the chips ALL / LONG / SHORT / WINS /
+// LOSSES, a LIST | TABLE toggle remembered per board), day headers with the day's net (the New York day a trade CLOSED,
+// trades walked in close order), the common columns first (time, symbol or strategy, side, size, P&L, points, strategy
+// or account, chart), then the board's own columns and row actions. On a phone (600 px and under) every row is five
+// cells - time, symbol, side, net, chart - and the rest waits in the trade panel.
+// The board filters (ledgerTradeMatch does the shared chips and the search; a $0 trade is neither a win nor a loss),
+// hands over the rows that are left, wires the clicks (ledgerTradeListWire) and re-renders. What a board adds goes in
+// slots: o.slot (toolbar), o.afterBar, o.cols / o.actions (table columns), o.cells (a common cell drawn its own way).
+const LEDGER_TL_CHIPS=['ALL','LONG','SHORT','WINS','LOSSES'];
+// the common columns, in this order: [key, header]; a phone row keeps the five marked in LEDGER_TL_PHONE
+const LEDGER_TL_COLS=[['time','TIME'],['sym','SYMBOL'],['side','SIDE'],['size','SIZE'],['pnl','P&amp;L'],['pts','POINTS'],['strat','STRATEGY'],['chart','CHART']];
+const LEDGER_TL_PHONE={time:1,sym:1,side:1,pnl:1,chart:1};
+// TODAY / YESTERDAY / "WED · SEP 30" for a day header (New York dates)
+function ledgerDayLabel(ds){
+  const t=ledgerTodayNY();
+  if(ds===t)return 'TODAY';
+  if(ds===ledgerShiftDay(t,-1))return 'YESTERDAY';
+  const d=new Date(String(ds)+'T12:00:00');
+  return ['SUN','MON','TUE','WED','THU','FRI','SAT'][d.getDay()]+' &middot; '+['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getMonth()]+' '+d.getDate();
+}
+function ledgerPnlCls(v){v=+v||0;return v>0?'lg-up':(v<0?'lg-down':'lg-flat');}
+function ledgerTradeSide(t){
+  const s=String((t&&(t.type||t.side||t.direction))||'').toUpperCase();
+  return (s==='LONG'||s==='BUY'||s==='L')?'LONG':((s==='SHORT'||s==='SELL'||s==='S')?'SHORT':'');
+}
+// true when trade t passes the search text and the chip. Chips other than the five shared ones pass (the board applies
+// its own). o.pnl(t) = the result that decides win / loss (default t.pnl); o.hay(t) = the text the search reads
+function ledgerTradeMatch(t,chip,query,o){
+  o=o||{};
+  const q=String(query||'').trim().toLowerCase();
+  if(q){
+    const hay=String(o.hay?o.hay(t):[t.symbol,t.strategy,t.setup,t.notes].filter(Boolean).join(' ')).toLowerCase();
+    if(hay.indexOf(q)<0)return false;
+  }
+  const p=+((o.pnl||(x=>x.pnl))(t))||0;
+  if(chip==='LONG')return ledgerTradeSide(t)==='LONG';
+  if(chip==='SHORT')return ledgerTradeSide(t)==='SHORT';
+  if(chip==='WINS')return p>0;       // a $0 trade is neither a win nor a loss
+  if(chip==='LOSSES')return p<0;
+  return true;
+}
+// LIST | TABLE, remembered per board in this browser (el_lg_view_<id>); a blocked localStorage falls back to the default
+function ledgerTradeViewGet(id,dflt){
+  try{const v=localStorage.getItem('el_lg_view_'+id);if(v==='list'||v==='table')return v;}catch(e){}
+  return dflt==='table'?'table':'list';
+}
+function ledgerTradeViewSet(id,v){try{localStorage.setItem('el_lg_view_'+id,v==='table'?'table':'list');}catch(e){}}
+// o = {id, view 'list'|'table', rows [trade] (already filtered), total (the count after the slash), query, chip,
+//   chips [{k,label}] (a board's own chips after the five), placeholder, countExtra (html next to the count), slot (html,
+//   the board's toolbar row), afterBar (html under the toolbar), empty (html when no rows), pnl(t) / net(t) (default t.pnl),
+//   rowId(t) (default t.id), rowAttr(t) (extra attributes on a row), hide ['strat'], labels {key: header},
+//   cells {time|sym|side|size|pnl|pts|strat|chart: (t, 'list'|'table') => html}, attr {key: t => attributes of that table cell},
+//   colCls {key: classes on that table column}, th(key, label, cls) => a header cell html (a sort / filter menu) or null,
+//   LIST: group 'trade'|'day' (BY DAY = one row per day), events [{date, html}] (non-trade rows such as deposits),
+//   rowSlot(t) (html at the end of a row), sub(t) (a small line under the symbol),
+//   TABLE: tableHide ['strat'] (common columns left out of the table only), cols / actions [{k, label, cls (header and cell), tdCls (cell
+//   only), phone, attr(t), td(t, i)}] (the board's columns, then its row actions),
+//   numbered (a # column), dayHeaders (rows in close order under day headers; else the rows keep the board's own sort),
+//   dayAsc, tableBar (html above the table), topScroll, wrapCls, tableCls, topCls}
+// Markers: [data-lglist-frame] (data-lgmode), [data-lgcount], [data-lgsearch], [data-lgchip], [data-lgview], [data-lgday]
+// (a day group / header row, with .lg-tl-daynet: the day's signed net), [data-lgtrade] (a trade row).
+function ledgerTradeListHtml(o){
+  o=o||{};
+  const id=o.id||'lg',view=o.view==='table'?'table':'list',rows=(o.rows||[]).slice(),cells=o.cells||{},labels=o.labels||{},colCls=o.colCls||{},attrs=o.attr||{};
+  const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const P=o.pnl||(t=>+t.pnl||0),N=o.net||P,tid=t=>esc(o.rowId?o.rowId(t):t.id),hm=s=>String(s||'').slice(0,5);
+  const common=LEDGER_TL_COLS.filter(c=>(o.hide||[]).indexOf(c[0])<0);
+  const dflt={
+    time:(t,v)=>v==='table'
+      ?'<span class="lg-d-full">'+esc(t.date||'')+'</span><span class="lg-d-short">'+esc(String(t.date||'').slice(5))+'</span> '+esc(hm(t.entryTime)||'--')
+      :esc(hm(t.entryTime)||'--')+(hm(t.exitTime)&&hm(t.exitTime)!==hm(t.entryTime)?'<small>&rarr; '+esc(hm(t.exitTime))+'</small>':''),
+    sym:t=>esc(t.symbol||t.strategy||''),
+    side:t=>{const s=ledgerTradeSide(t);return s?'<span class="lg-side '+(s==='LONG'?'long':'short')+'">'+s+'</span>':'';},
+    size:t=>t.size!=null?esc(t.size):'--',
+    pnl:t=>{const v=+N(t)||0;return '<span class="'+ledgerPnlCls(v)+'">'+ledgerSigned(v)+'</span>';},
+    pts:t=>t.points==null||t.points===''?'--':((+t.points>=0?'+':'-')+Math.abs(+t.points).toFixed(2)),
+    strat:t=>esc(t.strategy||t.broker||t.account||''),
+    chart:()=>''
+  };
+  // a board's cell function may return null to keep the default for that row / view
+  const cell=(k,t,v)=>{const f=cells[k],x=f?f(t,v):null;return x!=null?x:dflt[k](t,v);};
+  const cellCls=(k,v)=>'lg-c lg-c-'+k+(LEDGER_TL_PHONE[k]?' lg-ph':' lg-nph')+(k==='chart'?' lg-skip':'')+(v==='table'&&colCls[k]?' '+colCls[k]:'');
+  const byDay=list=>{const m={},order=[];list.forEach(t=>{const k=ledgerCloseDay(t)||'';if(!m[k]){m[k]=[];order.push(k);}m[k].push(t);});return {m:m,order:order};};
+  const net2=list=>Math.round(list.reduce((s,t)=>s+(+N(t)||0),0)*100)/100;
+  const dayHd=(ds,list)=>{
+    const n=list.length,net=net2(list);
+    return '<div class="lg-tl-dayhd"><span class="lg-tl-daylbl">'+ledgerDayLabel(ds)+'</span>'
+      +(n?'<span class="lg-tl-daymeta">'+n+' trade'+(n===1?'':'s')+'</span><span class="lg-tl-daynet '+ledgerPnlCls(net)+'">'+ledgerSigned(net)+'</span>':'')+'</div>';
+  };
+  const empty=o.empty||'<div class="lg-tl-empty">No trades.</div>';
+  // newest close first (a board can ask for the other way round)
+  const closeOrder=()=>{const s=ledgerByClose(rows);if(!o.dayAsc)s.reverse();return s;};
+  let body;
+  if(view==='table'){
+    const bcols=(o.cols||[]).concat(o.actions||[]);
+    const tcommon=common.filter(c=>(o.tableHide||[]).indexOf(c[0])<0);
+    const nCols=(o.numbered?1:0)+tcommon.length+bcols.length;
+    const th=(k,label,cls)=>{const x=o.th?o.th(k,label,cls):null;return (typeof x==='string')?x:'<th class="'+cls+'">'+label+'</th>';};
+    const head='<tr>'
+      +(o.numbered?th('num',o.numLabel||'#','num lg-c lg-c-num lg-nph'+(colCls.num?' '+colCls.num:'')):'')
+      +tcommon.map(c=>th(c[0],labels[c[0]]||c[1],cellCls(c[0],'table'))).join('')
+      +bcols.map(c=>th(c.k,c.label||'','lg-c lg-c-'+c.k+(c.phone?' lg-ph':' lg-nph')+(c.cls?' '+c.cls:''))).join('')
+      +'</tr>';
+    const trow=(t,i)=>'<tr data-lgtrade="'+tid(t)+'"'+(o.rowAttr?' '+o.rowAttr(t):'')+'>'
+      +(o.numbered?'<td class="num lg-c lg-c-num lg-nph'+(colCls.num?' '+colCls.num:'')+'">'+String(rows.length-i).padStart(2,'0')+'</td>':'')
+      +tcommon.map(c=>'<td class="'+cellCls(c[0],'table')+'"'+(attrs[c[0]]?' '+attrs[c[0]](t):'')+'>'+cell(c[0],t,'table')+'</td>').join('')
+      +bcols.map(c=>'<td class="lg-c lg-c-'+c.k+(c.phone?' lg-ph':' lg-nph')+(c.cls?' '+c.cls:'')+(c.tdCls?' '+c.tdCls:'')+'"'+(c.attr?' '+c.attr(t):'')+'>'+c.td(t,i)+'</td>').join('')
+      +'</tr>';
+    let trs='';
+    if(o.dayHeaders){
+      const g=byDay(closeOrder());let i=0;
+      g.order.forEach(ds=>{
+        trs+='<tr class="lg-tl-dayhdrow" data-lgday="'+ds+'"><td colspan="'+nCols+'">'+dayHd(ds,g.m[ds])+'</td></tr>';
+        g.m[ds].forEach(t=>{trs+=trow(t,i++);});
+      });
+    }else trs=rows.map(trow).join('');
+    body=(o.topScroll?'<div class="lg-tl-topscroll'+(o.topCls?' '+o.topCls:'')+'" id="'+esc(id)+'-table-topscroll"><div style="height:1px"></div></div>':'')
+      +'<div class="lg-tl-wrap'+(o.wrapCls?' '+o.wrapCls:'')+'"><table class="lg-tl-table'+(o.tableCls?' '+o.tableCls:'')+'"><thead>'+head+'</thead><tbody>'+trs+'</tbody></table></div>'
+      +(rows.length?'':empty);
+  }else if(!rows.length){
+    body=empty;
+  }else{
+    const g=byDay(closeOrder()),evs=o.events||[];
+    evs.forEach(e=>{if(!g.m[e.date]){g.m[e.date]=[];g.order.push(e.date);}});
+    g.order.sort((a,b)=>a<b?(o.dayAsc?-1:1):(a>b?(o.dayAsc?1:-1):0));
+    if(o.group==='day'){
+      // BY DAY: one summary row per close day
+      body=g.order.filter(ds=>g.m[ds].length).map(ds=>{
+        const ts=g.m[ds],net=net2(ts),w=ts.filter(t=>(+P(t)||0)>0).length,l=ts.filter(t=>(+P(t)||0)<0).length,flat=ts.length-w-l;
+        return '<div class="lg-tl-day lg-tl-byday" data-lgday="'+ds+'"><div class="lg-tl-row lg-tl-dayrow"><span class="lg-tl-tile">'+(+ds.slice(8,10))+'</span>'
+          +'<span class="lg-tl-daymain"><b>'+ledgerDayLabel(ds)+'</b><small>'+ts.length+' trade'+(ts.length===1?'':'s')+' &middot; '+w+'W '+l+'L'+(flat?' '+flat+' even':'')+'</small></span>'
+          +'<span class="lg-tl-dayend"><span class="lg-tl-daynet '+ledgerPnlCls(net)+'">'+ledgerSigned(net)+'</span><small>win rate '+(w+l?Math.round(w/(w+l)*100):0)+'%</small></span></div></div>';
+      }).join('');
+    }else{
+      const lrow=t=>'<div class="lg-tl-row" data-lgtrade="'+tid(t)+'"'+(o.rowAttr?' '+o.rowAttr(t):'')+' tabindex="0" role="button" aria-label="'+esc(t.symbol||t.strategy||'')+' trade detail">'
+        +common.map(c=>{
+          let h=cell(c[0],t,'list');
+          if(c[0]==='sym'&&o.sub){const s=o.sub(t);if(s)h+='<small>'+s+'</small>';}
+          return '<span class="'+cellCls(c[0],'list')+'"'+(attrs[c[0]]&&c[0]==='time'?' '+attrs[c[0]](t):'')+'>'+h+'</span>';
+        }).join('')
+        +(o.rowSlot?'<span class="lg-c lg-c-slot lg-nph">'+o.rowSlot(t)+'</span>':'')+'</div>';
+      body=g.order.map(ds=>{
+        const ts=g.m[ds];
+        return '<div class="lg-tl-day" data-lgday="'+ds+'">'+dayHd(ds,ts)+evs.filter(e=>e.date===ds).map(e=>e.html).join('')+ts.map(lrow).join('')+'</div>';
+      }).join('');
+    }
+  }
+  const chips=LEDGER_TL_CHIPS.map(k=>({k:k,label:k})).concat(o.chips||[]);
+  const total=o.total!=null?o.total:rows.length;
+  const bar='<div class="lg-tl-bar">'
+    +'<div class="lg-tl-top"><span class="lg-tl-count"><span data-lgcount>'+rows.length+' / '+total+' trades</span>'+(o.countExtra||'')+'</span>'
+    +'<span class="lg-seg" role="group" aria-label="list or table">'+['list','table'].map(v=>'<button type="button" data-lgview="'+v+'" class="'+(view===v?'active':'')+'" aria-pressed="'+(view===v)+'">'+v.toUpperCase()+'</button>').join('')+'</span></div>'
+    +'<div class="lg-tl-find"><input type="text" id="'+esc(id)+'-search" data-lgsearch class="lg-tl-search" autocomplete="off" spellcheck="false" placeholder="'+esc(o.placeholder||'Search symbol, setup, note...')+'" aria-label="Search trades" value="'+esc(o.query)+'">'
+    +'<div class="lg-tl-chips" role="group" aria-label="filter trades">'+chips.map(c=>'<button type="button" class="lg-fchip'+(o.chip===c.k?' active':'')+'" data-lgchip="'+esc(c.k)+'" aria-pressed="'+(o.chip===c.k)+'">'+esc(c.label)+'</button>').join('')+'</div></div>'
+    +(o.slot?'<div class="lg-tl-slot">'+o.slot+'</div>':'')+'</div>';
+  return '<div class="lg-tl" data-lglist-frame="'+esc(id)+'" data-lgmode="'+view+'">'+bar+(o.afterBar||'')+(view==='table'?(o.tableBar||''):'')+body+'</div>';
+}
+// wires the frame inside root: o.onQuery(text), o.onChip(key), o.onView('list'|'table') (the choice is remembered here),
+// o.onRow(tradeId, event) (a click or Enter on a row, not on a control inside it). Returns the frame element.
+function ledgerTradeListWire(root,o){
+  o=o||{};const id=o.id||'lg';
+  const fr=root&&root.querySelector('[data-lglist-frame="'+id+'"]');
+  if(!fr)return null;
+  const q=fr.querySelector('[data-lgsearch]');
+  if(q&&o.onQuery)q.oninput=e=>o.onQuery(e.target.value);
+  fr.querySelectorAll('[data-lgchip]').forEach(b=>{b.onclick=()=>{if(o.onChip)o.onChip(b.getAttribute('data-lgchip'));};});
+  fr.querySelectorAll('[data-lgview]').forEach(b=>{b.onclick=()=>{const v=b.getAttribute('data-lgview');ledgerTradeViewSet(id,v);if(o.onView)o.onView(v);};});
+  if(o.onRow){
+    const skip=e=>!!(e.target&&e.target.closest&&e.target.closest('select,input,textarea,button,a,label,.lg-skip'));
+    fr.querySelectorAll('[data-lgtrade]').forEach(r=>{
+      r.addEventListener('click',e=>{if(!skip(e))o.onRow(r.getAttribute('data-lgtrade'),e);});
+      if(r.getAttribute('role')==='button')r.addEventListener('keydown',e=>{if(e.target===r&&(e.key==='Enter'||e.key===' ')){e.preventDefault();o.onRow(r.getAttribute('data-lgtrade'),e);}});
+    });
+  }
+  return fr;
 }
 function ledgerChartRender(wrap,o){
   if(!wrap)return;
@@ -12844,16 +13139,8 @@ function _hmRunningBalances(){
   return runBals;
 }
 function _hmMatches(t){
-  const q=(homeQuery||'').trim().toLowerCase();
-  if(q){
-    const hay=(t.symbol+' '+(t.setup||'')+' '+(t.notes||'')).toLowerCase();
-    if(hay.indexOf(q)===-1)return false;
-  }
-  if(homeChip==='ALL')return true;
-  if(homeChip==='LONG')return t.type==='LONG';
-  if(homeChip==='SHORT')return t.type==='SHORT';
-  if(homeChip==='WINS')return t.pnl>0;                  // a $0 trade is neither (LEDGER rule)
-  if(homeChip==='LOSSES')return t.pnl<0;
+  // the shared chips + search (LEDGER trade list frame); a $0 trade is neither a win nor a loss. REAL adds FUTURES / STOCKS
+  if(!ledgerTradeMatch(t,homeChip,homeQuery,{pnl:x=>x.pnl,hay:x=>x.symbol+' '+(x.setup||'')+' '+(x.notes||'')}))return false;
   if(homeChip==='FUTURES')return isFut(t.symbol);
   if(homeChip==='STOCKS')return !isFut(t.symbol);
   return true;
@@ -12980,15 +13267,7 @@ function _hmBeforeRender(){
   }
 }
 // TODAY / YESTERDAY come from the New York date (the UTC date said YESTERDAY for today's trades after 8 pm ET)
-function _hmDayLabel(dateStr){
-  const todayStr=ledgerTodayNY(),yestStr=ledgerShiftDay(todayStr,-1);
-  if(dateStr===todayStr)return 'TODAY';
-  if(dateStr===yestStr)return 'YESTERDAY';
-  const d=new Date(dateStr+'T12:00:00');
-  const dow=['SUN','MON','TUE','WED','THU','FRI','SAT'][d.getDay()];
-  const mon=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getMonth()];
-  return dow+' &middot; '+mon+' '+d.getDate();
-}
+function _hmDayLabel(dateStr){return ledgerDayLabel(dateStr);}
 function _hmFmtDateLong(dateStr){
   if(!dateStr)return '';
   const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -13171,6 +13450,8 @@ function _hmAccountListHtml(){
 // REAL on the shared calendar (unify step 7): the range's trades by the day they closed, the same money the trade
 // list's day headers add up. Open on a laptop and closed on a phone until you choose (remembered per browser).
 var homeCalOpen=(()=>{try{const v=localStorage.getItem('el_lg_cal_real');if(v==='1'||v==='0')return v==='1';}catch(e){}return (window.innerWidth||1200)>=760;})();
+// the AI ASSESSMENT fold and the account line on a phone: closed until you open them, remembered per browser
+var homeAiOpen=false,homeAcctOpen=false;try{homeAiOpen=localStorage.getItem('el_lg_ai_real')==='1';homeAcctOpen=localStorage.getItem('el_lg_acct_real')==='1';}catch(e){}
 function _hmCalDays(rangeTrades){return ledgerCalDays(bScope(rangeTrades),{pnl:pnlVal,net:t=>+t.pnl||0,include:t=>!(t&&t.statsExcluded)});}
 function _hmCalendarHtml(rangeTrades){
   const days=_hmCalDays(rangeTrades);
@@ -13181,7 +13462,9 @@ function _hmCalendarHtml(rangeTrades){
 // search / chips hide) goes through the long-standing jump that widens the range and flashes the rows
 function _hmJumpToDay(ds){
   const c=document.getElementById('hm-feed-container');
-  const el=homeView!=='table'&&c?c.querySelector('[data-hmday="'+ds+'"]'):null;
+  // the list's day groups and the table's day header rows both carry [data-lgday]; ?oldboards=1 keeps the feed-only jump
+  const sel=LEDGER_OLDBOARDS?(homeView!=='table'?'[data-hmday="'+ds+'"]':''):'[data-lgday="'+ds+'"]';
+  const el=(sel&&c)?c.querySelector(sel):null;
   if(!el){if(window.hmShowTrades)window.hmShowTrades({date:ds});return;}
   el.scrollIntoView({behavior:'smooth',block:'start'});
   el.classList.remove('lg-flash');void el.offsetWidth;el.classList.add('lg-flash');
@@ -13395,7 +13678,11 @@ function _hmSheetHtml(id){
     ['POSITION ID',t.positionId||'--'],
     ['SOURCE',t.source||'--']
   ];
-  const dlHtml=rows.map(r=>`<div class="hm-dl-row"><div class="dt">${_hmEsc(r[0])}</div><div class="dd">${_hmEsc(r[1])}</div></div>`).join('');
+  // the grade and the setup are editors here too (LEDGER step 8: a phone row keeps five cells and the editing lives in the panel)
+  const sheetSel=(field,opts,cur)=>`<select class="inline-sel" data-hmsheetfield="${field}" aria-label="${field}">${opts.map(o=>`<option${o===(cur||'—')?' selected':''}>${_hmEsc(o)}</option>`).join('')}</select>`;
+  const dlHtml=rows.map(r=>{
+    const ed=LEDGER_OLDBOARDS?null:(r[0]==='GRADE'?sheetSel('grade',GRADES,t.grade):(r[0]==='SETUP'?sheetSel('setup',customSetups,t.setup):null));
+    return `<div class="hm-dl-row"><div class="dt">${_hmEsc(r[0])}</div><div class="dd">${ed!=null?ed:_hmEsc(r[1])}</div></div>`;}).join('');
   const tagsHtml=_hmTagEditorHtml(t,'hm-sheet-tagpick',false);
   return `<button class="hm-sheet-close" id="hm-sheet-close" aria-label="Close">&#10005;</button>
     <div class="hm-sheet-sym">${_hmEsc(t.symbol)}</div>
@@ -13670,6 +13957,175 @@ function _hmRenderTable(list){
   return `<div class="hm-table-toolbar">${toolbarL}<button class="hm-ghostbtn" id="hm-table-extras">${homeExtras?'HIDE EXTRAS':'SHOW MORE'}</button></div>
     <div class="hm-table-topscroll" id="hm-table-topscroll"><div style="height:1px"></div></div>
     <div class="hm-table-wrap"><table class="hm-dtable"><thead>${_hmTableHeader()}</thead><tbody>${rowsHtml}</tbody></table></div>${list.length?'':_hmEmptyStateHtml()}`;
+}
+// ── REAL on the shared trade list frame (LEDGER unify step 8) ──────────────────────────────────────────────────
+// The frame (ledgerTradeListHtml) draws the toolbar, the day headers, the common columns and the five-cell phone rows. REAL fills
+// the slots: the FUTURES / STOCKS chips, BY TRADE | BY DAY or SIMPLE | FULL, the PASTE box and the four action buttons, the inline
+// grade / setup / note editors and the header sort + filter menus on the TABLE. ?oldboards=1 keeps the previous layout (the
+// _hmToolbarHtml / _hmRenderFeedTrade / _hmRenderTable path above) for one version.
+function _hmPtsText(t){
+  const p=(t.entry!=null&&t.exit!=null)?((t.exit-t.entry)*(t.type==='LONG'?1:-1)):null;
+  return p==null?'--':(p>=0?'+':'')+p.toFixed(2)+(isFut(t.symbol)?'/c':'/sh');
+}
+// the LIST and a date-sorted TABLE walk the close order under day headers; another header sort keeps its own order
+function _hmFrameDayOn(){return homeView!=='table'||sortCol==='date';}
+function _hmFrameRows(list){
+  if(homeView==='table'&&!_hmFrameDayOn())return _hmApplySort(list);
+  const s=ledgerByClose(list);
+  return (homeView==='table'&&sortDir===1)?s:s.reverse();
+}
+// the common cells REAL draws its own way (a function returning null keeps the frame's default for that view)
+function _hmFrameCells(full){
+  const lnk=t=>t.chartUrl?`<a href="${_hmEsc(t.chartUrl)}" target="_blank" class="clink chart-link" data-url="${_hmEsc(t.chartUrl)}" title="your TradingView snapshot" style="text-decoration:none;margin-left:2px">&#128200;</a>`:'';
+  return {
+    time:(t,v)=>(v==='table'&&full)?'<span class="lg-d-full">'+_hmEsc(t.date||'')+'</span><span class="lg-d-short">'+_hmEsc(String(t.date||'').slice(5))+'</span> '+_hmEsc(t.entryTime||'--'):null,
+    sym:t=>_hmEsc(t.symbol)+(isFut(t.symbol)?'':'<span class="hm-badge-s">S</span>')+(t.statsExcluded?'<span class="hm-excl-dot" title="Ignored in metrics">&#8856;</span>':''),
+    size:t=>t.size!=null?_hmEsc(t.size):'--',
+    pts:t=>_hmPtsText(t),
+    strat:t=>_hmEsc(t.broker||t.account||'--'),
+    chart:(t,v)=>_hmCandleGlyph(t)+lnk(t)+((v==='table'&&full)?`<input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${_hmEsc(t.chartUrl||'')}" placeholder="chart url" title="${t.chartUrl?_hmEsc(t.chartUrl):'Paste a chart URL'}" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:9px;width:${t.chartUrl?'34px':'62px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='170px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'34px':'62px';if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/>`:'')
+  };
+}
+// REAL's own table columns, after the common ones: SIMPLE = score, points, grade, setup, notes; FULL = every other column
+function _hmFrameCols(full){
+  const grade=t=>`<select class="inline-sel" data-hmfield="grade" data-hmid="${t.id}">${GRADES.map(g=>`<option${g===(t.grade||'—')?' selected':''}>${g}</option>`).join('')}</select>`;
+  const setup=t=>`<select class="inline-sel" data-hmfield="setup" data-hmid="${t.id}">${customSetups.map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}</select>`;
+  const ttl=t=>'title="'+_hmEsc(t.notes||'')+'"';
+  if(!full){
+    return [
+      {k:'score',label:'SCORE',cls:'hm-s1',td:t=>_hmScoreHtml(t)},
+      {k:'ptsc',label:'POINTS',cls:'hm-s2',td:t=>_hmPtsHtml(t)},
+      {k:'grade',label:'GRADE',td:grade},
+      {k:'setup',label:'SETUP',cls:'hm-s2',td:setup},
+      {k:'notes',label:'NOTES',cls:'hm-s-notes hm-s1',tdCls:'hm-notes-cell lg-skip',attr:ttl,
+        td:t=>`<input class="inline-txt" data-field="notes" data-id="${t.id}" value="${_hmEsc(t.notes||'')}" placeholder="+ note" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:inherit;width:100%;box-sizing:border-box;padding:1px 2px;outline:none;text-overflow:ellipsis" onfocus="this.style.borderBottomColor='var(--blue)'" onblur="this.style.borderBottomColor='transparent';if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/>`}
+    ];
+  }
+  const runBals=_hmRunningBalances(),bal=t=>runBals[t.id];
+  const cols=[
+    {k:'out',label:'OUT',cls:'hm-col-out',td:t=>t.exitTime||'--'},
+    {k:'dur',label:'DUR',cls:'hm-col-dur',td:t=>durStr(t)},
+    {k:'entry',label:'ENTRY',cls:'num',td:t=>t.entry!=null?t.entry:'--'},
+    {k:'exit',label:'EXIT',cls:'num',td:t=>t.exit!=null?t.exit:'--'},
+    {k:'gross',label:'GROSS',cls:'num',td:t=>{const g=t.grossPnl!=null?t.grossPnl:t.pnl;return `<span class="${_hmCls(g)}">${_hmSigned(g)}</span>`;}},
+    {k:'fees',label:'FEES',cls:'num',attr:t=>`data-hmfee="${t.id}" style="color:var(--yellow);cursor:pointer"`,td:t=>t.fees>0?'-$'+t.fees.toFixed(2):'--'},
+    {k:'acct',label:'ACCT',td:t=>bal(t)!=null?_hmMoney(bal(t)):'--'},
+    {k:'acctp',label:'ACCT%',cls:'num',td:t=>{const b=bal(t),p=(b!=null&&t.pnl)?((t.pnl/(b-t.pnl))*100):null;return p!=null?`<span class="${_hmCls(p)}">${_hmPct(p)}</span>`:'--';}},
+    {k:'grade',label:'GRADE',td:grade},
+    {k:'score',label:'SCORE',td:t=>_hmScoreHtml(t)},
+    {k:'ptsc',label:'POINTS',td:t=>_hmPtsHtml(t)},
+    {k:'setup',label:'SETUP',td:setup},
+    {k:'tf',label:'TF',td:t=>`<button type="button" class="tf-btn" data-tid="${t.id}" data-tfkey="hm-${t.id}" onclick="event.stopPropagation();window.openTfPicker(this)" title="Pick one or more timeframes">${_hmEsc(tfLabel(t.timeframe))}</button>`},
+    {k:'tags',label:'TAGS',tdCls:'lg-skip',attr:()=>'style="padding:3px 6px;max-width:130px"',td:t=>_hmTagEditorHtml(t,'tagpick-'+t.id,true)},
+    {k:'notes',label:'NOTES',tdCls:'hm-notes-cell lg-skip',attr:t=>'style="max-width:none;overflow:visible" '+ttl(t),
+      td:t=>`<input class="inline-txt" data-field="notes" data-id="${t.id}" value="${_hmEsc(t.notes||'')}" placeholder="+ note" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:inherit;width:160px;padding:1px 2px;outline:none;text-overflow:ellipsis" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='360px'" onblur="this.style.borderBottomColor='transparent';this.style.width='160px';if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/>`}
+  ];
+  // SHOW MORE: the order / fill ids and the source (the broker is already a common column)
+  if(homeExtras)[['account','ACCOUNT'],['buyOrderId','BUY ORD'],['sellOrderId','SELL ORD'],['buyFillId','BUY FILL'],['sellFillId','SELL FILL'],['positionId','POS ID'],['pairId','PAIR ID'],['source','SRC']]
+    .forEach(x=>cols.push({k:'x_'+x[0],label:x[1],td:t=>_hmEsc(t[x[0]]||'--')}));
+  return cols;
+}
+// the row actions at the end of a table row (the same two cells the previous table had)
+function _hmFrameActions(full){
+  return [
+    {k:'edit',label:'&#9998;',cls:full?'':'hm-s-ic',tdCls:'hm-icon-cell lg-skip',attr:t=>'data-hmedit="'+_hmEsc(t.id)+'"',td:()=>'&#9998;'},
+    {k:'del',label:'&#10005;',cls:full?'':'hm-s-ic hm-s1',tdCls:'hm-icon-cell lg-skip',attr:t=>'data-hmdel="'+_hmEsc(t.id)+'"',td:()=>'&#10005;'}
+  ];
+}
+// the header cells that carry REAL's sort + filter menus (the same menus the previous table had)
+function _hmFrameTh(k,label,cls){
+  switch(k){
+    case 'time':return _hmThCell(label,'date',cls,_hmThFDates('dateFrom','dateTo'));
+    case 'sym':return _hmThCell(label,'symbol',cls,_hmThFList('sym',_hmAllSyms()));
+    case 'side':return _hmThCell(label,'type',cls,_hmThFList('dir',['LONG','SHORT']));
+    case 'size':return _hmThCell(label,'size',cls+' num');
+    case 'pnl':return _hmThCell(label,'pnl',cls+' num',_hmThFRange('minPnl','maxPnl'));
+    case 'entry':return _hmThCell(label,'entry',cls);
+    case 'exit':return _hmThCell(label,'exit',cls);
+    case 'gross':return _hmThCell(label,'grossPnl',cls);
+    case 'fees':return _hmThCell(label,'fees',cls);
+    case 'score':return _hmThCell(label,'_score',cls);
+    case 'ptsc':return _hmThCell(label,'_points',cls);
+    case 'grade':return _hmThCell(label,'grade',cls,_hmThFList('grade',GRADES.filter(g=>g!=='—')));
+    case 'setup':return _hmThCell(label,'setup',cls,_hmThFList('setup',customSetups.filter(s=>s!=='—')));
+    case 'tf':return _hmThCell(label,'timeframe',cls,_hmThFList('tf',TIMEFRAMES.filter(x=>x!=='—')));
+  }
+  return null;
+}
+// the line above the table: the note after a jump, how it is sorted, clear filters, and SHOW MORE on FULL
+function _hmTableBarHtml(full){
+  const clearBtn=_hmColFiltOn()?`<span onclick="event.stopPropagation();clearFilters()" title="clear all filters" style="cursor:pointer;color:var(--text5);text-decoration:underline;font-size:10px">&#10005; clear filters</span>`:'';
+  const left=`<span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-right:auto">${_hmNoteHtml()}<span id="hm-sort-label" style="color:var(--text5);font-size:10px;letter-spacing:1px">${_hmSortLabel()}</span>${clearBtn}</span>`;
+  return `<div class="hm-table-toolbar">${left}${full?`<button class="hm-ghostbtn" id="hm-table-extras">${homeExtras?'HIDE EXTRAS':'SHOW MORE'}</button>`:''}</div>`;
+}
+// next to the count: clear filters, and how many matches the range pill hides
+function _hmCountExtraHtml(){
+  const anyFilt=_hmColFiltOn(),out=(anyFilt&&_hmFeedList().length)?_hmOutsideRangeCount():0;
+  return (anyFilt?`<span onclick="clearFilters()" title="clear all filters" style="cursor:pointer;color:var(--text5);text-decoration:underline">&#10005; clear filters</span>`:'')
+    +(out>0?`<span data-hmempty="all" title="Switch the range pill to ALL" style="cursor:pointer;color:var(--blue);text-decoration:underline">${out} MORE OUTSIDE ${homeRange} &middot; SHOW ALL</span>`:'');
+}
+// REAL's toolbar row in the frame: BY TRADE | BY DAY (list) or SIMPLE | FULL (table), the PASTE box and the four action buttons
+// (behind the ... button on a phone), and the paste notes
+function _hmToolsHtml(){
+  const tbl=homeView==='table',open=!!window._hmToolsOpen;
+  const seg=tbl
+    ?`<div class="hm-seg" id="hm-ledger-seg" title="SIMPLE fits the row on screen - FULL shows every column and scrolls sideways"><button data-hmledger="simple" class="${homeLedger!=='full'?'active':''}">SIMPLE</button><button data-hmledger="full" class="${homeLedger==='full'?'active':''}">FULL</button></div>`
+    :`<div class="hm-seg" id="hm-feed-seg"><button data-hmfeed="trade" class="${homeFeedMode==='trade'?'active':''}">BY TRADE</button><button data-hmfeed="day" class="${homeFeedMode==='day'?'active':''}">BY DAY</button></div>`;
+  const msgStyle='font-size:10px;color:var(--text3);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center';
+  const msg=window._hmPasteNote?`<div id="hm-paste-msg" style="${msgStyle}">${window._hmPasteNote}</div>`
+    :(_hmHoldGet()?`<div id="hm-paste-msg" style="${msgStyle}"><span>A snapshot link is held for your next stock trade to reach the journal.</span><span id="hm-hold-drop" style="cursor:pointer;color:var(--text5);text-decoration:underline">drop it</span></div>`:'');
+  return `<div class="hm-slot">${seg}
+      <input type="text" id="hm-paste-chart" class="hm-feed-search hm-paste" autocomplete="off" spellcheck="false" placeholder="paste a TradingView snapshot link" title="Paste a TradingView snapshot link here - it goes on your newest trade that has no chart link yet">
+      <button type="button" class="hm-ghostbtn hm-tools-toggle" id="hm-tools-toggle" aria-expanded="${open}" title="NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL">&middot;&middot;&middot;</button>
+      <span class="hm-toolbar-actions${open?' open':''}" id="hm-tools">
+        <button class="hm-ghostbtn" id="hm-newtrade-toggle">${homeNewTradeOpen?'&#9650; NEW TRADE':'＋ NEW TRADE'}</button>
+        <button class="hm-ghostbtn" id="hm-add-deposit">＋ ADD DEPOSIT</button>
+        <button class="hm-ghostbtn" id="hm-scan-dupes">&#128269; SCAN DUPLICATES</button>
+        <button class="hm-ghostbtn" id="hm-open-all" title="Open chart links for the trades currently shown on LEDGER">&#128200; OPEN ALL</button>
+      </span></div>${msg}`;
+}
+// REAL's whole trade list: the frame with REAL's rows, chips, slots and columns
+function _hmFrameHtml(list){
+  const tbl=homeView==='table',full=homeLedger==='full';
+  const filt=!!(homeQuery&&homeQuery.trim())||homeChip!=='ALL';
+  // deposits sit in their day under BY TRADE while no chip or search narrows the list
+  const evs=(!tbl&&homeFeedMode!=='day'&&!filt)?_hmTradesInRange(scopedLedger()||[],homeRange).map(ev=>({date:ev.date,html:_hmDepositRow(ev)})):[];
+  return ledgerTradeListHtml({
+    id:'hm',view:tbl?'table':'list',rows:(tbl&&!_hmFrameDayOn())?_hmApplySort(list):list,total:trades.length,query:homeQuery,chip:homeChip,
+    chips:[{k:'FUTURES',label:'FUTURES'},{k:'STOCKS',label:'STOCKS'}],
+    countExtra:_hmCountExtraHtml(),slot:_hmToolsHtml(),
+    afterBar:'<div id="hm-newtrade-form">'+(homeNewTradeOpen?_hmNewTradeFormHtml():'')+'</div>',
+    empty:_hmEmptyStateHtml(),group:homeFeedMode==='day'?'day':'trade',events:evs,
+    cells:_hmFrameCells(full),rowAttr:t=>'data-hmid="'+_hmEsc(t.id)+'"',
+    attr:{time:t=>'title="'+_hmEsc((t.entryTime||'--')+' → '+(t.exitTime||'--'))+'"'},
+    rowSlot:t=>[t.setup,t.grade].filter(x=>x&&x!=='—').map(x=>'<span class="lg-tl-tag">'+_hmEsc(x)+'</span>').join(''),
+    labels:{time:'DATE',sym:'SYM',side:'DIR',size:'CTRS',pnl:'NET',pts:'PTS',strat:'BROKER'},
+    tableHide:full?[]:['strat'],colCls:full?{num:'hm-pin',time:'hm-pin',sym:'hm-pin'}:{num:'hm-s3',size:'hm-s1',pts:'hm-s3'},
+    numbered:true,dayHeaders:_hmFrameDayOn(),dayAsc:sortDir===1,tableBar:_hmTableBarHtml(full),topScroll:full,
+    wrapCls:'hm-table-wrap',tableCls:'hm-dtable'+(full?'':' hm-simple'),topCls:'hm-table-topscroll',
+    th:_hmFrameTh,cols:_hmFrameCols(full),actions:_hmFrameActions(full)
+  });
+}
+// the frame in the page, with the DEPOSITS strip above it (under the list on a phone)
+function _hmFrameBlockHtml(list){
+  const strip=_hmLedgerStripHtml();
+  return (strip?'<div class="hm-sec hm-sec-deps">'+strip+'</div>':'')+'<div id="hm-feed-container">'+_hmFrameHtml(list)+'</div>';
+}
+// the AI ASSESSMENT is a closed fold (it filled the top of the page on a phone); open or closed is remembered per browser
+function _hmAiSectionHtml(){
+  const open=homeAiOpen;
+  const btn=`<button type="button" class="lg-more" data-hmai-fold="1" aria-expanded="${open}" aria-controls="hm-ai-panel"><span>AI assessment</span><span class="lg-chev" aria-hidden="true">&#9662;</span></button>`;
+  const panel=open?`<div class="lg-more-panel" id="hm-ai-panel">
+      <div class="sec-hd" style="padding:0 0 8px"><span>🤖 AI ASSESSMENT</span><button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px" onclick="runOverviewAI()">REFRESH</button></div>
+      <div id="overview-ai-output" style="padding:4px 0;font-size:var(--fsxs);color:var(--text3);line-height:1.7;max-height:400px;overflow-y:auto"><div style="color:var(--text5);text-align:center;padding:20px">Loading insights...</div></div>
+    </div>`:'';
+  return '<div class="hm-sec hm-sec-ai">'+btn+panel+'</div>';
+}
+// the account list: always drawn on a laptop; on a phone one line (the account in view) that opens the list
+function _hmAcctSectionHtml(){
+  const list=_hmAccountListHtml();
+  if(!list)return '';
+  return `<div class="hm-sec hm-sec-acct${homeAcctOpen?' open':''}"><button type="button" class="lg-more hm-acct-fold" data-hmacct-fold="1" aria-expanded="${homeAcctOpen}"><span>Accounts</span><span style="letter-spacing:.5px;text-transform:none;color:var(--text5)">${activeBroker?_hmEsc(activeBroker):'all accounts'}</span><span class="lg-chev" aria-hidden="true">&#9662;</span></button>${list}</div>`;
 }
 // ── HOME absorbs TRADES + JOURNAL (v73.9xx) ─────────────────────────────────────────
 // The five actions that used to live only on the Trades tab, now built for HOME's own
@@ -14144,7 +14600,7 @@ function _hmJournalSectionHtml(){
       <button class="btn-b" id="hladd" style="align-self:flex-end;padding:8px 20px">SAVE ENTRY</button>
     </div>
     <div style="padding:0 14px 14px">${listHtml}</div>`:'';
-  return `<div class="section" style="margin-top:18px">
+  return `<div class="section hm-sec-journal" style="margin-top:18px">
     <div class="sec-hd" id="hm-journal-hd" style="cursor:pointer">
       <span>&#128220; JOURNAL <span style="color:var(--text5);font-weight:400">(${count})</span></span>
       <span style="color:var(--text5);font-size:10px">${homeJournalOpen?'&#9652;':'&#9662;'}</span>
@@ -14217,44 +14673,10 @@ window.hmOpenNewTrade=function(){
   activeTab='home';homeNewTradeOpen=true;renderApp();
   setTimeout(()=>{const f=document.getElementById('hm-newtrade-form');if(f)f.scrollIntoView({behavior:'smooth',block:'start'});},50);
 };
-// Main entry point - builds the whole HOME tab into `content` and wires every control.
-function _hmRenderHome(content){
-  if(!LEDGER_OLDBOARDS&&_HM_RANGES.indexOf(homeRange)<0)homeRange='ALL';   // a saved 1Y opens on ALL
-  _hmEnsureSpyData(); // kick off (or continue) the shared SPY fetch so vs SPY resolves without blocking paint
-  const rangeTrades=_hmTradesInRange(trades,homeRange);
-  const rangeStats=calcStats(rangeTrades);
-  const list=_hmFeedList();
-  // the candle viewer's PREV / NEXT walk your futures trades in the order the ledger shows them
-  try{window._hmCandleRows=(homeView==='table'?_hmApplySort(list):list).map(t=>window._hmCandleRow?window._hmCandleRow(t):null).filter(Boolean);
-    const _seen=new Set(window._hmCandleRows.map(r=>r._tid));
-    trades.forEach(t=>{if(!_seen.has(String(t.id))){const r=window._hmCandleRow?window._hmCandleRow(t):null;if(r)window._hmCandleRows.push(r);}});
-    _hmMissedSorted().forEach(m=>{const r=window._hmMissedCandleRow?window._hmMissedCandleRow(m):null;if(r)window._hmCandleRows.push(r);});}catch(_e){window._hmCandleRows=[];}
-  content.innerHTML=`<div class="hm-wrap">
-    ${LEDGER_OLDBOARDS?`<div class="hm-hero">
-      <div class="hm-micro" id="hm-hero-label"></div>
-      <div class="hm-hero-value" id="hm-hero-value"></div>
-      <div class="hm-hero-delta" id="hm-hero-delta"></div>
-    </div>`:ledgerHeroHtml({ids:{label:'hm-hero-label',big:'hm-hero-value',today:'hm-hero-today',range:'hm-hero-delta',chips:'hm-hero-chips'}})}
-    <div class="hm-chart-wrap" id="hm-chart-wrap"></div>
-    <div class="hm-range-row">
-      ${LEDGER_OLDBOARDS?`<div class="hm-range-pills" id="hm-range-pills">
-        ${['1W','1M','3M','YTD','1Y','ALL'].map(r=>`<button data-hmrange="${r}" class="${homeRange===r?'active':''}">${r}</button>`).join('')}
-      </div>`:ledgerRangePillsHtml(homeRange,'data-hmrange')}
-      <div class="hm-mode-toggle" id="hm-mode-toggle">
-        <button data-hmmode="equity" class="${homeChartMode==='equity'?'active':''}">EQUITY</button>
-        <button data-hmmode="pnl" class="${homeChartMode==='pnl'?'active':''}">P&amp;L</button>
-      </div>
-    </div>
-    ${LEDGER_OLDBOARDS?`<div class="hm-stat-strip" id="hm-stat-strip">${_hmStatStrip(rangeStats)}</div>
-    <button class="hm-morestats-toggle" id="hm-morestats-toggle" aria-expanded="${homeStatsOpen?'true':'false'}" aria-controls="hm-morestats-panel">
-      <span class="hm-micro">MORE STATS</span><span class="hm-chev" aria-hidden="true">&#9662;</span>
-    </button>
-    <div class="hm-morestats-panel${homeStatsOpen?' open':''}" id="hm-morestats-panel">${homeStatsOpen?_hmMoreStats(rangeStats):''}</div>`
-    :(()=>{const ls=_hmLedgerStats(rangeTrades);
-      const ign=ls&&ls.excluded?`<span title="${ls.excluded} trade${ls.excluded>1?'s':''} marked IGNORE IN METRICS are left out of win rate, profit factor and the streak, but still count in P&amp;L and drawdown" style="color:var(--yellow)"> &middot; ${ls.excluded} ignored</span>`:'';
-      return ledgerStatStripHtml(ls,{id:'hm-stat-strip',winNote:ign})
-        +ledgerMoreStatsHtml(ls,_hmOwnStatGroups(rangeStats),{open:homeStatsOpen,id:'hm',note:'Scoped to the chosen account and range'})
-        +_hmCalendarHtml(rangeTrades)+_hmAccountListHtml();})()}
+// the previous list layout (kept behind ?oldboards=1 for one version): the AI ASSESSMENT box, the ACTIVITY header,
+// the toolbar, the filter row and the container the FEED / TABLE is drawn into
+function _hmOldListBlockHtml(){
+  return `
     <!-- v73.7xx: AI ASSESSMENT carried over from the retired OVERVIEW tab so this insight
          does not disappear now that HOME is the default landing tab. -->
     <div class="section" style="margin:14px 0">
@@ -14292,54 +14714,11 @@ function _hmRenderHome(content){
         ${['ALL','LONG','SHORT','WINS','LOSSES','FUTURES','STOCKS'].map(c=>`<button class="hm-chip${homeChip===c?' active':''}" data-hmchip="${c}">${c}</button>`).join('')}
       </div>
     </div>
-    <div id="hm-feed-container"></div>
-    ${_hmMissedSectionHtml()}
-    ${_hmJournalSectionHtml()}
-  </div>
-  <div class="hm-backdrop" id="hm-backdrop"></div>
-  <div class="hm-sheet" id="hm-sheet" role="dialog" aria-modal="true" aria-label="Trade detail"></div>`;
-
-  content.querySelectorAll('[data-hmrange]').forEach(b=>{b.onclick=()=>{homeRange=b.dataset.hmrange;window._hmNote=null;renderApp();};});
-  content.querySelectorAll('[data-hmmode]').forEach(b=>{b.onclick=()=>{homeChartMode=b.dataset.hmmode;renderApp();};});
-  content.querySelectorAll('[data-hmfeed]').forEach(b=>{b.onclick=()=>{homeFeedMode=b.dataset.hmfeed;renderApp();};});
-  content.querySelectorAll('[data-hmledger]').forEach(b=>{b.onclick=()=>{
-    homeLedger=b.dataset.hmledger==='full'?'full':'simple';
-    try{localStorage.setItem('el_home_ledger',homeLedger);}catch(e){}
-    window._hmTblScrollL=0;renderApp();
-  };});
-  const viewBtn=content.querySelector('#hm-view-toggle');
-  if(viewBtn)viewBtn.onclick=()=>{window._hmJumpPrevView=null;homeView=homeView==='table'?'feed':'table';renderApp();};
-  _hmWireMissed(content);
-  const moreBtn=content.querySelector('#hm-morestats-toggle');
-  if(moreBtn)moreBtn.onclick=()=>{homeStatsOpen=!homeStatsOpen;renderApp();};
-  content.querySelectorAll('[data-lgmore="hm"]').forEach(b=>{b.onclick=()=>{homeStatsOpen=!homeStatsOpen;renderApp();};});
-  content.querySelectorAll('[data-lgcalfold="hm"]').forEach(b=>{b.onclick=()=>{homeCalOpen=!homeCalOpen;
-    try{localStorage.setItem('el_lg_cal_real',homeCalOpen?'1':'0');}catch(e){}renderApp();};});
-  content.querySelectorAll('[data-lglist="hm"] [data-lgrow]').forEach(b=>{b.onclick=()=>{const k=b.getAttribute('data-lgrow');if(k!==(activeBroker||''))setBroker(k);};});
-  content.querySelectorAll('[data-lgcal="hm"][data-lgcalmo]').forEach(b=>{b.onclick=()=>{if(b.disabled)return;
-    window._hmCalMonth=ledgerCalStep(_hmCalDays(_hmTradesInRange(trades,homeRange)),window._hmCalMonth,+b.getAttribute('data-lgcalmo'));renderApp();};});
-  content.querySelectorAll('[data-lgcal="hm"] [data-lgcalday]').forEach(b=>{b.onclick=()=>_hmJumpToDay(b.getAttribute('data-lgcalday'));});
-  const searchEl=content.querySelector('#hm-search');
-  if(searchEl){
-    searchEl.oninput=(e)=>{homeQuery=e.target.value;window._hmSearchTyping=true;renderApp();};
-    // Only hand focus back when this redraw came from typing in the search box - otherwise a
-    // note/grade edit redraw stole focus and scrolled the page up to the search bar.
-    if(window._hmSearchTyping){
-      window._hmSearchTyping=false;
-      searchEl.focus({preventScroll:true});
-      const vlen=searchEl.value.length;
-      try{searchEl.setSelectionRange(vlen,vlen);}catch(errSel){}
-    }
-  }
-  content.querySelectorAll('[data-hmchip]').forEach(b=>{b.onclick=()=>{homeChip=b.dataset.hmchip;renderApp();};});
-  _hmWireToolbar(content);
-  if(homeNewTradeOpen)_hmWireNewTradeForm();
-  _hmWireJournalSection(content);
-
-  const feedC=content.querySelector('#hm-feed-container');
-  if(homeView==='table'){
-    feedC.innerHTML=_hmRenderTable(list);
-    _hmPinColumns(feedC);
+    <div id="hm-feed-container"></div>`;
+}
+// wires the cells of a drawn TABLE: its scroll box and top bar, the open header menu, SHOW MORE, the inline grade / setup / note
+// editors, the fee, chart, edit and delete cells (shared by the previous table and the shared frame)
+function _hmWireTableUi(feedC){
     // Editing a cell re-renders the whole table, which reset its scroll to the top-left corner.
     // Remember where it was (both ways - the table is its own 72vh scroll box now) and restore
     // it on every rebuild. The thin bar above the box mirrors its sideways scroll.
@@ -14408,6 +14787,115 @@ function _hmRenderHome(content){
       g.onkeydown=(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();window._hmOpenCandles(g.dataset.hmcandle,null);}};});
     feedC.querySelectorAll('[data-hmedit]').forEach(td=>{td.onclick=(e)=>{e.stopPropagation();openEditModal(td.dataset.hmedit);};});
     feedC.querySelectorAll('[data-hmdel]').forEach(td=>{td.onclick=(e)=>{e.stopPropagation();deleteTrade(td.dataset.hmdel);};});
+}
+// wires a drawn frame: the TABLE cells, or the chart glyphs on the LIST rows
+function _hmWireFrame(feedC){
+  if(homeView==='table'){_hmPinColumns(feedC);_hmWireTableUi(feedC);return;}
+  feedC.querySelectorAll('[data-hmcandle]').forEach(g=>{
+    g.onclick=(e)=>{e.stopPropagation();window._hmOpenCandles(g.dataset.hmcandle,null);};
+    g.onkeydown=(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();window._hmOpenCandles(g.dataset.hmcandle,null);}};});
+}
+// Main entry point - builds the whole HOME tab into `content` and wires every control.
+function _hmRenderHome(content){
+  if(!LEDGER_OLDBOARDS&&_HM_RANGES.indexOf(homeRange)<0)homeRange='ALL';   // a saved 1Y opens on ALL
+  _hmEnsureSpyData(); // kick off (or continue) the shared SPY fetch so vs SPY resolves without blocking paint
+  const rangeTrades=_hmTradesInRange(trades,homeRange);
+  const rangeStats=calcStats(rangeTrades);
+  const list=_hmFeedList();
+  // the candle viewer's PREV / NEXT walk your futures trades in the order the ledger shows them
+  try{window._hmCandleRows=(LEDGER_OLDBOARDS?(homeView==='table'?_hmApplySort(list):list):_hmFrameRows(list)).map(t=>window._hmCandleRow?window._hmCandleRow(t):null).filter(Boolean);
+    const _seen=new Set(window._hmCandleRows.map(r=>r._tid));
+    trades.forEach(t=>{if(!_seen.has(String(t.id))){const r=window._hmCandleRow?window._hmCandleRow(t):null;if(r)window._hmCandleRows.push(r);}});
+    _hmMissedSorted().forEach(m=>{const r=window._hmMissedCandleRow?window._hmMissedCandleRow(m):null;if(r)window._hmCandleRows.push(r);});}catch(_e){window._hmCandleRows=[];}
+  content.innerHTML=`<div class="hm-wrap${LEDGER_OLDBOARDS?'':' lg-flow'}">
+    ${LEDGER_OLDBOARDS?`<div class="hm-hero">
+      <div class="hm-micro" id="hm-hero-label"></div>
+      <div class="hm-hero-value" id="hm-hero-value"></div>
+      <div class="hm-hero-delta" id="hm-hero-delta"></div>
+    </div>`:ledgerHeroHtml({ids:{label:'hm-hero-label',big:'hm-hero-value',today:'hm-hero-today',range:'hm-hero-delta',chips:'hm-hero-chips'}})}
+    <div class="hm-chart-wrap" id="hm-chart-wrap"></div>
+    <div class="hm-range-row">
+      ${LEDGER_OLDBOARDS?`<div class="hm-range-pills" id="hm-range-pills">
+        ${['1W','1M','3M','YTD','1Y','ALL'].map(r=>`<button data-hmrange="${r}" class="${homeRange===r?'active':''}">${r}</button>`).join('')}
+      </div>`:ledgerRangePillsHtml(homeRange,'data-hmrange')}
+      <div class="hm-mode-toggle" id="hm-mode-toggle">
+        <button data-hmmode="equity" class="${homeChartMode==='equity'?'active':''}">EQUITY</button>
+        <button data-hmmode="pnl" class="${homeChartMode==='pnl'?'active':''}">P&amp;L</button>
+      </div>
+    </div>
+    ${LEDGER_OLDBOARDS?`<div class="hm-stat-strip" id="hm-stat-strip">${_hmStatStrip(rangeStats)}</div>
+    <button class="hm-morestats-toggle" id="hm-morestats-toggle" aria-expanded="${homeStatsOpen?'true':'false'}" aria-controls="hm-morestats-panel">
+      <span class="hm-micro">MORE STATS</span><span class="hm-chev" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="hm-morestats-panel${homeStatsOpen?' open':''}" id="hm-morestats-panel">${homeStatsOpen?_hmMoreStats(rangeStats):''}</div>`
+    :(()=>{const ls=_hmLedgerStats(rangeTrades);
+      const ign=ls&&ls.excluded?`<span title="${ls.excluded} trade${ls.excluded>1?'s':''} marked IGNORE IN METRICS are left out of win rate, profit factor and the streak, but still count in P&amp;L and drawdown" style="color:var(--yellow)"> &middot; ${ls.excluded} ignored</span>`:'';
+      return ledgerStatStripHtml(ls,{id:'hm-stat-strip',winNote:ign})
+        +'<div class="hm-sec hm-sec-more">'+ledgerMoreStatsHtml(ls,_hmOwnStatGroups(rangeStats),{open:homeStatsOpen,id:'hm',note:'Scoped to the chosen account and range'})+'</div>'
+        +'<div class="hm-sec hm-sec-cal">'+_hmCalendarHtml(rangeTrades)+'</div>'+_hmAcctSectionHtml()+_hmAiSectionHtml();})()}
+    ${LEDGER_OLDBOARDS?_hmOldListBlockHtml():_hmFrameBlockHtml(list)}
+    ${_hmMissedSectionHtml()}
+    ${_hmJournalSectionHtml()}
+  </div>
+  <div class="hm-backdrop" id="hm-backdrop"></div>
+  <div class="hm-sheet" id="hm-sheet" role="dialog" aria-modal="true" aria-label="Trade detail"></div>`;
+
+  content.querySelectorAll('[data-hmrange]').forEach(b=>{b.onclick=()=>{homeRange=b.dataset.hmrange;window._hmNote=null;renderApp();};});
+  content.querySelectorAll('[data-hmmode]').forEach(b=>{b.onclick=()=>{homeChartMode=b.dataset.hmmode;renderApp();};});
+  content.querySelectorAll('[data-hmfeed]').forEach(b=>{b.onclick=()=>{homeFeedMode=b.dataset.hmfeed;renderApp();};});
+  content.querySelectorAll('[data-hmledger]').forEach(b=>{b.onclick=()=>{
+    homeLedger=b.dataset.hmledger==='full'?'full':'simple';
+    try{localStorage.setItem('el_home_ledger',homeLedger);}catch(e){}
+    window._hmTblScrollL=0;renderApp();
+  };});
+  const viewBtn=content.querySelector('#hm-view-toggle');
+  if(viewBtn)viewBtn.onclick=()=>{window._hmJumpPrevView=null;homeView=homeView==='table'?'feed':'table';renderApp();};
+  _hmWireMissed(content);
+  const moreBtn=content.querySelector('#hm-morestats-toggle');
+  if(moreBtn)moreBtn.onclick=()=>{homeStatsOpen=!homeStatsOpen;renderApp();};
+  content.querySelectorAll('[data-lgmore="hm"]').forEach(b=>{b.onclick=()=>{homeStatsOpen=!homeStatsOpen;renderApp();};});
+  content.querySelectorAll('[data-lgcalfold="hm"]').forEach(b=>{b.onclick=()=>{homeCalOpen=!homeCalOpen;
+    try{localStorage.setItem('el_lg_cal_real',homeCalOpen?'1':'0');}catch(e){}renderApp();};});
+  content.querySelectorAll('[data-hmai-fold]').forEach(b=>{b.onclick=()=>{homeAiOpen=!homeAiOpen;
+    try{localStorage.setItem('el_lg_ai_real',homeAiOpen?'1':'0');}catch(e){}renderApp();};});
+  content.querySelectorAll('[data-hmacct-fold]').forEach(b=>{b.onclick=()=>{homeAcctOpen=!homeAcctOpen;
+    try{localStorage.setItem('el_lg_acct_real',homeAcctOpen?'1':'0');}catch(e){}renderApp();};});
+  const toolsBtn=content.querySelector('#hm-tools-toggle');
+  if(toolsBtn)toolsBtn.onclick=()=>{window._hmToolsOpen=!window._hmToolsOpen;const ta=content.querySelector('#hm-tools');
+    if(ta)ta.classList.toggle('open',!!window._hmToolsOpen);toolsBtn.setAttribute('aria-expanded',window._hmToolsOpen?'true':'false');};
+  content.querySelectorAll('[data-lglist="hm"] [data-lgrow]').forEach(b=>{b.onclick=()=>{const k=b.getAttribute('data-lgrow');if(k!==(activeBroker||''))setBroker(k);};});
+  content.querySelectorAll('[data-lgcal="hm"][data-lgcalmo]').forEach(b=>{b.onclick=()=>{if(b.disabled)return;
+    window._hmCalMonth=ledgerCalStep(_hmCalDays(_hmTradesInRange(trades,homeRange)),window._hmCalMonth,+b.getAttribute('data-lgcalmo'));renderApp();};});
+  content.querySelectorAll('[data-lgcal="hm"] [data-lgcalday]').forEach(b=>{b.onclick=()=>_hmJumpToDay(b.getAttribute('data-lgcalday'));});
+  const searchEl=content.querySelector('#hm-search');
+  if(searchEl){
+    searchEl.oninput=(e)=>{homeQuery=e.target.value;window._hmSearchTyping=true;renderApp();};
+    // Only hand focus back when this redraw came from typing in the search box - otherwise a
+    // note/grade edit redraw stole focus and scrolled the page up to the search bar.
+    if(window._hmSearchTyping){
+      window._hmSearchTyping=false;
+      searchEl.focus({preventScroll:true});
+      const vlen=searchEl.value.length;
+      try{searchEl.setSelectionRange(vlen,vlen);}catch(errSel){}
+    }
+  }
+  content.querySelectorAll('[data-hmchip]').forEach(b=>{b.onclick=()=>{homeChip=b.dataset.hmchip;renderApp();};});
+  _hmWireToolbar(content);
+  if(homeNewTradeOpen)_hmWireNewTradeForm();
+  _hmWireJournalSection(content);
+
+  const feedC=content.querySelector('#hm-feed-container');
+  if(!LEDGER_OLDBOARDS){
+    // the shared trade list frame (LEDGER unify step 8) is already drawn into #hm-feed-container
+    ledgerTradeListWire(content,{id:'hm',
+      onChip:c=>{homeChip=c;renderApp();},
+      onView:v=>{window._hmJumpPrevView=null;homeView=(v==='table')?'table':'feed';renderApp();},
+      onRow:rid=>{homeSheetId=rid;renderApp();}});
+    _hmWireFrame(feedC);
+  }else if(homeView==='table'){
+    feedC.innerHTML=_hmRenderTable(list);
+    _hmPinColumns(feedC);
+    _hmWireTableUi(feedC);
     feedC.querySelectorAll('tbody tr[data-hmid]').forEach(tr=>{
       tr.onclick=(e)=>{
         if(e.target.closest('select')||e.target.closest('input')||e.target.closest('.tf-btn')||e.target.closest('.hm-notes-cell')||e.target.closest('a')||e.target.closest('.hm-icon-cell')||e.target.closest('.hm-chart-cell')||e.target.closest('.tag-cell'))return;
@@ -14461,6 +14949,12 @@ function _hmRenderHome(content){
       catch(e){console.error(e);exclBox.checked=!exclBox.checked;}
       exclBox.disabled=false;
     };
+    sheetEl.querySelectorAll('[data-hmsheetfield]').forEach(sel=>{
+      sel.onchange=async()=>{sel.style.opacity='.5';
+        try{await updateTrade(sheetTid,{[sel.getAttribute('data-hmsheetfield')]:sel.value});}catch(e){console.error(e);}
+        sel.style.opacity='1';};
+      sel.onclick=e=>e.stopPropagation();
+    });
     const notesBox=sheetEl.querySelector('#hm-sheet-notes');
     // A half-typed note for this same trade comes back after a redraw (see _hmDraftCapture).
     const _snd=window._hmSheetNoteDraft;
@@ -16263,7 +16757,7 @@ function renderApp(){
         const menu=open?`<div class="thmenu" style="position:fixed;left:-9999px;top:0;z-index:2000;background:var(--bg1);border:1px solid var(--border2);border-radius:7px;box-shadow:0 8px 26px rgba(0,0,0,.5);min-width:150px;padding:4px 0;font-weight:400;text-align:left">${_sortRows(col)}${filtBody||''}</div>`:'';
         return `<th data-thcol="${col}" style="white-space:nowrap;padding:7px 10px"><span class="thh" onclick="event.stopPropagation();toggleThMenu('${col}')" title="click to sort / filter" style="cursor:pointer;user-select:none">${label}${mark} <span style="color:var(--text5);font-size:8px">▾</span></span>${menu}</th>`;
       };
-      tw.innerHTML=`<style>#trd-tbl{min-width:760px}#trd-tbl thead th{position:sticky;top:0;z-index:6;background:var(--bg2);font-size:var(--fsm);letter-spacing:.3px;color:var(--text2)}#trd-tbl thead th,#trd-tbl tbody td{padding:3px 6px}#trd-tbl tbody td{font-size:var(--fss)}@media(max-width:1300px){#trd-tbl thead th,#trd-tbl tbody td{padding:3px 5px}}@media(max-width:1050px){#trd-tbl thead th,#trd-tbl tbody td{padding:2px 4px}#trd-tbl tbody td{font-size:9px}#trd-tbl thead th{letter-spacing:0;font-size:var(--fss)}}@media(max-width:820px){#trd-tbl{min-width:600px}#trd-tbl thead th,#trd-tbl tbody td{padding:2px 3px}}</style><table id="trd-tbl"><thead><tr>
+      tw.innerHTML=`<style>#trd-tbl{min-width:760px}#trd-tbl thead th{position:sticky;top:0;z-index:6;background:var(--bg2);font-size:var(--fsm);letter-spacing:.3px;color:var(--text2)}#trd-tbl thead th,#trd-tbl tbody td{padding:3px 6px}#trd-tbl tbody td{font-size:var(--fss)}@media(max-width:1300px){#trd-tbl thead th,#trd-tbl tbody td{padding:3px 5px}}@media(max-width:1050px){#trd-tbl thead th,#trd-tbl tbody td{padding:2px 4px}#trd-tbl tbody td{font-size:9px}#trd-tbl thead th{letter-spacing:0;font-size:var(--fss)}}@media(max-width:820px){#trd-tbl{min-width:600px}#trd-tbl thead th,#trd-tbl tbody td{padding:2px 3px}}@media(max-width:600px){#trd-tbl{min-width:0}#trd-tbl tr>*:not(:nth-child(2)):not(:nth-child(6)):not(:nth-child(7)):not(:nth-child(14)):not(:nth-child(21)):not(:nth-last-child(-n+2)){display:none}#trd-tbl td .inline-txt[data-field="chartUrl"]{display:none}.trd-topscroll{display:none}}</style><table id="trd-tbl"><thead><tr>
         <th>#</th>
         ${_th('DATE','date',_fDates('dateFrom','dateTo'))}<th>IN</th><th>OUT</th><th>DUR</th>
         ${_th('SYM','symbol',_fList('sym',_syms))}${_th('DIR','type',_fList('dir',['LONG','SHORT']))}
@@ -16281,7 +16775,7 @@ function renderApp(){
       // extra order-ID columns) can be scrolled from the top without scrolling down to reach the
       // native bottom scrollbar.
       const _topScroll=document.createElement('div');
-      _topScroll.style.cssText='overflow-x:auto;overflow-y:hidden;margin-bottom:2px';
+      _topScroll.style.cssText='overflow-x:auto;overflow-y:hidden;margin-bottom:2px';_topScroll.className='trd-topscroll';
       const _topInner=document.createElement('div');_topInner.style.cssText='height:1px';
       _topScroll.appendChild(_topInner);
       content.insertBefore(_topScroll,tw);

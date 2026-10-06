@@ -371,10 +371,12 @@ literature sources). Strategy findings stay in their own files; machinery status
 - **Runner command channel** only processes commands behind a uid allowlist
   (`--allow-uid`); jobs from other uids are ignored.
 - **Git (standing authorization — granted by owner 2026-06-27):** AUTO-COMMIT AND PUSH. After
-  any change, bump the website version by 0.1 (`const VERSION` in `index.html`) AND prepend a
-  short `{v,date,notes:[...]}` entry to the `CHANGELOG` array immediately below `const VERSION`
-  (it renders in **Settings ▸ CHANGELOG**; keep notes user-facing and terse — one line each),
-  commit, and push to `main` WITHOUT asking — GitHub serves the live site, so the push IS the
+  any change, prepend a short `{v,date,notes:[...]}` entry to the `CHANGELOG` array immediately
+  below `const VERSION` (it renders in **Settings ▸ CHANGELOG**; keep notes user-facing and terse —
+  one line each). Lanes prepend their CHANGELOG entry with ANY version number and NEVER hand-edit
+  `const VERSION`: `python tools/wt.py ship` sets VERSION and relabels the lane's newest CHANGELOG
+  entry to the version that ships; a real conflict elsewhere still stops the ship. Then commit,
+  and push to `main` WITHOUT asking — GitHub serves the live site, so the push IS the
   deploy, and a change that isn't pushed is invisible to the owner. Always state the version you pushed. You
   have full standing permission to edit ANY file and to start/restart `EdgeLog.bat`. (Only true
   history-rewrites — force-push to `main`, branch deletion — still warrant a quick heads-up.)

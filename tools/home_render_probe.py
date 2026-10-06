@@ -38,6 +38,15 @@ Per case:
   * #hm-missed exists, with one row per SHOULD HAVE TRADED entry
   * the ledger exists with one row per seeded trade (SIMPLE / FULL table, or the feed)
   * on a phone the page does not scroll sideways (scrollWidth <= clientWidth + 1)
+  * LEDGER step 8, the shared trade list frame ([data-lglist-frame="hm"]): exactly one frame, in the right mode
+    (list / table), the chips ALL LONG SHORT WINS LOSSES FUTURES STOCKS, the LIST | TABLE toggle with the right half
+    pressed, a search box, a count, one day header [data-lgday] per CLOSE day with a signed net that adds up to the
+    trades' own P&L (an overnight trade sits under the day it closed), one row per trade, the PASTE box, and on a
+    phone five cells per row with the list starting within ONE screen of the top of the board (mistake #12)
+  * rows come out newest close first, a deposit sits in its day under BY TRADE, the AI ASSESSMENT is a closed fold, the
+    account list is one line on a phone (a list on a laptop), and the SIMPLE table fits its box with no sideways scroll
+  * the legacy TRADES and JOURNAL tabs (?oldtabs=1) draw on a phone without scrolling the page sideways (mistake #14)
+  * ?oldboards=1 (a second page load) still draws the previous list: its own FEED / TABLE button and chips, no frame
 Per interaction run:
   * a futures trade's panel opens, its chart body ends up holding an <svg> and the info line
     is filled in (the chart really drew), and the POINTS block shows the trade's score
@@ -47,6 +56,14 @@ Per interaction run:
   * hmFileChartLink(<a TradingView link>) shows the paste note with its SHOULD HAVE TRADED
     button, and that button opens the form with the link filled in
   * nothing was written to the trades or missed_trades stubs
+  * the shared frame: each chip lists the right trades (a $0 trade is neither a WINS nor a LOSSES row), the search
+    box filters and keeps the cursor, LIST | TABLE is remembered, BY DAY shows one row per day, SIMPLE | FULL
+    switches the table; a grade and a note edited in the TABLE reach the database stubs and every row keeps its
+    EDIT (opens the edit window) and DELETE cells; the ANALYTICS calendar
+    jump (gotoTradesByDate) opens the LEDGER table on that day and flashes its rows; the LEDGER calendar day tap
+    flashes that day's header in the list and in the table; a TABLE header menu still sorts (no day headers once
+    sorted by NET); the trade panel keeps EDIT / SNAPSHOT / OPEN IN TV / DELETE and edits the grade and the setup;
+    the AI ASSESSMENT fold opens and fills
 
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks (as in report_render_probe.py); a retry that
@@ -78,7 +95,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 
-VIEWPORTS = {'laptop': [1366, 768], 'phone': [375, 812]}
+VIEWPORTS = {'laptop': [1366, 768], 'phone': [375, 812], 'narrow': [1000, 768]}
 THEMES = ['glass', 'paper']
 LEDGERS = [('simple', 'table', 'simple'), ('full', 'table', 'full'), ('feed', 'feed', 'simple')]
 
@@ -91,15 +108,32 @@ for _vp in ('laptop', 'phone'):
                 CASES.append(['%s/%s/missed%d/%s' % (_vp, _th, _mi, _nm),
                               {'vp': _vp, 'theme': _th, 'missed': _mi, 'view': _view, 'ledger': _led}])
 
+# a narrower laptop window: the SIMPLE table (it fits its box with no sideways scroll) and the list
+for _nm, _view, _led in (LEDGERS[0], LEDGERS[2]):
+    CASES.append(['narrow/glass/missed0/%s' % _nm, {'vp': 'narrow', 'theme': 'glass', 'missed': 0, 'view': _view, 'ledger': _led}])
+# LEDGER unify step 8 / mistake #14: the legacy TRADES and JOURNAL tabs (?oldtabs=1) on a phone
+for _th in THEMES:
+    for _tab in ('trades', 'journal'):
+        CASES.append(['phone/%s/legacy-%s' % (_th, _tab),
+                      {'vp': 'phone', 'theme': _th, 'kind': 'legacy', 'tab': _tab, 'missed': 0,
+                       'view': 'feed', 'ledger': 'simple'}])
+# the previous REAL list layout behind ?oldboards=1 (a second page load, see _attempt)
+OLD_CASES = [['old/%s/%s' % (_vp, _nm), {'vp': _vp, 'theme': 'glass', 'missed': 0, 'view': _view, 'ledger': _led}]
+             for _vp in ('laptop', 'phone') for _nm, _view, _led in (LEDGERS[0], LEDGERS[2])]
+FRAME_CHIPS = 'ALL,LONG,SHORT,WINS,LOSSES,FUTURES,STOCKS'
+JUMP_DAY = '2026-09-30'
+
 PASTE_URL = 'https://www.tradingview.com/x/TEST1/'
 
 # Two interaction runs. `tid` is the futures trade whose panel is opened (a 1m trade on the
 # laptop, a 10s trade on the phone, so both bar sizes the reader serves are drawn).
 INTERACTIONS = [
     ['laptop', {'vp': 'laptop', 'theme': 'glass', 'view': 'table', 'ledger': 'simple',
-                'tid': 'probe_t1', 'pts': '7/8', 'mid': 'probe_m1', 'msym': 'MNQ', 'mpts': '5/9'}],
+                'tid': 'probe_t1', 'pts': '7/8', 'mid': 'probe_m1', 'msym': 'MNQ', 'mpts': '5/9',
+                'jumpday': JUMP_DAY}],
     ['phone', {'vp': 'phone', 'theme': 'paper', 'view': 'feed', 'ledger': 'simple',
-               'tid': 'probe_t3', 'pts': '6/9', 'mid': 'probe_m1', 'msym': 'MNQ', 'mpts': '5/9'}],
+               'tid': 'probe_t3', 'pts': '6/9', 'mid': 'probe_m1', 'msym': 'MNQ', 'mpts': '5/9',
+               'jumpday': JUMP_DAY}],
 ]
 
 # Builds this gate must catch, made from the CURRENT index.html by one string replacement each
@@ -130,8 +164,8 @@ MUTANTS = [
      "tile('maxdd','Max drawdown',s?ledgerMoney(-s.maxDD):'--'",
      'the shared stats strip prints max drawdown as a negative number again'),
     ('calendar-jump-lost',
-     '<div class="hm-day-group" data-hmday="${date}">',
-     '<div class="hm-day-group">',
+     '<div class="lg-tl-day" data-lgday="\'+ds+\'">\'+dayHd(ds,ts)',
+     '<div class="lg-tl-day">\'+dayHd(ds,ts)',
      'the trade list lost its day markers, so a calendar day no longer jumps the list there'),
     ('legend-swatch-giant',
      '.lg-chart .lg-legend svg{display:inline-block;width:16px;height:4px;flex:none}',
@@ -146,15 +180,72 @@ MUTANTS = [
      "if(k===null)setBroker(k);",
      'tapping an account row in the list no longer scopes the board'),
     ('phone-overflow',
-     'content.innerHTML=`<div class="hm-wrap">',
-     'content.innerHTML=`<div class="hm-wrap" style="min-width:640px">',
+     'content.innerHTML=`<div class="hm-wrap${LEDGER_OLDBOARDS?\'\':\' lg-flow\'}">',
+     'content.innerHTML=`<div class="hm-wrap${LEDGER_OLDBOARDS?\'\':\' lg-flow\'}" style="min-width:640px">',
      'HOME is wider than a phone and the page scrolls sideways'),
+    # LEDGER step 8: the shared trade list frame
+    ('frame-day-net-unsigned',
+     "+(n?'<span class=\"lg-tl-daymeta\">'+n+' trade'+(n===1?'':'s')+'</span><span class=\"lg-tl-daynet '+ledgerPnlCls(net)+'\">'+ledgerSigned(net)+'</span>':'')",
+     "+(n?'<span class=\"lg-tl-daymeta\">'+n+' trade'+(n===1?'':'s')+'</span><span class=\"lg-tl-daynet '+ledgerPnlCls(net)+'\">'+ledgerMoney(net)+'</span>':'')",
+     'a day header prints its net without a sign, so MONO cannot tell a good day from a bad one'),
+    ('wins-chip-counts-flat',
+     "if(chip==='WINS')return p>0;",
+     "if(chip==='WINS')return p>=0;",
+     'the WINS chip lists a $0 trade as a win'),
+    ('phone-six-cells',
+     'const LEDGER_TL_PHONE={time:1,sym:1,side:1,pnl:1,chart:1};',
+     'const LEDGER_TL_PHONE={time:1,sym:1,side:1,size:1,pnl:1,chart:1};',
+     'a phone row keeps six cells instead of five'),
+    ('view-not-remembered',
+     "function ledgerTradeViewSet(id,v){try{localStorage.setItem('el_lg_view_'+id,v==='table'?'table':'list');}catch(e){}}",
+     "function ledgerTradeViewSet(id,v){try{}catch(e){}}",
+     'LIST | TABLE is no longer remembered per board'),
+    ('list-below-the-fold',
+     "'<div id=\"hm-feed-container\">'+_hmFrameHtml(list)+'</div>'",
+     "'<div style=\"height:900px\"></div><div id=\"hm-feed-container\">'+_hmFrameHtml(list)+'</div>'",
+     'something tall sits above the trade list, so it starts more than a screen down on a phone (mistake #12)'),
+    ('ai-box-open-by-default',
+     "homeAiOpen=localStorage.getItem('el_lg_ai_real')==='1'",
+     "homeAiOpen=localStorage.getItem('el_lg_ai_real')!=='0'",
+     'the AI ASSESSMENT box is open again and fills the top of the page'),
+    ('grade-edit-lost',
+     'const field=sel.dataset.hmfield,id=sel.dataset.hmid,val=sel.value;',
+     "const field=sel.dataset.hmfield,id=sel.dataset.hmid,val=sel.value+'x';",
+     'the inline grade select saves the wrong value'),
+    ('table-edit-cell-dead',
+     "td.onclick=(e)=>{e.stopPropagation();openEditModal(td.dataset.hmedit);};",
+     "td.onclick=(e)=>{e.stopPropagation();};",
+     'the pencil cell on a TABLE row no longer opens the edit window'),
+    ('header-menu-dead',
+     "    case 'pnl':return _hmThCell(label,'pnl',cls+' num',_hmThFRange('minPnl','maxPnl'));",
+     "    case 'pnl':return null;",
+     'the NET header lost its sort / filter menu'),
+    ('paste-box-gone',
+     '<input type="text" id="hm-paste-chart" class="hm-feed-search hm-paste"',
+     '<input type="text" id="hm-paste-chart-gone" class="hm-feed-search hm-paste"',
+     'the PASTE box for snapshot links is gone from the toolbar'),
+    ('analytics-jump-dead',
+     "activeTab='home';homeView='table';",
+     "activeTab='home';",
+     'a jump from the ANALYTICS calendar no longer opens the LEDGER table'),
+    ('oldboards-ignored',
+     '${LEDGER_OLDBOARDS?_hmOldListBlockHtml():_hmFrameBlockHtml(list)}',
+     '${_hmFrameBlockHtml(list)}',
+     '?oldboards=1 no longer brings back the previous list layout'),
+    ('legacy-journal-wide',
+     ';margin-bottom:8px;overflow-wrap:anywhere}',
+     ';margin-bottom:8px}',
+     'a long unbroken line in a journal entry widens the page on a phone again (mistake #14)'),
+    ('legacy-trades-wide',
+     '@media(max-width:600px){#trd-tbl{min-width:0}',
+     '@media(max-width:0px){#trd-tbl{min-width:0}',
+     'the legacy TRADES table keeps its 24 columns on a phone (mistake #14)'),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>home probe</title></head>
 <body style="margin:0">
-<iframe id="f" src="../index.html" style="width:1366px;height:768px;border:0;display:block"></iframe>
+<iframe id="f" src="../index.html__QS__" style="width:1366px;height:768px;border:0;display:block"></iframe>
 <pre id="o"></pre>
 <script>
 var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, PASTE=__PASTE__;
@@ -236,6 +327,61 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     r.innerW=w.innerWidth;
     r.theme=d.documentElement.getAttribute('data-theme');
     r.appLen=(d.getElementById('app')||{innerHTML:''}).innerHTML.length;
+    if(cfg.kind==='legacy'){
+      // LEDGER step 8 (mistake #14): the legacy TRADES / JOURNAL tabs on a phone must not scroll the page sideways
+      r.legacy={tab:w.eval('activeTab'),table:!!d.getElementById('trd-tbl'),journalForm:!!d.getElementById('lt'),
+        rows:d.querySelectorAll('#trd-tbl tbody tr.tr-row').length,lessons:d.querySelectorAll('.lesson-card').length};
+      var tbl0=d.getElementById('trd-tbl'),box0=tbl0?tbl0.parentElement:null;
+      r.legacy.boxScrollW=box0?box0.scrollWidth:null;r.legacy.boxClientW=box0?box0.clientWidth:null;
+      r.scrollW=d.documentElement.scrollWidth;r.clientW=d.documentElement.clientWidth;
+      if(r.scrollW>r.clientW+1)r.wide=offenders(d);
+      r.overlay=overlays();
+      return r;
+    }
+    // the escape hatch (?oldboards=1) draws the previous list: its own FEED / TABLE button and chips, no frame
+    r.oldList={toggle:!!d.getElementById('hm-view-toggle'),chips:d.querySelectorAll('[data-hmchip]').length,
+      frames:d.querySelectorAll('[data-lglist-frame]').length};
+    // LEDGER shared trade list frame (unify step 8): toolbar, day headers with a signed net, rows, five cells on a phone.
+    // Measured first, before the folds below are opened and move the page about.
+    var fr=d.querySelector('[data-lglist-frame="hm"]');
+    r.frameN=d.querySelectorAll('[data-lglist-frame]').length;
+    r.frame=!!fr;
+    function dayOf(row){var g=row.closest('[data-lgday]');if(g)return g.getAttribute('data-lgday');
+      var p=row.previousElementSibling;while(p){if(p.hasAttribute&&p.hasAttribute('data-lgday'))return p.getAttribute('data-lgday');p=p.previousElementSibling;}
+      return null;}
+    if(fr){
+      var txt1=function(e){return e?(e.textContent||'').replace(/\\s+/g,' ').trim():'';};
+      r.mode=fr.getAttribute('data-lgmode');
+      r.chipTxt=Array.prototype.map.call(fr.querySelectorAll('[data-lgchip]'),txt1).join(',');
+      r.chipOn=Array.prototype.map.call(fr.querySelectorAll('[data-lgchip].active'),txt1).join(',');
+      r.viewBtns=Array.prototype.map.call(fr.querySelectorAll('[data-lgview]'),function(b){return b.getAttribute('data-lgview')+(b.getAttribute('aria-pressed')==='true'?'*':'');}).join(',');
+      r.searchBox=!!fr.querySelector('input[data-lgsearch]');
+      r.count=txt1(fr.querySelector('[data-lgcount]'));
+      r.days=Array.prototype.map.call(fr.querySelectorAll('[data-lgday]'),function(g){return g.getAttribute('data-lgday')+'='+txt1(g.querySelector('.lg-tl-daynet'));});
+      r.frameRows=fr.querySelectorAll('[data-lgtrade]').length;
+      var ov=fr.querySelector('[data-lgtrade="probe_o1"]');r.ovDay=ov?dayOf(ov):null;
+      var row1=fr.querySelector('[data-lgtrade]'),vis=0;
+      if(row1)Array.prototype.forEach.call(row1.children,function(c){if(w.getComputedStyle(c).display!=='none')vis++;});
+      r.visCells=vis;
+      var wrapEl=d.querySelector('.hm-wrap'),fb=fr.getBoundingClientRect(),wb=wrapEl?wrapEl.getBoundingClientRect():null;
+      r.listTop=wb?Math.round(fb.top-wb.top):null;
+      r.rowTop=(wb&&row1)?Math.round(row1.getBoundingClientRect().top-wb.top):null;
+      r.viewH=w.innerHeight;
+    }
+    var wrap0=d.querySelector('.hm-wrap'),wb0=wrap0?wrap0.getBoundingClientRect():null,fh0=d.querySelector('.hm-feed-head'),fc0=d.getElementById('hm-feed-container');
+    r.feedTop=(wb0&&fc0)?Math.round(fc0.getBoundingClientRect().top-wb0.top):null;
+    r.activityTop=(wb0&&fh0)?Math.round(fh0.getBoundingClientRect().top-wb0.top):null;
+    // the AI ASSESSMENT is a closed fold and the account list is one line on a phone (mistake #12)
+    var aib=d.querySelector('[data-hmai-fold]');
+    r.aiFold=aib?{closed:aib.getAttribute('aria-expanded')==='false',out:!!d.getElementById('overview-ai-output')}:null;
+    var acb=d.querySelector('[data-hmacct-fold]'),acl=d.querySelector('.hm-sec-acct .lg-list');
+    r.acctFold=acb?{btn:w.getComputedStyle(acb).display,list:acl?w.getComputedStyle(acl).display:null}:null;
+    // the frame's own table box must not scroll sideways (SIMPLE fits the row), rows in close order, the deposit row
+    var tb2=d.querySelector('table.lg-tl-table'),bx2=tb2?tb2.parentElement:null;
+    r.tblBox=bx2?{sw:bx2.scrollWidth,cw:bx2.clientWidth,simple:tb2.classList.contains('hm-simple')}:null;
+    r.order=Array.prototype.map.call(d.querySelectorAll('[data-lglist-frame="hm"] [data-lgtrade]'),function(e){return e.getAttribute('data-lgtrade');});
+    r.depositRows=d.querySelectorAll('[data-lglist-frame="hm"] .hm-row-static').length;
+    var pb=d.getElementById('hm-paste-chart');r.paste=!!pb;r.pasteVisible=!!(pb&&pb.getBoundingClientRect().width>0);
     var ms=d.getElementById('hm-missed');
     r.missed=!!ms;
     r.missedRows=ms?ms.querySelectorAll('tr[data-hmmissed]').length:-1;
@@ -246,8 +392,9 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
       r.ledgerKind=tb?(tb.classList.contains('hm-simple')?'simple':'full'):'';
       r.ledgerRows=tb?tb.querySelectorAll('tbody tr[data-hmid]').length:0;
     }else{
-      r.ledgerKind=fc&&fc.querySelector('.hm-row[data-hmid]')?'feed':'';
-      r.ledgerRows=fc?fc.querySelectorAll('.hm-row[data-hmid]').length:0;
+      // the previous FEED rows (?oldboards=1) or the shared frame's LIST rows
+      r.ledgerKind=fc&&fc.querySelector('.hm-row[data-hmid],.lg-tl-row[data-lgtrade]')?'feed':'';
+      r.ledgerRows=fc?fc.querySelectorAll('.hm-row[data-hmid],.lg-tl-row[data-lgtrade]').length:0;
     }
     // LEDGER shared hero + range pills (unify step 4): the big number, the today line, the six pills
     var hv=d.getElementById('hm-hero-value'),ht=d.getElementById('hm-hero-today');
@@ -281,8 +428,8 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
         Array.prototype.forEach.call(ds,function(b){var n=b.querySelector('.n');c.sumN+=n?parseInt(n.textContent,10)||0:0;});
         var sm=(cg.querySelector('.lg-cal-sum')||{textContent:''}).textContent.match(/(\\d+) trades?/);c.hdN=sm?+sm[1]:0;
         c.cells=cg.querySelectorAll('.lg-cal-grid > *').length;
-        if(cfg.view!=='table'&&ds.length){var pick=ds[ds.length-1].getAttribute('data-lgcalday');ds[ds.length-1].click();
-          var g=d.querySelector('#hm-feed-container [data-hmday="'+pick+'"]');c.jump=!!(g&&g.classList.contains('lg-flash'));}}
+        if(ds.length&&(cfg.view!=='table'||r.frame)){var pick=ds[ds.length-1].getAttribute('data-lgcalday');ds[ds.length-1].click();
+          var g=d.querySelector('#hm-feed-container [data-hmday="'+pick+'"],#hm-feed-container [data-lgday="'+pick+'"]');c.jump=!!(g&&g.classList.contains('lg-flash'));}}
       r.cal=c;
       if(!wasOpen){var cf2=d.querySelector('[data-lgcalfold="hm"]');if(cf2)cf2.click();}}
     // the legend under the chart (P&L view, two brokers): each name is one short line - a chart-size rule once
@@ -410,6 +557,118 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
       var u=q('#hmmf-url');st.url=u?u.value:null;
       st.writes=JSON.parse(w.eval('JSON.stringify(window.__probeWrites)'));
     });
+    // 6. LEDGER step 8, the shared trade list frame: the chips (a $0 trade is neither a win nor a loss), the search
+    //    box, BY DAY, LIST | TABLE (remembered per board) and SIMPLE | FULL
+    await step(res,'frame',async function(st){
+      function fr1(){return q('[data-lglist-frame="hm"]');}
+      function ids(){var f=fr1();return f?Array.prototype.map.call(f.querySelectorAll('[data-lgtrade]'),function(e){return e.getAttribute('data-lgtrade');}).sort():null;}
+      function mode(){var f=fr1();return f?f.getAttribute('data-lgmode'):null;}
+      function ls(k){try{return w.localStorage.getItem(k);}catch(e){return 'ERR';}}
+      w.eval('homeSheetId=null;homeChip="ALL";homeQuery="";homeFeedMode="trade";homeView="feed";renderApp();');
+      st.chips={};
+      ['WINS','LOSSES','LONG','SHORT','FUTURES','STOCKS','ALL'].forEach(function(c){
+        var b=q('[data-lgchip="'+c+'"]');if(b){b.click();st.chips[c]=ids();}else st.chips[c]=null;});
+      var inp=q('#hm-search');st.searchBox=!!inp;
+      if(inp){inp.focus();inp.value='aapl';inp.dispatchEvent(new Event('input',{bubbles:true}));}
+      st.search=ids();
+      st.searchFocus=(D().activeElement&&D().activeElement.id)||'';
+      inp=q('#hm-search');
+      if(inp){inp.value='';inp.dispatchEvent(new Event('input',{bubbles:true}));}
+      st.searchCleared=(ids()||[]).length;
+      var bd=q('[data-hmfeed="day"]');st.byDayBtn=!!bd;
+      if(bd){bd.click();var f1=fr1();st.byDayDays=f1?f1.querySelectorAll('[data-lgday]').length:-1;st.byDayTrades=f1?f1.querySelectorAll('[data-lgtrade]').length:-1;}
+      var bt=q('[data-hmfeed="trade"]');if(bt)bt.click();
+      var tbn=q('[data-lgview="table"]');st.viewBtn=!!tbn;
+      if(tbn)tbn.click();
+      st.modeTable=mode();st.savedTable=ls('el_lg_view_hm');
+      var fl=q('[data-hmledger="full"]');st.fullBtn=!!fl;
+      if(fl){fl.click();var tf=q('table.lg-tl-table');st.fullTable=!!(tf&&!tf.classList.contains('hm-simple'));st.fullCols=tf?tf.querySelectorAll('thead th').length:0;}
+      var sm=q('[data-hmledger="simple"]');if(sm)sm.click();
+      var ts=q('table.lg-tl-table');st.simpleTable=!!(ts&&ts.classList.contains('hm-simple'));st.simpleCols=ts?ts.querySelectorAll('thead th').length:0;
+      var lbn=q('[data-lgview="list"]');if(lbn)lbn.click();
+      st.modeList=mode();st.savedList=ls('el_lg_view_hm');
+      st.paste=!!q('#hm-paste-chart');
+      st.buttons={add:!!q('#hm-add-deposit'),scan:!!q('#hm-scan-dupes'),all:!!q('#hm-open-all'),nt:!!q('#hm-newtrade-toggle')};
+      // NEW TRADE opens the form under the toolbar and closes it again
+      var nt=q('#hm-newtrade-toggle');
+      if(nt){nt.click();st.formOpen=!!q('#hm-newtrade-form #hnfsym');var nt2=q('#hm-newtrade-toggle');if(nt2)nt2.click();st.formClosed=!q('#hm-newtrade-form #hnfsym');}
+      // the ... button (a phone only) opens the four action buttons; a laptop always shows them
+      var tt=q('#hm-tools-toggle'),ta=q('#hm-tools');
+      st.tools={toggle:tt?w.getComputedStyle(tt).display:null,box:ta?w.getComputedStyle(ta).display:null};
+      if(tt&&st.tools.toggle!=='none'){tt.click();var ta2=q('#hm-tools');st.tools.boxOpen=ta2?w.getComputedStyle(ta2).display:null;tt=q('#hm-tools-toggle');if(tt)tt.click();var ta3=q('#hm-tools');st.tools.boxShut=ta3?w.getComputedStyle(ta3).display:null;}
+    });
+    // 7. REAL keeps its inline edits: a grade and a note saved from the TABLE reach the database stubs
+    await step(res,'edits',async function(st){
+      w.eval('homeSheetId=null;homeChip="ALL";homeQuery="";homeView="table";homeLedger="simple";renderApp();');
+      await sleep(40);
+      w.eval('window.__probeData.length=0;');
+      var sel=q('select[data-hmfield="grade"][data-hmid="probe_t1"]');st.gradeSel=!!sel;
+      if(sel){sel.value='A';sel.dispatchEvent(new Event('change',{bubbles:true}));await sleep(80);}
+      var ni=q('input[data-field="notes"][data-id="probe_t1"]');st.noteInput=!!ni;
+      if(ni){ni.value='probe note edit';ni.dispatchEvent(new Event('blur'));await sleep(80);}
+      st.data=JSON.parse(w.eval('JSON.stringify(window.__probeData)'));
+      // every row keeps its EDIT and DELETE cells: EDIT opens the edit window (closed again here), DELETE is wired (it asks first, so it is not clicked)
+      st.rowsN=D().querySelectorAll('table.lg-tl-table tbody tr[data-lgtrade]').length;
+      st.editCells=D().querySelectorAll('table.lg-tl-table td[data-hmedit]').length;
+      st.delCells=D().querySelectorAll('table.lg-tl-table td[data-hmdel]').length;
+      var dcell=q('table.lg-tl-table td[data-hmdel]');st.delWired=!!(dcell&&typeof dcell.onclick==='function');
+      var ecell=q('table.lg-tl-table td[data-hmedit]');
+      if(ecell){var mb0=D().querySelectorAll('.modal-bg[id^="em_"]').length;ecell.click();await sleep(60);var mb1=D().querySelectorAll('.modal-bg[id^="em_"]');st.editOpened=mb1.length-mb0;Array.prototype.forEach.call(mb1,function(m){m.remove();});}
+    });
+    // 8. jumps into the list: the ANALYTICS calendar (gotoTradesByDate) opens the LEDGER table on that day and flashes its
+    //    rows; a LEDGER calendar day tap in the table flashes that day's header
+    await step(res,'jump',async function(st){
+      w.eval('homeSheetId=null;homeChip="ALL";homeQuery="";homeView="feed";activeTab="analytics";renderApp();');
+      await sleep(40);
+      st.analyticsShown=w.eval('activeTab');
+      w.gotoTradesByDate(I.jumpday);
+      await sleep(160);
+      st.tab=w.eval('activeTab');st.view=w.eval('homeView');
+      st.flashed=D().querySelectorAll('#hm-feed-container tbody tr.hm-flash').length;
+      st.dayHeader=!!q('[data-lglist-frame="hm"] [data-lgday="'+I.jumpday+'"]');
+      st.tableShown=!!q('table.lg-tl-table');
+    });
+    // 9. the TABLE header menus still sort through the frame: NET opens its menu, Sort ascending re-orders the rows and the
+    //    day headers go (rows are no longer in day order)
+    await step(res,'sortmenu',async function(st){
+      w.eval('homeSheetId=null;homeChip="ALL";homeQuery="";homeView="table";homeLedger="simple";sortCol="date";sortDir=-1;window._thMenu=null;renderApp();');
+      await sleep(40);
+      var th=q('table.lg-tl-table th[data-thcol="pnl"] .thh');st.header=!!th;
+      if(th){th.click();await sleep(120);}
+      var menu=D().getElementById('_thFloatMenu');st.menu=!!menu;
+      var asc=menu?Array.prototype.filter.call(menu.querySelectorAll('div'),function(e){return /Sort ascending/.test(e.textContent||'');})[0]:null;
+      st.ascItem=!!asc;
+      if(asc){asc.click();await sleep(120);}
+      st.label=txt('#hm-sort-label');
+      st.nets=Array.prototype.map.call(D().querySelectorAll('table.lg-tl-table tbody tr[data-lgtrade] .lg-c-pnl'),function(c){return (c.textContent||'').trim();});
+      st.dayRows=D().querySelectorAll('table.lg-tl-table tr[data-lgday]').length;
+      w.eval('sortCol="date";sortDir=-1;window._thMenu=null;renderApp();');
+    });
+    // 10. the trade panel keeps EDIT / SNAPSHOT / OPEN IN TV / DELETE and also edits the grade and the setup (a phone row
+    //     keeps five cells, the rest is edited here)
+    await step(res,'sheet',async function(st){
+      w.eval('window.__probeData.length=0;homeSheetId="probe_t2";renderApp();');
+      await sleep(80);
+      st.buttons={edit:!!q('#hm-sheet-edit'),snap:!!q('#hm-sheet-chart'),tv:!!q('#hm-sheet-tv'),del:!!q('#hm-sheet-del')};
+      var gs=q('#hm-sheet select[data-hmsheetfield="grade"]'),ss=q('#hm-sheet select[data-hmsheetfield="setup"]');
+      st.sel=!!gs&&!!ss;
+      if(gs){gs.value='A';gs.dispatchEvent(new Event('change',{bubbles:true}));await sleep(60);}
+      if(ss&&ss.options.length>1){ss.selectedIndex=1;st.setupPicked=ss.value;ss.dispatchEvent(new Event('change',{bubbles:true}));await sleep(60);}
+      st.data=JSON.parse(w.eval('JSON.stringify(window.__probeData)'));
+      w.eval('homeSheetId=null;renderApp();');
+    });
+    // 11. the AI ASSESSMENT fold: closed, then open (the box is drawn and filled), then closed again
+    await step(res,'aiFold',async function(st){
+      w.eval('homeSheetId=null;homeView="feed";renderApp();');
+      var b=q('[data-hmai-fold]');st.fold=!!b;
+      st.closed=b?b.getAttribute('aria-expanded')==='false':null;st.outputBefore=!!q('#overview-ai-output');
+      if(b){b.click();await sleep(80);}
+      var b2=q('[data-hmai-fold]');st.open=b2?b2.getAttribute('aria-expanded')==='true':null;
+      st.outputAfter=!!q('#overview-ai-output');st.text=txt('#overview-ai-output');
+      if(st.text&&st.text.length>120)st.text=st.text.slice(0,120);
+      if(b2){b2.click();await sleep(40);}
+      var b3=q('[data-hmai-fold]');st.closedAgain=b3?b3.getAttribute('aria-expanded')==='false':null;
+    });
     try{w.eval('homeSheetId=null;window._hmMissedEdit=null;window._hmPasteNote=null;renderApp();');}catch(_e){}
     drain();
     out.inter[nm]=res;
@@ -454,13 +713,13 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
 # (trades, missedTrades, homeView, colRef, prefs ...), which are not window properties.
 INSTALL_JS = r"""
 (function(){
-  window.__probeWrites=[];
+  window.__probeWrites=[];window.__probeData=[];
   function mkRef(name){
     var log=function(op){window.__probeWrites.push(name+'.'+op);return Promise.resolve();};
     var ref={
       add:function(){window.__probeWrites.push(name+'.add');return Promise.resolve({id:'probe_new'});},
       doc:function(id){return {
-        update:function(){return log('update '+id);},
+        update:function(d){window.__probeData.push({n:name,id:String(id),d:d});return log('update '+id);},
         set:function(){return log('set '+id);},
         delete:function(){return log('delete '+id);},
         get:function(){return Promise.resolve({exists:false,id:id,data:function(){return null;}});},
@@ -484,7 +743,10 @@ INSTALL_JS = r"""
     var C=JSON.parse(cj),S=JSON.parse(window.__probeDataJson);
     prefs.theme=C.theme;applyTheme();
     trades=S.trades;missedTrades=C.missed?S.missed:[];
-    activeTab='home';homeView=C.view;homeLedger=C.ledger;homeSheetId=null;
+    ledgerEvents=S.ledger||[];lessons=S.lessons||[];
+    // the legacy TRADES / JOURNAL tabs only draw behind ?oldtabs=1 (the app reads this flag on every render)
+    window.LOG_OLDTABS_ESCAPE_HATCH=!!C.tab;window._lastLogTab=C.tab||undefined;
+    activeTab=C.tab||'home';homeView=C.view;homeLedger=C.ledger;homeSheetId=null;
     homeRange='ALL';homeChip='ALL';homeQuery='';homeFeedMode='trade';homeChartMode='equity';
     homeStatsOpen=false;homeExtras=false;homeNewTradeOpen=false;
     window._hmMissedEdit=null;window._hmPasteNote=null;window._hmPasteLast=null;window._hmPasteAsk=null;
@@ -536,10 +798,10 @@ def _pack(t0, step, n, px, rng):
     return {'t0': t0, 'step': step, 's': ';'.join(parts)}
 
 
-def _bars_doc(date, t_in, t_out, px, with10s, seed):
+def _bars_doc(date, t_in, t_out, px, with10s, seed, overnight=False):
     rng = random.Random(seed)
     e = _et_epoch(date, t_in)
-    x = _et_epoch(date, t_out) if t_out else None
+    x = (_et_epoch(date, t_out) + (86400 if overnight else 0)) if t_out else None
     m0 = (e // 60) * 60 - 30 * 60
     last = (x if x else e) + 30 * 60
     n1 = (last - m0) // 60 + 1
@@ -606,6 +868,12 @@ def build_data():
        pointScore=_ps('2026-10-01', '13:05:00', 5, na=1))
     tr('probe_s1', 'AAPL', 'LONG', '2026-09-30', '15:30:00', '15:55:00', '5m', 231.4, 232.1, 50, 1, 0.0,
        broker='Webull', setup='Breakout')
+    # a flat trade (entry == exit, no fee): neither a win nor a loss - the WINS and LOSSES chips must leave it out
+    tr('probe_z1', 'MNQ', 'LONG', '2026-09-29', '15:10:00', '15:15:00', '1m', 20000.0, 20000.0, 1, 2, 0.0,
+       notes='a flat trade: neither a win nor a loss')
+    # entered 09-30 at 23:55, held 25 minutes: it CLOSES on 10-01 (the New York day it belongs to)
+    tr('probe_o1', 'MNQ', 'SHORT', '2026-09-30', '23:55:00', '00:20:00', '1m', 20050.0, 20044.5, 1, 2, 0.74,
+       durationMins=25)
     T.sort(key=lambda t: (t['date'], t['entryTime']))
 
     missed = [
@@ -623,9 +891,14 @@ def build_data():
     for i, t in enumerate(T):
         if t['symbol'] in px:
             bars[t['id']] = _bars_doc(t['date'], t['entryTime'], t['exitTime'], px[t['symbol']],
-                                      True, 1000 + i)
+                                      True, 1000 + i, overnight=(t['id'] == 'probe_o1'))
     bars['missed_probe_m1'] = _bars_doc('2026-09-30', '10:30:00', None, 20030.0, True, 77)
-    return {'trades': T, 'missed': missed}, bars
+    ledger = [{'date': '2026-09-29', 'amount': 1000.0, 'desc': 'probe deposit', 'broker': 'NinjaTrader'}]
+    lessons = [{'id': 'probe_l1', 'title': 'Chased a breakout and overtraded the open', 'date': '2026-09-30',
+                'tags': ['psychology', 'risk management', 'entries'],
+                'body': 'Entered the first push without waiting for the pullback. ' * 6
+                        + 'A_very_long_unbroken_word_that_has_no_spaces_in_it_at_all_' * 4}]
+    return {'trades': T, 'missed': missed, 'ledger': ledger, 'lessons': lessons}, bars
 
 
 # ---------------------------------------------------------------- harness
@@ -667,15 +940,14 @@ def make_handler(root, alt_index):
     return H
 
 
-def _attempt(chrome, root, alt_index):
-    """Render every case and interaction once in a fresh headless Chrome.
-    Returns (verdict, fails, notes, data, retry_worthy)."""
-    data_obj, bars = build_data()
+def _render_page(chrome, root, alt_index, cases, inter, qs, data_obj, bars):
+    """One render of the probe page in a fresh headless Chrome. Returns (data, error message or None)."""
     pdir = tempfile.mkdtemp(prefix='_homeprobe_', dir=root)
     ppath = os.path.join(pdir, 'probe.html')
     html = (PROBE_HTML
-            .replace('__CASES__', json.dumps(CASES))
-            .replace('__INTER__', json.dumps(INTERACTIONS))
+            .replace('__QS__', qs)
+            .replace('__CASES__', json.dumps(cases))
+            .replace('__INTER__', json.dumps(inter))
             .replace('__VP__', json.dumps(VIEWPORTS))
             .replace('__DATA__', json.dumps(data_obj))
             .replace('__BARS__', json.dumps(bars))
@@ -694,7 +966,7 @@ def _attempt(chrome, root, alt_index):
              '--dump-dom', 'http://127.0.0.1:%d/%s/probe.html' % (port, os.path.basename(pdir))],
             capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=150).stdout
     except Exception as e:
-        return INCONCLUSIVE, ['chrome failed: %s' % e], [], None, True
+        return None, 'chrome failed: %s' % e
     finally:
         srv.shutdown()
         shutil.rmtree(pdir, ignore_errors=True)
@@ -702,16 +974,97 @@ def _attempt(chrome, root, alt_index):
 
     m = re.search(r'HOMEPROBE: (\{.*?\})</pre>', out or '', re.S)
     if not m:
-        return INCONCLUSIVE, ['probe produced no readout'], [], None, True
+        return None, 'probe produced no readout'
     try:
         data = json.loads(m.group(1).replace('&quot;', '"').replace('&amp;', '&')
                           .replace('&lt;', '<').replace('&gt;', '>'))
     except Exception as e:
-        return INCONCLUSIVE, ['unreadable readout: %s' % e], [], None, True
+        return None, 'unreadable readout: %s' % e
+    return data, None
+
+
+def _attempt(chrome, root, alt_index):
+    """Render every case and interaction once in a fresh headless Chrome (main layout), then the
+    ?oldboards=1 escape hatch in a second page load.
+    Returns (verdict, fails, notes, data, retry_worthy)."""
+    data_obj, bars = build_data()
+    data, err = _render_page(chrome, root, alt_index, CASES, INTERACTIONS, '', data_obj, bars)
+    if err:
+        return INCONCLUSIVE, [err], [], None, True
+    old, err = _render_page(chrome, root, alt_index, OLD_CASES, [], '?oldboards=1', data_obj, bars)
+    if err:
+        return INCONCLUSIVE, ['?oldboards=1 pass: %s' % err], [], data, True
     if os.environ.get('HOMEPROBE_DUMP'):
         io.open(os.path.join(root, '_homeprobe_dump.json'), 'w', encoding='utf-8').write(
-            json.dumps(data, indent=1, ensure_ascii=False))
+            json.dumps({'main': data, 'old': old}, indent=1, ensure_ascii=False))
+    data['old'] = old
     return _judge(data, data_obj)
+
+
+def _close_day(t):
+    """The New York day a trade closed - the same rule as the app's ledgerCloseDay."""
+    import datetime
+    if t.get('exitDate'):
+        return t['exitDate'][:10]
+    parts = [int(x) for x in (t.get('entryTime') or '').split(':')]
+    dur = t.get('durationMins') or 0
+    if t.get('date') and parts and dur > 0:
+        e = parts[0] * 3600 + (parts[1] if len(parts) > 1 else 0) * 60 + (parts[2] if len(parts) > 2 else 0)
+        add = (e + dur * 60) // 86400
+        if add > 0:
+            return (datetime.date.fromisoformat(t['date']) + datetime.timedelta(days=add)).isoformat()
+    return t['date']
+
+
+def _close_key(t):
+    parts = [int(x) for x in (t.get('exitTime') or t.get('entryTime') or '0').split(':')]
+    secs = parts[0] * 3600 + (parts[1] if len(parts) > 1 else 0) * 60 + (parts[2] if len(parts) > 2 else 0)
+    return '%s %05d' % (_close_day(t), secs)
+
+
+def _signed(v):
+    return '%s$%s' % ('+' if v >= 0 else '-', format(abs(v), ',.2f'))
+
+
+def expected_days(trades):
+    """{close day: signed net} - what each day header of the frame must read."""
+    nets = {}
+    for t in trades:
+        k = _close_day(t)
+        nets[k] = nets.get(k, 0.0) + t['pnl']
+    return {k: _signed(round(v, 2)) for k, v in nets.items()}
+
+
+def _judge_old(old, data_obj):
+    """?oldboards=1: the previous list layout is still drawn (FEED / TABLE button, 7 chips, no frame)."""
+    fails, unfinished = [], []
+    cases = (old or {}).get('cases') or {}
+    n_trades = len(data_obj['trades'])
+    for nm, cfg in OLD_CASES:
+        r = cases.get(nm)
+        tag = '?oldboards=1 %s' % nm
+        if r is None:
+            unfinished.append('%s: never ran' % tag)
+            continue
+        before = len(fails)
+        if r.get('call') != 'OK':
+            fails.append('%s: renderApp threw -- %s' % (tag, _first(r.get('call'))))
+        _errs(tag, r, fails)
+        if len(fails) > before:
+            continue
+        ol = r.get('oldList') or {}
+        if ol.get('frames'):
+            fails.append('%s: the new trade list frame is drawn although ?oldboards=1 asks for the previous layout' % tag)
+        if not ol.get('toggle') or ol.get('chips') != 7:
+            fails.append('%s: the previous list toolbar is missing (FEED / TABLE button=%s, chips=%s)'
+                         % (tag, ol.get('toggle'), ol.get('chips')))
+        want_kind = cfg['ledger'] if cfg['view'] == 'table' else 'feed'
+        if r.get('ledgerKind') != want_kind or r.get('ledgerRows') != n_trades:
+            fails.append('%s: the previous ledger is %r with %s rows, expected %s with %d'
+                         % (tag, r.get('ledgerKind'), r.get('ledgerRows'), want_kind.upper(), n_trades))
+        if cfg['vp'] == 'phone' and (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1:
+            fails.append('%s: the previous layout scrolls sideways on a phone' % tag)
+    return fails, unfinished
 
 
 def _first(s, n=300):
@@ -763,6 +1116,28 @@ def _judge(data, data_obj):
             continue
         if r.get('theme') != cfg['theme']:
             fails.append('%s: data-theme is %r, not %r' % (nm, r.get('theme'), cfg['theme']))
+        if cfg.get('kind') == 'legacy':
+            # LEDGER step 8 / mistake #14: the legacy TRADES and JOURNAL tabs draw on a phone, in one column
+            lg = r.get('legacy') or {}
+            if lg.get('tab') != cfg['tab']:
+                fails.append('%s: the %s tab did not open (activeTab=%r)' % (nm, cfg['tab'], lg.get('tab')))
+            elif cfg['tab'] == 'trades' and (not lg.get('table') or lg.get('rows') != n_trades):
+                fails.append('%s: the legacy TRADES table shows %s rows for %s trades (table present: %s)'
+                             % (nm, lg.get('rows'), n_trades, lg.get('table')))
+            elif cfg['tab'] == 'journal' and (not lg.get('journalForm') or not lg.get('lessons')):
+                fails.append('%s: the legacy JOURNAL tab drew no form or no entry (form=%s entries=%s)'
+                             % (nm, lg.get('journalForm'), lg.get('lessons')))
+            if (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1:
+                fails.append('%s: the legacy %s tab scrolls sideways on a phone (scrollWidth %s > clientWidth %s; '
+                             'sticking out: %s)' % (nm, cfg['tab'].upper(), r.get('scrollW'), r.get('clientW'),
+                                                    ', '.join(r.get('wide') or []) or '?'))
+            if cfg['tab'] == 'trades' and lg.get('boxScrollW') is not None \
+                    and lg['boxScrollW'] > (lg.get('boxClientW') or 0) + 1:
+                fails.append('%s: the legacy TRADES table scrolls sideways inside its box on a phone (box scrollWidth '
+                             '%s > clientWidth %s)' % (nm, lg.get('boxScrollW'), lg.get('boxClientW')))
+            if (r.get('appLen') or 0) < 3000:
+                fails.append('%s: the legacy tab rendered almost nothing (%s chars)' % (nm, r.get('appLen')))
+            continue
         if not r.get('missed'):
             fails.append('%s: no #hm-missed (SHOULD HAVE TRADED) section' % nm)
         elif r.get('missedRows') != (n_missed if cfg['missed'] else 0):
@@ -776,6 +1151,76 @@ def _judge(data, data_obj):
                                                                         want_kind.upper()))
         elif r.get('ledgerRows') != n_trades:
             fails.append('%s: the ledger shows %s rows for %s trades' % (nm, r.get('ledgerRows'), n_trades))
+        # LEDGER unify step 8: the shared trade list frame (toolbar, day headers, rows, five cells on a phone)
+        if r.get('frameN') != 1 or not r.get('frame'):
+            fails.append('%s: the page draws %s trade list frames ([data-lglist-frame]), expected exactly one'
+                         % (nm, r.get('frameN')))
+        else:
+            want_mode = 'table' if cfg['view'] == 'table' else 'list'
+            if r.get('mode') != want_mode:
+                fails.append('%s: the trade list frame is in %r mode, expected %r' % (nm, r.get('mode'), want_mode))
+            if r.get('chipTxt') != FRAME_CHIPS:
+                fails.append('%s: the frame chips read %r, not %s' % (nm, r.get('chipTxt'), FRAME_CHIPS))
+            if r.get('chipOn') != 'ALL':
+                fails.append('%s: the active chip is %r, expected ALL' % (nm, r.get('chipOn')))
+            if r.get('viewBtns') != ('list,table*' if want_mode == 'table' else 'list*,table'):
+                fails.append('%s: the LIST | TABLE toggle reads %r (a * marks the pressed half)' % (nm, r.get('viewBtns')))
+            if not r.get('searchBox'):
+                fails.append('%s: the frame has no search box' % nm)
+            if r.get('count') != '%d / %d trades' % (n_trades, n_trades):
+                fails.append('%s: the frame count reads %r, expected %d / %d trades' % (nm, r.get('count'), n_trades, n_trades))
+            exp = expected_days(data_obj['trades'])
+            got_days = [x.split('=', 1) for x in (r.get('days') or [])]
+            if [g[0] for g in got_days] != sorted(exp, reverse=True):
+                fails.append('%s: the day headers read %r, expected the close days %r newest first'
+                             % (nm, [g[0] for g in got_days], sorted(exp, reverse=True)))
+            else:
+                for day, net in got_days:
+                    if not re.match(r'^[+-]\$[\d,]+\.\d\d$', net):
+                        fails.append('%s: the %s day header net reads %r (needs a sign and a dollar amount)' % (nm, day, net))
+                    elif net != exp[day]:
+                        fails.append('%s: the %s day header net is %s, expected %s' % (nm, day, net, exp[day]))
+            if r.get('ovDay') != '2026-10-01':
+                fails.append('%s: the overnight trade (entered 09-30 23:55, held 25 min) sits under %r, it closed on 2026-10-01'
+                             % (nm, r.get('ovDay')))
+            if r.get('frameRows') != n_trades:
+                fails.append('%s: the frame draws %s trade rows for %s trades' % (nm, r.get('frameRows'), n_trades))
+            if cfg['vp'] == 'phone':
+                if r.get('visCells') != 5:
+                    fails.append('%s: a phone row shows %s cells, expected five (time, symbol, side, net, chart)'
+                                 % (nm, r.get('visCells')))
+                if r.get('listTop') is None or r.get('listTop') > (r.get('viewH') or 0):
+                    fails.append('%s: the trade list starts %spx below the top of the board on a phone, more than one '
+                                 'screen (%spx) - mistake #12' % (nm, r.get('listTop'), r.get('viewH')))
+        if cfg['view'] == 'feed' and r.get('frame'):
+            exp_order = [t['id'] for t in sorted(data_obj['trades'], key=_close_key, reverse=True)]
+            if r.get('order') != exp_order:
+                fails.append('%s: the list rows run %r, expected newest close first %r' % (nm, r.get('order'), exp_order))
+            if r.get('depositRows') != 1:
+                fails.append('%s: the list shows %s deposit rows, expected the one deposit in its day' % (nm, r.get('depositRows')))
+        ai = r.get('aiFold')
+        if not ai or not ai.get('closed') or ai.get('out'):
+            fails.append('%s: the AI ASSESSMENT is not a closed fold (%r) - it filled the top of the page' % (nm, ai))
+        af = r.get('acctFold')
+        if not af:
+            fails.append('%s: the account line / list section is missing' % nm)
+        elif cfg['vp'] == 'phone' and (af.get('btn') == 'none' or af.get('list') != 'none'):
+            fails.append('%s: on a phone the account list should be one closed line (button display=%r, list display=%r)'
+                         % (nm, af.get('btn'), af.get('list')))
+        elif cfg['vp'] != 'phone' and (af.get('btn') != 'none' or af.get('list') == 'none'):
+            fails.append('%s: on a laptop the account list is always drawn (button display=%r, list display=%r)'
+                         % (nm, af.get('btn'), af.get('list')))
+        tbx = r.get('tblBox')
+        if cfg['view'] == 'table' and cfg['ledger'] == 'simple' and tbx and tbx['sw'] > tbx['cw'] + 1:
+            fails.append('%s: the SIMPLE table scrolls sideways inside its box (scrollWidth %s > clientWidth %s)'
+                         % (nm, tbx['sw'], tbx['cw']))
+        if not r.get('paste'):
+            fails.append('%s: the PASTE box for snapshot links (#hm-paste-chart) is gone' % nm)
+        elif cfg['vp'] != 'phone' and not r.get('pasteVisible'):
+            fails.append('%s: the PASTE box is on the page but not visible on a laptop' % nm)
+        if (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1 and cfg['vp'] != 'phone':
+            fails.append('%s: the page scrolls sideways on a laptop (scrollWidth %s > clientWidth %s; sticking out: %s)'
+                         % (nm, r.get('scrollW'), r.get('clientW'), ', '.join(r.get('wide') or []) or '?'))
         if r.get('sheetClosed') not in ('none', 'open'):
             fails.append('%s: the closed trade panel is display:%s - parked off-screen it widens the page sideways'
                          % (nm, r.get('sheetClosed')))
@@ -915,7 +1360,154 @@ def _judge(data, data_obj):
         if ps.get('writes'):
             fails.append('%s: the paste box wrote to the database before anyone chose: %s'
                          % (tag, ps['writes']))
+        # LEDGER step 8: the shared frame's chips, search, view toggle, BY DAY and SIMPLE | FULL
+        T = data_obj['trades']
+        fs = st.get('frame') or {}
+        _errs(tag + ' trade list frame', fs, fails)
+        if fs.get('threw'):
+            fails.append('%s trade list frame: %s' % (tag, _first(fs['threw'])))
+        else:
+            def ids(pred):
+                return sorted(t['id'] for t in T if pred(t))
+            futs = ('MNQ', 'MES')
+            want = {'WINS': ids(lambda t: t['pnl'] > 0), 'LOSSES': ids(lambda t: t['pnl'] < 0),
+                    'LONG': ids(lambda t: t['type'] == 'LONG'), 'SHORT': ids(lambda t: t['type'] == 'SHORT'),
+                    'FUTURES': ids(lambda t: t['symbol'] in futs), 'STOCKS': ids(lambda t: t['symbol'] not in futs),
+                    'ALL': ids(lambda t: True)}
+            chips = fs.get('chips') or {}
+            for c, w_ in want.items():
+                if chips.get(c) != w_:
+                    fails.append('%s: the %s chip lists %r, expected %r' % (tag, c, chips.get(c), w_))
+            flat = [t['id'] for t in T if t['pnl'] == 0]
+            for c in ('WINS', 'LOSSES'):
+                if set(flat) & set(chips.get(c) or []):
+                    fails.append('%s: the %s chip lists the $0 trade %s - a $0 trade is neither a win nor a loss'
+                                 % (tag, c, flat))
+            if not fs.get('searchBox'):
+                fails.append('%s: the frame has no search box' % tag)
+            elif fs.get('search') != ['probe_s1']:
+                fails.append('%s: searching "aapl" lists %r, expected the one AAPL trade' % (tag, fs.get('search')))
+            elif fs.get('searchFocus') != 'hm-search':
+                fails.append('%s: typing in the search box lost the cursor (focus is on %r)' % (tag, fs.get('searchFocus')))
+            elif fs.get('searchCleared') != len(T):
+                fails.append('%s: clearing the search lists %s trades, expected %d' % (tag, fs.get('searchCleared'), len(T)))
+            if not fs.get('byDayBtn'):
+                fails.append('%s: the BY DAY button is missing in the list view' % tag)
+            elif fs.get('byDayDays') != len(expected_days(T)) or fs.get('byDayTrades') != 0:
+                fails.append('%s: BY DAY shows %s day rows and %s trade rows, expected %d and 0'
+                             % (tag, fs.get('byDayDays'), fs.get('byDayTrades'), len(expected_days(T))))
+            if not fs.get('viewBtn') or fs.get('modeTable') != 'table' or fs.get('savedTable') != 'table':
+                fails.append('%s: the TABLE button did not switch the frame to the table and remember it '
+                             '(mode=%r saved=%r)' % (tag, fs.get('modeTable'), fs.get('savedTable')))
+            if fs.get('modeList') != 'list' or fs.get('savedList') != 'list':
+                fails.append('%s: the LIST button did not switch the frame back and remember it (mode=%r saved=%r)'
+                             % (tag, fs.get('modeList'), fs.get('savedList')))
+            if not fs.get('fullBtn') or not fs.get('fullTable') or not fs.get('simpleTable'):
+                fails.append('%s: SIMPLE | FULL did not switch the table (full button=%s full=%s simple=%s)'
+                             % (tag, fs.get('fullBtn'), fs.get('fullTable'), fs.get('simpleTable')))
+            elif (fs.get('fullCols') or 0) <= (fs.get('simpleCols') or 0):
+                fails.append('%s: FULL shows %s columns, SIMPLE %s - FULL must show more'
+                             % (tag, fs.get('fullCols'), fs.get('simpleCols')))
+            if not fs.get('paste'):
+                fails.append('%s: the PASTE box is gone from the frame toolbar' % tag)
+            bt = fs.get('buttons') or {}
+            if not (bt.get('add') and bt.get('scan') and bt.get('all') and bt.get('nt')):
+                fails.append('%s: the toolbar lost one of NEW TRADE / ADD DEPOSIT / SCAN DUPLICATES / OPEN ALL (%r)' % (tag, bt))
+            elif not fs.get('formOpen') or not fs.get('formClosed'):
+                fails.append('%s: NEW TRADE did not open and close its form (open=%s closed=%s)'
+                             % (tag, fs.get('formOpen'), fs.get('formClosed')))
+            tl = fs.get('tools') or {}
+            if I['vp'] == 'phone':
+                if tl.get('toggle') == 'none' or tl.get('box') != 'none' or tl.get('boxOpen') != 'flex' or tl.get('boxShut') != 'none':
+                    fails.append('%s: the ... button on a phone should open and close the four action buttons (%r)' % (tag, tl))
+            elif tl.get('toggle') != 'none' or tl.get('box') == 'none':
+                fails.append('%s: on a laptop the four action buttons are always shown and the ... button is not (%r)' % (tag, tl))
+        sm = st.get('sortmenu') or {}
+        _errs(tag + ' header sort menu', sm, fails)
+        if sm.get('threw'):
+            fails.append('%s header sort menu: %s' % (tag, _first(sm['threw'])))
+        elif I['vp'] == 'laptop':
+            if not sm.get('header') or not sm.get('menu') or not sm.get('ascItem'):
+                fails.append('%s: the NET header did not open its sort / filter menu (header=%s menu=%s ascending=%s)'
+                             % (tag, sm.get('header'), sm.get('menu'), sm.get('ascItem')))
+            else:
+                vals = [float(x.replace('$', '').replace(',', '').replace('+', '')) for x in (sm.get('nets') or [])]
+                if len(vals) != len(data_obj['trades']) or vals != sorted(vals):
+                    fails.append('%s: sorting NET ascending left the rows in this order: %r' % (tag, sm.get('nets')))
+                if sm.get('dayRows'):
+                    fails.append('%s: day headers are still drawn after sorting by NET (%s)' % (tag, sm.get('dayRows')))
+                if 'NET' not in (sm.get('label') or '') or '\u25b2' not in (sm.get('label') or ''):
+                    fails.append('%s: the sort label reads %r, expected SORTED BY NET with an up arrow' % (tag, sm.get('label')))
+        sh = st.get('sheet') or {}
+        _errs(tag + ' trade panel editors', sh, fails)
+        if sh.get('threw'):
+            fails.append('%s trade panel editors: %s' % (tag, _first(sh['threw'])))
+        else:
+            b = sh.get('buttons') or {}
+            if not (b.get('edit') and b.get('snap') and b.get('tv') and b.get('del')):
+                fails.append('%s: the trade panel lost one of EDIT / SNAPSHOT / OPEN IN TV / DELETE (%r)' % (tag, b))
+            if not sh.get('sel'):
+                fails.append('%s: the trade panel has no grade / setup editors' % tag)
+            else:
+                wr = sh.get('data') or []
+                g = [x for x in wr if x.get('id') == 'probe_t2' and 'grade' in (x.get('d') or {})]
+                s_ = [x for x in wr if x.get('id') == 'probe_t2' and 'setup' in (x.get('d') or {})]
+                if not g or g[-1]['d']['grade'] != 'A':
+                    fails.append('%s: changing the grade in the trade panel did not save {grade: A} (writes: %r)' % (tag, wr))
+                if not s_ or s_[-1]['d']['setup'] != sh.get('setupPicked'):
+                    fails.append('%s: changing the setup in the trade panel did not save it (picked %r, writes: %r)'
+                                 % (tag, sh.get('setupPicked'), wr))
+        ai = st.get('aiFold') or {}
+        _errs(tag + ' AI assessment fold', ai, fails)
+        if ai.get('threw'):
+            fails.append('%s AI assessment fold: %s' % (tag, _first(ai['threw'])))
+        elif not ai.get('fold') or ai.get('closed') is not True or ai.get('outputBefore'):
+            fails.append('%s: the AI ASSESSMENT fold is not closed to start with (%r)' % (tag, ai))
+        elif ai.get('open') is not True or not ai.get('outputAfter') or not ai.get('text') or ai.get('closedAgain') is not True:
+            fails.append('%s: the AI ASSESSMENT fold did not open, fill and close again (%r)' % (tag, ai))
+        ed = st.get('edits') or {}
+        _errs(tag + ' inline edits', ed, fails)
+        if ed.get('threw'):
+            fails.append('%s inline edits: %s' % (tag, _first(ed['threw'])))
+        elif I['vp'] == 'laptop':
+            if not ed.get('gradeSel') or not ed.get('noteInput'):
+                fails.append('%s: the TABLE has no inline grade select or note box for the first trade (grade=%s note=%s)'
+                             % (tag, ed.get('gradeSel'), ed.get('noteInput')))
+            else:
+                wr = ed.get('data') or []
+                g = [x for x in wr if x.get('id') == 'probe_t1' and 'grade' in (x.get('d') or {})]
+                n = [x for x in wr if x.get('id') == 'probe_t1' and 'notes' in (x.get('d') or {})]
+                if not g or g[-1]['d']['grade'] != 'A':
+                    fails.append('%s: changing a grade in the TABLE did not save {grade: A} (writes: %r)' % (tag, wr))
+                if not n or n[-1]['d']['notes'] != 'probe note edit':
+                    fails.append('%s: editing a note in the TABLE did not save it (writes: %r)' % (tag, wr))
+                if not ed.get('rowsN') or ed.get('editCells') != ed.get('rowsN') or ed.get('delCells') != ed.get('rowsN'):
+                    fails.append('%s: every TABLE row should keep an EDIT and a DELETE cell (rows=%s edit=%s delete=%s)'
+                                 % (tag, ed.get('rowsN'), ed.get('editCells'), ed.get('delCells')))
+                elif not ed.get('delWired') or ed.get('editOpened') != 1:
+                    fails.append('%s: the TABLE EDIT cell should open the edit window (opened=%s) and DELETE should be wired (wired=%s)'
+                                 % (tag, ed.get('editOpened'), ed.get('delWired')))
+        jp = st.get('jump') or {}
+        _errs(tag + ' ANALYTICS jump', jp, fails)
+        if jp.get('threw'):
+            fails.append('%s ANALYTICS jump: %s' % (tag, _first(jp['threw'])))
+        else:
+            if jp.get('analyticsShown') != 'analytics':
+                fails.append('%s: the ANALYTICS tab did not open before the jump (activeTab=%r)'
+                             % (tag, jp.get('analyticsShown')))
+            if jp.get('tab') != 'home' or jp.get('view') != 'table' or not jp.get('tableShown'):
+                fails.append('%s: the ANALYTICS calendar jump did not land on the LEDGER table (tab=%r view=%r table=%s)'
+                             % (tag, jp.get('tab'), jp.get('view'), jp.get('tableShown')))
+            want_flash = len([t for t in T if t['date'] == JUMP_DAY])
+            if jp.get('flashed') != want_flash:
+                fails.append('%s: the jump to %s flashed %s rows, expected that day\'s %d trades'
+                             % (tag, JUMP_DAY, jp.get('flashed'), want_flash))
+            if not jp.get('dayHeader'):
+                fails.append('%s: the LEDGER table has no day header for %s after the jump' % (tag, JUMP_DAY))
 
+    of, ou = _judge_old(data.get('old'), data_obj)
+    fails += of
+    unfinished += ou
     if fails:
         return FAIL, fails, notes, data, True
     if unfinished:
@@ -951,8 +1543,9 @@ def _report(t0, attempt, may_retry, chrome, root, alt_index):
         return FAIL
     inter = data.get('inter') or {}
     zl = ((inter.get('laptop') or {}).get('steps') or {}).get('zoom') or {}
-    print('HOMEPROBE: PASS (VERSION=%s, %d cases + %d interaction runs, %.1fs)'
-          % (data.get('VERSION'), len(data.get('cases') or {}), len(inter), elapsed))
+    print('HOMEPROBE: PASS (VERSION=%s, %d cases + %d ?oldboards=1 cases + %d interaction runs, %.1fs)'
+          % (data.get('VERSION'), len(data.get('cases') or {}), len(((data.get('old') or {}).get('cases')) or {}),
+             len(inter), elapsed))
     if first:
         print('  FLAKE: attempt 1 did not pass on this same file, the retry did. It said:')
         for f in first[1][:4]:
