@@ -188,3 +188,32 @@ FIXES) and MANAGER's assessment (#100) folded:
   as RESMOM's report did; the shared seat-pipeline harness (ELwA's library item: L, c by volatility, R, DO, the random-name
   null) is used once it is in the repo, and until then r18_divrun's reference loader (one implementation of the pinned file)
   stands in.
+
+PRE-DATA ADDENDUM 3 (2026-10-05 20:35 MST, before any NETISS number - only the harness's counts-only dryload has been read:
+which names have a score and why the others do not; no ISS value, return or P&L): the lead's review of the harness
+r21_netiss.py settles the points the prereg left open and adds two rules:
+- [A13] ONE SHARE CLASS PER FIRM (new rule). Two classes of one CIK (GOOG / GOOGL, FOX / FOXA, NWS / NWSA ...; 31 CIKs carry
+  two or more symbols) read the SAME two facts, so they get the same ISS and would always be picked together - twice the size
+  on one firm. At every rank, among the pool names with a score, only the class with the larger mean raw dollar volume over the
+  20 sessions before the fill is scored; the other classes are out of the cells, the deciles and the null's pool, counted per
+  rank as 'second share class'.
+- [A14] THE HAND AUDIT'S SCOPE. (f) covers the 50 largest contributors of each cell and every [A10]-flagged name-rank that is
+  PICKED (either side, either cell), grouped by (symbol, the two facts' accession numbers): one check covers every rank that
+  uses the same two filings. Flagged name-ranks that are not picked stay listed in netiss_a10_flags.csv for information (the
+  dryload counts 553 flagged name-ranks for N12 and 953 for N24).
+- [A15] READINGS FIXED NOW (the harness's choices, adopted): [A8]'s 'a symbol present in both is refused' means a USABLE row in
+  both - TV's 14 additions replace base rows that carry no CIK (mismatch / ambiguous / unmapped), so a literal reading would
+  refuse the pinned files themselves; the concept used is the first one with BOTH S(r) and S' (a cover page with no value a
+  year earlier falls to the balance sheet, counted); a zero or negative value gives no score, as the draft says (no fallback;
+  459 N12 and 36 N24 name-months); an entry whose as-of date is after its own first filing, or whose first filing day carries
+  two values, is unusable; S' ties go to the earlier date; the thirds rule is n // 3 a side (it never fires on real data - N12
+  trades the full 50 a side in 99 rebalances, N24 in 87); [A6]'s credit needs BOTH realised betas (on #463's drawdown days and
+  on all WF days) within +-0.20 per $200,000 (one side: 50 x $4,000); the ES-hedged twin's overlay pays 0.5 bps a side; (d)
+  counts the July-June years a cell holds positions in - N12 needs 6 of its 9, N24 6 of its 8 (two thirds, rounded up); two
+  passing cells send the higher WF ROC to Stage B (a tie: N12).
+- [A16] FACTS AS FOUND. N12's first rank with any score is 2017-01-31 (22 names: no trade), its first traded fill 2017-03-01;
+  N24's 2018-01-31 (18) and 2018-03-01. The registered A2 windows (2017-02-01 .. 2019-01-31, 2018-02-01 .. 2020-01-31) stay:
+  their first month holds no position, which makes c about 2% larger - not worth a change.
+- [A17] STAGE B'S FACTS. The pinned extract stops at filed 2025-06-27, so the sealed year's share facts must come from the SAME
+  photographed zip (db35d36b), extracted by TV with the same tool, only after a Stage A pass, and pinned by sha256 in a dated
+  addendum before Stage B reads one fact; until then Stage B refuses.
