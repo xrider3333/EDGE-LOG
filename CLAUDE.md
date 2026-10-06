@@ -380,11 +380,10 @@ literature sources). Strategy findings stay in their own files; machinery status
   deploy, and a change that isn't pushed is invisible to the owner. Always state the version you pushed. You
   have full standing permission to edit ANY file and to start/restart `EdgeLog.bat`. (Only true
   history-rewrites — force-push to `main`, branch deletion — still warrant a quick heads-up.)
-  **Before bumping VERSION: `git fetch` + read the CURRENT `const VERSION` from `index.html`
-  (don't assume the next number), and `git diff index.html` to confirm ONLY your changes are
-  staged.** A second Claude session may be committing to this same repo/working tree
-  concurrently (e.g. the trades-table work that jumped 36.0→36.5) — fetch-first avoids
-  version clashes and clobbering its in-flight edits.
+  **Before shipping: `git fetch`, then `git diff index.html` to confirm ONLY your changes are
+  staged. Never read or guess the next VERSION number - `wt.py ship` assigns it.** A second
+  Claude session may be committing to this same repo concurrently (e.g. the trades-table work
+  that jumped 36.0->36.5) - fetch-first avoids clobbering its in-flight edits.
   **WORK IN YOUR OWN WORKTREE — the standing rule since 2026-08-09 (owner picked this over a
   deferred-push queue).** Concurrent sessions sharing ONE checkout is what caused every
   bundling incident and every "waiting for the other session" stall: `git add index.html`

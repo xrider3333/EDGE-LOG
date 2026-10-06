@@ -1108,7 +1108,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1086';
+const VERSION='73.1087';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1126,7 +1126,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1084',date:'2026-10-06',notes:['LEDGER step 8: shared trade list frame on REAL (toolbar, day headers, common columns, phone five-column rows); legacy TRADES and JOURNAL tabs no longer scroll sideways on a phone']},{v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
+const CHANGELOG=[{v:'73.1087',date:'2026-10-06',notes:['LEDGER step 8: shared trade list frame on REAL (toolbar, day headers, common columns, phone five-column rows); legacy TRADES and JOURNAL tabs no longer scroll sideways on a phone']},{v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
 {v:'73.1085',date:'2026-10-06',notes:['LEDGER steps 6, 7, 10 on NT8 PAPER: shared stats strip + More stats, shared month calendar, shared strategy list (BOOK #463 / forward tests / shadow / retired) - max drawdown positive, phone list within one screen']},
 {v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
 {v:'73.1047',date:'2026-10-05',notes:['NT8 PAPER (owner decision 10-05): the ENGU-Q #335 legs (crown, S1, S2, VC) now run on the roll-corrected NQ master and charge 0.783 points a round trip, the way BOOK #463 does. Their whole forward record restates once, at the 10-06 nightly report (the crown leg: one long held since 09-16 instead of 14 shorter trades). Live NinjaTrader orders do not change. Also in v73.1047: the NT8 equity curve is the shared LEDGER chart.']},
