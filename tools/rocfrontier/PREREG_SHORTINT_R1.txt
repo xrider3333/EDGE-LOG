@@ -136,3 +136,40 @@ inactive names only); one seven-year regime; a short-side profile that is only b
 
 Zero passes = SHORTINT r1 dead; no other horizons, thresholds or scores are tried - the next family comes from the next
 mechanism.
+
+PRE-DATA ADDENDUM 1 (2026-10-05 20:25 MST, before any SHORTINT number and before TV's FINRA pull): MANAGER's review (inbox
+#102, C:\EdgeLog\manager\reviews\sb_shortint_r1_review_2026-10-05.md - GO WITH EDITS, walk-forward only, registered for the
+stock families' one sealed-year day as a leg veto) folded:
+- [A1] FUNDS OUT OF THE UNIVERSE AND THE NULL'S POOL. Checked before writing this (asset names, prices and volumes only - no
+  score, no return): the SIPORB asset list (C:\EdgeLog\alpaca_cache\siporb\assets.csv, sha256 b85928ff...) already dropped
+  ETFs, ETNs, leveraged / inverse products and most closed-end funds by name when the cache was built (about 6,900 of its
+  33,556 assets - SPY, QQQ, IWM, GLD, SLV, TLT, TQQQ, ARKK and the like are not in the cache, so neither RESMOM's universe nor
+  this one ever held them). The name filter let three physical-metal grantor trusts through (CEF, PHYS, PSLV), and a
+  RESMOM-style top-500 check at every month-end 2016-06 .. 2025-06 (raw close >= $10, 20-session dollar volume, 14-session
+  volume and ATR) finds exactly ONE fund-month inside it: PHYS (Sprott Physical Gold Trust) at the 2025-04 rank (429th by
+  dollar volume); every other name in it with 'Trust', 'Royalty', 'L.P.' or 'Partners' in its title is an operating company
+  (REITs, Northern Trust, Royalty Pharma, the pipeline MLPs) and stays. RULE: a name whose asset-list title contains
+  'Physical', 'Fund', 'Municipal', 'Term Trust', 'Income Trust', 'Capital Securities' or 'Certificates', or whose FINRA issue
+  name contains 'ETF', 'ETN', 'Fund' or 'Index', is out of the universe and out of the null's pool; the resulting list is
+  written out and hand-checked before any score, and the count removed is printed per rank. RESMOM caveat (recorded, not a
+  re-run): its universe could hold PHYS at the 2025-04 rank alone.
+- [A2] FINRA'S MARKET CODES FIRST. Before any score the run prints, per FINRA file, its rows by market code (NYSE, Nasdaq, NYSE
+  American, NYSE Arca, Cboe, OTC ...) and, per rank, the share of the universe's names that have a row in the latest usable
+  file. A rank whose latest usable file covers less than 90% of its universe trades nothing (counted, listed), and the
+  walk-forward starts at the first rank at or above 90% (printed; the archive path is FINRA's OTC-market folder, so
+  exchange-listed coverage in the early files is the first question). If that leaves fewer than 60 rebalances, SHORTINT r1 is
+  NOT JUDGEABLE and stops before any return is computed - MANAGER decides.
+- [A3] DISSEMINATION. [K] is amended: a settlement date s is usable at r when the first session after the LATER of s + 12
+  sessions and FINRA's photographed dissemination date (where TV photographs one) is on or before r - never earlier than a
+  photographed date; the realised age of s* in sessions is printed at every rank.
+- [A4] THE LONG SIDE IS PROBABLY A QUALITY / LOW-BETA SORT: the least-shorted liquid names are large and quiet. Each side's
+  realised beta to ES (its daily $ P&L on ES's daily return per $ of its own notional; on L's drawdown days and on all WF days)
+  is printed beside the cell's, and the overlap with FRONTIER's Q21 stock BAB seat - the correlation of the daily P&L once both
+  have run, and the share of common names per rank - beside the RES overlap. If both pass they are one finding, counted once.
+- [A5] DIVIDENDS AND STALE COUNTS. Dividends exactly as RESMOM [R1] (as registered). S1 keeps NETISS r1's as-filed share counts
+  and its 200-day limit; the share of scored rank-names whose count is more than 100 days old at s* is printed per rank and per
+  year.
+- [A6] POWER LINE FIRST. The random-name null (500 draws, seed 20261018) is computed before the cells' P&L, and its p50 / p95
+  for each cell and for the max over the 2 cells are printed before any cell number. Zero passes = SHORTINT r1 dead: no
+  variants, and the next family comes from a new mechanism.
+The FINRA files and the flat file are pinned by sha256 in pre-data addendum 2, after TV's pull and before any score.
