@@ -1,15 +1,17 @@
 # NEWISSUE r1 - recent US listings against seasoned stocks of the same liquidity, rebalanced MONTHLY, dollar-neutral: cells E (PRIMARY: SHORT every NEW name, LONG ES at the OLS beta of the equal-weight NEW basket x the short notional - an ex-ante market hedge,
 # addendum 1 [N2]) and M (SHORT every NEW name, LONG for each the SEASONED universe name nearest to it in 20-session mean dollar volume, each used once), a leg for BOOK #463 that must clear the STANDALONE bars (MANAGER #56). Pre-registered:
-# tools/rocfrontier/PREREG_NEWISSUE_R1.txt (canonical LF sha256 ee0b8615...94db = DRAFT v1 + PRE-DATA ADDENDUM 1 (MANAGER's review #73: [B] incremental book add, [N1] borrow 3%/yr, [N2] cell E primary + the beta rule, [N3] the 4-8-month row, [N4] first-session sanity,
-# [N5] P&L by listing-year cohort, [N6] the 20-name floor) + PRE-DATA ADDENDUM 2 (owner standing order addendum 2: [X1] the book add is incremental over the RESMOM line, [X2] deeper diagnostics)). Every rule, threshold, window and cost below is that file; where it is silent the choice is marked CHOICE.
+# tools/rocfrontier/PREREG_NEWISSUE_R1.txt (canonical LF sha256 e4900bcb...03ae = DRAFT v1 + PRE-DATA ADDENDUM 1 (MANAGER's review #73: [B] incremental book add, [N1] borrow 3%/yr, [N2] cell E primary + the beta rule, [N3] the 4-8-month row, [N4] first-session sanity,
+# [N5] P&L by listing-year cohort, [N6] the size floor) + PRE-DATA ADDENDUM 2 (owner standing order addendum 2: [X1] the book add is incremental over the RESMOM line, [X2] deeper diagnostics) + PRE-DATA ADDENDUM 3 (MANAGER #99 / #100, after the counts-only dryload: [N7] the registered floor is 10 NEW
+# names and every cell row is also printed under the 20-name floor beside it, [N8] bar (a) = 40 traded rebalances, [N9] 'net > 0 without calendar 2022' stays binding and any pass is a LOW-POWER, FLAGGED result, [N10] dollars a year beside every ROC @ $30k of a book-add report + the reference line's episode table)).
+# Every rule, threshold, window and cost below is that file; where it is silent the choice is marked CHOICE.
 # NEWISSUE is RESMOM r1's and DIVRUN r1's sibling in the same lane on the same data: r17_resmom.py (the monthly basket: World, the pinned wide calendar, the dividend / spin-off arrays, the fills / marks / costs / borrow, the hygiene windows, the audit file) and r18_divrun.py (the REFERENCE
 # book #463 + 0.264 x RES and its incremental A2, the ES prints carried across the masters' holes, the null statistics) are imported, never copied and never edited - and through them r15_ddw.py, r5_siporb.py, r11_risk.py, r12_mdl.py and r13_attn.py. What this file adds is the AGE logic:
-# listing sessions and [N4], who is NEW and who is SEASONED, the matched long, the ex-ante ES hedge, the 20-name floor, the family-aware null (seasoned names drawn at random, re-matched, re-hedged) and the diagnostics by age and by cohort.
+# listing sessions and [N4], who is NEW and who is SEASONED, the matched long, the ex-ante ES hedge, the 10-name floor (and the 20-name reading beside it), the family-aware null (seasoned names drawn at random, re-matched, re-hedged) and the diagnostics by age and by cohort.
 #   python r20_newissue.py selftest    hand-made worlds, no data: the listing session and [N4]'s 18-of-20 rule, the NEW / SEASONED windows, the spinco and name-change exclusions, the nearest-dollar-volume match against a plain-python oracle, the ex-ante beta hedge
-#                                      against a hand count, the 20-name floor, borrow and costs, the null (seasoned draws, re-match, re-hedge), the beta rule's 0.20 gate, the cohort / age tables, [X1] on a stub RES line file, the refusals
+#                                      against a hand count, the floors (10 NEW names registered, 20 reported) and the bar (a) = 40, borrow and costs, the null (seasoned draws, re-match, re-hedge), the beta rule's 0.20 gate, the cohort / age tables, [X1] on a stub RES line file, dollars a year, the reference's episodes inside the cell's stretch, the refusals
 #   python r20_newissue.py smoke DIR   offline end-to-end on SYNTHETIC worlds (r5_siporb's fake Alpaca transport, a fake ES master, a fake #463, a fake RESMOM line file, a fake calendar): a world with a planted new-issue underperformance that Stage A must find and a world without one where
 #                                      it must not; DIR's name must contain 'smoke'; every command except Stage B's read runs (Stage B is exercised on the synthetic world only by `smoke DIR stage_b`)
-#   python r20_newissue.py dryload     WF inputs only (every input cut to dates < 2025-06-30): prints COUNTS - listings by year and [N4]'s failures, NEW names per month and by cohort, months under the 20-name floor, the spinco / name-change exclusions by year, the first and last traded ranks -
+#   python r20_newissue.py dryload     WF inputs only (every input cut to dates < 2025-06-30): prints COUNTS - listings by year and [N4]'s failures, NEW names per month and by cohort, months under the registered 10-name floor and the traded months under BOTH floors (10 registered, 20 reported) by fill year, the spinco / name-change exclusions by year, the first and last traded ranks -
 #                                      never a price, return, beta, P&L or Stage A statistic
 #   python r20_newissue.py stage_a     WF Stage A (cells E and M) + the null + A2 (an INCREMENTAL report over the REFERENCE book #463 + 0.264 x RES) + the reports + the diagnostics -> newissue_stageA.json (+ newissue_audit_candidates.csv), PRE-LOCKBOX ONLY
 #   python r20_newissue.py stage_b     Stage B (lockbox, ONCE): refuses unless the lead's flag file newissue_stageB_GO.flag is on file (and a Stage A candidate with the hand audit signed off by that flag); the pass is the LEG's veto
@@ -29,7 +31,7 @@ TS = pd.Timestamp
 THIS = sys.modules[__name__]
 OUT = os.environ.get("EDGELOG_NEWISSUE_R1", r"C:\EdgeLog\_anatomy_cache\rocfrontier\newissue_r1")        # results, outside git
 PREREG = os.path.join(HERE, "PREREG_NEWISSUE_R1.txt")
-PREREG_SHA = "ee0b8615a7afddc594aeae6579848af89cc4e7850282ac82689a145a62d094db"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDUM 1 (MANAGER #73) + PRE-DATA ADDENDUM 2 (owner standing order addendum 2); if more edits land the lead updates it before the real run
+PREREG_SHA = "e4900bcb1d74e2c92e88fb03452c1843c9dc379c807f15e83ad3f03d583b03ae"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDUM 1 (MANAGER #73) + ADDENDUM 2 (owner standing order addendum 2) + ADDENDUM 3 (MANAGER #99 / #100); if more edits land the lead updates it before the real run
 WF0, PRE_END, LB0, LB1 = M17.WF0, M17.PRE_END, M17.LB0, M17.LB1          # #463's registered WF stretch 2016-07-01 .. 2025-06-29 (the book checks, the reference and the call for the book's rows read it); LB = exits 2025-06-30 .. 2026-06-30 INCLUSIVE; cuts: S.LB0 / S.END
 WFN = TS("2018-02-01")           # NEWISSUE's own WF: positions EXITED 2018-02-01 .. 2025-06-29 (the first rank whose 24-month window is fully observable is 2018-01-31; 89 rebalances in Stage A's data)
 FIRST_SESSION = TS("2016-01-04")  # the cache's first session: a listing is dated only from the next one on (2016-01-05); a name with a bar on it is 'present at the first session'
@@ -54,7 +56,7 @@ SPEC = {"new_lo": 126, "new_hi": 504,    # NEW: listed 126 .. 504 sessions befor
         "seas_months": 36,               # SEASONED: listed MORE than 36 calendar months before r (or present at the first session)
         "nc_months": 24,                 # no name change on the calendar in the 24 calendar months before r (NEW and SEASONED)
         "n4_next": 20, "n4_min": 18,     # [N4] a listing session counts only with a raw close and volume on >= 18 of the 20 sessions after it
-        "floor": 20,                     # [N6] a month with fewer than 20 NEW names trades nothing in either cell
+        "floor": 10,                     # [N7] (addendum 3, replacing [N6]'s 20) a month with fewer than 10 NEW names - counted after every removal - trades nothing in either cell
         "slot": 4000.0,                  # $4,000 a name, fractional shares, no compounding
         "beta_win": 126, "beta_min": 115,  # the ex-ante hedge: OLS of the equal-weight NEW basket's daily return on ES over the 126 sessions r-125 .. r (CHOICE: >= 115 basket-ES pairs of the 126, RESMOM's 230-of-252 share)
         "dv_n": 20,                      # the match: the 20-session mean raw dollar volume, sessions r-19 .. r
@@ -63,8 +65,11 @@ SPEC = {"new_lo": 126, "new_hi": 504,    # NEW: listed 126 .. 504 sessions befor
         "old": 125,
         "n3_lo": 84, "n3_hi": 168,       # [N3] names 4 to 8 months after listing
         "month": 21}                     # sessions in an age 'month'
-RULES = {"reb": 60, "roc": 15.0, "net_pos": True, "stress": True, "borrow_stress": True, "null": True, "years": 5, "ex2020": True, "ex2022": True, "exbest": True, "best_pct": 1,      # Stage A (a) - (e); the booleans are switches only smoke() ever turns off
+RULES = {"reb": 40, "roc": 15.0, "net_pos": True, "stress": True, "borrow_stress": True, "null": True, "years": 5, "ex2020": True, "ex2022": True, "exbest": True, "best_pct": 1,      # Stage A (a) - (e); the booleans are switches only smoke() ever turns off
          "beta_abs": BETA_RULE, "b_reb": 10, "b_roc": BOOK_LB[0], "b_sort": BOOK_LB[1]}                                                                                           # Stage B: >= 10 monthly rebalances; the book add's reference (#463's own LB 155.54 / 4.150), reported only
+FLOOR_REPORTED = 20      # [N7] every cell row is ALSO computed and printed under this floor (the draft's / [N6]'s 20 NEW names) beside the registered one - both floors side by side; the reading is REPORTED, never a pass route
+LOW_POWER = ("LOW-POWER FLAG [N9]: the traded months are concentrated in 2018-03 .. 2022-03 (one listing boom, 2020-21, and its bust, 2022) because recent listings almost vanish from the top-500 universe after 2022; "
+             "'net > 0 without calendar 2022' stays binding, and any pass is a LOW-POWER, FLAGGED result")
 CHECK_BOOK = True        # refuse to judge if the #463 records / the DD structure / the cache manifest / the first session / the reference do not reproduce the registered facts; a real run always checks (only smoke() may switch it)
 HYG = D15.HYG            # the four data-hygiene reasons [T2], in the order a position's first reason is attributed: split, gap, tbis, jump
 GO_FLAG, READ_FLAG = "newissue_stageB_GO.flag", "newissue_stageB_READ.flag"     # Stage B needs the lead's go-flag; the one-shot read flag is written (exclusively) after every load and check
@@ -374,12 +379,12 @@ def tally_pre(cnt, prefix, reasons, first):
 
 
 def ni_one(W, ctx, r, f, x, post_mode, units=True, win=None, incl=(False, False)):
-    """one rebalance: the universe at the fill session f (sessions < f only), every name's age at the rank close r, who is NEW and who is SEASONED, every removal in order, the pool, the 20-name floor, cell E's hedge ratio and cell M's matches, the position paths -> (rec, counts).
+    """one rebalance: the universe at the fill session f (sessions < f only), every name's age at the rank close r, who is NEW and who is SEASONED, every removal in order, the pool, the floor, cell E's hedge ratio and cell M's matches, the position paths -> (rec, counts).
     NEW (window `win`, default 126 .. 504 sessions): a universe name with an ACCEPTED dated listing ([N4]) r - L sessions old, which is NOT a spin-off's new symbol on the calendar (dated on / before r) and has NO name change on the calendar (the old or the new symbol, dated in the 24 calendar months
     r-24m .. r). SEASONED: present at the first session, or listed MORE than 36 calendar months before r (an accepted listing), with no name change in the 24 months, >= 230 own returns and >= 230 ES pairs in the 252 sessions r-251 .. r (RESMOM's history rule: NEW names are exempt, the prereg) -
     and, like every name that can be traded, the same removals as RESMOM's pool: no open at the fill session, a hygiene flag [T2] in r-25 .. r (all four reasons) or in r-125 .. r-26 (gap scan / TBIS / jump: a fake return day inside the hedge's window), a hand-audit data event;
     hygiene INSIDE the hold (r+1 .. x) and a [D2] spin-off / stock-dividend ex-date in f < t <= x are the look-ahead removal: post_mode 'remove' = the registered reading, 'naive' = flagged names stay at their naive raw price path. A name that failed [N4] (or is unverifiable) is neither.
-    The pool is the NEW names first, then every eligible SEASONED name (the match's candidates and the null's draws). A rebalance trades only with >= 20 NEW names [N6] (SPEC floor); then rec.tE (E also needs a defined hedge ratio) and rec.tM (M needs a match) say which cells trade it.
+    The pool is the NEW names first, then every eligible SEASONED name (the match's candidates and the null's draws). A rebalance trades only with >= 10 NEW names [N7] (SPEC floor, counted after every removal; [N6]'s 20 is the REPORTED reading beside it); then rec.tE (E also needs a defined hedge ratio) and rec.tM (M needs a match) say which cells trade it.
     incl = (spincos kept, name changes kept) in NEW (the REPORTED would-have-been-included rows); win = another age window ([N3] 84 .. 168); rec.kind = 1 spinco, 2 name change, 3 both for the NEW names that are only there because of incl"""
     s = SPEC
     lo_n, hi_n = (s["new_lo"], s["new_hi"]) if win is None else win
@@ -454,7 +459,7 @@ def ni_one(W, ctx, r, f, x, post_mode, units=True, win=None, incl=(False, False)
     rec.cohort = yrs[np.maximum(rec.lrow, 0)] if n_new else ZI
     cnt["new_names"] += n_new
     cnt["seas_names"] += len(seas_cols)
-    if n_new < s["floor"]:                                                      # [N6] a month with fewer than 20 NEW names trades nothing in either cell
+    if n_new < s["floor"]:                                                      # [N7] a month with fewer than 10 NEW names (after every removal) trades nothing in either cell
         cnt["below_floor"] += 1
         return rec, cnt
     rec.traded = True
@@ -558,14 +563,29 @@ def cell_run(W, L, cell, cfg, side=0, es_bps=ES_BPS):
     return SimpleNamespace(x=x, cnt=cnt, n_pos=n_pos, n_units=n_units, pos=pos)
 
 
+def usd_per_year(net, years):
+    """[N10] dollars a year = net / years - the house's years (r11_risk.stats: the last date minus the first, / 365.25, of the stretch); NaN without a positive span"""
+    try:
+        net, years = float(net), float(years)
+    except (TypeError, ValueError):
+        return float("nan")
+    return net / years if math.isfinite(net) and math.isfinite(years) and years > 0 else float("nan")
+
+
+def stretch_years(B, lo, hi):
+    """the years of the stretch [lo, hi] on #463's index by r11_risk.stats's own convention: (the last row's date - the first row's) / 365.25; NaN under 2 rows"""
+    k = np.flatnonzero(B.mask(lo, hi))
+    return float((B.index[k[-1]] - B.index[k[0]]).days / 365.25) if len(k) >= 2 else float("nan")
+
+
 def stat_of(B, rows, run, lo, hi):
-    """r15's cell statistics on one stretch [lo, hi] of a cell's daily series (the eight July-June years, the best 1% of days and of name-months, net without Feb 15 - Apr 30 2020) + net without calendar 2022 and the 2020-21 / 2022 nets -> (stats, the series on #463's index, the positions held per row)"""
+    """r15's cell statistics on one stretch [lo, hi] of a cell's daily series (the eight July-June years, the best 1% of days and of name-months, net without Feb 15 - Apr 30 2020) + net without calendar 2022 and the 2020-21 / 2022 nets + [N10] the dollars a year (net / years) -> (stats, the series on #463's index, the positions held per row)"""
     xB, cB = D15.to_B(run.x, rows, B.n), D15.to_B(run.cnt, rows, B.n)
     st = D15.cell_stats(B, xB, cB, lo, hi, run, years=YEARS)
     k = B.mask(lo, hi)
     ds, xs = B.index[k], np.asarray(xB, float)[k]
     in22, inb = (ds >= X2022[0]) & (ds <= X2022[1]), (ds >= BOOM[0]) & (ds <= BOOM[1])
-    st.update({"net_ex2022": float(xs[~in22].sum()), "net_2022": float(xs[in22].sum()), "net_2020_21": float(xs[inb].sum())})
+    st.update({"net_ex2022": float(xs[~in22].sum()), "net_2022": float(xs[in22].sum()), "net_2020_21": float(xs[inb].sum()), "usd_per_year": usd_per_year(st["net"], st["years"])})
     return st, xB, cB
 
 
@@ -661,7 +681,7 @@ def null_summary(per_cell, per_cell_do=None):
 
 # ------------------------------------------------------------------ Stage A's checks (a) - (e), the book add as an INCREMENTAL report over the reference, the hand audit (f)
 def judge_cell(st, net10, net_b10, nul):
-    """(a) >= 60 traded rebalances; (b) WF ROC @ $30k >= 15 and net > 0 at 5 AND at 10 bps a side AND at the 10%/yr borrow stress; (c) WF ROC above the null's 95th percentile (the max over the 2 cells); (d) positive in >= 5 of the 8 July-June WF years (2017-18 is short and counts), net > 0 without
+    """(a) >= 40 traded rebalances [N8]; (b) WF ROC @ $30k >= 15 and net > 0 at 5 AND at 10 bps a side AND at the 10%/yr borrow stress; (c) WF ROC above the null's 95th percentile (the max over the 2 cells); (d) positive in >= 5 of the 8 July-June WF years (2017-18 is short and counts), net > 0 without
     Feb 15 - Apr 30 2020 AND net > 0 without calendar 2022; (e) profitable without its best 1% of days AND without its best 1% of name-months. (f), the hand audit, is separate: audit_complete / the lead's flag. A NaN fails every comparison it enters. [N2]'s beta rule is NOT a Stage A bar: it decides the
     credit of the drawdown-day profile (beta_gate)"""
     R = RULES
@@ -671,6 +691,21 @@ def judge_cell(st, net10, net_b10, nul):
            "net>0 without calendar 2022": (st["net_ex2022"] > 0) if R["ex2022"] else True, "profitable without its best 1% of days": (st["net_ex_best_days"] > 0) if R["exbest"] else True,
            "profitable without its best 1% of name-months": (st["net_ex_best_pos"] > 0) if R["exbest"] else True}
     return {k: bool(v) for k, v in chk.items()}
+
+
+def a2_usd(a, years):
+    """[N10] dollars a year (net / years of the stretch the numbers are on) beside every ROC @ $30k of an A2 record: the reference, the reference + c x the cell, at 0.5c and 2c, the plain #463 + c x the cell and its 0.5c / 2c rows - added in place wherever a block carries a net"""
+    def put(d):
+        if isinstance(d, dict) and "net" in d:
+            d["usd_per_year"] = usd_per_year(d["net"], years)
+    for d in (a, a.get("reference"), a.get("at_half_c"), a.get("at_double_c"), a.get("plain_463")):
+        put(d)
+    p = a.get("plain_463")
+    if isinstance(p, dict):
+        put(p.get("at_half_c"))
+        put(p.get("at_double_c"))
+    a["years"] = years
+    return a
 
 
 def a2_report(B, xB, ref, beta_ok):
@@ -683,12 +718,37 @@ def a2_report(B, xB, ref, beta_ok):
     a["incremental_pass_before_the_beta_rule"] = before
     a["beta_rule_ok"] = bool(beta_ok)
     a["incremental_pass"] = a["book_shadow_line"] = bool(before and beta_ok)
+    a2_usd(a, stretch_years(B, WF0, PRE_END))                                                  # [N10] the registered comparison is on the reference's WF 2016-07-01 .. 2025-06-29
     c = a["c"]
     if np.isfinite(c) and c > 0:
         k = B.mask(WFN, PRE_END)
+        yo, nan_ = stretch_years(B, WFN, PRE_END), float("nan")
         alone = R11.stats(np.asarray(ref.raw, float)[k], B.index[k]) or {}
-        a["own_stretch"] = {"window": [f"{WFN:%Y-%m-%d}", f"{PRE_END:%Y-%m-%d}"], "reference_alone": {"roc": alone.get("roc"), "sortino": alone.get("sort"), "max_dd": alone.get("max_dd")}, "with_c": DV.ref_at(B, ref, xB, c, WFN, PRE_END)}
+        wc = DV.ref_at(B, ref, xB, c, WFN, PRE_END)
+        a["own_stretch"] = {"window": [f"{WFN:%Y-%m-%d}", f"{PRE_END:%Y-%m-%d}"], "years": yo, "reference_alone": {"roc": alone.get("roc", nan_), "sortino": alone.get("sort", nan_), "max_dd": alone.get("max_dd", nan_), "net": alone.get("net", nan_), "usd_per_year": usd_per_year(alone.get("net", nan_), yo)},
+                            "with_c": {**wc, "usd_per_year": usd_per_year(wc["net"], yo)}}
     return a
+
+
+def episodes_in_stretch(ref, xB, lo=None, hi=None):
+    """[N10] the reference line's drawdown episodes INSIDE a cell's stretch [lo, hi] (default WFN .. PRE_END): MDL r1's qualifying episodes of the reference's WF (ref.S.qual: at least 1/3 as deep as the deepest; 45 on the real WF), each cut to its DD days (the day after the peak .. the trough) that fall in the stretch -
+    an episode that starts before it is cut to the part inside it, one wholly before it is not listed - with the reference's P&L over those days, the cell's, and whether the cell HELPS (its P&L over them is positive: the reference loses over every one of them)
+    -> {episodes_on_wf, inside, cut, helped, reference_pnl, cell_pnl, rows: [{peak, first_dd_day (inside), trough, depth, dd_days, dd_days_inside, cut, book_pnl, cell_pnl, helps}]}"""
+    lo, hi = WFN if lo is None else lo, PRE_END if hi is None else hi
+    S_ = ref.S
+    x = np.asarray(xB, float)[S_.rows]
+    d = S_.dates
+    inside = np.asarray((d >= lo) & (d <= hi))
+    rows_ = []
+    for e in S_.qual:
+        i0, it = int(e["i0"]), int(e["it"])
+        idx = np.arange(i0, it + 1)
+        idx = idx[inside[idx]]
+        if not len(idx):
+            continue
+        cp, bp = float(x[idx].sum()), float(np.asarray(S_.x, float)[idx].sum())
+        rows_.append({"peak": e["peak"], "first_dd_day": f"{d[idx[0]]:%Y-%m-%d}", "trough": e["trough"], "depth": float(e["depth"]), "dd_days": int(it - i0 + 1), "dd_days_inside": int(len(idx)), "cut": bool(idx[0] > i0), "book_pnl": bp, "cell_pnl": cp, "helps": bool(cp > 0)})
+    return {"episodes_on_wf": int(len(S_.qual)), "inside": len(rows_), "cut": int(sum(r_["cut"] for r_ in rows_)), "helped": int(sum(r_["helps"] for r_ in rows_)), "reference_pnl": float(sum(r_["book_pnl"] for r_ in rows_)), "cell_pnl": float(sum(r_["cell_pnl"] for r_ in rows_)), "rows": rows_}
 
 
 def restrict_stretch(S_full, raw, index, lo, hi):
@@ -729,6 +789,7 @@ def evaluate(W, ctx, B, SN, ref, SRN, rows, post_mode, nreps, vcode=0, full=Fals
              "seat": D15.seat_measure(SN, xB), "seat_ref": D15.seat_measure(SRN, xB), "realised_beta": bt, "beta_gate": gate}
         c["A2"] = a2_report(B, xB, ref, gate["credited"])
         c["ref_episodes"] = D15.episodes_table(ref.S, xB)
+        c["ref_episodes_in_stretch"] = episodes_in_stretch(ref, xB, lo, hi)                      # [N10] the same episodes cut to the cell's own stretch, with the count the cell helps in
         c["gate70"] = {"basis": "the REFERENCE book's drawdown days from 2018-02 on (MDL r1's episode rule)", "episodes": ref.structure["episodes"], "dd_days_from_2018_02": int(SRN.n_dd_days), "DO": c["seat_ref"]["DO"], "rho_dd": c["seat_ref"]["rho_dd"],
                        "credited": gate["credited"], **episode_gate(c, c["ref_episodes"])}
         if full:
@@ -753,7 +814,7 @@ def evaluate(W, ctx, B, SN, ref, SRN, rows, post_mode, nreps, vcode=0, full=Fals
 
 
 def variant_rows(W, ctx, B, rows, drop=None, drop2=None):
-    """the REPORTED rows that need another leg (none is a pass route): [N3] the same short / match / hedge on names 4 to 8 months after listing (84 .. 168 sessions; the 20-name floor as registered: 'the same'), and the cells with the spinco / the name-change names INCLUDED in NEW (the P&L had they been included; the P&L of the
+    """the REPORTED rows that need another leg (none is a pass route): [N3] the same short / match / hedge on names 4 to 8 months after listing (84 .. 168 sessions; the registered floor: 'the same'), and the cells with the spinco / the name-change names INCLUDED in NEW (the P&L had they been included; the P&L of the
     included names' own name-months inside the cell), and - with `drop` - the registered cells without the ranks whose 24-month name-change window starts before the calendar does (drop2: before the calendar's FIRST name-change row: a calendar may start long before it has any). Each: the cell's WF numbers, the traded rebalances, the NEW names per month -> {name: {cell: stats, 'new_per_month': ..., ...}}"""
     cfg = cfg_of()
     specs = [("[N3] 4-8 months after listing (84 .. 168 sessions)", {"win": (SPEC["n3_lo"], SPEC["n3_hi"])}), ("spinco names included", {"incl": (True, False)}), ("name-change names included", {"incl": (False, True)}),
@@ -989,9 +1050,14 @@ def plain_a2(B, xB):
 
 
 # ------------------------------------------------------------------ printing
-def row(cell, c):
+def row_body(c):
     s, q = c["base"], c["seat"]
-    return (f"{cell:<2} rebalances {s['n_units']:>3,} name-months {s['n_pos']:>6,} net ${s['net']:>10,.0f} ROC@30k {s['roc']:>7.1f} Sortino {s['sortino']:>5.2f} maxDD ${s['max_dd']:>8,.0f} | DO {q['DO']:>+7.3f} rho_dd {q['rho_dd']:>+6.3f}")
+    return (f"rebalances {s['n_units']:>3,} name-months {s['n_pos']:>6,} net ${s['net']:>10,.0f} (${s['usd_per_year']:>8,.0f} a year) ROC@30k {s['roc']:>7.1f} Sortino {s['sortino']:>5.2f} maxDD ${s['max_dd']:>8,.0f} | DO {q['DO']:>+7.3f} rho_dd {q['rho_dd']:>+6.3f}")
+
+
+def row(cell, c, tag=""):
+    """a cell's headline row; [N10] its dollars a year (net / the stretch's years) stand beside the net and the ROC @ $30k; tag = '@20' marks the REPORTED 20-name-floor reading [N7]"""
+    return f"{cell + tag:<5} " + row_body(c)
 
 
 def beta_text(c):
@@ -1003,34 +1069,87 @@ def beta_text(c):
 
 
 def a2_text(a2):
+    """A2's record in words; [N10] every ROC @ $30k has its dollars a year (net / years of the stretch it is on) beside it: the reference, the reference + c x the cell, 0.5c and 2c, the plain #463 + c x the cell, and the same two books over the cell's own stretch"""
     if not a2.get("at_half_c"):
         return f"{a2.get('error', 'no c')} -> no incremental pass"
     rf, pl = a2["reference"], a2["plain_463"]
-    return (f"c x{a2['c']:.4g} (cell daily std ${a2['std_cell']:,.0f} vs #463's ${a2['std_book']:,.0f} over {a2['window'][0]} .. {a2['window'][1]}): REFERENCE + c x cell ROC@30k {a2['roc']:.2f} Sortino {a2['sortino']:.3f} against the reference's {rf['roc']:.2f} / {rf['sortino']:.3f} -> "
+    ya = lambda d: f"${d['usd_per_year']:,.0f} a year"
+    os_ = a2.get("own_stretch")
+    own = "" if not os_ else (f"; over the cell's own stretch {os_['window'][0]} .. {os_['window'][1]} ({os_['years']:.2f} years): the reference alone ROC {os_['reference_alone']['roc']:.2f} ({ya(os_['reference_alone'])}), "
+                              f"with c x cell ROC {os_['with_c']['roc']:.2f} ({ya(os_['with_c'])})")
+    return (f"c x{a2['c']:.4g} (cell daily std ${a2['std_cell']:,.0f} vs #463's ${a2['std_book']:,.0f} over {a2['window'][0]} .. {a2['window'][1]}); on the reference's WF ({a2['years']:.2f} years; dollars a year = net / years): REFERENCE + c x cell ROC@30k {a2['roc']:.2f} ({ya(a2)}) Sortino {a2['sortino']:.3f} "
+            f"against the reference's {rf['roc']:.2f} ({ya(rf)}) / {rf['sortino']:.3f} -> "
             + ("INCREMENTAL PASS (both above, beta rule met): a forward BOOK shadow line opens, MANAGER #70's gate follows" if a2["incremental_pass"] else
                "no incremental pass (both must be above" + ("" if a2["beta_rule_ok"] else "; the beta rule is not met") + ")")
-            + f"; at 0.5c ROC {a2['at_half_c']['roc']:.2f} / Sortino {a2['at_half_c']['sortino']:.3f}, at 2c ROC {a2['at_double_c']['roc']:.2f} / Sortino {a2['at_double_c']['sortino']:.3f}; the plain #463 + c x cell book (a reported row): ROC {pl['roc']:.2f} / Sortino {pl['sortino']:.2f}")
+            + f"; at 0.5c ROC {a2['at_half_c']['roc']:.2f} ({ya(a2['at_half_c'])}) / Sortino {a2['at_half_c']['sortino']:.3f}, at 2c ROC {a2['at_double_c']['roc']:.2f} ({ya(a2['at_double_c'])}) / Sortino {a2['at_double_c']['sortino']:.3f}; "
+            f"the plain #463 + c x cell book (a reported row): ROC {pl['roc']:.2f} ({ya(pl)}) / Sortino {pl['sortino']:.2f}" + own)
 
 
-def print_cells(res, audit_st=None):
+def print_cells(res, audit_st=None, tag="", reported=False):
+    """both cells' rows of one reading: the REGISTERED reading (default) or - reported=True, tag '@20' - the REPORTED 20-name-floor reading beside it [N7] (its own null; its (a)-(e) line says it is information only)"""
     nul = res["null"]
+    lab = f" under the {FLOOR_REPORTED}-name floor" if reported else ""
+    info = f" under the {FLOOR_REPORTED}-name floor (REPORTED, never a pass route)" if reported else ""
     if nul:
-        print(f"  null ({nul['draws']} draws, seed {nul['seed']}, the MAX over the 2 cells): ROC@30k p5 {nul['roc_max']['p5']:.1f} p50 {nul['roc_max']['p50']:.1f} p95 {nul['roc_max']['p95']:.1f}; each cell alone p50 / p95: "
+        print(f"  null{lab} ({nul['draws']} draws, seed {nul['seed']}, the MAX over the 2 cells): ROC@30k p5 {nul['roc_max']['p5']:.1f} p50 {nul['roc_max']['p50']:.1f} p95 {nul['roc_max']['p95']:.1f}; each cell alone p50 / p95: "
               + ", ".join(f"{c} {nul['by_cell'][c]['p50']:.1f} / {nul['by_cell'][c]['p95']:.1f}" for c in CELLS))
     for cell in CELLS:
         c = res["cells"][cell]
-        print("  " + row(cell, c))
+        print("  " + row(cell, c, tag))
         print("        stress: " + ", ".join(f"{k} net ${v['net']:,.0f} (ROC {v['roc']:.1f})" for k, v in {**c["stress"], **c["borrow"]}.items()) + "; by July-June year: " + " ".join(f"{y}-{(y + 1) % 100:02d}:{v:+,.0f}" for y, v in c["base"]["by_year"].items()))
         print(f"        2020-21 net ${c['base']['net_2020_21']:,.0f}; calendar 2022 net ${c['base']['net_2022']:,.0f}; without 2022 ${c['base']['net_ex2022']:,.0f}; without Feb 15 - Apr 30 2020 ${c['base']['net_ex2020']:,.0f}; without its best 1% of days ${c['base']['net_ex_best_days']:,.0f}, of name-months ${c['base']['net_ex_best_pos']:,.0f}")
         if "checks" in c:
             fails = [k for k, v in c["checks"].items() if not v]
-            print(f"        Stage A (a)-(e) {'PASS' if c['PASS'] else 'FAIL (' + ', '.join(fails) + ')'}" + ("" if audit_st is None else f"; the hand audit (f): {audit_st[cell]['audited']}/{audit_st[cell]['listed']} of the top-{AUDIT_N} listed are in newissue_audit.csv (information only: the lead signs (f) off)"))
+            print(f"        Stage A (a)-(e){info} {'PASS' if c['PASS'] else 'FAIL (' + ', '.join(fails) + ')'}" + ("" if audit_st is None else f"; the hand audit (f): {audit_st[cell]['audited']}/{audit_st[cell]['listed']} of the top-{AUDIT_N} listed are in newissue_audit.csv (information only: the lead signs (f) off)"))
         print(f"        [N2] {beta_text(c)}")
         print(f"        A2 (a report) [X1]: {a2_text(c['A2'])}")
         g = c["gate70"]
         print(f"        #70 gate basis [X1] (the REFERENCE book's {g['episodes']} drawdown episodes, {g['dd_days_from_2018_02']} DD days from 2018-02): the cell's DO {g['DO']:+.3f}, rho_dd {g['rho_dd']:+.3f}" + (
               f"; its null's DO (the MAX over the 2 cells) p5 {g['null_do_p5']:+.3f} p50 {g['null_do_p50']:+.3f} p95 {g['null_do_p95']:+.3f} -> the cell's DO is {'above' if g['DO_above_null_p95'] else 'not above'} the null's p95; DO without its best episode "
               f"{g['DO_ex_best_episode']:+.3f} ({g['best_episode']}); the gate's basis is {'met' if g['gate_basis_met'] else 'not met'}" + ("" if g["credited"] else " (the beta rule: never credited)") if "null_do_p95" in g else " (no null in this reading)"))
+
+
+def print_floors(res, res20):
+    """[N7] BOTH FLOORS SIDE BY SIDE: the registered floor's cells (E, M: the verdict) and the reported 20-name floor's (E @20, M @20: each reading with its own leg and its own null, never a pass route) in four columns - the traded rebalances and name-months, the net and the dollars a year, ROC @ $30k / Sortino,
+    the drawdown, the July-June years and the nets that decide (a)-(e), the realised beta, each reading's null p95, each reading's (a)-(e) verdict (the 20 reading's is information only) and A2's incremental pass"""
+    cols = [(res["cells"][c], c, "", res["null"]) for c in CELLS] + [(res20["cells"][c], c, f" @{FLOOR_REPORTED}", res20["null"]) for c in CELLS]
+    each = lambda f: [f(r_, n_) for r_, _c, _t, n_ in cols]
+    print(f"BOTH FLOORS SIDE BY SIDE [N7] - the REGISTERED {SPEC['floor']}-name floor (cells E, M: the verdict) and the REPORTED {FLOOR_REPORTED}-name floor (cells E @{FLOOR_REPORTED}, M @{FLOOR_REPORTED}: its own leg and its own null; never a pass route)")
+    print(diag_line("", [f"cell {c}{t}" for _r, c, t, _n in cols]))
+    print(diag_line("  traded rebalances / name-months", each(lambda r_, n_: f"{r_['base']['n_units']} / {r_['base']['n_pos']:,}")))
+    print(diag_line("  net $ / dollars a year (net / years)", each(lambda r_, n_: f"{r_['base']['net']:+,.0f} / {r_['base']['usd_per_year']:+,.0f}")))
+    print(diag_line("  ROC@30k / Sortino", each(lambda r_, n_: f"{r_['base']['roc']:.1f} / {r_['base']['sortino']:.2f}")))
+    print(diag_line("  max drawdown $", each(lambda r_, n_: f"{r_['base']['max_dd']:,.0f}")))
+    print(diag_line("  July-June years positive / net without calendar 2022 $", each(lambda r_, n_: f"{r_['base']['years_pos']} / {r_['base']['net_ex2022']:+,.0f}")))
+    print(diag_line("  net at 10 bps / at the 10%/yr borrow $", each(lambda r_, n_: f"{r_['stress']['10 bps']['net']:+,.0f} / {r_['borrow']['10%/yr']['net']:+,.0f}")))
+    print(diag_line("  realised beta to ES (per $ of short notional)", each(lambda r_, n_: f"{r_['realised_beta']['beta']:+.3f}")))
+    print(diag_line("  the null's ROC@30k p95 (the max over the 2 cells)", each(lambda r_, n_: f"{n_['roc_max']['p95']:.1f}" if n_ else "-")))
+    print(diag_line("  Stage A (a)-(e) (the 20 reading's: information only)", each(lambda r_, n_: (("PASS" if r_["PASS"] else "FAIL") if "PASS" in r_ else "-"))))
+    print(diag_line("  A2 incremental pass over the reference", each(lambda r_, n_: "yes" if r_["A2"]["incremental_pass"] else "no")))
+
+
+def print_episodes(res, ref, res20=None):
+    """[N10] the reference line's drawdown episodes (MDL r1's qualifying episodes of #463 + 0.264 x RES on its WF) INSIDE the cell's stretch: each episode's DD days (the day after the peak .. the trough) from the stretch's start on - an episode that starts before it is cut to the part inside it -
+    the reference's P&L over them, the cell's P&L inside each (a '+' marks an episode the cell HELPS in: it earns while the reference loses) and the count of episodes it helps in; with `res20` the reported 20-name-floor cells stand in two more columns"""
+    cols = [(res["cells"][c], c, "") for c in CELLS] + ([(res20["cells"][c], c, f" @{FLOOR_REPORTED}") for c in CELLS] if res20 else [])
+    e0 = cols[0][0]["ref_episodes_in_stretch"]
+    g = ref.structure
+    print(f"  THE REFERENCE LINE'S DRAWDOWN EPISODES [N10] (#463 + 0.264 x RES; MDL r1's rule: {e0['episodes_on_wf']} qualifying on its WF {WF0:%Y-%m-%d} .. {PRE_END:%Y-%m-%d}, {g['days']} DD days; {e0['inside']} have DD days inside the cell's stretch {WFN:%Y-%m-%d} .. {PRE_END:%Y-%m-%d}, {e0['cut']} of "
+          f"them cut to the part inside it) - the cell's P&L over those DD days (the day after the peak .. the trough); '+' = the cell helps there")
+    print(diag_line("  first DD day inside .. trough, depth (DD days inside / in all, the reference's P&L inside)", [f"cell {c}{t}" for _r, c, t in cols]))
+    for q, e in enumerate(e0["rows"]):
+        print(diag_line(f"  {e['first_dd_day']} .. {e['trough']} ${e['depth']:,.0f} ({e['dd_days_inside']}/{e['dd_days']} d{', cut' if e['cut'] else ''}, ref {e['book_pnl']:+,.0f})",
+                        [f"{r_['ref_episodes_in_stretch']['rows'][q]['cell_pnl']:+,.0f}" + (" +" if r_["ref_episodes_in_stretch"]["rows"][q]["helps"] else "") for r_, _c, _t in cols]))
+    print(diag_line(f"  all those episodes (the cell's P&L over the DD days inside; the reference's {e0['reference_pnl']:+,.0f})", [f"{r_['ref_episodes_in_stretch']['cell_pnl']:+,.0f}" for r_, _c, _t in cols]))
+    print(diag_line(f"  the cell HELPS in (of {e0['inside']} episodes inside the stretch)", [f"{r_['ref_episodes_in_stretch']['helped']} of {r_['ref_episodes_in_stretch']['inside']}" for r_, _c, _t in cols]))
+
+
+def traded_text(lc, lc20):
+    """[N7] / [N9] the traded months under BOTH floors, by fill year (registered / reported of the rebalances), and how many sit in 2018-03 .. 2022-03 - the LOW-POWER flag's claim, counted (leg_counts' records)"""
+    ys = sorted(set(lc["traded_by_fill_year"]) | set(lc20["traded_by_fill_year"]) | set(lc["rebalances_by_fill_year"]))
+    by = "; ".join(f"{y}: {lc['traded_by_fill_year'].get(y, 0)} / {lc20['traded_by_fill_year'].get(y, 0)} of {lc['rebalances_by_fill_year'].get(y, 0)}" for y in ys)
+    return (f"  TRADED MONTHS UNDER BOTH FLOORS [N7]: {lc['traded']} of the {lc['rebalances']} rebalances under the REGISTERED {lc['floor']}-name floor, {lc20['traded']} under the REPORTED {lc20['floor']}-name floor (never a pass route); by fill year (registered / reported of the rebalances): {by}; "
+            f"in 2018-03 .. 2022-03: {lc['traded_2018_03_to_2022_03']} of the {lc['traded']} (registered), {lc20['traded_2018_03_to_2022_03']} of the {lc20['traded']} (reported)")
 
 
 def print_variants(var):
@@ -1045,7 +1164,7 @@ def print_variants(var):
 
 
 def print_new_table(rows_):
-    """NEW names per month: by fill year min / median / max of the survivors of every removal (the age-window names before the removals beside), the months under the 20-name floor, E / M traded"""
+    """NEW names per month: by fill year min / median / max of the survivors of every removal (the age-window names before the removals beside), the months under the registered floor, E / M traded"""
     by = defaultdict(list)
     for r_ in rows_:
         by[r_["rank"][:4]].append(r_)
@@ -1104,14 +1223,16 @@ def diag_line(label, vals):
     return f"  {label:<{DIAG_LW}}" + "".join(f"{v:>{DIAG_CW}}" for v in vals)
 
 
-def print_diagnostics(res, rep, ref, var):
-    """[X2] DEEPER DIAGNOSTICS of the registered reading, both cells side by side: the cost curve at 0 / 5 / 10 / 20 bps a side (the stocks' cost; ES keeps its 0.5), the borrow rows (3 / 10 / 25 %/yr), a row per July-June year, the regime halves, a row per qualifying drawdown episode of the REFERENCE
-    book (the cell's P&L inside it), the short side and the long / hedge side apart, the 2020-21 boom and 2022 apart, [N5] the listing-year cohorts, the path by months since listing, and the REPORTED variant rows. None of it is a pass route"""
+def print_diagnostics(res, rep, ref, var, res20=None):
+    """[X2] DEEPER DIAGNOSTICS of the registered reading, both cells side by side: the cost curve at 0 / 5 / 10 / 20 bps a side (the stocks' cost; ES keeps its 0.5), the borrow rows (3 / 10 / 25 %/yr), a row per July-June year, the regime halves, [N10] the reference line's drawdown episodes
+    inside the cell's stretch (the cell's P&L inside each, the count it helps in), the short side and the long / hedge side apart, the 2020-21 boom and 2022 apart, [N5] the listing-year cohorts, the path by months since listing, and the REPORTED variant rows. With `res20` the same rows of the
+    REPORTED 20-name-floor reading stand in two more columns (cells E @20, M @20) [N7]. None of it is a pass route"""
     cells = res["cells"]
-    each = lambda f: [f(cells[c], c) for c in CELLS]
+    cols = [(cells[c], c, "") for c in CELLS] + ([(res20["cells"][c], c, f" @{FLOOR_REPORTED}") for c in CELLS] if res20 else [])
+    each = lambda f: [f(r_, c) for r_, c, _t in cols]
     nr = lambda s: f"{s['net']:+,.0f} / {s['roc']:.1f}"
-    print("DIAGNOSTICS [X2] - the registered reading, the WF stretch, both cells side by side; none of this is a pass route")
-    print(diag_line("", [f"cell {c}" for c in CELLS]))
+    print("DIAGNOSTICS [X2] - the registered reading, the WF stretch, both cells side by side" + (f"; cells E @{FLOOR_REPORTED}, M @{FLOOR_REPORTED} = the reported {FLOOR_REPORTED}-name-floor reading beside them [N7]" if res20 else "") + "; none of this is a pass route")
+    print(diag_line("", [f"cell {c}{t}" for _r, c, t in cols]))
     print("  COST CURVE - the stocks' cost a side (ES keeps its own 0.5 bps; borrow at its base 3%/yr): net $ / ROC@30k")
     for lab, get in (("0 bps", lambda c: c["cost0"]), ("5 bps (the base)", lambda c: c["base"]), ("10 bps", lambda c: c["stress"]["10 bps"]), ("20 bps", lambda c: c["stress"]["20 bps"])):
         print(diag_line(f"  {lab}", each(lambda c, k: nr(get(c)))))
@@ -1132,11 +1253,7 @@ def print_diagnostics(res, rep, ref, var):
         print(diag_line(f"  {lab}", each(lambda c, k: nr(c["halves"][lab]))))
         print(diag_line("    name-months", each(lambda c, k: f"{c['halves'][lab]['n_pos']:,}")))
     g = ref.structure
-    print(f"  THE REFERENCE BOOK'S DRAWDOWN EPISODES ({g['episodes']} qualifying, {g['days']} DD days; MDL r1's rule) - the cell's P&L inside each (the DD days: the day after the peak .. the trough)")
-    eps = cells[CELLS[0]]["ref_episodes"]
-    for q, e in enumerate(eps):
-        print(diag_line(f"  {e['first_dd_day']} .. {e['trough']} ${e['depth']:,.0f} ({e['dd_days']} d, ref {e['book_pnl']:+,.0f})", [f"{cells[c]['ref_episodes'][q]['cell_pnl']:+,.0f}" for c in CELLS]))
-    print(diag_line("  all the episodes (the cell's P&L over the DD days)", [f"{sum(x['cell_pnl'] for x in cells[c]['ref_episodes']):+,.0f}" for c in CELLS]))
+    print_episodes(res, ref, res20)
     print("  THE SHORT SIDE AND THE LONG / HEDGE SIDE APART (E: the ES hedge, M: the matched SEASONED longs; costs and borrow in their own side): net $ / ROC@30k")
     print(diag_line("  short side alone (every NEW name)", each(lambda c, k: nr(c["sides"]["short side only"]))))
     print(diag_line("  long / hedge side alone", each(lambda c, k: nr(c["sides"]["long / hedge side only"]))))
@@ -1182,16 +1299,22 @@ def print_exclusions(label, cnt):
         f"{y}: {cnt[y].get('n4_failed_names', 0)} / {cnt[y].get('n4_unverifiable_names', 0)}; {cnt[y].get('new_spinco_any', 0)} / {cnt[y].get('new_name_change_any', 0)}; {cnt[y].get('seas_name_change', 0)}" for y in ys))
 
 
-def leg_counts(W, L):
-    """COUNTS ONLY of a leg built in counts mode: the rebalances, the traded ones, the NEW survivors per rebalance (min / median / max), the first and last traded rank, the months under the floor, by cohort -> record"""
+def leg_counts(W, L, floor=None):
+    """COUNTS ONLY of a leg built in counts mode: the rebalances, the traded ones under `floor` (default the registered floor; a rebalance trades when its NEW survivors reach it - the E / M availability is the leg's own, set at the floor the leg was built under, so a REPORTED higher floor reads the same leg),
+    the traded months by fill year and how many fill in 2018-03 .. 2022-03 [N9], the NEW survivors per rebalance (min / median / max), the first and last traded rank, the months under the floor, by cohort -> record"""
+    fl = SPEC["floor"] if floor is None else floor
     n = [r_.n_new for r_ in L.recs]
-    tr = [r_ for r_ in L.recs if r_.traded]
+    tr = [r_ for r_ in L.recs if r_.n_new >= fl]
+    ym = lambda r_: (int(W.days[r_.f].year), int(W.days[r_.f].month))
     co, nm = Counter(), defaultdict(set)
     for r_ in L.recs:
         for y, c_ in zip(r_.cohort.tolist(), r_.new.tolist()):
             co[int(y)] += 1
             nm[int(y)].add(int(c_))
-    return {"rebalances": len(L.recs), "traded": len(tr), "below_floor": [f"{W.days[r_.r]:%Y-%m-%d}" for r_ in L.recs if not r_.traded], "new_per_rebalance": ([int(min(n)), float(np.median(n)), int(max(n))] if n else [0, 0.0, 0]),
+    return {"floor": fl, "rebalances": len(L.recs), "traded": len(tr), "traded_by_fill_year": {int(y): int(k_) for y, k_ in sorted(Counter(int(W.days[r_.f].year) for r_ in tr).items())},
+            "rebalances_by_fill_year": {int(y): int(k_) for y, k_ in sorted(Counter(int(W.days[r_.f].year) for r_ in L.recs).items())},
+            "traded_2018_03_to_2022_03": int(sum(1 for r_ in tr if (2018, 3) <= ym(r_) <= (2022, 3))),
+            "below_floor": [f"{W.days[r_.r]:%Y-%m-%d}" for r_ in L.recs if r_.n_new < fl], "new_per_rebalance": ([int(min(n)), float(np.median(n)), int(max(n))] if n else [0, 0.0, 0]),
             "seasoned_per_rebalance": ([int(min(r_.n_seas for r_ in L.recs)), float(np.median([r_.n_seas for r_ in L.recs])), int(max(r_.n_seas for r_ in L.recs))] if L.recs else [0, 0.0, 0]),
             "first_traded_rank": (f"{W.days[tr[0].r]:%Y-%m-%d}" if tr else None), "last_traded_rank": (f"{W.days[tr[-1].r]:%Y-%m-%d}" if tr else None),
             "cohort_name_months": {y: n_ for y, n_ in sorted(co.items())}, "cohort_names": {y: len(v) for y, v in sorted(nm.items())},
@@ -1207,7 +1330,7 @@ def audit_status(cands, audit):
 # ------------------------------------------------------------------ dryload: counts only
 def dryload():
     """the WF inputs through every loader (cut at 2025-06-30) and COUNTS only: listings by year and [N4]'s failures (every cached name and the names ever in the universe), the universe, the calendar's spin-off / name-change rows, the NEW and SEASONED names per rebalance, the exclusions by year, the
-    months under the 20-name floor, the NEW names by listing cohort, the first and last traded ranks, hygiene removals, the ES coverage. NO price, return, regression, hedge ratio, match, P&L or Stage A statistic is computed or printed: the basket-ES pair counts the hedge needs are counted from which
+    months under the registered 10-name floor and under the reported 20-name floor (the traded months under both, by fill year [N7]), the NEW names by listing cohort, the first and last traded ranks, hygiene removals, the ES coverage. NO price, return, regression, hedge ratio, match, P&L or Stage A statistic is computed or printed: the basket-ES pair counts the hedge needs are counted from which
     returns EXIST, no match is made and no position path is built"""
     prereg_ok()
     t0 = time.time()
@@ -1255,15 +1378,20 @@ def dryload():
     Lr, Lk = ni_build(W, ctx, WFN, PRE_END, "remove"), ni_build(W, ctx, WFN, PRE_END, "naive")
     r_all, f_all, x_all = M17.rm_schedule(W.days)
     inwf = [(r, f, x) for r, f, x in zip(r_all.tolist(), f_all.tolist(), x_all.tolist()) if x >= 0 and WFN <= W.days[x] <= PRE_END]
-    lc_ = leg_counts(W, Lr)
-    print(f"rebalances: {lc_['rebalances']} in WF (positions that exit {WFN:%Y-%m-%d} .. {PRE_END:%Y-%m-%d} with a rank at or after session {SPEC['hold_win'] - 1}), {lc_['traded']} with >= {SPEC['floor']} NEW names [N6] (E also needs >= {SPEC['beta_min']} basket-ES pairs of the {SPEC['beta_win']}: "
+    lc_, lc20 = leg_counts(W, Lr), leg_counts(W, Lr, FLOOR_REPORTED)
+    print(f"rebalances: {lc_['rebalances']} in WF (positions that exit {WFN:%Y-%m-%d} .. {PRE_END:%Y-%m-%d} with a rank at or after session {SPEC['hold_win'] - 1}), {lc_['traded']} with >= {SPEC['floor']} NEW names [N7] (E also needs >= {SPEC['beta_min']} basket-ES pairs of the {SPEC['beta_win']}: "
           f"{lc_['E_without_enough_basket_pairs']} traded months fail it; M needs a SEASONED candidate: {lc_['M_without_a_candidate']} fail it), {lc_['rebalances'] - lc_['traded']} under the floor; "
           f"{sum(1 for r, f, x in inwf if r < SPEC['hold_win'] - 1)} earlier ranks are warm-up; the stage's last rank has no next fill: unresolved, out")
     print(f"  first traded rank {lc_['first_traded_rank']}, last traded rank {lc_['last_traded_rank']}" + (f"; first rebalance of the WF {W.days[Lr.recs[0].r]:%Y-%m-%d}, last {W.days[Lr.recs[-1].r]:%Y-%m-%d}" if Lr.recs else ""))
     print(f"  months under the {SPEC['floor']}-name floor ({len(lc_['below_floor'])}): " + (", ".join(lc_["below_floor"]) if lc_["below_floor"] else "none"))
+    print(traded_text(lc_, lc20))
+    print(f"  months under the {FLOOR_REPORTED}-name floor ({len(lc20['below_floor'])}): " + (", ".join(lc20["below_floor"]) if lc20["below_floor"] else "none")
+          + f"; of the {lc20['traded']} traded months under it E fails its basket-ES pair count in {lc20['E_without_enough_basket_pairs']}, M has no SEASONED candidate in {lc20['M_without_a_candidate']}")
+    print(f"  {LOW_POWER}")
     n_pre = sum(1 for q in Lr.recs if q.newage >= SPEC["floor"])
-    print(f"  Stage A's bar (a) needs >= {RULES['reb']} traded rebalances: {lc_['traded']} of the {lc_['rebalances']} months clear the {SPEC['floor']}-name floor on the NEW survivors ({n_pre} would on the age-window count before the removals) -> "
-          + ("the bar is reachable" if lc_["traded"] >= RULES["reb"] else "the bar is UNREACHABLE: no cell can pass (a), whatever else is true"))
+    print(f"  Stage A's bar (a) [N8] needs >= {RULES['reb']} traded rebalances: {lc_['traded']} of the {lc_['rebalances']} months clear the REGISTERED {SPEC['floor']}-name floor on the NEW survivors ({n_pre} would on the age-window count before the removals) -> "
+          + ("the bar is reachable" if lc_["traded"] >= RULES["reb"] else "the bar is UNREACHABLE: no cell can pass (a), whatever else is true")
+          + f"; the reported {FLOOR_REPORTED}-name floor: {lc20['traded']} months clear it ({'the bar would be reachable there too' if lc20['traded'] >= RULES['reb'] else 'the bar would be unreachable there'}; information only)")
     mn, md, mx = lc_["new_per_rebalance"]
     sn, sd_, sx = lc_["seasoned_per_rebalance"]
     print(f"NEW names per month (survivors of every removal; min / median / max over the {lc_['rebalances']} rebalances): {mn} / {md:.0f} / {mx}; SEASONED candidates per month {sn} / {sd_:.0f} / {sx}; NEW name-months by listing cohort: "
@@ -1271,8 +1399,8 @@ def dryload():
     by = defaultdict(list)
     for r_ in Lr.recs:
         by[int(W.days[r_.f].year)].append(r_)
-    print("  by fill year (rebalances: NEW min / median / max; age-window names before the removals median; SEASONED median; under the floor): " + "; ".join(
-        f"{y}: {len(v)}: {min(q.n_new for q in v)} / {np.median([q.n_new for q in v]):.0f} / {max(q.n_new for q in v)}; {np.median([q.newage for q in v]):.0f}; {np.median([q.n_seas for q in v]):.0f}; {sum(not q.traded for q in v)}" for y, v in sorted(by.items())))
+    print(f"  by fill year (rebalances: NEW min / median / max; age-window names before the removals median; SEASONED median; under the registered {SPEC['floor']}-name floor / under the reported {FLOOR_REPORTED}-name floor): " + "; ".join(
+        f"{y}: {len(v)}: {min(q.n_new for q in v)} / {np.median([q.n_new for q in v]):.0f} / {max(q.n_new for q in v)}; {np.median([q.newage for q in v]):.0f}; {np.median([q.n_seas for q in v]):.0f}; {sum(not q.traded for q in v)} / {sum(q.n_new < FLOOR_REPORTED for q in v)}" for y, v in sorted(by.items())))
     print_counts("registered (a flag inside the hold removes the name)", Lr.cnt)
     print_counts("look-ahead (names flagged inside the hold stay, on their naive raw path)", Lk.cnt)
     print_exclusions("registered", Lr.cnt)
@@ -1285,7 +1413,7 @@ def dryload():
     print(f"cache manifest sha256: {manifest_sha()}")
     pm = peak_mb()
     print(f"dryload took {time.time() - t0:.0f}s" + (f", peak memory {pm:,.0f} MB" if pm else ""))
-    return {"listing_all": la, "listing_universe": lw, "leg": lc_}
+    return {"listing_all": la, "listing_universe": lw, "leg": lc_, "leg_reported_floor": lc20}
 
 
 # ------------------------------------------------------------------ Stage A
@@ -1362,6 +1490,11 @@ def stage_a():
     if unused:
         print(f"  NOTE: {len(unused)} audit data_event row(s) removed nothing (the name was not in that fill session's NEW or SEASONED sets): {unused[:5]}")
     t1 = time.time()
+    with spec(floor=FLOOR_REPORTED):                                                         # [N7] the same reading under the 20-name floor: REPORTED beside the registered one (its own leg, its own null stream vcode 2), never a pass route
+        res20, obj20 = evaluate(W, ctx, B, SN, ref, SRN, rows, "remove", NREP, 2, full=True)
+    del obj20
+    print(f"reported {FLOOR_REPORTED}-name-floor reading [N7] done ({time.time() - t1:.0f}s: its own leg, both cells, the stress and borrow rows and {NREP} null draws of its own)", flush=True)
+    t1 = time.time()
     resK, objK = evaluate(W, ctx, B, SN, ref, SRN, rows, "naive", NREP, 1, full=False)
     print(f"look-ahead reading (hold-flagged positions kept at naive raw P&L) done ({time.time() - t1:.0f}s)", flush=True)
     t1 = time.time()
@@ -1378,22 +1511,33 @@ def stage_a():
     pd.DataFrame([x for c in CELLS for x in cands[c]]).to_csv(os.path.join(OUT, "newissue_audit_candidates.csv"), index=False)
     print(f"WF {WFN:%Y-%m-%d} -> {PRE_END:%Y-%m-%d} ({int(wf.sum()):,} sessions) - the REGISTERED reading (a hygiene flag inside the hold removes the position); positions are counted by EXIT date")
     print_cells(resR, ast)
+    lcR, lc20 = leg_counts(W, objR.legs), leg_counts(W, objR.legs, FLOOR_REPORTED)
+    print(traded_text(lcR, lc20))
+    print(f"  {LOW_POWER}")
+    print(f"REPORTED {FLOOR_REPORTED}-NAME-FLOOR READING [N7] (the same WF and the same code; a month trades only with >= {FLOOR_REPORTED} NEW names; its own leg and null stream; NEVER a pass route):")
+    print_cells(res20, None, f" @{FLOOR_REPORTED}", True)
+    pass20 = [c for c in CELLS if res20["cells"][c].get("PASS") is True]
+    print(f"  under the {FLOOR_REPORTED}-name floor the cells clearing (a)-(e): {pass20 if pass20 else 'none'} (information only: the verdict is the registered {SPEC['floor']}-name floor's)")
+    print_floors(resR, res20)
     print(f"  look-ahead reading (positions with a flag INSIDE the hold kept at naive raw P&L) [O3]: null ROC p95 {resK['null']['roc_max']['p95']:.1f}")
     for cell in CELLS:
         k = resK["cells"][cell]
-        print(f"    {cell}: {row(cell, k)[3:]} | Stage A {'PASS' if k['PASS'] else 'FAIL'}" + ("   *** FLIPS the registered verdict ***" if flips[cell] else "   (same verdict)"))
+        print(f"    {cell}: {row_body(k)} | Stage A {'PASS' if k['PASS'] else 'FAIL'}" + ("   *** FLIPS the registered verdict ***" if flips[cell] else "   (same verdict)"))
     print_counts("L (registered)", objR.legs.cnt)
     print_counts("L (look-ahead)", objK.legs.cnt)
     print_exclusions("L (registered)", objR.legs.cnt)
     print_reports(rep, cells)
-    print_diagnostics(resR, rep, ref, var)
+    print_diagnostics(resR, rep, ref, var, res20)
     print(f"  audit candidates (the {AUDIT_N} largest name-month gains per cell, with the listing session, its [N4] count, the calendar's rows, the split factor, TBIS and the asset status) -> {os.path.join(OUT, 'newissue_audit_candidates.csv')}; the hand audit is the lead's "
           "(a data event found: a row symbol, date, cell, data_event in newissue_audit.csv and run stage_a again); audit rows found per list: " + ", ".join(f"{k} {v['audited']}/{v['listed']}" for k, v in ast.items()))
     judged = True
     out.update({"judged": judged, "pending_hand_audit": passing, "audit_sha256": asha, "audit": aud_n, "audit_status": ast, "audit_data_events_without_effect": unused,
-                "stageA": {"cells": cells, "null": resR["null"], "registered_pass_cells": passing},
+                "stageA": {"cells": cells, "null": resR["null"], "registered_pass_cells": passing, "floor": SPEC["floor"]},
+                "floor_reported": {"floor": FLOOR_REPORTED, "note": "[N7] the same reading under the 20-name floor: REPORTED beside the registered one (its own leg and null stream), never a pass route", "cells": res20["cells"], "null": res20["null"],
+                                   "cells_clearing_a_to_e_information_only": pass20},
+                "traded_months": {"registered": lcR, "reported": lc20}, "low_power_flag": LOW_POWER,
                 "candidate": ({"cell": cand, "c": cells[cand]["A2"]["c"], "std_book": cells[cand]["A2"]["std_book"], "std_cell": cells[cand]["A2"]["std_cell"], "window": cells[cand]["A2"]["window"], "a2_book_roc": cells[cand]["A2"]["roc"],
-                               "a2_reference_roc": cells[cand]["A2"]["reference"]["roc"], "incremental_pass": cells[cand]["A2"]["incremental_pass"], "book_shadow_line": cells[cand]["A2"]["book_shadow_line"],
+                               "a2_reference_roc": cells[cand]["A2"]["reference"]["roc"], "a2_book_usd_per_year": cells[cand]["A2"]["usd_per_year"], "a2_reference_usd_per_year": cells[cand]["A2"]["reference"]["usd_per_year"], "incremental_pass": cells[cand]["A2"]["incremental_pass"], "book_shadow_line": cells[cand]["A2"]["book_shadow_line"],
                                "realised_beta": cells[cand]["realised_beta"]["beta"], "beta_credited": cells[cand]["beta_gate"]["credited"], "also_passes": [c for c in passing if c != cand]} if cand else None),
                 "parity": {c: {"net": cells[c]["base"]["net"], "n_pos": cells[c]["base"]["n_pos"], "n_units": cells[c]["base"]["n_units"]} for c in CELLS},
                 "look_ahead_reading": {"null": resK["null"], "cells": {c: {k: resK["cells"][c].get(k) for k in ("PASS", "base", "stress", "borrow", "seat", "seat_ref", "checks", "A2", "realised_beta", "beta_gate")} for c in CELLS}, "flips": flips},
@@ -1402,13 +1546,13 @@ def stage_a():
     dump(out, "newissue_stageA.json")
     for c in passing:
         a2 = cells[c]["A2"]
-        print(f"Stage A (a)-(e) pass, (f) awaits the hand audit - cell {c}; WF ROC@30k {cells[c]['base']['roc']:.1f}; [N2] {beta_text(cells[c])}; A2 (a report) [X1]: {a2_text(a2)}")
+        print(f"Stage A (a)-(e) pass, (f) awaits the hand audit - cell {c}; WF ROC@30k {cells[c]['base']['roc']:.1f} (${cells[c]['base']['usd_per_year']:,.0f} a year); [N2] {beta_text(cells[c])}; A2 (a report) [X1]: {a2_text(a2)}")
     if passing:
         print(f"NEWISSUE Stage A: (a)-(e) pass for {passing}; (f) AWAITS THE HAND AUDIT of the {AUDIT_N} largest contributors (the harness never decides it); candidate {cand}"
               + (f" (the PRIMARY cell E, addendum 1 [N2]; M {'also passes' if 'M' in passing else 'does not'})" if cand == "E" else " (E does not pass)") + f". Stage B needs the lead's go-flag {GO_FLAG} (written after the hand audit, on the stock families' one sealed-year day) - "
-              "and a recent listing can be impossible to borrow in size at any price: even a pass is a paper result until a broker's locate list is checked [N1].")
+              "and a recent listing can be impossible to borrow in size at any price: even a pass is a paper result until a broker's locate list is checked [N1]. " + LOW_POWER + ".")
     else:
-        print("NEWISSUE Stage A: FAIL - no cell passes (a)-(e) (" + "; ".join(f"{c}: " + ", ".join(k for k, v in cells[c]["checks"].items() if not v) for c in CELLS) + ") - NEWISSUE r1 is dead; no other age windows or matching rules are tried; the lockbox stays sealed.")
+        print("NEWISSUE Stage A: FAIL - no cell passes (a)-(e) (" + "; ".join(f"{c}: " + ", ".join(k for k, v in cells[c]["checks"].items() if not v) for c in CELLS) + ") - NEWISSUE r1 is dead; no other age windows or matching rules are tried; the lockbox stays sealed. " + LOW_POWER + ".")
     pm = peak_mb()
     print(f"stage_a took {time.time() - t0:.0f}s" + (f", peak memory {pm:,.0f} MB" if pm else ""))
     return out
@@ -1495,25 +1639,39 @@ def stage_b():
     run = cell_run(W, L, cell, cfg_of())
     leg, xB, cB = stat_of(B, rows, run, LB0, LB1)
     r = D15.book_at(B, xB, c, LB0, LB1)                                                        # the book add at the FROZEN c - c is never re-set on the sealed year
+    yrs_lb = stretch_years(B, LB0, LB1)
+    nan_ = float("nan")
+    r["usd_per_year"] = usd_per_year(r["net"], yrs_lb)                                         # [N10] dollars a year (net / years) beside every ROC @ $30k of the book add: the book add, #463 alone on the same year
+    kk = B.mask(LB0, LB1)
+    a463 = R11.stats(np.asarray(B.raw, float)[kk], B.index[kk]) or {}
+    alone = {"roc": a463.get("roc", nan_), "sortino": a463.get("sort", nan_), "net": a463.get("net", nan_), "usd_per_year": usd_per_year(a463.get("net", nan_), yrs_lb)}
+    with spec(floor=FLOOR_REPORTED):                                                           # [N7] the sealed year's leg under the 20-name floor too: REPORTED beside the registered one, never a pass route (computed here, before the flag, like the rest)
+        L20 = ni_build(W, ctx, LB0, LB1, "remove")
+    leg20, xB20, _cB20 = stat_of(B, rows, cell_run(W, L20, cell, cfg_of()), LB0, LB1)
+    r20 = D15.book_at(B, xB20, c, LB0, LB1)
+    r20["usd_per_year"] = usd_per_year(r20["net"], yrs_lb)
     would = book_add_would_clear(r)                                                            # the old sealed-year bar (#463's own LB numbers, 155.54 / 4.150): reported, never judged
     chk = b_checks(leg)
     ok = all(chk.values())                                                                     # the pass is the LEG's veto - the book add below is a report and is not in this line
-    add = {"c": c, "roc": r["roc"], "sortino": r["sortino"], "net": r["net"], "max_dd": r["max_dd"], "reference": {"roc": RULES["b_roc"], "sortino": RULES["b_sort"]}, "would_have_cleared": would,
+    add = {"c": c, "roc": r["roc"], "sortino": r["sortino"], "net": r["net"], "max_dd": r["max_dd"], "usd_per_year": r["usd_per_year"], "years": yrs_lb, "reference": {"roc": RULES["b_roc"], "sortino": RULES["b_sort"]}, "reference_463_alone": alone, "would_have_cleared": would,
+           "reported_20_floor": {"floor": FLOOR_REPORTED, "roc": r20["roc"], "sortino": r20["sortino"], "net": r20["net"], "usd_per_year": r20["usd_per_year"], "max_dd": r20["max_dd"]},
            "note": "reported, never a pass (MANAGER #48): the forward record decides any book add (owner call); the plain #463 + c x cell - the REFERENCE book has no sealed-year line"}
     cnt = {y: dict(v) for y, v in sorted(L.cnt.items())}
-    text = json.dumps({"cell": cell, "c": c, "go_flag": go_text, "book_check": bk, "es_masters": es_meta, "leg": leg, "checks": chk, "pass": bool(ok), "book_add_reported": add, "es_return_lb": hole_rec, "wide_calendar": W.ca,
+    text = json.dumps({"cell": cell, "c": c, "go_flag": go_text, "book_check": bk, "es_masters": es_meta, "leg": leg, "leg_reported_floor": {"floor": FLOOR_REPORTED, "leg": leg20}, "low_power_flag": LOW_POWER, "checks": chk, "pass": bool(ok), "book_add_reported": add, "es_return_lb": hole_rec, "wide_calendar": W.ca,
                        "hygiene_counts_by_year": cnt, "top_name_months": ni_candidate_rows(W, ctx, L, cell, run, tbis, D15.asset_status(), 20), **stamp(), "prereg_sha256_lf": PREREG_SHA}, indent=1, default=R11.js)
     buf = io.StringIO()                                                                        # the whole printout is built here, before the flag: a formatting error cannot burn the lockbox
     with contextlib.redirect_stdout(buf):
         print("Stage B (lockbox, read once) - the sealed year is the LEG's standalone veto")
-        print(f"  {cell}: name-months {leg['n_pos']:,}, monthly rebalances {leg['n_units']:,}, net ${leg['net']:,.0f}, ROC@30k {leg['roc']:.1f}, Sortino {leg['sortino']:.2f}; its top name-month ${leg['top_pos']:,.0f}, net without it ${leg['net_ex_top_pos']:,.0f}")
+        print(f"  {cell}: name-months {leg['n_pos']:,}, monthly rebalances {leg['n_units']:,}, net ${leg['net']:,.0f} (${leg['usd_per_year']:,.0f} a year), ROC@30k {leg['roc']:.1f}, Sortino {leg['sortino']:.2f}; its top name-month ${leg['top_pos']:,.0f}, net without it ${leg['net_ex_top_pos']:,.0f}")
+        print(f"  {cell} @{FLOOR_REPORTED} (the REPORTED {FLOOR_REPORTED}-name floor [N7], never a pass route): name-months {leg20['n_pos']:,}, monthly rebalances {leg20['n_units']:,}, net ${leg20['net']:,.0f} (${leg20['usd_per_year']:,.0f} a year), ROC@30k {leg20['roc']:.1f}, Sortino {leg20['sortino']:.2f}")
         print("  " + hole_txt)
         print("  Stage B checks: " + ", ".join(k + (" ok" if v else " FAIL") for k, v in chk.items()) + f" -> {'PASS' if ok else 'FAIL'}")
-        print(f"  book add, REPORTED and never part of the pass: #463 + {cell} x{c:.4g} (frozen): LB ROC@30k {r['roc']:.2f} Sortino {r['sortino']:.3f} net ${r['net']:,.0f} -> would "
-              f"{'have' if would else 'NOT have'} cleared {RULES['b_roc']:g} / {RULES['b_sort']:g}")
+        print(f"  book add, REPORTED and never part of the pass: #463 + {cell} x{c:.4g} (frozen): LB ROC@30k {r['roc']:.2f} Sortino {r['sortino']:.3f} net ${r['net']:,.0f} (${r['usd_per_year']:,.0f} a year) -> would "
+              f"{'have' if would else 'NOT have'} cleared {RULES['b_roc']:g} / {RULES['b_sort']:g}; #463 alone on the sealed year: ROC@30k {alone['roc']:.2f} (${alone['usd_per_year']:,.0f} a year); under the reported {FLOOR_REPORTED}-name floor the book add: "
+              f"ROC@30k {r20['roc']:.2f} Sortino {r20['sortino']:.3f} (${r20['usd_per_year']:,.0f} a year)")
         print("NEWISSUE Stage B: " + ("PASS - the leg survives its sealed year: it goes to a computed no-order FORWARD SHADOW (Stage C) with its own bar, logged by research id; the book add above is a report - "
                                       "the forward record decides any book add, and opening any account is the owner's decision (owner call); a broker's locate list must be checked first [N1]." if ok else
-                                      "FAIL - the leg is vetoed by its sealed year: NEWISSUE r1 is dead; ledger + memory."))
+                                      "FAIL - the leg is vetoed by its sealed year: NEWISSUE r1 is dead; ledger + memory.") + " " + LOW_POWER + ".")
     with open(flag, "x") as f:                                                                 # exclusive create: the one read starts here - what is left is two writes and a print
         f.write(pd.Timestamp.now().isoformat())
     with open(os.path.join(OUT, "newissue_stageB.json"), "w") as f:
@@ -1807,22 +1965,25 @@ def brute_dv(W, r, j):
 
 # ------------------------------------------------------------------ selftest: hand-made worlds, no files, no data
 def t_constants():
-    """the constants are the registered ones (prereg draft v1 + addenda 1 and 2), the pre-registration on disk is the registered file (its LF sha256, and the committed blob when git is there)"""
+    """the constants are the registered ones (prereg draft v1 + addenda 1, 2 and 3), the pre-registration on disk is the registered file (its LF sha256, and the committed blob when git is there)"""
     assert (NREP, SEED, CELLS, AUDIT_N) == (500, 20261005, ("E", "M"), 50) and YEARS == tuple(range(2017, 2025)) and COHORTS == tuple(range(2016, 2025)) and AGE_MONTHS == tuple(range(4, 25))
-    assert (SPEC["new_lo"], SPEC["new_hi"], SPEC["seas_months"], SPEC["nc_months"], SPEC["n4_next"], SPEC["n4_min"], SPEC["floor"], SPEC["slot"], SPEC["beta_win"], SPEC["dv_n"], SPEC["n3_lo"], SPEC["n3_hi"]) == (126, 504, 36, 24, 20, 18, 20, 4000.0, 126, 20, 84, 168)
+    assert (SPEC["new_lo"], SPEC["new_hi"], SPEC["seas_months"], SPEC["nc_months"], SPEC["n4_next"], SPEC["n4_min"], SPEC["floor"], SPEC["slot"], SPEC["beta_win"], SPEC["dv_n"], SPEC["n3_lo"], SPEC["n3_hi"]) == (126, 504, 36, 24, 20, 18, 10, 4000.0, 126, 20, 84, 168)
     assert SPEC["hold_win"] == 252 and SPEC["min_n"] == 230 and SPEC["pre"] == 25 and SPEC["old"] == 125 and SPEC["month"] == 21 and SPEC["beta_min"] == 115
     assert (BORROW, BORROW_STRESS, COST_BPS, tuple(STRESS_BPS), ES_BPS, BETA_RULE) == (0.03, (0.10, 0.25), 5.0, (10.0, 20.0), 0.5, 0.20)
     assert (A2_WIN, A2_TARGET, A2_REPORT, WFN, FIRST_SESSION, X2022, BOOM) == ((TS("2018-02-01"), TS("2020-01-31")), 0.25, (0.5, 2.0), TS("2018-02-01"), TS("2016-01-04"), (TS("2022-01-01"), TS("2022-12-31")), (TS("2020-01-01"), TS("2021-12-31")))
     assert (WF0, PRE_END, LB0, LB1) == (TS("2016-07-01"), TS("2025-06-29"), TS("2025-06-30"), TS("2026-06-30")) and (S.LB0, S.END) == (LB0, R11.LBX) and (BOOK_WF, BOOK_LB, DEEPEST_WF) == ((93.81, 3.816), (155.54, 4.15), 44849.0)
-    assert RULES["reb"] == 60 and RULES["roc"] == 15.0 and RULES["years"] == 5 and RULES["best_pct"] == 1 and RULES["beta_abs"] == 0.20 and RULES["b_reb"] == 10 and (RULES["b_roc"], RULES["b_sort"]) == BOOK_LB
+    assert FLOOR_REPORTED == 20 > SPEC["floor"] == 10, "[N7] the registered floor is 10 NEW names; the 20-name reading is printed beside every cell row"
+    assert all(s in LOW_POWER for s in ("LOW-POWER FLAG [N9]", "2018-03 .. 2022-03", "listing boom", "2020-21", "2022", "after 2022", "top-500 universe", "net > 0 without calendar 2022", "stays binding", "any pass is a LOW-POWER, FLAGGED result"))
+    assert RULES["reb"] == 40 and RULES["roc"] == 15.0 and RULES["years"] == 5 and RULES["best_pct"] == 1 and RULES["beta_abs"] == 0.20 and RULES["b_reb"] == 10 and (RULES["b_roc"], RULES["b_sort"]) == BOOK_LB
     assert HALVES[0][1:] == (TS("2018-02-01"), TS("2021-12-31")) and HALVES[1][1:] == (TS("2022-01-01"), TS("2025-06-29")) and CHECK_BOOK is True
     assert (ST_NONE, ST_START, ST_OK, ST_FAIL, ST_LATE) == (0, 1, 2, 3, 4) and set(ST_NAME) == {0, 1, 2, 3, 4}
     assert HYG == ("split", "gap", "tbis", "jump") and GO_FLAG == "newissue_stageB_GO.flag" and READ_FLAG == "newissue_stageB_READ.flag"
-    assert R11.sha_lf(PREREG) == PREREG_SHA == "ee0b8615a7afddc594aeae6579848af89cc4e7850282ac82689a145a62d094db"
+    assert R11.sha_lf(PREREG) == PREREG_SHA == "e4900bcb1d74e2c92e88fb03452c1843c9dc379c807f15e83ad3f03d583b03ae"
     with quiet():
         assert prereg_ok()["verified"] is True
     txt = open(PREREG, encoding="utf-8", newline="").read()
-    for frag in ("[N1] BORROW", "3%/yr", "PRIMARY", "0.20", "126 .. 504", "[N6] SIZE FLOOR", "fewer than 20 NEW names", "seed 20261005", "500 draws", "[X1]", "[X2]", "18 of the 20"):
+    for frag in ("[N1] BORROW", "3%/yr", "PRIMARY", "0.20", "126 .. 504", "[N6] SIZE FLOOR", "fewer than 20 NEW names", "seed 20261005", "500 draws", "[X1]", "[X2]", "18 of the 20", "PRE-DATA ADDENDUM 3", "[N7] FLOOR 10", "fewer than 10 NEW names (counted after every removal)", "[N8] BAR (a) = at least 40 traded rebalances", "[N9]", "stays BINDING", "2018-03 .. 2022-03", "any pass is a LOW-POWER, FLAGGED result",
+                 "[N10] (MANAGER #100)", "dollars a year (net / years)", "45 on the walk-forward", "both floors side by side"):
         assert frag in txt or frag.replace("[N1] ", "") in txt, frag
     return True
 
@@ -2207,7 +2368,7 @@ def t_costs():
 
 
 def t_floor():
-    """[N6] a month with fewer than 20 NEW names trades nothing in either cell: 19 NEW names -> not traded, counted, both cells hold nothing; 20 -> traded. E also needs a defined hedge ratio (an ES history with too few pairs: E trades nothing, M still does); M needs a SEASONED candidate (none: M trades nothing,
+    """[N7] a month with fewer than 10 NEW names (the registered floor; 20 is the reported reading's) trades nothing in either cell: 9 NEW names -> not traded, counted, both cells hold nothing; 10 -> traded (19 trades under the registered floor and not under the reported one). E also needs a defined hedge ratio (an ES history with too few pairs: E trades nothing, M still does); M needs a SEASONED candidate (none: M trades nothing,
     E does); fewer SEASONED names than NEW names leaves the rest unmatched and unshorted in M"""
     def world(n_new, n_seas, es_nan=()):
         days = pd.bdate_range("2024-01-01", periods=330)
@@ -2215,6 +2376,16 @@ def t_floor():
         r = int([r_ for r_ in r_all if r_ >= 120][0])
         cols = [dict(sym=f"A{k:02d}", first=0, dvol=1e7 * (k + 1)) for k in range(n_seas)] + [dict(sym=f"N{k:02d}", first=r - 40 + k, dvol=1e7 * (k + 1) + 3e6, drift=-0.001) for k in range(n_new)]
         return ni_world(cols, T=330, seed=4, es_nan=es_nan), r
+    for fl, cases in ((10, ((9, False), (10, True), (19, True))), (FLOOR_REPORTED, ((19, False), (20, True)))):
+        with spec(**{**SMALL, "floor": fl}):
+            for n_new, traded_ in cases:
+                w, r = world(n_new, 14)
+                L = ni_build(w.W, w.ctx, w.W.days[0], w.W.days[-1])
+                rec = next(q for q in L.recs if q.r == r)
+                assert rec.n_new == n_new and rec.traded is traded_ and rec.tE is traded_ and rec.tM is traded_, (fl, n_new, rec.n_new, rec.traded)
+                assert sum(v["below_floor"] for v in L.cnt.values()) >= (0 if traded_ else 1)
+                lcx = leg_counts(w.W, SimpleNamespace(recs=[rec]))
+                assert lcx["floor"] == fl and lcx["traded"] == int(traded_) and (lcx["below_floor"] == []) is traded_, (fl, n_new)
     with spec(**{**SMALL, "floor": 20}):
         for n_new, traded_ in ((19, False), (20, True)):
             w, r = world(n_new, 14)
@@ -2717,6 +2888,9 @@ def t_counts_only():
         lc = leg_counts(W, cnt_leg)
         n = [q.n_new for q in full.recs]
         assert lc["rebalances"] == len(full.recs) and lc["traded"] == sum(q.traded for q in full.recs) and lc["new_per_rebalance"] == [min(n), float(np.median(n)), max(n)] and lc["below_floor"] == [f"{W.days[q.r]:%Y-%m-%d}" for q in full.recs if not q.traded]
+        l8 = leg_counts(W, cnt_leg, 8)                                                          # [N7] the same leg read under a higher floor
+        assert lc["floor"] == SPEC["floor"] and l8["floor"] == 8 and l8["traded"] == sum(q.n_new >= 8 for q in full.recs) < lc["traded"] and l8["below_floor"] == [f"{W.days[q.r]:%Y-%m-%d}" for q in full.recs if q.n_new < 8]
+        assert sum(lc["traded_by_fill_year"].values()) == lc["traded"] and sum(lc["rebalances_by_fill_year"].values()) == lc["rebalances"] == len(full.recs) and sum(l8["traded_by_fill_year"].values()) == l8["traded"]
         tr = [q for q in full.recs if q.traded]
         assert lc["first_traded_rank"] == f"{W.days[tr[0].r]:%Y-%m-%d}" and lc["last_traded_rank"] == f"{W.days[tr[-1].r]:%Y-%m-%d}"
         co, nm = Counter(), defaultdict(set)
@@ -2741,14 +2915,21 @@ def t_integration():
         rows = A13.book_rows(B, W)
         res, obj = evaluate(W, ctx, B, SN, rb, SRN, rows, "remove", 8, 0, full=True)
         resK, objK = evaluate(W, ctx, B, SN, rb, SRN, rows, "naive", 8, 1, full=False)
+        with spec(floor=8):                                                                    # [N7] the same reading under a higher floor (the reported one is 20: this world has 7 .. 10 NEW names a month), its own leg and null stream
+            res20, obj20 = evaluate(W, ctx, B, SN, rb, SRN, rows, "remove", 8, 2, full=True)
         L = obj.legs
         assert res["variant"] == "remove" and resK["variant"] == "naive" and set(res["cells"]) == {"E", "M"} and res["null"]["draws"] == 8 and res["null"]["seed"] == SEED
         stretch = np.asarray((W.days >= WFN) & (W.days <= PRE_END))
         assert stretch.all(), "the planted world lies inside the WF stretch"
         for cell in CELLS:
             c = res["cells"][cell]
-            for key in ("base", "stress", "borrow", "seat", "seat_ref", "realised_beta", "beta_gate", "A2", "ref_episodes", "gate70", "cost0", "sides", "halves", "short0", "short_stopped", "checks", "PASS"):
+            for key in ("base", "stress", "borrow", "seat", "seat_ref", "realised_beta", "beta_gate", "A2", "ref_episodes", "ref_episodes_in_stretch", "gate70", "cost0", "sides", "halves", "short0", "short_stopped", "checks", "PASS"):
                 assert key in c, (cell, key)
+            kk = np.flatnonzero(B.mask(WFN, PRE_END))
+            yrs_ = (B.index[kk[-1]] - B.index[kk[0]]).days / 365.25                              # [N10] dollars a year = net / years of the stretch, the house's years
+            assert c["base"]["years"] == yrs_ and c["base"]["usd_per_year"] == c["base"]["net"] / yrs_ and all(c[k_][b_]["usd_per_year"] == c[k_][b_]["net"] / yrs_ for k_ in ("stress", "borrow") for b_ in c[k_]) and c["A2"]["years"] == stretch_years(B, WF0, PRE_END)
+            eis = c["ref_episodes_in_stretch"]
+            assert eis == episodes_in_stretch(rb, obj.series[cell][0], WFN, PRE_END) and eis["episodes_on_wf"] == len(rb.S.qual) == rb.structure["episodes"] and 1 <= eis["inside"] <= len(rb.S.qual) and eis["helped"] == sum(r_["cell_pnl"] > 0 for r_ in eis["rows"])
             net = lambda **kw: float(brute_cell_series(W, L, cell, **kw)[0].sum())
             assert abs(c["base"]["net"] - net()) < 1e-6 and c["base"]["n_pos"] == brute_cell_series(W, L, cell)[1] and abs(c["cost0"]["net"] - net(bps=0.0)) < 1e-6
             assert abs(c["stress"]["10 bps"]["net"] - net(bps=10.0)) < 1e-6 and abs(c["stress"]["20 bps"]["net"] - net(bps=20.0)) < 1e-6 and set(c["stress"]) == {"10 bps", "20 bps"}
@@ -2764,13 +2945,22 @@ def t_integration():
             assert len(c["ref_episodes"]) == len(rb.S.qual) and c["beta_gate"]["credited"] is (abs(c["realised_beta"]["beta"]) <= 0.20) and c["A2"]["beta_rule_ok"] is c["beta_gate"]["credited"] and c["gate70"]["credited"] is c["beta_gate"]["credited"]
             assert c["A2"]["incremental_pass"] is (c["A2"]["incremental_pass_before_the_beta_rule"] and c["beta_gate"]["credited"])
             nul = res["null"]
-            assert set(c["checks"]) >= {"rebalances>=60", "ROC>=15", "net>0 at 5 bps", "net>0 at 10 bps", "net>0 at 10%/yr borrow", "ROC>null p95", "positive in >=5 of 8 July-June years", "net>0 without Feb 15 - Apr 30 2020", "net>0 without calendar 2022",
-                                        "profitable without its best 1% of days", "profitable without its best 1% of name-months"} and c["checks"]["rebalances>=60"] is False and c["PASS"] is False
+            assert set(c["checks"]) >= {"rebalances>=40", "ROC>=15", "net>0 at 5 bps", "net>0 at 10 bps", "net>0 at 10%/yr borrow", "ROC>null p95", "positive in >=5 of 8 July-June years", "net>0 without Feb 15 - Apr 30 2020", "net>0 without calendar 2022",
+                                        "profitable without its best 1% of days", "profitable without its best 1% of name-months"} and c["checks"]["rebalances>=40"] is False and c["PASS"] is False
             assert c["checks"]["ROC>null p95"] is bool(c["base"]["roc"] > nul["roc_max"]["p95"]) and c["checks"]["net>0 at 10%/yr borrow"] is bool(c["borrow"]["10%/yr"]["net"] > 0) and c["checks"]["net>0 at 10 bps"] is bool(c["stress"]["10 bps"]["net"] > 0)
             g = c["gate70"]
             assert g["null_do_p95"] == nul["do_ref_max"]["p95"] and g["DO_above_null_p95"] is bool(g["DO"] > g["null_do_p95"]) and g["gate_basis_met"] is bool(g["credited"] and g["DO_above_null_p95"] and g["DO_ex_best_episode"] > 0)
             assert resK["cells"][cell]["base"]["net"] == c["base"]["net"], "no hygiene flag inside any hold: the look-ahead reading is the registered one"
         assert "cost0" not in resK["cells"]["E"] and resK["null"]["draws"] == 8
+        # [N7] the reading under the higher floor: its own leg (the months that reach it), the cells recounted by plain python on those months, its own null; the registered reading is untouched by it
+        L8 = obj20.legs
+        assert [q.r for q in L8.recs] == [q.r for q in L.recs] and [q.traded for q in L8.recs] == [q.n_new >= 8 for q in L.recs] and 0 < sum(q.traded for q in L8.recs) < sum(q.traded for q in L.recs) and res20["null"]["draws"] == 8 and res20["null"]["seed"] == SEED
+        sub = SimpleNamespace(recs=[q for q in L.recs if q.n_new >= 8])
+        for cell in CELLS:
+            c8, c4 = res20["cells"][cell], res["cells"][cell]
+            xs8, n8 = brute_cell_series(W, sub, cell)
+            assert c8["base"]["n_pos"] == n8 and c8["base"]["n_units"] == len(sub.recs) and abs(c8["base"]["net"] - float(xs8.sum())) < 1e-6 and c8["base"]["net"] != c4["base"]["net"] and c8["base"]["usd_per_year"] == c8["base"]["net"] / c8["base"]["years"]
+            assert c8["checks"]["rebalances>=40"] is False and set(c8) == set(c4) and c8["ref_episodes_in_stretch"]["episodes_on_wf"] == c4["ref_episodes_in_stretch"]["episodes_on_wf"] and c8["ref_episodes_in_stretch"]["inside"] == c4["ref_episodes_in_stretch"]["inside"]
         # the regime halves split the positions by EXIT date and the daily series by session date: on a world that straddles 2021-12-31 / 2022-01-01 they add up to the whole
         w2, _r2 = pipe_world(start="2021-04-01")
         rows2 = A13.book_rows(B, w2.W)
@@ -2808,14 +2998,21 @@ def t_integration():
         assert rep["manifest_sha256"] == "0" * 64 and len(rep["new_table"]) == len(L.recs) and rep["hedge_ratio"]["rebalances"] == sum(q.tE for q in L.recs)
         # the printers
         ast = audit_status(cands, None)
-        txt = capture(print_cells, res, ast) + capture(print_reports, rep, res["cells"]) + capture(print_diagnostics, res, rep, rb, var) + capture(print_counts, "L (registered)", L.cnt) + capture(print_exclusions, "L (registered)", L.cnt)
+        with patched(THIS, FLOOR_REPORTED=8):                                                  # (the reported floor shrunk to this world's NEW counts)
+            txt = (capture(print_cells, res, ast) + capture(print_cells, res20, None, " @8", True) + capture(print_floors, res, res20) + capture(print_reports, rep, res["cells"]) + capture(print_diagnostics, res, rep, rb, var, res20)
+                   + capture(print_counts, "L (registered)", L.cnt) + capture(print_exclusions, "L (registered)", L.cnt))
+            txt_one = capture(print_diagnostics, res, rep, rb, var)
         for frag in ("null (8 draws, seed 20261005", "[N2] realised beta to ES", "A2 (a report) [X1]", "#70 gate basis [X1]", "Stage A (a)-(e) FAIL", "the hand audit (f): 0/50", "DIAGNOSTICS [X2]", "COST CURVE", "BORROW on every NEW short", "BY JULY-JUNE YEAR", "2020-21 (the listing boom) and calendar 2022 (the bust) apart",
-                     "THE TWO REGIME HALVES", "THE REFERENCE BOOK'S DRAWDOWN EPISODES", "THE SHORT SIDE AND THE LONG / HEDGE SIDE APART", "path by months since listing", "P&L by listing-year cohort", "short side alone", "VARIANT ROWS", "[N3] 4-8 months after listing", "spinco names included",
-                     "NEW names per month by the rank's year", "NEW name-months by listing-year cohort", "cell E's ex-ante hedge ratio", "daily correlation with RESMOM's RES", "NEW names by fill year", "SEASONED names by fill year", "exclusions by fill year", "top name-month gain 1"):
+                     "THE TWO REGIME HALVES", "THE REFERENCE LINE'S DRAWDOWN EPISODES [N10]", "the cell HELPS in", "THE SHORT SIDE AND THE LONG / HEDGE SIDE APART", "path by months since listing", "P&L by listing-year cohort", "short side alone", "VARIANT ROWS", "[N3] 4-8 months after listing", "spinco names included",
+                     "NEW names per month by the rank's year", "NEW name-months by listing-year cohort", "cell E's ex-ante hedge ratio", "daily correlation with RESMOM's RES", "NEW names by fill year", "SEASONED names by fill year", "exclusions by fill year", "top name-month gain 1",
+                     "BOTH FLOORS SIDE BY SIDE [N7]", "the REGISTERED 4-name floor", "the REPORTED 8-name floor", "cell E @8", "cell M @8", "under the 8-name floor (REPORTED, never a pass route)", "null under the 8-name floor (8 draws", "Stage A (a)-(e) under the 8-name floor",
+                     "net $ / dollars a year (net / years)", " a year) ROC@30k", "E @8  rebalances", "DIAGNOSTICS [X2] - the registered reading, the WF stretch, both cells side by side; cells E @8, M @8 = the reported 8-name-floor reading beside them [N7]"):
             assert frag in txt, frag
+        assert "@8" not in txt_one and "cell E @" not in txt_one and "THE REFERENCE LINE'S DRAWDOWN EPISODES [N10]" in txt_one, "without a reported reading the diagnostics have the two registered columns only"
         assert "$" in txt and "nan" not in capture(print_new_table, rep["new_table"]).lower()
         # the JSON the stage writes is serialisable and the round trip keeps the numbers
-        js = json.loads(json.dumps({"res": res, "rep": rep, "var": var, "listing": listing_counts(W.days, ctx.li)}, default=R11.js))
+        js = json.loads(json.dumps({"res": res, "res20": res20, "rep": rep, "var": var, "listing": listing_counts(W.days, ctx.li)}, default=R11.js))
+        assert abs(js["res20"]["cells"]["M"]["base"]["usd_per_year"] - res20["cells"]["M"]["base"]["usd_per_year"]) < 1e-9
         assert abs(js["res"]["cells"]["E"]["base"]["net"] - res["cells"]["E"]["base"]["net"]) < 1e-9 and sorted(js["rep"]["cells"]["M"]["cohort"]["cell"]) == sorted(str(y) for y in rep["cells"]["M"]["cohort"]["cell"])
     return True
 
@@ -2923,7 +3120,7 @@ def t_cut():
     return True
 
 
-TESTS = ("t_constants", "t_listing", "t_calendar", "t_sets", "t_match", "t_beta_hedge", "t_costs", "t_floor", "t_pipeline", "t_null", "t_beta_rule", "t_tables", "t_x1", "t_files", "t_counts_only", "t_integration", "t_refusals", "t_cut")
+TESTS = ("t_constants", "t_listing", "t_calendar", "t_sets", "t_match", "t_beta_hedge", "t_costs", "t_floor", "t_floors", "t_pipeline", "t_null", "t_beta_rule", "t_tables", "t_x1", "t_usd_year", "t_files", "t_counts_only", "t_integration", "t_refusals", "t_cut")
 
 
 def selftest():
@@ -2939,8 +3136,195 @@ def selftest():
             print(f"  {name} ok ({time.time() - t1:.1f}s)", flush=True)
     print("v1 CHOICE (proved by t_match): the matched long is the GLOBAL GREEDY over (distance, NEW symbol, candidate symbol) - each SEASONED name used once, ties by symbol - exact against an all-pairs recount on 600 random worlds with heavy ties and missing values")
     print("ADDENDUM 1 (proved by t_sets / t_floor / t_beta_hedge / t_costs / t_beta_rule / t_listing): [N1] borrow 3%/yr base and the 10% / 25% stress rows on every short day; [N2] cell E's ex-ante hedge = the OLS beta of the equal-weight NEW basket on ES x the short notional, the realised-beta rule at |0.20|; [N4] 18 of the 20 sessions; "
-          "[N6] the 20-name floor (and E's hedge ratio / M's candidates); the NEW / SEASONED windows, the spinco and name-change exclusions")
+          "[N6]'s size floor (its number is addendum 3's [N7] now; E's hedge ratio / M's candidates); the NEW / SEASONED windows, the spinco and name-change exclusions")
+    print("ADDENDUM 3 (proved by t_floors / t_floor / t_usd_year / t_constants / t_integration): [N7] the registered floor is 10 NEW names (counted after every removal) and every reading is also made under the 20-name floor (its own leg and null), printed beside it, never a pass route; [N8] bar (a) = 40 traded rebalances; "
+          "[N9] 'net > 0 without calendar 2022' stays binding and the LOW-POWER flag is a constant of every verdict; [N10] dollars a year = net / years beside every ROC @ $30k and the reference line's drawdown episodes inside the cell's stretch")
     print(f"selftest ok: {len(TESTS)} groups ({', '.join(t[2:] for t in TESTS)}) in {time.time() - t0:.0f}s; {n_sets} NEW / SEASONED sets of random worlds equal the plain-python recount; every cell, side, stress row, null draw and table equals a plain-python recount")
+
+
+# ------------------------------------------------------------------ selftest, addendum 3: the floor switch [N7] / [N8] / [N9] and the dollars a year [N10]
+def floors_world():
+    """a world for the floor switch: 14 SEASONED names from the first session and clusters of NEW listings made 30 sessions before each month-end rank - every rank then sees exactly its own cluster (the age window 15 .. 45 and the 19 .. 23-session months keep the neighbours out) - of 6 / 9 / 10 / 14 / 19 / 20 / 27 / 31 / 12 /
+    8 / 21 / 5 names, which puts months on both sides of the registered floor (9 | 10) and of the reported one (19 | 20); SMALL windows; a start that puts the fills on both sides of 2022-03 -> (w, the ranks, the cluster sizes)"""
+    T, start = 330, "2021-09-01"
+    days = pd.bdate_range(start, periods=T)
+    r_all, _f, x_all = M17.rm_schedule(days)
+    usable = [int(r) for r, x in zip(r_all, x_all) if r >= SMALL["hold_win"] + 3 and x >= 0]
+    sizes = [6, 9, 10, 14, 19, 20, 27, 31, 12, 8, 21, 5]
+    assert len(usable) >= len(sizes), (len(usable), len(sizes))
+    rks = usable[:len(sizes)]
+    rng = np.random.default_rng(5)
+    dv = lambda: float(np.exp(rng.uniform(np.log(2e7), np.log(4e8))))
+    cols = [dict(sym=f"A{k:02d}", first=0, beta=float(rng.uniform(0.6, 1.4)), dvol=dv()) for k in range(14)]
+    for g, (r, n_) in enumerate(zip(rks, sizes)):
+        cols += [dict(sym=f"N{g:02d}{k:02d}", first=r - 30, beta=float(rng.uniform(0.8, 1.8)), drift=-0.001, dvol=dv()) for k in range(n_)]
+    return ni_world(cols, T=T, seed=6, start=start), rks, sizes
+
+
+def plain_n_new(cols, r, lo, hi):
+    """plain python: the NEW names at rank row r of a hand-made world with no hygiene case - the columns with a dated listing (first >= 1) whose age r - first lies in [lo, hi]"""
+    return sum(1 for c in cols if c.get("first", 0) >= 1 and lo <= r - c["first"] <= hi)
+
+
+def t_floors():
+    """[N7] THE FLOOR SWITCH: the registered floor is 10 NEW names (counted after every removal; it replaces [N6]'s 20) and every reading is also made under the 20-name floor. A world whose months hold 5 .. 31 NEW names is built under BOTH floors and every month's NEW count is recounted in plain python from
+    the listing rows: a month trades exactly when it reaches the floor (9 | 10, 19 | 20), the counters say so, leg_counts reads either floor off the same leg and equals the leg built under that floor (traded months, by fill year, in 2018-03 .. 2022-03, the months under it), and the 20-name cells hold exactly
+    the positions of the 10-name cells in the months that reach 20 - at the same P&L - while the 10-name series is the 20-name series plus the mid months' own paths. [N8] bar (a) = 40 traded rebalances, edge-exact; [N9] 'net > 0 without calendar 2022' stays binding"""
+    assert SPEC["floor"] == 10 and FLOOR_REPORTED == 20, "the registered floor is 10, the reported one 20"
+    w, rks, sizes = floors_world()
+    W, ctx, cols = w.W, w.ctx, w.cols
+    lo, hi = SMALL["new_lo"], SMALL["new_hi"]
+    with spec(**{**SMALL, "floor": 10}):
+        L10 = ni_build(W, ctx, W.days[0], W.days[-1])
+    with spec(**{**SMALL, "floor": 20}):
+        L20 = ni_build(W, ctx, W.days[0], W.days[-1])
+    want = [plain_n_new(cols, q.r, lo, hi) for q in L10.recs]
+    assert [q.r for q in L10.recs] == [q.r for q in L20.recs] and [q.n_new for q in L10.recs] == want == [q.n_new for q in L20.recs], (want, [q.n_new for q in L10.recs])
+    assert set(sizes) <= set(want) and {9, 10, 19, 20} <= set(want), "the world has a month on each side of both floors' edges"
+    assert [q.traded for q in L10.recs] == [n_ >= 10 for n_ in want] and [q.traded for q in L20.recs] == [n_ >= 20 for n_ in want]
+    assert [q.tE for q in L10.recs] == [q.traded for q in L10.recs] and [q.tM for q in L20.recs] == [q.traded for q in L20.recs], "every traded month has a hedge ratio and a match here"
+    assert sum(v["below_floor"] for v in L10.cnt.values()) == sum(1 for n_ in want if n_ < 10) and sum(v["below_floor"] for v in L20.cnt.values()) == sum(1 for n_ in want if n_ < 20)
+    assert 3 <= sum(1 for n_ in want if n_ < 10) and sum(1 for n_ in want if 10 <= n_ < 20) >= 3 and sum(1 for n_ in want if n_ >= 20) >= 3
+    # leg_counts: the registered floor by default, the reported one on request - the same leg read under either floor equals the leg built under it
+    lc10, lc10_20, lc20 = leg_counts(W, L10), leg_counts(W, L10, FLOOR_REPORTED), leg_counts(W, L20, FLOOR_REPORTED)
+    fill = {q.r: W.days[q.f] for q in L10.recs}
+    for lc, fl in ((lc10, 10), (lc10_20, 20), (lc20, 20)):
+        tr = [q for q, n_ in zip(L10.recs, want) if n_ >= fl]
+        assert lc["floor"] == fl and lc["traded"] == len(tr) and lc["rebalances"] == len(want), (fl, lc["traded"], len(tr))
+        assert lc["traded_by_fill_year"] == dict(sorted(Counter(int(fill[q.r].year) for q in tr).items())) and lc["rebalances_by_fill_year"] == dict(sorted(Counter(int(fill[q.r].year) for q in L10.recs).items()))
+        assert lc["traded_2018_03_to_2022_03"] == sum(1 for q in tr if TS("2018-03-01") <= fill[q.r] <= TS("2022-03-31")) and lc["traded_2018_03_to_2022_03"] < len(tr), "fills after 2022-03 are counted outside"
+        assert lc["below_floor"] == [f"{W.days[q.r]:%Y-%m-%d}" for q, n_ in zip(L10.recs, want) if n_ < fl]
+        assert lc["first_traded_rank"] == f"{W.days[tr[0].r]:%Y-%m-%d}" and lc["last_traded_rank"] == f"{W.days[tr[-1].r]:%Y-%m-%d}" and lc["new_per_rebalance"] == [min(want), float(np.median(want)), max(want)]
+    assert lc10_20 == lc20 and lc10["traded"] > lc20["traded"] > 0 and lc10["floor"] == 10, "the reported reading's counts are the same off either leg"
+    assert leg_counts(W, L10, 31)["traded"] == 1 and leg_counts(W, L10, 32)["traded"] == 0 and leg_counts(W, L10, 32)["first_traded_rank"] is None
+    # the cells: the 20-name leg holds the 10-name leg's positions of the months that reach 20 NEW names, at the same P&L; nothing else differs but the mid months' own paths
+    cfg = cfg_of()
+    n_at = {q.r: n_ for q, n_ in zip(L10.recs, want)}
+    mid = [q for q, n_ in zip(L10.recs, want) if 10 <= n_ < 20]
+    for cell in CELLS:
+        r10, r20 = cell_run(W, L10, cell, cfg), cell_run(W, L20, cell, cfg)
+        key = lambda L, run: sorted((L.recs[int(i)].r, int(c_), round(float(p_), 9)) for i, c_, p_ in zip(run.pos.rec, run.pos.col, run.pos.pnl))
+        k10 = [t for t in key(L10, r10) if n_at[t[0]] >= 20]
+        assert key(L20, r20) == k10 and len(k10) > 0 and r20.n_pos == len(k10) and r20.n_units == len({t[0] for t in k10}) == sum(1 for n_ in want if n_ >= 20), cell
+        assert r10.n_units == sum(1 for n_ in want if n_ >= 10) and r10.n_pos > r20.n_pos, cell
+        assert usd(r10.x, brute_cell_series(W, L10, cell)[0]) and usd(r20.x, brute_cell_series(W, L20, cell)[0]), cell
+        add = np.zeros(W.T)
+        for q in mid:
+            assert not r20.cnt[q.f + 1:q.x].any() and (r10.cnt[q.f:q.x + 1] > 0).all(), "a month under the floor holds nothing (its first row is the previous month's exit row, its last the next month's fill row)"
+            idx, S_, O = rec_legs(W, q, cell, cfg)
+            add[q.f:q.x + 1] += S_.sum(axis=0) + O.sum(axis=0)
+        assert usd(r10.x, r20.x + add), cell
+    # the printed line of both floors' months, by fill year (registered / reported of the rebalances) and the LOW-POWER flag's own count
+    tt = traded_text(lc10, lc20)
+    for frag in (f"{lc10['traded']} of the {lc10['rebalances']} rebalances under the REGISTERED 10-name floor", f"{lc20['traded']} under the REPORTED 20-name floor", "never a pass route",
+                 f"in 2018-03 .. 2022-03: {lc10['traded_2018_03_to_2022_03']} of the {lc10['traded']} (registered), {lc20['traded_2018_03_to_2022_03']} of the {lc20['traded']} (reported)"):
+        assert frag in tt, frag
+    for y, nb in lc10["rebalances_by_fill_year"].items():
+        assert f"{y}: {lc10['traded_by_fill_year'].get(y, 0)} / {lc20['traded_by_fill_year'].get(y, 0)} of {nb}" in tt, y
+    # [N8] bar (a) = 40 traded rebalances, edge-exact; [N9] 'net > 0 without calendar 2022' stays binding
+    assert RULES["reb"] == 40
+    st0 = dict(n_units=0, roc=20.0, net=1.0, years_pos=6, net_ex2020=1.0, net_ex2022=1.0, net_ex_best_days=1.0, net_ex_best_pos=1.0)
+    nul0 = {"roc_max": {"p95": 5.0}}
+    for n_, ok_ in ((0, False), (39, False), (40, True), (41, True), (60, True), (89, True)):
+        chk = judge_cell({**st0, "n_units": n_}, 1.0, 1.0, nul0)
+        assert chk["rebalances>=40"] is ok_ and all(v for k_, v in chk.items() if k_ != "rebalances>=40"), n_
+    for ex in (-1.0, 0.0, float("nan")):
+        chk = judge_cell({**st0, "n_units": 60, "net_ex2022": ex}, 1.0, 1.0, nul0)
+        assert chk["net>0 without calendar 2022"] is False and not all(chk.values()), ex
+    return True
+
+
+def t_usd_year():
+    """[N10] DOLLARS A YEAR = net / years, the house's years (r11_risk.stats: the last row's date minus the first's, / 365.25 - the years its ROC is computed on): the arithmetic and its NaN cases; the years of a stretch on #463's index equal r11's; a cell's statistics carry it (the whole stretch and the halves);
+    A2's record carries it beside EVERY ROC @ $30k (the reference, the reference + c x cell, 0.5c, 2c, the plain #463 + c x cell with its 0.5c / 2c rows, the cell's own stretch) and a2_text prints it; the reference line's drawdown episodes INSIDE the cell's stretch (cut at its start, the cell's P&L inside each,
+    the count it helps in) against a plain-python recount, and the whole-stretch reading equals r15's episodes table; the episode printer"""
+    for net, yrs, want in ((12345.0, 2.5, 4938.0), (-3000.0, 4.0, -750.0), (0.0, 3.0, 0.0), (7.5, 1.0, 7.5)):
+        assert usd_per_year(net, yrs) == want, (net, yrs)
+    for bad in ((1.0, 0.0), (1.0, -2.0), (1.0, float("nan")), (float("nan"), 2.0), (None, 2.0), (1.0, None), (float("inf"), 2.0), (1.0, float("inf")), ("x", 2.0)):
+        assert math.isnan(usd_per_year(*bad)), bad
+    B, _S12 = M17.synth_book(seed=3, hi="2026-06-30")
+    ds = B.index
+    for a_, b_ in ((WF0, PRE_END), (WFN, PRE_END), (LB0, LB1), (TS("2021-03-01"), TS("2021-03-31")), HALVES[0][1:], HALVES[1][1:]):
+        k = np.flatnonzero(B.mask(a_, b_))
+        yrs = (ds[k[-1]] - ds[k[0]]).days / 365.25
+        assert stretch_years(B, a_, b_) == yrs and abs(R11.stats(np.asarray(B.raw, float)[k], ds[k])["years"] - yrs) < 1e-12, (a_, b_)
+    assert math.isnan(stretch_years(B, TS("2030-01-01"), TS("2031-01-01"))) and math.isnan(stretch_years(B, ds[10], ds[10]))
+    rb = DV.mk_ref(B)
+    kf, kw = np.flatnonzero(B.mask(WF0, PRE_END)), np.flatnonzero(B.mask(WFN, PRE_END))
+    yf, yo = (ds[kf[-1]] - ds[kf[0]]).days / 365.25, (ds[kw[-1]] - ds[kw[0]]).days / 365.25
+    # a cell's statistics: the whole stretch and its halves
+    with spec(**SMALL):
+        w, _r1 = pipe_world()
+        rows = A13.book_rows(B, w.W)
+        L = ni_build(w.W, w.ctx, WFN, PRE_END)
+        for cell in CELLS:
+            run = cell_run(w.W, L, cell, cfg_of())
+            st, xB, _cB = stat_of(B, rows, run, WFN, PRE_END)
+            assert st["years"] == yo and abs(st["usd_per_year"] - float(np.asarray(xB, float)[kw].sum()) / yo) < 1e-9 * max(1.0, abs(st["usd_per_year"])) and st["usd_per_year"] == st["net"] / st["years"] and st["net"] != 0.0
+            for lab, a_, b_ in HALVES:
+                sh = stat_of(B, rows, sub_run(w.W, L, run, a_, b_), a_, b_)[0]
+                km = np.flatnonzero(B.mask(a_, b_))
+                assert abs(sh["usd_per_year"] - float(np.asarray(xB, float)[km].sum()) / ((ds[km[-1]] - ds[km[0]]).days / 365.25)) < 1e-9 * max(1.0, abs(sh["usd_per_year"])) and sh["years"] != st["years"], (cell, lab)
+    # A2: dollars a year beside every ROC
+    rng = np.random.default_rng(8)
+    x = np.zeros(B.n)
+    x[kw] = 0.4 * np.maximum(-rb.raw[kw], 0.0) + rng.normal(0.0, 40.0, len(kw))
+    a2 = a2_report(B, x, rb, True)
+    c = a2["c"]
+    assert a2["years"] == yf and math.isfinite(c) and c > 0
+    plain = (np.asarray(B.raw, float) + c * x)[kf]
+    for name, blk, want_net in (("book", a2, (rb.raw + c * x)[kf].sum()), ("reference", a2["reference"], rb.raw[kf].sum()), ("0.5c", a2["at_half_c"], (rb.raw + 0.5 * c * x)[kf].sum()), ("2c", a2["at_double_c"], (rb.raw + 2.0 * c * x)[kf].sum()), ("plain", a2["plain_463"], plain.sum()),
+                               ("plain 0.5c", a2["plain_463"]["at_half_c"], (np.asarray(B.raw, float) + 0.5 * c * x)[kf].sum()), ("plain 2c", a2["plain_463"]["at_double_c"], (np.asarray(B.raw, float) + 2.0 * c * x)[kf].sum())):
+        assert abs(blk["net"] - want_net) < 1e-3 and blk["usd_per_year"] == blk["net"] / yf and abs(blk["usd_per_year"] - want_net / yf) < 1e-3 / yf, name
+    os_ = a2["own_stretch"]
+    assert os_["years"] == yo and abs(os_["reference_alone"]["usd_per_year"] - rb.raw[kw].sum() / yo) < 1e-6 and abs(os_["with_c"]["usd_per_year"] - (rb.raw + c * x)[kw].sum() / yo) < 1e-6 and os_["reference_alone"]["net"] == os_["reference_alone"]["usd_per_year"] * yo
+    txt = a2_text(a2)
+    for v in (a2, a2["reference"], a2["at_half_c"], a2["at_double_c"], a2["plain_463"], os_["reference_alone"], os_["with_c"]):
+        assert f"${v['usd_per_year']:,.0f} a year" in txt, v
+    assert f"({a2['years']:.2f} years; dollars a year = net / years)" in txt and f"({os_['years']:.2f} years)" in txt
+    az = a2_report(B, np.zeros(B.n), rb, True)
+    assert not math.isfinite(az["c"]) and az["years"] == yf and az["reference"]["usd_per_year"] == az["reference"]["net"] / yf and "no incremental pass" in a2_text(az) and "own_stretch" not in az
+    # the reference line's drawdown episodes inside the cell's stretch: a block before 2018-02, one that straddles it, two inside; plain-python recount
+    res = np.random.default_rng(14).normal(5.0, 300.0, len(kf))
+    for d0, n_, amt in (("2016-09-05", 15, 2500.0), ("2018-01-10", 30, 3000.0), ("2019-06-03", 20, 2000.0), ("2024-02-05", 25, 2200.0)):
+        i0 = int(np.searchsorted(ds[kf], TS(d0)))
+        res[i0:i0 + n_] -= amt
+    ref2 = DV.ref_build(B, res)
+    xc = np.random.default_rng(15).normal(0.0, 150.0, B.n)
+    got = episodes_in_stretch(ref2, xc, WFN, PRE_END)
+    S_, d_ = ref2.S, ref2.S.dates
+    want_rows = []
+    for e in S_.qual:
+        days_ = [t for t in range(int(e["i0"]), int(e["it"]) + 1) if WFN <= d_[t] <= PRE_END]
+        if not days_:
+            continue
+        cp, bp = sum(float(xc[S_.rows[t]]) for t in days_), sum(float(S_.x[t]) for t in days_)
+        want_rows.append({"first_dd_day": f"{d_[days_[0]]:%Y-%m-%d}", "trough": e["trough"], "depth": float(e["depth"]), "dd_days": int(e["it"]) - int(e["i0"]) + 1, "dd_days_inside": len(days_), "cut": days_[0] > int(e["i0"]), "book_pnl": bp, "cell_pnl": cp, "helps": cp > 0})
+    assert got["episodes_on_wf"] == len(S_.qual) and got["inside"] == len(got["rows"]) == len(want_rows) and 1 <= got["cut"] == sum(r_["cut"] for r_ in want_rows) and got["inside"] < got["episodes_on_wf"], (got["episodes_on_wf"], got["inside"], got["cut"])
+    for g_, w_ in zip(got["rows"], want_rows):
+        assert all(g_[k_] == w_[k_] for k_ in ("first_dd_day", "trough", "dd_days", "dd_days_inside", "cut", "helps")) and abs(g_["depth"] - w_["depth"]) < 1e-9 and abs(g_["book_pnl"] - w_["book_pnl"]) < 1e-6 and abs(g_["cell_pnl"] - w_["cell_pnl"]) < 1e-6 and g_["peak"] is not None, (g_, w_)
+    assert got["helped"] == sum(r_["helps"] for r_ in want_rows) and 0 < got["helped"] < got["inside"] and abs(got["cell_pnl"] - sum(r_["cell_pnl"] for r_ in want_rows)) < 1e-6 and abs(got["reference_pnl"] - sum(r_["book_pnl"] for r_ in want_rows)) < 1e-6
+    full = episodes_in_stretch(ref2, xc, WF0, PRE_END)
+    tab = D15.episodes_table(S_, xc)
+    assert full["inside"] == full["episodes_on_wf"] == len(tab) == len(S_.qual) and full["cut"] == 0 and all(abs(a_["cell_pnl"] - b_["cell_pnl"]) < 1e-6 and abs(a_["book_pnl"] - b_["book_pnl"]) < 1e-6 and a_["dd_days"] == a_["dd_days_inside"] == b_["dd_days"] and a_["first_dd_day"] == b_["first_dd_day"]
+                                                                                       for a_, b_ in zip(full["rows"], tab)), "the whole-stretch reading is r15's episodes table"
+    assert episodes_in_stretch(ref2, xc, TS("2030-01-01"), TS("2031-01-01"))["inside"] == 0 and episodes_in_stretch(ref2, xc)["rows"] == got["rows"], "the default stretch is the cell's own"
+    # the episode printer: one row per episode inside the stretch, the cut marked, '+' where the cell helps, the counts
+    res_p = {"cells": {cell: {"ref_episodes_in_stretch": episodes_in_stretch(ref2, np.random.default_rng(16 + q).normal(0.0, 150.0, B.n), WFN, PRE_END)} for q, cell in enumerate(CELLS)}}
+    out = capture(print_episodes, res_p, ref2)
+    assert "THE REFERENCE LINE'S DRAWDOWN EPISODES [N10]" in out and f"{got['episodes_on_wf']} qualifying on its WF" in out and f"{got['inside']} have DD days inside the cell's stretch" in out and f"{got['cut']} of them cut to the part inside it" in out
+    for e in got["rows"]:
+        assert f"{e['first_dd_day']} .. {e['trough']} ${e['depth']:,.0f} ({e['dd_days_inside']}/{e['dd_days']} d{', cut' if e['cut'] else ''}, ref {e['book_pnl']:+,.0f})" in out, e
+    for cell in CELLS:
+        e = res_p["cells"][cell]["ref_episodes_in_stretch"]
+        assert f"{e['helped']} of {e['inside']}" in out and f"{e['cell_pnl']:+,.0f}" in out
+    for q, e in enumerate(got["rows"]):                                                      # the '+' marks the episodes a cell helps in, per cell, on the row itself
+        vals = [f"{res_p['cells'][cell]['ref_episodes_in_stretch']['rows'][q]['cell_pnl']:+,.0f}" + (" +" if res_p["cells"][cell]["ref_episodes_in_stretch"]["rows"][q]["cell_pnl"] > 0 else "") for cell in CELLS]
+        assert diag_line(f"  {e['first_dd_day']} .. {e['trough']} ${e['depth']:,.0f} ({e['dd_days_inside']}/{e['dd_days']} d{', cut' if e['cut'] else ''}, ref {e['book_pnl']:+,.0f})", vals) in out, e
+    res_q = {"cells": {cell: {**res_p["cells"][cell]} for cell in CELLS}}
+    out20 = capture(print_episodes, res_p, ref2, res_q)
+    assert "cell E @20" in out20 and "cell M @20" in out20 and "cell E @20" not in out and out20.count("cell E") == 2
+    return True
 
 
 # ------------------------------------------------------------------ smoke: the synthetic worlds (a planted new-issue underperformance and a null one) behind r5_siporb's fake transport, a fake ES master, a fake #463, a fake RESMOM line file and a fake wide calendar
@@ -2961,7 +3345,8 @@ def smoke_refusal(root):
 SMOKE_DRIFT = -0.0010               # the planted new-issue underperformance: a NEW name's daily drift over the sessions 100 .. 560 after its listing (the planted world only; the null world has none)
 SMOKE_BEAR = -0.0010                # the BEAR world: EVERY name drifts down by this much a day, from the first session on (shorting any single name against ES wins: the null, which shorts random SEASONED names, must catch it)
 SMOKE_AGE = (100, 560)
-SMOKE_FLOOR = 6                     # CHOICE: the smoke shrinks the 20-name floor (the synthetic market lists one name a month: ~18 names are NEW at any time); the real constant is asserted by selftest
+SMOKE_FLOOR_REPORTED = 18           # CHOICE: the smoke leaves the registered 10-name floor alone (the synthetic market lists one name a month: 16 .. 20 names survive as NEW in every month, so every month trades) and shrinks the REPORTED 20-name floor to 18, so that about
+                                    # half the months trade under it; the real constants are asserted by selftest
 
 
 def smoke_plan(days, seed=23):
@@ -3097,7 +3482,7 @@ def smoke_ca_rows(plan):
 
 @contextlib.contextmanager
 def smoke_env(root, nrep=100, build=("plant", "null", "bear")):
-    """everything the smoke patches, restored on exit: OUT and every module's output folder into `root`, CHECK_BOOK off, NREP = nrep, the wide calendar's pinned sha = the synthetic file's, the 20-name floor shrunk, r5_siporb's transport = NewFake (one cache per world), the ES registry = the fake master, the TBIS file, a fake #463, a
+    """everything the smoke patches, restored on exit: OUT and every module's output folder into `root`, CHECK_BOOK off, NREP = nrep, the wide calendar's pinned sha = the synthetic file's, the REPORTED floor shrunk (20 -> 18; the registered 10 stays), r5_siporb's transport = NewFake (one cache per world), the ES registry = the fake master, the TBIS file, a fake #463, a
     stub of RESMOM's WF line file (DV.REF_CSV / DV.REF_SHA). Builds the worlds in `build` ('plant' = the new-issue underperformance, 'null' = none, 'bear' = every name drifts down) through r5_siporb's own pulls. Yields a namespace: root, days, esf, plan, fk {world: NewFake}, cache {world: folder}, switch(world), wide_sha, wide_csv, wide_manifest, ref_csv, ref_sha, ca_rows"""
     root = os.path.abspath(root)
     why = smoke_refusal(root)
@@ -3111,7 +3496,7 @@ def smoke_env(root, nrep=100, build=("plant", "null", "bear")):
         es.enter_context(patched(THIS, OUT=os.path.join(root, "out"), CHECK_BOOK=False, NREP=nrep))
         es.enter_context(patched(R11, OUT=os.path.join(root, "r11")))
         es.enter_context(patched(A13, OUT=os.path.join(root, "attn_out")))
-        es.enter_context(spec(floor=SMOKE_FLOOR))
+        es.enter_context(patched(THIS, FLOOR_REPORTED=SMOKE_FLOOR_REPORTED))
         try:
             S.OUT, S.BOOK = os.path.join(root, "siporb_out"), os.path.join(root, "r4", "book463_daily.csv")
             tbis_path = os.path.join(root, "tbis.csv")
@@ -3218,7 +3603,7 @@ def dryload_text_checks(txt, cal=True):
     dates = [d for l in txt.splitlines() if "cut to dates <" not in l for d in re.findall(r"\b20\d\d-\d\d-\d\d\b", l)]
     assert dates and all(d < "2025-06-30" for d in dates), [d for d in dates if d >= "2025-06-30"][:5]
     frags = ["prereg check:", "every input cut to dates < 2025-06-30", "universe size per session by year", "LISTING SESSIONS [N4]", "every cached name: present at the first session", "the names ever in the universe: present at the first session",
-             "rebalances: ", "first traded rank", "months under the ", f"bar (a) needs >= {RULES['reb']} traded rebalances", "NEW names per month (survivors of every removal", "NEW name-months by listing cohort", "by fill year (rebalances: NEW min / median / max", "NEW names by fill year", "SEASONED names by fill year",
+             "rebalances: ", "first traded rank", "months under the ", f"bar (a) [N8] needs >= {RULES['reb']} traded rebalances", "TRADED MONTHS UNDER BOTH FLOORS [N7]", f"months under the {FLOOR_REPORTED}-name floor (", "LOW-POWER FLAG [N9]", "under the registered",  "NEW names per month (survivors of every removal", "NEW name-months by listing cohort", "by fill year (rebalances: NEW min / median / max", "NEW names by fill year", "SEASONED names by fill year",
              "rebalance bookkeeping by fill year", "registered exclusions by fill year", "TBIS flags:", "ES prints on the", "ES return (", "cache manifest sha256", "dryload took"]
     frags += ["calendar tables this family reads", "calendar coverage:", "calendar name-change coverage:"] if cal else ["not on file yet", "this dryload counted no spinco / name-change exclusion"]
     for frag in frags:
@@ -3471,6 +3856,17 @@ def smoke_stage_recount(cx):
     for _d, i0_, it_, _i1 in qual_b:
         mask_b[i0_:it_ + 1] = True
     mask_bn = mask_b & np.asarray(B.index[kw] >= WFN)
+    # ---- [N10] the reference line's qualifying episodes INSIDE the cell's stretch by plain python: the DD days from 2018-02-01 on (an episode that starts before it is cut), the reference's P&L and the cell's inside each, the cell helps where it earns
+    dkw = B.index[kw]
+    ins_ = [(i0_, it_, [t for t in range(i0_, it_ + 1) if dkw[t] >= WFN]) for _d, i0_, it_, _i1 in qual_p]
+    ins_ = [(i0_, it_, idx_) for i0_, it_, idx_ in ins_ if idx_]
+
+    def check_eis(eis, xcell, label):
+        assert eis["episodes_on_wf"] == len(qual_p) and eis["inside"] == len(ins_) == len(eis["rows"]) and eis["cut"] == sum(1 for i0_, _it, idx_ in ins_ if idx_[0] > i0_) and eis["inside"] >= 1, label
+        for e_, (i0_, it_, idx_) in zip(eis["rows"], ins_):
+            cp_, bp_ = float(xcell[idx_].sum()), float(ref_raw[kw][idx_].sum())
+            assert e_["dd_days_inside"] == len(idx_) and e_["dd_days"] == it_ - i0_ + 1 and e_["first_dd_day"] == f"{dkw[idx_[0]]:%Y-%m-%d}" and e_["cut"] is bool(idx_[0] > i0_) and abs(e_["cell_pnl"] - cp_) < 1e-6 and abs(e_["book_pnl"] - bp_) < 1e-6 and e_["helps"] is bool(cp_ > 0), (label, e_)
+        assert eis["helped"] == sum(1 for e_ in eis["rows"] if e_["cell_pnl"] > 0) and abs(eis["cell_pnl"] - sum(e_["cell_pnl"] for e_ in eis["rows"])) < 1e-6 and abs(eis["reference_pnl"] - sum(e_["book_pnl"] for e_ in eis["rows"])) < 1e-6, label
     # ---- the positions of both cells (and the variants of the stress rows) by plain python
     pos = {c: brute_positions(W, L, c) for c in CELLS}
     alt = {(c, lab): brute_positions(W, L, c, **kw_) for c in CELLS for lab, kw_ in (("cost0", {"bps": 0.0}), ("10 bps", {"bps": 10.0}), ("20 bps", {"bps": 20.0}), ("10%/yr", {"borrow": 0.10}), ("25%/yr", {"borrow": 0.25}))}
@@ -3495,6 +3891,8 @@ def smoke_stage_recount(cx):
         want = plain_cell_stats(xB[k], ds, cB[k], [p["pnl"] for p in P])
         base = g["base"]
         assert base["n_pos"] == len(P) and base["n_units"] == len({p["ri"] for p in P}) == len(L.recs), c
+        yo_ = (ds[-1] - ds[0]).days / 365.25                                                  # [N10] dollars a year = net / years of the stretch (the house's years: the last row's date minus the first's, / 365.25)
+        assert base["years"] == yo_ and abs(base["usd_per_year"] - want["net"] / yo_) <= 1e-6 * max(1.0, abs(base["usd_per_year"])) and all(abs(g[kk_][bb_]["usd_per_year"] - g[kk_][bb_]["net"] / yo_) < 1e-9 for kk_ in ("stress", "borrow") for bb_ in g[kk_]), c
         for key in ("net", "roc", "sortino", "max_dd", "net_ex2020", "net_2022", "net_ex2022", "net_2020_21", "net_ex_best_days", "net_pos", "net_ex_best_pos", "top_pos", "net_ex_top_pos"):
             assert abs(base[key] - want[key]) <= 1e-6 * max(1.0, abs(want[key])), (c, key, base[key], want[key])
         assert base["years_pos"] == want["years_pos"] and all(abs(base["by_year"][y] - want["by_year"][y]) < 1e-6 for y in YEARS), c
@@ -3528,7 +3926,7 @@ def smoke_stage_recount(cx):
         rb = g["realised_beta"]
         assert rb["n"] == int(sel.sum()) and abs(rb["beta"] - slope) < 1e-9 and g["beta_gate"] == {"beta": rb["beta"], "limit": 0.20, "credited": bool(abs(slope) <= 0.20)}, c
         # the eleven (a)-(e) checks re-judged from the recounted numbers
-        want_checks = {f"rebalances>={RULES['reb']}": len({p["ri"] for p in P}) >= 60, "ROC>=15": want["roc"] >= 15.0, "net>0 at 5 bps": want["net"] > 0, "net>0 at 10 bps": nets["10 bps"] > 0, "net>0 at 10%/yr borrow": nets["10%/yr"] > 0,
+        want_checks = {f"rebalances>={RULES['reb']}": len({p["ri"] for p in P}) >= 40, "ROC>=15": want["roc"] >= 15.0, "net>0 at 5 bps": want["net"] > 0, "net>0 at 10 bps": nets["10 bps"] > 0, "net>0 at 10%/yr borrow": nets["10%/yr"] > 0,
                        "ROC>null p95": want["roc"] > p95, "positive in >=5 of 8 July-June years": want["years_pos"] >= 5, "net>0 without Feb 15 - Apr 30 2020": want["net_ex2020"] > 0, "net>0 without calendar 2022": want["net_ex2022"] > 0,
                        "profitable without its best 1% of days": want["net_ex_best_days"] > 0, "profitable without its best 1% of name-months": want["net_ex_best_pos"] > 0}
         assert g["checks"] == want_checks and g["PASS"] is all(want_checks.values()), (c, g["checks"], want_checks)
@@ -3544,14 +3942,19 @@ def smoke_stage_recount(cx):
             assert abs(got["roc"] - w_["roc"]) < 1e-5 and abs(got["sortino"] - w_["sortino"]) < 1e-7 and abs(got["net"] - w_["net"]) < 1e-3, (c, mult)
         wp_ = DV.plain_stats((np.asarray(B.raw, float) + c_ * xB)[kw], B.index[kw])
         assert abs(a2["plain_463"]["roc"] - wp_["roc"]) < 1e-5 and abs(a2["plain_463"]["sortino"] - wp_["sortino"]) < 1e-7 and abs(a2["reference"]["roc"] - ref_s["roc"]) < 1e-5 and abs(a2["reference"]["sortino"] - ref_s["sortino"]) < 1e-7
+        yf_ = (B.index[kw][-1] - B.index[kw][0]).days / 365.25                                # [N10] A2's dollars a year: net / years of the reference's WF, beside every ROC
+        assert a2["years"] == yf_ and all(abs(blk["usd_per_year"] - nt_ / yf_) < 1e-5 for blk, nt_ in ((a2, DV.plain_stats((ref_raw + c_ * xB)[kw], B.index[kw])["net"]), (a2["at_half_c"], DV.plain_stats((ref_raw + 0.5 * c_ * xB)[kw], B.index[kw])["net"]),
+                                                                                                         (a2["at_double_c"], DV.plain_stats((ref_raw + 2.0 * c_ * xB)[kw], B.index[kw])["net"]), (a2["reference"], ref_s["net"]), (a2["plain_463"], wp_["net"]))), c
         before = bool(a2["roc"] > a2["reference"]["roc"] and a2["sortino"] > a2["reference"]["sortino"])
         assert a2["incremental_pass_before_the_beta_rule"] is before and a2["beta_rule_ok"] is bool(abs(slope) <= 0.20) and a2["incremental_pass"] is bool(before and abs(slope) <= 0.20), c
         os_ = a2["own_stretch"]
+        assert os_["years"] == yo_ and abs(os_["reference_alone"]["usd_per_year"] - DV.plain_stats(ref_raw[k], ds)["net"] / yo_) < 1e-5 and abs(os_["with_c"]["usd_per_year"] - DV.plain_stats((ref_raw + c_ * xB)[k], ds)["net"] / yo_) < 1e-5, c
         assert os_["window"] == ["2018-02-01", "2025-06-29"] and abs(os_["reference_alone"]["roc"] - DV.plain_stats(ref_raw[k], ds)["roc"]) < 1e-5 and abs(os_["with_c"]["roc"] - DV.plain_stats((ref_raw + c_ * xB)[k], ds)["roc"]) < 1e-5, c
         # the reference's drawdown episodes and the #70 gate's basis: the cell's P&L over each episode, its DO over the DD days from 2018-02 on, DO without its best episode, the null's DO
         xr = xB[kw]
         tab = g["ref_episodes"]
         assert len(tab) == len(qual_p) and all(abs(t_["cell_pnl"] - float(xr[i0_:it_ + 1].sum())) < 1e-6 and abs(t_["depth"] - dep_) < 1e-6 and abs(t_["book_pnl"] - float(ref_raw[kw][i0_:it_ + 1].sum())) < 1e-6 for t_, (dep_, i0_, it_, _i1) in zip(tab, qual_p)), c
+        check_eis(g["ref_episodes_in_stretch"], xr, c)
         gt = g["gate70"]
         do = float(xr[mask_n].sum()) / -float(ref_raw[kw][mask_n].sum())
         j = int(np.argmax([t_["cell_pnl"] for t_ in tab]))
@@ -3589,6 +3992,55 @@ def smoke_stage_recount(cx):
         byx = Counter(int(days[p_.x].year - (1 if days[p_.x].month < 7 else 0)) for p_ in L.recs if traded(p_, c))
         assert rep["cells"][c]["by_exit_year"] == {y: byx.get(y, 0) for y in YEARS}, c
         n[f"{c}_positions"] = len(P)
+    # ---- [N7] the REPORTED floor's reading: the same market read under the reported floor - its own leg (the months that reach it), its own null stream (vcode 2) - every cell number recounted on those months by plain python
+    fr, tm = out["floor_reported"], out["traded_months"]
+    n_by = {q.r: len(sets["remove"][q.r][0]) for q in L.recs}
+    keep = [q for q in L.recs if n_by[q.r] >= FLOOR_REPORTED]
+    assert fr["floor"] == FLOOR_REPORTED and 0 < len(keep) < len(L.recs) and out["low_power_flag"] == LOW_POWER and all(q.f == q.r + 1 for q in L.recs), (len(keep), len(L.recs))
+    fyr = lambda qs: dict(sorted(Counter(int(days[q.r + 1].year) for q in qs).items()))
+    boom = lambda qs: sum(1 for q in qs if TS("2018-03-01") <= days[q.r + 1] <= TS("2022-03-31"))
+    assert tm["registered"]["floor"] == SPEC["floor"] and tm["reported"]["floor"] == FLOOR_REPORTED and tm["registered"]["traded"] == len(L.recs) and tm["reported"]["traded"] == len(keep)
+    assert tm["registered"]["traded_by_fill_year"] == fyr(L.recs) and tm["reported"]["traded_by_fill_year"] == fyr(keep) and tm["registered"]["traded_2018_03_to_2022_03"] == boom(L.recs) and tm["reported"]["traded_2018_03_to_2022_03"] == boom(keep)
+    assert traded_text(tm["registered"], tm["reported"]) in cx.txt and LOW_POWER in cx.txt and f"REPORTED {FLOOR_REPORTED}-NAME-FLOOR READING [N7]" in cx.txt and "BOTH FLOORS SIDE BY SIDE [N7]" in cx.txt
+    with spec(floor=FLOOR_REPORTED):
+        L2 = ni_build(W, ctx, WFN, PRE_END, "remove")
+    assert [q.r for q in L2.recs if q.traded] == [q.r for q in keep]
+    acc2 = ni_null(W, L2, NREP, 2)
+    Y2, roc2, do2 = {}, {}, {}
+    for c in CELLS:
+        Y2[c] = np.zeros((NREP, B.n))
+        Y2[c][:, rowsB] = acc2[c]
+        roc2[c] = np.array([DV.plain_stats(Y2[c][d][k], ds)["roc"] for d in range(NREP)])
+        do2[c] = Y2[c][:, kw][:, mask_n].sum(axis=1) / -float(ref_raw[kw][mask_n].sum())
+    mx2, mdo2 = np.fmax(roc2["E"], roc2["M"]), np.fmax(do2["E"], do2["M"])
+    n2 = fr["null"]
+    assert n2["draws"] == NREP and n2["seed"] == SEED and n2["roc_max"] != nul["roc_max"] and all(abs(n2["roc_max"][key] - pc(mx2, q_)) < 1e-6 and abs(n2["do_ref_max"][key] - pc(mdo2, q_)) < 1e-9 for q_, key in ((5, "p5"), (50, "p50"), (95, "p95")))
+    p95_2, pass2 = pc(mx2, 95), []
+    yo_ = (ds[-1] - ds[0]).days / 365.25
+    for c in CELLS:
+        keep_pos = [p for p in pos[c] if n_by[p["rec"].r] >= FLOOR_REPORTED]
+        P2 = brute_positions(W, L2, c)
+        assert len(P2) == len(keep_pos) < len(pos[c]) and usd([p["pnl"] for p in P2], [p["pnl"] for p in keep_pos]), c
+        xb2, cb2 = brute_series_of(W, P2)
+        xB2, cB2 = toB(xb2), toB(cb2)
+        w2 = plain_cell_stats(xB2[k], ds, cB2[k], [p["pnl"] for p in P2])
+        g2 = fr["cells"][c]
+        b2 = g2["base"]
+        assert b2["n_pos"] == len(P2) and b2["n_units"] == len({p["ri"] for p in P2}) == len(keep) and b2["years_pos"] == w2["years_pos"] and abs(b2["usd_per_year"] - w2["net"] / yo_) <= 1e-6 * max(1.0, abs(b2["usd_per_year"])), c
+        for key in ("net", "roc", "sortino", "max_dd", "net_ex2020", "net_2022", "net_ex2022", "net_2020_21", "net_ex_best_days", "net_pos", "net_ex_best_pos", "top_pos", "net_ex_top_pos"):
+            assert abs(b2[key] - w2[key]) <= 1e-6 * max(1.0, abs(w2[key])), (c, key, b2[key], w2[key])
+        n10_ = DV.plain_stats(toB(brute_series_of(W, brute_positions(W, L2, c, bps=10.0))[0])[k], ds)["net"]
+        nb10_ = DV.plain_stats(toB(brute_series_of(W, brute_positions(W, L2, c, borrow=0.10))[0])[k], ds)["net"]
+        assert abs(g2["stress"]["10 bps"]["net"] - n10_) < 1e-6 and abs(g2["borrow"]["10%/yr"]["net"] - nb10_) < 1e-6, c
+        want2 = {f"rebalances>={RULES['reb']}": len({p["ri"] for p in P2}) >= 40, "ROC>=15": w2["roc"] >= 15.0, "net>0 at 5 bps": w2["net"] > 0, "net>0 at 10 bps": n10_ > 0, "net>0 at 10%/yr borrow": nb10_ > 0, "ROC>null p95": w2["roc"] > p95_2,
+                 "positive in >=5 of 8 July-June years": w2["years_pos"] >= 5, "net>0 without Feb 15 - Apr 30 2020": w2["net_ex2020"] > 0, "net>0 without calendar 2022": w2["net_ex2022"] > 0, "profitable without its best 1% of days": w2["net_ex_best_days"] > 0,
+                 "profitable without its best 1% of name-months": w2["net_ex_best_pos"] > 0}
+        assert g2["checks"] == want2 and g2["PASS"] is all(want2.values()), (c, g2["checks"], want2)
+        if all(want2.values()):
+            pass2.append(c)
+        check_eis(g2["ref_episodes_in_stretch"], xB2[kw], f"{c} @{FLOOR_REPORTED}")
+    assert fr["cells_clearing_a_to_e_information_only"] == pass2 and out["stageA"]["registered_pass_cells"] == [c for c in CELLS if cells[c]["PASS"]], "the reported reading is information only: the registered pass list is the registered reading's"
+    n["reported_floor_months"] = len(keep)
     # ---- NEW names per month and the hedge ratios (the survivors of the sets recount, the cohorts from the plan)
     nt = rep["new_table"]
     assert len(nt) == len(L.recs) and all(r_["traded"] and r_["E"] and r_["M"] for r_ in nt)
@@ -3623,6 +4075,7 @@ def smoke_stage_recount(cx):
     # ---- the file: the numbers survive the JSON round trip, the stamp and the pre-registration are in it
     sa = json.load(open(os.path.join(OUT, "newissue_stageA.json")))
     assert sa["judged"] is True and sa["candidate"]["cell"] == out["candidate"]["cell"] and sa["prereg_sha256_lf"] == PREREG_SHA and {k_: sa.get(k_) for k_ in stamp()} == stamp() and sa["stageA"]["registered_pass_cells"] == out["stageA"]["registered_pass_cells"]
+    assert sa["low_power_flag"] == LOW_POWER and sa["floor_reported"]["floor"] == FLOOR_REPORTED and sa["traded_months"]["registered"]["traded"] == len(L.recs) and sa["traded_months"]["reported"]["traded"] == len(keep) and abs(sa["floor_reported"]["cells"]["E"]["base"]["usd_per_year"] - fr["cells"]["E"]["base"]["usd_per_year"]) < 1e-9
     assert all(abs(sa["stageA"]["cells"][c]["base"]["net"] - cells[c]["base"]["net"]) < 1e-9 and sa["stageA"]["cells"][c]["checks"] == cells[c]["checks"] for c in CELLS) and sa["parity"] == json.loads(json.dumps(out["parity"]))
     # ---- the audit candidates: the 50 largest gains per cell, largest first, dated before the cut, the largest equal to the recount's
     cd = pd.read_csv(os.path.join(OUT, "newissue_audit_candidates.csv"))
@@ -3644,7 +4097,7 @@ def smoke_stage_recount(cx):
 def smoke(*a):
     """python r20_newissue.py smoke DIR [stage_b]: offline, on SYNTHETIC worlds (nothing real is read or written; DIR is wiped and its name must contain 'smoke'). Order: the selftest on the real constants; the planted world through the real loaders against plain-python recounts of everything this file adds;
     the dryload (counts only); Stage A's refusal paths; Stage A on the NULL world (must FAIL), on the BEAR world (every name drifts down: the family-aware null must catch it) and on the PLANTED world (the new-issue underperformance must be found: (a)-(e) pass, (f) awaits the hand audit, every number recounted);
-    the beta rule's gate and the 20-name floor end to end; the hand audit (keep / data_event) and the recomputation; Stage B's refusal paths; with the argument stage_b also the one read of Stage B on the synthetic lockbox days, the verdict = the leg's veto alone, a second read refused, Stage A frozen"""
+    the beta rule's gate and the floor end to end (the registered 10-name floor, the 20-name reading beside it); the hand audit (keep / data_event) and the recomputation; Stage B's refusal paths; with the argument stage_b also the one read of Stage B on the synthetic lockbox days, the verdict = the leg's veto alone, a second read refused, Stage A frozen"""
     root = os.path.abspath(a[0] if a else os.path.join(tempfile.gettempdir(), "newissue_smoke"))
     with_b = "stage_b" in a[1:]
     why = smoke_refusal(root)
@@ -3658,7 +4111,8 @@ def smoke(*a):
         plan = env.plan
         print(f"synthetic market: {len(env.fk['plant'].names)} names x {len(env.days):,} business days ({env.days[0]:%Y-%m-%d} .. {env.days[-1]:%Y-%m-%d}), one NEW name listed a month from 2016-02, the planted cases (a stray bar, a 17-of-20 and an 18-of-20 listing, two spincos, two name changes, a registered split, a missed x4, a +60% "
               f"gap, a delisting, three names below the universe's floors); the PLANTED world: NEW names drift {SMOKE_DRIFT:+.2%} a day over the sessions {SMOKE_AGE[0]} .. {SMOKE_AGE[1]} after their listing; the NULL world has no drift; the BEAR world: EVERY name drifts {SMOKE_BEAR:+.2%} a day; all through "
-              f"r5_siporb's own pulls ({env.build_seconds:.0f}s); the wide calendar: {len(env.ca_rows):,} rows, sha256 {env.wide_sha[:16]}...; the 20-name floor shrunk to {SPEC['floor']} for the smoke (the real constant is asserted by the selftest)")
+              f"r5_siporb's own pulls ({env.build_seconds:.0f}s); the wide calendar: {len(env.ca_rows):,} rows, sha256 {env.wide_sha[:16]}...; the registered floor stays the real {SPEC['floor']} NEW names (16 .. 20 survive every month, so every month trades) and the REPORTED floor is shrunk from 20 to "
+              f"{FLOOR_REPORTED} for the smoke (the real constants are asserted by the selftest)")
         # ---- 1. the planted world through the REAL loaders: the cut at read, then everything this file adds against plain-python recounts
         W, cal, extra, winfo, einfo, tbis = smoke_world(env, "plant")
         n_cut = sum(1 for r_ in env.ca_rows if ((r_.split(",")[4] or r_.split(",")[5]) >= "2025-06-30"))
@@ -3687,7 +4141,7 @@ def smoke(*a):
         dryload_text_checks(td)
         n_new, n_seas = [len(sets["remove"][q.r][0]) for q in L.recs], [len(sets["remove"][q.r][1]) for q in L.recs]
         assert f"NEW names per month (survivors of every removal; min / median / max over the {len(L.recs)} rebalances): {min(n_new)} / {np.median(n_new):.0f} / {max(n_new)}; SEASONED candidates per month {min(n_seas)} / {np.median(n_seas):.0f} / {max(n_seas)}" in td
-        assert f"rebalances: {len(L.recs)} in WF" in td and f"{len(L.recs)} with >= {SPEC['floor']} NEW names [N6]" in td and f"first traded rank {W.days[L.recs[0].r]:%Y-%m-%d}, last traded rank {W.days[L.recs[-1].r]:%Y-%m-%d}" in td and f"months under the {SPEC['floor']}-name floor (0): none" in td
+        assert f"rebalances: {len(L.recs)} in WF" in td and f"{len(L.recs)} with >= {SPEC['floor']} NEW names [N7]" in td and f"first traded rank {W.days[L.recs[0].r]:%Y-%m-%d}, last traded rank {W.days[L.recs[-1].r]:%Y-%m-%d}" in td and f"months under the {SPEC['floor']}-name floor (0): none" in td
         coh, cnames = Counter(), defaultdict(set)
         for q in L.recs:
             for nm in sets["remove"][q.r][0]:
@@ -3715,14 +4169,22 @@ def smoke(*a):
             dryload()
         assert "NOT registered yet" in buf.getvalue() and "calendar tables this family reads" in buf.getvalue()
         dryload_text_checks(buf.getvalue())
-        assert f"Stage A's bar (a) needs >= {RULES['reb']} traded rebalances: {len(L.recs)} of the {len(L.recs)} months clear the {SPEC['floor']}-name floor on the NEW survivors ({sum(1 for q in L.recs if q.newage >= SPEC['floor'])} would on the age-window count before the removals) -> the bar is reachable" in td
+        n18 = sum(1 for v in n_new if v >= FLOOR_REPORTED)
+        assert (f"Stage A's bar (a) [N8] needs >= {RULES['reb']} traded rebalances: {len(L.recs)} of the {len(L.recs)} months clear the REGISTERED {SPEC['floor']}-name floor on the NEW survivors ({sum(1 for q in L.recs if q.newage >= SPEC['floor'])} would on the age-window count before the removals) -> the bar is reachable; "
+                f"the reported {FLOOR_REPORTED}-name floor: {n18} months clear it ({'the bar would be reachable there too' if n18 >= RULES['reb'] else 'the bar would be unreachable there'}; information only)") in td
+        fyr_ = lambda qs: dict(sorted(Counter(int(W.days[q.r + 1].year) for q in qs).items()))
+        assert dres["leg"]["traded"] == len(L.recs) and dres["leg_reported_floor"]["traded"] == n18 and 0 < n18 < len(L.recs) and dres["leg"]["floor"] == SPEC["floor"] and dres["leg_reported_floor"]["floor"] == FLOOR_REPORTED
+        assert dres["leg"]["traded_by_fill_year"] == fyr_(L.recs) == dres["leg"]["rebalances_by_fill_year"] and dres["leg_reported_floor"]["traded_by_fill_year"] == fyr_([q for q, v in zip(L.recs, n_new) if v >= FLOOR_REPORTED]), "the traded months by fill year under both floors"
+        assert traded_text(dres["leg"], dres["leg_reported_floor"]) in td and f"months under the {FLOOR_REPORTED}-name floor ({len(L.recs) - n18}): " in td and f"under the registered {SPEC['floor']}-name floor / under the reported {FLOOR_REPORTED}-name floor)" in td and LOW_POWER in td
+        assert dres["leg"]["traded_2018_03_to_2022_03"] == sum(1 for q in L.recs if TS("2018-03-01") <= W.days[q.r + 1] <= TS("2022-03-31")) and f"in 2018-03 .. 2022-03: {dres['leg']['traded_2018_03_to_2022_03']} of the {len(L.recs)} (registered)" in td
         e0 = min(d for _o, _n, d in plan.chg if TS(d) < S.LB0)
         assert f"calendar name-change coverage: the earliest name-change row on the calendar is dated {e0}; the 24-month name-change window of {sum(1 for q in L.recs if W.days[q.r] - pd.DateOffset(months=SPEC['nc_months']) < TS(e0))} of the {len(L.recs)} WF ranks starts before it" in td
-        with spec(floor=18):                                                                # the bar's feasibility line says so when too few months trade
+        with spec(floor=20), patched(THIS, FLOOR_REPORTED=25):                              # the bar's feasibility line says so when too few months trade (the registered floor squeezed to 20, the reported one to 25)
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
-                dres18 = dryload()
-            assert "the bar is UNREACHABLE" in buf.getvalue() and dres18["leg"]["traded"] == sum(1 for v in n_new if v >= 18) < RULES["reb"] and f"{dres18['leg']['traded']} of the {len(L.recs)} months clear the 18-name floor" in buf.getvalue()
+                dres20 = dryload()
+            assert "the bar is UNREACHABLE" in buf.getvalue() and dres20["leg"]["traded"] == sum(1 for v in n_new if v >= 20) < RULES["reb"] and f"{dres20['leg']['traded']} of the {len(L.recs)} months clear the REGISTERED 20-name floor" in buf.getvalue()
+            assert dres20["leg_reported_floor"]["traded"] == 0 and "the reported 25-name floor: 0 months clear it (the bar would be unreachable there; information only)" in buf.getvalue()
             dryload_text_checks(buf.getvalue())
         with patched(THIS, PREREG_SHA="0" * 64):
             refused(dryload, "DIFFERS", "lockbox NOT read")
@@ -3776,6 +4238,8 @@ def smoke(*a):
         print("Stage A refuses (and writes nothing) on: a changed pre-registration, an unregistered / other / absent wide calendar, a missing manifest, a book that does not reproduce #463, a RESMOM line file that is absent / not the registered one / whose reference does not reproduce its registered WF numbers, "
               "a wrong SIPORB manifest, a first session that is not the registered one, an audit file it cannot read or a data_event that matches nothing, and once the lockbox has been read")
 
+        verdict_of = lambda t: next(l for l in t.splitlines() if l.startswith("NEWISSUE Stage A:"))
+
         def run_stage_a(world):
             env.switch(world)
             b_ = io.StringIO()
@@ -3790,6 +4254,7 @@ def smoke(*a):
         assert "NEWISSUE Stage A: FAIL - no cell passes (a)-(e)" in txt_n and "Stage A (a)-(e) pass" not in txt_n and all(d < "2025-06-30" for d in dates_of(txt_n)), "the null world fails and prints no lockbox date"
         assert all(cn[c]["base"]["net"] < 0 and cn[c]["base"]["roc"] < RULES["roc"] and not cn[c]["PASS"] and not cn[c]["A2"]["incremental_pass"] and cn[c]["beta_gate"]["credited"] for c in CELLS), "a world without the effect pays its costs and adds nothing to the reference"
         assert out_n["reference"]["sha256"] == env.ref_sha and "REFERENCE book [X1]" in txt_n and "DIAGNOSTICS [X2]" in txt_n and "no incremental pass" in txt_n and "INCREMENTAL PASS" not in txt_n
+        assert out_n["low_power_flag"] == LOW_POWER and LOW_POWER in verdict_of(txt_n) and "BOTH FLOORS SIDE BY SIDE [N7]" in txt_n and out_n["floor_reported"]["floor"] == FLOOR_REPORTED and out_n["floor_reported"]["cells_clearing_a_to_e_information_only"] == []
         os.remove(sa_path)
         with quiet():
             refused(stage_b, "go-flag")
@@ -3814,6 +4279,7 @@ def smoke(*a):
         for c in CELLS:
             assert f"Stage A (a)-(e) pass, (f) awaits the hand audit - cell {c}" in txt, c
         assert "(f) AWAITS THE HAND AUDIT" in txt and "audit complete" not in txt.lower() and "(f) pass" not in txt.lower() and "the PRIMARY cell E" in txt and all(d < "2025-06-30" for d in dates_of(txt)), "the harness never decides (f); no lockbox date"
+        assert LOW_POWER in verdict_of(txt) and out["low_power_flag"] == LOW_POWER and "THE REFERENCE LINE'S DRAWDOWN EPISODES [N10]" in txt and " a year) ROC@30k" in txt and "dollars a year = net / years" in txt and "the cell HELPS in" in txt, "[N9] the flag is in the verdict line; [N10] dollars a year and the episode table"
         assert out["prereg_sha256_lf"] == PREREG_SHA and {k_: out.get(k_) for k_ in stamp()} == stamp() and out["manifest_sha256"] == D15.MANIFEST_PREFIX + "0" * 56 and out["listing"] == lw and out["name_change_window_before_the_calendar"] == [f"{W.days[q.r]:%Y-%m-%d}" for q in L.recs if W.days[q.r] - pd.DateOffset(months=SPEC["nc_months"]) < TS("2016-06-01")] != []
         assert txt.index("REFERENCE book [X1]") < txt.index("registered reading done") < txt.index("DIAGNOSTICS [X2]") and txt.index("null (100 draws, seed 20261005") < txt.index("Stage A (a)-(e) PASS") < txt.index("look-ahead reading (positions with a flag"), "the reference first, the diagnostics after the cells"
         cx = SimpleNamespace(env=env, W=W, ctx=ctx, L=L, sets=sets, B=B, rowsB=rowsB, ref=ref, S12=S12, out=out, txt=txt, plan=plan, tbis=tbis)
@@ -3838,9 +4304,9 @@ def smoke(*a):
         assert all(res_g["cells"][c]["beta_gate"]["limit"] == 1e-6 for c in CELLS) and RULES["beta_abs"] == 0.20
         print(f"[N2] beta rule end to end (the limit squeezed to 1e-6 for one reading): the planted cells' realised betas ({cells['E']['realised_beta']['beta']:+.3f} / {cells['M']['realised_beta']['beta']:+.3f}) are outside it -> the drawdown-day profile is reported, never credited, A2's incremental pass "
               f"(true before the rule) becomes false, no book shadow line, no gate")
-        # ---- 8. the 20-name floor end to end: some months trade, none do - every table and printer takes it
+        # ---- 8. the floor end to end (the registered floor set to 20 / 25 for one reading each): some months trade, none do - every table and printer takes it, the second-floor columns too
         n_by = {q.r: len(sets["remove"][q.r][0]) for q in L.recs}
-        for fl in (18, 25):
+        for fl in (20, 25):
             with spec(floor=fl), np.errstate(all="ignore"):                                   # (a world in which nothing trades divides by nothing in r11_risk's regressions: NaN, quietly)
                 Lf = ni_build(W, ctx, WFN, PRE_END, "remove")
                 want_tr = [q.r for q in L.recs if n_by[q.r] >= fl]
@@ -3848,13 +4314,14 @@ def smoke(*a):
                 res_f, obj_f = evaluate(W, ctx, B, SN, ref, SRN, rowsB, "remove", 4, 0, full=True)
                 rep_f, cand_f = reports(W, ctx, B, S12, ref, rowsB, obj_f, res_f["cells"], tbis, D15.asset_status(), legs)
                 var_f = variant_rows(W, ctx, B, rowsB)
-                txt_f = capture(print_cells, res_f) + capture(print_reports, rep_f, res_f["cells"]) + capture(print_diagnostics, res_f, rep_f, ref, var_f)
+                txt_f = (capture(print_cells, res_f) + capture(print_reports, rep_f, res_f["cells"]) + capture(print_diagnostics, res_f, rep_f, ref, var_f) + capture(print_floors, res_f, res_f) + capture(print_diagnostics, res_f, rep_f, ref, var_f, res_f)
+                         + capture(print_cells, res_f, None, " @18", True))
                 for c in CELLS:
                     bs = res_f["cells"][c]["base"]
-                    assert bs["n_units"] == len(want_tr) and bs["n_pos"] == sum(n_by[r_] for r_ in want_tr) and res_f["cells"][c]["checks"]["rebalances>=60"] is False and res_f["cells"][c]["PASS"] is False, (fl, c)
+                    assert bs["n_units"] == len(want_tr) and bs["n_pos"] == sum(n_by[r_] for r_ in want_tr) and res_f["cells"][c]["checks"]["rebalances>=40"] is False and res_f["cells"][c]["PASS"] is False, (fl, c)
                     assert (bs["n_pos"] == 0) == (fl == 25) and len(cand_f[c]) == (0 if fl == 25 else min(AUDIT_N, bs["n_pos"])), (fl, c)
-                assert sum(not r_["traded"] for r_ in rep_f["new_table"]) == len(L.recs) - len(want_tr) and "Stage A (a)-(e) FAIL" in txt_f and "DIAGNOSTICS [X2]" in txt_f
-            print(f"20-name floor end to end (the floor set to {fl} for one reading): {len(want_tr)} of {len(L.recs)} months trade, the cells, null, reports, candidates and every printer take it" + (" - nothing trades: no position, no statistic, no crash" if fl == 25 else ""))
+                assert sum(not r_["traded"] for r_ in rep_f["new_table"]) == len(L.recs) - len(want_tr) and "Stage A (a)-(e) FAIL" in txt_f and "DIAGNOSTICS [X2]" in txt_f and "BOTH FLOORS SIDE BY SIDE [N7]" in txt_f and "cell E @18" in txt_f
+            print(f"floor end to end (the registered floor set to {fl} for one reading): {len(want_tr)} of {len(L.recs)} months trade, the cells, null, reports, candidates and every printer take it" + (" - nothing trades: no position, no statistic, no crash" if fl == 25 else ""))
         # ---- 9. the hand audit: every listed contributor 'keep' -> the same numbers, the audit counted; then a data_event on the candidate's largest gain -> out of both cells, the null and the pools, Stage A computed again
         cd = pd.read_csv(os.path.join(OUT, "newissue_audit_candidates.csv"))
         pd.DataFrame({"symbol": cd["symbol"], "date": cd["date"], "cell": cd["cell"], "verdict": "keep", "note": "smoke: nothing found"}).to_csv(ap, index=False)
@@ -3960,10 +4427,10 @@ def smoke(*a):
             print("--- Stage B, the one read on the synthetic lockbox days: the flag after the load and the checks, the verdict, a second read refused")
             cap, real_cs = {}, D15.cell_stats
 
-            def tap(Bk, xk, ck, lo_, hi_, run_, *a_, **k_):                                # sees the lockbox call of the one read: keeps the cell's daily series, to recompute the book add independently
+            def tap(Bk, xk, ck, lo_, hi_, run_, *a_, **k_):                                # sees the lockbox calls of the one read: keeps the cell's daily series (the registered floor's first, then the reported floor's), to recompute the book adds independently
                 st_ = real_cs(Bk, xk, ck, lo_, hi_, run_, *a_, **k_)
                 if lo_ == LB0:
-                    cap["x"] = np.array(xk)
+                    cap["x20" if "x" in cap else "x"] = np.array(xk)
                 return st_
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf), patched(D15, cell_stats=tap):
@@ -3989,6 +4456,23 @@ def smoke(*a):
             assert add["c"] == c_frozen and abs(add["roc"] - want["roc"]) < 1e-9 and abs(add["sortino"] - want["sort"]) < 1e-9 and abs(add["net"] - want["net"]) < 1e-6 and abs(add["max_dd"] - want["max_dd"]) < 1e-9, add
             assert add["reference"] == {"roc": RULES["b_roc"], "sortino": RULES["b_sort"]} and add["would_have_cleared"] is bool(want["roc"] >= RULES["b_roc"] and want["sort"] >= RULES["b_sort"]) and "never a pass" in add["note"]
             assert "book add, REPORTED and never part of the pass" in txt_b2 and ("PASS - the leg survives" in txt_b2) is ok and ("FAIL - the leg is vetoed" in txt_b2) is not ok
+            # [N7] / [N9] / [N10]: the sealed year's leg under the reported floor, the dollars a year beside every ROC, the LOW-POWER flag in the verdict
+            with spec(floor=FLOOR_REPORTED):
+                Lb20 = ni_build(Wb, ctxb, LB0, LB1, "remove")
+            Pb20 = brute_positions(Wb, Lb20, cand)
+            l20 = sb["leg_reported_floor"]
+            xb20 = D15.to_B(brute_series_of(Wb, Pb20)[0], A13.book_rows(B, Wb), B.n)
+            assert l20["floor"] == FLOOR_REPORTED and l20["leg"]["n_pos"] == len(Pb20) and l20["leg"]["n_units"] == len({p["ri"] for p in Pb20}) == sum(1 for q in Lb.recs if q.n_new >= FLOOR_REPORTED) and 0 < len(Pb20) < len(Pb) and abs(l20["leg"]["net"] - float(xb20[mb_].sum())) < 1e-6
+            yrs_lb = (B.index[mb_][-1] - B.index[mb_][0]).days / 365.25
+            assert lg["years"] == yrs_lb and abs(lg["usd_per_year"] - lg["net"] / yrs_lb) < 1e-9 and abs(l20["leg"]["usd_per_year"] - l20["leg"]["net"] / yrs_lb) < 1e-9
+            assert add["years"] == yrs_lb and add["usd_per_year"] == add["net"] / yrs_lb and abs(add["usd_per_year"] - want["net"] / yrs_lb) < 1e-6
+            a463 = R11.stats(np.asarray(B.raw, float)[mb_], B.index[mb_])
+            assert abs(add["reference_463_alone"]["roc"] - a463["roc"]) < 1e-9 and abs(add["reference_463_alone"]["net"] - a463["net"]) < 1e-6 and abs(add["reference_463_alone"]["usd_per_year"] - a463["net"] / yrs_lb) < 1e-6
+            want20 = R11.stats((np.asarray(B.raw, float) + c_frozen * cap["x20"])[mb_], B.index[mb_])
+            r20_ = add["reported_20_floor"]
+            assert r20_["floor"] == FLOOR_REPORTED and abs(r20_["roc"] - want20["roc"]) < 1e-9 and abs(r20_["net"] - want20["net"]) < 1e-6 and abs(r20_["usd_per_year"] - want20["net"] / yrs_lb) < 1e-6
+            vline = next(l for l in txt_b2.splitlines() if l.startswith("NEWISSUE Stage B:"))
+            assert sb["low_power_flag"] == LOW_POWER and LOW_POWER in vline and "#463 alone on the sealed year: ROC@30k" in txt_b2 and f"{cand} @{FLOOR_REPORTED} (the REPORTED {FLOOR_REPORTED}-name floor [N7], never a pass route)" in txt_b2 and " a year)" in txt_b2
 
             def reread(leg_ok, book_ok):                                                   # the pass is the leg's veto ALONE: the same read again with the leg forced to pass and the book add's bar forced to miss, then the leg forced to fail and the bar forced to clear
                 os.remove(rd)
