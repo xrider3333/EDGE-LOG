@@ -129,6 +129,7 @@ trades. Cross-instrument compression — ES and NQ hourly ratios correlate 0.82,
 adds nothing (question closed). Coil shape — length, depth, slope, range-in-ATR, prior move: nothing
 survives a holdout. Pullback entries (43–72% of fires never fill). Fixed time exits. Scaling out at
 1R (risk-adjusted, not richer — same as ORB). An ES-only sub-book. The ES 15-minute cell as a leg.
+Rounds 19-23 (2026-09-28 .. 10-04): the multi-cell sleeve inside the book (#469/#470); the clean-engine stack (validate #479 WEAK, PBO 0.64) and its transfer to other cells (21a); order flow on gated fires (20a); the candle proxy on 16 years (20d); breakeven at +1R (22, arms on 25 of 355 trades); the crown on 35 large US stocks (20c, loses money - and its cache held GE's 2021-08-02 1-for-8 reverse split UNADJUSTED, found by TBIS 10-04; a fake GE gain could only have flattered the result, so the FAIL stands; drop GE from any re-read and re-pull rather than patch, Alpaca re-adjusts history between pulls); the compression tilt on the book's ORB and ENGU-Q legs (23 - it sizes up into the 2020 crash). Still open: the order-flow forward shadow on the fires the hourly check blocks (read at 150 blocked fires).
 
 ## Discipline this family taught the shop
 

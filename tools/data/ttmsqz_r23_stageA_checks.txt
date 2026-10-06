@@ -1,0 +1,6 @@
+TTM round 23 Stage A - reported checks (FRONTIER export C:\EdgeLog\_anatomy_cache\ttm23; WF 2016-06-30 .. 2025-06-29, 2627 days)
+  WF ROC@$30k here: TWIN 93.83  COIL 90.24  ORB-ONLY 90.45  ENGU-ONLY 93.42  (FRONTIER: 93.81 / 90.22 / 90.43 / 93.40)
+  R1 without Feb-Apr 2020: TWIN 109.03  COIL 120.47  -> COIL minus TWIN +11.44 (full WF -3.59)
+  R2 tuning block 2010-06-07 .. 2016-06-29 (FRONTIER): TWIN 47.27  COIL 55.94 -> +8.68
+  R3 breadth, c = 1.0327: 2016: d +13.5; 2017: d -23.4; 2018: d +23.1; 2019: d -13.9; 2020: d -11.5; 2021: d +20.9; 2022: d +16.6; 2023: d +67.1; 2024: d +131.0 -> d > 0 in 6 of 9 years (needs 6)
+  Tilted share of WF trades: ORB 12.9%, ENGU-Q 17.7% (both under the 20% near-uniform line)
