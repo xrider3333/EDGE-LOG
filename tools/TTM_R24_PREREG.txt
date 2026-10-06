@@ -1,0 +1,71 @@
+TTM ROUND 24 - PRE-REGISTRATION (written 2026-10-06 BEFORE any number below is computed; DRAFT for MANAGER)
+Order: MANAGER assessment 10-05 (C:/EdgeLog/manager/assess_1005/ASSESSMENT_TOP_MODELS_2026-10-05.md, TTM section 5b;
+inbox #62 (b)): "pre-register ONE cell - the leg restricted to first-fillable-bar entries, ride to the close with the
+fade exit, on the roll-corrected ES master - judged standalone on WF ... reported as a map placement only ... This
+tells us whether TTM is an opening-coil effect (ORB's cousin) or a squeeze effect."
+
+WHAT IS ALREADY KNOWN (disclosed, so nothing below is presented as a discovery)
+The assessment already read the 10:00-ET split of #459 on 2010-06-07 .. 2025-06-30 at the book's x3: 81 of 340 trades
+fill on the 10:00 bar and make $128,948 (69% of net, $1,592 a trade, 50.6% winners) against $224 a trade for the
+other 259; nine of the ten biggest trades entered at 10:00 and all ten left on the 15:30 bar. So the cell's own
+standalone figures (O1 below) are a RESTATEMENT on the unified window, not evidence. The new information in this
+round is the MATCHED CONTROL (M0 vs M1): does a 10:00 entry earn the same on days WITHOUT a squeeze fire?
+Dead-list cross-check: TTM rounds 1-23 (TTM.md closed list) never split fire days from no-fire days at the open;
+ORB's own family trades the opening RANGE breakout on NQ 5m, not a momentum-sign entry at 10:00 on ES 30m; the
+open-bar SIZE tilt (#368, inside #459) re-sized these trades, it never tested a control.
+
+DATA AND LEG
+ES 30m RTH, roll-corrected master db_adj_rth (pinned), loaded 2010-06-07 .. 2025-06-30 ONLY - the lockbox year
+(2025-07-01 ..) is never loaded. Cost 0.363 pts per contract round trip, $50 a point.
+#459 = augur_strategies/TTMSQZ_3_0_ES30SSOF2.py unchanged, cell kc_mult 1.5 / eod_cutoff 1 / gate_len 20: structural
+stop at the coil-range edge, fade exit after 2 fading momentum bars, flat at the session close, hourly sq_on gate,
+size ladder 1.0 / 1.5 (deep squeeze) x 1.5 (open bar).
+PARITY FIRST: #459 on this load = 340 trades, of which 81 fill on the session's second bar (ordinal 1 = 10:00 ET),
+summing $42,983 at x1 (the assessment's $128,948 / 3). A copy of the trade loop that only accepts orders decided on
+the session's FIRST bar must reproduce those 81 trades to the trade (a 10:00 trade is always the day's first, so the
+restriction changes nothing about it). Any mismatch = STOP, nothing below is read.
+
+THE CELLS (walk-forward 2016-06-30 .. 2025-06-29, #463's unified stretch; 2010-06-07 .. 2016-06-29 = the legs'
+tuning block, reported separately, never part of a verdict)
+O1 (THE ORDERED CELL, map placement) = #459 restricted to entries decided on the 09:30 bar and filled at 10:00, the
+   leg's own exits and sizes. About 5 trades a year, so about 45 WF trades.
+M1 / M0 (THE MATCHED CONTROL, classification only) = ONE mechanical rule run on every session: at the close of the
+   09:30 bar, if the squeeze momentum is finite and non-zero and the hourly gate allows that side (#459's own
+   gate_long / gate_short arrays), enter at the 10:00 open in the momentum's sign; exit on 2 fading momentum bars
+   (next open) or at the session close ("ride to the close with the fade exit"); NO stop (the structural stop needs
+   a coil range, which a no-fire day does not have, so neither arm gets one); size 1.0. Each trade is labelled by
+   whether the 09:30 bar FIRED (#459's fire array): M1 = fire days, M0 = no-fire days. Identical code path, only the
+   label differs.
+
+CLASSIFICATION (pre-stated, WF only, M1 vs M0, dollars per trade net of the house cost at size 1)
+m1, m0 = mean $ per trade. p_perm = one-sided permutation p for m1 > m0 (fire labels shuffled across the pooled
+M1+M0 trades, 10,000 shuffles, seed 7). p0 = one-sided bootstrap p for m0 > 0 (10,000 resamples, seed 7).
+  SQUEEZE EFFECT : p_perm <= 0.05 AND m0 <= 0.5 x m1.
+  OPENING EFFECT : p0 <= 0.05 AND m0 >= 0.5 x m1   (the 10:00 entry earns without a fire; TTM is ORB's cousin).
+  UNDECIDED      : anything else - stated with the power line below, never rounded up to either label.
+Power line, printed BEFORE m1/m0: n1, n0 and the minimum detectable difference 2.8 x sd x sqrt(1/n1 + 1/n0), sd = the
+pooled per-trade standard deviation (80% power, 5% one-sided).
+Reported checks beside the label (any one disagreeing is stated as "fragile"): the same label on the tuning block;
+both regime halves 2016-06-30 .. 2021-12-31 / 2022-01-01 .. 2025-06-29 keep the sign of m1 - m0; without
+2020-02-01 .. 2020-04-30.
+
+O1 STANDALONE (house line #45 bars; the map placement)
+Reported for O1, beside #459 entire and #459 WITHOUT its 10:00 trades: WF trades, net, worst drawdown valued daily,
+ROC %/yr at a $30k drawdown (30 x MAR), Sortino (daily), PF, net without the biggest trade; dollars a year at a $30k
+own drawdown (the MDL line is $15,000); O1's P&L inside #463's worst walk-forward drawdown (2020-03-02 .. 2020-03-27)
+at that same $30k scaling, against MDL's first-order rule ($3,127 a year per $1,000 lost there).
+AUTO-VALIDATE only if ALL: WF trades >= 100; WF ROC@$30k >= #459's own WF ROC@$30k (the twin) and >= 15; Sortino >=
+#459's; WF net without the biggest trade > 0. The trade count alone is expected to fail it (about 45): then O1 is a
+RESEARCH ROW on the RUNBOARD (TTM-R24, WF ROC@$30k and DD), never a leg. Nothing in #463 or paper changes either way.
+
+DIAGNOSTICS (addendum 2; printed, no verdict): event-time path (mean cumulative $ by bar since entry, bars 0-11) for
+O1, M1, M0; per-year rows; long vs short; regime halves; cost curve at 0 / 5 / 10 / 20 bps of the entry price per
+round trip; M0 split by whether the 09:30 bar was still IN a squeeze (coil persisting) or not; the same rule with no
+hourly gate (all sessions) as context.
+
+MAIN WAYS IT COULD FOOL US: about 45 fire trades in 9 years (power); the no-stop control rides losers to the fade or
+the close, so its dollar figures are not O1's and are used only for the M1-vs-M0 comparison; days with missing early
+bars (e.g. 2020-02-28) shift the ordinal - the script prints how many ordinal-0 bars are not stamped at the session
+open and drops none silently.
+WHO: TTM runs it (tools/ttmsqz_r24_open_cell.py), log tools/data/ttmsqz_r24_open_cell.txt; verdict to MANAGER,
+ledger + TTM.md + RUNBOARD row.
