@@ -23,7 +23,9 @@ api/trade_bars.py _pack shape, and window._missedRef / colRef are in-memory stub
 writes. requestAnimationFrame is replaced with a 0 ms timer, since a headless page may never run
 animation frames.
 
-Every case is its own fresh render (all HOME state reset, then renderApp()):
+Every case is its own fresh render (all HOME state reset, then renderApp()). After the 24+ cases and the two interaction runs the
+same index.html is loaded three times more: with ?oldboards=1 (the previous layout), for the shared trade panel (PANEL_CASES,
+LEDGER unify step 9) and for the width sweep (WIDTH_RUNS, the step 8 follow-up):
   viewport  laptop 1366x768 | phone 375x812        (the iframe IS the viewport)
   theme     glass (the owner's dark theme) | paper (light), via prefs.theme + applyTheme()
   missed    no entries | two (an MNQ entry with a point score, a stock entry)
@@ -46,7 +48,34 @@ Per case:
   * rows come out newest close first, a deposit sits in its day under BY TRADE, the AI ASSESSMENT is a closed fold, the
     account list is one line on a phone (a list on a laptop), and the SIMPLE table fits its box with no sideways scroll
   * the legacy TRADES and JOURNAL tabs (?oldtabs=1) draw on a phone without scrolling the page sideways (mistake #14)
-  * ?oldboards=1 (a second page load) still draws the previous list: its own FEED / TABLE button and chips, no frame
+  * ?oldboards=1 (a second page load) still draws the previous list: its own FEED / TABLE button and chips, no frame, and the
+    previous trade sheet (#hm-sheet) still takes no room when closed, opens on a trade and closes again
+  * LEDGER step 9: while nothing is open the shared trade panel is not in the page at all (no node, no layer)
+Per trade panel case (a third page load: laptop 1366x768 and phone 375x812, glass / paper / MONO, PANEL_CASES):
+  * a click on a row of the list opens the shared trade panel ([data-lgpanel="hm"]) with that trade's symbol, side tag and signed net
+    (coloured by the lg-up / lg-down token); on a laptop it is a right-hand panel (380-460 px, the full height), on a phone a bottom
+    sheet (full width, on the bottom edge, at most 90% of the height so a strip of page is left to tap); its slots come in the fixed
+    order head, chart, (IGNORE IN METRICS), numbers, notes, actions; it sits in <body>, outside the page every redraw rebuilds
+  * a CLOSED panel is not in the page: after Esc, a tap outside and the close button the page is exactly as wide and tall as
+    before the first open and <body> holds the same elements (no leftover node, no reserved column or height)
+  * Esc, a tap outside and the close button each close it, a tap inside does not; focus moves into it; a click on a control inside
+    a TABLE row (the grade select, the notes box) does not open it; DELETE asks first (a no keeps the panel, a yes deletes, and the
+    panel closes once the trade is gone from the list); 600 px is still a bottom sheet and 601 px already a right-hand panel
+  * the open trade survives a redraw of the list (a search, then cleared) and a LIST | TABLE switch and never shows another
+    trade; a note typed meanwhile is still in its box; a note typed and then closed is saved; opening another trade in the open
+    panel switches it and saves the first trade's note
+  * the grade and setup selects, IGNORE IN METRICS, the notes box, EDIT / OPEN IN TV / DELETE, the POINTS block and the chart
+    (with EXPAND on a laptop only) are in it; in MONO no colour in it carries a hue; no sideways scroll at 375; no console.error
+Per width sweep (a fourth page load: the LIST, the SIMPLE table and the FULL table, each resized through WIDTH_SET - 375 480 600 601 700 701 741
+800 801 860 901 921 975 1000 1011 1200 1366 px - and drawn again at every width; 601 / 741 / 801 / 921 are the widths just above where a list
+cell comes back, 701 / 901 / 1011 just above where a SIMPLE column comes back, 860 / 975 sit in the two bands where the SIMPLE table used to
+scroll inside its box):
+  * the PAGE never scrolls sideways at any of those widths, in any of the three views (scrollWidth <= clientWidth + 1 and <= the window
+    width + 1)
+  * LIST rows: TIME, SYMBOL, SIDE, NET and the chart icon (and SIZE above 600 px) always stay; the lowest-priority cells go first as the
+    window narrows - POINTS, then STRATEGY, then the board's end slot - and a cell that is gone stays gone at every narrower width; from
+    1000 px up nothing is hidden; no row is wider than the frame; every seeded trade still has its row
+  * the SIMPLE table fits its box at every one of them; the FULL table (26 columns) scrolls inside its own box, never the page
 Per interaction run:
   * a futures trade's panel opens, its chart body ends up holding an <svg> and the info line
     is filled in (the chart really drew), and the POINTS block shows the trade's score
@@ -95,7 +124,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 
-VIEWPORTS = {'laptop': [1366, 768], 'phone': [375, 812], 'narrow': [1000, 768]}
+VIEWPORTS = {'laptop': [1366, 768], 'phone': [375, 812], 'narrow': [1000, 768], 'edge600': [600, 800], 'edge601': [601, 800]}
 THEMES = ['glass', 'paper']
 LEDGERS = [('simple', 'table', 'simple'), ('full', 'table', 'full'), ('feed', 'feed', 'simple')]
 
@@ -121,6 +150,24 @@ for _th in THEMES:
 OLD_CASES = [['old/%s/%s' % (_vp, _nm), {'vp': _vp, 'theme': 'glass', 'missed': 0, 'view': _view, 'ledger': _led}]
              for _vp in ('laptop', 'phone') for _nm, _view, _led in (LEDGERS[0], LEDGERS[2])]
 FRAME_CHIPS = 'ALL,LONG,SHORT,WINS,LOSSES,FUTURES,STOCKS'
+# LEDGER unify step 9: the shared trade panel, opened from the list (a third page load, see _attempt). `tid` is a futures trade with a
+# positive net, `tid2` one with a negative net. The laptop runs once from the TABLE (glass) and from the LIST in glass / paper / MONO;
+# 600 px (still a bottom sheet) and 601 px (already a right-hand panel) are the two widths either side of the rule.
+PANEL_CASES = []
+for _vp, _th, _view in (('laptop', 'glass', 'feed'), ('laptop', 'paper', 'feed'), ('laptop', 'mono', 'feed'),
+                        ('laptop', 'glass', 'table'), ('phone', 'glass', 'feed'), ('phone', 'paper', 'feed'),
+                        ('phone', 'mono', 'feed'), ('edge600', 'glass', 'feed'), ('edge601', 'glass', 'feed')):
+    PANEL_CASES.append(['panel/%s/%s/%s' % (_vp, _th, 'table' if _view == 'table' else 'list'),
+                        {'vp': _vp, 'theme': _th, 'view': _view, 'tid': 'probe_t1', 'tid2': 'probe_t2'}])
+# LEDGER unify step 8 follow-up: the PAGE never scrolls sideways at any width from a phone to a laptop. A fourth page load seeds the LIST,
+# the SIMPLE table and the FULL table once each and resizes the window through WIDTH_SET, drawing the board again at every width. 375 /
+# 601 / 700 / 800 / 1000 / 1366 are the widths the owner asked for; 480 and 600 are the phone rule; 601 / 741 / 801 / 921 are the widths
+# just above where a list cell comes back (the tightest a list row ever is), 701 / 901 / 1011 just above where a SIMPLE column comes back,
+# and 860 / 975 sit in the two bands where the SIMPLE table used to scroll inside its own box.
+WIDTH_SET = [375, 480, 600, 601, 700, 701, 741, 800, 801, 860, 901, 921, 975, 1000, 1011, 1200, 1366]
+WIDTH_RUNS = [[_nm, {'theme': 'glass', 'view': _view, 'ledger': _led}, WIDTH_SET]
+              for _nm, _view, _led in (('list', 'feed', 'simple'), ('table-simple', 'table', 'simple'), ('table-full', 'table', 'full'))]
+LIST_HIDE_ORDER = ['pts', 'strat', 'slot']      # the optional cells of a LIST row, the first to go first
 JUMP_DAY = '2026-09-30'
 
 PASTE_URL = 'https://www.tradingview.com/x/TEST1/'
@@ -240,6 +287,79 @@ MUTANTS = [
      '@media(max-width:600px){#trd-tbl{min-width:0}',
      '@media(max-width:0px){#trd-tbl{min-width:0}',
      'the legacy TRADES table keeps its 24 columns on a phone (mistake #14)'),
+    # LEDGER step 9: the shared trade panel
+    ('panel-takes-room-when-closed',
+     'P.layer.remove();',
+     "P.layer.style.cssText='position:absolute;top:0;left:100%;width:440px;height:900px;background:transparent;animation:none';",
+     'a closed trade panel is parked off to the side instead of leaving the page, so it still takes room'),
+    ('esc-does-not-close',
+     'if(e.defaultPrevented||e.isComposing||_lgPanelCovered(P.layer))return;',
+     'return;',
+     'Esc no longer closes the trade panel'),
+    ('panel-outside-click-dead',
+     "if(e.target===layer&&P.down!==false)ledgerTradePanelClose(id,'outside');",
+     "if(false)ledgerTradePanelClose(id,'outside');",
+     'a click or tap outside the trade panel no longer closes it'),
+    ('panel-close-button-dead',
+     "if(e.target.closest&&e.target.closest('[data-lgpanel-close]')){ledgerTradePanelClose(id,'button');return;}",
+     "if(e.target.closest&&e.target.closest('[data-lgpanel-close]')){return;}",
+     'the trade panel close button does nothing'),
+    ('wrong-trade-after-rerender',
+     'const spec=_hmPanelSpec(String(id));',
+     "const spec=_hmPanelSpec(String(ledgerTradePanelOf('hm')?((_hmFeedList()[0]||{id:id}).id):id));",
+     'after the list is redrawn (a search) the panel shows the first row of the list, not the trade that was opened'),
+    ('notes-lost-on-close',
+     'try{if(P.o&&P.o.onBeforeClose)P.o.onBeforeClose(why);}catch(e){console.error(e);}',
+     '',
+     'closing the trade panel no longer saves a half-typed note'),
+    ('phone-sheet-missing',
+     '.lg-panel{top:auto;left:0;right:0;width:100%;max-height:88vh;',
+     '.lg-panel{top:0;left:auto;right:0;width:440px;max-height:none;',
+     'on a phone the trade panel is still a 440 px panel on the right instead of a bottom sheet'),
+    ('mono-hue-in-panel',
+     ".lg-panel-sym{font-family:'Bebas Neue','JetBrains Mono',monospace;font-size:30px;line-height:1.05;color:var(--text);",
+     ".lg-panel-sym{font-family:'Bebas Neue','JetBrains Mono',monospace;font-size:30px;line-height:1.05;color:var(--text);color:#7ac0ff;",
+     'the trade panel header carries a hard-coded blue, so MONO is no longer hue-free'),
+    ('panel-slot-order-wrong',
+     "const LEDGER_PANEL_SLOTS=['chart','numbers','notes','actions'];",
+     "const LEDGER_PANEL_SLOTS=['actions','chart','numbers','notes'];",
+     'the trade panel slots come out in another order (actions first)'),
+    ('panel-lost-on-redraw',
+     'document.body.appendChild(layer);',
+     "(document.getElementById('app')||document.body).appendChild(layer);",
+     'the trade panel is put inside the page that every board redraw rebuilds, so a redraw wipes it'),
+    ('panel-row-click-opens-nothing',
+     'onRow:rid=>{homeSheetId=rid;_hmSyncPanel();}});',
+     'onRow:rid=>{}});',
+     'a click on a row of the trade list no longer opens the trade panel'),
+    ('panel-ignore-box-dead',
+     'try{await updateTrade(tid,{statsExcluded:exclBox.checked});}',
+     'try{await updateTrade(tid,{});}',
+     'the IGNORE IN METRICS box in the trade panel no longer saves'),
+    ('panel-grade-select-missing',
+     "(r[0]==='GRADE'?sheetSel('grade',GRADES,t.grade):(r[0]==='SETUP'?sheetSel('setup',customSetups,t.setup):null))",
+     'null',
+     'the trade panel has no grade or setup select (a phone row keeps only five cells, so nothing else edits them)'),
+    ('panel-opens-from-a-control',
+     "const skip=e=>!!(e.target&&e.target.closest&&e.target.closest('select,input,textarea,button,a,label,.lg-skip'));",
+     'const skip=e=>false;',
+     'a click on a select or a box inside a trade row opens the trade panel as well'),
+    ('frame-wide-at-700',
+     '@media (max-width:920px){.lg-tl-row .lg-c-pts{display:none}}',
+     '@media (min-width:601px) and (max-width:850px){.lg-tl-row .lg-c-pts,.lg-tl-row .lg-c-strat,.lg-tl-row .lg-c-slot{display:flex!important}}',
+     'the trade list rows are wider than the window again between 601 and 850 px (no cell hides as it narrows), so the PAGE scrolls sideways at 700 px'),
+    ('frame-drops-net-to-fit',
+     '@media (max-width:740px){.lg-tl-row .lg-c-slot{display:none}}',
+     '@media (max-width:740px){.lg-tl-row .lg-c-slot{display:none}}@media (min-width:601px) and (max-width:740px){.lg-tl-row .lg-c-pnl{display:none}}',
+     'a list row between 601 and 740 px fits by dropping its NET cell instead of a low-priority one'),
+    ('simple-box-scrolls-at-860',
+     '@media (max-width:900px){.hm-dtable.hm-simple .hm-s2{display:none}}',
+     '@media (max-width:840px){.hm-dtable.hm-simple .hm-s2{display:none}}',
+     'the SIMPLE table brings its IN / POINTS / SETUP columns back too early, so it scrolls inside its own box at 860 px'),
+    ('simple-box-scrolls-at-975',
+     '@media (max-width:1010px){.hm-dtable.hm-simple .hm-s3{display:none}}',
+     '@media (max-width:960px){.hm-dtable.hm-simple .hm-s3{display:none}}',
+     'the SIMPLE table brings its # and PTS columns back too early, so it scrolls inside its own box at 975 px'),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -248,15 +368,15 @@ PROBE_HTML = """<!DOCTYPE html>
 <iframe id="f" src="../index.html__QS__" style="width:1366px;height:768px;border:0;display:block"></iframe>
 <pre id="o"></pre>
 <script>
-var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, PASTE=__PASTE__;
+var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, PASTE=__PASTE__, PANELS=__PANELS__, WIDTHS=__WIDTHS__;
 (function(){
-  var out={cases:{},inter:{},notes:[]}, reported=false, t0=Date.now(), sink=null;
+  var out={cases:{},inter:{},panels:{},widths:{},notes:[]}, reported=false, t0=Date.now(), sink=null;
   function finish(why){
     if(reported)return; reported=true;
     out.why=why; out.ms=Date.now()-t0;
     document.getElementById('o').textContent='HOMEPROBE: '+JSON.stringify(out);
   }
-  setTimeout(function(){finish('backstop');},52000);
+  setTimeout(function(){finish('backstop');},80000);   // virtual ms: a page that only waits on timers costs no wall time
   var fr=document.getElementById('f');
   function W(){return fr.contentWindow;}
   function D(){return fr.contentDocument;}
@@ -440,6 +560,19 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     W().eval("homeChartMode='equity';renderApp();");
     // the CLOSED trade panel must take no room (parked off-screen it widened the page: LEDGER mistake #13)
     var shc=d.getElementById('hm-sheet');r.sheetClosed=shc&&!shc.classList.contains('open')?W().getComputedStyle(shc).display:'open';
+    // LEDGER step 9: while nothing is open the shared trade panel is not in the page at all (no node, no layer); the previous sheet
+    // (?oldboards=1) still opens on a trade, shows it and closes again, and the shared panel never appears behind it
+    r.panelsInDom=d.querySelectorAll('.lg-panel,.lg-panel-layer').length;
+    r.oldSheet=null;
+    if(shc){
+      W().eval('homeSheetId="probe_t1";renderApp();');
+      var os=d.getElementById('hm-sheet'),osym=os?os.querySelector('.hm-sheet-sym'):null;
+      r.oldSheet={open:!!(os&&os.classList.contains('open')),sym:osym?(osym.textContent||'').trim():null,points:!!(os&&os.querySelector('.hm-sheet-points')),
+        newPanel:d.querySelectorAll('.lg-panel,.lg-panel-layer').length};
+      W().eval('homeSheetId=null;renderApp();');
+      var os2=d.getElementById('hm-sheet');
+      r.oldSheet.closedAgain=!!(os2&&!os2.classList.contains('open')&&W().getComputedStyle(os2).display==='none');
+    }
     // LEDGER shared account list (unify step 10): ALL + one row per broker, the tab-row ACCOUNT pill gone on LEDGER,
     // and tapping a broker row scopes the board (the hero label names it), then ALL again
     var lr=d.querySelectorAll('[data-lglist="hm"] [data-lgrow]');r.acctRows=lr.length;
@@ -486,28 +619,28 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     await step(res,'panel',async function(st){
       w.eval('homeSheetId='+JSON.stringify(I.tid)+';renderApp();');
       st.drew=await waitFor(function(){
-        var b=q('#hm-sheet [data-rtcandlesbody]'),inf=q('#hm-sheet [data-rtcandlesinfo]');
+        var b=q('.lg-panel[data-lgpanel="hm"] [data-rtcandlesbody]'),inf=q('.lg-panel[data-lgpanel="hm"] [data-rtcandlesinfo]');
         return b&&b.querySelector('svg')&&inf&&(inf.textContent||'').trim();},6000);
-      st.open=!!q('#hm-sheet.open');
-      st.body=txt('#hm-sheet [data-rtcandlesbody]');
+      st.open=!!q('.lg-panel[data-lgpanel="hm"]');
+      st.body=txt('.lg-panel[data-lgpanel="hm"] [data-rtcandlesbody]');
       if(st.body&&st.body.length>160)st.body=st.body.slice(0,160);
-      st.info=txt('#hm-sheet [data-rtcandlesinfo]');
-      var s=q('#hm-sheet [data-rtcandlesbody] svg');st.svg0=s?s.outerHTML.length:0;
+      st.info=txt('.lg-panel[data-lgpanel="hm"] [data-rtcandlesinfo]');
+      var s=q('.lg-panel[data-lgpanel="hm"] [data-rtcandlesbody] svg');st.svg0=s?s.outerHTML.length:0;
       res._svg0=s?s.outerHTML:'';
-      st.points=txt('#hm-sheet .hm-sheet-points');
+      st.points=txt('.lg-panel[data-lgpanel="hm"] .hm-sheet-points');
       if(st.points)st.points=st.points.slice(0,80);
     });
     // 2. zoom out, then DAY: each redraws (on a timer when frames do not run), neither throws
     await step(res,'zoom',async function(st){
-      var o=q('#hm-sheet [data-rtz="out"]'),dy=q('#hm-sheet [data-rtz="day"]');
+      var o=q('.lg-panel[data-lgpanel="hm"] [data-rtz="out"]'),dy=q('.lg-panel[data-lgpanel="hm"] [data-rtz="day"]');
       st.buttons=(o?1:0)+(dy?1:0);
       if(o)o.click();
       await sleep(120);
-      st.infoOut=txt('#hm-sheet [data-rtcandlesinfo]');
+      st.infoOut=txt('.lg-panel[data-lgpanel="hm"] [data-rtcandlesinfo]');
       if(dy)dy.click();
       await sleep(120);
-      st.infoDay=txt('#hm-sheet [data-rtcandlesinfo]');
-      var s=q('#hm-sheet [data-rtcandlesbody] svg');
+      st.infoDay=txt('.lg-panel[data-lgpanel="hm"] [data-rtcandlesinfo]');
+      var s=q('.lg-panel[data-lgpanel="hm"] [data-rtcandlesbody] svg');
       st.svg=!!s;
       st.redrew=!!(s&&res._svg0&&s.outerHTML!==res._svg0);
     });
@@ -516,13 +649,13 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     await step(res,'missedPanel',async function(st){
       w.eval('homeSheetId='+JSON.stringify('missed:'+I.mid)+';renderApp();');
       st.drew=await waitFor(function(){
-        var b=q('#hm-sheet [data-rtcandlesbody]');return b&&b.querySelector('svg');},6000);
-      st.open=!!q('#hm-sheet.open');
-      st.sym=txt('#hm-sheet .hm-sheet-sym');
-      st.sub=txt('#hm-sheet .hm-sheet-sub');
-      st.points=txt('#hm-sheet .hm-sheet-points');
+        var b=q('.lg-panel[data-lgpanel="hm"] [data-rtcandlesbody]');return b&&b.querySelector('svg');},6000);
+      st.open=!!q('.lg-panel[data-lgpanel="hm"]');
+      st.sym=txt('.lg-panel[data-lgpanel="hm"] [data-lgpanel-sym]');
+      st.sub=txt('.lg-panel[data-lgpanel="hm"] [data-lgpanel-sub]');
+      st.points=txt('.lg-panel[data-lgpanel="hm"] .hm-sheet-points');
       if(st.points)st.points=st.points.slice(0,80);
-      st.body=txt('#hm-sheet [data-rtcandlesbody]');
+      st.body=txt('.lg-panel[data-lgpanel="hm"] [data-rtcandlesbody]');
       if(st.body&&st.body.length>160)st.body=st.body.slice(0,160);
     });
     // 4. + ADD opens the form; SAVE with the fields empty explains itself and writes nothing
@@ -627,6 +760,12 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
       st.flashed=D().querySelectorAll('#hm-feed-container tbody tr.hm-flash').length;
       st.dayHeader=!!q('[data-lglist-frame="hm"] [data-lgday="'+I.jumpday+'"]');
       st.tableShown=!!q('table.lg-tl-table');
+      // a flashed row of the jump day opens the right trade in the shared panel
+      var fr0=D().querySelector('#hm-feed-container tbody tr.hm-flash');st.jumpRow=fr0?fr0.getAttribute('data-lgtrade'):null;
+      if(fr0){(fr0.querySelector('.lg-c-sym')||fr0).click();await sleep(300);}
+      var jp0=q('.lg-panel[data-lgpanel="hm"]');st.jumpPanel=jp0?jp0.getAttribute('data-lgpanel-trade'):null;
+      st.jumpSym=txt('.lg-panel[data-lgpanel="hm"] [data-lgpanel-sym]');
+      w.eval('homeSheetId=null;renderApp();');
     });
     // 9. the TABLE header menus still sort through the frame: NET opens its menu, Sort ascending re-orders the rows and the
     //    day headers go (rows are no longer in day order)
@@ -650,10 +789,13 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
       w.eval('window.__probeData.length=0;homeSheetId="probe_t2";renderApp();');
       await sleep(80);
       st.buttons={edit:!!q('#hm-sheet-edit'),snap:!!q('#hm-sheet-chart'),tv:!!q('#hm-sheet-tv'),del:!!q('#hm-sheet-del')};
-      var gs=q('#hm-sheet select[data-hmsheetfield="grade"]'),ss=q('#hm-sheet select[data-hmsheetfield="setup"]');
+      var gs=q('.lg-panel[data-lgpanel="hm"] select[data-hmsheetfield="grade"]'),ss=q('.lg-panel[data-lgpanel="hm"] select[data-hmsheetfield="setup"]');
       st.sel=!!gs&&!!ss;
       if(gs){gs.value='A';gs.dispatchEvent(new Event('change',{bubbles:true}));await sleep(60);}
       if(ss&&ss.options.length>1){ss.selectedIndex=1;st.setupPicked=ss.value;ss.dispatchEvent(new Event('change',{bubbles:true}));await sleep(60);}
+      // IGNORE IN METRICS in the panel saves {statsExcluded: true}
+      var ex=q('#hm-sheet-excl');st.excl=!!ex;
+      if(ex){ex.checked=true;ex.dispatchEvent(new Event('change',{bubbles:true}));await sleep(60);}
       st.data=JSON.parse(w.eval('JSON.stringify(window.__probeData)'));
       w.eval('homeSheetId=null;renderApp();');
     });
@@ -672,6 +814,251 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     try{w.eval('homeSheetId=null;window._hmMissedEdit=null;window._hmPasteNote=null;renderApp();');}catch(_e){}
     drain();
     out.inter[nm]=res;
+  }
+  // ---- LEDGER unify step 9: the shared trade panel, opened from the list ------------------------------------------------------
+  // every colour the panel draws (text, background, borders, outline, svg fill and stroke) must be a grey: MONO has no hue
+  function hueScan(root){
+    var cv=document.createElement('canvas');cv.width=1;cv.height=1;var cx=cv.getContext('2d');
+    function rgba(css){try{cx.clearRect(0,0,1,1);cx.fillStyle='#000';cx.fillStyle=css;cx.fillRect(0,0,1,1);var a=cx.getImageData(0,0,1,1).data;return [a[0],a[1],a[2],a[3]];}catch(e){return null;}}
+    var w=W(),els=[root].concat(Array.prototype.slice.call(root.querySelectorAll('*'))),n=0,bad=[];
+    var lay=root.closest?root.closest('.lg-panel-layer'):null;if(lay)els.push(lay);
+    els.forEach(function(e){
+      var cs=w.getComputedStyle(e),props=[['color',cs.color],['background',cs.backgroundColor]];
+      ['Top','Right','Bottom','Left'].forEach(function(s){
+        if(cs['border'+s+'Style']!=='none'&&parseFloat(cs['border'+s+'Width'])>0)props.push(['border-'+s.toLowerCase(),cs['border'+s+'Color']]);});
+      if(cs.outlineStyle!=='none'&&parseFloat(cs.outlineWidth)>0)props.push(['outline',cs.outlineColor]);
+      if(e instanceof w.SVGElement){
+        if(cs.fill&&cs.fill!=='none')props.push(['fill',cs.fill]);
+        if(cs.stroke&&cs.stroke!=='none')props.push(['stroke',cs.stroke]);}
+      props.forEach(function(p){
+        var c=rgba(p[1]);n++;
+        if(!c||c[3]<8)return;
+        if(Math.max(c[0],c[1],c[2])-Math.min(c[0],c[1],c[2])>16)
+          bad.push((e.tagName||'').toLowerCase()+(typeof e.className==='string'&&e.className?'.'+e.className.trim().split(' ')[0]:'')+' '+p[0]+'='+p[1]);
+      });
+    });
+    return {checked:n,bad:bad.slice(0,6)};
+  }
+  async function panelRun(nm,cfg){
+    var w=W(),d=D(),res={steps:{}},PN='.lg-panel[data-lgpanel="hm"]';
+    await setVp(cfg.vp);
+    drain();
+    try{res.seed=seed({vp:cfg.vp,theme:cfg.theme,missed:2,view:cfg.view,ledger:'simple'});}
+    catch(e){res.seed='ERR '+(e&&e.stack?e.stack:e);}
+    await sleep(150);
+    res.seedErr=drain();
+    w.eval('window.__probeData.length=0;');   // the database stubs keep every write of every case: start this case clean
+    function geo(){var de=d.documentElement;
+      return {sw:de.scrollWidth,cw:de.clientWidth,sh:de.scrollHeight,kids:d.body.children.length,nodes:d.querySelectorAll('.lg-panel,.lg-panel-layer').length};}
+    function openRow(id){var row=q('[data-lgtrade="'+id+'"]');if(!row)return false;(row.querySelector('.lg-c-sym')||row).click();return true;}
+    function shut(){try{w.ledgerTradePanelClose('hm','api');}catch(e){}}
+    function notesWrites(id){
+      return JSON.parse(w.eval('JSON.stringify(window.__probeData)')).filter(function(x){return x.n==='trades'&&x.id===id&&x.d&&x.d.notes!==undefined;});}
+    function rows(){var f=q('[data-lglist-frame="hm"]');return f?f.querySelectorAll('[data-lgtrade]').length:-1;}
+    // reads the open panel: where it is, what it says, which slots it has
+    function look(st){
+      // a headless page may never produce the frames a CSS animation needs: finish the slide-in so the panel is measured where it ends up
+      try{d.getAnimations().forEach(function(a){try{a.finish();}catch(e1){}});}catch(e){}
+      var p=q(PN);st.exists=!!p;
+      if(!p)return;
+      var r=p.getBoundingClientRect(),cs=w.getComputedStyle(p),nel=q(PN+' [data-lgpanel-net]'),b=p.querySelector('[data-lgpanel-body]');
+      st.rect={l:Math.round(r.left),t:Math.round(r.top),r:Math.round(r.right),b:Math.round(r.bottom),w:Math.round(r.width),h:Math.round(r.height)};
+      st.vw=w.innerWidth;st.vh=w.innerHeight;
+      st.vis=cs.display+','+cs.visibility+','+cs.opacity;
+      st.mode=p.getAttribute('data-lgpanel-mode');st.trade=p.getAttribute('data-lgpanel-trade');
+      st.role=p.getAttribute('role');st.modal=p.getAttribute('aria-modal');
+      st.sym=txt(PN+' [data-lgpanel-sym]');st.net=txt(PN+' [data-lgpanel-net]');st.netCls=nel?nel.className:'';
+      st.side=txt(PN+' [data-lgpanel-side]');st.sub=txt(PN+' [data-lgpanel-sub]');
+      st.slots=Array.prototype.map.call(p.querySelectorAll('[data-lgpanel-slot]'),function(e){return e.getAttribute('data-lgpanel-slot');}).join(',');
+      st.inApp=!!p.closest('#app');
+      st.bodyWide=b?b.scrollWidth>b.clientWidth+1:null;
+      st.g=geo();
+    }
+    res.base=geo();
+    // 0. a click on a control inside a row (a select, an input) is that control's own click: it must not open the panel
+    if(cfg.view==='table'){
+      await step(res,'skip',async function(st){
+        var s1=q('[data-lgtrade="'+cfg.tid+'"] select[data-hmfield="grade"]'),i1=q('[data-lgtrade="'+cfg.tid+'"] input[data-field="notes"]');
+        st.found=[!!s1,!!i1];
+        if(s1)s1.click();
+        if(i1)i1.click();
+        await sleep(100);
+        st.nodes=geo().nodes;
+        if(st.nodes)shut();
+      });
+    }
+    // 1. a click on a row of the list opens the panel: header, geometry, slots, the board's own pieces
+    await step(res,'open',async function(st){
+      st.clicked=openRow(cfg.tid);
+      await sleep(200);
+      look(st);
+      var p=q(PN);
+      st.focusIn=!!p&&p.contains(d.activeElement);
+      st.expand=!!q(PN+' [data-rtcandlesexpand]');
+      st.grade=!!q(PN+' select[data-hmsheetfield="grade"]');
+      st.setup=!!q(PN+' select[data-hmsheetfield="setup"]');
+      st.ignore=!!q(PN+' #hm-sheet-excl');
+      st.notes=!!q(PN+' #hm-sheet-notes');
+      st.buttons={edit:!!q(PN+' #hm-sheet-edit'),tv:!!q(PN+' #hm-sheet-tv'),del:!!q(PN+' #hm-sheet-del')};
+      st.drew=await waitFor(function(){var b=q(PN+' [data-rtcandlesbody]');return b&&b.querySelector('svg');},6000);
+      st.points=txt(PN+' .hm-sheet-points');if(st.points)st.points=st.points.slice(0,60);
+      if(cfg.theme==='mono'&&q(PN))st.hue=hueScan(q(PN));
+    });
+    // 2. the open trade survives a redraw of the list (a search, then cleared) and a LIST | TABLE switch; a typed note is not lost
+    await step(res,'rerender',async function(st){
+      var ta=q(PN+' #hm-sheet-notes');st.hasNotes=!!ta;
+      if(ta){ta.value='probe panel note';ta.dispatchEvent(new Event('input',{bubbles:true}));}
+      var inp=q('#hm-search');st.searchBox=!!inp;
+      st.rowsBefore=rows();
+      if(inp){inp.value='aapl';inp.dispatchEvent(new Event('input',{bubbles:true}));}
+      await sleep(140);
+      st.search={rows:rows()};look(st.search);
+      var ta2=q(PN+' #hm-sheet-notes');st.search.note=ta2?ta2.value:null;
+      inp=q('#hm-search');
+      if(inp){inp.value='';inp.dispatchEvent(new Event('input',{bubbles:true}));}
+      await sleep(140);
+      st.cleared={rows:rows()};look(st.cleared);
+      var other=cfg.view==='table'?'list':'table',vb=q('[data-lgview="'+other+'"]');st.viewBtn=!!vb;
+      if(vb)vb.click();
+      await sleep(140);
+      st.toggled={rows:rows(),mode:(q('[data-lglist-frame="hm"]')||{getAttribute:function(){return null;}}).getAttribute('data-lgmode')};look(st.toggled);
+      var vb2=q('[data-lgview="'+(cfg.view==='table'?'table':'list')+'"]');
+      if(vb2)vb2.click();
+      await sleep(100);
+    });
+    // 3. Esc closes it, and the note typed in step 2 is saved on the way out
+    await step(res,'esc',async function(st){
+      d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+      await sleep(80);
+      st.open=!!q(PN);st.g=geo();
+      st.sheetId=w.eval('homeSheetId');
+      st.writes=notesWrites(cfg.tid);
+      if(st.open)shut();
+    });
+    // 4. a tap or click outside closes it, a tap inside does not
+    await step(res,'outside',async function(st){
+      st.clicked=openRow(cfg.tid);
+      await sleep(200);
+      st.opened=!!q(PN);
+      var s=q(PN+' [data-lgpanel-sym]');
+      if(s){s.click();await sleep(40);}
+      st.keptOnInside=!!q(PN);
+      var pt=cfg.vp==='phone'?[Math.round(w.innerWidth/2),20]:[30,Math.round(w.innerHeight/2)];
+      var el=d.elementFromPoint(pt[0],pt[1]);
+      st.hit=(el&&el.classList&&el.classList.contains('lg-panel-layer'))?'layer':(el?el.tagName+'.'+el.className:null);
+      if(el){el.dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true,pointerType:cfg.vp==='phone'?'touch':'mouse'}));el.click();}
+      await sleep(80);
+      st.open=!!q(PN);st.g=geo();
+      if(st.open)shut();
+    });
+    // 5. the close button closes it
+    await step(res,'button',async function(st){
+      st.clicked=openRow(cfg.tid);
+      await sleep(200);
+      var x=q(PN+' [data-lgpanel-close]');st.btn=!!x;
+      if(x)x.click();
+      await sleep(80);
+      st.open=!!q(PN);st.g=geo();
+      if(st.open)shut();
+    });
+    // 6. another trade while it is open: the panel switches to that trade, and the first trade's note is saved
+    await step(res,'switch',async function(st){
+      st.clicked=openRow(cfg.tid);
+      await sleep(200);
+      w.eval('window.__probeData.length=0;');
+      var ta=q(PN+' #hm-sheet-notes');
+      if(ta){ta.value='probe switch note';ta.dispatchEvent(new Event('input',{bubbles:true}));}
+      w.eval('homeSheetId='+JSON.stringify(cfg.tid2)+';renderApp();');
+      await sleep(200);
+      look(st);
+      st.writes=notesWrites(cfg.tid).filter(function(x){return x.d.notes==='probe switch note';});
+      st.nodesNow=geo().nodes;
+    });
+    // 7. closed again: nothing left in the page
+    await step(res,'room',async function(st){
+      shut();
+      await sleep(60);
+      st.g=geo();
+      st.sheetId=w.eval('homeSheetId');
+    });
+    // 8. DELETE asks first: a no keeps the panel and deletes nothing, a yes deletes the trade; once the trade is gone from the
+    //    list (the database snapshot) the board redraws without it and the panel closes by itself
+    await step(res,'delete',async function(st){
+      var oc=w.confirm,asked=0;
+      st.clicked=openRow(cfg.tid);
+      await sleep(200);
+      w.eval('window.__probeWrites.length=0;');
+      w.confirm=function(){asked++;return false;};
+      var db=q(PN+' #hm-sheet-del');st.btn=!!db;
+      if(db)db.click();
+      await sleep(80);
+      st.declined={asked:asked,open:!!q(PN),writes:JSON.parse(w.eval('JSON.stringify(window.__probeWrites)'))};
+      w.confirm=function(){asked++;return true;};
+      db=q(PN+' #hm-sheet-del');
+      if(db)db.click();
+      await sleep(80);
+      st.accepted={asked:asked,writes:JSON.parse(w.eval('JSON.stringify(window.__probeWrites)'))};
+      w.confirm=oc;
+      w.eval('trades=trades.filter(function(t){return String(t.id)!==' + JSON.stringify(cfg.tid) + '});renderApp();');
+      await sleep(120);
+      st.afterSnapshot={open:!!q(PN),sheetId:w.eval('homeSheetId'),g:geo()};
+      shut();
+    });
+    out.panels[nm]=res;
+  }
+  // ---- LEDGER unify step 8 follow-up: the PAGE never scrolls sideways at any width ----------------------------------------------
+  // one seed per view, then the window is resized through the widths and the board is drawn again at each one: the list drops its
+  // lowest-priority cells as the window narrows, the SIMPLE table fits its box, the FULL table scrolls inside its own box
+  async function setWidth(px){
+    fr.style.width=px+'px';fr.style.height='800px';
+    await waitFor(function(){return W().innerWidth===px;},2000);
+    await sleep(60);
+  }
+  function cellKey(c){var m=/lg-c-([a-z0-9]+)/.exec(typeof c.className==='string'?c.className:'');return m?m[1]:'?';}
+  async function widthRun(nm,cfg,widths){
+    var w=W(),d=D(),res={widths:{}};
+    await setWidth(widths[widths.length-1]);
+    drain();
+    try{res.seed=seed({vp:'laptop',theme:cfg.theme,missed:2,view:cfg.view,ledger:cfg.ledger});}
+    catch(e){res.seed='ERR '+(e&&e.stack?e.stack:e);}
+    await sleep(150);
+    res.seedErr=drain();
+    for(var i=0;i<widths.length;i++){
+      var px=widths[i],st={};
+      try{
+        await setWidth(px);
+        w.eval('renderApp();');
+        await sleep(150);
+        var de=d.documentElement;
+        st.innerW=w.innerWidth;st.scrollW=de.scrollWidth;st.clientW=de.clientWidth;
+        if(st.scrollW>st.clientW+1||st.scrollW>st.innerW+1)st.wide=offenders(d);
+        var frm=q('[data-lglist-frame="hm"]');
+        st.frame=!!frm;
+        if(frm){
+          st.mode=frm.getAttribute('data-lgmode');
+          var fright=frm.getBoundingClientRect().right;
+          if(st.mode==='list'){
+            var rws=Array.prototype.slice.call(frm.querySelectorAll('.lg-tl-row[data-lgtrade]'));
+            st.rows=rws.length;st.rowOver=0;st.lastOver=0;st.cells=null;
+            rws.forEach(function(r){
+              var vis=Array.prototype.filter.call(r.children,function(c){return w.getComputedStyle(c).display!=='none';});
+              if(r.scrollWidth>r.clientWidth+1)st.rowOver++;
+              var last=vis[vis.length-1];
+              if(last&&last.getBoundingClientRect().right>fright+1)st.lastOver++;
+              var ks=vis.map(cellKey).join(',');
+              if(st.cells===null)st.cells=ks;else if(st.cells!==ks)st.cellsVary=true;
+            });
+          }else{
+            var wrap=frm.querySelector('.lg-tl-wrap');
+            st.box=wrap?{sw:wrap.scrollWidth,cw:wrap.clientWidth}:null;
+            st.rows=frm.querySelectorAll('tr[data-lgtrade]').length;
+          }
+        }
+      }catch(e){st.threw=String(e&&e.stack?e.stack:e);}
+      Object.assign(st,drain());
+      res.widths[px]=st;
+    }
+    out.widths[nm]=res;
   }
   fr.addEventListener('load',function(){
     setTimeout(async function(){
@@ -699,6 +1086,14 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
       for(var j=0;j<INTER.length;j++){
         try{await interact(INTER[j][0],INTER[j][1]);}
         catch(e){out.inter[INTER[j][0]]={threw:String(e&&e.stack?e.stack:e)};}
+      }
+      for(var k=0;k<PANELS.length;k++){
+        try{await panelRun(PANELS[k][0],PANELS[k][1]);}
+        catch(e){out.panels[PANELS[k][0]]={threw:String(e&&e.stack?e.stack:e)};}
+      }
+      for(var m=0;m<WIDTHS.length;m++){
+        try{await widthRun(WIDTHS[m][0],WIDTHS[m][1],WIDTHS[m][2]);}
+        catch(e){out.widths[WIDTHS[m][0]]={threw:String(e&&e.stack?e.stack:e)};}
       }
       out.barReads=w.__probeBarReads||0;
       finish('done');
@@ -940,7 +1335,7 @@ def make_handler(root, alt_index):
     return H
 
 
-def _render_page(chrome, root, alt_index, cases, inter, qs, data_obj, bars):
+def _render_page(chrome, root, alt_index, cases, inter, qs, data_obj, bars, panels=None, widths=None):
     """One render of the probe page in a fresh headless Chrome. Returns (data, error message or None)."""
     pdir = tempfile.mkdtemp(prefix='_homeprobe_', dir=root)
     ppath = os.path.join(pdir, 'probe.html')
@@ -952,6 +1347,8 @@ def _render_page(chrome, root, alt_index, cases, inter, qs, data_obj, bars):
             .replace('__DATA__', json.dumps(data_obj))
             .replace('__BARS__', json.dumps(bars))
             .replace('__PASTE__', json.dumps(PASTE_URL))
+            .replace('__PANELS__', json.dumps(panels or []))
+            .replace('__WIDTHS__', json.dumps(widths or []))
             .replace('__INSTALL__', json.dumps(INSTALL_JS)))
     io.open(ppath, 'w', encoding='utf-8').write(html)
 
@@ -962,7 +1359,7 @@ def _render_page(chrome, root, alt_index, cases, inter, qs, data_obj, bars):
     try:
         out = subprocess.run(
             [chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
-             '--user-data-dir=' + prof, '--virtual-time-budget=56000', '--window-size=1500,1000',
+             '--user-data-dir=' + prof, '--virtual-time-budget=84000', '--window-size=1500,1000',
              '--dump-dom', 'http://127.0.0.1:%d/%s/probe.html' % (port, os.path.basename(pdir))],
             capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=150).stdout
     except Exception as e:
@@ -994,10 +1391,18 @@ def _attempt(chrome, root, alt_index):
     old, err = _render_page(chrome, root, alt_index, OLD_CASES, [], '?oldboards=1', data_obj, bars)
     if err:
         return INCONCLUSIVE, ['?oldboards=1 pass: %s' % err], [], data, True
+    pnl, err = _render_page(chrome, root, alt_index, [], [], '', data_obj, bars, PANEL_CASES)
+    if err:
+        return INCONCLUSIVE, ['trade panel pass: %s' % err], [], data, True
+    wid, err = _render_page(chrome, root, alt_index, [], [], '', data_obj, bars, None, WIDTH_RUNS)
+    if err:
+        return INCONCLUSIVE, ['width sweep pass: %s' % err], [], data, True
     if os.environ.get('HOMEPROBE_DUMP'):
         io.open(os.path.join(root, '_homeprobe_dump.json'), 'w', encoding='utf-8').write(
-            json.dumps({'main': data, 'old': old}, indent=1, ensure_ascii=False))
+            json.dumps({'main': data, 'old': old, 'panels': pnl, 'widths': wid}, indent=1, ensure_ascii=False))
     data['old'] = old
+    data['panels'] = pnl
+    data['widths'] = wid
     return _judge(data, data_obj)
 
 
@@ -1035,6 +1440,316 @@ def expected_days(trades):
     return {k: _signed(round(v, 2)) for k, v in nets.items()}
 
 
+def _judge_panels(panels, data_obj):
+    """LEDGER unify step 9: the shared trade panel opened from the list, on a laptop and a phone, in glass / paper / MONO."""
+    fails, unfinished = [], []
+    cases = (panels or {}).get('panels') or {}
+    T = {t['id']: t for t in data_obj['trades']}
+    n_trades = len(data_obj['trades'])
+    for nm, cfg in PANEL_CASES:
+        r = cases.get(nm)
+        tag = 'trade panel %s' % nm
+        if r is None:
+            unfinished.append('%s: never ran' % tag)
+            continue
+        if r.get('threw'):
+            fails.append('%s: the probe itself threw -- %s' % (tag, _first(r['threw'])))
+            continue
+        if r.get('seed') != 'OK':
+            fails.append('%s: renderApp threw -- %s' % (tag, _first(r.get('seed'))))
+            continue
+        _errs(tag + ' (render)', r.get('seedErr') or {}, fails)
+        st = r.get('steps') or {}
+        base = r.get('base') or {}
+        phone = cfg['vp'] == 'phone'
+        sheet = cfg['vp'] in ('phone', 'edge600')      # 600 px and under: a bottom sheet; above: a right-hand panel
+        t1, t2 = T[cfg['tid']], T[cfg['tid2']]
+        want = {cfg['tid']: (t1['symbol'], _signed(t1['pnl']), t1['type'], 'lg-up' if t1['pnl'] > 0 else 'lg-down'),
+                cfg['tid2']: (t2['symbol'], _signed(t2['pnl']), t2['type'], 'lg-up' if t2['pnl'] > 0 else 'lg-down')}
+        for step_name in ('open', 'rerender', 'esc', 'outside', 'button', 'switch', 'room', 'delete'):
+            s = st.get(step_name) or {}
+            _errs('%s, %s' % (tag, step_name), s, fails)
+            if s.get('threw'):
+                fails.append('%s, %s: %s' % (tag, step_name, _first(s['threw'])))
+
+        def says(label, s, tid):
+            """The panel in `s` shows trade `tid`: its id, symbol, signed net (with the right colour token) and side."""
+            sym, net, side, cls = want[tid]
+            if s.get('trade') != tid:
+                fails.append('%s: %s - the panel is tied to trade %r, expected %r' % (tag, label, s.get('trade'), tid))
+            if s.get('sym') != sym:
+                fails.append('%s: %s - the panel header shows %r, expected %s' % (tag, label, s.get('sym'), sym))
+            if s.get('net') != net:
+                fails.append('%s: %s - the panel net reads %r, expected %s' % (tag, label, s.get('net'), net))
+            elif cls not in (s.get('netCls') or '').split():
+                fails.append('%s: %s - the panel net is not coloured with %s (class %r)' % (tag, label, cls, s.get('netCls')))
+            if s.get('side') != side:
+                fails.append('%s: %s - the panel side tag reads %r, expected %s' % (tag, label, s.get('side'), side))
+
+        def room(label, g):
+            """A page with no panel open: nothing of it left behind, the page exactly as big as before the first open."""
+            g = g or {}
+            if g.get('nodes'):
+                fails.append('%s: %s - %s trade panel node(s) are still in the page (a closed panel must not be in it)'
+                             % (tag, label, g.get('nodes')))
+            for k, nice in (('sw', 'width'), ('sh', 'height')):
+                if g.get(k) is None or base.get(k) is None or abs(g[k] - base[k]) > 1:
+                    fails.append('%s: %s - the page is %s px %s, it was %s before the panel opened (a closed panel takes room)'
+                                 % (tag, label, g.get(k), nice, base.get(k)))
+            if g.get('kids') != base.get('kids'):
+                fails.append('%s: %s - <body> holds %s elements, it held %s before the panel opened'
+                             % (tag, label, g.get('kids'), base.get('kids')))
+
+        if base.get('nodes'):
+            fails.append('%s: the panel is in the page before anything was opened (%s node(s))' % (tag, base.get('nodes')))
+        # -- a control inside a row
+        if cfg['view'] == 'table':
+            sk = st.get('skip') or {}
+            _errs('%s, a click on a control in a row' % tag, sk, fails)
+            if sk.get('found') != [True, True]:
+                fails.append('%s: the TABLE row has no grade select or notes box to click (%r)' % (tag, sk.get('found')))
+            elif sk.get('nodes'):
+                fails.append('%s: a click on the grade select or the notes box inside a row opened the trade panel' % tag)
+        # -- open
+        o = st.get('open') or {}
+        if not o.get('clicked') or not o.get('exists'):
+            fails.append('%s: a click on the row of %s did not open the trade panel (row found=%s)' % (tag, cfg['tid'], o.get('clicked')))
+            continue
+        says('open', o, cfg['tid'])
+        want_mode = 'sheet' if sheet else 'side'
+        if o.get('mode') != want_mode:
+            fails.append('%s: the panel mode is %r, expected %r (%s)' % (tag, o.get('mode'), want_mode, 'phone = bottom sheet, laptop = right-hand panel'))
+        vis = (o.get('vis') or ',,0').split(',')
+        if vis[0] not in ('block', 'flex') or vis[1] != 'visible' or float(vis[2] or 0) < 0.5:
+            fails.append('%s: the open panel is not visible (display,visibility,opacity = %s)' % (tag, o.get('vis')))
+        if o.get('role') != 'dialog' or o.get('modal') != 'true':
+            fails.append('%s: the panel is not marked role=dialog aria-modal=true (%r, %r)' % (tag, o.get('role'), o.get('modal')))
+        rc, vw, vh = o.get('rect') or {}, o.get('vw') or 0, o.get('vh') or 0
+        if sheet:
+            if not (rc.get('l') == 0 and rc.get('w') == vw and rc.get('b') == vh):
+                fails.append('%s: on a phone the panel should be a bottom sheet the full width and sitting on the bottom edge '
+                             '(left=%s width=%s bottom=%s, screen %sx%s)' % (tag, rc.get('l'), rc.get('w'), rc.get('b'), vw, vh))
+            if (rc.get('h') or 0) > 0.9 * vh or (rc.get('t') or 0) < 0.1 * vh:
+                fails.append('%s: the phone sheet is %spx tall with its top at %spx on a %spx screen: it must leave a strip of '
+                             'page above it to tap (at most 90%% of the height)' % (tag, rc.get('h'), rc.get('t'), vh))
+        else:
+            if not (abs((rc.get('r') or 0) - vw) <= 1 and abs((rc.get('h') or 0) - vh) <= 1 and 380 <= (rc.get('w') or 0) <= 460):
+                fails.append('%s: on a laptop the panel should be a right-hand panel 380-460px wide and the full height '
+                             '(right=%s width=%s height=%s, screen %sx%s)' % (tag, rc.get('r'), rc.get('w'), rc.get('h'), vw, vh))
+            if cfg['vp'] == 'laptop' and (rc.get('l') or 0) < 200:
+                fails.append('%s: the laptop panel starts %spx from the left, it covers the page' % (tag, rc.get('l')))
+        if o.get('inApp'):
+            fails.append('%s: the panel is inside #app, which every redraw rebuilds - it must live in <body>' % tag)
+        slots = (o.get('slots') or '').split(',')
+        if [x for x in slots if x != 'ignore'] != ['head', 'chart', 'numbers', 'notes', 'actions']:
+            fails.append('%s: the panel slots come in the order %r, expected head, chart, numbers, notes, actions' % (tag, o.get('slots')))
+        elif slots != ['head', 'chart', 'ignore', 'numbers', 'notes', 'actions']:
+            fails.append('%s: the IGNORE IN METRICS block should sit between the chart and the numbers (slots: %r)' % (tag, o.get('slots')))
+        if o.get('bodyWide'):
+            fails.append('%s: the panel body scrolls sideways' % tag)
+        g = o.get('g') or {}
+        # the page never scrolls sideways while the panel is open, at any of the panel widths (375, 600, 601, 1366)
+        if (g.get('sw') or 0) > (g.get('cw') or 0) + 1:
+            fails.append('%s: the page scrolls sideways while the panel is open (scrollWidth %s > %s)' % (tag, g.get('sw'), g.get('cw')))
+        if abs((g.get('sw') or 0) - (base.get('sw') or 0)) > 1 or abs((g.get('sh') or 0) - (base.get('sh') or 0)) > 1:
+            fails.append('%s: opening the panel changed the page size from %sx%s to %sx%s (it must sit over the page)'
+                         % (tag, base.get('sw'), base.get('sh'), g.get('sw'), g.get('sh')))
+        if not o.get('focusIn'):
+            fails.append('%s: focus did not move into the panel when it opened' % tag)
+        if not o.get('grade') or not o.get('setup'):
+            fails.append('%s: the panel has no grade / setup select (grade=%s setup=%s)' % (tag, o.get('grade'), o.get('setup')))
+        if not o.get('ignore') or not o.get('notes'):
+            fails.append('%s: the panel lost IGNORE IN METRICS or the notes box (ignore=%s notes=%s)' % (tag, o.get('ignore'), o.get('notes')))
+        b = o.get('buttons') or {}
+        if not (b.get('edit') and b.get('tv') and b.get('del')):
+            fails.append('%s: the panel lost one of EDIT / OPEN IN TV / DELETE (%r)' % (tag, b))
+        if not sheet and not o.get('expand'):
+            fails.append('%s: the laptop chart has no EXPAND button' % tag)
+        if phone and o.get('expand'):
+            fails.append('%s: the phone chart shows EXPAND (it opens the full viewer, which a phone does not get)' % tag)
+        if not o.get('drew'):
+            fails.append('%s: the chart in the panel never drew an <svg>' % tag)
+        if 'POINTS' not in (o.get('points') or ''):
+            fails.append('%s: the POINTS block is missing from the panel (%r)' % (tag, o.get('points')))
+        if cfg['theme'] == 'mono':
+            hue = o.get('hue') or {}
+            if (hue.get('checked') or 0) < 40:
+                fails.append('%s: the MONO hue scan read only %s colours - it did not run' % (tag, hue.get('checked')))
+            if hue.get('bad'):
+                fails.append('%s: the panel carries a hue in MONO: %s' % (tag, '; '.join(hue['bad'])))
+        # -- a redraw of the list, a search, a LIST | TABLE switch: the same trade, the typed note still there
+        rr = st.get('rerender') or {}
+        if not rr.get('hasNotes') or not rr.get('searchBox'):
+            fails.append('%s: the redraw test could not find the notes box or the search box (%r)' % (tag, rr))
+        else:
+            if (rr.get('search') or {}).get('rows') != 1:
+                fails.append('%s: searching "aapl" left %s rows in the list, expected the one AAPL trade'
+                             % (tag, (rr.get('search') or {}).get('rows')))
+            for key, nice, rows_want in (('search', 'after a search redrew the list', 1), ('cleared', 'after the search was cleared', n_trades),
+                                         ('toggled', 'after LIST | TABLE was switched', n_trades)):
+                s = rr.get(key) or {}
+                if not s.get('exists'):
+                    fails.append('%s: the trade panel closed %s (it must stay open on its trade)' % (tag, nice))
+                    continue
+                says(nice, s, cfg['tid'])
+                if s.get('rows') != rows_want:
+                    fails.append('%s: %s the list shows %s rows, expected %s' % (tag, nice, s.get('rows'), rows_want))
+            if (rr.get('search') or {}).get('note') != 'probe panel note':
+                fails.append('%s: the half-typed note was lost when the list redrew (box now says %r)' % (tag, (rr.get('search') or {}).get('note')))
+        # -- Esc
+        e = st.get('esc') or {}
+        room('after Esc', e.get('g'))
+        if e.get('open'):
+            fails.append('%s: Esc did not close the panel' % tag)
+        if e.get('sheetId') is not None:
+            fails.append('%s: after Esc the board still says trade %r is open' % (tag, e.get('sheetId')))
+        ew = [x['d']['notes'] for x in (e.get('writes') or [])]
+        if ew != ['probe panel note']:
+            fails.append('%s: a note typed in the panel should be saved once, as it closes (notes written: %r)' % (tag, ew))
+        # -- tap outside
+        ou = st.get('outside') or {}
+        if not ou.get('opened'):
+            fails.append('%s: the panel did not open a second time' % tag)
+        else:
+            if ou.get('hit') != 'layer':
+                fails.append('%s: the point outside the panel is %r, not the dim layer' % (tag, ou.get('hit')))
+            if not ou.get('keptOnInside'):
+                fails.append('%s: a click inside the panel closed it' % tag)
+            if ou.get('open'):
+                fails.append('%s: a click or tap outside the panel did not close it' % tag)
+            room('after a tap outside', ou.get('g'))
+        # -- close button
+        bt = st.get('button') or {}
+        if not bt.get('btn'):
+            fails.append('%s: the panel has no close button' % tag)
+        elif bt.get('open'):
+            fails.append('%s: the close button did not close the panel' % tag)
+        else:
+            room('after the close button', bt.get('g'))
+        # -- another trade while open
+        sw = st.get('switch') or {}
+        if not sw.get('exists'):
+            fails.append('%s: the panel closed when another trade was opened in it' % tag)
+        else:
+            says('after switching to another trade', sw, cfg['tid2'])
+            if len(sw.get('writes') or []) != 1:
+                fails.append('%s: the note typed on the first trade should be saved once when the panel switches to the second '
+                             '(writes: %r)' % (tag, sw.get('writes')))
+            if sw.get('nodesNow') != 2:
+                fails.append('%s: switching trades left %s panel node(s) (one layer and one panel expected)' % (tag, sw.get('nodesNow')))
+        # -- DELETE asks first; a no keeps the panel and deletes nothing, a yes deletes, and a trade gone from the list closes it
+        dl = st.get('delete') or {}
+        if not dl.get('btn'):
+            fails.append('%s: the panel has no DELETE button' % tag)
+        else:
+            d1, d2, d3 = dl.get('declined') or {}, dl.get('accepted') or {}, dl.get('afterSnapshot') or {}
+            if d1.get('asked') != 1:
+                fails.append('%s: DELETE did not ask first (confirm called %s times)' % (tag, d1.get('asked')))
+            if not d1.get('open') or any('delete' in x for x in (d1.get('writes') or [])):
+                fails.append('%s: answering no to DELETE closed the panel or deleted the trade (open=%s writes=%r)'
+                             % (tag, d1.get('open'), d1.get('writes')))
+            if 'trades.delete %s' % cfg['tid'] not in (d2.get('writes') or []):
+                fails.append('%s: answering yes to DELETE did not delete %s (writes: %r)' % (tag, cfg['tid'], d2.get('writes')))
+            if d3.get('open') or d3.get('sheetId') is not None or (d3.get('g') or {}).get('nodes'):
+                fails.append('%s: the panel stayed open on a trade that is gone from the list (open=%s sheetId=%r nodes=%s)'
+                             % (tag, d3.get('open'), d3.get('sheetId'), (d3.get('g') or {}).get('nodes')))
+        # -- finally closed
+        rm = st.get('room') or {}
+        room('at the end', rm.get('g'))
+        if rm.get('sheetId') is not None:
+            fails.append('%s: the board still says trade %r is open after the panel was closed' % (tag, rm.get('sheetId')))
+        if phone:
+            for key in ('open', 'esc', 'room'):
+                gg = (st.get(key) or {}).get('g') or {}
+                if (gg.get('sw') or 0) > (gg.get('cw') or 0) + 1:
+                    fails.append('%s: the page scrolls sideways on a phone (step %s: %s > %s)' % (tag, key, gg.get('sw'), gg.get('cw')))
+    return fails, unfinished
+
+
+def _judge_widths(wd, data_obj):
+    """LEDGER unify step 8 follow-up: the PAGE never scrolls sideways at any width from a phone to a laptop. The LIST, the SIMPLE table
+    and the FULL table are each seeded once and the window is resized through WIDTH_SET, the board drawn again at every width. The LIST
+    rows drop their lowest-priority cells (POINTS, then STRATEGY, then the board's end slot) as the window narrows instead of growing
+    wider than the screen; the SIMPLE table fits its box; the FULL table may scroll inside its own box, never the page."""
+    fails, unfinished = [], []
+    runs = (wd or {}).get('widths') or {}
+    n_trades = len(data_obj['trades'])
+    core = ['time', 'sym', 'side', 'pnl', 'chart']
+    everything = ['time', 'sym', 'side', 'size', 'pnl', 'pts', 'strat', 'chart', 'slot']
+    for nm, cfg, widths in WIDTH_RUNS:
+        tag = 'width sweep %s' % nm
+        r = runs.get(nm)
+        if r is None:
+            unfinished.append('%s: never ran' % tag)
+            continue
+        if r.get('threw'):
+            fails.append('%s: the probe itself threw -- %s' % (tag, _first(r['threw'])))
+            continue
+        if r.get('seed') != 'OK':
+            fails.append('%s: renderApp threw -- %s' % (tag, _first(r.get('seed'))))
+            continue
+        _errs(tag + ' (render)', r.get('seedErr') or {}, fails)
+        want_mode = 'list' if cfg['view'] == 'feed' else 'table'
+        hidden_wider = set()            # the optional list cells already gone at the next wider width
+        for px in sorted(widths, reverse=True):
+            t = '%s at %d px' % (tag, px)
+            s = (r.get('widths') or {}).get(str(px))
+            if s is None:
+                unfinished.append('%s: never ran' % t)
+                continue
+            _errs(t, s, fails)
+            if s.get('threw'):
+                fails.append('%s: %s' % (t, _first(s['threw'])))
+                continue
+            if s.get('innerW') != px:
+                unfinished.append('%s: the window is %spx wide, not %spx' % (t, s.get('innerW'), px))
+                continue
+            # 1. the PAGE never scrolls sideways, whatever the view
+            sw, cw = s.get('scrollW') or 0, s.get('clientW') or 0
+            if sw > cw + 1 or sw > px + 1:
+                fails.append('%s: the page scrolls sideways (scrollWidth %s > the %s px window; sticking out: %s)'
+                             % (t, sw, min(cw, px) if cw else px, ', '.join(s.get('wide') or []) or '?'))
+            if not s.get('frame') or s.get('mode') != want_mode:
+                fails.append('%s: the trade list frame is %s, expected one in %s mode (it says %r)'
+                             % (t, 'missing' if not s.get('frame') else 'on the page', want_mode, s.get('mode')))
+                continue
+            if s.get('rows') != n_trades:
+                fails.append('%s: the %s shows %s rows, expected one per seeded trade (%d)' % (t, want_mode, s.get('rows'), n_trades))
+            if want_mode == 'list':
+                cells = [c for c in (s.get('cells') or '').split(',') if c]
+                if s.get('cellsVary'):
+                    fails.append('%s: the rows of the list do not all show the same cells' % t)
+                lost = [c for c in core + (['size'] if px > 600 else []) if c not in cells]
+                if lost:
+                    fails.append('%s: a list row lost %s (TIME, SYMBOL, SIDE, NET and the chart icon always stay, SIZE too above 600 px; '
+                                 'it shows %s)' % (t, ', '.join(lost).upper(), ', '.join(cells) or 'nothing'))
+                if px <= 600 and sorted(cells) != sorted(core):
+                    fails.append('%s: a phone row keeps %s, expected the five cells %s' % (t, ', '.join(cells) or 'nothing', ', '.join(core)))
+                hidden = [c for c in LIST_HIDE_ORDER if c not in cells]
+                if hidden != LIST_HIDE_ORDER[:len(hidden)]:
+                    fails.append('%s: the list row hides %s while it still shows %s (the lowest-priority cells go first: %s)'
+                                 % (t, ', '.join(hidden), ', '.join(c for c in LIST_HIDE_ORDER if c in cells), ', then '.join(LIST_HIDE_ORDER)))
+                if not hidden_wider <= set(hidden):
+                    fails.append('%s: %s were hidden at a wider window and are back here (a hidden cell stays hidden as the window narrows)'
+                                 % (t, ', '.join(sorted(hidden_wider - set(hidden)))))
+                hidden_wider = set(hidden)
+                if px >= 1000 and [c for c in everything if c not in cells]:
+                    fails.append('%s: a wide window hides %s from the list row (nothing goes from 1000 px up)'
+                                 % (t, ', '.join(c for c in everything if c not in cells)))
+                if s.get('rowOver'):
+                    fails.append('%s: %s list row(s) are wider than the frame (their cells overflow it)' % (t, s.get('rowOver')))
+                if s.get('lastOver'):
+                    fails.append('%s: the last cell of %s list row(s) ends outside the frame' % (t, s.get('lastOver')))
+            else:
+                box = s.get('box')
+                if not box:
+                    fails.append('%s: the table has no scroll box (.lg-tl-wrap)' % t)
+                elif cfg['ledger'] == 'simple' and (box.get('sw') or 0) > (box.get('cw') or 0) + 1:
+                    fails.append('%s: the SIMPLE table scrolls sideways inside its box (scrollWidth %s > clientWidth %s)'
+                                 % (t, box.get('sw'), box.get('cw')))
+    return fails, unfinished
+
+
 def _judge_old(old, data_obj):
     """?oldboards=1: the previous list layout is still drawn (FEED / TABLE button, 7 chips, no frame)."""
     fails, unfinished = [], []
@@ -1064,6 +1779,16 @@ def _judge_old(old, data_obj):
                          % (tag, r.get('ledgerKind'), r.get('ledgerRows'), want_kind.upper(), n_trades))
         if cfg['vp'] == 'phone' and (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1:
             fails.append('%s: the previous layout scrolls sideways on a phone' % tag)
+        if r.get('sheetClosed') != 'none':
+            fails.append('%s: the previous trade sheet (#hm-sheet) is display:%s while closed - it must take no room'
+                         % (tag, r.get('sheetClosed')))
+        osh = r.get('oldSheet') or {}
+        if not osh.get('open') or osh.get('sym') != 'MNQ' or not osh.get('points'):
+            fails.append('%s: the previous trade sheet did not open on a trade (%r)' % (tag, osh))
+        elif osh.get('newPanel'):
+            fails.append('%s: the shared trade panel is in the page behind ?oldboards=1' % tag)
+        elif not osh.get('closedAgain'):
+            fails.append('%s: the previous trade sheet did not close again' % tag)
     return fails, unfinished
 
 
@@ -1224,6 +1949,9 @@ def _judge(data, data_obj):
         if r.get('sheetClosed') not in ('none', 'open'):
             fails.append('%s: the closed trade panel is display:%s - parked off-screen it widens the page sideways'
                          % (nm, r.get('sheetClosed')))
+        if r.get('panelsInDom'):
+            fails.append('%s: %s trade panel node(s) are in the page while nothing is open - a closed panel must not be in it'
+                         % (nm, r.get('panelsInDom')))
         if cfg['vp'] == 'phone' and (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1:
             fails.append('%s: the page scrolls sideways on a phone (scrollWidth %s > clientWidth %s; '
                          'sticking out: %s)' % (nm, r.get('scrollW'), r.get('clientW'),
@@ -1457,6 +2185,10 @@ def _judge(data, data_obj):
                 if not s_ or s_[-1]['d']['setup'] != sh.get('setupPicked'):
                     fails.append('%s: changing the setup in the trade panel did not save it (picked %r, writes: %r)'
                                  % (tag, sh.get('setupPicked'), wr))
+                x_ = [x for x in wr if x.get('id') == 'probe_t2' and 'statsExcluded' in (x.get('d') or {})]
+                if not sh.get('excl') or not x_ or x_[-1]['d']['statsExcluded'] is not True:
+                    fails.append('%s: ticking IGNORE IN METRICS in the trade panel did not save {statsExcluded: true} (writes: %r)'
+                                 % (tag, wr))
         ai = st.get('aiFold') or {}
         _errs(tag + ' AI assessment fold', ai, fails)
         if ai.get('threw'):
@@ -1504,10 +2236,22 @@ def _judge(data, data_obj):
                              % (tag, JUMP_DAY, jp.get('flashed'), want_flash))
             if not jp.get('dayHeader'):
                 fails.append('%s: the LEDGER table has no day header for %s after the jump' % (tag, JUMP_DAY))
+            on_day = {t['id']: t['symbol'] for t in T if t['date'] == JUMP_DAY}
+            if jp.get('jumpRow') not in on_day:
+                fails.append('%s: after the jump to %s no flashed row to click was found (%r)' % (tag, JUMP_DAY, jp.get('jumpRow')))
+            elif jp.get('jumpPanel') != jp.get('jumpRow') or jp.get('jumpSym') != on_day[jp['jumpRow']]:
+                fails.append('%s: clicking the flashed row %s after the jump opened %r showing %r in the trade panel'
+                             % (tag, jp.get('jumpRow'), jp.get('jumpPanel'), jp.get('jumpSym')))
 
     of, ou = _judge_old(data.get('old'), data_obj)
     fails += of
     unfinished += ou
+    pf, pu = _judge_panels(data.get('panels'), data_obj)
+    fails += pf
+    unfinished += pu
+    wf, wu = _judge_widths(data.get('widths'), data_obj)
+    fails += wf
+    unfinished += wu
     if fails:
         return FAIL, fails, notes, data, True
     if unfinished:
@@ -1543,9 +2287,10 @@ def _report(t0, attempt, may_retry, chrome, root, alt_index):
         return FAIL
     inter = data.get('inter') or {}
     zl = ((inter.get('laptop') or {}).get('steps') or {}).get('zoom') or {}
-    print('HOMEPROBE: PASS (VERSION=%s, %d cases + %d ?oldboards=1 cases + %d interaction runs, %.1fs)'
+    n_wide = sum(len((v or {}).get('widths') or {}) for v in (((data.get('widths') or {}).get('widths')) or {}).values())
+    print('HOMEPROBE: PASS (VERSION=%s, %d cases + %d ?oldboards=1 cases + %d interaction runs + %d trade panel cases + %d width samples, %.1fs)'
           % (data.get('VERSION'), len(data.get('cases') or {}), len(((data.get('old') or {}).get('cases')) or {}),
-             len(inter), elapsed))
+             len(inter), len(((data.get('panels') or {}).get('panels')) or {}), n_wide, elapsed))
     if first:
         print('  FLAKE: attempt 1 did not pass on this same file, the retry did. It said:')
         for f in first[1][:4]:

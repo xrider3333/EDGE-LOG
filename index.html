@@ -838,6 +838,14 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-tl-row .lg-c-strat{flex:1 1 110px;font-size:11px;color:var(--text4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lg-tl-row .lg-c-chart{flex:0 0 46px;text-align:center;white-space:nowrap}
 .lg-tl-row .lg-c-slot{flex:0 0 132px;display:flex;align-items:center;justify-content:flex-end;gap:6px;font-size:10px;color:var(--text4)}
+/* LIST rows between a phone and a wide laptop never make the page scroll sideways (LEDGER unify step 8 follow-up): the lowest-priority cells go
+   as the window narrows - POINTS first, then STRATEGY, then the board's own end slot - and TIME, SYMBOL, SIDE, SIZE, NET and the chart icon always
+   stay (up to 600 px the phone rule below keeps five). A row needs 796 px with every cell (STRATEGY then takes what is left), 692 without POINTS,
+   680 without STRATEGY and 536 without the end slot; the page gutter is 10 px up to 820 px and 16 px up to 1200 px and a scrollbar can take 15,
+   so every step is taken 20 to 30 px early. TABLE is not touched here: it scrolls inside its own box. */
+@media (max-width:920px){.lg-tl-row .lg-c-pts{display:none}}
+@media (max-width:800px){.lg-tl-row .lg-c-strat{display:none}}
+@media (max-width:740px){.lg-tl-row .lg-c-slot{display:none}}
 .lg-tl-dayrow{cursor:default}
 .lg-tl-dayrow:hover{background:none}
 .lg-tl-tile{width:34px;height:34px;min-width:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;background:var(--bg2);color:var(--text2)}
@@ -860,6 +868,53 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-tl-table tr.lg-tl-dayhdrow .lg-tl-dayhd{position:sticky;left:0;width:max-content;min-width:min(420px,88vw);padding:12px 10px 6px}
 .lg-tl-table tr.lg-tl-dayhdrow.lg-flash td{animation:lgFlashBg 1.6s ease}
 @keyframes lgFlashBg{0%,40%{background:color-mix(in srgb,var(--text) 16%,var(--bg))}100%{background:var(--bg)}}
+/* LEDGER shared trade panel (unify step 9): ONE panel for every board's trade - a right-hand panel on a laptop, a bottom sheet on a phone
+   (600 px and under). It is built only while a trade is open, so a CLOSED panel is not in the page at all and takes no room (no empty
+   column, no reserved height); it lives in <body>, so a board redraw never touches it. One layer (z-index 200 like every overlay: a modal
+   opened later paints above it) holds the dim backdrop and the panel. Theme tokens only, so MONO stays hue-free; money is coloured by
+   .lg-up / .lg-down / .lg-flat plus its sign. */
+.lg-panel-layer{position:fixed;inset:0;z-index:200;overflow:hidden;background:rgba(0,0,0,.5);animation:lgPanelFade .18s ease}
+.lg-panel{position:absolute;top:0;right:0;bottom:0;width:440px;max-width:100%;box-sizing:border-box;display:flex;flex-direction:column;background:var(--bg1);color:var(--text);border-left:1px solid var(--border);box-shadow:-24px 0 48px -24px rgba(0,0,0,.6);outline:none;animation:lgPanelIn .22s ease}
+.lg-panel-hd{flex:none;display:flex;align-items:flex-start;gap:12px;padding:20px 18px 14px 24px;border-bottom:1px solid var(--border2)}
+.lg-panel-id{flex:1;min-width:0}
+.lg-panel-sym{font-family:'Bebas Neue','JetBrains Mono',monospace;font-size:30px;line-height:1.05;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg-panel-sub{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;margin-top:6px;font-size:11px;letter-spacing:.3px;color:var(--text3)}
+.lg-panel-tag{font-size:9px;letter-spacing:1px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg2);color:var(--text3)}
+.lg-panel-net{flex:none;font-family:'Bebas Neue','JetBrains Mono',monospace;font-size:34px;line-height:1.05;font-variant-numeric:tabular-nums;white-space:nowrap}
+.lg-panel-x{flex:none;width:30px;height:30px;padding:0;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text3);font-size:14px;cursor:pointer}
+.lg-panel-x:hover{color:var(--text);border-color:var(--text4)}
+.lg-panel-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px 24px 28px}
+.lg-panel-slot{margin:0 0 16px}
+.lg-panel-slot:empty{display:none}
+.lg-panel-slot:last-child{margin-bottom:0}
+.lg-panel-rows{margin:0}
+.lg-panel-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border2)}
+.lg-panel-dt{flex:none;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text5)}
+.lg-panel-dd{min-width:0;font-size:12px;color:var(--text);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lg-panel-actions{display:flex;gap:8px;flex-wrap:wrap}
+.lg-panel-actions button{flex:1 1 auto;padding:11px 8px;text-align:center;border:1px solid var(--border);border-radius:8px;font-size:10px;letter-spacing:1px;color:var(--text2);background:transparent;font-family:'JetBrains Mono',monospace;cursor:pointer}
+.lg-panel-actions button:hover{border-color:var(--text4);color:var(--text)}
+.lg-panel-actions button.del{color:var(--red);border-color:var(--red)}
+.lg-panel-actions .lg-panel-hint{flex:1 1 100%;font-size:10px;line-height:1.6;color:var(--text3)}
+.lg-panel input[type=checkbox]{accent-color:var(--text3)}
+[data-theme="mono"] .lg-panel .lg-side.short,[data-theme="mono"] .lg-panel-actions button.del{color:var(--text3)}
+[data-theme="mono"] .lg-panel-actions button.del{border-color:var(--text3)}
+@keyframes lgPanelFade{from{opacity:0}to{opacity:1}}
+@keyframes lgPanelIn{from{transform:translateX(100%)}to{transform:none}}
+@keyframes lgSheetIn{from{transform:translateY(100%)}to{transform:none}}
+@media (max-width:600px){
+  .lg-panel{top:auto;left:0;right:0;width:100%;max-height:88vh;max-height:88dvh;border-left:none;border-top:1px solid var(--border);border-radius:16px 16px 0 0;box-shadow:0 -24px 48px -24px rgba(0,0,0,.6);animation:lgSheetIn .22s ease}
+  .lg-panel::before{content:'';display:block;flex:none;width:36px;height:4px;border-radius:2px;background:var(--border);margin:8px auto 0}
+  .lg-panel-hd{padding:10px 14px 10px 16px}
+  .lg-panel-sym{font-size:26px}
+  .lg-panel-net{font-size:28px}
+  .lg-panel-body{padding:12px 16px 24px}
+}
+@media (prefers-reduced-motion:reduce){.lg-panel-layer,.lg-panel{animation:none}}
+/* REAL's blocks in the shared trade panel (LEDGER unify step 9): the slots carry the spacing */
+.lg-panel .hm-tags{margin:0 0 12px}
+.lg-panel .hm-notes{margin-bottom:0}
+.lg-panel .hm-excl{margin:0}
 /* REAL's slots in the frame (LEDGER unify step 8): BY TRADE | BY DAY or SIMPLE | FULL, the PASTE box and the action buttons */
 .hm-slot{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;min-width:0}
 .hm-slot .hm-paste{min-width:0;width:230px;flex:0 1 230px;font-size:11px;max-width:none}
@@ -974,7 +1029,8 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .hm-dtable th.hm-pin.hm-pin-last{box-shadow:inset -1px 0 0 var(--border2)}
 /* SIMPLE ledger (homeLedger): fits HOME's column with no sideways scroll. NOTES takes whatever
    width is left (the width:100% + max-width:0 pair), and the hm-s3 / hm-s2 / hm-s1 columns drop
-   out in that order as the window narrows. */
+   out in that order as the window narrows. A column comes back only once the box has room for it (a scrollbar can take 15 px): hm-s3 above
+   1010 px, hm-s2 above 900 px, hm-s1 above 700 px - the breakpoints used to sit 30 to 45 px too low and the box scrolled inside itself there. */
 .hm-dtable.hm-simple{min-width:0}
 /* SHOULD HAVE TRADED form (HOME > REAL, under the ledger) */
 .hm-mf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;padding:8px 0 12px}
@@ -985,8 +1041,8 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 /* the auto table layout squeezes a select down to its header's width - keep them readable */
 .hm-dtable.hm-simple select[data-hmfield="grade"]{min-width:52px}
 .hm-dtable.hm-simple select[data-hmfield="setup"]{min-width:96px}
-@media (max-width:960px){.hm-dtable.hm-simple .hm-s3{display:none}}
-@media (max-width:840px){.hm-dtable.hm-simple .hm-s2{display:none}}
+@media (max-width:1010px){.hm-dtable.hm-simple .hm-s3{display:none}}
+@media (max-width:900px){.hm-dtable.hm-simple .hm-s2{display:none}}
 @media (max-width:700px){.hm-dtable.hm-simple .hm-s1{display:none}.hm-dtable.hm-simple td,.hm-dtable.hm-simple th{padding-left:6px;padding-right:6px}}
 @media (max-width:480px){.hm-dtable.hm-simple td,.hm-dtable.hm-simple th{padding-left:4px;padding-right:4px}}
 /* Row flash after a calendar-day / chart-dot jump (window.hmShowTrades). Pinned cells carry
@@ -1122,7 +1178,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1099';
+const VERSION='73.1100';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1140,7 +1196,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1090',date:'2026-10-06',notes:['LEDGER steps 6, 7, 10 on WEBULL PAPER: shared stats strip + More stats (landed 73.1084), shared month calendar with caveat days, shared strategy list (BOOK / Retired / Shadow not counted); run numbers on every row; phone list within one screen']},
+const CHANGELOG=[{v:'73.1100',date:'2026-10-06',notes:['LEDGER > REAL: a trade now opens in the new shared trade panel - a panel on the right on a laptop, a sheet from the bottom on a phone. Esc, a tap outside it or the close button shut it, and a closed panel takes no room on the page.','The open trade stays open while you search, filter or switch LIST and TABLE, and a half-typed note is saved when the panel closes. The chart with zoom and EXPAND, POINTS, IGNORE IN METRICS, grade and setup, tags, EDIT, SNAPSHOT, OPEN IN TV, DELETE and the SHOULD HAVE TRADED entries all moved into it unchanged.','The LEDGER trade list no longer makes the page scroll sideways between 601 and 800 px: points, then strategy, then the setup and grade tags hide from a row as the window narrows.']},
+{v:'73.1090',date:'2026-10-06',notes:['LEDGER steps 6, 7, 10 on WEBULL PAPER: shared stats strip + More stats (landed 73.1084), shared month calendar with caveat days, shared strategy list (BOOK / Retired / Shadow not counted); run numbers on every row; phone list within one screen']},
 {v:'73.1087',date:'2026-10-06',notes:['LEDGER step 8: shared trade list frame on REAL (toolbar, day headers, common columns, phone five-column rows); legacy TRADES and JOURNAL tabs no longer scroll sideways on a phone']},{v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
 {v:'73.1085',date:'2026-10-06',notes:['LEDGER steps 6, 7, 10 on NT8 PAPER: shared stats strip + More stats, shared month calendar, shared strategy list (BOOK #463 / forward tests / shadow / retired) - max drawdown positive, phone list within one screen']},
 {v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
@@ -3666,6 +3723,170 @@ function ledgerTradeListWire(root,o){
     });
   }
   return fr;
+}
+// ── LEDGER shared trade panel (unify step 9) ───────────────────────────────────────────────────────────────────────────────
+// ONE panel for the trade a board has open: a RIGHT-HAND panel on a laptop, a BOTTOM SHEET on a phone (600 px and under).
+// The board owns what goes in every slot and which trade is open; this part owns the frame, the open / close behaviour, the position
+// and size, the scroll inside the panel and the keyboard. The panel is built only while a trade is open (closed = not in the page =
+// takes no room) and lives in <body>, so a board redraw never touches it: the board calls ledgerTradePanelOpen again after a redraw
+// and only the slots whose content changed are rewritten (the scroll, the cursor in a note and the chart stay where they were).
+//   ledgerTradePanelOpen({id, tradeId, label, head, blocks, onBeforeClose(why), onClose(why)}) -> the .lg-panel element
+//     id       the board's panel id -> .lg-panel[data-lgpanel="<id>"] (one panel open at a time; opening another id closes the first)
+//     tradeId  the TRADE the panel is tied to (a string, data-lgpanel-trade) - never the row position. The same tradeId again
+//              refreshes in place; another tradeId switches the panel to that trade (onBeforeClose('switch') first, no onClose)
+//     head     {sym, side 'LONG'|'SHORT'|'BUY'|'SELL' or '', date, time, sub (html), tag (a text chip), net (a number; null = none)}
+//     blocks   [{k, html, render(el, isNew), sig, before}] in a FIXED order: header, chart, numbers, notes, actions. A block whose k is
+//              none of chart / numbers / notes / actions is the board's own and sits just before notes (before:'<slot>' moves it).
+//              html is written into the slot, then render(el, isNew) runs (wire handlers, fill a chart); a slot whose sig (default:
+//              its html) is the same as on the last call is left alone
+//     onBeforeClose(why)  runs while the panel is still on screen - save what is half typed. why = esc | outside | button | api |
+//              replace | switch;  onClose(why)  runs once it is gone (not for 'switch') - drop the board's own open-trade state
+//   ledgerTradePanelClose(id, why) -> true when it was open;  ledgerTradePanelOf(id) -> the open trade id or null
+//   ledgerTradePanelRows([[label, valueHtml, cls]]) -> numbers-slot rows (entry, exit, size, points, fees, hold time ...)
+// Esc, a click or tap outside the panel and the header close button close it; Tab stays inside it; focus returns to what opened it.
+// Markers: .lg-panel[data-lgpanel][data-lgpanel-trade][data-lgpanel-mode=side|sheet], [data-lgpanel-sym], [data-lgpanel-side],
+// [data-lgpanel-net], [data-lgpanel-sub], [data-lgpanel-when], [data-lgpanel-close], [data-lgpanel-slot=head|chart|numbers|...].
+const LEDGER_PANEL_SLOTS=['chart','numbers','notes','actions'];
+const _lgPanels={};
+function _lgPanelEsc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _lgPanelMode(){try{return window.matchMedia('(max-width:600px)').matches?'sheet':'side';}catch(e){return (window.innerWidth||1024)<=600?'sheet':'side';}}
+function ledgerTradePanelOf(id){const P=_lgPanels[String(id)];return P?P.tradeId:null;}
+function ledgerTradePanelRows(rows){
+  return '<div class="lg-panel-rows">'+(rows||[]).map(r=>'<div class="lg-panel-row"><span class="lg-panel-dt">'+_lgPanelEsc(r[0])+'</span><span class="lg-panel-dd'+(r[2]?' '+_lgPanelEsc(r[2]):'')+'">'+(r[1]==null?'':r[1])+'</span></div>').join('')+'</div>';
+}
+function _lgPanelHeadHtml(h){
+  h=h||{};
+  const side=ledgerTradeSide({side:h.side}),when=[h.date,h.time].filter(Boolean).map(_lgPanelEsc).join(' &middot; ');
+  const net=(h.net==null||h.net==='')?null:(+h.net||0);
+  return '<div class="lg-panel-id"><div class="lg-panel-sym" data-lgpanel-sym>'+_lgPanelEsc(h.sym)+'</div>'
+    +'<div class="lg-panel-sub" data-lgpanel-sub>'+(side?'<span class="lg-side '+(side==='LONG'?'long':'short')+'" data-lgpanel-side>'+side+'</span>':'')
+    +(h.tag?'<span class="lg-panel-tag">'+_lgPanelEsc(h.tag)+'</span>':'')+(h.sub?'<span>'+h.sub+'</span>':'')
+    +(when?'<span data-lgpanel-when>'+when+'</span>':'')+'</div></div>'
+    +(net==null?'':'<div class="lg-panel-net '+ledgerPnlCls(net)+'" data-lgpanel-net>'+ledgerSigned(net)+'</div>')
+    +'<button type="button" class="lg-panel-x" data-lgpanel-close aria-label="Close">&#10005;</button>';
+}
+// the blocks in their fixed order: chart, numbers, notes, actions; a board's own block goes before the slot it names (default notes)
+function _lgPanelOrder(blocks){
+  const known={},own=[],out=[];
+  (blocks||[]).forEach(b=>{if(!b||!b.k)return;if(LEDGER_PANEL_SLOTS.indexOf(b.k)>=0)known[b.k]=b;else own.push(b);});
+  LEDGER_PANEL_SLOTS.forEach(s=>{
+    own.forEach(b=>{if((LEDGER_PANEL_SLOTS.indexOf(b.before)>=0?b.before:'notes')===s)out.push(b);});
+    if(known[s])out.push(known[s]);
+  });
+  return out;
+}
+// true when something fixed (a modal, the full chart viewer) was put on the page after the panel and is on screen: Esc is for that
+function _lgPanelCovered(layer){
+  const z=parseInt(getComputedStyle(layer).zIndex,10)||0;
+  for(let n=layer.nextElementSibling;n;n=n.nextElementSibling){
+    if(n.tagName==='SCRIPT'||n.tagName==='STYLE')continue;
+    const cs=getComputedStyle(n);
+    if(cs.position!=='fixed'||cs.display==='none'||cs.visibility==='hidden')continue;
+    const r=n.getBoundingClientRect();
+    if(r.width>0&&r.height>0&&r.right>0&&r.bottom>0&&r.left<window.innerWidth&&r.top<window.innerHeight&&(parseInt(cs.zIndex,10)||0)>=z)return true;
+  }
+  return false;
+}
+// one keyboard and one resize listener for every panel, installed the first time a panel opens
+function _lgPanelWire(){
+  if(window._lgPanelWired)return;
+  window._lgPanelWired=true;
+  document.addEventListener('keydown',e=>{
+    const ks=Object.keys(_lgPanels),P=ks.length?_lgPanels[ks[ks.length-1]]:null;
+    if(!P)return;
+    if(e.key==='Escape'){
+      if(e.defaultPrevented||e.isComposing||_lgPanelCovered(P.layer))return;
+      e.preventDefault();
+      ledgerTradePanelClose(P.id,'esc');
+      return;
+    }
+    if(e.key==='Tab'&&P.layer.contains(document.activeElement)){
+      // Tab and Shift+Tab go round inside the panel
+      const f=[].slice.call(P.panel.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')).filter(x=>x.offsetParent!==null);
+      const a=document.activeElement;
+      if(!f.length){e.preventDefault();P.panel.focus();}
+      else if(e.shiftKey&&(a===f[0]||a===P.panel)){e.preventDefault();f[f.length-1].focus();}
+      else if(!e.shiftKey&&a===f[f.length-1]){e.preventDefault();f[0].focus();}
+    }
+  });
+  window.addEventListener('resize',()=>{Object.keys(_lgPanels).forEach(k=>_lgPanels[k].panel.setAttribute('data-lgpanel-mode',_lgPanelMode()));});
+}
+function ledgerTradePanelOpen(o){
+  o=o||{};
+  const id=String(o.id||'lg'),tid=String(o.tradeId==null?'':o.tradeId);
+  Object.keys(_lgPanels).forEach(k=>{if(k!==id)ledgerTradePanelClose(k,'replace');});
+  let P=_lgPanels[id],fresh=false;
+  if(P&&!P.layer.isConnected){delete _lgPanels[id];P=null;}
+  if(P&&P.tradeId!==tid){
+    // another trade in the same panel: the one leaving saves what is half typed, then the slots start again
+    try{if(P.o&&P.o.onBeforeClose)P.o.onBeforeClose('switch');}catch(e){console.error(e);}
+    P.tradeId=tid;P.sig={};P.headSig=null;P.body.innerHTML='';fresh=true;
+  }
+  if(!P){
+    const layer=document.createElement('div');
+    layer.className='lg-panel-layer';
+    layer.setAttribute('data-lgpanel-layer',id);
+    layer.innerHTML='<aside class="lg-panel" data-lgpanel="'+_lgPanelEsc(id)+'" role="dialog" aria-modal="true" tabindex="-1">'
+      +'<header class="lg-panel-hd" data-lgpanel-slot="head"></header><div class="lg-panel-body" data-lgpanel-body></div></aside>';
+    const panel=layer.firstChild;
+    P=_lgPanels[id]={id:id,layer:layer,panel:panel,head:panel.firstChild,body:panel.lastChild,tradeId:tid,o:o,sig:{},headSig:null,down:null,opener:document.activeElement,closing:false};
+    // a click that lands on the dim area closes the panel - unless the press began inside it (a text selection dragged out of a note)
+    layer.addEventListener('pointerdown',e=>{P.down=(e.target===layer);});
+    layer.addEventListener('click',e=>{
+      if(e.target.closest&&e.target.closest('[data-lgpanel-close]')){ledgerTradePanelClose(id,'button');return;}
+      if(e.target===layer&&P.down!==false)ledgerTradePanelClose(id,'outside');
+      P.down=null;
+    });
+    // a wheel turn or a swipe on the dim area must not scroll the page behind the panel
+    const stop=e=>{if(e.target===layer)e.preventDefault();};
+    layer.addEventListener('wheel',stop,{passive:false});
+    layer.addEventListener('touchmove',stop,{passive:false});
+    document.body.appendChild(layer);
+    fresh=true;
+    _lgPanelWire();
+  }
+  P.o=o;
+  P.panel.setAttribute('data-lgpanel-trade',tid);
+  P.panel.setAttribute('data-lgpanel-mode',_lgPanelMode());
+  P.panel.setAttribute('aria-label',(o.label||'Trade detail')+(o.head&&o.head.sym?' '+o.head.sym:''));
+  const hh=_lgPanelHeadHtml(o.head);
+  if(P.headSig!==hh){P.head.innerHTML=hh;P.headSig=hh;}
+  // the slots, in their fixed order: a slot the board no longer sends goes, a changed one is rewritten, an unchanged one is left alone
+  const order=_lgPanelOrder(o.blocks),keep={},have={};
+  order.forEach(b=>{keep[b.k]=1;});
+  [].slice.call(P.body.children).forEach(s=>{const k=s.getAttribute('data-lgpanel-slot');if(keep[k])have[k]=s;else{s.remove();delete P.sig[k];}});
+  let prev=null;
+  order.forEach(b=>{
+    let s=have[b.k],isNew=false;
+    if(!s){s=document.createElement('section');s.className='lg-panel-slot'+(b.k==='actions'?' lg-panel-actions':'');s.setAttribute('data-lgpanel-slot',b.k);isNew=true;}
+    const want=prev?prev.nextElementSibling:P.body.firstElementChild;
+    if(s!==want)P.body.insertBefore(s,want);
+    prev=s;
+    const sig=b.sig!=null?String(b.sig):(b.html!=null?String(b.html):null);
+    if(!isNew&&sig!=null&&P.sig[b.k]===sig)return;
+    if(b.html!=null)s.innerHTML=b.html;
+    P.sig[b.k]=sig;
+    if(b.render){try{b.render(s,isNew);}catch(e){console.error(e);}}
+  });
+  if(fresh){
+    P.body.scrollTop=0;
+    try{P.panel.focus({preventScroll:true});}catch(e){}
+  }
+  return P.panel;
+}
+function ledgerTradePanelClose(id,why){
+  id=String(id);
+  const P=_lgPanels[id];
+  if(!P||P.closing)return false;
+  P.closing=true;
+  why=why||'api';
+  try{if(P.o&&P.o.onBeforeClose)P.o.onBeforeClose(why);}catch(e){console.error(e);}
+  delete _lgPanels[id];
+  P.layer.remove();
+  try{if(P.o&&P.o.onClose)P.o.onClose(why);}catch(e){console.error(e);}
+  const op=P.opener;
+  if(why!=='replace'&&op&&op!==document.body&&op.isConnected){try{op.focus({preventScroll:true});}catch(e){}}
+  return true;
 }
 function ledgerChartRender(wrap,o){
   if(!wrap)return;
@@ -13277,6 +13498,7 @@ function _hmRestoreFocus(){
 function _hmBeforeRender(){
   _hmDraftCapture();
   if(activeTab!=='home'){
+    ledgerTradePanelClose('hm','leave');   // the shared trade panel belongs to LEDGER: leaving it closes it (a half-typed note is saved first)
     if(window._hmJumpPrevView){homeView=window._hmJumpPrevView;window._hmJumpPrevView=null;}
     window._hmNote=null;
   }
@@ -13658,10 +13880,9 @@ function _hmTagEditorHtml(t,pickerId,compact){
     <div id="${pickerId}" style="display:none;position:absolute;left:0;top:100%;background:var(--bg1);border:1px solid var(--border);padding:4px;z-index:50;min-width:160px;flex-wrap:wrap;gap:3px;max-width:240px">${pickHtml}</div>
   </div>`;
 }
-function _hmSheetHtml(id){
-  if(String(id).startsWith('missed:'))return _hmMissedSheetHtml(String(id).slice(7));
-  const t=trades.find(x=>String(x.id)===String(id));
-  if(!t)return '';
+// The pieces of one trade's panel (LEDGER unify step 9). The shared panel (ledgerTradePanelOpen) puts each piece in its slot; the previous
+// sheet (?oldboards=1) strings the same pieces together as it always did.
+function _hmSheetParts(t){
   const runBals=_hmRunningBalances();
   const bal=runBals[t.id];
   const acctPct=(bal!=null&&t.pnl)?((t.pnl/(bal-t.pnl))*100):null;
@@ -13695,27 +13916,138 @@ function _hmSheetHtml(id){
   ];
   // the grade and the setup are editors here too (LEDGER step 8: a phone row keeps five cells and the editing lives in the panel)
   const sheetSel=(field,opts,cur)=>`<select class="inline-sel" data-hmsheetfield="${field}" aria-label="${field}">${opts.map(o=>`<option${o===(cur||'—')?' selected':''}>${_hmEsc(o)}</option>`).join('')}</select>`;
-  const dlHtml=rows.map(r=>{
+  const numbers=rows.map(r=>{
     const ed=LEDGER_OLDBOARDS?null:(r[0]==='GRADE'?sheetSel('grade',GRADES,t.grade):(r[0]==='SETUP'?sheetSel('setup',customSetups,t.setup):null));
-    return `<div class="hm-dl-row"><div class="dt">${_hmEsc(r[0])}</div><div class="dd">${ed!=null?ed:_hmEsc(r[1])}</div></div>`;}).join('');
-  const tagsHtml=_hmTagEditorHtml(t,'hm-sheet-tagpick',false);
+    return [r[0],ed!=null?ed:_hmEsc(r[1])];
+  });
+  const pts=`${_hmPtsSheetHtml(t)}`;
+  return {
+    size:`${t.size!=null?t.size:''}${isFut(t.symbol)?' contract'+(t.size>1?'s':''):' sh'}`,
+    candles:_hmFutInst(t.symbol)&&window._rtSheetCandlesHtml?window._rtSheetCandlesHtml(String(t.id)):(isFut(t.symbol)?'':'<div style="font-size:10px;color:var(--text5);margin:-8px 0 14px">Charts for stock trades arrive once the free Alpaca key is saved.</div>'),
+    pts:pts,
+    ignore:`<label class="hm-excl"><input type="checkbox" id="hm-sheet-excl"${t.statsExcluded?' checked':''}/><span><b>IGNORE IN METRICS</b><br/>Still counts in P&amp;L and the account balance. Left out of win rate, profit factor, averages, drawdown and the other performance figures.</span></label>`,
+    numbers:numbers,
+    tags:`<div class="hm-tags">${_hmTagEditorHtml(t,'hm-sheet-tagpick',false)}</div>`,
+    notes:`<textarea class="hm-notes hm-notes-edit" id="hm-sheet-notes" data-hmsheet="${_hmEsc(t.id)}" rows="4" placeholder="Add a note - saves when you click away">${_hmEsc(t.notes||'')}</textarea>`,
+    foot:`<button id="hm-sheet-edit">EDIT</button>${t.chartUrl?'<button id="hm-sheet-chart" title="your TradingView snapshot">SNAPSHOT &#8599;</button>':''}<button id="hm-sheet-tv" title="open this symbol in TradingView on 1-minute and copy the trade time for Alt+G">OPEN IN TV &#8599;</button><button id="hm-sheet-del" class="del">DELETE</button>`
+  };
+}
+// the previous sheet (#hm-sheet), drawn only behind ?oldboards=1
+function _hmSheetHtml(id){
+  if(String(id).startsWith('missed:'))return _hmMissedSheetHtml(String(id).slice(7));
+  const t=trades.find(x=>String(x.id)===String(id));
+  if(!t)return '';
+  const P=_hmSheetParts(t);
+  const dlHtml=P.numbers.map(r=>`<div class="hm-dl-row"><div class="dt">${_hmEsc(r[0])}</div><div class="dd">${r[1]}</div></div>`).join('');
   return `<button class="hm-sheet-close" id="hm-sheet-close" aria-label="Close">&#10005;</button>
     <div class="hm-sheet-sym">${_hmEsc(t.symbol)}</div>
-    <div class="hm-sheet-sub">${t.type} ${t.size!=null?t.size:''}${isFut(t.symbol)?' contract'+(t.size>1?'s':''):' sh'} &middot; ${t.date}</div>
+    <div class="hm-sheet-sub">${t.type} ${P.size} &middot; ${t.date}</div>
     <div class="hm-sheet-net ${_hmCls(t.pnl)}">${_hmSigned(t.pnl)}</div>
-    ${_hmFutInst(t.symbol)&&window._rtSheetCandlesHtml?window._rtSheetCandlesHtml(String(t.id)):(isFut(t.symbol)?'':'<div style="font-size:10px;color:var(--text5);margin:-8px 0 14px">Charts for stock trades arrive once the free Alpaca key is saved.</div>')}
-    ${_hmPtsSheetHtml(t)}
-    <label class="hm-excl"><input type="checkbox" id="hm-sheet-excl"${t.statsExcluded?' checked':''}/><span><b>IGNORE IN METRICS</b><br/>Still counts in P&amp;L and the account balance. Left out of win rate, profit factor, averages, drawdown and the other performance figures.</span></label>
+    ${P.candles}
+    ${P.pts}
+    ${P.ignore}
     <div>${dlHtml}</div>
-    <div class="hm-tags">${tagsHtml}</div>
-    <textarea class="hm-notes hm-notes-edit" id="hm-sheet-notes" data-hmsheet="${_hmEsc(t.id)}" rows="4" placeholder="Add a note - saves when you click away">${_hmEsc(t.notes||'')}</textarea>
-    <div class="hm-sheet-foot">
-      <button id="hm-sheet-edit">EDIT</button>
-      ${t.chartUrl?'<button id="hm-sheet-chart" title="your TradingView snapshot">SNAPSHOT &#8599;</button>':''}
-      <button id="hm-sheet-tv" title="open this symbol in TradingView on 1-minute and copy the trade time for Alt+G">OPEN IN TV &#8599;</button>
-      <button id="hm-sheet-del" class="del">DELETE</button>
-    </div>
+    ${P.tags}
+    ${P.notes}
+    <div class="hm-sheet-foot">${P.foot}</div>
     <div id="hm-sheet-tvhint" style="display:none;font-size:10px;line-height:1.6;color:var(--text3);margin-top:10px"></div>`;
+}
+// ── REAL's trade panel (LEDGER unify step 9) ───────────────────────────────────────────────────────────────────────────────
+// homeSheetId says which trade is open (a trade id, or 'missed:<id>' for a SHOULD HAVE TRADED entry). The shared panel
+// (ledgerTradePanelOpen) is tied to that id, never to a row: a click on a row sets it and calls _hmSyncPanel, and every redraw of the
+// board calls _hmSyncPanel again, which refreshes the open panel in place (only the slots that changed are rewritten) or closes it
+// when the trade is gone or you left LEDGER. The previous sheet (#hm-sheet, ?oldboards=1) is separate and untouched.
+function _hmSyncPanel(){
+  if(LEDGER_OLDBOARDS)return;
+  const id=homeSheetId;
+  if(id==null||activeTab!=='home'){ledgerTradePanelClose('hm','sync');return;}
+  const spec=_hmPanelSpec(String(id));
+  if(!spec){homeSheetId=null;ledgerTradePanelClose('hm','gone');return;}   // the trade was deleted: close cleanly
+  ledgerTradePanelOpen(spec);
+}
+// what the shared panel draws for one trade: the header, then the slots chart (the EL chart with zoom / DAY / EXPAND + POINTS), the
+// own block IGNORE IN METRICS, numbers (the detail rows, grade and setup are editors), notes (tags + the note) and actions
+function _hmPanelSpec(id){
+  // the chart slot is rewritten only when what it draws changes (bar size, SMA | EMA, phone width); its zoom and chips live in the slot
+  const chartSig=(tid,tf,pts)=>[tid,tf,(window._rtSheetTfFor&&window._rtSheetTfFor[tid])||'',window._psMa||'',(window.innerWidth||1024)<600?'p':'l',pts].join('|');
+  if(id.indexOf('missed:')===0){
+    const mid=id.slice(7),m=_hmMissedById(mid);
+    if(!m)return null;
+    const P=_hmMissedSheetParts(m);
+    return {id:'hm',tradeId:id,label:'Should have traded',
+      head:{sym:m.symbol||'',side:m.type==='SHORT'?'SHORT':'LONG',date:m.date||'',time:String(m.entryTime||'').slice(0,5)+' ET',tag:'SHOULD HAVE TRADED',net:null},
+      blocks:[
+        {k:'chart',html:P.info+P.candles+P.pts,sig:chartSig('missed_'+mid,'',P.pts+P.info),render:_hmFillSheetChart},
+        {k:'numbers',html:ledgerTradePanelRows(P.numbers)},
+        {k:'notes',html:P.note},
+        {k:'actions',html:P.foot,render:el=>_hmWireMissedSheet(el,mid)}],
+      onClose:()=>{if(String(homeSheetId)===id)homeSheetId=null;}};
+  }
+  const t=trades.find(x=>String(x.id)===id);
+  if(!t)return null;
+  const tid=String(t.id),P=_hmSheetParts(t);
+  return {id:'hm',tradeId:id,label:'Trade detail',
+    head:{sym:t.symbol,side:t.type,date:t.date,time:String(t.entryTime||'--').slice(0,5)+' → '+String(t.exitTime||'--').slice(0,5),sub:P.size,net:t.pnl},
+    blocks:[
+      {k:'chart',html:P.candles+P.pts,sig:chartSig(tid,String(t.timeframe),P.pts),render:_hmFillSheetChart},
+      {k:'ignore',before:'numbers',html:P.ignore,render:el=>_hmWireSheetIgnore(el,tid)},
+      {k:'numbers',html:ledgerTradePanelRows(P.numbers),render:el=>_hmWireSheetNumbers(el,tid)},
+      {k:'notes',html:P.tags+P.notes,render:el=>_hmWireSheetNotes(el,tid)},
+      {k:'actions',html:P.foot+'<div class="lg-panel-hint" id="hm-sheet-tvhint" style="display:none"></div>',render:el=>_hmWireSheetActions(el,tid)}],
+    // closing (Esc, outside, the button, another trade, leaving LEDGER) saves a half-typed note first - not for a trade that is already gone
+    onBeforeClose:why=>{if(why==='gone')return;const b=document.getElementById('hm-sheet-notes');if(b&&String(b.getAttribute('data-hmsheet'))===tid)_hmSheetNoteSave(b,tid);},
+    onClose:()=>{if(String(homeSheetId)===id)homeSheetId=null;}};
+}
+// save a half-typed note (the blur, a close and a switch to another trade all come through here); a failed save keeps the draft
+function _hmSheetNoteSave(box,tid){
+  if(!box||box.value===box.defaultValue||box._lgSaving===box.value)return null;
+  const val=box.value;
+  box._lgSaving=val;box.style.opacity='.6';
+  return updateTrade(tid,{notes:val}).then(()=>{
+    box.defaultValue=val;
+    const d=window._hmSheetNoteDraft;if(d&&String(d.id)===String(tid)&&d.v===val)window._hmSheetNoteDraft=null;
+  }).catch(e=>{console.error(e);}).then(()=>{box._lgSaving=null;box.style.opacity='1';});
+}
+function _hmFillSheetChart(root){root.querySelectorAll('[data-rtcandles]').forEach(el=>{if(window._rtSheetCandlesFill)window._rtSheetCandlesFill(el);});}
+function _hmWireSheetNumbers(root,tid){
+  root.querySelectorAll('[data-hmsheetfield]').forEach(sel=>{
+    sel.onchange=async()=>{sel.style.opacity='.5';
+      try{await updateTrade(tid,{[sel.getAttribute('data-hmsheetfield')]:sel.value});}catch(e){console.error(e);}
+      sel.style.opacity='1';};
+    sel.onclick=e=>e.stopPropagation();
+  });
+}
+function _hmWireSheetIgnore(root,tid){
+  const exclBox=root.querySelector('#hm-sheet-excl');
+  if(exclBox)exclBox.onchange=async()=>{
+    exclBox.disabled=true;
+    try{await updateTrade(tid,{statsExcluded:exclBox.checked});}
+    catch(e){console.error(e);exclBox.checked=!exclBox.checked;}
+    exclBox.disabled=false;
+  };
+}
+function _hmWireSheetNotes(root,tid){
+  const notesBox=root.querySelector('#hm-sheet-notes');
+  if(!notesBox)return;
+  // A half-typed note for this same trade comes back after a redraw (see _hmDraftCapture).
+  const _snd=window._hmSheetNoteDraft;
+  if(_snd&&String(_snd.id)===String(tid))notesBox.value=_snd.v;
+  notesBox.addEventListener('input',_hmDraftCapture);
+  notesBox.onblur=()=>{_hmSheetNoteSave(notesBox,tid);};
+}
+function _hmWireSheetActions(root,tid){
+  const editBtn=root.querySelector('#hm-sheet-edit');
+  if(editBtn)editBtn.onclick=()=>{openEditModal(tid);};
+  const chartBtn=root.querySelector('#hm-sheet-chart');
+  if(chartBtn){
+    const tt=trades.find(x=>String(x.id)===String(tid));
+    chartBtn.onclick=()=>{if(tt&&tt.chartUrl)window.open(tt.chartUrl,'_blank');};
+  }
+  const tvBtn=root.querySelector('#hm-sheet-tv');
+  if(tvBtn)tvBtn.onclick=()=>window.hmOpenInTv(tid,root.querySelector('#hm-sheet-tvhint'));
+  // DELETE asks first (deleteTrade); the panel closes when the trade is gone, and a no keeps it open
+  const delBtn=root.querySelector('#hm-sheet-del');
+  if(delBtn)delBtn.onclick=async()=>{await deleteTrade(tid);_hmSyncPanel();};
 }
 // ── HOME table header menus (v73.9xx) ──────────────────────────────────────────────
 // Same Excel-style sort/filter mechanism the Trades tab's headers use - setSort/setFilt/
@@ -14376,24 +14708,32 @@ window.hmPasteToMissed=async function(){
   renderApp();
   setTimeout(()=>{const f=document.getElementById('hm-missed-form');if(f){f.scrollIntoView({behavior:'smooth',block:'center'});const sy=document.getElementById('hmmf-symbol');if(sy)sy.focus({preventScroll:true});}},60);
 };
-function _hmMissedSheetHtml(id){
-  const m=_hmMissedById(id);if(!m)return '';
+// the pieces of a SHOULD HAVE TRADED entry's panel: the shared panel puts them in its slots, the previous sheet (?oldboards=1) strings them together
+function _hmMissedSheetParts(m){
   const px=v=>(v==null||v==='')?'--':String(v);
   const rows=[['SETUP',m.setup||'--'],['SIDE',m.type==='SHORT'?'SHORT':'LONG'],['DATE',m.date||'--'],['ENTRY TIME',String(m.entryTime||'--').slice(0,5)+' ET'],
     ['ENTRY',px(m.entry)],['STOP',px(m.stop)],['TARGET',px(m.target)],['ADDED FROM',m.source||'--']];
+  return {
+    info:'<div style="font-size:10px;line-height:1.5;color:var(--text5);margin:0 0 14px">A setup you did not take. It is not in your P&amp;L or stats.</div>',
+    candles:_hmFutInst(m.symbol)&&window._rtSheetCandlesHtml?window._rtSheetCandlesHtml('missed_'+m.id):'<div style="font-size:10px;color:var(--text5);margin:0 0 14px">Charts for stocks arrive once the free Alpaca key is saved.</div>',
+    pts:_hmPtsSheetHtml(_hmMissedPtsHolder(m)),
+    numbers:rows.map(r=>[r[0],_hmEsc(r[1])]),
+    note:m.note?`<div class="hm-notes" style="white-space:pre-wrap;margin-top:10px">${_hmEsc(m.note)}</div>`:'',
+    foot:`<button id="hm-msheet-edit">EDIT</button>${m.url?'<button id="hm-msheet-snap" title="your TradingView snapshot">SNAPSHOT &#8599;</button>':''}<button id="hm-msheet-del">DELETE</button>`
+  };
+}
+function _hmMissedSheetHtml(id){
+  const m=_hmMissedById(id);if(!m)return '';
+  const P=_hmMissedSheetParts(m);
   return `<button class="hm-sheet-close" id="hm-sheet-close" aria-label="Close">&#10005;</button>
     <div class="hm-sheet-sym">${_hmEsc(m.symbol||'')}</div>
     <div class="hm-sheet-sub">SHOULD HAVE TRADED &middot; ${m.type==='SHORT'?'SHORT':'LONG'} &middot; ${_hmEsc(m.date||'')} ${_hmEsc(String(m.entryTime||'').slice(0,5))} ET</div>
-    <div style="font-size:10px;line-height:1.5;color:var(--text5);margin:0 0 14px">A setup you did not take. It is not in your P&amp;L or stats.</div>
-    ${_hmFutInst(m.symbol)&&window._rtSheetCandlesHtml?window._rtSheetCandlesHtml('missed_'+m.id):'<div style="font-size:10px;color:var(--text5);margin:0 0 14px">Charts for stocks arrive once the free Alpaca key is saved.</div>'}
-    ${_hmPtsSheetHtml(_hmMissedPtsHolder(m))}
-    <div>${rows.map(r=>`<div class="hm-dl-row"><div class="dt">${_hmEsc(r[0])}</div><div class="dd">${_hmEsc(r[1])}</div></div>`).join('')}</div>
-    ${m.note?`<div class="hm-notes" style="white-space:pre-wrap;margin-top:10px">${_hmEsc(m.note)}</div>`:''}
-    <div class="hm-sheet-foot">
-      <button id="hm-msheet-edit">EDIT</button>
-      ${m.url?'<button id="hm-msheet-snap" title="your TradingView snapshot">SNAPSHOT &#8599;</button>':''}
-      <button id="hm-msheet-del">DELETE</button>
-    </div>`;
+    ${P.info}
+    ${P.candles}
+    ${P.pts}
+    <div>${P.numbers.map(r=>`<div class="hm-dl-row"><div class="dt">${_hmEsc(r[0])}</div><div class="dd">${r[1]}</div></div>`).join('')}</div>
+    ${P.note}
+    <div class="hm-sheet-foot">${P.foot}</div>`;
 }
 function _hmWireMissedSheet(sheetEl,id){
   const m=_hmMissedById(id);if(!m)return;
@@ -14852,8 +15192,7 @@ function _hmRenderHome(content){
     ${_hmMissedSectionHtml()}
     ${_hmJournalSectionHtml()}
   </div>
-  <div class="hm-backdrop" id="hm-backdrop"></div>
-  <div class="hm-sheet" id="hm-sheet" role="dialog" aria-modal="true" aria-label="Trade detail"></div>`;
+  ${LEDGER_OLDBOARDS?'<div class="hm-backdrop" id="hm-backdrop"></div><div class="hm-sheet" id="hm-sheet" role="dialog" aria-modal="true" aria-label="Trade detail"></div>':''}`;
 
   content.querySelectorAll('[data-hmrange]').forEach(b=>{b.onclick=()=>{homeRange=b.dataset.hmrange;window._hmNote=null;renderApp();};});
   content.querySelectorAll('[data-hmmode]').forEach(b=>{b.onclick=()=>{homeChartMode=b.dataset.hmmode;renderApp();};});
@@ -14905,7 +15244,7 @@ function _hmRenderHome(content){
     ledgerTradeListWire(content,{id:'hm',
       onChip:c=>{homeChip=c;renderApp();},
       onView:v=>{window._hmJumpPrevView=null;homeView=(v==='table')?'table':'feed';renderApp();},
-      onRow:rid=>{homeSheetId=rid;renderApp();}});
+      onRow:rid=>{homeSheetId=rid;_hmSyncPanel();}});
     _hmWireFrame(feedC);
   }else if(homeView==='table'){
     feedC.innerHTML=_hmRenderTable(list);
@@ -14935,6 +15274,9 @@ function _hmRenderHome(content){
 
   _hmRenderChartInto(content);
 
+  // LEDGER step 9: the shared trade panel (in <body>, outside this redraw) is made to match homeSheetId; the previous sheet below runs only behind ?oldboards=1
+  if(!LEDGER_OLDBOARDS)_hmSyncPanel();
+  else{
   const sheetEl=content.querySelector('#hm-sheet');
   const backdropEl=content.querySelector('#hm-backdrop');
   if(homeSheetId){
@@ -14991,6 +15333,7 @@ function _hmRenderHome(content){
   if(!window._hmEscWired){
     window._hmEscWired=true;
     document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&activeTab==='home'&&homeSheetId){homeSheetId=null;renderApp();}});
+  }
   }
   // Filled in the same pass (it is pure local math): the old 100ms delay painted a short
   // "Loading insights..." box first, then grew it ~300px, shoving the table down after every edit.
