@@ -140,6 +140,21 @@ ENGU-Q is a BOOK row reading LONG with its live position line, and the rows stil
 has a hue.
 ?oldboards=1 keeps the old month grid and the old rows (and their old page order).
 
+LEDGER STEP 8 (2026-10-06): the board's trade list (History) is TRADING-LOG's shared frame (ledgerTradeListHtml / ledgerTradeListWire), as REAL's
+is. Every plain and stats case: ONE [data-lglist-frame] with the count ('N / 47 trades'), the LIST | TABLE switch, the search box and the chips
+ALL / LONG / SHORT / WINS / LOSSES then ORB / ENGU-Q / NOISE (with their run numbers) / BOOK ONLY; a header for each New York close day, newest first,
+with that day's signed net; the rows under it in close order, every cell recomputed here from the fixture (family + run number, side, shares, P&L of
+record, points, the entry time with its date when the trade closed later, exit reason and chips, the flagged-row mark, the chart glyph); in the TABLE this
+board's own columns after the common ones (exit time, entry / exit price, running total, real P&L, slip; the NinjaTrader three only while a trade carries
+NT data); a phone row draws five cells. TRADE LIST RUNS, one page each: the laptop (every chip, a search typed a letter at a time that keeps its focus and
+caret but is not given the focus back after the viewer left the box (the phone keyboard's Done), the sheet for the TAPPED trade after a chip / after a search and clear / after a redraw / from the table, the chart glyph, SHOW MORE paging that
+never cuts a day in two, LIST | TABLE remembered and found by a page that comes back, the CSV: its file name, the 50 columns it always had, the trades
+the list matches in the list's order, a calendar tap on a day the chip hides); a doc with a $0 trade (WINS and LOSSES leave it out); a doc with a shadow
+row (in the list, the count, a day net and the CSV nowhere); a trade held over a weekend (under its close day); phones 375x812 and 390x844 MONO (five
+cells in the LIST and the TABLE, the flagged-row mark drawn, the list starts at most 792 px under the board top, no sideways page); and widths 375 to
+1366 in the LIST and the TABLE (the PAGE never wider than the window; no list row wider than its box; no strategy name cut). ?oldboards=1 keeps the old
+List | Table untouched (its Table view still names every strategy with a run number and carries each row's close day).
+
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks; a retry that passes prints a FLAKE line.
 
@@ -148,6 +163,8 @@ Usage:
   python tools/webull_board_probe.py --file X.html  # gates X as if it were index.html
   python tools/webull_board_probe.py --selftest     # deliberately broken copies (MUTANTS) must
                                                     # FAIL, then the real file must PASS
+  python tools/webull_board_probe.py --selftest --jobs 1   # the same, one broken copy at a time (the default is four at a time, or fewer on a
+                                                           # small machine: 160 copies run one by one would take well over an hour)
 
 Stdlib only, plus a subprocess call to local Chrome.
 """
@@ -980,6 +997,175 @@ MUTANTS = [
      "<tr data-qetraderow=\"'+i+'\" data-qbday=\"'+(qeTradeDate(t)||'')+'\" style=\"cursor:pointer",
      "<tr data-qetraderow=\"'+i+'\" style=\"cursor:pointer",
      "the Table view rows carry no day, so a calendar tap cannot land on them"),
+    # LEDGER step 8 (2026-10-06): the trade list on the shared frame
+    ('frame-missing',
+     '\'<div id="qe-trades-section"></div><div class="qbx-tl">\'+qbFrameHtml+qbMoreHtml+\'</div>\'',
+     '\'<div id="qe-trades-section"></div><div class="qbx-tl">\'+qbMoreHtml+\'</div>\'',
+     'the trade list frame is not drawn: no list, no toolbar, no day headers (the rest of the board still is)'),
+    ('daynet-wrong',
+     'const net2=list=>Math.round(list.reduce((s,t)=>s+(+N(t)||0),0)*100)/100;',
+     'const net2=list=>Math.round(list.slice(1).reduce((s,t)=>s+(+N(t)||0),0)*100)/100;',
+     "a day header's net leaves out the first trade of its day"),
+    ('wins-includes-zero',
+     "if(chip==='WINS')return p>0;",
+     "if(chip==='WINS')return p>=0;",
+     'the WINS chip keeps a $0 trade (a $0 trade is neither a win nor a loss)'),
+    ('losses-includes-zero',
+     "if(chip==='LOSSES')return p<0;",
+     "if(chip==='LOSSES')return p<=0;",
+     'the LOSSES chip keeps a $0 trade'),
+    ('tl-csv-ignores-list',
+     'window._qeTradesForExport=qbMatchedVm.map(v=>v._t);',
+     'window._qeTradesForExport=trades;',
+     'the CSV saves every closed trade whatever chip, search or range the list shows (the old behaviour)'),
+    ('csv-count-mismatch',
+     'window._qeTradesForExport=qbMatchedVm.map(v=>v._t);',
+     'window._qeTradesForExport=qbMatchedVm.slice(1).map(v=>v._t);',
+     'the CSV holds one trade fewer than the list shows'),
+    ('tl-csv-has-shadow-row',
+     'window._qeTradesForExport=qbMatchedVm.map(v=>v._t);',
+     'window._qeTradesForExport=qbMatchedVm.map(v=>v._t).concat(qbShadowRange);',
+     'the CSV carries a shadow row the list leaves out'),
+    ('tl-sheet-by-row-number',
+     "onRow:rk=>{window._qbSheet={kind:'trade',idx:null,tid:null,rk:rk};renderApp();}});",
+     "onRow:rk=>{window._qbSheet={kind:'trade',idx:0,tid:null,rk:null};renderApp();}});",
+     'a tap on a row opens the sheet for the first trade of the range, not the one tapped'),
+    ('sheet-wrong-trade-after-rerender',
+     "onRow:rk=>{window._qbSheet={kind:'trade',idx:null,tid:null,rk:rk};renderApp();}});",
+     "onRow:rk=>{const ks=[].map.call(content.querySelectorAll('[data-lgtrade]'),e=>e.getAttribute('data-lgtrade'));window._qbSheet={kind:'trade',idx:ks.indexOf(rk),tid:null,rk:null};renderApp();}});",
+     "a tap on a row opens the sheet for the trade at that row's position in the range (wrong as soon as a chip or a search changed the rows)"),
+    ('tl-row-tap-noop',
+     "onRow:rk=>{window._qbSheet={kind:'trade',idx:null,tid:null,rk:rk};renderApp();}});",
+     'onRow:rk=>{}});',
+     'a tap on a row opens no sheet'),
+    ('shadow-in-list',
+     'const qbAllVm=qbRangeTrades.map(qbVm);',
+     'const qbAllVm=qbRangeTrades.concat(qbShadowRange).map(qbVm);',
+     'a shadow row is drawn in the trade list and counted in it'),
+    ('phone-list-too-low',
+     '.qbx-lg6 .qbx-history.qbx-section{padding-top:0;border-top:0}',
+     '.qbx-lg6 .qbx-history.qbx-section{padding-top:14px;border-top:0}',
+     'on a phone the trade list starts 14 px lower than the 784 px it started at'),
+    ('tl-phone-heading-back',
+     '.qbx-lg6 .qbx-history>.qb-section-hd{display:none}',
+     '.qbx-lg6 .qbx-history>.qb-section-hd{display:block}',
+     'on a phone the History heading is back above the list, which starts 25 px lower'),
+    ('tl-phone-six-cells',
+     '.qbx-tl .lg-tl-row .lg-c-chart{min-width:30px}',
+     '.qbx-tl .lg-tl-row .lg-c-chart{min-width:30px}\r\n@media(max-width:600px){.qbx-tl .lg-tl-row .lg-c-size{display:block}}',
+     'a phone row draws six cells (the shares too), not the five of the shared list'),
+    ('tl-phone-table-six-cells',
+     '.qbx-tl .lg-tl-row .lg-c-chart{min-width:30px}',
+     '.qbx-tl .lg-tl-row .lg-c-chart{min-width:30px}\r\n@media(max-width:600px){.qbx-tl .lg-tl-table .lg-c-size{display:table-cell}}',
+     'a phone table row draws six cells, not the five of the shared list'),
+    ('tl-own-chips-missing',
+     'chips:qbOwnChips,',
+     'chips:[],',
+     'the strategy chips and BOOK ONLY are not on the list'),
+    ('tl-leg-chip-no-filter',
+     "if(qbChipSel!=='ALL'&&qbOwnChips.some(c=>c.k===qbChipSel))return v._t.leg===qbChipSel;",
+     "if(qbChipSel!=='ALL'&&qbOwnChips.some(c=>c.k===qbChipSel))return true;",
+     'a strategy chip (ORB, ENGU-Q, NOISE) leaves every trade in the list'),
+    ('tl-bookonly-chip-no-filter',
+     "if(qbChipSel==='BOOKONLY')return !!v._t.book_only;",
+     "if(qbChipSel==='BOOKONLY')return true;",
+     'the BOOK ONLY chip leaves every trade in the list'),
+    ('tl-view-not-remembered',
+     "window._qeTradesView=ledgerTradeViewGet('wb','list');",
+     "window._qeTradesView='list';",
+     'a page that comes back opens the LIST whatever view the viewer chose'),
+    ('tl-show-more-noop',
+     'smore.onclick=()=>{window._qeTradesShown=(window._qeTradesShown||50)+50;renderApp();};',
+     'smore.onclick=()=>{window._qeTradesShown=(window._qeTradesShown||50);renderApp();};',
+     'SHOW MORE shows no more rows'),
+    ('tl-page-cuts-a-day',
+     'while(qbCut<qbMatchedVm.length&&ledgerCloseDay(qbMatchedVm[qbCut])===ledgerCloseDay(qbMatchedVm[qbCut-1]))qbCut++;',
+     '',
+     "SHOW MORE can cut a day in two (the day's header then covers only some of its trades)"),
+    ('tl-search-ignored',
+     'if(!ledgerTradeMatch(v,qbChipSel,qbQuery,{pnl:x=>x.pnl,hay:qbHay}))return false;',
+     "if(!ledgerTradeMatch(v,qbChipSel,'',{pnl:x=>x.pnl,hay:qbHay}))return false;",
+     'typing in the search box filters nothing'),
+    ('tl-search-loses-focus',
+     'try{sbx.focus({preventScroll:true});sbx.setSelectionRange(qbHold.s,qbHold.e);}catch(e){}',
+     'try{sbx.setSelectionRange(qbHold.s,qbHold.e);}catch(e){}',
+     'the search box loses its focus on every redraw, so the first letter typed ends the typing'),
+    ('tl-keyboard-done-refocuses',
+     'if(sbx&&(window._qbSearchFocused||(qbBlur&&qbBlur.inRedraw))){',
+     'if(sbx){',
+     "the search box takes its focus back at the next redraw after the viewer left it (the phone keyboard's Done), so the keyboard comes back"),
+    ('tl-own-columns-missing',
+     'cols:qbCols,',
+     'cols:[],',
+     "the table has none of this board's own columns (exit time, prices, running total, real P&L, slip)"),
+    ('csv-column-dropped',
+     "'fill_gap_usd','design_gap_usd','execution_gap_usd'];",
+     "'fill_gap_usd','design_gap_usd'];",
+     'the CSV loses its last column'),
+    ('tl-oldboards-draws-new-card',
+     'const qbTradesCard=!LEDGER_OLDBOARDS?(',
+     'const qbTradesCard=true?(',
+     '?oldboards=1 draws the new trade list card (and so no old List | Table at all)'),
+    ('tl-day-attr-missing',
+     'rowAttr:v=>\'data-qbday="\'+qbEsc(qeTradeDate(v._t)||\'\')+\'"\',',
+     "rowAttr:v=>'',",
+     'the frame rows carry no day, so a calendar tap cannot land on that day'),
+    ('tl-table-day-attr-missing',
+     'rowAttr:v=>\'data-qbday="\'+qbEsc(qeTradeDate(v._t)||\'\')+\'"\',',
+     'rowAttr:v=>(qbTradesView===\'table\'?\'\':\'data-qbday="\'+qbEsc(qeTradeDate(v._t)||\'\')+\'"\'),',
+     'the Table rows carry no day, so a calendar tap cannot land on them'),
+    ('tl-groups-by-entry-day',
+     "exitTime:ex.slice(11,19),exitDate:qeTradeDate(t)||'',",
+     "exitTime:ex.slice(11,19),exitDate:'',",
+     'a trade held over a weekend sits under the day it entered, not the day it closed'),
+    ('tl-bare-leg-on-rows',
+     'sym:v=>\'<span style="color:\'+legColorQE(v._t.leg)+\'">\'+qeTradeLegHtml(v._t)+\'</span>\',',
+     'sym:v=>\'<span style="color:\'+legColorQE(v._t.leg)+\'"><span class="qb-trade-leg">\'+naS(v._t.leg)+\'</span></span>\',',
+     "a frame row names the box's bare leg key (ENGUQ) with no run number"),
+    ('tl-caveat-mark-hidden',
+     '@media(max-width:1279px){.qbx-tl .qbx-cav{display:block}}',
+     '@media(max-width:1279px){.qbx-tl .qbx-cav{display:none}}',
+     'a flagged trade carries no mark on a phone (the flags column is not one of the five cells)'),
+    ('tl-caveat-mark-lost',
+     'const cav=qbRowCaveat(t)?\'<span class="qbx-cav" title="\'+qbEsc(qbFlagsText(t))+\'">!</span>\':\'\';',
+     "const cav='';",
+     'no row carries the flagged-trade mark'),
+    ('tl-calendar-tap-keeps-chip',
+     'if(!el&&!LEDGER_OLDBOARDS&&(window._qeTradesQuery||(window._qeTradesChip&&window._qeTradesChip!==\'ALL\'))){window._qeTradesQuery=\'\';window._qeTradesChip=\'ALL\';window._qeTradesShown=1e6;renderApp();el=document.querySelector(\'[data-qbday="\'+ds+\'"]\');}',
+     '',
+     'a calendar tap on a day the chip or the search hides lands nowhere'),
+    ('tl-glyph-not-wired',
+     "content.querySelectorAll('[data-qbchartkey]').forEach(b=>{",
+     "content.querySelectorAll('[data-qbchartkeyx]').forEach(b=>{",
+     'the chart glyph on a row does nothing'),
+    ('tl-count-total-wrong',
+     'total:closedN,',
+     'total:matchedN,',
+     'the count reads shown / matched instead of shown / all trades'),
+    ('tl-list-wider-than-window-601-800',
+     '.qbx-tl .lg-tl-row .lg-c{flex-shrink:1}',
+     '.qbx-tl .lg-tl-row .lg-c{flex-shrink:1}\r\n@media(min-width:601px) and (max-width:800px){.qbx-tl .lg-tl-row{min-width:900px}}',
+     'between 601 and 800 px the list rows are wider than the window and the page scrolls sideways'),
+    ('tl-table-wider-than-window',
+     '.qbx-tl .lg-tl-row .lg-c{flex-shrink:1}',
+     '.qbx-tl .lg-tl-row .lg-c{flex-shrink:1}\r\n.qbx-tl .lg-tl-wrap{overflow:visible;max-height:none}',
+     'the table is not held in its own scrolling box and the page scrolls sideways'),
+    ('tl-mono-hue',
+     '.qbx-tl .lg-tl-row .lg-c{flex-shrink:1}',
+     '.qbx-tl .lg-tl-row .lg-c{flex-shrink:1}\r\n[data-theme=mono] .qbx-tl .lg-tl-daynet{color:#e33!important}',
+     'a day net is drawn in colour under MONO (MONO has no hue)'),
+    ('tl-flags-lost',
+     "strat:(v,mode)=>mode==='table'?(qbEsc(naS(v._t.exit_reason))+qbFlagsHtml(v._t)):(qbFlagsHtml(v._t).trim()+' '+qbEsc(naS(v._t.exit_reason))),",
+     'strat:(v,mode)=>qbEsc(naS(v._t.exit_reason)),',
+     'the BOOK ONLY / FILL GAP / EOD chips are gone from the rows'),
+    ('tl-running-wrong',
+     'tcol(\'run\',\'RUNNING\',v=>\'<span style="color:var(--text3)">\'+qeMoney(qbRun[v.id])+\'</span>\')',
+     'tcol(\'run\',\'RUNNING\',v=>\'<span style="color:var(--text3)">\'+qeMoney(v.pnl)+\'</span>\')',
+     "the RUNNING column shows each trade's own P&L, not the running total"),
+    ('tl-list-oldest-first',
+     'const qbMatchedVm=ledgerByClose(qbAllVm.filter(qbMatch)).reverse();',
+     'const qbMatchedVm=ledgerByClose(qbAllVm.filter(qbMatch));',
+     'the page and the CSV take the OLDEST trades first'),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -988,7 +1174,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <iframe id="f" src="../index.html" style="width:1366px;height:768px;border:0;display:block"></iframe>
 <pre id="o" style="display:none"></pre>
 <script>
-var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=__STATS__;
+var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=__STATS__, TLS=__TLS__;
 (function(){
   var out={cases:{},notes:[]}, reported=false, t0=Date.now(), sink=null, phase=0;
   function finish(why){
@@ -996,7 +1182,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     out.why=why; out.ms=Date.now()-t0;
     document.getElementById('o').textContent='WEBULLPROBE: '+JSON.stringify(out);
   }
-  setTimeout(function(){finish('backstop');},110000);
+  setTimeout(function(){finish('backstop');},200000);
   var fr=document.getElementById('f');
   function W(){return fr.contentWindow;}
   function D(){return fr.contentDocument;}
@@ -1093,7 +1279,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         extra:(ex&&ex.classList&&ex.classList.contains('qbx-lg-extra'))?ex.getAttribute('data-qbextra'):null};
     }
     var hd=lst.querySelector('.lg-list-hd'),hs=hd?hd.querySelectorAll('span'):[],box=lst.getBoundingClientRect();
-    var side=q('.qbx-side'),hist=q('.qbx-history'),acct=q('.qbx-account'),sh=q('.qb-shell'),fr=q('[data-qbtraderow]'),sy=w.scrollY||0;
+    var side=q('.qbx-side'),hist=q('.qbx-history'),acct=q('.qbx-account'),sh=q('.qb-shell'),fr=q('[data-lgtrade]')||q('[data-qbtraderow]'),sy=w.scrollY||0;
     var top=function(e){return e?Math.round(e.getBoundingClientRect().top+sy):null;},bot=function(e){return e?Math.round(e.getBoundingClientRect().bottom+sy):null;};
     return {title:hs[0]?(hs[0].textContent||'').trim():null,count:hs[1]?(hs[1].textContent||'').replace(/\\s+/g,' ').trim():null,
       groups:[].map.call(lst.querySelectorAll('.lg-grp'),function(g){
@@ -1114,6 +1300,8 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       sharedCalFold:!!q('[data-lgcalfold]'),sharedList:!!q('[data-lglist="qb"]'),
       oldLegRows:[].map.call(d.querySelectorAll('.qbx-side [data-qblegrow]'),function(e){return e.getAttribute('data-qblegrow');}),
       oldSideHd:!!q('.qbx-side-hd'),
+      oldTradeRows:d.querySelectorAll('[data-qbtraderow]').length,
+      oldTradeDays:[].map.call(d.querySelectorAll('[data-qbtraderow]'),function(e){return e.getAttribute('data-qbday');}),
       order:[].map.call(d.querySelectorAll('.qb-shell > section, .qb-shell > div'),function(e){return e.className.split(' ')[0];}).filter(function(c){return /^qbx-(side|account|history|stats)$/.test(c);})};
   }
   // the More stats panel: shown or hidden, its groups, and every row as 'Group|Label' -> value text
@@ -1195,6 +1383,8 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       +"window._qqqPaper=null;window._qqqPaperLoaded=true;window._qqqPaperLoading=false;window._qqqPaperErr=null;"
       +"window._qqqCalMonth=null;window._qeDrawerIdx=null;window._qeChartHidden={};window._qeTradesShown=50;window._qeEventsShown=30;"
       +"window._qbSheet=null;window._qbLegOpen=new Set(window.__probeOpenLeg?[window.__probeOpenLeg]:[]);window._qeTradesView='list';window._qeChartPeriod='ALL';"
+      // the trade list's own state: the view stored for this board, the search text, the chip, the search box's held focus
+      +"try{localStorage.removeItem('el_lg_view_wb');}catch(e){}window._qeTradesQuery='';window._qeTradesChip='ALL';window._qbSearchHold=null;"
       +"window._qbLegNoteOpen={};if(window.__probeOpenLeg)window._qbLegNoteOpen[window.__probeOpenLeg]=true;"
       +"try{var ap=JSON.parse(localStorage.getItem('augurPrefs')||'{}');ap.qqqSystemOpen=window.__probeSystemOpen;localStorage.setItem('augurPrefs',JSON.stringify(ap));}catch(e){}"
       +"window._qqqExecLive=false;window._qqqExecLiveErrorAt=window.__probeLiveErr?Date.now():null;window._qqqExecFetchedAt=window.__probeLiveErr?0:Date.now();"
@@ -1206,7 +1396,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       +"renderApp();return 'OK';"
       +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
   }
-  function sample(){
+  function sample(withTl){
     var d=D(),w=W(),r={};
     r.innerW=w.innerWidth;
     r.theme=d.documentElement.getAttribute('data-theme');
@@ -1236,7 +1426,8 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     r.retiredExpanded=rb?rb.getAttribute('aria-expanded'):null;
     r.retiredText=rb?(rb.textContent||'').replace(/\\s+/g,' ').trim():null;
     r.retiredRows=d.querySelectorAll('.qbx-side [data-qbretiredrow]').length;
-    var rows=d.querySelectorAll('[data-qbtraderow]');
+    var rows=d.querySelectorAll('[data-lgtrade]');
+    if(!rows.length)rows=d.querySelectorAll('[data-qbtraderow]');
     r.tradeRows=rows.length;
     r.tradeLegs=[].map.call(rows,function(e){var s=e.querySelector('.qb-trade-leg');return s?(s.textContent||'').trim():null;});
     r.oldChart=!!d.querySelector('#qbCrossCapture');
@@ -1257,6 +1448,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     r.more=moreRead();
     var act=q('.qbx-activity'),mwon=act?(act.textContent||'').match(/(\\d+)% won/):null;r.calWon=mwon?+mwon[1]:null;
     r.lgcal=calRead();r.lg=listRead();r.old=oldReads();
+    if(withTl)r.tl=tlRead();
     r.scrollW=d.documentElement.scrollWidth;
     r.clientW=d.documentElement.clientWidth;
     if(r.scrollW>r.clientW+1)r.wide=offenders(d);
@@ -1392,6 +1584,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     }
     return null;
   }
+__TLJS__
   async function runCase(nm,cfg){
     var r={};
     await setVp(cfg.vp);
@@ -1399,7 +1592,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     try{r.call=seed(cfg);}catch(e){r.call='ERR '+(e&&e.stack?e.stack:e);}
     await sleep(200);
     if(cfg.tick||cfg.fetch||cfg.visread||cfg.cachesnap){try{r.after=await after(cfg);}catch(e){r.after='ERR '+(e&&e.stack?e.stack:e);}await sleep(300);}
-    try{Object.assign(r,sample());}catch(e){r.sampleErr=String(e&&e.stack?e.stack:e);}
+    try{Object.assign(r,sample(cfg.tl!==false));}catch(e){r.sampleErr=String(e&&e.stack?e.stack:e);}
     Object.assign(r,drain());
     out.cases[nm]=r;
   }
@@ -1533,22 +1726,23 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         w.eval("window._qeTradesShown=1;renderApp();");await sleep(120);
         var fd=q('[data-lgcal="qb"] button[data-lgcalday]');
         ca.moreDay=fd?fd.getAttribute('data-lgcalday'):null;
-        ca.moreRowsBefore=d.querySelectorAll('[data-qbtraderow]').length;
+        ca.moreRowsBefore=rowsN();
         ca.moreHadRow=!!(ca.moreDay&&q('[data-qbday="'+ca.moreDay+'"]'));
         spy.length=0;
         if(fd){fd.click();await sleep(100);}
         ca.moreSpy=spy.slice();
-        ca.moreRowsAfter=d.querySelectorAll('[data-qbtraderow]').length;
+        ca.moreRowsAfter=rowsN();
         ca.moreHasRow=!!(ca.moreDay&&q('[data-qbday="'+ca.moreDay+'"]'));
         w.eval("window._qeTradesShown=null;renderApp();");await sleep(80);
       }finally{proto.scrollIntoView=so;}
       res.cal=ca;
-      // 6. the Table view names every strategy with its run number too (family + run number on every trade row)
-      var tb=q('[data-qbseg="tradesview"] [data-qbsegval="table"]'),tv={};
+      // 6. the Table view names every strategy with its run number too (family + run number on every trade row). LEDGER step 8: the shared
+      // frame's LIST | TABLE switch replaces the old segmented control (the old one is read on ?oldboards=1, below)
+      var tb=q('[data-lgview="table"]'),tv={};
       if(tb){tb.click();await sleep(100);
-        tv.legs=[].map.call(d.querySelectorAll('[data-qetraderow] .qb-trade-leg'),function(e){return (e.textContent||'').trim();});
-        tv.days=[].map.call(d.querySelectorAll('[data-qetraderow]'),function(e){return e.getAttribute('data-qbday');});
-        var lb2=q('[data-qbseg="tradesview"] [data-qbsegval="list"]');
+        tv.legs=[].map.call(d.querySelectorAll('tr[data-lgtrade] .qb-trade-leg'),function(e){return (e.textContent||'').trim();});
+        tv.days=[].map.call(d.querySelectorAll('tr[data-lgtrade]'),function(e){return e.getAttribute('data-qbday');});
+        var lb2=q('[data-lgview="list"]');
         if(lb2){lb2.click();await sleep(100);}}
       res.table=tv;
     }catch(e){res.threw=String(e&&e.stack?e.stack:e);}
@@ -1578,6 +1772,11 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         if(!(await boot()))return;
         for(var i=0;i<CASES.length;i++)await runCase(CASES[i][0],CASES[i][1]);
         try{await interact();}catch(e){out.inter={threw:String(e&&e.stack?e.stack:e)};}
+        // the trade list on the shared frame (LEDGER step 8): each run seeds its own page
+        out.tl={};
+        for(var tn=0;tn<TLS.length;tn++){
+          try{out.tl[TLS[tn].name]=await runTl(TLS[tn]);}catch(e){out.tl[TLS[tn].name]={threw:String(e&&e.stack?e.stack:e)};}
+        }
         out.stats={};
         for(var k=0;k<STATS.length;k++){
           var S=STATS[k];
@@ -1590,7 +1789,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
           var V=VARS[j];
           await runCase('__var'+j,{vp:V.vp||'laptop',theme:V.theme||'dark',fix:V.doc,nowMs:V.renderMs||V.nowMs,openLeg:'NOISE',systemOpen:V.systemOpen,
             liveErr:V.liveErr,prev:V.prev,prevCache:V.prevCache,tab:V.tab,checkedMs:V.checkedMs,tick:V.tick,tickTo:V.nowMs,fetch:V.fetch,
-            offline:V.offline,missing:V.missing,unloaded:V.unloaded,pin:V.pin,visread:V.visread,cachesnap:V.cachesnap});
+            offline:V.offline,missing:V.missing,unloaded:V.unloaded,pin:V.pin,visread:V.visread,cachesnap:V.cachesnap,tl:false});
           out.vars[V.name]=out.cases['__var'+j];delete out.cases['__var'+j];
         }
         try{W().eval('delete navigator.onLine');}catch(e){}
@@ -1602,6 +1801,14 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         phase=2;
         if(!(await boot()))return;
         await runCase('oldboards',{vp:'laptop',theme:'mono'});
+        // ?oldboards=1 keeps the old List | Table: its Table view names every strategy with its run number and carries each row's close day
+        var ot={},otb=q('[data-qbseg="tradesview"] [data-qbsegval="table"]');
+        drain();
+        if(otb){otb.click();await sleep(100);
+          ot.legs=[].map.call(D().querySelectorAll('[data-qetraderow] .qb-trade-leg'),function(e){return (e.textContent||'').trim();});
+          ot.days=[].map.call(D().querySelectorAll('[data-qetraderow]'),function(e){return e.getAttribute('data-qbday');});}
+        ot.errs=drain();
+        out.oldtable=ot;
         finish('done');
       }
     },2500);
@@ -1609,6 +1816,224 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
 })();
 </script>
 </body></html>
+"""
+
+
+TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared frame (ledgerTradeListHtml). tlRead = everything the judge needs from one
+  // drawn frame; SCEN = what a viewer does to it (chips, search, sheet, paging, LIST | TABLE, CSV, a calendar tap, the glyph); runTl runs one. ──
+  function tx2(e){return e?(e.textContent||'').replace(/\s+/g,' ').trim():null;}
+  function uniq(a){var s={},o=[];a.forEach(function(x){if(!s[x]){s[x]=1;o.push(x);}});return o;}
+  function rowsN(){var d=D(),a=d.querySelectorAll('[data-lgtrade]');return a.length||d.querySelectorAll('[data-qbtraderow]').length;}
+  function tlKeys(){return [].map.call(D().querySelectorAll('[data-lgtrade]'),function(e){return e.getAttribute('data-lgtrade');});}
+  // the cells of a row that are drawn (not display:none), by their column key: a phone row keeps five
+  function visCells(row){
+    var w=W(),out=[];
+    [].forEach.call(row.children,function(c){
+      if(w.getComputedStyle(c).display==='none')return;
+      var m=/lg-c-([a-z]+)/.exec(c.className||'');out.push(m?m[1]:'?');});
+    return out;
+  }
+  // every cell of a row by its column key (the common eight, then this board's own in the table)
+  function cellMap(row){
+    var m={};
+    [].forEach.call(row.children,function(c){var k=/lg-c-([a-z]+)/.exec(c.className||'');if(k)m[k[1]]=tx2(c);});
+    return m;
+  }
+  function tlRead(){
+    var d=D(),w=W(),fr=q('[data-lglist-frame="wb"]'),t={frames:d.querySelectorAll('[data-lglist-frame]').length,
+      oldSeg:d.querySelectorAll('[data-qbseg="tradesview"]').length,oldRows:d.querySelectorAll('[data-qbtraderow],[data-qetraderow]').length};
+    if(!fr)return t;
+    t.mode=fr.getAttribute('data-lgmode');
+    t.count=tx2(fr.querySelector('[data-lgcount]'));
+    t.chips=[].map.call(fr.querySelectorAll('[data-lgchip]'),function(b){return {k:b.getAttribute('data-lgchip'),t:tx2(b),on:b.classList.contains('active'),p:b.getAttribute('aria-pressed')};});
+    t.views=[].map.call(fr.querySelectorAll('[data-lgview]'),function(b){return {k:b.getAttribute('data-lgview'),on:b.classList.contains('active'),p:b.getAttribute('aria-pressed')};});
+    var inp=fr.querySelector('input[data-lgsearch]');t.search=inp?{id:inp.id,val:inp.value}:null;
+    t.csv=!!fr.querySelector('[data-qeexportcsv]');
+    t.more=tx2(d.querySelector('[data-qeshowmore]'));
+    t.empty=tx2(fr.querySelector('.lg-tl-empty'));
+    t.heads=[].map.call(fr.querySelectorAll('thead th'),tx2);
+    var days=[],cur=null;
+    if(t.mode==='table'){
+      [].forEach.call(fr.querySelectorAll('tbody tr'),function(tr){
+        if(tr.hasAttribute('data-lgday')){cur={day:tr.getAttribute('data-lgday'),hdr:tr,rows:[]};days.push(cur);}
+        else if(tr.hasAttribute('data-lgtrade')&&cur)cur.rows.push(tr);});
+    }else{
+      [].forEach.call(fr.querySelectorAll('.lg-tl-day[data-lgday]'),function(g){days.push({day:g.getAttribute('data-lgday'),hdr:g,rows:[].slice.call(g.querySelectorAll('[data-lgtrade]'))});});
+    }
+    t.days=days.map(function(g){
+      var net=g.hdr.querySelector('.lg-tl-daynet'),meta=g.hdr.querySelector('.lg-tl-daymeta'),lbl=g.hdr.querySelector('.lg-tl-daylbl');
+      return {day:g.day,label:tx2(lbl),net:tx2(net),netCls:net?net.className:null,meta:tx2(meta),
+        rows:g.rows.map(function(r){
+          var gl=r.querySelector('[data-qbchartkey]');
+          return {id:r.getAttribute('data-lgtrade'),qbday:r.getAttribute('data-qbday'),cells:cellMap(r),legSpans:r.querySelectorAll('.qb-trade-leg').length,
+            cav:!!r.querySelector('.qbx-cav'),glyph:gl?gl.getAttribute('data-qbchartkey'):null};})};
+    });
+    var all=[].slice.call(fr.querySelectorAll('[data-lgtrade]')),first=all[0],last=all[all.length-1];
+    t.vis=first?visCells(first):null;t.visLast=last?visCells(last):null;
+    var cavs=[].slice.call(fr.querySelectorAll('.qbx-cav'));
+    t.cavN=cavs.length;t.cavShown=cavs.filter(function(e){return w.getComputedStyle(e).display!=='none';}).length;
+    var col=function(sel){return uniq([].map.call(fr.querySelectorAll(sel),function(e){return w.getComputedStyle(e).color;}));};
+    t.colors={net:col('.lg-tl-daynet'),pnl:col('.lg-c-pnl span'),side:col('.lg-side')};
+    t.noRows=all.length?null:tx2(fr);
+    var sh=q('.qb-shell'),hs=q('.qbx-history'),fb=fr.getBoundingClientRect(),sb=sh?sh.getBoundingClientRect():null,hb=hs?hs.getBoundingClientRect():null;
+    t.geo={frameTop:sb?Math.round(fb.top-sb.top):null,histTop:(sb&&hb)?Math.round(hb.top-sb.top):null,vh:w.innerHeight,docSW:d.documentElement.scrollWidth,iw:w.innerWidth};
+    return t;
+  }
+  // the page and the rows against the viewport: the page never wider than the window, no row wider than its box, a strategy name never cut
+  function wRead(){
+    var d=D(),w=W(),f=q('[data-lglist-frame="wb"]'),rows=[].slice.call(d.querySelectorAll('[data-lgtrade]')),over=0,clip=0,worst=0;
+    rows.forEach(function(r){
+      var o=r.scrollWidth-r.clientWidth;if(o>1){over++;if(o>worst)worst=o;}
+      var s=r.querySelector('.lg-c-sym');if(s&&s.scrollWidth>s.clientWidth+1)clip++;});
+    var cavs=[].slice.call(d.querySelectorAll('.qbx-cav'));
+    return {iw:w.innerWidth,docSW:d.documentElement.scrollWidth,bodySW:d.body.scrollWidth,mode:f?f.getAttribute('data-lgmode'):null,rows:rows.length,
+      rowsOver:over,worst:worst,symClip:clip,cav:[cavs.length,cavs.filter(function(e){return w.getComputedStyle(e).display!=='none';}).length],
+      wide:d.documentElement.scrollWidth>w.innerWidth?offenders(d):[]};
+  }
+  function tlSimple(){
+    var d=D(),fr=q('[data-lglist-frame="wb"]');
+    return {mode:fr?fr.getAttribute('data-lgmode'):null,rows:tlKeys(),count:tx2(fr&&fr.querySelector('[data-lgcount]')),
+      active:[].map.call(d.querySelectorAll('[data-lgchip].active'),function(b){return b.getAttribute('data-lgchip');}),
+      more:tx2(d.querySelector('[data-qeshowmore]')),empty:tx2(fr&&fr.querySelector('.lg-tl-empty')),query:(q('#wb-search')||{}).value};
+  }
+  // typing into the search box the way a viewer does: focus it, set the text and the caret, fire input; then read where focus and caret ended up
+  async function typeIn(text){
+    var w=W(),inp=q('#wb-search');
+    inp.focus();inp.value=text;inp.setSelectionRange(text.length,text.length);
+    inp.dispatchEvent(new w.Event('input',{bubbles:true}));await sleep(110);
+    var i2=q('#wb-search');
+    return {focus:D().activeElement===i2,val:i2.value,sel:[i2.selectionStart,i2.selectionEnd]};
+  }
+  async function clickChip(k){var b=q('[data-lgchip="'+k+'"]');if(!b)return null;b.click();await sleep(100);return tlRead();}
+  function sheetNow(){var t=q('.qb-sheet-title');return t?tx2(t):null;}
+  async function closeSheet(){var b=q('[data-qbsheetclose]');if(b){b.click();await sleep(100);}return !q('.qb-sheet');}
+  async function setVpWH(wd,ht){
+    fr.style.width=wd+'px';fr.style.height=ht+'px';
+    await waitFor(function(){return W().innerWidth===wd;},2000);
+    await sleep(60);
+  }
+  // the CSV button with the download stubbed: what would have been saved
+  function stubDownload(){var w=W();w.eval('window.__csvs=[];if(!window.__origDownload)window.__origDownload=_libDownload;_libDownload=function(n,t){window.__csvs.push({n:n,t:t});};');}
+  function unstubDownload(){W().eval('if(window.__origDownload){_libDownload=window.__origDownload;window.__origDownload=null;}');}
+  async function csvNow(){var w=W();w.__csvs.length=0;var b=q('[data-qeexportcsv]');if(b)b.click();await sleep(60);return w.__csvs.length?{n:w.__csvs[0].n,t:w.__csvs[0].t}:null;}
+  var SCEN={};
+  // the default doc on a laptop: chips, search and focus, the sheet after a filter and after a search, SHOW MORE, LIST | TABLE, the CSV, a calendar tap past a chip, the glyph
+  SCEN.main=async function(T,res){
+    var w=W();
+    res.start=tlRead();
+    res.chips={};
+    var keys=[].map.call(D().querySelectorAll('[data-lgchip]'),function(b){return b.getAttribute('data-lgchip');});
+    for(var i=0;i<keys.length;i++)res.chips[keys[i]]=await clickChip(keys[i]);
+    await clickChip('ALL');
+    // a search typed a character at a time keeps its focus and its caret across the redraws
+    res.typed=[await typeIn('o'),await typeIn('or'),await typeIn('orb')];
+    res.search=tlRead();
+    await typeIn('noise');res.searchNoise=tlRead();
+    await typeIn('');res.cleared=tlSimple();
+    // the viewer leaves the box (the phone keyboard's Done is a blur outside any redraw): the next redraw must not bring it back; typing again keeps it
+    var bx=q('#wb-search');bx.focus();await sleep(30);bx.blur();await sleep(60);
+    w.eval('renderApp();');await sleep(120);
+    res.doneKept={focus:D().activeElement===q('#wb-search'),hold:!!w._qbSearchHold};
+    res.retyped=await typeIn('o');await typeIn('');
+    // the sheet opens for the trade that was tapped: after a chip changed the rows, and after a search then clear
+    await clickChip('SHORT');
+    var p1=D().querySelectorAll('[data-lgtrade]')[1];
+    res.sheet1={key:p1.getAttribute('data-lgtrade')};
+    p1.click();await sleep(150);res.sheet1.title=sheetNow();res.sheet1.closed=await closeSheet();
+    await clickChip('ALL');
+    await typeIn('noise');await typeIn('');
+    var p2=D().querySelectorAll('[data-lgtrade]')[2];
+    res.sheet2={key:p2.getAttribute('data-lgtrade')};
+    p2.click();await sleep(150);res.sheet2.title=sheetNow();
+    // a redraw while it is open (a new snapshot) leaves it on the same trade; Escape closes it
+    w.eval('renderApp();');await sleep(120);res.sheet2.afterRender=sheetNow();
+    D().dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await sleep(120);res.sheet2.escClosed=!q('.qb-sheet');
+    // the sheet opens from the TABLE too
+    q('[data-lgview="table"]').click();await sleep(150);
+    var p3=D().querySelectorAll('tr[data-lgtrade]')[4];
+    res.sheet3={key:p3.getAttribute('data-lgtrade')};
+    p3.click();await sleep(150);res.sheet3.title=sheetNow();res.sheet3.closed=await closeSheet();
+    q('[data-lgview="list"]').click();await sleep(150);
+    // the chart glyph opens the candles for its trade and not the sheet
+    w.eval('window.__opened=null;window.__origOpen=window._openTradeCandles;window._openTradeCandles=function(x,b){window.__opened={no:x._no,label:x._label};};');
+    var gl=[].slice.call(D().querySelectorAll('[data-qbchartkey]'))[3];
+    res.glyph={key:gl?gl.getAttribute('data-qbchartkey'):null};
+    if(gl){gl.click();await sleep(100);}
+    res.glyph.opened=w.__opened;res.glyph.sheet=!!q('.qb-sheet');
+    w.eval('window._openTradeCandles=window.__origOpen;');
+    // SHOW MORE: the newest trades first, a day never cut in two, then the rest
+    w.eval('window._qeTradesShown='+T.page+';renderApp();');await sleep(150);
+    res.page=tlRead();
+    stubDownload();res.csvPage=await csvNow();
+    var sm=q('[data-qeshowmore]');if(sm){sm.click();await sleep(150);}
+    res.afterMore=tlRead();res.shownState=w.eval('window._qeTradesShown');
+    w.eval('window._qeTradesShown=50;renderApp();');await sleep(100);
+    // LIST | TABLE: switches, is stored for this board, and a page that comes back with nothing in memory finds it
+    q('[data-lgview="table"]').click();await sleep(150);
+    res.table=tlRead();res.tableStored=w.localStorage.getItem('el_lg_view_wb');
+    w.eval('window._qeTradesView=null;renderApp();');await sleep(150);
+    res.reloadMode=(q('[data-lglist-frame="wb"]')||{getAttribute:function(){return null;}}).getAttribute('data-lgmode');
+    q('[data-lgview="list"]').click();await sleep(150);
+    res.listAgain=tlRead();res.listStored=w.localStorage.getItem('el_lg_view_wb');
+    // the CSV export: every trade the list matches, today's columns
+    res.csvAll=await csvNow();
+    await clickChip('LONG');res.csvLong=await csvNow();res.longRows=tlKeys();
+    await clickChip('ALL');await typeIn('orb');res.csvOrb=await csvNow();res.orbRows=tlKeys();await typeIn('');
+    unstubDownload();
+    // a calendar tap on a day the chip hides clears the chip and lands on that day
+    await clickChip('SHORT');
+    var cd=q('[data-lgcal="qb"] [data-lgcalday="2026-10-05"]');
+    res.calTap={had:!!cd,rowBefore:!!q('[data-qbday="2026-10-05"]')};
+    if(cd){cd.click();await sleep(150);}
+    var ts=tlSimple();res.calTap.active=ts.active;res.calTap.rowAfter=!!q('[data-qbday="2026-10-05"]');res.calTap.query=ts.query;res.calTap.rows=ts.rows.length;
+    // a search that matches nothing says so, with a way back
+    await typeIn('zzzz');res.none=tlSimple();
+    var cl=q('[data-qbclear]');if(cl){cl.click();await sleep(110);}
+    res.noneCleared=tlSimple();
+  };
+  // a doc with one $0 trade: WINS and LOSSES leave it out
+  SCEN.zero=async function(T,res){
+    res.start=tlRead();
+    res.wins=await clickChip('WINS');res.losses=await clickChip('LOSSES');res.all=await clickChip('ALL');
+  };
+  // a doc with a shadow row: the list, the count and the CSV leave it out
+  SCEN.shadow=async function(T,res){
+    res.start=tlRead();
+    stubDownload();res.csv=await csvNow();unstubDownload();
+    q('[data-lgview="table"]').click();await sleep(150);
+    res.table=tlRead();
+  };
+  // a trade held over a weekend sits under the day it closed
+  SCEN.overnight=async function(T,res){
+    res.start=tlRead();
+    q('[data-lgview="table"]').click();await sleep(150);
+    res.table=tlRead();
+  };
+  // a phone: five cells a row in the LIST and the TABLE, the flagged-row mark shown, where the list starts, no sideways page
+  SCEN.phone=async function(T,res){
+    res.list=tlRead();
+    q('[data-lgview="table"]').click();await sleep(150);
+    res.table=tlRead();
+    q('[data-lgview="list"]').click();await sleep(120);
+  };
+  // the widths: the page and the rows at each width in the LIST, then in the TABLE (one render each: only the CSS answers to the window width)
+  SCEN.width=async function(T,res){
+    res.list={};res.table={};
+    for(var i=0;i<T.widths.length;i++){var a=T.widths[i];await setVpWH(a[0],a[1]);res.list[a[0]]=wRead();}
+    q('[data-lgview="table"]').click();await sleep(150);
+    for(var j=0;j<T.widths.length;j++){var b=T.widths[j];await setVpWH(b[0],b[1]);res.table[b[0]]=wRead();}
+    q('[data-lgview="list"]').click();await sleep(100);
+  };
+  async function runTl(T){
+    var res={};
+    if(T.wh)await setVpWH(T.wh[0],T.wh[1]);else await setVp(T.vp);
+    drain();
+    try{res.seed=seed({vp:T.vp,theme:T.theme,fix:T.doc||FIX,range:T.range||null,todayNY:T.today||null});}catch(e){res.seed='ERR '+(e&&e.stack?e.stack:e);}
+    await sleep(200);
+    try{await SCEN[T.scen](T,res);}catch(e){res.threw=String(e&&e.stack?e.stack:e);}
+    Object.assign(res,drain());
+    return res;
+  }
 """
 
 
@@ -2299,7 +2724,7 @@ def _judge_inter_ledger(tag, res, fixture, fails):
                          % (tag, inf.get('expandedAfter')))
     tv = (res.get('table') or {}).get('legs')
     if tv is None:
-        fails.append('%s: no Table view to read ([data-qbsegval="table"])' % tag)
+        fails.append('%s: no Table view to read ([data-lgview="table"])' % tag)
     else:
         bad = [x for x in tv if not LEG_RE.match(x or '')]
         if bad or len(tv) != min(len(trades), 50):
@@ -2390,6 +2815,700 @@ def _stats_cases(fixture):
             c('ENGU-Q holds a position (ALL, 375x812)', 'ALL', _enguq_open_doc(fixture), vp='phone')]
 
 
+# ---------------------------------------------------------------------------------------------------------------------------------
+# LEDGER unify step 8 (2026-10-06): this board's trade list is TRADING-LOG's shared frame (ledgerTradeListHtml / ledgerTradeListWire),
+# as REAL's is. Everything below is worked out here from the fixture and never read off the page: which trades each chip, search and
+# range leaves, their order (newest CLOSE first, under a header for each New York close day), each day's signed net and every cell.
+# ---------------------------------------------------------------------------------------------------------------------------------
+TL_CHIP_KEYS = ['ALL', 'LONG', 'SHORT', 'WINS', 'LOSSES', 'ORB', 'ENGUQ', 'NOISE', 'BOOKONLY']
+TL_CHIP_LABELS = ['ALL', 'LONG', 'SHORT', 'WINS', 'LOSSES', 'ORB #314', 'ENGU-Q #335', 'NOISE #382', 'BOOK ONLY']
+TL_COMMON_CELLS = ['time', 'sym', 'side', 'size', 'pnl', 'pts', 'strat', 'chart']
+TL_PHONE_CELLS = ['time', 'sym', 'side', 'pnl', 'chart']
+TL_PAGE = 18                 # the SHOW MORE case: the list shows this many rows first, and on to the end of that trade's day (the 18th trade shares 09-25 with the 19th)
+TL_FRAME_TOP_MAX = 792       # phone: the frame starts at most this far under the board top (the History section started at 784 before the frame)
+TL_TODAY = STAT_TODAY
+TL_WIDTHS = [375, 390, 600, 601, 640, 700, 800, 900, 1000, 1099, 1100, 1280, 1366]
+TL_CAV_BELOW = 1279          # the flagged-row mark under the time is drawn up to this window width (the flags column is drawn above it)
+CSV_FILE = 'qqq_shadow_book_closed_trades.csv'
+# the CSV the button saves keeps the columns it always had (the original thirty-one, then the ledger ones)
+CSV_COLS = [
+    'entry_ts', 'exit_ts', 'leg', 'side', 'shares', 'entry_px',
+    'exit_px', 'pnl', 'exit_reason', 'nt_entry_ts', 'nt_exit_ts', 'nt_qty',
+    'nt_mult', 'nt_notional_usd', 'shadow_notional_usd', 'notional_ratio', 'latency_s', 'real_entry_px',
+    'real_exit_px', 'real_pnl', 'slip_entry_ps', 'slip_exit_ps', 'repriced_at', 'nt_points',
+    'expected_usd', 'track_err_usd', 'parity_ok', 'parity_note', 'note', 'size',
+    'shares_wanted', 'trade_id', 'close_day_ny', 'pnl_record', 'pnl_record_source', 'pnl_record_note',
+    'pnl_backtest', 'book_only', 'book_only_reason', 'fills_vs_backtest', 'fills_vs_backtest_note', 'entry_backtest_px',
+    'entry_webull_px', 'entry_fill', 'exit_backtest_px', 'exit_webull_px', 'exit_fill', 'fill_gap_usd',
+    'design_gap_usd', 'execution_gap_usd',
+]
+MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+DASH = '—'
+
+
+def row_key(t):
+    """index.html window._qeRowKey: the trade id, else leg|entry|exit (what a row, the sheet and the CSV go by)."""
+    tid = t.get('trade_id')
+    return 'QE:' + (str(tid) if tid else '%s|%s|%s' % (t.get('leg') or '', t.get('entry_ts') or '', t.get('exit_ts') or ''))
+
+
+def _hm_secs(s):
+    m = re.match(r'^(\d{1,2}):(\d{2})(?::(\d{2}))?', str(s or ''))
+    return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3) or 0) if m else None
+
+
+def _tl_close_key(t):
+    """index.html ledgerCloseKey: the close day, then the exit time in seconds (the entry time when there is no exit time)."""
+    ex, en = str(t.get('exit_ts') or ''), str(t.get('entry_ts') or '')
+    x = _hm_secs(ex[11:19] or en[11:19])
+    return '%s %05d' % (_close_day(t) or '', x if x is not None else 0)
+
+
+def tl_order(trades):
+    """Newest close first; two trades closed in the same second stay as the board leaves them (a stable sort, reversed)."""
+    return list(reversed(sorted(trades, key=_tl_close_key)))
+
+
+def js_fixed(x, d):
+    """JavaScript's Number.prototype.toFixed: the exact value of the double, a tie rounded away from zero."""
+    from decimal import Decimal, ROUND_HALF_UP
+    return format(Decimal(float(x)).quantize(Decimal(1).scaleb(-d), rounding=ROUND_HALF_UP), 'f')
+
+
+def _to_float(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return float('nan')
+
+
+def _num(v):
+    """A finite-or-not number, or None when the board's qeMoney / qeNum would draw a dash (null, undefined, NaN)."""
+    if v is None:
+        return None
+    x = _to_float(v)
+    return None if x != x else x
+
+
+def loc2(x):
+    """Number.prototype.toLocaleString('en-US', two fraction digits): the SHORTEST decimal form of the double (743.175), a tie rounded away from zero."""
+    from decimal import Decimal, ROUND_HALF_UP
+    return '{:,.2f}'.format(Decimal(repr(abs(float(x)))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+
+
+def qe_money(v):
+    """index.html qeMoney: $1,234.50 / -$1.00, a dash for null / NaN."""
+    x = _num(v)
+    return DASH if x is None else ('-$' if x < 0 else '$') + loc2(x)
+
+
+def qe_num(v, d=0):
+    x = _num(v)
+    return DASH if x is None else js_fixed(x, d)
+
+
+def fmt_et(iso):
+    """index.html qeFmtET: 'Oct 02, 10:35'."""
+    if not iso:
+        return DASH
+    m = re.match(r'^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})', str(iso))
+    if not m:
+        return str(iso)
+    return '%s %s, %s:%s' % (MON3[int(m.group(2)) - 1], m.group(3), m.group(4), m.group(5))
+
+
+def row_caveat(t):
+    """The trades a flagged-row mark sits on: book only, a book / part-book price, a failed fill parity (not an NT mirror)."""
+    nt = str(t.get('signal_source') or '').lower() == 'ninjatrader'
+    return bool(t.get('book_only') or str(t.get('pnl_record_src') or '') in ('book', 'part')
+                or (not nt and t.get('broker_parity_ok') is False))
+
+
+def tl_flags_want(t):
+    """Words the EXIT / FLAGS cell must carry: the exit reason (a dash when none), then the chips the old rows drew. A tuple = any of."""
+    r = t.get('exit_reason')
+    want = [DASH if r in (None, '') else str(r)]
+    for w in ('BREAKER', 'KILL', 'EOD'):
+        if re.search(w, str(r or ''), re.I):
+            want.append(w)
+            break
+    if t.get('book_only'):
+        want.append('BOOK ONLY')
+    nt = str(t.get('signal_source') or '').lower() == 'ninjatrader'
+    src = str(t.get('pnl_record_src') or '')
+    if not t.get('book_only') and not nt and src in ('book', 'part'):
+        want.append('PART BOOK PRICE' if src == 'part' else 'BOOK PRICE')
+    if not nt:
+        ok = t.get('broker_parity_ok')
+        if ok is False:
+            want.append(('FILL GAP', 'CHECK FILL'))
+        elif ok is None:
+            want.append('NOT COMPARED')
+    return want
+
+
+def tl_hay(t):
+    """What the search reads of a trade (index.html qbHay without the flag words): name, leg, side, QQQ, exit reason, id, entry day, close day."""
+    return ' '.join([expected_leg_name(t).strip(), str(t.get('leg') or ''), str(t.get('side') or '').upper(), 'QQQ',
+                     str(t.get('exit_reason') or ''), str(t.get('trade_id') or ''),
+                     str(t.get('entry_ts') or '')[:10], str(t.get('exit_ts') or '')[:10]]).lower()
+
+
+def tl_range_rows(doc, cutoff=None):
+    """The trades the list's range holds, in the doc's order: shadow rows left out, closed on or after the cutoff."""
+    rows = [t for t in (doc.get('trades_all') or []) if not _is_shadow(t)]
+    if cutoff:
+        rows = [t for t in rows if (_close_day(t) or '') >= cutoff]
+    return rows
+
+
+def tl_rows(doc, cutoff=None, chip='ALL', query=''):
+    """The trades the list shows for this range, chip and search text, newest close first."""
+    q = (query or '').strip().lower()
+    keep = []
+    for t in tl_range_rows(doc, cutoff):
+        if q and q not in tl_hay(t):
+            continue
+        p = qe_pnl_of(t)
+        s = str(t.get('side') or '').upper()
+        s = 'LONG' if s in ('LONG', 'BUY', 'L') else ('SHORT' if s in ('SHORT', 'SELL', 'S') else '')
+        if chip == 'LONG' and s != 'LONG':
+            continue
+        if chip == 'SHORT' and s != 'SHORT':
+            continue
+        if chip == 'WINS' and not p > 0:      # a $0 trade is neither a win nor a loss
+            continue
+        if chip == 'LOSSES' and not p < 0:
+            continue
+        if chip == 'BOOKONLY' and not t.get('book_only'):
+            continue
+        if chip in ('ORB', 'ENGUQ', 'NOISE') and t.get('leg') != chip:
+            continue
+        keep.append(t)
+    return tl_order(keep)
+
+
+def tl_page(rows, shown):
+    """The rows one page of the list holds: the newest `shown`, then on to the end of that trade's close day (SHOW MORE never cuts a day in two)."""
+    cut = min(len(rows), max(1, shown))
+    while cut < len(rows) and _close_day(rows[cut]) == _close_day(rows[cut - 1]):
+        cut += 1
+    return rows[:cut]
+
+
+def tl_day_label(ds, today):
+    """index.html ledgerDayLabel: TODAY / YESTERDAY / 'WED . SEP 30' (the day after the day's short name)."""
+    import datetime
+    y, m, d = map(int, ds.split('-'))
+    day, t = datetime.date(y, m, d), datetime.date(*map(int, today.split('-')))
+    if day == t:
+        return 'TODAY'
+    if day == t - datetime.timedelta(days=1):
+        return 'YESTERDAY'
+    return '%s \u00b7 %s %d' % (['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][(day.weekday() + 1) % 7],
+                                ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'][m - 1], d)
+
+
+def tl_days(rows):
+    """[(close day, [trades])] in the order the rows come."""
+    days, order = {}, []
+    for t in rows:
+        d = _close_day(t) or ''
+        if d not in days:
+            days[d] = []
+            order.append(d)
+        days[d].append(t)
+    return [(d, days[d]) for d in order]
+
+
+def tl_running(range_rows):
+    """{row key: the range's running P&L of record in close order} (the table's RUNNING column)."""
+    out, run = {}, 0.0
+    for t in sorted(range_rows, key=_tl_close_key):
+        run += qe_pnl_of(t)
+        out[row_key(t)] = run
+    return out
+
+
+def tl_side_text(t):
+    s = str(t.get('side') or '').upper()
+    return 'LONG' if s in ('LONG', 'BUY', 'L') else ('SHORT' if s in ('SHORT', 'SELL', 'S') else '')
+
+
+def tl_size_text(t):
+    x = _num(t.get('shares'))
+    return '--' if x is None or x in (float('inf'), float('-inf')) else '%g' % x
+
+
+def tl_pts_text(t):
+    x = _num(t.get('shares'))
+    if x is None or not x > 0:
+        return '--'
+    pts = qe_pnl_of(t) / x
+    return ('+' if pts >= 0 else '-') + js_fixed(abs(pts), 2) + '/sh'
+
+
+def tl_time_text(t, mode):
+    """The time cell: the entry time (with its date, in the list, when the trade closed on a later day), '-> exit' after it, a '!' on a flagged trade."""
+    en, ex = str(t.get('entry_ts') or ''), str(t.get('exit_ts') or '')
+    ed, a, b, cd = en[:10], en[11:16], ex[11:16], _close_day(t)
+    cav = '!' if row_caveat(t) else ''
+    if mode == 'table':
+        return ed + ed[5:] + ' ' + (a or '--') + cav
+    s = ((ed[5:] + ' ' if (ed and cd and ed != cd) else '') + a) if a else '--'
+    if b:
+        s += '→ ' + b
+    return s + cav
+
+
+def tl_sheet_title(t):
+    return '%s · %s → %s' % (expected_leg_name(t).strip(), fmt_et(t.get('entry_ts')), fmt_et(t.get('exit_ts')))
+
+
+def tl_has_nt(trades):
+    return any(t.get(k) is not None for t in trades for k in ('nt_points', 'expected_usd', 'track_err_usd'))
+
+
+def tl_heads(has_nt):
+    """The table's header row: the common columns (this board's labels), then its own."""
+    return (['ENTRY (ET)', 'STRATEGY', 'SIDE', 'SHARES', 'P&L', 'PTS', 'EXIT / FLAGS', 'CHART', 'EXIT (ET)', 'ENTRY $', 'EXIT $', 'RUNNING']
+            + (['NT POINTS', 'EXPECTED $', 'TRACK ERR'] if has_nt else []) + ['REAL P&L', 'SLIP/SH'])
+
+
+def _avg_slip(t):
+    a, b = t.get('slip_entry_ps'), t.get('slip_exit_ps')
+    a = None if a is None else abs(_to_float(a))
+    b = None if b is None else abs(_to_float(b))
+    if a is None and b is None:
+        return None
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return (a + b) / 2
+
+
+def tl_own_cells(t, run, has_nt):
+    """The table's own columns: exit time, entry / exit price, running total, [NinjaTrader three], real P&L, slip a share."""
+    out = {'out': fmt_et(t.get('exit_ts')), 'epx': qe_money(t.get('entry_px')), 'xpx': qe_money(t.get('exit_px')),
+           'run': qe_money(run)}
+    if has_nt:
+        out['ntp'] = DASH if t.get('nt_points') is None else qe_num(t.get('nt_points'), 2)
+        out['exp'] = DASH if t.get('expected_usd') is None else qe_money(t.get('expected_usd'))
+        out['trk'] = DASH if t.get('track_err_usd') is None else qe_money(t.get('track_err_usd'))
+    out['real'] = DASH if t.get('real_pnl') is None else qe_money(t.get('real_pnl'))
+    sp = _avg_slip(t)
+    out['slip'] = DASH if sp is None else qe_num(sp, 3)
+    return out
+
+
+def _tl_row_problems(r, t, ds, mode, run, has_nt):
+    """What is wrong with one drawn row, as short phrases."""
+    c = r.get('cells') or {}
+    bad = []
+    if r.get('qbday') != ds:
+        bad.append('data-qbday %r, want %r' % (r.get('qbday'), ds))
+    name = expected_leg_name(t).strip()
+    if c.get('sym') != name or r.get('legSpans') != 1:
+        bad.append('strategy %r (%s name span), want %r' % (c.get('sym'), r.get('legSpans'), name))
+    for k, want in (('side', tl_side_text(t)), ('size', tl_size_text(t)), ('pnl', signed(qe_pnl_of(t))), ('pts', tl_pts_text(t)),
+                    ('time', tl_time_text(t, mode))):
+        if c.get(k) != want:
+            bad.append('%s %r, want %r' % (k, c.get(k), want))
+    flags = c.get('strat') or ''
+    for w in tl_flags_want(t):
+        alts = w if isinstance(w, tuple) else (w,)
+        if not any(a in flags for a in alts):
+            bad.append('flags %r lack %s' % (flags, ' / '.join(alts)))
+    if bool(r.get('cav')) != row_caveat(t):
+        bad.append('flagged-row mark %s, want %s' % (bool(r.get('cav')), row_caveat(t)))
+    if r.get('glyph') != row_key(t):
+        bad.append('chart glyph %r, want %r' % (r.get('glyph'), row_key(t)))
+    if mode == 'table':
+        for k, want in tl_own_cells(t, run, has_nt).items():
+            if c.get(k) != want:
+                bad.append('%s %r, want %r' % (k, c.get(k), want))
+    return bad
+
+
+def _judge_tl_frame(tag, tl, doc, cutoff, fails, mode='list', chip='ALL', query='', shown=50, vp='laptop', theme='dark',
+                    top_check=False, none_text=None, today=None):
+    """One drawn frame against the fixture: the toolbar (count, LIST | TABLE, search, chips), a header for each close day with that day's
+    signed net, the rows under it in order, every cell. Returns the rows the page should hold (None when there is no frame)."""
+    if not tl or tl.get('frames') != 1 or not tl.get('mode'):
+        fails.append('%s: the trade list is not drawn by the shared frame (frames on the page: %s, [data-lglist-frame="wb"] %s)'
+                     % (tag, (tl or {}).get('frames'), 'there' if (tl or {}).get('mode') else 'missing'))
+        return None
+    if tl.get('mode') != mode:
+        fails.append('%s: the frame is in %r mode, want %r' % (tag, tl.get('mode'), mode))
+    if tl.get('oldSeg') or tl.get('oldRows'):
+        fails.append('%s: the old trade list is still drawn beside the shared frame (%s old switch, %s old rows)'
+                     % (tag, tl.get('oldSeg'), tl.get('oldRows')))
+    rng = tl_range_rows(doc, cutoff)
+    exp_all = tl_rows(doc, cutoff, chip, query)
+    page = tl_page(exp_all, shown)
+    closed_n = len(tl_range_rows(doc))
+    want_count = '%d / %d trades' % (len(page), closed_n)
+    if tl.get('count') != want_count:
+        fails.append('%s: the count reads %r, want %r' % (tag, tl.get('count'), want_count))
+    ch = tl.get('chips') or []
+    if [c.get('k') for c in ch] != TL_CHIP_KEYS or [c.get('t') for c in ch] != TL_CHIP_LABELS:
+        fails.append('%s: the chips read %r, want %r (the five shared ones, then ORB / ENGU-Q / NOISE with their run numbers and BOOK ONLY)'
+                     % (tag, [c.get('t') for c in ch], TL_CHIP_LABELS))
+    elif [c['k'] for c in ch if c.get('on')] != [chip] or any((c.get('p') == 'true') != bool(c.get('on')) for c in ch):
+        fails.append('%s: the chip pressed is %r (aria-pressed %r), want only %s' % (
+            tag, [c['k'] for c in ch if c.get('on')], [c.get('p') for c in ch], chip))
+    vw = tl.get('views') or []
+    if [v.get('k') for v in vw] != ['list', 'table'] or [v['k'] for v in vw if v.get('on')] != [mode] \
+            or [v.get('p') for v in vw] != [('true' if v['k'] == mode else 'false') for v in vw]:
+        fails.append('%s: the LIST | TABLE switch reads %r, want %s pressed' % (tag, vw, mode.upper()))
+    sb = tl.get('search') or {}
+    if sb.get('id') != 'wb-search' or sb.get('val') != query:
+        fails.append('%s: the search box is %r, want #wb-search holding %r' % (tag, sb, query))
+    if not tl.get('csv'):
+        fails.append('%s: no CSV button beside the count ([data-qeexportcsv])' % tag)
+    want_more = ('SHOW MORE (%d more)' % (len(exp_all) - len(page))) if len(exp_all) > len(page) else None
+    if tl.get('more') != want_more:
+        fails.append('%s: SHOW MORE reads %r, want %r' % (tag, tl.get('more'), want_more))
+    days_want = tl_days(page)
+    days = tl.get('days') or []
+    if not page:
+        if days:
+            fails.append('%s: the frame draws %d day headers for a list with no trade in it' % (tag, len(days)))
+        if none_text and none_text not in (tl.get('noRows') or '') and none_text not in (tl.get('empty') or ''):
+            fails.append('%s: the empty list says %r, want it to say %r' % (tag, _first(tl.get('noRows') or tl.get('empty'), 160), none_text))
+        return page
+    if [d.get('day') for d in days] != [d for d, _ in days_want]:
+        fails.append('%s: the day headers are %r, want %r (the New York day each trade CLOSED, newest first)'
+                     % (tag, [d.get('day') for d in days][:8], [d for d, _ in days_want][:8]))
+        return page
+    has_nt = tl_has_nt(rng)
+    run = tl_running(rng)
+    problems = []
+    for dr, (ds, ts) in zip(days, days_want):
+        net = _js_round(sum(qe_pnl_of(t) for t in ts) * 100) / 100.0
+        if dr.get('net') != signed(net):
+            fails.append('%s: the %s header says %r, its %d rows make %s' % (tag, ds, dr.get('net'), len(ts), signed(net)))
+        if today and dr.get('label') != tl_day_label(ds, today):
+            fails.append('%s: the %s header is labelled %r, want %r' % (tag, ds, dr.get('label'), tl_day_label(ds, today)))
+        cls = 'lg-up' if net > 0 else ('lg-down' if net < 0 else 'lg-flat')
+        if cls not in (dr.get('netCls') or '').split():
+            fails.append('%s: the %s net is drawn as %r, want %s (%s)' % (tag, ds, dr.get('netCls'), cls, signed(net)))
+        if dr.get('meta') != '%d trade%s' % (len(ts), '' if len(ts) == 1 else 's'):
+            fails.append('%s: the %s header counts %r, want %d trade(s)' % (tag, ds, dr.get('meta'), len(ts)))
+        got_ids = [r.get('id') for r in dr.get('rows') or []]
+        if got_ids != [row_key(t) for t in ts]:
+            fails.append('%s: the rows under %s are %r, want %r' % (tag, ds, [g[3:] for g in got_ids][:6], [row_key(t)[3:] for t in ts][:6]))
+            continue
+        for r, t in zip(dr['rows'], ts):
+            for p in _tl_row_problems(r, t, ds, mode, run.get(row_key(t)), has_nt):
+                problems.append('%s %s' % (row_key(t)[3:], p))
+    for p in problems[:4]:
+        fails.append('%s: a row is wrong -- %s' % (tag, p))
+    if len(problems) > 4:
+        fails.append('%s: ... and %d more row problems' % (tag, len(problems) - 4))
+    if mode == 'table' and tl.get('heads') != tl_heads(has_nt):
+        fails.append('%s: the table header reads %r, want %r (the common columns, then this board\'s own)' % (tag, tl.get('heads'), tl_heads(has_nt)))
+    g = tl.get('geo') or {}
+    want_vis = TL_PHONE_CELLS if vp.startswith('phone') else (TL_COMMON_CELLS if mode == 'list' else None)
+    if want_vis and (tl.get('vis') != want_vis or tl.get('visLast') != want_vis):
+        fails.append('%s: a row draws the cells %r (last row %r), want %r%s' % (
+            tag, tl.get('vis'), tl.get('visLast'), want_vis, ' (five on a phone)' if vp.startswith('phone') else ''))
+    if tl.get('cavN') != sum(1 for t in page if row_caveat(t)):
+        fails.append('%s: %s flagged-row marks drawn for %d flagged trades' % (tag, tl.get('cavN'), sum(1 for t in page if row_caveat(t))))
+    elif vp.startswith('phone') and tl.get('cavShown') != tl.get('cavN'):
+        fails.append('%s: the flagged-row marks are not drawn on a phone (%s of %s shown); the flags column is not one of its five cells'
+                     % (tag, tl.get('cavShown'), tl.get('cavN')))
+    elif vp == 'laptop' and tl.get('cavShown'):
+        fails.append('%s: %s flagged-row marks drawn on a laptop beside the flags column' % (tag, tl.get('cavShown')))
+    if theme == 'mono':
+        col = tl.get('colors') or {}
+        bad = [c for k in ('net', 'pnl', 'side') for c in col.get(k) or [] if not _grey(c)]
+        if bad:
+            fails.append('%s: the frame draws money or a side in colour under MONO (MONO has no hue): %s' % (tag, bad[:3]))
+    if vp.startswith('phone'):
+        if (g.get('docSW') or 0) > (g.get('iw') or 0) + 1:
+            fails.append('%s: the page scrolls sideways on a phone (scrollWidth %s > window %s)' % (tag, g.get('docSW'), g.get('iw')))
+        if top_check and mode == 'list':
+            ft, hs = g.get('frameTop'), g.get('histTop')
+            if ft is None or ft > TL_FRAME_TOP_MAX or ft > (g.get('vh') or 0):
+                fails.append('%s: on a phone the trade list starts %s px under the top of the board, want %d or less (and inside the %s px '
+                             'screen): the list top must not grow' % (tag, ft, TL_FRAME_TOP_MAX, g.get('vh')))
+            elif hs is not None and ft - hs > 4:
+                fails.append('%s: on a phone %d px of heading or padding sit between the top of the History section and the list'
+                             % (tag, ft - hs))
+    return page
+
+
+def csv_problems(tag, res, want_rows):
+    """The CSV the button saved against the trades it should hold: file name, the columns it always had, one line a trade in list order."""
+    out = []
+    if not res:
+        return ['%s: the CSV button saved nothing' % tag]
+    if res.get('n') != CSV_FILE:
+        out.append('%s: the file is %r, want %r' % (tag, res.get('n'), CSV_FILE))
+    import csv as _csv
+    rows = list(_csv.reader(io.StringIO(res.get('t') or '', newline='')))
+    if not rows or rows[0] != CSV_COLS:
+        out.append('%s: the CSV columns are %r, want the %d it always had' % (tag, (rows[0] if rows else None), len(CSV_COLS)))
+        return out
+    body = [dict(zip(rows[0], r)) for r in rows[1:]]
+    keys = ['QE:' + (r.get('trade_id') or '%s|%s|%s' % (r.get('leg'), r.get('entry_ts'), r.get('exit_ts'))) for r in body]
+    if keys != [row_key(t) for t in want_rows]:
+        if sorted(keys) == sorted(row_key(t) for t in want_rows):
+            out.append("%s: the CSV holds the right %d trades in another order than the list shows them (it starts with %s, the list with %s)"
+                       % (tag, len(keys), keys[0][3:], row_key(want_rows[0])[3:]))
+        else:
+            out.append('%s: the CSV holds %d trades (%s...), want %d (%s...)' % (
+                tag, len(keys), ', '.join(k[3:] for k in keys[:2]), len(want_rows), ', '.join(row_key(t)[3:] for t in want_rows[:2])))
+        return out
+    for r, t in zip(body, want_rows):
+        if r.get('pnl_record') != js_fixed(qe_pnl_of(t), 2) or r.get('close_day_ny') != (_close_day(t) or ''):
+            out.append('%s: the CSV line for %s says P&L of record %r on %r, want %s on %s' % (
+                tag, row_key(t)[3:], r.get('pnl_record'), r.get('close_day_ny'), js_fixed(qe_pnl_of(t), 2), _close_day(t)))
+            break
+    return out
+
+
+def _judge_tl_main(tag, res, doc, fails):
+    """The laptop run: every chip, a typed search (focus and caret kept), the sheet for the tapped trade (after a chip, after a search then
+    clear, after a redraw, from the table), the chart glyph, SHOW MORE, LIST | TABLE remembered, the CSV, a calendar tap past a chip."""
+    def J(sub, tl, **kw):
+        return _judge_tl_frame('%s [%s]' % (tag, sub), tl, doc, None, fails, today=TL_TODAY, **kw)
+    allrows = tl_rows(doc)
+    all_keys = [row_key(t) for t in allrows]
+    J('first draw', res.get('start'))
+    for k in TL_CHIP_KEYS:
+        tl = (res.get('chips') or {}).get(k)
+        n = len(tl_rows(doc, None, k))
+        if tl is None:
+            fails.append('%s: the %s chip is not on the page' % (tag, k))
+            continue
+        if k != 'ALL' and not 0 < n < len(allrows):
+            fails.append("%s: the probe's own case is wrong: the %s chip leaves %d of %d trades" % (tag, k, n, len(allrows)))
+        J('chip ' + k, tl, chip=k)
+    for txt, got in zip(['o', 'or', 'orb'], res.get('typed') or []):
+        if not got.get('focus') or got.get('val') != txt or got.get('sel') != [len(txt), len(txt)]:
+            fails.append('%s: after typing %r the search box has focus %s, text %r, caret %s -- it must keep its focus and caret across the '
+                         'redraw' % (tag, txt, got.get('focus'), got.get('val'), got.get('sel')))
+    if len(res.get('typed') or []) != 3:
+        fails.append('%s: the typing step did not run' % tag)
+    dk = res.get('doneKept') or {}
+    if dk.get('focus') is not False or dk.get('hold'):
+        fails.append('%s: after the viewer left the search box (a blur outside any redraw: the phone keyboard\'s Done) the next redraw took the '
+                     'focus back into it (%s)' % (tag, dk))
+    rt = res.get('retyped') or {}
+    if not rt.get('focus') or rt.get('val') != 'o':
+        fails.append('%s: typing again after leaving the box did not keep its focus (%s)' % (tag, rt))
+    for q in ('orb', 'noise'):
+        n = len(tl_rows(doc, None, 'ALL', q))
+        if not 0 < n < len(allrows):
+            fails.append("%s: the probe's own case is wrong: searching %r leaves %d of %d trades" % (tag, q, n, len(allrows)))
+    J('search orb', res.get('search'), query='orb')
+    J('search noise', res.get('searchNoise'), query='noise')
+    if (res.get('cleared') or {}).get('rows') != all_keys or (res.get('cleared') or {}).get('query'):
+        fails.append('%s: clearing the search did not bring every trade back (%s rows, query %r)'
+                     % (tag, len((res.get('cleared') or {}).get('rows') or []), (res.get('cleared') or {}).get('query')))
+    by_key = dict((row_key(t), t) for t in doc.get('trades_all') or [])
+    for what, sh in (('after the SHORT chip', res.get('sheet1')), ('after a search and clear', res.get('sheet2')), ('from the table', res.get('sheet3'))):
+        t = by_key.get((sh or {}).get('key'))
+        if t is None:
+            fails.append('%s: the sheet step %s tapped no trade of the fixture (%r)' % (tag, what, sh))
+            continue
+        if sh.get('title') != tl_sheet_title(t):
+            fails.append('%s: a tap on the row for %s %s opened the sheet %r, want %r (the sheet follows the trade, not the row number)'
+                         % (tag, row_key(t)[3:], what, sh.get('title'), tl_sheet_title(t)))
+        if sh.get('closed') is False:
+            fails.append('%s: the sheet %s did not close' % (tag, what))
+    s2 = res.get('sheet2') or {}
+    if not s2.get('title') or s2.get('afterRender') != s2.get('title'):
+        fails.append('%s: a redraw while the sheet was open moved it from %r to %r' % (tag, s2.get('title'), s2.get('afterRender')))
+    if not s2.get('escClosed'):
+        fails.append('%s: Escape did not close the sheet' % tag)
+    gl = res.get('glyph') or {}
+    gt = by_key.get(gl.get('key'))
+    if gt is None or (gl.get('opened') or {}).get('no') != gl.get('key') \
+            or not str((gl.get('opened') or {}).get('label') or '').startswith(expected_leg_name(gt).strip()) or gl.get('sheet'):
+        fails.append('%s: a tap on a row\'s chart glyph did not open the candles for that trade (and only them): %r' % (tag, gl))
+    pg = tl_page(allrows, TL_PAGE)
+    if not TL_PAGE < len(pg) < len(allrows):
+        fails.append("%s: the probe's own SHOW MORE case is wrong (%d of %d rows on a first page of %d: the cut must land inside a day, "
+                     "or the day-split check proves nothing)" % (tag, len(pg), len(allrows), TL_PAGE))
+    J('SHOW MORE, first page', res.get('page'), shown=TL_PAGE)
+    J('SHOW MORE, after a tap', res.get('afterMore'), shown=TL_PAGE + 50)
+    if res.get('shownState') != TL_PAGE + 50:
+        fails.append('%s: a tap on SHOW MORE moved the page from %d to %r, want %d' % (tag, TL_PAGE, res.get('shownState'), TL_PAGE + 50))
+    J('TABLE', res.get('table'), mode='table')
+    if res.get('tableStored') != 'table':
+        fails.append('%s: choosing TABLE was not stored for this board (el_lg_view_wb is %r)' % (tag, res.get('tableStored')))
+    if res.get('reloadMode') != 'table':
+        fails.append('%s: a page that comes back finds the list in %r mode, want the TABLE the viewer chose' % (tag, res.get('reloadMode')))
+    J('LIST again', res.get('listAgain'))
+    if res.get('listStored') != 'list':
+        fails.append('%s: choosing LIST again was not stored (el_lg_view_wb is %r)' % (tag, res.get('listStored')))
+    fails.extend(csv_problems('%s [CSV, every trade]' % tag, res.get('csvAll'), allrows))
+    fails.extend(csv_problems('%s [CSV, SHOW MORE page open: every trade the list matches]' % tag, res.get('csvPage'), allrows))
+    longs = tl_rows(doc, None, 'LONG')
+    fails.extend(csv_problems('%s [CSV, LONG chip]' % tag, res.get('csvLong'), longs))
+    if len(res.get('longRows') or []) != len(longs):
+        fails.append('%s: the LONG chip shows %d rows, want %d' % (tag, len(res.get('longRows') or []), len(longs)))
+    orbs = tl_rows(doc, None, 'ALL', 'orb')
+    fails.extend(csv_problems('%s [CSV, search orb]' % tag, res.get('csvOrb'), orbs))
+    if len(res.get('orbRows') or []) != len(orbs):
+        fails.append('%s: the search "orb" shows %d rows, want %d' % (tag, len(res.get('orbRows') or []), len(orbs)))
+    ct = res.get('calTap') or {}
+    if not ct.get('had') or ct.get('rowBefore'):
+        fails.append("%s: the probe's own calendar case is wrong (day cell %s, its row on the page behind the SHORT chip: %s)"
+                     % (tag, ct.get('had'), ct.get('rowBefore')))
+    elif ct.get('active') != ['ALL'] or ct.get('query') or not ct.get('rowAfter'):
+        fails.append('%s: a calendar tap on a day the SHORT chip hid did not clear the chip and land on that day (chip %r, search %r, '
+                     'row on the page: %s)' % (tag, ct.get('active'), ct.get('query'), ct.get('rowAfter')))
+    nn = res.get('none') or {}
+    if nn.get('rows') or 'No trades match' not in (nn.get('empty') or '') or nn.get('count') != '0 / %d trades' % len(allrows):
+        fails.append('%s: a search that matches nothing reads %r / %r with %d rows, want "No trades match this search or chip" and 0 / %d'
+                     % (tag, nn.get('empty'), nn.get('count'), len(nn.get('rows') or []), len(allrows)))
+    nc = res.get('noneCleared') or {}
+    if nc.get('rows') != all_keys or nc.get('query') or nc.get('active') != ['ALL']:
+        fails.append('%s: the clear link did not bring every trade back (%s rows, search %r, chip %r)'
+                     % (tag, len(nc.get('rows') or []), nc.get('query'), nc.get('active')))
+
+
+def _judge_tl_zero(tag, res, doc, fails):
+    """A $0 trade is neither a win nor a loss: WINS and LOSSES leave it out, ALL keeps it."""
+    zero = [t for t in tl_range_rows(doc) if qe_pnl_of(t) == 0]
+    if len(zero) != 1:
+        fails.append("%s: the probe's own case is wrong: %d $0 trades" % (tag, len(zero)))
+        return
+    zk = row_key(zero[0])
+    for sub, key, chip, want_in in (('first draw', 'start', 'ALL', True), ('WINS', 'wins', 'WINS', False), ('LOSSES', 'losses', 'LOSSES', False),
+                                    ('ALL', 'all', 'ALL', True)):
+        tl = res.get(key)
+        _judge_tl_frame('%s [%s]' % (tag, sub), tl, doc, None, fails, chip=chip, today=TL_TODAY)
+        ids = [r.get('id') for d in ((tl or {}).get('days') or []) for r in d.get('rows') or []]
+        if (zk in ids) != want_in:
+            fails.append('%s [%s]: the $0 trade %s the list (a $0 trade is neither a win nor a loss)'
+                         % (tag, sub, 'is missing from' if want_in else 'is in'))
+
+
+def _judge_tl_shadow(tag, res, fixture, doc, fails):
+    """A shadow row closed today: it is in the list, the count, the day net and the CSV nowhere."""
+    shadow = [t for t in doc.get('trades_all') or [] if _is_shadow(t)]
+    if len(shadow) != 1:
+        fails.append("%s: the probe's own case is wrong: %d shadow rows" % (tag, len(shadow)))
+        return
+    sk = row_key(shadow[0])
+    plain = [row_key(t) for t in tl_rows(fixture)]
+    for sub, key, mode in (('list', 'start', 'list'), ('table', 'table', 'table')):
+        tl = res.get(key)
+        _judge_tl_frame('%s [%s]' % (tag, sub), tl, doc, None, fails, mode=mode, today=TL_TODAY)
+        ids = [r.get('id') for d in ((tl or {}).get('days') or []) for r in d.get('rows') or []]
+        if sk in ids or ids != plain:
+            fails.append('%s [%s]: the list holds %d trades%s, want the fixture\'s %d without the shadow row'
+                         % (tag, sub, len(ids), ' (the shadow row among them)' if sk in ids else '', len(plain)))
+    fails.extend(csv_problems('%s [CSV]' % tag, res.get('csv'), tl_rows(doc)))
+    if sk[3:] in ((res.get('csv') or {}).get('t') or ''):
+        fails.append('%s [CSV]: the shadow row is in the CSV' % tag)
+
+
+def _judge_tl_overnight(tag, res, doc, fails):
+    """A trade that entered on a Friday and closed on the Monday sits under the Monday header, with its entry date on the row."""
+    ov = [t for t in tl_range_rows(doc) if (_close_day(t) or '') != str(t.get('entry_ts') or '')[:10]]
+    if len(ov) != 1:
+        fails.append("%s: the probe's own case is wrong: %d trades closed on a later day than they entered" % (tag, len(ov)))
+        return
+    ok = row_key(ov[0])
+    for sub, key, mode in (('list', 'start', 'list'), ('table', 'table', 'table')):
+        tl = res.get(key)
+        _judge_tl_frame('%s [%s]' % (tag, sub), tl, doc, None, fails, mode=mode, today=TL_TODAY)
+        under = [d.get('day') for d in ((tl or {}).get('days') or []) for r in d.get('rows') or [] if r.get('id') == ok]
+        if under != [_close_day(ov[0])]:
+            fails.append('%s [%s]: the weekend trade sits under %r, want its close day %s' % (tag, sub, under, _close_day(ov[0])))
+
+
+def _judge_tl_phone(tag, res, doc, vp, theme, fails):
+    """A phone: five cells a row in the LIST and the TABLE, the flagged-row mark, the list top, no sideways page."""
+    for mode in ('list', 'table'):
+        _judge_tl_frame('%s [%s]' % (tag, mode.upper()), res.get(mode), doc, None, fails, mode=mode, vp=vp, theme=theme, top_check=True,
+                        today=TL_TODAY)
+
+
+def _judge_tl_width(tag, res, fails):
+    """At every width the page is never wider than the window, in the LIST and in the TABLE; in the LIST no row is wider than its box and no
+    strategy name is cut."""
+    for mode in ('list', 'table'):
+        for w in TL_WIDTHS:
+            r = (res.get(mode) or {}).get(str(w)) or {}
+            t = '%s [%s, %d px]' % (tag, mode.upper(), w)
+            if r.get('iw') != w or r.get('mode') != mode or not r.get('rows'):
+                fails.append('%s: the frame is not measured (window %s, %s mode, %s rows)' % (t, r.get('iw'), r.get('mode'), r.get('rows')))
+                continue
+            if (r.get('docSW') or 0) > (r.get('iw') or 0):
+                fails.append('%s: the page scrolls sideways (scrollWidth %s > window %s; sticking out: %s)'
+                             % (t, r.get('docSW'), r.get('iw'), ', '.join(r.get('wide') or []) or '?'))
+            if mode == 'list' and r.get('rowsOver'):
+                fails.append('%s: %s rows are wider than their box (by up to %s px)' % (t, r.get('rowsOver'), r.get('worst')))
+            if mode == 'list' and r.get('symClip'):
+                fails.append('%s: %s strategy names are cut off' % (t, r.get('symClip')))
+            n, shown = r.get('cav') or [0, 0]
+            if n and shown != (n if w <= TL_CAV_BELOW else 0):
+                fails.append('%s: %s of %s flagged-row marks are drawn (they show up to %d px)' % (t, shown, n, TL_CAV_BELOW))
+
+
+def _tl_cases(fixture):
+    """The runs on the trade list: name, scenario, doc (None = the fixture), viewport, theme, today, [width, height]."""
+    def c(name, scen, doc=None, vp='laptop', th='dark', wh=None):
+        return {'name': name, 'scen': scen, 'doc': doc, 'vp': vp, 'theme': th, 'today': TL_TODAY, 'wh': wh}
+    out = [c('laptop 1366x768', 'main'),
+           c('a $0 trade', 'zero', _zero_doc(fixture)),
+           c('a shadow row closed today', 'shadow', _shadow_doc(fixture)),
+           c('a trade held over a weekend', 'overnight', _overnight_doc(fixture)),
+           c('phone 375x812', 'phone', vp='phone'),
+           c('phone 390x844 MONO', 'phone', vp='phone390', th='mono')]
+    w0 = c('widths %d to %d' % (TL_WIDTHS[0], TL_WIDTHS[-1]), 'width', wh=[TL_WIDTHS[0], 812])
+    w0['widths'] = [[w, 812 if w < 700 else 900] for w in TL_WIDTHS]
+    return out + [w0]
+
+
+def _overnight_doc(fixture):
+    """The fixture with one Friday trade held over the weekend: it entered Fri 09-25 12:15 and closes Mon 09-28 09:35."""
+    doc = json.loads(json.dumps(fixture))
+    for t in doc.get('trades_all') or []:
+        if str(t.get('entry_ts') or '').startswith('2026-09-25 12:15'):
+            t['exit_ts'] = '2026-09-28 09:35:00'
+            return doc
+    raise RuntimeError('probe fixture changed: no 2026-09-25 12:15 trade to hold over the weekend')
+
+
+def _judge_tl(data, fixture, fails, unfinished, why):
+    """The trade list runs (the shared frame): one verdict per run."""
+    got = data.get('tl') or {}
+    for cs in _tl_cases(fixture):
+        tag = 'trade list [%s]' % cs['name']
+        res = got.get(cs['name'])
+        if res is None:
+            unfinished.append('%s: never ran (why=%s)' % (tag, why))
+            continue
+        if res.get('seed') != 'OK':
+            fails.append('%s: renderApp threw -- %s' % (tag, _first(res.get('seed'))))
+            continue
+        if res.get('threw'):
+            fails.append('%s: the probe step threw -- %s' % (tag, _first(res.get('threw'))))
+        _errs(tag, res, fails)
+        doc, sc = cs['doc'] or fixture, cs['scen']
+        if sc == 'main':
+            _judge_tl_main(tag, res, doc, fails)
+        elif sc == 'zero':
+            _judge_tl_zero(tag, res, doc, fails)
+        elif sc == 'shadow':
+            _judge_tl_shadow(tag, res, fixture, doc, fails)
+        elif sc == 'overnight':
+            _judge_tl_overnight(tag, res, doc, fails)
+        elif sc == 'phone':
+            _judge_tl_phone(tag, res, doc, cs['vp'], cs['theme'], fails)
+        elif sc == 'width':
+            _judge_tl_width(tag, res, fails)
+
+
 def _attempt(chrome, alt_index, fixture):
     pdir = tempfile.mkdtemp(prefix='_webullprobe_', dir=ROOT)
     variants = [{'name': nm, 'nowMs': now if isinstance(now, int) else et_ms(now), 'doc': doc,
@@ -2406,8 +3525,10 @@ def _attempt(chrome, alt_index, fixture):
               'calMonth': c['cal'], 'today': c['today'], 'more': c['more'], 'calOpen': c['cal_open'], 'folds': c['folds'],
               'nowMs': et_ms(c['now'])}
              for c in _stats_cases(fixture)]
+    tls = [{'name': c['name'], 'scen': c['scen'], 'doc': c['doc'], 'vp': c['vp'], 'theme': c['theme'], 'today': c['today'], 'wh': c['wh'],
+            'widths': c.get('widths'), 'page': TL_PAGE} for c in _tl_cases(fixture)]
     html = (PROBE_HTML.replace('__CASES__', json.dumps(CASES)).replace('__VP__', json.dumps(VIEWPORTS))
-            .replace('__STATS__', json.dumps(stats))
+            .replace('__STATS__', json.dumps(stats)).replace('__TLS__', json.dumps(tls)).replace('__TLJS__', TL_JS)
             .replace('__NOW__', json.dumps(et_ms(FRESH_NOW))).replace('__VARS__', json.dumps(variants))
             .replace('__FIX__', json.dumps(fixture)))
     io.open(os.path.join(pdir, 'probe.html'), 'w', encoding='utf-8').write(html)
@@ -2418,9 +3539,9 @@ def _attempt(chrome, alt_index, fixture):
     try:
         out = subprocess.run(
             [chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
-             '--user-data-dir=' + prof, '--virtual-time-budget=115000', '--window-size=1500,1000',
+             '--user-data-dir=' + prof, '--virtual-time-budget=210000', '--window-size=1500,1000',
              '--dump-dom', 'http://127.0.0.1:%d/%s/probe.html' % (port, os.path.basename(pdir))],
-            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=300).stdout
+            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=900).stdout
     except Exception as e:
         return INCONCLUSIVE, ['chrome failed: %s' % e], [], None, True
     finally:
@@ -2437,6 +3558,8 @@ def _attempt(chrome, alt_index, fixture):
         return INCONCLUSIVE, ['unreadable readout: %s' % e], [], None, True
     if os.environ.get('WEBULLPROBE_DUMP'):
         print(json.dumps(data, indent=1)[:20000])
+    if os.environ.get('WEBULLPROBE_DUMP_FILE'):
+        io.open(os.environ['WEBULLPROBE_DUMP_FILE'], 'w', encoding='utf-8').write(json.dumps(data))
     return _judge(data, fixture)
 
 
@@ -2654,6 +3777,7 @@ def _judge(data, fixture):
                 fails.append('%s: the caveat / book-only key under the chart reads %r' % (nm, key))
         _judge_list(nm, r.get('lg'), cfg['vp'], cfg['theme'], fixture, None, 'ALL', False, False, fails)
         _judge_cal(nm, r.get('lgcal'), cfg['vp'], cfg['theme'], fixture, None, None, _cal_open_want(cfg['vp'], None), STAT_TODAY, fails)
+        _judge_tl_frame(nm, r.get('tl'), fixture, None, fails, vp=cfg['vp'], theme=cfg['theme'], top_check=True)
         legs = r.get('tradeLegs') or []
         if r.get('tradeRows') != n_rows:
             fails.append('%s: the trade list shows %s rows for %s trades' % (nm, r.get('tradeRows'), n_rows))
@@ -2687,6 +3811,7 @@ def _judge(data, fixture):
             fails.append('%s: the top bar WEBULL chip reads %r, want FLAT' % (nm, r.get('top')))
         _topbox(nm, r, fails)
     _judge_variants(data, fixture, fails, unfinished, why)
+    _judge_tl(data, fixture, fails, unfinished, why)
     got_st = data.get('stats') or {}
     for sc_ in _stats_cases(fixture):
         nm, rg, doc, vp, cm = sc_['name'], sc_['range'], sc_['doc'], sc_['vp'], sc_['cal']
@@ -2724,6 +3849,8 @@ def _judge(data, fixture):
         _judge_more(tag, r, sc_, tr, cut, fixture, fails)
         _judge_list(tag, r.get('lg'), vp, sc_['theme'], doc, cut, rg, sc_['folds'], sc_['folds'], fails, distance=not sc_['more'])
         _judge_cal(tag, r.get('lgcal'), vp, sc_['theme'], doc, cut, cm, _cal_open_want(vp, sc_['cal_open']), sc_['today'], fails)
+        _judge_tl_frame(tag, r.get('tl'), doc, cut, fails, vp=vp, theme=sc_['theme'], top_check=not sc_['more'], today=sc_['today'],
+                        none_text=('no trades closed today \u00b7 %d more outside this range' % len(tl_range_rows(doc))) if sc_['empty'] else None)
         if nm == '$0 trade':
             if '1 even' not in (want['winrate'][1] or ''):
                 fails.append('%s: the probe\'s $0 fixture trade did not land (%r)' % (tag, want['winrate'][1]))
@@ -2818,6 +3945,27 @@ def _judge(data, fixture):
                          % (o2.get('oldLegRows'), o2.get('sharedList'), o2.get('oldSideHd')))
         if o2.get('order') != ['qbx-side', 'qbx-account', 'qbx-stats', 'qbx-history']:
             fails.append('oldboards: ?oldboards=1 changed the old page order: %r' % (o2.get('order'),))
+        # LEDGER step 8: the old List | Table is untouched (no shared frame; the old switch, the old rows, each row's close day)
+        t0 = r.get('tl') or {}
+        old_tr = (fixture.get('trades_all') or [])[:50]
+        if t0.get('frames') or t0.get('oldSeg') != 1 or t0.get('oldRows') != len(old_tr):
+            fails.append('oldboards: ?oldboards=1 does not keep the old List | Table trade list (shared frames %s, old switch %s, old rows %s of %s)'
+                         % (t0.get('frames'), t0.get('oldSeg'), t0.get('oldRows'), len(old_tr)))
+        if collections.Counter(o2.get('oldTradeDays') or []) != collections.Counter((_close_day(t) or '') for t in old_tr):
+            fails.append('oldboards: the old trade rows carry the wrong close day (data-qbday), so a calendar tap cannot land on them')
+        ot = data.get('oldtable') or {}
+        _errs('oldboards [Table]', ot.get('errs') or {}, fails)
+        if ot.get('legs') is None:
+            fails.append('oldboards: ?oldboards=1 has no old Table view to read ([data-qbsegval="table"])')
+        else:
+            bad_o = [x for x in ot['legs'] if not LEG_RE.match(x or '')]
+            if bad_o or len(ot['legs']) != len(old_tr):
+                fails.append('oldboards: the old Table view names strategies without family + run number: %s (%d rows for %d trades)'
+                             % (sorted(set(map(str, bad_o)))[:4], len(ot['legs']), len(old_tr)))
+            elif collections.Counter(ot['legs']) != collections.Counter(expected_leg_name(t) for t in old_tr):
+                fails.append('oldboards: the old Table view names the wrong run on a row')
+            if collections.Counter(ot.get('days') or []) != collections.Counter((_close_day(t) or '') for t in old_tr):
+                fails.append('oldboards: the old Table view rows carry the wrong close day (data-qbday), so a calendar tap cannot land on them')
     if fails:
         return FAIL, fails, notes, data, True
     if unfinished:
@@ -3028,14 +4176,15 @@ def _report(t0, attempt, may_retry, chrome, alt_index, fixture):
     book = ' | '.join('%s %s' % (x.get('name'), x.get('value')) for g in lg0.get('groups') or [] if g.get('key') == 'book'
                       for x in g.get('rows') or [])
     pg = ((((data.get('cases') or {}).get('phone/dark') or {}).get('lg') or {}).get('geo')) or {}
-    print('WEBULLPROBE: PASS (VERSION=%s, %d cases + interaction + %d stats cases + %d freshness variants + oldboards, %.1fs; '
+    tlp = (((data.get('tl') or {}).get('phone 375x812') or {}).get('list') or {}).get('geo') or {}
+    print('WEBULLPROBE: PASS (VERSION=%s, %d cases + interaction + %d stats cases + %d trade list runs + %d freshness variants + oldboards, %.1fs; '
           'laptop chart %spx, %s dates, %s price labels, %s caveat days, marker %r; tiles %s; calendar %s %s; list %s, %s; '
-          'phone trade list %s px under the board top)'
-          % (data.get('VERSION'), len(CASES), len(data.get('stats') or {}), len(data.get('vars') or {}), elapsed, lap.get('chartH'),
+          'phone trade list %s px under the board top, its frame %s px (limit %d))'
+          % (data.get('VERSION'), len(CASES), len(data.get('stats') or {}), len(data.get('tl') or {}), len(data.get('vars') or {}), elapsed, lap.get('chartH'),
              lap.get('chartDates'), lap.get('chartTicks'), lap.get('chartBands'), lap.get('markText'),
              ' | '.join('%s %s' % (x[0], x[1]) for x in (lap.get('stats') or [])),
              cal0.get('title'), (cal0.get('sum') or '').split(' · ')[0], lg0.get('count'), book,
-             (pg.get('histTop') or 0) - (pg.get('shellTop') or 0)))
+             (pg.get('histTop') or 0) - (pg.get('shellTop') or 0), tlp.get('frameTop'), TL_FRAME_TOP_MAX))
     if first:
         print('  FLAKE: attempt 1 did not pass on this same file, the retry did. It said:')
         for f in first[1][:4]:
@@ -3045,9 +4194,22 @@ def _report(t0, attempt, may_retry, chrome, alt_index, fixture):
     return PASS
 
 
-def selftest():
+def _selftest_one(path):
+    """One broken copy in a process of its own (for --jobs): (exit code, the probe's own first lines)."""
+    for _ in range(2):
+        try:
+            r = subprocess.run([sys.executable, os.path.abspath(__file__), '--file', path, '--no-retry'], capture_output=True, text=True,
+                               encoding='utf-8', errors='replace', timeout=1500)
+        except Exception as e:
+            return INCONCLUSIVE, ['probe process failed: %s' % e]
+        if r.returncode != INCONCLUSIVE:     # a page that did not boot on a busy box gets one more try
+            break
+    return r.returncode, (r.stdout or '').strip().splitlines()[:3]
+
+
+def selftest(jobs=1):
     try:
-        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace', line_buffering=True)
     except Exception:
         pass
     src = io.open(os.path.join(ROOT, 'index.html'), encoding='utf-8', newline='').read()
@@ -3055,6 +4217,7 @@ def selftest():
     tmpdir = tempfile.mkdtemp(prefix='webullprobe-selftest-')
     bad = []
     try:
+        built = []
         for name, anchor, repl, why in MUTANTS:
             n = src.count(anchor)
             if n != 1:
@@ -3064,10 +4227,26 @@ def selftest():
                 return INCONCLUSIVE
             path = os.path.join(tmpdir, 'index_%s.html' % name)
             io.open(path, 'w', encoding='utf-8', newline='').write(src.replace(anchor, repl))
-            print('-- mutant %s (%s): expect FAIL' % (name, why))
-            code = main(['--file', path, '--no-retry'])
-            if code != FAIL:
-                bad.append('mutant %s was NOT caught (exit %d) -- the gate has gone blind to: %s' % (name, code, why))
+            built.append((name, why, path))
+        if jobs > 1:
+            # the broken copies run side by side, each in its own process; the verdicts print in the order they finish
+            import concurrent.futures as _cf
+            with _cf.ThreadPoolExecutor(max_workers=jobs) as ex:
+                futs = dict((ex.submit(_selftest_one, path), (name, why)) for name, why, path in built)
+                for f in _cf.as_completed(futs):
+                    name, why = futs[f]
+                    code, head = f.result()
+                    print('-- mutant %s (%s): expect FAIL -> exit %d: %s' % (name, why, code, (head[0] if head else '')[:200]))
+                    if code != FAIL:
+                        bad.append('mutant %s was NOT caught (exit %d) -- the gate has gone blind to: %s' % (name, code, why))
+        else:
+            for name, why, path in built:
+                print('-- mutant %s (%s): expect FAIL' % (name, why))
+                code = main(['--file', path, '--no-retry'])
+                if code == INCONCLUSIVE:     # a page that did not boot on a busy box gets one more try
+                    code = main(['--file', path, '--no-retry'])
+                if code != FAIL:
+                    bad.append('mutant %s was NOT caught (exit %d) -- the gate has gone blind to: %s' % (name, code, why))
         print('-- current index.html: expect PASS')
         code = main([])
         if code != PASS:
@@ -3086,7 +4265,7 @@ def selftest():
 
 def main(argv=None):
     try:
-        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace', line_buffering=True)
     except Exception:
         pass
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -3094,9 +4273,11 @@ def main(argv=None):
     ap.add_argument('--no-retry', action='store_true', help='do not re-render a failed attempt')
     ap.add_argument('--selftest', action='store_true',
                     help='assert FAIL on every MUTANT of index.html, then PASS on the real file')
+    ap.add_argument('--jobs', type=int, default=0,
+                    help='with --selftest: how many broken copies to run side by side (default: 4, or fewer on a small machine; 1 = one by one)')
     args = ap.parse_args(argv)
     if args.selftest:
-        return selftest()
+        return selftest(args.jobs if args.jobs > 0 else min(4, max(1, (os.cpu_count() or 2) // 3)))
     t0 = time.time()
     alt_index = os.path.abspath(args.file) if args.file else None
     if alt_index and not os.path.isfile(alt_index):

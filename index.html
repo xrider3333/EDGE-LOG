@@ -598,6 +598,34 @@ select option:checked{background:var(--bg3);color:var(--text)}
 /* WEBULL PAPER on the shared stats (LEDGER unify step 6): the four tiles and the More stats fold sit right
    under the chart, as on REAL; ?oldboards=1 keeps the old Stats section below Account for one version */
 .qbx-lgstats{padding:16px 0 0}
+/* WEBULL PAPER on the shared trade list frame (LEDGER unify step 8): TRADING-LOG's .lg-tl frame draws the toolbar, the day headers and
+   the common columns; these rules only place this board's own parts: the CSV button and range word beside the count, the clear link,
+   the strategy name and its caveat mark, the table's own right-aligned figures and the candle glyph. On a phone the History heading
+   goes (the toolbar says what the list is) so the list starts where the section did, and a flagged row carries a small ! under its time
+   wherever the flags column is too narrow to show the flags (below 1280 px; a phone row does not keep that column at all). */
+.qbx-tl .qbx-csv{padding:3px 10px;font-size:10px;letter-spacing:.5px}
+.qbx-tl .qbx-tl-rg{color:var(--text4)}
+.qbx-tl .qbx-tl-clear{cursor:pointer;color:var(--text5);text-decoration:underline}
+.qbx-tl .qbx-num{text-align:right;font-variant-numeric:tabular-nums}
+.qbx-tl .qbx-candle{cursor:pointer;display:inline-flex;vertical-align:middle;padding:2px 3px;color:var(--text4)}
+.qbx-tl .qbx-cav{display:none;margin:2px 0 0;width:14px;height:14px;line-height:13px;text-align:center;border:1px solid var(--attn-amber);border-radius:50%;color:var(--attn-amber);font-size:9px;font-weight:700}
+.qbx-tl .qbx-tl-hint{font-size:var(--fsxs);color:var(--text5);margin:6px 2px}
+.qbx-tl .lg-tl-table tr[data-lgtrade].lg-flash td{animation:lgFlashBg 1.6s ease}
+/* the shared row keeps its cells at fixed widths (about 760 px with the gaps), which is wider than this board's list column between 601 and
+   about 760 px (the page scrolled sideways) and just after the two columns start at 1100 px: the cells give way a little here instead,
+   the flags column first, and never below the widths a strategy name, a side tag and the money need */
+.qbx-tl .lg-tl-row .lg-c{flex-shrink:1}
+.qbx-tl .lg-tl-row .lg-c-time{min-width:44px}
+.qbx-tl .lg-tl-row .lg-c-sym{min-width:88px}
+.qbx-tl .lg-tl-row .lg-c-side{min-width:46px}
+.qbx-tl .lg-tl-row .lg-c-pnl{min-width:70px}
+.qbx-tl .lg-tl-row .lg-c-chart{min-width:30px}
+@media(max-width:1279px){.qbx-tl .qbx-cav{display:block}}
+@media(max-width:600px){
+  .qbx-lg6 .qbx-history>.qb-section-hd{display:none}
+  .qbx-lg6 .qbx-history.qbx-section{padding-top:0;border-top:0}
+  .qbx-tl .lg-tl-table th{letter-spacing:.3px}
+}
 /* WEBULL PAPER on the shared calendar and strategy list (LEDGER unify steps 7 + 10): the list is TRADING-LOG's .lg-list in the
    sticky side column. A leg's live position line is its sub-line (it wraps here: the column is 340 px wide), the side pill rides
    beside the name, and a tap opens the leg's detail right under its row. On a phone each row is one line (the shared rule hides
@@ -1178,7 +1206,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1106';
+const VERSION='73.1107';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1196,7 +1224,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
+const CHANGELOG=[{v:'73.1107',date:'2026-10-06',notes:['LEDGER step 8 on WEBULL PAPER: the trade list now uses the same list as REAL - a search box, the chips ALL / LONG / SHORT / WINS / LOSSES plus one per strategy and BOOK ONLY, a header for each day with that day net, LIST or TABLE remembered, and five cells a row on a phone. SHOW MORE, the CSV button (it now exports the rows the list shows) and the trade sheet (it opens the trade you tapped, not the row number) stay.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
 {v:'73.1100',date:'2026-10-06',notes:['LEDGER > REAL: a trade now opens in the new shared trade panel - a panel on the right on a laptop, a sheet from the bottom on a phone. Esc, a tap outside it or the close button shut it, and a closed panel takes no room on the page.','The open trade stays open while you search, filter or switch LIST and TABLE, and a half-typed note is saved when the panel closes. The chart with zoom and EXPAND, POINTS, IGNORE IN METRICS, grade and setup, tags, EDIT, SNAPSHOT, OPEN IN TV, DELETE and the SHOULD HAVE TRADED entries all moved into it unchanged.','The LEDGER trade list no longer makes the page scroll sideways between 601 and 800 px: points, then strategy, then the setup and grade tags hide from a row as the window narrows.']},
 {v:'73.1090',date:'2026-10-06',notes:['LEDGER steps 6, 7, 10 on WEBULL PAPER: shared stats strip + More stats (landed 73.1084), shared month calendar with caveat days, shared strategy list (BOOK / Retired / Shadow not counted); run numbers on every row; phone list within one screen']},
 {v:'73.1087',date:'2026-10-06',notes:['LEDGER step 8: shared trade list frame on REAL (toolbar, day headers, common columns, phone five-column rows); legacy TRADES and JOURNAL tabs no longer scroll sideways on a phone']},{v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
@@ -38400,7 +38428,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const railsOpen=APREF.qqqRailsOpen==null?0:+APREF.qqqRailsOpen;
       const eventsOpenState=APREF.qqqEventsOpen==null?0:+APREF.qqqEventsOpen;
       const qbSheet=window._qbSheet||null; // {kind:'trade',idx}|{kind:'integrity',key}|null
+      // LIST | TABLE: once chosen it is held in memory; a fresh page asks the shared frame for the choice it remembered per board (el_lg_view_wb)
+      if(!LEDGER_OLDBOARDS&&window._qeTradesView==null)window._qeTradesView=ledgerTradeViewGet('wb','list');
       const qbTradesView=window._qeTradesView||'list';
+      // the trade list's own search text and chip, held for this page
+      const qbQuery=LEDGER_OLDBOARDS?'':String(window._qeTradesQuery||''),qbChipSel=LEDGER_OLDBOARDS?'ALL':String(window._qeTradesChip||'ALL');
       const qbChartPeriod=window._qeChartPeriod||'ALL';
       // LEDGER unify step 4 (shared hero + range pills, as REAL): the range is REAL's own saved
       // choice (homeRange, kept in el_view by _saveView), so it survives every live redraw and a
@@ -39686,6 +39718,24 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         }
 
         let tradesHtml,tradesListHtml,qbBuildDrawerFn=null;
+        // ── LEDGER unify step 8: this board's trade list on TRADING-LOG's shared frame (ledgerTradeListHtml / ledgerTradeListWire). ──
+        // The frame draws the toolbar, the day headers (the New York day a trade CLOSED, with that day's net), the common columns and the
+        // five-cell phone rows. This board keeps the data, the filtering, the paging (SHOW MORE), the CSV export and the trade sheet.
+        // The old List | Table in the block below is what ?oldboards=1 still draws.
+        let qbFrameHtml='',qbMoreHtml='';
+        const qbEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        // this board's own chips after the shared five: one per strategy (family + run number) and BOOK ONLY
+        const qbOwnChips=QE_LEGS.map(l=>({k:l[0],label:l[1]+' '+qeLegShortTag(l[0],l[3])})).concat([{k:'BOOKONLY',label:'BOOK ONLY'}]);
+        const qbTlClear=!!(qbQuery.trim()||qbChipSel!=='ALL');
+        // the options every draw of the frame shares (an empty range draws it too); rows = the page being shown, matchedN = what the list matches
+        // (the rows go in oldest first: the frame sorts them by close and reverses, so trades closed in the same second keep the order this board
+        // gave them, which is the order the CSV export and the candle viewer walk)
+        const qbFrameOpts=(shownVm,matchedN)=>({id:'wb',view:qbTradesView,rows:shownVm.slice().reverse(),total:closedN,query:qbQuery,chip:qbChipSel,chips:qbOwnChips,
+          placeholder:'Search strategy, side, date...',
+          countExtra:((qbRange&&qbRange!=='ALL')?'<span class="qbx-tl-rg">'+qbRangeWord+'</span>':'')
+            +(qbTlClear?'<span class="qbx-tl-clear" data-qbclear role="button" tabindex="0" title="clear the search and the chip">&#10005; clear</span>':'')
+            +'<button type="button" class="qb-hero-refresh qbx-csv" data-qeexportcsv title="Export the '+matchedN+' trade'+(matchedN===1?'':'s')+' in this list as a CSV file">&#11015; CSV</button>',
+          labels:{time:'ENTRY (ET)',sym:'STRATEGY',size:'SHARES',pnl:'P&amp;L',pts:'PTS',strat:'EXIT / FLAGS'}});
         {
           const shown=window._qeTradesShown||50;
           if(!qbRangeTrades.length){
@@ -39694,6 +39744,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               :('<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:14px">'+qbRangeNone+' &middot; '+closedN+' more outside this range'
                 +'<div><button type="button" class="qb-hero-refresh" data-qbrange="ALL" style="margin-top:10px">Show all</button></div></div>');
             tradesListHtml=tradesHtml;
+            if(!LEDGER_OLDBOARDS){window._qeTradesForExport=[];qbFrameHtml=ledgerTradeListHtml(Object.assign(qbFrameOpts([],0),{empty:tradesHtml}));}
           }else{
             const visible=qbRangeTrades.slice(0,shown);  // trades[] is already newest-first
             const chrono=qbRangeTrades.slice().reverse();
@@ -39960,6 +40011,89 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +'<span class="qb-chevron">›</span>'
                 +'</div>';
             }).join('')+'</div>'+showMoreBtn;
+            // ── the same trades on the shared frame (new boards) ──
+            // `trades` already dropped any shadow row where it was built, so this list, the hero, the chart, the stats, the calendar and
+            // the CSV export all count the same trades. The search, the five shared chips and this board's own (a strategy, BOOK ONLY)
+            // filter them here; the frame groups what is left by the day it closed and draws it.
+            if(!LEDGER_OLDBOARDS){
+              const qbVm=t=>{
+                const en=String(t.entry_ts||''),ex=String(t.exit_ts||''),sh=Number(t.shares),pnl=qePnlOf(t);
+                return {id:window._qeRowKey(t),date:en.slice(0,10),entryTime:en.slice(11,19),exitTime:ex.slice(11,19),exitDate:qeTradeDate(t)||'',
+                  symbol:qeTradeLegName(t),strategy:qeTradeLegName(t),side:t.side?String(t.side).toUpperCase():'',
+                  size:isFinite(sh)?sh:null,pnl:pnl,points:(isFinite(sh)&&sh>0)?pnl/sh:null,_t:t};
+              };
+              const qbFlagsHtml=t=>tagFor(t.exit_reason)+bookOnlyChip(t)+parityChip(t);
+              const qbFlagsText=t=>qbFlagsHtml(t).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+              const qbRowCaveat=t=>!!(t.book_only||/^(book|part)$/.test(String(t.pnl_record_src||''))||(!qeIsNtMirror(t)&&t.broker_parity_ok===false));
+              const qbHay=v=>[v.strategy,v._t.leg,v.side,'QQQ',v._t.exit_reason,v._t.trade_id,v.date,String(v._t.exit_ts||'').slice(0,10),qbFlagsText(v._t)].join(' ');
+              const qbMatch=v=>{
+                if(!ledgerTradeMatch(v,qbChipSel,qbQuery,{pnl:x=>x.pnl,hay:qbHay}))return false;   // search + ALL / LONG / SHORT / WINS / LOSSES
+                if(qbChipSel==='BOOKONLY')return !!v._t.book_only;
+                if(qbChipSel!=='ALL'&&qbOwnChips.some(c=>c.k===qbChipSel))return v._t.leg===qbChipSel;
+                return true;
+              };
+              const qbAllVm=qbRangeTrades.map(qbVm);
+              const qbMatchedVm=ledgerByClose(qbAllVm.filter(qbMatch)).reverse();   // newest close first, the order the frame walks them
+              let qbCut=Math.min(qbMatchedVm.length,Math.max(1,shown));
+              while(qbCut<qbMatchedVm.length&&ledgerCloseDay(qbMatchedVm[qbCut])===ledgerCloseDay(qbMatchedVm[qbCut-1]))qbCut++;   // SHOW MORE never cuts a day in two
+              const qbShownVm=qbMatchedVm.slice(0,qbCut);
+              window._qeTradesForExport=qbMatchedVm.map(v=>v._t);   // the CSV button exports every trade the list matches, not just this page
+              // the range's running total in the order the trades closed, whatever the search and the paging show
+              const qbRun={};{let run=0;ledgerByClose(qbAllVm).forEach(v=>{run+=v.pnl;qbRun[v.id]=run;});}
+              // the candle viewer and the trade sheet read this: the trades on the page, in the order they are drawn
+              _qeCandleRows.length=0;
+              qbShownVm.forEach(v=>{const t=v._t,et=_qeMin(t.entry_ts),xt=_qeMin(t.exit_ts);
+                _qeCandleRows.push({_no:_qeKey(t),_tid:(t.trade_id?String(t.trade_id):null),_tf:_qeTf(t.leg),_qbars:1,
+                  _label:qeTradeLegName(t)+' · '+(et||'?'),_srcLbl:'Webull paper trade (QQQ shares)',_et:et,_xt2:xt,
+                  _ep:(t.entry_px!=null&&isFinite(Number(t.entry_px))?Number(t.entry_px):null),
+                  _xp:(t.exit_px!=null&&isFinite(Number(t.exit_px))?Number(t.exit_px):null),
+                  _pts:0,_usd:v.pnl,_side:(t.side?String(t.side).toLowerCase():'long'),
+                  _pb:{instrument:'QQQ',timeframe:_qeTf(t.leg),session:'rth',include_fresh:true,cost_pts:0}});});
+              const qbGlyph=v=>_qeMin(v._t.entry_ts)
+                ?('<span class="qbx-candle" data-qbchartkey="'+qbEsc(v.id)+'" role="button" tabindex="0" title="open the QQQ candles around this trade"><svg width="14" height="13" viewBox="0 0 14 13" aria-hidden="true"><path d="M3.5 1v11M10.5 2.5v9" stroke="currentColor" stroke-width="1"/><rect x="1.8" y="3.5" width="3.4" height="5.5" fill="currentColor"/><rect x="8.8" y="4.5" width="3.4" height="4.5" fill="none" stroke="currentColor" stroke-width="1"/></svg></span>')
+                :'<span title="this trade has no usable entry time, so there is nothing to centre a chart on" style="font-size:8px;color:var(--text5)">&mdash;</span>';
+              // this board's own table columns, after the common ones; the NinjaTrader-only three show only while a trade carries NinjaTrader data
+              const hasNt=qbAllVm.some(v=>v._t.nt_points!=null||v._t.expected_usd!=null||v._t.track_err_usd!=null);
+              const tcol=(k,label,td)=>({k:k,label:label,cls:'qbx-num',td:td});
+              const qbCols=[
+                {k:'out',label:'EXIT (ET)',td:v=>qeFmtET(v._t.exit_ts)},
+                tcol('epx','ENTRY $',v=>qeMoney(v._t.entry_px)),
+                tcol('xpx','EXIT $',v=>qeMoney(v._t.exit_px)),
+                tcol('run','RUNNING',v=>'<span style="color:var(--text3)">'+qeMoney(qbRun[v.id])+'</span>')
+              ].concat(hasNt?[
+                tcol('ntp','NT POINTS',v=>'<span style="color:var(--text3)">'+(v._t.nt_points!=null?qeNum(v._t.nt_points,2):'—')+'</span>'),
+                tcol('exp','EXPECTED $',v=>'<span style="color:var(--text3)">'+(v._t.expected_usd!=null?qeMoney(v._t.expected_usd):'—')+'</span>'),
+                tcol('trk','TRACK ERR',v=>{const t=v._t,hp=t.parity_ok!==undefined&&t.parity_ok!==null;
+                  return '<span style="color:'+(hp?(t.parity_ok?pnlCol(v.pnl):'var(--attn-red)'):'var(--text5)')+'">'+(t.track_err_usd!=null?qeMoney(t.track_err_usd):'—')+'</span>';})
+              ]:[]).concat([
+                tcol('real','REAL P&amp;L',v=>{const rp=v._t.real_pnl!=null?Number(v._t.real_pnl):null;
+                  return '<span style="color:'+(rp!=null?pnlCol(rp):'var(--text5)')+'">'+(rp!=null?qeMoney(rp):'—')+'</span>';}),
+                tcol('slip','SLIP/SH',v=>{const sp=avgSlip(v._t);return '<span style="color:var(--text3)">'+(sp!=null?qeNum(sp,3):'—')+'</span>';})
+              ]);
+              qbFrameHtml=ledgerTradeListHtml(Object.assign(qbFrameOpts(qbShownVm,qbMatchedVm.length),{
+                dayHeaders:true,
+                empty:'<div class="lg-tl-empty">No trades match this search or chip. <span class="qbx-tl-clear" data-qbclear role="button" tabindex="0">clear</span></div>',
+                rowAttr:v=>'data-qbday="'+qbEsc(qeTradeDate(v._t)||'')+'"',
+                cells:{
+                  // the entry time (with its date when the trade closed on a later day); a flagged trade carries a small ! under it on a phone,
+                  // where the flags column is one of the cells a row does not keep (the strategy cell has no room for it)
+                  time:(v,mode)=>{
+                    const t=v._t,en=String(t.entry_ts||''),ed=en.slice(0,10),a=en.slice(11,16),b=String(t.exit_ts||'').slice(11,16),cd=qeTradeDate(t);
+                    const cav=qbRowCaveat(t)?'<span class="qbx-cav" title="'+qbEsc(qbFlagsText(t))+'">!</span>':'';
+                    if(mode==='table')return '<span class="lg-d-full">'+qbEsc(v.date)+'</span><span class="lg-d-short">'+qbEsc(String(v.date).slice(5))+'</span> '+qbEsc(a||'--')+cav;
+                    return qbEsc(a?((ed&&cd&&ed!==cd?ed.slice(5)+' ':'')+a):'--')+(b?'<small>&rarr; '+qbEsc(b)+'</small>':'')+cav;
+                  },
+                  sym:v=>'<span style="color:'+legColorQE(v._t.leg)+'">'+qeTradeLegHtml(v._t)+'</span>',
+                  pts:v=>v.points==null?'--':((v.points>=0?'+':'-')+Math.abs(v.points).toFixed(2)+'/sh'),
+                  // the exit reason with the flags (BOOK ONLY, FILL GAP, EOD ...); in the LIST the flags come first, the cell clips from the right
+                  strat:(v,mode)=>mode==='table'?(qbEsc(naS(v._t.exit_reason))+qbFlagsHtml(v._t)):(qbFlagsHtml(v._t).trim()+' '+qbEsc(naS(v._t.exit_reason))),
+                  chart:v=>qbGlyph(v)
+                },
+                cols:qbCols,
+                tableBar:'<div class="qbx-tl-hint">tap a row to open the trade &middot; REAL P&amp;L and SLIP/SH are re-priced nightly from real QQQ 1-minute bars</div>'
+              }));
+              qbMoreHtml=qbMatchedVm.length>qbShownVm.length?('<div style="text-align:center;margin-top:10px"><button class="btn-ghost" data-qeshowmore style="border:1px solid var(--border);border-radius:6px;padding:5px 14px;font-size:var(--fsxs)">SHOW MORE ('+(qbMatchedVm.length-qbShownVm.length)+' more)</button></div>'):'';
+            }
           }
         }
 
@@ -40605,7 +40739,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // orders shown only when non-empty.
         const qbTradesSeg=qbSegHtml('tradesview',[['list','List'],['table','Table']],qbTradesView);
         const qbCsvBtn='<button class="qb-hero-refresh" data-qeexportcsv title="Export CSV" style="padding:5px 10px">⬇</button>';
-        const qbTradesCard='<div id="qe-trades-section"></div>'
+        const qbTradesCard=!LEDGER_OLDBOARDS?('<div id="qe-trades-section"></div><div class="qbx-tl">'+qbFrameHtml+qbMoreHtml+'</div>'):'<div id="qe-trades-section"></div>'
           +'<div class="qb-section-hd" style="justify-content:space-between">'
           +'<span>Trades ('+qbRangeTrades.length+((qbRange&&qbRange!=='ALL')?(', '+qbRangeWord):'')+')</span>'
           +'<span style="display:flex;gap:8px;align-items:center;flex:0 0 auto">'+qbTradesSeg+qbCsvBtn+'</span>'
@@ -45611,6 +45745,45 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const mt=content.querySelector('[data-qqqmodeltoggle]');if(mt)mt.onclick=()=>{savePref('qqqModelOpen',(APREF.qqqModelOpen==null?0:+APREF.qqqModelOpen)?0:1);renderApp();};
       const rt=content.querySelector('[data-qqqratiotoggle]');if(rt)rt.onclick=()=>{savePref('qqqRatioOpen',(APREF.qqqRatioOpen==null?0:+APREF.qqqRatioOpen)?0:1);renderApp();};
       const smore=content.querySelector('[data-qeshowmore]');if(smore)smore.onclick=()=>{window._qeTradesShown=(window._qeTradesShown||50)+50;renderApp();};
+      // LEDGER unify step 8: the shared trade list frame (new boards). A row opens the bottom sheet for THAT trade, found by its key and never
+      // by its row number, so a search, a chip, LIST | TABLE or a redraw cannot point it at another trade. The old List | Table handlers
+      // further down are for ?oldboards=1 and find nothing on the new board.
+      if(!LEDGER_OLDBOARDS){
+        ledgerTradeListWire(content,{id:'wb',
+          onQuery:v=>{window._qeTradesQuery=v;renderApp();},
+          onChip:c=>{window._qeTradesChip=c;renderApp();},
+          onView:v=>{window._qeTradesView=(v==='table')?'table':'list';renderApp();},
+          onRow:rk=>{window._qbSheet={kind:'trade',idx:null,tid:null,rk:rk};renderApp();}});
+        content.querySelectorAll('[data-qbclear]').forEach(el=>{
+          const clr=()=>{window._qeTradesQuery='';window._qeTradesChip='ALL';renderApp();};
+          el.onclick=clr;el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();clr();}};});
+        content.querySelectorAll('[data-qbchartkey]').forEach(b=>{
+          const openCandles=ev=>{ev.stopPropagation();const rows=window._qeCandleRows||[];
+            const x=rows.find(q=>String(q._no)===b.getAttribute('data-qbchartkey'));
+            if(x)window._openTradeCandles(x,b,{B:{},all:()=>rows,order:()=>rows});};
+          b.onclick=openCandles;b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openCandles(e);}};});
+        // The search box keeps its focus and caret across a redraw (typing redraws the board, and so does the box's own refresh). renderApp
+        // rebuilds the whole page before this board is drawn, so the box in use is already gone by now: its state is tracked as it is used
+        // (focus, typing, caret) and the box is put back while the viewer's last use is recent. The viewer leaving it ends that: a tap elsewhere,
+        // Tab, Escape, or the phone keyboard's Done (a blur outside any redraw). A redraw that takes the box away blurs it too (in Chrome) but
+        // inside its own call; the microtask below tells the two apart, so Done is not answered by the keyboard coming back at the next redraw.
+        if(!window._qbSearchWired){window._qbSearchWired=true;
+          const box=e=>!!(e.target&&e.target.id==='wb-search');
+          const mark=e=>{if(box(e)&&!window._qbSearchRestoring){const t=e.target;window._qbSearchHold={s:t.selectionStart,e:t.selectionEnd,at:Date.now()};}};
+          ['focusin','input','keyup','click'].forEach(n=>document.addEventListener(n,mark,true));
+          document.addEventListener('focusin',e=>{if(box(e))window._qbSearchFocused=true;},true);
+          document.addEventListener('focusout',e=>{if(!box(e))return;window._qbSearchFocused=false;const b=window._qbSearchBlur={inRedraw:true};Promise.resolve().then(()=>{b.inRedraw=false;});},true);
+          document.addEventListener('pointerdown',e=>{if(!box(e))window._qbSearchHold=null;},true);
+          document.addEventListener('keydown',e=>{if(box(e)&&(e.key==='Tab'||e.key==='Escape'))window._qbSearchHold=null;},true);}
+        const qbHold=window._qbSearchHold,qbBlur=window._qbSearchBlur;
+        if(qbHold&&Date.now()-qbHold.at<30000){const sbx=content.querySelector('#wb-search');
+          // still focused when this redraw began (no blur event: Safari) or blurred by this very redraw (Chrome): put it back; blurred by the viewer: leave it
+          if(sbx&&(window._qbSearchFocused||(qbBlur&&qbBlur.inRedraw))){
+            window._qbSearchRestoring=true;
+            try{sbx.focus({preventScroll:true});sbx.setSelectionRange(qbHold.s,qbHold.e);}catch(e){}
+            window._qbSearchRestoring=false;}
+          else if(!window._qbSearchFocused)window._qbSearchHold=null;}
+      }
       // Overview calendar — its own month state (window._qqqCalMonth), independent of the
       // PAPER tab's window._paperCalMonth.
       content.querySelectorAll('[data-qcalmo]').forEach(el=>{el.onclick=()=>{
@@ -45730,6 +45903,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const qbJumpToDay=ds=>{
         let el=content.querySelector('[data-qbday="'+ds+'"]');
         if(!el&&(window._qeTradesShown||50)<1e6){window._qeTradesShown=1e6;renderApp();el=document.querySelector('[data-qbday="'+ds+'"]');}
+        // a search or chip that hides that day is cleared first (the shared list has them; the old one did not)
+        if(!el&&!LEDGER_OLDBOARDS&&(window._qeTradesQuery||(window._qeTradesChip&&window._qeTradesChip!=='ALL'))){window._qeTradesQuery='';window._qeTradesChip='ALL';window._qeTradesShown=1e6;renderApp();el=document.querySelector('[data-qbday="'+ds+'"]');}
         const t=el||document.getElementById('qe-trades-section');
         if(!t)return;
         t.scrollIntoView({block:'start',behavior:'smooth'});
