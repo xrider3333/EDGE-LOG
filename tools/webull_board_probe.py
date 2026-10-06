@@ -155,6 +155,30 @@ cells in the LIST and the TABLE, the flagged-row mark drawn, the list starts at 
 1366 in the LIST and the TABLE (the PAGE never wider than the window; no list row wider than its box; no strategy name cut). ?oldboards=1 keeps the old
 List | Table untouched (its Table view still names every strategy with a run number and carries each row's close day).
 
+LEDGER STEP 9 (2026-10-06): a tap on a trade row opens TRADING-LOG's shared trade panel (ledgerTradePanelOpen, id wb) in place of the board's own
+bottom sheet: a right-hand panel above 600 px, a bottom sheet at 600 px and under, nothing in the page while it is closed. Seven runs (TRADE PANEL):
+the laptop 1366x768 and the phone 375x812 in glass / paper / MONO, and the widths 375, 600, 601, 700, 800, 1000, 1366 in the LIST and the TABLE.
+Every run: a tap on the row of the newest trade opens the panel for THAT trade (its key, strategy with run number, side tag, entry day, entry to exit
+time ET, shares, the signed P&L of record in its colour class, the caveat chips the row carries), 440 px wide and the full height on a laptop, the full
+width on the bottom edge with a strip of page left above it on a phone, in <body>, slots in the order head / chart / numbers / notes / actions, focus
+inside; the page exactly as wide and tall before the first open, with the panel open and after Escape / a tap outside / the close button (no panel
+node left, <body> holding the same elements); a tap inside does not close it; the candles drawn in the chart slot (the box's bars stubbed), EXPAND
+(a laptop only) and OPEN CANDLES open the full viewer for that trade stepping through the list rows; the numbers rows by label, each worked out here
+from the fixture (shares, notional, entry / exit price, the Webull fill on each side, hold time through durStr on whole seconds, P&L of record with its
+source word, backtest and book P&L, the running total, real P&L, slip a share, fill coverage, and the NT POINTS / EXPECTED $ / TRACK ERR / NT ENTRY /
+NT EXIT rows only on a trade that carries NinjaTrader data); the notes slot says it is read-only, holds no box and spells out the exit reason, each
+flag in words, the parity note, the trade's own note and the KEEL size note; the actions slot is OPEN CANDLES alone; a tap on the chart glyph opens the
+candles and not the panel; nine trades (each kind of caveat: BOOK ONLY, FILL GAP / CHECK FILL, EOD, a part-book price, NinjaTrader figures, a KEEL
+size, a note, a plain one) each open a panel with the right chips, rows and words, a book-only trade's panel carries BOOK ONLY; in MONO no colour in
+the panel (text, background, border, outline, svg fill and stroke, the chart and its legend included) carries a hue. The glass laptop and the glass
+phone also: the board redraws (renderApp, and the board's own throttled live redraw with a new snapshot) while the panel is open on a scrolled body:
+the same panel node, the same slot nodes, not one thing inside rewritten (a MutationObserver), the scroll kept, the same trade; an old trade that a
+short page leaves out stays open through that page, SHOW MORE, a search for nothing, the search cleared, a search for noise, a chip that hides it,
+LIST | TABLE and back, its chart drawn though the list does not show its row; the trade leaving the board rows (the range TODAY) closes the panel and
+the board forgets it; the viewer leaving the board (HOME) closes it. The width run: the page never wider than the window with the panel closed or
+open, at every width, in the LIST and the TABLE. ?oldboards=1: a tap on an old row opens the old trade sheet for that trade (its title) and no shared
+panel is drawn.
+
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks; a retry that passes prints a FLAKE line.
 
@@ -164,7 +188,7 @@ Usage:
   python tools/webull_board_probe.py --selftest     # deliberately broken copies (MUTANTS) must
                                                     # FAIL, then the real file must PASS
   python tools/webull_board_probe.py --selftest --jobs 1   # the same, one broken copy at a time (the default is four at a time, or fewer on a
-                                                           # small machine: 160 copies run one by one would take well over an hour)
+                                                           # small machine: 189 copies run one by one would take well over an hour)
 
 Stdlib only, plus a subprocess call to local Chrome.
 """
@@ -1027,17 +1051,17 @@ MUTANTS = [
      'window._qeTradesForExport=qbMatchedVm.map(v=>v._t).concat(qbShadowRange);',
      'the CSV carries a shadow row the list leaves out'),
     ('tl-sheet-by-row-number',
-     "onRow:rk=>{window._qbSheet={kind:'trade',idx:null,tid:null,rk:rk};renderApp();}});",
-     "onRow:rk=>{window._qbSheet={kind:'trade',idx:0,tid:null,rk:null};renderApp();}});",
-     'a tap on a row opens the sheet for the first trade of the range, not the one tapped'),
+     "onRow:rk=>{window._qbPanelKey=rk;_qbSyncPanel();}});",
+     "onRow:rk=>{window._qbPanelKey=((window._qeCandleRows||[])[0]||{})._no;_qbSyncPanel();}});",
+     'a tap on a row opens the trade panel for the first trade on the page, not the one tapped'),
     ('sheet-wrong-trade-after-rerender',
-     "onRow:rk=>{window._qbSheet={kind:'trade',idx:null,tid:null,rk:rk};renderApp();}});",
-     "onRow:rk=>{const ks=[].map.call(content.querySelectorAll('[data-lgtrade]'),e=>e.getAttribute('data-lgtrade'));window._qbSheet={kind:'trade',idx:ks.indexOf(rk),tid:null,rk:null};renderApp();}});",
-     "a tap on a row opens the sheet for the trade at that row's position in the range (wrong as soon as a chip or a search changed the rows)"),
+     "const t=qbRangeTrades.find(q=>window._qeRowKey(q)===key);",
+     "const _pp=(window._qbPanelPos==null?(window._qbPanelPos=[].map.call(document.querySelectorAll('[data-lgtrade]'),e=>e.getAttribute('data-lgtrade')).indexOf(key)):window._qbPanelPos),t=(qbShownVm[_pp]||{})._t;",
+     "the panel remembers a row position instead of the trade (wrong as soon as a chip or a search changed the rows)"),
     ('tl-row-tap-noop',
-     "onRow:rk=>{window._qbSheet={kind:'trade',idx:null,tid:null,rk:rk};renderApp();}});",
+     "onRow:rk=>{window._qbPanelKey=rk;_qbSyncPanel();}});",
      'onRow:rk=>{}});',
-     'a tap on a row opens no sheet'),
+     'a tap on a row opens no trade panel'),
     ('shadow-in-list',
      'const qbAllVm=qbRangeTrades.map(qbVm);',
      'const qbAllVm=qbRangeTrades.concat(qbShadowRange).map(qbVm);',
@@ -1166,6 +1190,123 @@ MUTANTS = [
      'const qbMatchedVm=ledgerByClose(qbAllVm.filter(qbMatch)).reverse();',
      'const qbMatchedVm=ledgerByClose(qbAllVm.filter(qbMatch));',
      'the page and the CSV take the OLDEST trades first'),
+    # LEDGER step 9 (2026-10-06): the trade panel
+    ('wb-panel-missing',
+     "const spec=typeof window._qbPanelSpec==='function'?window._qbPanelSpec(String(key)):null;",
+     'const spec=null;',
+     'the board builds nothing for the panel: a tap on a row draws no trade panel'),
+    ('wb-panel-takes-room-closed',
+     "onClose:()=>{if(String(window._qbPanelKey)===key)window._qbPanelKey=null;}};",
+     "onClose:()=>{if(String(window._qbPanelKey)===key)window._qbPanelKey=null;document.getElementById('app').style.paddingBottom='140px';}};",
+     'a closed panel leaves 140 px of room under the board (the page is 140 px taller)'),
+    ('wb-closed-panel-node-left',
+     "onClose:()=>{if(String(window._qbPanelKey)===key)window._qbPanelKey=null;}};",
+     "onClose:()=>{if(String(window._qbPanelKey)===key)window._qbPanelKey=null;document.body.insertAdjacentHTML('beforeend','<div class=\"lg-panel-layer\" style=\"display:none\"></div>');}};",
+     'a closed panel leaves an empty layer node in <body>'),
+    ('wb-esc-dead',
+     'function _qbSyncPanel(){',
+     "function _qbSyncPanel(){if(!window._qbEscKill){window._qbEscKill=1;document.addEventListener('keydown',function(e){if(e.key==='Escape'&&ledgerTradePanelOf('wb')!=null)e.stopImmediatePropagation();},true);}",
+     'Escape no longer closes the trade panel'),
+    ('wb-outside-click-dead',
+     'function _qbSyncPanel(){',
+     "function _qbSyncPanel(){if(!window._qbOutKill){window._qbOutKill=1;document.addEventListener('click',function(e){if(e.target&&e.target.classList&&e.target.classList.contains('lg-panel-layer'))e.stopImmediatePropagation();},true);}",
+     'a tap on the dimmed page outside the panel no longer closes it'),
+    ('wb-glyph-opens-panel',
+     'const openCandles=ev=>{ev.stopPropagation();',
+     "const openCandles=ev=>{window._qbPanelKey=b.getAttribute('data-qbchartkey');_qbSyncPanel();ev.stopPropagation();",
+     'the chart glyph of a row opens the trade panel as well as the candles'),
+    ('wb-wrong-trade-after-redraw',
+     '  const key=window._qbPanelKey;',
+     "  const key=ledgerTradePanelOf('wb')!=null?((window._qeCandleRows||[])[0]||{})._no:window._qbPanelKey;",
+     'the first redraw after a tap puts the open panel on the first trade of the page, not the one that was tapped'),
+    ('wb-panel-lost-on-showmore',
+     'const t=qbRangeTrades.find(q=>window._qeRowKey(q)===key);',
+     'const t=qbShownVm.map(v=>v._t).find(q=>window._qeRowKey(q)===key);',
+     'the panel finds its trade among the rows on the page only, so a short page (SHOW MORE) or a search closes it'),
+    ('wb-bookonly-chip-missing',
+     'const chips=qbFlagPairs(t).map(',
+     "const chips=qbFlagPairs(t).filter(p=>p[0]!=='BOOK ONLY').map(",
+     "a book-only trade's panel header leaves out the BOOK ONLY chip"),
+    ('wb-mono-hue-in-panel',
+     '.lg-panel .qb-sheet-candles{margin:0!important}',
+     '.lg-panel .qb-sheet-candles{margin:0!important}\r\n[data-theme="mono"] .lg-panel .qbx-pn-chip{border-color:#e33;color:#e33}',
+     'a caveat chip in the panel is drawn in colour under MONO (MONO has no hue)'),
+    ('wb-panel-chart-missing',
+     "{k:'chart',html:row._et?window._qbSheetCandlesHtml(row):'',",
+     "{k:'chart',html:'',",
+     'the panel has no chart slot: the candles are not drawn in it'),
+    ('wb-expand-dead',
+     "el.querySelectorAll('[data-qbcandlesexpand]').forEach(b=>{b.onclick=ev=>{ev.stopPropagation();qbOpenCandles(row,b);};});}},",
+     "el.querySelectorAll('[data-qbcandlesexpand]').forEach(b=>{});}},",
+     "EXPAND in the panel's chart does nothing"),
+    ('wb-expand-wrong-trade',
+     'window._openTradeCandles(x,btn,{B:{},all:()=>all,order:()=>all});',
+     'window._openTradeCandles(rows[rows.length-1]||x,btn,{B:{},all:()=>rows,order:()=>rows});',
+     'EXPAND and OPEN CANDLES open the candle viewer on another trade than the one in the panel'),
+    ('wb-hold-wrong-unit',
+     'durStr({durationSecs:secs})',
+     'durStr({durationMins:secs})',
+     'the hold time reads whole seconds as minutes (20m 1s shows as 20h 1m)'),
+    ('wb-net-unsigned',
+     "sub:qbEsc(shares)+' sh'+(chips?(' '+chips):''),net:qePnlOf(t)},",
+     "sub:qbEsc(shares)+' sh'+(chips?(' '+chips):''),net:Math.abs(qePnlOf(t))},",
+     "the panel header shows every trade's net as a gain"),
+    ('wb-notes-editable',
+     "return '<div class=\"qbx-pn-hint\" data-qbpnotes>WEBULL PAPER keeps no notes.",
+     "return '<textarea rows=\"2\"></textarea><div class=\"qbx-pn-hint\" data-qbpnotes>WEBULL PAPER keeps no notes.",
+     'the notes slot holds a box that can be typed in, though the board keeps no notes'),
+    ('wb-actions-destructive',
+     "OPEN CANDLES &#8599;</button>':'')",
+     "OPEN CANDLES &#8599;</button><button type=\"button\" class=\"del\">DELETE</button>':'')",
+     'the actions slot has a DELETE button'),
+    ('wb-nt-rows-always',
+     'if(t.nt_points!=null||t.expected_usd!=null||t.track_err_usd!=null)rows.push(',
+     'if(true)rows.push(',
+     'the NT POINTS / EXPECTED $ / TRACK ERR rows show on every trade, not only a trade that carries NinjaTrader figures'),
+    ('wb-nt-rows-missing',
+     'if(t.nt_points!=null||t.expected_usd!=null||t.track_err_usd!=null)rows.push(',
+     'if(false)rows.push(',
+     "a trade with NinjaTrader figures shows none in the panel"),
+    ('wb-running-wrong',
+     "['RUNNING',qeMoney(qbRun[key])],",
+     "['RUNNING',qeMoney(pnl)],",
+     "the panel's RUNNING row shows the trade's own P&L, not the running total"),
+    ('wb-slip-precision',
+     "['SLIP/SH',sp!=null?qeNum(sp,3):'\u2014'],",
+     "['SLIP/SH',sp!=null?qeNum(sp,2):'\u2014'],",
+     'the slip a share is rounded to cents in the panel (the table shows it to a tenth of a cent)'),
+    ('wb-fill-coverage-wrong',
+     "(src==='webull'?'Webull both sides':",
+     "(src==='webull'?'none (book prices)':",
+     'a trade priced from Webull fills on both sides reads as having no fill'),
+    ('wb-leave-keeps-panel',
+     "try{if(!(activeTab==='augur'&&augurSub==='qqqpaper'))ledgerTradePanelClose('wb','leave');}catch(e){}",
+     '',
+     'the panel stays on the page after the viewer leaves the board'),
+    ('wb-gone-keeps-panel',
+     "if(!spec){window._qbPanelKey=null;ledgerTradePanelClose('wb','gone');return;}",
+     'if(!spec)return;',
+     'the panel stays open after its trade left the board rows'),
+    ('wb-panel-flickers',
+     'return ledgerTradePanelRows(rows)',
+     "return '<!--'+Math.random()+'-->'+ledgerTradePanelRows(rows)",
+     'the numbers slot is rewritten on every redraw of the board, so the panel flickers'),
+    ('wb-flags-not-in-words',
+     "ln('FLAGS',fl.length?fl.map(p=>'<b>'+p[0]+'</b>: '+(QB_FLAG_WORDS[p[0]]||'')+(p[1]&&p[1]!==pnT?' ('+p[1]+')':'')).join('<br>'):'none');",
+     "ln('FLAGS','none');",
+     'the notes slot does not spell the flags out in words'),
+    ('wb-keel-note-lost',
+     "if(t.size!=null&&String(t.size)!==''&&Number(t.size)!==1)ln('SIZE (KEEL)',",
+     "if(false)ln('SIZE (KEEL)',",
+     'the KEEL size note is left out of the panel'),
+    ('wb-oldboards-sheet-lost',
+     "window._qbSheet={kind:'trade',idx:+el.getAttribute('data-qbtraderow'),tid:el.getAttribute('data-qbtid')||null,rk:el.getAttribute('data-qbkey')||null};",
+     '',
+     '?oldboards=1: a tap on an old row opens no trade sheet'),
+    ('wb-oldboards-opens-panel',
+     "window._qbSheet={kind:'trade',idx:+el.getAttribute('data-qbtraderow'),tid:el.getAttribute('data-qbtid')||null,rk:el.getAttribute('data-qbkey')||null};",
+     "window._qbSheet=null;ledgerTradePanelOpen({id:'wb',tradeId:String(el.getAttribute('data-qbkey')),head:{sym:'X',side:'LONG',date:'',time:'',net:0},blocks:[]});",
+     '?oldboards=1 draws the shared trade panel in place of the old sheet'),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -1176,7 +1317,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <script>
 var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=__STATS__, TLS=__TLS__;
 (function(){
-  var out={cases:{},notes:[]}, reported=false, t0=Date.now(), sink=null, phase=0;
+  var out={cases:{},notes:[]}, reported=false, t0=Date.now(), sink=null, phase=0, PS0=null;
   function finish(why){
     if(reported)return; reported=true;
     out.why=why; out.ms=Date.now()-t0;
@@ -1349,6 +1490,8 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
   }
   function seed(cfg){
     var w=W();
+    if(PS0){var d0=D();[[d0.documentElement,PS0[0]],[d0.body,PS0[1]],[d0.getElementById('app')||d0.body,PS0[2]]].forEach(function(p){
+      if(!p[0])return;if(p[1]==null)p[0].removeAttribute('style');else p[0].setAttribute('style',p[1]);});}
     w.__probeFixJson=JSON.stringify(cfg.fix||FIX);
     w.__qbNowMs=cfg.nowMs||NOW;
     w.__probeOpenLeg=cfg.openLeg||null;
@@ -1383,6 +1526,8 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       +"window._qqqPaper=null;window._qqqPaperLoaded=true;window._qqqPaperLoading=false;window._qqqPaperErr=null;"
       +"window._qqqCalMonth=null;window._qeDrawerIdx=null;window._qeChartHidden={};window._qeTradesShown=50;window._qeEventsShown=30;"
       +"window._qbSheet=null;window._qbLegOpen=new Set(window.__probeOpenLeg?[window.__probeOpenLeg]:[]);window._qeTradesView='list';window._qeChartPeriod='ALL';"
+      // LEDGER step 9: no trade panel open, none remembered
+      +"window._qbPanelKey=null;window._qbPanelPos=null;try{ledgerTradePanelClose('wb','probe');}catch(e){}"
       // the trade list's own state: the view stored for this board, the search text, the chip, the search box's held focus
       +"try{localStorage.removeItem('el_lg_view_wb');}catch(e){}window._qeTradesQuery='';window._qeTradesChip='ALL';window._qbSearchHold=null;"
       +"window._qbLegNoteOpen={};if(window.__probeOpenLeg)window._qbLegNoteOpen[window.__probeOpenLeg]=true;"
@@ -1763,6 +1908,9 @@ __TLJS__
     await sleep(200);
     drain();
     overlays();
+    // the page's own inline styles (<html>, <body>, #app) before anything ran: every seed puts them back, so a panel that leaves room behind
+    // (a padding, a margin) in one run is measured against the pristine page in the next
+    try{var d1=D();PS0=[d1.documentElement.getAttribute('style'),d1.body.getAttribute('style'),(d1.getElementById('app')||d1.body).getAttribute('style')];}catch(e){PS0=null;}
     return true;
   }
   fr.addEventListener('load',function(){
@@ -1801,6 +1949,15 @@ __TLJS__
         phase=2;
         if(!(await boot()))return;
         await runCase('oldboards',{vp:'laptop',theme:'mono'});
+        // ?oldboards=1 keeps the board's own trade sheet: a row opens it (and no shared trade panel), its title names that trade
+        var os={};drain();
+        var orow=D().querySelectorAll('[data-qbtraderow]')[2];
+        if(orow){
+          os.key=orow.getAttribute('data-qbkey');orow.click();await sleep(220);
+          var tt=q('.qb-sheet-title');os.title=tt?tx2(tt):null;os.panel=D().querySelectorAll('.lg-panel,.lg-panel-layer').length;
+          var cl=q('[data-qbsheetclose]');if(cl){cl.click();await sleep(160);}
+          os.closed=!q('.qb-sheet');}
+        os.errs=drain();out.oldsheet=os;
         // ?oldboards=1 keeps the old List | Table: its Table view names every strategy with its run number and carries each row's close day
         var ot={},otb=q('[data-qbseg="tradesview"] [data-qbsegval="table"]');
         drain();
@@ -1905,8 +2062,97 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
     return {focus:D().activeElement===i2,val:i2.value,sel:[i2.selectionStart,i2.selectionEnd]};
   }
   async function clickChip(k){var b=q('[data-lgchip="'+k+'"]');if(!b)return null;b.click();await sleep(100);return tlRead();}
-  function sheetNow(){var t=q('.qb-sheet-title');return t?tx2(t):null;}
-  async function closeSheet(){var b=q('[data-qbsheetclose]');if(b){b.click();await sleep(100);}return !q('.qb-sheet');}
+  // ── LEDGER step 9: a row opens TRADING-LOG's shared trade panel (id wb) in place of the board's own sheet ──
+  var PNQ='.lg-panel[data-lgpanel="wb"]';
+  // a headless page may never produce the frames a CSS animation needs: finish the slide-in so the panel is measured where it ends up
+  function pFinish(){try{D().getAnimations().forEach(function(a){try{a.finish();}catch(e1){}});}catch(e){}}
+  function tx3(e){return e?(e.innerText||'').replace(/\s+/g,' ').trim():null;}
+  function panelNow(){pFinish();var p=q(PNQ);if(!p)return null;
+    return {trade:p.getAttribute('data-lgpanel-trade'),sym:tx2(p.querySelector('[data-lgpanel-sym]')),side:tx2(p.querySelector('[data-lgpanel-side]')),
+      net:tx2(p.querySelector('[data-lgpanel-net]')),when:tx2(p.querySelector('[data-lgpanel-when]'))};}
+  async function closePanel(){var b=q('[data-lgpanel-close]');if(b){b.click();await sleep(100);}return !q('.lg-panel,.lg-panel-layer');}
+  function pgeo(){var d=D(),de=d.documentElement;
+    return {sw:de.scrollWidth,cw:de.clientWidth,sh:de.scrollHeight,nodes:d.querySelectorAll('.lg-panel,.lg-panel-layer').length,
+      kids:[].map.call(d.body.children,function(e){return e.tagName+'#'+e.id;}).join('|')};}
+  // every colour the panel draws (text, background, borders, outline, svg fill and stroke) must be a grey: MONO has no hue
+  function pHue(root){
+    var cv=document.createElement('canvas');cv.width=1;cv.height=1;var cx=cv.getContext('2d');
+    function rgba(css){try{cx.clearRect(0,0,1,1);cx.fillStyle='#000';cx.fillStyle=css;cx.fillRect(0,0,1,1);var a=cx.getImageData(0,0,1,1).data;return [a[0],a[1],a[2],a[3]];}catch(e){return null;}}
+    var w=W(),els=[root].concat([].slice.call(root.querySelectorAll('*'))),n=0,bad=[];
+    var lay=root.closest?root.closest('.lg-panel-layer'):null;if(lay)els.push(lay);
+    els.forEach(function(e){
+      var cs=w.getComputedStyle(e),props=[['color',cs.color],['background',cs.backgroundColor]];
+      ['Top','Right','Bottom','Left'].forEach(function(s){
+        if(cs['border'+s+'Style']!=='none'&&parseFloat(cs['border'+s+'Width'])>0)props.push(['border-'+s.toLowerCase(),cs['border'+s+'Color']]);});
+      if(cs.outlineStyle!=='none'&&parseFloat(cs.outlineWidth)>0)props.push(['outline',cs.outlineColor]);
+      if(e instanceof w.SVGElement){
+        if(cs.fill&&cs.fill!=='none')props.push(['fill',cs.fill]);
+        if(cs.stroke&&cs.stroke!=='none')props.push(['stroke',cs.stroke]);}
+      props.forEach(function(p){
+        var c=rgba(p[1]);n++;
+        if(!c||c[3]<8)return;
+        if(Math.max(c[0],c[1],c[2])-Math.min(c[0],c[1],c[2])>16)
+          bad.push((e.tagName||'').toLowerCase()+(typeof e.className==='string'&&e.className?'.'+e.className.trim().split(' ')[0]:'')+' '+p[0]+'='+p[1]);
+      });
+    });
+    return {checked:n,bad:bad.slice(0,6)};
+  }
+  // what the open panel says and where it is: header, slots in order, the numbers rows by label, the notes, the buttons, the chart
+  function pRead(hue){
+    pFinish();
+    var d=D(),w=W(),p=q(PNQ);if(!p)return null;
+    var r=p.getBoundingClientRect(),b=p.querySelector('[data-lgpanel-body]'),nel=p.querySelector('[data-lgpanel-net]'),o={};
+    o.trade=p.getAttribute('data-lgpanel-trade');o.mode=p.getAttribute('data-lgpanel-mode');
+    o.rect={l:Math.round(r.left),t:Math.round(r.top),r:Math.round(r.right),b:Math.round(r.bottom),w:Math.round(r.width),h:Math.round(r.height)};
+    o.vw=w.innerWidth;o.vh=w.innerHeight;o.role=p.getAttribute('role');o.modal=p.getAttribute('aria-modal');
+    o.sym=tx2(p.querySelector('[data-lgpanel-sym]'));o.side=tx2(p.querySelector('[data-lgpanel-side]'));o.when=tx2(p.querySelector('[data-lgpanel-when]'));
+    o.net=tx2(nel);o.netCls=nel?nel.className:'';o.sub=tx2(p.querySelector('[data-lgpanel-sub]'));
+    o.chips=[].map.call(p.querySelectorAll('.qbx-pn-chip'),tx2);
+    o.slots=[].map.call(p.querySelectorAll('[data-lgpanel-slot]'),function(e){return e.getAttribute('data-lgpanel-slot');});
+    o.rows={};o.rowCls={};
+    [].forEach.call(p.querySelectorAll('.lg-panel-row'),function(row){
+      var dt=row.querySelector('.lg-panel-dt'),dd=row.querySelector('.lg-panel-dd'),k=tx2(dt);o.rows[k]=tx2(dd);o.rowCls[k]=dd?dd.className:'';});
+    var ns=p.querySelector('[data-lgpanel-slot="notes"]'),as=p.querySelector('[data-lgpanel-slot="actions"]'),cs=p.querySelector('[data-lgpanel-slot="chart"]'),nus=p.querySelector('[data-lgpanel-slot="numbers"]');
+    o.notes=tx3(ns);o.numbersText=tx3(nus);o.editable=p.querySelectorAll('textarea,input,select').length;
+    o.buttons=[].map.call(as?as.querySelectorAll('button'):[],tx2);o.delBtn=as?as.querySelectorAll('button.del').length:0;o.actionsText=tx2(as);
+    o.chartText=tx2(cs);o.chartDrawn=!!(cs&&cs.querySelector('.qb-sheet-candles-svg svg'));o.expand=!!(cs&&cs.querySelector('[data-qbcandlesexpand]'));
+    o.inApp=!!p.closest('#app');o.focusIn=p.contains(d.activeElement);o.bodyWide=b?b.scrollWidth>b.clientWidth+1:null;
+    o.oldSheet=!!q('.qb-sheet');o.g=pgeo();
+    if(hue)o.hue=pHue(p);
+    return o;
+  }
+  async function pStep(res,name,fn){var st={};try{await fn(st);}catch(e){st.threw=String(e&&e.stack?e.stack:e);}res.steps[name]=st;}
+  function pRowEl(key){return [].filter.call(D().querySelectorAll('[data-lgtrade]'),function(e){return e.getAttribute('data-lgtrade')===key;})[0]||null;}
+  // a tap on the row of one trade (its strategy cell), then a moment for the panel to draw
+  async function pOpen(key){var row=pRowEl(key);if(!row)return false;(row.querySelector('.lg-c-sym')||row).click();await sleep(170);return true;}
+  async function pEsc(){D().dispatchEvent(new (W().KeyboardEvent)('keydown',{key:'Escape',bubbles:true,cancelable:true}));await sleep(90);return !q('.lg-panel,.lg-panel-layer');}
+  async function pShut(){if(q('.lg-panel,.lg-panel-layer'))await pEsc();if(q('.lg-panel,.lg-panel-layer'))await closePanel();return !q('.lg-panel,.lg-panel-layer');}
+  // candles for any trade without the network: bars for the trade's day with the entry and exit marked, and the box's marks (the four-layer legend)
+  function stubBarsFn(x){
+    var et=String(x._et||'').slice(0,16),xt=String(x._xt2||x._et||'').slice(0,16),day=et.slice(0,10);
+    function mins(s){return (+s.slice(11,13))*60+(+s.slice(14,16));}
+    var bars=[],i=0,p=750,m0=9*60+30,ep0=Date.UTC(+day.slice(0,4),+day.slice(5,7)-1,+day.slice(8,10),13,30,0)/1000;
+    for(var m=m0;m<=15*60+55;m+=5,i++){
+      var o=p+Math.sin(i/6)*0.8,c=o+Math.cos(i/4)*0.5;
+      bars.push({t:day+' '+('0'+Math.floor(m/60)).slice(-2)+':'+('0'+(m%60)).slice(-2),o:o,h:Math.max(o,c)+0.2,l:Math.min(o,c)-0.2,c:c,v:100,ep:ep0+i*300});p=c;}
+    var ei=Math.floor((mins(et)-m0)/5),xi=xt.slice(0,10)===day?Math.floor((mins(xt)-m0)/5):-1;
+    if(ei<0||ei>=bars.length)ei=null;
+    if(xi<0||xi>=bars.length)xi=null;
+    var px=function(k){return k==null?750:bars[k].c;};
+    return Promise.resolve({bars:bars,entry_idx:ei,exit_idx:xi,tf:'5m',src:'box',asof:'15:55',meta:{},
+      marks:{side:String(x._side||'long'),tf:'5m',signal:{t:et,rule:'recorded'},book_in:{t:et,px:px(ei)},bt_in:{t:et,px:px(ei)},
+        wb_in:[{t:et,px:px(ei)+0.02,ok:true,sent:true,outcome:'FILLED'}],book_out:xi==null?null:{t:xt,px:px(xi)},
+        wb_out:xi==null?[]:[{t:xt,px:px(xi)+0.03,ok:true,sent:true,outcome:'FILLED'}],lines:[]}});
+  }
+  function pStubOn(){
+    var w=W();
+    w.eval('window.__origBars=window.__origBars||window._qqqBarsForTrade;window._qqqBarsForTrade=('+stubBarsFn.toString()+');'
+      +'window.__opened=[];window.__origOpen=window.__origOpen||window._openTradeCandles;'
+      +'window._openTradeCandles=function(x,b,c){window.__opened.push({no:x._no,label:x._label,n:(c&&c.all)?c.all().length:null,has:(c&&c.all)?c.all().some(function(q){return q._no===x._no;}):null});};');
+  }
+  function pStubOff(){
+    W().eval('if(window.__origBars){window._qqqBarsForTrade=window.__origBars;window.__origBars=null;}if(window.__origOpen){window._openTradeCandles=window.__origOpen;window.__origOpen=null;}');
+  }
   async function setVpWH(wd,ht){
     fr.style.width=wd+'px';fr.style.height=ht+'px';
     await waitFor(function(){return W().innerWidth===wd;},2000);
@@ -1935,31 +2181,31 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
     w.eval('renderApp();');await sleep(120);
     res.doneKept={focus:D().activeElement===q('#wb-search'),hold:!!w._qbSearchHold};
     res.retyped=await typeIn('o');await typeIn('');
-    // the sheet opens for the trade that was tapped: after a chip changed the rows, and after a search then clear
+    // the trade panel opens for the trade that was tapped: after a chip changed the rows, and after a search then clear
     await clickChip('SHORT');
     var p1=D().querySelectorAll('[data-lgtrade]')[1];
     res.sheet1={key:p1.getAttribute('data-lgtrade')};
-    p1.click();await sleep(150);res.sheet1.title=sheetNow();res.sheet1.closed=await closeSheet();
+    p1.click();await sleep(150);res.sheet1.now=panelNow();res.sheet1.closed=await closePanel();
     await clickChip('ALL');
     await typeIn('noise');await typeIn('');
     var p2=D().querySelectorAll('[data-lgtrade]')[2];
     res.sheet2={key:p2.getAttribute('data-lgtrade')};
-    p2.click();await sleep(150);res.sheet2.title=sheetNow();
+    p2.click();await sleep(150);res.sheet2.now=panelNow();
     // a redraw while it is open (a new snapshot) leaves it on the same trade; Escape closes it
-    w.eval('renderApp();');await sleep(120);res.sheet2.afterRender=sheetNow();
-    D().dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await sleep(120);res.sheet2.escClosed=!q('.qb-sheet');
-    // the sheet opens from the TABLE too
+    w.eval('renderApp();');await sleep(120);res.sheet2.afterRender=panelNow();
+    D().dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await sleep(120);res.sheet2.escClosed=!q('.lg-panel,.lg-panel-layer');
+    // the panel opens from the TABLE too
     q('[data-lgview="table"]').click();await sleep(150);
     var p3=D().querySelectorAll('tr[data-lgtrade]')[4];
     res.sheet3={key:p3.getAttribute('data-lgtrade')};
-    p3.click();await sleep(150);res.sheet3.title=sheetNow();res.sheet3.closed=await closeSheet();
+    p3.click();await sleep(150);res.sheet3.now=panelNow();res.sheet3.closed=await closePanel();
     q('[data-lgview="list"]').click();await sleep(150);
-    // the chart glyph opens the candles for its trade and not the sheet
+    // the chart glyph opens the candles for its trade and not the panel
     w.eval('window.__opened=null;window.__origOpen=window._openTradeCandles;window._openTradeCandles=function(x,b){window.__opened={no:x._no,label:x._label};};');
     var gl=[].slice.call(D().querySelectorAll('[data-qbchartkey]'))[3];
     res.glyph={key:gl?gl.getAttribute('data-qbchartkey'):null};
     if(gl){gl.click();await sleep(100);}
-    res.glyph.opened=w.__opened;res.glyph.sheet=!!q('.qb-sheet');
+    res.glyph.opened=w.__opened;res.glyph.sheet=!!q('.qb-sheet,.lg-panel,.lg-panel-layer');
     w.eval('window._openTradeCandles=window.__origOpen;');
     // SHOW MORE: the newest trades first, a day never cut in two, then the rest
     w.eval('window._qeTradesShown='+T.page+';renderApp();');await sleep(150);
@@ -2023,6 +2269,166 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
     q('[data-lgview="table"]').click();await sleep(150);
     for(var j=0;j<T.widths.length;j++){var b=T.widths[j];await setVpWH(b[0],b[1]);res.table[b[0]]=wRead();}
     q('[data-lgview="list"]').click();await sleep(100);
+  };
+  // LEDGER step 9: the trade panel on a laptop or a phone, in one theme. T.k1 = a trade on the first page (flagged), T.k2 = an older one that a short page
+  // leaves out, T.hideChip = a chip that hides k2, T.variety = trades that carry each kind of caveat, T.page = the short page, T.theme = the theme.
+  SCEN.panel=async function(T,res){
+    var w=W(),mono=T.theme==='mono';
+    res.steps={};
+    pStubOn();
+    await sleep(60);
+    res.base=pgeo();
+    // 1. a tap on a row opens the panel for that trade; what it says, where it sits, its slots, the chart drawn (the box's candles stubbed)
+    await pStep(res,'open',async function(st){
+      st.clicked=await pOpen(T.k1);
+      st.drew=await waitFor(function(){return !!q(PNQ+' .qb-sheet-candles-svg svg');},6000);
+      st.read=pRead(mono);
+      // EXPAND (a laptop only) and OPEN CANDLES open the full viewer for this trade, stepping through the list
+      w.__opened.length=0;
+      var ex=q(PNQ+' [data-qbcandlesexpand]'),oc=q(PNQ+' [data-qbpcandles]');
+      st.hasExpand=!!ex;st.hasOpen=!!oc;
+      if(ex){ex.click();await sleep(60);}
+      st.expandOpened=w.__opened.slice();w.__opened.length=0;
+      if(oc){oc.click();await sleep(60);}
+      st.openOpened=w.__opened.slice();w.__opened.length=0;
+      st.stillOpen=!!q(PNQ);
+    });
+    // 2. Esc closes it; the page is exactly as it was before the first open
+    await pStep(res,'esc',async function(st){
+      st.closed=await pEsc();st.g=pgeo();st.key=w.eval('window._qbPanelKey');
+    });
+    // 3. a tap outside closes it (the press and the click on the dimmed page), a tap inside does not
+    await pStep(res,'outside',async function(st){
+      st.clicked=await pOpen(T.k1);
+      st.opened=!!q(PNQ);
+      var s=q(PNQ+' [data-lgpanel-sym]');
+      if(s){s.click();await sleep(40);}
+      st.keptOnInside=!!q(PNQ);
+      var pt=T.vp==='phone'?[Math.round(w.innerWidth/2),20]:[30,Math.round(w.innerHeight/2)];
+      var el=D().elementFromPoint(pt[0],pt[1]);
+      st.hit=(el&&el.classList&&el.classList.contains('lg-panel-layer'))?'layer':(el?el.tagName+'.'+el.className:null);
+      if(el){el.dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true,pointerType:T.vp==='phone'?'touch':'mouse'}));el.click();}
+      await sleep(90);
+      st.open=!!q('.lg-panel,.lg-panel-layer');st.g=pgeo();
+      await pShut();
+    });
+    // 4. the close button
+    await pStep(res,'button',async function(st){
+      st.clicked=await pOpen(T.k1);
+      var x=q(PNQ+' [data-lgpanel-close]');st.btn=!!x;
+      if(x)x.click();
+      await sleep(90);
+      st.open=!!q('.lg-panel,.lg-panel-layer');st.g=pgeo();
+      await pShut();
+    });
+    // 5. the chart glyph of a row opens the candles and not the panel
+    await pStep(res,'glyph',async function(st){
+      w.__opened.length=0;
+      var gl=[].slice.call(D().querySelectorAll('[data-qbchartkey]'))[2];
+      st.key=gl?gl.getAttribute('data-qbchartkey'):null;
+      if(gl){gl.click();await sleep(110);}
+      st.opened=w.__opened.slice();w.__opened.length=0;
+      st.panel=!!q('.lg-panel,.lg-panel-layer');st.keyState=w.eval('window._qbPanelKey');
+      await pShut();
+    });
+    // 6. the board redraws every few seconds: the open trade stays, the panel is the same node, nothing in it is rewritten, the scroll stays
+    if(T.heavy)await pStep(res,'redraw',async function(st){
+      await pOpen(T.k1);
+      await waitFor(function(){return !!q(PNQ+' .qb-sheet-candles-svg svg');},6000);
+      var p=q(PNQ),b=p?p.querySelector('[data-lgpanel-body]'):null;
+      if(!p||!b){st.threw='no panel to redraw under';return;}
+      p.__m=1;[].forEach.call(p.querySelectorAll('[data-lgpanel-slot]'),function(s){s.__m=1;});
+      b.scrollTop=250;st.top0=b.scrollTop;st.canScroll=b.scrollHeight>b.clientHeight+10;
+      var before=panelNow(),textBefore=tx2(p),muts=[];
+      var mo=new w.MutationObserver(function(rs){rs.forEach(function(r){
+        if(r.type==='attributes'&&r.target===p)return;
+        muts.push(r.type+':'+(r.target.nodeType===1?r.target.tagName.toLowerCase()+'.'+String(r.target.className).split(' ')[0]:'#text'));});});
+      mo.observe(p,{childList:true,subtree:true,attributes:true,characterData:true});
+      w.eval('renderApp();');await sleep(150);
+      // a new snapshot from the box (its clock moved on) through the board's own throttled live redraw
+      w.eval('window._qqqExec.updated_at=window._qqqExec.updated_at;window._qqqExecLastRenderAt=0;_qqqExecLiveRender();');await sleep(150);
+      w.eval('renderApp();');await sleep(150);
+      mo.takeRecords().forEach(function(r){muts.push(r.type);});mo.disconnect();
+      var p2=q(PNQ),b2=p2?p2.querySelector('[data-lgpanel-body]'):null;
+      st.same=p2===p;st.marked=!!(p2&&p2.__m);
+      st.slotsKept=p2?[].every.call(p2.querySelectorAll('[data-lgpanel-slot]'),function(s){return s.__m===1;}):false;
+      st.top1=b2?b2.scrollTop:null;st.muts=muts.slice(0,6);st.mutN=muts.length;
+      st.before=before;st.after=panelNow();st.textSame=!!p2&&tx2(p2)===textBefore;
+      st.drawn=!!q(PNQ+' .qb-sheet-candles-svg svg');
+      await pShut();
+    });
+    // 7. paging, search, chip, LIST | TABLE: the open trade (an old one that a short page leaves out) stays open on its own trade
+    if(T.heavy)await pStep(res,'survive',async function(st){
+      var snap=function(){var o=panelNow();return o?{trade:o.trade,sym:o.sym,side:o.side,net:o.net}:null;};
+      w.eval('window._qeTradesShown=50;renderApp();');await sleep(130);
+      st.k2Row=!!pRowEl(T.k2);
+      await pOpen(T.k2);
+      await waitFor(function(){return !!q(PNQ+' .qb-sheet-candles-svg svg');},6000);
+      st.open=snap();st.openDrawn=!!q(PNQ+' .qb-sheet-candles-svg svg');
+      w.eval('window._qeTradesShown='+T.page+';renderApp();');await sleep(160);
+      st.paged={onPage:!!pRowEl(T.k2),rows:tlKeys().length,snap:snap()};
+      var sm=q('[data-qeshowmore]');st.moreBtn=!!sm;
+      if(sm){sm.click();await sleep(160);}
+      st.more={rows:tlKeys().length,snap:snap(),shown:w.eval('window._qeTradesShown')};
+      await typeIn('zzzz');st.zzzz={rows:tlKeys().length,snap:snap()};
+      await typeIn('');st.cleared={rows:tlKeys().length,snap:snap()};
+      await typeIn('noise');st.noise={rows:tlKeys().length,snap:snap()};await typeIn('');
+      var t1=await clickChip(T.hideChip);st.chip={rowOn:!!pRowEl(T.k2),snap:snap()};
+      await clickChip('ALL');
+      q('[data-lgview="table"]').click();await sleep(160);st.table={mode:(q('[data-lglist-frame="wb"]')||{getAttribute:function(){return null;}}).getAttribute('data-lgmode'),snap:snap()};
+      q('[data-lgview="list"]').click();await sleep(160);st.list={snap:snap()};
+      st.sheet=!!q('.qb-sheet');
+      await pShut();
+    });
+    // 8. the caveats: each kind of trade opens a panel that carries its chips, its numbers and its words
+    res.variety={};
+    for(var vi=0;vi<(T.variety||[]).length;vi++){
+      var vk=T.variety[vi];
+      await pStep(res,'v'+vi,async function(st){
+        st.key=vk;st.clicked=await pOpen(vk);
+        await waitFor(function(){return !!q(PNQ+' .qb-sheet-candles-svg svg');},5000);
+        st.read=pRead(mono&&vi<2);
+        await pShut();
+      });
+      res.variety[vk]=res.steps['v'+vi];delete res.steps['v'+vi];
+    }
+    // 9. the trade leaves the board's rows (another range): the panel closes on its own; leaving the board closes it too
+    if(T.heavy)await pStep(res,'gone',async function(st){
+      await pOpen(T.k2);st.opened=!!q(PNQ);
+      w.eval("homeRange='TODAY';renderApp();");await sleep(160);
+      st.closed=!q('.lg-panel,.lg-panel-layer');st.key=w.eval('window._qbPanelKey');
+      w.eval("homeRange='ALL';renderApp();");await sleep(140);
+      st.back=!q('.lg-panel,.lg-panel-layer');
+    });
+    if(T.heavy)await pStep(res,'leave',async function(st){
+      await pOpen(T.k1);st.opened=!!q(PNQ);
+      w.eval("activeTab='home';renderApp();");await sleep(260);
+      st.closed=!q('.lg-panel,.lg-panel-layer');st.key=w.eval('window._qbPanelKey');
+      w.eval("activeTab='augur';augurSub='qqqpaper';renderApp();");await sleep(260);
+      st.back=!q('.lg-panel,.lg-panel-layer');st.rows=tlKeys().length;
+    });
+    pStubOff();
+    res.end=pgeo();
+  };
+  // the panel at every width the owner named, on the LIST and the TABLE: the page never scrolls sideways with it open or closed, a sheet at 600 px and under
+  SCEN.pwidth=async function(T,res){
+    res.w={};
+    pStubOn();
+    for(var mi=0;mi<2;mi++){
+      var mode=mi?'table':'list';
+      for(var i=0;i<T.widths.length;i++){
+        var a=T.widths[i],r={};
+        await setVpWH(a[0],a[1]);
+        var vb=q('[data-lgview="'+mode+'"]');if(vb){vb.click();await sleep(120);}
+        r.base=pgeo();r.mode=(q('[data-lglist-frame="wb"]')||{getAttribute:function(){return null;}}).getAttribute('data-lgmode');
+        r.clicked=await pOpen(T.k1);
+        var o=pRead(false);r.open=o?{mode:o.mode,rect:o.rect,vw:o.vw,vh:o.vh,g:o.g,inApp:o.inApp,sym:o.sym,trade:o.trade,bodyWide:o.bodyWide}:null;
+        r.shut=await pShut();r.after=pgeo();
+        res.w[a[0]+mode]=r;
+      }
+      var lb=q('[data-lgview="list"]');if(lb){lb.click();await sleep(100);}
+    }
+    pStubOff();
   };
   async function runTl(T){
     var res={};
@@ -3270,6 +3676,406 @@ def csv_problems(tag, res, want_rows):
     return out
 
 
+# ---- LEDGER step 9 (2026-10-06): the shared trade panel a row opens on this board ----
+PN_RUNS = [('laptop', 'glass'), ('laptop', 'paper'), ('laptop', 'mono'), ('phone', 'glass'), ('phone', 'paper'), ('phone', 'mono')]
+PN_WIDTHS = [375, 600, 601, 700, 800, 1000, 1366]       # the widths named for the sideways-scroll check, and the 600 / 601 rule either side
+PN_SLOTS = ['head', 'chart', 'numbers', 'notes', 'actions']
+PN_DESTRUCTIVE = re.compile(r'DELETE|REMOVE|EDIT|SAVE|IGNORE|CLEAR', re.I)
+
+
+def dur_str(secs):
+    """index.html durStr on durationSecs: 49m 57s, 5m 9s, 1h 3m, 45s."""
+    if secs is None or secs < 0:
+        return DASH
+    if secs < 60:
+        return '%ds' % secs
+    m, ss = divmod(secs, 60)
+    if m < 60:
+        return '%dm' % m + (' %ds' % ss if ss else '')
+    h, mm = divmod(m, 60)
+    return '%dh' % h + (' %dm' % mm if mm else '')
+
+
+def _hold_secs(t):
+    """Seconds between the entry and exit stamps (New York wall-clock strings, so a plain difference)."""
+    import datetime as _dt
+    try:
+        a = _dt.datetime.strptime(str(t.get('entry_ts'))[:19], '%Y-%m-%d %H:%M:%S')
+        b = _dt.datetime.strptime(str(t.get('exit_ts'))[:19], '%Y-%m-%d %H:%M:%S')
+    except (TypeError, ValueError):
+        return None
+    return int(round((b - a).total_seconds()))
+
+
+def _fp_side(s):
+    """One side of a trade's fill parity packed as 'bt|wb|fs|edge|dsg|slp|unx|why' (index.html qeFpSide): the Webull fill and its status."""
+    if not isinstance(s, str):
+        return None
+    p = s.split('|')
+
+    def n(i):
+        return None if i >= len(p) or p[i] == '' else _to_float(p[i])
+    return {'wb': n(1), 'fs': {'o': 'ok', 's': 'suspect'}.get(p[2] if len(p) > 2 else '', 'none')}
+
+
+def _cls(v):
+    return 'lg-flat' if v is None or v != v else ('lg-up' if v > 0 else ('lg-down' if v < 0 else 'lg-flat'))
+
+
+def panel_when(t):
+    en, ex = str(t.get('entry_ts') or ''), str(t.get('exit_ts') or '')
+    return '%s \u00b7 %s \u2192 %s ET' % (en[:10], en[11:16] or '--', (ex[5:10] + ' ' if (ex and ex[:10] != en[:10]) else '') + (ex[11:16] or '--'))
+
+
+def panel_rows_want(t, doc):
+    """[(label, text, colour class or None)] the numbers slot must carry, in order, worked out here from the fixture."""
+    rng = tl_range_rows(doc)
+    own = tl_own_cells(t, tl_running(rng).get(row_key(t)), True)
+    pnl = qe_pnl_of(t)
+    fp = t.get('fp') if isinstance(t.get('fp'), dict) else None
+    nt_mirror = str(t.get('signal_source') or '').lower() == 'ninjatrader'
+
+    def fill(k):
+        s = _fp_side(fp.get(k)) if (fp and not nt_mirror) else None
+        return DASH if not s or s['wb'] is None else qe_money(s['wb']) + (' (looks wrong)' if s['fs'] == 'suspect' else '')
+    src = str(t.get('pnl_record_src') or '')
+    cov = 'none (order never sent)' if t.get('book_only') else {'webull': 'Webull both sides', 'part': 'Webull one side, book other',
+                                                                'book': 'none (book prices)'}.get(src, DASH)
+    bt, bk, real = _fin(t.get('pnl_backtest')), _fin(t.get('pnl')), _num(t.get('real_pnl'))
+    sh = _num(t.get('shares'))
+    rows = [('SHARES', DASH if sh is None else '{:,}'.format(_js_round(sh)), None),
+            ('NOTIONAL', qe_money(t.get('shadow_notional_usd')), None),
+            ('ENTRY $', own['epx'], None), ('ENTRY FILL', fill('en'), None), ('EXIT $', own['xpx'], None), ('EXIT FILL', fill('ex'), None),
+            ('HOLD', dur_str(_hold_secs(t)), None),
+            ('P&L OF RECORD', '%s \u00b7 %s' % (signed(pnl), {'webull': 'Webull', 'part': 'of record'}.get(src, 'book')), _cls(pnl)),
+            ('BACKTEST P&L', DASH if bt is None else signed(bt), _cls(bt)),
+            ('BOOK P&L', DASH if bk is None else signed(bk), _cls(bk)),
+            ('RUNNING', own['run'], None), ('REAL P&L', own['real'], _cls(real)), ('SLIP/SH', own['slip'], None), ('FILL COVERAGE', cov, None)]
+    if any(t.get(k) is not None for k in ('nt_points', 'expected_usd', 'track_err_usd')):
+        rows += [('NT POINTS', own['ntp'], None), ('EXPECTED $', own['exp'], None), ('TRACK ERR', own['trk'], None)]
+    if t.get('nt_entry_ts') or t.get('nt_exit_ts') or t.get('latency_s') is not None:
+        rows += [('NT ENTRY', fmt_et(t.get('nt_entry_ts')) if t.get('nt_entry_ts') else DASH, None),
+                 ('NT EXIT', fmt_et(t.get('nt_exit_ts')) if t.get('nt_exit_ts') else DASH, None),
+                 ('LATENCY', (qe_num(t.get('latency_s'), 2) + 's') if t.get('latency_s') is not None else DASH, None)]
+    return rows
+
+
+def panel_pick(doc):
+    """The trades the panel runs open: k1 = the newest (flagged), k2 = an older one a short page leaves out, hideChip hides k2, variety = one of
+    each kind of caveat (book only, a failed fill check, EOD, a part-book price, NinjaTrader figures, a KEEL size, a note, a plain one)."""
+    rows = tl_rows(doc)
+    page = set(row_key(t) for t in tl_page(rows, TL_PAGE))
+    rest = [t for t in rows if row_key(t) not in page]
+    k2 = next((t for t in rest if t.get('trade_id') and tl_side_text(t) == 'LONG'), rest[0])
+
+    def first(pred):
+        return next((t for t in rows if pred(t)), None)
+    cand = [rows[0], first(lambda t: t.get('book_only')), first(lambda t: t.get('broker_parity_ok') is False and not t.get('book_only')),
+            first(lambda t: re.search('EOD', str(t.get('exit_reason') or '')) and t.get('trade_id')),
+            first(lambda t: t.get('pnl_record_src') == 'part'),
+            first(lambda t: any(t.get(k) is not None for k in ('nt_points', 'expected_usd', 'track_err_usd'))),
+            first(lambda t: _fin(t.get('size')) not in (None, 1.0) and t.get('trade_id')),
+            first(lambda t: t.get('note')),
+            first(lambda t: t.get('pnl_record_src') == 'webull' and t.get('broker_parity_ok') is True and not re.search('EOD|BREAKER|KILL', str(t.get('exit_reason') or '')))]
+    seen, variety = set(), []
+    for t in cand:
+        if t is not None and row_key(t) not in seen:
+            seen.add(row_key(t))
+            variety.append(row_key(t))
+    return {'k1': row_key(rows[0]), 'k2': row_key(k2), 'hideChip': 'SHORT' if tl_side_text(k2) == 'LONG' else 'LONG', 'variety': variety}
+
+
+def panel_problems(tag, o, t, doc):
+    """What is wrong with one open panel read against its trade: header, caveat chips, numbers rows, notes, actions."""
+    bad = []
+    if o.get('trade') != row_key(t):
+        bad.append('the panel is tied to %r, want %r' % (o.get('trade'), row_key(t)))
+    if o.get('sym') != expected_leg_name(t).strip():
+        bad.append('the header names %r, want %r (family + run number)' % (o.get('sym'), expected_leg_name(t).strip()))
+    if o.get('side') != tl_side_text(t):
+        bad.append('the side tag reads %r, want %s' % (o.get('side'), tl_side_text(t)))
+    pnl = qe_pnl_of(t)
+    if o.get('net') != signed(pnl):
+        bad.append('the net reads %r, want %s (the P&L of record, signed)' % (o.get('net'), signed(pnl)))
+    elif _cls(pnl) not in (o.get('netCls') or '').split():
+        bad.append('the net is drawn with %r, want %s' % (o.get('netCls'), _cls(pnl)))
+    if o.get('when') != panel_when(t):
+        bad.append('the day and times read %r, want %r' % (o.get('when'), panel_when(t)))
+    sh = _num(t.get('shares'))
+    if sh is not None and ('%s sh' % '{:,}'.format(_js_round(sh))) not in (o.get('sub') or ''):
+        bad.append('the header does not say %s sh (%r)' % ('{:,}'.format(_js_round(sh)), o.get('sub')))
+    want = tl_flags_want(t)[1:]
+    chips = o.get('chips') or []
+    if len(chips) != len(want) or not all(any(a in chips for a in (w if isinstance(w, tuple) else (w,))) for w in want):
+        bad.append('the caveat chips read %r, want %s' % (chips, ' + '.join('/'.join(w) if isinstance(w, tuple) else w for w in want) or 'none'))
+    if o.get('slots') != PN_SLOTS:
+        bad.append('the slots come in the order %r, want %r' % (o.get('slots'), PN_SLOTS))
+    rows = panel_rows_want(t, doc)
+    got = o.get('rows') or {}
+    if list(got.keys()) != [r[0] for r in rows]:
+        bad.append('the numbers rows are %r, want %r' % (list(got.keys()), [r[0] for r in rows]))
+    else:
+        for lab, txt, cls in rows:
+            if got.get(lab) != txt:
+                bad.append('%s reads %r, want %r' % (lab, got.get(lab), txt))
+            elif cls and cls not in ((o.get('rowCls') or {}).get(lab) or '').split():
+                bad.append('%s is drawn with %r, want %s' % (lab, (o.get('rowCls') or {}).get(lab), cls))
+    n = o.get('notes') or ''
+    if 'keeps no notes' not in n or 'read-only' not in n:
+        bad.append('the notes slot does not say it is read-only and keeps no notes (%r)' % _first(n, 90))
+    if o.get('editable'):
+        bad.append('the panel holds %s editable control(s) (a box, a select): its notes are read-only' % o.get('editable'))
+    r = str(t.get('exit_reason') or '')
+    if 'EXIT REASON' not in n or (r and r not in n):
+        bad.append('the notes lack the exit reason %r' % r)
+    for w in want:
+        if not any((a + ':') in n for a in (w if isinstance(w, tuple) else (w,))):
+            bad.append('the notes do not spell out the flag %s in words' % ('/'.join(w) if isinstance(w, tuple) else w))
+    if not want and 'FLAGS none' not in n:
+        bad.append('the notes do not say there are no flags')
+    keel = t.get('size') not in (None, '') and _fin(t.get('size')) not in (None, 1.0)
+    if keel != ('SIZE (KEEL)' in n):
+        bad.append('the KEEL size note is %s, want it %s' % ('there' if 'SIZE (KEEL)' in n else 'missing', 'there' if keel else 'absent'))
+    if t.get('note') and (str(t['note'])[:30] not in n or 'NOTE' not in n):
+        bad.append("the notes lack the trade's own note")
+    pn = t.get('broker_parity_note') if str(t.get('signal_source') or '').lower() != 'ninjatrader' else t.get('parity_note')
+    if pn and (str(pn)[:25] not in n or 'PARITY' not in n):
+        bad.append('the notes lack the parity note %r' % _first(pn, 40))
+    b = o.get('buttons') or []
+    if len(b) != 1 or 'OPEN CANDLES' not in b[0] or o.get('delBtn') or PN_DESTRUCTIVE.search(o.get('actionsText') or ''):
+        bad.append('the actions slot holds %r (want OPEN CANDLES alone, nothing that changes the trade)' % (b,))
+    if not o.get('chartDrawn'):
+        bad.append('the chart slot never drew the candles (%r)' % _first(o.get('chartText'), 80))
+    if o.get('oldSheet'):
+        bad.append('the board\'s old sheet is on the page beside the panel')
+    return ['%s: %s' % (tag, x) for x in bad]
+
+
+def panel_geo_problems(tag, o, sheet, base):
+    """Where the open panel sits: a right-hand panel 440 wide and full height above 600 px, a bottom sheet at 600 and under; over the page, in <body>."""
+    bad = []
+    want_mode = 'sheet' if sheet else 'side'
+    if o.get('mode') != want_mode:
+        bad.append('the panel mode is %r, want %r (%s)' % (o.get('mode'), want_mode, 'a bottom sheet at 600 px and under, a right-hand panel above'))
+    rc, vw, vh = o.get('rect') or {}, o.get('vw') or 0, o.get('vh') or 0
+    if sheet:
+        if not (rc.get('l') == 0 and rc.get('w') == vw and rc.get('b') == vh):
+            bad.append('the sheet should be the full width on the bottom edge (left=%s width=%s bottom=%s, screen %sx%s)'
+                       % (rc.get('l'), rc.get('w'), rc.get('b'), vw, vh))
+        if (rc.get('h') or 0) > 0.9 * vh or (rc.get('t') or 0) < 0.1 * vh:
+            bad.append('the sheet is %spx tall with its top at %spx on a %spx screen: it must leave a strip of page above it to tap (at most 90%%)'
+                       % (rc.get('h'), rc.get('t'), vh))
+    else:
+        if not (abs((rc.get('r') or 0) - vw) <= 1 and abs((rc.get('h') or 0) - vh) <= 1 and rc.get('w') == 440):
+            bad.append('the panel should be 440 px wide and the full height on the right (right=%s width=%s height=%s, screen %sx%s)'
+                       % (rc.get('r'), rc.get('w'), rc.get('h'), vw, vh))
+    if o.get('inApp'):
+        bad.append('the panel is inside #app, which every redraw rebuilds: it must live in <body>')
+    g = o.get('g') or {}
+    if (g.get('sw') or 0) > (g.get('cw') or 0) + 1:
+        bad.append('the page scrolls sideways while the panel is open (scrollWidth %s > %s)' % (g.get('sw'), g.get('cw')))
+    if base and (abs((g.get('sw') or 0) - (base.get('sw') or 0)) > 1 or abs((g.get('sh') or 0) - (base.get('sh') or 0)) > 1):
+        bad.append('opening the panel changed the page size from %sx%s to %sx%s (it must sit over the page)'
+                   % (base.get('sw'), base.get('sh'), g.get('sw'), g.get('sh')))
+    if o.get('bodyWide'):
+        bad.append('the panel body scrolls sideways')
+    return ['%s: %s' % (tag, x) for x in bad]
+
+
+def _panel_room(tag, label, g, base, fails, size=True):
+    """A page with no panel open: nothing of it left behind, the page exactly as big as before the first open (size=False: after the board was
+    redrawn under another range and another tab, whose own height is not the panel's business), <body> holding the same elements."""
+    g = g or {}
+    if g.get('nodes'):
+        fails.append('%s: %s - %s trade panel node(s) are still in the page (a closed panel must not be in it)' % (tag, label, g.get('nodes')))
+    for k, nice in (('sw', 'width'), ('sh', 'height')):
+        if size and (g.get(k) is None or base.get(k) is None or abs(g[k] - base[k]) > 1):
+            fails.append('%s: %s - the page is %s px %s, it was %s before the panel opened (a closed panel takes room)' % (tag, label, g.get(k), nice, base.get(k)))
+    if g.get('kids') != base.get('kids'):
+        fails.append('%s: %s - <body> holds %r, it held %r before the panel opened' % (tag, label, g.get('kids'), base.get('kids')))
+
+
+def _judge_tl_panel(tag, res, doc, cs, fails):
+    """One trade panel run (a laptop or a phone, one theme): open from a row, Esc, outside, the button, the glyph, a redraw, paging / search / chip /
+    LIST | TABLE, each kind of caveat, the trade leaving the rows and the viewer leaving the board."""
+    vp, theme = cs['vp'], cs['theme']
+    sheet = vp == 'phone'
+    pn = cs['pn']
+    st, base = res.get('steps') or {}, res.get('base') or {}
+    by_key = dict((row_key(t), t) for t in doc.get('trades_all') or [])
+    t1, t2 = by_key[pn['k1']], by_key[pn['k2']]
+    for name, s in list(st.items()) + [('variety ' + k[3:30], v) for k, v in (res.get('variety') or {}).items()]:
+        if (s or {}).get('threw'):
+            fails.append('%s, %s: the probe step threw -- %s' % (tag, name, _first(s['threw'])))
+    if base.get('nodes'):
+        fails.append('%s: the panel is in the page before anything was opened (%s node(s))' % (tag, base.get('nodes')))
+    # -- open
+    o = st.get('open') or {}
+    rd = o.get('read')
+    if not o.get('clicked') or not rd:
+        fails.append('%s: a tap on the row of %s did not open the trade panel (row found=%s)' % (tag, pn['k1'], o.get('clicked')))
+        return
+    fails.extend(panel_problems('%s, open' % tag, rd, t1, doc))
+    fails.extend(panel_geo_problems('%s, open' % tag, rd, sheet, base))
+    if rd.get('role') != 'dialog' or rd.get('modal') != 'true':
+        fails.append('%s: the panel is not marked role=dialog aria-modal=true (%r, %r)' % (tag, rd.get('role'), rd.get('modal')))
+    if not rd.get('focusIn'):
+        fails.append('%s: focus did not move into the panel when it opened' % tag)
+    if not o.get('drew'):
+        fails.append('%s: the chart in the panel never drew an <svg> (the candles were stubbed)' % tag)
+    if not o.get('hasOpen'):
+        fails.append('%s: the panel has no OPEN CANDLES button' % tag)
+    if sheet:
+        if o.get('hasExpand') or 'wider screen' not in (rd.get('chartText') or ''):
+            fails.append('%s: the phone chart shows EXPAND or lacks the wider-screen hint (the full viewer is not for a phone): %r'
+                         % (tag, _first(rd.get('chartText'), 120)))
+    elif not o.get('hasExpand'):
+        fails.append('%s: the laptop chart has no EXPAND button' % tag)
+    for what, got in (('EXPAND', o.get('expandOpened')), ('OPEN CANDLES', o.get('openOpened'))):
+        if what == 'EXPAND' and sheet:
+            continue
+        if len(got or []) != 1 or got[0].get('no') != pn['k1'] or not got[0].get('has'):
+            fails.append('%s: %s did not open the full candle viewer for this trade, stepping through the list rows (%r)' % (tag, what, got))
+    if not o.get('stillOpen'):
+        fails.append('%s: the panel closed when the candle viewer was asked for' % tag)
+    if theme == 'mono':
+        hue = rd.get('hue') or {}
+        if (hue.get('checked') or 0) < 60:
+            fails.append('%s: the MONO hue scan read only %s colours - it did not run' % (tag, hue.get('checked')))
+        if hue.get('bad'):
+            fails.append('%s: the panel carries a hue in MONO: %s' % (tag, '; '.join(hue['bad'])))
+    # -- Esc
+    e = st.get('esc') or {}
+    if not e.get('closed'):
+        fails.append('%s: Escape did not close the trade panel' % tag)
+    _panel_room(tag, 'after Escape', e.get('g'), base, fails)
+    if e.get('key') is not None:
+        fails.append('%s: the board still holds %r as the open trade after Escape' % (tag, e.get('key')))
+    # -- a tap outside, a tap inside
+    s = st.get('outside') or {}
+    if not s.get('clicked') or not s.get('opened'):
+        fails.append('%s: the panel did not open for the outside-tap test' % tag)
+    elif s.get('hit') != 'layer':
+        fails.append('%s: the point tapped outside the panel lands on %r, not on the dimmed page' % (tag, s.get('hit')))
+    else:
+        if not s.get('keptOnInside'):
+            fails.append('%s: a tap inside the panel closed it' % tag)
+        if s.get('open'):
+            fails.append('%s: a tap on the dimmed page outside the panel did not close it' % tag)
+        _panel_room(tag, 'after a tap outside', s.get('g'), base, fails)
+    # -- the close button
+    s = st.get('button') or {}
+    if not s.get('btn'):
+        fails.append('%s: the panel has no close button' % tag)
+    elif s.get('open'):
+        fails.append('%s: the close button did not close the panel' % tag)
+    _panel_room(tag, 'after the close button', s.get('g'), base, fails)
+    # -- the chart glyph opens the candles and not the panel
+    gl = st.get('glyph') or {}
+    gt = by_key.get(gl.get('key'))
+    if gt is None or len(gl.get('opened') or []) != 1 or gl['opened'][0].get('no') != gl.get('key') or gl.get('panel') or gl.get('keyState') is not None:
+        fails.append('%s: a tap on a row\'s chart glyph must open the candles for that trade and not the panel (%r)' % (tag, gl))
+    if pn.get('heavy'):
+        # -- a redraw every few seconds: the same panel, the same trade, nothing rewritten, the scroll kept
+        rr = st.get('redraw') or {}
+        if not rr.get('canScroll'):
+            fails.append("%s: the probe's own redraw case is wrong: the panel body cannot scroll, so the scroll check proves nothing" % tag)
+        if not rr.get('same') or not rr.get('marked') or not rr.get('slotsKept'):
+            fails.append('%s: a redraw of the board replaced the open panel or one of its slots (same panel node %s, panel %s, slots %s): it must be '
+                         'refreshed in place' % (tag, rr.get('same'), rr.get('marked'), rr.get('slotsKept')))
+        if rr.get('mutN'):
+            fails.append('%s: a redraw of the board rewrote %s thing(s) inside the open panel (%s): it flickers' % (tag, rr.get('mutN'), ', '.join(rr.get('muts') or [])))
+        if rr.get('canScroll') and abs((rr.get('top1') or 0) - (rr.get('top0') or 0)) > 2:
+            fails.append('%s: a redraw moved the panel scroll from %s to %s' % (tag, rr.get('top0'), rr.get('top1')))
+        want1 = {'trade': pn['k1'], 'sym': expected_leg_name(t1).strip(), 'side': tl_side_text(t1), 'net': signed(qe_pnl_of(t1))}
+        for what in ('before', 'after'):
+            got = rr.get(what)
+            if not got or any(got.get(k) != v for k, v in want1.items() if k in got) or not got.get('trade'):
+                fails.append('%s: %s the redraws the panel reads %r, want %r' % (tag, what, got, want1))
+        if not rr.get('textSame') or not rr.get('drawn'):
+            fails.append('%s: the panel changed its content or lost its chart over a redraw that changed nothing about the trade (text same %s, chart %s)'
+                         % (tag, rr.get('textSame'), rr.get('drawn')))
+        # -- paging, search, chip, LIST | TABLE: the open trade (an old one a short page leaves out) stays
+        sv = st.get('survive') or {}
+        want2 = {'trade': pn['k2'], 'sym': expected_leg_name(t2).strip(), 'side': tl_side_text(t2), 'net': signed(qe_pnl_of(t2))}
+        if not sv.get('k2Row') or (sv.get('paged') or {}).get('onPage') is not False or (sv.get('chip') or {}).get('rowOn') is not False:
+            fails.append("%s: the probe's own paging case is wrong (row of %s on the full page %s, on the short page %s, behind the %s chip %s)"
+                         % (tag, pn['k2'], sv.get('k2Row'), (sv.get('paged') or {}).get('onPage'), pn['hideChip'], (sv.get('chip') or {}).get('rowOn')))
+        if not sv.get('openDrawn'):
+            fails.append('%s: the chart of a trade the list does not show right now never drew in the panel' % tag)
+        if (sv.get('zzzz') or {}).get('rows') != 0:
+            fails.append("%s: the probe's own search case is wrong: 'zzzz' left %s rows" % (tag, (sv.get('zzzz') or {}).get('rows')))
+        for what, key in (('opened', 'open'), ('SHOW MORE shortened the page', 'paged'), ('SHOW MORE was tapped', 'more'),
+                          ('a search that matches nothing', 'zzzz'), ('the search was cleared', 'cleared'), ('a search for noise', 'noise'),
+                          ('a chip that hides it', 'chip'), ('the LIST turned into the TABLE', 'table'), ('the TABLE went back to the LIST', 'list')):
+            sn = sv.get(key)
+            got = sn if key == 'open' else ((sn or {}).get('snap'))
+            if not got:
+                fails.append('%s: the open trade panel is gone after %s (it must stay on its trade)' % (tag, what))
+            elif got != want2:
+                fails.append('%s: after %s the panel shows %r, want %r' % (tag, what, got, want2))
+        if sv.get('sheet'):
+            fails.append("%s: the board's old sheet opened while the trade panel was used" % tag)
+        if (sv.get('table') or {}).get('mode') != 'table':
+            fails.append("%s: the probe's own LIST | TABLE case is wrong (mode %r)" % (tag, (sv.get('table') or {}).get('mode')))
+    # -- each kind of caveat
+    vs = res.get('variety') or {}
+    if len(vs) < 6:
+        fails.append("%s: the probe's own caveat cases are wrong: only %d kinds of trade found in the fixture" % (tag, len(vs)))
+    for k, v in vs.items():
+        t = by_key.get(k)
+        if t is None or not (v or {}).get('read'):
+            fails.append('%s: the panel did not open for %s (%s)' % (tag, k[3:], 'row found' if (v or {}).get('clicked') else 'no row'))
+            continue
+        fails.extend(panel_problems('%s, %s' % (tag, k[3:40]), v['read'], t, doc))
+        if theme == 'mono' and v['read'].get('hue'):
+            hue = v['read']['hue']
+            if hue.get('bad'):
+                fails.append('%s, %s: the panel carries a hue in MONO: %s' % (tag, k[3:40], '; '.join(hue['bad'])))
+    bo = next((by_key[k] for k in vs if by_key.get(k) and by_key[k].get('book_only')), None)
+    if bo is None or 'BOOK ONLY' not in ((vs.get(row_key(bo)) or {}).get('read') or {}).get('chips', []):
+        fails.append('%s: the panel of a book-only trade does not carry the BOOK ONLY chip (%r)' % (tag, ((vs.get(row_key(bo)) or {}).get('read') or {}).get('chips') if bo else 'no such trade'))
+    if not any(by_key[k].get('nt_points') is not None for k in vs if by_key.get(k)):
+        fails.append("%s: the probe's own case is wrong: no trade with NinjaTrader figures was opened" % tag)
+    # -- the trade leaves the rows; the viewer leaves the board
+    if pn.get('heavy'):
+        gn = st.get('gone') or {}
+        if not gn.get('opened') or not gn.get('closed') or gn.get('key') is not None:
+            fails.append('%s: the panel stayed open after its trade left the board rows (another range): opened %s, closed %s, state %r'
+                         % (tag, gn.get('opened'), gn.get('closed'), gn.get('key')))
+        if not gn.get('back'):
+            fails.append('%s: a trade panel is on the page after the range went back to ALL' % tag)
+        lv = st.get('leave') or {}
+        if not lv.get('opened') or not lv.get('closed') or lv.get('key') is not None:
+            fails.append('%s: the panel stayed on the page after the viewer left the board: opened %s, closed %s, state %r'
+                         % (tag, lv.get('opened'), lv.get('closed'), lv.get('key')))
+        if not lv.get('back') or not lv.get('rows'):
+            fails.append('%s: coming back to the board did not draw it again clean (panel %s, rows %s)' % (tag, not lv.get('back'), lv.get('rows')))
+    _panel_room(tag, 'at the end', res.get('end'), base, fails, size=not pn.get('heavy'))
+
+
+def _judge_tl_pwidth(tag, res, cs, fails):
+    """The panel open and closed at every width: the page never scrolls sideways, a sheet at 600 and under, a right-hand panel above."""
+    for mode in ('list', 'table'):
+        for w in PN_WIDTHS:
+            r = (res.get('w') or {}).get('%d%s' % (w, mode)) or {}
+            t = '%s [%s, %d px]' % (tag, mode.upper(), w)
+            o = r.get('open')
+            if not r.get('clicked') or not o:
+                fails.append('%s: a tap on a row did not open the panel' % t)
+                continue
+            if o.get('vw') != w or r.get('mode') != mode:
+                fails.append('%s: the page is not measured (window %s, %s mode)' % (t, o.get('vw'), r.get('mode')))
+                continue
+            base = r.get('base') or {}
+            if (base.get('sw') or 0) > (base.get('cw') or 0) + 1:
+                fails.append('%s: the page scrolls sideways with the panel closed (scrollWidth %s > %s)' % (t, base.get('sw'), base.get('cw')))
+            fails.extend(panel_geo_problems(t, o, w <= 600, base))
+            if not r.get('shut'):
+                fails.append('%s: Escape did not close the panel' % t)
+            _panel_room(t, 'closed again', r.get('after'), base, fails)
+
+
 def _judge_tl_main(tag, res, doc, fails):
     """The laptop run: every chip, a typed search (focus and caret kept), the sheet for the tapped trade (after a chip, after a search then
     clear, after a redraw, from the table), the chart glyph, SHOW MORE, LIST | TABLE remembered, the CSV, a calendar tap past a chip."""
@@ -3313,18 +4119,20 @@ def _judge_tl_main(tag, res, doc, fails):
     for what, sh in (('after the SHORT chip', res.get('sheet1')), ('after a search and clear', res.get('sheet2')), ('from the table', res.get('sheet3'))):
         t = by_key.get((sh or {}).get('key'))
         if t is None:
-            fails.append('%s: the sheet step %s tapped no trade of the fixture (%r)' % (tag, what, sh))
+            fails.append('%s: the trade panel step %s tapped no trade of the fixture (%r)' % (tag, what, sh))
             continue
-        if sh.get('title') != tl_sheet_title(t):
-            fails.append('%s: a tap on the row for %s %s opened the sheet %r, want %r (the sheet follows the trade, not the row number)'
-                         % (tag, row_key(t)[3:], what, sh.get('title'), tl_sheet_title(t)))
+        now = sh.get('now') or {}
+        want = {'trade': row_key(t), 'sym': expected_leg_name(t).strip(), 'side': tl_side_text(t), 'net': signed(qe_pnl_of(t)), 'when': panel_when(t)}
+        if now != want:
+            fails.append('%s: a tap on the row for %s %s opened the trade panel %r, want %r (the panel follows the trade, not the row number)'
+                         % (tag, row_key(t)[3:], what, now, want))
         if sh.get('closed') is False:
-            fails.append('%s: the sheet %s did not close' % (tag, what))
+            fails.append('%s: the trade panel %s did not close' % (tag, what))
     s2 = res.get('sheet2') or {}
-    if not s2.get('title') or s2.get('afterRender') != s2.get('title'):
-        fails.append('%s: a redraw while the sheet was open moved it from %r to %r' % (tag, s2.get('title'), s2.get('afterRender')))
+    if not s2.get('now') or s2.get('afterRender') != s2.get('now'):
+        fails.append('%s: a redraw while the trade panel was open moved it from %r to %r' % (tag, s2.get('now'), s2.get('afterRender')))
     if not s2.get('escClosed'):
-        fails.append('%s: Escape did not close the sheet' % tag)
+        fails.append('%s: Escape did not close the trade panel' % tag)
     gl = res.get('glyph') or {}
     gt = by_key.get(gl.get('key'))
     if gt is None or (gl.get('opened') or {}).get('no') != gl.get('key') \
@@ -3466,7 +4274,16 @@ def _tl_cases(fixture):
            c('phone 390x844 MONO', 'phone', vp='phone390', th='mono')]
     w0 = c('widths %d to %d' % (TL_WIDTHS[0], TL_WIDTHS[-1]), 'width', wh=[TL_WIDTHS[0], 812])
     w0['widths'] = [[w, 812 if w < 700 else 900] for w in TL_WIDTHS]
-    return out + [w0]
+    # LEDGER step 9: the trade panel, a laptop and a phone in glass / paper / MONO, and at the widths named
+    pick = panel_pick(fixture)
+    for vp, th in PN_RUNS:
+        p = c('panel %s %s' % ('laptop 1366x768' if vp == 'laptop' else 'phone 375x812', th), 'panel', vp=vp, th=th)
+        p['pn'] = dict(pick, vp=vp, heavy=(th == 'glass'))     # the steps that redraw the board many times run on the glass laptop and phone
+        out.append(p)
+    pw = c('panel widths %d to %d' % (PN_WIDTHS[0], PN_WIDTHS[-1]), 'pwidth', wh=[PN_WIDTHS[0], 812])
+    pw['widths'] = [[w, 812 if w < 700 else 900] for w in PN_WIDTHS]
+    pw['pn'] = dict(pick, vp='laptop')
+    return out + [w0, pw]
 
 
 def _overnight_doc(fixture):
@@ -3507,6 +4324,10 @@ def _judge_tl(data, fixture, fails, unfinished, why):
             _judge_tl_phone(tag, res, doc, cs['vp'], cs['theme'], fails)
         elif sc == 'width':
             _judge_tl_width(tag, res, fails)
+        elif sc == 'panel':
+            _judge_tl_panel(tag, res, doc, cs, fails)
+        elif sc == 'pwidth':
+            _judge_tl_pwidth(tag, res, cs, fails)
 
 
 def _attempt(chrome, alt_index, fixture):
@@ -3525,8 +4346,8 @@ def _attempt(chrome, alt_index, fixture):
               'calMonth': c['cal'], 'today': c['today'], 'more': c['more'], 'calOpen': c['cal_open'], 'folds': c['folds'],
               'nowMs': et_ms(c['now'])}
              for c in _stats_cases(fixture)]
-    tls = [{'name': c['name'], 'scen': c['scen'], 'doc': c['doc'], 'vp': c['vp'], 'theme': c['theme'], 'today': c['today'], 'wh': c['wh'],
-            'widths': c.get('widths'), 'page': TL_PAGE} for c in _tl_cases(fixture)]
+    tls = [dict({'name': c['name'], 'scen': c['scen'], 'doc': c['doc'], 'vp': c['vp'], 'theme': c['theme'], 'today': c['today'], 'wh': c['wh'],
+                 'widths': c.get('widths'), 'page': TL_PAGE}, **(c.get('pn') or {})) for c in _tl_cases(fixture)]
     html = (PROBE_HTML.replace('__CASES__', json.dumps(CASES)).replace('__VP__', json.dumps(VIEWPORTS))
             .replace('__STATS__', json.dumps(stats)).replace('__TLS__', json.dumps(tls)).replace('__TLJS__', TL_JS)
             .replace('__NOW__', json.dumps(et_ms(FRESH_NOW))).replace('__VARS__', json.dumps(variants))
@@ -3953,6 +4774,16 @@ def _judge(data, fixture):
                          % (t0.get('frames'), t0.get('oldSeg'), t0.get('oldRows'), len(old_tr)))
         if collections.Counter(o2.get('oldTradeDays') or []) != collections.Counter((_close_day(t) or '') for t in old_tr):
             fails.append('oldboards: the old trade rows carry the wrong close day (data-qbday), so a calendar tap cannot land on them')
+        # LEDGER step 9: the board's own trade sheet is still what an old row opens, and no shared panel is drawn
+        osh = data.get('oldsheet') or {}
+        _errs('oldboards [sheet]', osh.get('errs') or {}, fails)
+        okey = osh.get('key')
+        ot0 = next((t for t in old_tr if row_key(t) == okey), None)
+        if ot0 is None or osh.get('title') != tl_sheet_title(ot0):
+            fails.append('oldboards: a tap on an old row did not open the old trade sheet for %r (title %r, want %r)'
+                         % (okey, osh.get('title'), tl_sheet_title(ot0) if ot0 else None))
+        if osh.get('panel') or not osh.get('closed'):
+            fails.append('oldboards: ?oldboards=1 draws the shared trade panel (%s node(s)) or its sheet did not close (%s)' % (osh.get('panel'), osh.get('closed')))
         ot = data.get('oldtable') or {}
         _errs('oldboards [Table]', ot.get('errs') or {}, fails)
         if ot.get('legs') is None:
@@ -4177,14 +5008,19 @@ def _report(t0, attempt, may_retry, chrome, alt_index, fixture):
                       for x in g.get('rows') or [])
     pg = ((((data.get('cases') or {}).get('phone/dark') or {}).get('lg') or {}).get('geo')) or {}
     tlp = (((data.get('tl') or {}).get('phone 375x812') or {}).get('list') or {}).get('geo') or {}
+    pnl_ = ((((data.get('tl') or {}).get('panel laptop 1366x768 glass') or {}).get('steps') or {}).get('open') or {}).get('read') or {}
+    pnp_ = ((((data.get('tl') or {}).get('panel phone 375x812 glass') or {}).get('steps') or {}).get('open') or {}).get('read') or {}
+    pnl_r, pnp_r = pnl_.get('rect') or {}, pnp_.get('rect') or {}
     print('WEBULLPROBE: PASS (VERSION=%s, %d cases + interaction + %d stats cases + %d trade list runs + %d freshness variants + oldboards, %.1fs; '
           'laptop chart %spx, %s dates, %s price labels, %s caveat days, marker %r; tiles %s; calendar %s %s; list %s, %s; '
-          'phone trade list %s px under the board top, its frame %s px (limit %d))'
+          'phone trade list %s px under the board top, its frame %s px (limit %d); '
+          'trade panel %sx%s px on a laptop, a sheet %sx%s px on a phone, %d panel runs + %d widths)'
           % (data.get('VERSION'), len(CASES), len(data.get('stats') or {}), len(data.get('tl') or {}), len(data.get('vars') or {}), elapsed, lap.get('chartH'),
              lap.get('chartDates'), lap.get('chartTicks'), lap.get('chartBands'), lap.get('markText'),
              ' | '.join('%s %s' % (x[0], x[1]) for x in (lap.get('stats') or [])),
              cal0.get('title'), (cal0.get('sum') or '').split(' · ')[0], lg0.get('count'), book,
-             (pg.get('histTop') or 0) - (pg.get('shellTop') or 0), tlp.get('frameTop'), TL_FRAME_TOP_MAX))
+             (pg.get('histTop') or 0) - (pg.get('shellTop') or 0), tlp.get('frameTop'), TL_FRAME_TOP_MAX,
+             pnl_r.get('w'), pnl_r.get('h'), pnp_r.get('w'), pnp_r.get('h'), len(PN_RUNS), 2 * len(PN_WIDTHS)))
     if first:
         print('  FLAKE: attempt 1 did not pass on this same file, the retry did. It said:')
         for f in first[1][:4]:
