@@ -41,6 +41,7 @@ FUNDS = ("SPY", "QQQ", "TLT", "XLF", "XLU", "XLV", "XLP", "XLI", "XLY", "XLK")
 SIDE_USD, K, LOOK = 50_000.0, 3, 60
 BPS, STRESS = (5.0, (10.0, 20.0))
 WF0, WF1 = pd.Timestamp("2016-07-01"), pd.Timestamp("2025-06-29")
+EXD = {}
 HALVES = [(WF0, pd.Timestamp("2021-12-31")), (pd.Timestamp("2022-01-01"), WF1)]
 NULL_DRAWS, SEED = 1000, 20261006
 PREREG = "docs/PREREG_skewreal_r1_2026-10-06.md"
@@ -166,6 +167,36 @@ def book(days, recs, hold, keys=None, overlay=True, bps=BPS, side=0):
     return X, names
 
 
+def exdiv_sessions(days):
+    """MANAGER #71 report: a CALENDAR PROXY for ex-dividend sessions (no dividend data is held). TLT: the first session
+    of each month (iShares bond funds go ex on the first business day). XLU / XLP: the first session after the third
+    Friday of March, June, September and December (the Select Sector SPDRs' quarterly ex-dates)."""
+    d = pd.DatetimeIndex(days)
+    s = pd.Series(np.arange(len(d)), index=d)
+    tlt = set(s.groupby(d.to_period("M")).min().to_numpy())
+    q = set()
+    for y in range(d[0].year, d[-1].year + 1):
+        for m in (3, 6, 9, 12):
+            fr = pd.date_range(pd.Timestamp(y, m, 1), periods=31, freq="D")
+            third = fr[fr.dayofweek == 4][2]
+            after = np.flatnonzero(d > third)
+            if len(after):
+                q.add(int(after[0]))
+    return {2: tlt, 4: q, 6: q}
+
+
+def exdiv_weeks(recs):
+    """Indices of primary weeks that held TLT / XLU / XLP (real sort, either side) across a proxy ex-date in (e, exit]."""
+    out = []
+    for i, r in enumerate(recs):
+        el = np.flatnonzero(r["ok"])
+        o = el[np.argsort(r["sk"][el], kind="stable")]
+        held = set(o[:K]) | set(o[-K:])
+        if any(f in held and any(r["e"] < d <= r["xe"] for d in EXD[f]) for f in EXD):
+            out.append(i)
+    return out
+
+
 def to_book(days, x, bdays):
     return pd.Series(x, index=pd.DatetimeIndex(days)).reindex(bdays, fill_value=0.0).to_numpy()
 
@@ -198,6 +229,7 @@ def main(argv):
         return
     rng = np.random.default_rng(SEED)
     R1, R2 = prep(P, W, 1), prep(P, W, 2)
+    EXD.update(exdiv_sessions(days))
     if "--power" in argv:
         x, _ = book(days, R1, 1, keys=rng.random((1, len(W), len(FUNDS))))
         print("POWER LINES (one label-shuffled book on the primary's schedule; no real sort is computed)")
@@ -259,6 +291,12 @@ def main(argv):
         x, nm = book(days, R1, 1, **kw)
         s = stats(days, x, bdays, years)[1]
         print("  %-42s net $%9s  own ROC@30k %6.2f  Sortino %5.2f" % (lab, format(int(s["net"]), ","), s["roc"], s["sort"]))
+    flag = exdiv_weeks(R1)
+    keep = [r for i, r in enumerate(R1) if i not in set(flag)]
+    s_nd = stats(days, book(days, keep, 1)[0], bdays, years)[1]
+    print("  REPORT (MANAGER #71) without the %d of %d weeks that held TLT / XLU / XLP across a PROXY ex-date: net $%s, own "
+          "ROC@30k %.2f (all weeks $%s)" % (len(flag), len(R1), format(int(s_nd["net"]), ","), s_nd["roc"],
+                                           format(int(pr["st"]["net"]), ",")))
     print("  cost curve, primary net at 0 / 5 / 10 / 20 bps a side: %s" % " / ".join(
         "$" + format(int(stats(days, book(days, R1, 1, bps=b)[0], bdays, years)[1]["net"]), ",") for b in (0, 5, 10, 20)))
     for a, b in HALVES:

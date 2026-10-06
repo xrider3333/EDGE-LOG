@@ -106,3 +106,14 @@ Stress at 10 and 20.
   Auto-Validate on a RANGED file: 900 trials over the lookback, K and the hold, lockbox veto-only. Then a RUNBOARD row.
 - **FAIL:** dead; no other moment, universe or hold. Ledger row, TTM.md note, RUNBOARD research row (family MISC).
 - Nothing live or in the adopted book changes without the owner.
+
+## AMENDMENT 1 - MANAGER #71 (2026-10-06 12:36 MST, GO as drafted), written in before any real-sort return
+- **The ex-dividend weeks of TLT / XLU / XLP, as a REPORT.**
+  - No dividend data is held, so ex-dates come from a CALENDAR PROXY:
+    - TLT: the first session of each month (iShares bond funds go ex on the first business day);
+    - XLU / XLP: the first session after the third Friday of March / June / September / December (the Select Sector
+      SPDRs' quarterly ex-dates).
+  - A primary week is flagged when it held TLT, XLU or XLP (either side) across a proxy ex-session in (entry, exit]:
+    108 of 468 weeks (counted from the schedule only).
+  - The report prints the net and own ROC@$30k without those weeks, beside the full book. It decides nothing.
+- Unchanged: a power-bound fail is a research row; the verdict is posted in one line with the power line beside it.
