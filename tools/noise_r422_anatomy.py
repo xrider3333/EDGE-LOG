@@ -105,7 +105,7 @@ def build():
             unit=unit * R.M, sized=pnl * R.M, size=s,
             B1_hour="a 09:40-10:25" if hm < 630 else ("b 10:30-13:55" if hm < 840 else "c 14:00-15:55"),
             B2_exit=kind, B2_hold="a <=3 bars" if k1 - k0 <= 3 else ("b 4-12 bars" if k1 - k0 <= 12 else "c >12 bars"),
-            mfe=mfe, mae=mae, room=abs(C[ks] - vw[ks]) / C[ks] * 1e4,
+            mfe=mfe, mae=mae, room=abs(C[ks] - vw[ks]) / C[ks] * 1e4, room_pts=abs(C[ks] - vw[ks]),
             B3_gap=abs(dO[si] / prevC[si] - 1) * 100 if prevC[si] == prevC[si] else np.nan,
             B3_shape="trend up" if clv[si] >= 0.8 else ("trend down" if clv[si] <= 0.2 else "range"),
             B3_event="FOMC" if d in fomc else ("CPI" if d in cpi else ("NFP" if d in nfp else "none")),
@@ -119,10 +119,11 @@ def build():
     T["B3_volpct"] = pd.cut(T.B3_volpct, [-1, 1 / 3, 2 / 3, 2], labels=["a low", "b mid", "c high"]).astype(str)
     T["B5_order"] = T.B5_order.clip(upper=3).map({1: "a first", 2: "b second", 3: "c third+"})
     T["B4_2022"] = np.where(T.year == 2022, "2022", "other years")
+    T["X_hour_order"] = T.B1_hour.str[:1] + T.B5_order.str[:1] + " " + T.B1_hour.str[2:] + " | " + T.B5_order.str[2:]
     return T
 
 
-INTRADAY = ("B1_hour", "B2_room", "B3_squeeze", "B5_order")
+INTRADAY = ("B1_hour", "B2_room", "B3_squeeze", "B5_order", "X_hour_order")   # X = amendment 1 (MANAGER review)
 DAYLEVEL = ("B3_gap", "B3_shape", "B3_event", "B3_volpct", "B4_state")
 NO_NULL = ("B4_2022",)                                               # a year split: no within-year null exists
 DESCRIPTIVE = ("B2_exit", "B2_hold")                                  # outcomes, no null
@@ -189,8 +190,15 @@ def main(argv):
             print("  %-12s %s" % (c, "; ".join("%s %.0f .. %.0f" % (k, a, b) for k, (a, b) in sorted(bands[c].items()))))
         return
     for c in ("B1_hour", "B2_exit", "B2_hold", "B2_room", "B3_gap", "B3_shape", "B3_event", "B3_volpct", "B3_squeeze",
-              "B4_state", "B4_2022", "B5_order"):
+              "B4_state", "B4_2022", "B5_order", "X_hour_order"):
         table(T, c, bands.get(c))
+    # amendment 1 (MANAGER review of the prereg): single-trade sessions, and room to pay in NQ points
+    per = T.groupby("session").size()
+    single = T.session.map(per).eq(1)
+    print("\nsingle-trade sessions: %d of %d sessions; %.1f%% of trades, %.1f%% of unit $ (the intraday nulls cannot shuffle "
+          "these)" % (int((per == 1).sum()), len(per), 100 * single.mean(), 100 * T.unit[single].sum() / T.unit.sum()))
+    print("room to pay in NQ points (median per tercile): %s" % ", ".join(
+        "%s %.1f pt (%.1f bps)" % (k, g.room_pts.median(), g.room.median()) for k, g in T.groupby("B2_room")))
     print("\nB2 best / worst point (NQ points, medians): winners MFE %.1f MAE %.1f | losers MFE %.1f MAE %.1f" % (
         T[T.unit > 0].mfe.median(), T[T.unit > 0].mae.median(), T[T.unit <= 0].mfe.median(), T[T.unit <= 0].mae.median()))
 

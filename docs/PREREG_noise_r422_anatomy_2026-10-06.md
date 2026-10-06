@@ -77,3 +77,19 @@ look for. Rules mined this way were regime artifacts (ledger 2.1), so:
 - One mechanism sentence, the tables, a NOISE.md section and a RUNBOARD research row (report). Nothing passes or fails.
 - The sentence re-ranks the habitat queue only through the scope doc, with MANAGER's review.
 - Then IWM (07:00 per MANAGER #64) and the QQQ calibration second.
+
+## AMENDMENT 1 - MANAGER review (GO at 21:05 with two additions), 2026-10-05 ~20:35 MST, before any real table
+1. **X - hour x break order, 3 x 3,** with the within-session null on the combined tag. The mechanism sentence is
+   written FROM THIS TABLE, not from the B1 / B5 margins.
+   - Null band (printed before the run), unit $/trade, 5-95%:
+
+     | Hour | first | second | third+ |
+     |---|---|---|---|
+     | 09:40-10:25 | 201 .. 265 | -117 .. 104 | -329 .. 104 |
+     | 10:30-13:55 | 218 .. 291 | -69 .. 93 | -39 .. 34 |
+     | 14:00-15:55 | 163 .. 163 | -103 .. 166 | -31 .. 54 |
+
+   - **Disclosed:** the late "first" cell's band is degenerate (163 .. 163). Every session in it has a single trade in that
+     cell, so the null cannot move it. Read that cell without a null.
+2. **Single-trade sessions:** their share of trades and of unit dollars (the intraday nulls cannot shuffle them).
+3. **Room to pay in NQ points** beside the % of price: the median points per tercile.
