@@ -74,7 +74,7 @@ C:\EdgeLog\custom_ml\REVIEW_noise_hedge_tilt_by_NOISE_2026-10-05.md. Changes, al
    ENGU-Q long; flat long; flat short), mean $ per trade by side in each state, and the placebo spread (the smallest
    lead the test can resolve).
 8. **Live note:** this would apply to the #422 PAPER leg and the paper book, which knows ENGU-Q's paper position; the
-   live Webull NOISE is #382 + KEEL on one netted QQQ account with per-leg caps (20 / 40), where a short against a
+   live Webull NOISE is #382 + KEEL on one netted QQQ account with per-leg caps (20 / 40) [CORRECTION 2026-10-05, MANAGER assessment: 60 a leg / 80 total since 2026-09-24], where a short against a
    long nets and 1.5x is truncated. A pass changes nothing live without the owner.
 9. **After a pass:** a BOOK run only if the book engine can express a per-trade size from another leg's position
    (Frontier says which); otherwise a forward no-order shadow book line with the paired early stop. The RUNBOARD

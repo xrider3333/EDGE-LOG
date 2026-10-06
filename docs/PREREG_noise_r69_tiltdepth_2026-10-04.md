@@ -67,5 +67,5 @@ and #422 stays at 1.75x.
 
 ## Not read (edit 7) and live (edit 8)
 The 2026-07-16 .. 09-16 tail is read in neither stage (an INFO row at most, after everything else is written). Webull's
-per-leg caps (20 shares a leg, 40 total) would truncate a 2.25x tilt, so any live effect is smaller than the test; a pass
+per-leg caps (20 shares a leg, 40 total) [CORRECTION 2026-10-05, MANAGER assessment: the caps were raised to 60 a leg / 80 total on 2026-09-24 - the box configs and the forward-log columns carry 60 / 80; the original text is kept] would truncate a 2.25x tilt, so any live effect is smaller than the test; a pass
 changes nothing live or in the book without the owner.

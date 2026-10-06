@@ -259,6 +259,8 @@ live still runs a rule that was never validated. Owner call: give the live engin
 backtest, or accept the 68-session rule (it would need its own validate before anyone calls it better; the edge here
 was read on the same years).
 
+**UPDATE 2026-10-05 (MANAGER assessment) - this paragraph is history.** Since 2026-09-28 the live engine ranks yesterday's range against 262 sessions (built from QQQ daily ranges), matching the backtest's 252-session rule; the 68-session window above no longer runs anywhere (the Alpaca QQQ 5-minute backfill for it was parked 09-27). Webull's share caps are 60 a leg / 80 total since 2026-09-24 (box configs, forward-log columns base 10 / 60 / 80); older notes and preregs that say 20 / 40 are stale.
+
 **Tilt guard C4 (rebuilt db49235).** Round 60's only guard read was the earnings calendar and it already ran on the
 rebuilt C4 (its printout shows the new gross-share test); it failed on money in the lockbox, the uniform control, and
 both permutations, none of which C4 touches. The two round-60 validates were judged on their files' own bars, not the
