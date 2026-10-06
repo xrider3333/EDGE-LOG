@@ -2,8 +2,8 @@
 """NOISE on IWM, own crown - Stage A (docs/PREREG_noise_iwm_r1_2026-10-06.md; scope rank 2, MANAGER #57 / #63 / #64).
 
 The NOISE mechanism (NOISE_1_0.py: noise-area break, VWAP exit, bandwidth stop, flat at the close, both sides, decisions
-on bar closes; the crown's two banked filters ON - skip shorts after a weak prior close, skip the day after a top-5% prior
-range) on IWM 5m RTH (Alpaca split-adjusted, the TRANSFER r2 master), with IWM's OWN settings from a frozen 54-cell grid:
+on bar closes; the crown's two banked filters ON, INHERITED from NQ - skip shorts after a weak prior close, skip the day after a
+top-5% prior range; a twin row prints the crown with both OFF) on IWM 5m RTH (Alpaca split-adjusted, the TRANSFER r2 master), with IWM's OWN settings from a frozen 54-cell grid:
   lookback 20 / 40 / 60  x  band_mult_long 0.5 / 0.75 / 1.0  x  band_mult_short 0.75 / 1.0 / 1.5  x  stop_k 1.25 / 1.75
 Unit = floor($100,000 / IWM's 2016-06-30 close) shares; cost $0.02 a share round trip charged per share AS TRADED
 (TRANSFER r2 addendum 2). Walk-forward stretch only: exit dates 2016-07-01 .. 2025-06-29; nothing after 2025-06-29 loads.
@@ -141,6 +141,28 @@ def main(argv):
         hp = h.pnl[h.pnl > 0].sum() / -h.pnl[h.pnl < 0].sum() if (h.pnl < 0).any() else np.inf
         print("  REPORT %-11s n %5d  net $%10s  PF %.3f" % (lab, len(h), format(int(h.pnl.sum()), ","), hp))
     print("  REPORT per July-June year $: %s" % ", ".join(format(int(v), ",") for v in yrs))
+    # amendment 1 (MANAGER review): notional per year, trades per year, realised cost in bps, the inherited filters OFF,
+    # and how often the range filter had under 252 sessions of history
+    notional = df.px.to_numpy() * unit * df.ratio.to_numpy() / df.ratio.to_numpy()      # split-adjusted px x unit
+    fy = np.where(df.date.dt.month >= 7, df.date.dt.year, df.date.dt.year - 1)
+    print("  REPORT per July-June year: trades / mean notional a trade: %s" % ", ".join(
+        "%d: %d / $%s" % (y, int((fy == y).sum()), format(int(notional[fy == y].mean()), ",")) for y in range(2016, 2025)
+        if (fy == y).any()))
+    cost_usd = R8.COST * unit * df.ratio.to_numpy()
+    print("  REPORT trades a year %.0f; realised cost %.1f bps of notional a round trip (median %.1f)" % (
+        n / years, 1e4 * cost_usd.sum() / notional.sum(), float(np.median(1e4 * cost_usd / notional))))
+    off = dict(params(best), daytype_mode="off", vol_skip_pct=0.0)
+    dfo = R8.run_leg(dict(leg(best, unit, R8.COST), params=off), R8.D0, R8.PRE, a5)
+    dfo = R8.as_traded(dfo, q, unit)
+    dfo = dfo[(dfo.date >= R8.WF0) & (dfo.date < R8.LB0)]
+    so = HH.own(daily(dfo, bdays), bdays)
+    print("  TWIN crown with both INHERITED NQ filters OFF: n %d  net $%s  own ROC@30k %.2f  Sortino %.2f" % (
+        len(dfo), format(int(so["net"]), ","), so["roc"], so["sort"]))
+    sess = pd.DatetimeIndex(sorted(set(pd.DatetimeIndex(a5["index"]).tz_localize(None).normalize())))
+    wfs = sess[(sess >= R8.WF0) & (sess < R8.LB0)]
+    pos = sess.get_indexer(wfs)
+    print("  REPORT WF sessions whose range filter had < 252 prior sessions: %d of %d (%.1f%%)" % (
+        int((pos < 252).sum()), len(wfs), 100 * (pos < 252).mean()))
     for bps in COST_BPS:
         g = df.pnl.to_numpy() + R8.COST * unit * df.ratio.to_numpy()
         cst = bps / 1e4 * df.px.to_numpy() * unit

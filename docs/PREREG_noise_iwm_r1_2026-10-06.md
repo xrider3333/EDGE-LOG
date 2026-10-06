@@ -59,3 +59,12 @@ IWM's OWN settings?
 - **FAIL:** recorded dead, with no variants.
 - **Either way:** a RUNBOARD research row (ROC@$30k and drawdown) and a ledger row.
 - **Next:** the QQQ calibration (scope rank 2 after IWM, MANAGER #63).
+
+## AMENDMENT 1 - MANAGER review (GO WITH EDITS for 07:00), 2026-10-05 ~20:40 MST, before any real-direction run
+- **The two filters are INHERITED from NQ:** skip shorts after a weak prior close, and skip the day after a top-5% prior
+  range. They were tuned on NQ, not IWM. A TWIN ROW prints the crown cell with both OFF. It is a report, not a bar.
+- **Reported:** the share of WF sessions whose range filter had under 252 prior sessions of history (data start
+  2016-01-04).
+- **Per July-June year:** the trade count and the mean notional a trade, beside the per-year dollars.
+- **At the crown:** trades a year, and the realised cost in bps of notional a round trip (total and median).
+- Unchanged: grid, null, bars, power line.
