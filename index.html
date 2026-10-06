@@ -1237,7 +1237,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1117';
+const VERSION='73.1118';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1255,7 +1255,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1117',date:'2026-10-06',notes:['LEDGER step 11 on REAL: the board now reads in ONE fixed order at every width: the hero, the range pills with the EQUITY or P&L switch, the equity chart, the four stat tiles, More stats, the calendar, the accounts, the trade list (with its panel), then the board own sections. Before, the phone moved things about with a separate order and the laptop kept another.','Every own section is now a closed fold with ONE line that says what is inside: PASTE A SNAPSHOT LINK (where the next link goes), SHOULD HAVE TRADED (how many setups, the newest), DEPOSITS (events and the net), AI ASSESSMENT (the last 20 trades in a line) and JOURNAL (entries and the newest date). Each fold remembers open or closed on this browser, and a paste note or a setup form in the making opens its fold by itself. The NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL buttons stay with the list, and nothing was removed.','One set of screen widths: the board own rules now use only 600 (phone), 740, 800 and 920 (list cells) and 1100. The SIMPLE table brings its columns back at 740, 920 and 1100 (were 700, 900 and 1010), the calendar opens by default above 600 (was 760), and the phone trade list starts no lower than before. ?oldboards=1 is unchanged.']},{v:'73.1116',date:'2026-10-06',notes:['SCORES: 4 trades from 2026-10-05, 2026-10-06 scored, 0 marked NA (no price data).']},{v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
+const CHANGELOG=[{v:'73.1118',date:'2026-10-06',notes:['LEDGER step 11 on NT8 PAPER: one page order, top to bottom - the hero, the range pills, the chart, the four tiles, the More stats fold, the calendar fold, the strategy list, the trades list, then the board own sections. Every own section is now a closed fold with a one-line summary in its header and is remembered open or closed in your browser: the status chips (a single line that keeps every warning count, with REFRESH beside it), the 10s capture, NinjaTrader detail, the cross-engine check, the gate audit and the daily reports. On a phone and a tablet the strategy list is a fold too (closed on a phone), so the trades still start within one screen.','One set of breakpoints: 600 for the phone, 740, 800 and 920 for the trade list cells, 1100 for the two-column page; the calendar now opens by default above 600 px (it was 760). Nothing was removed: the tick boxes and OPEN N CHARTS, the strategy filters and switches, the trade panel, the calendar day click and REFRESH all stay. ?oldboards=1 still draws the previous board, unchanged.']},{v:'73.1116',date:'2026-10-06',notes:['SCORES: 4 trades from 2026-10-05, 2026-10-06 scored, 0 marked NA (no price data).']},{v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
+{v:'73.1117',date:'2026-10-06',notes:['LEDGER step 11 on REAL: the board now reads in ONE fixed order at every width: the hero, the range pills with the EQUITY or P&L switch, the equity chart, the four stat tiles, More stats, the calendar, the accounts, the trade list (with its panel), then the board own sections. Before, the phone moved things about with a separate order and the laptop kept another.','Every own section is now a closed fold with ONE line that says what is inside: PASTE A SNAPSHOT LINK (where the next link goes), SHOULD HAVE TRADED (how many setups, the newest), DEPOSITS (events and the net), AI ASSESSMENT (the last 20 trades in a line) and JOURNAL (entries and the newest date). Each fold remembers open or closed on this browser, and a paste note or a setup form in the making opens its fold by itself. The NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL buttons stay with the list, and nothing was removed.','One set of screen widths: the board own rules now use only 600 (phone), 740, 800 and 920 (list cells) and 1100. The SIMPLE table brings its columns back at 740, 920 and 1100 (were 700, 900 and 1010), the calendar opens by default above 600 (was 760), and the phone trade list starts no lower than before. ?oldboards=1 is unchanged.']},{v:'73.1116',date:'2026-10-06',notes:['SCORES: 4 trades from 2026-10-05, 2026-10-06 scored, 0 marked NA (no price data).']},{v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
 {v:'73.1114',date:'2026-10-06',notes:['LEDGER step 9 on WEBULL PAPER: a click on a trade row now opens the shared trade panel (a panel on the right on a laptop, a sheet from the bottom on a phone) in place of the old sheet. Header: the strategy with its run number, the side, the entry day, entry to exit time, the shares, the BOOK ONLY, FILL GAP, EOD and BOOK PRICE chips and the signed P&L of record.','Chart: the same QQQ candles the chart glyph opens, with EXPAND. Numbers: prices and Webull fills, hold time, P&L of record, running total, real P&L, slip, fill coverage and the fill breakdown. Notes: read-only, with the exit reason, the flags in words and the KEEL size note. OPEN CANDLES is the one action, and nothing in the panel changes a trade.','Esc, a tap outside it or the close button shut it, and a closed panel takes no room. The open trade stays open through SHOW MORE, a search, a chip, LIST and TABLE and the board redraw every few seconds. ?oldboards=1 keeps the old sheet.']},
 {v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
 {v:'73.1102',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
@@ -5298,6 +5299,27 @@ window._gateChipTimer=window._gateChipTimer||setInterval(loadGateChip,300000);
 
 // ── PAPER (live forward-test) — one-shot fetch, NOT a listener (Spark quota). Cached in
 //    window._paperTrades/_paperReports; the PAPER tab's REFRESH button forces a re-fetch.
+// ── LEDGER step 11 (NT8 PAPER): the board own sections are closed folds with a one-line summary in the header. Open / closed is remembered per
+//    browser in localStorage (el_lg_<fold>_nt8: 1 open, 0 closed - the same naming as the other NT8 choices), always inside try / catch; no stored
+//    choice = the old card state (window._p2Open, from the saved prefs), else the default the board passes. Board scoped: the shared parts have no fold.
+function p2FoldGet(key,dflt){
+  try{const v=localStorage.getItem('el_lg_'+key+'_nt8');if(v==='1'||v==='0')return v==='1';}catch(e){}
+  try{const m=window._p2Open;if(m&&typeof m[key]==='boolean')return m[key];}catch(e){}
+  return !!dflt;
+}
+function p2FoldSet(key,on){
+  try{localStorage.setItem('el_lg_'+key+'_nt8',on?'1':'0');}catch(e){}
+  try{const m=window._p2Open||(window._p2Open={});m[key]=!!on;}catch(e){}
+}
+// open or close one fold IN PLACE (no redraw): the header state, the body and the remembered choice (the chevron turns by its own css)
+function p2FoldApply(btn,on){
+  try{
+    const key=btn.getAttribute('data-p2card'),sec=btn.closest('[data-p2fold]'),body=sec?sec.querySelector('.p2fold-body'):null;
+    btn.setAttribute('aria-expanded',on?'true':'false');
+    if(body)body.hidden=!on;
+    p2FoldSet(key,on);
+  }catch(e){}
+}
 // ── ALL PAPER TRADES (LEDGER step 3, owner 2026-10-03). The board used to read only the newest 500 trade
 //    docs, so "All" covered ~3 weeks of ~1000 trades. Reading every trade doc on every open would burn the
 //    Firestore read quota (50k a day, shared), so the nightly run (api/paper_bundle.py) writes ONE compact
@@ -42523,8 +42545,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _rhX=i=>_rhN<=1?50:(i/(_rhN-1))*100;          // percent of the chart width
       const _rhY=v=>(1-(v-_rhMin)/_rhRng)*100;             // percent of the chart height
       const _rhChart=(()=>{
-        if(_p2New&&_rhN)return '<div class="hm-chart-wrap" id="p2-chart"></div>';
-        if(!_rhN)return '<div class="p2rhempty">'+((_p2New&&_allDates.length)?'NO CLOSED TRADES IN THIS RANGE':('NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START))+'</div>';
+        if(_p2New&&_rhN)return '<div class="p2cw" id="p2-chart" data-p2sec="chart"></div>';
+        if(!_rhN)return '<div class="p2rhempty"'+(_p2New?' data-p2sec="chart"':'')+'>'+((_p2New&&_allDates.length)?'NO CLOSED TRADES IN THIS RANGE':('NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START))+'</div>';
         // The SVG stretches to the box (preserveAspectRatio none) so the chart can take a
         // share of the screen HEIGHT; strokes stay crisp through vector-effect, and every
         // label is HTML positioned in percent so text never stretches with it.
@@ -42560,7 +42582,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           aria:'NT8 paper, BOOK #'+_bookRun+' cumulative P and L, '+(LEDGER_RANGE_LABEL[_pcw]||_pcw),
           lines:_winSeries.map(sr=>({name:sr.label,color:sr.color,vals:[0].concat(_chIdx.map(i=>sr.vals[i])),on:!_lgOff[sr.label]}))};
       }
-      const _rhTabs=_p2New?('<div class="hm-range-row" data-p2range>'+ledgerRangePillsHtml(_pcw,'data-pcwin')
+      const _rhTabs=_p2New?('<div class="p2ctl" data-p2range data-p2sec="pills">'+ledgerRangePillsHtml(_pcw,'data-pcwin')
           +'<span class="p2rhkey">bold line = the book legs together \u00b7 faint lines = each leg \u00b7 hover the chart to scrub</span></div>')
         :(PSCOPE==='TODAY')?''
         :('<div class="p2rhtabs">'+['1W','1M','ALL'].map(w=>'<span data-pcwin="'+w+'"'
@@ -44110,6 +44132,69 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +(on?('<div style="padding:4px 14px 14px">'+inner+'</div>'):'')
             +'</div>';
         };
+        // ══ LEDGER step 11 (NT8 PAPER, new layout only): every section that is the board own is a CLOSED fold with a ONE-LINE summary in its header:
+        // the status chips (in the hero), the 10s capture, NinjaTrader detail, the cross-engine check, the gate audit, the daily reports and, on a
+        // page narrower than the two-column one, the strategy list. The fold is the shared .lg-more button (title, summary, chevron) like REAL. A closed
+        // body is still in the page (hidden), so every chip, table and switch in it exists: nothing was removed, only folded. Open / closed is
+        // remembered per browser (p2FoldGet / p2FoldSet). ?oldboards=1 keeps the old cards.
+        const _p2Xs=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const _p2Plain=h=>String(h==null?'':h).replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
+        const _p2Fold=(key,title,sum,body,o)=>{
+          o=o||{};
+          const on=p2FoldGet(key,o.open);
+          const tip=_p2Xs(o.tip!=null?o.tip:_p2Plain(sum).replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&amp;/g,'&'));
+          return '<div class="p2own'+(o.cls?(' '+o.cls):'')+'"'+(o.sec===false?'':(' data-p2sec="'+(o.sec||key)+'"'))+' data-p2fold="'+key+'">'
+            +'<div class="p2fold-row">'
+              +'<button type="button" class="lg-more p2fold-hd" data-p2card="'+key+'" aria-expanded="'+(on?'true':'false')+'" aria-controls="p2fold-'+key+'" title="'+tip+'">'
+                +'<span class="p2fold-t">'+title+'</span><span class="p2fold-sum" data-p2sum="'+key+'">'+sum+'</span><span class="lg-chev" aria-hidden="true">&#9662;</span>'
+              +'</button>'+(o.act?('<span class="p2fold-act">'+o.act+'</span>'):'')
+            +'</div>'
+            +'<div class="lg-more-panel p2fold-body" id="p2fold-'+key+'"'+(on?'':' hidden')+'>'+body+'</div>'
+          +'</div>';
+        };
+        // a page section marker, for the sections that are shared parts (their own markup has none)
+        const _p2Sec=(k,h)=>'<div data-p2sec="'+k+'">'+h+'</div>';
+        // the bridge snapshot as three short states, and how old it is
+        const _p2StatTok=(()=>{
+          const B=window._ntBridge;
+          const rt=(B&&B.up)?(B.strategies||[]).filter(x=>String(x.state)==='Realtime').length:0;
+          const nStrat=(B&&B.up)?(B.strategies||[]).length:0;
+          const held=(B&&B.up)?(B.positions||[]).length:0;
+          const G=(B&&B.gate)||{};
+          return [!B?'no snapshot':(rt+' / '+nStrat+' live'),held?(held+' open'):'flat',!G.up?'gate down':(G.error?'gate partial':'gate up')];
+        })();
+        const _p2SumNt=(()=>{
+          const B=window._ntBridge;
+          if(!B)return 'no snapshot yet';
+          let age=null;
+          if(B.checked_at){const m=Math.floor((Date.now()-Date.parse(String(B.checked_at).replace(' ','T')+'Z'))/60000);if(isFinite(m))age=Math.max(0,m);}
+          return _p2StatTok.join(' \u00b7 ')+(age!=null?(' \u00b7 seen '+(age<1?'just now':(age+'m ago'))):'');
+        })();
+        const _p2SumCap=(()=>{
+          const ch=(_pr.find(r=>r&&r.capture_health&&typeof r.capture_health==='object')||{}).capture_health;
+          const p=[];
+          if(ch)['NQ','ES'].forEach(i=>{
+            const rec=ch[i];if(!rec)return;
+            const r=rec.rth;
+            if(!r){p.push(i+' n/a');return;}
+            const bad=(+r.bars_pct<90)||(+r.delta_pct<80);
+            p.push(i+' delta '+Math.round(+r.delta_pct)+'%'+(bad?' \u26a0 LOW':''));});
+          if(_dataWarn.length)p.push(_dataWarn.length+' feed warning'+(_dataWarn.length===1?'':'s'));
+          return p.join(' \u00b7 ');
+        })();
+        const _p2SumRec=(()=>{
+          if(!_rec)return 'not run in the latest report';
+          if(_rec.error)return 'failed';
+          const pr=(_rec.verdict&&Array.isArray(_rec.verdict.problems))?_rec.verdict.problems:[];
+          return (pr.length?(pr.length+' problem'+(pr.length===1?'':'s')):'no problems')+((_recRep&&_recRep.id)?(' \u00b7 report '+_p2Xs(String(_recRep.id).slice(5))):'');
+        })();
+        const _p2SumGate=_gaVerdict?(_p2Xs(_gaVerdict.txt)+(_gaSub?(' \u00b7 '+_p2Xs(_gaSub)):'')):_p2Xs(_gaSub||'not audited');
+        const _p2SumRep=(()=>{
+          if(!_pr.length)return 'no reports yet';
+          const r=_pr[0]||{},bk=(r.book&&r.book.pnl_usd!=null)?+r.book.pnl_usd:null;
+          return _pr.length+' night'+(_pr.length===1?'':'s')+' \u00b7 newest '+_p2Xs(String(r.id||'').slice(5))
+            +(bk!=null?(' \u00b7 BOOK <span class="'+ledgerCls(bk)+'"><span aria-hidden="true">'+(bk>=0?'\u25b2':'\u25bc')+'</span> '+ledgerSigned(bk)+'</span>'):'');
+        })();
         // ONE-LINE STATUS. Reads the same bridge snapshot the big card does.
         // STATUS CHIPS in the top bar (Robinhood x iOS, owner 2026-09-08). Totals moved
         // into the hero, so this strip only says what is running.
@@ -44117,6 +44202,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // closed card (or in a line a long way from the number) also shows as a chip in the hero status row, so a
         // problem is never hidden behind a closed card. A chip opens the card that explains it. State is carried
         // by the warning sign and the words, not by colour alone (MONO theme has no hue).
+        let _p2WarnList=[];
         const _p2WarnChips=(()=>{
           const W=[];
           const add=(card,txt,tip)=>W.push({card:card,txt:txt,tip:tip||txt});
@@ -44189,6 +44275,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const bf=((LR.book||{}).failed||[]);
             if(bf.length)add('','Book legs failed: '+bf.join(', '),'These book legs raised an error in the nightly run, so the book figure counted them as $0.');
           }
+          _p2WarnList=W;
           return W.map(w=>'<span class="'+(_p2New?'lg-chip':'p2chip')+' p2warn"'+(w.card?(' data-p2warn="'+w.card+'"'):'')+' title="'+_wx(w.tip)+(w.card?' (click to open the card)':'')+'" style="'+(w.card?'cursor:pointer':'')+'"><span class="p2dot" style="background:#e0a33a"></span>\u26a0 '+_wx(w.txt)+'</span>').join('');
         })();
         const _p2Status=(()=>{
@@ -44208,6 +44295,33 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +chip(!G.up?'Gate down':(G.error?'Gate partial':'Gate up'),gCol,
                   (G.error||'The ML gate service is answering and every model loaded.'))
             +_wdSw;
+        })();
+        // STATUS FOLD: the whole chips row folds to ONE line. The warnings come first, each with its own count (Recon 9, Fills 1 ...), so a problem is
+        // never behind the fold; then the three states. REFRESH stays on the line (an action, never folded). The chips are the fold body.
+        const _p2WShort=t=>{
+          const s=String(t||'').replace(/^[^A-Za-z0-9]+/,'');
+          const R=[[/^Load error.*$/,'Load error'],[/^Trade history: newest (\d+) only$/,'History $1'],[/^Trade history incomplete$/,'History short'],
+            [/^No nightly report loaded$/,'No report'],[/^Nightly report stale: last (.+)$/,'Stale'],[/^NinjaTrader heartbeat stale (\d+)m$/,'Heartbeat $1m'],
+            [/^NinjaTrader bridge down$/,'Bridge down'],[/^9am preflight: (\d+) problems?$/,'Preflight $1'],[/^NinjaTrader alert: (.+)$/,'NT $1'],
+            [/^Gate models (\d+)d old$/,'Gate models $1d'],[/^Fills log: (\d+) warnings?$/,'Fills $1'],[/^No reconcile in the latest report$/,'No recon'],
+            [/^Reconcile failed$/,'Recon failed'],[/^Reconcile: (\d+) problems?$/,'Recon $1'],[/^Data feed: (\d+) warnings?$/,'Feed $1'],
+            [/^Strategy run failed:.*$/,'Run failed'],[/^Gate failed: (\d+) .*$/,'Gate failed $1'],[/^Book legs missing:.*$/,'Legs missing'],[/^Book legs failed:.*$/,'Legs failed']];
+          for(let i=0;i<R.length;i++)if(R[i][0].test(s))return s.replace(R[i][0],R[i][1]);
+          let m=s.match(/^Gate audit: (.*)$/);
+          if(m){const n=m[1].match(/\d+/);return n?('Audit '+n[0]):'Audit';}
+          if(/^10s capture low/.test(s))return '10s';
+          return s.length>24?(s.slice(0,23)+'\u2026'):s;
+        };
+        const _p2StatFold=(()=>{
+          const W=_p2WarnList||[],T=_p2StatTok;
+          // one token per item: a token that does not fit on the line drops out whole (never cut in the middle); the warnings come first, so the states go first
+          const tk=(t,b)=>'<'+(b?'b':'span')+' class="p2st">'+t+'</'+(b?'b':'span')+'>';
+          const sum=tk(W.length?('\u26a0 '+W.length):'all clear',true)+W.map(w=>' '+tk('\u00b7 '+_p2Xs(_p2WShort(w.txt)))).join('')+T.map(t=>' '+tk('\u00b7 '+_p2Xs(t))).join('');
+          const tip=(W.length?(W.length+' warning'+(W.length===1?'':'s')+': '+W.map(w=>w.txt).join(' | ')+' | '):'no warnings | ')+T.join(' | ');
+          // REFRESH stays on the line; on a phone only its icon shows (the word is back at 601 px)
+          const rf='<button data-paperrefresh class="p2rf" aria-label="Refresh" title="Reload the paper trades and reports" style="height:24px;padding:0 12px;font-size:10px;font-weight:700;letter-spacing:1px;border-radius:999px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);cursor:pointer">'
+            +(window._paperLoading?'<span class="p2rf-ic">\u2026</span> <span class="p2rf-tx">LOADING\u2026</span>':'<span class="p2rf-ic">\u27f3</span> <span class="p2rf-tx">REFRESH</span>')+'</button>';
+          return _p2Fold('status','Status',sum,'<div class="p2chips">'+_p2Status+_p2WarnChips+'</div>',{cls:'p2fold-status',sec:false,tip:tip,act:rf});
         })();
         const _p2Css='<style>'
           +'.p2top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:4px 0 14px}'
@@ -44287,8 +44401,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'.p2rail .p2num{display:inline-block;font-family:inherit;font-size:12px!important;font-weight:700;letter-spacing:0;padding:3px 8px;border-radius:7px;background:color-mix(in srgb,currentColor 14%,transparent);font-variant-numeric:tabular-nums}'
           +'.p2rail .p2sw{transform:scale(.8);transform-origin:right center}'
           +'.p2railfoot{font-size:9.5px;color:var(--text5);padding:8px 14px 10px;line-height:1.5;border-top:1px solid var(--border2)}'
-          +'@media (max-width:1500px){.p2rhrow{grid-template-columns:1fr}.p2rhcal{max-width:620px}.p2rhkey{display:none}}'
-          +'@media (max-width:700px){.p2rhstats{grid-template-columns:repeat(2,minmax(0,1fr))}.p2rhnum{font-size:36px}}'
+          +(_p2New?'':('@media (max-width:1500px){.p2rhrow{grid-template-columns:1fr}.p2rhcal{max-width:620px}.p2rhkey{display:none}}'
+          +'@media (max-width:700px){.p2rhstats{grid-template-columns:repeat(2,minmax(0,1fr))}.p2rhnum{font-size:36px}}'))
           +'.lg-hero-chips .p2chip{height:24px;padding:0 9px;font-size:10px;gap:5px}'
           +'.lg-hero-chips button[data-paperrefresh]{height:24px}'
           // the shared chart's rule .lg-chart svg (width 100%) would stretch the legend swatches; pin them here, scoped to this board
@@ -44313,7 +44427,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           today:ledgerTodayHtml(_H.today),
           range:'<span>'+_pcwLbl+'</span><span class="lg-suffix">\u00b7</span><span>'+_H.n+' trade'+(_H.n===1?'':'s')+'</span><span class="lg-suffix">\u00b7</span><span>'+_nShown+' of '+_bookDefs.length+' book legs</span>'
             +(_nUncounted?'<span class="lg-suffix">\u00b7</span><span title="Controls, forward tests and shadow strategies. Their trades are not in this number.">'+_nUncounted+' other strategies not counted</span>':''),
-          chips:_p2Status+_p2WarnChips+_reloadBtn.replace('border-radius:7px','border-radius:999px')});
+          chips:_p2StatFold});
         // the tie-out: the BOOK group total equals the big number (rows follow the same range, so it holds on every pill)
         const _tieStrip=(()=>{
           const tie=Math.abs(_listedNet-_H.net)<0.5;
@@ -44384,7 +44498,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           if(t.roll_artifact)why.push('a trade from the September 2026 contract-roll splice closed on this day (kept, not deleted)');
           if(legOf(t)==='ORB'||(Array.isArray(t.flags)&&t.flags.indexOf('lookahead-engine')>=0))why.push('an ORB engine trade closed on this day (its volume filter is look-ahead: reference only)');
           why.forEach(w=>{const cur=_pnCav[d]?_pnCav[d].split('; '):[];if(cur.indexOf(w)<0)cur.push(w);_pnCav[d]=cur.join('; ');});});
-        const _pnCalOpen=(()=>{const v=_pnLs('el_lg_cal_nt8');if(v==='1'||v==='0')return v==='1';return (window.innerWidth||1200)>=760;})();
+        const _pnCalOpen=(()=>{const v=_pnLs('el_lg_cal_nt8');if(v==='1'||v==='0')return v==='1';return (window.innerWidth||1200)>600;})();
         const _pnCalMonth=ledgerCalPick(_pnCalDays,window._paperCalMonth||_pnLs('el_lg_calmo_nt8')||'');
         window._paperCalMonth=_pnCalMonth;window._pnCalDays=_pnCalDays;
         const _pnCal=ledgerCalendarHtml({id:'p2',month:_pnCalMonth,days:_pnCalDays,caveats:_pnCav,open:_pnCalOpen,
@@ -44498,7 +44612,38 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'.p2rail .lg-grp-note [data-p2listed]{font-weight:700;color:var(--text3)}'
           +'.p2vs-sub{font-size:9px;color:var(--text5);margin:-3px 0 7px;line-height:1.5}'
           +'.p2rh .lg-ms-group[data-lgmsgroup="Strategy vs control"]{grid-column:1/-1}'
-          +'@media (max-width:600px){.p2rh .hm-chart-wrap{margin-top:12px}.p2rh .hm-range-row{margin-bottom:16px}.p2rh .lg-stats{margin-bottom:10px}}'
+          // LEDGER step 11: one order (hero, range pills, chart, tiles, More stats, calendar, strategy list, trades, own folds). The pills row and the chart
+          // box are the board own classes (p2ctl, p2cw) - REAL no longer draws hm-range-row, whose 760 rule is not NT8s to keep. Breakpoints: 600 / 740 / 800 /
+          // 920 / 1100 only. The status fold takes the hero chips slot on its own line at every width; the folds are the shared .lg-more look, tokens only.
+          +'.p2ctl{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px 14px;margin:18px 0 0}'
+          +'.p2cw{position:relative;margin:12px 0 22px}'
+          +'.p2rh .lg-more{margin-bottom:14px}'
+          +'.p2rh .p2rhkey{display:none}@media (min-width:1100px){.p2rh .p2rhkey{display:block}}'
+          +'.p2rh .lg-hero-chips{order:3;flex:1 1 100%;display:block;min-width:0}'
+          +'.p2chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}'
+          +'.p2fold-row{display:flex;align-items:flex-start;gap:8px;min-width:0}'
+          +'.p2fold-hd{flex:1 1 0;min-width:0;width:auto;gap:10px;text-align:left}'
+          +'.p2fold-hd:focus-visible{outline:2px solid var(--text3);outline-offset:-2px}'
+          +'.p2fold-t{flex:none;white-space:nowrap}'
+          +'.p2fold-sum{flex:0 1 auto;min-width:0;text-transform:none;letter-spacing:.3px;color:var(--text5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+          +'.p2fold-sum b{font-weight:700;color:var(--text)}'
+          +'.p2fold-hd .lg-chev{flex:none}'
+          +'.p2fold-act{flex:none;display:inline-flex;align-items:center;margin-top:8px}'
+          +'.p2own .lg-more{margin-bottom:10px}'
+          +'.p2own .p2fold-body.lg-more-panel{background:transparent;padding:2px 0 4px;margin:0 0 14px;min-width:0}'
+          +'.p2fold-status .lg-more{margin-bottom:0}'
+          +'.p2fold-status .p2fold-body.lg-more-panel{margin:0 0 6px;padding:8px 0 2px}'
+          +'.p2fold-status .p2fold-sum{flex:1 1 0;display:flex;flex-wrap:wrap;column-gap:6px;height:16px;line-height:16px;overflow:hidden;align-items:baseline}'
+          +'.p2st{white-space:nowrap;flex:none}'
+          +'.p2fold-act .p2rf{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}'
+          +'.p2fold-body .p2railhd>span:not(.p2link){display:none}.p2fold-body .p2railhd{padding:4px 14px 0;justify-content:flex-end}'
+          +'.p2fold-body .p2rail{border:0;border-radius:0;background:transparent}'
+          +'[data-theme="mono"] .p2rh .p2dot[style*="e0a33a"]{background:var(--text2)!important}'
+          +'@media (min-width:601px){.p2own:not(.p2fold-status) .p2fold-t{min-width:230px}}'
+          +'@media (max-width:600px){.p2ctl{margin-top:8px;gap:8px 10px}.p2cw{margin:4px 0 8px}.p2rh .lg-stats{margin-bottom:8px}.p2rh .lg-stat{padding:11px 14px}'
+            +'.p2rh .lg-more{padding-top:9px;margin-bottom:6px}.p2rh .lg-more-panel,.p2rh .lg-cal-panel{margin-top:-2px}'
+            +'.p2fold-status .p2fold-t,.p2rf .p2rf-tx{display:none}.p2fold-status .p2fold-sum{font-size:10px;column-gap:5px}.p2fold-status .p2fold-hd{gap:6px}.p2rf{padding:0 9px!important}'
+            +'.p2own:not(.p2fold-status):not(.p2fold-list) .p2fold-hd{flex-wrap:wrap;row-gap:2px}.p2own:not(.p2fold-status):not(.p2fold-list) .p2fold-sum{flex:1 1 100%}}'
           // LEDGER step 8: the NT8 slots in the shared trade list frame (the frame CSS itself is not touched)
           +'.p2tlbox{margin-top:-2px;container-type:inline-size;container-name:p2tl}'
           +'.lg-tl[data-lglist-frame="nt8"] .p2tlt{display:flex;align-items:center;gap:7px;min-width:0}'
@@ -44528,8 +44673,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'.lg-tl[data-lglist-frame="nt8"] [data-lgtrade][data-ptunc="1"] .lg-c-pnl{opacity:.65}'
           +'.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-pnl small.p2tl-unr{display:block;font-size:9px;font-weight:400;font-style:normal;color:var(--text5);margin-top:1px}'
           +'@media (min-width:601px){.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-pnl{flex:0 0 112px}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-time{flex:0 0 152px}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-sym{flex:1 1 150px}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-chart{flex:0 0 84px}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-slot{flex:0 0 150px}}'
-          +'@container p2tl (max-width:899px){.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-slot{display:none}}'
-          +'@container p2tl (max-width:699px){.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-pts,.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-size{display:none}}'
+          +'@container p2tl (max-width:920px){.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-slot{display:none}}'
+          +'@container p2tl (max-width:740px){.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-pts,.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-size{display:none}}'
           // LEDGER step 9: the NT8 pieces inside the shared trade panel (chart chips, the read-only notes lines, the engine chips); tokens only
           +'.lg-panel[data-lgpanel="nt8"] .p2pn-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 6px}'
           +'.lg-panel[data-lgpanel="nt8"] .p2pn-micro{margin-right:auto;font-size:9px;letter-spacing:1.5px;color:var(--text5)}'
@@ -44551,20 +44696,30 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'</style>';
         return {strip:_pnStrip,more:_pnMore,cal:_pnCal,rail:_pnRail,css:_pnCss};
         })():null;
-        const _pnPhone=_p2New&&(window.innerWidth||1400)<=600;
-        const _p2Head=_p2Css+_rhCss+(_p2New?(_pnUi.css+_p2HeadNew):(_p2HeadOld+_tieStrip));
+        const _p2Head=_p2Css+_rhCss+(_p2New?(_pnUi.css+_p2Sec('hero',_p2HeadNew)):(_p2HeadOld+_tieStrip));
         // the new layout: chart, pills, the four tiles, then (laptop and tablet) the More stats and calendar folds. On a phone only the
         // tiles stay above the trades; the folds, the strategy list and the feed notes follow the trades list (the hero chips already
         // carry every data-feed and capture alarm).
+        // the pills sit between the hero and the chart (this step order); scope 2.1 had them under the chart - this one constant flips it
+        const _P2_PILLS_FIRST=true;
         const _p2Top=_p2New
-          ?(_pnPhone?(_rhChart+_rhTabs+_pnUi.strip):(dataHtml+capHtml+_rhChart+_rhTabs+_pnUi.strip+_pnUi.more+_pnUi.cal))
+          ?((_P2_PILLS_FIRST?(_rhTabs+_rhChart):(_rhChart+_rhTabs))+_p2Sec('stats',_pnUi.strip)+_p2Sec('more',_pnUi.more)+_p2Sec('cal',_pnUi.cal))
           :(dataHtml+capHtml+_rhChart+_rhTabs+'<div class="p2rhrow">'+_rhStats+_rhCal+'</div>');
-        const _p2Cards=_p2Card('nt','NinjaTrader · detail',bridgeHtml,'live state, fills, orders')
+        // the board own sections, after the trades: the 10s capture (with the data feed warning), then the four cards
+        const _p2CapFold=(_p2New&&(dataHtml||capHtml))?_p2Fold('capture','10s capture',_p2SumCap||'no capture report',dataHtml+capHtml):'';
+        const _p2Cards=_p2New
+          ?(_p2CapFold
+            +_p2Fold('nt','NinjaTrader \u00b7 detail',_p2Xs(_p2SumNt),bridgeHtml)
+            +_p2Fold('recon','Cross-engine \u00b7 do they agree?',_p2Xs(_p2SumRec),reconcileHtml)
+            +_p2Fold('gate','Did the gate do its job?',_p2SumGate,gateAuditInner)
+            +_p2Fold('reports','Daily reports',_p2SumRep,reportsHtml)
+            +_errHtml)
+          :(_p2Card('nt','NinjaTrader · detail',bridgeHtml,'live state, fills, orders')
           +_p2Card('recon','Cross-engine · do they agree?',reconcileHtml,'engine vs NinjaTrader vs TradingView')
           +_p2Card('gate','Did the gate do its job?',gateAuditInner,_gaSub)
           +_p2Card('reports','Daily reports',reportsHtml,'one row per night')
-          +_errHtml;
-        const _p2Main=tradesHtml+_p2Cards;
+          +_errHtml);
+        const _p2Main=(_p2New?_p2Sec('trades',tradesHtml):tradesHtml)+_p2Cards;
         // WIDTH IS THE READER'S, and remembered. Clamped on read as well as on drag:
         // a stored width from a wider monitor must not push the main column off a
         // laptop screen.
@@ -44575,15 +44730,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _p2Narrow=(window.innerWidth||1400)<(_p2New?1100:1080);
         const _p2Rail=_p2New?_pnUi.rail:legsCard;
         if(_p2Narrow){
-          body=_pnPhone
-            ?'<div class="p2rh">'+_p2Head+_p2Top+tradesHtml+_pnUi.more+_pnUi.cal+_p2Rail+'<div style="margin-top:14px">'+dataHtml+capHtml+'</div>'+_p2Cards+'</div>'
+          // the strategy list is a fold on a page narrower than the two-column one: closed on a phone (the trades start within one screen), open above 600 px
+          const _p2ListFold=_p2New?_p2Fold('list','Strategies',_p2Xs(_nShown+' of '+_bookDefs.length+' book legs on'+(_nUncounted?(' \u00b7 '+_nUncounted+' not counted'):'')),_p2Rail,
+            {cls:'p2fold-list',open:(window.innerWidth||1400)>600}):'';
+          body=_p2New
+            ?'<div class="p2rh">'+_p2Head+_p2Top+_p2ListFold+_p2Main+'</div>'
             :'<div class="p2rh">'+_p2Head+_p2Top+_p2Rail+_p2Main+'</div>';
         }else{
           body='<div class="p2rh"><div data-p2grid="right" style="display:grid;grid-template-columns:minmax(0,1fr) 16px '+_p2W+'px;align-items:start">'
               +'<div style="min-width:0">'+_p2Head+_p2Top+_p2Main+'</div>'
               +'<div data-p2side title="Drag to set how wide the strategy list is. Double-click to reset." style="cursor:col-resize;align-self:stretch;min-height:120px;display:flex;align-items:flex-start;justify-content:center;padding-top:220px">'
                 +'<div style="width:2px;height:34px;border-radius:2px;background:var(--border)"></div></div>'
-              +'<div data-p2col="side" style="position:sticky;top:6px;max-height:calc(100vh - 130px);overflow:auto;min-width:0">'+_p2Rail+'</div>'
+              +'<div data-p2col="side"'+(_p2New?' data-p2sec="list"':'')+' style="position:sticky;top:6px;max-height:calc(100vh - 130px);overflow:auto;min-width:0">'+_p2Rail+'</div>'
             +'</div></div>';
         }
       }
@@ -46589,6 +46747,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       });
       content.querySelectorAll('[data-p2card]').forEach(el=>{el.onclick=()=>{
         const k=el.getAttribute('data-p2card');
+        // LEDGER step 11: a fold of the new layout opens in place and the choice is remembered per browser
+        if(el.classList.contains('p2fold-hd')){p2FoldApply(el,el.getAttribute('aria-expanded')!=='true');return;}
         const m=window._p2Open||(window._p2Open={});
         m[k]=!m[k]; savePref('p2Open',m); renderApp();};});
       // Family / kind / baseline filters, saved like every other view choice on this tab.
@@ -46714,6 +46874,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // A warning chip in the hero opens the closed card that explains it.
       content.querySelectorAll('[data-p2warn]').forEach(el=>{el.onclick=()=>{
         const k=el.getAttribute('data-p2warn');
+        const fh=content.querySelector('.p2fold-hd[data-p2card="'+k+'"]');
+        if(fh){if(fh.getAttribute('aria-expanded')!=='true')p2FoldApply(fh,true);
+          setTimeout(()=>{fh.scrollIntoView&&fh.scrollIntoView({block:'center',behavior:'smooth'});},60);return;}
         const m=window._p2Open||(window._p2Open={});
         m[k]=true;savePref('p2Open',m);renderApp();
         setTimeout(()=>{const c=document.querySelector('[data-p2card="'+k+'"]');if(c&&c.scrollIntoView)c.scrollIntoView({block:'center',behavior:'smooth'});},60);};});
