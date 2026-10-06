@@ -104,6 +104,10 @@ WHAT IT ASSERTS
         tall as before and <body> holding the same elements
       - in MONO no colour in the panel carries a hue; the PAGE never scrolls sideways at 375, 601, 700, 800, 1000 and 1366 px with the
         panel open or closed; ?oldboards=1 draws no panel; no console.error or throw
+    The BARS KEY (step 9 follow-up, case 'chartkey' in its own frame): a trade's bars are cached under the trade's own id, never under its
+    place in the list. A stubbed PC answers every get_bars with bars whose price level belongs to the trade asked for; the CHART pill viewer
+    and the OPEN N CHARTS gallery are then opened after a chip, a search, a LIST | TABLE switch and a header re-sort, and the price axis of
+    every chart the page DREW must sit on that trade's own level (the gallery must hold exactly the ticked trades)
   * money colours FOLLOW THE THEME (owner decision 8, 2026-10-05): no fixed green / red hex on a money cell, and
     every headline money cell carries an arrow and a sign, every dense one a sign
   * BOOK (owner 2026-10-04): the big number is the BOOK #463 figure - exactly the legs of api/paper.py _BOOK at
@@ -287,6 +291,11 @@ PANEL_CASES.append(('panel-w600', {'sub': 'paper2', 'prefs': PANEL_PREFS, 'win':
                                              'blue': PANEL_BLUE, 'amber': PANEL_AMBER, 'chart': True}}))
 CASES.extend(PANEL_CASES)
 
+# LEDGER step 9 follow-up: a trade's bars are cached under the trade's own id, never under its place in the list. Its own frame 'fk' (1366x900): the
+# bars cache outlives a case, and a frame no other case has drawn a chart in starts with an empty one.
+CHARTKEY_CASE = ('chartkey', {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fk', 'ckey': True, 'ls': {'el_lg_view_nt8': 'list'}})
+CASES.append(CHARTKEY_CASE)
+
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>paper probe</title></head>
 <body style="margin:0">
@@ -299,6 +308,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <iframe id="fw" src="../index.html" style="width:1100px;height:900px;border:0"></iframe>
 <iframe id="fz" src="../index.html" style="width:1500px;height:900px;border:0"></iframe>
 <iframe id="fl" src="../index.html" style="width:1366px;height:768px;border:0"></iframe>
+<iframe id="fk" src="../index.html" style="width:1366px;height:900px;border:0"></iframe>
 <pre id="o"></pre>
 <script>
 var CASES=__CASES__, FIX=__FIX__;
@@ -681,10 +691,91 @@ var CASES=__CASES__, FIX=__FIX__;
     o.g1=pnGeo(d,w);
     return o;
   }
+  // LEDGER step 9 follow-up: a trade's bars are cached under the trade's own id, never under its place in the list (which every sort, search and chip
+  // changes). A stubbed PC answers every get_bars with bars whose price level belongs to the trade asked for (entry + exit time are unique per row of
+  // the fixture board); the CHART pill viewer and the OPEN N CHARTS gallery are then opened after a chip, a search, a LIST | TABLE switch and a header
+  // re-sort, and the price axis of what the page DREW must sit on that trade's own level
+  async function chartKeyInteract(d,w,cfg){
+    var C={steps:[],all:null,orb:null,nz:null,sorted:null,ttm:null,req:0,err:null};
+    var F=function(){return d.querySelector('[data-lglist-frame="nt8"]');};
+    var rows0=w._paperCandleRows||[],lv={},lvById={};
+    rows0.forEach(function(x,k){lv[x._et+'|'+x._xt2]=20000+1500*(k+1);lvById[x._pid]=20000+1500*(k+1);});
+    w.__ckReq=[];
+    w.__ckMk=function(p){var L=lv[p.entry_time+'|'+p.exit_time]||5000,bars=[],i;
+      for(i=0;i<60;i++){var hh=9+Math.floor((30+i)/60),mm=(30+i)%60,c=L+((i%5)-2)*3;
+        bars.push({t:'2026-08-12 '+('0'+hh).slice(-2)+':'+('0'+mm).slice(-2)+':00',o:c-1,h:c+4,l:c-4,c:c});}
+      return {ok:true,bars:bars,entry_idx:20,exit_idx:40,overlays:{}};};
+    w.eval("cmdRef={doc:function(){var rec={};return {set:function(c){rec.c=c;window.__ckReq.push(c.payload.entry_time+'|'+c.payload.exit_time);return Promise.resolve();},onSnapshot:function(cb){setTimeout(function(){cb({data:function(){return {status:'done',result:window.__ckMk(rec.c.payload)};}});},0);return function(){};}};}}");
+    var ids=function(){return [].map.call(F().querySelectorAll('[data-lgtrade]'),function(r){return r.getAttribute('data-lgtrade');});};
+    var axis=function(sv){var n=[];[].forEach.call(sv.querySelectorAll('text'),function(e){var t=e.textContent;if(/^[0-9]{1,3}(,[0-9]{3})+$/.test(t))n.push(+t.replace(/,/g,''));});return n;};
+    var judge=function(sv,id){var a=axis(sv),L=lvById[id];return {axis:a.length?[Math.min.apply(null,a),Math.max.apply(null,a)]:null,want:L,ok:a.length>0&&a.every(function(v){return Math.abs(v-L)<=60;})};};
+    var shutAll=function(){var c=d.querySelector('#chart-close');if(c)c.click();var g=d.getElementById('gal-close');if(g)g.click();};
+    var viewPill=async function(n,id){
+      var r=F().querySelector('[data-lgtrade="'+id+'"]'),b=r&&r.querySelector('[data-ptchart]'),res={kind:'pill',n:n,id:id,pill:!!b,svg:false,ok:false};
+      if(!b)return res;
+      b.click();await pnSleep(150);
+      var sv=d.querySelector('#chart-body svg');res.svg=!!sv;
+      if(sv)Object.assign(res,judge(sv,id));
+      shutAll();await pnSleep(30);
+      return res;
+    };
+    var gallery=async function(n){
+      var res={kind:'gallery',n:n,btn:false,ticked:[],cards:[]},btn=F().querySelector('[data-ptopen]');
+      res.ticked=[].map.call(F().querySelectorAll('input[data-pttick]:checked'),function(c){var r=c.closest('[data-lgtrade]');return r?r.getAttribute('data-lgtrade'):null;});
+      if(!btn)return res;
+      res.btn=true;res.label=(btn.textContent||'').trim();
+      btn.click();await pnSleep(250);
+      // the gallery lists its trades in the order of the list (keepOrder), so card n is the n-th ticked trade
+      [].forEach.call(d.querySelectorAll('#gal-body [data-gal]'),function(c,n){
+        var k=c.getAttribute('data-gal'),id=res.ticked[n]||null,sv=c.querySelector('.galchart svg');
+        var j=(sv&&id)?judge(sv,id):{ok:false,axis:null,want:null};
+        res.cards.push(Object.assign({key:k,id:id,svg:!!sv},j));});
+      shutAll();await pnSleep(30);
+      return res;
+    };
+    var tickOnly=function(list){
+      [].forEach.call(F().querySelectorAll('input[data-pttick]:checked'),function(c){c.click();});
+      list.forEach(function(id){var r=F().querySelector('[data-lgtrade="'+id+'"]'),c=r&&r.querySelector('input[data-pttick]');if(c)c.click();});
+    };
+    var chip=function(c){var b=F().querySelector('[data-lgchip="'+c+'"]');if(b)b.click();return !!b;};
+    var search=function(v){var i=F().querySelector('input[data-lgsearch]');if(i){i.value=v;i.dispatchEvent(new w.Event('input',{bubbles:true}));}return !!i;};
+    var view=function(v){var b=F().querySelector('[data-lgview="'+v+'"]');if(b)b.click();return !!b;};
+    try{
+      var i,all=ids();C.all=all;
+      // the CHART pill: the first two rows of the list, then the rows of a chip, of a search, of the table re-sorted and of a chip in the table
+      for(i=0;i<2&&i<all.length;i++)C.steps.push(await viewPill('all-'+i,all[i]));
+      chip('fam:ORB');C.orb=ids();
+      for(i=0;i<C.orb.length;i++)C.steps.push(await viewPill('chip-orb-'+i,C.orb[i]));
+      chip('ALL');search('NOISE');C.nz=ids();
+      for(i=0;i<C.nz.length;i++)C.steps.push(await viewPill('search-'+i,C.nz[i]));
+      search('');
+      view('table');chip('ALL');
+      var sb=F().querySelector('[data-psort="date"]');if(sb)sb.click();
+      sb=F().querySelector('[data-psort="date"]');if(sb)sb.click();
+      C.sorted=ids();
+      for(i=0;i<2&&i<C.sorted.length;i++)C.steps.push(await viewPill('table-sorted-'+i,C.sorted[i]));
+      chip('fam:TTM');C.ttm=ids();
+      for(i=0;i<C.ttm.length;i++)C.steps.push(await viewPill('table-chip-ttm-'+i,C.ttm[i]));
+      chip('ALL');view('list');
+      // OPEN N CHARTS: two ticked rows, then the rows of a chip, the same ticks in the table, then a search
+      var a2=ids();
+      tickOnly([a2[0],a2[1]]);C.steps.push(await gallery('gallery-all'));
+      chip('fam:ORB');tickOnly(ids());C.steps.push(await gallery('gallery-chip-orb'));
+      view('table');C.steps.push(await gallery('gallery-chip-orb-table'));
+      view('list');chip('ALL');search('TTM');tickOnly(ids());C.steps.push(await gallery('gallery-search-ttm'));
+      search('');
+    }catch(e){C.err=String(e&&e.stack?e.stack:e);}
+    shutAll();
+    C.req=w.__ckReq.length;
+    try{w.eval('cmdRef=null');}catch(e2){}
+    w._ptSel=null;w._ptChip=null;w._ptQuery=null;
+    try{w.renderApp();}catch(e3){}
+    return C;
+  }
   async function report(why){
     if(reported)return; reported=true;
     var out={why:why,cases:{}};
-    try{['f','fp','fo','fm','fs','fx','fw','fz','fl'].forEach(hook);}catch(e){}
+    try{['f','fp','fo','fm','fs','fx','fw','fz','fl','fk'].forEach(hook);}catch(e){}
     try{
       var fr=document.getElementById('f'), w=fr.contentWindow, d=fr.contentDocument;
       out.VERSION=w.eval('typeof VERSION!=="undefined"?VERSION:null');
@@ -920,6 +1011,8 @@ var CASES=__CASES__, FIX=__FIX__;
         if(cfg.width){try{r.pw=panelAtWidth(d,w);}catch(e){r.pw={err:String(e&&e.stack?e.stack:e)};}}
         r.panel=null;
         if(cfg.panel){try{r.panel=await panelInteract(d,w,cfg);}catch(e){r.panel={err:String(e&&e.stack?e.stack:e)};}}
+        r.ckey=null;
+        if(cfg.ckey){try{r.ckey=await chartKeyInteract(d,w,cfg);}catch(e){r.ckey={err:String(e&&e.stack?e.stack:e)};}}
         if(cfg.theme){try{w.eval("prefs.theme="+(th0===undefined?"undefined":JSON.stringify(th0))+";applyTheme();");}catch(e){}}
         // the capped list: a calendar tap on a day older than the list reaches (it extends the list to that day, ticks its rows, scrolls to it)
         r.capint=null;
@@ -1014,7 +1107,7 @@ var CASES=__CASES__, FIX=__FIX__;
     document.getElementById('o').textContent='PAPERPROBE: '+JSON.stringify(out);
   }
   var _nLoaded=0;
-  var FRAMES=['f','fp','fo','fm','fs','fx','fw','fz','fl'];
+  var FRAMES=['f','fp','fo','fm','fs','fx','fw','fz','fl','fk'];
   FRAMES.forEach(function(id){document.getElementById(id).addEventListener('load',function(){
     _nLoaded++; if(_nLoaded===FRAMES.length)setTimeout(function(){report('load');},3500);});});
   setTimeout(function(){report('backstop');},45000);
@@ -2664,6 +2757,48 @@ def run(alt_index=None, timeout=180):
             rc = pw.get('rect') or {}
             if (rc.get('l') or 0) < 0 or (rc.get('r') or 0) > (g1.get('vw') or 0) + 1 or pw.get('bodyWide'):
                 fails.append('%s: the panel does not fit the window at %d px (left %s, right %s, window %s)' % (nm, w_px, rc.get('l'), rc.get('r'), g1.get('vw')))
+    # LEDGER step 9 follow-up: the bars of a trade are cached under the trade's own id. Every chart the page DREW (the CHART pill viewer, the
+    # OPEN N CHARTS gallery) after a chip, a search, a LIST | TABLE switch and a header re-sort must have its price axis on that trade's own level
+    ckr = cases.get('chartkey') or {}
+    ck = ckr.get('ckey') or {}
+    if ckr.get('call') == 'OK':
+        steps = ck.get('steps') or []
+        pills = [s for s in steps if s.get('kind') == 'pill']
+        gals = [s for s in steps if s.get('kind') == 'gallery']
+        if ck.get('err') or not steps:
+            fails.append('chartkey: the bars-key run did not finish: %s' % (ck.get('err') or 'no readout'))
+        else:
+            if len(pills) < 9 or len(gals) != 4 or not ck.get('req'):
+                fails.append('chartkey: the run is too small to say anything (%d CHART pills, %d galleries, %s get_bars requests)'
+                             % (len(pills), len(gals), ck.get('req')))
+            if ck.get('sorted') == ck.get('all') or (ck.get('orb') or [None])[0] == (ck.get('all') or [None])[0]:
+                fails.append('chartkey: the fixture no longer moves a trade to another place in the list on a header sort or a chip (%s / %s / %s)'
+                             % (ck.get('all'), ck.get('sorted'), ck.get('orb')))
+            for s in pills:
+                if not s.get('pill'):
+                    fails.append('chartkey: %s - the row of %s has no CHART pill' % (s.get('n'), s.get('id')))
+                elif not s.get('svg'):
+                    fails.append('chartkey: %s - the CHART pill of %s opened no chart' % (s.get('n'), s.get('id')))
+                elif not s.get('ok'):
+                    fails.append('chartkey: %s - the CHART pill drew the bars of another trade: the chart of %s has a price axis of %s, its own bars sit at %s '
+                                 '(the bars cache must be keyed by the trade id, never by its place in the list)'
+                                 % (s.get('n'), s.get('id'), s.get('axis'), s.get('want')))
+            for s in gals:
+                tk = s.get('ticked') or []
+                nc = len(s.get('cards') or [])
+                if not s.get('btn') or len(tk) < 2:
+                    fails.append('chartkey: %s - OPEN N CHARTS is missing or fewer than two trades are ticked (%s)' % (s.get('n'), tk))
+                elif nc != len(tk):
+                    fails.append('chartkey: %s - the OPEN N CHARTS gallery opened %d chart(s), exactly the %d ticked trades are expected (%s)' % (s.get('n'), nc, len(tk), tk))
+                for c in (s.get('cards') or []):
+                    if not c.get('svg'):
+                        fails.append('chartkey: %s - the gallery card of %s drew no chart' % (s.get('n'), c.get('id')))
+                    elif not c.get('ok'):
+                        fails.append('chartkey: %s - the OPEN N CHARTS gallery drew the bars of another trade: the card of %s has a price axis of %s, its own bars '
+                                     'sit at %s (the bars cache must be keyed by the trade id, never by its place in the list)'
+                                     % (s.get('n'), c.get('id'), c.get('axis'), c.get('want')))
+        for e in (ckr.get('errors') or []) + (ckr.get('uncaught') or []):
+            fails.append('chartkey: a console error or an uncaught throw: %s' % e)
     # ?oldboards=1: no panel at all; a press on an old table row still selects it
     opn = (cases.get('oldboards-paper2') or {}).get('oldPanel') or {}
     if opn.get('nodes') or opn.get('id') is not None or opn.get('frames'):
@@ -2676,10 +2811,11 @@ def run(alt_index=None, timeout=180):
         return FAIL, out_lines
 
     # the new layout has a strategy list (shared ledgerListHtml rows) where the LEGS table was; ?oldboards=1 still draws the table
-    say('PAPERPROBE: PASS (VERSION=%s, %d cases, strategy list %s rows, ?oldboards=1 LEGS table %s cols, %s trade rows, %d trade panel cases)'
+    say('PAPERPROBE: PASS (VERSION=%s, %d cases, strategy list %s rows, ?oldboards=1 LEGS table %s cols, %s trade rows, %d trade panel cases, '
+          '%d chart bars-key steps)'
           % (data.get('VERSION'), len(cases), len((cases.get('base') or {}).get('listRowInfo') or []),
              (cases.get('oldboards-paper2') or {}).get('legHead'),
-             (cases.get('base') or {}).get('tradeRows'), len(PANEL_CASES)))
+             (cases.get('base') or {}).get('tradeRows'), len(PANEL_CASES), len(((cases.get('chartkey') or {}).get('ckey') or {}).get('steps') or [])))
     return PASS, out_lines
 
 
@@ -3060,6 +3196,21 @@ MUTANTS = [
      '',
      'the EL / NT / TV chips in the panel keep their fixed blue and amber, so MONO is no longer hue-free',
      'in MONO the panel of the'),
+    ('nt8-gallery-bars-by-position',
+     "m.display.forEach(r=>{crow.push(crowOf(r,pno(r)));});",
+     "m.display.forEach((r,i)=>{crow.push(crowOf(r,'P'+i));});",
+     'the chart rows (CHART pill, gallery, viewer) key their bars by the place in the list, so after a chip, a search or a sort the chart draws another trade',
+     'drew the bars of another trade'),
+    ('nt8-chart-pill-bars-by-position',
+     "x=rows.find(q=>String(q._pid)===key);",
+     "x0=rows.find(q=>String(q._pid)===key),x=x0&&Object.assign({},x0,{_no:'P'+rows.indexOf(x0)});",
+     'the CHART pill caches its bars by the place of its row in the list',
+     'CHART pill drew the bars of another trade'),
+    ('nt8-open-n-charts-bars-by-position',
+     "const picked=(window._paperCandleRows||[]).filter(x=>sel.has(x._pid));if(!picked.length)return;",
+     "const picked=(window._paperCandleRows||[]).filter(x=>sel.has(x._pid)).map(x=>Object.assign({},x,{_no:'P'+(window._paperCandleRows||[]).indexOf(x)}));if(!picked.length)return;",
+     'OPEN N CHARTS caches the bars of its ticked trades by their place in the list',
+     'OPEN N CHARTS gallery drew the bars of another trade'),
     ('nt8-panel-opens-on-oldboards',
      'if(ev.shiftKey&&anchorIdx>=0){base=new Set(sel);range(anchorIdx,i).forEach(id=>sel.add(id));}',
      "ledgerTradePanelOpen({id:'nt8',tradeId:String(ids[i]),head:{sym:'x',side:'LONG',net:0},blocks:[]});if(ev.shiftKey&&anchorIdx>=0){base=new Set(sel);range(anchorIdx,i).forEach(id=>sel.add(id));}",
