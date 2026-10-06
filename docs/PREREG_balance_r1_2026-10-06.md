@@ -619,3 +619,60 @@ All per cell, on NQ; ES gets the same rows as a transfer report.
   - `manifest.json`: the sha256 of every input (both masters, the ES 30m master, the four crown trade files,
     rolls_NQ.csv, rolls_ES.csv, residual_days.csv, line.csv, a2.json, episodes.csv, resmom_cells_daily_wf.csv,
     open_bars.csv) and of this prereg at its GO commit.
+
+## AMENDMENT 1 - --counts and --power output, and how the harness reads this prereg (2026-10-06 ~12:00 MST, before the real run)
+Written after `--counts` and `--power` ran and BEFORE the real run. It does not touch sections 3, 6 or 8; the harness
+asserts their hash (db495f4d...) on every run. Harness: `tools/balance_r1_stageA.py` (59 synthetic tests,
+`tests/test_balance_r1.py`). Full output: `C:\EdgeLog\_anatomy_cache\balance_r1\`.
+
+**Parity and inputs (both modes).**
+- BOOK #463 WF 93.81 / 3.816 and L = #463 + 0.264 x RES 120.82 / 3.916, both reproduced; years 8.9938; R = 762 days in
+  45 episodes; #463's drawdown days 460 in 28 episodes.
+- NOISE #304 (NOISE_1_0 + _FROZEN on master 37): 2,797 of 2,797 WF trades matched NOISE422_raw_trades.csv; band and
+  VWAP at 5,594 decision bars, max difference 0; the eligible first break equals #304's first entry on 3,868 of 3,868
+  sessions.
+- Rolls: 36 WF switches on NQ (and on ES), 36 WF roll sessions never traded.
+- Every input is cut to 2025-06-29 (NOISE files drop 344 rows, ORB314 184, ENGUQ335 129 plus 1 trade that exits after
+  the cut).
+
+**--counts (no BALANCE exit was run).** These supersede the drafting counts (914 / 1,078) everywhere (AMENDMENT 0 item 7).
+- WF: 2,204 trading sessions, 832 BALANCE days (75-111 a year), 18 BALANCE-labelled roll sessions (never traded; 12 with
+  a B1 first signal, 9 with a B2 one). EARLY: 1,447 trading sessions, 587 BALANCE days. The #304-eligible crosswalk
+  (never a cell) counts 993 WF days.
+- Sessions with a FIRST signal, WF: B1 489 (41-65 a year; 191 long, 298 short); B2 326 (24-46 a year). B2 sits under
+  the 50-a-year line on first signals alone in every year; re-entries print only in the real run.
+- Three-way split of the 832 WF BALANCE days (by #304's held trades): QUIET 689 (662 with no raw break all day, 21
+  blocked by #304's gates, 6 broken only on the last bar), BREAK-WIN 82, BREAK-LOSS 61 (21 at VWAP, 6 at the stop, 34
+  flat at the close).
+- Co-loss exposure, before any BALANCE return: L nets -$301,860 on the 689 QUIET days (206 of R's 762 days fall on
+  them) and +$305,459 on BREAK-WIN days; on all 832 BALANCE days L nets -$109,724 and loses $863,702. The one share:
+  0.166 of L's losing dollars on BALANCE days falls on BREAK-LOSS days.
+
+**--power (coin-flip sides on B1's real WF schedule: 531 trades).** The schedule's count and holds bound target hits
+from below (disclosed in section 5).
+- Book-add power lines (reports): #463 + c x coin (x2.716 NQ) - SD of the lead 17.83, 5% line 29.33, 80% line 44.34;
+  $30k twin (x2.025) - 14.69 / 24.16 / 36.53; L + c x coin - 17.26 / 28.39 / 42.93.
+- Family null (B1 + B2, 1,000 draws, seed 20261006), the p95s the bars use: t 1.739; R-day sum $25,402; own ROC @ $30k
+  9.46 (report). Null SD of B1's R-sum $14,885.
+- Overlap, B1 (held minutes, half-open): NOISE #382 / #422 0 minutes (asserted, by construction); ORB #314 0.446 of
+  B1's held minutes (same side 0.227); ENGU-Q #335 0.806 (same side 0.320); TTM #459 0.067. All five crowns flat on
+  0.027 of WF days. B2 alike (ORB 0.444, ENGU-Q 0.783).
+- RES on B1 first-signal sessions: 489 sessions (0.186 of WF days) carry 0.205 of RES's WF losing dollars.
+
+**How the harness reads this prereg (disclosures; no rule changed).**
+1. Besides `_session_bounds` and `_sigma_matrix` (section 3.2), it imports NOISE_1_0's `_vol_percentile` and
+   `_daytype_pos`; they feed only the #304-eligible crosswalk and the QUIET sub-split, never a band, label or trade.
+2. A BALANCE hold ends at its real fill time: an exit signalled on the 15:50 bar fills at the 15:55 open, so the hold
+   ends at 15:55; only an exit at the 15:55 bar's close ends at 16:00. Read literally, section 7 would add 5 minutes of
+   NOISE overlap to a 15:50 break and trip the zero-overlap assertion; tested.
+3. Crown files are cut on entry AND exit (a trade that exits after 2025-06-29 is dropped and counted).
+4. A fill exactly at E counts as beyond the band; such trades stay in P&L and are left out of every R figure.
+5. "#304's losing unit dollars" are summed at session level; BREAK-WIN / BREAK-LOSS use #304's FIRST trade of the day.
+6. ES: there is no ES #304 crown file, so the ES day groups use NOISE_1_0 with #304's settings on ES (unit $ = 50 x
+   points - 50 x 0.363); ES stress cost = 0.363 + 1.0 = 1.363 points; ES rows use their own cost ladder.
+7. 'Fragile' is applied to whichever cell passes; each twin trades on B1's trading sessions minus its own warm-up
+   (twin60 also skips sessions 40-59).
+8. The real run aborts unless `--power` wrote `power.json`, and asserts that its recomputed power lines and null p95s
+   equal that file.
+9. DISPERSE ranks each day among the prior 252 sessions whose DISP passed the coverage guard (at least 60 needed).
+10. Hit rate per exit type = gross points above 0, before cost.
