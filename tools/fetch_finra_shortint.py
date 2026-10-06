@@ -36,6 +36,9 @@ PROBE = os.path.join(RAW, "probe_settlement_dates.json")
 URL = "https://cdn.finra.org/equity/otcmarket/biweekly/shrt%s.csv"
 UA = {"User-Agent": "EdgeLog research tool edgelog-research@example.com", "Accept-Encoding": "identity"}
 START, CUT = datetime.date(2018, 6, 1), datetime.date(2025, 6, 30)
+# kept on disk, never read into the flat file (MANAGER #83, 2026-10-05): the schedule says released 2025-06-25, but this CDN copy
+# was modified on the cut date - and the walk-forward's last rank (2025-05-30) cannot use it anyway.
+QUARANTINE = {"shrt20250613.csv": "CDN copy modified 2025-06-30 10:00 GMT, after the cut; not read (MANAGER #83)"}
 PAGES = ["finra.org/filing-reporting/regulatory-filing-systems/short-interest", "finra.org/industry/short-interest-reporting"]
 
 
@@ -174,6 +177,8 @@ def build():
     prov = load(PROV, {}); frames, counts = [], {}
     for k in sorted(p for p in prov if p.startswith("files/")):
         fn = os.path.join(RAW, k)
+        if os.path.basename(fn) in QUARANTINE:
+            continue
         d = pd.read_csv(fn, sep="|", dtype=str, keep_default_na=False)
         d["source_file"] = os.path.basename(fn)
         counts[os.path.basename(fn)] = {m: int(n) for m, n in d["marketClassCode"].value_counts().items()}
@@ -197,7 +202,7 @@ def build():
         rel[k] = dict(settlement=st, release=(S.loc[st, "release"] if st in S.index else None),
                       release_column=(S.loc[st, "release_column"] if st in S.index else None), cdn_last_modified=lm)
     man = dict(built_at_utc=now_utc(), rows=len(D), files=len(counts), first=min(counts), last=max(counts), out=out, out_sha256=sha,
-               schedule_rows=int(len(S)), files_with_release_date=sum(1 for v in rel.values() if v["release"]), release_by_file=rel,
+               quarantined=QUARANTINE, schedule_rows=int(len(S)), files_with_release_date=sum(1 for v in rel.values() if v["release"]), release_by_file=rel,
                market_codes_total={m: int(n) for m, n in D["market_code"].value_counts().items()}, rows_by_file_and_market=counts,
                source_shas={k: v.get("sha256") for k, v in prov.items()})
     json.dump(man, open(os.path.join(RAW, "finra_shortint_manifest.json"), "w"), indent=1)
