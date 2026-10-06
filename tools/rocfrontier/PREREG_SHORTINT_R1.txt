@@ -203,3 +203,37 @@ pinned under MANAGER's decision #104:
   twin scores those rows as they stand. FINRA's split flag 'S' (4,494 rows) is printed as a cross-check beside D1's split rule
   (a split in the 20-session volume window = no score) and never replaces it.
 The harness is r22_shortint.py; SHORTINT runs after NETISS and NEWISSUE (MANAGER #104).
+
+PRE-DATA ADDENDUM 3 (2026-10-06 10:45 MST, before any SHORTINT score is read - only the harness's counts-only dryload has run:
+which names have a score and why the others do not, per rank; no short-interest value, score, return or P&L): the lead's
+review of the harness r22_shortint.py settles the points the prereg left open:
+- [A12] FACTS AS FOUND. The first file (settlement 2018-06-15) is usable from 2018-07-05 (s + 12 sessions, then the next
+  session), so the first rank with a usable file is 2018-07-31 (filled 2018-08-01) - not 'about 2018-06-29' as the draft
+  guessed; the 2018-06-29 rank has none and trades nothing (counted). The registered stretch stands (positions exited
+  2018-08-01 -> 2025-06-29): the dryload counts 82 traded rebalances in each cell, all 50 a side, every rank covered 97.0% -
+  99.6%. A2's window for c stays 2018-08-01 .. 2020-07-31.
+- [A13] READINGS FIXED NOW (the harness's choices, adopted): [A2]'s NOT JUDGEABLE count is the covered ranks from the
+  stretch's start and bar (a) counts traded rebalances (both 82 here); the binding flat 3%/yr borrow REPLACES the 0.25% base on
+  every short (it is the whole fee, not an add-on), as do the borrow curve's flat rows; D1's split rule reads 'calendar or F'
+  literally - a calendar split OR an F change on any of the 20 volume sessions (the first included) voids the score; S1 uses
+  the share count known at s* itself (first filed + 1 session on or before s*'s session - stricter than r); a CIK with two or
+  more usable map symbols gets NO S1 for any of them (a firm-wide count against one class's short interest is wrong; 27 names,
+  counted); a ticker listed twice in one file gives no score but counts as covered; the fund tokens are literal substrings of
+  the asset-list title and of FINRA's issue name; at a cut the higher ADV wins, then symbol order, and the shorts are picked
+  first, the longs from the rest; the S1 scale rule's median is over the rank's names with S1 > 0 (S1 = 0 is exempt); two
+  passing cells send the higher WF ROC to Stage B (a tie: D1).
+- [A14] NAMES WITH NO FINRA ROW. 494 name-ranks over the 82 ranks (2 to 13 a rank) have no row for their ticker at s*. It is
+  not ticker spelling (a counts-only probe: neither the cache nor FINRA's files hold a dotted or slashed symbol). They get no
+  score (counted per rank); Stage A prints the unscored names by name before any P&L, and the lead reads that list before any
+  cell number.
+- [A15] THE Q21 OVERLAP ([A4]) needs FRONTIER's Q21 seat's daily P&L, which does not exist yet; Stage A prints 'not run' and
+  the overlap is added as a dated note once the file exists (pinned by sha256 then).
+- [A16] STAGE B'S DATA. The pinned pull holds no sealed-year settlement (the 2025-06-13 file is quarantined [A8]), so Stage B
+  refuses until a second FINRA extract - the settlements from 2025-06-13 through the sealed year, photographed by TV - and,
+  for an S1 candidate, NETISS's Stage-B share facts ([A17] there) are pinned by sha256 in a dated addendum after a Stage A
+  pass.
+- [A17] MEMORY. Stage A starts only when the machine is quiet (>= 7.5 GB free on two checks 30 s apart and no headless-Chrome
+  ship probe running), under the job-object limit with the 2,500 MB free-memory floor; a run the floor kills is kept and
+  re-run unchanged; the owner's applications are never touched.
+- [A18] DISCLOSURE. While building the harness the builder once printed four future-dated rows of FINRA's published release
+  SCHEDULE (dates only - no short interest); the harness drops schedule rows on or after the cut at read (37, counted).
