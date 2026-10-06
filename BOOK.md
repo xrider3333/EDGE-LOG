@@ -1190,6 +1190,37 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10ad. Q22 + Q23 (MANAGER assessment 10-05, owner-ordered): the "#463 without TTM" monitor line is open; the ENGU-Q size ladder over the RESMOM line (2026-10-05)
+
+**Q22 - the TTM seat question gets a forward line.** `book_shadow_nottm` = ORB x1 + ENGU-Q #335 x1 + NOISE #422 x1, i.e. the book
+minus 3 x TTM (api/book_shadow.py, 8945adfc; prereg `docs/PREREG_frontier_nottm_2026-10-05.txt`). The runner was restarted at 18:55
+MST, so the first forward day is the 2026-10-06 report.
+- It is a HARM MONITOR under the paired stops (decision b). Its difference to the book is the TTM leg's own record (-3 x TTM), never a
+  second read of it.
+- Walk-forward case: without TTM the book reads 99.56 / 3.532 against #463's 93.81 / 3.816 (+5.75 ROC, -0.285 Sortino, -$14,709 a
+  year of TTM net).
+- Recommendation on the adoption page: KEEP TTM until the line reads.
+
+**Q23 - the ENGU-Q size ladder over L, walk-forward, a REPORT with no verdict.** Prereg
+`docs/PREREG_frontier_enguq_ladder_2026-10-05.txt` (6e835d43); script `C:\EdgeLog\_anatomy_cache\bookq\q23_ladder.py`; output
+`C:\EdgeLog\_anatomy_cache\q23\ladder.json`. Parity was exact: #463 93.81 / 3.816; L 120.82 / 3.916; #463 without ENGU-Q 75.04 /
+3.908 / $39,168.
+
+| ENGU-Q size on L | ROC at $30k | Sortino | Worst drawdown | Net a year | Worst episode |
+|---|---|---|---|---|---|
+| x1.00 (L as registered) | 120.82 | 3.916 | $36,526 | $147,105 | 2020-03-03..03-27 |
+| x0.75 | 125.83 | 4.063 | $32,553 | $136,539 | 2025-05-20..06-20 |
+| x0.50 | 111.59 | 4.154 | $33,868 | $125,972 | 2025-04-27..06-20 |
+| x0 (reference only: L without ENGU-Q) | 81.81 | 3.922 | $38,444 | $104,839 | 2025-04-27..06-20 |
+
+- **Each quarter of ENGU-Q is worth about $10.5k a year** of walk-forward net.
+- **x0.75's gain is drawdown-shaped.** It reads +5.0 ROC and +0.15 Sortino from a $4.0k smaller worst drawdown, while making $10.6k a
+  year less. That is the kind of gain Q16 / Q17 say cannot be read forward and that sits inside the 71-look band. Re-sizing is never a
+  book-run trigger (decisions b / c, the assessment).
+- **It is not one trade.** ENGU-Q's best walk-forward trade ($26,804, exit 2021-11-10) moves the net by under $3k a year at any rung.
+- **Where ENGU-Q's money comes from.** On R (the line's 762 drawdown days) ENGU-Q loses $360,558 at x1. It earns $740,691 on the other
+  days, for $380,133 net over the walk-forward.
+
 ### 10ac. Q20 (scoping item A1) SEAT CAPACITY: size a basket seat at about 10% of the line's volatility; the generator gets the shape, not the level (2026-10-05)
 
 **What.** A planning map, not a test (`docs/PREREG_frontier_a1capacity_2026-10-05.txt` + addendum 1, MANAGER #85 / #90; harness
