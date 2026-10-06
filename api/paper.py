@@ -1385,14 +1385,16 @@ LEG_SOURCE = {
                 "attribution control for K9. Added 2026-09-07; NOISE_SBS_V90 is the exact control.",
     },
     "TTM_299_SSOF2": {
-        "run": 369, "run_label": "#369 (TTM-ES30SSOF2) the book leg plus the open-bar tilt and the later fade",
+        "run": 459, "run_label": "#459 (TTM-ES30SSOF2) the book leg plus the open-bar tilt and the later fade",
         "strategy_file": "TTMSQZ_3_0_ES30SSOF2.py", "picked": "2026-09-09",
         "note": "Two validated single changes in one leg: 1.5 contracts on the session open-bar entry "
                 "(run #368) and the momentum-fade exit waiting for a second fading bar (run #364). Run "
                 "#369 passed all six gates with an overfit probability of 0.099 - the lowest this family "
                 "has recorded - and cleared a bar set against the better parent rather than the incumbent. "
                 "TTM_299_SS is the exact matched control. Reported per one contract; the deep-squeeze and "
-                "open-bar tilts multiply, so the leg trades a 1.0 / 1.5 / 2.25 ladder.",
+                "open-bar tilts multiply, so the leg trades a 1.0 / 1.5 / 2.25 ladder. Run #369 was voided on "
+                "2026-09-27 (impossible entry-bar stop exits); the same file with the stop fixed is run #459, "
+                "the TTM leg of BOOK #463.",
     },
     "TTM_458_KEEL": {
         "run": 458, "run_label": "#458 (TTM-ES30SSOF2R347) roll-safe TTM at 3/4/7 x KEEL v12 frozen - SHADOW",
