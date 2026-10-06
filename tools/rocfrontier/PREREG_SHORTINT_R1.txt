@@ -1,0 +1,138 @@
+PRE-REGISTRATION - SHORTINT r1: DAYS TO COVER in US large caps - long the least-shorted, short the most crowded shorts, monthly
+=====================================================================================================================
+DRAFT v1 2026-10-05 19:50 MST for MANAGER review, by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (owner standing order
+10-04 + addendum 2 of 10-05: a queue that never drops below 3 live preregs; MANAGER #84 keeps short interest in this lane as a
+characteristic sort on the RESMOM harness; MANAGER #100's assessment: the only structural improvement left is a new leg that
+earns on the reference book's drawdown set R, incremental over L = #463 + 0.264 x RES). Written before any number of this
+family exists and before its data is pulled. Nothing runs until MANAGER's GO, TV's data photograph and a dated pre-data
+addendum that pins it. Results: C:\EdgeLog\_anatomy_cache\rocfrontier\shortint_r1\ and RESEARCH_LEDGER.md.
+
+WHAT IS DIFFERENT (one line): the first EL family whose signal is OTHER TRADERS' POSITIONS - the short interest that brokers
+report to FINRA twice a month - not prices, volumes, filings or a corporate-actions calendar.
+
+WHY NOW (house evidence first). RESMOM r1 showed that a monthly 50-long / 50-short basket of the 500 most liquid US stocks
+survives costs and that WHERE a leg earns decides its book value (RES earned in #463's drawdown days, DO 0.160; the stamp-lag
+check of 2026-10-05 confirmed it at weekly resolution, DO 0.173). DIVRUN, EDRIFT and INSIDER (2026-10-05) died for the
+opposite reasons: event edges too small for event-rate costs, and no drawdown profile. Days to cover is a slow
+characteristic (it moves over weeks), so a monthly sort turns over little; its short side - the names short sellers crowd
+into, mostly expensive speculative growth - is the corner that falls hardest when speculation unwinds.
+
+THE MAP FIRST (MDL r1). A dollar-neutral basket placed as a drawdown-set candidate first and a standalone leg second.
+Standalone bar: ROC @ $30k >= 15. The house route for a cell that fails it but earns in R: MANAGER #70's (a gate against the
+random-name null, then at most one forward book line), judged INCREMENTALLY over L. Placed honestly: Hong, Li, Ni, Scheinkman
+& Yan (2015) report a days-to-cover spread near 1% a month across all US stocks, smaller among large caps; in the 500 most
+liquid names a few percent a year is plausible - at $200,000 a side ~$6,000-12,000 a year against a drawdown of perhaps
+$20,000-40,000 (ROC 5-15). The family is worth the round for its drawdown-set profile.
+
+MECHANISM. Short sellers are informed and short-sale constraints keep their information from being fully priced (Diamond &
+Verrecchia 1987; Asquith, Pathak & Ritter 2005; Boehmer, Huszar & Jordan 2010); days to cover - shares sold short over
+average daily volume - measures how costly the crowded short is to unwind and is the cleaner signal (Hong et al. 2015), and
+the short-interest ratio (shares short over shares outstanding) is the classic one (Dechow, Hutton, Meulbroek & Sloan 2001).
+Counter-evidence written in now: (1) much of the short-interest spread is compensation for BORROW FEES on hard-to-borrow
+names (Drechsler & Drechsler 2016) - this harness has no fee data, so a binding borrow stress stands in (STAGE A (b)); (2)
+SQUEEZES: the 500 most liquid stocks held the 2021 meme names (GME, AMC, BBBY ...), the exact high-days-to-cover shorts, and
+a squeeze can take a year's spread in days; (3) the public archive starts 2018-06, so the walk-forward is seven years and
+misses 2017 (184 of R's 762 drawdown days); (4) short interest is published with a lag of about two weeks.
+
+DATA - ONE NEW PUBLIC PULL (no keys, no money; run by TV, the house's public-data scout, never by this lane), plus held data.
+[D1] FINRA consolidated short interest (TV's catalog row 6): https://cdn.finra.org/equity/otcmarket/biweekly/shrtYYYYMMDD.csv,
+one file per settlement date from 2018-06-15 (the archive's first) through the last settlement date whose file is
+disseminated before 2025-06-30, every file saved byte for byte with its URL, UTC time, size and sha256 (the photograph rule);
+nothing settled or disseminated on or after 2025-06-30 is fetched or read (the sealed year). TV also photographs FINRA's
+published short-interest reporting and dissemination schedule if one exists for 2018-25 (it decides [K] below). [D2] TV
+extracts ONE flat file (pinned by sha256 in a dated pre-data addendum before any number): settlement date, symbol, issue
+name, market, current short interest (shares), previous short interest, FINRA's average daily volume and days to cover (both
+REPORTED only), and the file it came from. [D3] held: the SIPORB cache (raw + split-adjusted daily bars, manifest sha256
+380b05f2..., never mixed with a re-pull) for prices and for RAW daily share volume; the wide corporate-actions calendar
+pinned for RESMOM (sha256 e5bc8487...: dividends [R1], spin-offs [D2] and splits exactly as RESMOM, and its name_change rows
+for the symbol map); NETISS r1's pinned as-filed share counts (02387a4f + d10626d8, with their CIK maps) for the
+short-interest ratio cell; ES as RESMOM.
+
+SYMBOLS. FINRA files carry the ticker AT the settlement date; the cache carries the current one. A FINRA row joins a cache
+name when its symbol equals the name's ticker on that settlement date, built from the calendar's name_change rows (old ->
+new, at the process date) walked backward from the cache's ticker; a ticker that two cache names held on overlapping dates,
+or a name whose rename precedes the calendar's 2016-06-01 start without TV's hand check, gets NO score (counted and listed).
+Share classes follow the file's symbol exactly (GOOG and GOOGL are two names, as in the cache).
+
+UNIVERSE (each rebalance, only information known before the fill): RESMOM's exactly - prior raw close >= $10, the 500 largest
+by mean raw dollar volume over the previous 20 sessions, mean volume >= 1,000,000 shares and ATR > $0.50 over the previous 14,
+no registered split in the previous 14 sessions, >= 230 split-safe returns and ES pairs in the 252-session window.
+
+[K] KNOWN AT A RANK CLOSE r. A settlement date s is usable at r when the first session after its DISSEMINATION date is on or
+before r. The dissemination date is FINRA's published one where TV photographs the schedule; otherwise s + 12 sessions
+(firms report two business days after settlement and FINRA publishes within roughly seven to nine sessions of the settlement
+date; twelve leaves a margin). At each rank the score uses the LATEST usable settlement s* (counted: its age in sessions at r).
+
+SCORES (one per cell, per name, at s*):
+- D1 DAYS TO COVER = SI(s*) / ADV(s*), SI = the file's current short interest, ADV = the mean RAW daily share volume of the
+  cache over the 20 sessions ending at s* (the house's own volume, not FINRA's; FINRA's days to cover is a reported
+  cross-check). No score when SI is missing or negative, ADV has fewer than 15 sessions, or a split (calendar or F, the
+  [A3] two-way rule of NETISS) falls inside the 20 sessions (raw volume would mix share units). SI = 0 is a valid score.
+- S1 SHORT-INTEREST RATIO = SI(s*) / S(s*), S = NETISS r1's point-in-time shares outstanding (its [A1]-[A4], [A8] rules:
+  first filed value, known at filed + 1 session, cover page else balance sheet, foreign filers excluded) on its as-of date,
+  carried to s* by the split factor F (S x F(a) / F(s*)); no score when S is unusable, when its as-of date is more than 200
+  days before s*, or when the [A3] split check fails between them. |ln(S1 / median S1 of the rank)| > ln(1000) = a scale
+  error: no score, listed.
+
+CELLS (the family: 2). D1 and S1. At each month's last session close r, among the universe names WITH a score: long the 50
+LOWEST, short the 50 HIGHEST; a month with fewer than 150 scored names trades the bottom / top third, at least 20 a side, else
+nothing (counted). Ties at the cut are broken by the name's ADV, highest first (the cheapest to trade). $4,000 each,
+fractional shares, dollar-neutral, FILL at the next session's official open, HOLD to the next rebalance's fill, daily marks,
+no compounding - RESMOM's engine unchanged. COSTS: 5 bps a side base, stress 10 and 20.
+BORROW: 0.25%/yr on short notional base (RESMOM's), stress 1% and 3%/yr on high-volatility sessions (RESMOM's rule) - and,
+because crowded shorts are where borrow fees live, a BINDING flat stress of 3%/yr on every short every day (STAGE A (b)).
+Dividends paid and owed exactly as RESMOM [R1].
+
+NULL (family-aware): 500 draws, seed 20261018; at every rebalance each cell's longs and shorts are replaced by the same number
+of names drawn at random from that rebalance's eligible SCORED pool (same hygiene, sizing, fills, costs); statistic = the MAX
+over the 2 cells of WF ROC @ $30k.
+
+#463, L and the map: exactly RESMOM's and NETISS's (r11_risk's rule-U records, refused unless #463's WF 93.81 / 3.816 / $44,849
+reproduces; L from RESMOM's pinned resmom_cells_daily_wf.csv, sha256 bed7bf8b..., refused unless 120.82 / 3.916 / $36,526
+reproduces; DO and rho_dd by r12_mdl.Stretch) - through the shared seat-pipeline harness once it is in the repo, else
+r18_divrun's reference loader.
+
+STRETCHES: WF = positions exited 2018-08-01 -> 2025-06-29 (the first rank with a usable file is about 2018-06-29; both cells'
+first traded rank is printed); because the stretch is shorter than the house WF, EVERY book number - #463's, L's, L + c x the
+cell's - is computed on THIS stretch (and #463's and L's full-WF numbers printed beside them): about 560 of R's 762 drawdown
+days and the episodes that fall inside it. LB = 2025-06-30 -> 2026-06-30, SEALED; this family joins the stock families' ONE
+sealed-year day as a leg veto (MANAGER #48), and under the owner's lockbox rule of 2026-10-05 the sealed year can never pass
+it.
+
+STAGE A (WF, per cell; the standalone bars decide - MANAGER #56): RESMOM's (a)-(f) on this stretch - (a) >= 60 rebalances; (b)
+WF ROC @ $30k >= 15, net > 0 at 5 AND 10 bps, AND net > 0 with the flat 3%/yr borrow on every short; (c) above the null's 95th
+percentile; (d) positive in >= 5 of the 7 July-June WF years (two thirds, rounded up) and net > 0 without 2020-02-15 ..
+2020-04-30; (e) profitable without its best 1% of days AND of name-months; (f) the 50 largest contributors audited by hand
+(each one's short-interest rows, files and volume) before a pass is read.
+
+A2 (WF, a REPORT): L + c x the cell against L on this stretch, c by volatility (25% of #463's daily std / the cell's over the
+cell's first two years, 2018-08-01 .. 2020-07-31; 0.5c and 2c reported); an incremental pass = ROC and Sortino both strictly
+above L's; the plain #463 + c x cell book is a reported row; dollars a year (net / years) beside every ROC (MANAGER #100). A
+cell with |realised beta| > 0.20 (its daily $ P&L on ES's daily return per $ of one side's notional, on R's days and on all WF
+days) has its drawdown profile REPORTED but never credited (no incremental pass, no gate, no line); an ES-hedged twin (ex-ante
+OLS beta with intercept over the 252 sessions before the rank, zero before 252 exist) is REPORTED beside it. An incremental
+pass follows MANAGER #70's route: a gate registered first (the cell's DO over L's drawdown days inside this stretch above the
+random-name null's 95th percentile AND positive without its best episode), then at most ONE forward book line.
+
+STAGE B / C: as RESMOM (the leg's veto on the shared day; a computed no-order line on the RUNBOARD).
+
+DIAGNOSTICS (owner standing order addendum 2 + MANAGER #100; none is a pass route), every cell: the cost curve 0 / 5 / 10 / 20
+bps a side; the BORROW CURVE - net at 0, 0.25, 1, 3, 5, 10 and 20%/yr flat on every short - and the break-even borrow fee; a
+row per July-June year; the halves 2018-08 .. 2021-12 and 2022-01 .. 2025-06; L's drawdown-episode table on this stretch with
+the cell's P&L inside each and which episodes it helps; the LONG and SHORT sides apart; the realised beta to ES; the 20 largest
+name-month gains AND the 20 largest name-month LOSSES (the squeeze list) and the January 2021 month in full; the correlation of
+each cell's daily P&L with RES and the overlap of their picks; score persistence (the share of names still in the same tail
+one rebalance later) and turnover; FINRA's own days to cover against D1's (rank correlation per rank).
+
+BEFORE ANY P&L the output prints (counts and score facts only): files read per year and any missing settlement date; symbols
+matched / unmatched by reason per rank; scored names per rank and cell and each no-score reason; the age of s* at each rank;
+the median and 5th / 95th percentiles of D1 and S1 per year; the share of names with SI = 0; S1's as-of age distribution.
+
+KNOWN WAYS IT COULD FOOL US: borrow fees we cannot see (the binding 3% stress and the break-even fee); squeezes on the short
+side (the loss list); a symbol mapped to the wrong company after a ticker was reused (the map's refusals and the hand audit);
+the dissemination lag (a conservative twelve sessions unless FINRA's schedule is photographed); FINRA files revised after
+publication (the photograph is what it is - a revision would only add noise, never the future); survivorship (Alpaca's
+inactive names only); one seven-year regime; a short-side profile that is only beta (the 0.20 rule).
+
+Zero passes = SHORTINT r1 dead; no other horizons, thresholds or scores are tried - the next family comes from the next
+mechanism.
