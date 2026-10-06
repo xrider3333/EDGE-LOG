@@ -41,7 +41,7 @@ D0, WF0, WF1 = "2010-06-07", HH.WF0, HH.WF1
 EARLY1 = pd.Timestamp("2016-06-30")
 HOUR = np.sqrt(60.0 / 390.0)          # the implied move for ONE hour (the first hour's yardstick)
 KPAIRS = {"A": [1.0, 1.25], "B": [1.25, 1.5]}       # prereg: MANAGER rules A (literal #67 numbers) or B (recommended)
-RULING = os.environ.get("IMPLIEDMOVE_KPAIR", "A")
+RULING = "B"      # MANAGER #68: no return had been read, so B (k 1.25 / 1.5) is registered; A prints as a REPORT
 CELLS = KPAIRS[RULING]
 PRIMARY = CELLS[0]
 SEED = 20261006
@@ -210,6 +210,14 @@ def main(argv):
                                    "PASS -> plugin + window-pinned Auto-Validate on a ranged file" if ok else
                                    "FAIL (dead, no variants)"))
     HH.book_report(pr["x"], B, years, "IMPLIEDMOVE")
+    for k in [k for k in KPAIRS["A"] if k not in CELLS]:                  # MANAGER #68: pair A is a REPORT, never a cell
+        sa = np.where(wf, sched(D, k), 0.0)
+        kt = twin_k(D, int((sa != 0).sum()), wf)
+        for lab, s in (("REPORT pair A k %.2f" % k, sa), ("REPORT its realized twin k %.3f" % kt,
+                                                          np.where(wf, sched(D, kt, "rm"), 0.0))):
+            st = HH.own(HH_daily(D, pnl(D, s), bdays), bdays)
+            print("  %-32s n %4d  net $%9s  own ROC@30k %6.2f  Sortino %5.2f" % (
+                lab, int((s != 0).sum()), format(int(st["net"]), ","), st["roc"], st["sort"]))
 
     print("DIAGNOSTICS (no verdict)")
     on = pr["s"] != 0

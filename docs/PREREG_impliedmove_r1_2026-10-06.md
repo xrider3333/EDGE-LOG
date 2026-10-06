@@ -130,3 +130,11 @@ The R-DAY SUM (primary, and without its 3 best R days) is the FIRST line Stage A
   lockbox veto-only. Then a RUNBOARD row.
 - **FAIL:** dead; no other yardstick, window or k. Ledger row, TTM.md note, RUNBOARD research row.
 - Nothing live or in the adopted book changes without the owner.
+
+## AMENDMENT 1 - MANAGER rulings #68 (2026-10-06 11:06 MST, GO), written in before any return
+- The one-hour scaling (the daily implied move x sqrt(60 / 390)) is accepted.
+- No return had been read when the ruling arrived; only counts, the overlap and the power line had run. So **Option B is
+  the registered cell pair: k 1.25 = PRIMARY (90 a year), k 1.5 = neighbour (51 a year).**
+- Option A's other value (k 1.0) and its count-matched twin print as a REPORT, never a cell.
+- The count-matched realized twin binds as written (A2).
+- The power line is re-run on the k 1.25 schedule before Stage A. The run starts after this file is on main.
