@@ -160,3 +160,21 @@ survivorship (Alpaca's inactive names only); a short-side profile that is only b
 
 Zero passes = BUYBACK r1 dead; no other yields, horizons, concepts or thresholds are tried - the next family comes from the
 next mechanism.
+
+PRE-DATA ADDENDUM 1 (2026-10-06 10:20 MST, before any BUYBACK number and before its extract exists; no NETISS return exists
+either): MANAGER's review (inbox #112, GO WITH EDITS; BUYBACK keeps its place - it runs only after NETISS's Stage A verdict is
+on the ledger and after the live queue NETISS / NEWISSUE / SHORTINT) folded:
+- [B1] FISCAL-YEAR CHANGE GUARD. A year-to-date TTM also needs the current fiscal year's start s to fall within 14 days of
+  FY_prev's end + 1 day; a firm in a transition period (a changed fiscal year end) gets NO TTM at that rank, counted per year
+  as 'fiscal-year change'.
+- [B2] STALENESS PRINT. Per year, the share of scored names whose statement period ended more than 120 days before the rank
+  close (a quarterly filer's normal ceiling) is printed before any P&L; the 200-day cut stays the no-score rule.
+- [B3] THE TAG BLIND SPOT. Per year, the share of universe names that have a STATEMENT fact but read ZERO on all three
+  components over the four quarters is printed by the counts-only dryload and reported in the pre-data addendum that pins the
+  extract, before any cell number. Above 10% of names in any year, that addendum says the zero-reading rule is suspect, lists
+  that year's names, and Stage A waits for MANAGER's ruling.
+- [B4] ACCESSION NUMBERS. The extract keeps each fact's accession number (accn, already in [D1]'s columns) and the hand audit
+  (f) cites every filing by it.
+- [B5] MEMORY. Stage A starts only when the machine is quiet (>= 7.5 GB free on two checks 30 s apart and no headless-Chrome
+  ship probe running), under the job-object limit with the 2,500 MB free-memory floor; a run the floor kills is kept and
+  re-run unchanged; the owner's applications are never touched.
