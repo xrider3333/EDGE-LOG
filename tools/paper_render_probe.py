@@ -2950,10 +2950,14 @@ MUTANTS = [
      '.p2tlbox{margin-top:-2px;}@media (min-width:601px) and (max-width:800px){.p2tlbox{min-width:900px}}.p2tlbox{',
      'the page scrolls sideways between 601 and 800 px',
      'the page scrolls sideways at'),
+    # Since LEDGER step 9 the SHARED list css hides the points / strategy / slot cells by itself (max-width 920 / 800 / 740 px), so taking out
+    # the board's narrow-box rule alone no longer overflows anything at 601-699 px (only the small size cell comes back, and it fits). The
+    # build below takes the board's narrow-box rule out AND switches the shared hiding off for the NT8 frame (the rows get all four cells
+    # back inside a box below 700 px): the rows then run past the box and the page scrolls sideways (788 px in a 601 px window, measured).
     ('list-rows-overflow-601-699',
      '@container p2tl (max-width:699px){.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-pts,.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-size{display:none}}',
-     '',
-     'the list rows keep their points and size cells on a narrow box and run past it',
+     '@container p2tl (max-width:699px){@media (min-width:601px){.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-pts,.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-strat{display:block!important}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-slot{display:flex!important}}}',
+     'the list rows keep their points, size, strategy and slot cells on a narrow box (the board narrow-box rule is gone and the shared hiding rules are off for the NT8 frame, 601 px and up) and run past it',
      'the page scrolls sideways at'),
     ('page-scrolls-sideways',
      '.p2tlbox{margin-top:-2px;',
