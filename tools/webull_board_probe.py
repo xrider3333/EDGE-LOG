@@ -104,12 +104,18 @@ win nor a loss in the tiles ('1 even') and in the calendar's month '% won'; TODA
 375x812 phone with More stats open; TODAY with today pinned to 2026-10-06 (no trade closed yet) with More
 stats open, which must still show the Account rows (equity, cash, Open exposure, Daily loss limit,
 slippage) under 'No trades in this range.'; and ALL with a shadow row worth $5,000 closed today, which
-must leave the tiles and More stats unchanged. Each 'More stats open' case opens it the way a reload
+must leave the tiles, More stats, the hero and the trade list unchanged (the board drops a shadow row once,
+where its trade list is built). Each 'More stats open' case opens it the way a reload
 does (stored '1', nothing in memory) and must draw it open; its values are checked against the fixture
-(Net P&L, Max drawdown, Broker made, Book figure over the same trades, Book-only trades, Fill coverage,
-best and worst trade), and on a phone it must not scroll sideways. The interaction run opens and closes
+(Net P&L, Max drawdown, Current streak walked in exit order, Broker made, Book figure over the same trades,
+Book-only trades, Fill coverage, best and worst trade, an Average hold that is not '--'), the account's change
+is named for its day ('today' on the fresh doc; the TODAY-before-the-first-exit case runs its clock at
+2026-10-06 08:00, so it must read 'Account change on Mon 10-05'), under MONO no value or bar has a hue,
+'No trades in this range.' keeps at least 8 px above the Account heading, and on a phone it must not scroll
+sideways. Every case: the stat strip can be seen (shown, of real size) and starts under the chart, above
+Account and History, and on a phone above the Strategies list. The interaction run opens and closes
 the More stats fold (aria-expanded true then false, the choice stored for this viewer, Returns / Risk /
-Mix / Account with the Webull rows, and on ALL the Webull rows' values). ?oldboards=1: no shared tiles,
+Mix / Account with the Webull rows, and on ALL every value worked out here, the current streak too). ?oldboards=1: no shared tiles,
 the old Stats section is back.
 
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
@@ -460,6 +466,21 @@ def _variant_docs(fixture):
 
 
 # Builds this gate must catch, made from the CURRENT index.html by one string replacement each.
+# 'stats-below-history': the shared stat strip's line moved from under the chart to under the History section
+_SB_LINES = [
+    "          +(LEDGER_OLDBOARDS?'':('<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div>'))",
+    "          +'<div class=\"qbx-side\">'",
+    "            +'<div class=\"qbx-side-hd\">Strategies</div>'",
+    "            +legListHtml",
+    "            +'<div class=\"qbx-orders-mini\">'+qbOrdersCompactHtml+'</div>'",
+    "          +'</div>'",
+    "          +'<div class=\"qbx-account qbx-section\"><div class=\"qb-section-hd\">Account</div>'+qbAccountHtml+'</div>'",
+    "          +(LEDGER_OLDBOARDS?('<div class=\"qbx-stats qbx-section\"><div class=\"qb-section-hd\">Stats</div>'+qbStatsCard+'</div>'):'')",
+    "          +'<div class=\"qbx-history qbx-section\"><div class=\"qb-section-hd\">History</div>'+qbTradesCard+(ordersHtml||'')+'</div>'",
+]
+_SB_ANCHOR = '\r\n'.join(_SB_LINES)
+_SB_MOVED = '\r\n'.join(_SB_LINES[1:] + _SB_LINES[:1])
+
 MUTANTS = [
     ('chart-not-drawn',
      "if(window._qbLgChart){const lgw=content.querySelector('#qb-lg-chart');if(lgw)ledgerChartRender(lgw,window._qbLgChart);}",
@@ -725,8 +746,8 @@ MUTANTS = [
      "the UNREALIZED figure of a position on a silent box stays green / red"),
     # LEDGER step 6 (shared stats strip + More stats)
     ('stats-ignore-range',
-     "const qbStatRows=qbRangeTrades.filter(",
-     "const qbStatRows=trades.filter(",
+     "const qbStatRows=qbRangeTrades.map(",
+     "const qbStatRows=trades.map(",
      "the stat tiles count every trade whatever range is chosen"),
     ('zero-is-a-loss',
      "}else if(v<0){losses++;gl-=v;",
@@ -742,7 +763,7 @@ MUTANTS = [
      "the More stats fold never opens"),
     # LEDGER step 6 review fixes
     ('more-stats-not-remembered',
-     "const qbMoreOpen=(()=>{let o=!!window._qbMoreStatsOpen;try{const sv=localStorage.getItem('el_qb_morestats_open');if(sv!=null)o=sv==='1';}catch(e){}return o;})();",
+     "const qbMoreOpen=(()=>{let o=window._qbMoreStatsOpen!=null?!!window._qbMoreStatsOpen:!!(APREF.qqqMoreStatsOpen!=null&&+APREF.qqqMoreStatsOpen);try{const sv=localStorage.getItem('el_qb_morestats_open');if(sv!=null)o=sv==='1';}catch(e){}return o;})();",
      "const qbMoreOpen=!!window._qbMoreStatsOpen;",
      "an open More stats fold is closed again after a reload"),
     ('account-gone-on-empty-range',
@@ -753,10 +774,10 @@ MUTANTS = [
      "if(t.book_only)bo++;else{broker+=v;const a=qeFinRec(t.pnl),r=qeFinRec(t.real_pnl);book+=a!==null?a:(r!==null?r:0);}",
      "const a=qeFinRec(t.pnl),r=qeFinRec(t.real_pnl);book+=a!==null?a:(r!==null?r:0);if(t.book_only)bo++;else{broker+=v;}",
      "Book figure adds up the book-only trades that Broker made leaves out, so the two rows are not like for like"),
-    ('shadow-in-stats',
-     "const qbStatRows=qbRangeTrades.filter(t=>!qbIsShadowRow(t))",
-     "const qbStatRows=qbRangeTrades.filter(t=>true)",
-     "a shadow row enters the stat tiles and More stats"),
+    ('shadow-on-board',
+     "const trades=(QE.trades_all||[]).filter(t=>!qbIsShadowRow(t));",
+     "const trades=(QE.trades_all||[]).filter(t=>true);",
+     "a shadow row enters the hero, the chart, the stat tiles, More stats and the trade list"),
     ('pf-line-swapped',
      "ledgerShortMoney(s.grossWin).slice(1)+' won &middot; '+ledgerShortMoney(s.grossLoss).slice(1)+' lost'",
      "ledgerShortMoney(s.grossLoss).slice(1)+' won &middot; '+ledgerShortMoney(s.grossWin).slice(1)+' lost'",
@@ -765,6 +786,35 @@ MUTANTS = [
      "best=Math.max.apply(null,pv)",
      "best=Math.min.apply(null,pv)",
      "More stats' best trade shows the worst one"),
+    # LEDGER step 6 review fixes, round 2
+    ('stats-strip-hidden',
+     ".qbx-lgstats{padding:16px 0 0}",
+     ".qbx-lgstats{padding:16px 0 0;display:none}",
+     "the stat strip and the More stats fold are on the page but cannot be seen"),
+    ('stats-below-history',
+     _SB_ANCHOR,
+     _SB_MOVED,
+     "the stat strip is drawn under the History section (on a phone, under the whole trade list)"),
+    ('stats-reverse-order',
+     ".sort((a,b)=>qbTsOf(a)<qbTsOf(b)?-1:(qbTsOf(a)>qbTsOf(b)?1:0));",
+     ".sort((a,b)=>qbTsOf(a)<qbTsOf(b)?1:(qbTsOf(a)>qbTsOf(b)?-1:0));",
+     "the stats walk the trades newest first, so the current streak is the oldest one"),
+    ('account-change-undated',
+     "acct.push(['Account change '+(chgDay?('on '+chgDay):'today'),",
+     "acct.push(['Account change '+(false?('on '+chgDay):'today'),",
+     "More stats calls an earlier day's account change 'today'"),
+    ('hold-missing',
+     "Object.assign({},t,{durationMins:qbHoldMins(t)})",
+     "Object.assign({},t,{durationMins:null})",
+     "More stats' Average hold reads '--' with every trade's times in the doc"),
+    ('mono-hue-in-fold',
+     ".qbx-lgstats{padding:16px 0 0}",
+     ".qbx-lgstats{padding:16px 0 0}\r\n[data-theme=mono] .qbx-lgstats .lg-ms-row .v.lg-up{color:#e33}",
+     "a More stats value is drawn in a colour under MONO (MONO has no hue)"),
+    ('empty-fold-no-gap',
+     "'<div class=\"lg-ms-grid\" style=\"margin-top:16px\">'",
+     "'<div class=\"lg-ms-grid\">'",
+     "with no trade in the range, 'No trades in this range.' runs into the ACCOUNT heading"),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -835,12 +885,24 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
   // the More stats panel: shown or hidden, its groups, and every row as 'Group|Label' -> value text
   function moreRead(){
     var mp=q('#qb-more'),m={panel:mp?(mp.hasAttribute('hidden')?'hidden':'shown'):null,groups:[],vals:{},
-      empty:!!mp&&(mp.textContent||'').indexOf('No trades in this range.')>=0};
+      empty:!!mp&&(mp.textContent||'').indexOf('No trades in this range.')>=0,hued:[],gap:null};
     if(mp)[].forEach.call(mp.querySelectorAll('[data-lgmsgroup]'),function(g){
       var gt=g.getAttribute('data-lgmsgroup');m.groups.push(gt);
       [].forEach.call(g.querySelectorAll('.lg-ms-row'),function(row){
         var l=row.querySelector('.l'),v=row.querySelector('.v');
         m.vals[gt+'|'+(l?(l.textContent||'').replace(/\\s+/g,' ').trim():'')]=v?(v.textContent||'').replace(/\\s+/g,' ').trim():null;});});
+    if(mp&&!mp.hasAttribute('hidden')){
+      // MONO has no hue: every value and every bar segment must come out grey (r = g = b)
+      var w=W(),chk=function(e,prop){var c=w.getComputedStyle(e)[prop]||'',p=c.replace(/[^0-9.,]/g,'').split(',').map(Number);
+        if(p.length>=3&&!(p[0]===p[1]&&p[1]===p[2])&&!(p.length>3&&p[3]===0)&&m.hued.length<6)
+          m.hued.push(e.tagName.toLowerCase()+(typeof e.className==='string'&&e.className?'.'+e.className.trim().split(' ').join('.'):'')+' '+prop+' '+c);};
+      [].forEach.call(mp.querySelectorAll('.lg-ms-row .v, .lg-ms-row .v *'),function(e){chk(e,'color');});
+      [].forEach.call(mp.querySelectorAll('.lg-ms-bar > *'),function(e){chk(e,'backgroundColor');});
+      // with no trade in the range: the room between 'No trades in this range.' and the Account heading
+      var nt=null;[].forEach.call(mp.querySelectorAll('.lg-ms-note'),function(e){if(!nt&&(e.textContent||'').indexOf('No trades in this range.')>=0)nt=e;});
+      var gh=mp.querySelector('.lg-ms-group h4');
+      if(nt&&gh)m.gap=Math.round(gh.getBoundingClientRect().top-nt.getBoundingClientRect().bottom);
+    }
     return m;
   }
   // wait until the top bar has kept one height for three checks in a row (a busy machine draws late)
@@ -945,6 +1007,14 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       var v=e.querySelector('.lg-stat-val'),s=e.querySelector('.lg-stat-sub');
       return [e.getAttribute('data-lgstat'),v?(v.textContent||'').replace(/\\s+/g,' ').trim():null,s?(s.textContent||'').replace(/\\s+/g,' ').trim():null];});
     r.statTilesAll=d.querySelectorAll('[data-lgstat]').length;
+    // the strip must be SEEN, right under the chart: shown, of real size, below the chart box and above the
+    // Account and History sections (and on a phone above the Strategies list)
+    var sbx=q('.qbx-lgstats');
+    if(sbx){var sbr=sbx.getBoundingClientRect(),sbs=w.getComputedStyle(sbx),cbx=q('.qbx-chart');
+      var topOf=function(sel){var e=q(sel);return e?Math.round(e.getBoundingClientRect().top):null;};
+      r.statBox={disp:sbs.display,vis:sbs.visibility,op:effOp(sbx),w:Math.round(sbr.width),h:Math.round(sbr.height),top:Math.round(sbr.top),
+        tileH:Math.min.apply(null,[9999].concat([].map.call(sbx.querySelectorAll('[data-lgstat]'),function(e){return Math.round(e.getBoundingClientRect().height);}))),
+        chartBottom:cbx?Math.round(cbx.getBoundingClientRect().bottom):null,sideTop:topOf('.qbx-side'),acctTop:topOf('.qbx-account'),histTop:topOf('.qbx-history')};}
     r.oldStats=!!d.querySelector('.qbx-stat-strip');
     var mbt=q('[data-lgmore="qb"]');r.moreBtn=mbt?mbt.getAttribute('aria-expanded'):null;
     r.more=moreRead();
@@ -1179,7 +1249,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         out.stats={};
         for(var k=0;k<STATS.length;k++){
           var S=STATS[k];
-          await runCase('__st'+k,{vp:S.vp,theme:S.theme,fix:S.doc,range:S.range,todayNY:S.today,calMonth:S.calMonth,moreOpen:S.more});
+          await runCase('__st'+k,{vp:S.vp,theme:S.theme,fix:S.doc,range:S.range,todayNY:S.today,calMonth:S.calMonth,moreOpen:S.more,nowMs:S.nowMs});
           out.stats[S.name]=out.cases['__st'+k];delete out.cases['__st'+k];
         }
         try{W().eval("ledgerTodayNY=window.__probeLTN||ledgerTodayNY;");}catch(e){}
@@ -1362,7 +1432,20 @@ def expected_more(trades, cutoff=None):
         if str(t.get('pnl_record_src') or '') == 'webull':
             wb += 1
     n = len(rows)
-    return {'Returns|Net P&L': signed(net), 'Risk|Max drawdown': money(dd),
+    # the current streak, walked back from the newest exit ($0 trades skipped), as ledgerStats counts it
+    sn = sd = 0
+    for v in reversed(vals):
+        if not v:
+            continue
+        d = 1 if v > 0 else -1
+        if not sn:
+            sn, sd = 1, d
+        elif d == sd:
+            sn += 1
+        else:
+            break
+    streak = '--' if not sn else '%d %s' % (sn, ('wins' if sn > 1 else 'win') if sd > 0 else ('losses' if sn > 1 else 'loss'))
+    return {'Returns|Net P&L': signed(net), 'Risk|Max drawdown': money(dd), 'Risk|Current streak': streak,
             'Account|Broker made': signed(broker), 'Account|Book figure': signed(book),
             'Account|Book-only trades': '%d of %d' % (bo, n),
             'Account|Fill coverage': '%d of %d (%d%%)' % (wb, n, _js_round(wb / n * 100)),
@@ -1451,9 +1534,9 @@ def _stats_cases(fixture):
     it), empty (no trade closed in the range)."""
     z = _zero_doc(fixture)
 
-    def c(name, rg, doc, vp='laptop', th='dark', cal=None, today=STAT_TODAY, more=False, empty=False):
+    def c(name, rg, doc, vp='laptop', th='dark', cal=None, today=STAT_TODAY, more=False, empty=False, now=None):
         return {'name': name, 'range': rg, 'doc': doc, 'vp': vp, 'theme': th, 'cal': cal, 'today': today,
-                'more': more, 'empty': empty}
+                'more': more, 'empty': empty, 'now': now or FRESH_NOW}
     return [c('ALL', 'ALL', fixture),
             c('1W', '1W', fixture),
             c('1W (MONO, 390x844, More stats open)', '1W', fixture, vp='phone390', th='mono', more=True),
@@ -1461,7 +1544,7 @@ def _stats_cases(fixture):
             c('TODAY', 'TODAY', fixture),
             c('1M (375x812, More stats open)', '1M', fixture, vp='phone', more=True),
             c('TODAY before the first exit (2026-10-06, More stats open)', 'TODAY', fixture, today='2026-10-06',
-              more=True, empty=True),
+              more=True, empty=True, now='2026-10-06 08:00:00'),
             c('a shadow row closed today (ALL, More stats open)', 'ALL', _shadow_doc(fixture), th='mono', more=True)]
 
 
@@ -1478,7 +1561,7 @@ def _attempt(chrome, alt_index, fixture):
                  'visread': bool(exp.get('visread')), 'cachesnap': bool(exp.get('cachesnap'))}
                 for nm, now, doc, exp in _variant_docs(fixture)]
     stats = [{'name': c['name'], 'range': c['range'], 'doc': c['doc'], 'vp': c['vp'], 'theme': c['theme'],
-              'calMonth': c['cal'], 'today': c['today'], 'more': c['more']}
+              'calMonth': c['cal'], 'today': c['today'], 'more': c['more'], 'nowMs': et_ms(c['now'])}
              for c in _stats_cases(fixture)]
     html = (PROBE_HTML.replace('__CASES__', json.dumps(CASES)).replace('__VP__', json.dumps(VIEWPORTS))
             .replace('__STATS__', json.dumps(stats))
@@ -1571,6 +1654,53 @@ def _judge_tiles(tag, r, want, fails):
             fails.append('%s: the %s tile line reads %r, the fixture says %r' % (tag, k, got[k][1], ws))
 
 
+def _judge_strip(tag, r, vp, fails):
+    """The shared stat strip is SEEN, right under the chart: shown, of real size, below the chart box, above the
+    Account and History sections, and on a phone above the Strategies list (as on REAL)."""
+    b = r.get('statBox')
+    if not b:
+        fails.append('%s: the shared stat strip (.qbx-lgstats) is not on the page' % tag)
+        return
+    if (b.get('disp') == 'none' or b.get('vis') == 'hidden' or (b.get('op') is not None and b['op'] < 0.5)
+            or not b.get('w') or not b.get('h') or not b.get('tileH') or b.get('tileH') == 9999):
+        fails.append('%s: the stat strip cannot be seen (display %s, visibility %s, opacity %s, %sx%s px, tiles %s px high)'
+                     % (tag, b.get('disp'), b.get('vis'), b.get('op'), b.get('w'), b.get('h'), b.get('tileH')))
+        return
+    top = b.get('top')
+    if b.get('chartBottom') is None or top < b['chartBottom'] - 1:
+        fails.append('%s: the stat strip does not start under the chart (strip top %s, chart bottom %s)'
+                     % (tag, top, b.get('chartBottom')))
+    for k, what in (('acctTop', 'Account'), ('histTop', 'History')):
+        if b.get(k) is not None and top >= b[k]:
+            fails.append('%s: the stat strip is drawn under the %s section (strip top %s, %s top %s)'
+                         % (tag, what, top, what, b[k]))
+    if vp.startswith('phone') and b.get('sideTop') is not None and top >= b['sideTop']:
+        fails.append('%s: on a phone the stat strip is drawn under the Strategies list (strip top %s, list top %s)'
+                     % (tag, top, b['sideTop']))
+
+
+def _hue_and_label(tag, r, sc_, fixture, fails):
+    """An open fold: no hue under MONO, and the account's change named for the day it belongs to."""
+    m = r.get('more') or {}
+    if sc_['theme'] == 'mono' and m.get('hued'):
+        fails.append('%s: More stats draws colour under MONO (MONO has no hue): %s' % (tag, '; '.join(m['hued'][:4])))
+    eq = fixture.get('equity') or {}
+    if eq.get('net_liq') is None or eq.get('change_today') is None:
+        return
+    import datetime
+    as_day, clock_day = str(eq.get('as_of_et') or '')[:10], sc_['now'][:10]
+    if as_day and as_day != clock_day:
+        wd = datetime.date(*map(int, as_day.split('-'))).strftime('%a')
+        want = 'Account change on %s %s' % (wd, as_day[5:])
+    else:
+        want = 'Account change today'
+    acct = [k.split('|', 1)[1] for k in (m.get('vals') or {}) if k.startswith('Account|')]
+    if want not in acct:
+        got = [a for a in acct if a.startswith('Account change')]
+        fails.append("%s: More stats names the account's change %r, want %r (the doc's balance was read on %s, "
+                     "the page's clock reads %s)" % (tag, got, want, as_day, clock_day))
+
+
 def _judge_more(tag, r, sc_, trades, cutoff, fixture, fails):
     """A stats case's More stats fold: closed unless the case stored it open (as a reload finds it), then
     shown with the right groups and values; with no trade in the range, still the Account rows."""
@@ -1585,9 +1715,13 @@ def _judge_more(tag, r, sc_, trades, cutoff, fixture, fails):
         return
     vals = m.get('vals') or {}
     acct = [k.split('|', 1)[1] for k in vals if k.startswith('Account|')]
+    _hue_and_label(tag, r, sc_, fixture, fails)
     if sc_['empty']:
         if not m.get('empty'):
             fails.append("%s: More stats does not say 'No trades in this range.' (groups %r)" % (tag, m.get('groups')))
+        elif m.get('gap') is None or m['gap'] < 8:
+            fails.append("%s: 'No trades in this range.' runs into the Account heading (%s px between them)"
+                         % (tag, m.get('gap')))
         miss = [a for a in ACCOUNT_ROWS_ANY_RANGE if not any(x.startswith(a) for x in acct)]
         if miss:
             fails.append('%s: with no trade closed in the range More stats loses the Account rows %s (has %r)'
@@ -1613,6 +1747,11 @@ def _judge_more(tag, r, sc_, trades, cutoff, fixture, fails):
     for k, w in expected_more(trades, cutoff).items():
         if vals.get(k) != w:
             fails.append('%s: More stats %s reads %r, the fixture says %r' % (tag, k.replace('|', ' > '), vals.get(k), w))
+    timed = [t for t in _range_rows(trades, cutoff) if t.get('entry_ts') and t.get('exit_ts')
+             and str(t['exit_ts']) > str(t['entry_ts'])]
+    hold = vals.get('Mix|Average hold')
+    if timed and (not hold or hold == '--' or not re.search(r'\d', hold)):
+        fails.append('%s: More stats Average hold reads %r with %d trades timed in the doc' % (tag, hold, len(timed)))
 
 
 def _judge(data, fixture):
@@ -1705,6 +1844,7 @@ def _judge(data, fixture):
         if 'silent' in (r.get('fresh') or {}):
             fails.append('%s: the fresh doc (24 s old, in the session) shows %r' % (nm, r['fresh']['silent']))
         _judge_tiles(nm, r, expected_stats(fixture.get('trades_all') or []), fails)
+        _judge_strip(nm, r, cfg['vp'], fails)
         if r.get('moreBtn') != 'false':
             fails.append('%s: the More stats fold is not there closed (aria-expanded=%r)' % (nm, r.get('moreBtn')))
         if r.get('oldStats'):
@@ -1737,7 +1877,16 @@ def _judge(data, fixture):
             # a shadow row must change nothing: the tiles equal the fixture's own
             if want != expected_stats(fixture.get('trades_all') or [], cut):
                 fails.append("%s: the probe's own case is wrong: its shadow row moved the recomputation" % tag)
+            # ... and the hero and the trade list count the same trades as the stats (no shadow row anywhere)
+            plain = [t for t in tr if not _is_shadow(t)]
+            hero = money(_js_round(sum(qe_pnl_of(t) for t in plain) * 100) / 100.0)
+            if r.get('heroBig') != hero:
+                fails.append('%s: the hero reads %r, the trades without the shadow row make %s' % (tag, r.get('heroBig'), hero))
+            if r.get('tradeRows') != min(len(plain), 50):
+                fails.append('%s: the trade list shows %s rows, want %s (the shadow row left out)'
+                             % (tag, r.get('tradeRows'), min(len(plain), 50)))
         _judge_tiles(tag, r, want, fails)
+        _judge_strip(tag, r, vp, fails)
         _judge_more(tag, r, sc_, tr, cut, fixture, fails)
         if nm == '$0 trade':
             if '1 even' not in (want['winrate'][1] or ''):
@@ -1803,7 +1952,7 @@ def _judge(data, fixture):
             # on ALL the Webull rows against the fixture (Book figure over the same trades as Broker made)
             fvals = fo.get('vals') or {}
             for k, w in expected_more(fixture.get('trades_all') or []).items():
-                if k.startswith('Account|') and fvals.get(k) != w:
+                if fvals.get(k) != w:
                     fails.append('%s: More stats %s reads %r on ALL, the fixture says %r'
                                  % (tag, k.split('|')[1], fvals.get(k), w))
             if fo.get('closed') != 'false' or fo.get('panelAfter') != 'hidden' or fo.get('stored2') != '0':

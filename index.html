@@ -602,7 +602,6 @@ select option:checked{background:var(--bg3);color:var(--text)}
 /* WEBULL PAPER on the shared stats (LEDGER unify step 6): the four tiles and the More stats fold sit right
    under the chart, as on REAL; ?oldboards=1 keeps the old Stats section below Account for one version */
 .qbx-lgstats{padding:16px 0 0}
-.qbx-lgstats .lg-more{margin-bottom:18px}
 @media(min-width:1100px){
   .qb-shell{
     max-width:1320px;
@@ -994,7 +993,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1083';
+const VERSION='73.1084';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -37970,7 +37969,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +modelSection+'</div>';
       }else{
         const positions=QE.positions||{};
-        const trades=QE.trades_all||[];  // newest-first, per api/qqq_exec.py _build_doc
+        // Shadow legs never enter this board (owner rule). The box keeps them out of trades_all; a row flagged
+        // shadow that ever slips in is dropped once, here, so the hero, the chart, the stats, the calendar, the
+        // trade list and the export all count the same trades.
+        const qbIsShadowRow=t=>!!t&&(t.shadow===true||String(t.shadow||'').toLowerCase()==='true'||String(t.layer||'').toLowerCase()==='shadow');
+        const trades=(QE.trades_all||[]).filter(t=>!qbIsShadowRow(t));  // newest-first, per api/qqq_exec.py _build_doc
         window._qeTradesForExport=trades; // G. EXPORT CSV button reads this at click time
         const closedN=trades.length;
         // EFFECTIVE PARITY (2026-09-22, feature #56): which read a trade shows -- the
@@ -39470,7 +39473,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const chgDay=(/^\d{4}-\d{2}-\d{2}$/.test(chgAsOf)&&chgAsOf!==QF.todayNY)?qbDayLabel(chgAsOf):(QF.isToday?null:QF.dayLabel);
               const chgHtml=chg==null?'':(' <span data-qbeqchg="'+(chgDay||'today')+'" style="'+(chgDay?'opacity:.55;':'')+'color:'+pnlCol(chg)+';font-weight:700;font-size:13px"'+(chgDay?(' title="The change on '+chgDay+', not today"'):'')+'>'
                 +(chg>=0?'+':'')+qeMoney(chg)
-                +(QEQUITY.change_today_pct!=null?(' ('+(chg>=0?'+':'')+qeNum(QEQUITY.change_today_pct,2)+'%)'):'')
+                +(QEQUITY.change_today_pct!=null&&Math.abs(Number(QEQUITY.change_today_pct))>=0.005?(' ('+(chg>=0?'+':'')+qeNum(QEQUITY.change_today_pct,2)+'%)'):'')
                 +(chgDay?(' <span style="font-weight:400;font-size:11px;color:var(--text4)">'+chgDay+'</span>'):'')
                 +'</span>');
               // STALE is judged here, not on the box (finding 24): a silent box, or in the session
@@ -39583,16 +39586,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // range, at this board's P&L of record (qePnlOf) on the New York day each one closed (qeTradeDate),
         // walked in the order they closed (exit time, as the chart walks them), so a drawdown follows the real
         // sequence. A $0 trade is neither a win nor a loss. Shadow legs never enter the stats: the box keeps
-        // them out of trades_all, and a row flagged shadow is dropped here as well. Four tiles (WIN RATE,
+        // them out of trades_all, and a row flagged shadow is dropped where trades is built. Four tiles (WIN RATE,
         // PROFIT FACTOR, MAX DRAWDOWN, TRADES), then one More stats fold: Returns / Risk / Mix + this board's
         // Account group and its best and worst trade; open / closed remembered per viewer.
         const qbTsOf=t=>String((t&&(t.exit_ts||t.entry_ts))||'');
-        const qbIsShadowRow=t=>!!t&&(t.shadow===true||String(t.shadow||'').toLowerCase()==='true'||String(t.layer||'').toLowerCase()==='shadow');
         const qbHoldMins=t=>{const a=Date.parse(String((t&&t.entry_ts)||'').replace(' ','T')+'Z'),b=Date.parse(String((t&&t.exit_ts)||'').replace(' ','T')+'Z');return (isFinite(a)&&isFinite(b)&&b>a)?(b-a)/60000:null;};
-        const qbStatRows=qbRangeTrades.filter(t=>!qbIsShadowRow(t)).map(t=>Object.assign({},t,{durationMins:qbHoldMins(t)}))
+        const qbStatRows=qbRangeTrades.map(t=>Object.assign({},t,{durationMins:qbHoldMins(t)}))
           .sort((a,b)=>qbTsOf(a)<qbTsOf(b)?-1:(qbTsOf(a)>qbTsOf(b)?1:0));
         const qbLs=ledgerStats(qbStatRows,{pnl:qePnlOf,day:qeTradeDate,sorted:true});
-        const qbMoreOpen=(()=>{let o=!!window._qbMoreStatsOpen;try{const sv=localStorage.getItem('el_qb_morestats_open');if(sv!=null)o=sv==='1';}catch(e){}return o;})();
+        const qbMoreOpen=(()=>{let o=window._qbMoreStatsOpen!=null?!!window._qbMoreStatsOpen:!!(APREF.qqqMoreStatsOpen!=null&&+APREF.qqqMoreStatsOpen);try{const sv=localStorage.getItem('el_qb_morestats_open');if(sv!=null)o=sv==='1';}catch(e){}return o;})();
         // the board's own rows: the account as of its last read (not the range), then what the range's trades
         // made at Webull's fills against the book, how many never reached Webull, fill coverage and slippage
         const qbOwnStatGroups=()=>{
@@ -39608,7 +39610,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if(chg!==null){
               const chgDay=otherDay?qbDayLabel(asDay):(QF.isToday?null:QF.dayLabel);
               const pct=QEQUITY.change_today_pct==null?null:qeFin(QEQUITY.change_today_pct);
-              acct.push(['Account change '+(chgDay?('on '+chgDay):'today'),ledgerSigned(chg)+(pct!==null?(' ('+(pct>=0?'+':'')+qeNum(pct,2)+'%)'):''),ledgerCls(chg)]);
+              acct.push(['Account change '+(chgDay?('on '+chgDay):'today'),ledgerSigned(chg)+(pct!==null&&Math.abs(pct)>=0.005?(' ('+(pct>=0?'+':'')+qeNum(pct,2)+'%)'):''),ledgerCls(chg)]);
             }
           }else acct.push(['Account equity','not read yet']);
           acct.push(['Open exposure',ledgerMoney(openExposure)+(posCount?sub(posCount+' open'):'')]);
@@ -39645,7 +39647,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const h=ledgerMoreStatsHtml(null,[],{open:true,id:'qb'}),k=h.lastIndexOf('</div>');
           const g=qbOwnStatGroups().map(gr=>'<div class="lg-ms-group" data-lgmsgroup="'+String(gr.title).replace(/"/g,'')+'"><h4>'+gr.title+'</h4>'
             +(gr.rows||[]).map(r=>ledgerMsRow(r[0],r[1],r[2])+(r[3]||'')).join('')+'</div>').join('');
-          return k<0?h:(h.slice(0,k)+'<div class="lg-ms-grid">'+g+'</div><div class="lg-ms-note">Equity, cash, exposure and the loss limit are as of the box\u2019s last update.</div>'+h.slice(k));
+          return k<0?h:(h.slice(0,k)+'<div class="lg-ms-grid" style="margin-top:16px">'+g+'</div><div class="lg-ms-note">Equity, cash, exposure and the loss limit are as of the box\u2019s last update.</div>'+h.slice(k));
         };
         const qbLgStatsHtml=LEDGER_OLDBOARDS?'':(ledgerStatStripHtml(qbLs,{id:'qb-stat-strip'})
           +((qbMoreOpen&&!qbLs)?qbMoreEmptyHtml():ledgerMoreStatsHtml(qbLs,qbMoreOpen?qbOwnStatGroups():[],{open:qbMoreOpen,id:'qb',
@@ -44304,7 +44306,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         renderApp();};});
       // LEDGER shared More stats (unify step 6): open / closed, remembered per viewer
       content.querySelectorAll('[data-lgmore="qb"]').forEach(el=>{el.onclick=()=>{
-        let o=!!window._qbMoreStatsOpen;
+        // a viewer who kept the old Stats fold open (APREF.qqqMoreStatsOpen) starts from that choice
+        let o=window._qbMoreStatsOpen!=null?!!window._qbMoreStatsOpen:!!(APREF.qqqMoreStatsOpen!=null&&+APREF.qqqMoreStatsOpen);
         try{const sv=localStorage.getItem('el_qb_morestats_open');if(sv!=null)o=sv==='1';}catch(e){}
         window._qbMoreStatsOpen=!o;
         try{localStorage.setItem('el_qb_morestats_open',o?'0':'1');}catch(e){}
