@@ -1178,7 +1178,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1100';
+const VERSION='73.1101';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1196,7 +1196,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1100',date:'2026-10-06',notes:['LEDGER > REAL: a trade now opens in the new shared trade panel - a panel on the right on a laptop, a sheet from the bottom on a phone. Esc, a tap outside it or the close button shut it, and a closed panel takes no room on the page.','The open trade stays open while you search, filter or switch LIST and TABLE, and a half-typed note is saved when the panel closes. The chart with zoom and EXPAND, POINTS, IGNORE IN METRICS, grade and setup, tags, EDIT, SNAPSHOT, OPEN IN TV, DELETE and the SHOULD HAVE TRADED entries all moved into it unchanged.','The LEDGER trade list no longer makes the page scroll sideways between 601 and 800 px: points, then strategy, then the setup and grade tags hide from a row as the window narrows.']},
+const CHANGELOG=[{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
+{v:'73.1100',date:'2026-10-06',notes:['LEDGER > REAL: a trade now opens in the new shared trade panel - a panel on the right on a laptop, a sheet from the bottom on a phone. Esc, a tap outside it or the close button shut it, and a closed panel takes no room on the page.','The open trade stays open while you search, filter or switch LIST and TABLE, and a half-typed note is saved when the panel closes. The chart with zoom and EXPAND, POINTS, IGNORE IN METRICS, grade and setup, tags, EDIT, SNAPSHOT, OPEN IN TV, DELETE and the SHOULD HAVE TRADED entries all moved into it unchanged.','The LEDGER trade list no longer makes the page scroll sideways between 601 and 800 px: points, then strategy, then the setup and grade tags hide from a row as the window narrows.']},
 {v:'73.1090',date:'2026-10-06',notes:['LEDGER steps 6, 7, 10 on WEBULL PAPER: shared stats strip + More stats (landed 73.1084), shared month calendar with caveat days, shared strategy list (BOOK / Retired / Shadow not counted); run numbers on every row; phone list within one screen']},
 {v:'73.1087',date:'2026-10-06',notes:['LEDGER step 8: shared trade list frame on REAL (toolbar, day headers, common columns, phone five-column rows); legacy TRADES and JOURNAL tabs no longer scroll sideways on a phone']},{v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
 {v:'73.1085',date:'2026-10-06',notes:['LEDGER steps 6, 7, 10 on NT8 PAPER: shared stats strip + More stats, shared month calendar, shared strategy list (BOOK #463 / forward tests / shadow / retired) - max drawdown positive, phone list within one screen']},
@@ -41166,7 +41167,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       _bookDefs.forEach(d=>{if(!_legColor[d.k])_legColor[d.k]=d.color;if(!_legLabel[d.k])_legLabel[d.k]=d.label;});
       const _fwdDefs=PAPER_LEG_DEFS.filter(d=>!_bookSet.has(d.k)&&(_showArch||!d.archived));
       if(window._paperFwdOpen==null)window._paperFwdOpen=(APREF.paperFwdOpen==null)?true:!!APREF.paperFwdOpen;
-      _otherKeys.forEach(k=>{_legColor[k]='#8a8a8a';_legLabel[k]=k.replace(/_/g,' ');});
+      // one spelling for a strategy without a listed row, here and in the strategy list: the family, a hash sign and the run number (ORB #257), never ORB 257
+      const _paperNice=k=>{const m=String(k).match(/^([A-Z][A-Z-]*)_(\d+)(?:_(.+))?$/);return m?(m[1]+' #'+m[2]+(m[3]?' \u00b7 '+m[3].replace(/_/g,' '):'')):String(k).replace(/_/g,' ');};
+      _otherKeys.forEach(k=>{_legColor[k]='#8a8a8a';_legLabel[k]=(augurSub==='paper2'&&!LEDGER_OLDBOARDS)?_paperNice(k):k.replace(/_/g,' ');});
       if(!Array.isArray(window._paperOtherOn))window._paperOtherOn=Array.isArray(APREF.paperOtherOn)?APREF.paperOtherOn.slice():[];
       if(window._paperOtherOpen==null)window._paperOtherOpen=!!APREF.paperOtherOpen;
       const _otherOnSet=new Set(window._paperOtherOn);
@@ -42424,7 +42427,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _nOtherRows=_tSorted.filter(t=>_isUnc(legOf(t))).length;
       const _othBadge='<span title="NOT IN THE BOOK: listed here only because its switch is on. Not counted in the big number, the day totals or CUM." style="margin-left:4px;font-size:8px;font-weight:700;letter-spacing:.5px;padding:0 4px;border-radius:4px;border:1px solid #8a8a8a;color:#8a8a8a;cursor:help">NOT BOOK</span>';
       let _lastDay=null;
-      const _tRows=_tSorted.slice(0,200).map(t=>{
+      const _tRows=_p2New?'':_tSorted.slice(0,200).map(t=>{
         const leg=legOf(t),lc=_legColor[leg]||'#5b8def';const pnl=+t.pnl_usd||0;
         const _etk=_etKey(t.entryTime),_xtk=_etKey(t.exitTime);
         const _flagged=leg==='ORB'||(Array.isArray(t.flags)&&t.flags.indexOf('lookahead-engine')>=0);
@@ -42490,7 +42493,233 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'<span id="pt-selbar" style="margin-left:10px;font-weight:400;letter-spacing:0"></span>'
         +'<span style="margin-left:auto;font-weight:400;letter-spacing:0;font-size:8px;color:var(--text5)">click a row to select &middot; drag across rows for a range &middot; shift-click extends &middot; ctrl-click adds one</span>';
       const _p2dot=(col,txt)=>'<span style="display:inline-flex;align-items:center;gap:5px"><i style="width:7px;height:7px;border-radius:50%;background:'+col+';display:inline-block"></i>'+txt+'</span>';
-      const tradesHtml='<div class="p2sheet"><div class="p2sh" style="flex-wrap:wrap"><span>Trades \u00b7 '+(_tSorted.length-_nOtherRows)+(_nOtherRows?' + '+_nOtherRows+' other, not counted':'')+(_nOpenRows?' ('+_nOpenRows+' open)':'')+(_tSorted.length>200?' <span style="font-weight:400;letter-spacing:.3px;text-transform:none">(showing 200)</span>':'')+'</span>'
+      // ══ LEDGER step 8 on NT8 PAPER: the trades list is the shared frame (new layout only; ?oldboards=1 keeps the table above) ══
+      // ledgerTradeListHtml draws the toolbar (the count, LIST | TABLE remembered per browser, the search box, the chips ALL LONG SHORT
+      // WINS LOSSES and one chip per strategy family), the day headers (the New York day a trade CLOSED, with the day net) and the common
+      // columns; phone rows keep five cells. NT8 fills its own slots: a tick box on every row (the selection for the chart gallery:
+      // ALL CHARTS and OPEN N CHARTS), entry and exit price, hold time, SLIP, delta $, CUM and the EL / NT / TV engine chips. Filtering
+      // stays here: ledgerTradeMatch does the search and the shared chips, and the strategy switches and rail filters keep deciding
+      // what _tSorted holds. A trade still open sits in its own OPEN NOW block under the toolbar: in no day and in no total. The
+      // day net adds up the counted (book) trades only, as the old day headers did. A row click does nothing yet: it records the
+      // trade id for the trade panel (step 9) and never touches a tick box or the CHART cell.
+      const _ntTl=_p2New?(()=>{
+        const ID='nt8',CAP=200;
+        const X=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const SEL=()=>(window._ptSel instanceof Set)?window._ptSel:(window._ptSel=new Set());
+        // the New York HH:MM:SS of an epoch-seconds stamp (the shared close order reads a time of day as text)
+        const hms=sec=>{if(!sec)return '';try{return new Date(sec*1000).toLocaleTimeString('en-GB',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});}catch(e){return '';}};
+        // a trade doc as the frame reads it. The runner writes the side as +1 / -1 and both times as epoch SECONDS, so the side, the
+        // times of day, the hold (seconds) and the close day (in exitDate, as section 1 of the contract says) are mapped in here
+        const mk=t=>{
+          const leg=legOf(t),cd=_closeDay(t),en=_etKey(t.entryTime),ex=_etKey(t.exitTime),sd=_sideOf(t.side),op=t.open===true,a=+t.entryTime||0,b=+t.exitTime||0;
+          return Object.assign({},t,{id:String(t.id),date:en.slice(0,10),exitDate:cd||(op?'':en.slice(0,10)),entryTime:hms(a),exitTime:hms(b),
+            type:sd==='long'?'LONG':(sd==='short'?'SHORT':''),pnl:+t.pnl_usd||0,points:t.pnl_pts,strategy:_legLabel[leg]||leg,
+            durationSecs:(a>0&&b>=a)?(b-a):null,_raw:t,_leg:leg,_unc:_isUnc(leg),_open:op,_en:en,_ex:ex,_cd:cd});
+        };
+        // the list stops after about 200 rows, at the end of a day (a day net is the whole day); a calendar tap on an older day reaches it
+        const cap=(rows,dayOn)=>{
+          if(rows.length<=CAP)return rows;
+          if(!dayOn)return rows.slice(0,CAP);
+          const ord=ledgerByClose(rows).reverse(),reach=window._ptReach||'',dayAt=i=>ledgerCloseDay(ord[i]);
+          let end=CAP;
+          if(reach)while(end<ord.length&&dayAt(end-1)>reach)end++;
+          while(end<ord.length&&dayAt(end)===dayAt(end-1))end++;
+          return ord.slice(0,end);
+        };
+        // what the list shows right now: the board filters (_tSorted) then the search and the chips
+        const model=()=>{
+          const view=ledgerTradeViewGet(ID,((window.innerWidth||1400)<=600)?'list':'table'),tbl=view==='table',dayOn=!tbl||_psCol==='date',dayAsc=_psCol==='date'&&_psDir==='asc';
+          const listed=_tSorted.map(mk);
+          const fams=[];listed.forEach(r=>{const f=_famOf(r._leg);if(f&&fams.indexOf(f)<0)fams.push(f);});
+          let chip=window._ptChip||'ALL';
+          if(chip.indexOf('fam:')===0&&fams.indexOf(chip.slice(4))<0)chip='ALL';
+          const query=window._ptQuery||'',famOn=chip.indexOf('fam:')===0?chip.slice(4):'';
+          const hay=r=>[r.strategy,r._leg,_famOf(r._leg),r.type,r._cd,r._en.slice(0,10),r._ex.slice(0,10),r._unc?'not book':'',r._open?'open unrealised':''].join(' ');
+          const pass=r=>ledgerTradeMatch(r,chip,query,{pnl:x=>x._open?0:x.pnl,hay:hay})&&(!famOn||_famOf(r._leg)===famOn);
+          const matched=listed.filter(pass),closedAll=listed.filter(r=>!r._open),openRows=matched.filter(r=>r._open),closedM=matched.filter(r=>!r._open);
+          const shown=cap(closedM,dayOn);
+          let ord=shown;
+          if(dayOn){ord=ledgerByClose(shown);if(!dayAsc)ord.reverse();}
+          return {view:view,tbl:tbl,dayOn:dayOn,dayAsc:dayAsc,fams:fams,chip:chip,query:query,listed:listed,closedAll:closedAll,closedM:closedM,
+            openRows:openRows,shown:shown,display:openRows.concat(ord)};
+        };
+        const colCls=k=>'lg-c lg-c-'+k+(LEDGER_TL_PHONE[k]?' lg-ph':' lg-nph')+(k==='chart'?' lg-skip':'');
+        const build=()=>{
+          const m=model(),sel=SEL();
+          const have=new Set(m.display.map(r=>r.id));
+          [...sel].forEach(i=>{if(!have.has(i))sel.delete(i);});
+          // the chart rows, in the order the list reads: a CHART pill, ALL CHARTS, OPEN N CHARTS and PREV / NEXT in the viewer walk the same trades
+          const crow=[],idx={};
+          m.display.forEach((r,i)=>{
+            const t=r._raw,leg=r._leg,flagged=leg==='ORB'||(Array.isArray(t.flags)&&t.flags.indexOf('lookahead-engine')>=0);
+            idx[r.id]=i;
+            crow.push({_no:'P'+i,_pid:r.id,_label:(_legLabel[leg]||leg)+' · '+(r._en||'?'),
+              _srcLbl:'paper shadow trade'+(flagged?' (ORB engine is look-ahead - reference only)':''),
+              _et:r._en,_xt2:r._ex,_ep:(t.entry_px!=null?+t.entry_px:null),_xp:(t.exit_px!=null?+t.exit_px:null),
+              _pts:(t.pnl_pts!=null?+t.pnl_pts:0),_usd:+t.pnl_usd||0,_side:_sideOf(t.side),
+              _pb:Object.assign({instrument:'NQ',cost_pts:0.533},_legMkt(leg),{include_fresh:true})});
+          });
+          window._paperCandleRows=crow;
+          // CUM: the running total of the counted rows shown, in the order they closed (a trade outside the book has none)
+          const cum=new Map();let run=0;
+          ledgerByClose(m.shown).forEach(r=>{if(r._unc){cum.set(r.id,null);return;}run+=(+r.pnl||0);cum.set(r.id,run);});
+          const eng=r=>_engineCell(r._raw).replace(/^<td[^>]*>/,'').replace(/<\/td>$/,'');
+          const mt=r=>r.entryIso?(_ntMatch[_ntKey(r._leg,r.entryIso)]||null):null;
+          const md=ds=>String(ds||'').slice(5);
+          const exTxt=r=>r._ex?((r._ex.slice(0,10)!==r._en.slice(0,10)?md(r._ex.slice(0,10))+' ':'')+r._ex.slice(11,16)):'—';
+          const tick=r=>'<label class="p2tk" title="tick to chart this trade"><input type="checkbox" data-pttick="'+X(r.id)+'"'+(sel.has(r.id)?' checked':'')+' aria-label="select this trade for the chart gallery"></label>';
+          const allTick='<label class="p2tk" title="tick every trade shown"><input type="checkbox" data-pttickall aria-label="tick every trade shown"></label>';
+          const cells={
+            time:(r,v)=>{
+              const op=r._open?'<b class="p2tl-open">OPEN</b> ':'';
+              return v==='table'
+                ?'<span class="p2tlt">'+tick(r)+'<span>'+X(md(r._en.slice(0,10)))+' '+X(r._en.slice(11,16)||'--')+'<span class="p2tl-to"> → '+op+X(exTxt(r))+'</span></span></span>'
+                :'<span class="p2tlt">'+tick(r)+'<span class="p2tlt-tx">'+X(r._en.slice(11,16)||'--')+'<small>→ '+op+X(exTxt(r))+'</small></span></span>';
+            },
+            sym:r=>{
+              const t=r._raw,leg=r._leg,lc=_legColor[leg]||'#5b8def',flagged=leg==='ORB'||(Array.isArray(t.flags)&&t.flags.indexOf('lookahead-engine')>=0);
+              const la=flagged?'<span title="'+ORB_LA_TIP.replace(/"/g,'&quot;')+'" style="margin-left:4px;color:var(--yellow);cursor:help">⚠</span>':'';
+              const roll=t.roll_artifact?'<span title="'+String(t.roll_note||'2026-09 contract roll splice (ROLL_AUDIT 4.5.4) - kept, not deleted').replace(/"/g,'&quot;')+'" style="margin-left:4px;font-size:8px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:4px;border:1px solid var(--attn-amber);color:var(--attn-amber);cursor:help">ROLL</span>':'';
+              return '<span data-pc="leg">'+_crownIc(leg)+'<span style="color:'+lc+';font-weight:700">'+(_legLabel[leg]||leg)+'</span>'+la+roll+(r._unc?_othBadge:'')+'</span>';
+            },
+            side:r=>r.type?'<span class="lg-side '+(r.type==='LONG'?'long':'short')+'">'+r.type+'</span>':'—',
+            size:r=>{const s=(+r.size>0?+r.size:1)*(+r.bw>0?+r.bw:1);return String(+s.toFixed(2));},
+            pnl:r=>{const v=+r.pnl_usd||0;return '<span class="'+ledgerPnlCls(v)+'"'+(r._open?' style="opacity:.6;font-style:italic"':'')+'>'+ledgerSigned(v)+'</span>'+(r._open?' <small class="p2tl-unr">unrealised</small>':'');},
+            pts:r=>(r.points==null||r.points==='')?'--':((+r.points>=0?'+':'-')+Math.abs(+r.points).toFixed(2)),
+            chart:r=>r._en
+              ?'<span data-ptchart="'+idx[r.id]+'" class="p2tl-chart" role="button" tabindex="0" title="open this trade session candles"><svg width="12" height="11" viewBox="0 0 14 13" aria-hidden="true"><path d="M3.5 1v11M10.5 2.5v9" stroke="currentColor" stroke-width="1"/><rect x="1.8" y="3.5" width="3.4" height="5.5" fill="currentColor"/><rect x="8.8" y="4.5" width="3.4" height="4.5" fill="none" stroke="currentColor" stroke-width="1"/></svg><b>CHART</b></span>'
+              :'<span title="this trade has no usable entry time, so there is nothing to centre a chart on" style="font-size:8px;color:var(--text5)">—</span>'
+          };
+          const rowAttr=r=>'data-pcd="'+X(r._cd)+'" data-ptleg="'+X(r._leg)+'"'+(sel.has(r.id)?' data-ptsel="1"':'')+(r._unc?' data-ptunc="1"':'')+(r._open?' data-ptopenrow="1"':'');
+          // the sort headers of the old table, on the frame columns: a click re-renders in the new order (a date sort keeps the day headers)
+          const arrow=k=>_psCol===k?'<span style="margin-left:3px;color:var(--text3)">'+(_psDir==='asc'?'▲':'▼')+'</span>':'<span style="margin-left:3px;color:var(--text5);opacity:.45">▾</span>';
+          const sortTh=(label,cls,sk,withTick)=>'<th class="'+cls+'" title="click to sort by this column, click again to flip it'+(_psCol===sk?(_psDir==='asc'?' (now oldest / lowest first)':' (now newest / highest first)'):'')+'">'
+            +(withTick?allTick:'')+'<span data-psort="'+sk+'" style="cursor:pointer;user-select:none">'+label+arrow(sk)+'</span></th>';
+          const th=(k,label,cls)=>{
+            switch(k){
+              case 'time':return sortTh('<span class="p2tl-hlong">'+label+'</span><span class="p2tl-hshort">ENTRY</span>',cls,'date',true);
+              case 'sym':return sortTh(label,cls,'leg',false);
+              case 'side':return sortTh(label,cls,'side',false);
+              case 'pnl':return sortTh(label,cls+' num','usd',false);
+              case 'pts':return sortTh(label,cls+' num','pts',false);
+              case 'px':return sortTh(label,cls,'entrypx',false);
+            }
+            return null;
+          };
+          const slipOf=r=>{const x=mt(r);return (x&&x.entry_slip_pts!=null)?+x.entry_slip_pts:null;};
+          const dltOf=r=>{const x=mt(r);return (x&&x.pnl_diff_usd!=null)?+x.pnl_diff_usd:null;};
+          const dash='<span class="lg-flat">—</span>';
+          const cols=[
+            {k:'px',label:'ENTRY → EXIT PRICE',attr:()=>'title="entry price → exit price"',td:r=>(r.entry_px!=null?(+r.entry_px).toFixed(2):'—')+' → '+(r.exit_px!=null?(+r.exit_px).toFixed(2):'—')},
+            {k:'hold',label:'HOLD',cls:'num',attr:()=>'title="time in the trade, entry to exit"',td:r=>X(durStr(r))},
+            {k:'slip',label:'SLIP',cls:'num',attr:()=>'title="entry slippage in points vs the engine, signed AGAINST us: positive = the live fill was worse. Matched NinjaTrader trades only"',
+              td:r=>{const s=slipOf(r);return s==null?dash:'<span class="'+(s>0?'lg-down':(s<0?'lg-up':'lg-flat'))+'">'+(s>0?'+':'')+s.toFixed(2)+'</span>';}},
+            {k:'dlt',label:'Δ $',cls:'num',attr:()=>'title="live P and L minus engine P and L, matched trades only"',
+              td:r=>{const d=dltOf(r);return d==null?dash:'<span class="'+ledgerPnlCls(d)+'">'+ledgerSigned(d)+'</span>';}},
+            {k:'cum',label:'CUM',cls:'num',attr:()=>'title="running total of the counted rows shown, in the order they closed"',
+              td:r=>{const c=cum.get(r.id);return c==null?dash:'<span class="'+ledgerPnlCls(c)+'" style="opacity:.8">'+ledgerSigned(c)+'</span>';}},
+            {k:'eng',label:'ENGINES',attr:()=>'data-pc="eng" style="white-space:nowrap"',td:eng}
+          ];
+          // the toolbar row: the tick for every row shown (LIST; a TABLE has it in its header), ALL CHARTS, OPEN N CHARTS and the day order
+          const n=sel.size;
+          const sortName={leg:'strategy',side:'side',entry:'entry time',exit:'exit time',entrypx:'entry price',exitpx:'exit price',pts:'points',usd:'$'};
+          const sortTxt=(_psCol==='date')?(_psDir==='desc'?'newest first':'oldest first'):('sorted by '+(sortName[_psCol]||_psCol)+' · click for day order');
+          const slot='<div class="p2tl-bar">'
+            +(m.tbl?'':'<label class="p2tl-all" title="tick every trade shown"><input type="checkbox" data-pttickall aria-label="tick every trade shown"> <span>all shown</span></label>')
+            +'<button type="button" class="p2tl-btn" data-ptallcharts title="open every trade shown below as its own live chart in one scrollable window - no need to tick rows first">▦ ALL CHARTS</button>'
+            +'<button type="button" class="p2tl-btn p2tl-go'+(n?' on':'')+'" data-ptopen data-n="'+n+'"'+(n?'':' disabled')+' title="open the ticked trades as charts in one scrollable window">OPEN '+n+' CHART'+(n===1?'':'S')+'</button>'
+            +'<button type="button" class="p2tl-link" data-ptclear'+(n?'':' hidden')+'>clear ticks</button>'
+            +'<button type="button" class="p2tl-btn p2tl-sort" data-psort="date" title="click to flip the day order">'+sortTxt+'</button>'
+            +'</div>';
+          const openRow=r=>'<div class="lg-tl-row" data-lgtrade="'+X(r.id)+'" '+rowAttr(r)+' tabindex="0" role="button" aria-label="'+X(r.strategy)+' open trade">'
+            +['time','sym','side','size','pnl','pts','chart'].map(k=>'<span class="'+colCls(k)+'">'+(cells[k](r,'list')||'')+'</span>').join('')
+            +'<span class="lg-c lg-c-slot lg-nph">'+eng(r)+'</span></div>';
+          const openBlock=m.openRows.length
+            ?'<div class="p2tl-opensec"><div class="lg-tl-dayhd"><span class="lg-tl-daylbl">OPEN NOW</span><span class="lg-tl-daymeta">not counted on any day yet · '+m.openRows.length+' trade'+(m.openRows.length===1?'':'s')+' · unrealised marks</span></div>'
+              +m.openRows.map(openRow).join('')+'</div>'
+            :'';
+          const note='<div class="p2tl-note">EL / NT / TV chips: green = matched · red = missed · grey = not run / not checked · day = close day · entry date stays on the row</div>';
+          const nUnc=m.closedM.filter(r=>r._unc).length,cx=[];
+          if(nUnc)cx.push('+ '+nUnc+' other, not counted');
+          if(m.openRows.length)cx.push(m.openRows.length+' open');
+          if(m.shown.length<m.closedM.length)cx.push('showing the newest '+m.shown.length+' of '+m.closedM.length);
+          const empty=m.closedAll.length
+            ?'<div class="lg-tl-empty">No closed trades match this filter. <button type="button" class="p2tl-link" data-ptreset>clear the filter</button></div>'
+            :'<div class="lg-tl-empty">'+(_pt.length?'NO CLOSED TRADES IN THIS RANGE':'NO PAPER TRADES YET — SHADOW TRADING STARTS '+PAPER_START)+'</div>';
+          return ledgerTradeListHtml({id:ID,view:m.view,rows:m.shown,total:m.closedAll.length,query:m.query,chip:m.chip,
+            chips:m.fams.map(f=>({k:'fam:'+f,label:f})),pnl:r=>r.pnl,net:r=>r._unc?0:r.pnl,
+            placeholder:'Search strategy, day, side...',countExtra:cx.length?'<span class="p2tl-cx">'+cx.join(' · ')+'</span>':'',
+            slot:slot,afterBar:openBlock+note,empty:empty,cells:cells,hide:['strat'],
+            labels:{time:'ENTRY → EXIT (ET)',sym:'STRATEGY',pnl:'NET $'},
+            attr:{time:()=>'title="entry date and time → exit date and time, New York time. The day header is the day the trade CLOSED"'},
+            rowAttr:rowAttr,rowSlot:eng,dayHeaders:m.dayOn,dayAsc:m.dayAsc,th:th,cols:cols});
+        };
+        // ticks: repaint in place (no redraw), so a keyboard user keeps the focus and the page keeps its scroll
+        const paint=root=>{
+          const sel=SEL(),rows=[].slice.call(root.querySelectorAll('[data-lgtrade]')),n=sel.size;
+          rows.forEach(r=>{const on=sel.has(r.getAttribute('data-lgtrade'));
+            if(on)r.setAttribute('data-ptsel','1');else r.removeAttribute('data-ptsel');
+            const cb=r.querySelector('input[data-pttick]');if(cb)cb.checked=on;});
+          const all=root.querySelector('[data-pttickall]');
+          if(all){all.checked=rows.length>0&&rows.every(r=>sel.has(r.getAttribute('data-lgtrade')));all.indeterminate=n>0&&!all.checked;}
+          const ob=root.querySelector('[data-ptopen]');
+          if(ob){ob.textContent='OPEN '+n+' CHART'+(n===1?'':'S');ob.setAttribute('data-n',String(n));ob.disabled=!n;ob.classList.toggle('on',n>0);}
+          const cl=root.querySelector('[data-ptclear]');if(cl)cl.hidden=!n;
+        };
+        const draw=()=>{
+          const box=document.getElementById(ID+'-tl');if(!box)return;
+          const ae=document.activeElement,keep=!!(ae&&ae.id===ID+'-search'),pos=keep?ae.selectionStart:0;
+          box.innerHTML=build();
+          wire(box);
+          if(keep){const s=document.getElementById(ID+'-search');if(s){s.focus({preventScroll:true});try{s.setSelectionRange(pos,pos);}catch(e){}}}
+        };
+        const sortBy=k=>{
+          if(window._paperSortCol===k)window._paperSortDir=(window._paperSortDir==='asc')?'desc':'asc';
+          else{window._paperSortCol=k;window._paperSortDir='desc';}
+          renderApp();
+        };
+        const wire=root=>{
+          const fr=ledgerTradeListWire(root,{id:ID,
+            onQuery:v=>{window._ptQuery=v;draw();},
+            onChip:c=>{window._ptChip=c;draw();},
+            onView:()=>{draw();},
+            onRow:id=>{window._ptRowId=id;}});   // a row click does nothing visible yet: step 9 opens the trade panel from here
+          if(!fr)return null;
+          const sel=SEL();
+          fr.querySelectorAll('[data-ptchart]').forEach(b=>{
+            const go=ev=>{ev.stopPropagation();const rows=window._paperCandleRows||[],x=rows[+b.getAttribute('data-ptchart')];
+              if(x&&window._openTradeCandles)window._openTradeCandles(x,b,{B:{},all:()=>rows,order:()=>rows});};
+            b.onclick=go;b.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();go(ev);}};
+          });
+          fr.querySelectorAll('input[data-pttick]').forEach(cb=>{cb.onchange=()=>{
+            const id=cb.getAttribute('data-pttick');if(cb.checked)sel.add(id);else sel.delete(id);paint(fr);};});
+          fr.querySelectorAll('[data-pttickall]').forEach(cb=>{cb.onchange=()=>{
+            [].forEach.call(fr.querySelectorAll('[data-lgtrade]'),r=>{const id=r.getAttribute('data-lgtrade');if(cb.checked)sel.add(id);else sel.delete(id);});paint(fr);};});
+          fr.querySelectorAll('[data-ptallcharts]').forEach(b=>{b.onclick=()=>{
+            const rows=window._paperCandleRows||[];if(!rows.length)return;
+            window.openChartGallery({},rows,'recent','ALL PAPER TRADES',{title:'CHART GALLERY &middot; ALL '+rows.length+' PAPER TRADES',filePrefix:'paper_',keepOrder:true});};});
+          fr.querySelectorAll('[data-ptopen]').forEach(b=>{b.onclick=()=>{
+            const picked=(window._paperCandleRows||[]).filter(x=>sel.has(x._pid));if(!picked.length)return;
+            window.openChartGallery({},picked,'recent','SELECTED TRADES',{title:'CHART GALLERY &middot; '+picked.length+' SELECTED TRADE'+(picked.length>1?'S':''),filePrefix:'paper_',keepOrder:true,showAll:true});};});
+          fr.querySelectorAll('[data-ptclear]').forEach(b=>{b.onclick=()=>{sel.clear();paint(fr);};});
+          fr.querySelectorAll('[data-ptreset]').forEach(b=>{b.onclick=()=>{window._ptChip='ALL';window._ptQuery='';draw();};});
+          fr.querySelectorAll('[data-psort]').forEach(b=>{b.onclick=ev=>{ev.stopPropagation();sortBy(b.getAttribute('data-psort'));};});
+          paint(fr);
+          return fr;
+        };
+        // a calendar day tap: show every trade, tick the rows that CLOSED that day and scroll the list to that day header
+        const pickDay=ds=>{
+          window._ptChip='ALL';window._ptQuery='';window._ptReach=ds;
+          const sel=SEL();sel.clear();
+          model().display.forEach(r=>{if(r._cd===ds)sel.add(r.id);});
+          draw();
+          const g=document.querySelector('#'+ID+'-tl [data-lgday="'+ds+'"]');
+          if(g){g.scrollIntoView({behavior:'smooth',block:'start'});g.classList.remove('lg-flash');void g.offsetWidth;g.classList.add('lg-flash');setTimeout(()=>g.classList.remove('lg-flash'),1700);}
+        };
+        return {build:build,draw:draw,wire:wire,pickDay:pickDay};
+      })():null;
+      window._ntTl=_ntTl;
+      const _tradesHtmlOld=_p2New?'':'<div class="p2sheet"><div class="p2sh" style="flex-wrap:wrap"><span>Trades \u00b7 '+(_tSorted.length-_nOtherRows)+(_nOtherRows?' + '+_nOtherRows+' other, not counted':'')+(_nOpenRows?' ('+_nOpenRows+' open)':'')+(_tSorted.length>200?' <span style="font-weight:400;letter-spacing:.3px;text-transform:none">(showing 200)</span>':'')+'</span>'
           +'<span style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:.3px;font-weight:500">'
           +'<span data-psort="date" class="p2chip" style="cursor:pointer;height:26px" title="click to flip the day order">'+(_psCol==='date'?(_psDir==='desc'?'newest first':'oldest first'):'sorted by '+_psCol+' \u00b7 click for day order')+'</span>'
           +_ptSelBar.replace('margin-left:10px;','').replace(/<span style="margin-left:auto[^>]*>.*?<\/span>$/,'')+'</span></div>'
@@ -42509,6 +42738,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +_psTh('usd','$','right')+'<th style="text-align:right" title="running total of the rows shown, in date order">CUM</th>'
           +'<th title="Which engines produced this trade. EL = the EDGELOG engine, true of every row. NT = NinjaTrader on the demo account. TV = TradingView, only ever checked by hand.">ENGINES</th><th>CHART</th></tr></thead><tbody id="ptrades-body">'+_tRows+'</tbody></table></div>'
           :'<div style="padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:1px">NO PAPER TRADES YET \u2014 SHADOW TRADING STARTS '+PAPER_START+'</div>')+'</div>';
+      const tradesHtml=_p2New?('<div id="nt8-tl" class="p2tlbox">'+_ntTl.build()+'</div>'):_tradesHtmlOld;
       // daily reports — one row per paper_reports doc, click to expand per-leg detail + verdict
       const _repOpen=window._paperReportOpen||(window._paperReportOpen=new Set());
       const _repRows=_pr.map(r=>{
@@ -43554,8 +43784,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // STEP 10. One row per strategy on the shared list. Name = the family-name label (family + run number + variant), the dot is the
         // live NinjaTrader state (the sub-line says it in words), value = the range P&L, value2 = trades and win rate. A BOOK row's switch
         // counts the leg everywhere; the other rows' switches only list that strategy trades in the trades table.
-        const _pnNice=k=>{const m=String(k).match(/^([A-Z][A-Z-]*)_(\d+)(?:_(.+))?$/);
-          return m?(m[1]+' #'+m[2]+(m[3]?' \u00b7 '+m[3].replace(/_/g,' '):'')):String(k).replace(/_/g,' ');};
+        const _pnNice=_paperNice;
         const _pnRow=(name,label,kind)=>{
           const S=legStats(name,PSCOPE),a=S.a,sp=S.sp,bw=_bookW[name],isBook=(kind==='book');
           const sel=isBook?_legShown(name):_otherOnSet.has(name);
@@ -43662,6 +43891,40 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'.p2vs-sub{font-size:9px;color:var(--text5);margin:-3px 0 7px;line-height:1.5}'
           +'.p2rh .lg-ms-group[data-lgmsgroup="Strategy vs control"]{grid-column:1/-1}'
           +'@media (max-width:600px){.p2rh .hm-chart-wrap{margin-top:12px}.p2rh .hm-range-row{margin-bottom:16px}.p2rh .lg-stats{margin-bottom:10px}}'
+          // LEDGER step 8: the NT8 slots in the shared trade list frame (the frame CSS itself is not touched)
+          +'.p2tlbox{margin-top:-2px;container-type:inline-size;container-name:p2tl}'
+          +'.lg-tl[data-lglist-frame="nt8"] .p2tlt{display:flex;align-items:center;gap:7px;min-width:0}'
+          +'.p2tk{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;flex:none;cursor:pointer;margin-left:-3px;vertical-align:middle}'
+          +'.lg-tl-table th .p2tk{margin-right:6px}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-time small{white-space:nowrap}'
+          +'.p2tk input,.p2tl-all input{-webkit-appearance:none;appearance:none;position:relative;margin:0;width:15px;height:15px;cursor:pointer;border:1px solid var(--text4);border-radius:4px;background:transparent}'
+          +'.p2tk input:checked,.p2tl-all input:checked,.p2tk input:indeterminate,.p2tl-all input:indeterminate{background:var(--text2);border-color:var(--text2)}'
+          +'.p2tk input:checked::after,.p2tl-all input:checked::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid var(--bg1);border-width:0 2px 2px 0;transform:rotate(45deg)}'
+          +'.p2tk input:indeterminate::after,.p2tl-all input:indeterminate::after{content:"";position:absolute;left:3px;top:6px;width:7px;height:2px;background:var(--bg1)}'
+          +'.p2tk input:focus-visible,.p2tl-all input:focus-visible{outline:2px solid var(--text3);outline-offset:1px}'
+          +'.p2tl-bar{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap}'
+          +'.p2tl-all{display:inline-flex;align-items:center;gap:6px;font-size:10px;letter-spacing:.5px;color:var(--text4);cursor:pointer}'
+          +'.p2tl-btn{background:transparent;border:1px solid var(--border);color:var(--text3);border-radius:8px;padding:6px 11px;font-size:10px;letter-spacing:.8px;font-family:"JetBrains Mono",monospace;cursor:pointer;white-space:nowrap}'
+          +'.p2tl-btn:hover:not(:disabled){color:var(--text);border-color:var(--text4)}'
+          +'.p2tl-btn:disabled{opacity:.45;cursor:default}'
+          +'.p2tl-btn.on{color:var(--text);border-color:var(--text3);background:var(--bg2)}'
+          +'.p2tl-link{background:none;border:none;padding:4px 2px;font-size:10px;color:var(--text5);text-decoration:underline;cursor:pointer;font-family:inherit}'
+          +'.p2tl-link[hidden]{display:none}'
+          +'.p2tl-note{font-size:10px;color:var(--text5);padding:0 2px 6px;line-height:1.5}'
+          +'.p2tl-cx{color:var(--text4)}'
+          +'.p2tl-open{display:inline-block;font-size:8px;letter-spacing:.5px;padding:0 4px;border-radius:4px;border:1px solid var(--text4);font-weight:700}'
+          +'.p2tl-unr{font-size:8px;color:var(--text4)}'
+          +'.p2tl-chart{display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.5px;line-height:1.4;padding:1px 6px;border-radius:5px;border:1px solid var(--border);color:var(--text4)}'
+          +'.p2tl-chart b{font-weight:700}'
+          +'.p2tl-opensec{margin-bottom:4px}.p2tl-opensec .lg-tl-daylbl{white-space:nowrap}.p2tl-opensec .lg-tl-daymeta{min-width:0}'
+          +'.lg-tl[data-lglist-frame="nt8"] [data-lgtrade][data-ptsel="1"]{background:color-mix(in srgb,var(--text) 10%,transparent)}'
+          +'.lg-tl[data-lglist-frame="nt8"] [data-lgtrade][data-ptunc="1"] .lg-c-pnl{opacity:.65}'
+          +'.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-pnl small.p2tl-unr{display:block;font-size:9px;font-weight:400;font-style:normal;color:var(--text5);margin-top:1px}'
+          +'@media (min-width:601px){.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-pnl{flex:0 0 112px}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-time{flex:0 0 152px}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-sym{flex:1 1 150px}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-chart{flex:0 0 84px}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-slot{flex:0 0 150px}}'
+          +'@container p2tl (max-width:899px){.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-slot{display:none}}'
+          +'@container p2tl (max-width:699px){.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-pts,.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-size{display:none}}'
+          +'.p2tl-hshort{display:none}'
+          +'@media (max-width:600px){.p2tl-note,.p2tl-unr,.p2tl-to{display:none}.p2tl-hlong{display:none}.p2tl-hshort{display:inline}.p2tl-chart b{display:none}.p2tl-chart{padding:1px 4px}.p2tl-bar{gap:6px 8px}'
+          +'.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-pnl{flex:0 0 88px;min-width:max-content;font-size:13px}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-sym{white-space:normal;font-size:12px;line-height:1.2}.lg-tl[data-lglist-frame="nt8"] .lg-tl-table td.lg-c-sym{white-space:normal;min-width:78px;line-height:1.25}.lg-tl[data-lglist-frame="nt8"] .lg-tl-table td.lg-c-time{white-space:normal;min-width:40px;line-height:1.25}}'
           +'</style>';
         return {strip:_pnStrip,more:_pnMore,cal:_pnCal,rail:_pnRail,css:_pnCss};
         })():null;
@@ -45765,6 +46028,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // the calendar counts a trade on the day it CLOSED, so a tap selects the rows whose close day is that day (they carry
           // data-pcd); the selection is the same one drag / shift-click makes, so OPEN N CHARTS works straight after
           const ds=b.getAttribute('data-lgcalday');
+          // LEDGER step 8: the list is the shared frame; a tap ticks that day rows and scrolls the list to that day header
+          if(window._ntTl&&content.querySelector('[data-lglist-frame="nt8"]')){window._ntTl.pickDay(ds);return;}
           const ids=[].map.call(content.querySelectorAll('#ptrades-body tr[data-ptrow][data-pcd="'+ds+'"]'),r=>r.getAttribute('data-ptrow'));
           const sel=window._ptSel||(window._ptSel=new Set());
           sel.clear();ids.forEach(i=>sel.add(i));
@@ -45858,6 +46123,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-ptchart]').forEach(b=>{b.onclick=ev=>{ev.stopPropagation();
         const rows=window._paperCandleRows||[];const x=rows[+b.dataset.ptchart];
         if(x)window._openTradeCandles(x,b,{B:{},all:()=>rows,order:()=>rows});};});
+      // LEDGER step 8: the shared trade list frame on NT8 PAPER (new layout) - the controller the render built wires its toolbar, tick boxes, chips and rows
+      if(window._ntTl&&content.querySelector('[data-lglist-frame="nt8"]'))window._ntTl.wire(content);
       // -- TRADES multi-select (owner 2026-08-20) -------------------------------------
       // Click a row to select it, DRAG across rows to take a range, shift-click to extend,
       // ctrl/cmd-click to add or drop one. OPEN N CHARTS hands the selection to the same
