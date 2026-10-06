@@ -530,12 +530,6 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qb-leg-today-note{width:100%;margin-top:-12px;font-size:10px;color:var(--text5);line-height:1.4}
 .qb-leg-row{flex-direction:column;align-items:stretch}
 .qb-leg-row-top{display:flex;align-items:center;gap:10px;width:100%}
-/* WEBULL PAPER: retired strategies (owner decision 9), collapsed under the live ones */
-.qb-retired{margin-top:4px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)}
-.qb-retired-hd{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;padding:10px 0;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text4);text-align:left}
-.qb-retired-sub{text-transform:none;letter-spacing:0;font-weight:400;color:var(--text5)}
-.qb-retired-chev{width:12px;color:var(--text5);flex:0 0 auto}
-.qb-retired-note{font-size:10px;color:var(--text5);line-height:1.4;padding:0 0 6px}
 .qb-trade-leg{white-space:nowrap}
 /* WEBULL PAPER: the chart's own key under the shared chart (caveat hatch, book only) */
 /* the shared .lg-chart svg rule (width:100%) also catches the legend's 16px line icons; keep them 16px here */
@@ -545,6 +539,8 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-lg-key i{display:inline-block;width:9px;height:9px;border-radius:2px;flex:0 0 auto}
 .qbx-lg-key i.qbx-lg-hatch{background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--yellow) 60%,transparent) 0 2px,transparent 2px 4px)}
 .qbx-lg-key i.qbx-lg-book{border:1px solid var(--attn-amber)}
+.qbx-lg-key .qbx-lg-short{display:none}
+@media(max-width:600px){.qbx-lg-key .qbx-lg-long{display:none}.qbx-lg-key .qbx-lg-short{display:inline}}
 /* bottom sheet */
 .qb-sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:900;display:flex;align-items:flex-end;justify-content:center}
 .qb-sheet{background:var(--bg1);border-radius:20px 20px 0 0;width:100%;max-width:720px;max-height:86vh;overflow-y:auto;padding:10px 20px 26px;box-shadow:0 -8px 30px rgba(0,0,0,.4)}
@@ -602,6 +598,23 @@ select option:checked{background:var(--bg3);color:var(--text)}
 /* WEBULL PAPER on the shared stats (LEDGER unify step 6): the four tiles and the More stats fold sit right
    under the chart, as on REAL; ?oldboards=1 keeps the old Stats section below Account for one version */
 .qbx-lgstats{padding:16px 0 0}
+/* WEBULL PAPER on the shared calendar and strategy list (LEDGER unify steps 7 + 10): the list is TRADING-LOG's .lg-list in the
+   sticky side column. A leg's live position line is its sub-line (it wraps here: the column is 340 px wide), the side pill rides
+   beside the name, and a tap opens the leg's detail right under its row. On a phone each row is one line (the shared rule hides
+   the sub-line) and the list sits under the trade list. */
+.qbx-side .lg-list{margin-bottom:0}
+.qbx-side .lg-row{grid-template-columns:minmax(0,1fr) auto}
+.qbx-side .lg-row>:last-child:empty{display:none}
+.qbx-side .lg-row-sub{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}
+.qbx-side .lg-row-sub .qbx-leg-live{display:block;padding:0;font-size:10px;line-height:1.4}
+.qbx-side .lg-row-sub .qbx-leg-live>span{display:block}
+.qbx-lg-pill{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.04em;line-height:14px;padding:0 7px;border-radius:999px;border:1px solid currentColor;white-space:nowrap;vertical-align:1px}
+.qbx-lg-extra{padding:0 16px 10px;font-size:11px;color:var(--text4);line-height:1.5}
+.qbx-lg-extra .qb-leg-detail{margin-top:4px}
+.qbx-lg-extra .qb-leg-today-note{margin-top:0}
+#qe-trades-section,[data-qbday]{scroll-margin-top:130px}
+@media(max-width:600px){.qbx-lgstats{padding-top:12px}.qbx-lgstats .lg-stat{padding:12px 14px}.qbx-lgstats .lg-more{margin-bottom:10px}.qbx-lgstats .lg-more-panel{margin-top:0}}
+@media(max-width:760px){.qbx-lg-extra{padding:0 12px 8px}}
 @media(min-width:1100px){
   .qb-shell{
     max-width:1320px;
@@ -638,7 +651,8 @@ select option:checked{background:var(--bg3);color:var(--text)}
   .qbx-activity{grid-area:activity}
   .qbx-system{grid-area:system}
   .qbx-footer{grid-area:footer}
-  .qb-shell.qbx-lg6{grid-template-areas:"hero side" "chart side" "stats side" "account side" "history side" "activity side" "system side" "footer side"}
+  .qb-shell.qbx-lg6{grid-template-areas:"hero side" "chart side" "status side" "stats side" "account side" "history side" "activity side" "system side" "footer side"}
+  .qbx-statusline{grid-area:status}
 }
 
 /* ══════════════════════════ HOME tab (v73.651) ══════════════════════════
@@ -1108,7 +1122,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1089';
+const VERSION='73.1090';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1126,7 +1140,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1087',date:'2026-10-06',notes:['LEDGER step 8: shared trade list frame on REAL (toolbar, day headers, common columns, phone five-column rows); legacy TRADES and JOURNAL tabs no longer scroll sideways on a phone']},{v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
+const CHANGELOG=[{v:'73.1090',date:'2026-10-06',notes:['LEDGER steps 6, 7, 10 on WEBULL PAPER: shared stats strip + More stats (landed 73.1084), shared month calendar with caveat days, shared strategy list (BOOK / Retired / Shadow not counted); run numbers on every row; phone list within one screen']},
+{v:'73.1087',date:'2026-10-06',notes:['LEDGER step 8: shared trade list frame on REAL (toolbar, day headers, common columns, phone five-column rows); legacy TRADES and JOURNAL tabs no longer scroll sideways on a phone']},{v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
 {v:'73.1085',date:'2026-10-06',notes:['LEDGER steps 6, 7, 10 on NT8 PAPER: shared stats strip + More stats, shared month calendar, shared strategy list (BOOK #463 / forward tests / shadow / retired) - max drawdown positive, phone list within one screen']},
 {v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
 {v:'73.1047',date:'2026-10-05',notes:['NT8 PAPER (owner decision 10-05): the ENGU-Q #335 legs (crown, S1, S2, VC) now run on the roll-corrected NQ master and charge 0.783 points a round trip, the way BOOK #463 does. Their whole forward record restates once, at the 10-06 nightly report (the crown leg: one long held since 09-16 instead of 14 shorter trades). Live NinjaTrader orders do not change. Also in v73.1047: the NT8 equity curve is the shared LEDGER chart.']},
@@ -38469,6 +38484,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // trade list and the export all count the same trades.
         const qbIsShadowRow=t=>!!t&&(t.shadow===true||String(t.shadow||'').toLowerCase()==='true'||String(t.layer||'').toLowerCase()==='shadow');
         const trades=(QE.trades_all||[]).filter(t=>!qbIsShadowRow(t));  // newest-first, per api/qqq_exec.py _build_doc
+        // The no-order shadow legs are held apart: the strategy list draws them in its own "Shadow - not counted" group and they
+        // are never added to the account number, the chart, the stats, the calendar or any leg above it (LEDGER unify step 10).
+        const qbShadowRows=(QE.trades_all||[]).filter(qbIsShadowRow);
         window._qeTradesForExport=trades; // G. EXPORT CSV button reads this at click time
         const closedN=trades.length;
         // EFFECTIVE PARITY (2026-09-22, feature #56): which read a trade shows -- the
@@ -38614,6 +38632,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbRangeCum=(qbRange&&qbRange!=='ALL')?qeCumFromTrades(qbRangeTrades):qeCum;
         const qbRangeWord=qbRange?(LEDGER_RANGE_LABEL[qbRange]||qbRange):'';
         const qbRangeNone=qbRange==='TODAY'?'no trades closed today':(qbRange==='YTD'?'no trades closed this year':('no trades closed in the '+qbRangeWord));
+        // THE CALENDAR AND THE STRATEGY LIST FOLLOW THE CHOSEN RANGE TOO (LEDGER unify steps 7 and 10). qbRangeFigs: one strategy's
+        // trades in the range - how many, the P&L of record they add up to (to the cent, as the hero's range line does) and the win
+        // rate (a $0 trade is neither a win nor a loss). The shadow legs' own trades in the range stay in qbShadowRange, never counted.
+        const qbShadowRange=qbRange?ledgerInRange(qbShadowRows.map(t=>({exitDate:qeTradeDate(t),_t:t})),qbRange).map(r=>r._t):qbShadowRows;
+        const qbRangeFigs=rows=>{
+          let net=0,w=0,l=0;
+          rows.forEach(t=>{const v=qePnlOf(t);net+=v;if(v>0)w++;else if(v<0)l++;});
+          return {n:rows.length,net:Math.round(net*100)/100,wins:w,losses:l,wr:(w+l)?w/(w+l):null};
+        };
+        const qbFigsLine=f=>f.n+' trade'+(f.n===1?'':'s')+(f.wr!=null?' &middot; '+Math.round(f.wr*100)+'% won':'');
 
         // NT PARITY rail figure — prefer the published QE.parity summary; fall back to
         // counting parity_ok across trades_all when only per-trade flags are present.
@@ -38768,6 +38796,36 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             hasStrips:!!(feedStripHtml||signalsStripHtml)};
         })();
 
+        // ── LEDGER UNIFY STEP 7 (2026-10-06): TRADING-LOG's shared calendar (ledgerCalendarHtml) in place of the board's own month
+        // grid above (?oldboards=1 keeps that one for one version). One month at a time, over the CHOSEN RANGE's trades (qbRangeTrades:
+        // a shadow row is already left out) each at its P&L of record (qePnlOf) on the New York day it closed (qeTradeDate), so a
+        // month's total is the sum of that month's trades in the range and the same money as the hero, the chart and the stats.
+        // The data-caveat days hatch amber with a dot exactly as before: an exit priced from the 1-minute tape, a failed parity
+        // check, a trade that never reached the broker (book only), or a feed flagged invalid (a feed day hatches with no trade on
+        // it too). Open / closed (open on a laptop, closed on a phone until chosen) and the month are remembered per viewer;
+        // a tap on a day scrolls the trade list to that day.
+        const qbCalDays=ledgerCalDays(qbRangeTrades,{pnl:qePnlOf,day:qeTradeDate});
+        const qbCalCav=(()=>{
+          const fl={},out={},cut=qbRange?ledgerCutoff(qbRange):null,esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+          qbRangeTrades.forEach(t=>{const d=qeTradeDate(t);if(!d)return;const c=fl[d]||(fl[d]={rep:0,par:0,bo:0});
+            if(qeRepriced(t))c.rep++;if(qeParityFailed(t))c.par++;if(t.book_only)c.bo++;});
+          Object.keys(fl).concat(Object.keys(feedByDate)).forEach(d=>{
+            const c=fl[d]||{rep:0,par:0,bo:0},fd=feedByDate[d],why=[];
+            if(c.rep)why.push(c.rep+' priced from the 1-minute tape (the adapter could not mark the exit)');
+            if(c.par)why.push(c.par+' failed the parity check');
+            if(c.bo)why.push(c.bo+' never reached the broker (book only)');
+            if(fd&&fd.valid===false&&(!cut||d>=cut))why.push('FEED INVALID'+(fd.note?(': '+esc(fd.note)):''));
+            if(why.length)out[d]=why.join(' · ');
+          });
+          return out;
+        })();
+        // the month a viewer chose (memory, else the stored one); a month with no trades in the range falls back to the newest one that has
+        const qbCalWant=(()=>{let m=window._qqqCalMonth||null;if(!m){try{m=localStorage.getItem('el_qb_cal_month');}catch(e){}}return /^\d{4}-\d{2}$/.test(String(m||''))?m:null;})();
+        const qbCalOpen=(()=>{let o=window._qbCalOpen!=null?!!window._qbCalOpen:(window.innerWidth||1200)>=760;try{const sv=localStorage.getItem('el_qb_cal_open');if(sv!=null)o=sv==='1';}catch(e){}return o;})();
+        window._qbCalDays=qbCalDays;   // the month arrows step through the months that have trades in this range
+        const qbCalHtml=LEDGER_OLDBOARDS?'':ledgerCalendarHtml({id:'qb',month:ledgerCalPick(qbCalDays,qbCalWant),days:qbCalDays,caveats:qbCalCav,open:qbCalOpen,
+          note:'Each day is the P&amp;L of record of the trades that closed that day, in the chosen range (Webull fills, else the book price). A hatched day carries a data caveat; its trades still count. Tap a day to jump the trade list there.'});
+
         let legCardsHtml='<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">';
         // ── QB LEGS LIST — one qb-row per leg (name+pill left, since-start P&L right, a
         // small sparkline), tap expands unrealized/today/NT-vs-shadow notional. Same
@@ -38788,7 +38846,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           ?QE.today.legs_record
           :(()=>{const o={};trades.forEach(t=>{if(qeTradeDate(t)!==qeBoxDay)return;const k=(t&&t.leg)||'?';const b=o[k]||(o[k]={pnl:0,n:0,book:0});b.pnl+=qePnlOf(t);b.n++;if(String(t.pnl_record_src||'')!=='webull')b.book++;});return o;})();
         let legListHtml='<div class="qb-list">';
-        const qbLiveRows=[],qbRetiredRows=[],qbRetiredInfo=[];
+        const qbLiveRows=[],qbRetiredInfo=[],qbLegModels=[];   // qbLegModels: one entry per leg for the shared strategy list (LEDGER unify step 10)
         QE_LEGS.forEach(([key,label,color,runNo,caveat])=>{
           const p=positions[key];
           const badge=p?(p.side==='long'?'LONG':'SHORT'):'FLAT';
@@ -38876,7 +38934,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const qbRetiredNow=!LEDGER_OLDBOARDS&&QE_LEGS_RETIRED.indexOf(key)>=0&&!p&&!qbHeldLive&&!legTodayN;
           if(qbRetiredNow)qbRetiredInfo.push({key:key,label:label+' '+qeLegShortTag(key,runNo),
             since:legTradesArr.map(qeTradeDate).filter(Boolean).sort().pop()||null});
-          const legRowHtml='<div class="qb-row qb-leg-row"'+(qbRetiredNow?' data-qbretiredrow="'+key+'"':'')+'>'
+          // the pieces under a leg's row, built once for both layouts: the KEEL warning (always shown while the model is behind), the
+          // note's ENGU-Q caveat, and the detail a tap opens (unrealized, the box's day, position, notional; the shared list adds the
+          // since-start figure, which its row no longer shows once a range other than ALL is chosen)
+          const qbKeelWarnHtml=(QF.keel[key]&&QF.keel[key].warn)?('<div data-qbkeelwarn="'+key+'" style="padding:0 0 6px;font-size:11px;font-weight:700;color:var(--attn-amber)" title="KEEL is rebuilt after each close; it is '+QF.keel[key].done+' closed session'+(QF.keel[key].done===1?'':'s')+' behind">'+QF.keel[key].chip+'</div>'):'';
+          const qbCaveatHtml=(noteOpen&&caveat)?('<div style="padding:0 0 8px;font-size:10px;color:var(--text4);line-height:1.4">'+caveat+'</div>'):'';
+          const qbDetailHtml=legOpenNow?('<div class="qb-leg-detail">'
+            +(LEDGER_OLDBOARDS?'':('<div><div class="qb-row-sublabel">SINCE START</div><div style="font-size:14px;font-weight:600;color:'+pnlCol(legClosedSum)+'">'+ledgerSigned(legClosedSum)+'</div></div>'))
+            +'<div><div class="qb-row-sublabel">UNREALIZED</div><div data-qbunreal="'+key+'" style="font-size:14px;font-weight:600;color:'+(p?(QF.stale?'var(--text4)':pnlCol(legUnreal)):'var(--text5)')+'">'+(p?qeMoney(legUnreal):'—')+'</div></div>'
+            +'<div style="'+qbDimCss+'"><div class="qb-row-sublabel" data-qblegtoday="'+key+'">'+qbDayWord.toUpperCase()+'</div><div style="font-size:14px;font-weight:600;color:'+pnlCol(legTodayRealized)+'">'+qeMoney(legTodayRealized)+'</div></div>'
+            +'<div><div class="qb-row-sublabel">POSITION</div><div style="font-size:14px;font-weight:600">'+(p?(qeInt(p.shares)+' sh @ '+qeMoney(p.entry_px)):'no open lot')+'</div></div>'
+            +legTodayNote
+            +(notionalHtml?('<div style="width:100%">'+notionalHtml+'</div>'):'')
+            +'</div>'):'';
+          const legRowHtml='<div class="qb-row qb-leg-row">'
             +'<div class="qb-leg-row-top qb-tap" data-qblegrow="'+key+'">'
             +'<span style="font-size:13px;font-weight:600;color:'+color+';white-space:nowrap;flex-shrink:0">'+label+'</span>'
             +'<span style="font-size:10px;color:var(--text5);font-weight:600;white-space:nowrap">'+qeLegShortTag(key,runNo)+'</span>'
@@ -38888,37 +38959,70 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<span class="qb-chevron">'+(legOpenNow?'⌄':'›')+'</span>'
             +'</div>'
             +(noteOpen?subLineHtml:'')
-            +((QF.keel[key]&&QF.keel[key].warn)?('<div data-qbkeelwarn="'+key+'" style="padding:0 0 6px;font-size:11px;font-weight:700;color:var(--attn-amber)" title="KEEL is rebuilt after each close; it is '+QF.keel[key].done+' closed session'+(QF.keel[key].done===1?'':'s')+' behind">'+QF.keel[key].chip+'</div>'):'')
+            +qbKeelWarnHtml
             +liveLineHtml
-            +(noteOpen&&caveat?('<div style="padding:0 0 8px;font-size:10px;color:var(--text4);line-height:1.4">'+caveat+'</div>'):'')
-            +(legOpenNow?('<div class="qb-leg-detail">'
-              +'<div><div class="qb-row-sublabel">UNREALIZED</div><div data-qbunreal="'+key+'" style="font-size:14px;font-weight:600;color:'+(p?(QF.stale?'var(--text4)':pnlCol(legUnreal)):'var(--text5)')+'">'+(p?qeMoney(legUnreal):'—')+'</div></div>'
-              +'<div style="'+qbDimCss+'"><div class="qb-row-sublabel" data-qblegtoday="'+key+'">'+qbDayWord.toUpperCase()+'</div><div style="font-size:14px;font-weight:600;color:'+pnlCol(legTodayRealized)+'">'+qeMoney(legTodayRealized)+'</div></div>'
-              +'<div><div class="qb-row-sublabel">POSITION</div><div style="font-size:14px;font-weight:600">'+(p?(qeInt(p.shares)+' sh @ '+qeMoney(p.entry_px)):'no open lot')+'</div></div>'
-              +legTodayNote
-              +(notionalHtml?('<div style="width:100%">'+notionalHtml+'</div>'):'')
-              +'</div>'):'')
+            +qbCaveatHtml
+            +qbDetailHtml
             +'</div>';
-          (qbRetiredNow?qbRetiredRows:qbLiveRows).push(legRowHtml);
+          qbLiveRows.push(legRowHtml);
+          if(!LEDGER_OLDBOARDS){
+            // THIS LEG'S ROW ON THE SHARED STRATEGY LIST (LEDGER unify step 10): the name is family + run number (QE_LEGS, with the run
+            // QE_LEG_VERSIONS says is live), the side pill rides beside it, the live position line is the sub-line, the range's P&L of
+            // record the value and its trade count and win rate the quieter line under it. No switch: every leg counts, as before.
+            const fg=qbRangeFigs(qbRangeTrades.filter(t=>t.leg===key));
+            const pill='<span class="qbx-lg-pill" data-qblegpill="'+key+'"'+badgeTip+' style="color:'+badgeColor+'">'+badge+'</span>';
+            qbLegModels.push({key:key,retired:qbRetiredNow,fg:fg,
+              row:{key:key,name:label+' '+qeLegShortTag(key,runNo),color:color,tag:pill+infoToggleHtml,
+                sub:liveLineHtml.split('<div').join('<span').split('</div>').join('</span>'),
+                value:fg.n?ledgerSigned(fg.net):'&mdash;',cls:fg.n?ledgerCls(fg.net):'',value2:qbFigsLine(fg)},
+              extra:(noteOpen?subLineHtml:'')+qbKeelWarnHtml+qbCaveatHtml+qbDetailHtml});
+          }
         });
         legCardsHtml+='</div>';
-        let qbRetiredHtml='';
-        if(qbRetiredRows.length){
-          // open / closed is remembered per viewer (closed until opened); storage can be blocked
-          let qbRetOpen=!!window._qbRetiredOpen;
-          try{const sv=localStorage.getItem('el_qb_retired_open');if(sv!=null)qbRetOpen=sv==='1';}catch(e){}
-          const one=qbRetiredInfo.length===1?qbRetiredInfo[0]:null;
-          const sub=one?(one.since?'flat since '+one.since:'no trades yet'):(qbRetiredInfo.length+' strategies');
-          qbRetiredHtml='<div class="qb-retired" data-qbretiredgroup="'+(qbRetOpen?'open':'closed')+'">'
-            +'<button type="button" class="qb-retired-hd" data-qbretired aria-expanded="'+qbRetOpen+'" title="strategies that no longer trade on Webull; tap to '+(qbRetOpen?'hide':'show')+' them">'
-            +'<span class="qb-retired-chev" aria-hidden="true">'+(qbRetOpen?'&#8964;':'&rsaquo;')+'</span><span>Retired</span>'
-            +'<span class="qb-retired-sub">&middot; '+sub+'</span></button>'
-            +(qbRetOpen?('<div class="qb-retired-note">'+qbRetiredInfo.map(x=>x.label+(x.since?' last traded on '+x.since:' has no trades')).join('; ')
-              +'. No longer trading on Webull; its old trades still count in the account number and the chart total.</div>'
-              +'<div class="qb-list">'+qbRetiredRows.join('')+'</div>'):'')
-            +'</div>';
+        // Retired strategies (owner decision 9): open / closed is remembered per viewer (closed until opened); storage can be blocked
+        let qbRetOpen=!!window._qbRetiredOpen;
+        try{const sv=localStorage.getItem('el_qb_retired_open');if(sv!=null)qbRetOpen=sv==='1';}catch(e){}
+        legListHtml+=qbLiveRows.join('')+'</div>';
+        // ── LEDGER UNIFY STEP 10 (2026-10-06): the strategy list on TRADING-LOG's shared list (ledgerListHtml); ?oldboards=1 keeps
+        // the old rows above for one version. Three groups in this order: BOOK (the legs that make the account number: the rows are
+        // QE_LEGS' own, named with family + run number), Retired (a fold, closed until opened: ENGU-Q #335 since owner decision 9,
+        // its old trades still counted in the account number) and Shadow - not counted (a fold, closed: the no-order shadow legs,
+        // never added to anything). Each row: the range's P&L of record, its trades and win rate, the side pill and the live position
+        // line. There are no switches on this board: every leg counts, as before. A row opens its detail right under it.
+        let qbShadowOpen=!!window._qbShadowOpen;
+        try{const sv=localStorage.getItem('el_qb_shadow_open');if(sv!=null)qbShadowOpen=sv==='1';}catch(e){}
+        if(!LEDGER_OLDBOARDS){
+          const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+          const bookRows=qbLegModels.filter(m=>!m.retired).map(m=>m.row),retModels=qbLegModels.filter(m=>m.retired);
+          // a leg that closed trades but is not one of QE_LEGS is drawn as 'Other legs', so the rows always add up to the hero's range figure
+          const oth=qbRangeFigs(qbRangeTrades.filter(t=>!QE_LEGS.some(l=>l[0]===t.leg)));
+          if(oth.n)bookRows.push({key:'~other',name:'Other legs',sub:'not in the strategy roster',value:ledgerSigned(oth.net),cls:ledgerCls(oth.net),value2:qbFigsLine(oth)});
+          const retOne=retModels.length===1?qbRetiredInfo[0]:null;
+          // the shadow legs, one row per family + run, faded: their money is never part of anything above
+          const shByName={};
+          qbShadowRange.forEach(t=>{const nm=qeTradeLegName(t);(shByName[nm]=shByName[nm]||[]).push(t);});
+          const shRows=Object.keys(shByName).sort().map((nm,i)=>{const f=qbRangeFigs(shByName[nm]);
+            return {key:'~s'+i,name:esc(nm),sub:'shadow &middot; no orders',value:ledgerSigned(f.net),cls:ledgerCls(f.net),value2:qbFigsLine(f),off:true};});
+          const gBook={key:'book',title:'BOOK',count:bookRows.length,rows:bookRows};
+          const gRet=retModels.length?{key:'retired',title:'Retired',fold:true,open:qbRetOpen,
+            count:retOne?(retOne.since?'flat since '+retOne.since:'no trades yet'):(retModels.length+' strategies'),
+            note:qbRetiredInfo.map(x=>x.label+(x.since?' last traded on '+x.since:' has no trades')).join('; ')
+              +'. No longer trading on Webull; its old trades still count in the account number and the chart total.',
+            rows:retModels.map(m=>m.row)}:null;
+          const gShadow={key:'shadow',title:'Shadow - not counted',fold:true,open:qbShadowOpen,count:shRows.length,
+            note:'No-order shadow legs. Their trades are never in the account number, the chart, the stats or the calendar.'+(shRows.length?'':' None are in the box’s status doc right now.'),
+            rows:shRows};
+          let lh=ledgerListHtml([gBook,gRet,gShadow].filter(Boolean),{id:'qb',title:'Strategies',
+            count:qbRangeTrades.length?(ledgerSigned(qbRangePnl)+' &middot; '+qbRangeWord):qbRangeNone});
+          // under a row: its KEEL warning, note and detail (a tap opens the detail: aria-expanded says so)
+          qbLegModels.forEach(m=>{
+            const at=lh.indexOf('data-lgrow="'+m.key+'"');if(at<0)return;
+            const end=lh.indexOf('</button>',at);if(end<0)return;
+            const open=!!(window._qbLegOpen&&window._qbLegOpen.has(m.key));
+            lh=lh.slice(0,at)+'aria-expanded="'+open+'" '+lh.slice(at,end+9)+(m.extra?('<div class="qbx-lg-extra" data-qbextra="'+m.key+'">'+m.extra+'</div>'):'')+lh.slice(end+9);
+          });
+          legListHtml=lh;
         }
-        legListHtml+=qbLiveRows.join('')+'</div>'+qbRetiredHtml;
 
         // ── QB PERIOD FILTER — 1W/1M/3M/ALL, anchored on the newest plotted date (this is
         // a forward-test book, not "today"). Filters qeCum, the series built from
@@ -39053,8 +39157,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // the board's own key under the chart (the shared legend covers the lines only)
             const hasBookPriced=qbRangeTrades.some(t=>t.book_only||/^(book|part)$/.test(String(t.pnl_record_src||'')));
             const keyHtml=(bands.length||hasBookPriced)?('<div class="qbx-lg-key">'
-              +(bands.length?'<span title="days whose trades include an exit priced from the 1-minute tape, a failed parity check, or a trade that never reached the broker; hover a column for that day"><i class="qbx-lg-hatch"></i>hatched = a data caveat day; its trades still count</span>':'')
-              +(hasBookPriced?'<span title="marked BOOK ONLY or BOOK PRICE on the trade rows below"><i class="qbx-lg-book"></i>book only = a side priced from the book because no Webull fill was captured</span>':'')
+              +(bands.length?'<span title="days whose trades include an exit priced from the 1-minute tape, a failed parity check, or a trade that never reached the broker; hover a column for that day"><i class="qbx-lg-hatch"></i><span class="qbx-lg-long">hatched = a data caveat day; its trades still count</span><span class="qbx-lg-short">hatched = caveat day</span></span>':'')
+              +(hasBookPriced?'<span title="marked BOOK ONLY or BOOK PRICE on the trade rows below"><i class="qbx-lg-book"></i><span class="qbx-lg-long">book only = a side priced from the book because no Webull fill was captured</span><span class="qbx-lg-short">book only = no fill</span></span>':'')
               +'</div>'):'';
             equityHtml='<div class="qb-chart-wrap"><div class="qbx-chart-cap">'+qbRangeCap+'</div>'
               +'<div class="qbx-lgchart" id="qb-lg-chart"></div>'+keyHtml+periodTabsHtml+'</div>';
@@ -39459,7 +39563,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const parCol=hasParity?(t.parity_ok?pnlCol(pnl):'var(--attn-red)'):'var(--text5)';
               const realPnl=t.real_pnl!=null?Number(t.real_pnl):null;
               const slip=avgSlip(t);
-              const rowHtml='<tr data-qetraderow="'+i+'" style="cursor:pointer'+(drawerIdx===i?';background:color-mix(in srgb,var(--blue) 8%,transparent)':'')+'">'
+              const rowHtml='<tr data-qetraderow="'+i+'" data-qbday="'+(qeTradeDate(t)||'')+'" style="cursor:pointer'+(drawerIdx===i?';background:color-mix(in srgb,var(--blue) 8%,transparent)':'')+'">'
                 +'<td>'+qeFmtET(t.entry_ts)+'</td><td>'+qeFmtET(t.exit_ts)+'</td>'
                 +'<td style="color:'+legColorQE(t.leg)+'">'+qeTradeLegHtml(t)+parityChip(t)+bookOnlyChip(t)+'</td>'
                 +'<td>'+naS(t.side?String(t.side).toUpperCase():null)+'</td>'
@@ -39504,7 +39608,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const pnl=qePnlOf(t);
               const tag=bookOnlyChip(t)+(parityChip(t)||tagFor(t.exit_reason));
               const sideTxt=t.side?String(t.side).toUpperCase():'—';
-              return '<div class="qb-row qb-tap" data-qbtraderow="'+i+'"'+(t.trade_id?(' data-qbtid="'+String(t.trade_id).replace(/"/g,'&quot;')+'"'):'')
+              return '<div class="qb-row qb-tap" data-qbtraderow="'+i+'" data-qbday="'+(qeTradeDate(t)||'')+'"'+(t.trade_id?(' data-qbtid="'+String(t.trade_id).replace(/"/g,'&quot;')+'"'):'')
                 +(window._qeRowKey?(' data-qbkey="'+String(window._qeRowKey(t)).replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'"'):'')+'>'
                 +'<span style="font-size:11px;font-weight:700;color:'+legColorQE(t.leg)+';flex:0 0 auto">'+qeTradeLegHtml(t)+'</span>'
                 +'<div class="qb-row-label" style="flex:1.6">'+sideTxt+' '+qeInt(t.shares)+' sh<div class="qb-row-sublabel">'+qbDateRange(t)+(tag?(' '+tag):'')+'</div></div>'
@@ -40149,7 +40253,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             note:'Returns, Risk, Mix and the trade rows follow the chosen range ('+(LEDGER_RANGE_LABEL[qbRange]||qbRange)+') at the P&amp;L of record: Webull fills, else the book price. Equity, cash, exposure and the loss limit are as of the box\u2019s last update.'})));
 
         // ── 6. ACTIVITY — calendar restyled, feed/signals strips behind a disclosure.
-        const qbActivityCard=qeCalHtml.cal
+        const qbActivityCard=(LEDGER_OLDBOARDS?qeCalHtml.cal:qbCalHtml)
           +(qeCalHtml.hasStrips?('<div class="qb-disclosure qb-tap" data-qbdisclosure="feedsig"><span class="qb-disclosure-arrow">'+(feedSigOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">Feed &amp; signals</span></div>'
             +(feedSigOpen?('<div style="margin-top:4px">'+qeCalHtml.strips+'</div>'):'')):'');
 
@@ -40305,18 +40409,29 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbSystemSection='<div class="qb-disclosure qb-tap" data-qbdisclosure="system" style="border-top:none"><span class="qb-disclosure-arrow">'+(systemOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">System — status, orders, readiness, integrity</span></div>'
           +(systemOpen?qbSystemBody:'');
 
+        // PAGE ORDER (LEDGER unify step 10). Below 1100 px the DOM order is the reading order, and the strategy list and the Account
+        // section sit UNDER the trade list now, so on a phone the trade list starts right after the stat tiles instead of a screen
+        // and a half down (mistake #12). At 1100 px and wider the grid areas keep the list in the sticky right column and Account
+        // above History, so the order of these three blocks does not matter there. ?oldboards=1 keeps the old order.
+        const qbSideSec='<div class="qbx-side">'
+          +(LEDGER_OLDBOARDS?'<div class="qbx-side-hd">Strategies</div>':'')
+          +legListHtml
+          +'<div class="qbx-orders-mini">'+qbOrdersCompactHtml+'</div>'
+          +'</div>';
+        const qbAcctSec='<div class="qbx-account qbx-section"><div class="qb-section-hd">Account</div>'+qbAccountHtml+'</div>';
+        const qbHistSec='<div class="qbx-history qbx-section"><div class="qb-section-hd">History</div>'+qbTradesCard+(ordersHtml||'')+'</div>';
+        // the status line (paper only, market, feed, ratio, box age, Refresh) is its own block now: under the chart on a laptop
+        // (its own grid row), and on a phone with the strategy list under the trade list, so the trade list starts within one screen
+        const qbStatusSec='<div class="qbx-statusline">'+qbStatusStripHtml+'</div>';
+        const qbMidSections=LEDGER_OLDBOARDS
+          ?(qbSideSec+qbAcctSec+'<div class="qbx-stats qbx-section"><div class="qb-section-hd">Stats</div>'+qbStatsCard+'</div>'+qbHistSec)
+          :(qbHistSec+qbStatusSec+qbSideSec+qbAcctSec);
+
         body='<div class="qb-shell'+(LEDGER_OLDBOARDS?'':' qbx-lg6')+'">'
           +'<div class="qbx-hero">'+qbHeroHtml+'</div>'
-          +'<div class="qbx-chart">'+equityHtml+qbStatusStripHtml+'</div>'
+          +'<div class="qbx-chart">'+equityHtml+(LEDGER_OLDBOARDS?qbStatusStripHtml:'')+'</div>'
           +(LEDGER_OLDBOARDS?'':('<div class="qbx-stats qbx-lgstats">'+qbLgStatsHtml+'</div>'))
-          +'<div class="qbx-side">'
-            +'<div class="qbx-side-hd">Strategies</div>'
-            +legListHtml
-            +'<div class="qbx-orders-mini">'+qbOrdersCompactHtml+'</div>'
-          +'</div>'
-          +'<div class="qbx-account qbx-section"><div class="qb-section-hd">Account</div>'+qbAccountHtml+'</div>'
-          +(LEDGER_OLDBOARDS?('<div class="qbx-stats qbx-section"><div class="qb-section-hd">Stats</div>'+qbStatsCard+'</div>'):'')
-          +'<div class="qbx-history qbx-section"><div class="qb-section-hd">History</div>'+qbTradesCard+(ordersHtml||'')+'</div>'
+          +qbMidSections
           +'<div class="qbx-activity qbx-section"><div class="qb-section-hd">Activity</div>'+qbActivityCard+'</div>'
           +'<div class="qbx-system qbx-section">'+qbSystemSection+'</div>'
           +'<div class="qbx-footer qbx-section">'+qbFooter+'</div>'
@@ -44988,13 +45103,46 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         homeRange=el.getAttribute('data-qbrange');window._qeDrawerIdx=null;renderApp();};});
       // LEDGER shared equity chart (unify step 5): drawn into its box now that the page is in place
       if(window._qbLgChart){const lgw=content.querySelector('#qb-lg-chart');if(lgw)ledgerChartRender(lgw,window._qbLgChart);}
-      // Retired strategies (owner decision 9): open / closed, remembered per viewer
-      content.querySelectorAll('[data-qbretired]').forEach(el=>{el.onclick=()=>{
-        let o=!!window._qbRetiredOpen;
-        try{const sv=localStorage.getItem('el_qb_retired_open');if(sv!=null)o=sv==='1';}catch(e){}
-        window._qbRetiredOpen=!o;
-        try{localStorage.setItem('el_qb_retired_open',o?'0':'1');}catch(e){}
+      // LEDGER shared strategy list (unify step 10): a tap on a leg opens its detail under the row (since start, unrealized, the
+      // box's day, position, notional); the Retired and Shadow folds open and close, each remembered per viewer (closed until opened)
+      content.querySelectorAll('[data-lglist="qb"] [data-lgrow]').forEach(el=>{el.onclick=()=>{
+        const k=el.getAttribute('data-lgrow');
+        if(k.charAt(0)==='~')return;   // 'Other legs' and the shadow rows have no detail to open
+        const s=window._qbLegOpen||(window._qbLegOpen=new Set());
+        if(s.has(k))s.delete(k);else s.add(k);
         renderApp();};});
+      content.querySelectorAll('[data-lglist="qb"] [data-lggrp]').forEach(el=>{el.onclick=()=>{
+        const g=el.getAttribute('data-lggrp')==='shadow'?['_qbShadowOpen','el_qb_shadow_open']:['_qbRetiredOpen','el_qb_retired_open'];
+        let o=!!window[g[0]];
+        try{const sv=localStorage.getItem(g[1]);if(sv!=null)o=sv==='1';}catch(e){}
+        window[g[0]]=!o;
+        try{localStorage.setItem(g[1],o?'0':'1');}catch(e){}
+        renderApp();};});
+      // LEDGER shared calendar (unify step 7): the fold opens and closes, the arrows step through the months that have trades in
+      // the chosen range, a tap on a day scrolls the trade list to that day's newest trade and flashes it (SHOW MORE draws every
+      // row first when the day's rows are not on the page yet); the fold and the month are remembered per viewer
+      const qbJumpToDay=ds=>{
+        let el=content.querySelector('[data-qbday="'+ds+'"]');
+        if(!el&&(window._qeTradesShown||50)<1e6){window._qeTradesShown=1e6;renderApp();el=document.querySelector('[data-qbday="'+ds+'"]');}
+        const t=el||document.getElementById('qe-trades-section');
+        if(!t)return;
+        t.scrollIntoView({block:'start',behavior:'smooth'});
+        if(el){el.classList.remove('lg-flash');void el.offsetWidth;el.classList.add('lg-flash');setTimeout(()=>el.classList.remove('lg-flash'),1700);}
+      };
+      content.querySelectorAll('[data-lgcalfold="qb"]').forEach(el=>{el.onclick=()=>{
+        let o=window._qbCalOpen!=null?!!window._qbCalOpen:(window.innerWidth||1200)>=760;
+        try{const sv=localStorage.getItem('el_qb_cal_open');if(sv!=null)o=sv==='1';}catch(e){}
+        window._qbCalOpen=!o;
+        try{localStorage.setItem('el_qb_cal_open',o?'0':'1');}catch(e){}
+        renderApp();};});
+      content.querySelectorAll('[data-lgcal="qb"][data-lgcalmo]').forEach(el=>{el.onclick=()=>{
+        if(el.disabled)return;
+        const cal=content.querySelector('.lg-cal[data-lgcal="qb"]'),cur=cal?cal.getAttribute('data-lgcalmonth'):null;
+        const mo=ledgerCalStep(window._qbCalDays||{},cur,+el.getAttribute('data-lgcalmo'));
+        window._qqqCalMonth=mo;
+        try{localStorage.setItem('el_qb_cal_month',mo);}catch(e){}
+        renderApp();};});
+      content.querySelectorAll('[data-lgcal="qb"] [data-lgcalday]').forEach(el=>{el.onclick=()=>qbJumpToDay(el.getAttribute('data-lgcalday'));});
       // LEDGER shared More stats (unify step 6): open / closed, remembered per viewer
       content.querySelectorAll('[data-lgmore="qb"]').forEach(el=>{el.onclick=()=>{
         // a viewer who kept the old Stats fold open (APREF.qqqMoreStatsOpen) starts from that choice

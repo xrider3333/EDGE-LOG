@@ -97,7 +97,7 @@ STATS (LEDGER unify step 6, 2026-10-05): the board's own stat tiles are TRADING-
 Every plain case: the four [data-lgstat] tiles (WIN RATE, PROFIT FACTOR, MAX DRAWDOWN, TRADES) in that
 order under the chart, a percent / a ratio / a positive dollar amount / a count, each equal to a
 recomputation here from the fixture (P&L of record, close day, walked in exit order), the PROFIT FACTOR
-line ('$276 won · $304 lost') and the MAX DRAWDOWN line included. Eight stats cases with today pinned to
+line ('$276 won · $304 lost') and the MAX DRAWDOWN line included. Nine stats cases (the ninth, the unlisted strategy leg, is described under STEPS 7 + 10) with today pinned to
 2026-10-05: ALL; 1W (trades that closed on or after 09-28) on the laptop; 1W again on a 390x844 phone in
 MONO with More stats open; ALL with one September loss turned into a $0 trade, which must be neither a
 win nor a loss in the tiles ('1 even') and in the calendar's month '% won'; TODAY (one trade); 1M on a
@@ -117,6 +117,28 @@ Account and History, and on a phone above the Strategies list. The interaction r
 the More stats fold (aria-expanded true then false, the choice stored for this viewer, Returns / Risk /
 Mix / Account with the Webull rows, and on ALL every value worked out here, the current streak too). ?oldboards=1: no shared tiles,
 the old Stats section is back.
+
+LEDGER STEPS 7 + 10 (2026-10-06): the board's month calendar and its strategy list are TRADING-LOG's shared parts now
+(ledgerCalendarHtml, ledgerListHtml). CALENDAR: one month over the chosen range's trades at the P&L of record on the day each
+closed, so a month's total, every day's money and the week cells are recomputed here from the fixture for each case, range and
+month shown (ALL, 1W, 1M, TODAY, the empty range, September after the earlier arrow, a $0 trade, a shadow row that must not
+enter it); the caveat days (a tape-priced exit, a failed parity check, a book-only trade, a feed flagged invalid - that last one
+needs no trade) are hatched amber with the dot; the arrows are disabled at the first and last month with trades; the fold is
+open on a laptop and closed on a phone until chosen, and the fold and the month are remembered per viewer (a reload finds
+them); a tap on a day scrolls the trade list to that day's newest trade and flashes it (a day whose rows are not on the page yet, because the list shows only its newest rows, draws every row
+first). LIST: three groups in order, BOOK
+(ORB #314, NOISE #382: family + run number from the leg definitions, the range's P&L of record, trades and win rate, the side;
+no switch), Retired (ENGU-Q #335, a fold closed until opened, 'flat since 2026-09-28') and Shadow - not counted (a fold,
+closed, its rows faded and never in anything above); BOOK + Retired add up to the account's range figure; a tap on a leg opens
+its detail under the row. On a phone every row is one line, the status line, the list and the Account section sit under the
+trade list, and the trade list starts within one viewport of the board top (mistake #12); on a laptop the list keeps the
+sticky right column. The Table view carries a run number on every row too. A tap on a row's note toggle (the little i beside a run
+number) shows that leg's note under the row and leaves its detail shut; a copy of the fixture whose last two ORB trades
+belong to a strategy the board has no row for (375x812, both folds open) must draw an Other legs row, so BOOK + Retired +
+Other legs still add up to the account's range figure; a copy with ENGU-Q long 10 (375x812 and 1366x768) has no Retired group,
+ENGU-Q is a BOOK row reading LONG with its live position line, and the rows still add up. Under MONO no calendar or list value
+has a hue.
+?oldboards=1 keeps the old month grid and the old rows (and their old page order).
 
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks; a retry that passes prints a FLAKE line.
@@ -469,14 +491,7 @@ def _variant_docs(fixture):
 # 'stats-below-history': the shared stat strip's line moved from under the chart to under the History section
 _SB_LINES = [
     "          +(LEDGER_OLDBOARDS?'':('<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div>'))",
-    "          +'<div class=\"qbx-side\">'",
-    "            +'<div class=\"qbx-side-hd\">Strategies</div>'",
-    "            +legListHtml",
-    "            +'<div class=\"qbx-orders-mini\">'+qbOrdersCompactHtml+'</div>'",
-    "          +'</div>'",
-    "          +'<div class=\"qbx-account qbx-section\"><div class=\"qb-section-hd\">Account</div>'+qbAccountHtml+'</div>'",
-    "          +(LEDGER_OLDBOARDS?('<div class=\"qbx-stats qbx-section\"><div class=\"qb-section-hd\">Stats</div>'+qbStatsCard+'</div>'):'')",
-    "          +'<div class=\"qbx-history qbx-section\"><div class=\"qb-section-hd\">History</div>'+qbTradesCard+(ordersHtml||'')+'</div>'",
+    "          +qbMidSections",
 ]
 _SB_ANCHOR = '\r\n'.join(_SB_LINES)
 _SB_MOVED = '\r\n'.join(_SB_LINES[1:] + _SB_LINES[:1])
@@ -815,6 +830,156 @@ MUTANTS = [
      "'<div class=\"lg-ms-grid\" style=\"margin-top:16px\">'",
      "'<div class=\"lg-ms-grid\">'",
      "with no trade in the range, 'No trades in this range.' runs into the ACCOUNT heading"),
+    # LEDGER steps 7 + 10 (shared calendar and strategy list on the board)
+    ('calendar-wrong-total',
+     "const qbCalDays=ledgerCalDays(qbRangeTrades,{pnl:qePnlOf,day:qeTradeDate});",
+     "const qbCalDays=ledgerCalDays(qbRangeTrades,{pnl:t=>+t.pnl||0,day:qeTradeDate});",
+     "the calendar adds up the book's own pnl instead of the P&L of record, so a month's total is not the sum of its trades"),
+    ('calendar-ignores-range',
+     "const qbCalDays=ledgerCalDays(qbRangeTrades,{pnl:qePnlOf,day:qeTradeDate});",
+     "const qbCalDays=ledgerCalDays(trades,{pnl:qePnlOf,day:qeTradeDate});",
+     'the calendar counts every trade whatever range is chosen'),
+    ('shadow-in-calendar',
+     "const qbCalDays=ledgerCalDays(qbRangeTrades,{pnl:qePnlOf,day:qeTradeDate});",
+     "const qbCalDays=ledgerCalDays(qbRangeTrades.concat(qbShadowRange),{pnl:qePnlOf,day:qeTradeDate});",
+     "a shadow leg's trades are added into the calendar's days and month total"),
+    ('caveat-not-hatched',
+     "days:qbCalDays,caveats:qbCalCav,open:qbCalOpen,",
+     "days:qbCalDays,caveats:{},open:qbCalOpen,",
+     'the data-caveat days are no longer hatched amber with the dot on the calendar'),
+    ('caveat-feed-days-lost',
+     "if(fd&&fd.valid===false&&(!cut||d>=cut))why.push(",
+     "if(false&&fd&&fd.valid===false&&(!cut||d>=cut))why.push(",
+     'a day whose feed was flagged invalid is no longer hatched on the calendar'),
+    ('day-tap-noop',
+     "const t=el||document.getElementById('qe-trades-section');",
+     "const t=null;",
+     'a tap on a calendar day no longer scrolls the trade list'),
+    ('day-attr-missing',
+     "data-qbtraderow=\"'+i+'\" data-qbday=\"'+(qeTradeDate(t)||'')+'\"'+(t.trade_id",
+     "data-qbtraderow=\"'+i+'\"'+(t.trade_id",
+     'the trade rows carry no day, so a calendar tap cannot land on that day'),
+    ('cal-month-not-remembered',
+     "try{localStorage.setItem('el_qb_cal_month',mo);}catch(e){}",
+     "",
+     'the month a viewer stepped to is forgotten on a reload'),
+    ('cal-open-not-remembered',
+     "try{localStorage.setItem('el_qb_cal_open',o?'0':'1');}catch(e){}",
+     "",
+     'the calendar fold opens again after a reload whatever the viewer chose'),
+    ('cal-open-on-a-phone',
+     "const qbCalOpen=(()=>{let o=window._qbCalOpen!=null?!!window._qbCalOpen:(window.innerWidth||1200)>=760;",
+     "const qbCalOpen=(()=>{let o=window._qbCalOpen!=null?!!window._qbCalOpen:true;",
+     'the calendar is open by default on a phone and pushes the rest of the page down'),
+    ('cal-arrows-never-disabled',
+     "const i=ms.indexOf(mo),atFirst=i<=0,atLast=i<0||i>=ms.length-1;",
+     "const i=ms.indexOf(mo),atFirst=false,atLast=false;",
+     'the calendar month arrows stay live past the first and last month with trades'),
+    ('list-group-order',
+     "[gBook,gRet,gShadow].filter(Boolean)",
+     "[gRet,gBook,gShadow].filter(Boolean)",
+     'the strategy list draws Retired above BOOK'),
+    ('shadow-group-missing',
+     "[gBook,gRet,gShadow].filter(Boolean)",
+     "[gBook,gRet].filter(Boolean)",
+     'the strategy list has no Shadow - not counted group'),
+    ('shadow-in-list-total',
+     "const fg=qbRangeFigs(qbRangeTrades.filter(t=>t.leg===key));",
+     "const fg=qbRangeFigs(qbRangeTrades.concat(qbShadowRange).filter(t=>t.leg===key));",
+     "a shadow leg's money is added into a BOOK row (and so into the list's total)"),
+    ('row-without-run-number',
+     "row:{key:key,name:label+' '+qeLegShortTag(key,runNo),",
+     "row:{key:key,name:label,",
+     'a strategy list row names its family but not its run number'),
+    ('list-above-trades-on-phone',
+     ":(qbHistSec+qbStatusSec+qbSideSec+qbAcctSec);",
+     ":(qbSideSec+qbHistSec+qbStatusSec+qbAcctSec);",
+     'on a phone the strategy list sits above the trade list again'),
+    ('account-above-trades-on-phone',
+     ":(qbHistSec+qbStatusSec+qbSideSec+qbAcctSec);",
+     ":(qbAcctSec+qbHistSec+qbStatusSec+qbSideSec);",
+     'on a phone the Account section sits above the trade list again'),
+    ('status-above-trades-on-phone',
+     ":(qbHistSec+qbStatusSec+qbSideSec+qbAcctSec);",
+     ":(qbStatusSec+qbHistSec+qbSideSec+qbAcctSec);",
+     'on a phone the status line sits above the trade list again, which then starts more than a screen down'),
+    ('status-line-gone',
+     "const qbStatusSec='<div class=\"qbx-statusline\">'+qbStatusStripHtml+'</div>';",
+     "const qbStatusSec='';",
+     'the status line (feed, box age, Refresh) is not on the page at all'),
+    ('key-long-on-phone',
+     "@media(max-width:600px){.qbx-lg-key .qbx-lg-long{display:none}.qbx-lg-key .qbx-lg-short{display:inline}}",
+     "@media(max-width:600px){.qbx-lg-key .qbx-lg-short{display:none}}",
+     'the chart key is four lines on a phone and the trade list starts more than a screen down'),
+    ('list-has-switch',
+     "value:fg.n?ledgerSigned(fg.net):'&mdash;',cls:fg.n?ledgerCls(fg.net):'',value2:qbFigsLine(fg)},",
+     "value:fg.n?ledgerSigned(fg.net):'&mdash;',cls:fg.n?ledgerCls(fg.net):'',value2:qbFigsLine(fg),sw:{on:true}},",
+     'the strategy list draws a switch on each row (this board has none: every leg counts)'),
+    ('shadow-open-by-default',
+     "let qbShadowOpen=!!window._qbShadowOpen;",
+     "let qbShadowOpen=true;",
+     'the Shadow - not counted group opens by default'),
+    ('folds-not-remembered',
+     "try{localStorage.setItem(g[1],o?'0':'1');}catch(e){}",
+     "",
+     'the Retired and Shadow folds do not keep the open / closed choice'),
+    ('row-tap-noop',
+     "if(k.charAt(0)==='~')return;   // 'Other legs' and the shadow rows have no detail to open",
+     "return;",
+     "a tap on a strategy row no longer opens its detail"),
+    ('list-total-ignores-range',
+     "count:qbRangeTrades.length?(ledgerSigned(qbRangePnl)+' &middot; '+qbRangeWord):qbRangeNone",
+     "count:qbRangeTrades.length?(ledgerSigned(closedSum)+' &middot; '+qbRangeWord):qbRangeNone",
+     "the list's header total is the all-time figure whatever range is chosen"),
+    ('list-not-sticky',
+     ".qbx-side{grid-area:side;position:sticky;top:54px;",
+     ".qbx-side{grid-area:side;position:static;top:54px;",
+     'on a laptop the strategy column no longer sticks while the page scrolls'),
+    ('phone-row-two-lines',
+     ".qbx-side .lg-row{grid-template-columns:minmax(0,1fr) auto}",
+     ".qbx-side .lg-row{display:block}",
+     'a strategy row is two lines tall on a phone (the money drops under the name)'),
+    ('list-mono-hue',
+     ".qbx-side .lg-list{margin-bottom:0}",
+     ".qbx-side .lg-list{margin-bottom:0}\r\n[data-theme=mono] .qbx-side .lg-row-val{color:#e33}",
+     'a strategy row draws its money in a colour under MONO (MONO has no hue)'),
+    ('cal-mono-hue',
+     ".qbx-side .lg-list{margin-bottom:0}",
+     ".qbx-side .lg-list{margin-bottom:0}\r\n[data-theme=mono] .lg-cal-day .m{color:#e33!important}",
+     'a calendar day draws its money in a colour under MONO (MONO has no hue)'),
+    ('phone-calendar-overflow',
+     ".qbx-side .lg-list{margin-bottom:0}",
+     ".qbx-side .lg-list{margin-bottom:0}\r\n.lg-cal-panel{min-width:640px}",
+     'the open calendar is wider than a phone and the page scrolls sideways'),
+    # LEDGER steps 7 + 10, round 2: the note toggle and the strategy the board has no row for
+    ('other-legs-row-missing',
+     "if(oth.n)bookRows.push({key:'~other'",
+     "if(false&&oth.n)bookRows.push({key:'~other'",
+     "a strategy the board has no row for is left out of the list, which no longer adds up to the account's range figure"),
+    ('info-toggle-opens-row',
+     "ev.stopPropagation();\r\n        const k=el.getAttribute('data-qbleginfo');",
+     "const k=el.getAttribute('data-qbleginfo');",
+     "a tap on a row's note toggle also opens the row's detail"),
+    ('info-toggle-noop',
+     "const m=window._qbLegNoteOpen||(window._qbLegNoteOpen={});",
+     "const m={};",
+     "a tap on a row's note toggle shows no note"),
+    ('day-tap-no-show-more',
+     "if(!el&&(window._qeTradesShown||50)<1e6){window._qeTradesShown=1e6;renderApp();el=document.querySelector('[data-qbday=\"'+ds+'\"]');}",
+     "",
+     "a tap on a calendar day whose rows are not on the page yet (the list shows only its newest rows) lands on the top of the list"),
+    ('enguq-stays-retired',
+     "const qbRetiredNow=!LEDGER_OLDBOARDS&&QE_LEGS_RETIRED.indexOf(key)>=0&&!p&&!qbHeldLive&&!legTodayN;",
+     "const qbRetiredNow=!LEDGER_OLDBOARDS&&QE_LEGS_RETIRED.indexOf(key)>=0&&!legTodayN;",
+     "a retired leg that holds a position stays in the Retired fold instead of going back to BOOK"),
+    ('retired-group-always-drawn',
+     "const gRet=retModels.length?{key:'retired'",
+     "const gRet=true?{key:'retired'",
+     "an empty Retired group is drawn when no leg is retired"),
+    ('table-day-attr-missing',
+     "<tr data-qetraderow=\"'+i+'\" data-qbday=\"'+(qeTradeDate(t)||'')+'\" style=\"cursor:pointer",
+     "<tr data-qetraderow=\"'+i+'\" style=\"cursor:pointer",
+     "the Table view rows carry no day, so a calendar tap cannot land on them"),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -882,6 +1047,75 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
   // the opacity an element is drawn at: its own times every ancestor's (null when it is not there)
   function effOp(e){if(!e)return null;var o=1,w=W();for(var n=e;n&&n.nodeType===1;n=n.parentElement){o*=parseFloat(w.getComputedStyle(n).opacity)||0;}return Math.round(o*100)/100;}
   function txt(sel){var e=q(sel);return e?(e.textContent||'').replace(/\\s+/g,' ').trim():null;}
+  // LEDGER steps 7 + 10: the shared calendar (fold, panel, month, summary, every day cell, the week cells, the arrows)
+  function calRead(){
+    var w=W(),fold=q('[data-lgcalfold="qb"]'),pn=q('#qb-cal'),cal=q('.lg-cal[data-lgcal="qb"]');
+    var c={fold:fold?fold.getAttribute('aria-expanded'):null,foldText:fold?(fold.textContent||'').replace(/\\s+/g,' ').trim():null,
+      panel:pn?(pn.hasAttribute('hidden')?'hidden':'shown'):null,oldDays:D().querySelectorAll('[data-qcalday]').length,oldNav:D().querySelectorAll('[data-qcalmo]').length};
+    if(!cal)return c;
+    var sm=cal.querySelector('.lg-cal-sum'),t=cal.querySelector('.lg-cal-title'),grid=cal.querySelector('.lg-cal-grid'),kids=grid?[].slice.call(grid.children):[];
+    c.month=cal.getAttribute('data-lgcalmonth');c.title=t?(t.textContent||'').trim():null;
+    c.sum=sm?(sm.textContent||'').replace(/\\s+/g,' ').trim():null;
+    c.nav=[].map.call(cal.querySelectorAll('[data-lgcalmo]'),function(b){return [b.getAttribute('data-lgcalmo'),!!b.disabled];});
+    // 8 header cells (S M T W T F S WEEK), then rows of 7 day slots + 1 week cell
+    c.days=[];c.weeks=[];
+    kids.slice(8).forEach(function(e,i){
+      if(i%8===7){var wm=e.querySelector('.m'),wn=e.querySelector('.n');
+        c.weeks.push({title:e.getAttribute('title'),m:wm?(wm.textContent||'').trim():null,n:wn?(wn.textContent||'').trim():null});return;}
+      var d=e.querySelector('.d');if(!d)return;
+      var m=e.querySelector('.m'),n=e.querySelector('.n'),cs=w.getComputedStyle(e),af=w.getComputedStyle(e,'::after');
+      c.days.push({d:+(d.textContent||'').trim(),traded:e.tagName==='BUTTON',ds:e.getAttribute('data-lgcalday'),
+        cav:e.classList.contains('cav'),hatch:(cs.backgroundImage||'').indexOf('repeating-linear-gradient')>=0,
+        dot:af.content!=='none'&&af.width==='5px',title:e.getAttribute('title'),m:m?(m.textContent||'').trim():null,n:n?(n.textContent||'').trim():null,
+        mColor:m?w.getComputedStyle(m).color:null,up:e.classList.contains('up'),down:e.classList.contains('down')});
+    });
+    c.sumColors=[].map.call(cal.querySelectorAll('.lg-cal-sum span'),function(e){return w.getComputedStyle(e).color;});
+    var pr=pn?pn.getBoundingClientRect():null;
+    c.box=pr?{l:Math.round(pr.left),r:Math.round(pr.right),w:Math.round(pr.width)}:null;
+    c.gridW=grid?Math.round(grid.getBoundingClientRect().width):null;
+    return c;
+  }
+  // the strategy list on the shared list: title and count, the groups in order with their header, fold state and rows, where it sits
+  function listRead(){
+    var w=W(),lst=q('.qbx-side [data-lglist="qb"]');
+    if(!lst)return null;
+    function rowRead(b){
+      var nm=b.querySelector('.lg-row-name'),cn=nm?nm.cloneNode(true):null,tg=null,tag=cn?cn.querySelector('.lg-row-tag'):null;
+      if(tag){tg=(tag.textContent||'').replace(/\\s+/g,' ').trim();tag.parentNode.removeChild(tag);}
+      var v=b.querySelector('.lg-row-val'),vc=v?v.cloneNode(true):null,sm=vc?vc.querySelector('small'):null,sm0=v?v.querySelector('small'):null,v2=null;
+      if(sm){v2=(sm.textContent||'').replace(/\\s+/g,' ').trim();sm.parentNode.removeChild(sm);}
+      var sb=b.querySelector('.lg-row-sub'),rc=b.getBoundingClientRect(),ex=b.nextElementSibling;
+      return {key:b.getAttribute('data-lgrow'),name:cn?(cn.textContent||'').replace(/\\s+/g,' ').trim():null,tag:tg,
+        sub:sb?(sb.textContent||'').replace(/\\s+/g,' ').trim():null,subShown:sb?w.getComputedStyle(sb).display!=='none':false,
+        value:vc?(vc.textContent||'').replace(/\\s+/g,' ').trim():null,value2:v2,value2Shown:sm0?w.getComputedStyle(sm0).display!=='none':false,
+        off:b.classList.contains('off'),h:Math.round(rc.height),sw:b.querySelectorAll('[data-lgsw]').length,
+        valColor:v?w.getComputedStyle(v).color:null,expanded:b.getAttribute('aria-expanded'),
+        extra:(ex&&ex.classList&&ex.classList.contains('qbx-lg-extra'))?ex.getAttribute('data-qbextra'):null};
+    }
+    var hd=lst.querySelector('.lg-list-hd'),hs=hd?hd.querySelectorAll('span'):[],box=lst.getBoundingClientRect();
+    var side=q('.qbx-side'),hist=q('.qbx-history'),acct=q('.qbx-account'),sh=q('.qb-shell'),fr=q('[data-qbtraderow]'),sy=w.scrollY||0;
+    var top=function(e){return e?Math.round(e.getBoundingClientRect().top+sy):null;},bot=function(e){return e?Math.round(e.getBoundingClientRect().bottom+sy):null;};
+    return {title:hs[0]?(hs[0].textContent||'').trim():null,count:hs[1]?(hs[1].textContent||'').replace(/\\s+/g,' ').trim():null,
+      groups:[].map.call(lst.querySelectorAll('.lg-grp'),function(g){
+        var h=g.querySelector('.lg-grp-hd'),f=g.querySelector('[data-lggrp]'),n=g.querySelector('.lg-grp-note');
+        return {key:g.getAttribute('data-lggroup'),head:h?(h.textContent||'').replace(/\\s+/g,' ').trim():null,fold:!!f,
+          expanded:f?f.getAttribute('aria-expanded'):null,note:n?(n.textContent||'').replace(/\\s+/g,' ').trim():null,
+          rows:[].map.call(g.querySelectorAll('[data-lgrow]'),rowRead)};}),
+      sw:lst.querySelectorAll('[data-lgsw]').length,
+      geo:{listTop:top(lst),listBottom:bot(lst),listLeft:Math.round(box.left),listRight:Math.round(box.right),sideTop:top(side),
+        histTop:top(hist),histBottom:bot(hist),histLeft:hist?Math.round(hist.getBoundingClientRect().left):null,
+        histRight:hist?Math.round(hist.getBoundingClientRect().right):null,acctTop:top(acct),shellTop:top(sh),rowTop:top(fr),
+        vh:w.innerHeight,sticky:side?w.getComputedStyle(side).position:null}};
+  }
+  // the old layout's calendar and list (?oldboards=1 keeps both for one version)
+  function oldReads(){
+    var d=D();
+    return {oldCalDays:d.querySelectorAll('[data-qcalday]').length,oldCalNav:d.querySelectorAll('[data-qcalmo]').length,
+      sharedCalFold:!!q('[data-lgcalfold]'),sharedList:!!q('[data-lglist="qb"]'),
+      oldLegRows:[].map.call(d.querySelectorAll('.qbx-side [data-qblegrow]'),function(e){return e.getAttribute('data-qblegrow');}),
+      oldSideHd:!!q('.qbx-side-hd'),
+      order:[].map.call(d.querySelectorAll('.qb-shell > section, .qb-shell > div'),function(e){return e.className.split(' ')[0];}).filter(function(c){return /^qbx-(side|account|history|stats)$/.test(c);})};
+  }
   // the More stats panel: shown or hidden, its groups, and every row as 'Group|Label' -> value text
   function moreRead(){
     var mp=q('#qb-more'),m={panel:mp?(mp.hasAttribute('hidden')?'hidden':'shown'):null,groups:[],vals:{},
@@ -939,6 +1173,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     w.__probeOffline=!!cfg.offline;w.__probeMissing=!!cfg.missing;w.__probeUnloaded=!!cfg.unloaded;
     w.__probeRange=cfg.range||null;w.__probeTodayNY=cfg.todayNY||null;w.__probeCalMonth=cfg.calMonth||null;
     w.__probeMoreOpen=!!cfg.moreOpen;
+    w.__probeCalOpen=cfg.calOpen||null;w.__probeFolds=!!cfg.folds;
     return w.eval("(function(){try{"
       +"if(!window.__probeLTN)window.__probeLTN=ledgerTodayNY;"
       +"ledgerTodayNY=window.__probeTodayNY?function(){return window.__probeTodayNY;}:window.__probeLTN;"
@@ -948,6 +1183,8 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       +"if(window.__probeOffline)Object.defineProperty(navigator,'onLine',{configurable:true,get:function(){return false;}});"
       +"try{localStorage.removeItem('el_qb_retired_open');localStorage.removeItem('el_lg_lines_webull');}catch(e){}"
       +"window._qbRetiredOpen=false;"
+      +"try{localStorage.removeItem('el_qb_cal_open');localStorage.removeItem('el_qb_cal_month');localStorage.removeItem('el_qb_shadow_open');}catch(e){}window._qbCalOpen=null;window._qbShadowOpen=false;"
+      +"try{if(window.__probeCalOpen)localStorage.setItem('el_qb_cal_open',window.__probeCalOpen);if(window.__probeFolds){localStorage.setItem('el_qb_retired_open','1');localStorage.setItem('el_qb_shadow_open','1');}}catch(e){}"
       +"prefs.theme="+JSON.stringify(cfg.theme)+";applyTheme();"
       +"window._qqqExec=JSON.parse(window.__probeFixJson);"
       +"window._qbPubFailSeen=null;if(typeof qbNotePubFails==='function'){if(window.__probePrevJson)qbNotePubFails(JSON.parse(window.__probePrevJson),window.__probePrevCache);qbNotePubFails(window._qqqExec);}"
@@ -1019,6 +1256,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     var mbt=q('[data-lgmore="qb"]');r.moreBtn=mbt?mbt.getAttribute('aria-expanded'):null;
     r.more=moreRead();
     var act=q('.qbx-activity'),mwon=act?(act.textContent||'').match(/(\\d+)% won/):null;r.calWon=mwon?+mwon[1]:null;
+    r.lgcal=calRead();r.lg=listRead();r.old=oldReads();
     r.scrollW=d.documentElement.scrollWidth;
     r.clientW=d.documentElement.clientWidth;
     if(r.scrollW>r.clientW+1)r.wide=offenders(d);
@@ -1172,16 +1410,56 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     try{res.seed=seed({vp:'laptop',theme:'dark'});}catch(e){res.seed='ERR '+(e&&e.stack?e.stack:e);}
     await sleep(200);
     try{
-      // 1. the Retired group opens and closes, and the choice is kept for this viewer
-      var rb=q('.qbx-side [data-qbretired]');
+      // 1. the Retired group (a fold of the shared list) opens and closes, and the choice is kept for this viewer; opened it lists
+      // ENGU-Q #335 and the rows add up (the whole list is read open, for the judge to add up against the account's figure)
+      var none={getAttribute:function(){return null;}};
+      var rb=q('.qbx-side [data-lggrp="retired"]');
       if(rb){rb.click();await sleep(80);}
       var st=null;try{st=w.localStorage.getItem('el_qb_retired_open');}catch(e){}
-      res.open={expanded:(q('.qbx-side [data-qbretired]')||{getAttribute:function(){return null;}}).getAttribute('aria-expanded'),
-        rows:d.querySelectorAll('.qbx-side [data-qbretiredrow]').length,engu:!!q('.qbx-side [data-qbretiredrow="ENGUQ"] [data-qblegrow="ENGUQ"]'),stored:st};
-      rb=q('.qbx-side [data-qbretired]');
+      res.open={expanded:(q('.qbx-side [data-lggrp="retired"]')||none).getAttribute('aria-expanded'),
+        rows:d.querySelectorAll('.qbx-side [data-lggroup="retired"] [data-lgrow]').length,engu:!!q('.qbx-side [data-lggroup="retired"] [data-lgrow="ENGUQ"]'),stored:st,list:listRead()};
+      rb=q('.qbx-side [data-lggrp="retired"]');
       if(rb){rb.click();await sleep(80);}
-      res.closed={expanded:(q('.qbx-side [data-qbretired]')||{getAttribute:function(){return null;}}).getAttribute('aria-expanded'),
-        rows:d.querySelectorAll('.qbx-side [data-qbretiredrow]').length};
+      res.closed={expanded:(q('.qbx-side [data-lggrp="retired"]')||none).getAttribute('aria-expanded'),
+        rows:d.querySelectorAll('.qbx-side [data-lggroup="retired"] [data-lgrow]').length};
+      // 1b. the Shadow group opens (this doc has no shadow leg, so its note says so), closes, and is remembered
+      var sb2=q('.qbx-side [data-lggrp="shadow"]'),sd={};
+      var grp=function(k){var l=listRead();return l?l.groups.filter(function(g){return g.key===k;})[0]||null:null;};
+      if(sb2){sb2.click();await sleep(80);
+        sd.open=grp('shadow');
+        try{sd.stored=w.localStorage.getItem('el_qb_shadow_open');}catch(e){}
+        var sb3=q('.qbx-side [data-lggrp="shadow"]');if(sb3){sb3.click();await sleep(80);}
+        sd.closed=grp('shadow');
+        try{sd.stored2=w.localStorage.getItem('el_qb_shadow_open');}catch(e){}}
+      res.shadow=sd;
+      // 1c. a leg row opens its detail right under it and closes again
+      var lr=q('.qbx-side [data-lgrow="NOISE"]'),ld={};
+      if(lr){lr.click();await sleep(80);
+        var r2=q('.qbx-side [data-lgrow="NOISE"]'),ex=q('.qbx-side [data-qbextra="NOISE"]');
+        ld.expanded=r2?r2.getAttribute('aria-expanded'):null;
+        ld.detail=ex?(ex.textContent||'').replace(/\\s+/g,' ').trim():null;
+        lr=q('.qbx-side [data-lgrow="NOISE"]');if(lr){lr.click();await sleep(80);}
+        var r3=q('.qbx-side [data-lgrow="NOISE"]');
+        ld.expandedAfter=r3?r3.getAttribute('aria-expanded'):null;
+        ld.detailAfter=!!q('.qbx-side [data-qbextra="NOISE"] .qb-leg-detail');}
+      res.legrow=ld;
+      // 1d. the note toggle beside a run number shows that leg's note under its row and leaves the row's detail shut; a second tap hides it
+      var ib=q('.qbx-side [data-qbleginfo="NOISE"]'),inf={};
+      if(ib){
+        var ex0=q('.qbx-side [data-qbextra="NOISE"]');
+        inf.titleBefore=ib.getAttribute('title');inf.noteBefore=ex0?(ex0.textContent||''):'';
+        ib.click();await sleep(80);
+        var rw1=q('.qbx-side [data-lgrow="NOISE"]'),ex1=q('.qbx-side [data-qbextra="NOISE"]'),ib1=q('.qbx-side [data-qbleginfo="NOISE"]');
+        inf.expanded=rw1?rw1.getAttribute('aria-expanded'):null;
+        inf.note=ex1?(ex1.textContent||''):'';
+        inf.detail=!!q('.qbx-side [data-qbextra="NOISE"] .qb-leg-detail');
+        inf.title=ib1?ib1.getAttribute('title'):null;
+        if(ib1){ib1.click();await sleep(80);}
+        var rw2=q('.qbx-side [data-lgrow="NOISE"]'),ex2=q('.qbx-side [data-qbextra="NOISE"]');
+        inf.expandedAfter=rw2?rw2.getAttribute('aria-expanded'):null;
+        inf.noteAfter=ex2?(ex2.textContent||''):'';
+      }
+      res.info=inf;
       // 2. a scrub writes the hero and leaving puts it back (no re-render)
       var sv=q('#qb-lg-chart svg'),sc={};
       if(sv){
@@ -1219,6 +1497,60 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         try{fo.stored2=w.localStorage.getItem('el_qb_morestats_open');}catch(e){}
       }
       res.fold=fo;
+      // 5. the shared calendar (LEDGER step 7): its day taps, month arrows, fold and what a reload finds
+      var ca={};
+      ca.start=calRead();
+      var spy=[],proto=w.Element.prototype,so=proto.scrollIntoView;
+      proto.scrollIntoView=function(o){spy.push({day:this.getAttribute?this.getAttribute('data-qbday'):null,id:this.id||null,opt:o||null});};
+      try{
+        var db=q('[data-lgcalday="2026-10-02"]');
+        if(db){db.click();await sleep(60);var rr=q('[data-qbday="2026-10-02"]');ca.tapOct=spy.slice();ca.flashOct=!!(rr&&rr.classList.contains('lg-flash'));
+          var all=d.querySelectorAll('[data-qbday="2026-10-02"]');ca.octRows=all.length;ca.octFirstIsTapped=!!(rr&&all[0]===rr);}
+        var eb=q('[data-lgcal="qb"][data-lgcalmo="-1"]');
+        if(eb){eb.click();await sleep(80);}
+        ca.sept=calRead();
+        try{ca.storedMonth=w.localStorage.getItem('el_qb_cal_month');}catch(e){}
+        ca.memMonth=w._qqqCalMonth||null;
+        spy.length=0;
+        var d2=q('[data-lgcalday="2026-09-23"]');
+        if(d2){d2.click();await sleep(60);ca.tapSep=spy.slice();}
+        var fb=q('[data-lgcalfold="qb"]');
+        if(fb){fb.click();await sleep(80);}
+        ca.closed=calRead();
+        try{ca.storedOpen=w.localStorage.getItem('el_qb_cal_open');}catch(e){}
+        // a reload: nothing in memory, the stored choices kept
+        w.eval("window._qqqCalMonth=null;window._qbCalOpen=null;renderApp();");await sleep(120);
+        ca.reload=calRead();
+        fb=q('[data-lgcalfold="qb"]');
+        if(fb){fb.click();await sleep(80);}
+        ca.reopen=calRead();
+        try{ca.storedOpen2=w.localStorage.getItem('el_qb_cal_open');}catch(e){}
+        var lb=q('[data-lgcal="qb"][data-lgcalmo="1"]');
+        if(lb){lb.click();await sleep(80);}
+        ca.oct=calRead();
+        // 5b. the trade list shows only its newest rows until SHOW MORE: a tap on a day whose rows are not on the page yet draws every
+        // row first, then scrolls to that day's newest trade
+        w.eval("window._qeTradesShown=1;renderApp();");await sleep(120);
+        var fd=q('[data-lgcal="qb"] button[data-lgcalday]');
+        ca.moreDay=fd?fd.getAttribute('data-lgcalday'):null;
+        ca.moreRowsBefore=d.querySelectorAll('[data-qbtraderow]').length;
+        ca.moreHadRow=!!(ca.moreDay&&q('[data-qbday="'+ca.moreDay+'"]'));
+        spy.length=0;
+        if(fd){fd.click();await sleep(100);}
+        ca.moreSpy=spy.slice();
+        ca.moreRowsAfter=d.querySelectorAll('[data-qbtraderow]').length;
+        ca.moreHasRow=!!(ca.moreDay&&q('[data-qbday="'+ca.moreDay+'"]'));
+        w.eval("window._qeTradesShown=null;renderApp();");await sleep(80);
+      }finally{proto.scrollIntoView=so;}
+      res.cal=ca;
+      // 6. the Table view names every strategy with its run number too (family + run number on every trade row)
+      var tb=q('[data-qbseg="tradesview"] [data-qbsegval="table"]'),tv={};
+      if(tb){tb.click();await sleep(100);
+        tv.legs=[].map.call(d.querySelectorAll('[data-qetraderow] .qb-trade-leg'),function(e){return (e.textContent||'').trim();});
+        tv.days=[].map.call(d.querySelectorAll('[data-qetraderow]'),function(e){return e.getAttribute('data-qbday');});
+        var lb2=q('[data-qbseg="tradesview"] [data-qbsegval="list"]');
+        if(lb2){lb2.click();await sleep(100);}}
+      res.table=tv;
     }catch(e){res.threw=String(e&&e.stack?e.stack:e);}
     await sleep(60);
     res.errs=drain();
@@ -1249,7 +1581,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         out.stats={};
         for(var k=0;k<STATS.length;k++){
           var S=STATS[k];
-          await runCase('__st'+k,{vp:S.vp,theme:S.theme,fix:S.doc,range:S.range,todayNY:S.today,calMonth:S.calMonth,moreOpen:S.more,nowMs:S.nowMs});
+          await runCase('__st'+k,{vp:S.vp,theme:S.theme,fix:S.doc,range:S.range,todayNY:S.today,calMonth:S.calMonth,moreOpen:S.more,calOpen:S.calOpen,folds:S.folds,nowMs:S.nowMs});
           out.stats[S.name]=out.cases['__st'+k];delete out.cases['__st'+k];
         }
         try{W().eval("ledgerTodayNY=window.__probeLTN||ledgerTodayNY;");}catch(e){}
@@ -1529,23 +1861,533 @@ def _shadow_doc(fixture):
     return doc
 
 
+# LEDGER unify steps 7 + 10: the shared calendar and the shared strategy list, recomputed here from the fixture (never read off
+# the page). The calendar takes the chosen range's trades at the P&L of record on their close day; the list's rows are the legs
+# the board names (ORB #314, ENGU-Q #335, NOISE #382), the range's P&L of record, trades and win rate.
+LIST_GROUPS = ['book', 'retired', 'shadow']
+BOOK_NAMES = ['ORB #314', 'NOISE #382']       # the rows under BOOK, run numbers included (ENGU-Q #335 is retired in this doc)
+RETIRED_NAME = 'ENGU-Q #335'
+BOOK_NAMES_LIVE = ['ORB #314', 'ENGU-Q #335', 'NOISE #382']   # while ENGU-Q holds a position it is a BOOK leg again
+LEG_KEYS = [('ORB', 'ORB #314'), ('ENGUQ', 'ENGU-Q #335'), ('NOISE', 'NOISE #382')]
+MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November',
+          'December']
+RANGE_WORD = {'TODAY': 'today', '1W': 'past week', '1M': 'past month', '3M': 'past 3 months', 'YTD': 'year to date',
+              'ALL': 'all time'}
+LIST_VH_MAX = 1.0   # phone: the trade list (the History section) starts within this many viewport heights of the board top
+PHONE_ROW_MAX_H = 46  # phone: one line per strategy row (padding 9 + 9, one 12 px line)
+SHADOW_NOTE = 'None are in the box'
+NOTE_MARK = 'was #304'          # NOISE's note under its row: 'since Sep 24 · was #304 · KEEL v12 ...'
+OTHER_NAME = 'Other legs'       # the list's row for trades of a strategy the board has no row for
+OTHER_LEG = 'TTM'
+
+
+def _grey(css):
+    """'rgb(r, g, b)' / 'rgba(r, g, b, a)' with r = g = b (MONO has no hue); a clear colour passes."""
+    p = [float(x) for x in re.findall(r'[\d.]+', css or '')]
+    if len(p) >= 4 and p[3] == 0:
+        return True
+    return len(p) >= 3 and p[0] == p[1] == p[2]
+
+
+def _money_val(txt):
+    """'+$41.11' / '-$1,234.50' -> float, else None."""
+    m = re.match(r'^([+-])\$([\d,]+\.\d\d)$', (txt or '').strip())
+    return None if not m else (-1 if m.group(1) == '-' else 1) * float(m.group(2).replace(',', ''))
+
+
+def expected_cal(trades, cutoff=None):
+    """{day: {'v': money, 'n': trades, 'w': wins, 'l': losses}} -- what the calendar draws: the range's trades (shadow
+    rows left out) at the P&L of record on the New York day each one closed. A $0 trade is neither a win nor a loss."""
+    days = {}
+    for t in _range_rows(trades, cutoff):
+        d = _close_day(t)
+        if not d:
+            continue
+        c = days.setdefault(d, {'v': 0.0, 'n': 0, 'w': 0, 'l': 0})
+        v = qe_pnl_of(t)
+        c['v'] += v
+        c['n'] += 1
+        if v > 0:
+            c['w'] += 1
+        elif v < 0:
+            c['l'] += 1
+    return days
+
+
+def expected_caveats(trades, feed_days, cutoff=None):
+    """{day: {reasons}} -- the days the calendar hatches: an exit priced from the 1-minute tape (no book pnl, a re-priced one),
+    a failed parity check (the NinjaTrader one for a mirrored row, else engine against broker), a book-only trade, or a feed
+    flagged invalid (that one needs no trade on the day)."""
+    out = {}
+    for t in _range_rows(trades, cutoff):
+        d = _close_day(t)
+        if not d:
+            continue
+        if _fin(t.get('pnl')) is None and _fin(t.get('real_pnl')) is not None:
+            out.setdefault(d, set()).add('tape')
+        nt = str(t.get('signal_source') or '').lower() == 'ninjatrader'
+        if (t.get('parity_ok') is False) if nt else (t.get('broker_parity_ok') is False):
+            out.setdefault(d, set()).add('parity')
+        if t.get('book_only'):
+            out.setdefault(d, set()).add('book')
+    for f in feed_days or []:
+        d = f.get('date')
+        if d and f.get('valid') is False and (not cutoff or d >= cutoff):
+            out.setdefault(d, set()).add('feed')
+    return out
+
+
+def cal_month_figs(days, month):
+    """(money, trades, wins, losses) of one month of expected_cal()."""
+    v = n = w = l = 0
+    for d, c in days.items():
+        if d.startswith(month):
+            v += c['v']
+            n += c['n']
+            w += c['w']
+            l += c['l']
+    return v, n, w, l
+
+
+def cal_sum_text(v, n, w, l):
+    """The summary beside the month title: '-$53.65 · 3 trades · 0% won' (no win rate without a win or a loss)."""
+    if not n:
+        return 'no trades this month'
+    s = '%s · %d trade%s' % (signed(round(v, 2)), n, '' if n == 1 else 's')
+    if w + l:
+        s += ' · %d%% won' % _js_round(w / (w + l) * 100)
+    return s
+
+
+def cal_weeks(days, month):
+    """One entry per Sunday-first week of the month: {'v', 'n'} for a week with trades, None for an empty week."""
+    import calendar
+    import datetime
+    y, m = int(month[:4]), int(month[5:7])
+    first = (datetime.date(y, m, 1).weekday() + 1) % 7      # Sunday = 0
+    nweeks = (first + calendar.monthrange(y, m)[1] + 6) // 7
+    weeks = [None] * nweeks
+    for d, c in days.items():
+        if d.startswith(month):
+            i = (int(d[8:10]) + first - 1) // 7
+            w = weeks[i] or {'v': 0.0, 'n': 0}
+            w['v'] += c['v']
+            w['n'] += c['n']
+            weeks[i] = w
+    return weeks
+
+
+def short_signed(v):
+    """index.html ledgerShortMoney with its sign: '+$1.2k' / '-$47'."""
+    return ('-' if v < 0 else '+') + short_money(v)
+
+
+def _row_figs(vals):
+    """One list row's figures from its trades' P&L of record: the signed total ('—' with no trade), 'N trades · X% won'
+    (a $0 trade is neither a win nor a loss), the total and the trade count."""
+    n = len(vals)
+    net = round(sum(vals), 2)
+    w = sum(1 for v in vals if v > 0)
+    l = sum(1 for v in vals if v < 0)
+    v2 = '%d trade%s' % (n, '' if n == 1 else 's') + ((' · %d%% won' % _js_round(w / (w + l) * 100)) if (w + l) else '')
+    return {'value': signed(net) if n else '—', 'value2': v2, 'net': net, 'n': n}
+
+
+def expected_leg_figs(trades, cutoff=None):
+    """{row name: {'value', 'value2', 'net', 'n'}} -- each leg's range: its P&L of record (signed), its trades and win rate."""
+    rows = _range_rows(trades, cutoff)
+    return dict((nm, _row_figs([qe_pnl_of(t) for t in rows if t.get('leg') == key])) for key, nm in LEG_KEYS)
+
+
+def expected_other_figs(trades, cutoff=None):
+    """The 'Other legs' row: the range's trades of a strategy the board has no row for (not ORB, ENGU-Q or NOISE), else None."""
+    keys = set(k for k, _ in LEG_KEYS)
+    f = _row_figs([qe_pnl_of(t) for t in _range_rows(trades, cutoff) if t.get('leg') not in keys])
+    return f if f['n'] else None
+
+
+def expected_list_count(trades, cutoff, range_key):
+    """The list's header figure: the range's P&L of record and its word, or the board's 'no trades' line."""
+    rows = _range_rows(trades, cutoff)
+    if not rows:
+        return {'TODAY': 'no trades closed today', 'YTD': 'no trades closed this year'}.get(range_key) \
+            or ('no trades closed in the ' + RANGE_WORD[range_key])
+    return '%s · %s' % (signed(round(sum(qe_pnl_of(t) for t in rows), 2)), RANGE_WORD[range_key])
+
+
+def expected_shadow_rows(trades, cutoff=None):
+    """{row name: signed money} of the no-order shadow rows in the range (the list's Shadow group, never counted)."""
+    out = {}
+    for t in trades:
+        if not _is_shadow(t):
+            continue
+        d = _close_day(t) or ''
+        if cutoff and d < cutoff:
+            continue
+        nm = expected_leg_name(t)
+        out[nm] = out.get(nm, 0.0) + qe_pnl_of(t)
+    return dict((k, signed(round(v, 2))) for k, v in out.items())
+
+
+def _positions(doc):
+    """{leg: (Long or Short, shares, entry price)} of the doc's open positions (the status doc's own positions map)."""
+    out = {}
+    for k, v in (doc.get('positions') or {}).items():
+        try:
+            out[k] = ('Long' if v.get('side') == 'long' else 'Short', int(float(v.get('shares'))), float(v.get('entry_px')))
+        except (TypeError, ValueError, AttributeError):
+            pass
+    return out
+
+
+def _cal_open_want(vp, cal_open):
+    """open on a laptop, closed on a phone until a viewer chooses; a stored choice wins."""
+    if cal_open in ('0', '1'):
+        return cal_open == '1'
+    return vp == 'laptop'
+
+
+def _judge_cal(tag, c, vp, theme, doc, cutoff, want_month, open_want, today, fails):
+    """The shared calendar under Activity: fold and summary, the month, every day cell, the caveat hatching, the week cells and
+    the arrows -- all against the fixture's own trades at the P&L of record on their close day."""
+    c = c or {}
+    if c.get('fold') is None:
+        fails.append('%s: no shared calendar ([data-lgcalfold="qb"]) under Activity' % tag)
+        return
+    if c.get('oldDays') or c.get('oldNav'):
+        fails.append('%s: the old month grid is still drawn beside the shared calendar' % tag)
+    trades = doc.get('trades_all') or []
+    days = expected_cal(trades, cutoff)
+    months = sorted(set(d[:7] for d in days))
+    mo = want_month if want_month in months else (months[-1] if months else today[:7])
+    y, m = int(mo[:4]), int(mo[5:7])
+    tot, n, w_, l_ = cal_month_figs(days, mo)
+    if (c.get('fold') == 'true') != open_want or (c.get('panel') == 'shown') != open_want:
+        fails.append('%s: the calendar fold reads aria-expanded %r with its panel %s, want %s (open on a laptop, closed on a phone '
+                     'until chosen)' % (tag, c.get('fold'), c.get('panel'), 'open' if open_want else 'closed'))
+    ft = c.get('foldText') or ''
+    if '%s %d' % (MONTHS[m - 1], y) not in ft or (n and signed(round(tot, 2)) not in ft):
+        fails.append("%s: the calendar fold reads %r, want the month %s %d and its total %s"
+                     % (tag, ft, MONTHS[m - 1], y, signed(round(tot, 2)) if n else '(no trades)'))
+    if not open_want:
+        return
+    if c.get('month') != mo or c.get('title') != '%s %d' % (MONTHS[m - 1], y):
+        fails.append('%s: the calendar shows %r (%r), want %s' % (tag, c.get('month'), c.get('title'), mo))
+        return
+    want_sum = cal_sum_text(tot, n, w_, l_)
+    if c.get('sum') != want_sum:
+        fails.append('%s: the calendar month total reads %r, the fixture says %r (the sum of that month\'s trades at the P&L '
+                     'of record)' % (tag, c.get('sum'), want_sum))
+    nav = dict((k, dis) for k, dis in (c.get('nav') or []))
+    want_nav = {'-1': (not months) or mo == months[0], '1': (not months) or mo == months[-1]}
+    if nav != want_nav:
+        fails.append('%s: the month arrows read disabled %r (earlier / later), want %r (disabled at the first and last month '
+                     'with trades)' % (tag, nav, want_nav))
+    got = dict((x['ds'], x) for x in (c.get('days') or []) if x.get('traded'))
+    exp = dict((d, v) for d, v in days.items() if d.startswith(mo))
+    if sorted(got) != sorted(exp):
+        fails.append('%s: the calendar draws trades on %s, the fixture has them on %s'
+                     % (tag, sorted(d[8:] for d in got), sorted(d[8:] for d in exp)))
+    page_sum = 0.0
+    for d, v in exp.items():
+        x = got.get(d)
+        if not x:
+            continue
+        if x.get('m') != short_signed(v['v']) or x.get('n') != '%d tr' % v['n']:
+            fails.append('%s: calendar day %s reads %r / %r, the fixture says %s / %d tr'
+                         % (tag, d, x.get('m'), x.get('n'), short_signed(v['v']), v['n']))
+        tm = re.search(r': ([+-]\$[\d,]+\.\d\d),', x.get('title') or '')
+        if not tm or tm.group(1) != signed(round(v['v'], 2)):
+            fails.append('%s: calendar day %s says %r, the fixture says %s'
+                         % (tag, d, x.get('title'), signed(round(v['v'], 2))))
+        else:
+            page_sum += _money_val(tm.group(1))
+        if (x.get('up'), x.get('down')) != (v['v'] >= 0, v['v'] < 0):
+            fails.append('%s: calendar day %s is drawn %s' % (tag, d, 'up' if x.get('up') else 'down' if x.get('down') else 'flat'))
+    if exp and abs(page_sum - round(tot, 2)) > 0.011:
+        fails.append("%s: the day cells print %s, the month total says %s" % (tag, signed(round(page_sum, 2)), signed(round(tot, 2))))
+    cav = expected_caveats(trades, doc.get('feed_days'), cutoff)
+    want_cav = sorted(int(d[8:10]) for d in cav if d.startswith(mo))
+    got_cav = sorted(x['d'] for x in c.get('days') or [] if x.get('cav'))
+    if got_cav != want_cav:
+        fails.append('%s: the hatched caveat days are %s, the fixture says %s (tape-priced exit, failed parity, book only, '
+                     'feed invalid)' % (tag, got_cav, want_cav))
+    unhatched = [x['d'] for x in c.get('days') or [] if x.get('cav') and not (x.get('hatch') and x.get('dot'))]
+    if unhatched:
+        fails.append('%s: caveat days %s are marked but not hatched amber with the dot' % (tag, unhatched))
+    ew, gw = cal_weeks(days, mo), c.get('weeks') or []
+    if len(gw) != len(ew):
+        fails.append('%s: the calendar has %d week cells, want %d' % (tag, len(gw), len(ew)))
+    else:
+        for i, (e, g) in enumerate(zip(ew, gw)):
+            if e is None:
+                if g.get('title') or g.get('m'):
+                    fails.append('%s: calendar week %d has no trades but reads %r (an empty week is empty, never $0)'
+                                 % (tag, i + 1, g.get('m')))
+            else:
+                want_t = 'week: %s, %d trade%s' % (signed(round(e['v'], 2)), e['n'], '' if e['n'] == 1 else 's')
+                if g.get('title') != want_t or g.get('m') != short_signed(e['v']) or g.get('n') != '%d tr' % e['n']:
+                    fails.append('%s: calendar week %d reads %r / %r, the fixture says %r' % (tag, i + 1, g.get('title'), g.get('m'), want_t))
+    if theme == 'mono':
+        bad = [x['mColor'] for x in c.get('days') or [] if x.get('mColor') and not _grey(x['mColor'])] \
+            + [s for s in c.get('sumColors') or [] if not _grey(s)]
+        if bad:
+            fails.append('%s: the calendar draws colour under MONO (MONO has no hue): %s' % (tag, bad[:3]))
+    if c.get('gridW') and c.get('box') and c['gridW'] > c['box']['w'] + 1:
+        fails.append('%s: the calendar grid (%s px) is wider than its panel (%s px)' % (tag, c['gridW'], c['box']['w']))
+
+
+def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow_open, fails, distance=True):
+    """The strategy list on the shared list: its three groups in order, the BOOK rows named with run numbers and carrying the
+    range's P&L of record, trades and win rate, the Retired and Shadow folds closed (their rows outside the account number),
+    no switch, and where it sits: under the trade list on a phone, the sticky right column on a laptop."""
+    if not lg:
+        fails.append('%s: no strategy list on the shared list ([data-lglist="qb"] in the side column)' % tag)
+        return
+    trades = doc.get('trades_all') or []
+    groups = lg.get('groups') or []
+    keys = [g['key'] for g in groups]
+    pos = _positions(doc)
+    live = 'ENGUQ' in pos     # a retired leg that holds a position is a BOOK leg again (owner decision 9): no Retired group then
+    want_keys = [k for k in LIST_GROUPS if not (live and k == 'retired')]
+    if keys != want_keys:
+        fails.append('%s: the strategy list groups are %r, want %r (BOOK, Retired, Shadow - not counted; no Retired group while '
+                     'ENGU-Q holds a position)' % (tag, keys, want_keys))
+        return
+    by = dict((g['key'], g) for g in groups)
+    if lg.get('title') != 'Strategies' or lg.get('count') != expected_list_count(trades, cutoff, range_key):
+        fails.append('%s: the list header reads %r / %r, want Strategies / %r'
+                     % (tag, lg.get('title'), lg.get('count'), expected_list_count(trades, cutoff, range_key)))
+    if lg.get('sw'):
+        fails.append('%s: the list draws %d switches; this board has none (every leg counts)' % (tag, lg['sw']))
+    figs = expected_leg_figs(trades, cutoff)
+    other = expected_other_figs(trades, cutoff)
+    want_names = (BOOK_NAMES_LIVE if live else BOOK_NAMES) + ([OTHER_NAME] if other else [])
+    if other:
+        figs[OTHER_NAME] = other
+    bk = by['book']
+    if bk.get('fold') or not (bk.get('head') or '').upper().startswith('BOOK') or ('· %d' % len(want_names)) not in (bk.get('head') or ''):
+        fails.append('%s: the BOOK group reads %r (fold %s)' % (tag, bk.get('head'), bk.get('fold')))
+    names = [x['name'] for x in bk.get('rows') or []]
+    if names != want_names:
+        fails.append('%s: the BOOK rows are %r, want %r (family + run number, from the leg definitions%s)'
+                     % (tag, names, want_names, ', and an Other legs row for a strategy with no row' if other else ''))
+    for x in bk.get('rows') or []:
+        is_other = x.get('name') == OTHER_NAME
+        if not is_other and not LEG_RE.match(x.get('name') or ''):
+            fails.append('%s: list row %r has no family + run number' % (tag, x.get('name')))
+        e = figs.get(x.get('name'))
+        if e and (x.get('value') != e['value'] or x.get('value2') != e['value2']):
+            fails.append('%s: list row %s reads %r / %r, the fixture says %r / %r (the range\'s P&L of record, trades, win rate)'
+                         % (tag, x.get('name'), x.get('value'), x.get('value2'), e['value'], e['value2']))
+        pz = pos.get(x.get('key'))
+        want_side = ('LONG' if pz[0] == 'Long' else 'SHORT') if pz else 'FLAT'
+        if not is_other and not (x.get('tag') or '').startswith(want_side):
+            fails.append('%s: list row %s carries the side %r, want %s' % (tag, x.get('name'), x.get('tag'), want_side))
+        if pz and not vp.startswith('phone') and ('%s %d @ %s' % (pz[0], pz[1], money(pz[2]))) not in (x.get('sub') or ''):
+            fails.append('%s: list row %s shows %r under its name, want the live position %s %d @ %s'
+                         % (tag, x.get('name'), x.get('sub'), pz[0], pz[1], money(pz[2])))
+    rt = by.get('retired')
+    if rt and (not rt.get('fold') or ('Retired' not in (rt.get('head') or '')) or ('flat since ' + RETIRED_SINCE) not in (rt.get('head') or '')):
+        fails.append('%s: the Retired group reads %r (fold %s), want a fold saying "flat since %s"'
+                     % (tag, rt.get('head'), rt.get('fold'), RETIRED_SINCE))
+    sh = by['shadow']
+    shadow = expected_shadow_rows(trades, cutoff)
+    if not sh.get('fold') or (sh.get('head') or '').replace('▾', '').strip() != 'Shadow - not counted · %d' % len(shadow):
+        fails.append('%s: the Shadow group reads %r (fold %s), want a fold reading "Shadow - not counted · %d"'
+                     % (tag, sh.get('head'), sh.get('fold'), len(shadow)))
+    for g, is_open in [z for z in ((rt, retired_open), (sh, shadow_open)) if z[0]]:
+        want_open = 'true' if is_open else 'false'
+        if g.get('expanded') != want_open:
+            fails.append('%s: the %s group is aria-expanded=%r, want %r (closed until a viewer opens it)'
+                         % (tag, g.get('key'), g.get('expanded'), want_open))
+        if (not is_open) and g.get('rows'):
+            fails.append('%s: the %s group draws %d rows while closed' % (tag, g.get('key'), len(g['rows'])))
+    if (retired_open and rt) or live:
+        if rt:
+            rn = [x['name'] for x in rt.get('rows') or []]
+            if rn != [RETIRED_NAME]:
+                fails.append('%s: the Retired rows are %r, want %r' % (tag, rn, [RETIRED_NAME]))
+            elif rt['rows'][0].get('value') != figs[RETIRED_NAME]['value'] or rt['rows'][0].get('value2') != figs[RETIRED_NAME]['value2']:
+                fails.append('%s: the Retired row reads %r / %r, the fixture says %r / %r' % (
+                    tag, rt['rows'][0].get('value'), rt['rows'][0].get('value2'), figs[RETIRED_NAME]['value'], figs[RETIRED_NAME]['value2']))
+        # the rows add up to the account's range figure: BOOK + Retired are the legs that count, Shadow is never in it
+        counted = [_money_val(x.get('value')) for g in (bk, rt) if g for x in g.get('rows') or []]
+        want_tot = round(sum(qe_pnl_of(t) for t in _range_rows(trades, cutoff)), 2)
+        if None not in counted and abs(sum(counted) - want_tot) > 0.011:
+            fails.append('%s: BOOK + Retired add up to %s, the P&L of record of the range is %s (a shadow leg, or a leg with no row, '
+                         'moved the list off the account number)' % (tag, signed(round(sum(counted), 2)), signed(want_tot)))
+    if shadow_open:
+        sn = dict((x['name'], x['value']) for x in sh.get('rows') or [])
+        if sn != shadow:
+            fails.append('%s: the Shadow rows are %r, the fixture says %r' % (tag, sn, shadow))
+        if any(not x.get('off') for x in sh.get('rows') or []):
+            fails.append('%s: a shadow row is not drawn faded (it is not counted)' % tag)
+    rows = [x for g in groups for x in g.get('rows') or []]
+    if vp.startswith('phone'):
+        tall = [(x['name'], x['h']) for x in rows if x.get('h', 0) > PHONE_ROW_MAX_H]
+        if tall:
+            fails.append('%s: on a phone every list row is one line (<= %d px), but %s are taller' % (tag, PHONE_ROW_MAX_H, tall[:3]))
+        if any(x.get('value2Shown') or x.get('subShown') for x in rows):
+            fails.append('%s: on a phone a list row still shows its second line' % tag)
+    else:
+        if any(x.get('value2') and not x.get('value2Shown') for x in rows):
+            fails.append('%s: on a laptop the trades / win rate line under the money is hidden' % tag)
+    if theme == 'mono':
+        bad = [x['valColor'] for x in rows if x.get('valColor') and not _grey(x['valColor'])]
+        if bad:
+            fails.append('%s: a list row draws its money in colour under MONO (MONO has no hue): %s' % (tag, bad[:3]))
+    g = lg.get('geo') or {}
+    if vp.startswith('phone'):
+        if g.get('listTop') is None or g.get('histBottom') is None or g['listTop'] < g['histBottom'] - 1:
+            fails.append('%s: on a phone the strategy list (top %s) is not under the trade list (bottom %s)'
+                         % (tag, g.get('listTop'), g.get('histBottom')))
+        if g.get('acctTop') is not None and g.get('histBottom') is not None and g['acctTop'] < g['histBottom'] - 1:
+            fails.append('%s: on a phone the Account section (top %s) is above the trade list (bottom %s)'
+                         % (tag, g['acctTop'], g['histBottom']))
+        if distance and (g.get('histTop') is None or g.get('shellTop') is None or g['histTop'] - g['shellTop'] > LIST_VH_MAX * g['vh']):
+            fails.append('%s: on a phone the trade list starts %s px under the top of the board (%.2f viewports of %s px); it must '
+                         'start within %.1f (mistake #12)' % (tag, (g.get('histTop') or 0) - (g.get('shellTop') or 0),
+                         ((g.get('histTop') or 0) - (g.get('shellTop') or 0)) / (g.get('vh') or 1), g.get('vh'), LIST_VH_MAX))
+    else:
+        if g.get('listLeft') is None or g.get('histRight') is None or g['listLeft'] < g['histRight'] - 1:
+            fails.append('%s: on a laptop the strategy list (left %s) is not in the right column (trade list right edge %s)'
+                         % (tag, g.get('listLeft'), g.get('histRight')))
+        if g.get('sticky') != 'sticky':
+            fails.append('%s: on a laptop the strategy column is position %r, want sticky' % (tag, g.get('sticky')))
+
+
+def _judge_inter_ledger(tag, res, fixture, fails):
+    """The interaction run's LEDGER steps 7 + 10 part: the Retired fold open (the list adds up to the account's figure), the
+    Shadow fold, a leg row's detail, the table view's run numbers, and the calendar -- day taps, month arrows, fold, and what a
+    reload finds."""
+    trades = fixture.get('trades_all') or []
+    o = res.get('open') or {}
+    _judge_list(tag + ' [Retired open]', o.get('list'), 'laptop', 'dark', fixture, None, 'ALL', True, False, fails)
+    sd = res.get('shadow') or {}
+    if not sd:
+        fails.append('%s: no Shadow group to open ([data-lggrp="shadow"])' % tag)
+    else:
+        so, sc2 = sd.get('open') or {}, sd.get('closed') or {}
+        if so.get('expanded') != 'true' or so.get('rows') or SHADOW_NOTE not in (so.get('note') or '') or sd.get('stored') != '1':
+            fails.append('%s: the Shadow group did not open with its note and the choice kept (%s, stored %r)'
+                         % (tag, {k: so.get(k) for k in ('expanded', 'rows', 'note')}, sd.get('stored')))
+        if sc2.get('expanded') != 'false' or sc2.get('rows') or sd.get('stored2') != '0':
+            fails.append('%s: the Shadow group did not close again (%s, stored %r)' % (tag, sc2.get('expanded'), sd.get('stored2')))
+    lw = res.get('legrow') or {}
+    fig = expected_leg_figs(trades)['NOISE #382']
+    if lw.get('expanded') != 'true' or any(s not in (lw.get('detail') or '') for s in ('SINCE START', 'UNREALIZED', 'POSITION', fig['value'])):
+        fails.append('%s: a tap on the NOISE row did not open its detail under it with since start %s (aria-expanded %r, text %r)'
+                     % (tag, fig['value'], lw.get('expanded'), _first(lw.get('detail'), 160)))
+    if lw.get('expandedAfter') != 'false' or lw.get('detailAfter'):
+        fails.append('%s: a second tap on the NOISE row did not close its detail again (%r, detail still there: %s)'
+                     % (tag, lw.get('expandedAfter'), lw.get('detailAfter')))
+    inf = res.get('info') or {}
+    if not inf:
+        fails.append('%s: no note toggle on the NOISE row ([data-qbleginfo="NOISE"])' % tag)
+    else:
+        if inf.get('titleBefore') != 'show note' or NOTE_MARK in (inf.get('noteBefore') or ''):
+            fails.append('%s: the NOISE note is open before any tap (toggle title %r)' % (tag, inf.get('titleBefore')))
+        if NOTE_MARK not in (inf.get('note') or '') or inf.get('title') != 'hide note':
+            fails.append('%s: a tap on the NOISE note toggle did not show its note under the row (toggle title %r, text %r)'
+                         % (tag, inf.get('title'), _first(inf.get('note'), 120)))
+        if inf.get('expanded') != 'false' or inf.get('detail'):
+            fails.append("%s: a tap on the NOISE note toggle also opened the row's detail (aria-expanded %r, detail drawn: %s)"
+                         % (tag, inf.get('expanded'), inf.get('detail')))
+        if NOTE_MARK in (inf.get('noteAfter') or '') or inf.get('expandedAfter') != 'false':
+            fails.append('%s: a second tap on the NOISE note toggle did not hide the note again (aria-expanded %r)'
+                         % (tag, inf.get('expandedAfter')))
+    tv = (res.get('table') or {}).get('legs')
+    if tv is None:
+        fails.append('%s: no Table view to read ([data-qbsegval="table"])' % tag)
+    else:
+        bad = [x for x in tv if not LEG_RE.match(x or '')]
+        if bad or len(tv) != min(len(trades), 50):
+            fails.append('%s: the Table view names strategies without family + run number: %s (%d rows for %d trades)'
+                         % (tag, sorted(set(map(str, bad)))[:4], len(tv), len(trades)))
+        elif len(trades) <= 50 and collections.Counter(tv) != collections.Counter(expected_leg_name(t) for t in trades):
+            fails.append('%s: the Table view names the wrong run on a row' % tag)
+    tdays = (res.get('table') or {}).get('days')
+    if tdays is not None and len(trades) <= 50 and collections.Counter(tdays) != collections.Counter(_close_day(t) or '' for t in trades):
+        fails.append('%s: the Table view rows carry the wrong close day (data-qbday), so a calendar tap cannot land on them' % tag)
+    ca = res.get('cal') or {}
+    if not ca:
+        fails.append('%s: no calendar run to read' % tag)
+        return
+
+    def tapped(lst, day):
+        return bool(lst) and lst[0].get('day') == day
+    _judge_cal(tag + ' [calendar, October]', ca.get('start'), 'laptop', 'dark', fixture, None, None, True, STAT_TODAY, fails)
+    if not tapped(ca.get('tapOct'), '2026-10-02') or not ca.get('flashOct'):
+        fails.append("%s: a tap on Oct 2 did not scroll the trade list to that day's row and flash it (scrolled to %r, flash %s)"
+                     % (tag, ca.get('tapOct'), ca.get('flashOct')))
+    _judge_cal(tag + ' [calendar, after the earlier arrow]', ca.get('sept'), 'laptop', 'dark', fixture, None, '2026-09', True, STAT_TODAY, fails)
+    if ca.get('storedMonth') != '2026-09' or ca.get('memMonth') != '2026-09':
+        fails.append('%s: the earlier arrow did not keep the month for this viewer (stored %r, in memory %r)'
+                     % (tag, ca.get('storedMonth'), ca.get('memMonth')))
+    if not tapped(ca.get('tapSep'), '2026-09-23'):
+        fails.append("%s: a tap on Sep 23 did not scroll the trade list to that day's row (scrolled to %r)" % (tag, ca.get('tapSep')))
+    _judge_cal(tag + ' [calendar, folded]', ca.get('closed'), 'laptop', 'dark', fixture, None, '2026-09', False, STAT_TODAY, fails)
+    if ca.get('storedOpen') != '0':
+        fails.append('%s: closing the calendar did not keep the choice for this viewer (stored %r)' % (tag, ca.get('storedOpen')))
+    _judge_cal(tag + ' [calendar, after a reload]', ca.get('reload'), 'laptop', 'dark', fixture, None, '2026-09', False, STAT_TODAY, fails)
+    _judge_cal(tag + ' [calendar, reopened]', ca.get('reopen'), 'laptop', 'dark', fixture, None, '2026-09', True, STAT_TODAY, fails)
+    if ca.get('storedOpen2') != '1':
+        fails.append('%s: opening the calendar again did not keep the choice (stored %r)' % (tag, ca.get('storedOpen2')))
+    _judge_cal(tag + ' [calendar, after the later arrow]', ca.get('oct'), 'laptop', 'dark', fixture, None, '2026-10', True, STAT_TODAY, fails)
+    if not ca.get('moreDay') or ca.get('moreHadRow'):
+        fails.append("%s: the probe's own SHOW MORE case is wrong (day %r, its row already on the page: %s)"
+                     % (tag, ca.get('moreDay'), ca.get('moreHadRow')))
+    elif not tapped(ca.get('moreSpy'), ca['moreDay']) or not ca.get('moreHasRow') or ca.get('moreRowsAfter') != len(trades):
+        fails.append("%s: a tap on %s, whose rows were not on the page yet (%s rows shown), did not draw every row and scroll to that "
+                     "day's newest trade (rows after %s of %d, scrolled to %r)"
+                     % (tag, ca['moreDay'], ca.get('moreRowsBefore'), ca.get('moreRowsAfter'), len(trades), ca.get('moreSpy')))
+
+
+def _other_doc(fixture):
+    """The fixture with its last two ORB trades turned into a strategy the board has no row for (the box started publishing a
+    leg before the page learned its name): the list must still add up to the account's figure, so it draws an Other legs row."""
+    doc = json.loads(json.dumps(fixture))
+    orb = [t for t in doc.get('trades_all') or [] if t.get('leg') == 'ORB']
+    for t in sorted(orb, key=lambda t: str(t.get('exit_ts') or ''))[-2:]:
+        t['leg'] = OTHER_LEG
+    return doc
+
+
+def _enguq_open_doc(fixture):
+    """The fixture with ENGU-Q long 10 @ 600.10 (live 600.52): a retired leg that holds a position is a BOOK leg again (owner
+    decision 9), so the list has no Retired group, ENGU-Q reads LONG with its live position line, and the rows still add up."""
+    doc = json.loads(json.dumps(fixture))
+    doc.setdefault('positions', {})['ENGUQ'] = {'side': 'long', 'shares': '10', 'entry_px': '600.10',
+                                                'entry_ts': STAT_TODAY + ' 10:00:05', 'unrealized': '4.20'}
+    doc.setdefault('positions_live', {}).update(
+        {'broker_net_qty': 10, 'legs_net_qty': 10, 'total_open_pnl': 4.2,
+         'legs': [{'leg': 'ENGUQ', 'side': 'long', 'shares': 10, 'entry_px': 600.1, 'live_px': 600.52, 'live_source': 'stream',
+                   'live_age_s': 1.0, 'open_pnl': 4.2, 'time_in_trade_min': 3}]})
+    return doc
+
+
 def _stats_cases(fixture):
     """Each: name, range, doc, vp, theme, calendar month, today, more (More stats open as a reload finds
     it), empty (no trade closed in the range)."""
     z = _zero_doc(fixture)
 
-    def c(name, rg, doc, vp='laptop', th='dark', cal=None, today=STAT_TODAY, more=False, empty=False, now=None):
+    def c(name, rg, doc, vp='laptop', th='dark', cal=None, today=STAT_TODAY, more=False, empty=False, now=None,
+          cal_open=None, folds=False):
         return {'name': name, 'range': rg, 'doc': doc, 'vp': vp, 'theme': th, 'cal': cal, 'today': today,
-                'more': more, 'empty': empty, 'now': now or FRESH_NOW}
+                'more': more, 'empty': empty, 'now': now or FRESH_NOW, 'cal_open': cal_open, 'folds': folds}
     return [c('ALL', 'ALL', fixture),
             c('1W', '1W', fixture),
-            c('1W (MONO, 390x844, More stats open)', '1W', fixture, vp='phone390', th='mono', more=True),
+            c('1W (MONO, 390x844, More stats open)', '1W', fixture, vp='phone390', th='mono', more=True, cal_open='1'),
             c('$0 trade', 'ALL', z, cal='2026-09'),
             c('TODAY', 'TODAY', fixture),
-            c('1M (375x812, More stats open)', '1M', fixture, vp='phone', more=True),
+            c('1M (375x812, More stats open)', '1M', fixture, vp='phone', more=True, cal_open='1'),
             c('TODAY before the first exit (2026-10-06, More stats open)', 'TODAY', fixture, today='2026-10-06',
               more=True, empty=True, now='2026-10-06 08:00:00'),
-            c('a shadow row closed today (ALL, More stats open)', 'ALL', _shadow_doc(fixture), th='mono', more=True)]
+            c('a shadow row closed today (ALL, More stats open)', 'ALL', _shadow_doc(fixture), th='mono', more=True, folds=True),
+            c('an unlisted strategy leg (ALL, 375x812, both folds open)', 'ALL', _other_doc(fixture), vp='phone', folds=True),
+            c('ENGU-Q holds a position (ALL, 1366x768)', 'ALL', _enguq_open_doc(fixture)),
+            c('ENGU-Q holds a position (ALL, 375x812)', 'ALL', _enguq_open_doc(fixture), vp='phone')]
 
 
 def _attempt(chrome, alt_index, fixture):
@@ -1561,7 +2403,8 @@ def _attempt(chrome, alt_index, fixture):
                  'visread': bool(exp.get('visread')), 'cachesnap': bool(exp.get('cachesnap'))}
                 for nm, now, doc, exp in _variant_docs(fixture)]
     stats = [{'name': c['name'], 'range': c['range'], 'doc': c['doc'], 'vp': c['vp'], 'theme': c['theme'],
-              'calMonth': c['cal'], 'today': c['today'], 'more': c['more'], 'nowMs': et_ms(c['now'])}
+              'calMonth': c['cal'], 'today': c['today'], 'more': c['more'], 'calOpen': c['cal_open'], 'folds': c['folds'],
+              'nowMs': et_ms(c['now'])}
              for c in _stats_cases(fixture)]
     html = (PROBE_HTML.replace('__CASES__', json.dumps(CASES)).replace('__VP__', json.dumps(VIEWPORTS))
             .replace('__STATS__', json.dumps(stats))
@@ -1809,17 +2652,8 @@ def _judge(data, fixture):
             key = r.get('key') or ''
             if 'hatched' not in key or 'book only' not in key:
                 fails.append('%s: the caveat / book-only key under the chart reads %r' % (nm, key))
-        if not r.get('retired'):
-            fails.append('%s: no Retired group under the live strategies' % nm)
-        else:
-            if r.get('retiredExpanded') != 'false' or r.get('retiredRows'):
-                fails.append('%s: the Retired group is not collapsed by default (aria-expanded=%s, %s rows shown)'
-                             % (nm, r.get('retiredExpanded'), r.get('retiredRows')))
-            if ('flat since ' + RETIRED_SINCE) not in (r.get('retiredText') or ''):
-                fails.append('%s: the Retired group reads %r, want "flat since %s"'
-                             % (nm, r.get('retiredText'), RETIRED_SINCE))
-        if r.get('liveRows') != WANT_LIVE:
-            fails.append('%s: the live strategy rows are %r, want %r' % (nm, r.get('liveRows'), WANT_LIVE))
+        _judge_list(nm, r.get('lg'), cfg['vp'], cfg['theme'], fixture, None, 'ALL', False, False, fails)
+        _judge_cal(nm, r.get('lgcal'), cfg['vp'], cfg['theme'], fixture, None, None, _cal_open_want(cfg['vp'], None), STAT_TODAY, fails)
         legs = r.get('tradeLegs') or []
         if r.get('tradeRows') != n_rows:
             fails.append('%s: the trade list shows %s rows for %s trades' % (nm, r.get('tradeRows'), n_rows))
@@ -1888,6 +2722,8 @@ def _judge(data, fixture):
         _judge_tiles(tag, r, want, fails)
         _judge_strip(tag, r, vp, fails)
         _judge_more(tag, r, sc_, tr, cut, fixture, fails)
+        _judge_list(tag, r.get('lg'), vp, sc_['theme'], doc, cut, rg, sc_['folds'], sc_['folds'], fails, distance=not sc_['more'])
+        _judge_cal(tag, r.get('lgcal'), vp, sc_['theme'], doc, cut, cm, _cal_open_want(vp, sc_['cal_open']), sc_['today'], fails)
         if nm == '$0 trade':
             if '1 even' not in (want['winrate'][1] or ''):
                 fails.append('%s: the probe\'s $0 fixture trade did not land (%r)' % (tag, want['winrate'][1]))
@@ -1958,6 +2794,7 @@ def _judge(data, fixture):
             if fo.get('closed') != 'false' or fo.get('panelAfter') != 'hidden' or fo.get('stored2') != '0':
                 fails.append('%s: More stats did not close again (aria-expanded %s, panel %s, stored %r)'
                              % (tag, fo.get('closed'), fo.get('panelAfter'), fo.get('stored2')))
+        _judge_inter_ledger(tag, res, fixture, fails)
     r = cases.get('oldboards')
     if r is None:
         unfinished.append('oldboards: never ran (why=%s)' % why)
@@ -1972,6 +2809,15 @@ def _judge(data, fixture):
             fails.append('oldboards: ?oldboards=1 does not show the old Webull chart and strategy list '
                          '(shared chart=%s, old chart=%s, Retired group=%s)'
                          % (r.get('chart'), r.get('oldChart'), r.get('retired')))
+        o2 = r.get('old') or {}
+        if not o2.get('oldCalDays') or not o2.get('oldCalNav') or o2.get('sharedCalFold'):
+            fails.append('oldboards: ?oldboards=1 does not keep the old month calendar (old day cells %s, month arrows %s, '
+                         'shared fold %s)' % (o2.get('oldCalDays'), o2.get('oldCalNav'), o2.get('sharedCalFold')))
+        if o2.get('oldLegRows') != ['ORB', 'ENGUQ', 'NOISE'] or o2.get('sharedList') or not o2.get('oldSideHd'):
+            fails.append('oldboards: ?oldboards=1 does not keep the old strategy rows (rows %r, shared list %s, old heading %s)'
+                         % (o2.get('oldLegRows'), o2.get('sharedList'), o2.get('oldSideHd')))
+        if o2.get('order') != ['qbx-side', 'qbx-account', 'qbx-stats', 'qbx-history']:
+            fails.append('oldboards: ?oldboards=1 changed the old page order: %r' % (o2.get('order'),))
     if fails:
         return FAIL, fails, notes, data, True
     if unfinished:
@@ -2178,11 +3024,18 @@ def _report(t0, attempt, may_retry, chrome, alt_index, fixture):
             print('  note: ' + n)
         return FAIL
     lap = (data.get('cases') or {}).get('laptop/dark') or {}
+    cal0, lg0 = lap.get('lgcal') or {}, lap.get('lg') or {}
+    book = ' | '.join('%s %s' % (x.get('name'), x.get('value')) for g in lg0.get('groups') or [] if g.get('key') == 'book'
+                      for x in g.get('rows') or [])
+    pg = ((((data.get('cases') or {}).get('phone/dark') or {}).get('lg') or {}).get('geo')) or {}
     print('WEBULLPROBE: PASS (VERSION=%s, %d cases + interaction + %d stats cases + %d freshness variants + oldboards, %.1fs; '
-          'laptop chart %spx, %s dates, %s price labels, %s caveat days, marker %r; tiles %s)'
+          'laptop chart %spx, %s dates, %s price labels, %s caveat days, marker %r; tiles %s; calendar %s %s; list %s, %s; '
+          'phone trade list %s px under the board top)'
           % (data.get('VERSION'), len(CASES), len(data.get('stats') or {}), len(data.get('vars') or {}), elapsed, lap.get('chartH'),
              lap.get('chartDates'), lap.get('chartTicks'), lap.get('chartBands'), lap.get('markText'),
-             ' | '.join('%s %s' % (x[0], x[1]) for x in (lap.get('stats') or []))))
+             ' | '.join('%s %s' % (x[0], x[1]) for x in (lap.get('stats') or [])),
+             cal0.get('title'), (cal0.get('sum') or '').split(' · ')[0], lg0.get('count'), book,
+             (pg.get('histTop') or 0) - (pg.get('shellTop') or 0)))
     if first:
         print('  FLAKE: attempt 1 did not pass on this same file, the retry did. It said:')
         for f in first[1][:4]:
