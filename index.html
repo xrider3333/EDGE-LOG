@@ -993,7 +993,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1084';
+const VERSION='73.1085';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1011,7 +1011,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
+const CHANGELOG=[{v:'73.1085',date:'2026-10-06',notes:['LEDGER steps 6, 7, 10 on NT8 PAPER: shared stats strip + More stats, shared month calendar, shared strategy list (BOOK #463 / forward tests / shadow / retired) - max drawdown positive, phone list within one screen']},
+{v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
 {v:'73.1047',date:'2026-10-05',notes:['NT8 PAPER (owner decision 10-05): the ENGU-Q #335 legs (crown, S1, S2, VC) now run on the roll-corrected NQ master and charge 0.783 points a round trip, the way BOOK #463 does. Their whole forward record restates once, at the 10-06 nightly report (the crown leg: one long held since 09-16 instead of 14 shorter trades). Live NinjaTrader orders do not change. Also in v73.1047: the NT8 equity curve is the shared LEDGER chart.']},
 {v:'73.1046',date:'2026-10-05',notes:['LEDGER > REAL: the page no longer scrolls sideways onto a blank strip (440 px on a laptop, a full screen on a phone). The closed trade panel was parked just off the right edge and still made the page wider; now it takes no room until you open a trade, and it slides in when you do.']},
 {v:'73.1035',date:'2026-10-05',notes:['LEDGER > REAL: the chart legend (Webull, NinjaTrader) is a small line again. It drew each name as a block the full height of the chart.','The 73.1033 entry below now carries its real version number.']},
@@ -40497,35 +40498,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // pairs. Ranking by NET has to be something you ask for.
       const _lsCol=(window._legSortCol&&PLEG_COLS.some(c=>c.k===window._legSortCol&&c.sort))?window._legSortCol:'board';
       const _lsDir=(window._legSortDir==='asc')?'asc':'desc';
-      const legTile=(name,label,color)=>{
-        const a=legAgg(name,PSCOPE);        // TODAY tab now really means today
-        // No warning badge here any more: every warning these legs produce is about the
-        // shared 10s data feed (file missing/stale, zero fresh bars appended), so it was
-        // the identical badge on all three tiles and said nothing about the strategy.
-        // It now renders once, in the DATA FEED line under the board header.
-        const wBadge='';
-        const orbBadge=name==='ORB'?'<span title="'+ORB_LA_TIP.replace(/"/g,'&quot;')+'" style="margin-left:6px;font-size:8px;font-weight:600;padding:1px 6px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);opacity:.85;cursor:help">⚠ engine reference</span>':'';
-        // A leg can carry its own one-line annotation. ENGU-Q LIMIT 0.50 needed one the
-        // moment it appeared on the board: two ENGU-Q rows sitting side by side, identical
-        // in every column, is a puzzle unless the row says what makes it different.
-        const _def0=PAPER_LEG_DEFS.find(d=>d.k===name)||{};
-        const noteBadge=_def0.chip?('<span title="'+String(_def0.chipTip||'').replace(/"/g,'&quot;')
-          +'" style="margin-left:6px;font-size:8px;font-weight:600;padding:1px 6px;border-radius:999px;'
-          +'border:1px solid '+(_def0.color||'var(--border)')+';color:'+(_def0.color||'var(--text4)')
-          +';opacity:.85;cursor:help">'+_def0.chip+'</span>'):'';
-        // One COLUMN of a shared strip, not a card of its own: four framed boxes ate a
-        // full screen row of mostly chrome (owner 2026-08-14: "data seems everywhere").
-        // The whole column is now the chart's legend AND its selector: clicking it highlights
-        // that leg's curve and filters the matrix/trades below. data-paperleg resolves to
-        // 'ALL' when this leg is already selected, so a second click clears it -- that reuses
-        // the existing [data-paperleg] handler untouched rather than adding a second one.
-        const _isOth=_isUnc(name), _bw=_bookW[name];
-        const sel=_isOth?_otherOnSet.has(name):_legShown(name), dim=!sel&&!_isOth;
-        const bookBadge=_bw?('<span title="A leg of the adopted BOOK #'+_bookRun+'. Counted in the big number at weight x'+_bw+(_bw!==1?' (every trade of this leg counts '+_bw+' times)':'')+'." style="margin-left:6px;font-size:8px;font-weight:700;padding:1px 6px;border-radius:999px;border:1px solid var(--text3);color:var(--text3);cursor:help">BOOK x'+_bw+'</span>'):'';
-        // Live state, pinned RIGHT on the tile (owner: "need the status dot on the tile
-        // (again pined right)"). Literal hex -- the theme greys out --green/--yellow/--red.
-        let dotHtml='',dotMini='';
-        if(name!=='BLEND'){
+      // The NinjaTrader state of ONE strategy: the dot colour, one word and the hover text. The tile rows (old layout) and the shared
+      // strategy list (new layout) both read it, so the dot can never say two things. Literal hex on purpose: it is state, not money.
+      const _ntLive=name=>{
           const _B=window._ntBridge;
           const _def=PAPER_LEG_DEFS.find(d=>d.k===name)||{};
           const want=_def.nt;
@@ -40561,6 +40536,38 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               :(st?(st.name+' · '+st.state+' · '+st.account+(st.instrument?' · '+st.instrument:''))
                   :('not attached in NinjaTrader'+(_def.ntNote?' — '+_def.ntNote:'')));
           }
+        return {dc:dc,txt:txt,dt:dt};
+      };
+      const legTile=(name,label,color)=>{
+        const a=legAgg(name,PSCOPE);        // TODAY tab now really means today
+        // No warning badge here any more: every warning these legs produce is about the
+        // shared 10s data feed (file missing/stale, zero fresh bars appended), so it was
+        // the identical badge on all three tiles and said nothing about the strategy.
+        // It now renders once, in the DATA FEED line under the board header.
+        const wBadge='';
+        const orbBadge=name==='ORB'?'<span title="'+ORB_LA_TIP.replace(/"/g,'&quot;')+'" style="margin-left:6px;font-size:8px;font-weight:600;padding:1px 6px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);opacity:.85;cursor:help">⚠ engine reference</span>':'';
+        // A leg can carry its own one-line annotation. ENGU-Q LIMIT 0.50 needed one the
+        // moment it appeared on the board: two ENGU-Q rows sitting side by side, identical
+        // in every column, is a puzzle unless the row says what makes it different.
+        const _def0=PAPER_LEG_DEFS.find(d=>d.k===name)||{};
+        const noteBadge=_def0.chip?('<span title="'+String(_def0.chipTip||'').replace(/"/g,'&quot;')
+          +'" style="margin-left:6px;font-size:8px;font-weight:600;padding:1px 6px;border-radius:999px;'
+          +'border:1px solid '+(_def0.color||'var(--border)')+';color:'+(_def0.color||'var(--text4)')
+          +';opacity:.85;cursor:help">'+_def0.chip+'</span>'):'';
+        // One COLUMN of a shared strip, not a card of its own: four framed boxes ate a
+        // full screen row of mostly chrome (owner 2026-08-14: "data seems everywhere").
+        // The whole column is now the chart's legend AND its selector: clicking it highlights
+        // that leg's curve and filters the matrix/trades below. data-paperleg resolves to
+        // 'ALL' when this leg is already selected, so a second click clears it -- that reuses
+        // the existing [data-paperleg] handler untouched rather than adding a second one.
+        const _isOth=_isUnc(name), _bw=_bookW[name];
+        const sel=_isOth?_otherOnSet.has(name):_legShown(name), dim=!sel&&!_isOth;
+        const bookBadge=_bw?('<span title="A leg of the adopted BOOK #'+_bookRun+'. Counted in the big number at weight x'+_bw+(_bw!==1?' (every trade of this leg counts '+_bw+' times)':'')+'." style="margin-left:6px;font-size:8px;font-weight:700;padding:1px 6px;border-radius:999px;border:1px solid var(--text3);color:var(--text3);cursor:help">BOOK x'+_bw+'</span>'):'';
+        // Live state, pinned RIGHT on the tile (owner: "need the status dot on the tile
+        // (again pined right)"). Literal hex -- the theme greys out --green/--yellow/--red.
+        let dotHtml='',dotMini='';
+        if(name!=='BLEND'){
+          const _lv=_ntLive(name),dc=_lv.dc,txt=_lv.txt,dt=_lv.dt;
           dotHtml='<span title="'+String(dt).replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;gap:4px;font-size:8px;color:var(--text5);cursor:help">'
             +'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dc+'"></span>'+txt+'</span>';
           dotMini='<span title="'+String(dt).replace(/"/g,'&quot;')+'" class="p2live" style="background:'+dc+'"></span>';
@@ -42525,30 +42532,220 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'>BOOK #'+_bookRun+' group total \u00b7 '+_pcwLbl+' <b>'+ledgerMoney(_listedNet)+'</b> \u00b7 '+_listedN+' trades'
             +(tie?' <span style="color:var(--text5)">= the big number</span>':' <span style="color:var(--text5)">(does not match the big number: check the switches)</span>')+'</div>';
         })();
-        const _p2Head=_p2Css+_rhCss+(_p2New?_p2HeadNew:_p2HeadOld)+_tieStrip;
-        const _p2Top=dataHtml+capHtml+_rhChart+_rhTabs+'<div class="p2rhrow">'+_rhStats+_rhCal+'</div>';
-        const _p2Main=tradesHtml
-          +_p2Card('nt','NinjaTrader \u00b7 detail',bridgeHtml,'live state, fills, orders')
-          +_p2Card('recon','Cross-engine \u00b7 do they agree?',reconcileHtml,'engine vs NinjaTrader vs TradingView')
+        // ══ LEDGER steps 6, 7 and 10 on the shared parts (NT8 PAPER, new layout only - ?oldboards=1 keeps the old grid, calendar and rail) ══
+        // The stats strip, the calendar and the strategy list all read the SAME counted trades the big number adds up: the shown BOOK
+        // legs, closed (an open trade is in no range), at book weights, whose close day falls in the one range pill. Forward tests and
+        // controls, Other / shadow and Retired strategies are never in them - their rows only decide whether their trades are listed.
+        const _pnUi=_p2New?(()=>{
+        const _pnLs=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};
+        const _pnX=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const _pnN=(n,one,many)=>n+' '+(n===1?one:many);
+        // a group total or a row money cell: arrow + sign + theme colour, so MONO reads without a hue
+        const _pnMoney=v=>'<span class="'+ledgerCls(v)+'" style="white-space:nowrap"><span aria-hidden="true">'+(v>=0?'▲':'▼')+'</span> '+ledgerSigned(v)+'</span>';
+        // STEP 6. The counted trades in the order they CLOSED (close day, then exit time), each carrying its direction and hold the way
+        // ledgerStats reads them (the runner writes side as +1 / -1 and the times as epoch seconds). A $0 trade is neither a win nor a loss.
+        const _pnCk=t=>(_closeDay(t)||'')+' '+String(+t.exitTime||+t.entryTime||0).padStart(12,'0');
+        const _pnDir=v=>{const s=String(v==null?'':v).trim().toLowerCase();return (s==='1'||s==='+1'||s==='long'||s==='buy')?'LONG':((s==='-1'||s==='short'||s==='sell')?'SHORT':'');};
+        const _pnPnl=t=>+t.pnl_usd||0;
+        const _pnRows=_p2New?_heroRows.slice().sort((a,b)=>{const x=_pnCk(a),y=_pnCk(b);return x<y?-1:(x>y?1:0);})
+          .map(t=>Object.assign({},t,{type:_pnDir(t.side),
+            durationMins:(+t.exitTime>0&&+t.entryTime>0&&+t.exitTime>=+t.entryTime)?(+t.exitTime-+t.entryTime)/60:null})):[];
+        const _pnS=_p2New?ledgerStats(_pnRows,{pnl:_pnPnl,day:_closeDay,sorted:true}):null;
+        // the board's own More stats group: every listed strategy that traded in the range (or whose control did) against its matched
+        // control, the dollar gap, and its forward and backfilled trades apart - the figures the old rail kept on its hovers and its
+        // Config + gate rows. Range scoped like everything else on the board.
+        const _pnSplit=name=>{let nF=0,nB=0,uF=0,uB=0;
+          legRows(name).filter(t=>_inScope(t,PSCOPE)).forEach(t=>{const p=+t.pnl_usd||0;if(_isBackfill(t)){nB++;uB+=p;}else{nF++;uF+=p;}});
+          return {nF:nF,nB:nB,uF:uF,uB:uB};};
+        const _pnVs=(()=>{
+          const rows=[];let skipped=0;
+          PAPER_LEG_DEFS.filter(d=>!d.archived).forEach(d=>{
+            const k=d.k,a=legAgg(k,PSCOPE),c=d.ctrl?legAgg(d.ctrl,PSCOPE):null;
+            if(!a.n&&!(c&&c.n)){skipped++;return;}
+            const sp=_pnSplit(k),gk=_legGate(k),sz=(gk&&gk.avg_size)?+gk.avg_size:1,same=Math.abs(sz-1)<0.02;
+            const gap=c?a.net-c.net:null,per=(c&&sz>0)?(a.net/sz-c.net):gap;
+            const val=c?('<span class="'+ledgerCls(gap)+'">'+ledgerSigned(gap)+'</span> <span style="color:var(--text5)">vs '+_pnX(_legLabel[d.ctrl]||d.ctrl)+'</span>')
+              :'<span style="color:var(--text5)">no matched control</span>';
+            const bits=[];
+            if(c&&!same)bits.push('at '+sz.toFixed(2)+'x size '+ledgerSigned(per)+' per contract');
+            if(gk&&gk.model)bits.push('gate '+_pnX(gk.model)+' '+(gk.mode==='hybrid'?'hybrid':'cut')+' @ '+Math.round((+gk.threshold||0)*100)+'%'
+              +((gk.n_skipped!=null&&gk.n_in!=null)?(' refused '+gk.n_skipped+' of '+gk.n_in):'')+(gk.ok===false?' <b>GATE FAILED - ran UNGATED</b>':''));
+            bits.push('forward '+sp.nF+' tr '+ledgerSigned(sp.uF)+' / backfilled '+sp.nB+' tr '+ledgerSigned(sp.uB));
+            const P=_legSrc(k);
+            if(P&&P.src&&P.src.run_label)bits.push('from '+_pnX(P.src.run_label)+(P.src.strategy_file?' \u00b7 '+_pnX(P.src.strategy_file):'')+(P.src.caveat?' <span style="color:var(--attn-amber)">\u26a0</span>':''));
+            const pTip=P?[(P.src.note||''),(P.src.caveat?('CAVEAT: '+P.src.caveat):''),
+              (P.params?('CONFIG: '+Object.keys(P.params).map(p=>p+' '+P.params[p]).join(' \u00b7 ')):'')].filter(Boolean).join(' \u2014 '):'';
+            rows.push([_crownIc(k)+_pnX(_legLabel[k]||k),val,'','<div class="p2vs-sub"'+(pTip?' title="'+_pnX(pTip)+'"':'')+'>'+bits.join(' &middot; ')+'</div>']);
+          });
+          if(skipped)rows.push([_pnN(skipped,'more listed strategy','more listed strategies'),'no trades in this range','']);
+          if(!rows.length)rows.push(['No listed strategy traded in this range','','']);
+          return rows;
+        })();
+        const _pnStatsOpen=_pnLs('el_lg_stats_nt8')==='1';
+        const _pnStrip=ledgerStatStripHtml(_pnS,{id:'p2-stat-strip'});
+        const _pnMore=ledgerMoreStatsHtml(_pnS,[{title:'Strategy vs control',rows:_pnVs}],{open:_pnStatsOpen,id:'p2',
+          note:'Counted trades only: the shown book legs at their weights, closed in the chosen range. Strategy vs control reads the same range - each listed strategy against its matched control, with its forward and backfilled trades apart.'});
+        // STEP 7. The calendar takes the same counted trades; a day marked amber is one on which a roll-splice trade or an ORB look-ahead
+        // engine trade closed (the same two marks the trade rows carry). The fold and the month are remembered per browser.
+        const _pnCalDays=ledgerCalDays(_pnRows,{pnl:_pnPnl,day:_closeDay});
+        const _pnCav={};
+        _pnRows.forEach(t=>{const d=_closeDay(t);if(!d)return;
+          const why=[];
+          if(t.roll_artifact)why.push('a trade from the September 2026 contract-roll splice closed on this day (kept, not deleted)');
+          if(legOf(t)==='ORB'||(Array.isArray(t.flags)&&t.flags.indexOf('lookahead-engine')>=0))why.push('an ORB engine trade closed on this day (its volume filter is look-ahead: reference only)');
+          why.forEach(w=>{const cur=_pnCav[d]?_pnCav[d].split('; '):[];if(cur.indexOf(w)<0)cur.push(w);_pnCav[d]=cur.join('; ');});});
+        const _pnCalOpen=(()=>{const v=_pnLs('el_lg_cal_nt8');if(v==='1'||v==='0')return v==='1';return (window.innerWidth||1200)>=760;})();
+        const _pnCalMonth=ledgerCalPick(_pnCalDays,window._paperCalMonth||_pnLs('el_lg_calmo_nt8')||'');
+        window._paperCalMonth=_pnCalMonth;window._pnCalDays=_pnCalDays;
+        const _pnCal=ledgerCalendarHtml({id:'p2',month:_pnCalMonth,days:_pnCalDays,caveats:_pnCav,open:_pnCalOpen,
+          note:'Each day is the money from book trades that closed that day, in the chosen range. Tap a day to select its trades in the trades list (then OPEN N CHARTS). Amber hatch = a roll-splice trade or an ORB look-ahead engine trade closed that day.'});
+        // STEP 10. One row per strategy on the shared list. Name = the family-name label (family + run number + variant), the dot is the
+        // live NinjaTrader state (the sub-line says it in words), value = the range P&L, value2 = trades and win rate. A BOOK row's switch
+        // counts the leg everywhere; the other rows' switches only list that strategy trades in the trades table.
+        const _pnNice=k=>{const m=String(k).match(/^([A-Z][A-Z-]*)_(\d+)(?:_(.+))?$/);
+          return m?(m[1]+' #'+m[2]+(m[3]?' \u00b7 '+m[3].replace(/_/g,' '):'')):String(k).replace(/_/g,' ');};
+        const _pnRow=(name,label,kind)=>{
+          const S=legStats(name,PSCOPE),a=S.a,sp=S.sp,bw=_bookW[name],isBook=(kind==='book');
+          const sel=isBook?_legShown(name):_otherOnSet.has(name);
+          const lv=_ntLive(name),def=PAPER_LEG_DEFS.find(d=>d.k===name)||{},mk=_legMkt(name);
+          let w=0,l=0;
+          legRows(name).filter(t=>_inScope(t,PSCOPE)).forEach(t=>{const p=+t.pnl_usd||0;if(p>0)w++;else if(p<0)l++;});
+          const pfT=_fmtPf(S.pf);
+          const stTxt=(lv.txt==='LIVE')?'LIVE in NinjaTrader':((lv.txt==='OFF')?'OFF in NinjaTrader':((lv.txt==='ENGINE')?'engine only':'no snapshot'));
+          const bits=[_pnX(stTxt),_pnX((mk.instrument||'NQ')+' '+mk.timeframe+' '+(mk.session==='eth'?'24h':'RTH'))];
+          if(def.chip)bits.push(_pnX(def.chip));
+          if(a.n&&pfT!=null)bits.push('PF '+pfT);
+          if(a.rollN)bits.push('<span style="color:var(--attn-amber)" title="'+_pnX(a.rollN+' trade'+(a.rollN===1?'':'s')+' from the September 2026 contract-roll splice (kept, not deleted - see ROLL_AUDIT.md 4.5.4 and the ROLL badge on the trade rows)')+'">incl. '+ledgerSigned(a.rollUsd)+' roll artifact</span>');
+          if(a.openN)bits.push('+ '+a.openN+' open &middot; '+ledgerSigned(a.openUsd)+' unrealised');
+          const hover=[label,'net '+fmtUsd(a.net)+' over '+a.n+' trade'+(a.n===1?'':'s')+' on '+a.days+' day'+(a.days===1?'':'s')+' ('+(LEDGER_RANGE_LABEL[PSCOPE]||PSCOPE)+')',
+            (S.ev!=null?('EV '+fmtUsd(S.ev)+' per trade'):''),(S.perDay!=null?(fmtUsd(S.perDay)+' per calendar day'):''),
+            (sp.nBf?('forward '+sp.nFw+' tr '+fmtUsd(sp.netFw)+' / backfill '+sp.nBf+' tr '+fmtUsd(sp.netBf)+' (all time)'):''),
+            (a.lastT?('last trade '+_dOnly(a.lastT)):''),
+            (bw?('BOOK #'+_bookRun+' leg at weight x'+bw+(a.n&&bw!==1?(' - per contract '+fmtUsd(a.net/bw)):'')):''),
+            (_legSrc(name)&&_legSrc(name).src.run_label?('from '+_legSrc(name).src.run_label):''),
+            lv.dt,
+            (isBook?(sel?'Switch is ON: counted in the chart, calendar, stats and trades.':'Switch is OFF: left out of everything on the left.')
+              :(sel?'NOT COUNTED in the big number. Switch is ON: its trades are listed in the trades table, tagged NOT BOOK.':'NOT COUNTED in the big number. Switch it on to list its trades in the trades table.'))
+          ].filter(Boolean).join(' · ');
+          return {key:name,
+            name:'<span title="'+_pnX(hover)+'">'+_crownIc(name)+_pnX(label)+'</span>'
+              +((name==='ORB')?'<span title="'+_pnX(ORB_LA_TIP)+'" style="margin-left:5px;color:var(--attn-amber);cursor:help">⚠</span>':''),
+            tag:(isBook&&bw&&bw!==1)?('x'+bw):'',
+            color:lv.dc,
+            sub:bits.join(' &middot; '),
+            value:a.n?('<span aria-hidden="true">'+(a.net>=0?'▲':'▼')+'</span> '+ledgerSigned(a.net)):'&mdash;',
+            value2:a.n?(a.n+' tr'+((w+l)?' &middot; '+Math.round(w/(w+l)*100)+'% won':'')):'no trades yet',
+            cls:a.n?ledgerCls(a.net):'',
+            off:isBook&&!sel,
+            sw:{on:sel}};
+        };
+        const _pnAgg=keys=>{let net=0,n=0;keys.forEach(k=>{const a=legAgg(k,PSCOPE);net+=a.net;n+=a.n;});return {net:net,n:n};};
+        const _pnGc=(key,net,n,legs,tail)=>'<span data-p2grp="'+key+'" data-net="'+net.toFixed(2)+'" data-n="'+n+'" data-legs="'+legs+'">'+tail+'</span>';
+        const _pnFwdKeys=PAPER_LEG_DEFS.filter(d=>!_bookSet.has(d.k)&&!d.archived).map(d=>d.k);
+        const _pnRetKeys=PAPER_LEG_DEFS.filter(d=>d.archived).map(d=>d.k);
+        const _pnFwdA=_pnAgg(_pnFwdKeys),_pnOthA=_pnAgg(_otherKeys),_pnRetA=_pnAgg(_pnRetKeys);
+        const _pnTie=Math.abs(_listedNet-_H.net)<0.5;
+        const _pnGroups=[{key:'book',title:'BOOK #'+_bookRun,
+          count:_pnGc('book',_bookNet,_bookN,_bookKeys.length,_pnMoney(_bookNet)+' &middot; '+_pnN(_bookN,'trade','trades')+' &middot; '+_nShown+' of '+_bookDefs.length+' on'),
+          note:'<span data-p2listed data-net="'+_listedNet.toFixed(2)+'" data-n="'+_listedN+'" data-tie="'+(_pnTie?'1':'0')+'">'+(_pnTie?'= the big number':'does not match the big number: check the switches')+'</span>'
+            +' &middot; COUNTED in the big number, the curve, the stats and the calendar, at book weights'+(_bookWtxt?(' ('+_pnX(_bookWtxt)+')'):'')+'. A switch leaves that leg out of all of them.',
+          rows:_bookRowsOrdered.map(d=>_pnRow(d[0],d[1],'book'))}];
+        if(_pnFwdKeys.length)_pnGroups.push({key:'fwd',title:'Forward tests &amp; controls',
+          count:_pnGc('fwd',_pnFwdA.net,_pnFwdA.n,_pnFwdKeys.length,_pnN(_pnFwdKeys.length,'strategy','strategies')+' &middot; '+_pnN(_pnFwdA.n,'trade','trades')+' &middot; '+_pnMoney(_pnFwdA.net)+' &middot; not counted'),
+          fold:true,open:!!window._paperFwdOpen,
+          note:'NOT COUNTED in the big number. A switch only lists that strategy trades in the trades table.',
+          rows:window._paperFwdOpen?_legOrder.filter(d=>!_bookSet.has(d[0])&&!_isArchivedLeg(d[0])).map(d=>_pnRow(d[0],d[1],'fwd')):[]});
+        if(_otherKeys.length)_pnGroups.push({key:'other',title:'Other / shadow - not counted',
+          count:_pnGc('other',_pnOthA.net,_pnOthA.n,_otherKeys.length,_pnN(_otherKeys.length,'strategy','strategies')+' &middot; '+_pnN(_pnOthA.n,'trade','trades')+' &middot; '+_pnMoney(_pnOthA.net)+' &middot; not counted'),
+          fold:true,open:!!window._paperOtherOpen,
+          note:'Strategies the runner computes that have no listed row. NOT COUNTED in the big number, the curve, the stats or the calendar. Switch a strategy on to list its trades in the trades table.',
+          rows:window._paperOtherOpen?_otherKeys.map(k=>_pnRow(k,_pnNice(k),'other')):[]});
+        if(_pnRetKeys.length)_pnGroups.push({key:'retired',title:'Retired',
+          count:_pnGc('retired',_pnRetA.net,_pnRetA.n,_pnRetKeys.length,_pnN(_pnRetKeys.length,'strategy','strategies')+' &middot; '+_pnN(_pnRetA.n,'trade','trades')+' &middot; '+_pnMoney(_pnRetA.net)+' &middot; not counted'),
+          fold:true,open:_showArch,
+          note:'Retired strategies, kept so their history and colours still resolve. NOT COUNTED anywhere. Switch one on to list its trades in the trades table.',
+          rows:_showArch?_legOrder.filter(d=>_isArchivedLeg(d[0])).map(d=>_pnRow(d[0],d[1],'retired')):[]});
+        // THE RAIL. The filters that still narrow what is counted (family, raw / ML, baselines) and the row order sit in a small control
+        // row above the list; the Config + gate pill and the Archived pill folded into the list itself (the matched-control gap, the gate
+        // line and the forward / backfilled split are in More stats > Strategy vs control, the run and its file are on each row hover,
+        // and the Retired group is the archived strategies).
+        const _pnRail=(()=>{
+          const seg=(attr,val,on,lbl,tip)=>'<span data-'+attr+'="'+val+'" title="'+_pnX(tip)+'"'+(on?' class="on"':'')+'>'+lbl+'</span>';
+          const _crownGone=PAPER_LEG_DEFS.filter(d=>d.crown&&!LEGS_F.some(x=>x.k===d.k));
+          const sortLbl={board:'Board order',leg:'Name',net:'Net'};
+          return '<div class="p2rail">'
+            +'<div class="p2railhd"><span title="'+_pnX('Switch a book leg on to count it everywhere on the left. 👑 marks the standing champion of its family.'
+                +(_crownGone.length?(' Crowns NOT on this board: '+_crownGone.map(d=>d.label).join(', ')+'.'):''))+'" style="cursor:help">Strategies</span>'
+              +'<span class="p2railct">'+_nShown+' of '+_bookDefs.length+' book legs on</span>'
+              +(_legOff.length?'<span class="p2link" data-paperlegall>Include all</span>':'')+'</div>'
+            +'<div class="p2filt">'
+              +'<div class="p2seg" data-ptray>'+seg('pkind','ALL',PKIND==='ALL','Both','raw configs and ML overlays together')
+                +seg('pkind','RAW',PKIND==='RAW','Raw','only plain configs, no ML overlay')
+                +seg('pkind','ML',PKIND==='ML','ML','only the ML overlays (hybrid gates and size tilts)')+'</div>'
+              +'<div class="p2seg" data-ptray>'+seg('pfam','ALL',PFAM==='ALL','All','every strategy family')
+                +_famList.map(f=>seg('pfam',f,PFAM===f,f,'show only the '+f+' family')).join('')+'</div>'
+              +'<div class="p2seg" data-ptray>'+['board','leg','net'].map(k=>'<span data-lsort="'+k+'" title="'+_pnX(k==='board'?'Board order keeps each control next to the strategy it is read against':('Sort by '+sortLbl[k].toLowerCase()+(_lsCol===k?(_lsDir==='asc'?' (lowest first - tap again to flip)':' (highest first - tap again to flip)'):'')))+'"'
+                +(_lsCol===k?' class="on"':'')+'>'+sortLbl[k]+((_lsCol===k&&k!=='board')?(_lsDir==='asc'?' ▲':' ▼'):'')+'</span>').join('')+'</div>'
+              +'<div class="p2pills"><span class="p2pill'+(PBASE?' on':'')+'" data-pbase role="switch" aria-checked="'+(PBASE?'true':'false')+'" title="Show only each family baseline configuration. An ML overlay is never a baseline, so this hides every ML leg.">Baselines only</span></div>'
+            +'</div>'
+            +ledgerListHtml(_pnGroups,{id:'p2'})
+            +(()=>{
+              const nL=_pt.length, nSt=(_ti&&_ti.bundle)?_ti.n_total:null;
+              const nOth=_pt.filter(t=>_isUnc(legOf(t))).length;
+              const ld=(_ti&&_ti.bundle===false)?('Loaded only the newest '+nL+' trades: the full history bundle is written by the nightly run and is not there yet')
+                :(nSt==null?('Loaded '+nL+' trades')
+                  :(nL===nSt?('Loaded '+nL+' of '+nSt+' stored trades')
+                    :(nL>nSt?('Loaded '+nL+' trades ('+(nL-nSt)+' newer than the nightly bundle)')
+                             :('Loaded '+nL+' of '+nSt+' stored trades — INCOMPLETE'))));
+              return '<div class="p2railfoot" data-p2loaded data-loaded="'+nL+'" data-stored="'+(nSt==null?'':nSt)+'" data-listed="'+(nL-nOth)+'" data-other="'+nOth+'">'+ld+' · '+(nL-nOth)+' book + '+nOth+' not counted</div>';
+            })()
+            +'<div class="p2railfoot">Book switch = counted everywhere on the left · other switches only list that strategy trades in the trades table · dot = live in NinjaTrader · 👑 = family champion</div>'
+            +'</div>';
+        })();
+        // board-scoped CSS for the shared parts (the shared CSS itself is TRADING-LOG's and is not touched)
+        const _pnCss='<style>'
+          +'.p2rail .lg-list{background:none;border-radius:0;margin:0}'
+          +'.p2rail .lg-grp-hd [data-p2grp]{text-transform:none;letter-spacing:.2px}'
+          +'.p2rail .lg-grp-note [data-p2listed]{font-weight:700;color:var(--text3)}'
+          +'.p2vs-sub{font-size:9px;color:var(--text5);margin:-3px 0 7px;line-height:1.5}'
+          +'.p2rh .lg-ms-group[data-lgmsgroup="Strategy vs control"]{grid-column:1/-1}'
+          +'@media (max-width:600px){.p2rh .hm-chart-wrap{margin-top:12px}.p2rh .hm-range-row{margin-bottom:16px}.p2rh .lg-stats{margin-bottom:10px}}'
+          +'</style>';
+        return {strip:_pnStrip,more:_pnMore,cal:_pnCal,rail:_pnRail,css:_pnCss};
+        })():null;
+        const _pnPhone=_p2New&&(window.innerWidth||1400)<=600;
+        const _p2Head=_p2Css+_rhCss+(_p2New?(_pnUi.css+_p2HeadNew):(_p2HeadOld+_tieStrip));
+        // the new layout: chart, pills, the four tiles, then (laptop and tablet) the More stats and calendar folds. On a phone only the
+        // tiles stay above the trades; the folds, the strategy list and the feed notes follow the trades list (the hero chips already
+        // carry every data-feed and capture alarm).
+        const _p2Top=_p2New
+          ?(_pnPhone?(_rhChart+_rhTabs+_pnUi.strip):(dataHtml+capHtml+_rhChart+_rhTabs+_pnUi.strip+_pnUi.more+_pnUi.cal))
+          :(dataHtml+capHtml+_rhChart+_rhTabs+'<div class="p2rhrow">'+_rhStats+_rhCal+'</div>');
+        const _p2Cards=_p2Card('nt','NinjaTrader · detail',bridgeHtml,'live state, fills, orders')
+          +_p2Card('recon','Cross-engine · do they agree?',reconcileHtml,'engine vs NinjaTrader vs TradingView')
           +_p2Card('gate','Did the gate do its job?',gateAuditInner,_gaSub)
           +_p2Card('reports','Daily reports',reportsHtml,'one row per night')
           +_errHtml;
+        const _p2Main=tradesHtml+_p2Cards;
         // WIDTH IS THE READER'S, and remembered. Clamped on read as well as on drag:
         // a stored width from a wider monitor must not push the main column off a
         // laptop screen.
         const _p2Wmax=Math.max(320,Math.round((window.innerWidth||1400)*0.4));
         const _p2W=Math.min(_p2Wmax,Math.max(300,+(APREF.p2SideW||380)));
-        // Below ~1080px there is not enough room for two columns, so it stacks and the
+        // Below ~1080px (1100 on the new layout) there is not enough room for two columns, so it stacks and the
         // rail sits under the stats.
-        const _p2Narrow=(window.innerWidth||1400)<1080;
+        const _p2Narrow=(window.innerWidth||1400)<(_p2New?1100:1080);
+        const _p2Rail=_p2New?_pnUi.rail:legsCard;
         if(_p2Narrow){
-          body='<div class="p2rh">'+_p2Head+_p2Top+legsCard+_p2Main+'</div>';
+          body=_pnPhone
+            ?'<div class="p2rh">'+_p2Head+_p2Top+tradesHtml+_pnUi.more+_pnUi.cal+_p2Rail+'<div style="margin-top:14px">'+dataHtml+capHtml+'</div>'+_p2Cards+'</div>'
+            :'<div class="p2rh">'+_p2Head+_p2Top+_p2Rail+_p2Main+'</div>';
         }else{
           body='<div class="p2rh"><div data-p2grid="right" style="display:grid;grid-template-columns:minmax(0,1fr) 16px '+_p2W+'px;align-items:start">'
               +'<div style="min-width:0">'+_p2Head+_p2Top+_p2Main+'</div>'
               +'<div data-p2side title="Drag to set how wide the strategy list is. Double-click to reset." style="cursor:col-resize;align-self:stretch;min-height:120px;display:flex;align-items:flex-start;justify-content:center;padding-top:220px">'
                 +'<div style="width:2px;height:34px;border-radius:2px;background:var(--border)"></div></div>'
-              +'<div data-p2col="side" style="position:sticky;top:6px;max-height:calc(100vh - 130px);overflow:auto;min-width:0">'+legsCard+'</div>'
+              +'<div data-p2col="side" style="position:sticky;top:6px;max-height:calc(100vh - 130px);overflow:auto;min-width:0">'+_p2Rail+'</div>'
             +'</div></div>';
         }
       }
@@ -44547,6 +44744,58 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         window._paperOtherOn=on;savePref('paperOtherOn',on);renderApp();};});
       content.querySelectorAll('[data-p2otherhd]').forEach(el=>{el.onclick=()=>{
         window._paperOtherOpen=!window._paperOtherOpen;savePref('paperOtherOpen',!!window._paperOtherOpen);renderApp();};});
+      // ── LEDGER steps 6, 7 and 10 on the shared parts (NT8 PAPER, new layout): the More stats and calendar folds are remembered per
+      // browser, the month arrows step the calendar, a day tap selects that day's trades in the trades list, and the shared strategy
+      // list does what the old rail did - a row or its switch includes / lists a strategy (a BOOK leg counts everywhere, any other
+      // strategy only lists its trades), and the group headers fold. One re-render moves hero, chart, stats, calendar and list together. ──
+      {
+        const _wLs=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
+        const _wFlip=k=>{
+          if(Object.prototype.hasOwnProperty.call(window._paperBookW||{},k)){
+            const off=Array.isArray(window._paperLegOff)?window._paperLegOff.slice():[];
+            const i=off.indexOf(k);
+            if(i>=0)off.splice(i,1);else off.push(k);
+            // never switch every leg off: an empty board looks broken rather than deliberate
+            const total=(window._paperLegKeys||[]).length;
+            if(total&&off.length>=total)return;
+            window._paperLegOff=off;savePref('paperLegOff',off);
+          }else{
+            const on=Array.isArray(window._paperOtherOn)?window._paperOtherOn.slice():[];
+            const i=on.indexOf(k);
+            if(i>=0)on.splice(i,1);else on.push(k);
+            window._paperOtherOn=on;savePref('paperOtherOn',on);
+          }
+          renderApp();
+        };
+        content.querySelectorAll('[data-lgmore="p2"]').forEach(b=>{b.onclick=()=>{
+          _wLs('el_lg_stats_nt8',b.getAttribute('aria-expanded')==='true'?'0':'1');renderApp();};});
+        content.querySelectorAll('[data-lgcalfold="p2"]').forEach(b=>{b.onclick=()=>{
+          _wLs('el_lg_cal_nt8',b.getAttribute('aria-expanded')==='true'?'0':'1');renderApp();};});
+        content.querySelectorAll('[data-lgcal="p2"][data-lgcalmo]').forEach(b=>{b.onclick=()=>{
+          if(b.disabled)return;
+          const g=content.querySelector('.lg-cal[data-lgcal="p2"]'),cur=g?g.getAttribute('data-lgcalmonth'):window._paperCalMonth;
+          const m=ledgerCalStep(window._pnCalDays||{},cur,+b.getAttribute('data-lgcalmo'));
+          window._paperCalMonth=m;_wLs('el_lg_calmo_nt8',m);renderApp();};});
+        content.querySelectorAll('[data-lgcal="p2"] [data-lgcalday]').forEach(b=>{b.onclick=()=>{
+          // the calendar counts a trade on the day it CLOSED, so a tap selects the rows whose close day is that day (they carry
+          // data-pcd); the selection is the same one drag / shift-click makes, so OPEN N CHARTS works straight after
+          const ds=b.getAttribute('data-lgcalday');
+          const ids=[].map.call(content.querySelectorAll('#ptrades-body tr[data-ptrow][data-pcd="'+ds+'"]'),r=>r.getAttribute('data-ptrow'));
+          const sel=window._ptSel||(window._ptSel=new Set());
+          sel.clear();ids.forEach(i=>sel.add(i));
+          renderApp();
+          setTimeout(()=>{const x=document.querySelector('#ptrades-body [data-ptrow].ptsel');
+            if(x&&x.scrollIntoView)x.scrollIntoView({block:'center',behavior:'smooth'});},60);};});
+        content.querySelectorAll('[data-lglist="p2"] [data-lgrow]').forEach(b=>{b.onclick=()=>_wFlip(b.getAttribute('data-lgrow'));});
+        content.querySelectorAll('[data-lglist="p2"] [data-lgsw]').forEach(s=>{s.onclick=ev=>{ev.stopPropagation();_wFlip(s.getAttribute('data-lgsw'));};});
+        content.querySelectorAll('[data-lglist="p2"] [data-lggrp]').forEach(b=>{b.onclick=()=>{
+          const g=b.getAttribute('data-lggrp');
+          if(g==='fwd'){window._paperFwdOpen=!window._paperFwdOpen;savePref('paperFwdOpen',!!window._paperFwdOpen);}
+          else if(g==='other'){window._paperOtherOpen=!window._paperOtherOpen;savePref('paperOtherOpen',!!window._paperOtherOpen);}
+          else if(g==='retired'){window._paperShowArchived=!window._paperShowArchived;
+            if(!window._paperShowArchived&&String(window._paperLeg||'').indexOf('ORB')===0)window._paperLeg='ALL';}
+          renderApp();};});
+      }
       // A warning chip in the hero opens the closed card that explains it.
       content.querySelectorAll('[data-p2warn]').forEach(el=>{el.onclick=()=>{
         const k=el.getAttribute('data-p2warn');
