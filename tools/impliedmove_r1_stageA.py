@@ -171,6 +171,12 @@ def main(argv):
         HH.power_lines(x, B, years)
         return
 
+    import subprocess
+    sha = subprocess.run(["git", "log", "-1", "--format=%h", "origin/main", "--", "docs/PREREG_impliedmove_r1_2026-10-06.md"],
+                         capture_output=True, text=True, cwd=ROOT).stdout.strip()
+    print("  PREREG on main: docs/PREREG_impliedmove_r1_2026-10-06.md last changed in %s" % (sha or "NOT ON MAIN - STOP"))
+    if not sha:
+        return
     P0 = pnl(D, S[PRIMARY])
     rr = np.sort(P0[RD & (S[PRIMARY] != 0)])
     print("  R-DAY SUM (printed first; MANAGER #67): primary $%s over %d trade days in R, $%s without its 3 best" % (
