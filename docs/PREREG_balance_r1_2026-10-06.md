@@ -13,6 +13,37 @@ accepted by MANAGER #39 with ruling (b).
   - `--power` and the overlap test use the real schedule. Re-entry follows only a TARGET exit, so the schedule's trade
     count and holding times reveal a lower bound on target hits. This is disclosed, as house practice (section 5).
 
+## AMENDMENT 0 - MANAGER #40 review (2026-10-06 10:02), applied before any number
+Source: C:\EdgeLog\chat_inbox\DISCRECTIONALRY-TO-ALGO.jsonl #40, reviewing this prereg at c2f6346a.
+- **Verdict: GO WITH EDITS.** Write the harness now. Run `--counts`, then `--power`, then the real run under the
+  60-minute rule. AMENDMENT 1 cannot touch sections 3, 6 or 8.
+- **Applied before any number.** No BALANCE trade, P&L, coin-flip leg or null draw existed when this amendment was
+  written. The body edits listed below are part of the frozen prereg.
+- **The five sign-offs and two edits, in MANAGER's numbering:**
+  1. **RAW band-break classifier: ACCEPTED** (section 3.3). The #304-eligible version stays a crosswalk count, never a
+     cell. The choice, made after seeing counts and before any return, is disclosed. No body change.
+  2. **Roll sessions never traded: ACCEPTED,** frozen (36 WF sessions, section 3.1). `--counts` prints how many
+     BALANCE-labelled roll sessions had a first signal, as section 4 (i) planned. No body change.
+  3. **"Before any return": reading CONFIRMED** (section 4). The three-way split with #304's and L's dollars, and the
+     one share, print in `--counts`. The BALANCE-side co-loss shares print after the run, as defined now. No body
+     change.
+  4. **In-sample band: screen framing ACCEPTED.** The Auto-Validate lockbox is the first clean read (house rule,
+     lockbox veto-only). **Edit:** three REPORTED twins of B1, with band settings NOT fit on any return:
+     (lookback 20, 1.0 / 1.0), (40, 1.0 / 1.0) and (60, 1.0 / 1.0). Same rules, printed beside B1, no verdict. If B1's
+     WF net sign flips on any twin, the pass is written 'fragile' and only the Auto-Validate lockbox can clear it.
+     Body: sections 1, 8 (reports and verdict), 10, 11 and 12.
+  5. **The >= 50 trades a year bar STAYS** (bar 6). **Edit:** a cell that fails on count alone and clears the other 12
+     bars is a RESEARCH ROW on the RUNBOARD (as TTM r24), not a pass, with no variants. Body: sections 4, 8, 10 and 11.
+  6. **Edit: the Auto-Validate space is declared now,** before any number, with at least 6 configs so the report has
+     its surfaces (never a pinned file): stretch 6 / 7 / 8 / 9 twelfths x last fill 15:00 / 15:30 = 8 configs, window
+     pinned to WF, 900 trials, lockbox veto-only. It replaces the earlier stretch-only space (`stretch_12ths` 6..8).
+     Body: sections 3.6 (a pointer), 11 and 12.
+  7. **Edit: the drafting counts are superseded.** The `--counts` stamp-based reprint on the cut load supersedes the
+     drafting counts (914 / 1,078) everywhere they are quoted. Body: sections 4 and 10.
+- **Unchanged, as written:** the zero-overlap assertion by construction (section 7), the family null on both cells
+  (section 6), the power line and null p95s reprinted before the cell rows (section 5), the fixed seeds and the EARLY
+  bar (bar 12).
+
 ## 0. The frame: MANAGER #39, ruling (b)
 Source: C:\EdgeLog\chat_inbox\DISCRECTIONALRY-TO-ALGO.jsonl #39, 2026-10-06.
 - This is a ONE-prereg exception, not a reopening. NQ/ES intraday belongs to STRATEGY-BEATING (MANAGER #30), and its
@@ -62,6 +93,9 @@ Source: C:\EdgeLog\chat_inbox\DISCRECTIONALRY-TO-ALGO.jsonl #39, 2026-10-06.
   598). That covers all of EARLY and WF except 2025-02-11 .. 06-29. Only the stretch threshold is free of a return.
   Stage A, bar 12 (EARLY) included, is read as an in-sample screen for the band. The Auto-Validate lockbox is the
   first clean read of anything that depends on it.
+  - Three REPORTED twins of B1 use band settings fit on no return (lookback 20 / 40 / 60, multipliers 1.0 / 1.0). They
+    print beside B1 with no verdict, and a WF net sign flip on any twin makes a pass 'fragile' (section 8; AMENDMENT 0
+    item 4).
 
 ## 2. Map placement and prior
 - **Map.** Earner route only (docs/MDL_MAP_R1.md lines 5 and 10; SCOPE_DISC lines 58-63 and row 2).
@@ -189,6 +223,8 @@ Source: C:\EdgeLog\chat_inbox\DISCRECTIONALRY-TO-ALGO.jsonl #39, 2026-10-06.
     prints only beside realised R by exit type (section 9) and is never compared with 1 - x.
   - Not deeper than 2/3. At 3/4 and beyond, under a quarter of the room is left as stop. The entry then sits against an
     imminent #304 trigger, and the overshoot of a close-based stop would swamp the nominal risk.
+    - This limits the Stage A cells only. MANAGER #40 puts 9/12 = 3/4 in the declared Auto-Validate space (section 11;
+      AMENDMENT 0 item 6).
   - Where VWAP sits at the reference, x = 1/2 is about 0.375 sigma x ref above VWAP for shorts and 0.75 sigma x ref
     below for longs. x = 2/3 is 0.5 and 1.0 sigma x ref.
   - The bands are asymmetric (0.75 up, 1.5 down), so short fades get about half the room of long fades. Longs and
@@ -278,13 +314,16 @@ Nothing in this mode reads a BALANCE P&L or runs a BALANCE exit.
   2026-09-16 for the full trade file.
   - The classifier was computed in memory on every session to 2026-09-16, lockbox included. Only WF-session counts
     were printed. No BALANCE signal, trade or P&L exists for any date.
-  - Across all 2,318 WF sessions (half days included), 914 had no raw break by 12:00, about 102 a year. 1,078 had no
-    #304-eligible break. These are POSITIONAL (noon = k <= 29) and from an uncut load. On 2020-03-09, 03-12 and 03-16
-    (missing early bars) k = 29 is the 12:00 or 12:05 bar, which is past the cut.
+  - **SUPERSEDED drafting counts (MANAGER #40 item 7; AMENDMENT 0):** across all 2,318 WF sessions (half days
+    included), 914 had no raw break by 12:00, about 102 a year. 1,078 had no #304-eligible break. These are POSITIONAL
+    (noon = k <= 29) and from an uncut load. On 2020-03-09, 03-12 and 03-16 (missing early bars) k = 29 is the 12:00
+    or 12:05 bar, which is past the cut.
   - The eligible-break rebuild matched #304's first entry bar on 2,318 of 2,318 sessions.
-  - The driver's stamp-based reprint, on the cut load and trading sessions only, replaces these figures.
-  - Consequence, stated before any return: the >= 50 trades a year bar needs a signal on about half of BALANCE days, or
-    re-entries. B2 is the cell at risk.
+  - **The `--counts` stamp-based reprint, on the cut load and trading sessions only, supersedes these figures
+    everywhere they are quoted.** Only the reprint is cited after it exists.
+  - Consequence, stated before any return on the superseded drafting count: the >= 50 trades a year bar needs a signal
+    on about half of BALANCE days, or re-entries. B2 is the cell at risk. The bar stays (MANAGER #40 item 5); a cell
+    that fails on count alone and clears the other 12 bars is a RUNBOARD research row, not a pass (section 8).
 - **(ii) The three-way split of WF BALANCE days.** Source: #304's held WF trade list (NOISE422_raw_trades.csv, unit $ =
   pnl_usd / size).
   - **QUIET:** no #304 trade that session.
@@ -399,7 +438,7 @@ Statistics are at 1 NQ and house cost unless stated.
 5. **PF >= 1.05.** PF = the sum of positive trade net $ divided by |the sum of negative trade net $|.
 6. **Trades.** >= 100 WF trades, and >= 50 a year on average: n / years >= 50 (years from section 3.8), as in
    tools/halfhour_r1_stageA.py `standalone()`. Per-year counts, total trades, re-entries and trades per session print
-   here, in the real run.
+   here, in the real run. This bar stays (MANAGER #40 item 5); a fail on count alone is handled under the verdict.
 7. **Years.** At least 6 of the 9 July-June years have net > 0.
 8. **t.** t >= 2.0 AND above the family null's p95 of the max t.
    - t = mean / (SD / sqrt(N)), with ddof 1, over the session nets of the N WF sessions with at least one trade.
@@ -414,6 +453,20 @@ Statistics are at 1 NQ and house cost unless stated.
   - B1 goes forward if it passes; otherwise B2 does.
   - The binding route is the scope's R route as accepted by MANAGER #39. For this lane it supersedes HALFHOUR
     amendment 1's worst-drawdown route (docs/PREREG_halfhour_r1_2026-10-05.md lines 114-118).
+  - **'Fragile' (MANAGER #40 item 4).** If B1's WF net sign flips on any of the three band twins below (one WF net is
+    above 0 and the other is not, at 1 NQ and house cost), the pass is written 'fragile'. Only the Auto-Validate
+    lockbox can clear it (section 11); no Stage A number can.
+  - **Count-only fail (MANAGER #40 item 5).** A cell that fails bar 6 alone and clears the other 12 bars is a RESEARCH
+    ROW on the RUNBOARD (as TTM r24), not a pass, with no variants (section 11).
+- **Band twins of B1 (MANAGER #40 item 4; reports, never bars, never cells, not in the family null).** Three twins
+  with band settings not fit on any return: lookback / band_mult_long / band_mult_short = (20, 1.0 / 1.0),
+  (40, 1.0 / 1.0) and (60, 1.0 / 1.0).
+  - Each twin's bands are computed the same way as #304's (section 3.2), with that twin's settings in place of
+    `_FROZEN`'s: sigma over the `lookback` sessions before s, UB = ref_hi x (1 + 1.0 x sigma), LB = ref_lo x
+    (1 - 1.0 x sigma), and no band while si < lookback (NOISE_1_0.py line 570).
+  - Everything else is B1's: the twin's own band drives the raw break, the BALANCE-day classifier, the stretch
+    (x >= 1/2), entry, stop and exits (sections 3.3-3.7), on the same trading sessions, at 1 NQ and house cost.
+  - Each twin prints B1's section 8 statistics as one row beside B1's, with no bar marks and no verdict.
 - **Reports beside the verdict (never bars):**
   - #463's 460 drawdown days (C:\EdgeLog\_anatomy_cache\q19\episodes.csv, 28 episodes);
   - the HALFHOUR form: the leg's P&L in #463's worst WF drawdown, 2020-03-03 .. 2020-03-27 inclusive, with and without
@@ -494,15 +547,17 @@ All per cell, on NQ; ES gets the same rows as a transfer report.
   x·D. The D terciles show it. They are never a gate.
 - **A band tuned on returns.** The band was chosen on #231's and #304's returns over EARLY and most of WF (section 1).
   The bias can run either way. Stage A is an in-sample screen for the band; the Auto-Validate lockbox is the first
-  clean read.
+  clean read. The three band twins of B1 (section 8), at settings fit on no return, print beside B1; a WF net sign flip
+  on any of them writes a pass 'fragile'.
 - **A rebadged dead fade.** The vwsigma crosswalk shows the entry-stretch overlap with VWAP_FADE 1.0, nothing more.
 - **Drift dressed as reversion.** The bands are asymmetric, so the side mix can be lopsided while the null is 50/50.
   The drift control beside bars 4 and 8 (section 8) shows it.
 - **A co-loser called an earner.** The R-sum bar binds. The co-loss shares and the three-way split show whether the
   losses sit on #304's own whipsaw days.
 - **One crash window.** Bar 11 removes 2020-02-15 .. 04-30. No-2022 is reported.
-- **Few BALANCE days.** About 102 a year (section 4) puts bar 6 at risk. This is known before any return and is not
-  fixed by adding re-entries or cells after a number.
+- **Few BALANCE days.** About 102 a year on the superseded drafting count (section 4; the `--counts` reprint replaces
+  it) puts bar 6 at risk. This is known before any return and is not fixed by adding re-entries or cells after a
+  number. A fail on count alone is a RUNBOARD research row, not a pass (section 8).
 - **Reading a fail as a verdict on the owner's eye.** A fail says only that this proxy of his day-type read does not pay.
 
 ## 11. What follows
@@ -510,19 +565,28 @@ All per cell, on NQ; ES gets the same rows as a transfer report.
   - a plugin built to trade-by-trade harness parity, its file name and family set by the owner via MANAGER (MISC until
     then);
   - then, the same day, a window-pinned Auto-Validate of 900 trials on that file, date_from 2010-06-07 and date_to
-    2026-07-16 as HALFHOUR (docs/PREREG_halfhour_r1_2026-10-05.md line 106). **Its search is frozen now:**
-    - one knob, the stretch threshold, as an int in twelfths: `stretch_12ths`, min 6, max 8, step 1 (x = k/12, so
-      6 = 1/2 = B1 and 8 = 2/3 = B2; the range is section 3.6's, never below 1/2 or deeper than 2/3); default = the
-      passing cell;
+    2026-07-16 as HALFHOUR (docs/PREREG_halfhour_r1_2026-10-05.md line 106). MANAGER #40 wrote "window pinned to WF";
+    these dates are this draft's and are flagged for MANAGER's confirmation. **Its search is declared now (MANAGER #40
+    item 6; AMENDMENT 0), 8 configs, never a pinned file:**
+    - the stretch threshold as an int in twelfths: `stretch_12ths`, min 6, max 9, step 1 (x = k/12: 6 = 1/2 = B1,
+      7 = 7/12, 8 = 2/3 = B2, 9 = 3/4);
+    - the last fill as an int in minutes after 09:30: `last_fill_min`, min 330, max 360, step 30 (330 = 15:00, signal
+      bar 14:55; 360 = 15:30, signal bar 15:25, section 3.7's);
+    - 4 x 2 = 8 configs. Default = the passing cell's stretch with last fill 15:30;
     - everything else pinned to section 3. Any other knob needs a new prereg. Nothing measured in section 9 (D, DISP,
-      side, trade order, hour) may become a knob, gate or range edge;
-    - a test asserts the passing cell's value is reachable on the lattice exactly as `augur_engine/auto.py` samples an
-      int knob (lines 271-273 and 293-297);
-  - its lockbox is the leg's own first look (MANAGER #40);
+      side, trade order, hour) may become a knob, gate or range edge; the last-fill knob is MANAGER #40's, declared
+      before any number;
+    - a test asserts all 8 configs, the passing cell's included, are reachable on the lattice exactly as
+      `augur_engine/auto.py` samples an int knob (lines 271-273 and 293-297);
+  - its lockbox is the leg's own first look (MANAGER #40) and is veto-only: it can stop the leg, never promote it. It
+    is also the only read that can clear a 'fragile' pass (section 8);
   - a RUNBOARD row the same day (tools/runboard_watch.py) and a RESEARCH_LEDGER row.
 - **FAIL:**
   - BALANCE is dead, with no variants: no other threshold, classifier, clock, exit, room gate or market.
   - A RESEARCH_LEDGER row in the format of rows 2.72-2.74, and a RUNBOARD research verdict with ROC @ $30k and DD%.
+  - **Count-only fail (MANAGER #40 item 5):** if no cell passes and a cell fails bar 6 alone while clearing the other
+    12 bars, that cell is a RESEARCH ROW on the RUNBOARD (as TTM r24). It is not a pass: no plugin, no Auto-Validate,
+    no variants.
 - **Either way** (MANAGER #39):
   - this is a one-prereg exception; this lane takes no second NQ item;
   - the VWAP family stays closed. A PASS opens only this leg's plugin and Auto-Validate, not the family;
@@ -538,7 +602,9 @@ All per cell, on NQ; ES gets the same rows as a transfer report.
     - the noon cut by stamp on a session with missing early bars;
     - warm-up and roll sessions never traded;
     - the held interval and the #304 zero-overlap assertion on a synthetic stop-then-#304-entry session;
-    - the Auto-Validate lattice reachability of 6 and 8.
+    - the Auto-Validate lattice reachability of all 8 declared configs (`stretch_12ths` 6..9 x `last_fill_min` 330 /
+      360; section 11);
+    - the band twins of B1 built with their own settings (section 8).
 - **Stdout:** `tools/r37_results/balance_r1_stageA_counts.txt`, `..._power.txt` and `balance_r1_stageA.txt` (the real
   run).
 - **Cache: C:\EdgeLog\_anatomy_cache\balance_r1\**
@@ -547,6 +613,7 @@ All per cell, on NQ; ES gets the same rows as a transfer report.
   - `trades_{NQ,ES}_{B1,B2}.csv` (session, signal stamp, fill stamp, exit stamp, side, entry, exit, E, V, D, x, R0, exit
     reason, gross points, net $);
   - `daily_{NQ,ES}_{B1,B2}.csv`;
+  - `trades_NQ_B1_twin{20,40,60}.csv` and `daily_NQ_B1_twin{20,40,60}.csv` (the band twins, section 8);
   - `null_maxima.csv` (draw, max ROC, max t, max R-sum);
   - `power.json` and `overlap.csv`;
   - `manifest.json`: the sha256 of every input (both masters, the ES 30m master, the four crown trade files,
