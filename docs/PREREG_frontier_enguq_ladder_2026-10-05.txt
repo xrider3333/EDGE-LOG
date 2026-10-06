@@ -1,0 +1,21 @@
+BOOK QUEUE Q23 - ENGU-Q SIZE LADDER, a REPORT for the adoption page (MANAGER assessment 10-05, owner-ordered: BOOK order 5a(iii) "the
+ENGU-Q SIZE LADDER as a report - 0.5 / 0.75 / 1.0 of the ENGU-Q leg, WF only, incremental over L"; ENGU-Q section b names FRONTIER).
+Written 2026-10-05 before any number of this item.
+
+WHAT. Walk-forward only (2016-07-01..2025-06-29, #463's UTC day stamps, valued daily). The reference line L = #463 + 0.264 x RES (BOOK.md
+10ab). The ladder: L_k = L + (k - 1) x the ENGU-Q #335 leg's valued-daily P&L, k in {0.5, 0.75, 1.0} (MANAGER's grid; nothing else is
+added). Printed beside them as references, not rungs: k = 0 (L without ENGU-Q) and #463 without ENGU-Q (MANAGER: 75.0 / 3.91 / DD $39.2k).
+The leg series are the book engine's own (#463's legs rebuilt as Q19 did; they must sum to #463 within $0.05 a day).
+
+PRINTED per line: ROC %/yr at a $30k valued-daily worst drawdown, Sortino, worst drawdown in dollars, net dollars a year (owner order
+5a(iv): dollars beside every ROC), the two worst episodes with their dates, and the ENGU-Q leg's dollars on R (the line's own drawdown
+days, BOOK.md 10ab) at that size.
+
+PARITY STOP. #463 = 93.81 / 3.816 and L = 120.82 / 3.916 to the registered tolerance; the legs sum to #463 within $0.05 a day; #463
+without ENGU-Q within 0.1 of 75.0 / 0.01 of 3.91.
+
+NO VERDICT. Owner decisions b / c (10-05) and the assessment: re-sizing an existing leg is finished as research and is never a book-run
+trigger; this ladder only shows the owner, in dollars, what a smaller ENGU-Q size costs and buys. Could fool us: ENGU-Q is 46% of #463's
+drawdown-day loss, so a smaller ENGU-Q will read as a smaller drawdown - a gain of that shape is inside the 71-look band and unreadable
+forward (Q16 / Q17); ENGU-Q's money is in a few long survivors (memory: never cut exposure to a winning trade), so the ladder prints the
+net with and without ENGU-Q's single best WF trade.
