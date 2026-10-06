@@ -1,0 +1,26 @@
+RELVOL r1 - ES and NQ 5m RTH no-adjust, 3750 common full sessions (2010-06-07 .. 2025-06-27), 2240 in the WF stretch
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816
+  hedge h (ES per NQ) in WF: median 1.49, 5-95% 0.97-1.96
+  PREREG on main: docs/PREREG_relvol_r1_2026-10-06.md last changed in bfcec3a0
+  R-DAY SUM (printed first; MANAGER #67 (3)): primary $4,509 over 153 trade days in R, $-5,155 without its 3 best; short-NQ arm $4,218, long-NQ arm $291
+  L 20 q 0.9  PRIMARY  n  476 ( 53/yr)  net $    4,357  PF 1.026  DD $ 15,003  own ROC@30k   0.97  Sortino  0.09  years + 5/9
+  L 20 q 0.8           n 1008 (112/yr)  net $   15,525  PF 1.042  DD $ 26,314  own ROC@30k   1.97  Sortino  0.21  years + 5/9
+  L 40 q 0.9           n  508 ( 56/yr)  net $    1,978  PF 1.011  DD $ 14,296  own ROC@30k   0.46  Sortino  0.04  years + 5/9
+  family null (1000 same-year date shuffles): family-max own ROC@30k p95 6.84
+  RELVOL primary in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $-1,575 at 1 NQ, $-8,515 without its 3 best days; without 2020: own ROC@30k 0.76, net $3,438
+  checks: net without the best trade $385; at 2x cost $-12,906; EARLY 2010-06..2016-06 n 348 net $-2,930
+  VERDICT: A1 standalone (neither route) NO; A1b without 2020 NO; A2 null p95 6.84 NO; A3 neighbours net > 0 yes; net ex-best > 0 yes; 2x cost net > 0 NO; EARLY net > 0 NO -> FAIL (dead, no variants)
+  REPORT book #463 + RELVOL at VOL scale          (x2.520 NQ): ROC@30k 86.93  Sortino 3.620  bootstrap p5 -24.8 (SD 11.5)
+  REPORT book #463 + RELVOL at $30k own DD (twin) (x2.000 NQ): ROC@30k 88.25  Sortino 3.692  bootstrap p5 -19.3 (SD 9.4)
+DIAGNOSTICS (no verdict)
+  event path, mean $ a trade at each half-hour close 10:00 .. 15:55: +40 +40 +53 +54 +46 +42 +43 +43 +44 +54 +54 +42 +45
+  half 2016-07-01 .. 2021-12-31: n 306 net $-7,518 mean $-25
+  half 2022-01-01 .. 2025-06-29: n 170 net $11,876 mean $+70
+  short NQ / long ES (top tail)      n  220 net $   -3,296 mean $-15
+  long NQ / short ES (bottom tail)   n  256 net $    7,654 mean $+30
+  cost curve (bps of notional, both legs) 0 / 5 / 10 / 20: $21,622 / $-94,024 / $-209,670 / $-440,964
+  per WF year: 2016 $-2,238, 2017 $-3,866, 2018 $-2,648, 2019 $-2,675, 2020 $3,173, 2021 $737, 2022 $3,416, 2023 $2,089, 2024 $6,370
+  episodes: 36, mean $+121, positive 16; largest: 2024-07-17..2024-07-31 shortNQ $9,596; 2025-04-07..2025-05-15 longNQ $9,070; 2024-10-17..2024-11-01 shortNQ $-6,962; 2023-06-14..2023-08-10 shortNQ $6,088; 2022-09-27..2022-10-31 longNQ $-3,853
+  REPORT 5-session hold (RTH only, re-entered each session): 28 episodes, 540 sessions, net $13,845, own ROC@30k 2.34, Sortino 0.26
+  signal vs 20-day relative RETURN percentile: corr 0.51 (sides vs relative return, 476 trades)
+  REPORT overlap with #463 NQ legs (NQ leg's held bars): ORB same 21% / opposite 24%; NOISE same 17% / opposite 15%; same-side with either 28% of its held bars

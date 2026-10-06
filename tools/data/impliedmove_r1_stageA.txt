@@ -1,0 +1,27 @@
+IMPLIEDMOVE r1 - ES 5m RTH no-adjust, 3750 full sessions (2010-06-07 .. 2025-06-27), 2240 in the WF stretch; VIX photograph https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv (fetched 2026-10-05T14:51:50-07:00, sha256 6edc3e3928c4... verified)
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816
+  k pair B = [1.25, 1.5] on the HOUR-scaled implied move (daily move x sqrt(60/390))
+  PREREG on main: docs/PREREG_impliedmove_r1_2026-10-06.md last changed in c6c31cec
+  R-DAY SUM (printed first; MANAGER #67): primary $-36,830 over 251 trade days in R, $-52,126 without its 3 best
+  k 1.25  PRIMARY            n  809 ( 90/yr)  net $   43,104  PF 1.089  DD $ 47,882  own ROC@30k   3.00  Sortino  0.38  years + 5/9
+    realized twin k 0.815    n  809 ( 90/yr)  net $   44,054  PF 1.102  DD $ 62,804  own ROC@30k   2.34  Sortino  0.42  years + 4/9
+  k 1.50                     n  460 ( 51/yr)  net $   47,675  PF 1.158  DD $ 45,939  own ROC@30k   3.46  Sortino  0.50  years + 5/9
+    realized twin k 1.023    n  460 ( 51/yr)  net $    8,188  PF 1.029  DD $ 69,688  own ROC@30k   0.39  Sortino  0.09  years + 4/9
+  IMPLIEDMOVE primary in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $4,577 at 1 NQ, $-9,280 without its 3 best days; without 2020: own ROC@30k 2.51, net $39,076
+  checks: net without the best trade $20,647; at 2x cost $28,420; EARLY 2010-06..2016-06 n 643 net $-14,045
+  VERDICT: A1 standalone (neither route) NO; A1b without 2020 NO; A2 beats the count-matched realized twin, both cells yes; A3 k 1.25 net > 0 yes; net ex-best > 0 yes; 2x cost net > 0 yes; EARLY net > 0 NO -> FAIL (dead, no variants)
+  REPORT book #463 + IMPLIEDMOVE at VOL scale          (x0.828 NQ): ROC@30k 95.32  Sortino 3.660  bootstrap p5 -19.5 (SD 9.7)
+  REPORT book #463 + IMPLIEDMOVE at $30k own DD (twin) (x0.627 NQ): ROC@30k 95.41  Sortino 3.716  bootstrap p5 -14.6 (SD 7.6)
+  REPORT pair A k 1.00             n 1288  net $   44,710  own ROC@30k   3.15  Sortino  0.32
+  REPORT its realized twin k 0.632 n 1288  net $   48,585  own ROC@30k   3.91  Sortino  0.35
+DIAGNOSTICS (no verdict)
+  event path, mean $ a trade at each half-hour close 11:00 .. 15:55: +15 -7 +7 -19 -12 +20 +17 +47 +49 +71 +71
+  half 2016-07-01 .. 2021-12-31: n 411 net $-15,684 mean $-38
+  half 2022-01-01 .. 2025-06-29: n 398 net $58,788 mean $+148
+  long   n  365 net $   28,787 mean $+79
+  short  n  444 net $   14,316 mean $+32
+  cost curve (bps of the entry price, round trip) 0 / 5 / 10 / 20: $57,787 / $-19,038 / $-95,864 / $-249,515
+  per WF year: 2016 $-1,472, 2017 $5,171, 2018 $-9,865, 2019 $6,229, 2020 $-16,918, 2021 $936, 2022 $15,342, 2023 $-9,757, 2024 $53,438
+  prior VIX < 20   n  458 net $   -5,437 mean $-12
+  prior VIX >= 20  n  351 net $   48,541 mean $+138
+  REPORT overlap with #463 NQ legs (bars held, ES side vs NQ legs): ORB same 47% / opposite 7%; NOISE same 33% / opposite 5%; same-side with either 58% of its held bars
