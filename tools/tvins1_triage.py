@@ -294,8 +294,13 @@ def selftest():
     s, h, tr = run(pos, O, C, nq, roll, stock_bp=0.0)
     want = NOTL / (100.0 + i0) * 7 + NOTL / (50.0 + 2 * i0) * 2 * 5                      # open-to-open: shares x (O[j] - O[i])
     assert abs(s.sum() - want) < 1e-6, (s.sum(), want)
-    q = round(2 * NOTL / (10000.0 * MNQ_MULT))                                            # two positions open -> 5 micros
-    assert abs(h.sum() + 2 * q * MNQ_PER) < 1e-6 or h.sum() < 0                           # flat NQ: only rebalance costs
+    notl = np.zeros(len(idx))                                                             # flat NQ: hedge P&L = - rebalance costs exactly
+    for sym, i, j, _ in pos:
+        sh = NOTL / O[sym].values[i]; notl[i] += NOTL
+        if j - i > 1:
+            notl[i + 1:j] += sh * C[sym].values[i:j - 1]
+    qq = -np.round(notl / (10000.0 * MNQ_MULT))
+    assert abs(h.sum() + np.abs(np.diff(np.r_[0.0, qq])).sum() * MNQ_PER) < 1e-6, (h.sum(), qq[qq != 0][:5])
     s5, _, _ = run(pos, O, C, nq, roll, stock_bp=5.0)
     assert s5.sum() < s.sum()
     print("selftest OK (open-to-open P&L, restart rule, value filter, flat hedge = costs only, cost applied)")
@@ -393,7 +398,8 @@ def real(ev, O, C, nq, roll, nl):
 
 def event_path(ev, O, C, nq, lo=-10, hi=60):
     """Mean cumulative (stock - NQ) close-to-close return from the close before entry, sessions lo .. hi (report only)."""
-    rs = C.pct_change(); rn = nq["c"].pct_change().values; cols = {s: k for k, s in enumerate(C.columns)}; R = rs.values
+    rs = C.pct_change(); cols = {s: k for k, s in enumerate(C.columns)}; R = rs.values
+    rn = (nq["c"].diff() / nq["r"].shift(1)).values     # point move / previous RAW close (the back-adjusted level is not a price)
     acc = np.zeros(hi - lo + 1); cnt = np.zeros(hi - lo + 1)
     for sym, i in zip(ev["sym"], ev["i"]):
         k = cols[sym]

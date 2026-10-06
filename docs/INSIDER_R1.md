@@ -132,3 +132,14 @@ event under the null). No cell is near the line.
 
 **Next:** no Stage B (dead on the walk-forward). Ledger row + RUNBOARD research row filed. Per MANAGER #68 the queue moves
 to the non-earnings 8-K drift (map check first - scope addendum B says its prior is under the line) and the catalog mechanisms.
+
+## Correction 1 (2026-10-05 evening, STRATEGY-BEATING second review #80) - verdict unchanged (DEAD)
+
+The event-time path above divided NQ's daily point moves by the BACK-ADJUSTED NQ level, which is not a price; that understated
+NQ's returns and flattered the drift. Recomputed with NQ's return = point move / previous RAW close (the harness now does this;
+the hedge P&L always used point moves and is unchanged): -10 2.33, -5 1.19, entry 0.47, +5 0.46, +10 0.35, +20 0.54, +30 0.30,
++40 0.19, +50 0.25, +60 **-0.38**. So insiders buy after a ~2.3 % relative slide and the stock keeps LAGGING NQ by ~0.85 % over
+the next 60 sessions - there is no post-buy drift at all, which is what the losing 60-session cells already said. The
+earlier "+0.5 % drift over 60 sessions" line is withdrawn. Also from the review: the selftest's hedge check now asserts the exact
+rebalance cost on a flat NQ (it passed for any negative number before); 48 Form 5 rows without an EDGAR stamp drop out of the
+events (an r2 would state that rule explicitly); 66 of 1,122 events are only late or amended filings (22 of 820 at >= $100k).
