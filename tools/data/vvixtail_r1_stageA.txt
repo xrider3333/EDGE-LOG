@@ -1,0 +1,19 @@
+VVIXTAIL r1 - ES 30m RTH ADJ, 3868 sessions (2010-06-07 .. 2025-06-27); VIX / VVIX photographs 2026-10-05T14:51:50-07:00 / 2026-10-05T14:51:51-07:00 (sha256 6edc3e39.. / 098e91bc.. verified); ratio days from 2007-01-03
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816
+  PREREG on main: docs/PREREG_vvixtail_r1_2026-10-06.md last changed in c2e3f298
+  R-DAY SUM (printed first): primary $866 over R's 762 days, $-6,496 without its 3 best
+  top 2%  PRIMARY  n  56 ( 6.2/yr)  net $  -29,341  PF 0.50  DD $ 40,186  own ROC@30k  -2.44  Sortino -0.65  years + 2/9  R-day sum $866
+  top 5%            n  86 ( 9.6/yr)  net $  -42,660  PF 0.56  DD $ 57,321  own ROC@30k  -2.48  Sortino -0.79  years + 1/9  R-day sum $-387
+  family null (1000 same-year date shuffles): family-max R-day sum p95 $29,150; family-max own ROC@30k p95 -0.01
+  checks: without 2020 own ROC@30k -2.44 net $-29,341; net without the best trade $-40,010; at 2x cost $-30,357; EARLY 2010-06..2016-06 n 22 net $1,700
+  VERDICT: A1 route (ROC >= 15, or ROC >= 5 + R-day sum > null p95 $29,150) NO; A1 count (>= 100 and >= 50 a year) NO; PF > 1 NO; >= 6 of 9 years NO; A1b without 2020 NO; A3 top 5% net > 0 NO; net ex-best > 0 NO; 2x cost net > 0 NO; EARLY net > 0 yes -> FAIL (dead, no variants)
+  REPORT book #463 + VVIXTAIL at VOL scale          (x2.216 NQ): ROC@30k 88.97  Sortino 3.588  bootstrap p5 -23.2 (SD 7.5)
+  REPORT book #463 + VVIXTAIL at $30k own DD (twin) (x0.747 NQ): ROC@30k 92.18  Sortino 3.764  bootstrap p5 -6.6 (SD 2.3)
+DIAGNOSTICS (no verdict)
+  primary trades (entry date, $): 2016-07-18 -630, 2016-07-25 -80, 2016-08-01 -505, 2016-08-08 -5, 2016-08-15 156, 2016-12-07 -3,143, 2016-12-19 -168, 2017-01-13 381, 2017-01-30 -568, 2017-02-06 -1,318, 2017-05-09 -143, 2017-05-29 -1,055, 2017-06-05 269, 2017-07-13 -1,468, 2017-07-27 281, 2017-08-07 1,706, 2017-08-31 -93, 2017-09-15 -368, 2017-09-22 -618, 2017-09-29 -2,155, 2017-10-06 -243, 2017-10-13 -343, 2017-11-09 644, 2018-01-03 -2,805, 2019-10-31 -1,518, 2019-11-07 -243, 2019-11-14 -1,005, 2019-11-21 -2,255, 2019-11-28 1,756, 2019-12-16 -1,618, 2019-12-23 381, 2021-03-15 1,881, 2021-03-22 -2,968, 2021-04-05 -4,068, 2021-04-12 -3,243, 2021-04-19 -218, 2021-04-26 31, 2021-05-10 2,956, 2021-06-03 -1,930, 2021-06-10 456, 2021-06-17 -1,168, 2021-07-02 319, 2021-07-15 81, 2021-08-12 2,194, 2023-04-17 231, 2023-04-24 -1,818, 2023-05-01 1,606, 2023-05-11 -1,555, 2023-06-05 -668, 2023-06-12 -4,893, 2023-06-19 2,881, 2023-06-26 -5,180, 2023-07-13 -3,518, 2023-12-18 -1,180, 2024-08-19 -3,468, 2024-12-12 10,669
+  half 2016-07-01 .. 2021-12-31: net $-22,448
+  half 2022-01-01 .. 2025-06-29: net $-6,892
+  per WF year: 2016 $-6,810, 2017 $-5,462, 2018 $0, 2019 $-4,502, 2020 $-8,269, 2021 $2,595, 2022 $-9,395, 2023 $-4,698, 2024 $7,201
+  event path, mean $ by session of the hold 1..5: -207 +100 +67 -223 -243
+  cost curve, net at 0 / 5 / 10 / 20 bps of the entry price: $-28,325 / $-34,172 / $-40,020 / $-51,715
+  inside #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $0
