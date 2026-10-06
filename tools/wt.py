@@ -206,6 +206,91 @@ def changelog_entry_is_ours(diff, ver):
                for ln in (diff or '').splitlines())
 
 
+def own_changelog_tag(diff):
+    """The version tag of the NEWEST CHANGELOG entry this ship itself adds - the first added
+    line (diff order = file order, newest first) that opens an entry - or None.
+
+    Lanes do not have to guess the shipping version any more (2026-10-05, MANAGER go): main
+    moves while a lane waits its turn, so any number typed by hand is stale by the time the
+    lane gates. Whatever the entry is tagged, ship relabels it to the version that ships.
+    Only a '+' line can match, so an entry that is merely present on both sides (someone
+    else's work) is never relabelled - the 2026-09-03 rule below still holds.
+    """
+    for ln in (diff or '').splitlines():
+        if ln.startswith('+') and not ln.startswith('+++'):
+            m = re.match(r"^\+(?:const CHANGELOG=\[)?\{v:'([\d.]+)',", ln)
+            if m:
+                return m.group(1)
+    return None
+
+
+def resolve_version_changelog_conflict(path):
+    """Resolve a rebase conflict in index.html that touches ONLY the VERSION line and the top
+    of the CHANGELOG. HEAD (main) keeps its VERSION - the realign below steps past it - and
+    this ship's new CHANGELOG line(s) go on top of main's. Returns True when resolved, False
+    when any other hunk conflicts (that one still needs a person)."""
+    with open(path, encoding='utf-8', newline='') as f:
+        text = f.read()
+    nl = '\r\n' if '\r\n' in text[:5000] else '\n'
+    lines = text.split(nl)
+    out, i = [], 0
+    while i < len(lines):
+        if not lines[i].startswith('<<<<<<< '):
+            out.append(lines[i]); i += 1
+            continue
+        try:
+            j = lines.index('=======', i)
+            k = next(x for x in range(j, len(lines)) if lines[x].startswith('>>>>>>> '))
+        except (ValueError, StopIteration):
+            return False
+        head, mine = lines[i + 1:j], lines[j + 1:k]
+        if head and all(re.match(r"^const VERSION='[\d.]+';$", x) for x in head + mine):
+            out.extend(head)
+        elif head and mine and head[0].startswith('const CHANGELOG=[{') \
+                and mine[0].startswith('const CHANGELOG=[{'):
+            seen = set(x.replace('const CHANGELOG=[', '', 1) for x in head)
+            new = [x.replace('const CHANGELOG=[', '', 1) for x in mine
+                   if x.replace('const CHANGELOG=[', '', 1) not in seen]
+            if not new:
+                return False
+            out.append('const CHANGELOG=[' + new[0])
+            out.extend(new[1:])
+            out.append(head[0].replace('const CHANGELOG=[', '', 1))
+            out.extend(head[1:])
+        else:
+            return False
+        i = k + 1
+    with open(path, 'w', encoding='utf-8', newline='') as f:
+        f.write(nl.join(out))
+    return True
+
+
+def rebase_onto_main(wt, cmd):
+    """git rebase origin/main, settling VERSION / CHANGELOG-only conflicts on the way (a lane's
+    own entry against another lane's, the one collision every lane hits). Returns the failed
+    CompletedProcess when a real conflict stops it (the rebase is aborted), else None. `cmd` is
+    the rebase command itself, written out at the call site so the lock-before-rebase order stays
+    readable there (tests/test_push_lock.py checks it)."""
+    p = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
+    for _ in range(50):                       # one pass per replayed commit at most
+        if p.returncode == 0:
+            return None
+        unmerged = run(['git', '-C', wt, 'diff', '--name-only', '--diff-filter=U'],
+                       check=False, quiet=True).split()
+        idx = os.path.join(wt, 'index.html')
+        if unmerged != ['index.html'] or not resolve_version_changelog_conflict(idx):
+            run(['git', '-C', wt, 'rebase', '--abort'], check=False, quiet=True)
+            return p
+        safe_print('rebase: VERSION / CHANGELOG conflict settled (main keeps its version, this '
+                   "ship's entry goes on top)")
+        run(['git', '-C', wt, 'add', 'index.html'])
+        p = subprocess.run(['git', '-C', wt, 'rebase', '--continue'], capture_output=True,
+                           text=True, encoding='utf-8', errors='replace',
+                           env=dict(os.environ, GIT_EDITOR='true'))
+    run(['git', '-C', wt, 'rebase', '--abort'], check=False, quiet=True)
+    return p
+
+
 def cmd_ship(name, message):
     root = repo_root()
     wt = os.getcwd() if name is None else os.path.join(wt_root(), name)
@@ -247,10 +332,8 @@ def cmd_ship(name, message):
     if ahead == '0':
         print('nothing to ship - HEAD has no commits beyond origin/main')
         return
-    p = subprocess.run(['git', '-C', wt, 'rebase', 'origin/main'], capture_output=True,
-                       text=True, encoding='utf-8', errors='replace')
-    if p.returncode != 0:
-        run(['git', '-C', wt, 'rebase', '--abort'], check=False, quiet=True)
+    p = rebase_onto_main(wt, ['git', '-C', wt, 'rebase', 'origin/main'])
+    if p is not None:
         raise SystemExit('rebase onto origin/main hit a conflict - resolve by hand in ' + wt +
                          '\n' + (p.stdout or '') + (p.stderr or ''))
 
@@ -267,6 +350,20 @@ def cmd_ship(name, message):
             def num(v):
                 a, b = v.split('.')
                 return (int(a), int(b))
+            entry_diff = run(['git', '-C', wt, 'diff', 'origin/main', '--', 'index.html'],
+                             check=False, quiet=True)
+            own_tag = own_changelog_tag(entry_diff)
+            if num(mine) > num(theirs) and own_tag and own_tag != mine:
+                # the lane bumped VERSION itself and tagged its entry with something else
+                fixed = mine_txt.replace("{v:'%s'," % own_tag, "{v:'%s'," % mine, 1)
+                with open(idx, 'w', encoding='utf-8', newline='') as f:
+                    f.write(fixed)
+                    f.flush()
+                    os.fsync(f.fileno())
+                run(['git', '-C', wt, 'add', 'index.html'])
+                run(['git', '-C', wt, 'commit', '-q', '--amend', '--no-edit'])
+                print('CHANGELOG entry %s relabelled %s (the version this ship carries)'
+                      % (own_tag, mine))
             if num(mine) <= num(theirs):
                 want = bump(theirs)
                 new_txt = mine_txt.replace("const VERSION='%s'" % mine,
@@ -279,10 +376,8 @@ def cmd_ship(name, message):
                 # 73.461 to 73.462 to 73.463, so the changelog credited the wrong build.
                 # A gap in the numbers is correct and already normal here: a ship with
                 # nothing user-facing to say should leave the changelog alone.
-                entry_diff = run(['git', '-C', wt, 'diff', 'origin/main', '--', 'index.html'],
-                                 check=False, quiet=True)
-                if changelog_entry_is_ours(entry_diff, mine):
-                    new_txt = new_txt.replace("{v:'%s'," % mine, "{v:'%s'," % want, 1)
+                if own_tag:
+                    new_txt = new_txt.replace("{v:'%s'," % own_tag, "{v:'%s'," % want, 1)
                     retagged = True
                 else:
                     retagged = False
@@ -604,10 +699,8 @@ def cmd_ship(name, message):
                    'straight to main, where the machine lock cannot reach it). Rebasing and '
                    'retrying under the same lock hold.')
         run(['git', '-C', wt, 'fetch', '-q', 'origin'], check=False, quiet=True)
-        rb = subprocess.run(['git', '-C', wt, 'rebase', 'origin/main'], capture_output=True,
-                            text=True, encoding='utf-8', errors='replace')
-        if rb.returncode != 0:
-            run(['git', '-C', wt, 'rebase', '--abort'], check=False, quiet=True)
+        rb = rebase_onto_main(wt, ['git', '-C', wt, 'rebase', 'origin/main'])
+        if rb is not None:
             raise SystemExit('push was rejected and the rebase onto the newer main hit a '
                              'conflict - resolve it by hand in ' + wt + chr(10) + out +
                              (rb.stdout or '') + (rb.stderr or ''))
