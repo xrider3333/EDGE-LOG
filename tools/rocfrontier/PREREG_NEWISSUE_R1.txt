@@ -124,3 +124,20 @@ makes addendum 1's [B] concrete):
   curve at 0 / 5 / 10 / 20 bps a side; a row per July-June year; the regime halves 2016-07 .. 2021-12 and 2022-01 .. 2025-06; a
   row per drawdown episode of the reference book (the cell's P&L inside it); the long (matched or ES) and short sides apart;
   the path by months since listing (4 .. 24, one row per month). None of these is a pass route.
+
+PRE-DATA ADDENDUM 3 (2026-10-05 18:50 MST, before any NEWISSUE return - only the counts-only dryload has been read): MANAGER
+#99, after that dryload showed only 45 of the 89 WF months reach [N6]'s 20-name floor (so bar (a) could never be met): ONE
+amendment, allowed once, and MANAGER #100's report additions:
+- [N7] FLOOR 10: a month with fewer than 10 NEW names (counted after every removal) trades nothing in either cell - it replaces
+  [N6]'s 20; every cell row is also printed under the 20-name floor beside it (both floors side by side), never a pass route.
+- [N8] BAR (a) = at least 40 traded rebalances (it replaces 60).
+- [N9] 'net > 0 without calendar 2022' stays BINDING in bar (d). The owner line carries the single-cohort limit in words: the
+  traded months are concentrated in 2018-03 .. 2022-03 (one listing boom, 2020-21, and its bust, 2022) because recent listings
+  almost vanish from the top-500 universe after 2022; any pass is a LOW-POWER, FLAGGED result.
+- [N10] (MANAGER #100) every book-add report prints the dollars a year (net / years) beside each ROC @ $30k - for the cell, the
+  reference #463 + 0.264 x RES and the reference + c x the cell - and the reference line's drawdown-episode table (its
+  qualifying episodes by MDL r1's rule, 45 on the walk-forward), with the cell's P&L inside each and which episodes it helps,
+  as RESMOM's report did; the shared seat-pipeline harness (ELwA's library item: L, c by volatility, R, DO, the random-name
+  null) is used once it is in the repo, and until then r18_divrun's reference loader (one implementation of the pinned file)
+  stands in.
+Run on 2026-10-06 in the morning (MANAGER #99), flagged as a low-power test.
