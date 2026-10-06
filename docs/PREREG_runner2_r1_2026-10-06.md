@@ -1,17 +1,67 @@
 # PREREG - RUNNER2 r1 (day 2 of a small-cap runner, short; SCOPE_DISC rank 3) - DRAFT for MANAGER review (2026-10-06)
 
+## AMENDMENT 0 - MANAGER #41 / #42 rulings (2026-10-06 10:32), applied before any number
+
+Applied the same day, before any intraday bar, quote, signal or return existed. The body below is edited to match; where an
+older sentence and this list disagree, this list governs. PMFAIL r1 carries the same rulings as its own Amendment 0.
+- **#41 verdict: GO WITH EDITS.** The name-day builder tools/disc_gapper_namedays.py is written now. The pull starts only
+  when the lane posts namedays_r1.csv's sha256 and MANAGER runs the pull through the wrapper (section 4).
+- **Q1 FEED: feed=sip for HISTORY, CONFIRMED** (the house loader defaults to feed=sip; SIPORB's history came back SIP on the
+  free plan; #39's IEX-only line holds for real-time data, which matters only for the forward shadow in section 13). The
+  IEX twin on event days is DROPPED: no feed=iex twin request on any row (sections 3, 4, 12); the 403 fallback
+  (section 3) is unchanged. The premarket thinness
+  print stays, as a report: the share of event day-2 sessions whose SIP 04:00-09:29 1m volume is under 10% of the day's
+  daily-cache volume (section 3).
+- **Q2 HALT: a 5-minute zero-volume run CONFIRMED** (section 5's definition); the 4-minute reading is reported.
+- **Q3 COUNT BAR: the 9-YEAR MEAN.** Bar 4 = n / years >= 50 (years = 3,285 / 365.25 = 8.994, so n >= 450 filled trades)
+  AND >= 100 WF trades: the house harness reading (tools/halfhour_r1_stageA.py, standalone). Per-year filled counts print;
+  any July-June year under 25 is flagged thin (report). A cell that fails on count alone and clears every other bar is a
+  RESEARCH ROW, not a pass, no variants. The every-year reading is withdrawn: RUNNER2 is not dead on 2016-17's 47. The
+  count gate still files the counts before any P&L; a miss no longer stops the run, so the verdict can tell RESEARCH ROW
+  from FAIL (sections 4, 10, 12, 13).
+- **Q4 TWO-LEG CHECK: BINDS, in the house form.** PMFAIL and RUNNER2 are ONE habitat and ONE family: one family null over
+  all FOUR cells (PMFAIL primary + neighbour, RUNNER2 P + W); its p95 of the MAX is the binding line for both legs; each
+  leg's own 97.5th percentile (the max over its two cells) prints beside it as the Bonferroni cross-check. PMFAIL r1's
+  harness computes that one null for both legs; this leg's harness reads it (sections 9, 10, 11, 14).
+- **Q5 QUOTES (#42): the free plan serves historical SIP quotes** (probe 2026-10-06 17:32 UTC: GET /v2/stocks/quotes,
+  AAPL, 2024-03-01 14:30:00-14:30:10Z, feed=sip, limit=5: status 200, 5 quotes). The quotes sample runs as written (SIP;
+  the PMFAIL windows and the RUNNER2 marks). The cost priors are a per-day fallback for a specific name-day that
+  refuses (sections 4, 7); the bucket rule (a bucket with fewer than 20 name-day values uses the priors, sections 4 and
+  7) is unchanged. The probe did not exercise sort=desc; section 4's asc fallback (PMFAIL r1 section 16) and the
+  3-name-day probe cover it.
+- **Lane clarifications from the builder review (2026-10-06, before any number; not MANAGER rulings; PMFAIL r1's
+  Amendment 0 carries the same list):**
+  - Seed of this leg's half of the joint null: default_rng(20261010), its own generator (section 9), no longer
+    default_rng(20261006), so draw i never joins two copies of PMFAIL's random stream. The coin-flip power line keeps
+    20261006 (never joined to PMFAIL's). Nothing had been drawn.
+  - S1c's rename chain (PMFAIL r1 section 4 S2) is chained hop by hop: each name_change row dated on or after the
+    previous hop (the action's ex_date for the first hop), because tickers are reused.
+  - The cut (section 2) has a second named exception: name_change rows of any date, read as the identity table to
+    today's ticker (no price or volume).
+  - Section 2's reported readings are pinned: "the scope's whole-ratio guard without the volume test" = test M without
+    its volume clause on g = o(D1) / c(D0); the widened split reading tests S1 / S1c over D0-19..D2 but test M over
+    D0-19..D1 only (M on D2 would read D2's own full-day volume).
+  - The half-day skip is counted as the runs it removes (every other filter passed, D2 a half day), by year and bucket.
+  - The scoping of Q1 (the 403 fallback stands) and Q5 (the bucket rule stands) above.
+- **Q6 PASS ROUTE: SIPORB's Stage C form ACCEPTED as written** (section 13): a forward no-order shadow line with its own
+  bar and the owner's call, on 15-minute-delayed SIP bars from a scheduled daily pull through the shared stock loader
+  (never IEX); Stage B = the one-read sealed-year veto through MANAGER's pull; a RUNBOARD row the same day; an
+  adoption-page card for the owner (FRONTIER draws it); the broker and the locate source are the OWNER's call; a plugin
+  + window-pinned Auto-Validate only if a stock job type exists first.
+- Everything else stands as written. Section 15's review items are marked answered.
+
 Written before any intraday bar of the habitat was pulled (SCOPE_DISC 87ac032c, MANAGER #39). No return of any kind has
 been read. The only numbers below are session COUNTS from the daily cache, or figures already published in house docs.
 Research id: **MISC-RUNNER2-r1** (stays under MISC until something passes). Lane: DISCRECTIONALRY-TO-ALGO.
-Harness (written only after GO): `tools/disc_runner2_r1_stageA.py`. Code waits for GO; this draft may go on main
-labelled DRAFT. Revised 2026-10-06 after the instrument / rules / tradable review, before any pull.
+Harness (written only after GO): `tools/disc_runner2_r1_stageA.py`. GO WITH EDITS at MANAGER #41 (Amendment 0); this
+draft may go on main labelled DRAFT. Revised 2026-10-06 after the instrument / rules / tradable review, before any pull.
 
 **Shared pull.** RUNNER2 shares PMFAIL r1's single pull
-(`C:\Users\xride\AppData\Local\EdgeLog-worktrees\disc-gapper\docs\PREREG_pmfail_r1_2026-10-06.md`). The one pull spec
+(`docs/PREREG_pmfail_r1_2026-10-06.md` in this repo). The one pull spec
 (list file, roles, draws, fetch windows, probes) is written once, in PMFAIL r1 section 16; section 4 here restates
 RUNNER2's part of it. The two drafts agree on feed, windows, fields, mapping, halts, SSR, the reverse-split flag, sizing,
-costs and the PASS route; nothing is left for MANAGER to reconcile. The pull does not start before both preregs are
-written.
+costs, the one family null and the PASS route; nothing is left for MANAGER to reconcile. The pull starts only when the
+lane posts namedays_r1.csv's sha256 and MANAGER runs it through the wrapper (MANAGER #41).
 
 **Disclosure.** The author has seen the owner's 12 stock CBU charts (setups/CBU.md). They are dated 2026-07-07..09-04,
 after the cache end and outside every test window. None is recorded as a day-2 trade, and all 12 are longs. The 18
@@ -72,8 +122,10 @@ l, c, v. Raw (unadjusted), SIP. 11,449,264 rows, 6,596 symbols, 2016-01-04..2026
   filter to assets.csv names and prints the count dropped (expected 0).
 - **Market calendar:** the distinct dates in the cache (2,637 sessions). Half days (EARLY_CLOSE_DATES,
   tools/import_alpaca_stocks.py lines 139-145) are skipped as day 2 and counted.
-- **Cut:** cache rows dated on or after 2025-06-30 are dropped on load, before anything is computed. One exception:
-  condition 3 reads each symbol's last-bar DATE from the uncut cache (no price or volume).
+- **Cut:** cache rows dated on or after 2025-06-30 are dropped on load, before anything is computed. Two exceptions:
+  (1) condition 3 reads each symbol's last-bar DATE from the uncut cache (no price or volume); (2) the calendar's
+  name_change rows of any date are read as the identity table to today's ticker (S1c; their dates only order the chain;
+  no price or volume), while its split-type rows are cut at read on ex_date.
 
 **Days.** For symbol s, D2 is the trade session; D1 is the market session before it (the run day) and D0 the one before
 that. All prices and volumes below are raw daily-cache values. Daily volume includes extended-hours trades (house count
@@ -118,37 +170,43 @@ o(D2) / c(D1) within 2% of k or 1/k, k = 2..50) is a REPORT (it selects on move 
     whole-ratio guard).
   - Reader, band on both closes: 47 / 62 / 65 / 258 / 321 / 184 / 171 / 211 / 459 = 1,778.
   - Reader, band on c(D0) only: 53 / 75 / 72 / 277 / 368 / 208 / 193 / 232 / 503 = 1,981.
-- **Reported counts, never the event set:** band on c(D0) only; the scope's whole-ratio guard without the volume test;
-  S2' on; S1/S1c/S2 widened to the 20-session window D0-19..D2; carry-over SSR kept.
+- **Reported counts, never the event set:** band on c(D0) only; the scope's whole-ratio guard without the volume test
+  (pinned: test M without its volume clause, on g = o(D1) / c(D0) > 1, |g - 1| >= 0.25, within 2% of a whole k = 2..50;
+  the scope's own rule for 1,393 was not recorded, so that figure is a comparison, not a reproduction); test M with its
+  volume clause, whatever the calibration decides; S2' on; S1/S1c widened to the 20-session window D0-19..D2 and S2
+  (test M) to D0-19..D1 only (M on D2 would read D2's own full-day volume, a look-ahead); carry-over SSR kept. The
+  half-day skip is counted as runs: sessions passing every other filter whose D2 is a half day, by year and bucket,
+  under the registered rule and the loosest reading.
 - **Links to PMFAIL:** 170 of 1,981 day-2 sessions are also PMFAIL event days (D2 open >= +20% over c(D1)), so both legs
   can short the same name on the same session; 908 of 1,985 runs opened >= +20% on D1 (linked across days). The same
   name-day overlap of filled trades prints (section 11).
 
 ## 3. MANAGER condition 1 - THE FEED (named)
 
-- **Historical bars: feed=sip** (the consolidated tape) for every bar the rules read.
-  - MANAGER #39 (1) says the free Alpaca feed is IEX-only. House evidence says that holds for REAL-TIME data only.
-  - Historical bars on the free plan come from SIP: SIPORB's 19.96M 1m rows came back with feed=sip;
-    docs\ALPACA_STOCK_BARS.md lines 16-20 and tools/import_alpaca_stocks.py lines 4-7 state it; MANAGER's 10-02 key check
-    returned status 200 on a SIP bars request (memory alpaca-stock-bars-staged.md; status codes only, no quotes).
+- **Historical bars: feed=sip** (the consolidated tape) for every bar the rules read, CONFIRMED for history at MANAGER #41
+  Q1.
+  - MANAGER #39 (1) says the free Alpaca feed is IEX-only. That holds for REAL-TIME data only (#41 Q1).
+  - Historical bars on the free plan come from SIP: SIPORB's 19.96M 1m rows came back with feed=sip; the house loader
+    defaults to it; docs\ALPACA_STOCK_BARS.md lines 16-20 and tools/import_alpaca_stocks.py lines 4-7 state it; MANAGER's
+    10-02 key check returned status 200 on a SIP bars request (memory alpaca-stock-bars-staged.md); #42's probe returned
+    SIP quotes (Amendment 0).
   - Every request names feed=sip explicitly. An unsubscribed account that omits `feed` defaults to IEX.
   - The wrapper logs the feed in every receipt. A refused sip request is never silently replaced; the fallback is
     below.
-- **IEX is named for two uses.**
-  - (a) The live constraint. A forward or live line on the free plan sees only IEX in real time (SIP arrives 15 minutes
-    late). So a live VWAP and 5m close would be IEX-built.
-  - (b) A diagnostic twin: every runner2_d2 row is also pulled on feed=iex, 1m, 04:00-15:59 (PMFAIL r1 section 16).
-- **Printed, before any P&L, over all event day-2 sessions:**
-  - Condition 1 as worded: the share of sessions whose IEX 04:00-09:29 volume is under 10% of the daily cache's D2 volume;
-    the same share with SIP.
-  - IEX volume as a share of SIP volume, premarket and regular session apart;
-  - the share of sessions where the all-IEX primary trigger (IEX VWAP and 5m closes) fires on the same 5m bar as SIP's;
-  - the median |IEX VWAP - SIP VWAP| in bps at the SIP signal bar.
-  - Read: Stage A judges the SIP test; these bound the gap to a free-plan live line, move no bar, and ride on the verdict.
+- **IEX is named for one use only.**
+  - The live constraint: real-time data on the free plan is IEX-only (SIP arrives 15 minutes late), so a real-time VWAP
+    and 5m close would be IEX-built. This matters only for the forward shadow (section 13), which reads 15-minute-delayed
+    SIP bars, never IEX (#41 Q6).
+  - The diagnostic IEX twin is DROPPED (MANAGER #41 Q1: it doubled the pull for nothing). No feed=iex twin bars are
+    pulled on any row; the 403 fallback below is unchanged.
+- **Printed, before any P&L, over all event day-2 sessions (report):** the premarket thinness share, condition 1's test
+  read on SIP: the share of sessions whose SIP 04:00-09:29 1m volume is under 10% of the daily cache's D2 volume, by year
+  and price bucket (as PMFAIL r1 section 11).
+  - Read: Stage A judges the SIP test; the print moves no bar and rides on the verdict.
 - RUNNER2 does not use the premarket high, so the IEX-understated-high problem does not touch its trigger. It does touch
   VWAP and the 5m closes, which is why the primary feed is SIP.
-- **Fallback, as in PMFAIL r1:** if the SIP request is refused (403), or MANAGER rules IEX at review, every rule runs
-  unchanged on feed=iex and the result is labelled IEX throughout. Spreads stay on SIP quotes or the priors, never IEX
+- **Fallback, as in PMFAIL r1:** if the SIP request is nonetheless refused (403), every rule runs unchanged on feed=iex
+  and the result is labelled IEX throughout. Spreads stay on SIP quotes or the priors, never IEX
   quotes. The lane's view: a VWAP built on ~2.5% of volume is a different instrument, so an IEX verdict speaks only for an
   IEX-fed live line.
 
@@ -165,11 +223,13 @@ o(D2) / c(D1) within 2% of k or 1/k, k = 2..50) is a REPORT (it selects on move 
   - **quotes_runner2:** 10 registered events per stratum (all if fewer; at most 180). default_rng(20261008).
   - Draws follow PMFAIL r1 section 16's procedure exactly (fresh generator per role; strata wf_year ascending, lt5 then
     5to20; pool sorted by (date, symbol); rng.choice(len(pool), size=n, replace=False); rows at sorted(idx)).
-  - No date on or after 2025-06-30. If MANAGER rules the per-year count reading (bar 4), these columns are all 0.
+  - No date on or after 2025-06-30. Q3 is ruled (the 9-year mean, MANAGER #41): no column is zeroed on counts.
+  - The pull starts only when the lane posts namedays_r1.csv's sha256 and MANAGER runs it through the wrapper (#41).
 - **Bars:** GET https://data.alpaca.markets/v2/stocks/bars, timeframe=1Min, feed=sip, adjustment=raw, sort=asc,
   limit=10000, no `asof` (today's ticker, as the daily cache: FB history sits under META), 04:00:00-15:59:59 ET on every
-  row; the same with feed=iex on runner2_d2 rows. The pull first runs the FB/META probe on 1Day, 5Min, 1Min feed=iex and
-  quotes, each printing "SAME MAPPING" (PMFAIL r1 section 17).
+  row. No feed=iex twin request on any row (the IEX twin is DROPPED, MANAGER #41 Q1; the 403 fallback of section 3 is
+  unchanged). The pull first runs the FB/META probe on
+  1Day, 5Min, 1Min feed=sip and quotes, each printing "SAME MAPPING" (PMFAIL r1 section 17).
 - **Fields stored per bar:** t, o, h, l, c, v, n, vw.
 - **Stamps:**
   - `t` is UTC at the bar's START. Convert with the tz database to America/New_York; minute m = minutes after ET
@@ -188,8 +248,10 @@ o(D2) / c(D1) within 2% of k or 1/k, k = 2..50) is a REPORT (it selects on move 
     - Per price bucket b (lt5: c(D1) < $5; 5to20: c(D1) >= $5), h50(b) and h75(b) = the median and 75th percentile of
       the name-day values: PMFAIL r1's in-force rule and aggregation, at RUNNER2's marks.
     - A bucket with fewer than 20 name-day values uses the fallback priors (section 7), as in PMFAIL r1.
-  - MANAGER confirms with a probe that the plan serves historical SIP quotes (and sort=desc). If not, costs stay at the
-    priors (section 7).
+  - MANAGER #42's probe confirmed the free plan serves historical SIP quotes; this sample runs as written. Beside the
+    bucket rule above, the priors are a per-day fallback: a name-day whose mark requests are all refused (after
+    retries) takes its bucket's prior h50 as its name-day value, flagged and counted (as PMFAIL r1 section 6). sort=desc was not in the probe; if refused, the
+    window asc and its last quote (PMFAIL r1 section 16).
 
 **Provenance:**
 - **One pull** through MANAGER's wrapper (`C:\EdgeLog\manager\_scripts\with_alpaca_keys.py` runs the fetch script).
@@ -220,8 +282,9 @@ o(D2) / c(D1) within 2% of k or 1/k, k = 2..50) is a REPORT (it selects on move 
 
 ## 5. MANAGER condition 2 - HALTS (shared with PMFAIL r1)
 
-- **Definition.** A halt is a run of >= 5 consecutive regular-session minutes (09:30-15:59) with no present 1m bar. This
-  restates MANAGER's "zero-volume bars", because Alpaca returns no bar for a minute with no trade.
+- **Definition** (CONFIRMED, MANAGER #41 Q2). A halt is a run of >= 5 consecutive regular-session minutes (09:30-15:59)
+  with no present 1m bar. This restates MANAGER's "zero-volume bars", because Alpaca returns no bar for a minute with no
+  trade.
   - A run may start at 09:30 (a delayed open) or reach the close.
   - The **resume bar** is the first present bar after a run.
   - Thin minutes cannot be told apart from real halts without a halt feed. Both count.
@@ -324,8 +387,9 @@ All on D2, from SIP raw 1m bars.
   taken from RUNNER2's own day-2 quotes sample (section 4). The bucket b is set by c(D1).
   - **Base:** max(h50(b) x p, $0.005) + $0.0035.
   - **Stress:** max(h75(b) x p, $0.005) + $0.01 + $0.0035.
-  - **Fallback priors** if quotes cannot be pulled, or a bucket has fewer than 20 name-day values: h50 = 0.50% (lt5) /
-    0.25% (5to20), and h75 = double those.
+  - **Fallback priors** (quotes are served, MANAGER #42): per name-day, for a day whose quote requests are refused (it
+    takes the prior h50 as its value, section 4); per bucket, when a bucket has fewer than 20 name-day values: h50 =
+    0.50% (lt5) / 0.25% (5to20), and h75 = double those.
   - The floor is half a tick ($0.005), a mechanical limit: 50 bps a side at $1, 10 at $5. The $0.0035 is the house
     commission (SIPORB).
   - On the fallback priors, the base round trip at $5 is ~64 bps.
@@ -360,7 +424,7 @@ All on D2, from SIP raw 1m bars.
 - The universe comes from the daily cache WITH delisted names. Shared definitions: inactive = every assets.csv row for the
   symbol inactive (1,002 cached symbols; 1,094 if any row counts); the 92 cached symbols with mixed rows print as
   ambiguous, for status and shortable flags alike; delisted = last daily bar before 2026-06-01, the date read from the
-  uncut cache (section 2's one exception): 1,014 symbols.
+  uncut cache (section 2's first exception): 1,014 symbols.
 - Printed per WF year, before any P&L: the delisted share of event day-2 sessions, under both definitions.
 - **The hole, stated:**
   - The exchange filter used TODAY's listing. 16,297 inactive names now on OTC are absent for their whole history, so a
@@ -398,21 +462,31 @@ All on D2, from SIP raw 1m bars.
 - **VIX:** P&L by prior-day VIX tercile (cut points = terciles over the WF stretch; Nagel's prior).
 - **Band reading:** band on c(D0) only.
 
-**Family null:**
+**Family null (ONE null for both legs; MANAGER #41 Q4; PMFAIL r1 section 9 governs):**
+- **One family, one null.** PMFAIL and RUNNER2 are one habitat and one hypothesis family (attention reversal, one pull,
+  linked names), so a single null spans all FOUR cells (PMFAIL primary + neighbour, RUNNER2 P + W).
+  - PMFAIL r1's harness (tools/pmfail_r1_stageA.py) computes it once, for both legs, after both legs' count steps are
+    filed. Draw i joins PMFAIL's i-th draw (PMFAIL r1 section 9) and RUNNER2's i-th draw (below); RUNNER2's half is
+    imported from this leg's harness, so it follows this prereg.
+  - This leg's harness computes no null of its own: it reads PMFAIL's null.json (section 14), checks its sha256 and
+    prints it into stage_a.json.
+- **RUNNER2's half of each draw** follows.
 - **Sessions:** Omega = the sessions where cell P (reading L) filled a real trade. Omega comes from the signal schedule
   alone, before any P&L.
-- **Draws:** 500, numpy default_rng(20261006) (PMFAIL r1's count and seed; its own generator).
+- **Draws:** 500 (PMFAIL r1's count), numpy default_rng(20261010), its own generator and its own seed (Amendment 0: not
+  PMFAIL's 20261006, so draw i never joins two copies of one random stream).
 - **Each draw, for each session in Omega:**
   - draw one 5m bar uniformly from the session's present 5m bars with close time in [09:45, 14:00];
   - apply the same entry rules (present entry bar within 4 minutes, not a resume bar, no SSR at that bar, E < S);
   - if blocked, redraw without replacement up to 20 times; otherwise that session has no null trade (counted).
 - The same random bar serves both cells, with S = the high so far at that bar + $0.01 and W = 1.5x. Reading L, base cost,
   the halted-into-close rule, each draw sized at its own N*.
-- **Statistics per draw:** the family MAX over {P, W} of ROC30, of t, and of the R-sum (section 10).
-- **Printed:** p50, p95 and p97.5.
-  - The 95th binds, as the scope says.
-  - PMFAIL and RUNNER2 are one hypothesis family (attention reversal, one pull, linked names). So the 97.5th (Bonferroni
-    for two legs; XGAP precedent) prints beside it: MANAGER review item.
+- **Statistics per draw:** the family MAX over the four cells (PMFAIL primary + neighbour, RUNNER2 P + W) of ROC30, of t,
+  and of the R-sum (section 10); and each leg's own max over its two cells ({P, W} here).
+- **Printed:** p50, p95 and p97.5 of each.
+  - **Binding, for both legs:** the 95th percentile of the four-cell max (bars 1, 2 and 6 here; PMFAIL r1 bars 1 and 5).
+  - **Bonferroni cross-check (report):** each leg's own two-cell max at its 97.5th percentile (two legs; XGAP precedent),
+    printed beside the binding line.
 
 **Power line**, written and run BEFORE the real direction (tools/power_line.py):
 - **The coin-flip leg:** take P's real entry schedule on Omega (same entry bars, E, shares at P's N*). Each trade gets a
@@ -425,8 +499,8 @@ All on D2, from SIP raw 1m bars.
   - Run: `python tools/power_line.py --cand <#463 + c x coin>.csv --twin <#463>.csv --from 2016-07-01 --to 2025-06-29
     --block 20 --draws 1000 --seed 20261005`.
 - **At $30k own DD:** the same, with coin x 30,000 / DD_coin.
-- **Printed:** SD, line_5pct, line_80pct for both. Also the family null's p95 - p50 of the max ROC30 (the other house
-  power notion).
+- **Printed:** SD, line_5pct, line_80pct for both. Also the family null's p95 - p50 of the four-cell max ROC30 (the other
+  house power notion), with the per-leg figure beside it.
 
 ## 10. Stage A bars (WF 2016-07-01..2025-06-29 ONLY; no lockbox read; stock bars start 2016-01, so no EARLY read)
 
@@ -436,34 +510,37 @@ SSR skip, unless a bar says otherwise.
 1. **Return.** ROC @ $30k (judged) >= 15, OR the earner route. The earner route needs ROC >= 5 AND all three of:
    - the leg's P&L summed over R's 762 days (in_R = True in residual_days.csv) > 0;
    - that sum without the leg's 3 best R days > 0;
-   - that sum above the null p95 of the family-max R-sum.
-2. **Beats the null.** ROC @ $30k is above the family null's 95th percentile of the max ROC30.
+   - that sum above the family null's p95 of the four-cell max R-sum (section 9).
+2. **Beats the null.** ROC @ $30k is above the family null's 95th percentile of the four-cell max ROC30 (section 9).
 3. **PF >= 1.05.**
-4. **Trade count.** >= 100 WF trades AND >= 50 filled trades in EVERY July-June year (the scope's reading, SCOPE_DISC
-   line 85), unless MANAGER rules in writing before GO that ">= 50 a year" means a 9-year mean (>= 450) house-wide. The
-   lane does not choose. Under the per-year reading RUNNER2 r1 is FAIL on counts from the daily cache before any pull:
-   the 2016-17 event ceiling is 47 (reader count, band on both closes), and trades cannot exceed events.
+4. **Trade count, the 9-year mean** (MANAGER #41 Q3; the house harness reading, tools/halfhour_r1_stageA.py standalone):
+   filled trades / Y >= 50 (Y = 8.994, so >= 450) AND >= 100 WF trades. Per-year filled counts print; any July-June year
+   under 25 is flagged thin (report). A cell that fails this bar alone and clears every other bar is a RESEARCH ROW, not a
+   pass (section 13).
 5. **Years.** >= 6 of 9 July-June years with net > 0. A year with no trades is not positive.
-6. **t >= 2.0** on the daily series AND above the family null's 95th percentile of the max t.
+6. **t >= 2.0** on the daily series AND above the family null's 95th percentile of the four-cell max t (section 9).
 7. **Stress.** Net > 0 at stress cost (stress spread + 2% locate).
 8. **Concentration.** Net > 0 without its best day, AND net > 0 without its best trade.
 9. **Meme years.** Net > 0 without 2020-02-15..04-30, AND net > 0 without calendar 2020-2021 (binding for stock legs).
 10. **Neighbour.** Cell W net > 0.
-11. **Reading N.** Cell P net > 0 on reading N (added here; MANAGER review item).
+11. **Reading N.** Cell P net > 0 on reading N (added here; stands as written under MANAGER #41).
 12. **Tradable subset.** The trades with c(D1) >= $5 have net > 0 at stress cost and PF >= 1.05 (SCOPE_DISC line 336: a
     result that needs sub-$5 shorts nobody will lend is not tradable).
 
-**Count gate:** bar 4 is checked on filled-trade COUNTS before any P&L is computed, and first on event counts from the
-daily cache before the pull. If it fails, RUNNER2 r1 is recorded FAIL on counts and no return is computed.
+**Count gate:** bar 4 (the 9-year mean) is checked on filled-trade COUNTS before any P&L is computed, and filed with the
+per-year counts (years under 25 flagged thin); the daily-cache event counts against the same line print first, before
+the pull. A miss is recorded and the run continues: the verdict can then only be RESEARCH ROW (every other bar holds) or
+FAIL (section 13).
 
 ## 11. Order of work and diagnostics
 
 **First, before any real-direction number:**
 1. Counts: events per year under each reading, each filter's survivors; delisted share; reverse-split flags by source;
    SSR counts (at the open, intraday, carry-over); triggers and fills per year with the block reasons; halts and
-   halted-into-close exits; trigger times by half hour; stop-distance buckets; the feed diagnostics; the spread
-   statistics; cap binding at N*. Then the count gate.
-2. The power line, then the family null's p95 / p97.5.
+   halted-into-close exits; trigger times by half hour; stop-distance buckets; the premarket thinness print (section 3);
+   the spread statistics; cap binding at N*. Then the count gate.
+2. The power line, then the four-cell family null, read from PMFAIL r1's harness (section 9): p50 / p95 / p97.5 of the
+   four-cell max and of each leg's two-cell max.
 3. **Overlap:**
    - With PMFAIL (same names): D2 sessions that are PMFAIL event days; the same name-day overlap of filled trades (both
      legs short one name on one session), their joint P&L and P&L correlation, and on those name-days the combined
@@ -506,8 +583,9 @@ daily cache before the pull. If it fails, RUNNER2 r1 is recorded FAIL on counts 
   open-through gaps let a short lose past its stop. Reading N, the halted-into-close rule and the worst-10 list show it.
 - **Meme years.** BHOS is strongest after March 2020. The no-2020-21 read binds.
 - **Survivorship** (section 8). OTC-fallen names are absent.
-- **Feed.** The backtest is SIP. A free-plan live line is IEX. The IEX twin sizes the gap. The owner's chart highs
-  differ from any vendor's (XHG reads ~18 on his chart vs 16.42 on Yahoo, CBU.md line 1332).
+- **Feed.** The backtest is SIP. A free-plan real-time line would see IEX only; the IEX twin is dropped (MANAGER #41 Q1),
+  so that gap is not measured, and the forward shadow reads 15-minute-delayed SIP bars, never IEX (section 13). The
+  owner's chart highs differ from any vendor's (XHG reads ~18 on his chart vs 16.42 on Yahoo, CBU.md line 1332).
 - **Halts vs thin minutes.** The halt rule cannot tell them apart. Both count, and the run-length table shows the mix.
 - **Splits.** An unrecorded reverse split can fake a +40% close. S1/S1c/S2 plus the 60-day flag guard it; S2's volume
   clause is calibrated before the pull; residual risk is reported.
@@ -521,23 +599,26 @@ daily cache before the pull. If it fails, RUNNER2 r1 is recorded FAIL on counts 
 - **Volume definition.** Daily-cache volume includes extended hours, so the $1M ADV floor is slightly looser than an
   RTH figure.
 - **Linked legs.** PMFAIL and RUNNER2 share names across days and on some sessions within a day. A pass in both is not
-  two independent results.
-- **Thin early years.** 47-65 sessions a year in 2016-19 before the trigger; bar 4's reading decides whether the leg is
-  testable at all.
+  two independent results; the one four-cell family null (section 9) is the house answer.
+- **Thin early years.** 47-65 sessions a year in 2016-19 before the trigger. Under the 9-year mean (bar 4, MANAGER #41
+  Q3) the leg is testable; per-year counts print and any year under 25 is flagged thin.
 - **Owner's journal.** It grounds the habitat ($1-$20, under 20M shares), not the direction or the horizon. All his
   trades are long, and the hold to 15:55 is the literature's.
 
 ## 13. PASS / FAIL (shared with PMFAIL r1 section 20)
 
-- **PASS** = every bar in section 10 holds. The engine has no multi-stock job type (PREREG_ALPACA_R1.txt line 48), so the
-  registered route, pending MANAGER's ruling before GO, is SIPORB's Stage C form: a forward no-order shadow line with its
-  own bar and an owner call, computed on SIP 15 minutes late or IEX real time (section 3's gap), with the broker and
-  locate source named by MANAGER before any order (Alpaca shorts easy-to-borrow names only; WEBULL_GO_LIVE.md 2.3). A
-  plugin with harness parity and a window-pinned Auto-Validate (900 trials) replace it only if a stock job type is built
-  first. Stage B: a one-read veto on the sealed stock year 2025-06-30..2026-06-30, through its own MANAGER pull, excluding
-  the 18 sheet name-days. A RUNBOARD row the same day, and a ledger row.
-- **FAIL** (any bar, including the count gate): dead. No variants, no re-cut of the window, stop, band or trigger. A
+- **PASS** = every bar in section 10 holds. Route (MANAGER #41 Q6: SIPORB's Stage C form, ACCEPTED as written). The
+  engine has no multi-stock job type (PREREG_ALPACA_R1.txt line 48), so a pass opens a forward no-order shadow line with
+  its own bar and the owner's call, computed on 15-minute-delayed SIP bars from a scheduled daily pull through the shared
+  stock loader (never IEX). Stage B = the one-read veto on the sealed stock year 2025-06-30..2026-06-30, through MANAGER's
+  pull, excluding the 18 sheet name-days. A RUNBOARD row the same day, a ledger row, and an adoption-page card for the
+  owner (FRONTIER draws it). The broker and the locate source are the OWNER's call (Alpaca shorts easy-to-borrow names
+  only; WEBULL_GO_LIVE.md 2.3). A plugin with harness parity and a window-pinned Auto-Validate (900 trials) only if a
+  stock job type exists first.
+- **RESEARCH ROW** = bar 4 (count) alone misses and every other bar holds (MANAGER #41 Q3): not a pass. No variants. A
   ledger row and a RUNBOARD research row.
+- **FAIL** (any other miss): dead. No variants, no re-cut of the window, stop, band or trigger. A ledger row and a
+  RUNBOARD research row.
   - A FAIL here does not reopen any dead row (2.60-2.63). It says this proxy of the habitat does not pay.
 
 ## 14. Files the driver writes
@@ -545,39 +626,49 @@ daily cache before the pull. If it fails, RUNNER2 r1 is recorded FAIL on counts 
 Output directory: `C:\EdgeLog\_anatomy_cache\disc_runner2_r1\` (outside git). Modes run in order: --counts, --power, --run.
 The name-day list is written by tools/disc_gapper_namedays.py (PMFAIL r1 section 16).
 
-- **--counts:** `counts.json` (every count in section 11 step 1, including the feed and spread diagnostics). No P&L.
+- **--counts:** `counts.json` (every count in section 11 step 1, including the premarket thinness print and the spread
+  diagnostics). No P&L.
 - **--power:**
   - `coinflip_daily.csv`, `book463_wf.csv`, `cand_c.csv`, `cand_30k.csv` (columns date, pnl_usd; inputs to
     power_line.py);
   - `power.json`;
-  - `null.json` (p50 / p95 / p97.5 of the family max ROC30, t and R-sum; draws; seed; Omega size; blocked counts);
-  - `null_draws.csv`.
+  - no null file of its own: the ONE family null is written by PMFAIL r1's harness to
+    `C:\EdgeLog\_anatomy_cache\disc_pmfail_r1\null.json` and `null_draws.csv` (p50 / p95 / p97.5 of the four-cell max and
+    of each leg's two-cell max of ROC30, t and R-sum; draws; seeds; Omega size; blocked counts). This harness reads it,
+    checks its sha256 and copies it into stage_a.json's `null` key.
 - **--run:**
   - `trades_P.csv`, `trades_W.csv`, `trades_OPEN2.csv`, `trades_NOCROSS.csv`, `trades_SSR.csv`. One row per trade:
     symbol, d2, exit_date, signal_close_time, entry_time, E, S, shares, notional, exit_time, X, exit_reason, gross, cost,
     locate, net, net_N, flags.
   - `daily_P.csv`, `daily_W.csv` (date, pnl_usd).
   - `event_path.csv`.
-  - `stage_a.json`, with keys: cells, n_star, checks (bars 1-12, each true/false with its value), verdict, reports,
+  - `stage_a.json`, with keys: cells, n_star, checks (bars 1-12, each true/false with its value), verdict (PASS /
+    RESEARCH ROW / FAIL), reports,
     halves, per_year, cost_curve, capacity, episodes_R, corr, book_add, overlap, pmfail_link, info, shas, null, power.
 
-## 15. MANAGER review items (choices this draft makes that the scope left open or worded differently)
+## 15. MANAGER review items - ALL ANSWERED (MANAGER #41 / #42, 2026-10-06 10:32; Amendment 0)
 
-1. Feed = sip for history; IEX pulled on every event row as the live-gap twin (condition 1 restated). Fallback as PMFAIL
-   r1; spreads never from IEX quotes.
-2. Halt = >= 5 missing 1m bars (condition 2 restated); the 4-minute reading is reported. Halted into the close: next
-   daily open within 10 sessions, else a stress price; booked on the exit session; one locate a night.
-3. The VWAP trigger requires a prior 5m close at or above VWAP. The no-cross version is reported.
+Items ruled one by one are marked with the ruling; the rest stand as written ("everything else stands as written", #41).
+1. Feed: ANSWERED (#41 Q1) - feed=sip for history CONFIRMED; the IEX twin DROPPED; the premarket thinness print kept as a
+   report (section 3). The 403 fallback as PMFAIL r1; spreads never from IEX quotes.
+2. Halt: ANSWERED (#41 Q2) - >= 5 missing 1m bars CONFIRMED; the 4-minute reading reported. Halted into the close: next
+   daily open within 10 sessions, else a stress price; booked on the exit session; one locate a night (stands).
+3. The VWAP trigger requires a prior 5m close at or above VWAP; the no-cross version is reported. ANSWERED: stands.
 4. The price band is on both c(D0) and c(D1). The split rule is S1 + S1c (symbol-mapped) + S2 (test M, calibrated) on
-   D1..D2; S2' (D2, price only) is a report.
+   D1..D2; S2' (D2, price only) is a report. ANSWERED: stands.
 5. SSR: regular-session proxy (SEC FAQ 1.1-1.2); carry-over removes the session; same-day SSR signals are skipped; the
-   legal-fill reading is reported.
-6. ">= 50 a year": the scope's per-year reading unless MANAGER rules the 9-year mean house-wide. Under per-year, RUNNER2
-   r1 is FAIL on counts before the pull.
-7. Reading N binds as net > 0; bar 6 includes the null's p95 of t; bar 12 binds on c(D1) >= $5.
-8. ROC is judged at the capped size N*; the uncapped figure is reported.
-9. The null's 97.5th percentile prints beside the binding 95th.
+   legal-fill reading is reported. ANSWERED: stands.
+6. Count: ANSWERED (#41 Q3) - the 9-year mean, n / Y >= 50 with >= 100 WF trades; per-year counts printed, years under
+   25 flagged thin; a count-only fail is a RESEARCH ROW (sections 10, 13).
+7. Reading N binds as net > 0; bar 6 includes the null's p95 of t; bar 12 binds on c(D1) >= $5. ANSWERED: stands (the
+   null is now the four-cell family null).
+8. ROC is judged at the capped size N*; the uncapped figure is reported. ANSWERED: stands.
+9. Two-leg check: ANSWERED (#41 Q4) - BINDS: one family null over all four cells, its p95 of the max binds both legs;
+   each leg's own 97.5th prints as the Bonferroni cross-check; PMFAIL r1's harness computes it (section 9).
 10. Costs and locate follow PMFAIL r1. RUNNER2's spreads come from its own day-2 quote sample, NBBO in force at 8 marks.
-11. Stage B/C routing for a stock leg (section 13), identical in both preregs.
+    ANSWERED (#42 Q5) - the free plan serves historical SIP quotes; the sample runs as written; the priors are a per-day
+    fallback for a refused name-day, and the bucket-under-20 rule is unchanged (sections 4, 7).
+11. Stage B/C routing: ANSWERED (#41 Q6) - SIPORB's Stage C form ACCEPTED as written, identical in both preregs (section
+    13).
 12. Option, per the literature: make OPEN2 a judged cell in place of the stop neighbour W. Not taken here, since the
-    scope names W.
+    scope names W. ANSWERED: stands (not taken).
