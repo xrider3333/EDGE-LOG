@@ -1,0 +1,26 @@
+SKEWREAL r1 - 10 funds, photographs re-hashed against pull.json: OK; 2385 sessions 2016-01-04 .. 2025-06-27; 469 WF signal weeks; 0 WF sessions not on the book's day index
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816
+  COUNTS: eligible funds per WF week min 8 / median 10; weeks with < 6 eligible 0; name-weeks per cell: 1-week 2814 (313 a year), 2-week 2814
+  PREREG on main: docs/PREREG_skewreal_r1_2026-10-06.md last changed in cd6ab650
+  R-DAY SUM (printed first): primary $-7,888 over 762 R days, $-14,472 without its 3 best
+  rebalances 468;  1-week hold  PRIMARY       name-weeks 2808 (312/yr)  net $   -9,203  PF(weekly) 0.932  DD $ 29,052  own ROC@30k  -1.06  Sortino -0.23  years + 3/9
+  rebalances 467;  2-week hold (2 cohorts)    name-weeks 2802 (312/yr)  net $  -20,400  PF(weekly) 0.791  DD $ 26,324  own ROC@30k  -2.58  Sortino -0.71  years + 2/9
+  family null (1000 weekly label shuffles, count-matched): family-max own ROC@30k p95 -0.62
+  SKEWREAL primary in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $-3,111 at 1 NQ, $-9,695 without its 3 best days; without 2020: own ROC@30k -0.54, net $-3,093
+  checks: net without the best week $-13,869; at 10 bps a side $-46,446
+  VERDICT: A1 standalone (neither route) NO; A1b without 2020 NO; A2 null p95 -0.62 NO; A3 2-week net > 0 NO; net without the best week > 0 NO; net at 10 bps a side > 0 NO -> FAIL (dead, no variants)
+  REPORT book #463 + SKEWREAL at VOL scale          (x1.920 NQ): ROC@30k 81.62  Sortino 3.642  bootstrap p5 -21.8 (SD 9.2)
+  REPORT book #463 + SKEWREAL at $30k own DD (twin) (x1.033 NQ): ROC@30k 86.87  Sortino 3.744  bootstrap p5 -11.9 (SD 5.4)
+DIAGNOSTICS (no verdict)
+  dollar-neutral, no SPY overlay (report)    net $   -9,411  own ROC@30k  -1.18  Sortino -0.18
+  long side only (report)                    net $   41,399  own ROC@30k   9.25  Sortino  0.77
+  short side only (report)                   net $  -50,811  own ROC@30k  -3.10  Sortino -0.89
+  REPORT (MANAGER #71) without the 108 of 468 weeks that held TLT / XLU / XLP across a PROXY ex-date: net $-7,676, own ROC@30k -1.08 (all weeks $-9,203)
+  cost curve, primary net at 0 / 5 / 10 / 20 bps a side: $28,039 / $-9,203 / $-46,446 / $-120,933
+  half 2016-07-01 .. 2021-12-31: net $3,669
+  half 2022-01-01 .. 2025-06-29: net $-12,873
+  per WF year: 2016 $4,304, 2017 $3,405, 2018 $-73, 2019 $-3,046, 2020 $525, 2021 $-2,779, 2022 $-8,897, 2023 $-335, 2024 $-2,306
+  weeks: 469 traded, positive 224, mean $-20, best 5: 2020-02-22/2020-02-28 $4,666, 2020-02-29/2020-03-06 $3,507, 2021-03-20/2021-03-26 $2,204, 2021-02-27/2021-03-05 $2,106, 2022-04-30/2022-05-06 $1,750; worst 5: 2020-11-07/2020-11-13 $-3,727, 2023-05-20/2023-05-26 $-3,034, 2020-03-28/2020-04-03 $-2,918, 2018-12-15/2018-12-21 $-2,600, 2020-03-21/2020-03-27 $-2,388
+  event path, mean $ by session of the hold (Mon..Fri incl. the exit open on the next Monday): -74 +3 -18 +18 +45
+  how often each fund is long / short: SPY 109/62, QQQ 140/94, TLT 168/184, XLF 134/171, XLU 184/156, XLV 145/153, XLP 146/185, XLI 130/140, XLY 128/128, XLK 123/134
+  overlap: the same ten funds are NOISE's fund-habitat tests (intraday noise-band breakouts, docs/SCOPE_NOISE_2026-10-05.md part A); SKEWREAL holds a weekly cross-section - different mechanism, no shared position rule
