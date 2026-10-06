@@ -1,0 +1,67 @@
+BALANCE r1 STAGE A (counts) - prereg sha256(LF) 6c066a395a811feb; sections 3/6/8 db495f4dcbab5f81 (pinned; unchanged since GO)
+  Auto-Validate space (declared, AMENDMENT 0 item 6): stretch_12ths int 6..9 step 1; last_fill_min int 330..360 step 30 = 8 configs, window pinned to WF, 900 trials, lockbox veto-only; default = the passing cell's stretch, last fill 360 (15:30)
+  cut NOISE422                    4503 rows kept,   344 dropped (on or after 2025-06-30)
+  master NQ: id 37 NOADJ_NQ_5m_RTH.csv (db_noadj_rth), 297235 bars, 3868 sessions, 2010-06-07 09:30:00 .. 2025-06-27 15:55:00
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816 (93.81 / 3.816); index 2626 rows, 280 UTC-Sunday, years 8.9938
+  L = #463 + 0.264 x RES parity: ROC@30k 120.82  Sortino 3.916 (120.82 / 3.916); RES book_mtm max |diff| $0.0000
+  R: 762 days in 45 episodes (sha pinned; = a2.json union); #463 drawdown days 460 in 28 episodes
+  NOISE #304 parity (NOISE_1_0 + _FROZEN on master 37): 2797 of 2797 WF trades matched NOISE422_raw_trades.csv; band / VWAP at 5594 decision bars, max |diff| 0; eligible first break = #304's first entry on 3868 of 3868 sessions, 0 mismatches
+  rolls NQ: 61 switches to the cut (36 in WF), 61 roll sessions (36 in WF)
+
+(i) SESSIONS PER JULY-JUNE YEAR (stamp-based, cut load; supersedes the drafting 914 / 1,078 everywhere - MANAGER #40 item 7)
+  loaded = sessions in the array; 15:55 = with a 15:55 bar; warm / roll = of those, left out; trade = trading sessions; BAL = BALANCE days; rBAL = BALANCE-labelled roll sessions (never traded) and rB1 / rB2 their first signals; x304 = #304-eligible no-break-by-noon days (crosswalk, never a cell); B1 / B2 = sessions with a FIRST signal, by side
+  year             loaded  15:55  warm  roll  trade    BAL  rBAL   rB1   rB2   x304 B1 1st  B1 L  B1 S B2 1st  B2 L  B2 S
+  2010-06 warm-up      18     18    18     0      0      0     0     0     0      0      0     0     0      0     0     0
+  2010-11             259    252    21     4    227     94     3     2     2    106     50    20    30     27    11    16
+  2011-12             258    251     0     4    247     90     1     1     1    116     62    25    37     50    18    32
+  2012-13             251    246     0     4    242     91     2     2     1    108     51    22    29     38    17    21
+  2013-14             251    247     0     4    243    111     3     1     1    126     65    20    45     42    11    31
+  2014-15             254    245     0     4    241     94     2     0     0    113     60    22    38     38    11    27
+  2015-16             259    251     0     4    247    107     3     3     2    132     69    27    42     46    17    29
+  2016-17             258    251     0     4    247     87     2     1     1     98     50    20    30     31    12    19
+  2017-18             257    249     0     4    245    105     2     2     2    128     61    17    44     45    11    34
+  2018-19             256    247     0     4    243     91     4     2     1    104     41     8    33     24     4    20
+  2019-20             259    248     0     4    244    111     2     1     1    130     63    29    34     46    20    26
+  2020-21             258    250     0     4    246     96     1     1     1    106     55    25    30     42    21    21
+  2021-22             259    251     0     4    247     75     1     1     0    105     47    23    24     31    13    18
+  2022-23             258    250     0     4    246     94     2     2     2    110     64    25    39     37    11    26
+  2023-24             257    248     0     4    244     82     2     2     1     92     50    24    26     32    16    16
+  2024-25             256    246     0     4    242     91     2     0     0    120     58    20    38     38    15    23
+  TOTAL WF           2318   2240     0    36   2204    832    18    12     9    993    489   191   298    326   123   203
+  TOTAL EARLY        1532   1492    21    24   1447    587    14     9     7    701    357   136   221    241    85   156
+
+(ii) THREE-WAY SPLIT OF WF BALANCE DAYS by #304's held trades (NOISE422_raw_trades.csv, unit $ = pnl_usd / size; #304 figures, not BALANCE)
+  2016-17  QUIET  73 (#304 unit net         $0)  BREAK-WIN   7 (#304     $1,615)  BREAK-LOSS   7 (#304    -$1,290)
+  2017-18  QUIET  82 (#304 unit net         $0)  BREAK-WIN  13 (#304     $4,476)  BREAK-LOSS  10 (#304    -$2,947)
+  2018-19  QUIET  80 (#304 unit net         $0)  BREAK-WIN   5 (#304     $5,587)  BREAK-LOSS   6 (#304    -$3,484)
+  2019-20  QUIET  95 (#304 unit net         $0)  BREAK-WIN   9 (#304     $7,319)  BREAK-LOSS   7 (#304    -$4,260)
+  2020-21  QUIET  78 (#304 unit net         $0)  BREAK-WIN  10 (#304     $9,798)  BREAK-LOSS   8 (#304    -$6,335)
+  2021-22  QUIET  57 (#304 unit net         $0)  BREAK-WIN  12 (#304    $18,067)  BREAK-LOSS   6 (#304    -$8,154)
+  2022-23  QUIET  77 (#304 unit net         $0)  BREAK-WIN  10 (#304     $9,363)  BREAK-LOSS   7 (#304   -$10,694)
+  2023-24  QUIET  69 (#304 unit net         $0)  BREAK-WIN   6 (#304    $13,021)  BREAK-LOSS   7 (#304   -$11,031)
+  2024-25  QUIET  78 (#304 unit net         $0)  BREAK-WIN  10 (#304    $24,718)  BREAK-LOSS   3 (#304    -$6,757)
+  sub-rows per year: QUIET no raw break all day / QUIET break blocked by #304's gates / QUIET break only on the last bar / BREAK-WIN / BREAK-LOSS VWAP / BREAK-LOSS STOP / BREAK-LOSS FLAT
+    2016-17    72     1     0     7     2     0     5
+    2017-18    78     4     0    13     4     0     6
+    2018-19    77     2     1     5     3     0     3
+    2019-20    88     4     3     9     3     0     4
+    2020-21    77     1     0    10     1     0     7
+    2021-22    52     4     1    12     2     1     3
+    2022-23    76     0     1    10     4     2     1
+    2023-24    67     2     0     6     1     3     3
+    2024-25    75     3     0    10     1     0     2
+  CO-LOSS EXPOSURE (WF BALANCE days; L = q19/line.csv column line; #304 losing unit $ at session level):
+    group                                                               days   inR        L net     L losing     #304 net  #304 losing
+    QUIET                                                                689   206    -$301,860    -$688,841           $0           $0
+      QUIET no raw break all day [scope: no NOISE break all day]         662   198    -$298,468    -$647,133           $0           $0
+      QUIET break blocked by #304's gates                                 21     7     -$10,952     -$38,061           $0           $0
+      QUIET break only on the last bar                                     6     1       $7,561      -$3,648           $0           $0
+    BREAK-WIN [scope: a later break that wins]                            82    15     $305,459     -$31,811      $93,966           $0
+    BREAK-LOSS                                                            61    26    -$113,323    -$143,051     -$54,951     -$56,685
+      BREAK-LOSS VWAP [scope: a later break that loses at VWAP]           21     7     -$34,572     -$43,358     -$19,366     -$21,100
+      BREAK-LOSS STOP                                                      6     4     -$39,624     -$39,624     -$16,338     -$16,338
+      BREAK-LOSS FLAT                                                     34    15     -$39,127     -$60,069     -$19,247     -$19,247
+    ALL WF BALANCE days                                                  832   247    -$109,724    -$863,702      $39,015     -$56,685
+  SHARE of L's losing $ on WF BALANCE days that falls on BREAK-LOSS days: 0.166
+
+(no BALANCE exit was run; total trades, re-entries and trades per session print only in the real run)

@@ -1,0 +1,41 @@
+BALANCE r1 STAGE A (power) - prereg sha256(LF) 6c066a395a811feb; sections 3/6/8 db495f4dcbab5f81 (pinned; unchanged since GO)
+  Auto-Validate space (declared, AMENDMENT 0 item 6): stretch_12ths int 6..9 step 1; last_fill_min int 330..360 step 30 = 8 configs, window pinned to WF, 900 trials, lockbox veto-only; default = the passing cell's stretch, last fill 360 (15:30)
+  cut NOISE422                    4503 rows kept,   344 dropped (on or after 2025-06-30)
+  master NQ: id 37 NOADJ_NQ_5m_RTH.csv (db_noadj_rth), 297235 bars, 3868 sessions, 2010-06-07 09:30:00 .. 2025-06-27 15:55:00
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816 (93.81 / 3.816); index 2626 rows, 280 UTC-Sunday, years 8.9938
+  L = #463 + 0.264 x RES parity: ROC@30k 120.82  Sortino 3.916 (120.82 / 3.916); RES book_mtm max |diff| $0.0000
+  R: 762 days in 45 episodes (sha pinned; = a2.json union); #463 drawdown days 460 in 28 episodes
+  NOISE #304 parity (NOISE_1_0 + _FROZEN on master 37): 2797 of 2797 WF trades matched NOISE422_raw_trades.csv; band / VWAP at 5594 decision bars, max |diff| 0; eligible first break = #304's first entry on 3868 of 3868 sessions, 0 mismatches
+  rolls NQ: 61 switches to the cut (36 in WF), 61 roll sessions (36 in WF)
+
+POWER LINES (coin-flip sides on B1's real WF schedule, 531 trades; seed 20261006; block 20, 1000 draws, seed 20261005)
+  #463 + c x coin vs #463            x2.716 NQ: SD of the ROC@$30k lead 17.83; 5% line 29.33; 80% line 44.34
+  #463 + $30k-twin x coin vs #463    x2.025 NQ: SD of the ROC@$30k lead 14.69; 5% line 24.16; 80% line 36.53
+  L + c x coin vs L                  x2.716 NQ: SD of the ROC@$30k lead 17.26; 5% line 28.39; 80% line 42.93
+FAMILY NULL (B1 + B2, 1000 draws, one rng seed 20261006, B1 then B2 per draw; trade net = coin x gross $ - cost)
+  p95 of the family max: t 1.739; R-sum $25,402; own ROC@$30k 9.46 (report). Null SD of B1's R-sum $14,885
+  (the power coin equals the null's first B1 draw: same seed, same first call - documented, harmless)
+  cut NOISE382                    4503 rows kept,   344 dropped (on or after 2025-06-30)
+  cut NOISE422                    4503 rows kept,   344 dropped (on or after 2025-06-30)
+  cut ORB314                      2115 rows kept,   184 dropped (on or after 2025-06-30)
+  cut ENGUQ335                    1215 rows kept,   129 dropped (on or after 2025-06-30)
+    ENGUQ335: 1 trade(s) entered on or before 2025-06-29 and exited after it - dropped (the exit is lockbox information)
+  OVERLAP B1 (WF schedule; positions by RTH clock minute, half-open):
+    NOISE382       crown-flat 0.708  held-minute overlap 0.000  same side nan  overlapping holds 0.0
+    NOISE422       crown-flat 0.708  held-minute overlap 0.000  same side nan  overlapping holds 0.0
+    ORB314         crown-flat 0.442  held-minute overlap 0.446  same side 0.227  overlapping holds 0.0
+    ENGUQ335       crown-flat 0.110  held-minute overlap 0.806  same side 0.320  overlapping holds 0.0
+    TTM459         crown-flat 0.908  held-minute overlap 0.067  same side 0.056  overlapping holds 0.0
+    ALL FIVE FLAT  crown-flat 0.027  held-minute overlap nan  same side nan  overlapping holds nan
+  OVERLAP B2 (WF schedule; positions by RTH clock minute, half-open):
+    NOISE382       crown-flat 0.577  held-minute overlap 0.000  same side nan  overlapping holds 0.0
+    NOISE422       crown-flat 0.577  held-minute overlap 0.000  same side nan  overlapping holds 0.0
+    ORB314         crown-flat 0.466  held-minute overlap 0.444  same side 0.266  overlapping holds 0.0
+    ENGUQ335       crown-flat 0.120  held-minute overlap 0.783  same side 0.268  overlapping holds 0.0
+    TTM459         crown-flat 0.890  held-minute overlap 0.081  same side 0.043  overlapping holds 0.0
+    ALL FIVE FLAT  crown-flat 0.021  held-minute overlap nan  same side nan  overlapping holds nan
+  NOISE #382 / #422 held overlap = 0 minutes on both cells (asserted)
+  RES on B1 first-signal WF sessions (489, 0.186 of WF days): sum $89,642, losing -$536,589 = 0.205 of RES's WF losing $
+  RES on B2 first-signal WF sessions (326, 0.124 of WF days): sum $31,379, losing -$380,108 = 0.145 of RES's WF losing $
+
+(no real direction was computed for display)
