@@ -6129,6 +6129,385 @@
    ],
    "overall": 48,
    "summary": "You shorted the bottom of a 27-point flush after the 10:00 spike, so there was almost no room left below and the market snapped back 16 points against you. You got out flat, which was a lucky save rather than good risk control, because the 7690.25 stop was blown by 10:08. Next time, wait for a pullback toward the breakdown level to sell, and honor the stop when it trades."
+  },
+  {
+   "sym": "MNQ",
+   "date": "2026-10-05",
+   "dir": "LONG",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "10:08",
+   "exit_time": "10:09",
+   "entry": 31171.75,
+   "exit": 31174.25,
+   "qty": 2,
+   "entry_ts": "10:08:59",
+   "exit_ts": "10:09:57",
+   "breakout_candle": "10:08",
+   "hold_from": "10:09",
+   "stop": 31144.25,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 12,
+     "note": "Price was recovering off the 10:00 low of 31114.50 with higher lows into 10:07, but still under the 09:45 high of 31228.75."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 10,
+     "note": "You bought 31171.75 in the upper part of a 38-point bar (31144.25-31182.25), not on a pullback."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 9,
+     "note": "The structural stop under the 10:08 low at 31144.25 sat 27.5 points away."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 6,
+     "note": "The 09:45 high at 31228.75 offered about 57 points, roughly 2R."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 6,
+     "note": "No setup was tagged, so the entry cannot be checked against a rule."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 8,
+     "note": "The 10:08 bar traded 10,437 contracts with healthy range."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 8,
+     "note": "10:08 is inside the active morning session."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 14,
+     "note": "The fill came at the close of the 38-point 10:08 bar, chasing the move."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 17,
+     "note": "The 10:09 bar dipped to 31155.25, about 16.5 points of heat, well inside the stop."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 5,
+     "note": "You exited at 31174.25 for 2.5 points while the next 15 minutes ran to 31237.00."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 12,
+     "note": "Two MNQ kept the 27.5-point structural risk to about $110."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 4,
+     "note": "No setup, notes or grade were logged for this trade."
+    }
+   ],
+   "overall": 56,
+   "summary": "You bought the bounce off the 10:00 low, which was a reasonable read, but you chased the close of a wide bar. You then took 2.5 points in under a minute while NQ climbed more than 60 points over the next 15 minutes. Let a trade like this work toward the 09:45 high instead of scratching it."
+  },
+  {
+   "sym": "MES",
+   "date": "2026-10-05",
+   "dir": "LONG",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "10:37",
+   "exit_time": "10:40",
+   "entry": 7803.25,
+   "exit": 7803.5,
+   "qty": 3,
+   "entry_ts": "10:37:59",
+   "exit_ts": "10:40:09",
+   "breakout_candle": "10:37",
+   "hold_from": "10:38",
+   "hold_to": "10:39",
+   "stop": 7799.75,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 13,
+     "note": "ES pulled back from 7811.25 at 10:26 to 7797.75 at 10:34, holding above the 10:08 low of 7792.75."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 13,
+     "note": "You bought 7803.25 near the close of the 10:37 reversal bar (7799.75-7804.75)."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 12,
+     "note": "The 10:37 low at 7799.75 gave a clear 3.5-point stop."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 7,
+     "note": "The 10:26 high at 7811.25 was 8 points away, about 2.3R."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 6,
+     "note": "No setup was tagged, so the entry cannot be checked against a rule."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 7,
+     "note": "The signal bar traded 3,106 contracts on normal mid-morning range."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 8,
+     "note": "10:37 is still within the active morning session."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 16,
+     "note": "The fill came at the close of the 10:37 reversal bar, a fair entry."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 22,
+     "note": "Heat stayed near 1 point, with the lowest print 7802.25 at 10:39."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 10,
+     "note": "You scratched at 7803.50 while the tape reached 7805.50 in the hold and 7806.25 within 15 minutes."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 12,
+     "note": "Three MES on a 3.5-point stop risked about $53."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 4,
+     "note": "No setup, notes or grade were logged for this trade."
+    }
+   ],
+   "overall": 65,
+   "summary": "This was a clean pullback buy with a tight, obvious stop under the 10:37 low. You scratched it after two minutes even though price never threatened the stop. Give a setup like this room to reach at least the next push before you exit."
+  },
+  {
+   "sym": "MES",
+   "date": "2026-10-05",
+   "dir": "LONG",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "13:15",
+   "exit_time": "13:18",
+   "entry": 7824.5,
+   "exit": 7822.5,
+   "qty": 6,
+   "entry_ts": "13:15:46",
+   "exit_ts": "13:18:21",
+   "breakout_candle": "13:14",
+   "stop": 7822.25,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 8,
+     "note": "Midday ES had drifted from 7827.00 at 12:52 to 7819.00 at 13:05 and was chopping in a 3-point range."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 8,
+     "note": "You bought 7824.50 at the top of the 13:15 pop (7822.75-7825.00)."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 10,
+     "note": "The 13:14 low at 7822.25 gave a tight 2.25-point stop."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 3,
+     "note": "The 12:52 high at 7827.00 was only 2.5 points away, about 1.1R."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 5,
+     "note": "No setup was tagged, and the entry was a breakout of a small lunch range."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 4,
+     "note": "Bars around entry traded under 1,000 contracts on 1-point ranges."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 3,
+     "note": "13:15 is in the lunch lull, where breakouts often fail."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 10,
+     "note": "You filled at 13:15:46 near the bar high instead of waiting for a retest."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 17,
+     "note": "Price slid to 7822.50 by 13:18 and you exited there, right at the stop area."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 13,
+     "note": "The next 15 minutes only reached 7826.00, so cutting at 7822.50 was reasonable."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 6,
+     "note": "Six MES was your largest size of the day on your weakest setup."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 4,
+     "note": "No setup, notes or grade were logged for this trade."
+    }
+   ],
+   "overall": 45,
+   "summary": "This was a lunch-hour breakout buy at the top of a pop in a slow, choppy market, with little room to the 7827 high. You cut it quickly, which was right, but the loss was larger because you doubled your size. Save bigger size for morning setups with room to run."
+  },
+  {
+   "sym": "MNQ",
+   "date": "2026-10-06",
+   "dir": "LONG",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "09:30",
+   "exit_time": "09:31",
+   "entry": 31550.5,
+   "exit": 31561.0,
+   "qty": 3,
+   "entry_ts": "09:30:51",
+   "exit_ts": "09:31:10",
+   "breakout_candle": "09:30",
+   "stop": 31498.25,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 12,
+     "note": "Premarket NQ climbed from 31486.00 at 09:00 to 31529.75 at 09:25 before the open."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 6,
+     "note": "You bought 31550.50 near the top of a 61-point opening bar (31498.25-31559.25)."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 6,
+     "note": "The structural stop under the 09:30 low at 31498.25 was 52 points away."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 4,
+     "note": "Price was already above the 31529.75 premarket high with no mapped level above."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 5,
+     "note": "No setup was tagged, so the entry cannot be checked against a rule."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 7,
+     "note": "The open bar traded 19,693 contracts with an extreme 61-point range."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 4,
+     "note": "Entering in the first minute of the open is the most erratic time of day."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 12,
+     "note": "You filled 51 seconds into the open bar after a 50-point run."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 20,
+     "note": "The 19-second hold saw little heat before the exit."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 21,
+     "note": "You sold 31561.00 near the 31567.25 high, before NQ dumped to 31457.50 by 09:36."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 9,
+     "note": "Three MNQ against a 52-point structural stop risked about $312."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 4,
+     "note": "No setup, notes or grade were logged for this trade."
+    }
+   ],
+   "overall": 55,
+   "summary": "You chased the top of a huge opening bar, which is a low-quality entry with a stop that was far away. Your exit was excellent: you took 10.5 points near the high just before NQ fell more than 100 points. Treat it as a good exit on a risky entry, not a repeatable setup."
   }
  ],
  "na": [
