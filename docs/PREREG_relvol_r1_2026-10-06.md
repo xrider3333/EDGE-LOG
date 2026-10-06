@@ -61,6 +61,32 @@ one-session form above.
 - This keeps the count, the side mix and NQ's drift against ES (NQ outran ES over most of 2016-25, so a long-NQ-leaning
   rule earns drift on any days). It removes only the timing the mechanism claims.
 
+## MANAGER #67 conditions (scope review 10:10 MST), written in before any number
+1. **Known-at.**
+   - Q, its rank and beta use only sessions that have CLOSED by the signal close d: RV through d's 15:55 bar, the rank
+     against d-252 .. d-1, and beta over d-59 .. d.
+   - The trade opens at d+1's 09:30 open. h uses that open, which is known at the fill.
+   - **Masters: NO-ADJUST, not ADJ - asked of MANAGER in the draft line.**
+     - Every position opens and closes inside one RTH session and every return is intra-session, so no roll gap can enter
+       a return, a beta or a P&L.
+     - The ADJ masters are ADDITIVELY shifted (full roll offset NQ 3,734 / ES 653 points, ledger 2.71). That changes
+       every log return and every notional before the last roll: a level-dependent read, the reason NOISE never runs on
+       an ADJ master.
+     - The scope's 5-session hold, the only part that would have spanned a roll, is dropped (see Cells), so no roll
+       handling is needed.
+2. **Count.** The primary has 476 WF trades (53 a year), so the 100 / 50 bar is met by design. If any cell fails on the
+   count alone and clears every other bar, it is a RESEARCH ROW, not a pass, and gets no variants.
+3. **Overlap with ENGU-Q #335 and R, printed before any return** (`--counts`, schedule only):
+   - ENGU-Q #335 (raw book-leg export, all long) holds a position on 92% of all WF sessions. So the overlap is
+     near-total by construction: 94% of the short-NQ arm's days and 95% of the long-NQ arm's days. It cannot separate
+     the arms.
+   - The short-NQ arm DOES lean against the book's long NQ on almost every one of its days, so its dollars on R are the
+     figure that matters.
+   - R days among the trade days: 59 short-NQ and 94 long-NQ, out of 657 R days in the 2,240 WF sessions.
+   - The R-DAY SUM (primary and each arm, plus without the 3 best R days) is the FIRST line Stage A prints, before any
+     cell's ROC.
+4. **Null and power line as written:** same-count, same-side, same-year date shuffle; power line above.
+
 ## Where it sits on the MDL map (docs/MDL_MAP_R1.md)
 Beta-neutral, so it aims at the "uncorrelated" row: about $15k a year at a $30k own drawdown. The NQ leg's overlap with
 #463's ORB / NOISE held bars is printed.
@@ -104,7 +130,8 @@ Reported, not barred: the leg's dollars in #463's worst WF drawdown (HALFHOUR's 
   - the correlation with the relative-return percentile.
 
 ## What follows
-- **PASS:** the same day, a RELVOL_1_0 plugin (two-instrument; harness parity to the trade first), then a pinned
-  Auto-Validate (900 trials over L, q and the beta window), then a RUNBOARD row.
+- **PASS:** the same day, a RELVOL_1_0 plugin (two-instrument; harness parity to the trade first), then a WINDOW-PINNED
+  Auto-Validate on a RANGED file (never a pinned single-config file; CLAUDE.md): 900 trials over L, q and the beta
+  window, lockbox veto-only. Then a RUNBOARD row.
 - **FAIL:** dead. No other window, hold or threshold is tried; ledger row + TTM.md note + RUNBOARD research row.
 - Nothing live or in the adopted book changes without the owner.

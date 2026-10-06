@@ -93,6 +93,21 @@ def build():
                 pct={L: p.shift(1).to_numpy() for L, p in pct.items()}, relpct=relpct.shift(1).to_numpy(), beta=b)
 
 
+def engu_held(days):
+    """True on sessions where ENGU-Q #335 (raw book leg export, all long) holds a position at any time of the day."""
+    t = pd.read_csv(os.path.join(os.environ.get("EDGELOG_HOME") or "C:/EdgeLog", "book_legs", "ENGUQ335_raw_trades.csv"))
+    held = set()
+    for a, b in zip(pd.to_datetime(t.entry_time.str[:10]), pd.to_datetime(t.exit_time.str[:10])):
+        held.update(pd.date_range(a, b, freq="D"))
+    return np.asarray(days.isin(pd.DatetimeIndex(sorted(held))))
+
+
+def r_days(days):
+    """True on R's days: L = #463 + 0.264 x RES, its 45 drawdown episodes (ledger 2.79; q19/residual_days.csv in_R)."""
+    r = pd.read_csv(os.path.join(os.environ.get("EDGELOG_HOME") or "C:/EdgeLog", "_anatomy_cache", "q19", "residual_days.csv"))
+    return np.asarray(days.isin(pd.DatetimeIndex(pd.to_datetime(r.date[r.in_R.astype(bool)]))))
+
+
 def sides(D, L, q):
     p = D["pct"][L]
     s = np.zeros(len(p))
@@ -133,11 +148,20 @@ def main(argv):
         np.nanmedian(D["h"][wf]), np.nanpercentile(D["h"][wf], 5), np.nanpercentile(D["h"][wf], 95)))
     S = {c: np.where(wf, sides(D, *c), 0.0) for c in CELLS}
 
+    EH, RD = engu_held(days), r_days(days)
     if "--counts" in argv or "--power" in argv:
         for c in CELLS:
             s = S[c]
             print("  COUNTS L %d q %.1f: %d WF trades (%.0f a year): short-NQ %d, long-NQ %d" % (
                 c[0], c[1], int((s != 0).sum()), (s != 0).sum() / years, int((s < 0).sum()), int((s > 0).sum())))
+        s = S[PRIMARY]
+        for sd, nm in ((-1, "short-NQ arm"), (1, "long-NQ arm")):
+            m = s == sd
+            print("  OVERLAP (schedule only) primary %s: ENGU-Q #335 holds its long on %d of %d trade days (%.0f%%); "
+                  "%d of them are R days" % (nm, int((m & EH).sum()), int(m.sum()), 100 * (m & EH).sum() / max(m.sum(), 1),
+                                              int((m & RD).sum())))
+        print("  R: %d of the %d WF sessions here are R days; ENGU-Q #335 holds on %d%% of all WF sessions" % (
+            int((RD & wf).sum()), int(wf.sum()), round(100 * (EH & wf).sum() / wf.sum())))
     if "--counts" in argv:
         return
     if "--power" in argv:
@@ -148,6 +172,12 @@ def main(argv):
         HH.power_lines(x, B, years)
         return
 
+    P0 = pnl(D, S[PRIMARY])
+    rr = np.sort(P0[RD & (S[PRIMARY] != 0)])
+    print("  R-DAY SUM (printed first; MANAGER #67 (3)): primary $%s over %d trade days in R, $%s without its 3 best; "
+          "short-NQ arm $%s, long-NQ arm $%s" % (
+              format(int(rr.sum()), ","), len(rr), format(int(rr[:-3].sum()), ",") if len(rr) > 3 else "-",
+              format(int(P0[RD & (S[PRIMARY] < 0)].sum()), ","), format(int(P0[RD & (S[PRIMARY] > 0)].sum()), ",")))
     rows = {}
     for c in CELLS:
         s = S[c]
