@@ -78,3 +78,17 @@ def test_noise125_line_is_the_book_plus_a_quarter_of_noise():
     line = bs.sum_blocks(reports)["book_shadow_noise125"]["pnl_usd"]
     adopted = sum(reports[k]["pnl_usd"] * w for k, w in book.items())
     assert abs(line - adopted - 0.25 * 200.0) < 1e-9
+
+
+def test_nottm_line_is_the_book_minus_three_ttm():
+    # Q22 (docs/PREREG_frontier_nottm_2026-10-05.txt): the line is the adopted book with the TTM leg removed, so
+    # line - book = -3 x the TTM_299_SSOF2 figure - the TTM leg's own record, never a second read.
+    from api import paper as P
+    spec = bs.SUM_SHADOWS["book_shadow_nottm"]
+    book = {"ORB": 1.0, "ENGUQ_335": 1.0, "TTM_299_SSOF2": 3.0, "NOISE_422": 1.0}
+    assert spec["weights"] == {k: v for k, v in book.items() if k != "TTM_299_SSOF2"}
+    assert set(spec["weights"]) <= {l["key"] for l in P.PAPER_LEGS}
+    reports = {"ORB": {"pnl_usd": 120.0}, "ENGUQ_335": {"pnl_usd": -40.0}, "TTM_299_SSOF2": {"pnl_usd": 15.0}, "NOISE_422": {"pnl_usd": 200.0}}
+    line = bs.sum_blocks(reports)["book_shadow_nottm"]["pnl_usd"]
+    adopted = sum(reports[k]["pnl_usd"] * w for k, w in book.items())
+    assert abs(line - (adopted - 3.0 * 15.0)) < 1e-9

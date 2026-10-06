@@ -156,6 +156,12 @@ SUM_SHADOWS = {
         "prereg": "docs/PREREG_frontier_noise125_2026-10-05.txt (Q8; owner standing order + MANAGER GO 10-04; read once after 12 months)",
         "from": "2026-10-06",
     },
+    "book_shadow_nottm": {
+        "weights": {"ORB": 1.0, "ENGUQ_335": 1.0, "NOISE_422": 1.0},
+        "name": "SHADOW NOTTM: #463 without the TTM leg (= the book - 3 x TTM_299_SSOF2; not independent of the TTM leg's own record)",
+        "prereg": "docs/PREREG_frontier_nottm_2026-10-05.txt (Q22; MANAGER assessment 10-05 order 5a(i); harm monitor under the paired stops)",
+        "from": "2026-10-06",
+    },
 }
 
 

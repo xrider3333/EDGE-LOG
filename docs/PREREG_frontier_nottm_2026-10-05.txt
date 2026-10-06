@@ -1,0 +1,29 @@
+BOOK QUEUE Q22 - HARM-MONITOR LINE "#463 WITHOUT TTM" (MANAGER assessment 10-05, owner-ordered, BOOK section order 5a(i): "open the
+'#463 without TTM' harm-monitor line tonight (one book_shadow entry) and put the TTM seat question on the adoption page"). Written
+2026-10-05 before any forward number for this line exists; committed to git with the code that computes it.
+
+WHAT. A no-order shadow book line in the nightly paper report, key book_shadow_nottm = the adopted book's paper legs with the TTM leg
+removed: ORB x1 + ENGUQ_335 x1 + NOISE_422 x1 (the adopted book also carries TTM_299_SSOF2 x3). Same trades, same paper fills; it is
+never the book figure and places no order. Forward days start with the 2026-10-06 report (the first after the code ships and the runner
+restarts outside market hours); any earlier report figure is ignored.
+
+THE ARITHMETIC, PLAINLY. This line minus the adopted book line = -3 x the TTM_299_SSOF2 paper leg's P&L, trade for trade. So it is NOT
+independent evidence beside the TTM leg's own forward record: it is that record, signed and scaled, against the book's drawdown profile.
+Nobody may count the two reads twice.
+
+WHY. The TTM seat question (MANAGER assessment 10-05, from MDL r1's leave-one-out, docs/MDL_MAP_R1.md): on the walk-forward the book
+without TTM reads 99.56 / Sortino 3.532 against #463's 93.81 / 3.816 (ROC %/yr at a $30k valued-daily worst drawdown) - dropping TTM
+lifts WF ROC by 5.75 with a worst drawdown about $7k smaller (MANAGER's assessment), but costs 0.285 of Sortino, TTM's dollars
+($14,709 a year on the WF) and the diversification of the one ES leg on a different clock. On the lockbox the book without TTM reads 136.75 against 155.54 (the lockbox
+year is spent, BOOK.md 10u / 10aa (b); quoted, never used). TTM made 8.2% of the book's drawdown-day loss over the 28 WF episodes.
+Recommendation on the adoption page: KEEP TTM until this line reads; the decision is the owner's, on walk-forward plus mechanism.
+
+WHAT THE LINE IS (owner decision b, 10-05). A HARM MONITOR under the paired sequential stops, not a deciding test: its paired daily
+closed-trade difference to the book (= -3 x TTM) runs the house book-line paired sequential stop (docs/PREREG_paired_sequential_stop_
+2026-09-29.md; constants built by tools/bookline_paired_stop.py's method on the mean-removed WF difference and PROVISIONAL until Custom
+ML freezes them). A stop firing in the line's favour (TTM significantly losing forward) is the HARM signal: it brings the TTM seat
+question to the owner early. A stop firing against the line (TTM significantly earning) closes the question as KEEP. Without a stop, the
+line is reported beside the book at 12 / 24 / 36 months on ROC at $30k, Sortino and DOLLARS a year, with the TTM leg's own forward
+trades and dollars beside it; Q16's caution applies (a gain that is only a smaller drawdown cannot be read within 36 months).
+COULD FOOL US. TTM trades about 50 times a year at 3 ES: one large trade moves this line (KEEL's +$23k a year was a few TTM trades);
+every read prints the line with and without the single biggest TTM trade of the window. The paper TTM leg's fills are the record.
