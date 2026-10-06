@@ -1224,7 +1224,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1107',date:'2026-10-06',notes:['LEDGER step 8 on WEBULL PAPER: the trade list now uses the same list as REAL - a search box, the chips ALL / LONG / SHORT / WINS / LOSSES plus one per strategy and BOOK ONLY, a header for each day with that day net, LIST or TABLE remembered, and five cells a row on a phone. SHOW MORE, the CSV button (it now exports the rows the list shows) and the trade sheet (it opens the trade you tapped, not the row number) stay.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
+const CHANGELOG=[{v:'73.1102',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
+{v:'73.1107',date:'2026-10-06',notes:['LEDGER step 8 on WEBULL PAPER: the trade list now uses the same list as REAL - a search box, the chips ALL / LONG / SHORT / WINS / LOSSES plus one per strategy and BOOK ONLY, a header for each day with that day net, LIST or TABLE remembered, and five cells a row on a phone. SHOW MORE, the CSV button (it now exports the rows the list shows) and the trade sheet (it opens the trade you tapped, not the row number) stay.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
 {v:'73.1100',date:'2026-10-06',notes:['LEDGER > REAL: a trade now opens in the new shared trade panel - a panel on the right on a laptop, a sheet from the bottom on a phone. Esc, a tap outside it or the close button shut it, and a closed panel takes no room on the page.','The open trade stays open while you search, filter or switch LIST and TABLE, and a half-typed note is saved when the panel closes. The chart with zoom and EXPAND, POINTS, IGNORE IN METRICS, grade and setup, tags, EDIT, SNAPSHOT, OPEN IN TV, DELETE and the SHOULD HAVE TRADED entries all moved into it unchanged.','The LEDGER trade list no longer makes the page scroll sideways between 601 and 800 px: points, then strategy, then the setup and grade tags hide from a row as the window narrows.']},
 {v:'73.1090',date:'2026-10-06',notes:['LEDGER steps 6, 7, 10 on WEBULL PAPER: shared stats strip + More stats (landed 73.1084), shared month calendar with caveat days, shared strategy list (BOOK / Retired / Shadow not counted); run numbers on every row; phone list within one screen']},
 {v:'73.1087',date:'2026-10-06',notes:['LEDGER step 8: shared trade list frame on REAL (toolbar, day headers, common columns, phone five-column rows); legacy TRADES and JOURNAL tabs no longer scroll sideways on a phone']},{v:'73.1063',date:'2026-10-05',notes:['LEDGER > REAL: the account switch is now a list on the board, under the calendar: All accounts, NinjaTrader and Webull, each with its money for the chosen range, trades, win rate and balance. Tap a row to show only that account.','The ACCOUNT pills left the tab row on LEDGER and stay on ANALYTICS. On a phone each account is one line.']},
@@ -13181,6 +13182,7 @@ async function runClaudeAPI(tds,period,out){
 
 // Auth
 function renderAuth(){
+  try{ledgerTradePanelClose('nt8','leave');}catch(e){}   // the sign-in screen replaces the board: its trade panel (in <body>) goes with it
   let mode='login';
   document.getElementById('app').innerHTML=`<div class="auth-wrap fade"><div style="width:100%;max-width:420px">
     <div style="text-align:center;margin-bottom:28px">
@@ -15837,6 +15839,8 @@ function renderApp(){
   if(window._finishLoad){window._finishLoad();delete window._finishLoad;}
   // HOME: keep half-typed NEW TRADE / JOURNAL / trade-note text across this redraw (_hmBeforeRender).
   try{_hmBeforeRender();}catch(e){}
+  // NT8 PAPER (LEDGER step 9): its trade panel lives in <body>; anywhere but the PAPER boards it is closed here, before the screen is replaced
+  try{if(!(activeTab==='augur'&&(augurSub==='paper2'||augurSub==='paper')))ledgerTradePanelClose('nt8','leave');}catch(e){}
   // BUILDER: a data refresh waits while a field there is being typed in or pressed (see _bbHold).
   if(activeTab==='augur'&&augurSub==='exec2'&&!window._bbForce&&_bbHold())return;
   // v73.20: SETTINGS left the tab bars for the topbar gear. A browser that saved the old
@@ -42677,6 +42681,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           return {view:view,tbl:tbl,dayOn:dayOn,dayAsc:dayAsc,fams:fams,chip:chip,query:query,listed:listed,closedAll:closedAll,closedM:closedM,
             openRows:openRows,shown:shown,display:openRows.concat(ord)};
         };
+        // one chart row (the shape the candle viewer and the gallery take) for a listed trade; _no is its key in the bars cache
+        const crowOf=(r,no)=>{
+          const t=r._raw,leg=r._leg,flagged=leg==='ORB'||(Array.isArray(t.flags)&&t.flags.indexOf('lookahead-engine')>=0);
+          return {_no:no,_pid:r.id,_label:(_legLabel[leg]||leg)+' · '+(r._en||'?'),
+            _srcLbl:'paper shadow trade'+(flagged?' (ORB engine is look-ahead - reference only)':''),
+            _et:r._en,_xt2:r._ex,_ep:(t.entry_px!=null?+t.entry_px:null),_xp:(t.exit_px!=null?+t.exit_px:null),
+            _pts:(t.pnl_pts!=null?+t.pnl_pts:0),_usd:+t.pnl_usd||0,_side:_sideOf(t.side),
+            _pb:Object.assign({instrument:'NQ',cost_pts:0.533},_legMkt(leg),{include_fresh:true})};
+        };
         const colCls=k=>'lg-c lg-c-'+k+(LEDGER_TL_PHONE[k]?' lg-ph':' lg-nph')+(k==='chart'?' lg-skip':'');
         const build=()=>{
           const m=model(),sel=SEL();
@@ -42685,13 +42698,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // the chart rows, in the order the list reads: a CHART pill, ALL CHARTS, OPEN N CHARTS and PREV / NEXT in the viewer walk the same trades
           const crow=[],idx={};
           m.display.forEach((r,i)=>{
-            const t=r._raw,leg=r._leg,flagged=leg==='ORB'||(Array.isArray(t.flags)&&t.flags.indexOf('lookahead-engine')>=0);
             idx[r.id]=i;
-            crow.push({_no:'P'+i,_pid:r.id,_label:(_legLabel[leg]||leg)+' · '+(r._en||'?'),
-              _srcLbl:'paper shadow trade'+(flagged?' (ORB engine is look-ahead - reference only)':''),
-              _et:r._en,_xt2:r._ex,_ep:(t.entry_px!=null?+t.entry_px:null),_xp:(t.exit_px!=null?+t.exit_px:null),
-              _pts:(t.pnl_pts!=null?+t.pnl_pts:0),_usd:+t.pnl_usd||0,_side:_sideOf(t.side),
-              _pb:Object.assign({instrument:'NQ',cost_pts:0.533},_legMkt(leg),{include_fresh:true})});
+            crow.push(crowOf(r,'P'+i));
           });
           window._paperCandleRows=crow;
           // CUM: the running total of the counted rows shown, in the order they closed (a trade outside the book has none)
@@ -42817,7 +42825,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             onQuery:v=>{window._ptQuery=v;draw();},
             onChip:c=>{window._ptChip=c;draw();},
             onView:()=>{draw();},
-            onRow:id=>{window._ptRowId=id;}});   // a row click does nothing visible yet: step 9 opens the trade panel from here
+            onRow:id=>{window._ptRowId=id;window._ntPanelId=id;syncPanel();}});   // LEDGER step 9: a row click opens the shared trade panel for that trade
           if(!fr)return null;
           const sel=SEL();
           fr.querySelectorAll('[data-ptchart]').forEach(b=>{
@@ -42839,6 +42847,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           fr.querySelectorAll('[data-ptreset]').forEach(b=>{b.onclick=()=>{window._ptChip='ALL';window._ptQuery='';draw();};});
           fr.querySelectorAll('[data-psort]').forEach(b=>{b.onclick=ev=>{ev.stopPropagation();sortBy(b.getAttribute('data-psort'));};});
           paint(fr);
+          syncPanel();   // the open trade panel (in <body>) follows every redraw of the list or of the board
           return fr;
         };
         // a calendar day tap: show every trade, tick the rows that CLOSED that day and scroll the list to that day header
@@ -42850,7 +42859,178 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const g=document.querySelector('#'+ID+'-tl [data-lgday="'+ds+'"]');
           if(g){g.scrollIntoView({behavior:'smooth',block:'start'});g.classList.remove('lg-flash');void g.offsetWidth;g.classList.add('lg-flash');setTimeout(()=>g.classList.remove('lg-flash'),1700);}
         };
-        return {build:build,draw:draw,wire:wire,pickDay:pickDay};
+        // ══ LEDGER step 9 on NT8 PAPER: the shared trade panel (new layout only; ?oldboards=1 has none) ══
+        // A row click (onRow) opens ledgerTradePanelOpen for that trade id; window._ntPanelId holds the open trade. The panel lives in <body>,
+        // outside the board, so every redraw of the list or of the board calls syncPanel again: it refreshes the panel in place, or closes it
+        // when the trade is no longer one of the board rows (another range, a strategy switched off) - renderApp closes it when the board is
+        // left. Search, a chip and LIST | TABLE redraw the list and leave the panel on its trade. NT8 keeps no editable notes, so the notes slot
+        // is read-only. Money colours only through ledgerPnlCls / ledgerSigned and theme tokens, so MONO stays free of any hue.
+        const PID='nt8';
+        const pmd=ds=>String(ds||'').slice(5);
+        const pex=r=>r._ex?((r._ex.slice(0,10)!==r._en.slice(0,10)?pmd(r._ex.slice(0,10))+' ':'')+r._ex.slice(11,16)):'—';
+        const psize=r=>{const s=(+r.size>0?+r.size:1)*(+r.bw>0?+r.bw:1);return String(+s.toFixed(2));};
+        const ntmOf=r=>r.entryIso?(_ntMatch[_ntKey(r._leg,r.entryIso)]||null):null;
+        const rowOf=id=>{const t=_tSorted.find(x=>String(x.id)===String(id));return t?mk(t):null;};
+        // CUM in the panel: the running total of every counted trade of the board (range and strategy switches applied, search and chips not),
+        // in the order they closed, up to and including this trade. It equals the list CUM cell while the list is unfiltered.
+        const cumOf=r=>{
+          if(r._open||r._unc)return null;
+          let run=0,out=null;
+          ledgerByClose(_tSorted.filter(t=>t.open!==true).map(mk)).forEach(x=>{if(x._unc)return;run+=(+x.pnl||0);if(x.id===r.id)out=run;});
+          return out;
+        };
+        const PREASON=[['reason','Reason'],['entry_reason','Entry reason'],['entryReason','Entry reason'],['exit_reason','Exit reason'],['exitReason','Exit reason']];
+        const PDETAIL=[['gate','Gate'],['score','Score'],['kept','Kept by the gate'],['tilt','Tilt'],['decision','Decision'],['signal','Signal'],['setup','Setup']];
+        const pprim=v=>v!=null&&v!==''&&typeof v!=='object';
+        const pHead=r=>({sym:_legLabel[r._leg]||r._leg,side:r.type,date:r._en.slice(0,10),
+          time:r._en.slice(11,16)+(r._open?(' ET → open'):(' → '+pex(r)+' ET')),sub:X(psize(r))+' ct',
+          tag:r._open?'OPEN':(r._unc?'NOT BOOK':''),net:r._open?null:(+r.pnl||0)});
+        // the numbers slot: entry, exit, size, hold (the shared durStr, epoch SECONDS), points, net, SLIP, delta $, CUM, then what the engine record carries
+        const pRows=r=>{
+          const t=r._raw,m=ntmOf(r),sl=(m&&m.entry_slip_pts!=null)?+m.entry_slip_pts:null,dd=(m&&m.pnl_diff_usd!=null)?+m.pnl_diff_usd:null,c=cumOf(r);
+          const px=v=>(v==null||v==='')?'—':(+v).toFixed(2),dt=s=>s?(X(pmd(s.slice(0,10)))+' '+X(s.slice(11,16))+' ET'):'—';
+          const pts=(r.points==null||r.points==='')?null:+r.points;
+          const rows=[
+            ['Entry',dt(r._en)+' · '+px(t.entry_px)],
+            ['Exit',r._open?'open':(dt(r._ex)+' · '+px(t.exit_px))],
+            ['Size',X(psize(r))+(psize(r)==='1'?' contract':' contracts')],
+            ['Hold',r._open?(X(durStr(r))+' so far'):X(durStr(r))],
+            ['Points',pts==null?'—':((pts>=0?'+':'-')+Math.abs(pts).toFixed(2)),pts==null?'lg-flat':ledgerPnlCls(pts)],
+            [r._open?'Unrealised':'Net',ledgerSigned(+r.pnl||0),ledgerPnlCls(+r.pnl||0)],
+            ['Slip pts',sl==null?'—':((sl>0?'+':'')+sl.toFixed(2)),sl==null?'lg-flat':(sl>0?'lg-down':(sl<0?'lg-up':'lg-flat'))],
+            ['Delta $',dd==null?'—':ledgerSigned(dd),dd==null?'lg-flat':ledgerPnlCls(dd)],
+            ['Cum $',c==null?'—':ledgerSigned(c),c==null?'lg-flat':ledgerPnlCls(c)]
+          ];
+          if(+t.bw>1)rows.splice(3,0,['Book weight','x'+(+t.bw)+' (BOOK #'+_bookRun+')']);
+          if(t.backfill===true)rows.push(['Source','backfilled']);
+          else if(t.backfill===false)rows.push(['Source','forward'+(t.live_from?(', live since '+X(t.live_from)):'')]);
+          if(t.size!=null&&+t.size!==1&&isFinite(+t.size))rows.push(['Engine size','x'+(+t.size).toFixed(2)]);
+          if(t.raw_pts!=null&&isFinite(+t.raw_pts))rows.push(['Raw points',(+t.raw_pts>=0?'+':'-')+Math.abs(+t.raw_pts).toFixed(2)+' (one lot)']);
+          if(Array.isArray(t.flags)&&t.flags.length)rows.push(['Flags',X(t.flags.join(', '))]);
+          PDETAIL.forEach(d=>{if(pprim(t[d[0]]))rows.push([d[1],X(String(t[d[0]]))]);});
+          return rows;
+        };
+        const pNumbers=r=>ledgerTradePanelRows(pRows(r))
+          +'<div class="p2pn-foot">Slip is the entry slippage in points against us (positive = the live fill was worse) and Delta $ is live minus engine P and L, both on matched NinjaTrader trades only. Cum is every counted trade of this board, to this close. Source: forward = seen live after the strategy was on the board, backfilled = a backtest result from before. Engine size is the size the strategy chose and raw points are one lot before it.</div>';
+        // the notes slot is read-only: NT8 keeps no notes. It carries the lines of the engine record (reason, exit reason) and the board own warnings
+        const pNotes=r=>{
+          const t=r._raw,lines=[],seen={};
+          PREASON.forEach(d=>{if(pprim(t[d[0]])&&!seen[d[1]]){seen[d[1]]=1;lines.push([d[1],String(t[d[0]])]);}});
+          if(r._leg==='ORB'||(Array.isArray(t.flags)&&t.flags.indexOf('lookahead-engine')>=0))lines.push(['Look-ahead',ORB_LA_TIP]);
+          if(t.roll_artifact)lines.push(['Roll splice',String(t.roll_note||'2026-09 contract roll splice (ROLL_AUDIT 4.5.4) - kept, not deleted')]);
+          if(r._unc)lines.push(['Not in the book','Listed because its switch is on. It is not counted in the big number, the day totals or CUM.']);
+          if(r._open)lines.push(['Still open','The exit is the last bar seen and the money is an unrealised mark. It counts on no day until it closes.']);
+          return '<div class="p2pn-hint" data-ntpnotes>NT8 PAPER keeps no notes. These lines come from the engine record and are read-only.</div>'
+            +(lines.length?lines.map(l=>'<div class="p2pn-line"><span class="p2pn-k">'+X(l[0])+'</span>'+X(l[1])+'</div>').join('')
+              :'<div class="p2pn-line p2pn-none">The engine record carries no reason lines for this trade.</div>');
+        };
+        // EL / NT / TV: the same verdict chips the list row carries, with theme tokens in place of the three fixed hues (MONO has none)
+        const pChips=r=>_engineCell(r._raw).replace(/^<td[^>]*>/,'').replace(/<\/td>$/,'').replace(/#4a9edb/g,'var(--blue)').replace(/#e0a33a/g,'var(--yellow)').replace(/#8a8a8a/g,'var(--text4)');
+        const pActions=r=>'<button type="button" data-ntpgallery title="tick this trade and open the ticked trades as charts in one scrollable window">OPEN IN GALLERY</button>'
+          +'<div class="p2pn-chips" data-ntpchips>'+pChips(r)+'</div>'
+          +'<div class="lg-panel-hint">EL / NT / TV: ✓ matched · ✗ missed · ≈ NinjaTrader backtest agrees · n/a, ? or – not run or not checked. Nothing here changes the trade.</div>';
+        // the chart slot: the chart the gallery draws for one trade (same bars, same markers) with its chips TRADE and FULL, plus - + and PNG
+        // and EXPAND for the full viewer. Bars come from your PC (get_bars) and are cached under a key of the trade own id, never the list
+        // place, which changes with every filter. The view (zoom window) is kept per trade for the session.
+        const pview=window._ntPanelView||(window._ntPanelView={});
+        const pno=r=>String(r.id).replace(/^pt_/,'');   // the key of a trade in the bars cache: its own id, so the chart never depends on where the list happens to put it
+        const pChartHtml=r=>'<div class="p2pn-chart" data-ntpchart>'
+          +'<div class="p2pn-bar"><span class="p2pn-micro">CHART</span>'
+          +'<button type="button" class="p2pn-chip" data-ntpz="trade" title="frame the held window">TRADE</button>'
+          +'<button type="button" class="p2pn-chip" data-ntpz="full" title="every bar the PC sent">FULL</button>'
+          +'<button type="button" class="p2pn-chip" data-ntpz="out" title="zoom out: more bars">&minus;</button>'
+          +'<button type="button" class="p2pn-chip" data-ntpz="in" title="zoom in: fewer bars">+</button>'
+          +'<button type="button" class="p2pn-chip" data-ntpz="png" title="save this chart as a PNG image">PNG</button>'
+          +'<button type="button" class="p2pn-chip" data-ntpexpand title="open the full chart viewer: zoom, pan, step through the trades">EXPAND &#8599;</button></div>'
+          +'<div class="p2pn-body" data-ntpbody>loading the bars&hellip;</div><div class="p2pn-foot" data-ntpinfo></div></div>';
+        const pFillChart=(el,r)=>{
+          const body=el.querySelector('[data-ntpbody]'),info=el.querySelector('[data-ntpinfo]');
+          if(!body)return;
+          const x=crowOf(r,pno(r)),seq=(el._ntpSeq=(el._ntpSeq||0)+1),alive=()=>el.isConnected&&el._ntpSeq===seq;
+          const side=x._side||(r.type==='LONG'?'long':'short');
+          let res=null;
+          const msg=h=>{body.style.display='flex';body.innerHTML=h;};
+          const tradeView=n=>{const e=res.entry_idx,xi=(res.exit_idx!=null?res.exit_idx:e);return (e==null)?[0,n-1]:[Math.max(0,e-20),Math.min(n-1,xi+20)];};
+          const draw=()=>{
+            if(!res||!alive())return;
+            const all=res.bars||[],n=all.length;
+            if(!n){msg('no bars came back for this trade');return;}
+            let v=pview[r.id];
+            if(!v||v[0]<0||v[1]>n-1||v[1]-v[0]<3)v=pview[r.id]=tradeView(n);
+            const lo=v[0],hi=v[1],inB=i=>(i!=null&&i>=lo&&i<=hi);
+            const ov={};Object.keys(res.overlays||{}).forEach(k=>{ov[k]=(res.overlays[k]||[]).slice(lo,hi+1);});
+            const mk2={entryPrice:x._ep,exitPrice:r._open?null:x._xp,side:side,pnlUsd:x._usd};
+            if(inB(res.entry_idx))mk2.entryIdx=res.entry_idx-lo;
+            if(!r._open&&inB(res.exit_idx))mk2.exitIdx=res.exit_idx-lo;
+            if(mk2.entryIdx!=null&&mk2.exitIdx!=null){mk2.shadeFrom=mk2.entryIdx;mk2.shadeTo=mk2.exitIdx;}
+            const W=Math.max(280,Math.round(el.clientWidth||388)),H=Math.max(180,Math.min(260,Math.round(W*0.55)));
+            const geo=window.CANDLE_GEO;   // the full viewer hover maths reads this: leave it as it was
+            const svg=window.candleSVG(all.slice(lo,hi+1),ov,mk2,{width:W,height:H,xTicks:Math.max(3,Math.floor(W/95))});
+            window.CANDLE_GEO=geo;
+            body.style.display='block';body.innerHTML='<div class="p2pn-svg">'+svg+'</div>';
+            const sv=body.querySelector('svg');if(sv){sv.style.width='100%';sv.style.height='auto';sv.style.display='block';sv.style.pointerEvents='none';}
+            if(info)info.innerHTML=X(r._en.slice(11,16))+' → '+(r._open?'open':X(pex(r)))+' ET · '+(hi-lo+1)+' of '+n+' bars · '+(((window.innerWidth||1024)<=600)?'drag to pan, − / + to zoom':'drag to pan, ctrl + wheel to zoom, double-click for the trade');
+          };
+          const setV=(a,b)=>{if(!res)return;const n=(res.bars||[]).length,MIN=Math.min(8,n);let span=Math.max(MIN-1,Math.min(n-1,Math.round(b-a)));a=Math.round(a);
+            if(a<0)a=0;if(a+span>n-1)a=Math.max(0,n-1-span);pview[r.id]=[a,a+span];draw();};
+          const zoomAt=(f,frac)=>{if(!res)return;const v=pview[r.id]||tradeView(res.bars.length),span=v[1]-v[0],ns=Math.max(7,Math.min(res.bars.length-1,Math.round(span*f))),anchor=v[0]+frac*span;setV(anchor-frac*ns,anchor-frac*ns+ns);};
+          el.querySelectorAll('[data-ntpz]').forEach(b=>{b.onclick=ev=>{
+            ev.stopPropagation();const z=b.getAttribute('data-ntpz');
+            if(z==='png'){const sv=body.querySelector('svg');if(sv&&window.saveSvgAsPNG)window.saveSvgAsPNG(sv,'paper_trade'+r.id+'_candles.png');return;}
+            if(!res)return;
+            if(z==='out')zoomAt(1.6,0.5);else if(z==='in')zoomAt(1/1.6,0.5);
+            else if(z==='trade')setV.apply(null,tradeView(res.bars.length));else setV(0,res.bars.length-1);};});
+          const ex=el.querySelector('[data-ntpexpand]');
+          if(ex)ex.onclick=ev=>{ev.stopPropagation();
+            // the full viewer steps through the list rows (this trade keeps its own key); a trade the list does not show right now opens alone
+            const rows=window._paperCandleRows||[],all=rows.some(q=>q._pid===r.id)?rows.map(q=>(q._pid===r.id?x:q)):[x];
+            if(window._openTradeCandles)window._openTradeCandles(x,null,{B:{},all:()=>all,order:()=>all});};
+          body.addEventListener('wheel',ev=>{if(!res||!(ev.ctrlKey||ev.metaKey||ev.shiftKey))return;ev.preventDefault();
+            const rc=body.getBoundingClientRect();zoomAt(ev.deltaY<0?1/1.25:1.25,rc.width?Math.max(0,Math.min(1,(ev.clientX-rc.left)/rc.width)):0.5);},{passive:false});
+          body.addEventListener('dblclick',ev=>{ev.preventDefault();if(res)setV.apply(null,tradeView(res.bars.length));});
+          let pan=null;
+          body.addEventListener('pointerdown',ev=>{if(!res||ev.button>0)return;const v=pview[r.id]||tradeView(res.bars.length);pan={x:ev.clientX,v:v.slice()};try{body.setPointerCapture(ev.pointerId);}catch(e){}});
+          body.addEventListener('pointermove',ev=>{if(!pan||!res)return;const rc=body.getBoundingClientRect();if(!rc.width)return;
+            const span=pan.v[1]-pan.v[0],sh=-(ev.clientX-pan.x)/rc.width*(span+1);setV(pan.v[0]+sh,pan.v[0]+sh+span);});
+          const endPan=()=>{pan=null;};body.addEventListener('pointerup',endPan);body.addEventListener('pointercancel',endPan);
+          if(!x._et){msg('this trade has no usable entry time, so there is nothing to centre a chart on');return;}
+          msg('FETCHING THE BARS FROM YOUR PC&hellip; usually about 30 s');
+          let p;
+          try{p=_fetchBars(x._no,Object.assign({},x._pb,{entry_time:x._et,exit_time:x._xt2,pad_sessions:1}),300000);}catch(e){p=Promise.reject(e);}
+          p.then(rr=>{if(!alive())return;res=rr;draw();})
+            .catch(err=>{if(!alive())return;msg('could not load these bars - '+X(String((err&&err.message)||err)));});
+        };
+        const pGallery=id=>{
+          const r=rowOf(id);if(!r)return;
+          const sel=SEL();sel.add(r.id);
+          const fr=document.querySelector('[data-lglist-frame="'+ID+'"]');if(fr)paint(fr);
+          const x=crowOf(r,pno(r)),rows=window._paperCandleRows||[],picked=rows.filter(q=>sel.has(q._pid)).map(q=>(q._pid===r.id?x:q));
+          if(!picked.some(q=>q._pid===r.id))picked.push(x);
+          if(window.openChartGallery)window.openChartGallery({},picked,'recent','SELECTED TRADES',{title:'CHART GALLERY &middot; '+picked.length+' SELECTED TRADE'+(picked.length>1?'S':''),filePrefix:'paper_',keepOrder:true,showAll:true});
+        };
+        const panelSpec=id=>{
+          const r=rowOf(id);
+          if(!r)return null;
+          return {id:PID,tradeId:r.id,label:'NT8 paper trade',head:pHead(r),
+            blocks:[
+              {k:'chart',html:pChartHtml(r),sig:['chart',r.id,r._open?'o':'c',r._en,r._ex,(window.innerWidth||1024)<=600?'p':'l'].join('|'),render:el=>pFillChart(el,r)},
+              {k:'numbers',html:pNumbers(r)},
+              {k:'notes',html:pNotes(r)},
+              {k:'actions',html:pActions(r),render:el=>{const g=el.querySelector('[data-ntpgallery]');if(g)g.onclick=()=>pGallery(r.id);}}],
+            onClose:()=>{if(String(window._ntPanelId)===r.id)window._ntPanelId=null;}};
+        };
+        // make the panel match window._ntPanelId: refresh it in place, or close it when its trade is gone from the board rows
+        // (a record the panel cannot draw is logged, never thrown: it must not stop the list from being wired)
+        const syncPanel=()=>{
+          try{
+            const id=window._ntPanelId;
+            if(id==null){ledgerTradePanelClose(PID,'sync');return;}
+            const spec=panelSpec(String(id));
+            if(!spec){window._ntPanelId=null;ledgerTradePanelClose(PID,'gone');return;}
+            ledgerTradePanelOpen(spec);
+          }catch(e){console.error(e);}
+        };
+        return {build:build,draw:draw,wire:wire,pickDay:pickDay,sync:syncPanel,panelSpec:panelSpec};
       })():null;
       window._ntTl=_ntTl;
       const _tradesHtmlOld=_p2New?'':'<div class="p2sheet"><div class="p2sh" style="flex-wrap:wrap"><span>Trades \u00b7 '+(_tSorted.length-_nOtherRows)+(_nOtherRows?' + '+_nOtherRows+' other, not counted':'')+(_nOpenRows?' ('+_nOpenRows+' open)':'')+(_tSorted.length>200?' <span style="font-weight:400;letter-spacing:.3px;text-transform:none">(showing 200)</span>':'')+'</span>'
@@ -44056,6 +44236,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'@media (min-width:601px){.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-pnl{flex:0 0 112px}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-time{flex:0 0 152px}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-sym{flex:1 1 150px}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-chart{flex:0 0 84px}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-slot{flex:0 0 150px}}'
           +'@container p2tl (max-width:899px){.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-slot{display:none}}'
           +'@container p2tl (max-width:699px){.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-pts,.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-size{display:none}}'
+          // LEDGER step 9: the NT8 pieces inside the shared trade panel (chart chips, the read-only notes lines, the engine chips); tokens only
+          +'.lg-panel[data-lgpanel="nt8"] .p2pn-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 6px}'
+          +'.lg-panel[data-lgpanel="nt8"] .p2pn-micro{margin-right:auto;font-size:9px;letter-spacing:1.5px;color:var(--text5)}'
+          +'.lg-panel[data-lgpanel="nt8"] .p2pn-chip{background:transparent;border:1px solid var(--border);color:var(--text3);border-radius:6px;padding:3px 9px;font-size:10px;letter-spacing:.8px;cursor:pointer;font-family:inherit}'
+          +'.lg-panel[data-lgpanel="nt8"] .p2pn-chip:hover{color:var(--text);border-color:var(--text4)}'
+          +'.lg-panel[data-lgpanel="nt8"] .p2pn-body{min-height:120px;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 10px;touch-action:pan-y;user-select:none;-webkit-user-select:none;color:var(--text5);font-size:11px}'
+          +'.lg-panel[data-lgpanel="nt8"] .p2pn-svg{width:100%}'
+          +'.lg-panel[data-lgpanel="nt8"] .p2pn-foot{margin-top:6px;font-size:10px;line-height:1.5;color:var(--text5)}'
+          +'.lg-panel[data-lgpanel="nt8"] .p2pn-hint{margin:0 0 8px;font-size:10px;line-height:1.6;color:var(--text3)}'
+          +'.lg-panel[data-lgpanel="nt8"] .p2pn-line{margin:0 0 8px;font-size:11px;line-height:1.55;color:var(--text2);overflow-wrap:anywhere}'
+          +'.lg-panel[data-lgpanel="nt8"] .p2pn-line:last-child{margin-bottom:0}'
+          +'.lg-panel[data-lgpanel="nt8"] .p2pn-k{display:block;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text5)}'
+          +'.lg-panel[data-lgpanel="nt8"] .p2pn-none{color:var(--text4)}'
+          +'.lg-panel[data-lgpanel="nt8"] .p2pn-chips{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:4px;align-items:center}'
+          +'@media (max-width:600px){.lg-panel[data-lgpanel="nt8"] .p2pn-micro{display:none}.lg-panel[data-lgpanel="nt8"] .p2pn-chip{padding:3px 8px}}'
           +'.p2tl-hshort{display:none}'
           +'@media (max-width:600px){.p2tl-note,.p2tl-unr,.p2tl-to{display:none}.p2tl-hlong{display:none}.p2tl-hshort{display:inline}.p2tl-chart b{display:none}.p2tl-chart{padding:1px 4px}.p2tl-bar{gap:6px 8px}'
           +'.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-pnl{flex:0 0 88px;min-width:max-content;font-size:13px}.lg-tl[data-lglist-frame="nt8"] .lg-tl-row .lg-c-sym{white-space:normal;font-size:12px;line-height:1.2}.lg-tl[data-lglist-frame="nt8"] .lg-tl-table td.lg-c-sym{white-space:normal;min-width:78px;line-height:1.25}.lg-tl[data-lglist-frame="nt8"] .lg-tl-table td.lg-c-time{white-space:normal;min-width:40px;line-height:1.25}}'

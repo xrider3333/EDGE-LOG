@@ -84,6 +84,26 @@ WHAT IT ASSERTS
         and in TABLE; a phone row is five cells; the phone TABLE fits its own box; the phone list starts no lower than 797 px
         under the board top
       - ?oldboards=1 still draws the old trades table; no console.error or throw in any case
+  * LEDGER step 9 (owner plan 2026-10-05; decision 6: a row click opens the panel), NT8 PAPER: TRADING-LOG's shared TRADE PANEL
+    (ledgerTradePanelOpen) opens from a row of the list, each expectation recomputed from the FIXTURE:
+      - on a laptop (1366x768) and a phone (375x812), in glass / paper / MONO (plus the LIST and the TABLE, and 600 px, still a bottom
+        sheet): a click on a row opens a right-hand panel (laptop) or a bottom sheet (phone) tied to THAT trade id - the strategy with its
+        run number, the side tag, the signed net coloured by lg-up / lg-down, the date and entry -> exit time, the size; slots in the order
+        head, chart, numbers, notes, actions; in <body>, never inside #app
+      - the numbers slot: entry, exit, size, hold time (the shared durStr on epoch SECONDS), points, net, SLIP, delta $ (from an injected
+        NinjaTrader match), CUM (the counted trades in close order), and what the record carries (engine size, source, gate); the notes slot
+        is READ-ONLY (it says NT8 keeps no notes) and shows the record reason / exit reason lines and the look-ahead warning; the actions
+        slot holds OPEN IN GALLERY (it ticks the trade first) and the EL / NT / TV chips, nothing destructive; the chart slot draws the
+        bars with its TRADE / FULL / minus / plus / PNG chips and EXPAND opens the full viewer; with no PC it says it could not load them
+      - a tick box, the label round it, the CHART pill or a button inside a row never opens the panel; the OPEN NOW row opens one marked
+        OPEN with no net and its exit read as open
+      - the open trade survives a search, a chip (even one that takes the trade out of the list), LIST | TABLE and a redraw of the whole
+        board, and never shows another trade; it closes by itself when the trade leaves the board rows (strategy switched off, a narrower
+        range) and when the board is left
+      - Esc, a tap outside and the close button close it, a tap inside does not; CLOSED = no .lg-panel node, the page exactly as wide and
+        tall as before and <body> holding the same elements
+      - in MONO no colour in the panel carries a hue; the PAGE never scrolls sideways at 375, 601, 700, 800, 1000 and 1366 px with the
+        panel open or closed; ?oldboards=1 draws no panel; no console.error or throw
   * money colours FOLLOW THE THEME (owner decision 8, 2026-10-05): no fixed green / red hex on a money cell, and
     every headline money cell carries an arrow and a sign, every dense one a sign
   * BOOK (owner 2026-10-04): the big number is the BOOK #463 figure - exactly the legs of api/paper.py _BOOK at
@@ -239,6 +259,34 @@ for _w in WIDTHS:
         CASES.append(('wid-%d-%s' % (_w, _v), {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fz', 'width': _w,
                                                  'ls': {'el_lg_view_nt8': _v}}))
 
+# LEDGER step 9: the shared trade panel on NT8 PAPER. `tid` is a counted winner (NOISE #422, size 1.75, carries a reason, an exit reason and a
+# gate in the record), `tid2` a counted loser with a matched NinjaTrader fill (ORB #234, SHORT; the fixture builder injects the match), `otid`
+# the trade that is still open. 'fl' is the 1366x768 laptop frame, 'fp' the 375x812 phone, 'fm' the 600 px edge; a phone case without
+# `chart` has no PC to ask for bars. The first panel case in a frame must not have its bars cached yet (the cache outlives a case).
+PANEL_TID, PANEL_TID2, PANEL_OTID = 'pt_NOISE_422_probe', 'pt_ORB_1786548600', 'pt_ENGUQ_335_probe_open'
+# two trades of a strategy outside the book (its switch is on, paperOtherOn): their chips read NT approx (blue hex in the list) and NT cross (amber hex)
+PANEL_BLUE, PANEL_AMBER = 'pt_NOISE_SBS_V90_1786628400', 'pt_NOISE_SBS_V90_1786635600'
+PANEL_PREFS = {'paperOtherOn': ['NOISE_SBS_V90']}
+PANEL_CASES = []
+for _vp, _fr in (('laptop', 'fl'), ('phone', 'fp')):
+    for _th in ('glass', 'paper', 'mono'):
+        PANEL_CASES.append(('panel-%s-%s' % (_vp, _th), {'sub': 'paper2', 'prefs': PANEL_PREFS, 'win': {}, 'frame': _fr, 'theme': _th, 'vp': _vp,
+                                                         'panel': {'tid': PANEL_TID, 'tid2': PANEL_TID2, 'otid': PANEL_OTID,
+                                                                   'blue': PANEL_BLUE, 'amber': PANEL_AMBER,
+                                                                   'chart': not (_vp == 'phone' and _th == 'glass')}}))
+PANEL_CASES.append(('panel-laptop-glass-list', {'sub': 'paper2', 'prefs': PANEL_PREFS, 'win': {}, 'frame': 'fl', 'theme': 'glass', 'vp': 'laptop',
+                                                'ls': {'el_lg_view_nt8': 'list'},
+                                                'panel': {'tid': PANEL_TID, 'tid2': PANEL_TID2, 'otid': PANEL_OTID,
+                                                          'blue': PANEL_BLUE, 'amber': PANEL_AMBER, 'chart': True}}))
+PANEL_CASES.append(('panel-phone-glass-table', {'sub': 'paper2', 'prefs': PANEL_PREFS, 'win': {}, 'frame': 'fp', 'theme': 'glass', 'vp': 'phone',
+                                                'ls': {'el_lg_view_nt8': 'table'},
+                                                'panel': {'tid': PANEL_TID, 'tid2': PANEL_TID2, 'otid': PANEL_OTID,
+                                                          'blue': PANEL_BLUE, 'amber': PANEL_AMBER, 'chart': True}}))
+PANEL_CASES.append(('panel-w600', {'sub': 'paper2', 'prefs': PANEL_PREFS, 'win': {}, 'frame': 'fm', 'theme': 'glass', 'vp': 'edge600',
+                                   'panel': {'tid': PANEL_TID, 'tid2': PANEL_TID2, 'otid': PANEL_OTID,
+                                             'blue': PANEL_BLUE, 'amber': PANEL_AMBER, 'chart': True}}))
+CASES.extend(PANEL_CASES)
+
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>paper probe</title></head>
 <body style="margin:0">
@@ -250,6 +298,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <iframe id="fx" src="../index.html" style="width:1099px;height:900px;border:0"></iframe>
 <iframe id="fw" src="../index.html" style="width:1100px;height:900px;border:0"></iframe>
 <iframe id="fz" src="../index.html" style="width:1500px;height:900px;border:0"></iframe>
+<iframe id="fl" src="../index.html" style="width:1366px;height:768px;border:0"></iframe>
 <pre id="o"></pre>
 <script>
 var CASES=__CASES__, FIX=__FIX__;
@@ -259,6 +308,7 @@ var CASES=__CASES__, FIX=__FIX__;
   var SINK={};
   function hook(id){
     var fw=document.getElementById(id).contentWindow,s={errors:[],uncaught:[]};SINK[id]=s;
+    try{fw.renderAuth=function(){};}catch(e){}   // a late sign-in screen must not replace the board while the panel cases run
     try{var ce=fw.console.error;fw.console.error=function(){
       s.errors.push([].map.call(arguments,function(a){return String(a&&a.stack?a.stack:a).slice(0,300);}).join(' '));
       try{ce.apply(fw.console,arguments);}catch(e){}};}catch(e){}
@@ -391,15 +441,250 @@ var CASES=__CASES__, FIX=__FIX__;
     }catch(e){I.err=String(e&&e.stack?e.stack:e);}
     // everything back to how the case started
     w.openChartGallery=gal0;w._openTradeCandles=cnd0;
+    try{w.ledgerTradePanelClose('nt8','api');}catch(e){}w._ntPanelId=null;   // the row click above opened the trade panel (step 9)
     w._ptChip=null;w._ptQuery=null;w._ptSel=null;w._ptReach=null;w._ptRowId=null;w._paperSortCol=null;w._paperSortDir=null;
     LS.removeItem('el_lg_view_nt8');
     w.renderApp();
     return I;
   }
-  function report(why){
+  // ---- LEDGER step 9 on NT8 PAPER: the shared trade panel, opened by a click on a row of the list ----------------------------------
+  // every colour the panel draws (text, background, borders, outline, svg fill and stroke) must be a grey: MONO has no hue
+  function hueScan(root,w){
+    var cv=document.createElement('canvas');cv.width=1;cv.height=1;var cx=cv.getContext('2d');
+    function rgba(css){try{cx.clearRect(0,0,1,1);cx.fillStyle='#000';cx.fillStyle=css;cx.fillRect(0,0,1,1);var a=cx.getImageData(0,0,1,1).data;return [a[0],a[1],a[2],a[3]];}catch(e){return null;}}
+    var els=[root].concat(Array.prototype.slice.call(root.querySelectorAll('*'))),n=0,bad=[];
+    var lay=root.closest?root.closest('.lg-panel-layer'):null;if(lay)els.push(lay);
+    els.forEach(function(e){
+      var cs=w.getComputedStyle(e),props=[['color',cs.color],['background',cs.backgroundColor]];
+      ['Top','Right','Bottom','Left'].forEach(function(s){
+        if(cs['border'+s+'Style']!=='none'&&parseFloat(cs['border'+s+'Width'])>0)props.push(['border-'+s.toLowerCase(),cs['border'+s+'Color']]);});
+      if(cs.outlineStyle!=='none'&&parseFloat(cs.outlineWidth)>0)props.push(['outline',cs.outlineColor]);
+      if(e instanceof w.SVGElement){
+        if(cs.fill&&cs.fill!=='none')props.push(['fill',cs.fill]);
+        if(cs.stroke&&cs.stroke!=='none')props.push(['stroke',cs.stroke]);}
+      props.forEach(function(p){
+        var c=rgba(p[1]);n++;
+        if(!c||c[3]<8)return;
+        if(Math.max(c[0],c[1],c[2])-Math.min(c[0],c[1],c[2])>16)
+          bad.push((e.tagName||'').toLowerCase()+(typeof e.className==='string'&&e.className?'.'+e.className.trim().split(' ')[0]:'')+' '+p[0]+'='+p[1]);
+      });
+    });
+    return {checked:n,bad:bad.slice(0,6)};
+  }
+  function pnSleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+  // the page as the panel must leave it: a closed panel is not in it at all
+  function pnGeo(d,w){var de=d.documentElement;
+    return {sw:de.scrollWidth,cw:de.clientWidth,sh:de.scrollHeight,kids:d.body.children.length,nodes:d.querySelectorAll('.lg-panel,.lg-panel-layer').length,vw:w.innerWidth,vh:w.innerHeight};}
+  // the open panel: where it is, what it says, which slots it has, what is in them
+  function pnLook(d,w,st){
+    var PN='.lg-panel[data-lgpanel="nt8"]',q=function(s){return d.querySelector(s);};
+    // a headless page may never produce the frames a CSS animation needs: finish the slide-in so the panel is measured where it ends up
+    try{d.getAnimations().forEach(function(a){try{a.finish();}catch(e1){}});}catch(e){}
+    var p=q(PN);st.exists=!!p;st.g=pnGeo(d,w);
+    if(!p)return st;
+    var r=p.getBoundingClientRect(),cs=w.getComputedStyle(p),nel=q(PN+' [data-lgpanel-net]'),b=p.querySelector('[data-lgpanel-body]');
+    st.rect={l:Math.round(r.left),t:Math.round(r.top),r:Math.round(r.right),b:Math.round(r.bottom),w:Math.round(r.width),h:Math.round(r.height)};
+    st.vis=cs.display+','+cs.visibility+','+cs.opacity;
+    st.mode=p.getAttribute('data-lgpanel-mode');st.trade=p.getAttribute('data-lgpanel-trade');
+    st.role=p.getAttribute('role');st.modal=p.getAttribute('aria-modal');
+    st.sym=_t1(q(PN+' [data-lgpanel-sym]'));st.net=nel?_t1(nel):null;st.netCls=nel?nel.className:'';
+    st.side=_t1(q(PN+' [data-lgpanel-side]'));st.sub=_t1(q(PN+' [data-lgpanel-sub]'));st.tag=_t1(q(PN+' .lg-panel-tag'));st.when=_t1(q(PN+' [data-lgpanel-when]'));
+    st.slots=[].map.call(p.querySelectorAll('[data-lgpanel-slot]'),function(e){return e.getAttribute('data-lgpanel-slot');});
+    st.inApp=!!p.closest('#app');st.bodyWide=b?b.scrollWidth>b.clientWidth+1:null;st.focusIn=p.contains(d.activeElement);
+    st.nrows=[].map.call(p.querySelectorAll('.lg-panel-row'),function(e){var dd=e.querySelector('.lg-panel-dd');return [_t1(e.querySelector('.lg-panel-dt')),_t1(dd),dd?dd.className:''];});
+    var nt=p.querySelector('[data-lgpanel-slot="notes"]');
+    st.notes=_t1(nt);st.notesInputs=nt?nt.querySelectorAll('textarea,input,select,[contenteditable]').length:-1;
+    st.chips=[].map.call(p.querySelectorAll('[data-ntpchips] > span'),_t1);
+    st.btns={gallery:!!p.querySelector('[data-ntpgallery]'),expand:!!p.querySelector('[data-ntpexpand]'),
+      z:[].map.call(p.querySelectorAll('[data-ntpz]'),function(x){return x.getAttribute('data-ntpz');}),del:p.querySelectorAll('button.del').length};
+    var cb=p.querySelector('[data-ntpbody]');
+    st.chart={svg:!!(cb&&cb.querySelector('svg')),body:_t1(cb),info:_t1(p.querySelector('[data-ntpinfo]'))};
+    st.id=w._ntPanelId==null?null:String(w._ntPanelId);
+    return st;
+  }
+  // one panel case: every step is a click or a key on the real page, then a read of what the panel and the page did
+  async function panelInteract(d,w,cfg){
+    var P=cfg.panel,R={steps:{},pad:null},PN='.lg-panel[data-lgpanel="nt8"]',q=function(s){return d.querySelector(s);};
+    var F=function(){return q('[data-lglist-frame="nt8"]');};
+    var rowEl=function(id){var f=F();return f?f.querySelector('[data-lgtrade="'+id+'"]'):null;};
+    var clickRow=function(id){var r=rowEl(id);if(!r)return false;(r.querySelector('.lg-c-sym')||r).click();return true;};
+    var shut=function(){try{w.ledgerTradePanelClose('nt8','api');}catch(e){}};
+    var calls=w.__pnCalls=[];
+    var cn0=w._openTradeCandles,ga0=w.openChartGallery;
+    w._openTradeCandles=function(x,g,ctx){calls.push(['expand',x._pid,x._no,ctx&&ctx.all?ctx.all().length:null]);};
+    w.openChartGallery=function(B,rows,v,lbl,o){calls.push(['gallery',rows.map(function(x){return x._pid;}),lbl,o&&o.title]);};
+    function step(nm,fn){var st={};R.steps[nm]=st;try{var v=fn(st);if(v&&v.then)return v.then(null,function(e){st.err=String(e&&e.stack?e.stack:e);});}catch(e){st.err=String(e&&e.stack?e.stack:e);}return null;}
+    try{
+      w.renderApp();   // the first draw of a case is a few px taller than every later one: measure the settled page
+      R.base=pnGeo(d,w);
+      // 0. a click on a tick box, the label round it, the CHART pill or a button is that control own click: it never opens the panel
+      step('skip',function(st){
+        var r=rowEl(P.tid);if(!r){st.found=false;return;}st.found=true;
+        var cb=r.querySelector('input[data-pttick]'),lab=r.querySelector('label.p2tk'),ch=r.querySelector('[data-ptchart]'),all=F().querySelector('[data-pttickall]'),btn=F().querySelector('[data-ptallcharts]');
+        st.have=[!!cb,!!lab,!!ch,!!all,!!btn];
+        if(cb)cb.click();if(cb)cb.click();   // tick, then untick
+        if(lab)lab.click();if(lab)lab.click();
+        if(ch)ch.click();
+        if(btn)btn.click();
+        st.nodes=pnGeo(d,w).nodes;st.id=w._ntPanelId==null?null:String(w._ntPanelId);
+        st.ticks=[].filter.call(F().querySelectorAll('input[data-pttick]'),function(c){return c.checked;}).length;
+        if(st.nodes)shut();
+        w._ntPanelId=null;
+      });
+      calls.length=0;
+      // 1. a click on a row opens the panel with that trade: header, geometry, slots, numbers, notes, actions (the chart is drawn from the PC bars)
+      await step('open',async function(st){
+        if(P.chart){
+          var bars=[],px=29700,i;
+          for(i=0;i<120;i++){var hh=9+Math.floor((30+i)/60),mm=(30+i)%60;px+=((i*7)%11)-5;
+            bars.push({t:'2026-08-12 '+('0'+hh).slice(-2)+':'+('0'+mm).slice(-2)+':00',o:px,h:px+6,l:px-6,c:px+((i%3)-1)*2});}
+          w.__pnBars={ok:true,bars:bars,entry_idx:40,exit_idx:70,overlays:{vwap:bars.map(function(b){return b.c;})}};
+          w.eval("cmdRef={doc:function(){return {set:function(){return Promise.resolve();},onSnapshot:function(cb){setTimeout(function(){cb({data:function(){return {status:'done',result:window.__pnBars};}});},0);return function(){};}};}}");
+        }
+        st.clicked=clickRow(P.tid);
+        await pnSleep(80);
+        pnLook(d,w,st);
+        if(P.chart){
+          var p=q(PN),zi=function(z){var b=p&&p.querySelector('[data-ntpz="'+z+'"]');if(b)b.click();return _t1(p&&p.querySelector('[data-ntpinfo]'));};
+          st.z={start:st.chart.info,out:zi('out'),back:zi('in'),full:zi('full'),trade:zi('trade')};
+          var ex=p&&p.querySelector('[data-ntpexpand]');if(ex)ex.click();
+          st.afterExpand=calls.slice();calls.length=0;
+          var tk0=[].filter.call(F().querySelectorAll('input[data-pttick]'),function(c){return c.checked;}).length;
+          var gb=p&&p.querySelector('[data-ntpgallery]');if(gb)gb.click();
+          st.gallery=calls.slice();calls.length=0;
+          st.tickRow=!!(rowEl(P.tid)&&rowEl(P.tid).querySelector('input[data-pttick]:checked'));
+          st.ticks={before:tk0,after:[].filter.call(F().querySelectorAll('input[data-pttick]'),function(c){return c.checked;}).length,btn:_t1(q('[data-ptopen]'))};
+          w.eval('cmdRef=null');
+          w._ptSel=null;if(w._ntTl)w._ntTl.draw();
+        }
+        if(cfg.theme==='mono'&&q(PN))st.hue=hueScan(q(PN),w);
+      });
+      // 2. the open trade survives a redraw of the list (a search, a chip, LIST | TABLE) and of the whole board, and never shows another trade
+      await step('rerender',async function(st){
+        var inp=F().querySelector('input[data-lgsearch]');st.searchBox=!!inp;
+        st.rowsBefore=F().querySelectorAll('[data-lgtrade]').length;
+        if(inp){inp.value='zzzz-no-such-trade';inp.dispatchEvent(new w.Event('input',{bubbles:true}));}
+        st.search={rows:F().querySelectorAll('[data-lgtrade]').length,listed:!!rowEl(P.tid)};pnLook(d,w,st.search);
+        inp=F().querySelector('input[data-lgsearch]');
+        if(inp){inp.value='';inp.dispatchEvent(new w.Event('input',{bubbles:true}));}
+        st.cleared={rows:F().querySelectorAll('[data-lgtrade]').length,listed:!!rowEl(P.tid)};pnLook(d,w,st.cleared);
+        var lb=F().querySelector('[data-lgchip="LOSSES"]');st.chipBtn=!!lb;
+        if(lb)lb.click();
+        st.chip={rows:F().querySelectorAll('[data-lgtrade]').length,listed:!!rowEl(P.tid)};pnLook(d,w,st.chip);
+        var ab=F().querySelector('[data-lgchip="ALL"]');if(ab)ab.click();
+        var other=F().getAttribute('data-lgmode')==='list'?'table':'list',vb=F().querySelector('[data-lgview="'+other+'"]');st.viewBtn=!!vb;
+        if(vb)vb.click();
+        st.view={rows:F().querySelectorAll('[data-lgtrade]').length,mode:F().getAttribute('data-lgmode')};pnLook(d,w,st.view);
+        var vb2=F().querySelector('[data-lgview="'+(other==='list'?'table':'list')+'"]');if(vb2)vb2.click();
+        w.renderApp();
+        st.board={rows:F().querySelectorAll('[data-lgtrade]').length};pnLook(d,w,st.board);
+      });
+      // 3. Esc closes it
+      step('esc',function(st){
+        d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+        st.open=!!q(PN);st.g=pnGeo(d,w);st.id=w._ntPanelId==null?null:String(w._ntPanelId);
+        if(st.open)shut();
+      });
+      // 4. a tap or click outside closes it, a tap inside does not
+      await step('outside',async function(st){
+        st.clicked=clickRow(P.tid);st.opened=!!q(PN);
+        var s=q(PN+' [data-lgpanel-sym]');
+        if(s){s.click();}
+        st.keptOnInside=!!q(PN);
+        var pt=cfg.vp==='phone'?[Math.round(w.innerWidth/2),20]:[30,Math.round(w.innerHeight/2)];
+        var el=d.elementFromPoint(pt[0],pt[1]);
+        st.hit=(el&&el.classList&&el.classList.contains('lg-panel-layer'))?'layer':(el?el.tagName+'.'+el.className:null);
+        if(el){el.dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true,pointerType:cfg.vp==='phone'?'touch':'mouse'}));el.click();}
+        st.open=!!q(PN);st.g=pnGeo(d,w);st.id=w._ntPanelId==null?null:String(w._ntPanelId);
+        if(st.open)shut();
+      });
+      // 5. the close button closes it
+      step('button',function(st){
+        st.clicked=clickRow(P.tid);
+        var x=q(PN+' [data-lgpanel-close]');st.btn=!!x;
+        if(x)x.click();
+        st.open=!!q(PN);st.g=pnGeo(d,w);
+        if(st.open)shut();
+      });
+      // 6. another trade opened in the open panel switches it (and the net, side and name follow); a tick box click in the meantime does not
+      step('switch',function(st){
+        st.clicked=clickRow(P.tid);
+        st.first=pnLook(d,w,{});
+        st.clicked2=clickRow(P.tid2);
+        pnLook(d,w,st);
+        var r2=rowEl(P.tid);var cb=r2?r2.querySelector('input[data-pttick]'):null;
+        if(cb)cb.click();
+        st.afterTick={trade:(q(PN)||{getAttribute:function(){return null;}}).getAttribute('data-lgpanel-trade')};
+        if(cb)cb.click();
+        shut();
+        st.nodesNow=pnGeo(d,w).nodes;
+      });
+      // 7. the trade still open (OPEN NOW) opens a panel too: marked OPEN, no net, the exit reads open
+      step('openrow',function(st){
+        st.clicked=clickRow(P.otid);
+        pnLook(d,w,st);
+        shut();
+      });
+      // 7b. the chip variants (NT approx, NT cross) of a strategy outside the book: tagged NOT BOOK, the three chips, no hue in MONO
+      step('chips',function(st){
+        [['blue',P.blue],['amber',P.amber]].forEach(function(x){
+          var s={};st[x[0]]=s;s.clicked=clickRow(x[1]);pnLook(d,w,s);
+          if(cfg.theme==='mono'&&q(PN))s.hue=hueScan(q(PN),w);
+          shut();
+        });
+      });
+      // 8. closed again: nothing left in the page, the page exactly as big as before the first open
+      step('room',function(st){
+        shut();
+        st.g=pnGeo(d,w);st.id=w._ntPanelId==null?null:String(w._ntPanelId);
+      });
+      // 9. the trade leaves the board rows (its strategy switched off, a narrower range): the panel closes by itself, and the board comes back
+      step('gone',function(st){
+        var sw=q('[data-lglist="p2"] [data-lgsw="ORB"]');st.sw=!!sw;
+        st.clicked=clickRow(P.tid2);st.opened=!!q(PN);
+        if(sw)sw.click();
+        st.afterOff={open:!!q(PN),id:w._ntPanelId==null?null:String(w._ntPanelId),listed:!!rowEl(P.tid2),g:pnGeo(d,w)};
+        var sw2=q('[data-lglist="p2"] [data-lgsw="ORB"]');if(sw2)sw2.click();
+        st.back={listed:!!rowEl(P.tid2),open:!!q(PN)};
+        st.clicked3=clickRow(P.tid);st.opened3=!!q(PN);
+        var pill=q('[data-pcwin="1M"]');st.pill=!!pill;
+        if(pill)pill.click();
+        st.afterRange={open:!!q(PN),id:w._ntPanelId==null?null:String(w._ntPanelId),listed:!!rowEl(P.tid)};
+        var all=q('[data-pcwin="ALL"]');if(all)all.click();
+        w._paperCurveWin=null;
+        shut();
+      });
+      // 10. leaving the board closes the panel
+      step('leave',function(st){
+        st.clicked=clickRow(P.tid);st.opened=!!q(PN);
+        w.eval("activeTab='home'");w.renderApp();
+        st.open=!!q(PN);st.id=w._ntPanelId==null?null:String(w._ntPanelId);
+        w.eval("activeTab='augur';augurSub='paper2'");w.renderApp();
+        st.back={frame:!!F(),open:!!q(PN)};
+        shut();
+      });
+    }catch(e){R.err=String(e&&e.stack?e.stack:e);}
+    shut();w._ntPanelId=null;w._openTradeCandles=cn0;w.openChartGallery=ga0;
+    try{w.eval('cmdRef=null');}catch(e2){}
+    try{w.renderApp();}catch(e3){}   // the first draw after the leave-the-board step is a few px taller: measure the settled page again
+    R.end=pnGeo(d,w);
+    return R;
+  }
+  // the panel at the width of this case (the width sweep): the page must not scroll sideways with it open or closed
+  function panelAtWidth(d,w){
+    var o={},F=d.querySelector('[data-lglist-frame="nt8"]'),row=F?F.querySelector('[data-lgtrade]:not([data-ptopenrow])'):null;
+    o.g0=pnGeo(d,w);
+    if(!row)return o;
+    (row.querySelector('.lg-c-sym')||row).click();
+    pnLook(d,w,o);
+    try{w.ledgerTradePanelClose('nt8','api');}catch(e){}
+    o.g1=pnGeo(d,w);
+    return o;
+  }
+  async function report(why){
     if(reported)return; reported=true;
     var out={why:why,cases:{}};
-    try{['f','fp','fo','fm','fs','fx','fw','fz'].forEach(hook);}catch(e){}
+    try{['f','fp','fo','fm','fs','fx','fw','fz','fl'].forEach(hook);}catch(e){}
     try{
       var fr=document.getElementById('f'), w=fr.contentWindow, d=fr.contentDocument;
       out.VERSION=w.eval('typeof VERSION!=="undefined"?VERSION:null');
@@ -412,6 +697,7 @@ var CASES=__CASES__, FIX=__FIX__;
         var nobook=!!(cfg.win&&cfg.win.__nobook);
         var win=JSON.parse(JSON.stringify(cfg.win||{})); delete win.__empty; delete win.__noinfo; delete win.__nobook;
         drain(cfg.frame||'f');
+        var th0=w.eval('prefs.theme');   // a panel case sets a theme of its own: every other case keeps what it had
         r.call=w.eval("(function(){try{"
           +"localStorage.setItem('augurPrefs',"+JSON.stringify(JSON.stringify(cfg.prefs||{}))+");"
           +"var F="+JSON.stringify(FIX)+";"
@@ -432,6 +718,7 @@ var CASES=__CASES__, FIX=__FIX__;
           +"localStorage.removeItem('el_lg_stats_nt8');localStorage.removeItem('el_lg_cal_nt8');localStorage.removeItem('el_lg_calmo_nt8');"
           +"var LS="+JSON.stringify(cfg.ls||{})+";for(var lk in LS)localStorage.setItem(lk,LS[lk]);"
           +"var W="+JSON.stringify(win)+";for(var k in W)window[k]=W[k];"
+          +(cfg.theme?("prefs.theme="+JSON.stringify(cfg.theme)+";applyTheme();"):"")
           +"activeTab='augur';augurSub="+JSON.stringify(cfg.sub)+";renderApp();return 'OK';"
           +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
         var ap=d.getElementById('app');
@@ -624,8 +911,16 @@ var CASES=__CASES__, FIX=__FIX__;
             var sb0=d.getElementById('pt-selbar');
             r.oldSel={cls:tr0.classList.contains('ptsel'),bar:sb0?sb0.textContent.replace(/\\s+/g,' ').trim():null};}
         }catch(e){r.oldSel={err:String(e)};}}
+        // LEDGER step 9: after a press on an old table row nothing of the shared trade panel is in the page (?oldboards=1 has none)
+        r.oldPanel=(nm==='oldboards-paper2')?{nodes:d.querySelectorAll('.lg-panel,.lg-panel-layer').length,id:w._ntPanelId==null?null:String(w._ntPanelId),frames:d.querySelectorAll('[data-lglist-frame]').length}:null;
         r.tlint=null;
         if(nm==='paper2'||nm==='other-on'){try{r.tlint=tlInteract(d,w,nm);}catch(e){r.tlint={err:String(e&&e.stack?e.stack:e)};}}
+        // LEDGER step 9: the panel at this width (the width sweep), then the panel cases
+        r.pw=null;
+        if(cfg.width){try{r.pw=panelAtWidth(d,w);}catch(e){r.pw={err:String(e&&e.stack?e.stack:e)};}}
+        r.panel=null;
+        if(cfg.panel){try{r.panel=await panelInteract(d,w,cfg);}catch(e){r.panel={err:String(e&&e.stack?e.stack:e)};}}
+        if(cfg.theme){try{w.eval("prefs.theme="+(th0===undefined?"undefined":JSON.stringify(th0))+";applyTheme();");}catch(e){}}
         // the capped list: a calendar tap on a day older than the list reaches (it extends the list to that day, ticks its rows, scrolls to it)
         r.capint=null;
         if(nm==='cap'){try{
@@ -719,7 +1014,7 @@ var CASES=__CASES__, FIX=__FIX__;
     document.getElementById('o').textContent='PAPERPROBE: '+JSON.stringify(out);
   }
   var _nLoaded=0;
-  var FRAMES=['f','fp','fo','fm','fs','fx','fw','fz'];
+  var FRAMES=['f','fp','fo','fm','fs','fx','fw','fz','fl'];
   FRAMES.forEach(function(id){document.getElementById(id).addEventListener('load',function(){
     _nLoaded++; if(_nLoaded===FRAMES.length)setTimeout(function(){report('load');},3500);});});
   setTimeout(function(){report('backstop');},45000);
@@ -794,7 +1089,9 @@ def build_fixture(root, fix_path):
     _src = next((t for t in fixture['trades'] if t.get('leg') == 'NOISE_SBS_V90'), None)
     if _src is not None:
         _t = dict(_src, id='pt_NOISE_422_probe', leg='NOISE_422', size=1.75,
-                  pnl_usd=round(_src.get('pnl_usd', 0) * 1.75, 2))
+                  pnl_usd=round(_src.get('pnl_usd', 0) * 1.75, 2),
+                  # LEDGER step 9: lines the engine record may carry - the panel shows them read-only
+                  reason='probe: break of the opening range', exit_reason='probe: trailing stop', gate='probe gate keep')
         fixture['trades'].append(_t)
     # EXIT-DAY: an OPEN ENGU-Q trade carrying a huge mark (must reach no total, curve or day) and a trade that
     # closed on a Sunday evening (counts on the Monday).
@@ -818,6 +1115,12 @@ def build_fixture(root, fix_path):
     if _z is not None:
         fixture['trades'].append(dict(_z, id='pt_NOISE_H_probe_flat', pnl_usd=0.0, pnl_pts=0.0,
                                       entryTime=_z['entryTime'] + 90, exitTime=_z['exitTime'] + 90))
+    # LEDGER step 9: a matched NinjaTrader fill for the ORB trade of 2026-08-12 (SLIP +0.75 pts against us, delta -$12.50), so the panel has
+    # numbers for its SLIP and delta $ rows. `matched` is what the nightly reconcile writes; it changes no total and no alarm.
+    _orb = next((t for t in fixture['trades'] if t.get('id') == 'pt_ORB_1786548600'), None)
+    if _orb is not None and fixture['reports']:
+        _lg = fixture['reports'][0].setdefault('reconcile', {}).setdefault('legs', {}).setdefault('ORB', {'live_only': [], 'matched': [], 'shadow_only': []})
+        _lg.setdefault('matched', []).append({'shadow_entry': _orb['entryIso'], 'entry_slip_pts': 0.75, 'pnl_diff_usd': -12.5})
     # the newest report carries the book weights the way the nightly run writes them (read from api/paper.py)
     try:
         _bm = re.search(r"^    _BOOK = (\{[^}]*\})", io.open(os.path.join(root, 'api', 'paper.py'), encoding='utf-8').read(), re.M)
@@ -1994,6 +2297,378 @@ def run(alt_index=None, timeout=180):
         if nm.startswith('sort-') and base_rows and r.get('legRows') != base_rows:
             fails.append('%s: %s leg rows against %s unsorted' % (nm, r.get('legRows'), base_rows))
 
+    # ------------------------------------------------------------------------------------------------------------
+    # LEDGER step 9 (owner plan 2026-10-05; decision 6: a row click opens the panel): the shared TRADE PANEL on NT8 PAPER. A click on a row
+    # opens ledgerTradePanelOpen for that trade id; every expectation is recomputed from the FIXTURE (the strategy name, the side, the net, the
+    # entry and exit, the hold in seconds, SLIP / delta $ from the injected NinjaTrader match, CUM from the counted trades in close order).
+    FT = {t['id']: t for t in fixture['trades']}
+    BSL = chr(92)
+
+    def _lab(t):
+        d = defs.get(t.get('leg')) or {}
+        return _re.sub(_re.escape(BSL + 'u') + '([0-9a-fA-F]{4})', lambda m_: chr(int(m_.group(1), 16)), d.get('label') or str(t.get('leg')))
+
+    def _sgn(v):
+        return ('+' if v >= 0 else '-') + '$' + format(abs(round(v, 2)), ',.2f')
+
+    def _sg2(v):
+        return ('+' if v >= 0 else '-') + '%.2f' % abs(v)
+
+    def _px(v):
+        return '—' if v is None else '%.2f' % v
+
+    def _cls_of(v):
+        return 'lg-up' if v > 0 else ('lg-down' if v < 0 else 'lg-flat')
+
+    def _cum_to(tid):
+        # every counted closed trade of the board in the order it closed (close day, then the time of the exit), to and including this one
+        rows_ = sorted([t for t in fixture['trades'] if t.get('open') is not True and _w(t)], key=lambda t: (_close(t), (t.get('exitIso') or '')[11:19]))
+        run_, got_ = 0.0, None
+        for t in rows_:
+            run_ += _disp(t)
+            if t['id'] == tid:
+                got_ = run_
+        return got_
+
+    def _rowmap(st):
+        return dict((x[0], (x[1], x[2])) for x in (st.get('nrows') or []) if x and len(x) >= 3)
+
+    def _numbers_ok(tag, st, tid, label):
+        t = FT[tid]
+        rm_ = _rowmap(st)
+        op_ = t.get('open') is True
+        en, ex = t.get('entryIso') or '', t.get('exitIso') or ''
+        sz = (t.get('size') or 1) * (1 if True else 1) * (_w(t) if (_w(t) and _w(t) > 1) else 1)
+        szt = ('%g' % round(sz, 2))
+        want = {
+            'Entry': '%s %s ET · %s' % (en[5:10], en[11:16], _px(t.get('entry_px'))),
+            'Exit': 'open' if op_ else '%s %s ET · %s' % (ex[5:10], ex[11:16], _px(t.get('exit_px'))),
+            'Size': szt + (' contract' if szt == '1' else ' contracts'),
+            'Hold': _dur_text((t.get('exitTime') or 0) - (t.get('entryTime') or 0)) + (' so far' if op_ else ''),
+            'Points': _sg2(t.get('pnl_pts') or 0),
+        }
+        net = _disp(t)
+        want['Unrealised' if op_ else 'Net'] = _sgn(net)
+        for k, v in want.items():
+            got = (rm_.get(k) or (None,))[0]
+            if got != v:
+                fails.append('%s: %s - the numbers row %s reads %r, the fixture says %r' % (tag, label, k, got, v))
+        if 'Net' in want and _cls_of(net) not in (rm_.get('Net') or ('', ''))[1].split():
+            fails.append('%s: %s - the Net row is not coloured %s (%r)' % (tag, label, _cls_of(net), rm_.get('Net')))
+        for k in ('Slip pts', 'Delta $', 'Cum $'):
+            if k not in rm_:
+                fails.append('%s: %s - the numbers slot has no %s row' % (tag, label, k))
+        return rm_
+
+    for nm, cfg in PANEL_CASES:
+        r = cases.get(nm) or {}
+        tag = 'trade panel %s' % nm
+        pn = r.get('panel') or {}
+        if r.get('call') != 'OK':
+            continue          # the render failure is already listed above
+        if pn.get('err') or not pn:
+            fails.append('%s: the panel run did not finish: %s' % (tag, pn.get('err') or 'no readout'))
+            continue
+        P = cfg['panel']
+        st = pn.get('steps') or {}
+        base = pn.get('base') or {}
+        for sname, s_ in st.items():
+            if s_.get('err'):
+                fails.append('%s, step %s: the probe step threw -- %s' % (tag, sname, str(s_['err'])[:240]))
+        sheet = cfg['vp'] in ('phone', 'edge600')      # 600 px and under: a bottom sheet; above: a right-hand panel
+        T1, T2, OT = FT[P['tid']], FT[P['tid2']], FT[P['otid']]
+        want_sym = dict((k, _lab(FT[k])) for k in (P['tid'], P['tid2'], P['otid'], P.get('blue'), P.get('amber')) if k)
+
+        def says(label, s, tid, tag=tag, want_sym=want_sym):
+            t = FT[tid]
+            net = _disp(t)
+            if s.get('trade') != tid:
+                fails.append('%s: %s - the panel is tied to trade %r, expected %r' % (tag, label, s.get('trade'), tid))
+            if s.get('sym') != want_sym[tid]:
+                fails.append('%s: %s - the panel shows %r, expected the strategy %s' % (tag, label, s.get('sym'), want_sym[tid]))
+            if t.get('open') is True:
+                if s.get('net') is not None:
+                    fails.append('%s: %s - an OPEN trade must show no net in the panel header, it shows %r' % (tag, label, s.get('net')))
+            elif s.get('net') != _sgn(net):
+                fails.append('%s: %s - the panel net reads %r, expected %s' % (tag, label, s.get('net'), _sgn(net)))
+            elif _cls_of(net) not in (s.get('netCls') or '').split():
+                fails.append('%s: %s - the panel net is not coloured with %s (class %r)' % (tag, label, _cls_of(net), s.get('netCls')))
+            if s.get('side') != _side_of(t):
+                fails.append('%s: %s - the panel side tag reads %r, expected %s' % (tag, label, s.get('side'), _side_of(t)))
+
+        def room(label, g, tag=tag, base=base):
+            g = g or {}
+            if g.get('nodes'):
+                fails.append('%s: %s - %s trade panel node(s) are still in the page (a closed trade panel must not be in it)' % (tag, label, g.get('nodes')))
+            for k, nice in (('sw', 'width'), ('sh', 'height')):
+                if g.get(k) is None or base.get(k) is None or abs(g[k] - base[k]) > 1:
+                    fails.append('%s: %s - the page is %s px %s, it was %s before the panel opened (a closed trade panel takes room)'
+                                 % (tag, label, g.get(k), nice, base.get(k)))
+            if g.get('kids') != base.get('kids'):
+                fails.append('%s: %s - <body> holds %s elements, it held %s before the panel opened' % (tag, label, g.get('kids'), base.get('kids')))
+
+        if base.get('nodes'):
+            fails.append('%s: the panel is in the page before anything was opened (%s node(s))' % (tag, base.get('nodes')))
+        # -- a click on a tick box, the label round it, the CHART pill or a button inside a row never opens the panel
+        sk = st.get('skip') or {}
+        if not sk.get('found') or sk.get('have') != [True, True, True, True, True]:
+            fails.append('%s: the row of %s has no tick box / label / CHART pill / tick-all / ALL CHARTS to click (%r)' % (tag, P['tid'], sk.get('have')))
+        elif sk.get('nodes') or sk.get('id') is not None:
+            fails.append('%s: a click on a tick box (or another control in a row) opened the NT8 trade panel' % tag)
+        elif sk.get('ticks'):
+            fails.append('%s: two clicks on a tick box and on its label left %s tick(s) on (they must toggle back to none)' % (tag, sk.get('ticks')))
+        # -- open: the header
+        o = st.get('open') or {}
+        if not o.get('clicked') or not o.get('exists'):
+            fails.append('%s: a click on the row of %s did not open the NT8 trade panel (row found=%s)' % (tag, P['tid'], o.get('clicked')))
+            continue
+        says('open', o, P['tid'])
+        sym_t = want_sym[P['tid']]
+        if o.get('tag'):
+            fails.append('%s: a counted trade carries the chip %r in its panel header (only OPEN and NOT BOOK are chips)' % (tag, o.get('tag')))
+        en_, ex_ = T1['entryIso'], T1['exitIso']
+        if ('%s' % en_[:10]) not in (o.get('when') or '') or ('%s → %s ET' % (en_[11:16], ex_[11:16])) not in (o.get('when') or ''):
+            fails.append('%s: the panel date and times read %r, expected %s and %s → %s ET' % (tag, o.get('when'), en_[:10], en_[11:16], ex_[11:16]))
+        szt = '%g' % round(T1.get('size') or 1, 2)
+        if (szt + ' ct') not in (o.get('sub') or ''):
+            fails.append('%s: the panel header does not carry the size %s ct (%r)' % (tag, szt, o.get('sub')))
+        want_mode = 'sheet' if sheet else 'side'
+        if o.get('mode') != want_mode:
+            fails.append('%s: the panel mode is %r, expected %r (phone = bottom sheet, laptop = right-hand panel)' % (tag, o.get('mode'), want_mode))
+        vis = (o.get('vis') or ',,0').split(',')
+        if vis[0] not in ('block', 'flex') or vis[1] != 'visible' or float(vis[2] or 0) < 0.5:
+            fails.append('%s: the open panel is not visible (display,visibility,opacity = %s)' % (tag, o.get('vis')))
+        if o.get('role') != 'dialog' or o.get('modal') != 'true':
+            fails.append('%s: the panel is not marked role=dialog aria-modal=true (%r, %r)' % (tag, o.get('role'), o.get('modal')))
+        rc, g_ = o.get('rect') or {}, o.get('g') or {}
+        vw, vh = g_.get('cw') or 0, g_.get('vh') or 0      # the layer is fixed inside the page, so it ends where a scrollbar starts
+        if sheet:
+            if not (rc.get('l') == 0 and rc.get('w') == vw and rc.get('b') == vh):
+                fails.append('%s: on a phone the panel should be a bottom sheet the full width and sitting on the bottom edge '
+                             '(left=%s width=%s bottom=%s, screen %sx%s)' % (tag, rc.get('l'), rc.get('w'), rc.get('b'), vw, vh))
+            if (rc.get('h') or 0) > 0.9 * vh or (rc.get('t') or 0) < 0.1 * vh:
+                fails.append('%s: the phone sheet is %spx tall with its top at %spx on a %spx screen: it must leave a strip of page above it to tap'
+                             % (tag, rc.get('h'), rc.get('t'), vh))
+        else:
+            if not (abs((rc.get('r') or 0) - vw) <= 1 and abs((rc.get('h') or 0) - vh) <= 1 and 380 <= (rc.get('w') or 0) <= 460):
+                fails.append('%s: on a laptop the panel should be a right-hand panel 380-460px wide and the full height '
+                             '(right=%s width=%s height=%s, screen %sx%s)' % (tag, rc.get('r'), rc.get('w'), rc.get('h'), vw, vh))
+        if o.get('inApp'):
+            fails.append('%s: the panel is inside #app, which every redraw rebuilds - it must live in <body>' % tag)
+        if o.get('slots') != ['head', 'chart', 'numbers', 'notes', 'actions']:
+            fails.append('%s: the panel slots come in the order %r, expected head, chart, numbers, notes, actions' % (tag, o.get('slots')))
+        if o.get('bodyWide'):
+            fails.append('%s: the panel body scrolls sideways' % tag)
+        if (g_.get('sw') or 0) > (g_.get('cw') or 0) + 1 or abs((g_.get('sw') or 0) - (base.get('sw') or 0)) > 1 or abs((g_.get('sh') or 0) - (base.get('sh') or 0)) > 1:
+            fails.append('%s: opening the panel changed the page size from %sx%s to %sx%s (it must sit over the page; no sideways scroll)'
+                         % (tag, base.get('sw'), base.get('sh'), g_.get('sw'), g_.get('sh')))
+        if not o.get('focusIn'):
+            fails.append('%s: focus did not move into the panel when it opened' % tag)
+        # the numbers slot: entry, exit, size, hold, points, net, SLIP, delta $, CUM - each from the fixture
+        rm_ = _numbers_ok(tag, o, P['tid'], 'open')
+        if T1.get('size') not in (None, 1, 1.0) and (rm_.get('Engine size') or (None,))[0] != 'x%.2f' % T1['size']:
+            fails.append('%s: open - the numbers slot should carry the engine size x%.2f (%r)' % (tag, T1['size'], rm_.get('Engine size')))
+        if T1.get('backfill') is not None:
+            wsrc = 'backfilled' if T1['backfill'] else ('forward' + (', live since %s' % T1['live_from'] if T1.get('live_from') else ''))
+            if (rm_.get('Source') or (None,))[0] != wsrc:
+                fails.append('%s: open - the Source row reads %r, the record says %r' % (tag, (rm_.get('Source') or (None,))[0], wsrc))
+        if (rm_.get('Gate') or (None,))[0] != T1.get('gate') or not T1.get('gate'):
+            fails.append('%s: open - the numbers slot should carry what the record holds under gate (%r), got %r' % (tag, T1.get('gate'), (rm_.get('Gate') or (None,))[0]))
+        # the notes slot: read-only (NT8 keeps no notes), the record reason and exit reason lines
+        nt_ = o.get('notes') or ''
+        if o.get('notesInputs'):
+            fails.append('%s: the notes slot holds %s editable control(s): NT8 keeps no editable notes' % (tag, o.get('notesInputs')))
+        if 'keeps no notes' not in nt_ or 'read-only' not in nt_:
+            fails.append('%s: the notes slot does not say that NT8 keeps no notes and that these lines are read-only (%r)' % (tag, nt_[:140]))
+        for lbl_, key_ in (('Reason', 'reason'), ('Exit reason', 'exit_reason')):
+            if T1.get(key_) and (lbl_ not in nt_ or T1[key_] not in nt_):
+                fails.append('%s: the notes slot should show the record %s line %r (%r)' % (tag, key_, T1[key_], nt_[:200]))
+        # the actions slot: OPEN IN GALLERY and the EL / NT / TV chips, nothing destructive; the chart slot: its chips and EXPAND
+        bt = o.get('btns') or {}
+        if not bt.get('gallery') or bt.get('del'):
+            fails.append('%s: the actions slot should hold OPEN IN GALLERY and nothing destructive (%r)' % (tag, bt))
+        if len(o.get('chips') or []) != 3 or [c.split(' ')[0] for c in o['chips']] != ['EL', 'NT', 'TV']:
+            fails.append('%s: the actions slot should carry the three chips EL, NT and TV (%r)' % (tag, o.get('chips')))
+        if not bt.get('expand') or bt.get('z') != ['trade', 'full', 'out', 'in', 'png']:
+            fails.append('%s: the chart slot should have TRADE, FULL, minus, plus, PNG and EXPAND (%r)' % (tag, bt))
+        if P.get('chart'):
+            ch_ = o.get('chart') or {}
+            if not ch_.get('svg'):
+                fails.append('%s: the chart in the panel never drew an <svg> from the bars (%r)' % (tag, (ch_.get('body') or '')[:80]))
+            else:
+                z = o.get('z') or {}
+                nb = lambda s_: int(_re.match(r'.*? (\d+) of (\d+) bars', s_ or '').group(1)) if _re.match(r'.*? (\d+) of (\d+) bars', s_ or '') else None
+                n0, nout, nback, nfull, ntr = nb(z.get('start')), nb(z.get('out')), nb(z.get('back')), nb(z.get('full')), nb(z.get('trade'))
+                if None in (n0, nout, nback, nfull, ntr) or not (nout > n0 and nback < nout and nfull == 120 and ntr == n0):
+                    fails.append('%s: the chart chips do not zoom (bars shown: start %s, minus %s, plus %s, FULL %s, TRADE %s)' % (tag, n0, nout, nback, nfull, ntr))
+            ae = o.get('afterExpand') or []
+            if len(ae) != 1 or ae[0][:2] != ['expand', P['tid']]:
+                fails.append('%s: EXPAND should open the full viewer on trade %s (%r)' % (tag, P['tid'], ae))
+            ga = o.get('gallery') or []
+            if len(ga) != 1 or P['tid'] not in (ga[0][1] or []) or ga[0][2] != 'SELECTED TRADES':
+                fails.append('%s: OPEN IN GALLERY should open the gallery with this trade (%r)' % (tag, ga))
+            tk_ = o.get('ticks') or {}
+            if not o.get('tickRow') or (tk_.get('after') or 0) < 1 or 'OPEN' not in (tk_.get('btn') or ''):
+                fails.append('%s: OPEN IN GALLERY should tick this trade on the list first (ticks %r, row ticked %s)' % (tag, tk_, o.get('tickRow')))
+        else:
+            if 'could not load these bars' not in ((o.get('chart') or {}).get('body') or ''):
+                fails.append('%s: with no PC to ask the chart slot should say it could not load the bars (%r)' % (tag, ((o.get('chart') or {}).get('body') or '')[:100]))
+        if cfg['theme'] == 'mono':
+            hue = o.get('hue') or {}
+            if (hue.get('checked') or 0) < 40:
+                fails.append('%s: the MONO hue scan read only %s colours - it did not run' % (tag, hue.get('checked')))
+            if hue.get('bad'):
+                fails.append('%s: in MONO the panel carries a colour with a hue: %s' % (tag, '; '.join(hue['bad'])))
+        # -- a redraw of the list (a search, a chip, LIST | TABLE) and of the board: the same trade, never another
+        rr = st.get('rerender') or {}
+        if not rr.get('searchBox') or not rr.get('chipBtn') or not rr.get('viewBtn'):
+            fails.append('%s: the redraw test could not find the search box / LOSSES chip / LIST | TABLE switch (%r)' % (tag, [rr.get('searchBox'), rr.get('chipBtn'), rr.get('viewBtn')]))
+        else:
+            for key, nice in (('search', 'a search that lists nothing'), ('cleared', 'the cleared search'), ('chip', 'the LOSSES chip (this trade is a winner)'),
+                              ('view', 'the LIST | TABLE switch'), ('board', 'a redraw of the whole board')):
+                s_ = rr.get(key) or {}
+                if not s_.get('exists'):
+                    fails.append('%s: the trade panel closed after %s (it must stay open on its trade)' % (tag, nice))
+                    continue
+                if s_.get('trade') != P['tid'] or s_.get('sym') != want_sym[P['tid']] or s_.get('net') != _sgn(_disp(T1)):
+                    fails.append('%s: after the list was redrawn (%s) the panel shows %r %r under trade %r, not the trade that was opened (%s)'
+                                 % (tag, nice, s_.get('sym'), s_.get('net'), s_.get('trade'), P['tid']))
+            if (rr.get('search') or {}).get('rows') != 0 or (rr.get('chip') or {}).get('listed'):
+                fails.append('%s: the search / LOSSES chip should have taken the trade out of the list (search rows %s, listed under LOSSES %s)'
+                             % (tag, (rr.get('search') or {}).get('rows'), (rr.get('chip') or {}).get('listed')))
+        # -- Esc, a click outside (and not inside), the close button
+        e = st.get('esc') or {}
+        if e.get('open'):
+            fails.append('%s: Esc did not close the NT8 trade panel' % tag)
+        if e.get('id') is not None:
+            fails.append('%s: after Esc the board still says trade %r is open' % (tag, e.get('id')))
+        room('after Esc', e.get('g'))
+        ou = st.get('outside') or {}
+        if not ou.get('opened'):
+            fails.append('%s: the panel did not open a second time' % tag)
+        else:
+            if ou.get('hit') != 'layer':
+                fails.append('%s: the point outside the panel is %r, not the dim layer' % (tag, ou.get('hit')))
+            if not ou.get('keptOnInside'):
+                fails.append('%s: a click inside the panel closed it' % tag)
+            if ou.get('open'):
+                fails.append('%s: a click or tap outside the NT8 trade panel did not close it' % tag)
+            room('after a tap outside', ou.get('g'))
+        bn = st.get('button') or {}
+        if not bn.get('btn'):
+            fails.append('%s: the panel has no close button' % tag)
+        elif bn.get('open'):
+            fails.append('%s: the close button did not close the NT8 trade panel' % tag)
+        else:
+            room('after the close button', bn.get('g'))
+        # -- another trade opened in the open panel switches it; a tick box click in the meantime does not
+        sw = st.get('switch') or {}
+        if not sw.get('exists'):
+            fails.append('%s: the panel closed when another trade was opened in it' % tag)
+        else:
+            says('after switching to another trade', sw, P['tid2'])
+            if (sw.get('first') or {}).get('trade') != P['tid']:
+                fails.append('%s: the panel the switch started from was tied to %r, expected %s' % (tag, (sw.get('first') or {}).get('trade'), P['tid']))
+            if (sw.get('afterTick') or {}).get('trade') != P['tid2']:
+                fails.append('%s: a click on a tick box while the panel is open changed the trade it shows (%r)' % (tag, sw.get('afterTick')))
+            if sw.get('nodesNow'):
+                fails.append('%s: %s panel node(s) left after the switched panel was closed' % (tag, sw.get('nodesNow')))
+            # the second trade: SLIP and delta $ from the matched NinjaTrader fill, CUM, the look-ahead warning, the NT chip
+            rm2 = _numbers_ok(tag, sw, P['tid2'], 'second trade')
+            if (rm2.get('Slip pts') or (None,))[0] != '+0.75' or 'lg-down' not in (rm2.get('Slip pts') or ('', ''))[1].split():
+                fails.append('%s: second trade - SLIP reads %r, the injected NinjaTrader match says +0.75 (against us)' % (tag, rm2.get('Slip pts')))
+            if (rm2.get('Delta $') or (None,))[0] != '-$12.50' or 'lg-down' not in (rm2.get('Delta $') or ('', ''))[1].split():
+                fails.append('%s: second trade - delta $ reads %r, the injected match says -$12.50' % (tag, rm2.get('Delta $')))
+            cum2 = _cum_to(P['tid2'])
+            if cum2 is None or (rm2.get('Cum $') or (None,))[0] != _sgn(cum2) or _cls_of(cum2) not in (rm2.get('Cum $') or ('', ''))[1].split():
+                fails.append('%s: second trade - CUM reads %r, the counted trades in close order add up to %s' % (tag, rm2.get('Cum $'), None if cum2 is None else _sgn(cum2)))
+            if 'Look-ahead' not in (sw.get('notes') or ''):
+                fails.append('%s: second trade (an ORB engine row) - the notes slot lost the look-ahead warning (%r)' % (tag, (sw.get('notes') or '')[:120]))
+            if not (sw.get('chips') or [''])[0].startswith('EL') or 'NT ✓' not in ' '.join(sw.get('chips') or []):
+                fails.append('%s: second trade - the chips should read EL ✓, NT ✓ (matched) and TV (%r)' % (tag, sw.get('chips')))
+        # -- the OPEN NOW row opens a panel too: marked OPEN, no net, the exit reads open
+        orow = st.get('openrow') or {}
+        if not orow.get('clicked') or not orow.get('exists'):
+            fails.append('%s: a click on the OPEN NOW row of %s did not open a panel (row found=%s)' % (tag, P['otid'], orow.get('clicked')))
+        else:
+            says('the OPEN NOW row', orow, P['otid'])
+            if orow.get('tag') != 'OPEN':
+                fails.append('%s: the panel of the open trade is marked %r, expected OPEN' % (tag, orow.get('tag')))
+            if not (orow.get('when') or '').endswith('ET ' + chr(0x2192) + ' open'):
+                fails.append('%s: the panel of the open trade should read its times as entry ET -> open (%r)' % (tag, orow.get('when')))
+            rmo = _numbers_ok(tag, orow, P['otid'], 'the OPEN NOW row')
+            if (rmo.get('Cum $') or (None,))[0] != '—':
+                fails.append('%s: the open trade has a CUM (%r): it is in no total yet' % (tag, rmo.get('Cum $')))
+        # -- a strategy outside the book (NOT BOOK) with the chip variants NT approx and NT cross: the same three chips, no hue in MONO
+        cp = st.get('chips') or {}
+        for key, glyph in (('blue', chr(0x2248)), ('amber', chr(0x2717))):
+            s_ = cp.get(key) or {}
+            if not s_.get('clicked') or not s_.get('exists'):
+                fails.append('%s: a click on the row of %s (a strategy outside the book) did not open the NT8 trade panel' % (tag, P[key]))
+                continue
+            says('a strategy outside the book (%s chip)' % key, s_, P[key])
+            if s_.get('tag') != 'NOT BOOK':
+                fails.append('%s: the panel of a trade outside the book is tagged %r, expected NOT BOOK' % (tag, s_.get('tag')))
+            if len(s_.get('chips') or []) != 3 or glyph not in (s_['chips'][1] if len(s_.get('chips') or []) > 1 else ''):
+                fails.append('%s: the %s chip variant should read NT %s in the panel (%r)' % (tag, key, glyph, s_.get('chips')))
+            if (_rowmap(s_).get('Cum $') or (None,))[0] != chr(0x2014):
+                fails.append('%s: a trade outside the book has a CUM (%r): it is in no total' % (tag, _rowmap(s_).get('Cum $')))
+            if cfg['theme'] == 'mono':
+                hue = s_.get('hue') or {}
+                if (hue.get('checked') or 0) < 40 or hue.get('bad'):
+                    fails.append('%s: in MONO the panel of the %s chip variant carries a colour with a hue (%s colours read): %s'
+                                 % (tag, key, hue.get('checked'), '; '.join(hue.get('bad') or [])))
+        # -- closed again: nothing left in the page, the page exactly as big as before
+        rmm = st.get('room') or {}
+        room('at the end', rmm.get('g'))
+        if rmm.get('id') is not None:
+            fails.append('%s: the board still says trade %r is open after the panel was closed' % (tag, rmm.get('id')))
+        # -- the trade leaves the board rows: the panel closes by itself; leaving the board closes it too
+        gn = st.get('gone') or {}
+        if not gn.get('sw') or not gn.get('opened') or not gn.get('opened3') or not gn.get('pill'):
+            fails.append('%s: the leave-the-list test could not run (switch %s, opened %s / %s, range pill %s)' % (tag, gn.get('sw'), gn.get('opened'), gn.get('opened3'), gn.get('pill')))
+        else:
+            ao = gn.get('afterOff') or {}
+            if ao.get('listed') or ao.get('open') or ao.get('id') is not None or (ao.get('g') or {}).get('nodes'):
+                fails.append('%s: the panel did not close when its trade left the list (strategy switched off: listed %s, open %s, id %r)'
+                             % (tag, ao.get('listed'), ao.get('open'), ao.get('id')))
+            if not (gn.get('back') or {}).get('listed') or (gn.get('back') or {}).get('open'):
+                fails.append('%s: switching the strategy back on should list its trades again and leave no panel (%r)' % (tag, gn.get('back')))
+            ar = gn.get('afterRange') or {}
+            if ar.get('listed') or ar.get('open') or ar.get('id') is not None:
+                fails.append('%s: the panel did not close when its trade left the range (TODAY: listed %s, open %s, id %r)' % (tag, ar.get('listed'), ar.get('open'), ar.get('id')))
+        lv = st.get('leave') or {}
+        if not lv.get('opened'):
+            fails.append('%s: the leave-the-board test could not open a panel' % tag)
+        elif lv.get('open') or lv.get('id') is not None:
+            fails.append('%s: leaving the NT8 board did not close its trade panel (open %s, id %r)' % (tag, lv.get('open'), lv.get('id')))
+        elif not (lv.get('back') or {}).get('frame'):
+            fails.append('%s: the NT8 board did not come back after the leave test' % tag)
+        room('after the whole run', pn.get('end'))
+    # the panel at every width of the sweep, with the page itself never scrolling sideways, open or closed
+    for w_px in WIDTHS:
+        for view in WIDTH_VIEWS:
+            nm = 'wid-%d-%s' % (w_px, view)
+            pw = (cases.get(nm) or {}).get('pw') or {}
+            if not pw or pw.get('err') or not pw.get('exists'):
+                fails.append('%s: the trade panel did not open from a row at this width (%s)' % (nm, pw.get('err') or 'no panel'))
+                continue
+            wmode = 'sheet' if w_px <= 600 else 'side'
+            if pw.get('mode') != wmode:
+                fails.append('%s: the panel mode is %r at %d px, expected %r' % (nm, pw.get('mode'), w_px, wmode))
+            g1, g2 = pw.get('g') or {}, pw.get('g1') or {}
+            if (g1.get('sw') or 0) > (g1.get('vw') or 0):
+                fails.append('%s: the page scrolls sideways at %d px with the trade panel open (scrollWidth %s > %s)' % (nm, w_px, g1.get('sw'), g1.get('vw')))
+            if (g2.get('sw') or 0) > (g2.get('vw') or 0) or g2.get('nodes'):
+                fails.append('%s: after the panel closed the page scrolls sideways (%s > %s) or %s node(s) are left' % (nm, g2.get('sw'), g2.get('vw'), g2.get('nodes')))
+            rc = pw.get('rect') or {}
+            if (rc.get('l') or 0) < 0 or (rc.get('r') or 0) > (g1.get('vw') or 0) + 1 or pw.get('bodyWide'):
+                fails.append('%s: the panel does not fit the window at %d px (left %s, right %s, window %s)' % (nm, w_px, rc.get('l'), rc.get('r'), g1.get('vw')))
+    # ?oldboards=1: no panel at all; a press on an old table row still selects it
+    opn = (cases.get('oldboards-paper2') or {}).get('oldPanel') or {}
+    if opn.get('nodes') or opn.get('id') is not None or opn.get('frames'):
+        fails.append('oldboards-paper2: ?oldboards=1 must not draw the NT8 trade panel or the shared frame (%s)' % opn)
+
     if fails:
         say('PAPERPROBE: FAIL')
         for f in fails:
@@ -2001,10 +2676,10 @@ def run(alt_index=None, timeout=180):
         return FAIL, out_lines
 
     # the new layout has a strategy list (shared ledgerListHtml rows) where the LEGS table was; ?oldboards=1 still draws the table
-    say('PAPERPROBE: PASS (VERSION=%s, %d cases, strategy list %s rows, ?oldboards=1 LEGS table %s cols, %s trade rows)'
+    say('PAPERPROBE: PASS (VERSION=%s, %d cases, strategy list %s rows, ?oldboards=1 LEGS table %s cols, %s trade rows, %d trade panel cases)'
           % (data.get('VERSION'), len(cases), len((cases.get('base') or {}).get('listRowInfo') or []),
              (cases.get('oldboards-paper2') or {}).get('legHead'),
-             (cases.get('base') or {}).get('tradeRows')))
+             (cases.get('base') or {}).get('tradeRows'), len(PANEL_CASES)))
     return PASS, out_lines
 
 
@@ -2175,8 +2850,8 @@ MUTANTS = [
      'a calendar tap on a day older than the list reaches nothing',
      'cap: tapping the older day'),
     ('row-click-lost',
-     'onRow:id=>{window._ptRowId=id;}});',
-     'onRow:id=>{}});',
+     'onRow:id=>{window._ptRowId=id;window._ntPanelId=id;syncPanel();}});',
+     'onRow:id=>{window._ntPanelId=id;syncPanel();}});',
      'a row click no longer records the trade id',
      'a row click must record its trade id'),
     ('search-focus-lost',
@@ -2264,6 +2939,132 @@ MUTANTS = [
      '<div class="lg-tl-day">\'+dayHd(ds,ts)',
      'the trade list lost its day markers, so a calendar day tap no longer finds the day to scroll to',
      'the day headers read'),
+    # LEDGER step 9: the NT8 trade panel
+    ('nt8-panel-missing',
+     'onRow:id=>{window._ptRowId=id;window._ntPanelId=id;syncPanel();}});',
+     'onRow:id=>{window._ptRowId=id;}});',
+     'a click on a trade row no longer opens the trade panel on NT8 (the id is still recorded)',
+     'did not open the NT8 trade panel'),
+    ('nt8-panel-takes-room-closed',
+     'P.layer.remove();',
+     "P.layer.style.cssText='position:absolute;top:0;left:100%;width:440px;height:900px;background:transparent;animation:none';",
+     'a closed trade panel is parked off to the side instead of leaving the page, so it still takes room',
+     'a closed trade panel takes room'),
+    ('nt8-esc-dead',
+     'if(e.defaultPrevented||e.isComposing||_lgPanelCovered(P.layer))return;',
+     'return;',
+     'Esc no longer closes the trade panel',
+     'Esc did not close the NT8 trade panel'),
+    ('nt8-outside-click-dead',
+     "if(e.target===layer&&P.down!==false)ledgerTradePanelClose(id,'outside');",
+     "if(false)ledgerTradePanelClose(id,'outside');",
+     'a click or tap outside the trade panel no longer closes it',
+     'outside the NT8 trade panel did not close it'),
+    ('nt8-close-button-dead',
+     "if(e.target.closest&&e.target.closest('[data-lgpanel-close]')){ledgerTradePanelClose(id,'button');return;}",
+     "if(e.target.closest&&e.target.closest('[data-lgpanel-close]')){return;}",
+     'the trade panel close button does nothing',
+     'close button did not close the NT8 trade panel'),
+    ('nt8-tickbox-opens-panel',
+     "const skip=e=>!!(e.target&&e.target.closest&&e.target.closest('select,input,textarea,button,a,label,.lg-skip'));",
+     'const skip=e=>false;',
+     'a click on a tick box (or another control inside a row) opens the trade panel as well',
+     'a click on a tick box (or another control in a row) opened'),
+    ('nt8-wrong-trade-after-rerender',
+     'const spec=panelSpec(String(id));',
+     'const spec=panelSpec(String(ledgerTradePanelOf(PID)?((model().display[0]||{id:id}).id):id));',
+     'after the list is redrawn the panel shows the first row of the list, not the trade that was opened',
+     'the panel shows'),
+    ('nt8-open-row-no-panel',
+     "const rowOf=id=>{const t=_tSorted.find(x=>String(x.id)===String(id));return t?mk(t):null;};",
+     "const rowOf=id=>{const t=_tSorted.find(x=>String(x.id)===String(id)&&x.open!==true);return t?mk(t):null;};",
+     'the OPEN NOW row (a trade still open) opens no panel',
+     'OPEN NOW row'),
+    ('nt8-open-row-shows-net',
+     "tag:r._open?'OPEN':(r._unc?'NOT BOOK':''),net:r._open?null:(+r.pnl||0)});",
+     "tag:r._open?'OPEN':(r._unc?'NOT BOOK':''),net:(+r.pnl||0)});",
+     'the panel of a trade still open shows its unrealised mark as a net',
+     'must show no net'),
+    ('nt8-panel-net-unsigned',
+     "tag:r._open?'OPEN':(r._unc?'NOT BOOK':''),net:r._open?null:(+r.pnl||0)});",
+     "tag:r._open?'OPEN':(r._unc?'NOT BOOK':''),net:r._open?null:Math.abs(+r.pnl||0)});",
+     'the panel header shows a loser as a gain (the sign is lost)',
+     'the panel net reads'),
+    ('nt8-mono-hue-in-panel',
+     "+'.lg-panel[data-lgpanel=\"nt8\"] .p2pn-hint{margin:0 0 8px;font-size:10px;line-height:1.6;color:var(--text3)}'",
+     "+'.lg-panel[data-lgpanel=\"nt8\"] .p2pn-hint{margin:0 0 8px;font-size:10px;line-height:1.6;color:#7ac0ff}'",
+     'a line in the NT8 part of the panel carries a hard-coded blue, so MONO is no longer hue-free',
+     'in MONO the panel carries a colour with a hue'),
+    ('nt8-panel-stays-when-trade-gone',
+     "if(!spec){window._ntPanelId=null;ledgerTradePanelClose(PID,'gone');return;}",
+     'if(!spec)return;',
+     'the panel stays open on a trade that has left the board rows',
+     'did not close when its trade left the list'),
+    ('nt8-panel-stays-when-board-left',
+     "try{if(!(activeTab==='augur'&&(augurSub==='paper2'||augurSub==='paper')))ledgerTradePanelClose('nt8','leave');}catch(e){}",
+     '',
+     'the panel stays on the page when the NT8 board is left',
+     'leaving the NT8 board did not close its trade panel'),
+    ('nt8-notes-editable',
+     "return '<div class=\"p2pn-hint\" data-ntpnotes>NT8 PAPER keeps no notes.",
+     "return '<textarea class=\"p2pn-ta\"></textarea><div class=\"p2pn-hint\" data-ntpnotes>NT8 PAPER keeps no notes.",
+     'the notes slot has a box to type in, although NT8 keeps no notes',
+     'editable control'),
+    ('nt8-gallery-button-does-not-tick',
+     'const sel=SEL();sel.add(r.id);',
+     'const sel=SEL();',
+     'OPEN IN GALLERY opens the gallery without ticking the trade on the list',
+     'should tick this trade on the list first'),
+    ('nt8-expand-missing',
+     'class=\"p2pn-chip\" data-ntpexpand title',
+     'class=\"p2pn-chip\" data-ntpexpandx title',
+     'the chart slot has no EXPAND button',
+     'the chart slot should have TRADE, FULL'),
+    ('nt8-chart-chips-missing',
+     '<button type=\"button\" class=\"p2pn-chip\" data-ntpz=\"trade\" title=\"frame the held window\">TRADE</button>',
+     '',
+     'the chart slot has no TRADE chip',
+     'the chart slot should have TRADE, FULL'),
+    ('nt8-cum-wrong',
+     'run+=(+x.pnl||0);if(x.id===r.id)out=run;',
+     'run+=(+x.pnl||0)+1;if(x.id===r.id)out=run;',
+     'the panel CUM adds a dollar to every trade',
+     'CUM reads'),
+    ('nt8-slip-sign-flipped',
+     "(sl>0?'lg-down':(sl<0?'lg-up':'lg-flat'))]",
+     "(sl>0?'lg-up':(sl<0?'lg-down':'lg-flat'))]",
+     'the panel colours a slip against us as a gain',
+     'SLIP reads'),
+    ('nt8-hold-in-wrong-unit',
+     "['Hold',r._open?(X(durStr(r))+' so far'):X(durStr(r))],",
+     "['Hold',r._open?(X(durStr(r))+' so far'):X(Math.floor((r.durationSecs||0)/60000)+'m')],",
+     'the panel hold time divides seconds by 60000 and reads 0m',
+     'numbers row Hold reads'),
+    ('nt8-panel-in-the-page',
+     'document.body.appendChild(layer);',
+     "(document.getElementById('app')||document.body).appendChild(layer);",
+     'the trade panel is put inside the page that every board redraw rebuilds',
+     'the panel is inside #app'),
+    ('nt8-phone-sheet-missing',
+     '.lg-panel{top:auto;left:0;right:0;width:100%;max-height:88vh;',
+     '.lg-panel{top:0;left:auto;right:0;width:440px;max-height:none;',
+     'on a phone the trade panel is still a 440 px panel on the right instead of a bottom sheet',
+     'on a phone the panel should be a bottom sheet'),
+    ('nt8-panel-slot-order-wrong',
+     "const LEDGER_PANEL_SLOTS=['chart','numbers','notes','actions'];",
+     "const LEDGER_PANEL_SLOTS=['actions','chart','numbers','notes'];",
+     'the trade panel slots come out in another order',
+     'the panel slots come in the order'),
+    ('nt8-chip-hues-fixed',
+     ".replace(/#4a9edb/g,'var(--blue)').replace(/#e0a33a/g,'var(--yellow)').replace(/#8a8a8a/g,'var(--text4)')",
+     '',
+     'the EL / NT / TV chips in the panel keep their fixed blue and amber, so MONO is no longer hue-free',
+     'in MONO the panel of the'),
+    ('nt8-panel-opens-on-oldboards',
+     'if(ev.shiftKey&&anchorIdx>=0){base=new Set(sel);range(anchorIdx,i).forEach(id=>sel.add(id));}',
+     "ledgerTradePanelOpen({id:'nt8',tradeId:String(ids[i]),head:{sym:'x',side:'LONG',net:0},blocks:[]});if(ev.shiftKey&&anchorIdx>=0){base=new Set(sel);range(anchorIdx,i).forEach(id=>sel.add(id));}",
+     'a press on a row of the old table (?oldboards=1) opens the NT8 trade panel',
+     'must not draw the NT8 trade panel'),
 ]
 
 
