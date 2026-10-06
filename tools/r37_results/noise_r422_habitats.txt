@@ -1,0 +1,15 @@
+NOISE #422 habitats - day shape and cost vs range, 5m RTH, sessions 2016-07-01 .. 2025-06-29 (price bars only)
+  NQ   sessions 2318  trend days  49.7% (up 32.1% / down 17.6%)  median range 122.3 bps  cost 0.46 bps  cost / range  0.38%
+  IWM  sessions 2260  trend days  46.6% (up 26.5% / down 20.1%)  median range 140.9 bps  cost 1.17 bps  cost / range  0.83%
+  QQQ  sessions 2260  trend days  50.5% (up 32.5% / down 18.0%)  median range 123.6 bps  cost 0.71 bps  cost / range  0.58%
+  SPY  sessions 2260  trend days  49.1% (up 30.8% / down 18.2%)  median range  87.6 bps  cost 0.55 bps  cost / range  0.62%
+  DIA  sessions 2260  trend days  45.7% (up 27.6% / down 18.1%)  median range  86.3 bps  cost 0.67 bps  cost / range  0.77%
+  XLF  sessions 2260  trend days  44.7% (up 25.2% / down 19.5%)  median range 123.1 bps  cost 6.50 bps  cost / range  5.27%
+  XLU  sessions 2260  trend days  45.3% (up 26.7% / down 18.5%)  median range 127.6 bps  cost 6.35 bps  cost / range  4.98%
+  XLV  sessions 2260  trend days  45.3% (up 26.1% / down 19.2%)  median range 101.7 bps  cost 1.78 bps  cost / range  1.75%
+  XLP  sessions 2260  trend days  45.0% (up 25.5% / down 19.5%)  median range  91.7 bps  cost 3.03 bps  cost / range  3.30%
+  XLI  sessions 2260  trend days  47.6% (up 27.1% / down 20.5%)  median range 111.0 bps  cost 2.31 bps  cost / range  2.08%
+  XLY  sessions 2260  trend days  48.4% (up 28.6% / down 19.8%)  median range 121.1 bps  cost 2.81 bps  cost / range  2.32%
+  XLK  sessions 2260  trend days  51.1% (up 32.3% / down 18.8%)  median range 130.1 bps  cost 3.24 bps  cost / range  2.49%
+  TLT  sessions 2260  trend days  45.3% (up 24.7% / down 20.6%)  median range  77.4 bps  cost 1.65 bps  cost / range  2.13%
+  GLD  sessions 2260  trend days  40.7% (up 22.1% / down 18.6%)  median range  70.3 bps  cost 1.22 bps  cost / range  1.73%

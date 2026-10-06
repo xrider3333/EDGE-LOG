@@ -93,3 +93,14 @@ look for. Rules mined this way were regime artifacts (ledger 2.1), so:
      cell, so the null cannot move it. Read that cell without a null.
 2. **Single-trade sessions:** their share of trades and of unit dollars (the intraday nulls cannot shuffle them).
 3. **Room to pay in NQ points** beside the % of price: the median points per tercile.
+
+## RESULT (run once, 2026-10-05 21:05 MST, after reading the inbox)
+- **The sentence, from the hour x order cross-tab in unit dollars:** NOISE #422 earns on the one break of a trend day
+  that never comes back through VWAP and is held to the close. The hour and the break order add nothing once that is
+  known.
+- **Why:** all nine cells are positive. Single-trade sessions are 29% of the trades and 97% of the unit dollars. The
+  multi-break sessions net about $9k over 1,998 trades.
+- **Tables:** `tools/r37_results/noise_r422_anatomy.txt`.
+- **Habitat day-shape and cost table** (price bars only, written after the tables): `tools/noise_r422_habitats.py`,
+  `tools/r37_results/noise_r422_habitats.txt`.
+- **Write-up:** NOISE.md "#422 anatomy".

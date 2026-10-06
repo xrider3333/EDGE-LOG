@@ -3399,3 +3399,65 @@ list's reading that this tape is mined out at intraday horizons for anything tha
 Auto-Validate. Records: ledger rows 2.72 / 2.73 / 2.74; `tools/r37_results/{halfhour,round,bondlead}_r1_stageA.txt`.
 
 **Disclosed:** MANAGER's 08:03 review of ROUND and BONDLEAD (#46) was missed before their 08:50 / 09:00 runs. Its edits (a null kept away from the 50s, per-year rows, a 0.5%-of-price grid twin, roll days apart; slope-sign regimes, without 2022, a sign-only twin) were run afterwards as a labelled post-verdict report - nothing changed: ROUND's null median -2.60 vs the primary's -2.50 and it loses every year but 2022; BONDLEAD loses in both slope regimes and without 2022 (-2.07). `tools/newtype_r1_addendum46.py`, `tools/r37_results/newtype_r1_addendum46.txt`.
+
+## #422 anatomy (2026-10-05 21:05 MST, MANAGER #63 / #64 / #66) - which mechanism NOISE earns on (report, nothing passes or fails)
+
+**The sentence: NOISE #422 earns on the one break of a trend day that never comes back through VWAP and is held to the
+close. Which hour it comes in, and whether it is the day's first break, add nothing once that is known.**
+
+How the tables say it (2,797 walk-forward trades, 2016-07 .. 2025-06, unit dollars at 1 NQ = the #304 core trade with
+the compression size divided out, $330,878 in all; the frozen prereg, run once):
+- **The hour x break-order cross-tab (MANAGER's addition, the sentence is written from it).**
+  - All nine cells are positive, PF 1.3 - 2.1.
+  - Opening-drive first breaks hold 41% of the unit dollars only because they are 36% of the trades. At $133 a trade
+    they earn no more than midday first breaks ($173) or late second breaks ($214).
+  - Against the within-session shuffle, the first break earns LESS than chance in every hour and the later breaks MORE.
+- **Why: the single-trade line.**
+  - The 799 sessions with one trade are 29% of the trades and carry 97% of the unit dollars.
+  - The 595 sessions with several breaks net about $9k over 1,998 trades: their first break loses about $205 a trade
+    and the re-entries win it back (+$93 a trade). (Derived from the printed totals: first breaks $200,367 minus the
+    single-trade sessions' $322k.)
+  - The within-session contrast is largely mechanical: an earlier trade in a session has to have exited before the
+    close. Those early exits are the losing kind.
+  - The intraday null bands are therefore far from blind, as disclosed in the prereg. They move only the multi-break
+    sessions, which net about zero.
+- **The exit path says the same.**
+  - The 745 trades held to the close made +$941k.
+  - The 1,943 VWAP exits lost $485k and the 109 stops lost $125k.
+  - Trades held more than 12 bars made +$860k; everything shorter lost.
+  - Ex post, days that closed near an extreme made +$561k (up +$391k, down +$170k), and range days lost $230k. This is
+    descriptive only: it is not knowable at entry.
+- **Room to pay (MANAGER #63's row).**
+  - Entries in the tercile nearest VWAP earn $23 a trade, below their within-session band (52 .. 94), with a median
+    4.2 points (about 5 bps) of room.
+  - The farthest tercile earns $213 a trade (56.7 points, 45 bps), above its band.
+- **The 60-minute squeeze** (the part that carries inside #463): 19% of the trades, 47% of the unit dollars, $286 a
+  trade, above its band (224 .. 267).
+- **Day-level tags** (shuffled within the year):
+  - Opening gap, FOMC / CPI / NFP and the high-volatility tercile sit inside their bands.
+  - The middle prior-range tercile is above its band ($193 vs 66 .. 170).
+  - Shorts with the market above its 200-day average earned $198 a trade, above their band. That is mostly 2022-25 ($566
+    vs $78 in 2016-21).
+  - 2022 alone is a quarter of the unit dollars.
+- **H1 vs H2.** 2022-25 earns more per trade in every bucket. Part of that is NQ's higher price, because dollars are
+  points x $20.
+
+**Habitats** (price bars only, no NOISE trade run on any fund; `tools/noise_r422_habitats.py`). The mechanism needs two
+things: days that close at an extreme, and a cost small against the day's range, so that the many VWAP-exit losers do
+not eat the trend days.
+- **Trend days barely separate the habitats:** 41 - 51% of sessions everywhere (a random close gives 40%).
+  - NQ 49.7%, QQQ 50.5%, SPY 49.1%, IWM 46.6%, DIA 45.7%.
+  - XLK 51.1%, XLY 48.4%, XLI 47.6%, XLV / XLU / TLT 45.3%, XLP 45.0%, XLF 44.7%.
+  - GLD 40.7%, the closest to random.
+- **Cost against the median day range is what separates them** ($0.02 a share round trip):
+  - NQ 0.4%, QQQ 0.6%, SPY 0.6%, DIA 0.8%, IWM 0.8%;
+  - the sector funds 1.7 - 5.3% (XLV 1.7, XLI 2.1, XLY 2.3, XLK 2.5, XLP 3.3, XLU 5.0, XLF 5.3);
+  - TLT 2.1%, GLD 1.7%.
+- **Proposed re-rank, for MANAGER's review through the scope doc:**
+  - IWM and the QQQ calibration stay first.
+  - Among the sector funds, XLK, XLY, XLI and XLV go ahead of XLP, XLU and XLF, which pay 3 - 5% of their range.
+  - GLD (fewest trend days) drops below the controls.
+
+**Nothing on NQ changes:** no filter, size or setting is taken from these tables (ledger 2.1). Records:
+`docs/PREREG_noise_r422_anatomy_2026-10-06.md` (+ amendment 1),
+`tools/noise_r422_anatomy.py`, `tools/r37_results/noise_r422_anatomy.txt`, `tools/r37_results/noise_r422_habitats.txt`.

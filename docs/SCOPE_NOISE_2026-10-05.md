@@ -156,3 +156,23 @@ filters mined this way are regime artifacts. The point is to name the mechanism,
 - **Daily:** raw AND split-adjusted daily closes, for cost per share as actually traded.
 - **Gate:** each series passes TRANSFER r2's data gates (missing-bar share, last 5m close vs the official close within
   0.10%, no overnight gap over 25% that is not a split) before any prereg reads it.
+
+## Queue update 2026-10-05 21:30 MST (MANAGER #64 / #65 / #66; supersedes the ranked queue above)
+- **Data:** fund gates 10 of 14 pass (SPY, QQQ, TLT, XLF, XLU, XLV, XLP, XLI, XLY, XLK).
+  - XLE and XLB failed once and are dropped.
+  - SMH and VIXY failed twice (5m bars vs daily bars) and are out of scope; no result exists for either. A3 (VIXY) is
+    gone.
+- **Done:** B, the #422 anatomy (21:05). The sentence: NOISE earns on the one break of a trend day that never comes back
+  through VWAP and is held to the close. See NOISE.md.
+- **Queue:**
+  1. A1 IWM own crown, Stage A at 07:00 on 10-06 (amendment 1 on main);
+  2. A6 QQQ calibration;
+  3. A2 sector funds (XLF / XLU / XLV / XLP / XLI / XLY / XLK);
+  4. A4 TLT fade;
+  5. A7 / A8 the DIA and SPY controls;
+  6. A5 GLD and A9 basket below, unchanged.
+- **Proposed by the anatomy, awaiting MANAGER's review (not applied):**
+  - Order the sector funds XLK, XLY, XLI, XLV ahead of XLP, XLU, XLF: at $0.02 a share the last three pay 3 - 5% of
+    their median day range, vs under 1% on QQQ / SPY / DIA / IWM.
+  - Move GLD below the controls: 41% trend days, the closest to a random close.
+  - Table: `tools/r37_results/noise_r422_habitats.txt`.
