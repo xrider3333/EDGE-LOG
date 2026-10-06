@@ -1,0 +1,64 @@
+TTM round 24 - the 10:00-ET first-fillable-bar cell + matched control (prereg tools/TTM_R24_PREREG.txt)
+Loaded ES 30m db_adj_rth 2010-06-07 .. 2025-06-30: 49571 bars, 3869 sessions; first-bar stamps: 09:30 x3869
+PARITY: #459 340 trades $62,315 at x1 (expect 340); ordinal-1 fills 81 $42,983 (expect 81 / $42,983); first-bar-only loop identical to the trade: YES
+PREREG on main: tools/TTM_R24_PREREG.txt last changed in f482ddc8
+GATE STAMP: at each 09:30 decision (3868 sessions) the hourly gate reads a CLOSED group: YES; from the same session: 0; groups read: 15:30-15:30 (1 bar) x3750, 12:30-12:30 (1 bar) x69, 12:30-13:00 (2 bars) x33, 10:30-11:00 (2 bars) x14
+CONTROL: 594 gated 10:00 entries = 81 fire days (M1) + 513 no-fire days (M0); M1 entries == O1 entries (bar and side): YES
+
+CLASSIFICATION (WF 2016-06-30 .. 2025-06-29, size 1, $ per trade net of 0.363 pts)
+  POWER LINE: n1 55, n0 312, pooled sd $1,333 -> minimum detectable m1 - m0 = $546 a trade
+  WF (THE LABEL)               m1 $   339 (n  55)  m0 $  -140 (n  312)  m1-m0 $   479  p_perm 0.0024  p0 0.9779  m0/m1 -0.41 -> SQUEEZE EFFECT
+  tuning block 2010-16         m1 $   150 (n  26)  m0 $    -4 (n  201)  m1-m0 $   154  p_perm 0.0234  p0 0.5777  m0/m1 -0.03 -> SQUEEZE EFFECT
+  half 2016 .. 2021            m1 $   362 (n  39)  m0 $   -50 (n  196)  m1-m0 $   411  p_perm 0.0022  p0 0.8597  m0/m1 -0.14 -> SQUEEZE EFFECT
+  half 2022 .. 2025            m1 $   283 (n  16)  m0 $  -294 (n  116)  m1-m0 $   577  p_perm 0.0874  p0 0.9627  m0/m1 -1.04 -> UNDECIDED
+  WF without Feb-Apr 2020      m1 $   350 (n  53)  m0 $  -128 (n  306)  m1-m0 $   478  p_perm 0.0014  p0 0.9704  m0/m1 -0.37 -> SQUEEZE EFFECT
+  LABEL: SQUEEZE EFFECT; checks: tuning block same label yes; half 2016-2021 keeps sign of m1-m0 yes; half 2022-2025 keeps sign of m1-m0 yes; without Feb-Apr 2020 keeps sign yes
+
+O1 STANDALONE (sized as #459 sizes, x1) - WF 2016-06-30 .. 2025-06-29; tuning block reported below
+  #459 entire                        n  212  net $   44,096  DD $   5,910  ROC@30k   24.9  Sortino  1.81  PF  1.85  ex-big $   31,734
+  O1 = 10:00 fills only (sized)      n   55  net $   34,227  DD $   5,730  ROC@30k   19.9  Sortino  2.02  PF  2.68  ex-big $   21,865
+  O1 at unit size (no ladder)        n   55  net $   14,952  DD $   3,579  ROC@30k   13.9  Sortino  1.58  PF  2.36  ex-big $    9,457
+  #459 without its 10:00 fills       n  157  net $    9,869  DD $   4,366  ROC@30k    7.5  Sortino  0.56  PF  1.31  ex-big $    7,399
+  M1 (control rule, fire days)       n   55  net $   18,639  DD $   3,579  ROC@30k   17.4  Sortino  1.96  PF  2.69  ex-big $   13,145
+  M0 (control rule, no-fire days)    n  312  net $  -43,800  DD $  52,676  ROC@30k   -2.8  Sortino -0.67  PF  0.63  ex-big $  -48,195
+  tuning block 2010-06-07 .. 2016-06-29:
+  #459 entire                        n  128  net $   18,219  DD $   2,222  ROC@30k   40.6  Sortino  3.18  PF  2.40  ex-big $   15,701
+  O1 sized                           n   26  net $    8,755  DD $   1,641  ROC@30k   26.4  Sortino  2.69  PF  3.76  ex-big $    6,237
+  O1 unit                            n   26  net $    3,816  DD $     912  ROC@30k   20.7  Sortino  2.15  PF  3.31  ex-big $    2,696
+  M1                                 n   26  net $    3,903  DD $   1,500  ROC@30k   12.9  Sortino  1.92  PF  2.77  ex-big $    2,784
+  M0                                 n  201  net $     -873  DD $   4,130  ROC@30k   -1.0  Sortino -0.13  PF  0.96  ex-big $   -2,730
+  MAP: O1 earns $19,914 a year at a $30k own drawdown (MDL line $15,000); inside #463's worst WF drawdown (2020-03-02 .. 2020-03-27) it made $0 at that scale -> gains there
+  AUTO-VALIDATE BARS: WF trades >= 100 NO; ROC@30k >= #459 (24.9) NO; ROC@30k >= 15 yes; Sortino >= #459 (1.81) yes; WF net ex-biggest > 0 yes -> RESEARCH ROW (TTM-R24), never a leg
+
+DIAGNOSTICS (no verdict)
+  re-pricing check (raw loop x size == #459's sized O1 trades): YES
+  event path O1  mean cum $ by bar 0-11: +229 +218 +179 +268 +259 +341 +325 +424 +468 +565 +614 +622
+  event path O1u mean cum $ by bar 0-11: +103 +79 +57 +90 +86 +128 +125 +171 +193 +243 +269 +272
+  event path M1  mean cum $ by bar 0-11: +132 +157 +134 +157 +164 +207 +204 +247 +261 +310 +336 +339
+  event path M0  mean cum $ by bar 0-11: -40 -86 -104 -96 -99 -110 -137 -147 -148 -144 -149 -140
+  per WF year (06-30 blocks), O1 net / M1 mean / M0 mean:
+    2016: O1 n  6 $   3,888 | M1 n  6 mean $   284 | M0 n  51 mean $     8
+    2017: O1 n  9 $  11,772 | M1 n  9 mean $   589 | M0 n  39 mean $    46
+    2018: O1 n  9 $    -286 | M1 n  9 mean $    -7 | M0 n  30 mean $   -12
+    2019: O1 n  9 $  11,486 | M1 n  9 mean $   599 | M0 n  29 mean $  -113
+    2020: O1 n  4 $   2,306 | M1 n  4 mean $   482 | M0 n  37 mean $  -232
+    2021: O1 n  3 $  -2,214 | M1 n  3 mean $  -672 | M0 n  19 mean $   139
+    2022: O1 n  4 $   5,532 | M1 n  4 mean $ 1,047 | M0 n  37 mean $  -447
+    2023: O1 n  6 $   2,117 | M1 n  6 mean $   157 | M0 n  36 mean $     5
+    2024: O1 n  5 $    -374 | M1 n  5 mean $   254 | M0 n  34 mean $  -589
+  O1 long  n   35 net $   -1,333 mean $   -38
+  O1 short n   20 net $   35,561 mean $ 1,778
+  O1 unit long  n   35 net $   -1,085 mean $   -31
+  O1 unit short n   20 net $   16,037 mean $   802
+  M1 long  n   35 net $    1,865 mean $    53
+  M1 short n   20 net $   16,774 mean $   839
+  M0 long  n  159 net $   -3,111 mean $   -20
+  M0 short n  153 net $  -40,689 mean $  -266
+  cost curve, WF net at 0 / 5 / 10 / 20 bps of the entry price per round trip:
+    O1: $36,188 / $24,548 / $12,909 / $-10,369
+    O1 unit: $15,950 / $10,032 / $4,114 / $-7,723
+    M1: $19,638 / $13,719 / $7,801 / $-4,035
+    M0: $-38,138 / $-72,507 / $-106,877 / $-175,616
+  M0, 09:30 bar still IN a squeeze   n  121 mean $   -47
+  M0, 09:30 bar NOT in a squeeze     n  191 mean $  -199
+  no hourly gate (all sessions): fire days n 133 mean $184 | no-fire days n 2185 mean $-45
