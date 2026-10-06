@@ -172,6 +172,12 @@ def main(argv):
         HH.power_lines(x, B, years)
         return
 
+    import subprocess
+    sha = subprocess.run(["git", "log", "-1", "--format=%h", "origin/main", "--", "docs/PREREG_relvol_r1_2026-10-06.md"],
+                         capture_output=True, text=True, cwd=ROOT).stdout.strip()
+    print("  PREREG on main: docs/PREREG_relvol_r1_2026-10-06.md last changed in %s" % (sha or "NOT ON MAIN - STOP"))
+    if not sha:
+        return
     P0 = pnl(D, S[PRIMARY])
     rr = np.sort(P0[RD & (S[PRIMARY] != 0)])
     print("  R-DAY SUM (printed first; MANAGER #67 (3)): primary $%s over %d trade days in R, $%s without its 3 best; "
@@ -262,6 +268,20 @@ def main(argv):
     print("  episodes: %d, mean $%+.0f, positive %d; largest: %s" % (len(ep), epv.mean(), int((epv > 0).sum()), "; ".join(
         "%s..%s %s $%s" % (days[e[0]].date(), days[e[1]].date(), "shortNQ" if e[2] < 0 else "longNQ", format(int(e[3]), ","))
         for e in top)))
+    # MANAGER #68 (1): the scope's 5-session hold as a REPORT, never a cell. RTH only - each of the 5 sessions is opened
+    # and closed inside the session (5 round trips; overnight excluded, so no roll gap enters), non-overlapping episodes.
+    s5 = np.zeros(len(days))
+    last = -1
+    for i in np.flatnonzero(pr["s"] != 0):
+        if i > last:
+            s5[i:i + 5] = pr["s"][i]
+            last = i + 4
+    s5 = np.where(wf, s5, 0.0)
+    P5 = pnl(D, s5)
+    st5 = HH.own(daily(D, P5, bdays), bdays)
+    print("  REPORT 5-session hold (RTH only, re-entered each session): %d episodes, %d sessions, net $%s, own ROC@30k "
+          "%.2f, Sortino %.2f" % (int(np.sum((s5 != 0) & (np.r_[0, s5[:-1]] != s5))), int((s5 != 0).sum()),
+                                  format(int(st5["net"]), ","), st5["roc"], st5["sort"]))
     rp = D["relpct"][on]
     ok_ = np.isfinite(rp)
     print("  signal vs 20-day relative RETURN percentile: corr %.2f (sides vs relative return, %d trades)" % (

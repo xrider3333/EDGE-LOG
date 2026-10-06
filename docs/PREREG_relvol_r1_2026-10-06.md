@@ -135,3 +135,16 @@ Reported, not barred: the leg's dollars in #463's worst WF drawdown (HALFHOUR's 
   window, lockbox veto-only. Then a RUNBOARD row.
 - **FAIL:** dead. No other window, hold or threshold is tried; ledger row + TTM.md note + RUNBOARD research row.
 - Nothing live or in the adopted book changes without the owner.
+
+## AMENDMENT 1 - MANAGER rulings #68 (2026-10-06 11:06 MST, GO), written in before any return
+1. **The one-session form is the registered primary.** It is a count-forced change made before any return, and it is
+   disclosed above. The scope's 5-session hold prints as a REPORT only, never a cell: RTH only, re-entered each session
+   (5 round trips, overnight excluded), in non-overlapping episodes.
+2. **No-adjust masters are accepted**, on the condition that the 20-day realized vol and the hedge ratio use WITHIN-SESSION
+   5m returns only, so a roll gap (+114 .. +297 NQ points) never enters the vol. As written and run, they already do:
+   - RV sums squared 5m log returns inside each session, and the first bar's return is its own open-to-close;
+   - beta regresses session open-to-close returns.
+   No cross-session return is used anywhere, so there is no second reading to print.
+3. **The three cells are one family**, with the null as written. The R-day sum and the ENGU-Q #335 overlap (92%,
+   near-total) are printed first.
+The run starts after this file is on main; the log prints its sha.
