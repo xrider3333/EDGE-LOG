@@ -1,26 +1,34 @@
 //@version=6
 // =============================================================================
 //  EDGELOG - POINT SCORE 1.0 -- the owner's 9-point score on the signal bar
-//  Pine port of docs/POINT_SCORE_SPEC.md (spec v1.2, "ps1.2") and of tools/point_score.py
+//  Pine port of docs/POINT_SCORE_SPEC.md (spec v1.3 for the Pine; records "ps1.2") and of tools/point_score.py
 //  v1.2 (2026-10-02): the four "200" lines are a plain moving average (SMA) by default; the
 //  "Moving average" setting switches them to the EMA of v1.1.
+//  v1.3 (2026-10-06): works on ANY chart timeframe; on a 1-minute or seconds chart it always scores
+//  the last CLOSED 1-minute bar. The whole score is computed on 1-minute bars (one
+//  request.security(..., "1", ...) call), so a 10-second pane shows the same score as the 1-minute
+//  pane (same chart settings and Settings on both). On a seconds chart a minute's score
+//  appears on the first chart bar after that minute closes (up to one chart bar later than on the
+//  1-minute pane). On a chart above 1 minute it shows the last 1-minute bar inside each chart bar.
+//  The score's definition did not change, so EDGE LOG records stay "ps1.2". Take the parity export
+//  from a 1-minute pane.
 //
 //  WHAT IT IS
-//  At the CLOSE of every bar it scores the nine points from the spec, for the LONG
-//  side and for the SHORT side at the same time, then shows the score of the last
-//  closed bar in a table, labels strong bars, and can fire an alert.
-//  The bar that has just closed IS the signal bar S of the spec (the last closed bar
+//  At the CLOSE of every 1-minute bar it scores the nine points from the spec, for the LONG
+//  side and for the SHORT side at the same time, then shows the score of the last closed
+//  1-minute bar in a table (on a chart above 1 minute: the last minute of the last closed chart
+//  bar), labels strong bars, and can fire an alert.
+//  That closed 1-minute bar IS the signal bar S of the spec (the last closed 1-minute bar
 //  before an entry fill). Nothing that starts at or after the bar's close is read.
 //
-//  MEANT FOR A 1-MINUTE CHART (the spec only supports 1m in v1). On any other chart
-//  timeframe the table shows a warning, and the numbers are NOT the spec's numbers.
+//  ANY CHART TIMEFRAME (1-minute, 10-second, 5-minute ...): the signal bar is always a 1-minute bar.
 //  Use the normal 24-hour futures session (extended hours ON) - the spec's 1m / 5m /
-//  30m EMAs run over 24-hour bars.
+//  30m averages run over 24-hour bars.
 //
 //  THE NINE POINTS (long; short mirrors each one with < in place of >)
 //   1-4  close above the 200 moving average (SMA default, EMA setting) of the 10-second /
 //        1-minute / 5-minute / 30-minute bars
-//        - 1m  : the average of this chart's closes, includes the signal bar.
+//        - 1m  : the average of the 1-minute closes, includes the signal bar.
 //        - 10s : last 10-second bar inside the signal bar (request.security_lower_tf).
 //        - 5m / 30m : the HTF bar BEFORE the one holding the signal bar (non-repainting).
 //        - each average is NA until its own timeframe has a full 200-bar window (SMA) or 600
@@ -43,31 +51,47 @@
 //  PARITY EXPORT
 //  The data-window plots named "L ..." / "S ..." / "R ..." are for Export chart data
 //  (chart menu -> Export chart data). 1 = hit, 0 = miss, empty = NA. They do not draw on
-//  the chart. python tools/point_score.py parity <csv> --root NQ compares them with EDGE LOG.
+//  the chart. Take the export from a 1-MINUTE pane (one row per 1-minute bar);
+//  python tools/point_score.py parity <csv> --root NQ compares them with EDGE LOG.
+//  "R signal_1m_time" = the start of the 1-minute bar a row carries (ms since 1970, UTC), so an
+//  export from another pane can be mapped to its 1-minute bars.
 //
 //  KNOWN LIMITS
 //   - Turn ON TradingView's back-adjustment for continuous futures (the B-ADJ button at the
 //     bottom of the chart, "Adjust for contracts changes" in the chart settings). Without it the
 //     30-minute EMA carries the roll gap for about two weeks after every quarterly roll, and the
 //     first session after a roll reads yesterday's levels from the old contract.
+//   - Each pane uses its own chart settings (extended hours, B-ADJ) and its own copy of the Settings;
+//     two panes show the same score only when those match.
 //   - The CME holiday list (HOL_FULL / HOL_EARLY below) must be EXTENDED EACH DECEMBER from the
 //     CME holiday calendar; it must match CME_HOLIDAYS in tools/point_score.py. A day missing
 //     from the list cannot give a wrong level: its stub fails the completeness test and reads NA.
-//   - The 30-minute average needs 200 30-minute bars for the SMA (about 4-5 trading days) or about
-//     600 for the EMA (about 13 trading days). A 1-minute chart on the Premium plan loads 20,000
-//     bars, which only just reaches the EMA's 600. The
-//     table's bottom row shows how many bars each timeframe has; "warming up" = NA points.
+//   - Each average needs bars of its own timeframe: a full 200-bar window for the SMA, about 600 for
+//     the EMA (for the 30-minute one: about 4-5 trading days for the SMA, about 13 for the EMA). The
+//     5m and 30m averages load their own history, so they are normally warm from the first bar; the
+//     1m average and yesterday's levels start from the first loaded 1-minute bar (about 20,000
+//     1-minute bars on the Premium plan, on any chart timeframe). The table's bottom row shows how
+//     many bars each timeframe has; "warming up" = NA points.
 //   - 10-second bars need a TradingView plan with seconds timeframes (Premium or higher).
 //     TradingView may also only load 100,000 intrabars, so the oldest part of a long chart
 //     can have no 10-second data. Those bars show NA for the 10s point (never a miss).
 //     If the script will not run on your plan, untick "Use 10-second data".
 //   - Volume can differ slightly between feeds (ties on the volume point can flip).
-//   - Yesterday's levels and the 1m EMA start from the first bar the chart has loaded; a
+//   - Yesterday's levels and the 1m EMA start from the first 1-minute bar the script has loaded; a
 //     session (or today's window) that was cut off by the start of the loaded history is
 //     ignored (NA), and the 1m EMA is seeded from the first loaded close (as in the spec).
 //   - At the live bar's close the last 10-second bar may arrive a moment late.
+//   - On a seconds chart the labels and alerts come at the close of the first chart bar after the
+//     minute closed (on a 10-second chart: about 10 seconds after the 1-minute pane). The last minute
+//     before a pause in trading (16:59, an early close, the weekend) appears on a seconds chart only
+//     when trading resumes; in a quiet tape a closed minute waits for the next trade.
+//   - Above 1 minute only the LAST 1-minute bar inside each chart bar is scored and labelled; use a
+//     1-minute or seconds pane to see every minute. The table shows the last minute of the last CLOSED
+//     chart bar (a 5-minute chart at 09:37 shows 09:34), and the Data Window values of the live chart
+//     bar follow the minute still forming. If, at a live chart bar's close, the 1-minute data already
+//     holds the next minute, that chart bar gets no label, alert or table update rather than a wrong one.
 // =============================================================================
-indicator("EDGELOG Point Score 1.0", shorttitle = "POINTS", overlay = true, max_labels_count = 500)
+indicator("EDGELOG Point Score 1.0", shorttitle = "POINTS", overlay = true, max_labels_count = 500, dynamic_requests = true)
 
 // -- Inputs --------------------------------------------------------------------
 G_PT = "Point score"
@@ -75,7 +99,7 @@ G_TF = "Timeframes"
 G_MK = "Market and sessions"
 G_SH = "Display and alerts"
 
-sideIn    = input.string("Auto", "Side", options = ["Auto", "Long", "Short"], group = G_PT, tooltip = "Auto = long when the bar closes up (close >= open), short otherwise. Long / Short force one side for the labels and alerts. The table and the exported columns always carry BOTH sides.")
+sideIn    = input.string("Auto", "Side", options = ["Auto", "Long", "Short"], group = G_PT, tooltip = "Auto = long when the 1-minute signal bar closes up (close >= open), short otherwise. Long / Short force one side for the labels and alerts. The table and the exported columns always carry BOTH sides.")
 maType    = input.string("SMA", "Moving average", options = ["SMA", "EMA"], group = G_PT, tooltip = "Spec v1.2: SMA (a plain moving average) is the default; EMA is the v1.1 line. EDGE LOG records which one a score used.")
 emaLen    = input.int(200, "Moving average length", minval = 2, group = G_PT, tooltip = "The spec uses 200.")
 
@@ -106,6 +130,7 @@ const int    EARLY_LAST_MIN = 13 * 60 + 14   // spec: a listed early-close sessi
 //   HOL_FULL : no regular session. Globex may print a short stub; those bars are NOT regular-session bars, so a
 //              holiday never becomes "yesterday".
 //   HOL_EARLY: a regular session that ends with its 13:14 bar (complete at 13:14 instead of 15:59).
+// Read inside f_core (the 1-minute request): NEVER reassign them or change them anywhere in the script.
 var array<int> HOL_FULL  = array.from(20250101, 20250109, 20250120, 20250217, 20250418, 20250526, 20250619, 20250704, 20250901, 20251127, 20251225, 20260101, 20260119, 20260216, 20260403, 20260525, 20260619, 20260703, 20260907, 20261126, 20261225, 20270101, 20270118, 20270215, 20270326, 20270531, 20270618, 20270705, 20270906, 20271125, 20271224)
 var array<int> HOL_EARLY = array.from(20250703, 20251128, 20251224, 20261127, 20261224, 20271126)
 
@@ -123,6 +148,7 @@ C_MISS = input.color(color.red, "Miss color", group = G_SH, tooltip = "Colour of
 C_NA   = input.color(color.gray, "NA color", group = G_SH, tooltip = "Colour of a point that could not be scored.")
 color C_WHITE = #ffffff
 
+// Read inside f_core (the 1-minute request): never reassign these three.
 int minBars = maType == "SMA" ? emaLen : MIN_BARS
 int winStartMin = mktIn == "Stocks - today from 04:00" ? 240 : 570
 // Minute of the day at which the regular session ends (the last 4 digits of "hhmm-hhmm").
@@ -179,7 +205,7 @@ f_pos(string p) =>
         => position.top_right
 
 f_col(float h) => na(h) ? C_NA : (h > 0.5 ? C_HIT : C_MISS)
-f_score(float tot, float mx) => str.tostring(int(tot)) + "/" + str.tostring(int(mx)) + (mx < 9 ? " (" + str.tostring(int(9 - mx)) + " NA)" : "")
+f_score(float tot, float mx) => na(tot) or na(mx) ? "-" : str.tostring(int(tot)) + "/" + str.tostring(int(mx)) + (mx < 9 ? " (" + str.tostring(int(9 - mx)) + " NA)" : "")
 f_warm(string nm, float n) => nm + " " + (na(n) ? "n/a" : str.tostring(int(n))) + (not na(n) and n < minBars ? " (warming up)" : "")
 
 var array<string> KEYS = array.from("ma200_10s", "ma200_1m", "ma200_5m", "ma200_30m", "y_low", "y_close", "y_high", "big_body", "big_vol")
@@ -193,216 +219,270 @@ f_hits(array<float> hv) =>
             s += (s == "" ? "" : ",") + '"' + array.get(KEYS, i) + '"'
     s
 
-// -- Bar clock (all New York time; bars are stamped at their START) ------------
-int  nyYear   = year(time, TZ)
-int  nyMonth  = month(time, TZ)
-int  nyDay    = dayofmonth(time, TZ)
-int  minOfDay = hour(time, TZ) * 60 + minute(time, TZ)
-int  dayTs    = timestamp(TZ, nyYear, nyMonth, nyDay, 12, 0, 0)   // noon of the NY date = the date's id
-int  dayKey   = nyYear * 10000 + nyMonth * 100 + nyDay            // yyyymmdd, the key of the holiday arrays
-bool isHolDay   = array.includes(HOL_FULL, dayKey)                // a listed full holiday: no regular session
-bool isEarlyDay = array.includes(HOL_EARLY, dayKey)               // a listed early close: complete at 13:14
-// Regular-session bar: bar START in [09:30, 16:00) on a day that is NOT a listed holiday. time() tests the start
-// side; the explicit minute test guarantees the end is NOT included whatever time() does at the edge.
-bool inRegSess = not na(time(timeframe.period, regSess, TZ))      // its own line: v6 evaluates and / or lazily
-bool inRTH    = not isHolDay and inRegSess and minOfDay < sessEndMin
-// A closing bar: the 15:59 bar (end of the regular session minus one minute), or the 13:14 bar on a listed early close.
-bool isCloseBar = minOfDay == sessEndMin - 1 or (isEarlyDay and minOfDay == EARLY_LAST_MIN)
+// =============================================================================
+// f_core: the WHOLE score of one 1-minute bar (v1.3)
+// It is evaluated ONLY as the expression of the request.security(syminfo.tickerid, "1", ...) call below, so every
+// built-in in it (time, open, high, low, close, volume, bar_index) belongs to the 1-MINUTE bar, whatever the chart's
+// timeframe, and its var state (the session history, today's window, the running maxima, the 10s bar count) steps once
+// per 1-minute bar. It returns every value the chart needs, each as value[off]: off = 0 on a 1-minute chart and above,
+// off = 1 on a seconds chart (there, with lookahead_on, every chart bar carries the last CLOSED 1-minute bar).
+// Rules kept in here: "1" is written out where v1.2 used timeframe.period; no barstate.* (unreliable inside a request);
+// no name declared in here equals a global name; the globals read in here (inputs, constants, minBars, winStartMin,
+// sessEndMin, HOL_FULL / HOL_EARLY) are never reassigned anywhere.
+// Returned tuple, in order (48 values; the chart-side names are the same with an "o" in front):
+//   L points  h10L h1L h5L h30L ylL ycL yhL bbL bvL trL totL mxL
+//   S points  h10S h1S h5S h30S ylS ycS yhS bbS bvS trS totS mxS
+//   refs      ema10 ema1m ema5 ema30 refYL refYC refYH | rMbL rMvL rMbS rMvS | rYyH rYyL rYH rYL
+//   counts    n1 n10tot n5 n30
+//   signal    time open high low close of the 1-minute bar itself (time = its START, ms)
+// =============================================================================
+f_core(int off) =>
+    // -- Bar clock (all New York time; bars are stamped at their START) --------
+    int  nyYear   = year(time, TZ)
+    int  nyMonth  = month(time, TZ)
+    int  nyDay    = dayofmonth(time, TZ)
+    int  minOfDay = hour(time, TZ) * 60 + minute(time, TZ)
+    int  dayTs    = timestamp(TZ, nyYear, nyMonth, nyDay, 12, 0, 0)   // noon of the NY date = the date's id
+    int  dayKey   = nyYear * 10000 + nyMonth * 100 + nyDay            // yyyymmdd, the key of the holiday arrays
+    bool isHolDay   = array.includes(HOL_FULL, dayKey)                // a listed full holiday: no regular session
+    bool isEarlyDay = array.includes(HOL_EARLY, dayKey)               // a listed early close: complete at 13:14
+    // Regular-session bar: bar START in [09:30, 16:00) on a day that is NOT a listed holiday. time() tests the start
+    // side; the explicit minute test guarantees the end is NOT included whatever time() does at the edge.
+    bool inRegSess = not na(time("1", regSess, TZ))                   // its own line: v6 evaluates and / or lazily
+    bool inRTH    = not isHolDay and inRegSess and minOfDay < sessEndMin
+    // A closing bar: the 15:59 bar (end of the regular session minus one minute), or the 13:14 bar on a listed early close.
+    bool isCloseBar = minOfDay == sessEndMin - 1 or (isEarlyDay and minOfDay == EARLY_LAST_MIN)
 
-// -- Points 1-4: the four moving averages -------------------------------------
-float emaRaw = f_ma()
-float ema1m  = bar_index >= minBars - 1 ? emaRaw : na
+    // -- Points 1-4: the four moving averages ---------------------------------
+    float emaRaw = f_ma()
+    float ema1m  = bar_index >= minBars - 1 ? emaRaw : na
 
-// 10s: last element of the 10-second EMA array for this 1-minute bar (an empty array, e.g. no
-// trades in the minute or no 10s history that far back, gives NA). request.* calls may sit in a
-// conditional in v6 (dynamic requests are on by default). The timeframe test keeps the call from
-// running on a chart that is not above the 10s timeframe. Pine has no try/catch, so if a plan
-// without seconds timeframes makes the request itself fail, that cannot be caught from inside the
-// script - that is what the "Use 10-second data" switch above is for (off = the 10s point is NA).
-array<float> arr10 = array.new_float(0)
-if use10 and timeframe.in_seconds() > timeframe.in_seconds(tf10)
-    arr10 := request.security_lower_tf(syminfo.tickerid, tf10, f_ltf())
-int n10b = array.size(arr10)
-float ema10 = n10b > 0 ? array.get(arr10, n10b - 1) : na
-var float n10tot = 0.0
-n10tot := n10tot + n10b
+    // 10s: last element of the 10-second average array for this 1-minute bar (an empty array, e.g. no trades in the
+    // minute or no 10s history that far back, gives NA). A request nested inside the 1-minute request (v6 dynamic
+    // requests); the array is reduced to two numbers here and never returned. The timeframe test keeps the call from
+    // running unless the 10s timeframe is below 1 minute; ignore_invalid_timeframe = true turns a timeframe TradingView
+    // rejects into NA instead of an error. Pine has no try/catch, so if a plan without seconds timeframes makes the
+    // request itself fail, that cannot be caught from inside the script - that is what the "Use 10-second data" switch
+    // above is for (unticked = the 10s point is NA).
+    float ema10 = na
+    int   n10b  = 0
+    if use10 and timeframe.in_seconds(tf10) < 60
+        array<float> a10 = request.security_lower_tf(syminfo.tickerid, tf10, f_ltf(), ignore_invalid_timeframe = true)
+        n10b  := na(a10) ? 0 : array.size(a10)
+        ema10 := n10b > 0 ? array.get(a10, n10b - 1) : na
+    var float n10tot = 0.0
+    n10tot := n10tot + n10b
 
-// 5m / 30m: the bar before the one holding the signal bar, never repainting.
-[ema5, n5]   = request.security(syminfo.tickerid, tf5,  f_htf(), lookahead = barmerge.lookahead_on)
-[ema30, n30] = request.security(syminfo.tickerid, tf30, f_htf(), lookahead = barmerge.lookahead_on)
-float n1 = bar_index + 1
+    // 5m / 30m: the bar before the one holding the signal bar, never repainting.
+    [ema5, n5]   = request.security(syminfo.tickerid, tf5,  f_htf(), lookahead = barmerge.lookahead_on)
+    [ema30, n30] = request.security(syminfo.tickerid, tf30, f_htf(), lookahead = barmerge.lookahead_on)
+    float n1 = bar_index + 1
 
-// -- Points 5-7: yesterday's regular-session low / close / high ----------------
-// s0 = the most recent regular session seen, s1 = the one before, s2 = the one before that.
-// "ok"   = the session was seen from its first bar (not cut off by the start of the chart).
-// "done" = the session's LAST regular bar so far is a closing bar (15:59, or 13:14 on a listed early close). Every
-//          regular bar overwrites it, so once a session is shifted into history it says whether that session ran
-//          to its close. An incomplete session (a capture hole, an unlisted short day) is NOT skipped: its levels
-//          and the trend read NA instead of a wrong level (spec v1.1).
-var int   s0t = na
-var float s0h = na
-var float s0l = na
-var float s0c = na
-var bool  s0ok = false
-var bool  s0done = false
-var int   s1t = na
-var float s1h = na
-var float s1l = na
-var float s1c = na
-var bool  s1ok = false
-var bool  s1done = false
-var int   s2t = na
-var float s2h = na
-var float s2l = na
-var bool  s2ok = false
-var bool  s2done = false
+    // -- Points 5-7: yesterday's regular-session low / close / high ------------
+    // s0 = the most recent regular session seen, s1 = the one before, s2 = the one before that.
+    // "ok"   = the session was seen from its first bar (not cut off by the start of the loaded 1-minute history).
+    // "done" = the session's LAST regular bar so far is a closing bar (15:59, or 13:14 on a listed early close). Every
+    //          regular bar overwrites it, so once a session is shifted into history it says whether that session ran
+    //          to its close. An incomplete session (a capture hole, an unlisted short day) is NOT skipped: its levels
+    //          and the trend read NA instead of a wrong level (spec v1.1).
+    var int   s0t = na
+    var float s0h = na
+    var float s0l = na
+    var float s0c = na
+    var bool  s0ok = false
+    var bool  s0done = false
+    var int   s1t = na
+    var float s1h = na
+    var float s1l = na
+    var float s1c = na
+    var bool  s1ok = false
+    var bool  s1done = false
+    var int   s2t = na
+    var float s2h = na
+    var float s2l = na
+    var bool  s2ok = false
+    var bool  s2done = false
 
-if inRTH
-    if na(s0t) or dayTs != s0t
-        // a new regular session begins: shift the history down
-        s2t    := s1t
-        s2h    := s1h
-        s2l    := s1l
-        s2ok   := s1ok
-        s2done := s1done
-        s1t    := s0t
-        s1h    := s0h
-        s1l    := s0l
-        s1c    := s0c
-        s1ok   := s0ok
-        s1done := s0done
-        s0t    := dayTs
-        s0h    := high
-        s0l    := low
-        s0c    := close
-        s0ok   := bar_index > 0
-        s0done := isCloseBar
-    else
-        s0h    := math.max(s0h, high)
-        s0l    := math.min(s0l, low)
-        s0c    := close
-        s0done := isCloseBar
+    if inRTH
+        if na(s0t) or dayTs != s0t
+            // a new regular session begins: shift the history down
+            s2t    := s1t
+            s2h    := s1h
+            s2l    := s1l
+            s2ok   := s1ok
+            s2done := s1done
+            s1t    := s0t
+            s1h    := s0h
+            s1l    := s0l
+            s1c    := s0c
+            s1ok   := s0ok
+            s1done := s0done
+            s0t    := dayTs
+            s0h    := high
+            s0l    := low
+            s0c    := close
+            s0ok   := bar_index > 0
+            s0done := isCloseBar
+        else
+            s0h    := math.max(s0h, high)
+            s0l    := math.min(s0l, low)
+            s0c    := close
+            s0done := isCloseBar
 
-// Yesterday = the latest session on an EARLIER date than this bar's date. Before today's
-// regular session starts that is s0; once today's session has started it is s1.
-bool  tdIn0 = not na(s0t) and s0t == dayTs
-int   yT    = tdIn0 ? s1t : s0t
-float yH    = tdIn0 ? s1h : s0h
-float yL    = tdIn0 ? s1l : s0l
-float yC    = tdIn0 ? s1c : s0c
-bool  yOk   = tdIn0 ? (s1ok and s1done) : (s0ok and s0done)      // seen from its first bar AND ran to its close
-float yyH   = tdIn0 ? s2h : s1h
-float yyL   = tdIn0 ? s2l : s1l
-bool  yyOk  = tdIn0 ? (s2ok and s2done) : (s1ok and s1done)
-int   yyT   = tdIn0 ? s2t : s1t
-int   gapD  = na(yT) ? 9999 : math.round((dayTs - yT) / DAY_MS)
-int   gapYY = (na(yT) or na(yyT)) ? 9999 : math.round((yT - yyT) / DAY_MS)     // spec port: yy within 7 days of y
-bool  yValid = not na(yT) and yOk and gapD <= GAP_MAX
-float refYL = yValid ? yL : na
-float refYC = yValid ? yC : na
-float refYH = yValid ? yH : na
+    // Yesterday = the latest session on an EARLIER date than this bar's date. Before today's
+    // regular session starts that is s0; once today's session has started it is s1.
+    bool  tdIn0 = not na(s0t) and s0t == dayTs
+    int   yT    = tdIn0 ? s1t : s0t
+    float yH    = tdIn0 ? s1h : s0h
+    float yL    = tdIn0 ? s1l : s0l
+    float yC    = tdIn0 ? s1c : s0c
+    bool  yOk   = tdIn0 ? (s1ok and s1done) : (s0ok and s0done)      // seen from its first bar AND ran to its close
+    float yyH   = tdIn0 ? s2h : s1h
+    float yyL   = tdIn0 ? s2l : s1l
+    bool  yyOk  = tdIn0 ? (s2ok and s2done) : (s1ok and s1done)
+    int   yyT   = tdIn0 ? s2t : s1t
+    int   gapD  = na(yT) ? 9999 : math.round((dayTs - yT) / DAY_MS)
+    int   gapYY = (na(yT) or na(yyT)) ? 9999 : math.round((yT - yyT) / DAY_MS)     // spec port: yy within 7 days of y
+    bool  yValid = not na(yT) and yOk and gapD <= GAP_MAX
+    float refYL = yValid ? yL : na
+    float refYC = yValid ? yC : na
+    float refYH = yValid ? yH : na
 
-// -- Points 8-9: largest body / volume since today's low (long) or high (short) -
-// Today window: this New York date, bar start >= 09:30 (futures) or 04:00 (stocks), no end.
-bool inWin = minOfDay >= winStartMin
-var int  winT  = na
-var bool winOk = false
-bool winNew = inWin and (na(winT) or winT != dayTs)
-if winNew
-    winT  := dayTs
-    // a window that began on the very first loaded bar may have lost its real start: NA
-    winOk := bar_index > 0
-bool winUse = inWin and winOk
+    // -- Points 8-9: largest body / volume since today's low (long) or high (short) -
+    // Today window: this New York date, bar start >= 09:30 (futures) or 04:00 (stocks), no end.
+    bool inWin = minOfDay >= winStartMin
+    var int  winT  = na
+    var bool winOk = false
+    bool winNew = inWin and (na(winT) or winT != dayTs)
+    if winNew
+        winT  := dayTs
+        // a window that began on the very first loaded 1-minute bar may have lost its real start: NA
+        winOk := bar_index > 0
+    bool winUse = inWin and winOk
 
-float body = math.abs(close - open)
-float vol  = nz(volume)
+    float body = math.abs(close - open)
+    float vol  = nz(volume)
 
-var float runLow  = na
-var float mbL     = na
-var float mvL     = na
-var float runHigh = na
-var float mbS     = na
-var float mvS     = na
+    var float runLow  = na
+    var float mbL     = na
+    var float mvL     = na
+    var float runHigh = na
+    var float mbS     = na
+    var float mvS     = na
 
-if inWin
-    // long: a bar whose low <= the running low restarts the window at that bar
-    if winNew or low <= runLow
-        runLow := low
-        mbL    := body
-        mvL    := vol
-    else
-        mbL := math.max(mbL, body)
-        mvL := math.max(mvL, vol)
-    // short: a bar whose high >= the running high restarts the window at that bar
-    if winNew or high >= runHigh
-        runHigh := high
-        mbS     := body
-        mvS     := vol
-    else
-        mbS := math.max(mbS, body)
-        mvS := math.max(mvS, vol)
+    if inWin
+        // long: a bar whose low <= the running low restarts the window at that bar
+        if winNew or low <= runLow
+            runLow := low
+            mbL    := body
+            mvL    := vol
+        else
+            mbL := math.max(mbL, body)
+            mvL := math.max(mvL, vol)
+        // short: a bar whose high >= the running high restarts the window at that bar
+        if winNew or high >= runHigh
+            runHigh := high
+            mbS     := body
+            mvS     := vol
+        else
+            mbS := math.max(mbS, body)
+            mvS := math.max(mvS, vol)
 
-float bbL = na
-float bvL = na
-float bbS = na
-float bvS = na
-if winUse
-    bbL := (close > open and body >= mbL) ? 1.0 : 0.0
-    bvL := mvL > 0 ? (vol >= mvL ? 1.0 : 0.0) : na
-    bbS := (close < open and body >= mbS) ? 1.0 : 0.0
-    bvS := mvS > 0 ? (vol >= mvS ? 1.0 : 0.0) : na
+    float bbL = na
+    float bvL = na
+    float bbS = na
+    float bvS = na
+    if winUse
+        bbL := (close > open and body >= mbL) ? 1.0 : 0.0
+        bvL := mvL > 0 ? (vol >= mvL ? 1.0 : 0.0) : na
+        bbS := (close < open and body >= mbS) ? 1.0 : 0.0
+        bvS := mvS > 0 ? (vol >= mvS ? 1.0 : 0.0) : na
 
-// -- The points, both sides ----------------------------------------------------
-float h10L = f_ab(close, ema10,  true)
-float h1L  = f_ab(close, ema1m,  true)
-float h5L  = f_ab(close, ema5,   true)
-float h30L = f_ab(close, ema30,  true)
-float ylL  = f_ab(close, refYL,  true)
-float ycL  = f_ab(close, refYC,  true)
-float yhL  = f_ab(close, refYH,  true)
+    // -- The points, both sides -----------------------------------------------
+    float h10L = f_ab(close, ema10,  true)
+    float h1L  = f_ab(close, ema1m,  true)
+    float h5L  = f_ab(close, ema5,   true)
+    float h30L = f_ab(close, ema30,  true)
+    float ylL  = f_ab(close, refYL,  true)
+    float ycL  = f_ab(close, refYC,  true)
+    float yhL  = f_ab(close, refYH,  true)
 
-float h10S = f_ab(close, ema10,  false)
-float h1S  = f_ab(close, ema1m,  false)
-float h5S  = f_ab(close, ema5,   false)
-float h30S = f_ab(close, ema30,  false)
-float ylS  = f_ab(close, refYL,  false)
-float ycS  = f_ab(close, refYC,  false)
-float yhS  = f_ab(close, refYH,  false)
+    float h10S = f_ab(close, ema10,  false)
+    float h1S  = f_ab(close, ema1m,  false)
+    float h5S  = f_ab(close, ema5,   false)
+    float h30S = f_ab(close, ema30,  false)
+    float ylS  = f_ab(close, refYL,  false)
+    float ycS  = f_ab(close, refYC,  false)
+    float yhS  = f_ab(close, refYH,  false)
 
-// Trend (separate): yesterday's high AND low vs the day before's.
-bool trValid = yValid and yyOk and gapYY <= GAP_MAX and not na(yyH) and not na(yyL)
-float trL = trValid ? ((yH > yyH and yL > yyL) ? 1.0 : 0.0) : na
-float trS = trValid ? ((yH < yyH and yL < yyL) ? 1.0 : 0.0) : na
+    // Trend (separate): yesterday's high AND low vs the day before's.
+    bool trValid = yValid and yyOk and gapYY <= GAP_MAX and not na(yyH) and not na(yyL)
+    float trL = trValid ? ((yH > yyH and yL > yyL) ? 1.0 : 0.0) : na
+    float trS = trValid ? ((yH < yyH and yL < yyL) ? 1.0 : 0.0) : na
 
-float totL = nz(h10L) + nz(h1L) + nz(h5L) + nz(h30L) + nz(ylL) + nz(ycL) + nz(yhL) + nz(bbL) + nz(bvL)
-float mxL  = f_cnt(h10L) + f_cnt(h1L) + f_cnt(h5L) + f_cnt(h30L) + f_cnt(ylL) + f_cnt(ycL) + f_cnt(yhL) + f_cnt(bbL) + f_cnt(bvL)
-float totS = nz(h10S) + nz(h1S) + nz(h5S) + nz(h30S) + nz(ylS) + nz(ycS) + nz(yhS) + nz(bbS) + nz(bvS)
-float mxS  = f_cnt(h10S) + f_cnt(h1S) + f_cnt(h5S) + f_cnt(h30S) + f_cnt(ylS) + f_cnt(ycS) + f_cnt(yhS) + f_cnt(bbS) + f_cnt(bvS)
+    float totL = nz(h10L) + nz(h1L) + nz(h5L) + nz(h30L) + nz(ylL) + nz(ycL) + nz(yhL) + nz(bbL) + nz(bvL)
+    float mxL  = f_cnt(h10L) + f_cnt(h1L) + f_cnt(h5L) + f_cnt(h30L) + f_cnt(ylL) + f_cnt(ycL) + f_cnt(yhL) + f_cnt(bbL) + f_cnt(bvL)
+    float totS = nz(h10S) + nz(h1S) + nz(h5S) + nz(h30S) + nz(ylS) + nz(ycS) + nz(yhS) + nz(bbS) + nz(bvS)
+    float mxS  = f_cnt(h10S) + f_cnt(h1S) + f_cnt(h5S) + f_cnt(h30S) + f_cnt(ylS) + f_cnt(ycS) + f_cnt(yhS) + f_cnt(bbS) + f_cnt(bvS)
 
-// Which side the labels / alerts follow.
-bool  isLongSide = sideIn == "Long" or (sideIn == "Auto" and close >= open)
-float autoTot    = isLongSide ? totL : totS
-float autoMax    = isLongSide ? mxL : mxS
+    // Reference values shown in the table (NA where the point itself is NA).
+    float rMbL = winUse ? mbL : na
+    float rMvL = winUse ? mvL : na
+    float rMbS = winUse ? mbS : na
+    float rMvS = winUse ? mvS : na
+    float rYyH = trValid ? yyH : na
+    float rYyL = trValid ? yyL : na
+    float rYH  = trValid ? yH : na
+    float rYL  = trValid ? yL : na
 
-array<float> curL = array.from(h10L, h1L, h5L, h30L, ylL, ycL, yhL, bbL, bvL, trL, totL, mxL)
-array<float> curS = array.from(h10S, h1S, h5S, h30S, ylS, ycS, yhS, bbS, bvS, trS, totS, mxS)
-array<float> curR = array.from(ema10, ema1m, ema5, ema30, refYL, refYC, refYH, winUse ? mbL : na, winUse ? mvL : na, winUse ? mbS : na, winUse ? mvS : na, trValid ? yyH : na, trValid ? yyL : na, close)
-array<float> curN = array.from(n1, n10tot, n5, n30, trValid ? yH : na, trValid ? yL : na, isLongSide ? 1.0 : 0.0)
+    [h10L[off], h1L[off], h5L[off], h30L[off], ylL[off], ycL[off], yhL[off], bbL[off], bvL[off], trL[off], totL[off], mxL[off], h10S[off], h1S[off], h5S[off], h30S[off], ylS[off], ycS[off], yhS[off], bbS[off], bvS[off], trS[off], totS[off], mxS[off], ema10[off], ema1m[off], ema5[off], ema30[off], refYL[off], refYC[off], refYH[off], rMbL[off], rMvL[off], rMbS[off], rMvS[off], rYyH[off], rYyL[off], rYH[off], rYL[off], n1[off], n10tot[off], n5[off], n30[off], time[off], open[off], high[off], low[off], close[off]]
 
-// -- Snapshot of the LAST CLOSED bar (the table reads this) --------------------
-// Assigned only when the bar is confirmed, so on a live chart the table keeps showing the
-// last closed bar while the current bar forms.
+// -- The score, always from 1-MINUTE bars (v1.3) -------------------------------
+// ONE request. On a 1-minute chart it is a same-timeframe request (off = 0, lookahead_off): the values of v1.2.
+// On a seconds chart it is the standard non-repainting idiom (off = 1 + lookahead_on): every chart bar inside minute
+// M+1 carries minute M, the last CLOSED 1-minute bar. Above 1 minute (off = 0, lookahead_off) each chart bar carries
+// the last 1-minute bar inside it.
+// secChart sets the lookahead (an argument, evaluated on the chart). sigOff is part of the requested expression, and
+// the code a request depends on is re-run in the requested context, where timeframe.period would read "1" - so
+// sigOff reads timeframe.main_period, which is always the chart's own timeframe.
+bool secChart = timeframe.in_seconds() < 60
+int  sigOff   = timeframe.in_seconds(timeframe.main_period) < 60 ? 1 : 0
+[oH10L, oH1L, oH5L, oH30L, oYlL, oYcL, oYhL, oBbL, oBvL, oTrL, oTotL, oMxL, oH10S, oH1S, oH5S, oH30S, oYlS, oYcS, oYhS, oBbS, oBvS, oTrS, oTotS, oMxS, oEma10, oEma1m, oEma5, oEma30, oRefYL, oRefYC, oRefYH, oMbL, oMvL, oMbS, oMvS, oYyH, oYyL, oYH, oYL, oN1, oN10, oN5, oN30, oSigT, oSigO, oSigH, oSigL, oSigC] = request.security(syminfo.tickerid, "1", f_core(sigOff), lookahead = secChart ? barmerge.lookahead_on : barmerge.lookahead_off)
+
+// A new signal bar: the 1-minute bar this chart bar carries is not the one the previous chart bar carried. On a
+// 1-minute chart that is every bar; on a seconds chart it is the first chart bar after each minute closes.
+bool newSig = not na(oSigT) and (na(oSigT[1]) or oSigT != oSigT[1])
+
+// Above 1 minute, at a live chart bar's close the lower-timeframe request returns "the last available value", which
+// may already be the next minute's first tick. So the snapshot, labels and alerts only take a 1-minute bar that lies
+// inside the chart bar (a skipped chart bar gets none rather than a wrong one). Always true on a 1-minute chart
+// (time_close = time + 1 minute) and on a seconds chart (it carries a closed earlier minute).
+bool sigInBar = secChart or na(time_close) or na(oSigT) or oSigT + 60000 <= time_close
+
+// Which side the labels / alerts follow (Auto: the 1-minute signal bar closed up = long).
+bool  isLongSide = sideIn == "Long" or (sideIn == "Auto" and oSigC >= oSigO)
+float autoTot    = isLongSide ? oTotL : oTotS
+float autoMax    = isLongSide ? oMxL : oMxS
+
+array<float> curL = array.from(oH10L, oH1L, oH5L, oH30L, oYlL, oYcL, oYhL, oBbL, oBvL, oTrL, oTotL, oMxL)
+array<float> curS = array.from(oH10S, oH1S, oH5S, oH30S, oYlS, oYcS, oYhS, oBbS, oBvS, oTrS, oTotS, oMxS)
+array<float> curR = array.from(oEma10, oEma1m, oEma5, oEma30, oRefYL, oRefYC, oRefYH, oMbL, oMvL, oMbS, oMvS, oYyH, oYyL, oSigC)
+array<float> curN = array.from(oN1, oN10, oN5, oN30, oYH, oYL, isLongSide ? 1.0 : 0.0)
+
+// -- Snapshot of the LAST CLOSED chart bar (the table reads this) ---------------
+// Assigned only when the chart bar is confirmed, so on a live chart the table keeps showing the
+// 1-minute bar of the last closed chart bar while the current chart bar forms.
 var array<float> snapL = array.new_float(12, na)
 var array<float> snapS = array.new_float(12, na)
 var array<float> snapR = array.new_float(14, na)
 var array<float> snapN = array.new_float(7, na)
 var int snapT = na
-if barstate.isconfirmed
+if barstate.isconfirmed and sigInBar
     snapL := curL
     snapS := curS
     snapR := curR
     snapN := curN
-    snapT := time
+    snapT := oSigT
 
 // -- Short names (compact table, labels, tooltips) ----------------------------
 var array<string> CMP = array.from("10s", "1m", "5m", "30m", "Y-L", "Y-C", "Y-H", "Body", "Vol")
@@ -429,88 +509,91 @@ f_tip(array<float> hv, bool isL) =>
     (isL ? "LONG " : "SHORT ") + f_sc(array.get(hv, 10), array.get(hv, 11)) + " (" + maType + ")\nHit: " + (h == "" ? "none" : h) + "\nMiss: " + (m == "" ? "none" : m) + (n == "" ? "" : "\nNA: " + n) + "\nTrend (not in the score): " + trTxt
 
 // -- Labels --------------------------------------------------------------------
-if showLbl and barstate.isconfirmed and autoTot >= labThr
+// Once per 1-minute signal bar (newSig), on the close of the chart bar that first carries it.
+if showLbl and barstate.isconfirmed and newSig and sigInBar and autoTot >= labThr
     string lblTxt = f_sc(autoTot, autoMax) + (isLongSide ? " L" : " S")
-    string lblTip = f_tip(isLongSide ? curL : curS, isLongSide)
+    string lblTip = f_tip(isLongSide ? curL : curS, isLongSide) + (timeframe.period == "1" ? "" : "\n1m bar " + str.format_time(oSigT, "yyyy-MM-dd HH:mm", TZ) + " NY")
     if isLongSide
-        label.new(bar_index, high, lblTxt, style = label.style_label_down, color = color.new(#e6e6e6, 15), textcolor = #101318, size = size.small, tooltip = lblTip)
+        label.new(bar_index, math.max(high, oSigH), lblTxt, style = label.style_label_down, color = color.new(#e6e6e6, 15), textcolor = #101318, size = size.small, tooltip = lblTip)
     else
-        label.new(bar_index, low, lblTxt, style = label.style_label_up, color = color.new(#6b7078, 15), textcolor = #ffffff, size = size.small, tooltip = lblTip)
+        label.new(bar_index, math.min(low, oSigL), lblTxt, style = label.style_label_up, color = color.new(#6b7078, 15), textcolor = #ffffff, size = size.small, tooltip = lblTip)
 
 // -- Alerts --------------------------------------------------------------------
-// alertcondition: static text, for the classic alert dialog (one per side). Gated with barstate.isconfirmed so it
-// can only be true on the CLOSE of a bar (the signal bar S of the spec), never on a still-forming candle, whatever
-// frequency the alert dialog is set to.
-alertcondition(barstate.isconfirmed and isLongSide and totL >= altThr, title = "Point Score LONG at or above threshold", message = "EDGELOG Point Score: LONG score at or above the alert threshold on {{ticker}} ({{interval}})")
-alertcondition(barstate.isconfirmed and not isLongSide and totS >= altThr, title = "Point Score SHORT at or above threshold", message = "EDGELOG Point Score: SHORT score at or above the alert threshold on {{ticker}} ({{interval}})")
+// alertcondition: static text, for the classic alert dialog (one per side). Gated with barstate.isconfirmed, newSig and
+// sigInBar so it can only be true once per 1-minute signal bar S of the spec, on the CLOSE of the chart bar that first
+// carries it (on a 1-minute chart: the close of S itself), never on a still-forming candle, whatever frequency the
+// alert dialog is set to.
+alertcondition(barstate.isconfirmed and newSig and sigInBar and isLongSide and oTotL >= altThr, title = "Point Score LONG at or above threshold", message = "EDGELOG Point Score: LONG score at or above the alert threshold on {{ticker}} ({{interval}})")
+alertcondition(barstate.isconfirmed and newSig and sigInBar and not isLongSide and oTotS >= altThr, title = "Point Score SHORT at or above threshold", message = "EDGELOG Point Score: SHORT score at or above the alert threshold on {{ticker}} ({{interval}})")
 
-// alert(): one message per closed bar with the score and the list of hit points.
-if barstate.isconfirmed and autoTot >= altThr
+// alert(): one message per 1-minute signal bar with the score and the list of hit points; bar_time_ny = that 1-minute bar.
+if barstate.isconfirmed and newSig and sigInBar and autoTot >= altThr
     array<float> autoHv = isLongSide ? curL : curS
     string sideTxt = isLongSide ? "LONG" : "SHORT"
-    string alertMsg = '{"symbol":"' + syminfo.tickerid + '","bar_time_ny":"' + str.format_time(time, "yyyy-MM-dd HH:mm", TZ) + '","side":"' + sideTxt + '","score":"' + str.tostring(int(autoTot)) + "/" + str.tostring(int(autoMax)) + '","hits":[' + f_hits(autoHv) + ']}'
+    string alertMsg = '{"symbol":"' + syminfo.tickerid + '","bar_time_ny":"' + str.format_time(oSigT, "yyyy-MM-dd HH:mm", TZ) + '","side":"' + sideTxt + '","score":"' + str.tostring(int(autoTot)) + "/" + str.tostring(int(autoMax)) + '","hits":[' + f_hits(autoHv) + ']}'
     alert(alertMsg, alert.freq_once_per_bar_close)
 
 // -- Data-window plots: the parity export ---------------------------------------
 // display.data_window = not drawn on the chart, present in the Data Window and in
-// Export chart data. 1 = hit, 0 = miss, na = not available.
-plot(h10L, title = "L ma200_10s", display = display.data_window)
-plot(h1L,  title = "L ma200_1m",  display = display.data_window)
-plot(h5L,  title = "L ma200_5m",  display = display.data_window)
-plot(h30L, title = "L ma200_30m", display = display.data_window)
-plot(ylL,  title = "L y_low",     display = display.data_window)
-plot(ycL,  title = "L y_close",   display = display.data_window)
-plot(yhL,  title = "L y_high",    display = display.data_window)
-plot(bbL,  title = "L big_body",  display = display.data_window)
-plot(bvL,  title = "L big_vol",   display = display.data_window)
-plot(trL,  title = "L trend",     display = display.data_window)
-plot(totL, title = "L total",     display = display.data_window)
-plot(mxL,  title = "L max",       display = display.data_window)
+// Export chart data. 1 = hit, 0 = miss, na = not available. Export from a 1-minute pane.
+plot(oH10L, title = "L ma200_10s", display = display.data_window)
+plot(oH1L,  title = "L ma200_1m",  display = display.data_window)
+plot(oH5L,  title = "L ma200_5m",  display = display.data_window)
+plot(oH30L, title = "L ma200_30m", display = display.data_window)
+plot(oYlL,  title = "L y_low",     display = display.data_window)
+plot(oYcL,  title = "L y_close",   display = display.data_window)
+plot(oYhL,  title = "L y_high",    display = display.data_window)
+plot(oBbL,  title = "L big_body",  display = display.data_window)
+plot(oBvL,  title = "L big_vol",   display = display.data_window)
+plot(oTrL,  title = "L trend",     display = display.data_window)
+plot(oTotL, title = "L total",     display = display.data_window)
+plot(oMxL,  title = "L max",       display = display.data_window)
 
-plot(h10S, title = "S ma200_10s", display = display.data_window)
-plot(h1S,  title = "S ma200_1m",  display = display.data_window)
-plot(h5S,  title = "S ma200_5m",  display = display.data_window)
-plot(h30S, title = "S ma200_30m", display = display.data_window)
-plot(ylS,  title = "S y_low",     display = display.data_window)
-plot(ycS,  title = "S y_close",   display = display.data_window)
-plot(yhS,  title = "S y_high",    display = display.data_window)
-plot(bbS,  title = "S big_body",  display = display.data_window)
-plot(bvS,  title = "S big_vol",   display = display.data_window)
-plot(trS,  title = "S trend",     display = display.data_window)
-plot(totS, title = "S total",     display = display.data_window)
-plot(mxS,  title = "S max",       display = display.data_window)
+plot(oH10S, title = "S ma200_10s", display = display.data_window)
+plot(oH1S,  title = "S ma200_1m",  display = display.data_window)
+plot(oH5S,  title = "S ma200_5m",  display = display.data_window)
+plot(oH30S, title = "S ma200_30m", display = display.data_window)
+plot(oYlS,  title = "S y_low",     display = display.data_window)
+plot(oYcS,  title = "S y_close",   display = display.data_window)
+plot(oYhS,  title = "S y_high",    display = display.data_window)
+plot(oBbS,  title = "S big_body",  display = display.data_window)
+plot(oBvS,  title = "S big_vol",   display = display.data_window)
+plot(oTrS,  title = "S trend",     display = display.data_window)
+plot(oTotS, title = "S total",     display = display.data_window)
+plot(oMxS,  title = "S max",       display = display.data_window)
 
-plot(ema10, title = "R ema10s", display = display.data_window)
-plot(ema1m, title = "R ema1m",  display = display.data_window)
-plot(ema5,  title = "R ema5m",  display = display.data_window)
-plot(ema30, title = "R ema30m", display = display.data_window)
-plot(refYL, title = "R y_low",   display = display.data_window)
-plot(refYC, title = "R y_close", display = display.data_window)
-plot(refYH, title = "R y_high",  display = display.data_window)
+plot(oEma10, title = "R ema10s", display = display.data_window)
+plot(oEma1m, title = "R ema1m",  display = display.data_window)
+plot(oEma5,  title = "R ema5m",  display = display.data_window)
+plot(oEma30, title = "R ema30m", display = display.data_window)
+plot(oRefYL, title = "R y_low",   display = display.data_window)
+plot(oRefYC, title = "R y_close", display = display.data_window)
+plot(oRefYH, title = "R y_high",  display = display.data_window)
 
 // Extra reference columns for debugging a parity miss (not part of the spec's record).
-plot(winUse ? mbL : na, title = "R maxbody_L", display = display.data_window)
-plot(winUse ? mvL : na, title = "R maxvol_L",  display = display.data_window)
-plot(winUse ? mbS : na, title = "R maxbody_S", display = display.data_window)
-plot(winUse ? mvS : na, title = "R maxvol_S",  display = display.data_window)
-plot(n1,     title = "R n_1m",  display = display.data_window)
-plot(n10tot, title = "R n_10s", display = display.data_window)
-plot(n5,     title = "R n_5m",  display = display.data_window)
-plot(n30,    title = "R n_30m", display = display.data_window)
+plot(oMbL, title = "R maxbody_L", display = display.data_window)
+plot(oMvL, title = "R maxvol_L",  display = display.data_window)
+plot(oMbS, title = "R maxbody_S", display = display.data_window)
+plot(oMvS, title = "R maxvol_S",  display = display.data_window)
+plot(oN1,  title = "R n_1m",  display = display.data_window)
+plot(oN10, title = "R n_10s", display = display.data_window)
+plot(oN5,  title = "R n_5m",  display = display.data_window)
+plot(oN30, title = "R n_30m", display = display.data_window)
+// v1.3: the START of the 1-minute bar this row carries (ms since 1970, UTC), to map an export from another pane.
+plot(oSigT, title = "R signal_1m_time", display = display.data_window)
 
-// -- Table: the LAST CLOSED bar -------------------------------------------------
+// -- Table: the 1-minute bar of the LAST CLOSED chart bar --------------------------
 var table tb = table.new(f_pos(tblPos), 6, 15, bgcolor = C_BG, border_color = C_BORD, border_width = 1, frame_color = C_BORD, frame_width = 1)
 if barstate.islast
     float snapSide = array.get(snapN, 6)
     bool  snapLong = snapSide > 0.5
     array<float> sv = snapLong ? snapL : snapS
-    string oneMin = timeframe.period != "1" ? " (1m only!)" : ""
     if layout == "Compact"
         // row 0: MA + the four averages, then the side and the score; row 1: yesterday's levels, body, volume, trend
         table.cell(tb, 0, 0, "MA", text_color = C_DIM, text_size = size.small, bgcolor = C_HDR)
         for k = 0 to 3
             table.cell(tb, 1 + k, 0, array.get(CMP, k), text_color = C_WHITE, text_size = size.small, bgcolor = f_col(array.get(sv, k)))
-        table.cell(tb, 5, 0, (snapLong ? "L " : "S ") + f_sc(array.get(sv, 10), array.get(sv, 11)) + oneMin, text_color = C_WHITE, text_size = size.small, bgcolor = C_HDR, tooltip = f_tip(sv, snapLong))
+        table.cell(tb, 5, 0, (snapLong ? "L " : "S ") + f_sc(array.get(sv, 10), array.get(sv, 11)), text_color = C_WHITE, text_size = size.small, bgcolor = C_HDR, tooltip = f_tip(sv, snapLong))
         for k = 4 to 8
             table.cell(tb, k - 4, 1, array.get(CMP, k), text_color = C_WHITE, text_size = size.small, bgcolor = f_col(array.get(sv, k)))
         if showTrend
@@ -519,21 +602,23 @@ if barstate.islast
         float tot = array.get(sv, 10)
         float mx  = array.get(sv, 11)
         color bc  = na(tot) or na(mx) ? C_NA : (tot >= labThr ? C_HIT : (mx > 0 and tot / mx < 0.5 ? C_MISS : C_NA))
-        table.cell(tb, 0, 0, f_sc(tot, mx) + (snapLong ? " L" : " S") + oneMin, text_color = C_WHITE, text_size = size.normal, bgcolor = bc, tooltip = f_tip(sv, snapLong))
+        table.cell(tb, 0, 0, f_sc(tot, mx) + (snapLong ? " L" : " S"), text_color = C_WHITE, text_size = size.normal, bgcolor = bc, tooltip = f_tip(sv, snapLong))
         if showTrend
             table.cell(tb, 1, 0, "trend", text_color = C_WHITE, text_size = size.tiny, bgcolor = f_col(array.get(sv, 9)))
     else
-        // row 0: title, bar time, close
-        string hdrTxt = "POINT SCORE  " + (na(snapT) ? "(no closed bar yet)" : str.format_time(snapT, "yyyy-MM-dd HH:mm", TZ) + " NY") + "   C " + f_px(array.get(snapR, 13))
+        // row 0: title, the 1-minute signal bar's time, close
+        string hdrTxt = "POINT SCORE  " + (na(snapT) ? "(no closed bar yet)" : str.format_time(snapT, "yyyy-MM-dd HH:mm", TZ) + " NY, 1m bar") + "   C " + f_px(array.get(snapR, 13))
         table.cell(tb, 0, 0, hdrTxt, text_color = C_TXT, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
         table.cell(tb, 1, 0, "", bgcolor = C_HDR)
         table.cell(tb, 2, 0, "", bgcolor = C_HDR)
         table.cell(tb, 3, 0, "", bgcolor = C_HDR)
         table.merge_cells(tb, 0, 0, 3, 0)
 
-        // row 1: warning when the chart is not 1-minute, else which side Auto picked
-        string noteTxt = timeframe.period != "1" ? "WARNING: Point Score is defined on 1-minute bars (this chart is " + timeframe.period + ")" : (sideIn == "Auto" ? "Auto side: " + (snapLong ? "LONG (bar closed up)" : "SHORT (bar closed down)") : "Forced side: " + (snapLong ? "LONG" : "SHORT"))
-        table.cell(tb, 0, 1, noteTxt, text_color = timeframe.period != "1" ? C_WHITE : C_DIM, text_halign = text.align_left, text_size = size.small)
+        // row 1: which side Auto picked (or the forced side); on a chart that is not 1-minute, also that it scores 1-minute bars
+        string sideNote = sideIn == "Auto" ? "Auto side: " + (snapLong ? "LONG (bar closed up)" : "SHORT (bar closed down)") : "Forced side: " + (snapLong ? "LONG" : "SHORT")
+        string tfName = timeframe.isseconds ? str.tostring(timeframe.multiplier) + "-second" : timeframe.isminutes ? str.tostring(timeframe.multiplier) + "-minute" : timeframe.isdaily ? str.tostring(timeframe.multiplier) + "-day" : timeframe.isweekly ? str.tostring(timeframe.multiplier) + "-week" : timeframe.ismonthly ? str.tostring(timeframe.multiplier) + "-month" : timeframe.period
+        string noteTxt = timeframe.period == "1" ? sideNote : sideNote + " - scored on 1-minute bars (this is a " + tfName + " chart)"
+        table.cell(tb, 0, 1, noteTxt, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
         table.cell(tb, 1, 1, "")
         table.cell(tb, 2, 1, "")
         table.cell(tb, 3, 1, "")

@@ -1,4 +1,9 @@
-# POINT SCORE - spec v1.2 (`ps1.2`)
+# POINT SCORE - spec v1.3 (Pine) / records `ps1.2`
+
+**v1.3 (2026-10-06, Pine only):** the score's definition is unchanged, so records keep `v: 'ps1.2'`. The Pine
+indicator now computes the whole score from 1-minute bars on any chart timeframe (1-minute, 10-second,
+5-minute ...). Its signal bar is still the last closed 1-minute bar, so a 10-second pane shows the same score as
+the 1-minute pane. The parity export (section 6) is still taken from a 1-minute pane.
 
 **v1.2 (2026-10-02, owner correction):** the four "200" lines are a plain **moving average (SMA)** by
 default. The EMA of v1.1 stays available as a setting (`ma = 'sma' | 'ema'`), and every record says which it
@@ -13,8 +18,9 @@ is wrong.
 
 ## 1. The signal bar
 
-- **Timeframe:** 1 minute (the owner's default for his futures trades). `tf` is a parameter, but only `1m`
-  is supported in v1.
+- **Timeframe:** 1 minute (the owner's default for his futures trades). `tf` is a parameter, but only a `1m`
+  signal bar is supported in v1. The chart it is viewed on can be any timeframe: the Pine (v1.3) always scores
+  1-minute bars.
 - **Signal bar S:** the last CLOSED 1-minute bar before the entry fill.
   - S.start = floor(fill, 1 min) − 1 min.
   - A fill at 09:32:21 gives S = the 09:31 bar, which closes at 09:32:00.
@@ -38,8 +44,8 @@ timeframe.**
     timeframe up to and including the reference bar, else NA.
 - **Futures bars:** 24-hour bars.
 - **Reference bar** for each timeframe:
-  - **1m:** S itself, so the average includes C. (Pine: `ta.sma(close,200)` / `ta.ema(close,200)` on the
-    1-minute chart.)
+  - **1m:** S itself, so the average includes C. (Pine: `ta.sma(close,200)` / `ta.ema(close,200)` on
+    1-minute bars (v1.3: on any chart timeframe).)
   - **10s:** the last 10-second bar ending at t_close; its close is C. (Pine: the last element of
     `request.security_lower_tf(..., "10S", <average>)`.)
   - **5m / 30m:** the bar BEFORE the one containing S.start. For S = 09:31, that is the 5m bar starting
