@@ -1,0 +1,512 @@
+BALANCE r1 STAGE A (run) - prereg sha256(LF) efecf07f925e5270; sections 3/6/8 db495f4dcbab5f81 (pinned; CHANGED since GO)
+  Auto-Validate space (declared, AMENDMENT 0 item 6): stretch_12ths int 6..9 step 1; last_fill_min int 330..360 step 30 = 8 configs, window pinned to WF, 900 trials, lockbox veto-only; default = the passing cell's stretch, last fill 360 (15:30)
+  cut NOISE422                    4503 rows kept,   344 dropped (on or after 2025-06-30)
+  master NQ: id 37 NOADJ_NQ_5m_RTH.csv (db_noadj_rth), 297235 bars, 3868 sessions, 2010-06-07 09:30:00 .. 2025-06-27 15:55:00
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816 (93.81 / 3.816); index 2626 rows, 280 UTC-Sunday, years 8.9938
+  L = #463 + 0.264 x RES parity: ROC@30k 120.82  Sortino 3.916 (120.82 / 3.916); RES book_mtm max |diff| $0.0000
+  R: 762 days in 45 episodes (sha pinned; = a2.json union); #463 drawdown days 460 in 28 episodes
+  NOISE #304 parity (NOISE_1_0 + _FROZEN on master 37): 2797 of 2797 WF trades matched NOISE422_raw_trades.csv; band / VWAP at 5594 decision bars, max |diff| 0; eligible first break = #304's first entry on 3868 of 3868 sessions, 0 mismatches
+  rolls NQ: 61 switches to the cut (36 in WF), 61 roll sessions (36 in WF)
+  cut NOISE382                    4503 rows kept,   344 dropped (on or after 2025-06-30)
+  cut NOISE422                    4503 rows kept,   344 dropped (on or after 2025-06-30)
+  cut ORB314                      2115 rows kept,   184 dropped (on or after 2025-06-30)
+  cut ENGUQ335                    1215 rows kept,   129 dropped (on or after 2025-06-30)
+    ENGUQ335: 1 trade(s) entered on or before 2025-06-29 and exited after it - dropped (the exit is lockbox information)
+
+POWER LINES (coin-flip sides on B1's real WF schedule, 531 trades; seed 20261006; block 20, 1000 draws, seed 20261005)
+  #463 + c x coin vs #463            x2.716 NQ: SD of the ROC@$30k lead 17.83; 5% line 29.33; 80% line 44.34
+  #463 + $30k-twin x coin vs #463    x2.025 NQ: SD of the ROC@$30k lead 14.69; 5% line 24.16; 80% line 36.53
+  L + c x coin vs L                  x2.716 NQ: SD of the ROC@$30k lead 17.26; 5% line 28.39; 80% line 42.93
+FAMILY NULL (B1 + B2, 1000 draws, one rng seed 20261006, B1 then B2 per draw; trade net = coin x gross $ - cost)
+  p95 of the family max: t 1.739; R-sum $25,402; own ROC@$30k 9.46 (report). Null SD of B1's R-sum $14,885
+  (the power coin equals the null's first B1 draw: same seed, same first call - documented, harmless)
+  (recomputed and equal to power.json)
+
+CELLS (WF 2016-07-01 .. 2025-06-29, 1 NQ, house cost 0.533; stress 1.533)
+  B1       n   531 ( 59.0/yr)  net    $16,780  PF 1.081  DD   $29,531  own ROC@$30k   1.90  Sortino  0.33  t  0.66  R-sum   $16,566  R-sum ex-3      $907  gross 2.113 pt/trade  years + 3/9  stress net     $6,160  EARLY net    -$6,239 (n 385, own ROC@$30k -4.02)  PRIMARY
+           per July-June year: 2016-17 n 53 -$45, 2017-18 n 63 -$1,827, 2018-19 n 43 -$543, 2019-20 n 70 -$3,616, 2020-21 n 62 -$1,811, 2021-22 n 49 -$10,982, 2022-23 n 70 $14,314, 2023-24 n 59 $9,651, 2024-25 n 62 $11,639
+           total trades 531; re-entries 42; sessions with a trade 489; trades per session mean 1.09 max 4
+  B2       n   335 ( 37.2/yr)  net    -$3,216  PF 0.974  DD   $25,722  own ROC@$30k  -0.42  Sortino -0.09  t -0.17  R-sum   $15,500  R-sum ex-3      $857  gross 0.053 pt/trade  years + 5/9  stress net    -$9,916  EARLY net    -$4,784 (n 249, own ROC@$30k -4.72)
+           per July-June year: 2016-17 n 31 $675, 2017-18 n 45 -$580, 2018-19 n 24 -$2,866, 2019-20 n 47 $524, 2020-21 n 45 $320, 2021-22 n 31 -$19,015, 2022-23 n 39 $1,584, 2023-24 n 33 -$1,787, 2024-25 n 40 $17,929
+           total trades 335; re-entries 9; sessions with a trade 326; trades per session mean 1.03 max 2
+
+BAND TWINS OF B1 (AMENDMENT 0 item 4; settings fit on no return; reports, never bars or cells)
+  twin20   n   504 ( 56.0/yr)  net    $17,012  PF 1.085  DD   $31,868  own ROC@$30k   1.78  Sortino  0.34  t  0.68  R-sum    $5,698  R-sum ex-3   -$4,065  gross 2.221 pt/trade  years + 6/9  stress net     $6,932  EARLY net    -$6,772 (n 404, own ROC@$30k -3.79)  [lookback 20, 1.0 / 1.0; report, no verdict]
+           per July-June year: 2016-17 n 49 $2,093, 2017-18 n 65 $747, 2018-19 n 43 $202, 2019-20 n 65 -$4,483, 2020-21 n 53 -$9,345, 2021-22 n 47 -$11,296, 2022-23 n 61 $10,855, 2023-24 n 57 $9,327, 2024-25 n 64 $18,913
+           total trades 504; re-entries 50; sessions with a trade 454; trades per session mean 1.11 max 3
+  twin40   n   527 ( 58.6/yr)  net    $14,077  PF 1.064  DD   $33,777  own ROC@$30k   1.39  Sortino  0.26  t  0.55  R-sum    $9,551  R-sum ex-3   -$2,307  gross 1.869 pt/trade  years + 6/9  stress net     $3,537  EARLY net    -$8,575 (n 401, own ROC@$30k -4.78)  [lookback 40, 1.0 / 1.0; report, no verdict]
+           per July-June year: 2016-17 n 48 $908, 2017-18 n 63 $1,328, 2018-19 n 44 $3,771, 2019-20 n 68 -$10,255, 2020-21 n 56 -$9,647, 2021-22 n 56 -$8,812, 2022-23 n 63 $12,388, 2023-24 n 64 $1,863, 2024-25 n 65 $22,532
+           total trades 527; re-entries 38; sessions with a trade 489; trades per session mean 1.08 max 2
+  twin60   n   529 ( 58.8/yr)  net    $16,481  PF 1.076  DD   $36,794  own ROC@$30k   1.49  Sortino  0.32  t  0.67  R-sum   $14,026  R-sum ex-3    $2,168  gross 2.091 pt/trade  years + 5/9  stress net     $5,901  EARLY net    -$5,410 (n 402, own ROC@$30k -3.18)  [lookback 60, 1.0 / 1.0; report, no verdict]
+           per July-June year: 2016-17 n 44 $1,271, 2017-18 n 63 -$52, 2018-19 n 47 $4,244, 2019-20 n 79 -$10,677, 2020-21 n 52 -$9,149, 2021-22 n 51 -$10,164, 2022-23 n 68 $13,060, 2023-24 n 65 $4,092, 2024-25 n 60 $23,855
+           total trades 529; re-entries 41; sessions with a trade 488; trades per session mean 1.08 max 2
+
+BARS B1
+   1 own WF ROC@$30k >= 5                                           FAIL 1.90
+   2 R-sum (762 R days) > 0                                         PASS $16,566
+   3 R-sum without its 3 best R days > 0                            PASS $907
+   4 R-sum > family null p95 of max R-sum ($25,402)                 FAIL $16,566
+   5 PF >= 1.05                                                     PASS 1.081
+   6 >= 100 WF trades and >= 50 a year                              PASS 531 (59.0/yr)
+   7 >= 6 of 9 July-June years net > 0                              FAIL 3/9
+   8 t >= 2.0 and > family null p95 of max t (1.74)                 FAIL 0.66
+   9 net > 0 at stress cost                                         PASS $6,160
+  10 net > 0 without best day and without best trade                PASS $9,201 / $12,505
+  11 net > 0 without 2020-02-15 .. 2020-04-30                       PASS $24,617
+  12 EARLY net > 0 (2010-06-07 .. 2016-06-30)                       FAIL -$6,239
+  13 neighbour cell WF net > 0                                      FAIL -$3,216
+  B1 REPORTS: #463's 460 drawdown days $13,559; HALFHOUR form 2020-03-03 .. 03-27 -$3,383, without its 3 best days -$4,818; net without calendar 2020 $23,141; R-sum without its best R episode $6,585
+  B1 DRIFT CONTROL: long share 0.394 of trades, 0.393 of held minutes; gross 2.113 pt/trade, side x mean clock move -0.086 pt/trade, drift-adjusted gross 2.199 pt/trade (net $17,695)
+  BOOK-ADD REPORT c         x2.722 NQ on #463 ROC@30k   80.64 Sortino  3.648 bootstrap p5   -43.53  (below 98.50 / 3.816 / p5 > 0)
+  BOOK-ADD REPORT c         x2.722 NQ on L    ROC@30k   98.60 Sortino  3.737 bootstrap p5   -39.48  (below 126.86 / 3.916 / p5 > 0)
+  BOOK-ADD REPORT 0.5c      x1.361 NQ on #463 ROC@30k   86.61 Sortino  3.820 bootstrap p5   -22.84  (below 98.50 / 3.816 / p5 > 0)
+  BOOK-ADD REPORT 0.5c      x1.361 NQ on L    ROC@30k  109.15 Sortino  3.910 bootstrap p5   -19.73  (below 126.86 / 3.916 / p5 > 0)
+  BOOK-ADD REPORT 2c        x5.443 NQ on #463 ROC@30k   55.93 Sortino  3.148 bootstrap p5   -69.51  (below 98.50 / 3.816 / p5 > 0)
+  BOOK-ADD REPORT 2c        x5.443 NQ on L    ROC@30k   70.63 Sortino  3.237 bootstrap p5   -70.42  (below 126.86 / 3.916 / p5 > 0)
+  BOOK-ADD REPORT $30k twin x1.016 NQ on #463 ROC@30k   88.31 Sortino  3.841 bootstrap p5   -16.82  (below 98.50 / 3.816 / p5 > 0)
+  BOOK-ADD REPORT $30k twin x1.016 NQ on L    ROC@30k  111.85 Sortino  3.932 bootstrap p5   -14.87  (below 126.86 / 3.916 / p5 > 0)
+  BOOK-ADD at c on L (judged): no -> no shadow line
+
+BARS B2
+   1 own WF ROC@$30k >= 5                                           FAIL -0.42
+   2 R-sum (762 R days) > 0                                         PASS $15,500
+   3 R-sum without its 3 best R days > 0                            PASS $857
+   4 R-sum > family null p95 of max R-sum ($25,402)                 FAIL $15,500
+   5 PF >= 1.05                                                     FAIL 0.974
+   6 >= 100 WF trades and >= 50 a year                              FAIL 335 (37.2/yr)
+   7 >= 6 of 9 July-June years net > 0                              FAIL 5/9
+   8 t >= 2.0 and > family null p95 of max t (1.74)                 FAIL -0.17
+   9 net > 0 at stress cost                                         FAIL -$9,916
+  10 net > 0 without best day and without best trade                FAIL -$11,335 / -$8,030
+  11 net > 0 without 2020-02-15 .. 2020-04-30                       PASS $176
+  12 EARLY net > 0 (2010-06-07 .. 2016-06-30)                       FAIL -$4,784
+  13 neighbour cell WF net > 0                                      PASS $16,780
+  B2 REPORTS: #463's 460 drawdown days $7,767; HALFHOUR form 2020-03-03 .. 03-27 -$2,163, without its 3 best days -$3,993; net without calendar 2020 -$1,908; R-sum without its best R episode $7,787
+  B2 DRIFT CONTROL: long share 0.379 of trades, 0.361 of held minutes; gross 0.053 pt/trade, side x mean clock move -0.124 pt/trade, drift-adjusted gross 0.177 pt/trade (net -$2,387)
+  BOOK-ADD REPORT c         x3.448 NQ on #463 ROC@30k   72.78 Sortino  3.520 bootstrap p5   -48.60  (below 98.50 / 3.816 / p5 > 0)
+  BOOK-ADD REPORT c         x3.448 NQ on L    ROC@30k   84.05 Sortino  3.616 bootstrap p5   -46.32  (below 126.86 / 3.916 / p5 > 0)
+  BOOK-ADD REPORT 0.5c      x1.724 NQ on #463 ROC@30k   86.22 Sortino  3.732 bootstrap p5   -25.10  (below 98.50 / 3.816 / p5 > 0)
+  BOOK-ADD REPORT 0.5c      x1.724 NQ on L    ROC@30k  109.17 Sortino  3.825 bootstrap p5   -21.75  (below 126.86 / 3.916 / p5 > 0)
+  BOOK-ADD REPORT 2c        x6.896 NQ on #463 ROC@30k   46.82 Sortino  3.011 bootstrap p5   -76.29  (below 98.50 / 3.816 / p5 > 0)
+  BOOK-ADD REPORT 2c        x6.896 NQ on L    ROC@30k   51.62 Sortino  3.106 bootstrap p5   -78.28  (below 126.86 / 3.916 / p5 > 0)
+  BOOK-ADD REPORT $30k twin x1.166 NQ on #463 ROC@30k   88.55 Sortino  3.782 bootstrap p5   -16.66  (below 98.50 / 3.816 / p5 > 0)
+  BOOK-ADD REPORT $30k twin x1.166 NQ on L    ROC@30k  112.69 Sortino  3.876 bootstrap p5   -15.01  (below 126.86 / 3.916 / p5 > 0)
+  BOOK-ADD at c on L (judged): no -> no shadow line
+
+STAGE A: FAIL - dead, no variants
+
+(section 9 diagnostics and the ES transfer report follow; reports, never bars)
+
+---- SECTION 9 DIAGNOSTICS: NQ B1 (n 531 WF trades) ----
+  event-time path, mean R by minute from entry (0 .. 390, step 5; frozen at realised R after exit):
+      0:+0.00    5:-0.07   10:-0.04   15:-0.03   20:-0.06   25:-0.06   30:-0.03   35:-0.02   40:-0.04   45:-0.02   50:-0.01   55:-0.03   60:-0.05
+     65:-0.05   70:-0.03   75:-0.05   80:-0.03   85:-0.07   90:-0.01   95:-0.03  100:-0.04  105:-0.03  110:-0.03  115:-0.01  120:-0.02  125:-0.01
+    130:-0.01  135:-0.00  140:+0.02  145:+0.03  150:+0.03  155:+0.02  160:+0.03  165:+0.03  170:+0.04  175:+0.05  180:+0.06  185:+0.06  190:+0.06
+    195:+0.06  200:+0.06  205:+0.06  210:+0.05  215:+0.05  220:+0.05  225:+0.05  230:+0.05  235:+0.05  240:+0.05  245:+0.05  250:+0.05  255:+0.05
+    260:+0.05  265:+0.05  270:+0.05  275:+0.05  280:+0.05  285:+0.05  290:+0.05  295:+0.05  300:+0.05  305:+0.05  310:+0.05  315:+0.05  320:+0.05
+    325:+0.05  330:+0.05  335:+0.05  340:+0.05  345:+0.05  350:+0.05  355:+0.05  360:+0.05  365:+0.05  370:+0.05  375:+0.05  380:+0.05  385:+0.05
+    390:+0.05
+  regime 2016-07-01 .. 2021-12-31: n  315  net   -$12,488  PF 0.863  own ROC@$30k -3.88
+  regime 2022-01-01 .. 2025-06-29: n  216  net    $29,267  PF 1.254  own ROC@$30k 14.99
+  cost curve (NQ points a round trip -> net): gross 0 0.000 -> $22,440; house 0.533 -> $16,780; +1 tick a side 1.033 -> $11,470; MNQ 1.200 -> $9,696; +2 ticks a side 1.533 -> $6,160; break-even cost 2.113 pts (= mean gross)
+  year 2016-17: n   53  net       -$45  PF 0.990  long 21 / short 32
+  year 2017-18: n   63  net    -$1,827  PF 0.838  long 17 / short 46
+  year 2018-19: n   43  net      -$543  PF 0.954  long 8 / short 35
+  year 2019-20: n   70  net    -$3,616  PF 0.843  long 31 / short 39
+  year 2020-21: n   62  net    -$1,811  PF 0.935  long 29 / short 33
+  year 2021-22: n   49  net   -$10,982  PF 0.703  long 24 / short 25
+  year 2022-23: n   70  net    $14,314  PF 1.414  long 28 / short 42
+  year 2023-24: n   59  net     $9,651  PF 1.375  long 30 / short 29
+  year 2024-25: n   62  net    $11,639  PF 1.377  long 21 / short 41
+  R episode P&L (45):
+    2016-12-14..2017-04-19 -$612 | 2017-09-01..2017-12-26 $735 | 2018-10-17..2018-10-23 $0 | 2019-08-14..2019-12-12 $2,936
+    2020-03-03..2020-03-27 -$3,383 | 2020-05-26..2020-06-04 -$1,356 | 2020-07-10..2020-07-17 $0 | 2020-10-02..2020-10-02 -$561
+    2020-10-13..2020-10-26 -$1,216 | 2020-11-09..2020-11-10 $0 | 2021-02-16..2021-03-05 -$432 | 2021-04-27..2021-05-04 $1,159
+    2021-07-05..2021-07-19 $0 | 2021-07-28..2021-08-19 $92 | 2021-08-31..2021-09-21 -$543 | 2021-11-05..2021-11-25 -$1,066
+    2022-01-13..2022-01-26 $19 | 2022-02-02..2022-02-22 -$3,471 | 2022-04-27..2022-05-03 -$3,561 | 2022-06-03..2022-06-23 -$336
+    2022-08-04..2022-08-18 $2,327 | 2022-09-14..2022-09-27 $9,982 | 2022-12-01..2023-01-05 $3,657 | 2023-02-16..2023-02-28 $478
+    2023-03-17..2023-03-28 $1,474 | 2023-07-03..2023-07-11 $1,119 | 2023-07-26..2023-08-01 $3,319 | 2023-08-03..2023-08-16 -$1,628
+    2023-08-31..2023-09-14 $1,453 | 2023-10-12..2023-10-31 $4,477 | 2023-11-21..2023-12-06 $358 | 2024-02-11..2024-02-21 $964
+    2024-03-04..2024-04-03 -$448 | 2024-06-20..2024-07-01 $0 | 2024-07-15..2024-07-29 -$1,246 | 2024-09-26..2024-10-03 $104
+    2024-10-16..2024-10-30 -$636 | 2024-11-20..2024-11-25 $1,089 | 2024-12-26..2025-01-02 -$181 | 2025-01-24..2025-01-31 $1,829
+    2025-02-18..2025-02-20 $609 | 2025-03-04..2025-03-07 -$4,061 | 2025-04-10..2025-04-21 -$5,446 | 2025-04-27..2025-05-07 $2,387
+    2025-05-20..2025-06-20 $6,182
+  #463 episode P&L (28):
+    2020-03-03..2020-03-27 -$3,383 | 2025-05-20..2025-06-20 $6,182 | 2022-06-03..2022-06-22 -$336 | 2022-04-27..2022-05-03 -$3,561
+    2025-04-10..2025-04-21 -$5,446 | 2024-03-13..2024-04-03 $302 | 2022-12-01..2023-01-05 $3,657 | 2024-07-15..2024-07-29 -$1,246
+    2021-03-12..2021-03-30 $128 | 2020-10-13..2020-10-27 -$267 | 2023-11-21..2023-12-06 $358 | 2024-11-20..2024-11-25 $1,089
+    2022-09-14..2022-09-27 $9,982 | 2024-10-16..2024-10-30 -$636 | 2025-04-27..2025-05-07 $2,387 | 2023-12-20..2024-01-05 $849
+    2019-08-14..2019-10-09 $2,736 | 2024-02-11..2024-02-28 $2,722 | 2023-02-16..2023-03-09 -$428 | 2023-08-31..2023-10-31 $5,351
+    2023-08-03..2023-08-16 -$1,628 | 2022-08-04..2022-08-25 $2,327 | 2022-01-19..2022-01-26 -$1,486 | 2024-12-26..2025-01-02 -$181
+    2025-01-24..2025-01-31 $1,829 | 2022-02-02..2022-03-10 -$6,770 | 2021-07-28..2021-08-18 $92 | 2021-11-05..2021-11-25 -$1,066
+  correlations, all WF days: ORB -0.072, ENGUQ -0.061, TTM -0.089, NOISE -0.050, RES 0.056
+  correlations, R days:      ORB 0.060, ENGUQ -0.041, TTM -0.100, NOISE 0.007, RES 0.050
+  long  n  209  net     $8,807  PF 1.090  mean realised R 0.070
+  short n  322  net     $7,972  PF 1.074  mean realised R 0.035
+  concentration: top-10 trades 1.848 of net ($31,013); top-10 days 2.335 ($39,182); net without best day $9,201, without best trade $12,505
+  exits (R0 <= 0 or a fill at / beyond the band: 0 trades kept in P&L, left out of R):
+    TARGET    share 0.345  P&L   $192,399  hit (gross > 0) 1.000  mean realised R 1.867  (opposite-band TARGETs 0)
+    STOP      share 0.315  P&L  -$146,545  hit (gross > 0) 0.000  mean realised R -1.747
+    OPP-BREAK share 0.000  P&L         $0  hit (gross > 0) nan  mean realised R nan
+    FLAT      share 0.341  P&L   -$29,074  hit (gross > 0) 0.420  mean realised R -0.132
+  trades per session: 1: 449, 2: 39, 4: 1
+    net by order 1st  n  489  net    $14,797  PF 1.078
+    net by order 2nd  n   40  net       $849  PF 1.050
+    net by order 3rd+ n    2  net     $1,134  PF 2.252
+  day group QUIET                                                          n  378  net   $115,001  PF 2.290
+  day group   QUIET no raw break all day [scope: no NOISE break all day]   n  351  net   $143,563  PF 3.394
+  day group   QUIET break blocked by #304's gates                          n   20  net   -$23,743  PF 0.000
+  day group   QUIET break only on the last bar                             n    7  net    -$4,820  PF 0.115
+  day group BREAK-WIN [scope: a later break that wins]                     n   88  net   -$62,368  PF 0.091
+  day group BREAK-LOSS                                                     n   65  net   -$35,853  PF 0.265
+  day group   BREAK-LOSS VWAP [scope: a later break that loses at VWAP]    n   21  net   -$11,694  PF 0.000
+  day group   BREAK-LOSS STOP                                              n    9  net     $5,934  PF 1.943
+  day group   BREAK-LOSS FLAT                                              n   35  net   -$30,093  PF 0.022
+  day group ALL WF BALANCE days                                            n  531  net    $16,780  PF 1.081
+  co-loss share (all WF days): vs #304 0.243 $ / 0.227 count; vs L 0.391 $ / 0.406 count (losing sessions 256)
+  co-loss share (inside R): vs #304 0.393 $ / 0.333 count; vs L 0.676 $ / 0.653 count (losing sessions 75)
+  room tercile D <= 57.13             n  177  net     $1,233  PF 1.047
+  room tercile 57.13 < D <= 118.58    n  177  net     $5,833  PF 1.087
+  room tercile D > 118.58             n  177  net     $9,713  PF 1.086
+  VWAP_FADE crosswalk: 0.557 of entries at >= 2.0 vwsigma; their net $8,300
+  DISPERSE split: low n  176  net    $23,484  PF 1.402; mid n  177  net    -$8,167  PF 0.889; high n  169  net       $363  PF 1.005; unlabelled n    9  net     $1,099  PF 4.079
+  no-2020 (without 2020-02-15 .. 04-30) net $24,617; no-2022 (without calendar 2022) net $7,690
+  data notes (NQ):
+    rolls 2010-06 warm-up: 2010-06-10 20:00 (-1.50) -> 2010-06-11 not BALANCE
+    rolls 2010-11: 2010-09-09 20:00 (-2.50) -> 2010-09-10 BALANCE-labelled; 2010-12-09 19:00 (-1.25) -> 2010-12-10 BALANCE-labelled; 2011-03-10 19:00 (-2.00) -> 2011-03-11 BALANCE-labelled; 2011-06-09 20:00 (-3.25) -> 2011-06-10 not BALANCE
+    rolls 2011-12: 2011-09-08 20:00 (-4.75) -> 2011-09-09 not BALANCE; 2011-12-08 19:00 (-3.50) -> 2011-12-09 not BALANCE; 2012-03-08 19:00 (-4.75) -> 2012-03-09 not BALANCE; 2012-06-07 20:00 (-5.75) -> 2012-06-08 BALANCE-labelled
+    rolls 2012-13: 2012-09-13 20:00 (-6.50) -> 2012-09-14 not BALANCE; 2012-12-13 19:00 (-5.25) -> 2012-12-14 BALANCE-labelled; 2013-03-07 19:00 (-4.50) -> 2013-03-08 not BALANCE; 2013-06-13 20:00 (-5.25) -> 2013-06-14 BALANCE-labelled
+    rolls 2013-14: 2013-09-12 20:02 (-6.75) -> 2013-09-13 not BALANCE; 2013-12-12 19:00 (-4.75) -> 2013-12-13 BALANCE-labelled; 2014-03-13 20:00 (-6.25) -> 2014-03-14 BALANCE-labelled; 2014-06-15 18:00 (-6.50) -> 2014-06-16 BALANCE-labelled
+    rolls 2014-15: 2014-09-11 20:00 (-7.25) -> 2014-09-12 not BALANCE; 2014-12-11 19:00 (-3.50) -> 2014-12-12 BALANCE-labelled; 2015-03-12 20:00 (-6.25) -> 2015-03-13 not BALANCE; 2015-06-11 20:01 (-6.25) -> 2015-06-12 BALANCE-labelled
+    rolls 2015-16: 2015-09-10 20:00 (-11.00) -> 2015-09-11 BALANCE-labelled; 2015-12-10 19:00 (-6.00) -> 2015-12-11 not BALANCE; 2016-03-10 19:00 (-9.50) -> 2016-03-11 BALANCE-labelled; 2016-06-09 20:00 (-8.25) -> 2016-06-10 BALANCE-labelled
+    rolls 2016-17: 2016-09-08 20:00 (-3.50) -> 2016-09-09 not BALANCE; 2016-12-08 19:00 (-1.00) -> 2016-12-09 not BALANCE; 2017-03-09 19:00 (+4.25) -> 2017-03-10 BALANCE-labelled; 2017-06-08 20:00 (+8.25) -> 2017-06-09 BALANCE-labelled
+    rolls 2017-18: 2017-09-07 20:00 (+7.25) -> 2017-09-08 BALANCE-labelled; 2017-12-07 19:00 (+18.50) -> 2017-12-08 not BALANCE; 2018-03-08 19:00 (+25.75) -> 2018-03-09 not BALANCE; 2018-06-07 20:00 (+24.00) -> 2018-06-08 BALANCE-labelled
+    rolls 2018-19: 2018-09-13 20:00 (+28.50) -> 2018-09-14 BALANCE-labelled; 2018-12-13 19:00 (+25.50) -> 2018-12-14 BALANCE-labelled; 2019-03-07 19:00 (+28.00) -> 2019-03-08 BALANCE-labelled; 2019-06-13 20:00 (+26.50) -> 2019-06-14 BALANCE-labelled
+    rolls 2019-20: 2019-09-12 20:00 (+20.75) -> 2019-09-13 BALANCE-labelled; 2019-12-12 19:00 (+24.50) -> 2019-12-13 not BALANCE; 2020-03-15 18:00 (-12.75) -> 2020-03-16 not BALANCE; 2020-06-14 18:00 (-12.00) -> 2020-06-15 BALANCE-labelled
+    rolls 2020-21: 2020-09-13 18:00 (-11.50) -> 2020-09-14 not BALANCE; 2020-12-13 18:00 (+3.50) -> 2020-12-14 not BALANCE; 2021-03-14 18:00 (-9.50) -> 2021-03-15 not BALANCE; 2021-06-13 18:00 (-7.75) -> 2021-06-14 BALANCE-labelled
+    rolls 2021-22: 2021-09-12 18:00 (-9.50) -> 2021-09-13 not BALANCE; 2021-12-09 19:00 (+2.75) -> 2021-12-10 not BALANCE; 2022-03-13 18:00 (+1.25) -> 2022-03-14 not BALANCE; 2022-06-12 20:00 (+27.00) -> 2022-06-13 BALANCE-labelled
+    rolls 2022-23: 2022-09-11 20:00 (+76.25) -> 2022-09-12 not BALANCE; 2022-12-11 19:00 (+114.25) -> 2022-12-12 BALANCE-labelled; 2023-03-12 20:00 (+122.75) -> 2023-03-13 not BALANCE; 2023-06-11 20:00 (+178.25) -> 2023-06-12 BALANCE-labelled
+    rolls 2023-24: 2023-09-10 20:00 (+196.75) -> 2023-09-11 BALANCE-labelled; 2023-12-10 19:00 (+210.50) -> 2023-12-11 not BALANCE; 2024-03-10 20:00 (+248.75) -> 2024-03-11 BALANCE-labelled; 2024-06-16 20:00 (+260.75) -> 2024-06-17 not BALANCE
+    rolls 2024-25: 2024-09-15 20:00 (+237.50) -> 2024-09-16 BALANCE-labelled; 2024-12-16 19:00 (+296.50) -> 2024-12-17 BALANCE-labelled; 2025-03-17 20:00 (+208.25) -> 2025-03-18 not BALANCE; 2025-06-15 20:00 (+216.25) -> 2025-06-16 not BALANCE
+    2014-06-12 absent in master
+    2014-06-13 absent in master
+    2014-06-16 prev_close = 2014-06-11's last bar (15:55)
+    2020-03-02 prev_close = 2020-02-28's last bar (10:55)
+    2020-07-01 prev_close = 2020-06-30's last bar (10:10)
+    trading sessions with missing bars (bands stay positional): 3 - 2020-03-09 m=77, 2020-03-12 m=76, 2020-03-18 m=76
+      affected trade WF 2020-03-18 fill 13:10 exit 13:35 STOP side +1
+    zero-volume bars 0; NaN-VWAP bars in banded sessions 0 (in 0 sessions)
+
+---- SECTION 9 DIAGNOSTICS: NQ B2 (n 335 WF trades) ----
+  event-time path, mean R by minute from entry (0 .. 390, step 5; frozen at realised R after exit):
+      0:+0.00    5:+0.01   10:+0.06   15:+0.12   20:+0.10   25:+0.06   30:+0.16   35:+0.13   40:+0.18   45:+0.19   50:+0.21   55:+0.18   60:+0.12
+     65:+0.18   70:+0.23   75:+0.22   80:+0.22   85:+0.18   90:+0.20   95:+0.18  100:+0.18  105:+0.16  110:+0.16  115:+0.17  120:+0.17  125:+0.19
+    130:+0.19  135:+0.20  140:+0.25  145:+0.25  150:+0.24  155:+0.23  160:+0.24  165:+0.25  170:+0.26  175:+0.27  180:+0.27  185:+0.26  190:+0.26
+    195:+0.26  200:+0.25  205:+0.26  210:+0.26  215:+0.27  220:+0.27  225:+0.27  230:+0.27  235:+0.27  240:+0.27  245:+0.27  250:+0.27  255:+0.27
+    260:+0.27  265:+0.27  270:+0.27  275:+0.27  280:+0.27  285:+0.27  290:+0.27  295:+0.27  300:+0.27  305:+0.27  310:+0.27  315:+0.27  320:+0.27
+    325:+0.27  330:+0.27  335:+0.27  340:+0.27  345:+0.27  350:+0.27  355:+0.27  360:+0.27  365:+0.27  370:+0.27  375:+0.27  380:+0.27  385:+0.27
+    390:+0.27
+  regime 2016-07-01 .. 2021-12-31: n  207  net    -$7,847  PF 0.858  own ROC@$30k -4.29
+  regime 2022-01-01 .. 2025-06-29: n  128  net     $4,631  PF 1.068  own ROC@$30k 2.53
+  cost curve (NQ points a round trip -> net): gross 0 0.000 -> $355; house 0.533 -> -$3,216; +1 tick a side 1.033 -> -$6,566; MNQ 1.200 -> -$7,685; +2 ticks a side 1.533 -> -$9,916; break-even cost 0.053 pts (= mean gross)
+  year 2016-17: n   31  net       $675  PF 1.271  long 12 / short 19
+  year 2017-18: n   45  net      -$580  PF 0.922  long 11 / short 34
+  year 2018-19: n   24  net    -$2,866  PF 0.528  long 4 / short 20
+  year 2019-20: n   47  net       $524  PF 1.039  long 20 / short 27
+  year 2020-21: n   45  net       $320  PF 1.018  long 22 / short 23
+  year 2021-22: n   31  net   -$19,015  PF 0.204  long 13 / short 18
+  year 2022-23: n   39  net     $1,584  PF 1.087  long 12 / short 27
+  year 2023-24: n   33  net    -$1,787  PF 0.892  long 17 / short 16
+  year 2024-25: n   40  net    $17,929  PF 2.042  long 16 / short 24
+  R episode P&L (45):
+    2016-12-14..2017-04-19 -$233 | 2017-09-01..2017-12-26 $866 | 2018-10-17..2018-10-23 $0 | 2019-08-14..2019-12-12 $3,595
+    2020-03-03..2020-03-27 -$2,163 | 2020-05-26..2020-06-04 -$76 | 2020-07-10..2020-07-17 $0 | 2020-10-02..2020-10-02 $319
+    2020-10-13..2020-10-26 -$1,216 | 2020-11-09..2020-11-10 $0 | 2021-02-16..2021-03-05 -$371 | 2021-04-27..2021-05-04 $2,179
+    2021-07-05..2021-07-19 $0 | 2021-07-28..2021-08-19 -$776 | 2021-08-31..2021-09-21 -$27 | 2021-11-05..2021-11-25 -$1,321
+    2022-01-13..2022-01-26 -$486 | 2022-02-02..2022-02-22 -$2,086 | 2022-04-27..2022-05-03 -$2,066 | 2022-06-03..2022-06-23 $0
+    2022-08-04..2022-08-18 -$221 | 2022-09-14..2022-09-27 $7,713 | 2022-12-01..2023-01-05 $879 | 2023-02-16..2023-02-28 $2,049
+    2023-03-17..2023-03-28 $1,474 | 2023-07-03..2023-07-11 $1,534 | 2023-07-26..2023-08-01 $0 | 2023-08-03..2023-08-16 $318
+    2023-08-31..2023-09-14 $879 | 2023-10-12..2023-10-31 -$271 | 2023-11-21..2023-12-06 $1,069 | 2024-02-11..2024-02-21 $1,839
+    2024-03-04..2024-04-03 -$1,857 | 2024-06-20..2024-07-01 $0 | 2024-07-15..2024-07-29 -$716 | 2024-09-26..2024-10-03 $0
+    2024-10-16..2024-10-30 -$146 | 2024-11-20..2024-11-25 $0 | 2024-12-26..2025-01-02 -$891 | 2025-01-24..2025-01-31 $2,919
+    2025-02-18..2025-02-20 $0 | 2025-03-04..2025-03-07 -$2,331 | 2025-04-10..2025-04-21 -$3,041 | 2025-04-27..2025-05-07 $1,638
+    2025-05-20..2025-06-20 $6,524
+  #463 episode P&L (28):
+    2020-03-03..2020-03-27 -$2,163 | 2025-05-20..2025-06-20 $6,524 | 2022-06-03..2022-06-22 $0 | 2022-04-27..2022-05-03 -$2,066
+    2025-04-10..2025-04-21 -$3,041 | 2024-03-13..2024-04-03 -$1,296 | 2022-12-01..2023-01-05 $879 | 2024-07-15..2024-07-29 -$716
+    2021-03-12..2021-03-30 -$1,416 | 2020-10-13..2020-10-27 -$311 | 2023-11-21..2023-12-06 $1,069 | 2024-11-20..2024-11-25 $0
+    2022-09-14..2022-09-27 $7,713 | 2024-10-16..2024-10-30 -$146 | 2025-04-27..2025-05-07 $1,638 | 2023-12-20..2024-01-05 $0
+    2019-08-14..2019-10-09 $3,749 | 2024-02-11..2024-02-28 $1,839 | 2023-02-16..2023-03-09 $1,143 | 2023-08-31..2023-10-31 $1,040
+    2023-08-03..2023-08-16 $318 | 2022-08-04..2022-08-25 -$221 | 2022-01-19..2022-01-26 -$486 | 2024-12-26..2025-01-02 -$891
+    2025-01-24..2025-01-31 $2,919 | 2022-02-02..2022-03-10 -$6,214 | 2021-07-28..2021-08-18 -$776 | 2021-11-05..2021-11-25 -$1,321
+  correlations, all WF days: ORB -0.082, ENGUQ -0.049, TTM -0.079, NOISE -0.052, RES 0.056
+  correlations, R days:      ORB 0.034, ENGUQ -0.079, TTM -0.134, NOISE -0.040, RES 0.074
+  long  n  127  net       $811  PF 1.014  mean realised R 0.408
+  short n  208  net    -$4,027  PF 0.937  mean realised R 0.186
+  concentration: top-10 trades -9.691 of net ($31,168); top-10 days -10.950 ($35,217); net without best day -$11,335, without best trade -$8,030
+  exits (R0 <= 0 or a fill at / beyond the band: 1 trades kept in P&L, left out of R):
+    TARGET    share 0.260  P&L   $103,233  hit (gross > 0) 1.000  mean realised R 4.208  (opposite-band TARGETs 0)
+    STOP      share 0.487  P&L  -$105,023  hit (gross > 0) 0.000  mean realised R -1.969
+    OPP-BREAK share 0.000  P&L         $0  hit (gross > 0) nan  mean realised R nan
+    FLAT      share 0.254  P&L    -$1,426  hit (gross > 0) 0.494  mean realised R 0.583
+  trades per session: 1: 317, 2: 9
+    net by order 1st  n  326  net    -$7,055  PF 0.941
+    net by order 2nd  n    9  net     $3,839  PF 2.568
+    net by order 3rd+ n    0  net         $0  PF nan
+  day group QUIET                                                          n  193  net    $69,118  PF 2.775
+  day group   QUIET no raw break all day [scope: no NOISE break all day]   n  167  net    $90,110  PF 6.019
+  day group   QUIET break blocked by #304's gates                          n   20  net   -$17,193  PF 0.000
+  day group   QUIET break only on the last bar                             n    6  net    -$3,799  PF 0.000
+  day group BREAK-WIN [scope: a later break that wins]                     n   80  net   -$46,043  PF 0.059
+  day group BREAK-LOSS                                                     n   62  net   -$26,291  PF 0.251
+  day group   BREAK-LOSS VWAP [scope: a later break that loses at VWAP]    n   21  net    -$9,524  PF 0.000
+  day group   BREAK-LOSS STOP                                              n    7  net     $3,740  PF 1.854
+  day group   BREAK-LOSS FLAT                                              n   34  net   -$20,507  PF 0.032
+  day group ALL WF BALANCE days                                            n  335  net    -$3,216  PF 0.974
+  co-loss share (all WF days): vs #304 0.287 $ / 0.286 count; vs L 0.417 $ / 0.399 count (losing sessions 203)
+  co-loss share (inside R): vs #304 0.451 $ / 0.429 count; vs L 0.682 $ / 0.607 count (losing sessions 56)
+  room tercile D <= 53.79             n  112  net     $4,231  PF 1.310
+  room tercile 53.79 < D <= 115.58    n  111  net     $1,367  PF 1.034
+  room tercile D > 115.58             n  112  net    -$8,814  PF 0.873
+  VWAP_FADE crosswalk: 0.710 of entries at >= 2.0 vwsigma; their net -$7,072
+  DISPERSE split: low n  107  net    $15,184  PF 1.403; mid n  114  net    -$4,555  PF 0.886; high n  109  net   -$14,352  PF 0.683; unlabelled n    5  net       $507  PF 3.289
+  no-2020 (without 2020-02-15 .. 04-30) net $176; no-2022 (without calendar 2022) net $6,486
+  data notes (NQ):
+    rolls 2010-06 warm-up: 2010-06-10 20:00 (-1.50) -> 2010-06-11 not BALANCE
+    rolls 2010-11: 2010-09-09 20:00 (-2.50) -> 2010-09-10 BALANCE-labelled; 2010-12-09 19:00 (-1.25) -> 2010-12-10 BALANCE-labelled; 2011-03-10 19:00 (-2.00) -> 2011-03-11 BALANCE-labelled; 2011-06-09 20:00 (-3.25) -> 2011-06-10 not BALANCE
+    rolls 2011-12: 2011-09-08 20:00 (-4.75) -> 2011-09-09 not BALANCE; 2011-12-08 19:00 (-3.50) -> 2011-12-09 not BALANCE; 2012-03-08 19:00 (-4.75) -> 2012-03-09 not BALANCE; 2012-06-07 20:00 (-5.75) -> 2012-06-08 BALANCE-labelled
+    rolls 2012-13: 2012-09-13 20:00 (-6.50) -> 2012-09-14 not BALANCE; 2012-12-13 19:00 (-5.25) -> 2012-12-14 BALANCE-labelled; 2013-03-07 19:00 (-4.50) -> 2013-03-08 not BALANCE; 2013-06-13 20:00 (-5.25) -> 2013-06-14 BALANCE-labelled
+    rolls 2013-14: 2013-09-12 20:02 (-6.75) -> 2013-09-13 not BALANCE; 2013-12-12 19:00 (-4.75) -> 2013-12-13 BALANCE-labelled; 2014-03-13 20:00 (-6.25) -> 2014-03-14 BALANCE-labelled; 2014-06-15 18:00 (-6.50) -> 2014-06-16 BALANCE-labelled
+    rolls 2014-15: 2014-09-11 20:00 (-7.25) -> 2014-09-12 not BALANCE; 2014-12-11 19:00 (-3.50) -> 2014-12-12 BALANCE-labelled; 2015-03-12 20:00 (-6.25) -> 2015-03-13 not BALANCE; 2015-06-11 20:01 (-6.25) -> 2015-06-12 BALANCE-labelled
+    rolls 2015-16: 2015-09-10 20:00 (-11.00) -> 2015-09-11 BALANCE-labelled; 2015-12-10 19:00 (-6.00) -> 2015-12-11 not BALANCE; 2016-03-10 19:00 (-9.50) -> 2016-03-11 BALANCE-labelled; 2016-06-09 20:00 (-8.25) -> 2016-06-10 BALANCE-labelled
+    rolls 2016-17: 2016-09-08 20:00 (-3.50) -> 2016-09-09 not BALANCE; 2016-12-08 19:00 (-1.00) -> 2016-12-09 not BALANCE; 2017-03-09 19:00 (+4.25) -> 2017-03-10 BALANCE-labelled; 2017-06-08 20:00 (+8.25) -> 2017-06-09 BALANCE-labelled
+    rolls 2017-18: 2017-09-07 20:00 (+7.25) -> 2017-09-08 BALANCE-labelled; 2017-12-07 19:00 (+18.50) -> 2017-12-08 not BALANCE; 2018-03-08 19:00 (+25.75) -> 2018-03-09 not BALANCE; 2018-06-07 20:00 (+24.00) -> 2018-06-08 BALANCE-labelled
+    rolls 2018-19: 2018-09-13 20:00 (+28.50) -> 2018-09-14 BALANCE-labelled; 2018-12-13 19:00 (+25.50) -> 2018-12-14 BALANCE-labelled; 2019-03-07 19:00 (+28.00) -> 2019-03-08 BALANCE-labelled; 2019-06-13 20:00 (+26.50) -> 2019-06-14 BALANCE-labelled
+    rolls 2019-20: 2019-09-12 20:00 (+20.75) -> 2019-09-13 BALANCE-labelled; 2019-12-12 19:00 (+24.50) -> 2019-12-13 not BALANCE; 2020-03-15 18:00 (-12.75) -> 2020-03-16 not BALANCE; 2020-06-14 18:00 (-12.00) -> 2020-06-15 BALANCE-labelled
+    rolls 2020-21: 2020-09-13 18:00 (-11.50) -> 2020-09-14 not BALANCE; 2020-12-13 18:00 (+3.50) -> 2020-12-14 not BALANCE; 2021-03-14 18:00 (-9.50) -> 2021-03-15 not BALANCE; 2021-06-13 18:00 (-7.75) -> 2021-06-14 BALANCE-labelled
+    rolls 2021-22: 2021-09-12 18:00 (-9.50) -> 2021-09-13 not BALANCE; 2021-12-09 19:00 (+2.75) -> 2021-12-10 not BALANCE; 2022-03-13 18:00 (+1.25) -> 2022-03-14 not BALANCE; 2022-06-12 20:00 (+27.00) -> 2022-06-13 BALANCE-labelled
+    rolls 2022-23: 2022-09-11 20:00 (+76.25) -> 2022-09-12 not BALANCE; 2022-12-11 19:00 (+114.25) -> 2022-12-12 BALANCE-labelled; 2023-03-12 20:00 (+122.75) -> 2023-03-13 not BALANCE; 2023-06-11 20:00 (+178.25) -> 2023-06-12 BALANCE-labelled
+    rolls 2023-24: 2023-09-10 20:00 (+196.75) -> 2023-09-11 BALANCE-labelled; 2023-12-10 19:00 (+210.50) -> 2023-12-11 not BALANCE; 2024-03-10 20:00 (+248.75) -> 2024-03-11 BALANCE-labelled; 2024-06-16 20:00 (+260.75) -> 2024-06-17 not BALANCE
+    rolls 2024-25: 2024-09-15 20:00 (+237.50) -> 2024-09-16 BALANCE-labelled; 2024-12-16 19:00 (+296.50) -> 2024-12-17 BALANCE-labelled; 2025-03-17 20:00 (+208.25) -> 2025-03-18 not BALANCE; 2025-06-15 20:00 (+216.25) -> 2025-06-16 not BALANCE
+    2014-06-12 absent in master
+    2014-06-13 absent in master
+    2014-06-16 prev_close = 2014-06-11's last bar (15:55)
+    2020-03-02 prev_close = 2020-02-28's last bar (10:55)
+    2020-07-01 prev_close = 2020-06-30's last bar (10:10)
+    trading sessions with missing bars (bands stay positional): 3 - 2020-03-09 m=77, 2020-03-12 m=76, 2020-03-18 m=76
+      affected trade WF 2020-03-18 fill 13:30 exit 13:35 STOP side +1
+    zero-volume bars 0; NaN-VWAP bars in banded sessions 0 (in 0 sessions)
+  DISPERSE: 2 sessions without a DISP value (the 80% coverage guard)
+
+POST-RUN overlap P&L
+  B1 net on crown-flat days: NOISE382 $115,001; NOISE422 $115,001; ORB314 -$11,334; ENGUQ335 $8,376; TTM459 $22,853; ALL $121
+  B2 net on crown-flat days: NOISE382 $69,118; NOISE422 $69,118; ORB314 -$3,703; ENGUQ335 $5,293; TTM459 $1,598; ALL -$290
+
+==== ES TRANSFER REPORT (master 33, $50 a point, cost 0.363, stress 1.363; report only) ====
+  ES band / VWAP parity at 5452 #304 decision bars (max |diff| 0); eligible first break on 3868 sessions, 0 mismatches; 61 roll switches (36 in WF)
+  ES B1    n   592 ( 65.8/yr)  net    -$1,245  PF 0.992  DD   $15,012  own ROC@$30k  -0.28  Sortino -0.04  t -0.08  R-sum   $15,159  R-sum ex-3    $5,606  gross 0.321 pt/trade  years + 4/9  stress net   -$30,845  EARLY net    -$1,952 (n 434, own ROC@$30k -2.26)
+           per July-June year: 2016-17 n 57 $1,053, 2017-18 n 65 -$3,055, 2018-19 n 54 -$993, 2019-20 n 81 $1,130, 2020-21 n 62 -$588, 2021-22 n 65 -$7,105, 2022-23 n 73 $5,088, 2023-24 n 71 $4,136, 2024-25 n 64 -$912
+           total trades 592; re-entries 55; sessions with a trade 537; trades per session mean 1.10 max 4
+  ES B2    n   378 ( 42.0/yr)  net      -$398  PF 0.995  DD   $11,177  own ROC@$30k  -0.12  Sortino -0.02  t -0.03  R-sum   $10,465  R-sum ex-3    $1,073  gross 0.342 pt/trade  years + 5/9  stress net   -$19,298  EARLY net       $658 (n 273, own ROC@$30k 1.32)
+           per July-June year: 2016-17 n 30 $743, 2017-18 n 45 -$867, 2018-19 n 32 $1,594, 2019-20 n 54 $2,507, 2020-21 n 33 -$2,636, 2021-22 n 45 -$5,142, 2022-23 n 42 $438, 2023-24 n 57 $6,328, 2024-25 n 40 -$3,364
+           total trades 378; re-entries 17; sessions with a trade 361; trades per session mean 1.05 max 4
+
+---- SECTION 9 DIAGNOSTICS: ES B1 (n 592 WF trades) ----
+  event-time path, mean R by minute from entry (0 .. 390, step 5; frozen at realised R after exit):
+      0:+0.00    5:+0.05   10:+0.02   15:+0.05   20:+0.08   25:+0.08   30:+0.11   35:+0.10   40:+0.08   45:+0.12   50:+0.10   55:+0.10   60:+0.09
+     65:+0.16   70:+0.19   75:+0.20   80:+0.18   85:+0.18   90:+0.23   95:+0.22  100:+0.23  105:+0.22  110:+0.21  115:+0.20  120:+0.20  125:+0.17
+    130:+0.17  135:+0.18  140:+0.18  145:+0.19  150:+0.18  155:+0.17  160:+0.17  165:+0.17  170:+0.17  175:+0.17  180:+0.17  185:+0.17  190:+0.18
+    195:+0.16  200:+0.17  205:+0.17  210:+0.17  215:+0.18  220:+0.18  225:+0.18  230:+0.18  235:+0.18  240:+0.17  245:+0.17  250:+0.17  255:+0.17
+    260:+0.17  265:+0.17  270:+0.17  275:+0.17  280:+0.17  285:+0.17  290:+0.17  295:+0.17  300:+0.17  305:+0.17  310:+0.17  315:+0.17  320:+0.17
+    325:+0.17  330:+0.17  335:+0.17  340:+0.17  345:+0.17  350:+0.17  355:+0.17  360:+0.17  365:+0.17  370:+0.17  375:+0.17  380:+0.17  385:+0.17
+    390:+0.17
+  regime 2016-07-01 .. 2021-12-31: n  351  net    -$8,583  PF 0.872  own ROC@$30k -4.77
+  regime 2022-01-01 .. 2025-06-29: n  241  net     $7,338  PF 1.092  own ROC@$30k 9.21
+  cost curve (ES points a round trip -> net): gross 0 0.000 -> $9,500; house 0.363 -> -$1,245; MES 0.630 -> -$9,148; +1 tick a side 0.863 -> -$16,045; +2 ticks a side 1.363 -> -$30,845; break-even cost 0.321 pts (= mean gross)
+  year 2016-17: n   57  net     $1,053  PF 1.256  long 29 / short 28
+  year 2017-18: n   65  net    -$3,055  PF 0.719  long 27 / short 38
+  year 2018-19: n   54  net      -$993  PF 0.894  long 14 / short 40
+  year 2019-20: n   81  net     $1,130  PF 1.057  long 32 / short 49
+  year 2020-21: n   62  net      -$588  PF 0.956  long 22 / short 40
+  year 2021-22: n   65  net    -$7,105  PF 0.735  long 24 / short 41
+  year 2022-23: n   73  net     $5,088  PF 1.210  long 32 / short 41
+  year 2023-24: n   71  net     $4,136  PF 1.231  long 37 / short 34
+  year 2024-25: n   64  net      -$912  PF 0.954  long 27 / short 37
+  R episode P&L (45):
+    2016-12-14..2017-04-19 $756 | 2017-09-01..2017-12-26 -$856 | 2018-10-17..2018-10-23 $0 | 2019-08-14..2019-12-12 $991
+    2020-03-03..2020-03-27 $885 | 2020-05-26..2020-06-04 $47 | 2020-07-10..2020-07-17 $0 | 2020-10-02..2020-10-02 $0
+    2020-10-13..2020-10-26 $0 | 2020-11-09..2020-11-10 $0 | 2021-02-16..2021-03-05 $451 | 2021-04-27..2021-05-04 $1,508
+    2021-07-05..2021-07-19 -$111 | 2021-07-28..2021-08-19 -$1,848 | 2021-08-31..2021-09-21 $851 | 2021-11-05..2021-11-25 -$1,085
+    2022-01-13..2022-01-26 $514 | 2022-02-02..2022-02-22 -$1,671 | 2022-04-27..2022-05-03 -$1,143 | 2022-06-03..2022-06-23 -$1,335
+    2022-08-04..2022-08-18 $1,779 | 2022-09-14..2022-09-27 $6,129 | 2022-12-01..2023-01-05 -$66 | 2023-02-16..2023-02-28 $1,421
+    2023-03-17..2023-03-28 $451 | 2023-07-03..2023-07-11 -$268 | 2023-07-26..2023-08-01 $76 | 2023-08-03..2023-08-16 $694
+    2023-08-31..2023-09-14 $439 | 2023-10-12..2023-10-31 $1,517 | 2023-11-21..2023-12-06 -$143 | 2024-02-11..2024-02-21 $51
+    2024-03-04..2024-04-03 $1,902 | 2024-06-20..2024-07-01 $564 | 2024-07-15..2024-07-29 -$206 | 2024-09-26..2024-10-03 $1,019
+    2024-10-16..2024-10-30 $322 | 2024-11-20..2024-11-25 $0 | 2024-12-26..2025-01-02 -$724 | 2025-01-24..2025-01-31 -$31
+    2025-02-18..2025-02-20 -$181 | 2025-03-04..2025-03-07 $0 | 2025-04-10..2025-04-21 -$1,874 | 2025-04-27..2025-05-07 $1,271
+    2025-05-20..2025-06-20 $3,063
+  #463 episode P&L (28):
+    2020-03-03..2020-03-27 $885 | 2025-05-20..2025-06-20 $3,063 | 2022-06-03..2022-06-22 -$1,335 | 2022-04-27..2022-05-03 -$1,143
+    2025-04-10..2025-04-21 -$1,874 | 2024-03-13..2024-04-03 $1,346 | 2022-12-01..2023-01-05 -$66 | 2024-07-15..2024-07-29 -$206
+    2021-03-12..2021-03-30 -$990 | 2020-10-13..2020-10-27 $0 | 2023-11-21..2023-12-06 -$143 | 2024-11-20..2024-11-25 $0
+    2022-09-14..2022-09-27 $6,129 | 2024-10-16..2024-10-30 $322 | 2025-04-27..2025-05-07 $1,271 | 2023-12-20..2024-01-05 -$304
+    2019-08-14..2019-10-09 $1,290 | 2024-02-11..2024-02-28 $65 | 2023-02-16..2023-03-09 $790 | 2023-08-31..2023-10-31 $754
+    2023-08-03..2023-08-16 $694 | 2022-08-04..2022-08-25 $1,779 | 2022-01-19..2022-01-26 $0 | 2024-12-26..2025-01-02 -$724
+    2025-01-24..2025-01-31 -$31 | 2022-02-02..2022-03-10 -$2,020 | 2021-07-28..2021-08-18 -$1,848 | 2021-11-05..2021-11-25 -$1,085
+  correlations, all WF days: ORB -0.118, ENGUQ -0.011, TTM -0.042, NOISE -0.065, RES 0.043
+  correlations, R days:      ORB -0.040, ENGUQ 0.026, TTM -0.063, NOISE -0.074, RES -0.008
+  long  n  244  net     $6,209  PF 1.085  mean realised R 0.176
+  short n  348  net    -$7,454  PF 0.899  mean realised R 0.173
+  concentration: top-10 trades -16.704 of net ($20,793); top-10 days -19.159 ($23,849); net without best day -$4,990, without best trade -$4,852
+  exits (R0 <= 0 or a fill at / beyond the band: 1 trades kept in P&L, left out of R):
+    TARGET    share 0.355  P&L   $126,939  hit (gross > 0) 1.000  mean realised R 2.188  (opposite-band TARGETs 0)
+    STOP      share 0.338  P&L  -$112,930  hit (gross > 0) 0.000  mean realised R -1.642
+    OPP-BREAK share 0.000  P&L         $0  hit (gross > 0) nan  mean realised R nan
+    FLAT      share 0.307  P&L   -$15,253  hit (gross > 0) 0.412  mean realised R -0.162
+  trades per session: 1: 485, 2: 50, 3: 1, 4: 1
+    net by order 1st  n  537  net     $4,841  PF 1.038
+    net by order 2nd  n   52  net    -$5,156  PF 0.696
+    net by order 3rd+ n    3  net      -$929  PF 0.476
+  day group QUIET                                                          n  409  net    $66,714  PF 2.024
+  day group   QUIET no raw break all day [scope: no NOISE break all day]   n  362  net    $90,242  PF 3.683
+  day group   QUIET break blocked by #304's gates                          n   34  net   -$16,342  PF 0.304
+  day group   QUIET break only on the last bar                             n   13  net    -$7,186  PF 0.102
+  day group BREAK-WIN [scope: a later break that wins]                     n   90  net   -$29,509  PF 0.264
+  day group BREAK-LOSS                                                     n   93  net   -$38,450  PF 0.070
+  day group   BREAK-LOSS VWAP [scope: a later break that loses at VWAP]    n   37  net   -$15,497  PF 0.004
+  day group   BREAK-LOSS STOP                                              n    7  net    -$2,690  PF 0.000
+  day group   BREAK-LOSS FLAT                                              n   49  net   -$20,264  PF 0.122
+  day group ALL WF BALANCE days                                            n  592  net    -$1,245  PF 0.992
+  co-loss share (all WF days): vs #304 0.293 $ / 0.282 count; vs L 0.394 $ / 0.433 count (losing sessions 291)
+  co-loss share (inside R): vs #304 0.302 $ / 0.286 count; vs L 0.651 $ / 0.662 count (losing sessions 77)
+  room tercile D <= 13.47             n  198  net    -$1,394  PF 0.936
+  room tercile 13.47 < D <= 25.71     n  197  net    -$3,776  PF 0.923
+  room tercile D > 25.71              n  197  net     $3,924  PF 1.052
+  VWAP_FADE crosswalk: 0.600 of entries at >= 2.0 vwsigma; their net $2,519
+  DISPERSE split: low n  193  net     $5,047  PF 1.115; mid n  194  net    -$7,071  PF 0.856; high n  194  net       $291  PF 1.006; unlabelled n   11  net       $488  PF 1.551
+  no-2020 (without 2020-02-15 .. 04-30) net -$224; no-2022 (without calendar 2022) net -$9,584
+  data notes (ES):
+    rolls 2010-06 warm-up: 2010-06-10 20:00 (-4.00) -> 2010-06-11 not BALANCE
+    rolls 2010-11: 2010-09-09 20:00 (-5.00) -> 2010-09-10 BALANCE-labelled; 2010-12-09 19:00 (-5.00) -> 2010-12-10 BALANCE-labelled; 2011-03-10 19:00 (-4.75) -> 2011-03-11 BALANCE-labelled; 2011-06-09 20:00 (-5.25) -> 2011-06-10 not BALANCE
+    rolls 2011-12: 2011-09-08 20:00 (-5.75) -> 2011-09-09 not BALANCE; 2011-12-08 19:00 (-6.00) -> 2011-12-09 not BALANCE; 2012-03-08 19:00 (-5.50) -> 2012-03-09 not BALANCE; 2012-06-07 20:00 (-6.75) -> 2012-06-08 BALANCE-labelled
+    rolls 2012-13: 2012-09-13 20:00 (-6.75) -> 2012-09-14 not BALANCE; 2012-12-13 19:00 (-6.00) -> 2012-12-14 BALANCE-labelled; 2013-03-07 19:00 (-5.00) -> 2013-03-08 not BALANCE; 2013-06-13 20:00 (-5.75) -> 2013-06-14 BALANCE-labelled
+    rolls 2013-14: 2013-09-12 20:00 (-6.50) -> 2013-09-13 BALANCE-labelled; 2013-12-12 19:00 (-6.00) -> 2013-12-13 not BALANCE; 2014-03-13 20:00 (-7.00) -> 2014-03-14 BALANCE-labelled; 2014-06-15 18:00 (-7.25) -> 2014-06-16 BALANCE-labelled
+    rolls 2014-15: 2014-09-11 20:00 (-7.75) -> 2014-09-12 not BALANCE; 2014-12-11 19:00 (-6.50) -> 2014-12-12 BALANCE-labelled; 2015-03-12 20:00 (-7.50) -> 2015-03-13 not BALANCE; 2015-06-11 20:00 (-7.75) -> 2015-06-12 not BALANCE
+    rolls 2015-16: 2015-09-10 20:00 (-9.75) -> 2015-09-11 BALANCE-labelled; 2015-12-10 19:00 (-8.25) -> 2015-12-11 BALANCE-labelled; 2016-03-10 19:00 (-9.25) -> 2016-03-11 not BALANCE; 2016-06-09 20:00 (-9.25) -> 2016-06-10 BALANCE-labelled
+    rolls 2016-17: 2016-09-08 20:00 (-7.00) -> 2016-09-09 not BALANCE; 2016-12-08 19:00 (-5.50) -> 2016-12-09 not BALANCE; 2017-03-09 19:00 (-3.25) -> 2017-03-10 BALANCE-labelled; 2017-06-08 20:00 (-2.25) -> 2017-06-09 not BALANCE
+    rolls 2017-18: 2017-09-07 20:00 (-1.75) -> 2017-09-08 BALANCE-labelled; 2017-12-07 19:00 (+2.50) -> 2017-12-08 BALANCE-labelled; 2018-03-11 18:00 (+4.75) -> 2018-03-12 not BALANCE; 2018-06-10 18:00 (+3.50) -> 2018-06-11 not BALANCE
+    rolls 2018-19: 2018-09-13 20:00 (+5.00) -> 2018-09-14 BALANCE-labelled; 2018-12-13 19:00 (+3.75) -> 2018-12-14 BALANCE-labelled; 2019-03-07 19:00 (+5.00) -> 2019-03-08 BALANCE-labelled; 2019-06-13 20:00 (+4.00) -> 2019-06-14 not BALANCE
+    rolls 2019-20: 2019-09-12 20:00 (+1.75) -> 2019-09-13 BALANCE-labelled; 2019-12-12 19:00 (+3.00) -> 2019-12-13 not BALANCE; 2020-03-15 18:00 (-12.00) -> 2020-03-16 not BALANCE; 2020-06-14 18:00 (-11.25) -> 2020-06-15 BALANCE-labelled
+    rolls 2020-21: 2020-09-10 20:00 (-10.50) -> 2020-09-11 not BALANCE; 2020-12-10 19:00 (-8.25) -> 2020-12-11 BALANCE-labelled; 2021-03-11 19:00 (-9.50) -> 2021-03-12 BALANCE-labelled; 2021-06-10 20:00 (-9.25) -> 2021-06-11 BALANCE-labelled
+    rolls 2021-22: 2021-09-09 20:00 (-9.50) -> 2021-09-10 not BALANCE; 2021-12-09 19:00 (-7.50) -> 2021-12-10 not BALANCE; 2022-03-10 19:00 (-9.25) -> 2022-03-11 BALANCE-labelled; 2022-06-12 18:00 (+1.25) -> 2022-06-13 not BALANCE
+    rolls 2022-23: 2022-09-11 18:00 (+17.75) -> 2022-09-12 not BALANCE; 2022-12-11 18:00 (+33.00) -> 2022-12-12 not BALANCE; 2023-03-12 20:00 (+32.25) -> 2023-03-13 not BALANCE; 2023-06-11 18:00 (+43.75) -> 2023-06-12 BALANCE-labelled
+    rolls 2023-24: 2023-09-10 18:00 (+49.25) -> 2023-09-11 BALANCE-labelled; 2023-12-10 19:00 (+52.00) -> 2023-12-11 not BALANCE; 2024-03-10 20:00 (+63.25) -> 2024-03-11 BALANCE-labelled; 2024-06-16 18:00 (+64.50) -> 2024-06-17 not BALANCE
+    rolls 2024-25: 2024-09-15 20:00 (+61.50) -> 2024-09-16 not BALANCE; 2024-12-15 19:00 (+70.75) -> 2024-12-16 BALANCE-labelled; 2025-03-16 20:00 (+52.25) -> 2025-03-17 not BALANCE; 2025-06-15 20:00 (+51.75) -> 2025-06-16 not BALANCE
+    2014-06-12 absent in master
+    2014-06-13 absent in master
+    2014-06-16 prev_close = 2014-06-11's last bar (15:55)
+    2020-03-02 prev_close = 2020-02-28's last bar (10:55)
+    2020-07-01 prev_close = 2020-06-30's last bar (10:10)
+    trading sessions with missing bars (bands stay positional): 3 - 2020-03-09 m=77, 2020-03-12 m=76, 2020-03-18 m=76
+      affected trade WF 2020-03-18 fill 12:20 exit 13:30 STOP side +1
+    zero-volume bars 0; NaN-VWAP bars in banded sessions 0 (in 0 sessions)
+
+---- SECTION 9 DIAGNOSTICS: ES B2 (n 378 WF trades) ----
+  event-time path, mean R by minute from entry (0 .. 390, step 5; frozen at realised R after exit):
+      0:+0.00    5:-0.54   10:-0.55   15:-0.57   20:-0.50   25:-0.49   30:-0.39   35:-0.41   40:-0.41   45:-0.36   50:-0.41   55:-0.38   60:-0.39
+     65:-0.29   70:-0.19   75:-0.19   80:-0.22   85:-0.23   90:-0.16   95:-0.18  100:-0.20  105:-0.20  110:-0.21  115:-0.21  120:-0.24  125:-0.27
+    130:-0.25  135:-0.24  140:-0.23  145:-0.23  150:-0.23  155:-0.25  160:-0.24  165:-0.24  170:-0.23  175:-0.23  180:-0.23  185:-0.22  190:-0.23
+    195:-0.23  200:-0.23  205:-0.24  210:-0.24  215:-0.23  220:-0.23  225:-0.22  230:-0.22  235:-0.23  240:-0.23  245:-0.23  250:-0.23  255:-0.23
+    260:-0.23  265:-0.23  270:-0.23  275:-0.23  280:-0.23  285:-0.23  290:-0.23  295:-0.23  300:-0.23  305:-0.23  310:-0.23  315:-0.23  320:-0.23
+    325:-0.23  330:-0.23  335:-0.23  340:-0.23  345:-0.23  350:-0.23  355:-0.23  360:-0.23  365:-0.23  370:-0.23  375:-0.23  380:-0.23  385:-0.23
+    390:-0.23
+  regime 2016-07-01 .. 2021-12-31: n  219  net    -$2,337  PF 0.937  own ROC@$30k -1.89
+  regime 2022-01-01 .. 2025-06-29: n  159  net     $1,939  PF 1.039  own ROC@$30k 2.46
+  cost curve (ES points a round trip -> net): gross 0 0.000 -> $6,462; house 0.363 -> -$398; MES 0.630 -> -$5,444; +1 tick a side 0.863 -> -$9,848; +2 ticks a side 1.363 -> -$19,298; break-even cost 0.342 pts (= mean gross)
+  year 2016-17: n   30  net       $743  PF 1.329  long 17 / short 13
+  year 2017-18: n   45  net      -$867  PF 0.864  long 19 / short 26
+  year 2018-19: n   32  net     $1,594  PF 1.268  long 9 / short 23
+  year 2019-20: n   54  net     $2,507  PF 1.288  long 23 / short 31
+  year 2020-21: n   33  net    -$2,636  PF 0.652  long 11 / short 22
+  year 2021-22: n   45  net    -$5,142  PF 0.674  long 13 / short 32
+  year 2022-23: n   42  net       $438  PF 1.030  long 18 / short 24
+  year 2023-24: n   57  net     $6,328  PF 1.520  long 29 / short 28
+  year 2024-25: n   40  net    -$3,364  PF 0.753  long 14 / short 26
+  R episode P&L (45):
+    2016-12-14..2017-04-19 $349 | 2017-09-01..2017-12-26 -$40 | 2018-10-17..2018-10-23 $0 | 2019-08-14..2019-12-12 $3,568
+    2020-03-03..2020-03-27 -$3,223 | 2020-05-26..2020-06-04 -$49 | 2020-07-10..2020-07-17 $0 | 2020-10-02..2020-10-02 $0
+    2020-10-13..2020-10-26 $0 | 2020-11-09..2020-11-10 $0 | 2021-02-16..2021-03-05 $544 | 2021-04-27..2021-05-04 $482
+    2021-07-05..2021-07-19 $89 | 2021-07-28..2021-08-19 -$1,104 | 2021-08-31..2021-09-21 $857 | 2021-11-05..2021-11-25 -$323
+    2022-01-13..2022-01-26 $0 | 2022-02-02..2022-02-22 -$278 | 2022-04-27..2022-05-03 -$781 | 2022-06-03..2022-06-23 -$2,299
+    2022-08-04..2022-08-18 -$861 | 2022-09-14..2022-09-27 $6,690 | 2022-12-01..2023-01-05 -$1,336 | 2023-02-16..2023-02-28 $1,683
+    2023-03-17..2023-03-28 -$368 | 2023-07-03..2023-07-11 -$143 | 2023-07-26..2023-08-01 $476 | 2023-08-03..2023-08-16 $694
+    2023-08-31..2023-09-14 -$218 | 2023-10-12..2023-10-31 $2,992 | 2023-11-21..2023-12-06 $0 | 2024-02-11..2024-02-21 $501
+    2024-03-04..2024-04-03 $1,421 | 2024-06-20..2024-07-01 $564 | 2024-07-15..2024-07-29 -$206 | 2024-09-26..2024-10-03 $0
+    2024-10-16..2024-10-30 $190 | 2024-11-20..2024-11-25 $0 | 2024-12-26..2025-01-02 $126 | 2025-01-24..2025-01-31 -$31
+    2025-02-18..2025-02-20 $7 | 2025-03-04..2025-03-07 $0 | 2025-04-10..2025-04-21 -$1,124 | 2025-04-27..2025-05-07 $2,108
+    2025-05-20..2025-06-20 -$492
+  #463 episode P&L (28):
+    2020-03-03..2020-03-27 -$3,223 | 2025-05-20..2025-06-20 -$492 | 2022-06-03..2022-06-22 -$2,299 | 2022-04-27..2022-05-03 -$781
+    2025-04-10..2025-04-21 -$1,124 | 2024-03-13..2024-04-03 $864 | 2022-12-01..2023-01-05 -$1,336 | 2024-07-15..2024-07-29 -$206
+    2021-03-12..2021-03-30 -$1,178 | 2020-10-13..2020-10-27 $0 | 2023-11-21..2023-12-06 $0 | 2024-11-20..2024-11-25 $0
+    2022-09-14..2022-09-27 $6,690 | 2024-10-16..2024-10-30 $190 | 2025-04-27..2025-05-07 $2,108 | 2023-12-20..2024-01-05 $271
+    2019-08-14..2019-10-09 $3,221 | 2024-02-11..2024-02-28 $321 | 2023-02-16..2023-03-09 $1,377 | 2023-08-31..2023-10-31 $3,210
+    2023-08-03..2023-08-16 $694 | 2022-08-04..2022-08-25 -$861 | 2022-01-19..2022-01-26 $0 | 2024-12-26..2025-01-02 $126
+    2025-01-24..2025-01-31 -$31 | 2022-02-02..2022-03-10 -$1,384 | 2021-07-28..2021-08-18 -$1,104 | 2021-11-05..2021-11-25 -$323
+  correlations, all WF days: ORB -0.078, ENGUQ -0.003, TTM -0.020, NOISE -0.062, RES 0.028
+  correlations, R days:      ORB 0.022, ENGUQ 0.010, TTM -0.006, NOISE -0.099, RES -0.024
+  long  n  153  net     $1,698  PF 1.039  mean realised R 0.164
+  short n  225  net    -$2,096  PF 0.952  mean realised R -0.503
+  concentration: top-10 trades -45.689 of net ($18,194); top-10 days -54.582 ($21,735); net without best day -$5,449, without best trade -$4,005
+  exits (R0 <= 0 or a fill at / beyond the band: 2 trades kept in P&L, left out of R):
+    TARGET    share 0.270  P&L    $73,874  hit (gross > 0) 1.000  mean realised R 4.528  (opposite-band TARGETs 0)
+    STOP      share 0.495  P&L   -$76,307  hit (gross > 0) 0.000  mean realised R -3.047
+    OPP-BREAK share 0.000  P&L         $0  hit (gross > 0) nan  mean realised R nan
+    FLAT      share 0.235  P&L     $2,035  hit (gross > 0) 0.551  mean realised R 0.158
+  trades per session: 1: 346, 2: 14, 4: 1
+    net by order 1st  n  361  net    -$3,290  PF 0.960
+    net by order 2nd  n   15  net     $2,140  PF 1.573
+    net by order 3rd+ n    2  net       $751  PF 2.605
+  day group QUIET                                                          n  212  net    $42,165  PF 2.294
+  day group   QUIET no raw break all day [scope: no NOISE break all day]   n  174  net    $59,229  PF 6.624
+  day group   QUIET break blocked by #304's gates                          n   31  net   -$11,688  PF 0.296
+  day group   QUIET break only on the last bar                             n    7  net    -$5,377  PF 0.015
+  day group BREAK-WIN [scope: a later break that wins]                     n   81  net   -$13,670  PF 0.435
+  day group BREAK-LOSS                                                     n   85  net   -$28,893  PF 0.038
+  day group   BREAK-LOSS VWAP [scope: a later break that loses at VWAP]    n   34  net   -$10,817  PF 0.000
+  day group   BREAK-LOSS STOP                                              n    7  net    -$2,302  PF 0.000
+  day group   BREAK-LOSS FLAT                                              n   44  net   -$15,774  PF 0.068
+  day group ALL WF BALANCE days                                            n  378  net      -$398  PF 0.995
+  co-loss share (all WF days): vs #304 0.354 $ / 0.367 count; vs L 0.421 $ / 0.430 count (losing sessions 221)
+  co-loss share (inside R): vs #304 0.317 $ / 0.368 count; vs L 0.698 $ / 0.684 count (losing sessions 57)
+  room tercile D <= 13.58             n  126  net    -$2,237  PF 0.840
+  room tercile 13.58 < D <= 24.35     n  126  net       $701  PF 1.025
+  room tercile D > 24.35              n  126  net     $1,138  PF 1.026
+  VWAP_FADE crosswalk: 0.730 of entries at >= 2.0 vwsigma; their net $2,328
+  DISPERSE split: low n  118  net       $271  PF 1.010; mid n  121  net    -$1,496  PF 0.947; high n  131  net       $660  PF 1.021; unlabelled n    8  net       $167  PF 1.242
+  no-2020 (without 2020-02-15 .. 04-30) net $1,750; no-2022 (without calendar 2022) net -$361
+  data notes (ES):
+    rolls 2010-06 warm-up: 2010-06-10 20:00 (-4.00) -> 2010-06-11 not BALANCE
+    rolls 2010-11: 2010-09-09 20:00 (-5.00) -> 2010-09-10 BALANCE-labelled; 2010-12-09 19:00 (-5.00) -> 2010-12-10 BALANCE-labelled; 2011-03-10 19:00 (-4.75) -> 2011-03-11 BALANCE-labelled; 2011-06-09 20:00 (-5.25) -> 2011-06-10 not BALANCE
+    rolls 2011-12: 2011-09-08 20:00 (-5.75) -> 2011-09-09 not BALANCE; 2011-12-08 19:00 (-6.00) -> 2011-12-09 not BALANCE; 2012-03-08 19:00 (-5.50) -> 2012-03-09 not BALANCE; 2012-06-07 20:00 (-6.75) -> 2012-06-08 BALANCE-labelled
+    rolls 2012-13: 2012-09-13 20:00 (-6.75) -> 2012-09-14 not BALANCE; 2012-12-13 19:00 (-6.00) -> 2012-12-14 BALANCE-labelled; 2013-03-07 19:00 (-5.00) -> 2013-03-08 not BALANCE; 2013-06-13 20:00 (-5.75) -> 2013-06-14 BALANCE-labelled
+    rolls 2013-14: 2013-09-12 20:00 (-6.50) -> 2013-09-13 BALANCE-labelled; 2013-12-12 19:00 (-6.00) -> 2013-12-13 not BALANCE; 2014-03-13 20:00 (-7.00) -> 2014-03-14 BALANCE-labelled; 2014-06-15 18:00 (-7.25) -> 2014-06-16 BALANCE-labelled
+    rolls 2014-15: 2014-09-11 20:00 (-7.75) -> 2014-09-12 not BALANCE; 2014-12-11 19:00 (-6.50) -> 2014-12-12 BALANCE-labelled; 2015-03-12 20:00 (-7.50) -> 2015-03-13 not BALANCE; 2015-06-11 20:00 (-7.75) -> 2015-06-12 not BALANCE
+    rolls 2015-16: 2015-09-10 20:00 (-9.75) -> 2015-09-11 BALANCE-labelled; 2015-12-10 19:00 (-8.25) -> 2015-12-11 BALANCE-labelled; 2016-03-10 19:00 (-9.25) -> 2016-03-11 not BALANCE; 2016-06-09 20:00 (-9.25) -> 2016-06-10 BALANCE-labelled
+    rolls 2016-17: 2016-09-08 20:00 (-7.00) -> 2016-09-09 not BALANCE; 2016-12-08 19:00 (-5.50) -> 2016-12-09 not BALANCE; 2017-03-09 19:00 (-3.25) -> 2017-03-10 BALANCE-labelled; 2017-06-08 20:00 (-2.25) -> 2017-06-09 not BALANCE
+    rolls 2017-18: 2017-09-07 20:00 (-1.75) -> 2017-09-08 BALANCE-labelled; 2017-12-07 19:00 (+2.50) -> 2017-12-08 BALANCE-labelled; 2018-03-11 18:00 (+4.75) -> 2018-03-12 not BALANCE; 2018-06-10 18:00 (+3.50) -> 2018-06-11 not BALANCE
+    rolls 2018-19: 2018-09-13 20:00 (+5.00) -> 2018-09-14 BALANCE-labelled; 2018-12-13 19:00 (+3.75) -> 2018-12-14 BALANCE-labelled; 2019-03-07 19:00 (+5.00) -> 2019-03-08 BALANCE-labelled; 2019-06-13 20:00 (+4.00) -> 2019-06-14 not BALANCE
+    rolls 2019-20: 2019-09-12 20:00 (+1.75) -> 2019-09-13 BALANCE-labelled; 2019-12-12 19:00 (+3.00) -> 2019-12-13 not BALANCE; 2020-03-15 18:00 (-12.00) -> 2020-03-16 not BALANCE; 2020-06-14 18:00 (-11.25) -> 2020-06-15 BALANCE-labelled
+    rolls 2020-21: 2020-09-10 20:00 (-10.50) -> 2020-09-11 not BALANCE; 2020-12-10 19:00 (-8.25) -> 2020-12-11 BALANCE-labelled; 2021-03-11 19:00 (-9.50) -> 2021-03-12 BALANCE-labelled; 2021-06-10 20:00 (-9.25) -> 2021-06-11 BALANCE-labelled
+    rolls 2021-22: 2021-09-09 20:00 (-9.50) -> 2021-09-10 not BALANCE; 2021-12-09 19:00 (-7.50) -> 2021-12-10 not BALANCE; 2022-03-10 19:00 (-9.25) -> 2022-03-11 BALANCE-labelled; 2022-06-12 18:00 (+1.25) -> 2022-06-13 not BALANCE
+    rolls 2022-23: 2022-09-11 18:00 (+17.75) -> 2022-09-12 not BALANCE; 2022-12-11 18:00 (+33.00) -> 2022-12-12 not BALANCE; 2023-03-12 20:00 (+32.25) -> 2023-03-13 not BALANCE; 2023-06-11 18:00 (+43.75) -> 2023-06-12 BALANCE-labelled
+    rolls 2023-24: 2023-09-10 18:00 (+49.25) -> 2023-09-11 BALANCE-labelled; 2023-12-10 19:00 (+52.00) -> 2023-12-11 not BALANCE; 2024-03-10 20:00 (+63.25) -> 2024-03-11 BALANCE-labelled; 2024-06-16 18:00 (+64.50) -> 2024-06-17 not BALANCE
+    rolls 2024-25: 2024-09-15 20:00 (+61.50) -> 2024-09-16 not BALANCE; 2024-12-15 19:00 (+70.75) -> 2024-12-16 BALANCE-labelled; 2025-03-16 20:00 (+52.25) -> 2025-03-17 not BALANCE; 2025-06-15 20:00 (+51.75) -> 2025-06-16 not BALANCE
+    2014-06-12 absent in master
+    2014-06-13 absent in master
+    2014-06-16 prev_close = 2014-06-11's last bar (15:55)
+    2020-03-02 prev_close = 2020-02-28's last bar (10:55)
+    2020-07-01 prev_close = 2020-06-30's last bar (10:10)
+    trading sessions with missing bars (bands stay positional): 3 - 2020-03-09 m=77, 2020-03-12 m=76, 2020-03-18 m=76
+      affected trade WF 2020-03-18 fill 13:10 exit 13:30 STOP side +1
+    zero-volume bars 0; NaN-VWAP bars in banded sessions 0 (in 0 sessions)

@@ -676,3 +676,36 @@ from below (disclosed in section 5).
    equal that file.
 9. DISPERSE ranks each day among the prior 252 sessions whose DISP passed the coverage guard (at least 60 needed).
 10. Hit rate per exit type = gross points above 0, before cost.
+
+## RESULTS - Stage A, WF only (real run 2026-10-06 12:33 MST from main 5468e90b): FAIL - dead, no variants
+Log: `tools/r37_results/balance_r1_stageA.txt`; trade and daily files in `C:\EdgeLog\_anatomy_cache\balance_r1\`. The
+lockbox was never read. Sections 3 / 6 / 8 unchanged (hash db495f4d asserted). TTM's leak-only review (inbox #44):
+NO LEAK - band parity, the noon cut by stamp and the zero-overlap content all pass. One order note: the NOISE
+zero-overlap abort runs after the verdict prints; it ran in this run and passed (0 minutes on both cells).
+
+**The cells (1 NQ, house cost 0.533 pt).**
+- **B1 (primary, stretch 1/2):** 531 trades (59.0 a year), net $16,780, PF 1.081, worst drawdown $29,531, own ROC @
+  $30k 1.90, Sortino 0.33, t 0.66, R-day sum $16,566 ($907 without its 3 best R days), 3 of 9 years positive, EARLY
+  2010-16 -$6,239. Fails bars 1 (ROC 1.90 < 5), 4 (R-sum under the null's $25,402), 7 (3/9), 8 (t 0.66 < 1.74), 12
+  (EARLY) and 13 (neighbour B2 net -$3,216).
+- **B2 (stretch 2/3):** 335 trades (37.2 a year), net -$3,216, PF 0.974, own ROC @ $30k -0.42, t -0.17. Fails 10 of
+  13 bars.
+- **Band twins of B1 (reports):** lookback 20 / 40 / 60 at 1.0 / 1.0 give own ROC 1.78 / 1.39 / 1.49 and t 0.68 /
+  0.55 / 0.67 - the same shape; B1's sign does not flip, but there is no pass to call fragile.
+- **Book add (report):** no shadow line. At c on L: 98.60 / Sortino 3.737 against the bar 126.86 / 3.916.
+
+**What it teaches (reports, never bars).**
+- **The whipsaw sank it, as written down before the run.** B1 nets +$115,001 on days NOISE #304 never trades, and so
+  about -$98,000 on the days NOISE breaks out after noon: every stop is a NOISE entry.
+- **The earner opening was real but too small.** L loses $301,860 on the quiet no-break days. B1 earns on R's days
+  ($16,566), but that is inside the coin-flip family null (p95 $25,402). In #463's worst stretch (2020-03-03..03-27)
+  B1 lost $3,383.
+- **Regime halves:** 2016-21 PF 0.86 (-$12,488); 2022-25 PF 1.25 (+$29,267, own ROC 14.99). The recent half alone does
+  not decide anything; no variant follows.
+- **Cost:** break-even 2.11 points a round trip against 0.533; net $6,160 at stress cost.
+- **ES transfer (report):** B1 592 trades, PF 0.99, own ROC -0.28; B2 PF 0.995.
+- **Correlation with the book's legs:** -0.05 to -0.09 on all WF days; it is not the drawdown-week earner the map asks
+  for.
+
+**Consequences (sections 0 and 11, MANAGER #39).** BALANCE r1 is DEAD: no variants, the VWAP family stays closed, and
+this lane has no second NQ item. A RESEARCH_LEDGER row and a RUNBOARD research row (BALANCE-R1, MISC) are filed today.
