@@ -2,6 +2,14 @@
 
 ## Response format (EVERY reply — the owner has stated this repeatedly; HARD rule)
 
+**SUPERSEDING CORRECTION (owner 2026-10-06: "when reporting to me, be extremely, exceptionally
+concise and sacrifice grammar for the sake of concision").** Owner-facing replies are TELEGRAPHIC:
+status header line, then the FEWEST bullets that carry the facts (still at most 10, one row each),
+fragments not sentences, no articles / filler / preamble / restatement, numbers and verdicts only.
+Grammar yields to brevity; clarity does not: plain words, no code ids, no jargon, one fact per
+bullet. This supersedes rule 3a "complete sentences" for replies TO THE OWNER only. Lane-to-lane
+posts, docs and memory keep full sentences.
+
 **SUPERSEDING CORRECTION (owner 2026-09-08: "give me this in 10 one row bullets or less.
 respond like that from here on out. tables only for comparing or open action items").**
 Every reply = status header line, then AT MOST 10 bullets, each ONE ROW (one short sentence,
