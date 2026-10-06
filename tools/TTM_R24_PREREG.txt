@@ -69,3 +69,21 @@ bars (e.g. 2020-02-28) shift the ordinal - the script prints how many ordinal-0 
 open and drops none silently.
 WHO: TTM runs it (tools/ttmsqz_r24_open_cell.py), log tools/data/ttmsqz_r24_open_cell.txt; verdict to MANAGER,
 ledger + TTM.md + RUNBOARD row.
+
+ADDENDUM 1 (MANAGER review inbox #65, 2026-10-06 09:50 MST, "GO WITH EDITS"; written in BEFORE any number is computed)
+(1) KNOWN-AT STAMP OF THE HOURLY GATE. The script prints, for every 09:30 decision bar, which hourly bar #459's gate reads
+    (its first and last 30m bars and their session) and asserts that bar is CLOSED at the decision (its last 30m bar ends
+    at or before the 09:30 bar's own close at 10:00). The hour containing 09:30 is still forming then. Reading the code
+    (TTMSQZ_3_0._htf_gate, clock bucketing, latest hourly group whose last base bar <= u), #459 should read the PRIOR
+    session's last group (the 15:30 bar alone on a full day). If any decision reads a forming bar, the parity section
+    says so and prints both readings (the gate as #459 reads it, and the gate re-read from the last closed group).
+(2) A THIRD LABEL. The labels are not exhaustive. Read in this order:
+      BOTH           : p_perm <= 0.05 AND p0 <= 0.05 AND m0 > 0.5 x m1 (an opening effect with a squeeze premium);
+      SQUEEZE EFFECT : p_perm <= 0.05 AND m0 <= 0.5 x m1;
+      OPENING EFFECT : p0 <= 0.05 AND m0 >= 0.5 x m1 (and not BOTH);
+      UNDECIDED      : anything else.
+    BOTH is printed as BOTH and is never rounded to one side.
+(3) O1 AT UNIT SIZE. O1 is also reported at size 1.0 (no deep-squeeze or open-bar ladder) beside the sized O1, in the
+    standalone table and the diagnostics. Unit dollars tell the mechanism; sized dollars tell the book.
+Everything else is as written. Zero passes = research row, no variants. The run starts only after this file is on main;
+its sha is printed in the log.

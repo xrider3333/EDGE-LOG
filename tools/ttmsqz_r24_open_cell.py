@@ -105,6 +105,34 @@ def main():
              "YES" if same else "NO - STOP"))
     if not same:
         return finish()
+    import subprocess
+    sha = subprocess.run(["git", "log", "-1", "--format=%h", "origin/main", "--", "tools/TTM_R24_PREREG.txt"],
+                         capture_output=True, text=True, cwd=SHARED).stdout.strip()
+    emit("PREREG on main: tools/TTM_R24_PREREG.txt last changed in %s" % (sha or "NOT ON MAIN - STOP"))
+    if not sha:
+        return finish()
+
+    # ---- addendum 1 (1): which hourly bar the 09:30 decision's gate reads (TTMSQZ_3_0._htf_gate's own mapping) ----
+    mins = idx.hour.values * 60 + idx.minute.values
+    fod = np.zeros(len(idx), int)
+    for d_ in np.unique(did):
+        w = np.flatnonzero(did == d_)
+        fod[w] = mins[w[0]]
+    grp = did.astype(np.int64) * 10000 + ((mins - fod) // 60).astype(np.int64)
+    chg = np.r_[True, grp[1:] != grp[:-1]]
+    gstart = np.flatnonzero(chg)
+    gend = np.append(gstart[1:], len(idx)) - 1
+    u0 = np.flatnonzero(ordn == 0)
+    jj = np.searchsorted(gend, u0, side="right") - 1
+    ok = jj >= 0
+    closed = bool(np.all(gend[jj[ok]] <= u0[ok]))
+    same_day = int(np.sum(did[gend[jj[ok]]] == did[u0[ok]]))
+    span = pd.Series(["%s-%s (%d bar%s)" % (idx[gstart[j]].strftime("%H:%M"), idx[gend[j]].strftime("%H:%M"),
+                                              gend[j] - gstart[j] + 1, "" if gend[j] == gstart[j] else "s")
+                      for j in jj[ok]]).value_counts()
+    emit("GATE STAMP: at each 09:30 decision (%d sessions) the hourly gate reads a CLOSED group: %s; from the same "
+         "session: %d; groups read: %s" % (int(ok.sum()), "YES" if closed else "NO - a forming bar is read",
+                                          same_day, ", ".join("%s x%d" % (k, v) for k, v in span.head(4).items())))
 
     # ---- the matched control: one rule, every session, labelled by the 09:30 fire ----
     A = SS._build_arrays(o, h, l, c, did, arr["index"], PARAMS["kc_mult"], PARAMS["gate_len"])
@@ -154,9 +182,10 @@ def main():
         rng = np.random.default_rng(7)
         bs = np.array([rng.choice(x0, len(x0)).mean() for _ in range(10000)])
         p0 = float((bs <= 0).mean())
+        both = p_perm <= 0.05 and p0 <= 0.05 and m0 > 0.5 * m1
         sq = p_perm <= 0.05 and m0 <= 0.5 * m1
         op = p0 <= 0.05 and m0 >= 0.5 * m1
-        lab = "SQUEEZE EFFECT" if sq else "OPENING EFFECT" if op else "UNDECIDED"
+        lab = "BOTH" if both else "SQUEEZE EFFECT" if sq else "OPENING EFFECT" if op else "UNDECIDED"
         emit("  %-28s m1 $%6s (n %3d)  m0 $%6s (n %4d)  m1-m0 $%6s  p_perm %.4f  p0 %.4f  m0/m1 %5.2f -> %s" % (
             tag, fmt(m1), len(x1), fmt(m0), len(x0), fmt(m1 - m0), p_perm, p0, m0 / m1 if m1 else float("nan"), lab))
         return lab, m1 - m0
@@ -178,13 +207,17 @@ def main():
     emit("")
     emit("O1 STANDALONE (sized as #459 sizes, x1) - WF %s .. %s; tuning block reported below" % (WF0, WF1))
     rest = [t for t in twin if ordn[int(t[0])] != 1]
+    raw_o1 = ORIG(o, h, l, c, n, A["warm"], A["mom"], A["atr"], A["fire"] & first, A["rng_hi"], A["rng_lo"],
+                  A["gate_long"], A["gate_short"], A["last_bar"], 2, PARAMS["eod_cutoff"], SS._STRUCT_BUF, "both")
     s459 = stats_line("#459 entire", usd(twin), cal, WF0, WF1)
-    so1 = stats_line("O1 = 10:00 fills only", usd(o1), cal, WF0, WF1)
+    so1 = stats_line("O1 = 10:00 fills only (sized)", usd(o1), cal, WF0, WF1)
+    stats_line("O1 at unit size (no ladder)", unit(raw_o1), cal, WF0, WF1)
     stats_line("#459 without its 10:00 fills", usd(rest), cal, WF0, WF1)
     stats_line("M1 (control rule, fire days)", unit(M1), cal, WF0, WF1)
     stats_line("M0 (control rule, no-fire days)", unit(M0), cal, WF0, WF1)
     emit("  tuning block %s .. %s:" % (TB0, TB1))
-    for lab_, td in (("#459 entire", usd(twin)), ("O1", usd(o1)), ("M1", unit(M1)), ("M0", unit(M0))):
+    for lab_, td in (("#459 entire", usd(twin)), ("O1 sized", usd(o1)), ("O1 unit", unit(raw_o1)), ("M1", unit(M1)),
+                     ("M0", unit(M0))):
         stats_line(lab_, td, cal, TB0, TB1)
     yrs = so1["yrs"]
     scale = 30000.0 / so1["dd"] if so1["dd"] > 0 else float("nan")
@@ -209,9 +242,6 @@ def main():
         s = float(SS._TILT_MULT) if bool(deep[max(eb - 1, 0)]) else 1.0
         return s * (float(SO._OPEN_MULT) if ordn[eb] == 1 else 1.0)
 
-    raw_o1 = [t for t in ORIG(o, h, l, c, n, A["warm"], A["mom"], A["atr"], A["fire"] & first, A["rng_hi"],
-                              A["rng_lo"], A["gate_long"], A["gate_short"], A["last_bar"], 2, PARAMS["eod_cutoff"],
-                              SS._STRUCT_BUF, "both")]
     chk = all(abs(size_of(r) * (float(r[2]) - COST) * MULT - (float(t[2]) - COST) * MULT) < 1e-6
               for r, t in zip(raw_o1, o1)) and len(raw_o1) == len(o1)
     emit("  re-pricing check (raw loop x size == #459's sized O1 trades): %s" % ("YES" if chk else "NO"))
@@ -228,6 +258,7 @@ def main():
         return np.nanmean(P, axis=0)
 
     for lab_, tr, sz in (("O1", [r for r in raw_o1 if in_window(day[int(r[1])], WF0, WF1)], True),
+                         ("O1u", [r for r in raw_o1 if in_window(day[int(r[1])], WF0, WF1)], False),
                          ("M1", [t for t in M1 if in_window(day[int(t[1])], WF0, WF1)], False),
                          ("M0", [t for t in M0 if in_window(day[int(t[1])], WF0, WF1)], False)):
         emit("  event path %-3s mean cum $ by bar 0-11: %s" % (lab_, " ".join("%+.0f" % v for v in path(tr, sz))))
@@ -241,12 +272,12 @@ def main():
         emit("    %s: O1 n %2d $%8s | M1 n %2d mean $%6s | M0 n %3d mean $%6s" % (
             a.year, len(y1), fmt(sum(y1)), len(ym1), fmt(np.mean(ym1)) if ym1 else "-", len(ym0),
             fmt(np.mean(ym0)) if ym0 else "-"))
-    for lab_, tr, pr in (("O1", o1, usd), ("M1", M1, unit), ("M0", M0, unit)):
+    for lab_, tr, pr in (("O1", o1, usd), ("O1 unit", raw_o1, unit), ("M1", M1, unit), ("M0", M0, unit)):
         for side, nm in ((1, "long"), (-1, "short")):
             v = [u for (d, u), t in zip(pr(tr), tr) if int(t[3]) == side and in_window(d, WF0, WF1)]
             emit("  %s %-5s n %4d net $%9s mean $%6s" % (lab_, nm, len(v), fmt(sum(v)), fmt(np.mean(v)) if v else "-"))
     emit("  cost curve, WF net at 0 / 5 / 10 / 20 bps of the entry price per round trip:")
-    for lab_, tr, sized in (("O1", raw_o1, True), ("M1", M1, False), ("M0", M0, False)):
+    for lab_, tr, sized in (("O1", raw_o1, True), ("O1 unit", raw_o1, False), ("M1", M1, False), ("M0", M0, False)):
         row = []
         for bps in (0, 5, 10, 20):
             tot = 0.0
