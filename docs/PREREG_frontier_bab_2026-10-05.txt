@@ -1,0 +1,59 @@
+BOOK QUEUE Q21 (scoping item B1) - BAB r1: betting against beta and low volatility in single US stocks, as a monthly basket SEAT on the
+RESMOM line. Approved by MANAGER #95 (GO WITH EDITS = ADDENDUM 1 below; MANAGER #85: FRONTIER owns single-signal basket seats on the shared
+RESMOM harness; STRATEGY-BEATING #93: import r17, recompute the beta), committed 2026-10-05 before any number of this item. Walk-forward only (owner decision b, 10-05: WF selects, nothing is read on a
+lockbox year here).
+
+WHY. TV's fund BAB r1 (11 equity funds, weekly) was dead standalone (-3.0 %/yr at $30k) but EARNED on #463's drawdown days (+$17.8k,
+above its null, held without the best episode). The single-stock form is the published, stronger one (Frazzini-Pedersen 2014; Ang-
+Hodrick-Xing-Zhang 2006). Q19 / Q20 say what the next seat must do: earn on R (the RESMOM line's 762 drawdown days, BOOK.md 10ab), not
+be more RESMOM, and peak near c 0.10 of the line's volatility. MANAGER named TV's fund test the house's one BAB test and withdrew Q14;
+this is the STOCK form under the 10-05 lane split, not a re-test of the funds (TV memory: don't re-draft BAB on funds).
+
+THE ENGINE = RESMOM r1's, unchanged (STRATEGY-BEATING's tools/rocfrontier/r17_resmom.py, imported, never copied or edited; its prereg
+a4f34e87... with addenda 1-3): the point-in-time universe, the monthly schedule (rank at the month's last session close, fill at the next
+session's open, hold to the next rebalance's fill), the pool and its hygiene [T2] rules, split-safe total returns with the dividend
+calendar (sha e5bc8487...), [D2] spin-offs, fills, marks, 5 bps a side, borrow 0.25 %/yr (stress 1% / 3% on k_t > 1.5 sessions), the
+random-name family null (500 reps), the per-year and crash reports. The pool is RESMOM's pool (same names, same removals). New FRONTIER
+module tools/rocfrontier/r19_bab.py (or the next free number on main at ship time), which adds only the two scores and the side sizes.
+
+THE TWO CELLS (fixed now; a family of 2).
+- BETA: the score is RESMOM's own OLS beta of the name's daily total return on ES's over the 252-session window ending at the rank close
+  (the same pairs, the same >= 230 rule). Long the 50 LOWEST-beta names, short the 50 HIGHEST. Beta-neutral at the fill, gross $400,000
+  as RESMOM: long side notional = $400,000 x b_H / (b_L + b_H), short side = $400,000 x b_L / (b_L + b_H) (b_L, b_H = the mean beta of
+  each side's 50 names), equal slots within a side. CHOICE: a side mean beta <= 0.05 is floored at 0.05 (counted).
+- VOL: the score is the sample SD (ddof 1) of the name's finite daily total returns over the same 252-session window. Long the 50 LOWEST,
+  short the 50 HIGHEST, dollar-neutral, $4,000 slots (RESMOM's sizing).
+Ties: by symbol, as RESMOM. Both cells rank the SAME pool.
+
+STAGE A (decides the research row; house line #45). RESMOM r1's Stage A rules (a)-(e) verbatim (its RULES / judge_cell): >= 60 monthly
+rebalances; ROC at $30k >= 15 and net > 0 at 5 AND at 10 bps a side; ROC above the null's 95th percentile (the max over the 2 cells);
+positive in >= 6 of the 9 July-June years and net > 0 without Feb 15 - Apr 30 2020; profitable without its best 1% of days AND without
+its best 1% of name-months; (f) the hand audit of the 50 largest contributors before a pass is final. A cell that fails Stage A is DEAD
+as a leg; its seat numbers are still printed (a DD-day earner can be dead standalone, as TV's fund BAB was).
+
+THE SEAT READ (decides whether it goes forward as a seat line; REPORT, owner's call; BOOK.md 10ab definitions): the incremental report
+L + c x X vs L on ROC at $30k and Sortino at c = 0.10 and 0.25 of L's daily SD (Q20's proposal and 10ab's registered size; MANAGER picks
+the binding one before Stage A runs, else 0.25 binds and 0.10 is reported); X's dollars on R > 0, also without its best R episode, and
+above the random-name null's 95th percentile on R; corr(X, RES) on all days and on R; corr(X, TV's fund BAB) on R if its daily file is
+on file. A seat line also needs Stage A passed.
+
+DIAGNOSTICS (owner addendum 2, 10-05): the month-by-month path from each fill (average over rebalances); regime halves 2016-21 / 2022-25;
+the cost curve 0 / 5 / 10 / 20 bps; per-year and per-#463-episode rows; long side vs short side (and, BETA, the realised beta of each side
+over the holding month); the known BAB crash months REPORTED and signed: 2020-04 .. 2020-06, 2020-11, 2021-01 .. 2021-02 (junk rallies),
+plus RESMOM's crash list; turnover; the 50 largest single-name contributors listed for the hand audit RESMOM's (f) uses.
+
+WHAT COULD FOOL US. (1) In-sample beta at the rank close is known then - no look-ahead - but low-beta sorts load on utilities / staples
+and rates: the per-sector share of each side is printed (SIC from the universe file if present, else not shown, counted). (2) A beta-
+neutral BAB is LEVERED on its long side - ROC at $30k is volatility-free, but the cost lines use the levered notionals. (3) It earns in
+sell-offs partly because it is short high beta: corr with ES on R is printed; if the BETA cell's realised side betas differ by > 0.3
+over the holding month, its "earns on R" may be plain short market exposure - flagged, not hidden.
+ADDENDUM 1 (MANAGER #95 "GO WITH EDITS", 2026-10-05, before any number). (1) BETA: beta-neutral at entry AND the cell's realised beta
+to ES over the WF (daily OLS of the cell's P&L per $ gross on ES's return) must be within +-0.20; if it is not, the cell's drawdown-day
+profile (dollars on R, DO, the null on R) is REPORTED and never credited as a seat. (2) VOL: the low-volatility side is a bond proxy in
+2016-21 - its daily correlation to TLT (held fund data) is printed per regime half, and the 2022 calendar-year row is printed separately.
+(3) TV's fund BAB r1 cells are read in the same seat frame beside it (dollars on R, DO, corr to RES), as planned. (4) The seat read uses
+the random-name null on the line's R and the #70 gate; a Stage A pass -> one research row and at most ONE forward book line for the
+family (the better cell by the seat read; the other is reported).
+LOOKS. Two cells added to the house's count. Seeds: RESMOM's null seed scheme with cell codes 21 (BETA) and 22 (VOL).
+ORDER. Draft -> MANAGER (and STRATEGY-BEATING for the harness import) -> commit before any number -> smoke (synthetic world) -> dryload
+counts -> Stage A WF -> record in BOOK.md + ledger + RUNBOARD research row (Stage A verdict) -> report.
