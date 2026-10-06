@@ -163,3 +163,28 @@ folded:
   return) of the stock over the same as-of window a' .. a (net issuance less the part of the return paid out as dividends: cash
   distributions count as negative issuance); a twin of each cell picked by iota_k with the same picks rule, REPORTED beside the
   cell, never a pass route.
+
+PRE-DATA ADDENDUM 2 (2026-10-05 18:55 MST, before any NETISS number): TV's second review (inbox #96, GO WITH TWO PRE-DATA
+FIXES) and MANAGER's assessment (#100) folded:
+- [A8] TV'S MAP ADDITIONS. C:\EdgeLog\_research_cache\edgar\symbol_cik_map_wide_additions_reviewed.csv (sha256
+  6bf8dfabc0a945bcf6c30f1d6bca201703d8a67d1e8f48daccfba4c6ca23c866, 14 rows: GE, WAB, FNB and 11 foreign filers - the same
+  firms under renamed or translated SEC titles, each with TV's reason) and
+  C:\EdgeLog\_research_cache\xbrl_companyfacts\shares_asfiled_additions_reviewed.csv (sha256
+  d10626d8694b180dae991c9d83502c27352b285e46b1e84c9d29b610958f2871, 1,079 rows, the flat file's columns, cut the same way) are
+  read with the pinned map (19adc9ba) and flat file (02387a4f) as ONE table - each refused if its sha differs, and a symbol or
+  a fact row present in both is refused (no silent overlap).
+- [A9] SPLITS. [A3]'s two-way check stands and is the guard TV asked for: a calendar split that F does not show, or an F change
+  the calendar does not show, voids the score - this is what catches GE's 1-for-8 reverse split of 2021-08-02, which the
+  split-adjusted pull missed (ISS ln(1/8) = -2.08 sits inside the ln(10) guard). Windows that start before the calendar's
+  2016-06-01 rest on F alone and are counted by rank.
+- [A10] AUDIT FLAG at |ISS| > ln(1.5): every scored name-rank above it (almost always a split, a class re-definition on the
+  cover page or a merger) is listed for the hand audit (f) with its two facts, their filings and the split factor; the count
+  per rank is printed; it is never a filter.
+- [A11] PRINTS before any P&L: the unscored ADRs / IFRS (20-F / 40-F) filers per rank, and the CIKs whose first share fact
+  starts inside the window (a holding-company reorganisation) per rank.
+- [A12] (MANAGER #100) every book-add report prints the dollars a year (net / years) beside each ROC @ $30k - for the cell, the
+  reference #463 + 0.264 x RES and the reference + c x the cell - and the reference line's drawdown-episode table (its
+  qualifying episodes by MDL r1's rule, 45 on the walk-forward), with the cell's P&L inside each and which episodes it helps,
+  as RESMOM's report did; the shared seat-pipeline harness (ELwA's library item: L, c by volatility, R, DO, the random-name
+  null) is used once it is in the repo, and until then r18_divrun's reference loader (one implementation of the pinned file)
+  stands in.
