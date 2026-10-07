@@ -614,7 +614,8 @@ def cmd_ship(name, message):
     # row out of shape, a squashed shared chart or one missing its dates, price labels, caveat days,
     # run-change marker or strategy lines, a Retired group that is missing or open by default, a trade
     # row without family + run number, a phone page that scrolls sideways, a scrub that does not write
-    # the hero and put it back, or ?oldboards=1 not showing the old layout. Only runs when index.html
+    # the hero and put it back, ?oldboards=1 not drawing the same board as the plain page, or a removed
+    # identifier (tools/ledger_removed.py) back in index.html. Only runs when index.html
     # changed; its --selftest (six deliberately broken copies must FAIL) runs when the probe or its
     # fixture changed. INCONCLUSIVE never blocks.
     wp = os.path.join(wt, 'tools', 'webull_board_probe.py')

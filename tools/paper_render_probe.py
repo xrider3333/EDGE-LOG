@@ -65,7 +65,8 @@ WHAT IT ASSERTS
         trades; a row tap does what its switch does
       - PHONE (375 x 812): the trade list starts within one screen of the board top, the strategy list sits BELOW it with
         one line per row, the folds are closed and the page never scrolls sideways
-      - ?oldboards=1 still gives the previous layout (ten-cell grid, old calendar, LEGS table) for one more version
+      - ?oldboards=1 (a flag that changes nothing any more) draws the SAME board as the plain page: the shared tiles, strategy list and
+        trade list frame, the same markup tree and css digests, none of the removed previous board's markers
   * LEDGER step 8 (owner plan 2026-10-05; MANAGER 2026-10-06), NT8 PAPER: the trades list is the shared trade list frame
     (ledgerTradeListHtml), each check recomputed from the FIXTURE (the rows the board lists, the New York day a trade closed,
     the money a row shows, the hold in seconds) and never read off the page:
@@ -83,7 +84,7 @@ WHAT IT ASSERTS
       - the PAGE never scrolls sideways (scrollWidth <= innerWidth, no tolerance) at 375, 601, 700, 800, 1000 and 1366 px, in LIST
         and in TABLE; a phone row is five cells; the phone TABLE fits its own box; the phone list starts no lower than 797 px
         under the board top
-      - ?oldboards=1 still draws the old trades table; no console.error or throw in any case
+      - the old trades table (#ptrades-wrap) is nowhere in the page; no console.error or throw in any case
   * LEDGER step 9 (owner plan 2026-10-05; decision 6: a row click opens the panel), NT8 PAPER: TRADING-LOG's shared TRADE PANEL
     (ledgerTradePanelOpen) opens from a row of the list, each expectation recomputed from the FIXTURE:
       - on a laptop (1366x768) and a phone (375x812), in glass / paper / MONO (plus the LIST and the TABLE, and 600 px, still a bottom
@@ -103,7 +104,7 @@ WHAT IT ASSERTS
       - Esc, a tap outside and the close button close it, a tap inside does not; CLOSED = no .lg-panel node, the page exactly as wide and
         tall as before and <body> holding the same elements
       - in MONO no colour in the panel carries a hue; the PAGE never scrolls sideways at 375, 601, 700, 800, 1000 and 1366 px with the
-        panel open or closed; ?oldboards=1 draws no panel; no console.error or throw
+        panel open or closed; no console.error or throw
     The BARS KEY (step 9 follow-up, case 'chartkey' in its own frame): a trade's bars are cached under the trade's own id, never under its
     place in the list. A stubbed PC answers every get_bars with bars whose price level belongs to the trade asked for; the CHART pill viewer
     and the OPEN N CHARTS gallery are then opened after a chip, a search, a LIST | TABLE switch and a header re-sort, and the price axis of
@@ -123,7 +124,8 @@ WHAT IT ASSERTS
         or 1100 px; a scan that saw no such rule fails; the calendar opens by default above 600 px, closed up to it
       - the phone list top (trades) is no lower than before the step (797 px under the board top); the page never scrolls sideways at 375 / 601 / 700 /
         800 / 1000 / 1366 px; in MONO the new chrome (fold rows, REFRESH, the pills row, the hero with the status chips) has no hue
-      - ?oldboards=1 is the previous board, unchanged: its markup tree and its css digests are the ones from before the step, and it draws no fold
+      - ?oldboards=1 draws the same board as the plain page (the same markup tree and css digests, so the same page sections and folds)
+      - static lint (tools/ledger_removed.py): none of the identifiers the clean-up removed is back in index.html
   * money colours FOLLOW THE THEME (owner decision 8, 2026-10-05): no fixed green / red hex on a money cell, and
     every headline money cell carries an arrow and a sign, every dense one a sign
   * BOOK (owner 2026-10-04): the big number is the BOOK #463 figure - exactly the legs of api/paper.py _BOOK at
@@ -251,13 +253,13 @@ CASES = [
                                                  'gate': {'up': True, 'legs': [{'leg': 'A', 'loaded': True}]}}}}),
     ('no-bundle',       {'sub': 'paper2', 'prefs': {}, 'win': {'__noinfo': True}}),
     # LEDGER steps 6, 7 and 10 (PAPER * layout): the Retired fold, the More stats / calendar folds and the calendar month
-    # remembered per browser, a 375 px phone, and the ?oldboards=1 escape hatch (the previous layout, one more version)
+    # remembered per browser, a 375 px phone, and the ?oldboards=1 flag (it must draw the same board as the plain page)
     ('retired-open',    {'sub': 'paper2', 'prefs': {'paperOtherOn': ['ENGUQ']}, 'win': {'_paperShowArchived': True}}),
     ('stats-open',      {'sub': 'paper2', 'prefs': {}, 'win': {}, 'ls': {'el_lg_stats_nt8': '1'}}),
     ('cal-closed',      {'sub': 'paper2', 'prefs': {}, 'win': {}, 'ls': {'el_lg_cal_nt8': '0'}}),
     ('cal-aug',         {'sub': 'paper2', 'prefs': {}, 'win': {}, 'ls': {'el_lg_calmo_nt8': '2026-08'}}),
     ('phone375',        {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fp'}),
-    ('oldboards-paper2', {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fo'}),
+    ('flag-paper2',     {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fo'}),
     # LEDGER step 8 (the shared trade list frame on NT8): TABLE on a phone, the LIST on a laptop, every width from a phone to the
     # widest stacked page and the first two-column one, and a board with no trades at all
     ('phone375-table', {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fp', 'ls': {'el_lg_view_nt8': 'table'}}),
@@ -320,9 +322,10 @@ OWN_FOLDS = ['capture', 'nt', 'recon', 'gate', 'reports']          # the board o
 S11_KEYS = ['status', 'capture', 'nt', 'recon', 'gate', 'reports', 'list']   # every remembered fold: localStorage el_lg_<key>_nt8
 HOUSE_WIDTHS = [600, 601, 740, 800, 920, 1100]                     # the one set of breakpoints (contract 5b); 601 is the other side of 600
 S11_PHONE_LIST_TOP = 797                                           # px under the board top before the step (LEDGER mistake #12) - it must not grow
-# the previous board (?oldboards=1) as digests taken before the step: the css of its <style> blocks and the tree of its tags / classes / attribute names
-# (text is left out on purpose: it carries the age of a report and would move every day)
-OLD_CSS_DIGEST, OLD_TREE_DIGEST = 'c1c6118c46a71b09', '8aaa615744e92a7b'
+# what the removed previous board drew: none of it may be in the page, in any case (the page-side readout lists the ones it finds). #ptrades-wrap
+# is deliberately not in tools/ledger_removed.py, so a mutant can put it back and prove that THIS check sees it.
+OLD_MARKS = ['#ptrades-wrap', '#ptrades-body', '#pt-selbar', 'tr[data-ptrow]', 'tr[data-paperleg]', 'tr[data-paperother]', '.p2rhstat',
+             '.p2sheet', '[data-p2num]', '.p2rhrow']
 _ALL_OPEN = dict(('el_lg_%s_nt8' % k, '1') for k in S11_KEYS)
 S11_CASES = [
     ('s11-laptop', {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fl', 's11': 'fold'}),
@@ -354,7 +357,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <iframe id="fk" src="../index.html" style="width:1366px;height:900px;border:0"></iframe>
 <pre id="o"></pre>
 <script>
-var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__;
+var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLDMARKS__;
 (function(){
   var reported=false;
   // ---- LEDGER step 8 on NT8 PAPER: the shared trade list frame - console / throw sink, readouts, interactions
@@ -859,8 +862,8 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__;
     return res;
   }
   // the page as it is drawn now: the section markers (top / left / size under the board top), every fold (state, summary, header, body, stored choice),
-  // REFRESH, the warning chips, the calendar and More stats folds, the breakpoint scan - and, for ?oldboards=1, the digests of the previous board
-  function s11Read(d,w){
+  // REFRESH, the warning chips, the calendar and More stats folds, the breakpoint scan - and, for the plain page and the ?oldboards=1 page, the digests of the board
+  function s11Read(d,w,nm){
     var bd=d.querySelector('.p2rh'),o={board:!!bd};
     if(!bd)return o;
     try{w.scrollTo(0,0);}catch(e){}   // the strategy list column is sticky: it sits where the page is scrolled to
@@ -890,14 +893,16 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__;
       kind:d.querySelectorAll('[data-pkind]').length,fam:d.querySelectorAll('[data-pfam]').length,sort:d.querySelectorAll('[data-lsort]').length,base:!!d.querySelector('[data-pbase]'),
       rows:d.querySelectorAll('[data-lglist-frame="nt8"] [data-lgtrade]').length,sw:d.querySelectorAll('[data-lglist="p2"] [data-lgsw]').length,calDays:d.querySelectorAll('[data-lgcalday]').length,wd:d.querySelectorAll('[data-wdtoggle]').length,
       wdInBody:!!d.querySelector('.p2fold-body [data-wdtoggle]'),frame:d.querySelectorAll('[data-lglist-frame="nt8"]').length};
-    if(/oldboards=1/.test(w.location.search)){
+    o.oldMarks=OLDMARKS.filter(function(s){return !!d.querySelector(s);});
+    o.flagConst=(function(){try{return w.eval('typeof LEDGER_OLDBOARDS');}catch(e){return 'error';}})();
+    if(nm==='paper2'||nm==='flag-paper2'){
       var css=[].map.call(bd.querySelectorAll('style'),function(s){return s.textContent;}).join('\\n');
       var tree=[].map.call(bd.querySelectorAll('*'),function(e){
         var cl=(typeof e.className==='string'?e.className:'').trim().split(/\\s+/).filter(Boolean).sort().join('.');
         var at=[].map.call(e.attributes,function(a){return a.name;}).filter(function(n){return n!=='class';}).sort().join(',');
         return e.tagName.toLowerCase()+'.'+cl+'|'+at;}).join('\\n');
-      o.old={css:s11digest(css),cssLen:css.length,tree:s11digest(tree),treeN:bd.querySelectorAll('*').length,html:s11digest(bd.outerHTML),htmlLen:bd.outerHTML.length,
-        folds:bd.querySelectorAll('[data-p2fold],[data-p2sec],.p2own,.p2fold-hd').length,foldCss:/p2fold|p2own|p2ctl|p2cw/.test(bd.outerHTML)};
+      o.dig={css:s11digest(css),cssLen:css.length,tree:s11digest(tree),treeN:bd.querySelectorAll('*').length,
+        folds:bd.querySelectorAll('[data-p2fold],[data-p2sec],.p2own,.p2fold-hd').length};
     }
     return o;
   }
@@ -1117,7 +1122,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__;
         // header with an unrealised mark, and the DAILY REPORTS table names the close day and carries BOOK $.
         r.openMarks=body?(body.innerText.match(/unrealised/g)||[]).length:(fr0?(fr0.textContent.match(/unrealised/g)||[]).length:0);
         r.dayHdrs=[].map.call(d.querySelectorAll('#ptrades-body tr.p2day'),function(x){return x.innerText.replace(/\\s+/g,' ').trim();});
-        r.heroBig=[].map.call(d.querySelectorAll('.p2big'),function(x){return x.innerText;}).join('|');
+        r.heroBig=[].map.call(d.querySelectorAll('#p2-hero-value'),function(x){return x.innerText;}).join('|');
         r.closeDayTh=[].filter.call(d.querySelectorAll('th'),function(x){return x.textContent.indexOf('CLOSE DAY')>=0;}).length;
         r.bookTh=[].filter.call(d.querySelectorAll('th'),function(x){return x.textContent.indexOf('BOOK $')>=0;}).length;
         // LEDGER step 3 readout (PAPER * layout)
@@ -1185,7 +1190,6 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__;
         function _top(e){if(!e)return null;return Math.round(e.getBoundingClientRect().top+(w.pageYOffset||0));}
         r.statTiles=[].map.call(d.querySelectorAll('.lg-stats [data-lgstat]'),function(e){return {k:e.getAttribute('data-lgstat'),v:_t(e.querySelector('.lg-stat-val')),sub:_t(e.querySelector('.lg-stat-sub')),top:_top(e)};});
         r.oldStatCells=d.querySelectorAll('.p2rhstat').length;
-        r.oldHero=!!d.querySelector('[data-p2num]');
         var _ls0=d.querySelector('[data-lglist="p2"]');
         r.groups=_ls0?[].map.call(_ls0.querySelectorAll('.lg-grp'),function(g){var f=g.querySelector('[data-lggrp]');
           return {key:g.getAttribute('data-lggroup'),rows:g.querySelectorAll('[data-lgrow]').length,fold:!!f,open:f?f.getAttribute('aria-expanded'):null,txt:_t(g.querySelector('.lg-grp-hd'))};}):[];
@@ -1208,24 +1212,12 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__;
             prevDis:(g.querySelector('[data-lgcalmo="-1"]')||{}).disabled,nextDis:(g.querySelector('[data-lgcalmo="1"]')||{}).disabled};}
         r.cal=_calState();
         r.calPanelHidden=(function(){var p=d.getElementById('p2-cal');return p?!!p.hidden:null;})();
-        r.s11=null;try{r.s11=s11Read(d,w);}catch(e){r.s11={err:String(e&&e.stack?e.stack:e)};}   // before any interaction below moves the page
+        r.s11=null;try{r.s11=s11Read(d,w,nm);}catch(e){r.s11={err:String(e&&e.stack?e.stack:e)};}   // before any interaction below moves the page
         r.tl=tlRead(d,w);
         r.tlGeo=(function(){var f0=d.querySelector('[data-lglist-frame="nt8"]'),b0=d.querySelector('.p2rh');
           return {vw:w.innerWidth,vh:w.innerHeight,scrollW:d.documentElement.scrollWidth,clientW:d.documentElement.clientWidth,frameTop:f0?_top(f0):null,boardTop:b0?_top(b0):null};})();
-        r.oldTable=(function(){var wp=d.getElementById('ptrades-wrap');if(!wp)return null;
-          var tr=wp.querySelectorAll('tbody tr[data-ptrow]');
-          return {th:[].map.call(wp.querySelectorAll('thead th'),function(x){return x.textContent.replace(/\\s+/g,' ').trim().toLowerCase();}),rows:tr.length,
-            hdrs:[].map.call(wp.querySelectorAll('tbody tr.p2day'),function(x){return x.textContent.replace(/\\s+/g,' ').trim().toLowerCase();}),
-            selBar:!!d.getElementById('pt-selbar'),allCharts:!!d.querySelector('[data-ptallcharts]'),frames:d.querySelectorAll('[data-lglist-frame]').length};})();
-        r.oldSel=null;
-        if(nm==='oldboards-paper2'){try{
-          var tb0=d.getElementById('ptrades-body'),tr0=tb0?tb0.querySelector('tr[data-ptrow]'):null;
-          if(tr0){tr0.cells[0].dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true,button:0,pointerId:3,pointerType:'mouse',clientX:5,clientY:5}));
-            var sb0=d.getElementById('pt-selbar');
-            r.oldSel={cls:tr0.classList.contains('ptsel'),bar:sb0?sb0.textContent.replace(/\\s+/g,' ').trim():null};}
-        }catch(e){r.oldSel={err:String(e)};}}
-        // LEDGER step 9: after a press on an old table row nothing of the shared trade panel is in the page (?oldboards=1 has none)
-        r.oldPanel=(nm==='oldboards-paper2')?{nodes:d.querySelectorAll('.lg-panel,.lg-panel-layer').length,id:w._ntPanelId==null?null:String(w._ntPanelId),frames:d.querySelectorAll('[data-lglist-frame]').length}:null;
+        // LEDGER step 9: behind ?oldboards=1 the shared trade panel is not in the page either until a row is clicked
+        r.flagPanel=(nm==='flag-paper2')?{nodes:d.querySelectorAll('.lg-panel,.lg-panel-layer').length,id:w._ntPanelId==null?null:String(w._ntPanelId),frames:d.querySelectorAll('[data-lglist-frame]').length}:null;
         r.tlint=null;
         if(nm==='paper2'||nm==='other-on'){try{r.tlint=tlInteract(d,w,nm);}catch(e){r.tlint={err:String(e&&e.stack?e.stack:e)};}}
         // LEDGER step 9: the panel at this width (the width sweep), then the panel cases
@@ -1477,6 +1469,18 @@ def run(alt_index=None, timeout=300):
     if not os.path.isfile(fix_path):
         say('PAPERPROBE: INCONCLUSIVE -- fixture missing: %s' % fix_path)
         return INCONCLUSIVE, out_lines
+    # static lint (tools/ledger_removed.py): nothing the LEDGER clean-up removed is back in the file being gated
+    sys.path.insert(0, os.path.join(root, 'tools'))
+    try:
+        import ledger_removed
+    finally:
+        sys.path.pop(0)
+    probs = ledger_removed.lint_file(alt_index or index_path, ['shared', 'nt8'])
+    if probs:
+        say('PAPERPROBE: FAIL')
+        for p_ in probs:
+            say('  - ' + p_)
+        return FAIL, out_lines
     chrome = find_chrome()
     if not chrome:
         say('PAPERPROBE: INCONCLUSIVE -- Chrome not found')
@@ -1501,7 +1505,8 @@ def run(alt_index=None, timeout=300):
             .replace('__CASES__', json.dumps([[n, c] for n, c in ALL_CASES]))
             .replace('__FIX__', json.dumps(fixture))
             .replace('__HOUSE__', json.dumps(HOUSE_WIDTHS))
-            .replace('__S11K__', json.dumps(S11_KEYS)))
+            .replace('__S11K__', json.dumps(S11_KEYS))
+            .replace('__OLDMARKS__', json.dumps(OLD_MARKS)))
     io.open(ppath, 'w', encoding='utf-8').write(html)
 
     srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), make_handler(root, alt_index))
@@ -1610,18 +1615,7 @@ def run(alt_index=None, timeout=300):
         if 'delta on 38%' not in (r.get('capES') or '') or 'LOW' not in (r.get('capES') or ''):
             fails.append('%s: ES capture line not flagged LOW: %r' % (nm, r.get('capES')))
 
-    # EXIT-DAY board: close-day headers, the open trade apart and unrealised, the open mark in no total.
-    # The old table (these readouts) now draws behind ?oldboards=1 only; the shared frame's day headers, OPEN NOW block and
-    # unrealised label are asserted from the fixture further down (LEDGER step 8).
-    for nm in ('oldboards-paper2',):
-        r = cases.get(nm) or {}
-        hd = ' | '.join(r.get('dayHdrs') or []).lower()
-        if 'closed' not in hd:
-            fails.append('%s: day headers do not say the day is the close day: %r' % (nm, hd[:200]))
-        if 'open now' not in hd or not r.get('openMarks'):
-            fails.append('%s: the open trade is not shown apart as unrealised (headers %r)' % (nm, hd[:200]))
-        if '2026-09-21' not in hd:
-            fails.append('%s: the Sunday-evening exit did not count on its Monday' % nm)
+    # EXIT-DAY board: the shared frame's day headers, OPEN NOW block and unrealised label are asserted from the fixture further down (LEDGER step 8).
     r = cases.get('reports-open') or {}
     if not r.get('closeDayTh') or not r.get('bookTh'):
         fails.append('reports-open: DAILY REPORTS lost its CLOSE DAY / BOOK $ columns')
@@ -2148,15 +2142,18 @@ def run(alt_index=None, timeout=300):
     if r.get('pills') != ['TODAY', '1W', '1M', '3M', 'YTD', 'ALL']:
         fails.append('phone375: the pill row reads %s' % r.get('pills'))
 
-    # -- ?oldboards=1 keeps the previous layout for one more version
-    r = cases.get('oldboards-paper2') or {}
-    if r.get('oldStatCells') != 10 or r.get('statTiles') or r.get('groups'):
-        fails.append('oldboards-paper2: ?oldboards=1 should keep the old ten-cell grid, no shared tiles and no shared list (cells %s, tiles %s, groups %s)'
-                     % (r.get('oldStatCells'), len(r.get('statTiles') or []), len(r.get('groups') or [])))
-    if not r.get('oldHero') or not r.get('calDays') or sorted(r.get('bookRowKeys') or []) != sorted(book_w) \
-            or ((r.get('listed') or {}).get('tie') != '1'):
-        fails.append('oldboards-paper2: the previous layout lost its hero, calendar, LEGS table or tie-out line (hero %s, calendar days %s, book rows %s, tie %s)'
-                     % (r.get('oldHero'), r.get('calDays'), r.get('bookRowKeys'), (r.get('listed') or {}).get('tie')))
+    # -- ?oldboards=1 no longer changes anything: the flag page draws the NEW board - the shared tiles, the shared strategy list with the same
+    #    book rows as the plain page, the one shared trade list frame and no trade panel until a row is clicked
+    r = cases.get('flag-paper2') or {}
+    if len(r.get('statTiles') or []) != 4 or not r.get('groups') or r.get('oldStatCells'):
+        fails.append('flag-paper2: ?oldboards=1 must draw the shared stat tiles and the shared strategy list (tiles %s, groups %s, old cells %s)'
+                     % (len(r.get('statTiles') or []), len(r.get('groups') or []), r.get('oldStatCells')))
+    if not r.get('bookRowKeys') or sorted(r.get('bookRowKeys') or []) != sorted((cases.get('paper2') or {}).get('bookRowKeys') or []):
+        fails.append('flag-paper2: the strategy list behind ?oldboards=1 lists %s, the plain page lists %s'
+                     % (r.get('bookRowKeys'), (cases.get('paper2') or {}).get('bookRowKeys')))
+    fp_ = r.get('flagPanel') or {}
+    if fp_.get('nodes') or fp_.get('id') is not None or fp_.get('frames') != 1:
+        fails.append('flag-paper2: ?oldboards=1 must draw the one shared trade list frame and no trade panel until a row is clicked (%s)' % fp_)
 
     # warnings reach the hero while their card is closed
     r = cases.get('warn-stale-bridge') or {}
@@ -2186,7 +2183,7 @@ def run(alt_index=None, timeout=300):
     # LEDGER step 8 (owner plan 2026-10-05; MANAGER 2026-10-06): the NT8 trades list is the SHARED FRAME (ledgerTradeListHtml).
     # Every expectation below is recomputed from the FIXTURE - the rows the board lists, the New York day a trade closed, the money
     # a row shows, the hold in seconds - and never read off the page. (The cases named 'paper*' all draw the merged PAPER tab: the
-    # app routes 'paper' to 'paper2', so the old table now exists only behind ?oldboards=1.)
+    # app routes 'paper' to 'paper2'.)
     def _disp(t):
         # the money a row shows: a book leg at its weight, any other strategy as it is
         return (t.get('pnl_usd') or 0) * (_w(t) or 1)
@@ -2406,27 +2403,6 @@ def run(alt_index=None, timeout=300):
     if any(_re.match(r'^[A-Z][A-Za-z-]* \d{2,}\b', l) for l in labs):
         fails.append('other-on: a strategy label reads family + number without the hash sign: %s' % sorted(set(labs)))
 
-    # the old table: untouched behind ?oldboards=1 (no frame, its own sort headers, day headers and selection bar, drag / click select)
-    r = cases.get('oldboards-paper2') or {}
-    ot = r.get('oldTable') or {}
-    exp_old = [t for t in fixture['trades'] if (_w(t) and t.get('leg') not in ())]
-    if not ot or ot.get('frames') != 0:
-        fails.append('oldboards-paper2: ?oldboards=1 must draw the old trades table and no shared frame (%s)' % ot)
-    else:
-        want_th = ['strategy', 'side', 'entry', 'entry price', 'hold', 'slip', 'δ', '$', 'cum', 'engines', 'chart']
-        got_th = ot.get('th') or []
-        if len(got_th) != len(want_th) or any(not g.startswith(wt) for g, wt in zip(got_th, want_th)):
-            fails.append('oldboards-paper2: the old table headings read %s, expected %s' % (got_th, want_th))
-        if ot.get('rows') != len(exp_old):
-            fails.append('oldboards-paper2: the old table lists %s rows, the fixture holds %d trades of the shown strategies' % (ot.get('rows'), len(exp_old)))
-        hdrs = ' | '.join(ot.get('hdrs') or [])
-        if 'closed' not in hdrs or 'open now' not in hdrs or 'unrealised' not in hdrs or '2026-09-21' not in hdrs:
-            fails.append('oldboards-paper2: the old day headers lost CLOSED / OPEN NOW / unrealised / the Sunday exit on its Monday: %r' % hdrs[:300])
-        if not ot.get('selBar') or not ot.get('allCharts'):
-            fails.append('oldboards-paper2: the old selection bar or ALL CHARTS is gone (%s)' % ot)
-    os_ = r.get('oldSel') or {}
-    if not os_.get('cls') or '1 SELECTED' not in (os_.get('bar') or '') or 'OPEN 1 CHART' not in (os_.get('bar') or ''):
-        fails.append('oldboards-paper2: a pointer press on an old table row no longer selects it (%s)' % os_)
 
     # the phone: five cells a row (LIST and TABLE), the list top within one screen of the board top, no sideways page
     for nm in ('phone375', 'phone375-table', 'w600'):
@@ -3034,10 +3010,6 @@ def run(alt_index=None, timeout=300):
                                      % (s.get('n'), c.get('id'), c.get('axis'), c.get('want')))
         for e in (ckr.get('errors') or []) + (ckr.get('uncaught') or []):
             fails.append('chartkey: a console error or an uncaught throw: %s' % e)
-    # ?oldboards=1: no panel at all; a press on an old table row still selects it
-    opn = (cases.get('oldboards-paper2') or {}).get('oldPanel') or {}
-    if opn.get('nodes') or opn.get('id') is not None or opn.get('frames'):
-        fails.append('oldboards-paper2: ?oldboards=1 must not draw the NT8 trade panel or the shared frame (%s)' % opn)
 
     s11_info = _judge_s11(cases, fixture, data, fails)
 
@@ -3047,11 +3019,10 @@ def run(alt_index=None, timeout=300):
             say('  - ' + f)
         return FAIL, out_lines
 
-    # the new layout has a strategy list (shared ledgerListHtml rows) where the LEGS table was; ?oldboards=1 still draws the table
-    say('PAPERPROBE: PASS (VERSION=%s, %d cases, strategy list %s rows, ?oldboards=1 LEGS table %s cols, %s trade rows, %d trade panel cases, '
+    # the board has a strategy list (shared ledgerListHtml rows); ?oldboards=1 draws the same board (case flag-paper2)
+    say('PAPERPROBE: PASS (VERSION=%s, %d cases, strategy list %s rows, %s trade rows, %d trade panel cases, '
           '%d chart bars-key steps)'
           % (data.get('VERSION'), len(cases), len((cases.get('base') or {}).get('listRowInfo') or []),
-             (cases.get('oldboards-paper2') or {}).get('legHead'),
              (cases.get('base') or {}).get('tradeRows'), len(PANEL_CASES), len(((cases.get('chartkey') or {}).get('ckey') or {}).get('steps') or [])))
     say('PAPERPROBE step 11: %s' % s11_info)
     return PASS, out_lines
@@ -3059,7 +3030,7 @@ def run(alt_index=None, timeout=300):
 
 def _judge_s11(cases, fixture, data, fails):
     """LEDGER step 11 on NT8 PAPER (see the docstring): the fixed page order, the own folds, remembered open / closed, one set of breakpoints, the phone
-    list top, MONO, the previous board unchanged. Returns the one line the PASS output prints."""
+    list top, MONO, ?oldboards=1 = the plain board. Returns the one line the PASS output prints."""
     import re as _re
     # what the fixture says the warning counts are (the newest report that carries a reconcile block, the newest report's fills log)
     rec_n = fills_n = None
@@ -3080,8 +3051,10 @@ def _judge_s11(cases, fixture, data, fails):
         if s.get('err'):
             fails.append('%s: the step 11 readout threw -- %s' % (nm, str(s['err'])[:200]))
             continue
-        if 'oldboards' in nm:
-            continue
+        if s.get('oldMarks'):
+            fails.append('%s: markers of the removed previous board are in the page: %s' % (nm, ', '.join(s['oldMarks'])))
+        if s.get('flagConst') not in (None, 'undefined'):
+            fails.append('%s: LEDGER_OLDBOARDS is still a name in the page (typeof %s)' % (nm, s.get('flagConst')))
         n_cases += 1
         vw = s.get('vw') or 0
         sec = s.get('sec') or []
@@ -3306,22 +3279,23 @@ def _judge_s11(cases, fixture, data, fails):
     wsum = ' '.join(t['t'] for f in (((cases.get('s11-watchdog') or {}).get('s11') or {}).get('folds') or []) if f['k'] == 'status' for t in (f.get('tok') or []))
     if '1 / 1 live' not in wsum or 'gate up' not in wsum:
         fails.append('s11-watchdog: the status line does not carry the NinjaTrader states (live count, gate): %r' % wsum)
-    # -- ?oldboards=1 is the previous board, unchanged
-    o = ((cases.get('oldboards-paper2') or {}).get('s11') or {}).get('old') or {}
-    if not o:
-        fails.append('oldboards-paper2: no digest of the previous board')
+    # -- ?oldboards=1 draws the same board as the plain page: the same css and the same markup tree (text is left out: it carries the age of a report)
+    pd_ = ((cases.get('paper2') or {}).get('s11') or {}).get('dig') or {}
+    o = ((cases.get('flag-paper2') or {}).get('s11') or {}).get('dig') or {}
+    if not pd_ or not o:
+        fails.append('flag-paper2: no digest of the board to compare with the plain page (plain %s, ?oldboards=1 %s)' % (bool(pd_), bool(o)))
     else:
-        if o.get('css') != OLD_CSS_DIGEST:
-            fails.append('oldboards-paper2: the css of the previous board changed (digest %s, %d chars; it was %s before step 11)' % (o.get('css'), o.get('cssLen'), OLD_CSS_DIGEST))
-        if o.get('tree') != OLD_TREE_DIGEST:
-            fails.append('oldboards-paper2: the markup tree of the previous board changed (digest %s, %d elements; it was %s before step 11)' % (o.get('tree'), o.get('treeN'), OLD_TREE_DIGEST))
-        if o.get('folds') or o.get('foldCss'):
-            fails.append('oldboards-paper2: the previous board draws step 11 parts (%s folds / sections, fold css %s)' % (o.get('folds'), o.get('foldCss')))
+        if o.get('css') != pd_.get('css'):
+            fails.append('flag-paper2: the css behind ?oldboards=1 is not the plain page css (digest %s, %d chars; plain %s, %d chars)'
+                         % (o.get('css'), o.get('cssLen'), pd_.get('css'), pd_.get('cssLen')))
+        if o.get('tree') != pd_.get('tree'):
+            fails.append('flag-paper2: the markup tree behind ?oldboards=1 is not the plain page tree (digest %s, %d elements; plain %s, %d elements)'
+                         % (o.get('tree'), o.get('treeN'), pd_.get('tree'), pd_.get('treeN')))
     return ('%d cases in the fixed page order (%d own folds + status + list), %d fold clicks run, remembered across a real reload (laptop + phone), house widths seen %s, '
-            'phone list top %s px (was %d), ?oldboards=1 board unchanged (css %s, tree %s, html %s %s chars)'
+            'phone list top %s px (was %d), ?oldboards=1 board = plain board (css %s, tree %s, %s elements)'
             % (n_orders, len(OWN_FOLDS), n_folds_run, '/'.join(str(int(x)) for x in sorted(set(
-                px for n_, r_ in p2_cases if 'oldboards' not in n_ for px in (((r_.get('s11') or {}).get('bp') or {}).get('widths') or [])))), phone_top, S11_PHONE_LIST_TOP,
-               o.get('css'), o.get('tree'), o.get('html'), o.get('htmlLen')))
+                px for n_, r_ in p2_cases for px in (((r_.get('s11') or {}).get('bp') or {}).get('widths') or [])))), phone_top, S11_PHONE_LIST_TOP,
+               o.get('css'), o.get('tree'), o.get('treeN')))
 
 
 def _cap_trades(fixture):
@@ -3361,8 +3335,8 @@ MUTANTS = [
      'the NT8 trades list is no longer drawn by the shared frame',
      'not drawn by the shared frame'),
     ('frame-twice',
-     "+_ntTl.build()+'</div>'):_tradesHtmlOld;",
-     "+_ntTl.build()+_ntTl.build()+'</div>'):_tradesHtmlOld;",
+     "const tradesHtml='<div id=\"nt8-tl\" class=\"p2tlbox\">'+_ntTl.build()+'</div>';",
+     "const tradesHtml='<div id=\"nt8-tl\" class=\"p2tlbox\">'+_ntTl.build()+_ntTl.build()+'</div>';",
      'the board draws two trade list frames',
      'shared trade list frames on the NT8 board'),
     ('daynet-wrong',
@@ -3519,11 +3493,22 @@ MUTANTS = [
      "const paint=root=>{console.error('probe mutant');",
      'the list logs a console.error while it paints',
      'console.error'),
-    ('oldboards-draws-frame',
-     'const tradesHtml=_p2New?(\'<div id="nt8-tl" class="p2tlbox">\'+_ntTl.build()+\'</div>\'):_tradesHtmlOld;',
-     'const tradesHtml=(_ntTl?(\'<div id="nt8-tl" class="p2tlbox">\'+_ntTl.build()+\'</div>\'):\'\');',
-     '?oldboards=1 no longer draws the old trades table',
-     'must draw the old trades table'),
+    # the clean-up of v73.1125: ?oldboards=1 and the previous board are gone, and nothing of them may come back
+    ('oldflag-changes-the-board',
+     'const _p2Narrow=(window.innerWidth||1400)<1100;',
+     "const _p2Narrow=(window.innerWidth||1400)<1100||location.search.indexOf('old'+'boards=1')>=0;",
+     '?oldboards=1 draws the stacked narrow page on a laptop: the page behind the flag is not the plain page',
+     'behind ?oldboards=1'),
+    ('old-marker-back-in-page',
+     "body='<div class=\"p2rh\">'+_p2Head+_p2Top+_p2ListFold+_p2Main+'</div>';",
+     "body='<div class=\"p2rh\">'+_p2Head+_p2Top+_p2ListFold+_p2Main+'<div id=\"ptrades-wrap\"></div></div>';",
+     'a piece of the removed previous trades table (#ptrades-wrap) is back in the page',
+     'markers of the removed previous board'),
+    ('removed-flag-name-back',
+     'const _p2Narrow=(window.innerWidth||1400)<1100;',
+     'const _p2New=true;const _p2Narrow=(window.innerWidth||1400)<1100;',
+     'the removed NT8 flag _p2New is defined again (the static lint of removed identifiers must fail)',
+     'is back in index.html'),
     ('side-flipped',
      'side:r=>r.type?\'<span class="lg-side \'+(r.type===\'LONG\'?\'long\':\'short\')+\'">\'+r.type+\'</span>\'',
      'side:r=>r.type?\'<span class="lg-side \'+(r.type===\'LONG\'?\'long\':\'short\')+\'">\'+(r.type===\'LONG\'?\'SHORT\':\'LONG\')+\'</span>\'',
@@ -3720,11 +3705,6 @@ MUTANTS = [
      "const picked=(window._paperCandleRows||[]).filter(x=>sel.has(x._pid)).map(x=>Object.assign({},x,{_no:'P'+(window._paperCandleRows||[]).indexOf(x)}));if(!picked.length)return;",
      'OPEN N CHARTS caches the bars of its ticked trades by their place in the list',
      'OPEN N CHARTS gallery drew the bars of another trade'),
-    ('nt8-panel-opens-on-oldboards',
-     'if(ev.shiftKey&&anchorIdx>=0){base=new Set(sel);range(anchorIdx,i).forEach(id=>sel.add(id));}',
-     "ledgerTradePanelOpen({id:'nt8',tradeId:String(ids[i]),head:{sym:'x',side:'LONG',net:0},blocks:[]});if(ev.shiftKey&&anchorIdx>=0){base=new Set(sel);range(anchorIdx,i).forEach(id=>sel.add(id));}",
-     'a press on a row of the old table (?oldboards=1) opens the NT8 trade panel',
-     'must not draw the NT8 trade panel'),
     # ---- LEDGER step 11: the fixed page order, the own folds, one set of breakpoints, the previous board unchanged ----
     ('section-order-wrong',
      "_p2Sec('more',_pnUi.more)+_p2Sec('cal',_pnUi.cal)",
@@ -3737,13 +3717,13 @@ MUTANTS = [
      'the range pills sit under the chart instead of between the hero and the chart',
      'the page sections run'),
     ('list-below-trades',
-     "?'<div class=\"p2rh\">'+_p2Head+_p2Top+_p2ListFold+_p2Main+'</div>'",
-     "?'<div class=\"p2rh\">'+_p2Head+_p2Top+_p2Main+_p2ListFold+'</div>'",
+     "body='<div class=\"p2rh\">'+_p2Head+_p2Top+_p2ListFold+_p2Main+'</div>';",
+     "body='<div class=\"p2rh\">'+_p2Head+_p2Top+_p2Main+_p2ListFold+'</div>';",
      'on a page narrower than two columns the strategy list comes after the trades and the own folds',
      'the page sections run'),
     ('own-folds-above-trades',
-     "const _p2Main=(_p2New?_p2Sec('trades',tradesHtml):tradesHtml)+_p2Cards;",
-     "const _p2Main=_p2Cards+(_p2New?_p2Sec('trades',tradesHtml):tradesHtml);",
+     "const _p2Main=_p2Sec('trades',tradesHtml)+_p2Cards;",
+     "const _p2Main=_p2Cards+_p2Sec('trades',tradesHtml);",
      'the own folds are drawn above the trades list',
      'the page sections run'),
     ('own-section-removed',
@@ -3807,15 +3787,10 @@ MUTANTS = [
      'the trade list narrow-box rule steps at a width of its own (899 px)',
      'outside the house set'),
     ('calendar-default-private-width',
-     "(window.innerWidth||1200)>600;})();",
-     "(window.innerWidth||1200)>=760;})();",
+     "if(v==='1'||v==='0')return v==='1';return (window.innerWidth||1200)>600;})();",
+     "if(v==='1'||v==='0')return v==='1';return (window.innerWidth||1200)>=760;})();",
      'the calendar opens by default from 760 px instead of above 600',
      'the calendar fold is'),
-    ('oldboards-markup-changed',
-     "+'<div data-p2card=\"'+key+'\" class=\"p2sh\"",
-     "+'<div data-p2card=\"'+key+'\" data-p2fold=\"old\" class=\"p2sh\"",
-     'the previous board (?oldboards=1) gets a fold marker',
-     'the previous board'),
     ('mono-hue-in-fold',
      "'.p2fold-sum b{font-weight:700;color:var(--text)}'",
      "'.p2fold-sum b{font-weight:700;color:#3fb88a}'",

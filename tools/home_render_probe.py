@@ -24,7 +24,7 @@ writes. requestAnimationFrame is replaced with a 0 ms timer, since a headless pa
 animation frames.
 
 Every case is its own fresh render (all HOME state reset, then renderApp()). After the 24+ cases and the two interaction runs the
-same index.html is loaded three times more: with ?oldboards=1 (the previous layout), for the shared trade panel (PANEL_CASES,
+same index.html is loaded three times more: with ?oldboards=1 (a flag that changes nothing any more), for the shared trade panel (PANEL_CASES,
 LEDGER unify step 9) and for the width sweep (WIDTH_RUNS, the step 8 follow-up):
   viewport  laptop 1366x768 | phone 375x812        (the iframe IS the viewport)
   theme     glass (the owner's dark theme) | paper (light), via prefs.theme + applyTheme()
@@ -48,8 +48,10 @@ Per case:
   * rows come out newest close first, a deposit sits in its day under BY TRADE, the AI ASSESSMENT is a closed fold, the
     account list is one line on a phone (a list on a laptop), and the SIMPLE table fits its box with no sideways scroll
   * the legacy TRADES and JOURNAL tabs (?oldtabs=1) draw on a phone without scrolling the page sideways (mistake #14)
-  * ?oldboards=1 (a second page load) still draws the previous list: its own FEED / TABLE button and chips, no frame, and the
-    previous trade sheet (#hm-sheet) still takes no room when closed, opens on a trade and closes again
+  * ?oldboards=1 (a second page load) draws the NEW board like the plain page: the shared trade list frame, the page sections in the fixed
+    order, the same markup digest as the matching plain case, none of the removed previous board's markers (#hm-sheet, the FEED / TABLE
+    button, the old chips, ...) and no LEDGER_OLDBOARDS name left in the page
+  * static lint (tools/ledger_removed.py): none of the identifiers the clean-up removed is back in index.html
   * LEDGER step 9: while nothing is open the shared trade panel is not in the page at all (no node, no layer)
 Per trade panel case (a third page load: laptop 1366x768 and phone 375x812, glass / paper / MONO, PANEL_CASES):
   * a click on a row of the list opens the shared trade panel ([data-lgpanel="hm"]) with that trade's symbol, side tag and signed net
@@ -87,7 +89,7 @@ LEDGER unify step 11 (REAL: one page order, own sections as closed folds, one se
   * the board's own media rules (every @media whose selector names .hm- or #hm- and matches something on the page) use only the house widths
     (HOUSE_WIDTHS: 600 phone, 740 / 800 / 920 list cells, 1100 rail) and the scan has to see some of them (a blind scan fails)
   * MONO (laptop and phone, every fold open): no colour on the board has a hue
-  * ?oldboards=1 is byte-for-byte the previous board: a digest of its markup (OLD_BOARD_DIGEST) must not move
+  * no marker of the removed previous board (OLD_MARKS: #hm-sheet, .hm-backdrop, the FEED / TABLE button ...) is in the page, in any case
 Per fold run (a fifth page load, FOLD_RUNS): every own fold is opened with a click, the page is RELOADED and the same folds are open without a
 click; they are closed with a click, the page is reloaded again and they are closed (open / closed remembered per browser in localStorage)
 Per interaction run:
@@ -163,9 +165,12 @@ for _th in THEMES:
         CASES.append(['phone/%s/legacy-%s' % (_th, _tab),
                       {'vp': 'phone', 'theme': _th, 'kind': 'legacy', 'tab': _tab, 'missed': 0,
                        'view': 'feed', 'ledger': 'simple'}])
-# the previous REAL list layout behind ?oldboards=1 (a second page load, see _attempt)
-OLD_CASES = [['old/%s/%s' % (_vp, _nm), {'vp': _vp, 'theme': 'glass', 'missed': 0, 'view': _view, 'ledger': _led}]
-             for _vp in ('laptop', 'phone') for _nm, _view, _led in (LEDGERS[0], LEDGERS[2])]
+# ?oldboards=1 (a second page load, see _attempt) no longer changes anything: the SIMPLE table and the list on a laptop and a phone must draw the
+# same board as the plain page does for the same case (FLAG_PLAIN names that case)
+FLAG_CASES = [['flag/%s/%s' % (_vp, _nm), {'vp': _vp, 'theme': 'glass', 'missed': 0, 'view': _view, 'ledger': _led}]
+              for _vp in ('laptop', 'phone') for _nm, _view, _led in (LEDGERS[0], LEDGERS[2])]
+FLAG_PLAIN = {'flag/%s/%s' % (_vp, _nm): '%s/glass/missed0/%s' % (_vp, _nm)
+              for _vp in ('laptop', 'phone') for _nm, _view, _led in (LEDGERS[0], LEDGERS[2])}
 FRAME_CHIPS = 'ALL,LONG,SHORT,WINS,LOSSES,FUTURES,STOCKS'
 # LEDGER unify step 9: the shared trade panel, opened from the list (a third page load, see _attempt). `tid` is a futures trade with a
 # positive net, `tid2` one with a negative net. The laptop runs once from the TABLE (glass) and from the LIST in glass / paper / MONO;
@@ -192,9 +197,9 @@ SECTION_ORDER = ['hero', 'pills', 'chart', 'stats', 'more', 'cal', 'acct', 'list
 OWN_FOLDS = ['paste', 'missed', 'deps', 'ai', 'journal']
 HOUSE_WIDTHS = [600, 740, 800, 920, 1100]     # the one set of breakpoints (contract section 5b)
 PHONE_LIST_TOP_MAX = 652                      # px from the top of the board to the trade list on a 375 px phone: the build before step 11
-# the ?oldboards=1 board's markup, frozen: a digest of its .hm-wrap for the SIMPLE table and the FEED (the same on a laptop and a phone). It moves only
-# when the previous board is changed on purpose (it is removed one version after step 11, with these cases).
-OLD_BOARD_DIGEST = {'simple': '35c2f51e166ae107', 'feed': '64128abd37aed5a4'}
+# what the removed previous board drew: none of it may be in the page (the page-side readout lists the ones it finds)
+OLD_MARKS = ['#hm-sheet', '.hm-backdrop', '#hm-view-toggle', '[data-hmchip]', '#hm-morestats-toggle', '.hm-morestats-panel', '.hm-stat-strip',
+             '.hm-toolbar', '.hm-range-pills', '.hm-day-header', '.hm-ms-grid']
 FOLD_RUNS = [['laptop', {'vp': 'laptop', 'theme': 'glass', 'cal': True}], ['phone', {'vp': 'phone', 'theme': 'glass'}]]
 
 PASTE_URL = 'https://www.tradingview.com/x/TEST1/'
@@ -214,8 +219,8 @@ INTERACTIONS = [
 # (so they never go stale the way a pinned old commit would). (name, anchor, replacement, why)
 MUTANTS = [
     ('missed-section-throws',
-     'function _hmMissedSectionHtml(inFold){',
-     'function _hmMissedSectionHtml(inFold){_hmProbeNoSuchHelper();',
+     'function _hmMissedSectionHtml(){',
+     'function _hmMissedSectionHtml(){_hmProbeNoSuchHelper();',
      'the SHOULD HAVE TRADED section builder throws a ReferenceError - HOME does not draw at all'),
     ('missed-row-dropped',
      'const rows=list.map(m=>`<tr data-hmmissed=',
@@ -245,17 +250,26 @@ MUTANTS = [
      '.lg-chart .lg-legend svg{display:inline-block;width:16px;height:4px;flex:none}',
      '.lg-chart .lg-legend svg{display:block;width:100%;height:260px}',
      'a chart-size rule reaches the legend swatches again, so each legend name is a block the height of the chart'),
-    ('closed-panel-takes-room',
-     '.hm-sheet.open{display:block;animation:hmSheetIn .22s ease}',
-     '.hm-sheet.open{display:block;animation:hmSheetIn .22s ease}.hm-sheet:not(.open){display:block;transform:translateX(100%)}',
-     'the closed trade panel is parked off-screen again and makes the page scroll sideways'),
+    # the clean-up of v73.1125: ?oldboards=1 and the previous board are gone, and nothing of them may come back
+    ('oldflag-changes-the-board',
+     "return '<div class=\"hm-wrap lg-flow\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';",
+     "return '<div class=\"hm-wrap'+(location.search.indexOf('old'+'boards=1')>=0?'':' lg-flow')+'\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';",
+     '?oldboards=1 changes the board again: the page behind the flag is not the plain page'),
+    ('old-marker-back-in-page',
+     "return '<div class=\"hm-wrap lg-flow\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';",
+     "return '<div class=\"hm-wrap lg-flow\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'<div id=\"hm-'+'sheet\"></div></div>';",
+     'a piece of the removed previous trade sheet (#hm-sheet) is back in the page'),
+    ('removed-flag-defined-again',
+     "const LEDGER_RANGES=['TODAY','1W','1M','3M','YTD','ALL'];",
+     "const LEDGER_RANGES=['TODAY','1W','1M','3M','YTD','ALL'];\nconst LEDGER_OLDBOARDS=false;",
+     'LEDGER_OLDBOARDS is defined again (the static lint of removed identifiers must fail)'),
     ('account-row-dead',
      "if(k!==(activeBroker||''))setBroker(k);",
      "if(k===null)setBroker(k);",
      'tapping an account row in the list no longer scopes the board'),
     ('phone-overflow',
-     'content.innerHTML=`<div class="hm-wrap${LEDGER_OLDBOARDS?\'\':\' lg-flow\'}">',
-     'content.innerHTML=`<div class="hm-wrap${LEDGER_OLDBOARDS?\'\':\' lg-flow\'}" style="min-width:640px">',
+     "return '<div class=\"hm-wrap lg-flow\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';",
+     "return '<div class=\"hm-wrap lg-flow\" style=\"min-width:640px\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';",
      'HOME is wider than a phone and the page scrolls sideways'),
     # LEDGER step 8: the shared trade list frame
     ('frame-day-net-unsigned',
@@ -302,10 +316,6 @@ MUTANTS = [
      "activeTab='home';homeView='table';",
      "activeTab='home';",
      'a jump from the ANALYTICS calendar no longer opens the LEDGER table'),
-    ('oldboards-ignored',
-     '${LEDGER_OLDBOARDS?_hmOldListBlockHtml():_hmFrameBlockHtml(list)}',
-     '${_hmFrameBlockHtml(list)}',
-     '?oldboards=1 no longer brings back the previous list layout'),
     ('legacy-journal-wide',
      ';margin-bottom:8px;overflow-wrap:anywhere}',
      ';margin-bottom:8px}',
@@ -364,8 +374,8 @@ MUTANTS = [
      'try{await updateTrade(tid,{});}',
      'the IGNORE IN METRICS box in the trade panel no longer saves'),
     ('panel-grade-select-missing',
-     "(r[0]==='GRADE'?sheetSel('grade',GRADES,t.grade):(r[0]==='SETUP'?sheetSel('setup',customSetups,t.setup):null))",
-     'null',
+     "const ed=r[0]==='GRADE'?sheetSel('grade',GRADES,t.grade):(r[0]==='SETUP'?sheetSel('setup',customSetups,t.setup):null);",
+     'const ed=null;',
      'the trade panel has no grade or setup select (a phone row keeps only five cells, so nothing else edits them)'),
     ('panel-opens-from-a-control',
      "const skip=e=>!!(e.target&&e.target.closest&&e.target.closest('select,input,textarea,button,a,label,.lg-skip'));",
@@ -428,10 +438,6 @@ MUTANTS = [
      '@media (max-width:920px){.hm-wrap.lg-flow .hm-dtable.hm-simple .hm-s2{display:none}}',
      '@media (max-width:910px){.hm-wrap.lg-flow .hm-dtable.hm-simple .hm-s2{display:none}}',
      'the board has a media rule at a width that is not a house number (910 px)'),
-    ('oldboards-markup-changed',
-     '<div class="hm-micro">${inFold?\'FILED\':\'SHOULD HAVE TRADED\'}${list.length',
-     '<div class="hm-micro">${inFold?\'FILED\':\'SHOULD HAVE TRADED!\'}${list.length',
-     'the markup of the previous board (?oldboards=1) changed by a character'),
     ('mono-hue-in-fold',
      '.hm-fold .hm-fold-sum{flex:0 1 auto;min-width:0;text-transform:none;letter-spacing:.3px;color:var(--text5);',
      '.hm-fold .hm-fold-sum{flex:0 1 auto;min-width:0;text-transform:none;letter-spacing:.3px;color:var(--text5);color:#7ac0ff;',
@@ -453,8 +459,8 @@ MUTANTS = [
      'data-hmsum="acct">${""}</span>',
      'the phone account line prints no summary (the account in view and its balance)'),
     ('calendar-default-private-width',
-     "return (window.innerWidth||1200)>600;})();",
-     "return (window.innerWidth||1200)>=760;})();",
+     "if(v==='1'||v==='0')return v==='1';}catch(e){}return (window.innerWidth||1200)>600;})();",
+     "if(v==='1'||v==='0')return v==='1';}catch(e){}return (window.innerWidth||1200)>=760;})();",
      'the calendar default switches at a private width of 760 px instead of the house number 600'),
     ('acct-line-does-not-open',
      'b.onclick=()=>{homeAcctOpen=!homeAcctOpen;',
@@ -468,7 +474,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <iframe id="f" src="../index.html__QS__" style="width:1366px;height:768px;border:0;display:block"></iframe>
 <pre id="o"></pre>
 <script>
-var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, PASTE=__PASTE__, PANELS=__PANELS__, WIDTHS=__WIDTHS__, FOLDS=__FOLDS__, HOUSE=__HOUSE__, OWN=__OWN__;
+var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, PASTE=__PASTE__, PANELS=__PANELS__, WIDTHS=__WIDTHS__, FOLDS=__FOLDS__, HOUSE=__HOUSE__, OWN=__OWN__, OLDMARKS=__OLDMARKS__;
 (function(){
   var out={cases:{},inter:{},panels:{},widths:{},folds:{},notes:[]}, reported=false, t0=Date.now(), sink=null;
   function finish(why){
@@ -607,17 +613,17 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
       r.overlay=overlays();
       return r;
     }
-    // the escape hatch (?oldboards=1) draws the previous list: its own FEED / TABLE button and chips, no frame
-    r.oldList={toggle:!!d.getElementById('hm-view-toggle'),chips:d.querySelectorAll('[data-hmchip]').length,
-      frames:d.querySelectorAll('[data-lglist-frame]').length};
-    // LEDGER step 11: the board's markup as a digest (?oldboards=1 must not change), the page sections in the order they are drawn, and the own folds
+    // markers of the removed previous board: none of them may be in the page, with or without ?oldboards=1; and the flag's name is gone
+    r.oldMarks=OLDMARKS.filter(function(s){return !!d.querySelector(s);});
+    r.flagConst=(function(){try{return w.eval('typeof LEDGER_OLDBOARDS');}catch(e){return 'error';}})();
+    // LEDGER step 11: the board's markup as a digest (the ?oldboards=1 page must draw the same one), the page sections in the order they are drawn, and the own folds
     // as they are drawn (all closed)
     function digest(s){var h1=0xdeadbeef,h2=0x41c6ce57;
       for(var i=0;i<s.length;i++){var c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677);}
       h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);
       return (h2>>>0).toString(16)+(h1>>>0).toString(16);}
     var hwrap=d.querySelector('.hm-wrap'),wtop=hwrap?hwrap.getBoundingClientRect().top:0;
-    r.oldDigest=hwrap?digest(hwrap.outerHTML):null;
+    r.boardDigest=hwrap?digest(hwrap.outerHTML):null;
     var secEls=Array.prototype.slice.call(d.querySelectorAll('[data-hmsec]'));
     r.sec=secEls.map(function(e){var b=e.getBoundingClientRect();return {k:e.getAttribute('data-hmsec'),top:Math.round(b.top-wtop),h:Math.round(b.height)};});
     r.secInWrap=secEls.every(function(e){return !!hwrap&&hwrap.contains(e);});
@@ -655,9 +661,8 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
       r.rowTop=(wb&&row1)?Math.round(row1.getBoundingClientRect().top-wb.top):null;
       r.viewH=w.innerHeight;
     }
-    var wrap0=d.querySelector('.hm-wrap'),wb0=wrap0?wrap0.getBoundingClientRect():null,fh0=d.querySelector('.hm-feed-head'),fc0=d.getElementById('hm-feed-container');
+    var wrap0=d.querySelector('.hm-wrap'),wb0=wrap0?wrap0.getBoundingClientRect():null,fc0=d.getElementById('hm-feed-container');
     r.feedTop=(wb0&&fc0)?Math.round(fc0.getBoundingClientRect().top-wb0.top):null;
-    r.activityTop=(wb0&&fh0)?Math.round(fh0.getBoundingClientRect().top-wb0.top):null;
     // the AI ASSESSMENT is a closed fold and the account list is one line on a phone (mistake #12)
     var aib=d.querySelector('[data-hmai-fold]');
     r.aiFold=aib?{closed:aib.getAttribute('aria-expanded')==='false',out:!!d.getElementById('overview-ai-output')}:null;
@@ -679,7 +684,7 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
       r.ledgerKind=tb?(tb.classList.contains('hm-simple')?'simple':'full'):'';
       r.ledgerRows=tb?tb.querySelectorAll('tbody tr[data-hmid]').length:0;
     }else{
-      // the previous FEED rows (?oldboards=1) or the shared frame's LIST rows
+      // the shared frame's LIST rows
       r.ledgerKind=fc&&fc.querySelector('.hm-row[data-hmid],.lg-tl-row[data-lgtrade]')?'feed':'';
       r.ledgerRows=fc?fc.querySelectorAll('.hm-row[data-hmid],.lg-tl-row[data-lgtrade]').length:0;
     }
@@ -760,21 +765,9 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     var lgb=d.querySelectorAll('#hm-chart-wrap .lg-legend button');r.legendN=lgb.length;
     r.legendH=Math.max.apply(null,[0].concat(Array.prototype.map.call(lgb,function(b){return Math.round(b.getBoundingClientRect().height);})));
     W().eval("homeChartMode='equity';renderApp();");
-    // the CLOSED trade panel must take no room (parked off-screen it widened the page: LEDGER mistake #13)
-    var shc=d.getElementById('hm-sheet');r.sheetClosed=shc&&!shc.classList.contains('open')?W().getComputedStyle(shc).display:'open';
-    // LEDGER step 9: while nothing is open the shared trade panel is not in the page at all (no node, no layer); the previous sheet
-    // (?oldboards=1) still opens on a trade, shows it and closes again, and the shared panel never appears behind it
+    // LEDGER step 9: while nothing is open the shared trade panel is not in the page at all (no node, no layer); that is also what keeps a closed
+    // panel from taking room or widening the page (LEDGER mistake #13)
     r.panelsInDom=d.querySelectorAll('.lg-panel,.lg-panel-layer').length;
-    r.oldSheet=null;
-    if(shc){
-      W().eval('homeSheetId="probe_t1";renderApp();');
-      var os=d.getElementById('hm-sheet'),osym=os?os.querySelector('.hm-sheet-sym'):null;
-      r.oldSheet={open:!!(os&&os.classList.contains('open')),sym:osym?(osym.textContent||'').trim():null,points:!!(os&&os.querySelector('.hm-sheet-points')),
-        newPanel:d.querySelectorAll('.lg-panel,.lg-panel-layer').length};
-      W().eval('homeSheetId=null;renderApp();');
-      var os2=d.getElementById('hm-sheet');
-      r.oldSheet.closedAgain=!!(os2&&!os2.classList.contains('open')&&W().getComputedStyle(os2).display==='none');
-    }
     // LEDGER shared account list (unify step 10): ALL + one row per broker, the tab-row ACCOUNT pill gone on LEDGER,
     // and tapping a broker row scopes the board (the hero label names it), then ALL again
     var lr=d.querySelectorAll('[data-lglist="hm"] [data-lgrow]');r.acctRows=lr.length;
@@ -1628,6 +1621,7 @@ def _render_page(chrome, root, alt_index, cases, inter, qs, data_obj, bars, pane
             .replace('__FOLDS__', json.dumps(folds or []))
             .replace('__HOUSE__', json.dumps(HOUSE_WIDTHS))
             .replace('__OWN__', json.dumps(OWN_FOLDS))
+            .replace('__OLDMARKS__', json.dumps(OLD_MARKS))
             .replace('__INSTALL__', json.dumps(INSTALL_JS)))
     io.open(ppath, 'w', encoding='utf-8').write(html)
 
@@ -1660,14 +1654,17 @@ def _render_page(chrome, root, alt_index, cases, inter, qs, data_obj, bars, pane
 
 
 def _attempt(chrome, root, alt_index):
-    """Render every case and interaction once in a fresh headless Chrome (main layout), then the
-    ?oldboards=1 escape hatch in a second page load.
+    """Lint index.html for identifiers the clean-up removed, render every case and interaction once in a fresh headless Chrome, then the
+    ?oldboards=1 page (which must draw the same board) in a second page load.
     Returns (verdict, fails, notes, data, retry_worthy)."""
+    probs = _removed_lint(root, alt_index)
+    if probs:
+        return FAIL, probs, [], None, False
     data_obj, bars = build_data()
     data, err = _render_page(chrome, root, alt_index, CASES, INTERACTIONS, '', data_obj, bars)
     if err:
         return INCONCLUSIVE, [err], [], None, True
-    old, err = _render_page(chrome, root, alt_index, OLD_CASES, [], '?oldboards=1', data_obj, bars)
+    flag, err = _render_page(chrome, root, alt_index, FLAG_CASES, [], '?oldboards=1', data_obj, bars)
     if err:
         return INCONCLUSIVE, ['?oldboards=1 pass: %s' % err], [], data, True
     pnl, err = _render_page(chrome, root, alt_index, [], [], '', data_obj, bars, PANEL_CASES)
@@ -1681,8 +1678,8 @@ def _attempt(chrome, root, alt_index):
         return INCONCLUSIVE, ['fold pass (reload): %s' % err], [], data, True
     if os.environ.get('HOMEPROBE_DUMP'):
         io.open(os.path.join(root, '_homeprobe_dump.json'), 'w', encoding='utf-8').write(
-            json.dumps({'main': data, 'old': old, 'panels': pnl, 'widths': wid, 'folds': fld}, indent=1, ensure_ascii=False))
-    data['old'] = old
+            json.dumps({'main': data, 'flag': flag, 'panels': pnl, 'widths': wid, 'folds': fld}, indent=1, ensure_ascii=False))
+    data['flag'] = flag
     data['panels'] = pnl
     data['widths'] = wid
     data['folds'] = fld
@@ -2048,12 +2045,26 @@ def _judge_widths(wd, data_obj):
     return fails, unfinished
 
 
-def _judge_old(old, data_obj):
-    """?oldboards=1: the previous list layout is still drawn (FEED / TABLE button, 7 chips, no frame)."""
+def _removed_lint(root, alt_index):
+    """Static lint (tools/ledger_removed.py): nothing the LEDGER clean-up removed (LEDGER_OLDBOARDS, the previous sheet / table / feed
+    builders and their classes and hooks) is back in the file being gated. [] when clean."""
+    sys.path.insert(0, os.path.join(root, 'tools'))
+    try:
+        import ledger_removed
+    finally:
+        sys.path.pop(0)
+    return ledger_removed.lint_file(alt_index or os.path.join(root, 'index.html'), ['shared', 'real'])
+
+
+def _judge_flag(flag, main, data_obj):
+    """?oldboards=1 no longer changes anything: the page behind it is the NEW board - the shared frame, the page sections in the fixed order,
+    the same markup digest as the plain page draws for the same case, none of the removed previous board's markers - and LEDGER_OLDBOARDS
+    is not a name in the page any more."""
     fails, unfinished = [], []
-    cases = (old or {}).get('cases') or {}
+    cases = (flag or {}).get('cases') or {}
+    plain = (main or {}).get('cases') or {}
     n_trades = len(data_obj['trades'])
-    for nm, cfg in OLD_CASES:
+    for nm, cfg in FLAG_CASES:
         r = cases.get(nm)
         tag = '?oldboards=1 %s' % nm
         if r is None:
@@ -2065,32 +2076,31 @@ def _judge_old(old, data_obj):
         _errs(tag, r, fails)
         if len(fails) > before:
             continue
-        ol = r.get('oldList') or {}
-        if ol.get('frames'):
-            fails.append('%s: the new trade list frame is drawn although ?oldboards=1 asks for the previous layout' % tag)
-        if not ol.get('toggle') or ol.get('chips') != 7:
-            fails.append('%s: the previous list toolbar is missing (FEED / TABLE button=%s, chips=%s)'
-                         % (tag, ol.get('toggle'), ol.get('chips')))
+        if r.get('flagConst') != 'undefined':
+            fails.append('%s: LEDGER_OLDBOARDS is still a name in the page (typeof %s)' % (tag, r.get('flagConst')))
+        if r.get('frameN') != 1 or not r.get('frame'):
+            fails.append('%s: the shared trade list frame is not drawn behind ?oldboards=1 (frames %s)' % (tag, r.get('frameN')))
+        if r.get('oldMarks'):
+            fails.append('%s: markers of the removed previous board are in the page: %s' % (tag, ', '.join(r['oldMarks'])))
+        keys = [s.get('k') for s in (r.get('sec') or [])]
+        if keys != SECTION_ORDER:
+            fails.append('%s: the page sections are %s, expected %s' % (tag, ','.join(map(str, keys)), ','.join(SECTION_ORDER)))
+        want_mode = 'table' if cfg['view'] == 'table' else 'list'
+        if r.get('mode') != want_mode or r.get('frameRows') != n_trades:
+            fails.append('%s: the frame is in %r mode with %s rows, expected %s with %d'
+                         % (tag, r.get('mode'), r.get('frameRows'), want_mode, n_trades))
         want_kind = cfg['ledger'] if cfg['view'] == 'table' else 'feed'
         if r.get('ledgerKind') != want_kind or r.get('ledgerRows') != n_trades:
-            fails.append('%s: the previous ledger is %r with %s rows, expected %s with %d'
+            fails.append('%s: the ledger is %r with %s rows, expected %s with %d'
                          % (tag, r.get('ledgerKind'), r.get('ledgerRows'), want_kind.upper(), n_trades))
         if cfg['vp'] == 'phone' and (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1:
-            fails.append('%s: the previous layout scrolls sideways on a phone' % tag)
-        if r.get('sheetClosed') != 'none':
-            fails.append('%s: the previous trade sheet (#hm-sheet) is display:%s while closed - it must take no room'
-                         % (tag, r.get('sheetClosed')))
-        want_dg = OLD_BOARD_DIGEST.get(nm.split('/')[-1])
-        if r.get('oldDigest') != want_dg:
-            fails.append('%s: the previous board\'s markup changed (digest %s, expected %s) - ?oldboards=1 must stay byte-for-byte the previous '
-                         'board until it is removed' % (tag, r.get('oldDigest'), want_dg))
-        osh = r.get('oldSheet') or {}
-        if not osh.get('open') or osh.get('sym') != 'MNQ' or not osh.get('points'):
-            fails.append('%s: the previous trade sheet did not open on a trade (%r)' % (tag, osh))
-        elif osh.get('newPanel'):
-            fails.append('%s: the shared trade panel is in the page behind ?oldboards=1' % tag)
-        elif not osh.get('closedAgain'):
-            fails.append('%s: the previous trade sheet did not close again' % tag)
+            fails.append('%s: the page scrolls sideways on a phone' % tag)
+        base = plain.get(FLAG_PLAIN[nm])
+        if base is None:
+            unfinished.append('%s: the plain case %s never ran' % (tag, FLAG_PLAIN[nm]))
+        elif not r.get('boardDigest') or r.get('boardDigest') != base.get('boardDigest'):
+            fails.append('%s: the board behind ?oldboards=1 is not the plain page (markup digest %s, plain %s)'
+                         % (tag, r.get('boardDigest'), base.get('boardDigest')))
     return fails, unfinished
 
 
@@ -2388,9 +2398,8 @@ def _judge(data, data_obj):
         if (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1 and cfg['vp'] != 'phone':
             fails.append('%s: the page scrolls sideways on a laptop (scrollWidth %s > clientWidth %s; sticking out: %s)'
                          % (nm, r.get('scrollW'), r.get('clientW'), ', '.join(r.get('wide') or []) or '?'))
-        if r.get('sheetClosed') not in ('none', 'open'):
-            fails.append('%s: the closed trade panel is display:%s - parked off-screen it widens the page sideways'
-                         % (nm, r.get('sheetClosed')))
+        if r.get('oldMarks'):
+            fails.append('%s: markers of the removed previous board are in the page: %s' % (nm, ', '.join(r['oldMarks'])))
         if r.get('panelsInDom'):
             fails.append('%s: %s trade panel node(s) are in the page while nothing is open - a closed panel must not be in it'
                          % (nm, r.get('panelsInDom')))
@@ -2688,7 +2697,7 @@ def _judge(data, data_obj):
                 fails.append('%s: clicking the flashed row %s after the jump opened %r showing %r in the trade panel'
                              % (tag, jp.get('jumpRow'), jp.get('jumpPanel'), jp.get('jumpSym')))
 
-    of, ou = _judge_old(data.get('old'), data_obj)
+    of, ou = _judge_flag(data.get('flag'), data, data_obj)
     fails += of
     unfinished += ou
     pf, pu = _judge_panels(data.get('panels'), data_obj)
@@ -2737,7 +2746,7 @@ def _report(t0, attempt, may_retry, chrome, root, alt_index):
     zl = ((inter.get('laptop') or {}).get('steps') or {}).get('zoom') or {}
     n_wide = sum(len((v or {}).get('widths') or {}) for v in (((data.get('widths') or {}).get('widths')) or {}).values())
     print('HOMEPROBE: PASS (VERSION=%s, %d cases + %d ?oldboards=1 cases + %d interaction runs + %d trade panel cases + %d width samples + %d fold reload runs, %.1fs)'
-          % (data.get('VERSION'), len(data.get('cases') or {}), len(((data.get('old') or {}).get('cases')) or {}),
+          % (data.get('VERSION'), len(data.get('cases') or {}), len(((data.get('flag') or {}).get('cases')) or {}),
              len(inter), len(((data.get('panels') or {}).get('panels')) or {}), n_wide,
              len(((data.get('folds') or {}).get('folds')) or {}), elapsed))
     if first:

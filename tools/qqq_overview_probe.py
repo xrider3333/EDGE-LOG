@@ -130,8 +130,8 @@ REAL's own saved range (homeRange in el_view). Every older case starts on ALL
 1366x768 and 390x844 in mono and dark -- the hero numbers against an independent sum
 here, each pill click moving the range line / chart / list / stats to the trades that
 closed inside it, the pick surviving a live-listener redraw and a page reload, no
-undefined/NaN, no sideways scroll -- plus one ?oldboards=1 case that must still show the
-old layout.
+undefined/NaN, no sideways scroll -- plus one ?oldboards=1 case that must show the same new
+layout (the flag changes nothing any more).
 
 LEDGER UNIFY 13 (2026-10-05, review fix): `--record` runs only the record pass on the
 parity0928 fixture: every strategy row opened, each row's TODAY figure against
@@ -146,8 +146,7 @@ on a later day than its trading day (the rows still add up to the hero's today),
 figures of different widths ($0.00 against -$1,234.56) with the POSITION column in line.
 
 LEDGER UNIFY STEP 5 (2026-10-05): the board's own svg chart is replaced by TRADING-LOG's
-shared ledgerChartRender (#qb-lg-chart; the old svg stays behind ?oldboards=1 for one
-version). The period-control and range checks now count the points on the shared chart's
+shared ledgerChartRender (#qb-lg-chart; the old svg is gone). The period-control and range checks now count the points on the shared chart's
 total line (the range start, then one per day, or one per trade when the range holds one or
 two days); the version-marker check reads the <text> after the [data-lgmark] line. ENGU-Q #335
 sits in a collapsed Retired group (owner decision 9) while it is flat and closed nothing
@@ -526,7 +525,7 @@ var SETRANGE=true;
         if(!phase2){
           out.todayNY=w.eval('ledgerTodayNY()');
           out.cutoffs=w.eval('JSON.stringify(LEDGER_RANGES.map(function(r){return [r,ledgerCutoff(r)];}))');
-          out.oldboards=w.eval('LEDGER_OLDBOARDS');
+          out.flagConst=w.eval('typeof LEDGER_OLDBOARDS');
           out.heroLabel=txt('#qb-hero-label');out.heroNote=txt('#qb-hero-note');
           out.heroChipsHtml=(d.querySelector('#qb-hero-chips')||{}).innerHTML||'';
           out.pills=[].slice.call(d.querySelectorAll('.qbx-range-row [data-qbrange]')).map(function(b){return b.getAttribute('data-qbrange');});
@@ -885,15 +884,17 @@ def ledger_pass(chrome, out_dir, fx):
     if not re_.get('showAll') or (re_.get('afterShowAll') or {}).get('active') != 'ALL':
         fails.append('ledger_empty_today: "Show all" did not move the range to ALL (%s)'
                      % ((re_.get('afterShowAll') or {}).get('active'),))
-    # ?oldboards=1 keeps the old Webull layout for one version
-    ro = run_case(chrome, ROOT, lfx, 'ledger_oldboards', None, width=1366, height=768, theme='mono',
+    # ?oldboards=1 no longer changes anything: the page behind it is the new Webull board
+    ro = run_case(chrome, ROOT, lfx, 'ledger_flag', None, width=1366, height=768, theme='mono',
                   query='?oldboards=1')
     oh = ro.get('html') or ''
     if ro.get('err') or ro.get('call') != 'OK':
-        fails.append('ledger_oldboards: %s' % (ro.get('err') or ro.get('call')))
-    elif ('qb-hero-num' not in oh or 'data-qbseg="period"' not in oh or 'data-qbrange' in oh
-          or 'lg-hero' in oh):
-        fails.append('ledger_oldboards: ?oldboards=1 does not show the old Webull layout')
+        fails.append('ledger_flag: %s' % (ro.get('err') or ro.get('call')))
+    elif ('qb-hero-num' in oh or 'data-qbseg="period"' in oh or 'data-qbrange' not in oh
+          or 'lg-hero' not in oh):
+        fails.append('ledger_flag: ?oldboards=1 does not show the new Webull layout')
+    elif ro.get('flagConst') not in (None, 'undefined'):
+        fails.append('ledger_flag: LEDGER_OLDBOARDS is still a name in the page (typeof %s)' % ro.get('flagConst'))
     return fails
 
 

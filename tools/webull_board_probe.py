@@ -23,7 +23,7 @@ touches the network or Firestore.
 Cases: laptop 1366x768 | phone 375x812, x dark | mono, each a fresh render on ALL. Then one
 interaction run on the laptop (Retired group open / close, a chart scrub writing the hero and
 putting it back, a legend switch remembered), the FRESHNESS variants below, and one render with
-?oldboards=1. The page's clock is pinned (window.__qbNowMs) so the fixed doc is judged the same
+?oldboards=1 (a flag that changes nothing any more). The page's clock is pinned (window.__qbNowMs) so the fixed doc is judged the same
 way on every run: the plain cases see it 24 s after it was written, in the session.
 
 FRESHNESS variants (laptop, dark; sweep 2026-10-05 findings 8, 9, 20-24), each the fixture with
@@ -91,7 +91,6 @@ Per case:
 Interaction run: the Retired group opens (ENGU-Q's row appears, the choice is stored) and closes;
 a scrub at the left edge writes $0.00 and 'start of the range' into the hero, at the right edge
 the closed P&L of record, and leaving puts the hero back; a legend switch is remembered.
-?oldboards=1: the old chart is back and there is no shared chart and no Retired group.
 
 STATS (LEDGER unify step 6, 2026-10-05): the board's own stat tiles are TRADING-LOG's shared strip now.
 Every plain case: the four [data-lgstat] tiles (WIN RATE, PROFIT FACTOR, MAX DRAWDOWN, TRADES) in that
@@ -115,8 +114,7 @@ is named for its day ('today' on the fresh doc; the TODAY-before-the-first-exit 
 sideways. Every case: the stat strip can be seen (shown, of real size) and starts under the chart, above
 Account and History, and on a phone above the Strategies list. The interaction run opens and closes
 the More stats fold (aria-expanded true then false, the choice stored for this viewer, Returns / Risk /
-Mix / Account with the Webull rows, and on ALL every value worked out here, the current streak too). ?oldboards=1: no shared tiles,
-the old Stats section is back.
+Mix / Account with the Webull rows, and on ALL every value worked out here, the current streak too).
 
 LEDGER STEPS 7 + 10 (2026-10-06): the board's month calendar and its strategy list are TRADING-LOG's shared parts now
 (ledgerCalendarHtml, ledgerListHtml). CALENDAR: one month over the chosen range's trades at the P&L of record on the day each
@@ -138,7 +136,6 @@ belong to a strategy the board has no row for (375x812, both folds open) must dr
 Other legs still add up to the account's range figure; a copy with ENGU-Q long 10 (375x812 and 1366x768) has no Retired group,
 ENGU-Q is a BOOK row reading LONG with its live position line, and the rows still add up. Under MONO no calendar or list value
 has a hue.
-?oldboards=1 keeps the old month grid and the old rows (and their old page order).
 
 LEDGER STEP 8 (2026-10-06): the board's trade list (History) is TRADING-LOG's shared frame (ledgerTradeListHtml / ledgerTradeListWire), as REAL's
 is. Every plain and stats case: ONE [data-lglist-frame] with the count ('N / 47 trades'), the LIST | TABLE switch, the search box and the chips
@@ -152,8 +149,7 @@ never cuts a day in two, LIST | TABLE remembered and found by a page that comes 
 the list matches in the list's order, a calendar tap on a day the chip hides); a doc with a $0 trade (WINS and LOSSES leave it out); a doc with a shadow
 row (in the list, the count, a day net and the CSV nowhere); a trade held over a weekend (under its close day); phones 375x812 and 390x844 MONO (five
 cells in the LIST and the TABLE, the flagged-row mark drawn, the list starts at most 792 px under the board top, no sideways page); and widths 375 to
-1366 in the LIST and the TABLE (the PAGE never wider than the window; no list row wider than its box; no strategy name cut). ?oldboards=1 keeps the old
-List | Table untouched (its Table view still names every strategy with a run number and carries each row's close day).
+1366 in the LIST and the TABLE (the PAGE never wider than the window; no list row wider than its box; no strategy name cut).
 
 LEDGER STEP 9 (2026-10-06): a tap on a trade row opens TRADING-LOG's shared trade panel (ledgerTradePanelOpen, id wb) in place of the board's own
 bottom sheet: a right-hand panel above 600 px, a bottom sheet at 600 px and under, nothing in the page while it is closed. Seven runs (TRADE PANEL):
@@ -176,8 +172,7 @@ the same panel node, the same slot nodes, not one thing inside rewritten (a Muta
 short page leaves out stays open through that page, SHOW MORE, a search for nothing, the search cleared, a search for noise, a chip that hides it,
 LIST | TABLE and back, its chart drawn though the list does not show its row; the trade leaving the board rows (the range TODAY) closes the panel and
 the board forgets it; the viewer leaving the board (HOME) closes it. The width run: the page never wider than the window with the panel closed or
-open, at every width, in the LIST and the TABLE. ?oldboards=1: a tap on an old row opens the old trade sheet for that trade (its title) and no shared
-panel is drawn.
+open, at every width, in the LIST and the TABLE.
 
 LEDGER STEP 11 (2026-10-06): one page order, every own section a closed fold with a one-line summary, one set of breakpoints.
 PAGE ORDER, by the page's own markers, top to bottom: hero (#qb-hero-label), range pills (.qbx-range-row), chart (#qb-lg-chart), the status strip (under the
@@ -194,9 +189,11 @@ line, the order rows, the feed strip, the status / orders / integrity blocks, th
 (el_qb_fold_<key>), a reload (nothing in memory) finds it open, a live redraw leaves it open, a second tap shuts it and a reload finds it shut; the phone list
 fold opens onto its rows, one line each; storage that throws for the fold keys changes nothing but the memory copy; and with EVERY fold open the page never
 scrolls sideways at 375, 601, 700, 800, 1000 and 1366 px. BREAKPOINTS: read from the page source, every media / container query that styles this board uses
-only 600, 740, 800, 920 or 1100 px (no board-private width survives; the flagged-row mark is a container query at 800). ?oldboards=1: none of the new classes
-or folds, the old disclosures and the status strip under the chart where they were, and the old markup's shape (element count and a hash of every tag, class and
-attribute name in order) equal to the build before step 11.
+only 600, 740, 800, 920 or 1100 px (no board-private width survives; the flagged-row mark is a container query at 800).
+?oldboards=1 (one more page load, case 'flagpage') draws the NEW board like the plain page: the fold layout, the shared tiles, chart, calendar,
+strategy list and trade list frame, the same markup skeleton and page order as the plain laptop / MONO case, none of the removed previous board's
+markers (OLD_MARKS) and no LEDGER_OLDBOARDS name left in the page. STATIC LINT (tools/ledger_removed.py): none of the identifiers the clean-up
+removed is back in index.html.
 
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks; a retry that passes prints a FLAKE line.
@@ -943,10 +940,6 @@ MUTANTS = [
      "const t=el||document.getElementById('qe-trades-section');",
      "const t=null;",
      'a tap on a calendar day no longer scrolls the trade list'),
-    ('day-attr-missing',
-     "data-qbtraderow=\"'+i+'\" data-qbday=\"'+(qeTradeDate(t)||'')+'\"'+(t.trade_id",
-     "data-qbtraderow=\"'+i+'\"'+(t.trade_id",
-     'the trade rows carry no day, so a calendar tap cannot land on that day'),
     ('cal-month-not-remembered',
      "try{localStorage.setItem('el_qb_cal_month',mo);}catch(e){}",
      "",
@@ -1059,17 +1052,13 @@ MUTANTS = [
      "",
      "a tap on a calendar day whose rows are not on the page yet (the list shows only its newest rows) lands on the top of the list"),
     ('enguq-stays-retired',
-     "const qbRetiredNow=!LEDGER_OLDBOARDS&&QE_LEGS_RETIRED.indexOf(key)>=0&&!p&&!qbHeldLive&&!legTodayN;",
-     "const qbRetiredNow=!LEDGER_OLDBOARDS&&QE_LEGS_RETIRED.indexOf(key)>=0&&!legTodayN;",
+     "const qbRetiredNow=QE_LEGS_RETIRED.indexOf(key)>=0&&!p&&!qbHeldLive&&!legTodayN;",
+     "const qbRetiredNow=QE_LEGS_RETIRED.indexOf(key)>=0&&!legTodayN;",
      "a retired leg that holds a position stays in the Retired fold instead of going back to BOOK"),
     ('retired-group-always-drawn',
      "const gRet=retModels.length?{key:'retired'",
      "const gRet=true?{key:'retired'",
      "an empty Retired group is drawn when no leg is retired"),
-    ('table-day-attr-missing',
-     "<tr data-qetraderow=\"'+i+'\" data-qbday=\"'+(qeTradeDate(t)||'')+'\" style=\"cursor:pointer",
-     "<tr data-qetraderow=\"'+i+'\" style=\"cursor:pointer",
-     "the Table view rows carry no day, so a calendar tap cannot land on them"),
     # LEDGER step 8 (2026-10-06): the trade list on the shared frame
     ('frame-missing',
      '\'<div id="qe-trades-section"></div><div class="qbx-tl">\'+qbFrameHtml+qbMoreHtml+\'</div>\'',
@@ -1175,10 +1164,6 @@ MUTANTS = [
      "'fill_gap_usd','design_gap_usd','execution_gap_usd'];",
      "'fill_gap_usd','design_gap_usd'];",
      'the CSV loses its last column'),
-    ('tl-oldboards-draws-new-card',
-     'const qbTradesCard=!LEDGER_OLDBOARDS?(',
-     'const qbTradesCard=true?(',
-     '?oldboards=1 draws the new trade list card (and so no old List | Table at all)'),
     ('tl-day-attr-missing',
      'rowAttr:v=>\'data-qbday="\'+qbEsc(qeTradeDate(v._t)||\'\')+\'"\',',
      "rowAttr:v=>'',",
@@ -1204,7 +1189,7 @@ MUTANTS = [
      "const cav='';",
      'no row carries the flagged-trade mark'),
     ('tl-calendar-tap-keeps-chip',
-     'if(!el&&!LEDGER_OLDBOARDS&&(window._qeTradesQuery||(window._qeTradesChip&&window._qeTradesChip!==\'ALL\'))){window._qeTradesQuery=\'\';window._qeTradesChip=\'ALL\';window._qeTradesShown=1e6;renderApp();el=document.querySelector(\'[data-qbday="\'+ds+\'"]\');}',
+     'if(!el&&(window._qeTradesQuery||(window._qeTradesChip&&window._qeTradesChip!==\'ALL\'))){window._qeTradesQuery=\'\';window._qeTradesChip=\'ALL\';window._qeTradesShown=1e6;renderApp();el=document.querySelector(\'[data-qbday="\'+ds+\'"]\');}',
      '',
      'a calendar tap on a day the chip or the search hides lands nowhere'),
     ('tl-glyph-not-wired',
@@ -1348,14 +1333,6 @@ MUTANTS = [
      "if(t.size!=null&&String(t.size)!==''&&Number(t.size)!==1)ln('SIZE (KEEL)',",
      "if(false)ln('SIZE (KEEL)',",
      'the KEEL size note is left out of the panel'),
-    ('wb-oldboards-sheet-lost',
-     "window._qbSheet={kind:'trade',idx:+el.getAttribute('data-qbtraderow'),tid:el.getAttribute('data-qbtid')||null,rk:el.getAttribute('data-qbkey')||null};",
-     '',
-     '?oldboards=1: a tap on an old row opens no trade sheet'),
-    ('wb-oldboards-opens-panel',
-     "window._qbSheet={kind:'trade',idx:+el.getAttribute('data-qbtraderow'),tid:el.getAttribute('data-qbtid')||null,rk:el.getAttribute('data-qbkey')||null};",
-     "window._qbSheet=null;ledgerTradePanelOpen({id:'wb',tradeId:String(el.getAttribute('data-qbkey')),head:{sym:'X',side:'LONG',date:'',time:'',net:0},blocks:[]});",
-     '?oldboards=1 draws the shared trade panel in place of the old sheet'),
     # ── LEDGER step 11: the fixed page order, the own folds, one set of breakpoints ──
     ('section-order-wrong',
      _STAT + _CRLF + _CAL,
@@ -1467,14 +1444,23 @@ MUTANTS = [
      "const qbStatusSec='<div class=\"qbx-statusline\">'+qbStatusStripHtml+'</div>';",
      "const qbStatusSec=qbFoldHtml('status','Status','paper only',qbStatusStripHtml);",
      'the status strip is folded away under a header instead of staying visible under the chart'),
-    ('old-board-gets-the-new-page',
-     "body=!LEDGER_OLDBOARDS?qbNewBody:",
-     "body=true?qbNewBody:",
-     '?oldboards=1 draws the new page'),
-    ('old-board-loses-its-strip',
-     "+'<div class=\"qbx-chart\">'+equityHtml+(LEDGER_OLDBOARDS?qbStatusStripHtml:'')+'</div>'",
-     "+'<div class=\"qbx-chart\">'+equityHtml+'</div>'",
-     '?oldboards=1 lost the status strip under its chart (the old markup changed)'),
+    # the clean-up of v73.1125: ?oldboards=1 and the previous board are gone, and nothing of them may come back
+    ('oldflag-changes-the-board',
+     "body='<div class=\"qb-shell qbx-lg6\">'",
+     "body='<div class=\"qb-shell'+(location.search.indexOf('old'+'boards=1')>=0?'':' qbx-lg6')+'\">'",
+     '?oldboards=1 changes the board again: the page behind the flag is not the plain page'),
+    ('old-marker-back-in-page',
+     "body='<div class=\"qb-shell qbx-lg6\">'",
+     "body='<div class=\"qb-shell qbx-lg6\"><span data-qb'+'traderow=\"0\"></span>'",
+     'a piece of the removed previous trade rows ([data-qbtraderow]) is back in the page'),
+    ('css-comment-closes-early',
+     'data-qb* and data-qe* attributes already wired above (nothing renamed, nothing',
+     'data-qb*/data-qe* attribute already wired above (nothing renamed, nothing',
+     'a css comment closes early (a star-slash inside it), so the rule after it is swallowed and the chart caption loses its small muted style'),
+    ('removed-flag-defined-again',
+     "const LEDGER_RANGES=['TODAY','1W','1M','3M','YTD','ALL'];",
+     "const LEDGER_RANGES=['TODAY','1W','1M','3M','YTD','ALL'];\nconst LEDGER_OLDBOARDS=false;",
+     'LEDGER_OLDBOARDS is defined again (the static lint of removed identifiers must fail)'),
     ('mono-hue-in-fold-header',
      "<span class=\"qbx-fold-sum\" data-qbfoldsum=\"'+k+'\">",
      "<span class=\"qbx-fold-sum\" style=\"color:#e33\" data-qbfoldsum=\"'+k+'\">",
@@ -1495,7 +1481,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <iframe id="f" src="../index.html" style="width:1366px;height:768px;border:0;display:block"></iframe>
 <pre id="o" style="display:none"></pre>
 <script>
-var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=__STATS__, TLS=__TLS__;
+var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=__STATS__, TLS=__TLS__, OLDMARKS=__OLDMARKS__;
 (function(){
   var out={cases:{},notes:[]}, reported=false, t0=Date.now(), sink=null, phase=0, PS0=null;
   function finish(why){
@@ -1614,15 +1600,12 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         histRight:hist?Math.round(hist.getBoundingClientRect().right):null,acctTop:top(acct),shellTop:top(sh),rowTop:top(fr),
         vh:w.innerHeight,sticky:side?w.getComputedStyle(side).position:null}};
   }
-  // the old layout's calendar and list (?oldboards=1 keeps both for one version)
+  // markers of the removed previous board (none may be in the page, with or without ?oldboards=1), the name of the removed flag, and what the new page shows
   function oldReads(){
-    var d=D();
-    return {oldCalDays:d.querySelectorAll('[data-qcalday]').length,oldCalNav:d.querySelectorAll('[data-qcalmo]').length,
+    var d=D(),w=W();
+    return {oldMarks:OLDMARKS.filter(function(s){return !!d.querySelector(s);}),
+      flagConst:(function(){try{return w.eval('typeof LEDGER_OLDBOARDS');}catch(e){return 'error';}})(),
       sharedCalFold:!!q('[data-lgcalfold]'),sharedList:!!q('[data-lglist="qb"]'),
-      oldLegRows:[].map.call(d.querySelectorAll('.qbx-side [data-qblegrow]'),function(e){return e.getAttribute('data-qblegrow');}),
-      oldSideHd:!!q('.qbx-side-hd'),
-      oldTradeRows:d.querySelectorAll('[data-qbtraderow]').length,
-      oldTradeDays:[].map.call(d.querySelectorAll('[data-qbtraderow]'),function(e){return e.getAttribute('data-qbday');}),
       order:[].map.call(d.querySelectorAll('.qb-shell > section, .qb-shell > div'),function(e){return e.className.split(' ')[0];}).filter(function(c){return /^qbx-(side|account|history|stats)$/.test(c);})};
   }
   // the More stats panel: shown or hidden, its groups, and every row as 'Group|Label' -> value text
@@ -2067,7 +2050,7 @@ __S11JS__
       }finally{proto.scrollIntoView=so;}
       res.cal=ca;
       // 6. the Table view names every strategy with its run number too (family + run number on every trade row). LEDGER step 8: the shared
-      // frame's LIST | TABLE switch replaces the old segmented control (the old one is read on ?oldboards=1, below)
+      // frame's LIST | TABLE switch replaces the old segmented control
       var tb=q('[data-lgview="table"]'),tv={};
       if(tb){tb.click();await sleep(100);
         tv.legs=[].map.call(d.querySelectorAll('tr[data-lgtrade] .qb-trade-leg'),function(e){return (e.textContent||'').trim();});
@@ -2129,30 +2112,14 @@ __S11JS__
         }
         try{W().eval('delete navigator.onLine');}catch(e){}
         try{var ap0=JSON.parse(W().localStorage.getItem('augurPrefs')||'{}');ap0.qqqSystemOpen=0;W().localStorage.setItem('augurPrefs',JSON.stringify(ap0));}catch(e){}
-        fr.src='../index.html?oldboards=1';
+        fr.src='../index.html?oldboards=1';     // a second page load: the flag changes nothing
         return;
       }
       if(phase===1){
         phase=2;
         if(!(await boot()))return;
-        await runCase('oldboards',{vp:'laptop',theme:'mono'});
-        // ?oldboards=1 keeps the board's own trade sheet: a row opens it (and no shared trade panel), its title names that trade
-        var os={};drain();
-        var orow=D().querySelectorAll('[data-qbtraderow]')[2];
-        if(orow){
-          os.key=orow.getAttribute('data-qbkey');orow.click();await sleep(220);
-          var tt=q('.qb-sheet-title');os.title=tt?tx2(tt):null;os.panel=D().querySelectorAll('.lg-panel,.lg-panel-layer').length;
-          var cl=q('[data-qbsheetclose]');if(cl){cl.click();await sleep(160);}
-          os.closed=!q('.qb-sheet');}
-        os.errs=drain();out.oldsheet=os;
-        // ?oldboards=1 keeps the old List | Table: its Table view names every strategy with its run number and carries each row's close day
-        var ot={},otb=q('[data-qbseg="tradesview"] [data-qbsegval="table"]');
-        drain();
-        if(otb){otb.click();await sleep(100);
-          ot.legs=[].map.call(D().querySelectorAll('[data-qetraderow] .qb-trade-leg'),function(e){return (e.textContent||'').trim();});
-          ot.days=[].map.call(D().querySelectorAll('[data-qetraderow]'),function(e){return e.getAttribute('data-qbday');});}
-        ot.errs=drain();
-        out.oldtable=ot;
+        // ?oldboards=1 no longer changes anything: this page must be the plain laptop / MONO board
+        await runCase('flagpage',{vp:'laptop',theme:'mono'});
         finish('done');
       }
     },2500);
@@ -2669,6 +2636,7 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
       more:'[data-lgmore="qb"]',cal:'[data-lgcalfold="qb"]',list:'[data-lglist="qb"]',listfold:'[data-qbfold="list"]',trades:'[data-lglist-frame="wb"]',own:'.qbx-own'};
     o.pos={};
     Object.keys(M).forEach(function(k){o.pos[k]=bx(M[k]);});
+    o.capFs=(function(){var e=q('.qbx-chart-cap');return e?w.getComputedStyle(e).fontSize:null;})();
     o.strip={text:tx2(q('.qbx-statusline')),refresh:!!q('.qbx-statusline [data-qqqrefresh]'),inFold:!!q('[data-qbfoldbox] .qbx-statusline')};
     // every fold header, in page order: its key, title, summary, whether it is shut, where it is, its height (one line), the room its summary has
     o.folds=[].map.call(d.querySelectorAll('[data-qbfold]'),function(b){
@@ -2685,8 +2653,8 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
           if(e)s11Hue(e,['color','borderTopColor','backgroundColor']).forEach(function(x){if(bad.length<6)bad.push((e.className||e.tagName)+' '+x);});});
           if(p)s11Hue(p,['backgroundColor','borderTopColor']).forEach(function(x){bad.push('panel '+x);});return bad;})()};
     });
-    // the old page's shape (?oldboards=1): none of the new classes, the old disclosures, a skeleton of its markup
-    o.old={lg6:!!q('.qbx-lg6'),ownBox:!!q('.qbx-own'),foldBtns:d.querySelectorAll('[data-qbfold]').length,foldBoxes:d.querySelectorAll('[data-qbfoldbox]').length,
+    // the page's shape: the fold layout, and a skeleton of its markup (the ?oldboards=1 page must draw the same one as the plain page)
+    o.shape={lg6:!!q('.qbx-lg6'),ownBox:!!q('.qbx-own'),foldBtns:d.querySelectorAll('[data-qbfold]').length,foldBoxes:d.querySelectorAll('[data-qbfoldbox]').length,
       disc:[].map.call(d.querySelectorAll('[data-qbdisclosure]'),function(e){return e.getAttribute('data-qbdisclosure');}),
       modelToggle:!!q('[data-qqqmodeltoggle]'),statusInChart:!!q('.qbx-chart .qbx-status-strip'),skel:s11Skel()};
     return o;
@@ -2779,8 +2747,11 @@ S11_PHONE_TOP_MAX = 784      # phone 375x812: the trade list starts at most this
 S11_FOLD_ONE_LINE = 40       # a fold header is one line: the button is shorter than this (two lines of text would be 44 and over)
 S11_HOUSE = (600, 740, 800, 920, 1100)   # the only widths this board's media / container queries may use (the shared parts' own: phone, compact, list cells, rail)
 S11_WIDTHS = [375, 601, 700, 800, 1000, 1366]
-# the markup shape of the OLD page (?oldboards=1): element count and a hash of every tag / class / attribute NAME in document order, as the build before step 11 drew it
-S11_OLD_SKEL = [791, 3293710462]
+# what the removed previous board drew: none of it may be in the page, in any case, with or without ?oldboards=1 (the page-side readout lists the ones it
+# finds). The names are the ones tools/ledger_removed.py lints for in the source; this list catches them if a build ever composes them at run time.
+OLD_MARKS = ['[data-qbtraderow]', '[data-qetraderow]', '[data-qbseg]', '[data-qelegend]', '[data-qblegrow]', '[data-qcalmo]', '[data-qcalday]',
+             '[data-qechart]', '[data-qqqmodeltoggle]', '[data-qqqratiotoggle]', '.qe-drawer', '.qb-hero', '.qb-seg', '.qb-chart-svg',
+             '.qbx-stat-strip', '.qbx-side-hd', '#qbCrossCapture']
 S11_BAD_TOKEN = re.compile(r'NaN|undefined|\[object Object\]|null')
 
 
@@ -2823,6 +2794,9 @@ def _s11_order_problems(tag, s11, iw, doc, fails):
     """The fixed order, top to bottom, by the page's own markers: hero, range pills, chart, status strip, stats strip, More stats fold, calendar fold,
     strategy list (a one-line fold up to 600 px; the sticky right column from 1100 px), trade list, then the own folds in their order."""
     pos = s11.get('pos') or {}
+    if s11.get('capFs') not in (None, '11px'):
+        fails.append('%s: the chart caption lost its style (.qbx-chart-cap reads %s, the rule says 11px): a rule in the board css is not applying'
+                     % (tag, s11.get('capFs')))
     two_col = iw >= 1100
     chain = ['hero', 'pills', 'chart', 'status', 'stats', 'more', 'cal'] + ([] if two_col else ['listfold' if iw <= 600 else 'list']) + ['trades']
     last, last_k = None, None
@@ -2986,19 +2960,36 @@ def _judge_s11_run(res, fixture, fails):
         _errs(t, r.get('errs') or {}, fails)
 
 
-def _s11_old_problems(tag, r, fails):
-    """?oldboards=1: none of the new page, the old disclosures where they were, the old markup shape."""
-    o = ((r.get('s11') or {}).get('old')) or {}
-    if o.get('lg6') or o.get('ownBox') or o.get('foldBtns') or o.get('foldBoxes'):
-        fails.append('%s: ?oldboards=1 draws the new page (qbx-lg6 %s, own box %s, %s fold buttons, %s fold boxes)'
+def _flag_problems(tag, r, plain, fails):
+    """?oldboards=1 draws the NEW page: the fold layout (qbx-lg6, the own box, the fold buttons and boxes), none of the removed previous board's markers
+    or old disclosures, the same markup skeleton, page order, shared calendar / strategy list and trade list frame as the plain page for the same case,
+    and LEDGER_OLDBOARDS is not a name in the page."""
+    o = ((r.get('s11') or {}).get('shape')) or {}
+    p = ((plain.get('s11') or {}).get('shape')) or {}
+    if not o.get('lg6') or not o.get('ownBox') or not o.get('foldBtns') or not o.get('foldBoxes'):
+        fails.append('%s: ?oldboards=1 does not draw the new page (qbx-lg6 %s, own box %s, %s fold buttons, %s fold boxes)'
                      % (tag, o.get('lg6'), o.get('ownBox'), o.get('foldBtns'), o.get('foldBoxes')))
-    if o.get('disc') != ['morestats', 'feedsig', 'system', 'rails', 'events'] or not o.get('modelToggle') or not o.get('statusInChart'):
-        fails.append('%s: ?oldboards=1 lost an old disclosure or the status strip under the chart (disclosures %s, model toggle %s, strip in chart %s)'
-                     % (tag, o.get('disc'), o.get('modelToggle'), o.get('statusInChart')))
-    sk = o.get('skel') or {}
-    if [sk.get('n'), sk.get('h')] != S11_OLD_SKEL:
-        fails.append('%s: the old page\'s markup shape changed: %s elements / hash %s, the build before step 11 drew %s (?oldboards=1 stays byte-identical until its code is removed)'
-                     % (tag, sk.get('n'), sk.get('h'), S11_OLD_SKEL))
+    if o.get('modelToggle') or o.get('statusInChart'):
+        fails.append('%s: ?oldboards=1 draws an old disclosure or the old status strip under the chart (model toggle %s, strip in chart %s)'
+                     % (tag, o.get('modelToggle'), o.get('statusInChart')))
+    sk, pk = o.get('skel') or {}, p.get('skel') or {}
+    if not sk or [sk.get('n'), sk.get('h')] != [pk.get('n'), pk.get('h')]:
+        fails.append('%s: the markup behind ?oldboards=1 is not the plain page (%s elements / hash %s, plain %s / %s)'
+                     % (tag, sk.get('n'), sk.get('h'), pk.get('n'), pk.get('h')))
+    old, pold = r.get('old') or {}, plain.get('old') or {}
+    if old.get('oldMarks'):
+        fails.append('%s: markers of the removed previous board are in the page: %s' % (tag, ', '.join(old['oldMarks'])))
+    if old.get('flagConst') != 'undefined':
+        fails.append('%s: LEDGER_OLDBOARDS is still a name in the page (typeof %s)' % (tag, old.get('flagConst')))
+    if not old.get('sharedCalFold') or not old.get('sharedList'):
+        fails.append('%s: ?oldboards=1 does not draw the shared calendar fold and strategy list (calendar fold %s, list %s)'
+                     % (tag, old.get('sharedCalFold'), old.get('sharedList')))
+    if not old.get('order') or old.get('order') != pold.get('order'):
+        fails.append('%s: ?oldboards=1 changed the page order: %r (plain %r)' % (tag, old.get('order'), pold.get('order')))
+    t0 = r.get('tl') or {}
+    if t0.get('frames') != 1 or t0.get('oldSeg') or t0.get('oldRows'):
+        fails.append('%s: ?oldboards=1 does not draw the one shared trade list frame (frames %s, old switch %s, old rows %s)'
+                     % (tag, t0.get('frames'), t0.get('oldSeg'), t0.get('oldRows')))
 
 
 def _static_breakpoints(path):
@@ -4908,7 +4899,21 @@ def _judge_tl(data, fixture, fails, unfinished, why):
             _judge_tl_pwidth(tag, res, cs, fails)
 
 
+def _removed_lint(alt_index):
+    """Static lint (tools/ledger_removed.py): nothing the LEDGER clean-up removed (LEDGER_OLDBOARDS, the previous chart / stats / legs / calendar / trade list /
+    drawer builders and their classes and hooks) is back in the file being gated. [] when clean."""
+    sys.path.insert(0, os.path.join(ROOT, 'tools'))
+    try:
+        import ledger_removed
+    finally:
+        sys.path.pop(0)
+    return ledger_removed.lint_file(alt_index or os.path.join(ROOT, 'index.html'), ['shared', 'webull'])
+
+
 def _attempt(chrome, alt_index, fixture):
+    probs = _removed_lint(alt_index)
+    if probs:
+        return FAIL, probs, [], None, False
     pdir = tempfile.mkdtemp(prefix='_webullprobe_', dir=ROOT)
     variants = [{'name': nm, 'nowMs': now if isinstance(now, int) else et_ms(now), 'doc': doc,
                  'offline': bool(exp.get('offline')), 'missing': bool(exp.get('missing')), 'unloaded': bool(exp.get('unloaded')),
@@ -4929,7 +4934,7 @@ def _attempt(chrome, alt_index, fixture):
     html = (PROBE_HTML.replace('__CASES__', json.dumps(CASES)).replace('__VP__', json.dumps(VIEWPORTS))
             .replace('__STATS__', json.dumps(stats)).replace('__TLS__', json.dumps(tls)).replace('__TLJS__', TL_JS).replace('__S11JS__', S11_JS)
             .replace('__NOW__', json.dumps(et_ms(FRESH_NOW))).replace('__VARS__', json.dumps(variants))
-            .replace('__FIX__', json.dumps(fixture)))
+            .replace('__FIX__', json.dumps(fixture)).replace('__OLDMARKS__', json.dumps(OLD_MARKS)))
     io.open(os.path.join(pdir, 'probe.html'), 'w', encoding='utf-8').write(html)
     srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), make_handler(ROOT, alt_index))
     port = srv.server_address[1]
@@ -5217,6 +5222,8 @@ def _judge(data, fixture):
             fails.append('%s: the More stats fold is not there closed (aria-expanded=%r)' % (nm, r.get('moreBtn')))
         if r.get('oldStats'):
             fails.append('%s: the old stat tiles are still drawn beside the shared ones' % nm)
+        if (r.get('old') or {}).get('oldMarks'):
+            fails.append('%s: markers of the removed previous board are in the page: %s' % (nm, ', '.join(r['old']['oldMarks'])))
         if not r.get('top') or r['top'][0] != 'flat':
             fails.append('%s: the top bar WEBULL chip reads %r, want FLAT' % (nm, r.get('top')))
         _topbox(nm, r, fails)
@@ -5334,61 +5341,26 @@ def _judge(data, fixture):
                              % (tag, fo.get('closed'), fo.get('panelAfter'), fo.get('stored2')))
         _judge_inter_ledger(tag, res, fixture, fails)
     _judge_s11_run(data.get('s11'), fixture, fails)
-    r = cases.get('oldboards')
+    # ?oldboards=1 no longer changes anything: the second page load draws the plain laptop / MONO board
+    r = cases.get('flagpage')
+    plain = cases.get('laptop/mono') or {}
     if r is None:
-        unfinished.append('oldboards: never ran (why=%s)' % why)
+        unfinished.append('flagpage: never ran (why=%s)' % why)
     elif r.get('call') != 'OK':
-        fails.append('oldboards: renderApp threw -- %s' % _first(r.get('call')))
+        fails.append('flagpage: renderApp threw -- %s' % _first(r.get('call')))
     else:
-        _errs('oldboards', r, fails)
-        if r.get('statTilesAll') or not r.get('oldStats'):
-            fails.append('oldboards: ?oldboards=1 does not show the old Stats tiles (shared tiles %s, old tiles %s)'
-                         % (r.get('statTilesAll'), r.get('oldStats')))
-        if r.get('chart') or not r.get('oldChart') or r.get('retired'):
-            fails.append('oldboards: ?oldboards=1 does not show the old Webull chart and strategy list '
-                         '(shared chart=%s, old chart=%s, Retired group=%s)'
-                         % (r.get('chart'), r.get('oldChart'), r.get('retired')))
-        o2 = r.get('old') or {}
-        if not o2.get('oldCalDays') or not o2.get('oldCalNav') or o2.get('sharedCalFold'):
-            fails.append('oldboards: ?oldboards=1 does not keep the old month calendar (old day cells %s, month arrows %s, '
-                         'shared fold %s)' % (o2.get('oldCalDays'), o2.get('oldCalNav'), o2.get('sharedCalFold')))
-        if o2.get('oldLegRows') != ['ORB', 'ENGUQ', 'NOISE'] or o2.get('sharedList') or not o2.get('oldSideHd'):
-            fails.append('oldboards: ?oldboards=1 does not keep the old strategy rows (rows %r, shared list %s, old heading %s)'
-                         % (o2.get('oldLegRows'), o2.get('sharedList'), o2.get('oldSideHd')))
-        _s11_old_problems('oldboards', r, fails)
-        if o2.get('order') != ['qbx-side', 'qbx-account', 'qbx-stats', 'qbx-history']:
-            fails.append('oldboards: ?oldboards=1 changed the old page order: %r' % (o2.get('order'),))
-        # LEDGER step 8: the old List | Table is untouched (no shared frame; the old switch, the old rows, each row's close day)
-        t0 = r.get('tl') or {}
-        old_tr = (fixture.get('trades_all') or [])[:50]
-        if t0.get('frames') or t0.get('oldSeg') != 1 or t0.get('oldRows') != len(old_tr):
-            fails.append('oldboards: ?oldboards=1 does not keep the old List | Table trade list (shared frames %s, old switch %s, old rows %s of %s)'
-                         % (t0.get('frames'), t0.get('oldSeg'), t0.get('oldRows'), len(old_tr)))
-        if collections.Counter(o2.get('oldTradeDays') or []) != collections.Counter((_close_day(t) or '') for t in old_tr):
-            fails.append('oldboards: the old trade rows carry the wrong close day (data-qbday), so a calendar tap cannot land on them')
-        # LEDGER step 9: the board's own trade sheet is still what an old row opens, and no shared panel is drawn
-        osh = data.get('oldsheet') or {}
-        _errs('oldboards [sheet]', osh.get('errs') or {}, fails)
-        okey = osh.get('key')
-        ot0 = next((t for t in old_tr if row_key(t) == okey), None)
-        if ot0 is None or osh.get('title') != tl_sheet_title(ot0):
-            fails.append('oldboards: a tap on an old row did not open the old trade sheet for %r (title %r, want %r)'
-                         % (okey, osh.get('title'), tl_sheet_title(ot0) if ot0 else None))
-        if osh.get('panel') or not osh.get('closed'):
-            fails.append('oldboards: ?oldboards=1 draws the shared trade panel (%s node(s)) or its sheet did not close (%s)' % (osh.get('panel'), osh.get('closed')))
-        ot = data.get('oldtable') or {}
-        _errs('oldboards [Table]', ot.get('errs') or {}, fails)
-        if ot.get('legs') is None:
-            fails.append('oldboards: ?oldboards=1 has no old Table view to read ([data-qbsegval="table"])')
-        else:
-            bad_o = [x for x in ot['legs'] if not LEG_RE.match(x or '')]
-            if bad_o or len(ot['legs']) != len(old_tr):
-                fails.append('oldboards: the old Table view names strategies without family + run number: %s (%d rows for %d trades)'
-                             % (sorted(set(map(str, bad_o)))[:4], len(ot['legs']), len(old_tr)))
-            elif collections.Counter(ot['legs']) != collections.Counter(expected_leg_name(t) for t in old_tr):
-                fails.append('oldboards: the old Table view names the wrong run on a row')
-            if collections.Counter(ot.get('days') or []) != collections.Counter((_close_day(t) or '') for t in old_tr):
-                fails.append('oldboards: the old Table view rows carry the wrong close day (data-qbday), so a calendar tap cannot land on them')
+        _errs('flagpage', r, fails)
+        for k, what in (('statTilesAll', 'shared stat tiles'), ('stats', 'tile values'), ('moreBtn', 'More stats fold'), ('calWon', 'calendar'),
+                        ('tradeRows', 'trade rows'), ('tradeLegs', 'trade strategies')):
+            if r.get(k) != plain.get(k):
+                fails.append('flagpage: ?oldboards=1 does not draw the plain page %s (%r, plain %r)' % (what, r.get(k), plain.get(k)))
+        for k, what in (('chart', 'shared chart'), ('retired', 'Retired group')):
+            if bool(r.get(k)) != bool(plain.get(k)):
+                fails.append('flagpage: ?oldboards=1 does not draw the plain page %s (%r, plain %r)' % (what, bool(r.get(k)), bool(plain.get(k))))
+        if not r.get('statTilesAll') or not r.get('chart') or r.get('oldStats') or r.get('oldChart'):
+            fails.append('flagpage: ?oldboards=1 does not draw the shared tiles and chart alone (tiles %s, chart %s, old tiles %s, old chart %s)'
+                         % (r.get('statTilesAll'), bool(r.get('chart')), r.get('oldStats'), r.get('oldChart')))
+        _flag_problems('flagpage', r, plain, fails)
     if fails:
         return FAIL, fails, notes, data, True
     if unfinished:
@@ -5613,7 +5585,7 @@ def _report(t0, attempt, may_retry, chrome, alt_index, fixture):
     pnl_ = ((((data.get('tl') or {}).get('panel laptop 1366x768 glass') or {}).get('steps') or {}).get('open') or {}).get('read') or {}
     pnp_ = ((((data.get('tl') or {}).get('panel phone 375x812 glass') or {}).get('steps') or {}).get('open') or {}).get('read') or {}
     pnl_r, pnp_r = pnl_.get('rect') or {}, pnp_.get('rect') or {}
-    print('WEBULLPROBE: PASS (VERSION=%s, %d cases + interaction + %d stats cases + %d trade list runs + %d freshness variants + oldboards, %.1fs; '
+    print('WEBULLPROBE: PASS (VERSION=%s, %d cases + interaction + %d stats cases + %d trade list runs + %d freshness variants + the ?oldboards=1 page, %.1fs; '
           'laptop chart %spx, %s dates, %s price labels, %s caveat days, marker %r; tiles %s; calendar %s %s; list %s, %s; '
           'phone trade list %s px under the board top, its frame %s px (limit %d); '
           'trade panel %sx%s px on a laptop, a sheet %sx%s px on a phone, %d panel runs + %d widths)'
