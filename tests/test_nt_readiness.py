@@ -3,6 +3,10 @@
 Every test builds a small fake world in tmp_path (bridge answers, ENGU-Q state file, two 10s CSVs,
 state/result files) and points the module at it with monkeypatch. Nothing here touches the real
 bridge, the real gate, C:\\EdgeLog, or ntfy.
+
+2026-10-07 ("make the notifications simpler to understand"): the push is the plain format of
+api/ntfy_push.py, order-flow coverage failures are NEVER pushed from here (api/delta_alarm.py owns them),
+and the repeat rule is once-a-day / new-or-worse-at-once / one low "back to normal" after a high push.
 """
 import datetime as dt
 import json
@@ -11,6 +15,8 @@ import sys
 from zoneinfo import ZoneInfo
 
 import pytest
+
+from api import ntfy_push as N
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
@@ -131,7 +137,10 @@ def test_strategy_missing_pushes_once(world):
     assert status(world, "roster") == "fail"
     assert len(world["pushes"]) == 1
     msg = world["pushes"][0]["message"]
-    assert "ENGU-Q is missing" in msg and "only reads" in msg
+    assert world["pushes"][0]["title"] == "NinjaTrader: CHECK NOW"
+    assert msg.split("\n") == ["Trading: AFFECTED - a strategy is not running.",
+                               "ENGU-Q is missing from NinjaTrader.",
+                               "Do: open NinjaTrader and check the strategies are enabled."]
     assert world["pushes"][0]["priority"] == "high"
 
 
@@ -160,13 +169,14 @@ def test_managed_position_passes(world):
 def test_two_stops_fails(world):
     held_nq(world, stops=2)
     assert world["run"]() == 1
-    assert "2 exit stops instead of one" in world["pushes"][0]["message"]
+    assert "2 stop orders instead of one" in world["pushes"][0]["message"]
+    assert world["pushes"][0]["priority"] == "high" and "paper position may be unprotected" in world["pushes"][0]["message"]
 
 
 def test_no_stop_fails(world):
     held_nq(world, stops=0)
     assert world["run"]() == 1
-    assert "0 exit stops" in world["pushes"][0]["message"]
+    assert "0 stop orders" in world["pushes"][0]["message"]
 
 
 def test_state_file_not_in_position_fails(world):
@@ -202,7 +212,7 @@ def test_low_overnight_coverage_reports_percent(world):
     assert items["capture_overnight_NQ"]["status"] == "fail"
     assert "50.0%" in items["capture_overnight_NQ"]["detail"] or "5" in items["capture_overnight_NQ"]["detail"]
     assert items["capture_30m_NQ"]["status"] == "pass"           # the last 30 minutes are fine
-    assert "overnight" in world["pushes"][0]["message"]
+    assert world["pushes"] == []                                  # order flow is delta_alarm's to push, not this check's
 
 
 def test_low_recent_coverage_fails(world):
@@ -217,7 +227,8 @@ def test_gate_down_is_warning_but_still_pushes(world):
     item = next(i for i in world["result"]()["items"] if i["id"] == "gate")
     assert item["status"] == "fail" and item["level"] == "warn"
     assert len(world["pushes"]) == 1
-    assert world["pushes"][0]["priority"] == "default"            # warning-only set is not high priority
+    assert world["pushes"][0]["priority"] == "low"                # data only: trading is not affected -> no buzz
+    assert world["pushes"][0]["title"] == "NinjaTrader: heads up"
 
 
 def test_gate_unhealthy_fails(world):
@@ -241,18 +252,123 @@ def _later(w, minutes, *argv):
     return w["run"](*argv, now=w["now"])
 
 
-def test_push_dedupe_twenty_minutes(world):
-    world["now"] = et_ts(2026, 10, 7, 9, 12)                      # leave room for +22 min inside the window
+def test_same_problem_pushes_once_then_once_a_day_and_new_problem_at_once(world):
+    world["now"] = et_ts(2026, 10, 7, 9, 12)                      # leave room for the minutes below inside the window
     world["write_all"]()
     world["gate"] = None
     world["run"]()
     _later(world, 5)
-    assert len(world["pushes"]) == 1                              # same set inside 20 minutes
+    assert len(world["pushes"]) == 1                              # same set, 5 minutes on
     _later(world, 16)
-    assert len(world["pushes"]) == 2                              # 21 minutes on: quiet period over
+    assert len(world["pushes"]) == 1                              # 21 minutes on: still the same problem, still quiet
     world["bridge"]["/strategies"] = {"strategies": [GOOD_STRATS[0]]}
     _later(world, 1)
-    assert len(world["pushes"]) == 3                              # a different set pushes at once
+    assert len(world["pushes"]) == 2                              # a NEW problem pushes at once
+    assert "ENGU-Q is missing" in world["pushes"][1]["message"]
+    _later(world, 1)
+    assert len(world["pushes"]) == 2                              # ... and the grown set is quiet again
+    # the next morning (Thursday 09:15, same set): one reminder, not before
+    world["now"] = et_ts(2026, 10, 8, 9, 15)
+    world["write_all"]()
+    world["run"](now=world["now"])
+    assert len(world["pushes"]) == 3
+
+
+def test_worse_problem_pushes_at_once(world):
+    world["gate"] = None                                          # low: data only
+    world["run"]()
+    assert [p["priority"] for p in world["pushes"]] == ["low"]
+    world["bridge"]["/strategies"] = {"strategies": [GOOD_STRATS[0]]}    # a strategy goes missing: high
+    _later(world, 1)
+    assert [p["priority"] for p in world["pushes"]] == ["low", "high"]
+
+
+def test_back_to_normal_only_after_a_high_priority_push(world):
+    # a high push, then a clean pass -> ONE low "back to normal"
+    world["bridge"]["/strategies"] = {"strategies": [GOOD_STRATS[0]]}
+    world["run"]()
+    assert world["pushes"][0]["priority"] == "high"
+    world["bridge"]["/strategies"] = {"strategies": list(GOOD_STRATS)}
+    _later(world, 1)
+    assert len(world["pushes"]) == 2
+    back = world["pushes"][1]
+    assert back["title"] == "NinjaTrader: OK" and back["priority"] == "low"
+    assert back["message"].split("\n")[0] == "Trading: not affected."
+    assert "ENGU-Q is missing from NinjaTrader" in back["message"]
+    _later(world, 1)
+    assert len(world["pushes"]) == 2                              # and only one
+    # a low-only episode (gate down) that clears says nothing
+    world["gate"] = None
+    _later(world, 1)
+    world["gate"] = {"ok": True}
+    _later(world, 1)
+    assert len(world["pushes"]) == 3                              # the gate heads-up, no "back" for it
+
+
+def test_early_run_never_sends_back_to_normal(world):
+    world["bridge"]["/strategies"] = {"strategies": [GOOD_STRATS[0]]}
+    world["run"]()                                                # high push at 09:15
+    world["bridge"] = {}                                          # NinjaTrader restarting: start-up class, held back
+    world["now"] = et_ts(2026, 10, 7, 9, 18)
+    world["write_all"]()
+    world["run"]("--early", now=world["now"])
+    assert len(world["pushes"]) == 1
+
+
+def test_order_flow_only_failure_sends_no_push_at_all(world):
+    world["write_all"](overnight_pct=46, recent_pct=46)           # the 10-07 morning: buy/sell split missing everywhere
+    assert world["run"]() == 1                                    # still a failed check, still exit 1 ...
+    res = world["result"]()
+    assert not res["ok"] and {"capture_overnight_NQ", "capture_overnight_ES", "capture_30m_NQ", "capture_30m_ES"} <= set(res["failed"])
+    assert world["pushes"] == []                                  # ... but nothing goes to the phone
+    assert not (world["tmp"] / "nt_readiness_state.json").exists()
+
+
+def test_order_flow_failure_is_left_out_of_a_push_about_something_else(world):
+    world["write_all"](overnight_pct=46)
+    world["bridge"]["/strategies"] = {"strategies": [GOOD_STRATS[0]]}
+    assert world["run"]() == 1
+    assert len(world["pushes"]) == 1
+    text = world["pushes"][0]["title"] + world["pushes"][0]["message"]
+    assert "buy/sell" not in text and "order-flow" not in text.lower() and "overnight" not in text
+
+
+def test_is_orderflow_only_matches_the_coverage_failures():
+    it = R.item
+    assert R.is_orderflow(it("capture_30m_NQ", "x", "fail", "40% of 120 traded bars have buy/sell (needs 80%)"))
+    assert R.is_orderflow(it("capture_overnight_ES", "x", "fail", "46.0% of 900 traded bars since Tue 18:00 ET have buy/sell (needs 80%)"))
+    assert not R.is_orderflow(it("capture_30m_NQ", "x", "fail", "only 3 bars with volume in the last 30 min"))     # a dead feed
+    assert not R.is_orderflow(it("capture_overnight_NQ", "x", "fail", "no traded bars since Tue 18:00 ET"))
+    assert not R.is_orderflow(it("capture_fresh_NQ", "x", "fail", "last bar is 9 min old"))
+    assert not R.is_orderflow(it("roster", "x", "fail", "buy/sell"))
+
+
+def test_every_push_is_the_plain_format(world):
+    world["bridge"]["/strategies"] = {"strategies": [GOOD_STRATS[0]]}
+    world["run"]()                                                # strategy missing
+    world["bridge"] = {}
+    _later(world, 1)                                              # NinjaTrader not responding
+    world["bridge"] = {"/health": {"ok": True}, "/accounts": ACCOUNTS, "/strategies": {"strategies": list(GOOD_STRATS)},
+                       "/positions": {"positions": [{"account": "DEMO7240108", "instrument": "NQ 12-26", "side": "Long", "qty": 1}]},
+                       "/orders": {"orders": []}}
+    world["state"] = {"inPos": True, "qty": 1, "instrument": "NQ 12-26"}
+    _later(world, 1)                                              # a paper position with no stop
+    world["bridge"]["/positions"] = {"positions": []}
+    world["state"] = {"inPos": False, "qty": 1, "instrument": "NQ 12-26"}
+    world["gate"] = None
+    _later(world, 1)                                              # only the gate down (and the earlier set clearing)
+    assert len(world["pushes"]) >= 4
+    for c in world["pushes"]:
+        assert not N.lint(c), (c, N.lint(c))
+        assert len(c["title"]) < 40 and len(c["message"].split("\n")) == 3
+
+
+def test_dry_run_prints_the_note_it_would_send(world, capsys):
+    world["bridge"]["/strategies"] = {"strategies": [GOOD_STRATS[0]]}
+    assert world["run"]("--dry-run") == 1
+    out = capsys.readouterr().out
+    assert "title: NinjaTrader: CHECK NOW" in out and "priority: high" in out and "Trading: AFFECTED - a strategy is not running." in out
+    assert world["pushes"] == []
 
 
 def test_clean_pass_rearms_alert(world):
@@ -309,7 +425,8 @@ def test_live_account_exposure_is_a_safety_failure(world):
     world["bridge"]["/strategies"] = {"strategies": GOOD_STRATS + [
         {"account": "1810769", "name": "EdgeLogNOISE", "state": "Realtime", "instrument": "MNQ 12-26", "position": "Flat 0"}]}
     assert world["run"]("--early") == 1
-    assert len(world["pushes"]) == 1 and "LIVE account" in world["pushes"][0]["message"]
+    assert len(world["pushes"]) == 1 and "your real account" in world["pushes"][0]["message"]
+    assert world["pushes"][0]["priority"] == "high" and "LIVE" not in world["pushes"][0]["message"]
 
 
 def test_json_output_is_valid(world, capsys):

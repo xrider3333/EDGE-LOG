@@ -290,3 +290,138 @@ def test_nt_cloud_watchdog_pages_with_critical_title_and_urgent_priority(monkeyp
     # The old _ntfy_post used timeout=10 -- must not silently drop to the helper's
     # default (8) now that this sender is switched.
     assert calls[0]["timeout"] == 10
+
+
+# ── the one plain phone format (2026-10-07, "make the notifications simpler to understand") ───────────────────
+
+def test_plain_is_three_lines_with_a_short_title():
+    n = ntfy_push.plain("Order flow", "data gap", None,
+                        "Order-flow data missing for last night (46% of bars have it).",
+                        "nothing - fixes itself when NinjaTrader runs overnight")
+    assert n == {"title": "Order flow: data gap",
+                 "message": "Trading: not affected.\nOrder-flow data missing for last night (46% of bars have it).\n"
+                            "Do: nothing - fixes itself when NinjaTrader runs overnight.",
+                 "priority": "low"}
+    assert ntfy_push.lint(n) == []
+
+
+def test_plain_affected_text_and_priority():
+    n = ntfy_push.plain("NinjaTrader", "CHECK NOW", "ENGU-Q is not running", "ENGU-Q is missing from NinjaTrader.",
+                        "open NinjaTrader")
+    assert n["message"].split("\n")[0] == "Trading: AFFECTED - ENGU-Q is not running."
+    assert n["priority"] == "high" and ntfy_push.lint(n) == []
+    # explicit priority wins (a fix-today item that does not stop trading)
+    assert ntfy_push.plain("Paper NT8", "needs a fix", None, "x", "y", priority="default")["priority"] == "default"
+    # "not affected (flat)" is used as written, and is not 'AFFECTED'
+    f = ntfy_push.plain("Paper NT8: down $946 today", None, "not affected (flat)", "x", "nothing")
+    assert f["message"].split("\n")[0] == "Trading: not affected (flat)." and f["priority"] == "low"
+
+
+def test_plain_cuts_the_title_under_40_characters():
+    n = ntfy_push.plain("A very long area name that keeps going and going", "CHECK NOW", None, "p", "nothing")
+    assert len(n["title"]) < 40
+
+
+def test_lint_flags_what_the_owner_complained_about():
+    bad = {"title": "EDGELOG NT READINESS", "priority": "high",
+           "message": "FAIL 10s capture NQ: rt=3 bars, DEMO7240108 at 13:40 UTC, 1810769, exit code 1, Tick Replay\nsecond"}
+    probs = " | ".join(ntfy_push.lint(bad))
+    for must in ("ALL CAPS", "2 lines, not 3", "rt=3", "tick replay", "exit code", "DEMO7240108", "1810769", "UTC"):
+        assert must in probs, (must, probs)
+    assert any("over 39" in p for p in ntfy_push.lint({"title": "x" * 40, "message": "", "priority": "low"}))
+
+
+def test_hhmm_is_the_owners_phoenix_clock_never_utc_or_et():
+    assert ntfy_push.hhmm("2026-10-07 04:11:24", now="2026-10-07 04:11:40") == "21:11"        # 04:11 UTC = 21:11 MST (day before)
+    assert ntfy_push.hhmm("2026-10-07T13:40:26Z", now="2026-10-07T13:41:00Z") == "06:40"
+    assert ntfy_push.hhmm(1791346284, now=1791346300) == "21:11"                                # epoch seconds
+    import datetime as dt
+    et = dt.datetime(2026, 10, 7, 9, 30, tzinfo=dt.timezone(dt.timedelta(hours=-4)))            # 09:30 EDT = 06:30 MST
+    assert ntfy_push.hhmm(et, now=et) == "06:30"
+    local = dt.datetime(2026, 10, 7, 6, 30)                                                     # a naive PC-clock value
+    assert ntfy_push.hhmm(local, now=local, naive_is="local") == "06:30"
+    assert ntfy_push.hhmm("garbage") == "??:??"
+
+
+def test_hhmm_adds_a_day_word_only_for_old_moments_on_another_day():
+    now = "2026-10-07 20:00:00"                                                                   # 13:00 MST on 10-07
+    assert ntfy_push.hhmm("2026-10-07 04:11:24", now=now) == "yesterday 21:11"
+    assert ntfy_push.hhmm("2026-10-05 04:11:24", now=now) == "Sun 21:11"
+    assert ntfy_push.hhmm("2026-10-07 07:00:00", now="2026-10-07 07:30:00") == "00:00"            # same day: bare clock
+    assert ntfy_push.hhmm("2026-10-07 06:50:00", now="2026-10-07 07:10:00") == "23:50"            # across midnight but 20 min apart
+
+
+def test_words_for_money_prices_strategies_and_accounts():
+    assert ntfy_push.usd(945.76) == "$946" and ntfy_push.usd(-12000) == "$12,000"
+    assert ntfy_push.price(31477.75) == "31,477.75" and ntfy_push.price(31430) == "31,430.00"
+    assert ntfy_push.strategy_word("EdgeLogENGUQ1m") == "ENGU-Q" and ntfy_push.strategy_word("EdgeLogNOISE") == "NOISE"
+    assert ntfy_push.strategy_word("EdgeLogFoo") == "Foo"
+    assert ntfy_push.account_word("DEMO7240108") == "paper" and ntfy_push.account_word("1810769") == "your real account"
+    assert ntfy_push.account_word("Sim101") == "another account"
+    assert ntfy_push.instrument_word("MNQ 12-26") == "MNQ"
+
+
+def test_dedupe_same_set_once_then_daily():
+    a, st = ntfy_push.dedupe({"x": 1}, {}, 1000)
+    assert a == "push" and st == {"set": {"x": 1}, "at": 1000, "high": False}
+    assert ntfy_push.dedupe({"x": 1}, st, 1000 + 1800)[0] is None                    # a 30-minute rerun
+    assert ntfy_push.dedupe({"x": 1}, st, 1000 + 24 * 3600 - 1)[0] is None
+    a, st2 = ntfy_push.dedupe({"x": 1}, st, 1000 + 24 * 3600)
+    assert a == "push" and st2["at"] == 1000 + 24 * 3600
+
+
+def test_dedupe_new_or_worse_pushes_at_once():
+    _, st = ntfy_push.dedupe({"x": 0}, {}, 1000)
+    assert ntfy_push.dedupe({"x": 0, "y": 0}, st, 1010)[0] == "push"                 # a new id
+    assert ntfy_push.dedupe({"x": 2}, st, 1010)[0] == "push"                         # the same id, worse rank
+    a, st3 = ntfy_push.dedupe({"x": 2}, st, 1010)
+    assert st3["high"] is True
+    assert ntfy_push.dedupe({"x": 0}, st3, 1020)[0] is None                           # better again: quiet
+
+
+def test_dedupe_cleared_problem_returns_as_new_but_a_partial_clear_is_quiet():
+    _, st = ntfy_push.dedupe({"x": 1, "y": 1}, {}, 1000)
+    a, st2 = ntfy_push.dedupe({"x": 1}, st, 1010)
+    assert a is None and st2["set"] == {"x": 1} and st2["at"] == 1000                 # y cleared: nothing to say
+    assert ntfy_push.dedupe({"x": 1, "y": 1}, st2, 1020)[0] == "push"                 # y is back: new
+
+
+def test_dedupe_back_to_normal_only_after_a_high_push():
+    _, low = ntfy_push.dedupe({"x": 0}, {}, 1000)
+    assert ntfy_push.dedupe({}, low, 1100) == (None, {"set": {}, "at": 0, "high": False})
+    _, mixed = ntfy_push.dedupe({"x": 0}, {}, 1000)
+    _, mixed = ntfy_push.dedupe({"x": 0, "y": 2}, mixed, 1100)                       # a high one joins the episode
+    a, cleared = ntfy_push.dedupe({}, mixed, 1200)
+    assert a == "clear" and cleared == {"set": {}, "at": 0, "high": False}
+    assert ntfy_push.dedupe({}, cleared, 1300)[0] is None                              # one only
+    # a fresh problem after the clear starts a new episode that has not been high
+    _, again = ntfy_push.dedupe({"z": 1}, cleared, 1400)
+    assert again["high"] is False
+
+
+def test_dedupe_reads_an_older_id_list_state():
+    a, st = ntfy_push.dedupe({"x": 1}, {"set": ["x"], "at": 1000}, 1500)
+    assert a is None and st["set"] == {"x": 1}
+
+
+def test_send_goes_through_push_and_carries_title_and_priority(monkeypatch):
+    calls = []
+    monkeypatch.setattr(ntfy_push, "push", lambda message, title=None, priority=None, timeout=8, log=None:
+                        calls.append((message, title, priority, timeout)) or True)
+    note = ntfy_push.plain("Paper NT8", "OK", None, "Back to normal.", "nothing")
+    assert ntfy_push.send(note, timeout=4) is True
+    assert calls == [("Trading: not affected.\nBack to normal.\nDo: nothing.", "Paper NT8: OK", "low", 4)]
+
+
+def test_compose_leads_with_the_worst_problem():
+    note = ntfy_push.compose("NinjaTrader", [
+        {"affects": None, "problem": "The trade filter is not answering.", "action": "nothing", "rank": 0},
+        {"affects": "a strategy is not running", "problem": "ENGU-Q is missing from NinjaTrader.", "action": "open NinjaTrader", "rank": 2},
+        {"affects": None, "problem": "A backup is old.", "action": "ask Claude", "rank": 1},
+        {"affects": None, "problem": "Another thing.", "action": "x", "rank": 1}])
+    assert note["title"] == "NinjaTrader: CHECK NOW" and note["priority"] == "high"
+    assert note["message"].split("\n") == ["Trading: AFFECTED - a strategy is not running.",
+                                           "ENGU-Q is missing from NinjaTrader. A backup is old. +2 more.",
+                                           "Do: open NinjaTrader."]
+    assert ntfy_push.back_to_normal("NinjaTrader", "ENGU-Q is missing.")["message"] == \
+        "Trading: not affected.\nBack to normal (was: ENGU-Q is missing).\nDo: nothing."

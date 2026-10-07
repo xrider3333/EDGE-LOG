@@ -221,14 +221,15 @@ def evaluate(bridge_data, prior_alert):
     }
 
 
-def _page(msg, title):
+def _page(msg, title, priority="high"):
     """Best-effort ntfy push, via api/ntfy_push.py (WEBULL_GO_LIVE.md 1.10) -- the
     topic/token/server plumbing lives there now, never hardcoded here. A watchdog must
     never take down the watch loop, so every failure here is swallowed -- the printed
-    log line is the durable record."""
+    log line is the durable record. `priority` defaults to "high" (the tick-feed page); the
+    order-flow alarm (api/delta_alarm.py) passes its own plain-format note with priority "low"."""
     try:
         from api import ntfy_push
-        ntfy_push.push(msg, title=title, priority="high", timeout=8,
+        ntfy_push.push(msg, title=title, priority=priority, timeout=8,
                         log=lambda t: print(f"[nt-heartbeat] {t}"))
     except Exception as e:
         print(f"[nt-heartbeat] push failed: {type(e).__name__}: {e}")

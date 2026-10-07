@@ -23,7 +23,15 @@ the alert would be worse than useless.
 STATE. Alerts are latched per (account, day) in a small JSON file so a position sitting
 underwater does not push every cycle. The latch clears on a new trading day, and also
 clears if the account recovers back above the threshold, so a genuine second breach on
-the same day does alert again.
+the same day does alert again. The latch holds a LEVEL (1 = down past the alert line, 2 =
+within 25% of the bridge's automatic stop); a rise to level 2 pushes again at once.
+
+PHONE TEXT (2026-10-07, "make the notifications simpler to understand"). One plain note in the
+format of api/ntfy_push.py (see build_note): title "Paper NT8: down $946 today", then
+"Trading: not affected (flat)." / "Alert line -$500; automatic stop at -$12,000 ($11,054
+away)." / "Do: nothing." Priority low (no buzz) until the loss is within 25% of the automatic
+stop; then level 2: "Trading: AFFECTED - the automatic stop is close.", priority high.
+The account is named in words ("Paper NT8" / "Real account"), never by its number.
 
 Everything here is exception-proof: an alerter must never take down the watch loop.
 """
@@ -92,6 +100,32 @@ def _notify(msg, title, priority="high"):
                     log=lambda t: print(f"[dd-alert] {t}"))
 
 
+def build_note(name, real, net, warn_usd, breaker_floor):
+    """The plain phone note (api/ntfy_push.plain) for one account's drawdown -> (note, level).
+    level 2 = within 25% of the automatic stop (priority high), else 1 (priority low)."""
+    from api import ntfy_push as N
+    word = N.account_word(name)
+    area = {"paper": "Paper NT8", "your real account": "Real account"}.get(word, "Another account")
+    floor = abs(breaker_floor or 0)
+    room = (floor - abs(real)) if floor else None
+    level = 2 if (room is not None and room <= 0.25 * floor) else 1
+    try:
+        n = abs(int(float(net or 0)))
+    except Exception:
+        n = 0
+    held = "flat" if n == 0 else "holding %d contract%s" % (n, "" if n == 1 else "s")
+    line = "Alert line -%s" % N.usd(warn_usd)
+    if floor and word == "paper":
+        line += "; automatic stop at -%s (%s away)" % (N.usd(floor), N.usd(max(room, 0)))
+    if level == 2 and word == "paper":
+        trading, action = "the automatic stop is close", "check NinjaTrader now"
+    else:
+        trading, action = "not affected (%s)" % held, "nothing"
+    note = N.plain("%s: down %s today" % (area, N.usd(real)), None, trading, line, action,
+                   priority="high" if (level == 2 and word == "paper") else "low")
+    return note, (level if word == "paper" else 1)
+
+
 def check():
     """One pass. Never raises — it shares the runner's watch loop."""
     risk = _get("/risk")
@@ -118,17 +152,23 @@ def check():
         if not name:
             continue
         breached = real <= -abs(WARN_USD)
-        was = bool(alerted.get(name))
-        if breached and not was:
-            headroom = abs(breaker_floor) - abs(real) if breaker_floor else None
-            msg = (f"{name} realized {real:,.2f} today (warn at -{WARN_USD:,.0f}). "
-                   f"Net open: {a.get('net_contracts')} contract(s).")
-            if headroom is not None:
-                msg += (f" Bridge breaker trips at -{abs(breaker_floor):,.0f} "
-                        f"-- {headroom:,.0f} of room left.")
-            _notify(msg, "EDGELOG: intraday drawdown")
-            print(f"[dd-alert] WARN {msg}")
-            alerted[name] = True
+        prior_level = int(alerted.get(name) or 0)          # True (an older latch) reads as level 1
+        was = prior_level > 0
+        note, level = (None, 0)
+        if breached:
+            try:
+                note, level = build_note(name, real, a.get("net_contracts"), WARN_USD, breaker_floor)
+            except Exception as e:                       # never lose the alert over its own wording
+                print(f"[dd-alert] plain text failed ({type(e).__name__}: {e}); sending a bare line")
+                note, level = {"title": "Drawdown alert", "priority": "default",
+                               "message": f"Trading: not affected.\nDown {abs(real):,.0f} today.\nDo: check NinjaTrader."}, 1
+        if breached and level > prior_level:
+            _notify(note["message"], note["title"], priority=note["priority"])
+            print(f"[dd-alert] WARN {name} realized {real:,.2f} today: " + note["message"].replace("\n", " | "))
+            alerted[name] = level
+            changed = True
+        elif breached and level < prior_level:
+            alerted[name] = level                           # back out of the near-stop zone: a re-entry pushes again
             changed = True
         elif was and not breached:
             # Recovered back above the line: clear the latch so a genuine SECOND breach

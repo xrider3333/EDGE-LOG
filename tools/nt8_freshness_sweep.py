@@ -2,7 +2,7 @@
 
 Every scheduled push, pull, rebuild and readiness step of the NinjaTrader paper pipeline gets a freshness check
 here, and a failure becomes an inbox line (PAPER-NT8, which reads its inbox at the start and end of every task)
-plus a phone push for anything FAIL. The model is the KEEL miss: the NQ master push to the box failed four
+plus a plain phone push for anything FAIL that is not order flow (see PHONE TEXT below). The model is the KEEL miss: the NQ master push to the box failed four
 nights running (09-30..10-03) and nothing said so.
 
 Checks (each PASS / WARN / FAIL with a plain reason):
@@ -21,7 +21,22 @@ Daytime backup: from 14:05 Arizona (17:05 ET, the CME daily halt) the sweep take
 snapshot itself (api/nt_backup.run_nightly, once per day - it skips when today's folder exists), because the
 runner's 21:00 window falls after the PC's normal 17:45 shutdown. Not in --dry-run.
 
-De-dupe: an alert is posted when the failing set CHANGES, and repeated at most every 6 hours while it stands.
+De-dupe: an INBOX alert is posted when the failing set CHANGES, and repeated at most every 6 hours while it stands.
+
+PHONE TEXT, ECHOES AND REPEATS (2026-10-07, "make the notifications simpler to understand"). The inbox post
+(PAPER-NT8) and C:\\EdgeLog\\nt8_sweep.json are unchanged. The phone push is separate:
+  * Plain format (api/ntfy_push.py): title "Paper NT8: needs a fix" / "Paper NT8: CHECK NOW" / "Paper NT8: OK", then
+    "Trading: not affected." or "Trading: AFFECTED - ...", the problem, "Do: ...". High priority ONLY when trading is
+    affected (a strategy down); a failed backup or upload is default; a stopped 10-second feed is low.
+  * Only FAIL items are pushed, and never order flow (is_orderflow: the capture buy/sell coverage and the repair
+    warnings). Those stay in the inbox post and the JSON; api/delta_alarm.py is the one phone owner of that problem.
+  * The readiness task's exit code 1 is its documented "ran and found problems" result (it pushes those itself), so
+    it is NOT a task failure here (REPORTING_EXIT_CODES). The sweep alerts on the readiness task only when it did not
+    run when due, is stale, or ended with any OTHER non-zero code (a crash).
+  * Repeats (api/ntfy_push.dedupe, state under "push" in nt8_sweep_state.json): the same problem set pushes once, then
+    at most once a day; a NEW or WORSE problem pushes at once; when the set clears ONE low-priority "back to normal"
+    goes out, but only if the episode had a high push.
+
 Run:  python tools/nt8_freshness_sweep.py [--dry-run] [--json] [--no-firestore]
 Exit: 0 = all pass/warn-only, 1 = at least one FAIL.
 """
@@ -30,18 +45,23 @@ import datetime as dt
 import glob
 import json
 import os
+import re
 import subprocess
 import sys
 import time
 from zoneinfo import ZoneInfo
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:               # run as a script, sys.path holds tools/, not the repo (the phone text imports api.ntfy_push)
+    sys.path.insert(0, ROOT)
 EL = os.environ.get("EDGELOG_HOME") or r"C:\EdgeLog"
 ET = ZoneInfo("America/New_York")
 STATE_PATH = os.path.join(EL, "nt8_sweep_state.json")
 RESULT_PATH = os.path.join(EL, "nt8_sweep.json")
 ROSTER_IDS = {386606468: "EdgeLogNOISE", 386606474: "EdgeLogENGUQ1m"}
-REPEAT_SEC = 6 * 3600
+REPEAT_SEC = 6 * 3600                # inbox repeat
+PUSH_REPEAT_SEC = 24 * 3600          # phone repeat: once a day while unchanged
+AREA = "Paper NT8"
 BACKUP_FROM_HHMM = (14, 5)
 
 # expected maximum age of each scheduled task's LAST RUN, in hours (None = event-driven, result only)
@@ -57,6 +77,9 @@ TASK_MAX_AGE_H = {
 }
 # LastTaskResult codes that are not failures: 0 ok, 267009 running, 267011 never run, 267014 terminated by us
 OK_RESULTS = {0, 267009, 267011, 267014}
+# Exit codes that mean "ran and reported", per task. tools/nt_readiness.py exits 1 when it FOUND problems (and has
+# already pushed them itself) - that is its documented result, not a failure of the task. Staleness still applies.
+REPORTING_EXIT_CODES = {"EdgeLog NT readiness": {1}}
 
 
 def _item(cid, status, label, detail):
@@ -95,7 +118,7 @@ def check_tasks(now_local, tasks=None):
         if not t.get("enabled") or t["name"] not in TASK_MAX_AGE_H:
             continue
         res = t.get("result")
-        if res not in OK_RESULTS:
+        if res not in OK_RESULTS and res not in REPORTING_EXIT_CODES.get(t["name"], ()):
             out.append(_item("task:" + t["name"], "fail", t["name"],
                              f"last run ended with code {res} (not 0)"))
             continue
@@ -372,15 +395,109 @@ def _post_inbox(msg):
                     "--from", "NT8-SWEEP", msg], capture_output=True, text=True, timeout=60)
 
 
-def _push(msg):
+TASK_WORDS = {
+    "EdgeLog NT recover watchdog": "the NinjaTrader auto-restart job",
+    "EdgeLog NT 10s import": "the 10-second data import",
+    "EdgeLog NT futures rollover": "the futures contract roll job",
+    "EdgeLog premarket wake": "the morning wake-up job",
+    "EdgeLog NT readiness": "the morning check",
+    "EdgeLog pull box ledgers": "the cloud trade-record download",
+    "EdgeLog push NQ master to box": "the NQ data upload to the cloud box",
+    "EdgeLog nightly backup": "the nightly backup",
+}
+ASK = "ask Claude (PAPER-NT8 chat)"
+
+
+def is_orderflow(it):
+    """True for what api/delta_alarm.py owns on the phone: the 10-second capture's buy/sell coverage failure and the
+    no-tick repair warnings. A stale or missing capture is NOT order flow."""
+    iid = str(it.get("id", ""))
+    return iid.startswith("repair") or (iid.startswith("capture_") and "buy/sell" in str(it.get("detail", "")))
+
+
+def push_items(items):
+    """The items worth a phone push: FAIL only, never order flow."""
+    return [i for i in items if i["status"] == "fail" and not is_orderflow(i)]
+
+
+def _local_clock(text, now_local):
+    """'10-07 09:12' (the PC's own clock, no year) -> '09:12' / 'yesterday 09:12' in plain words."""
+    from api import ntfy_push
+    try:
+        t = dt.datetime.strptime("%d-%s" % (now_local.year, text), "%Y-%m-%d %H:%M")
+        return ntfy_push.hhmm(t, now=now_local, naive_is="local")
+    except Exception:
+        return text
+
+
+def _describe(it, now_local=None):
+    """One failed item in plain words -> {"affects", "problem", "action", "rank"} (see api/ntfy_push.compose)."""
+    now_local = now_local or dt.datetime.now()
+    iid, detail = str(it["id"]), str(it.get("detail") or "")
+    if iid.startswith("task:"):
+        name = TASK_WORDS.get(iid[5:], iid[5:])
+        stale = "more than" in detail
+        return {"affects": None, "rank": 1, "action": ASK,
+                "problem": (name[:1].upper() + name[1:]) + (" has not run on time." if stale else " failed on its last run.")}
+    if iid == "roster":
+        m = re.search(r"since (\d\d-\d\d \d\d:\d\d)", detail)
+        return {"affects": "a strategy is down", "rank": 2, "action": "open NinjaTrader and check the strategies",
+                "problem": "A strategy has been down" + (" since %s." % _local_clock(m.group(1), now_local) if m else ".")}
+    if iid == "box_push":
+        return {"affects": None, "rank": 1, "action": ASK, "problem": "The NQ data upload to the cloud box failed."}
+    if iid.startswith("nt_backup"):
+        return {"affects": None, "rank": 1, "action": ASK,
+                "problem": ("The newest NinjaTrader backup is missing a strategy." if iid == "nt_backup_rows"
+                            else "The NinjaTrader backup is out of date.")}
+    if iid.startswith("capture_"):
+        return {"affects": None, "rank": 0, "action": "check the 10-second chart in NinjaTrader",
+                "problem": "%s 10-second data stopped updating." % iid[8:]}
+    if iid == "readiness":
+        return {"affects": None, "rank": 1, "action": ASK, "problem": "The morning check did not run today."}
+    if iid == "report":
+        m = re.search(r"no report for (\d{4})-(\d\d-\d\d)", detail)
+        return {"affects": None, "rank": 1, "action": ASK,
+                "problem": "The nightly paper report was not written" + (" for %s." % m.group(2) if m else ".")}
+    if iid == "bundle":
+        return {"affects": None, "rank": 1, "action": ASK, "problem": "The paper board's trade list was not rebuilt."}
+    return {"affects": None, "rank": 1, "action": ASK, "problem": "%s needs a look." % (it.get("label") or iid)}
+
+
+def build_note(items, now_local=None):
+    """The plain phone note for the push-worthy failures."""
+    from api import ntfy_push
+    return ntfy_push.compose(AREA, [_describe(i, now_local) for i in push_items(items)])
+
+
+def decide_push(items, push_state, now_ts, now_local=None):
+    """-> (action, new_push_state, note). action "push" | "clear" | None; see the module doc."""
+    from api import ntfy_push
+    cur = push_items(items)
+    action, st = ntfy_push.dedupe({i["id"]: _describe(i, now_local)["rank"] for i in cur}, push_state or {}, now_ts,
+                                  PUSH_REPEAT_SEC)
+    note = None
+    if action == "push":
+        st["what"] = min((_describe(i, now_local) for i in cur), key=lambda d: -d["rank"])["problem"]   # the worst, for "was: ..."
+        note = build_note(items, now_local)
+    elif action == "clear":
+        note = ntfy_push.back_to_normal(AREA, (push_state or {}).get("what", ""))
+        st["what"] = ""
+    else:
+        st["what"] = (push_state or {}).get("what", "")
+    return action, st, note
+
+
+def _push_note(note):
+    """Send one plain note. -> True when delivered."""
     try:
         sys.path.insert(0, ROOT)
         from tools.nt_readiness import _load_ntfy_env
         _load_ntfy_env()
         from api import ntfy_push
-        ntfy_push.push(msg[:900], title="NT8 pipeline sweep", priority="high")
+        return bool(ntfy_push.send(note, log=lambda t: print("[ntfy] " + t)))
     except Exception as e:
         print(f"push failed: {type(e).__name__}: {e}")
+        return False
 
 
 def main(argv=None):
@@ -424,8 +541,15 @@ def main(argv=None):
         print("alert: " + ("would post" if a.dry_run else "posting"))
         if not a.dry_run:
             _post_inbox(msg)
-            if any(i["status"] == "fail" for i in items):
-                _push(msg)
+    # the phone push has its own rule (module doc): plain text, no order flow, once a day, back-to-normal
+    action, push_state, note = decide_push(items, state.get("push"), now_ts, now_local)
+    if note:
+        print("push: " + ("would send" if a.dry_run else "sending"))
+        if a.dry_run:
+            print("  title: %s\n  priority: %s\n  %s" % (note["title"], note["priority"], note["message"].replace("\n", "\n  ")))
+        elif not _push_note(note):
+            push_state = state.get("push") or {}          # not delivered: try again on the next run
+    new_state = dict(new_state, push=push_state)
     if not a.dry_run:
         for path, obj in ((STATE_PATH, new_state), (RESULT_PATH, {"at": now_ts, "items": items})):
             tmp = path + ".tmp"

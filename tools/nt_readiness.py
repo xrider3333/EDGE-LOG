@@ -8,6 +8,22 @@ no buy/sell split (10-02: every NQ bar from 00:05 to 12:30 ET), or the ML gate m
 This script asks every one of those questions in one pass and sends ONE phone push naming
 what failed, in plain words.
 
+PHONE TEXT, ECHOES AND REPEATS (2026-10-07, "make the notifications simpler to understand").
+  * The push is the one plain format of api/ntfy_push.py: title "NinjaTrader: CHECK NOW" /
+    "NinjaTrader: needs a fix" / "NinjaTrader: OK", then "Trading: not affected." or "Trading:
+    AFFECTED - ...", the problem in one line, and "Do: ...". Priority is high ONLY when trading is
+    affected (NinjaTrader not responding, a strategy not running, a paper position that may have no
+    stop); data items (10-second capture, the ML gate) are low.
+  * ORDER FLOW IS NOT PUSHED HERE. The two buy/sell-coverage failures (capture_30m_* and
+    capture_overnight_*, see is_orderflow) still fail the check, still exit 1 and still appear in
+    nt_readiness.json and the printed report, but api/delta_alarm.py is the one owner of that
+    problem on the phone (on 10-07 three tools pushed the same overnight gap). If ONLY those
+    failed, no push goes out at all.
+  * Repeats: the same set of problems pushes once, then at most once a day (DEDUPE_S, 20 h so the
+    next morning's run still reminds); a NEW or WORSE problem pushes at once; when the set clears
+    ONE low-priority "back to normal" goes out, but only if the episode had a high push
+    (api/ntfy_push.dedupe). A run that holds back start-up failures (--early) never clears.
+
 IT ONLY READS AND ALERTS. It never enables or disables a strategy, never flattens, never
 restarts NinjaTrader, never types a credential. The bridge is touched with GET requests only.
 
@@ -32,7 +48,7 @@ exits 0) unless --force. The PC may be off at the scheduled minute, so it is hoo
 ways: the end of tools/premarket_ensure.py (wake, --early), and two scheduled tasks at 09:15 and
 09:25 ET with "run as soon as possible after a missed start" (see the registration command in the
 commit report / docs). Re-running is cheap and safe: the same failure set is pushed at most once
-per 20 minutes (C:\EdgeLog\nt_readiness_state.json).
+a day (C:\EdgeLog\nt_readiness_state.json).
 
 --early (used by premarket_ensure, minutes after the PC wakes; implied for any run before 09:10 ET):
 NinjaTrader is probably still
@@ -55,12 +71,14 @@ StartWhenAvailable = run as soon as possible after a missed start (the PC was of
 
 Run:  python tools/nt_readiness.py                # in window only
       python tools/nt_readiness.py --force --dry-run --json
-Exit: 0 = pass (or skipped), 1 = at least one FAIL.
+Exit: 0 = pass (or skipped), 1 = at least one FAIL (order-flow failures included: exit 1 only
+      means "found problems", it is not a crash; tools/nt8_freshness_sweep.py reads it that way).
 """
 import argparse
 import datetime as dt
 import json
 import os
+import re
 import sys
 import time
 import urllib.request
@@ -88,12 +106,13 @@ FRIENDLY = {"EdgeLogNOISE": "NOISE", "EdgeLogENGUQ1m": "ENGU-Q"}
 WINDOW_START = dt.time(8, 0)
 WINDOW_END = dt.time(9, 35)
 PUSH_STARTUP_FROM = dt.time(9, 10)   # before this ET minute a run is treated as --early (see main)
-DEDUPE_S = 20 * 60
+DEDUPE_S = 20 * 3600          # "at most once a day": 20 h, so a problem that stands overnight reminds again at the next morning's run
 STALE_S = 180
 COVERAGE_MIN_PCT = 80.0
 COVERAGE_WINDOW_S = 30 * 60
 MIN_TRADED_BARS_30 = 18       # fewer than this in 30 open minutes = the feed is effectively dead
-TITLE = "EDGELOG NT READINESS"
+AREA = "NinjaTrader"
+ORDERFLOW_ID_PREFIXES = ("capture_30m_", "capture_overnight_")   # their buy/sell-coverage failures belong to api/delta_alarm.py
 
 
 # --------------------------------------------------------------------------------------------
@@ -518,25 +537,94 @@ def run_checks(now_ts):
     return items
 
 
-def build_message(failed, now_et):
-    """One plain-language push body naming every failed item."""
-    lines = ["NinjaTrader premarket check at %s ET found %d problem%s:" % (
-        now_et.strftime("%H:%M"), len(failed), "" if len(failed) == 1 else "s")]
-    lines += ["- " + f["words"][0].upper() + f["words"][1:] for f in failed]
-    lines.append("Nothing was changed; this check only reads.")
-    return "\n".join(lines)
+def is_orderflow(it):
+    """True for a buy/sell-coverage failure (the 30-minute or the overnight check says too few traded
+    bars carry the buy/sell split). The other failures of those two checks ("almost no bars", "no traded
+    bars") mean the feed itself is dead, and are NOT order flow. Not pushed here: see the module doc."""
+    return (it.get("status") == "fail" and str(it.get("id", "")).startswith(ORDERFLOW_ID_PREFIXES)
+            and "buy/sell" in str(it.get("detail", "")))
+
+
+def _plainify(text):
+    t = re.sub(r"\s*\([^)]*\)", "", str(text or ""))
+    for a, b in (("the LIVE account", "your real account"), ("LIVE account", "your real account"),
+                 ("10-second capture", "10-second data"), ("exit stops", "stop orders"), ("exit stop", "stop order")):
+        t = t.replace(a, b)
+    t = " ".join(t.split())
+    return t[:1].upper() + t[1:]
+
+
+def _describe(it):
+    """One failed item in plain words -> {"affects": what trading loses or None, "problem", "action", "rank"}.
+    rank = ntfy_push.RANK of its push: 2 high (trading affected), 1 default (fix today), 0 low (data only)."""
+    iid, w, detail = it["id"], str(it.get("words") or ""), str(it.get("detail") or "")
+    if iid == "bridge":
+        return {"affects": "strategies are not running", "rank": 2,
+                "problem": "NinjaTrader's paper account is not connected." if "connected" in w else "NinjaTrader is not responding.",
+                "action": "open NinjaTrader and check it is connected"}
+    if iid == "bridge_data":
+        return {"affects": "cannot confirm the strategies are running", "rank": 2,
+                "problem": "NinjaTrader returned no strategy data.", "action": "check NinjaTrader is not frozen"}
+    if iid == "roster":
+        live = detail.startswith("LIVE ACCOUNT")
+        return {"affects": "a strategy is on your real account" if live else "a strategy is not running", "rank": 2,
+                "problem": _plainify(w), "action": "open NinjaTrader and check the strategies are enabled"}
+    if iid == "positions":
+        if all(p.strip() == "the LIVE account holds a position" for p in w.split(";") if p.strip()):
+            return {"affects": None, "rank": 0, "problem": "Your real account holds a position; EdgeLog does not trade it.",
+                    "action": "nothing if it is yours"}
+        return {"affects": "a paper position may be unprotected", "rank": 2, "problem": _plainify(w),
+                "action": "open NinjaTrader and check the position and its stop"}
+    if iid.startswith("capture_"):
+        return {"affects": None, "rank": 0, "problem": _plainify(w), "action": "check the 10-second chart in NinjaTrader"}
+    if iid == "gate":
+        return {"affects": None, "rank": 0, "problem": "The trade filter (ML gate) is not answering; trades still go through.",
+                "action": "nothing - trades are not blocked"}
+    return {"affects": None, "rank": 1, "problem": _plainify(w or detail or it.get("label")), "action": "tell Claude"}
+
+
+def build_note(cand):
+    """The plain phone note (api/ntfy_push.compose) for the failed items worth a push."""
+    from api import ntfy_push
+    return ntfy_push.compose(AREA, [_describe(f) for f in cand])
+
+
+def back_note(what):
+    from api import ntfy_push
+    return ntfy_push.back_to_normal(AREA, what)
+
+
+def push_candidates(failed, early):
+    """The failures that may be pushed: never order flow (one owner: api/delta_alarm.py), and not the
+    start-up class on an early run. -> (candidates, hidden) where `hidden` = an early run is holding
+    start-up failures back, so it cannot tell whether an earlier problem has cleared."""
+    items = [f for f in failed if not is_orderflow(f)]
+    cand = [f for f in items if not (early and f["startup"])]
+    return cand, len(cand) < len(items)
 
 
 def decide_push(failed, state, now_ts, early):
-    """-> (push?, reason). De-dupe: the same failure set at most once per 20 minutes. --early
-    drops the start-up-class failures from consideration."""
-    cand = [f for f in failed if not (early and f["startup"])]
-    if not cand:
-        return False, ("only start-up failures during the early run" if failed else "no failures"), []
-    ids = sorted(f["id"] for f in cand)
-    if state.get("last_set") == ids and now_ts - float(state.get("last_push") or 0) < DEDUPE_S:
-        return False, "same failure set already pushed %d min ago" % ((now_ts - state["last_push"]) // 60), cand
-    return True, "", cand
+    """-> (action, reason, cand, new_state). action: "push" | "clear" | None. See the module doc for
+    the repeat rule; the work is api/ntfy_push.dedupe."""
+    from api import ntfy_push
+    cand, hidden = push_candidates(failed, early)
+    if not cand and hidden:
+        return None, "only start-up failures during the early run", cand, state
+    action, new_state = ntfy_push.dedupe({f["id"]: _describe(f)["rank"] for f in cand}, state, now_ts, DEDUPE_S)
+    if action == "push":
+        new_state["what"] = min((_describe(f) for f in cand), key=lambda d: -d["rank"])["problem"]   # the worst, for "was: ..."
+    elif action == "clear":
+        new_state["what"] = ""
+    else:
+        new_state["what"] = (state or {}).get("what", "")
+        if not failed:
+            reason = "no failures"
+        elif not cand:
+            reason = "only order-flow failures (api/delta_alarm.py owns those)"
+        else:
+            reason = "same problems already pushed %d min ago" % ((now_ts - float((state or {}).get("at") or now_ts)) // 60)
+        return None, reason, cand, new_state
+    return action, "", cand, new_state
 
 
 def main(argv=None, now_ts=None):
@@ -591,20 +679,21 @@ def main(argv=None, now_ts=None):
     # after the November clock change the 06:15 local trigger lands at 08:15 ET), so any run that early
     # holds back start-up-class failures exactly like --early. The 09:15 / 09:25 ET runs push them.
     early = a.early or now_et.time() < PUSH_STARTUP_FROM
-    push, reason, cand = decide_push(failed, state, now_ts, early)
-    if failed and not a.json:
-        print("push: %s" % ("would send" if push and a.dry_run else "sending" if push else "not sent (%s)" % reason))
-    if push and not a.dry_run:
+    action, reason, cand, new_state = decide_push(failed, state, now_ts, early)
+    note = build_note(cand) if action == "push" else back_note(state.get("what")) if action == "clear" else None
+    if (failed or action) and not a.json:
+        print("push: %s" % (("would send" if a.dry_run else "sending") if action else "not sent (%s)" % reason))
+        if note and a.dry_run:
+            print("  title: %s\n  priority: %s\n  %s" % (note["title"], note["priority"], note["message"].replace("\n", "\n  ")))
+    if note and not a.dry_run:
         _load_ntfy_env()
         from api import ntfy_push
-        high = any(f["level"] != "warn" for f in cand)
-        ok = ntfy_push.push(build_message(cand, now_et), title=TITLE, priority="high" if high else "default",
-                            log=lambda t: print("[ntfy] " + t))
+        ok = ntfy_push.send(note, log=lambda t: print("[ntfy] " + t))
         result["pushed"] = bool(ok)
-        if ok:                                         # only a delivered push starts the 20-minute quiet period
-            _write_json_atomic(STATE_PATH, {"last_push": now_ts, "last_set": sorted(f["id"] for f in cand)})
-    if not failed and not a.dry_run and state.get("last_set"):
-        _write_json_atomic(STATE_PATH, {"last_push": 0, "last_set": []})   # a clean pass re-arms the alert
+        if ok:                                         # only a delivered push starts the quiet period
+            _write_json_atomic(STATE_PATH, new_state)
+    elif not action and not a.dry_run and (new_state.get("set") or {}) != (state.get("set") or {}):
+        _write_json_atomic(STATE_PATH, new_state)      # the set shrank or cleared without owing a push
     if not a.dry_run:
         try:
             _write_json_atomic(RESULT_PATH, result)

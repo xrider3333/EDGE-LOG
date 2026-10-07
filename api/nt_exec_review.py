@@ -38,6 +38,20 @@ STATE. Seen exec_ids are persisted locally (same directory/JSON-dict pattern as
 tools/nt_bridge.py's other local state files, e.g. C:\\EdgeLog\\.edgelog_sync_state.json)
 so a runner restart does not re-notify on every fill already seen earlier today.
 
+PHONE TEXT (2026-10-07, "make the notifications simpler to understand"). Fills are written in
+the one plain format of api/ntfy_push.py (see build_note), in the owner's local time and with
+words instead of codes:
+  paper account   title "Paper fill: ENGU-Q bought 1 NQ", body "Trading: not affected. / Price
+                  31,477.75 at 21:11. / Do: nothing." (strategy from the account + instrument
+                  roster; a signal name containing "stop" in C:\\EdgeLog\\fills.csv, found by
+                  exec_id, makes it "Paper fill: NOISE stop hit"). Priority low (no buzz).
+  real account    title "Real account fill", body "You sold 1 MNQ @ 31,172.25 at 06:40 (not an EdgeLog
+                  strategy)." -- the owner trades 1810769 by hand; the push stays because it is the
+                  guard that no strategy ever touches it. Priority low.
+  a paper fill outside its fingerprint (size over the limit, wrong instrument) is the one fill
+  that says "AFFECTED" (priority default: look today, not an emergency).
+The console log lines (runner.log) keep the old one-line "fill: ..." format.
+
 Everything here is exception-proof: a fill reviewer must never take down the watch loop.
 """
 import json
@@ -149,7 +163,7 @@ def _save_seen(seen_set):
         _safe_print(f"[exec-review] state save failed: {type(e).__name__}: {e}")
 
 
-def _notify(message):
+def _notify(message, title=None, priority=None):
     """Push one ntfy.sh notification via api/ntfy_push.py (WEBULL_GO_LIVE.md 1.10) --
     the topic/token/server plumbing lives there now, never hardcoded here. Logs instead
     of raising if the env var is unset or the send fails; this runs inside the local
@@ -161,17 +175,103 @@ def _notify(message):
     ModuleNotFoundError: No module named 'api', since the runner is the only caller
     that imports this as api.nt_exec_review."""
     from api import ntfy_push
-    ntfy_push.push(message, timeout=TIMEOUT_SEC,
+    ntfy_push.push(message, title=title, priority=priority, timeout=TIMEOUT_SEC,
                     log=lambda t: _safe_print(f"[exec-review] {t}"))
+
+
+def _signal_name(fill):
+    """The strategy's own name for the order behind this fill ("EQ", "NZstop", ...), "" when it
+    cannot be found. The bridge's /executions row has none, so it is looked up in the AddOn's
+    fills.csv (same exec ids), tail only. Never raises."""
+    for k in ("signal_name", "signalName", "order_name", "orderName"):
+        if fill.get(k):
+            return str(fill.get(k))
+    eid = str(fill.get("exec_id") or "")
+    if not eid:
+        return ""
+    try:
+        import csv
+        path = os.environ.get("EDGELOG_FILLS_CSV") or os.path.join(os.path.dirname(STATE_PATH) or ".", "fills.csv")
+        with open(path, "rb") as fh:
+            fh.seek(0, 2)
+            fh.seek(max(0, fh.tell() - 65536))
+            lines = fh.read().decode("utf-8", "replace").splitlines()
+        for row in reversed(list(csv.reader(lines))):
+            if len(row) >= 10 and row[0] == eid:
+                return row[9].strip()
+    except Exception:
+        pass
+    return ""
+
+
+def build_note(fill, reason=None, now=None):
+    """The plain phone note for one fill (api/ntfy_push.plain) -> {"title", "message", "priority"}.
+    `reason` is evaluate()'s flag text for a fill outside its strategy's fingerprint."""
+    from api import ntfy_push as N
+    acct = fill.get("account")
+    inst = N.instrument_word(fill.get("instrument"))
+    side = str(fill.get("side") or "").lower()
+    verb = {"long": "bought", "short": "sold"}.get(side, side or "traded")
+    try:
+        qty = f"{abs(float(fill.get('qty') or 0)):g}"
+    except Exception:
+        qty = "?"
+    try:
+        px = N.price(fill.get("price"))
+    except Exception:
+        px = "?"
+    when = N.hhmm(fill.get("time_utc"), now=now)
+    word = N.account_word(acct)
+    name, exp = _match_strategy(fill)
+    strat = N.strategy_word(name) if name else None
+
+    if word == "your real account":
+        return N.plain("Real account fill", None, None,
+                       f"You {verb} {qty} {inst} @ {px} at {when} (not an EdgeLog strategy).",
+                       "nothing if this was you; if not, check your broker")
+    if word != "paper":
+        return N.plain("Other account fill", None, None,
+                       f"Another account {verb} {qty} {inst} @ {px} at {when} (not an EdgeLog strategy).",
+                       "nothing unless you did not do this")
+    if reason:
+        if str(reason).startswith("qty") and strat:
+            return N.plain(f"Paper fill: {strat} too big", None,
+                           f"{strat} traded more than its size limit of {exp['max_qty']}.",
+                           f"{verb.capitalize()} {qty} {inst} @ {px} at {when}.",
+                           "check the strategy's size in NinjaTrader", priority="default")
+        return N.plain("Paper fill: unexpected", None,
+                       "a paper strategy traded something it should not.",
+                       f"{verb.capitalize()} {qty} {inst} @ {px} at {when}.",
+                       "check the strategies in NinjaTrader", priority="default")
+    who = strat or inst
+    if "stop" in _signal_name(fill).lower():
+        return N.plain(f"Paper fill: {who} stop hit", None, None,
+                       f"{verb.capitalize()} {qty} {inst} @ {px} at {when}.", "nothing")
+    return N.plain(f"Paper fill: {who} {verb} {qty} {inst}", None, None,
+                   f"Price {px} at {when}.", "nothing")
+
+
+def _safe_note(fill, reason=None):
+    """build_note(), but a bug in the plain text must never lose the alert (the REVIEW push is the guard that no
+    strategy touches the real account): fall back to the old one-line text."""
+    try:
+        return build_note(fill, reason)
+    except Exception as e:
+        _safe_print(f"[exec-review] plain text failed ({type(e).__name__}: {e}); sending the old text")
+        return {"title": None, "message": _format_message(fill, reason), "priority": None}
+
+
+def _push_note(note):
+    _notify(note["message"], note["title"], note["priority"])
 
 
 def _respond_to_flagged_fill(fill, reason):
     """Single call site for everything a flagged fill triggers. Escalating RESPONSE_TIER
     later is meant to mean: add an elif branch here that also calls nt_bridge.py's
     strategy-disable / /flatten / /killswitch -- no new plumbing anywhere else."""
-    msg = _format_message(fill, reason)
+    msg = _safe_note(fill, reason)
     if RESPONSE_TIER == "notify":
-        _notify(msg)
+        _push_note(msg)
     # elif RESPONSE_TIER == "disable":
     #     _notify(msg); <call nt_bridge.py strategy disable on fill's strategy>
     # elif RESPONSE_TIER == "flatten":
@@ -179,7 +279,7 @@ def _respond_to_flagged_fill(fill, reason):
     # elif RESPONSE_TIER == "killswitch":
     #     _notify(msg); <call bridge /killswitch>
     else:
-        _notify(msg)
+        _push_note(msg)
 
 
 def _format_message(fill, reason=None):
@@ -268,7 +368,7 @@ def publish():
                 _respond_to_flagged_fill(fill, reason)
                 _safe_print(f"[exec-review] REVIEW: {_format_message(fill, reason)}")
             else:
-                _notify(_format_message(fill))
+                _push_note(_safe_note(fill))
                 _safe_print(f"[exec-review] {_format_message(fill)}")
         except Exception as e:
             _safe_print(f"[exec-review] respond failed: {type(e).__name__}: {e}")
