@@ -179,6 +179,25 @@ the board forgets it; the viewer leaving the board (HOME) closes it. The width r
 open, at every width, in the LIST and the TABLE. ?oldboards=1: a tap on an old row opens the old trade sheet for that trade (its title) and no shared
 panel is drawn.
 
+LEDGER STEP 11 (2026-10-06): one page order, every own section a closed fold with a one-line summary, one set of breakpoints.
+PAGE ORDER, by the page's own markers, top to bottom: hero (#qb-hero-label), range pills (.qbx-range-row), chart (#qb-lg-chart), the status strip (under the
+chart, never folded, with its box-updated line and Refresh), the stats strip, the More stats fold, the calendar fold, the strategy list (up to 600 px a one-line
+fold; from 1100 px the sticky right column, which must sit right of the trade list), the trade list ([data-lglist-frame="wb"]), then the own sections: Orders (the
+PAPER breaker line), Account, Today's orders, Feed & signals, System, Rails, Event timeline, Model reference, in that order, every one below the end of the trade
+list. Every plain case and every stats case. FOLDS (every plain case): each own fold is there, shut as first drawn (aria-expanded false, its panel hidden and not
+on the page), its header one line (under 40 px, its summary under 22 px) with a title and a summary that is not empty, not 'undefined' / 'NaN', and says the
+number the fixture says (the daily stop used out of its limit, the equity and its change, the order count, the feed uptime, NOT READY with its open checks,
+the daily limit and shares a leg, the event count); under MONO no header or panel frame draws a hue. The strategy list's phone fold is drawn up to 600 px (shut)
+and not above. PHONE: the trade list (the frame) starts at most 784 px under the board top at 375x812 (it was 784 before step 11 and must not grow). STEP 11 RUN
+(laptop 1366x768, then phone 375x812): each own fold is tapped open and shows its content (the daily stop bar and mode pill, the account equity and its as-of
+line, the order rows, the feed strip, the status / orders / integrity blocks, the rails, the events, the model reference), the choice is stored for this viewer
+(el_qb_fold_<key>), a reload (nothing in memory) finds it open, a live redraw leaves it open, a second tap shuts it and a reload finds it shut; the phone list
+fold opens onto its rows, one line each; storage that throws for the fold keys changes nothing but the memory copy; and with EVERY fold open the page never
+scrolls sideways at 375, 601, 700, 800, 1000 and 1366 px. BREAKPOINTS: read from the page source, every media / container query that styles this board uses
+only 600, 740, 800, 920 or 1100 px (no board-private width survives; the flagged-row mark is a container query at 800). ?oldboards=1: none of the new classes
+or folds, the old disclosures and the status strip under the chart where they were, and the old markup's shape (element count and a hash of every tag, class and
+attribute name in order) equal to the build before step 11.
+
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks; a retry that passes prints a FLAKE line.
 
@@ -327,7 +346,21 @@ def _variant_docs(fixture):
     ht = base()
     ht['broker']['halted'] = True
     ht['broker']['halt_reason'] = 'kill file present'
-    out.append(('orders halted', FRESH_NOW, ht, dict(none, today='today', top=('halted', 'WEBULL HALTED'))))
+    out.append(('orders halted', FRESH_NOW, ht, dict(none, today='today', top=('halted', 'WEBULL HALTED'),
+               ordsum_start='HALTED', ordsum_has=['daily stop used'])))
+    # LEDGER step 11: the Orders fold's one-line header carries the daily stop's state (the figure the breaker counts, out of the limit)
+    nl = base()
+    nl['today']['breaker_input'] = -330.0
+    out.append(('daily stop 83% used', FRESH_NOW, nl, dict(none, today='today', top=('flat', 'WEBULL FLAT'),
+               ordsum_start='OFF', ordsum_has=['$330.00 of $400.00 daily stop used', 'near the limit'], ordsum_lacks=['stopped for the day'])))
+    st = base()
+    st['today']['breaker_input'] = -410.0
+    out.append(('daily stop reached', FRESH_NOW, st, dict(none, today='today', top=('flat', 'WEBULL FLAT'),
+               ordsum_start='OFF', ordsum_has=['$410.00 of $400.00 daily stop used', 'stopped for the day'], ordsum_lacks=['near the limit'])))
+    tr_ = base()
+    tr_['breaker_tripped'] = True
+    out.append(('breaker tripped, no figure', FRESH_NOW, tr_, dict(none, today='today', top=('flat', 'WEBULL FLAT'),
+               ordsum_start='OFF', ordsum_has=['daily stop used', 'stopped for the day'], ordsum_lacks=['near the limit'])))
     # review fixes (2026-10-05, second pass)
     out.append(("Monday 09:30:30 just after the open, Friday's doc", '2026-10-05 09:30:30', fri(base()), dict(none,
                silent='BOX SILENT since Fri 15:58', today='Fri 10-02', top=('stale', 'WEBULL STALE since Fri 15:58'),
@@ -529,13 +562,27 @@ def _variant_docs(fixture):
 
 
 # Builds this gate must catch, made from the CURRENT index.html by one string replacement each.
-# 'stats-below-history': the shared stat strip's line moved from under the chart to under the History section
+# 'stats-below-history': the shared stat strip's line moved from under the chart to under the History section (the page's body, LEDGER step 11)
 _SB_LINES = [
-    "          +(LEDGER_OLDBOARDS?'':('<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div>'))",
-    "          +qbMidSections",
+    "          +'<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div>'",
+    "          +'<div class=\"qbx-activity\">'+qbCalHtml+'</div>'",
+    "          +qbSideNew",
+    "          +'<div class=\"qbx-history qbx-section\"><div class=\"qb-section-hd\">History</div>'+qbTradesCard+'</div>'",
 ]
 _SB_ANCHOR = '\r\n'.join(_SB_LINES)
 _SB_MOVED = '\r\n'.join(_SB_LINES[1:] + _SB_LINES[:1])
+# the page's body lines other mutants move (step 11)
+_HIST = "          +'<div class=\"qbx-history qbx-section\"><div class=\"qb-section-hd\">History</div>'+qbTradesCard+'</div>'"
+_SIDE = "          +qbSideNew"
+_OWN = "          +'<div class=\"qbx-own\">'+qbOwnSecs+'</div>'"
+_STAT = "          +'<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div>'"
+_CAL = "          +'<div class=\"qbx-activity\">'+qbCalHtml+'</div>'"
+_STRIP = "          +qbStatusSec"
+_CRLF = '\r\n'
+_EQA = "            equityHtml='<div class=\"qb-chart-wrap\">'+periodTabsHtml+'<div class=\"qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'\">'+qbRangeCap+'</div>'"
+_EQA2 = "            equityHtml='<div class=\"qb-chart-wrap\"><div class=\"qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'\">'+qbRangeCap+'</div>'"
+_EQB = "              +'<div class=\"qbx-lgchart\" id=\"qb-lg-chart\"></div>'+keyHtml+'</div>';"
+_EQB2 = "              +'<div class=\"qbx-lgchart\" id=\"qb-lg-chart\"></div>'+keyHtml+periodTabsHtml+'</div>';"
 
 MUTANTS = [
     ('chart-not-drawn',
@@ -932,18 +979,20 @@ MUTANTS = [
      "row:{key:key,name:label+' '+qeLegShortTag(key,runNo),",
      "row:{key:key,name:label,",
      'a strategy list row names its family but not its run number'),
-    ('list-above-trades-on-phone',
-     ":(qbHistSec+qbStatusSec+qbSideSec+qbAcctSec);",
-     ":(qbSideSec+qbHistSec+qbStatusSec+qbAcctSec);",
-     'on a phone the strategy list sits above the trade list again'),
-    ('account-above-trades-on-phone',
-     ":(qbHistSec+qbStatusSec+qbSideSec+qbAcctSec);",
-     ":(qbAcctSec+qbHistSec+qbStatusSec+qbSideSec);",
-     'on a phone the Account section sits above the trade list again'),
-    ('status-above-trades-on-phone',
-     ":(qbHistSec+qbStatusSec+qbSideSec+qbAcctSec);",
-     ":(qbStatusSec+qbHistSec+qbSideSec+qbAcctSec);",
-     'on a phone the status line sits above the trade list again, which then starts more than a screen down'),
+    # LEDGER step 11 replaced step 10's phone order (the list and Account under the trade list, the status line after it): these three are its
+    # opposites on the new page. The list is a one-line fold ABOVE the trade list, the own sections come after it, the status strip is under the chart.
+    ('list-below-trades-on-phone',
+     _SIDE + _CRLF + _HIST,
+     _HIST + _CRLF + _SIDE,
+     'on a phone the strategy list sits under the trade list (step 11 puts it above, a one-line fold)'),
+    ('own-sections-above-trades-on-phone',
+     _HIST + _CRLF + _OWN,
+     _OWN + _CRLF + _HIST,
+     'on a phone the own sections (Orders, Account ...) sit above the trade list'),
+    ('status-strip-below-stats',
+     _STRIP + _CRLF + _STAT,
+     _STAT + _CRLF + _STRIP,
+     'the status strip is drawn under the stats strip instead of under the chart'),
     ('status-line-gone',
      "const qbStatusSec='<div class=\"qbx-statusline\">'+qbStatusStripHtml+'</div>';",
      "const qbStatusSec='';",
@@ -1147,8 +1196,8 @@ MUTANTS = [
      'sym:v=>\'<span style="color:\'+legColorQE(v._t.leg)+\'"><span class="qb-trade-leg">\'+naS(v._t.leg)+\'</span></span>\',',
      "a frame row names the box's bare leg key (ENGUQ) with no run number"),
     ('tl-caveat-mark-hidden',
-     '@media(max-width:1279px){.qbx-tl .qbx-cav{display:block}}',
-     '@media(max-width:1279px){.qbx-tl .qbx-cav{display:none}}',
+     '@container qbtl (max-width:800px){.qbx-tl .qbx-cav{display:block}}',
+     '@container qbtl (max-width:800px){.qbx-tl .qbx-cav{display:none}}',
      'a flagged trade carries no mark on a phone (the flags column is not one of the five cells)'),
     ('tl-caveat-mark-lost',
      'const cav=qbRowCaveat(t)?\'<span class="qbx-cav" title="\'+qbEsc(qbFlagsText(t))+\'">!</span>\':\'\';',
@@ -1307,6 +1356,137 @@ MUTANTS = [
      "window._qbSheet={kind:'trade',idx:+el.getAttribute('data-qbtraderow'),tid:el.getAttribute('data-qbtid')||null,rk:el.getAttribute('data-qbkey')||null};",
      "window._qbSheet=null;ledgerTradePanelOpen({id:'wb',tradeId:String(el.getAttribute('data-qbkey')),head:{sym:'X',side:'LONG',date:'',time:'',net:0},blocks:[]});",
      '?oldboards=1 draws the shared trade panel in place of the old sheet'),
+    # ── LEDGER step 11: the fixed page order, the own folds, one set of breakpoints ──
+    ('section-order-wrong',
+     _STAT + _CRLF + _CAL,
+     _CAL + _CRLF + _STAT,
+     'the calendar fold is drawn above the stats strip (the fixed page order is broken)'),
+    ('laptop-grid-order-wrong',
+     '"hero side" "chart side" "status side" "stats side" "cal side" "history side" "own side"',
+     '"hero side" "chart side" "status side" "stats side" "history side" "cal side" "own side"',
+     'on a laptop the calendar sits under the trade list'),
+    ('pills-below-chart',
+     _EQA + _CRLF + _EQB,
+     _EQA2 + _CRLF + _EQB2,
+     'the range pills are drawn under the chart (they go between the hero and the chart)'),
+    ('own-folds-order-wrong',
+     "const qbOwnSecs=qbFoldHtml('orders','Orders',qbMiniSum,'<div class=\"qbx-orders-mini\">'+qbOrdersCompactHtml+'</div>',true)" + _CRLF
+     + "          +qbFoldHtml('account','Account',qbAcctSum,qbAccountHtml,true)",
+     "const qbOwnSecs=qbFoldHtml('account','Account',qbAcctSum,qbAccountHtml,true)" + _CRLF
+     + "          +qbFoldHtml('orders','Orders',qbMiniSum,'<div class=\"qbx-orders-mini\">'+qbOrdersCompactHtml+'</div>',true)",
+     'the own folds run Account, Orders instead of Orders, Account'),
+    ('fold-summary-empty',
+     "+(sum||'&nbsp;')+",
+     "+''+",
+     'a fold header has no summary line'),
+    ('fold-summary-undefined',
+     "return parts.join(' &middot; ');",
+     "return parts.join(' &middot; ')+' '+undefined;",
+     "the Account fold's summary ends in the word undefined"),
+    ('fold-does-not-open',
+     "(window._qbFolds||(window._qbFolds={}))[k]=o;",
+     "return;",
+     'a tap on a fold header does nothing'),
+    ('fold-not-remembered',
+     "try{localStorage.setItem('el_qb_fold_'+k,o?'1':'0');}catch(e){}",
+     "",
+     'an open fold is not stored: a reload finds it shut'),
+    ('fold-open-state-never-read',
+     "try{const sv=localStorage.getItem('el_qb_fold_'+k);if(sv!=null)o=sv==='1';}catch(e){}",
+     "",
+     'the stored open state is never read back: a reload finds every fold shut'),
+    ('fold-storage-unguarded',
+     "try{const sv=localStorage.getItem('el_qb_fold_'+k);if(sv!=null)o=sv==='1';}catch(e){}",
+     "{const sv=localStorage.getItem('el_qb_fold_'+k);if(sv!=null)o=sv==='1';}",
+     'reading the fold state is not inside try / catch: a browser that blocks storage breaks the board'),
+    ('fold-click-unguarded',
+     "try{localStorage.setItem('el_qb_fold_'+k,o?'1':'0');}catch(e){}",
+     "localStorage.setItem('el_qb_fold_'+k,o?'1':'0');",
+     'storing the fold state is not inside try / catch: a browser that blocks storage cannot open a fold'),
+    ('fold-open-by-default',
+     "'<div class=\"lg-more-panel qbx-fold-panel\" id=\"qbf-'+k+'\"'+(o?'':' hidden')",
+     "'<div class=\"lg-more-panel qbx-fold-panel\" id=\"qbf-'+k+'\"'+(true?'':' hidden')",
+     'every fold shows its panel though its header says it is shut'),
+    ('fold-content-lost',
+     "((o||keep)?body:'')",
+     "(keep?body:'')",
+     'a fold opens onto an empty panel (System, Rails, Events, Feed, Model)'),
+    ('own-section-removed',
+     "          +qbFoldHtml('account','Account',qbAcctSum,qbAccountHtml,true)" + _CRLF,
+     "",
+     'the Account section is gone from the page (own sections are folded, never removed)'),
+    ('stop-state-not-in-header',
+     "(dllTripped?' &middot; stopped for the day':(dllNearLimit?' &middot; near the limit':''))+(QF.isToday?'':(' &middot; from '+QF.dayLabel)))",
+     "''+(QF.isToday?'':(' &middot; from '+QF.dayLabel)))",
+     'the Orders fold header never says the daily stop is near its limit or reached'),
+    ('breaker-line-removed',
+     "const qbOwnSecs=qbFoldHtml('orders','Orders',qbMiniSum,'<div class=\"qbx-orders-mini\">'+qbOrdersCompactHtml+'</div>',true)",
+     "const qbOwnSecs=''",
+     'the PAPER breaker line (mode and daily stop) is gone from the page'),
+    ('todays-orders-removed',
+     "          +(ordersHtml?qbFoldHtml('todayorders',QF.isToday?'Today&rsquo;s orders':('Orders on '+QF.dayLabel),qbOrdTodaySum,ordersHtml,true):'')" + _CRLF,
+     "",
+     "Today's orders are gone from the page"),
+    ('rails-removed',
+     "          +qbFoldHtml('rails','Rails',qbRailsSum,railsHtml)" + _CRLF,
+     "",
+     'the Rails fold is gone from the page'),
+    ('fold-header-wraps',
+     ".qbx-fold-sum{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;",
+     ".qbx-fold-sum{flex:0 1 auto;min-width:0;overflow:visible;white-space:normal;",
+     'a fold header wraps to two lines on a phone (the summary is not one line)'),
+    ('breaker-summary-wrong',
+     "qeMoney(usedS)+' of '",
+     "qeMoney(0)+' of '",
+     "the Orders fold says $0.00 of the daily stop is used whatever the breaker's figure is"),
+    ('account-summary-no-change',
+     "if(chg!==null)parts.push('<span class=\"'+ledgerCls(chg)+'\">'",
+     "if(false)parts.push('<span class=\"'+ledgerCls(chg)+'\">'",
+     "the Account fold says the equity but not its change"),
+    ('list-fold-on-laptop',
+     ".qbx-lg6 .qbx-list-fold{display:none}",
+     ".qbx-lg6 .qbx-list-fold{display:flex}",
+     'the strategy list shows its fold header above 600 px, where the list is drawn open'),
+    ('list-fold-open-on-phone',
+     "const qbListOpen=qbFoldOpen('list');",
+     "const qbListOpen=true;",
+     'the strategy list starts open on a phone and pushes the trade list down'),
+    ('phone-list-fold-gap',
+     ".lg-more.qbx-fold-btn{padding:7px 4px}",
+     ".lg-more.qbx-fold-btn{padding:7px 4px;margin-bottom:24px}",
+     'the one-line fold headers carry a 24 px gap again, so on a phone the trade list starts lower than it did before step 11'),
+    ('private-breakpoint',
+     ".qbx-fold-t{flex:0 0 auto;white-space:nowrap}",
+     ".qbx-fold-t{flex:0 0 auto;white-space:nowrap}" + _CRLF + "@media(max-width:760px){.qbx-fold-sum{letter-spacing:.3px}}",
+     'a board-private breakpoint (760 px) is back'),
+    ('cav-mark-private-width',
+     "@container qbtl (max-width:800px){.qbx-tl .qbx-cav{display:block}}",
+     "@container qbtl (max-width:1000px){.qbx-tl .qbx-cav{display:block}}",
+     'the flagged-row mark uses a width (1000 px) that is no house breakpoint'),
+    ('status-strip-folded',
+     "const qbStatusSec='<div class=\"qbx-statusline\">'+qbStatusStripHtml+'</div>';",
+     "const qbStatusSec=qbFoldHtml('status','Status','paper only',qbStatusStripHtml);",
+     'the status strip is folded away under a header instead of staying visible under the chart'),
+    ('old-board-gets-the-new-page',
+     "body=!LEDGER_OLDBOARDS?qbNewBody:",
+     "body=true?qbNewBody:",
+     '?oldboards=1 draws the new page'),
+    ('old-board-loses-its-strip',
+     "+'<div class=\"qbx-chart\">'+equityHtml+(LEDGER_OLDBOARDS?qbStatusStripHtml:'')+'</div>'",
+     "+'<div class=\"qbx-chart\">'+equityHtml+'</div>'",
+     '?oldboards=1 lost the status strip under its chart (the old markup changed)'),
+    ('mono-hue-in-fold-header',
+     "<span class=\"qbx-fold-sum\" data-qbfoldsum=\"'+k+'\">",
+     "<span class=\"qbx-fold-sum\" style=\"color:#e33\" data-qbfoldsum=\"'+k+'\">",
+     'a fold summary is drawn in a hard-coded red (MONO has no hue)'),
+    ('mono-hue-in-fold-panel',
+     ".lg-more-panel.qbx-fold-panel{margin:0 0 14px;padding:14px 16px}",
+     ".lg-more-panel.qbx-fold-panel{margin:0 0 14px;padding:14px 16px;border-top:1px solid #e33}",
+     'a fold panel has a red edge (MONO has no hue)'),
+    ('folds-open-scroll-sideways',
+     ".lg-more-panel.qbx-fold-panel{margin:0 0 14px;padding:14px 16px}",
+     ".lg-more-panel.qbx-fold-panel{margin:0 0 14px;padding:14px 16px;min-width:640px}",
+     'an open fold is wider than a phone and the page scrolls sideways'),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -1504,7 +1684,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     w.__probeOffline=!!cfg.offline;w.__probeMissing=!!cfg.missing;w.__probeUnloaded=!!cfg.unloaded;
     w.__probeRange=cfg.range||null;w.__probeTodayNY=cfg.todayNY||null;w.__probeCalMonth=cfg.calMonth||null;
     w.__probeMoreOpen=!!cfg.moreOpen;
-    w.__probeCalOpen=cfg.calOpen||null;w.__probeFolds=!!cfg.folds;
+    w.__probeCalOpen=cfg.calOpen||null;w.__probeFolds=!!cfg.folds;w.__probeFoldOpen=cfg.foldOpen||null;
     return w.eval("(function(){try{"
       +"if(!window.__probeLTN)window.__probeLTN=ledgerTodayNY;"
       +"ledgerTodayNY=window.__probeTodayNY?function(){return window.__probeTodayNY;}:window.__probeLTN;"
@@ -1531,7 +1711,10 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       // the trade list's own state: the view stored for this board, the search text, the chip, the search box's held focus
       +"try{localStorage.removeItem('el_lg_view_wb');}catch(e){}window._qeTradesQuery='';window._qeTradesChip='ALL';window._qbSearchHold=null;"
       +"window._qbLegNoteOpen={};if(window.__probeOpenLeg)window._qbLegNoteOpen[window.__probeOpenLeg]=true;"
-      +"try{var ap=JSON.parse(localStorage.getItem('augurPrefs')||'{}');ap.qqqSystemOpen=window.__probeSystemOpen;localStorage.setItem('augurPrefs',JSON.stringify(ap));}catch(e){}"
+      +"try{var ap=JSON.parse(localStorage.getItem('augurPrefs')||'{}');ap.qqqSystemOpen=window.__probeSystemOpen;ap.qqqRailsOpen=0;ap.qqqEventsOpen=0;ap.qqqFeedSigOpen=0;ap.qqqModelOpen=0;localStorage.setItem('augurPrefs',JSON.stringify(ap));}catch(e){}"
+      // LEDGER step 11: every own fold starts shut (nothing stored, nothing in memory), unless a case opens some
+      +"try{['orders','account','todayorders','feedsig','system','rails','events','model','list'].forEach(function(k){localStorage.removeItem('el_qb_fold_'+k);});}catch(e){}window._qbFolds=null;"
+      +"try{var fo=window.__probeFoldOpen;if(fo==='all')fo=['orders','account','todayorders','feedsig','system','rails','events','model','list'];if(fo)fo.forEach(function(k){localStorage.setItem('el_qb_fold_'+k,'1');});}catch(e){}"
       +"window._qqqExecLive=false;window._qqqExecLiveErrorAt=window.__probeLiveErr?Date.now():null;window._qqqExecFetchedAt=window.__probeLiveErr?0:Date.now();"
       +"window._qbChartHoverActive=false;"
       +"if(window.__probeCalMonth)window._qqqCalMonth=window.__probeCalMonth;"
@@ -1592,7 +1775,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     var mbt=q('[data-lgmore="qb"]');r.moreBtn=mbt?mbt.getAttribute('aria-expanded'):null;
     r.more=moreRead();
     var act=q('.qbx-activity'),mwon=act?(act.textContent||'').match(/(\\d+)% won/):null;r.calWon=mwon?+mwon[1]:null;
-    r.lgcal=calRead();r.lg=listRead();r.old=oldReads();
+    r.lgcal=calRead();r.lg=listRead();r.old=oldReads();r.s11=s11Read();
     if(withTl)r.tl=tlRead();
     r.scrollW=d.documentElement.scrollWidth;
     r.clientW=d.documentElement.clientWidth;
@@ -1629,6 +1812,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     r.keelwarn=txt('[data-qbkeelwarn]');
     r.miniSilent=txt('[data-qbminisilent]');
     r.miniPill=txt('[data-qbminipill]');
+    r.ordSum=txt('[data-qbfold="orders"] [data-qbfoldsum]');
     var mp=q('[data-qbminipill]');r.miniPillHtml=mp?mp.innerHTML:null;
     var om=q('[data-qbordmode]');r.ordModeHtml=om?om.innerHTML:null;
     var eqs=q('[data-qbeqstale]');r.eqWhy=eqs?eqs.getAttribute('title'):null;
@@ -1730,6 +1914,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     return null;
   }
 __TLJS__
+__S11JS__
   async function runCase(nm,cfg){
     var r={};
     await setVp(cfg.vp);
@@ -1920,6 +2105,8 @@ __TLJS__
         if(!(await boot()))return;
         for(var i=0;i<CASES.length;i++)await runCase(CASES[i][0],CASES[i][1]);
         try{await interact();}catch(e){out.inter={threw:String(e&&e.stack?e.stack:e)};}
+        // LEDGER step 11: the own folds, the list's phone fold, storage that throws, every fold open at six widths
+        try{out.s11=await s11Run();}catch(e){out.s11={threw:String(e&&e.stack?e.stack:e)};}
         // the trade list on the shared frame (LEDGER step 8): each run seeds its own page
         out.tl={};
         for(var tn=0;tn<TLS.length;tn++){
@@ -2043,7 +2230,7 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
       var o=r.scrollWidth-r.clientWidth;if(o>1){over++;if(o>worst)worst=o;}
       var s=r.querySelector('.lg-c-sym');if(s&&s.scrollWidth>s.clientWidth+1)clip++;});
     var cavs=[].slice.call(d.querySelectorAll('.qbx-cav'));
-    return {iw:w.innerWidth,docSW:d.documentElement.scrollWidth,bodySW:d.body.scrollWidth,mode:f?f.getAttribute('data-lgmode'):null,rows:rows.length,
+    return {iw:w.innerWidth,frameW:f?Math.round(f.getBoundingClientRect().width):null,docSW:d.documentElement.scrollWidth,bodySW:d.body.scrollWidth,mode:f?f.getAttribute('data-lgmode'):null,rows:rows.length,
       rowsOver:over,worst:worst,symClip:clip,cav:[cavs.length,cavs.filter(function(e){return w.getComputedStyle(e).display!=='none';}).length],
       wide:d.documentElement.scrollWidth>w.innerWidth?offenders(d):[]};
   }
@@ -2441,6 +2628,400 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
     return res;
   }
 """
+
+
+S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's own sections as closed folds. s11Read = what a viewer sees of the page order and of
+  // every fold header (where it is, what it says, whether it is shut, what colour it is drawn in); s11Run = what a viewer does to the folds. ──
+  var S11_KEYS=['orders','account','todayorders','feedsig','system','rails','events','model'];
+  var S11_MARKS={orders:['[data-qbminipill]','[data-qbstop]'],account:['[data-qbasof]','[data-qbrecon]','[data-qbeqchg]'],
+    todayorders:['[data-qbordersday]','tbody tr'],feedsig:[],system:['[data-qbordmode]','[data-qblasttick]','[data-qbsheet]'],
+    rails:[],events:['.qe-evt-row'],model:[],list:['[data-lgrow]','[data-lggrp]']};
+  function s11Hue(e,props){
+    // r = g = b (or fully transparent): the one test MONO has for 'no colour'
+    var w=W(),cs=w.getComputedStyle(e),bad=[];
+    props.forEach(function(pr){
+      var c=cs[pr]||'',p=c.replace(/[^0-9.,]/g,'').split(',').map(Number);
+      if(p.length>=3&&!(p[0]===p[1]&&p[1]===p[2])&&!(p.length>3&&p[3]===0))bad.push(pr+' '+c);});
+    return bad;
+  }
+  function s11Skel(){
+    // the old page's markup shape: every element's tag, class and attribute NAMES in document order, no text and no values
+    var root=q('.qb-shell');if(!root)return null;
+    var s=[];
+    (function walk(e){
+      s.push(e.tagName+'.'+(typeof e.className==='string'?e.className:'')+'['+[].map.call(e.attributes,function(a){return a.name;}).sort().join(',')+']');
+      [].forEach.call(e.children,walk);
+    })(root);
+    var str=s.join('|'),h=0x811c9dc5;
+    for(var i=0;i<str.length;i++){h^=str.charCodeAt(i);h=(h*16777619)>>>0;}
+    return {n:s.length,h:h};
+  }
+  function s11Read(){
+    var d=D(),w=W(),sy=w.scrollY||0,o={};
+    function bx(sel){
+      // an empty range draws no chart svg: the chart's caption (right under the pills) stands for it
+      var e=q(sel)||(sel==='#qb-lg-chart'?q('.qbx-chart .qbx-chart-cap'):null);if(!e)return null;
+      var r=e.getBoundingClientRect(),cs=w.getComputedStyle(e);
+      return {t:Math.round(r.top+sy),b:Math.round(r.bottom+sy),l:Math.round(r.left),r:Math.round(r.right),w:Math.round(r.width),h:Math.round(r.height),
+        shown:cs.display!=='none'&&cs.visibility!=='hidden'&&r.width>0&&r.height>0};
+    }
+    var M={shell:'.qb-shell',hero:'#qb-hero-label',pills:'.qbx-range-row',chart:'#qb-lg-chart',status:'.qbx-statusline',stats:'.qbx-lgstats .lg-stats',
+      more:'[data-lgmore="qb"]',cal:'[data-lgcalfold="qb"]',list:'[data-lglist="qb"]',listfold:'[data-qbfold="list"]',trades:'[data-lglist-frame="wb"]',own:'.qbx-own'};
+    o.pos={};
+    Object.keys(M).forEach(function(k){o.pos[k]=bx(M[k]);});
+    o.strip={text:tx2(q('.qbx-statusline')),refresh:!!q('.qbx-statusline [data-qqqrefresh]'),inFold:!!q('[data-qbfoldbox] .qbx-statusline')};
+    // every fold header, in page order: its key, title, summary, whether it is shut, where it is, its height (one line), the room its summary has
+    o.folds=[].map.call(d.querySelectorAll('[data-qbfold]'),function(b){
+      var k=b.getAttribute('data-qbfold'),p=d.getElementById('qbf-'+k),sm=b.querySelector('[data-qbfoldsum]'),t=b.querySelector('.qbx-fold-t');
+      var br=b.getBoundingClientRect(),pr=p?p.getBoundingClientRect():null,pcs=p?w.getComputedStyle(p):null,bcs=w.getComputedStyle(b);
+      var smr=sm?sm.getBoundingClientRect():null;
+      return {key:k,title:tx2(t),sum:tx2(sm),sumHtml:sm?sm.innerHTML:null,exp:b.getAttribute('aria-expanded'),ctl:b.getAttribute('aria-controls'),
+        btn:{t:Math.round(br.top+sy),b:Math.round(br.bottom+sy),l:Math.round(br.left),r:Math.round(br.right),h:Math.round(br.height),w:Math.round(br.width),
+          shown:bcs.display!=='none'&&br.width>0&&br.height>0},
+        sumH:smr?Math.round(smr.height):null,sumClip:sm?(sm.scrollWidth>sm.clientWidth+1):null,
+        panel:p?{hiddenAttr:p.hasAttribute('hidden'),shown:pcs.display!=='none'&&pr.height>0,h:Math.round(pr.height),len:(p.textContent||'').replace(/\s+/g,' ').trim().length,
+          inApp:!!p.closest('#app')}:null,
+        hues:(function(){var bad=[];[b,t,sm,b.querySelector('.lg-chev')].concat(sm?[].slice.call(sm.querySelectorAll('*')):[]).forEach(function(e){
+          if(e)s11Hue(e,['color','borderTopColor','backgroundColor']).forEach(function(x){if(bad.length<6)bad.push((e.className||e.tagName)+' '+x);});});
+          if(p)s11Hue(p,['backgroundColor','borderTopColor']).forEach(function(x){bad.push('panel '+x);});return bad;})()};
+    });
+    // the old page's shape (?oldboards=1): none of the new classes, the old disclosures, a skeleton of its markup
+    o.old={lg6:!!q('.qbx-lg6'),ownBox:!!q('.qbx-own'),foldBtns:d.querySelectorAll('[data-qbfold]').length,foldBoxes:d.querySelectorAll('[data-qbfoldbox]').length,
+      disc:[].map.call(d.querySelectorAll('[data-qbdisclosure]'),function(e){return e.getAttribute('data-qbdisclosure');}),
+      modelToggle:!!q('[data-qqqmodeltoggle]'),statusInChart:!!q('.qbx-chart .qbx-status-strip'),skel:s11Skel()};
+    return o;
+  }
+  function foldState(k){
+    var d=D(),w=W(),b=q('[data-qbfold="'+k+'"]'),p=d.getElementById('qbf-'+k);
+    if(!b||!p)return null;
+    var pr=p.getBoundingClientRect(),cs=w.getComputedStyle(p),txt=(p.textContent||'').replace(/\s+/g,' ').trim(),st=null;
+    try{st=w.localStorage.getItem('el_qb_fold_'+k);}catch(e){}
+    var sel={};(S11_MARKS[k]||[]).forEach(function(s){sel[s]=p.querySelectorAll(s).length;});
+    return {exp:b.getAttribute('aria-expanded'),hiddenAttr:p.hasAttribute('hidden'),shown:cs.display!=='none'&&pr.height>0,h:Math.round(pr.height),len:txt.length,
+      text:txt.slice(0,700),stored:st,sel:sel,sum:tx2(b.querySelector('[data-qbfoldsum]'))};
+  }
+  async function s11Cycle(k){
+    // a fold, tapped open: it shows its content; a reload (nothing in memory, the stored choice kept) finds it open; tapped shut it stays shut across a reload too
+    var w=W(),rec={},b=q('[data-qbfold="'+k+'"]');
+    if(!b)return null;
+    rec.before=foldState(k);
+    b.click();await sleep(110);
+    rec.open=foldState(k);
+    w.eval("window._qbFolds=null;renderApp();");await sleep(130);
+    rec.reload=foldState(k);
+    w.eval("renderApp();");await sleep(90);
+    rec.redraw=foldState(k);
+    var b2=q('[data-qbfold="'+k+'"]');if(b2){b2.click();await sleep(110);}
+    rec.closed=foldState(k);
+    w.eval("window._qbFolds=null;renderApp();");await sleep(130);
+    rec.closedReload=foldState(k);
+    return rec;
+  }
+  async function s11Run(){
+    var w=W(),d=D(),res={laptop:{},phone:{},widths:{},blocked:null,errs:{}};
+    // laptop 1366x768: every own fold
+    await setVp('laptop');drain();
+    try{res.seedL=seed({vp:'laptop',theme:'dark'});}catch(e){res.seedL='ERR '+e;}
+    await sleep(220);
+    res.order=[].map.call(d.querySelectorAll('[data-qbfold]'),function(b){return b.getAttribute('data-qbfold');});
+    for(var i=0;i<S11_KEYS.length;i++){res.laptop[S11_KEYS[i]]=await s11Cycle(S11_KEYS[i]);}
+    res.errs.laptop=drain();
+    // phone 375x812: the strategy list's own fold, and two of the own folds, in the phone layout
+    await setVp('phone');drain();
+    try{res.seedP=seed({vp:'phone',theme:'dark'});}catch(e){res.seedP='ERR '+e;}
+    await sleep(220);
+    res.phone.list=await s11Cycle('list');
+    if(res.phone.list){
+      // its rows, when it is open: one line each
+      var lk=q('[data-qbfold="list"]');if(lk){lk.click();await sleep(110);}
+      res.phone.listRows=[].map.call(d.querySelectorAll('.qbx-side [data-lgrow]'),function(r){var rc=r.getBoundingClientRect();return {key:r.getAttribute('data-lgrow'),h:Math.round(rc.height),w:Math.round(rc.width)};});
+      res.phone.listTopOpen=(function(){var t=q('[data-lglist-frame="wb"]'),s=q('.qb-shell');return t&&s?Math.round(t.getBoundingClientRect().top-s.getBoundingClientRect().top):null;})();
+      lk=q('[data-qbfold="list"]');if(lk){lk.click();await sleep(110);}
+    }
+    res.phone.orders=await s11Cycle('orders');
+    res.phone.account=await s11Cycle('account');
+    res.errs.phone=drain();
+    // storage that throws for the fold keys: the fold still opens (memory), nothing is thrown
+    await setVp('laptop');drain();
+    try{seed({vp:'laptop',theme:'dark'});}catch(e){}
+    await sleep(200);drain();
+    var Sp=w.Storage.prototype,g0=Sp.getItem,s0=Sp.setItem;
+    Sp.getItem=function(k){if(/^el_qb_fold_/.test(k))throw new Error('blocked');return g0.apply(this,arguments);};
+    Sp.setItem=function(k,v){if(/^el_qb_fold_/.test(k))throw new Error('blocked');return s0.apply(this,arguments);};
+    try{
+      var bb=q('[data-qbfold="rails"]');if(bb){bb.click();await sleep(130);}
+      var b3=q('[data-qbfold="rails"]'),p3=d.getElementById('qbf-rails');
+      res.blocked={exp:b3?b3.getAttribute('aria-expanded'):null,len:p3?(p3.textContent||'').replace(/\s+/g,' ').trim().length:null,errs:drain()};
+    }finally{Sp.getItem=g0;Sp.setItem=s0;}
+    // the page never scrolls sideways with EVERY fold open, at the widths a viewer has
+    var S11W=[375,601,700,800,1000,1366];
+    for(var j=0;j<S11W.length;j++){
+      var wd=S11W[j];
+      fr.style.width=wd+'px';fr.style.height='800px';
+      await waitFor(function(){return W().innerWidth===wd;},2000);await sleep(70);
+      drain();
+      try{seed({vp:'laptop',theme:'dark',foldOpen:'all'});}catch(e){}
+      await sleep(230);
+      var r2={iw:w.innerWidth,sw:d.documentElement.scrollWidth,wide:[],open:[].map.call(d.querySelectorAll('[data-qbfold]'),function(b){return b.getAttribute('aria-expanded');}).join(',')};
+      if(r2.sw>r2.iw+0)r2.wide=offenders(d);
+      r2.errs=drain();
+      res.widths[String(wd)]=r2;
+    }
+    fr.style.width='1366px';fr.style.height='768px';
+    return res;
+  }
+"""
+
+# ── LEDGER step 11 (2026-10-06): one fixed page order; every own section a closed fold with a one-line summary; one set of breakpoints ──
+S11_OWN_ORDER = ['orders', 'account', 'todayorders', 'feedsig', 'system', 'rails', 'events', 'model']   # the own folds, top to bottom
+S11_OWN_REQUIRED = ['orders', 'account', 'system', 'rails', 'events', 'model']                          # always drawn; Today's orders / Feed & signals only when there is something
+S11_PHONE_TOP_MAX = 784      # phone 375x812: the trade list starts at most this far under the board top. It was 784 before step 11 and must not grow
+S11_FOLD_ONE_LINE = 40       # a fold header is one line: the button is shorter than this (two lines of text would be 44 and over)
+S11_HOUSE = (600, 740, 800, 920, 1100)   # the only widths this board's media / container queries may use (the shared parts' own: phone, compact, list cells, rail)
+S11_WIDTHS = [375, 601, 700, 800, 1000, 1366]
+# the markup shape of the OLD page (?oldboards=1): element count and a hash of every tag / class / attribute NAME in document order, as the build before step 11 drew it
+S11_OLD_SKEL = [791, 3293710462]
+S11_BAD_TOKEN = re.compile(r'NaN|undefined|\[object Object\]|null')
+
+
+def _s11_expected(doc):
+    """What each fold's header must say for this doc, worked out from the fixture: key -> list of substrings."""
+    rails = doc.get('rails') or {}
+    today = doc.get('today') or {}
+    eq = doc.get('equity') or {}
+    rd = doc.get('readiness') or {}
+    ev = doc.get('events') or []
+    orders = today.get('orders') or []
+    out = {}
+    lim = rails.get('daily_loss_limit_usd')
+    bi = _fin(today.get('breaker_input'))
+    if bi is None:     # a box that does not send the breaker's own figure: the page falls back to today's closed (of record) + open P&L
+        rr = _fin(today.get('realized_pnl_record'))
+        rr = rr if rr is not None else (_fin(today.get('realized_pnl')) or 0.0)
+        bi = rr + (_fin(today.get('unrealized_pnl')) or 0.0)
+    used = abs(min(0.0, bi))
+    out['orders'] = [money(used) + ' of ' + money(abs(float(lim))) + ' daily stop used'] if lim is not None else ['no daily stop set']
+    acc = []
+    if eq.get('net_liq') is not None:
+        acc.append(money(float(eq['net_liq'])))
+        if eq.get('change_today') is not None:
+            acc.append(signed(float(eq['change_today'])))
+            acc.append('today')
+    out['account'] = acc
+    out['todayorders'] = ['%d order%s' % (len(orders), '' if len(orders) == 1 else 's')] if orders else None
+    out['feedsig'] = ['feed up '] if doc.get('feed_days') else None
+    out['system'] = (['NOT READY for real shares'] + (['(%d open)' % len(rd.get('missing') or [])] if rd.get('missing') else [])) if rd.get('ready') is False else ['ready for real shares']
+    out['rails'] = ['daily stop ' + money(abs(float(lim)))] if lim is not None else ['no daily stop set']
+    if rails.get('max_shares_per_leg') is not None:
+        out['rails'].append('up to %d shares a leg' % int(rails['max_shares_per_leg']))
+    out['events'] = ['%d events' % len(ev)] if ev else ['no events published yet']
+    out['model'] = ['reference only']
+    return out
+
+
+def _s11_order_problems(tag, s11, iw, doc, fails):
+    """The fixed order, top to bottom, by the page's own markers: hero, range pills, chart, status strip, stats strip, More stats fold, calendar fold,
+    strategy list (a one-line fold up to 600 px; the sticky right column from 1100 px), trade list, then the own folds in their order."""
+    pos = s11.get('pos') or {}
+    two_col = iw >= 1100
+    chain = ['hero', 'pills', 'chart', 'status', 'stats', 'more', 'cal'] + ([] if two_col else ['listfold' if iw <= 600 else 'list']) + ['trades']
+    last, last_k = None, None
+    for k in chain:
+        p = pos.get(k)
+        if not p or not p.get('shown'):
+            fails.append('%s: the page has no drawn %s (the fixed order needs it)' % (tag, k))
+            continue
+        if last is not None and p['t'] < last['t'] + 1:
+            fails.append('%s: the page order is wrong: %s (top %s) must come below %s (top %s)' % (tag, k, p['t'], last_k, last['t']))
+        last, last_k = p, k
+    if two_col:
+        ls, tr = pos.get('list'), pos.get('trades')
+        if not ls or not ls.get('shown') or not tr or ls['l'] < tr['r'] - 1:
+            fails.append('%s: on a laptop the strategy list is not in the right column (%s, trade list %s)' % (tag, ls, tr))
+    st = s11.get('strip') or {}
+    if (pos.get('status') or {}).get('shown') and (st.get('inFold') or not re.search(r'box updated|last update from the box|its last copy is from', st.get('text') or '') or not st.get('refresh')):
+        fails.append('%s: the status strip under the chart lost its box-updated line or its Refresh button, or sits in a fold (%s)' % (tag, st))
+    folds = [f for f in s11.get('folds') or [] if f.get('key') != 'list']
+    keys = [f['key'] for f in folds]
+    miss = [k for k in S11_OWN_REQUIRED if k not in keys]
+    if miss:
+        fails.append('%s: own sections missing from the page (folded, never removed): %s' % (tag, miss))
+    want = [k for k in S11_OWN_ORDER if k in keys]
+    if keys != want:
+        fails.append('%s: the own folds run %s, want %s' % (tag, keys, want))
+    tr = pos.get('trades')
+    for f in folds:
+        if tr and f['btn']['t'] < tr['b'] - 1:
+            fails.append('%s: the %s fold (top %s) is above the end of the trade list (bottom %s): own sections come last' % (tag, f['key'], f['btn']['t'], tr['b']))
+    tops = [f['btn']['t'] for f in folds]
+    if tops != sorted(tops):
+        fails.append('%s: the own folds are not in page order by their tops: %s' % (tag, list(zip(keys, tops))))
+
+
+def _s11_fold_problems(tag, s11, iw, theme, doc, fails):
+    """Every own fold, shut as first drawn: a header of one line with a summary that is not empty and says the right number, the content not on the page,
+    the chevron's state; the strategy list's phone fold; MONO draws no hue in a header."""
+    exp = _s11_expected(doc)
+    for f in s11.get('folds') or []:
+        k = f['key']
+        t = '%s: the %s fold' % (tag, k)
+        if k == 'list':
+            if iw <= 600:
+                if not f['btn']['shown']:
+                    fails.append('%s is not drawn on a phone (the list is a one-line fold up to 600 px)' % t)
+                elif f['exp'] != 'false' or (f.get('panel') or {}).get('shown'):
+                    fails.append('%s is open when first drawn on a phone (aria-expanded %s, panel shown %s): it starts shut' % (t, f['exp'], (f.get('panel') or {}).get('shown')))
+            elif f['btn']['shown'] or not (f.get('panel') or {}).get('shown'):
+                fails.append('%s is drawn above 600 px (button shown %s, list shown %s): the list is drawn as before there' % (t, f['btn']['shown'], (f.get('panel') or {}).get('shown')))
+            if not (f.get('sum') or '').strip() or S11_BAD_TOKEN.search(f.get('sum') or ''):
+                fails.append('%s has the summary %r' % (t, f.get('sum')))
+            continue
+        if not f['btn']['shown']:
+            fails.append('%s header is not drawn' % t)
+            continue
+        if f['exp'] != 'false' or (f.get('panel') or {}).get('shown') or not (f.get('panel') or {}).get('hiddenAttr'):
+            fails.append('%s is not shut when first drawn (aria-expanded %s, panel shown %s, hidden %s)'
+                         % (t, f['exp'], (f.get('panel') or {}).get('shown'), (f.get('panel') or {}).get('hiddenAttr')))
+        sm = (f.get('sum') or '').strip()
+        if len(sm) < 3 or S11_BAD_TOKEN.search(sm):
+            fails.append('%s has no usable one-line summary (%r)' % (t, f.get('sum')))
+        if f['btn']['h'] > S11_FOLD_ONE_LINE or (f.get('sumH') or 0) > 22:
+            fails.append('%s header is not one line (button %s px, summary %s px tall)' % (t, f['btn']['h'], f.get('sumH')))
+        if not (f.get('title') or '').strip():
+            fails.append('%s has no title' % t)
+        for piece in (exp.get(k) or []):
+            if piece not in sm:
+                fails.append('%s says %r; the fixture needs %r in it' % (t, sm, piece))
+        if theme == 'mono' and f.get('hues'):
+            fails.append('%s draws a hue in MONO: %s' % (t, f['hues'][:3]))
+    # the optional folds are there when the doc has something for them (this fixture has both)
+    have = [f['key'] for f in s11.get('folds') or []]
+    for k in ('todayorders', 'feedsig'):
+        if exp.get(k) and k not in have:
+            fails.append('%s: the %s fold is missing though the fixture has its content' % (tag, k))
+
+
+S11_TEXT = {'orders': ['order'], 'account': ['Account equity', 'as of'], 'todayorders': ['Today'], 'feedsig': ['FEED UPTIME'],
+            'system': ['Status', 'Integrity'], 'rails': ['DAILY LOSS LIMIT'], 'events': ['BOOT'], 'model': ['model'], 'list': ['ORB']}
+
+
+def _s11_cycle_problems(tag, k, rec, doc, fails, phone=False):
+    """One fold, tapped open then shut: it opens and shows its content, the choice is stored and a reload finds it, a redraw leaves it, shut again it stays shut."""
+    t = '%s: the %s fold' % (tag, k)
+    if not rec:
+        fails.append('%s is not on the page to tap' % t)
+        return
+    b, o, rl, rd_, c, cr = (rec.get(x) or {} for x in ('before', 'open', 'reload', 'redraw', 'closed', 'closedReload'))
+    if b.get('exp') != 'false' or b.get('shown'):
+        fails.append('%s does not start shut (%s)' % (t, {x: b.get(x) for x in ('exp', 'shown')}))
+    if o.get('exp') != 'true' or not o.get('shown') or o.get('h', 0) < 10:
+        fails.append('%s did not open on a tap (aria-expanded %s, panel shown %s, %s px tall)' % (t, o.get('exp'), o.get('shown'), o.get('h')))
+    if o.get('len', 0) < 12:
+        fails.append('%s opened empty (%s characters)' % (t, o.get('len')))
+    for w_ in S11_TEXT.get(k, []):
+        if w_.lower() not in (o.get('text') or '').lower():
+            fails.append('%s opened without %r in it (%r)' % (t, w_, (o.get('text') or '')[:120]))
+    for sel, n in (o.get('sel') or {}).items():
+        if not n:
+            fails.append('%s opened without a %s in it' % (t, sel))
+    if k == 'todayorders' and (o.get('sel') or {}).get('tbody tr') != len((doc.get('today') or {}).get('orders') or []):
+        fails.append("%s lists %s order rows, the fixture has %d" % (t, (o.get('sel') or {}).get('tbody tr'), len((doc.get('today') or {}).get('orders') or [])))
+    if o.get('stored') != '1':
+        fails.append('%s did not store its open state for this viewer (el_qb_fold_%s = %r)' % (t, k, o.get('stored')))
+    if o.get('sum') != b.get('sum'):
+        fails.append('%s changed its summary on opening (%r -> %r)' % (t, b.get('sum'), o.get('sum')))
+    if rl.get('exp') != 'true' or not rl.get('shown') or rl.get('len', 0) < 12:
+        fails.append('%s is not remembered across a reload (aria-expanded %s, panel shown %s, %s characters)' % (t, rl.get('exp'), rl.get('shown'), rl.get('len')))
+    if rd_.get('exp') != 'true' or not rd_.get('shown'):
+        fails.append('%s was shut by a live redraw (aria-expanded %s)' % (t, rd_.get('exp')))
+    if c.get('exp') != 'false' or c.get('shown') or c.get('stored') != '0':
+        fails.append('%s did not shut on a second tap (aria-expanded %s, panel shown %s, stored %r)' % (t, c.get('exp'), c.get('shown'), c.get('stored')))
+    if cr.get('exp') != 'false' or cr.get('shown'):
+        fails.append('%s opens again by itself after a reload (aria-expanded %s)' % (t, cr.get('exp')))
+
+
+def _judge_s11_run(res, fixture, fails):
+    """The step 11 interaction run: every own fold on a laptop, the list fold on a phone, storage that throws, every fold open at six widths."""
+    tag = 'LEDGER step 11 folds'
+    if res is None:
+        fails.append('%s: the run never happened' % tag)
+        return
+    if res.get('threw'):
+        fails.append('%s: the probe itself threw -- %s' % (tag, _first(res['threw'])))
+        return
+    for nm in ('seedL', 'seedP'):
+        if res.get(nm) != 'OK':
+            fails.append('%s: renderApp threw -- %s' % (tag, _first(res.get(nm))))
+    order = [k for k in res.get('order') or [] if k != 'list']
+    want = [k for k in S11_OWN_ORDER if (k in S11_OWN_REQUIRED or _s11_expected(fixture).get(k))]
+    if order != want:
+        fails.append('%s: the own folds on the page run %s, want %s' % (tag, order, want))
+    for k in want:
+        _s11_cycle_problems('%s (laptop 1366x768)' % tag, k, (res.get('laptop') or {}).get(k), fixture, fails)
+    ph = res.get('phone') or {}
+    _s11_cycle_problems('%s (phone 375x812)' % tag, 'list', ph.get('list'), fixture, fails, phone=True)
+    for k in ('orders', 'account'):
+        _s11_cycle_problems('%s (phone 375x812)' % tag, k, ph.get(k), fixture, fails, phone=True)
+    rows = ph.get('listRows') or []
+    if len(rows) < 2 or any(not (0 < x['h'] <= PHONE_ROW_MAX_H) for x in rows):
+        fails.append('%s: with its fold open the phone list shows rows %s (want 2 or more, one line each: 1 to %d px)'
+                     % (tag, [(x['key'], x['h']) for x in rows], PHONE_ROW_MAX_H))
+    for nm in ('laptop', 'phone'):
+        _errs('%s [%s]' % (tag, nm), (res.get('errs') or {}).get(nm) or {}, fails)
+    bl = res.get('blocked') or {}
+    if bl.get('exp') != 'true' or (bl.get('len') or 0) < 12:
+        fails.append('%s: with storage that throws for its key a fold does not open (aria-expanded %s, %s characters): the memory copy must carry it'
+                     % (tag, bl.get('exp'), bl.get('len')))
+    _errs('%s [blocked storage]' % tag, bl.get('errs') or {}, fails)
+    for wd in S11_WIDTHS:
+        r = (res.get('widths') or {}).get(str(wd)) or {}
+        t = '%s [every fold open, %d px]' % (tag, wd)
+        if r.get('iw') != wd:
+            fails.append('%s: not measured (window %s)' % (t, r.get('iw')))
+            continue
+        if (r.get('sw') or 0) > r['iw']:
+            fails.append('%s: the page scrolls sideways (scrollWidth %s > window %s; sticking out: %s)' % (t, r.get('sw'), r['iw'], ', '.join(r.get('wide') or []) or '?'))
+        if 'false' in (r.get('open') or ''):
+            fails.append('%s: a fold is shut though every fold was opened (%s)' % (t, r.get('open')))
+        _errs(t, r.get('errs') or {}, fails)
+
+
+def _s11_old_problems(tag, r, fails):
+    """?oldboards=1: none of the new page, the old disclosures where they were, the old markup shape."""
+    o = ((r.get('s11') or {}).get('old')) or {}
+    if o.get('lg6') or o.get('ownBox') or o.get('foldBtns') or o.get('foldBoxes'):
+        fails.append('%s: ?oldboards=1 draws the new page (qbx-lg6 %s, own box %s, %s fold buttons, %s fold boxes)'
+                     % (tag, o.get('lg6'), o.get('ownBox'), o.get('foldBtns'), o.get('foldBoxes')))
+    if o.get('disc') != ['morestats', 'feedsig', 'system', 'rails', 'events'] or not o.get('modelToggle') or not o.get('statusInChart'):
+        fails.append('%s: ?oldboards=1 lost an old disclosure or the status strip under the chart (disclosures %s, model toggle %s, strip in chart %s)'
+                     % (tag, o.get('disc'), o.get('modelToggle'), o.get('statusInChart')))
+    sk = o.get('skel') or {}
+    if [sk.get('n'), sk.get('h')] != S11_OLD_SKEL:
+        fails.append('%s: the old page\'s markup shape changed: %s elements / hash %s, the build before step 11 drew %s (?oldboards=1 stays byte-identical until its code is removed)'
+                     % (tag, sk.get('n'), sk.get('h'), S11_OLD_SKEL))
+
+
+def _static_breakpoints(path):
+    """One set of breakpoints: every media / container query that styles this board uses only the house widths (600 phone, 740 compact, 800 / 920 list
+    cells, 1100 rail). Read from the source text."""
+    try:
+        src = io.open(path, encoding='utf-8', newline='').read()
+    except OSError as e:
+        return ['the page source could not be read for the breakpoint check: %s' % e]
+    bad = []
+    for m in re.finditer(r'@(media|container)\b([^{;]*)\{', src):
+        i, depth = m.end(), 1
+        while i < len(src) and depth:
+            c = src[i]
+            depth += (c == '{') - (c == '}')
+            i += 1
+        body = src[m.start():i]
+        if not re.search(r'\.(qb|qbx|qe)-|qqq|data-qb', body):
+            continue
+        for num in re.findall(r'(?:min|max)-(?:width|inline-size)\s*:\s*(\d+(?:\.\d+)?)\s*px', m.group(2)):
+            if int(float(num)) not in S11_HOUSE:
+                bad.append('@%s%s styles this board at %s px, which is no house width %s' % (m.group(1), m.group(2).rstrip(), num, S11_HOUSE))
+    return bad
 
 
 def find_chrome():
@@ -3070,12 +3651,7 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
             fails.append('%s: a list row draws its money in colour under MONO (MONO has no hue): %s' % (tag, bad[:3]))
     g = lg.get('geo') or {}
     if vp.startswith('phone'):
-        if g.get('listTop') is None or g.get('histBottom') is None or g['listTop'] < g['histBottom'] - 1:
-            fails.append('%s: on a phone the strategy list (top %s) is not under the trade list (bottom %s)'
-                         % (tag, g.get('listTop'), g.get('histBottom')))
-        if g.get('acctTop') is not None and g.get('histBottom') is not None and g['acctTop'] < g['histBottom'] - 1:
-            fails.append('%s: on a phone the Account section (top %s) is above the trade list (bottom %s)'
-                         % (tag, g['acctTop'], g['histBottom']))
+        # step 11: the list is ABOVE the trade list (a one-line fold up to 600 px) and Account is an own fold below it; _s11_order_problems judges both
         if distance and (g.get('histTop') is None or g.get('shellTop') is None or g['histTop'] - g['shellTop'] > LIST_VH_MAX * g['vh']):
             fails.append('%s: on a phone the trade list starts %s px under the top of the board (%.2f viewports of %s px); it must '
                          'start within %.1f (mistake #12)' % (tag, (g.get('histTop') or 0) - (g.get('shellTop') or 0),
@@ -3234,7 +3810,7 @@ TL_PAGE = 18                 # the SHOW MORE case: the list shows this many rows
 TL_FRAME_TOP_MAX = 792       # phone: the frame starts at most this far under the board top (the History section started at 784 before the frame)
 TL_TODAY = STAT_TODAY
 TL_WIDTHS = [375, 390, 600, 601, 640, 700, 800, 900, 1000, 1099, 1100, 1280, 1366]
-TL_CAV_BELOW = 1279          # the flagged-row mark under the time is drawn up to this window width (the flags column is drawn above it)
+TL_CAV_BOX = 800             # the flagged-row mark under the time is drawn while the list's own box is this wide or narrower (a container query; the flags column is drawn above it)
 CSV_FILE = 'qqq_shadow_book_closed_trades.csv'
 # the CSV the button saves keeps the columns it always had (the original thirty-one, then the ledger ones)
 CSV_COLS = [
@@ -4258,8 +4834,10 @@ def _judge_tl_width(tag, res, fails):
             if mode == 'list' and r.get('symClip'):
                 fails.append('%s: %s strategy names are cut off' % (t, r.get('symClip')))
             n, shown = r.get('cav') or [0, 0]
-            if n and shown != (n if w <= TL_CAV_BELOW else 0):
-                fails.append('%s: %s of %s flagged-row marks are drawn (they show up to %d px)' % (t, shown, n, TL_CAV_BELOW))
+            if n and (r.get('frameW') or 0) <= 0:
+                fails.append('%s: the list box was not measured (%r)' % (t, r.get('frameW')))
+            elif n and shown != (n if r['frameW'] <= TL_CAV_BOX else 0):
+                fails.append('%s: %s of %s flagged-row marks are drawn in a list box %s px wide (they show up to %d px)' % (t, shown, n, r.get('frameW'), TL_CAV_BOX))
 
 
 def _tl_cases(fixture):
@@ -4349,7 +4927,7 @@ def _attempt(chrome, alt_index, fixture):
     tls = [dict({'name': c['name'], 'scen': c['scen'], 'doc': c['doc'], 'vp': c['vp'], 'theme': c['theme'], 'today': c['today'], 'wh': c['wh'],
                  'widths': c.get('widths'), 'page': TL_PAGE}, **(c.get('pn') or {})) for c in _tl_cases(fixture)]
     html = (PROBE_HTML.replace('__CASES__', json.dumps(CASES)).replace('__VP__', json.dumps(VIEWPORTS))
-            .replace('__STATS__', json.dumps(stats)).replace('__TLS__', json.dumps(tls)).replace('__TLJS__', TL_JS)
+            .replace('__STATS__', json.dumps(stats)).replace('__TLS__', json.dumps(tls)).replace('__TLJS__', TL_JS).replace('__S11JS__', S11_JS)
             .replace('__NOW__', json.dumps(et_ms(FRESH_NOW))).replace('__VARS__', json.dumps(variants))
             .replace('__FIX__', json.dumps(fixture)))
     io.open(os.path.join(pdir, 'probe.html'), 'w', encoding='utf-8').write(html)
@@ -4381,7 +4959,11 @@ def _attempt(chrome, alt_index, fixture):
         print(json.dumps(data, indent=1)[:20000])
     if os.environ.get('WEBULLPROBE_DUMP_FILE'):
         io.open(os.environ['WEBULLPROBE_DUMP_FILE'], 'w', encoding='utf-8').write(json.dumps(data))
-    return _judge(data, fixture)
+    res = _judge(data, fixture)
+    st = _static_breakpoints(alt_index or os.path.join(ROOT, 'index.html'))
+    if st:
+        return FAIL, list(res[1]) + st, res[2], res[3], True
+    return res
 
 
 def _first(s, n=300):
@@ -4599,6 +5181,13 @@ def _judge(data, fixture):
         _judge_list(nm, r.get('lg'), cfg['vp'], cfg['theme'], fixture, None, 'ALL', False, False, fails)
         _judge_cal(nm, r.get('lgcal'), cfg['vp'], cfg['theme'], fixture, None, None, _cal_open_want(cfg['vp'], None), STAT_TODAY, fails)
         _judge_tl_frame(nm, r.get('tl'), fixture, None, fails, vp=cfg['vp'], theme=cfg['theme'], top_check=True)
+        _s11_order_problems(nm, r.get('s11') or {}, r.get('innerW') or 0, fixture, fails)
+        _s11_fold_problems(nm, r.get('s11') or {}, r.get('innerW') or 0, cfg['theme'], fixture, fails)
+        if cfg['vp'] == 'phone':
+            pp = (r.get('s11') or {}).get('pos') or {}
+            tp = (pp.get('trades') or {}).get('t', 0) - (pp.get('shell') or {}).get('t', 0) if pp.get('trades') and pp.get('shell') else None
+            if tp is None or tp > S11_PHONE_TOP_MAX:
+                fails.append('%s: on a phone the trade list starts %s px under the board top; it was %d before step 11 and must not grow' % (nm, tp, S11_PHONE_TOP_MAX))
         legs = r.get('tradeLegs') or []
         if r.get('tradeRows') != n_rows:
             fails.append('%s: the trade list shows %s rows for %s trades' % (nm, r.get('tradeRows'), n_rows))
@@ -4670,6 +5259,7 @@ def _judge(data, fixture):
         _judge_more(tag, r, sc_, tr, cut, fixture, fails)
         _judge_list(tag, r.get('lg'), vp, sc_['theme'], doc, cut, rg, sc_['folds'], sc_['folds'], fails, distance=not sc_['more'])
         _judge_cal(tag, r.get('lgcal'), vp, sc_['theme'], doc, cut, cm, _cal_open_want(vp, sc_['cal_open']), sc_['today'], fails)
+        _s11_order_problems(tag, r.get('s11') or {}, r.get('innerW') or 0, doc, fails)
         _judge_tl_frame(tag, r.get('tl'), doc, cut, fails, vp=vp, theme=sc_['theme'], top_check=not sc_['more'], today=sc_['today'],
                         none_text=('no trades closed today \u00b7 %d more outside this range' % len(tl_range_rows(doc))) if sc_['empty'] else None)
         if nm == '$0 trade':
@@ -4743,6 +5333,7 @@ def _judge(data, fixture):
                 fails.append('%s: More stats did not close again (aria-expanded %s, panel %s, stored %r)'
                              % (tag, fo.get('closed'), fo.get('panelAfter'), fo.get('stored2')))
         _judge_inter_ledger(tag, res, fixture, fails)
+    _judge_s11_run(data.get('s11'), fixture, fails)
     r = cases.get('oldboards')
     if r is None:
         unfinished.append('oldboards: never ran (why=%s)' % why)
@@ -4764,6 +5355,7 @@ def _judge(data, fixture):
         if o2.get('oldLegRows') != ['ORB', 'ENGUQ', 'NOISE'] or o2.get('sharedList') or not o2.get('oldSideHd'):
             fails.append('oldboards: ?oldboards=1 does not keep the old strategy rows (rows %r, shared list %s, old heading %s)'
                          % (o2.get('oldLegRows'), o2.get('sharedList'), o2.get('oldSideHd')))
+        _s11_old_problems('oldboards', r, fails)
         if o2.get('order') != ['qbx-side', 'qbx-account', 'qbx-stats', 'qbx-history']:
             fails.append('oldboards: ?oldboards=1 changed the old page order: %r' % (o2.get('order'),))
         # LEDGER step 8: the old List | Table is untouched (no shared frame; the old switch, the old rows, each row's close day)
@@ -4916,6 +5508,16 @@ def _judge_variants(data, fixture, fails, unfinished, why):
             fails.append('%s: the NOISE row KEEL warning reads %r, want %r' % (tag, r.get('keelwarn'), ex['keelwarn']))
         if ex.get('silent') and ex.get('mini_silent') and r.get('miniSilent') != ex['mini_silent']:
             fails.append('%s: the Orders summary reads %r, want %r' % (tag, r.get('miniSilent'), ex['mini_silent']))
+        # LEDGER step 11: the Orders fold's own one-line header (the mode, the daily stop used out of its limit, its state)
+        osm = r.get('ordSum') or ''
+        if ex.get('ordsum_start') and not osm.startswith(ex['ordsum_start']):
+            fails.append('%s: the Orders fold header reads %r, want it to start with %r' % (tag, osm, ex['ordsum_start']))
+        for s in ex.get('ordsum_has') or []:
+            if s not in osm:
+                fails.append('%s: the Orders fold header reads %r, want %r in it' % (tag, osm, s))
+        for s in ex.get('ordsum_lacks') or []:
+            if s in osm:
+                fails.append('%s: the Orders fold header reads %r, it must not say %r' % (tag, osm, s))
         # finding 8: neither Orders view may still claim the frozen mode while the box is silent
         stale_like = bool(ex.get('silent') or ex.get('noread'))
         if stale_like:
@@ -5043,7 +5645,7 @@ def _selftest_one(path):
     return r.returncode, (r.stdout or '').strip().splitlines()[:3]
 
 
-def selftest(jobs=1):
+def selftest(jobs=1, only=None):
     try:
         sys.stdout.reconfigure(encoding='utf-8', errors='replace', line_buffering=True)
     except Exception:
@@ -5054,7 +5656,10 @@ def selftest(jobs=1):
     bad = []
     try:
         built = []
+        only_set = set(only.split(',')) if only else None
         for name, anchor, repl, why in MUTANTS:
+            if only_set is not None and name not in only_set:
+                continue
             n = src.count(anchor)
             if n != 1:
                 print('SELFTEST: INCONCLUSIVE -- mutant %r cannot be built: its anchor appears %d times in '
@@ -5083,10 +5688,11 @@ def selftest(jobs=1):
                     code = main(['--file', path, '--no-retry'])
                 if code != FAIL:
                     bad.append('mutant %s was NOT caught (exit %d) -- the gate has gone blind to: %s' % (name, code, why))
-        print('-- current index.html: expect PASS')
-        code = main([])
-        if code != PASS:
-            bad.append('current index.html did not PASS (exit %d)' % code)
+        if not only_set:
+            print('-- current index.html: expect PASS')
+            code = main([])
+            if code != PASS:
+                bad.append('current index.html did not PASS (exit %d)' % code)
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
     if bad:
@@ -5094,6 +5700,9 @@ def selftest(jobs=1):
         for b in bad:
             print('  - ' + b)
         return FAIL
+    if only_set:
+        print('SELFTEST (only %d mutants): PASS -- all caught (%.1fs)' % (len(built), time.time() - t0))
+        return PASS
     print('SELFTEST: PASS -- gate caught %d/%d broken builds and passed the current one (%.1fs)'
           % (len(MUTANTS), len(MUTANTS), time.time() - t0))
     return PASS
@@ -5109,11 +5718,12 @@ def main(argv=None):
     ap.add_argument('--no-retry', action='store_true', help='do not re-render a failed attempt')
     ap.add_argument('--selftest', action='store_true',
                     help='assert FAIL on every MUTANT of index.html, then PASS on the real file')
+    ap.add_argument('--only', default=None, help='with --selftest: only these mutants (comma separated names), and skip the final run on the current file')
     ap.add_argument('--jobs', type=int, default=0,
                     help='with --selftest: how many broken copies to run side by side (default: 4, or fewer on a small machine; 1 = one by one)')
     args = ap.parse_args(argv)
     if args.selftest:
-        return selftest(args.jobs if args.jobs > 0 else min(4, max(1, (os.cpu_count() or 2) // 3)))
+        return selftest(args.jobs if args.jobs > 0 else min(4, max(1, (os.cpu_count() or 2) // 3)), args.only)
     t0 = time.time()
     alt_index = os.path.abspath(args.file) if args.file else None
     if alt_index and not os.path.isfile(alt_index):

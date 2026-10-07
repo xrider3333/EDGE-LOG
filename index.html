@@ -446,15 +446,6 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qe-drawer-lbl{font-size:8px;letter-spacing:.08em;color:var(--text5);margin-bottom:6px;text-transform:uppercase}
 .qe-legend-item{cursor:pointer;user-select:none;transition:opacity .12s}
 .qe-legend-item.off{opacity:.32}
-@media (max-width:900px){
-  .ov-shell.qqq-ov-shell{display:block;margin:calc(var(--pad)*-1) calc(var(--pad)*-1) 0}
-  .ov-shell.qqq-ov-shell .ov-rail.qqq-sticky-rail{position:static;max-height:none;display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;border-right:none;border-bottom:1px solid var(--border)}
-  .ov-shell.qqq-ov-shell .ov-rail.qqq-sticky-rail .rail-net{grid-column:1/-1}
-  .ov-shell.qqq-ov-shell .ov-rail.qqq-sticky-rail .rail-grp{grid-column:1/-1;margin:10px 0 4px}
-  .ov-shell.qqq-ov-shell .ov-work{padding:14px 12px 20px}
-  .ov-shell.qqq-ov-shell .ov-cc-grid{display:block}
-  .ov-shell.qqq-ov-shell .ov-cc-grid .ov-cal{order:0;margin-bottom:12px}
-}
 /* ── QB — QQQ Shadow Book Robinhood/iOS re-skin (2026-09-08), qb- prefixed, additive ── */
 /* density pass 2026-09-08 (owner: "seems like I have to scroll down a lot") — compact
    hero, fixed-height chart, tighter card padding, and a >=1100px two-column shell with a
@@ -553,7 +544,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
 @keyframes qbSlideUp{from{transform:translateY(16px);opacity:.6}to{transform:translateY(0);opacity:1}}
 .qb-attn-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:7px;flex:0 0 auto}
 .qb-hairline-top{border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);margin-top:6px;padding-top:10px}
-@media(max-width:760px){.qb-shell{padding:0 16px}.qb-hero-num{font-size:34px}.qb-chart-head{flex-wrap:wrap}.qbx-chart-tabs{gap:12px}}
+@media(max-width:740px){.qb-shell{padding:0 16px}.qb-hero-num{font-size:34px}.qb-chart-head{flex-wrap:wrap}.qbx-chart-tabs{gap:12px}}
 /* ── QBX — Robinhood-style re-composition (2026-09-24, owner: "make more like
    robinhood pls. peep the real trading log"). Reuses every qb- class and every
    data-qb*/data-qe* attribute already wired above (nothing renamed, nothing
@@ -631,7 +622,10 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-tl .lg-tl-row .lg-c-side{min-width:46px}
 .qbx-tl .lg-tl-row .lg-c-pnl{min-width:70px}
 .qbx-tl .lg-tl-row .lg-c-chart{min-width:30px}
-@media(max-width:1279px){.qbx-tl .qbx-cav{display:block}}
+/* the flagged-row mark shows wherever the list's own box is 800 px or narrower (the flags column then has less than its 147 px and clips); this was a window
+   width of 1279 px, a number only this board used. The box width is what the row needs: 796 px holds every cell. */
+.qbx-tl{container-type:inline-size;container-name:qbtl}
+@container qbtl (max-width:800px){.qbx-tl .qbx-cav{display:block}}
 @media(max-width:600px){
   .qbx-lg6 .qbx-history>.qb-section-hd{display:none}
   .qbx-lg6 .qbx-history.qbx-section{padding-top:0;border-top:0}
@@ -653,7 +647,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-lg-extra .qb-leg-today-note{margin-top:0}
 #qe-trades-section,[data-qbday]{scroll-margin-top:130px}
 @media(max-width:600px){.qbx-lgstats{padding-top:12px}.qbx-lgstats .lg-stat{padding:12px 14px}.qbx-lgstats .lg-more{margin-bottom:10px}.qbx-lgstats .lg-more-panel{margin-top:0}}
-@media(max-width:760px){.qbx-lg-extra{padding:0 12px 8px}}
+@media(max-width:740px){.qbx-lg-extra{padding:0 12px 8px}}
 @media(min-width:1100px){
   .qb-shell{
     max-width:1320px;
@@ -690,8 +684,54 @@ select option:checked{background:var(--bg3);color:var(--text)}
   .qbx-activity{grid-area:activity}
   .qbx-system{grid-area:system}
   .qbx-footer{grid-area:footer}
-  .qb-shell.qbx-lg6{grid-template-areas:"hero side" "chart side" "status side" "stats side" "account side" "history side" "activity side" "system side" "footer side"}
+  .qb-shell.qbx-lg6{grid-template-areas:"hero side" "chart side" "status side" "stats side" "cal side" "history side" "own side"}
   .qbx-statusline{grid-area:status}
+  .qbx-lg6 .qbx-activity{grid-area:cal}
+  .qbx-lg6 .qbx-own{grid-area:own}
+}
+/* WEBULL PAPER, LEDGER unify step 11 (2026-10-06): ONE page order (hero, range pills, chart, status strip, stats strip, More stats, calendar, strategy
+   list, trade list, then this board's own sections) and every own section a closed fold: one header line with the title, a one-line summary (the one
+   number or state worth seeing shut) and a chevron, the content under it only once a viewer opens it (remembered per viewer). The folds wear the shared
+   .lg-more look. Up to 600 px the strategy list is one such line too; from 601 px up it is drawn as before (the sticky right column from 1100).
+   Breakpoints: only the house numbers (600 phone, 740 compact, 1100 rail). ?oldboards=1 never draws any of these classes. */
+.lg-more.qbx-fold-btn{margin-bottom:0;padding:12px 4px}
+.qbx-fold-t{flex:0 0 auto;white-space:nowrap}
+.qbx-fold-sum{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.5px;text-transform:none;color:var(--text5)}
+.qbx-fold-btn .lg-chev{flex:0 0 auto}
+.lg-more-panel.qbx-fold-panel{margin:0 0 14px;padding:14px 16px}
+.qbx-fold-panel .qb-card{background:none;border:0;border-radius:0;padding:0;margin:0;overflow-x:auto}
+.qbx-fold-panel .qb-section-hd:first-child{margin-top:0}
+.qbx-lg6 .qbx-own{margin-top:4px}
+.qbx-lg6 .qbx-chart .qbx-range-row{margin:0 0 10px}
+.qbx-lg6 .qbx-activity{padding:0;border-top:0}
+.qbx-lg6 .qbx-activity .lg-more{margin-bottom:0;padding:12px 4px}
+.qbx-lg6 .qbx-activity .lg-cal-panel{margin-top:6px}
+.qbx-lg6 .qbx-lgstats .lg-more{margin-bottom:0;padding:12px 4px}
+.qbx-lg6 .qbx-lgstats .lg-more-panel{margin-top:0}
+.qbx-lg6 .qbx-list-fold{display:none}
+.qbx-lg6 .qbx-list-panel[hidden]{display:block}
+@media(max-width:600px){
+  .qbx-lg6 .qbx-list-fold{display:flex}
+  .qbx-lg6 .qbx-list-panel[hidden]{display:none}
+  .qbx-lg6 .qbx-side{padding-top:0}
+  .lg-more.qbx-fold-btn{padding:7px 4px}
+  .qbx-lg6 .qbx-activity .lg-more,.qbx-lg6 .qbx-lgstats .lg-more{padding:7px 4px}
+  .qbx-lg6 .qbx-hero .lg-hero{padding-top:2px;padding-bottom:6px;gap:6px 14px}
+  .qbx-lg6 .qbx-chart .qbx-cap-all{display:none}
+  .qbx-lg6 .qbx-hero .lg-hero-big{margin-top:2px}
+  .qbx-lg6 .qbx-hero .lg-hero-today{margin-top:4px}
+  .qbx-lg6 .qbx-hero .lg-hero-note{margin-top:4px;line-height:1.4;font-size:11px}
+  .qbx-lg6 .qbx-hero .lg-chip{padding:2px 8px}
+  .qbx-lg6 .qbx-chart .qb-chart-wrap{margin-bottom:6px}
+  .qbx-lg6 .qbx-chart .qbx-range-row{margin-bottom:6px}
+  .qbx-lg6 .qbx-statusline .qbx-status-strip{flex-wrap:nowrap;margin-top:4px;padding-top:6px;gap:8px;font-size:11px;line-height:1.35}
+  .qbx-lg6 .qbx-statusline .qbx-status-strip>span{flex:1 1 auto;min-width:0}
+  .qbx-lg6 .qbx-statusline .qb-hero-refresh{flex:0 0 auto;margin-left:0;padding:3px 9px;font-size:10px}
+  .qbx-lg6 .qbx-lgstats{padding-top:8px}
+  .qbx-lg6 .qbx-lgstats .lg-stats{margin-bottom:4px}
+  .qbx-lg6 .qbx-lgstats .lg-stat{padding:8px 12px}
+  .qbx-lg6 .qbx-lgstats .lg-stat-val{margin-top:3px}
+  .qbx-lg6 .qbx-lgstats .lg-stat-sub{margin-top:2px}
 }
 
 /* ══════════════════════════ HOME tab (v73.651) ══════════════════════════
@@ -1237,7 +1277,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1118';
+const VERSION='73.1119';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1255,7 +1295,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1118',date:'2026-10-06',notes:['LEDGER step 11 on NT8 PAPER: one page order, top to bottom - the hero, the range pills, the chart, the four tiles, the More stats fold, the calendar fold, the strategy list, the trades list, then the board own sections. Every own section is now a closed fold with a one-line summary in its header and is remembered open or closed in your browser: the status chips (a single line that keeps every warning count, with REFRESH beside it), the 10s capture, NinjaTrader detail, the cross-engine check, the gate audit and the daily reports. On a phone and a tablet the strategy list is a fold too (closed on a phone), so the trades still start within one screen.','One set of breakpoints: 600 for the phone, 740, 800 and 920 for the trade list cells, 1100 for the two-column page; the calendar now opens by default above 600 px (it was 760). Nothing was removed: the tick boxes and OPEN N CHARTS, the strategy filters and switches, the trade panel, the calendar day click and REFRESH all stay. ?oldboards=1 still draws the previous board, unchanged.']},{v:'73.1116',date:'2026-10-06',notes:['SCORES: 4 trades from 2026-10-05, 2026-10-06 scored, 0 marked NA (no price data).']},{v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
+const CHANGELOG=[{v:'73.1119',date:'2026-10-06',notes:['LEDGER step 11 on WEBULL PAPER: the board now runs in one fixed order, top to bottom: the hero, the range pills (moved from under the chart to above it), the equity chart, the status strip with its box-updated line and Refresh, the stats strip, the More stats fold, the calendar fold, the strategy list, the trade list with its panel, then the sections only this board has. On a laptop the strategy list stays in the sticky right column.','Every section of its own is now a closed fold with a one-line summary in its header: Orders (the mode and the daily stop used out of its limit, with near the limit or stopped for the day when it applies), Account (the equity and its change today), the orders placed today (the count), Feed and signals, System (ready or NOT READY with its open checks), Rails, Event timeline and Model reference. A tap opens one, and open or closed is remembered for each viewer on that device. Nothing was removed: SHOW MORE, the CSV export, the caveat chips, the trade panel, the status strip and the live position line are all still there.','On a phone the strategy list is a one-line fold above the trade list, and the header, chips and stat tiles are tighter, so the trade list starts no lower than before. The board now uses one set of breakpoints (600, 740, 800, 920 and 1100 px); the flagged-row mark under the time follows the width of the list box (a container query at 800 px) instead of the window width. ?oldboards=1 is unchanged.']},{v:'73.1116',date:'2026-10-06',notes:['SCORES: 4 trades from 2026-10-05, 2026-10-06 scored, 0 marked NA (no price data).']},{v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
+{v:'73.1118',date:'2026-10-06',notes:['LEDGER step 11 on NT8 PAPER: one page order, top to bottom - the hero, the range pills, the chart, the four tiles, the More stats fold, the calendar fold, the strategy list, the trades list, then the board own sections. Every own section is now a closed fold with a one-line summary in its header and is remembered open or closed in your browser: the status chips (a single line that keeps every warning count, with REFRESH beside it), the 10s capture, NinjaTrader detail, the cross-engine check, the gate audit and the daily reports. On a phone and a tablet the strategy list is a fold too (closed on a phone), so the trades still start within one screen.','One set of breakpoints: 600 for the phone, 740, 800 and 920 for the trade list cells, 1100 for the two-column page; the calendar now opens by default above 600 px (it was 760). Nothing was removed: the tick boxes and OPEN N CHARTS, the strategy filters and switches, the trade panel, the calendar day click and REFRESH all stay. ?oldboards=1 still draws the previous board, unchanged.']},{v:'73.1116',date:'2026-10-06',notes:['SCORES: 4 trades from 2026-10-05, 2026-10-06 scored, 0 marked NA (no price data).']},{v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
 {v:'73.1117',date:'2026-10-06',notes:['LEDGER step 11 on REAL: the board now reads in ONE fixed order at every width: the hero, the range pills with the EQUITY or P&L switch, the equity chart, the four stat tiles, More stats, the calendar, the accounts, the trade list (with its panel), then the board own sections. Before, the phone moved things about with a separate order and the laptop kept another.','Every own section is now a closed fold with ONE line that says what is inside: PASTE A SNAPSHOT LINK (where the next link goes), SHOULD HAVE TRADED (how many setups, the newest), DEPOSITS (events and the net), AI ASSESSMENT (the last 20 trades in a line) and JOURNAL (entries and the newest date). Each fold remembers open or closed on this browser, and a paste note or a setup form in the making opens its fold by itself. The NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL buttons stay with the list, and nothing was removed.','One set of screen widths: the board own rules now use only 600 (phone), 740, 800 and 920 (list cells) and 1100. The SIMPLE table brings its columns back at 740, 920 and 1100 (were 700, 900 and 1010), the calendar opens by default above 600 (was 760), and the phone trade list starts no lower than before. ?oldboards=1 is unchanged.']},{v:'73.1116',date:'2026-10-06',notes:['SCORES: 4 trades from 2026-10-05, 2026-10-06 scored, 0 marked NA (no price data).']},{v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
 {v:'73.1114',date:'2026-10-06',notes:['LEDGER step 9 on WEBULL PAPER: a click on a trade row now opens the shared trade panel (a panel on the right on a laptop, a sheet from the bottom on a phone) in place of the old sheet. Header: the strategy with its run number, the side, the entry day, entry to exit time, the shares, the BOOK ONLY, FILL GAP, EOD and BOOK PRICE chips and the signed P&L of record.','Chart: the same QQQ candles the chart glyph opens, with EXPAND. Numbers: prices and Webull fills, hold time, P&L of record, running total, real P&L, slip, fill coverage and the fill breakdown. Notes: read-only, with the exit reason, the flags in words and the KEEL size note. OPEN CANDLES is the one action, and nothing in the panel changes a trade.','Esc, a tap outside it or the close button shut it, and a closed panel takes no room. The open trade stays open through SHOW MORE, a search, a chip, LIST and TABLE and the board redraw every few seconds. ?oldboards=1 keeps the old sheet.']},
 {v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
@@ -38636,6 +38677,25 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const feedSigOpen=APREF.qqqFeedSigOpen==null?0:+APREF.qqqFeedSigOpen;
       const railsOpen=APREF.qqqRailsOpen==null?0:+APREF.qqqRailsOpen;
       const eventsOpenState=APREF.qqqEventsOpen==null?0:+APREF.qqqEventsOpen;
+      // ── LEDGER UNIFY STEP 11 (2026-10-06): every one of this board's OWN sections is a CLOSED FOLD with a ONE-LINE SUMMARY in its header (the one
+      // number or state a viewer wants without opening it); the strategy list is one on a phone. Open / closed is remembered per viewer in
+      // localStorage (el_qb_fold_<key>, read and written inside try/catch, with a memory copy for a browser that blocks storage); a viewer who had
+      // opened the old System / Rails / Event timeline / Feed & signals / Model disclosure keeps that choice until they touch the new fold. The header
+      // wears the shared .lg-more look; the panel is there (hidden) even when shut, and holds its content only while open unless a probe, or a figure
+      // the page reads while shut (the daily stop, the account), needs it drawn: keep=true.
+      const QB_FOLD_LEGACY={system:'qqqSystemOpen',rails:'qqqRailsOpen',events:'qqqEventsOpen',feedsig:'qqqFeedSigOpen',model:'qqqModelOpen'};
+      const qbFoldOpen=k=>{
+        let o=(window._qbFolds&&window._qbFolds[k]!=null)?!!window._qbFolds[k]:!!(QB_FOLD_LEGACY[k]&&APREF[QB_FOLD_LEGACY[k]]!=null&&+APREF[QB_FOLD_LEGACY[k]]);
+        try{const sv=localStorage.getItem('el_qb_fold_'+k);if(sv!=null)o=sv==='1';}catch(e){}
+        return o;
+      };
+      const qbFoldBtn=(k,title,sum,open,cls)=>'<button type="button" class="lg-more qbx-fold-btn'+(cls?' '+cls:'')+'" data-qbfold="'+k+'" aria-expanded="'+open+'" aria-controls="qbf-'+k+'">'
+        +'<span class="qbx-fold-t">'+title+'</span><span class="qbx-fold-sum" data-qbfoldsum="'+k+'">'+(sum||'&nbsp;')+'</span><span class="lg-chev" aria-hidden="true">&#9662;</span></button>';
+      const qbFoldHtml=(k,title,sum,body,keep)=>{
+        const o=qbFoldOpen(k);
+        return '<div class="qbx-fold" data-qbfoldbox="'+k+'">'+qbFoldBtn(k,title,sum,o)
+          +'<div class="lg-more-panel qbx-fold-panel" id="qbf-'+k+'"'+(o?'':' hidden')+'>'+((o||keep)?body:'')+'</div></div>';
+      };
       const qbSheet=window._qbSheet||null; // {kind:'trade',idx}|{kind:'integrity',key}|null
       // LIST | TABLE: once chosen it is held in memory; a fresh page asks the shared frame for the choice it remembered per board (el_lg_view_wb)
       if(!LEDGER_OLDBOARDS&&window._qeTradesView==null)window._qeTradesView=ledgerTradeViewGet('wb','list');
@@ -38886,6 +38946,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // built up-front so it is available regardless of whether QE (the shadow book)
       // itself loaded, errored, or is empty.
       let modelBody='';
+      let modelSum='reference only \u00b7 no model record yet';
       {
         const QP=window._qqqPaper||null;
         const qpErr=window._qqqPaperErr;
@@ -38908,6 +38969,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const legs=QP.legs||{};
           const cum=QP.cum_pnl||{};
           const blotter=QP.blotter||[];
+          modelSum='reference only \u00b7 '+blotter.length+' model trade'+(blotter.length===1?'':'s');
           const qpSplitStats=rows=>{
             const rep=rows.filter(t=>!qpIsLive(t.entry_time));
             const live=rows.filter(t=>qpIsLive(t.entry_time));
@@ -39046,7 +39108,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         }
       }
       const modelOpen=APREF.qqqModelOpen==null?0:+APREF.qqqModelOpen; // collapsed by default
-      const modelSection='<div class="qb-disclosure qb-tap" data-qqqmodeltoggle>'
+      const modelSection=!LEDGER_OLDBOARDS?qbFoldHtml('model','Model reference',modelSum,'<div>'+modelBody+'</div>'):'<div class="qb-disclosure qb-tap" data-qqqmodeltoggle>'
         +'<span class="qb-disclosure-arrow">'+(modelOpen?'▾':'▸')+'</span>'
         +'<span style="font-size:12px;color:var(--text3)">Model reference — strategies re-run on delayed Yahoo QQQ bars (reference only; not what Webull paper trading trades)</span>'
         +'</div>'
@@ -39431,6 +39493,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           ?QE.today.legs_record
           :(()=>{const o={};trades.forEach(t=>{if(qeTradeDate(t)!==qeBoxDay)return;const k=(t&&t.leg)||'?';const b=o[k]||(o[k]={pnl:0,n:0,book:0});b.pnl+=qePnlOf(t);b.n++;if(String(t.pnl_record_src||'')!=='webull')b.book++;});return o;})();
         let legListHtml='<div class="qb-list">';
+        let qbListSum='';   // the strategy list's one-line header on a phone (LEDGER unify step 11)
         const qbLiveRows=[],qbRetiredInfo=[],qbLegModels=[];   // qbLegModels: one entry per leg for the shared strategy list (LEDGER unify step 10)
         QE_LEGS.forEach(([key,label,color,runNo,caveat])=>{
           const p=positions[key];
@@ -39607,6 +39670,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             lh=lh.slice(0,at)+'aria-expanded="'+open+'" '+lh.slice(at,end+9)+(m.extra?('<div class="qbx-lg-extra" data-qbextra="'+m.key+'">'+m.extra+'</div>'):'')+lh.slice(end+9);
           });
           legListHtml=lh;
+          // the phone's one-line header for the list: how many legs trade, what the range made, and the open positions
+          qbListSum=bookRows.filter(r=>r.key!=='~other').length+' live &middot; '
+            +(qbRangeTrades.length?('<span class="'+ledgerCls(qbRangePnl)+'">'+ledgerSigned(qbRangePnl)+'</span> '+qbRangeWord):qbRangeNone)
+            +(posCount?(' &middot; '+posCount+' open'):'');
         }
 
         // ── QB PERIOD FILTER — 1W/1M/3M/ALL, anchored on the newest plotted date (this is
@@ -39646,9 +39713,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const qbRangeCap=(qbRange&&qbRange!=='ALL')?('Cumulative P&amp;L, '+qbRangeWord+', counted from the start of the range'):('Cumulative P&amp;L since '+naS(QE.live_from));
           if(!qbRangeTrades.length){
             window._qbLgChart=null;
-            equityHtml='<div class="qb-chart-wrap"><div class="qbx-chart-cap">'+qbRangeCap+'</div>'
-              +'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:18px 0">'+(closedN?qbRangeNone:'curve starts with the first closed trade')+'</div>'
-              +periodTabsHtml+'</div>';
+            equityHtml='<div class="qb-chart-wrap">'+periodTabsHtml+'<div class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</div>'
+              +'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:18px 0">'+(closedN?qbRangeNone:'curve starts with the first closed trade')+'</div></div>';
           }else{
             const tsOf=t=>String((t&&(t.exit_ts||t.entry_ts))||'');
             const chrono=qbRangeTrades.slice().sort((a,b)=>tsOf(a)<tsOf(b)?-1:tsOf(a)>tsOf(b)?1:0);
@@ -39745,8 +39811,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +(bands.length?'<span title="days whose trades include an exit priced from the 1-minute tape, a failed parity check, or a trade that never reached the broker; hover a column for that day"><i class="qbx-lg-hatch"></i><span class="qbx-lg-long">hatched = a data caveat day; its trades still count</span><span class="qbx-lg-short">hatched = caveat day</span></span>':'')
               +(hasBookPriced?'<span title="marked BOOK ONLY or BOOK PRICE on the trade rows below"><i class="qbx-lg-book"></i><span class="qbx-lg-long">book only = a side priced from the book because no Webull fill was captured</span><span class="qbx-lg-short">book only = no fill</span></span>':'')
               +'</div>'):'';
-            equityHtml='<div class="qb-chart-wrap"><div class="qbx-chart-cap">'+qbRangeCap+'</div>'
-              +'<div class="qbx-lgchart" id="qb-lg-chart"></div>'+keyHtml+periodTabsHtml+'</div>';
+            equityHtml='<div class="qb-chart-wrap">'+periodTabsHtml+'<div class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</div>'
+              +'<div class="qbx-lgchart" id="qb-lg-chart"></div>'+keyHtml+'</div>';
           }
         }else{
           window._qbLgChart=null;
@@ -39926,6 +39992,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           }
         }
 
+        // one-line headers for the own folds (LEDGER unify step 11)
+        const qbOrdTodaySum=ordersArr.length?(ordersArr.length+' order'+(ordersArr.length===1?'':'s')+' &middot; last '+qeFmtETTime(ordersArr[ordersArr.length-1].ts_et)
+          +' '+String(ordersArr[ordersArr.length-1].action||'').toUpperCase()+' '+String(ordersArr[ordersArr.length-1].leg||'')):'none';
         let tradesHtml,tradesListHtml,qbBuildDrawerFn=null;
         // ── LEDGER unify step 8: this board's trade list on TRADING-LOG's shared frame (ledgerTradeListHtml / ledgerTradeListWire). ──
         // The frame draws the toolbar, the day headers (the New York day a trade CLOSED, with that day's net), the common columns and the
@@ -40795,6 +40864,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // details toggle here, that stays reachable one section down in the collapsed
         // SYSTEM area's Orders card. Kept as its OWN small IIFE (not a refactor of
         // qbOrdersHtml) so that card's carefully-reasoned edge cases stay untouched.
+        let qbMiniSum='orders not reported yet';   // the one-line header of the Orders fold (LEDGER unify step 11): the mode and the daily stop used
         const qbOrdersCompactHtml=(()=>{
           try{
             const BR=(QE&&QE.broker)||null;
@@ -40819,6 +40889,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const barCol=stopTripped?'var(--attn-red)':(dllNearLimit?'var(--attn-amber)':'var(--attn-ok)');
               barHtml='<div style="'+qbDimCss+'"><div class="qb-bar" style="margin-top:8px"><div style="width:'+usedPct+'%;background:'+barCol+'"></div></div>'
                 +'<div data-qbstop="'+(QF.isToday?'today':QF.dayLabel)+'" style="font-size:11px;color:var(--text4);margin-top:4px" title="'+dllStopLbl+'">'+qeMoney(used)+' of '+qeMoney(dllLimitAbs)+' daily stop used'+(QF.isToday?'':(' · from '+QF.dayLabel+', not today'))+(stopTripped?' · stopped for the day':' · '+dllStopShort)+'</div></div>';
+            }
+            {
+              const usedS=Math.abs(Math.min(0,stopPnl));
+              qbMiniSum=pillTxt+(dllLimitAbs!=null
+                ?(' &middot; '+qeMoney(usedS)+' of '+qeMoney(dllLimitAbs)+' daily stop used'+(dllTripped?' &middot; stopped for the day':(dllNearLimit?' &middot; near the limit':''))+(QF.isToday?'':(' &middot; from '+QF.dayLabel)))
+                :' &middot; no daily stop set');
             }
             const LO=BR.last_order||{};
             const legDisplayMini=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:(k||'—');};
@@ -40854,6 +40930,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // every leg, plus the equity block itself. Was qbPositionsLiveHtml/"Positions ·
         // Live"; the qb-card wrapper + its own header move to the shared qbx-section
         // wrapper at final composition time, same as Stats/History/Activity below.
+        let qbAcctEq={};   // what the Account fold's header needs from the equity block below: its STALE verdict and the day the change belongs to
         const qbAccountHtml=(()=>{
           try{
             const qtyWord=q=>{
@@ -40883,6 +40960,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const eqStale=QF.ok?(QF.stale||eqAsOfMs==null||(QF.inSession&&QF.nowMs-eqAsOfMs>180e3)):!!QEQUITY.stale;
               const eqStaleWhy=qbNoRead?('this page cannot read the status right now; its last copy is from '+QF.sinceTxt)
                 :QF.stale?('the box has been silent since '+QF.sinceTxt):(eqAsOfMs==null?'the balance has not been read':('the balance was read '+qbAgoText((QF.nowMs-eqAsOfMs)/1000)+' ago'));
+              qbAcctEq={stale:eqStale,chgDay:chgDay};
               const staleHtml=eqStale?' <span class="qb-status-chip" data-qbeqstale title="'+eqStaleWhy+'" style="border-color:var(--attn-amber);color:var(--attn-amber)">STALE</span>':'';
               return '<div>'
                 +'<div style="font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--text5);margin-bottom:3px">Account equity</div>'
@@ -40934,6 +41012,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           }catch(e){
             return '<div style="font-size:13px;color:var(--text4);padding:2px 0">Live positions not reported yet.</div>';
           }
+        })();
+        // the Account fold's one-line header (LEDGER unify step 11): the account's equity and its change, STALE when the read is old, and the open legs
+        const qbAcctSum=(()=>{
+          try{
+            if(!QPOSLIVE&&!QEQUITY)return 'not reported yet';
+            const parts=[];
+            if(QEQUITY&&QEQUITY.net_liq!=null&&qeFin(QEQUITY.net_liq)!==null){
+              parts.push(ledgerMoney(Number(QEQUITY.net_liq)));
+              const chg=QEQUITY.change_today==null?null:qeFin(QEQUITY.change_today);
+              if(chg!==null)parts.push('<span class="'+ledgerCls(chg)+'">'+(chg>=0?'&#9650; ':'&#9660; ')+ledgerSigned(chg)+'</span> '+(qbAcctEq.chgDay||'today'));
+              if(qbAcctEq.stale)parts.push('STALE');
+            }else parts.push('equity not read yet');
+            if(posCount)parts.push(posCount+' open');
+            return parts.join(' &middot; ');
+          }catch(e){return 'not reported yet';}
         })();
 
         // ── 3. STAT TILES + "More stats" -- same four headline numbers a Robinhood
@@ -41100,6 +41193,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // state remembered per browser same as the MODEL section already did. Was its
         // own qb-card qb-sec-footer; the qbx-footer.qbx-section wrapper at final
         // composition time now supplies the card-less thin-rule framing instead.
+        const qbRailsSum=(dllLimitAbs!=null?('daily stop '+qeMoney(dllLimitAbs)):'no daily stop set')+(rails.max_shares_per_leg!=null?(' &middot; up to '+qeInt(rails.max_shares_per_leg)+' shares a leg'):'');
+        const qbEvtSum=(QEVT&&QEVT.length)?(QEVT.length+' events &middot; newest '+qeFmtETTime(QEVT[0].ts_et)+' '+String(QEVT[0].kind||'').toUpperCase()):'no events published yet';
+        const qbFeedSum=feedMean!=null?('feed up '+feedMean.toFixed(1)+'% &middot; last '+feedN+' days'):'signals, last 10 days';
+        const qbSysSum=(QREADY&&QREADY.ready===false)?('NOT READY for real shares'+((QREADY.missing||[]).length?(' ('+QREADY.missing.length+' open)'):'')):(QREADY?'ready for real shares':'status, orders, readiness, integrity');
         const qbFooter='<div class="qb-disclosure qb-tap" data-qbdisclosure="rails" style="border-top:none"><span class="qb-disclosure-arrow">'+(railsOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">Rails</span></div>'
           +(railsOpen?('<div style="margin-top:4px">'+railsHtml+'</div>'):'')
           +'<div class="qb-disclosure qb-tap" data-qbdisclosure="events"><span class="qb-disclosure-arrow">'+(eventsOpenState?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">Event timeline'+(QEVT&&QEVT.length?(' ('+QEVT.length+')'):'')+'</span></div>'
@@ -41209,10 +41306,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbSystemSection='<div class="qb-disclosure qb-tap" data-qbdisclosure="system" style="border-top:none"><span class="qb-disclosure-arrow">'+(systemOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">System — status, orders, readiness, integrity</span></div>'
           +(systemOpen?qbSystemBody:'');
 
-        // PAGE ORDER (LEDGER unify step 10). Below 1100 px the DOM order is the reading order, and the strategy list and the Account
-        // section sit UNDER the trade list now, so on a phone the trade list starts right after the stat tiles instead of a screen
-        // and a half down (mistake #12). At 1100 px and wider the grid areas keep the list in the sticky right column and Account
-        // above History, so the order of these three blocks does not matter there. ?oldboards=1 keeps the old order.
+        // PAGE ORDER. The blocks below (side, account, history, status, and qbMidSections) are the OLD page's: what ?oldboards=1 still draws, in its
+        // old order. The page everyone sees is put together further down (qbNewBody, LEDGER unify step 11); LEDGER unify step 10's phone order, with the
+        // list and the Account section under the trade list, was replaced there by the one fixed order, with the list a one-line fold on a phone.
         const qbSideSec='<div class="qbx-side">'
           +(LEDGER_OLDBOARDS?'<div class="qbx-side-hd">Strategies</div>':'')
           +legListHtml
@@ -41220,14 +41316,38 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'</div>';
         const qbAcctSec='<div class="qbx-account qbx-section"><div class="qb-section-hd">Account</div>'+qbAccountHtml+'</div>';
         const qbHistSec='<div class="qbx-history qbx-section"><div class="qb-section-hd">History</div>'+qbTradesCard+(ordersHtml||'')+'</div>';
-        // the status line (paper only, market, feed, ratio, box age, Refresh) is its own block now: under the chart on a laptop
-        // (its own grid row), and on a phone with the strategy list under the trade list, so the trade list starts within one screen
+        // the status line (paper only, market, feed, ratio, box age, Refresh) is its own block: under the chart, never folded (LEDGER unify step 11)
         const qbStatusSec='<div class="qbx-statusline">'+qbStatusStripHtml+'</div>';
-        const qbMidSections=LEDGER_OLDBOARDS
-          ?(qbSideSec+qbAcctSec+'<div class="qbx-stats qbx-section"><div class="qb-section-hd">Stats</div>'+qbStatsCard+'</div>'+qbHistSec)
-          :(qbHistSec+qbStatusSec+qbSideSec+qbAcctSec);
+        const qbMidSections=qbSideSec+qbAcctSec+'<div class="qbx-stats qbx-section"><div class="qb-section-hd">Stats</div>'+qbStatsCard+'</div>'+qbHistSec;
 
-        body='<div class="qb-shell'+(LEDGER_OLDBOARDS?'':' qbx-lg6')+'">'
+        // ── LEDGER UNIFY STEP 11 (2026-10-06): the fixed page order. Hero, range pills (the top of the chart block), chart, status strip (under the chart,
+        // never folded), stats strip, More stats fold, calendar fold, strategy list (a one-line fold up to 600 px), the trade list (History: the frame,
+        // SHOW MORE, the CSV, the trade panel), then this board's OWN sections as closed folds with a one-line header: Orders (the PAPER breaker line),
+        // Account, Today's orders, Feed & signals, System, Rails, Event timeline, Model reference. Nothing is dropped: each one's content is what the
+        // old page drew, now behind its header. ?oldboards=1 draws the old page below, untouched.
+        const qbListOpen=qbFoldOpen('list');
+        const qbSideNew='<div class="qbx-side">'+qbFoldBtn('list','Strategies',qbListSum,qbListOpen,'qbx-list-fold')
+          +'<div class="qbx-list-panel" id="qbf-list"'+(qbListOpen?'':' hidden')+'>'+legListHtml+'</div></div>';
+        const qbOwnSecs=qbFoldHtml('orders','Orders',qbMiniSum,'<div class="qbx-orders-mini">'+qbOrdersCompactHtml+'</div>',true)
+          +qbFoldHtml('account','Account',qbAcctSum,qbAccountHtml,true)
+          +(ordersHtml?qbFoldHtml('todayorders',QF.isToday?'Today&rsquo;s orders':('Orders on '+QF.dayLabel),qbOrdTodaySum,ordersHtml,true):'')
+          +(qeCalHtml.hasStrips?qbFoldHtml('feedsig','Feed &amp; signals',qbFeedSum,'<div>'+qeCalHtml.strips+'</div>'):'')
+          +qbFoldHtml('system','System',qbSysSum,qbSystemBody)
+          +qbFoldHtml('rails','Rails',qbRailsSum,railsHtml)
+          +qbFoldHtml('events','Event timeline',qbEvtSum,eventsHtml||'<div style="color:var(--text5);font-size:var(--fsxs);padding:8px 0">no events published yet</div>')
+          +modelSection;
+        const qbNewBody='<div class="qb-shell qbx-lg6">'
+          +'<div class="qbx-hero">'+qbHeroHtml+'</div>'
+          +'<div class="qbx-chart">'+equityHtml+'</div>'
+          +qbStatusSec
+          +'<div class="qbx-stats qbx-lgstats">'+qbLgStatsHtml+'</div>'
+          +'<div class="qbx-activity">'+qbCalHtml+'</div>'
+          +qbSideNew
+          +'<div class="qbx-history qbx-section"><div class="qb-section-hd">History</div>'+qbTradesCard+'</div>'
+          +'<div class="qbx-own">'+qbOwnSecs+'</div>'
+          +'</div>'
+          +qbSheetHtml;
+        body=!LEDGER_OLDBOARDS?qbNewBody:'<div class="qb-shell'+(LEDGER_OLDBOARDS?'':' qbx-lg6')+'">'
           +'<div class="qbx-hero">'+qbHeroHtml+'</div>'
           +'<div class="qbx-chart">'+equityHtml+(LEDGER_OLDBOARDS?qbStatusStripHtml:'')+'</div>'
           +(LEDGER_OLDBOARDS?'':('<div class="qbx-stats qbx-lgstats">'+qbLgStatsHtml+'</div>'))
@@ -46579,6 +46699,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         try{const sv=localStorage.getItem('el_qb_morestats_open');if(sv!=null)o=sv==='1';}catch(e){}
         window._qbMoreStatsOpen=!o;
         try{localStorage.setItem('el_qb_morestats_open',o?'0':'1');}catch(e){}
+        renderApp();};});
+      // LEDGER unify step 11: this board's own folds (and the strategy list's phone fold): open / closed, remembered per viewer
+      content.querySelectorAll('[data-qbfold]').forEach(el=>{el.onclick=()=>{
+        const k=el.getAttribute('data-qbfold'),o=el.getAttribute('aria-expanded')!=='true';
+        (window._qbFolds||(window._qbFolds={}))[k]=o;
+        try{localStorage.setItem('el_qb_fold_'+k,o?'1':'0');}catch(e){}
         renderApp();};});
       // Disclosures — each remembers open/closed per browser, same mechanism as the
       // pre-existing qqqModelOpen toggle.
