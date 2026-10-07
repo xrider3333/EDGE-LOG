@@ -181,6 +181,7 @@ and plain; the note is the hover. Family names follow the vocabulary below.
   (also takes `--family`, `--lane`, `--note`; idempotent - only the given fields change).
 - Set just the verdict: `python tools/runboard_watch.py verdict <run#> "..." --from <YOUR NAME>`.
 - Drop a run: `python tools/runboard_watch.py remove <run#> --from <YOUR NAME>`. List it: `... list`.
+- Every ROC @ $30k figure is reported with DD5 beside it - the average of the 5 worst non-overlapping drawdowns on the same daily curve and stretch (owner 2026-10-07; compute it with `augur_engine.drawdowns.dd5`, research rows take `--wf-dd5` / `--lb-dd5`) - and a figure whose worst DD is more than 1.3x its DD5 is called driven by one episode.
 
 ## Strategy FAMILY names - one vocabulary, 1-2 words (owner 2026-09-24, hard rule)
 Owner: "make sure you and all the other strategies are using/adopting family names that are consistent

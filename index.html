@@ -1162,7 +1162,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1124';
+const VERSION='73.1125';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1180,7 +1180,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1124',date:'2026-10-07',notes:['SCORES: 1 trade from 2026-10-07 scored, 0 marked NA (no price data).']},{v:'73.1122',date:'2026-10-06',notes:['LEDGER clean-up: the ?oldboards=1 escape hatch is gone from all three boards (REAL, NT8 PAPER and WEBULL PAPER), and the previous layouts that sat behind it are deleted. An address ending in ?oldboards=1 now opens the same board as every other address.','Removed with it: the previous trade sheet, feed and table builders, stat strip, calendar, strategy table, inline drawer and chart code on each board, and the style rules only they used. Nothing on the three boards changes: every headline number, the page order and every control are the same.','Probes: each board probe now checks that ?oldboards=1 draws the new board, and a static lint (tools/ledger_removed.py) fails if any removed name comes back into index.html.']},
+const CHANGELOG=[{v:'73.1125',date:'2026-10-07',notes:['RUNBOARD: DD5 BESIDE EVERY WORST DRAWDOWN (owner go 10-07). ROC @ $30K DD divides by ONE drawdown, so a change that only trims one crash can look like a big win - book round 62’s volatility sizing read 116 against #463’s 94 while earning less money, purely by shaving the 2020 crash. A new DD5 row right under DD shows the average of the 5 worst drawdowns on the stage in view, each a separate dip from a high to its low before that high was regained. A dip still open at the end of the stretch counts, and a stage with fewer than five dips averages what it has and says so (n=3).','Hover a DD5 figure for the list of dips (high date, low date, depth), or tap it to open the same list under the figure. When the worst drawdown is more than 1.3 times DD5 the cell carries a 1 EPISODE tag in words: the ROC figure on that stage rests on that one episode. ROC, MAR and the RANK order are unchanged.','DD5 is read off the curve each run saves, which is thinned for storage, so the smaller dips can read a little shallow and their dates are approximate (marked ~). A stretch with too few saved points to tell its dips apart - a lockbox year is usually only 20 to 30 of them - shows its DD5 with a ~ and makes no 1 EPISODE call; the hover gives the worst-to-DD5 ratio either way. Where the thinned curve reads the deepest dip shallower than the DD row, the DD row’s own figure - the one the ROC figure divides by - is used for it. A single run’s in-sample stage (a tuning score that no saved curve covers), a lockbox read from the continuous replay and a stage with no saved curve show a dash with the reason. Research rows on the WATCH view show the DD5 their lane supplied, or a dash, never a made-up figure. The same row is on the RUNBOARD tab, the board inside COMPARE and the WATCH view.']},
+{v:'73.1124',date:'2026-10-07',notes:['SCORES: 1 trade from 2026-10-07 scored, 0 marked NA (no price data).']},{v:'73.1122',date:'2026-10-06',notes:['LEDGER clean-up: the ?oldboards=1 escape hatch is gone from all three boards (REAL, NT8 PAPER and WEBULL PAPER), and the previous layouts that sat behind it are deleted. An address ending in ?oldboards=1 now opens the same board as every other address.','Removed with it: the previous trade sheet, feed and table builders, stat strip, calendar, strategy table, inline drawer and chart code on each board, and the style rules only they used. Nothing on the three boards changes: every headline number, the page order and every control are the same.','Probes: each board probe now checks that ?oldboards=1 draws the new board, and a static lint (tools/ledger_removed.py) fails if any removed name comes back into index.html.']},
 {v:'73.1119',date:'2026-10-06',notes:['LEDGER step 11 on WEBULL PAPER: the board now runs in one fixed order, top to bottom: the hero, the range pills (moved from under the chart to above it), the equity chart, the status strip with its box-updated line and Refresh, the stats strip, the More stats fold, the calendar fold, the strategy list, the trade list with its panel, then the sections only this board has. On a laptop the strategy list stays in the sticky right column.','Every section of its own is now a closed fold with a one-line summary in its header: Orders (the mode and the daily stop used out of its limit, with near the limit or stopped for the day when it applies), Account (the equity and its change today), the orders placed today (the count), Feed and signals, System (ready or NOT READY with its open checks), Rails, Event timeline and Model reference. A tap opens one, and open or closed is remembered for each viewer on that device. Nothing was removed: SHOW MORE, the CSV export, the caveat chips, the trade panel, the status strip and the live position line are all still there.','On a phone the strategy list is a one-line fold above the trade list, and the header, chips and stat tiles are tighter, so the trade list starts no lower than before. The board now uses one set of breakpoints (600, 740, 800, 920 and 1100 px); the flagged-row mark under the time follows the width of the list box (a container query at 800 px) instead of the window width. ?oldboards=1 is unchanged.']},{v:'73.1116',date:'2026-10-06',notes:['SCORES: 4 trades from 2026-10-05, 2026-10-06 scored, 0 marked NA (no price data).']},{v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
 {v:'73.1118',date:'2026-10-06',notes:['LEDGER step 11 on NT8 PAPER: one page order, top to bottom - the hero, the range pills, the chart, the four tiles, the More stats fold, the calendar fold, the strategy list, the trades list, then the board own sections. Every own section is now a closed fold with a one-line summary in its header and is remembered open or closed in your browser: the status chips (a single line that keeps every warning count, with REFRESH beside it), the 10s capture, NinjaTrader detail, the cross-engine check, the gate audit and the daily reports. On a phone and a tablet the strategy list is a fold too (closed on a phone), so the trades still start within one screen.','One set of breakpoints: 600 for the phone, 740, 800 and 920 for the trade list cells, 1100 for the two-column page; the calendar now opens by default above 600 px (it was 760). Nothing was removed: the tick boxes and OPEN N CHARTS, the strategy filters and switches, the trade panel, the calendar day click and REFRESH all stay. ?oldboards=1 still draws the previous board, unchanged.']},{v:'73.1116',date:'2026-10-06',notes:['SCORES: 4 trades from 2026-10-05, 2026-10-06 scored, 0 marked NA (no price data).']},{v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
 {v:'73.1117',date:'2026-10-06',notes:['LEDGER step 11 on REAL: the board now reads in ONE fixed order at every width: the hero, the range pills with the EQUITY or P&L switch, the equity chart, the four stat tiles, More stats, the calendar, the accounts, the trade list (with its panel), then the board own sections. Before, the phone moved things about with a separate order and the laptop kept another.','Every own section is now a closed fold with ONE line that says what is inside: PASTE A SNAPSHOT LINK (where the next link goes), SHOULD HAVE TRADED (how many setups, the newest), DEPOSITS (events and the net), AI ASSESSMENT (the last 20 trades in a line) and JOURNAL (entries and the newest date). Each fold remembers open or closed on this browser, and a paste note or a setup form in the making opens its fold by itself. The NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL buttons stay with the list, and nothing was removed.','One set of screen widths: the board own rules now use only 600 (phone), 740, 800 and 920 (list cells) and 1100. The SIMPLE table brings its columns back at 740, 920 and 1100 (were 700, 900 and 1010), the calendar opens by default above 600 (was 760), and the phone trade list starts no lower than before. ?oldboards=1 is unchanged.']},{v:'73.1116',date:'2026-10-06',notes:['SCORES: 4 trades from 2026-10-05, 2026-10-06 scored, 0 marked NA (no price data).']},{v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
@@ -12651,6 +12652,53 @@ function _rbWatchOf(id){
   for(let i=0;i<list.length;i++){if(list[i]&&String(list[i].id).trim()===String(id))return list[i];}
   return null;
 }
+// DD5 - THE AVERAGE OF THE FIVE WORST DRAWDOWNS (owner GO 2026-10-07, via MANAGER). ROC @ $30K DD (30 x MAR) divides
+//   by ONE drawdown: book round 62's V2 vol target read 116 against #463's 94 while earning LESS money, purely because
+//   it trimmed the one 2020 crash ($44.8k -> $35.3k). So the RUNBOARD shows DD5 beside every worst drawdown its ROC
+//   figures divide by. THE ONE DEFINITION (augur_engine/drawdowns.py holds the same one for the Python side): DD5 = the
+//   average depth, in dollars, of the 5 deepest NON-OVERLAPPING drawdown episodes of the stretch's equity curve. The
+//   curve starts from a flat account (0) before its first point; an episode runs from a peak to the trough before
+//   equity next regains that peak (equal counts as regained), so a bounce that does not regain the peak stays in the
+//   same episode; an episode still open at the stretch end counts with its depth so far; fewer than 5 episodes ->
+//   the average of those found, printed "(n=3)". ONE-EPISODE FLAG: worst episode > 1.3 x DD5 -> the ROC figure is
+//   driven by one episode, shown as a "1 EPISODE" text chip (words and a border, never colour: MONO has no hue).
+//   It changes no ROC figure and no ranking.
+// _dd5Of(cum,n) -> null (no usable curve) | {dd5, n, eps:[{pi,ti,depth,open}] deepest first, max, one, total}.
+//   pi = the peak's point index (-1 = the flat start before point 0), ti = the trough's point index.
+function _dd5Of(cum,n){
+  n=Math.max(1,Math.round(+n||5));
+  if(!Array.isArray(cum)||!cum.length)return null;
+  const eps=[];let P=0,pi=-1,inE=false,tv=0,ti=-1;
+  for(let i=0;i<cum.length;i++){const v=+cum[i];if(!isFinite(v))return null;
+    if(v>=P-1e-9){if(inE){eps.push({pi:pi,ti:ti,depth:P-tv,open:false});inE=false;}P=v;pi=i;}
+    else if(!inE){inE=true;tv=v;ti=i;}
+    else if(v<tv){tv=v;ti=i;}}
+  if(inE)eps.push({pi:pi,ti:ti,depth:P-tv,open:true});
+  const top=eps.slice().sort((a,b)=>(b.depth-a.depth)||(a.ti-b.ti)).slice(0,n);
+  const dd5=top.length?top.reduce((s,e)=>s+e.depth,0)/top.length:0,mx=top.length?top[0].depth:0;
+  return {dd5:dd5,n:top.length,eps:top,max:mx,one:(top.length>0&&mx>1.3*dd5),total:eps.length};}
+// DD5 money: one decimal of a thousand ("$33.6k"), the precision the owner reads it at
+function _dd5Usd(v){const a=Math.abs(+v||0);return a>=1e6?('$'+(a/1e6).toFixed(2)+'M'):(a>=1000?('$'+(a/1000).toFixed(1)+'k'):('$'+Math.round(a)));}
+// The date of point i on a curve whose dates are known only at a few ANCHORS ([[index,'YYYY-MM-DD'],...]), placed by
+//   a straight line between the two anchors around it. The saved curves are thinned and (except a book's) spaced by
+//   trade, not by day, so every date this gives is approximate - its callers print it with a ~.
+function _dd5DateAt(i,anch){
+  const A=(anch||[]).filter(a=>a&&a[0]!=null&&a[1]).map(a=>[+a[0],Date.parse(String(a[1]).slice(0,10)+'T00:00:00Z')])
+    .filter(a=>isFinite(a[0])&&isFinite(a[1])).sort((x,y)=>x[0]-y[0]);
+  const B=[];A.forEach(a=>{const l=B[B.length-1];if(!l||(a[0]>l[0]&&a[1]>=l[1]))B.push(a);});
+  if(!B.length)return null;
+  let t;
+  if(B.length===1||i<=B[0][0])t=B[0][1];
+  else if(i>=B[B.length-1][0])t=B[B.length-1][1];
+  else{let k=1;while(k<B.length&&B[k][0]<i)k++;const a=B[k-1],b=B[k];t=a[1]+(b[1]-a[1])*((i-a[0])/((b[0]-a[0])||1));}
+  return new Date(t).toISOString().slice(0,10);}
+// One plain line per episode for the DD5 hover and tap list: "1. ~2020-02-19 → ~2020-03-23  $44.8k". An episode
+//   pinned to the DD row's saved figure (e.curve = what the thinned curve read there) says so.
+function _dd5Lines(R,dateAt,exact){const q=exact?'':'~';
+  return ((R&&R.eps)||[]).map((e,k)=>{
+    const span=(e.ti==null)?'dates not on the saved curve':(((e.pi<0)?'start':(dateAt(e.pi)?(q+dateAt(e.pi)):('point '+e.pi)))+' → '+(dateAt(e.ti)?(q+dateAt(e.ti)):('point '+e.ti)));
+    return (k+1)+'. '+span+'  '+_dd5Usd(e.depth)+(e.open?' (still open at the end)':'')
+      +((e.curve!=null)?(' (the DD row’s saved figure; the curve read '+_dd5Usd(e.curve)+')'):'');});}
 // RESEARCH VERDICTS on the WATCH view (owner standing order 2026-10-04 via MANAGER #38: every research verdict goes
 //   on the RUNBOARD with ROC %/yr and DD%). A script-only round has no engine run, so tools/runboard_watch.py
 //   `research` stores its own numbers: wf / lb = {roc30, dd_usd, dd_pct, roc_pct}. ONE plane, the same two axes as
@@ -12672,7 +12720,8 @@ function _rbResearchPlane(eng,acct,stage){
     R.forEach(w=>{const st=useLb?w.lb:w.wf;
       if(st&&isFinite(+st.roc30)&&isFinite(+st.dd_usd)&&+st.dd_usd>0)
         pts.push({kind:'r',id:String(w.id),name:w.name||String(w.id),fam:w.family||'',lane:w.lane||'',verdict:w.verdict||'',
-          x:+st.dd_usd/A*100,y:(+st.roc30/30*(+st.dd_usd))/A*100,roc30:+st.roc30,dd:+st.dd_usd,tag:useLb?'LB':'WF'});});
+          x:+st.dd_usd/A*100,y:(+st.roc30/30*(+st.dd_usd))/A*100,roc30:+st.roc30,dd:+st.dd_usd,tag:useLb?'LB':'WF',
+          dd5:(st.dd5_usd!=null&&isFinite(+st.dd5_usd)&&+st.dd5_usd>0)?+st.dd5_usd:null});});
     (Array.isArray(eng)?eng:[]).forEach(e=>{if(e&&isFinite(+e.x)&&isFinite(+e.y)&&+e.x>0)pts.push(Object.assign({kind:'e'},e));});
     const W=560,H=230,L=44,B=28,T=10,Rt=12;
     const xs=pts.map(q=>q.x),ys=pts.map(q=>q.y);
@@ -12695,10 +12744,19 @@ function _rbResearchPlane(eng,acct,stage){
       const cx=X(q.x).toFixed(1),cy=Y(q.y).toFixed(1);
       g+='<circle data-rbres="'+esc(q.id)+'" cx="'+cx+'" cy="'+cy+'" r="5.5" fill="none" stroke="'+col(q.fam)+'" stroke-width="2"><title>'
         +esc(q.id+' '+q.name+' - '+q.fam+(q.lane?' - '+q.lane:'')+' - no engine run (research verdict) - '+q.tag+' ROC @ $30K '+q.roc30.toFixed(1)
-          +' = '+q.y.toFixed(1)+' %/yr, worst DD '+money(q.dd)+' ('+q.x.toFixed(1)+'% of '+money(A)+') - '+q.verdict)+'</title></circle>'
+          +' = '+q.y.toFixed(1)+' %/yr, worst DD '+money(q.dd)+' ('+q.x.toFixed(1)+'% of '+money(A)+'), DD5 '
+          +((q.dd5!=null)?(money(q.dd5)+((q.dd>1.3*q.dd5)?' - 1 EPISODE: the worst drawdown is more than 1.3x DD5':'')):'not supplied')+' - '+q.verdict)+'</title></circle>'
         +'<text x="'+(+cx+8)+'" y="'+(+cy+3)+'" font-size="8" fill="var(--text4)">'+esc(q.name)+'</text>';});
     const nE=pts.filter(q=>q.kind==='e').length, nR=pts.filter(q=>q.kind==='r').length;
-    const rows=R.map(w=>{const f=(st,lbl)=>(st&&isFinite(+st.roc30)&&isFinite(+st.dd_usd))?(lbl+' '+(+st.roc30).toFixed(1)+' @ $30K, DD '+money(st.dd_usd)+' ('+(+st.dd_usd/A*100).toFixed(1)+'%)'):'';
+    // DD5 beside each stretch's worst drawdown (owner 2026-10-07): the lane's own figure (runboard_watch.py --wf-dd5 /
+    //   --lb-dd5, computed with augur_engine.drawdowns.dd5 on the same daily curve), or a dash - never made up here.
+    //   A research row carries the figure only, not its list of dips. 1 EPISODE = worst drawdown > 1.3 x DD5.
+    const d5=(st,lbl,id)=>{const v=(st&&st.dd5_usd!=null&&isFinite(+st.dd5_usd)&&+st.dd5_usd>0)?+st.dd5_usd:null;
+      if(v==null)return ' · <span data-rbres-dd5="" title="'+esc('No DD5 on this '+lbl+' stretch: the research row does not carry one (tools/runboard_watch.py research --'+lbl.toLowerCase()+'-dd5). It is never made up here.')+'" style="cursor:help">DD5 —</span>';
+      const one=(+st.dd_usd>1.3*v);
+      return ' · <span data-rbres-dd5="'+Math.round(v)+'" title="'+esc('DD5 = the average of the 5 worst drawdowns on this '+lbl+' stretch, as the lane worked it out on the same daily curve. A research row carries the figure only, not the list of dips.'+(one?' 1 EPISODE: the worst drawdown is more than 1.3 times DD5, so this ROC @ $30K figure rests on one episode.':''))+'" style="cursor:help">DD5 '+money(v)+'</span>'
+        +(one?(' <span data-rbdd5-one="'+esc(id)+'" style="font-size:7px;font-weight:700;letter-spacing:.4px;white-space:nowrap;border:1px solid var(--text4);border-radius:3px;padding:0 3px;color:var(--text2)">1 EPISODE</span>'):'');};
+    const rows=R.map(w=>{const f=(st,lbl)=>(st&&isFinite(+st.roc30)&&isFinite(+st.dd_usd))?(lbl+' '+(+st.roc30).toFixed(1)+' @ $30K, DD '+money(st.dd_usd)+' ('+(+st.dd_usd/A*100).toFixed(1)+'%)'+d5(st,lbl,w.id)):'';
       const nums=[f(w.wf,'WF'),f(w.lb,'LB')].filter(Boolean).join(' · ')||'no ROC computed - listed, not plotted';
       return '<div data-rbres-row="'+esc(w.id)+'" style="font-size:8.5px;color:var(--text3);padding:2px 0;border-top:1px solid var(--border)">'
         +'<b style="color:var(--text2)">'+esc(w.id)+'</b> '+esc(w.name||'')+' <span style="color:var(--text5)">'+esc(w.family||'')+(w.lane?' · '+esc(w.lane):'')+'</span>'
@@ -30623,6 +30681,96 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _ddApx2=r=>{if(_rbS==='wf')return false;if(_rbZeroLb(r)||_bw(r)||_rbS==='is')return false;const V=r&&r.validate;
           if(_rbS==='lb'){const lb=_lbBlk(r);if(lb&&lb._warm)return false;return !(lb&&lb.dd!=null&&isFinite(+lb.dd))&&_eqDD(r,'lb')!=null;}
           return !(V&&V.total_dd!=null&&isFinite(+V.total_dd))&&_eqDD(r,'full')!=null;};
+        // DD5 ON THE STAGE IN VIEW (owner GO 2026-10-07, via MANAGER; the one definition sits at _dd5Of). Read off the SAME
+        //   saved curve this board already falls back to for its drawdown (_eqDD) and draws on its funnel: FULL =
+        //   validate.equity (a Gate-Validate job: its own equity.cum, the same ungated population its DD row reads);
+        //   LB = that curve from the lockbox door, rebased to $0; WF = the saved walk-forward test curve (_wfoOf); IS = a
+        //   book's pre-lockbox stretch only. Those curves are DOWNSAMPLED for storage (about 400 points for a run, 200
+        //   for the walk-forward test - the same thinning the board already discloses for its FULL / LB drawdowns) and,
+        //   except a book's daily curve, spaced by trade rather than by day: each depth can read a little shallow, two
+        //   dips closer together than one point can merge, and the dates are placed between the stretch's known dates
+        //   (_dd5DateAt). The deepest dip is pinned to the DD row's own saved figure when that is deeper (see the pin
+        //   below), so the 1 EPISODE flag tests the very drawdown the ROC figure divides by against DD5, and the cell's
+        //   hover says which dip was pinned and what the curve read there. A stage with no matching curve dashes with its reason, never a guess:
+        //   a non-book IS (its figures are the tuning score on the first 75% of the tuning window, a stretch no saved
+        //   curve covers), a warm lockbox (the continuous replay saves no curve; the saved one is the cold lockbox),
+        //   a lockbox or a walk-forward test that took no trades.
+        const _rbDd5Memo=new WeakMap(),_RB_DD5_MIN_PTS=60;
+        const _rbDd5=r=>{if(!r||typeof r!=='object')return {why:'No run.'};
+          if(_rbDd5Memo.has(r))return _rbDd5Memo.get(r);
+          const o=(()=>{
+            const isBk=!!(r.book&&Array.isArray(r.book.legs));
+            if(_rbS==='wf'){
+              if(_wfoIsBook(r))return {why:'A book tunes nothing, so it has no walk-forward test.'};
+              const O=_wfoOf(r);
+              if(!O)return {why:_wfOosWhy(r,'curve')||'No walk-forward test curve is saved on this run.'};
+              if(O.zeroTr)return {why:'The walk-forward test took no trades, so it has no drawdown.'};
+              if(!(Array.isArray(O.curve)&&O.curve.length>2))return {why:'No walk-forward test curve is saved on this run.'};
+              const an=[[0,O.from]];
+              (O.foldStart||[]).forEach((ix,j)=>{const f=(O.folds||[])[j];if(ix!=null&&f&&f.from)an.push([ix,f.from]);});
+              an.push([O.curve.length-1,O.to]);
+              return {cv:O.curve,an:an,src:'the saved walk-forward test curve ('+O.curve.length+' points, thinned for storage and spaced by trade)'};}
+            if(_rbZeroLb(r))return {why:_rbZeroWhy};
+            const V=r.validate,mc=_mcOf(r),B=r.book||null;
+            let eq=null,li=null,ts=null;
+            if(V&&Array.isArray(V.equity)&&V.equity.length>2){eq=V.equity.map(x=>(+x)*mc);li=(V.lb_idx!=null)?Math.max(0,Math.min(+V.lb_idx,eq.length-1)):null;}
+            else if(r.equity&&Array.isArray(r.equity.cum)&&r.equity.cum.length>2){eq=r.equity.cum.map(x=>(+x)*mc);
+              if(Array.isArray(r.equity.t)&&r.equity.t.length===r.equity.cum.length)ts=r.equity.t;}
+            if(!eq)return {why:'This run saved no equity curve to read its drawdowns from.'};
+            const dF=r.date_from||(B&&B.date_from)||null,dT=r.date_to||(B&&B.date_to)||null;
+            const W=(V&&V.windows)||{},lbF=(W.lockbox&&W.lockbox[0])||(V&&V.lockbox&&V.lockbox.from)||(B&&B.lockbox_from)||null;
+            const what=isBk?('the book’s daily curve, thinned to '+eq.length+' points for storage'):('the saved champion curve ('+eq.length+' points, thinned for storage and spaced by trade)');
+            if(_rbS==='full'){const an=[[0,dF]];if(li!=null)an.push([li,lbF]);an.push([eq.length-1,dT]);
+              return {cv:eq,an:an,ts:ts,src:what};}
+            if(_rbS==='is'){
+              if(!isBk)return {why:'The in-sample figures are the tuning score on the first 75% of the tuning window. No saved curve covers exactly that stretch, so DD5 is not read here.'};
+              if(li==null||li<2)return {why:'This book saved no lockbox door on its curve to cut the in-sample stretch at.'};
+              return {cv:eq.slice(0,li+1),an:[[0,dF],[li,lbF]],src:what+', up to the lockbox door'};}
+            if(_rbS==='lb'){const lb=_lbBlk(r);
+              if(lb&&lb._warm)return {why:'This lockbox is read from the continuous replay, which saves no curve. The saved curve is the run’s own cold lockbox - a different population - so DD5 is not read from it.'};
+              if(li==null||li>=eq.length-2)return {why:'This run saved no lockbox stretch on its curve.'};
+              const b0=eq[li];return {cv:eq.slice(li).map(v=>v-b0),an:[[0,lbF],[eq.length-1-li,dT]],src:what+', from the lockbox door'};}
+            return {why:'No curve for this stage.'};})();
+          if(o&&o.cv){o.res=_dd5Of(o.cv,5);if(!o.res)o.why='The saved curve holds a value this page cannot read.';}
+          // THE DEEPEST EPISODE IS THE DD ROW'S OWN FIGURE. The stage's worst drawdown is saved exactly (validate.total_dd,
+          //   the lockbox dd, the walk-forward test's own drawdown, a book's pooled figure) and it is the one ROC @ $30K
+          //   DD divides by; the thinned curve can only read it shallow (NOISE #382's walk-forward test: $13.5k on the
+          //   curve against $21.4k saved). So when the saved figure is deeper, it replaces the curve's deepest dip and the
+          //   other dips come off the curve: DD, DD5 and the 1.3x test then agree with the figures on screen, as the
+          //   Python dd5 on a real daily curve does by construction. Never moved shallower - a saved figure under the
+          //   curve's reading is a different peak rule, and the curve is kept.
+          if(o&&o.res){const dd=_ddOf2(r),R=o.res,top=(dd!=null&&isFinite(dd))?Math.abs(+dd):null;
+            if(top!=null&&top>(R.n?R.max:0)+0.5){
+              if(R.n){R.eps[0]=Object.assign({},R.eps[0],{curve:R.eps[0].depth,depth:top});}
+              else{R.eps=[{pi:null,ti:null,depth:top,open:false,curve:0}];R.n=1;}
+              R.dd5=R.eps.reduce((a,e)=>a+e.depth,0)/R.n;R.max=top;R.one=(top>1.3*R.dd5);R.pinned=true;}}
+          // TOO FEW POINTS TO TELL DIPS APART. A lockbox year is only some 20-30 of a run's 400 saved points, so its smaller
+          //   dips merge or read far too shallow and DD5 reads low - book #463's lockbox reads worst/DD5 1.67 on its saved
+          //   curve against 1.10 on its real daily curve, a 1 EPISODE call that is not there. Under _RB_DD5_MIN_PTS points
+          //   the figure still shows, marked ~, and the one-episode test is not made; the hover says why.
+          if(o&&o.res&&o.cv){o.pts=o.cv.length;o.coarse=(o.pts<_RB_DD5_MIN_PTS);o.res.ratio=(o.res.dd5>0)?(o.res.max/o.res.dd5):null;
+            if(o.coarse)o.res.one=false;}
+          _rbDd5Memo.set(r,o);return o;};
+        // the DD5 cell: the figure (n= when under 5) with every dip on hover, the same list under the figure on a tap
+        //   (a details fold, so it needs no click wiring on either board host), and the 1 EPISODE chip when the
+        //   worst dip is more than 1.3x DD5.
+        const _rbDd5Cell=r=>{const d=_rbDd5(r);
+          if(!d||d.why||!d.res)return '<span data-rbdd5="" title="'+_wfoEsc((d&&d.why)||'No DD5 on this stage.')+'" style="color:var(--text5);cursor:help">—</span>';
+          const R=d.res,exact=!!d.ts,at=i=>exact?(String((d.ts||[])[i]||'').slice(0,10)||null):_dd5DateAt(i,d.an);
+          if(!R.n)return '<span data-rbdd5="0" data-rbdd5-n="0" title="'+_wfoEsc('No drawdown on this stage: the curve never fell below a high it had already made, and no drawdown is saved for it ('+d.src+').')+'" style="color:var(--text4);cursor:help">$0 (n=0)</span>';
+          const ln=_dd5Lines(R,at,exact);
+          const tip='DD5 = the average of the '+((R.n<5)?(R.n+' drawdowns this stage has (fewer than 5)'):'5 worst drawdowns on this stage')+', each a separate dip from a high to its low before that high was regained: '+_dd5Usd(R.dd5)+'.\n'
+            +ln.join('\n')+'\n'
+            +'Read off '+d.src+(exact?'':'; the dates are approximate (~), placed between the stretch’s known dates')+'. '
+            +(R.pinned?('The deepest dip is the DD row’s own saved figure, '+_dd5Usd(R.max)+' - the one drawdown ROC @ $30K DD divides by - because the thinned curve can only read it shallower; the other dips come off the curve and can read a little shallow too.')
+              :('The deepest dip, '+_dd5Usd(R.max)+', is the one the DD row shows; the other dips come off the same curve and can read a little shallow.'))
+            +((R.ratio!=null)?('\nThe worst dip is '+R.ratio.toFixed(2)+' times DD5'+(d.coarse?'.':(R.one?' - more than 1.3, so 1 EPISODE: the ROC @ $30K DD figure on this stage rests on that one episode.':' - not more than 1.3, so no single episode drives the ROC figure.'))):'')
+            +(d.coarse?('\n~ This stretch has only '+d.pts+' saved points (fewer than '+_RB_DD5_MIN_PTS+'), too few to tell its dips apart: the smaller dips merge or read shallow, so DD5 reads low and the 1 EPISODE test is not made here. The real daily curve gives the exact figure.'):'')
+            +'\nTap the figure to list the dips under it.';
+          return '<details data-rbdd5="'+Math.round(R.dd5)+'" data-rbdd5-n="'+R.n+'"'+(d.coarse?' data-rbdd5-coarse="'+d.pts+'"':'')+' title="'+_wfoEsc(tip)+'" style="display:inline-block;text-align:right;vertical-align:top">'
+            +'<summary style="display:inline;list-style:none;cursor:pointer;color:var(--text3)">'+(d.coarse?'<span style="color:var(--text4)">~</span>':'')+_dd5Usd(R.dd5)+((R.n<5)?('<span style="color:var(--text5)"> (n='+R.n+')</span>'):'')+'</summary>'
+            +'<div data-rbdd5-eps style="font-size:7.5px;line-height:1.45;color:var(--text4);text-align:left;white-space:normal;width:170px;max-width:60vw;margin-top:2px">'+ln.map(_wfoEsc).join('<br>')+'</div></details>'
+            +(R.one?(' <span data-rbdd5-one title="'+_wfoEsc('The worst dip on this stage ('+_dd5Usd(R.max)+') is '+((R.ratio!=null)?R.ratio.toFixed(2):'more than 1.3')+' times DD5 ('+_dd5Usd(R.dd5)+'), more than 1.3: the ROC @ $30K DD figure here is driven by one episode. Trimming that one dip moves the figure a lot and says little about the rest of the stretch.')+'" style="font-size:7px;font-weight:700;letter-spacing:.4px;white-space:nowrap;border:1px solid var(--text4);border-radius:3px;padding:0 3px;color:var(--text2);cursor:help">1 EPISODE</span>'):'');};
         // v71.72 (owner: "were missing data for the risk / reward in them too"): the whole-run PF
         //   and win rate were blank on every run except a book. They are recoverable — the run
         //   report's own KPI matrix builds them the same way: PF by POOLING the stages (rebuild
@@ -36254,7 +36402,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                     return '<span title="'+_wfoEsc('This run also saved a crowning score - the crowned settings held fixed over the same years - of '+cs.toFixed(1)+'% a year. That is the reading the crown was picked on, so it is not shown here as the test.')+'" style="cursor:help">'+html+'</span>';};
                 }}
               return _row;})(),
-            _mk('DD',_ddOf2,v=>'<span style="color:#e24b4a">'+_ab$(Math.abs(v))+'</span>','min',{_apx:_ddApx2,_why:_rbWhy('dd')})])},
+            _mk('DD',_ddOf2,v=>'<span style="color:#e24b4a">'+_ab$(Math.abs(v))+'</span>','min',{_apx:_ddApx2,_why:_rbWhy('dd')}),
+            // DD5 (owner GO 2026-10-07, via MANAGER) - the average of the 5 worst drawdowns, right under the one worst
+            //   drawdown every MAR / ROC @ $30K DD figure on this board divides by. A reading, not a score: no best
+            //   mark, no heat, no RANK BY option. See _rbDd5 for the curve it reads and why.
+            {lbl:'<span title="'+_wfoEsc('DD5 = the average of the 5 worst drawdowns on this stage (owner 2026-10-07), each a separate dip from a high to its low before that high was regained, read off the saved curve. ROC @ $30K DD divides by ONE drawdown, so a figure that only trimmed one crash looks better than the rest of the stretch earns; DD5 shows whether the other dips agree. A 1 EPISODE chip means the worst drawdown is more than 1.3 times DD5: the ROC figure rests on that one episode. (n=3) means the stage has only three dips; a ~ means the stretch has too few saved points to tell its dips apart, so no 1 EPISODE call is made there. Hover a figure for its dips, or tap it to list them.')+'" style="border-bottom:1px dotted var(--text5);cursor:help">DD5</span>',cell:c=>_rbDd5Cell(c.run)}])},
           {name:_rbBand('reward ÷ risk'),rows:[
             _mk('MAR',_marOf,v=>'<span style="color:'+(v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v>=2?'700':'400')+'">'+v.toFixed(2)+'</span>','max',{top:true,_apx:_ddApx2,_why:_rbWhy('mar')}),
             _mk('SHARPE',_shOf,v=>'<span style="color:var(--text2)">'+v.toFixed(2)+'</span>','max',{_why:_rbWhy('sh')}),

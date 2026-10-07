@@ -49,6 +49,10 @@ WHAT IT ASSERTS, per case
                        three SAMPLE ticks and checks the lockbox MAR cell equals the
                        annualised figure computed here from the fixture's own lockbox pnl,
                        drawdown and window - so net-over-drawdown can never come back.
+  k5_rb_dd5        -- DD5 (owner 2026-10-07): the RUNBOARD's DD5 row under DD on every stage, the
+                       HORIZ table, the old tab and the WATCH view; hover / tap list the dips; a
+                       planted one-crash curve carries the 1 EPISODE chip and an even one does
+                       not; research rows show the lane's DD5 or a dash.
   gatewf           -- with the stage rail on WALK-FORWARD and return on capital across,
                        a GATE row must be ON the chart. Every gate row on the board was
                        off it at once because the gate row reported no walk-forward
@@ -96,7 +100,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 147
+N_CASES = 148
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -5028,6 +5032,138 @@ var FIX = __FIX__;
         }, {rocLbl4:rocLbl4,rocLbl4b:rocLbl4b,rocLbl5:rocLbl5,tagC:tagC,tagW:tagW,tagM:tagM,rocLbl1:rocLbl1,rocLbl2:rocLbl2,lbCheck:lbCheck,rv3:rv3,mv3:mv3,errAcc:errAcc});
       })();
 
+      // -- k5 (DD5, owner GO 2026-10-07 via MANAGER): the RUNBOARD shows DD5 - the average of the 5 worst drawdowns - in
+      //    its own row right under DD, read off the saved curve of the stage in view. Hover and tap list the dips; a planted
+      //    one-crash curve (worst dip $40k against four $5k dips: DD5 $12k, and 40k > 1.3 x 12k) carries the 1 EPISODE chip
+      //    and an even curve does not; three dips read (n=3); a stretch under 60 saved points (the lockbox tail) shows ~ and
+      //    makes no one-episode call; a walk-forward test curve with a dip still open at its end
+      //    counts it; a saved drawdown deeper than the thinned curve reads pins the deepest dip (the DD the ROC figure
+      //    divides by); a non-book in-sample stage and a run with no saved test dash with their reason; the DD row itself
+      //    is untouched; the old RUNBOARD tab, the HORIZ table and the WATCH view all carry it; research rows show the
+      //    lane's own DD5 or a dash, never a made-up one.
+      (function(){
+        var AID=String(+FIX.id+680501), BID=String(+FIX.id+680502), CID=String(+FIX.id+680503), DID=String(+FIX.id+680504), EID=String(+FIX.id+680505);
+        var ARROW=String.fromCharCode(8594);
+        function curve(depths,step,open){var out=[],lvl=0,cur=0,K=20;function rise(to){var a=cur;for(var j=1;j<=K;j++)out.push(a+(to-a)*j/K);cur=to;}
+          depths.forEach(function(dp){lvl+=step;rise(lvl);cur=lvl-dp;out.push(cur);});if(!open)rise(lvl+step);return out;}
+        function base(id,strat,eq,dd){
+          var r=JSON.parse(JSON.stringify(FIX));
+          r.id=id;r.strategy=strat;r.starred=false;r.multiplier=1;
+          delete r.equity;delete r.top10_results;delete r.gate_validate;delete r.famKey;delete r.famSeq;
+          r.date_from='2010-01-01';r.date_to='2020-01-01';
+          r.validate={verdict:'PASS',total_trades:4000,total_dd:dd,equity:eq,lb_idx:eq.length-25,   // a 25-point lockbox tail holding the last dip
+            windows:{optimize:['2010-01-01','2019-01-01'],wf_split:'2015-01-01',lockbox:['2019-01-01','2020-01-01']},
+            lockbox:{pnl:5000,trades:60,pf:1.3,win_rate:45,dd:3000,sortino:1.5,from:'2019-01-01',to:'2020-01-01'}};
+          return r;}
+        var A=base(AID,'ZK5ONECRASH_1_0.py',curve([5000,5000,40000,5000,5000],10000),40000);
+        A.top10_results=[{fold:1,oos_pnl:25000,oos_trades:60,oos_wins:33},{fold:2,oos_pnl:20000,oos_trades:60,oos_wins:33}];
+        A.validate.wf_oos={v:1,trades:120,net:45000,wins:66,profit_factor:1.28,gross_loss:5000,n_folds:2,years:4,
+          from:'2015-01-01',to:'2019-01-01',sortino:1.5,sharpe:1.2,max_drawdown:40000,
+          equity:curve([5000,5000,40000,5000,5000],10000,true),fold_idx:[0,63],
+          folds:[{f:1,from:'2015-01-01',to:'2017-01-01',trades:60,net:25000},{f:2,from:'2017-01-01',to:'2019-01-01',trades:60,net:20000}]};
+        var B=base(BID,'ZK5EVEN_1_0.py',curve([9000,10000,11000,10000,9500],20000),11000);
+        var C=base(CID,'ZK5THREE_1_0.py',curve([5000,6000,7000],10000),7000);   // 7k is not more than 1.3 x 6k: no chip
+        // D: the even curve again, but its SAVED drawdown is $16k where the thinned curve reads $11k - the deepest dip is
+        //    pinned to the DD row's figure (the one ROC @ $30K DD divides by): DD5 (16+10+10+9.5+9)/5 = $10.9k, and 16k > 1.3 x 10.9k
+        var D=base(DID,'ZK5PINNED_1_0.py',curve([9000,10000,11000,10000,9500],20000),16000);
+        // E: the one-crash shape again on an 11-point curve - too few points to tell dips apart: ~, and no 1 EPISODE call
+        var E=base(EID,'ZK5SHORT_1_0.py',[10000,5000,20000,15000,30000,-10000,40000,35000,50000,45000,60000],40000);E.validate.lb_idx=8;
+        var IDS=[AID,BID,CID,DID,EID];
+        var wc="var RS="+JSON.stringify([A,B,C,D,E])+";"
+          +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+          +"runHistory=RS.map(f);window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();window._starRuns=[];"
+          +"window._rbWatchRuns=[];window._rbWatchRunsState='idle';window._rbWatchRunsWant=[];";
+        function rowOf(lbl,scope){var tr=null;[].forEach.call(d.querySelectorAll((scope||'#rb-mtx-box')+' table tr'),function(t){
+          if(tr)return;var c=t.children;if(!c.length)return;if(dfxN(c[0].textContent)===lbl)tr=t;});return tr;}
+        function cellIn(tr,id){return tr?tr.querySelector('td[data-rbc="'+id+'"]'):null;}
+        function dd5In(td){if(!td)return null;
+          var det=td.querySelector('details[data-rbdd5]'),sm=det?det.querySelector('summary'):null,dash=td.querySelector('span[data-rbdd5]');
+          var eb=det?det.querySelector('[data-rbdd5-eps]'):null;
+          return {sum:sm?dfxN(sm.textContent):null,val:det?det.getAttribute('data-rbdd5'):(dash?dash.getAttribute('data-rbdd5'):null),
+            n:det?det.getAttribute('data-rbdd5-n'):(dash?dash.getAttribute('data-rbdd5-n'):null),
+            tip:det?(det.getAttribute('title')||''):(dash?(dash.getAttribute('title')||''):''),
+            epsLines:eb?eb.innerHTML.split('<br>').length:0,epsTxt:eb?dfxN(eb.textContent):'',one:!!td.querySelector('[data-rbdd5-one]'),
+            coarse:det?det.getAttribute('data-rbdd5-coarse'):null};}
+        function dd5Of(id){return dd5In(cellIn(rowOf('DD5'),id));}
+        function arrows(t){return String(t||'').split(ARROW).length-1;}
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+
+        // FULL - the planted curves
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'full',cmpIds:IDS}, wc));chk('full');
+        var ddRow=rowOf('DD'),d5Row=rowOf('DD5');
+        var fa=dd5Of(AID),fb=dd5Of(BID),fc=dd5Of(CID),fd=dd5Of(DID),fe=dd5Of(EID);
+        var ddA=dfxN((cellIn(ddRow,AID)||{}).textContent);
+        var d5Lbl=d5Row?(d5Row.children[0].querySelector('[title]')||{getAttribute:function(){return '';}}).getAttribute('title'):'';
+        // WF - the saved walk-forward test curve (A); B and C saved no test
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'wf',cmpIds:IDS}, wc));chk('wf');
+        var wa=dd5Of(AID),wb=dd5Of(BID);
+        // IS - a non-book in-sample stage dashes; LB - the lockbox tail of the curve
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'is',cmpIds:IDS}, wc));chk('is');
+        var ia=dd5Of(AID);
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',cmpIds:IDS}, wc));chk('lb');
+        var la=dd5Of(AID);
+        // HORIZ - the same row turned on its side
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'full',cmpIds:IDS,rbOrient:'h'}, wc));chk('horiz');
+        var hTh=[].some.call(d.querySelectorAll('table[data-rbhoriz] th'),function(th){return dfxN(th.textContent)==='DD5';});
+        var hA=!!d.querySelector('table[data-rbhoriz] td[data-rbc="'+AID+'"] details[data-rbdd5="12000"]');
+        var hOne=!!d.querySelector('table[data-rbhoriz] td[data-rbc="'+AID+'"] [data-rbdd5-one]');
+        // the OLD RUNBOARD tab - the same matrix code
+        calls.push(doRender({cmpMode:'board',rbSample:'full',rbRank:'mar',cmpIds:IDS}, wc, 'cmp'));chk('tab');
+        var ta=dd5Of(AID),tb=dd5Of(BID);
+        // the WATCH view with research rows: one carrying a one-crash DD5, one carrying none
+        var RES=[{id:'R5.01',kind:'research',name:'ZK5ONECRASH',family:'BOOK',lane:'FRONTIER',verdict:'REFERENCE',
+                  wf:{roc30:93.8,dd_usd:44849,dd_pct:44.85,roc_pct:140.2,dd5_usd:30000}},
+                 {id:'R5.02',kind:'research',name:'ZK5NODD5',family:'MISC',lane:'TV',verdict:'DEAD',
+                  wf:{roc30:6.1,dd_usd:31200,dd_pct:31.2,roc_pct:6.34}}];
+        var wOk="window._rbWatch={state:'ok',runs:"+JSON.stringify([{id:+AID,family:'ORB',lane:'ORB',verdict:'CANDIDATE'}])
+          +",research:"+JSON.stringify(RES)+",at:Date.now()};";
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full',rbFam:'__WATCH__'}, wc+wOk));chk('watch');
+        var resWith=d.querySelector('[data-rbres-row="R5.01"] [data-rbres-dd5="30000"]');
+        var resNone=d.querySelector('[data-rbres-row="R5.02"] [data-rbres-dd5=""]');
+        var resOne=!!d.querySelector('[data-rbres-row="R5.01"] [data-rbdd5-one]');
+        var resNoOne=!d.querySelector('[data-rbres-row="R5.02"] [data-rbdd5-one]');
+        var resRowTxt=dfxN((d.querySelector('[data-rbres-row="R5.01"]')||{}).textContent);
+        var ringT=d.querySelector('circle[data-rbres="R5.01"] title');ringT=ringT?(ringT.textContent||''):'';
+        var wv=dd5Of(AID);
+
+        dfxCase('k5_rb_dd5', calls, {
+          'renders OK on FULL / WF / IS / LB, HORIZ, the old RUNBOARD tab and the WATCH view': calls.every(function(c){return c==='OK';}),
+          'no console errors on any render': errAcc.length===0,
+          'a DD5 row sits directly under the DD row': !!ddRow&&!!d5Row&&ddRow.nextElementSibling===d5Row,
+          'the DD5 label explains itself on hover (5 worst drawdowns, 1 EPISODE, 1.3)': d5Lbl.indexOf('5 worst drawdowns')>=0&&d5Lbl.indexOf('1 EPISODE')>=0&&d5Lbl.indexOf('1.3')>=0,
+          'the DD row itself is untouched - the one-crash run still reads its saved $40k': ddA==='$40k',
+          'one-crash run, FULL: DD5 reads $12.0k (40k + four 5k dips, over 5)': !!fa&&fa.sum==='$12.0k'&&fa.val==='12000'&&fa.n==='5',
+          'one-crash run, FULL: the 1 EPISODE chip is on': !!fa&&fa.one,
+          'one-crash run, FULL: the hover lists all five dips, peak to trough': !!fa&&arrows(fa.tip)===5&&fa.tip.indexOf('$40.0k')>=0&&fa.tip.indexOf('1 EPISODE')>=0,
+          'one-crash run, FULL: the hover says its deepest dip is the one the DD row shows': !!fa&&fa.tip.indexOf('$40.0k, is the one the DD row shows')>=0,
+          'one-crash run, FULL: the tap list under the figure holds the same five dips': !!fa&&fa.epsLines===5&&arrows(fa.epsTxt)===5,
+          'one-crash run, FULL: the dates are dated and marked approximate': !!fa&&fa.tip.indexOf('~201')>=0,
+          'even run, FULL: DD5 $9.9k and NO 1 EPISODE chip': !!fb&&fb.sum==='$9.9k'&&!fb.one,
+          'three-dip run, FULL: averages the three it has and says (n=3)': !!fc&&fc.n==='3'&&fc.sum==='$6.0k (n=3)'&&!fc.one,
+          'saved DD deeper than the thinned curve: the deepest dip is pinned to it - DD5 $10.9k': !!fd&&fd.val==='10900'&&fd.sum==='$10.9k',
+          'that pinned run carries the chip, tested on the DD the ROC figure divides by (16k > 1.3 x 10.9k)': !!fd&&fd.one,
+          'its hover and tap list say the deepest dip is the saved figure and what the curve read': !!fd&&fd.tip.indexOf('saved figure, $16.0k')>=0&&fd.epsTxt.indexOf('saved figure; the curve read $11.0k')>=0,
+          'WF: the walk-forward test curve reads DD5 $12.0k with the chip': !!wa&&wa.val==='12000'&&wa.one,
+          'WF: a dip still open at the end of the test counts': !!wa&&wa.tip.indexOf('still open at the end')>=0,
+          'WF: its dates sit inside the test window (2015-2019)': !!wa&&wa.tip.indexOf('~2015')>=0&&wa.tip.indexOf('~2018')>=0,
+          'WF: a run with no saved test dashes DD5 with a reason': !!wb&&wb.val===''&&wb.tip.length>10,
+          'IS: a non-book in-sample stage dashes DD5 and says why': !!ia&&ia.val===''&&ia.tip.indexOf('tuning score')>=0,
+          'LB: the lockbox tail reads its one dip, (n=1), and one dip alone never flags': !!la&&la.val==='5000'&&la.n==='1'&&!la.one,
+          'FULL on an 11-point curve: DD5 still reads $12.0k, marked ~, and the one-crash shape makes NO 1 EPISODE call': !!fe&&fe.val==='12000'&&fe.coarse==='11'&&fe.sum.indexOf('~')===0&&!fe.one,
+          'LB: a stretch with too few saved points is marked ~ and says why': !!la&&la.coarse==='25'&&la.sum.indexOf('~')===0&&la.tip.indexOf('too few to tell its dips apart')>=0,
+          'one-crash run, FULL: the hover gives the worst-to-DD5 ratio (3.33)': !!fa&&fa.tip.indexOf('3.33 times DD5')>=0&&!fa.coarse,
+          'HORIZ: a DD5 column, the one-crash figure and its chip': hTh&&hA&&hOne,
+          'the old RUNBOARD tab carries the same DD5 row and chip': !!ta&&ta.val==='12000'&&ta.one&&!!tb&&!tb.one,
+          'WATCH view: the watched engine run carries DD5 and its chip': !!wv&&wv.val==='12000'&&wv.one,
+          'research row with DD5: shows it beside its worst DD': !!resWith&&resRowTxt.indexOf('DD $44,849')>=0&&resRowTxt.indexOf('DD5 $30,000')>=0,
+          'research row with DD5: 1 EPISODE chip (44,849 > 1.3 x 30,000)': resOne,
+          'research row without DD5: a dash, never a made-up figure, and no chip': !!resNone&&resNoOne,
+          'research ring hover names the DD5 too': ringT.indexOf('DD5 $30,000')>=0
+        }, {fd:fd&&{sum:fd.sum,val:fd.val,one:fd.one},fc:fc&&{sum:fc.sum,n:fc.n,val:fc.val,one:fc.one},fa:fa&&{sum:fa.sum,val:fa.val,n:fa.n,one:fa.one,eps:fa.epsLines},fb:fb&&{sum:fb.sum,one:fb.one},wa:wa&&{val:wa.val,one:wa.one,tip:(wa.tip||'').slice(0,300)},wb:wb&&wb.tip,ia:ia&&ia.tip,
+            la:la&&{val:la.val,n:la.n,one:la.one,coarse:la.coarse,sum:la.sum},ddA:ddA,hTh:hTh,hA:hA,hOne:hOne,ta:ta&&{val:ta.val,one:ta.one},resRowTxt:resRowTxt.slice(0,240),ringT:ringT.slice(0,200),errAcc:errAcc.slice(0,3)});
+      })();
+
       // -- case y1_explore_money: MANAGER audit 2026-09-27 (ml_edge_orb_leak_answer_2026-09-27.md
       //    1.3b/1.4a/3.1e/3.3b, verify_redflags_2026-09-27.md M1/H2). Two EXPLORE fixes.
       //    (A) HYBRID recycle (redeploy) and HYBRID equal-drawdown rows: whenever the ticked
@@ -7745,6 +7881,7 @@ def main(argv=None):
     DFX += ['k3_rb_roc30_warm']
     DFX += ['l1_explore_leverage']
     DFX += ['m1_lb_warm_everywhere']
+    DFX += ['k5_rb_dd5']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}

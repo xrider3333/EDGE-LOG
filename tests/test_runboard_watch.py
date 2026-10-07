@@ -321,6 +321,37 @@ def test_research_refusals(db):
     assert rw.parse_id("382") == 382 and rw.parse_id(" R2.55 ") == "R2.55"
 
 
+def test_research_dd5_is_optional_stored_only_when_given_and_checked(db):
+    """DD5 (owner 2026-10-07): the average of the 5 worst drawdowns rides beside a stretch's worst drawdown.
+    It is stored only when given, so a row written before it (or without it) keeps its exact old shape."""
+    assert "dd5_usd" not in rw.stretch_numbers(6.1, 31200)
+    wf = rw.stretch_numbers(93.8, 44849, dd5_usd=33612.4)
+    assert wf == {"roc30": 93.8, "dd_usd": 44849.0, "dd_pct": 44.85, "roc_pct": 140.23, "dd5_usd": 33612.4}
+    lb = rw.stretch_numbers(155.5, 21000, None, 21000)                  # n=1: DD5 equals the worst drawdown
+    assert lb["dd5_usd"] == 21000.0
+    doc = rw.cmd_research(db, "B463-DD5", "BOOK463", "BOOK", "MANAGER", "REFERENCE", wf, lb, None, "MANAGER", False)
+    e = doc["runs"][0]
+    assert e["wf"]["dd5_usd"] == 33612.4 and e["lb"]["dd5_usd"] == 21000.0
+    with pytest.raises(rw.ToolError, match="cannot be deeper"):
+        rw.stretch_numbers(93.8, 44849, dd5_usd=50000)
+    with pytest.raises(rw.ToolError, match="positive"):
+        rw.stretch_numbers(93.8, 44849, dd5_usd=0)
+    with pytest.raises(rw.ToolError, match="belongs to a stretch"):
+        rw.stretch_numbers(None, None, None, 30000)
+
+
+def test_list_prints_dd5_when_a_row_has_it(db, capsys):
+    rw.cmd_research(db, "R9.01", "WITHDD5", "MISC", "TV", "DEAD", rw.stretch_numbers(6.1, 31200, dd5_usd=20000),
+                    None, None, "TV", False)
+    rw.cmd_research(db, "R9.02", "NODD5", "MISC", "TV", "DEAD", rw.stretch_numbers(6.1, 31200), None, None, "TV", False)
+    capsys.readouterr()
+    rw.cmd_list(db)
+    out = capsys.readouterr().out
+    line1 = [l for l in out.splitlines() if "R9.01" in l][0]
+    line2 = [l for l in out.splitlines() if "R9.02" in l][0]
+    assert "DD5 $20,000" in line1 and "DD5" not in line2
+
+
 def test_import_accepts_research_ids(db, tmp_path):
     f = tmp_path / "seed.json"
     f.write_text(json.dumps([{"id": "R2.53", "kind": "research", "family": "MISC", "verdict": "DEAD",

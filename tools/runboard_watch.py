@@ -24,7 +24,8 @@ Never print, copy or commit the credentials.
     python tools/runboard_watch.py import seed.json --from MANAGER
     python tools/runboard_watch.py research R2.55 --name DAILYFADE --family MISC --lane TV
                                     --verdict "DEAD at Stage A, 0 of 8 cells" --wf-roc30 6.1 --wf-dd 31200
-                                    [--lb-roc30 X --lb-dd Y] [--dd-pct P] [--note "..."] --from TV
+                                    [--wf-dd5 Z] [--lb-roc30 X --lb-dd Y [--lb-dd5 W]] [--dd-pct P]
+                                    [--note "..."] --from TV
     --dry on every write command prints the resulting doc and writes nothing.
 
 RESEARCH ROWS (owner standing order 2026-10-04 via MANAGER #38: "every run AND every research verdict goes on the
@@ -32,9 +33,13 @@ RUNBOARD with ROC %/yr at $30k and DD%"). A script-only round has no engine run 
 numbers (a round that died before any ROC was computed - a failed Step 0 / Step 1 - has a verdict and no numbers,
 and is listed but not plotted): id = a research id that is NOT a plain number (a ledger row "R2.55" or a slug "DAILYFADE-R1"), kind =
 "research", name, family (house vocabulary - MISC for a hunt outside the named families), lane, verdict, and
-wf / lb = {roc30, dd_usd, dd_pct, roc_pct}: ROC %/yr at a $30k worst drawdown (30 x MAR), the worst drawdown in
-dollars, the same drawdown as % of the $100,000 house account, and the plain ROC %/yr that implies
-(roc30 x dd_usd / 30,000). The web app draws these hollow, tagged "no engine run". verdict / note / remove take a
+wf / lb = {roc30, dd_usd, dd_pct, roc_pct[, dd5_usd]}: ROC %/yr at a $30k worst drawdown (30 x MAR), the worst
+drawdown in dollars, the same drawdown as % of the $100,000 house account, the plain ROC %/yr that implies
+(roc30 x dd_usd / 30,000), and - optional, owner 2026-10-07 - DD5, the average depth in dollars of the stretch's 5
+worst non-overlapping drawdown episodes on the same daily curve (--wf-dd5 / --lb-dd5; compute it with
+augur_engine.drawdowns.dd5, which also says whether the worst drawdown is more than 1.3x DD5 = driven by one
+episode). A stretch without dd5_usd shows a dash for DD5 on the web; it is never invented. The web app draws
+these hollow, tagged "no engine run". verdict / note / remove take a
 research id the same way they take a run number; a research row never checks users/{uid}/runs.
 
 `add` is idempotent: only the fields you pass change on a run already on the list; a new run
@@ -189,17 +194,33 @@ def _check_research_id(rid):
                         "(letter first, then letters / digits / . _ -, at most 40 characters)")
 
 
-def stretch_numbers(roc30, dd_usd, dd_pct=None):
-    """{roc30, dd_usd, dd_pct, roc_pct} for one stretch, or None when nothing was given."""
+def stretch_numbers(roc30, dd_usd, dd_pct=None, dd5_usd=None):
+    """{roc30, dd_usd, dd_pct, roc_pct[, dd5_usd]} for one stretch, or None when nothing was given.
+
+    dd5_usd (optional, owner 2026-10-07): the average of the stretch's 5 worst drawdown episodes in
+    dollars, on the same daily curve as dd_usd (augur_engine.drawdowns.dd5). It is stored only when
+    given - an old row without it keeps loading and the web shows a dash."""
     if roc30 is None and dd_usd is None:
+        if dd5_usd is not None:
+            raise ToolError("DD5 belongs to a stretch: give it with that stretch's ROC @ $30k and worst drawdown")
         return None
     if roc30 is None or dd_usd is None:
         raise ToolError("a stretch needs BOTH its ROC @ $30k and its worst drawdown in dollars")
     if dd_usd <= 0:
         raise ToolError(f"worst drawdown must be a positive dollar figure, got {dd_usd}")
     pct = float(dd_pct) if dd_pct is not None else round(100.0 * float(dd_usd) / ACCOUNT, 2)
-    return {"roc30": round(float(roc30), 2), "dd_usd": round(float(dd_usd), 2), "dd_pct": pct,
-            "roc_pct": round(float(roc30) * float(dd_usd) / 30000.0, 2)}
+    out = {"roc30": round(float(roc30), 2), "dd_usd": round(float(dd_usd), 2), "dd_pct": pct,
+           "roc_pct": round(float(roc30) * float(dd_usd) / 30000.0, 2)}
+    if dd5_usd is not None:
+        d5 = float(dd5_usd)
+        if not d5 > 0:
+            raise ToolError(f"DD5 must be a positive dollar figure, got {dd5_usd}")
+        # DD5 averages the deepest episodes, and the deepest one IS the worst drawdown, so it can never exceed it
+        if d5 > float(dd_usd) + 0.01:
+            raise ToolError(f"DD5 ${d5:,.2f} is larger than the worst drawdown ${float(dd_usd):,.2f} - "
+                            "an average of the 5 worst drawdowns cannot be deeper than the worst one")
+        out["dd5_usd"] = round(d5, 2)
+    return out
 
 
 # ── commands ──────────────────────────────────────────────────────────────────────────────────
@@ -216,6 +237,8 @@ def cmd_list(db):
         tag = "R " if r.get("kind") == "research" else "#"
         wf = r.get("wf") or {}
         nums = (" WF %.1f @30k DD %.1f%%" % (wf.get("roc30", 0), wf.get("dd_pct", 0))) if wf else ""
+        if wf and wf.get("dd5_usd") is not None:
+            nums += " DD5 $%s" % f"{float(wf['dd5_usd']):,.0f}"
         print("  %s%-10s %-10s %-44s lane=%-10s verdict_at=%s%s" % (
             tag, r.get("id"), r.get("family") or "-", (r.get("verdict") or "(no verdict yet)")[:44],
             r.get("lane") or "-", r.get("verdict_at") or "-", nums))
@@ -434,8 +457,11 @@ def main():
     rs.add_argument("--verdict")
     rs.add_argument("--wf-roc30", type=float)
     rs.add_argument("--wf-dd", type=float, help="walk-forward worst drawdown, dollars")
+    rs.add_argument("--wf-dd5", type=float, help="walk-forward DD5: average of the 5 worst drawdowns, dollars "
+                    "(augur_engine.drawdowns.dd5 on the same daily curve)")
     rs.add_argument("--lb-roc30", type=float)
     rs.add_argument("--lb-dd", type=float, help="lockbox worst drawdown, dollars")
+    rs.add_argument("--lb-dd5", type=float, help="lockbox DD5: average of the 5 worst drawdowns, dollars")
     rs.add_argument("--dd-pct", type=float, help="override the walk-forward DD %% (default dd / $100,000)")
     rs.add_argument("--note")
     rs.add_argument("--from", dest="frm", required=True)
@@ -481,8 +507,8 @@ def main():
                     args.force, args.dry)
         elif args.cmd == "research":
             cmd_research(db, args.id, args.name, args.family, args.lane, args.verdict,
-                         stretch_numbers(args.wf_roc30, args.wf_dd, args.dd_pct),
-                         stretch_numbers(args.lb_roc30, args.lb_dd), args.note, args.frm, args.dry)
+                         stretch_numbers(args.wf_roc30, args.wf_dd, args.dd_pct, args.wf_dd5),
+                         stretch_numbers(args.lb_roc30, args.lb_dd, None, args.lb_dd5), args.note, args.frm, args.dry)
         elif args.cmd == "verdict":
             cmd_verdict(db, args.id, args.text, args.frm, args.lane, args.dry)
         elif args.cmd == "note":
