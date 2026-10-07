@@ -25,6 +25,15 @@ A kept number whose worker is NOT running is simply launched - keep protects a l
 process, it never leaves a slot empty. A kept `primary` makes the bat skip its own primary
 launch (helper exit code 3), so no second primary is ever stacked on the first.
 
+SELF-RELAUNCH (2026-10-07, api/fs_heal.py). A runner whose Firestore connection stays dead
+(10 min of failures, a rebuilt client failing 10 min more, no job held, network up) restarts
+ITSELF through these same detached launchers, then exits with code 75: a worker N runs
+`wscript _run_worker.vbs N` and exits ~10 s later (so a worker N python exists throughout);
+the primary runs `_restart_runner_hidden.vbs` with EDGELOG_KEEP set to every worker number
+(2..21, never 'primary') - this file's --helper then kills only the old primary, relaunches
+any worker that is missing, and the bat starts the new primary. Its `helper: keep=[...]`
+lines in fleet_restart.log are those restarts; a worker's own restart shows only in its log.
+
 ROLE DETECTION: a worker's role lives only in its environment (EDGELOG_WORKER=N, set by
 _run_worker.vbs inside a `cmd /c "set EDGELOG_WORKER=N && ..."` wrapper) - it is NOT on
 the python's own command line. The wrapper cmd's command line does carry it, so the role

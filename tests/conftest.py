@@ -57,6 +57,9 @@ tools/qqq_exec_smoke.py was isolated the same way in 550055c; this does it for e
    the failing comparison's value. Env vars deleted, the JSON locations pointed at a
    temp dir, and a stub winreg installed, so a test that wants the registry path builds
    its own fake over the stub.
+7. _isolate_runner_fs_heal (autouse, 2026-10-07) gives every test a fresh api.fs_heal HEALTH
+   count and JOB_SLOT and no self-restart marker in the environment - the job runner's
+   Firestore self-heal state lives at module level.
 """
 import errno
 import itertools
@@ -359,6 +362,25 @@ def _isolate_firestore_health(monkeypatch):
     if hasattr(qe, "_FsHealth"):
         monkeypatch.setattr(qe, "_FS_HEALTH", qe._FsHealth())
         monkeypatch.setattr(qe, "_lease_read_inflight", {"future": None})
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_runner_fs_heal(monkeypatch):
+    """api.fs_heal (the job runner's FIRESTORE SELF-HEAL, 2026-10-07) keeps the process's
+    connection-failure count (HEALTH) and its job slot (JOB_SLOT) at MODULE level, and
+    api/runner.py reports into them from every Firestore call site. Fresh for every test, so
+    one test's fake outage can never make another test's job skip its control reads, wait
+    to save, or see a held slot."""
+    try:
+        import threading
+        from api import fs_heal as _fh
+    except ImportError:
+        yield
+        return
+    monkeypatch.setattr(_fh, "HEALTH", _fh.FsHealth())
+    monkeypatch.setattr(_fh, "JOB_SLOT", threading.Lock())
+    monkeypatch.delenv(_fh.RELAUNCH_ENV, raising=False)
     yield
 
 

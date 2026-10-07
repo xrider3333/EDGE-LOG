@@ -19,6 +19,20 @@ Run:  python -m api.runner                         # local test mode, one pass
 Job doc fields (in):  strategy, instrument, timeframe, session, source, params,
                       cost_pts, return_trades, status='queued'[, uid]
 Result fields (out):  status='done'|'error', result{...}|error, finishedAt
+
+FIRESTORE SELF-HEAL (2026-10-07, api/fs_heal.py). A long-lived runner can lose Firestore and
+never get it back on its own (10-07: every call in all five processes failed for 3 h 20 min
+with "503 failed to connect ... tcp handshaker shutdown / socket is null" while a fresh python
+connected at once; a fleet restart fixed it instantly). Every Firestore call site below reports
+to fs_heal.HEALTH; a monitor thread (_start_fs_heal) probes while calls fail, REBUILDS the
+client after 10 min of nothing but failures (FirestoreQueue.db is an fs_heal.FirestoreHandle,
+so every holder moves to the new client at once and the listeners are re-attached), and after
+10 more minutes RESTARTS the process - exit 75, its replacement started first through the same
+detached launchers tools/fleet_restart.py uses - but ONLY when it holds no job
+(fs_heal.JOB_SLOT, held by run_once from the claim to the save) and the network itself is up.
+A runner holding a job never exits: the job keeps computing (its control reads are skipped
+while Firestore is down) and a result that finishes mid-outage waits up to 30 min for the
+connection before the normal save. See api/fs_heal.py's docstring for every rule.
 """
 import os
 import sys
@@ -41,6 +55,7 @@ import augur_engine as ae
 from augur_engine import trial_cache as TC
 from .util import json_safe, pack_command_result
 from . import dupe_guard
+from . import fs_heal
 try:
     from . import paper as _paper
 except Exception as _e:
@@ -1101,7 +1116,12 @@ class LocalQueue:
 
 
 class FirestoreQueue:
-    """Firestore-backed queue. Only runs jobs whose uid is allowlisted."""
+    """Firestore-backed queue. Only runs jobs whose uid is allowlisted.
+
+    `self.db` is an fs_heal.FirestoreHandle around firebase_admin's client: it forwards
+    every attribute, and the self-heal monitor can swap a rebuilt client in under every
+    holder at once (see api/fs_heal.py). Tests that build a queue with __new__ and set a
+    fake `db` are unaffected - every self-heal path checks for the handle first."""
 
     def __init__(self, cred_path=None, collection="backtests", allow_uids=(), nt_fills=None,
                  webull_keys=None):
@@ -1113,7 +1133,7 @@ class FirestoreQueue:
         if not firebase_admin._apps:
             cred = credentials.Certificate(cred_path) if cred_path else credentials.ApplicationDefault()
             firebase_admin.initialize_app(cred)
-        self.db = firestore.client()
+        self.db = fs_heal.FirestoreHandle(firestore.client(), factory=fs_heal.new_client)
         self.col = collection
         self.allow = set(allow_uids)
         self.nt_fills = nt_fills
@@ -1142,6 +1162,7 @@ class FirestoreQueue:
             _n = len(_changes) if _changes is not None else len(_col_snapshot or [])
             # minimum-charge rule: see _note_reads — an empty snapshot still bills 1.
             _note_reads("listener", max(1, _n))
+            fs_heal.HEALTH.note_ok()     # a snapshot only arrives from a live connection
         except Exception:
             pass
         self.wake.set()
@@ -1178,6 +1199,37 @@ class FirestoreQueue:
         # empty), so waiting here confirms the channel is actually live rather
         # than just "no exception was raised while attaching".
         return ready.wait(ready_timeout)
+
+    def reattach_listeners(self, log=print):
+        """After a self-heal rebuild: drop the watches on the old client and attach the same
+        ones on the new client (without waiting for them). Only when listeners were up
+        before - a runner on the plain-poll fallback stays on it. Never raises."""
+        return _reattach_watches(self, log)
+
+    def probe(self):
+        """The self-heal monitor's one bounded read (api/fs_heal.py): a doc that never
+        exists, no retry, fs_heal.PROBE_TIMEOUT_SEC deadline. Raises on failure. Made only
+        while calls are already failing (or after 15 quiet minutes), so a healthy runner
+        pays nothing; one billed read when it succeeds."""
+        uid = sorted(self.allow)[0] if self.allow else None
+        base = (self.db.collection("users").document(uid) if uid else self.db)
+        base.collection("meta").document("runner_probe").get(
+            retry=None, timeout=fs_heal.PROBE_TIMEOUT_SEC)
+        _note_reads("other", 1)
+
+    def _live_ref(self, ref):
+        """`ref` re-derived from the CURRENT client once the self-heal has rebuilt it, so a
+        job claimed on the old (stuck) connection heartbeats and saves through the new one.
+        The ref itself, unchanged, before any rebuild and for anything that is not the
+        runner's own handle (test doubles)."""
+        try:
+            if isinstance(self.db, fs_heal.FirestoreHandle) and self.db.generation > 0:
+                path = getattr(ref, "path", None)
+                if isinstance(path, str) and path:
+                    return self.db.document(path)
+        except Exception:
+            pass
+        return ref
 
     def sync_webull(self, log=print) -> int:
         """Pull Webull filled orders (official OpenAPI) into each allowlisted user's
@@ -1738,6 +1790,7 @@ class FirestoreQueue:
         for uid in (self.allow or []):
             col = self.db.collection("users").document(uid).collection("commands")
             _docs = list(col.where(filter=qf).limit(CMD_POLL_LIMIT).stream())
+            fs_heal.HEALTH.note_ok()
             # minimum-charge rule: see _note_reads — one query per uid, even empty.
             _note_reads("poll", max(1, len(_docs)))
             for snap in _docs:
@@ -1864,6 +1917,7 @@ class FirestoreQueue:
                 # why this can't safely be dropped to a tiny number.
                 _queued = sorted(col.where(filter=qf).limit(JOB_POLL_LIMIT).stream(),
                                  key=lambda sn: (sn.create_time is None, sn.create_time))
+                fs_heal.HEALTH.note_ok()
                 # minimum-charge rule: see _note_reads — one query per uid, even empty.
                 _note_reads("poll", max(1, len(_queued)))
                 for snap in _queued:
@@ -1927,154 +1981,182 @@ class FirestoreQueue:
                     #   ~1,000-read cost and then lost the claim anyway. Now only the ONE
                     #   process that actually wins the claim (and is about to run the job)
                     #   pays it — same duplicate-detection result, a fraction of the reads.
+                    # SELF-HEAL JOB SLOT (api/fs_heal.py): held from just before this claim
+                    # write until the job's result is saved, so the Firestore monitor can tell
+                    # "idle" from "holding a job" and never restarts a runner mid-job. The
+                    # monitor takes the slot itself before a self-restart, so nothing can be
+                    # claimed after it has decided. try/finally: every way out releases it.
+                    fs_heal.JOB_SLOT.acquire()
                     try:
-                        _opt = self.db.write_option(last_update_time=snap.update_time)
-                        ref.update({"status": "running", "progress": 0,
-                                    "startedAt": _now_utc(), "claimedBy": _WORKER_ID,
-                                    "heartbeat_at": _now_utc(), "heartbeat_pid": os.getpid()},
-                                   option=_opt)
-                    except Exception as _ce:
-                        log(f"  skip {snap.id} - claimed by another worker ({type(_ce).__name__})")
-                        continue
-                    # ── DUPLICATE-WORK GUARD ────────────────────────────────────────
-                    # Compare this job against ALREADY-COMPLETED jobs, not just
-                    # in-flight ones. Checking only 'queued'/'running' is what let four
-                    # NOISE validates run twice on 2026-08-18: the originals had already
-                    # finished, so they were invisible to the check.
-                    #
-                    # It does NOT block. The runner is the headless path - a script or a
-                    # dead session queued this and nobody is here to answer a prompt, and
-                    # a rerun is often exactly what was wanted (reproducibility, or the
-                    # same configuration on newer data). Refusing silently would be the
-                    # surprising behaviour. So it runs the job and makes the repeat
-                    # impossible to miss: a loud log line, and a permanent link stamped on
-                    # the job doc and carried onto the run doc, so Past Runs and the
-                    # STUDIES board can say "repeat of run N" without anyone eyeballing it.
-                    # The owner-facing WARNING-BEFORE-SPENDING-20-MINUTES lives in the web
-                    # Builder, where there IS someone to ask.
-                    dup_note = None
-                    dup_match = None
-                    try:
-                        _fp = dupe_guard.job_fingerprint(job)
-                        _m, _rid = dupe_guard.find_duplicate(
-                            self.db, uid, job, exclude_ids=(snap.id,),
-                            # minimum-charge rule: see _note_reads — read_hook fires
-                            # once per query dupe_guard runs (backtests, then runs).
-                            read_hook=lambda _n: _note_reads("claim", max(1, _n)))
-                        _dup_patch = {"fingerprint": _fp}
-                        if _m:
-                            dup_note = dupe_guard.describe(_m, _rid)
-                            dup_match = {"run_id": _m.get("run_id") or _rid,
-                                         "job_id": _m.get("job_id"),
-                                         "fingerprint": _fp,
-                                         "note": dup_note}
-                            _dup_patch["repeat_of"] = _m["job_id"]
-                            _dup_patch["repeat_of_at"] = _m["when"]
-                            if _rid is not None:
-                                _dup_patch["repeat_of_run"] = _rid
-                            log("  !! DUPLICATE WORK: " + dup_note)
-                            log(f"     (this job {snap.id} runs anyway - reruns are "
-                                f"legitimate - and is tagged as a repeat)")
-                        # stamped as a follow-up write, same as before reordering - it
-                        #   doesn't touch the precondition we already won.
                         try:
-                            ref.update(_dup_patch)
-                        except Exception as _e:
-                            log(f"  (duplicate-guard stamp skipped: {_e})")
-                    except Exception as _e:
-                        # A guard that can break a backtest is worse than the duplicate
-                        # it prevents, so every failure here is non-fatal.
-                        log(f"  (duplicate-guard skipped: {_e})")
-                    log(f"  running {snap.id}: {job.get('type','backtest')} "
-                        f"{job.get('strategy')} {job.get('instrument')}…")
-                    last = [0.0]
-                    last_pct = [-1]
-
-                    # The progress callback doubles as the STOP/PAUSE check: every
-                    # CTRL_CHECK_SEC it reads the job's `control` flag. All control I/O is
-                    # fail-safe -> any error falls through to normal running, so a flaky
-                    # read can never break a backtest, only miss one stop/pause check.
-                    # The PROGRESS write only happens when the whole-percent figure moved
-                    # (2026-09-07): with several jobs running at once, a same-value write
-                    # every 1.5 s was thousands of billed web reads an hour per job for
-                    # nothing the screen could show.
-                    def cb(done, total, _ref=ref, _last=last, _lp=last_pct):
-                        if not total or time.time() - _last[0] <= CTRL_CHECK_SEC:
-                            return
-                        _last[0] = time.time()
+                            _opt = self.db.write_option(last_update_time=snap.update_time)
+                            ref.update({"status": "running", "progress": 0,
+                                        "startedAt": _now_utc(), "claimedBy": _WORKER_ID,
+                                        "heartbeat_at": _now_utc(), "heartbeat_pid": os.getpid()},
+                                       option=_opt)
+                        except Exception as _ce:
+                            fs_heal.HEALTH.note_fail(_ce)   # a lost precondition is not counted
+                            log(f"  skip {snap.id} - claimed by another worker ({type(_ce).__name__})")
+                            continue
+                        # ── DUPLICATE-WORK GUARD ────────────────────────────────────────
+                        # Compare this job against ALREADY-COMPLETED jobs, not just
+                        # in-flight ones. Checking only 'queued'/'running' is what let four
+                        # NOISE validates run twice on 2026-08-18: the originals had already
+                        # finished, so they were invisible to the check.
+                        #
+                        # It does NOT block. The runner is the headless path - a script or a
+                        # dead session queued this and nobody is here to answer a prompt, and
+                        # a rerun is often exactly what was wanted (reproducibility, or the
+                        # same configuration on newer data). Refusing silently would be the
+                        # surprising behaviour. So it runs the job and makes the repeat
+                        # impossible to miss: a loud log line, and a permanent link stamped on
+                        # the job doc and carried onto the run doc, so Past Runs and the
+                        # STUDIES board can say "repeat of run N" without anyone eyeballing it.
+                        # The owner-facing WARNING-BEFORE-SPENDING-20-MINUTES lives in the web
+                        # Builder, where there IS someone to ask.
+                        dup_note = None
+                        dup_match = None
                         try:
-                            ctrl = (_ref.get().to_dict() or {}).get("control")
-                        except Exception:
-                            ctrl = None
-                        while ctrl == "pause":
+                            _fp = dupe_guard.job_fingerprint(job)
+                            _m, _rid = dupe_guard.find_duplicate(
+                                self.db, uid, job, exclude_ids=(snap.id,),
+                                # minimum-charge rule: see _note_reads — read_hook fires
+                                # once per query dupe_guard runs (backtests, then runs).
+                                read_hook=lambda _n: _note_reads("claim", max(1, _n)))
+                            _dup_patch = {"fingerprint": _fp}
+                            if _m:
+                                dup_note = dupe_guard.describe(_m, _rid)
+                                dup_match = {"run_id": _m.get("run_id") or _rid,
+                                             "job_id": _m.get("job_id"),
+                                             "fingerprint": _fp,
+                                             "note": dup_note}
+                                _dup_patch["repeat_of"] = _m["job_id"]
+                                _dup_patch["repeat_of_at"] = _m["when"]
+                                if _rid is not None:
+                                    _dup_patch["repeat_of_run"] = _rid
+                                log("  !! DUPLICATE WORK: " + dup_note)
+                                log(f"     (this job {snap.id} runs anyway - reruns are "
+                                    f"legitimate - and is tagged as a repeat)")
+                            # stamped as a follow-up write, same as before reordering - it
+                            #   doesn't touch the precondition we already won.
                             try:
-                                _ref.update({"status": "paused"})
-                            except Exception:
-                                pass
-                            time.sleep(1.0)
+                                ref.update(_dup_patch)
+                            except Exception as _e:
+                                log(f"  (duplicate-guard stamp skipped: {_e})")
+                        except Exception as _e:
+                            # A guard that can break a backtest is worse than the duplicate
+                            # it prevents, so every failure here is non-fatal.
+                            log(f"  (duplicate-guard skipped: {_e})")
+                        log(f"  running {snap.id}: {job.get('type','backtest')} "
+                            f"{job.get('strategy')} {job.get('instrument')}…")
+                        last = [0.0]
+                        last_pct = [-1]
+
+                        # The progress callback doubles as the STOP/PAUSE check: every
+                        # CTRL_CHECK_SEC it reads the job's `control` flag. All control I/O is
+                        # fail-safe -> any error falls through to normal running, so a flaky
+                        # read can never break a backtest, only miss one stop/pause check.
+                        # The PROGRESS write only happens when the whole-percent figure moved
+                        # (2026-09-07): with several jobs running at once, a same-value write
+                        # every 1.5 s was thousands of billed web reads an hour per job for
+                        # nothing the screen could show.
+                        def cb(done, total, _ref=ref, _last=last, _lp=last_pct):
+                            if not total or time.time() - _last[0] <= CTRL_CHECK_SEC:
+                                return
+                            _last[0] = time.time()
+                            # SELF-HEAL (api/fs_heal.py): while Firestore is unreachable every
+                            # read/write here would block the ENGINE for the client's whole retry
+                            # (300 s per read on 2026-10-07). The compute does not need Firestore,
+                            # so skip them; the heartbeat thread and the monitor's probes notice
+                            # when it is back, and the checks resume.
+                            if fs_heal.HEALTH.down():
+                                return
+                            _ref = self._live_ref(_ref)
                             try:
                                 ctrl = (_ref.get().to_dict() or {}).get("control")
-                            except Exception:
+                                fs_heal.HEALTH.note_ok()
+                            except Exception as _ge:
+                                fs_heal.HEALTH.note_fail(_ge)
                                 ctrl = None
-                        if ctrl == "stop":
-                            raise _JobStopped()
-                        _pct = round(100 * done / total)
-                        if _pct != _lp[0]:
-                            _lp[0] = _pct
-                            try:
-                                _ref.update({"status": "running", "progress": _pct})
-                            except Exception:
-                                pass
-                    # HEARTBEAT: its own thread, so liveness never depends on how often
-                    # the engine reports progress. Stops the moment the job returns.
-                    _hb_stop = threading.Event()
-
-                    def _hb(_ref=ref, _stop=_hb_stop):
-                        while not _stop.wait(HEARTBEAT_SEC):
-                            try:
-                                _ref.update({"heartbeat_at": _now_utc(), "heartbeat_pid": os.getpid()})
-                            except Exception:
-                                pass
-                    threading.Thread(target=_hb, daemon=True, name=f"hb-{snap.id[:8]}").start()
-                    _t0 = time.time()
-                    try:
-                        patch = process_job(job, cb)
-                    except _JobStopped:
-                        patch = {"status": "cancelled", "finishedAt": time.time()}
-                        log(f"  cancelled {snap.id} (stopped mid-run)")
-                    finally:
-                        _hb_stop.set()
-                    _elapsed = time.time() - _t0
-                    if patch.get("status") == "done":
-                        patch["elapsed_s"] = round(_elapsed, 2)
-                    if isinstance(patch.get("result"), dict):
-                        shrink_to_fit(patch["result"], log=log, label=f"job {snap.id}")
-                    self._save_job_doc(ref, patch, log)
-                    # A completed grid sweep also lands in the Runs history, so web
-                    # sweeps appear alongside the app's runs in users/{uid}/runs.
-                    if job.get("type") in ("grid", "auto", "walkforward", "ai_optimize", "ai_evolve", "validate", "gate_validate", "book") and patch.get("status") == "done":
-                        try:
-                            _new_rid = self._persist_run(uid, job, patch.get("result") or {},
-                                                         log, elapsed_s=_elapsed,
-                                                         dup=dup_match)
-                            # Stamp the run number back onto the job doc. A future duplicate
-                            # can then name a RUN NUMBER outright instead of falling back to
-                            # matching a job against run history by window and save time.
-                            if _new_rid is not None:
+                            while ctrl == "pause":
                                 try:
-                                    ref.update({"run_id": _new_rid})
+                                    _ref.update({"status": "paused"})
                                 except Exception:
                                     pass
-                        except Exception as _e:
-                            log(f"  (persist-run failed: {_e})")
-                    n += 1
+                                time.sleep(1.0)
+                                try:
+                                    ctrl = (_ref.get().to_dict() or {}).get("control")
+                                except Exception:
+                                    ctrl = None
+                            if ctrl == "stop":
+                                raise _JobStopped()
+                            _pct = round(100 * done / total)
+                            if _pct != _lp[0]:
+                                _lp[0] = _pct
+                                try:
+                                    _ref.update({"status": "running", "progress": _pct})
+                                except Exception:
+                                    pass
+                        # HEARTBEAT: its own thread, so liveness never depends on how often
+                        # the engine reports progress. Stops the moment the job returns.
+                        _hb_stop = threading.Event()
+
+                        def _hb(_ref=ref, _stop=_hb_stop):
+                            while not _stop.wait(HEARTBEAT_SEC):
+                                try:
+                                    self._live_ref(_ref).update(
+                                        {"heartbeat_at": _now_utc(), "heartbeat_pid": os.getpid()})
+                                    fs_heal.HEALTH.note_ok()
+                                except Exception as _he:
+                                    fs_heal.HEALTH.note_fail(_he)
+                        threading.Thread(target=_hb, daemon=True, name=f"hb-{snap.id[:8]}").start()
+                        _t0 = time.time()
+                        try:
+                            patch = process_job(job, cb)
+                        except _JobStopped:
+                            patch = {"status": "cancelled", "finishedAt": time.time()}
+                            log(f"  cancelled {snap.id} (stopped mid-run)")
+                        finally:
+                            _hb_stop.set()
+                        _elapsed = time.time() - _t0
+                        if patch.get("status") == "done":
+                            patch["elapsed_s"] = round(_elapsed, 2)
+                        if isinstance(patch.get("result"), dict):
+                            shrink_to_fit(patch["result"], log=log, label=f"job {snap.id}")
+                        # SELF-HEAL: a job that finishes while Firestore is unreachable holds its
+                        # result (bounded) for the connection to come back, instead of spending
+                        # the save's three fallback stages against a dead one. Returns at once
+                        # when healthy. The save then goes through the CURRENT client.
+                        fs_heal.wait_until_reachable(log=log, what=f"job {snap.id}'s result")
+                        self._save_job_doc(self._live_ref(ref), patch, log)
+                        # A completed grid sweep also lands in the Runs history, so web
+                        # sweeps appear alongside the app's runs in users/{uid}/runs.
+                        if job.get("type") in ("grid", "auto", "walkforward", "ai_optimize", "ai_evolve", "validate", "gate_validate", "book") and patch.get("status") == "done":
+                            try:
+                                _new_rid = self._persist_run(uid, job, patch.get("result") or {},
+                                                             log, elapsed_s=_elapsed,
+                                                             dup=dup_match)
+                                # Stamp the run number back onto the job doc. A future duplicate
+                                # can then name a RUN NUMBER outright instead of falling back to
+                                # matching a job against run history by window and save time.
+                                if _new_rid is not None:
+                                    try:
+                                        self._live_ref(ref).update({"run_id": _new_rid})
+                                    except Exception:
+                                        pass
+                            except Exception as _e:
+                                log(f"  (persist-run failed: {_e})")
+                        n += 1
+                    finally:
+                        fs_heal.JOB_SLOT.release()
         else:
             # No allowlist -> scan all users via collection_group (needs a one-time
             # COLLECTION_GROUP index; Firestore prints a create-link on first run).
             for snap in self.db.collection_group(self.col).where(filter=qf).stream():
                 ref = snap.reference
-                ref.update({"status": "running", "startedAt": _now_utc()})
-                ref.update(process_job(snap.to_dict() or {}))
+                with fs_heal.JOB_SLOT:           # a job held here is never self-restarted
+                    ref.update({"status": "running", "startedAt": _now_utc()})
+                    ref.update(process_job(snap.to_dict() or {}))
                 n += 1
         return n
 
@@ -2164,6 +2246,7 @@ class FirestoreQueue:
             _running = list(col.where(filter=_FF("status", "==", "running")).stream())
             _note_reads("orphan", max(1, len(_running)))
             _paused = list(col.where(filter=_FF("status", "==", "paused")).stream())
+            fs_heal.HEALTH.note_ok()
             _note_reads("orphan", max(1, len(_paused)))
             _claimed = _running + _paused
             for snap in _claimed:
@@ -2299,6 +2382,7 @@ class CommandThread:
         try:
             _n = len(_changes) if _changes is not None else len(_col_snapshot or [])
             _note_reads("cmd", max(1, _n))
+            fs_heal.HEALTH.note_ok()     # a snapshot only arrives from a live connection
         except Exception:
             pass
         self.wake.set()
@@ -2336,6 +2420,12 @@ class CommandThread:
         # just "no exception was raised while attaching" — same check as
         # FirestoreQueue.start_listeners.
         return ready.wait(ready_timeout)
+
+    def reattach_listeners(self, log=print):
+        """After a self-heal rebuild - see FirestoreQueue.reattach_listeners. `self.db` is
+        the runner's shared handle, so polls already use the new client; only the watches
+        were bound to the old one."""
+        return _reattach_watches(self, log)
 
     def _claim(self, snap):
         """Try to atomically flip one queued doc to running+claimedBy='cmdthread'.
@@ -2377,6 +2467,7 @@ class CommandThread:
         qf = FieldFilter("status", "==", "queued")
         n = 0
         _docs = list(col.where(filter=qf).limit(CMD_POLL_LIMIT).stream())
+        fs_heal.HEALTH.note_ok()
         # minimum-charge rule: see _note_reads — one query per uid, even empty.
         _note_reads("cmd", max(1, len(_docs)))
         for snap in _docs:
@@ -2419,6 +2510,7 @@ class CommandThread:
             try:
                 n += self._poll_uid(uid)
             except Exception as e:
+                fs_heal.HEALTH.note_fail(e)
                 if _is_quota_exhausted(e):
                     self._quota_backoff = self._backoff.hit()
                     self._log(f"quota exceeded (429) - backing off {self._quota_backoff:g}s")
@@ -2500,6 +2592,51 @@ class CommandThread:
             else:
                 busy = (time.time() - last_served) < self.BUSY_WINDOW_SEC
                 time.sleep(self._busy_poll_sec if busy else self._poll_sec)
+
+
+def _reattach_watches(owner, log=print):
+    """Shared by FirestoreQueue / CommandThread.reattach_listeners: unsubscribe the old
+    watches on a daemon thread (a watch on a stuck channel must not stall the monitor) and
+    attach new ones through owner.start_listeners(ready_timeout=0). False (and nothing
+    done) when the owner had no watches - it was on the plain-poll fallback."""
+    old = list(getattr(owner, "_watches", None) or [])
+    if not old:
+        return False
+    owner._watches = []
+
+    def _drop():
+        for w in old:
+            try:
+                w.unsubscribe()
+            except Exception:
+                pass
+    threading.Thread(target=_drop, daemon=True, name="fs-unwatch").start()
+    try:
+        owner.start_listeners(log=log, ready_timeout=0.0)
+    except Exception as e:
+        log(f"[fs-health] re-attaching listeners failed: {type(e).__name__}: {e}")
+    return True
+
+
+def _start_fs_heal(q, cmd_thread=None, refresh_busy=None, log=print, start=True):
+    """Start the Firestore self-heal monitor (api/fs_heal.py) for this runner on its own
+    daemon thread. Split out of main() so the wiring is unit-testable. Returns the Monitor."""
+    def _reattach():
+        q.reattach_listeners(log=log)
+        if cmd_thread is not None:
+            cmd_thread.reattach_listeners(log=log)
+
+    def _extra_busy():
+        if refresh_busy is not None and refresh_busy.is_set():
+            return "a master refresh is running"
+        return None
+    mon = fs_heal.Monitor(q.db, probe=q.probe, on_rebuild=_reattach, extra_busy=_extra_busy,
+                          is_worker=_IS_WORKER, worker_n=os.environ.get("EDGELOG_WORKER"),
+                          log=log)
+    if start:
+        threading.Thread(target=mon.run_forever, daemon=True, name="fs-heal").start()
+    log(mon.describe())
+    return mon
 
 
 def auto_pine(log=print, limit=25, provider=None):
@@ -2716,7 +2853,13 @@ def main(argv=None):
                     # come up.
                     print(f"[sync-runs] startup skipped: {type(e).__name__}: {e}")
                 if a.watch and a.refresh_min > 0:
-                    _refresh("startup")
+                    # marked busy like the timer refresh, so the self-heal never restarts
+                    # the primary while it is writing masters
+                    _refresh_busy.set()
+                    try:
+                        _refresh("startup")
+                    finally:
+                        _refresh_busy.clear()
             if a.watch:
                 print("syncing run history + meta: on a background thread "
                       "(jobs start claiming now)")
@@ -2757,7 +2900,7 @@ def main(argv=None):
         # slower (the 2026-09-07 fix) -- one less of the 5 processes touching
         # users/{uid}/commands at all when nobody asked it to. (Split into
         # _start_cmd_thread_if_primary so this rule is unit-testable.)
-        _start_cmd_thread_if_primary(a, q)
+        _cmd_thread = _start_cmd_thread_if_primary(a, q)
         # Job-queue / command listener conversion (item #36): on_snapshot listeners
         # replace the tight poll loop below with an event-driven wake, cutting idle
         # Firestore reads (~5,800/day at --interval 30 x2 queries). A slow backstop
@@ -2775,6 +2918,11 @@ def main(argv=None):
                 print(f"queue listener: ON (backstop poll {LISTENER_BACKSTOP_SEC:g}s)")
             else:
                 print(f"queue listener: FAILED -> polling every {a.interval:g}s")
+            # FIRESTORE SELF-HEAL monitor (api/fs_heal.py) - own thread, every runner.
+            try:
+                _start_fs_heal(q, _cmd_thread, _refresh_busy, log=print)
+            except Exception as e:
+                print(f"[fs-health] monitor not started: {type(e).__name__}: {e}")
         next_backstop = time.time() + LISTENER_BACKSTOP_SEC
         next_sweep = time.time() + ORPHAN_SWEEP_SEC   # periodic orphan sweep (see sweep_orphans)
         next_health = 0.0   # first pass runs immediately, then every HEALTH_SEC
@@ -2803,8 +2951,11 @@ def main(argv=None):
                 # restart is now a no-op for the shadow book. The in-process thread stays
                 # as the fallback for when the launcher is missing.
                 if not _qqq_exec.ensure_standalone(log=print):
+                    # the RAW first client, as before the self-heal handle existed: the
+                    # adapter wraps and rebuilds its own (api/qqq_exec.py), and the runner
+                    # never closes this one (fs_heal.FirestoreHandle)
                     threading.Thread(target=_qqq_exec.qqq_exec_thread,
-                                     args=(q.db, _qe_uids), daemon=True,
+                                     args=(getattr(q.db, "client", q.db), _qe_uids), daemon=True,
                                      name='qqq-exec').start()
                     print(f"QQQ SHADOW execution (api/qqq_exec.py): ON (own thread, every "
                          f"{_qqq_exec.TICK_SEC:g}s during 09:25-16:05 ET Mon-Fri)")
@@ -2863,6 +3014,7 @@ def main(argv=None):
             try:
                 q.sweep_orphans(log=print, tag="boot")
             except Exception as _e:
+                fs_heal.HEALTH.note_fail(_e)
                 # Never let the sweep stop the runner coming up.
                 print(f"[orphan] boot sweep skipped: {type(_e).__name__}: {_e}", flush=True)
             if not _IS_WORKER:
@@ -2894,6 +3046,8 @@ def main(argv=None):
                     _poll_backoff.ok()
                 except Exception as _e:
                     done = 0
+                    if a.firestore:
+                        fs_heal.HEALTH.note_fail(_e)
                     if _is_quota_exhausted(_e):
                         _backoff_wait = _poll_backoff.hit()
                         print(f"[queue] 429 quota exceeded - backing off {_backoff_wait:g}s")
@@ -2904,6 +3058,7 @@ def main(argv=None):
                         done += q.run_commands()
                         _poll_backoff.ok()
                     except Exception as _e:
+                        fs_heal.HEALTH.note_fail(_e)
                         if _is_quota_exhausted(_e):
                             _backoff_wait = max(_backoff_wait, _poll_backoff.hit())
                             print(f"[commands] 429 quota exceeded - backing off {_backoff_wait:g}s")
@@ -2918,6 +3073,7 @@ def main(argv=None):
                 try:
                     q.sweep_orphans(log=print, tag="sweep")
                 except Exception as _e:
+                    fs_heal.HEALTH.note_fail(_e)
                     print(f"[orphan] sweep skipped: {type(_e).__name__}: {_e}")
                 if not _IS_WORKER:
                     q.repair_provisional_run_ids(log=print)
