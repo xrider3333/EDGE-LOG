@@ -954,30 +954,40 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-panel .hm-tags{margin:0 0 12px}
 .lg-panel .hm-notes{margin-bottom:0}
 .lg-panel .hm-excl{margin:0}
-/* REAL's slots in the frame (LEDGER unify step 8): BY TRADE | BY DAY or SIMPLE | FULL, the PASTE box and the action buttons */
+/* REAL's slots in the frame (LEDGER unify step 8): BY TRADE | BY DAY or SIMPLE | FULL and the action buttons (the PASTE box is a fold since step 11) */
 .hm-slot{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;min-width:0}
-.hm-slot .hm-paste{min-width:0;width:230px;flex:0 1 230px;font-size:11px;max-width:none}
 .hm-slot .hm-tools-toggle{display:none}
-/* REAL's page order on a phone (LEDGER mistake #12): hero, chart, pills, the four tiles and the account line first, then the
-   trade list; More stats, the calendar, the AI assessment and the other sections follow it, folded */
+/* LEDGER unify step 11: REAL's page is built in ONE fixed order at every width (the markup is in that order - no order: rules): hero, range pills
+   with the EQUITY | P&L switch, equity chart, the four tiles, More stats, calendar, accounts, the trade list, then REAL's own sections, each a closed
+   fold with a one-line summary. Breakpoints: only the house numbers - 600 phone, 740 / 800 / 920 list cells, 1100 rail (contract section 5b). */
+.hm-wrap.lg-flow>*{min-width:0}
+.hm-ctl{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px 14px;margin:18px 0 0}
+.hm-mode{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none}
+.hm-mode button{background:transparent;border:none;padding:7px 14px;font-size:10px;letter-spacing:1px;color:var(--text5);font-family:'JetBrains Mono',monospace;cursor:pointer}
+.hm-mode button.active{background:var(--bg1);color:var(--text)}
+.hm-wrap.lg-flow .hm-chart-wrap{margin:12px 0 22px}
+.hm-fold{gap:10px}
+.hm-fold .hm-fold-t{flex:none;white-space:nowrap}
+.hm-fold .hm-fold-sum{flex:0 1 auto;min-width:0;text-transform:none;letter-spacing:.3px;color:var(--text5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hm-fold .lg-chev{flex:none}
+.hm-own .lg-more{margin-bottom:10px}
+.hm-own .lg-more-panel{margin:0 0 18px;padding:16px 18px}
+.hm-paste-row{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.hm-paste-row .hm-paste{min-width:0;flex:1 1 240px;max-width:420px;font-size:11px}
+.hm-paste-msgrow{margin-top:10px}
+.hm-fold-body .hm-ledger-strip{background:none;padding:0;margin:0}
+.hm-mis-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 8px}
 .hm-sec-acct .hm-acct-fold{display:none}
-.hm-sec-ai .lg-more-panel{padding:14px 16px}
+#hm-feed-container+.hm-own{margin-top:18px}
 @media (max-width:600px){
-  .hm-wrap.lg-flow{display:flex;flex-direction:column}
-  .hm-wrap.lg-flow>*{min-width:0}
-  .hm-wrap.lg-flow>.lg-hero{order:1}
-  .hm-wrap.lg-flow>.hm-chart-wrap{order:2;margin-top:14px}
-  .hm-wrap.lg-flow>.hm-range-row{order:3;margin-bottom:14px}
-  .hm-wrap.lg-flow>.lg-stats{order:4}
-  .hm-wrap.lg-flow>.hm-sec-acct{order:5}
-  .hm-wrap.lg-flow>#hm-feed-container{order:6}
-  .hm-wrap.lg-flow>.hm-sec-deps{order:7}
-  .hm-wrap.lg-flow>.hm-sec-more{order:8}
-  .hm-wrap.lg-flow>.hm-sec-cal{order:9}
-  .hm-wrap.lg-flow>.hm-sec-ai{order:10}
-  .hm-wrap.lg-flow>#hm-missed{order:11}
-  .hm-wrap.lg-flow>.hm-sec-journal{order:12}
-  .hm-wrap.lg-flow .lg-more{margin-bottom:14px}
+  .hm-ctl{margin-top:8px;gap:8px 10px}
+  .hm-ctl .lg-pills{gap:11px}
+  .hm-mode button{padding:7px 9px}
+  .hm-wrap.lg-flow .hm-chart-wrap{margin:4px 0 8px}
+  .hm-wrap.lg-flow .lg-stats{margin-bottom:8px}
+  .hm-wrap.lg-flow .lg-stat{padding:11px 14px}
+  .hm-wrap.lg-flow .lg-more{padding-top:9px;margin-bottom:6px}
+  .hm-wrap.lg-flow .lg-more-panel,.hm-wrap.lg-flow .lg-cal-panel{margin-top:-2px}
   .hm-sec-acct .hm-acct-fold{display:flex;margin-bottom:10px}
   .hm-sec-acct:not(.open) .lg-list{display:none}
   .hm-sec-acct .lg-list{margin-bottom:14px}
@@ -1000,7 +1010,6 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .lg-tl-table .lg-d-short{display:inline}
   .lg-tl-table .lg-c-chart .inline-txt{display:none}
   .lg-tl-wrap{max-height:none}
-  .hm-slot .hm-paste{flex:1 1 120px;width:auto}
   .hm-slot .hm-tools-toggle{display:inline-block}
   .hm-slot .hm-toolbar-actions{display:none;flex-basis:100%}
   .hm-slot .hm-toolbar-actions.open{display:flex}
@@ -1080,10 +1089,17 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 /* the auto table layout squeezes a select down to its header's width - keep them readable */
 .hm-dtable.hm-simple select[data-hmfield="grade"]{min-width:52px}
 .hm-dtable.hm-simple select[data-hmfield="setup"]{min-width:96px}
-@media (max-width:1010px){.hm-dtable.hm-simple .hm-s3{display:none}}
-@media (max-width:900px){.hm-dtable.hm-simple .hm-s2{display:none}}
-@media (max-width:700px){.hm-dtable.hm-simple .hm-s1{display:none}.hm-dtable.hm-simple td,.hm-dtable.hm-simple th{padding-left:6px;padding-right:6px}}
-@media (max-width:480px){.hm-dtable.hm-simple td,.hm-dtable.hm-simple th{padding-left:4px;padding-right:4px}}
+/* LEDGER step 11: the SIMPLE columns go at the house numbers - the # and PTS columns at 1100, IN / POINTS / SETUP at 920, the next one at 740 - and the cell
+   padding tightens at 600; each column comes back only once the box has room for it (a scrollbar can take 15 px), later than the old 1010 / 900 / 700 / 480 */
+@media (max-width:1100px){.hm-wrap.lg-flow .hm-dtable.hm-simple .hm-s3{display:none}}
+@media (max-width:920px){.hm-wrap.lg-flow .hm-dtable.hm-simple .hm-s2{display:none}}
+@media (max-width:740px){.hm-wrap.lg-flow .hm-dtable.hm-simple .hm-s1{display:none}.hm-wrap.lg-flow .hm-dtable.hm-simple td,.hm-wrap.lg-flow .hm-dtable.hm-simple th{padding-left:6px;padding-right:6px}}
+@media (max-width:600px){.hm-wrap.lg-flow .hm-dtable.hm-simple td,.hm-wrap.lg-flow .hm-dtable.hm-simple th{padding-left:4px;padding-right:4px}}
+/* the previous board (?oldboards=1) keeps its own numbers until it is removed, one version later */
+@media (max-width:1010px){.hm-wrap:not(.lg-flow) .hm-dtable.hm-simple .hm-s3{display:none}}
+@media (max-width:900px){.hm-wrap:not(.lg-flow) .hm-dtable.hm-simple .hm-s2{display:none}}
+@media (max-width:700px){.hm-wrap:not(.lg-flow) .hm-dtable.hm-simple .hm-s1{display:none}.hm-wrap:not(.lg-flow) .hm-dtable.hm-simple td,.hm-wrap:not(.lg-flow) .hm-dtable.hm-simple th{padding-left:6px;padding-right:6px}}
+@media (max-width:480px){.hm-wrap:not(.lg-flow) .hm-dtable.hm-simple td,.hm-wrap:not(.lg-flow) .hm-dtable.hm-simple th{padding-left:4px;padding-right:4px}}
 /* Row flash after a calendar-day / chart-dot jump (window.hmShowTrades). Pinned cells carry
    their own opaque background, so they get the same tint mixed onto it. */
 .hm-dtable tbody tr.hm-flash td.hm-pin{background:color-mix(in srgb,var(--yellow) 20%,var(--bg))}
@@ -1166,8 +1182,12 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .hm-ms-grid{grid-template-columns:1fr}
   .hm-feed-head{flex-direction:column;align-items:flex-start}
 }
+@media (max-width:600px){
+  .hm-wrap.lg-flow .hm-dtable .hm-col-dur,.hm-wrap.lg-flow .hm-dtable .hm-col-in,.hm-wrap.lg-flow .hm-dtable .hm-col-out{display:none}
+}
+/* the previous board (?oldboards=1), removed with it one version later */
 @media (max-width:520px){
-  .hm-dtable .hm-col-dur,.hm-dtable .hm-col-in,.hm-dtable .hm-col-out{display:none}
+  .hm-wrap:not(.lg-flow) .hm-dtable .hm-col-dur,.hm-wrap:not(.lg-flow) .hm-dtable .hm-col-in,.hm-wrap:not(.lg-flow) .hm-dtable .hm-col-out{display:none}
 }
 /* EXPLORE table cells (2026-09-22): the four properties no theme restyles, shared instead of repeated on
    every cell. Padding and the bottom border stay inline on the cell - themes set both on every td, and only
@@ -1217,7 +1237,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1116';
+const VERSION='73.1117';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1235,7 +1255,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1116',date:'2026-10-06',notes:['SCORES: 4 trades from 2026-10-05, 2026-10-06 scored, 0 marked NA (no price data).']},{v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
+const CHANGELOG=[{v:'73.1117',date:'2026-10-06',notes:['LEDGER step 11 on REAL: the board now reads in ONE fixed order at every width: the hero, the range pills with the EQUITY or P&L switch, the equity chart, the four stat tiles, More stats, the calendar, the accounts, the trade list (with its panel), then the board own sections. Before, the phone moved things about with a separate order and the laptop kept another.','Every own section is now a closed fold with ONE line that says what is inside: PASTE A SNAPSHOT LINK (where the next link goes), SHOULD HAVE TRADED (how many setups, the newest), DEPOSITS (events and the net), AI ASSESSMENT (the last 20 trades in a line) and JOURNAL (entries and the newest date). Each fold remembers open or closed on this browser, and a paste note or a setup form in the making opens its fold by itself. The NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL buttons stay with the list, and nothing was removed.','One set of screen widths: the board own rules now use only 600 (phone), 740, 800 and 920 (list cells) and 1100. The SIMPLE table brings its columns back at 740, 920 and 1100 (were 700, 900 and 1010), the calendar opens by default above 600 (was 760), and the phone trade list starts no lower than before. ?oldboards=1 is unchanged.']},{v:'73.1116',date:'2026-10-06',notes:['SCORES: 4 trades from 2026-10-05, 2026-10-06 scored, 0 marked NA (no price data).']},{v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
 {v:'73.1114',date:'2026-10-06',notes:['LEDGER step 9 on WEBULL PAPER: a click on a trade row now opens the shared trade panel (a panel on the right on a laptop, a sheet from the bottom on a phone) in place of the old sheet. Header: the strategy with its run number, the side, the entry day, entry to exit time, the shares, the BOOK ONLY, FILL GAP, EOD and BOOK PRICE chips and the signed P&L of record.','Chart: the same QQQ candles the chart glyph opens, with EXPAND. Numbers: prices and Webull fills, hold time, P&L of record, running total, real P&L, slip, fill coverage and the fill breakdown. Notes: read-only, with the exit reason, the flags in words and the KEEL size note. OPEN CANDLES is the one action, and nothing in the panel changes a trade.','Esc, a tap outside it or the close button shut it, and a closed panel takes no room. The open trade stays open through SHOW MORE, a search, a chip, LIST and TABLE and the board redraw every few seconds. ?oldboards=1 keeps the old sheet.']},
 {v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
 {v:'73.1102',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
@@ -13769,9 +13789,12 @@ function _hmAccountListHtml(){
 }
 // REAL on the shared calendar (unify step 7): the range's trades by the day they closed, the same money the trade
 // list's day headers add up. Open on a laptop and closed on a phone until you choose (remembered per browser).
-var homeCalOpen=(()=>{try{const v=localStorage.getItem('el_lg_cal_real');if(v==='1'||v==='0')return v==='1';}catch(e){}return (window.innerWidth||1200)>=760;})();
+var homeCalOpen=(()=>{try{const v=localStorage.getItem('el_lg_cal_real');if(v==='1'||v==='0')return v==='1';}catch(e){}return (window.innerWidth||1200)>600;})();
 // the AI ASSESSMENT fold and the account line on a phone: closed until you open them, remembered per browser
 var homeAiOpen=false,homeAcctOpen=false;try{homeAiOpen=localStorage.getItem('el_lg_ai_real')==='1';homeAcctOpen=localStorage.getItem('el_lg_acct_real')==='1';}catch(e){}
+// LEDGER step 11: the other own sections (PASTE box, SHOULD HAVE TRADED, DEPOSITS) are closed folds too, remembered per browser like the AI fold and the JOURNAL
+var homeOwnOpen={paste:false,missed:false,deps:false};
+try{homeOwnOpen.paste=localStorage.getItem('el_lg_paste_real')==='1';homeOwnOpen.missed=localStorage.getItem('el_lg_missed_real')==='1';homeOwnOpen.deps=localStorage.getItem('el_lg_deps_real')==='1';}catch(e){}
 function _hmCalDays(rangeTrades){return ledgerCalDays(bScope(rangeTrades),{pnl:pnlVal,net:t=>+t.pnl||0,include:t=>!(t&&t.statsExcluded)});}
 function _hmCalendarHtml(rangeTrades){
   const days=_hmCalDays(rangeTrades);
@@ -14494,25 +14517,21 @@ function _hmCountExtraHtml(){
   return (anyFilt?`<span onclick="clearFilters()" title="clear all filters" style="cursor:pointer;color:var(--text5);text-decoration:underline">&#10005; clear filters</span>`:'')
     +(out>0?`<span data-hmempty="all" title="Switch the range pill to ALL" style="cursor:pointer;color:var(--blue);text-decoration:underline">${out} MORE OUTSIDE ${homeRange} &middot; SHOW ALL</span>`:'');
 }
-// REAL's toolbar row in the frame: BY TRADE | BY DAY (list) or SIMPLE | FULL (table), the PASTE box and the four action buttons
-// (behind the ... button on a phone), and the paste notes
+// REAL's toolbar row in the frame: BY TRADE | BY DAY (list) or SIMPLE | FULL (table) and the four action buttons
+// (behind the ... button on a phone). The PASTE box and its notes are the PASTE fold below the list (LEDGER step 11)
 function _hmToolsHtml(){
   const tbl=homeView==='table',open=!!window._hmToolsOpen;
   const seg=tbl
     ?`<div class="hm-seg" id="hm-ledger-seg" title="SIMPLE fits the row on screen - FULL shows every column and scrolls sideways"><button data-hmledger="simple" class="${homeLedger!=='full'?'active':''}">SIMPLE</button><button data-hmledger="full" class="${homeLedger==='full'?'active':''}">FULL</button></div>`
     :`<div class="hm-seg" id="hm-feed-seg"><button data-hmfeed="trade" class="${homeFeedMode==='trade'?'active':''}">BY TRADE</button><button data-hmfeed="day" class="${homeFeedMode==='day'?'active':''}">BY DAY</button></div>`;
-  const msgStyle='font-size:10px;color:var(--text3);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center';
-  const msg=window._hmPasteNote?`<div id="hm-paste-msg" style="${msgStyle}">${window._hmPasteNote}</div>`
-    :(_hmHoldGet()?`<div id="hm-paste-msg" style="${msgStyle}"><span>A snapshot link is held for your next stock trade to reach the journal.</span><span id="hm-hold-drop" style="cursor:pointer;color:var(--text5);text-decoration:underline">drop it</span></div>`:'');
   return `<div class="hm-slot">${seg}
-      <input type="text" id="hm-paste-chart" class="hm-feed-search hm-paste" autocomplete="off" spellcheck="false" placeholder="paste a TradingView snapshot link" title="Paste a TradingView snapshot link here - it goes on your newest trade that has no chart link yet">
       <button type="button" class="hm-ghostbtn hm-tools-toggle" id="hm-tools-toggle" aria-expanded="${open}" title="NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL">&middot;&middot;&middot;</button>
       <span class="hm-toolbar-actions${open?' open':''}" id="hm-tools">
         <button class="hm-ghostbtn" id="hm-newtrade-toggle">${homeNewTradeOpen?'&#9650; NEW TRADE':'＋ NEW TRADE'}</button>
         <button class="hm-ghostbtn" id="hm-add-deposit">＋ ADD DEPOSIT</button>
         <button class="hm-ghostbtn" id="hm-scan-dupes">&#128269; SCAN DUPLICATES</button>
         <button class="hm-ghostbtn" id="hm-open-all" title="Open chart links for the trades currently shown on LEDGER">&#128200; OPEN ALL</button>
-      </span></div>${msg}`;
+      </span></div>`;
 }
 // REAL's whole trade list: the frame with REAL's rows, chips, slots and columns
 function _hmFrameHtml(list){
@@ -14536,26 +14555,129 @@ function _hmFrameHtml(list){
     th:_hmFrameTh,cols:_hmFrameCols(full),actions:_hmFrameActions(full)
   });
 }
-// the frame in the page, with the DEPOSITS strip above it (under the list on a phone)
+// the trade list in the page (LEDGER unify step 11: the DEPOSITS strip is a fold below the list now)
 function _hmFrameBlockHtml(list){
-  const strip=_hmLedgerStripHtml();
-  return (strip?'<div class="hm-sec hm-sec-deps">'+strip+'</div>':'')+'<div id="hm-feed-container">'+_hmFrameHtml(list)+'</div>';
+  return '<div id="hm-feed-container" data-hmsec="list">'+_hmFrameHtml(list)+'</div>';
 }
-// the AI ASSESSMENT is a closed fold (it filled the top of the page on a phone); open or closed is remembered per browser
-function _hmAiSectionHtml(){
-  const open=homeAiOpen;
-  const btn=`<button type="button" class="lg-more" data-hmai-fold="1" aria-expanded="${open}" aria-controls="hm-ai-panel"><span>AI assessment</span><span class="lg-chev" aria-hidden="true">&#9662;</span></button>`;
-  const panel=open?`<div class="lg-more-panel" id="hm-ai-panel">
-      <div class="sec-hd" style="padding:0 0 8px"><span>🤖 AI ASSESSMENT</span><button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px" onclick="runOverviewAI()">REFRESH</button></div>
-      <div id="overview-ai-output" style="padding:4px 0;font-size:var(--fsxs);color:var(--text3);line-height:1.7;max-height:400px;overflow-y:auto"><div style="color:var(--text5);text-align:center;padding:20px">Loading insights...</div></div>
-    </div>`:'';
-  return '<div class="hm-sec hm-sec-ai">'+btn+panel+'</div>';
+// ---- LEDGER unify step 11: ONE page order, and the board's own sections as closed folds -------------------------------------------
+// The page is built in the SAME order at every width (the markup is in that order, no CSS reordering): hero, range pills, equity chart,
+// stats strip, More stats, calendar, accounts, the trade list (with its panel), then REAL's own folds. An own fold is closed until it is
+// opened, says in ONE line what is inside (a number or a state) and remembers open / closed per browser (localStorage, inside try/catch).
+// Folded, never removed: every control that was on the board is inside its fold.
+const _HM_PAGE_ORDER=['hero','pills','chart','stats','more','cal','acct','list','paste','missed','deps','ai','journal'];
+const _HM_FOLD_LS={paste:'el_lg_paste_real',missed:'el_lg_missed_real',deps:'el_lg_deps_real',ai:'el_lg_ai_real',journal:'el_home_journal_open'};
+function _hmFoldIsOpen(k){return k==='ai'?!!homeAiOpen:(k==='journal'?!!homeJournalOpen:!!homeOwnOpen[k]);}
+function _hmFoldSet(k,on){
+  on=!!on;
+  if(k==='ai')homeAiOpen=on;else if(k==='journal')homeJournalOpen=on;else homeOwnOpen[k]=on;
+  try{localStorage.setItem(_HM_FOLD_LS[k],on?'1':'0');}catch(e){}
 }
-// the account list: always drawn on a laptop; on a phone one line (the account in view) that opens the list
+// one line of text for a fold header: escaped, whitespace squeezed, cut with an ellipsis
+function _hmSumLine(s,n){s=String(s==null?'':s).replace(/\s+/g,' ').trim();n=n||120;return _hmEsc(s.length>n?s.slice(0,n-1)+'\u2026':s);}
+// the fold: a header button (title, ONE summary line, chevron) and, only while it is open, the body
+function _hmFoldHtml(k,title,sum,body,attr){
+  const open=_hmFoldIsOpen(k);
+  return '<div class="hm-sec hm-own hm-own-'+k+'" data-hmsec="'+k+'">'
+    +'<button type="button" class="lg-more hm-fold"'+(k==='journal'?' id="hm-journal-hd"':'')+' data-hmfold="'+k+'"'+(attr||'')+' aria-expanded="'+open+'" aria-controls="hm-fold-'+k+'">'
+    +'<span class="hm-fold-t">'+title+'</span><span class="hm-fold-sum" data-hmsum="'+k+'">'+sum+'</span><span class="lg-chev" aria-hidden="true">&#9662;</span></button>'
+    +(open?'<div class="lg-more-panel hm-fold-body" id="hm-fold-'+k+'">'+body()+'</div>':'')
+    +'</div>';
+}
+// PASTE box: where the next snapshot link goes (or what the last paste did, or that a link is held)
+function _hmPasteSummary(){
+  const n=window._hmPasteNote;
+  if(n){const m=/^<span>([\s\S]*?)<\/span>/.exec(String(n));const d=document.createElement('div');d.innerHTML=m?m[1]:'a snapshot link needs an answer';return _hmSumLine(d.textContent);}
+  if(_hmHoldGet())return 'a link is held for your next stock trade';
+  if(!trades.length)return 'no trades yet to put a link on';
+  const t=_hmChartlessTarget();
+  return t?'the next link goes on '+_hmSumLine(_hmTradeLbl(t)):'every trade has a chart link';
+}
+function _hmPasteBodyHtml(){
+  const msgStyle='font-size:10px;color:var(--text3);display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center';
+  const msg=window._hmPasteNote?`<div id="hm-paste-msg" style="${msgStyle}">${window._hmPasteNote}</div>`
+    :(_hmHoldGet()?`<div id="hm-paste-msg" style="${msgStyle}"><span>A snapshot link is held for your next stock trade to reach the journal.</span><span id="hm-hold-drop" style="cursor:pointer;color:var(--text5);text-decoration:underline">drop it</span></div>`:'');
+  return `<div class="hm-paste-row">
+      <input type="text" id="hm-paste-chart" class="hm-feed-search hm-paste" autocomplete="off" spellcheck="false" placeholder="paste a TradingView snapshot link" title="Paste a TradingView snapshot link here - it goes on your newest trade that has no chart link yet">
+    </div>${msg?'<div class="hm-paste-msgrow">'+msg+'</div>':''}`;
+}
+function _hmPasteFold(){return _hmFoldHtml('paste','Paste a snapshot link',_hmPasteSummary(),_hmPasteBodyHtml);}
+// SHOULD HAVE TRADED: how many setups are filed and the newest one
+function _hmMissedSummary(){
+  const l=_hmMissedSorted();
+  if(!l.length)return 'none filed yet';
+  const m=l[0];
+  return l.length+' setup'+(l.length===1?'':'s')+' not taken &middot; newest '+_hmSumLine(String(m.symbol||'')+' '+String(m.date||'').slice(5));
+}
+function _hmMissedFold(){return _hmFoldHtml('missed','Should have traded',_hmMissedSummary(),()=>_hmMissedSectionHtml(true));}
+// DEPOSITS: the number of events and the net money in
+function _hmDepsSummary(){
+  const led=scopedLedger();
+  if(!led||!led.length)return 'no deposits or withdrawals yet';
+  const net=led.reduce((s,e)=>s+(+e.amount||0),0);
+  return led.length+' event'+(led.length===1?'':'s')+' &middot; net '+ledgerSigned(net);
+}
+function _hmDepsBodyHtml(){
+  const led=scopedLedger();
+  if(!led||!led.length)return '<div class="lg-ms-note" style="margin:0">No deposits or withdrawals yet. ADD DEPOSIT, next to the trade list, records one.</div>';
+  const dep=led.filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0);
+  const wd=led.filter(e=>e.amount<0).reduce((s,e)=>s+Math.abs(e.amount),0);
+  const chips=led.map(ev=>`<span class="hm-ledger-chip"><span style="color:var(--text5)">${_hmEsc(ev.date)}</span><span class="${ledgerCls(ev.amount)}" style="font-family:'Bebas Neue',monospace;font-size:12px">${ev.amount>0?'+':'-'}$${Math.abs(ev.amount).toFixed(2)}</span><span onclick="removeLedgerEvent(${ledgerEvents.indexOf(ev)})" title="remove" style="cursor:pointer;color:var(--text5);font-weight:bold">&#10005;</span></span>`).join('');
+  return `<div class="hm-ledger-strip">
+    <span style="color:var(--text4)">DEP <span class="lg-up">+$${dep.toLocaleString()}</span></span>
+    ${wd>0?`<span style="color:var(--text4)">WD <span class="lg-down">-$${wd.toLocaleString()}</span></span>`:''}
+    <span style="color:var(--text4)">NET <span class="${ledgerCls(dep-wd)}">${dep-wd<0?'-':''}$${Math.abs(dep-wd).toLocaleString()}</span></span>
+    <span style="width:1px;height:13px;background:var(--border)"></span>
+    ${chips}
+  </div>`;
+}
+function _hmDepsFold(){return _hmFoldHtml('deps','Deposits',_hmDepsSummary(),_hmDepsBodyHtml);}
+// AI ASSESSMENT: the same last-20 read the box makes, in one line (the box itself fills when the fold opens)
+function _hmAiSummary(){
+  const recent=[...trades].sort((a,b)=>a.date>b.date?-1:1).slice(0,20);
+  const S=recent.length?calcStats(recent):null;
+  if(!S)return 'needs a few trades to read';
+  return 'last '+recent.length+' trades &middot; '+(S.wr*100).toFixed(0)+'% won &middot; profit factor '+(S.pf>=99?'no losses':S.pf.toFixed(2));
+}
+function _hmAiBodyHtml(){
+  return `<div class="sec-hd" style="padding:0 0 8px"><span>🤖 AI ASSESSMENT</span><button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px" onclick="runOverviewAI()">REFRESH</button></div>
+      <div id="overview-ai-output" style="padding:4px 0;font-size:var(--fsxs);color:var(--text3);line-height:1.7;max-height:400px;overflow-y:auto"><div style="color:var(--text5);text-align:center;padding:20px">Loading insights...</div></div>`;
+}
+function _hmAiFold(){return _hmFoldHtml('ai','AI assessment',_hmAiSummary(),_hmAiBodyHtml,' data-hmai-fold="1"');}
+// JOURNAL: the number of entries and the newest date
+function _hmJournalSummary(){
+  const n=(lessons||[]).length;
+  if(!n)return 'no entries yet';
+  const nw=lessons.reduce((a,l)=>String(l.date||'')>String(a.date||'')?l:a,lessons[0]);
+  return n+' entr'+(n===1?'y':'ies')+' &middot; newest '+_hmSumLine(nw.date||'');
+}
+function _hmJournalFold(){return _hmFoldHtml('journal','Journal',_hmJournalSummary(),()=>_hmJournalSectionHtml(true));}
+// the account list: always drawn on a laptop; on a phone one line (the account in view and its balance) that opens the list
+function _hmAcctSummary(){
+  const bal=activeBroker?brokerBalance(activeBroker):_brokerList().reduce((s,b)=>s+brokerBalance(b),0);
+  return _hmSumLine(activeBroker||'All accounts')+' &middot; '+ledgerMoney(bal);
+}
 function _hmAcctSectionHtml(){
   const list=_hmAccountListHtml();
   if(!list)return '';
-  return `<div class="hm-sec hm-sec-acct${homeAcctOpen?' open':''}"><button type="button" class="lg-more hm-acct-fold" data-hmacct-fold="1" aria-expanded="${homeAcctOpen}"><span>Accounts</span><span style="letter-spacing:.5px;text-transform:none;color:var(--text5)">${activeBroker?_hmEsc(activeBroker):'all accounts'}</span><span class="lg-chev" aria-hidden="true">&#9662;</span></button>${list}</div>`;
+  return `<div class="hm-sec hm-sec-acct${homeAcctOpen?' open':''}" data-hmsec="acct"><button type="button" class="lg-more hm-fold hm-acct-fold" data-hmacct-fold="1" aria-expanded="${homeAcctOpen}"><span class="hm-fold-t">Accounts</span><span class="hm-fold-sum" data-hmsum="acct">${_hmAcctSummary()}</span><span class="lg-chev" aria-hidden="true">&#9662;</span></button>${list}</div>`;
+}
+// the whole page of the LEDGER > REAL board, built in _HM_PAGE_ORDER
+function _hmPageHtml(list,rangeStats,rangeTrades){
+  const ls=_hmLedgerStats(rangeTrades);
+  const ign=ls&&ls.excluded?`<span title="${ls.excluded} trade${ls.excluded>1?'s':''} marked IGNORE IN METRICS are left out of win rate, profit factor and the streak, but still count in P&amp;L and drawdown" style="color:var(--yellow)"> &middot; ${ls.excluded} ignored</span>`:'';
+  const S={
+    hero:'<div data-hmsec="hero">'+ledgerHeroHtml({ids:{label:'hm-hero-label',big:'hm-hero-value',today:'hm-hero-today',range:'hm-hero-delta',chips:'hm-hero-chips'}})+'</div>',
+    pills:'<div class="hm-ctl" data-hmsec="pills">'+ledgerRangePillsHtml(homeRange,'data-hmrange')
+      +'<div class="hm-mode" id="hm-mode-toggle"><button data-hmmode="equity" class="'+(homeChartMode==='equity'?'active':'')+'">EQUITY</button><button data-hmmode="pnl" class="'+(homeChartMode==='pnl'?'active':'')+'">P&amp;L</button></div></div>',
+    chart:'<div class="hm-chart-wrap" id="hm-chart-wrap" data-hmsec="chart"></div>',
+    stats:'<div data-hmsec="stats">'+ledgerStatStripHtml(ls,{id:'hm-stat-strip',winNote:ign})+'</div>',
+    more:'<div class="hm-sec hm-sec-more" data-hmsec="more">'+ledgerMoreStatsHtml(ls,_hmOwnStatGroups(rangeStats),{open:homeStatsOpen,id:'hm',note:'Scoped to the chosen account and range'})+'</div>',
+    cal:'<div class="hm-sec hm-sec-cal" data-hmsec="cal">'+_hmCalendarHtml(rangeTrades)+'</div>',
+    acct:_hmAcctSectionHtml(),
+    list:_hmFrameBlockHtml(list),
+    paste:_hmPasteFold(),missed:_hmMissedFold(),deps:_hmDepsFold(),ai:_hmAiFold(),journal:_hmJournalFold()
+  };
+  return '<div class="hm-wrap lg-flow">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';
 }
 // ── HOME absorbs TRADES + JOURNAL (v73.9xx) ─────────────────────────────────────────
 // The five actions that used to live only on the Trades tab, now built for HOME's own
@@ -14666,6 +14788,7 @@ function _hmPasteMsg(html,withMove){
       +'<button class="hm-ghostbtn" id="hm-paste-missed" style="padding:3px 9px" title="take it off that trade and file it as a setup you did not take">SHOULD HAVE TRADED</button>';
   }
   window._hmPasteNote='<span>'+html+'</span>'+mv+'<span id="hm-paste-x" title="dismiss" style="cursor:pointer;color:var(--text5)">&#10005;</span>';
+  _hmFoldSet('paste',true);   // the note (UNDO, MOVE ...) is in the PASTE fold: it opens
   renderApp();
 }
 // ── SHOULD HAVE TRADED (owner via MANAGER 2026-10-01) ─────────────────────────────────────────────
@@ -14684,7 +14807,7 @@ function _hmMissedGlyph(m){
   if(!_hmFutInst(m.symbol))return '';
   return `<span class="hm-candle-glyph" data-hmmcandle="missed_${_hmEsc(m.id)}" role="button" tabindex="0" title="EL chart" style="cursor:pointer;display:inline-flex;vertical-align:middle;padding:2px 3px"><svg width="14" height="13" viewBox="0 0 14 13" aria-hidden="true"><path d="M3.5 1v11M10.5 2.5v9" stroke="currentColor" stroke-width="1"/><rect x="1.8" y="3.5" width="3.4" height="5.5" fill="currentColor"/><rect x="8.8" y="4.5" width="3.4" height="4.5" fill="none" stroke="currentColor" stroke-width="1"/></svg></span>`;
 }
-function _hmMissedSectionHtml(){
+function _hmMissedSectionHtml(inFold){
   const list=_hmMissedSorted(),ed=window._hmMissedEdit;
   const rows=list.map(m=>`<tr data-hmmissed="${_hmEsc(m.id)}" style="cursor:pointer">
     <td>${_hmEsc(m.date||'--')}</td>
@@ -14698,9 +14821,9 @@ function _hmMissedSectionHtml(){
     <td class="hm-icon-cell hm-s-ic" data-hmmedit="${_hmEsc(m.id)}" title="edit">&#9998;</td>
     <td class="hm-icon-cell hm-s-ic hm-s1" data-hmmdel="${_hmEsc(m.id)}" title="delete">&#10005;</td>
   </tr>`).join('');
-  return `<div class="hm-missed" id="hm-missed" style="margin-top:20px">
-    <div class="hm-feed-head">
-      <div class="hm-micro">SHOULD HAVE TRADED${list.length?' &middot; '+list.length:''}</div>
+  return `<div class="hm-missed" id="hm-missed" style="margin-top:${inFold?'0':'20'}px">
+    <div class="${inFold?'hm-mis-head':'hm-feed-head'}">
+      <div class="hm-micro">${inFold?'FILED':'SHOULD HAVE TRADED'}${list.length?' &middot; '+list.length:''}</div>
       <div class="hm-feed-controls"><button class="hm-ghostbtn${ed?' active':''}" id="hm-missed-add">${ed&&!ed.id?'&#9650; ADD':'＋ ADD'}</button></div>
     </div>
     <div style="font-size:10px;line-height:1.5;color:var(--text5);margin:2px 0 6px">Setups you saw and did not take. They are kept apart from your trades and never count in P&amp;L or stats. Paste a snapshot link in the box above and pick SHOULD HAVE TRADED, or add one here.</div>
@@ -14771,7 +14894,7 @@ window.hmEditMissed=function(id){
   const m=_hmMissedById(id);if(!m)return;
   window._hmMissedEdit={id:m.id,url:m.url||'',setup:m.setup||'',symbol:m.symbol||'',date:m.date||'',entryTime:String(m.entryTime||'').slice(0,5),
     type:m.type==='SHORT'?'SHORT':'LONG',entry:m.entry,stop:m.stop,target:m.target,note:m.note||''};
-  homeSheetId=null;renderApp();
+  homeSheetId=null;_hmFoldSet('missed',true);renderApp();   // the form is in the SHOULD HAVE TRADED fold: it opens
   setTimeout(()=>{const f=document.getElementById('hm-missed-form');if(f)f.scrollIntoView({behavior:'smooth',block:'center'});},60);
 };
 window.hmDeleteMissed=async function(id){
@@ -14788,6 +14911,7 @@ window.hmPasteToMissed=async function(){
   if(!a&&l){try{await _hmChartWrites(l.prev||{[String(l.id)]:''});}catch(e){_hmPasteMsg('Could not take the link off that trade: '+_hmEsc(String(e&&e.message||e)));return;}}
   window._hmPasteAsk=null;window._hmPasteLast=null;window._hmPasteNote=null;
   window._hmMissedEdit={url:url,type:'LONG',date:_hmEtKey(Date.now()).slice(0,10),source:'paste'};
+  _hmFoldSet('missed',true);
   renderApp();
   setTimeout(()=>{const f=document.getElementById('hm-missed-form');if(f){f.scrollIntoView({behavior:'smooth',block:'center'});const sy=document.getElementById('hmmf-symbol');if(sy)sy.focus({preventScroll:true});}},60);
 };
@@ -14858,6 +14982,7 @@ function _hmPasteAskMsg(url,t){
     +'<button class="hm-ghostbtn" id="hm-paste-hold" style="padding:3px 9px" title="keep the link and put it on the next stock trade that reaches the journal">HOLD FOR A STOCK TRADE</button>'
     +'<button class="hm-ghostbtn" id="hm-paste-missed" style="padding:3px 9px" title="a setup you saw and did not take">SHOULD HAVE TRADED</button>'
     +pick+'<span id="hm-paste-x" title="dismiss" style="cursor:pointer;color:var(--text5)">&#10005;</span>';
+  _hmFoldSet('paste',true);   // the question (FILE ON, HOLD ...) is in the PASTE fold: it opens
   renderApp();
 }
 window.hmFileChartLink=async function(url,pickId){
@@ -15021,14 +15146,14 @@ window.hmOpenAllCharts=async function(){
 // Collapsible JOURNAL section - the Journal tab's new-entry form (TITLE, DATE, LESSON /
 // OBSERVATION, TAGS, SAVE ENTRY via addLesson) plus the lesson list and its one action
 // (delete via deleteLesson). Collapsed state persisted like HOME's other toggles.
-function _hmJournalSectionHtml(){
+function _hmJournalSectionHtml(fold){
   const count=lessons.length;
   const jd=window._hmJournalDraft; // half-typed entry kept across redraws (see _hmDraftCapture)
   const jv=id=>_hmEsc(_hmDraftVal(jd,id,''));
   const listHtml=!lessons.length?`<div style="border:1px dashed var(--border);padding:32px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px;margin-top:10px">NO ENTRIES YET</div>`:
     lessons.map(l=>`<div class="lesson-card" style="margin-top:10px"><div style="display:flex;justify-content:space-between;margin-bottom:8px"><div><div style="font-size:var(--fs);color:var(--text);margin-bottom:3px">${_hmEsc(l.title||'Untitled')}</div><div style="font-size:var(--fsxs);color:var(--text4)">${_hmEsc(l.date||'')} ${l.tags&&l.tags.length?'&middot; '+l.tags.map(t=>`<span class="tag" style="margin-right:3px">${_hmEsc(t)}</span>`).join(''):''}</div></div><button class="del-btn" data-hljid="${l.id}">&#10005;</button></div><div style="font-size:var(--fsm);color:var(--text3);line-height:1.8;white-space:pre-wrap">${_hmEsc(l.body||'')}</div></div>`).join('');
-  const body=homeJournalOpen?`
-    <div id="hm-journal-form" style="padding:14px;display:flex;flex-direction:column;gap:9px;border-top:1px solid var(--border2)">
+  const body=(homeJournalOpen||fold)?`
+    <div id="hm-journal-form" style="padding:${fold?'0 0 12px':'14px'};display:flex;flex-direction:column;gap:9px;${fold?'':'border-top:1px solid var(--border2)'}">
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px">
         <div><label class="lbl">TITLE</label><input id="hlt" placeholder="e.g. Chased a breakout - overtraded the open" value="${jv('hlt')}"/></div>
         <div><label class="lbl">DATE</label><input id="hld" type="date" value="${jv('hld')}"/></div>
@@ -15037,7 +15162,8 @@ function _hmJournalSectionHtml(){
       <div><label class="lbl">TAGS (comma separated)</label><input id="hltags" placeholder="psychology, risk management, entries" value="${jv('hltags')}"/></div>
       <button class="btn-b" id="hladd" style="align-self:flex-end;padding:8px 20px">SAVE ENTRY</button>
     </div>
-    <div style="padding:0 14px 14px">${listHtml}</div>`:'';
+    <div style="padding:${fold?'0':'0 14px 14px'}">${listHtml}</div>`:'';
+  if(fold)return body;
   return `<div class="section hm-sec-journal" style="margin-top:18px">
     <div class="sec-hd" id="hm-journal-hd" style="cursor:pointer">
       <span>&#128220; JOURNAL <span style="color:var(--text5);font-weight:400">(${count})</span></span>
@@ -15245,7 +15371,9 @@ function _hmRenderHome(content){
     const _seen=new Set(window._hmCandleRows.map(r=>r._tid));
     trades.forEach(t=>{if(!_seen.has(String(t.id))){const r=window._hmCandleRow?window._hmCandleRow(t):null;if(r)window._hmCandleRows.push(r);}});
     _hmMissedSorted().forEach(m=>{const r=window._hmMissedCandleRow?window._hmMissedCandleRow(m):null;if(r)window._hmCandleRows.push(r);});}catch(_e){window._hmCandleRows=[];}
-  content.innerHTML=`<div class="hm-wrap${LEDGER_OLDBOARDS?'':' lg-flow'}">
+  // LEDGER step 11: the board is built in ONE fixed order (_hmPageHtml); the previous layout below stays one more version behind ?oldboards=1
+  if(!LEDGER_OLDBOARDS)content.innerHTML=_hmPageHtml(list,rangeStats,rangeTrades);
+  else content.innerHTML=`<div class="hm-wrap${LEDGER_OLDBOARDS?'':' lg-flow'}">
     ${LEDGER_OLDBOARDS?`<div class="hm-hero">
       <div class="hm-micro" id="hm-hero-label"></div>
       <div class="hm-hero-value" id="hm-hero-value"></div>
@@ -15293,8 +15421,8 @@ function _hmRenderHome(content){
   content.querySelectorAll('[data-lgmore="hm"]').forEach(b=>{b.onclick=()=>{homeStatsOpen=!homeStatsOpen;renderApp();};});
   content.querySelectorAll('[data-lgcalfold="hm"]').forEach(b=>{b.onclick=()=>{homeCalOpen=!homeCalOpen;
     try{localStorage.setItem('el_lg_cal_real',homeCalOpen?'1':'0');}catch(e){}renderApp();};});
-  content.querySelectorAll('[data-hmai-fold]').forEach(b=>{b.onclick=()=>{homeAiOpen=!homeAiOpen;
-    try{localStorage.setItem('el_lg_ai_real',homeAiOpen?'1':'0');}catch(e){}renderApp();};});
+  // the board's own folds (LEDGER step 11): one handler for all of them; open / closed is remembered per browser
+  content.querySelectorAll('[data-hmfold]').forEach(b=>{b.onclick=()=>{const k=b.getAttribute('data-hmfold');_hmFoldSet(k,!_hmFoldIsOpen(k));renderApp();};});
   content.querySelectorAll('[data-hmacct-fold]').forEach(b=>{b.onclick=()=>{homeAcctOpen=!homeAcctOpen;
     try{localStorage.setItem('el_lg_acct_real',homeAcctOpen?'1':'0');}catch(e){}renderApp();};});
   const toolsBtn=content.querySelector('#hm-tools-toggle');

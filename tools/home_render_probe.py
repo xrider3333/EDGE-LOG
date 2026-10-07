@@ -76,6 +76,20 @@ scroll inside its box):
     window narrows - POINTS, then STRATEGY, then the board's end slot - and a cell that is gone stays gone at every narrower width; from
     1000 px up nothing is hidden; no row is wider than the frame; every seeded trade still has its row
   * the SIMPLE table fits its box at every one of them; the FULL table (26 columns) scrolls inside its own box, never the page
+LEDGER unify step 11 (REAL: one page order, own sections as closed folds, one set of breakpoints), per case:
+  * the page sections come in the FIXED order top to bottom (SECTION_ORDER: hero, range pills, equity chart, stats strip, More stats, calendar,
+    accounts, trade list, then the own folds PASTE, SHOULD HAVE TRADED, DEPOSITS, AI ASSESSMENT, JOURNAL) at every width of every case and of the
+    width sweep, each one drawn with a height, all inside the board
+  * every own fold ([data-hmfold]) starts CLOSED (no body in the page), carries a non-empty ONE-LINE summary (one line tall, no stray markup, the
+    number or state it should show for the seeded data), opens on a click and shows its content (the paste box, the setups and the + ADD button,
+    the deposit chips, the AI read, the journal form and entry), and closes again; the phone account line has its summary too
+  * on a 375 px phone the trade list starts no lower than the previous build (PHONE_LIST_TOP_MAX) and within one screen
+  * the board's own media rules (every @media whose selector names .hm- or #hm- and matches something on the page) use only the house widths
+    (HOUSE_WIDTHS: 600 phone, 740 / 800 / 920 list cells, 1100 rail) and the scan has to see some of them (a blind scan fails)
+  * MONO (laptop and phone, every fold open): no colour on the board has a hue
+  * ?oldboards=1 is byte-for-byte the previous board: a digest of its markup (OLD_BOARD_DIGEST) must not move
+Per fold run (a fifth page load, FOLD_RUNS): every own fold is opened with a click, the page is RELOADED and the same folds are open without a
+click; they are closed with a click, the page is reloaded again and they are closed (open / closed remembered per browser in localStorage)
 Per interaction run:
   * a futures trade's panel opens, its chart body ends up holding an <svg> and the info line
     is filled in (the chart really drew), and the POINTS block shows the trade's score
@@ -137,6 +151,9 @@ for _vp in ('laptop', 'phone'):
                 CASES.append(['%s/%s/missed%d/%s' % (_vp, _th, _mi, _nm),
                               {'vp': _vp, 'theme': _th, 'missed': _mi, 'view': _view, 'ledger': _led}])
 
+# MONO: no colour on the board may carry a hue (the own folds are opened for it)
+for _vp in ('laptop', 'phone'):
+    CASES.append(['%s/mono/missed2/feed' % _vp, {'vp': _vp, 'theme': 'mono', 'missed': 2, 'view': 'feed', 'ledger': 'simple'}])
 # a narrower laptop window: the SIMPLE table (it fits its box with no sideways scroll) and the list
 for _nm, _view, _led in (LEDGERS[0], LEDGERS[2]):
     CASES.append(['narrow/glass/missed0/%s' % _nm, {'vp': 'narrow', 'theme': 'glass', 'missed': 0, 'view': _view, 'ledger': _led}])
@@ -170,6 +187,16 @@ WIDTH_RUNS = [[_nm, {'theme': 'glass', 'view': _view, 'ledger': _led}, WIDTH_SET
 LIST_HIDE_ORDER = ['pts', 'strat', 'slot']      # the optional cells of a LIST row, the first to go first
 JUMP_DAY = '2026-09-30'
 
+# LEDGER unify step 11
+SECTION_ORDER = ['hero', 'pills', 'chart', 'stats', 'more', 'cal', 'acct', 'list', 'paste', 'missed', 'deps', 'ai', 'journal']
+OWN_FOLDS = ['paste', 'missed', 'deps', 'ai', 'journal']
+HOUSE_WIDTHS = [600, 740, 800, 920, 1100]     # the one set of breakpoints (contract section 5b)
+PHONE_LIST_TOP_MAX = 652                      # px from the top of the board to the trade list on a 375 px phone: the build before step 11
+# the ?oldboards=1 board's markup, frozen: a digest of its .hm-wrap for the SIMPLE table and the FEED (the same on a laptop and a phone). It moves only
+# when the previous board is changed on purpose (it is removed one version after step 11, with these cases).
+OLD_BOARD_DIGEST = {'simple': '35c2f51e166ae107', 'feed': '64128abd37aed5a4'}
+FOLD_RUNS = [['laptop', {'vp': 'laptop', 'theme': 'glass', 'cal': True}], ['phone', {'vp': 'phone', 'theme': 'glass'}]]
+
 PASTE_URL = 'https://www.tradingview.com/x/TEST1/'
 
 # Two interaction runs. `tid` is the futures trade whose panel is opened (a 1m trade on the
@@ -187,8 +214,8 @@ INTERACTIONS = [
 # (so they never go stale the way a pinned old commit would). (name, anchor, replacement, why)
 MUTANTS = [
     ('missed-section-throws',
-     'function _hmMissedSectionHtml(){',
-     'function _hmMissedSectionHtml(){_hmProbeNoSuchHelper();',
+     'function _hmMissedSectionHtml(inFold){',
+     'function _hmMissedSectionHtml(inFold){_hmProbeNoSuchHelper();',
      'the SHOULD HAVE TRADED section builder throws a ReferenceError - HOME does not draw at all'),
     ('missed-row-dropped',
      'const rows=list.map(m=>`<tr data-hmmissed=',
@@ -203,8 +230,8 @@ MUTANTS = [
      'const doc=null;if(!doc)return null;',
      'the trade-bars reader returns nothing, so no trade panel ever draws a chart (no error thrown)'),
     ('zoom-out-throws',
-     "if(z==='out')zoomAt(1.6,0.5);",
-     "if(z==='out')zoomAt(1.6,0.5,_hmProbeNoSuchHelper());",
+     "if(z==='out')zoomAt(1.6,0.5);else if(z==='in')zoomAt(1/1.6,0.5);else if(z==='trade')setV(tradeV[0],tradeV[1]);",
+     "if(z==='out')zoomAt(1.6,0.5,_hmProbeNoSuchHelper());else if(z==='in')zoomAt(1/1.6,0.5);else if(z==='trade')setV(tradeV[0],tradeV[1]);",
      'the chart\'s zoom-out button throws when clicked'),
     ('drawdown-negative',
      "tile('maxdd','Max drawdown',s?ledgerMoney(s.maxDD):'--'",
@@ -248,8 +275,8 @@ MUTANTS = [
      "function ledgerTradeViewSet(id,v){try{}catch(e){}}",
      'LIST | TABLE is no longer remembered per board'),
     ('list-below-the-fold',
-     "'<div id=\"hm-feed-container\">'+_hmFrameHtml(list)+'</div>'",
-     "'<div style=\"height:900px\"></div><div id=\"hm-feed-container\">'+_hmFrameHtml(list)+'</div>'",
+     "'<div id=\"hm-feed-container\" data-hmsec=\"list\">'+_hmFrameHtml(list)+'</div>'",
+     "'<div style=\"height:900px\"></div><div id=\"hm-feed-container\" data-hmsec=\"list\">'+_hmFrameHtml(list)+'</div>'",
      'something tall sits above the trade list, so it starts more than a screen down on a phone (mistake #12)'),
     ('ai-box-open-by-default',
      "homeAiOpen=localStorage.getItem('el_lg_ai_real')==='1'",
@@ -353,13 +380,86 @@ MUTANTS = [
      '@media (max-width:740px){.lg-tl-row .lg-c-slot{display:none}}@media (min-width:601px) and (max-width:740px){.lg-tl-row .lg-c-pnl{display:none}}',
      'a list row between 601 and 740 px fits by dropping its NET cell instead of a low-priority one'),
     ('simple-box-scrolls-at-860',
-     '@media (max-width:900px){.hm-dtable.hm-simple .hm-s2{display:none}}',
-     '@media (max-width:840px){.hm-dtable.hm-simple .hm-s2{display:none}}',
+     '@media (max-width:920px){.hm-wrap.lg-flow .hm-dtable.hm-simple .hm-s2{display:none}}',
+     '@media (max-width:840px){.hm-wrap.lg-flow .hm-dtable.hm-simple .hm-s2{display:none}}',
      'the SIMPLE table brings its IN / POINTS / SETUP columns back too early, so it scrolls inside its own box at 860 px'),
     ('simple-box-scrolls-at-975',
-     '@media (max-width:1010px){.hm-dtable.hm-simple .hm-s3{display:none}}',
-     '@media (max-width:960px){.hm-dtable.hm-simple .hm-s3{display:none}}',
+     '@media (max-width:1100px){.hm-wrap.lg-flow .hm-dtable.hm-simple .hm-s3{display:none}}',
+     '@media (max-width:960px){.hm-wrap.lg-flow .hm-dtable.hm-simple .hm-s3{display:none}}',
      'the SIMPLE table brings its # and PTS columns back too early, so it scrolls inside its own box at 975 px'),
+    # LEDGER step 11: one page order, the own sections as closed folds with a one-line summary, one set of breakpoints
+    ('section-order-wrong',
+     "const _HM_PAGE_ORDER=['hero','pills','chart','stats','more','cal','acct','list','paste','missed','deps','ai','journal'];",
+     "const _HM_PAGE_ORDER=['hero','pills','chart','stats','more','cal','acct','ai','list','paste','missed','deps','journal'];",
+     'the AI ASSESSMENT fold sits above the trade list again, so the page sections are no longer in the fixed order'),
+    ('pills-under-chart',
+     "const _HM_PAGE_ORDER=['hero','pills','chart','stats','more','cal','acct','list','paste','missed','deps','ai','journal'];",
+     "const _HM_PAGE_ORDER=['hero','chart','pills','stats','more','cal','acct','list','paste','missed','deps','ai','journal'];",
+     'the range pills are under the chart again instead of between the hero and the chart'),
+    ('own-section-removed',
+     "const _HM_PAGE_ORDER=['hero','pills','chart','stats','more','cal','acct','list','paste','missed','deps','ai','journal'];",
+     "const _HM_PAGE_ORDER=['hero','pills','chart','stats','more','cal','acct','list','paste','missed','ai','journal'];",
+     'the DEPOSITS section is gone from the page - an own section was removed instead of folded'),
+    ('fold-summary-empty',
+     'data-hmsum="\'+k+\'">\'+sum+\'</span>',
+     'data-hmsum="\'+k+\'">\'+\'\'+\'</span>',
+     'every own fold header prints an empty summary line'),
+    ('fold-does-not-open',
+     "_hmFoldSet(k,!_hmFoldIsOpen(k));renderApp();};});",
+     "renderApp();};});",
+     'a click on an own fold header does nothing - the fold never opens'),
+    ('fold-not-remembered',
+     "try{localStorage.setItem(_HM_FOLD_LS[k],on?'1':'0');}catch(e){}",
+     "try{}catch(e){}",
+     'an own fold no longer remembers open / closed: after a reload it is closed again'),
+    ('fold-body-empty',
+     '\'<div class="lg-more-panel hm-fold-body" id="hm-fold-\'+k+\'">\'+body()+\'</div>\'',
+     '\'<div class="lg-more-panel hm-fold-body" id="hm-fold-\'+k+\'">\'+\'\'+\'</div>\'',
+     'an own fold opens but shows nothing - its content is lost'),
+    ('phone-list-too-low',
+     '\'<div id="hm-feed-container" data-hmsec="list">\'+_hmFrameHtml(list)+\'</div>\'',
+     '\'<div style="height:60px"></div><div id="hm-feed-container" data-hmsec="list">\'+_hmFrameHtml(list)+\'</div>\'',
+     'something 60 px tall sits above the trade list: still inside one screen on a phone, but lower than the build before step 11'),
+    ('fold-summary-two-lines',
+     '.hm-fold .hm-fold-sum{flex:0 1 auto;min-width:0;text-transform:none;letter-spacing:.3px;color:var(--text5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+     '.hm-fold .hm-fold-sum{flex:0 1 auto;min-width:0;text-transform:none;letter-spacing:.3px;color:var(--text5);white-space:normal}',
+     'a fold summary may wrap onto a second line on a phone instead of being cut with an ellipsis'),
+    ('private-breakpoint',
+     '@media (max-width:920px){.hm-wrap.lg-flow .hm-dtable.hm-simple .hm-s2{display:none}}',
+     '@media (max-width:910px){.hm-wrap.lg-flow .hm-dtable.hm-simple .hm-s2{display:none}}',
+     'the board has a media rule at a width that is not a house number (910 px)'),
+    ('oldboards-markup-changed',
+     '<div class="hm-micro">${inFold?\'FILED\':\'SHOULD HAVE TRADED\'}${list.length',
+     '<div class="hm-micro">${inFold?\'FILED\':\'SHOULD HAVE TRADED!\'}${list.length',
+     'the markup of the previous board (?oldboards=1) changed by a character'),
+    ('mono-hue-in-fold',
+     '.hm-fold .hm-fold-sum{flex:0 1 auto;min-width:0;text-transform:none;letter-spacing:.3px;color:var(--text5);',
+     '.hm-fold .hm-fold-sum{flex:0 1 auto;min-width:0;text-transform:none;letter-spacing:.3px;color:var(--text5);color:#7ac0ff;',
+     'the fold summaries carry a hard-coded blue, so MONO is no longer hue-free'),
+    ('paste-question-keeps-fold-closed',
+     "_hmFoldSet('paste',true);   // the question (FILE ON, HOLD ...) is in the PASTE fold: it opens",
+     "",
+     'the question that asks which trade a pasted link is for is written into the PASTE fold but the fold stays closed'),
+    ('paste-note-keeps-fold-closed',
+     "_hmFoldSet('paste',true);   // the note (UNDO, MOVE ...) is in the PASTE fold: it opens",
+     "",
+     'a paste note is written into the PASTE fold but the fold stays closed, so the note (UNDO, MOVE) cannot be seen'),
+    ('phone-overflow-board',
+     "return '<div class=\"hm-wrap lg-flow\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';",
+     "return '<div class=\"hm-wrap lg-flow\" style=\"min-width:640px\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';",
+     'the new board is wider than a phone and the page scrolls sideways'),
+    ('acct-line-summary-empty',
+     'data-hmsum="acct">${_hmAcctSummary()}</span>',
+     'data-hmsum="acct">${""}</span>',
+     'the phone account line prints no summary (the account in view and its balance)'),
+    ('calendar-default-private-width',
+     "return (window.innerWidth||1200)>600;})();",
+     "return (window.innerWidth||1200)>=760;})();",
+     'the calendar default switches at a private width of 760 px instead of the house number 600'),
+    ('acct-line-does-not-open',
+     'b.onclick=()=>{homeAcctOpen=!homeAcctOpen;',
+     'b.onclick=()=>{',
+     'a tap on the phone account line does not open the account list'),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -368,9 +468,9 @@ PROBE_HTML = """<!DOCTYPE html>
 <iframe id="f" src="../index.html__QS__" style="width:1366px;height:768px;border:0;display:block"></iframe>
 <pre id="o"></pre>
 <script>
-var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, PASTE=__PASTE__, PANELS=__PANELS__, WIDTHS=__WIDTHS__;
+var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, PASTE=__PASTE__, PANELS=__PANELS__, WIDTHS=__WIDTHS__, FOLDS=__FOLDS__, HOUSE=__HOUSE__, OWN=__OWN__;
 (function(){
-  var out={cases:{},inter:{},panels:{},widths:{},notes:[]}, reported=false, t0=Date.now(), sink=null;
+  var out={cases:{},inter:{},panels:{},widths:{},folds:{},notes:[]}, reported=false, t0=Date.now(), sink=null;
   function finish(why){
     if(reported)return; reported=true;
     out.why=why; out.ms=Date.now()-t0;
@@ -426,6 +526,55 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
   function seed(cfg){
     return W().__probeSeed(JSON.stringify(cfg));
   }
+  // LEDGER step 11: every @media rule that has a width in it and a selector of the board's own (.hm- / #hm-) that matches something on the page now;
+  // each width must be a house number. n counts the live rules, so a scan that sees nothing can be told from a clean one.
+  function bpScan(){
+    var d=D(),res={n:0,bad:[],widths:[]};
+    Array.prototype.forEach.call(d.styleSheets,function(ss){
+      var rules;try{rules=ss.cssRules;}catch(e){return;}
+      (function walk(list){
+        Array.prototype.forEach.call(list,function(rule){
+          if(rule.media&&rule.cssRules){
+            var cond=rule.media.mediaText||'',ws=cond.match(/(?:min|max)-width:\\s*[\\d.]+px/g);
+            if(ws){
+              var live=[];
+              Array.prototype.forEach.call(rule.cssRules,function(ir){
+                if(!ir.selectorText)return;
+                ir.selectorText.split(',').forEach(function(sel){
+                  sel=sel.trim();
+                  if(!/[.#]hm-/.test(sel))return;
+                  var el=null;try{el=d.querySelector(sel);}catch(e){return;}
+                  if(el)live.push(sel);
+                });
+              });
+              if(live.length){
+                res.n++;
+                ws.forEach(function(wx){var px=parseFloat(wx.split(':')[1]);if(res.widths.indexOf(px)<0)res.widths.push(px);
+                  if(HOUSE.indexOf(px)<0)res.bad.push(cond+' on '+live[0]);});
+              }
+            }
+            walk(rule.cssRules);
+          }else if(rule.cssRules){walk(rule.cssRules);}
+        });
+      })(rules);
+    });
+    res.widths.sort(function(a,b){return a-b;});
+    return res;
+  }
+  // a reload of the page under test: the app boots again (a fresh window), the stubs go back in, the console sink is hooked again
+  async function reloadFrame(){
+    var w0=W();
+    await new Promise(function(res){fr.addEventListener('load',function h(){fr.removeEventListener('load',h);res();});w0.location.reload();});
+    await sleep(2500);
+    var w2=W();
+    sink=hook(w2);
+    await waitFor(function(){return !!D().getElementById('tsu');},12000);
+    w2.eval('renderAuth=function(){};');
+    await sleep(200);
+    drain();overlays();
+    w2.__probeDataJson=JSON.stringify(DATA);w2.__probeBarsJson=JSON.stringify(BARS);
+    w2.eval(__INSTALL__);
+  }
   function offenders(d){
     // the outermost elements past the right edge; a fixed one is listed only when nothing in the
     // flow is (the closed trade panel is always parked off the right edge and is not the cause)
@@ -461,6 +610,24 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     // the escape hatch (?oldboards=1) draws the previous list: its own FEED / TABLE button and chips, no frame
     r.oldList={toggle:!!d.getElementById('hm-view-toggle'),chips:d.querySelectorAll('[data-hmchip]').length,
       frames:d.querySelectorAll('[data-lglist-frame]').length};
+    // LEDGER step 11: the board's markup as a digest (?oldboards=1 must not change), the page sections in the order they are drawn, and the own folds
+    // as they are drawn (all closed)
+    function digest(s){var h1=0xdeadbeef,h2=0x41c6ce57;
+      for(var i=0;i<s.length;i++){var c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677);}
+      h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);
+      return (h2>>>0).toString(16)+(h1>>>0).toString(16);}
+    var hwrap=d.querySelector('.hm-wrap'),wtop=hwrap?hwrap.getBoundingClientRect().top:0;
+    r.oldDigest=hwrap?digest(hwrap.outerHTML):null;
+    var secEls=Array.prototype.slice.call(d.querySelectorAll('[data-hmsec]'));
+    r.sec=secEls.map(function(e){var b=e.getBoundingClientRect();return {k:e.getAttribute('data-hmsec'),top:Math.round(b.top-wtop),h:Math.round(b.height)};});
+    r.secInWrap=secEls.every(function(e){return !!hwrap&&hwrap.contains(e);});
+    r.foldsClosed=Array.prototype.map.call(d.querySelectorAll('[data-hmfold]'),function(b){
+      var k=b.getAttribute('data-hmfold'),s=b.querySelector('[data-hmsum]'),bb=b.getBoundingClientRect(),sb=s?s.getBoundingClientRect():null;
+      return {k:k,exp:b.getAttribute('aria-expanded'),sum:s?(s.textContent||'').replace(/\\s+/g,' ').trim():null,h:Math.round(bb.height),
+        sumH:sb?Math.round(sb.height):null,body:!!d.getElementById('hm-fold-'+k)};});
+    var acb0=d.querySelector('[data-hmacct-fold]'),acs0=acb0?acb0.querySelector('[data-hmsum]'):null;
+    r.acctSum=acs0?(acs0.textContent||'').replace(/\\s+/g,' ').trim():null;
+    r.acctBtnH=acb0?Math.round(acb0.getBoundingClientRect().height):null;
     // LEDGER shared trade list frame (unify step 8): toolbar, day headers with a signed net, rows, five cells on a phone.
     // Measured first, before the folds below are opened and move the page about.
     var fr=d.querySelector('[data-lglist-frame="hm"]');
@@ -520,7 +687,7 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     var hv=d.getElementById('hm-hero-value'),ht=d.getElementById('hm-hero-today');
     r.heroBig=hv?(hv.textContent||'').trim():null;
     r.heroToday=ht?(ht.textContent||'').replace(/\\s+/g,' ').trim():null;
-    r.pills=Array.prototype.map.call(d.querySelectorAll('#hm-feed-container ~ * [data-hmrange], .hm-range-row [data-hmrange]'),function(b){return b.getAttribute('data-hmrange');}).join(',');
+    r.pills=Array.prototype.map.call(d.querySelectorAll('.hm-ctl [data-hmrange], .hm-range-row [data-hmrange]'),function(b){return b.getAttribute('data-hmrange');}).join(',');
     // LEDGER shared equity chart (unify step 5): real height on every width, dates and a price scale
     var csv=d.querySelector('#hm-chart-wrap svg');
     // the DRAWN height: a viewBox scaled down to fit a narrow box draws a short band in a tall box (the old phone bug)
@@ -552,6 +719,41 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
           var g=d.querySelector('#hm-feed-container [data-hmday="'+pick+'"],#hm-feed-container [data-lgday="'+pick+'"]');c.jump=!!(g&&g.classList.contains('lg-flash'));}}
       r.cal=c;
       if(!wasOpen){var cf2=d.querySelector('[data-lgcalfold="hm"]');if(cf2)cf2.click();}}
+    // LEDGER step 11: every own fold opens on a click and shows its content, then closes again
+    r.foldOpen={};
+    function ownBtn(k){return d.querySelector('[data-hmfold="'+k+'"]');}
+    OWN.forEach(function(k){
+      var o={},b=ownBtn(k);o.btn=!!b;
+      if(b){
+        b.click();
+        var b2=ownBtn(k),body=d.getElementById('hm-fold-'+k);
+        o.exp=b2?b2.getAttribute('aria-expanded'):null;o.body=!!body;o.len=body?(body.innerHTML||'').trim().length:0;
+        if(k==='paste'){var pb=d.getElementById('hm-paste-chart');o.paste=!!pb;o.pasteVisible=!!(pb&&pb.getBoundingClientRect().width>0);}
+        if(k==='missed'){var ms1=d.getElementById('hm-missed');o.missed=!!ms1;o.missedRows=ms1?ms1.querySelectorAll('tr[data-hmmissed]').length:-1;o.add=!!d.getElementById('hm-missed-add');}
+        if(k==='deps'){o.strip=!!d.querySelector('.hm-ledger-strip');o.chips=d.querySelectorAll('.hm-ledger-chip').length;}
+        if(k==='ai'){var ao=d.getElementById('overview-ai-output');o.out=!!ao;o.text=ao?(ao.textContent||'').trim().slice(0,60):'';o.refresh=!!d.querySelector('#hm-fold-ai .btn-d');}
+        if(k==='journal'){o.form=!!d.getElementById('hm-journal-form');o.entries=d.querySelectorAll('.lesson-card').length;o.save=!!d.getElementById('hladd');}
+        var b3=ownBtn(k);if(b3)b3.click();
+        var b4=ownBtn(k);o.back=b4?b4.getAttribute('aria-expanded'):null;o.bodyGone=!d.getElementById('hm-fold-'+k);
+      }
+      r.foldOpen[k]=o;
+    });
+    // the phone account line (the strategy / account list slot): one line that opens the list on a click and closes it again
+    r.acctOpen=null;
+    var ab1=d.querySelector('[data-hmacct-fold]');
+    if(ab1&&w.getComputedStyle(ab1).display!=='none'){
+      ab1.click();
+      var ab2=d.querySelector('[data-hmacct-fold]'),al2=d.querySelector('.hm-sec-acct .lg-list');
+      r.acctOpen={exp:ab2?ab2.getAttribute('aria-expanded'):null,list:al2?w.getComputedStyle(al2).display:null};
+      if(ab2)ab2.click();
+      var ab3=d.querySelector('[data-hmacct-fold]'),al3=d.querySelector('.hm-sec-acct .lg-list');
+      r.acctOpen.back=ab3?ab3.getAttribute('aria-expanded'):null;r.acctOpen.listBack=al3?w.getComputedStyle(al3).display:null;
+    }
+    // all five open: the board's own media rules use only the house widths, and under MONO nothing has a hue
+    OWN.forEach(function(k){var b=ownBtn(k);if(b&&b.getAttribute('aria-expanded')!=='true')b.click();});
+    try{r.bp=bpScan();}catch(e){r.bp={err:String(e&&e.stack?e.stack:e)};}
+    if(cfg.theme==='mono'){var hw=d.querySelector('.hm-wrap');r.hue=hw?hueScan(hw):null;}
+    OWN.forEach(function(k){var b=ownBtn(k);if(b&&b.getAttribute('aria-expanded')==='true')b.click();});
     // the legend under the chart (P&L view, two brokers): each name is one short line - a chart-size rule once
     // made every swatch 260px tall. Switch to P&L, measure, switch back.
     W().eval("homeChartMode='pnl';renderApp();");
@@ -662,6 +864,8 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     await step(res,'addForm',async function(st){
       w.eval('homeSheetId=null;renderApp();');
       await sleep(60);
+      var mf0=q('[data-hmfold="missed"]');st.missedFold=!!mf0;
+      if(mf0&&mf0.getAttribute('aria-expanded')!=='true'){mf0.click();await sleep(60);}
       var add=q('#hm-missed-add');st.addBtn=!!add;
       if(add)add.click();
       await sleep(80);
@@ -679,8 +883,19 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     await step(res,'paste',async function(st){
       w.eval('window._hmMissedEdit=null;renderApp();');
       await sleep(40);
+      // a plain note (not a link) is written into the PASTE fold and opens it; closed again, the note is cleared, and then the real link asks where it goes
+      var pf2=q('[data-hmfold="paste"]');
+      if(pf2&&pf2.getAttribute('aria-expanded')==='true'){pf2.click();await sleep(40);}
+      w.eval('window._hmPasteNote=null;window._hmPasteLast=null;window._hmPasteAsk=null;renderApp();');
+      await w.hmFileChartLink('not a link');
+      await sleep(80);
+      var pf3=q('[data-hmfold="paste"]');st.foldOpenMsg=pf3?pf3.getAttribute('aria-expanded'):null;
+      if(pf3&&pf3.getAttribute('aria-expanded')==='true'){pf3.click();await sleep(40);}
+      w.eval('window._hmPasteNote=null;window._hmPasteLast=null;window._hmPasteAsk=null;renderApp();');
+      await sleep(40);
       await w.hmFileChartLink(PASTE);
       await sleep(80);
+      var pf1=q('[data-hmfold="paste"]');st.foldOpen=pf1?pf1.getAttribute('aria-expanded'):null;   // a paste note opens its fold
       st.note=!!q('#hm-paste-msg');
       st.noteText=txt('#hm-paste-msg');
       if(st.noteText&&st.noteText.length>160)st.noteText=st.noteText.slice(0,160);
@@ -720,6 +935,8 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
       var ts=q('table.lg-tl-table');st.simpleTable=!!(ts&&ts.classList.contains('hm-simple'));st.simpleCols=ts?ts.querySelectorAll('thead th').length:0;
       var lbn=q('[data-lgview="list"]');if(lbn)lbn.click();
       st.modeList=mode();st.savedList=ls('el_lg_view_hm');
+      var pf0=q('[data-hmfold="paste"]');st.pasteFold=!!pf0;
+      if(pf0&&pf0.getAttribute('aria-expanded')!=='true'){pf0.click();await sleep(60);}
       st.paste=!!q('#hm-paste-chart');
       st.buttons={add:!!q('#hm-add-deposit'),scan:!!q('#hm-scan-dupes'),all:!!q('#hm-open-all'),nt:!!q('#hm-newtrade-toggle')};
       // NEW TRADE opens the form under the toolbar and closes it again
@@ -1029,6 +1246,9 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
         await setWidth(px);
         w.eval('renderApp();');
         await sleep(150);
+        var wr0=d.querySelector('.hm-wrap'),wt0=wr0?wr0.getBoundingClientRect().top:0;
+        st.sec=Array.prototype.map.call(d.querySelectorAll('[data-hmsec]'),function(e){var b=e.getBoundingClientRect();return {k:e.getAttribute('data-hmsec'),top:Math.round(b.top-wt0),h:Math.round(b.height)};});
+        if(i===0){try{res.bp=bpScan();}catch(e0){res.bp={err:String(e0)};}}
         var de=d.documentElement;
         st.innerW=w.innerWidth;st.scrollW=de.scrollWidth;st.clientW=de.clientWidth;
         if(st.scrollW>st.clientW+1||st.scrollW>st.innerW+1)st.wide=offenders(d);
@@ -1060,7 +1280,53 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     }
     out.widths[nm]=res;
   }
+  var LSK=['el_lg_paste_real','el_lg_missed_real','el_lg_deps_real','el_lg_ai_real','el_home_journal_open'];
+  function lsRead(){var o={};LSK.forEach(function(k){try{o[k]=W().localStorage.getItem(k);}catch(e){o[k]='ERR';}});return o;}
+  function foldStates(){var o={};Array.prototype.forEach.call(D().querySelectorAll('[data-hmfold]'),function(b){o[b.getAttribute('data-hmfold')]=b.getAttribute('aria-expanded');});return o;}
+  function clickAll(){OWN.forEach(function(k){var b=D().querySelector('[data-hmfold="'+k+'"]');if(b)b.click();});}
+  async function foldRun(nm,cfg){
+    var res={};
+    await setVp(cfg.vp);
+    drain();
+    var sc={vp:cfg.vp,theme:cfg.theme,missed:2,view:'feed',ledger:'simple'};
+    // the folds exactly as the app starts them on a fresh browser, before the seed (which resets them) touches anything
+    try{res.init=JSON.parse(W().eval('JSON.stringify({paste:!!homeOwnOpen.paste,missed:!!homeOwnOpen.missed,deps:!!homeOwnOpen.deps,ai:!!homeAiOpen,journal:!!homeJournalOpen})'));}
+    catch(e){res.init='ERR '+(e&&e.stack?e.stack:e);}
+    try{res.seed=seed(sc);}catch(e){res.seed='ERR '+(e&&e.stack?e.stack:e);}
+    await sleep(150);
+    res.seedErr=drain();
+    res.start=foldStates();res.lsStart=lsRead();
+    clickAll();                       // every own fold opens ...
+    await sleep(80);
+    res.opened=foldStates();res.lsOpened=lsRead();
+    await reloadFrame();              // ... and a reload brings the page back with them open
+    var sc2=Object.assign({keepLs:true},sc);
+    try{res.seed2=seed(sc2);}catch(e){res.seed2='ERR '+(e&&e.stack?e.stack:e);}
+    await sleep(150);
+    res.afterReload=foldStates();res.lsAfter=lsRead();res.err1=drain();
+    clickAll();                       // every own fold closes ...
+    await sleep(80);
+    res.closed=foldStates();res.lsClosed=lsRead();
+    await reloadFrame();              // ... and a reload brings it back with them closed
+    try{res.seed3=seed(sc2);}catch(e){res.seed3='ERR '+(e&&e.stack?e.stack:e);}
+    await sleep(150);
+    res.afterReload2=foldStates();res.err2=drain();
+    if(cfg.cal){
+      // the calendar default is a width test in the app's own script (it runs at page load): closed up to 600 px, open above - the house number
+      res.cal={};
+      var CW=[600,601];
+      for(var ci=0;ci<CW.length;ci++){
+        await setWidth(CW[ci]);
+        await reloadFrame();
+        res.cal[CW[ci]]=W().eval('homeCalOpen');
+      }
+      res.errCal=drain();
+    }
+    out.folds[nm]=res;
+  }
+  var started=false;
   fr.addEventListener('load',function(){
+    if(started)return;started=true;   // a reload inside a fold run is not another run
     setTimeout(async function(){
       var w=W();
       try{
@@ -1095,7 +1361,11 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
         try{await widthRun(WIDTHS[m][0],WIDTHS[m][1],WIDTHS[m][2]);}
         catch(e){out.widths[WIDTHS[m][0]]={threw:String(e&&e.stack?e.stack:e)};}
       }
-      out.barReads=w.__probeBarReads||0;
+      for(var f=0;f<FOLDS.length;f++){
+        try{await foldRun(FOLDS[f][0],FOLDS[f][1]);}
+        catch(e){out.folds[FOLDS[f][0]]={threw:String(e&&e.stack?e.stack:e)};}
+      }
+      out.barReads=W().__probeBarReads||0;
       finish('done');
     },2500);
   });
@@ -1144,6 +1414,12 @@ INSTALL_JS = r"""
     activeTab=C.tab||'home';homeView=C.view;homeLedger=C.ledger;homeSheetId=null;
     homeRange='ALL';homeChip='ALL';homeQuery='';homeFeedMode='trade';homeChartMode='equity';
     homeStatsOpen=false;homeExtras=false;homeNewTradeOpen=false;
+    // LEDGER step 11: every own fold starts closed and the calendar on its default for this width (open above 600 px), unless the case keeps what the page remembered
+    if(!C.keepLs){
+      homeAiOpen=false;homeAcctOpen=false;homeJournalOpen=false;homeOwnOpen.paste=false;homeOwnOpen.missed=false;homeOwnOpen.deps=false;
+      try{['el_lg_ai_real','el_lg_acct_real','el_home_journal_open','el_lg_paste_real','el_lg_missed_real','el_lg_deps_real','el_lg_cal_real'].forEach(function(k){localStorage.removeItem(k);});}catch(e){}
+      homeCalOpen=(window.innerWidth||1200)>600;
+    }
     window._hmMissedEdit=null;window._hmPasteNote=null;window._hmPasteLast=null;window._hmPasteAsk=null;
     window._thMenu=null;window._hmTblScrollL=0;window._hmTblScrollT=0;window._hmNote=null;
     window._hmJumpPrevView=null;window._hmSearchTyping=false;window._rtSheetTfFor={};
@@ -1335,7 +1611,7 @@ def make_handler(root, alt_index):
     return H
 
 
-def _render_page(chrome, root, alt_index, cases, inter, qs, data_obj, bars, panels=None, widths=None):
+def _render_page(chrome, root, alt_index, cases, inter, qs, data_obj, bars, panels=None, widths=None, folds=None):
     """One render of the probe page in a fresh headless Chrome. Returns (data, error message or None)."""
     pdir = tempfile.mkdtemp(prefix='_homeprobe_', dir=root)
     ppath = os.path.join(pdir, 'probe.html')
@@ -1349,6 +1625,9 @@ def _render_page(chrome, root, alt_index, cases, inter, qs, data_obj, bars, pane
             .replace('__PASTE__', json.dumps(PASTE_URL))
             .replace('__PANELS__', json.dumps(panels or []))
             .replace('__WIDTHS__', json.dumps(widths or []))
+            .replace('__FOLDS__', json.dumps(folds or []))
+            .replace('__HOUSE__', json.dumps(HOUSE_WIDTHS))
+            .replace('__OWN__', json.dumps(OWN_FOLDS))
             .replace('__INSTALL__', json.dumps(INSTALL_JS)))
     io.open(ppath, 'w', encoding='utf-8').write(html)
 
@@ -1361,7 +1640,7 @@ def _render_page(chrome, root, alt_index, cases, inter, qs, data_obj, bars, pane
             [chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
              '--user-data-dir=' + prof, '--virtual-time-budget=84000', '--window-size=1500,1000',
              '--dump-dom', 'http://127.0.0.1:%d/%s/probe.html' % (port, os.path.basename(pdir))],
-            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=150).stdout
+            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=300).stdout
     except Exception as e:
         return None, 'chrome failed: %s' % e
     finally:
@@ -1397,12 +1676,16 @@ def _attempt(chrome, root, alt_index):
     wid, err = _render_page(chrome, root, alt_index, [], [], '', data_obj, bars, None, WIDTH_RUNS)
     if err:
         return INCONCLUSIVE, ['width sweep pass: %s' % err], [], data, True
+    fld, err = _render_page(chrome, root, alt_index, [], [], '', data_obj, bars, None, None, FOLD_RUNS)
+    if err:
+        return INCONCLUSIVE, ['fold pass (reload): %s' % err], [], data, True
     if os.environ.get('HOMEPROBE_DUMP'):
         io.open(os.path.join(root, '_homeprobe_dump.json'), 'w', encoding='utf-8').write(
-            json.dumps({'main': data, 'old': old, 'panels': pnl, 'widths': wid}, indent=1, ensure_ascii=False))
+            json.dumps({'main': data, 'old': old, 'panels': pnl, 'widths': wid, 'folds': fld}, indent=1, ensure_ascii=False))
     data['old'] = old
     data['panels'] = pnl
     data['widths'] = wid
+    data['folds'] = fld
     return _judge(data, data_obj)
 
 
@@ -1690,6 +1973,14 @@ def _judge_widths(wd, data_obj):
             continue
         _errs(tag + ' (render)', r.get('seedErr') or {}, fails)
         want_mode = 'list' if cfg['view'] == 'feed' else 'table'
+        bp = r.get('bp') or {}
+        if bp.get('err'):
+            fails.append('%s: the breakpoint scan threw -- %s' % (tag, _first(bp['err'])))
+        elif not bp.get('n'):
+            fails.append('%s: the breakpoint scan saw no media rule of the board (the scan has gone blind)' % tag)
+        elif bp.get('bad'):
+            fails.append('%s: the board has media rules at widths outside the house set %s: %s'
+                         % (tag, HOUSE_WIDTHS, '; '.join(sorted(set(bp['bad']))[:4])))
         hidden_wider = set()            # the optional list cells already gone at the next wider width
         for px in sorted(widths, reverse=True):
             t = '%s at %d px' % (tag, px)
@@ -1709,6 +2000,13 @@ def _judge_widths(wd, data_obj):
             if sw > cw + 1 or sw > px + 1:
                 fails.append('%s: the page scrolls sideways (scrollWidth %s > the %s px window; sticking out: %s)'
                              % (t, sw, min(cw, px) if cw else px, ', '.join(s.get('wide') or []) or '?'))
+            ks = [e['k'] for e in (s.get('sec') or [])]
+            if ks != SECTION_ORDER:
+                fails.append('%s: the page sections run %r, expected %r at every width' % (t, ks, SECTION_ORDER))
+            else:
+                tp = [e['top'] for e in s['sec']]
+                if any(b <= a for a, b in zip(tp, tp[1:])):
+                    fails.append('%s: the page sections are not stacked top to bottom in the fixed order (tops %r)' % (t, tp))
             if not s.get('frame') or s.get('mode') != want_mode:
                 fails.append('%s: the trade list frame is %s, expected one in %s mode (it says %r)'
                              % (t, 'missing' if not s.get('frame') else 'on the page', want_mode, s.get('mode')))
@@ -1782,6 +2080,10 @@ def _judge_old(old, data_obj):
         if r.get('sheetClosed') != 'none':
             fails.append('%s: the previous trade sheet (#hm-sheet) is display:%s while closed - it must take no room'
                          % (tag, r.get('sheetClosed')))
+        want_dg = OLD_BOARD_DIGEST.get(nm.split('/')[-1])
+        if r.get('oldDigest') != want_dg:
+            fails.append('%s: the previous board\'s markup changed (digest %s, expected %s) - ?oldboards=1 must stay byte-for-byte the previous '
+                         'board until it is removed' % (tag, r.get('oldDigest'), want_dg))
         osh = r.get('oldSheet') or {}
         if not osh.get('open') or osh.get('sym') != 'MNQ' or not osh.get('points'):
             fails.append('%s: the previous trade sheet did not open on a trade (%r)' % (tag, osh))
@@ -1805,6 +2107,132 @@ def _errs(tag, r, fails):
         fails.append('%s: window._loadError fired -- %s' % (tag, _first(e)))
     if r.get('overlay'):
         fails.append('%s: the LOAD ERROR overlay is on the page' % tag)
+
+
+def _judge_step11(nm, cfg, r, fails, n_missed):
+    """LEDGER unify step 11 on one case: the fixed order, the own folds (closed, one-line summary, open on a click, content), the breakpoints
+    and MONO."""
+    sec = r.get('sec') or []
+    ks = [s['k'] for s in sec]
+    if ks != SECTION_ORDER:
+        fails.append('%s: the page sections run %r, expected the fixed order %r' % (nm, ks, SECTION_ORDER))
+    else:
+        tp = [s['top'] for s in sec]
+        if any(b <= a for a, b in zip(tp, tp[1:])):
+            fails.append('%s: the page sections are not stacked top to bottom in the fixed order (tops %r)' % (nm, tp))
+        if any((s['h'] or 0) <= 0 for s in sec):
+            fails.append('%s: a page section is drawn with no height: %s' % (nm, ', '.join(s['k'] for s in sec if (s['h'] or 0) <= 0)))
+    if not r.get('secInWrap'):
+        fails.append('%s: a page section sits outside the board (.hm-wrap)' % nm)
+    fc = r.get('foldsClosed') or []
+    if [f['k'] for f in fc] != OWN_FOLDS:
+        fails.append('%s: the own folds read %r, expected %r' % (nm, [f['k'] for f in fc], OWN_FOLDS))
+    want_sum = {'paste': r'^the next link goes on \S+',
+                'missed': (r'^%d setups not taken' % n_missed) if cfg['missed'] else r'^none filed yet$',
+                'deps': r'^1 event \u00b7 net \+\$1,000\.00$',
+                'ai': r'^last 9 trades \u00b7 71% won \u00b7 profit factor ',
+                'journal': r'^1 entry \u00b7 newest 2026-09-30$'}
+    for f in fc:
+        k = f['k']
+        if f.get('exp') != 'false' or f.get('body'):
+            fails.append('%s: the %s fold is not closed to start with (aria-expanded=%r, body in the page: %s)' % (nm, k, f.get('exp'), f.get('body')))
+        sm = (f.get('sum') or '').strip()
+        if not sm:
+            fails.append('%s: the %s fold has no summary line' % (nm, k))
+            continue
+        if re.search(r'undefined|NaN|\[object|[<>]|&[a-z#0-9]+;', sm):
+            fails.append('%s: the %s fold summary has stray markup or a bad value: %r' % (nm, k, sm))
+        if (f.get('sumH') or 0) > 20 or (f.get('h') or 0) > 40:
+            fails.append('%s: the %s fold header is %spx tall (summary %spx) - the summary must stay on one line' % (nm, k, f.get('h'), f.get('sumH')))
+        if k in want_sum and not re.search(want_sum[k], sm):
+            fails.append('%s: the %s fold summary reads %r, expected it to match %r' % (nm, k, sm, want_sum[k]))
+    fo = r.get('foldOpen') or {}
+    for k in OWN_FOLDS:
+        o = fo.get(k) or {}
+        if not o.get('btn'):
+            fails.append('%s: the %s fold has no header button to click' % (nm, k))
+            continue
+        if o.get('exp') != 'true' or not o.get('body'):
+            fails.append('%s: a click on the %s fold did not open it (aria-expanded=%r, body=%s)' % (nm, k, o.get('exp'), o.get('body')))
+            continue
+        if not o.get('len'):
+            fails.append('%s: the %s fold opened with nothing in it' % (nm, k))
+        if o.get('back') != 'false' or not o.get('bodyGone'):
+            fails.append('%s: a second click on the %s fold did not close it again (aria-expanded=%r, body gone: %s)' % (nm, k, o.get('back'), o.get('bodyGone')))
+    o = fo.get('missed') or {}
+    if o.get('body') and not o.get('add'):
+        fails.append('%s: the SHOULD HAVE TRADED fold lost its + ADD button' % nm)
+    o = fo.get('deps') or {}
+    if o.get('body') and (not o.get('strip') or o.get('chips') != 1):
+        fails.append('%s: the DEPOSITS fold shows %s deposit chips (strip=%s), expected the one deposit' % (nm, o.get('chips'), o.get('strip')))
+    o = fo.get('ai') or {}
+    if o.get('body') and (not o.get('out') or not o.get('text') or not o.get('refresh')):
+        fails.append('%s: the AI ASSESSMENT fold opened without its read or its REFRESH button (%r)' % (nm, o))
+    o = fo.get('journal') or {}
+    if o.get('body') and (not o.get('form') or o.get('entries') != 1 or not o.get('save')):
+        fails.append('%s: the JOURNAL fold opened without its form or its entry (%r)' % (nm, o))
+    bp = r.get('bp') or {}
+    if bp.get('err'):
+        fails.append('%s: the breakpoint scan threw -- %s' % (nm, _first(bp['err'])))
+    elif not bp.get('n'):
+        fails.append('%s: the breakpoint scan saw no media rule of the board (the scan has gone blind)' % nm)
+    elif bp.get('bad'):
+        fails.append('%s: the board has media rules at widths outside the house set %s: %s'
+                     % (nm, HOUSE_WIDTHS, '; '.join(sorted(set(bp['bad']))[:4])))
+    if cfg['theme'] == 'mono':
+        hu = r.get('hue') or {}
+        if not hu.get('checked'):
+            fails.append('%s: the MONO colour scan looked at nothing' % nm)
+        elif hu.get('bad'):
+            fails.append('%s: MONO has a hue on the board (%d colours checked): %s' % (nm, hu['checked'], '; '.join(hu['bad'])))
+
+
+def _judge_folds(fd):
+    """LEDGER unify step 11: open / closed is remembered per browser - every own fold opened with a click is open after a reload, and closed
+    after it is closed and the page reloaded again."""
+    fails, unfinished = [], []
+    runs = (fd or {}).get('folds') or {}
+    for nm, cfg in FOLD_RUNS:
+        tag = 'fold run %s' % nm
+        r = runs.get(nm)
+        if r is None:
+            unfinished.append('%s: never ran' % tag)
+            continue
+        if r.get('threw'):
+            fails.append('%s: the probe itself threw -- %s' % (tag, _first(r['threw'])))
+            continue
+        for key in ('seed', 'seed2', 'seed3'):
+            if r.get(key) != 'OK':
+                fails.append('%s: renderApp threw (%s) -- %s' % (tag, key, _first(r.get(key))))
+        _errs(tag + ' (render)', r.get('seedErr') or {}, fails)
+        _errs(tag + ' (after the first reload)', r.get('err1') or {}, fails)
+        _errs(tag + ' (after the second reload)', r.get('err2') or {}, fails)
+        shut = {k: 'false' for k in OWN_FOLDS}
+        shown = {k: 'true' for k in OWN_FOLDS}
+        if r.get('init') != {k: False for k in OWN_FOLDS}:
+            fails.append('%s: on a fresh browser the own folds start as %r - every one must start closed (the AI ASSESSMENT box filled the top '
+                         'of the page when it started open)' % (tag, r.get('init')))
+        if r.get('start') != shut:
+            fails.append('%s: the own folds do not start closed on a fresh browser (%r)' % (tag, r.get('start')))
+        if r.get('opened') != shown:
+            fails.append('%s: clicking every own fold did not open them all (%r)' % (tag, r.get('opened')))
+        elif any(v != '1' for v in (r.get('lsOpened') or {}).values()):
+            fails.append('%s: an opened fold was not written to localStorage (%r)' % (tag, r.get('lsOpened')))
+        if r.get('afterReload') != shown:
+            fails.append('%s: after a reload the folds opened before it are not open (%r) - open / closed is not remembered' % (tag, r.get('afterReload')))
+        if r.get('closed') != shut:
+            fails.append('%s: clicking every open fold did not close them all (%r)' % (tag, r.get('closed')))
+        elif any(v != '0' for v in (r.get('lsClosed') or {}).values()):
+            fails.append('%s: a closed fold was not written to localStorage (%r)' % (tag, r.get('lsClosed')))
+        if r.get('afterReload2') != shut:
+            fails.append('%s: after a reload the folds closed before it are not closed (%r) - open / closed is not remembered' % (tag, r.get('afterReload2')))
+        if cfg.get('cal'):
+            _errs(tag + ' (calendar default)', r.get('errCal') or {}, fails)
+            cal = r.get('cal') or {}
+            if cal.get('600') is not False or cal.get('601') is not True:
+                fails.append('%s: the calendar default is open=%r at 600 px and open=%r at 601 px, expected closed at 600 and open at 601 '
+                             '(the house number, not a private width)' % (tag, cal.get('600'), cal.get('601')))
+    return fails, unfinished
 
 
 def _judge(data, data_obj):
@@ -1863,11 +2291,14 @@ def _judge(data, data_obj):
             if (r.get('appLen') or 0) < 3000:
                 fails.append('%s: the legacy tab rendered almost nothing (%s chars)' % (nm, r.get('appLen')))
             continue
-        if not r.get('missed'):
-            fails.append('%s: no #hm-missed (SHOULD HAVE TRADED) section' % nm)
-        elif r.get('missedRows') != (n_missed if cfg['missed'] else 0):
+        fo = r.get('foldOpen') or {}
+        mo = fo.get('missed') or {}
+        if not mo.get('missed'):
+            fails.append('%s: no #hm-missed (SHOULD HAVE TRADED) section in its fold once it is open' % nm)
+        elif mo.get('missedRows') != (n_missed if cfg['missed'] else 0):
             fails.append('%s: SHOULD HAVE TRADED shows %s rows for %s entries'
-                         % (nm, r.get('missedRows'), n_missed if cfg['missed'] else 0))
+                         % (nm, mo.get('missedRows'), n_missed if cfg['missed'] else 0))
+        _judge_step11(nm, cfg, r, fails, n_missed)
         want_kind = cfg['ledger'] if cfg['view'] == 'table' else 'feed'
         if not r.get('feed'):
             fails.append('%s: no ledger container (#hm-feed-container)' % nm)
@@ -1917,6 +2348,9 @@ def _judge(data, data_obj):
                 if r.get('listTop') is None or r.get('listTop') > (r.get('viewH') or 0):
                     fails.append('%s: the trade list starts %spx below the top of the board on a phone, more than one '
                                  'screen (%spx) - mistake #12' % (nm, r.get('listTop'), r.get('viewH')))
+                elif r.get('listTop') > PHONE_LIST_TOP_MAX:
+                    fails.append('%s: the trade list starts %spx below the top of the board on a 375 px phone; it began at %spx before '
+                                 'step 11 and must not grow' % (nm, r.get('listTop'), PHONE_LIST_TOP_MAX))
         if cfg['view'] == 'feed' and r.get('frame'):
             exp_order = [t['id'] for t in sorted(data_obj['trades'], key=_close_key, reverse=True)]
             if r.get('order') != exp_order:
@@ -1926,6 +2360,13 @@ def _judge(data, data_obj):
         ai = r.get('aiFold')
         if not ai or not ai.get('closed') or ai.get('out'):
             fails.append('%s: the AI ASSESSMENT is not a closed fold (%r) - it filled the top of the page' % (nm, ai))
+        if cfg['vp'] == 'phone' and not (r.get('acctSum') or '').strip():
+            fails.append('%s: the phone account line has no summary (the account in view and its balance)' % nm)
+        elif cfg['vp'] == 'phone' and (r.get('acctBtnH') or 0) > 40:
+            fails.append('%s: the phone account line is %spx tall - it must be one line' % (nm, r.get('acctBtnH')))
+        ao = r.get('acctOpen')
+        if cfg['vp'] == 'phone' and (not ao or ao.get('exp') != 'true' or ao.get('list') == 'none' or ao.get('back') != 'false' or ao.get('listBack') != 'none'):
+            fails.append('%s: the phone account line should open the account list on a click and close it again (%r)' % (nm, ao))
         af = r.get('acctFold')
         if not af:
             fails.append('%s: the account line / list section is missing' % nm)
@@ -1939,10 +2380,11 @@ def _judge(data, data_obj):
         if cfg['view'] == 'table' and cfg['ledger'] == 'simple' and tbx and tbx['sw'] > tbx['cw'] + 1:
             fails.append('%s: the SIMPLE table scrolls sideways inside its box (scrollWidth %s > clientWidth %s)'
                          % (nm, tbx['sw'], tbx['cw']))
-        if not r.get('paste'):
-            fails.append('%s: the PASTE box for snapshot links (#hm-paste-chart) is gone' % nm)
-        elif cfg['vp'] != 'phone' and not r.get('pasteVisible'):
-            fails.append('%s: the PASTE box is on the page but not visible on a laptop' % nm)
+        po = fo.get('paste') or {}
+        if not po.get('paste'):
+            fails.append('%s: the PASTE box for snapshot links (#hm-paste-chart) is gone from its fold' % nm)
+        elif not po.get('pasteVisible'):
+            fails.append('%s: the PASTE box is in its open fold but not visible' % nm)
         if (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1 and cfg['vp'] != 'phone':
             fails.append('%s: the page scrolls sideways on a laptop (scrollWidth %s > clientWidth %s; sticking out: %s)'
                          % (nm, r.get('scrollW'), r.get('clientW'), ', '.join(r.get('wide') or []) or '?'))
@@ -2085,6 +2527,9 @@ def _judge(data, data_obj):
         elif not ps.get('form') or ps.get('url') != PASTE_URL:
             fails.append('%s: the paste note SHOULD HAVE TRADED button did not open the form with the '
                          'link filled in (form=%s url=%r)' % (tag, ps.get('form'), ps.get('url')))
+        elif ps.get('foldOpen') != 'true' or ps.get('foldOpenMsg') != 'true':
+            fails.append('%s: a paste note is drawn in the PASTE fold but the fold stayed closed (question: aria-expanded=%r, plain note: %r)'
+                         % (tag, ps.get('foldOpen'), ps.get('foldOpenMsg')))
         if ps.get('writes'):
             fails.append('%s: the paste box wrote to the database before anyone chose: %s'
                          % (tag, ps['writes']))
@@ -2136,8 +2581,8 @@ def _judge(data, data_obj):
             elif (fs.get('fullCols') or 0) <= (fs.get('simpleCols') or 0):
                 fails.append('%s: FULL shows %s columns, SIMPLE %s - FULL must show more'
                              % (tag, fs.get('fullCols'), fs.get('simpleCols')))
-            if not fs.get('paste'):
-                fails.append('%s: the PASTE box is gone from the frame toolbar' % tag)
+            if not fs.get('pasteFold') or not fs.get('paste'):
+                fails.append('%s: the PASTE box is gone (fold=%s box=%s)' % (tag, fs.get('pasteFold'), fs.get('paste')))
             bt = fs.get('buttons') or {}
             if not (bt.get('add') and bt.get('scan') and bt.get('all') and bt.get('nt')):
                 fails.append('%s: the toolbar lost one of NEW TRADE / ADD DEPOSIT / SCAN DUPLICATES / OPEN ALL (%r)' % (tag, bt))
@@ -2252,6 +2697,9 @@ def _judge(data, data_obj):
     wf, wu = _judge_widths(data.get('widths'), data_obj)
     fails += wf
     unfinished += wu
+    ff, fu = _judge_folds(data.get('folds'))
+    fails += ff
+    unfinished += fu
     if fails:
         return FAIL, fails, notes, data, True
     if unfinished:
@@ -2288,9 +2736,10 @@ def _report(t0, attempt, may_retry, chrome, root, alt_index):
     inter = data.get('inter') or {}
     zl = ((inter.get('laptop') or {}).get('steps') or {}).get('zoom') or {}
     n_wide = sum(len((v or {}).get('widths') or {}) for v in (((data.get('widths') or {}).get('widths')) or {}).values())
-    print('HOMEPROBE: PASS (VERSION=%s, %d cases + %d ?oldboards=1 cases + %d interaction runs + %d trade panel cases + %d width samples, %.1fs)'
+    print('HOMEPROBE: PASS (VERSION=%s, %d cases + %d ?oldboards=1 cases + %d interaction runs + %d trade panel cases + %d width samples + %d fold reload runs, %.1fs)'
           % (data.get('VERSION'), len(data.get('cases') or {}), len(((data.get('old') or {}).get('cases')) or {}),
-             len(inter), len(((data.get('panels') or {}).get('panels')) or {}), n_wide, elapsed))
+             len(inter), len(((data.get('panels') or {}).get('panels')) or {}), n_wide,
+             len(((data.get('folds') or {}).get('folds')) or {}), elapsed))
     if first:
         print('  FLAKE: attempt 1 did not pass on this same file, the retry did. It said:')
         for f in first[1][:4]:
@@ -2326,6 +2775,9 @@ def selftest():
             io.open(path, 'w', encoding='utf-8', newline='').write(src.replace(anchor, repl))
             print('-- mutant %s (%s): expect FAIL' % (name, why))
             code = main(['--file', path, '--no-retry'])
+            if code == INCONCLUSIVE:          # a Chrome hiccup is not a verdict: look once more (a PASS is never retried into a FAIL)
+                print('   (inconclusive - looking once more)')
+                code = main(['--file', path, '--no-retry'])
             if code != FAIL:
                 bad.append('mutant %s was NOT caught (exit %d) -- the gate has gone blind to: %s'
                            % (name, code, why))
