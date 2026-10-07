@@ -69,7 +69,7 @@ Per trade panel case (a third page load: laptop 1366x768 and phone 375x812, glas
   * the grade and setup selects, IGNORE IN METRICS, the notes box, EDIT / OPEN IN TV / DELETE, the POINTS block and the chart
     (with EXPAND on a laptop only) are in it; in MONO no colour in it carries a hue; no sideways scroll at 375; no console.error
 Per width sweep (a fourth page load: the LIST, the SIMPLE table and the FULL table, each resized through WIDTH_SET - 375 480 600 601 700 701 741
-800 801 860 901 921 975 1000 1011 1200 1366 px - and drawn again at every width; 601 / 741 / 801 / 921 are the widths just above where a list
+800 801 860 901 921 975 1000 1011 1200 1366 1559 px - and drawn again at every width; 601 / 741 / 801 / 921 are the widths just above where a list
 cell comes back, 701 / 901 / 1011 just above where a SIMPLE column comes back, 860 / 975 sit in the two bands where the SIMPLE table used to
 scroll inside its box):
   * the PAGE never scrolls sideways at any of those widths, in any of the three views (scrollWidth <= clientWidth + 1 and <= the window
@@ -78,6 +78,17 @@ scroll inside its box):
     window narrows - POINTS, then STRATEGY, then the board's end slot - and a cell that is gone stays gone at every narrower width; from
     1000 px up nothing is hidden; no row is wider than the frame; every seeded trade still has its row
   * the SIMPLE table fits its box at every one of them; the FULL table (26 columns) scrolls inside its own box, never the page
+LEDGER unify step 12 (ONE PAGE FRAME, 2026-10-07), per case and at every width of the sweep:
+  * ONE shared page frame ([data-lgframe="hm"]): max width 1320 px and centred in the page; from 1100 px two columns - the accounts list in
+    the RIGHT-HAND panel ([data-lgframe-side]) beside the top block (its header level with the hero, left of nothing), the trade list the
+    full width under both; under 1100 px one column with the accounts under the calendar, in the same slot
+  * the status line ([data-lgstatus="hm"]) directly under the hero numbers, one or two lines tall, carrying the broker syncs and the reconcile
+    check (the probe seeds a Webull reconcile), and the hero's top-right chip slot empty (the check left it)
+  * the chart foot ([data-lgchartfoot="hm"]) directly under the chart, holding the EQUITY | P&L switch (both buttons) and a caption
+  * the Filters row at the top of the accounts panel, right under its header, CLOSED to start (body hidden); a click opens it and stores
+    el_lg_filters_hm=1, a second click closes it and stores 0; the fold run reloads the page and finds it as it was left
+  * REAL's slot row in the trade list toolbar holds FUTURES | STOCKS, the view switch and NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL
+    and the ... toggle (none removed)
 LEDGER unify step 11 (REAL: one page order, own sections as closed folds, one set of breakpoints), per case:
   * the page sections come in the FIXED order top to bottom (SECTION_ORDER: hero, range pills, equity chart, stats strip, More stats, calendar,
     accounts, trade list, then the own folds PASTE, SHOULD HAVE TRADED, DEPOSITS, AI ASSESSMENT, JOURNAL) at every width of every case and of the
@@ -186,17 +197,24 @@ for _vp, _th, _view in (('laptop', 'glass', 'feed'), ('laptop', 'paper', 'feed')
 # 601 / 700 / 800 / 1000 / 1366 are the widths the owner asked for; 480 and 600 are the phone rule; 601 / 741 / 801 / 921 are the widths
 # just above where a list cell comes back (the tightest a list row ever is), 701 / 901 / 1011 just above where a SIMPLE column comes back,
 # and 860 / 975 sit in the two bands where the SIMPLE table used to scroll inside its own box.
-WIDTH_SET = [375, 480, 600, 601, 700, 701, 741, 800, 801, 860, 901, 921, 975, 1000, 1011, 1200, 1366]
+# 1559 (step 12) is the owner's laptop: the only width where the window is wider than the 1320 px frame, so the frame's centring shows.
+WIDTH_SET = [375, 480, 600, 601, 700, 701, 741, 800, 801, 860, 901, 921, 975, 1000, 1011, 1200, 1366, 1559]
 WIDTH_RUNS = [[_nm, {'theme': 'glass', 'view': _view, 'ledger': _led}, WIDTH_SET]
               for _nm, _view, _led in (('list', 'feed', 'simple'), ('table-simple', 'table', 'simple'), ('table-full', 'table', 'full'))]
 LIST_HIDE_ORDER = ['pts', 'strat', 'slot']      # the optional cells of a LIST row, the first to go first
 JUMP_DAY = '2026-09-30'
 
 # LEDGER unify step 11
-SECTION_ORDER = ['hero', 'pills', 'chart', 'stats', 'more', 'cal', 'acct', 'list', 'paste', 'missed', 'deps', 'ai', 'journal']
+SECTION_ORDER = ['hero', 'status', 'pills', 'chart', 'stats', 'more', 'cal', 'acct', 'list', 'paste', 'missed', 'deps', 'ai', 'journal']
+# LEDGER step 12: the shared page frame - the panel width, the frame's max width, the window width from which the list is a right-hand panel
+FRAME_MAX_W = '1320px'
+FRAME_SIDE_FROM = 1100
+SLOT_KIND = 'FUTURES,STOCKS'
 OWN_FOLDS = ['paste', 'missed', 'deps', 'ai', 'journal']
 HOUSE_WIDTHS = [600, 740, 800, 920, 1100]     # the one set of breakpoints (contract section 5b)
-PHONE_LIST_TOP_MAX = 652                      # px from the top of the board to the trade list on a 375 px phone: the build before step 11
+PHONE_LIST_TOP_MAX = 700                      # px from the top of the board to the trade list on a 375 px phone: 652 before step 12, which
+                                              # added the status line under the hero (two lines with the Webull reconcile) and the chart
+                                              # foot with the EQUITY | P&L switch (693 px measured on 2026-10-07); still inside one 812 px screen
 # what the removed previous board drew: none of it may be in the page (the page-side readout lists the ones it finds)
 OLD_MARKS = ['#hm-sheet', '.hm-backdrop', '#hm-view-toggle', '[data-hmchip]', '#hm-morestats-toggle', '.hm-morestats-panel', '.hm-stat-strip',
              '.hm-toolbar', '.hm-range-pills', '.hm-day-header', '.hm-ms-grid']
@@ -252,12 +270,12 @@ MUTANTS = [
      'a chart-size rule reaches the legend swatches again, so each legend name is a block the height of the chart'),
     # the clean-up of v73.1125: ?oldboards=1 and the previous board are gone, and nothing of them may come back
     ('oldflag-changes-the-board',
-     "return '<div class=\"hm-wrap lg-flow\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';",
-     "return '<div class=\"hm-wrap'+(location.search.indexOf('old'+'boards=1')>=0?'':' lg-flow')+'\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';",
+     "return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow',",
+     "return ledgerFrameHtml({id:'hm',cls:'hm-wrap'+(location.search.indexOf('old'+'boards=1')>=0?'':' lg-flow'),",
      '?oldboards=1 changes the board again: the page behind the flag is not the plain page'),
     ('old-marker-back-in-page',
-     "return '<div class=\"hm-wrap lg-flow\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';",
-     "return '<div class=\"hm-wrap lg-flow\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'<div id=\"hm-'+'sheet\"></div></div>';",
+     "rest:pick(_HM_PAGE_ORDER.slice(ai+1))});",
+     "rest:pick(_HM_PAGE_ORDER.slice(ai+1))+'<div id=\"hm-'+'sheet\"></div>'});",
      'a piece of the removed previous trade sheet (#hm-sheet) is back in the page'),
     ('removed-flag-defined-again',
      "const LEDGER_RANGES=['TODAY','1W','1M','3M','YTD','ALL'];",
@@ -268,8 +286,8 @@ MUTANTS = [
      "if(k===null)setBroker(k);",
      'tapping an account row in the list no longer scopes the board'),
     ('phone-overflow',
-     "return '<div class=\"hm-wrap lg-flow\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';",
-     "return '<div class=\"hm-wrap lg-flow\" style=\"min-width:640px\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';",
+     "return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow',",
+     "return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow\" style=\"min-width:640px',",
      'HOME is wider than a phone and the page scrolls sideways'),
     # LEDGER step 8: the shared trade list frame
     ('frame-day-net-unsigned',
@@ -399,16 +417,16 @@ MUTANTS = [
      'the SIMPLE table brings its # and PTS columns back too early, so it scrolls inside its own box at 975 px'),
     # LEDGER step 11: one page order, the own sections as closed folds with a one-line summary, one set of breakpoints
     ('section-order-wrong',
-     "const _HM_PAGE_ORDER=['hero','pills','chart','stats','more','cal','acct','list','paste','missed','deps','ai','journal'];",
-     "const _HM_PAGE_ORDER=['hero','pills','chart','stats','more','cal','acct','ai','list','paste','missed','deps','journal'];",
+     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','list','paste','missed','deps','ai','journal']);",
+     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','ai','list','paste','missed','deps','journal']);",
      'the AI ASSESSMENT fold sits above the trade list again, so the page sections are no longer in the fixed order'),
     ('pills-under-chart',
-     "const _HM_PAGE_ORDER=['hero','pills','chart','stats','more','cal','acct','list','paste','missed','deps','ai','journal'];",
-     "const _HM_PAGE_ORDER=['hero','chart','pills','stats','more','cal','acct','list','paste','missed','deps','ai','journal'];",
+     "const LEDGER_TOP_ORDER=LEDGER_STATUS_UNDER_HERO?['hero','status','pills','chart','stats','more','cal']:",
+     "const LEDGER_TOP_ORDER=LEDGER_STATUS_UNDER_HERO?['hero','status','chart','pills','stats','more','cal']:",
      'the range pills are under the chart again instead of between the hero and the chart'),
     ('own-section-removed',
-     "const _HM_PAGE_ORDER=['hero','pills','chart','stats','more','cal','acct','list','paste','missed','deps','ai','journal'];",
-     "const _HM_PAGE_ORDER=['hero','pills','chart','stats','more','cal','acct','list','paste','missed','ai','journal'];",
+     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','list','paste','missed','deps','ai','journal']);",
+     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','list','paste','missed','ai','journal']);",
      'the DEPOSITS section is gone from the page - an own section was removed instead of folded'),
     ('fold-summary-empty',
      'data-hmsum="\'+k+\'">\'+sum+\'</span>',
@@ -451,8 +469,8 @@ MUTANTS = [
      "",
      'a paste note is written into the PASTE fold but the fold stays closed, so the note (UNDO, MOVE) cannot be seen'),
     ('phone-overflow-board',
-     "return '<div class=\"hm-wrap lg-flow\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';",
-     "return '<div class=\"hm-wrap lg-flow\" style=\"min-width:640px\">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';",
+     ".hm-wrap.lg-frame{max-width:1320px}",
+     ".hm-wrap.lg-frame{max-width:1320px;min-width:640px}",
      'the new board is wider than a phone and the page scrolls sideways'),
     ('acct-line-summary-empty',
      'data-hmsum="acct">${_hmAcctSummary()}</span>',
@@ -466,6 +484,63 @@ MUTANTS = [
      'b.onclick=()=>{homeAcctOpen=!homeAcctOpen;',
      'b.onclick=()=>{',
      'a tap on the phone account line does not open the account list'),
+    # LEDGER step 12: ONE PAGE FRAME
+    ('list-not-in-side-panel',
+     "top:pick(_HM_PAGE_ORDER.slice(0,ai)),side:S.acct,rest:pick(_HM_PAGE_ORDER.slice(ai+1))});",
+     "top:pick(_HM_PAGE_ORDER.slice(0,ai))+S.acct,side:'',rest:pick(_HM_PAGE_ORDER.slice(ai+1))});",
+     'the accounts list is back inside the main column: no right-hand panel on a laptop'),
+    ('frame-two-columns-everywhere',
+     ".lg-frame{max-width:1320px;margin:0 auto;box-sizing:border-box}",
+     ".lg-frame{max-width:1320px;margin:0 auto;box-sizing:border-box}.lg-frame.lg-frame-2{display:grid;grid-template-columns:minmax(0,1fr) 340px;column-gap:40px}.lg-frame-2>.lg-frame-top{grid-column:1;grid-row:1}.lg-frame-2>.lg-frame-side{grid-column:2;grid-row:1}.lg-frame-2>.lg-frame-rest{grid-column:1/-1;grid-row:2}",
+     'the frame keeps two columns below 1100 px, so on a phone the accounts list is a squashed column instead of the slot under the calendar'),
+    ('frame-not-centred',
+     ".hm-wrap.lg-frame{max-width:1320px}",
+     ".hm-wrap.lg-frame{max-width:1320px;margin:0}",
+     'the page frame is left-aligned (NT8 PAPER\'s old wide column) instead of centred like the other boards'),
+    ('frame-wider-than-webull',
+     ".hm-wrap.lg-frame{max-width:1320px}",
+     ".hm-wrap.lg-frame{max-width:1600px}",
+     'the page frame is wider than the shared width (WEBULL\'s column)'),
+    ('side-panel-pushes-list-down',
+     ".lg-frame-2>.lg-frame-side>.lg-frame-side-in{position:absolute;top:6px;left:0;right:0;bottom:24px;",
+     ".lg-frame-2>.lg-frame-side>.lg-frame-side-in{position:relative;min-height:1400px;top:6px;left:0;right:0;bottom:24px;",
+     'the list panel grows taller than the top block beside it and pushes the trade list down the page'),
+    ('status-under-chart',
+     "const LEDGER_STATUS_UNDER_HERO=true;",
+     "const LEDGER_STATUS_UNDER_HERO=false;",
+     'the status line sits under the chart instead of directly under the hero numbers'),
+    ('status-line-missing',
+     "    status:_hmStatusHtml(),",
+     "    status:'',",
+     'REAL has no status line'),
+    ('recon-chip-back-in-hero',
+     "function _hmHeroChips(){return '';}",
+     "function _hmHeroChips(){return [reconBadge(),ntReconBadge()].filter(Boolean).map(b=>'<span class=\"lg-chip\">'+b+'</span>').join('');}",
+     'the Webull reconcile check is a chip in the hero again (top right) instead of the status line'),
+    ('filters-open-by-default',
+     "const LEDGER_FILTERS_OPEN=false;",
+     "const LEDGER_FILTERS_OPEN=true;",
+     'the Filters row at the top of the list panel starts open'),
+    ('filters-row-missing',
+     "    filters:ledgerFiltersHtml({id:'hm',none:",
+     "    nofilters:ledgerFiltersHtml({id:'hm',none:",
+     'the accounts panel has no Filters row, so its header does not match the other boards'),
+    ('filters-not-remembered',
+     "function ledgerFiltersSet(id,on){try{localStorage.setItem('el_lg_filters_'+id,on?'1':'0');}catch(e){}}",
+     "function ledgerFiltersSet(id,on){try{}catch(e){}}",
+     'the Filters row does not remember open / closed'),
+    ('toolbar-button-gone',
+     '<button class="hm-ghostbtn" id="hm-scan-dupes">&#128269; SCAN DUPLICATES</button>',
+     '',
+     'SCAN DUPLICATES is gone from REAL\'s toolbar row'),
+    ('kind-chips-gone',
+     "const kind=['FUTURES','STOCKS'].map(",
+     "const kind=[].map(",
+     'FUTURES | STOCKS are gone from REAL\'s toolbar row'),
+    ('mode-toggle-off-chart-foot',
+     "        x:'<div class=\"hm-mode\" id=\"hm-mode-toggle\">",
+     "        y:'<div class=\"hm-mode\" id=\"hm-mode-toggle\">",
+     'the EQUITY | P&L switch is gone from the chart foot'),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -482,7 +557,9 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     out.why=why; out.ms=Date.now()-t0;
     document.getElementById('o').textContent='HOMEPROBE: '+JSON.stringify(out);
   }
-  setTimeout(function(){finish('backstop');},80000);   // virtual ms: a page that only waits on timers costs no wall time
+  // virtual ms: a page that only waits on timers costs no wall time. 116 s since LEDGER step 12: the fold pass (two reloads per window plus the
+  // calendar-default reloads, and now the Filters row) ran out of the old 80 s on a busy box and read as INCONCLUSIVE ('fold run phone: never ran')
+  setTimeout(function(){finish('backstop');},116000);
   var fr=document.getElementById('f');
   function W(){return fr.contentWindow;}
   function D(){return fr.contentDocument;}
@@ -567,6 +644,60 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     res.widths.sort(function(a,b){return a-b;});
     return res;
   }
+  // LEDGER step 12: the shared page frame as drawn now - one frame, its width and centring, two columns from 1100 px (the accounts in the right-hand
+  // panel beside the top block, the trade list the full width under both) or one column under it; the status line, the chart foot, the Filters
+  // row at the top of the panel and REAL's slot row in the trade list toolbar
+  function frameRead(){
+    var d=D(),w=W(),o={};
+    var f=d.querySelector('[data-lgframe="hm"]');
+    o.n=d.querySelectorAll('[data-lgframe]').length;o.hm=!!f;
+    if(!f)return o;
+    var cs=w.getComputedStyle(f),fb=f.getBoundingClientRect(),p=f.parentElement,pb=p.getBoundingClientRect(),pcs=w.getComputedStyle(p);
+    o.grid=cs.display==='grid';o.maxW=cs.maxWidth;o.w=Math.round(fb.width);
+    var pl=parseFloat(pcs.paddingLeft)||0,pr=parseFloat(pcs.paddingRight)||0;
+    o.gapL=Math.round(fb.left-pb.left-pl);o.gapR=Math.round(pb.right-pr-fb.right);o.room=Math.round(pb.width-pl-pr);
+    var kid=function(a){return Array.prototype.filter.call(f.children,function(e){return e.hasAttribute(a);})[0]||null;};
+    var top=kid('data-lgframe-top'),side=kid('data-lgframe-side'),rest=kid('data-lgframe-rest');
+    var R=function(e){if(!e)return null;var b=e.getBoundingClientRect();return {l:Math.round(b.left-fb.left),r:Math.round(b.right-fb.left),t:Math.round(b.top-fb.top),b:Math.round(b.bottom-fb.top),w:Math.round(b.width),h:Math.round(b.height)};};
+    o.top=R(top);o.side=R(side);o.rest=R(rest);
+    var acct=d.querySelector('[data-hmsec="acct"]'),lst=d.querySelector('[data-hmsec="list"]'),hero=d.querySelector('[data-hmsec="hero"]');
+    o.acctInSide=!!(acct&&side&&side.contains(acct));o.listInRest=!!(lst&&rest&&rest.contains(lst));o.heroInTop=!!(hero&&top&&top.contains(hero));
+    o.acct=R(acct);o.list=R(lst);o.hero=R(hero);
+    var lhd=d.querySelector('[data-lglist="hm"] .lg-list-hd');o.listHd=R(lhd);
+    var hl=d.getElementById('hm-hero-label');o.heroLabel=R(hl);
+    var st=d.querySelector('[data-lgstatus="hm"]');
+    o.status=st?{r:R(st),sec:st.getAttribute('data-hmsec'),line:((st.querySelector('.lg-status-line')||{}).textContent||'').replace(/\\s+/g,' ').trim(),
+      lineH:Math.round((st.querySelector('.lg-status-line')||st).getBoundingClientRect().height)}:null;
+    var hc=d.getElementById('hm-hero-chips');o.heroChips=hc?(hc.textContent||'').replace(/\\s+/g,' ').trim():null;
+    var ft=d.querySelector('[data-lgchartfoot="hm"]'),cw=d.getElementById('hm-chart-wrap');
+    o.foot=ft?{r:R(ft),eq:!!ft.querySelector('#hm-mode-toggle [data-hmmode="equity"]'),pnl:!!ft.querySelector('#hm-mode-toggle [data-hmmode="pnl"]'),
+      cap:((ft.querySelector('.lg-chart-cap')||{}).textContent||'').trim(),gap:cw?Math.round(ft.getBoundingClientRect().top-cw.getBoundingClientRect().bottom):null,
+      inChartSec:!!ft.closest('[data-hmsec="chart"]')}:null;
+    o.toggles=d.querySelectorAll('#hm-mode-toggle').length;
+    var fl=d.querySelector('[data-lglist="hm"] [data-lgfilters="hm"]'),fbt=fl?fl.querySelector('[data-lgfilt="hm"]'):null,fbd=fl?fl.querySelector('.lg-filters-body'):null;
+    o.filters=fl?{exp:fbt?fbt.getAttribute('aria-expanded'):null,hidden:fbd?(!!fbd.hidden||w.getComputedStyle(fbd).display==='none'):null,
+      afterHd:!!(fl.previousElementSibling&&fl.previousElementSibling.classList.contains('lg-list-hd')),
+      sum:((fl.querySelector('.lg-filters-sum')||{}).textContent||'').trim()}:null;
+    var sl=d.querySelector('[data-lglist-frame="hm"] .lg-tl-slot');
+    o.slot=sl?{kind:Array.prototype.map.call(sl.querySelectorAll('[data-lgchip]'),function(b){return b.getAttribute('data-lgchip');}).join(','),
+      btns:['#hm-newtrade-toggle','#hm-add-deposit','#hm-scan-dupes','#hm-open-all','#hm-tools-toggle'].filter(function(s){return !sl.querySelector(s);}),
+      seg:sl.querySelectorAll('[data-hmledger],[data-hmfeed]').length}:null;
+    return o;
+  }
+  // a click on the Filters row opens it (and stores 1), a second one closes it (and stores 0); the stored choice is cleared again
+  function filtersClick(){
+    var d=D(),w=W(),b=d.querySelector('[data-lgfilt="hm"]');
+    if(!b)return null;
+    var o={};
+    b.click();
+    var b1=d.querySelector('[data-lgfilt="hm"]'),p1=d.getElementById('hm-filters');
+    o.open=b1?b1.getAttribute('aria-expanded'):null;o.bodyShown=!!(p1&&!p1.hidden);o.ls=w.localStorage.getItem('el_lg_filters_hm');
+    if(b1)b1.click();
+    var b2=d.querySelector('[data-lgfilt="hm"]'),p2=d.getElementById('hm-filters');
+    o.back=b2?b2.getAttribute('aria-expanded'):null;o.bodyBack=!!(p2&&p2.hidden);o.ls2=w.localStorage.getItem('el_lg_filters_hm');
+    try{w.localStorage.removeItem('el_lg_filters_hm');}catch(e){}
+    return o;
+  }
   // a reload of the page under test: the app boots again (a fresh window), the stubs go back in, the console sink is hooked again
   async function reloadFrame(){
     var w0=W();
@@ -634,6 +765,9 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     var acb0=d.querySelector('[data-hmacct-fold]'),acs0=acb0?acb0.querySelector('[data-hmsum]'):null;
     r.acctSum=acs0?(acs0.textContent||'').replace(/\\s+/g,' ').trim():null;
     r.acctBtnH=acb0?Math.round(acb0.getBoundingClientRect().height):null;
+    // LEDGER step 12: the shared page frame, read before anything below opens a fold and moves the page about
+    try{r.fr=frameRead();}catch(e){r.fr={err:String(e&&e.stack?e.stack:e)};}
+    try{r.filtClick=filtersClick();}catch(e){r.filtClick={err:String(e&&e.stack?e.stack:e)};}
     // LEDGER shared trade list frame (unify step 8): toolbar, day headers with a signed net, rows, five cells on a phone.
     // Measured first, before the folds below are opened and move the page about.
     var fr=d.querySelector('[data-lglist-frame="hm"]');
@@ -1241,6 +1375,7 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
         await sleep(150);
         var wr0=d.querySelector('.hm-wrap'),wt0=wr0?wr0.getBoundingClientRect().top:0;
         st.sec=Array.prototype.map.call(d.querySelectorAll('[data-hmsec]'),function(e){var b=e.getBoundingClientRect();return {k:e.getAttribute('data-hmsec'),top:Math.round(b.top-wt0),h:Math.round(b.height)};});
+        try{st.fr=frameRead();}catch(e1){st.fr={err:String(e1&&e1.stack?e1.stack:e1)};}
         if(i===0){try{res.bp=bpScan();}catch(e0){res.bp={err:String(e0)};}}
         var de=d.documentElement;
         st.innerW=w.innerWidth;st.scrollW=de.scrollWidth;st.clientW=de.clientWidth;
@@ -1273,10 +1408,12 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     }
     out.widths[nm]=res;
   }
-  var LSK=['el_lg_paste_real','el_lg_missed_real','el_lg_deps_real','el_lg_ai_real','el_home_journal_open'];
+  var LSK=['el_lg_paste_real','el_lg_missed_real','el_lg_deps_real','el_lg_ai_real','el_home_journal_open','el_lg_filters_hm'];
   function lsRead(){var o={};LSK.forEach(function(k){try{o[k]=W().localStorage.getItem(k);}catch(e){o[k]='ERR';}});return o;}
-  function foldStates(){var o={};Array.prototype.forEach.call(D().querySelectorAll('[data-hmfold]'),function(b){o[b.getAttribute('data-hmfold')]=b.getAttribute('aria-expanded');});return o;}
-  function clickAll(){OWN.forEach(function(k){var b=D().querySelector('[data-hmfold="'+k+'"]');if(b)b.click();});}
+  // the own folds and (LEDGER step 12) the Filters row at the top of the accounts panel
+  function foldStates(){var o={};Array.prototype.forEach.call(D().querySelectorAll('[data-hmfold]'),function(b){o[b.getAttribute('data-hmfold')]=b.getAttribute('aria-expanded');});
+    var fb=D().querySelector('[data-lgfilt="hm"]');o.filters=fb?fb.getAttribute('aria-expanded'):null;return o;}
+  function clickAll(){OWN.forEach(function(k){var b=D().querySelector('[data-hmfold="'+k+'"]');if(b)b.click();});var fb=D().querySelector('[data-lgfilt="hm"]');if(fb)fb.click();}
   async function foldRun(nm,cfg){
     var res={};
     await setVp(cfg.vp);
@@ -1401,6 +1538,8 @@ INSTALL_JS = r"""
     var C=JSON.parse(cj),S=JSON.parse(window.__probeDataJson);
     prefs.theme=C.theme;applyTheme();
     trades=S.trades;missedTrades=C.missed?S.missed:[];
+    // LEDGER step 12: a Webull sync with a reconcile on file - its check is in the status line under the hero, no longer a chip in the hero
+    wbSync={last_sync:Math.floor(Date.now()/1000)-300,recon:{ok:true,flat:true}};ntSync=null;
     ledgerEvents=S.ledger||[];lessons=S.lessons||[];
     // the legacy TRADES / JOURNAL tabs only draw behind ?oldtabs=1 (the app reads this flag on every render)
     window.LOG_OLDTABS_ESCAPE_HATCH=!!C.tab;window._lastLogTab=C.tab||undefined;
@@ -1410,7 +1549,7 @@ INSTALL_JS = r"""
     // LEDGER step 11: every own fold starts closed and the calendar on its default for this width (open above 600 px), unless the case keeps what the page remembered
     if(!C.keepLs){
       homeAiOpen=false;homeAcctOpen=false;homeJournalOpen=false;homeOwnOpen.paste=false;homeOwnOpen.missed=false;homeOwnOpen.deps=false;
-      try{['el_lg_ai_real','el_lg_acct_real','el_home_journal_open','el_lg_paste_real','el_lg_missed_real','el_lg_deps_real','el_lg_cal_real'].forEach(function(k){localStorage.removeItem(k);});}catch(e){}
+      try{['el_lg_ai_real','el_lg_acct_real','el_home_journal_open','el_lg_paste_real','el_lg_missed_real','el_lg_deps_real','el_lg_cal_real','el_lg_filters_hm'].forEach(function(k){localStorage.removeItem(k);});}catch(e){}
       homeCalOpen=(window.innerWidth||1200)>600;
     }
     window._hmMissedEdit=null;window._hmPasteNote=null;window._hmPasteLast=null;window._hmPasteAsk=null;
@@ -1632,7 +1771,7 @@ def _render_page(chrome, root, alt_index, cases, inter, qs, data_obj, bars, pane
     try:
         out = subprocess.run(
             [chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
-             '--user-data-dir=' + prof, '--virtual-time-budget=84000', '--window-size=1500,1000',
+             '--user-data-dir=' + prof, '--virtual-time-budget=120000', '--window-size=1500,1000',
              '--dump-dom', 'http://127.0.0.1:%d/%s/probe.html' % (port, os.path.basename(pdir))],
             capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=300).stdout
     except Exception as e:
@@ -2001,9 +2140,10 @@ def _judge_widths(wd, data_obj):
             if ks != SECTION_ORDER:
                 fails.append('%s: the page sections run %r, expected %r at every width' % (t, ks, SECTION_ORDER))
             else:
-                tp = [e['top'] for e in s['sec']]
-                if any(b <= a for a, b in zip(tp, tp[1:])):
+                ok, tp = _stacked(s['sec'], px)
+                if not ok:
                     fails.append('%s: the page sections are not stacked top to bottom in the fixed order (tops %r)' % (t, tp))
+            _judge_frame(t, s.get('fr'), px, fails)
             if not s.get('frame') or s.get('mode') != want_mode:
                 fails.append('%s: the trade list frame is %s, expected one in %s mode (it says %r)'
                              % (t, 'missing' if not s.get('frame') else 'on the page', want_mode, s.get('mode')))
@@ -2119,16 +2259,127 @@ def _errs(tag, r, fails):
         fails.append('%s: the LOAD ERROR overlay is on the page' % tag)
 
 
+def _stacked(sec, px):
+    """The section tops in the fixed order: strictly top to bottom - except, from FRAME_SIDE_FROM px, the accounts list, which is the right-hand
+    panel beside the top block (the frame judge places it)."""
+    main = [s for s in sec if not (px >= FRAME_SIDE_FROM and s['k'] == 'acct')]
+    tp = [s['top'] for s in main]
+    return all(b > a for a, b in zip(tp, tp[1:])), tp
+
+
+def _judge_frame(tag, fr, px, fails):
+    """LEDGER step 12: the shared page frame on REAL at a window of px (the case's viewport or a width of the sweep)."""
+    if not fr or fr.get('err'):
+        fails.append('%s: could not read the page frame -- %s' % (tag, _first((fr or {}).get('err') or 'no readout')))
+        return
+    if fr.get('n') != 1 or not fr.get('hm'):
+        fails.append('%s: the page draws %s page frames ([data-lgframe]), expected exactly one, REAL\'s (hm)' % (tag, fr.get('n')))
+        return
+    if fr.get('maxW') != FRAME_MAX_W:
+        fails.append('%s: the page frame is %s wide at most, expected %s (the shared width, WEBULL\'s column)' % (tag, fr.get('maxW'), FRAME_MAX_W))
+    if abs((fr.get('gapL') or 0) - (fr.get('gapR') or 0)) > 2:
+        fails.append('%s: the page frame is not centred (%spx on the left, %spx on the right)' % (tag, fr.get('gapL'), fr.get('gapR')))
+    for k in ('top', 'side', 'rest'):
+        if not fr.get(k):
+            fails.append('%s: the page frame has no %s part ([data-lgframe-%s])' % (tag, k, k))
+            return
+    if not fr.get('heroInTop') or not fr.get('listInRest'):
+        fails.append('%s: the hero is not in the top block (%s) or the trade list not under it (%s)' % (tag, fr.get('heroInTop'), fr.get('listInRest')))
+    if not fr.get('acctInSide'):
+        fails.append('%s: the accounts list is not in the frame\'s list panel ([data-lgframe-side]) - it is no longer the right-hand panel / the '
+                     'slot under the calendar' % tag)
+    acct, top, lst, side = fr.get('acct') or {}, fr['top'], fr.get('list') or {}, fr['side']
+    if px >= FRAME_SIDE_FROM:
+        if not fr.get('grid'):
+            fails.append('%s: at %d px the frame is one column - from %d px the accounts list is a right-hand panel' % (tag, px, FRAME_SIDE_FROM))
+        elif acct:
+            if acct.get('l', 0) < top['r'] + 16:
+                fails.append('%s: the accounts panel starts at %spx, not to the right of the top block (which ends at %spx)' % (tag, acct.get('l'), top['r']))
+            if abs((side.get('t') or 0) - (top.get('t') or 0)) > 2:
+                fails.append('%s: the accounts panel starts %spx down, the top block %spx - they must start level' % (tag, side.get('t'), top.get('t')))
+            if (side.get('h') or 0) > (top.get('h') or 0) + 2:
+                fails.append('%s: the accounts panel (%spx) is taller than the top block beside it (%spx), so it pushes the trade list down'
+                             % (tag, side.get('h'), top.get('h')))
+            if lst and lst.get('w', 0) < (side.get('r') or 0) - (top.get('l') or 0) - 2:
+                fails.append('%s: the trade list is %spx wide - it must run the full width under the top block and the panel (%spx)'
+                             % (tag, lst.get('w'), (side.get('r') or 0) - (top.get('l') or 0)))
+    else:
+        if fr.get('grid'):
+            fails.append('%s: at %d px the frame still has two columns - under %d px the accounts list sits under the calendar' % (tag, px, FRAME_SIDE_FROM))
+        elif acct and top and acct.get('h', 0) > 0 and (acct.get('t', 0) < top['b'] - 1 or (lst and lst.get('t', 0) < acct.get('b', 0) - 1)):
+            fails.append('%s: under %d px the accounts list is not between the calendar (top block ends at %spx) and the trade list (%spx); it '
+                         'runs %s-%spx' % (tag, FRAME_SIDE_FROM, top['b'], lst.get('t'), acct.get('t'), acct.get('b')))
+
+
+def _judge_frame_parts(nm, cfg, fr, fc, fails):
+    """LEDGER step 12 on one case: the status line under the hero, the chart foot, the Filters row, REAL's slot row."""
+    if not fr or fr.get('err') or not fr.get('hm'):
+        return
+    st = fr.get('status')
+    if not st:
+        fails.append('%s: there is no status line ([data-lgstatus="hm"]) on REAL' % nm)
+    else:
+        if st.get('sec') != 'status':
+            fails.append('%s: the status line is not a page section of its own (data-hmsec=%r)' % (nm, st.get('sec')))
+        if (st.get('lineH') or 0) > 40:
+            fails.append('%s: the status line is %spx tall - it is ONE line (two at most on a phone)' % (nm, st.get('lineH')))
+        ln = st.get('line') or ''
+        if 'Webull synced' not in ln or 'reconciled w/ Webull' not in ln:
+            fails.append('%s: the status line reads %r - it must carry the broker syncs and the Webull reconcile check' % (nm, ln))
+    if fr.get('heroChips'):
+        fails.append('%s: the hero chip slot still reads %r - the sync / reconcile checks are in the status line now' % (nm, fr.get('heroChips')))
+    ft = fr.get('foot')
+    if not ft:
+        fails.append('%s: there is no chart foot ([data-lgchartfoot="hm"]) under the chart' % nm)
+    else:
+        if not (ft.get('eq') and ft.get('pnl')):
+            fails.append('%s: the EQUITY | P&L switch is not in the chart foot (equity %s, P&L %s)' % (nm, ft.get('eq'), ft.get('pnl')))
+        if not ft.get('inChartSec') or ft.get('gap') is None or ft.get('gap') < -1 or ft.get('gap') > 12:
+            fails.append('%s: the chart foot is not directly under the chart (gap %spx, inside the chart section: %s)' % (nm, ft.get('gap'), ft.get('inChartSec')))
+        if cfg['vp'] != 'phone' and not ft.get('cap'):
+            fails.append('%s: the chart foot has no caption' % nm)
+    if fr.get('toggles') != 1:
+        fails.append('%s: the page draws %s EQUITY | P&L switches, expected the one in the chart foot' % (nm, fr.get('toggles')))
+    fl = fr.get('filters')
+    if not fl:
+        fails.append('%s: the accounts panel has no Filters row ([data-lgfilters="hm"])' % nm)
+    else:
+        if fl.get('exp') != 'false' or not fl.get('hidden'):
+            fails.append('%s: the Filters row is not closed to start with (aria-expanded=%r, body hidden: %s)' % (nm, fl.get('exp'), fl.get('hidden')))
+        if not fl.get('afterHd'):
+            fails.append('%s: the Filters row is not at the top of the panel, right under its header' % nm)
+        if not fl.get('sum'):
+            fails.append('%s: the Filters row has no summary' % nm)
+    if fc is None or (isinstance(fc, dict) and fc.get('err')):
+        fails.append('%s: the Filters row could not be clicked -- %s' % (nm, _first((fc or {}).get('err') or 'no Filters button')))
+    elif fc.get('open') != 'true' or fc.get('ls') != '1' or fc.get('back') != 'false' or fc.get('ls2') != '0' or not fc.get('bodyBack') \
+            or (cfg['vp'] != 'phone' and not fc.get('bodyShown')):
+        fails.append('%s: the Filters row should open on a click (stored 1) and close on a second one (stored 0): %r' % (nm, fc))
+    sl = fr.get('slot')
+    if not sl:
+        fails.append('%s: the trade list toolbar has no board slot row' % nm)
+    else:
+        if sl.get('kind') != SLOT_KIND:
+            fails.append('%s: REAL\'s slot row holds the chips %r, expected %s' % (nm, sl.get('kind'), SLOT_KIND))
+        if sl.get('btns'):
+            fails.append('%s: REAL\'s slot row lost %s' % (nm, ', '.join(sl['btns'])))
+        if sl.get('seg') != 2:
+            fails.append('%s: REAL\'s slot row has %s view-switch buttons (BY TRADE | BY DAY or SIMPLE | FULL), expected 2' % (nm, sl.get('seg')))
+
+
 def _judge_step11(nm, cfg, r, fails, n_missed):
     """LEDGER unify step 11 on one case: the fixed order, the own folds (closed, one-line summary, open on a click, content), the breakpoints
     and MONO."""
     sec = r.get('sec') or []
     ks = [s['k'] for s in sec]
+    px = r.get('innerW') or VIEWPORTS[cfg['vp']][0]
+    _judge_frame(nm, r.get('fr'), px, fails)
+    _judge_frame_parts(nm, cfg, r.get('fr'), r.get('filtClick'), fails)
     if ks != SECTION_ORDER:
         fails.append('%s: the page sections run %r, expected the fixed order %r' % (nm, ks, SECTION_ORDER))
     else:
-        tp = [s['top'] for s in sec]
-        if any(b <= a for a, b in zip(tp, tp[1:])):
+        ok, tp = _stacked(sec, px)
+        if not ok:
             fails.append('%s: the page sections are not stacked top to bottom in the fixed order (tops %r)' % (nm, tp))
         if any((s['h'] or 0) <= 0 for s in sec):
             fails.append('%s: a page section is drawn with no height: %s' % (nm, ', '.join(s['k'] for s in sec if (s['h'] or 0) <= 0)))
@@ -2217,8 +2468,8 @@ def _judge_folds(fd):
         _errs(tag + ' (render)', r.get('seedErr') or {}, fails)
         _errs(tag + ' (after the first reload)', r.get('err1') or {}, fails)
         _errs(tag + ' (after the second reload)', r.get('err2') or {}, fails)
-        shut = {k: 'false' for k in OWN_FOLDS}
-        shown = {k: 'true' for k in OWN_FOLDS}
+        shut = {k: 'false' for k in OWN_FOLDS + ['filters']}
+        shown = {k: 'true' for k in OWN_FOLDS + ['filters']}
         if r.get('init') != {k: False for k in OWN_FOLDS}:
             fails.append('%s: on a fresh browser the own folds start as %r - every one must start closed (the AI ASSESSMENT box filled the top '
                          'of the page when it started open)' % (tag, r.get('init')))
@@ -2359,8 +2610,8 @@ def _judge(data, data_obj):
                     fails.append('%s: the trade list starts %spx below the top of the board on a phone, more than one '
                                  'screen (%spx) - mistake #12' % (nm, r.get('listTop'), r.get('viewH')))
                 elif r.get('listTop') > PHONE_LIST_TOP_MAX:
-                    fails.append('%s: the trade list starts %spx below the top of the board on a 375 px phone; it began at %spx before '
-                                 'step 11 and must not grow' % (nm, r.get('listTop'), PHONE_LIST_TOP_MAX))
+                    fails.append('%s: the trade list starts %spx below the top of the board on a 375 px phone; it may start at most %spx down since '
+                                 'step 12 and must not grow' % (nm, r.get('listTop'), PHONE_LIST_TOP_MAX))
         if cfg['view'] == 'feed' and r.get('frame'):
             exp_order = [t['id'] for t in sorted(data_obj['trades'], key=_close_key, reverse=True)]
             if r.get('order') != exp_order:

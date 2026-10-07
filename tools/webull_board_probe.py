@@ -129,8 +129,8 @@ first). LIST: three groups in order, BOOK
 no switch), Retired (ENGU-Q #335, a fold closed until opened, 'flat since 2026-09-28') and Shadow - not counted (a fold,
 closed, its rows faded and never in anything above); BOOK + Retired add up to the account's range figure; a tap on a leg opens
 its detail under the row. On a phone every row is one line, the status line, the list and the Account section sit under the
-trade list, and the trade list starts within one viewport of the board top (mistake #12); on a laptop the list keeps the
-sticky right column. The Table view carries a run number on every row too. A tap on a row's note toggle (the little i beside a run
+trade list, and the trade list starts within one viewport of the board top (mistake #12); on a laptop the list is the
+frame's right-hand panel (LEDGER STEP 12 below). The Table view carries a run number on every row too. A tap on a row's note toggle (the little i beside a run
 number) shows that leg's note under the row and leaves its detail shut; a copy of the fixture whose last two ORB trades
 belong to a strategy the board has no row for (375x812, both folds open) must draw an Other legs row, so BOOK + Retired +
 Other legs still add up to the account's range figure; a copy with ENGU-Q long 10 (375x812 and 1366x768) has no Retired group,
@@ -175,15 +175,17 @@ the board forgets it; the viewer leaving the board (HOME) closes it. The width r
 open, at every width, in the LIST and the TABLE.
 
 LEDGER STEP 11 (2026-10-06): one page order, every own section a closed fold with a one-line summary, one set of breakpoints.
-PAGE ORDER, by the page's own markers, top to bottom: hero (#qb-hero-label), range pills (.qbx-range-row), chart (#qb-lg-chart), the status strip (under the
-chart, never folded, with its box-updated line and Refresh), the stats strip, the More stats fold, the calendar fold, the strategy list (up to 600 px a one-line
-fold; from 1100 px the sticky right column, which must sit right of the trade list), the trade list ([data-lglist-frame="wb"]), then the own sections: Orders (the
+PAGE ORDER, by the page's own markers, top to bottom (as step 12 left it): hero (#qb-hero-label), the status line (directly under the hero, never folded,
+with its box-updated line and Refresh), range pills (.qbx-range-row), chart (#qb-lg-chart), the stats strip, the More stats fold, the calendar fold, the strategy
+list (up to 600 px a one-line fold; from 1100 px the frame's right-hand panel beside the top block, see STEP 12), the trade list ([data-lglist-frame="wb"]), then
+the own sections: Orders (the
 PAPER breaker line), Account, Today's orders, Feed & signals, System, Rails, Event timeline, Model reference, in that order, every one below the end of the trade
 list. Every plain case and every stats case. FOLDS (every plain case): each own fold is there, shut as first drawn (aria-expanded false, its panel hidden and not
 on the page), its header one line (under 40 px, its summary under 22 px) with a title and a summary that is not empty, not 'undefined' / 'NaN', and says the
 number the fixture says (the daily stop used out of its limit, the equity and its change, the order count, the feed uptime, NOT READY with its open checks,
 the daily limit and shares a leg, the event count); under MONO no header or panel frame draws a hue. The strategy list's phone fold is drawn up to 600 px (shut)
-and not above. PHONE: the trade list (the frame) starts at most 784 px under the board top at 375x812 (it was 784 before step 11 and must not grow). STEP 11 RUN
+and not above. PHONE: the trade list (the frame) starts at most 760 px under the board top at 375x812 (784 before step 11 and 12; step 12's page puts it at 757,
+and it must not grow). STEP 11 RUN
 (laptop 1366x768, then phone 375x812): each own fold is tapped open and shows its content (the daily stop bar and mode pill, the account equity and its as-of
 line, the order rows, the feed strip, the status / orders / integrity blocks, the rails, the events, the model reference), the choice is stored for this viewer
 (el_qb_fold_<key>), a reload (nothing in memory) finds it open, a live redraw leaves it open, a second tap shuts it and a reload finds it shut; the phone list
@@ -195,6 +197,19 @@ strategy list and trade list frame, the same markup skeleton and page order as t
 markers (OLD_MARKS) and no LEDGER_OLDBOARDS name left in the page. STATIC LINT (tools/ledger_removed.py): none of the identifiers the clean-up
 removed is back in index.html.
 
+LEDGER STEP 12 (2026-10-07): ONE PAGE FRAME, shared with REAL and NT8 PAPER (ledgerFrameHtml, ledgerStatusHtml, ledgerChartFootHtml, ledgerFiltersHtml).
+Every plain and stats case: exactly one [data-lgframe="qb"] holding one top block (hero, status line, pills, chart, stats, More stats, calendar), one side panel
+and one rest (the trade list, then the own folds); its computed max-width is 1320 px and it is centred in its parent (left gap = right gap within 2 px). From
+1100 px the frame is a grid: the strategy list is inside [data-lgframe-side], to the right of the top block, the panel's top level with the top block's, never
+taller than it (the list scrolls inside the panel) and not sticky; the trade list and the own folds run the full frame width under both. Under 1100 px there is
+no grid and the list sits between the calendar and the trade list. The status line [data-lgstatus="qb"] sits directly under the hero (after .qbx-hero, above the
+pills and the chart), one or two lines tall, with the Refresh button [data-qqqrefresh] in it. The chart foot [data-lgchartfoot="qb"] comes right after the chart
+box and holds the caption (the only .qbx-chart-cap on the page) and the key; the caption takes the shared foot style (the font size of the shared .lg-chart-cap
+rule). The list's Filters row [data-lgfilters="qb"] comes right after the list header, closed (aria-expanded false, its body hidden), its summary 'none' and the
+no-filters line in its body (WEBULL has nothing to filter). The interaction run taps it open (in place: the list is not redrawn; stored el_lg_filters_qb = '1'),
+a redraw (all a reload has: the choice lives in storage only) keeps it open, a second tap closes it ('0') and a redraw keeps it closed. The step 11 run also
+draws the board in a 1680 px window, where the frame must be exactly 1320 px wide and centred, the list still the right-hand panel.
+
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks; a retry that passes prints a FLAKE line.
 
@@ -204,7 +219,7 @@ Usage:
   python tools/webull_board_probe.py --selftest     # deliberately broken copies (MUTANTS) must
                                                     # FAIL, then the real file must PASS
   python tools/webull_board_probe.py --selftest --jobs 1   # the same, one broken copy at a time (the default is four at a time, or fewer on a
-                                                           # small machine: 189 copies run one by one would take well over an hour)
+                                                           # small machine: 231 copies run one by one would take several hours)
 
 Stdlib only, plus a subprocess call to local Chrome.
 """
@@ -559,27 +574,22 @@ def _variant_docs(fixture):
 
 
 # Builds this gate must catch, made from the CURRENT index.html by one string replacement each.
-# 'stats-below-history': the shared stat strip's line moved from under the chart to under the History section (the page's body, LEDGER step 11)
-_SB_LINES = [
-    "          +'<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div>'",
-    "          +'<div class=\"qbx-activity\">'+qbCalHtml+'</div>'",
-    "          +qbSideNew",
-    "          +'<div class=\"qbx-history qbx-section\"><div class=\"qb-section-hd\">History</div>'+qbTradesCard+'</div>'",
-]
-_SB_ANCHOR = '\r\n'.join(_SB_LINES)
-_SB_MOVED = '\r\n'.join(_SB_LINES[1:] + _SB_LINES[:1])
-# the page's body lines other mutants move (step 11)
-_HIST = "          +'<div class=\"qbx-history qbx-section\"><div class=\"qb-section-hd\">History</div>'+qbTradesCard+'</div>'"
-_SIDE = "          +qbSideNew"
-_OWN = "          +'<div class=\"qbx-own\">'+qbOwnSecs+'</div>'"
-_STAT = "          +'<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div>'"
-_CAL = "          +'<div class=\"qbx-activity\">'+qbCalHtml+'</div>'"
-_STRIP = "          +qbStatusSec"
+# LEDGER step 12: the board's body is ledgerFrameHtml({id:'qb', top, side, rest}); qbTop holds the top block's sections and LEDGER_TOP_ORDER picks their
+# order (hero, status, pills, chart, stats, more, cal; this board's pills ride in its chart section, its More stats in its stats section)
 _CRLF = '\r\n'
-_EQA = "            equityHtml='<div class=\"qb-chart-wrap\">'+periodTabsHtml+'<div class=\"qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'\">'+qbRangeCap+'</div>'"
-_EQA2 = "            equityHtml='<div class=\"qb-chart-wrap\"><div class=\"qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'\">'+qbRangeCap+'</div>'"
-_EQB = "              +'<div class=\"qbx-lgchart\" id=\"qb-lg-chart\"></div>'+keyHtml+'</div>';"
-_EQB2 = "              +'<div class=\"qbx-lgchart\" id=\"qb-lg-chart\"></div>'+keyHtml+periodTabsHtml+'</div>';"
+_QBTOP1 = "        const qbTop={hero:'<div class=\"qbx-hero\">'+qbHeroHtml+'</div>',status:qbStatusSec,pills:'',chart:'<div class=\"qbx-chart\">'+equityHtml+'</div>',"
+_QBTOP2 = "          stats:'<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div>',more:'',cal:'<div class=\"qbx-activity\">'+qbCalHtml+'</div>'};"
+_FR_BODY = "body=ledgerFrameHtml({id:'qb',cls:'qb-shell qbx-lg6',"
+_FR_TOP = "top:LEDGER_TOP_ORDER.map(k=>qbTop[k]||'').join(''),side:qbSideNew,"
+_FR_HIST = "            rest:'<div class=\"qbx-history qbx-section\"><div class=\"qb-section-hd\">History</div>'+qbTradesCard+'</div>'"
+_FR_OWN = "              +'<div class=\"qbx-own\">'+qbOwnSecs+'</div>'})"
+# the chart section: the pills, the chart box, then the shared chart foot (the caption and the key)
+_EQA = "            equityHtml='<div class=\"qb-chart-wrap\">'+periodTabsHtml"
+_EQB = "              +'<div class=\"qbx-lgchart\" id=\"qb-lg-chart\"></div>'"
+_EQC = ("              +ledgerChartFootHtml({id:'qb',cap:'<span class=\"qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'\">'+qbRangeCap+'</span>',"
+        "key:keyHtml})+'</div>';")
+# the strategy list's Filters row (passed to ledgerListHtml as o.filters)
+_QB_FILT = (_CRLF + "            filters:ledgerFiltersHtml({id:'qb',none:'This list has no filters: every strategy counts. Retired and Shadow are the folds below.'})});")
 
 MUTANTS = [
     ('chart-not-drawn',
@@ -892,14 +902,14 @@ MUTANTS = [
      ".qbx-lgstats{padding:16px 0 0;display:none}",
      "the stat strip and the More stats fold are on the page but cannot be seen"),
     ('stats-below-history',
-     _SB_ANCHOR,
-     _SB_MOVED,
+     _FR_TOP + _CRLF + _FR_HIST,
+     _FR_TOP.replace('.map(', ".filter(k=>k!=='stats').map(") + _CRLF + _FR_HIST + '+qbTop.stats',
      "the stat strip is drawn under the History section (on a phone, under the whole trade list)"),
     ('stats-reverse-order',
      ".sort((a,b)=>qbTsOf(a)<qbTsOf(b)?-1:(qbTsOf(a)>qbTsOf(b)?1:0));",
      ".sort((a,b)=>qbTsOf(a)<qbTsOf(b)?1:(qbTsOf(a)>qbTsOf(b)?-1:0));",
      "the stats walk the trades newest first, so the current streak is the oldest one"),
-    ('account-change-undated',
+    ('more-stats-change-undated',
      "acct.push(['Account change '+(chgDay?('on '+chgDay):'today'),",
      "acct.push(['Account change '+(false?('on '+chgDay):'today'),",
      "More stats calls an earlier day's account change 'today'"),
@@ -973,19 +983,21 @@ MUTANTS = [
      "row:{key:key,name:label,",
      'a strategy list row names its family but not its run number'),
     # LEDGER step 11 replaced step 10's phone order (the list and Account under the trade list, the status line after it): these three are its
-    # opposites on the new page. The list is a one-line fold ABOVE the trade list, the own sections come after it, the status strip is under the chart.
+    # opposites on the new page. The list is a one-line fold ABOVE the trade list, the own sections come after it, the status line is near the top
+    # (step 12: directly under the hero). Re-anchored on step 12's frame call (the side html moves into the rest, the rest's two parts swap).
     ('list-below-trades-on-phone',
-     _SIDE + _CRLF + _HIST,
-     _HIST + _CRLF + _SIDE,
-     'on a phone the strategy list sits under the trade list (step 11 puts it above, a one-line fold)'),
+     _FR_TOP + _CRLF + _FR_HIST,
+     _FR_TOP.replace('side:qbSideNew,', "side:'',") + _CRLF + _FR_HIST + '+qbSideNew',
+     'the strategy list sits under the trade list (step 11 puts it above, on a phone a one-line fold)'),
     ('own-sections-above-trades-on-phone',
-     _HIST + _CRLF + _OWN,
-     _OWN + _CRLF + _HIST,
+     _FR_HIST + _CRLF + _FR_OWN,
+     "            rest:'<div class=\"qbx-own\">'+qbOwnSecs+'</div>'" + _CRLF
+     + "              +'<div class=\"qbx-history qbx-section\"><div class=\"qb-section-hd\">History</div>'+qbTradesCard+'</div>'})",
      'on a phone the own sections (Orders, Account ...) sit above the trade list'),
     ('status-strip-below-stats',
-     _STRIP + _CRLF + _STAT,
-     _STAT + _CRLF + _STRIP,
-     'the status strip is drawn under the stats strip instead of under the chart'),
+     _QBTOP1 + _CRLF + _QBTOP2,
+     _QBTOP1.replace('status:qbStatusSec,', "status:'',") + _CRLF + _QBTOP2.replace("+qbLgStatsHtml+'</div>',", "+qbLgStatsHtml+'</div>'+qbStatusSec,"),
+     'the status line is drawn under the stats strip instead of directly under the hero'),
     ('status-line-gone',
      "const qbStatusSec='<div class=\"qbx-statusline\">'+qbStatusStripHtml+'</div>';",
      "const qbStatusSec='';",
@@ -1014,10 +1026,7 @@ MUTANTS = [
      "count:qbRangeTrades.length?(ledgerSigned(qbRangePnl)+' &middot; '+qbRangeWord):qbRangeNone",
      "count:qbRangeTrades.length?(ledgerSigned(closedSum)+' &middot; '+qbRangeWord):qbRangeNone",
      "the list's header total is the all-time figure whatever range is chosen"),
-    ('list-not-sticky',
-     ".qbx-side{grid-area:side;position:sticky;top:54px;",
-     ".qbx-side{grid-area:side;position:static;top:54px;",
-     'on a laptop the strategy column no longer sticks while the page scrolls'),
+    # (list-not-sticky is gone: step 12's list panel is not sticky any more. Its opposite, list-panel-sticky, is with the step 12 mutants below)
     ('phone-row-two-lines',
      ".qbx-side .lg-row{grid-template-columns:minmax(0,1fr) auto}",
      ".qbx-side .lg-row{display:block}",
@@ -1335,16 +1344,17 @@ MUTANTS = [
      'the KEEL size note is left out of the panel'),
     # ── LEDGER step 11: the fixed page order, the own folds, one set of breakpoints ──
     ('section-order-wrong',
-     _STAT + _CRLF + _CAL,
-     _CAL + _CRLF + _STAT,
+     _QBTOP2,
+     "          stats:'<div class=\"qbx-activity\">'+qbCalHtml+'</div>',more:'',cal:'<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div>'};",
      'the calendar fold is drawn above the stats strip (the fixed page order is broken)'),
+    # step 12: the laptop order is the shared frame's grid (the top block in row 1, the trade list and the own folds in row 2)
     ('laptop-grid-order-wrong',
-     '"hero side" "chart side" "status side" "stats side" "cal side" "history side" "own side"',
-     '"hero side" "chart side" "status side" "stats side" "history side" "cal side" "own side"',
-     'on a laptop the calendar sits under the trade list'),
+     '.lg-frame-2>.lg-frame-top{grid-column:1;grid-row:1}',
+     '.lg-frame-2>.lg-frame-top{grid-column:1;grid-row:3}',
+     'on a laptop the top block (hero to the calendar) sits under the trade list'),
     ('pills-below-chart',
      _EQA + _CRLF + _EQB,
-     _EQA2 + _CRLF + _EQB2,
+     "            equityHtml='<div class=\"qb-chart-wrap\">'" + _CRLF + _EQB + '+periodTabsHtml',
      'the range pills are drawn under the chart (they go between the hero and the chart)'),
     ('own-folds-order-wrong',
      "const qbOwnSecs=qbFoldHtml('orders','Orders',qbMiniSum,'<div class=\"qbx-orders-mini\">'+qbOrdersCompactHtml+'</div>',true)" + _CRLF
@@ -1446,17 +1456,19 @@ MUTANTS = [
      'the status strip is folded away under a header instead of staying visible under the chart'),
     # the clean-up of v73.1125: ?oldboards=1 and the previous board are gone, and nothing of them may come back
     ('oldflag-changes-the-board',
-     "body='<div class=\"qb-shell qbx-lg6\">'",
-     "body='<div class=\"qb-shell'+(location.search.indexOf('old'+'boards=1')>=0?'':' qbx-lg6')+'\">'",
+     _FR_BODY,
+     "body=ledgerFrameHtml({id:'qb',cls:'qb-shell'+(location.search.indexOf('old'+'boards=1')>=0?'':' qbx-lg6'),",
      '?oldboards=1 changes the board again: the page behind the flag is not the plain page'),
     ('old-marker-back-in-page',
-     "body='<div class=\"qb-shell qbx-lg6\">'",
-     "body='<div class=\"qb-shell qbx-lg6\"><span data-qb'+'traderow=\"0\"></span>'",
+     _FR_BODY,
+     _FR_BODY + "handle:'<span data-qb'+'traderow=\"0\"></span>',",
      'a piece of the removed previous trade rows ([data-qbtraderow]) is back in the page'),
+    # step 12: the chart caption takes the shared foot style now, so the rule the old comment guarded (.qbx-chart-cap) no longer shows; the same slip
+    # in the shared frame's comment swallows the rule right after it, .lg-frame (the frame's max width and centring)
     ('css-comment-closes-early',
-     'data-qb* and data-qe* attributes already wired above (nothing renamed, nothing',
-     'data-qb*/data-qe* attribute already wired above (nothing renamed, nothing',
-     'a css comment closes early (a star-slash inside it), so the rule after it is swallowed and the chart caption loses its small muted style'),
+     '(.lg-filters, closed until opened). Tokens only. */',
+     '(.lg-filters, closed until opened)*/. Tokens only. */',
+     "a css comment closes early (a star-slash inside it), so the rule after it is swallowed and the page frame loses its 1320 px width and centring"),
     ('removed-flag-defined-again',
      "const LEDGER_RANGES=['TODAY','1W','1M','3M','YTD','ALL'];",
      "const LEDGER_RANGES=['TODAY','1W','1M','3M','YTD','ALL'];\nconst LEDGER_OLDBOARDS=false;",
@@ -1473,6 +1485,64 @@ MUTANTS = [
      ".lg-more-panel.qbx-fold-panel{margin:0 0 14px;padding:14px 16px}",
      ".lg-more-panel.qbx-fold-panel{margin:0 0 14px;padding:14px 16px;min-width:640px}",
      'an open fold is wider than a phone and the page scrolls sideways'),
+    # ── LEDGER step 12 (2026-10-07): the one page frame, the status line under the hero, the chart foot, the Filters row ──
+    ('list-not-in-side-panel',
+     _FR_TOP,
+     "top:LEDGER_TOP_ORDER.map(k=>qbTop[k]||'').join('')+qbSideNew,side:'',",
+     "from 1100 px the strategy list is drawn in the top block under the calendar, not in the frame's right-hand panel"),
+    ('list-panel-sticky',
+     '.lg-frame-2>.lg-frame-side{grid-column:2;grid-row:1;align-self:stretch;position:relative;min-height:320px}',
+     '.lg-frame-2>.lg-frame-side{grid-column:2;grid-row:1;align-self:stretch;position:sticky;top:54px;min-height:320px}',
+     'on a laptop the list panel is sticky again (step 12: it sits beside the top block, its list scrolling inside it)'),
+    ('side-panel-taller-than-top',
+     'align-self:stretch;position:relative;min-height:320px}',
+     'align-self:stretch;position:relative;min-height:4000px}',
+     'from 1100 px the list panel is taller than the top block and pushes the trade list down'),
+    ('trades-not-full-width',
+     '.lg-frame-2>.lg-frame-rest{grid-column:1/-1;grid-row:2}',
+     '.lg-frame-2>.lg-frame-rest{grid-column:1;grid-row:2}',
+     'from 1100 px the trade list and the own folds keep to the left column instead of the full width under both'),
+    ('frame-not-centred',
+     '.lg-frame{max-width:1320px;margin:0 auto;box-sizing:border-box}',
+     '.lg-frame{max-width:1320px;margin:0;box-sizing:border-box}',
+     'in a window wider than the frame, the frame sits at the left instead of centred'),
+    ('frame-too-wide',
+     '.lg-frame{max-width:1320px;margin:0 auto;box-sizing:border-box}',
+     '.lg-frame{max-width:1600px;margin:0 auto;box-sizing:border-box}',
+     'the page frame is wider than the shared 1320 px'),
+    ('status-under-chart',
+     'const LEDGER_STATUS_UNDER_HERO=true;',
+     'const LEDGER_STATUS_UNDER_HERO=false;',
+     'the status line sits under the chart (the step 11 place), not directly under the hero'),
+    ('status-no-refresh',
+     "act:'<button class=\"qb-hero-refresh lg-status-btn\" data-qqqrefresh>'",
+     "act2:'<button class=\"qb-hero-refresh lg-status-btn\" data-qqqrefresh>'",
+     'the status line has no Refresh button'),
+    ('status-line-many-lines',
+     '-webkit-line-clamp:2;overflow-wrap:anywhere}',
+     '-webkit-line-clamp:none;overflow-wrap:anywhere;max-width:70px}',
+     'the status line is not held to one or two lines (it wraps on and on)'),
+    ('caption-off-chart-foot',
+     _EQA + _CRLF + _EQB + _CRLF + _EQC,
+     _EQA + "+'<div class=\"qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'\">'+qbRangeCap+'</div>'" + _CRLF + _EQB + _CRLF
+     + "              +ledgerChartFootHtml({id:'qb',key:keyHtml})+'</div>';",
+     'the chart caption is back above the chart, out of the shared chart foot (and off its style)'),
+    ('filters-open-by-default',
+     'const LEDGER_FILTERS_OPEN=false;',
+     'const LEDGER_FILTERS_OPEN=true;',
+     "the strategy list's Filters row starts open"),
+    ('filters-row-missing',
+     _QB_FILT,
+     _CRLF + '            });',
+     'the strategy list has no Filters row'),
+    ('filters-not-remembered',
+     "function ledgerFiltersSet(id,on){try{localStorage.setItem('el_lg_filters_'+id,on?'1':'0');}catch(e){}}",
+     'function ledgerFiltersSet(id,on){}',
+     "the Filters row's open / closed choice is not stored: a reload finds it closed"),
+    ('filters-body-stays-hidden',
+     '  if(p)p.hidden=!on;',
+     '',
+     'a tap on Filters flips its header to open but its body stays hidden'),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -1587,6 +1657,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     }
     var hd=lst.querySelector('.lg-list-hd'),hs=hd?hd.querySelectorAll('span'):[],box=lst.getBoundingClientRect();
     var side=q('.qbx-side'),hist=q('.qbx-history'),acct=q('.qbx-account'),sh=q('.qb-shell'),fr=q('[data-lgtrade]')||q('[data-qbtraderow]'),sy=w.scrollY||0;
+    var fpn=q('[data-lgframe-side="qb"]'),ftp=q('[data-lgframe-top="qb"]');
     var top=function(e){return e?Math.round(e.getBoundingClientRect().top+sy):null;},bot=function(e){return e?Math.round(e.getBoundingClientRect().bottom+sy):null;};
     return {title:hs[0]?(hs[0].textContent||'').trim():null,count:hs[1]?(hs[1].textContent||'').replace(/\\s+/g,' ').trim():null,
       groups:[].map.call(lst.querySelectorAll('.lg-grp'),function(g){
@@ -1598,7 +1669,9 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       geo:{listTop:top(lst),listBottom:bot(lst),listLeft:Math.round(box.left),listRight:Math.round(box.right),sideTop:top(side),
         histTop:top(hist),histBottom:bot(hist),histLeft:hist?Math.round(hist.getBoundingClientRect().left):null,
         histRight:hist?Math.round(hist.getBoundingClientRect().right):null,acctTop:top(acct),shellTop:top(sh),rowTop:top(fr),
-        vh:w.innerHeight,sticky:side?w.getComputedStyle(side).position:null}};
+        vh:w.innerHeight,sticky:side?w.getComputedStyle(side).position:null,
+        inSide:!!lst.closest('[data-lgframe-side="qb"]'),topRight:ftp?Math.round(ftp.getBoundingClientRect().right):null,
+        panelTop:top(fpn),panelBottom:bot(fpn),panelPos:fpn?w.getComputedStyle(fpn).position:null}};
   }
   // markers of the removed previous board (none may be in the page, with or without ?oldboards=1), the name of the removed flag, and what the new page shows
   function oldReads(){
@@ -1606,7 +1679,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     return {oldMarks:OLDMARKS.filter(function(s){return !!d.querySelector(s);}),
       flagConst:(function(){try{return w.eval('typeof LEDGER_OLDBOARDS');}catch(e){return 'error';}})(),
       sharedCalFold:!!q('[data-lgcalfold]'),sharedList:!!q('[data-lglist="qb"]'),
-      order:[].map.call(d.querySelectorAll('.qb-shell > section, .qb-shell > div'),function(e){return e.className.split(' ')[0];}).filter(function(c){return /^qbx-(side|account|history|stats)$/.test(c);})};
+      order:[].map.call(d.querySelectorAll('.qb-shell .qbx-side, .qb-shell .qbx-account, .qb-shell .qbx-history, .qb-shell .qbx-stats'),function(e){return e.className.split(' ')[0];}).filter(function(c){return /^qbx-(side|account|history|stats)$/.test(c);})};
   }
   // the More stats panel: shown or hidden, its groups, and every row as 'Group|Label' -> value text
   function moreRead(){
@@ -1697,6 +1770,8 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       +"try{var ap=JSON.parse(localStorage.getItem('augurPrefs')||'{}');ap.qqqSystemOpen=window.__probeSystemOpen;ap.qqqRailsOpen=0;ap.qqqEventsOpen=0;ap.qqqFeedSigOpen=0;ap.qqqModelOpen=0;localStorage.setItem('augurPrefs',JSON.stringify(ap));}catch(e){}"
       // LEDGER step 11: every own fold starts shut (nothing stored, nothing in memory), unless a case opens some
       +"try{['orders','account','todayorders','feedsig','system','rails','events','model','list'].forEach(function(k){localStorage.removeItem('el_qb_fold_'+k);});}catch(e){}window._qbFolds=null;"
+      // LEDGER step 12: the list's Filters row starts with nothing stored (so it is drawn closed unless the build opens it)
+      +"try{localStorage.removeItem('el_lg_filters_qb');}catch(e){}"
       +"try{var fo=window.__probeFoldOpen;if(fo==='all')fo=['orders','account','todayorders','feedsig','system','rails','events','model','list'];if(fo)fo.forEach(function(k){localStorage.setItem('el_qb_fold_'+k,'1');});}catch(e){}"
       +"window._qqqExecLive=false;window._qqqExecLiveErrorAt=window.__probeLiveErr?Date.now():null;window._qqqExecFetchedAt=window.__probeLiveErr?0:Date.now();"
       +"window._qbChartHoverActive=false;"
@@ -2058,6 +2133,8 @@ __S11JS__
         var lb2=q('[data-lgview="list"]');
         if(lb2){lb2.click();await sleep(100);}}
       res.table=tv;
+      // 7. LEDGER step 12: the list's Filters row opens in place, is remembered, closes
+      try{res.filt=await filtCycle();}catch(e){res.filt={threw:String(e&&e.stack?e.stack:e)};}
     }catch(e){res.threw=String(e&&e.stack?e.stack:e);}
     await sleep(60);
     res.errs=drain();
@@ -2626,18 +2703,19 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
   function s11Read(){
     var d=D(),w=W(),sy=w.scrollY||0,o={};
     function bx(sel){
-      // an empty range draws no chart svg: the chart's caption (right under the pills) stands for it
+      // an empty range draws no chart svg: the chart's caption (in the chart foot, under the empty-range line) stands for it
       var e=q(sel)||(sel==='#qb-lg-chart'?q('.qbx-chart .qbx-chart-cap'):null);if(!e)return null;
       var r=e.getBoundingClientRect(),cs=w.getComputedStyle(e);
       return {t:Math.round(r.top+sy),b:Math.round(r.bottom+sy),l:Math.round(r.left),r:Math.round(r.right),w:Math.round(r.width),h:Math.round(r.height),
         shown:cs.display!=='none'&&cs.visibility!=='hidden'&&r.width>0&&r.height>0};
     }
     var M={shell:'.qb-shell',hero:'#qb-hero-label',pills:'.qbx-range-row',chart:'#qb-lg-chart',status:'.qbx-statusline',stats:'.qbx-lgstats .lg-stats',
-      more:'[data-lgmore="qb"]',cal:'[data-lgcalfold="qb"]',list:'[data-lglist="qb"]',listfold:'[data-qbfold="list"]',trades:'[data-lglist-frame="wb"]',own:'.qbx-own'};
+      more:'[data-lgmore="qb"]',cal:'[data-lgcalfold="qb"]',list:'[data-lglist="qb"]',listfold:'[data-qbfold="list"]',trades:'[data-lglist-frame="wb"]',own:'.qbx-own',
+      ftop:'[data-lgframe-top="qb"]'};
     o.pos={};
     Object.keys(M).forEach(function(k){o.pos[k]=bx(M[k]);});
-    o.capFs=(function(){var e=q('.qbx-chart-cap');return e?w.getComputedStyle(e).fontSize:null;})();
     o.strip={text:tx2(q('.qbx-statusline')),refresh:!!q('.qbx-statusline [data-qqqrefresh]'),inFold:!!q('[data-qbfoldbox] .qbx-statusline')};
+    o.frame=frameRead();
     // every fold header, in page order: its key, title, summary, whether it is shut, where it is, its height (one line), the room its summary has
     o.folds=[].map.call(d.querySelectorAll('[data-qbfold]'),function(b){
       var k=b.getAttribute('data-qbfold'),p=d.getElementById('qbf-'+k),sm=b.querySelector('[data-qbfoldsum]'),t=b.querySelector('.qbx-fold-t');
@@ -2658,6 +2736,87 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
       disc:[].map.call(d.querySelectorAll('[data-qbdisclosure]'),function(e){return e.getAttribute('data-qbdisclosure');}),
       modelToggle:!!q('[data-qqqmodeltoggle]'),statusInChart:!!q('.qbx-chart .qbx-status-strip'),skel:s11Skel()};
     return o;
+  }
+  // ── LEDGER step 12: the one page frame. frameRead = the frame, its three parts, and where the list, the status line, the chart foot and the
+  // Filters row are; filtCycle = what a viewer does to the Filters row. ──
+  function rectOf(e){
+    if(!e)return null;
+    var w=W(),sy=w.scrollY||0,r=e.getBoundingClientRect(),cs=w.getComputedStyle(e);
+    return {t:Math.round(r.top+sy),b:Math.round(r.bottom+sy),l:Math.round(r.left),r:Math.round(r.right),w:Math.round(r.width),h:Math.round(r.height),
+      shown:cs.display!=='none'&&cs.visibility!=='hidden'&&r.width>0&&r.height>0};
+  }
+  function cssRuleFs(sel){
+    // the font size the page's own css gives exactly this selector at the top level (the last such rule wins), or null: no such rule is in the page
+    var fs=null;
+    [].forEach.call(D().styleSheets,function(sh){var rs=null;try{rs=sh.cssRules;}catch(e){}
+      if(rs)[].forEach.call(rs,function(r){if(r.selectorText===sel&&r.style&&r.style.fontSize)fs=r.style.fontSize;});});
+    return fs;
+  }
+  function frameRead(){
+    var d=D(),w=W(),o={};
+    var all=d.querySelectorAll('[data-lgframe="qb"]'),f=all[0]||null;
+    o.n=all.length;o.nAny=d.querySelectorAll('[data-lgframe]').length;
+    if(!f)return o;
+    var cs=w.getComputedStyle(f),p=f.parentElement,fbr=f.getBoundingClientRect();
+    o.maxW=cs.maxWidth;o.disp=cs.display;o.cols=cs.gridTemplateColumns;o.w=Math.round(fbr.width*10)/10;
+    if(p){var pr=p.getBoundingClientRect(),pcs=w.getComputedStyle(p);
+      var pl=pr.left+(parseFloat(pcs.paddingLeft)||0)+(parseFloat(pcs.borderLeftWidth)||0),pe=pr.right-(parseFloat(pcs.paddingRight)||0)-(parseFloat(pcs.borderRightWidth)||0);
+      o.gapL=Math.round((fbr.left-pl)*10)/10;o.gapR=Math.round((pe-fbr.right)*10)/10;o.parentW=Math.round((pe-pl)*10)/10;}
+    o.parts={};
+    ['top','side','rest'].forEach(function(k){o.parts[k]=[].filter.call(f.children,function(c){return c.getAttribute('data-lgframe-'+k)==='qb';}).length;});
+    var ft=q('[data-lgframe-top="qb"]'),fs=q('[data-lgframe-side="qb"]'),fe=q('[data-lgframe-rest="qb"]'),fi=fs?fs.querySelector('.lg-frame-side-in'):null;
+    o.top=rectOf(ft);o.side=rectOf(fs);o.rest=rectOf(fe);o.sideIn=rectOf(fi);
+    o.sidePos=fs?w.getComputedStyle(fs).position:null;o.sideInOverflow=fi?w.getComputedStyle(fi).overflowY:null;
+    var qs=q('.qbx-side');o.qbxSide=rectOf(qs);o.qbxSidePos=qs?w.getComputedStyle(qs).position:null;
+    var where=function(e){if(!e)return null;return e.closest('[data-lgframe-top="qb"]')?'top':(e.closest('[data-lgframe-side="qb"]')?'side':(e.closest('[data-lgframe-rest="qb"]')?'rest':'none'));};
+    var lst=q('[data-lglist="qb"]'),tl=q('[data-lglist-frame="wb"]'),own=q('.qbx-own'),cal=q('[data-lgcalfold="qb"]'),hero=q('.qbx-hero');
+    o.list=rectOf(lst);o.listIn=where(lst);o.trades=rectOf(tl);o.tradesIn=where(tl);o.ownIn=where(own);o.cal=rectOf(cal);o.calIn=where(cal);
+    o.hero=rectOf(hero);o.heroIn=where(hero);o.pills=rectOf(q('.qbx-range-row'));o.stats=rectOf(q('.qbx-lgstats .lg-stats'));
+    // the status line: one, in the top block right after the hero, one or two lines, the Refresh button in it
+    var sts=d.querySelectorAll('[data-lgstatus="qb"]'),st=sts[0]||null,sl=st?st.querySelector('.lg-status-line'):null,sw=st?st.closest('.qbx-statusline'):null;
+    var swp=sw?sw.previousElementSibling:null;
+    o.status={n:sts.length,box:rectOf(st),inTop:where(st)==='top',refresh:!!(st&&st.querySelector('[data-qqqrefresh]')),
+      afterHero:!!(swp&&swp.classList.contains('qbx-hero')),lineH:sl?Math.round(sl.getBoundingClientRect().height*10)/10:null,
+      lh:sl?parseFloat(w.getComputedStyle(sl).lineHeight):null,text:sl?tx2(sl):null};
+    // the chart foot: one, in the chart section, right after the chart box, the caption (the only one on the page) and the key in it
+    var fts=d.querySelectorAll('[data-lgchartfoot="qb"]'),fo=fts[0]||null,ch=q('#qb-lg-chart'),prev=fo?fo.previousElementSibling:null;
+    var cap=d.querySelector('.qbx-chart-cap'),lcap=fo?fo.querySelector('.lg-chart-cap'):null;
+    o.foot={n:fts.length,box:rectOf(fo),inChart:!!(fo&&fo.closest('.qbx-chart')),chart:rectOf(ch),prev:rectOf(prev),prevIsChart:!!(ch&&prev===ch),
+      caps:d.querySelectorAll('.qbx-chart-cap').length,capsInFoot:fo?fo.querySelectorAll('.qbx-chart-cap').length:0,
+      keys:d.querySelectorAll('.qbx-lg-key').length,keysInFoot:fo?fo.querySelectorAll('.qbx-lg-key').length:0,
+      capFs:cap?w.getComputedStyle(cap).fontSize:null,sharedFs:lcap?w.getComputedStyle(lcap).fontSize:null,ruleFs:cssRuleFs('.lg-chart-cap')};
+    // the list's Filters row: one, a child of the list right after its header, shut, its body hidden
+    var fls=d.querySelectorAll('[data-lgfilters="qb"]'),fl=fls[0]||null,fb=fl?fl.querySelector('[data-lgfilt="qb"]'):null,fbd=fl?fl.querySelector('.lg-filters-body'):null;
+    var fpv=fl?fl.previousElementSibling:null;
+    o.filt={n:fls.length,inList:!!(fl&&fl.parentElement&&fl.parentElement.matches('[data-lglist="qb"]')),afterHd:!!(fpv&&fpv.classList.contains('lg-list-hd')),
+      exp:fb?fb.getAttribute('aria-expanded'):null,ctl:fb?fb.getAttribute('aria-controls'):null,bodyId:fbd?fbd.id:null,
+      hiddenAttr:fbd?fbd.hasAttribute('hidden'):null,bodyShown:fbd?(w.getComputedStyle(fbd).display!=='none'&&fbd.getBoundingClientRect().height>0):null,
+      sum:fl?tx2(fl.querySelector('[data-lgfiltsum]')):null,none:fl?tx2(fl.querySelector('.lg-filters-none')):null};
+    return o;
+  }
+  function filtState(){
+    var w=W(),b=q('[data-lgfilt="qb"]'),bx=q('[data-lgfilters="qb"]'),p=bx?bx.querySelector('.lg-filters-body'):null,st=null;
+    try{st=w.localStorage.getItem('el_lg_filters_qb');}catch(e){}
+    if(!b||!p)return {missing:true,stored:st};
+    var pr=p.getBoundingClientRect(),cs=w.getComputedStyle(p);
+    return {exp:b.getAttribute('aria-expanded'),hiddenAttr:p.hasAttribute('hidden'),shown:cs.display!=='none'&&pr.height>0,h:Math.round(pr.height),
+      text:tx2(p),stored:st,sum:tx2(bx.querySelector('[data-lgfiltsum]'))};
+  }
+  async function filtCycle(){
+    // the Filters row: a tap opens it in place (the list node is the same), a redraw keeps it open (its choice lives in storage only, so a redraw
+    // finds what a reload finds), a second tap closes it, a redraw keeps it closed
+    var w=W(),rec={},b=q('[data-lgfilt="qb"]'),l0=q('[data-lglist="qb"]');
+    rec.before=filtState();
+    if(!b)return rec;
+    b.click();await sleep(80);
+    rec.open=filtState();rec.sameList=q('[data-lglist="qb"]')===l0;
+    w.eval("renderApp();");await sleep(120);
+    rec.reload=filtState();
+    var b2=q('[data-lgfilt="qb"]');if(b2){b2.click();await sleep(80);}
+    rec.closed=filtState();
+    w.eval("renderApp();");await sleep(120);
+    rec.closedReload=filtState();
+    return rec;
   }
   function foldState(k){
     var d=D(),w=W(),b=q('[data-qbfold="'+k+'"]'),p=d.getElementById('qbf-'+k);
@@ -2735,6 +2894,13 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
       r2.errs=drain();
       res.widths[String(wd)]=r2;
     }
+    // LEDGER step 12: a window wider than the frame: the frame stays 1320 px wide and centred, the list still the right-hand panel
+    fr.style.width='1680px';fr.style.height='900px';
+    await waitFor(function(){return W().innerWidth===1680;},2000);await sleep(70);
+    drain();
+    try{res.wideSeed=seed({vp:'laptop',theme:'dark'});}catch(e){res.wideSeed='ERR '+e;}
+    await sleep(230);
+    res.wide={iw:w.innerWidth,frame:frameRead(),errs:drain()};
     fr.style.width='1366px';fr.style.height='768px';
     return res;
   }
@@ -2743,7 +2909,8 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
 # ── LEDGER step 11 (2026-10-06): one fixed page order; every own section a closed fold with a one-line summary; one set of breakpoints ──
 S11_OWN_ORDER = ['orders', 'account', 'todayorders', 'feedsig', 'system', 'rails', 'events', 'model']   # the own folds, top to bottom
 S11_OWN_REQUIRED = ['orders', 'account', 'system', 'rails', 'events', 'model']                          # always drawn; Today's orders / Feed & signals only when there is something
-S11_PHONE_TOP_MAX = 784      # phone 375x812: the trade list starts at most this far under the board top. It was 784 before step 11 and must not grow
+S11_PHONE_TOP_MAX = 760      # phone 375x812: the trade list starts at most this far under the board top. It was 784 before step 11 and 12; step 12's
+                             # page puts it at 757 (the status line under the hero, the caption in the chart foot), and it must not grow (3 px slack)
 S11_FOLD_ONE_LINE = 40       # a fold header is one line: the button is shorter than this (two lines of text would be 44 and over)
 S11_HOUSE = (600, 740, 800, 920, 1100)   # the only widths this board's media / container queries may use (the shared parts' own: phone, compact, list cells, rail)
 S11_WIDTHS = [375, 601, 700, 800, 1000, 1366]
@@ -2791,14 +2958,12 @@ def _s11_expected(doc):
 
 
 def _s11_order_problems(tag, s11, iw, doc, fails):
-    """The fixed order, top to bottom, by the page's own markers: hero, range pills, chart, status strip, stats strip, More stats fold, calendar fold,
-    strategy list (a one-line fold up to 600 px; the sticky right column from 1100 px), trade list, then the own folds in their order."""
+    """The fixed order, top to bottom, by the page's own markers: hero, status line (step 12: directly under the hero), range pills, chart, stats strip,
+    More stats fold, calendar fold, strategy list (a one-line fold up to 600 px; from 1100 px the frame's right-hand panel beside the top block), trade
+    list, then the own folds in their order. (The chart caption's style is judged with the frame, _frame_problems.)"""
     pos = s11.get('pos') or {}
-    if s11.get('capFs') not in (None, '11px'):
-        fails.append('%s: the chart caption lost its style (.qbx-chart-cap reads %s, the rule says 11px): a rule in the board css is not applying'
-                     % (tag, s11.get('capFs')))
     two_col = iw >= 1100
-    chain = ['hero', 'pills', 'chart', 'status', 'stats', 'more', 'cal'] + ([] if two_col else ['listfold' if iw <= 600 else 'list']) + ['trades']
+    chain = ['hero', 'status', 'pills', 'chart', 'stats', 'more', 'cal'] + ([] if two_col else ['listfold' if iw <= 600 else 'list']) + ['trades']
     last, last_k = None, None
     for k in chain:
         p = pos.get(k)
@@ -2809,12 +2974,12 @@ def _s11_order_problems(tag, s11, iw, doc, fails):
             fails.append('%s: the page order is wrong: %s (top %s) must come below %s (top %s)' % (tag, k, p['t'], last_k, last['t']))
         last, last_k = p, k
     if two_col:
-        ls, tr = pos.get('list'), pos.get('trades')
-        if not ls or not ls.get('shown') or not tr or ls['l'] < tr['r'] - 1:
-            fails.append('%s: on a laptop the strategy list is not in the right column (%s, trade list %s)' % (tag, ls, tr))
+        ls, ft = pos.get('list'), pos.get('ftop')
+        if not ls or not ls.get('shown') or not ft or ls['l'] < ft['r'] + 1:
+            fails.append("%s: on a laptop the strategy list is not in the right-hand panel beside the top block (%s, top block %s)" % (tag, ls, ft))
     st = s11.get('strip') or {}
     if (pos.get('status') or {}).get('shown') and (st.get('inFold') or not re.search(r'box updated|last update from the box|its last copy is from', st.get('text') or '') or not st.get('refresh')):
-        fails.append('%s: the status strip under the chart lost its box-updated line or its Refresh button, or sits in a fold (%s)' % (tag, st))
+        fails.append('%s: the status line under the hero lost its box-updated line or its Refresh button, or sits in a fold (%s)' % (tag, st))
     folds = [f for f in s11.get('folds') or [] if f.get('key') != 'list']
     keys = [f['key'] for f in folds]
     miss = [k for k in S11_OWN_REQUIRED if k not in keys]
@@ -2958,6 +3123,178 @@ def _judge_s11_run(res, fixture, fails):
         if 'false' in (r.get('open') or ''):
             fails.append('%s: a fold is shut though every fold was opened (%s)' % (t, r.get('open')))
         _errs(t, r.get('errs') or {}, fails)
+    # LEDGER step 12: a window wider than the frame
+    t = 'LEDGER step 12 frame [%dx900 window]' % FRAME_WIDE
+    wd = res.get('wide') or {}
+    if res.get('wideSeed') != 'OK':
+        fails.append('%s: renderApp threw -- %s' % (t, _first(res.get('wideSeed'))))
+    elif wd.get('iw') != FRAME_WIDE:
+        fails.append('%s: not measured (window %s)' % (t, wd.get('iw')))
+    else:
+        _frame_problems(t, wd.get('frame'), FRAME_WIDE, fails, wide=True)
+        _errs(t, wd.get('errs') or {}, fails)
+
+
+# ── LEDGER step 12 (2026-10-07): the one page frame (ledgerFrameHtml), the status line under the hero, the chart foot, the Filters row ──
+FRAME_MAX_W = '1320px'      # the frame's computed max-width (the shared .lg-frame rule)
+FRAME_W = 1320
+FRAME_WIDE = 1680           # the window the step 11 run also draws the board in: wider than the frame, so the frame must be FRAME_W wide and centred
+FRAME_TWO_COL = 1100        # from this width the list is the right-hand panel
+STATUS_GAP_MAX = 24         # the status line starts at most this far under the hero box
+STATUS_LINES_MAX = 2
+
+
+def _frame_problems(tag, fr, iw, fails, wide=False):
+    """The one page frame: exactly one [data-lgframe="qb"] with its top block, side panel and rest; its max width 1320 px, centred in its parent. From
+    1100 px a grid: the list in the side panel to the right of the top block, level with it, never taller than it, not sticky, the trade list the full
+    width under both; under 1100 px no grid and the list between the calendar and the trade list. The status line once, in the top block directly under
+    the hero and above the pills, one or two lines, Refresh in it. The chart foot once, right after the chart box, holding the only caption (in the shared
+    foot style) and the key. The list's Filters row once, right after the list header, closed, 'none' to filter."""
+    if not fr:
+        fails.append('%s: the page frame was not read' % tag)
+        return
+    if fr.get('n') != 1:
+        fails.append('%s: want exactly one page frame [data-lgframe="qb"], the page has %s' % (tag, fr.get('n')))
+        return
+    parts = fr.get('parts') or {}
+    if parts != {'top': 1, 'side': 1, 'rest': 1}:
+        fails.append('%s: the frame holds %s, want one top block, one side panel and one rest as its children' % (tag, parts))
+    if fr.get('maxW') != FRAME_MAX_W:
+        fails.append("%s: the page frame's max-width is %r, want %s (the shared frame width)" % (tag, fr.get('maxW'), FRAME_MAX_W))
+    gl, gr = fr.get('gapL'), fr.get('gapR')
+    if gl is None or gr is None or abs(gl - gr) > 2 or min(gl, gr) < -1:
+        fails.append('%s: the page frame is not centred in its parent (left gap %s px, right gap %s px, frame %s of %s px)'
+                     % (tag, gl, gr, fr.get('w'), fr.get('parentW')))
+    if wide and (fr.get('w') is None or abs(fr['w'] - FRAME_W) > 1):
+        fails.append('%s: in a %d px window the page frame is %s px wide, want %d' % (tag, iw, fr.get('w'), FRAME_W))
+    st = fr.get('status') or {}
+    if fr.get('heroIn') != 'top' or fr.get('calIn') != 'top' or not st.get('inTop'):
+        fails.append('%s: the hero (%s), the status line (in the top block %s) and the calendar (%s) must be in the top block'
+                     % (tag, fr.get('heroIn'), st.get('inTop'), fr.get('calIn')))
+    if fr.get('tradesIn') != 'rest' or fr.get('ownIn') != 'rest':
+        fails.append('%s: the trade list (%s) and the own folds (%s) must be in the rest of the frame' % (tag, fr.get('tradesIn'), fr.get('ownIn')))
+    top, side, rest, trd = fr.get('top') or {}, fr.get('side') or {}, fr.get('rest') or {}, fr.get('trades') or {}
+    if iw >= FRAME_TWO_COL:
+        if fr.get('disp') != 'grid':
+            fails.append('%s: from %d px the page frame is a two-column grid, it is display %r' % (tag, FRAME_TWO_COL, fr.get('disp')))
+        if fr.get('listIn') != 'side':
+            fails.append("%s: from %d px the strategy list must be in the frame's right-hand panel [data-lgframe-side], it is in %r"
+                         % (tag, FRAME_TWO_COL, fr.get('listIn')))
+        if not (top.get('shown') and side.get('shown') and rest.get('shown')):
+            fails.append('%s: a part of the frame is not drawn (top %s, side %s, rest %s)' % (tag, top, side, rest))
+        else:
+            if side['l'] < top['r'] + 1:
+                fails.append('%s: the list panel (left %s) is not to the right of the top block (right %s)' % (tag, side['l'], top['r']))
+            if abs(side['t'] - top['t']) > 2:
+                fails.append('%s: the list panel (top %s) is not level with the top block (top %s)' % (tag, side['t'], top['t']))
+            ls = fr.get('list') or {}
+            if fr.get('listIn') == 'side' and (ls.get('t') is None or ls['t'] < side['t'] - 1 or ls['t'] > side['t'] + 24):
+                fails.append('%s: the strategy list (top %s) does not start at the top of its panel (top %s)' % (tag, ls.get('t'), side['t']))
+            if side['b'] > top['b'] + 2:
+                fails.append('%s: the list panel (bottom %s) is taller than the top block (bottom %s): it must never make the page taller'
+                             % (tag, side['b'], top['b']))
+            if rest['t'] < max(top['b'], side['b']) - 1:
+                fails.append('%s: the trade list part (top %s) does not start under both the top block (bottom %s) and the list panel (bottom %s)'
+                             % (tag, rest['t'], top['b'], side['b']))
+            if (abs(rest['l'] - top['l']) > 2 or abs(rest['r'] - side['r']) > 2 or not trd.get('shown')
+                    or trd['l'] > top['l'] + 2 or trd['r'] < side['r'] - 2):
+                fails.append('%s: the trade list does not span the full frame width under both (trade list %s to %s, rest %s to %s, top block from %s, '
+                             'panel to %s)' % (tag, trd.get('l'), trd.get('r'), rest['l'], rest['r'], top['l'], side['r']))
+            si = fr.get('sideIn') or {}
+            if fr.get('sideInOverflow') not in ('auto', 'scroll') or si.get('b') is None or si['b'] > side['b'] + 1:
+                fails.append('%s: the list does not scroll inside its panel (overflow %r, content bottom %s, panel bottom %s)'
+                             % (tag, fr.get('sideInOverflow'), si.get('b'), side['b']))
+        if fr.get('sidePos') == 'sticky' or fr.get('qbxSidePos') == 'sticky':
+            fails.append('%s: the list panel is sticky (panel %r, list section %r): step 12 draws it beside the top block, never sticky'
+                         % (tag, fr.get('sidePos'), fr.get('qbxSidePos')))
+    else:
+        if fr.get('disp') == 'grid':
+            fails.append('%s: under %d px the page frame is one column, but it is a grid (%s)' % (tag, FRAME_TWO_COL, fr.get('cols')))
+        cal, box = fr.get('cal') or {}, fr.get('qbxSide') or {}
+        if fr.get('listIn') != 'side' or not cal or not box or not trd or box['t'] < cal['b'] - 1 or box['b'] > trd['t'] + 1:
+            fails.append('%s: under %d px the strategy list (in %s, %s to %s) must sit between the calendar (bottom %s) and the trade list (top %s)'
+                         % (tag, FRAME_TWO_COL, fr.get('listIn'), box.get('t'), box.get('b'), cal.get('b'), trd.get('t')))
+    # the status line, directly under the hero
+    hero, pills, sb = fr.get('hero') or {}, fr.get('pills') or {}, st.get('box') or {}
+    if st.get('n') != 1:
+        fails.append('%s: want one status line [data-lgstatus="qb"], the page has %s' % (tag, st.get('n')))
+    else:
+        if not st.get('refresh'):
+            fails.append('%s: the status line has no Refresh button [data-qqqrefresh] in it' % tag)
+        if (not st.get('afterHero') or not sb.get('shown') or not hero or sb['t'] < hero['b'] - 1 or sb['t'] - hero['b'] > STATUS_GAP_MAX
+                or (pills and sb['b'] > pills['t'] + 1)):
+            fails.append('%s: the status line (top %s, bottom %s, right after the hero %s) is not directly under the hero (bottom %s) and above the '
+                         'range pills (top %s)' % (tag, sb.get('t'), sb.get('b'), st.get('afterHero'), hero.get('b'), pills.get('t')))
+        lh, h = st.get('lh'), st.get('lineH')
+        if not lh or h is None or h / lh > STATUS_LINES_MAX + 0.2 or h / lh < 0.8:
+            fails.append('%s: the status line is %s px tall at %s px a line: want one or two lines (%r)' % (tag, h, lh, (st.get('text') or '')[:80]))
+    # the chart foot, under the chart, holding the caption and the key
+    fo = fr.get('foot') or {}
+    fb, ch, stb = fo.get('box') or {}, fo.get('chart'), fr.get('stats')
+    if fo.get('n') != 1 or not fo.get('inChart'):
+        fails.append('%s: want one chart foot [data-lgchartfoot="qb"] in the chart section (%s on the page, in the chart section %s)'
+                     % (tag, fo.get('n'), fo.get('inChart')))
+    else:
+        under = ch if ch else fo.get('prev')
+        if (ch and not fo.get('prevIsChart')) or fb.get('t') is None or not under or fb['t'] < under['b'] - 1:
+            fails.append('%s: the chart foot (top %s) does not come right after the chart box (bottom %s, right after it %s)'
+                         % (tag, fb.get('t'), (under or {}).get('b'), fo.get('prevIsChart')))
+        if stb and fb.get('b') is not None and fb['b'] > stb['t'] + 1:
+            fails.append('%s: the chart foot (bottom %s) runs into the stats strip (top %s)' % (tag, fb['b'], stb['t']))
+        if fo.get('caps') != 1 or fo.get('capsInFoot') != 1:
+            fails.append('%s: the chart caption is not in the chart foot (%s captions on the page, %s in the foot)' % (tag, fo.get('caps'), fo.get('capsInFoot')))
+        if fo.get('keys') != fo.get('keysInFoot'):
+            fails.append("%s: the chart's key is not in the chart foot (%s keys on the page, %s in the foot)" % (tag, fo.get('keys'), fo.get('keysInFoot')))
+    if not fo.get('ruleFs'):
+        fails.append("%s: the shared chart foot rule (.lg-chart-cap) is not in the page's css (a rule in the shared css was swallowed)" % tag)
+    elif fo.get('capFs') != fo.get('ruleFs') or fo.get('sharedFs') != fo.get('ruleFs'):
+        fails.append('%s: the chart caption lost the shared foot style (.qbx-chart-cap reads %s, the foot caption %s, the shared .lg-chart-cap rule says %s)'
+                     % (tag, fo.get('capFs'), fo.get('sharedFs'), fo.get('ruleFs')))
+    # the Filters row, right after the list header, closed
+    fl = fr.get('filt') or {}
+    if fl.get('n') != 1 or not fl.get('inList') or not fl.get('afterHd'):
+        fails.append("%s: the strategy list's Filters row [data-lgfilters=\"qb\"] is missing or not right after the list header (%s on the page, in the "
+                     "list %s, after the header %s)" % (tag, fl.get('n'), fl.get('inList'), fl.get('afterHd')))
+    else:
+        if fl.get('exp') != 'false' or fl.get('hiddenAttr') is not True or fl.get('bodyShown'):
+            fails.append('%s: the Filters row is not closed when first drawn (aria-expanded %s, body hidden %s, body shown %s)'
+                         % (tag, fl.get('exp'), fl.get('hiddenAttr'), fl.get('bodyShown')))
+        if fl.get('ctl') != 'qb-filters' or fl.get('bodyId') != 'qb-filters':
+            fails.append('%s: the Filters button controls %r, its body is #%s (want qb-filters both)' % (tag, fl.get('ctl'), fl.get('bodyId')))
+        if fl.get('sum') != 'none' or not fl.get('none'):
+            fails.append("%s: the Filters row reads %r with the body line %r: this board has nothing to filter, so 'none' and the no-filters line"
+                         % (tag, fl.get('sum'), fl.get('none')))
+
+
+def _judge_filters_run(tag, rec, fails):
+    """The interaction run's Filters row: closed with nothing stored, a tap opens it in place (stored '1'), a redraw keeps it open, a second tap closes it
+    (stored '0'), a redraw keeps it closed."""
+    t = '%s: the Filters row' % tag
+    if not rec:
+        fails.append('%s was not tapped (no record)' % t)
+        return
+    if rec.get('threw'):
+        fails.append('%s: the probe threw -- %s' % (t, _first(rec['threw'])))
+        return
+    b, o, rl, c, cr = (rec.get(x) or {} for x in ('before', 'open', 'reload', 'closed', 'closedReload'))
+    if b.get('missing') or not o:
+        fails.append('%s is not on the page to tap (%s)' % (t, b))
+        return
+    if b.get('exp') != 'false' or b.get('shown') or b.get('stored') is not None:
+        fails.append('%s does not start closed with nothing stored (%s)' % (t, b))
+    if o.get('exp') != 'true' or not o.get('shown') or o.get('hiddenAttr') or o.get('stored') != '1':
+        fails.append('%s did not open on a tap (aria-expanded %s, body shown %s, hidden %s, stored %r)'
+                     % (t, o.get('exp'), o.get('shown'), o.get('hiddenAttr'), o.get('stored')))
+    if not rec.get('sameList'):
+        fails.append('%s: the tap redrew the strategy list (it opens in place)' % t)
+    if 'no filters' not in (o.get('text') or ''):
+        fails.append('%s opened without its no-filters line (%r)' % (t, (o.get('text') or '')[:120]))
+    if rl.get('exp') != 'true' or not rl.get('shown'):
+        fails.append('%s is not remembered: a redraw (all a reload has) finds it %s (aria-expanded %s)' % (t, 'shown' if rl.get('shown') else 'closed', rl.get('exp')))
+    if c.get('exp') != 'false' or c.get('shown') or c.get('stored') != '0':
+        fails.append('%s did not close on a second tap (aria-expanded %s, body shown %s, stored %r)' % (t, c.get('exp'), c.get('shown'), c.get('stored')))
+    if cr.get('exp') != 'false' or cr.get('shown'):
+        fails.append('%s opens again by itself after a redraw (aria-expanded %s)' % (t, cr.get('exp')))
 
 
 def _flag_problems(tag, r, plain, fails):
@@ -3543,7 +3880,7 @@ def _judge_cal(tag, c, vp, theme, doc, cutoff, want_month, open_want, today, fai
 def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow_open, fails, distance=True):
     """The strategy list on the shared list: its three groups in order, the BOOK rows named with run numbers and carrying the
     range's P&L of record, trades and win rate, the Retired and Shadow folds closed (their rows outside the account number),
-    no switch, and where it sits: under the trade list on a phone, the sticky right column on a laptop."""
+    no switch, and where it sits: above the trade list on a phone (step 11), from 1100 px the frame's right-hand panel beside the top block (step 12)."""
     if not lg:
         fails.append('%s: no strategy list on the shared list ([data-lglist="qb"] in the side column)' % tag)
         return
@@ -3648,11 +3985,18 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                          'start within %.1f (mistake #12)' % (tag, (g.get('histTop') or 0) - (g.get('shellTop') or 0),
                          ((g.get('histTop') or 0) - (g.get('shellTop') or 0)) / (g.get('vh') or 1), g.get('vh'), LIST_VH_MAX))
     else:
-        if g.get('listLeft') is None or g.get('histRight') is None or g['listLeft'] < g['histRight'] - 1:
-            fails.append('%s: on a laptop the strategy list (left %s) is not in the right column (trade list right edge %s)'
-                         % (tag, g.get('listLeft'), g.get('histRight')))
-        if g.get('sticky') != 'sticky':
-            fails.append('%s: on a laptop the strategy column is position %r, want sticky' % (tag, g.get('sticky')))
+        # LEDGER step 12: the list is the frame's right-hand panel beside the top block (not sticky); the trade list runs the full width under both
+        if not g.get('inSide'):
+            fails.append("%s: on a laptop the strategy list is not inside the frame's right-hand panel [data-lgframe-side]" % tag)
+        if g.get('listLeft') is None or g.get('topRight') is None or g['listLeft'] < g['topRight'] + 1:
+            fails.append('%s: on a laptop the strategy list (left %s) is not to the right of the top block (right edge %s)'
+                         % (tag, g.get('listLeft'), g.get('topRight')))
+        if g.get('histTop') is None or g.get('panelBottom') is None or g['histTop'] < g['panelBottom'] - 1:
+            fails.append('%s: on a laptop the trade list (top %s) does not start under the list panel (bottom %s)'
+                         % (tag, g.get('histTop'), g.get('panelBottom')))
+        if g.get('sticky') == 'sticky' or g.get('panelPos') == 'sticky':
+            fails.append('%s: on a laptop the strategy list is sticky (list %r, panel %r): step 12 draws it beside the top block, never sticky'
+                         % (tag, g.get('sticky'), g.get('panelPos')))
 
 
 def _judge_inter_ledger(tag, res, fixture, fails):
@@ -5187,12 +5531,13 @@ def _judge(data, fixture):
         _judge_cal(nm, r.get('lgcal'), cfg['vp'], cfg['theme'], fixture, None, None, _cal_open_want(cfg['vp'], None), STAT_TODAY, fails)
         _judge_tl_frame(nm, r.get('tl'), fixture, None, fails, vp=cfg['vp'], theme=cfg['theme'], top_check=True)
         _s11_order_problems(nm, r.get('s11') or {}, r.get('innerW') or 0, fixture, fails)
+        _frame_problems(nm, (r.get('s11') or {}).get('frame'), r.get('innerW') or 0, fails)
         _s11_fold_problems(nm, r.get('s11') or {}, r.get('innerW') or 0, cfg['theme'], fixture, fails)
         if cfg['vp'] == 'phone':
             pp = (r.get('s11') or {}).get('pos') or {}
             tp = (pp.get('trades') or {}).get('t', 0) - (pp.get('shell') or {}).get('t', 0) if pp.get('trades') and pp.get('shell') else None
             if tp is None or tp > S11_PHONE_TOP_MAX:
-                fails.append('%s: on a phone the trade list starts %s px under the board top; it was %d before step 11 and must not grow' % (nm, tp, S11_PHONE_TOP_MAX))
+                fails.append('%s: on a phone the trade list starts %s px under the board top; the limit is %d (757 since step 12) and it must not grow' % (nm, tp, S11_PHONE_TOP_MAX))
         legs = r.get('tradeLegs') or []
         if r.get('tradeRows') != n_rows:
             fails.append('%s: the trade list shows %s rows for %s trades' % (nm, r.get('tradeRows'), n_rows))
@@ -5267,6 +5612,7 @@ def _judge(data, fixture):
         _judge_list(tag, r.get('lg'), vp, sc_['theme'], doc, cut, rg, sc_['folds'], sc_['folds'], fails, distance=not sc_['more'])
         _judge_cal(tag, r.get('lgcal'), vp, sc_['theme'], doc, cut, cm, _cal_open_want(vp, sc_['cal_open']), sc_['today'], fails)
         _s11_order_problems(tag, r.get('s11') or {}, r.get('innerW') or 0, doc, fails)
+        _frame_problems(tag, (r.get('s11') or {}).get('frame'), r.get('innerW') or 0, fails)
         _judge_tl_frame(tag, r.get('tl'), doc, cut, fails, vp=vp, theme=sc_['theme'], top_check=not sc_['more'], today=sc_['today'],
                         none_text=('no trades closed today \u00b7 %d more outside this range' % len(tl_range_rows(doc))) if sc_['empty'] else None)
         if nm == '$0 trade':
@@ -5340,6 +5686,7 @@ def _judge(data, fixture):
                 fails.append('%s: More stats did not close again (aria-expanded %s, panel %s, stored %r)'
                              % (tag, fo.get('closed'), fo.get('panelAfter'), fo.get('stored2')))
         _judge_inter_ledger(tag, res, fixture, fails)
+        _judge_filters_run(tag, res.get('filt'), fails)
     _judge_s11_run(data.get('s11'), fixture, fails)
     # ?oldboards=1 no longer changes anything: the second page load draws the plain laptop / MONO board
     r = cases.get('flagpage')

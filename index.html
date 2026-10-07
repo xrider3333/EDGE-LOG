@@ -446,7 +446,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
    sticky right rail (Readiness -> Legs -> Integrity) so the fold shows hero+chart+tiles+
    readiness on a 1400x900 screen. Below 1100px this collapses back to the single column,
    same DOM order as before, so nothing about the mechanism/behaviour changed, only spacing. */
-.qb-shell{max-width:1120px;margin:0 auto;padding:0 24px;box-sizing:border-box}
+.qb-shell:not(.lg-frame){max-width:1120px;margin:0 auto;padding:0 24px;box-sizing:border-box}
 .qb-shell *{box-sizing:border-box}
 .qb-hero-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;padding-top:6px;max-width:100%}
 .qb-hero-statusline{font-size:12px;color:var(--text4);white-space:nowrap}
@@ -499,7 +499,8 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qb-leg-detail>div{min-width:88px}
 .qb-leg-today-note{width:100%;margin-top:-12px;font-size:10px;color:var(--text5);line-height:1.4}
 .qb-trade-leg{white-space:nowrap}
-/* WEBULL PAPER: the chart's own key under the shared chart (caveat hatch, book only) */
+/* WEBULL PAPER: the chart's own key under the shared chart (caveat hatch, book only); since LEDGER step 12 it sits in the shared chart foot */
+.lg-chart-foot .qbx-lg-key{margin-top:4px}
 /* the shared .lg-chart svg rule (width:100%) also catches the legend's 16px line icons; keep them 16px here */
 .qbx-lgchart .lg-legend svg{display:inline-block;width:16px;flex:0 0 16px}
 .qbx-lg-key{display:flex;flex-wrap:wrap;gap:4px 14px;margin:6px 2px 0;font-size:10px;color:var(--text4);line-height:1.4}
@@ -521,7 +522,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
 @keyframes qbSlideUp{from{transform:translateY(16px);opacity:.6}to{transform:translateY(0);opacity:1}}
 .qb-attn-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:7px;flex:0 0 auto}
 .qb-hairline-top{border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);margin-top:6px;padding-top:10px}
-@media(max-width:740px){.qb-shell{padding:0 16px}.qb-chart-head{flex-wrap:wrap}}
+@media(max-width:740px){.qb-shell:not(.lg-frame){padding:0 16px}.qb-chart-head{flex-wrap:wrap}}
 /* ── QBX — Robinhood-style re-composition (2026-09-24, owner: "make more like
    robinhood pls. peep the real trading log"). Reuses every qb- class and every
    data-qb* and data-qe* attributes already wired above (nothing renamed, nothing
@@ -539,8 +540,9 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-chart-cap{font-size:11px;color:var(--text4);letter-spacing:.04em}
 .qbx-range-row{margin-top:10px}
 .qbx-hero .lg-hero{padding-bottom:12px}
-.qbx-status-strip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);font-size:12px;color:var(--text4)}
-.qbx-status-strip .qb-hero-refresh{margin-left:auto}
+.qbx-status-strip:not(.lg-status){display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);font-size:12px;color:var(--text4)}
+.qbx-status-strip:not(.lg-status) .qb-hero-refresh{margin-left:auto}
+.qbx-status-strip.lg-status .qb-hero-refresh{font-size:10px}
 .qbx-section{padding:22px 0;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)}
 .qbx-section>.qb-section-hd{margin-bottom:12px}
 .qbx-side{padding-top:4px}
@@ -614,7 +616,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
 @media(max-width:600px){.qbx-lgstats{padding-top:12px}.qbx-lgstats .lg-stat{padding:12px 14px}.qbx-lgstats .lg-more{margin-bottom:10px}.qbx-lgstats .lg-more-panel{margin-top:0}}
 @media(max-width:740px){.qbx-lg-extra{padding:0 12px 8px}}
 @media(min-width:1100px){
-  .qb-shell{
+  .qb-shell:not(.lg-frame){
     max-width:1320px;
     display:grid;
     grid-template-columns:minmax(0,1fr) 340px;
@@ -642,11 +644,11 @@ select option:checked{background:var(--bg3);color:var(--text)}
      heroLabelTop/sideHdTop read, within 8px). max-height + overflow-y keep every
      row reachable by scrolling the sidebar itself on a short (768px) screen instead
      of the row silently running off past the viewport bottom. */
-  .qbx-side{grid-area:side;position:sticky;top:54px;padding-top:8px;max-height:calc(100vh - 64px);overflow-y:auto}
+  .qb-shell:not(.lg-frame) .qbx-side{grid-area:side;position:sticky;top:54px;padding-top:8px;max-height:calc(100vh - 64px);overflow-y:auto}
   .qbx-stats{grid-area:stats}
   .qbx-history{grid-area:history}
   .qbx-activity{grid-area:activity}
-  .qb-shell.qbx-lg6{grid-template-areas:"hero side" "chart side" "status side" "stats side" "cal side" "history side" "own side"}
+  .qb-shell.qbx-lg6:not(.lg-frame){grid-template-areas:"hero side" "chart side" "status side" "stats side" "cal side" "history side" "own side"}
   .qbx-statusline{grid-area:status}
   .qbx-lg6 .qbx-activity{grid-area:cal}
   .qbx-lg6 .qbx-own{grid-area:own}
@@ -654,7 +656,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
 /* WEBULL PAPER, LEDGER unify step 11 (2026-10-06): ONE page order (hero, range pills, chart, status strip, stats strip, More stats, calendar, strategy
    list, trade list, then this board's own sections) and every own section a closed fold: one header line with the title, a one-line summary (the one
    number or state worth seeing shut) and a chevron, the content under it only once a viewer opens it (remembered per viewer). The folds wear the shared
-   .lg-more look. Up to 600 px the strategy list is one such line too; from 601 px up it is drawn as before (the sticky right column from 1100).
+   .lg-more look. Up to 600 px the strategy list is one such line too; from 601 px up it is drawn as before (from 1100 the right-hand panel of the page frame, step 12).
    Breakpoints: only the house numbers (600 phone, 740 compact, 1100 rail). */
 .lg-more.qbx-fold-btn{margin-bottom:0;padding:12px 4px}
 .qbx-fold-t{flex:0 0 auto;white-space:nowrap}
@@ -664,7 +666,9 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-fold-panel .qb-card{background:none;border:0;border-radius:0;padding:0;margin:0;overflow-x:auto}
 .qbx-fold-panel .qb-section-hd:first-child{margin-top:0}
 .qbx-lg6 .qbx-own{margin-top:4px}
-.qbx-lg6 .qbx-chart .qbx-range-row{margin:0 0 10px}
+.qbx-lg6 .qbx-chart .qbx-range-row{margin:18px 0 12px}
+.lg-frame .qbx-side{padding-top:0}
+.lg-chart-cap .qbx-chart-cap{font-size:inherit;letter-spacing:inherit;color:inherit}
 .qbx-lg6 .qbx-activity{padding:0;border-top:0}
 .qbx-lg6 .qbx-activity .lg-more{margin-bottom:0;padding:12px 4px}
 .qbx-lg6 .qbx-activity .lg-cal-panel{margin-top:6px}
@@ -685,9 +689,8 @@ select option:checked{background:var(--bg3);color:var(--text)}
   .qbx-lg6 .qbx-hero .lg-hero-note{margin-top:4px;line-height:1.4;font-size:11px}
   .qbx-lg6 .qbx-hero .lg-chip{padding:2px 8px}
   .qbx-lg6 .qbx-chart .qb-chart-wrap{margin-bottom:6px}
-  .qbx-lg6 .qbx-chart .qbx-range-row{margin-bottom:6px}
-  .qbx-lg6 .qbx-statusline .qbx-status-strip{flex-wrap:nowrap;margin-top:4px;padding-top:6px;gap:8px;font-size:11px;line-height:1.35}
-  .qbx-lg6 .qbx-statusline .qbx-status-strip>span{flex:1 1 auto;min-width:0}
+  .qbx-lg6 .qbx-chart .qbx-range-row{margin:8px 0 6px}
+  .qbx-lg6 .lg-chart-foot-row:has(>.lg-chart-cap>.qbx-cap-all:only-child){display:none}
   .qbx-lg6 .qbx-statusline .qb-hero-refresh{flex:0 0 auto;margin-left:0;padding:3px 9px;font-size:10px}
   .qbx-lg6 .qbx-lgstats{padding-top:8px}
   .qbx-lg6 .qbx-lgstats .lg-stats{margin-bottom:4px}
@@ -822,6 +825,53 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .lg-list-hd,.lg-grp-hd{padding-left:12px;padding-right:12px}
 }
 @keyframes lgFlash{0%,40%{box-shadow:0 0 0 2px var(--text3)}100%{box-shadow:0 0 0 0 transparent}}
+/* LEDGER shared PAGE FRAME (unify step 12, 2026-10-07): ONE frame on every board. The same max width and centring (WEBULL's column), and from
+   1100 px the strategy / account list is a RIGHT-HAND panel beside the top of the page (hero to calendar) while the trade list and the board's
+   own folds run the full width under both; under 1100 px ONE column, the list under the calendar. The markup is in ONE order at every width:
+   .lg-frame-top (hero, status, pills, chart, stats, More stats, calendar), .lg-frame-side (the list), .lg-frame-rest (trade list, own folds).
+   The panel never makes the page taller: its content scrolls inside the height of the top block. Plus ONE status slot under the hero numbers
+   (.lg-status), ONE chart foot under the chart (.lg-chart-foot: caption, the board's chart controls, its key) and ONE Filters row at the top of
+   the list panel (.lg-filters, closed until opened). Tokens only. */
+.lg-frame{max-width:1320px;margin:0 auto;box-sizing:border-box}
+.lg-frame-top,.lg-frame-side,.lg-frame-side-in,.lg-frame-rest{min-width:0}
+@media (min-width:1100px){
+  .lg-frame{padding:0 24px}
+  .lg-frame.lg-frame-2{display:grid;grid-template-columns:minmax(0,1fr) var(--lgf-side,340px);column-gap:40px;align-items:start}
+  .lg-frame-2>.lg-frame-top{grid-column:1;grid-row:1}
+  .lg-frame-2>.lg-frame-side{grid-column:2;grid-row:1;align-self:stretch;position:relative;min-height:320px}
+  .lg-frame-2>.lg-frame-side>.lg-frame-side-in{position:absolute;top:6px;left:0;right:0;bottom:24px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+  .lg-frame-2>.lg-frame-rest{grid-column:1/-1;grid-row:2}
+  .lg-frame-2>.lg-frame-side .lg-list{margin-bottom:0}
+}
+.lg-status{margin:12px 0 0;padding:7px 0;border-top:1px solid var(--border2);border-bottom:1px solid var(--border2);font-size:12px;color:var(--text4)}
+.lg-status-row{display:flex;align-items:center;gap:6px 12px;min-width:0;min-height:26px}
+.lg-status-k{flex:none;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text5)}
+.lg-status-line{flex:1 1 0;min-width:0;line-height:1.45;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}
+.lg-status-act{flex:none;display:flex;align-items:center;gap:6px;margin-left:auto}
+.lg-status-btn{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 12px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:10px;letter-spacing:1px;font-family:'JetBrains Mono',monospace;cursor:pointer;white-space:nowrap}
+.lg-status-btn:hover{color:var(--text);border-color:var(--text4)}
+.lg-chart-foot{margin:6px 2px 0}
+.lg-chart-foot-row{display:flex;align-items:center;justify-content:space-between;gap:6px 14px;flex-wrap:wrap;min-height:18px}
+.lg-chart-cap{flex:1 1 0;min-width:0;font-size:10px;letter-spacing:.4px;line-height:1.5;color:var(--text5)}
+.lg-chart-x{flex:none;display:flex;align-items:center;gap:8px;margin-left:auto}
+.lg-filters{border-top:1px solid var(--border2)}
+.lg-filters-btn{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text5);cursor:pointer;text-align:left}
+.lg-filters-btn:hover{color:var(--text3)}
+.lg-filters-t{flex:none}
+.lg-filters-sum{flex:1 1 auto;min-width:0;letter-spacing:.3px;text-transform:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lg-filters-btn .lg-chev{flex:none;transition:transform .18s ease}
+.lg-filters-btn[aria-expanded="true"] .lg-chev{transform:rotate(180deg)}
+.lg-filters-body{padding:0 12px 10px}
+.lg-filters-body[hidden]{display:none}
+.lg-filters-none{font-size:10px;line-height:1.5;color:var(--text5);padding:0 4px 2px}
+.lg-list-foot{border-top:1px solid var(--border2)}
+@media (max-width:600px){
+  .lg-status{margin-top:6px;padding:4px 0;font-size:11px}
+  .lg-status-k{display:none}
+  .lg-status-row{min-height:24px}
+  .lg-status-btn{padding:0 9px}
+}
+@media (max-width:760px){.lg-filters-btn{padding-left:12px;padding-right:12px}}
 @media (max-width:760px){
   .lg-cal-panel{padding:12px 10px}
   .lg-cal-day{min-height:42px}
@@ -958,6 +1008,16 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 /* REAL's slots in the frame (LEDGER unify step 8): BY TRADE | BY DAY or SIMPLE | FULL and the action buttons (the PASTE box is a fold since step 11) */
 .hm-slot{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;min-width:0}
 .hm-slot .hm-tools-toggle{display:none}
+/* LEDGER step 12: REAL's slot is ONE compact row under the shared toolbar - the view switch, FUTURES | STOCKS and the four actions (behind ... on a
+   phone; behind ... everywhere when LEDGER_TOOLBAR_MORE is 'always') */
+.hm-slot .hm-kind{display:flex;gap:6px;flex:none}
+.hm-slot .hm-seg button{padding:5px 11px}
+.hm-slot .hm-toolbar-actions .hm-ghostbtn{padding:5px 10px}
+.hm-slot.hm-more-always .hm-tools-toggle{display:inline-block}
+.hm-slot.hm-more-always .hm-toolbar-actions{display:none;flex-basis:100%}
+.hm-slot.hm-more-always .hm-toolbar-actions.open{display:flex}
+.hm-wrap.lg-frame{max-width:1320px}
+.hm-sec-chart .lg-chart-foot{margin-bottom:18px}
 /* LEDGER unify step 11: REAL's page is built in ONE fixed order at every width (the markup is in that order - no order: rules): hero, range pills
    with the EQUITY | P&L switch, equity chart, the four tiles, More stats, calendar, accounts, the trade list, then REAL's own sections, each a closed
    fold with a one-line summary. Breakpoints: only the house numbers - 600 phone, 740 / 800 / 920 list cells, 1100 rail (contract section 5b). */
@@ -966,7 +1026,7 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .hm-mode{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none}
 .hm-mode button{background:transparent;border:none;padding:7px 14px;font-size:10px;letter-spacing:1px;color:var(--text5);font-family:'JetBrains Mono',monospace;cursor:pointer}
 .hm-mode button.active{background:var(--bg1);color:var(--text)}
-.hm-wrap.lg-flow .hm-chart-wrap{margin:12px 0 22px}
+.hm-wrap.lg-flow .hm-chart-wrap{margin:12px 0 0}
 .hm-fold{gap:10px}
 .hm-fold .hm-fold-t{flex:none;white-space:nowrap}
 .hm-fold .hm-fold-sum{flex:0 1 auto;min-width:0;text-transform:none;letter-spacing:.3px;color:var(--text5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -984,7 +1044,10 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .hm-ctl{margin-top:8px;gap:8px 10px}
   .hm-ctl .lg-pills{gap:11px}
   .hm-mode button{padding:7px 9px}
-  .hm-wrap.lg-flow .hm-chart-wrap{margin:4px 0 8px}
+  .hm-wrap.lg-flow .hm-chart-wrap{margin:4px 0 0}
+  .hm-sec-chart .lg-chart-foot{margin:2px 2px 4px}
+  .hm-sec-chart .lg-chart-cap{display:none}
+  .hm-sec-chart .hm-mode button{padding:4px 9px}
   .hm-wrap.lg-flow .lg-stats{margin-bottom:8px}
   .hm-wrap.lg-flow .lg-stat{padding:11px 14px}
   .hm-wrap.lg-flow .lg-more{padding-top:9px;margin-bottom:6px}
@@ -1162,7 +1225,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1126';
+const VERSION='73.1127';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1180,7 +1243,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1125',date:'2026-10-07',notes:['RUNBOARD: DD5 BESIDE EVERY WORST DRAWDOWN (owner go 10-07). ROC @ $30K DD divides by ONE drawdown, so a change that only trims one crash can look like a big win - book round 62’s volatility sizing read 116 against #463’s 94 while earning less money, purely by shaving the 2020 crash. A new DD5 row right under DD shows the average of the 5 worst drawdowns on the stage in view, each a separate dip from a high to its low before that high was regained. A dip still open at the end of the stretch counts, and a stage with fewer than five dips averages what it has and says so (n=3).','Hover a DD5 figure for the list of dips (high date, low date, depth), or tap it to open the same list under the figure. When the worst drawdown is more than 1.3 times DD5 the cell carries a 1 EPISODE tag in words: the ROC figure on that stage rests on that one episode. ROC, MAR and the RANK order are unchanged.','DD5 is read off the curve each run saves, which is thinned for storage, so the smaller dips can read a little shallow and their dates are approximate (marked ~). A stretch with too few saved points to tell its dips apart - a lockbox year is usually only 20 to 30 of them - shows its DD5 with a ~ and makes no 1 EPISODE call; the hover gives the worst-to-DD5 ratio either way. Where the thinned curve reads the deepest dip shallower than the DD row, the DD row’s own figure - the one the ROC figure divides by - is used for it. A single run’s in-sample stage (a tuning score that no saved curve covers), a lockbox read from the continuous replay and a stage with no saved curve show a dash with the reason. Research rows on the WATCH view show the DD5 their lane supplied, or a dash, never a made-up figure. The same row is on the RUNBOARD tab, the board inside COMPARE and the WATCH view.']},
+const CHANGELOG=[{v:'73.1127',date:'2026-10-07',notes:['LEDGER step 12, ONE PAGE FRAME: the three boards (REAL, NT8 PAPER, WEBULL PAPER) now share one page frame, so they look the same at a glance and only the numbers and the closed folds of each board differ.','The frame: the same width and centring on every board (the WEBULL column). On a laptop (1100 px and wider) the strategy or account list is a panel on the right, next to the hero, chart, stats and calendar, and the trade list and the own folds of the board run the full width underneath. Below 1100 px the list sits under the calendar on every board.','REAL: the ACCOUNTS list moved from under the calendar into that right-hand panel. The reconciled with Webull chip left the top right corner: it is now in the new status line under the big number, with when NinjaTrader and Webull last synced. The EQUITY / P&L switch moved from beside the range pills to under the chart, next to a one-line caption. FUTURES / STOCKS moved out of the chip row into the REAL toolbar row, next to BY TRADE / BY DAY (or SIMPLE / FULL) and the four buttons NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL, which still fold behind ... on a phone. Nothing was removed.','WEBULL PAPER: the status line (paper only, market, feed, box updated, Refresh) moved from under the chart to right under the big number. The Cumulative P&L caption moved from above the chart to under it, beside the hatched / book only key.','NT8 PAPER: the page is now centred like the other two instead of running the full screen width. Its STATUS line (warnings, REFRESH) left the hero and is the same status line under the big number. The bold line / faint lines caption moved from the pills row to under the chart. The Strategies panel starts with the same header as the other boards, then ONE Filters row, closed until you open it, that holds Both / Raw / ML, the family chips, Board order / Name / Net and Baselines only; your open or closed choice is remembered. The panel can still be dragged wider or narrower.','Every list panel has the same Filters row at the top (REAL and WEBULL have nothing to filter yet, so theirs says so).','Probes: the REAL, NT8 and WEBULL board probes check the new frame (list in the right-hand panel from 1100 px and under the calendar below it, the status line under the hero, the Filters row present and closed, every REAL toolbar button present), each with a deliberately broken copy that must fail.']},
+{v:'73.1125',date:'2026-10-07',notes:['RUNBOARD: DD5 BESIDE EVERY WORST DRAWDOWN (owner go 10-07). ROC @ $30K DD divides by ONE drawdown, so a change that only trims one crash can look like a big win - book round 62’s volatility sizing read 116 against #463’s 94 while earning less money, purely by shaving the 2020 crash. A new DD5 row right under DD shows the average of the 5 worst drawdowns on the stage in view, each a separate dip from a high to its low before that high was regained. A dip still open at the end of the stretch counts, and a stage with fewer than five dips averages what it has and says so (n=3).','Hover a DD5 figure for the list of dips (high date, low date, depth), or tap it to open the same list under the figure. When the worst drawdown is more than 1.3 times DD5 the cell carries a 1 EPISODE tag in words: the ROC figure on that stage rests on that one episode. ROC, MAR and the RANK order are unchanged.','DD5 is read off the curve each run saves, which is thinned for storage, so the smaller dips can read a little shallow and their dates are approximate (marked ~). A stretch with too few saved points to tell its dips apart - a lockbox year is usually only 20 to 30 of them - shows its DD5 with a ~ and makes no 1 EPISODE call; the hover gives the worst-to-DD5 ratio either way. Where the thinned curve reads the deepest dip shallower than the DD row, the DD row’s own figure - the one the ROC figure divides by - is used for it. A single run’s in-sample stage (a tuning score that no saved curve covers), a lockbox read from the continuous replay and a stage with no saved curve show a dash with the reason. Research rows on the WATCH view show the DD5 their lane supplied, or a dash, never a made-up figure. The same row is on the RUNBOARD tab, the board inside COMPARE and the WATCH view.']},
 {v:'73.1124',date:'2026-10-07',notes:['SCORES: 1 trade from 2026-10-07 scored, 0 marked NA (no price data).']},{v:'73.1122',date:'2026-10-06',notes:['LEDGER clean-up: the ?oldboards=1 escape hatch is gone from all three boards (REAL, NT8 PAPER and WEBULL PAPER), and the previous layouts that sat behind it are deleted. An address ending in ?oldboards=1 now opens the same board as every other address.','Removed with it: the previous trade sheet, feed and table builders, stat strip, calendar, strategy table, inline drawer and chart code on each board, and the style rules only they used. Nothing on the three boards changes: every headline number, the page order and every control are the same.','Probes: each board probe now checks that ?oldboards=1 draws the new board, and a static lint (tools/ledger_removed.py) fails if any removed name comes back into index.html.']},
 {v:'73.1119',date:'2026-10-06',notes:['LEDGER step 11 on WEBULL PAPER: the board now runs in one fixed order, top to bottom: the hero, the range pills (moved from under the chart to above it), the equity chart, the status strip with its box-updated line and Refresh, the stats strip, the More stats fold, the calendar fold, the strategy list, the trade list with its panel, then the sections only this board has. On a laptop the strategy list stays in the sticky right column.','Every section of its own is now a closed fold with a one-line summary in its header: Orders (the mode and the daily stop used out of its limit, with near the limit or stopped for the day when it applies), Account (the equity and its change today), the orders placed today (the count), Feed and signals, System (ready or NOT READY with its open checks), Rails, Event timeline and Model reference. A tap opens one, and open or closed is remembered for each viewer on that device. Nothing was removed: SHOW MORE, the CSV export, the caveat chips, the trade panel, the status strip and the live position line are all still there.','On a phone the strategy list is a one-line fold above the trade list, and the header, chips and stat tiles are tighter, so the trade list starts no lower than before. The board now uses one set of breakpoints (600, 740, 800, 920 and 1100 px); the flagged-row mark under the time follows the width of the list box (a container query at 800 px) instead of the window width. ?oldboards=1 is unchanged.']},{v:'73.1116',date:'2026-10-06',notes:['SCORES: 4 trades from 2026-10-05, 2026-10-06 scored, 0 marked NA (no price data).']},{v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
 {v:'73.1118',date:'2026-10-06',notes:['LEDGER step 11 on NT8 PAPER: one page order, top to bottom - the hero, the range pills, the chart, the four tiles, the More stats fold, the calendar fold, the strategy list, the trades list, then the board own sections. Every own section is now a closed fold with a one-line summary in its header and is remembered open or closed in your browser: the status chips (a single line that keeps every warning count, with REFRESH beside it), the 10s capture, NinjaTrader detail, the cross-engine check, the gate audit and the daily reports. On a phone and a tablet the strategy list is a fold too (closed on a phone), so the trades still start within one screen.','One set of breakpoints: 600 for the phone, 740, 800 and 920 for the trade list cells, 1100 for the two-column page; the calendar now opens by default above 600 px (it was 760). Nothing was removed: the tick boxes and OPEN N CHARTS, the strategy filters and switches, the trade panel, the calendar day click and REFRESH all stay. ?oldboards=1 still draws the previous board, unchanged.']},{v:'73.1116',date:'2026-10-06',notes:['SCORES: 4 trades from 2026-10-05, 2026-10-06 scored, 0 marked NA (no price data).']},{v:'73.1112',date:'2026-10-06',notes:['LEDGER step 9 on NT8 PAPER: a click on a trade row now opens the shared trade panel (a right-hand panel on a laptop, a bottom sheet on a phone). Header: the strategy with its run number, the side, the day and entry to exit time, the size and the signed net. Chart: the same candle chart the gallery draws, with TRADE, FULL, minus, plus, PNG and EXPAND for the full viewer. Numbers: entry, exit, hold time, points, net, SLIP, delta $ and CUM, and whatever the engine record carries. Notes: read-only, because NT8 keeps no notes (the engine reason lines, the look-ahead and roll warnings). Actions: OPEN IN GALLERY and the EL / NT / TV chips.','The tick boxes still pick trades for OPEN N CHARTS and a click on a tick box, the CHART cell or a control never opens the panel. A trade that is still open opens a panel marked OPEN, with no net and its exit read as open. The panel stays on its trade through a search, a chip or a LIST or TABLE switch, closes with Esc, a click outside or the close button, and closes by itself when the trade leaves the board rows or you leave the board. The chart bars are now cached under each trade id instead of its place in the list, so after a search, a chip or a re-sort the CHART pill and OPEN N CHARTS draw the right trade bars (before, a second click could draw another trade chart). ?oldboards=1 is unchanged.']},{v:'73.1101',date:'2026-10-06',notes:['LEDGER step 8 on NT8 PAPER: the trades list is now the shared list frame. A toolbar with the count, LIST or TABLE (remembered), a search box and the chips ALL LONG SHORT WINS LOSSES plus one chip per strategy family; day headers newest close day first with the signed day net; phone rows keep five cells.','Selecting trades for the chart gallery moved to tick boxes: one per row (on a phone too), a tick for every row shown, the count on OPEN N CHARTS. A calendar day tap still ticks that day and scrolls the list to it. SLIP, delta $, CUM, the EL / NT / TV chips, prices and hold time stay in the TABLE.','A strategy without a listed row now reads ORB #257 in the trades list, the same as in the strategy list. The hold time reads in minutes and hours (the runner writes seconds and the column treated them as milliseconds, so most trades read 0m). A row click does nothing yet: the trade panel is step 9. ?oldboards=1 still draws the old table.']},
@@ -3556,14 +3620,83 @@ function ledgerListHtml(groups,o){
     +'</button>';
   return '<div class="lg-list" data-lglist="'+esc(o.id||'lg')+'">'
     +(o.title?'<div class="lg-list-hd"><span>'+o.title+'</span>'+(o.count?'<span class="n">'+o.count+'</span>':'')+'</div>':'')
+    +(o.filters||'')
     +(groups||[]).map(g=>{
       const hd=g.title?(g.fold
         ?'<button type="button" class="lg-grp-hd" data-lggrp="'+esc(g.key)+'" aria-expanded="'+!!g.open+'"><span>'+g.title+(g.count!=null?' &middot; '+g.count:'')+'</span><span class="lg-chev" aria-hidden="true">&#9662;</span></button>'
         :'<div class="lg-grp-hd"><span>'+g.title+(g.count!=null?' &middot; '+g.count:'')+'</span></div>'):'';
       const body=(!g.fold||g.open)?((g.note?'<div class="lg-grp-note">'+g.note+'</div>':'')+(g.rows||[]).map(row).join('')):'';
       return '<div class="lg-grp" data-lggroup="'+esc(g.key||'')+'">'+hd+body+'</div>';
-    }).join('')+'</div>';
+    }).join('')+(o.foot?'<div class="lg-list-foot">'+o.foot+'</div>':'')+'</div>';
 }
+// ── LEDGER shared PAGE FRAME (unify step 12, 2026-10-07) ──────────────────────────────────────────────────────────────────────────────────
+// The three boards (REAL, NT8 PAPER, WEBULL PAPER) look the same at a glance: ONE frame, the same max width and centring (WEBULL's column);
+// from 1100 px the strategy / account list is a RIGHT-HAND panel beside the top of the page (hero to calendar), the trade list and the board's
+// own folds run the full width under both; under 1100 px the list drops under the calendar. ONE status line directly under the hero numbers
+// (the board's top-right chips stay in the hero), ONE chart foot under the chart (caption, the board's own chart controls, its key) and ONE
+// Filters row at the top of the list panel (closed until opened, remembered per board). Every choice is one constant that can flip:
+const LEDGER_FRAME_SIDE=true;          // the list is a right-hand panel from 1100 px (false: it stays under the calendar at every width)
+const LEDGER_FRAME_SIDE_W=340;         // the panel width in px (NT8 lets its reader drag it wider or narrower; the stored width wins there)
+const LEDGER_STATUS_UNDER_HERO=true;   // the status line sits directly under the hero numbers (false: under the chart, before the stats)
+const LEDGER_FILTERS_OPEN=false;       // the panel's Filters row starts closed (a viewer's own open / closed choice is remembered)
+const LEDGER_TOOLBAR_MORE='phone';     // a board's own trade-list buttons: 'phone' = one compact row, behind ... on a phone; 'always' = behind ... everywhere
+// the sections beside the list panel, top to bottom (the pills between the hero and the chart since step 11)
+const LEDGER_TOP_ORDER=LEDGER_STATUS_UNDER_HERO?['hero','status','pills','chart','stats','more','cal']:['hero','pills','chart','status','stats','more','cal'];
+// o = {id, top (html, the sections in LEDGER_TOP_ORDER), side (html, the list section), rest (html, the trade list then the board's own
+// folds), cls / attr (on the frame), sideW (px), handle (html inside the panel, before its content: NT8's drag bar)}
+// Markers: [data-lgframe="<id>"] (.lg-frame-2 when the panel is on), [data-lgframe-top], [data-lgframe-side], [data-lgframe-rest].
+function ledgerFrameHtml(o){
+  o=o||{};const id=String(o.id||'lg').replace(/[^\w-]/g,'');
+  const w=Math.round(+o.sideW||LEDGER_FRAME_SIDE_W);
+  return '<div class="lg-frame'+(LEDGER_FRAME_SIDE?' lg-frame-2':'')+(o.cls?' '+o.cls:'')+'" data-lgframe="'+id+'" style="--lgf-side:'+w+'px"'+(o.attr?' '+o.attr:'')+'>'
+    +'<div class="lg-frame-top" data-lgframe-top="'+id+'">'+(o.top||'')+'</div>'
+    +'<div class="lg-frame-side" data-lgframe-side="'+id+'">'+(o.handle||'')+'<div class="lg-frame-side-in">'+(o.side||'')+'</div></div>'
+    +'<div class="lg-frame-rest" data-lgframe-rest="'+id+'">'+(o.rest||'')+'</div>'
+    +'</div>';
+}
+// ONE status line, directly under the hero numbers. o = {id, line (html, one line: what the board says about its feed / sync / box),
+// act (html, the board's button on the right: REFRESH), after (html under the line: a fold's panel), label (default 'Status'; '' = none),
+// tip, cls, attr}. Markers: [data-lgstatus="<id>"], .lg-status-line, .lg-status-act.
+function ledgerStatusHtml(o){
+  o=o||{};const id=String(o.id||'lg').replace(/[^\w-]/g,'');
+  const lbl=o.label==null?'Status':o.label;
+  return '<div class="lg-status'+(o.cls?' '+o.cls:'')+'" data-lgstatus="'+id+'"'+(o.attr?' '+o.attr:'')+'>'
+    +'<div class="lg-status-row">'+(lbl?'<span class="lg-status-k">'+lbl+'</span>':'')
+    +'<div class="lg-status-line"'+(o.tip?' title="'+String(o.tip).replace(/"/g,'&quot;')+'"':'')+'>'+(o.line||'')+'</div>'
+    +(o.act?'<div class="lg-status-act">'+o.act+'</div>':'')+'</div>'
+    +(o.after||'')+'</div>';
+}
+// ONE chart foot under the shared chart (the legend of its faint lines is drawn inside the chart box, just above it).
+// o = {id, cap (html, what the chart shows), x (html, the board's own chart controls: REAL's EQUITY | P&L), key (html, the board's key line)}
+function ledgerChartFootHtml(o){
+  o=o||{};const id=String(o.id||'lg').replace(/[^\w-]/g,'');
+  return '<div class="lg-chart-foot" data-lgchartfoot="'+id+'"><div class="lg-chart-foot-row"><span class="lg-chart-cap">'+(o.cap||'')+'</span>'
+    +(o.x?'<span class="lg-chart-x">'+o.x+'</span>':'')+'</div>'+(o.key||'')+'</div>';
+}
+// ONE Filters row at the top of the list panel (pass it to ledgerListHtml as o.filters). Closed until opened (LEDGER_FILTERS_OPEN), the
+// choice remembered per board in localStorage el_lg_filters_<id> (inside try/catch). The body is always in the page (hidden while closed), so
+// every control in it exists. o = {id, sum (html, one line: what the filters are set to), body (html, the board's controls; '' = this
+// list has none), none (the line shown when it has none), open}. A click opens / closes it in place (the listener below, no redraw).
+function ledgerFiltersOpen(id){try{const v=localStorage.getItem('el_lg_filters_'+id);if(v==='1'||v==='0')return v==='1';}catch(e){}return !!LEDGER_FILTERS_OPEN;}
+function ledgerFiltersSet(id,on){try{localStorage.setItem('el_lg_filters_'+id,on?'1':'0');}catch(e){}}
+function ledgerFiltersHtml(o){
+  o=o||{};const id=String(o.id||'lg').replace(/[^\w-]/g,'');
+  const open=o.open!=null?!!o.open:ledgerFiltersOpen(id),has=!!o.body;
+  return '<div class="lg-filters" data-lgfilters="'+id+'">'
+    +'<button type="button" class="lg-filters-btn" data-lgfilt="'+id+'" aria-expanded="'+open+'" aria-controls="'+id+'-filters">'
+    +'<span class="lg-filters-t">Filters</span><span class="lg-filters-sum" data-lgfiltsum="'+id+'">'+(o.sum||(has?'':'none'))+'</span><span class="lg-chev" aria-hidden="true">&#9662;</span></button>'
+    +'<div class="lg-filters-body" id="'+id+'-filters"'+(open?'':' hidden')+'>'+(has?o.body:'<div class="lg-filters-none">'+(o.none||'This list has no filters.')+'</div>')+'</div>'
+    +'</div>';
+}
+document.addEventListener('click',function(e){
+  const b=e.target&&e.target.closest?e.target.closest('[data-lgfilt]'):null;
+  if(!b)return;
+  const id=b.getAttribute('data-lgfilt'),on=b.getAttribute('aria-expanded')!=='true';
+  b.setAttribute('aria-expanded',on?'true':'false');
+  const box=b.closest('[data-lgfilters]'),p=box?box.querySelector('.lg-filters-body'):null;
+  if(p)p.hidden=!on;
+  ledgerFiltersSet(id,on);
+});
 // ── LEDGER shared trade list frame (unify step 8) ──
 // One frame for every board's trade list: a toolbar (the count, a search box, the chips ALL / LONG / SHORT / WINS /
 // LOSSES, a LIST | TABLE toggle remembered per board), day headers with the day's net (the New York day a trade CLOSED,
@@ -13627,10 +13760,9 @@ function _hmHeroLabel(){
   // the sync badges are in the hero's chip row (_hmHeroChips), not on the label line
   return (homeChartMode==='equity'?'ACCOUNT EQUITY &middot; ':'CUMULATIVE P&amp;L &middot; ')+acct;
 }
-// REAL's status chips: the Webull and NinjaTrader sync checks (each says nothing while all is well)
-function _hmHeroChips(){
-  return [reconBadge(),ntReconBadge()].filter(Boolean).map(b=>'<span class="lg-chip">'+b.replace(/margin-left:8px;?/g,'')+'</span>').join('');
-}
+// REAL's top-right chips: none since LEDGER step 12 - the Webull and NinjaTrader sync checks are in the status line under the hero
+// (_hmStatusLine); the slot stays, empty, in the same spot as the other boards' chips
+function _hmHeroChips(){return '';}
 function _hmTodayNet(){
   const today=ledgerTodayNY();
   return +bScope(trades).filter(t=>ledgerCloseDay(t)===today).reduce((s,t)=>s+t.pnl,0).toFixed(2);
@@ -13646,6 +13778,7 @@ function _hmRenderHeroDefault(endVal,startVal){
   const lbl=document.getElementById('hm-hero-label');if(lbl)lbl.innerHTML=_hmHeroLabel();
   const tdy=document.getElementById('hm-hero-today');if(tdy)tdy.innerHTML=ledgerTodayHtml(_hmTodayNet());
   const chp=document.getElementById('hm-hero-chips');if(chp)chp.innerHTML=_hmHeroChips();
+  const stl=document.getElementById('hm-status-line');if(stl)stl.innerHTML=_hmStatusLine();
   const valEl=document.getElementById('hm-hero-value');if(valEl)valEl.textContent=_hmMoney(endVal);
   const dep=homeChartMode==='equity'?_hmRangeDeposits(homeRange):0;
   const delta=endVal-startVal-dep;
@@ -13702,7 +13835,8 @@ function _hmAccountListHtml(){
   };
   const all=_brokerList().reduce((s,b)=>s+brokerBalance(b),0);
   const rows=[rowFor('','All accounts',trades,all)].concat(brokers.map(b=>rowFor(b,_hmEsc(b),trades.filter(t=>t.broker===b),brokerBalance(b))));
-  return ledgerListHtml([{key:'acct',rows:rows}],{id:'hm',title:'Accounts',count:'tap one to show only it'});
+  return ledgerListHtml([{key:'acct',rows:rows}],{id:'hm',title:'Accounts',count:'tap one to show only it',
+    filters:ledgerFiltersHtml({id:'hm',none:'The accounts list has no filters: tap an account to show only it.'})});
 }
 // REAL on the shared calendar (unify step 7): the range's trades by the day they closed, the same money the trade
 // list's day headers add up. Open on a laptop and closed on a phone until you choose (remembered per browser).
@@ -14218,10 +14352,12 @@ function _hmCountExtraHtml(){
 // (behind the ... button on a phone). The PASTE box and its notes are the PASTE fold below the list (LEDGER step 11)
 function _hmToolsHtml(){
   const tbl=homeView==='table',open=!!window._hmToolsOpen;
+  // FUTURES / STOCKS: REAL's own chips, in its slot row since LEDGER step 12 (the frame wires every [data-lgchip] inside it)
+  const kind=['FUTURES','STOCKS'].map(k=>'<button type="button" class="lg-fchip'+(homeChip===k?' active':'')+'" data-lgchip="'+k+'" aria-pressed="'+(homeChip===k)+'">'+k+'</button>').join('');
   const seg=tbl
     ?`<div class="hm-seg" id="hm-ledger-seg" title="SIMPLE fits the row on screen - FULL shows every column and scrolls sideways"><button data-hmledger="simple" class="${homeLedger!=='full'?'active':''}">SIMPLE</button><button data-hmledger="full" class="${homeLedger==='full'?'active':''}">FULL</button></div>`
     :`<div class="hm-seg" id="hm-feed-seg"><button data-hmfeed="trade" class="${homeFeedMode==='trade'?'active':''}">BY TRADE</button><button data-hmfeed="day" class="${homeFeedMode==='day'?'active':''}">BY DAY</button></div>`;
-  return `<div class="hm-slot">${seg}
+  return `<div class="hm-slot${LEDGER_TOOLBAR_MORE==='always'?' hm-more-always':''}">${seg}<span class="hm-kind" role="group" aria-label="futures or stocks">${kind}</span>
       <button type="button" class="hm-ghostbtn hm-tools-toggle" id="hm-tools-toggle" aria-expanded="${open}" title="NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL">&middot;&middot;&middot;</button>
       <span class="hm-toolbar-actions${open?' open':''}" id="hm-tools">
         <button class="hm-ghostbtn" id="hm-newtrade-toggle">${homeNewTradeOpen?'&#9650; NEW TRADE':'＋ NEW TRADE'}</button>
@@ -14238,7 +14374,6 @@ function _hmFrameHtml(list){
   const evs=(!tbl&&homeFeedMode!=='day'&&!filt)?_hmTradesInRange(scopedLedger()||[],homeRange).map(ev=>({date:ev.date,html:_hmDepositRow(ev)})):[];
   return ledgerTradeListHtml({
     id:'hm',view:tbl?'table':'list',rows:(tbl&&!_hmFrameDayOn())?_hmApplySort(list):list,total:trades.length,query:homeQuery,chip:homeChip,
-    chips:[{k:'FUTURES',label:'FUTURES'},{k:'STOCKS',label:'STOCKS'}],
     countExtra:_hmCountExtraHtml(),slot:_hmToolsHtml(),
     afterBar:'<div id="hm-newtrade-form">'+(homeNewTradeOpen?_hmNewTradeFormHtml():'')+'</div>',
     empty:_hmEmptyStateHtml(),group:homeFeedMode==='day'?'day':'trade',events:evs,
@@ -14261,7 +14396,9 @@ function _hmFrameBlockHtml(list){
 // stats strip, More stats, calendar, accounts, the trade list (with its panel), then REAL's own folds. An own fold is closed until it is
 // opened, says in ONE line what is inside (a number or a state) and remembers open / closed per browser (localStorage, inside try/catch).
 // Folded, never removed: every control that was on the board is inside its fold.
-const _HM_PAGE_ORDER=['hero','pills','chart','stats','more','cal','acct','list','paste','missed','deps','ai','journal'];
+// LEDGER step 12: the top block (hero, status, pills, chart, stats, More stats, calendar) is the shared LEDGER_TOP_ORDER, then the accounts (the
+// right-hand panel from 1100 px), the trade list and REAL's own folds
+const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','list','paste','missed','deps','ai','journal']);
 const _HM_FOLD_LS={paste:'el_lg_paste_real',missed:'el_lg_missed_real',deps:'el_lg_deps_real',ai:'el_lg_ai_real',journal:'el_home_journal_open'};
 function _hmFoldIsOpen(k){return k==='ai'?!!homeAiOpen:(k==='journal'?!!homeJournalOpen:!!homeOwnOpen[k]);}
 function _hmFoldSet(k,on){
@@ -14355,18 +14492,37 @@ function _hmAcctSummary(){
 }
 function _hmAcctSectionHtml(){
   const list=_hmAccountListHtml();
-  if(!list)return '';
+  if(!list)return '<div class="hm-sec hm-sec-acct" data-hmsec="acct"></div>';
   return `<div class="hm-sec hm-sec-acct${homeAcctOpen?' open':''}" data-hmsec="acct"><button type="button" class="lg-more hm-fold hm-acct-fold" data-hmacct-fold="1" aria-expanded="${homeAcctOpen}"><span class="hm-fold-t">Accounts</span><span class="hm-fold-sum" data-hmsum="acct">${_hmAcctSummary()}</span><span class="lg-chev" aria-hidden="true">&#9662;</span></button>${list}</div>`;
 }
-// the whole page of the LEDGER > REAL board, built in _HM_PAGE_ORDER
+// REAL's status line (LEDGER step 12): the broker syncs and the reconcile checks that used to be chips in the hero
+function _hmAgo(sec){const s=Math.max(0,Math.round(Date.now()/1000-(+sec||0)));return s<60?s+'s ago':(s<3600?Math.round(s/60)+'m ago':(s<86400?Math.round(s/3600)+'h ago':Math.round(s/86400)+'d ago'));}
+function _hmStatusLine(){
+  const bits=[],strip=b=>String(b||'').replace(/margin-left:8px;?/g,'');
+  if(!activeBroker||activeBroker==='NinjaTrader')bits.push(ntSync&&ntSync.last_sync?('NinjaTrader synced '+_hmAgo(ntSync.last_sync)):'NinjaTrader not synced yet');
+  if(!activeBroker||activeBroker==='Webull')bits.push(wbSync&&wbSync.last_sync?('Webull synced '+_hmAgo(wbSync.last_sync)):(wbSync?'Webull synced':'Webull not synced yet'));
+  const rb=reconBadge(),nb=ntReconBadge();
+  if(rb)bits.push(strip(rb));
+  if(nb)bits.push(strip(nb));
+  return bits.length?bits.join(' &middot; '):'no broker sync for this account';
+}
+function _hmStatusHtml(){return ledgerStatusHtml({id:'hm',line:'<span id="hm-status-line">'+_hmStatusLine()+'</span>',attr:'data-hmsec="status"'});}
+// the chart foot: what the line shows, and the EQUITY | P&L switch (REAL's own chart control, in the shared chart's extras slot)
+function _hmChartCap(){
+  return (homeChartMode==='equity'?'account equity at each day&rsquo;s close':'cumulative P&amp;L at each day&rsquo;s close'+(activeBroker?'':' &middot; faint lines = each account'))
+    +' &middot; hover the chart to scrub';
+}
+// the whole page of the LEDGER > REAL board, built in _HM_PAGE_ORDER inside the shared page frame (LEDGER step 12)
 function _hmPageHtml(list,rangeStats,rangeTrades){
   const ls=_hmLedgerStats(rangeTrades);
   const ign=ls&&ls.excluded?`<span title="${ls.excluded} trade${ls.excluded>1?'s':''} marked IGNORE IN METRICS are left out of win rate, profit factor and the streak, but still count in P&amp;L and drawdown" style="color:var(--yellow)"> &middot; ${ls.excluded} ignored</span>`:'';
   const S={
     hero:'<div data-hmsec="hero">'+ledgerHeroHtml({ids:{label:'hm-hero-label',big:'hm-hero-value',today:'hm-hero-today',range:'hm-hero-delta',chips:'hm-hero-chips'}})+'</div>',
-    pills:'<div class="hm-ctl" data-hmsec="pills">'+ledgerRangePillsHtml(homeRange,'data-hmrange')
-      +'<div class="hm-mode" id="hm-mode-toggle"><button data-hmmode="equity" class="'+(homeChartMode==='equity'?'active':'')+'">EQUITY</button><button data-hmmode="pnl" class="'+(homeChartMode==='pnl'?'active':'')+'">P&amp;L</button></div></div>',
-    chart:'<div class="hm-chart-wrap" id="hm-chart-wrap" data-hmsec="chart"></div>',
+    status:_hmStatusHtml(),
+    pills:'<div class="hm-ctl" data-hmsec="pills">'+ledgerRangePillsHtml(homeRange,'data-hmrange')+'</div>',
+    chart:'<div class="hm-sec-chart" data-hmsec="chart"><div class="hm-chart-wrap" id="hm-chart-wrap"></div>'
+      +ledgerChartFootHtml({id:'hm',cap:_hmChartCap(),
+        x:'<div class="hm-mode" id="hm-mode-toggle"><button data-hmmode="equity" class="'+(homeChartMode==='equity'?'active':'')+'">EQUITY</button><button data-hmmode="pnl" class="'+(homeChartMode==='pnl'?'active':'')+'">P&amp;L</button></div>'})+'</div>',
     stats:'<div data-hmsec="stats">'+ledgerStatStripHtml(ls,{id:'hm-stat-strip',winNote:ign})+'</div>',
     more:'<div class="hm-sec hm-sec-more" data-hmsec="more">'+ledgerMoreStatsHtml(ls,_hmOwnStatGroups(rangeStats),{open:homeStatsOpen,id:'hm',note:'Scoped to the chosen account and range'})+'</div>',
     cal:'<div class="hm-sec hm-sec-cal" data-hmsec="cal">'+_hmCalendarHtml(rangeTrades)+'</div>',
@@ -14374,7 +14530,8 @@ function _hmPageHtml(list,rangeStats,rangeTrades){
     list:_hmFrameBlockHtml(list),
     paste:_hmPasteFold(),missed:_hmMissedFold(),deps:_hmDepsFold(),ai:_hmAiFold(),journal:_hmJournalFold()
   };
-  return '<div class="hm-wrap lg-flow">'+_HM_PAGE_ORDER.map(k=>S[k]||'').join('')+'</div>';
+  const ai=_HM_PAGE_ORDER.indexOf('acct'),pick=ks=>ks.map(k=>S[k]||'').join('');
+  return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow',top:pick(_HM_PAGE_ORDER.slice(0,ai)),side:S.acct,rest:pick(_HM_PAGE_ORDER.slice(ai+1))});
 }
 // ── HOME absorbs TRADES + JOURNAL (v73.9xx) ─────────────────────────────────────────
 // The five actions that used to live only on the Trades tab, now built for HOME's own
@@ -38302,10 +38459,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           range:rangeLine,
           chips:chips.join(''),
           note:'<div>'+sinceLabel+'</div>'+brokerLine});
-        const heroStrip='<div class="qbx-status-strip">'
-          +'<span>'+statusBits+'</span>'
-          +'<button class="qb-hero-refresh" data-qqqrefresh>'+(qeLoading?'Loading…':'⟳ Refresh')+'</button>'
-          +'</div>';
+        // LEDGER step 12: the status line is the shared status slot (directly under the hero), the same look on every board
+        const heroStrip=ledgerStatusHtml({id:'qb',cls:'qbx-status-strip',line:'<span>'+statusBits+'</span>',
+          act:'<button class="qb-hero-refresh lg-status-btn" data-qqqrefresh>'+(qeLoading?'Loading…':'⟳ Refresh')+'</button>'});
         return {main:heroMain,strip:heroStrip};
       };
 
@@ -38990,7 +39146,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             note:'No-order shadow legs. Their trades are never in the account number, the chart, the stats or the calendar.'+(shRows.length?'':' None are in the box’s status doc right now.'),
             rows:shRows};
           let lh=ledgerListHtml([gBook,gRet,gShadow].filter(Boolean),{id:'qb',title:'Strategies',
-            count:qbRangeTrades.length?(ledgerSigned(qbRangePnl)+' &middot; '+qbRangeWord):qbRangeNone});
+            count:qbRangeTrades.length?(ledgerSigned(qbRangePnl)+' &middot; '+qbRangeWord):qbRangeNone,
+            filters:ledgerFiltersHtml({id:'qb',none:'This list has no filters: every strategy counts. Retired and Shadow are the folds below.'})});
           // under a row: its KEEL warning, note and detail (a tap opens the detail: aria-expanded says so)
           qbLegModels.forEach(m=>{
             const at=lh.indexOf('data-lgrow="'+m.key+'"');if(at<0)return;
@@ -39020,8 +39177,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const qbRangeCap=(qbRange&&qbRange!=='ALL')?('Cumulative P&amp;L, '+qbRangeWord+', counted from the start of the range'):('Cumulative P&amp;L since '+naS(QE.live_from));
           if(!qbRangeTrades.length){
             window._qbLgChart=null;
-            equityHtml='<div class="qb-chart-wrap">'+periodTabsHtml+'<div class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</div>'
-              +'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:18px 0">'+(closedN?qbRangeNone:'curve starts with the first closed trade')+'</div></div>';
+            equityHtml='<div class="qb-chart-wrap">'+periodTabsHtml
+              +'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:18px 0">'+(closedN?qbRangeNone:'curve starts with the first closed trade')+'</div>'
+              +ledgerChartFootHtml({id:'qb',cap:'<span class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</span>'})+'</div>';
           }else{
             const tsOf=t=>String((t&&(t.exit_ts||t.entry_ts))||'');
             const chrono=qbRangeTrades.slice().sort((a,b)=>tsOf(a)<tsOf(b)?-1:tsOf(a)>tsOf(b)?1:0);
@@ -39118,8 +39276,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +(bands.length?'<span title="days whose trades include an exit priced from the 1-minute tape, a failed parity check, or a trade that never reached the broker; hover a column for that day"><i class="qbx-lg-hatch"></i><span class="qbx-lg-long">hatched = a data caveat day; its trades still count</span><span class="qbx-lg-short">hatched = caveat day</span></span>':'')
               +(hasBookPriced?'<span title="marked BOOK ONLY or BOOK PRICE on the trade rows below"><i class="qbx-lg-book"></i><span class="qbx-lg-long">book only = a side priced from the book because no Webull fill was captured</span><span class="qbx-lg-short">book only = no fill</span></span>':'')
               +'</div>'):'';
-            equityHtml='<div class="qb-chart-wrap">'+periodTabsHtml+'<div class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</div>'
-              +'<div class="qbx-lgchart" id="qb-lg-chart"></div>'+keyHtml+'</div>';
+            // LEDGER step 12: the caption and the key sit under the chart, in the shared chart foot (the same place on every board)
+            equityHtml='<div class="qb-chart-wrap">'+periodTabsHtml
+              +'<div class="qbx-lgchart" id="qb-lg-chart"></div>'
+              +ledgerChartFootHtml({id:'qb',cap:'<span class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</span>',key:keyHtml})+'</div>';
           }
         }
 
@@ -40264,16 +40424,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +qbFoldHtml('rails','Rails',qbRailsSum,railsHtml)
           +qbFoldHtml('events','Event timeline',qbEvtSum,eventsHtml||'<div style="color:var(--text5);font-size:var(--fsxs);padding:8px 0">no events published yet</div>')
           +modelSection;
-        body='<div class="qb-shell qbx-lg6">'
-          +'<div class="qbx-hero">'+qbHeroHtml+'</div>'
-          +'<div class="qbx-chart">'+equityHtml+'</div>'
-          +qbStatusSec
-          +'<div class="qbx-stats qbx-lgstats">'+qbLgStatsHtml+'</div>'
-          +'<div class="qbx-activity">'+qbCalHtml+'</div>'
-          +qbSideNew
-          +'<div class="qbx-history qbx-section"><div class="qb-section-hd">History</div>'+qbTradesCard+'</div>'
-          +'<div class="qbx-own">'+qbOwnSecs+'</div>'
-          +'</div>'
+        // LEDGER step 12: the shared page frame - the top block in LEDGER_TOP_ORDER (hero, status, pills + chart, stats, calendar), the strategy
+        // list (the right-hand panel from 1100 px, under the calendar below it), then the trade list and this board's own folds
+        const qbTop={hero:'<div class="qbx-hero">'+qbHeroHtml+'</div>',status:qbStatusSec,pills:'',chart:'<div class="qbx-chart">'+equityHtml+'</div>',
+          stats:'<div class="qbx-stats qbx-lgstats">'+qbLgStatsHtml+'</div>',more:'',cal:'<div class="qbx-activity">'+qbCalHtml+'</div>'};
+        body=ledgerFrameHtml({id:'qb',cls:'qb-shell qbx-lg6',top:LEDGER_TOP_ORDER.map(k=>qbTop[k]||'').join(''),side:qbSideNew,
+            rest:'<div class="qbx-history qbx-section"><div class="qb-section-hd">History</div>'+qbTradesCard+'</div>'
+              +'<div class="qbx-own">'+qbOwnSecs+'</div>'})
           +qbSheetHtml;
       }
     }else if(augurSub==='paper'||augurSub==='paper2'){
@@ -41030,9 +41187,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // the bold line = every switched-on strategy added together, day by day
       const _rhTotal=_winDates.map((_,i)=>_winSeries.reduce((a,sr)=>a+(+sr.vals[i]||0),0));
       const _rhN=_winDates.length;
+      // LEDGER step 12: the chart and, under it, the shared chart foot with what the lines mean (it used to ride on the pills row)
+      const _rhFoot=ledgerChartFootHtml({id:'p2',cap:'<span class="p2rhkey">bold line = the book legs together \u00b7 faint lines = each leg \u00b7 hover the chart to scrub</span>'});
       const _rhChart=(()=>{
-        if(_rhN)return '<div class="p2cw" id="p2-chart" data-p2sec="chart"></div>';
-        return '<div class="p2rhempty" data-p2sec="chart">'+(_allDates.length?'NO CLOSED TRADES IN THIS RANGE':('NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START))+'</div>';
+        if(_rhN)return '<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div>'+_rhFoot+'</div>';
+        return '<div data-p2sec="chart"><div class="p2rhempty">'+(_allDates.length?'NO CLOSED TRADES IN THIS RANGE':('NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START))+'</div></div>';
       })();
       // the plotted days and the bold line's totals (plain numbers, no DOM): the render probe reads them
       window._p2Scrub={dates:_winDates,total:_rhTotal};
@@ -41051,8 +41210,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           aria:'NT8 paper, BOOK #'+_bookRun+' cumulative P and L, '+(LEDGER_RANGE_LABEL[_pcw]||_pcw),
           lines:_winSeries.map(sr=>({name:sr.label,color:sr.color,vals:[0].concat(_chIdx.map(i=>sr.vals[i])),on:!_lgOff[sr.label]}))};
       }
-      const _rhTabs='<div class="p2ctl" data-p2range data-p2sec="pills">'+ledgerRangePillsHtml(_pcw,'data-pcwin')
-          +'<span class="p2rhkey">bold line = the book legs together \u00b7 faint lines = each leg \u00b7 hover the chart to scrub</span></div>';
+      const _rhTabs='<div class="p2ctl" data-p2range data-p2sec="pills">'+ledgerRangePillsHtml(_pcw,'data-pcwin')+'</div>';
       // ── LIVE · NinjaTrader demo — Layer 1. paper_reports docs now carry a `live` block logged
       // straight off the demo account's own fill log (no strategy attribution — see zero-state copy
       // below). Every read here is defensive: old reports simply lack `live` and roll up to zero.
@@ -42570,7 +42728,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // REFRESH stays on the line; on a phone only its icon shows (the word is back at 601 px)
           const rf='<button data-paperrefresh class="p2rf" aria-label="Refresh" title="Reload the paper trades and reports" style="height:24px;padding:0 12px;font-size:10px;font-weight:700;letter-spacing:1px;border-radius:999px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);cursor:pointer">'
             +(window._paperLoading?'<span class="p2rf-ic">\u2026</span> <span class="p2rf-tx">LOADING\u2026</span>':'<span class="p2rf-ic">\u27f3</span> <span class="p2rf-tx">REFRESH</span>')+'</button>';
-          return _p2Fold('status','Status',sum,'<div class="p2chips">'+_p2Status+_p2WarnChips+'</div>',{cls:'p2fold-status',sec:false,tip:tip,act:rf});
+          // LEDGER step 12: the status fold is the shared status line under the hero numbers (no longer in the hero's chip slot)
+          return ledgerStatusHtml({id:'p2',label:'',cls:'p2fold-status-wrap',attr:'data-p2sec="status"',
+            line:_p2Fold('status','Status',sum,'<div class="p2chips">'+_p2Status+_p2WarnChips+'</div>',{cls:'p2fold-status',sec:false,tip:tip,act:rf})});
         })();
         const _p2Css='<style>'
           +'.p2top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:4px 0 14px}'
@@ -42595,7 +42755,6 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'.p2rhkey{margin-left:auto;font-size:10px;color:var(--text5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:12px}'
           +'.p2rhempty{padding:60px 0;text-align:center;color:var(--text5);font-size:11px;letter-spacing:1px}'
           +'.p2rail{border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden}'
-          +'.p2railhd{display:flex;align-items:baseline;gap:8px;padding:12px 14px 9px;font-size:15px;font-weight:700;color:var(--text)}'
           +'.p2railct{font-size:11px;font-weight:500;color:var(--text4)}'
           +'.p2link{margin-left:auto;font-size:11px;font-weight:600;color:var(--text2);cursor:pointer;user-select:none}'
           +'.p2filt{display:flex;flex-direction:column;gap:6px;padding:0 12px 10px;border-bottom:1px solid var(--border2)}'
@@ -42621,7 +42780,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           today:ledgerTodayHtml(_H.today),
           range:'<span>'+_pcwLbl+'</span><span class="lg-suffix">\u00b7</span><span>'+_H.n+' trade'+(_H.n===1?'':'s')+'</span><span class="lg-suffix">\u00b7</span><span>'+_nShown+' of '+_bookDefs.length+' book legs</span>'
             +(_nUncounted?'<span class="lg-suffix">\u00b7</span><span title="Controls, forward tests and shadow strategies. Their trades are not in this number.">'+_nUncounted+' other strategies not counted</span>':''),
-          chips:_p2StatFold});
+          chips:''});
         // ══ LEDGER steps 6, 7 and 10 on the shared parts (NT8 PAPER) ══
         // The stats strip, the calendar and the strategy list all read the SAME counted trades the big number adds up: the shown BOOK
         // legs, closed (an open trade is in no range), at book weights, whose close day falls in the one range pill. Forward tests and
@@ -42762,12 +42921,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const seg=(attr,val,on,lbl,tip)=>'<span data-'+attr+'="'+val+'" title="'+_pnX(tip)+'"'+(on?' class="on"':'')+'>'+lbl+'</span>';
           const _crownGone=PAPER_LEG_DEFS.filter(d=>d.crown&&!LEGS_F.some(x=>x.k===d.k));
           const sortLbl={board:'Board order',leg:'Name',net:'Net'};
-          return '<div class="p2rail">'
-            +'<div class="p2railhd"><span title="'+_pnX('Switch a book leg on to count it everywhere on the left. 👑 marks the standing champion of its family.'
-                +(_crownGone.length?(' Crowns NOT on this board: '+_crownGone.map(d=>d.label).join(', ')+'.'):''))+'" style="cursor:help">Strategies</span>'
-              +'<span class="p2railct">'+_nShown+' of '+_bookDefs.length+' book legs on</span>'
-              +(_legOff.length?'<span class="p2link" data-paperlegall>Include all</span>':'')+'</div>'
-            +'<div class="p2filt">'
+          // LEDGER step 12: the panel reads like the other boards' - the shared list header (title + count), ONE closed Filters row with every
+          // control that used to sit above the rows (Both / Raw / ML, the families, the sort, Baselines only), the rows, then the two footer lines
+          const _pnFiltSum=[{ALL:'Both',RAW:'Raw',ML:'ML'}[PKIND]||PKIND,PFAM==='ALL'?'All families':PFAM,sortLbl[_lsCol]?(sortLbl[_lsCol]+((_lsCol&&_lsCol!=='board')?(_lsDir==='asc'?' \u25b2':' \u25bc'):'')):'Board order']
+            .concat(PBASE?['Baselines only']:[]).join(' \u00b7 ');
+          const _pnFilt='<div class="p2filt">'
               +'<div class="p2seg" data-ptray>'+seg('pkind','ALL',PKIND==='ALL','Both','raw configs and ML overlays together')
                 +seg('pkind','RAW',PKIND==='RAW','Raw','only plain configs, no ML overlay')
                 +seg('pkind','ML',PKIND==='ML','ML','only the ML overlays (hybrid gates and size tilts)')+'</div>'
@@ -42776,9 +42934,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'<div class="p2seg" data-ptray>'+['board','leg','net'].map(k=>'<span data-lsort="'+k+'" title="'+_pnX(k==='board'?'Board order keeps each control next to the strategy it is read against':('Sort by '+sortLbl[k].toLowerCase()+(_lsCol===k?(_lsDir==='asc'?' (lowest first - tap again to flip)':' (highest first - tap again to flip)'):'')))+'"'
                 +(_lsCol===k?' class="on"':'')+'>'+sortLbl[k]+((_lsCol===k&&k!=='board')?(_lsDir==='asc'?' ▲':' ▼'):'')+'</span>').join('')+'</div>'
               +'<div class="p2pills"><span class="p2pill'+(PBASE?' on':'')+'" data-pbase role="switch" aria-checked="'+(PBASE?'true':'false')+'" title="Show only each family baseline configuration. An ML overlay is never a baseline, so this hides every ML leg.">Baselines only</span></div>'
-            +'</div>'
-            +ledgerListHtml(_pnGroups,{id:'p2'})
-            +(()=>{
+            +'</div>';
+          const _pnFoot=(()=>{
               const nL=_pt.length, nSt=(_ti&&_ti.bundle)?_ti.n_total:null;
               const nOth=_pt.filter(t=>_isUnc(legOf(t))).length;
               const ld=(_ti&&_ti.bundle===false)?('Loaded only the newest '+nL+' trades: the full history bundle is written by the nightly run and is not there yet')
@@ -42788,12 +42945,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                              :('Loaded '+nL+' of '+nSt+' stored trades — INCOMPLETE'))));
               return '<div class="p2railfoot" data-p2loaded data-loaded="'+nL+'" data-stored="'+(nSt==null?'':nSt)+'" data-listed="'+(nL-nOth)+'" data-other="'+nOth+'">'+ld+' · '+(nL-nOth)+' book + '+nOth+' not counted</div>';
             })()
-            +'<div class="p2railfoot">Book switch = counted everywhere on the left · other switches only list that strategy trades in the trades table · dot = live in NinjaTrader · 👑 = family champion</div>'
+            +'<div class="p2railfoot">Book switch = counted everywhere on the left · other switches only list that strategy trades in the trades table · dot = live in NinjaTrader · 👑 = family champion</div>';
+          return '<div class="p2rail">'
+            +ledgerListHtml(_pnGroups,{id:'p2',
+              title:'<span class="p2railhd-t" title="'+_pnX('Switch a book leg on to count it everywhere on the left. 👑 marks the standing champion of its family.'
+                +(_crownGone.length?(' Crowns NOT on this board: '+_crownGone.map(d=>d.label).join(', ')+'.'):''))+'" style="cursor:help">Strategies</span>',
+              count:'<span class="p2railct">'+_nShown+' of '+_bookDefs.length+' book legs on</span>'+(_legOff.length?' <span class="p2link" data-paperlegall>Include all</span>':''),
+              filters:ledgerFiltersHtml({id:'p2',sum:_pnX(_pnFiltSum),body:_pnFilt}),
+              foot:_pnFoot})
             +'</div>';
         })();
         // board-scoped CSS for the shared parts (the shared CSS itself is TRADING-LOG's and is not touched)
         const _pnCss='<style>'
-          +'.p2rail .lg-list{background:none;border-radius:0;margin:0}'
+          +'.p2rail{border:0;border-radius:0;background:none;overflow:visible}.p2rail .lg-list{margin:0}.p2rail .p2filt{padding:0;border-bottom:0}.p2rail .lg-list-foot .p2railfoot:first-child{border-top:0}'
           +'.p2rail .lg-grp-hd [data-p2grp]{text-transform:none;letter-spacing:.2px}'
           +'.p2rail .lg-grp-note [data-p2listed]{font-weight:700;color:var(--text3)}'
           +'.p2vs-sub{font-size:9px;color:var(--text5);margin:-3px 0 7px;line-height:1.5}'
@@ -42804,8 +42968,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'.p2ctl{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px 14px;margin:18px 0 0}'
           +'.p2cw{position:relative;margin:12px 0 22px}'
           +'.p2rh .lg-more{margin-bottom:14px}'
-          +'.p2rh .p2rhkey{display:none}@media (min-width:1100px){.p2rh .p2rhkey{display:block}}'
-          +'.p2rh .lg-hero-chips{order:3;flex:1 1 100%;display:block;min-width:0}'
+          +'.p2cw{margin-bottom:0}.p2rh .lg-chart-foot{margin-bottom:18px}@media (max-width:600px){.p2rh .p2rhkey{display:none}.p2rh .lg-chart-foot{margin-bottom:6px}}'
+          // LEDGER step 12: the status fold is the shared status line (.lg-status) under the hero: its header reads like the other boards' line
+          +'.p2fold-status-wrap .lg-status-line{overflow:visible;white-space:normal;display:block;-webkit-line-clamp:none}'
+          +'.p2fold-status-wrap .p2fold-status .lg-more{border-top:0;padding:0;margin:0;font-size:12px;letter-spacing:normal;text-transform:none;color:var(--text4)}'
+          +'.p2fold-status-wrap .p2fold-status .p2fold-t{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text5)}'
+          +'.p2fold-status-wrap .p2fold-status .p2fold-act{margin-top:0}'
           +'.p2chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}'
           +'.p2fold-row{display:flex;align-items:flex-start;gap:8px;min-width:0}'
           +'.p2fold-hd{flex:1 1 0;min-width:0;width:auto;gap:10px;text-align:left}'
@@ -42822,7 +42990,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'.p2fold-status .p2fold-sum{flex:1 1 0;display:flex;flex-wrap:wrap;column-gap:6px;height:16px;line-height:16px;overflow:hidden;align-items:baseline}'
           +'.p2st{white-space:nowrap;flex:none}'
           +'.p2fold-act .p2rf{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}'
-          +'.p2fold-body .p2railhd>span:not(.p2link){display:none}.p2fold-body .p2railhd{padding:4px 14px 0;justify-content:flex-end}'
+          // under 1100 px the list sits in its own fold, whose summary already reads Strategies and the count: the shared list header keeps
+          // only Include all (right-aligned), or goes when there is nothing to include
+          +'.p2fold-body .p2rail .lg-list-hd>span:first-child,.p2fold-body .p2rail .lg-list-hd .p2railct{display:none}'
+          +'.p2fold-body .p2rail .lg-list-hd{padding:4px 14px 0;justify-content:flex-end}.p2fold-body .p2rail .lg-list-hd:not(:has(.p2link)){display:none}'
           +'.p2fold-body .p2rail{border:0;border-radius:0;background:transparent}'
           +'[data-theme="mono"] .p2rh .p2dot[style*="e0a33a"]{background:var(--text2)!important}'
           +'@media (min-width:601px){.p2own:not(.p2fold-status) .p2fold-t{min-width:230px}}'
@@ -42882,13 +43053,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'</style>';
         return {strip:_pnStrip,more:_pnMore,cal:_pnCal,rail:_pnRail,css:_pnCss};
         })();
-        const _p2Head=_p2Css+_rhCss+_pnUi.css+_p2Sec('hero',_p2HeadNew);
+        // LEDGER step 12: the board's css, then the shared page frame; the hero and the status line (directly under the hero numbers,
+        // LEDGER_STATUS_UNDER_HERO) are the first sections of its top block (_p2Top)
+        const _p2Head=_p2Css+_rhCss+_pnUi.css;
         // the new layout: chart, pills, the four tiles, then (laptop and tablet) the More stats and calendar folds. On a phone only the
         // tiles stay above the trades; the folds, the strategy list and the feed notes follow the trades list (the hero chips already
         // carry every data-feed and capture alarm).
         // the pills sit between the hero and the chart (this step order); scope 2.1 had them under the chart - this one constant flips it
         const _P2_PILLS_FIRST=true;
-        const _p2Top=(_P2_PILLS_FIRST?(_rhTabs+_rhChart):(_rhChart+_rhTabs))+_p2Sec('stats',_pnUi.strip)+_p2Sec('more',_pnUi.more)+_p2Sec('cal',_pnUi.cal);
+        const _p2TopS={hero:_p2Sec('hero',_p2HeadNew),status:_p2StatFold,pills:_P2_PILLS_FIRST?_rhTabs:_rhChart,chart:_P2_PILLS_FIRST?_rhChart:_rhTabs,
+          stats:_p2Sec('stats',_pnUi.strip),more:_p2Sec('more',_pnUi.more),cal:_p2Sec('cal',_pnUi.cal)};
+        const _p2Top=LEDGER_TOP_ORDER.map(k=>_p2TopS[k]||'').join('');
         // the board own sections, after the trades: the 10s capture (with the data feed warning), then the four cards
         const _p2CapFold=(dataHtml||capHtml)?_p2Fold('capture','10s capture',_p2SumCap||'no capture report',dataHtml+capHtml):'';
         const _p2Cards=(_p2CapFold
@@ -42902,23 +43077,23 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // a stored width from a wider monitor must not push the main column off a
         // laptop screen.
         const _p2Wmax=Math.max(320,Math.round((window.innerWidth||1400)*0.4));
-        const _p2W=Math.min(_p2Wmax,Math.max(300,+(APREF.p2SideW||380)));
+        const _p2W=Math.min(_p2Wmax,Math.max(300,+(APREF.p2SideW||LEDGER_FRAME_SIDE_W)));
         // Below 1100px there is not enough room for two columns, so it stacks and the
         // rail sits under the stats.
-        const _p2Narrow=(window.innerWidth||1400)<1100;
+        const _p2Narrow=!LEDGER_FRAME_SIDE||(window.innerWidth||1400)<1100;
         const _p2Rail=_pnUi.rail;
         if(_p2Narrow){
           // the strategy list is a fold on a page narrower than the two-column one: closed on a phone (the trades start within one screen), open above 600 px
           const _p2ListFold=_p2Fold('list','Strategies',_p2Xs(_nShown+' of '+_bookDefs.length+' book legs on'+(_nUncounted?(' \u00b7 '+_nUncounted+' not counted'):'')),_p2Rail,
             {cls:'p2fold-list',open:(window.innerWidth||1400)>600});
-          body='<div class="p2rh">'+_p2Head+_p2Top+_p2ListFold+_p2Main+'</div>';
+          body='<div class="p2rh">'+_p2Head+ledgerFrameHtml({id:'p2',top:_p2Top,side:_p2ListFold,rest:_p2Main,sideW:_p2W})+'</div>';
         }else{
-          body='<div class="p2rh"><div data-p2grid="right" style="display:grid;grid-template-columns:minmax(0,1fr) 16px '+_p2W+'px;align-items:start">'
-              +'<div style="min-width:0">'+_p2Head+_p2Top+_p2Main+'</div>'
-              +'<div data-p2side title="Drag to set how wide the strategy list is. Double-click to reset." style="cursor:col-resize;align-self:stretch;min-height:120px;display:flex;align-items:flex-start;justify-content:center;padding-top:220px">'
-                +'<div style="width:2px;height:34px;border-radius:2px;background:var(--border)"></div></div>'
-              +'<div data-p2col="side" data-p2sec="list" style="position:sticky;top:6px;max-height:calc(100vh - 130px);overflow:auto;min-width:0">'+_p2Rail+'</div>'
-            +'</div></div>';
+          // LEDGER step 12: the shared page frame - the rail is its right-hand panel beside the top block; the drag bar sits on the panel's left edge
+          body='<div class="p2rh">'+_p2Head+ledgerFrameHtml({id:'p2',top:_p2Top,rest:_p2Main,sideW:_p2W,attr:'data-p2grid="right"',
+              handle:'<div data-p2side title="Drag to set how wide the strategy list is. Double-click to reset." style="position:absolute;left:-28px;top:0;bottom:0;width:16px;cursor:col-resize;display:flex;align-items:flex-start;justify-content:center;padding-top:220px">'
+                +'<div style="width:2px;height:34px;border-radius:2px;background:var(--border)"></div></div>',
+              side:'<div data-p2col="side" data-p2sec="list" style="min-width:0">'+_p2Rail+'</div>'})
+            +'</div>';
         }
       }
     }else{
@@ -44777,17 +44952,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // tracks the pointer, and only persisted on release - re-rendering on every
       // pointermove would rebuild the whole board dozens of times a second.
       content.querySelectorAll('[data-p2side]').forEach(bar=>{
-        const grid=bar.parentElement; if(!grid)return;
+        // LEDGER step 12: the bar sits on the left edge of the shared frame's right-hand panel; the width goes onto the frame (--lgf-side)
+        const grid=bar.closest('[data-lgframe]'),side=bar.closest('.lg-frame-side'); if(!grid||!side)return;
         // the rail sits on the RIGHT since the 2026-09-14 makeover: dragging left widens it
         const right=grid.getAttribute('data-p2grid')==='right';
         bar.onpointerdown=(e)=>{
           e.preventDefault();
-          const x0=e.clientX, w0=(right?grid.lastElementChild:grid.firstElementChild).getBoundingClientRect().width;
+          const x0=e.clientX, w0=side.getBoundingClientRect().width;
           const lim=Math.max(320,Math.round((window.innerWidth||1400)*(right?0.4:0.55)));
           let w=w0;
           const mv=(ev)=>{
             w=Math.min(lim,Math.max(300,w0+(right?(x0-ev.clientX):(ev.clientX-x0))));
-            grid.style.gridTemplateColumns=right?('minmax(0,1fr) 16px '+w+'px'):(w+'px 7px minmax(0,1fr)');
+            grid.style.setProperty('--lgf-side',w+'px');
           };
           const up=()=>{
             window.removeEventListener('pointermove',mv);
@@ -44797,7 +44973,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           window.addEventListener('pointermove',mv);
           window.addEventListener('pointerup',up);
         };
-        bar.ondblclick=()=>{savePref('p2SideW',right?380:440);renderApp();};
+        bar.ondblclick=()=>{savePref('p2SideW',LEDGER_FRAME_SIDE_W);renderApp();};
       });
       content.querySelectorAll('[data-p2card]').forEach(el=>{el.onclick=()=>{
         const k=el.getAttribute('data-p2card');
