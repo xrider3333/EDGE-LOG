@@ -6508,6 +6508,100 @@
    ],
    "overall": 55,
    "summary": "You chased the top of a huge opening bar, which is a low-quality entry with a stop that was far away. Your exit was excellent: you took 10.5 points near the high just before NQ fell more than 100 points. Treat it as a good exit on a risky entry, not a repeatable setup."
+  },
+  {
+   "sym": "MNQ",
+   "date": "2026-10-07",
+   "dir": "SHORT",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "09:40",
+   "exit_time": "09:47",
+   "entry": 31172.25,
+   "exit": 31168.25,
+   "qty": 1,
+   "entry_ts": "09:40:26",
+   "exit_ts": "09:47:33",
+   "breakout_candle": "09:39",
+   "stop": 31182.0,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 12,
+     "note": "Price broke the 31215 opening low with a 31238 to 31150 flush from 09:37 to 09:39, so the short side had momentum."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 8,
+     "note": "Short at 31172.25 sold only 22 points above the 31150 low after a 110-point drop, which is chasing the extension."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 8,
+     "note": "The 09:39 bar high of 31182 gave a clear 10-point stop, but that bar closed up near its high as a bounce bar."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 5,
+     "note": "The nearest target was the 31150 low only 22 points away, about 2:1 against a 10-point stop with support right there."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 5,
+     "note": "No setup was tagged, and the 09:39 bar was a bullish reversal bar rather than a bearish signal."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 8,
+     "note": "Volume was heavy at 14k to 20k contracts a minute with 25 to 50 point bars, plenty of liquidity but wide swings."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 7,
+     "note": "09:40 is ten minutes into the open, active but still in the choppy opening rotation."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 12,
+     "note": "You sold mid-bar at 09:40:26 as the bar dipped from 31189 to 31164, rather than waiting for a lower high to form."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 8,
+     "note": "Price ran to 31210.75 at 09:44, about 38 points of heat and well past the 31182 structural stop."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 9,
+     "note": "You took 4 points at 31168.25 while the 09:47 to 09:48 flush reached 31144.25, about 28 points offered within 15 minutes."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 12,
+     "note": "One MNQ contract kept the 38-point drawdown to roughly 77 dollars."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 4,
+     "note": "No setup, notes or grade were logged, and the trade was held through its structural stop."
+    }
+   ],
+   "overall": 49,
+   "summary": "You shorted the open flush after most of the move was done, selling 22 points above the low on a bounce bar. The trade went about 38 points against you, past where the 09:39 high said you were wrong, and you scratched out for 4 points just as it finally dropped another 20. Next time wait for a lower high to sell, or respect the bar-high stop instead of holding through it."
   }
  ],
  "na": [
