@@ -35,6 +35,18 @@
 # clock and api.market_calendar) whether a given run should actually check anything --
 # never the cron expression alone.
 #
+# PHONE TEXT (2026-10-07, owner GO "yes deploy box pings"): both pushes are api/ntfy_push.plain()
+# notes -- title "QQQ book: CHECK NOW", "Trading: AFFECTED - ...", one plain problem line, "Do: ...".
+#   1. urgent  "Trading: AFFECTED - the QQQ book stopped reporting during market hours." /
+#              "The QQQ order program has been silent for 6 min." /
+#              "Do: check the Webull app for open trades and ask Claude (PAPER-WB chat)."
+#      (was "EDGELOG QQQ: book heartbeat DOWN" + "users/<uid>/meta/qqq_exec heartbeat is 360s old")
+#   2. high    "Trading: AFFECTED - an open QQQ position may not be watched." /
+#              "The QQQ signal program is stale while the book holds a Webull position." /
+#              "Do: check the Webull app and ask Claude (PAPER-WB chat)."
+#      (was "EDGELOG QQQ: open position, stale signal engine")
+# Text only: the two conditions, their priorities and the 30-minute repeat below are unchanged.
+#
 # DEDUPE: "alert on the crossing, then at most every ALERT_REPEAT_SEC" -- see _dedupe.
 # State is a small doc, users/{uid}/meta/qqq_deadman, this script itself writes (the
 # ONLY writer of that doc -- unlike nt_cloud_watchdog.py, which deliberately never
@@ -231,14 +243,15 @@ def evaluate(book_doc, now_et, prior_state=None):
     result["checks"]["heartbeat_age_sec"] = hb_age
     result["checks"]["heartbeat_stale"] = hb_active
     if push_hb:
-        age_txt = "unknown (doc missing or has no heartbeat field)" if hb_age is None \
-            else f"{hb_age:.0f}s"
-        result["pushes"].append({
-            "severity": "urgent",
-            "title": "EDGELOG QQQ: book heartbeat DOWN",
-            "message": f"users/<uid>/meta/qqq_exec heartbeat is {age_txt} old "
-                      f"(threshold {hb_threshold:.0f}s) -- the book may have stopped "
-                      f"publishing"})
+        if hb_age is None:
+            problem = "The QQQ order program's status cannot be read."
+        elif hb_age < 120:
+            problem = "The QQQ order program has been silent for %d seconds." % hb_age
+        else:
+            problem = "The QQQ order program has been silent for %d min." % round(hb_age / 60)
+        result["pushes"].append(_plain_push(
+            "urgent", "the QQQ book stopped reporting during market hours", problem,
+            "check the Webull app for open trades and ask Claude (PAPER-WB chat)"))
 
     # -- condition 2: open position + stale signal engine -> high -------------------
     has_open = _has_open_position(book_doc)
@@ -250,14 +263,20 @@ def evaluate(book_doc, now_et, prior_state=None):
     result["checks"]["signal_engine_known"] = signal_known
     result["checks"]["signal_engine_stale"] = signal_stale
     if push_pos:
-        result["pushes"].append({
-            "severity": "high",
-            "title": "EDGELOG QQQ: open position, stale signal engine",
-            "message": "the book holds an open Webull position while the signal engine "
-                      "looks stale (feed_stale=true) -- nothing may be watching this "
-                      "position right now"})
+        result["pushes"].append(_plain_push(
+            "high", "an open QQQ position may not be watched",
+            "The QQQ signal program is stale while the book holds a Webull position.",
+            "check the Webull app and ask Claude (PAPER-WB chat)"))
 
     return result
+
+
+def _plain_push(severity, affects, problem, action):
+    """One push in the plain phone format (api/ntfy_push.plain; module docstring PHONE TEXT),
+    in this module's {"severity", "title", "message"} shape -- severity is the ntfy priority."""
+    from api import ntfy_push
+    note = ntfy_push.plain("QQQ book", "CHECK NOW", affects, problem, action, priority=severity)
+    return {"severity": note["priority"], "title": note["title"], "message": note["message"]}
 
 
 def _get_firestore_client():

@@ -46,18 +46,53 @@ from api/market_calendar):
     KEEL current, QQQ_1d newest bar no older than the session BEFORE the previous one (the
     most the cache can hold before the engine's ~09:35 refresh), lease fresh (last publish within
     max(90 s, 2x renew)), not halted (breaker/kill today, KILL files), engine heartbeat fresh,
-    Webull token NORMAL with more than 5 days left (#12, #14, #18, #19). A pass pushes "QQQ book
-    ready" (once a day -- which also proves the alert path works, #16); any miss pushes URGENT
-    at that slot.
+    Webull token NORMAL with more than 5 days left (#12, #14, #18, #19). The first slot that
+    passes pushes "QQQ book: OK" (low, once a day -- which also proves the alert path works,
+    #16); a miss pushes "QQQ book: CHECK NOW" (high) -- see PHONE TEXT.
 
 ALERTS (#16). One push per EPISODE (the run a check first fails -- or its 2nd run in a row for
-the debounced ones) and one recovery push when it passes again; problems that start in the
-same run go out as ONE push. Every push goes through api/ntfy_push (token-aware) via a
+the debounced ones) and, when it passes again, one "OK" only if that episode's push was high or
+urgent; problems that start in the same run go out as ONE push. Every push goes through
+api/ntfy_push (token-aware) via a
 PERSISTED OUTBOX (<home>/freshness/outbox.json): a push that fails stays queued and is retried
 every run for up to 12 h (at most 5 sends a run; the outbox is rewritten after each one), so
-a network blip delays a page instead of eating it. A windowed
-check whose window ends while it is still failing is closed and reported as "no longer
-checked". Outputs, all under <home>/freshness/: status.json (open alerts, this run's verdicts,
+a network blip delays a page instead of eating it (a late one says "Sent late - raised at
+HH:MM" on its problem line). A windowed
+check whose window ends while it is still failing is closed as "no longer checked": logged,
+kept in status.json and relayed to the inboxes by the PC half, but NOT pushed again (the
+opening push already said what to do; nothing was seen fixed).
+
+PHONE TEXT (2026-10-07, owner GO "yes deploy box pings": the PC side's plain format from v73.1120
+brought to the box). Every push is an api/ntfy_push.plain() note -- title "<area>: <status>"
+under 40 characters, then "Trading: not affected." or "Trading: AFFECTED - <what>.", ONE plain
+problem line ("+N more" when several started together), "Do: ...". Areas: "QQQ book" (the Webull
+paper book) and "Cloud box" (disk, logs, a box service the book does not need). Priority by what
+the problem does to TRADING: urgent only where the check was already URGENT (orders blocked while
+armed in session, the close not run, Webull not confirmed flat); high when trading is affected;
+default when it needs a fix today but trading is fine; low for data-only notes and every "OK".
+Times are the owner's clock (America/Phoenix, ntfy_push.hhmm), never New York. Each check carries
+its own wording as the verdict's "plain" dict ({area, affects, problem, action, priority}); the
+verdict's "title"/"detail" -- what status.json, the log and the PC relay show -- are unchanged.
+Before: "EDGELOG WB MONITOR: <developer title>" with "[SEVERITY] title: detail" lines, an "OK
+again" push for every episode, and "QQQ book ready"/"QQQ book NOT ready" (urgent) from the gate.
+  Pre-open gate:  not ready -> "QQQ book: CHECK NOW" (high), "Trading: AFFECTED - the QQQ book may
+                  not trade at the open." (or what the lead miss really does: an old KEEL model, a
+                  short price history), the lead miss in plain words "+N more", its fix (a miss only
+                  the owner can clear -- approve the Webull login, a halt or kill switch -- leads). A
+                  token that merely expires within 5 days is "QQQ book: needs a fix" (default,
+                  trading not affected today). Repeats by ntfy_push.dedupe inside the day: the 09:15
+                  slot pushes only a NEW or WORSE miss; a new day starts fresh. ready -> "QQQ book:
+                  OK" (low) "The QQQ paper book passed its 05:31 pre-open check." once a day, or
+                  when it turns ready after a miss.
+  Episodes:       e.g. "QQQ book: CHECK NOW" (urgent) / "Trading: AFFECTED - the QQQ book cannot send
+                  orders." / "The QQQ order program stopped reporting at 07:10 - the board is
+                  frozen." / "Do: ask Claude (PAPER-WB chat)."; "Cloud box: needs a fix" (default)
+                  for the disk, a big log or a box service the book does not trade through; the
+                  shadow legs' heartbeat is a low note (data only).
+  Auto-restart:   "QQQ book: restarted" (low) when it worked -- flat, market closed; "QQQ book: CHECK
+                  NOW" (high) when the restart command failed.
+
+Outputs, all under <home>/freshness/: status.json (open alerts, this run's verdicts,
 outbox depth, restart gate -- what tools/webull_freshness_pc.py reads over ssh),
 freshness_heartbeat.json (this monitor's own liveness), state.json (its memory), and a log at
 <home>/logs/freshness.log. If EDGELOG_FRESHNESS_PING_URL is set (a healthchecks.io-type
@@ -106,13 +141,52 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from api import market_calendar  # noqa: E402  (see sys.path insert above)
+from api import ntfy_push  # noqa: E402  (stdlib only; the one plain phone format)
 
 ET = ZoneInfo("America/New_York")
 
 URGENT, HIGH, MEDIUM, INFO = "URGENT", "HIGH", "MEDIUM", "INFO"
 _SEV_RANK = {INFO: 0, MEDIUM: 1, HIGH: 2, URGENT: 3}
-_NTFY_PRIORITY = {URGENT: "urgent", HIGH: "high", MEDIUM: "default", INFO: "default"}
-TITLE_PREFIX = "EDGELOG WB MONITOR"
+
+# -- phone wording (PHONE TEXT in the module docstring) -----------------------------------------
+BOOK, BOX = "QQQ book", "Cloud box"
+ASK = "ask Claude (PAPER-WB chat)"
+NO_ORDERS = "the QQQ book cannot send orders"
+MAY_NOT_TRADE = "the QQQ book may not trade at the open"
+OLD_MODEL = "the QQQ book sizes NOISE trades on an old model"
+MAY_HOLD = "the QQQ book may still hold shares after the close"
+SHORT_HISTORY = "NOISE trades on a price history that is a day short"
+OWNER_FIXES = ("token_status", "halted", "kill")   # pre-open misses only the owner can clear
+FLAT_DO = "check the Webull app is flat and sell by hand if needed"
+# box units by plain name, and whether the book trades through them
+UNIT_WORDS = {
+    "edgelog-qqq-exec.service": ("The QQQ order program", True),
+    "edgelog-cloud-signal.service": ("The QQQ signal program", True),
+    "edgelog-qqq-bars.service": ("The QQQ chart download", False),
+    "edgelog-keel-state.service": ("The KEEL model rebuild", False),
+    "edgelog-freshness.service": ("This monitor", False),
+    "edgelog-runner.service": ("The job runner", False),
+    "edgelog-healthcheck.service": ("The box health check", False),
+}
+
+
+def _plain(problem, action=ASK, affects=None, area=BOOK, priority=None):
+    """One check's phone wording -> the verdict's "plain" dict. priority None = urgent/high from
+    the verdict's severity when trading is affected, else default (see _rec_priority)."""
+    return {"area": area, "affects": affects, "problem": problem, "action": action,
+            "priority": priority}
+
+
+def _plain_age(sec):
+    """45 -> '45 seconds', 840 -> '14 min', 9000 -> '2.5 hours'; None -> None."""
+    if sec is None:
+        return None
+    sec = max(0.0, float(sec))
+    if sec < 120:
+        return "%d seconds" % sec
+    if sec < 7200:
+        return "%d min" % round(sec / 60)
+    return "%.1f hours" % (sec / 3600)
 
 # -- thresholds (seconds unless named otherwise) ---------------------------------------------
 PUBLISH_STALE_FLOOR_SEC = 900.0      # 15 min: the off-hours publish cadence is 600 s
@@ -515,11 +589,17 @@ def exec_view(snap, now_et, mstate):
     return v
 
 
-def _verdict(key, group, ok, severity, title, detail="", min_runs=1, hold_sec=WINDOW_HOLD_SEC):
-    """ok: True pass, False fail, None unknown this run (no change either way)."""
-    return {"key": key, "group": group, "ok": None if ok is None else bool(ok),
-            "severity": severity, "title": title,
-            "detail": detail, "min_runs": min_runs, "hold_sec": hold_sec}
+def _verdict(key, group, ok, severity, title, detail="", min_runs=1, hold_sec=WINDOW_HOLD_SEC,
+             plain=None):
+    """ok: True pass, False fail, None unknown this run (no change either way). `title` and
+    `detail` are the developer text (status.json, the log, the PC relay); `plain` (a _plain()
+    dict) is the phone wording -- see PHONE TEXT."""
+    v = {"key": key, "group": group, "ok": None if ok is None else bool(ok),
+         "severity": severity, "title": title,
+         "detail": detail, "min_runs": min_runs, "hold_sec": hold_sec}
+    if plain is not None:
+        v["plain"] = plain
+    return v
 
 
 # -- the checks -------------------------------------------------------------------------------
@@ -528,7 +608,9 @@ def check_exec(snap, now_et, mstate, ev):
     if not ev["readable"]:
         out.append(_verdict("exec_state", "exec", False, HIGH,
                             "cannot read the executor's state.json",
-                            f"qqq_exec/state.json is {snap.get('exec_state_err')}", min_runs=2))
+                            f"qqq_exec/state.json is {snap.get('exec_state_err')}", min_runs=2,
+                            plain=_plain("The QQQ order program's state file cannot be read.",
+                                         affects="the QQQ book may not be trading")))
         # the other executor checks cannot be judged this run: unknown, not recovered
         out += [_verdict(k, "exec", None, HIGH, k)
                 for k in ("exec_publish", "exec_suppress", "exec_loop")]
@@ -541,12 +623,17 @@ def check_exec(snap, now_et, mstate, ev):
     stale = age is None or age > limit
     standby = " A standby marker is present (another host holds the lease)." \
         if snap.get("standby_mtime") else ""
+    now_epoch = now_et.timestamp()
+    last_seen = ("at " + ntfy_push.hhmm(now_epoch - age, now=now_epoch)) if age is not None else None
     out.append(_verdict(
         "exec_publish", "exec", not stale, sev_live,
         "executor Firestore publish DOWN",
         f"last good publish {ev['last_ok'] or 'never'} ET ({fmt_age(age)} ago, limit "
         f"{fmt_age(limit)}). The board is frozen and, while armed, every broker send is "
-        f"blocked (fail-CLOSED).{standby}"))
+        f"blocked (fail-CLOSED).{standby}",
+        plain=_plain(("The QQQ order program stopped reporting %s - the board is frozen." % last_seen)
+                     if last_seen else "The QQQ order program has not reported since it started.",
+                     affects=NO_ORDERS if armed else None)))
     # "suppressing broker sends" -- the lease read failed and a real order was blocked
     log_state = mstate.setdefault("exec_log", {})
     hits, new_off = snap.get("_suppress_hits", 0), snap.get("_suppress_offset")
@@ -564,13 +651,18 @@ def check_exec(snap, now_et, mstate, ev):
         "executor is BLOCKING broker sends",
         f"{len(times)} 'suppressing broker sends' line(s) in qqq_exec.log in the last "
         f"{SUPPRESS_WINDOW_SEC / 60:.0f} min -- the lease read is failing, so no real order "
-        f"can go out (reason: {st.get('_broker_lease_reason') or 'n/a'})."))
+        f"can go out (reason: {st.get('_broker_lease_reason') or 'n/a'}).",
+        plain=_plain("The QQQ order program is blocking its own orders - its safety check "
+                     "against a second copy is failing.", affects=NO_ORDERS)))
     loop_age = ev["loop_age"]
     silent = loop_age is None or loop_age > EXEC_LOOP_SILENT_SEC
     out.append(_verdict(
         "exec_loop", "exec", not silent, HIGH, "executor tick loop not running",
         f"no tick for {fmt_age(loop_age)} (SERVING.lock / state.json not rewritten). The "
-        f"process is wedged, crash-looping or standing by.{standby}"))
+        f"process is wedged, crash-looping or standing by.{standby}",
+        plain=_plain(("The QQQ order program has been stuck for %s." % _plain_age(loop_age))
+                     if loop_age is not None else "The QQQ order program is not running.",
+                     affects="the QQQ book is not running")))
     return out
 
 
@@ -579,8 +671,19 @@ def check_systemd(snap):
     if units is None:
         return None
     return [_verdict(f"failed_unit:{u}", "systemd", False, HIGH, f"box unit FAILED: {u}",
-                     f"systemctl --failed lists {u} (journalctl -u {u} for why)")
+                     f"systemctl --failed lists {u} (journalctl -u {u} for why)",
+                     plain=_unit_plain(u))
             for u in units]
+
+
+def _unit_plain(unit):
+    word, trades = UNIT_WORDS.get(unit, (None, False))
+    if word is None:
+        name = unit[:-len(".service")] if unit.endswith(".service") else unit
+        return _plain("The cloud box service %s failed." % name, area=BOX)
+    return _plain("%s failed on the cloud box." % word,
+                  affects=("the QQQ book is not running" if trades else None),
+                  area=BOOK if trades else BOX)
 
 
 def check_disk(snap):
@@ -588,11 +691,13 @@ def check_disk(snap):
     pct = snap.get("disk_pct")
     if pct is not None:
         out.append(_verdict("disk", "disk", pct < DISK_PCT_MAX, HIGH, "box disk filling up",
-                            f"{pct:.0f}% used (limit {DISK_PCT_MAX:.0f}%)"))
+                            f"{pct:.0f}% used (limit {DISK_PCT_MAX:.0f}%)",
+                            plain=_plain("The cloud box disk is %.0f%% full." % pct, area=BOX)))
     big = snap.get("big_logs") or []
     out.append(_verdict("log_size", "disk", not big, MEDIUM, "a box log is over 100 MB",
                         ", ".join(f"{n} {s / 1048576:.0f} MB" for n, s in big)
-                        + " -- a logger is flooding or logrotate is not running"))
+                        + " -- a logger is flooding or logrotate is not running",
+                        plain=_plain("A log file on the cloud box is over 100 MB.", area=BOX)))
     return out
 
 
@@ -608,18 +713,25 @@ def check_evening(snap, now_et):
         "nq_master", "evening", nq_day is not None and nq_day >= due, HIGH,
         "NQ master on the box is behind",
         f"last bar {nq_day or 'missing'}, expected {due} -- the PC's 17:20 ET push did not "
-        f"land, so tonight's KEEL build trains on old data."))
+        f"land, so tonight's KEEL build trains on old data.",
+        plain=_plain("The PC's after-close NQ data upload did not reach the cloud box, so "
+                     "tonight's KEEL rebuild uses old data.",
+                     action="make sure the PC is on at 14:20, or " + ASK)))
     want = keel_expected(due)
     keel = snap.get("keel") or {}
     if not keel:
         out.append(_verdict("keel:none", "evening", False, HIGH, "no KEEL summary on the box",
-                            "cloud_signal/keel has no *_summary.json"))
+                            "cloud_signal/keel has no *_summary.json",
+                            plain=_plain("The KEEL sizing model is missing on the cloud box.",
+                                         affects="the QQQ book sizes NOISE trades without its model")))
     for leg, through in sorted(keel.items()):
         ok = bool(through) and str(through) >= want.isoformat()
         out.append(_verdict(
             f"keel:{leg}", "evening", ok, HIGH, f"KEEL STALE ({leg}), still sizing",
             f"trained through {through or 'unknown'}, expected {want}. The live leg keeps "
-            f"sizing on the stale model until it is rebuilt."))
+            f"sizing on the stale model until it is rebuilt.",
+            plain=_plain("The KEEL sizing model was not rebuilt after the close.",
+                         affects=OLD_MODEL)))
     return out
 
 
@@ -637,7 +749,8 @@ def check_session(snap, now_et, mstate, ev):
         "engine_hb", "session", not bad, HIGH, "signal engine STALLED",
         f"cloud_signal heartbeat {fmt_age(age)} old, ok={hb.get('ok')} "
         f"({hb.get('note') or snap.get('cs_hb_err') or ''}). New entries are blocked while "
-        f"it is stale, lot or no lot.", min_runs=2))
+        f"it is stale, lot or no lot.", min_runs=2,
+        plain=_plain(_engine_problem(age, hb), affects="the QQQ book cannot open new trades")))
     # newest closed 5m bar (#6) and its source (#15)
     cs = snap.get("cs_state") if isinstance(snap.get("cs_state"), dict) else {}
     src = ((cs.get("bar_source") or {}).get("5m") or {}) if cs else {}
@@ -651,13 +764,18 @@ def check_session(snap, now_et, mstate, ev):
             "bar_age", "session", not stale, HIGH, "5m bars STOPPED arriving",
             f"newest closed 5m bar closed {fmt_age(bar_age)} ago (limit "
             f"{BAR_CLOSE_STALE_SEC:.0f}s); the heartbeat can still say ok while no ENTRY or "
-            f"EXIT can be produced."))
+            f"EXIT can be produced.",
+            plain=_plain(("The newest QQQ price bar is %s old." % _plain_age(bar_age))
+                         if bar_age is not None else "No QQQ price bars are arriving.",
+                         affects="the QQQ book cannot enter or exit trades")))
     source = src.get("source")
     out.append(_verdict(
         "bar_source", "session", (source != "yfinance") if source else None, HIGH,
         "live bars falling back to yfinance",
         "the 5m cache is being filled from yfinance, not Webull (bars 30-90 s late); "
-        "check the Webull token / REST in cloud_signal.log.", min_runs=2))
+        "check the Webull token / REST in cloud_signal.log.", min_runs=2,
+        plain=_plain("QQQ prices are coming from the slower backup source, not Webull.",
+                     affects="the QQQ book trades on late prices")))
     # the daily cache (#14): the engine's ~09:35 refresh must have added the previous session
     if hhmm(now_et) >= QQQ_1D_CHECK_FROM:
         want = prev_session(d)
@@ -668,7 +786,9 @@ def check_session(snap, now_et, mstate, ev):
             f"QQQ_1d newest bar {d1_day or 'missing'}, expected {want} after the engine's "
             f"~09:35 ET refresh -- NOISE's vol look-back is a session short (the refresh is "
             f"tried once a day: see cloud_signal.log 'QQQ daily cache refresh').",
-            min_runs=2))
+            min_runs=2,
+            plain=_plain("The QQQ daily price history was not updated this morning.",
+                         affects=SHORT_HISTORY)))
     # tick gaps (#3)
     st = snap.get("exec_state") if isinstance(snap.get("exec_state"), dict) else {}
     seen = mstate.setdefault("tick_gap_seen", {})
@@ -685,7 +805,9 @@ def check_session(snap, now_et, mstate, ev):
     out.append(_verdict(
         "tick_gap", "session", not (gap_now or rose), HIGH, "executor tick loop STALLING",
         f"current gap {fmt_age(loop_age)}, today's max {gmax:.0f}s (limit "
-        f"{TICK_GAP_SESSION_SEC:.0f}s) -- entries, exits and the EOD rails run late."))
+        f"{TICK_GAP_SESSION_SEC:.0f}s) -- entries, exits and the EOD rails run late.",
+        plain=_plain("The QQQ order program stalled for %s." % _plain_age(loop_age if gap_now else gmax),
+                     affects="the QQQ book's entries and exits run late")))
     # shadow legs heartbeat (#25)
     sh = snap.get("shadow_hb") if isinstance(snap.get("shadow_hb"), dict) else {}
     sts = parse_iso(sh.get("ts")) if sh else None
@@ -694,8 +816,18 @@ def check_session(snap, now_et, mstate, ev):
     out.append(_verdict(
         "shadow_hb", "session", not sbad, MEDIUM, "shadow legs heartbeat stale",
         f"shadow heartbeat {fmt_age(sage)} old, ok={sh.get('ok')} -- the forward log can "
-        f"lose rows.", min_runs=2))
+        f"lose rows.", min_runs=2,
+        plain=_plain("The QQQ shadow strategies (not traded) stopped reporting - their forward "
+                     "record can miss rows.", priority="low")))
     return out
+
+
+def _engine_problem(age, hb):
+    if age is not None and age <= ENGINE_HB_STALE_SEC and hb.get("ok") is False:
+        return "The QQQ signal program reports a problem."
+    if age is None:
+        return "The QQQ signal program is not reporting."
+    return "The QQQ signal program has not reported for %s." % _plain_age(age)
 
 
 def check_eod(snap, now_et):
@@ -709,7 +841,9 @@ def check_eod(snap, now_et):
     out.append(_verdict(
         "eod_summary", "eod", done, URGENT, "EOD did not run",
         f"eod_summary_done_date is {st.get('eod_summary_done_date')}, not {today} -- the "
-        f"executor was down or stalled at the close: CHECK WEBULL IS FLAT BY HAND."))
+        f"executor was down or stalled at the close: CHECK WEBULL IS FLAT BY HAND.",
+        plain=_plain("The QQQ book's end-of-day close did not run.", action=FLAT_DO,
+                     affects=MAY_HOLD)))
     flat = st.get("_webull_flat_after_eod") or {}
     flat_ok = flat.get("date") == today and flat.get("flat") is True
     sev = URGENT
@@ -721,25 +855,34 @@ def check_eod(snap, now_et):
     kills = snap.get("exec_kill_files")
     if kills is None:
         kills = snap.get("kill_files") or []
+    affects = MAY_HOLD
     if flat.get("date") != today and kills:
         sev = HIGH
         why = (f"the book is HALTED by a KILL file "
                f"({', '.join(os.path.basename(p) for p in kills)}), so the executor's "
                f"post-close Webull flat check cannot run (last {flat.get('date')})")
+        problem = "The QQQ book is halted, so its after-close Webull position check cannot run."
+        affects = "the QQQ book is halted and nobody has confirmed Webull is flat"
     elif flat.get("date") != today:
         why = f"the post-close Webull flat check did not run today (last {flat.get('date')})"
+        problem = "The after-close Webull position check did not run today."
     elif flat.get("flat") is False:
         why = f"Webull still holds {flat.get('shares')} QQQ after the close"
+        problem = "Webull still holds %s QQQ shares after the close." % flat.get("shares")
     else:
         why = "the post-close Webull position read could not be verified"
+        problem = "The after-close Webull position could not be read."
     out.append(_verdict("webull_flat", "eod", flat_ok, sev, "Webull NOT confirmed flat",
-                        why + " -- check the Webull app and sell by hand if needed."))
+                        why + " -- check the Webull app and sell by hand if needed.",
+                        plain=_plain(problem, action=FLAT_DO, affects=affects)))
     cs = snap.get("cs_state") if isinstance(snap.get("cs_state"), dict) else {}
     settled = today in ((cs or {}).get("eod_settled") or {})
     out.append(_verdict(
         "eod_settled", "eod", settled, HIGH, "EOD bars never settled",
         f"cloud_signal eod_settled has no {today} -- today's exits post tomorrow with an old "
-        f"ref_time."))
+        f"ref_time.",
+        plain=_plain("Today's closing QQQ prices were not settled, so today's exits are "
+                     "recorded late.")))
     return out
 
 
@@ -756,18 +899,28 @@ def preopen_slot(now_et):
     return None
 
 
-def preopen_misses(snap, now_et, ev):
+def preopen_checks(snap, now_et, ev):
+    """Every pre-open miss as {"id", "text", "problem", "action", "affects", "priority"}: `text` is
+    the developer line (status.json slots, the alert detail, the PC relay); the rest is the phone
+    wording (PHONE TEXT). An empty list = ready."""
     d = now_et.date()
     now_epoch = now_et.timestamp()
     prev = prev_session(d)
     misses = []
+
+    def miss(mid, text, problem, action=ASK, affects=MAY_NOT_TRADE):
+        misses.append({"id": mid, "text": text, "problem": problem, "action": action,
+                       "affects": affects, "priority": "high" if affects else "default"})
     want = keel_expected(prev) if prev else None
     keel = snap.get("keel") or {}
     if not keel:
-        misses.append("no KEEL summary on the box")
+        miss("keel", "no KEEL summary on the box",
+             "The KEEL sizing model is missing on the cloud box.",
+             affects="the QQQ book sizes NOISE trades without its model")
     for leg, through in sorted(keel.items()):
         if want and (not through or str(through) < want.isoformat()):
-            misses.append(f"KEEL {leg} trained through {through}, expected {want}")
+            miss("keel:" + leg, f"KEEL {leg} trained through {through}, expected {want}",
+                 "The KEEL sizing model was not rebuilt after the last close.", affects=OLD_MODEL)
     # QQQ_1d.csv is refreshed by cloud_signal's step(), which only runs in RTH, at most once
     # per calendar day (_maybe_refresh_daily_cache): the previous session's bar first lands
     # at about 09:35 ET. Before the open the most the cache can hold is the session BEFORE
@@ -776,43 +929,68 @@ def preopen_misses(snap, now_et, ev):
     d1_want = prev_session(prev) if prev else None
     d1_day = qqq_1d_day(snap)
     if d1_want and (d1_day is None or d1_day < d1_want):
-        misses.append(f"QQQ_1d newest bar {d1_day or 'missing'}, expected {d1_want} or "
-                      f"newer (NOISE look-back truncated)")
+        miss("qqq_1d", f"QQQ_1d newest bar {d1_day or 'missing'}, expected {d1_want} or "
+                       f"newer (NOISE look-back truncated)",
+             "The QQQ daily price history is out of date.", affects=SHORT_HISTORY)
     limit = max(PREOPEN_LEASE_FLOOR_SEC, PREOPEN_LEASE_MARGIN * ev["renew"])
     if not ev["readable"]:
-        misses.append("executor state.json unreadable")
+        miss("exec_state", "executor state.json unreadable",
+             "The QQQ order program's state file cannot be read.")
     elif ev["publish_age"] is None or ev["publish_age"] > limit:
-        misses.append(f"lease not fresh: last publish {fmt_age(ev['publish_age'])} ago "
-                      f"(limit {fmt_age(limit)})")
+        miss("lease", f"lease not fresh: last publish {fmt_age(ev['publish_age'])} ago "
+                      f"(limit {fmt_age(limit)})",
+             ("The QQQ order program has not reported for %s." % _plain_age(ev["publish_age"]))
+             if ev["publish_age"] is not None else "The QQQ order program is not reporting.")
     st = snap.get("exec_state") if isinstance(snap.get("exec_state"), dict) else {}
     if st.get("trading_day") == d.isoformat() and (st.get("breaker_tripped")
                                                    or st.get("kill_done")):
-        misses.append("book HALTED today (breaker or kill)")
+        miss("halted", "book HALTED today (breaker or kill)",
+             "The QQQ book is halted for today (loss limit or kill switch).",
+             action="nothing if it was halted on purpose, else " + ASK)
     for p in snap.get("kill_files") or []:
-        misses.append(f"KILL file present: {os.path.basename(os.path.dirname(p))}/"
-                      f"{os.path.basename(p)}")
+        where = f"{os.path.basename(os.path.dirname(p))}/{os.path.basename(p)}"
+        miss("kill:" + where, f"KILL file present: {where}", "The QQQ book's kill switch is on.",
+             action="nothing if it was switched on on purpose, else " + ASK)
     hb = snap.get("cs_hb") if isinstance(snap.get("cs_hb"), dict) else {}
     ts = parse_iso(hb.get("ts")) if hb else None
     age = (now_epoch - ts.timestamp()) if ts else None
     if age is None or age > ENGINE_HB_STALE_SEC or hb.get("ok") is False:
-        misses.append(f"signal engine heartbeat {fmt_age(age)} old, ok={hb.get('ok')}")
+        miss("engine", f"signal engine heartbeat {fmt_age(age)} old, ok={hb.get('ok')}",
+             _engine_problem(age, hb))
     tokens = snap.get("tokens") or {}
     if not tokens:
-        misses.append("no Webull token file on the box")
+        miss("token", "no Webull token file on the box",
+             "The Webull login is missing on the cloud box.")
     for name, (expires, status) in sorted(tokens.items()):
+        login = "The Webull paper login" if "paper" in name else "The Webull login"
         if status != "NORMAL":
-            misses.append(f"Webull token ({name}) status {status or 'unknown'} -- approve it "
-                          f"in the Webull app")
+            miss("token_status:" + name,
+                 f"Webull token ({name}) status {status or 'unknown'} -- approve it "
+                 f"in the Webull app", login + " needs approval.",
+                 action="approve the login in the Webull app")
         if expires is None:
-            misses.append(f"Webull token ({name}) expiry unreadable")
+            miss("token_expiry:" + name, f"Webull token ({name}) expiry unreadable",
+                 login + "'s expiry date cannot be read.", affects=None)
         elif expires - now_epoch < TOKEN_MIN_DAYS * 86400:
-            misses.append(f"Webull token ({name}) expires in "
-                          f"{(expires - now_epoch) / 86400:.1f} days")
+            days = (expires - now_epoch) / 86400
+            miss("token_expires:" + name,
+                 f"Webull token ({name}) expires in {days:.1f} days",
+                 (login + " expires in %.0f days." % days) if days >= 1.5 else
+                 (login + " expires within a day." if days > 0 else login + " has expired."),
+                 affects=None if days > 0 else MAY_NOT_TRADE)
     return misses
 
 
+def preopen_misses(snap, now_et, ev):
+    """The developer lines of preopen_checks() -- what status.json's slots and the alert detail
+    carry ([] = ready)."""
+    return [m["text"] for m in preopen_checks(snap, now_et, ev)]
+
+
 def preopen_step(snap, now_et, mstate, alerts, ev):
-    """Runs the gate once per slot. Returns [(title, message, priority)] to push."""
+    """Runs the gate once per slot. Returns [(title, message, priority)] to push (PHONE TEXT: a
+    miss pushes once a day unless a NEW or WORSE miss shows up at the later slot; the first
+    passing slot of the day, or the first after a miss, pushes one low "QQQ book: OK")."""
     slot = preopen_slot(now_et)
     if slot is None:
         return []
@@ -823,7 +1001,8 @@ def preopen_step(snap, now_et, mstate, alerts, ev):
     mstate["preopen"] = po
     if slot in po["slots"]:
         return []
-    misses = preopen_misses(snap, now_et, ev)
+    checks = preopen_checks(snap, now_et, ev)
+    misses = [m["text"] for m in checks]
     po["slots"][slot] = {"at": now_et.strftime("%H:%M"), "misses": misses}
     now_epoch = now_et.timestamp()
     if misses:
@@ -835,18 +1014,25 @@ def preopen_step(snap, now_et, mstate, alerts, ev):
                     "last_bad_epoch": now_epoch, "hold_sec": hold, "quiet_expire": True,
                     "bad_runs": int(rec.get("bad_runs", 0)) + 1})
         alerts["preopen"] = rec
-        return [(f"{TITLE_PREFIX}: QQQ book NOT ready ({slot} check)",
-                 "\n".join(f"- {m}" for m in misses), _NTFY_PRIORITY[URGENT])]
+        # the same misses push once a day (po starts fresh each day); a new or worse one at once
+        action, po["push"] = ntfy_push.dedupe(
+            {m["id"]: ntfy_push.RANK[m["priority"]] for m in checks}, po.get("push") or {},
+            now_epoch, ntfy_push.DAY_S)
+        if action != "push":
+            return []
+        # among equally serious misses, the ones only the owner can fix lead the note
+        lead = sorted(checks, key=lambda m: m["id"].split(":")[0] not in OWNER_FIXES)
+        note = compose_note([dict(m, area=BOOK, rank=ntfy_push.RANK[m["priority"]])
+                             for m in lead])
+        return [(note["title"], note["message"], note["priority"])]
     fixed = alerts.pop("preopen", None)
+    po["push"] = {}
     if fixed is None and po.get("ready_pushed"):
         return []
     po["ready_pushed"] = True
-    note = f" (fixed since {fixed.get('opened_et')})" if fixed else ""
-    return [(f"{TITLE_PREFIX}: QQQ book ready{note}",
-             f"{slot} ET pre-open gate passed: KEEL current, QQQ_1d as current as it can be "
-             f"before the open, lease fresh, not halted, engine heartbeat fresh, Webull token "
-             f"NORMAL (> {TOKEN_MIN_DAYS:.0f} days left). This push also proves the alert path "
-             f"works.", "default")]
+    note = ntfy_push.plain(BOOK, "OK", None, "The QQQ paper book passed its %s pre-open check."
+                           % ntfy_push.hhmm(now_epoch, now=now_epoch), "nothing", priority="low")
+    return [(note["title"], note["message"], note["priority"])]
 
 
 # -- episodes ---------------------------------------------------------------------------------
@@ -879,6 +1065,8 @@ def apply_verdicts(alerts, verdicts, groups_ran, now_epoch, now_label):
                         "detail": v["detail"], "last_bad_epoch": now_epoch,
                         "last_bad_et": now_label, "hold_sec": v.get("hold_sec", 0.0),
                         "window_alert": bool(v.get("window_alert"))})
+            if v.get("plain") is not None:
+                rec["plain"] = v["plain"]
             if not rec.get("open") and rec["bad_runs"] >= int(v.get("min_runs", 1)):
                 rec.update({"open": True, "opened_epoch": now_epoch, "opened_et": now_label})
                 opened.append(dict(rec))
@@ -900,32 +1088,84 @@ def apply_verdicts(alerts, verdicts, groups_ran, now_epoch, now_label):
     return opened, recovered, expired
 
 
-def max_severity(recs):
-    return max((r.get("severity", INFO) for r in recs), key=lambda s: _SEV_RANK.get(s, 0))
+def _rec_plain(rec):
+    """An episode's phone wording; a record saved before PHONE TEXT existed (no "plain") gets a
+    generic one, so a deploy in the middle of an episode never pushes developer text."""
+    p = rec.get("plain") if isinstance(rec.get("plain"), dict) else None
+    return p or _plain("A QQQ book check is failing.")
+
+
+def _rec_priority(rec):
+    """ntfy priority of an episode's push: the check's own when it set one; else urgent / high
+    when trading is affected (urgent only where the check's severity is URGENT), default when
+    it is not."""
+    if not isinstance(rec.get("plain"), dict):     # saved before PHONE TEXT: as it was pushed
+        return {URGENT: "urgent", HIGH: "high"}.get(rec.get("severity"), "default")
+    p = _rec_plain(rec)
+    if p.get("priority") in ntfy_push.RANK:
+        return p["priority"]
+    if p.get("affects"):
+        return "urgent" if rec.get("severity") == URGENT else "high"
+    return "default"
+
+
+def _desc(rec):
+    p = _rec_plain(rec)
+    prio = _rec_priority(rec)
+    return {"area": p.get("area") or BOOK, "affects": p.get("affects"), "problem": p.get("problem"),
+            "action": p.get("action") or ASK, "priority": prio, "rank": ntfy_push.RANK[prio]}
+
+
+def compose_note(descs):
+    """ONE plain note for one or more problems ({area, affects, problem, action, priority, rank}):
+    the worst leads -- its area, its fix, its priority; the Trading line names the first thing
+    that is affected; the problem line is the lead problem "+N more" (repeated sentences, e.g.
+    two KEEL legs, count once). Title status: CHECK NOW (trading affected), needs a fix
+    (default), heads up (low)."""
+    ds = sorted(descs, key=lambda d: -int(d["rank"]))
+    lead = ds[0]
+    affects = next((d["affects"] for d in ds if d.get("affects")), None)
+    problems = list(dict.fromkeys(d["problem"] for d in ds if d.get("problem")))
+    status = "CHECK NOW" if affects else ("needs a fix" if lead["rank"] >= 1 else "heads up")
+    return ntfy_push.plain(lead["area"], status, affects, ntfy_push.join_problems(problems, limit=1),
+                           lead["action"], priority=lead["priority"])
 
 
 def compose_pushes(opened, recovered, expired):
-    """At most two pushes per run: one for every episode that started, one for every episode
-    that ended. [(title, message, ntfy priority)]."""
+    """At most two pushes per run, in the plain format (PHONE TEXT): one for every episode that
+    started, and one low "OK" for the episodes that ended -- only when one of them had pushed
+    high or urgent. Episodes that EXPIRED (window ended, never seen fixed) are not pushed: the
+    opening push already said what to do; the log, status.json and the PC relay keep them.
+    [(title, message, ntfy priority)]."""
     pushes = []
     if opened:
-        sev = max_severity(opened)
-        title = (f"{TITLE_PREFIX}: {opened[0]['title']}" if len(opened) == 1
-                 else f"{TITLE_PREFIX}: {len(opened)} problems ({sev})")
-        msg = "\n".join(f"[{r['severity']}] {r['title']}: {r['detail']}" for r in opened)
-        pushes.append((title, msg, _NTFY_PRIORITY[sev]))
-    if recovered or expired:
-        lines = [f"OK again: {r['title']} (open since {r.get('opened_et')})" for r in recovered]
-        lines += [f"No longer checked (its window ended) while still failing: {r['title']} "
-                  f"(open since {r.get('opened_et')})" for r in expired]
-        title = (f"{TITLE_PREFIX}: OK again - {recovered[0]['title']}"
-                 if len(recovered) == 1 and not expired
-                 else f"{TITLE_PREFIX}: {len(recovered) + len(expired)} alert(s) closed")
-        pushes.append((title, "\n".join(lines), "default"))
+        note = compose_note([_desc(r) for r in opened])
+        pushes.append((note["title"], note["message"], note["priority"]))
+    loud = [r for r in recovered if ntfy_push.RANK[_rec_priority(r)] >= ntfy_push.RANK["high"]]
+    if loud:
+        lead = max(loud, key=lambda r: ntfy_push.RANK[_rec_priority(r)])
+        p = _rec_plain(lead)
+        what = p.get("problem") or ""
+        if what.startswith(("The ", "A ", "One ")):          # "(was: the QQQ signal program ...)"
+            what = what[0].lower() + what[1:]
+        note = ntfy_push.back_to_normal(p.get("area") or BOOK, what)
+        pushes.append((note["title"], note["message"], note["priority"]))
     return pushes
 
 
 # -- outbox (#16) -----------------------------------------------------------------------------
+def _sent_late(msg, created_epoch, now_epoch):
+    """A push retried from the outbox says when it was raised, on the owner's clock: appended to
+    the problem line of a plain note; an item queued before PHONE TEXT keeps the old prefix."""
+    lines = msg.split("\n")
+    when = ntfy_push.hhmm(created_epoch, now=now_epoch)
+    if len(lines) == 3 and lines[0].startswith("Trading: "):
+        lines[1] = "%s (Sent late - raised at %s.)" % (lines[1], when)
+        return "\n".join(lines)
+    made = _dt.datetime.fromtimestamp(created_epoch, tz=ET)
+    return f"(delayed: raised {made.strftime('%a %H:%M')} ET) {msg}"
+
+
 def outbox_add(outbox, title, message, priority, now_epoch):
     outbox.append({"id": f"{int(now_epoch)}-{len(outbox)}", "title": title,
                    "message": message, "priority": priority, "created_epoch": now_epoch,
@@ -953,8 +1193,7 @@ def outbox_flush(outbox, push_fn, now_epoch, log=print, save=None,
             continue
         msg = item["message"]
         if item.get("attempts"):
-            made = _dt.datetime.fromtimestamp(float(item["created_epoch"]), tz=ET)
-            msg = f"(delayed: raised {made.strftime('%a %H:%M')} ET) {msg}"
+            msg = _sent_late(msg, float(item["created_epoch"]), now_epoch)
         ok = False
         try:
             ok = bool(push_fn(msg, item["title"], item["priority"]))
@@ -1032,6 +1271,19 @@ def exec_unit_state(run_cmd=None):
     return out[0].strip() if out and out[0].strip() else "unknown"
 
 
+def restart_note(ok):
+    """The phone note for an auto-restart (PHONE TEXT): it only ever runs with the book flat and
+    the market closed, so a restart that worked is a low note; one whose command failed leaves
+    the order program stuck -> high."""
+    if ok:
+        return ntfy_push.plain(BOOK, "restarted", "not affected (the book was flat, market closed)",
+                               "The QQQ order program was stuck, so this monitor restarted it.",
+                               "nothing", priority="low")
+    return ntfy_push.plain(BOOK, "CHECK NOW", "the QQQ book may not trade at the next open",
+                           "The QQQ order program is stuck and its automatic restart failed.", ASK,
+                           priority="high")
+
+
 def do_restart(run_cmd=None):
     run_cmd = run_cmd or subprocess.run
     try:
@@ -1095,7 +1347,9 @@ def evaluate(snap, now_et, mstate):
             out = None
             verdicts.append(_verdict(f"check_error:{group}", "check_error", False, MEDIUM,
                                      f"freshness check '{group}' crashed",
-                                     f"{type(e).__name__}: {e}", min_runs=2))
+                                     f"{type(e).__name__}: {e}", min_runs=2,
+                                     plain=_plain("One of the QQQ book's health checks crashed.",
+                                                  area=BOX)))
         if out is not None:
             groups.add(group)
             verdicts.extend(out)
@@ -1183,11 +1437,8 @@ def run_once(paths=None, now=None, cfg=None, push_fn=None, run_cmd=None, dry_run
             rs["last_restart_result"] = note
             log(f"[freshness] RESTARTED {EXEC_UNIT} ({', '.join(decision['reasons'])}): "
                 f"{'ok' if ok else 'FAILED'} {note}")
-            pushes.append((f"{TITLE_PREFIX}: restarted the executor",
-                           f"edgelog-qqq-exec restarted by the freshness monitor "
-                           f"({', '.join(decision['reasons'])}; book flat, outside the "
-                           f"protected window): {'ok' if ok else 'FAILED ' + note}",
-                           "high"))
+            rn = restart_note(ok)
+            pushes.append((rn["title"], rn["message"], rn["priority"]))
     elif decision["action"] == "blocked":
         # logged when the reason changes, else at most every 30 min (a weekend-long wedge
         # would otherwise write the same line every 2 minutes)

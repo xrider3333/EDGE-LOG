@@ -269,15 +269,19 @@ def test_nt_rollover_page_passes_its_title_and_high_priority(monkeypatch):
     assert calls[0]["timeout"] == 8
 
 
-def test_nt_cloud_watchdog_pages_with_critical_title_and_urgent_priority(monkeypatch):
+def test_nt_cloud_watchdog_pages_in_the_plain_format(monkeypatch):
+    # 2026-10-07: "EDGELOG: NT bridge DOWN" (urgent, every run) became the plain note; the
+    # texts, priorities and repeat rule are pinned in tests/test_nt_cloud_watchdog.py.
     monkeypatch.setenv("EDGELOG_UID", "test-uid")
     monkeypatch.setenv("NTFY_TOPIC", "sometopic")  # cw's own presence gate, not push's
     monkeypatch.setattr(nt_cloud_watchdog, "_get_firestore_client", lambda: object())
     monkeypatch.setattr(nt_cloud_watchdog, "_read_meta_doc",
                         lambda db, uid, name: None)
+    monkeypatch.setattr(nt_cloud_watchdog, "_write_meta_doc", lambda db, uid, name, data: None)
     monkeypatch.setattr(nt_cloud_watchdog.nt_heartbeat, "evaluate",
                         lambda bridge_data, prior_alert: {
-                            "severity": "critical",
+                            "severity": "critical", "stale_minutes": 40.0,
+                            "last_realtime_strategies": ["EdgeLogENGUQ1m"],
                             "message": "NT bridge heartbeat stale -- last roster Realtime",
                         })
     calls = []
@@ -285,8 +289,10 @@ def test_nt_cloud_watchdog_pages_with_critical_title_and_urgent_priority(monkeyp
     rc = nt_cloud_watchdog.main()
     assert rc == 0
     assert len(calls) == 1
-    assert calls[0]["title"] == "EDGELOG: NT bridge DOWN"
-    assert calls[0]["priority"] == "urgent"
+    assert calls[0]["title"] == "NinjaTrader: CHECK NOW"
+    assert calls[0]["priority"] == "high"           # urgent only with a known open position
+    assert ntfy_push.lint({"title": calls[0]["title"], "message": calls[0]["message"],
+                           "priority": calls[0]["priority"]}) == []
     # The old _ntfy_post used timeout=10 -- must not silently drop to the helper's
     # default (8) now that this sender is switched.
     assert calls[0]["timeout"] == 10

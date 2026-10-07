@@ -1,7 +1,9 @@
 r"""tools/webull_freshness_pc.py -- the Webull pipeline FRESHNESS MONITOR, PC side (one pass).
 
 The box half (tools/webull_freshness.py on edgelog-freshness.timer) pages the owner's phone over
-ntfy around the clock. This half runs on the owner's PC as the scheduled task "EdgeLog Webull
+ntfy around the clock (in the plain phone format since 2026-10-07). This half NEVER pushes to the
+phone -- it writes the chat inboxes only, so its developer wording (the box verdicts' titles and
+details) is unchanged. This half runs on the owner's PC as the scheduled task "EdgeLog Webull
 freshness" (deploy/windows/EdgeLog_Webull_freshness.xml), every 10 minutes while the PC is on,
 and does two things the box cannot (C:\EdgeLog\manager\webull_sweep_1005\
 WEBULL_SILENT_FAILURES.md, "Proposed single freshness monitor", part 2):
@@ -296,7 +298,7 @@ def check_box(box, now_et):
             and po.get("date") == now_et.date().isoformat()):
         last_slot = slots[max(slots)]
         if isinstance(last_slot, dict) and last_slot.get("misses") == []:
-            # today's latest pre-open slot PASSED ("QQQ book ready (fixed since ...)"): that
+            # today's latest pre-open slot PASSED (the box pushed "QQQ book: OK"): that
             # one really is cleared, so say so before the window rule can call it closed
             verdicts.append(wf._verdict("box:preopen", "box", True, wf.URGENT,
                                         "box: QQQ book NOT ready"))

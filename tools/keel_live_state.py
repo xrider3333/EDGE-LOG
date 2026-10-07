@@ -92,11 +92,21 @@ failed 09-30, 10-01 and 10-03 and did not run 10-02, so the box's master stayed 
 this script rebuilt KEEL on stale data every night without a word. Every run that loads
 the master now compares the newest COMPLETE NQ session in it with the last completed
 trading day (api/market_calendar, counting a session as completed STALE_AFTER_CLOSE_MIN
-after its close -- the push lands ~17:20 ET). Behind: one log line every run, and ONE high
+after its close -- the push lands ~17:20 ET). Behind: one log line every run, and ONE
 push per stale trading day (the marker above): a fix that does not land by the next
 trading day's check is a new fact and pushes once more, so a multi-day outage sends at
 most one push a trading day. Never fails the build -- KEEL still trains on what it has;
 the owner is simply told.
+
+PHONE TEXT (2026-10-07, owner GO "yes deploy box pings"): the push is an api/ntfy_push.plain()
+note at default priority (fix it today; trading itself is not stopped -- the box freshness
+monitor's own "KEEL not rebuilt" check pushes high when the live model is actually old):
+    QQQ book: needs a fix
+    Trading: not affected.
+    The NQ price history on the cloud box stops at 09-29, so the KEEL sizing model is rebuilt on old data.
+    Do: make sure the PC is on at 14:20, or ask Claude (PAPER-WB chat).
+(14:20 is the PC upload task on the owner's Arizona clock.) It was "EDGELOG KEEL NQ STALE" at
+high priority with file paths and New York times; that developer text still goes to the log.
 """
 import argparse
 import hashlib
@@ -288,9 +298,30 @@ def last_completed_session(now_et):
     return d
 
 
+STALE_PUSH_PRIORITY = "default"     # fix it today; trading itself is not stopped (PHONE TEXT)
+
+
 def _default_stale_push(message, title, log=print):
     from api import ntfy_push
-    return ntfy_push.push(message, title=title, priority="high", log=log)
+    return ntfy_push.push(message, title=title, priority=STALE_PUSH_PRIORITY, log=log)
+
+
+def stale_note(newest, incomplete_day=None):
+    """The plain phone note for stale NQ data (api/ntfy_push.plain; see the module docstring's
+    PHONE TEXT). `newest` / `incomplete_day` are ISO dates or None; shown as MM-DD."""
+    from api import ntfy_push
+
+    def md(day):
+        return str(day)[5:10] if day else "an unknown day"
+    if incomplete_day:
+        problem = ("The NQ price history on the cloud box has an incomplete last day (%s), so the "
+                   "KEEL sizing model is rebuilt on old data." % md(incomplete_day))
+    else:
+        problem = ("The NQ price history on the cloud box stops at %s, so the KEEL sizing model "
+                   "is rebuilt on old data." % md(newest))
+    return ntfy_push.plain("QQQ book", "needs a fix", None, problem,
+                           "make sure the PC is on at 14:20, or ask Claude (PAPER-WB chat)",
+                           priority=STALE_PUSH_PRIORITY)
 
 
 def check_nq_freshness(master, out_dir, nq_file=None, now_et=None, push=None, log=print):
@@ -344,7 +375,8 @@ def check_nq_freshness(master, out_dir, nq_file=None, now_et=None, push=None, lo
         if isinstance(prev, dict) and all(prev.get(k) == v for k, v in key.items()):
             log("[keel-live-state] (already pushed for this stale file -- not pushing again)")
             return out
-        res = (push if push is not None else _default_stale_push)(msg, "EDGELOG KEEL NQ STALE",
+        note = stale_note(out["newest"], dropped if dropped == expected.isoformat() else None)
+        res = (push if push is not None else _default_stale_push)(note["message"], note["title"],
                                                                   log=log)
         # api/ntfy_push.push reports a failed send (network, non-2xx, no topic) by returning
         # False, not by raising: write no marker then, so the next run tries again. None (a

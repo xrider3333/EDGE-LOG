@@ -397,8 +397,10 @@ box user. It reads local files only (no Firestore, no Webull) and pages ntfy onc
 problem plus once when it clears: executor publish down / blocking broker sends / tick
 loop dead, failed units, disk, NQ master and KEEL behind after 19:00 ET, the signal
 engine, bars and tick gaps in session, the EOD flatten and Webull-flat check from 16:10 ET,
-and a pre-open gate at 08:30 and 09:15 ET that pushes "QQQ book ready" or an URGENT list of
-what is missing. Its docstring lists every check. Its state, open alerts and outbox are in
+and a pre-open gate at 08:30 and 09:15 ET that pushes "QQQ book: OK" (low, once a day) or
+"QQQ book: CHECK NOW" with what is missing. Every push is in the plain phone format
+(api/ntfy_push.py, 2026-10-07: "<area>: <status>", a Trading line, one problem line, a Do line,
+the owner's Arizona clock). Its docstring lists every check. Its state, open alerts and outbox are in
 `~/edgelog/freshness/` (`status.json` is what the PC task "EdgeLog Webull freshness",
 `tools/webull_freshness_pc.py`, reads over ssh to relay alerts to the chat inboxes).
 `venv/bin/python tools/webull_freshness.py --dry-run` prints every verdict without pushing

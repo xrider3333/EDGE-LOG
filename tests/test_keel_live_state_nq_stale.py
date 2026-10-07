@@ -1,7 +1,8 @@
 """tests/test_keel_live_state_nq_stale.py -- tools/keel_live_state.py's NQ FRESHNESS ALERT
 (2026-10-05). The PC's nightly push failed 09-30, 10-01 and 10-03 (and did not run 10-02),
 the box's master stayed at 09-29, and KEEL v12 rebuilt on it every night without a word.
-check_nq_freshness now logs every stale run and pushes ONCE per stale trading day.
+check_nq_freshness now logs every stale run and pushes ONCE per stale trading day -- since
+2026-10-07 as one plain api/ntfy_push note ("QQQ book: needs a fix", default priority).
 
 No clock, no network, no live files: `now_et` and `push` are passed in, the marker lives in
 tmp_path, and the master is a hand-built load_master()-shaped dict.
@@ -69,8 +70,18 @@ def test_the_october_incident_logs_every_run_and_pushes_once_a_day(tmp_path):
     assert r["newest"] == "2026-09-29" and r["expected"] == "2026-10-01"
     assert len(pushes) == 1
     title, msg = pushes[0]
-    assert "KEEL NQ STALE" in title
-    assert "2026-09-29" in msg and "2026-10-01" in msg and "push" in msg
+    # the plain phone format (2026-10-07): the developer text (dates, the push script, the
+    # file path) stays in the log line
+    assert title == "QQQ book: needs a fix"
+    assert msg == ("Trading: not affected.\n"
+                   "The NQ price history on the cloud box stops at 09-29, so the KEEL sizing "
+                   "model is rebuilt on old data.\n"
+                   "Do: make sure the PC is on at 14:20, or ask Claude (PAPER-WB chat).")
+    from api import ntfy_push
+    assert ntfy_push.lint({"title": title, "message": msg,
+                           "priority": kls.STALE_PUSH_PRIORITY}) == []
+    assert kls.STALE_PUSH_PRIORITY == "default"
+    assert any("2026-09-29" in ln and "2026-10-01" in ln and "push" in ln for ln in logs)
     assert os.path.exists(tmp_path / kls.STALE_MARKER)
     # the same stale file next night: logged again, NOT pushed again
     logs.clear()

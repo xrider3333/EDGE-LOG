@@ -62,7 +62,11 @@ CONTRACT.
 THE ONE PLAIN PHONE FORMAT (2026-10-07, owner: "make the notifications simpler to understand").
 On 10-07 the owner got ~10 pushes in 90 minutes, 8 of them about ONE data gap, each written for
 a developer ("rt=3", "Tick Replay", "ended with code 1", account numbers, UTC). Every PC-side
-alerter now builds its push with plain() below, so the lock screen always reads the same way:
+alerter now builds its push with plain() below -- and, since the box-pings change the same day,
+so do the box and off-PC alerters (tools/webull_freshness.py, tools/keel_live_state.py, and the
+GitHub Actions dead-man's switches tools/nt_cloud_watchdog.py and tools/qqq_deadman.py). NOT yet:
+api/qqq_exec.py's and api/cloud_signal.py's own pushes, and deploy/cloud/healthcheck.sh (off on
+the box) -- so the lock screen always reads the same way:
 
     title   "<area>: <status>"   under 40 characters, e.g. "Order flow: data gap",
                                  "NinjaTrader: CHECK NOW", "Paper NT8: OK" -- no shouting, no jargon

@@ -3,6 +3,11 @@
 stale, weekend / holiday / half day), episode dedupe + recovery, the persisted ntfy outbox, and
 the auto-restart gate. Nothing here pushes to ntfy, runs systemctl or sudo, or reads a live
 file: push_fn / run_cmd are fakes and every path is under tmp_path.
+
+The phone text is pinned to the plain format (2026-10-07, api/ntfy_push.plain/lint): "QQQ book:
+CHECK NOW" / "needs a fix" / "OK" / "restarted" and "Cloud box: ...", three lines, priority by what
+the problem does to trading, the owner's Phoenix clock, one "OK" only after a high/urgent episode,
+no push for an expired episode, and the pre-open gate's once-a-day repeat rule.
 """
 import datetime as dt
 import json
@@ -16,6 +21,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 import tools.webull_freshness as wf  # noqa: E402
+from api import ntfy_push  # noqa: E402
 
 ET = wf.ET
 FAKE_TOKEN = "FAKETOKEN-must-never-leave-the-file-0123"
@@ -229,6 +235,14 @@ def test_publish_stale_pages_urgent_while_armed_in_session(tmp_path):
     assert "exec_publish" in failing(out)
     assert out["opened"][0]["severity"] == wf.URGENT
     assert h.pushes and h.pushes[0]["priority"] == "urgent"
+    # plain phone text (owner's clock: 10:10 New York = 07:10 Phoenix); the verdict's own
+    # developer title/detail (status.json, the PC relay) are unchanged
+    assert h.pushes[0]["title"] == "QQQ book: CHECK NOW"
+    assert h.pushes[0]["message"] == (
+        "Trading: AFFECTED - the QQQ book cannot send orders.\n"
+        "The QQQ order program stopped reporting at 07:10 - the board is frozen.\n"
+        "Do: ask Claude (PAPER-WB chat).")
+    assert out["status"]["verdicts"]["exec_publish"]["title"] == "executor Firestore publish DOWN"
 
 
 def test_publish_limit_follows_the_advertised_cadence_off_hours(tmp_path):
@@ -286,7 +300,10 @@ def test_suppress_streak_alerts_once_and_recovers(tmp_path):
     h.exec_state()                                    # lease ok again, no new lines
     out = h.run()
     assert "exec_suppress" not in failing(out)
-    assert len(h.pushes) == 2 and "OK again" in h.pushes[1]["title"]
+    assert len(h.pushes) == 2 and h.pushes[1]["title"] == "QQQ book: OK"
+    assert h.pushes[1]["priority"] == "low"
+    assert h.pushes[1]["message"].split("\n")[1].startswith(
+        "Back to normal (was: the QQQ order program is blocking its own orders")
 
 
 def test_suppress_scan_survives_copytruncate(tmp_path):
@@ -313,15 +330,18 @@ def test_failed_units_open_and_recover_per_unit(tmp_path):
     h.failed = ["logrotate.service"]
     out = h.run()
     assert "failed_unit:logrotate.service" in failing(out)
-    assert len(h.pushes) == 1 and "logrotate.service" in h.pushes[0]["title"]
+    assert len(h.pushes) == 1 and h.pushes[0]["title"] == "Cloud box: needs a fix"
+    assert "The cloud box service logrotate failed." in h.pushes[0]["message"]
+    assert h.pushes[0]["priority"] == "default"
     h.failed = ["logrotate.service", "edgelog-qqq-bars.service"]
     h.advance(SAT_1200 + dt.timedelta(minutes=2))
     h.run()
-    assert len(h.pushes) == 2 and "edgelog-qqq-bars" in h.pushes[1]["title"]
+    assert len(h.pushes) == 2 and "The QQQ chart download failed" in h.pushes[1]["message"]
     h.failed = []
     h.advance(SAT_1200 + dt.timedelta(minutes=4))
     h.run()
-    assert len(h.pushes) == 3 and "2 alert(s) closed" in h.pushes[2]["title"]
+    # both episodes only ever pushed at default priority: no "back to normal" is owed
+    assert len(h.pushes) == 2
     assert h.status()["open_alerts"] == []
 
 
@@ -356,14 +376,15 @@ def test_engine_heartbeat_stale_needs_two_runs_lot_or_not(tmp_path):
     h.advance(MON_1030 + dt.timedelta(minutes=2))
     h.engine_hb(MON_1030 - dt.timedelta(minutes=5))
     h.run()
-    assert len(h.pushes) == 1 and "signal engine STALLED" in h.pushes[0]["title"]
+    assert len(h.pushes) == 1 and h.pushes[0]["title"] == "QQQ book: CHECK NOW"
+    assert "The QQQ signal program has not reported for 7 min." in h.pushes[0]["message"]
     h.advance(MON_1030 + dt.timedelta(minutes=4))
     h.engine_hb(h.now, ok=False)                                # fresh but ok=false: still bad
     h.run()
     assert len(h.pushes) == 1
     h.advance(MON_1030 + dt.timedelta(minutes=6))
     h.run()
-    assert len(h.pushes) == 2 and "OK again" in h.pushes[1]["title"]
+    assert len(h.pushes) == 2 and h.pushes[1]["title"] == "QQQ book: OK"
 
 
 def test_engine_heartbeat_not_judged_off_hours(tmp_path):
@@ -401,7 +422,8 @@ def test_bar_source_yfinance_alerts_after_two_runs(tmp_path):
     assert h.pushes == []
     h.advance(MON_1030 + dt.timedelta(minutes=2))
     h.run()
-    assert len(h.pushes) == 1 and "yfinance" in h.pushes[0]["title"]
+    assert len(h.pushes) == 1 and "slower backup source" in h.pushes[0]["message"]
+    assert "yfinance" in h.status()["verdicts"]["bar_source"]["title"]
 
 
 def test_tick_gap_current_and_daily_max(tmp_path):
@@ -430,6 +452,8 @@ def test_shadow_heartbeat_is_medium(tmp_path):
 
 
 def test_session_alert_closes_as_no_longer_checked_at_the_close(tmp_path):
+    """An episode whose window ends while it still fails is closed (EXPIRED) -- logged and kept
+    for the PC relay, but not pushed again: nothing was seen fixed (PHONE TEXT)."""
     h = Home(tmp_path, et(2026, 10, 5, 15, 56))
     h.cs_state(source="yfinance")
     h.run()
@@ -437,8 +461,11 @@ def test_session_alert_closes_as_no_longer_checked_at_the_close(tmp_path):
     h.run()
     assert len(h.pushes) == 1
     h.advance(et(2026, 10, 5, 16, 0))
-    h.run()
-    assert len(h.pushes) == 2 and "No longer checked" in h.pushes[1]["message"]
+    lines = []
+    out = wf.run_once(h.paths, now=h.now, push_fn=h.push_fn, run_cmd=h.run_cmd, log=lines.append)
+    assert [r["key"] for r in out["expired"]] == ["bar_source"]
+    assert len(h.pushes) == 1
+    assert any("EXPIRED" in ln and "bar_source" in ln for ln in lines)
 
 
 # -- EOD ------------------------------------------------------------------------------------
@@ -531,7 +558,12 @@ def test_keel_after_a_half_day_expects_the_session_before_it(tmp_path):
 def test_preopen_pass_pushes_ready_once_a_day(tmp_path):
     h = Home(tmp_path, et(2026, 10, 5, 8, 30, 30))
     h.run()
-    assert len(h.pushes) == 1 and "QQQ book ready" in h.pushes[0]["title"]
+    assert len(h.pushes) == 1
+    # 08:30 New York = 05:30 on the owner's clock (Phoenix)
+    assert h.pushes[0] == {"title": "QQQ book: OK", "priority": "low", "message":
+                           "Trading: not affected.\n"
+                           "The QQQ paper book passed its 05:30 pre-open check.\n"
+                           "Do: nothing."}
     h.advance(et(2026, 10, 5, 8, 32))
     h.run()                                                     # same slot: nothing
     h.advance(et(2026, 10, 5, 9, 16))
@@ -540,28 +572,57 @@ def test_preopen_pass_pushes_ready_once_a_day(tmp_path):
     assert h.status()["preopen"]["slots"]["09:15"]["misses"] == []
 
 
-def test_preopen_miss_is_urgent_each_slot_then_ready_when_fixed(tmp_path):
+def test_preopen_miss_pushes_once_a_day_then_ok_when_fixed(tmp_path):
     h = Home(tmp_path, et(2026, 10, 5, 8, 31))
     h.token(days_left=3)
     h.run()
-    assert h.pushes[-1]["priority"] == "urgent"
-    assert "expires in 3.0 days" in h.pushes[-1]["message"]
+    # a token that merely expires soon does not stop today's open: needs a fix, default
+    assert h.pushes[-1] == {"title": "QQQ book: needs a fix", "priority": "default", "message":
+                            "Trading: not affected.\n"
+                            "The Webull login expires in 3 days.\n"
+                            "Do: ask Claude (PAPER-WB chat)."}
+    assert "expires in 3.0 days" in h.status()["preopen"]["slots"]["08:30"]["misses"][0]
     assert any(a["key"] == "preopen" for a in h.status()["open_alerts"])
     h.advance(et(2026, 10, 5, 8, 45))
     h.run()                                                     # between slots: still open
     assert len(h.pushes) == 1
     assert any(a["key"] == "preopen" for a in h.status()["open_alerts"])
     h.advance(et(2026, 10, 5, 9, 15, 30))
-    h.run()                                                     # still missing at 09:15
-    assert len(h.pushes) == 2 and h.pushes[-1]["priority"] == "urgent"
+    h.run()                                                     # the SAME miss at 09:15: no repeat
+    assert len(h.pushes) == 1
+    assert h.status()["preopen"]["slots"]["09:15"]["misses"]   # still recorded for the relay
     h2 = Home(tmp_path / "fixed", et(2026, 10, 5, 8, 31))
     h2.token(status="PENDING")
     h2.run()
+    assert h2.pushes[-1] == {"title": "QQQ book: CHECK NOW", "priority": "high", "message":
+                             "Trading: AFFECTED - the QQQ book may not trade at the open.\n"
+                             "The Webull login needs approval.\n"
+                             "Do: approve the login in the Webull app."}
     h2.advance(et(2026, 10, 5, 9, 16))
     h2.token()
     h2.run()
-    assert "ready (fixed since" in h2.pushes[-1]["title"]
+    assert h2.pushes[-1]["title"] == "QQQ book: OK" and h2.pushes[-1]["priority"] == "low"
+    assert "passed its 06:16 pre-open check" in h2.pushes[-1]["message"]
     assert h2.status()["open_alerts"] == []
+
+
+def test_preopen_new_or_worse_miss_at_0915_pushes_again(tmp_path):
+    h = Home(tmp_path, et(2026, 10, 5, 8, 31))
+    h.token(days_left=3)
+    h.run()
+    assert [p["priority"] for p in h.pushes] == ["default"]
+    h.advance(et(2026, 10, 5, 9, 16))
+    h.token(days_left=3, status="PENDING")                      # a NEW, worse miss
+    h.run()
+    assert [p["priority"] for p in h.pushes] == ["default", "high"]
+    assert h.pushes[-1]["message"].split("\n")[1] == "The Webull login needs approval. +1 more."
+    # next day: the same misses push again (once a day)
+    h.advance(et(2026, 10, 6, 8, 31))
+    h.keel()                                                    # the rest of the box is current
+    h.bars(h.now)
+    h.token(days_left=3, status="PENDING")
+    h.run()
+    assert [p["priority"] for p in h.pushes][-1] == "high" and len(h.pushes) == 3
 
 
 def test_preopen_open_alert_expires_quietly_at_the_open(tmp_path):
@@ -599,7 +660,7 @@ def test_preopen_passes_with_the_real_shaped_daily_cache(tmp_path):
     h = Home(tmp_path, t)
     h.bars(t, d1_day=dt.date(2026, 10, 1))
     h.run()
-    assert len(h.pushes) == 1 and "QQQ book ready" in h.pushes[0]["title"]
+    assert len(h.pushes) == 1 and h.pushes[0]["title"] == "QQQ book: OK"
     h.bars(t, d1_day=dt.date(2026, 9, 30))
     snap = wf.collect(h.paths, h.run_cmd)
     assert any("QQQ_1d newest bar 2026-09-30, expected 2026-10-01" in m
@@ -622,12 +683,16 @@ def test_qqq_1d_must_hold_the_previous_session_from_0940(tmp_path):
     assert "qqq_1d" in failing(out) and h.pushes == []          # debounced: first bad run
     h.advance(et(2026, 10, 5, 9, 47))
     h.run()
-    assert len(h.pushes) == 1 and "QQQ daily cache" in h.pushes[0]["title"]
-    assert "expected 2026-10-02" in h.pushes[0]["message"]
+    assert len(h.pushes) == 1
+    assert h.pushes[0]["message"] == (
+        "Trading: AFFECTED - NOISE trades on a price history that is a day short.\n"
+        "The QQQ daily price history was not updated this morning.\n"
+        "Do: ask Claude (PAPER-WB chat).")
+    assert "expected 2026-10-02" in h.status()["verdicts"]["qqq_1d"]["detail"]
     h.advance(et(2026, 10, 5, 9, 49))
     h.bars(h.now, d1_day=dt.date(2026, 10, 2))                  # refreshed
     out = h.run()
-    assert "qqq_1d" not in failing(out) and "OK again" in h.pushes[-1]["title"]
+    assert "qqq_1d" not in failing(out) and h.pushes[-1]["title"] == "QQQ book: OK"
 
 
 def test_preopen_halt_only_counts_for_today(tmp_path):
@@ -680,7 +745,7 @@ def test_unreadable_exec_state_does_not_fake_a_recovery(tmp_path):
     assert len(h.pushes) == 1
     _w(h.paths["exec_state"], "{not json")
     h.run(SAT_1200 + dt.timedelta(minutes=2))
-    assert all("OK again" not in p["title"] for p in h.pushes)
+    assert all(not p["title"].endswith(": OK") for p in h.pushes)
     assert any(a["key"] == "exec_publish" for a in h.status()["open_alerts"])
 
 
@@ -695,7 +760,11 @@ def test_outbox_keeps_a_failed_push_and_retries_next_run(tmp_path):
     h.push_ok = True
     out = h.run(SAT_1200 + dt.timedelta(minutes=2))
     assert out["status"]["outbox_pending"] == 0
-    assert h.pushes[-1]["message"].startswith("(delayed: raised")
+    # retried from the outbox: the problem line says when it was raised (12:00 New York =
+    # 09:00 Phoenix), and the note is still the plain three lines
+    assert h.pushes[-1]["message"].split("\n")[1].endswith("(Sent late - raised at 09:00.)")
+    assert ntfy_push.lint({"title": h.pushes[-1]["title"], "message": h.pushes[-1]["message"],
+                           "priority": h.pushes[-1]["priority"]}) == []
     assert json.load(open(h.paths["outbox"], encoding="utf-8")) == []
 
 
@@ -748,7 +817,10 @@ def test_auto_restart_flag_on_outside_hours_flat_once_a_day(tmp_path):
     out = h.run()
     assert out["decision"]["action"] == "restart"
     assert _sudo_calls(h) == [["sudo", "-n", "systemctl", "restart", "edgelog-qqq-exec.service"]]
-    assert any("restarted the executor" in p["title"] for p in h.pushes)
+    assert {"title": "QQQ book: restarted", "priority": "low", "message":
+            "Trading: not affected (the book was flat, market closed).\n"
+            "The QQQ order program was stuck, so this monitor restarted it.\n"
+            "Do: nothing."} in h.pushes
     h.run(SAT_1200 + dt.timedelta(minutes=30))
     assert len(_sudo_calls(h)) == 1                              # cooldown
     h.run(SAT_1200 + dt.timedelta(minutes=62))
@@ -927,7 +999,7 @@ def test_auto_restart_never_starts_a_unit_stopped_on_purpose(tmp_path):
     assert "stopped on purpose" in out["decision"]["why"]
     assert _sudo_calls(h) == []
     assert any("stopped on purpose" in ln for ln in lines)
-    assert not any("restarted the executor" in p["title"] for p in h.pushes)
+    assert not any(p["title"] == "QQQ book: restarted" for p in h.pushes)
     # flag off: no "would restart" for a stopped unit either
     h2 = Home(tmp_path / "off", SAT_1200)
     h2.exec_state(publish_ago=3600)
@@ -972,12 +1044,13 @@ def test_restart_cooldown_is_saved_before_the_restart_runs(tmp_path):
     assert state["restart"]["last_restart_day"] == "2026-10-03"
     assert state["alerts"]["failed_unit:logrotate.service"]["open"] is True
     queued = json.load(open(h.paths["outbox"], encoding="utf-8"))
-    assert any("logrotate.service" in x["message"] for x in queued)  # its page is not lost
+    # its page is not lost: one note for both episodes, the executor leading, logrotate "+1 more"
+    assert any(x["message"].split("\n")[1].endswith("+1 more.") for x in queued)
     h.restart_hook = None
     out = h.run(SAT_1200 + dt.timedelta(minutes=2))
     assert out["decision"]["why"].startswith("at most once a day")
     assert len(_sudo_calls(h)) == 1
-    assert any("logrotate.service" in p["message"] for p in h.pushes)
+    assert any(p["message"].split("\n")[1].endswith("+1 more.") for p in h.pushes)
 
 
 def test_eod_flat_check_with_a_leftover_kill_file_is_high_not_urgent(tmp_path):
@@ -1031,3 +1104,145 @@ def test_status_open_alerts_carry_quiet_expire_for_the_pc_relay(tmp_path):
     h.run()
     po = [a for a in h.status()["open_alerts"] if a["key"] == "preopen"]
     assert po and po[0]["quiet_expire"] is True
+
+
+# -- the plain phone format (2026-10-07, owner GO "yes deploy box pings") ---------------------
+def _note(p):
+    return {"title": p["title"], "message": p["message"], "priority": p["priority"]}
+
+
+def _scenarios(tmp_path):
+    """Run the monitor through most of its pushes; returns every push it sent."""
+    pushes = []
+    h = Home(tmp_path / "pub", MON_1030)
+    h.exec_state(publish_ago=20 * 60)
+    h.run()
+    h.advance(MON_1030 + dt.timedelta(minutes=2))
+    h.run()                                                     # recovered: "OK"
+    pushes += h.pushes
+    h = Home(tmp_path / "ready", et(2026, 10, 5, 8, 30, 30))
+    h.run()
+    pushes += h.pushes
+    h = Home(tmp_path / "notready", et(2026, 10, 5, 8, 31))
+    h.token(status="PENDING")
+    _w(h.paths["exec_kill"], "x")
+    h.run()
+    pushes += h.pushes
+    h = Home(tmp_path / "eve", et(2026, 10, 5, 19, 5))
+    h.bars(h.now, nq_day=dt.date(2026, 10, 2))
+    h.keel(through="2026-10-02")
+    h.run()
+    pushes += h.pushes
+    h = Home(tmp_path / "eod", et(2026, 10, 5, 16, 12))
+    h.exec_state(eod_summary_done_date="2026-10-02",
+                 _webull_flat_after_eod={"date": "2026-10-05", "flat": False, "shares": 133})
+    h.run()
+    pushes += h.pushes
+    h = Home(tmp_path / "units", SAT_1200)
+    h.failed = ["logrotate.service", "edgelog-cloud-signal.service"]
+    h.run()
+    pushes += h.pushes
+    h = Home(tmp_path / "restart", SAT_1200)
+    h.config(auto_restart_exec=True)
+    h.exec_state(publish_ago=3600)
+    h.run()
+    pushes += h.pushes
+    return pushes
+
+
+def test_every_box_push_is_one_plain_note(tmp_path):
+    """Three lines, a short title, no developer words (Firestore, ET, account numbers, the
+    old EDGELOG WB MONITOR prefix) -- ntfy_push.lint() on every push the monitor sends."""
+    pushes = _scenarios(tmp_path)
+    assert len(pushes) >= 9
+    for p in pushes:
+        assert ntfy_push.lint(_note(p)) == [], p
+        assert "EDGELOG" not in p["title"] and "MONITOR" not in p["title"]
+        assert p["title"].split(": ")[0] in ("QQQ book", "Cloud box")
+
+
+def test_priority_follows_what_the_problem_does_to_trading(tmp_path):
+    pushes = _scenarios(tmp_path)
+    by_title = {}
+    for p in pushes:
+        by_title.setdefault(p["title"], set()).add(p["priority"])
+    assert by_title["QQQ book: OK"] == {"low"}                  # every all-clear is quiet
+    assert by_title["QQQ book: restarted"] == {"low"}
+    for p in pushes:
+        affected = p["message"].startswith("Trading: AFFECTED")
+        assert (p["priority"] in ("high", "urgent")) == affected, p
+    eod = [p for p in pushes if "end-of-day close did not run" in p["message"]]
+    assert eod and eod[0]["priority"] == "urgent"               # URGENT checks stay urgent
+
+
+def test_eod_not_flat_text(tmp_path):
+    h = Home(tmp_path, et(2026, 10, 5, 16, 12))
+    h.exec_state(_webull_flat_after_eod={"date": "2026-10-05", "flat": False, "shares": 133})
+    h.run()
+    assert h.pushes == [{"title": "QQQ book: CHECK NOW", "priority": "urgent", "message":
+                         "Trading: AFFECTED - the QQQ book may still hold shares after the close.\n"
+                         "Webull still holds 133 QQQ shares after the close.\n"
+                         "Do: check the Webull app is flat and sell by hand if needed."}]
+    # the developer text the PC relay and status.json carry is unchanged
+    v = h.status()["verdicts"]["webull_flat"]
+    assert v["title"] == "Webull NOT confirmed flat" and "133" in v["detail"]
+
+
+def test_a_unit_the_book_trades_through_is_check_now(tmp_path):
+    h = Home(tmp_path, SAT_1200)
+    h.failed = ["edgelog-cloud-signal.service"]
+    h.run()
+    assert h.pushes == [{"title": "QQQ book: CHECK NOW", "priority": "high", "message":
+                         "Trading: AFFECTED - the QQQ book is not running.\n"
+                         "The QQQ signal program failed on the cloud box.\n"
+                         "Do: ask Claude (PAPER-WB chat)."}]
+
+
+def test_two_keel_legs_count_once_and_the_lead_problem_sets_the_text(tmp_path):
+    h = Home(tmp_path, et(2026, 10, 5, 19, 5))
+    h.bars(h.now, nq_day=dt.date(2026, 10, 2))                 # nq_master (default) ...
+    h.keel(through="2026-10-02")                                # ... and both KEEL legs (high)
+    h.run()
+    assert h.pushes == [{"title": "QQQ book: CHECK NOW", "priority": "high", "message":
+                         "Trading: AFFECTED - the QQQ book sizes NOISE trades on an old model.\n"
+                         "The KEEL sizing model was not rebuilt after the close. +1 more.\n"
+                         "Do: ask Claude (PAPER-WB chat)."}]
+
+
+def test_an_episode_saved_before_the_plain_format_still_pushes_plain_text(tmp_path):
+    """A deploy in the middle of an episode: the record in state.json has no "plain" wording.
+    Its recovery must still be a plain note, never the old developer title."""
+    h = Home(tmp_path, SAT_1200)
+    _wj(h.paths["monitor_state"], {"alerts": {"exec_loop": {
+        "key": "exec_loop", "group": "exec", "open": True, "bad_runs": 3, "severity": "HIGH",
+        "title": "executor tick loop not running", "detail": "no tick for 14 min",
+        "opened_epoch": SAT_1200.timestamp() - 600, "opened_et": "Sat 10-03 11:50 ET",
+        "last_bad_epoch": SAT_1200.timestamp() - 120, "hold_sec": 0.0}}})
+    h.run()
+    assert len(h.pushes) == 1
+    p = h.pushes[0]
+    assert p["title"] == "QQQ book: OK" and p["priority"] == "low"
+    assert ntfy_push.lint(_note(p)) == []
+    assert "tick loop" not in p["message"]
+
+
+def test_restart_note_when_the_restart_command_fails():
+    n = wf.restart_note(False)
+    assert n == {"title": "QQQ book: CHECK NOW", "priority": "high", "message":
+                 "Trading: AFFECTED - the QQQ book may not trade at the next open.\n"
+                 "The QQQ order program is stuck and its automatic restart failed.\n"
+                 "Do: ask Claude (PAPER-WB chat)."}
+    assert ntfy_push.lint(n) == [] and ntfy_push.lint(wf.restart_note(True)) == []
+
+
+def test_preopen_owner_fixes_lead_the_note(tmp_path):
+    """Several misses at once: the one only the owner can clear (approve the login, the kill
+    switch) leads, with its own fix on the Do line; the rest are '+N more'."""
+    h = Home(tmp_path, et(2026, 10, 5, 9, 16))
+    h.engine_hb(h.now - dt.timedelta(minutes=10))
+    h.token(status="PENDING")
+    h.run()
+    pre = [p for p in h.pushes if "open" in p["message"].split("\n")[0]]
+    assert pre[-1]["message"] == ("Trading: AFFECTED - the QQQ book may not trade at the open.\n"
+                                  "The Webull login needs approval. +1 more.\n"
+                                  "Do: approve the login in the Webull app.")

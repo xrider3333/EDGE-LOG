@@ -78,7 +78,15 @@ def test_stale_lease_heartbeat_pushes_urgent():
     assert rep["checks"]["heartbeat_stale"] is True
     pushes = [p for p in rep["pushes"] if p["severity"] == "urgent"]
     assert len(pushes) == 1
-    assert "heartbeat" in pushes[0]["message"].lower()
+    # the plain phone format (2026-10-07): 210 s silent -> "4 min" (whole minutes, rounded)
+    assert pushes[0]["title"] == "QQQ book: CHECK NOW"
+    assert pushes[0]["message"] == (
+        "Trading: AFFECTED - the QQQ book stopped reporting during market hours.\n"
+        "The QQQ order program has been silent for 4 min.\n"
+        "Do: check the Webull app for open trades and ask Claude (PAPER-WB chat).")
+    from api import ntfy_push
+    assert ntfy_push.lint({"title": pushes[0]["title"], "message": pushes[0]["message"],
+                           "priority": pushes[0]["severity"]}) == []
 
 
 def test_updated_at_fallback_used_when_no_lease():
@@ -165,6 +173,12 @@ def test_open_position_with_stale_signal_engine_pages_high():
     highs = [p for p in rep["pushes"] if p["severity"] == "high"]
     assert len(highs) == 1
     assert "position" in highs[0]["message"].lower()
+    assert highs[0]["title"] == "QQQ book: CHECK NOW"
+    assert highs[0]["message"].split("\n")[0] == \
+        "Trading: AFFECTED - an open QQQ position may not be watched."
+    from api import ntfy_push
+    assert ntfy_push.lint({"title": highs[0]["title"], "message": highs[0]["message"],
+                           "priority": highs[0]["severity"]}) == []
 
 
 def test_flat_book_with_stale_signal_engine_does_not_page():
