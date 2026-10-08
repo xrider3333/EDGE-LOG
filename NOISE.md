@@ -3543,3 +3543,51 @@ The question: does the NOISE mechanism earn on the Russell 2000 cash session wit
 
 **Recorded dead, no variants.** Records: ledger 2.98; `tools/r37_results/noise_iwm_r1_stageA.txt`,
 `tools/r37_results/noise_iwm_r1_daystructure.txt`.
+
+## NOISE on the sector funds r1 and the TLT fade r1 (run 2026-10-08 11:10 MST; scope A2 + A4) - XLK passes Stage A, the rest are dead
+
+Both preregs were cross-lane reviewed by STRATEGY-BEATING (#73, GO WITH EDITS). The review's 13 edits went in as
+amendment 1 (commit 2cf42d2a at 11:09, rebased onto main as 53f6acf2 with its 11:09 author time) before any real-direction run; MANAGER #74 made that the GO. The null is one random
+sign per session, shared by every cell and every fund, with 2,000 draws. Both ran walk-forward only; the lockbox was not
+read.
+
+**Sector funds: XLK PASSES Stage A; XLY, XLI, XLV, XLP, XLU and XLF fail.**
+- **XLK's crown** (lookback 40 / long 1.0 / short 1.0 / stop 1.75), at 4,610 shares:
+  - 2,829 trades (315 a year), +$273,040, PF 1.24;
+  - own ROC @ $30k **32.3**, DD5 $22.9k (worst / DD5 1.24, no one-episode flag);
+  - all 54 cells positive (median 19.1), far above the 378-cell null's p95 of 3.50;
+  - neighbours 19 - 30; it holds without 2020 (30.9).
+- **The caveats, all printed before the bars:**
+  - **It is the book's own NOISE again.** Its daily P&L correlates 0.74 with NOISE #422 and 0.51 with BOOK #463. The
+    book-add report reads 98.6 at the volatility size but its bootstrap p5 is -20.9, so there is no case for a book seat.
+    It lost $6.9k in #463's worst drawdown.
+  - **2022-25 carries it:** H1 +$31k (PF 1.07), H2 +$242k (PF 1.36). At a constant $100k a trade the crown reads 15.4,
+    not 32.3: fixed shares grew about 5x in dollars.
+  - **The inherited NQ filters matter.** With both off it reads 9.4.
+  - **The map row for an equity-index family** is about $40k a year at a $30k own drawdown. XLK's crown is about $32k.
+  - **Day structure is NQ's:** single-trade sessions are 25.5% of trades and made +$379k; multi-break sessions lost
+    $106k.
+- **XLY:** 6.3 fails only the 15 bar; it is carried by 2022-25 too.
+- **XLI, XLV, XLP, XLU, XLF:** every cell negative. Before cost they are about flat (XLI +2.2, XLV +3.4, XLU +3.3) or
+  losing (XLP, XLF), and cost does the rest. XLF pays 6 bps a round trip on 566 trades a year.
+- **What separated them was not the habitat table's cost-against-range order** (XLV was cheapest and failed). It was
+  how close the fund is to NQ: technology, then consumer discretionary.
+
+**TLT fade: DEAD at Stage A.**
+- All 54 cells negative. Crown -2.78 (60 / 1.0 / 1.5 / 1.75), 2,793 trades, PF 0.83, below the null's p95 (-1.60).
+- **Before cost the fade is flat (-$1k)**, so TLT's noise-band breaks neither continue nor revert. The reversions it is
+  built on paid +$145k; the trend days held to the close took -$186k, mostly March 2020 (six of the ten worst days,
+  with TLT moving 3.7 - 6.4% open to close).
+- It lost $18k in #463's worst drawdown, and $26k over #463's 28 drawdown episodes (11 of 28 positive), so it is no
+  hedge.
+- The tainted IEF read loses too (-3.30), so IEF's old loss was not a reversion edge.
+- Twin with the NQ filters on: -2.79. Map row: -$2,776 a year at a $30k drawdown.
+
+**What follows:**
+- XLK goes to the prereg's pinned 900-trial Auto-Validate. The file is `NOISE_1_1_FUNDGRID.py`: NOISE_1_0 with the
+  grid's axes open and the NQ filters pinned, parity-checked trade for trade against the harness.
+- XLK is not a new uncorrelated seat. The validate answers whether the NOISE family holds on a second technology tape,
+  the same question QQQ answered.
+- The other six funds and the TLT fade are recorded dead, no variants.
+- Records: `tools/r37_results/noise_sectors_r1_stageA.txt`, `tools/r37_results/noise_tltfade_r1_stageA.txt`; the
+  ledger rows "NOISE on the sector funds r1" and "the NOISE fade on TLT r1".

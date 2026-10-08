@@ -1,0 +1,229 @@
+NOISE on the sector funds r1 - cost $0.02 a share as traded; WF exit dates 2016-07-01 .. 2025-06-29
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816
+  XLK unit 4610 shares (2016-06-30 close)
+  XLY unit 2562 shares (2016-06-30 close)
+  XLI unit 1785 shares (2016-06-30 close)
+  XLV unit 1393 shares (2016-06-30 close)
+  XLP unit 1813 shares (2016-06-30 close)
+  XLU unit 3808 shares (2016-06-30 close)
+  XLF unit 4376 shares (2016-06-30 close)
+  POOLED null (378 cells, one sign per session shared by all cells and funds, 2000 draws): max own ROC@30k p95 3.50
+
+==============================================================================================================
+XLK - grid median 19.10, best 32.27 at lookback 40 / long 1.00 / short 1.00 / stop 1.75; cells > 0: 54; own 54-cell null p95 2.09 (report)
+  DAY STRUCTURE XLK: 2829 trades in 1343 sessions; single-trade sessions 721 (25.5% of trades) net $378,567; multi-break 2108 trades net $-105,527 (first breaks $-173,981, later $68,453)   [NQ #422: 28.6% of trades, 97.4% of unit $]
+  CROWN n 2829 (315/yr)  net $273,040  PF 1.241  DD $28,222  own ROC@30k 32.27  Sortino 1.90  DD5 $22,850, worst $28,222 (worst / DD5 1.24)
+  neighbours (one step on one axis): 24.6, 23.7, 24.4, 19.3, 21.3, 29.8
+  REPORT H1 2016-21  n  1761  net $    30,825  PF 1.066
+  REPORT H2 2022-25  n  1068  net $   242,214  PF 1.363
+  REPORT longs       n  1471  net $   156,130  PF 1.271
+  REPORT shorts      n  1358  net $   116,909  PF 1.210
+  REPORT per July-June year $: -10,055, -1,931, 19,600, 3,065, 6,357, 51,518, 64,897, 36,163, 103,422
+  REPORT per July-June year: trades / mean notional a trade: 2016: 395 / $115,617, 2017: 261 / $146,384, 2018: 344 / $166,117, 2019: 297 / $202,174, 2020: 295 / $291,183, 2021: 332 / $353,514, 2022: 311 / $321,330, 2023: 293 / $434,887, 2024: 301 / $524,604
+  REPORT trades a year 315; realised cost 1.7 bps of notional a round trip (median 1.6)
+  REPORT cost  0 bps round trip: net $403,456  own ROC@30k 57.00
+  REPORT cost  5 bps round trip: net $8,660  own ROC@30k 0.37
+  REPORT cost 10 bps round trip: net $-386,136  own ROC@30k -3.34
+  REPORT cost 20 bps round trip: net $-1,175,729  own ROC@30k -3.34
+  TWIN crown with both INHERITED NQ filters OFF: n 3448  net $179,388  own ROC@30k 9.35  DD5 $35,446, worst $63,975 (worst / DD5 1.80, driven by one episode)
+  REPORT WF sessions whose range filter had < 252 prior sessions: 127 of 2260 (5.6%)
+  REPORT ex-dividend sessions: 37 in the calendar; 50 trades on them, net $737 (prior close not dividend-adjusted)
+  REPORT crown at a constant $100k a trade: net $67,337  own ROC@30k 15.35
+  REPORT daily P&L correlation: with NOISE #422 0.74, with BOOK #463 0.51
+  REPORT book #463 + NOISE-XLK at VOL scale          (x0.948 NQ): ROC@30k 98.61  Sortino 3.808  bootstrap p5 -20.9 (SD 11.1)
+  REPORT book #463 + NOISE-XLK at $30k own DD (twin) (x1.063 NQ): ROC@30k 99.11  Sortino 3.785  bootstrap p5 -23.6 (SD 12.0)
+  NOISE-XLK in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $-6,932 at 1 NQ, $-6,932 without its 3 best days; without 2020: own ROC@30k 30.87, net $260,868
+  A1 own ROC@30k >= 15 or earner route (ROC route), PF > 1, >= 100 and 50/yr, >= 6 of 9 years PASS
+  A1b no-2020: the same route holds without calendar 2020                          PASS
+  A2 crown above the sign-flip null's p95 (prices the selection)                   PASS
+  A3 plateau: at least half the one-step neighbours keep half the crown's ROC      PASS
+  A4 (REPORT) vol-scale book add >= 98.50 / 3.816 with p5 > 0: no
+  XLK STAGE A: PASS
+
+==============================================================================================================
+XLY - grid median 0.83, best 6.28 at lookback 60 / long 1.00 / short 1.50 / stop 1.25; cells > 0: 36; own 54-cell null p95 2.08 (report)
+  DAY STRUCTURE XLY: 2294 trades in 1181 sessions; single-trade sessions 708 (30.9% of trades) net $142,528; multi-break 1586 trades net $-82,745 (first breaks $-75,298, later $-7,446)   [NQ #422: 28.6% of trades, 97.4% of unit $]
+  CROWN n 2294 (255/yr)  net $59,783  PF 1.104  DD $31,728  own ROC@30k 6.28  Sortino 0.82  DD5 $15,002, worst $31,728 (worst / DD5 2.11, driven by one episode)
+  neighbours (one step on one axis): 4.3, 3.1, 3.9, 5.6
+  REPORT H1 2016-21  n  1492  net $   -22,812  PF 0.918
+  REPORT H2 2022-25  n   802  net $    82,595  PF 1.282
+  REPORT longs       n  1596  net $     5,915  PF 1.015
+  REPORT shorts      n   698  net $    53,868  PF 1.286
+  REPORT per July-June year $: -7,889, -1,680, -4,212, -8,175, -1,623, 38,734, 20,890, -12,738, 36,478
+  REPORT per July-June year: trades / mean notional a trade: 2016: 320 / $108,259, 2017: 204 / $125,372, 2018: 300 / $142,750, 2019: 231 / $153,751, 2020: 246 / $201,005, 2021: 287 / $233,583, 2022: 182 / $189,919, 2023: 275 / $220,949, 2024: 249 / $262,908
+  REPORT trades a year 255; realised cost 1.4 bps of notional a round trip (median 1.4)
+  REPORT cost  0 bps round trip: net $118,555  own ROC@30k 25.81
+  REPORT cost  5 bps round trip: net $-89,362  own ROC@30k -2.58
+  REPORT cost 10 bps round trip: net $-297,281  own ROC@30k -3.24
+  REPORT cost 20 bps round trip: net $-713,118  own ROC@30k -3.34
+  TWIN crown with both INHERITED NQ filters OFF: n 2873  net $-5,002  own ROC@30k -0.26  DD5 $32,602, worst $64,334 (worst / DD5 1.97, driven by one episode)
+  REPORT WF sessions whose range filter had < 252 prior sessions: 127 of 2260 (5.6%)
+  REPORT ex-dividend sessions: 37 in the calendar; 43 trades on them, net $-7,839 (prior close not dividend-adjusted)
+  REPORT crown at a constant $100k a trade: net $17,620  own ROC@30k 2.72
+  REPORT daily P&L correlation: with NOISE #422 0.48, with BOOK #463 0.35
+  REPORT book #463 + NOISE-XLY at VOL scale          (x1.378 NQ): ROC@30k 90.07  Sortino 3.685  bootstrap p5 -25.4 (SD 10.7)
+  REPORT book #463 + NOISE-XLY at $30k own DD (twin) (x0.946 NQ): ROC@30k 94.19  Sortino 3.749  bootstrap p5 -17.5 (SD 8.2)
+  NOISE-XLY in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $-1,921 at 1 NQ, $-1,921 without its 3 best days; without 2020: own ROC@30k 10.45, net $72,601
+  A1 own ROC@30k >= 15 or earner route (neither route), PF > 1, >= 100 and 50/yr, >= 6 of 9 years FAIL
+  A1b no-2020: the same route holds without calendar 2020                          PASS
+  A2 crown above the sign-flip null's p95 (prices the selection)                   PASS
+  A3 plateau: at least half the one-step neighbours keep half the crown's ROC      PASS
+  A4 (REPORT) vol-scale book add >= 98.50 / 3.816 with p5 > 0: no
+  XLY STAGE A: FAIL
+
+==============================================================================================================
+XLI - grid median -3.27, best -3.15 at lookback 60 / long 1.00 / short 1.00 / stop 1.25; cells > 0: 0; own 54-cell null p95 -2.00 (report)
+  DAY STRUCTURE XLI: 3233 trades in 1401 sessions; single-trade sessions 728 (22.5% of trades) net $96,244; multi-break 2505 trades net $-195,253 (first breaks $-112,218, later $-83,034)   [NQ #422: 28.6% of trades, 97.4% of unit $]
+  CROWN n 3233 (359/yr)  net $-99,008  PF 0.844  DD $104,847  own ROC@30k -3.15  Sortino -1.45  DD5 $52,713, worst $104,847 (worst / DD5 1.99, driven by one episode)
+  neighbours (one step on one axis): -3.2, -3.3, -3.3, -3.3, -3.2
+  REPORT H1 2016-21  n  1967  net $   -52,436  PF 0.839
+  REPORT H2 2022-25  n  1266  net $   -46,572  PF 0.848
+  REPORT longs       n  1697  net $   -73,938  PF 0.786
+  REPORT shorts      n  1536  net $   -25,070  PF 0.913
+  REPORT per July-June year $: -14,176, 1,396, -11,867, -9,380, -17,124, -3,918, -9,895, -27,586, -6,455
+  REPORT per July-June year: trades / mean notional a trade: 2016: 384 / $111,310, 2017: 297 / $130,803, 2018: 388 / $131,423, 2019: 378 / $133,784, 2020: 358 / $156,923, 2021: 316 / $179,559, 2022: 339 / $171,772, 2023: 447 / $204,564, 2024: 326 / $239,540
+  REPORT trades a year 359; realised cost 2.2 bps of notional a round trip (median 2.3)
+  REPORT cost  0 bps round trip: net $16,409  own ROC@30k 2.17
+  REPORT cost  5 bps round trip: net $-245,508  own ROC@30k -3.31
+  REPORT cost 10 bps round trip: net $-507,426  own ROC@30k -3.32
+  REPORT cost 20 bps round trip: net $-1,031,261  own ROC@30k -3.33
+  TWIN crown with both INHERITED NQ filters OFF: n 4137  net $-155,396  own ROC@30k -3.00  DD5 $86,671, worst $172,763 (worst / DD5 1.99, driven by one episode)
+  REPORT WF sessions whose range filter had < 252 prior sessions: 127 of 2260 (5.6%)
+  REPORT ex-dividend sessions: 37 in the calendar; 35 trades on them, net $-5,242 (prior close not dividend-adjusted)
+  REPORT crown at a constant $100k a trade: net $-63,090  own ROC@30k -3.22
+  REPORT daily P&L correlation: with NOISE #422 0.28, with BOOK #463 0.16
+  REPORT book #463 + NOISE-XLI at VOL scale          (x1.057 NQ): ROC@30k 86.02  Sortino 3.321  bootstrap p5 -34.8 (SD 9.5)
+  REPORT book #463 + NOISE-XLI at $30k own DD (twin) (x0.286 NQ): ROC@30k 91.70  Sortino 3.693  bootstrap p5 -9.6 (SD 2.9)
+  NOISE-XLI in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $0 at 1 NQ, $0 without its 3 best days; without 2020: own ROC@30k -3.12, net $-82,866
+  A1 own ROC@30k >= 15 or earner route (neither route), PF > 1, >= 100 and 50/yr, >= 6 of 9 years FAIL
+  A1b no-2020: the same route holds without calendar 2020                          FAIL
+  A2 crown above the sign-flip null's p95 (prices the selection)                   FAIL
+  A3 plateau: at least half the one-step neighbours keep half the crown's ROC      FAIL
+  A4 (REPORT) vol-scale book add >= 98.50 / 3.816 with p5 > 0: no
+  XLI STAGE A: FAIL
+
+==============================================================================================================
+XLV - grid median -3.29, best -2.56 at lookback 40 / long 1.00 / short 1.50 / stop 1.25; cells > 0: 0; own 54-cell null p95 -2.07 (report)
+  DAY STRUCTURE XLV: 2690 trades in 1225 sessions; single-trade sessions 693 (25.8% of trades) net $55,850; multi-break 1997 trades net $-103,185 (first breaks $-77,359, later $-25,826)   [NQ #422: 28.6% of trades, 97.4% of unit $]
+  CROWN n 2690 (299/yr)  net $-47,335  PF 0.895  DD $61,627  own ROC@30k -2.56  Sortino -0.89  DD5 $16,634, worst $61,627 (worst / DD5 3.70, driven by one episode)
+  neighbours (one step on one axis): -2.8, -2.7, -2.8, -3.3, -2.6
+  REPORT H1 2016-21  n  1606  net $    -3,038  PF 0.986
+  REPORT H2 2022-25  n  1084  net $   -44,297  PF 0.809
+  REPORT longs       n  1889  net $   -22,559  PF 0.923
+  REPORT shorts      n   801  net $   -24,775  PF 0.843
+  REPORT per July-June year $: -11,509, 1,239, 3,482, 10,452, -6,043, 865, -13,585, -14,013, -18,223
+  REPORT per July-June year: trades / mean notional a trade: 2016: 339 / $102,312, 2017: 264 / $114,883, 2018: 263 / $125,845, 2019: 234 / $133,777, 2020: 319 / $159,195, 2021: 318 / $184,432, 2022: 319 / $180,880, 2023: 310 / $192,341, 2024: 324 / $203,267
+  REPORT trades a year 299; realised cost 1.8 bps of notional a round trip (median 1.6)
+  REPORT cost  0 bps round trip: net $27,607  own ROC@30k 3.38
+  REPORT cost  5 bps round trip: net $-183,408  own ROC@30k -3.33
+  REPORT cost 10 bps round trip: net $-394,425  own ROC@30k -3.34
+  REPORT cost 20 bps round trip: net $-816,458  own ROC@30k -3.34
+  TWIN crown with both INHERITED NQ filters OFF: n 3199  net $-46,427  own ROC@30k -2.30  DD5 $17,656, worst $67,442 (worst / DD5 3.82, driven by one episode)
+  REPORT WF sessions whose range filter had < 252 prior sessions: 127 of 2260 (5.6%)
+  REPORT ex-dividend sessions: 38 in the calendar; 58 trades on them, net $-6,777 (prior close not dividend-adjusted)
+  REPORT crown at a constant $100k a trade: net $-26,446  own ROC@30k -2.67
+  REPORT daily P&L correlation: with NOISE #422 0.20, with BOOK #463 0.18
+  REPORT book #463 + NOISE-XLV at VOL scale          (x1.424 NQ): ROC@30k 86.05  Sortino 3.431  bootstrap p5 -30.6 (SD 9.1)
+  REPORT book #463 + NOISE-XLV at $30k own DD (twin) (x0.487 NQ): ROC@30k 91.10  Sortino 3.699  bootstrap p5 -10.4 (SD 3.6)
+  NOISE-XLV in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $-1,002 at 1 NQ, $-1,002 without its 3 best days; without 2020: own ROC@30k -3.16, net $-61,889
+  A1 own ROC@30k >= 15 or earner route (neither route), PF > 1, >= 100 and 50/yr, >= 6 of 9 years FAIL
+  A1b no-2020: the same route holds without calendar 2020                          FAIL
+  A2 crown above the sign-flip null's p95 (prices the selection)                   FAIL
+  A3 plateau: at least half the one-step neighbours keep half the crown's ROC      FAIL
+  A4 (REPORT) vol-scale book add >= 98.50 / 3.816 with p5 > 0: no
+  XLV STAGE A: FAIL
+
+==============================================================================================================
+XLP - grid median -3.31, best -3.23 at lookback 60 / long 1.00 / short 1.50 / stop 1.75; cells > 0: 0; own 54-cell null p95 -3.06 (report)
+  DAY STRUCTURE XLP: 2919 trades in 1233 sessions; single-trade sessions 676 (23.2% of trades) net $12,647; multi-break 2243 trades net $-131,766 (first breaks $-64,481, later $-67,284)   [NQ #422: 28.6% of trades, 97.4% of unit $]
+  CROWN n 2919 (325/yr)  net $-119,118  PF 0.689  DD $122,926  own ROC@30k -3.23  Sortino -2.60  DD5 $122,926, worst $122,926 (worst / DD5 1.00)
+  neighbours (one step on one axis): -3.3, -3.3, -3.3, -3.2
+  REPORT H1 2016-21  n  1813  net $   -66,872  PF 0.667
+  REPORT H2 2022-25  n  1106  net $   -52,245  PF 0.713
+  REPORT longs       n  2143  net $   -78,122  PF 0.690
+  REPORT shorts      n   776  net $   -40,996  PF 0.689
+  REPORT per July-June year $: -13,147, -11,100, -9,720, -9,099, -21,516, -9,717, -18,859, -15,185, -10,772
+  REPORT per July-June year: trades / mean notional a trade: 2016: 363 / $98,705, 2017: 377 / $98,472, 2018: 290 / $99,736, 2019: 247 / $110,610, 2020: 346 / $119,975, 2021: 358 / $133,730, 2022: 317 / $132,124, 2023: 294 / $132,040, 2024: 327 / $146,632
+  REPORT trades a year 325; realised cost 3.0 bps of notional a round trip (median 3.0)
+  REPORT cost  0 bps round trip: net $-13,275  own ROC@30k -1.53
+  REPORT cost  5 bps round trip: net $-186,894  own ROC@30k -3.33
+  REPORT cost 10 bps round trip: net $-360,513  own ROC@30k -3.34
+  REPORT cost 20 bps round trip: net $-707,750  own ROC@30k -3.34
+  TWIN crown with both INHERITED NQ filters OFF: n 3450  net $-133,950  own ROC@30k -3.23  DD5 $138,283, worst $138,283 (worst / DD5 1.00)
+  REPORT WF sessions whose range filter had < 252 prior sessions: 127 of 2260 (5.6%)
+  REPORT ex-dividend sessions: 37 in the calendar; 53 trades on them, net $-3,435 (prior close not dividend-adjusted)
+  REPORT crown at a constant $100k a trade: net $-101,225  own ROC@30k -3.25
+  REPORT daily P&L correlation: with NOISE #422 0.15, with BOOK #463 0.12
+  REPORT book #463 + NOISE-XLP at VOL scale          (x1.653 NQ): ROC@30k 70.63  Sortino 3.036  bootstrap p5 -44.0 (SD 9.7)
+  REPORT book #463 + NOISE-XLP at $30k own DD (twin) (x0.244 NQ): ROC@30k 90.04  Sortino 3.705  bootstrap p5 -7.0 (SD 1.7)
+  NOISE-XLP in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $-3,279 at 1 NQ, $-3,279 without its 3 best days; without 2020: own ROC@30k -3.21, net $-98,388
+  A1 own ROC@30k >= 15 or earner route (neither route), PF > 1, >= 100 and 50/yr, >= 6 of 9 years FAIL
+  A1b no-2020: the same route holds without calendar 2020                          FAIL
+  A2 crown above the sign-flip null's p95 (prices the selection)                   FAIL
+  A3 plateau: at least half the one-step neighbours keep half the crown's ROC      FAIL
+  A4 (REPORT) vol-scale book add >= 98.50 / 3.816 with p5 > 0: no
+  XLP STAGE A: FAIL
+
+==============================================================================================================
+XLU - grid median -3.31, best -3.20 at lookback 60 / long 1.00 / short 1.50 / stop 1.25; cells > 0: 0; own 54-cell null p95 -2.82 (report)
+  DAY STRUCTURE XLU: 2889 trades in 1324 sessions; single-trade sessions 745 (25.8% of trades) net $30,390; multi-break 2144 trades net $-124,730 (first breaks $-74,594, later $-50,136)   [NQ #422: 28.6% of trades, 97.4% of unit $]
+  CROWN n 2889 (321/yr)  net $-94,340  PF 0.807  DD $98,189  own ROC@30k -3.20  Sortino -1.78  DD5 $49,627, worst $98,189 (worst / DD5 1.98, driven by one episode)
+  neighbours (one step on one axis): -3.3, -3.3, -3.3, -3.2
+  REPORT H1 2016-21  n  1841  net $   -65,826  PF 0.756
+  REPORT H2 2022-25  n  1048  net $   -28,513  PF 0.869
+  REPORT longs       n  1942  net $   -48,451  PF 0.841
+  REPORT shorts      n   947  net $   -45,888  PF 0.750
+  REPORT per July-June year $: -8,579, -11,039, -15,542, -7,340, -14,759, -15,840, -8,322, -5,362, -7,554
+  REPORT per July-June year: trades / mean notional a trade: 2016: 310 / $95,459, 2017: 380 / $98,951, 2018: 352 / $105,953, 2019: 261 / $119,497, 2020: 340 / $119,462, 2021: 375 / $131,690, 2022: 308 / $130,693, 2023: 295 / $121,537, 2024: 268 / $147,142
+  REPORT trades a year 321; realised cost 3.2 bps of notional a round trip (median 3.2)
+  REPORT cost  0 bps round trip: net $15,672  own ROC@30k 3.34
+  REPORT cost  5 bps round trip: net $-154,937  own ROC@30k -3.34
+  REPORT cost 10 bps round trip: net $-325,548  own ROC@30k -3.34
+  REPORT cost 20 bps round trip: net $-666,769  own ROC@30k -3.34
+  TWIN crown with both INHERITED NQ filters OFF: n 3544  net $-117,239  own ROC@30k -3.32  DD5 $25,036, worst $117,872 (worst / DD5 4.71, driven by one episode)
+  REPORT WF sessions whose range filter had < 252 prior sessions: 127 of 2260 (5.6%)
+  REPORT ex-dividend sessions: 37 in the calendar; 24 trades on them, net $-5,635 (prior close not dividend-adjusted)
+  REPORT crown at a constant $100k a trade: net $-79,933  own ROC@30k -3.23
+  REPORT daily P&L correlation: with NOISE #422 0.04, with BOOK #463 0.04
+  REPORT book #463 + NOISE-XLU at VOL scale          (x1.273 NQ): ROC@30k 84.87  Sortino 3.327  bootstrap p5 -31.0 (SD 8.6)
+  REPORT book #463 + NOISE-XLU at $30k own DD (twin) (x0.306 NQ): ROC@30k 91.66  Sortino 3.711  bootstrap p5 -7.1 (SD 2.2)
+  NOISE-XLU in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $0 at 1 NQ, $0 without its 3 best days; without 2020: own ROC@30k -3.19, net $-82,216
+  A1 own ROC@30k >= 15 or earner route (neither route), PF > 1, >= 100 and 50/yr, >= 6 of 9 years FAIL
+  A1b no-2020: the same route holds without calendar 2020                          FAIL
+  A2 crown above the sign-flip null's p95 (prices the selection)                   FAIL
+  A3 plateau: at least half the one-step neighbours keep half the crown's ROC      FAIL
+  A4 (REPORT) vol-scale book add >= 98.50 / 3.816 with p5 > 0: no
+  XLU STAGE A: FAIL
+
+==============================================================================================================
+XLF - grid median -3.33, best -3.33 at lookback 40 / long 0.50 / short 1.50 / stop 1.75; cells > 0: 0; own 54-cell null p95 -3.20 (report)
+  DAY STRUCTURE XLF: 5092 trades in 1490 sessions; single-trade sessions 604 (11.9% of trades) net $35,686; multi-break 4488 trades net $-492,970 (first breaks $-169,862, later $-323,107)   [NQ #422: 28.6% of trades, 97.4% of unit $]
+  CROWN n 5092 (566/yr)  net $-457,283  PF 0.523  DD $458,005  own ROC@30k -3.33  Sortino -4.74  DD5 $458,005, worst $458,005 (worst / DD5 1.00)
+  neighbours (one step on one axis): -3.3, -3.3, -3.3, -3.3, -3.3
+  REPORT H1 2016-21  n  2951  net $  -268,014  PF 0.479
+  REPORT H2 2022-25  n  2141  net $  -189,269  PF 0.574
+  REPORT longs       n  4326  net $  -397,695  PF 0.484
+  REPORT shorts      n   766  net $   -59,587  PF 0.683
+  REPORT per July-June year $: -52,015, -35,526, -62,952, -36,232, -47,444, -67,938, -18,797, -69,918, -66,457
+  REPORT per July-June year: trades / mean notional a trade: 2016: 537 / $100,727, 2017: 427 / $118,276, 2018: 628 / $117,987, 2019: 504 / $120,425, 2020: 525 / $131,629, 2021: 577 / $166,368, 2022: 414 / $147,374, 2023: 795 / $165,302, 2024: 685 / $210,568
+  REPORT trades a year 566; realised cost 6.0 bps of notional a round trip (median 6.2)
+  REPORT cost  0 bps round trip: net $-11,632  own ROC@30k -1.44
+  REPORT cost  5 bps round trip: net $-382,208  own ROC@30k -3.33
+  REPORT cost 10 bps round trip: net $-752,785  own ROC@30k -3.34
+  REPORT cost 20 bps round trip: net $-1,493,939  own ROC@30k -3.34
+  TWIN crown with both INHERITED NQ filters OFF: n 5722  net $-523,564  own ROC@30k -3.33  DD5 $524,220, worst $524,220 (worst / DD5 1.00)
+  REPORT WF sessions whose range filter had < 252 prior sessions: 127 of 2260 (5.6%)
+  REPORT ex-dividend sessions: 39 in the calendar; 62 trades on them, net $-4,569 (prior close not dividend-adjusted)
+  REPORT crown at a constant $100k a trade: net $-331,583  own ROC@30k -3.33
+  REPORT daily P&L correlation: with NOISE #422 0.17, with BOOK #463 0.13
+  REPORT book #463 + NOISE-XLF at VOL scale          (x0.831 NQ): ROC@30k 63.60  Sortino 2.489  bootstrap p5 -68.9 (SD 13.6)
+  REPORT book #463 + NOISE-XLF at $30k own DD (twin) (x0.066 NQ): ROC@30k 91.58  Sortino 3.710  bootstrap p5 -6.0 (SD 1.4)
+  NOISE-XLF in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $0 at 1 NQ, $0 without its 3 best days; without 2020: own ROC@30k -3.33, net $-421,593
+  A1 own ROC@30k >= 15 or earner route (neither route), PF > 1, >= 100 and 50/yr, >= 6 of 9 years FAIL
+  A1b no-2020: the same route holds without calendar 2020                          FAIL
+  A2 crown above the sign-flip null's p95 (prices the selection)                   FAIL
+  A3 plateau: at least half the one-step neighbours keep half the crown's ROC      FAIL
+  A4 (REPORT) vol-scale book add >= 98.50 / 3.816 with p5 > 0: no
+  XLF STAGE A: FAIL
+
+STAGE A: PASS for XLK -> a pinned 900-trial Auto-Validate the same day for each

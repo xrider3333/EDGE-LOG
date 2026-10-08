@@ -1,0 +1,38 @@
+NOISE FADE on TLT r1 - unit 720 shares (2016-06-30 close), cost $0.02 a share as traded; WF exit dates 2016-07-01 .. 2025-06-29
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816
+  grid: 54 cells, fade own ROC@30k median -3.19, best -2.78 at lookback 60 / long 1.00 / short 1.50 / stop 1.75; cells > 0: 0
+  family null (one sign per session shared by all cells, 2000 draws): family-max own ROC@30k p95 -1.60
+  REPORT IEF (TAINTED - seen in TRANSFER r2; never a bar) fade at the TLT crown's cell: n 2697  net $-53,702  own ROC@30k -3.30
+  MECHANISM held to the close (the trend days the fade loses on)           n   676  net $  -185,851
+  MECHANISM exited earlier (VWAP or stop - the reversions it is built on)  n  2117  net $   144,579
+  DAY STRUCTURE TLT: 2793 trades in 1393 sessions; single-trade sessions 771 (27.6% of trades) net $-41,889; multi-break 2022 trades net $617 (first breaks $22,675, later $-22,057)   [NQ #422: 28.6% of trades, 97.4% of unit $]
+  CROWN n 2793 (311/yr)  net $-41,271  PF 0.834  DD $49,574  own ROC@30k -2.78  Sortino -0.90  DD5 $10,904, worst $49,574 (worst / DD5 4.55, driven by one episode)
+  neighbours (one step on one axis): -2.9, -3.1, -3.0, -2.8
+  REPORT H1 2016-21  n  1779  net $   -37,768  PF 0.766
+  REPORT H2 2022-25  n  1014  net $    -3,502  PF 0.960
+  REPORT longs       n   958  net $   -26,045  PF 0.750
+  REPORT shorts      n  1835  net $   -15,226  PF 0.894
+  REPORT per July-June year $: -417, -3,297, -3,557, -23,022, 611, -9,516, 4,420, -9,639, 3,147
+  REPORT per July-June year: trades / mean notional a trade: 2016: 300 / $91,080, 2017: 325 / $88,941, 2018: 328 / $87,646, 2019: 342 / $105,431, 2020: 314 / $108,936, 2021: 363 / $98,679, 2022: 288 / $75,714, 2023: 272 / $66,432, 2024: 261 / $65,905
+  REPORT trades a year 311; realised cost 1.6 bps of notional a round trip (median 1.6)
+  REPORT cost  0 bps round trip: net $-1,052  own ROC@30k -0.15
+  REPORT cost  5 bps round trip: net $-125,122  own ROC@30k -3.22
+  REPORT cost 10 bps round trip: net $-249,191  own ROC@30k -3.32
+  REPORT cost 20 bps round trip: net $-497,331  own ROC@30k -3.34
+  REPORT 2022 alone (the bond bear market): n 358  net $1,060
+  REPORT ex-dividend sessions: 112 in the calendar; 201 trades on them, net $-4,737 (prior close not dividend-adjusted)
+  TWIN crown with both NQ filters ON (report): n 2433  net $-24,704  own ROC@30k -2.79
+  MAP ROW: crown $ a year at a $30k own drawdown $-2,776 vs the map's >= $15,000 (reported, not a bar)
+  REPORT 10 worst fade days: 2020-03-17 $-5,842 (TLT open-to-close -6.43%); 2020-03-23 $-4,161 (TLT open-to-close +5.40%); 2020-03-18 $-3,647 (TLT open-to-close -5.42%); 2020-03-20 $-3,228 (TLT open-to-close +3.71%); 2020-03-11 $-3,168 (TLT open-to-close -5.39%); 2020-03-10 $-2,152 (TLT open-to-close -4.20%); 2022-03-02 $-1,893 (TLT open-to-close -2.45%); 2020-03-16 $-1,781 (TLT open-to-close +2.10%); 2020-08-27 $-1,720 (TLT open-to-close -2.12%); 2020-07-09 $-1,663 (TLT open-to-close +1.52%)
+  REPORT on #463's 28 drawdown episodes (460 days, house rule >= $14,950): fade $-26,233; episodes the fade made money in: 11 of 28
+  REPORT book #463 + NOISE-FADE-TLT at VOL scale          (x2.135 NQ): ROC@30k 46.43  Sortino 3.352  bootstrap p5 -56.0 (SD 18.4)
+  REPORT book #463 + NOISE-FADE-TLT at $30k own DD (twin) (x0.605 NQ): ROC@30k 73.60  Sortino 3.709  bootstrap p5 -22.6 (SD 7.9)
+
+  NOISE-FADE-TLT in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $-18,475 at 1 NQ, $-23,032 without its 3 best days; without 2020: own ROC@30k -2.57, net $-27,949
+  A1 own ROC@30k >= 15 or earner route (neither route), PF > 1, >= 100 and 50/yr, >= 6 of 9 years FAIL
+  A1b no-2020: the same route holds without calendar 2020                          FAIL
+  A2 crown above the sign-flip null's p95 (prices the selection)                   FAIL
+  A3 plateau: at least half the one-step neighbours keep half the crown's ROC      FAIL
+  A4 (REPORT) vol-scale book add >= 98.50 / 3.816 with p5 > 0: no
+
+STAGE A: FAIL - recorded dead, no variants

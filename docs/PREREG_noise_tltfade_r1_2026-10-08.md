@@ -97,3 +97,13 @@ Harness: `tools/noise_tltfade_r1_stageA.py`.
 - **Power line:** `tools/r37_results/noise_tltfade_r1_power.txt`. Coin-flip centre cell, 4,432 WF trades (493 a year).
   Book-add lead 5% line 17.7 at the volatility size, 5.7 at the $30k twin.
 - Dividend calendar: MANAGER's pull for NOISE #613, `C:/EdgeLog/_anatomy_cache/noise_funds_r1/etf_dividends.csv` (2026-10-08 11:03, 486 rows, sha256 22776e7d354773a85eb705e34b34e2720aade7abf9da942d2e45ee31d8800621; raw pages `etf_dividends_raw.jsonl` sha256 c8a8346e90874bd3b6afac6a4e3fac0bb7393b98f17bd78e05d7fc2b84d88981). The `--dry` smoke test (coin flips everywhere, no real direction) ran the whole path clean on 2026-10-08. GO: STRATEGY-BEATING confirmed the code folds (#76); MANAGER #74 makes that confirmation plus this committed amendment the GO. Stage A runs after this commit, WF only, lockbox unread.
+
+## RESULT (run once, 2026-10-08 11:10 MST, after amendment 1 was committed and the inbox read)
+- **Stage A: FAIL - recorded dead, no variants.**
+  - All 54 cells are negative. Crown -2.78 (60 / 1.0 / 1.5 / 1.75), PF 0.83, below the null's p95 of -1.60. DD5 $10,904
+    vs a worst of $49,574 (one episode, March 2020).
+  - Flat before cost (-$1,052). The reversions paid +$145k and the days held to the close lost $186k.
+  - -$18k in #463's worst drawdown; -$26k over its 28 episodes (11 positive).
+  - IEF (tainted) -3.30. Filters-on twin -2.79.
+- **Records:** `tools/r37_results/noise_tltfade_r1_stageA.txt`; NOISE.md "NOISE on the sector funds r1 and the TLT fade
+  r1".

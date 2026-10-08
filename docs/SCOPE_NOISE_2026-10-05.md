@@ -193,3 +193,15 @@ filters mined this way are regime artifacts. The point is to name the mechanism,
 - **A1 IWM own crown: DEAD at Stage A.** Run 2026-10-07 18:01 MST: the 10-06 07:00 launch was lost to the PC sleeping and
   was relaunched on reopening, per MANAGER #67. All 54 cells were negative, best -2.07; it is gross-flat before cost.
   See NOISE.md "NOISE on IWM r1".
+
+## Queue update 2026-10-08 (sector funds r1 + TLT fade r1 run; STRATEGY-BEATING review #73, MANAGER #74)
+- **A2 sector funds:** XLK PASSES Stage A (32.3, correlation 0.74 with NOISE #422, so the book's own NOISE on another
+  tape). Its pinned 900-trial Auto-Validate follows. XLY, XLI, XLV, XLP, XLU and XLF are dead.
+- **A4 TLT fade: DEAD.** Flat before cost.
+- **Queue:**
+  1. the XLK Auto-Validate (NOISE_1_1_FUNDGRID.py);
+  2. A7 / A8 DIA and SPY controls;
+  3. A5 GLD;
+  4. A9 basket (needs two passing families; XLK alone does not open it).
+- **What the habitat rounds have shown so far:** NOISE travels to tapes that look like NQ (QQQ 0.94, XLK) and nowhere
+  else tested (IWM, five sector funds, bonds). The controls are the last equity-index check.

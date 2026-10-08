@@ -115,3 +115,19 @@ harness unchanged).
   | XLF | 19.7 | 2.3 |
 
 - Dividend calendar: MANAGER's pull for NOISE #613, `C:/EdgeLog/_anatomy_cache/noise_funds_r1/etf_dividends.csv` (2026-10-08 11:03, 486 rows, sha256 22776e7d354773a85eb705e34b34e2720aade7abf9da942d2e45ee31d8800621; raw pages `etf_dividends_raw.jsonl` sha256 c8a8346e90874bd3b6afac6a4e3fac0bb7393b98f17bd78e05d7fc2b84d88981). The `--dry` smoke test (coin flips everywhere, no real direction) ran the whole path clean on 2026-10-08. GO: STRATEGY-BEATING confirmed the code folds (#76); MANAGER #74 makes that confirmation plus this committed amendment the GO. Stage A runs after this commit, WF only, lockbox unread.
+
+## RESULT (run once, 2026-10-08 11:10 MST, after amendment 1 was committed and the inbox read)
+- **Stage A: XLK PASS; XLY, XLI, XLV, XLP, XLU and XLF FAIL.** The pooled 378-cell null's p95 was 3.50.
+- **XLK crown** (40 / 1.0 / 1.0 / 1.75): 2,829 trades, +$273,040, PF 1.24, ROC @ $30k 32.27, DD5 $22,850. All 54 cells
+  were positive and it held without 2020.
+- **Its reports:**
+  - daily correlation 0.74 with NOISE #422 and 0.51 with #463;
+  - book add 98.6, bootstrap p5 -20.9, so no seat case;
+  - H1 / H2 $31k / $242k;
+  - 15.4 at a constant $100k a trade;
+  - 9.4 with the filters off.
+- **XLY:** 6.28, failing only the 15 bar. The other five funds have every cell negative.
+- **Next:** the pinned 900-trial Auto-Validate on XLK with `NOISE_1_1_FUNDGRID.py` (`tools/noise_queue_xlk_validate.py`),
+  queued once that file is on main.
+- **Records:** `tools/r37_results/noise_sectors_r1_stageA.txt`; NOISE.md "NOISE on the sector funds r1 and the TLT fade
+  r1".
