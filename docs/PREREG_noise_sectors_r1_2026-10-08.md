@@ -64,3 +64,54 @@ break of a trend day held to the close (ledger 2.82).
 - **FAIL:** recorded dead per fund, no variants.
 - **Either way:** one ledger row, one RUNBOARD research row per fund (ROC @ $30k, drawdown, DD5) and a NOISE.md section.
 - Then A4, the TLT fade.
+
+## AMENDMENT 1 - STRATEGY-BEATING cross-lane review #73 / #76 and MANAGER #74 / #75 (GO WITH EDITS), 2026-10-08, before any real-direction run
+All edits are accepted. Where this amendment and the text above differ, this amendment rules.
+1. **Null.** One random sign per SESSION per draw, shared by every cell and every fund, applied to each cell's realised
+   daily gross P&L (cost kept). 2,000 draws. The statistic is the MAX own ROC @ $30k over all 378 cells.
+   - This replaces "the same flips across a fund's cells" above. The first harness draft flipped each trade
+     independently, which is what IWM r1 did; it is not the rule here.
+   - One sign per session keeps the within-day dependence between re-entries and the correlation across cells and funds,
+     so the max is calibrated.
+2. **Seeds.**
+   - The power lines are seeded with the fixed seed 20261006 and reproduce.
+   - The `--dry` smoke test, which uses coin flips everywhere and computes no real direction, is seeded from a stable
+     digest (crc32) of the cell.
+3. **Ex-dividend sessions.**
+   - NOISE_1_0's band uses the prior close (high bound = max(open, prior close), low bound = min(open, prior close)). The
+     masters are split-adjusted only, so an ex-date moves one bound by the dividend: about 0.5 - 0.9% a quarter on XLU,
+     XLP, XLF and XLV.
+   - REPORT: the trades on ex-dividend sessions and their net, per fund crown. The calendar is an Alpaca cash-dividend
+     pull run by MANAGER (`etf_dividends.csv`). The run stops if the calendar is missing.
+   - The bound is not adjusted, because that would change the frozen strategy.
+4. **Data.**
+   - The masters are the SIP feed (`--feed sip`), not IEX-only.
+   - "Flat at the close" exits at each session's last 5-minute bar's close: 15:55 - 16:00, and 12:55 - 13:00 on early
+     closes.
+5. **Disclosed.** Ledger 2.82's habitat table read these funds' price bars (trend-day share, cost against the day range).
+   That read used no NOISE trade.
+6. **Overlap and make-up.**
+   - REPORT, beside A4: each fund crown's daily P&L correlation with NOISE #422 and with BOOK #463. XLK sits close to QQQ,
+     so its crown may re-find the book's own NOISE leg.
+   - Disclosed: the 2018-09 GICS change created XLC. XLK and XLY lost their internet names then, so their make-up breaks
+     in the walk-forward.
+7. **Constant notional.** REPORT: the crown at a constant $100k a trade, beside the fixed-share crown. XLK's notional is
+   about 5x higher by 2025, so its fixed-share ROC leans on the late years.
+8. **The power line is read against A2's hurdle**, the 378-cell max null's p95, not against a single fund's null.
+
+Harness: `tools/noise_sectors_r1_stageA.py` (shared code `tools/noise_fund_r1_common.py`, which imports the IWM r1
+harness unchanged).
+- **Power lines:** `tools/r37_results/noise_sectors_r1_power.txt`. Coin-flip centre cell, book-add lead, 5% line at the
+  volatility size / the $30k twin:
+
+  | Fund | Vol size | $30k twin |
+  |---|---|---|
+  | XLK | 25.2 | 15.0 |
+  | XLY | 19.1 | 4.3 |
+  | XLI | 16.7 | 4.1 |
+  | XLV | 17.2 | 3.1 |
+  | XLP | 17.9 | 2.3 |
+  | XLU | 15.8 | 3.0 |
+  | XLF | 19.7 | 2.3 |
+
+- Dividend calendar: MANAGER's pull for NOISE #613, `C:/EdgeLog/_anatomy_cache/noise_funds_r1/etf_dividends.csv` (2026-10-08 11:03, 486 rows, sha256 22776e7d354773a85eb705e34b34e2720aade7abf9da942d2e45ee31d8800621; raw pages `etf_dividends_raw.jsonl` sha256 c8a8346e90874bd3b6afac6a4e3fac0bb7393b98f17bd78e05d7fc2b84d88981). The `--dry` smoke test (coin flips everywhere, no real direction) ran the whole path clean on 2026-10-08. GO: STRATEGY-BEATING confirmed the code folds (#76); MANAGER #74 makes that confirmation plus this committed amendment the GO. Stage A runs after this commit, WF only, lockbox unread.

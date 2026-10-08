@@ -1,0 +1,31 @@
+NOISE on the sector funds r1 - cost $0.02 a share as traded; WF exit dates 2016-07-01 .. 2025-06-29
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816
+  XLK unit 4610 shares (2016-06-30 close)
+  XLY unit 2562 shares (2016-06-30 close)
+  XLI unit 1785 shares (2016-06-30 close)
+  XLV unit 1393 shares (2016-06-30 close)
+  XLP unit 1813 shares (2016-06-30 close)
+  XLU unit 3808 shares (2016-06-30 close)
+  XLF unit 4376 shares (2016-06-30 close)
+POWER LINES XLK (coin-flip directions on the CENTRE cell's 3558 WF trades, 396 a year)
+  VOL scale (primary)        x0.860 NQ: SD of the book-add lead 15.3 points; 5% line 25.2; 80% line 38.1
+  $30k own drawdown (twin)   x0.393 NQ: SD of the book-add lead 9.1 points; 5% line 15.0; 80% line 22.7
+POWER LINES XLY (coin-flip directions on the CENTRE cell's 3809 WF trades, 424 a year)
+  VOL scale (primary)        x1.195 NQ: SD of the book-add lead 11.6 points; 5% line 19.1; 80% line 28.9
+  $30k own drawdown (twin)   x0.215 NQ: SD of the book-add lead 2.6 points; 5% line 4.3; 80% line 6.4
+POWER LINES XLI (coin-flip directions on the CENTRE cell's 4212 WF trades, 468 a year)
+  VOL scale (primary)        x1.041 NQ: SD of the book-add lead 10.2 points; 5% line 16.7; 80% line 25.3
+  $30k own drawdown (twin)   x0.235 NQ: SD of the book-add lead 2.5 points; 5% line 4.1; 80% line 6.2
+POWER LINES XLV (coin-flip directions on the CENTRE cell's 4598 WF trades, 511 a year)
+  VOL scale (primary)        x1.265 NQ: SD of the book-add lead 10.5 points; 5% line 17.2; 80% line 26.1
+  $30k own drawdown (twin)   x0.182 NQ: SD of the book-add lead 1.9 points; 5% line 3.1; 80% line 4.7
+POWER LINES XLP (coin-flip directions on the CENTRE cell's 4868 WF trades, 541 a year)
+  VOL scale (primary)        x1.470 NQ: SD of the book-add lead 10.9 points; 5% line 17.9; 80% line 27.1
+  $30k own drawdown (twin)   x0.156 NQ: SD of the book-add lead 1.4 points; 5% line 2.3; 80% line 3.5
+POWER LINES XLU (coin-flip directions on the CENTRE cell's 4956 WF trades, 551 a year)
+  VOL scale (primary)        x1.054 NQ: SD of the book-add lead 9.6 points; 5% line 15.8; 80% line 23.8
+  $30k own drawdown (twin)   x0.175 NQ: SD of the book-add lead 1.8 points; 5% line 3.0; 80% line 4.6
+POWER LINES XLF (coin-flip directions on the CENTRE cell's 4411 WF trades, 490 a year)
+  VOL scale (primary)        x0.891 NQ: SD of the book-add lead 12.0 points; 5% line 19.7; 80% line 29.8
+  $30k own drawdown (twin)   x0.083 NQ: SD of the book-add lead 1.4 points; 5% line 2.3; 80% line 3.5
+  (no real direction was computed; coin seed 20261006, fixed - re-running reproduces these lines)
