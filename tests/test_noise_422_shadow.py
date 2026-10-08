@@ -378,7 +378,11 @@ def test_noise_422_runs_through_run_leg_trades_on_real_bars_and_sizes_its_trades
 def test_fresh_shadow_key_cold_starts_without_an_entry_exit_burst(tmp_path):
     """A shadow key's first tick re-derives the whole window: exactly one SEED, however many
     historical trades it absorbs, and nothing on a repeat of the same tick. KEEL is taken
-    off the cfg here -- SEED never scores KEEL and the box's state is not on this machine."""
+    off the cfg here -- SEED never scores KEEL and the box's state is not on this machine.
+    Since MANAGER #87 (2026-10-08) a SHADOW leg that is holding a trade at its seed also
+    writes ONE ENTRY for that open trade (reason "seeded=1 ..."), so its exit can land later;
+    every trade that already closed stays absorbed. Whether the real cache ends mid-trade
+    depends on when it was last fetched, so both shapes are accepted."""
     paths = cs._paths(home=str(tmp_path))
     os.makedirs(paths["ohlc_dir"], exist_ok=True)
     shutil.copy(REAL_CACHE_5M, os.path.join(paths["ohlc_dir"], "QQQ_5m.csv"))
@@ -387,8 +391,15 @@ def test_fresh_shadow_key_cold_starts_without_an_entry_exit_burst(tmp_path):
     df = _real_bar_frame()
     now = _now_past_the_newest_bar(df)
     events = cs.step(now=now.to_pydatetime(), legs=legs, paths=paths, fetch=False)
-    assert [e["event"] for e in events] == ["SEED"]
+    kinds = [e["event"] for e in events]
+    assert kinds in (["SEED"], ["SEED", "ENTRY"]), kinds
     leg_state = cs._load_state(paths)["legs"]["NOISE_422_PLAIN"]
     assert leg_state["seeded"] is True and len(leg_state["trades"]) > 0
-    assert all(rec.get("exit_emitted") for rec in leg_state["trades"].values())
+    still_open = [rec for rec in leg_state["trades"].values() if not rec.get("exit_emitted")]
+    if kinds == ["SEED"]:
+        assert still_open == []           # nothing held at the seed: everything absorbed
+    else:
+        # exactly the one trade held at the seed is carried, flagged as seeded
+        assert len(still_open) == 1, still_open
+        assert "seeded=1" in str(events[1].get("reason", "")), events[1]
     assert cs.step(now=now.to_pydatetime(), legs=legs, paths=paths, fetch=False) == []
