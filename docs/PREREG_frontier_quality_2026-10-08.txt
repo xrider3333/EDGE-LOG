@@ -1,0 +1,81 @@
+BOOK QUEUE Q26 (scoping item B6) - QUALITY r1: gross profitability in single US stocks (Novy-Marx 2013; operating profitability, Ball et al.
+2015), as a monthly basket SEAT on the RESMOM line. PRE-REGISTRATION, FRONTIER, 2026-10-08 (draft v1 to MANAGER 11:35 MST; MANAGER
+#121: GO, power line first, and if GPA and OPA both fail the fundamentals-basket line is closed - no B8 / B9 - and BOOK.md says so),
+committed before any number of this item. Walk-forward only (owner decision b, 10-05). Scoping doc rank 2; it waited for XBRL data, which the house now holds (TV's companyfacts.zip, below).
+
+WHY. Novy-Marx (2013) found that gross profits over total assets predict returns as strongly as book-to-market does, and in the opposite
+direction to value; Asness-Frazzini-Pedersen (2019) find quality earns most in sell-offs ("flight to quality"). That is the seat the book
+needs: money on L's drawdown days (R), which Q20's map says is what matters. HONEST PRIORS: (1) quality is a low-beta, defensive sort - a
+long-quality / short-junk basket can be a short-market bet (the BAB lesson), so its beta is printed first and |beta| > 0.20 means its
+drawdown-day money is reported, never credited; (2) 2016-25 includes junk rallies (2016 H2, 2020 Q2-2021) that hurt quality - the regime
+halves and the named months are printed; (3) the fundamental signal moves slowly, so turnover is low and costs matter less than for SEASON.
+PRIOR HOUSE EVIDENCE AGAINST (CUSTOM-ML #120, 10-08): FUND-ML r1's twin - an equal-weight rank of book-to-market + operating profitability -
+asset growth on the top-500 names, monthly 50 / 50, beta-neutral - read WF 2018-01 .. 2025-06 ROC @ $30k -2.0 (one drawdown). That composite
+carries value, which the scoping doc already marks as the wrong weeks since 2016; this item tests profitability ALONE, as a seat. If both
+cells fail it closes the fundamentals-basket line for this data (B8 / B9 are not drafted after it).
+A SECOND HOUSE READ (CUSTOM-ML #122, 10-08): DISTRESS-ML r1's twin (the Campbell-Hilscher-Szilagyi failure score, short the most distressed)
+EARNED in #463's drawdowns (DO +0.41 vs the random books' p95 +0.20; +$83,848 in March 2020) but lost overall in the 2019-21 junk rally
+(WF ROC @ $30k -1.2). Quality is the long side of that trade - so the seat read on R is the question, and the junk-rally window is printed.
+
+DATA - HELD, NO PULL. [D1] SEC's bulk XBRL company facts, photographed by TV: C:\EdgeLog\_research_cache\xbrl_companyfacts\
+companyfacts.zip (sha256 db35d36b..., provenance json beside it). [D2] the house extract tool, main's tools/extract_companyfacts.py (the
+same tool and symbol maps STRATEGY-BEATING's BUYBACK / NETISS use: the wide map sha256 19adc9ba... plus the reviewed additions 6bf8dfab...),
+run twice, unit USD: the income concepts as period facts (--duration) - us-gaap:GrossProfit, Revenues, RevenueFromContractWithCustomer
+ExcludingAssessedTax, RevenueFromContractWithCustomerIncludingAssessedTax, SalesRevenueNet, SalesRevenueGoodsNet, CostOfRevenue,
+CostOfGoodsAndServicesSold, CostOfGoodsSold, CostOfGoodsAndServiceExcludingDepreciationDepletionAndAmortization, OperatingIncomeLoss - and
+us-gaap:Assets as point facts; facts filed on or after 2025-06-30 are not extracted. PINNED (the harness refuses any other bytes):
+income_asfiled_wide.csv sha256 e142ef058ab97bd2916ceb9fa59692f6bfdf71444b44a6833658349663dc01b3 (1,684,226 rows) and
+assets_asfiled_wide.csv sha256 83c099bda27a0842e8f1044cf3344efae43861869079b10c7ea9165543f74ac0 (341,973 rows), both in
+C:\EdgeLog\_anatomy_cache\rocfrontier\quality_r1\data\ with their manifests (zip db35d36b...). COUNTS READ BEFORE THIS COMMIT (no score
+value, no return): 41,186 annual firm-years over 3,586 firms; GP reported 18,911 / rebuilt 7,601 / none 14,674; scale errors out GPA 127,
+OPA 509; firms with a usable score at each December rank GPA 1,284 (2016) -> 1,939 (2024), OPA 1,812 -> 2,708. [D3] RESMOM's world
+(r17_resmom.py, imported): prices, universe, dividends, corporate actions, ES.
+
+KNOWN AT A RANK CLOSE r (point in time, NETISS's rule). A fact is usable at r when its FIRST filed date (the earliest filing carrying that
+value for that period) is strictly before r's date; amendments never replace a value already usable. ANNUAL figures only: a period fact
+from a 10-K (or 10-K/A) with fiscal period FY and a duration of 350 to 380 days; total assets = the point fact at that fiscal year's end
+date, from the same filing or earlier. The name's figures at r = its latest fiscal year whose figures are usable at r, if that year ended
+no more than 18 months before r (else no score - stale).
+GROSS PROFIT = GrossProfit when reported for that year; else revenue minus cost of revenue, each taken in the order listed in [D2] (the
+first concept reported for that year), never mixed across years. OPERATING INCOME = OperatingIncomeLoss. A name has NO score when a
+figure is missing, assets are not positive, or |score| > 3 (a scale or unit error - counted and listed, never kept).
+A symbol maps to its CIK through [D2]'s maps; two share classes of one firm get the same score (both can be held - counted).
+
+THE TWO CELLS (a family of 2), each long the 50 HIGHEST and short the 50 LOWEST scores among the universe names WITH a score,
+dollar-neutral, $4,000 slots, monthly on RESMOM's schedule:
+- GPA: gross profit / total assets (Novy-Marx).
+- OPA: operating income / total assets (an operating-profitability proxy for Ball et al.'s; CHOICE: the filed OperatingIncomeLoss, not a
+  rebuilt revenue - COGS - SG&A, so one concept, one fact).
+Both cells rank ONE shared pool (r17's engine: a name needs both scores), so financial firms - which mostly report no cost of revenue
+and so have no GPA - are out of BOTH cells (counted by rank; OPA is therefore not the financials-inclusive variant). Ties by symbol. The
+pool otherwise = RESMOM's (>= 230 own returns and ES pairs in the window; its hygiene, fills and audit rules).
+
+THE ENGINE = RESMOM r1's through FRONTIER's r19 / r25 pattern (the scores and the null's streams swapped, nothing else), judged under
+MANAGER #127's hygiene rule S1 = r17's post_mode 'close'. Stage A = RESMOM r1's rules (a)-(f), on the 'close' reading; FAMILY NULL = the MAX
+over both cells per draw (codes 27 GPA and 28 OPA on RESMOM's scheme, 500 draws). A cell that fails is DEAD as a leg; its seat numbers are
+still printed.
+POWER LINE FIRST (MANAGER's rule for SEASON / HIGH52): before any cell is run, the family null ALONE gives the bar and the true edge it
+takes to clear it at 50% and 80% power, in own money ($ a year at the cell's size, and at a $30k worst drawdown = the bar's ROC x
+$1,000), and the lead on R a seat needs; committed as an addendum before stage_a, which refuses without it.
+THE SEAT READ (REPORT; the owner's call; BOOK.md 10ab via the seat pipeline): the S1 line L (file e204dd53..., 121.06) + c x X at c = 0.25
+(binding) and 0.10 (reported); X's dollars on R with and without its best R episode against the null's p95 on R; the #70 gate on #463's
+460 days; corr(X, RES) and corr(X, BAB's two cells) on R; DD5 beside every ROC.
+DIAGNOSTICS (owner addendum 2): the realised beta to ES FIRST; regime halves 2016-21 / 2022-25; cost 0 / 5 / 10 / 20 bps with turnover;
+per-year and per-episode rows; long vs short; coverage by year (scored names per rank, GPA vs OPA); the share of scores more than 12
+months old at the rank; 2020-03, 2020-04..2021-02 (the junk rally) and 2022 with each cell's P&L.
+COULD FOOL US: (1) a short-market bet (beta first); (2) a sector bet - GPA is high in software / staples and low in utilities / energy;
+the per-sector split is not held (no SIC codes in the world) - stated, not tested; (3) the first-filed date of the bulk file is the
+earliest filing it lists, which for a few old facts may be later than the true first filing (conservative: a later date only delays).
+LOOKS: two cells added to the house's count. LOCKBOX: not read.
+THE PASS RULE: r17's judge_cell checks on the 'close' reading (its own 10 bps stress check - the fundamental sort turns over slowly), the
+family null = the MAX over both cells per draw; a passing cell's top 50 name-months are audited as RESMOM's (f) - until then 'PASS (audit
+pending)'. Neither a pass nor the seat read adopts anything.
+ENGINE PIN: r17_resmom.py LF sha256 3151ef0ac6229972e897cf26634b465d87d608f0bf026215ea371058a5001f7c (on main since 2026-10-08 13:01, the
+'close' reading); the harness refuses any other r17 and prints every pin at the start of each run. Run before main by the 10-08 rule:
+this commit is pushed as branch prereg/frontier-quality-1008 before any number.
+HARNESS: tools/rocfrontier/r27_quality.py (imports r17 unchanged; swaps only rm_scores - r17's 'RES' slot carries GPA, 'RAW' carries OPA -
+and rm_null's streams; the point-in-time table is built inside it from the two pinned files). Commands: selftest (hand-made filings: the
+first-filed value, restatements ignored, annual only, the rev - cogs fallback in order, strictly before the rank, the 18-month stale cut,
+scale / date errors out; the toy world end to end), dryload (counts), power (the null alone), stage_a.
+ORDER: draft -> MANAGER (GO #121) -> extract counts -> commit before any number -> selftest -> dryload -> power -> commit the power addendum
+-> Stage A WF -> record (BOOK.md, ledger, RUNBOARD with DD5) -> report.
