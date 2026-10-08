@@ -122,3 +122,18 @@ DISTRESS-ML r1 POWER LINE (no cell or twin P&L read): 90 monthly WF decisions; 1
   mapped share of the universe by July-June year: 2017/18 96.5%, 2018/19 96.5%, 2019/20 98.7%, 2020/21 99.4%, 2021/22 99.7%, 2022/23 100.0%, 2023/24 100.0%, 2024/25 100.0%
   names with a usable share count (first filed before t, period end within 15 months): median 433 of 498 mapped; eligible median 329
 ```
+
+## RESULT (2026-10-08 12:23 MST, Stage A, walk-forward only; lockbox never read; run-before-main #82: frozen commit
+## a229e57c on origin prereg/custom-ml-distressml-r1, hashes matched at start) - DEAD
+Full output: C:\EdgeLog\custom_ml\distressml_r1\STAGE_A.txt.
+- Cell: net WF ROC @ $30k -0.8 (Sortino -0.22), gross -0.3, stress -1.1; null 95th 10.3. WF net -$194,937 on $1M a
+  side. Worst DD $956,275, DD5 $229,540 - one episode (2019-21: -$416k, -$361k). PF 0.967; neighbours -0.4 / 0.0.
+- Earner route: NOT taken - rho_dd -0.02, DO +0.086 (null 95th +0.199); lost in 4 of #463's 5 deepest drawdowns
+  (2020-03 -$53k).
+- The model DOES forecast the label: out-of-sample AUC 0.60-0.82 by year (base rate 5.1%). Predicting which names
+  crash is not predicting which names lose on average - the likely crashers are the high-volatility names that also
+  rallied hardest (2019-21); shorting them lost $1.24M on the short leg.
+- CHS twin (for FRONTIER): net -1.2 / -0.17, worst DD $522,146, DD5 $180,624 (one episode); its DO +0.407 (above the
+  null's 95th +0.199; +$83,848 in March 2020) but net negative over the WF stretch, so the earner route is closed for it
+  too (needs net > 0).
+Bars 1-6 all fail. DISTRESS-ML r1 dead, no variants.
