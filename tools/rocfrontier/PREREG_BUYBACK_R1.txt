@@ -291,3 +291,15 @@ the lead's review of the harness wired to [B13] / [B14] / [B17] (r23_buyback.py 
   PICKED position with a calendar split inside its hold and no matching factor move is LISTED before any P&L (symbol, rank,
   ex-date, split ratio, the factor's move), as RESMOM's restatement printed it; the hand audit (f) treats each as a data event
   (its whole group removed, counted). None listed = said so.
+PRE-DATA ADDENDUM 6 (2026-10-08 12:31 MST, before any BUYBACK number: the counts-only dryload ran on r23_buyback.py
+86cd6891 - no return, score value or P&L read; stdout C:\EdgeLog\_anatomy_cache\rocfrontier\buyback_dryload_run1_stdout.txt).
+- [B20] THE DRYLOAD'S COUNTS, REPORTED AS [B3] REQUIRES; NOTHING CHANGES. (a) [B3] tag blind spot (universe name-ranks with a TTM
+  that read zero on all three components / the name-ranks with a TTM) per fill year: 2017 1.5%, 2018 1.4%, 2019 0.8%, 2020 0.7%,
+  2021 1.1%, 2022 0.7%, 2023 0.8%, 2024 1.4%, 2025 1.4% - no year above 10%, so the zero-reading rule stands and Stage A needs no
+  ruling. (b) 101 WF rebalances (first fill 2017-01-03); scored names per rebalance P 338 / 376 / 402 and R 340 / 377 / 402
+  (min / median / max): every rebalance trades the top 50 a side, none falls back to thirds or nothing. (c) [B2] scored names
+  whose statement period ended over 120 days before the rank: 14.4% - 23.4% a year; [B17] stale S unscored 167 - 330 name-ranks
+  a year of 6,000. (d) [A13] fires on one firm only (GOOG / GOOGL, 99 name-ranks). (e) [B13] closes 25 positions before a
+  spin-off / stock-dividend ex-date over the stretch; the wide calendar's splits on names ever in the universe: 289 agree with
+  the price rule, 18 calendar-only, 59 price-only - [B19]'s list is drawn after the picks at Stage A, before any P&L. (f) The
+  calendar starts 2016-06-01: the first ranks' 252-session windows are partly price-only (printed as a warning; as registered).
