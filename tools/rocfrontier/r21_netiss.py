@@ -2255,7 +2255,7 @@ def t_constants():
     assert (NREP, SEED, CELLS, KS, AUDIT_N) == (500, 20261008, ("N12", "N24"), {"N12": 1, "N24": 2}, 50) and YEARS == tuple(range(2016, 2025))
     assert A2_WINS == {"N12": (TS("2017-02-01"), TS("2019-01-31")), "N24": (TS("2018-02-01"), TS("2020-01-31"))} and (A2_TARGET, A2_REPORT) == (0.25, (0.5, 2.0)) == (M17.A2_TARGET, M17.A2_REPORT)
     assert (WF0, PRE_END, LB0, LB1) == (TS("2016-07-01"), TS("2025-06-29"), TS("2025-06-30"), TS("2026-06-30")) and (S.LB0, S.END) == (LB0, R11.LBX) and CACHE_FIRST_SESSION == TS("2016-01-04")
-    assert (BOOK_WF, BOOK_LB, DEEPEST_WF) == ((93.81, 3.816), (155.54, 4.15), 44849.0) and DV.REF_W == 0.264 and DV.REF_FACTS == {"roc": 120.95, "sortino": 3.921, "max_dd": 36526.0} and DV.REF_SHA.startswith("86721fda") and DV.REF_CSV.endswith("resmom_cells_daily_wf_keep.csv")
+    assert (BOOK_WF, BOOK_LB, DEEPEST_WF) == ((93.81, 3.816), (155.54, 4.15), 44849.0) and DV.REF_W == 0.264 and DV.REF_FACTS == {"roc": 120.95, "sortino": 3.921, "max_dd": 36526.0} and DV.REF_SHA.startswith("86721fda") and DV.REF_CSV_PINNED.endswith("resmom_cells_daily_wf_keep.csv")
     assert (COST_BPS, STRESS_BPS, BORROW, BORROW_STRESS) == (5.0, (10.0, 20.0), 0.0025, (0.01, 0.03)) and M17.SPEC == {"win": 252, "form_n": 231, "skip": 21, "min_n": 230, "n_side": 50, "slot": 4000.0, "hyg_lead": 5}
     assert SPEC == {"min_scored": 150, "min_side": 20, "dec_n": 10, "dec_min": 10, "hedge_win": 252, "hedge_min": 230}, "150 scored names or the thirds, at least 20 a side, ten deciles, a 252-session hedge window"
     assert (LN10, LN15, BAND_DAYS, SPLIT_TOL, SPLIT_NEAR, STALE_DAYS, BETA_CAP) == (math.log(10.0), math.log(1.5), 35, 0.01, 3, 60, 0.20)
