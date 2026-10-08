@@ -237,3 +237,36 @@ review of the harness r22_shortint.py settles the points the prereg left open:
   re-run unchanged; the owner's applications are never touched.
 - [A18] DISCLOSURE. While building the harness the builder once printed four future-dated rows of FINRA's published release
   SCHEDULE (dates only - no short interest); the harness drops schedule rows on or after the cut at read (37, counted).
+
+POST-DATA BUG FIX ADDENDUM 4 (2026-10-07 MST - written AFTER Stage A was run and read under the reading it replaces; MANAGER
+#116 / #118 / #119, TTM's harness review #115). Disclosed as post-data: Stage A ran at 14:33 MST on 2026-10-06 under r17_resmom's
+post_mode 'remove', after MANAGER's order #116 had named that rule a look-ahead (the lane had not read its inbox); its numbers
+were read and posted in the 15:00 status; MANAGER #119 declared that verdict VOID - neither dead nor alive - and no row of it
+reached main. This addendum fixes the bug and nothing else; the verdict is taken from the corrected reading only.
+- [A19] THE JUDGED READING. A name with a hygiene flag INSIDE THE HOLD (a registered split, the gap scan, TBIS, a raw gap beyond
+  +-50%) is no longer removed before the ranking - for a short-interest sort that removal took exactly the squeezes out of the
+  book (GME's 2021-01-27 open could never be shorted). It stays in the pool, valued on the split-adjusted (split-safe) path
+  through the hold, never the raw one. Only events KNOWN AT THE RANK remove a name: an announced split (a forward / reverse /
+  unit split ex-date of the pinned corporate-actions calendar) or a [D2] spin-off / stock-dividend ex-date in f < t <= x. This
+  is r17_resmom's post_mode 'keep', the same code the RESMOM restatement and NETISS [A18] use. The random-name null draws from
+  that kept pool (the power line is printed first, as before); the revised-rows twin, the no-dividend row, the reports and
+  Stage B read the same reading. The old 'remove' reading is printed beside it as a REPORT, without a null, never the verdict
+  (it replaces the 'naive' raw-path report). Unchanged: the pinned files, the join, both scores, both cells, the coverage rule,
+  the stretch, sizes, costs, the binding 3% borrow, the null's draws and seeds, the A2 rule, the beta credit rule and the gate.
+- [A20] DD5 (owner rule of 2026-10-07, MANAGER #120) is printed beside every ROC @ $30k: each cell, L, L + c x the cell at c /
+  0.5c / 2c and the plain #463 + c x the cell, on the stretch - the mean depth of the 5 deepest non-overlapping drawdown
+  episodes of the same daily curve; a worst drawdown above 1.3 x DD5 is called driven by one episode. Reported, never a pass
+  condition.
+- [A21] CAVEATS STATED IN THE ROW, not fixed. FINRA's rewrite (TTM #115, TV #122): 123 files (2018-06-15 .. 2023-07-14) carry
+  Last-Modified 2023-07-27, one re-upload inside nine minutes; no pre-rewrite copy exists in any public archive, so whether
+  unflagged rows moved cannot be proven; the rewritten files carry four times the share of revision-flag rows (0.92% vs 0.23%),
+  so the 'R' flag very likely marks the rows that moved - and the judged reading already gives an 'R' row no score ([A11]),
+  the revised-rows twin scoring them as they stand. The shared-ticker refusal uses renames up to 2025-06-30 (a cautious
+  exclusion, not a value leak). Alpaca's daily closes can differ from the official close on stress days (TBIS #121): fills and
+  exits are at opens, so a position's P&L is open to open and only the daily marks between move.
+- [A22] BOTH WAYS (MANAGER #126, on TV's finding #122): the verdict must hold with FINRA-revised rows dropped (the judged
+  reading, [A11]) AND with every row scored as it stands. The revised-rows reading gets its own 500-draw null (the same seeds)
+  and its own Stage A checks; a cell passes only if it passes in both; both readings print in one table, with DD5.
+- [A23] THE REFERENCE IS THE RESTATED L (MANAGER #116; the RESMOM restatement, ledger 2.93): L = #463 + 0.264 x RES
+  from resmom_cells_daily_wf_keep.csv (sha256 86721fda...), refused unless its WF ROC @ $30k 120.95, Sortino 3.921 and worst
+  drawdown $36,526 reproduce; on this stretch L is recomputed from it as before. Its drawdown days are the registered ones.
