@@ -1190,6 +1190,48 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10ah. Q24 SEASON r1 and Q25 HIGH52 r1 (scoping items B2 / B3): both DEAD at Stage A, and neither is a seat (2026-10-08)
+
+**What ran.** Two monthly stock-basket families on RESMOM r1's engine (r17, imported unchanged). Each was judged under MANAGER's hygiene
+rule S1 (r17's 'close' reading), walk-forward only, and read as a seat over the S1-restated RESMOM line L (121.06, file e204dd53).
+- **How it ran early.** Both ran before main, under MANAGER's run-before-main rule (#117 / #118). The preregs, harnesses and power lines
+  were pushed as branch prereg/frontier-season-1008 before each run. SEASON's prereg LF sha256 is b86b6108..., HIGH52's is f1433cd4...;
+  r17 was pinned to STRATEGY-BEATING's witness commit d873fd07 (LF sha256 3151ef0a...).
+- **SEASON** (Heston-Sadka 2008, same-calendar-month returns). LAG12 = the name's return in the month being entered, one year earlier.
+  AVG = that month's mean over every prior year on file - 1 year in 2017, rising to 9 in 2025.
+- **HIGH52** (George-Hwang 2004). PTH = the price over its 52-week closing high. PTHX = PTH with both the 12-1 return and RESMOM's
+  residual score taken out (MANAGER #116), so it measures what L does not already hold.
+
+**Power line first (committed before any cell ran).** The bar is ROC@30k >= 15, which is $15,000 a year at a $30k worst drawdown; the
+null's MAX p95 was only 4.5 / 4.9, so the 15 floor binds. To clear it, a cell needed a true edge of about $17,500 a year at 50% power,
+or $23,000 at 80%, at its own size (50 a side at $4,000). A seat needed about $33,000-38,000 more on R than the null's median.
+
+| Cell | ROC@30k | DD5 | Worst DD | WF net | Net at 0 bps | Beta to ES | L + seat at 0.25 | $ on R (without best episode) |
+|---|---|---|---|---|---|---|---|---|
+| LAG12 | -1.79 | $152,716 | $152,716 | -$82,112 | -$41,485 | +0.02 | 88.6 | -$96,611 (-$113,143) |
+| AVG | -3.30 | $176,834 | $176,834 | -$174,773 | -$134,136 | +0.07 | 96.6 | -$160,534 (-$171,651) |
+| PTH | 2.28 | $78,166 (one episode) | $150,170 | +$102,593 | +$143,118 | -0.37 | 107.3 | +$43,634 (-$3,029) |
+| PTHX | -1.62 | $92,010 (one episode) | $213,428 | -$103,780 | -$63,232 | -0.31 | 94.1 | +$82,551 (+$50,066) |
+
+L alone = 121.06. The random-name null's p95 on R: LAG12 $21,453, AVG $21,155, PTH $22,928, PTHX $25,173.
+
+**Verdict.**
+- **SEASON: DEAD, both cells.** They lose before costs, turn over 85-87% of their names a month, and their worst entry month is
+  January (-$99k / -$100k). The measured edge is negative, far below the power line, so this is dead, not undecidable. Earnings season
+  is not separated: the earnings calendar the house holds covers Nasdaq-100 members only.
+- **HIGH52: FAIL, both cells.**
+  - PTH earns $11,400 a year: under the bar and under the 50% power line. It also fails the years and best-1% checks, and its worst
+    drawdown is one episode.
+  - Both cells are partly short-market bets: beta to ES is -0.37 (PTH) and -0.31 (PTHX), past the 0.20 limit. So PTHX's +$83k on R,
+    though above the null, is reported, never credited.
+  - Both seats LOWER L. Their correlation with RES on R is +0.64 (PTH) and +0.44 (PTHX).
+- **Neither family is a seat.** SEASON's history is short (the stock cache starts in 2016, so each rank sees 1-9 years); only a longer
+  history could change that call.
+
+**Files.** Results in C:\EdgeLog\_anatomy_cache\rocfrontier\season_r1\ and high52_r1\ (the Stage A and power JSONs). Harnesses
+tools/rocfrontier/r25_season.py and r26_high52.py. Run logs in C:\EdgeLog\_anatomy_cache\bookq\ (season_* and high52_*). RUNBOARD rows
+Q24-SEASON-R1 and Q25-HIGH52-R1; the ledger rows follow, docs-only.
+
 ### 10ag. THE CAPACITY LINE (MANAGER assessment 10-05 order 5c): what #463 and its candidate seats need in margin, in contracts the owner can trade (2026-10-07)
 
 **Sources (provenance in `C:\EdgeLog\_research_cache\margins\margins_provenance_20261008.json`).**
