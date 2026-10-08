@@ -173,6 +173,155 @@ def _snapshot_from_db(root, rid):
         return None
 
 
+# Firestore caps a command doc at 1MB - a 10k-trade 1m blotter would burst it. load_blotter_rows
+# serves the most-recent MAXR trades and says so; the full CSV always stays on disk. Module-level
+# (not a local) so a test can patch it; the readings below are computed BEFORE this cap trims.
+MAXR = 6000
+
+
+def _num(v):
+    """A finite float from a CSV string / number, else None (blank, text, NaN, inf, bool)."""
+    import math
+    if v is None or isinstance(v, bool):
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
+
+
+def _plain(o):
+    """Plain JSON types only: numpy scalars -> python, NaN/inf -> None, tuples -> lists."""
+    import math
+    import numpy as np
+    if isinstance(o, dict):
+        return {str(k): _plain(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [_plain(x) for x in o]
+    if isinstance(o, np.bool_):
+        return bool(o)
+    if isinstance(o, np.integer):
+        return int(o)
+    if isinstance(o, np.floating):
+        o = float(o)
+    if isinstance(o, float):
+        return o if math.isfinite(o) else None
+    return o
+
+
+def blotter_readings(rows, payload):
+    """The run's SECOND readings, computed from ALL its rows (call it before any MAXR cap):
+
+      cost       augur_engine.cost_readings.readings() - net at the charged cost, at double
+                 cost, break-even cost per round trip, headroom. Needs payload cost_pts (the
+                 cost the run was charged; never guessed as 0) and mult (money per point).
+      realistic  cost_readings.realistic() for an instrument with PUBLISHED inputs only
+                 (cost_readings.DEFAULT_INPUTS) - the module would silently fall back to NQ's.
+                 No ATR in a blotter, so slippage is NOT included (slippage_included False).
+      limits     run_limits: what this run does not model (items / lines / counts / basis).
+      summary    cost_readings.summary_lines() - the module's own plain sentences.
+
+    Never raises: any exception becomes {"ok": False, "error": ...} so the blotter is still
+    served. Rows' pnl_pts is NET (the backtest already charged cost_pts; the engine module adds
+    it back itself, so nothing is pre-added here).
+    """
+    try:
+        import re
+        from augur_engine import cost_readings, run_limits
+        payload = payload or {}
+        n_rows = len(rows)
+        pts = [(r, _num(r.get("pnl_pts"))) for r in rows]
+        trades = [(i, i + 1, p) for i, (_, p) in enumerate(pts) if p is not None]
+        cost_pts, mult = _num(payload.get("cost_pts")), _num(payload.get("mult"))
+        if cost_pts is not None and cost_pts < 0:
+            cost_pts = None
+        if mult is not None and mult <= 0:
+            mult = None
+        inst = str(payload.get("instrument") or "").strip()
+
+        # ---- cost: refuses to guess the charged cost or the point value ------------------
+        cost = None
+        if cost_pts is None:
+            cost = {"ok": False, "error": "cost_pts missing from the request - the readings need "
+                    "the cost this run was charged per round trip and will not guess 0"}
+        elif mult is None:
+            cost = {"ok": False, "error": "mult missing from the request - the readings need the "
+                    "money value of one point"}
+        else:
+            cost = {"ok": True, **cost_readings.readings(trades, cost_pts, mult)}
+
+        # ---- realistic: published inputs only, no ATR -> no slippage ----------------------
+        merged = None
+        if inst.upper() not in cost_readings.DEFAULT_INPUTS:
+            realistic = {"ok": False,
+                         "why": "no published cost inputs for %s" % (inst or "(no instrument)")}
+        elif not cost["ok"]:
+            realistic = {"ok": False, "why": "needs the cost reading first (%s)" % cost["error"]}
+        else:
+            merged = full = cost_readings.realistic(trades, cost_pts, inst.upper(), mult,
+                                                    atr_pts=None, contracts=1)
+            realistic = {"ok": True, "instrument": inst.upper(), "contracts": 1,
+                         "slippage_included": False, "atr_pts": None, "fitted": False}
+            realistic.update({k: full[k] for k in (
+                "realistic_cost_pts", "net_realistic_pts", "net_realistic_usd",
+                "survives", "realistic_over_breakeven", "realistic_breakdown")})
+
+        # ---- limits: the run's settings + what the rows can tell --------------------------
+        run = {"n_trades": n_rows}
+        for k in ("instrument", "timeframe", "session", "source", "date_from", "date_to",
+                  "family", "fill_rule"):
+            if payload.get(k):
+                run[k] = payload[k]
+        if cost_pts is not None:
+            run["cost_pts"] = cost_pts
+        if isinstance(payload.get("marked_daily"), bool):
+            run["marked_daily"] = payload["marked_daily"]
+        date_re = re.compile(r"\d{4}-\d{2}-\d{2}")
+        lb_from = str(payload.get("lockbox_from") or "")[:10]
+        if date_re.fullmatch(lb_from):
+            dto = str(payload.get("date_to") or "")[:10]
+            lb = [(r, p) for r, p in pts
+                  if date_re.fullmatch(str(r.get("exit_time") or "")[:10])
+                  and str(r.get("exit_time"))[:10] >= lb_from]
+            if lb or not (dto and dto < lb_from):    # no lockbox at all if the window ends first
+                # money: the row's own pnl_usd, else points x mult; if any row has neither, the
+                # whole lockbox is read in points and pnl_units says so.
+                usd = []
+                for r, p in lb:
+                    u = _num(r.get("pnl_usd"))
+                    usd.append(u if u is not None else (p * mult if (p is not None and mult is not None) else None))
+                if all(v is not None for v in usd):
+                    vals, run["pnl_units"] = usd, "usd"
+                else:
+                    vals, run["pnl_units"] = [p for _, p in lb if p is not None], "pts"
+                run["lockbox_from"] = lb_from
+                run["lockbox_trades"] = len(vals)
+                run["lockbox_net"] = float(sum(vals))
+                run["lockbox_top_trade_net"] = float(max(vals)) if vals else None
+        limits = {"ok": True, "items": run_limits.not_modelled(run), "lines": run_limits.lines(run),
+                  "counts": run_limits.counts(run), "basis": run}
+
+        # ---- summary: the module's own sentences (realistic included when it ran) --------
+        # Contained on its own: the sentences are a convenience over numbers already computed
+        # (summary_lines itself raises when a run was charged cost_pts == 0 - headroom is None),
+        # so a failure here must not throw the readings away.
+        summary, summary_error = [], None
+        if cost["ok"]:
+            try:
+                summary = cost_readings.summary_lines(
+                    merged if merged is not None else {k: v for k, v in cost.items() if k != "ok"})
+            except Exception as e:
+                summary_error = "%s: %s" % (type(e).__name__, e)
+        res = {"ok": True, "n_rows": n_rows, "n_trades": len(trades), "cost": cost,
+               "realistic": realistic, "limits": limits, "summary": summary}
+        if summary_error:
+            res["summary_error"] = summary_error
+        return _plain(res)
+    except Exception as e:
+        return {"ok": False, "error": "%s: %s" % (type(e).__name__, e)}
+
+
 def load_blotter_rows(root, payload, log=print):
     """Serve a run's blotter to the web (get_blotter runner command).
 
@@ -181,6 +330,11 @@ def load_blotter_rows(root, payload, log=print):
     payload carries the champion config (strategy/params/window), regenerate the blotter
     on the spot and cache it under {root}/blotters for next time. Returns a json-safe
     {ok, rows, n, source|regenerated} dict — rows use the FIELDS schema.
+
+    A truthy payload["readings"] also attaches out["readings"] (see blotter_readings: cost,
+    realistic, limits, summary), computed from ALL the run's rows before the MAXR cap trims what
+    is sent. It needs payload cost_pts + mult (+ instrument; optional lockbox_from, family,
+    fill_rule, marked_daily, date_from/date_to, source). Absent the flag, nothing changes.
     """
     import csv
     rid = payload.get("run_id")
@@ -189,17 +343,16 @@ def load_blotter_rows(root, payload, log=print):
     name = f"run{rid}_{inst}_{tf}.csv"
     cands = [os.path.join(root, "blotters", name),
              os.path.join(os.path.dirname(root), "Trading", "ENGUQ_DB", "blotters", name)]
-    # Firestore caps a command doc at 1MB — a 10k-trade 1m blotter would burst it. Serve the
-    # most-recent MAXR trades and say so; the full CSV always stays on disk.
-    MAXR = 6000
 
     def _cap(rows, extra):
         out = {"ok": True, "n": len(rows), **extra}
-        if len(rows) > MAXR:
+        if len(rows) > MAXR:      # module constant: serve the most-recent MAXR trades, say so
             out["rows"] = rows[-MAXR:]
             out["capped"] = len(rows) - MAXR
         else:
             out["rows"] = rows
+        if payload.get("readings"):    # from ALL rows, before the cap trimmed what is sent
+            out["readings"] = blotter_readings(rows, payload)
         return out
 
     for pth in cands:
