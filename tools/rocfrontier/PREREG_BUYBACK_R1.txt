@@ -266,3 +266,12 @@ MANAGER's hygiene edit S1 (#127), the reference restated under it, the lead's re
 - [B16] [B5]'s 'no headless-Chrome ship probe running' is replaced by >= 9 GB free on both checks 30 s apart: other lanes'
   ship probes now start almost continuously, and the condition exists for memory. The job-object limit, the 2,500 MB floor,
   'a run the floor kills is kept and re-run unchanged' and 'the owner's applications are never touched' stand.
+PRE-DATA ADDENDUM 4 (2026-10-08 11:05 MST, before any BUYBACK number): MANAGER's review of addendum 3 (#136: GO with ONE
+edit; [B13], [B14] and [B16] accepted as written; run order unchanged - EAP, then BUYBACK last).
+- [B17] S IS POINT-IN-TIME AND FRESH (amends [B15](8)). S for the market value is read only from an entry first filed before
+  the rank - its first filed date's first session STRICTLY AFTER is on or before the rank (NETISS [A2]'s rule, the one every
+  fact in this file follows) - and always at its FIRST-FILED value, never a later restated one. Its period end (the dei
+  cover-page count's as-of date, or the balance sheet's period end) must lie within 15 calendar months before the rank;
+  otherwise the name is UNSCORED with the no-score reason 'stale S', counted per rank and printed per year beside [B2]'s
+  staleness print, before any P&L. The latest such usable cover-page (dei) count still comes first, else the balance-sheet
+  (us-gaap) count, as [B15](8) says.
