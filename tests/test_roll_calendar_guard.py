@@ -405,6 +405,14 @@ def test_report_mode_and_live_callers_never_raise(make):
     exec("res = ae.run_backtest(strat, arrays=arr)", g)
     assert g["res"]["_meta"]["roll_stamp"]["trades_crossing"] == 1
     assert g["res"]["_meta"]["roll_stamp"]["calendar"] == "raw (live/paper path)"
+    # the live KEEL state builder (tools/keel_live_state.py) fits live sizing on these trades:
+    # a planned run there would change live sizing, so it is report-only too
+    g2 = dict(g, __file__=os.path.join(ROOT, "tools", "keel_live_state.py"), arr=_arrays("db_noadj_rth"))
+    exec("res = ae.run_backtest(strat, arrays=arr)", g2)
+    assert g2["res"]["_meta"]["roll_stamp"]["calendar"] == "raw (live/paper path)"
+    g3 = dict(g, __file__=os.path.join(ROOT, "tools", "some_research.py"), arr=_arrays("db_noadj_rth"))
+    with pytest.raises(R.RollGuardError):                                   # a research tool is not
+        exec("res = ae.run_backtest(strat, arrays=arr)", g3)
 
 
 def test_slice_evaluator_reraises_the_refusal_and_reprices_a_slice(make):

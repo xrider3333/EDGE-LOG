@@ -14,7 +14,10 @@ Owner ask 10-08, relayed by MANAGER #54: "fix so this doesn't happen again." The
 | futures root with no roll table (CL, GC, ZN, RTY, YM ...) | any | - | - | **REFUSED** |
 | no instrument in `arrays["meta"]` | any | - | - | **REFUSED** unless meta says `roll_mode = "none"` (synthetic / stock tapes) or `"live"` (set by `api/cloud_signal.closed_arrays`, the live bar builder; reported only) |
 
-Live, paper and nightly-shadow paths (calls that come through `api/{cloud_signal, paper, gate_live, book_shadow, etf_book_shadow, noise_forward, qqq_exec, nt_sync}`) are never refused and never changed. They run raw and the stamp records what they held across (MANAGER D2). Proposed hard date: the Dec 2026 roll (TTM #56 point 8), which is MANAGER's call.
+Live, paper and nightly-shadow paths are never refused and never changed. That means calls that come through `api/{cloud_signal, paper, gate_live, book_shadow, etf_book_shadow, noise_forward, qqq_exec, nt_sync}`, or through these `tools/` scripts:
+- `keel_live_state` and `backfill_keel`: the live KEEL state, fitted on the NQ legs' backtest trades, so a planned run would change live sizing;
+- `paper_forward`, `paper_gate_calibrate` and `qqq_paper`;
+- the forward reads `noise_forward_log`, `dip_forward_read`, `orb_rollweek_forward` and `orb_orderflow_shadow`. They run raw and the stamp records what they held across (MANAGER D2). Proposed hard date: the Dec 2026 roll (TTM #56 point 8), which is MANAGER's call.
 
 ## The signal method
 

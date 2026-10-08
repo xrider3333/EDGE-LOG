@@ -66,7 +66,7 @@ def _arrays(n=9000, seed=3, with_index=False):
     l = np.minimum(o, c) - np.abs(rng.normal(0, 0.2, n))
     out = {"open": o, "high": h, "low": l, "close": c,
            "volume": rng.integers(100, 1000, n).astype(float),
-           "day_id": np.repeat(np.arange(n // 78 + 1), 78)[:n]}
+           "day_id": np.repeat(np.arange(n // 78 + 1), 78)[:n], "meta": {"roll_mode": "none"}}
     if with_index:
         # ENGINE_BRIEF D7 — oos_from/oos_to: real bar timestamps so both the
         # sequential and parallel fold paths can be checked for identical dates,

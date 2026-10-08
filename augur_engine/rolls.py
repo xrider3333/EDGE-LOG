@@ -403,18 +403,27 @@ def current_guard_mode():
 # Moving those legs to adjusted masters is the owning lanes' call; research runs refuse.
 REPORT_ONLY_MODULES = frozenset({"cloud_signal", "paper", "gate_live", "book_shadow",
                                  "etf_book_shadow", "noise_forward", "qqq_exec", "nt_sync"})
+# ...and the tools/ scripts that BUILD live state or read a live / paper leg forward: the live KEEL
+# state (fitted on the NQ legs' backtest trades - a planned run would change live sizing), its
+# backfill, the paper / QQQ paper legs, the paper gate calibration, and the forward reads (harm
+# monitors that must see what the live leg sees). Changing any of them is the owner's call.
+REPORT_ONLY_TOOLS = frozenset({"keel_live_state", "backfill_keel", "paper_forward", "paper_gate_calibrate",
+                               "qqq_paper", "noise_forward_log", "dip_forward_read", "orb_rollweek_forward",
+                               "orb_orderflow_shadow"})
 _WARNED = set()
 
 
 def _report_only_caller():
-    """True when the current call stack passes through a live / paper / nightly-shadow api module."""
+    """True when the current call stack passes through a live / paper / nightly-shadow api module,
+    or a tools/ script that builds live state or reads a live leg forward."""
     import sys
     f = sys._getframe(1)
     while f is not None:
         fn = str(f.f_globals.get("__file__") or "")
         if fn:
             parts = fn.replace("\\", "/").split("/")
-            if len(parts) >= 2 and parts[-2] == "api" and parts[-1][:-3] in REPORT_ONLY_MODULES:
+            if len(parts) >= 2 and ((parts[-2] == "api" and parts[-1][:-3] in REPORT_ONLY_MODULES) or
+                                    (parts[-2] == "tools" and parts[-1][:-3] in REPORT_ONLY_TOOLS)):
                 return True
         f = f.f_back
     return False
