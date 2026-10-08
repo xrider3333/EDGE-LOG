@@ -1,0 +1,70 @@
+NOTE 2 to PREREG_RESMOM_LINE_R1.txt - MANAGER's hygiene edit S1 on the forward line, and the harm monitor re-frozen on the
+restated reading
+=====================================================================================================================
+Written 2026-10-07 by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane, BEFORE any forward data exists (the line's first
+photograph is the 2026-10-30 month-end) and before the re-frozen constants below are computed. It adds to
+PREREG_RESMOM_LINE_R1.txt (LF sha256 9ab77351..., unchanged) and NOTE 1 (PREREG_RESMOM_LINE_R1_NOTE1.txt, LF sha256
+ea559fe9..., unchanged); where they differ, this note wins. The tool is still tools/rocfrontier/r17_resmom_line.py.
+
+Why: RESMOM r1 was restated under MANAGER's hygiene edit S1 (#127; r17_resmom.py post_mode 'close', label [HYG-S1]; the
+ledger row "RESMOM r1 RESTATEMENT"): the registered reading had dropped names with an in-hold hygiene flag before the ranking,
+a look-ahead. Restated, L = #463 + 0.264 x RES = WF ROC @ $30k 121.06 / DD5 $34,392, Sortino 3.926 (registered 120.82 /
+3.916). The forward line must hold the rule the restated L was judged under, and its monitor's constants must come from that
+same reading.
+
+[N6] S1 FORWARD (replaces the tool's CHOICE [L10] where they differ). A forward rank removes no name for an in-hold event
+  (none could be removed: the hold is not known at the rank - unchanged). In the MARK every held name is priced on the
+  split-safe path whatever hygiene flag falls inside its hold (unchanged), EXCEPT that a spin-off / stock-dividend ex-date e
+  inside the hold (f < e <= x; f = the fill session, x = the exit session; an ex-date on f itself is bought ex, as before)
+  CLOSES that position at the official close of e-1, by r17_resmom.py's own 'close' functions (rm_units with close rows ->
+  close_units, l1_pnl_x): no mark, no dividend whose ex-date is e or later and no borrow after e-1; the exit cost is booked
+  on e-1's row; a name with no close on e-1 exits at its last mark and counts as stopped printing there (the registered
+  stopped rule). An ex-date is published before it happens, so the close of e-1 knows it (CHOICE, as in the restatement).
+  (a) An ex-date on a session a photograph values (after the previous month-end, through this one) is read from that
+      photograph's own calendar.
+  (b) An ex-date ON THE EXIT SESSION x itself (the first session after a month-end) is first visible in the NEXT photograph
+      (a photograph's calendar ends at its month-end). The previous mark has then booked that position's marks through the
+      month-end's close without an exit cost. The next mark books, as that position's exit leg on x's row: no overnight
+      move, no exit-session dividend or borrow, and the amount the close would have booked on e-1 beyond the mark itself
+      (the exit cost, or the stopped rule's amount). The hold's total is the S1 total to the cent; only the session that one
+      cost is booked on moves by one. Each such position is listed by the mark.
+  (c) Each mark appends the positions it closed to line_closes.csv (the mark's month-end, the rank date, cell, side,
+      symbol, ex-date, close session, kind 'in month' or 'exit session'). A position the previous mark closed has a zero
+      exit leg. A position whose ex-date falls on a session an EARLIER photograph already valued but appears only in a later
+      photograph's calendar (a late-recorded row) is NOT closed after the fact: it exits at x's open as held, and the mark
+      lists it (the overlap comparison of NOTE 1 [N2](3) prints the calendar row as well). Nothing is re-valued.
+
+[N7] THE FREEZE IS RE-MADE ON THE RESTATED READING (replaces the inputs of NOTE 1 [N1](a) and (c); every method, seed, grid
+  and constant of [N1] is unchanged):
+  (a) d_k = 0.264 x RES's net P&L of walk-forward rebalance k = 1 .. 101 as the S1 reading books it (r17_resmom.py's
+      rm_build with post_mode 'close'); the 101 must sum to the restated RES walk-forward net in resmom_restate_close.json
+      (readings -> close -> cells -> RES -> net, $243,929.08; 101 rebalances) within $1, RAW held to the same standard
+      ($310,202.77), else the freeze refuses.
+  (b) B: NOTE 1 [N1](b)'s rule on the restated d_k.
+  (c) the dollar read's null spread: NOTE 1 [N1](c)'s rule on resmom_cells_daily_wf_close.csv (sha256 e204dd53419a22bc...,
+      refused if different).
+  NOTE 1's frozen block stays in the tool as FROZEN_NOTE1 and its freeze.json stays on disk, both as the record and never
+  read again; the re-made block is the tool's FROZEN, its record freeze_s1.json. A second `freeze` run must reproduce it
+  exactly.
+
+[N8] PARITY ON THE RESTATED READING. (i) The rank code path reproduces the S1 reading's picks at the 101 walk-forward ranks;
+  the forward-information picks (no hold, no fill open known) may differ from them only by the fill rule (CHOICE [L6]: a
+  name with no open at its fill session) - a hygiene reason can no longer explain a difference. (ii) The mark code path,
+  month by month, reproduces resmom_cells_daily_wf_close.csv to the cent on every row except the row pairs (the month-end,
+  x) of positions with an exit-session ex-date ([N6](b)): on each such pair the two rows' sum matches to the cent, and the
+  moved amounts are listed. (iii) Every hold's total matches the freeze's hold P&L to the cent. (iv) The chain pin -> mark
+  through photographs of the walk-forward cache meets (ii) and (iii).
+
+[N9] THE GATE IS RE-READ UNDER S1 BEFORE THE FIRST RANK. PREREG_RESMOM_LINE_R1.txt's [F1], unchanged in its rule, is read
+  again on the restated reading: r17_resmom_gate.py with post_mode 'close' - RES's DO over #463's 460 walk-forward drawdown
+  days against the 95th percentile of the S1 null's DO (the restatement's 500 draws: same code, same seed [20261005, 0, 0];
+  refused unless the draws' ROC p95 reproduce the restatement's by cell, RES 2.8849 / RAW 2.8063), and RES's drawdown-day
+  dollars without its best #463 drawdown episode. Written to resmom_line_gate_close.json; the registered gate's
+  resmom_line_gate.json is never overwritten. If the gate FAILS under S1, no line opens: nothing is ranked on 2026-10-30
+  and the lane tells MANAGER. (Registered gate: DO 0.160 vs the null's p95 0.030, +$59,939 without its best episode - PASS.
+  The restated DO is 0.159.)
+
+[N10] UNCHANGED: the line's size c = 0.264 x RES (RAW logged beside at 0.233; the volatility rule's c on the restated RES is
+  0.2635, the line keeps its frozen 0.264); the looks 12 / 18 / 24 / 30 / 36; the monitor acts on EARLY FAIL only; the
+  dollar read at hold 36 against c* 2.47; the month-end order pin -> rank -> mark -> read; the sealed year as ranking inputs
+  only; no orders. The forward line is reported against the restated L.
