@@ -87,3 +87,21 @@ Then 4 / 7 (7 needs the pull) / 6 (needs submissions). 8, 9, 10, 12 are parked a
 - Survivorship through the CIK map (unmapped names are disproportionately small or delisted) - reported.
 - One episode: value's 2022 rally could make a value-tilted cell look like a drawdown-week earner from one year - the
   per-episode rows and DD5 are there for that.
+
+## RESULTS 2026-10-08 - the queue is exhausted
+| # | Item | Outcome |
+|---|---|---|
+| 1 | FUND-ML r1 | DEAD at Stage A: net WF ROC -0.2 (gross 2.6 vs null 95th 10.5); FF5/HXZ twin -2.0. |
+| 2 | DISTRESS-ML r1 | DEAD at Stage A: net -0.8; DO +0.086, no earner route; AUC 0.60-0.82 but shorting likely crashers lost. CHS twin -1.2 (DO +0.41). |
+| 3 | EARN-FCST r1 | CLOSED by MANAGER #84's map check, no Stage A: central median ROC +0.2, P(>= 15) 1.7%. |
+| 7 | LAZY-PRICES | CLOSED by the same map check BEFORE any pull: CMN 2020 value-weighted hedge 0.34-0.55%/month, post-publication x0.42, cost $17,200/yr -> central median +0.5, P(>= 15) 1.7%; even with NO decay the best cell is median +10.3 (P 32%). MAPCHECK_LAZY.txt. |
+| 4 | INTANGIBLE-VALUE | Closed: a value variant; FUND-ML r1's value composite lost in this window (twin -2.0). |
+| 5, 11 | ACCRUAL-QUALITY, FUND-PRICE | Were inside item 1 (dead). |
+| 6 | INDUSTRY-RELATIVE | Closed: registered only if 1-3 showed lift; none did. |
+| 8, 9, 10, 12 | FACTOR-TIMING, SHORTINT-ML, DIVIDEND-SAFETY, GROWTH-QUALITY | Parked as before (low power / forward-only / map says no). |
+Lessons: (1) on the 500 most liquid US names 2018-2025, filed fundamentals - learned or the published composite - carried
+no monthly cross-sectional edge after costs; (2) a monthly 50/50 beta-neutral book costs ~$17k a year (5 bps + 1%/yr
+borrow) against random-book noise of ~$72k a year - the published, decayed, large-cap effect sizes of every stock
+anomaly in this scope sit below that; (3) the map check (literature effect x decay x liquid haircut - costs on the
+harness's own random-book noise; tools/earnfcst_mapcheck.py) is the cheap first step for any further stock idea;
+(4) split-adjusted prices leak future splits into any price LEVEL - FUND-ML addendum 2.
