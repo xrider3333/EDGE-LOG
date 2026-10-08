@@ -472,6 +472,7 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
                                no_fill_bars=_rplan.get("no_fill_bars"),
                                warning=_rplan.get("warn"),
                                label_check=_rplan.get("label_check"),
+                               registry=_rplan.get("registry"),
                                guard=("report mode: refusals waived, not a research result"
                                       if _rplan.get("report_mode") else "refuse"))
                 if roll_diff and _rplan.get("adjust"):

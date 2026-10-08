@@ -138,6 +138,8 @@ def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None, warm_da
     _rtimes, _rtf = _rplan["times"], _rplan["tf"]
     _rctx = _rplan["ctx_root"]
     _rroot = _rplan["root"] if _rplan.get("refuse_crossings") else None
+    if _rplan.get("trusted_path"):                            # roll-aware: the pinned file itself
+        fn = _R.trusted_module(_rplan["trusted_path"]).run_backtest
     _radj = bool(_rplan.get("adjust"))                       # fills re-priced to raw (MANAGER #58)
     _rratio = _radj and _rplan.get("method") == "ratio"      # ...which re-derives P&L from trades
     _R.warn_once(_rplan, _sname)

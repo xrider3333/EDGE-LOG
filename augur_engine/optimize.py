@@ -151,6 +151,8 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
     _rctx = _rplan["ctx_root"]
     _rroot = _rplan["root"] if _rplan.get("refuse_crossings") else None
     _R.warn_once(_rplan, _sname)
+    if _rplan.get("trusted_path"):                            # roll-aware: the pinned file itself
+        fn = _R.trusted_module(_rplan["trusted_path"]).run_backtest
     _radj = bool(_rplan.get("adjust"))
     _rratio = _radj and _rplan.get("method") == "ratio"
     _roll_arg = dict(root=_rctx, refuse=bool(_rroot), times=_rtimes, tf=_rtf, strategy=_sname,

@@ -106,6 +106,18 @@ Also:
   
   Detector names are also caught as attributes and as strings, including split strings. Strategies may not use runpy, compile, FunctionType, globals(), sys.modules, exec or eval, or name a tools/ module (tools/data roll-table paths are fine).
 
+## Round 2 (TTM's re-attack on v5)
+
+- **The registry row is the truth about what the prices are.** Arrays from `load_master_arrays` carry the registry id and filename.
+  - A claimed source or instrument that differs from that row is refused. So is an id or filename the registry lacks, or an id and filename that point to different masters.
+  - This replaces the label check as the defence for the RTH masters. TTM measured 0-1 usable switches in every 2-year RTH window 2021-26, so the price check cannot protect RTH; it is kept as a second check that works on ETH.
+- **Arrays with no registry id are an "unregistered tape" in the stamp.** On a futures-only source (db_*, merged), an instrument the guard does not know (NDX, QQQ, '') is refused.
+- **More spellings resolve to the root:** NQ1, @NQ, NQ.c.0 / NQ.v.0 (Databento continuous), NQ#, 'NQ1 Index', NQ_CONT, ENQ (CQG), NQZ26.
+- **A roll-aware file runs as a fresh load of the pinned file** (`rolls.trusted_module`, cached per file content and roll tables), never the caller's module object. Edited module state (`_SWITCH_CACHE`, `_LEVELS`) has no effect.
+- **A caller counts as the audit tool, a test or a live module only by its real module.**
+  - The frame's globals must BE the `__dict__` of a module in `sys.modules`, and the path is its `__spec__.origin` (the script's own path for `__main__`).
+  - Tests count only under pytest, and only `test_*.py` / `conftest.py` in this checkout's tests/.
+
 ## Known limits (said out loud)
 
 1. The method test reads the window it is given. A level threshold no price in the window ever reaches is invisible to it, and harmless in that window.
@@ -113,7 +125,7 @@ Also:
 3. Level-reading files run raw: their indicators still see the roll step near switches, but their trades can't hold across one. The exact fix is a roll-aware or `ROLL_SIGNAL`-declared version of the file.
 4. `db_adj` masters are difference-adjusted. A %-reading file on one is warned, not converted.
 5. Bars a switch falls inside (2026 in-bar splices) are rebuilt as bodies and counted as no-fill bars.
-6. The label check needs switches whose step stands clear of the gap noise.
-   - ETH masters and RTH windows from 2022 on have them.
-   - NQ/ES RTH windows before 2022 do not: their roll offsets are smaller than ordinary overnight gaps, so a mislabelled pre-2022 RTH window cannot be told from its prices (TTM attack 5, 2019-20). The stamp says so.
+6. The price check behind the label (`label_check`) works on ETH masters only. On RTH, roll offsets rarely stand clear of overnight gaps; TTM measured 0-1 usable switches per 2-year window, 2021-26.
+   - For registered masters the registry row decides instead.
+   - An UNREGISTERED tape that is labelled wrongly is still not caught on RTH. Its stamp says "unregistered tape".
 7. Lint: a plain gap-threshold rule with renamed knobs (no quarter cue, no pick) cannot be told from real gap logic. The run-time guard, which feeds such a file jump-free prices, is the backstop.

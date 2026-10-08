@@ -380,14 +380,25 @@ def normalize_instrument(instrument):
     """'NQ1!' / '/NQ' / 'NQ=F' / 'nq ' -> 'NQ'; a contract code ('NQZ6', 'MNQH2026') -> its root.
     Anything else comes back upper-cased and stripped (TTM attack 4, 2026-10-08)."""
     import re
-    s = str(instrument or "").upper().strip().lstrip("/")
-    if s.endswith("=F"):
-        s = s[:-2]
-    s = re.sub(r"\d*!$", "", s)
-    m = re.match(r"^([A-Z0-9]{1,4}?)[FGHJKMNQUVXZ]\d{1,4}$", s)
+    s = str(instrument or "").upper().strip().lstrip("/@")
+    s = re.sub(r"\s+(INDEX|COMDTY|CURNCY)$", "", s)              # Bloomberg 'NQ1 Index'
+    s = re.sub(r"\.[A-Z]\.\d+$", "", s)                         # Databento continuous 'NQ.c.0' / 'NQ.v.0'
+    s = re.sub(r"(=F|#|_CONT|_CONTINUOUS|\d*!)$", "", s)          # Yahoo, IQFeed/TS, house, TradingView
+    if s in CQG_ROOTS:
+        return CQG_ROOTS[s]                                        # CQG 'ENQ' = NQ, 'EP' = ES
+    m = re.match(r"^([A-Z0-9]{1,4}?)\d{1,2}$", s)                 # bare continuous 'NQ1', 'ES2'
+    if m and (m.group(1) in ROLL_ROOTS or m.group(1) in NO_TABLE_FUTURES):
+        return m.group(1)
+    m = re.match(r"^([A-Z0-9]{1,4}?)[FGHJKMNQUVXZ]\d{1,4}$", s)   # contract 'NQZ6', 'NQZ2026'
     if m and (m.group(1) in ROLL_ROOTS or m.group(1) in NO_TABLE_FUTURES):
         return m.group(1)
     return s
+
+
+CQG_ROOTS = {"ENQ": "NQ"}    # CQG's ES code 'EP' is also a stock ticker: not mapped (refused on a futures source)
+# sources that hold futures prices only (the registry: db_* and merged are NQ / ES); an
+# unregistered tape on one of these with an instrument the guard does not know is refused
+FUTURES_SOURCE_PREFIXES = ("db_noadj", "db_adj", "db_fadj", "merged")
 
 
 def futures_like(instrument):
@@ -395,7 +406,8 @@ def futures_like(instrument):
     '=F', or a month code on a futures root) - whatever its root."""
     import re
     s = str(instrument or "").upper().strip()
-    return bool(s.startswith("/") or s.endswith("=F") or re.search(r"\d*!$", s) or
+    return bool(s.startswith(("/", "@")) or s.endswith(("=F", "#", "_CONT")) or re.search(r"\d*!$", s) or
+                re.search(r"\.[A-Z]\.\d+$", s) or s.endswith(" INDEX") or
                 normalize_instrument(s) in NO_TABLE_FUTURES or
                 re.match(r"^[A-Z0-9]{1,4}?[FGHJKMNQUVXZ]\d{1,4}$", s) and
                 normalize_instrument(s) != s)
@@ -453,24 +465,47 @@ def _report_only_caller():
     allowed = _report_only_paths()
     f = sys._getframe(1)
     while f is not None:
-        fn = str(f.f_globals.get("__file__") or "")
-        if fn and os.path.normcase(os.path.abspath(fn)) in allowed:
+        p = _frame_module_path(f)
+        if p and p in allowed:
             return True
         f = f.f_back
     return False
 
 
+def _frame_module_path(frame):
+    """The real file of the module a frame runs in: its globals must BE the __dict__ of a module in
+    sys.modules, and the path is that module's __spec__.origin (for the script run as __main__,
+    sys.argv[0]). Code exec'd with a hand-made globals dict that merely says __file__ = ... has no
+    path here (TTM attacks 8b / 8c / 11b)."""
+    import sys
+    g = frame.f_globals
+    name = g.get("__name__")
+    mod = sys.modules.get(name) if isinstance(name, str) else None
+    if mod is None or getattr(mod, "__dict__", None) is not g:
+        return None
+    if name == "__main__":
+        path = sys.argv[0] if sys.argv and sys.argv[0] else None
+    else:
+        spec = getattr(mod, "__spec__", None)
+        path = getattr(spec, "origin", None) if spec is not None else None
+    if not path or path in ("built-in", "frozen"):
+        return None
+    return os.path.normcase(os.path.abspath(path))
+
+
 def _report_mode_allowed():
+    """The roll audit tool, or a test module of this checkout's suite running under pytest -
+    both by the real module path of a frame on the stack (_frame_module_path)."""
     import sys
     tools = {os.path.normcase(os.path.join(ROOT, "tools", m + ".py")) for m in REPORT_MODE_TOOLS}
     tests = os.path.normcase(os.path.join(ROOT, "tests")) + os.sep
+    under_pytest = bool(os.environ.get("PYTEST_CURRENT_TEST"))
     f = sys._getframe(1)
     while f is not None:
-        fn = str(f.f_globals.get("__file__") or "")
-        if fn:
-            ap = os.path.normcase(os.path.abspath(fn))
-            if ap in tools or ap.startswith(tests):
-                return True
+        ap = _frame_module_path(f)
+        if ap and (ap in tools or (under_pytest and ap.startswith(tests) and
+                                   os.path.basename(ap).startswith(("test_", "conftest")))):
+            return True
         f = f.f_back
     return False
 
@@ -489,6 +524,8 @@ def bind(fn, root, times, tf_seconds, strategy=None, table_dir=None, plan=None):
     series too, located by its place in the planned close array."""
     adj = bool(plan and plan.get("adjust"))
     ratio = adj and plan.get("method") == "ratio"
+    if plan and plan.get("trusted_path"):
+        fn = trusted_module(plan["trusted_path"]).run_backtest      # roll-aware: the pinned file itself
 
     def call(*args, **kwargs):
         want = bool(kwargs.get("return_trades"))
@@ -903,6 +940,28 @@ def is_roll_aware(strategy_name, mod=None):
     return mod is None or _module_is_file(mod, strategy_name)
 
 
+_TRUSTED = {}
+
+
+def trusted_module(path):
+    """A FRESH load of a sha-pinned roll-aware file - never the caller's module object, whose module-
+    level state (a roll cache, a level table) may have been edited (TTM attacks 7b / 7c). Cached per
+    (file content, roll tables), so a table row added by the roll watch gets a clean load."""
+    import importlib.util
+    sha = file_sha(path)
+    base = os.path.basename(str(path))
+    if not sha or ROLL_AWARE_SHA.get(base) != sha:
+        raise RollGuardError("%s is not the pinned roll-aware file any more; it cannot be trusted." % base)
+    key = (sha, table_sha("NQ"), table_sha("ES"))
+    mod = _TRUSTED.get(key)
+    if mod is None:
+        spec = importlib.util.spec_from_file_location("augur_rolls_trusted_" + sha[:12], path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _TRUSTED[key] = mod
+    return mod
+
+
 def _module_is_file(mod, path):
     import ast
     import types
@@ -1058,6 +1117,58 @@ LABEL_MIN_SWITCHES = 6         # switches with a step >= 5x the gap noise needed
 LABEL_CONTRADICT = 0.70        # share of them that must contradict the label to refuse it
 
 
+_REGISTRY = {}
+
+
+def _registry_rows():
+    """The master registry rows (augur_engine.data.list_masters), cached per process by the
+    registry file's mtime. [] when this checkout has no registry."""
+    try:
+        from . import data as _D
+        p = _D.DB_PATH
+        st = os.stat(p).st_mtime if os.path.exists(p) else None
+        hit = _REGISTRY.get(p)
+        if hit and hit[0] == st:
+            return hit[1]
+        rows = _D.list_masters() if st is not None else []
+        _REGISTRY[p] = (st, rows)
+        return rows
+    except Exception:
+        return []
+
+
+def registry_check(meta):
+    """(row, problem). Prices loaded by load_master_arrays carry their registry id and filename; the
+    registry row - not the meta strings - says what market and what kind of master they are. A claim
+    that differs from the row (a no-adj file labelled db_adj, an alias, another instrument) is a
+    problem; so is an id or filename the registry does not have. No id and no filename = an
+    unregistered tape (row None, problem None) - TTM attacks 5 and 4f-p."""
+    meta = meta or {}
+    mid, fname = meta.get("id"), meta.get("filename")
+    if mid in (None, "") and not fname:
+        return None, None
+    rows = _registry_rows()
+    if not rows:
+        return None, None
+    by_id = [r for r in rows if mid not in (None, "") and str(r.get("id")) == str(mid)]
+    by_fn = [r for r in rows if fname and str(r.get("filename")) == str(fname)]
+    row = (by_id or by_fn or [None])[0]
+    if row is None:
+        return None, ("these prices name registry master id %r / file %r, which the registry does not "
+                      "have" % (mid, fname))
+    if by_id and by_fn and by_id[0] is not by_fn[0] and str(by_id[0].get("id")) != str(by_fn[0].get("id")):
+        return row, ("these prices name registry id %r but file %r, which belong to different masters"
+                     % (mid, fname))
+    claim_src = str(meta.get("source") or "")
+    claim_inst = normalize_instrument(meta.get("instrument"))
+    if claim_src != str(row.get("source") or "") or claim_inst != normalize_instrument(row.get("instrument")):
+        return row, ("these prices say source %r, instrument %r, but they come from registry master id %s "
+                     "(%s): source %r, instrument %r. Load the master you mean with load_master_arrays."
+                     % (claim_src, meta.get("instrument"), row.get("id"), row.get("filename"),
+                        row.get("source"), row.get("instrument")))
+    return row, None
+
+
 def label_check(times, opens, closes, root, tf_seconds, table_dir=None):
     """Do the prices carry the roll steps? At every real switch in the window that falls between
     two bars, the gap from the last close before it to the first open after it is compared with the
@@ -1188,6 +1299,15 @@ def plan_for(mod, arrays, strategy_name=None, params=None):
     src = str(meta.get("source") or "")
     plan = dict(kind="undeclared", method=None, method_source=None, ctx_root=None, adjust=False,
                 refuse_crossings=False, root=None, times=times, tf=tf, warn=None, tests=None)
+    reg_row, reg_problem = (None, None) if report_only else registry_check(meta)
+    if reg_problem:
+        if not waived:
+            raise RollGuardError(reg_problem)
+        plan["warn"] = reg_problem
+    plan["registry"] = ("master id %s (%s)" % (reg_row.get("id"), reg_row.get("filename")) if reg_row else
+                        "not checked (live / paper path)" if report_only else
+                        "unregistered tape" if meta.get("id") in (None, "") and not meta.get("filename") else
+                        "registry not available here")
     base = os.path.basename(str(strategy_name or "")) or "this strategy"
     if not inst:
         rmode = str(meta.get("roll_mode") or "").strip().lower()
@@ -1211,7 +1331,8 @@ def plan_for(mod, arrays, strategy_name=None, params=None):
             "or stock tape sets meta['roll_mode'] = 'none'.")
     root = roll_root(inst)
     if root is None:
-        if (inst in NO_TABLE_FUTURES or futures_like(raw_inst)) and not report_only:
+        unknown_on_futures_source = src.startswith(FUTURES_SOURCE_PREFIXES) and inst not in ("", )
+        if (inst in NO_TABLE_FUTURES or futures_like(raw_inst) or unknown_on_futures_source) and not report_only:
             msg = ("%s is a futures market with no roll table (tools/data/rolls_%s.csv), so a run on it "
                    "cannot be checked for contract switches. Build the table with tools/build_roll_table.py "
                    "or run on an adjusted master." % (raw_inst, inst))
@@ -1264,6 +1385,7 @@ def plan_for(mod, arrays, strategy_name=None, params=None):
     treatment = str((params or {}).get("roll_treatment") or "").lower()
     if is_roll_aware(strategy_name, mod):
         plan["kind"] = "roll-aware strategy"
+        plan["trusted_path"] = os.path.abspath(str(strategy_name))
         return plan
     if report_only:
         plan["kind"] = "raw (live/paper path)"

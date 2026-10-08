@@ -392,6 +392,24 @@ def test_planned_arrays_cut_afterwards_keep_raw_fills(make):
     assert np.allclose(R.raw_view(cut)["close"], arr["close"][keep])
 
 
+def _as_module(path, code, **ns):
+    """Run `code` as a module registered in sys.modules whose spec origin is `path` - what the
+    guard sees for a real api / tools module (its frame check reads the module, not __file__)."""
+    import importlib.machinery
+    import types
+    name = "rollguard_test_" + os.path.basename(path)[:-3]
+    m = types.ModuleType(name)
+    m.__spec__ = importlib.machinery.ModuleSpec(name, None, origin=path)
+    m.__file__ = path
+    m.__dict__.update(ns)
+    sys.modules[name] = m
+    try:
+        exec(compile(code, path, "exec"), m.__dict__)
+    finally:
+        sys.modules.pop(name, None)
+    return m.__dict__
+
+
 def test_report_mode_and_live_callers_never_raise(make):
     import augur_engine as ae
     lvl = make("level")[0]
@@ -405,19 +423,21 @@ def test_report_mode_and_live_callers_never_raise(make):
     with R.guard_mode("report"):                                          # a point file is still adjusted
         p = ae.run_backtest(make("hold")[0], arrays=_arrays("db_noadj_rth"))
     assert p["_meta"]["roll_stamp"]["calendar"] == "difference-adjusted signals"
-    g = {"__file__": os.path.join(ROOT, "api", "paper.py"), "ae": ae, "strat": lvl,
-         "arr": _arrays("db_noadj_rth")}
-    exec("res = ae.run_backtest(strat, arrays=arr)", g)
+    g = _as_module(os.path.join(ROOT, "api", "paper.py"), "res = ae.run_backtest(strat, arrays=arr)",
+                   ae=ae, strat=lvl, arr=_arrays("db_noadj_rth"))
     assert g["res"]["_meta"]["roll_stamp"]["trades_crossing"] == 1
     assert g["res"]["_meta"]["roll_stamp"]["calendar"] == "raw (live/paper path)"
     # the live KEEL state builder (tools/keel_live_state.py) fits live sizing on these trades:
     # a planned run there would change live sizing, so it is report-only too
-    g2 = dict(g, __file__=os.path.join(ROOT, "tools", "keel_live_state.py"), arr=_arrays("db_noadj_rth"))
-    exec("res = ae.run_backtest(strat, arrays=arr)", g2)
+    g2 = _as_module(os.path.join(ROOT, "tools", "keel_live_state.py"), "res = ae.run_backtest(strat, arrays=arr)",
+                    ae=ae, strat=lvl, arr=_arrays("db_noadj_rth"))
     assert g2["res"]["_meta"]["roll_stamp"]["calendar"] == "raw (live/paper path)"
-    g3 = dict(g, __file__=os.path.join(ROOT, "tools", "some_research.py"), arr=_arrays("db_noadj_rth"))
     with pytest.raises(R.RollGuardError):                                   # a research tool is not
-        exec("res = ae.run_backtest(strat, arrays=arr)", g3)
+        _as_module(os.path.join(ROOT, "tools", "some_research.py"), "res = ae.run_backtest(strat, arrays=arr)",
+                   ae=ae, strat=lvl, arr=_arrays("db_noadj_rth"))
+    with pytest.raises(R.RollGuardError):          # nor code exec'd with a forged __file__ (TTM 11b)
+        exec("res = ae.run_backtest(strat, arrays=arr)",
+             {"__file__": os.path.join(ROOT, "api", "paper.py"), "ae": ae, "strat": lvl, "arr": _arrays("db_noadj_rth")})
 
 
 def test_slice_evaluator_reraises_the_refusal_and_reprices_a_slice(make):
@@ -526,18 +546,93 @@ def test_ttm8_report_mode_is_for_the_audit_tool_and_tests_only(tmp_path):
                       "except R.RollGuardError:\n    print('REFUSED')\n" % ROOT, encoding="utf-8")
     out = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=120)
     assert out.stdout.strip() == "REFUSED", out.stdout + out.stderr
-    g2 ={"__file__": os.path.join(ROOT, "tools", "roll_guard_probe.py"), "R": R}
-    exec("with R.guard_mode('report'):\n    ok = R.current_guard_mode()\n", g2)
+    forged = tmp_path / "forged.py"           # code exec'd with globals claiming to be the probe (TTM 8b)
+    forged.write_text("import sys\nsys.path.insert(0, %r)\nfrom augur_engine import rolls as R\n"
+                      "g = {'__file__': %r, '__name__': 'x', 'R': R}\n"
+                      "try:\n    exec(\"R.guard_mode('report').__enter__()\", g)\n    print('ALLOWED')\n"
+                      "except R.RollGuardError:\n    print('REFUSED')\n"
+                      % (ROOT, os.path.join(ROOT, "tools", "roll_guard_probe.py")), encoding="utf-8")
+    out2 = subprocess.run([sys.executable, str(forged)], capture_output=True, text=True, timeout=120)
+    assert out2.stdout.strip() == "REFUSED", out2.stdout + out2.stderr
+    g2 = _as_module(os.path.join(ROOT, "tools", "roll_guard_probe.py"),
+                    "with R.guard_mode('report'):\n    ok = R.current_guard_mode()\n", R=R)
     assert g2["ok"] == "report"
 
 
 def test_ttm11_a_borrowed_live_file_name_is_not_report_only(tmp_path, make):
     import augur_engine as ae
     lvl = make("level")[0]
-    fake = tmp_path / "api" / "paper.py"
-    g = {"__file__": str(fake), "ae": ae, "strat": lvl, "arr": _arrays("db_noadj_rth")}
+    fake = str(tmp_path / "api" / "paper.py")                            # a real module, elsewhere
     with pytest.raises(R.RollGuardError):
-        exec("res = ae.run_backtest(strat, arrays=arr)", g)
+        _as_module(fake, "res = ae.run_backtest(strat, arrays=arr)", ae=ae, strat=lvl, arr=_arrays("db_noadj_rth"))
+
+
+# ── TTM round 2 on v5 (2026-10-08 afternoon) ──────────────────────────────────────────────────────
+_REG = [dict(id="37", filename="NOADJ_NQ_5m_RTH.csv", instrument="NQ", source="db_noadj_rth", timeframe="5m"),
+        dict(id="40", filename="ADJ_NQ_5m_RTH.csv", instrument="NQ", source="db_adj_rth", timeframe="5m")]
+
+
+def test_ttm5_the_registry_row_decides_what_the_prices_are(strat, monkeypatch):
+    import augur_engine as ae
+    monkeypatch.setattr(R, "_registry_rows", lambda: _REG)
+    lie = _arrays("db_adj_rth")                                            # claims adjusted ...
+    lie["meta"].update(id="37", filename="NOADJ_NQ_5m_RTH.csv")             # ... but is registry master 37
+    with pytest.raises(R.RollGuardError) as e:
+        ae.run_backtest(strat, arrays=lie)
+    assert "registry master id 37" in str(e.value)
+    ghost = _arrays("db_noadj_rth")
+    ghost["meta"].update(id="999")
+    with pytest.raises(R.RollGuardError):
+        ae.run_backtest(strat, arrays=ghost)
+    mixed = _arrays("db_noadj_rth")
+    mixed["meta"].update(id="37", filename="ADJ_NQ_5m_RTH.csv")
+    with pytest.raises(R.RollGuardError):
+        ae.run_backtest(strat, arrays=mixed)
+    honest = _arrays("db_noadj_rth")
+    honest["meta"].update(id="37", filename="NOADJ_NQ_5m_RTH.csv")
+    st = ae.run_backtest(strat, arrays=honest)["_meta"]["roll_stamp"]
+    assert st["registry"] == "master id 37 (NOADJ_NQ_5m_RTH.csv)"
+    assert ae.run_backtest(strat, arrays=_arrays("db_noadj_rth"))["_meta"]["roll_stamp"]["registry"] == "unregistered tape"
+
+
+@pytest.mark.parametrize("alias", ["NQ1", "@NQ", "NQ.c.0", "NQ.v.0", "NQ#", "NQ1 Index", "NQ_CONT", "ENQ", "NQZ26"])
+def test_ttm4_round2_spellings_are_the_root(strat, alias):
+    import augur_engine as ae
+    r = ae.run_backtest(strat, arrays=_arrays("db_noadj_rth", instrument=alias))
+    assert r["_meta"]["roll_stamp"]["calendar"] == "difference-adjusted signals"
+
+
+@pytest.mark.parametrize("inst", ["NDX", "QQQ", "SPY", "EP"])
+def test_ttm4_an_unknown_instrument_on_a_futures_source_is_refused(strat, inst, monkeypatch):
+    import augur_engine as ae
+    with pytest.raises(R.RollGuardError):
+        ae.run_backtest(strat, arrays=_arrays("db_noadj_rth", instrument=inst))
+    ok = ae.run_backtest(strat, arrays=_arrays("nt_noadj_rth", instrument="QQQ"))   # the registry's QQQ via NT
+    assert "roll_stamp" not in ok["_meta"]
+    monkeypatch.setattr(R, "_registry_rows", lambda: _REG)
+    named = _arrays("db_noadj_rth", instrument=inst)                       # registry id 37 says NQ
+    named["meta"].update(id="37", filename="NOADJ_NQ_5m_RTH.csv")
+    with pytest.raises(R.RollGuardError):
+        ae.run_backtest(strat, arrays=named)
+
+
+def test_ttm7b_a_roll_aware_file_runs_as_a_fresh_load_not_the_callers_object():
+    from augur_engine.strategies import load_strategy
+    path = os.path.join(ROOT, "augur_strategies", "NQDIP_1_3.py")
+    mod = load_strategy(path)
+    saved = dict(mod._LEVELS)
+    try:
+        mod._LEVELS.clear()                                               # the caller's object, edited
+        plan = R.plan_for(mod, _arrays("db_noadj_rth"), path, {})
+        assert plan["kind"] == "roll-aware strategy" and plan["trusted_path"]
+        fresh = R.trusted_module(plan["trusted_path"])
+        assert fresh is not mod and fresh._LEVELS == saved                # the pinned file, as written
+        bound = R.bind(mod.run_backtest, "NQ", plan["times"], plan["tf"], strategy=path, plan=plan)
+        assert bound.__closure__ is not None
+        cells = [c.cell_contents for c in bound.__closure__ if callable(getattr(c, "cell_contents", None))]
+        assert fresh.run_backtest in cells and mod.run_backtest not in cells
+    finally:
+        mod._LEVELS.update(saved)
 
 
 def test_ttm2c_two_in_memory_modules_never_share_a_method_test():
