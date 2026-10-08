@@ -60,7 +60,10 @@ Now a ship runs in three steps:
      recorded when the worktree still holds that tree after the gate ran (tree_moved: no tracked
      file edited, HEAD not moved), and only one ship of a worktree runs at a time
      (hold_worktree), so a stamp never vouches for content no gate saw. A gate that fails here
-     stops the ship exactly as before - no ticket, no lock, nothing pushed.
+     stops the ship exactly as before - no ticket, no lock, nothing pushed. Each gate run here
+     first takes one of a few MACHINE-WIDE GATE SLOTS (hold_gate_slot: 1 for selftests, 2 for
+     fast gates, OS locks like the push lock's), so queued lanes cannot pile their Chromes onto
+     the PC that runs the trading runner; a ship waiting for one says so and whom it waits for.
   2. LOCKED - take the ticket and the lock, fetch, rebase onto the NEWEST main, realign VERSION
      and renumber the ledger rows again against it (no-ops when main has not moved). Then each
      gate that applies to that final tree is either
@@ -1012,6 +1015,107 @@ def tree_moved(wt, tree):
     return None
 
 
+# ======================================================================= the gate slots
+# HOW MANY PRE-LOCK GATES RUN AT ONCE ON THIS MACHINE (2026-10-08, MANAGER #667 must-fix 1).
+# Before the pre-lock phase the push lock serialized every probe and selftest machine-wide. Now
+# each queued lane gates before it queues, so nine lanes could run nine sets of headless probes,
+# or several 3-4-Chrome selftests, side by side - on the PC that also runs the trading runner and
+# the paper boxes (100% CPU with 8 GB free last night with ONE selftest). So a pre-lock gate run
+# first takes one of a few machine-wide SLOTS: an OS lock on one of these files under
+# <EDGELOG_HOME>/state/gate_slots/, the push lock's own mechanism - the kernel releases it when
+# the holding process ends, however it ends, so a killed ship can never wedge a slot. Selftests
+# (slow gates) and fast gates draw from separate pools, so a two-hour selftest never stops the
+# minute-long probes. The gates under the push lock take NO slot: one lane holds it at a time
+# already, and waiting there on another lane's slot would stretch the very hold this exists to
+# shorten.
+GATE_SLOTS = {'slow': 1, 'fast': 2}
+
+# A waiter stops - nothing pushed, nothing held - rather than wait for ever behind a wedged
+# holder: twice the longest selftest seen (2 h) for a selftest slot, a generous multiple of the
+# minutes a fast probe takes for a fast one. Override (seconds, both kinds) with
+# EDGELOG_GATE_SLOT_WAIT_MAX.
+GATE_SLOT_WAIT_MAX = {'slow': 4 * 3600, 'fast': 3600}
+
+_SLOT_WORDS = {'slow': ('selftest slot', 'selftest'), 'fast': ('gate slot', 'render gates')}
+
+
+def gate_slot_dir():
+    return os.path.join(os.environ.get('EDGELOG_HOME') or r'C:\EdgeLog', 'state', 'gate_slots')
+
+
+def gate_slot_paths(kind):
+    return [os.path.join(gate_slot_dir(), '%s-%d.lock' % (kind, i))
+            for i in range(1, GATE_SLOTS[kind] + 1)]
+
+
+def _slot_wait_max(kind):
+    try:
+        return float(os.environ['EDGELOG_GATE_SLOT_WAIT_MAX'])
+    except (KeyError, ValueError):
+        return float(GATE_SLOT_WAIT_MAX[kind])
+
+
+def hold_gate_slot(kind, who, sleep=time.sleep, now=time.time):
+    """Take one `kind` ('slow' or 'fast') gate slot for this process, waiting - and saying so,
+    once, with who holds them - while every one is taken. Returns the open descriptor (hand it to
+    release_gate_slot when the gate is done; the process exit releases it otherwise), or None when
+    the slots cannot be used at all (no push_lock module, no state directory): a missing cap must
+    not stop a ship. Raises SystemExit when none comes free within _slot_wait_max(kind)."""
+    if push_lock is None:
+        return None
+    paths = gate_slot_paths(kind)
+    fds = []
+    try:
+        os.makedirs(gate_slot_dir(), exist_ok=True)
+        for p in paths:
+            fds.append(os.open(p, os.O_CREAT | os.O_RDWR))
+    except Exception as e:
+        for fd in fds:
+            _release_fd(fd, lambda _fd: None)
+        safe_print('  gate slots unavailable (%s: %s) - running this gate without one'
+                   % (type(e).__name__, e))
+        return None
+    noun, plural = _SLOT_WORDS[kind]
+    deadline = now() + _slot_wait_max(kind)
+    said = False
+    while True:
+        for i, fd in enumerate(fds):
+            try:
+                push_lock._lock_fd(fd)
+            except OSError:
+                continue
+            try:
+                push_lock._write_name(fd, who)
+            except Exception:
+                pass                     # the name is a convenience; never fail a ship over it
+            for other in fds[:i] + fds[i + 1:]:
+                _release_fd(other, lambda _fd: None)
+            if said:
+                safe_print('  got a %s' % noun)
+            return fd
+        held = ', '.join(h for h in (push_lock.holder(p) for p in paths) if h) or '?'
+        if not said:
+            safe_print('  waiting for a %s - at most %d %s run at a time on this machine before '
+                       'the push lock (held by: %s)' % (noun, len(paths), plural, held))
+            try:
+                sys.stdout.flush()
+            except Exception:
+                pass
+            said = True
+        if now() >= deadline:
+            for fd in fds:
+                _release_fd(fd, lambda _fd: None)
+            raise SystemExit('no %s came free in %d min (held by: %s) - stopping before the push '
+                             'lock: nothing was pushed and nothing is held. Ship again later.'
+                             % (noun, _slot_wait_max(kind) // 60, held))
+        sleep(2.0)
+
+
+def release_gate_slot(fd):
+    if fd is not None:
+        _release_fd(fd, push_lock._unlock_fd)
+
+
 def run_plan(wt, root, plan, stamp, spath, tree, base, phase, explain=None):
     """Work through `plan` - [(gate, reuse reason or None)] in GATES order - on `tree`: print each
     reused gate with the verdict it carries and why it holds, run the rest, and record each pass
@@ -1020,7 +1124,9 @@ def run_plan(wt, root, plan, stamp, spath, tree, base, phase, explain=None):
 
     A gate that FAILS stops the ship with the message it always had, after one line saying which
     phase it failed in (before the lock: no ticket, no lock, nothing pushed). A pass is recorded
-    only when the worktree still holds `tree` after the gate ran (tree_moved)."""
+    only when the worktree still holds `tree` after the gate ran (tree_moved). Before the lock
+    each gate run holds a machine-wide gate slot while it runs (hold_gate_slot); under the lock
+    none is taken."""
     ran = kept = 0
     for g, why in plan:
         if why:
@@ -1036,6 +1142,8 @@ def run_plan(wt, root, plan, stamp, spath, tree, base, phase, explain=None):
         note = explain(g) if explain else None
         if note:
             safe_print(note)
+        slot = (hold_gate_slot('slow' if g.slow else 'fast', os.path.basename(wt))
+                if phase == 'pre-lock' else None)
         t_gate = time.time()
         try:
             line = run_gate(wt, root, g)
@@ -1047,6 +1155,8 @@ def run_plan(wt, root, plan, stamp, spath, tree, base, phase, explain=None):
                 safe_print('LOCKED: %s FAILED on the final tree - nothing was pushed; the push '
                            'lock goes with this process' % g.label)
             raise
+        finally:
+            release_gate_slot(slot)
         moved = tree_moved(wt, tree)
         if moved:
             raise SystemExit(moved + ' - so the %s pass is NOT recorded and nothing was pushed. '

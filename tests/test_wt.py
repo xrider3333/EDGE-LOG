@@ -356,58 +356,146 @@ def test_let_go_hands_the_lock_and_the_ticket_back_at_once(tmp_path, monkeypatch
     assert wt._let_go(ticket, fd) == ((None, None), None)
 
 
+# =========================================================== the machine-wide gate slots
+def test_gate_slots_cap_each_kind_and_a_waiter_gives_up_rather_than_wait_for_ever(
+        tmp_path, monkeypatch, capsys):
+    """MUST-FIX 1 (MANAGER #667): at most GATE_SLOTS['slow'] (1) selftest and
+    GATE_SLOTS['fast'] (2) fast gates run before the lock, machine-wide; the two pools are
+    separate; a waiter says who it waits for, and stops - holding nothing - past its limit."""
+    monkeypatch.setenv('EDGELOG_HOME', str(tmp_path / 'home'))
+    monkeypatch.setenv('EDGELOG_GATE_SLOT_WAIT_MAX', '10')
+    clock = [0.0]
+
+    def tick(secs):
+        clock[0] += secs
+    now = lambda: clock[0]                                       # noqa: E731
+    assert wt.GATE_SLOTS == {'slow': 1, 'fast': 2}
+    a = wt.hold_gate_slot('slow', 'lane-a')
+    assert a is not None
+    assert _other_process_sees(wt.gate_slot_paths('slow')[0]) == 'held'
+    with pytest.raises(SystemExit) as e:
+        wt.hold_gate_slot('slow', 'lane-b', sleep=tick, now=now)
+    assert 'no selftest slot came free' in str(e.value) and 'lane-a' in str(e.value)
+    assert 'nothing was pushed and nothing is held' in str(e.value)
+    out = capsys.readouterr().out
+    assert out.count('waiting for a selftest slot - at most 1 selftest run at a time') == 1, out
+    # the fast pool is separate, and holds two
+    f1 = wt.hold_gate_slot('fast', 'lane-x', sleep=tick, now=now)
+    f2 = wt.hold_gate_slot('fast', 'lane-y', sleep=tick, now=now)
+    assert f1 is not None and f2 is not None
+    with pytest.raises(SystemExit):
+        wt.hold_gate_slot('fast', 'lane-z', sleep=tick, now=now)
+    assert 'lane-x' in capsys.readouterr().out
+    # a released slot is free at once, to another process too
+    wt.release_gate_slot(a)
+    assert _other_process_sees(wt.gate_slot_paths('slow')[0]) == 'free'
+
+    def no_wait(_s):
+        raise AssertionError('a free slot must not wait')
+    b = wt.hold_gate_slot('slow', 'lane-b', sleep=no_wait, now=now)
+    for fd in (b, f1, f2):
+        wt.release_gate_slot(fd)
+    wt.release_gate_slot(None)                                   # harmless
+
+
+def test_no_state_directory_means_no_cap_rather_than_no_ship(tmp_path, monkeypatch):
+    blocker = tmp_path / 'home'
+    blocker.write_text('a FILE where the state directory should go', encoding='utf-8')
+    monkeypatch.setenv('EDGELOG_HOME', str(blocker))
+    assert wt.hold_gate_slot('slow', 'lane-a') is None
+
+
 # =========================================================== end to end: real ships, fake gates
 FAKE_GATE = r'''# probe v1
 import os, subprocess, sys, time
-NAME = os.path.basename(__file__)[:-3]
-MODE = 'selftest' if '--selftest' in sys.argv else 'plain'
-ME = NAME + ' ' + MODE
-sys.path.insert(0, os.environ['FAKE_TOOLS'])
-import push_lock, push_queue
-lock = os.path.join(os.environ['EDGELOG_HOME'], 'state', 'push.lock')
-held = False
-if os.path.exists(lock):
-    fd = os.open(lock, os.O_RDWR)
+
+# The one mutant this fake selftest "builds" from index.html: its anchor must appear exactly once
+# there, as a real probe's must. Module level, so wt.py's anchor recount can import it.
+MUTANTS = [('m1', 'FAKE-MUTANT-ANCHOR', 'FAKE-MUTANT-BROKEN', 'a fake mutant')]
+
+
+def _held(path):
+    import push_lock
+    fd = os.open(path, os.O_RDWR)
     try:
         try:
             push_lock._lock_fd(fd)
         except OSError:
-            held = True
-        else:
-            push_lock._unlock_fd(fd)
+            return True
+        push_lock._unlock_fd(fd)
+        return False
     finally:
         os.close(fd)
-qdir = os.path.join(os.environ['EDGELOG_HOME'], 'state', 'push_queue')
-tickets = len(push_queue.live_tickets(qdir)) if os.path.isdir(qdir) else 0
-genv = {k: v for k, v in os.environ.items() if not k.upper().startswith('GIT_')}
-tree = subprocess.run(['git', 'rev-parse', 'HEAD^{tree}'], capture_output=True, text=True,
-                      env=genv).stdout.strip()
-with open(os.environ['FAKE_LOG'], 'a') as f:
-    f.write('%s %s\n' % (ME, 'locked' if held else 'unlocked'))
-with open(os.environ['FAKE_TREES'], 'a') as f:
-    f.write('%s %s %s tickets=%d\n' % (ME, 'locked' if held else 'unlocked', tree, tickets))
-if os.environ.get('FAKE_DIRTY') == ME:              # the lane edits a file while the gate runs
-    with open('index.html', 'a', encoding='utf-8') as f:
-        f.write('<!-- edited while the gate ran -->\n')
-if MODE == 'selftest' and not held and os.environ.get('FAKE_LAND'):
-    subprocess.run([sys.executable, os.environ['FAKE_LAND']], check=True)
-if held and os.environ.get('FAKE_BLOCK_LOCKED') == ME:  # hang under the lock until released
+
+
+def _block():
     marker = os.environ['FAKE_BLOCK_MARKER']
     open(marker, 'w').close()
     t_end = time.time() + 120
     while time.time() < t_end and not os.path.exists(os.environ['FAKE_BLOCK_RELEASE']):
         time.sleep(0.1)
     open(marker + '.done', 'w').close()
-if os.environ.get('FAKE_FAIL') == ME or (held and os.environ.get('FAKE_FAIL_LOCKED') == ME):
-    print('SELFTEST: FAIL (fake)')
-    sys.exit(1)
-if NAME == 'preflight_boot':
-    print('PREFLIGHT: PASS (fake)')
-elif MODE == 'selftest':
-    print('-- mutant m1: expect FAIL')
-    print('SELFTEST: PASS -- gate caught 1/1 broken builds (fake)')
-else:
-    print('HOMEPROBE: PASS (fake)')
+
+
+def main():
+    name = os.path.basename(__file__)[:-3]
+    mode = 'selftest' if '--selftest' in sys.argv else 'plain'
+    me = name + ' ' + mode
+    here = os.path.basename(os.getcwd())
+    sys.path.insert(0, os.environ['FAKE_TOOLS'])
+    import push_queue
+    state = os.path.join(os.environ['EDGELOG_HOME'], 'state')
+    lock = os.path.join(state, 'push.lock')
+    held = os.path.exists(lock) and _held(lock)
+    qdir = os.path.join(state, 'push_queue')
+    tickets = len(push_queue.live_tickets(qdir)) if os.path.isdir(qdir) else 0
+    sdir = os.path.join(state, 'gate_slots')
+    names = sorted(os.listdir(sdir)) if os.path.isdir(sdir) else []
+    slow = sum(_held(os.path.join(sdir, n)) for n in names if n.startswith('slow-'))
+    fast = sum(_held(os.path.join(sdir, n)) for n in names if n.startswith('fast-'))
+    genv = {k: v for k, v in os.environ.items() if not k.upper().startswith('GIT_')}
+    tree = subprocess.run(['git', 'rev-parse', 'HEAD^{tree}'], capture_output=True, text=True,
+                          env=genv).stdout.strip()
+    word = 'locked' if held else 'unlocked'
+    with open(os.environ['FAKE_LOG'], 'a') as f:
+        f.write('%s %s\n' % (me, word))
+    with open(os.environ['FAKE_TREES'], 'a') as f:
+        f.write('%s %s %s tickets=%d slots=%d/%d wt=%s\n' % (me, word, tree, tickets, slow, fast,
+                                                             here))
+    if os.environ.get('FAKE_DIRTY') == me:          # the lane edits a file while the gate runs
+        with open('index.html', 'a', encoding='utf-8') as f:
+            f.write('<!-- edited while the gate ran -->\n')
+    if mode == 'selftest' and not held and os.environ.get('FAKE_LAND'):
+        subprocess.run([sys.executable, os.environ['FAKE_LAND']], check=True)
+    if held and os.environ.get('FAKE_BLOCK_LOCKED') == me:          # hang under the lock
+        _block()
+    if (not held and os.environ.get('FAKE_BLOCK_UNLOCKED') == me
+            and os.environ.get('FAKE_BLOCK_WT', here) == here):     # hang before the lock
+        _block()
+    if os.environ.get('FAKE_FAIL') == me or (held and os.environ.get('FAKE_FAIL_LOCKED') == me):
+        print('SELFTEST: FAIL (fake)')
+        sys.exit(1)
+    if os.environ.get('FAKE_INCONCLUSIVE') == me:
+        print('SELFTEST: INCONCLUSIVE -- Chrome timed out under load (fake)' if mode == 'selftest'
+              else 'HOMEPROBE: INCONCLUSIVE -- Chrome timed out under load (fake)')
+        sys.exit(2)
+    if mode == 'selftest':
+        n = open('index.html', encoding='utf-8', newline='').read().count(MUTANTS[0][1])
+        if n != 1:
+            print('SELFTEST: INCONCLUSIVE -- mutant m1 cannot be built: its anchor appears %d '
+                  'times in index.html (expected once)' % n)
+            sys.exit(2)
+    if name == 'preflight_boot':
+        print('PREFLIGHT: PASS (fake)')
+    elif mode == 'selftest':
+        print('-- mutant m1: expect FAIL')
+        print('SELFTEST: PASS -- gate caught 1/1 broken builds (fake)')
+    else:
+        print('HOMEPROBE: PASS (fake)')
+
+
+if __name__ == '__main__':
+    main()
 # filler, so another lane's change at the bottom of this file never touches this lane's change
 # at the top of it
 #
@@ -460,7 +548,8 @@ for b in range(int(os.environ.get('FAKE_LAND_BUMPS', '1'))):
 git('push', '-q', 'origin', 'HEAD:main')
 '''
 
-INDEX = ("<!doctype html>\n<script>\nconst VERSION='1.1';\n" + "// filler\n" * 12 +
+INDEX = ("<!doctype html>\n<script>\nconst VERSION='1.1';\n" + "// filler\n" * 6 +
+         "// FAKE-MUTANT-ANCHOR\n" + "// filler\n" * 6 +
          "const CHANGELOG=[{v:'1.1',date:'2026-10-07',notes:['seed']}];\n</script>\n")
 
 LEDGER = ("# RESEARCH LEDGER\n\n## 2. Round two\n\n| # | what |\n|---|---|\n| 2.1 | seed |\n"
@@ -485,7 +574,9 @@ def _env(tmp_path, **extra):
     })
     for k in ('EDGELOG_SHIP_LOCKED_RERUN_MAX', 'EDGELOG_GATE_PASSED_TREE', 'FAKE_LAND',
               'FAKE_FAIL', 'FAKE_FAIL_LOCKED', 'FAKE_DIRTY', 'FAKE_HOOK_FAIL', 'FAKE_HOOK_LAND',
-              'FAKE_BLOCK_LOCKED', 'FAKE_BLOCK_MARKER', 'FAKE_BLOCK_RELEASE',
+              'FAKE_BLOCK_LOCKED', 'FAKE_BLOCK_UNLOCKED', 'FAKE_BLOCK_WT', 'FAKE_BLOCK_MARKER',
+              'FAKE_BLOCK_RELEASE', 'FAKE_INCONCLUSIVE', 'FAKE_LAND_DROP_ANCHOR',
+              'EDGELOG_GATE_SLOT_WAIT_MAX',
               'FAKE_LAND_FILE', 'FAKE_LAND_BUMPS', 'FAKE_LAND_TIMES', 'FAKE_LAND_LEDGER_ROW'):
         env.pop(k, None)                  # only what a test asks for, never the caller's
     env.update(extra)
@@ -555,10 +646,43 @@ def _log(tmp_path):
 
 
 def _trees(tmp_path):
-    """[(gate, mode, 'locked'|'unlocked', tree it ran on, live tickets)] in the order they ran."""
+    """[(gate, mode, 'locked'|'unlocked', tree it ran on, live tickets, 'slow/fast' gate slots
+    held, worktree)] in the order they ran."""
     p = tmp_path / 'trees.log'
     rows = p.read_text(encoding='utf-8').split('\n')[:-1] if p.exists() else []
-    return [tuple(r.split()[:4]) + (int(r.split()[4].split('=')[1]),) for r in rows]
+    out = []
+    for r in rows:
+        f = r.split()
+        out.append(tuple(f[:4]) + (int(f[4].split('=')[1]), f[5].split('=')[1],
+                                   f[6].split('=')[1]))
+    return out
+
+
+def _never_queued(tmp_path):
+    """INVARIANT (e): the ship stopped before it ever took a ticket or the push lock."""
+    state = tmp_path / 'home' / 'state'
+    return not (state / 'push.lock').exists() and not (state / 'push_queue').exists()
+
+
+def _second_worktree(env, shared, tmp_path):
+    """Another lane's worktree in the same sandbox, also changing the HOME probe (at its other
+    end, so the two lanes never conflict) - so its ship runs the HOME selftest too."""
+    session2 = tmp_path / 'session2'
+    _git(env, shared, 'worktree', 'add', '-q', '-b', 'session/second', str(session2),
+         'origin/main')
+    probe = session2 / 'tools' / 'home_render_probe.py'
+    probe.write_text(probe.read_text(encoding='utf-8') + '# lane two\n', encoding='utf-8')
+    _git(env, session2, 'add', '-A')
+    _git(env, session2, 'commit', '-q', '-m', 'HOME probe: lane two')
+    return session2
+
+
+def _wait_for(pred, what, timeout=300, alive=None):
+    deadline = time.time() + timeout
+    while not pred():
+        assert alive is None or alive.poll() is None, 'the ship ended before ' + what
+        assert time.time() < deadline, 'timed out waiting for ' + what
+        time.sleep(0.1)
 
 
 def _landed(env, origin, session):
@@ -610,6 +734,13 @@ def test_quiet_main_every_gate_runs_before_the_lock_and_nothing_runs_under_it(tm
     # nobody held a ticket while the gates ran, and nothing is held once the ship is done
     assert all(r[4] == 0 for r in _trees(tmp_path)), _trees(tmp_path)
     _assert_lock_and_queue_free(tmp_path)
+    # MUST-FIX 1: each gate ran before the lock holding a machine-wide slot of its kind
+    slots = dict((r[:2], r[5]) for r in _trees(tmp_path))
+    assert slots == {('preflight_boot', 'plain'): '0/1', ('home_render_probe', 'plain'): '0/1',
+                     ('home_render_probe', 'selftest'): '1/0'}, slots
+    for p in wt.gate_slot_paths('slow') + wt.gate_slot_paths('fast'):
+        p = str(tmp_path / 'home' / 'state' / 'gate_slots' / os.path.basename(p))
+        assert _other_process_sees(p) == 'free', 'a gate slot outlived its gate'
 
 
 def test_main_moved_elsewhere_the_selftest_is_reused_and_the_fast_gates_rerun_locked(tmp_path):
@@ -640,6 +771,8 @@ def test_main_moved_elsewhere_the_selftest_is_reused_and_the_fast_gates_rerun_lo
     assert '# probe v2 (lane)' in _git(env, origin, 'show', 'main:tools/home_render_probe.py')
     _assert_fast_gates_passed_on_what_landed(env, origin, tmp_path)
     _assert_lock_and_queue_free(tmp_path)
+    # under the push lock no gate slot is taken: one lane holds it already
+    assert [r[5] for r in _trees(tmp_path) if r[2] == 'locked'] == ['0/0', '0/0']
 
 
 def test_main_changed_the_probe_the_lock_is_given_back_and_the_selftest_reruns_outside(tmp_path):
@@ -782,6 +915,76 @@ def test_a_push_refused_because_main_moved_regates_the_rebased_tree_before_pushi
     _assert_lock_and_queue_free(tmp_path)
 
 
+def test_two_ships_take_turns_on_the_selftest_slot_and_a_killed_holder_frees_it(tmp_path):
+    """MUST-FIX 1 end to end. Lane A's selftest runs (and hangs) before the lock, holding the one
+    selftest slot. Lane B gates meanwhile - its fast gates draw from the other pool - but waits
+    for the selftest slot, and says so. A is killed outright: the slot goes with its process,
+    even though A's orphaned selftest lives on, and B runs its selftest and lands."""
+    env = _env(tmp_path, PYTHONUNBUFFERED='1', FAKE_BLOCK_UNLOCKED='home_render_probe selftest',
+               FAKE_BLOCK_WT='session', FAKE_BLOCK_MARKER=str(tmp_path / 'blocked'),
+               FAKE_BLOCK_RELEASE=str(tmp_path / 'release'))
+    origin, shared, session = _sandbox(tmp_path, env)
+    session2 = _second_worktree(env, shared, tmp_path)
+    marker, done, b_out = tmp_path / 'blocked', tmp_path / 'blocked.done', tmp_path / 'b.out'
+    ship = [sys.executable, str(shared / 'tools' / 'wt.py'), 'ship']
+    a = subprocess.Popen(ship, cwd=str(session), env=env, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL)
+    b = None
+    try:
+        _wait_for(marker.exists, "lane A's selftest", alive=a)
+        with open(str(b_out), 'wb') as fh:
+            b = subprocess.Popen(ship, cwd=str(session2), env=env, stdout=fh,
+                                 stderr=subprocess.STDOUT)
+        text = lambda: b_out.read_text(encoding='utf-8', errors='replace')   # noqa: E731
+        _wait_for(lambda: 'waiting for a selftest slot' in text(), 'lane B to wait', alive=b)
+        assert 'held by: session ' in text(), text()
+        rows_b = [r for r in _trees(tmp_path) if r[6] == 'session2']
+        assert ('preflight_boot', 'plain') in [r[:2] for r in rows_b], 'fast gates do not wait'
+        assert ('home_render_probe', 'selftest') not in [r[:2] for r in rows_b], text()
+        a.kill()
+        a.wait(timeout=60)
+        assert not done.exists(), "A's orphaned selftest is still running"
+        assert b.wait(timeout=300) == 0, text()
+        assert 'got a selftest slot' in text(), text()
+        sel_b = [r for r in _trees(tmp_path) if r[6] == 'session2' and r[1] == 'selftest']
+        assert len(sel_b) == 1 and sel_b[0][5] == '1/0', sel_b
+        assert _git(env, origin, 'rev-parse', 'main') == _git(env, session2, 'rev-parse', 'HEAD')
+    finally:
+        (tmp_path / 'release').write_text('x', encoding='utf-8')
+        for p in (a, b):
+            if p is not None and p.poll() is None:
+                p.kill()
+    _wait_for(done.exists, "A's orphaned selftest to finish", timeout=60)
+    _assert_lock_and_queue_free(tmp_path)
+
+
+def test_a_ship_waits_for_a_fast_gate_slot_when_both_are_taken(tmp_path, monkeypatch):
+    """Two other lanes' probes hold both fast slots: this ship runs no gate until one frees."""
+    env = _env(tmp_path, PYTHONUNBUFFERED='1')
+    origin, shared, session = _sandbox(tmp_path, env)
+    monkeypatch.setenv('EDGELOG_HOME', env['EDGELOG_HOME'])
+    held = [wt.hold_gate_slot('fast', 'probe-of-lane-%d' % i) for i in (1, 2)]
+    out_file = tmp_path / 'ship.out'
+    p = None
+    try:
+        with open(str(out_file), 'wb') as fh:
+            p = subprocess.Popen([sys.executable, str(shared / 'tools' / 'wt.py'), 'ship'],
+                                 cwd=str(session), env=env, stdout=fh, stderr=subprocess.STDOUT)
+        text = lambda: out_file.read_text(encoding='utf-8', errors='replace')  # noqa: E731
+        _wait_for(lambda: 'waiting for a gate slot' in text(), 'the ship to wait', alive=p)
+        assert 'probe-of-lane-1' in text() and 'probe-of-lane-2' in text(), text()
+        time.sleep(1.0)
+        assert _log(tmp_path) == [], 'no gate may run without a slot'
+        wt.release_gate_slot(held.pop())
+        assert p.wait(timeout=300) == 0, text()
+        assert _landed(env, origin, session), text()
+    finally:
+        for fd in held:
+            wt.release_gate_slot(fd)
+        if p is not None and p.poll() is None:
+            p.kill()
+
+
 def test_a_failing_selftest_stops_the_ship_before_it_ever_queues(tmp_path):
     env = _env(tmp_path, FAKE_FAIL='home_render_probe selftest')
     origin, shared, session = _sandbox(tmp_path, env)
@@ -792,7 +995,7 @@ def test_a_failing_selftest_stops_the_ship_before_it_ever_queues(tmp_path):
     assert 'push lock held by this lane' not in out and 'queued for the push gate' not in out
     assert _git(env, origin, 'rev-parse', 'main') == before, 'nothing may be pushed'
     # (e) not merely released: never taken - neither the lock file nor the queue was created
-    assert not (tmp_path / 'home' / 'state').exists()
+    assert _never_queued(tmp_path)
 
 
 def test_a_failing_fast_gate_before_the_lock_takes_no_lock_and_says_so(tmp_path):
@@ -808,7 +1011,7 @@ def test_a_failing_fast_gate_before_the_lock_takes_no_lock_and_says_so(tmp_path)
             'nothing pushed') in out, out
     assert _log(tmp_path) == ['preflight_boot plain unlocked'], 'it stops at the first failure'
     assert _git(env, origin, 'rev-parse', 'main') == before
-    assert not (tmp_path / 'home' / 'state').exists()
+    assert _never_queued(tmp_path)
 
 
 def test_a_gate_failing_under_the_lock_pushes_nothing_and_lets_the_lock_go(tmp_path):
@@ -906,7 +1109,7 @@ def test_a_file_edited_while_a_gate_runs_is_not_stamped_as_passed(tmp_path):
     assert rc != 0, out
     assert 'changed while the gates ran - so the HOME gate SELF-TEST pass is NOT recorded' in out
     assert _git(env, origin, 'rev-parse', 'main') == before
-    assert not (tmp_path / 'home' / 'state').exists(), 'it stopped before queueing'
+    assert _never_queued(tmp_path), 'it stopped before queueing'
 
     _git(env, session, 'checkout', '--', 'index.html')        # the lane puts the file back
     rc, out = _ship(_env(tmp_path), shared, session)
