@@ -99,3 +99,16 @@ and the model's out-of-sample AUC by year (a report: an AUC near 0.5 with a prof
   case for large caps.
 - 09-27 audit, XSML r1: learned models here have matched or lost to plain rules every time so far.
 - Expected: 0-8 net standalone; the earner route is the point, and it is more likely dead than alive.
+
+## Registered details (written with tools/distressml_r1.py, 2026-10-08, before any number)
+- Universe and market value follow FUND-ML addendum 2: the $5 floor on the AS-TRADED close (Data(floor_raw=True)) and
+  market value = as-filed shares x as-traded close. The split-adjusted close would carry future splits back in time -
+  for this cell the worst case, since a coming REVERSE split (a distressed name) would lift the past price over $5.
+  PRICE = log(min(as-traded close, 15)).
+- Total liabilities: the Liabilities tag, else assets minus total equity (incl. non-controlling interest, else
+  StockholdersEquity) - many filers never tag Liabilities. Interest coverage uses interest expense > 0 only.
+- EXRETAVG needs at least 9 of its 12 months; the weights are renormalised over the months present. Monthly returns
+  are price-only (split-invariant); SIGMA = 63-session daily std x sqrt(252).
+- The twin's eight raw inputs are winsorised at the 5th / 95th percentile across the eligible names at each decision
+  (CHS winsorise at 5 / 95); the model sees cross-sectional ranks, so it needs no winsorising.
+- Label percentile is taken over the eligible names (X.fwd_crash, bottom 5%, needs > 20 finite).

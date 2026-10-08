@@ -131,7 +131,7 @@ def build_inputs(D, FA, FC, dates):
         ck = col_cik.iloc[names]
         R = f.reindex(ck.values)
         R.index = D.syms[names]
-        px = D.C.iloc[p, names].to_numpy(float)
+        px = D.Craw.iloc[p, names].to_numpy(float)                    # as-filed shares x as-traded close (addendum 2)
         mv = R.sh.to_numpy(float) * px
         mv = np.where(mv > 0, mv, np.nan)
         be = R.be.where(R.be > 0).to_numpy(float)
@@ -232,7 +232,7 @@ def twin_scores(D, frames, elig, dates):
 # ------------------------------------------------------------------------------------------------ steps
 def setup():
     ca = X.ca_path_required()
-    D = X.Data(ca)
+    D = X.Data(ca, floor_raw=True)                                    # addendum 2: raw $5 floor, raw-close MV
     FA, FC, beta, wk, mo = X.build(D)
     w = X.wf_decisions(D, mo)
     pre = [t for t in mo if D.dates[D.pos(t) + 1] < X.WF0 and t.year >= 2017]
