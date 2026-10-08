@@ -1190,6 +1190,41 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10ak. A3 LEAVE-ONE-OUT, restated on the S1 line: with RESMOM in, every one of #463's four legs pays its way (2026-10-08, a report)
+
+**What it is.** Scoping item A3, asked for by MANAGER (#121). Each adopted leg is taken out of #463, and out of the S1 line L, then read on the
+yardstick with DD5 beside it. It is walk-forward only, with no new strategy and no weight proposal: every weight change is another look
+inside the 71-look band (10z), and a forward year cannot decide a gain that comes only from a smaller drawdown (10y).
+- **Inputs:** the legs are #463's registered legs (augur_engine.book, the same machinery as Q23); they sum to the book's daily column to
+  the cent.
+- **Parity:** #463 and L reproduce their registered figures through the seat pipeline's check_parity.
+
+| Line | ROC@30k | DD5 | Worst DD | Sortino | $ a year |
+|---|---|---|---|---|---|
+| #463 | 93.81 | $36,095 | $44,849 | 3.816 | $140,235 |
+| L = #463 + 0.264 x RES (S1) | 121.06 | $34,392 | $36,526 | 3.926 | $147,395 |
+| #463 without ORB | 94.69 | $32,827 | $33,820 | 3.572 | $106,747 |
+| L without ORB | 98.93 | $33,189 | $34,543 | 3.637 | $113,907 |
+| #463 without ENGU-Q | 75.04 | $28,087 (one episode) | $39,168 | 3.908 | $97,969 |
+| L without ENGU-Q | 82.04 | $29,208 (one episode) | $38,444 | 3.935 | $105,129 |
+| #463 without TTM | 99.56 | $34,798 | $37,825 | 3.532 | $125,527 |
+| L without TTM | 118.09 | $32,816 | $33,707 | 3.637 | $132,687 |
+| #463 without NOISE | 58.43 | $33,816 (one episode) | $46,445 | 2.824 | $90,463 |
+| L without NOISE | 82.01 | $30,075 | $35,713 | 2.958 | $97,623 |
+
+Each leg's share of #463's losses on its 460 drawdown days: ENGU-Q 53%, ORB 33%, NOISE 25%, TTM 7%. Every leg LOSES on those days and on R;
+that is where drawdowns come from. Without its best episode, each leg still loses there.
+
+**Read.**
+- **On L, taking out any one leg lowers ROC:** ORB -22.1, ENGU-Q -39.0, TTM -3.0, NOISE -39.1. With RESMOM's line as the reference, all
+  four legs earn their seat.
+- **On #463 alone, dropping ORB (94.69) or TTM (99.56) reads higher.** But each loses money - $33.5k and $14.7k a year - and the whole gain
+  is a smaller worst drawdown. That is the drawdown-only kind of gain 10y says a forward read cannot confirm. TTM's line is already a
+  harm monitor (10ad); ORB's is not proposed.
+- **This supports keeping the four legs at their adopted sizes.** It adds no candidate and no forward line.
+
+**Files.** C:\EdgeLog\_anatomy_cache\a3\a3_loo.json; the script is C:\EdgeLog\_anatomy_cache\bookq\a3_loo.py. A ledger row follows, docs-only.
+
 ### 10aj. Q26 QUALITY r1 FAILS and the fundamentals-basket line is CLOSED; Q27 RREV r1 is closed at the cost map (2026-10-08)
 
 **What ran.** Both ran on RESMOM's engine (r17 'close', pinned 3151ef0a), walk-forward only, as seats over the S1 line L (121.06). They ran
