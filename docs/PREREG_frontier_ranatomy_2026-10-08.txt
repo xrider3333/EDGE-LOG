@@ -1,0 +1,33 @@
+BOOK QUEUE Q28 - R ANATOMY r1: what is LEFT in the S1 line's drawdown days, and which kind of leg could earn there. A MAP, not a strategy.
+PRE-REGISTRATION, FRONTIER, 2026-10-08 (draft v1 to MANAGER 13:33 MST; unanswered at 15:00, so the standing 60-minute rule applies -
+it is a map, no Stage A). Walk-forward only; no strategy is run, no weight is proposed, nothing is adopted.
+
+WHY NOW. Today's basket round closed the held-data seat list: SEASON, HIGH52, QUALITY and RREV all fail, and the two drawdown-day earners
+found (OPA here, DISTRESS-ML at CUSTOM-ML) pay for it in the 2020-21 junk rally. Q20's map says a seat must earn on R. Before the next
+round, the house should know WHAT R IS: which market states the 45 episodes / 762 days fall in, and which leg loses there. That picks the
+mechanism to hunt, instead of the next item on a literature list.
+
+WHAT IS COMPUTED (held data only; each line a count or a dollar sum on R; no new P&L series):
+1. R's days classified, one class per day, by market state known at that day's open (no look-ahead into the day's own move):
+   (a) ES trend: the last ES daily close strictly before the day (the roll-corrected ES 5m RTH master through r15's load_es, the last
+   bar of each US/Eastern date) above / at-or-below the mean of its last 200 closes; (b) volatility: the last VIX close strictly before the
+   day, by the WF stretch's terciles of the daily VIX closes (CHOICE: descriptive breakpoints from the whole stretch - a map, not a rule);
+   (c) the VIX term structure: VIX / VIX3M of that prior close >= 1 'inverted', else 'normal'; (d) the day itself is a scheduled FOMC
+   decision day (tools/data/fomc_dates.txt, the Fed's own list), else a CPI day (tools/data/cpi_dates.csv), else an NFP day
+   (tools/data/nfp_dates.csv), else 'none'. A day whose prior state is undefined is its own class.
+   Each day = a row of #463's index inside the WF stretch (the book's UTC day stamps); R = the S1 line's house drawdown days (r12's
+   Stretch, 45 episodes / 762 days, checked before any table).
+2. Per class: R days, L's dollars, and each leg's dollars (ORB, ENGU-Q, TTM, NOISE, 0.264 x RES) - so the table shows which leg loses in
+   which state.
+3. The same table on the days that are NOT in R (the leg's normal earning states), for contrast.
+4. A shortlist, written AFTER the table and labelled as judgement: which published mechanism earns in the classes that carry most of R's
+   loss, with its data need and whether the house holds it - the candidates for the next prereg (each still needs its own prereg, power
+   line and Stage A).
+COULD FOOL US: one episode (March 2020) can dominate a class - every table is printed with and without the 2020-03 episode.
+LOOKS: none added (no strategy, no candidate is scored). LOCKBOX: not read.
+PINS (the script refuses other bytes): cboe_vol_daily.csv sha256 9790df06b649df21... (TV's photographed CBOE file); the S1 line file
+e204dd53...; fomc_dates.txt LF e27995e3..., cpi_dates.csv LF f655dd98..., nfp_dates.csv LF e287e16c... (main). The legs are #463's
+registered legs (augur_engine.book), which with 0.264 x RES must sum to L to the cent.
+SCRIPT: tools/rocfrontier/r29_ranatomy.py (selftest on hand-made series; run -> ranatomy.json outside git). Run before main by the
+10-08 rule: this commit is pushed as branch prereg/frontier-ranatomy-1008 before any number.
+ORDER: draft -> MANAGER -> commit -> run -> BOOK.md + ledger (a report) -> the shortlist goes to MANAGER for the next queue.
