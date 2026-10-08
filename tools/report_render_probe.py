@@ -50,6 +50,19 @@ WHAT IT ASSERTS, per case
 Cases cover the three REPORT COLUMNS layouts, since each is a different template path, plus the
 classic layout on the 1A funnel chart (funnel-1a), whose lockbox hover is a separate builder.
 
+Three more cases (readings-card / readings-old / readings-down) open the COST AND LIMITS readout with the
+PC runner STUBBED (window._runCmd replaced before renderApp; no live runner is ever needed): a canned
+get_blotter reply WITH `readings` must draw the runner's own summary sentences, the break-even / absorbs /
+double-cost figures, the realistic reading and the "does not model" list (material items first, counts);
+a reply WITHOUT `readings` (an old runner) must say the runner is on an older version; a rejected ask must
+say the runner did not answer -- and none of them may log a console error or fall to the "couldn't render"
+card. Each asks the runner exactly once.
+
+One more case (roll-chip, 2026-10-08, owner ask via MANAGER #31/#33/#34) renders the same fixture AS RUN #424, one of the 22 runs restated for the old
+roll detector (RUN_ROLL in index.html): the ROBUSTNESS rail must carry a ROLL chip beside COST AND LIMITS, and the readout it opens (data-rollchip="424")
+must say "old roll detector" and print the saved and the true figures (net $1,116,128 -> $1,121,941, ROC 17.7 -> 21.1, ...), the 1 EPISODE word on the
+saved worst drawdown, and the source line. Every other case runs as run 306, which is not in the table: it must show no ROLL chip and no readout.
+
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks).
 
 RETRY-ONCE. A non-PASS attempt is rendered a second time before it blocks a push.
@@ -91,6 +104,30 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 
+# the iframe-window state each COST AND LIMITS case starts from: the readout opened, and every per-run guard / cache empty (they live for the page)
+READ_WIN = {'_diagOpenKey': 'rd', '_rdFetched': {}, '_rdCache': {}, '_rdInflight': {}, '_concFetched': {}}
+
+# What the PC runner's get_blotter replies with when asked for readings (shape: runner commit 8a3d0efd) - two material limits and one note, a
+# realistic reading, summary sentences. Canned: this probe never talks to a runner.
+CANNED = {
+    'ok': True, 'n_rows': 4180, 'n_trades': 4180,
+    'cost': {'ok': True, 'cost_pts': 0.533, 'gross_pts': 3.633, 'net_flat_pts': 3.1, 'net_double_pts': 2.567, 'breakeven_cost_pts': 3.633,
+             'headroom_x': 6.8, 'net_flat_usd': 51340.0, 'net_double_usd': 40680.0, 'breakeven_cost_usd': 72.66},   # usd per round trip = pts x multiplier
+    'realistic': {'ok': True, 'instrument': 'NQ', 'slippage_included': False, 'fitted': False, 'realistic_cost_pts': 0.65,
+                  'net_realistic_usd': 26000.0, 'survives': True,
+                  'realistic_breakdown': {'fee_pts': 0.15, 'spread_pts': 0.5, 'slippage_pts': 0.0, 'total_pts': 0.65,
+                                          'source': 'published exchange fee and a typical quoted spread'}},
+    'limits': {'ok': True,
+               'items': [
+                   {'key': 'stop_slippage', 'severity': 'material', 'text': 'A stop order that fills through its price costs more than the flat cost charged here.'},
+                   {'key': 'market_impact', 'severity': 'material', 'text': 'Market impact is ignored: every fill is assumed at the bar price.'},
+                   {'key': 'one_session', 'severity': 'note', 'text': 'Only the regular session is traded.'}],
+               'lines': [], 'counts': {'total': 3, 'material': 2, 'note': 1}, 'basis': {}},
+    'summary': ['Break-even cost is 3.63 points per round trip: the run absorbs 6.8 x the cost it was charged.',
+                'At double the cost the run still nets $40,680.',
+                'At a realistic cost (published figures, NOT fitted) it nets $26,000 and survives.'],
+}
+
 # name -> {prefs, win}: prefs land in localStorage augurPrefs (and APREF), win on the
 # iframe window before renderApp.
 CASES = [
@@ -101,6 +138,23 @@ CASES = [
     # builder with its own lockbox hover, which v73.940 missed; the three cases above never draw it
     ('funnel-1a', {'prefs': {'repCols': '3', 'repLayout': 'classic', 'eqTab': 'funnel', 'a2gate': 1,
                              'a2kAll': 1, 'a2cfgAll': 1, 'a2doors': 0}, 'win': {}}),
+    # COST AND LIMITS card (2026-10-07, the web half of the runner's get_blotter readings): the same report with the COST AND LIMITS chip opened and the
+    # PC runner STUBBED - window._runCmd is replaced before renderApp, so no live runner is ever needed. 'ok' resolves a canned reply carrying `readings`;
+    # 'old' resolves a reply WITHOUT the key (an old runner ignores readings:true); 'down' rejects (the runner is not there). 'wait' makes the poll hold
+    # until the card has been painted with its answer, so the sample never catches it still asking. The per-run guards are reset for each case.
+    ('readings-card', {'prefs': {'repCols': '3'}, 'win': READ_WIN, 'stub': 'ok', 'wait': '[data-rdcard][data-rdstate="done"]'}),
+    ('readings-old', {'prefs': {'repCols': '3'}, 'win': READ_WIN, 'stub': 'old', 'wait': '[data-rdcard][data-rdstate="done"]'}),
+    ('readings-down', {'prefs': {'repCols': '3'}, 'win': READ_WIN, 'stub': 'down', 'wait': '[data-rdcard][data-rdstate="done"]'}),
+    # a run with no champion configuration has no trade list to replay: the plain "Not available" line, and the runner is never asked
+    ('readings-na', {'prefs': {'repCols': '3'}, 'win': READ_WIN, 'stub': 'na', 'mut': 'nocfg', 'wait': '[data-rdna]'}),
+    # the CONCENTRATION card and the COST AND LIMITS card want the same blotter: with the readings ask already out, the concentration card waits on THAT reply
+    # (window._rdInflight) rather than make the runner generate it twice. Here the pending reply is parked by script and only the concentration readout is opened.
+    ('readings-share', {'prefs': {'repCols': '3'}, 'win': dict(READ_WIN, _diagOpenKey='conc'), 'stub': 'share', 'wait': '[data-conccard]',
+                        'waitText': 'trades in this run',
+                        'pre': "var rows=[];for(var i=0;i<12;i++)rows.push({pnl_usd:(i%3===0?-150:300)+i*10});window._rdInflight={};window._rdInflight[String(doc.id)]=Promise.resolve({rows:rows});"}),
+    # ROLL chip (2026-10-08, owner ask via MANAGER #31/#33/#34): the fixture rendered AS RUN #424 (setId), one of the 22 runs restated for the old roll detector, with the
+    # ROLL readout opened. Static data, so no runner stub and no wait. Every case above runs as run 306 (not in the table) and must show NO ROLL chip.
+    ('roll-chip', {'prefs': {'repCols': '3'}, 'win': {'_diagOpenKey': 'roll'}, 'setId': 424}),
 ]
 
 # Builds this gate exists to catch. Each is a commit on main whose index.html blanked every
@@ -124,7 +178,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <iframe id="f" src="../index.html" style="width:1500px;height:1000px;border:0"></iframe>
 <pre id="o"></pre>
 <script>
-var CASES=__CASES__, FIX=__FIX__;
+var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
 (function(){
   var reported=false, out={cases:{}}, t0=Date.now();
   function finish(why){
@@ -163,8 +217,21 @@ var CASES=__CASES__, FIX=__FIX__;
         +"var F="+JSON.stringify(FIX)+";"
         // the same normalisation the Firestore read paths apply
         +"var doc=(typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(F)):F;"
+        // SETID: render the fixture under another run number (the ROLL chip keys on the run id); everything else about the document stays the fixture's own
+        +"var SETID="+JSON.stringify(cfg.setId==null?null:cfg.setId)+";if(SETID!=null){doc.id=SETID;}"
         +"runHistory=[doc];window._runFull={};window._runFullOrder=[];window._runHydrating={};"
         +"var W="+JSON.stringify(cfg.win||{})+";for(var k3 in W)window[k3]=W[k3];"
+        // MUT: a per-case change to the report's run document (the same object runHistory holds), made before renderApp
+        +"var MUT="+JSON.stringify(cfg.mut||'')+";if(MUT==='nocfg'){delete doc.best_params;}"
+        +(cfg.pre||'')
+        // THE RUNNER STUB (cost readings cases). _runCmd is a global function the app calls by name, so replacing window._runCmd before renderApp is
+        //   enough; every other case gets the real one back. Each call is recorded so the case can check what was asked, and how many times.
+        +"var STUB="+JSON.stringify(cfg.stub||'')+";"
+        +"if(!window.__origRunCmd)window.__origRunCmd=window._runCmd;window._rdCalls=[];"
+        +"if(STUB){window._runCmd=function(a,p){window._rdCalls.push({a:a,p:JSON.parse(JSON.stringify(p||{}))});"
+        +"  if(STUB==='down')return Promise.reject(new Error('stub: the runner is not there'));"
+        +"  var rep={ok:true,rows:[],n_rows:0};if(STUB==='ok')rep.readings="+JSON.stringify(CANNED)+";return Promise.resolve(rep);};}"
+        +"else{window._runCmd=window.__origRunCmd;}"
         +"activeTab='augur';augurSub='runs';augurRunSel=String(doc.id);renderApp();return 'OK';"
         +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
     }catch(e){r.call='ERR '+(e&&e.stack?e.stack:e);}
@@ -180,7 +247,7 @@ var CASES=__CASES__, FIX=__FIX__;
     (function poll(){
       var el=d.getElementById('res-detail');
       var len=el?el.innerHTML.length:-1;
-      var ready=(el&&len>=20000&&len===_lastLen)?(++_stable>=2):false;
+      var ready=(el&&len>=20000&&len===_lastLen&&(!cfg.wait||el.querySelector(cfg.wait))&&(!cfg.waitText||(el.innerText||el.textContent||'').indexOf(cfg.waitText)>=0))?(++_stable>=2):false;
       _lastLen=len;
       if(!ready&&Date.now()-_t0<15000){setTimeout(poll,100);return;}
       r.waitedMs=Date.now()-_t0;
@@ -193,7 +260,7 @@ var CASES=__CASES__, FIX=__FIX__;
         r.detailLen=det?det.innerHTML.length:-1;
         var txt=det?(det.innerText||det.textContent||''):'';
         r.cantRender=/couldn.t render/i.test(txt);
-        r.namesRun=txt.indexOf(String(FIX.id))>=0;
+        r.namesRun=txt.indexOf(String(cfg.setId!=null?cfg.setId:FIX.id))>=0;
         // LOCKBOX column / LB warm tag (2026-09-28, owner via MANAGER): this fixture (run 306)
         // scored its own lockbox cold (301 trades) before a continuous replay of the same
         // stretch (gate_validate.ungated_lockbox, 334 trades) - it qualifies for the same
@@ -207,6 +274,23 @@ var CASES=__CASES__, FIX=__FIX__;
         r.lbChartTips=lbRects.length;
         r.lbChartWarm=lbRects.filter(function(e){return (e.getAttribute('data-tip')||'').indexOf('continuous replay')>=0;}).length;
         r.appLen=(d.getElementById('app')||{innerHTML:''}).innerHTML.length;
+        // ROLL chip (2026-10-08): the rail chip, whether it sits in the same rail as COST AND LIMITS, and the opened readout
+        var rlChip=d.querySelector('[data-diagchip="roll"]'), rdChip=d.querySelector('[data-diagchip="rd"]'), rlCard=det?det.querySelector('[data-rollchip]'):null;
+        r.roll={chip:!!rlChip, chipText:rlChip?(rlChip.innerText||rlChip.textContent||''):'', sameRail:!!(rlChip&&rdChip&&rlChip.parentNode===rdChip.parentNode),
+          card:!!rlCard, cardId:rlCard?rlCard.getAttribute('data-rollchip'):null, cardText:rlCard?(rlCard.innerText||rlCard.textContent||''):'',
+          cardN:det?det.querySelectorAll('[data-rollchip]').length:0, ones:rlCard?rlCard.querySelectorAll('[data-rollone]').length:0,
+          cols:rlCard?[].map.call(rlCard.querySelectorAll('thead th'),function(e){return (e.textContent||'').trim();}):[]};
+        // COST AND LIMITS card (stubbed-runner cases): what is drawn, in what order, and what the app asked the runner
+        if(cfg.stub){
+          var box=det?det.querySelector(cfg.stub==='share'?'[data-conccard]':'[data-rdcard],[data-rdna]'):null, cn=box?box.querySelector('[data-rdcounts]'):null;
+          r.rd={stub:cfg.stub,found:!!box,state:box?box.getAttribute('data-rdstate'):null,kind:box?box.getAttribute('data-rdkind'):null,
+            chip:!!d.querySelector('[data-diagchip="rd"]'),text:box?(box.innerText||box.textContent||''):'',
+            items:box?[].map.call(box.querySelectorAll('[data-rditem]'),function(e){return {sev:e.getAttribute('data-rditem'),text:(e.innerText||e.textContent||'')};}):[],
+            counts:cn?(cn.textContent||''):null,
+            summary:box?[].map.call(box.querySelectorAll('[data-rdsummary] > div'),function(e){return e.textContent||'';}):[],
+            calls:(w.eval('window._rdCalls')||[]).map(function(c){return {a:c.a,readings:c.p&&c.p.readings,run_id:c.p&&c.p.run_id,family:c.p&&c.p.family,
+              lockbox_from:c.p&&c.p.lockbox_from,strategy:c.p&&c.p.strategy};})};
+        }
         r.errors=sink.errors.slice(0,20);
         r.uncaught=sink.uncaught.slice(0,20);
       }catch(e){r.sampleErr=String(e&&e.stack?e.stack:e);}
@@ -376,6 +460,131 @@ def main(argv=None):
                          (fixture, not args.no_retry, chrome, root, alt_index)))
 
 
+def _check_readings(nm, r, rd, fixture):
+    """The COST AND LIMITS card under a stubbed runner: ok -> the module's sentences, the figures, material limits before notes, the counts;
+    old -> the older-version sentence; down -> the did-not-answer sentence. Every case: the card is there, it was asked once, nothing in the console."""
+    f = []
+    txt = rd.get('text') or ''
+    if not rd.get('chip'):
+        f.append('%s: no COST AND LIMITS chip in the ROBUSTNESS rail' % nm)
+    if not rd.get('found'):
+        f.append('%s: the COST AND LIMITS card is not on the page with its chip opened' % nm)
+        return f
+    if rd.get('stub') == 'share':
+        if rd.get('calls'):
+            f.append('%s: the runner was asked %d time(s) although the readings reply was already out -- the concentration card must wait on it' % (nm, len(rd.get('calls'))))
+        if 'all 12 trades' not in txt:
+            f.append('%s: the concentration card did not measure from the 12 rows the shared reply carried -- %r' % (nm, txt[-200:]))
+        if r.get('errors') or r.get('uncaught'):
+            f.append('%s: console errors while sharing the reply -- %s' % (nm, ((r.get('errors') or []) + (r.get('uncaught') or []))[0].splitlines()[0][:200]))
+        return f
+    if rd.get('stub') == 'na':
+        if 'Not available for this run: it saved no champion configuration' not in txt:
+            f.append('%s: a run with no champion configuration did not get the plain "Not available for this run" line -- %r' % (nm, txt[:160]))
+        if rd.get('calls'):
+            f.append('%s: the runner was asked about a run that has nothing to replay' % nm)
+        if 'asking the PC runner' in txt or 'MATERIAL' in txt:
+            f.append('%s: the not-available card draws as if it had asked' % nm)
+        if r.get('errors') or r.get('uncaught'):
+            f.append('%s: console errors on the not-available card -- %s' % (nm, ((r.get('errors') or []) + (r.get('uncaught') or []))[0].splitlines()[0][:200]))
+        return f
+    if rd.get('state') != 'done':
+        f.append('%s: the card never left "asking the PC runner" (state=%s)' % (nm, rd.get('state')))
+    if 'asking the PC runner' in txt:
+        f.append('%s: the card still says it is asking the PC runner' % nm)
+    if 'COST AND LIMITS' not in txt:
+        f.append('%s: the card has no COST AND LIMITS heading' % nm)
+    calls = rd.get('calls') or []
+    if len(calls) != 1:
+        f.append('%s: the runner was asked %d times, not once' % (nm, len(calls)))
+    else:
+        c = calls[0]
+        if c.get('a') != 'get_blotter' or c.get('readings') is not True:
+            f.append('%s: the runner was not asked for get_blotter with readings:true -- %r' % (nm, c))
+        if str(c.get('run_id')) != str(fixture.get('id')):
+            f.append('%s: the ask names run %r, not %s' % (nm, c.get('run_id'), fixture.get('id')))
+        if c.get('family') != fixture.get('famKey'):
+            f.append('%s: the ask names family %r, not %r' % (nm, c.get('family'), fixture.get('famKey')))
+        lbf = (((fixture.get('validate') or {}).get('windows') or {}).get('lockbox') or [None])[0]
+        if not lbf or c.get('lockbox_from') != str(lbf)[:10]:
+            f.append('%s: the ask carries lockbox_from %r, not the run\'s lockbox start %r' % (nm, c.get('lockbox_from'), lbf))
+    kind = rd.get('kind')
+    if rd.get('stub') == 'ok':
+        if kind != 'ok':
+            f.append('%s: a reply with readings drew as %r, not as readings' % (nm, kind))
+        low = txt.lower()
+        for want in ('break-even', 'absorbs', 'net at double cost', 'realistic net', 'what this run does not model',
+                     'published figures, not fitted', 'never changes the run'):
+            if want not in low:
+                f.append('%s: the card does not say %r' % (nm, want))
+        if 'slippage not included' not in low:
+            f.append('%s: the realistic breakdown does not say slippage is not included' % nm)
+        sevs = [i.get('sev') for i in (rd.get('items') or [])]
+        if sevs != ['material', 'material', 'note']:
+            f.append('%s: limits are listed %r, wanted both material items first and then the note' % (nm, sevs))
+        for i in (rd.get('items') or [])[:2]:
+            if 'MATERIAL' not in (i.get('text') or ''):
+                f.append('%s: a material limit carries no MATERIAL tag' % nm)
+        items_txt = ' | '.join((i.get('text') or '') for i in (rd.get('items') or []))
+        for src in CANNED['limits']['items']:
+            if src['text'] not in items_txt:
+                f.append('%s: a limit was not shown verbatim: %r' % (nm, src['text'][:60]))
+        if (rd.get('counts') or '').replace('\u00b7', '.').split() != ['2', 'material', '.', '1', 'note']:
+            f.append('%s: the counts read %r, wanted "2 material . 1 note"' % (nm, rd.get('counts')))
+        if len(rd.get('summary') or []) != len(CANNED['summary']):
+            f.append('%s: %d summary sentences drawn, the runner sent %d' % (nm, len(rd.get('summary') or []), len(CANNED['summary'])))
+    elif rd.get('stub') == 'old':
+        if kind != 'old' or 'older version that does not compute these readings yet' not in txt:
+            f.append('%s: a reply without readings did not draw the older-version sentence (kind=%r)' % (nm, kind))
+        if 'MATERIAL' in txt:
+            f.append('%s: limits were drawn from a reply that carried no readings' % nm)
+    elif rd.get('stub') == 'down':
+        if kind != 'down' or 'did not answer' not in txt or 'could not be computed' not in txt:
+            f.append('%s: a rejected ask did not draw the did-not-answer sentence (kind=%r)' % (nm, kind))
+    if r.get('errors') or r.get('uncaught'):
+        f.append('%s: console errors with the stubbed runner -- %s' % (nm, ((r.get('errors') or []) + (r.get('uncaught') or []))[0].splitlines()[0][:200]))
+    if r.get('cantRender'):
+        f.append('%s: the "couldn\'t render" card is showing' % nm)
+    return f
+
+
+# ROLL chip: the fixture as run #424 (a RUN_ROLL run) carries the chip in the ROBUSTNESS rail beside COST AND LIMITS and a readout with the saved and
+# true figures; the fixture as run 306 (not in the table) carries neither.
+def _check_roll(nm, r, rl):
+    f = []
+    if nm != 'roll-chip':
+        if rl.get('chip') or rl.get('cardN'):
+            f.append('%s: run 306 is not one of the 22 roll-restated runs but the report shows a ROLL chip / readout' % nm)
+        return f
+    txt = ' '.join((rl.get('cardText') or '').split())
+    if not rl.get('chip'):
+        f.append('%s: no ROLL chip in the ROBUSTNESS rail of run #424' % nm)
+    else:
+        if 'ROLL' not in (rl.get('chipText') or '') or 'old roll detector' not in (rl.get('chipText') or ''):
+            f.append('%s: the ROLL chip does not say ROLL / old roll detector -- %r' % (nm, rl.get('chipText')))
+        if not rl.get('sameRail'):
+            f.append('%s: the ROLL chip is not in the same rail as the COST AND LIMITS chip' % nm)
+    if not rl.get('card') or rl.get('cardN') != 1:
+        f.append('%s: the opened ROLL readout [data-rollchip] is not on the page exactly once (found %s)' % (nm, rl.get('cardN')))
+        return f
+    if rl.get('cardId') != '424':
+        f.append('%s: the readout is marked for run %r, not 424' % (nm, rl.get('cardId')))
+    for want in ('ROLL', 'old roll detector', '$1,116,128', '$1,121,941', '17.7', '21.1', '$116,916', '$98,295', '$77,322', '$79,175',
+                 '$75,980', '$86,026', '106.6', '142.5', 'verified 2026-10-08', 'A report, not a re-validation',
+                 'docs/RESTATE_ROLL22_2026-10-08.md'):
+        if want not in txt:
+            f.append('%s: the ROLL readout does not say %r' % (nm, want))
+    if (rl.get('cols') or [])[1:] != ['SAVED', 'TRUE']:
+        f.append('%s: the ROLL readout columns read %r, wanted SAVED | TRUE' % (nm, rl.get('cols')))
+    if rl.get('ones') != 1 or '1 EPISODE' not in txt:
+        f.append('%s: #424 saved worst drawdown is 1 EPISODE (116,916 > 1.3 x 77,322) and its true one is not -- the readout carries %s 1 EPISODE word(s)' % (nm, rl.get('ones')))
+    if 'pending' in txt.lower():
+        f.append('%s: the ROLL readout says something is pending -- the restatement is verified' % nm)
+    if r.get('errors') or r.get('uncaught'):
+        f.append('%s: console errors with the ROLL readout open -- %s' % (nm, ((r.get('errors') or []) + (r.get('uncaught') or []))[0].splitlines()[0][:200]))
+    return f
+
+
 def _attempt(chrome, root, alt_index, fixture):
     """Render every case once in a fresh headless Chrome.
 
@@ -389,7 +598,8 @@ def _attempt(chrome, root, alt_index, fixture):
     ppath = os.path.join(pdir, 'probe.html')
     html = (PROBE_HTML
             .replace('__CASES__', json.dumps([[n, c] for n, c in CASES]))
-            .replace('__FIX__', json.dumps(fixture)))
+            .replace('__FIX__', json.dumps(fixture))
+            .replace('__CANNED__', json.dumps(CANNED)))
     io.open(ppath, 'w', encoding='utf-8').write(html)
 
     srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), make_handler(root, alt_index))
@@ -497,6 +707,10 @@ def _attempt(chrome, root, alt_index, fixture):
             if '301' not in _tip or '9,826' not in _tip:
                 fails.append('%s: the LB warm tag does not name the cold reading this run '
                              'saved, 301 trades and $9,826 -- tip=%r' % (nm, _tip[:200]))
+        if r.get('rd') is not None:
+            fails.extend(_check_readings(nm, r, r['rd'], fixture))
+        if r.get('roll') is not None:
+            fails.extend(_check_roll(nm, r, r['roll']))
 
     if fails:
         return FAIL, fails, notes, data, True

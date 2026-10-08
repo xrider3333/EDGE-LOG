@@ -1261,7 +1261,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1141',date:'2026-10-07',notes:['LEDGER shared parts, round 1 (all three boards): More stats still shows the board groups (NT8 Strategy vs control) when the range has no trades; Green days shows its share of days (12 of 20 · 60%); Average hold now counts trades shorter than a minute and reads 40s instead of a dash.','ONE day rule everywhere (owner decision 2): the OVERVIEW and ANALYTICS calendars, their day hover and the jump to a day now put each trade on the New York day it CLOSED, the same rule the LEDGER day headers and calendar use. Only overnight trades move.','Shared list: a row can carry a detail line under it, a list with no switches drops the empty switch column, and a row sub-line can wrap. Shared trade list: a footer slot (SHOW MORE), a hook for the board chips and the day groups, and the search box keeps its cursor while the list redraws.','Phones: the stats tiles and the folds are a little tighter on every board, and the shared parts now use the house widths (740 instead of 760).','REAL: ACCT % reads -- for a trade made before any money was in the account (it read -Infinity%). The REAL probe now also clicks EQUITY / P&L, checks ACCT and ACCT% against the running balance, the timeframe picker and tags, ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL, and a withdrawal.']},{v:'73.1127',date:'2026-10-07',notes:['LEDGER step 12, ONE PAGE FRAME: the three boards (REAL, NT8 PAPER, WEBULL PAPER) now share one page frame, so they look the same at a glance and only the numbers and the closed folds of each board differ.','The frame: the same width and centring on every board (the WEBULL column). On a laptop (1100 px and wider) the strategy or account list is a panel on the right, next to the hero, chart, stats and calendar, and the trade list and the own folds of the board run the full width underneath. Below 1100 px the list sits under the calendar on every board.','REAL: the ACCOUNTS list moved from under the calendar into that right-hand panel. The reconciled with Webull chip left the top right corner: it is now in the new status line under the big number, with when NinjaTrader and Webull last synced. The EQUITY / P&L switch moved from beside the range pills to under the chart, next to a one-line caption. FUTURES / STOCKS moved out of the chip row into the REAL toolbar row, next to BY TRADE / BY DAY (or SIMPLE / FULL) and the four buttons NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL, which still fold behind ... on a phone. Nothing was removed.','WEBULL PAPER: the status line (paper only, market, feed, box updated, Refresh) moved from under the chart to right under the big number. The Cumulative P&L caption moved from above the chart to under it, beside the hatched / book only key.','NT8 PAPER: the page is now centred like the other two instead of running the full screen width. Its STATUS line (warnings, REFRESH) left the hero and is the same status line under the big number. The bold line / faint lines caption moved from the pills row to under the chart. The Strategies panel starts with the same header as the other boards, then ONE Filters row, closed until you open it, that holds Both / Raw / ML, the family chips, Board order / Name / Net and Baselines only; your open or closed choice is remembered. The panel can still be dragged wider or narrower.','Every list panel has the same Filters row at the top (REAL and WEBULL have nothing to filter yet, so theirs says so).','Probes: the REAL, NT8 and WEBULL board probes check the new frame (list in the right-hand panel from 1100 px and under the calendar below it, the status line under the hero, the Filters row present and closed, every REAL toolbar button present), each with a deliberately broken copy that must fail.']},
+const CHANGELOG=[{v:'73.1142',date:'2026-10-08',notes:['RUNBOARD HONESTY MARKERS (assessment 10-05 via MANAGER). On the WF stage a pinned single-config run - one fixed config replayed over the very years it was picked on, like ORB #234, #239, #257, #266 and NOISE #243 - is tagged WF = in-sample, the same words EXPLORE uses. On the LB stage a cold lockbox that has no matching continuous replay to swap in is tagged LB cold, and for NOISE the hover says a cold restart drops about a quarter of the year’s trades. Warm runs, books and swapped runs get no tag.','VOID AND PRE-FIX TTM ON THE BOARDS (found-list 10-07). TTM #369, #428 and #455 are VOID - their structural stop booked impossible exits when the open gapped past the stop (fixed 09-27; restated as #459 and #458). The RUNBOARD and LEADERBOARD now rank a VOID run last, never crown it and never give it a best mark; it stays listed, greyed, with the reason on hover. LEADERBOARD’s TTM pick is now #458. Every run or book whose structural-stop TTM leg ran before the fix carries a PRE-FIX TTM tag, since its figures read high; ranking is unchanged. Also fixed: the research plane plots engine runs on the same stretch as the research rows, the WATCH cut-off note names the watched runs past the 40-column limit, and research hovers lost their code words. A lane’s manual CAVEAT on a watched run now shows on its column.','RUN REPORT: COST AND LIMITS, A SECOND READING (owner GO 09-30, ELWA engine half). A new chip in the ROBUSTNESS rail asks the PC runner for the run’s full trade list and shows the cost the run breaks even at per round trip against the cost it was charged, how many times its own cost it can absorb, the net at double cost, and a realistic-cost net for NQ, ES and QQQ from published (not fitted) inputs - plus the list of what this run does not model, built from its own settings, material items first. It is a second reading and never changes the run’s own numbers. It needs the runner update that ships beside it and a runner restart; until then the chip says the runner is on an older version.','RUNBOARD: PRE-FIX TTM runs sink (MANAGER 10-08). A run or book whose structural-stop TTM leg ran before the 2026-09-27 gap-stop fix now ranks after every fixed run, with only VOID runs below it, on the RUNBOARD (every stage, the WATCH view, hand-pinned runs too), the LEADERBOARD family picks and BEST / WORST lists. It never wears the crown and takes no green best mark, because its TTM leg figures are wrong. It keeps its place on every screen and keeps the PRE-FIX TTM tag; the WATCH cut-off note marks it PRE-FIX TTM.','On real data the WATCH lockbox board now holds the fixed runs; the 21 pre-fix watched books moved past the 40-column limit and are named in the note under the board.','RSIDIV #163 is VOID (MANAGER GO, reason from the DISC audit): a leveraged buy-and-hold - a 12.5% trailing stop that almost never fires and up to 4 stacked lots, in the market 96% of days - that earns 0.84x a constant 3.65-lot NQ hold, so no timing skill. Its numbers are real, not a bug. It is listed with the VOID tag and the reason on hover, and never ranked or picked.','Probe: the CMP2 board probe checks a pre-fix book with the best figures sits after both fixed books and before a VOID one, takes no crown or best mark, is not the BOOKS family pick, and that #163 reads VOID; the old build fails all four checks.','ROLL TAG (owner ask 10-08 via MANAGER). The 22 old runs that used the guessing roll detector (TTIBS, DIP 1.0 / 1.1, GAPGO, RSIDIV) now carry a ROLL tag wherever VOID and PRE-FIX TTM tags show: the RUNBOARD (both hosts) and the LEADERBOARD. Its hover gives the run restated on the true roll table by DISC (verified 2026-10-08), saved -> true: net, worst drawdown, DD5, ROC @ $30K DD and the lockbox year.','RUNBOARD, FULL stage: a ROLL RESTATED row under DD5 prints each tagged run on the true roll table (ROC, net, worst drawdown, DD5, 1 EPISODE where it applies); other runs read a dash. It is a report beside the saved figures: the order, the crown and every best mark still use the saved figures. The row is not shown on the IS, WF and LB stages.','Run report: a ROLL chip in the ROBUSTNESS rail (after COST AND LIMITS) opens a SAVED / TRUE table for the whole run and the lockbox year, with the source DISC restatement.','Probes: a new RUNBOARD case and a new run-report case, each failing on the build before this one.']},
+{v:'73.1141',date:'2026-10-07',notes:['LEDGER shared parts, round 1 (all three boards): More stats still shows the board groups (NT8 Strategy vs control) when the range has no trades; Green days shows its share of days (12 of 20 · 60%); Average hold now counts trades shorter than a minute and reads 40s instead of a dash.','ONE day rule everywhere (owner decision 2): the OVERVIEW and ANALYTICS calendars, their day hover and the jump to a day now put each trade on the New York day it CLOSED, the same rule the LEDGER day headers and calendar use. Only overnight trades move.','Shared list: a row can carry a detail line under it, a list with no switches drops the empty switch column, and a row sub-line can wrap. Shared trade list: a footer slot (SHOW MORE), a hook for the board chips and the day groups, and the search box keeps its cursor while the list redraws.','Phones: the stats tiles and the folds are a little tighter on every board, and the shared parts now use the house widths (740 instead of 760).','REAL: ACCT % reads -- for a trade made before any money was in the account (it read -Infinity%). The REAL probe now also clicks EQUITY / P&L, checks ACCT and ACCT% against the running balance, the timeframe picker and tags, ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL, and a withdrawal.']},{v:'73.1127',date:'2026-10-07',notes:['LEDGER step 12, ONE PAGE FRAME: the three boards (REAL, NT8 PAPER, WEBULL PAPER) now share one page frame, so they look the same at a glance and only the numbers and the closed folds of each board differ.','The frame: the same width and centring on every board (the WEBULL column). On a laptop (1100 px and wider) the strategy or account list is a panel on the right, next to the hero, chart, stats and calendar, and the trade list and the own folds of the board run the full width underneath. Below 1100 px the list sits under the calendar on every board.','REAL: the ACCOUNTS list moved from under the calendar into that right-hand panel. The reconciled with Webull chip left the top right corner: it is now in the new status line under the big number, with when NinjaTrader and Webull last synced. The EQUITY / P&L switch moved from beside the range pills to under the chart, next to a one-line caption. FUTURES / STOCKS moved out of the chip row into the REAL toolbar row, next to BY TRADE / BY DAY (or SIMPLE / FULL) and the four buttons NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL, which still fold behind ... on a phone. Nothing was removed.','WEBULL PAPER: the status line (paper only, market, feed, box updated, Refresh) moved from under the chart to right under the big number. The Cumulative P&L caption moved from above the chart to under it, beside the hatched / book only key.','NT8 PAPER: the page is now centred like the other two instead of running the full screen width. Its STATUS line (warnings, REFRESH) left the hero and is the same status line under the big number. The bold line / faint lines caption moved from the pills row to under the chart. The Strategies panel starts with the same header as the other boards, then ONE Filters row, closed until you open it, that holds Both / Raw / ML, the family chips, Board order / Name / Net and Baselines only; your open or closed choice is remembered. The panel can still be dragged wider or narrower.','Every list panel has the same Filters row at the top (REAL and WEBULL have nothing to filter yet, so theirs says so).','Probes: the REAL, NT8 and WEBULL board probes check the new frame (list in the right-hand panel from 1100 px and under the calendar below it, the status line under the hero, the Filters row present and closed, every REAL toolbar button present), each with a deliberately broken copy that must fail.']},
 {v:'73.1128',date:'2026-10-07',notes:['LEDGER shared parts, round 1 (all three boards): More stats still shows the board groups (NT8 Strategy vs control) when the range has no trades; Green days shows its share of days (12 of 20 · 60%); Average hold now counts trades shorter than a minute and reads 40s instead of a dash.','ONE day rule everywhere (owner decision 2): the OVERVIEW and ANALYTICS calendars, their day hover and the jump to a day now put each trade on the New York day it CLOSED, the same rule the LEDGER day headers and calendar use. Only overnight trades move.','Shared list: a row can carry a detail line under it, a list with no switches drops the empty switch column, and a row sub-line can wrap. Shared trade list: a footer slot (SHOW MORE), a hook for the board chips and the day groups, and the search box keeps its cursor while the list redraws.','Phones: the stats tiles and the folds are a little tighter on every board, and the shared parts now use the house widths (740 instead of 760).']},{v:'73.1127',date:'2026-10-07',notes:['LEDGER step 12, ONE PAGE FRAME: the three boards (REAL, NT8 PAPER, WEBULL PAPER) now share one page frame, so they look the same at a glance and only the numbers and the closed folds of each board differ.','The frame: the same width and centring on every board (the WEBULL column). On a laptop (1100 px and wider) the strategy or account list is a panel on the right, next to the hero, chart, stats and calendar, and the trade list and the own folds of the board run the full width underneath. Below 1100 px the list sits under the calendar on every board.','REAL: the ACCOUNTS list moved from under the calendar into that right-hand panel. The reconciled with Webull chip left the top right corner: it is now in the new status line under the big number, with when NinjaTrader and Webull last synced. The EQUITY / P&L switch moved from beside the range pills to under the chart, next to a one-line caption. FUTURES / STOCKS moved out of the chip row into the REAL toolbar row, next to BY TRADE / BY DAY (or SIMPLE / FULL) and the four buttons NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL, which still fold behind ... on a phone. Nothing was removed.','WEBULL PAPER: the status line (paper only, market, feed, box updated, Refresh) moved from under the chart to right under the big number. The Cumulative P&L caption moved from above the chart to under it, beside the hatched / book only key.','NT8 PAPER: the page is now centred like the other two instead of running the full screen width. Its STATUS line (warnings, REFRESH) left the hero and is the same status line under the big number. The bold line / faint lines caption moved from the pills row to under the chart. The Strategies panel starts with the same header as the other boards, then ONE Filters row, closed until you open it, that holds Both / Raw / ML, the family chips, Board order / Name / Net and Baselines only; your open or closed choice is remembered. The panel can still be dragged wider or narrower.','Every list panel has the same Filters row at the top (REAL and WEBULL have nothing to filter yet, so theirs says so).','Probes: the REAL, NT8 and WEBULL board probes check the new frame (list in the right-hand panel from 1100 px and under the calendar below it, the status line under the hero, the Filters row present and closed, every REAL toolbar button present), each with a deliberately broken copy that must fail.']},
 {v:'73.1135',date:'2026-10-07',notes:['NINJATRADER NIGHT MODE (owner 10-07). After the close NinjaTrader now does its final checks and then stops by itself: from 16:15 New York on trading days it takes the day backup, finishes the 10-second data (retries up to 45 minutes and logs any gap it cannot fill), checks every fill was recorded, then closes NinjaTrader and keeps it closed until 05:45 Arizona on the next trading day (Friday to Monday, holidays skipped). Flat: the strategies stop and NinjaTrader closes cleanly. A paper trade open with its stop: NinjaTrader is force-closed with nothing switched off, so the stop stays at the broker but does not trail until the morning. A paper trade with no stop, or your real account holding a position or an order: NinjaTrader stays on that night and you get a push.','Two Desktop switches: NinjaTrader OFF tonight (the same checks, right now) and NinjaTrader ON now (ends night mode and starts NinjaTrader). The morning check, the 30-minute sweep, the order-flow alarm and the cloud watchdog treat the night as expected; a failed morning start still alerts. While NinjaTrader is closed the ENGU-Q NinjaTrader paper leg does not trade the evening and overnight session; the engine paper record still tracks it. Every time and choice lives in one settings file.']},
 {v:'73.1133',date:'2026-10-07',notes:['RUNBOARD TO RUN REPORT (owner ask 10-07). Every engine run on COMPARE > RUNBOARD now has a small ↗ beside its number - in the table header, in the chart key and on the WATCH view’s research plane - that opens that run’s report in Past Runs. The report then shows a BACK TO RUNBOARD bar that returns to the same tab, stage and view. Research verdicts have no engine run, so they carry no link and their hover says why.']},{v:'73.1125',date:'2026-10-07',notes:['RUNBOARD: DD5 BESIDE EVERY WORST DRAWDOWN (owner go 10-07). ROC @ $30K DD divides by ONE drawdown, so a change that only trims one crash can look like a big win - book round 62’s volatility sizing read 116 against #463’s 94 while earning less money, purely by shaving the 2020 crash. A new DD5 row right under DD shows the average of the 5 worst drawdowns on the stage in view, each a separate dip from a high to its low before that high was regained. A dip still open at the end of the stretch counts, and a stage with fewer than five dips averages what it has and says so (n=3).','Hover a DD5 figure for the list of dips (high date, low date, depth), or tap it to open the same list under the figure. When the worst drawdown is more than 1.3 times DD5 the cell carries a 1 EPISODE tag in words: the ROC figure on that stage rests on that one episode. ROC, MAR and the RANK order are unchanged.','DD5 is read off the curve each run saves, which is thinned for storage, so the smaller dips can read a little shallow and their dates are approximate (marked ~). A stretch with too few saved points to tell its dips apart - a lockbox year is usually only 20 to 30 of them - shows its DD5 with a ~ and makes no 1 EPISODE call; the hover gives the worst-to-DD5 ratio either way. Where the thinned curve reads the deepest dip shallower than the DD row, the DD row’s own figure - the one the ROC figure divides by - is used for it. A single run’s in-sample stage (a tuning score that no saved curve covers), a lockbox read from the continuous replay and a stage with no saved curve show a dash with the reason. Research rows on the WATCH view show the DD5 their lane supplied, or a dash, never a made-up figure. The same row is on the RUNBOARD tab, the board inside COMPARE and the WATCH view.']},
@@ -12903,6 +12904,105 @@ function _dd5Lines(R,dateAt,exact){const q=exact?'':'~';
     const span=(e.ti==null)?'dates not on the saved curve':(((e.pi<0)?'start':(dateAt(e.pi)?(q+dateAt(e.pi)):('point '+e.pi)))+' → '+(dateAt(e.ti)?(q+dateAt(e.ti)):('point '+e.ti)));
     return (k+1)+'. '+span+'  '+_dd5Usd(e.depth)+(e.open?' (still open at the end)':'')
       +((e.curve!=null)?(' (the DD row’s saved figure; the curve read '+_dd5Usd(e.curve)+')'):'');});}
+// COST AND LIMITS - SECOND READING (run report). The PC runner's get_blotter, asked with readings:true, attaches `readings` computed from the run's FULL trade
+//   list: the break-even cost per round trip and how many times the run absorbs its own cost, the net at double cost, a realistic-cost reading from published
+//   fee / spread figures (NOT fitted), and the list of what the run does not model (material items first). This is a SECOND reading beside the run's own numbers -
+//   it never replaces or edits them, and is never shown as the run's headline net. Asked ONCE per run per page (window._rdFetched), the answer kept in memory
+//   (window._rdCache) so a redraw re-uses it, and the rows it brings back are cached under the same key the CONCENTRATION card uses (_blotPut) so the two
+//   features share one fetch (window._rdInflight lets the concentration card wait for this reply instead of generating the blotter a second time). An old
+//   runner ignores `readings` and replies without it; an unreachable one rejects - each has its own plain sentence. Pure string builders plus one ask: the
+//   post-render pass in renderApp wires them to the [data-rdcard] box.
+const RD_FOOT="A second reading computed by the PC runner from this run's full trade list. It never changes the run's own numbers.";
+function _rdEsc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _rdNum(v,dp){const x=+v;return (v!=null&&v!==''&&isFinite(x))?x.toFixed(dp):null;}
+function _rdUsd(v){const x=+v;if(v==null||v===''||!isFinite(x))return null;
+  // a per-round-trip figure is a few dollars (cents matter); a whole-run net is thousands (whole dollars)
+  return (x<0?'-$':'$')+(Math.abs(x)<100?Math.abs(x).toFixed(2):Math.abs(Math.round(x)).toLocaleString('en-US'));}
+function _rdBodyHtml(st){
+  const line=(txt,more)=>'<div style="font-size:10px;line-height:1.5;color:var(--text3);margin:3px 0'+(more||'')+'">'+txt+'</div>';
+  if(!st)return line("asking the PC runner…");
+  if(st.kind==='down')return line("The PC runner did not answer, so the cost readings could not be computed (they need the run's full trade list).");
+  if(st.kind==='old')return line("The PC runner is on an older version that does not compute these readings yet.");
+  if(st.kind==='bad')return line("The PC runner could not compute the cost readings"+(st.error?(": "+_rdEsc(st.error)):"")+".");
+  const R=st.readings||{},out=[];
+  // the headline: the module's own plain sentences (break-even, double cost, realistic, "published figures, NOT fitted")
+  const sums=Array.isArray(R.summary)?R.summary.filter(x=>x!=null&&String(x).trim()!==''):[];
+  if(sums.length)out.push('<div data-rdsummary style="margin:2px 0 6px">'+sums.map(t=>'<div style="font-size:11px;font-weight:600;line-height:1.5;color:var(--text2);margin:2px 0">'+_rdEsc(t)+'</div>').join('')+'</div>');
+  else if(R.summary_error)out.push(line("The runner could not write the plain-language summary: "+_rdEsc(R.summary_error)+"."));
+  // the figures behind it
+  const C=R.cost;
+  if(C&&C.ok===false)out.push(line("<b>COST READING</b> could not be computed"+(C.error?(": "+_rdEsc(C.error)):"")+"."));
+  else if(C){const f=[],be=_rdNum(C.breakeven_cost_pts,2),beU=_rdUsd(C.breakeven_cost_usd),ch=_rdNum(C.cost_pts,2),hx=_rdNum(C.headroom_x,1),nd=_rdUsd(C.net_double_usd);
+    if(be!=null)f.push('<b>BREAK-EVEN COST</b> '+be+' pts'+(beU?(' ('+beU+')'):'')+' per round trip'+(ch!=null?(' against the '+ch+' pts charged'):''));
+    if(hx!=null)f.push('absorbs '+hx+' x its own cost');
+    if(nd!=null)f.push('<b>NET AT DOUBLE COST</b> '+nd);
+    if(f.length)out.push(line(f.join(' · ')));}
+  const Z=R.realistic;
+  if(Z&&Z.ok===false)out.push(line("<b>REALISTIC COST</b> no realistic reading for this run"+(Z.why?(": "+_rdEsc(Z.why)):"")+"."));
+  else if(Z){const bd=Z.realistic_breakdown||{},net=_rdUsd(Z.net_realistic_usd),tot=_rdNum(bd.total_pts!=null?bd.total_pts:Z.realistic_cost_pts,2),parts=[];
+    if(_rdNum(bd.fee_pts,2)!=null)parts.push('fee '+_rdNum(bd.fee_pts,2)+' pts');
+    if(_rdNum(bd.spread_pts,2)!=null)parts.push('spread '+_rdNum(bd.spread_pts,2)+' pts');
+    parts.push((Z.slippage_included===false)?'slippage not included - the trade list carries no ATR':(_rdNum(bd.slippage_pts,2)!=null?('slippage '+_rdNum(bd.slippage_pts,2)+' pts'):'slippage not given'));
+    out.push(line('<b>REALISTIC NET</b> '+(net||'n/a')+(tot!=null?(' at '+tot+' pts per round trip'):'')+' ('+parts.join(' + ')+')'
+      +(Z.survives===true?' - it survives these costs':(Z.survives===false?' - it does not survive these costs':''))+(bd.source?('. Source: '+_rdEsc(bd.source)):'')+'.'));}
+  // what the run does NOT model: every item the runner sent, material first, then the notes - text verbatim (escaped), nothing truncated
+  const L=R.limits;
+  if(L&&L.ok===false)out.push(line("<b>WHAT THIS RUN DOES NOT MODEL</b> could not be listed"+(L.error?(": "+_rdEsc(L.error)):"")+"."));
+  else if(L&&Array.isArray(L.items)){
+    const its=L.items.filter(x=>x&&(x.text!=null||x.key!=null)),mat=its.filter(x=>x.severity==='material'),nts=its.filter(x=>x.severity!=='material');
+    const say=x=>_rdEsc(x.text!=null?x.text:x.key);
+    out.push('<div data-rdlimits style="margin-top:8px"><div style="font-size:9px;font-weight:800;letter-spacing:1px;color:var(--text2)">WHAT THIS RUN DOES NOT MODEL <span data-rdcounts style="font-weight:400;letter-spacing:0;color:var(--text4)">'
+      +mat.length+' material · '+nts.length+' note'+(nts.length===1?'':'s')+'</span></div>'
+      +mat.map(x=>'<div data-rditem="material" style="display:flex;gap:7px;align-items:baseline;font-size:10px;line-height:1.5;color:var(--text2);margin:3px 0"><span style="flex:0 0 auto;font-size:7px;font-weight:800;letter-spacing:.6px;border:1px solid var(--text4);border-radius:3px;padding:0 3px;color:var(--text2)">MATERIAL</span><span>'+say(x)+'</span></div>').join('')
+      +nts.map(x=>'<div data-rditem="note" style="font-size:10px;line-height:1.5;color:var(--text3);margin:3px 0">'+say(x)+'</div>').join('')
+      +'</div>');}
+  return out.join('')||line("The PC runner sent no readings for this run.");
+}
+// the card itself: a plain "not available" line for a run with no single-strategy trade list to replay, otherwise a [data-rdcard] box that the post-render pass fills
+function _rdCardHtml(d,mlt){
+  const rid=String(d&&d.id!=null?d.id:'');
+  const head='<div class="lbl" title="'+_rdEsc(RD_FOOT)+'" style="margin:12px 0 4px;font-size:9px;letter-spacing:1.4px;color:var(--text4)">COST AND LIMITS · second reading</div>';
+  const na=why=>'<div data-rdna style="padding:2px 0">'+head+'<div style="font-size:10px;line-height:1.5;color:var(--text3)">Not available for this run: '+why+'.</div></div>';
+  if(!rid)return na('it has no run number to ask the PC runner about');
+  const str=String((d&&d.strategy)||'');
+  if((d.book&&Array.isArray(d.book.legs))||String(d.scope||'').indexOf('Book')>=0||str.indexOf('BOOK:')===0||str.indexOf('COMBINED')===0)
+    return na('a book pools several strategies, so there is no single strategy trade list to read');
+  if(!str)return na('it names no strategy to replay');
+  if(!(d.best_params&&typeof d.best_params==='object'&&Object.keys(d.best_params).length))
+    return na('it saved no champion configuration to replay the trades from');
+  // the runner will not guess the cost a run was charged (a made-up 0 would turn the break-even into nonsense), so a run that recorded none is not asked
+  if(d.cost_pts==null||d.cost_pts===''||!isFinite(+d.cost_pts))
+    return na('it did not record the trading cost it was charged, so there is nothing to measure the cost readings against');
+  const V=d.validate||{},W=V.windows||{},lbf=(Array.isArray(W.lockbox)&&W.lockbox[0])||(V.lockbox&&V.lockbox.from)||null;
+  const pay={run_id:d.id,instrument:d.instrument||'',timeframe:d.timeframe||'5m',session:d.session||'rth',strategy:str,params:d.best_params,
+    cost_pts:+d.cost_pts,mult:mlt,date_from:d.date_from||null,date_to:d.date_to||null,source:d.data_source||null,family:String(d.famKey||d.family||'')};
+  if(lbf)pay.lockbox_from=String(lbf).slice(0,10);
+  const st=(window._rdCache||{})[rid];
+  return '<div data-rdcard="'+_rdEsc(rid)+'" data-rdpay="'+_rdEsc(JSON.stringify(pay))+'" data-rdstate="'+(st?'done':'pending')+'"'+(st?(' data-rdkind="'+st.kind+'"'):'')+' style="padding:2px 0">'
+    +head+'<div data-rdbody>'+_rdBodyHtml(st)+'</div>'
+    +'<div style="font-size:9px;color:var(--text5);margin-top:6px">'+_rdEsc(RD_FOOT)+'</div></div>';
+}
+// paint an answer into every card for that run on the page (a redraw while the ask is out replaces the box, so the reply finds the live ones by id)
+function _rdPaint(rid){
+  try{const st=(window._rdCache||{})[rid];if(!st)return;
+    [].forEach.call(document.querySelectorAll('[data-rdcard]'),b=>{if(b.getAttribute('data-rdcard')!==rid)return;
+      const body=b.querySelector('[data-rdbody]');if(body)body.innerHTML=_rdBodyHtml(st);
+      b.setAttribute('data-rdstate','done');b.setAttribute('data-rdkind',st.kind);});
+  }catch(e){console.warn('[cost readings] could not paint:',(e&&e.message)||e);}
+}
+// ask the runner: ONE get_blotter with readings:true. Resolves with the reply (so the concentration card can share its rows) or null; never rejects.
+function _rdAsk(rid,pay){
+  window._rdCache=window._rdCache||{};
+  const done=(st,r)=>{window._rdCache[rid]=st;_rdPaint(rid);return r||null;};
+  let p;
+  try{p=_runCmd('get_blotter',Object.assign({},pay,{readings:true}),300000);}catch(e){return Promise.resolve(done({kind:'down'},null));}
+  return Promise.resolve(p).then(r=>{
+    if(r&&r.rows&&r.rows.length&&typeof _blotPut==='function')_blotPut(rid,{rows:r.rows,capped:r.capped||null,source:r.source||null,master:r.master||null,ts:Date.now()}).catch(()=>{});
+    if(!r||typeof r!=='object'||r.readings==null)return done({kind:'old'},r);
+    if(r.readings.ok===false)return done({kind:'bad',error:r.readings.error||r.readings.why||''},r);
+    return done({kind:'ok',readings:r.readings},r);
+  }).catch(()=>done({kind:'down'},null));
+}
 // RUNBOARD -> PAST RUNS (owner ask 2026-10-07 via MANAGER inbox #24: "from the compare runboard tab, need a link to
 //   the past run results view"). Every ENGINE run on the RUNBOARD gets a small ↗ that opens that run's report (Past Runs,
 //   augurSub 'runs'); the report then wears a BACK TO RUNBOARD bar that returns to the same tab, stage and view (the board's
@@ -12963,8 +13063,8 @@ function _rbResearchPlane(eng,acct,stage){
     g+='<text x="'+((L+W-Rt)/2)+'" y="'+(H-3)+'" font-size="8" text-anchor="middle" fill="var(--text4)">WORST DRAWDOWN % OF '+money(A)+'</text>'
       +'<text x="10" y="'+((T+H-B)/2)+'" font-size="8" text-anchor="middle" fill="var(--text4)" transform="rotate(-90 10 '+((T+H-B)/2)+')">ROC % / YR</text>';
     pts.filter(q=>q.kind==='e').forEach(q=>{
-      g+='<circle data-rbres-eng="'+esc(q.id)+'" data-rbopen="'+esc(q.id)+'" cx="'+X(q.x).toFixed(1)+'" cy="'+Y(q.y).toFixed(1)+'" r="4" fill="'+col(q.fam)+'" stroke="none" style="cursor:pointer"><title>'
-        +esc('#'+q.id+' '+(q.name||'')+' - engine run on this board - ROC '+q.y.toFixed(1)+' %/yr, DD '+q.x.toFixed(1)+'% of '+money(A)+' - click to open its report')+'</title></circle>';});
+      g+='<circle data-rbres-eng="'+esc(q.id)+'" data-rbopen="'+esc(q.id)+'" cx="'+X(q.x).toFixed(1)+'" cy="'+Y(q.y).toFixed(1)+'" r="4" fill="'+col(q.fam)+'" stroke="none" style="cursor:pointer'+(q.isVoid?';opacity:.35':'')+'"><title>'
+        +esc((q.isVoid?'VOID - ':'')+'#'+q.id+' '+(q.name||'')+' - engine run on this board - ROC '+q.y.toFixed(1)+' %/yr, DD '+q.x.toFixed(1)+'% of '+money(A)+' - click to open its report')+'</title></circle>';});
     pts.filter(q=>q.kind==='r').forEach(q=>{
       const cx=X(q.x).toFixed(1),cy=Y(q.y).toFixed(1);
       g+='<circle data-rbres="'+esc(q.id)+'" cx="'+cx+'" cy="'+cy+'" r="5.5" fill="none" stroke="'+col(q.fam)+'" stroke-width="2"><title>'
@@ -12977,7 +13077,7 @@ function _rbResearchPlane(eng,acct,stage){
     //   --lb-dd5, computed with augur_engine.drawdowns.dd5 on the same daily curve), or a dash - never made up here.
     //   A research row carries the figure only, not its list of dips. 1 EPISODE = worst drawdown > 1.3 x DD5.
     const d5=(st,lbl,id)=>{const v=(st&&st.dd5_usd!=null&&isFinite(+st.dd5_usd)&&+st.dd5_usd>0)?+st.dd5_usd:null;
-      if(v==null)return ' · <span data-rbres-dd5="" title="'+esc('No DD5 on this '+lbl+' stretch: the research row does not carry one (tools/runboard_watch.py research --'+lbl.toLowerCase()+'-dd5). It is never made up here.')+'" style="cursor:help">DD5 —</span>';
+      if(v==null)return ' · <span data-rbres-dd5="" title="'+esc('No DD5 on this '+lbl+' stretch: the lane did not supply one. It is never made up here.')+'" style="cursor:help">DD5 —</span>';
       const one=(+st.dd_usd>1.3*v);
       return ' · <span data-rbres-dd5="'+Math.round(v)+'" title="'+esc('DD5 = the average of the 5 worst drawdowns on this '+lbl+' stretch, as the lane worked it out on the same daily curve. A research row carries the figure only, not the list of dips.'+(one?' 1 EPISODE: the worst drawdown is more than 1.3 times DD5, so this ROC @ $30K figure rests on one episode.':''))+'" style="cursor:help">DD5 '+money(v)+'</span>'
         +(one?(' <span data-rbdd5-one="'+esc(id)+'" style="font-size:7px;font-weight:700;letter-spacing:.4px;white-space:nowrap;border:1px solid var(--text4);border-radius:3px;padding:0 3px;color:var(--text2)">1 EPISODE</span>'):'');};
@@ -12988,7 +13088,7 @@ function _rbResearchPlane(eng,acct,stage){
         +' - '+esc(w.verdict||'(no verdict yet)')+' <span style="color:var(--text5)">· '+nums+' · no engine run</span></div>';}).join('');
     return '<div data-rbres-tile style="margin-top:10px;border-top:1px solid var(--border);padding-top:7px">'
       +'<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px"><span class="lbl" style="font-size:9px;letter-spacing:1.4px;color:var(--text4)">RESEARCH VERDICTS</span>'
-      +'<span title="Script-only research rounds have no engine run, so their row carries its own numbers (written by tools/runboard_watch.py research). Hollow ring = research verdict, no engine run; filled dot = a watched engine run on the stage in view. ROC % / YR against worst drawdown as a % of the account, the same axes as EXPLORE LEVERAGE LINE; research figures are re-based on the account chip." style="font-size:8px;color:var(--text5);cursor:help">'
+      +'<span title="Script-only research rounds have no engine run, so their row carries its own numbers (written by the lane that ran it). Hollow ring = research verdict, no engine run; filled dot = a watched engine run, plotted on the same stretch as the rings (walk-forward, or lockbox on the LB stage). ROC % / YR against worst drawdown as a % of the account, the same axes as EXPLORE LEVERAGE LINE; research figures are re-based on the account chip." style="font-size:8px;color:var(--text5);cursor:help">'
       +R.length+' research row'+(R.length===1?'':'s')+' · '+nR+' plotted hollow (no engine run) · '+nE+' engine run'+(nE===1?'':'s')+' filled · '
       +(useLb?'lockbox figures where a row has them':'walk-forward figures')+'</span></div>'
       +'<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:'+W+'px;height:auto;display:block">'+g+'</svg>'+rows+'</div>';
@@ -22531,6 +22631,41 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       return {pnl:wN,trades:wT,pf:num(g.profit_factor),dd:(dd!=null)?Math.abs(dd):null,sortino:num(g.sortino),sharpe:num(g.sharpe),
         win_rate:num(g.win_rate),avg_win:num(g.avg_win),avg_loss:num(g.avg_loss),pass:lb.pass,from:lb.from,to:lb.to,
         _warm:true,_cold:{pnl:cN,trades:cT,pf:num(lb.pf)}};};
+    // A COLD LOCKBOX THAT COULD NOT BE SWAPPED (2026-10-07, MANAGER inbox #22, from the 10-05 top-models assessment). _lbWarmOf swaps a
+    //   cold lockbox for the saved continuous replay when that replay is plausibly the same config; what it leaves alone today carries
+    //   no mark, so a NOISE run (needs ~40 prior sessions for its band, so a cold restart drops about a quarter of the year's trades:
+    //   #382 cold 239 trades PF 1.39 against continuous 315 PF 1.26) reads like any other lockbox. null when nothing is wrong: no
+    //   lockbox, a BOOK, a run that warmed up, a run _lbWarmOf already swapped (tagged LB warm), or a continuous replay that IS saved and
+    //   reads the same as the cold one (same trade count, pnl within 1e-6 - the restart cost nothing, e.g. ORB #234 / #239).
+    //   {why:'refused',cT,wT} = a replay is saved but _lbWarmOf refused it (far fewer trades); {why:'none'} = no replay is saved.
+    const _lbColdOf=x=>{const V=x&&x.validate,lb=V&&V.lockbox;if(!lb)return null;
+      if(x.book&&Array.isArray(x.book.legs))return null;
+      if(V.windows&&V.windows.warm_days)return null;
+      if(_lbWarmOf(x))return null;
+      // a lockbox that took no trades is a dash on the board - no figure to caveat (and a saved replay with trades would have swapped it in above)
+      if(lb.trades!=null&&lb.trades!==''&&+lb.trades===0)return null;
+      const g=_gvB(x,'ungated_lockbox');
+      const num=v=>(v!=null&&v!==''&&isFinite(+v))?+v:null;
+      const wT=g?num(g.num_trades):null,wN=g?num(g.total_pnl):null;
+      if(wT==null||wN==null)return {why:'none'};
+      const cT=num(lb.trades),cN=num(lb.pnl);
+      if(cT!=null&&cN!=null&&wT===cT&&Math.abs(wN-cN)<=1e-6)return null;
+      return {why:'refused',cT:cT,wT:wT};};
+    const _lbColdWhy=(k,x)=>'Cold lockbox: this run scored its lockbox before warm starts (v73.841) - the strategy restarted at the lockbox door with no history'
+      +((k&&k.why==='refused')?(', and the saved continuous replay of that year is a different run ('+((k.wT!=null)?k.wT:'?')+' trades against '+((k.cT!=null)?k.cT:'?')+'), so it cannot stand in')
+        :', and no continuous replay of that year is saved to check it against')
+      +'.'+(/NOISE/i.test(String((x&&x.strategy)||''))
+        ?' NOISE needs about 40 prior sessions for its band, so a cold restart drops about a quarter of the year’s trades - do not rank NOISE on this figure.'
+        :' Read it as approximate.');
+    // WF = IN-SAMPLE on the RUNBOARD (same rule and same words as EXPLORE's pin1 flag, _rePinnedRunOf / _reFlagsOf): a PINNED single-config
+    //   run (n_evaluated 1, not a book) replays one fixed config over the very years it was chosen on, so its walk-forward figure is
+    //   in-sample, not a test. The book test is copied from _rePinnedRunOf, character for character.
+    const _rbWfInSampleOf=x=>{
+      if(!(x&&x.n_evaluated!=null&&+x.n_evaluated===1))return false;
+      const bk=(x.book&&Array.isArray(x.book.legs))||String(x.scope||'').indexOf('Book')>=0
+        ||/^(BOOK:|COMBINED\b)/i.test(String(x.strategy||''));
+      return !bk;};
+    const _RB_WF_IN_TIP='Pinned single-config run: its walk-forward figures hold the chosen settings fixed over the years they were picked on, so they are in-sample, not a test - the same reading the run report calls the CROWNING SCORE.';
     // THE RUN'S validate BLOCK WITH ITS LOCKBOX SWAPPED for the warm reading when _lbWarmOf accepts it
     //   (2026-09-28, owner via MANAGER) - for the report helpers that take the validate block rather
     //   than the run (championEquityHtml, validateCardHtml). windows / power / verdict stay the run's own.
@@ -26186,6 +26321,16 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +(_cc.exact?'':'<div style="font-size:9px;color:var(--text5)" data-concwait="1">measured from the saved '+_cc.n+'-trade sample \u2014 fetching the real trade list\u2026</div>')
           +'</div>'
 });}
+      // COST AND LIMITS - SECOND READING (2026-10-07): a chip of its own right after CONCENTRATION, so it exists for EVERY run (a book or a run with no champion
+      //   config gets a plain "Not available for this run" line instead of a number). Like the concentration card it asks the PC runner only once its readout is
+      //   opened. 'info': a second reading, never a pass / fail gate, and never counted among the cautions.
+      {const _rdChip={k:'rd',ic:'&#164;',nm:'COST AND LIMITS',q:'what trading costs and untested assumptions do to this run - a second reading from the PC runner',st:'info',cc:'var(--text3)',chip:'second reading',html:_rdCardHtml(d,mlt)};
+       const _rdAt=_chips.findIndex(c=>c.k==='conc');_chips.splice(_rdAt>=0?_rdAt+1:0,0,_rdChip);}
+      // ROLL (2026-10-08, owner ask via MANAGER #31 / #33 / #34): only for one of the 22 runs restated for the old roll detector (RUN_ROLL). Static data, no fetch; 'info' - a
+      //   report beside the saved figures, never a pass / fail gate and never counted among the cautions. The readout it opens carries data-rollchip="ID".
+      {const _rlE=_rollOf(d);
+       if(_rlE){const _rlChip={k:'roll',ic:'&#8635;',nm:'ROLL',q:'this run ran on the old roll detector, which guessed the contract switch days - its saved figures restated on the true roll table',st:'info',cc:'var(--text3)',chip:'old roll detector',html:_rollCardHtml(d,_rlE)};
+         const _rlAt=_chips.findIndex(c=>c.k==='rd');_chips.splice(_rlAt>=0?_rlAt+1:0,0,_rlChip);}}
       const _ensH=ensembleCardHtml(d.ensemble,mlt);
       if(_ensH&&_ensH.replace(/\s/g,''))_chips.push({k:'ens',ic:'🧩',nm:'ENSEMBLE',q:'blend of top-K vs the single best config',st:(d.ensemble&&d.ensemble.improved)?'ok':'info',cc:(d.ensemble&&d.ensemble.improved)?'var(--green)':'var(--text3)',chip:(d.ensemble&&d.ensemble.improved)?'blend wins':'single best',html:_ensH});
       const _plH=plateauCardHtml(d.plateau_pick,d.best_params,mlt);
@@ -27215,6 +27360,72 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     //   screens would disagree about which run is a family's best - which is exactly the
     //   fault this rebuild has already had to fix three times.
     const _c2FamOf=r=>_c2IsBook(r)?'BOOKS':((typeof _canonFam==='function'&&_canonFam(r.strategy))||String(r.strategy||'').replace(/\.py$/,'')||'UNTAGGED');
+    // VOID RUNS, PRE-FIX TTM RUNS AND WATCH-ROW CAVEATS (2026-10-07, lead's real-data hunt). RUN_VOID is declared further down this scope (a const,
+    //   set before the branch chain runs); every reader below is a function that runs from inside that chain. A VOID run is never hidden: it keeps
+    //   its place on every screen, tagged, but its figures count as MISSING for every ranking, best mark and crown - the same place a dashed run sorts.
+    const _c2TagEsc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const _c2IsVoid=r=>!!r&&r.id!=null&&Object.prototype.hasOwnProperty.call(RUN_VOID,String(r.id));
+    const _C2_MARK_CSS='font-size:7px;font-weight:400;letter-spacing:0;color:var(--text5);border:1px solid var(--border2);border-radius:3px;padding:0 2px;cursor:help;white-space:nowrap';
+    const _c2VoidTag=r=>_c2IsVoid(r)?(' <span data-rbvoid="'+_c2TagEsc(r.id)+'" title="'+_c2TagEsc(RUN_VOID[String(r.id)])+'" style="'+_C2_MARK_CSS+'">VOID</span>'):'';
+    // PRE-FIX TTM: the same-bar gap-stop fix (commit b3242e77) landed 2026-09-27 14:50:59 -0700 = 2026-09-27T21:50:59Z. A run of a structural-stop TTM file
+    //   (TTMSQZ_3_0_ES30SS...), or a book with such a leg, RUN BEFORE that instant carries the inflated leg. The fixed re-runs reuse the same file names,
+    //   so the run's own timestamp is the only tell. A VOID run is not also tagged. The ATR-engine files (ES30N / ES30T) were never affected.
+    const _TTM_FIX_MS=Date.UTC(2026,8,27,21,50,59);
+    const _TTM_PREFIX_TIP='Run before the TTM same-bar gap-stop fix (2026-09-27): its structural-stop TTM leg booked impossible exits when the open gapped past the stop, so its figures read high (the book leg #369 restates from $135,884 to $87,109). It ranks after every fixed run (only VOID runs sit lower) and takes no crown or best mark. The fixed re-runs are #458, #459 and #463 onward.';
+    const _ttmPreFixOf=r=>{
+      if(!r||_c2IsVoid(r))return null;
+      const ss=/^TTMSQZ_3_0_ES30SS/;
+      let file=null;
+      if(r.book&&Array.isArray(r.book.legs)){const l=r.book.legs.filter(g=>g&&ss.test(String(g.strategy||'')))[0];file=l?String(l.strategy):null;}
+      else if(ss.test(String(r.strategy||'')))file=String(r.strategy);
+      if(!file)return null;
+      const t=Date.parse(String(r.timestamp||''));
+      if(!isFinite(t)||t>=_TTM_FIX_MS)return null;
+      return {file:file};};
+    const _ttmPreFixTag=r=>_ttmPreFixOf(r)?(' <span data-rbprefix="'+_c2TagEsc(r.id)+'" title="'+_c2TagEsc(_TTM_PREFIX_TIP)+'" style="'+_C2_MARK_CSS+'">PRE-FIX TTM</span>'):'';
+    // ROLL (2026-10-08, owner ask via MANAGER #31 / #33 / #34): a run in RUN_ROLL (declared with RUN_VOID below) ran on the old, guessing roll detector and was restated on
+    //   the true roll table by DISC (MANAGER verified). A TAG and a report, never a void and never a sink: it is NOT in _c2SinkTier and nothing ranks on the restated
+    //   figures. A VOID run in the table (#163) carries both tags. A book is never in the table.
+    const _rollOf=r=>(r&&r.id!=null&&!_c2IsBook(r)&&Object.prototype.hasOwnProperty.call(RUN_ROLL,String(r.id)))?RUN_ROLL[String(r.id)]:null;
+    const _ROLL_SRC='docs/RESTATE_ROLL22_2026-10-08.md';
+    const _rollUsd=v=>(v<0?'-$':'$')+Math.round(Math.abs(v)).toLocaleString('en-US');
+    const _rollDd=x=>_rollUsd(x.dd)+(x.ep?' (1 episode)':'');
+    const _rollWords=e=>'this run’s file guessed the contract switch days, so its saved figures carry roll gaps (a few % of P&L). Restated on the true roll table (DISC, verified 2026-10-08), whole window, saved -> true: net '
+      +_rollUsd(e.s.net)+' -> '+_rollUsd(e.t.net)+', worst drawdown '+_rollDd(e.s)+' -> '+_rollDd(e.t)+', DD5 '+_rollUsd(e.s.dd5)+' -> '+_rollUsd(e.t.dd5)
+      +', ROC @ $30K DD '+e.s.roc.toFixed(1)+' -> '+e.t.roc.toFixed(1)+'. Lockbox year (sliced from the continuous run): '+_rollUsd(e.lb.s.net)+' -> '+_rollUsd(e.lb.t.net)
+      +', ROC '+e.lb.s.roc.toFixed(1)+' -> '+e.lb.t.roc.toFixed(1)+'. A report, not a re-validation: the verdict and the ranking use the saved figures.';
+    const _rollTip=e=>'ROLL - old roll detector: '+_rollWords(e)+' Source: '+_ROLL_SRC+'.';
+    const _rollTag=r=>{const e=_rollOf(r);return e?(' <span data-rbroll="'+_c2TagEsc(r.id)+'" title="'+_c2TagEsc(_rollTip(e))+'" style="'+_C2_MARK_CSS+'">ROLL</span>'):'';};
+    // the run report's ROLL readout (the chip in the ROBUSTNESS rail opens it): SAVED | TRUE for the whole run, the lockbox year, then the same words as the tag hover. Static data, no fetch.
+    const _rollCardHtml=(d,e)=>{
+      const one=x=>x.ep?(' <span data-rollone title="The worst drawdown is more than 1.3 times DD5: the ROC @ $30K DD figure rests on that one episode." style="font-size:7px;font-weight:700;letter-spacing:.4px;white-space:nowrap;border:1px solid var(--text4);border-radius:3px;padding:0 3px;color:var(--text2);cursor:help">1 EPISODE</span>'):'';
+      const cl=(v,x)=>'<td style="padding:3px 8px;text-align:right;white-space:nowrap;color:var(--text2)">'+v+(x?one(x):'')+'</td>';
+      const row=(lbl,sv,tv,sx,tx)=>'<tr><td style="padding:3px 8px;color:var(--text4);white-space:nowrap">'+lbl+'</td>'+cl(sv,sx)+cl(tv,tx)+'</tr>';
+      const th=(t,al)=>'<th style="text-align:'+al+';padding:3px 8px;font-weight:700;letter-spacing:1px">'+t+'</th>';
+      const w=_rollWords(e);
+      return '<div data-rollchip="'+_c2TagEsc(d.id)+'" style="padding:8px 6px;font-size:10px;line-height:1.5;color:var(--text3)">'
+        +'<div class="lbl" style="margin:0 0 6px;font-size:9px;letter-spacing:1.4px;color:var(--text4)">ROLL · old roll detector</div>'
+        +'<table style="border-collapse:collapse;font-size:10px"><thead><tr style="color:var(--text5);font-size:8px">'+th('WHOLE RUN','left')+th('SAVED','right')+th('TRUE','right')+'</tr></thead><tbody>'
+        +row('NET',_rollUsd(e.s.net),_rollUsd(e.t.net))
+        +row('WORST DRAWDOWN',_rollUsd(e.s.dd),_rollUsd(e.t.dd),e.s,e.t)
+        +row('DD5',_rollUsd(e.s.dd5),_rollUsd(e.t.dd5))
+        +row('ROC @ $30K DD',e.s.roc.toFixed(1),e.t.roc.toFixed(1))
+        +row('LOCKBOX YEAR NET',_rollUsd(e.lb.s.net),_rollUsd(e.lb.t.net))
+        +row('LOCKBOX YEAR ROC',e.lb.s.roc.toFixed(1),e.lb.t.roc.toFixed(1))
+        +'</tbody></table>'
+        +'<div style="margin-top:8px;max-width:620px">'+_c2TagEsc(w.charAt(0).toUpperCase()+w.slice(1))+'</div>'
+        +'<div style="margin-top:6px;font-size:9px;color:var(--text5)">Source: '+_ROLL_SRC+'</div></div>';};
+    const _c2MarkTags=r=>_c2VoidTag(r)+_ttmPreFixTag(r)+_rollTag(r);
+    // SINK TIER (MANAGER 10-08): 0 = a real run, 1 = PRE-FIX TTM (its TTM leg numbers are wrong - it ranks after every fixed run and is never crowned
+    //   or best-marked, but keeps its place and its tag), 2 = VOID (last). Every ranking, crown and best mark below reads this ONE rule.
+    const _c2SinkTier=r=>_c2IsVoid(r)?2:(_ttmPreFixOf(r)?1:0);
+    // WATCH-ROW CAVEAT (ELWA-FEATURES, inbox #25): a row of users/{uid}/meta/runboard_watch may carry caveat (a key: cold / replay), caveat_why (the house
+    //   sentence - shown VERBATIM, never reworded), caveat_by and caveat_at. No caveat field, no tag.
+    const _rbCaveatTag=r=>{const w=(r&&r.id!=null)?_rbWatchOf(r.id):null;
+      if(!w||w.caveat==null||String(w.caveat).trim()==='')return '';
+      const by=(w.caveat_by!=null&&String(w.caveat_by).trim()!=='')?String(w.caveat_by).trim():'',at=(w.caveat_at!=null&&String(w.caveat_at).trim()!=='')?String(w.caveat_at).trim():'';
+      const tip=(w.caveat_why!=null?String(w.caveat_why):'')+((by||at)?(' - marked '+(by?('by '+by):'')+(by&&at?' ':'')+(at?('on '+at):'')):'');
+      return ' <span data-rbcaveat="'+_c2TagEsc(r.id)+'" title="'+_c2TagEsc(tip)+'" style="'+_C2_MARK_CSS+'">CAVEAT: '+_c2TagEsc(String(w.caveat).trim())+'</span>';};
     // your crown wins first, then the robustness score, then the money. Same order the
     //   leaderboard has used since books got their own row.
     // A KNOB TEST is a deliberate what-if - a weight picked after seeing results - and is
@@ -27226,7 +27437,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     const _c2BookSel=r=>{const P=r.book&&r.book.pre_lockbox;if(!P)return null;
       const n=+P.total_pnl,d=Math.abs(+P.max_drawdown);return (isFinite(n)&&d>0)?n/d:null;};
     const _c2Pick=r=>{if(_c2IsBook(r))return _c2BookSel(r);const v=scoreRun(r);return (v!=null&&isFinite(v))?v:null;};
+    // A VOID run never becomes a family champion (your own star still wins first, even on a VOID run - none is today). If every run in a family is VOID
+    //   the first one still heads it, and every screen tags it VOID.
     const _c2FamSort=(a,b)=>((b.starred?1:0)-(a.starred?1:0))
+      ||(_c2SinkTier(a)-_c2SinkTier(b))   // VOID last, PRE-FIX TTM just above it (MANAGER 10-08)
       ||((_c2Knob(a)?1:0)-(_c2Knob(b)?1:0))
       ||(function(){const x=_c2Pick(a),y=_c2Pick(b);if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;return y-x;})()
       ||((b.best_pnl_usd||0)-(a.best_pnl_usd||0));
@@ -27259,7 +27473,44 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         206:'VOID - it enters on the breakout touch but gates the trade on that same bar’s finished volume, which is not known when the order fills: the look-ahead that voided #125 and ORB 3.0 / 3.1. Recorded by the ORB chat and MANAGER’s audit, 2026-09-28. Ignore it on every ranking.',
         207:'VOID - it enters on the breakout touch but gates the trade on that same bar’s finished volume, which is not known when the order fills: the look-ahead that voided #125 and ORB 3.0 / 3.1. Recorded by the ORB chat and MANAGER’s audit, 2026-09-28. Ignore it on every ranking. It is also a duplicate of #206.',
         208:'VOID - it enters on the breakout touch but gates the trade on that same bar’s finished volume, which is not known when the order fills: the look-ahead that voided #125 and ORB 3.0 / 3.1. Recorded by the ORB chat and MANAGER’s audit, 2026-09-28. Ignore it on every ranking. It is also a duplicate of #206.',
-        209:'VOID - it enters on the breakout touch but gates the trade on that same bar’s finished volume, which is not known when the order fills: the look-ahead that voided #125 and ORB 3.0 / 3.1. Recorded by the ORB chat and MANAGER’s audit, 2026-09-28. Ignore it on every ranking. It tops some walk-forward matched-risk lists only because of this.'
+        209:'VOID - it enters on the breakout touch but gates the trade on that same bar’s finished volume, which is not known when the order fills: the look-ahead that voided #125 and ORB 3.0 / 3.1. Recorded by the ORB chat and MANAGER’s audit, 2026-09-28. Ignore it on every ranking. It tops some walk-forward matched-risk lists only because of this.',
+        // RSIDIV #163 (MANAGER GO 2026-10-08; reason = DISC’s audit, AUDIT_RSIDIV163_2026-10-08): the numbers are real - no bug - but it is a leveraged buy-and-hold.
+        163:'VOID - leveraged buy-and-hold (12.5% trail, up to 4 stacked lots, in market 96% of days), 0.84x a constant 3.65-lot NQ hold; no timing skill. The numbers are real, not a bug: its lockbox 27,112 NQ points on 12 trades is 4 lots riding the spring-2026 rally. Audited by DISC, VOID on MANAGER’s GO, 2026-10-08.',
+        // TTM structural-stop runs voided by the TTM lane (b3242e77, 2026-09-27 14:50:59 -0700): the stop booked IMPOSSIBLE exits when the session
+        //   open gapped past it. Restated: #369 re-ran on the fixed file as #459, #455 as #458; the cell of #428 restates by script (no run).
+        369:'VOID - its structural stop booked impossible exits when the session open gapped past the stop: the exit was filled at the stop price, beyond what the bar actually traded (fixed 2026-09-27). Restated: #369 re-ran on the fixed file as #459. Recorded by the TTM lane.',
+        428:'VOID - its structural stop booked impossible exits when the session open gapped past the stop: the exit was filled at the stop price, beyond what the bar actually traded (fixed 2026-09-27). Restated: #428’s cell restates at MAR 0.76 by script (no run). Recorded by the TTM lane.',
+        455:'VOID - its structural stop booked impossible exits when the session open gapped past the stop: the exit was filled at the stop price, beyond what the bar actually traded (fixed 2026-09-27). Restated: #455 re-ran on the fixed file as #458. Recorded by the TTM lane.'
+      };
+      // ROLL RESTATED (owner ask 2026-10-08 via MANAGER #31 / #33 / #34). These 22 runs ran on the OLD roll detector, which GUESSED the contract switch days: it missed
+      //   real rolls in volatile quarters and flagged false ones, so their saved figures carry roll gaps worth a few percent of P&L. DISC restated all 22 on the TRUE roll
+      //   table (same file, same settings, same window, same cost) and MANAGER verified them, 2026-10-08; the whole table is docs/RESTATE_ROLL22_2026-10-08.md. A TAG, not
+      //   a void: nothing ranks on these figures - ranking, crowns, best marks and verdicts all stay on the SAVED figures. s = saved, t = true; net, dd (worst drawdown) and
+      //   dd5 are $ on the run's own multiplier, roc = ROC @ $30K DD, all on the run's whole window; ep = that side's worst drawdown is more than 1.3 x its DD5 (1 EPISODE);
+      //   lb = the lockbox year sliced from the continuous run. NEW runs will read ORB's coming roll stamp instead (not built yet).
+      const RUN_ROLL={
+        161:{file:'TTIBS_1_0',s:{net:422293,dd:43531,dd5:32454,roc:18.1,ep:true},t:{net:416397,dd:47617,dd5:31804,roc:16.3,ep:true},lb:{s:{net:86301,roc:46.1},t:{net:86301,roc:46.1}}},
+        163:{file:'RSIDIV_1_0',s:{net:1674559,dd:542111,dd5:233216,roc:5.8,ep:true},t:{net:1527722,dd:561646,dd5:160283,roc:5.1,ep:true},lb:{s:{net:446007,roc:196.5},t:{net:446007,roc:196.5}}},
+        164:{file:'TTIBS_1_0',s:{net:404781,dd:43531,dd5:35957,roc:17.3,ep:false},t:{net:398885,dd:47617,dd5:35306,roc:15.6,ep:true},lb:{s:{net:71256,roc:38.1},t:{net:71256,roc:38.1}}},
+        165:{file:'TTIBS_1_0',s:{net:404781,dd:43531,dd5:35957,roc:17.3,ep:false},t:{net:398885,dd:47617,dd5:35306,roc:15.6,ep:true},lb:{s:{net:71256,roc:38.1},t:{net:71256,roc:38.1}}},
+        167:{file:'TTIBS_1_0',s:{net:383448,dd:56919,dd5:32610,roc:12.6,ep:true},t:{net:362488,dd:56919,dd5:35820,roc:11.9,ep:true},lb:{s:{net:35083,roc:12.3},t:{net:35083,roc:12.3}}},
+        168:{file:'TTIBS_1_0',s:{net:422748,dd:46976,dd5:35234,roc:16.8,ep:true},t:{net:412713,dd:51292,dd5:34736,roc:15.0,ep:true},lb:{s:{net:87936,roc:39.2},t:{net:87936,roc:39.2}}},
+        169:{file:'TTIBS_1_0',s:{net:313070,dd:67855,dd5:40469,roc:13.1,ep:true},t:{net:298295,dd:67855,dd5:39932,roc:12.5,ep:true},lb:{s:{net:-8605,roc:-3.8},t:{net:-8605,roc:-3.8}}},
+        170:{file:'TTIBS_1_0',s:{net:426665,dd:46755,dd5:35158,roc:17.0,ep:true},t:{net:416590,dd:51105,dd5:34677,roc:15.2,ep:true},lb:{s:{net:27270,roc:18.2},t:{net:27270,roc:18.2}}},
+        174:{file:'TTIBS_1_0',s:{net:426665,dd:46755,dd5:35158,roc:17.0,ep:true},t:{net:416590,dd:51105,dd5:34677,roc:15.2,ep:true},lb:{s:{net:27270,roc:18.2},t:{net:27270,roc:18.2}}},
+        201:{file:'TTIBS_1_0',s:{net:419288,dd:47171,dd5:35301,roc:16.6,ep:true},t:{net:409288,dd:51457,dd5:34788,roc:14.8,ep:true},lb:{s:{net:26865,roc:17.9},t:{net:26865,roc:17.9}}},
+        291:{file:'TTIBS_1_1',s:{net:298325,dd:65176,dd5:36372,roc:8.5,ep:true},t:{net:302571,dd:65176,dd5:36689,roc:8.7,ep:true},lb:{s:{net:-47911,roc:-22.1},t:{net:-47911,roc:-22.1}}},
+        300:{file:'TTIBS_1_3',s:{net:393623,dd:55435,dd5:37360,roc:13.2,ep:true},t:{net:385776,dd:55435,dd5:37235,roc:13.0,ep:true},lb:{s:{net:16499,roc:8.9},t:{net:16499,roc:8.9}}},
+        307:{file:'NQDIP_1_0',s:{net:479321,dd:44824,dd5:35157,roc:19.8,ep:false},t:{net:476137,dd:57970,dd5:39965,roc:15.2,ep:true},lb:{s:{net:20938,roc:52.4},t:{net:19822,roc:37.0}}},
+        315:{file:'NQDIP_1_1',s:{net:618762,dd:44897,dd5:42898,roc:25.5,ep:false},t:{net:649849,dd:54963,dd5:47225,roc:21.9,ep:false},lb:{s:{net:13759,roc:27.6},t:{net:27255,roc:76.9}}},
+        329:{file:'GAPGO_TRAVEL_1_0',s:{net:173683,dd:47814,dd5:25997,roc:6.7,ep:true},t:{net:187548,dd:47814,dd5:25627,roc:7.3,ep:true},lb:{s:{net:-15923,roc:-10.0},t:{net:-15923,roc:-10.0}}},
+        330:{file:'GAPGO_1_0',s:{net:166366,dd:71625,dd5:24875,roc:4.3,ep:true},t:{net:182036,dd:65585,dd5:23119,roc:5.2,ep:true},lb:{s:{net:-39179,roc:-21.9},t:{net:-39179,roc:-21.9}}},
+        399:{file:'GAPGO_1_0',s:{net:166366,dd:71625,dd5:24875,roc:4.3,ep:true},t:{net:182036,dd:65585,dd5:23119,roc:5.2,ep:true},lb:{s:{net:-39179,roc:-21.9},t:{net:-39179,roc:-21.9}}},
+        400:{file:'NQDIP_1_0',s:{net:506519,dd:48820,dd5:41997,roc:19.2,ep:false},t:{net:511182,dd:52397,dd5:46284,roc:18.1,ep:false},lb:{s:{net:31888,roc:10.8},t:{net:30169,roc:9.3}}},
+        401:{file:'NQDIP_1_1',s:{net:666980,dd:53925,dd5:44568,roc:22.9,ep:false},t:{net:650913,dd:77381,dd5:53804,roc:15.6,ep:true},lb:{s:{net:71446,roc:43.0},t:{net:83692,roc:45.0}}},
+        423:{file:'NQDIP_1_0',s:{net:585617,dd:36497,dd5:31382,roc:29.7,ep:false},t:{net:602378,dd:40262,dd5:33794,roc:27.7,ep:false},lb:{s:{net:25284,roc:60.5},t:{net:32941,roc:83.6}}},
+        424:{file:'NQDIP_1_1',s:{net:1116128,dd:116916,dd5:77322,roc:17.7,ep:true},t:{net:1121941,dd:98295,dd5:79175,roc:21.1,ep:false},lb:{s:{net:75980,roc:106.6},t:{net:86026,roc:142.5}}},
+        425:{file:'NQDIP_1_0',s:{net:366126,dd:54016,dd5:34296,roc:12.5,ep:true},t:{net:382754,dd:68714,dd5:38581,roc:10.3,ep:true},lb:{s:{net:24874,roc:66.9},t:{net:27516,roc:79.6}}}
       };
       // F4 fix: the volume-filter look-ahead documented in PAPER_TRADING.md was only ever
       //   true of the touch-entry ORB family - ORB_2_0, ORB_3_0 to ORB_3_3 and their forks,
@@ -31172,6 +31423,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   drawdown" wins a descending sort. FULL-sample PF falls back to the optimize-window
         //   PF (no whole-run PF is stored) — the board note says so.
         const _rbVal=(r,k)=>{
+          // A VOID RUN'S FIGURE COUNTS AS MISSING on every RANK BY metric (2026-10-07): it sorts after every real figure, where a dashed run sorts.
+          if(_c2IsVoid(r))return -1e15;
           // THIN-TEST FLOOR (item 8): sinks on every RANK BY metric alike, above the
           //   -1e15 / 1e15 zero-trade-or-missing sink so a thin test still ranks below a
           //   zero-trade one.
@@ -31210,7 +31463,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           //   too, same as the LEADERBOARD.
           const _rbPool=rs;   // F1/F6/F11: rs already folds in starred runs outside the loaded window and excludes archived ones
           let famRuns=_c2FamsOf(_rbPool).map(f=>f.ch)
-            .sort((a,b)=>{const x=_c2Pick(a),y=_c2Pick(b);if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;return y-x;});
+            .sort((a,b)=>{const va=_c2SinkTier(a),vb=_c2SinkTier(b);if(va!==vb)return va-vb;   // a VOID (or PRE-FIX TTM) champion - every run of its family is one - sinks
+              const x=_c2Pick(a),y=_c2Pick(b);if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;return y-x;});
           // RUNBOARD: same champion-per-family pool, but the ORDER (funnel key, matrix columns,
           //   list rows) follows RANK BY measured on the picked SAMPLE, not the robustness score.
           // v71.53 (owner saw it): a SHORT-SAMPLE run sorts LAST no matter how good it looks. A
@@ -31241,7 +31495,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               ((window._rbWatch&&window._rbWatch.runs)||[]).forEach(w=>{const k=w&&String(w.id).trim();
                 if(k&&!_wSeen[k]){_wSeen[k]=1;_wIds.push(k);}});
               const _wFind=id=>rs.filter(x=>String(x.id)===id)[0]||_c2AllPool.filter(x=>String(x.id)===id)[0]||(Array.isArray(window._rbWatchRuns)?window._rbWatchRuns:[]).filter(x=>String(x.id)===id)[0]||null;
-              famRuns=_wIds.map(_wFind).filter(Boolean).sort((a,b)=>_rbVal(b,_rbR)-_rbVal(a,_rbR));
+              famRuns=_wIds.map(_wFind).filter(Boolean).sort((a,b)=>(_c2SinkTier(a)-_c2SinkTier(b))||(_rbVal(b,_rbR)-_rbVal(a,_rbR)));
               const _wMiss=_wIds.filter(id=>!_wFind(id));
               // ids _rbWatchRunsMaybeLoad is fetching right now: "loading", not "not loaded" -
               //   they are not stuck, just not back yet. A resolved fetch either finds them (via
@@ -31268,7 +31522,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             //   invited the comparison. The count is reported under the list so nothing vanishes
             //   silently, and the TOP 10 panel still reaches every run including these.
             _rbHidden=famRuns.filter(_shortRun);
-            famRuns=famRuns.filter(r=>!_shortRun(r)).sort((a,b)=>_rbVal(b,_rbR)-_rbVal(a,_rbR));
+            famRuns=famRuns.filter(r=>!_shortRun(r)).sort((a,b)=>(_c2SinkTier(a)-_c2SinkTier(b))||(_rbVal(b,_rbR)-_rbVal(a,_rbR)));
             }
             // …plus any runs added by hand with the ＋ ADD button on the funnel. F19 fix: a pin
             //   used to be PUSHED onto the end of the already-10-long champion list and then cut
@@ -31291,6 +31545,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               const _pinIds=new Set(_pinned.map(r=>String(r.id)));
               famRuns=_pinned.concat(famRuns.filter(r=>!_pinIds.has(String(r.id))));
             }
+            // VOID runs go LAST whatever put them there (a hand-pinned one included): never column 1, never the crown. They stay on the board - or,
+            //   past the column cap, are named in the cut-off note below, marked VOID. A stable partition: every other order is unchanged.
+            //   PRE-FIX TTM runs (MANAGER 10-08) go just above them: after every fixed run, before every VOID one.
+            famRuns=[0,1,2].reduce((o,t)=>o.concat(famRuns.filter(r=>_c2SinkTier(r)===t)),[]);
           }
           famMore=famRuns.slice(_cmpMode==='board'?(_rbWatching?40:10):8);
           runs=famRuns.slice(0,_cmpMode==='board'?(_rbWatching?40:10):8);
@@ -31399,8 +31657,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   set to (not a robustness score), and since +ADD pins now always reserve their own
         //   seat (above), anything actually cut is a family, never a hand-added run.
         const _famCap=(_cmpMode==='board')?(_rbWatching?40:10):8;
-        const _famCutBy=(_cmpMode==='board')?(_rbWatching?'the 40-run watch list limit':('RANK BY '+({mar:'MAR',pf:'PF',net:'NET $',dd:'MAX DD'}[_rbR]||_rbR.toUpperCase()))):'robustness score';
-        const _famMoreNote=(famMore.length?('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">+'+famMore.length+' more famil'+(famMore.length===1?'y':'ies')+' below the '+_famCutBy+' cutoff ('+_famCap+' column'+(_famCap===1?'':'s')+' max): '+famMore.map(_labOf).join(', ')+'</div>'):'')+_rbHideNote+_wMissNote;
+        const _famCutBy=(_cmpMode==='board')?(_rbWatching?'40-run watch list limit':('RANK BY '+({mar:'MAR',pf:'PF',net:'NET $',dd:'MAX DD'}[_rbR]||_rbR.toUpperCase()))):'robustness score';
+        // WATCH VIEW (2026-10-07): the runs past the column cap are WATCHED RUNS, not families - name them by run number (family-run alias when there is one),
+        //   a VOID run marked VOID. Off the WATCH view the note keeps its wording (it lists the families below the cutoff).
+        const _famMoreNote=(famMore.length?(_rbWatching
+          ?('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">+'+famMore.length+' more watched run'+(famMore.length===1?'':'s')+' past the '+_famCap+'-column limit: '+famMore.map(r=>'#'+_c2TagEsc(r.id)+((r.famKey&&r.famSeq!=null)?(' '+_c2TagEsc(r.famKey)+'-'+_c2TagEsc(r.famSeq)):'')+(_c2IsVoid(r)?' VOID':(_ttmPreFixOf(r)?' PRE-FIX TTM':''))+(_rollOf(r)?' ROLL':'')).join(', ')+'</div>')
+          :('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">+'+famMore.length+' more famil'+(famMore.length===1?'y':'ies')+' below the '+_famCutBy+' cutoff ('+_famCap+' column'+(_famCap===1?'':'s')+' max): '+famMore.map(_labOf).join(', ')+'</div>')):'')+_rbHideNote+_wMissNote;
         const famTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">BY STRATEGY</span><span style="font-size:8px;color:var(--text5)">top config per family · auto-updates as new runs land</span></div>'
           +'<div style="overflow:auto;max-height:74vh">'+runs.map(_famRowOf).join('')+'</div>'
           +_famMoreNote);
@@ -36314,8 +36576,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +_rbFamBar+_rbWLoadingNote+'<div style="overflow:auto;max-height:'+(_rbSide?'38vh':'74vh')+'">'+runs.map(_famRowOf).join('')+'</div>'
           +_famMoreNote
           // RESEARCH VERDICTS (MANAGER #38): only on the WATCH view; engine dots use this board's own stage figures
-          +(_rbWatching?_rbResearchPlane(runs.map(r=>{const roc=_rocYr(_netOf(r),_rbYrs(r)),dd=_ddOf2(r);
-              return (roc!=null&&dd!=null&&isFinite(+dd)&&+dd>0)?{id:String(r.id),name:(r.runTag||''),fam:(r.famKey||''),x:+dd/_rocAcct()*100,y:roc}:null;}).filter(Boolean),_rocAcct(),_rbS):''));
+          +(_rbWatching?_rbResearchPlane(runs.map(r=>{
+              // THE SAME STRETCH AS THE RESEARCH ROWS (2026-10-07, lead's hunt F1): the plane plots a research row on its walk-forward figures (lockbox on the
+              //   LB stage), so an engine dot reads the walk-forward test on FULL / IS / WF and the lockbox on LB - through the board's own readers (_rbWfGet,
+              //   which does not depend on the stage in view). It used to read the stage in view, so on FULL and IS the plane mixed two different stretches.
+              //   A book has no walk-forward test, so it has no dot off the LB stage.
+              const _lbSt=(_rbS==='lb'),
+                roc=_rocYr(_lbSt?_netOf(r):_rbWfGet(r,'net'),_lbSt?_rbYrs(r):_rbWfGet(r,'yrs')),dd=_lbSt?_ddOf2(r):_rbWfGet(r,'dd');
+              return (roc!=null&&dd!=null&&isFinite(+dd)&&+dd>0)?{id:String(r.id),name:(r.runTag||''),fam:(r.famKey||''),x:+dd/_rocAcct()*100,y:roc,isVoid:_c2IsVoid(r)}:null;}).filter(Boolean),_rocAcct(),_rbS):''));
         // v71.27: saved chart height + a drag HANDLE ROW under the chart, the same grip the
         //   section-1 charts use (rsRow). cmpOvlMount reads window._cmpOvlH when it draws.
         const _rbFH=Math.max(170,Math.min(900,Math.round(+APREF.rbFunnelH||300)));
@@ -36360,14 +36628,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   data (_rowOf, _famRowOf, _runHdr) already renders nothing in that case; matching that
         //   convention here means _matrixTbl's own `c.sub?...:''` guard just omits the line.
         const _shortOf=r=>((r.famKey&&r.famSeq!=null)?(r.famKey+'-'+r.famSeq):'');
+        // THE CROWN IS THE BEST REAL RUN (2026-10-07): the first column that is not VOID. A VOID run is never column 1 (it sorts last), but the crown and the
+        //   leader's wash are tied to that choice here so they can never land on one.
+        //   PRE-FIX TTM runs (MANAGER 10-08) never wear it either: if every column is one, there is no crown.
+        const _crownI=runs.findIndex(r=>_c2SinkTier(r)===0);
         const _mCols=runs.map((r,i)=>{const full=((runTag(r)||'').replace(/<[^>]*>/g,'').trim())||r.strategy||'';
           const d=_spanOf(r),short=(d!=null&&d/365.25<2),thin=_rbWfThin(r),gap=(_rbS==='wf')?_c2GapChip(r):null;
           // 1E's own column-head format, character for character: "👑R1 · #262". The RUN NUMBER is
           //   what goes on the top line — it is short, so eight columns fit without the table
           //   pushing its own width out. The family alias rides underneath as the sub, where 1E
           //   puts its date range, and the years move to the WINDOW row + the hover.
-          return {lbl:'<span style="white-space:nowrap">'+((i===0)?'👑':'')+'<span style="color:var(--text5)">R'+(i+1)+'</span> ·&nbsp;#'+r.id+_rbOpenGlyph(r.id)+(short?' <span style="color:var(--yellow)">⚠</span>':'')+(thin?' <span style="color:var(--yellow)">⚠</span>':'')+'</span>',
-            sub:_shortOf(r),col:curves[i].c,emph:(i===0),emphCol:curves[i].c,run:r,dataAttr:' data-rbc="'+r.id+'"',
+          return {lbl:'<span style="white-space:nowrap'+(_c2IsVoid(r)?';opacity:.55':'')+'">'+((i===_crownI)?'👑':'')+'<span style="color:var(--text5)">R'+(i+1)+'</span> ·&nbsp;#'+r.id+_rbOpenGlyph(r.id)+_c2MarkTags(r)+_rbCaveatTag(r)+(short?' <span style="color:var(--yellow)">⚠</span>':'')+(thin?' <span style="color:var(--yellow)">⚠</span>':'')+'</span>',
+            sub:_shortOf(r),col:curves[i].c,emph:(i===_crownI),emphCol:curves[i].c,run:r,dataAttr:' data-rbc="'+r.id+'"',
             tip:(full+' · #'+r.id+' · '+((instTag(r.instrument)||'').replace(/<[^>]*>/g,'').trim())+' '+(r.timeframe||'')
               +' · '+(r.scope||'')+' · '+(r.date_from||'?')+' to '+(r.date_to||'?')
               +(d!=null?(' ('+((d/365.25>=1.5)?((d/365.25).toFixed(1)+' years'):(d+' days'))+')'):'')
@@ -36467,7 +36739,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // a walk-forward test that took no trades never competes: its $0 is a reading, not a result, so
           //   it takes no best mark and no heat shade on any row (ROBUSTNESS reads the whole run)
           // (D04) a row may name runs whose printed figure is not a result to rank (_noRank): it prints, with its reason on hover
-          const zx=r=>!(opt&&opt._whole)&&(_rbWfZero(r)||_rbWfThin(r)||!!(opt&&opt._noRank&&opt._noRank(r)));
+          const zx=r=>_c2SinkTier(r)>0||(!(opt&&opt._whole)&&(_rbWfZero(r)||_rbWfThin(r)||!!(opt&&opt._noRank&&opt._noRank(r))));   // a VOID or PRE-FIX TTM run takes no best mark and no heat shade on ANY row
           const bi=(dir?_bestOf(r=>((zx(r)||(ap&&ap(r)))?null:fn(r)),dir):-1);
           const o=Object.assign({lbl:lbl,cell:c=>{const i=runs.indexOf(c.run),v=fn(c.run);
             if((v==null||!isFinite(v))&&!(opt&&opt._whole)&&_rbZeroLb(c.run))return '<span title="'+_rbZeroWhy+'" style="color:var(--text5);cursor:help">—</span>';
@@ -36600,6 +36872,22 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +((res.state==='ok'&&res.miss)?(' '+res.miss+(res.miss>1?' months':' month')+' at the edge of this stretch, before the first or after the last recorded trade, are left out.'):'');
           return (res.state==='partial'?'<span title="'+_wfoEsc(tip)+'" style="cursor:help;color:var(--text4)">~</span>':'')
             +'<span style="color:var(--text3)" title="'+_wfoEsc(tip)+'">'+longest+' mo</span>';};
+        // ROLL RESTATED (2026-10-08, owner ask via MANAGER #31 / #33 / #34): FULL stage only, and only when a column on screen is one of the 22 runs restated for the old roll
+        //   detector (RUN_ROLL). A report beside the saved figures, not a ranking: a plain {lbl,cell} row like DD5 - it never goes through _mk, so it has no best mark, no heat
+        //   and no RANK BY, and the saved figures above it decide the order, the crown and every mark exactly as before. The cell is the TRUE-roll-table reading; the SAVED
+        //   one rides its hover. Both orientations (_matrixTbl and the sideways _rbHorizTbl) and both hosts (COMPARE > RUNBOARD and the older RUNBOARD tab) draw this one list.
+        const _rollRowCell=r=>{const e=_rollOf(r);
+          if(!e)return '<span data-rbroll-cell="" title="Not one of the 22 runs restated for the old roll detector." style="color:var(--text5);cursor:help">—</span>';
+          const s=e.s,t=e.t;
+          const tip='Saved figures (old roll detector): ROC @ $30K DD '+s.roc.toFixed(1)+', net '+_rollUsd(s.net)+', worst drawdown '+_rollDd(s)+', DD5 '+_rollUsd(s.dd5)
+            +'. Shown here: the same run restated on the true roll table (DISC, verified 2026-10-08). The ranking above uses the saved figures. Source: '+_ROLL_SRC+'.';
+          return '<span data-rbroll-cell="'+_wfoEsc(String(r.id))+'" title="'+_wfoEsc(tip)+'" style="display:inline-block;max-width:170px;white-space:normal;text-align:right;line-height:1.35;color:var(--text3);cursor:help">'
+            +'ROC '+t.roc.toFixed(1)+' · net '+_rollUsd(t.net)+' · DD '+_rollUsd(t.dd)+' · DD5 '+_rollUsd(t.dd5)+'</span>'
+            +(t.ep?(' <span data-rbroll-one title="'+_wfoEsc('The worst drawdown on the true roll table ('+_rollUsd(t.dd)+') is more than 1.3 times its DD5 ('+_rollUsd(t.dd5)+'): the ROC figure rests on that one episode.')
+              +'" style="font-size:7px;font-weight:700;letter-spacing:.4px;white-space:nowrap;border:1px solid var(--text4);border-radius:3px;padding:0 3px;color:var(--text2);cursor:help">1 EPISODE</span>'):'');};
+        const _rbRollRows=((_rbS==='full')&&runs.some(r=>!!_rollOf(r)))
+          ?[{lbl:'<span data-rbrollrow title="'+_wfoEsc('The 22 old roll-detector runs restated on the true roll table, whole window - a report beside the saved figures, not a ranking. Source: '+_ROLL_SRC+'.')
+            +'" style="border-bottom:1px dotted var(--text5);cursor:help">ROLL RESTATED</span>',cell:c=>_rollRowCell(c.run)}]:[];
         const _mGroups=[
           // v71.67 (owner: "metric column. some of those look different"): the row NAMES and their
           //   ORDER now match the 1E card. 1E lists the stage money rows first and then TOTAL as
@@ -36630,11 +36918,22 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   replay, so the cell says so and names the run's own cold reading on hover.
               if(_rbS==='lb'){const _base=_row.cell;
                 _row.cell=c=>{const html=_base(c),w=_lbWarmOf(c.run);
-                  if(!w)return html;
+                  if(!w){
+                    // LB COLD (2026-10-07, MANAGER inbox #22): a cold lockbox _lbWarmOf could not swap - no continuous replay saved, or the
+                    //   saved one refused as a different run. A cold run whose replay reads the same, a warm run and a book get no tag.
+                    const k=_lbColdOf(c.run);
+                    if(!k)return html;
+                    return html+' <span data-rblbcold="'+_wfoEsc(String(c.run.id))+'" title="'+_wfoEsc(_lbColdWhy(k,c.run))+'" style="font-size:7px;color:var(--text5);border:1px solid var(--border2);border-radius:3px;padding:0 2px;cursor:help">LB cold</span>';}
                   const cold=w._cold||{},mc=_mcOf(c.run),cN=(cold.pnl!=null)?((cold.pnl<0?'-$':'$')+Math.abs(Math.round(cold.pnl*mc)).toLocaleString()):null;
                   const tip='Lockbox read from the continuous replay. This run scored its own lockbox cold (before warm starts, v73.841)'
                     +((cN!=null)?(': '+cN+(cold.trades!=null?(' on '+cold.trades+' trades'):'')+(cold.pf!=null?(', PF '+cold.pf.toFixed(2)):'')+'.'):'.');
                   return html+' <span title="'+_wfoEsc(tip)+'" style="font-size:7px;color:var(--text5);border:1px solid var(--border2);border-radius:3px;padding:0 2px;cursor:help">LB warm</span>';};}
+              // WF = IN-SAMPLE (2026-10-07, MANAGER inbox #22): the same wrap-the-cell trick on the WF stage. A pinned single-config run's
+              //   walk-forward TOTAL is the chosen config held fixed over its own tuning years, so the cell says so, with EXPLORE's wording.
+              if(_rbS==='wf'){const _baseWf=_row.cell;
+                _row.cell=c=>{const html=_baseWf(c);
+                  if(!_rbWfInSampleOf(c.run))return html;
+                  return html+' <span data-rbwfin="'+_wfoEsc(String(c.run.id))+'" title="'+_wfoEsc(_RB_WF_IN_TIP)+'" style="font-size:7px;color:var(--text5);border:1px solid var(--border2);border-radius:3px;padding:0 2px;cursor:help">WF = in-sample</span>';};}
               return _row;})(),
             (function(){
               // ROC % / YR <-> ROC @ $30K DD (2026-09-28, owner via MANAGER): a toggle on the row
@@ -36663,7 +36962,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // DD5 (owner GO 2026-10-07, via MANAGER) - the average of the 5 worst drawdowns, right under the one worst
             //   drawdown every MAR / ROC @ $30K DD figure on this board divides by. A reading, not a score: no best
             //   mark, no heat, no RANK BY option. See _rbDd5 for the curve it reads and why.
-            {lbl:'<span title="'+_wfoEsc('DD5 = the average of the 5 worst drawdowns on this stage (owner 2026-10-07), each a separate dip from a high to its low before that high was regained, read off the saved curve. ROC @ $30K DD divides by ONE drawdown, so a figure that only trimmed one crash looks better than the rest of the stretch earns; DD5 shows whether the other dips agree. A 1 EPISODE chip means the worst drawdown is more than 1.3 times DD5: the ROC figure rests on that one episode. (n=3) means the stage has only three dips; a ~ means the stretch has too few saved points to tell its dips apart, so no 1 EPISODE call is made there. Hover a figure for its dips, or tap it to list them.')+'" style="border-bottom:1px dotted var(--text5);cursor:help">DD5</span>',cell:c=>_rbDd5Cell(c.run)}])},
+            {lbl:'<span title="'+_wfoEsc('DD5 = the average of the 5 worst drawdowns on this stage (owner 2026-10-07), each a separate dip from a high to its low before that high was regained, read off the saved curve. ROC @ $30K DD divides by ONE drawdown, so a figure that only trimmed one crash looks better than the rest of the stretch earns; DD5 shows whether the other dips agree. A 1 EPISODE chip means the worst drawdown is more than 1.3 times DD5: the ROC figure rests on that one episode. (n=3) means the stage has only three dips; a ~ means the stretch has too few saved points to tell its dips apart, so no 1 EPISODE call is made there. Hover a figure for its dips, or tap it to list them.')+'" style="border-bottom:1px dotted var(--text5);cursor:help">DD5</span>',cell:c=>_rbDd5Cell(c.run)}]).concat(_rbRollRows)},
           {name:_rbBand('reward ÷ risk'),rows:[
             _mk('MAR',_marOf,v=>'<span style="color:'+(v>=2?'var(--green)':'var(--text2)')+';font-weight:'+(v>=2?'700':'400')+'">'+v.toFixed(2)+'</span>','max',{top:true,_apx:_ddApx2,_why:_rbWhy('mar')}),
             _mk('SHARPE',_shOf,v=>'<span style="color:var(--text2)">'+v.toFixed(2)+'</span>','max',{_why:_rbWhy('sh')}),
@@ -36869,7 +37168,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const _lrB=_lrLa?'<span title="'+RB_ORB_LA_TIP.replace(/"/g,'&quot;')+'" style="margin-left:6px;font-size:8px;font-weight:600;padding:1px 6px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);opacity:.85;cursor:help">⚠ ORB leg</span>':'';
           return '<tr data-rank-run="'+r.id+'" title="open this book run report" style="cursor:pointer">'
             +td('<span style="color:var(--green)">▸</span>','left')
-            +td('<b style="color:var(--text)">'+(bk.name?String(bk.name).replace(/</g,'&lt;'):('BOOK #'+r.id))+'</b>'+_lrB+'<div style="font-size:8.5px;color:var(--text5)">'+(legs||'—')+'</div>'+_wsHtml+_drHtml+_mtHtml,'left')
+            +td('<b style="color:var(--text)">'+(bk.name?String(bk.name).replace(/</g,'&lt;'):('BOOK #'+r.id))+'</b>'+_lrB+_ttmPreFixTag(r)+_c2VoidTag(r)+'<div style="font-size:8.5px;color:var(--text5)">'+(legs||'—')+'</div>'+_wsHtml+_drHtml+_mtHtml,'left')
             +td('<span style="color:var(--green);font-size:10px">● LIVE RUN #'+r.id+'</span>','left')
             +td('<span style="color:'+(s.net>=0?'var(--green)':'var(--red)')+'">'+_rbF(s.net)+'</span>')
             +td(s.pf?s.pf.toFixed(2):'—')+td(_rbF(Math.abs(s.dd)))+td('<b>'+((s.dd>1e-9)?(s.net/Math.abs(s.dd)).toFixed(2):'—')+'</b>')
@@ -36898,7 +37197,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           let _list;
           if(_rbSide==='recent')_list=_pool.slice().sort((a,b)=>(+b.id||0)-(+a.id||0));
           else if(_rbSide==='worst')_list=_pool.slice().sort((a,b)=>_rbVal(a,_rbR)-_rbVal(b,_rbR));
-          else _list=_pool.slice().sort((a,b)=>{const sa=_shortCol(a),sb=_shortCol(b);
+          else _list=_pool.slice().sort((a,b)=>{const ta=_c2SinkTier(a),tb=_c2SinkTier(b);if(ta!==tb)return ta-tb;const sa=_shortCol(a),sb=_shortCol(b);
             return (sa!==sb)?(sa?1:-1):(_rbVal(b,_rbR)-_rbVal(a,_rbR));});
           _list=_list.slice(0,10);
           const _mNm={mar:'MAR',pf:'PF',net:'NET $',dd:'DD'}[_rbR];
@@ -37721,7 +38020,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   It is deliberately NOT the annualised MAR the rest of this tab uses.
               return '<tr data-c2run="'+r.id+'" title="open this book run report" style="cursor:pointer">'
                 +_bkTd('<span style="color:var(--green)">\u25b8</span>','left')
-                +_bkTd('<b style="color:var(--text)">'+(bk.name?_reEscC2(bk.name):('BOOK #'+r.id))+'</b>'+_lrB+'<div style="font-size:8.5px;color:var(--text5)">'+(_reEscC2(legs)||'\u2014')+'</div>'+_wsHtml+_drHtml+_mtHtml,'left')
+                +_bkTd('<b style="color:var(--text)">'+(bk.name?_reEscC2(bk.name):('BOOK #'+r.id))+'</b>'+_lrB+_ttmPreFixTag(r)+_c2VoidTag(r)+'<div style="font-size:8.5px;color:var(--text5)">'+(_reEscC2(legs)||'\u2014')+'</div>'+_wsHtml+_drHtml+_mtHtml,'left')
                 +_bkTd('<span style="color:var(--green);font-size:10px">\u25cf LIVE RUN #'+r.id+'</span>','left')
                 +_bkTd('<span style="color:'+((s.net>=0)?'var(--green)':'var(--red)')+'">'+_bkF(s.net)+'</span>')
                 +_bkTd(s.pf?s.pf.toFixed(2):'\u2014')
@@ -38073,6 +38372,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   them under one row labelled with the champion name mislabelled the others
         const fams=_c2FamsOf(rs).map(f=>({k:f.k,runs:f.runs,ch:f.ch,val:_c2Val(f.ch)}));
         fams.sort((a,b)=>{const av=a.val.v,bv=b.val.v;if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;
+          // a family whose every run is VOID has only a VOID figure to show: it sinks below every real family, never hidden
+          const avd=_c2SinkTier(a.ch),bvd=_c2SinkTier(b.ch);if(avd!==bvd)return avd-bvd;   // a family whose champion is PRE-FIX TTM sits just above the VOID ones
           // g5-sink: a walk-forward test that took no trades never outranks one that traded,
           //   even on NET where its $0 is a real printed reading - it still can't win the row.
           const az=!!a.val.zeroWf,bz=!!b.val.zeroWf;if(az!==bz)return az?1:-1;
@@ -38098,7 +38399,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const _scOk=(_sc!=null&&isFinite(_sc));
           return '<div class="c2-row sub" data-c2run="'+r.id+'" title="open run #'+r.id+'">'
             +'<span class="c2-chev">'+(isChamp?'\u2605':'')+'</span>'
-            +'<div><div class="c2-nm"><span style="flex:0 0 8px;height:8px;border-radius:2px;background:'+_sw+'"></span>#'+r.id+' <span style="font-weight:500;color:var(--text3)">'+_reEscC2(String(r.strategy||'').replace(/\.py$/,''))+'</span>'+_c2Pill(vv)+_c2Drift(r)+((_c2Stage==='wf')?_c2GapPill(r):'')+(val.thinWf?('<span style="font-size:8px;color:var(--yellow)" title="'+_reEscC2(_c2ThinWfWhy((S&&S.tr)))+'">⚠ thin</span>'):'')+(r.starred?'<span class="c2-pill" style="color:var(--yellow);border-color:color-mix(in srgb,var(--yellow) 45%,transparent)">CROWN</span>':'')+(_alias?('<span style="font-size:8px;font-weight:700;color:var(--text5)" title="the family run number - what the studies board and the notes call this run">'+_reEscC2(_alias)+'</span>'):'')+(_scOk?('<span style="font-size:8px;font-weight:700;color:'+((_sc>=70)?'var(--green)':((_sc>=45)?'var(--yellow)':'var(--red)'))+'" title="robustness score, 0 to 100, measured on the WHOLE run whatever stage is picked above">'+Math.round(_sc)+'</span>'):'')+'</div>'
+            +'<div><div class="c2-nm"><span style="flex:0 0 8px;height:8px;border-radius:2px;background:'+_sw+'"></span>#'+r.id+' <span style="font-weight:500;color:var(--text3)">'+_reEscC2(String(r.strategy||'').replace(/\.py$/,''))+'</span>'+_c2Pill(vv)+_c2MarkTags(r)+_c2Drift(r)+((_c2Stage==='wf')?_c2GapPill(r):'')+(val.thinWf?('<span style="font-size:8px;color:var(--yellow)" title="'+_reEscC2(_c2ThinWfWhy((S&&S.tr)))+'">⚠ thin</span>'):'')+(r.starred?'<span class="c2-pill" style="color:var(--yellow);border-color:color-mix(in srgb,var(--yellow) 45%,transparent)">CROWN</span>':'')+(_alias?('<span style="font-size:8px;font-weight:700;color:var(--text5)" title="the family run number - what the studies board and the notes call this run">'+_reEscC2(_alias)+'</span>'):'')+(_scOk?('<span style="font-size:8px;font-weight:700;color:'+((_sc>=70)?'var(--green)':((_sc>=45)?'var(--yellow)':'var(--red)'))+'" title="robustness score, 0 to 100, measured on the WHOLE run whatever stage is picked above">'+Math.round(_sc)+'</span>'):'')+'</div>'
             +'<div class="c2-who">'+_reEscC2(String(r.instrument||'')+' '+String(r.timeframe||''))+' \u00b7 '+String(r.timestamp||'').slice(0,10)+(S&&S.tr?' \u00b7 '+S.tr+' trades':'')
             +' <span class="c2-act'+(inCmp?' on':'')+'" data-c2add="'+r.id+'" title="'+(inCmp?'in the comparison - click to remove':'add to the comparison (up to 8)')+'">'+(inCmp?'\u2713 COMPARING':'+ COMPARE')+'</span></div></div>'
             +'<div><div class="c2-big" style="color:'+_c2Col(val.v)+'"'+(val.v==null?(' title="'+_reEscC2(val.why)+'"'):'')+'>'+(val.apx?'~':'')+_c2Fmt(val.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
@@ -38125,7 +38426,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   near-zero drawdown, so the short-window hover promises it "never ranks above a
           //   full-length run" - this sink makes that true here too, the same way the OVERLAY
           //   table's best mark and heat shade already exclude it.
-          xs.sort((a,b)=>{const az=!!a.v.zeroWf,bz=!!b.v.zeroWf;if(az!==bz)return az?1:-1;
+          xs.sort((a,b)=>{const avd=_c2SinkTier(a.r),bvd=_c2SinkTier(b.r);if(avd!==bvd)return avd-bvd;   // a VOID (or PRE-FIX TTM) run never tops BEST or WORST, tagged and listed
+            const az=!!a.v.zeroWf,bz=!!b.v.zeroWf;if(az!==bz)return az?1:-1;
             const at=!!a.v.thinWf,bt=!!b.v.thinWf;if(at!==bt)return at?1:-1;
             const as=_c2ShortWin(a.r),bs=_c2ShortWin(b.r);if(as!==bs)return as?1:-1;
             return (_c2Top==='best')?(b.v.v-a.v.v):(a.v.v-b.v.v);});
@@ -38144,7 +38446,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           return '<div class="c2-row sub" data-c2run="'+r.id+'" title="open run #'+r.id+'">'
             +'<span class="c2-chev" style="color:var(--text5)">'+(i+1)+'</span>'
             +'<div><div class="c2-nm"><span style="flex:0 0 8px;height:8px;border-radius:2px;background:'+sw+'"></span>#'+r.id
-            +' <span style="font-weight:500;color:var(--text3)">'+_reEscC2(String(r.strategy||'').replace(/\.py$/,''))+'</span>'+_c2Pill(vv)
+            +' <span style="font-weight:500;color:var(--text3)">'+_reEscC2(String(r.strategy||'').replace(/\.py$/,''))+'</span>'+_c2Pill(vv)+_c2MarkTags(r)
             +(shrt?('<span style="font-size:8px;color:var(--yellow)" title="this run window is under two years, so its figures rest on a short sample - shown here as a caveat, not left out">\u26a0 '+yrs.toFixed(1)+'y</span>'):'')
             +(o.v.thinWf?('<span style="font-size:8px;color:var(--yellow)" title="'+_reEscC2(_c2ThinWfWhy((_c2StageOf(r)||{}).tr))+'">⚠ thin</span>'):'')+'</div>'
             +'<div class="c2-who">'+_reEscC2(String(r.instrument||'')+' '+String(r.timeframe||''))+' \u00b7 '+String(r.timestamp||'').slice(0,10)+'</div></div>'
@@ -38155,7 +38457,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const eq=(ch.equity&&Array.isArray(ch.equity.cum)&&ch.equity.cum.length>2)?ch.equity.cum:null;
           return '<div class="c2-row" data-c2fam="'+encodeURIComponent(f.k)+'">'
             +'<span class="c2-chev">'+(open?'\u25be':'\u25b8')+'</span>'
-            +'<div><div class="c2-nm"><span style="color:var(--text5);font-weight:500;width:16px">'+(i+1)+'</span>'+((f.k==='BOOKS')?'<span style="font-weight:600;letter-spacing:.04em">BOOKS</span>':(((typeof _canonFam==='function')&&_canonFam(ch.strategy))?((typeof stratTag==='function')?stratTag(ch.strategy):_reEscC2(f.k)):_reEscC2(f.k)))+_c2Pill(vv)+_c2Drift(ch)+_c2ShortPill(ch)+_c2ThinPill(ch,S)+(eq?_c2Spark(eq,64,18):'')+'</div>'
+            +'<div><div class="c2-nm"><span style="color:var(--text5);font-weight:500;width:16px">'+(i+1)+'</span>'+((f.k==='BOOKS')?'<span style="font-weight:600;letter-spacing:.04em">BOOKS</span>':(((typeof _canonFam==='function')&&_canonFam(ch.strategy))?((typeof stratTag==='function')?stratTag(ch.strategy):_reEscC2(f.k)):_reEscC2(f.k)))+_c2Pill(vv)+_c2Drift(ch)+_c2ShortPill(ch)+_c2ThinPill(ch,S)+_c2MarkTags(ch)+(eq?_c2Spark(eq,64,18):'')+'</div>'
             +'<div class="c2-who">'+(ch.starred?'<span title="you starred this run">\u2605 your crown #':'<span title="'+_reEscC2('No run in this family is starred, so this is only the top '+((f.k==='BOOKS')?'book on pre-lockbox net over drawdown':'robustness score')+'. Star the run you actually trade in Past Runs and it takes this place.')+'" style="cursor:help">top pick, no \u2605 crown #')+ch.id+'</span>'+((f.k==='BOOKS')?(' '+_reEscC2(String((ch.book&&ch.book.name)||ch.strategy||'').replace(/^BOOK:\s*/i,'').slice(0,48))):'')+' of '+f.runs.length+' run'+(f.runs.length===1?'':'s')+(S&&S.zeroTr?' \u00b7 no '+_c2StageNm+' trades':(S&&S.net!=null?' \u00b7 '+_c2StageNm+' '+(S.net<0?'-$':'$')+Math.round(Math.abs(S.net)).toLocaleString()+_c2LbWarmTag(ch,S):''))+'</div></div>'
             +'<div><div class="c2-big" style="color:'+_c2Col(f.val.v)+'"'+(f.val.v==null?(' title="'+_reEscC2(f.val.why)+'"'):'')+'>'+(f.val.apx?'~':'')+_c2Fmt(f.val.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
             +'<span class="c2-chev">'+(open?'':'\u203a')+'</span></div>'
@@ -45480,6 +45782,22 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const k=b.getAttribute('data-mtxallsort'),cur=String(APREF.mtxAllSort||'net:d');
         savePref('mtxAllSort',(cur===k+':d')?(k+':a'):(k+':d'));renderApp();};});
       content.querySelectorAll('[data-cfgtab]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('cfgTab',b.getAttribute('data-cfgtab'));renderApp();};});
+      // ── COST AND LIMITS · second reading (2026-10-07) ─────────────────────────────
+      //   Asks the PC runner for the run's cost readings ONCE per run per page (window._rdFetched). The answer is kept in window._rdCache, so a redraw re-uses it; a
+      //   redraw while the ask is out finds the box already marked asked and leaves it saying so - the reply paints whichever box is on the page by then. This pass
+      //   runs ahead of the CONCENTRATION pass on purpose: it parks its pending reply in window._rdInflight, and the concentration card waits on that one reply
+      //   (its rows come back with the readings) instead of making the runner generate the same blotter twice. Silent when the runner is not there: the card says so.
+      content.querySelectorAll('[data-rdcard]').forEach(box=>{
+        const rid=box.getAttribute('data-rdcard');
+        if(!rid||typeof _runCmd!=='function')return;
+        window._rdFetched=window._rdFetched||{};window._rdCache=window._rdCache||{};window._rdInflight=window._rdInflight||{};
+        if(window._rdCache[rid]){_rdPaint(rid);return;}
+        if(window._rdFetched[rid])return;
+        let pay=null;try{pay=JSON.parse(box.getAttribute('data-rdpay')||'null');}catch(e){pay=null;}
+        if(!pay)return;
+        window._rdFetched[rid]=1;
+        window._rdInflight[rid]=_rdAsk(rid,pay);
+      });
       // ── CONCENTRATION FROM THE REAL TRADE LIST ────────────────────────────────────
       //   The run document stores only a capped sample of trades, and on run #384 that sample
       //   summed to 239 points against the run's own 12,700 - its average trade was seven
@@ -45504,6 +45822,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _blotBox=(()=>{try{return JSON.parse(box.getAttribute('data-concblot')||'null');}catch(e){return null;}})();
         const _fetchIfNeeded=c=>{
           if(c&&c.rows&&c.rows.length)return Promise.resolve(c);
+          // the COST AND LIMITS card is asking for this same blotter (with its readings): wait for that one reply rather than have the runner generate it twice
+          if(window._rdInflight&&window._rdInflight[rid])return window._rdInflight[rid].then(r=>((r&&r.rows&&r.rows.length)?r:null)).catch(()=>null);
           if(!_blotBox||!_blotBox.strategy||window._concFetched[rid])return Promise.resolve(null);
           window._concFetched[rid]=1;
           return _runCmd('get_blotter',_blotBox,300000)

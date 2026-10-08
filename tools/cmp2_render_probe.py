@@ -100,7 +100,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 149
+N_CASES = 152
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -5233,11 +5233,12 @@ var FIX = __FIX__;
 
         // 5. the WATCH view with research rows: engine dot clickable; research ring and row carry no link and say why
         var RES=[{id:'R6.01',kind:'research',name:'ZN1RESPLOT',family:'BOOK',lane:'FRONTIER',verdict:'REFERENCE',
-                  wf:{roc30:93.8,dd_usd:44849,dd_pct:44.85,roc_pct:140.2}},
+                  wf:{roc30:93.8,dd_usd:44849,dd_pct:44.85,roc_pct:140.2},lb:{roc30:150,dd_usd:30000,dd_pct:30,roc_pct:150}},
                  {id:'R6.02',kind:'research',name:'ZN1RESNONUM',family:'MISC',lane:'TV',verdict:'DEAD'}];
         var wOk="window._rbWatch={state:'ok',runs:"+JSON.stringify([{id:+A.id,family:'ORB',lane:'ORB',verdict:'CANDIDATE'}])
           +",research:"+JSON.stringify(RES)+",at:Date.now()};";
-        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full',rbFam:'__WATCH__'},wc+wOk));chk('watch');
+        // the plane plots an engine dot on the walk-forward figure (lockbox on LB); this fixture has a lockbox and no walk-forward test, so the WATCH view is drawn on LB
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Stage:'lb',rbFam:'__WATCH__'},wc+wOk));chk('watch');
         var ring=d.querySelector('circle[data-rbres="R6.01"]'),ringT=ring?(ring.querySelector('title')||{textContent:''}).textContent:'';
         var rowP=d.querySelector('[data-rbres-row="R6.01"]'),rowN=d.querySelector('[data-rbres-row="R6.02"]');
         var resLinks=d.querySelectorAll('circle[data-rbres][data-rbopen],[data-rbres-row][data-rbopen],[data-rbres-row] [data-rbopen]').length;
@@ -5294,6 +5295,452 @@ var FIX = __FIX__;
           'and a report opened the plain way (Past Runs list, no RUNBOARD link) has no BACK bar':plainDet&&plainBar===0
         },{hs2:hs2,hsT:hsT,keyTog:keyTog,keyGly:keyGly,keyTabTog:keyTabTog,keyTabGly:keyTabGly,rt2:rt2,rtT:rtT,kid:kid,before:before,after:after,sk:sk,skb:skb,pickN:pickN,pickDrawn:pickDrawn,pickTabN:pickTabN,pickTabDrawn:pickTabDrawn,
           ringT:ringT.slice(0,160),dotT:dotT.slice(0,120),dotId:dotId,sw:sw,swb:swb,tileBack:tileBack,resLinks:resLinks,staleCleared:staleCleared,plainBar:plainBar,errAcc:errAcc.slice(0,3)});
+      })();
+
+      // -- n2 (RUNBOARD honesty markers, MANAGER inbox #22 2026-10-07, from the 10-05 top-models assessment). Two small tags on the
+      //    TOTAL row. LB COLD (LB stage): a run saved before v73.841 scored its lockbox cold - the strategy restarted at the lockbox
+      //    door - and when _lbWarmOf could NOT swap it for the saved continuous replay (none saved, or the saved one refused as a
+      //    different run) nothing said so; NOISE, which needs ~40 prior sessions for its band, drops about a quarter of the year's
+      //    trades on a cold restart. A cold run whose continuous replay reads the SAME, a swapped run (LB warm), a warm run and a
+      //    book get no LB cold tag. WF = IN-SAMPLE (WF stage): a pinned single-config run (n_evaluated 1, not a book) replays one fixed
+      //    config over the years it was chosen on, so its walk-forward figure is in-sample - the same words EXPLORE's pin1 flag uses.
+      //    The WF stage exists only inside COMPARE (the older RUNBOARD tab has no WF sample), so that tag is checked there and the
+      //    older tab is checked for the LB tag and for NOT carrying the WF one.
+      (function(){
+        var N=function(k){return String(+FIX.id+k);};
+        function base(id,strat){
+          var r=JSON.parse(JSON.stringify(FIX));
+          r.id=id;r.strategy=strat;r.starred=false;r.multiplier=20;delete r.equity;delete r.top10_results;delete r.gate_validate;delete r.n_evaluated;
+          r.date_from='2010-01-01';r.date_to='2026-06-01';
+          r.validate={verdict:'PASS',total_trades:5000,total_win_rate:41,total_avg_win:150,total_avg_loss:-90,total_dd:9000,
+            total_sharpe:1.1,total_sortino:1.6,
+            windows:{optimize:['2010-01-01','2018-01-01'],wf_split:'2018-01-01',lockbox:['2025-06-01','2026-06-01']}};
+          return r;
+        }
+        var COLDLB={pnl:3996.9,trades:239,pf:1.39,win_rate:44,dd:190,sortino:3.23};
+        var CONT={total_pnl:3453.1,num_trades:315,profit_factor:1.259,max_drawdown:-210,sortino:2.478,win_rate:41.5};
+        var NZ=base(N(690701),'ZN2NOISE_1_0.py');NZ.validate.lockbox=Object.assign({},COLDLB);              // (a) NOISE, cold, no replay saved
+        var MM=base(N(690702),'ZN2MISMATCH_1_0.py');MM.validate.lockbox={pnl:1500,trades:91,pf:1.1,win_rate:30,dd:300,sortino:0.8};
+        MM.gate_validate={ungated_lockbox:{total_pnl:0,num_trades:0,profit_factor:0,max_drawdown:0,sortino:0,win_rate:0}};   // (b) refused (91 against 0)
+        var EQ=base(N(690703),'ZN2EQUAL_1_0.py');EQ.validate.lockbox={pnl:3453.1,trades:315,pf:1.259,win_rate:41.5,dd:210,sortino:2.478};
+        EQ.gate_validate={ungated_lockbox:Object.assign({},CONT)};                                                      // (c) cold, replay reads the same
+        var SW=base(N(690704),'ZN2SWAP_1_0.py');SW.validate.lockbox=Object.assign({},COLDLB);
+        SW.gate_validate={ungated_lockbox:Object.assign({},CONT)};                                                      // (d) cold and swap-eligible
+        var WM=base(N(690705),'ZN2WARM_1_0.py');WM.validate.windows.warm_days=300;WM.validate.lockbox={pnl:3453.1,trades:315,pf:1.259,win_rate:41.5,dd:210,sortino:2.478};
+        // (e) warm run, and NO replay saved - without the warm_days guard it would read as a cold lockbox with nothing to check against
+        var PL=base(N(690706),'ZN2PLAIN_1_0.py');PL.validate.lockbox=Object.assign({},COLDLB);                          // cold, not NOISE, no replay saved
+        var ZT=base(N(690710),'ZN2ZERO_1_0.py');ZT.validate.lockbox={pnl:0,trades:0,pf:0,win_rate:0,dd:0,sortino:0};            // cold lockbox that took no trades
+        function bkBlk(net,tr,wins,losses,wr,pf,dd){var gl=net/(pf-1),gw=pf*gl;
+          return {total_pnl:net,num_trades:tr,wins:wins,losses:losses,win_rate:wr,profit_factor:pf,max_drawdown:dd,gross_win:gw,gross_loss:gl};}
+        var pre=bkBlk(1395904,9085,3000,6085,33.02,1.49,34000),lbk=bkBlk(289811,622,200,422,32.15,1.56,28066),whole=bkBlk(1685715,9707,3200,6507,32.97,1.50,36562);
+        var BK=dfxClone(FIX);BK.id=N(690707);BK.strategy='BOOK: PROBE N2';BK.starred=false;BK.multiplier=1;
+        BK.best_pnl_usd=pre.total_pnl;BK.best_pf=pre.profit_factor;BK.best_trades=pre.num_trades;BK.best_dd_usd=pre.max_drawdown;BK.best_win_rate=pre.win_rate;
+        BK.book={name:'BOOK: PROBE N2',legs:[{strategy:FIX.strategy,weight:1}],whole:whole,pre_lockbox:pre,lockbox:lbk,
+          lockbox_from:'2025-06-30',date_from:'2010-06-07',date_to:'2026-08-13'};
+        BK.validate={verdict:'PASS',lockbox:{pnl:lbk.total_pnl,pf:lbk.profit_factor,trades:lbk.num_trades,pass:true},book:true};
+        delete BK.top10_results;delete BK.gate_validate;delete BK.ml_gate;BK.n_evaluated=1;                            // a book, cold-looking lockbox, pinned-looking
+        // WF-stage fixtures: a run with real walk-forward data (the shape k3 builds), pinned and re-fitted
+        function wfRun(id,strat,nev){
+          var r=JSON.parse(JSON.stringify(FIX));
+          r.id=id;r.strategy=strat;r.starred=false;r.multiplier=20;delete r.scope;delete r.equity;
+          r.date_from='2010-01-01';r.date_to='2030-01-01';
+          r.best_pnl_usd=500000;r.best_dd_usd=50000;r.best_pf=1.3;r.best_trades=400;r.n_evaluated=nev;
+          r.top10_results=[{fold:1,oos_pnl:25000,oos_trades:60,oos_wins:33},{fold:2,oos_pnl:20000,oos_trades:60,oos_wins:33}];
+          r.gate_validate={wf_range:['2015-01-01','2025-01-01'],ungated_wf:{num_trades:150,total_pnl:60000,profit_factor:1.5,max_drawdown:-8000}};
+          r.validate={verdict:'PASS',total_dd:-50000,windows:{lockbox:['2028-01-01','2029-01-01']},
+            lockbox:{pnl:45000,pf:1.35,trades:130,pass:true,sortino:2.05,dd:9000},
+            wf_oos:{v:1,trades:120,net:45000,wins:66,profit_factor:1.28,gross_loss:5000,n_folds:2,years:10,
+              from:'2015-01-01',to:'2025-01-01',sortino:1.55,sharpe:1.22,max_drawdown:7000,equity:[0,45000]}};
+          return r;}
+        var PIN=wfRun(N(690708),'ZN2PIN_1_0.py',1),REF=wfRun(N(690709),'ZN2REFIT_1_0.py',900);
+        var LBIDS=[NZ.id,MM.id,EQ.id,SW.id,WM.id,PL.id,ZT.id,BK.id,PIN.id],WFIDS=[PIN.id,REF.id,BK.id];
+        var wc="var RS="+JSON.stringify([NZ,MM,EQ,SW,WM,PL,ZT,BK,PIN,REF])+";"
+          +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+          +"runHistory=RS.map(f);window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();window._starRuns=[];";
+        var EXPLORE_TIP='Pinned single-config run: its walk-forward figures hold the chosen settings fixed over the years they were picked on, so they are in-sample, not a test - the same reading the run report calls the CROWNING SCORE.';
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function rowLabelled(lbl){var tr=null;
+          [].forEach.call(d.querySelectorAll('#rb-mtx-box table tr'),function(t){
+            if(tr)return;var c=t.children;if(!c.length)return;
+            if(dfxN(c[0].textContent)===lbl)tr=t;});
+          return tr;}
+        function totalCell(id){var tr=rowLabelled('TOTAL');return tr?tr.querySelector('td[data-rbc="'+id+'"]'):null;}
+        function tagIn(td,attr){var t=td?td.querySelector('['+attr+']'):null;
+          return {has:!!t,tip:t?(t.getAttribute('title')||''):'',txt:t?dfxN(t.textContent):'',val:t?t.getAttribute(attr):null};}
+        function warmIn(td){if(!td)return false;
+          return [].some.call(td.querySelectorAll('span[title]'),function(sp){return dfxN(sp.textContent)==='LB warm';});}
+        function readLb(){var o={};
+          [['nz',NZ.id],['mm',MM.id],['eq',EQ.id],['sw',SW.id],['wm',WM.id],['pl',PL.id],['zt',ZT.id],['bk',BK.id],['pin',PIN.id]].forEach(function(p){
+            var td=totalCell(p[1]);o[p[0]]={cell:!!td,cold:tagIn(td,'data-rblbcold'),warm:warmIn(td),wf:tagIn(td,'data-rbwfin').has};});
+          return o;}
+
+        // 1. COMPARE > RUNBOARD, LB stage
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',cmpIds:LBIDS},wc));chk('cmp2-lb');
+        var L=readLb();
+        var lbWfAnywhere=d.querySelectorAll('[data-rbwfin]').length;
+        // 2. the same, drawn sideways (runs down, measures across)
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',cmpIds:LBIDS,rbOrient:'h'},wc));chk('cmp2-lb-horiz');
+        var hNz=d.querySelectorAll('table[data-rbhoriz] [data-rblbcold="'+NZ.id+'"]').length,hEq=d.querySelectorAll('table[data-rbhoriz] [data-rblbcold="'+EQ.id+'"]').length;
+        // 3. the older RUNBOARD tab, LB sample
+        calls.push(doRender({cmpMode:'board',rbSample:'lb',rbRank:'mar',cmpIds:LBIDS},wc,'cmp'));chk('tab-lb');
+        var T=readLb();
+        // 4. COMPARE > RUNBOARD, WF stage
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'wf',cmpIds:WFIDS},wc));chk('cmp2-wf');
+        var W={};[['pin',PIN.id],['ref',REF.id],['bk',BK.id]].forEach(function(p){var td=totalCell(p[1]);W[p[0]]={cell:!!td,wf:tagIn(td,'data-rbwfin'),cold:tagIn(td,'data-rblbcold').has};});
+        // 5. FULL stage: neither tag belongs there
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'full',cmpIds:[NZ.id,PIN.id,MM.id]},wc));chk('cmp2-full');
+        var fullCold=d.querySelectorAll('[data-rblbcold]').length,fullWf=d.querySelectorAll('[data-rbwfin]').length;
+        // 6. the older tab never has a WF sample: no WF tag even for the pinned run
+        calls.push(doRender({cmpMode:'board',rbSample:'full',rbRank:'mar',cmpIds:[PIN.id,NZ.id]},wc,'cmp'));chk('tab-full');
+        var tabFullWf=d.querySelectorAll('[data-rbwfin]').length,tabFullCold=d.querySelectorAll('[data-rblbcold]').length;
+
+        dfxCase('n2_rb_cold_pinned_marks',calls,{
+          'renders OK on the LB stage (both hosts, both orientations), the WF stage and the FULL stage':calls.every(function(c){return c==='OK';}),
+          'no console errors or uncaught exceptions on any render':errAcc.length===0,
+          'every fixture run has a TOTAL cell on the LB stage':['nz','mm','eq','sw','wm','pl','zt','bk','pin'].every(function(k){return L[k].cell;}),
+          'LB stage, a NOISE run saved cold with no continuous replay: the TOTAL cell says LB cold':L.nz.cold.has&&L.nz.cold.txt==='LB cold',
+          'the tag carries the run id':L.nz.cold.val===NZ.id,
+          'its hover says no continuous replay is saved':L.nz.cold.tip.indexOf('no continuous replay')>=0,
+          'its hover says a cold restart drops about a quarter of the year’s trades':L.nz.cold.tip.indexOf('quarter')>=0&&L.nz.cold.tip.indexOf('do not rank NOISE')>=0,
+          'its hover explains the cold lockbox in plain words (before warm starts, no history)':L.nz.cold.tip.indexOf('Cold lockbox:')===0&&L.nz.cold.tip.indexOf('before warm starts')>=0&&L.nz.cold.tip.indexOf('no history')>=0,
+          'a NOISE run is not also tagged LB warm':!L.nz.warm,
+          'LB stage, a cold run whose saved continuous replay was refused (91 trades against 0): LB cold':L.mm.cold.has,
+          'its hover says the saved replay is a different run, with the trade counts':L.mm.cold.tip.indexOf('different run')>=0&&L.mm.cold.tip.indexOf('0 trades against 91')>=0&&L.mm.cold.tip.indexOf('cannot stand in')>=0,
+          'a cold run that is not NOISE reads Read it as approximate, with no NOISE advice':L.mm.cold.tip.indexOf('Read it as approximate')>=0&&L.mm.cold.tip.indexOf('quarter')<0,
+          'a cold, non-NOISE run with no replay saved: LB cold, no replay saved, approximate':L.pl.cold.has&&L.pl.cold.tip.indexOf('no continuous replay')>=0&&L.pl.cold.tip.indexOf('Read it as approximate')>=0,
+          'a cold run whose saved continuous replay reads the same (315 against 315, same pnl): no LB tag at all':L.eq.cell&&!L.eq.cold.has&&!L.eq.warm,
+          'a cold run that CAN be swapped is tagged LB warm, and not LB cold':L.sw.warm&&!L.sw.cold.has,
+          'a run that warmed up (warm_days 300) carries no LB tag, though no replay is saved':L.wm.cell&&!L.wm.cold.has&&!L.wm.warm,
+          'a cold lockbox that took no trades (the cell is a dash) carries no LB cold tag':L.zt.cell&&!L.zt.cold.has&&!L.zt.warm,
+          'a book carries no LB cold tag, though its lockbox has no replay saved':L.bk.cell&&!L.bk.cold.has&&!L.bk.warm,
+          'the LB stage carries no WF = in-sample tag, even for a pinned run':lbWfAnywhere===0&&!L.pin.wf,
+          'sideways (HORIZ): the LB cold tag is on the NOISE run and not on the equal-replay run':hNz>=1&&hEq===0,
+          'the older RUNBOARD tab, LB sample: the NOISE run says LB cold with the quarter hover':T.nz.cold.has&&T.nz.cold.tip.indexOf('quarter')>=0,
+          'the older tab: the refused run says LB cold with the different-run hover':T.mm.cold.has&&T.mm.cold.tip.indexOf('different run')>=0,
+          'the older tab: equal replay, warm and book carry no LB cold; the swappable run is LB warm only':T.eq.cell&&!T.eq.cold.has&&!T.wm.cold.has&&!T.bk.cold.has&&T.sw.warm&&!T.sw.cold.has,
+          'the older tab carries no WF = in-sample tag on the LB sample':!T.pin.wf,
+          'WF stage, a pinned single-config run (n_evaluated 1): the TOTAL cell says WF = in-sample':W.pin.cell&&W.pin.wf.has&&W.pin.wf.txt==='WF = in-sample',
+          'the tag carries the run id':W.pin.wf.val===PIN.id,
+          'its hover is EXPLORE’s hover, word for word':W.pin.wf.tip===EXPLORE_TIP,
+          'a re-fitted run (n_evaluated 900) carries no WF tag':W.ref.cell&&!W.ref.wf.has,
+          'a book (even with n_evaluated 1) carries no WF tag':W.bk.cell&&!W.bk.wf.has,
+          'the WF stage carries no LB cold tag':!W.pin.cold&&!W.ref.cold&&!W.bk.cold,
+          'FULL stage: neither tag appears, though a NOISE run and a pinned run are on the board':fullCold===0&&fullWf===0,
+          'the older tab has no walk-forward sample, so a pinned run there carries no WF tag':tabFullWf===0&&tabFullCold===0
+        },{L:L,T:T,W:W,hNz:hNz,hEq:hEq,fullCold:fullCold,fullWf:fullWf,tabFullWf:tabFullWf,lbWfAnywhere:lbWfAnywhere,errAcc:errAcc.slice(0,3)});
+      })();
+
+      // -- n3 (lead's real-data hunt 2026-10-07, fixes F1-F8 + the ELWA watch-row caveat). VOID: the TTM lane voided #369 / #428 / #455 (a structural stop that
+      //    booked impossible exits when the open gapped past it). A VOID run counts as MISSING on every ranking: on the RUNBOARD it is the LAST column (hand-
+      //    pinned or not), never wears the crown, never takes a green best mark, carries a VOID tag whose hover is the reason and a muted header; on the
+      //    LEADERBOARD it is never a family's top pick, and is listed with the tag. PRE-FIX TTM: a run (or a book with a TTMSQZ_3_0_ES30SS leg) run before the
+      //    2026-09-27 21:50:59Z gap-stop fix is tagged, a later one and an ATR-engine (ES30N) one are not. The WATCH cut-off note names the watched runs past
+      //    the 40-column cap by number, a VOID one marked. The research plane plots an engine dot on the walk-forward figure on FULL, like the research rows.
+      //    CAVEAT: a watch-doc row's caveat shows on its column header with caveat_why verbatim. Every check CLICKS or reads the drawn page.
+      (function(){
+        var N=function(k){return String(+FIX.id+k);};
+        var CR=String.fromCharCode(55357,56401);   // the crown, U+1F451
+        function slim(id,strat){var o={};Object.keys(FIX).forEach(function(k){var j=JSON.stringify(FIX[k]);if(j!==undefined&&j.length<2000)o[k]=JSON.parse(j);});
+          o.id=String(id);o.strategy=strat;o.starred=false;o.multiplier=20;delete o.famKey;delete o.famSeq;delete o.n_evaluated;delete o.equity;
+          o.date_from='2010-01-01';o.date_to='2026-06-01';o.timestamp='2026-09-20 09:00';return o;}
+        function lbRun(id,strat,pnl,dd,champ,ts){var r=slim(id,strat);
+          r.validate={verdict:'PASS',total_trades:5000,total_win_rate:41,total_avg_win:150,total_avg_loss:-90,total_dd:9000,total_sharpe:1.1,total_sortino:1.6,
+            n_pass:champ?5:2,n_gates:5,wfe:champ?1:0,dsr:champ?1:0,
+            windows:{optimize:['2010-01-01','2018-01-01'],wf_split:'2018-01-01',lockbox:['2025-06-01','2026-06-01']},
+            lockbox:{pnl:pnl,trades:200,pf:1.5,win_rate:44,dd:dd,sortino:2,pass:!!champ}};
+          if(ts)r.timestamp=ts;return r;}
+        function bkBlk(net,tr,wins,losses,wr,pf,dd){var gl=net/(pf-1),gw=pf*gl;
+          return {total_pnl:net,num_trades:tr,wins:wins,losses:losses,win_rate:wr,profit_factor:pf,max_drawdown:dd,gross_win:gw,gross_loss:gl};}
+        function bookRun(id,leg,ts){var pre=bkBlk(1395904,9085,3000,6085,33.02,1.49,34000),lbk=bkBlk(289811,622,200,422,32.15,1.56,28066),whole=bkBlk(1685715,9707,3200,6507,32.97,1.50,36562);
+          var r=slim(id,'BOOK: PROBE N3 '+id);r.multiplier=1;r.timestamp=ts;
+          r.best_pnl_usd=pre.total_pnl;r.best_pf=pre.profit_factor;r.best_trades=pre.num_trades;r.best_dd_usd=pre.max_drawdown;r.best_win_rate=pre.win_rate;
+          r.book={name:'BOOK: PROBE N3 '+id,legs:[{strategy:leg,weight:1}],whole:whole,pre_lockbox:pre,lockbox:lbk,lockbox_from:'2025-06-30',date_from:'2010-06-07',date_to:'2026-08-13'};
+          r.validate={verdict:'PASS',lockbox:{pnl:lbk.total_pnl,pf:lbk.profit_factor,trades:lbk.num_trades,pass:true},book:true};
+          return r;}
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function wcOf(docs){return dfxWin(docs,"window._rbWatchRuns=[];window._rbWatchRunsState='idle';window._rbWatchRunsWant=[];");}
+        function watchOf(rows,research){return "window._rbWatch={state:'ok',runs:"+JSON.stringify(rows)+",research:"+JSON.stringify(research||[])+",at:Date.now()};";}
+        function hdrIds(){return [].map.call(d.querySelectorAll('#rb-mtx-box table thead th[data-rbc]'),function(th){return th.getAttribute('data-rbc');});}
+        function hdr(id){return d.querySelector('#rb-mtx-box table thead th[data-rbc="'+id+'"]');}
+        function rowLabelled(lbl){var tr=null;
+          [].forEach.call(d.querySelectorAll('#rb-mtx-box table tr'),function(t){if(tr)return;var c=t.children;if(!c.length)return;if(dfxN(c[0].textContent)===lbl)tr=t;});return tr;}
+        function cell(lbl,id){var tr=rowLabelled(lbl);return tr?tr.querySelector('td[data-rbc="'+id+'"]'):null;}
+        function greenIn(td){return !!(td&&td.querySelector('b[style*="color:var(--green)"]'));}
+        function rocRow(){var tr=null;[].forEach.call(d.querySelectorAll('#rb-mtx-box table tr'),function(t){if(tr)return;var c=t.children;if(c.length&&c[0].querySelector('[data-rbroc]'))tr=t;});return tr;}
+        function numOf(v){return (v==null)?null:parseFloat(String(v).replace(/[^0-9.-]/g,''));}
+
+        // ---- (a) RUNBOARD, LB stage: #428 has the best MAR by far and two normal runs trail it ----
+        var V428=lbRun('428','ZN3VOID428_1_0.py',9000,100,true,'2026-09-20 09:00'),NA=lbRun(N(691001),'ZN3NA_1_0.py',4000,400,true),NB=lbRun(N(691002),'ZN3NB_1_0.py',2000,400,false);
+        V428.strategy='TTMSQZ_3_0_ES30SSOF2.py';   // a structural-stop TTM file run before the fix - but VOID, so it must NOT also read PRE-FIX TTM
+        var wcA=wcOf([V428,NA,NB]);
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',cmpIds:[V428.id,NA.id,NB.id]},wcA));chk('a-cmp2');
+        var aIds=hdrIds(),a428=hdr('428'),aNA=hdr(NA.id);
+        var aMarV=cell('MAR','428'),aMarN=cell('MAR',NA.id),aTotV=cell('TOTAL','428'),aTotN=cell('TOTAL',NA.id);
+        var aVoidTag=a428?a428.querySelector('[data-rbvoid="428"]'):null;
+        var aMuted=!!(a428&&a428.querySelector('span[style*="opacity:.55"]'));
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',cmpIds:[V428.id,NA.id,NB.id],rbAdd:['428']},wcA));chk('a-pinned');
+        var aPinIds=hdrIds(),aPinCrown=hdr(NA.id)&&(hdr(NA.id).textContent||'').indexOf(CR)>=0,aPin428Crown=hdr('428')&&(hdr('428').textContent||'').indexOf(CR)>=0;
+        calls.push(doRender({cmpMode:'board',rbSample:'lb',rbRank:'mar',cmpIds:[V428.id,NA.id,NB.id]},wcA,'cmp'));chk('a-tab');
+        var aTabIds=hdrIds(),aTabVoid=!!(hdr('428')&&hdr('428').querySelector('[data-rbvoid="428"]')),aTabCrown=hdr(NA.id)&&(hdr(NA.id).textContent||'').indexOf(CR)>=0;
+        var aTabGreen=greenIn(cell('MAR','428'));
+
+        // ---- (b) LEADERBOARD, the TTM family: #455 (VOID) has the best score, #458 is the fixed re-run ----
+        var T455=lbRun('455','TTMSQZ_3_0_ES30SSOF2.py',9000,100,true,'2026-09-20 09:00'),T458=lbRun('458','TTMSQZ_3_0_ES30SSOF2.py',4000,400,false,'2026-09-28T12:00:00.000Z');
+        var V369=lbRun('369','ZN3ALLVOID_1_0.py',3000,300,false,'2026-09-20 09:00');   // a family of ONE run, and that run is VOID
+        var wcB=wcOf([T455,T458,V369]);
+        calls.push(doRender({c2Screen:'lead',c2Rank:'rpy',c2Stage:'lb'},wcB));chk('b-lead');
+        var famRow=d.querySelector('.c2-row[data-c2fam]'),fk=famRow?decodeURIComponent(famRow.getAttribute('data-c2fam')):null;
+        var famWho=famRow?dfxN((famRow.querySelector('.c2-who')||{}).textContent):'';
+        var famRowVoid=!!(famRow&&famRow.querySelector('[data-rbvoid]'));
+        var famRows=[].slice.call(d.querySelectorAll('.c2-row[data-c2fam]')),avRow=famRows.filter(function(r){return dfxN((r.querySelector('.c2-who')||{}).textContent).indexOf('#369')>=0;})[0];
+        var avVoid=!!(avRow&&avRow.querySelector('[data-rbvoid="369"]')),avLast=!!avRow&&famRows[famRows.length-1]===avRow;
+        calls.push(doRender({c2Screen:'lead',c2Rank:'rpy',c2Stage:'lb'},wcB+"window._c2Open=new Set(["+JSON.stringify(fk)+"]);"));chk('b-lead-open');
+        var r455=d.querySelector('[data-c2run="455"]'),r458=d.querySelector('[data-c2run="458"]');
+        var b455Void=r455?r455.querySelector('[data-rbvoid="455"]'):null,b455Pre=!!(r455&&r455.querySelector('[data-rbprefix]')),b458Void=!!(r458&&r458.querySelector('[data-rbvoid]')),b458Pre=!!(r458&&r458.querySelector('[data-rbprefix]'));
+        // the RUNBOARD's default auto-populate (top run per family) skips #455 the same way
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb'},wcB));chk('b-board');
+        var bBoardIds=hdrIds();
+
+        // ---- (c) PRE-FIX TTM: a book with a structural-stop TTM leg, before / after the fix, and an ATR-engine leg ----
+        var BP=bookRun(N(691101),'TTMSQZ_3_0_ES30SSOF2.py','2026-09-26 12:00'),BA=bookRun(N(691102),'TTMSQZ_3_0_ES30SSOF2.py','2026-09-28T12:00:00.000Z'),BN=bookRun(N(691103),'TTMSQZ_3_0_ES30N.py','2026-09-08 12:00');
+        // MANAGER 10-08: a PRE-FIX TTM book ranks after every fixed book (only VOID lower), never crowned or best-marked - so give it the BEST figures here,
+        //   and add a VOID book (#209) with bigger ones still, and the VOID RSIDIV #163 (MANAGER GO #594).
+        BP.book.lockbox.total_pnl=589811;BP.validate.lockbox.pnl=589811;BP.book.pre_lockbox.total_pnl=2395904;BP.best_pnl_usd=2395904;
+        var VB=bookRun('209','TTMSQZ_3_0_ES30N.py','2026-09-08 12:00');VB.book.lockbox.total_pnl=989811;VB.validate.lockbox.pnl=989811;VB.book.pre_lockbox.total_pnl=3395904;VB.best_pnl_usd=3395904;
+        var R163=lbRun('163','ZN3RSI163_1_0.py',9000,100,true);
+        var wcC=wcOf([BP,BA,BN,VB,R163]);
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',rbFam:'BOOKS'},wcC));chk('c-board');
+        var cIds=hdrIds();function pre(id){var h=hdr(id);return h?h.querySelector('[data-rbprefix]'):null;}
+        var cBP=pre(BP.id),cBA=pre(BA.id),cBN=pre(BN.id);
+        var cCrownBP=!!hdr(BP.id)&&(hdr(BP.id).textContent||'').indexOf(CR)>=0,cCrown0=!!hdr(cIds[0])&&(hdr(cIds[0]).textContent||'').indexOf(CR)>=0;
+        var cGreenBP=greenIn(cell('TOTAL',BP.id)),cGreenFixed=greenIn(cell('TOTAL',BA.id))||greenIn(cell('TOTAL',BN.id));
+        calls.push(doRender({c2Screen:'lead',c2Rank:'rpy',c2Stage:'lb'},wcC+"window._c2Open=new Set(['BOOKS']);"));chk('c-lead');
+        function lrow(id){return d.querySelector('[data-c2run="'+id+'"]');}
+        var lBP=lrow(BP.id)&&lrow(BP.id).querySelector('[data-rbprefix]'),lBA=lrow(BA.id)&&lrow(BA.id).querySelector('[data-rbprefix]'),lBN=lrow(BN.id)&&lrow(BN.id).querySelector('[data-rbprefix]');
+        var lBooksRow=d.querySelector('.c2-row[data-c2fam="BOOKS"]'),lBooksPre=!!(lBooksRow&&lBooksRow.querySelector('[data-rbprefix]'));
+        var lBooksWho=lBooksRow?dfxN((lBooksRow.querySelector('.c2-who')||{}).textContent):'';
+        var l163=d.querySelector('[data-rbvoid="163"]'),l163Tip=l163?(l163.getAttribute('title')||''):'';
+
+        // ---- (d) WATCH with more than 40 watched runs: the cut-off note names the runs past the cap ----
+        var W=[],WROWS=[];
+        for(var i=0;i<45;i++){var wr=lbRun(N(692000+i),'ZN3W'+i+'_1_0.py',4000-i*50,400,true);wr.famKey='ZN3';wr.famSeq=i+1;W.push(wr);WROWS.push({id:+wr.id,family:'ZN3',lane:'X',verdict:'CANDIDATE'});}
+        var V2=lbRun('428','ZN3VOID428_1_0.py',9000,100,true);V2.famKey='ZN3';V2.famSeq=99;W.push(V2);WROWS.push({id:428,family:'ZN3',lane:'X',verdict:'CANDIDATE'});
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',rbFam:'__WATCH__'},wcOf(W)+watchOf(WROWS)));chk('d-watch');
+        var dIds=hdrIds(),dTxt=dfxN((d.body&&(d.body.innerText||d.body.textContent))||'');
+        var dNoteEl=[].filter.call(d.querySelectorAll('div'),function(x){return /^[+][0-9]+ more watched run/.test(dfxN(x.textContent));})
+          .sort(function(a,b){return (a.textContent||'').length-(b.textContent||'').length;})[0];
+        var dNote=dNoteEl?dfxN(dNoteEl.textContent):'';
+
+        // ---- (e) research plane on the FULL stage: an engine dot reads the walk-forward figure, like the research rows ----
+        var WFR=JSON.parse(JSON.stringify(FIX));
+        WFR.id=N(693001);WFR.strategy='ZN3WF_1_0.py';WFR.starred=false;WFR.multiplier=20;delete WFR.scope;delete WFR.equity;delete WFR.famKey;delete WFR.famSeq;
+        WFR.date_from='2010-01-01';WFR.date_to='2030-01-01';WFR.best_pnl_usd=500000;WFR.best_dd_usd=50000;WFR.best_pf=1.3;WFR.best_trades=400;WFR.n_evaluated=900;
+        WFR.top10_results=[{fold:1,oos_pnl:25000,oos_trades:60,oos_wins:33},{fold:2,oos_pnl:20000,oos_trades:60,oos_wins:33}];
+        WFR.gate_validate={wf_range:['2015-01-01','2025-01-01'],ungated_wf:{num_trades:150,total_pnl:60000,profit_factor:1.5,max_drawdown:-8000}};
+        WFR.validate={verdict:'PASS',total_dd:-50000,windows:{lockbox:['2028-01-01','2029-01-01']},lockbox:{pnl:45000,pf:1.35,trades:130,pass:true,sortino:2.05,dd:9000},
+          wf_oos:{v:1,trades:120,net:45000,wins:66,profit_factor:1.28,gross_loss:5000,n_folds:2,years:10,from:'2015-01-01',to:'2025-01-01',sortino:1.55,sharpe:1.22,max_drawdown:7000,equity:[0,45000]}};
+        var RES=[{id:'R7.01',kind:'research',name:'ZN3RES',family:'BOOK',lane:'FRONTIER',verdict:'REFERENCE',wf:{roc30:93.8,dd_usd:44849,dd_pct:44.85,roc_pct:140.2}}];
+        var wcE=wcOf([WFR]),wOkE=watchOf([{id:+WFR.id,family:'ORB',lane:'ORB',verdict:'CANDIDATE'}],RES);
+        function dotY(){var dt=d.querySelector('circle[data-rbres-eng]'),t=dt?((dt.querySelector('title')||{}).textContent||''):'',m=/ROC (-?[0-9.]+) %/.exec(t);return {has:!!dt,y:m?parseFloat(m[1]):null,t:t};}
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'full',rbFam:'__WATCH__'},wcE+wOkE));chk('e-full');
+        var eFull=dotY(),eFullRocCell=rocRow()?numOf(((rocRow().querySelector('td[data-rbc="'+WFR.id+'"]')||{}).textContent)):null;
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'is',rbFam:'__WATCH__'},wcE+wOkE));chk('e-is');
+        var eIs=dotY();
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'wf',rbFam:'__WATCH__'},wcE+wOkE));chk('e-wf');
+        var eWf=dotY(),eWfRocCell=rocRow()?numOf(((rocRow().querySelector('td[data-rbc="'+WFR.id+'"]')||{}).textContent)):null;
+        var planText=dfxN((d.querySelector('[data-rbres-tile]')||{}).textContent||'');
+        var planTips=[].map.call(d.querySelectorAll('[data-rbres-tile] [title]'),function(e){return e.getAttribute('title')||'';}).join(' | ');
+
+        // ---- (g) the watch-row caveat on the run header, both hosts, verbatim ----
+        var WHY='Lockbox scored cold (before warm starts) - do not rank on it. "quoted" & <b>bold</b>';
+        var rowsG=[{id:+NA.id,family:'ORB',lane:'ORB',verdict:'CANDIDATE',caveat:'cold',caveat_why:WHY,caveat_by:'NOISE',caveat_at:'2026-10-08'},
+                   {id:+NB.id,family:'ORB',lane:'ORB',verdict:'CANDIDATE'},{id:428,family:'TTM',lane:'TTM',verdict:'VOID'}];
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',rbFam:'__WATCH__'},wcA+watchOf(rowsG)));chk('g-cmp2');
+        var gA=hdr(NA.id)?hdr(NA.id).querySelector('[data-rbcaveat]'):null,gB=hdr(NB.id)?hdr(NB.id).querySelector('[data-rbcaveat]'):null,g428=hdr('428')?hdr('428').querySelector('[data-rbcaveat]'):null;
+        var gInject=!!(hdr(NA.id)&&hdr(NA.id).querySelector('b'));
+        var gAny=d.querySelectorAll('[data-rbcaveat]').length;
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',rbFam:'__WATCH__',rbOrient:'h'},wcA+watchOf(rowsG)));chk('g-horiz');
+        var gH=d.querySelectorAll('table[data-rbhoriz] [data-rbcaveat]').length;
+        calls.push(doRender({cmpMode:'board',rbSample:'lb',rbRank:'mar',rbFam:'__WATCH__'},wcA+watchOf(rowsG),'cmp'));chk('g-tab');
+        var gT=hdr(NA.id)?hdr(NA.id).querySelector('[data-rbcaveat]'):null,gTB=hdr(NB.id)?hdr(NB.id).querySelector('[data-rbcaveat]'):null;
+
+        dfxCase('n3_rb_void_prefix',calls,{
+          'renders OK on every board, the LEADERBOARD, the WATCH views and the research plane':calls.every(function(c){return c==='OK';}),
+          'no console errors or uncaught exceptions on any render':errAcc.length===0,
+          'RUNBOARD (LB): #428 has by far the best MAR yet is the LAST column':aIds.length===3&&aIds[2]==='428',
+          'the two normal runs lead, best MAR first':aIds[0]===NA.id&&aIds[1]===NB.id,
+          '#428 carries a VOID tag, and its hover is the reason (impossible exits, the restated MAR 0.76)':!!aVoidTag&&aVoidTag.textContent==='VOID'&&(aVoidTag.getAttribute('title')||'').indexOf('impossible exits')>=0&&(aVoidTag.getAttribute('title')||'').indexOf('MAR 0.76')>=0,
+          '#428 header is muted (opacity .55)':aMuted,
+          '#428 is not tagged PRE-FIX TTM as well (a VOID run is only VOID)':!!a428&&!a428.querySelector('[data-rbprefix]'),
+          'the crown is on the best real run, not on #428':!!aNA&&(aNA.textContent||'').indexOf(CR)>=0&&!!a428&&(a428.textContent||'').indexOf(CR)<0,
+          '#428 takes no green best mark on MAR or TOTAL, though its figures are the biggest':!!aMarV&&!greenIn(aMarV)&&!!aTotV&&!greenIn(aTotV),
+          'the best real run takes the green best mark on MAR and TOTAL':greenIn(aMarN)&&greenIn(aTotN),
+          'a VOID run you hand-pinned (+ADD) is still the last column and still wears no crown':aPinIds.length===3&&aPinIds[2]==='428'&&aPinCrown&&!aPin428Crown,
+          'the older RUNBOARD tab: #428 last, VOID-tagged, no green best mark, crown on the best real run':aTabIds[2]==='428'&&aTabVoid&&!aTabGreen&&aTabCrown,
+          'LEADERBOARD, TTM family with #455 (best score) and #458: the top pick is #458':famWho.indexOf('crown #458')>=0&&famWho.indexOf('#455')<0&&famWho.indexOf('of 2 runs')>=0,
+          'the family row itself is not VOID-tagged':!famRowVoid,
+          'a family whose every run is VOID shows that run with the VOID tag, and sinks to the last row':avVoid&&avLast,
+          '#455 is still listed in the family, tagged VOID with the reason on hover':!!b455Void&&(b455Void.getAttribute('title')||'').indexOf('re-ran on the fixed file as #458')>=0,
+          '#455 is not also PRE-FIX TTM, and #458 (a fixed re-run) carries neither tag':!b455Pre&&!b458Void&&!b458Pre,
+          'the RUNBOARD default (one top run per family) shows #458 and skips #455':bBoardIds.indexOf('458')>=0&&bBoardIds.indexOf('455')<0,
+          'RUNBOARD with three books: all three are columns':cIds.indexOf(BP.id)>=0&&cIds.indexOf(BA.id)>=0&&cIds.indexOf(BN.id)>=0,
+          'PRE-FIX TTM sinks: the pre-fix book has the best figures yet sits after both fixed books, and only the VOID book is after it':cIds.length===4&&cIds[2]===BP.id&&cIds[3]==='209',
+          'the pre-fix book wears no crown and takes no green best mark; the crown is on column 1 and a fixed book takes the mark':!cCrownBP&&cCrown0&&cIds[0]!==BP.id&&!cGreenBP&&cGreenFixed,
+          'a book dated 2026-09-26 with a TTMSQZ_3_0_ES30SS leg: PRE-FIX TTM on its header':!!cBP&&cBP.textContent==='PRE-FIX TTM'&&cBP.getAttribute('data-rbprefix')===BP.id,
+          'its hover names the fix date, the restated leg and the fixed re-runs':!!cBP&&(cBP.getAttribute('title')||'').indexOf('(2026-09-27)')>=0&&(cBP.getAttribute('title')||'').indexOf('$135,884 to $87,109')>=0&&(cBP.getAttribute('title')||'').indexOf('#458, #459 and #463 onward')>=0,
+          'the same book dated 2026-09-28 (after the fix): no tag':!cBA,
+          'a 2026-09-08 book whose leg is the ATR-engine file TTMSQZ_3_0_ES30N: no tag':!cBN,
+          'LEADERBOARD: the pre-fix book row carries PRE-FIX TTM, the 09-28 book and the ES30N book do not':!!lBP&&!lBA&&!lBN,
+          'LEADERBOARD: the BOOKS top pick is a fixed book, not the pre-fix one with the best figures (the row carries no PRE-FIX tag)':!lBooksPre&&lBooksWho.indexOf('#'+BP.id)<0&&(lBooksWho.indexOf('#'+BA.id)>=0||lBooksWho.indexOf('#'+BN.id)>=0),
+          'RSIDIV #163 is VOID on the LEADERBOARD, with the audited reason on hover (leveraged buy-and-hold)':!!l163&&l163.textContent==='VOID'&&l163Tip.indexOf('leveraged buy-and-hold')>=0&&l163Tip.indexOf('not a bug')>=0,
+          'WATCH with 46 watched runs: the board stops at the 40-column cap, #428 not among them':dIds.length===40&&dIds.indexOf('428')<0,
+          'the cut-off note says "more watched run" and names the runs by number':dNote.indexOf('+6 more watched runs past the 40-column limit:')>=0&&dNote.indexOf('#'+N(692044))>=0,
+          'the note gives the family-run alias, and marks the VOID run VOID':dNote.indexOf('#428 ZN3-99 VOID')>=0&&dNote.indexOf('#'+N(692044)+' ZN3-45')>=0,
+          'the note has no doubled "the" and no strategy labels':dNote.indexOf('the the')<0&&dTxt.indexOf('the the')<0&&dNote.indexOf('below the')<0&&dNote.indexOf('famil')<0,
+          'research plane, FULL stage: an engine dot is drawn':eFull.has&&eFull.y!=null,
+          'its ROC equals the same run on the WF stage (walk-forward figure, same stretch as the research rows)':eFull.y!=null&&eWf.y!=null&&Math.abs(eFull.y-eWf.y)<0.051&&eWfRocCell!=null&&Math.abs(eWf.y-eWfRocCell)<0.051,
+          'on IS the dot reads the same walk-forward figure':eIs.y!=null&&eWf.y!=null&&Math.abs(eIs.y-eWf.y)<0.051,
+          'the check is not vacuous: the FULL-stage ROC cell of that run differs from the dot':!isFinite(eFullRocCell)||Math.abs(eFullRocCell-eFull.y)>0.06,
+          'the plane hovers carry no file names or command flags':planTips.indexOf('tools/')<0&&planTips.indexOf('.py')<0&&planTips.indexOf('--wf')<0&&planTips.indexOf('--lb')<0&&planTips.indexOf('written by the lane that ran it')>=0,
+          'a research row with no DD5 says the lane did not supply one':planText.indexOf('DD5')>=0&&planTips.indexOf('the lane did not supply one')>=0,
+          'CAVEAT: the watched run with a caveat shows CAVEAT: cold on its header':!!gA&&gA.textContent==='CAVEAT: cold'&&gA.getAttribute('data-rbcaveat')===NA.id,
+          'its hover is caveat_why VERBATIM plus who and when':!!gA&&gA.getAttribute('title')===WHY+' - marked by NOISE on 2026-10-08',
+          'the caveat text is escaped (no <b> element appeared in the header)':!gInject,
+          'a watched run without a caveat, and the VOID one, show no CAVEAT tag':!gB&&!g428&&gAny===1,
+          'the caveat shows in the sideways table too':gH>=1,
+          'the older RUNBOARD tab shows the caveat on that run and not on the other':!!gT&&gT.textContent==='CAVEAT: cold'&&!gTB
+        },{aIds:aIds,aPinIds:aPinIds,aTabIds:aTabIds,aMuted:aMuted,famWho:famWho,fk:fk,b455:!!b455Void,bBoardIds:bBoardIds,cIds:cIds.length,cBP:!!cBP,cBA:!!cBA,cBN:!!cBN,
+          lBP:!!lBP,lBA:!!lBA,lBN:!!lBN,lBooksPre:lBooksPre,dN:dIds.length,dNote:dNote.slice(0,330),eFull:eFull.y,eIs:eIs.y,eWf:eWf.y,eWfRocCell:eWfRocCell,eFullRocCell:eFullRocCell,
+          gAny:gAny,gH:gH,gTitle:gA?(gA.getAttribute('title')||'').slice(0,120):null,errAcc:errAcc.slice(0,3)});
+      })();
+
+      // -- n4 (owner ask 2026-10-08 via MANAGER #31 / #33 / #34): the ROLL tag. 22 old runs ran on a roll detector that GUESSED the contract switch days; DISC restated them on
+      //    the TRUE roll table (MANAGER verified). It is a TAG and a report, never a void or a sink: ranking, crowns, best marks and verdicts stay on the SAVED figures.
+      //    #424 (RUN_ROLL) is given the BEST figures here, so it must stay column 1, wear the crown and take the green best mark. ROLL tags on the RUNBOARD header (both hosts), the
+      //    LEADERBOARD run and family rows; the ROLL RESTATED row sits right after DD5 on the FULL stage only (both orientations, both hosts), holds the TRUE figures with the saved
+      //    ones on hover, takes no best mark and no heat; a VOID run in the table (#163) carries both VOID and ROLL. Every check reads the DRAWN page.
+      (function(){
+        var N=function(k){return String(+FIX.id+k);};
+        var CR=String.fromCharCode(55357,56401);   // the crown, U+1F451
+        function mk(id,strat,net,ddRaw){var o={};Object.keys(FIX).forEach(function(k){var j=JSON.stringify(FIX[k]);if(j!==undefined&&j.length<2000)o[k]=JSON.parse(j);});
+          o.id=String(id);o.strategy=strat;o.starred=false;o.multiplier=20;delete o.famKey;delete o.famSeq;delete o.n_evaluated;delete o.equity;
+          o.date_from='2010-01-01';o.date_to='2026-06-01';o.timestamp='2026-09-20 09:00';o.best_pnl_usd=net;
+          o.validate={verdict:'PASS',total_trades:5000,total_win_rate:41,total_avg_win:150,total_avg_loss:-90,total_dd:ddRaw,total_sharpe:1.1,total_sortino:1.6,
+            n_pass:5,n_gates:5,wfe:1,dsr:1,
+            windows:{optimize:['2010-01-01','2018-01-01'],wf_split:'2018-01-01',lockbox:['2025-06-01','2026-06-01']},
+            lockbox:{pnl:4000,trades:200,pf:1.5,win_rate:44,dd:400,sortino:2,pass:true}};
+          return o;}
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function wcOf(docs){return dfxWin(docs,"window._rbWatchRuns=[];window._rbWatchRunsState='idle';window._rbWatchRunsWant=[];");}
+        function hdrIds(){return [].map.call(d.querySelectorAll('#rb-mtx-box table thead th[data-rbc]'),function(th){return th.getAttribute('data-rbc');});}
+        function hdr(id){return d.querySelector('#rb-mtx-box table thead th[data-rbc="'+id+'"]');}
+        function rowLabelled(lbl){var tr=null;
+          [].forEach.call(d.querySelectorAll('#rb-mtx-box table tr'),function(t){if(tr)return;var c=t.children;if(!c.length)return;if(dfxN(c[0].textContent)===lbl)tr=t;});return tr;}
+        function cell(lbl,id){var tr=rowLabelled(lbl);return tr?tr.querySelector('td[data-rbc="'+id+'"]'):null;}
+        function greenIn(td){return !!(td&&td.querySelector('b[style*="color:var(--green)"]'));}
+        function tagOf(id){var h=hdr(id);return h?h.querySelector('[data-rbroll="'+id+'"]'):null;}
+        function tipOf(e){return e?(e.getAttribute('title')||''):'';}
+        function txtOf(e){return e?dfxN(e.textContent):'';}
+        // the sideways table: the cell of run id under the ROLL RESTATED column
+        function hCell(id){var T=d.querySelector('#rb-mtx-box table[data-rbhoriz]');if(!T)return null;
+          var ix=-1;[].forEach.call(T.querySelectorAll('thead th'),function(th,i){if(ix<0&&dfxN(th.textContent)==='ROLL RESTATED')ix=i;});
+          if(ix<0)return null;
+          var row=[].filter.call(T.querySelectorAll('tbody tr'),function(tr){var c0=tr.children[0];return !!c0&&c0.getAttribute('data-rbc')===id;})[0];
+          return row?row.children[ix]:null;}
+        function hdrCount(){var T=d.querySelector('#rb-mtx-box table[data-rbhoriz]');
+          return T?[].filter.call(T.querySelectorAll('thead th'),function(th){return dfxN(th.textContent)==='ROLL RESTATED';}).length:-1;}
+
+        // #424 gets the BEST figures (net 1,000,000 on a $60,000 drawdown); #423 is second; the two plain runs trail; #163 (VOID, in the table too) has bigger ones still
+        var R424=mk('424','ZN4ROLL424_1_0.py',1000000,3000),R423=mk('423','ZN4ROLL423_1_0.py',600000,3000),
+            PA=mk(N(694001),'ZN4PLAINA_1_0.py',300000,9000),PB=mk(N(694002),'ZN4PLAINB_1_0.py',200000,9000),R163=mk('163','ZN4RSI163_1_0.py',9000000,1000);
+        var IDS=['424','423',PA.id,PB.id,'163'],wc=wcOf([R424,R423,PA,PB,R163]);
+        var BASE={c2Screen:'cmp',c2View:'board',c2Src:'pick',rbRank:'mar',rbHeat:true,cmpIds:IDS};
+        function P(extra){var o=JSON.parse(JSON.stringify(BASE));Object.keys(extra).forEach(function(k){o[k]=extra[k];});return o;}
+
+        // ---- (a) COMPARE > RUNBOARD, FULL stage ----
+        calls.push(doRender(P({c2Stage:'full'}),wc));chk('a-full');
+        var aIds=hdrIds(),a424=hdr('424'),aRow=rowLabelled('ROLL RESTATED'),aDd5=rowLabelled('DD5');
+        var aTag424=tagOf('424'),aTag423=tagOf('423'),aTagA=tagOf(PA.id),aTagB=tagOf(PB.id),aTag163=tagOf('163'),a163Void=!!(hdr('163')&&hdr('163').querySelector('[data-rbvoid="163"]'));
+        var aTip=tipOf(aTag424),aTip163=tipOf(aTag163);
+        var aCrown424=!!a424&&(a424.textContent||'').indexOf(CR)>=0,aCrownOther=IDS.slice(1).some(function(i){return !!hdr(i)&&(hdr(i).textContent||'').indexOf(CR)>=0;});
+        var aTot424=cell('TOTAL','424'),aTotOthers=[R423.id,PA.id,PB.id].map(function(i){return cell('TOTAL',i);});
+        var aC424=cell('ROLL RESTATED','424'),aC423=cell('ROLL RESTATED','423'),aCA=cell('ROLL RESTATED',PA.id),aC163=cell('ROLL RESTATED','163');
+        var aRowCells=aRow?[].slice.call(aRow.querySelectorAll('td[data-rbc]')):[];
+        var aTotHeat=!!(cell('TOTAL','423')&&(cell('TOTAL','423').getAttribute('style')||'').indexOf('hsla')>=0)||!!(cell('TOTAL',PA.id)&&(cell('TOTAL',PA.id).getAttribute('style')||'').indexOf('hsla')>=0);
+        var aLblSpan=aRow?aRow.children[0].querySelector('[title]'):null;
+        function sp(td){return td?td.querySelector('[data-rbroll-cell]'):null;}
+
+        // ---- (b) the same, sideways ----
+        calls.push(doRender(P({c2Stage:'full',rbOrient:'h'}),wc));chk('b-horiz');
+        var bT=d.querySelector('#rb-mtx-box table[data-rbhoriz]'),bC424=hCell('424'),bCA=hCell(PA.id),bC163=hCell('163'),bN=hdrCount();
+        var bTagH=!!(bT&&bT.querySelector('[data-rbroll="424"]'));
+
+        // ---- (c) WF and LB stages: the tag stays on the header, the row is not there ----
+        calls.push(doRender(P({c2Stage:'wf'}),wc));chk('c-wf');
+        var cWfRow=rowLabelled('ROLL RESTATED'),cWfTag=!!tagOf('424'),cWfTag423=!!tagOf('423'),cWfTagA=!!tagOf(PA.id),cWfTxt=dfxN((d.getElementById('rb-mtx-box')||{}).textContent||'');
+        calls.push(doRender(P({c2Stage:'lb'}),wc));chk('c-lb');
+        var cLbRow=rowLabelled('ROLL RESTATED'),cLbTag=!!tagOf('424'),cLbTagA=!!tagOf(PA.id),cLbVoid163=!!(hdr('163')&&hdr('163').querySelector('[data-rbvoid="163"]')&&tagOf('163'));
+        calls.push(doRender(P({c2Stage:'is'}),wc));chk('c-is');
+        var cIsRow=rowLabelled('ROLL RESTATED'),cIsTag=!!tagOf('424');
+
+        // ---- (d) the older RUNBOARD tab ----
+        calls.push(doRender({cmpMode:'board',rbSample:'full',rbRank:'mar',rbHeat:true,cmpIds:IDS},wc,'cmp'));chk('d-tab-full');
+        var dIds=hdrIds(),dRow=rowLabelled('ROLL RESTATED'),dTag=!!tagOf('424'),dTagA=!!tagOf(PA.id),dC424=cell('ROLL RESTATED','424'),dCA=cell('ROLL RESTATED',PA.id);
+        var dCrown=!!hdr('424')&&(hdr('424').textContent||'').indexOf(CR)>=0,dGreen=greenIn(cell('TOTAL','424'));
+        var dDd5=rowLabelled('DD5');
+        calls.push(doRender({cmpMode:'board',rbSample:'lb',rbRank:'mar',rbHeat:true,cmpIds:IDS},wc,'cmp'));chk('d-tab-lb');
+        var dLbRow=rowLabelled('ROLL RESTATED'),dLbTag=!!tagOf('424');
+        calls.push(doRender({cmpMode:'board',rbSample:'full',rbRank:'mar',rbHeat:true,rbOrient:'h',cmpIds:IDS},wc,'cmp'));chk('d-tab-horiz');
+        var dhC=hCell('424'),dhN=hdrCount();
+
+        // ---- (e) LEADERBOARD: the tag on #424's run row and on its family row (each strategy is its own family here) ----
+        calls.push(doRender({c2Screen:'lead',c2Rank:'rpy',c2Stage:'lb'},wc));chk('e-lead');
+        var eFams=[].slice.call(d.querySelectorAll('.c2-row[data-c2fam]')).map(function(r){return decodeURIComponent(r.getAttribute('data-c2fam'));});
+        var eFam424=[].filter.call(d.querySelectorAll('.c2-row[data-c2fam]'),function(r){return decodeURIComponent(r.getAttribute('data-c2fam'))==='ZN4ROLL424_1_0';})[0];
+        var eFamTag=!!(eFam424&&eFam424.querySelector('[data-rbroll="424"]'));
+        var eFamPlain=[].filter.call(d.querySelectorAll('.c2-row[data-c2fam]'),function(r){return decodeURIComponent(r.getAttribute('data-c2fam'))==='ZN4PLAINA_1_0';})[0];
+        var eFamPlainTag=!!(eFamPlain&&eFamPlain.querySelector('[data-rbroll]'));
+        calls.push(doRender({c2Screen:'lead',c2Rank:'rpy',c2Stage:'lb'},wc+"window._c2Open=new Set("+JSON.stringify(eFams)+");"));chk('e-lead-open');
+        function lrow(id){return d.querySelector('[data-c2run="'+id+'"]');}
+        var e424=lrow('424'),e423=lrow('423'),eA=lrow(PA.id),e163=lrow('163');
+        var eTag424=e424?e424.querySelector('[data-rbroll="424"]'):null;
+
+        dfxCase('n4_rb_roll',calls,{
+          'renders OK on the RUNBOARD (both hosts, both orientations, FULL / WF / LB / IS) and the LEADERBOARD':calls.every(function(c){return c==='OK';}),
+          'no console errors or uncaught exceptions on any render':errAcc.length===0,
+          'FULL: #424 (the best figures, a ROLL run) is still column 1 - the tag does not sink it':aIds.length===5&&aIds[0]==='424'&&aIds[1]==='423'&&aIds[4]==='163',
+          '#424 wears the crown and no other column does':aCrown424&&!aCrownOther,
+          '#424 takes the green best mark on TOTAL; no other run does':greenIn(aTot424)&&aTotOthers.every(function(t){return !greenIn(t);}),
+          'the ROLL tag is on the #424 and #423 headers and on neither plain run':!!aTag424&&!!aTag423&&!aTagA&&!aTagB,
+          'the tag is the word ROLL, a bordered chip carrying the run id':!!aTag424&&aTag424.textContent==='ROLL'&&aTag424.getAttribute('data-rbroll')==='424'&&(aTag424.getAttribute('style')||'').indexOf('border:1px solid')>=0,
+          'its hover holds the ROC move 17.7 -> 21.1':aTip.indexOf('17.7 -> 21.1')>=0,
+          'its hover holds the worst drawdown $116,916 (1 episode) -> $98,295':aTip.indexOf('$116,916 (1 episode) -> $98,295')>=0,
+          'its hover holds net, DD5, the lockbox year, the verified date, the source and the not-a-re-validation sentence':aTip.indexOf('net $1,116,128 -> $1,121,941')>=0&&aTip.indexOf('DD5 $77,322 -> $79,175')>=0&&aTip.indexOf('Lockbox year (sliced from the continuous run): $75,980 -> $86,026, ROC 106.6 -> 142.5')>=0&&aTip.indexOf('verified 2026-10-08')>=0&&aTip.indexOf('docs/RESTATE_ROLL22_2026-10-08.md')>=0&&aTip.indexOf('A report, not a re-validation: the verdict and the ranking use the saved figures.')>=0&&aTip.indexOf('old roll detector')>=0,
+          'a VOID run in the table (#163) is the last column and carries BOTH the VOID tag and the ROLL tag':aIds[4]==='163'&&a163Void&&!!aTag163&&aTip163.indexOf('(1 episode) -> $561,646')>=0,
+          'the ROLL RESTATED row exists on FULL, right after the DD5 row':!!aRow&&!!aDd5&&aDd5.nextElementSibling===aRow,
+          'its label hover says the 22 runs restated on the true roll table, a report not a ranking, with the source':!!aLblSpan&&(aLblSpan.getAttribute('title')||'')==='The 22 old roll-detector runs restated on the true roll table, whole window - a report beside the saved figures, not a ranking. Source: docs/RESTATE_ROLL22_2026-10-08.md.',
+          'the #424 cell reads ROC 21.1 . net $1,121,941 . DD $98,295 . DD5 $79,175':txtOf(aC424).indexOf('ROC 21.1 · net $1,121,941 · DD $98,295 · DD5 $79,175')===0,
+          'the #424 cell hover holds the SAVED figures (ROC 17.7, net $1,116,128, $116,916 (1 episode), DD5 $77,322)':tipOf(sp(aC424)).indexOf('ROC @ $30K DD 17.7')>=0&&tipOf(sp(aC424)).indexOf('net $1,116,128')>=0&&tipOf(sp(aC424)).indexOf('$116,916 (1 episode)')>=0&&tipOf(sp(aC424)).indexOf('DD5 $77,322')>=0,
+          'the #423 cell reads the true figures too (ROC 27.7, $602,378)':txtOf(aC423).indexOf('ROC 27.7')===0&&txtOf(aC423).indexOf('$602,378')>0,
+          'a plain run cell is a muted dash whose hover says it is not one of the 22 runs':txtOf(aCA)==='—'&&tipOf(sp(aCA))==='Not one of the 22 runs restated for the old roll detector.',
+          'the 1 EPISODE word is on a cell whose true worst drawdown is one episode (#163) and not on #424':!!aC163&&txtOf(aC163).indexOf('1 EPISODE')>0&&!!aC163.querySelector('[data-rbroll-one]')&&!aC424.querySelector('[data-rbroll-one]'),
+          'the row takes no best mark and no heat shade (the TOTAL row above it is heat shaded, so the check is not vacuous)':aTotHeat&&aRowCells.length===5&&aRowCells.every(function(t){return !greenIn(t)&&(t.getAttribute('style')||'').indexOf('hsla')<0;}),
+          'SIDEWAYS: the ROLL RESTATED column is there once, #424 holds ROC 21.1 and $1,121,941, a plain run a dash, #163 the 1 EPISODE word':bN===1&&txtOf(bC424).indexOf('ROC 21.1')===0&&txtOf(bC424).indexOf('$1,121,941')>0&&txtOf(bCA)==='—'&&txtOf(bC163).indexOf('1 EPISODE')>0,
+          'SIDEWAYS: the ROLL tag is on the header too':bTagH,
+          'WF stage: no ROLL RESTATED row, the tag stays on the #424 and #423 headers and not on a plain run':!cWfRow&&cWfTxt.indexOf('ROLL RESTATED')<0&&cWfTag&&cWfTag423&&!cWfTagA,
+          'LB stage: no ROLL RESTATED row, the tag stays (VOID #163 keeps both tags)':!cLbRow&&cLbTag&&!cLbTagA&&cLbVoid163,
+          'IS stage: no ROLL RESTATED row, the tag stays':!cIsRow&&cIsTag,
+          'the older RUNBOARD tab, FULL: #424 is column 1 with the crown and the green best mark, the tag is on the header':dIds[0]==='424'&&dCrown&&dGreen&&dTag&&!dTagA,
+          'the older tab has the ROLL RESTATED row right after DD5, with #424 true figures and a dash for a plain run':!!dRow&&!!dDd5&&dDd5.nextElementSibling===dRow&&txtOf(dC424).indexOf('ROC 21.1')===0&&txtOf(dC424).indexOf('$1,121,941')>0&&txtOf(dCA)==='—',
+          'the older tab, LB sample: the tag stays and the row is gone':!dLbRow&&dLbTag,
+          'the older tab, sideways: one ROLL RESTATED column with the #424 figures':dhN===1&&txtOf(dhC).indexOf('ROC 21.1')===0,
+          'LEADERBOARD: #424 run row (family opened) wears the ROLL tag with the same hover':!!e424&&!!eTag424&&eTag424.textContent==='ROLL'&&tipOf(eTag424).indexOf('17.7 -> 21.1')>=0&&tipOf(eTag424).indexOf('$116,916 (1 episode) -> $98,295')>=0,
+          'LEADERBOARD: #423 and the VOID #163 rows wear ROLL, the plain run row does not':!!e423&&!!e423.querySelector('[data-rbroll="423"]')&&!!e163&&!!e163.querySelector('[data-rbroll="163"]')&&!!e163.querySelector('[data-rbvoid="163"]')&&!!eA&&!eA.querySelector('[data-rbroll]'),
+          'LEADERBOARD: the family row of #424 (its champion) wears ROLL, a plain family row does not':eFamTag&&!eFamPlainTag
+        },{aIds:aIds,dIds:dIds,aC424:txtOf(aC424),aC163:txtOf(aC163),aCA:txtOf(aCA),aTip:aTip.slice(0,100),bC424:txtOf(bC424),dC424:txtOf(dC424),eFams:eFams.length,cWf:!!cWfRow,cLb:!!cLbRow,cIs:!!cIsRow,aTotHeat:aTotHeat,errAcc:errAcc.slice(0,3)});
       })();
 
       // -- case y1_explore_money: MANAGER audit 2026-09-27 (ml_edge_orb_leak_answer_2026-09-27.md
@@ -8015,6 +8462,9 @@ def main(argv=None):
     DFX += ['m1_lb_warm_everywhere']
     DFX += ['k5_rb_dd5']
     DFX += ['n1_rb_open_report']
+    DFX += ['n2_rb_cold_pinned_marks']
+    DFX += ['n3_rb_void_prefix']
+    DFX += ['n4_rb_roll']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
