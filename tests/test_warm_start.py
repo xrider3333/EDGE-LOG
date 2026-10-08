@@ -41,7 +41,7 @@ def _session_arrays(n_days=40, bars_per_day=10, start="2020-01-01"):
     day_id = np.repeat(np.arange(n_days), bars_per_day).astype("int64")
     idx = pd.date_range(start, periods=n, freq="30min", tz="US/Eastern")
     return {"open": close.copy(), "high": close + 1.0, "low": close - 1.0,
-            "close": close.copy(), "volume": None, "day_id": day_id, "index": idx}
+            "close": close.copy(), "volume": None, "day_id": day_id, "index": idx, "meta": {"roll_mode": "none"}}
 
 
 def _warmup_strategy(lookback=120):

@@ -389,7 +389,7 @@ def _make_arrays(n=60):
     return {"open": np.full(n, 100.0), "high": np.full(n, 101.0), "low": np.full(n, 99.0),
            "close": np.full(n, 100.0), "volume": np.full(n, 1000.0),
            "day_id": (np.arange(n) // 6).astype("int64"), "index": None,
-           "meta": {"name": "SYN"}}
+           "meta": {"name": "SYN", "roll_mode": "none"}}
 
 
 def test_run_auto_compute_surrogate_true_attaches_surrogate():

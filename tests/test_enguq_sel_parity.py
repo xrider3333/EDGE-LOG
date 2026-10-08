@@ -55,7 +55,7 @@ def _bars(n_days=110, step_min=5, seed=11):
     cmin = hour * 60 + idx.minute.to_numpy()
     base = np.where(quiet, 300.0, 1500.0) * (1 + 2.0 * np.isin(cmin, [18 * 60, 3 * 60, 8 * 60 + 30, 9 * 60 + 30]))
     vol = np.round(base * rng.lognormal(0, 0.5, n))
-    return {"open": open_, "high": high, "low": low, "close": close, "volume": vol, "index": idx}
+    return {"open": open_, "high": high, "low": low, "close": close, "volume": vol, "index": idx, "meta": {"roll_mode": "none"}}
 
 
 R2_SHAPE = dict(buf_atr=0.3, tl_len=60, trail_frac=2.5, limit_atr=0.55, atr_len=20, act_R=1.5,

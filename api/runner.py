@@ -1568,6 +1568,29 @@ class FirestoreQueue:
         except Exception:
             return None
 
+    def _roll_stamp_of(self, job, result):
+        """ENGINE ROLL GUARD (owner ask 2026-10-08, item 3): every NEW saved run carries a roll stamp -
+        master type, roll source, switches in the window, trades crossing a true switch, $ of pure
+        roll step, $ booked on switch sessions (augur_engine/rolls.roll_stamp). A book brings its own
+        (per leg + total); anything else is stamped from one run of the saved winner over the saved
+        window. Old run documents are never touched; a missing stamp reads "pre-guard run"."""
+        if result.get("roll_stamp") is not None:
+            return result["roll_stamp"]
+        if job.get("type") == "book" or not job.get("strategy"):
+            return None
+        try:
+            bt = ae.run_backtest(
+                job["strategy"], instrument=job.get("instrument"),
+                timeframe=job.get("timeframe", "5m"), session=job.get("session", "rth"),
+                source=job.get("source"), params=result.get("best_params") or {},
+                cost_pts=float(job.get("cost_pts", 0) or 0),
+                date_from=job.get("date_from") or None, date_to=job.get("date_to") or None,
+                roll_diff=True)           # TTM's raw-vs-adjusted trade diff (MANAGER #58)
+            st = ((bt or {}).get("_meta") or {}).get("roll_stamp")
+            return st if st is not None else {"master_type": "no contract rolls"}
+        except Exception as e:
+            return {"error": "%s: %s" % (type(e).__name__, str(e)[:300])}
+
     def _persist_run(self, uid, job, result, log=print, elapsed_s=0.0, dup=None):
         """Save a completed web grid sweep into users/{uid}/runs (Runs history),
         shaped like the app's synced runs so the Runs tab renders it identically."""
@@ -1623,6 +1646,7 @@ class FirestoreQueue:
             "fingerprint": (dup or {}).get("fingerprint"),
             "data_source": job.get("source", ""),
             "source_name": (mm.get("name") if mm else "") or job.get("source", "") or "",
+            "roll_stamp": self._roll_stamp_of(job, result),   # engine roll guard (2026-10-08)
             "rounds": result.get("rounds"), "best_oos_pnl": result.get("best_oos_pnl"),
             "evolved_file": result.get("evolved_file"),
             "n_combos": result.get("n_combos"), "n_valid": result.get("n_valid"),

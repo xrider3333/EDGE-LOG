@@ -971,7 +971,7 @@ def _synthetic_arrays(n=4500, seed=7):
     h = np.maximum(o, c) + np.abs(rng.normal(0, 0.1, n))
     l = np.minimum(o, c) - np.abs(rng.normal(0, 0.1, n))
     return {"open": o, "high": h, "low": l, "close": c, "volume": None, "day_id": None,
-            "index": idx}
+            "index": idx, "meta": {"roll_mode": "none"}}
 
 
 def _tiny_strategy():

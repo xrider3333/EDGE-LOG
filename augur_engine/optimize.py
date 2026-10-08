@@ -135,6 +135,29 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
     if _idx is not None:
         extras["index"] = _idx
 
+    # ENGINE ROLL GUARD (2026-10-08, augur_engine/rolls.py): every trial runs inside the roll
+    # context, and on an UNADJUSTED NQ / ES master a trial whose trades held across a contract
+    # switch REFUSES the whole sweep at once (fail fast) - re-raised here, never counted as a
+    # quiet invalid config. The process-pool workers get the same context via `roll`.
+    from . import rolls as _R
+    _sname = getattr(mod, "__file__", None) or str(strategy)
+    if arrays.get("meta") is None and isinstance(master, dict):
+        arrays = dict(arrays, meta=master)
+    _rplan = _R.plan_for(mod, arrays, _sname, (combos[0] if combos else {}))
+    arrays = _R.apply_plan(arrays, _rplan)
+    O, H, L, C = arrays["open"], arrays["high"], arrays["low"], arrays["close"]
+    _rmeta = arrays.get("meta") or {}
+    _rtimes, _rtf = _rplan["times"], _rplan["tf"]
+    _rctx = _rplan["ctx_root"]
+    _rroot = _rplan["root"] if _rplan.get("refuse_crossings") else None
+    _R.warn_once(_rplan, _sname)
+    _radj = bool(_rplan.get("adjust"))
+    _rratio = _radj and _rplan.get("method") == "ratio"
+    _roll_arg = dict(root=_rctx, refuse=bool(_rroot), times=_rtimes, tf=_rtf, strategy=_sname,
+                     plan=({k: _rplan.get(k) for k in ("method", "adjust", "sc", "kc", "times", "root", "tf")}
+                           if _radj else None),
+                     meta={k: _rmeta.get(k) for k in ("instrument", "source", "timeframe", "name")})
+
     results = []   # (params, metrics)
 
     # ── Trial-level result cache (PR1, docs/INCREMENTAL_BACKTEST_REUSE.md) ──
@@ -157,10 +180,12 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
         done = 0
         with ProcessPoolExecutor(max_workers=workers, initializer=W.init_worker,
                                  initargs=(path, O, H, L, C, V, did, cost_pts,
-                                          cache_ctx, _idx)) as ex:
+                                          cache_ctx, _idx, _roll_arg)) as ex:
             try:
                 for out in ex.map(W.eval_chunk, chunks):
                     for idx, m, _err in out:
+                        if _err and str(_err).startswith(("RollGuardError", "RollContextMissing")):
+                            raise _R.RollGuardError(str(_err).split(": ", 1)[-1])
                         if m:
                             results.append((combos[idx], m))
                     done += 1
@@ -190,13 +215,21 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 except Exception:
                     key = None   # cache machinery failed -- fall through to a normal compute
             try:
-                if cost_pts > 0:
-                    m = fn(O, H, L, C, return_trades=True, **extras, **params)
-                    if m:
-                        m = _apply_costs(m, cost_pts)
-                        m.pop("trades", None)
-                else:
-                    m = fn(O, H, L, C, **extras, **params)
+                with _R.roll_context(_rctx, _rtimes, _rtf, strategy=_sname):
+                    if cost_pts > 0 or _rroot is not None or _rratio:
+                        m = fn(O, H, L, C, return_trades=True, **extras, **params)
+                    else:
+                        m = fn(O, H, L, C, **extras, **params)
+                if m and _radj:
+                    m = _R.reprice_result(m, _rplan, offset=0)
+                if m and _rroot is not None:
+                    _R.check_crossings(_sname, _rmeta, _rtimes, m.get("trades"))
+                if m and cost_pts > 0:
+                    m = _apply_costs(m, cost_pts)
+                if m and (cost_pts > 0 or _rroot is not None or _rratio):
+                    m.pop("trades", None)
+            except (_R.RollGuardError, _R.RollContextMissing):
+                raise
             except Exception:
                 m = None
             if m:
@@ -211,6 +244,9 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
             if progress_cb and (i % 25 == 0 or i + 1 == len(combos)):
                 progress_cb(i + 1, len(combos))
 
+    # the winner's report panels below (ensemble, regime, neighbours) call the strategy directly:
+    # the same roll context, and their fills re-priced to raw the same way (MANAGER #58)
+    fn = _R.bind(fn, _rctx, _rtimes, _rtf, strategy=_sname, plan=_rplan)
     valid = [(p, m) for p, m in results if m and m.get("num_trades", 0) >= min_trades]
 
     def _rank_key(pm):

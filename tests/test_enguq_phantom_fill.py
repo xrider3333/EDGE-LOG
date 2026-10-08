@@ -95,7 +95,7 @@ def _make_bars(n=60):
     for idx in range(iAf + 1, n):
         o[idx] = 100.0; c[idx] = 100.0; h[idx] = 100.2; l[idx] = 99.8
 
-    return {"open": o, "high": h, "low": l, "close": c}
+    return {"open": o, "high": h, "low": l, "close": c, "meta": {"roll_mode": "none"}}
 
 
 FULL_ARRAYS = _make_bars(60)
@@ -113,7 +113,7 @@ def _trades_on(arrays, n, phantom_safe, fastloop_off):
     bug -- so callers that care only about ENTRY decisions should compare entry bars
     (see `_entry_bars`), not full tuples, across different truncations.
     """
-    truncated = {k: v[:n] for k, v in arrays.items()}
+    truncated = {k: (v if k == "meta" else v[:n]) for k, v in arrays.items()}
     # Save/restore rather than an unconditional pop (review finding, minor): a developer
     # running with EDGELOG_NO_FASTLOOP already set in their shell must get it BACK, not
     # cleared, once this helper returns.
@@ -261,7 +261,7 @@ def _make_nola_bars(n=70):
         prev_end = fillb + 1
     for idx in range(prev_end, n):
         o[idx] = 100.0; c[idx] = 99.9; h[idx] = 100.2; l[idx] = 99.8
-    return {"open": o, "high": h, "low": l, "close": c}, fills
+    return {"open": o, "high": h, "low": l, "close": c, "meta": {"roll_mode": "none"}}, fills
 
 
 NOLA_N = 70
@@ -325,7 +325,7 @@ def _make_dead_a_bars(n=60):
     for idx in range(iA + _N_SCAN + 1, n):
         o[idx] = 110.9; c[idx] = 110.8; h[idx] = 111.0; l[idx] = 110.7
 
-    return {"open": o, "high": h, "low": l, "close": c}
+    return {"open": o, "high": h, "low": l, "close": c, "meta": {"roll_mode": "none"}}
 
 
 DEAD_A_ARRAYS = _make_dead_a_bars(60)

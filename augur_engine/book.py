@@ -173,7 +173,9 @@ def _leg_trades(leg, date_from, date_to, keep_state=False):
             "session": sess, "source": src, "mult": mult, "weight": weight,
             "trades": len(out), "net": round(sum(p for _, p in out), 2),
             "master": (arr.get("meta") or {}).get("name"),
-            "cost_pts": float(leg.get("cost_pts", 0) or 0)}
+            "cost_pts": float(leg.get("cost_pts", 0) or 0),
+            # engine roll guard (2026-10-08): this leg's roll stamp, as the engine computed it
+            "roll_stamp": (res.get("_meta") or {}).get("roll_stamp")}
     if gate_cfg:
         # Report what the overlay actually did, not just that one was configured -- a gate
         # that quietly fell back to ungated must be visible in the run report.
@@ -653,10 +655,12 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
     worst = _stretch_attribution(pooled, per_leg, leg_info)
     worst_lb = _stretch_attribution(lb, [[t for t in tr if lb_from is not None and t[0] >= lb_from]
                                          for tr in per_leg], leg_info)
+    from . import rolls as _R
     return {
         "best": best,
         "best_params": {"book": [l["strategy"] for l in leg_info]},
         "equity": equity,
+        "roll_stamp": _R.combine_stamps([l.get("roll_stamp") for l in leg_info]),
         "book": {
             "name": name or " + ".join(str(l.get("strategy") or "") for l in leg_info),
             "legs": leg_info,

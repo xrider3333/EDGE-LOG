@@ -48,7 +48,7 @@ def _tape():
     close = 13000.0 + np.cumsum(rng.normal(0, 8, len(idx)))
     return {"index": idx, "open": close - 1, "high": close + 4, "low": close - 4, "close": close,
             "volume": np.ones(len(idx)), "day_id": np.asarray(idx.tz_localize(None).normalize().factorize()[0]),
-            "meta": {"name": "synthetic"}}
+            "meta": {"name": "synthetic", "roll_mode": "none"}}
 
 
 ARR = _tape()
@@ -145,7 +145,17 @@ def test_no_block_is_byte_identical_to_the_engine_before_book_sizing(monkeypatch
     _patch(monkeypatch, [base, NEW])
     a, b = base.run_book(LEGS, **KW), NEW.run_book(LEGS, **KW)
     assert b["book"]["mtm"]["marked_trades"] > 0 and b["book"]["day_rule"].get("session_day")
-    assert _dump(a) == _dump(b)
+    assert _dump(a) == _dump(_no_roll_stamp(b))
+
+
+def _no_roll_stamp(x):
+    """The engine roll guard (2026-10-08) ADDS a roll_stamp to each leg and to the book; nothing
+    else moves. Drop those keys so the byte comparison still covers everything that existed."""
+    if isinstance(x, dict):
+        return {k: _no_roll_stamp(v) for k, v in x.items() if k != "roll_stamp"}
+    if isinstance(x, list):
+        return [_no_roll_stamp(v) for v in x]
+    return x
 
 
 def test_a_unit_block_reproduces_every_scored_figure_through_the_real_leg_runner(monkeypatch):

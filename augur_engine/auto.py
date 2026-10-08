@@ -125,6 +125,22 @@ def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None, warm_da
     pass_day = did is not None and (has_kw or "day_id" in sp)
     pass_idx = IDX is not None and "index" in sp
     warm_days = int(warm_days or 0)
+    # ENGINE ROLL GUARD (2026-10-08, augur_engine/rolls.py): the roll plan decides what every slice
+    # sees (back-adjusted input for a shift-invariant file on an unadjusted NQ / ES master; raw with
+    # the true seam calendar otherwise), and a slice of a raw-planned run whose trades held across a
+    # switch REFUSES the job - re-raised, never swallowed below.
+    from . import rolls as _R
+    _sname = getattr(mod, "__file__", None) or str(strategy)
+    _rplan = _R.plan_for(mod, arrays, _sname, {})
+    arrays = _R.apply_plan(arrays, _rplan)
+    O, H, L, C = arrays["open"], arrays["high"], arrays["low"], arrays["close"]
+    _rmeta = arrays.get("meta") or {}
+    _rtimes, _rtf = _rplan["times"], _rplan["tf"]
+    _rctx = _rplan["ctx_root"]
+    _rroot = _rplan["root"] if _rplan.get("refuse_crossings") else None
+    _radj = bool(_rplan.get("adjust"))                       # fills re-priced to raw (MANAGER #58)
+    _rratio = _radj and _rplan.get("method") == "ratio"      # ...which re-derives P&L from trades
+    _R.warn_once(_rplan, _sname)
 
     def warm_start_bar(a):
         """First bar of the session `warm_days` trading sessions before bar `a` — the
@@ -175,14 +191,21 @@ def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None, warm_da
         if pass_idx:
             ex["index"] = IDX[a:b]
         try:
-            if cost_pts > 0:
-                m = fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=True, **ex, **params)
-                if m:
-                    m = _apply_costs(m, cost_pts)
-                    if not keep_trades:
-                        m.pop("trades", None)
-            else:
-                m = fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=keep_trades, **ex, **params)
+            with _R.roll_context(_rctx, _rtimes[a:b], _rtf, strategy=_sname):
+                if cost_pts > 0 or _rroot is not None or _rratio:
+                    m = fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=True, **ex, **params)
+                else:
+                    m = fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=keep_trades, **ex, **params)
+            if m and _radj:
+                m = _R.reprice_result(m, _rplan, offset=a)
+            if m and _rroot is not None:
+                _R.check_crossings(_sname, _rmeta, _rtimes[a:b], m.get("trades"))
+            if m and cost_pts > 0:
+                m = _apply_costs(m, cost_pts)
+            if m and not keep_trades:
+                m.pop("trades", None)
+        except (_R.RollGuardError, _R.RollContextMissing):
+            raise
         except Exception:
             return None
         if key is not None and m is not None:
@@ -1029,6 +1052,18 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
 
     fn = mod.run_backtest
     sp = inspect.signature(fn).parameters
+    # ENGINE ROLL GUARD (2026-10-08): the champion re-runs and report panels below call the strategy
+    # directly - they see the same planned arrays as the selection (make_slice_evaluator re-plans
+    # them as a no-op) and run inside the same roll context. A full-series grid is right for slice
+    # calls too: seam_days maps each session by its own timestamps.
+    from . import rolls as _R
+    if arrays.get("meta") is None and isinstance(master, dict):
+        arrays = dict(arrays, meta=master)
+    _rplan = _R.plan_for(mod, arrays, getattr(mod, "__file__", None), {})
+    arrays = _R.apply_plan(arrays, _rplan)
+    O, H, L, C = arrays["open"], arrays["high"], arrays["low"], arrays["close"]
+    fn = _R.bind(fn, _rplan["ctx_root"], _rplan["times"], _rplan["tf"],
+                 strategy=getattr(mod, "__file__", None), plan=_rplan)
     has_kw = any(p.kind == p.VAR_KEYWORD for p in sp.values())
     pass_vol = V is not None and (has_kw or "volumes" in sp)
     pass_day = did is not None and (has_kw or "day_id" in sp)

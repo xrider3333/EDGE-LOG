@@ -102,15 +102,19 @@ def _intraday_tape_with_rolls(sessions=720, seed=11):
 def test_nqdip_marks_rebuild_the_closed_dollars_across_roll_seams(fname):
     mod = _load(fname)
     o, h, l, c, idx, did = _intraday_tape_with_rolls()
-    res = mod.run_backtest(o, h, l, c, day_id=did, index=idx, return_trades=True)
-    trades = res["trades"]
-    marks = mod.mark_open_trades(trades, o, h, l, c, day_id=did, index=idx)
-    assert mod.PNL_UNITS == "usd" and len(marks) == len(trades) > 20
+    # The file's seam calendar is the audited table (engine roll guard 2026-10-08): it answers for
+    # the series named by the roll context, as the engine sets it around every strategy call.
+    from augur_engine import rolls as _R
+    with _R.roll_context("NQ", idx, 7200):
+        res = mod.run_backtest(o, h, l, c, day_id=did, index=idx, return_trades=True)
+        trades = res["trades"]
+        marks = mod.mark_open_trades(trades, o, h, l, c, day_id=did, index=idx)
+        assert mod.PNL_UNITS == "usd" and len(marks) == len(trades) > 20
 
-    bounds = mod._session_bounds(did, len(c))
-    do = np.array([o[a] for a, b in bounds]); dc = np.array([c[b - 1] for a, b in bounds])
-    seams = set(mod.detect_roll_seams(do, dc, [idx[a] for a, b in bounds]))
-    assert len(seams) >= 4, "tape produced no detectable roll seams"
+        bounds = mod._session_bounds(did, len(c))
+        do = np.array([o[a] for a, b in bounds]); dc = np.array([c[b - 1] for a, b in bounds])
+        seams = set(mod.detect_roll_seams(do, dc, [idx[a] for a, b in bounds]))
+    assert len(seams) >= 4, "tape produced no roll seams"
     sess = {a: j for j, (a, b) in enumerate(bounds)}
     crossed = 0
     for t, mk in zip(trades, marks):

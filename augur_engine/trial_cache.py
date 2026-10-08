@@ -148,6 +148,8 @@ def make_key(ctx: dict, params: dict, a=None, b=None) -> str:
         ctx.get("date_from"), ctx.get("date_to"),
         ctx.get("cost_pts"), ctx.get("session"),
     ]
+    if ctx.get("roll_guard"):
+        fields.append(ctx["roll_guard"])     # only unadjusted NQ / ES jobs; other keys unchanged
     blob = json.dumps(fields, separators=(",", ":"), default=str)
     return hashlib.sha1(blob.encode("utf-8", "replace")).hexdigest()
 
@@ -331,7 +333,7 @@ def build_ctx(mod, arrays, *, cost_pts=0.0, session=None, date_from=None, date_t
     # augur_engine/__init__.py first).
     from . import ENGINE_CACHE_EPOCH
 
-    return {
+    ctx = {
         "strategy_file_sha": sha, "engine_epoch": ENGINE_CACHE_EPOCH,
         "ml_filter": ml_filter, "ml_threshold": ml_threshold,
         "ml_min_history": ml_min_history, "ml_refit_every": ml_refit_every,
@@ -339,3 +341,19 @@ def build_ctx(mod, arrays, *, cost_pts=0.0, session=None, date_from=None, date_t
         "date_from": date_from, "date_to": date_to, "cost_pts": cost_pts,
         "session": session,
     }
+    # ENGINE ROLL GUARD (2026-10-08): a run on an unadjusted NQ / ES master is now refused when a
+    # trade holds across a contract switch, and its seam calendar comes from the roll table. A row
+    # cached before that must never answer for it, and a table change must miss too - so those
+    # jobs (only those) carry the guard version and the table's sha in their key. Every other
+    # job's key is unchanged, byte for byte (make_key appends the field only when present).
+    try:
+        from . import rolls as _R
+        _m = (arrays or {}).get("meta") or master or {}
+        _plan = _m.get("roll_plan") if isinstance(_m, dict) else None
+        _root = (_plan or {}).get("root") or _R.unadjusted_futures_root(_m)
+        if _root is not None:
+            ctx["roll_guard"] = "v3|%s|%s" % ((_plan or {}).get("kind") or "unplanned",
+                                             _R.table_sha(_root))
+    except Exception:
+        return None          # cannot source the roll field -> do not cache this job
+    return ctx

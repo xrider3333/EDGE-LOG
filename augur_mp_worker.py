@@ -65,7 +65,7 @@ def _apply_costs(m, cost_pts):
 
 
 def init_worker(strategy_path, O, H, L, C, volumes, day_id, cost_pts, cache_ctx=None,
-                index=None):
+                index=None, roll=None):
     """Pool initializer — runs once per worker process. `cache_ctx` is a new,
     OPTIONAL trailing initarg (docs/INCREMENTAL_BACKTEST_REUSE.md, PR1) — existing
     8-positional-arg callers (optimizer.py's Streamlit app, tools/test_mp_worker.py)
@@ -93,6 +93,15 @@ def init_worker(strategy_path, O, H, L, C, volumes, day_id, cost_pts, cache_ctx=
     if index is not None and "index" in sp:
         extras["index"] = index
 
+    # ENGINE ROLL GUARD (2026-10-08): `roll` is a third optional trailing initarg - dict(root,
+    # times, tf, strategy, meta) from augur_engine.optimize.run_grid. With it, every trial runs in
+    # the roll context and a trial that held a trade across a contract switch on an unadjusted NQ /
+    # ES master reports a RollGuardError, which the parent turns into a refusal of the sweep.
+    _G["roll"] = roll
+    _G["R"] = None
+    if roll is not None:
+        from augur_engine import rolls as _rolls
+        _G["R"] = _rolls
     _G["fn"] = fn
     _G["extras"] = extras
     _G["cost_pts"] = float(cost_pts or 0.0)
@@ -145,7 +154,25 @@ def eval_chunk(chunk):
             except Exception:
                 key = None   # cache machinery failed -- fall through to a normal compute
         try:
-            if cost > 0:
+            R, roll = _G.get("R"), _G.get("roll")
+            if R is not None:
+                refuse = bool(roll.get("refuse"))
+                plan = roll.get("plan")
+                ratio = bool(plan) and plan.get("method") == "ratio"
+                with R.roll_context(roll["root"], roll["times"], roll["tf"], strategy=roll.get("strategy")):
+                    if cost > 0 or refuse or ratio:
+                        m = fn(O, H, L, C, return_trades=True, **extras, **p)
+                    else:
+                        m = fn(O, H, L, C, **extras, **p)
+                if m and plan:
+                    m = R.reprice_result(m, plan, 0)      # fills at raw contract prices (MANAGER #58)
+                if m and refuse:
+                    R.check_crossings(roll.get("strategy"), roll.get("meta"), roll["times"], m.get("trades"))
+                if m and cost > 0:
+                    m = _apply_costs(m, cost)
+                if m and (cost > 0 or refuse or ratio):
+                    m.pop("trades", None)
+            elif cost > 0:
                 m = fn(O, H, L, C, return_trades=True, **extras, **p)
                 if m:
                     m = _apply_costs(m, cost)

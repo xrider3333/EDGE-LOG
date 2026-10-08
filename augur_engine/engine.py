@@ -11,6 +11,7 @@ using the SAME rules as the Streamlit app:
 import inspect
 
 from .strategies import load_strategy
+from . import rolls as R
 from .data import find_master, load_master_arrays
 from .analytics import (monte_carlo_drawdown,
                         sharpe_from_trades as _sharpe_shared,
@@ -206,7 +207,7 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
                  cost_pts=0.0, return_trades=False, mc_sims=0, mc_block=1,
                  date_from=None, date_to=None, sizing=None,
                  ml_filter=None, ml_threshold=0.50, ml_min_history=30,
-                 ml_refit_every=25, adj_warn=False):
+                 ml_refit_every=25, adj_warn=False, roll_diff=False):
     """Run one backtest and return the metrics dict (with a "_meta" block).
 
     adj_warn: check whether a BACK-ADJUSTED master is being paired with a strategy whose
@@ -219,6 +220,10 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
     Data is resolved in priority order: explicit `arrays` -> explicit `master` row
     -> find_master(instrument, timeframe, session, source).
     cost_pts   : per-round-trip cost in POINTS (e.g. NQ $5.66 / $20 = 0.283).
+    roll_diff  : on an unadjusted NQ / ES master whose signals the roll plan adjusted, also run the
+                 file on RAW prices and put the trade-by-trade difference in
+                 _meta["roll_stamp"]["raw_vs_adjusted"] (TTM's check, MANAGER #58). One extra run,
+                 so off by default; the runner turns it on for the stamp of every saved run.
     """
     mod = strategy if hasattr(strategy, "run_backtest") else load_strategy(strategy)
     params = dict(params or {})
@@ -272,6 +277,31 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
     _gate_on = bool(ml_filter) and str(ml_filter).lower() not in ("", "none")
     want_trades = bool(return_trades or cost_pts > 0 or mc_sims > 0 or _gate_on or sizing)
 
+    # ── ENGINE ROLL GUARD (owner ask 2026-10-08; MANAGER #54 / #57 / #58, TTM review #56;
+    #    augur_engine/rolls.py). The ROLL PLAN decides what the strategy sees on an NQ / ES tape.
+    #    On an UNADJUSTED master its SIGNALS run on a jump-free series - difference-adjusted for
+    #    point logic, ratio-adjusted for % logic, declared by the file (ROLL_SIGNAL) or found by test -
+    #    and its FILLS and P&L are re-priced to raw contract prices with the roll step out (`_rfn`).
+    #    A file that fits neither keeps raw prices with the true seam calendar and is REFUSED if any
+    #    trade holds across a switch. Arrays that do not say what market they are are refused. Live /
+    #    paper paths are reported, never refused or changed. Every NQ / ES run carries a roll stamp. ──
+    _sname = getattr(mod, "__file__", None) or str(strategy)
+    if arrays.get("meta") is None and isinstance(master, dict):
+        arrays = dict(arrays, meta=master)
+    _raw_arrays = R.raw_view(arrays)      # sizing and the raw-vs-adjusted check read RAW prices
+    _rplan = R.plan_for(mod, arrays, _sname, params)
+    arrays = R.apply_plan(arrays, _rplan)
+    O, H, L, C = arrays["open"], arrays["high"], arrays["low"], arrays["close"]
+    params = {k: v for k, v in params.items() if k != "roll_treatment"}   # engine-only, never the file's
+    _rmeta = arrays.get("meta") or {}
+    _rtimes, _rtf = _rplan["times"], _rplan["tf"]
+    _rroot = _rplan["root"] if _rplan.get("refuse_crossings") else None    # who gets the crossing check
+    _rfn = R.bind(fn, _rplan["ctx_root"], _rtimes, _rtf, strategy=_sname, plan=_rplan)
+    _rstamp_on = _rplan.get("root") is not None and len(_rtimes) > 0
+    if _rplan.get("root") is not None:
+        want_trades = True        # the guard and the stamp read the trade list
+    R.warn_once(_rplan, _sname)
+
     # ── Trial-level result cache read-through (PR1, docs/INCREMENTAL_BACKTEST_
     #    REUSE.md) — CONSERVATIVE gate: only the plain path (no ML gate, no sizing
     #    overlay, no Monte-Carlo, caller doesn't want trades back) is eligible.
@@ -323,7 +353,8 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
     #    every real strategy shipped so far). ──
     _gross_trades = None
     _delta_trades = None
-    if _pr4_gate:
+    _wd_ok = _pr4_gate and not _rplan.get("adjust")     # stored deltas are not re-priced
+    if _wd_ok:
         try:
             _delta_trades = WD.try_extend(mod, arrays, params, cost_pts=cost_pts,
                                           session=session, date_from=date_from,
@@ -334,6 +365,8 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
         except Exception:
             _delta_trades = None
 
+    if _rroot is not None and _delta_trades:
+        R.check_crossings(_sname, _rmeta, _rtimes, _delta_trades)       # raises RollGuardError
     if _delta_trades is not None:
         # Same aggregation `_apply_costs` always uses — see this module's
         # docstring for why this makes delta-vs-full equality PROVABLE rather
@@ -341,8 +374,10 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
         res = _apply_costs({"trades": _delta_trades}, cost_pts)
         _gross_trades = _delta_trades
     else:
-        res = fn(O, H, L, C, **extras, **params, return_trades=want_trades)
+        res = _rfn(O, H, L, C, **extras, **params, return_trades=want_trades)
         _gross_trades = res.get("trades") if isinstance(res, dict) else None
+        if _rroot is not None and _gross_trades:
+            R.check_crossings(_sname, _rmeta, _rtimes, _gross_trades)   # raises RollGuardError
         if res and cost_pts > 0:
             res = _apply_costs(res, cost_pts)
 
@@ -399,10 +434,10 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
             _fee   = float(sp2.pop("fee_pts", cost_pts))
             _cap   = sp2.pop("cap_final", None)
             if _stopf and _orb:
-                _gross = fn(O, H, L, C, **extras, **params, return_trades=True)   # gross trades (fees applied per-size below)
+                _gross = _rfn(O, H, L, C, **extras, **params, return_trades=True)   # gross trades (fees applied per-size below)
                 _gtr = _gross.get("trades") if isinstance(_gross, dict) else None
                 if _gtr:
-                    _p, _r, _eb, _sd = _SZ.trade_features(_gtr, arrays, float(_stopf), int(_orb))
+                    _p, _r, _eb, _sd = _SZ.trade_features(_gtr, _raw_arrays, float(_stopf), int(_orb))
                     _base = _SZ.sized_metrics(_p, _r, _SZ.sizing_weights(_r, _eb, _sd, risk_parity=False),
                                               mult=_mult, fee_pts=_fee)
                     _over = _SZ.sized_metrics(_p, _r, _SZ.sizing_weights(_r, _eb, _sd, **sp2),
@@ -424,6 +459,29 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
         if mc_sims and res.get("trades"):
             res["mc"] = monte_carlo_drawdown([t[2] for t in res["trades"]],
                                              n_sims=int(mc_sims), block=int(mc_block))
+        _rstamp = None
+        if _rstamp_on:
+            try:
+                _rstamp = R.roll_stamp(_rmeta, _rtimes, res.get("trades") or _gross_trades,
+                                       R.point_value(_rmeta.get("instrument")), strategy_name=_sname,
+                                       pnl_in_usd=str(getattr(mod, "PNL_UNITS", "")).lower() == "usd",
+                                       kind=_rplan.get("kind"))
+                _rstamp.update(signal_method=_rplan.get("method"),
+                               method_source=_rplan.get("method_source"),
+                               method_tests=_rplan.get("tests"),
+                               no_fill_bars=_rplan.get("no_fill_bars"),
+                               warning=_rplan.get("warn"))
+                if roll_diff and _rplan.get("adjust"):
+                    _rstamp["raw_vs_adjusted"] = R.raw_vs_adjusted(
+                        fn, _raw_arrays, _gross_trades if _gross_trades is not None else res.get("trades"),
+                        _rplan, extras, params, strategy_name=_sname,
+                        mult=R.point_value(_rmeta.get("instrument")),
+                        pnl_in_usd=str(getattr(mod, "PNL_UNITS", "")).lower() == "usd",
+                        adj_arrays=arrays)
+                elif roll_diff:
+                    _rstamp["raw_vs_adjusted"] = "not run: signals were not adjusted (%s)" % _rplan.get("kind")
+            except Exception:
+                _rstamp = None    # a stamp failure never fails a run that the guard let through
         if not return_trades:
             res.pop("trades", None)
         res["_meta"] = {
@@ -432,6 +490,8 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
             "bars": int(len(C)),
             "cost_pts": float(cost_pts),
         }
+        if _rstamp is not None:
+            res["_meta"]["roll_stamp"] = _rstamp
         if adj_warn:
             # Additive only, and never fatal: adj_level swallows its own failures and returns
             # None, so a run that would have finished still finishes.
@@ -456,7 +516,7 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
         # popped above whenever not return_trades). Best-effort, gated
         # identically to the read side (window_delta._eligible) — a genuine
         # no-op for every strategy that hasn't opted into STATELESS_AT_EOD.
-        if _pr4_gate and _gross_trades:
+        if _wd_ok and _gross_trades:
             try:
                 WD.record_full(mod, arrays, params, cost_pts=cost_pts, session=session,
                                date_from=date_from, date_to=date_to, master=master,

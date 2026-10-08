@@ -39,7 +39,7 @@ def _bars(n=9000, seed=7):
     vol = np.abs(rng.normal(1000, 200, n))
     idx = np.datetime64("2020-01-01T00:00") + np.arange(n) * np.timedelta64(1, "m")
     return {"open": open_, "high": high, "low": low, "close": close, "volume": vol,
-            "index": idx}
+            "index": idx, "meta": {"roll_mode": "none"}}
 
 
 CASES = [

@@ -43,7 +43,7 @@ def _make_arrays(n_days=N_DAYS):
     day_id = np.repeat(np.arange(n_days), PER_DAY).astype("int64")
     idx = pd.date_range("2026-03-02 09:30", periods=n, freq="5min", tz="US/Eastern")
     return {"open": openp, "high": high, "low": low, "close": close, "volume": vol,
-            "day_id": day_id, "index": idx, "meta": {"name": "SYN"}}
+            "day_id": day_id, "index": idx, "meta": {"name": "SYN", "roll_mode": "none"}}
 
 
 @pytest.fixture(scope="module")

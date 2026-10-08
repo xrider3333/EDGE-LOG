@@ -288,8 +288,12 @@ def _run_tail(mod, arrays, params, split, n_total):
             ex["day_id"] = did[split:n_total]
         if IDX is not None and (has_kw or "index" in sp):
             ex["index"] = IDX[split:n_total]
-        res = fn(O[split:n_total], H[split:n_total], L[split:n_total], C[split:n_total],
-                 return_trades=True, **ex, **params)
+        from . import rolls as _R           # engine roll guard: run inside this series' roll context
+        _rm = arrays.get("meta") or {}
+        _rt = _R.epoch_seconds(IDX) if IDX is not None else _R.epoch_seconds([])
+        with _R.roll_context(_R.unadjusted_futures_root(_rm), _rt, _R.tf_seconds_of(_rm, _rt)):
+            res = fn(O[split:n_total], H[split:n_total], L[split:n_total], C[split:n_total],
+                     return_trades=True, **ex, **params)
         if not isinstance(res, dict):
             return []
         trades = res.get("trades")

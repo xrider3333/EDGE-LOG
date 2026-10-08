@@ -509,6 +509,11 @@ def run_leg(key, cfg, arrays):
     applies gap-skip / ML gate / share economics on top of its raw trade
     list. Returns (rows, meta) — rows is a list of blotter dicts, meta has
     diagnostic info for --status / troubleshooting."""
+    if not arrays.get("meta"):
+        # ENGINE ROLL GUARD (MANAGER #58 A): arrays must say what market they are. QQQ shares
+        # have no contract rolls. Set here, not in build_arrays: cloud_signal.closed_arrays masks
+        # every key of build_arrays' output.
+        arrays = dict(arrays, meta={"instrument": "QQQ", "source": "yahoo_rth", "name": "qqq_paper"})
     res = engine_run_backtest(cfg["strategy"], arrays=arrays, params=cfg["params"],
                               cost_pts=0.0, return_trades=True)
     meta = {"raw_trades": 0, "gap_skipped": 0, "gate_skipped": 0, "gate_note": None,

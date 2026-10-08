@@ -1,0 +1,3 @@
+# tools/ files that already defined a roll detector before the 2026-10-08 ship lint (historical research).
+# Written once; never add a line - a new tool imports augur_engine.rolls instead.
+tools/r16_misc_triage.py

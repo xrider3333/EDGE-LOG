@@ -53,7 +53,7 @@ def _make_arrays(n, const=100.0):
     on (mirrors test_auto_expand.py's `_make_arrays` convention)."""
     c = np.full(n, const)
     return {"open": c.copy(), "high": c + 1.0, "low": c - 1.0, "close": c.copy(),
-            "volume": None, "day_id": None, "index": None}
+            "volume": None, "day_id": None, "index": None, "meta": {"roll_mode": "none"}}
 
 
 def _linear_strategy():
@@ -122,7 +122,7 @@ def test_is_max_loses_to_steadier_candidate_on_wf_oos_folds():
     close = np.full(n, MARKER + 1.0)
     close[0] = MARKER
     arrays = {"open": close.copy(), "high": close + 1, "low": close - 1,
-              "close": close.copy(), "volume": None, "day_id": None, "index": None}
+              "close": close.copy(), "volume": None, "day_id": None, "index": None, "meta": {"roll_mode": "none"}}
 
     champ = {"knob": 9.0}
     bestA = {"total_pnl": 50000.0, "num_trades": 10, "profit_factor": 3.0, "max_drawdown": -10.0}

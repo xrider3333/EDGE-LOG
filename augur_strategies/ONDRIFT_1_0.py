@@ -94,47 +94,7 @@ def _third_weekday(year, month, weekday=2):
     return first + pd.Timedelta(weeks=2)
 
 
-def detect_roll_seams(day_open, day_close, day_ts, ratio_th=2.5, abs_th=15.0,
-                       base_win=60, pre_days=12, post_days=2):
-    """Return a sorted list of daily-bar indices `s` such that the jump
-    close[s-1] -> open[s] is a detected quarterly roll seam. Copied verbatim from
-    TTIBS_1_0.py (calibrated on the 2010-2025-06-30 NQ window; see that file's docstring
-    and scratchpad/ttibs/ttibs_triage_prereg.md for the calibration detail) -- kept as an
-    exact copy rather than a cross-import so this plugin stays self-contained per house
-    convention (no strategy file imports another strategy file at runtime).
-    """
-    n = len(day_close)
-    if n < base_win + 5:
-        return []
-    ts = pd.DatetimeIndex(day_ts)
-    if ts.tz is not None:
-        ts = ts.tz_localize(None)             # compare tz-naive vs. tz-naive 3rd-Wed refs
-    gap = np.empty(n); gap[:] = np.nan
-    gap[1:] = day_open[1:] - day_close[:-1]
-    abs_gap = np.abs(gap)
-
-    baseline = np.full(n, np.nan)
-    for i in range(base_win, n):
-        window = abs_gap[i - base_win:i]
-        window = window[~np.isnan(window)]
-        if len(window) >= max(10, base_win // 3):
-            baseline[i] = np.median(window)
-
-    quarters = sorted({(t.year, t.month) for t in ts if t.month in (3, 6, 9, 12)})
-    seams = []
-    for (y, m) in quarters:
-        wed3 = _third_weekday(y, m)
-        win_start = wed3 - pd.Timedelta(days=pre_days)
-        win_end = wed3 + pd.Timedelta(days=post_days)
-        idx_in_win = [i for i in range(n) if win_start <= ts[i] <= win_end
-                      and not np.isnan(gap[i]) and not np.isnan(baseline[i])]
-        if not idx_in_win:
-            continue
-        best = max(idx_in_win, key=lambda i: abs_gap[i])
-        if abs_gap[best] >= abs_th and baseline[best] > 0 and \
-           (abs_gap[best] / baseline[best]) >= ratio_th:
-            seams.append(best)
-    return sorted(seams)
+from augur_engine.rolls import seam_days as detect_roll_seams  # the ONE audited seam calendar (tools/data/rolls_<ROOT>.csv); engine roll guard 2026-10-08 - this file's own day-level copy is retired (ROLL_AUDIT 09-25, MANAGER #54)
 
 
 def run_backtest(

@@ -778,6 +778,10 @@ def closed_arrays(all_epoch_df, now, timeframe, warmup_sessions):
     import numpy as np
     mask = np.array(mask)
     out = {k: (v[mask] if k != "index" else v[mask]) for k, v in arrays.items()}
+    # ENGINE ROLL GUARD (MANAGER #58 A): arrays must say what they are. These feed live / paper /
+    # shadow legs only, which the engine reports and never refuses or changes (MANAGER D2).
+    if not out.get("meta"):
+        out["meta"] = {"roll_mode": "live", "name": "cloud_signal.closed_arrays"}
     return out
 
 

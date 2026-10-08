@@ -45,7 +45,7 @@ def _make_arrays(n, const=100.0, with_index=False):
     idx = (pd.date_range("2020-01-01", periods=n, freq="5min", tz="US/Eastern")
            if with_index else None)
     return {"open": c.copy(), "high": c + 1.0, "low": c - 1.0, "close": c.copy(),
-            "volume": None, "day_id": None, "index": idx}
+            "volume": None, "day_id": None, "index": idx, "meta": {"roll_mode": "none"}}
 
 
 def _knob_strategy():
@@ -75,7 +75,7 @@ def _ramp_arrays(n, with_index=True):
     idx = (pd.date_range("2020-01-01", periods=n, freq="5min", tz="US/Eastern")
            if with_index else None)
     return {"open": close.copy(), "high": close + 1.0, "low": close - 1.0,
-            "close": close.copy(), "volume": None, "day_id": None, "index": idx}
+            "close": close.copy(), "volume": None, "day_id": None, "index": idx, "meta": {"roll_mode": "none"}}
 
 
 _WF_ANCH = {"ran": True, "folds": [{"train_bars": 60, "test_bars": 70},

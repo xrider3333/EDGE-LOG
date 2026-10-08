@@ -30,7 +30,7 @@ def _arrays():
     return {"open": c, "high": c + 0.5, "low": c - 0.5, "close": c,
             "volume": np.full(n, 100.0),
             "day_id": np.repeat(np.arange(n // 78 + 1), 78)[:n], "index": idx,
-            "meta": {"name": "SYN"}}
+            "meta": {"name": "SYN", "roll_mode": "none"}}
 
 
 def _gross_trades(n_bars):

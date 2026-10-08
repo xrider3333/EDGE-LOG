@@ -248,7 +248,7 @@ def _cost_fix_strategy():
 def _flat_arrays(n=4500, index=None):
     c = np.full(n, 100.0)
     return {"open": c.copy(), "high": c + 1.0, "low": c - 1.0, "close": c.copy(),
-            "volume": None, "day_id": None, "index": index}
+            "volume": None, "day_id": None, "index": index, "meta": {"roll_mode": "none"}}
 
 
 def test_oos_pnls_now_sums_to_oos_pnl_with_cost_pts_positive():
