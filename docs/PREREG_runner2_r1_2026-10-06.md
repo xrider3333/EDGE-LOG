@@ -68,6 +68,17 @@ after the cache end and outside every test window. None is recorded as a day-2 t
 sheet-only trades (2025-11-11..2026-03-10) fall inside the unread stock sealed year (2025-06-30..2026-06-30). If that
 year is ever read for this leg, those 18 name-days are excluded (precedent: ALGO_SCOPE.md lines 148-151).
 
+## AMENDMENT 1 - the photograph as read, the late FB/META probe, and the harness readings (2026-10-07, before any count)
+
+PMFAIL r1's AMENDMENT 1 (docs/PREREG_pmfail_r1_2026-10-06.md) governs here too: the photograph as read (manifest
+bac11716..., 0 file mismatches, unpinned digest 5b2138268a6e1845...), the FB/META probe run after the pull
+(`tools/disc_gapper_probe.py`, read with `--probe-log`; this harness needs SAME MAPPING on 1Day, 5Min, 1Min and quotes),
+the clarifications (the coin-flip leg's own N*; cap binding at fixed sizes in step 1 and at N* in `--run`; condition 4
+from three sources) and the order of work (TTM's leak review before any real-direction number). This harness is the
+registered `tools/disc_runner2_r1_stageA.py` (the builder's runner2_r1_stageA.py was renamed before any number). RUNNER2's
+own read of the pull: 9,480 bars files verified (all served; 4 empty), 180 marks files, 1,440 marks served by sort=desc,
+63 empty on 45 name-days.
+
 ## 1. Question and mechanism
 
 Does shorting day 2 of a small-cap runner (a stock that closed at least 40% up) earn after costs, once the day-2 tape

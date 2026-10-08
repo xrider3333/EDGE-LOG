@@ -1,0 +1,46 @@
+PS-TAG r1 - NOISE #304 WF trades x the point score ps1.2 (REPORT; docs/REPORT_pstag_r1_2026-10-07.md)
+  trades: 2797 WF (signal 2016-07-01 .. 2025-06-27); = the #422 anatomy's build() trade for trade (2797)
+  R parity: 110 stopped trades sit exactly 1.75 x band width from the fill (max |diff| 1.8e-12 pts)
+  risk (pts): median 62.5, 5%-95% 14.9 .. 203.3; single-trade sessions 799 trades (29%), 97% of unit $
+  1m bar: 2797 at signal start + 4 min, 0 earlier inside the 5m bar, 0 none
+  scored: 2797 of 2797 (no informative point: 0); informative points per trade: {5: 108, 6: 2689}
+  NA by point (count / top reason):
+    ma200_10s   2797  no 10-second data
+    ma200_1m       0  
+    ma200_5m       0  
+    ma200_30m      0  
+    y_low        108  prior session incomplete
+    y_close      108  prior session incomplete
+    y_high       108  prior session incomplete
+    big_body       0  
+    big_vol        0  
+  constant points (must be ~100% hit; never in the score):
+    LONG  y_low 1.0000  y_close 1.0000
+    SHORT y_close 1.0000  y_high 1.0000
+  score % distribution: {0.0: 3, 0.167: 72, 0.2: 1, 0.333: 393, 0.4: 50, 0.5: 889, 0.6: 54, 0.667: 1271, 0.8: 3, 0.833: 45, 1.0: 16}
+
+READ
+  PRIMARY Spearman(score %, R) = +0.0529  vs null p95 +0.0292  (n 2797)
+  halves: H1 2016-07..2021-12 +0.0528 (n 1795)  H2 2022-01..2025-06 +0.0455 (n 1002)
+  VERDICT: PASS - the score stays a label on crown signals (never a gate or size)
+  secondary: score above the WF median 0.500: n 1389 mean R +0.125 | at or below: n 1408 mean R +0.021
+
+REPORTED (never a verdict)
+  single sessions: rho +0.0524 vs its null p95 +0.0642 (n 799, mean R +0.353)
+  multi  sessions: rho +0.0382 vs its null p95 +0.0315 (n 1998, mean R -0.040)
+  Spearman(score %, unit $) = +0.0423
+  per point (hit rate; mean R hit / miss):
+    LONG  ma200_1m   hit 0.828  R hit +0.077  miss +0.027  (n 1708 / 355)
+    LONG  ma200_5m   hit 0.978  R hit +0.070  miss -0.002  (n 2018 / 45)
+    LONG  ma200_30m  hit 0.776  R hit +0.095  miss -0.022  (n 1600 / 463)
+    LONG  y_high     hit 0.654  R hit +0.107  miss -0.003  (n 1301 / 689)
+    LONG  big_body   hit 0.021  R hit +0.079  miss +0.068  (n 43 / 2020)
+    LONG  big_vol    hit 0.023  R hit +0.379  miss +0.061  (n 47 / 2016)
+    SHORT ma200_1m   hit 0.837  R hit +0.103  miss -0.017  (n 614 / 120)
+    SHORT ma200_5m   hit 0.996  R hit +0.083  miss +0.347  (n 731 / 3)
+    SHORT ma200_30m  hit 0.850  R hit +0.092  miss +0.037  (n 624 / 110)
+    SHORT y_low      hit 0.671  R hit +0.058  miss +0.146  (n 469 / 230)
+    SHORT big_body   hit 0.033  R hit +0.021  miss +0.086  (n 24 / 710)
+    SHORT big_vol    hit 0.035  R hit -0.008  miss +0.087  (n 26 / 708)
+  per July-June year (n, rho):
+    2016 407 +0.011  2017 255 +0.156  2018 335 +0.067  2019 321 -0.003  2020 317 +0.018  2021 298 +0.172  2022 273 -0.009  2023 339 +0.035  2024 252 +0.040

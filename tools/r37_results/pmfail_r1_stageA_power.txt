@@ -1,0 +1,18 @@
+inputs verified: daily_raw.parquet fa42412d579a, daily_split.parquet 083f8c23d1d6, corporate_actions_wide.csv e5bc8487daf9, assets.csv b85928ff655a, residual_days.csv bfe64d87a2cf, line.csv 98f3edc74362, a2.json 0c27cb47fe24, episodes.csv ebfb67c03a25, book463_daily.csv d1543735b540, shares_asfiled_wide.csv 02387a4f1140, xbrl_shares_frames.csv bba7f8737680, namedays_r1.csv e9ca777ae11a
+universe: 5,367 symbols x 2,385 sessions (2016-01-04 .. 2025-06-27); symbols with split bars 100.0%
+context: 5,882 name-days (2,591 registered); S1 parity on 2,254 symbols; LOWFLOAT {'not_rebased': 109}; book parity {'book': {'roc': np.float64(93.80564553186828), 'sortino': 3.8164956486076416, 'dd': 44848.66010451401}, 'L': {'roc': np.float64(120.82175023191188), 'sortino': 3.9164915022956803}, 'line_book_vs_mtm_max_abs': 4.911433961751754e-07}
+photograph verified: {'manifest': 'C:\\EdgeLog\\alpaca_cache\\disc_gapper\\manifest.jsonl', 'manifest_sha256': 'bac117160c00a3f7e72db00600e0400a85826cb1fd1fe8d230cf4a47256d90c9', 'probe_log_sha256': '54d73395c7eeaff918e4025514421c4b163448801c00ab36cce8a9fe6ec423a0', 'run_headers': 1, 'requests': 11280, 'request_rows': 12146, 'requests_with_several_page_rows': 133, 'files_verified': 10020, 'bytes_verified': 1625225201, 'files_named_by_several_rows': 313, 'files_pinned_by_row': 9480, 'files_unpinned_hashed': 540, 'unpinned_digest': '5b2138268a6e1845b05cef37a89a4b75718e96fcd1e78868d11400e417f5a0f7', 'status_by_kind': {'bars': {'200': 9480}, 'quotes_runner2_mark': {'200': 1440}, 'quotes_pmfail_am': {'200': 180}, 'quotes_pmfail_close': {'200': 180}}, 'feed_by_kind': {'bars': {'sip': 9480}, 'quotes_runner2_mark': {'sip': 1440}, 'quotes_pmfail_am': {'sip': 180}, 'quotes_pmfail_close': {'sip': 180}}, 'full': True}
+POWER LINE (paired stationary block bootstrap, mean block 20, 1000 draws, seed 20261005; 2626 days, 8.99 years)
+  SD of the bootstrapped ROC@$30k lead: 9.6 points
+  MINIMUM DETECTABLE lead for a 5th percentile above zero: 15.8 points (50% power)
+  lead needed to clear the bar four times in five: 23.8 points (80% power)
+  (the lead itself is not computed for display - write these lines into the pre-registration first)
+POWER LINE (paired stationary block bootstrap, mean block 20, 1000 draws, seed 20261005; 2626 days, 8.99 years)
+  SD of the bootstrapped ROC@$30k lead: 7.5 points
+  MINIMUM DETECTABLE lead for a 5th percentile above zero: 12.3 points (50% power)
+  lead needed to clear the bar four times in five: 18.6 points (80% power)
+  (the lead itself is not computed for display - write these lines into the pre-registration first)
+
+PMFAIL r1 STEP 3 - POWER LINE (coin-flip leg, 914 trades at its own N*; no real direction computed)
+  vol_c      k 1.2935: SD 9.6  5% line 15.8  80% line 23.8
+  own_dd_30k k 0.9281: SD 7.5  5% line 12.3  80% line 18.6

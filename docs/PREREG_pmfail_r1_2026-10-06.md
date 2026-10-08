@@ -56,6 +56,47 @@ id). Shares one Alpaca pull with RUNNER2 r1 (docs/PREREG_runner2_r1_2026-10-06.m
 GO WITH EDITS at MANAGER #41 (Amendment 0); this draft may sit on main labelled DRAFT. Revised 2026-10-06 after the
 instrument / rules / tradable review, before any pull.
 
+## AMENDMENT 1 - the photograph as read, the late FB/META probe, and the harness readings (2026-10-07, before any count)
+
+Filed before `--counts`, `--power`, the null or any return. No rule in sections 4-15 changes. RUNNER2 r1 points here as
+its own Amendment 1.
+- **The photograph (MANAGER #47).** manifest.jsonl sha256 bac117160c00a3f7... (5,997,704 bytes): 1 run_header and 12,146
+  request rows = 11,280 requests (133 quote requests span several pages), every one status 200, feed=sip on every row.
+  SHA256SUMS.txt's 19b81cf5... is the hash of its LF-normalised text (the file on disk has CRLF line ends: 41e6f29d...).
+  The run_header's "rows_in_list": 3 was written by the 3-name-day probe run (`--limit 3`); the full run appended to the
+  same manifest without a second header. The list sha it cites is namedays_r1.csv's e9ca777a....
+- **Read back by the harness loader (2026-10-07, no signal, no return):** 10,020 files, 1,625,225,201 bytes, 0 mismatches
+  against SHA256SUMS.txt; the 9,480 bars files are one page each and each is pinned byte for byte by its row; the 540
+  quote files (the wrapper re-serialises them) hash into the unpinned digest 5b2138268a6e1845..., which every later step
+  must reproduce. 3,937,944 1m bars (MANAGER's count); 4 name-days served zero bars (counted, never patched). PMFAIL
+  quote windows: 180 + 180 served, 1 close window empty (NRXP 2021-07-23). RUNNER2 marks: all 1,440 served by sort=desc
+  (no asc fallback); 63 are empty (no quote in the 60 s before the mark) on 45 name-days.
+- **The FB/META probe ran late.** Section 17 puts it before the pull; the pull ran without it and the manifest holds no
+  probe row. It runs AFTER the pull, without touching the photograph: `tools/disc_gapper_probe.py`, run by MANAGER
+  through the wrapper, asks 1Day, 5Min, 1Min (feed=sip) and quotes (feed=sip) whether FB and META serve the same
+  records on 2019-01-02, and writes probe_fbmeta.log next to the photograph. Both harnesses take it as `--probe-log`,
+  stamp its sha256, and refuse unless every endpoint prints SAME MAPPING. A DIFFERENT line stops the work and goes to
+  MANAGER: the photograph is then void, as section 17 says.
+- **A harness fix found on the real files.** A one-page quotes file can match its page's size by chance (NRXP
+  2021-07-23 close: the served page and the saved file are both 36 bytes, with different bytes) and was read as pinned,
+  so the check refused a good file. Only a one-page BARS file is pinned now; quotes and marks files always go to the
+  digest. Tested.
+- **Lane clarifications** (the text leaves a choice; every reading is listed in each harness's docstring /
+  INTERPRETATIONS and filed into counts.json):
+  1. *Power-line sizing.* Section 10 (RUNNER2 section 9) sizes the coin-flip leg at "P's N*", but N* needs the real
+     direction's drawdown, and the power line must come first. The coin-flip leg solves its OWN N* with the same solver.
+     Both power readings rescale the leg (at c, and at a $30k own drawdown), so this choice only changes which trades
+     the 1% dollar-volume cap binds.
+  2. *RUNNER2 "cap binding at N*" in step 1.* No N* exists before P&L: the count step prints cap binding at fixed sizes
+     $5k..$500k; the at-N* capacity line prints in `--run`.
+  3. *Condition 4 (a reverse split in the prior 60 days).* Three sources print side by side with their agreement: the
+     daily-ratio flag recomputed (and asserted equal to the builder's S1), the calendar's reverse_split rows through the
+     name_change chain, and the builder's registered test M (price-only, per its calibration).
+  4. *PMFAIL "halted-into-close exits" in `--counts`* = fills whose exit window is empty, a ceiling (no exit walk runs
+     before P&L); the trade-level count prints in `--run`.
+- **Order of work.** Probe -> `--counts` (both legs) -> `--power` -> the four-cell null (this harness) -> TTM's leak
+  review of both harnesses (MANAGER #47) -> the real runs. No real-direction number exists before TTM's review.
+
 ## 1. Question and mechanism
 
 On a small-cap gap-up day, when the regular session trades above the premarket high and then closes a 5m bar back below it,

@@ -1,0 +1,25 @@
+PS-TAG r1 - NOISE #304 WF trades x the point score ps1.2 (REPORT; docs/REPORT_pstag_r1_2026-10-07.md)
+  trades: 2797 WF (signal 2016-07-01 .. 2025-06-27); = the #422 anatomy's build() trade for trade (2797)
+  R parity: 110 stopped trades sit exactly 1.75 x band width from the fill (max |diff| 1.8e-12 pts)
+  risk (pts): median 62.5, 5%-95% 14.9 .. 203.3; single-trade sessions 799 trades (29%), 97% of unit $
+  1m bar: 2797 at signal start + 4 min, 0 earlier inside the 5m bar, 0 none
+  scored: 2797 of 2797 (no informative point: 0); informative points per trade: {5: 108, 6: 2689}
+  NA by point (count / top reason):
+    ma200_10s   2797  no 10-second data
+    ma200_1m       0  
+    ma200_5m       0  
+    ma200_30m      0  
+    y_low        108  prior session incomplete
+    y_close      108  prior session incomplete
+    y_high       108  prior session incomplete
+    big_body       0  
+    big_vol        0  
+  constant points (must be ~100%% hit; never in the score):
+    LONG  y_low 1.0000  y_close 1.0000
+    SHORT y_close 1.0000  y_high 1.0000
+  score % distribution: {0.0: 3, 0.167: 72, 0.2: 1, 0.333: 393, 0.4: 50, 0.5: 889, 0.6: 54, 0.667: 1271, 0.8: 3, 0.833: 45, 1.0: 16}
+
+NULL (1,000 within-July-June-year shuffles of the score; seed 20261005; no real rho computed):
+  all     n  2797  p05 -0.0346  p50 -0.0041  p95 +0.0292  sd 0.0196
+  single  n   799  p05 -0.0468  p50 +0.0097  p95 +0.0642  sd 0.0340
+  multi   n  1998  p05 -0.0421  p50 -0.0038  p95 +0.0315  sd 0.0224

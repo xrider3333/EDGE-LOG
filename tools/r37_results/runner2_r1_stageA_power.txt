@@ -1,0 +1,13 @@
+POWER LINE (paired stationary block bootstrap, mean block 20, 1000 draws, seed 20261005; 2626 days, 8.99 years)
+  SD of the bootstrapped ROC@$30k lead: 12.3 points
+  MINIMUM DETECTABLE lead for a 5th percentile above zero: 20.2 points (50% power)
+  lead needed to clear the bar four times in five: 30.5 points (80% power)
+  (the lead itself is not computed for display - write these lines into the pre-registration first)
+POWER LINE (paired stationary block bootstrap, mean block 20, 1000 draws, seed 20261005; 2626 days, 8.99 years)
+  SD of the bootstrapped ROC@$30k lead: 4.3 points
+  MINIMUM DETECTABLE lead for a 5th percentile above zero: 7.1 points (50% power)
+  lead needed to clear the bar four times in five: 10.8 points (80% power)
+  (the lead itself is not computed for display - write these lines into the pre-registration first)
+POWER (coin-flip leg on P's schedule; SD and lines only)
+  vol_c: SD 12.27  5% line 20.18  80% line 30.50
+  own_dd_30k: SD 4.33  5% line 7.12  80% line 10.77

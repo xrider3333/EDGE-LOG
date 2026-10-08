@@ -308,6 +308,7 @@ def test_every_alpaca_request_path_is_paced():
     """A limiter half the callers bypass does not limit anything. These are every place in the
     repo that sends an Alpaca bars request."""
     for rel in ("tools/import_alpaca_stocks.py", "tools/backfill_qqq_5m_alpaca.py",
-                "tools/rocfrontier/r5_nqbrd.py", "tools/rocfrontier/r5_siporb.py"):
+                "tools/rocfrontier/r5_nqbrd.py", "tools/rocfrontier/r5_siporb.py",
+                "tools/disc_gapper_probe.py"):
         src = open(os.path.join(ROOT, *rel.split("/")), encoding="utf-8").read()
         assert "alpaca_rate" in src, f"{rel} sends Alpaca requests without the shared pace"

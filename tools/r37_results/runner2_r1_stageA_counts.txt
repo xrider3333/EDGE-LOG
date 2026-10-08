@@ -1,0 +1,7 @@
+RUNNER2 r1 COUNTS (section 11 step 1; no P&L)
+  feed sip; registered events 1757
+  2016-17:20 2017-18:29 2018-19:30 2019-20:144 2020-21:122 2021-22:63 2022-23:76 2023-24:91 2024-25:216
+  outcomes: no_bars 1, no_signal 186, ssr_active 774, no_fill_bar 5, resume_bar 0, E_ge_S 0, filled 791
+  COUNT GATE (bar 4): n 791  n/yr 87.95  mean>=50 True  n>=100 True  thin(<25) ['2016-17']  -> PASS
+  spreads: lt5 h50 0.2489% h75 0.3562% n 90 (measured); 5to20 h50 0.2224% h75 0.4504% n 90 (measured)
+  omega 791 sessions sha256 28bbb4458082d239828cdf7954a36752f1b8de67b0331f710dfb3b4dd48fe907

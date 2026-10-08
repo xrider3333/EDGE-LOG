@@ -1,0 +1,20 @@
+RUNNER2 r1 COUNTS (section 11 step 1; no P&L)
+  feed sip; registered events 1757
+  2016-17:20 2017-18:29 2018-19:30 2019-20:144 2020-21:122 2021-22:63 2022-23:76 2023-24:91 2024-25:216
+  outcomes: no_bars 1, no_signal 186, ssr_active 774, no_fill_bar 5, resume_bar 0, E_ge_S 0, filled 791
+  COUNT GATE (bar 4): n 791  n/yr 87.95  mean>=50 True  n>=100 True  thin(<25) ['2016-17']  -> PASS
+  spreads: lt5 h50 0.2489% h75 0.3562% n 90 (measured); 5to20 h50 0.2224% h75 0.4504% n 90 (measured)
+  omega 791 sessions sha256 28bbb4458082d239828cdf7954a36752f1b8de67b0331f710dfb3b4dd48fe907
+RUNNER2 r1 STAGE A: verdict FAIL
+  bar  1: FAIL  {"roc30": -2.3968446325577606, "route": "none", "rsum": -9376.160625375604, "rsum_ex3": -16416.845149783756, "null_p95_rsum": 32490.82359491347}
+  bar  2: FAIL  {"roc30": -2.3968446325577606, "null_p95_roc30": 3.951869628818973}
+  bar  3: FAIL  {"pf": 0.8056515834413001}
+  bar  4: PASS  {"n": 791, "n_per_year": 87.94908675799087, "mean_ge_50": true, "n_ge_100": true, "pass": true, "per_year": {"2016-17": 20, "2017-18": 29, "2018-19": 30, "2019-
+  bar  5: FAIL  {"years_positive": 3, "per_year_net": {"2016-17": 11368.725016921968, "2017-18": -6946.520987456652, "2018-19": 3105.387095418849, "2019-20": 4134.599687249594,
+  bar  6: FAIL  {"t": -2.143233238026718, "null_p95_t": 1.143770407476239}
+  bar  7: FAIL  {"stress_net": -109263.02678233437}
+  bar  8: FAIL  {"net_without_best_day": -46342.80354177911, "net_without_best_trade": -43706.87564824763}
+  bar  9: FAIL  {"net_without_2020_02_15_04_30": -49005.424189021134, "net_without_2020_2021": -36872.88328272452}
+  bar 10: FAIL  {"w_net": -58838.033706110575}
+  bar 11: FAIL  {"reading_n_net": -44152.35597840019}
+  bar 12: FAIL  {"n": 478, "stress_net": -55380.31900670556, "pf_base": 0.8603355885430319, "pf_stress": 0.5978140497865864}
