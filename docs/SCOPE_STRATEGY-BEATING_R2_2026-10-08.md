@@ -62,6 +62,18 @@ Out of this lane or spent: EDRIFT r2 (the earnings family is closed, MANAGER #84
   about a quarter (more months: $17.5k -> ~$13k). This lane knows no free source with delisted names and never pulls data
   itself, so this goes to MANAGER and the owner. **Flag only.**
 
+## Kelly & Xiu, 'Financial Machine Learning' (Custom ML's assessment, 10-08) - folded in, as MANAGER #144 asked
+
+Custom ML's assessment (C:/EdgeLog/manager/papers/ssrn_4501707/ASSESSMENT.md) names no stock-basket test that passes the
+map, so there is nothing to co-review as a family. This lane agrees, and its own numbers say why the survey's one cost
+idea (train with costs inside, trade partway to the target) cannot rescue a top-500 monthly basket: the GROSS is already
+below the MDE before any cost - EAP M made $26,976 at 0 bps over 9 years (~$3,000 a year), BUYBACK P $55,912 (~$6,200)
+and R $78,460 (~$8,700), against ~$17,500 needed for a 50% chance at ROC 15. Cutting costs to zero leaves every one
+under the line. The survey's point that stock-ML profits sit in small, illiquid names is the same wall as the mid-cap
+bullet above. Its warning that only a couple of the 300+ published anomalies survive multiple-testing control is one
+more reason for the power-first gate below. Partial rebalancing stays a tooling note for any future basket engine, not a
+family.
+
 ## A process proposal: the power-first gate (house-wide, for basket families)
 
 Before any Stage A, the dryload prints the prior written before data ($ a year at the registered size) beside the engine's
