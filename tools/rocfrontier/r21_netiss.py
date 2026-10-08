@@ -81,9 +81,10 @@ LB_FACTS = None          # [A17] Stage B: the lockbox year's share facts (filed 
 CHECK_BOOK = True        # refuse to judge if the #463 records / the DD structure / the cache manifest / the reference / the cache's first session do not reproduce the registered facts; a real run always checks (only smoke() may switch it)
 HYG = M17.HYG            # the four data-hygiene reasons [T2]
 AUD = M17.AUD            # the tag of this harness's rows in World.aud_hit (r17_resmom's: its unused_audit_rows reads it)
-JUDGED = "keep"          # [A18] POST-DATA BUG FIX (2026-10-07; MANAGER #116 / #118 / #119, TTM #117): the judged reading and its null keep a name flagged INSIDE the hold, on the split-safe path; only an announced (calendar) split or a [D2] ex-date inside the hold removes it. 'remove' (the leaky reading Stage A first ran on 2026-10-06) is REPORTED, null-less
-LAB_J = "judged (names flagged inside the hold stay, on the split-safe path; only an announced split or a [D2] ex-date inside the hold removes a name) [A18]"
+JUDGED = "close"         # [A22] MANAGER's HYGIENE EDIT S1 (#127, 2026-10-07; amends [A18] before any corrected NETISS number): the judged reading and its null remove NO name for an in-hold event - flagged names and splits stay on the split-safe path - and a spin-off / stock-dividend ex-date inside the hold CLOSES the position at the official close of the session before it (r17_resmom's post_mode 'close'). [A18]'s removal reading ('keep') and the leaky 'remove' reading are REPORTED, null-less
+LAB_J = "judged (no in-hold removal: flagged names and splits on the split-safe path; a spin-off / stock-dividend ex-date inside the hold closes the position at the close before it) [A22]"
 LAB_R = "the leaky 'remove' reading (a flag inside the hold removed the name before the ranking; REPORTED, never the verdict) [A18]"
+LAB_A = "[A18]'s removal reading (an announced split or a spin-off / stock-dividend ex-date inside the hold removed the name at the rank; REPORTED, never the verdict) [A22]"
 GO_FLAG, READ_FLAG = "netiss_stageB_GO.flag", "netiss_stageB_READ.flag"     # Stage B needs the lead's go-flag; the one-shot read flag is written (exclusively) after every load and check
 RULES = M17.RULES        # Stage A (a) - (e) and Stage B's leg veto are r17_resmom's own (the booleans are switches only smoke() ever turns off)
 SPEC = {"min_scored": 150, "min_side": 20,          # fewer than 150 scored names: the bottom / top THIRD, at least 20 a side, else nothing (counted)
@@ -757,7 +758,10 @@ def share_classes(W, f, cols, idx):
 
 def slice_units(U, idx):
     """r17_resmom's unit paths of the whole pool cut to the rows `idx` (a cell's scored names)"""
-    return SimpleNamespace(G=U.G[idx], ve=U.ve[idx], st=U.st[idx], mk=U.mk[idx], div=U.div[idx])
+    out = SimpleNamespace(G=U.G[idx], ve=U.ve[idx], st=U.st[idx], mk=U.mk[idx], div=U.div[idx])
+    if getattr(U, "xc", None) is not None:
+        out.xc = U.xc[idx]                                                      # [A22] each position's exit column (a position closed before a spin-off ex-date exits on its close's row)
+    return out
 
 
 # ------------------------------------------------------------------ one rebalance: RESMOM's pool, NETISS's score, the picks
@@ -766,11 +770,12 @@ def ni_one(W, r, f, x, post_mode, units=True, counts_only=False):
     'no score' is gone - a name's NETISS score exists per cell, so the pool is common to both cells and each cell's scored names are the pool names with a score, [A13]: less the second share classes - of two names that share a CIK only the more liquid keeps its score, per cell
     and rank, see share_classes). Per cell the scored names are the cell's pool for the null and the picks: both sides are always 50 names at 150 or
     more scored names, else the bottom / top third (at least 20 a side) or nothing (side_n); the 50 LOWEST ISS are the longs, the 50 HIGHEST the shorts. The composite twin's picks [A7] (by iota) and the deciles [A5] are cut on the same scored names. post_mode as r17_resmom's ('remove' =
-    the leaky reading first registered, 'naive' = the look-ahead one, 'keep' = [A18] the JUDGED reading since the post-data bug fix: a name flagged inside the hold stays, on the split-safe path; only an
+    the leaky reading first registered, 'naive' = the look-ahead one, 'close' = [A22] the JUDGED reading (MANAGER's hygiene edit S1): no in-hold event removes a name, a spin-off / stock-dividend ex-date in f < e <= x
+    closes the position at the official close of e-1 (rec.close = that row per pool name, -1 = held to the exit; r17_resmom's rm_units cuts the path); 'keep' = [A18]'s removal reading, REPORTED: a name flagged inside the hold stays, on the split-safe path; only an
     announced (calendar) split or a [D2] ex-date in f < t <= x removes it). counts_only: no unit path, no pick - the pools and the scored sets are counted (the dryload)"""
     s = M17.SPEC
     uni = np.flatnonzero(W.U[f])
-    rec = SimpleNamespace(r=r, f=f, x=x, nu=len(uni), nfull=0, traded=False, pool=np.zeros(0, np.int64), naive=np.zeros(0, bool), spin_win=np.zeros(0, np.int64), spin_hold=np.zeros(0, bool), cell={c: cell0() for c in CELLS}, sc=None, U=None)
+    rec = SimpleNamespace(r=r, f=f, x=x, nu=len(uni), nfull=0, traded=False, pool=np.zeros(0, np.int64), naive=np.zeros(0, bool), spin_win=np.zeros(0, np.int64), spin_hold=np.zeros(0, bool), cell={c: cell0() for c in CELLS}, sc=None, U=None, close=np.zeros(0, np.int64))
     cnt = Counter()
     cnt["rebalances"] += 1
     cnt["universe"] += len(uni)
@@ -789,7 +794,7 @@ def ni_one(W, r, f, x, post_mode, units=True, counts_only=False):
     old = W.hyg(a, lo_pre - 1, uni)[1:]                                         # gap, tbis, jump on sessions r-251 .. r-26
     post = W.hyg(r + 1, x, uni)                                                 # all four, inside the hold
     post_sp = M17.spn_hit(W, f + 1, x, uni)                                     # [D2] a spin-off / stock-dividend ex-date in f < t <= x
-    post_cs = M17.csplit_hit(W, f + 1, x, uni) if post_mode == "keep" else np.zeros(len(uni), bool)     # [A18] an announced (calendar) split ex-date in f < t <= x: known at the rank
+    post_cs = M17.csplit_hit(W, f + 1, x, uni) if post_mode == "keep" or (post_mode == "close" and getattr(W, "cscs", None) is not None) else np.zeros(len(uni), bool)     # [A18] an announced (calendar) split ex-date in f < t <= x ([A22]: counted, never a removal)
     win = (W.SPN[a:r + 1][:, uni] & np.isfinite(W.Rn[a:r + 1][:, uni])).sum(axis=0)
     pre_any, old_any, post_any = pre.any(axis=0), old.any(axis=0), post.any(axis=0) | post_sp
     aud = W.aud1[f, uni]
@@ -808,15 +813,22 @@ def ni_one(W, r, f, x, post_mode, units=True, counts_only=False):
     pool = (pool_k & ~post_any) if post_mode == "remove" else (pool_k & ~post_cs & ~post_sp) if post_mode == "keep" else pool_k
     if post_mode == "naive":
         cnt["kept_naive"] += int((pool & post_any).sum())
-    if post_mode == "keep":                                                     # [A18] the names flagged inside the hold that stay, on the split-safe path, per reason
+    if post_mode in ("keep", "close"):                                          # [A18] / [A22] the names flagged inside the hold that stay, on the split-safe path, per reason
         for q, h in enumerate(HYG):
             cnt[f"kept_{h}"] += int((pool & post[q]).sum())
         cnt["kept_flagged"] += int((pool & post.any(axis=0)).sum())
+    if post_mode == "close":                                                    # [A22] the calendar's splits ride the split-safe path; a spin-off / stock-dividend ex-date inside the hold closes the position at the close before it
+        cnt["kept_calendar_split"] += int((pool & post_cs).sum())
+        cnt["closed_spin"] += int((pool & post_sp).sum())
     pidx = np.flatnonzero(pool)
     cols = uni[pidx]
     rec.pool = cols
     rec.naive = post_any[pidx] if post_mode == "naive" else np.zeros(len(pidx), bool)
     rec.spin_win, rec.spin_hold = win[pidx], post_sp[pidx]
+    rec.close = np.full(len(pidx), -1, np.int64)                                 # [A22] the row each pool name closes on: the session before its first spin-off / stock-dividend ex-date in f < e <= x (-1 = held to the exit session)
+    if post_mode == "close" and x > f and len(pidx):
+        sp_h = W.SPN[f + 1:x + 1][:, cols]
+        rec.close = np.where(sp_h.any(axis=0), f + sp_h.argmax(axis=0), -1).astype(np.int64)
     rec.sc = score_rank(W, r)
     for c in CELLS:
         cc, sc = rec.cell[c], rec.sc[c]
@@ -851,7 +863,7 @@ def ni_one(W, r, f, x, post_mode, units=True, counts_only=False):
             cc.traded = True
     rec.traded = any(rec.cell[c].traded for c in CELLS)
     if units and len(cols) and any(rec.cell[c].traded or rec.cell[c].dec is not None for c in CELLS):
-        rec.U = M17.rm_units(W, f, x, rec.pool, rec.naive)
+        rec.U = M17.rm_units(W, f, x, rec.pool, rec.naive, rec.close)
         for c in CELLS:
             if rec.cell[c].traded or rec.cell[c].dec is not None:
                 rec.cell[c].U = slice_units(rec.U, rec.cell[c].idx)
@@ -930,7 +942,7 @@ def ni_null(W, L, nreps, vcode=0):
             if not cc.traded:
                 continue
             idx, kt = np.arange(cc.n), W.k[rec.f:rec.x + 1]
-            PL, PS = D15.l1_pnl(cc.U, idx, 1, cfg, kt), D15.l1_pnl(cc.U, idx, -1, cfg, kt)
+            PL, PS = M17.l1_pnl_x(cc.U, idx, 1, cfg, kt), M17.l1_pnl_x(cc.U, idx, -1, cfg, kt)
             o = D15.draw_order(rng, nreps, cc.n, 2 * cc.k)
             a[:, rec.f:rec.x + 1] += slot * (PL[o[:, :cc.k]].sum(axis=1) + PS[o[:, cc.k:]].sum(axis=1))
         acc[c] = a
@@ -1085,7 +1097,7 @@ def decile_series(W, L, cell):
             idx = np.flatnonzero(cc.dec == d)
             if not len(idx):
                 continue
-            g = slot * D15.l1_pnl(cc.U, idx, 1, cfg, kt).sum(axis=0)
+            g = slot * M17.l1_pnl_x(cc.U, idx, 1, cfg, kt).sum(axis=0)
             x[d, rec.f:rec.x + 1] += g
             sp[d, rec.f:rec.x + 1] += g - slot * len(idx) * esr[rec.f:rec.x + 1]
             nn[d] += len(idx)
@@ -1516,7 +1528,7 @@ def print_twins(res):
 
 
 COUNT_KEYS = ("universe", "short_history", "no_es_pairs", "no_fill") + tuple(f"pre_{h}" for h in HYG) + tuple(f"old_{h}" for h in HYG[1:]) + tuple(f"post_{h}" for h in HYG) + ("post_spin", "post_calendar_split", "audit", "pool", "kept_naive")
-KEPT_KEYS = tuple(f"kept_{h}" for h in HYG) + ("kept_flagged",)        # [A18] the names flagged inside the hold that STAY (the judged reading): not removal reasons, printed apart
+KEPT_KEYS = tuple(f"kept_{h}" for h in HYG) + ("kept_flagged", "kept_calendar_split", "closed_spin")        # [A18] / [A22] the names with an in-hold event that STAY in the pool (the judged reading): not removal reasons, printed apart
 
 
 def print_counts(label, cnt):
@@ -1525,7 +1537,7 @@ def print_counts(label, cnt):
     for y, c in sorted(cnt.items()):
         print(f"    {y}: " + " ".join(f"{c.get(k, 0)}" for k in keys) + f"   [rebalances {c.get('rebalances', 0)}, unresolved {c.get('unresolved', 0)}, warm-up {c.get('warmup', 0)}, empty {c.get('empty', 0)}]")
     if any(c.get(k, 0) for c in cnt.values() for k in KEPT_KEYS):
-        print(f"  {label}: names flagged inside the hold that STAY in the pool on the split-safe path [A18], by fill year (columns: " + " / ".join(KEPT_KEYS) + ")")
+        print(f"  {label}: names with an in-hold event that STAY in the pool [A18] / [A22] (flagged / a calendar split: on the split-safe path; closed_spin: closed at the close before a spin-off / stock-dividend ex-date), by fill year (columns: " + " / ".join(KEPT_KEYS) + ")")
         for y, c in sorted(cnt.items()):
             print(f"    {y}: " + " ".join(f"{c.get(k, 0)}" for k in KEPT_KEYS))
 
@@ -1769,7 +1781,8 @@ def dryload():
     print(f"  the calendar's start (the first date [A3]'s cross-check covers): {ni.cal_start if ni.cal_start is None else f'{ni.cal_start:%Y-%m-%d}'}")
     ranks = built_ranks(W, WF0, PRE_END)
     print_score_report(score_report(W, ranks, values=False), ni.cal_start, names=False)
-    Lr, Lk = ni_build(W, WF0, PRE_END, JUDGED, units=False, counts_only=True), ni_build(W, WF0, PRE_END, "remove", units=False, counts_only=True)     # [A18] the judged reading and the leaky one beside it
+    Lr, Lk = ni_build(W, WF0, PRE_END, JUDGED, units=False, counts_only=True), ni_build(W, WF0, PRE_END, "remove", units=False, counts_only=True)
+    La = ni_build(W, WF0, PRE_END, "keep", units=False, counts_only=True)                                                                  # [A22] [A18]'s removal reading, reported     # [A18] the judged reading and the leaky one beside it
     print_second_classes(second_class_summary(Lr, W))                                                # [A13] the second share classes: per rank, by year, the CIKs (counts and symbols only)
     r_all, f_all, x_all = M17.rm_schedule(W.days)
     inwf = [(r, f, x) for r, f, x in zip(r_all.tolist(), f_all.tolist(), x_all.tolist()) if x >= 0 and WF0 <= W.days[x] <= PRE_END]
@@ -1784,11 +1797,12 @@ def dryload():
         f"{y}: {len(v)} rebalances, universe {min(a for a, b, c in v)}-{np.mean([a for a, b, c in v]):.0f}-{max(a for a, b, c in v)}, full {min(b for a, b, c in v)}-{np.mean([b for a, b, c in v]):.0f}-{max(b for a, b, c in v)}, "
         f"pool {min(c for a, b, c in v)}-{np.mean([c for a, b, c in v]):.0f}-{max(c for a, b, c in v)}" for y, v in sorted(by.items())))
     print_scored_stats(LAB_J, Lr, W)
-    print_scored(f"judged [A18] (the fallback rule: {SPEC['min_scored']} scored names or more -> {M17.SPEC['n_side']} a side, fewer -> the top / bottom third, at least {SPEC['min_side']} a side, else nothing)", Lr.cnt)
+    print_scored(f"judged [A22] (the fallback rule: {SPEC['min_scored']} scored names or more -> {M17.SPEC['n_side']} a side, fewer -> the top / bottom third, at least {SPEC['min_side']} a side, else nothing)", Lr.cnt)
     print_scored_stats(LAB_R, Lk, W)
     print_counts(LAB_J, Lr.cnt)
+    print_counts(LAB_A, La.cnt)
     print_counts(LAB_R, Lk.cnt)
-    M17.print_spin_counts("judged [A18]", Lr.cnt)
+    M17.print_spin_counts("judged [A22]", Lr.cnt)
     print(f"TBIS flags: {len(tbis):,} symbol-days listed before the cut, {full_match:,} match a session and a cached name, {W.tbis_rows[1]:,} a name that is ever in the universe; every listed row is a flag")
     if W.ca is not None:
         M17.print_wide(W.ca)
@@ -1870,7 +1884,7 @@ def stage_a():
                 "first_ranks": coverage_firsts(srows, ni.cal_start), "unscored_by_name": unsc, "weighted_average_cross_check": {f"{W.days[r_]:%Y-%m-%d}": v for r_, v in wa.items()}, "second_share_class": sc2})
     t1 = time.time()
     resR, objR = evaluate(W, B, S12, ref, rows, JUDGED, NREP, 0, full=True)
-    print(f"judged reading [A18] done ({time.time() - t1:.0f}s: the leg, the cells, the stress rows, {NREP} random-name draws per cell from the kept pool, the deciles, the twins)", flush=True)
+    print(f"judged reading [A22] done ({time.time() - t1:.0f}s: the leg, the cells, the stress rows, {NREP} random-name draws per cell from the same pool with the same cut paths, the deciles, the twins)", flush=True)
     unused = unused_audit_rows(W, audit)
     if unused:
         print(f"  NOTE: {len(unused)} audit data_event row(s) removed nothing (the name was not in that fill session's universe): {unused[:5]}")
@@ -1878,10 +1892,13 @@ def stage_a():
     resK, objK = evaluate(W, B, S12, ref, rows, "remove", 0, 1, full=False)               # [A18] the leaky reading, REPORTED beside the judged one, without a null
     print(f"the leaky 'remove' reading done ({time.time() - t1:.0f}s)", flush=True)
     t1 = time.time()
+    resA, objA = evaluate(W, B, S12, ref, rows, "keep", 0, 3, full=False)                 # [A22] [A18]'s removal reading (MANAGER #127: printed beside the judged one as a report, with its count), without a null
+    print(f"[A18]'s removal reading done ({time.time() - t1:.0f}s)", flush=True)
+    t1 = time.time()
     with div_mode(W, False):                                                               # [R1] the no-dividend version of both cells (the picks stay; the P&L without the cash dividends): a REPORTED row, never the verdict
         resD = evaluate(W, B, S12, ref, rows, JUDGED, NREP, 2, full=False)[0]
     print(f"no-dividend reading done ({time.time() - t1:.0f}s)", flush=True)
-    spin = {"judged_reading": {c: ni_spin_counts(objR.legs, c) for c in CELLS}, "leaky_remove_reading": {c: ni_spin_counts(objK.legs, c) for c in CELLS}}
+    spin = {"judged_reading": {c: ni_spin_counts(objR.legs, c) for c in CELLS}, "leaky_remove_reading": {c: ni_spin_counts(objK.legs, c) for c in CELLS}, "a18_removal_reading": {c: ni_spin_counts(objA.legs, c) for c in CELLS}}
     rep, cands = reports(W, B, S12, ref, rows, objR, resR["cells"], tbis, D15.asset_status(), legs_meta, srows, post_mode=JUDGED)
     cells = resR["cells"]
     passing, cand = stage_a_flow(cells)
@@ -1890,8 +1907,13 @@ def stage_a():
     os.makedirs(OUT, exist_ok=True)
     pd.DataFrame([r_ for c in CELLS for r_ in cands[c]]).to_csv(os.path.join(OUT, "netiss_audit_candidates.csv"), index=False)
     pd.DataFrame(a10).to_csv(os.path.join(OUT, "netiss_a10_flags.csv"), index=False)
-    print(f"WF {WF0:%Y-%m-%d} -> {PRE_END:%Y-%m-%d} ({int(wf.sum()):,} sessions) - the JUDGED reading [A18] (a name flagged inside the hold stays, on the split-safe path; only an announced split or a [D2] ex-date inside the hold removes it; the null draws from the kept pool)")
+    print(f"WF {WF0:%Y-%m-%d} -> {PRE_END:%Y-%m-%d} ({int(wf.sum()):,} sessions) - the JUDGED reading [A22] (no in-hold event removes a name: flagged names and splits on the split-safe path; a spin-off / stock-dividend ex-date inside the hold closes the position at the close before it; the null draws from the same pool, the same cut paths)")
     print_cells(resR, ast)
+    ca_ = sum((Counter(c_) for c_ in objA.legs.cnt.values()), Counter())
+    print(f"  {LAB_A}, no null - it removed {ca_.get('post_calendar_split', 0):,} pool name-months for a calendar split and {ca_.get('post_spin', 0):,} for a spin-off / stock-dividend ex-date inside the hold:")
+    for cell in CELLS:
+        k = resA["cells"][cell]
+        print(f"    {cell}: {row(cell, k)[4:]} | the judged net ${cells[cell]['base']['net']:,.0f} against this reading's ${k['base']['net']:,.0f}")
     print(f"  {LAB_R}, no null:")
     for cell in CELLS:
         k = resK["cells"][cell]
@@ -1905,10 +1927,11 @@ def stage_a():
     print_twins(resR)
     print_reports(rep, cells)
     print_diagnostics(resR, rep, ref)
-    print_counts("L (judged [A18])", objR.legs.cnt)
+    print_counts("L (judged [A22])", objR.legs.cnt)
+    print_counts("L ([A18]'s removal reading, reported)", objA.legs.cnt)
     print_counts("L (the leaky 'remove' reading, reported)", objK.legs.cnt)
-    print_scored("L (judged [A18])", objR.legs.cnt)
-    M17.print_spin_counts("L (judged [A18])", objR.legs.cnt)
+    print_scored("L (judged [A22])", objR.legs.cnt)
+    M17.print_spin_counts("L (judged [A22])", objR.legs.cnt)
     print(f"  audit candidates (the {AUDIT_N} largest gains per cell, with the two share facts, their filings, F and group) -> {os.path.join(OUT, 'netiss_audit_candidates.csv')}; every [A10] flagged name-rank ({len(a10):,}; picked: {sum(1 for r_ in a10 if r_['picked']):,}, in "
           f"{len({r_['group'] for r_ in a10 if r_['picked']}):,} groups) with the cell / side that picked it and its group -> {os.path.join(OUT, 'netiss_a10_flags.csv')}; [A14] the hand audit (f) covers the {AUDIT_N} largest contributors per cell and every PICKED flagged name-rank, grouped by (symbol, the two facts' "
           "accession numbers): ONE row covers every rank that uses the same two filings, and a data_event row removes them all; the hand audit is the lead's (a data event found: a row symbol, date, cell, data_event in netiss_audit.csv and run stage_a again); audit rows found per list: " + ", ".join(
@@ -1925,7 +1948,9 @@ def stage_a():
                                         "dividends_add_net": {c: cells[c]["base"]["net"] - resD["cells"][c]["base"]["net"] for c in CELLS}},
                 "judged_post_mode": JUDGED, "calendar_splits_on_grid": W.ni.csplit,
                 "leaky_remove_reading": {"null": resK["null"], "cells": {c: {k: resK["cells"][c][k] for k in ("base", "seat", "A2", "usd_year")} for c in CELLS}},
-                "hygiene_counts_by_year": {"judged": {y: dict(c) for y, c in sorted(objR.legs.cnt.items())}, "leaky_remove": {y: dict(c) for y, c in sorted(objK.legs.cnt.items())}},
+                "a18_removal_reading": {"null": resA["null"], "cells": {c: {k: resA["cells"][c][k] for k in ("base", "seat", "A2", "usd_year")} for c in CELLS}},
+                "hygiene_counts_by_year": {"judged": {y: dict(c) for y, c in sorted(objR.legs.cnt.items())}, "leaky_remove": {y: dict(c) for y, c in sorted(objK.legs.cnt.items())},
+                                           "a18_removal": {y: dict(c) for y, c in sorted(objA.legs.cnt.items())}},
                 "reports": rep, "es_masters": es_meta})
     dump(out, "netiss_stageA.json")
     for c in passing:
@@ -2732,7 +2757,7 @@ def brute_second(W, f, sc, cik_of):
 
 def brute_ni(W, frame, cal, cik_of, lo, hi, post_mode="remove"):
     """every rebalance whose position exits in [lo, hi], plain python end to end - the schedule from the months of consecutive sessions, the universe from W.U, the pool re-implemented with loops (>= 230 own returns and ES pairs, an open at the fill, the pre / old / post hygiene windows and the [D2]
-    spin-offs, the audit), each cell's score by brute_score (the filings, the splits and the calendar), the sides by brute_side, the picks by plain sorts, the composite twin's score and picks, the deciles: [{r, f, x, pool: {col: (naive, window spins, hold spin)}, cell: {c: {...}}, counts}]"""
+    spin-offs, the audit), each cell's score by brute_score (the filings, the splits and the calendar), the sides by brute_side, the picks by plain sorts, the composite twin's score and picks, the deciles: [{r, f, x, pool: {col: (naive, window spins, hold spin, [A22] the first ex-date in the hold or -1)}, cell: {c: {...}}, counts}]"""
     sp = M17.SPEC
     Sp = getattr(W, "Sp_in", None)
     key = [(W.days[i].year, W.days[i].month) for i in range(W.T)]
@@ -2760,7 +2785,8 @@ def brute_ni(W, frame, cal, cik_of, lo, hi, post_mode="remove"):
             known = hold or (Cs is not None and any(bool(Cs[s, j]) for s in range(f + 1, x + 1)))              # [A18] an announced split / a [D2] ex-date inside the hold
             if pre or old or W.aud1[f, j] or (post and post_mode == "remove") or (known and post_mode == "keep"):
                 continue
-            pool[j] = (bool(post and post_mode == "naive"), win, hold)
+            ex = next((t for t in range(f + 1, x + 1) if Sp is not None and Sp[t, j]), -1) if post_mode == "close" else -1      # [A22] the first spin-off / stock-dividend ex-date inside the hold: the position closes at the close before it
+            pool[j] = (bool(post and post_mode == "naive"), win, hold, ex)
         rec = {"r": r, "f": f, "x": x, "pool": pool, "cell": {}, "n_hold_names": n_hold, "n_win_names": n_wnames, "n_win_sessions": n_wsess}
         for c, kk in KS.items():
             sc, codes = {}, {}
@@ -2794,6 +2820,18 @@ def brute_ni(W, frame, cal, cik_of, lo, hi, post_mode="remove"):
     return recs
 
 
+def brute_pos_ni(W, b, j, sd):
+    """one recount position's daily path at base cost: closed at the close before its spin-off / stock-dividend ex-date [A22], or held to the exit (on the path its naive flag says)"""
+    ex = b["pool"][j][3]
+    return M17.brute_close_path(W, b["f"], b["x"], j, sd, ex)[0] if ex >= 0 else M17.brute_path(W, b["f"], b["x"], j, sd, b["pool"][j][0])[0]
+
+
+def brute_rec_ni(W, rec, p, j, sd):
+    """the same from a built rebalance (its pool position p: the close row compare_ni checked against the recount, the naive flag), World column j"""
+    e = int(rec.close[p]) + 1 if int(rec.close[p]) >= 0 else -1
+    return M17.brute_close_path(W, rec.f, rec.x, j, sd, e)[0] if e >= 0 else M17.brute_path(W, rec.f, rec.x, j, sd, bool(rec.naive[p]))[0]
+
+
 def compare_ni(W, L, Bz, tag):
     """the vectorised build against the plain-python recount: the schedule, every pool (names, naive flags, [D2] counts), per cell every scored name with its ISS and composite iota, the mode and side size, the picks of both rules, the deciles, the first-reason counts, and the daily path of EVERY scored
     name under four costings (base, 10 bps, the 3% borrow stress with k_t, longs at -100%) -> the number of paths checked"""
@@ -2806,6 +2844,7 @@ def compare_ni(W, L, Bz, tag):
         assert rec.pool.tolist() == sorted(b["pool"]), (tag, rec.r, rec.pool.tolist(), sorted(b["pool"]))
         assert rec.naive.tolist() == [b["pool"][j][0] for j in rec.pool], (tag, rec.r)
         assert rec.spin_win.tolist() == [b["pool"][j][1] for j in rec.pool] and rec.spin_hold.tolist() == [b["pool"][j][2] for j in rec.pool], (tag, rec.r, "the [D2] counts per pool name")
+        assert rec.close.tolist() == [(b["pool"][j][3] - 1 if b["pool"][j][3] >= 0 else -1) for j in rec.pool], (tag, rec.r, "[A22] the close rows")
         y = int(W.days[b["f"]].year)
         for c in CELLS:
             cc, bc = rec.cell[c], b["cell"][c]
@@ -2839,13 +2878,17 @@ def compare_ni(W, L, Bz, tag):
             idx = np.arange(cc.n)
             for nm, cfg, kw in cfgs:
                 for sd in (1, -1):
-                    P = D15.l1_pnl(cc.U, idx, sd, cfg, kt)
+                    P = M17.l1_pnl_x(cc.U, idx, sd, cfg, kt)
                     for i, j in enumerate(cols):
-                        want, _ = M17.brute_path(W, rec.f, rec.x, int(j), sd, bool(rec.naive[cc.idx[i]]), bps=kw.get("bps", COST_BPS), borrow=kw.get("borrow", (BORROW, None)), kt=kt if kw.get("k") else None, lose100=kw.get("lose100", False))
+                        kw2 = {"bps": kw.get("bps", COST_BPS), "borrow": kw.get("borrow", (BORROW, None)), "kt": kt if kw.get("k") else None, "lose100": kw.get("lose100", False)}
+                        ex = b["pool"][int(j)][3]
+                        want, _ = M17.brute_close_path(W, rec.f, rec.x, int(j), sd, ex, **kw2) if ex >= 0 else M17.brute_path(W, rec.f, rec.x, int(j), sd, bool(rec.naive[cc.idx[i]]), **kw2)
                         assert close(P[i], want), (tag, nm, rec.r, c, int(j), sd)
                         n_paths += 1
     for key, bk in (("spin_window_names", "n_win_names"), ("spin_window_sessions", "n_win_sessions"), ("spin_hold_names", "n_hold_names")):
         assert sum(c.get(key, 0) for c in L.cnt.values()) == sum(b[bk] for b in Bz), (tag, key)
+    n_close = sum(1 for b in Bz for j in b["pool"] if b["pool"][j][3] >= 0)                                 # [A22] the pool names closed before an ex-date (scored or not)
+    assert sum(c.get("closed_spin", 0) for c in L.cnt.values()) == n_close, (tag, "closed_spin", n_close)
     for y, w in want_cnt.items():
         for k_, v in w.items():
             assert L.cnt[y][k_] == v, (tag, y, k_, L.cnt[y][k_], v)
@@ -2863,7 +2906,7 @@ def series_check_ni(W, L, Bz):
                     continue
                 for sd, js in ((1, bc["long_i" if alt else "long"]), (-1, bc["short_i" if alt else "short"])):
                     for j in js:
-                        x0[b["f"]:b["x"] + 1] += M17.SPEC["slot"] * np.array(M17.brute_path(W, b["f"], b["x"], j, sd, b["pool"][j][0])[0])
+                        x0[b["f"]:b["x"] + 1] += M17.SPEC["slot"] * np.array(brute_pos_ni(W, b, j, sd))
             assert close(M17.run_cell(W, cell_leg(L, cell, alt=alt), D15.l1_cfg()).x, x0), f"{cell} series (composite twin {alt})"
 
 
@@ -2877,12 +2920,12 @@ def t_pipeline():
         W.aud1[W.days.get_loc(TS("2025-02-03")), 8] = True                                  # N08: a hand-audit data event at fill session 2025-02-03 (the rebalance ranked 2025-01-31)
         lo, hi = W.days[0], W.days[-1]
         out, n = {}, 0
-        for pm in ("remove", "naive", "keep"):
+        for pm in ("remove", "naive", "keep", "close"):
             L = ni_build(W, lo, hi, pm)
             Bz = brute_ni(W, tt.frame, tt.cal, tt.cik_of, lo, hi, pm)
             n += compare_ni(W, L, Bz, f"toy {pm}")
             out[pm] = (L, Bz)
-            if pm == "remove":
+            if pm in ("remove", "close"):
                 series_check_ni(W, L, Bz)
         Lr, Lk = out["remove"][0], out["naive"][0]
         by = lambda L_, d: next(r_ for r_ in L_.recs if W.days[r_.r] == TS(d))
@@ -2913,6 +2956,15 @@ def t_pipeline():
             assert set(k_.pool.tolist()) == set(b_.pool.tolist()) - known and not k_.naive.any(), (W.days[k_.r], k_.pool.tolist(), b_.pool.tolist(), sorted(known))
             n_kept += len({int(j) for j in b_.pool[b_.naive]} - known)
         assert sum(c.get("kept_flagged", 0) for c in LK.cnt.values()) == n_kept, ("kept_flagged", n_kept)
+        # [A22] the judged 'close' reading = the look-ahead pool itself (no in-hold removal), never on the raw path; the names with a spin-off / stock-dividend ex-date inside the hold close at the close before it
+        LC, n_cl = out["close"][0], 0
+        for b_, c_ in zip(Lk.recs, LC.recs):
+            assert c_.pool.tolist() == b_.pool.tolist() and not c_.naive.any(), (W.days[c_.r], c_.pool.tolist(), b_.pool.tolist())
+            assert ((c_.close >= 0) == c_.spin_hold).all() and all(not (W.SPN[c_.f + 1:e_ + 1, j_].any()) and W.SPN[e_ + 1, j_] for j_, e_ in zip(c_.pool.tolist(), c_.close.tolist()) if e_ >= 0)
+            n_cl += int((c_.close >= 0).sum())
+        assert sum(c.get("closed_spin", 0) for c in LC.cnt.values()) == n_cl and n_cl >= 1 and sum(c.get("post_spin", 0) + c.get("post_calendar_split", 0) for c in LC.cnt.values()) == 0, ("closed_spin", n_cl)
+        for y, c in LC.cnt.items():
+            assert c["universe"] == sum(c[k_] for k_ in COUNT_KEYS[1:]), (y, dict(c))
         for y, c in LK.cnt.items():
             assert c["universe"] == sum(c[k_] for k_ in COUNT_KEYS[1:]), (y, dict(c))
         # the audit: N08 at fill 2025-02-03 is gone from the pool of the 01-31 rank (and counted)
@@ -2958,7 +3010,7 @@ def t_nulls():
                 if cc.traded:
                     idx = np.arange(cc.n)
                     kt = W.k[rec.f:rec.x + 1]
-                    exp += slot * cc.k * float(D15.l1_pnl(cc.U, idx, 1, cfg, kt).mean(axis=0).sum() + D15.l1_pnl(cc.U, idx, -1, cfg, kt).mean(axis=0).sum())
+                    exp += slot * cc.k * float(M17.l1_pnl_x(cc.U, idx, 1, cfg, kt).mean(axis=0).sum() + M17.l1_pnl_x(cc.U, idx, -1, cfg, kt).mean(axis=0).sum())
             tot = acc[cell].sum(axis=1)
             assert abs(tot.mean() - exp) < 4.5 * tot.std() / math.sqrt(len(tot)), (cell, tot.mean(), exp, tot.std())
             assert (acc[cell][:, :first_fill] == 0).all(), "no P&L before the first fill"
@@ -2983,7 +3035,7 @@ def t_nulls():
                     assert len(set(names.tolist())) == 2 * cc.k and not set(names[:cc.k].tolist()) & set(names[cc.k:].tolist()), "a draw's longs and shorts are disjoint names of the scored pool"
                     for sd, sel in ((1, names[:cc.k]), (-1, names[cc.k:])):
                         for i in sel:
-                            x0[rec.f:rec.x + 1] += slot * np.array(M17.brute_path(W, rec.f, rec.x, int(cols[i]), sd, bool(rec.naive[cc.idx[i]]))[0])
+                            x0[rec.f:rec.x + 1] += slot * np.array(brute_rec_ni(W, rec, cc.idx[i], int(cols[i]), sd))
                 assert close(acc[cell][d], x0), (cell, d)
     # the statistic: the max over the 2 cells per draw, then p5 / p50 / p95; the DO the same way
     ix = pd.bdate_range("2016-07-01", "2025-06-27")
@@ -3022,7 +3074,7 @@ def t_twins():
                 js = [j for j, v in bc["dec"].items() if v == d]
                 if not js:
                     continue
-                g = sum(slot * np.array(M17.brute_path(W, b["f"], b["x"], j, 1, b["pool"][j][0])[0]) for j in js)
+                g = sum(slot * np.array(brute_pos_ni(W, b, j, 1)) for j in js)
                 want[d, b["f"]:b["x"] + 1] += g
                 want_sp[d, b["f"]:b["x"] + 1] += g - slot * len(js) * es[b["f"]:b["x"] + 1]
         assert close(x, want) and close(sp, want_sp), "the deciles' baskets and their spread over ES, from raw closes, factors and the calendar's cash"
@@ -3554,7 +3606,7 @@ def t_integration():
                 bc = b["cell"][cell]
                 for sd, js in ((1, bc["long"]), (-1, bc["short"])):
                     for j in js:
-                        x0[b["f"]:b["x"] + 1] += slot * np.array(M17.brute_path(W, b["f"], b["x"], j, sd, b["pool"][j][0])[0])
+                        x0[b["f"]:b["x"] + 1] += slot * np.array(brute_pos_ni(W, b, j, sd))
                         n_pos += 1
             traded = [b for b in Bz if b["cell"][cell]["k"] > 0]
             assert abs(c["base"]["net"] - x0.sum()) < 1e-6 and c["base"]["n_units"] == len(traded) > 0 and c["base"]["n_pos"] == n_pos and abs(c["base"]["net_pos"] - x0.sum()) < 1e-6 and abs(c["usd_year"] - c["base"]["net"] / c["base"]["years"]) < 1e-9, (cell, c["base"]["net"], x0.sum())
@@ -3575,7 +3627,11 @@ def t_integration():
             tw = c["composite"]
             assert set(tw) >= {"base", "usd_year", "pick_overlap_with_iss_picks", "scores_with_window_before_the_calendar"} and 0.0 <= tw["pick_overlap_with_iss_picks"]["long"] <= 1.0 and tw["base"]["n_units"] == c["base"]["n_units"]
             hd = c["hedged"]
-            assert hd["ratios"] == c["base"]["n_units"] and hd["ratios_nonzero"] == 0 and abs(hd["base"]["net"] - c["base"]["net"]) < 1e-6 * max(1.0, abs(c["base"]["net"])) + 1.0, "under 252 sessions of the cell's own P&L the hedge is zero: the twin IS the cell (the toy has 12 months)"
+            br_ = hedge_ratios(W, obj.runs[cell].x, obj.legs, cell)
+            f0_ = next(r_.f for r_ in obj.legs.recs if r_.cell[cell].traded)
+            assert hd["ratios"] == c["base"]["n_units"] == len(br_) and hd["ratios_nonzero"] == sum(1 for v in br_.values() if v != 0.0), "one ratio per traded rebalance"
+            assert all(v == 0.0 for i_, v in br_.items() if obj.legs.recs[i_].r - SPEC["hedge_win"] + 1 < f0_), "the hedge is zero until 252 sessions of the cell's own P&L exist before the rank"
+            assert hd["ratios_nonzero"] > 0 or abs(hd["base"]["net"] - c["base"]["net"]) < 1e-6 * max(1.0, abs(c["base"]["net"])) + 1.0, "with every ratio zero the twin IS the cell"
         assert res["null"]["draws"] == 40 and resK["null"] is None and res["null"]["seed"] == SEED and set(res["null"]["by_cell"]) == set(CELLS) and res["null"]["do_ref_max"]["finite"] == 40 and resD["null"]["draws"] == 40
         assert any(abs(res["cells"][c]["base"]["net"] - resD["cells"][c]["base"]["net"]) > 1e-6 for c in CELLS), "the dividends move the P&L in the toy world"
         srows = score_report(W, built_ranks(W, wf[0], wf[1]), values=True)
@@ -3813,7 +3869,7 @@ def t_share_class():
         assert tt.cik_of["N14"] == tt.cik_of["N15"] == "K14" and W.ni.cik_ix[j14] == W.ni.cik_ix[j15] >= 0 and int((W.ni.cik_ix >= 0).sum()) == 14 and len(set(W.ni.cik_ix[W.ni.cik_ix >= 0].tolist())) == 13, "14 mapped names with facts on 13 CIKs"
         assert np.array_equal(W.ni.dv20, D15.roll_prev(W.Cl * W.Vv, 20), equal_nan=True), "the dollar volume IS r15_ddw's own (the quantity the universe ranks on)"
         out = {}
-        for pm in ("remove", "naive", "keep"):
+        for pm in ("remove", "naive", "keep", "close"):
             L = ni_build(W, lo, hi, pm)
             Bz = brute_ni(W, tt.frame, tt.cal, tt.cik_of, lo, hi, pm)
             compare_ni(W, L, Bz, f"twin {pm}")
@@ -3866,7 +3922,7 @@ def t_share_class():
                     assert not set(cols[o[d]].tolist()) & set(cc.second.tolist()), "a second class is never drawn"
                     for sd, sel in ((1, o[d][:cc.k]), (-1, o[d][cc.k:])):
                         for i in sel:
-                            x0[rec.f:rec.x + 1] += slot * np.array(M17.brute_path(W, rec.f, rec.x, int(cols[i]), sd, bool(rec.naive[cc.idx[i]]))[0])
+                            x0[rec.f:rec.x + 1] += slot * np.array(brute_rec_ni(W, rec, cc.idx[i], int(cols[i]), sd))
                 assert close(acc[cell][d], x0), (cell, d)
         # ---- (4) the counts: per rank, by year, per CIK against the recount; the counts-only build is the same; the printout
         sm = second_class_summary(Lr, W)
@@ -4445,7 +4501,7 @@ def smoke(*a):
         t0 = time.time()
         Bz_r, Bz_k, Bz_j = brute_ni(W, frame, cal, cik_of, lo_, hi_, "remove"), brute_ni(W, frame, cal, cik_of, lo_, hi_, "naive"), brute_ni(W, frame, cal, cik_of, lo_, hi_, JUDGED)
         Lr, Lk, Lj = ni_build(W, lo_, hi_, "remove"), ni_build(W, lo_, hi_, "naive"), ni_build(W, lo_, hi_, JUDGED)
-        n_paths = compare_ni(W, Lr, Bz_r, "smoke remove") + compare_ni(W, Lk, Bz_k, "smoke naive") + compare_ni(W, Lj, Bz_j, "smoke keep")
+        n_paths = compare_ni(W, Lr, Bz_r, "smoke remove") + compare_ni(W, Lk, Bz_k, "smoke naive") + compare_ni(W, Lj, Bz_j, f"smoke {JUDGED}")
         series_check_ni(W, Lr, Bz_r)
         j1_, j2_ = ix.index(SMOKE_DUAL[0]), ix.index(SMOKE_DUAL[1])                         # [A13] the one pair of share classes of the synthetic market: the second reads the first's CIK, so the same two facts
         n_dual = Counter()
@@ -4606,7 +4662,7 @@ def smoke(*a):
         order = ("BEFORE ANY P&L - the share-count score", "coverage: the first rank with any scored name", "per rank (rank date: universe / scored", "names lost to each rule, by rank", "excluded at |ISS| > ln(10) and LISTED", "ISS per fill year", "over every rank:", "[A3] a calendar split the cache's factor F does not show",
                  "[A11] unscored ADRs / IFRS filers (20-F / 40-F / 6-K only) per rank", "CIKs whose first share fact starts inside the window", "[A4] names with no score whatever the horizon, LISTED by name", "[A13] ONE SHARE CLASS PER FIRM", "the weighted-average concept as a cross-check only", "judged reading [A18] done")
         seq = [txt.index(s_) for s_ in order]
-        i_pl = txt.index("the JUDGED reading [A18] (a name flagged inside the hold stays")          # the first line that carries a cell's P&L
+        i_pl = txt.index("the JUDGED reading [A22] (no in-hold event removes a name")          # the first line that carries a cell's P&L
         assert seq == sorted(seq) and seq[-1] < i_pl and txt.index("REFERENCE book [X1]") < seq[0], ("the score block is out of the prereg's order", seq)
         outcome = re.search(r"[$]\s*-?\d|ROC|Sortino|net [$]|drawdown", txt[seq[0]:i_pl])
         assert not outcome, ("a P&L figure was printed before the registered reading's table", txt[max(seq[0] + outcome.start() - 80, 0):seq[0] + outcome.end() + 80])
@@ -4678,7 +4734,7 @@ def smoke(*a):
         # [A18] the hygiene readings: the judged reading keeps the planted in-hold flags on the split-safe path (only an announced split / a [D2] ex-date removes a name), the leaky 'remove' reading removed them; both are in the file, the leaky one without a null
         hj, hl = out["hygiene_counts_by_year"]["judged"], out["hygiene_counts_by_year"]["leaky_remove"]
         assert sum(v.get("post_split", 0) + v.get("post_gap", 0) + v.get("post_jump", 0) for v in hl.values()) >= 2 and sum(v.get("post_split", 0) + v.get("post_gap", 0) + v.get("post_jump", 0) for v in hj.values()) == 0 and sum(v.get("kept_flagged", 0) for v in hj.values()) >= 1, (hj.get(2024), hl.get(2024))
-        assert out["judged_post_mode"] == "keep" and out["leaky_remove_reading"]["null"] is None and set(out["leaky_remove_reading"]["cells"]) == set(CELLS) and out["no_dividend_reading"]["null"]["draws"] == NREP
+        assert out["judged_post_mode"] == "close" and out["a18_removal_reading"]["null"] is None and set(out["a18_removal_reading"]["cells"]) == set(CELLS) and out["leaky_remove_reading"]["null"] is None and set(out["leaky_remove_reading"]["cells"]) == set(CELLS) and out["no_dividend_reading"]["null"]["draws"] == NREP
         assert all(c_["base"]["net"] != cells[c]["base"]["net"] for c, c_ in out["no_dividend_reading"]["cells"].items()), "the cash dividends move the P&L"
         cd = pd.read_csv(os.path.join(OUT, "netiss_audit_candidates.csv"))
         a10f = pd.read_csv(os.path.join(OUT, "netiss_a10_flags.csv"))
