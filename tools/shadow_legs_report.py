@@ -23,6 +23,11 @@ pre-registered scoring (docs/PREREG_noise_shadow_forward_2026-09-28.md) is the C
 chat's job, this is the quick read. Open trades (an ENTRY with no EXIT yet) are counted,
 never priced.
 
+SEEDED trades (2026-10-07, MANAGER #87): a shadow leg that was already holding a trade when
+it cold-started writes that trade's ENTRY at its own entry time and price with a reason that
+starts "seeded=1" (api/cloud_signal.py SEED_OPEN_FORMAT). It is a real would-be trade and is
+counted and priced like any other; "seeded" says how many of a leg's trades came that way.
+
 Usage:  python tools/shadow_legs_report.py [--home DIR] [--since YYYY-MM-DD]
                                            [--base-shares 10] [--json]
 """
@@ -37,6 +42,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 BASE_SHARES = 10
+SEEDED_TAG = "seeded=1"      # api/cloud_signal.py SEEDED_REASON_TAG
 PRIMARY_LEG = "NOISE_382"
 PRIMARY_PLAIN = "NOISE_382 plain (derived)"
 KEEL_SUMMARY_LEGS = ("NOISE_382", "NOISE_422_KEEL")
@@ -84,6 +90,7 @@ def pair_trades(rows, since=None):
             "exit_px": _f((x or {}).get("ref_price")) if x else None,
             "size": _f(e.get("size"), 1.0) or 1.0,
             "keel_size": _f(e.get("keel_size")),
+            "seeded": str(e.get("reason") or "").startswith(SEEDED_TAG),
         })
     for trades in out.values():
         trades.sort(key=lambda t: str(t["entry_time"]))
@@ -118,7 +125,8 @@ def summarize(trades, base_shares=BASE_SHARES):
             "win_rate": round(len(wins) / len(pnls), 4) if pnls else None,
             "largest_win_usd": round(max(pnls), 2) if pnls else None,
             "largest_loss_usd": round(min(pnls), 2) if pnls else None,
-            "avg_size": round(sum(t["size"] for t in trades) / len(trades), 4) if trades else None}
+            "avg_size": round(sum(t["size"] for t in trades) / len(trades), 4) if trades else None,
+            "seeded": sum(1 for t in trades if t.get("seeded"))}
 
 
 def keel_freshness(home):
@@ -177,7 +185,8 @@ def print_report(rep):
         print(f"    trades {s['trades']} closed, {s['open']} open; would-be P&L "
               f"${_fmt(s['net_usd'], True)}; win rate {wr}; largest win "
               f"${_fmt(s['largest_win_usd'], True)}; largest loss ${_fmt(s['largest_loss_usd'], True)}"
-              f"; average size {_fmt(s['avg_size'])}")
+              f"; average size {_fmt(s['avg_size'])}"
+              + (f"; {s['seeded']} carried from the leg's cold start" if s.get("seeded") else ""))
     print()
     for leg, k in rep["keel"].items():
         print(f"KEEL state {leg}: trained through {k['data_through'] or '(no summary yet)'}"

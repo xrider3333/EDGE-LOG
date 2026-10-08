@@ -2551,13 +2551,27 @@ def _legacy_entry_key(leg, trade):
 # leg_state["key_format"] once _rekey_recorded_trades has run for that leg.
 TRADE_KEY_FORMAT = "trade_id_v1"
 
+# SHADOW SEED CARRY (2026-10-07, MANAGER #87 -- see _diff_leg's COLD START). A SHADOW leg
+# (cfg["shadow"]) that is holding a trade when it cold-starts carries that trade as an open
+# would-be trade instead of absorbing it: one ENTRY row at the trade's own entry time and
+# price whose reason starts with SEEDED_REASON_TAG, and its memory record keeps
+# exit_emitted False (plus "seeded_open": True), so the strategy's own EXIT -- and the
+# trade's P&L -- land in the shadow ledger when it closes. The live (order-placing) legs
+# never take this path: an executor that never entered still cannot exit.
+# leg_state["seed_open_format"] = SEED_OPEN_FORMAT once a shadow leg's seed is in this
+# shape -- set at the cold start itself, or by _carry_seeded_open's one-time upgrade of a
+# leg seeded before this existed (ENGUQ_335 on the box, seeded 2026-09-29 holding the
+# 2026-09-28 12:32 long).
+SEED_OPEN_FORMAT = 1
+SEEDED_REASON_TAG = "seeded=1"
+
 
 def _merge_rank(rec):
     """Which of two memory records for ONE trade id to keep when re-keying: a record whose
     ENTRY really was emitted beats a skipped/seeded twin (its EXIT may still be owed), and
     among emitted ones a record whose EXIT already went out beats one still waiting (the
     trade is one trade -- a second EXIT would only find no lot)."""
-    emitted_entry = not rec.get("skipped") and not rec.get("seeded")
+    emitted_entry = not rec.get("skipped") and (not rec.get("seeded") or bool(rec.get("seeded_open")))
     return (emitted_entry, bool(rec.get("exit_emitted")))
 
 
@@ -3180,6 +3194,52 @@ def _zi(name):
         return pytz.timezone(name)
 
 
+def _seeded_entry_event(leg_key, key, t, rec, bar_source, why):
+    """The ONE ENTRY row a shadow leg writes for a trade it was already holding at its seed
+    (see SEED_OPEN_FORMAT): the trade's own entry time and price, its id, the plugin's own
+    size (KEEL is never scored for a seeded trade -- keel_size stays blank, as on SEED), and
+    a reason that starts with SEEDED_REASON_TAG. Also marks `rec` as carried (exit owed)."""
+    size = t.get("size", 1.0)
+    rec.update({"exit_emitted": False, "seeded_open": True, "size": size, "keel_size": ""})
+    return {
+        "emitted_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(),
+        "leg": leg_key, "event": "ENTRY", "side": t["side"],
+        "ref_time": t["entry_time"], "ref_price": t["entry_px"],
+        "shares": t["shares"],
+        "reason": f"{SEEDED_REASON_TAG}; {why} -- a would-be trade entered before the seed, "
+                  "no order",
+        "bar_source": bar_source or "",
+        "trade_id": key if _trade_id.is_valid(key) else "",
+        "size": size, "keel_size": "",
+    }
+
+
+def _carry_seeded_open(leg_key, trades, leg_state, bar_source, now):
+    """ONE-TIME upgrade of a shadow leg seeded before SEED_OPEN_FORMAT existed (ENGUQ_335 on
+    the box: seeded 2026-09-29 09:30 holding the 2026-09-28 12:32 long, recorded as
+    exit_emitted with no exit). A seed record with no exit_time was open at the seed; if the
+    engine's trade list still holds that trade (open, or closed since -- the caller's diff
+    then emits its EXIT on this same call), it gets its seeded ENTRY now and its exit is owed
+    again. A record the window no longer holds stays absorbed and is counted in
+    leg_state["seed_open_lost"]. Stamps leg_state["seed_open_format"], so it runs once."""
+    events = []
+    recorded = leg_state.setdefault("trades", {})
+    by_key = {_entry_key(leg_key, t): t for t in trades}
+    for key, rec in recorded.items():
+        if not (rec.get("seeded") and rec.get("exit_emitted") and not rec.get("seeded_open")
+                and rec.get("exit_time") is None):
+            continue
+        t = by_key.get(key)
+        if t is None:
+            leg_state["seed_open_lost"] = int(leg_state.get("seed_open_lost", 0)) + 1
+            continue
+        events.append(_seeded_entry_event(
+            leg_key, key, t, rec, bar_source,
+            f"open at this shadow leg's cold start, carried on {now.date().isoformat()}"))
+    leg_state["seed_open_format"] = SEED_OPEN_FORMAT
+    return events
+
+
 def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_source=None,
              cfg=None, arrays=None, fetch=True, log=print, post_close=False):
     """Mutates leg_state['trades'] (entry_key -> record) in place; returns the list of
@@ -3236,6 +3296,17 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
     engine opens AFTER the seed produce ENTRY/EXIT. Consumers must act on ENTRY/EXIT
     only and ignore any other event type.
 
+    SHADOW LEGS ARE THE ONE EXCEPTION (2026-10-07, MANAGER #87 -- see SEED_OPEN_FORMAT). A
+    shadow leg (cfg["shadow"]) places no orders, so "an executor that never entered cannot
+    exit" does not apply to it, and absorbing its open trade only loses a would-be trade
+    (ENGUQ_335 seeded 2026-09-29 09:30 holding the 09-28 12:32 long, and logged nothing
+    for it). Its trade still OPEN at the seed is carried: the SEED row is followed by ONE
+    ENTRY at that trade's own entry time and price, reason "seeded=1; ...", and its EXIT
+    follows when the strategy closes it. Closed history is still absorbed silently. Written
+    once: state.json's leg_state["seeded"] stops a second cold start, so a restart never
+    repeats it. A shadow leg seeded before this existed is upgraded once by
+    _carry_seeded_open (below).
+
     TRADE ID (2026-09-14). Every ENTRY and EXIT event carries `trade_id` (api/trade_id.py),
     the same value on both rows of one trade, and it is also the key of this leg's memory
     (see _entry_key; _rekey_recorded_trades upgrades a pre-2026-09-14 memory once). An
@@ -3260,18 +3331,26 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
     levels_on = bool((cfg or {}).get("resting_levels"))
     _rekey_recorded_trades(leg_key, leg_state)
     recorded = leg_state.setdefault("trades", {})
+    carry_open = bool((cfg or {}).get("shadow"))      # SHADOW legs only -- see SEED_OPEN_FORMAT
     if not leg_state.get("seeded"):
         open_at_seed = "none"
+        carried = []
         for t in trades:
-            recorded[_entry_key(leg_key, t)] = {
+            key = _entry_key(leg_key, t)
+            carry = carry_open and bool(t["still_open"])
+            recorded[key] = {
                 "entry_time": t["entry_time"], "side": t["side"],
                 "entry_px": t["entry_px"], "shares": t["shares"],
-                "exit_emitted": True, "exit_time": t.get("exit_time"),
+                "exit_emitted": not carry, "exit_time": t.get("exit_time"),
                 "exit_px": t.get("exit_px"), "seeded": True,
             }
             if t["still_open"]:
                 open_at_seed = f"{t['side']} @ {t['entry_px']} ({t['entry_time']})"
+            if carry:
+                carried.append((key, t))
         leg_state["seeded"] = True
+        if carry_open:
+            leg_state["seed_open_format"] = SEED_OPEN_FORMAT
         events.append({
             "emitted_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(),
             "leg": leg_key, "event": "SEED", "side": "", "ref_time": "",
@@ -3282,9 +3361,17 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
             # ever acted on, so there is nothing meaningful to size.
             "keel_size": "",
             "reason": (f"cold start: absorbed {len(trades)} historical trade(s) without "
-                       f"emitting; open_at_seed={open_at_seed}"),
+                       f"emitting; open_at_seed={open_at_seed}"
+                       + ("; shadow leg: carried as an open would-be trade" if carried else "")),
         })
+        for key, t in carried:
+            events.append(_seeded_entry_event(leg_key, key, t, recorded[key], bar_source,
+                                              "open at this shadow leg's cold start"))
         return events
+    if carry_open and leg_state.get("seed_open_format") != SEED_OPEN_FORMAT:
+        # a shadow leg seeded before SEED_OPEN_FORMAT existed: carry its open-at-seed trade
+        # now (once), then fall through -- the diff below emits its EXIT if it has closed
+        events.extend(_carry_seeded_open(leg_key, trades, leg_state, bar_source, now))
     # LATE ENTRIES ARE NOT ACTIONABLE EITHER (2026-09-09, seen live). "Entry is from today"
     # was too weak a test. After the 12:44 runner restart this engine re-derived the day and
     # emitted an ENGU-Q ENTRY stamped 10:07 -- two and a half hours old -- because it was

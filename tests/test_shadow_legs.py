@@ -401,7 +401,7 @@ def test_shadow_legs_report_numbers(tmp_path, capsys):
     L = rep["legs"]
     assert L["NOISE_382 (live primary)"] == {"trades": 2, "open": 0, "net_usd": 0.0, "win_rate": 0.5,
                                              "largest_win_usd": 20.0, "largest_loss_usd": -20.0,
-                                             "avg_size": 1.5}
+                                             "avg_size": 1.5, "seeded": 0}
     assert L[rpt.PRIMARY_PLAIN]["net_usd"] == 20.0     # 1 x 10 x 4.0 - 20: KEEL divided back out
     f = L["NOISE_422_FIXED"]
     assert (f["trades"], f["open"], f["net_usd"]) == (2, 1, 2.5)
