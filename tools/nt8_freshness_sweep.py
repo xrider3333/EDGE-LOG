@@ -532,6 +532,16 @@ def _push_note(note):
         return False
 
 
+def run_backfill():
+    """Order-flow back-fill (2026-10-08): queue the no-split holes for the EdgeLogHistFetch add-on and merge
+    whatever it has finished (tools/nt_hist_backfill.py). Inert until the add-on is compiled once."""
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import nt_hist_backfill as HB
+    HB.EL = EL                             # same home folder as the sweep
+    HB.queue(log=lambda m: None)
+    HB.merge(log=lambda m: None)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="NT8 paper pipeline silent-failure sweep")
     ap.add_argument("--dry-run", action="store_true")
@@ -549,6 +559,11 @@ def main(argv=None):
         except Exception as e:
             items.append(_item("nt_backup_run", "warn", "NinjaTrader nightly backup",
                                f"the daytime snapshot crashed: {type(e).__name__}: {e}"))
+        try:
+            run_backfill()
+        except Exception as e:
+            items.append(_item("hist_backfill", "warn", "10s order-flow back-fill",
+                               f"queue/merge crashed: {type(e).__name__}: {e}"))
     for fn in (lambda: check_tasks(now_local), lambda: check_box_push(now_local), lambda: check_nt_backup(now_local),
                lambda: check_roster(now_local), lambda: check_capture(now_ts), lambda: check_repair(now_ts),
                lambda: check_readiness(now_ts), lambda: check_roll_watch(now_local)):

@@ -220,6 +220,7 @@ def _stub_main(monkeypatch, tmp_path, items, tasks=None):
     monkeypatch.setattr(S, "STATE_PATH", str(tmp_path / "state.json"))
     monkeypatch.setattr(S, "RESULT_PATH", str(tmp_path / "result.json"))
     monkeypatch.setattr(S, "maybe_backup", lambda *a, **k: None)
+    monkeypatch.setattr(S, "run_backfill", lambda: None)
     monkeypatch.setattr(S, "read_tasks", lambda: tasks or [])
     for fn in ("check_box_push", "check_nt_backup", "check_roster", "check_capture", "check_repair", "check_readiness",
                "check_roll_watch"):
