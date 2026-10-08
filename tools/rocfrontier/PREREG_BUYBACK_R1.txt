@@ -178,3 +178,40 @@ on the ledger and after the live queue NETISS / NEWISSUE / SHORTINT) folded:
 - [B5] MEMORY. Stage A starts only when the machine is quiet (>= 7.5 GB free on two checks 30 s apart and no headless-Chrome
   ship probe running), under the job-object limit with the 2,500 MB free-memory floor; a run the floor kills is kept and
   re-run unchanged; the owner's applications are never touched.
+
+PRE-DATA ADDENDUM 2 (2026-10-07 19:10 MST, before any BUYBACK number: the extract exists, only TV's provenance counts were read -
+rows and CIKs per concept; no value, score or return): TV's extract (inbox #123) pinned, TV's second review (#125, GO WITH ONE
+PRE-DATA FIX) and MANAGER's relay (#126) folded, and the house rules of 2026-10-07 written in.
+- [B6] THE EXTRACT, PINNED. C:\EdgeLog\_research_cache\xbrl_companyfacts\cashflow_asfiled_wide.csv (118,117,039 bytes, sha256
+  6fe4ca5de4610072cd09ee17bb0454bdfa9888f79560d92052671fc224df1632; manifest beside it e68c8da5...): tools/extract_companyfacts.py
+  on the photographed zip db35d36b, one row per fact x filing (cik, symbols, concept, unit, val, start, end, accn, fy, fp, form,
+  filed, frame), unit USD, duration facts only, the maps 19adc9ba + 6bf8dfab read as one table, facts filed on / after 2025-06-30
+  left out (87,325) and cut again at read. TV's counts: 791,898 rows, 4,922 of the zip's 4,961 CIKs, filed 2009-04-15 ..
+  2025-06-27. Cash-flow facts are YEAR-TO-DATE in 10-Qs - the draft's TTM rule already reads them that way (YTD + FY_prev -
+  YTD_prev, same start); a quarter is never read alone.
+- [B7] ISSUANCE BEFORE THE ZERO RULE (TV's fix, MANAGER #126). TV counted the draft's ISSUANCE concept on only 36.4% of the
+  base list's 10-K firm-years and the REPURCHASE pair on 53.5%; equity proceeds are tagged under other standard concepts, and
+  under the zero rule they read as NO issuance - biased toward zero exactly on the option-heavy growth firms of the short side.
+  ISSUANCE on a period = the first present of ProceedsFromIssuanceOfCommonStock, ProceedsFromIssuanceOrSaleOfEquity,
+  ProceedsFromIssuanceInitialPublicOffering, PLUS the stock-plan proceeds - ProceedsFromStockOptionsExercised,
+  ProceedsFromIssuanceOfSharesUnderIncentiveAndShareBasedCompensationPlansIncludingStockOptions,
+  ProceedsFromIssuanceOfSharesUnderIncentiveAndShareBasedCompensationPlans, ProceedsFromStockPlans - summed over the distinct
+  concepts present in the same filing for that period (CHOICE: two of them carrying the same value in one filing count once - a
+  total tagged beside its own part is not added twice); a period with none of the seven reads ZERO only when its STATEMENT fact
+  exists. The seven concepts come from TV's separate extract, pinned here: cashflow_alt_asfiled_wide.csv (43,802,538 bytes,
+  sha256 3edfacc7473d04e51ba3a92b97bd633a15c24723e88db28a66b1c463ede82162; manifest 4edc9766...; same columns, maps and cut;
+  277,902 rows), read as one table with [B6]'s file (a fact present in both is refused).
+- [B8] A REPORTED TWIN, never the verdict: REPURCHASES plus PaymentsRelatedToTaxWithholdingForShareBasedCompensation (net share
+  settlement - cash paid to retire shares, a buyback in substance), both cells, beside the registered ones.
+- [B9] BEFORE ANY P&L, per rank: the share of the PICKED names whose ISSUANCE or REPURCHASES on any of the four quarters came
+  from the zero rule; and [B3]'s tag blind-spot print counts the seven issuance concepts before it decides a name reads zero
+  everywhere (above 10% of universe names in any year, Stage A still waits for MANAGER's ruling).
+- [B10] THE JUDGED READING (the house rule since the RESMOM restatement, ledger 2.93; MANAGER #116 / #118): a name with a hygiene
+  flag inside its hold stays in the pool on the split-adjusted path; only an announced split or a [D2] spin-off / stock-dividend
+  ex-date inside the hold removes it (r17_resmom's post_mode 'keep'); the null draws from that kept pool. No in-hold removal
+  that reads the future, in any reading this file judges.
+- [B11] DD5 beside every ROC @ $30k (owner rule of 2026-10-07, MANAGER #120) - each cell, the reference, the reference + c x the
+  cell at c / 0.5c / 2c, the plain book; a worst drawdown above 1.3 x DD5 is called driven by one episode. Reported only.
+- [B12] THE REFERENCE is the RESTATED L (MANAGER #116): #463 + 0.264 x RES from resmom_cells_daily_wf_keep.csv (sha256
+  86721fda...; WF 120.95 / 3.921 / $36,526), refused if different; the draft's 'NETISS first' rule stands (a NETISS forward line,
+  if NETISS's corrected Stage A opens one, joins the reference at its registered size before this Stage A runs).
