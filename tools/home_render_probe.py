@@ -261,7 +261,7 @@ MUTANTS = [
      "tile('maxdd','Max drawdown',s?ledgerMoney(-s.maxDD):'--'",
      'the shared stats strip prints max drawdown as a negative number again'),
     ('calendar-jump-lost',
-     '<div class="lg-tl-day" data-lgday="\'+ds+\'">\'+dayHd(ds,ts)',
+     '<div class="lg-tl-day" data-lgday="\'+ds+\'"\'+dA(ds,ts)+\'>\'+dayHd(ds,ts)',
      '<div class="lg-tl-day">\'+dayHd(ds,ts)',
      'the trade list lost its day markers, so a calendar day no longer jumps the list there'),
     ('legend-swatch-giant',
@@ -2935,7 +2935,8 @@ def _judge(data, data_obj):
             if jp.get('tab') != 'home' or jp.get('view') != 'table' or not jp.get('tableShown'):
                 fails.append('%s: the ANALYTICS calendar jump did not land on the LEDGER table (tab=%r view=%r table=%s)'
                              % (tag, jp.get('tab'), jp.get('view'), jp.get('tableShown')))
-            want_flash = len([t for t in T if t['date'] == JUMP_DAY])
+            # the jump flashes the trades that CLOSED that day (owner decision 2, LEDGER shared parts round 1)
+            want_flash = len([t for t in T if _close_day(t) == JUMP_DAY])
             if jp.get('flashed') != want_flash:
                 fails.append('%s: the jump to %s flashed %s rows, expected that day\'s %d trades'
                              % (tag, JUMP_DAY, jp.get('flashed'), want_flash))

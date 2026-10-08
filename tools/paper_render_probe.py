@@ -2040,8 +2040,11 @@ def run(alt_index=None, timeout=300):
             got_v = _money_in(rowsd.get(label))
             if got_v is None or abs(got_v - want_v) > 0.006:
                 fails.append('paper2: More stats %r reads %r, the fixture says %.2f' % (label, rowsd.get(label), want_v))
-        if rowsd.get('Green days') != '%d of %d' % (exp_all['green'], exp_all['days']):
-            fails.append('paper2: More stats Green days reads %r, expected %d of %d' % (rowsd.get('Green days'), exp_all['green'], exp_all['days']))
+        # the shared row reads "2 of 4 · 50%" since LEDGER shared parts round 1 (JS Math.round: halves go up)
+        want_gd = '%d of %d' % (exp_all['green'], exp_all['days']) + (
+            ' · %d%%' % int(exp_all['green'] * 100.0 / exp_all['days'] + 0.5) if exp_all['days'] else '')
+        if rowsd.get('Green days') != want_gd:
+            fails.append('paper2: More stats Green days reads %r, expected %r' % (rowsd.get('Green days'), want_gd))
     vs_txt = mo.get('vsTxt') or ''
     if (mo.get('vsRows') or 0) < 3 or ' vs ' not in vs_txt or 'backfilled' not in vs_txt or not mo.get('vsCrown'):
         fails.append('paper2: "Strategy vs control" should list each traded strategy with its matched control, the dollar gap, the '
@@ -3855,7 +3858,7 @@ MUTANTS = [
      'the unrealised label of an open trade sits beside the money and runs into the points cell',
      'the money overflows its cell'),
     ('calendar-jump-lost',
-     '<div class="lg-tl-day" data-lgday="\'+ds+\'">\'+dayHd(ds,ts)',
+     '<div class="lg-tl-day" data-lgday="\'+ds+\'"\'+dA(ds,ts)+\'>\'+dayHd(ds,ts)',
      '<div class="lg-tl-day">\'+dayHd(ds,ts)',
      'the trade list lost its day markers, so a calendar day tap no longer finds the day to scroll to',
      'the day headers read'),
