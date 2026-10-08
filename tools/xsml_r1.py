@@ -52,24 +52,38 @@ class Data:
         self.dates = C.index
         T = len(self.dates)
         col = {s: i for i, s in enumerate(C.columns)}
-        # split quarantine: every flagged stock-day (and, with the corporate-actions file, every listed split not
-        # already flagged) removes that symbol +/- 21 sessions
+        # split quarantine (registered): every flagged stock-day removes that symbol +/- 21 sessions
         fl = pd.read_csv(FLAGS, parse_dates=["day"])
-        events = list(zip(fl.symbol, fl.day))
-        self.ca = None
-        if ca_path:
-            self.ca = load_ca(ca_path)
-            sp = self.ca["splits"]
-            flagged = {(s, pd.Timestamp(x)) for s, x in events}
-            extra = [(s, x) for s, x in zip(sp.symbol, sp.ex_date) if (s, pd.Timestamp(x)) not in flagged]
-            self.ca_extra_splits = len(extra)
-            events += extra
         q = np.zeros(C.shape, bool)
-        for s, day in events:
+        for s, day in zip(fl.symbol, fl.day):
             if s in col:
                 j = self.dates.searchsorted(pd.Timestamp(day))
                 q[max(0, j - 21): j + 22, col[s]] = True
         self.n_quarantined = int(q.any(axis=0).sum())
+        # corporate actions (addendum 3): splits are CROSS-CHECKED against the flags only (the prices are split-
+        # adjusted; quarantining every listed split would use the future - a coming reverse split marks a distressed
+        # name weeks early). Spin-offs and stock dividends are not price-adjusted: their ex-date session is blanked for
+        # that name (a position held into it exits at the prior close, P&L stops; RESMOM [D2] in spirit), for every
+        # cell, twin and null alike.
+        self.ca, self.ca_check = None, {}
+        if ca_path:
+            self.ca = load_ca(ca_path)
+            ev = self.ca["splits"]
+            ev = ev[ev.ex_date <= END]
+            spl = ev[ev.type.isin(["forward_split", "reverse_split", "unit_split"])]
+            fset = {(s_, pd.Timestamp(x)) for s_, x in zip(fl.symbol, fl.day)}
+            near = sum(any((s_, x + pd.Timedelta(days=k)) in fset for k in range(-3, 4)) for s_, x in zip(spl.symbol, spl.ex_date))
+            spin = ev[ev.type.isin(["spin_off", "stock_dividend"])]
+            blank = 0
+            for s_, x in zip(spin.symbol, spin.ex_date):
+                if s_ in col:
+                    j = self.dates.searchsorted(x)
+                    if j < T and self.dates[j] == x:
+                        q[j, col[s_]] = True
+                        blank += 1
+            self.ca_check = dict(splits_listed=int(len(spl)), splits_within_3_days_of_a_flag=int(near),
+                                 flags=int(len(fl)), spin_or_stock_div_ex_dates_blanked=blank)
+        self.ca_extra_splits = self.ca_check.get("spin_or_stock_div_ex_dates_blanked", 0)
         last_raw = C.notna().to_numpy()[::-1].argmax(axis=0)
         last_pos = T - 1 - last_raw
         C, V = C.mask(q), V.mask(q)
@@ -102,15 +116,30 @@ class Data:
         self.On, self.Cn = self.O.to_numpy(float), self.C.to_numpy(float)
         # cash dividends per share on their ex-date (same split basis as the prices), zero where unknown
         self.div = np.zeros((T, len(self.syms)))
+        self.div_counts = {}
         if self.ca is not None:
-            cj = {s: i for i, s in enumerate(self.syms)}
+            # declared (raw-basis) amount -> the split-adjusted basis of the prices: divide by F = raw open / split open
+            # on the ex-date (STRATEGY-BEATING #67); a row whose name is not a column, whose ex-date is not a session
+            # or whose F cannot be formed is not placed (counted)
             dv_ = self.ca["dividends"]
-            for s, x, a in zip(dv_.symbol, dv_.ex_date, dv_.amount):
-                if s in cj:
-                    j = self.dates.searchsorted(pd.Timestamp(x))
-                    if j < T and self.dates[j] == pd.Timestamp(x):
-                        self.div[j, cj[s]] += float(a)
+            dv_ = dv_[dv_.symbol.isin(set(self.syms)) & (dv_.ex_date <= END)]
+            raw = pd.read_parquet(DAILY.replace("daily_split", "daily_raw"), columns=["symbol", "date", "o"])
+            raw = raw[raw.symbol.isin(set(dv_.symbol))]
+            spl = d[d.symbol.isin(set(dv_.symbol))][["symbol", "date", "o"]]
+            m = dv_.merge(raw.rename(columns={"date": "ex_date", "o": "o_raw"}), on=["symbol", "ex_date"], how="left") \
+                   .merge(spl.rename(columns={"date": "ex_date", "o": "o_split"}), on=["symbol", "ex_date"], how="left")
+            F = m.o_raw / m.o_split
+            ok = np.isfinite(F) & (F > 0)
+            cj = {s_: i for i, s_ in enumerate(self.syms)}
+            placed = 0
+            for s_, x, a, f in zip(m.symbol[ok], m.ex_date[ok], m.amount_raw[ok], F[ok]):
+                j = self.dates.searchsorted(x)
+                if j < T and self.dates[j] == x:
+                    self.div[j, cj[s_]] += float(a) / float(f)
+                    placed += 1
             self.div[~np.isfinite(self.On)] = 0.0
+            self.div_counts = dict(rows_in_universe=int(len(dv_)), placed=placed, no_split_factor=int((~ok).sum()),
+                                   F_not_1=int((np.abs(F[ok] - 1.0) > 0.01).sum()))
         prevC = np.vstack([np.full((1, len(self.syms)), np.nan), self.Cn[:-1]])
         with np.errstate(invalid="ignore", divide="ignore"):
             self.div_yield_on = np.nan_to_num(self.div / prevC)   # added to the overnight return on the ex-date
@@ -119,10 +148,23 @@ class Data:
         return int(self.dates.get_loc(t))
 
 
+CA_EVENTS = ("forward_split", "reverse_split", "unit_split", "stock_dividend", "spin_off")
+
+
 def load_ca(path):
-    """STRATEGY-BEATING's Alpaca corporate-actions file -> {'dividends': symbol, ex_date, amount; 'splits': symbol,
-    ex_date}. The column mapping is fixed in addendum 3 once the file's format is posted."""
-    raise NotImplementedError("corporate-actions format not yet posted by STRATEGY-BEATING - see addendum 3")
+    """The WIDE Alpaca corporate-actions file (MANAGER #68, sha256 pinned in addendum 3) -> {'dividends': symbol,
+    ex_date, amount_raw (dollars per share AS DECLARED, raw basis); 'splits': symbol, ex_date, type for every split,
+    unit split, stock dividend and spin-off (each quarantined like a split flag); 'sha': the file's sha256}."""
+    sha = hashlib.sha256(open(path, "rb").read()).hexdigest()
+    ca = pd.read_csv(path, low_memory=False)
+    ca["ex_date"] = pd.to_datetime(ca["ex_date"], errors="coerce")
+    ca = ca[ca["ex_date"].notna() & ca["symbol"].notna()].copy()
+    ca["symbol"] = ca["symbol"].astype(str)
+    dv = ca[ca["type"] == "cash_dividend"].copy()
+    dv["amount_raw"] = pd.to_numeric(dv["rate"], errors="coerce")
+    dv = dv[dv["amount_raw"] > 0][["symbol", "ex_date", "amount_raw"]]
+    ev = ca[ca["type"].isin(CA_EVENTS)][["symbol", "ex_date", "type"]]
+    return {"dividends": dv.reset_index(drop=True), "splits": ev.reset_index(drop=True), "sha": sha}
 
 
 # ------------------------------------------------------------------------------------------------ features
@@ -554,12 +596,19 @@ def shuffles_periodic(D, dates, rng, beta=None):
     return np.array([roc_sortino(periodic_book(D, random_books(D, dates, rng, beta)))[0] for _ in range(N_SHUF)])
 
 
+def ca_path_required():
+    ca = os.environ.get("XSML_CA")
+    assert ca and os.path.exists(ca), "XSML_CA = the wide corporate-actions file is required (review #64)"
+    return ca
+
+
 def power():
     os.makedirs(OUT, exist_ok=True)
-    D = Data()
+    D = Data(ca_path_required())
     FA, FC, beta, wk, mo = build(D)
     w463, days, weeks, n_eps, deep = book463_ddweeks()
-    lines = [f"data sha256 {D.sha}; {len(D.syms):,} symbols ever in the universe; {D.n_quarantined} quarantined",
+    lines = [f"data sha256 {D.sha}; {len(D.syms):,} symbols ever in the universe; {D.n_quarantined} quarantined; "
+             f"corporate actions sha256 {D.ca['sha']}; {D.ca_check}; dividends {D.div_counts}",
              f"#463 parity 93.81 / 3.816 OK; WF drawdown episodes >= 1/3 of ${deep:,.0f}: {n_eps}; DD days {len(days)}; "
              f"DD weeks {len(weeks)} (DDW r1 printed 28 / 460 / 92)",
              "POWER LINE - matched-risk shuffles (random books, same rule, GROSS), no cell or twin P&L read:"]
@@ -587,7 +636,7 @@ def power():
 def power2():
     """Review #64 edits 4 + 5, before any cell number: B's turnover and cost per year (positions only, no P&L read),
     and the DO null for C's earner route (DO of the same 1,000 random beta-neutral books, re-drawn with seed + 2)."""
-    D = Data()
+    D = Data(ca_path_required())
     FA, FC, beta, wk, mo = build(D)
     w463, days, weeks, _, _ = book463_ddweeks()
     SB = statarb_scores(D)
@@ -634,6 +683,10 @@ def judge(name, D, net, net_s, gross, twin, null95, w463, days, weeks, info, pf,
     rho, do = dd_stats(net, w463, days, weeks)
     wf = net[(net.index >= WF0) & (net.index <= WF1)]
     tot = float(wf.sum())
+    from augur_engine.drawdowns import dd5
+    d5 = dd5(wf)
+    tw = twin[(twin.index >= WF0) & (twin.index <= WF1)]
+    d5t = dd5(tw)
     no20 = float(wf[~((wf.index >= "2020-02-01") & (wf.index <= "2020-04-30"))].sum())
     ys = years_ok(net)
     h1 = float(wf[wf.index <= "2021-06-30"].sum())
@@ -661,6 +714,10 @@ def judge(name, D, net, net_s, gross, twin, null95, w463, days, weeks, info, pf,
     lines = [f"\n{name}: net WF ROC@$30k {r:.1f} Sortino {s:.2f} | stress {rs:.1f} | gross {rg:.1f} | shuffle 95th "
              f"{null95:.1f}: NET lead {r - null95:+.1f}, gross lead {rg - null95:+.1f} | raw twin net {rt:.1f} / {st:.2f} "
              f"| WF net ${tot:,.0f}",
+             f"  DD5 (MANAGER #77): worst WF DD ${d5['max_dd']:,.0f}, DD5 ${d5['dd5_usd']:,.0f}"
+             + (" - ROC DRIVEN BY ONE EPISODE" if d5["one_episode"] else "")
+             + f" | twin worst ${d5t['max_dd']:,.0f} DD5 ${d5t['dd5_usd']:,.0f}"
+             + (" (twin: one episode)" if d5t["one_episode"] else ""),
              "  July-June years: " + ", ".join(f"{2018 + i}/{(2019 + i) % 100:02d} ${v:,.0f}" for i, v in enumerate(ys))
              + f" | no-2020 ${no20:,.0f} | halves ${h1:,.0f} / ${h2:,.0f} | without best 1% name-periods "
              f"(k={k1}) ${no_top1:,.0f} | without best 5 decision periods ${no_top5:,.0f}",
@@ -683,15 +740,14 @@ def judge(name, D, net, net_s, gross, twin, null95, w463, days, weeks, info, pf,
 def run():
     for f in ("POWER.txt", "POWER2.txt"):
         assert os.path.exists(os.path.join(OUT, f)), f"run the power steps first and commit {f}"
-    ca = os.environ.get("XSML_CA")
-    assert ca and os.path.exists(ca), "XSML_CA = STRATEGY-BEATING's corporate-actions file is required (review #64)"
+    ca = ca_path_required()
     nulls = pd.read_csv(os.path.join(OUT, "nulls.csv"))
     do95 = float(np.percentile(pd.read_csv(os.path.join(OUT, "nulls_do.csv")).C_do, 95))
     D = Data(ca)
     FA, FC, beta, wk, mo = build(D)
     w463, days, weeks, _, _ = book463_ddweeks()
     lines = [open(os.path.join(OUT, f), encoding="utf-8").read().rstrip() for f in ("POWER.txt", "POWER2.txt")]
-    lines.append(f"corporate actions: {ca}; splits not already flagged, now quarantined: {D.ca_extra_splits}; "
+    lines.append(f"corporate actions: {ca} sha256 {D.ca['sha']}; cross-check {D.ca_check}; dividends {D.div_counts}; "
                  f"dividend name-days {int((D.div != 0).sum()):,}")
     verdict = {}
     T = len(D.dates)
