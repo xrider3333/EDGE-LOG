@@ -908,9 +908,11 @@ def run(trades_csv=None, sidecar_csv=None, config_path=None, apply=False, force=
             else:
                 yf_bars_by_day[day] = bars
         except NetworkUnavailable as e:
+            # exit 2, not 0 (finding 27): nothing was priced, and api/qqq_exec.py's nightly
+            # run must see that to try again later in the evening
             log(f"[qqq-reprice] network/data source unavailable ({e}) -- "
-                f"sidecar left untouched, exiting cleanly.")
-            return 0
+                f"sidecar left untouched, exiting with code 2.")
+            return 2
 
     computed = {}
     report_rows = []
@@ -1143,7 +1145,9 @@ def main():
     except Exception as e:
         print(f"[qqq-reprice] unexpected error: {type(e).__name__}: {e}")
         traceback.print_exc()
-        sys.exit(0)  # never crash noisily; this is a read-only analysis aid
+        # exit 1 (finding 27): it used to exit 0 here, so the executor's nightly run read
+        # a crash as done and never tried again. Still no traceback escapes uncaught.
+        sys.exit(1)
 
 
 if __name__ == "__main__":

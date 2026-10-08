@@ -78,6 +78,7 @@ from datetime import datetime, timedelta, timezone
 
 from . import market_calendar
 from . import nt_sync
+from . import ntfy_push
 from . import trade_id as _trade_id
 from . import webull_orders
 
@@ -743,11 +744,43 @@ def _notify(msg, title, log=print, priority=None):
     before this date passes nothing and is unaffected.
 
     Returns True when the POST went out, False when it was tried and failed, None when no
-    topic is set (nothing to retry). Callers that ignore the result are unaffected."""
+    topic is set (nothing to retry). Callers that ignore the result are unaffected.
+
+    PERSISTED OUTBOX (sweep 2026-10-05, finding 16). A 'high' or 'urgent' push goes through
+    api/ntfy_push.Outbox (file: NTFY_OUTBOX_PATH, beside state.json): one try right away as
+    before, and if that fails it is kept on disk and retried by a background thread (30 s,
+    1 min, 2 min, 5 min, then every 10 min, for up to 12 h, at most 50 waiting) -- the 5 s
+    tick never waits on a retry, and while earlier pushes are still waiting a new one is
+    queued without a try at all. Each such push logs one line when it is sent, delivered
+    late or dropped. Returns "queued" (not False) when it was kept for retry: the outbox
+    now owns delivery, so a caller must not retry it itself. Routine pushes (no priority,
+    'default', 'low') stay one fire-and-forget try."""
     topic = (os.environ.get("NTFY_TOPIC") or "").strip()
     if not topic:
         log(f"[qqq-exec] NTFY_TOPIC unset, push skipped: {title}: {msg}")
         return None
+    if ntfy_push.is_durable(priority):
+        try:
+            r = _ntfy_outbox(log).send(msg, title, priority)
+            if r is not False:
+                return r
+            # False: the outbox itself broke before any network try -- still make one
+            log("[qqq-exec] ntfy outbox could not take the push -- one plain try")
+        except Exception as e:     # the outbox itself broke: still make the one plain try
+            log(f"[qqq-exec] ntfy outbox unavailable ({type(e).__name__}: {e}) -- one plain try")
+    ok, detail = _ntfy_post(msg, title, priority)
+    if not ok:
+        log(f"[qqq-exec] ntfy push failed: {detail}")
+        return False
+    return True
+
+
+def _ntfy_post(msg, title, priority=None):
+    """ONE ntfy POST, (ok, detail): ok True/False, None when NTFY_TOPIC is unset. Never
+    raises, never logs (the caller -- _notify or the outbox -- logs the outcome)."""
+    topic = (os.environ.get("NTFY_TOPIC") or "").strip()
+    if not topic:
+        return None, "NTFY_TOPIC unset"
     headers = {"Title": title, "Priority": priority or "default"}
     # Private topic (WEBULL_GO_LIVE 1.10): same NTFY_TOKEN / NTFY_SERVER contract as
     # api/ntfy_push.py; unset keeps today's public ntfy.sh behaviour.
@@ -759,11 +792,72 @@ def _notify(msg, title, log=print, priority=None):
         req = urllib.request.Request(
             f"{server}/{topic}", data=msg.encode("utf-8"), method="POST",
             headers=headers)
-        urllib.request.urlopen(req, timeout=4)
+        resp = urllib.request.urlopen(req, timeout=4)
     except Exception as e:
-        log(f"[qqq-exec] ntfy push failed: {type(e).__name__}: {e}")
-        return False
-    return True
+        return False, f"{type(e).__name__}: {e}"
+    status = getattr(resp, "status", None)
+    try:
+        close = getattr(resp, "close", None)
+        if callable(close):
+            close()
+    except Exception:
+        pass
+    if isinstance(status, int) and not (200 <= status < 300):
+        return False, f"HTTP {status}"
+    return True, (f"HTTP {status}" if isinstance(status, int) else "sent")
+
+
+def _phone_note(state, key, problem_id, note, log=print):
+    """THE PLAIN PHONE FORMAT for this executor's NEW pushes (re-price failed -- api/ntfy_push
+    PLAIN FORMAT, v73.1120/1121): `note` is an ntfy_push.plain()
+    dict; the shared repeat rule (ntfy_push.dedupe) runs per `key` on state["_phone_dedupe"]
+    (persisted with state.json), lint() problems are logged, and a "push" goes out through
+    _notify (so a high/urgent note still uses the outbox). Returns the dedupe action. Never
+    raises."""
+    try:
+        for p in ntfy_push.lint(note):
+            log(f"[qqq-exec] phone note lint: {p}: {note.get('title')}")
+        store = state.setdefault("_phone_dedupe", {})
+        action = ntfy_push.dedupe_in(store, key, {str(problem_id): ntfy_push.RANK.get(
+            note.get("priority"), 0)}, time.time())
+        if action == "push":
+            _notify(note["message"], note["title"], log, priority=note["priority"])
+        else:
+            log(f"[qqq-exec] phone note held by the repeat rule: {note.get('title')}")
+        return action
+    except Exception as e:
+        log(f"[qqq-exec] phone note failed ({type(e).__name__}: {e})")
+        return None
+
+
+# The executor's ntfy outbox (finding 16) -- see _notify. None: ntfy_outbox.json in the same
+# folder as STATE_PATH. NTFY_OUTBOX_BACKGROUND=False (tests) never starts the retry thread.
+NTFY_OUTBOX_PATH = None
+NTFY_OUTBOX_BACKGROUND = True
+_NTFY_OUTBOX = {"box": None}
+_ntfy_outbox_lock = threading.Lock()
+
+
+def _ntfy_outbox(log=None):
+    path = NTFY_OUTBOX_PATH or os.path.join(os.path.dirname(STATE_PATH), "ntfy_outbox.json")
+    with _ntfy_outbox_lock:
+        box = _NTFY_OUTBOX.get("box")
+        if box is None or box.path != path or box.background != bool(NTFY_OUTBOX_BACKGROUND):
+            box = ntfy_push.Outbox(path, sender=lambda m, t, p: _ntfy_post(m, t, p),
+                                   tag="qqq-exec", background=NTFY_OUTBOX_BACKGROUND)
+            _NTFY_OUTBOX["box"] = box
+    box.set_log(log)
+    return box
+
+
+def _ntfy_outbox_resume(log=print):
+    """Serving start-up: retry any HIGH/URGENT push a previous process could not deliver.
+    Never raises."""
+    try:
+        return _ntfy_outbox(log).resume(log)
+    except Exception as e:
+        log(f"[qqq-exec] ntfy outbox resume failed (non-fatal): {type(e).__name__}: {e}")
+        return 0
 
 
 # -- event timeline (feature #52) ---------------------------------------------------
@@ -6153,7 +6247,15 @@ def _check_feed_engine(state, log=print):
     heartbeat (its parallel-run thread inside api/runner.py) -- never opens fills.csv
     or addon_heartbeat.json. One heartbeat covers both signal and price freshness in
     this mode (cloud_signal ticks its bar fetch and its signal diff together), unlike
-    NinjaTrader mode's two independent feeds."""
+    NinjaTrader mode's two independent feeds.
+
+    FEED HEALTH (2026-10-05, sweep findings 6 + 15) -- DECIDED: this gate still reads only
+    the heartbeat's age and `ok`. The engine now also writes `stalled` / `verdict` (no new
+    closed bar for two bars + 60 s when one was due), bar_age_s and bars_missing, and pushes
+    that itself, once per episode. `ok` deliberately keeps its old meaning ("the step ran"):
+    turning a frozen bar tail into ok=false here would block every new entry and count the
+    minutes as feed downtime off a heuristic, when a frozen tail produces no entry anyway,
+    and would double the page this function already sends for an open lot."""
     stale = True
     try:
         cs = _cs_module()
@@ -9457,32 +9559,192 @@ def _merge_reprice(trades_all, log=print):
                "mean_slip_ps": None, "last_run": None}
 
 
+REPRICE_FROM_HHMM = (16, 20)          # first try, ET
+REPRICE_RETRY_FROM_HHMM = (19, 0)     # the one evening retry, ET
+REPRICE_RETRY_MIN_GAP_SEC = 1800.0    # and never within 30 min of the failed try
+REPRICE_MAX_TRIES = 2
+REPRICE_TIMEOUT_SEC = 120
+
+
+def _run_reprice_tool(script, log=print):
+    """Run tools/qqq_reprice.py --apply once: (ok, detail). ok only on exit code 0 -- the
+    tool exits non-zero on an error (finding 27). Its own output still goes to this
+    process's log, as before. Never raises."""
+    try:
+        r = subprocess.run([sys.executable, script, "--apply"], timeout=REPRICE_TIMEOUT_SEC,
+                           check=False)
+    except subprocess.TimeoutExpired:
+        return False, f"timed out after {REPRICE_TIMEOUT_SEC}s"
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"
+    rc = getattr(r, "returncode", None)
+    if rc != 0:
+        return False, f"exit code {rc}"
+    return True, "exit code 0"
+
+
 def _maybe_run_reprice(state, nowdt, log=print):
     """Once per ET weekday, after 16:20 ET, shells out to tools/qqq_reprice.py --apply
     (the sidecar-writing tool owned by a different agent). Non-fatal if the tool
     doesn't exist yet, times out, or errors -- this adapter's own trading logic must
-    never depend on it."""
+    never depend on it.
+
+    FAILURES ARE NOT "DONE" (sweep 2026-10-05, finding 27). reprice_done_date used to be
+    stamped BEFORE the run and the exit code ignored, so a failed or crashed run left the
+    day's real-price P&L and slippage missing with no retry and nothing said. Now:
+      * reprice_done_date is stamped only after a run that exits 0;
+      * a failed run (non-zero exit, timeout, tool missing) is kept in
+        state["reprice_fail"] = {date, tries, last_try_epoch, last_error, alerted} plus a
+        'reprice_failed' event, and is tried ONCE more from 19:00 ET (and at least 30 min
+        after the failed try, for a first try that itself ran late);
+      * if that retry fails too: one push and one more event, then nothing more that day.
+        A first try that fails too late for the retry to fit before midnight ET (after
+        about 23:30) pushes at once instead;
+      * a MISSING tools/qqq_reprice.py now counts as a failure and pushes (it used to be a
+        quiet skip): the box should always have it.
+    The next weekday starts clean (the tool re-prices every trade still missing a row)."""
     try:
         if not _is_weekday(nowdt):
             return
-        if _et_hhmm(nowdt) < (16, 20):
+        if _et_hhmm(nowdt) < REPRICE_FROM_HHMM:
             return
         today = nowdt.strftime("%Y-%m-%d")
         if state.get("reprice_done_date") == today:
             return
-        state["reprice_done_date"] = today  # mark attempted even if the tool is missing/fails
+        fail = state.get("reprice_fail")
+        if not isinstance(fail, dict) or fail.get("date") != today:
+            if fail is not None:
+                state.pop("reprice_fail", None)
+            fail = None
+        now_epoch = nowdt.timestamp()
+        if fail is not None:
+            if fail.get("alerted") or int(fail.get("tries") or 0) >= REPRICE_MAX_TRIES:
+                return
+            if _et_hhmm(nowdt) < REPRICE_RETRY_FROM_HHMM:
+                return
+            if now_epoch - float(fail.get("last_try_epoch") or 0.0) < REPRICE_RETRY_MIN_GAP_SEC:
+                return
         repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         script = os.path.join(repo_root, "tools", "qqq_reprice.py")
         if not os.path.exists(script):
-            log(f"[qqq-exec] reprice tool not found at {script} -- skipping (non-fatal)")
+            ok, detail = False, f"tool not found at {script}"
+        else:
+            ok, detail = _run_reprice_tool(script, log=log)
+        tries = int((fail or {}).get("tries") or 0) + 1
+        if ok:
+            state["reprice_done_date"] = today
+            state.pop("reprice_fail", None)
+            _log_event(state, "reprice", "Daily broker reprice reconciliation ran"
+                       + (f" (on try {tries})" if tries > 1 else ""), log=log)
             return
-        try:
-            subprocess.run([sys.executable, script, "--apply"], timeout=120, check=False)
-        except Exception as e:
-            log(f"[qqq-exec] reprice subprocess failed: {type(e).__name__}: {e}")
-        _log_event(state, "reprice", "Daily broker reprice reconciliation ran", log=log)
+        fail = {"date": today, "tries": tries, "last_try_epoch": now_epoch,
+                "last_error": detail, "alerted": False}
+        state["reprice_fail"] = fail
+        # the retry must fit before midnight ET (the record is per ET date): a first try that
+        # failed too late for one (after ~23:30 ET) alerts now instead of being forgotten
+        day0 = nowdt.replace(hour=0, minute=0, second=0, microsecond=0)
+        retry_at = max(now_epoch + REPRICE_RETRY_MIN_GAP_SEC,
+                       day0.replace(hour=REPRICE_RETRY_FROM_HHMM[0],
+                                    minute=REPRICE_RETRY_FROM_HHMM[1]).timestamp())
+        room = retry_at < (day0 + timedelta(days=1)).timestamp()
+        if tries < REPRICE_MAX_TRIES and room:
+            line = (f"Nightly re-price failed ({detail}) -- trying once more after "
+                    f"{REPRICE_RETRY_FROM_HHMM[0]:02d}:{REPRICE_RETRY_FROM_HHMM[1]:02d} ET")
+            log(f"[qqq-exec] {line}")
+            _log_event(state, "reprice_failed", line, log=log)
+            return
+        how = "twice today" if tries >= REPRICE_MAX_TRIES else "too late tonight to try again"
+        line = (f"Nightly re-price failed {how} ({detail}). Today's trades have no "
+                f"real-price P&L or slippage yet -- run tools/qqq_reprice.py --apply on the "
+                f"box by hand, or it catches up after tomorrow's close.")
+        log(f"[qqq-exec] {line}")
+        _log_event(state, "reprice_failed", line, log=log)
+        fail["alerted"] = True
+        _phone_note(state, "reprice_failed", today, ntfy_push.plain(
+            "QQQ book", "re-price failed", None,
+            "Today's real-price P&L and slippage are missing: the nightly re-price failed "
+            + ("twice." if tries >= REPRICE_MAX_TRIES else "too late to try again."),
+            "nothing - it catches up after tomorrow's close; ask Claude (PAPER-WB chat) to "
+            "run it sooner", priority="low"), log=log)      # Do: nothing -> information
     except Exception as e:
         log(f"[qqq-exec] reprice scheduling failed: {type(e).__name__}: {e}")
+
+
+EOD_GAVE_UP_LOOK_AFTER_CLOSE_SEC = 300.0      # the engine gives up at close + 5 min
+EOD_GAVE_UP_LOOK_FOR_SEC = 3 * 3600.0
+EOD_GAVE_UP_CHECK_EVERY_SEC = 60.0
+EOD_NOT_SETTLED_AFTER_CLOSE_SEC = 600.0       # no settle and no give-up by then: engine down
+
+
+def _maybe_note_eod_gave_up(state, nowdt, log=print, read_cs_state=None):
+    """EOD SETTLE GAVE UP (sweep 2026-10-05, finding 30). When api/cloud_signal.py could not
+    settle the day (its last bar never arrived by close + 5 min) it records
+    state["eod_gave_up"][date] in ITS state.json. This turns that record into ONE event on
+    this book's timeline -- what the board shows -- so the morning's late exits (old
+    ref_time) are explained where the owner looks. Reads the engine's state at most once a
+    minute, from close + 5 min for three hours, until noted. ENGINE DOWN THROUGH THE WINDOW:
+    when the engine stepped earlier today but by close + 10 min holds neither
+    eod_settled[today] nor eod_gave_up[today] (its thread was down or stuck), this logs the
+    same event. NO PUSH from here (ONE ALERTER PER PROBLEM, api/ntfy_push): the phone push
+    for "today's close was not settled" is tools/webull_freshness.py's eod_settled check,
+    which sees both cases. Returns True when it logged the event. Never raises."""
+    try:
+        d = nowdt.date()
+        if not market_calendar.is_session(d):
+            return False
+        today = d.isoformat()
+        if state.get("_eod_gave_up_noted") == today:
+            return False
+        hh, mm = _hhmm(market_calendar.session_close_et(d))
+        close_dt = nowdt.replace(hour=hh, minute=mm, second=0, microsecond=0)
+        since = (nowdt - close_dt).total_seconds()
+        if since < EOD_GAVE_UP_LOOK_AFTER_CLOSE_SEC or \
+                since > EOD_GAVE_UP_LOOK_AFTER_CLOSE_SEC + EOD_GAVE_UP_LOOK_FOR_SEC:
+            return False
+        now_epoch = nowdt.timestamp()
+        if now_epoch - float(state.get("_eod_gave_up_checked_at") or 0.0) < \
+                EOD_GAVE_UP_CHECK_EVERY_SEC:
+            return False
+        state["_eod_gave_up_checked_at"] = now_epoch
+        if read_cs_state is None:
+            cs = _cs_module()
+            cs_state = cs._load_state(cs.DEFAULT_PATHS)
+        else:
+            cs_state = read_cs_state()
+        cs_state = cs_state if isinstance(cs_state, dict) else {}
+        rec = (cs_state.get("eod_gave_up") or {}).get(today)
+        if not rec:
+            if (cs_state.get("eod_settled") or {}).get(today):
+                state["_eod_gave_up_noted"] = today        # settled: nothing more to look for
+                return False
+            # ENGINE NEVER SETTLED (no settle, no give-up record) by close + 10 min: its thread
+            # was down or stuck through the whole window, so it could not record either. Only
+            # when the engine stepped earlier today ON THIS HOST (generated_at today): a host
+            # whose engine does not write here is the feed check's business, not this one.
+            gen = str(cs_state.get("generated_at") or "")[:10]
+            if since < EOD_NOT_SETTLED_AFTER_CLOSE_SEC or gen != today:
+                return False
+            last_at = str(cs_state.get("generated_at"))[11:16]
+            text = (f"The signal engine never settled today: no record of the last bar "
+                    f"{(since / 60):.0f} min after the close (its last step was {last_at} ET -- "
+                    f"it may be stopped or stuck). Today's end-of-day exits will be written "
+                    f"tomorrow morning, stamped with today's last-bar time, so today's signal "
+                    f"ledger and parity are off until then. No order depends on it.")
+            _log_event(state, "eod_settle_gave_up", text, log=log)
+            log(f"[qqq-exec] {text}")
+            state["_eod_gave_up_noted"] = today
+            return True
+        why = (rec.get("why") if isinstance(rec, dict) else None) or "the last bar never arrived"
+        text = (f"The signal engine could not settle today ({why}): today's end-of-day exits "
+                f"will be written tomorrow morning, stamped with today's last-bar time, so "
+                f"today's signal ledger and parity are off until then. No order depends on it.")
+        _log_event(state, "eod_settle_gave_up", text, log=log)
+        log(f"[qqq-exec] {text}")
+        state["_eod_gave_up_noted"] = today
+        return True
+    except Exception as e:
+        log(f"[qqq-exec] eod settle give-up check failed (non-fatal): {type(e).__name__}: {e}")
+        return False
 
 
 # -- readiness (feature #53) -----------------------------------------------------------
@@ -10840,6 +11102,9 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     # once-per-ET-day, time-gated jobs that must never block or crash a tick -- see
     # _maybe_run_reprice / _maybe_send_eod_summary for the schedule.
     _maybe_run_reprice(state, nowdt, log=log)
+    # EOD SETTLE GAVE UP (finding 30): the engine's own record -> one board event
+    if src_mode == "engine":
+        _maybe_note_eod_gave_up(state, nowdt, log=log)
 
     doc = _build_doc(cfg, state, feed_stale, unrealized, log=log)
     _maybe_send_eod_summary(state, doc, nowdt, log=log)
@@ -11033,6 +11298,9 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
             log(f"[qqq-exec] lease {'claimed' if stamp else 'NOT confirmed yet (fail-open)'} "
                 f"for host {_lease_host_id()!r}: {reason}")
         state = load_state(log=log)
+        # NTFY OUTBOX (finding 16): a high/urgent push the last process could not deliver
+        # is retried now, off the tick (background thread) -- see _notify.
+        _ntfy_outbox_resume(log=log)
         _reconcile_broker_at_boot(log=log)
         # LIVE WEBULL STREAM (2026-09-23, item 3; WINDOWED 2026-09-25, item B): only
         # from here on is this process actually SERVING (past the standby return
@@ -12194,7 +12462,8 @@ def _maybe_rebuild_firestore(db, state=None, log=print, now=None):
                 sent = False
             # The episode's one push counts only once it went out: False (tried, failed --
             # the network may be down too) tries again after FS_ALERT_RETRY_SEC. None (no
-            # topic set) or True ends it.
+            # topic set), True, or "queued" (the ntfy outbox keeps retrying it -- see
+            # _notify) ends it.
             with h._lock:
                 if sent is False:
                     h.next_alert_at = now + FS_ALERT_RETRY_SEC

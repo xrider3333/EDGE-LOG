@@ -30,8 +30,19 @@ from api/market_calendar):
   SESSION (09:30 to the close, 13:00 on half days)
     engine_hb        cloud_signal heartbeat over 3 min old or ok=false, lot or no lot -- #5.
     bar_age          newest CLOSED 5m bar closed more than 660 s ago (from 09:41) -- #6.
+                     Also fails when a FRESH engine heartbeat says stalled=true (the
+                     engine's own verdict, api/cloud_signal.py FEED HEALTH, 2026-10-05), and
+                     names its bars_missing count; a heartbeat without those fields (an
+                     older engine) is judged on the bar times alone, as before.
+                     ONE PAGER: such an engine pages this episode itself ("QQQ book: prices stopped"),
+                     so while its heartbeat is fresh and carries `stalled` the episode opens
+                     QUIET here -- tracked in status.json (and relayed to the PC) but never
+                     pushed, start or end. With a stale heartbeat (engine_hb pages that) or
+                     an older engine, this monitor pages bar_age itself, as before.
     bar_source       the live 5m cache came from yfinance on 2 runs in a row (the engine
-                     fetches every 20-60 s, so that is 3+ fetches) -- #15.
+                     fetches every 20-60 s, so that is 3+ fetches) -- #15. QUIET (not
+                     pushed) while a fresh engine heartbeat carries yf_fallback_streak: the
+                     engine pages it ("QQQ book: backup prices") after 3 fetches in a row.
     tick_gap         tick loop silent over 30 s now, or the day's max gap rose past 30 s -- #3.
     qqq_1d           from 09:40, QQQ_1d's newest bar is not the previous session (the
                      engine refreshes it once a day at ~09:35) -- #14, 2 runs in a row.
@@ -41,7 +52,9 @@ from api/market_calendar):
                      TODAY -- #7, URGENT: nothing else checks the book went flat at Webull.
                      (webull_flat is HIGH, saying so, while the executor's KILL file is
                      present: a halted book skips the flatten, so the check cannot run.)
-    eod_settled      cloud_signal eod_settled has today -- #30.
+    eod_settled      cloud_signal eod_settled has today -- #30. The ONE pusher of "today's close
+                     was not settled": the engine only records eod_gave_up[today] (named here
+                     when present) and the executor only logs the board event.
   PRE-OPEN GATE (session days; the 08:30 and 09:15 ET slots, each once)
     KEEL current, QQQ_1d newest bar no older than the session BEFORE the previous one (the
     most the cache can hold before the engine's ~09:35 refresh), lease fresh (last publish within
@@ -93,7 +106,8 @@ again" push for every episode, and "QQQ book ready"/"QQQ book NOT ready" (urgent
                   NOW" (high) when the restart command failed.
 
 Outputs, all under <home>/freshness/: status.json (open alerts, this run's verdicts,
-outbox depth, restart gate -- what tools/webull_freshness_pc.py reads over ssh),
+outbox depth, restart gate, the last KEEL_DIFFS_IN_STATUS KEEL size diffs -- what
+tools/webull_freshness_pc.py reads over ssh),
 freshness_heartbeat.json (this monitor's own liveness), state.json (its memory), and a log at
 <home>/logs/freshness.log. If EDGELOG_FRESHNESS_PING_URL is set (a healthchecks.io-type
 push-heartbeat URL, never logged), each completed run GETs it, so a dead box or timer pages
@@ -120,6 +134,12 @@ NEVER READS THE WEBULL TOKEN. token.txt is the SDK's own three-line file (token,
 epoch ms, status); line 1 is read past and discarded, only lines 2-3 are parsed. Nothing here
 prints NTFY_TOPIC, NTFY_TOKEN, the ping URL or any account field (the order adapter's
 config.json is read for its "mode" key only).
+
+KEEL SIZE DIFFS (2026-10-05, MANAGER #76). api/cloud_signal.py records each LIVE NOISE entry
+where KEEL's size and the fixed rule's size differ (cloud_signal/keel_size_diffs.jsonl, once per
+date + leg + entry time) and pushes it itself. This monitor only copies the last
+KEEL_DIFFS_IN_STATUS records into status.json "keel_diffs" (oldest first) -- no verdict, no push
+-- so the PC relay can post each one once to the MANAGER and PAPER-WB inboxes.
 
 Usage (on the box):  venv/bin/python tools/webull_freshness.py [--dry-run] [--home DIR]
   --dry-run   evaluate and print the verdicts; no push, no restart, no file written.
@@ -219,6 +239,7 @@ EXEC_UNIT = "edgelog-qqq-exec.service"
 OUTBOX_MAX_AGE_SEC = 12 * 3600.0
 OUTBOX_MAX_SENDS_PER_RUN = 5         # x 8 s ntfy timeout = 40 s, well inside TimeoutStartSec=100
 WINDOW_HOLD_SEC = 0.0                # a windowed check closes the run its window ends
+KEEL_DIFFS_IN_STATUS = 20            # status.json "keel_diffs": the last N records
 
 DEFAULT_CONFIG = {"auto_restart_exec": False}
 
@@ -249,6 +270,7 @@ def default_paths(home=None):
         "cs_heartbeat": os.path.join(cs_dir, "heartbeat.json"),
         "shadow_heartbeat": os.path.join(cs_dir, "shadow", "heartbeat.json"),
         "keel_dir": os.path.join(cs_dir, "keel"),
+        "keel_diffs": os.path.join(cs_dir, "keel_size_diffs.jsonl"),
         "qqq_5m": os.path.join(home, "ohlc", "QQQ_5m.csv"),
         "qqq_1d": os.path.join(home, "ohlc", "QQQ_1d.csv"),
         "nq_master": os.path.join(home, "nq", "NOADJ_NQ_5m_RTH.csv"),
@@ -293,6 +315,32 @@ def mtime(path):
         return os.path.getmtime(path)
     except OSError:
         return None
+
+
+def read_keel_diffs(path, last=KEEL_DIFFS_IN_STATUS, max_bytes=256 * 1024):
+    """The last `last` KEEL size-diff records (dicts, oldest first) from the engine's
+    keel_size_diffs.jsonl (api/cloud_signal.py KEEL ENTRY EXTRAS). Reads the file's tail only;
+    a missing file is [], a torn or non-JSON line is skipped. Never raises."""
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            size = f.tell()
+            f.seek(max(0, size - max_bytes))
+            text = f.read().decode("utf-8", "replace")
+    except OSError:
+        return []
+    out = []
+    for ln in text.splitlines():
+        ln = ln.strip()
+        if not ln:
+            continue
+        try:
+            rec = json.loads(ln)
+        except ValueError:
+            continue
+        if isinstance(rec, dict):
+            out.append(rec)
+    return out[-int(last):] if last else out
 
 
 def last_csv_line(path, nbytes=8192):
@@ -511,6 +559,7 @@ def collect(paths, run_cmd=None):
         name = os.path.basename(p)[:-len("_summary.json")]
         keel[name] = (data or {}).get("data_through") if isinstance(data, dict) else None
     snap["keel"] = keel
+    snap["keel_diffs"] = read_keel_diffs(paths["keel_diffs"]) if paths.get("keel_diffs") else []
     tokens = {}
     for p in paths["token_files"]:
         if os.path.exists(p):
@@ -590,15 +639,19 @@ def exec_view(snap, now_et, mstate):
 
 
 def _verdict(key, group, ok, severity, title, detail="", min_runs=1, hold_sec=WINDOW_HOLD_SEC,
-             plain=None):
+             plain=None, quiet=False):
     """ok: True pass, False fail, None unknown this run (no change either way). `title` and
     `detail` are the developer text (status.json, the log, the PC relay); `plain` (a _plain()
-    dict) is the phone wording -- see PHONE TEXT."""
+    dict) is the phone wording -- see PHONE TEXT. quiet: another sender already pages this
+    exact problem -- the episode is tracked (status, board) but neither its start nor its end
+    is pushed (decided when the episode opens)."""
     v = {"key": key, "group": group, "ok": None if ok is None else bool(ok),
          "severity": severity, "title": title,
          "detail": detail, "min_runs": min_runs, "hold_sec": hold_sec}
     if plain is not None:
         v["plain"] = plain
+    if quiet:
+        v["quiet"] = True
     return v
 
 
@@ -754,20 +807,37 @@ def check_session(snap, now_et, mstate, ev):
     # newest closed 5m bar (#6) and its source (#15)
     cs = snap.get("cs_state") if isinstance(snap.get("cs_state"), dict) else {}
     src = ((cs.get("bar_source") or {}).get("5m") or {}) if cs else {}
-    newest = src.get("newest_epoch") or snap.get("qqq_5m_last")
+    # the engine's own FEED HEALTH fields (api/cloud_signal.py, 2026-10-05), trusted only
+    # while its heartbeat is fresh; absent on an older engine -- then nothing changes
+    hb_fresh = bool(hb) and age is not None and age <= ENGINE_HB_STALE_SEC
+    hb_bar_epoch = hb.get("newest_closed_bar_epoch") if hb_fresh else None
+    newest = src.get("newest_epoch") or hb_bar_epoch or snap.get("qqq_5m_last")
     d = now_et.date()
     open_dt = at(d, SESSION_OPEN)
     if now_et >= open_dt + _dt.timedelta(minutes=BAR_CHECK_AFTER_OPEN_MIN):
         bar_age = (now_epoch - (float(newest) + BAR_SEC)) if newest else None
         stale = bar_age is None or bar_age > BAR_CLOSE_STALE_SEC
+        engine_says = ""
+        engine_paged = False
+        if hb_fresh and "stalled" in hb:
+            stale = stale or hb.get("stalled") is True
+            # an engine that writes these fields pages this same episode itself ("BARS
+            # STOPPED", within one step of the same 660 s limit): track it here for the board
+            # but do not page it a second time. Not keyed on stalled=true alone: this run can
+            # land just before the engine's next step flips it, and would then page as well.
+            engine_paged = True
+            engine_says = (f" The engine says {hb.get('verdict') or 'n/a'}: "
+                           f"{hb.get('bars_missing')} of today's {hb.get('bars_due')} bar(s) "
+                           f"missing.")
         out.append(_verdict(
             "bar_age", "session", not stale, HIGH, "5m bars STOPPED arriving",
             f"newest closed 5m bar closed {fmt_age(bar_age)} ago (limit "
             f"{BAR_CLOSE_STALE_SEC:.0f}s); the heartbeat can still say ok while no ENTRY or "
-            f"EXIT can be produced.",
+            f"EXIT can be produced.{engine_says}",
             plain=_plain(("The newest QQQ price bar is %s old." % _plain_age(bar_age))
                          if bar_age is not None else "No QQQ price bars are arriving.",
-                         affects="the QQQ book cannot enter or exit trades")))
+                         affects="the QQQ book cannot enter or exit trades"),
+            quiet=engine_paged))
     source = src.get("source")
     out.append(_verdict(
         "bar_source", "session", (source != "yfinance") if source else None, HIGH,
@@ -775,7 +845,9 @@ def check_session(snap, now_et, mstate, ev):
         "the 5m cache is being filled from yfinance, not Webull (bars 30-90 s late); "
         "check the Webull token / REST in cloud_signal.log.", min_runs=2,
         plain=_plain("QQQ prices are coming from the slower backup source, not Webull.",
-                     affects="the QQQ book trades on late prices")))
+                     affects="the QQQ book trades on late prices"),
+        # an engine that writes yf_fallback_streak pages this itself (feed on backup prices)
+        quiet=hb_fresh and "yf_fallback_streak" in hb))
     # the daily cache (#14): the engine's ~09:35 refresh must have added the previous session
     if hhmm(now_et) >= QQQ_1D_CHECK_FROM:
         want = prev_session(d)
@@ -877,12 +949,28 @@ def check_eod(snap, now_et):
                         plain=_plain(problem, action=FLAT_DO, affects=affects)))
     cs = snap.get("cs_state") if isinstance(snap.get("cs_state"), dict) else {}
     settled = today in ((cs or {}).get("eod_settled") or {})
+    # ONE ALERTER PER PROBLEM (api/ntfy_push): this check is the only pusher of "today's close
+    # was not settled". The engine records WHY it gave up (eod_gave_up[today]) without pushing,
+    # and the executor turns that into a board event without pushing; an engine that was down
+    # through the window leaves no record at all -- this check covers both.
+    gave = ((cs or {}).get("eod_gave_up") or {}).get(today)
+    why = (gave.get("why") if isinstance(gave, dict) else None) or ""
+    if not gave:
+        problem = ("The signal program did not settle today's close, so today's exits are "
+                   "recorded late.")
+        dev_why = "no eod_gave_up record either -- the engine may have been down at the close"
+    elif why.startswith("the last bar never arrived"):
+        problem = "Today's last QQQ price bar never came, so today's exits are recorded late."
+        dev_why = f"the engine gave up: {why}"
+    else:
+        problem = ("The signal program's end-of-day step failed, so today's exits are "
+                   "recorded late.")
+        dev_why = f"the engine gave up: {why or 'no reason recorded'}"
     out.append(_verdict(
         "eod_settled", "eod", settled, HIGH, "EOD bars never settled",
-        f"cloud_signal eod_settled has no {today} -- today's exits post tomorrow with an old "
-        f"ref_time.",
-        plain=_plain("Today's closing QQQ prices were not settled, so today's exits are "
-                     "recorded late.")))
+        f"cloud_signal eod_settled has no {today} ({dev_why}) -- today's exits post tomorrow "
+        f"with an old ref_time.",
+        plain=_plain(problem)))
     return out
 
 
@@ -1068,7 +1156,8 @@ def apply_verdicts(alerts, verdicts, groups_ran, now_epoch, now_label):
             if v.get("plain") is not None:
                 rec["plain"] = v["plain"]
             if not rec.get("open") and rec["bad_runs"] >= int(v.get("min_runs", 1)):
-                rec.update({"open": True, "opened_epoch": now_epoch, "opened_et": now_label})
+                rec.update({"open": True, "opened_epoch": now_epoch, "opened_et": now_label,
+                            "quiet": bool(v.get("quiet"))})
                 opened.append(dict(rec))
         elif rec is not None:
             if rec.get("open"):
@@ -1136,7 +1225,10 @@ def compose_pushes(opened, recovered, expired):
     started, and one low "OK" for the episodes that ended -- only when one of them had pushed
     high or urgent. Episodes that EXPIRED (window ended, never seen fixed) are not pushed: the
     opening push already said what to do; the log, status.json and the PC relay keep them.
+    A QUIET episode (another sender pages it -- see _verdict) is left out of both.
     [(title, message, ntfy priority)]."""
+    opened = [r for r in opened if not r.get("quiet")]
+    recovered = [r for r in recovered if not r.get("quiet")]
     pushes = []
     if opened:
         note = compose_note([_desc(r) for r in opened])
@@ -1462,7 +1554,7 @@ def run_once(paths=None, now=None, cfg=None, push_fn=None, run_cmd=None, dry_run
 
     open_alerts = [
         {k: r.get(k) for k in ("key", "group", "severity", "title", "detail", "opened_et",
-                               "opened_epoch", "last_bad_et", "quiet_expire")}
+                               "opened_epoch", "last_bad_et", "quiet_expire", "quiet")}
         for r in sorted(alerts.values(), key=lambda r: (-_SEV_RANK.get(r.get("severity"), 0),
                                                         r.get("key")))
         if r.get("open")]
@@ -1477,6 +1569,9 @@ def run_once(paths=None, now=None, cfg=None, push_fn=None, run_cmd=None, dry_run
         "auto_restart": {"enabled": enabled, **{k: rs.get(k) for k in (
             "last_decision", "last_restart_et", "last_restart_result")}},
         "broker_mode": snap.get("broker_mode"),
+        # KEEL size diffs on live NOISE entries (api/cloud_signal.py) -- the PC relays each
+        # one once to the inboxes; see KEEL SIZE DIFFS in the docstring
+        "keel_diffs": snap.get("keel_diffs") or [],
     }
     summary = {"status": status, "pushes": pushes, "opened": opened, "recovered": recovered,
                "expired": expired, "decision": decision}

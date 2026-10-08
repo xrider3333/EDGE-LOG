@@ -130,6 +130,7 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 import time as _time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -550,12 +551,16 @@ def _fetch_webull(timeframe, count=WEBULL_TAIL_BARS, log=print):
     """
     import json as _json
     import pandas as pd
+    # FEED HEALTH: every call that returns None leaves its own reason here, so the yfinance
+    # push never names an older call's error (e.g. a token PENDING long since fixed)
+    _WEBULL_LAST_ERR["text"] = "no reply yet"
     try:
         with open(WEBULL_KEYS, encoding="utf-8") as fh:
             keys = _json.load(fh)
         ak = (keys.get("app_key") or "").strip()
         sk = (keys.get("app_secret") or "").strip()
         if not ak or not sk or ak.startswith("PASTE_"):
+            _WEBULL_LAST_ERR["text"] = "no Webull keys set"
             return None
         from webull.core.client import ApiClient
         from webull.core.http.initializer.client_initializer import ClientInitializer
@@ -564,6 +569,7 @@ def _fetch_webull(timeframe, count=WEBULL_TAIL_BARS, log=print):
         from webull.data.common.timespan import Timespan
         span = {"1m": Timespan.M1, "5m": Timespan.M5}.get(timeframe)
         if span is None:
+            _WEBULL_LAST_ERR["text"] = f"no Webull bars for {timeframe}"
             return None
         api = ApiClient(ak, sk, (keys.get("region") or "us").strip().lower(),
                         token_check_duration_seconds=15, token_check_interval_seconds=5,
@@ -578,6 +584,7 @@ def _fetch_webull(timeframe, count=WEBULL_TAIL_BARS, log=print):
         resp = MarketData(api).get_history_bar("QQQ", Category.US_ETF, span, count=str(count))
         rows = resp.json() if hasattr(resp, "json") else resp
         if not isinstance(rows, list) or not rows:
+            _WEBULL_LAST_ERR["text"] = "empty reply from Webull"
             return None
         out = []
         for r in rows:
@@ -591,11 +598,19 @@ def _fetch_webull(timeframe, count=WEBULL_TAIL_BARS, log=print):
             except Exception:
                 continue
         if not out:
+            _WEBULL_LAST_ERR["text"] = "Webull reply had no regular-session bars"
             return None
+        _WEBULL_LAST_ERR["text"] = None
         return pd.DataFrame(out).sort_values("time").reset_index(drop=True)
     except Exception as e:
         log(f"[cloud-signal] webull bars unavailable ({timeframe}): {type(e).__name__}: {e}")
+        _WEBULL_LAST_ERR["text"] = f"{type(e).__name__}: {e}"[:300]
         return None
+
+
+# The newest Webull REST error this process saw (None after a good fetch) -- the FEED HEALTH
+# push names it, and pages URGENT when it is the token waiting for approval (finding 15).
+_WEBULL_LAST_ERR = {"text": None}
 
 
 def fetch_and_merge(timeframe, paths=None, log=print):
@@ -1992,7 +2007,7 @@ def _load_keel_state(state_path, summary_path, log=print):
     return state, summary
 
 
-def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print):
+def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scratch=None):
     """The KEEL multiplier for ONE new entry about to be emitted (design: "compute the
     KEEL size once" -- see _diff_leg, the only caller). Reads the trade's own feature
     row from `keel_features` on `arrays` (the QQQ arrays the leg already uses) at
@@ -2016,6 +2031,12 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print):
     learned block with no "state_path" (dict(version="v12") alone, or a misspelt "mode"
     KEY, both read as learned): _diff_leg and step()'s per-leg loop have no try of their
     own, so a KeyError here would stop every leg's tick, not just this entry's KEEL.
+
+    `scratch` (a dict, optional -- _diff_leg passes one): on a learned leg whose feature
+    columns match the state, receives "feats" (the keel_features (F, names) just computed
+    on `arrays`) and "rule_cfg" (the state's rule cfg), so the KEEL ENTRY EXTRAS
+    (_keel_entry_extras, logging only) never recompute them on the entry path. Writing it
+    changes nothing this function returns.
     """
     if not keel_cfg or entry_bar is None:
         return 1.0, None
@@ -2054,6 +2075,9 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print):
         F, names = _keel.keel_features(arrays)
         if list(names) != list(state.get("feature_names") or []):
             return 1.0, "keel feature columns do not match the state"
+        if isinstance(scratch, dict):
+            scratch["feats"] = (F, names)
+            scratch["rule_cfg"] = state.get("cfg") or _keel.CFG.get(state.get("version"))
         row = int(min(max(int(entry_bar), 0), len(F) - 1))
         size, diag = _keel.keel_score_from_state(state, arrays, row, x_row=F[row:row + 1],
                                                  cross_series=True)
@@ -2065,7 +2089,7 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print):
         return 1.0, f"keel scoring error: {type(e).__name__}: {e}"
 
 
-def _keel_fixed_size_for_entry(keel_cfg, arrays, entry_bar, log=print):
+def _keel_fixed_size_for_entry(keel_cfg, arrays, entry_bar, log=print, feats=None):
     """keel_size for ONE new entry on a mode="fixed" leg: v12's fixed tilts, no model
     (augur_engine.ml_keel.fixed_tilt_sizes_v12) at `entry_bar` of `arrays` -- the arrays
     _diff_leg was handed. Same contract as _keel_size_for_entry: a finite float > 0, 1.0
@@ -2081,7 +2105,11 @@ def _keel_fixed_size_for_entry(keel_cfg, arrays, entry_bar, log=print):
     backtest's at the real entry bar (tests/test_noise_422_keel_fixed.py checks it).
 
     An entry_bar outside `arrays` (should never happen) is a fallback with its reason, not
-    clamped onto the nearest bar and scored there silently."""
+    clamped onto the nearest bar and scored there silently.
+
+    `feats`: keel_features(arrays)'s (F, names) when the caller already computed it on these
+    SAME arrays (the KEEL entry extras pass the score's own) -- ignored unless it has one
+    row per bar; the size is identical either way."""
     try:
         version = keel_cfg.get("version")
         if version not in KEEL_FIXED_VERSIONS:
@@ -2090,13 +2118,279 @@ def _keel_fixed_size_for_entry(keel_cfg, arrays, entry_bar, log=print):
         row, n_bars = int(entry_bar), len(arrays["close"])
         if not 0 <= row < n_bars:
             return 1.0, f"keel fixed tilts: entry_bar {row} out of range (0..{n_bars - 1})"
-        size = float(_keel.fixed_tilt_sizes_v12(arrays, [row])[0])
+        kw = {}
+        if feats is not None and len(feats[0]) == n_bars:
+            kw["feats"] = feats
+        size = float(_keel.fixed_tilt_sizes_v12(arrays, [row], **kw)[0])
         if not math.isfinite(size) or size <= 0:
             return 1.0, f"keel fixed tilts returned a non-finite/non-positive size ({size!r})"
         return size, {"mode": KEEL_MODE_FIXED, "version": version}
     except Exception as e:
         log(f"[cloud-signal] KEEL fixed tilts failed: {type(e).__name__}: {e}")
         return 1.0, f"keel fixed tilts error: {type(e).__name__}: {e}"
+
+
+# ── KEEL ENTRY EXTRAS (2026-10-05, MANAGER #76 -- owner GL 2.6 decision pending) ──────────
+# KEEL v12's 10-05 evening states read fast-trust (t_fast) -1.33 / -1.23, below the -0.5
+# shade line for the first time, so from 10-06 the SHADE branch (size = clip(1 - 1.0 x z,
+# 0.5, 1.5), against the model's own score) replaces the fixed tilts alone on the live
+# NOISE leg. To SEE that happen, every ENTRY on a LEARNED KEEL leg also records which branch
+# decided (keel_branch), what the fixed rule alone would size the same entry bar
+# (keel_fixed_size) and the score's diag (keel_t_fast / keel_trust / keel_score) -- see
+# SIGNAL_COLS. LOGGING ONLY, NOTHING LIVE CHANGES: the extras are computed AFTER keel_size,
+# from the same arrays and entry bar, and nothing reads them to size or send an order. Any
+# failure blanks the extra field(s) it touched, never the trade.
+#
+# KEEL SIZE DIFF ALERT: when keel_size and keel_fixed_size differ by more than
+# KEEL_DIFF_TOL on a LIVE leg's entry (_push_allowed: live tick, the cloud box, not a shadow
+# leg), the entry is written ONCE (date + leg + entry time) to
+# <state_dir>/keel_size_diffs.jsonl (last KEEL_DIFFS_KEEP lines) -- tools/webull_freshness.py
+# puts the last 20 in status.json and tools/webull_freshness_pc.py relays each one once to
+# the MANAGER and PAPER-WB inboxes -- and ONE low-priority plain push goes out ("NOISE: KEEL
+# size differs", via _engine_note: ntfy_push.plain + dedupe, then _engine_push).
+# A shadow leg's difference is logged (cloud_signal.log, its signal row), never pushed.
+# AT-MOST-ONCE (review 10-05): the note runs just AFTER the state and the rows are written, so
+# a process death in that few-millisecond window loses that entry's diff record / push / inbox
+# relay for good (the entry is never emitted again). The row itself is safe and carries
+# keel_size + keel_fixed_size, so tools/keel_size_report.py still shows the difference.
+KEEL_ENTRY_EXTRAS = True        # tests flip it off to prove the extras change no decision
+KEEL_DIFF_TOL = 0.01
+KEEL_DIFFS_FILE = "keel_size_diffs.jsonl"
+KEEL_DIFFS_KEEP = 200
+
+
+def _keel_rule_cfg(keel_cfg):
+    """The KEEL rule's own cfg for a learned block: the state's "cfg" (what it was built
+    with), else ml_keel.CFG[version]. None when neither can be read. Never raises."""
+    try:
+        from augur_engine import ml_keel as _keel
+        state, _summary = _load_keel_state(keel_cfg.get("state_path") or "",
+                                           keel_cfg.get("summary_path", ""), log=lambda *_: None)
+        if isinstance(state, dict):
+            return state.get("cfg") or _keel.CFG.get(state.get("version"))
+        return _keel.CFG.get(keel_cfg.get("version"))
+    except Exception:
+        return None
+
+
+def _finite_or_blank(v, nd=6):
+    try:
+        f = float(v)
+        return round(f, nd) if math.isfinite(f) else ""
+    except (TypeError, ValueError):
+        return ""
+
+
+def _keel_entry_extras(keel_cfg, arrays, entry_bar, diag, log=print, feats=None,
+                       rule_cfg=None):
+    """The KEEL ENTRY EXTRAS columns (KEEL_EXTRA_COLS) for ONE entry on a LEARNED KEEL leg
+    -- see the block above. `diag` is what _keel_size_for_entry returned beside keel_size
+    for this same entry (a dict on a real score, a reason string on its 1.0 fallback). The
+    fixed-tilt size reuses _keel_fixed_size_for_entry on the SAME `arrays` and `entry_bar`
+    (for a decide-at-close probe: the probe arrays and its stand-in S1, exactly what the
+    NOISE_422_FIXED shadow leg scores). All blank for any other leg, when the switch is off,
+    and per field on a failure. Never raises.
+
+    COST ON THE ENTRY PATH (review 10-05): `feats` / `rule_cfg` are what
+    _keel_size_for_entry already computed for this entry (its `scratch`), so the extras add
+    no second keel_features pass and no second state load; without them (a fallback score)
+    they are recomputed as before."""
+    out = {c: "" for c in KEEL_EXTRA_COLS}
+    if not KEEL_ENTRY_EXTRAS or not keel_cfg or entry_bar is None \
+            or keel_mode(keel_cfg) != KEEL_MODE_LEARNED:
+        return out
+    try:
+        from augur_engine import ml_keel as _keel
+        # a fallback score (diag not a dict) is "fallback-1.0" without reading cfg -- skip
+        # the state load on the entry path in exactly that degraded case
+        if not isinstance(diag, dict):
+            out["keel_branch"] = _keel.keel_branch(diag, None)
+        else:
+            out["keel_branch"] = _keel.keel_branch(
+                diag, rule_cfg if rule_cfg is not None else _keel_rule_cfg(keel_cfg))
+        if isinstance(diag, dict):
+            out["keel_t_fast"] = _finite_or_blank(diag.get("t_fast"))
+            out["keel_trust"] = _finite_or_blank(diag.get("trust"))
+            out["keel_score"] = _finite_or_blank(diag.get("z"))
+    except Exception as e:
+        log(f"[cloud-signal] KEEL entry extras (branch/diag) failed, left blank: "
+            f"{type(e).__name__}: {e}")
+        for c in ("keel_branch", "keel_t_fast", "keel_trust", "keel_score"):
+            out[c] = ""
+    try:
+        fixed, fdiag = _keel_fixed_size_for_entry(
+            {"version": keel_cfg.get("version"), "mode": KEEL_MODE_FIXED}, arrays, entry_bar,
+            log=log, feats=feats)
+        # a fallback (reason string) is NOT the fixed rule's size -- blank, never a fake 1.0
+        out["keel_fixed_size"] = float(fixed) if isinstance(fdiag, dict) else ""
+    except Exception as e:
+        log(f"[cloud-signal] KEEL entry extras (fixed size) failed, left blank: "
+            f"{type(e).__name__}: {e}")
+        out["keel_fixed_size"] = ""
+    return out
+
+
+def _keel_diffs_path(paths):
+    return os.path.join(paths["state_dir"], KEEL_DIFFS_FILE)
+
+
+def _keel_diff_key(rec):
+    return (str(rec.get("date") or ""), str(rec.get("leg") or ""), str(rec.get("entry_time") or ""))
+
+
+def read_keel_diffs(path, last=None):
+    """The KEEL size-diff records in `path` (keel_size_diffs.jsonl), oldest first; the last
+    `last` only when given. A missing file is []; a torn/bad line is skipped. Never raises."""
+    out = []
+    try:
+        with open(path, encoding="utf-8") as f:
+            for ln in f:
+                ln = ln.strip()
+                if not ln:
+                    continue
+                try:
+                    rec = json.loads(ln)
+                except ValueError:
+                    continue
+                if isinstance(rec, dict):
+                    out.append(rec)
+    except OSError:
+        return []
+    return out[-int(last):] if last else out
+
+
+def _record_keel_diff(paths, rec, log=print):
+    """Append `rec` to keel_size_diffs.jsonl unless the same date + leg + entry time is
+    already there. Returns True (new), False (already recorded) or None (could not write).
+    Keeps the last KEEL_DIFFS_KEEP lines (an atomic rewrite when it grows past that)."""
+    path = _keel_diffs_path(paths)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        have = read_keel_diffs(path)
+        if any(_keel_diff_key(r) == _keel_diff_key(rec) for r in have):
+            return False
+        line = json.dumps(rec, sort_keys=True, default=str)
+        if len(have) + 1 > KEEL_DIFFS_KEEP:
+            keep = [json.dumps(r, sort_keys=True, default=str)
+                    for r in have[-(KEEL_DIFFS_KEEP - 1):]] + [line]
+            tmp = f"{path}.{os.getpid()}.tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write("\n".join(keep) + "\n")
+            os.replace(tmp, path)
+        else:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(line + "\n")
+        return True
+    except Exception as e:
+        log(f"[cloud-signal] KEEL size diff not recorded ({type(e).__name__}: {e})")
+        return None
+
+
+def _fmt_num(v, nd=2):
+    try:
+        return f"{float(v):.{nd}f}"
+    except (TypeError, ValueError):
+        return "?"
+
+
+def _keel_diff_problem(clock, side, ks, fs):
+    """The KEEL-size-differs problem line with ONE number: 'KEEL sized the long entry (10:35) 38%
+    smaller than the fixed rule would.' (the time is a clock, not a count; hhmm() may make it
+    'yesterday 10:35', hence the brackets)."""
+    entry = " ".join(x for x in ("the", str(side or "").strip(), "entry") if x)
+    entry += f" ({clock})" if clock else ""
+    try:
+        k, f = float(ks), float(fs)
+        pct = round(abs(k / f - 1.0) * 100) if f > 0 else None
+    except (TypeError, ValueError, ZeroDivisionError):
+        pct = None
+    if not pct:
+        return f"KEEL sized {entry} differently from the fixed rule."
+    return f"KEEL sized {entry} {pct}% {'larger' if k > f else 'smaller'} than the fixed rule would."
+
+
+def keel_entry_log_line(e):
+    """The one cloud_signal.log line per learned-KEEL ENTRY -- key=value, so
+    tools/keel_size_report.py can read it back (KEEL_LOG_RE there)."""
+    return ("[cloud-signal] KEEL ENTRY "
+            f"leg={e.get('leg')} time={e.get('ref_time')} side={e.get('side')} "
+            f"keel_size={e.get('keel_size')} fixed_size={e.get('keel_fixed_size')} "
+            f"branch={e.get('keel_branch') or '-'} t_fast={e.get('keel_t_fast')} "
+            f"trust={e.get('keel_trust')} score={e.get('keel_score')} "
+            f"size={e.get('size')} trade_id={e.get('trade_id')}")
+
+
+def _engine_push_background(msg, title, priority="high", paths=None, log=print):
+    """_engine_push on a daemon thread -- for a caller on the live decision path (the stream
+    commit, the engine thread's FEED HEALTH pushes) that must not wait out a push's network
+    timeout. Returns "background" (or False when the thread could not start). Never raises."""
+    try:
+        th = threading.Thread(target=lambda: _engine_push(msg, title, priority=priority,
+                                                          paths=paths, log=log),
+                              name="engine-push", daemon=True)
+        th.start()
+        return "background"
+    except Exception as e:
+        log(f"[cloud-signal] background push could not start ({type(e).__name__}: {e}): {title}")
+        return False
+
+
+def _note_keel_entries(events, legs, paths, fetch, log=print, push=None):
+    """After a batch of signal rows is APPENDED (step(), or a stream commit): one log line per
+    learned-KEEL ENTRY (keel_entry_log_line) and the KEEL SIZE DIFF ALERT (see KEEL ENTRY
+    EXTRAS above) for a live leg whose keel_size and keel_fixed_size differ by more than
+    KEEL_DIFF_TOL -- recorded once per entry, one low-priority plain push on a NEW record (or
+    when the record could not be written -- the entry itself is emitted only once). Shadow
+    legs: the log line only. Runs after the rows are written, so nothing here can delay or
+    change an order. Never raises.
+
+    `push`: the sender (default _engine_push, synchronous); the stream commit passes
+    _engine_push_background. A "fallback-1.0" difference (KEEL could not score, so it sized
+    1.0) is RECORDED for the inbox relay but not pushed: the KEEL fallback alert already
+    paged that cause at high priority."""
+    for e in events or []:
+        try:
+            if e.get("event") != "ENTRY" or e.get("keel_size") in ("", None) \
+                    or "keel_branch" not in e:
+                continue
+            cfg = (legs or {}).get(e.get("leg")) or {}
+            ks, fs = e.get("keel_size"), e.get("keel_fixed_size")
+            try:
+                differs = (fs not in ("", None)
+                           and abs(float(ks) - float(fs)) > KEEL_DIFF_TOL)
+            except (TypeError, ValueError):
+                differs = False
+            live = _push_allowed(cfg, fetch)
+            log(keel_entry_log_line(e) + (" DIFFERS" if differs else "")
+                + (" (shadow leg: logged only)" if differs and cfg.get("shadow") else ""))
+            if not differs or not live:
+                continue
+            when = str(e.get("ref_time") or "")
+            rec = {"date": when[:10], "leg": e.get("leg"), "entry_time": when,
+                   "side": e.get("side"), "keel_size": ks, "keel_fixed_size": fs,
+                   "branch": e.get("keel_branch") or "", "t_fast": e.get("keel_t_fast"),
+                   "trust": e.get("keel_trust"), "score": e.get("keel_score"),
+                   "size": e.get("size"), "trade_id": e.get("trade_id") or "",
+                   "recorded_at": _dt.datetime.now(tz=_zi(TZ)).isoformat()}
+            new = _record_keel_diff(paths, rec, log=log)
+            if new is False:
+                continue
+            if rec["branch"] == "fallback-1.0":
+                log(f"[cloud-signal] KEEL size diff on {rec['leg']} {when} is the 1.0 fallback "
+                    f"-- recorded, no second push (the KEEL fallback alert covers it)")
+                continue
+            from api import ntfy_push
+            # PLAIN PHONE FORMAT (api/ntfy_push.plain/dedupe): owner's clock, no codes, ONE
+            # number on the problem line (the gap in %); both sizes, the branch / t_fast /
+            # score stay in the record, the log line and the inbox relay
+            note = ntfy_push.plain(
+                str(rec["leg"] or "NOISE").split("_")[0], "KEEL size differs",
+                "not affected (the order used KEEL's size, as always)",
+                _keel_diff_problem(ntfy_push.hhmm(when), rec["side"], ks, fs),
+                "nothing", priority="low")
+            _engine_note("keel_diff", f"{rec['leg']} {when}", note, paths, log=log, push=push)
+        except Exception as ex:
+            log(f"[cloud-signal] KEEL entry note failed: {type(ex).__name__}: {ex}")
 
 
 def _keel_fallback_reason(keel_cfg, now, arrays=None, log=print):
@@ -2385,10 +2679,25 @@ SIGNAL_COLS = ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "s
               # confirm_bars > 1 the rule is a streak of such closes (live legs use 1).
               "dec_bar_start", "dec_bar_end", "dec_open", "dec_high", "dec_low", "dec_close",
               "dec_volume", "dec_vwap", "dec_band_upper", "dec_band_lower", "dec_rule",
-              "dec_level", "dec_bar_source"]
+              "dec_level", "dec_bar_source",
+              # appended, never inserted (2026-10-05, MANAGER #76 -- KEEL vs FIXED) -- on the
+              # ENTRY row of a LEARNED KEEL leg only (NOISE_382 live, NOISE_422_KEEL shadow):
+              # keel_branch = which branch of the KEEL rule set the model part
+              # (augur_engine.ml_keel.keel_branch: trust / shade / fixed-only /
+              # fallback-1.0); keel_fixed_size = what v12's fixed tilts ALONE would size
+              # the same entry bar (_keel_fixed_size_for_entry, the NOISE_422_FIXED rule);
+              # keel_t_fast / keel_trust / keel_score = the score's own diag (fast ledger,
+              # trust after the fast cut, z). LOGGING ONLY: computed after keel_size, never
+              # read to size or send anything (see KEEL ENTRY EXTRAS). Blank on every other
+              # row and leg, on rows written before these existed, and wherever computing
+              # one failed (the trade itself is never touched).
+              "keel_branch", "keel_fixed_size", "keel_t_fast", "keel_trust", "keel_score"]
 
 # The decision-bar columns above, in order -- the only columns _decision_cols fills.
-DECISION_COLS = SIGNAL_COLS[SIGNAL_COLS.index("dec_bar_start"):]
+DECISION_COLS = SIGNAL_COLS[SIGNAL_COLS.index("dec_bar_start"):SIGNAL_COLS.index("dec_bar_source") + 1]
+
+# The KEEL ENTRY EXTRAS columns above, in order -- the only columns _keel_entry_extras fills.
+KEEL_EXTRA_COLS = SIGNAL_COLS[SIGNAL_COLS.index("keel_branch"):SIGNAL_COLS.index("keel_score") + 1]
 
 
 def _read_signals_header(path):
@@ -2810,6 +3119,19 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
         all_events.extend(events)
         leg_state["asof"] = arrays["index"][-1].isoformat()
 
+    # FEED HEALTH (2026-10-05, sweep findings 6 + 15): how fresh each timeframe's closed bars
+    # are, for the caller's heartbeat -- see bar_health / _feed_health.
+    if warnings is not None:
+        health = warnings.setdefault("bar_health", {})
+        for tf, frame in tf_cache.items():
+            try:
+                h = bar_health(frame, now, tf)
+            except Exception as e:
+                h = {"timeframe": tf, "error": f"{type(e).__name__}: {e}"}
+            h["source"] = tf_source.get(tf)
+            h["fetched"] = bool(fetch and tf in tf_source)
+            health[tf] = h
+
     if post_close:
         settled = all(v is not None for v in eod_bars.values())
         if settled:
@@ -2825,6 +3147,11 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
     state["generated_at"] = now.isoformat()
     _write_state(state, paths)
     _append_signals(all_events, paths)
+    # KEEL ENTRY EXTRAS (MANAGER #76): the log line per learned-KEEL entry + the size-diff
+    # alert, AFTER the rows are written -- never raises, never touches an event. The push goes
+    # on a daemon thread (as the stream commit's does): a "default" push is a single plain try
+    # with a network timeout, and the engine thread / heartbeat must not wait it out.
+    _note_keel_entries(all_events, legs, paths, fetch, push=_engine_push_background)
     return all_events
 
 
@@ -3010,6 +3337,7 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
             plugin_size = t.get("size", 1.0)
             keel_size = ""
             final_size = plugin_size
+            keel_extras = None
             keel_cfg = (cfg or {}).get("keel")
             if keel_cfg:
                 # KEEL SCORED ONCE, HERE -- exactly when this new entry is about to be
@@ -3017,8 +3345,9 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 # size x keel size"). Never recomputed for this trade again -- the
                 # EXIT branch below reuses `rec`'s stored values -- and never called
                 # during SEED (see that branch, above).
+                _ks_scratch = {}       # the score's own features / rule cfg, for the extras
                 ks, _diag = _keel_size_for_entry(keel_cfg, arrays, t.get("entry_bar"),
-                                                 t["entry_time"], log=log)
+                                                 t["entry_time"], log=log, scratch=_ks_scratch)
                 keel_size = ks
                 final_size = plugin_size * ks
                 # SCORING-TIME FALLBACK PUSH (minor fix, deadman/deadman_keel_guard,
@@ -3048,6 +3377,14 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                             log=log)
                         alert["last_pushed_date"] = today
                         alert["last_reason"] = _diag
+                # KEEL ENTRY EXTRAS (logging only, MANAGER #76): computed AFTER keel_size and
+                # final_size are fixed above, from the same arrays and entry bar; they ride
+                # on the row only -- see _keel_entry_extras. Learned legs only.
+                if keel_mode(keel_cfg) == KEEL_MODE_LEARNED:
+                    keel_extras = _keel_entry_extras(keel_cfg, arrays, t.get("entry_bar"),
+                                                     _diag, log=log,
+                                                     feats=_ks_scratch.get("feats"),
+                                                     rule_cfg=_ks_scratch.get("rule_cfg"))
             rec = recorded[key]
             rec["size"] = final_size
             rec["keel_size"] = keel_size
@@ -3062,6 +3399,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 "keel_size": keel_size,
                 # DECISION BARS: the bar this entry was decided on (blank off NOISE)
                 **_decision_cols(t, "entry", bar_source),
+                # KEEL ENTRY EXTRAS: learned KEEL legs only (no keys at all elsewhere)
+                **(keel_extras or {}),
             })
             lv = t.get("levels") if levels_on else None
             if lv:
@@ -3267,7 +3606,7 @@ def _fmt_nt_comparison_table(events, nt_rows):
 
 
 # ── Heartbeat ───────────────────────────────────────────────────────────────────────────
-def _write_heartbeat(paths, ok=True, note="", cache_write_failed=False):
+def _write_heartbeat(paths, ok=True, note="", cache_write_failed=False, health=None):
     """`cache_write_failed` (2026-09-14): set by a caller that saw step()'s `warnings`
     dict carry it -- the on-disk bar cache rename failed even after retries, but the
     step still ran off the freshly fetched bars in memory (see step()'s docstring). It
@@ -3282,11 +3621,21 @@ def _write_heartbeat(paths, ok=True, note="", cache_write_failed=False):
     file every tick, so a reader can hold it for the same few milliseconds the OHLC
     cache readers do. On final failure this raises (see _write_state for why a writer
     in this module treats an exhausted retry as fatal rather than silently moving on)
-    -- callers already wrap their heartbeat writes in a try/except for exactly this."""
+    -- callers already wrap their heartbeat writes in a try/except for exactly this.
+
+    `health` (2026-10-05, FEED HEALTH): the in-session live step's bar freshness, merged in
+    as extra keys -- newest_closed_bar_et, newest_closed_bar_epoch, bar_age_s, bars_due,
+    bars_missing, stalled, verdict, bar_source, yf_fallback_streak (see _feed_health).
+    `ok` keeps its old meaning (the step RAN): read `verdict` / `stalled` for "bars are
+    arriving"."""
     os.makedirs(paths["state_dir"], exist_ok=True)
     hb = {"ts": _dt.datetime.now(tz=_zi(TZ)).isoformat(), "ok": ok, "note": note}
     if cache_write_failed:
         hb["cache_write_failed"] = True
+    if health:
+        for k, v in health.items():
+            if k not in hb:
+                hb[k] = v
     tmp = paths["heartbeat_path"] + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(hb, f, indent=2)
@@ -3685,6 +4034,7 @@ def _eod_settle_tick(now, close_dt, mem, paths=None, log=print):
             m["gave_up"] = True
             log(f"[cloud-signal] eod settle {day}: GAVE UP -- the last try inside the window "
                 f"failed ({err}); the next session's first step emits these exits")
+            _note_eod_gave_up(paths, day, close_dt, now, f"the last try failed ({err})", log=log)
         try:
             _write_heartbeat(paths, ok=True, note=f"eod settle failed: {err}"[:300])
         except Exception:
@@ -3708,7 +4058,429 @@ def _eod_settle_tick(now, close_dt, mem, paths=None, log=print):
         m["gave_up"] = True
         log(f"[cloud-signal] eod settle {day}: GAVE UP -- the last bar never arrived "
             f"({warnings.get('eod_bars')}); the next session's first step emits these exits")
+        _note_eod_gave_up(paths, day, close_dt, now, "the last bar never arrived", log=log)
     return events
+
+
+def _note_eod_gave_up(paths, day, close_dt, now, why, log=print):
+    """EOD SETTLE GAVE UP (sweep 2026-10-05, finding 30): it used to be one log line, while
+    the day's end-of-day exits silently moved to the next morning with an old ref_time.
+    Now, once per day (state["eod_gave_up"][day], so a restart inside the window cannot
+    record twice): a record in state.json -- api/qqq_exec.py turns it into a board event --
+    and one log line. NO PUSH from here: ONE ALERTER PER PROBLEM (api/ntfy_push) -- "today's
+    close was not settled" is pushed only by tools/webull_freshness.py's eod_settled check
+    (box timer, from 16:10 ET), which names this record's `why`; it also covers an engine
+    that was down through the window and so could not record anything. Never raises."""
+    first = True
+    try:
+        state = _load_state(paths)
+        rec = state.setdefault("eod_gave_up", {})
+        first = day not in rec
+        if first:
+            rec[day] = {"at": now.isoformat(), "why": why}
+            for old in sorted(rec)[:-10]:               # a short history is plenty
+                rec.pop(old, None)
+            _write_state(state, paths)
+    except Exception as e:
+        log(f"[cloud-signal] eod settle: could not record the give-up ({type(e).__name__}: {e})")
+    if not first:
+        return
+    try:
+        last_bar = close_dt - _dt.timedelta(seconds=TIMEFRAME_SECONDS["5m"])
+        log(f"[cloud-signal] eod settle {day}: last bar {last_bar.strftime('%H:%M')} ET did "
+            f"not arrive by {now.strftime('%H:%M')} ET ({why}) on {_this_host_id()} -- the "
+            f"exits are written at the next session's first step, stamped {day} (recorded "
+            f"for the board; tools/webull_freshness.py pushes it)")
+    except Exception as e:
+        log(f"[cloud-signal] eod settle: give-up log line failed ({type(e).__name__}: {e})")
+
+
+# ── FEED HEALTH (2026-10-05, sweep findings 6 + 15) ──────────────────────────────────────
+# The heartbeat used to say ok=True every tick whether or not a new bar had arrived, so a
+# frozen Webull tail (or Webull and yfinance both empty) produced no ENTRY and no EXIT while
+# everything looked healthy, and a fall-back to yfinance was a log line only. Now every
+# in-session live step reports, per timeframe (bar_health), the newest CLOSED bar, its age,
+# how many of today's bars should have closed (bars_due) and how many of those are missing
+# (bars_missing), and a STALLED verdict when no new bar has closed for two bars + 60 s
+# (5m: 660 s) after one was due. The heartbeat carries the live 5m figures (_feed_health).
+#
+# `ok` KEEPS ITS MEANING ("the step ran without an error"). api/qqq_exec.py's
+# _check_feed_engine reads ok=false as a stalled ENGINE: it blocks every new entry, counts
+# the minute as feed downtime for readiness and, with a lot open, pages SIGNAL STALL. A
+# frozen bar tail already produces no entry by itself, and a misjudged stall (a calendar or
+# half-day edge) must not block real entries -- so the verdict is reported in `verdict` /
+# `stalled` beside `ok`, and the engine pushes it itself:
+#   * one HIGH push per stall episode ("QQQ book: prices stopped"), and one low "QQQ book: OK"
+#     back-to-normal when bars arrive again;
+#   * one HIGH push when the live 5m bars came from yfinance for 3+ fetches in a row ("QQQ
+#     book: backup prices"; HIGH "QQQ book: approve Webull login" when Webull's last error
+#     is the token waiting for approval), and one low "QQQ book: OK" when Webull bars are back.
+#   All in the plain format through _engine_note / _engine_note_clear (ntfy_push.plain +
+#   dedupe); the developer detail (bars missing, source, Webull error) goes to the log.
+# Episodes live in <state_dir>/feed_alerts.json (survives a restart, no repeat page). Only
+# the cloud box pushes (_engine_push), like the KEEL push. A yfinance streak, like a stall
+# episode, ends quietly at the day change (no carry-over page, no next-morning "back" push).
+#
+# ONE PAGER PER EPISODE: tools/webull_freshness.py (box timer, every 2 min) checks the same
+# two problems (its bar_age and bar_source checks). It reads these heartbeat fields: while
+# a fresh heartbeat carries `stalled` (bar_age) or yf_fallback_streak (bar_source), its
+# episode opens QUIET (tracked on its status, not pushed) -- this engine is the pager. With
+# a stale heartbeat, or an engine older than these fields, it pages them itself.
+FEED_STALL_GRACE_BARS = 2
+FEED_STALL_EXTRA_SEC = 60.0
+FEED_YF_PUSH_FETCHES = 3
+FEED_PRIMARY_TF = "5m"
+FEED_ALERTS_FILE = "feed_alerts.json"
+
+
+def _feed_stall_limit_sec(tf):
+    return FEED_STALL_GRACE_BARS * TIMEFRAME_SECONDS[tf] + FEED_STALL_EXTRA_SEC
+
+
+def bar_health(epoch_df, now, tf):
+    """Freshness of one timeframe's CLOSED bars at `now` (pure, no I/O):
+      newest_closed_bar_et     the newest closed bar's START, ET ISO (the ledger's ref_time)
+      newest_closed_bar_epoch  the same as an epoch
+      bar_age_s                seconds since that bar CLOSED
+      bars_due                 today's session bars that have closed by now (none off-session)
+      bars_missing             how many of those are not in the frame
+      stalled                  in session, at least one bar due, and nothing new closed for
+                               two bars + 60 s (5m: 660 s; before the first bar of the day the
+                               clock starts at the open, so 09:41 at the earliest)"""
+    sec = TIMEFRAME_SECONDS[tf]
+    et = now.astimezone(_zi(TZ)) if now.tzinfo is not None else now.replace(tzinfo=_zi(TZ))
+    now_e = et.timestamp()
+    out = {"timeframe": tf, "newest_closed_bar_et": None, "newest_closed_bar_epoch": None,
+           "bar_age_s": None, "bars_due": 0, "bars_missing": 0, "stalled": False}
+    cutoff = _closed_cutoff_epoch(et, tf)
+    usable = None
+    newest = None
+    if epoch_df is not None and len(epoch_df):
+        t = epoch_df["time"]
+        usable = t[t <= cutoff]
+        if len(usable):
+            newest = int(usable.max())
+    if newest is not None:
+        out["newest_closed_bar_epoch"] = newest
+        out["newest_closed_bar_et"] = _dt.datetime.fromtimestamp(newest, tz=_zi(TZ)).isoformat()
+        out["bar_age_s"] = round(now_e - (newest + sec), 1)
+    close_dt = _session_close_dt(et)
+    if close_dt is None:
+        return out
+    open_dt = et.replace(hour=RTH_OPEN.hour, minute=RTH_OPEN.minute, second=0, microsecond=0)
+    open_e = int(open_dt.timestamp())
+    hi = min(cutoff, int(close_dt.timestamp()) - sec)
+    if hi >= open_e:
+        due = (hi - open_e) // sec + 1
+        present = 0
+        if usable is not None and len(usable):
+            vals = usable[(usable >= open_e) & (usable <= hi)].unique()
+            present = int(sum(1 for v in vals if (int(v) - open_e) % sec == 0))
+        out["bars_due"] = int(due)
+        out["bars_missing"] = int(max(0, due - present))
+    if open_dt <= et <= close_dt and out["bars_due"] >= 1:
+        ref = max((newest + sec) if newest is not None else 0, open_e)
+        out["stalled"] = (now_e - ref) > _feed_stall_limit_sec(tf)
+    return out
+
+
+def _feed_alerts_path(paths):
+    return os.path.join(paths["state_dir"], FEED_ALERTS_FILE)
+
+
+def _load_feed_alerts(paths):
+    try:
+        with open(_feed_alerts_path(paths), encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_feed_alerts(paths, mem, log=print):
+    try:
+        os.makedirs(paths["state_dir"], exist_ok=True)
+        p = _feed_alerts_path(paths)
+        tmp = f"{p}.{os.getpid()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(mem, f, indent=1)
+        if not qp._replace_with_retry(tmp, p, log=log, what="[cloud-signal] feed_alerts.json"):
+            log("[cloud-signal] feed_alerts.json not saved (a repeat push is possible)")
+    except Exception as e:
+        log(f"[cloud-signal] feed_alerts.json not saved ({type(e).__name__}: {e})")
+
+
+def _hhmm_of(iso):
+    try:
+        return _dt.datetime.fromisoformat(str(iso)).astimezone(_zi(TZ)).strftime("%H:%M")
+    except Exception:
+        return "none"
+
+
+def _feed_health(now, warnings, paths, log=print):
+    """The in-session heartbeat's FEED HEALTH fields from step()'s warnings["bar_health"],
+    plus the one-push-per-episode alerts (see the FEED HEALTH block). Never raises: a
+    broken check returns {} and the heartbeat is written as before.
+
+    Runs on the engine thread before the heartbeat write and the next step: the repeat rule
+    and feed_alerts.json stay synchronous, but the network send goes to a daemon thread
+    (_engine_push_background, FEED_PUSH_BACKGROUND) so a slow ntfy never delays either."""
+    push = _engine_push_background if FEED_PUSH_BACKGROUND else None
+    try:
+        bh = (warnings or {}).get("bar_health") or {}
+        h = bh.get(FEED_PRIMARY_TF) or (bh[sorted(bh)[0]] if bh else None)
+        if not h or h.get("error"):
+            return {"verdict": "unknown"} if h else {}
+        tf = h.get("timeframe") or FEED_PRIMARY_TF
+        fields = {k: h.get(k) for k in ("newest_closed_bar_et", "newest_closed_bar_epoch",
+                                         "bar_age_s", "bars_due", "bars_missing", "stalled")}
+        fields["bar_timeframe"] = tf
+        fields["verdict"] = "stalled" if h.get("stalled") else "ok"
+        et = now.astimezone(_zi(TZ)) if now.tzinfo is not None else now.replace(tzinfo=_zi(TZ))
+        day = et.date().isoformat()
+        from api import ntfy_push
+        mem = _load_feed_alerts(paths)
+        changed = False
+        host = _this_host_id()
+        newest = _hhmm_of(h.get("newest_closed_bar_et"))
+
+        # 1. bars stopped (finding 6) -- one episode per stall, per session day
+        st = mem.get("stall") if isinstance(mem.get("stall"), dict) else {}
+        if st.get("active") and st.get("day") != day:
+            log(f"[cloud-signal] FEED: yesterday's stall episode closed at the day change")
+            st, changed = {}, True
+            _engine_note_forget("feed_stall", paths, log=log)
+        if h.get("stalled"):
+            if not st.get("active"):
+                st = {"day": day, "active": True, "since": et.isoformat(), "pushed": False}
+                changed = True
+                log(f"[cloud-signal] FEED STALLED: no new {tf} bar closed for "
+                    f"{(h.get('bar_age_s') or 0) / 60:.0f} min (newest {newest} ET, "
+                    f"{h.get('bars_missing')} of {h.get('bars_due')} bar(s) missing today)")
+            if not st.get("pushed"):
+                age_min = (h.get("bar_age_s") or 0) / 60.0
+                log(f"[cloud-signal] FEED STALLED page ({host}): no new {tf} bar for "
+                    f"{age_min:.0f} min, newest {newest} ET, {h.get('bars_missing')} of "
+                    f"{h.get('bars_due')} missing, source {h.get('source') or 'cache'}")
+                newest_epoch = h.get("newest_closed_bar_epoch")
+                closed_at = (float(newest_epoch) + TIMEFRAME_SECONDS.get(tf, 300)
+                             if newest_epoch else None)
+                note = ntfy_push.plain(
+                    "QQQ book", "prices stopped", "the QQQ book cannot enter or exit trades",
+                    (f"No new QQQ price bar since {ntfy_push.hhmm(closed_at, now=et)}."
+                     if closed_at else f"No new QQQ price bar for {age_min:.0f} min."),
+                    "nothing - the signal program keeps trying; ask Claude (PAPER-WB chat) "
+                    "if it lasts")
+                _engine_note("feed_stall", "feed_stall", note, paths, log=log, push=push)
+                st["pushed"] = True
+                changed = True
+        elif st.get("active"):
+            try:
+                since = _dt.datetime.fromisoformat(st.get("since"))
+                mins = max(0.0, (et - since).total_seconds() / 60.0)
+            except Exception:
+                mins = 0.0
+            log(f"[cloud-signal] FEED recovered: {tf} bars arriving again (newest {newest} ET)")
+            if st.get("pushed"):
+                _engine_note_clear("feed_stall", "QQQ book",
+                                   f"prices stopped for about {mins:.0f} min", paths, log=log,
+                                   push=push)
+            st, changed = {"day": day, "active": False}, True
+        mem["stall"] = st
+
+        # 2. live bars on yfinance instead of Webull (finding 15) -- counted per real fetch
+        yf = mem.get("yf") if isinstance(mem.get("yf"), dict) else {}
+        if yf and yf.get("day") != day:
+            # like the stall episode: yesterday's streak (and its page) ends quietly at the
+            # day change, so a fresh morning fallback counts from 1 and pages on its own
+            log(f"[cloud-signal] FEED: yesterday's yfinance streak closed at the day change")
+            _engine_note_forget("feed_yf", paths, log=log)
+            yf = {}
+            mem["yf"] = yf
+            changed = True
+        if h.get("fetched") and h.get("source"):
+            if h.get("source") == "yfinance":
+                yf = dict(yf, streak=int(yf.get("streak") or 0) + 1, day=day)
+                if not yf.get("since"):
+                    yf["since"] = et.isoformat()
+                changed = True
+                if yf["streak"] >= FEED_YF_PUSH_FETCHES and not yf.get("pushed"):
+                    err = _WEBULL_LAST_ERR.get("text") or "no error text (empty reply)"
+                    token = any(s in err.upper() for s in ("PENDING", "ERROR_INIT_TOKEN"))
+                    log(f"[cloud-signal] FEED ON YFINANCE page ({host}): live {tf} bars from "
+                        f"yfinance for {yf['streak']} fetches in a row; last Webull error: {err}")
+                    if token:
+                        note = ntfy_push.plain(
+                            "QQQ book", "approve Webull login",
+                            "the QQQ book trades on late prices",
+                            "QQQ prices come from the slower backup source: the Webull login "
+                            "is waiting for approval.",
+                            "approve the login in the Webull app", priority="high")
+                    else:
+                        note = ntfy_push.plain(
+                            "QQQ book", "backup prices", "the QQQ book trades on late prices",
+                            "QQQ prices are coming from the slower backup source, not Webull.",
+                            "nothing - it switches back by itself; ask Claude (PAPER-WB chat) "
+                            "if it lasts")
+                    _engine_note("feed_yf", "feed_yf", note, paths, log=log, push=push)
+                    yf["pushed"] = True
+            else:
+                if yf.get("pushed"):
+                    log(f"[cloud-signal] FEED: live {tf} bars from Webull again (after "
+                        f"{int(yf.get('streak') or 0)} yfinance fetches)")
+                    _engine_note_clear("feed_yf", "QQQ book", "prices from the backup source",
+                                       paths, log=log, push=push)
+                if yf:
+                    changed = True
+                yf = {}
+            mem["yf"] = yf
+        fields["bar_source"] = h.get("source") or None
+        fields["yf_fallback_streak"] = int(yf.get("streak") or 0)
+        if changed:
+            _save_feed_alerts(paths, mem, log=log)
+        return fields
+    except Exception as e:
+        log(f"[cloud-signal] feed health check failed (heartbeat written without it): "
+            f"{type(e).__name__}: {e}")
+        return {}
+
+
+# ── engine pushes (EOD settle give-up, FEED HEALTH) ──────────────────────────────────────
+# HIGH/URGENT go through api/ntfy_push.Outbox (<state_dir>/ntfy_outbox.json): one try now,
+# then spaced retries on a background thread if ntfy is unreachable (finding 16). Only on
+# the cloud box (EDGELOG_HOST_ROLE=cloud, _is_cloud_host): the PC's runner thread steps the
+# same engine and must never page with the same titles.
+ENGINE_OUTBOX_BACKGROUND = True
+# FEED HEALTH pushes leave the engine thread (see _feed_health); tests set False to record
+# them synchronously
+FEED_PUSH_BACKGROUND = True
+_ENGINE_OUTBOXES = {}
+# the engine thread and a background push thread can both ask first: ONE Outbox per file, or
+# two in-memory queues would rewrite the same ntfy_outbox.json and lose a push
+_ENGINE_OUTBOX_LOCK = threading.Lock()
+
+
+def _engine_outbox(paths):
+    from api import ntfy_push
+    path = os.path.join(paths["state_dir"], "ntfy_outbox.json")
+    with _ENGINE_OUTBOX_LOCK:
+        box = _ENGINE_OUTBOXES.get(path)
+        if box is None or box.background != bool(ENGINE_OUTBOX_BACKGROUND):
+            box = ntfy_push.Outbox(
+                path,
+                sender=lambda m, t, p: ntfy_push.push_result(m, title=t, priority=p, timeout=4),
+                tag="cloud-signal", background=ENGINE_OUTBOX_BACKGROUND)
+            _ENGINE_OUTBOXES[path] = box
+        return box
+
+
+# THE PLAIN PHONE FORMAT for the engine's own NEW pushes (KEEL size differs, prices stopped /
+# on the backup source -- api/ntfy_push PLAIN FORMAT, v73.1120/1121):
+# each builds its text with ntfy_push.plain() and goes through _engine_note(), which applies
+# the shared repeat rule (ntfy_push.dedupe) per problem key, persisted in
+# <state_dir>/phone_dedupe.json, logs any lint() problem, and hands the note to _engine_push.
+# _engine_note_clear() sends the one low "back to normal" (only after a high push in the
+# episode); _engine_note_forget() ends an episode quietly (the day change).
+PHONE_DEDUPE_FILE = "phone_dedupe.json"
+_PHONE_LOCK = threading.Lock()
+
+
+def _phone_store_path(paths):
+    return os.path.join((paths or DEFAULT_PATHS)["state_dir"], PHONE_DEDUPE_FILE)
+
+
+def _phone_update(paths, fn, log=print):
+    """Load the dedupe store, apply fn(store) -> result, save it. Never raises (returns None)."""
+    try:
+        with _PHONE_LOCK:
+            p = _phone_store_path(paths)
+            try:
+                with open(p, encoding="utf-8") as f:
+                    store = json.load(f)
+                store = store if isinstance(store, dict) else {}
+            except Exception:
+                store = {}
+            res = fn(store)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            tmp = f"{p}.{os.getpid()}.{threading.get_ident()}.tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(store, f, indent=1)
+            if not qp._replace_with_retry(tmp, p, log=log,
+                                          what="[cloud-signal] phone_dedupe.json"):
+                log("[cloud-signal] phone_dedupe.json not saved (a repeat push is possible)")
+            return res
+    except Exception as e:
+        log(f"[cloud-signal] phone dedupe failed ({type(e).__name__}: {e})")
+        return None
+
+
+def _engine_note(key, problem_id, note, paths=None, log=print, push=None, now_ts=None):
+    """Send one plain() note through the repeat rule: pushes only when dedupe says so (a NEW or
+    WORSE problem, or the same one a day later). `push` as for _engine_push (the stream commit
+    passes _engine_push_background). Returns the dedupe action. Never raises."""
+    try:
+        from api import ntfy_push
+        for p in ntfy_push.lint(note):
+            log(f"[cloud-signal] phone note lint: {p}: {note.get('title')}")
+        now_ts = _time.time() if now_ts is None else now_ts
+        rank = ntfy_push.RANK.get(note.get("priority"), 0)
+        action = _phone_update(paths, lambda st: ntfy_push.dedupe_in(
+            st, key, {str(problem_id): rank}, now_ts), log=log)
+        if action == "push":
+            (push or _engine_push)(note["message"], note["title"], priority=note["priority"],
+                                   paths=paths, log=log)
+        else:
+            log(f"[cloud-signal] phone note held by the repeat rule: {note.get('title')}")
+        return action
+    except Exception as e:
+        log(f"[cloud-signal] phone note failed ({type(e).__name__}: {e})")
+        return None
+
+
+def _engine_note_clear(key, area, what, paths=None, log=print, push=None, now_ts=None):
+    """The problem `key` cleared: ONE low "back to normal" when its episode had a high push."""
+    try:
+        from api import ntfy_push
+        now_ts = _time.time() if now_ts is None else now_ts
+        action = _phone_update(paths, lambda st: ntfy_push.dedupe_in(st, key, {}, now_ts),
+                               log=log)
+        if action == "clear":
+            note = ntfy_push.back_to_normal(area, what)
+            (push or _engine_push)(note["message"], note["title"], priority=note["priority"],
+                                   paths=paths, log=log)
+        return action
+    except Exception as e:
+        log(f"[cloud-signal] phone clear failed ({type(e).__name__}: {e})")
+        return None
+
+
+def _engine_note_forget(key, paths=None, log=print):
+    """End the problem `key`'s episode quietly (no push) -- e.g. at the day change."""
+    _phone_update(paths, lambda st: st.pop(key, None), log=log)
+
+
+def _engine_push(msg, title, priority="high", paths=None, log=print):
+    """One engine alert. Returns what the sender returned (True / "queued" / None / False),
+    or None when this host does not push. Never raises."""
+    try:
+        if not _is_cloud_host():
+            log(f"[cloud-signal] (not the cloud box, no push) {title}: {msg}")
+            return None
+        from api import ntfy_push
+        paths = paths or DEFAULT_PATHS
+        if ntfy_push.is_durable(priority):
+            r = _engine_outbox(paths).send(msg, title, priority, log=log)
+            if r is not False:
+                return r
+            # False: the outbox itself broke before any network try -- one plain try below
+            log(f"[cloud-signal] ntfy outbox could not take the push -- one plain try: {title}")
+        ok, detail = ntfy_push.push_result(msg, title=title, priority=priority, timeout=4)
+        if ok is False:
+            log(f"[cloud-signal] ntfy push failed ({detail}): {title}")
+        return ok
+    except Exception as e:
+        log(f"[cloud-signal] push failed ({type(e).__name__}: {e}): {title}")
+        return False
 
 
 def cloud_signal_thread(stop=None, log=print):
@@ -3764,6 +4536,12 @@ def cloud_signal_thread(stop=None, log=print):
             "stepping, never writing signals.csv/state.json/heartbeat.json")
         return
     log("[cloud-signal] parallel run: ON (signals only, no order path)")
+    # engine pushes the last process could not deliver (finding 16) -- retried off this loop
+    if _is_cloud_host():
+        try:
+            _engine_outbox(DEFAULT_PATHS).resume(log=log)
+        except Exception as e:
+            log(f"[cloud-signal] ntfy outbox resume failed (non-fatal): {type(e).__name__}: {e}")
     try:
         log_history_windows(log=log)
     except Exception as e:                     # diagnostic only -- must never block startup
@@ -3836,7 +4614,13 @@ def cloud_signal_thread(stop=None, log=print):
                     events = step(now=now_et, fetch=do_fetch, paths=DEFAULT_PATHS, warnings=warnings)
                 cache_failed = bool(warnings.get("cache_write_failed"))
                 note = f"{len(events)} event(s)" + (" (cache_write_failed)" if cache_failed else "")
-                _write_heartbeat(DEFAULT_PATHS, ok=True, note=note, cache_write_failed=cache_failed)
+                # FEED HEALTH (2026-10-05): newest closed bar, its age, bars due/missing and
+                # the stalled verdict ride on the heartbeat; ok keeps its meaning
+                health = _feed_health(now_et, warnings, DEFAULT_PATHS, log=log)
+                if health.get("stalled"):
+                    note += f" -- STALLED: no new bar for {(health.get('bar_age_s') or 0) / 60:.0f} min"
+                _write_heartbeat(DEFAULT_PATHS, ok=True, note=note, cache_write_failed=cache_failed,
+                                 health=health)
                 for e in events:
                     log(f"[cloud-signal] {e['event']} {e['leg']} {e.get('side','')} "
                         f"@ {e.get('ref_price','')} ({e.get('ref_time','')}) {e.get('reason','')}")

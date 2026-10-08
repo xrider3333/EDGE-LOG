@@ -402,6 +402,7 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log):
 
     state = None
     state_changed = False
+    keel_events = []          # committed rows for the KEEL entry note, AFTER the loop
     for leg_key, cfg in five_m_legs.items():
         if already_shadowed(paths, leg_key, bar_epoch):
             continue
@@ -439,6 +440,10 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log):
             mutated["last_bar_epoch"] = bar_epoch
             state["legs"][leg_key] = mutated
             cs._append_signals(events, paths)
+            # KEEL ENTRY EXTRAS (MANAGER #76): a committed stream ENTRY is the leg's real
+            # entry (step() will not emit it again), so its KEEL log line / size-diff alert
+            # goes out from here -- after the loop and the state write, see below
+            keel_events.extend(events)
             state_changed = True
             committed = True
             log(f"[cloud-signal-stream] LIVE from the stream: {leg_key} @ {bar_epoch} -- "
@@ -453,6 +458,12 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log):
     if state_changed:
         state["generated_at"] = now.isoformat()
         cs._write_state(state, paths)
+    if keel_events:
+        # once, after every leg is committed and state.json is written, and the push on a
+        # daemon thread -- a slow ntfy can never delay another leg's row or the state write.
+        # The live owner switch only ever commits on the live thread, hence fetch=True.
+        cs._note_keel_entries(keel_events, five_m_legs, paths, True, log=log,
+                              push=cs._engine_push_background)
 
 
 def _resolve_pending_against_rest(now, five_m_legs, paths, log):

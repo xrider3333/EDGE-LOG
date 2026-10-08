@@ -549,14 +549,17 @@ def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version
 
 
 def compression_sizes(arrays, trades, mult=1.5, feature="sq60_on", deep=None, thr=0.85, dow=None, cap=3.0,
-                      gate_tf_min=60, gate_len=20, gate_ratio=1.0, event=None):
+                      gate_tf_min=60, gate_len=20, gate_ratio=1.0, event=None, feats=None):
     """RAW x compression, no model: the attribution control for v9. Size `mult` on trades entered
     while the 60m state is compressed, 1.0 otherwise. Trades sorted by entry bar.
     2026-09-08 options: `deep` = multiplier when sq60_ratio < `thr` (depth-graded: 2x deep / 1.5x on /
     1x off beat the flat 1.5x on the ORB and ENGU-Q crowns); `dow` = {"4": 1.5} weekday multiplier
-    on the entry bar (comp x Friday passed on the ORB crown). Product capped at `cap`."""
+    on the entry bar (comp x Friday passed on the ORB crown). Product capped at `cap`.
+    `feats`: keel_features(arrays)'s (F, names) when the caller already has it for these SAME
+    arrays (api/cloud_signal.py's KEEL entry extras reuse the score's own) -- skips the
+    recompute; the result is identical."""
     T = sorted([(int(t[0]), int(t[1]), float(t[2])) for t in trades], key=lambda t: t[0])
-    F, names = keel_features(arrays)
+    F, names = feats if feats is not None else keel_features(arrays)
     E = np.clip(np.array([t[0] for t in T]), 0, len(F) - 1)
     if (int(gate_tf_min), int(gate_len), float(gate_ratio)) != (60, 20, 1.0):
         # 2026-09-08: the gate the fenced validates crowned twice (run 321 as a filter, run 333 as
@@ -598,7 +601,7 @@ FIXED_V12_DOW = {k: v for k, v in CFG["v12"]["dow"].items() if k != "cap"}
 FIXED_V12_EVENT = dict(CFG["v12"]["event"])
 
 
-def fixed_tilt_sizes_v12(arrays, entry_bars):
+def fixed_tilt_sizes_v12(arrays, entry_bars, feats=None):
     """v12's fixed tilts, no model, for each entry bar in `entry_bars` (returned in the
     order given, not sorted). Exactly compression_sizes(arrays, trades, mult=1.5, dow=v12's
     dow minus "cap", cap=v12's comp cap, event=v12's event) -- arm A3 above -- which only
@@ -611,7 +614,8 @@ def fixed_tilt_sizes_v12(arrays, entry_bars):
         return np.ones(0)
     order = np.argsort(E, kind="stable")
     m = compression_sizes(arrays, [(int(e), int(e), 0.0) for e in E[order]], mult=FIXED_V12_MULT,
-                          dow=dict(FIXED_V12_DOW), cap=FIXED_V12_CAP, event=dict(FIXED_V12_EVENT))
+                          dow=dict(FIXED_V12_DOW), cap=FIXED_V12_CAP, event=dict(FIXED_V12_EVENT),
+                          feats=feats)
     out = np.empty(len(E))
     out[order] = m
     return out
@@ -919,6 +923,50 @@ def keel_score_from_state(state, arrays, entry_bar, x_row=None, feats=None, cros
         if _pre:
             size = size * float(ev.get("mult", 0.5))
     return float(size), diag
+
+
+# -- which branch of the rule sized one score (logging only, 2026-10-05, MANAGER #76) --------
+KEEL_BRANCH_TRUST = "trust"
+KEEL_BRANCH_SHADE = "shade"
+KEEL_BRANCH_FIXED_ONLY = "fixed-only"
+KEEL_BRANCH_FALLBACK = "fallback-1.0"
+
+
+def keel_branch(diag, cfg):
+    """Which branch of keel_score_from_state's rule set ONE score's model part, read back
+    from that call's own `diag` and the rule's `cfg` (state["cfg"] or CFG[version]).
+    LOGGING ONLY: nothing sizes from this.
+
+      fallback-1.0  `diag` is not a dict: the caller never scored (api/cloud_signal.py's
+                    _keel_size_for_entry hands back its fallback reason string instead).
+      shade         the fast ledger is below the shade line (t_fast < shade["t"]) and z != 0:
+                    model part = clip(1 - k * z, lo, hi), AGAINST the model's own score.
+      trust         the trust branch leaned: model part = clip(1 + K * trust * z, LO, HI)
+                    with trust * z != 0.
+      fixed-only    the model leaned nothing -- warm-up (nd < MIN_HISTORY), trust 0 or z 0
+                    -- so the model part is 1.0 and only the fixed tilts (Friday,
+                    compression, FOMC morning) set the size: it then equals
+                    fixed_tilt_sizes_v12 at the same entry bar.
+
+    The shade test is the SAME expression keel_score_from_state uses (tests pin the two
+    together on both sides of the line). Never raises: an unreadable diag is "fallback-1.0"."""
+    if not isinstance(diag, dict):
+        return KEEL_BRANCH_FALLBACK
+    try:
+        if int(diag.get("nd") or 0) < MIN_HISTORY:
+            return KEEL_BRANCH_FIXED_ONLY
+        shade = (cfg or {}).get("shade")
+        t_fast = diag.get("t_fast")
+        z = diag.get("z")
+        z = float(z) if z is not None else float("nan")
+        if shade and t_fast is not None and float(t_fast) < shade["t"] and z != 0:
+            return KEEL_BRANCH_SHADE
+        tr = float(diag.get("trust") or 0.0)
+        if not np.isfinite(z) or tr * z == 0:
+            return KEEL_BRANCH_FIXED_ONLY
+        return KEEL_BRANCH_TRUST
+    except Exception:
+        return KEEL_BRANCH_FALLBACK
 
 
 def keel_state_summary(state, arrays=None, extra=None):

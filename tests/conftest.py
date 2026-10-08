@@ -415,6 +415,36 @@ def _no_shell_ntfy_topic(monkeypatch):
     yield
 
 
+_ntfy_outbox_dirs = itertools.count()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_ntfy_outbox(monkeypatch, _broker_isolation_root):
+    """api.qqq_exec keeps undelivered HIGH/URGENT pushes in a persisted outbox beside its
+    state.json and retries them on a background thread (finding 16, 2026-10-05). Every test
+    gets its own empty outbox file under the session temp dir -- never the live
+    C:\\EdgeLog\\qqq_exec -- and no retry thread (a test drives flush() itself). The engine's
+    own outbox (api.cloud_signal, beside each test's own state dir) gets no thread either."""
+    try:
+        from api import qqq_exec as qe
+    except ImportError:
+        yield
+        return
+    if hasattr(qe, "NTFY_OUTBOX_PATH"):
+        d = _broker_isolation_root / f"ntfy_{next(_ntfy_outbox_dirs)}"
+        monkeypatch.setattr(qe, "NTFY_OUTBOX_PATH", str(d / "ntfy_outbox.json"))
+        monkeypatch.setattr(qe, "NTFY_OUTBOX_BACKGROUND", False)
+        monkeypatch.setattr(qe, "_NTFY_OUTBOX", {"box": None})
+    cs = sys.modules.get("api.cloud_signal")
+    if cs is not None and hasattr(cs, "ENGINE_OUTBOX_BACKGROUND"):
+        monkeypatch.setattr(cs, "ENGINE_OUTBOX_BACKGROUND", False)
+        monkeypatch.setattr(cs, "_ENGINE_OUTBOXES", {})
+        if hasattr(cs, "FEED_PUSH_BACKGROUND"):
+            # FEED HEALTH pushes go to a daemon thread live; a test records them in line
+            monkeypatch.setattr(cs, "FEED_PUSH_BACKGROUND", False)
+    yield
+
+
 @pytest.fixture(autouse=True)
 def _no_keel_stale_push(monkeypatch):
     """tools/keel_live_state.py pushes (once a stale trading day) when its NQ master is older than the last completed

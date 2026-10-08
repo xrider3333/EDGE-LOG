@@ -37,6 +37,12 @@ after every post that lands, so delivery is AT-LEAST-ONCE with a one-post window
 process killed between an inbox write and the save right after it posts that text twice. Memory lives in <EDGELOG_HOME>\freshness_pc\state.json, a log in
 <EDGELOG_HOME>\logs\webull_freshness_pc.log.
 
+KEEL SIZE DIFFS (2026-10-05, MANAGER #76). The box's status.json carries "keel_diffs" -- the last
+20 live NOISE entries where KEEL's size and the fixed rule's size differed (api/cloud_signal.py
+writes them; tools/webull_freshness.py copies them). Each one is posted ONCE to both inboxes,
+deduped by date + leg + entry time in state.json "relayed_keel_diffs" (marked in the same save
+that queues its post, so the at-least-once queue above carries it).
+
 RUNS UNDER pythonw / TASK SCHEDULER: no console is needed or opened. ssh is called by its
 explicit path (C:\Windows\System32\OpenSSH\ssh.exe when present) with BatchMode, stdin closed
 and CREATE_NO_WINDOW, so it can never prompt or flash a window. Never writes on the box, never
@@ -101,6 +107,7 @@ LEDGER_MAX_AGE_SEC = 36 * 3600.0
 BACKUP_MAX_AGE_SEC = 36 * 3600.0
 BOX_ALERT_HOLD_SEC = 7 * 86400.0   # a relayed box alert stays as-is while the box is unreadable
 POST_MAX_CHARS = 1800
+KEEL_DIFF_KEYS_KEEP = 200           # state.json "relayed_keel_diffs": the last N keys
 PENDING_MAX_AGE_SEC = 3 * 86400.0
 
 _STAMP_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})\s+(.*)$")
@@ -331,6 +338,45 @@ def compose_post(opened, recovered, expired):
     return text
 
 
+def keel_diff_key(d):
+    """The one identity of a KEEL size diff: date + leg + entry time."""
+    return "|".join(str(d.get(k) or "") for k in ("date", "leg", "entry_time"))
+
+
+def _num(v, nd=2):
+    try:
+        return f"{float(v):.{nd}f}"
+    except (TypeError, ValueError):
+        return "?"
+
+
+def compose_keel_diffs(diffs, relayed):
+    """(text or None, [new keys]) for the box's keel_diffs not yet in `relayed`. Plain words:
+    which leg, when, and what KEEL sized against what the fixed rule alone would have."""
+    seen = set(relayed or [])
+    parts, keys = [], []
+    for d in diffs or []:
+        if not isinstance(d, dict) or not d.get("leg") or not d.get("entry_time"):
+            continue
+        key = keel_diff_key(d)
+        if key in seen:
+            continue
+        seen.add(key)
+        keys.append(key)
+        when = str(d.get("entry_time"))
+        hhmm = when[11:16] if len(when) >= 16 else when
+        t_fast = d.get("t_fast")
+        parts.append(
+            f"{d.get('leg')} {d.get('side') or ''} entry {d.get('date')} {hhmm} ET: KEEL sized "
+            f"{_num(d.get('keel_size'))} ({d.get('branch') or 'branch unknown'} branch"
+            + (f", t_fast {_num(t_fast)}" if t_fast not in (None, "") else "")
+            + f"), the fixed rule alone {_num(d.get('keel_fixed_size'))}")
+    if not parts:
+        return None, []
+    return ("KEEL SIZE DIFF (logging only, the order used KEEL's size): " + "; ".join(parts),
+            keys)
+
+
 def _make_logger(path):
     def log(line):
         stamp = _dt.datetime.now().isoformat(timespec="seconds")
@@ -425,6 +471,17 @@ def run_once(paths=None, now=None, run_cmd=None, post_fn=None, dry_run=False, lo
         text = (text + " | " + rtext) if text else rtext
         if not dry_run:
             state["relayed_restart_et"] = ar["last_restart_et"]
+    # KEEL SIZE DIFFS (MANAGER #76): each live NOISE entry KEEL sized differently from the fixed
+    # rule, relayed once (see the docstring); only a status that parsed can carry them
+    kd = (box.get("status") or {}).get("keel_diffs") if box.get("ok") else None
+    if isinstance(kd, list) and kd:
+        relayed = state.get("relayed_keel_diffs")
+        relayed = relayed if isinstance(relayed, list) else []
+        ktext, new_keys = compose_keel_diffs(kd, relayed)
+        if ktext:
+            text = (text + " | " + ktext) if text else ktext
+            if not dry_run:
+                state["relayed_keel_diffs"] = (relayed + new_keys)[-KEEL_DIFF_KEYS_KEEP:]
     posted = []
     if text:
         log(f"[freshness-pc] {text}")
