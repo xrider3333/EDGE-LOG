@@ -1190,6 +1190,51 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10aj. Q26 QUALITY r1 FAILS and the fundamentals-basket line is CLOSED; Q27 RREV r1 is closed at the cost map (2026-10-08)
+
+**What ran.** Both ran on RESMOM's engine (r17 'close', pinned 3151ef0a), walk-forward only, as seats over the S1 line L (121.06). They ran
+before main from branch prereg/frontier-quality-1008, under MANAGER's GO #121.
+- **QUALITY prereg:** LF sha256 b31ced3b..., with its power addendum committed before any cell ran.
+- **RREV prereg:** LF sha256 e666c655...
+- **QUALITY's data:** SEC companyfacts as filed, held (income e142ef05..., assets 83c099bd...), point in time: the first-filed annual
+  value, usable only strictly before the rank, and stale after 18 months.
+
+**QUALITY r1 - FAIL, both cells.** The bar was ROC 15. The null's MAX p95 was 6.89. The edge needed for 50% power was about $19,000 a year.
+
+| Cell | ROC@30k | DD5 | Worst DD | WF net | Beta to ES | L + seat at 0.25 / 0.10 | $ on R (without best) | DO on #463's days |
+|---|---|---|---|---|---|---|---|---|
+| GPA (gross profit / assets) | 7.06 | $32,757 (one episode) | $47,278 | +$100,108 | -0.02 | 121.48 / 121.74 | +$21,597 (+$4,657) | 0.045 (null p95 0.030) |
+| OPA (operating income / assets) | -1.05 | $260,480 | $260,480 | -$81,755 | -0.12 | 83.69 / 118.39 | +$188,812 (+$146,704) | 0.252 (null p95 0.030) |
+
+The random-name null's p95 on R: GPA $21,809, OPA $22,341.
+- **Coverage:** 177-274 names a month had both scores. ETFs and foreign filers carry no US-GAAP facts.
+- **GPA** clears the null (7.06 > 6.89) but not the bar. All of it was earned before 2022 (the halves read 15.8 / -0.4), and it fails the
+  best-1% checks. Its seat moves L by under one ROC point (+0.4 / +0.7) with a slightly lower DD5. That is inside the looks band and not a
+  candidate.
+- **OPA is the clearest drawdown-day earner FRONTIER has measured:** +$189k on L's drawdown days, +$147k without its best episode, seven
+  times the null's p95. But it pays for it in the 2020-21 junk rally (-$148k in 2020; -$199k over 2020-04 .. 2021-02), so its seat
+  LOWERS L. It is insurance that bleeds in 2019-21 - the same shape as CUSTOM-ML's DISTRESS-ML r1 (#122) and FRONTIER's short-growth
+  insurance (memory: short-growth insurance fails). Its beta is -0.12, inside the 0.20 limit, so its R money is credited - and it still
+  does not pay.
+
+**The fundamentals-basket line is CLOSED for this data (MANAGER #121).** B8 (asset growth) and B9 (value) are not drafted. With CUSTOM-ML's
+FUND-ML r1 (#120: value + profitability - investment, -2.0) and DISTRESS-ML r1 (#122, -1.2), three house reads of US fundamentals
+baskets on the top-500 names over 2016-25 lose or fall short. What earns on R (OPA, distress) bleeds in the junk rally.
+
+**RREV r1 - CLOSED AT THE COST MAP, with no Stage A** (MANAGER #121's extra step; picks only, no hold return computed).
+- **Turnover:** the reversal cells replace 88% (REV) and 92% (RREV) of their names every month.
+- **The edge needed, as a gross monthly spread on $200,000 a side:**
+  - 0.73% just to break even at 20 bps a side (counting only the names that change; 0.80% under the engine's convention). With 25% room
+    that is 0.92%.
+  - 0.93% to reach the Stage A bar half the time.
+- **The anchor, stated in the prereg before the check:** the decayed large-cap residual-reversal spread, at the upper end of the
+  literature, is 0.70%.
+- It clears neither line, so no power run and no cell P&L were made. Looks: none.
+
+**Files.** Results in C:\EdgeLog\_anatomy_cache\rocfrontier\quality_r1\ (stageA, power, data with manifests) and rrev_r1\rrev_costmap.json.
+Harnesses tools/rocfrontier/r27_quality.py and r28_rrev.py. RUNBOARD rows Q26-QUALITY-R1 and Q27-RREV-R1; the ledger rows follow,
+docs-only.
+
 ### 10ai. THE RESMOM LINE IS RESTATED UNDER HYGIENE RULE S1 - every FRONTIER seat read now uses 121.06 (2026-10-08)
 
 **What changed.** STRATEGY-BEATING's restatement landed on main (ledger 2.99; r17_resmom.py's 'close' reading, MANAGER #127). The reference
