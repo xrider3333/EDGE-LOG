@@ -1,0 +1,17 @@
+SEASON r1 (Q24) - POWER LINE ADDENDUM, committed BEFORE any cell P&L (MANAGER #115 (1) / #116). The family null ALONE was run (no cell);
+file C:\EdgeLog\_anatomy_cache\rocfrontier\season_r1\season_power.json, sha256 14883d3a9ebfc68ef8271f82dbc3fdd15f5e93f3455287666254da3053b1202f; prereg LF sha256 b86b6108d16b910d0d98a85a1df15507235681b5b7967274f41cb10b8481355b; harness sha256 5c9d9714246344de87d8e1b2e4eee98c3acce85207a4236cdb1378b8858d51c9.
+
+THE BAR: ROC @ $30k >= max(15, the null's MAX-over-cells p95 4.54) = 15.00, i.e. $15,000 a year at a $30k worst drawdown. The null's MAX-over-cells median: -1.21 (500 draws; 101 rebalances, 101 traded).
+
+LAG12: the true edge it takes to clear the bar - 50% power $17,834 a year, 80% power $23,241 a year at the cell's own size (50 a side at $4,000; 2453 active
+  WF days). Its own null: ROC p50 -2.14 / p95 2.81.
+  As a SEAT on L: the null's dollars on R (L's 762 drawdown days) p50 $-13,788 / p95 $21,453 / SD $20,403, so a seat needs $35,241 (50%) / $52,420 (80%) more
+  on R at own size; at the 0.25 seat (c about 0.747) that is $26,317 / $39,146 on R.
+
+AVG: the true edge it takes to clear the bar - 50% power $17,487 a year, 80% power $22,481 a year at the cell's own size (50 a side at $4,000; 2453 active
+  WF days). Its own null: ROC p50 -2.21 / p95 2.56.
+  As a SEAT on L: the null's dollars on R (L's 762 drawdown days) p50 $-11,624 / p95 $21,155 / SD $21,662, so a seat needs $32,779 (50%) / $51,018 (80%) more
+  on R at own size; at the 0.25 seat (c about 0.740) that is $24,271 / $37,776 on R.
+
+READING: a cell whose true edge is below the 50% line is more likely than not to read FAIL even if real; the result line says which side
+of these lines each cell's measured edge falls, and an undecidable cell is called undecidable, not dead.
