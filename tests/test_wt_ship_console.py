@@ -106,6 +106,16 @@ def test_ship_finishes_post_push_steps_on_non_ascii_subject(tmp_path, how):
     assert len(report) == 1 and 'BUILDER ' in report[0], out
     assert len(synced) == 1 and 'BUILDER ' in synced[0], out
     assert len(budget) == 1, out
+    # 2026-10-07: ship gates BEFORE the push lock, then rebases and re-checks under it. Both
+    # phases report once each, in order, ahead of the push - and add nothing a cp1252 console
+    # cannot print (in 'direct' mode nobody widened it).
+    pre = [ln for ln in lines if ln.startswith('PRE-LOCK (round 1 of 3): ')]
+    pre_done = [ln for ln in lines if ln.startswith('PRE-LOCK: 0 gate(s) run, 0 already passed')]
+    locked = [ln for ln in lines if ln.startswith('LOCKED: ')]
+    assert len(pre) == 1 and len(pre_done) == 1 and len(locked) == 2, out
+    assert (lines.index(pre[0]) < lines.index(pre_done[0]) < lines.index(locked[0])
+            < lines.index(report[0])), out
+    assert any(ln.startswith('lock phase took ') for ln in lines), out
     if how == 'cli':        # main() made the console UTF-8, so nothing had to be escaped
         assert report[0].endswith(SUBJECT), report[0]
         assert synced[0].endswith(SUBJECT), synced[0]

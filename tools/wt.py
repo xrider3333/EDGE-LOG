@@ -19,9 +19,11 @@ racing to bump it is the one guaranteed conflict), runs the boot gate, and pushe
 USAGE
 -----
   python tools/wt.py new  <name>     create + print the worktree path to cd into
-  python tools/wt.py ship [name]     rebase onto origin/main, fix VERSION, preflight, push
-                                     (gates: boot, STUDIES, PAPER, run REPORT, 1E AXES /
-                                     1A funnel line procedure, IMPORT time zones, row numbers)
+  python tools/wt.py ship [name]     rebase onto origin/main, fix VERSION, gate, push
+                                     (gates, in GATES order: boot, STUDIES, PAPER, run REPORT
+                                     (+ self-test), 1E AXES / 1A funnel line procedure, CMP2,
+                                     IMPORT time zones (+ self-test), HOME (+ self-test),
+                                     WEBULL PAPER (+ self-test), STUDIES row numbers)
   python tools/wt.py list            show every session worktree
   python tools/wt.py drop <name>     remove a worktree (refuses if it has uncommitted work)
 
@@ -38,10 +40,71 @@ from inside (or naming) your worktree. Running the worktree's OWN tools/wt.py
 resolves the repo root to the worktree itself, self-detects as "the shared
 checkout", and refuses to ship.
 
+WHAT RUNS BEFORE THE PUSH LOCK, AND WHAT RUNS UNDER IT (2026-10-07)
+-------------------------------------------------------------------
+The machine-wide push lock (tools/push_lock.py, behind the FIFO ticket of tools/push_queue.py)
+exists for the steps that really are serial: rebasing onto a main other lanes keep moving,
+re-aligning the VERSION line and this ship's CHANGELOG entry against it, and pushing. Until
+2026-10-07 ship also held it through every gate - including the probes' --selftest mutant
+runs (HOME ~61-75 broken copies of index.html, WEBULL ~221-231; 47 minutes to 2 hours each) -
+so a single probe-changing ship (mgr-ledger-frame-1007, from 17:45) held ten lanes for hours.
+Now a ship runs in three steps:
+
+  1. PRE-LOCK - no ticket, no lock. Fetch, rebase onto origin/main, realign VERSION, renumber
+     this ship's new RESEARCH_LEDGER rows, and run EVERY gate that applies: the same set ship has always run, every --selftest included. Each
+     pass is recorded in a stamp beside the worktree's git metadata
+     (.git/worktrees/<name>/edgelog_ship_gates.json): the tree it passed on, the origin/main it
+     was tested against, and the gate list version (GATE_LIST_VERSION + a fingerprint of GATES;
+     a stamp written under any other gate list is ignored). A ship re-run on an unchanged tree
+     (a killed or failed ship) reuses those passes instead of re-running them. A pass is only
+     recorded when the worktree still holds that tree after the gate ran (tree_moved: no tracked
+     file edited, HEAD not moved), and only one ship of a worktree runs at a time
+     (hold_worktree), so a stamp never vouches for content no gate saw. A gate that fails here
+     stops the ship exactly as before - no ticket, no lock, nothing pushed.
+  2. LOCKED - take the ticket and the lock, fetch, rebase onto the NEWEST main, realign VERSION
+     and renumber the ledger rows again against it (no-ops when main has not moved). Then each
+     gate that applies to that final tree is either
+       * reused - it passed on this exact tree (main did not move), or it is a SLOW gate (a
+         --selftest) and every file it reads - its probe, its fixture, the helpers it imports
+         (Gate.cover) - is byte-identical between the tree it passed on and this one; or
+       * run, under the lock, on this tree. Those are the FAST gates (boot, the plain probes,
+         the STUDIES registry): a few minutes.
+     A selftest that cannot be reused does NOT run under the lock: ship gives the lock and its
+     ticket back (it has pushed nothing), re-runs that selftest outside the lock and queues
+     again - at most PRELOCK_ROUNDS (3) rounds, after which it runs it under the lock rather
+     than loop. The exception is a QUICK selftest (its last run took under
+     LOCKED_RERUN_MAX_SECONDS, 3 minutes - the run-report and import time-zone ones take
+     seconds): re-running it under the lock costs less than queueing again, so it does. The
+     console prints every reused gate, the verdict it carries and why it holds.
+  3. PUSH - the pre-push hook still runs its own tiers here, under the lock (for an engine
+     change that is the ~13-23 minute engine tier) - then prove the sha is on origin/main and
+     fast-forward the shared checkout. The process exit releases the lock. If the remote
+     refuses the push because a push from outside this machine moved main, ship rebases, realigns,
+     renumbers and gates that new tree the same way under the same hold before pushing again.
+
+No gate is weakened: every gate that ran before still runs on a tree equivalent to the one that
+is pushed - the same tree, or for a selftest a tree identical in everything that selftest reads
+except index.html (next paragraph).
+
+WHY index.html IS NOT PART OF A SELFTEST'S COVER. Every ship bumps the VERSION line, so
+index.html changes on main between every pre-lock run and every lock turn; keying a selftest on
+it would send every probe ship round the loop three times and then run its selftest under the
+lock anyway. Nor is it what a selftest has ever been keyed on: ship runs a probe's selftest only
+when the PROBE or its fixture changes, and never re-runs it for a later ship that changes only
+index.html - so a selftest result carried across other lanes' index.html changes is the same
+assurance every later ship already relies on. The half of each selftest that does read the
+final index.html ("the current file must PASS") is exactly the plain probe, which runs on the
+final tree under the lock. Put another way: a reused selftest lands exactly the main the old
+flow lands when this ship goes first and the lanes that moved main meanwhile go after it - none
+of them would have re-run this probe's selftest either. The same holds for the few repo files the
+page itself fetches at run time (PARAM_LIBRARY.md, docs/*.json - none in HOME or WEBULL).
+
 Stdlib only. Safe to re-run: `new` on an existing name just prints its path.
 """
 import argparse
+import hashlib
 import io
+import json
 import os
 import re
 import shutil
@@ -413,6 +476,634 @@ def rebase_onto_main(wt, cmd):
     return p
 
 
+# ==================================================================================== the gates
+# WHICH GATES NEED THE PUSH LOCK (2026-10-07). Every gate ship runs, in the order it runs them,
+# as one table - so the pre-lock run and the run under the lock can never drift apart, and so a
+# stamp can say exactly which gate list it was written under. See the module docstring.
+
+# Bump when a gate's MEANING changes without its row below changing (a new verdict rule, a probe
+# re-purposed). A row change already changes gates_key() on its own, through the fingerprint.
+GATE_LIST_VERSION = '2026-10-07.1'
+
+# How many times a ship goes back outside the lock to re-run a selftest that main invalidated
+# while it queued. Past this it runs it under the lock: rare, and better than never landing.
+PRELOCK_ROUNDS = 3
+
+# ...but only for a selftest that is SLOW. One that took less than this the last time it ran is
+# cheaper to re-run under the lock than to give the lock back and queue again: the run-report and
+# import time-zone selftests take seconds, HOME and WEBULL most of an hour. Measured per run and
+# kept in the stamp; a selftest with no measured time counts as slow. Override (seconds) with
+# EDGELOG_SHIP_LOCKED_RERUN_MAX.
+LOCKED_RERUN_MAX_SECONDS = 180
+
+STAMP_FILE = 'edgelog_ship_gates.json'
+
+# FOURTH GATE's baseline: STUDIES row numbers must stay unique (2026-08-26). The render probe
+# proves the board DRAWS; it says nothing about the registry contract. Two sessions numbering
+# rows at the same time silently produced 27 collisions, and a row number is the board's
+# permanent identifier - docs and memory refer to studies by number, so a duplicate makes those
+# references ambiguous forever. studies_registry_check.py already asserted uniqueness; it was
+# simply never wired into a gate.
+#
+# KNOWN_DUP_ROWS baselines collisions that ALREADY exist on main, so this gate blocks a push
+# that adds a NEW one while letting the known mess through. It is EMPTY, and should stay that
+# way: the 65 rows that used to sit here (592-616, the TTM Squeeze rounds 2 and 4 against the
+# ORB travel/exits rounds, and 697-736, TTM round 5 against MISC rounds 20-23) were resolved
+# on 2026-09-09 in web v73.647. The rule was the study discovered first keeps the number: the
+# TTM rounds carry disc 2026-08-22/23, the other six 2026-08-24/25, so those six moved to
+# 1485-1549. See STUDIES_BOARD.md section 9. Never grow this set to get a push through -
+# pick a free number above the board's current maximum instead.
+KNOWN_DUP_ROWS = set()
+
+
+class Gate(object):
+    """One ship gate: a tools/ script run in the worktree.
+
+    trigger  'always', 'index' (index.html differs from origin/main) or a tuple of paths (any of
+             them differs from origin/main) - exactly when ship has always run it. A gate whose
+             script the worktree does not have does not apply, as before.
+    prefix   the gate prints its LAST output line starting with this; without one it prints the
+             last line, or the first with first=True - each the line ship has always printed.
+    slow     the probes' --selftest mutant runs. They run BEFORE the lock, and under it they are
+             reused when nothing in `cover` changed. Everything else re-runs under the lock on
+             the final tree unless that tree is byte-identical to the one it passed on.
+    cover    for a slow gate: every repo file its verdict depends on except index.html (the
+             module docstring says why not index.html). tests/test_wt.py fails if a probe
+             imports a tool or reads a fixture that is not listed here.
+    """
+
+    def __init__(self, key, label, script, trigger, fail, empty, prefix=None, first=False,
+                 args=(), dump=True, slow=False, cover=()):
+        self.key, self.label, self.script, self.trigger = key, label, script, trigger
+        self.fail, self.empty, self.prefix, self.first = fail, empty, prefix, first
+        self.args, self.dump, self.slow, self.cover = tuple(args), dump, slow, tuple(cover)
+
+    def pick(self, out):
+        lines = (out or '').strip().splitlines()
+        if self.prefix:
+            mine = [ln for ln in lines if ln.startswith(self.prefix)]
+            return mine[-1] if mine else self.empty
+        if not lines:
+            return self.empty
+        return lines[0] if self.first else lines[-1]
+
+    def __repr__(self):
+        return 'Gate(%r)' % self.key
+
+
+GATES = [
+    # BOOT GATE. preflight_boot.py proves the app STARTS (VERSION present, renderApp defined, no
+    # loadError, real body content). It must test the WORKTREE's index.html - see gate_command.
+    Gate('boot', 'boot gate', 'tools/preflight_boot.py', 'always',
+         'boot gate FAILED - not pushing', '(preflight produced no output)', dump=False),
+
+    # SECOND GATE: the STUDIES board. The boot gate only proves the app STARTS -- it never enters
+    # a view, and this repo has shipped a view that crashed behind a green boot gate (v64.22).
+    # studies_render_probe.py renders COMPARE > STUDIES headlessly under a dozen control
+    # combinations. Only when index.html changed. INCONCLUSIVE never blocks.
+    Gate('studies', 'STUDIES render gate', 'tools/studies_render_probe.py', 'index',
+         'studies render gate FAILED - not pushing', '(studies probe produced no output)'),
+
+    # THIRD GATE: the PAPER boards (2026-08-26). A change to the PAPER branch of renderApp shipped
+    # a mismatched paren that preflight_boot.py reported as PASS. paper_render_probe.py seeds a
+    # real captured board and renders PAPER and PAPER * under 28 control combinations, and asserts
+    # the view's two honesty rules - an archived leg must not leave trades behind it, and
+    # NinjaTrader must never be shown refusing a trade on a leg it does not run.
+    Gate('paper', 'PAPER render gate', 'tools/paper_render_probe.py', 'index',
+         'paper render gate FAILED - not pushing', '(paper probe produced no output)', first=True),
+
+    # REPORT GATE (2026-09-02): the RESULTS run report, which shipped broken behind a green boot
+    # gate THREE times in a week (v73.367 _reXNm undefined; v73.442 an _hRow without its heat
+    # getter; v73.443 the hotfix's own EV R row outside the row list), each blanking every run
+    # report on the live site. report_render_probe.py injects one real captured validate run
+    # (tools/fixtures/run_report.json) and renders the report exactly as a PAST RUNS click does.
+    Gate('report', 'run-report render gate', 'tools/report_render_probe.py', 'index',
+         'run-report render gate FAILED - not pushing', '(report probe produced no output)',
+         first=True),
+    # ... and its SELF-TEST: a gate that watches for one log line can go blind and keep printing
+    # PASS. Whenever the probe or its fixture changes, prove it still FAILS every build it was
+    # written for (KNOWN_BAD: v73.367, v73.442, v73.443, pulled from git history) and still
+    # passes the current index.html. Its entry point imports tools/kill_on_exit.py (MANAGER #69).
+    Gate('report-selftest', 'run-report gate SELF-TEST', 'tools/report_render_probe.py',
+         ('tools/report_render_probe.py', 'tools/fixtures/run_report.json'),
+         'run-report gate SELF-TEST FAILED - the gate no longer catches a known-bad build - '
+         'not pushing', '(report probe self-test produced no output)',
+         prefix='SELFTEST:', args=('--selftest',), slow=True,
+         cover=('tools/report_render_probe.py', 'tools/fixtures/run_report.json',
+                'tools/kill_on_exit.py')),
+
+    # AXES GATE (2026-09-07): the 1E ALL-CONFIGS axis set and the 1A CONFIG FUNNEL's line
+    # procedure. matrix_axes_render_probe.py had caught a real regression (045de82, v73.520) - the
+    # funnel's crowned line lost its walk-forward dash for a full day of shipped versions - but was
+    # never wired into ship, so nobody was told. Also covers the EV R / SORTINO axes on the 1E
+    # PARALLEL/SCATTER/TABLE views and the ML family tables.
+    Gate('axes', '1E axes / 1A funnel render gate', 'tools/matrix_axes_render_probe.py', 'index',
+         '1E axes / 1A funnel render gate FAILED - not pushing', '(axes probe produced no output)',
+         prefix='1E AXES PROBE:'),
+
+    # CMP2 GATE (2026-09-08): the COMPARE beta LEADERBOARD (augurSub==='cmp2'), its
+    # expand-a-family sub-rows and the COMPARE/EXPLORE placeholder screens, rendered from the run
+    # fixture plus an empty-runHistory case.
+    Gate('cmp2', 'COMPARE beta (cmp2) render gate', 'tools/cmp2_render_probe.py', 'index',
+         'COMPARE beta (cmp2) render gate FAILED - not pushing', '(cmp2 probe produced no output)',
+         prefix='CMP2 PROBE:'),
+
+    # IMPORT TIME-ZONE GATE (2026-09-24): TRADING LOG > IMPORT must save every trade time in
+    # US/Eastern. NinjaTrader's exports print times in the platform's display zone with no label
+    # and its PDF statement prints GMT; until the fix journal rows sat hours off. import_tz_probe.py
+    # feeds the app's own importCSV / importPDF synthetic exports with known fill times.
+    Gate('importtz', 'import time-zone gate', 'tools/import_tz_probe.py', 'index',
+         'import time-zone gate FAILED - not pushing',
+         '(import time-zone probe produced no output)', prefix='IMPORTTZPROBE:'),
+    # ... and its SELF-TEST (does it still catch v73.885?) when the probe itself changed. Its
+    # entry point imports tools/kill_on_exit.py, so that is part of what it reads.
+    Gate('importtz-selftest', 'import time-zone gate SELF-TEST', 'tools/import_tz_probe.py',
+         ('tools/import_tz_probe.py',),
+         'import time-zone gate SELF-TEST FAILED - the gate no longer catches the pre-fix build - '
+         'not pushing', '(import time-zone probe self-test produced no output)',
+         prefix='SELFTEST:', args=('--selftest',), slow=True,
+         cover=('tools/import_tz_probe.py', 'tools/kill_on_exit.py')),
+
+    # HOME GATE (2026-10-02): HOME > REAL, the view the owner lands on, on a laptop and a phone.
+    # home_render_probe.py seeds synthetic trades, SHOULD HAVE TRADED entries and packed trade bars
+    # (no network), renders laptop / phone x glass / paper x SIMPLE / FULL / FEED and drives the
+    # trade panel chart, the SHOULD HAVE TRADED panel, + ADD / SAVE and the paste box.
+    Gate('home', 'HOME render gate', 'tools/home_render_probe.py', 'index',
+         'HOME render gate FAILED - not pushing', '(HOME probe produced no output)',
+         prefix='HOMEPROBE:'),
+    # ... and its SELF-TEST (deliberately broken copies of index.html must FAIL) when the probe
+    # changed. It also lints with tools/ledger_removed.py, so that is part of what it reads.
+    Gate('home-selftest', 'HOME gate SELF-TEST', 'tools/home_render_probe.py',
+         ('tools/home_render_probe.py',),
+         'HOME gate SELF-TEST FAILED - the gate no longer catches a deliberately broken build - '
+         'not pushing', '(HOME probe self-test produced no output)',
+         prefix='SELFTEST:', args=('--selftest',), slow=True,
+         cover=('tools/home_render_probe.py', 'tools/ledger_removed.py')),
+
+    # WEBULL GATE (2026-10-05): LEDGER > WEBULL PAPER, the same per-board render probe as HOME's.
+    # webull_board_probe.py hands the board a fixed copy of the box's status doc
+    # (tools/fixtures/qqq_exec_box1005.json, no network, no Firestore) and renders it on a laptop
+    # and a phone in dark and MONO.
+    Gate('webull', 'WEBULL PAPER render gate', 'tools/webull_board_probe.py', 'index',
+         'WEBULL PAPER render gate FAILED - not pushing', '(WEBULL probe produced no output)',
+         prefix='WEBULLPROBE:'),
+    # ... and its SELF-TEST (the broken copies must FAIL) when the probe or its fixture changed.
+    Gate('webull-selftest', 'WEBULL gate SELF-TEST', 'tools/webull_board_probe.py',
+         ('tools/webull_board_probe.py', 'tools/fixtures/qqq_exec_box1005.json'),
+         'WEBULL gate SELF-TEST FAILED - the gate no longer catches a deliberately broken build - '
+         'not pushing', '(WEBULL probe self-test produced no output)',
+         prefix='SELFTEST:', args=('--selftest',), slow=True,
+         cover=('tools/webull_board_probe.py', 'tools/fixtures/qqq_exec_box1005.json',
+                'tools/ledger_removed.py')),
+
+    # FOURTH GATE: STUDIES row numbers stay unique (see KNOWN_DUP_ROWS above). Judged by
+    # studies_gate_verdict, not by its exit code alone.
+    Gate('registry', 'STUDIES registry gate', 'tools/studies_registry_check.py', 'index',
+         'STUDIES registry gate FAILED - not pushing.', ''),
+]
+
+
+def gates_key():
+    """The gate list version a stamp is written under: GATE_LIST_VERSION plus a fingerprint of
+    every GATES row (and of the registry gate's baseline), so a stamp from a different gate list
+    is never trusted."""
+    spec = [(g.key, g.script, g.args, g.trigger, g.cover, g.slow) for g in GATES]
+    spec.append(('KNOWN_DUP_ROWS', sorted(KNOWN_DUP_ROWS)))
+    return '%s/%s' % (GATE_LIST_VERSION,
+                      hashlib.sha1(repr(spec).encode('utf-8')).hexdigest()[:10])
+
+
+def gate_command(wt, root, g):
+    """The command line for gate `g`, or None when the worktree has no such script.
+
+    The boot gate must test the WORKTREE's index.html. preflight_boot.py resolves its target from
+    its own __file__ location (not cwd), so running the shared checkout's copy validates the WRONG
+    file (observed 2026-08-10: the gate reported the shared checkout's VERSION). Prefer the
+    worktree's own copy; fall back to the shared checkout's script pointed explicitly at the
+    worktree's index.html via --file."""
+    own = os.path.join(wt, *g.script.split('/'))
+    if os.path.isfile(own):
+        return [sys.executable, own] + list(g.args)
+    if g.key == 'boot':
+        shared = os.path.join(root, 'tools', 'preflight_boot.py')
+        if os.path.isfile(shared):
+            return [sys.executable, shared, '--file', os.path.join(wt, 'index.html')]
+    return None
+
+
+def applicable_gates(wt, root):
+    """The gates that apply to the worktree's tree as it stands against origin/main, in order.
+
+    index.html practically always differs, because the VERSION realign bumps it on every ship."""
+    touched_index = run(['git', '-C', wt, 'diff', '--name-only', 'origin/main', '--',
+                         'index.html'], check=False).strip()
+    out = []
+    for g in GATES:
+        if gate_command(wt, root, g) is None:
+            continue
+        if g.trigger == 'index' and not touched_index:
+            continue
+        if isinstance(g.trigger, tuple) and not run(
+                ['git', '-C', wt, 'diff', '--name-only', 'origin/main', '--'] + list(g.trigger),
+                check=False).strip():
+            continue
+        out.append(g)
+    return out
+
+
+def run_gate(wt, root, g):
+    """Run one gate and print its verdict line, exactly as ship always has. Returns that line.
+    A failing gate raises SystemExit with the message it always had. INCONCLUSIVE (exit 2)
+    never blocks."""
+    r = subprocess.run(gate_command(wt, root, g), cwd=wt, capture_output=True, text=True,
+                       encoding='utf-8', errors='replace')
+    out = (r.stdout or '') + (r.stderr or '')
+    if g.key == 'registry':
+        verdict = studies_gate_verdict(out, r.returncode, KNOWN_DUP_ROWS)
+        if verdict:
+            sys.stderr.write(out)
+            raise SystemExit(g.fail + ' ' + verdict)
+        dups = set(int(m) for m in re.findall(r'row (\d+) duplicated', out))
+        line = 'STUDIES REGISTRY: OK' + (' (%d known duplicate row(s) baselined)'
+                                         % len(dups & KNOWN_DUP_ROWS) if dups else '')
+        safe_print(line)
+        return line
+    line = g.pick(out)
+    safe_print(line)
+    if r.returncode == 1:
+        if g.dump:
+            sys.stderr.write(out)
+        raise SystemExit(g.fail)
+    return line
+
+
+# ================================================================================= the stamp
+def stamp_path(wt):
+    """Where this worktree's gate passes are recorded: beside its git metadata
+    (.git/worktrees/<name>/), so the stamp never dirties the tree and dies with the worktree."""
+    gd = run(['git', '-C', wt, 'rev-parse', '--absolute-git-dir'], check=False, quiet=True)
+    return os.path.join(gd, STAMP_FILE) if gd else None
+
+
+def load_stamp(path, key):
+    """The stamp at `path` when it was written under gate list `key`, else an empty one. A
+    missing, unreadable or foreign stamp only ever means "re-run the gates"."""
+    empty = {'key': key, 'gates': {}}
+    try:
+        with open(path, encoding='utf-8') as f:
+            d = json.load(f)
+    except Exception:
+        return empty
+    if not isinstance(d, dict) or d.get('key') != key or not isinstance(d.get('gates'), dict):
+        return empty
+    return d
+
+
+def save_stamp(path, stamp):
+    """Write the stamp atomically. Never raises: a stamp that cannot be written costs a re-run
+    later, never a ship."""
+    if not path:
+        return
+    try:
+        tmp = path + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(stamp, f, indent=1, sort_keys=True)
+        os.replace(tmp, path)
+    except Exception:
+        pass
+
+
+def record_pass(stamp, g, tree, base, line, phase, secs=None):
+    stamp.setdefault('gates', {})[g.key] = {
+        'tree': tree, 'base': base, 'line': line, 'phase': phase, 'secs': secs,
+        'at': time.strftime('%Y-%m-%d %H:%M:%S')}
+
+
+def locked_rerun_max():
+    try:
+        return float(os.environ.get('EDGELOG_SHIP_LOCKED_RERUN_MAX', LOCKED_RERUN_MAX_SECONDS))
+    except ValueError:
+        return float(LOCKED_RERUN_MAX_SECONDS)
+
+
+def too_slow_for_the_lock(g, stamp):
+    """True when re-running selftest `g` under the lock would hold the other lanes up for longer
+    than giving the lock back and queueing again costs: its last measured run took more than
+    locked_rerun_max() seconds, or it has no measured run at all."""
+    rec = ((stamp or {}).get('gates') or {}).get(g.key)
+    secs = rec.get('secs') if isinstance(rec, dict) else None
+    if isinstance(secs, bool) or not isinstance(secs, (int, float)):
+        return True
+    return secs > locked_rerun_max()
+
+
+def tree_changes(wt):
+    """changed(tree_a, tree_b, paths) -> the paths among `paths` that differ between the two
+    trees, or None when git cannot say (a tree that no longer exists): None means re-run."""
+    def changed(a, b, paths):
+        p = subprocess.run(['git', '-C', wt, 'diff', '--name-only', a, b, '--'] + list(paths),
+                           capture_output=True, text=True, encoding='utf-8', errors='replace')
+        if p.returncode != 0:
+            return None
+        return [ln.strip() for ln in (p.stdout or '').splitlines() if ln.strip()]
+    return changed
+
+
+def reuse_reason(g, stamp, tree, changed):
+    """Why gate `g` need not run again on `tree`, or None when it must.
+
+    Every gate is reused on the exact tree it passed on. A SLOW gate is also reused when every
+    file in its cover is byte-identical between the tree it passed on and this one - which is
+    what "the commits that landed meanwhile touched none of the files it reads" comes to, checked
+    on the trees themselves rather than inferred from commit lists. `changed` is tree_changes(wt)
+    (or a fake, in tests)."""
+    rec = ((stamp or {}).get('gates') or {}).get(g.key)
+    if not isinstance(rec, dict) or not rec.get('tree') or not tree:
+        return None
+    when = rec.get('at') or '?'
+    if rec['tree'] == tree:
+        return 'passed on this exact tree at %s' % when
+    if not g.slow or not g.cover:
+        return None
+    moved = changed(rec['tree'], tree, list(g.cover))
+    if moved is None or moved:
+        return None
+    return ('passed at %s on a tree that differs from this one only outside %s'
+            % (when, ', '.join(g.cover)))
+
+
+def rerun_reason(g, stamp, tree, changed):
+    """Plain words for why a slow gate cannot be reused - for the console."""
+    rec = ((stamp or {}).get('gates') or {}).get(g.key)
+    if not isinstance(rec, dict) or not rec.get('tree'):
+        return 'it has no pass recorded for this ship'
+    moved = changed(rec['tree'], tree, list(g.cover))
+    if moved is None:
+        return 'the tree it passed on can no longer be compared'
+    return 'main changed %s since it passed' % ', '.join(moved)
+
+
+# ======================================================================= VERSION and phases
+def realign_version(wt):
+    """VERSION race: two sessions bumping the same line always collides. After a rebase, take
+    whatever origin/main is on and step past it, and retag our newest changelog entry so
+    Settings > CHANGELOG still matches the version that actually ships. Idempotent: run again on
+    an already-realigned tree against the same main, it changes nothing."""
+    idx = os.path.join(wt, 'index.html')
+    if not os.path.isfile(idx):
+        return
+    with open(idx, encoding='utf-8', newline='') as f:
+        mine_txt = f.read()
+    theirs = read_version(run(['git', '-C', wt, 'show', 'origin/main:index.html']) or '')
+    mine = read_version(mine_txt)
+    if not (mine and theirs):
+        return
+
+    def num(v):
+        a, b = v.split('.')
+        return (int(a), int(b))
+    entry_diff = run(['git', '-C', wt, 'diff', 'origin/main', '--', 'index.html'],
+                     check=False, quiet=True)
+    own_tag = own_changelog_tag(entry_diff)
+    if num(mine) > num(theirs) and own_tag and own_tag != mine:
+        # the lane bumped VERSION itself and tagged its entry with something else
+        fixed = mine_txt.replace("{v:'%s'," % own_tag, "{v:'%s'," % mine, 1)
+        with open(idx, 'w', encoding='utf-8', newline='') as f:
+            f.write(fixed)
+            f.flush()
+            os.fsync(f.fileno())
+        run(['git', '-C', wt, 'add', 'index.html'])
+        run(['git', '-C', wt, 'commit', '-q', '--amend', '--no-edit'])
+        print('CHANGELOG entry %s relabelled %s (the version this ship carries)'
+              % (own_tag, mine))
+    if num(mine) <= num(theirs):
+        want = bump(theirs)
+        new_txt = mine_txt.replace("const VERSION='%s'" % mine,
+                                   "const VERSION='%s'" % want, 1)
+        # Only re-tag a CHANGELOG entry this ship actually wrote. Retagging the top
+        # entry unconditionally quietly relabels other people's work: a ship that
+        # changes no index.html content (tools, docs) still bumps VERSION, and the
+        # blind replace then moved the previous session's entry forward with it.
+        # Observed twice on 2026-09-03 - it walked the STUDIES registry entry from
+        # 73.461 to 73.462 to 73.463, so the changelog credited the wrong build.
+        # A gap in the numbers is correct and already normal here: a ship with
+        # nothing user-facing to say should leave the changelog alone.
+        if own_tag:
+            new_txt = new_txt.replace("{v:'%s'," % own_tag, "{v:'%s'," % want, 1)
+            retagged = True
+        else:
+            retagged = False
+        # Flush to DISK, not just to the OS buffer. The boot gate below reads this
+        # same file back from a SEPARATE process moments later; on a busy Windows box
+        # (OneDrive/AV filter drivers in the path) that reader has been observed
+        # getting a partial/empty file and reporting VERSION=None, bodyLen=0 --
+        # which then blocked a perfectly valid push (2026-08-15). fsync + a
+        # read-back check closes that window.
+        with open(idx, 'w', encoding='utf-8', newline='') as f:
+            f.write(new_txt)
+            f.flush()
+            os.fsync(f.fileno())
+        # Prove the file is readable and complete before anything downstream trusts
+        # it. Cheap next to a failed ship, and it turns a silent race into a loud,
+        # specific error instead of a misleading "boot gate FAILED".
+        for _try in range(5):
+            try:
+                with open(idx, encoding='utf-8', newline='') as _f:
+                    _back = _f.read()
+                if len(_back) == len(new_txt) and read_version(_back) == want:
+                    break
+            except OSError:
+                pass
+            time.sleep(0.4)
+        else:
+            raise SystemExit('version realign wrote index.html but could not read it '
+                             'back intact - aborting before the boot gate sees a '
+                             'partial file (re-run ship; nothing was pushed)')
+        run(['git', '-C', wt, 'add', 'index.html'])
+        run(['git', '-C', wt, 'commit', '-q', '--amend', '--no-edit'])
+        print('version realigned %s -> %s (origin/main was on %s)%s'
+              % (mine, want, theirs,
+                 '' if retagged else "; CHANGELOG untouched - this ship added "
+                 "no entry of its own"))
+
+
+def _mmss(seconds):
+    s = int(max(0, seconds))
+    return '%dm%02ds' % (s // 60, s % 60)
+
+
+SHIP_GUARD_FILE = 'edgelog_ship.lock'
+
+
+def hold_worktree(wt):
+    """ONE SHIP PER WORKTREE AT A TIME (2026-10-07). Before the pre-lock phase existed the push
+    lock also kept two ships of the SAME worktree apart; now each one rebases and gates before it
+    queues, so two at once (a re-run in a second terminal, a lane that lost track of its first
+    ship) would rebase one worktree under the other's gates - and the stamp would vouch for a
+    tree no gate saw. An OS lock on a file beside the worktree's git metadata, released by the
+    kernel when this process ends however it ends (the push lock's own reasoning). Returns the
+    open descriptor (a plain int: nothing closes it before the process ends) or None when it
+    cannot be taken for any reason but another ship (fail open, as the push lock does). Raises
+    SystemExit when another ship holds it."""
+    if push_lock is None:
+        return None
+    gd = run(['git', '-C', wt, 'rev-parse', '--absolute-git-dir'], check=False, quiet=True)
+    if not gd:
+        return None
+    try:
+        fd = os.open(os.path.join(gd, SHIP_GUARD_FILE), os.O_CREAT | os.O_RDWR)
+    except Exception:
+        return None
+    try:
+        push_lock._lock_fd(fd)
+    except OSError:
+        os.close(fd)
+        raise SystemExit('another wt.py ship of ' + wt + ' is already running - let it finish '
+                         '(two ships rebasing one worktree at once would gate one tree and '
+                         'stamp another). Nothing was done.')
+    except Exception:
+        os.close(fd)
+        return None
+    return fd
+
+
+def tree_moved(wt, tree):
+    """Why the worktree no longer holds `tree` - a tracked file edited, or HEAD moved (a commit
+    made meanwhile) - or None while it still does. A gate reads the FILES and the stamp records
+    the TREE: a pass is only recorded once this says they are still the same thing, so a stamp
+    can never vouch for content no gate saw, and nothing is pushed that differs from what the
+    gates ran on."""
+    if run(['git', '-C', wt, 'status', '--porcelain', '--untracked-files=no'],
+           check=False, quiet=True):
+        return 'a tracked file in %s changed while the gates ran' % wt
+    now = run(['git', '-C', wt, 'rev-parse', 'HEAD^{tree}'], check=False, quiet=True)
+    if now != tree:
+        return 'HEAD in %s moved while the gates ran (tree %s -> %s)' % (wt, tree[:8],
+                                                                         (now or '?')[:8])
+    return None
+
+
+def run_plan(wt, root, plan, stamp, spath, tree, base, phase, explain=None):
+    """Work through `plan` - [(gate, reuse reason or None)] in GATES order - on `tree`: print each
+    reused gate with the verdict it carries and why it holds, run the rest, and record each pass
+    in the stamp as it lands. `phase` is 'pre-lock' or 'locked'; `explain(g)` may return a line
+    to print before a gate runs. Returns (ran, kept).
+
+    A gate that FAILS stops the ship with the message it always had, after one line saying which
+    phase it failed in (before the lock: no ticket, no lock, nothing pushed). A pass is recorded
+    only when the worktree still holds `tree` after the gate ran (tree_moved)."""
+    ran = kept = 0
+    for g, why in plan:
+        if why:
+            rec = stamp['gates'][g.key]
+            if phase == 'pre-lock':
+                safe_print('  already passed, not re-run: %s - %s (%s)'
+                           % (g.label, rec.get('line'), why))
+            else:
+                safe_print('reused from the %s run: %s - %s (%s)'
+                           % (rec.get('phase') or 'pre-lock', g.label, rec.get('line'), why))
+            kept += 1
+            continue
+        note = explain(g) if explain else None
+        if note:
+            safe_print(note)
+        t_gate = time.time()
+        try:
+            line = run_gate(wt, root, g)
+        except SystemExit:
+            if phase == 'pre-lock':
+                safe_print('PRE-LOCK: %s FAILED before the push lock was taken - no ticket, no '
+                           'lock, nothing pushed' % g.label)
+            else:
+                safe_print('LOCKED: %s FAILED on the final tree - nothing was pushed; the push '
+                           'lock goes with this process' % g.label)
+            raise
+        moved = tree_moved(wt, tree)
+        if moved:
+            raise SystemExit(moved + ' - so the %s pass is NOT recorded and nothing was pushed. '
+                             'Commit or discard the change and ship again.' % g.label)
+        record_pass(stamp, g, tree, base, line, phase, round(time.time() - t_gate, 1))
+        save_stamp(spath, stamp)
+        ran += 1
+    moved = tree_moved(wt, tree)
+    if moved:
+        raise SystemExit(moved + ' - nothing was pushed. Commit or discard the change and ship '
+                         'again.')
+    return ran, kept
+
+
+def gate_before_lock(wt, root, rnd, spath, key, changed):
+    """Step 1, with no ticket and no lock: rebase onto origin/main, realign VERSION, renumber
+    this ship's RESEARCH_LEDGER rows, and run every gate that applies - selftests included -
+    recording each pass in the stamp. Gates that already passed (this exact tree, or a selftest
+    whose cover is unchanged) are not re-run. Returns the stamp, or None when there is nothing
+    to ship. Pushes nothing."""
+    safe_print('PRE-LOCK (round %d of %d): rebasing onto origin/main and running the gates '
+               'BEFORE taking the push lock - other lanes keep pushing meanwhile'
+               % (rnd, PRELOCK_ROUNDS))
+    run(['git', '-C', wt, 'fetch', '-q', 'origin'])
+    if run(['git', '-C', wt, 'rev-list', '--count', 'origin/main..HEAD']) == '0':
+        return None
+    p = rebase_onto_main(wt, ['git', '-C', wt, 'rebase', 'origin/main'])
+    if p is not None:
+        raise SystemExit('rebase onto origin/main hit a conflict - resolve by hand in ' + wt +
+                         '\n' + (p.stdout or '') + (p.stderr or ''))
+    # The same steps the lock phase repeats after its final rebase, so that when main does not
+    # move meanwhile the tree gated here IS the tree that ships and nothing re-runs under the lock.
+    realign_version(wt)
+    renumber_ledger_rows(wt)
+    tree = run(['git', '-C', wt, 'rev-parse', 'HEAD^{tree}'])
+    base = run(['git', '-C', wt, 'rev-parse', 'origin/main'])
+    stamp = load_stamp(spath, key)
+    t0 = time.time()
+    plan = [(g, reuse_reason(g, stamp, tree, changed)) for g in applicable_gates(wt, root)]
+    ran, kept = run_plan(wt, root, plan, stamp, spath, tree, base, 'pre-lock')
+    stamp['tree'], stamp['base'] = tree, base
+    save_stamp(spath, stamp)
+    safe_print('PRE-LOCK: %d gate(s) run, %d already passed, on tree %s against origin/main %s '
+               '(%s) - now queueing for the push lock'
+               % (ran, kept, tree[:8], base[:8], _mmss(time.time() - t0)))
+    return stamp
+
+
+def _release_fd(fd, unlock):
+    """Unlock and close one held handle; never raises. msvcrt locks and unlocks the byte at the
+    CURRENT file position, and both holders write their name after locking byte 0 - so seek back
+    to 0 first, or the unlock misses its byte and only the close (whenever Windows gets to it)
+    lets go."""
+    try:
+        os.lseek(fd, 0, os.SEEK_SET)
+    except Exception:
+        pass
+    try:
+        unlock(fd)
+    except Exception:
+        pass
+    try:
+        os.close(fd)
+    except Exception:
+        pass
+
+
+def _let_go(ticket, lock_fd):
+    """Hand the push lock and the queue ticket back BEFORE this ship has pushed anything, so the
+    next lane goes while this one re-runs a selftest outside the lock. This is the ONLY place
+    ship gives either back by hand; every other route (each SystemExit, a kill, the end of the
+    run) still leaves it to the process exit - see push_lock.hold."""
+    if lock_fd is not None:
+        _release_fd(lock_fd, push_lock._unlock_fd)
+    n, tfd = ticket if ticket else (None, None)
+    if tfd is not None:
+        _release_fd(tfd, push_queue._unlock_fd)
+        if n is not None:
+            try:
+                os.remove(os.path.join(push_queue.queue_dir(),
+                                       '%d-%d.ticket' % (n, os.getpid())))
+            except Exception:
+                pass                     # a dead ticket is swept by the next lane that looks
+    return (None, None), None
+
+
 def cmd_ship(name, message):
     root = repo_root()
     wt = os.getcwd() if name is None else os.path.join(wt_root(), name)
@@ -423,377 +1114,112 @@ def cmd_ship(name, message):
         raise SystemExit('refusing to ship from the SHARED checkout - run this from a worktree '
                          '(python tools/wt.py new <name>)')
 
+    # One ship of this worktree at a time - see hold_worktree. Taken before anything here touches
+    # the worktree (the commit below included); the process exit releases it. Its handle is a raw
+    # os.open() descriptor, which nothing closes until this process ends.
+    hold_worktree(wt)
+
     if run(['git', '-C', wt, 'status', '--porcelain']):
         if not message:
             raise SystemExit('uncommitted changes here - commit them, or pass --msg to commit now')
         run(['git', '-C', wt, 'add', '-A'])
         run(['git', '-C', wt, 'commit', '-q', '-m', message])
 
-    # ONE LANE AT A TIME FROM HERE TO THE PUSH (2026-10-02). The engine tier runs for any
-    # change under augur_engine/, api/ or tests/ and takes ~23 minutes; with ten sessions
-    # shipping, main moves inside that window and the push is rejected on a stale ref. This
-    # session ran three 23m38s gates in a row and was overtaken every time - nothing was
-    # wrong with any of them. The lock is held across the rebase, the gates and the push, so
-    # the lane that gates is the lane that lands.
-    #
-    # It is never RELEASED here on purpose: it is an OS lock on an open handle, so the kernel
-    # drops it when this process ends, by any route - every `raise SystemExit` below included.
-    # That is the whole reason it is an OS lock and not a lock file with a timestamp in it.
-    # FIRST COME, FIRST SERVED (2026-10-05). The lock alone is not fair - a waiter takes it
-    # whenever it finds it free, so arrival order meant nothing and the rocfrontier lane once
-    # waited 80+ minutes while later arrivals went ahead. The ticket establishes WHOSE TURN it
-    # is; the lock below still establishes who HOLDS it. Two separate things on purpose, so a
-    # failure in the queue can never let two lanes gate at once - it only makes them unfair
-    # again, which is where we started.
-    _queue_ticket = (push_queue.hold_turn(who=os.path.basename(wt))
-                     if push_queue else (None, None))
-    _lock_handle = push_lock.hold(who=os.path.basename(wt)) if push_lock else None
+    who = os.path.basename(wt)
+    spath, key, changed = stamp_path(wt), gates_key(), tree_changes(wt)
+    t_start = time.time()
+    for rnd in range(1, PRELOCK_ROUNDS + 1):
+        stamp = gate_before_lock(wt, root, rnd, spath, key, changed)
+        if stamp is None:
+            print('nothing to ship - HEAD has no commits beyond origin/main')
+            return
 
-    run(['git', '-C', wt, 'fetch', '-q', 'origin'])
-    ahead = run(['git', '-C', wt, 'rev-list', '--count', 'origin/main..HEAD'])
-    if ahead == '0':
-        print('nothing to ship - HEAD has no commits beyond origin/main')
-        return
-    p = rebase_onto_main(wt, ['git', '-C', wt, 'rebase', 'origin/main'])
-    if p is not None:
-        raise SystemExit('rebase onto origin/main hit a conflict - resolve by hand in ' + wt +
-                         '\n' + (p.stdout or '') + (p.stderr or ''))
+        # ONE LANE AT A TIME FROM HERE TO THE PUSH (2026-10-02). The engine tier runs for any
+        # change under augur_engine/, api/ or tests/ and takes ~23 minutes; with ten sessions
+        # shipping, main moves inside that window and the push is rejected on a stale ref. This
+        # session ran three 23m38s gates in a row and was overtaken every time - nothing was
+        # wrong with any of them. The lock is held across the final rebase, the gates that must
+        # see the final tree and the push, so the lane that gates is the lane that lands. (Since
+        # 2026-10-07 the slow selftests run before it - see the module docstring.)
+        #
+        # It is released by hand in ONE place only - _let_go below, before anything is pushed,
+        # to re-run a selftest outside it. Otherwise it is an OS lock on an open handle, so the
+        # kernel drops it when this process ends, by any route - every `raise SystemExit` below
+        # included. That is the whole reason it is an OS lock and not a lock file with a
+        # timestamp in it.
+        # FIRST COME, FIRST SERVED (2026-10-05). The lock alone is not fair - a waiter takes it
+        # whenever it finds it free, so arrival order meant nothing and the rocfrontier lane once
+        # waited 80+ minutes while later arrivals went ahead. The ticket establishes WHOSE TURN it
+        # is; the lock below still establishes who HOLDS it. Two separate things on purpose, so a
+        # failure in the queue can never let two lanes gate at once - it only makes them unfair
+        # again, which is where we started.
+        _queue_ticket = (push_queue.hold_turn(who=who) if push_queue else (None, None))
+        _lock_handle = push_lock.hold(who=who) if push_lock else None
+        t_lock = time.time()
 
-    # VERSION race: two sessions bumping the same line always collides. After the rebase,
-    # take whatever origin/main is on and step past it, and retag our newest changelog entry
-    # so Settings > CHANGELOG still matches the version that actually ships.
-    idx = os.path.join(wt, 'index.html')
-    if os.path.isfile(idx):
-        with open(idx, encoding='utf-8', newline='') as f:
-            mine_txt = f.read()
-        theirs = read_version(run(['git', '-C', wt, 'show', 'origin/main:index.html']) or '')
-        mine = read_version(mine_txt)
-        if mine and theirs:
-            def num(v):
-                a, b = v.split('.')
-                return (int(a), int(b))
-            entry_diff = run(['git', '-C', wt, 'diff', 'origin/main', '--', 'index.html'],
-                             check=False, quiet=True)
-            own_tag = own_changelog_tag(entry_diff)
-            if num(mine) > num(theirs) and own_tag and own_tag != mine:
-                # the lane bumped VERSION itself and tagged its entry with something else
-                fixed = mine_txt.replace("{v:'%s'," % own_tag, "{v:'%s'," % mine, 1)
-                with open(idx, 'w', encoding='utf-8', newline='') as f:
-                    f.write(fixed)
-                    f.flush()
-                    os.fsync(f.fileno())
-                run(['git', '-C', wt, 'add', 'index.html'])
-                run(['git', '-C', wt, 'commit', '-q', '--amend', '--no-edit'])
-                print('CHANGELOG entry %s relabelled %s (the version this ship carries)'
-                      % (own_tag, mine))
-            if num(mine) <= num(theirs):
-                want = bump(theirs)
-                new_txt = mine_txt.replace("const VERSION='%s'" % mine,
-                                           "const VERSION='%s'" % want, 1)
-                # Only re-tag a CHANGELOG entry this ship actually wrote. Retagging the top
-                # entry unconditionally quietly relabels other people's work: a ship that
-                # changes no index.html content (tools, docs) still bumps VERSION, and the
-                # blind replace then moved the previous session's entry forward with it.
-                # Observed twice on 2026-09-03 - it walked the STUDIES registry entry from
-                # 73.461 to 73.462 to 73.463, so the changelog credited the wrong build.
-                # A gap in the numbers is correct and already normal here: a ship with
-                # nothing user-facing to say should leave the changelog alone.
-                if own_tag:
-                    new_txt = new_txt.replace("{v:'%s'," % own_tag, "{v:'%s'," % want, 1)
-                    retagged = True
-                else:
-                    retagged = False
-                # Flush to DISK, not just to the OS buffer. The boot gate below reads this
-                # same file back from a SEPARATE process moments later; on a busy Windows box
-                # (OneDrive/AV filter drivers in the path) that reader has been observed
-                # getting a partial/empty file and reporting VERSION=None, bodyLen=0 --
-                # which then blocked a perfectly valid push (2026-08-15). fsync + a
-                # read-back check closes that window.
-                with open(idx, 'w', encoding='utf-8', newline='') as f:
-                    f.write(new_txt)
-                    f.flush()
-                    os.fsync(f.fileno())
-                # Prove the file is readable and complete before anything downstream trusts
-                # it. Cheap next to a failed ship, and it turns a silent race into a loud,
-                # specific error instead of a misleading "boot gate FAILED".
-                for _try in range(5):
-                    try:
-                        with open(idx, encoding='utf-8', newline='') as _f:
-                            _back = _f.read()
-                        if len(_back) == len(new_txt) and read_version(_back) == want:
-                            break
-                    except OSError:
-                        pass
-                    time.sleep(0.4)
-                else:
-                    raise SystemExit('version realign wrote index.html but could not read it '
-                                     'back intact - aborting before the boot gate sees a '
-                                     'partial file (re-run ship; nothing was pushed)')
-                run(['git', '-C', wt, 'add', 'index.html'])
-                run(['git', '-C', wt, 'commit', '-q', '--amend', '--no-edit'])
-                print('version realigned %s -> %s (origin/main was on %s)%s'
-                      % (mine, want, theirs,
-                         '' if retagged else "; CHANGELOG untouched - this ship added "
-                         "no entry of its own"))
+        run(['git', '-C', wt, 'fetch', '-q', 'origin'])
+        ahead = run(['git', '-C', wt, 'rev-list', '--count', 'origin/main..HEAD'])
+        if ahead == '0':
+            print('nothing to ship - HEAD has no commits beyond origin/main')
+            return
+        if run(['git', '-C', wt, 'status', '--porcelain', '--untracked-files=no'],
+               check=False, quiet=True):
+            raise SystemExit('a tracked file in ' + wt + ' changed while this ship queued - '
+                             'commit or discard it and ship again (nothing was pushed)')
+        p = rebase_onto_main(wt, ['git', '-C', wt, 'rebase', 'origin/main'])
+        if p is not None:
+            raise SystemExit('rebase onto origin/main hit a conflict - resolve by hand in ' + wt +
+                             '\n' + (p.stdout or '') + (p.stderr or ''))
+        # Against the NEWEST main, under the lock, after the rebase whose result is pushed: the
+        # VERSION line steps past main's and this ship's CHANGELOG entry follows it, and this
+        # ship's new RESEARCH_LEDGER rows move past any number another lane took meanwhile
+        # (MANAGER #69). Both are no-ops when main has not moved since the pre-lock run.
+        realign_version(wt)
+        renumber_ledger_rows(wt)
 
-    # RESEARCH_LEDGER rows another lane numbered first move to the next free number (MANAGER #69).
-    renumber_ledger_rows(wt)
+        tree = run(['git', '-C', wt, 'rev-parse', 'HEAD^{tree}'])
+        base_now = run(['git', '-C', wt, 'rev-parse', 'origin/main'])
+        base_then = stamp.get('base') or ''
+        if base_then == base_now:
+            safe_print('LOCKED: origin/main has not moved since the pre-lock run (%s)'
+                       % base_now[:8])
+        else:
+            moved = run(['git', '-C', wt, 'rev-list', '--count', base_then + '..' + base_now],
+                        check=False, quiet=True) or '?'
+            safe_print('LOCKED: origin/main moved %s commit(s) since the pre-lock run (%s -> %s); '
+                       'rebased onto it, tree %s' % (moved, base_then[:8], base_now[:8], tree[:8]))
+        plan = [(g, reuse_reason(g, stamp, tree, changed)) for g in applicable_gates(wt, root)]
+        stale = [g for g, why in plan if g.slow and not why]
+        too_slow = [g for g in stale if too_slow_for_the_lock(g, stamp)]
+        if too_slow and rnd < PRELOCK_ROUNDS:
+            for g in too_slow:
+                safe_print('LOCK RELEASED: %s must re-run - %s. Nothing was pushed; re-running it '
+                           'outside the lock, then queueing again (round %d of %d next).'
+                           % (g.label, rerun_reason(g, stamp, tree, changed), rnd + 1,
+                              PRELOCK_ROUNDS))
+            _queue_ticket, _lock_handle = _let_go(_queue_ticket, _lock_handle)
+            continue
+        break
 
-    # The boot gate must test the WORKTREE's index.html. preflight_boot.py resolves its
-    # target from its own __file__ location (not cwd), so running the shared checkout's
-    # copy validates the WRONG file (observed 2026-08-10: the gate reported the shared
-    # checkout's VERSION). Prefer the worktree's own copy; fall back to the shared
-    # checkout's script pointed explicitly at the worktree's index.html via --file.
-    pf = os.path.join(wt, 'tools', 'preflight_boot.py')
-    pf_args = [sys.executable, pf]
-    if not os.path.isfile(pf):
-        pf = os.path.join(root, 'tools', 'preflight_boot.py')
-        pf_args = [sys.executable, pf, '--file', os.path.join(wt, 'index.html')]
-    if os.path.isfile(pf):
-        r = subprocess.run(pf_args, cwd=wt, capture_output=True, text=True,
-                           encoding='utf-8', errors='replace')
-        out = (r.stdout or '') + (r.stderr or '')
-        print(out.strip().splitlines()[-1] if out.strip() else '(preflight produced no output)')
-        if r.returncode == 1:
-            raise SystemExit('boot gate FAILED - not pushing')
+    def explain(g, after_push=False):
+        if not g.slow:
+            return None
+        why = rerun_reason(g, stamp, tree, changed)
+        if after_push:
+            return ('%s must re-run - %s - after the refused push, so it runs UNDER the push lock '
+                    '(rare: only a push from outside this machine gets here)' % (g.label, why))
+        if too_slow_for_the_lock(g, stamp):
+            return ('%s must re-run - %s - and all %d pre-lock rounds are used, so it runs UNDER '
+                    'the push lock (rare)' % (g.label, why, PRELOCK_ROUNDS))
+        return ('%s must re-run - %s - and it took %ss last time, so it re-runs under the lock '
+                '(cheaper than giving the lock back and queueing again)'
+                % (g.label, why, stamp['gates'][g.key].get('secs')))
 
-    # SECOND GATE: the STUDIES board. The boot gate only proves the app STARTS -- it never
-    # enters a view, and this repo has shipped a view that crashed behind a green boot gate
-    # (v64.22). studies_render_probe.py renders COMPARE > STUDIES headlessly under a dozen
-    # control combinations. It only runs when index.html actually changed, so a ship that
-    # touched nothing but docs or tools is not held up by it. INCONCLUSIVE never blocks.
-    touched_index = run(['git', '-C', wt, 'diff', '--name-only', 'origin/main', '--', 'index.html'],
-                        check=False)
-    sp = os.path.join(wt, 'tools', 'studies_render_probe.py')
-    if touched_index.strip() and os.path.isfile(sp):
-        r = subprocess.run([sys.executable, sp], cwd=wt, capture_output=True, text=True,
-                           encoding='utf-8', errors='replace')
-        out = (r.stdout or '') + (r.stderr or '')
-        print(out.strip().splitlines()[-1] if out.strip() else '(studies probe produced no output)')
-        if r.returncode == 1:
-            sys.stderr.write(out)
-            raise SystemExit('studies render gate FAILED - not pushing')
-
-    # THIRD GATE: the PAPER boards (2026-08-26). Same argument as the studies gate, and the
-    # same lesson learned the same way: a change to the PAPER branch of renderApp shipped a
-    # mismatched paren that preflight_boot.py reported as PASS. paper_render_probe.py seeds a
-    # real captured board and renders PAPER and PAPER * under 28 control combinations, and
-    # asserts the two honesty rules that view has to keep - an archived leg must not leave
-    # trades behind it, and NinjaTrader must never be shown refusing a trade on a leg it does
-    # not run. Only runs when index.html changed. INCONCLUSIVE never blocks.
-    pp = os.path.join(wt, 'tools', 'paper_render_probe.py')
-    if touched_index.strip() and os.path.isfile(pp):
-        r = subprocess.run([sys.executable, pp], cwd=wt, capture_output=True, text=True,
-                           encoding='utf-8', errors='replace')
-        out = (r.stdout or '') + (r.stderr or '')
-        print(out.strip().splitlines()[0] if out.strip() else '(paper probe produced no output)')
-        if r.returncode == 1:
-            sys.stderr.write(out)
-            raise SystemExit('paper render gate FAILED - not pushing')
-
-    # REPORT GATE (2026-09-02): the RESULTS run report. The boot gate never opens a report,
-    # and the report has shipped broken behind a green boot gate THREE times in a week
-    # (v73.367 _reXNm undefined; v73.442 an _hRow without its heat getter; v73.443 the hotfix's
-    # own EV R row outside the row list). Each blanked every run report on the live site until
-    # a hotfix. report_render_probe.py injects one real captured validate run
-    # (tools/fixtures/run_report.json, gate_validate with candidates / tilts / hybrids) into
-    # runHistory, renders the report through renderApp exactly as a PAST RUNS click does, and
-    # fails on any "runDetail failed" console.error, any uncaught exception, or the "couldn't
-    # render" fallback card. Only runs when index.html changed. INCONCLUSIVE never blocks.
-    rp = os.path.join(wt, 'tools', 'report_render_probe.py')
-    if touched_index.strip() and os.path.isfile(rp):
-        r = subprocess.run([sys.executable, rp], cwd=wt, capture_output=True, text=True,
-                           encoding='utf-8', errors='replace')
-        out = (r.stdout or '') + (r.stderr or '')
-        print(out.strip().splitlines()[0] if out.strip() else '(report probe produced no output)')
-        if r.returncode == 1:
-            sys.stderr.write(out)
-            raise SystemExit('run-report render gate FAILED - not pushing')
-
-    # REPORT GATE SELF-TEST (2026-09-02): a gate that watches for one log line can go blind
-    # without anyone noticing and keep printing PASS. Whenever the report probe or its fixture
-    # changes, prove the gate still catches every build it was written for (KNOWN_BAD inside
-    # report_render_probe.py: v73.367, v73.442, v73.443, each pulled from git history) and still
-    # passes the current index.html. ~10 s, and only when the gate itself moved.
-    touched_gate = run(['git', '-C', wt, 'diff', '--name-only', 'origin/main', '--',
-                        'tools/report_render_probe.py', 'tools/fixtures/run_report.json'],
-                       check=False)
-    if touched_gate.strip() and os.path.isfile(rp):
-        r = subprocess.run([sys.executable, rp, '--selftest'], cwd=wt, capture_output=True,
-                           text=True, encoding='utf-8', errors='replace')
-        out = (r.stdout or '') + (r.stderr or '')
-        last = [l for l in out.strip().splitlines() if l.startswith('SELFTEST:')]
-        print(last[-1] if last else '(report probe self-test produced no output)')
-        if r.returncode == 1:
-            sys.stderr.write(out)
-            raise SystemExit('run-report gate SELF-TEST FAILED - the gate no longer catches a '
-                             'known-bad build - not pushing')
-
-    # AXES GATE (2026-09-07): the 1E ALL-CONFIGS axis set and the 1A CONFIG FUNNEL's line
-    # procedure. Neither the boot gate nor the report gate above opens a run report far enough
-    # to catch this: matrix_axes_render_probe.py had caught a real regression (045de82,
-    # v73.520) where the funnel's crowned/champion line lost its walk-forward dash (and the
-    # in-sample/walk-forward split with it) for a full day of shipped versions - this script
-    # existed the whole time but was never wired into `ship`, so nobody was told. It also
-    # covers the EV R / SORTINO axes on the 1E PARALLEL/SCATTER/TABLE views and the ML family
-    # tables (see its own docstring). ~6-15 s, well under the report gate above. Only runs
-    # when index.html changed. INCONCLUSIVE (exit 2, e.g. no local Chrome) never blocks.
-    mx = os.path.join(wt, 'tools', 'matrix_axes_render_probe.py')
-    if touched_index.strip() and os.path.isfile(mx):
-        r = subprocess.run([sys.executable, mx], cwd=wt, capture_output=True, text=True,
-                           encoding='utf-8', errors='replace')
-        out = (r.stdout or '') + (r.stderr or '')
-        verdict = [l for l in out.strip().splitlines() if l.startswith('1E AXES PROBE:')]
-        print(verdict[-1] if verdict else '(axes probe produced no output)')
-        if r.returncode == 1:
-            sys.stderr.write(out)
-            raise SystemExit('1E axes / 1A funnel render gate FAILED - not pushing')
-
-    # CMP2 GATE (2026-09-08): the new COMPARE beta LEADERBOARD (augurSub==='cmp2'). Same
-    # argument as the studies/paper/report gates above - the boot gate never enters this
-    # branch of renderApp, so a throw in the LEADERBOARD, its expand-a-family sub-rows, or
-    # the COMPARE/EXPLORE placeholder screens would ship green. cmp2_render_probe.py injects
-    # the same run fixture the report gate uses (tools/fixtures/run_report.json) plus an
-    # empty-runHistory case, and renders both. Only runs when index.html changed.
-    # INCONCLUSIVE (exit 2, e.g. no local Chrome) never blocks.
-    c2 = os.path.join(wt, 'tools', 'cmp2_render_probe.py')
-    if touched_index.strip() and os.path.isfile(c2):
-        r = subprocess.run([sys.executable, c2], cwd=wt, capture_output=True, text=True,
-                           encoding='utf-8', errors='replace')
-        out = (r.stdout or '') + (r.stderr or '')
-        verdict = [l for l in out.strip().splitlines() if l.startswith('CMP2 PROBE:')]
-        print(verdict[-1] if verdict else '(cmp2 probe produced no output)')
-        if r.returncode == 1:
-            sys.stderr.write(out)
-            raise SystemExit('COMPARE beta (cmp2) render gate FAILED - not pushing')
-
-    # IMPORT TIME-ZONE GATE (2026-09-24): TRADING LOG > IMPORT must save every trade time in
-    # US/Eastern. NinjaTrader's exports print times in the platform's display zone with no label
-    # (the owner's own downloads flip between Pacific and Eastern) and its PDF statement prints
-    # GMT; until the 2026-09-24 fix the importer saved them exactly as printed, and journal rows sat hours
-    # off until they were repaired by hand on 2026-09-23. import_tz_probe.py feeds the app's own
-    # importCSV / importPDF synthetic exports with known fill times and fails on any saved time
-    # that is not the true New York time, a short saved with its entry and exit swapped, or an
-    # unclear file saved instead of held for the owner's answer. Only runs when index.html
-    # changed; its --selftest (does it still catch v73.885?) runs when the probe itself changed.
-    # INCONCLUSIVE (exit 2, e.g. no local Chrome) never blocks.
-    itz = os.path.join(wt, 'tools', 'import_tz_probe.py')
-    if touched_index.strip() and os.path.isfile(itz):
-        r = subprocess.run([sys.executable, itz], cwd=wt, capture_output=True, text=True,
-                           encoding='utf-8', errors='replace')
-        out = (r.stdout or '') + (r.stderr or '')
-        verdict = [l for l in out.strip().splitlines() if l.startswith('IMPORTTZPROBE:')]
-        print(verdict[-1] if verdict else '(import time-zone probe produced no output)')
-        if r.returncode == 1:
-            sys.stderr.write(out)
-            raise SystemExit('import time-zone gate FAILED - not pushing')
-    touched_itz = run(['git', '-C', wt, 'diff', '--name-only', 'origin/main', '--',
-                       'tools/import_tz_probe.py'], check=False)
-    if touched_itz.strip() and os.path.isfile(itz):
-        r = subprocess.run([sys.executable, itz, '--selftest'], cwd=wt, capture_output=True,
-                           text=True, encoding='utf-8', errors='replace')
-        out = (r.stdout or '') + (r.stderr or '')
-        last = [l for l in out.strip().splitlines() if l.startswith('SELFTEST:')]
-        print(last[-1] if last else '(import time-zone probe self-test produced no output)')
-        if r.returncode == 1:
-            sys.stderr.write(out)
-            raise SystemExit('import time-zone gate SELF-TEST FAILED - the gate no longer catches '
-                             'the pre-fix build - not pushing')
-
-    # HOME GATE (2026-10-02): HOME > REAL, the view the owner lands on, on a laptop and a phone. No
-    # other gate ever opened it, and it grew the SHOULD HAVE TRADED list and form, the paste box and
-    # EL's own chart with pan / zoom in v73.96x-v73.97x. home_render_probe.py seeds synthetic trades,
-    # SHOULD HAVE TRADED entries and packed trade bars (no network), renders 24 cases (laptop /
-    # phone x glass / paper x 0 / 2 entries x SIMPLE / FULL / FEED) and drives the trade panel chart,
-    # the SHOULD HAVE TRADED panel, + ADD / SAVE and the paste box; it fails on any throw,
-    # console.error or LOAD ERROR, a missing section or row, or a phone page that scrolls sideways.
-    # Only runs when index.html changed; its --selftest (does it still FAIL six deliberately broken
-    # copies of index.html?) runs when the probe itself changed. INCONCLUSIVE never blocks.
-    hp = os.path.join(wt, 'tools', 'home_render_probe.py')
-    if touched_index.strip() and os.path.isfile(hp):
-        r = subprocess.run([sys.executable, hp], cwd=wt, capture_output=True, text=True,
-                           encoding='utf-8', errors='replace')
-        out = (r.stdout or '') + (r.stderr or '')
-        verdict = [l for l in out.strip().splitlines() if l.startswith('HOMEPROBE:')]
-        print(verdict[-1] if verdict else '(HOME probe produced no output)')
-        if r.returncode == 1:
-            sys.stderr.write(out)
-            raise SystemExit('HOME render gate FAILED - not pushing')
-    touched_hp = run(['git', '-C', wt, 'diff', '--name-only', 'origin/main', '--',
-                      'tools/home_render_probe.py'], check=False)
-    if touched_hp.strip() and os.path.isfile(hp):
-        r = subprocess.run([sys.executable, hp, '--selftest'], cwd=wt, capture_output=True,
-                           text=True, encoding='utf-8', errors='replace')
-        out = (r.stdout or '') + (r.stderr or '')
-        last = [l for l in out.strip().splitlines() if l.startswith('SELFTEST:')]
-        print(last[-1] if last else '(HOME probe self-test produced no output)')
-        if r.returncode == 1:
-            sys.stderr.write(out)
-            raise SystemExit('HOME gate SELF-TEST FAILED - the gate no longer catches a deliberately '
-                             'broken build - not pushing')
-
-    # WEBULL GATE (2026-10-05): LEDGER > WEBULL PAPER, the same per-board render probe as HOME's
-    # (LEDGER adoption contract section 5). webull_board_probe.py hands the board a fixed copy of the
-    # box's status doc (tools/fixtures/qqq_exec_box1005.json, no network, no Firestore), renders it on
-    # a laptop and a phone in dark and MONO, and fails on any throw or console.error, a hero or pill
-    # row out of shape, a squashed shared chart or one missing its dates, price labels, caveat days,
-    # run-change marker or strategy lines, a Retired group that is missing or open by default, a trade
-    # row without family + run number, a phone page that scrolls sideways, a scrub that does not write
-    # the hero and put it back, ?oldboards=1 not drawing the same board as the plain page, or a removed
-    # identifier (tools/ledger_removed.py) back in index.html. Only runs when index.html
-    # changed; its --selftest (six deliberately broken copies must FAIL) runs when the probe or its
-    # fixture changed. INCONCLUSIVE never blocks.
-    wp = os.path.join(wt, 'tools', 'webull_board_probe.py')
-    if touched_index.strip() and os.path.isfile(wp):
-        r = subprocess.run([sys.executable, wp], cwd=wt, capture_output=True, text=True,
-                           encoding='utf-8', errors='replace')
-        out = (r.stdout or '') + (r.stderr or '')
-        verdict = [l for l in out.strip().splitlines() if l.startswith('WEBULLPROBE:')]
-        print(verdict[-1] if verdict else '(WEBULL probe produced no output)')
-        if r.returncode == 1:
-            sys.stderr.write(out)
-            raise SystemExit('WEBULL PAPER render gate FAILED - not pushing')
-    touched_wp = run(['git', '-C', wt, 'diff', '--name-only', 'origin/main', '--',
-                      'tools/webull_board_probe.py', 'tools/fixtures/qqq_exec_box1005.json'], check=False)
-    if touched_wp.strip() and os.path.isfile(wp):
-        r = subprocess.run([sys.executable, wp, '--selftest'], cwd=wt, capture_output=True,
-                           text=True, encoding='utf-8', errors='replace')
-        out = (r.stdout or '') + (r.stderr or '')
-        last = [l for l in out.strip().splitlines() if l.startswith('SELFTEST:')]
-        print(last[-1] if last else '(WEBULL probe self-test produced no output)')
-        if r.returncode == 1:
-            sys.stderr.write(out)
-            raise SystemExit('WEBULL gate SELF-TEST FAILED - the gate no longer catches a deliberately '
-                             'broken build - not pushing')
-
-    # FOURTH GATE: STUDIES row numbers must stay unique (2026-08-26). The render probe proves
-    # the board DRAWS; it says nothing about the registry contract. Two sessions numbering rows
-    # at the same time silently produced 27 collisions, and a row number is the board's permanent
-    # identifier - docs and memory refer to studies by number, so a duplicate makes those
-    # references ambiguous forever. studies_registry_check.py already asserted uniqueness; it was
-    # simply never wired into a gate.
-    #
-    # KNOWN_DUP_ROWS baselines collisions that ALREADY exist on main, so this gate blocks a push
-    # that adds a NEW one while letting the known mess through. It is EMPTY, and should stay that
-    # way: the 65 rows that used to sit here (592-616, the TTM Squeeze rounds 2 and 4 against the
-    # ORB travel/exits rounds, and 697-736, TTM round 5 against MISC rounds 20-23) were resolved
-    # on 2026-09-09 in web v73.647. The rule was the study discovered first keeps the number: the
-    # TTM rounds carry disc 2026-08-22/23, the other six 2026-08-24/25, so those six moved to
-    # 1485-1549. See STUDIES_BOARD.md section 9. Never grow this set to get a push through -
-    # pick a free number above the board's current maximum instead.
-    KNOWN_DUP_ROWS = set()
-    rc = os.path.join(wt, 'tools', 'studies_registry_check.py')
-    if touched_index.strip() and os.path.isfile(rc):
-        r = subprocess.run([sys.executable, rc], cwd=wt, capture_output=True, text=True,
-                           encoding='utf-8', errors='replace')
-        out = (r.stdout or '') + (r.stderr or '')
-        verdict = studies_gate_verdict(out, r.returncode, KNOWN_DUP_ROWS)
-        if verdict:
-            sys.stderr.write(out)
-            raise SystemExit('STUDIES registry gate FAILED - not pushing. ' + verdict)
-        dups = set(int(m) for m in re.findall(r'row (\d+) duplicated', out))
-        print('STUDIES REGISTRY: OK' +
-              (' (%d known duplicate row(s) baselined)' % len(dups & KNOWN_DUP_ROWS) if dups else ''))
+    ran, kept = run_plan(wt, root, plan, stamp, spath, tree, base_now, 'locked', explain)
+    stamp['tree'], stamp['base'] = tree, base_now
+    save_stamp(spath, stamp)
+    safe_print('LOCKED: %d gate(s) run under the lock, %d reused from the pre-lock run'
+               % (ran, kept))
 
     # The tree the gates above just passed on. If the push is rejected and we rebase, this is
     # what lets the retry's gate narrow to the tests the INCOMING commits could break instead of
@@ -830,6 +1256,23 @@ def cmd_ship(name, message):
             raise SystemExit('push was rejected and the rebase onto the newer main hit a '
                              'conflict - resolve it by hand in ' + wt + chr(10) + out +
                              (rb.stdout or '') + (rb.stderr or ''))
+        # That rebase made a NEW final tree, so it gets everything the first one got (2026-10-07;
+        # before, the retry pushed it with no VERSION realign and no ship gate at all): the
+        # realign and the ledger renumbering against the main that overtook us, then every gate
+        # that tree needs - the fast ones on it, a selftest only if what it reads moved - all
+        # under the same lock hold. Nothing reaches main that the ship gates did not pass.
+        realign_version(wt)
+        renumber_ledger_rows(wt)
+        tree = run(['git', '-C', wt, 'rev-parse', 'HEAD^{tree}'])
+        base_now = run(['git', '-C', wt, 'rev-parse', 'origin/main'])
+        safe_print('LOCKED (retry): rebased onto origin/main %s, tree %s - gating it before the '
+                   'second push' % (base_now[:8], tree[:8]))
+        plan = [(g, reuse_reason(g, stamp, tree, changed)) for g in applicable_gates(wt, root)]
+        ran, kept = run_plan(wt, root, plan, stamp, spath, tree, base_now, 'locked',
+                             lambda g: explain(g, after_push=True))
+        stamp['tree'], stamp['base'] = tree, base_now
+        save_stamp(spath, stamp)
+        safe_print('LOCKED (retry): %d gate(s) run under the lock, %d reused' % (ran, kept))
         env = dict(os.environ, EDGELOG_GATE_PASSED_TREE=passed_tree)
         again = subprocess.run(['git', '-C', wt, 'push', 'origin', 'HEAD:main'], env=env,
                                capture_output=True, text=True, encoding='utf-8', errors='replace')
@@ -861,6 +1304,8 @@ def cmd_ship(name, message):
     # checkout behind (2026-09-14, see utf8_console). Hence check=False and safe_print.
     head = run(['git', '-C', wt, 'log', '--oneline', '-1'], check=False, quiet=True)
     safe_print('pushed (verified on main): ' + head)
+    safe_print('lock phase took %s; %s before it went on the pre-lock gates and the queue'
+               % (_mmss(time.time() - t_lock), _mmss(t_lock - t_start)))
     warn_pages_budget(wt)
     sync_shared(root)
 

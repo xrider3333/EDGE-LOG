@@ -124,7 +124,23 @@ def show(chat, items, only_open=True):
         print(f"  #{i['id']}  {i['at']}  from {i['from']}:  {i['text']}")
 
 
+def utf8_console():
+    """Make stdout/stderr UTF-8 (errors='replace') before anything is printed.
+
+    Inbox items are free text from other chats and carry arrows, dashes and Greek letters. Python
+    on Windows encodes a piped or redirected console - how every Claude session runs this tool - as
+    cp1252, so `read` died with UnicodeEncodeError on the first such character (2026-10-07, an
+    arrow) and the chat saw a traceback instead of its items. Same fix as tools/wt.py's
+    utf8_console: nothing printed after this can raise on encoding."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:            # not a TextIOWrapper (None under pythonw, a test double)
+            pass
+
+
 def main():
+    utf8_console()
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("read"); r.add_argument("chat"); r.add_argument("--all", action="store_true")

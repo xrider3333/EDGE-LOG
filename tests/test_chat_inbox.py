@@ -59,3 +59,23 @@ def test_unknown_sender_only_warns(tmp_path):
     run(tmp_path, "post", "TV", "a", "--from", "MANAGER", "--new")
     r = run(tmp_path, "post", "TV", "b", "--from", "NOBODY")
     assert r.returncode == 0 and "posted #2 to TV" in r.stdout and "warning: sender NOBODY" in r.stderr
+
+def test_read_survives_a_cp1252_console_on_non_ascii_text(tmp_path):
+    """2026-10-07: `read` died with UnicodeEncodeError on an arrow - Python on Windows encodes a
+    piped console (how every Claude session runs this) as cp1252. Every command must print any
+    item text, and print it intact as UTF-8."""
+    text = "ship moved → pre-lock; β and — too"
+    env = dict(os.environ, EDGELOG_CHAT_INBOX=str(tmp_path), PYTHONIOENCODING="cp1252")
+    probe = subprocess.run([sys.executable, "-c", "print('\u2192')"], env=env, capture_output=True)
+    assert probe.returncode != 0 and b"UnicodeEncodeError" in probe.stderr, "the console is not really cp1252"
+    r = subprocess.run([sys.executable, TOOL, "post", "MANAGER", text, "--from", "MANAGER", "--new"],
+                       env=env, capture_output=True)
+    assert r.returncode == 0, r.stderr
+    for args in (["read", "MANAGER"], ["all"], ["read", "MANAGER", "--all"]):
+        r = subprocess.run([sys.executable, TOOL] + args, env=env, capture_output=True)
+        out, err = r.stdout.decode("utf-8"), r.stderr.decode("utf-8", "replace")
+        assert r.returncode == 0 and "Traceback" not in err, err
+        assert text in out, out
+    r = subprocess.run([sys.executable, TOOL, "done", "MANAGER", "1", "fixed → done"], env=env,
+                       capture_output=True)
+    assert r.returncode == 0, r.stderr

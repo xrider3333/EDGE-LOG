@@ -214,15 +214,55 @@ def _wt_source():
 
 
 def test_ship_takes_the_lock_before_it_rebases():
-    """Taking it after the rebase would leave the window the lock exists to close."""
+    """Taking it after the rebase would leave the window the lock exists to close. Since
+    2026-10-07 ship ALSO rebases once before the lock (gate_before_lock, so the slow selftests run
+    on a recent tree without holding anybody up) - but the rebase whose result is pushed is the
+    one cmd_ship does after taking the lock, and that order is what this pins."""
     src = _wt_source()
     body = src[src.index("def cmd_ship"):]
     body = body[:body.index("push_lock.hold") + 200]
     assert "push_lock.hold(" in body
     i_lock = src.index("push_lock.hold(", src.index("def cmd_ship"))
-    i_rebase = src.index("'rebase', 'origin/main'", src.index("def cmd_ship"))
-    i_push = src.index("'push', '-q', 'origin', 'HEAD:main'")
+    i_rebase = src.index("'rebase', 'origin/main'", i_lock)
+    i_push = src.index("'push', '-q', 'origin', 'HEAD:main'", i_lock)
     assert i_lock < i_rebase < i_push, "the lock must be held across the rebase AND the push"
+    # and the VERSION realign and the RESEARCH_LEDGER renumbering that go with that rebase
+    # happen under the lock too, after it
+    assert i_rebase < src.index("realign_version(wt)", i_rebase) < i_push
+    assert i_rebase < src.index("renumber_ledger_rows(wt)", i_rebase) < i_push
+
+
+def test_the_phase_before_the_lock_never_pushes():
+    """The pre-lock phase rebases and gates, nothing more: a push from there would land a tree
+    no lock ever covered."""
+    src = _wt_source()
+    # everything the pre-lock phase calls that cmd_ship does not: the worktree guard, the tree
+    # check, the gate runner and gate_before_lock itself
+    pre = src[src.index("def hold_worktree"):src.index("def _release_fd")]
+    assert "def gate_before_lock" in pre and "def run_plan" in pre
+    assert "'push'" not in pre and "HEAD:main" not in pre
+    assert "push_lock.hold(" not in pre and "push_queue.hold_turn(" not in pre
+
+
+def test_ship_lets_go_of_the_lock_only_before_it_has_pushed_anything():
+    """2026-10-07: ship gives the lock (and its ticket) back by hand in exactly ONE place - when a
+    slow selftest has to re-run because main changed what it reads, BEFORE anything is pushed -
+    so the next lane goes meanwhile. Every other route still leaves the release to the process
+    exit, and the overtaken retry after a push keeps the lock (test_affected_tests.py)."""
+    src = _wt_source()
+    body = src[src.index("def cmd_ship"):src.index("def warn_pages_budget")]
+    assert body.count("_let_go(") == 1, "one hand release, no more"
+    i_let_go = body.index("_let_go(")
+    i_branch = body.rindex("if too_slow and rnd < PRELOCK_ROUNDS:", 0, i_let_go)
+    assert "continue" in body[i_let_go:i_let_go + 120], "and it goes straight back to pre-lock"
+    assert i_branch < i_let_go < body.index("'push', '-q', 'origin', 'HEAD:main'")
+    let_go = src[src.index("def _release_fd"):src.index("def cmd_ship")]
+    assert "push_lock._unlock_fd" in let_go and "push_queue._unlock_fd" in let_go
+    assert "os.close(" in let_go
+    # msvcrt unlocks the byte at the CURRENT position and both holders wrote their name past
+    # byte 0 - without the seek the unlock misses and only the close lets go (test_wt.py proves
+    # the release is immediate)
+    assert "os.lseek(" in let_go
 
 
 def test_ship_still_works_when_the_shared_checkout_has_no_push_lock_yet():
