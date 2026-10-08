@@ -378,18 +378,27 @@ def tally_pre(cnt, prefix, reasons, first):
     cnt[prefix + "pool"] += int((first == -1).sum())
 
 
+POST_MODES = ("remove", "naive", "close")                                       # ni_one's in-hold readings: 'remove' the registered (look-ahead), 'naive' [O3], 'close' [HYG-S1] (r17_resmom's 'keep' is not run by this family)
+
+
 def ni_one(W, ctx, r, f, x, post_mode, units=True, win=None, incl=(False, False)):
     """one rebalance: the universe at the fill session f (sessions < f only), every name's age at the rank close r, who is NEW and who is SEASONED, every removal in order, the pool, the floor, cell E's hedge ratio and cell M's matches, the position paths -> (rec, counts).
     NEW (window `win`, default 126 .. 504 sessions): a universe name with an ACCEPTED dated listing ([N4]) r - L sessions old, which is NOT a spin-off's new symbol on the calendar (dated on / before r) and has NO name change on the calendar (the old or the new symbol, dated in the 24 calendar months
     r-24m .. r). SEASONED: present at the first session, or listed MORE than 36 calendar months before r (an accepted listing), with no name change in the 24 months, >= 230 own returns and >= 230 ES pairs in the 252 sessions r-251 .. r (RESMOM's history rule: NEW names are exempt, the prereg) -
     and, like every name that can be traded, the same removals as RESMOM's pool: no open at the fill session, a hygiene flag [T2] in r-25 .. r (all four reasons) or in r-125 .. r-26 (gap scan / TBIS / jump: a fake return day inside the hedge's window), a hand-audit data event;
-    hygiene INSIDE the hold (r+1 .. x) and a [D2] spin-off / stock-dividend ex-date in f < t <= x are the look-ahead removal: post_mode 'remove' = the registered reading, 'naive' = flagged names stay at their naive raw price path. A name that failed [N4] (or is unverifiable) is neither.
+    hygiene INSIDE the hold (r+1 .. x) and a [D2] spin-off / stock-dividend ex-date in f < t <= x are the look-ahead removal: post_mode 'remove' = the registered reading, 'naive' = flagged names stay at their naive raw price path,
+    'close' = [HYG-S1], MANAGER's hygiene edit S1 (#127, 2026-10-07; r17_resmom's post_mode 'close'): NO in-hold event removes a name - the NEW and SEASONED sets are the look-ahead reading's, every flagged name stays on the split-safe path (a registered or calendar split rides the split-adjusted series) - and
+    a [D2] spin-off / stock-dividend ex-date e in f < e <= x CLOSES the position at the official close of the session before it, e-1 (rec.close = that row per pool name, -1 = held to the exit; M17.rm_units cuts the path, pnl1 / M17.l1_pnl_x books the exit there; the same for a matched SEASONED long and for
+    a drawn one). CHOICE: cell E's ES hedge is the basket's, sized at the rank from the names known then (beta x the short notional) and run to the exit session, so a closed short's hedge share is NOT cut - S1 closes the stock position; the closed NEW shorts are counted. Counted by NEW / SEASONED:
+    new_ / seas_ kept_<reason>, kept_flagged, kept_calendar_split (when the calendar's splits are on the grid), closed_spin. A name that failed [N4] (or is unverifiable) is neither.
     The pool is the NEW names first, then every eligible SEASONED name (the match's candidates and the null's draws). A rebalance trades only with >= 10 NEW names [N7] (SPEC floor, counted after every removal; [N6]'s 20 is the REPORTED reading beside it); then rec.tE (E also needs a defined hedge ratio) and rec.tM (M needs a match) say which cells trade it.
     incl = (spincos kept, name changes kept) in NEW (the REPORTED would-have-been-included rows); win = another age window ([N3] 84 .. 168); rec.kind = 1 spinco, 2 name change, 3 both for the NEW names that are only there because of incl"""
+    if post_mode not in POST_MODES:
+        raise ValueError(f"post_mode {post_mode!r}: one of {POST_MODES}")
     s = SPEC
     lo_n, hi_n = (s["new_lo"], s["new_hi"]) if win is None else win
     uni = np.flatnonzero(W.U[f])
-    rec = SimpleNamespace(r=r, f=f, x=x, nu=len(uni), traded=False, tE=False, tM=False, n_new=0, n_seas=0, new=ZI, seas=ZI, pool=ZI, naive=ZB, kind=ZI, age=ZI, cohort=ZI, lrow=ZI, dv=ZF, match=ZI, beta=float("nan"), bpairs=0, newage=0)
+    rec = SimpleNamespace(r=r, f=f, x=x, nu=len(uni), traded=False, tE=False, tM=False, n_new=0, n_seas=0, new=ZI, seas=ZI, pool=ZI, naive=ZB, kind=ZI, age=ZI, cohort=ZI, lrow=ZI, dv=ZF, match=ZI, beta=float("nan"), bpairs=0, newage=0, close=ZI)
     cnt = Counter()
     cnt["rebalances"] += 1
     cnt["universe"] += len(uni)
@@ -414,6 +423,7 @@ def ni_one(W, ctx, r, f, x, post_mode, units=True, win=None, incl=(False, False)
     old = W.hyg(r - s["old"], lo_pre - 1, uni)[1:]                              # gap, tbis, jump on sessions r-125 .. r-26
     post = W.hyg(r + 1, x, uni)                                                 # all four, inside the hold: the fill session through the exit session
     post_sp = M17.spn_hit(W, f + 1, x, uni)                                     # [D2] a spin-off / stock-dividend ex-date in f < t <= x: a data event like a hygiene flag inside the hold
+    post_cs = M17.csplit_hit(W, f + 1, x, uni) if post_mode == "close" and getattr(W, "cscs", None) is not None else np.zeros(len(uni), bool)     # [HYG-S1] an announced (calendar) split ex-date in f < t <= x: counted, never a removal
     post_any = post.any(axis=0) | post_sp
     aud = W.aud1[f, uni]
     W.aud_hit.update((M17.AUD, f, int(c)) for c in uni[aud & (new_age | seas_age)])
@@ -449,10 +459,21 @@ def ni_one(W, ctx, r, f, x, post_mode, units=True, win=None, incl=(False, False)
     if post_mode == "naive":
         cnt["new_kept_naive"] += int((post_any[sn][keep_n]).sum())
         cnt["seas_kept_naive"] += int((post_any[ss][keep_s]).sum())
+    if post_mode == "close":                                                    # [HYG-S1] the pool names with an in-hold event that STAY: flagged ones and the calendar's splits on the split-safe path, a [D2] ex-date closes the position at the close before it
+        for pf, sel, keep in (("new_", sn, keep_n), ("seas_", ss, keep_s)):
+            for q, h in enumerate(HYG):
+                cnt[f"{pf}kept_{h}"] += int(post[q][sel][keep].sum())
+            cnt[f"{pf}kept_flagged"] += int(post.any(axis=0)[sel][keep].sum())
+            cnt[f"{pf}kept_calendar_split"] += int(post_cs[sel][keep].sum())
+            cnt[f"{pf}closed_spin"] += int(post_sp[sel][keep].sum())
     kind = (spin[sn][keep_n].astype(np.int64) * 1 + nchg[sn][keep_n].astype(np.int64) * 2)
     n_new = len(new_cols)
     yrs = np.asarray(W.days.year)
     rec.new, rec.seas, rec.pool, rec.naive, rec.kind = new_cols, seas_cols, pool, naive, kind
+    rec.close = np.full(len(pool), -1, np.int64)                                 # [HYG-S1] the row each pool name closes on: the session before its first [D2] ex-date in f < e <= x (-1 = held to the exit session)
+    if post_mode == "close" and x > f and len(pool):
+        sp_h = W.SPN[f + 1:x + 1][:, pool]
+        rec.close = np.where(sp_h.any(axis=0), f + sp_h.argmax(axis=0), -1).astype(np.int64)
     rec.n_new, rec.n_seas, rec.newage = n_new, len(seas_cols), int(len(sn))
     rec.lrow = ctx.L[new_cols]
     rec.age = r - rec.lrow
@@ -480,7 +501,7 @@ def ni_one(W, ctx, r, f, x, post_mode, units=True, win=None, incl=(False, False)
     rec.tM = bool((rec.match >= 0).any())
     cnt["unmatched_new"] += int((rec.match < 0).sum())
     if units:                                                                   # (r17's units: the split-safe path of every pool name + the cash dividends a long receives and a short pays)
-        rec.U = M17.rm_units(W, f, x, pool, naive)
+        rec.U = M17.rm_units(W, f, x, pool, naive, rec.close)
     return rec, cnt
 
 
@@ -519,9 +540,9 @@ def cfg_of(bps=COST_BPS, borrow=BORROW, short0=False):
 
 
 def pnl1(U, idx, side, cfg):
-    """per $1 of ENTRY notional, the daily P&L (n, H) of the pool positions `idx` (side +1 long / -1 short) over rows f .. x: r15's l1_pnl (gross marks incl. r17's dividends, bps of the notional at the fill and of the exit value at the exit, the shorts' borrow on the prior mark) - or r17's
-    l1_pnl_x when cfg['short0']"""
-    return M17.l1_pnl_x(U, idx, side, cfg) if cfg.get("short0") else D15.l1_pnl(U, idx, side, cfg)
+    """per $1 of ENTRY notional, the daily P&L (n, H) of the pool positions `idx` (side +1 long / -1 short) over rows f .. x: r15's l1_pnl (gross marks incl. r17's dividends, bps of the notional at the fill and of the exit value at the exit, the shorts' borrow on the prior mark) through r17's
+    l1_pnl_x: [R2] cfg['short0'] and [HYG-S1] the exit column of a position closed before a spin-off / stock-dividend ex-date (U.xc: its exit cost and its -100% / short-at-zero readings move to the close's row) - for every path without one it IS r15's l1_pnl"""
+    return M17.l1_pnl_x(U, idx, side, cfg)
 
 
 def rec_legs(W, rec, cell, cfg, es_bps=ES_BPS):
@@ -1273,9 +1294,10 @@ def print_diagnostics(res, rep, ref, var, res20=None):
     print_variants(var)
 
 
-NEW_KEYS = (("new_age", "new_spinco", "new_name_change", "new_no_fill") + tuple(f"new_pre_{h}" for h in HYG) + tuple(f"new_old_{h}" for h in HYG[1:]) + ("new_audit",) + tuple(f"new_post_{h}" for h in HYG) + ("new_post_spin", "new_pool", "new_kept_naive"))
+NEW_KEYS = (("new_age", "new_spinco", "new_name_change", "new_no_fill") + tuple(f"new_pre_{h}" for h in HYG) + tuple(f"new_old_{h}" for h in HYG[1:]) + ("new_audit",) + tuple(f"new_post_{h}" for h in HYG) + ("new_post_spin", "new_pool", "new_kept_naive")
+            + tuple(f"new_kept_{h}" for h in HYG) + ("new_kept_flagged", "new_kept_calendar_split", "new_closed_spin"))
 SEAS_KEYS = (("seasoned_age", "seas_name_change", "seas_short_history", "seas_no_es_pairs", "seas_no_fill") + tuple(f"seas_pre_{h}" for h in HYG) + tuple(f"seas_old_{h}" for h in HYG[1:]) + ("seas_audit",) + tuple(f"seas_post_{h}" for h in HYG)
-             + ("seas_post_spin", "seas_pool", "seas_kept_naive"))
+             + ("seas_post_spin", "seas_pool", "seas_kept_naive") + tuple(f"seas_kept_{h}" for h in HYG) + ("seas_kept_flagged", "seas_kept_calendar_split", "seas_closed_spin"))
 
 
 def print_counts(label, cnt):
@@ -1939,8 +1961,18 @@ def brute_es_leg(W, f, x, bps):
     return np.array(out)
 
 
-def brute_cell_series(W, L, cell, bps=COST_BPS, borrow=BORROW, side=0, es_bps=ES_BPS):
-    """plain python: a cell's daily $ series on the stock sessions and its position count - every NEW short (and its matched long / its share of the beta-sized ES hedge) as brute_position / brute_es_leg book it, the match recounted by the all-pairs greedy; side -1 / +1 = one side alone"""
+def brute_pos_c(W, f, x, j, side, bps, borrow, post_mode="remove"):
+    """brute_position, or - under 'close' [HYG-S1] - the path of a position closed at the official close before its first spin-off / stock-dividend ex-date in f < e <= x (M17.brute_close_path, in $ at the slot)"""
+    Sp = getattr(W, "Sp_in", None)
+    ex = next((t for t in range(f + 1, x + 1) if Sp is not None and Sp[t, j]), -1) if post_mode == "close" else -1
+    if ex >= 0:
+        return SPEC["slot"] * np.array(M17.brute_close_path(W, f, x, j, side, ex, bps=bps, borrow=(borrow, None))[0])
+    return np.array(brute_position(W, f, x, j, side, bps, borrow))
+
+
+def brute_cell_series(W, L, cell, bps=COST_BPS, borrow=BORROW, side=0, es_bps=ES_BPS, post_mode="remove"):
+    """plain python: a cell's daily $ series on the stock sessions and its position count - every NEW short (and its matched long / its share of the beta-sized ES hedge) as brute_position / brute_es_leg book it (post_mode 'close' [HYG-S1]: a stock position with a spin-off / stock-dividend ex-date
+    in the hold is cut at the close before it, brute_pos_c; the ES hedge share runs to the exit), the match recounted by the all-pairs greedy; side -1 / +1 = one side alone"""
     x, n, slot = np.zeros(W.T), 0, SPEC["slot"]
     for q in L.recs:
         if not traded(q, cell):
@@ -1950,8 +1982,8 @@ def brute_cell_series(W, L, cell, bps=COST_BPS, borrow=BORROW, side=0, es_bps=ES
         for i, col in enumerate(q.new):
             if mt is not None and mt[i] < 0:
                 continue
-            s_ = np.array(brute_position(W, q.f, q.x, int(col), -1, bps, borrow))
-            o_ = q.beta * slot * es if cell == "E" else np.array(brute_position(W, q.f, q.x, int(q.seas[mt[i]]), +1, bps, borrow))
+            s_ = brute_pos_c(W, q.f, q.x, int(col), -1, bps, borrow, post_mode)
+            o_ = q.beta * slot * es if cell == "E" else brute_pos_c(W, q.f, q.x, int(q.seas[mt[i]]), +1, bps, borrow, post_mode)
             x[q.f:q.x + 1] += (s_ if side <= 0 else 0.0) + (o_ if side >= 0 else 0.0)
             n += 1
     return x, n
@@ -2568,6 +2600,181 @@ def t_null():
     return True
 
 
+def close_world(seed=3, n_new=52, n_seas=22, T=330, drift_new=-0.0015):
+    """pipe_world's market (SMALL windows; n_seas SEASONED names from the first session, n_new NEW names listed every 4 sessions from row 60) with [HYG-S1]'s cases planted inside the hold of its first rank r1 (fill f1, exit x1): NEW ka a spin-off at f1 + 8 and NEW kb a stock dividend on the EXIT session x1
+    (both inside the hold: closed at the close before them), each with the SEASONED name of the nearest dollar volume (A03 / A07, whose own ex-dates are f1 + 12 and x1: the matched longs close too), A05 with its ex-date ON the fill session (bought ex: held), NEW kc a gap flag inside the hold
+    (a flag: kept on the split-safe path), cash dividends on A03 after its close (cut) and on NEW kd before nothing (kept) -> (w, r1, f1, x1, names) with names = {ka, kb, kc, kd: the NEW names' symbols}"""
+    days = pd.bdate_range("2024-01-01", periods=T)
+    r_all, f_all, x_all = M17.rm_schedule(days)
+    q1 = [i for i, r_ in enumerate(r_all) if r_ >= 120][0]
+    r1, f1, x1 = int(r_all[q1]), int(f_all[q1]), int(x_all[q1])
+    new_k = [k for k in range(n_new) if r1 - 45 <= 60 + 4 * k <= r1 - 15]
+    ka, kb, kc, kd = new_k[:4]
+    rng = np.random.default_rng(seed)
+    dv = lambda: float(np.exp(rng.uniform(np.log(2e7), np.log(4e8))))
+    cols = [dict(sym=f"A{k:02d}", first=0, beta=float(rng.uniform(0.6, 1.4)), dvol=dv()) for k in range(n_seas)]
+    cols += [dict(sym=f"N{k:02d}", first=60 + 4 * k, beta=float(rng.uniform(0.8, 1.8)), drift=drift_new, dvol=dv()) for k in range(n_new)]
+    pin = {f"N{ka:02d}": 5.0e7, "A03": 5.0e7 * (1 + 1e-7), f"N{kb:02d}": 7.0e7, "A07": 7.0e7 * (1 + 1e-7)}                  # the greedy match pairs these first (distance $5)
+    for c in cols:
+        if c["sym"] in pin:
+            c["dvol"] = pin[c["sym"]]
+    spn = [(f"N{ka:02d}", f1 + 8), (f"N{kb:02d}", x1), ("A03", f1 + 12), ("A05", f1), ("A07", x1)]
+    flags = {"gap": [(f"N{kc:02d}", f1 + 5)]}
+    dr = {("A03", f1 + 14): 0.5, (f"N{kd:02d}", f1 + 10): 0.4}
+    w = ni_world(cols, T=T, seed=seed, flags=flags, spn=spn, dr=dr)
+    return w, r1, f1, x1, {"ka": f"N{ka:02d}", "kb": f"N{kb:02d}", "kc": f"N{kc:02d}", "kd": f"N{kd:02d}"}
+
+
+def t_close():
+    """[HYG-S1] MANAGER's hygiene edit S1 (#127, 2026-10-07), post_mode 'close', on a planted world (close_world: spin-off / stock-dividend ex-dates inside the first rank's hold on a NEW short, its matched SEASONED long and a drawn SEASONED name; ex-dates on the fill session (held) and the exit
+    session (inside: closed); a hygiene flag inside the hold on a NEW name; cash dividends after a close and before none): no in-hold event removes a name (the NEW and SEASONED sets are the look-ahead reading's), the close rows, the cut unit paths (nothing on rows e .. x, the exit cost on the close's
+    row), the cells E and M, their sides and positions, the null's draws (explicit draws recounted by plain python: a drawn closed name is cut too, E's hedge share is not) and evaluate() equal the plain-python recount; the counts by NEW / SEASONED; a calendar split is counted and moves no pool;
+    the registered 'remove' (and 'naive') reading carries no exit column and pnl1 is r15's l1_pnl on its units bit for bit; an unknown reading is refused"""
+    with spec(**SMALL):
+        w, r1, f1, x1, nm = close_world()
+        W, ctx = w.W, w.ctx
+        lo, hi = W.days[0], W.days[-1]
+        slot, cfg = SPEC["slot"], cfg_of()
+        Lr, Lk, Lc = ni_build(W, ctx, lo, hi, "remove"), ni_build(W, ctx, lo, hi, "naive"), ni_build(W, ctx, lo, hi, "close")
+        sym = lambda ids: [str(W.syms[i]) for i in ids]
+        jix = {str(s_): i for i, s_ in enumerate(W.syms)}
+        # ---- (1) 'remove' / 'naive' carry no exit column: pnl1 is r15's l1_pnl bit for bit on their units
+        n_same = 0
+        for Lx in (Lr, Lk):
+            for rec in Lx.recs:
+                assert rec.close.shape == rec.pool.shape and (rec.close == -1).all(), W.days[rec.r]
+                if getattr(rec, "U", None) is not None:
+                    assert not hasattr(rec.U, "xc")
+                    idx = np.arange(len(rec.pool))
+                    for sd in (1, -1):
+                        assert np.array_equal(pnl1(rec.U, idx, sd, cfg), D15.l1_pnl(rec.U, idx, sd, cfg)), (W.days[rec.r], sd)
+                        n_same += 1
+        assert n_same >= 10, n_same
+        # ---- (2) the first rank by hand
+        rc = next(q for q in Lc.recs if q.r == r1)
+        rr = next(q for q in Lr.recs if q.r == r1)
+        rk = next(q for q in Lk.recs if q.r == r1)
+        assert (rc.f, rc.x) == (f1, x1) and rc.traded and rc.tE and rc.tM
+        assert rc.pool.tolist() == rk.pool.tolist() and rc.new.tolist() == rk.new.tolist() and rc.seas.tolist() == rk.seas.tolist() and not rc.naive.any(), "no in-hold event removes a name: the look-ahead reading's sets, never on the raw path"
+        assert set(sym(rr.new)) == set(sym(rc.new)) - {nm["ka"], nm["kb"], nm["kc"]} and set(sym(rr.seas)) == set(sym(rc.seas)) - {"A03", "A07"} and "A05" in sym(rr.seas), "the registered reading removed the in-hold names (the flag, the ex-dates inside the hold) - not A05, whose ex-date is the fill session"
+        want_close = {nm["ka"]: f1 + 7, nm["kb"]: x1 - 1, "A03": f1 + 11, "A07": x1 - 1}
+        got_close = {str(W.syms[c_]): int(e_) for c_, e_ in zip(rc.pool, rc.close) if e_ >= 0}
+        assert got_close == want_close and rc.close.dtype == np.int64, (got_close, want_close)
+        for q in Lc.recs:                                                                            # every rebalance: the close row = the session before the first ex-date in (f, x] (plain loops)
+            Sp = W.Sp_in
+            assert q.close.tolist() == [next((t - 1 for t in range(q.f + 1, q.x + 1) if Sp[t, c_]), -1) for c_ in q.pool], W.days[q.r]
+        pos = {int(c_): i for i, c_ in enumerate(rc.pool)}
+        H = x1 - f1 + 1
+        U = rc.U
+        for s_, e in ((nm["ka"], f1 + 8), (nm["kb"], x1), ("A03", f1 + 12), ("A07", x1)):
+            i, xc = pos[jix[s_]], e - 1 - f1
+            assert U.xc[i] == xc and (U.G[i, xc + 1:] == 0).all() and (U.mk[i, xc + 1:] == 0).all() and (U.div[i, xc:] == 0).all(), s_
+            assert abs(U.ve[i] - W.Ac[e - 1, jix[s_]] / W.Ao[f1, jix[s_]]) < 1e-15 and not U.st[i], s_
+        assert (U.xc == H - 1).sum() == len(rc.pool) - 4 and U.xc[pos[jix["A05"]]] == H - 1 and U.mk[pos[jix["A05"]], -1] != 0.0 and U.div[pos[jix["A03"]]].sum() == 0.0 and U.div[pos[jix[nm["kd"]]]].sum() > 0.0, "A03's dividend (after its close) is cut, NEW kd's is kept"
+        # ---- (3) every pool name's path, both sides, four costings, against the plain-python recount (the closed ones cut)
+        n_paths = 0
+        for q in Lc.recs:
+            if getattr(q, "U", None) is None:
+                continue
+            ix_ = np.arange(len(q.pool))
+            for kw in (dict(bps=COST_BPS, borrow=BORROW), dict(bps=10.0, borrow=BORROW), dict(bps=COST_BPS, borrow=0.25), dict(bps=0.0, borrow=0.10)):
+                for sd in (1, -1):
+                    P = pnl1(q.U, ix_, sd, cfg_of(bps=kw["bps"], borrow=kw["borrow"]))
+                    for i, c_ in enumerate(q.pool):
+                        want = brute_pos_c(W, q.f, q.x, int(c_), sd, kw["bps"], kw["borrow"], "close") / slot
+                        assert usd(P[i], want), (W.days[q.r], str(W.syms[c_]), sd, kw)
+                        n_paths += 1
+        # ---- (4) the cells E and M: the series, the sides, the positions against the recount; E's hedge share of a closed short runs to the exit (CHOICE)
+        for cell in CELLS:
+            for sd in (0, -1, 1):
+                run = cell_run(W, Lc, cell, cfg, side=sd)
+                x0, n0 = brute_cell_series(W, Lc, cell, side=sd, post_mode="close")
+                assert usd(run.x, x0) and run.n_pos == n0, (cell, sd)
+            assert not usd(cell_run(W, Lc, cell, cfg).x, brute_cell_series(W, Lc, cell)[0]), "the closed names are in the cell: the uncut recount differs"
+        runM = cell_run(W, Lc, "M", cfg)
+        ri = [q.r for q in Lc.recs].index(r1)
+        for k_, a_ in (("ka", "A03"), ("kb", "A07")):
+            j_new, j_mt = jix[nm[k_]], jix[a_]
+            assert rc.pool[rc.match[pos[j_new]]] == j_mt, ("the planted match", nm[k_], a_)
+            row = int(np.flatnonzero((runM.pos.rec == ri) & (runM.pos.col == j_new))[0])
+            want = (brute_pos_c(W, f1, x1, j_new, -1, COST_BPS, BORROW, "close") + brute_pos_c(W, f1, x1, j_mt, +1, COST_BPS, BORROW, "close")).sum()
+            assert abs(runM.pos.pnl[row] - want) < 1e-7 and runM.pos.mcol[row] == j_mt, (k_, runM.pos.pnl[row], want)
+        runE = cell_run(W, Lc, "E", cfg)
+        rowE = int(np.flatnonzero((runE.pos.rec == ri) & (runE.pos.col == jix[nm["ka"]]))[0])
+        es = np.array(brute_es_leg(W, f1, x1, ES_BPS))
+        assert abs(runE.pos.other[rowE] - rc.beta * slot * es.sum()) < 1e-7, "CHOICE: the ES hedge share of a closed NEW short is not cut"
+        assert abs(runE.pos.short[rowE] - brute_pos_c(W, f1, x1, jix[nm["ka"]], -1, COST_BPS, BORROW, "close").sum()) < 1e-7
+        # ---- (5) the counts by NEW / SEASONED against plain loops; the printout shows them under 'close' only
+        cnt = sum((Counter(c_) for c_ in Lc.cnt.values()), Counter())
+        want = Counter()
+        for q in Lc.recs:
+            for pf, ids, cl in (("new_", q.new, q.close[:q.n_new]), ("seas_", q.seas, q.close[q.n_new:])):
+                fl = W.hyg(q.r + 1, q.x, ids) if len(ids) else np.zeros((4, 0), bool)
+                for k_, h in enumerate(HYG):
+                    want[f"{pf}kept_{h}"] += int(fl[k_].sum())
+                want[f"{pf}kept_flagged"] += int(fl.any(axis=0).sum())
+                want[f"{pf}closed_spin"] += int((cl >= 0).sum())
+        for k_ in [k for k in NEW_KEYS + SEAS_KEYS if "kept_" in k and "kept_naive" not in k and "calendar" not in k or k.endswith("closed_spin")]:
+            assert cnt[k_] == want[k_], (k_, cnt[k_], want[k_])
+        assert cnt["new_closed_spin"] >= 2 and cnt["seas_closed_spin"] >= 2 and cnt["new_kept_gap"] >= 1 and cnt["new_kept_flagged"] >= 1 and cnt["new_kept_calendar_split"] == 0 and not any(k_.startswith(("new_post", "seas_post")) for k_ in cnt if cnt[k_]), dict(cnt)
+        buf_c, buf_r = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(buf_c):
+            print_counts("L", Lc.cnt)
+        with contextlib.redirect_stdout(buf_r):
+            print_counts("L", Lr.cnt)
+        assert "new_closed_spin" in buf_c.getvalue() and "seas_closed_spin" in buf_c.getvalue() and "closed_spin" not in buf_r.getvalue()
+        M17.attach_calendar_splits(W, SimpleNamespace(split=pd.DataFrame({"symbol": [nm["kd"], "A11"], "ex": [W.days[f1 + 3], W.days[f1 + 3]], "type": ["forward_split", "reverse_split"]})))
+        Lcs, Lrs = ni_build(W, ctx, lo, hi, "close"), ni_build(W, ctx, lo, hi, "remove")
+        cs = sum((Counter(c_) for c_ in Lcs.cnt.values()), Counter())
+        assert cs["new_kept_calendar_split"] == 1 and cs["seas_kept_calendar_split"] == 1 and [q.pool.tolist() for q in Lcs.recs] == [q.pool.tolist() for q in Lc.recs] and [q.pool.tolist() for q in Lrs.recs] == [q.pool.tolist() for q in Lr.recs], "a calendar split on the grid is counted under 'close' and moves no pool; 'remove' ignores it"
+        del W.CSPL, W.cscs
+        # ---- (6) the null: explicit draws (the closed SEASONED names among them) recounted by plain python; E re-hedged on the drawn basket (the hedge share of a closed name runs to the exit), M re-matched
+        i03, i07 = list(rc.seas).index(jix["A03"]), list(rc.seas).index(jix["A07"])
+        rng = np.random.default_rng(9)
+        draw = np.array([[i03, i07] + [int(v) for v in rng.permutation([i for i in range(rc.n_seas) if i not in (i03, i07)])[:rc.n_new - 2]] for _ in range(3)] + [list(rng.choice(rc.n_seas, rc.n_new, replace=False)) for _ in range(3)])
+        E, M = null_rec(W, rc, draw, cfg)
+        for d in range(len(draw)):
+            cols_ = rc.seas[draw[d]]
+            sh = sum(brute_pos_c(W, f1, x1, int(c_), -1, COST_BPS, BORROW, "close") for c_ in cols_)
+            bb, _k = brute_beta(W, r1, cols_.tolist())
+            assert usd(E[d], sh + bb * rc.n_new * slot * es if math.isfinite(bb) else np.zeros(H)), ("E", d)
+            rest = [i for i in range(rc.n_seas) if i not in set(draw[d].tolist())]
+            bm = brute_match([brute_dv(W, r1, int(c_)) for c_ in cols_], [brute_dv(W, r1, int(rc.seas[i])) for i in rest], cols_.tolist(), [int(rc.seas[i]) for i in rest])
+            m_want = np.zeros(H)
+            for i, c_ in enumerate(cols_):
+                if bm[i] >= 0:
+                    m_want += brute_pos_c(W, f1, x1, int(c_), -1, COST_BPS, BORROW, "close") + brute_pos_c(W, f1, x1, int(rc.seas[rest[bm[i]]]), +1, COST_BPS, BORROW, "close")
+            assert usd(M[d], m_want), ("M", d)
+        with patched(THIS, pnl1=lambda U_, ix_, sd_, cfg_: D15.l1_pnl(U_, ix_, sd_, cfg_)):
+            E0, M0 = null_rec(W, rc, draw, cfg)
+        assert not usd(E[:3], E0[:3]) and not usd(M[:3], M0[:3]), "the first draws hold the closed names: r15's l1_pnl would book their exit cost on the last row"
+        acc = ni_null(W, Lc, 4, 0)
+        assert set(acc) == set(CELLS) and acc["E"].shape == (4, W.T) and acc["E"][:, f1:x1 + 1].any() and acc["M"][:, f1:x1 + 1].any()
+        # ---- (7) evaluate() on the reading, with a null: every cell's net is the recount's, the registered reading differs by the in-hold names
+        B, S12 = M17.synth_book(seed=3, hi="2026-06-30")
+        rb = DV.mk_ref(B)
+        SN, SRN = restrict_stretch(S12, B.raw, B.index, WFN, PRE_END), restrict_stretch(rb.S, rb.raw, B.index, WFN, PRE_END)
+        rows = A13.book_rows(B, W)
+        with patched(THIS, manifest_sha=lambda: "0" * 64):
+            res, obj = evaluate(W, ctx, B, SN, rb, SRN, rows, "close", 6, 0, full=True)
+            res_r, _obj_r = evaluate(W, ctx, B, SN, rb, SRN, rows, "remove", 0, 0, full=False)
+        assert res["variant"] == "close" and res["null"]["draws"] == 6 and res_r["null"] is None
+        for cell in CELLS:
+            x0, n0 = brute_cell_series(W, obj.legs, cell, post_mode="close")
+            c = res["cells"][cell]
+            assert abs(c["base"]["net"] - float(x0.sum())) < 1e-6 and c["base"]["n_pos"] == n0 and usd(obj.series[cell][0][rows], x0), (cell, c["base"]["net"], x0.sum())
+            assert abs(c["stress"]["10 bps"]["net"] - float(brute_cell_series(W, obj.legs, cell, bps=10.0, post_mode="close")[0].sum())) < 1e-6 and abs(c["sides"]["short side only"]["net"] - float(brute_cell_series(W, obj.legs, cell, side=-1, post_mode="close")[0].sum())) < 1e-6
+        assert any(abs(res["cells"][c]["base"]["net"] - res_r["cells"][c]["base"]["net"]) > 1e-6 for c in CELLS), "the in-hold names move the P&L"
+        # ---- (8) a reading this family does not run is refused
+        for bad in ("keep", "closed", ""):
+            try:
+                ni_one(W, ctx, r1, f1, x1, bad, units=False)
+                raise AssertionError(f"post_mode {bad!r} must be refused")
+            except ValueError as e:
+                assert "one of" in str(e)
+    return n_paths
+
+
 def capture(fn, *a, **kw):
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
@@ -3120,7 +3327,7 @@ def t_cut():
     return True
 
 
-TESTS = ("t_constants", "t_listing", "t_calendar", "t_sets", "t_match", "t_beta_hedge", "t_costs", "t_floor", "t_floors", "t_pipeline", "t_null", "t_beta_rule", "t_tables", "t_x1", "t_usd_year", "t_files", "t_counts_only", "t_integration", "t_refusals", "t_cut")
+TESTS = ("t_constants", "t_listing", "t_calendar", "t_sets", "t_match", "t_beta_hedge", "t_costs", "t_floor", "t_floors", "t_pipeline", "t_null", "t_close", "t_beta_rule", "t_tables", "t_x1", "t_usd_year", "t_files", "t_counts_only", "t_integration", "t_refusals", "t_cut")
 
 
 def selftest():
@@ -3139,6 +3346,8 @@ def selftest():
           "[N6]'s size floor (its number is addendum 3's [N7] now; E's hedge ratio / M's candidates); the NEW / SEASONED windows, the spinco and name-change exclusions")
     print("ADDENDUM 3 (proved by t_floors / t_floor / t_usd_year / t_constants / t_integration): [N7] the registered floor is 10 NEW names (counted after every removal) and every reading is also made under the 20-name floor (its own leg and null), printed beside it, never a pass route; [N8] bar (a) = 40 traded rebalances; "
           "[N9] 'net > 0 without calendar 2022' stays binding and the LOW-POWER flag is a constant of every verdict; [N10] dollars a year = net / years beside every ROC @ $30k and the reference line's drawdown episodes inside the cell's stretch")
+    print("HYGIENE EDIT S1 [HYG-S1] (MANAGER #127; proved by t_close): the reading 'close' removes no name for an in-hold event - flagged names and calendar splits stay on the split-safe path - and a spin-off / stock-dividend ex-date inside the hold closes the position (a NEW short, a matched or drawn SEASONED name) "
+          "at the official close before it: no mark, dividend or borrow after it, the exit cost on that row, the null's draws cut too; cell E's ES hedge share of a closed short runs to the exit (CHOICE); the registered 'remove' reading is untouched (pnl1 is r15's l1_pnl on its units)")
     print(f"selftest ok: {len(TESTS)} groups ({', '.join(t[2:] for t in TESTS)}) in {time.time() - t0:.0f}s; {n_sets} NEW / SEASONED sets of random worlds equal the plain-python recount; every cell, side, stress row, null draw and table equals a plain-python recount")
 
 

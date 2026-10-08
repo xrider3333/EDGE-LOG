@@ -270,7 +270,10 @@ def cell0():
 
 def slice_units(U, idx):
     """r17_resmom's unit paths of the whole pool cut to the rows `idx` (a cell's scored names)"""
-    return SimpleNamespace(G=U.G[idx], ve=U.ve[idx], st=U.st[idx], mk=U.mk[idx], div=U.div[idx])
+    out = SimpleNamespace(G=U.G[idx], ve=U.ve[idx], st=U.st[idx], mk=U.mk[idx], div=U.div[idx])
+    if getattr(U, "xc", None) is not None:
+        out.xc = U.xc[idx]                                                      # [HYG-S1] each position's exit column (a position closed before a spin-off / stock-dividend ex-date exits on its close's row)
+    return out
 
 
 def placebo_values(W, cell, r, cols, beta):
@@ -294,16 +297,23 @@ def placebo_values(W, cell, r, cols, beta):
     return np.where(ok, val, np.nan).T
 
 
+POST_MODES = ("remove", "naive", "close")                                       # ed_one's in-hold readings: 'remove' the registered (look-ahead), 'naive' [O3], 'close' [HYG-S1] (r17_resmom's 'keep' is not run by this family)
+
+
 def ed_one(W, r, f, x, post_mode, units=True, counts_only=False, keep_ph=False, seen=None, cover=None):
     """one rebalance: the universe at the fill session f (sessions < f only), the pool of r17_resmom's rm_one (the same removals in the same order - short history, no ES pairs, no fill, the pre / old / post hygiene windows, the [D2] spin-offs, the hand audit; CHOICE: 'no score'
     becomes 'no beta', since a name's score exists per cell), then per cell the SCORE = the reaction of the name's most recent valid event on rows r-63 .. r-1, none -> no score; the scored names are the cell's pool for the null and the picks: both sides always 50 names at 150 or
     more scored names, else the top / bottom third (at least 20 a side) or nothing (side_n). Ties: one ascending order by (score, symbol order); the shorts are its first k, the longs its last k. post_mode as r17_resmom's ('remove' = the registered reading, 'naive' = the look-ahead
-    one). counts_only: no regression, no reaction, no score - the pools and the scored sets are counted from the existence of events and returns (the dryload). seen / cover: (T, S) bool accumulators the caller keeps (events inside the windows of pool names / every window row of a pool name)"""
+    one; 'close' = [HYG-S1], MANAGER's hygiene edit S1 (#127, 2026-10-07; r17_resmom's post_mode 'close'): NO in-hold event removes a name - the pool is the look-ahead reading's, every name flagged inside the hold stays on the split-safe path (a registered or
+    calendar split rides the split-adjusted series) - and a [D2] spin-off / stock-dividend ex-date e in f < e <= x CLOSES the position at the official close of the session before it, e-1 (rec.close = that row per pool name, -1 = held to the exit; M17.rm_units cuts the path,
+    M17.l1_pnl_x books the exit there). Counted: kept_<reason>, kept_flagged, kept_calendar_split (when the calendar's splits are on the grid), closed_spin - over the pool, whatever the names score). counts_only: no regression, no reaction, no score - the pools and the scored sets are counted from the existence of events and returns (the dryload). seen / cover: (T, S) bool accumulators the caller keeps (events inside the windows of pool names / every window row of a pool name)"""
+    if post_mode not in POST_MODES:
+        raise ValueError(f"post_mode {post_mode!r}: one of {POST_MODES}")
     s, E = M17.SPEC, W.ed
     look = SPEC["look"]
     uni = np.flatnonzero(W.U[f])
     rec = SimpleNamespace(r=r, f=f, x=x, nu=len(uni), nfull=0, traded=False, pool=np.zeros(0, np.int64), naive=np.zeros(0, bool), spin_win=np.zeros(0, np.int64), spin_hold=np.zeros(0, bool), res=np.zeros(0), beta=np.zeros(0),
-                          cell={c: cell0() for c in CELLS})
+                          cell={c: cell0() for c in CELLS}, close=np.zeros(0, np.int64))
     cnt = Counter()
     cnt["rebalances"] += 1
     cnt["universe"] += len(uni)
@@ -328,6 +338,7 @@ def ed_one(W, r, f, x, post_mode, units=True, counts_only=False, keep_ph=False, 
     old = W.hyg(a, lo_pre - 1, uni)[1:]                                         # gap, tbis, jump on sessions r-251 .. r-26
     post = W.hyg(r + 1, x, uni)                                                 # all four, inside the hold
     post_sp = M17.spn_hit(W, f + 1, x, uni)                                     # [D2] a spin-off / stock-dividend ex-date in f < t <= x
+    post_cs = M17.csplit_hit(W, f + 1, x, uni) if post_mode == "close" and getattr(W, "cscs", None) is not None else np.zeros(len(uni), bool)     # [HYG-S1] an announced (calendar) split ex-date in f < t <= x: counted, never a removal
     win = (W.SPN[a:r + 1][:, uni] & np.isfinite(W.Rn[a:r + 1][:, uni])).sum(axis=0)
     pre_any, old_any, post_any = pre.any(axis=0), old.any(axis=0), post.any(axis=0) | post_sp
     aud = W.aud1[f, uni]
@@ -344,11 +355,21 @@ def ed_one(W, r, f, x, post_mode, units=True, counts_only=False, keep_ph=False, 
     pool = (pool_k & ~post_any) if post_mode == "remove" else pool_k
     if post_mode == "naive":
         cnt["kept_naive"] += int((pool & post_any).sum())
+    if post_mode == "close":                                                    # [HYG-S1] the pool names with an in-hold event that STAY: flagged ones and the calendar's splits on the split-safe path, a [D2] ex-date closes the position at the close before it
+        for q, h in enumerate(HYG):
+            cnt[f"kept_{h}"] += int((pool & post[q]).sum())
+        cnt["kept_flagged"] += int((pool & post.any(axis=0)).sum())
+        cnt["kept_calendar_split"] += int((pool & post_cs).sum())
+        cnt["closed_spin"] += int((pool & post_sp).sum())
     pidx = np.flatnonzero(pool)
     cols = uni[pidx]
     rec.pool = cols
     rec.naive = post_any[pidx] if post_mode == "naive" else np.zeros(len(pidx), bool)
     rec.spin_win, rec.spin_hold = win[pidx], post_sp[pidx]
+    rec.close = np.full(len(pidx), -1, np.int64)                                 # [HYG-S1] the row each pool name closes on: the session before its first [D2] ex-date in f < e <= x (-1 = held to the exit session)
+    if post_mode == "close" and x > f and len(pidx):
+        sp_h = W.SPN[f + 1:x + 1][:, cols]
+        rec.close = np.where(sp_h.any(axis=0), f + sp_h.argmax(axis=0), -1).astype(np.int64)
     if not counts_only:
         rec.res, rec.beta = res[pidx], beta[pidx]
     if len(cols) and cover is not None:
@@ -382,7 +403,7 @@ def ed_one(W, r, f, x, post_mode, units=True, counts_only=False, keep_ph=False, 
             cc.ph = placebo_values(W, c, r, cols[sc], rec.beta[sc])
     rec.traded = any(rec.cell[c].traded for c in CELLS)
     if units and rec.traded:
-        rec.U = M17.rm_units(W, f, x, rec.pool, rec.naive)
+        rec.U = M17.rm_units(W, f, x, rec.pool, rec.naive, rec.close)
         for c in CELLS:
             if rec.cell[c].traded:
                 rec.cell[c].U = slice_units(rec.U, rec.cell[c].idx)
@@ -431,7 +452,7 @@ def cell_leg(L, cell):
 def ed_null(W, L, nreps, vcode=0):
     """the family-aware null [prereg NULL]: per draw and per rebalance the cell traded, its k longs and k shorts are replaced by the same number of names drawn uniformly without replacement from that rebalance's eligible SCORED pool (the same hygiene, sizing, fills, costs, borrow);
     each cell has its own random stream (seeds [20261005, cell, vcode]), so the MAX over the 2 cells is the better of two independent random books. r15's null_l1 draws a fixed 50 - the sides here are 50 or a third - so the draw is written out (the same draw_order, l1_pnl and
-    sizing). -> {cell: (nreps, T) P&L by stock session}"""
+    sizing; [HYG-S1] r17_resmom's l1_pnl_x = r15's l1_pnl for every path but a closed one, whose exit cost it books on the close's row). -> {cell: (nreps, T) P&L by stock session}"""
     slot, cfg = M17.SPEC["slot"], D15.l1_cfg()
     acc = {}
     for q, c in enumerate(CELLS):
@@ -442,7 +463,7 @@ def ed_null(W, L, nreps, vcode=0):
             if not cc.traded:
                 continue
             idx, kt = np.arange(cc.n), W.k[rec.f:rec.x + 1]
-            PL, PS = D15.l1_pnl(cc.U, idx, 1, cfg, kt), D15.l1_pnl(cc.U, idx, -1, cfg, kt)
+            PL, PS = M17.l1_pnl_x(cc.U, idx, 1, cfg, kt), M17.l1_pnl_x(cc.U, idx, -1, cfg, kt)
             o = D15.draw_order(rng, nreps, cc.n, 2 * cc.k)
             a[:, rec.f:rec.x + 1] += slot * (PL[o[:, :cc.k]].sum(axis=1) + PS[o[:, cc.k:]].sum(axis=1))
         acc[c] = a
@@ -482,7 +503,7 @@ def ed_placebo_null(W, L, nreps, vcode=0):
             if cc.ph is None:
                 raise ValueError("the leg was built without the placebo windows (keep_ph)")
             idx, kt = np.arange(cc.n), W.k[rec.f:rec.x + 1]
-            PL, PS = D15.l1_pnl(cc.U, idx, 1, cfg, kt), D15.l1_pnl(cc.U, idx, -1, cfg, kt)
+            PL, PS = M17.l1_pnl_x(cc.U, idx, 1, cfg, kt), M17.l1_pnl_x(cc.U, idx, -1, cfg, kt)
             lg, sh, ok = placebo_picks(cc.ph, cc.k, rng, nreps)
             g = slot * (PL[lg].sum(axis=0) + PS[sh].sum(axis=0))                        # (nreps, H)
             g[~ok] = 0.0
@@ -716,7 +737,7 @@ def gate70(c, ref, nul):
 
 def evaluate(W, B, S12, ref, rows, post_mode, nreps, vcode=0, full=False, drop=None):
     """one reading of Stage A on the WF stretch. post_mode 'remove' = the REGISTERED reading (a hygiene flag inside the hold removes the position before the ranking), 'naive' = the look-ahead variant (those positions are kept at their naive raw P&L); both run the same code, so a flip
-    between them is the data hygiene's doing. nreps > 0 draws the registered null (random names; vcode picks its random streams) and judges (a) - (e); full = also the reports' rows (the sides apart, borrow stress, -100% / shorts at zero, the regime halves) and the REPORTED placebo null [E2].
+    between them is the data hygiene's doing; 'close' = [HYG-S1] MANAGER's hygiene edit S1 (no in-hold removal; a spin-off / stock-dividend ex-date closes the position at the close before it; the null draws the same cut paths). nreps > 0 draws the registered null (random names; vcode picks its random streams) and judges (a) - (e); full = also the reports' rows (the sides apart, borrow stress, -100% / shorts at zero, the regime halves) and the REPORTED placebo null [E2].
     drop = rank sessions left out of the leg (the cell AND the null). -> (summary, objects: the leg, each cell's leg view / base run / series / side series)"""
     lo, hi = WF0, PRE_END
     L = ed_build(W, lo, hi, post_mode, drop=drop, keep_ph=bool(full and nreps))
@@ -1000,6 +1021,7 @@ def print_cells(res, audit_st=None):
 
 
 COUNT_KEYS = ("universe", "short_history", "no_es_pairs", "no_fill", "no_beta") + tuple(f"pre_{h}" for h in HYG) + tuple(f"old_{h}" for h in HYG[1:]) + tuple(f"post_{h}" for h in HYG) + ("post_spin", "audit", "pool", "kept_naive")
+KEPT_KEYS = tuple(f"kept_{h}" for h in HYG) + ("kept_flagged", "kept_calendar_split", "closed_spin")        # [HYG-S1] the pool names with an in-hold event that STAY ('close'): not removal reasons, printed apart
 
 
 def print_counts(label, cnt):
@@ -1007,6 +1029,10 @@ def print_counts(label, cnt):
     print(f"  {label} name-removals by fill year, each name counted once at its FIRST reason (columns: " + " / ".join(keys) + ")")
     for y, c in sorted(cnt.items()):
         print(f"    {y}: " + " ".join(f"{c.get(k, 0)}" for k in keys) + f"   [rebalances {c.get('rebalances', 0)}, unresolved {c.get('unresolved', 0)}, warm-up {c.get('warmup', 0)}, empty {c.get('empty', 0)}]")
+    if any(c.get(k, 0) for c in cnt.values() for k in KEPT_KEYS):
+        print(f"  {label}: pool names with an in-hold event that STAY [HYG-S1] (flagged / a calendar split: on the split-safe path; closed_spin: closed at the close before a spin-off / stock-dividend ex-date), by fill year (columns: " + " / ".join(KEPT_KEYS) + ")")
+        for y, c in sorted(cnt.items()):
+            print(f"    {y}: " + " ".join(f"{c.get(k, 0)}" for k in KEPT_KEYS))
 
 
 def print_scored(label, cnt):
@@ -1594,7 +1620,7 @@ def brute_side(n):
 
 def brute_ed(W, lo, hi, post_mode="remove", russell=None):
     """every rebalance whose position exits in [lo, hi], plain python end to end (the schedule from the months of consecutive sessions, the universe taken from W.U, the pool rules re-implemented with loops, the events by brute_kind, the reaction as a plain sum with the
-    beta from numpy's least squares): [{r, f, x, pool: {col: {beta, naive, res}}, cell: {c: {score: {col: (t, reaction)}, k, mode, long, short}}}]"""
+    beta from numpy's least squares): [{r, f, x, pool: {col: {beta, naive, res, [HYG-S1] ex = the first [D2] ex-date in the hold under 'close', else -1}}, cell: {c: {score: {col: (t, reaction)}, k, mode, long, short}}}]"""
     sp, M = SPEC, M17.SPEC
     Sp = getattr(W, "Sp_in", None)
     tf, ru = brute_mech(W.days, russell)
@@ -1618,7 +1644,8 @@ def brute_ed(W, lo, hi, post_mode="remove", russell=None):
             post = hold or any(any(D15.brute_flags(W, s, j)) for s in range(r + 1, x + 1))
             if pre or old or W.aud1[f, j] or (post and post_mode == "remove"):
                 continue
-            pool[j] = {"beta": beta, "naive": bool(post and post_mode == "naive"), "res": res}
+            ex = next((s for s in range(f + 1, x + 1) if Sp is not None and Sp[s, j]), -1) if post_mode == "close" else -1      # [HYG-S1] the first [D2] ex-date inside the hold: the position closes at the close before it
+            pool[j] = {"beta": beta, "naive": bool(post and post_mode == "naive"), "res": res, "ex": ex}
         rec = {"r": r, "f": f, "x": x, "pool": pool, "cell": {}}
         for c in CELLS:
             sc = {}
@@ -1666,9 +1693,15 @@ def nz_counts(counts):
     return {c: {k: {y: v for y, v in d.items() if v} for k, d in counts[c].items()} for c in CELLS}
 
 
+def brute_pos_ed(W, b, j, sd, **kw):
+    """one recount position's daily path per $1 (kw = bps / borrow / kt / lose100): closed at the close before its spin-off / stock-dividend ex-date [HYG-S1], or held to the exit (on the path its naive flag says)"""
+    ex = b["pool"][j]["ex"]
+    return M17.brute_close_path(W, b["f"], b["x"], j, sd, ex, **kw)[0] if ex >= 0 else M17.brute_path(W, b["f"], b["x"], j, sd, bool(b["pool"][j]["naive"]), **kw)[0]
+
+
 def compare_ed(W, L, Bz, tag, check_res=True):
-    """the vectorised build against the plain-python recount: the schedule, every pool (names, betas, RES, the naive flags), each cell's scored names with their event row, age and reaction, the mode, the picks (longs / shorts, disjoint), and the daily path of every PICKED name
-    under four costings (base, 10 bps, the 3% borrow stress with k_t, longs at -100%)"""
+    """the vectorised build against the plain-python recount: the schedule, every pool (names, betas, RES, the naive flags, [HYG-S1] the close rows), each cell's scored names with their event row, age and reaction, the mode, the picks (longs / shorts, disjoint), and the daily path of every PICKED
+    name - and of every scored name closed before a spin-off / stock-dividend ex-date, picked or not - under four costings (base, 10 bps, the 3% borrow stress with k_t, longs at -100%)"""
     assert len(L.recs) == len(Bz), (tag, len(L.recs), len(Bz))
     cfgs = (("base", D15.l1_cfg(), {}), ("10 bps", D15.l1_cfg(bps=10.0), {"bps": 10.0}), ("borrow 3%", D15.l1_cfg(borrow=(BORROW, 0.03)), {"borrow": (BORROW, 0.03), "k": True}), ("lose100", D15.l1_cfg(lose100=True), {"lose100": True}))
     n_paths = 0
@@ -1678,6 +1711,7 @@ def compare_ed(W, L, Bz, tag, check_res=True):
         assert close(rec.beta, [b["pool"][j]["beta"] for j in rec.pool]), (tag, rec.r, "beta")
         assert not check_res or close(rec.res, [b["pool"][j]["res"] for j in rec.pool]), (tag, rec.r, "RES")
         assert rec.naive.tolist() == [b["pool"][j]["naive"] for j in rec.pool], (tag, rec.r)
+        assert rec.close.tolist() == [(b["pool"][j]["ex"] - 1 if b["pool"][j]["ex"] >= 0 else -1) for j in rec.pool], (tag, rec.r, "[HYG-S1] the close rows")
         for c in CELLS:
             cc, bc = rec.cell[c], b["cell"][c]
             cols = rec.pool[cc.idx].tolist()
@@ -1693,12 +1727,18 @@ def compare_ed(W, L, Bz, tag, check_res=True):
             kt = W.k[rec.f:rec.x + 1]
             idx = np.arange(cc.n)
             for nm, cfg, kw in cfgs:
+                kw2 = {"bps": kw.get("bps", COST_BPS), "borrow": kw.get("borrow", (BORROW, None)), "kt": kt if kw.get("k") else None, "lose100": kw.get("lose100", False)}
                 for sd, js in ((1, bc["long"]), (-1, bc["short"])):
-                    P = D15.l1_pnl(cc.U, idx, sd, cfg, kt)
+                    P = M17.l1_pnl_x(cc.U, idx, sd, cfg, kt)                                          # (r15's l1_pnl + [HYG-S1]'s exit column; the cells run through it too)
                     for j in js:
-                        want, _ = M17.brute_path(W, rec.f, rec.x, int(j), sd, bool(b["pool"][j]["naive"]), bps=kw.get("bps", COST_BPS), borrow=kw.get("borrow", (BORROW, None)), kt=kt if kw.get("k") else None, lose100=kw.get("lose100", False))
-                        assert close(P[cols.index(j)], want), (tag, nm, rec.r, c, int(j), sd)
+                        assert close(P[cols.index(j)], brute_pos_ed(W, b, int(j), sd, **kw2)), (tag, nm, rec.r, c, int(j), sd)
                         n_paths += 1
+                    for i_, j in enumerate(cols):                                                      # [HYG-S1] a scored name closed before a spin-off ex-date, picked or not
+                        if b["pool"][j]["ex"] >= 0 and j not in js:
+                            assert close(P[i_], brute_pos_ed(W, b, int(j), sd, **kw2)), (tag, nm, rec.r, c, int(j), sd, "closed")
+                            n_paths += 1
+    n_close = sum(1 for b in Bz for j in b["pool"] if b["pool"][j]["ex"] >= 0)                         # [HYG-S1] the pool names closed before an ex-date (scored or not)
+    assert sum(c.get("closed_spin", 0) for c in L.cnt.values()) == n_close, (tag, "closed_spin", n_close)
     return n_paths
 
 
@@ -1710,7 +1750,7 @@ def series_check(W, L, Bz):
             bc = b["cell"][cell]
             for sd, js in ((1, bc["long"]), (-1, bc["short"])):
                 for j in js:
-                    x0[b["f"]:b["x"] + 1] += M17.SPEC["slot"] * np.array(M17.brute_path(W, b["f"], b["x"], j, sd, b["pool"][j]["naive"])[0])
+                    x0[b["f"]:b["x"] + 1] += M17.SPEC["slot"] * np.array(brute_pos_ed(W, b, j, sd))
         assert close(M17.run_cell(W, cell_leg(L, cell), D15.l1_cfg()).x, x0), f"{cell} series"
 
 
@@ -2005,7 +2045,7 @@ def toy_events(seed=1, ev_seed=7):
 def t_pipeline():
     """the vectorised builds against the plain-python recount on the toy world with the REGISTERED windows (252 / 231 / 21 / 230 / 63 / 20), both readings, three fallback settings (so that the top, third and nothing modes all occur), a hand-audit removal, the counts-only build,
     and the counts of every (session, name) pair by kind and year; then the planted cases one by one"""
-    n, modes = 0, Counter()
+    n, modes, n_closed_all = 0, Counter(), 0
     for sp in (dict(n_side=2, min_scored=8, min_side=2), dict(n_side=2, min_scored=11, min_side=2), dict(n_side=3, min_scored=9, min_side=3)):
         with spec(**sp):
             W = toy_events()
@@ -2014,12 +2054,12 @@ def t_pipeline():
             lo, hi = W.days[0], W.days[-1]
             assert brute_event_counts(W) == nz_counts(ev.counts), "the counts of every (session, name) pair by kind and year equal the recount"
             out = {}
-            for pm in ("remove", "naive"):
+            for pm in ("remove", "naive", "close"):
                 L = ed_build(W, lo, hi, pm)
                 Bz = brute_ed(W, lo, hi, pm)
                 n += compare_ed(W, L, Bz, f"toy {pm} {sp}")
                 out[pm] = L
-                if pm == "remove":
+                if pm in ("remove", "close"):
                     series_check(W, L, Bz)
                 for rec in L.recs:
                     for c in CELLS:
@@ -2029,6 +2069,16 @@ def t_pipeline():
                 assert set(a_.pool.tolist()) <= set(b_.pool.tolist()), "the look-ahead reading differs from the registered one only by the in-hold names (more names, never fewer)"
                 for c in CELLS:
                     assert a_.cell[c].n <= b_.cell[c].n
+            # [HYG-S1] the 'close' reading = the look-ahead pool itself (no in-hold removal), never on the raw path; the pool names with a [D2] ex-date inside the hold close at the close before it
+            Lc, n_cl = out["close"], 0
+            for k_, c_ in zip(Lk.recs, Lc.recs):
+                assert c_.pool.tolist() == k_.pool.tolist() and not c_.naive.any() and all(c_.cell[c].idx.tolist() == k_.cell[c].idx.tolist() for c in CELLS), (W.days[c_.r], c_.pool.tolist(), k_.pool.tolist())
+                assert ((c_.close >= 0) == c_.spin_hold).all() and all(not W.SPN[c_.f + 1:e_ + 1, j_].any() and W.SPN[e_ + 1, j_] for j_, e_ in zip(c_.pool.tolist(), c_.close.tolist()) if e_ >= 0)
+                n_cl += int((c_.close >= 0).sum())
+            assert sum(c.get("closed_spin", 0) for c in Lc.cnt.values()) == n_cl and sum(c.get("post_spin", 0) + c.get("post_calendar_split", 0) + sum(c.get(f"post_{h}", 0) for h in HYG) for c in Lc.cnt.values()) == 0, ("closed_spin", n_cl)
+            n_closed_all += n_cl
+            for y, c in Lc.cnt.items():
+                assert c["universe"] == sum(c[k_] for k_ in COUNT_KEYS[1:]), (y, dict(c))
             # the counts-only build is the same pools and scored sets, with no unit paths and no sums
             ev_c = attach_events(W, counts_only=True)
             Lc = ed_build(W, lo, hi, "remove", units=False, counts_only=True)
@@ -2048,6 +2098,7 @@ def t_pipeline():
                     assert c[f"scored_{cl}"] + c[f"no_event_{cl}"] == c["pool"] and c[f"mode_{cl}_top"] + c[f"mode_{cl}_third"] + c[f"mode_{cl}_none"] == c["rebalances"] - c.get("empty", 0), (y, cl, dict(c))
             assert (AUD, dr_(W, "2025-02-03"), 8) in W.aud_hit and Lr.cnt[2025]["audit"] >= 1 and 8 not in next(r for r in Lr.recs if W.days[r.r] == TS("2025-01-31")).pool.tolist()
     assert modes["top"] > 0 and modes["third"] > 0 and modes["none"] > 0, modes
+    assert n_closed_all >= 3, ("[HYG-S1] the toy world's spin-off / stock-dividend names inside a hold are closed", n_closed_all)
     # the planted cases through the real arrays: the mechanical days are excluded, the flagged sessions void their events, the ES-hole session voids every name's
     with spec(n_side=2, min_scored=8, min_side=2):
         W = toy_events()
@@ -2064,6 +2115,144 @@ def t_pipeline():
         L = ed_build(W, W.days[0], W.days[-1], "remove")
         assert sum(r.traded for r in L.recs) >= 6 and L.recs[0].pool.size >= 8
     return n
+
+
+def null_x0(W, L, Bz, cell, q, nr, vcode=0, placebo=False):
+    """the null's draws for one cell recounted by plain python from the stream's own draw order: every drawn name's path is brute_pos_ed's (the cut path when the name is closed before a spin-off ex-date), in $ at the slot -> (nr, T)"""
+    slot = M17.SPEC["slot"]
+    rng = np.random.default_rng([SEED_PLACEBO if placebo else SEED, q, vcode])
+    x0 = np.zeros((nr, W.T))
+    for rec, b in zip(L.recs, Bz):
+        cc = rec.cell[cell]
+        if not cc.traded:
+            continue
+        cols = rec.pool[cc.idx]
+        if placebo:
+            lg, sh, ok = placebo_picks(cc.ph, cc.k, rng, nr)
+            draws = [[(sd, [int(cols[i]) for i in ii]) for sd, ii in ((1, lg[:, d]), (-1, sh[:, d]))] if ok[d] else [] for d in range(nr)]
+        else:
+            o = D15.draw_order(rng, nr, cc.n, 2 * cc.k)
+            draws = [[(1, [int(cols[i]) for i in o[d][:cc.k]]), (-1, [int(cols[i]) for i in o[d][cc.k:]])] for d in range(nr)]
+        for d, sides in enumerate(draws):
+            for sd, js in sides:
+                for j in js:
+                    x0[d, b["f"]:b["x"] + 1] += slot * np.array(brute_pos_ed(W, b, j, sd))
+    return x0
+
+
+def t_close():
+    """[HYG-S1] MANAGER's hygiene edit S1 (#127, 2026-10-07), post_mode 'close', on EDRIFT's toy world (r17_resmom's: 450 weekdays x 14 names with every hygiene case, dividends and spin-offs planted, volume events on top): no in-hold event removes a name (the pool is the
+    look-ahead reading's, every flagged name on the split-safe path, a calendar split counted and kept), a [D2] spin-off / stock-dividend ex-date e in f < e <= x closes the position at the official close of e-1 - nothing on rows e .. x, the exit cost on that row - for the cells'
+    sides (the slices carry the exit column), the series, BOTH nulls (every draw recounted by plain python from the stream: a drawn closed name is cut too) and evaluate(); the registered 'remove' reading is untouched (no exit column anywhere, l1_pnl_x is r15's l1_pnl on its
+    units bit for bit); an unknown reading is refused"""
+    cfg0, slot = D15.l1_cfg(), M17.SPEC["slot"]
+    with spec(n_side=2, min_scored=8, min_side=2):
+        W = toy_events()
+        attach_events(W)
+        lo, hi = W.days[0], W.days[-1]
+        # ---- (1) 'remove' and 'naive' carry no exit column: l1_pnl_x IS r15's l1_pnl on their units
+        n_same = 0
+        for pm in ("remove", "naive"):
+            Lx = ed_build(W, lo, hi, pm)
+            for rec in Lx.recs:
+                assert rec.close.shape == rec.pool.shape and (rec.close == -1).all(), (pm, W.days[rec.r])
+                for c in CELLS:
+                    cc = rec.cell[c]
+                    if not cc.traded:
+                        continue
+                    assert not hasattr(rec.U, "xc") and not hasattr(cc.U, "xc"), (pm, "an exit column under a reading that cuts nothing")
+                    idx, kt = np.arange(cc.n), W.k[rec.f:rec.x + 1]
+                    for sd in (1, -1):
+                        assert np.array_equal(M17.l1_pnl_x(cc.U, idx, sd, cfg0, kt), D15.l1_pnl(cc.U, idx, sd, cfg0, kt)), (pm, W.days[rec.r], c, sd)
+                        n_same += 1
+        assert n_same >= 10, n_same
+        # ---- (2) the 02-28 rank by hand: N12's stock dividend (03-12) and N10's spin-off (04-01 = the exit session) close their positions; N09's (03-03 = the fill session) is bought ex: held
+        Lr, Lc = ed_build(W, lo, hi, "remove", keep_ph=True), ed_build(W, lo, hi, "close", keep_ph=True)
+        Bc = brute_ed(W, lo, hi, "close")
+        n_paths = compare_ed(W, Lc, Bc, "close")
+        series_check(W, Lc, Bc)
+        rec = next(r_ for r_ in Lc.recs if W.days[r_.r] == TS("2025-02-28"))
+        rem = next(r_ for r_ in Lr.recs if r_.r == rec.r)
+        assert (W.days[rec.f], W.days[rec.x]) == (TS("2025-03-03"), TS("2025-04-01")) and rec.traded and not rec.naive.any()
+        pos = {int(j): i for i, j in enumerate(rec.pool)}
+        assert {9, 10, 12} <= set(pos) and set(rem.pool.tolist()) < set(rec.pool.tolist()), "no in-hold event removes a name: the registered pool plus the names it dropped"
+        for j in set(rec.pool.tolist()) - set(rem.pool.tolist()):
+            assert W.hyg(rec.r + 1, rec.x, [j]).any() or M17.spn_hit(W, rec.f + 1, rec.x, [j])[0], (j, "only a name with an in-hold event is added")
+        e12, e10 = dr_(W, "2025-03-12"), dr_(W, "2025-04-01")
+        assert rec.close[pos[12]] == e12 - 1 and rec.close[pos[10]] == e10 - 1 == rec.x - 1 and rec.close[pos[9]] == -1 and int((rec.close >= 0).sum()) == 2, rec.close.tolist()
+        U, H = rec.U, rec.x - rec.f + 1
+        for j, e in ((12, e12), (10, e10)):
+            i, xc = pos[j], e - 1 - rec.f
+            assert U.xc[i] == xc and (U.G[i, xc + 1:] == 0).all() and (U.mk[i, xc + 1:] == 0).all() and (U.div[i, xc:] == 0).all(), j
+            assert abs(U.ve[i] - W.Ac[e - 1, j] / W.Ao[rec.f, j]) < 1e-15 and not U.st[i], j
+            assert abs(U.G[i].sum() - (U.ve[i] - 1.0 + U.div[i].sum())) < 1e-12, "the cut path sums to the close of e-1 over the entry open, plus the dividends before e"
+        assert U.xc[pos[9]] == H - 1 and U.G[pos[9], -1] != 0.0
+        c0, kt = COST_BPS * 1e-4, W.k[rec.f:rec.x + 1]
+        i, xc = pos[12], e12 - 1 - rec.f
+        PL = M17.l1_pnl_x(U, np.array([i]), 1, cfg0, kt)[0]
+        assert (PL[xc + 1:] == 0).all() and abs(PL.sum() - (U.ve[i] - 1.0 + U.div[i].sum() - c0 - c0 * U.ve[i])) < 1e-12 and D15.l1_pnl(U, np.array([i]), 1, cfg0, kt)[0][-1] != 0.0, "the exit cost is booked on the close's row, r15's l1_pnl books it on the last"
+        for c in CELLS:                                                                                 # the cells' slices carry the exit column of their names (the picks and the null read them)
+            cc = rec.cell[c]
+            assert cc.traded and np.array_equal(cc.U.xc, rec.U.xc[cc.idx]) and (cc.U.xc < H - 1).sum() == int((rec.close[cc.idx] >= 0).sum()) >= 1, c
+        # ---- (3) the counts: the names with an in-hold event STAY (the hygiene flags by reason, a calendar split), a [D2] ex-date closes; the printout shows them under 'close' only
+        cnt = sum((Counter(c_) for c_ in Lc.cnt.values()), Counter())
+        want = Counter()
+        for rc in Lc.recs:
+            fl = W.hyg(rc.r + 1, rc.x, rc.pool)
+            for q, h in enumerate(HYG):
+                want[f"kept_{h}"] += int(fl[q].sum())
+            want["kept_flagged"] += int(fl.any(axis=0).sum())
+            want["closed_spin"] += int((rc.close >= 0).sum())
+        assert all(cnt[k] == want[k] for k in KEPT_KEYS if k != "kept_calendar_split") and cnt["kept_flagged"] >= 3 and cnt["closed_spin"] >= 3 and cnt["kept_calendar_split"] == 0 and sum(cnt[k] for k in cnt if k.startswith("post_")) == 0, dict(cnt)
+        j7 = 7
+        M17.attach_calendar_splits(W, SimpleNamespace(split=pd.DataFrame({"symbol": [str(W.syms[j7])], "ex": [W.days[rec.f + 4]], "type": ["forward_split"]})))
+        Lcs, Lrs = ed_build(W, lo, hi, "close"), ed_build(W, lo, hi, "remove")
+        want_cs = sum(int(j7 in rc.pool.tolist() and W.cscs[rc.x + 1, j7] - W.cscs[rc.f + 1, j7] > 0) for rc in Lcs.recs)
+        assert sum(c_.get("kept_calendar_split", 0) for c_ in Lcs.cnt.values()) == want_cs == 1
+        assert [rc.pool.tolist() for rc in Lcs.recs] == [rc.pool.tolist() for rc in Lc.recs] and [rc.pool.tolist() for rc in Lrs.recs] == [rc.pool.tolist() for rc in Lr.recs] and not any("kept_calendar_split" in c_ for c_ in Lrs.cnt.values()), "a calendar split on the grid is counted under 'close' and moves no pool, 'remove' ignores it"
+        del W.CSPL, W.cscs
+        buf_c, buf_r = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(buf_c):
+            print_counts("L", Lc.cnt)
+        with contextlib.redirect_stdout(buf_r):
+            print_counts("L", Lr.cnt)
+        assert "STAY [HYG-S1]" in buf_c.getvalue() and "closed_spin" in buf_c.getvalue() and "STAY [HYG-S1]" not in buf_r.getvalue()
+        # ---- (4) both nulls draw the cut paths: every draw recounted by plain python from the stream; r15's l1_pnl would book the closed names' exit cost on the exit row
+        nr = 6
+        acc, accp = ed_null(W, Lc, nr, 0), ed_placebo_null(W, Lc, nr, 0)[0]
+        for q, c in enumerate(CELLS):
+            assert close(acc[c], null_x0(W, Lc, Bc, c, q, nr)), f"{c}: the random-name null's draws are the recount's cut paths"
+            assert close(accp[c], null_x0(W, Lc, Bc, c, q, nr, placebo=True)), f"{c}: so are the placebo's"
+        with patched(M17, l1_pnl_x=D15.l1_pnl):
+            wrong = ed_null(W, Lc, nr, 0)
+        assert any(not np.allclose(acc[c], wrong[c], rtol=0, atol=1e-12) for c in CELLS), "r15's l1_pnl would book the exit cost of a closed name on the last row"
+        # ---- (5) evaluate() runs the reading without a null: each cell's net is the recount's sum, the registered reading differs by the in-hold names
+        B, S12 = M17.synth_book(seed=15)
+        ref = DV.mk_ref(B)
+        rows = A13.book_rows(B, W)
+        with patched(THIS, A2_WIN=(TS("2024-12-02"), TS("2025-05-30"))):
+            res_c, obj_c = evaluate(W, B, S12, ref, rows, "close", 0, 0)
+            res_r, _obj_r = evaluate(W, B, S12, ref, rows, "remove", 0, 0)
+        assert res_c["variant"] == "close" and res_c["null"] is None and res_c["placebo"] is None and res_r["variant"] == "remove"
+        Bz = brute_ed(W, WF0, PRE_END, "close")
+        for cell in CELLS:
+            x0, n_pos = np.zeros(W.T), 0
+            for b in Bz:
+                for sd, js in ((1, b["cell"][cell]["long"]), (-1, b["cell"][cell]["short"])):
+                    for j in js:
+                        x0[b["f"]:b["x"] + 1] += slot * np.array(brute_pos_ed(W, b, j, sd))
+                        n_pos += 1
+            c = res_c["cells"][cell]
+            assert abs(c["base"]["net"] - x0.sum()) < 1e-6 and c["base"]["n_pos"] == n_pos and abs(c["base"]["net_pos"] - x0.sum()) < 1e-6 and close(obj_c.series[cell][0][rows], x0), (cell, c["base"]["net"], x0.sum())
+        assert any(abs(res_c["cells"][c]["base"]["net"] - res_r["cells"][c]["base"]["net"]) > 1e-6 for c in CELLS), "the in-hold names move the P&L in the toy world"
+        # ---- (6) a reading this family does not run is refused
+        for bad in ("keep", "closed", ""):
+            try:
+                ed_one(W, rec.r, rec.f, rec.x, bad)
+                raise AssertionError(f"post_mode {bad!r} must be refused")
+            except ValueError as e:
+                assert "one of" in str(e)
+    return n_paths
 
 
 # ------------------------------------------------------------------ the nulls: random names (registered) and the placebo in time (reported)
@@ -2127,7 +2316,7 @@ def t_nulls():
             cc = rec.cell[c]
             if cc.traded:
                 idx, kt = np.arange(cc.n), W.k[rec.f:rec.x + 1]
-                exp += slot * cc.k * float(D15.l1_pnl(cc.U, idx, 1, cfg, kt).mean(axis=0).sum() + D15.l1_pnl(cc.U, idx, -1, cfg, kt).mean(axis=0).sum())
+                exp += slot * cc.k * float(M17.l1_pnl_x(cc.U, idx, 1, cfg, kt).mean(axis=0).sum() + M17.l1_pnl_x(cc.U, idx, -1, cfg, kt).mean(axis=0).sum())
         tot = big[c].sum(axis=1)
         assert abs(tot.mean() - exp) < 4.5 * tot.std() / math.sqrt(len(tot)), (c, tot.mean(), exp, tot.std())
         assert (big[c][:, :dr_(W, "2025-01-01")] == 0).all(), "no P&L before the first fill"
@@ -3302,6 +3491,13 @@ def smoke(*a):
         assert n_hold >= 2 and n_pre >= 2, (n_hold, n_pre)
         print(f"planted cases ok through the real loaders (the cut at read, SPL / S18 / S23 / DLST, the ES hole, TBIS's lockbox row); against plain-python recounts: the event rule on {n_chk:,} name-sessions, {len(Bz_r)} rebalances in both readings "
               f"(every pool, beta, RES, event row, age, reaction, mode, pick and {n_paths:,} pick paths), the [E1] exclusions ({int(ev.tf.sum())} third Fridays, {int(ev.ru.sum())} Russell days)")
+        Bz_c, Lc_ = brute_ed(W, lo_, hi_, "close"), ed_build(W, lo_, hi_, "close")                 # [HYG-S1] MANAGER's hygiene edit S1 on the same window: no in-hold removal, a [D2] ex-date closes the position at the close before it
+        n_close_paths = compare_ed(W, Lc_, Bz_c, "smoke close")
+        series_check(W, Lc_, Bz_c)
+        n_flag_kept = sum(1 for rr_, cc_ in zip(Lr.recs, Lc_.recs) for j, d_ in flagged if rr_.r + 1 <= d_ <= rr_.x and j not in rr_.pool.tolist() and j in cc_.pool.tolist() and not cc_.naive[cc_.pool.tolist().index(j)])
+        assert n_flag_kept >= 2, n_flag_kept
+        print(f"[HYG-S1] the same {len(Bz_c)} rebalances under 'close' (MANAGER's hygiene edit S1): {sum(int((r_.close >= 0).sum()) for r_ in Lc_.recs)} pool names closed at the close before a spin-off / stock-dividend ex-date, {n_flag_kept} planted in-hold flags kept on the split-safe path, "
+              f"every pool, close row and {n_close_paths:,} path recounted by plain python")
         B, legs = A13.load_463()
         rowsB = A13.book_rows(B, W)
         # ---- 2. the dryload: COUNTS only
@@ -3605,7 +3801,7 @@ def smoke(*a):
 
 
 # ------------------------------------------------------------------ the commands
-TESTS = ("t_constants", "t_mech", "t_events", "t_reaction", "t_sides", "t_pipeline", "t_nulls", "t_e3", "t_e5", "t_path", "t_reference", "t_yardstick", "t_judge", "t_files", "t_integration", "t_stage_b_refusals", "t_cut")
+TESTS = ("t_constants", "t_mech", "t_events", "t_reaction", "t_sides", "t_pipeline", "t_close", "t_nulls", "t_e3", "t_e5", "t_path", "t_reference", "t_yardstick", "t_judge", "t_files", "t_integration", "t_stage_b_refusals", "t_cut")
 
 
 def selftest():
