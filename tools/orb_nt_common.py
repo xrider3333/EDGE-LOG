@@ -94,9 +94,10 @@ def tstat(x):
     return float(x.mean() / (x.std(ddof=1) / np.sqrt(len(x)))) if len(x) > 2 and x.std(ddof=1) > 0 else 0.0
 
 
-def evaluate(cells, null_sets, book, cal, ddd, family, report_only=()):
+def evaluate(cells, null_sets, book, cal, ddd, family, report_only=(), breadth=None):
     """cells: {name: DataFrame(date, usd, usd_stress)}; null_sets: list (N_NULL) of {name: DataFrame(date, usd)}.
-    Prints Stage A per cell and returns the pass list."""
+    breadth: optional (label, fn(W, yrs, n_per_year) -> bool) replacing bar g for a family whose prereg says so (the
+    6/9-years reading is then printed as a report). Prints Stage A per cell and returns the pass list."""
     import numpy as np
     import pandas as pd
     wf_cal = cal[(cal >= pd.Timestamp(WF[0])) & (cal <= pd.Timestamp(WF[1]))]
@@ -127,6 +128,9 @@ def evaluate(cells, null_sets, book, cal, ddd, family, report_only=()):
         t = tstat(W.usd)
         yrs = W.groupby(np.minimum(((W.date - pd.Timestamp(WF[0])).dt.days / 365.25).astype(int), 8)).usd.sum()
         yrs = yrs.reindex(range(9), fill_value=0.0)
+        nyr = W.groupby(np.minimum(((W.date - pd.Timestamp(WF[0])).dt.days / 365.25).astype(int), 8)).size()
+        nyr = nyr.reindex(range(9), fill_value=0)
+        g69 = int((yrs > 0).sum()) >= 6
         Wd = W[W.date.isin(ddi)].groupby("date").usd.sum()
         dsum = float(Wd.sum())
         dsum_x3 = float(Wd.sort_values().iloc[:-3].sum()) if len(Wd) > 3 else 0.0
@@ -151,7 +155,7 @@ def evaluate(cells, null_sets, book, cal, ddd, family, report_only=()):
             "d t + null": t >= 2.0 and t > t95,
             "e stress net": ss["net"] > 0,
             "f ex best day": sc["net"] - best_day > 0,
-            "g 6/9 years": int((yrs > 0).sum()) >= 6,
+            ("g 6/9 years" if breadth is None else breadth[0]): (g69 if breadth is None else breadth[1](W, yrs, nyr)),
             "i ex Feb-Apr 2020": x20 > 0,
             "j 2010-16": (early > 0) if early == early else True,
             "k A2 book (REPORT)": best[1] >= A2_BAR["roc"] and best[2] >= A2_BAR["sor"],
@@ -163,6 +167,8 @@ def evaluate(cells, null_sets, book, cal, ddd, family, report_only=()):
         print("   years %s | drawdown days $%.0f (ex 3 best $%.0f, null 95th $%.0f) | ex Feb-Apr 2020 $%.0f | ex 2022 $%.0f | 2010-16 %s"
               % (" ".join("%+.0fk" % (v / 1000) for v in yrs.values), dsum, dsum_x3, dd95, x20, x22,
                  "n/a (no data)" if early != early else "$%.0f" % early))
+        if breadth is not None:
+            print("   (report) the standard 6/9 WF years bar: %s; trades per WF year %s" % ("PASS" if g69 else "FAIL", " ".join(str(int(v)) for v in nyr.values)))
         print("   A2 book at c from volatility, then 0.5c, 2c (c, WF ROC, Sortino): %s" % " | ".join("%.3f: %.1f / %.3f" % r for r in a2))
         print("   BAR: %s -> %s" % (" | ".join("%s %s" % (k, "PASS" if v else "FAIL") for k, v in bars.items()),
                                     "REPORT ONLY (dilution check, cannot pass)" if name in report_only else
