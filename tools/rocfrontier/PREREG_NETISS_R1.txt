@@ -217,3 +217,27 @@ r21_netiss.py settles the points the prereg left open and adds two rules:
 - [A17] STAGE B'S FACTS. The pinned extract stops at filed 2025-06-27, so the sealed year's share facts must come from the SAME
   photographed zip (db35d36b), extracted by TV with the same tool, only after a Stage A pass, and pinned by sha256 in a dated
   addendum before Stage B reads one fact; until then Stage B refuses.
+
+POST-DATA BUG FIX ADDENDUM 4 (2026-10-07 MST - written AFTER Stage A was run and read under the reading it replaces; MANAGER
+#116 / #118 / #119, TTM's harness review #117). Disclosed as post-data: Stage A ran at 14:31 MST on 2026-10-06 under r17_resmom's
+post_mode 'remove', after MANAGER's order #116 had named that rule a look-ahead (the lane had not read its inbox); its numbers were
+read (no cell passed) and posted in the 15:00 status; MANAGER #119 declared that verdict VOID - neither dead nor alive - and no row
+of it reached main. This addendum fixes the bug and nothing else; the verdict is taken from the corrected reading only.
+- [A18] THE JUDGED READING. A name with a hygiene flag INSIDE THE HOLD (a registered split, the gap scan, TBIS, a raw gap beyond
+  +-50%) is no longer removed before the ranking - that removal used what happened after the rank. It stays in the pool and is
+  valued on the split-adjusted (split-safe) path through the hold, never the raw one (a split inside the hold would make fake
+  P&L on the raw path). Only events KNOWN AT THE RANK remove a name: an announced split (a forward / reverse / unit split ex-date
+  of the pinned corporate-actions calendar) or a [D2] spin-off / stock-dividend ex-date in f < t <= x. This is r17_resmom's
+  post_mode 'keep', the same code the RESMOM restatement uses. The random-name null draws from that kept pool; the no-dividend
+  row, the reports and Stage B read the same reading. The old 'remove' reading is printed beside it as a REPORT, without a null,
+  never the verdict; the 'naive' raw-path reading is no longer printed. Unchanged: the pinned files, the map, the scores, both
+  cells, the windows, sizes, costs, borrow, the null's draws and seeds, the A2 rule, the beta credit rule and the gate.
+- [A19] DD5 (owner rule of 2026-10-07, MANAGER #120) is printed beside every ROC @ $30k: each cell, the reference book, the
+  reference + c x the cell at c / 0.5c / 2c and the plain #463 + c x the cell - the mean depth of the 5 deepest non-overlapping
+  drawdown episodes of the same daily curve and stretch; a worst drawdown above 1.3 x DD5 is called driven by one episode.
+  Reported, never a pass condition.
+- [A20] CAVEATS STATED IN THE ROW, not fixed (TTM #117; TBIS #121): the symbol -> CIK map is built from today's tickers and
+  Alpaca's current names, so acquired large caps go unscored (ANDV, ESRX, RHT, SHPG, TSS, ARRS, AABA unmapped; RTN ambiguous) and
+  APC / STI map to the 2020s companies that reuse the tickers - a survivorship tilt in both cells and the null; the foreign-filer
+  exclusion uses every filing through 2025-06, not those known at each rank; Alpaca's daily closes can differ from the official
+  close on stress days - fills and exits are at opens, so a position's P&L is open to open and only the daily marks between move.
