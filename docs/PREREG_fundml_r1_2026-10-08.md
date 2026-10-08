@@ -95,7 +95,7 @@ universe; the book-add report over L.
   for that).
 - Expected: 3-10 net at $30k standalone; the learned lift over the composite is the open question.
 
-## Addendum 1 (2026-10-08 11:50 MST, MANAGER review #81, folded in BEFORE any power or return number)
+## Addendum 1 (2026-10-08 11:10 MST, MANAGER review #81, folded in BEFORE any power or return number)
 Computed before this addendum: the coverage-only dry load (names x months with each input; no returns, no P&L).
 1. SHARE COUNTS get the BUYBACK staleness rule: the share count S comes from a fact first filed on or before the
    session before t whose period end is within 15 months of t; otherwise market value is missing, and with it every
