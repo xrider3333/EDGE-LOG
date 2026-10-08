@@ -47,8 +47,12 @@ def provenance():
     print(json.dumps(d, indent=1))
 
 
-def extract(map_csv, symbols_file, out):
-    M = pd.read_csv(map_csv, dtype=str, keep_default_na=False)          # tickers like NA / NAN / NULL stay strings
+def extract(map_csvs, symbols_file, out, concepts=None, unit_only=None, duration_only=False):
+    """map_csvs: one or more symbol maps read as one table (e.g. the pinned map + the reviewed additions); concepts: list of
+    (taxonomy, concept), default the three share counts; unit_only: keep one unit (e.g. 'USD'); duration_only: keep facts with
+    a start date (cash-flow items are period flows)."""
+    concepts = concepts or CONCEPTS
+    M = pd.concat([pd.read_csv(m, dtype=str, keep_default_na=False) for m in map_csvs], ignore_index=True)   # NA / NAN stay strings
     M = M[M["cik"] != ""]
     if symbols_file:
         want = set(l.strip().upper() for l in open(symbols_file) if l.strip())
@@ -63,18 +67,23 @@ def extract(map_csv, symbols_file, out):
                 continue
             d = json.loads(z.read(fn)); found.add(cik)
             facts = d.get("facts", {})
-            for tax, con in CONCEPTS:
+            for tax, con in concepts:
                 units = facts.get(tax, {}).get(con, {}).get("units", {})
                 for unit, lst in units.items():
+                    if unit_only and unit != unit_only:
+                        continue
                     for f in lst:
+                        if duration_only and not f.get("start"):
+                            continue
                         if str(f.get("filed", "")) >= CUT:
                             late += 1; continue
                         rows.append((cik, sy, "%s:%s" % (tax, con), unit, f.get("val"), f.get("start"), f.get("end"), f.get("accn"),
                                      f.get("fy"), f.get("fp"), f.get("form"), f.get("filed"), f.get("frame")))
     F = pd.DataFrame(rows, columns=["cik", "symbols", "concept", "unit", "val", "start", "end", "accn", "fy", "fp", "form", "filed", "frame"])
     F.to_csv(out, index=False)
-    man = dict(built_at=datetime.datetime.now().astimezone().isoformat(timespec="seconds"), zip_sha256=sha(ZIP), map=map_csv,
-               map_sha256=sha(map_csv), symbols_file=symbols_file, symbols_file_sha256=sha(symbols_file) if symbols_file else None,
+    man = dict(built_at=datetime.datetime.now().astimezone().isoformat(timespec="seconds"), zip_sha256=sha(ZIP),
+               maps={m: sha(m) for m in map_csvs}, concepts=["%s:%s" % c for c in concepts], unit_only=unit_only,
+               duration_only=duration_only, symbols_file=symbols_file, symbols_file_sha256=sha(symbols_file) if symbols_file else None,
                ciks_requested=len(syms), ciks_found_in_zip=len(found), ciks_missing=sorted(set(syms) - found)[:500],
                rows=len(F), rows_cut_filed_on_or_after_2025_06_30=late, out=out, out_sha256=sha(out),
                per_concept={c: int(n) for c, n in F.groupby("concept").size().items()},
@@ -86,9 +95,13 @@ def extract(map_csv, symbols_file, out):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(); ap.add_argument("--provenance", action="store_true"); ap.add_argument("--map", default=MAP)
+    ap = argparse.ArgumentParser(); ap.add_argument("--provenance", action="store_true")
+    ap.add_argument("--map", action="append", help="symbol map CSV; repeat to read several as one table (default: the wide map)")
+    ap.add_argument("--concepts", default=None, help="comma list taxonomy:Concept (default: the three share counts)")
+    ap.add_argument("--unit", default=None, help="keep only this unit, e.g. USD"); ap.add_argument("--duration", action="store_true")
     ap.add_argument("--symbols", default=None); ap.add_argument("--out", default=os.path.join(RAW, "shares_asfiled_wide.csv")); a = ap.parse_args()
     if a.provenance:
         provenance()
     else:
-        extract(a.map, a.symbols, a.out)
+        cons = [tuple(c.strip().split(":", 1)) for c in a.concepts.split(",")] if a.concepts else None
+        extract(a.map or [MAP], a.symbols, a.out, cons, a.unit, a.duration)
