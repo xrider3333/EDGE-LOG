@@ -204,3 +204,17 @@ Read: cell B must earn about $69,000 a year before costs just to break even at 5
    the cell and its twin; a worst DD above 1.3 x DD5 is called "driven by one episode". The RUNBOARD row carries --wf-dd5.
 7. **MANAGER #76:** a cell that clears Stage A gets the registered WF validate in this harness (the engine has no basket
    job type) plus a book-add REPORT incremental over the RESMOM line; standalone bars decide (house line #45).
+
+## POWER LINES v2 (addendum 3 item 5: recomputed on the final data - dividends, spin-off ex-dates blanked; same seeds; committed before `run`)
+```
+data sha256 083f8c23d1d62cf7bda99d5c9a6373130c336ac605f57db5eeac832504281f6d; 1,293 symbols ever in the universe; 313 quarantined; corporate actions sha256 e5bc8487daf94a6124823bc24b6c382e9fd00237acbab81457fa42ef3b0d83a5; {'splits_listed': 1515, 'splits_within_3_days_of_a_flag': 20, 'flags': 369, 'spin_or_stock_div_ex_dates_blanked': 142}; dividends {'rows_in_universe': 22085, 'placed': 22038, 'no_split_factor': 47, 'F_not_1': 1628}
+#463 parity 93.81 / 3.816 OK; WF drawdown episodes >= 1/3 of $44,849: 28; DD days 460; DD weeks 92 (DDW r1 printed 28 / 460 / 92)
+POWER LINE - matched-risk shuffles (random books, same rule, GROSS), no cell or twin P&L read:
+  A PATTERN  (391 weekly decisions): gross WF ROC 50th -0.1  95th +10.3
+  C CRASH    (90 monthly decisions): gross WF ROC 50th -0.0  95th +9.1
+  B STATARB  (1887 daily decisions): gross WF ROC 50th +0.1  95th +10.1
+Map bar: net WF ROC @ $30k >= 15 with rho_dd <= 0.15 (or DO > 0 and rho_dd <= -0.15 for C).
+B STATARB turnover (positions only): 27.5% of the $2M gross a day; $138,008,004 traded a year -> cost $69,004/yr at 5 bps a side ($138,008 at 10 bps); avg names long / short 96.5 / 82.1
+C CRASH earner-route null (1,000 random beta-neutral books, gross): DO 50th -0.002 95th +0.209; rho_dd 5th -0.170 50th -0.005
+```
+Read: within 0.1 of the 10-05 lines in every cell; the bars stand (net WF ROC above ~10 to clear the shuffle; B pays about $69,000 a year in costs; C's earner route needs DO above +0.209).
