@@ -114,6 +114,24 @@ Dead and not re-tested:
     - It is ~0 in March 2020 by design (those were short-gamma days), so the earner route is unlikely.
     - It runs because it is cheap, not because it is likely.
 - R days among long-gamma days: 307 (schedule count). The owner gate stands: no Stage A before MANAGER relays the go.
+- **ARM B wired (harness `--parity`, `--counts`, `--power`; 2026-10-07 evening; no gamma direction read):**
+  - **Parity PASSED:** with BALANCE's noon classifier on ES, the harness reproduces BALANCE r1's published ES transfer:
+    B1 592 trades, PF 0.992; B2 378, PF 0.995. Band parity holds on 5,452 decision bars (3,868 sessions, 61 roll
+    switches). The harness asserts it and aborts on a mismatch.
+  - **Long-gamma WF sessions traded:** 922. 63 are left out: 22 roll sessions and 41 without a 15:55 bar.
+  - **B1 (PRIMARY):** 608 WF trades (67.6 a year) on 469 sessions, of which 139 are re-entries; long 247 / short 361.
+    - Per July-June year: 98, 70, 35, 66, 95, 40, 58, 85, 61. None is thin, and the counts line is MET.
+    - R days among its trade days: 147. On the 5m trading sessions R days among long-gamma days number 302 (307 on the
+      30m sessions).
+  - **B2 (neighbour):** 388 (43.1 a year); per July-June year 61, 50, 25, 40, 50, 29, 37, 58, 38. **It misses the
+    counts line on the 9-year mean**, so it can be a research row at best. As A3's neighbour it is read only as "net > 0".
+  - **Twins:** all sessions, B1 1,350; short-gamma days, B1 354. The code asserts that ARM A and ARM B never trade on the
+    same day.
+  - **ARM B power line** (coin-flip sides on B1's 608-trade schedule, seed 20261007):
+    - VOL scale (x4.111 ES): SD 10.8, minimum detectable 17.8, four in five 26.9.
+    - $30k own drawdown (x1.672): 5.0 / 8.2 / 12.5.
+  - **Clock:** a 10:00 signal-bar START stamp (BALANCE's convention, which ends at 15:25). At its close, VWAP holds 7
+    bars. The signal clock is switched only while ARM B's schedule runs, and the run asserts that it was restored.
 
 ## ONE family null (MANAGER #67)
 - Within each calendar year, the session state labels (short / long / middle) are shuffled across that year's sessions,
