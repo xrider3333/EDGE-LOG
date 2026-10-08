@@ -180,3 +180,27 @@ B STATARB turnover (positions only): 27.4% of the $2M gross a day; $137,727,611 
 C CRASH earner-route null (1,000 random beta-neutral books, gross): DO 50th -0.004 95th +0.209; rho_dd 5th -0.170 50th -0.005
 ```
 Read: cell B must earn about $69,000 a year before costs just to break even at 5 bps a side on $1M a side; cell C's earner route needs DO above +0.209.
+
+---
+
+## ADDENDUM 3 (2026-10-07 18:10 MST, before any cell or twin number) - the corporate-actions file, DD5, MANAGER #76
+1. **The file (MANAGER #68 / #69):** C:\EdgeLog\alpaca_cache\xgap\corporate_actions_wide.csv, sha256
+   e5bc8487daf94a6124823bc24b6c382e9fd00237acbab81457fa42ef3b0d83a5 (asserted in the output). It starts 2016-06-01; this
+   harness's first training target is 2017, so every target and every WF position is covered.
+2. **Dividends:** cash_dividend rows, `rate` = dollars per share AS DECLARED (raw basis); put on the split-adjusted price
+   basis by dividing by F = raw open / split-adjusted open on the ex-date (STRATEGY-BEATING #67). Dry load: 22,085 rows
+   for names ever in the universe, 22,038 placed, 47 without an F (not placed), 1,628 with F != 1.
+3. **Splits are CROSS-CHECKED, not quarantined:** the prices are split-adjusted; only the registered 369 flagged jumps are
+   quarantined (+/- 21 sessions). Quarantining every listed split would use the future (a coming reverse split marks a
+   distressed name weeks ahead) - a first patch did that and was reverted before any number. Of 1,515 listed splits,
+   20 fall within 3 days of a flag.
+4. **Spin-offs and stock dividends** (not price-adjusted): the ex-date session is blanked for that name - a position held
+   into it exits at the prior close and its P&L stops; the name is out of that day's universe and its rolling inputs go
+   missing afterwards (no look-ahead). 142 ex-dates blanked. Same data for cells, twins and nulls (RESMOM [D2] in spirit;
+   review #64 edit 1: a data event leaves the cell AND the shuffle).
+5. **Nulls recomputed on this final data:** the 10-05 power lines were drawn on prices without dividends; POWER.txt and
+   POWER2.txt are re-run on the final data (same seeds) and committed again before `run`. Both versions stay in the doc.
+6. **DD5 (MANAGER #77):** every ROC @ $30k is printed with the WF worst drawdown and DD5 (augur_engine.drawdowns.dd5) for
+   the cell and its twin; a worst DD above 1.3 x DD5 is called "driven by one episode". The RUNBOARD row carries --wf-dd5.
+7. **MANAGER #76:** a cell that clears Stage A gets the registered WF validate in this harness (the engine has no basket
+   job type) plus a book-add REPORT incremental over the RESMOM line; standalone bars decide (house line #45).
