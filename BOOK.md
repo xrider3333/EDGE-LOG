@@ -1190,6 +1190,48 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10al. Q28 R ANATOMY r1: the S1 line's drawdown days, by market state - the book harvests volatility and is weakest on a calm tape (2026-10-08, a map)
+
+**What it is.** A map, not a strategy: it runs nothing, scores no candidate and adds no looks. It is walk-forward only, and it ran before main
+from branch prereg/frontier-ranatomy-1008 (prereg LF sha256 8972ad42...; script tools/rocfrontier/r29_ranatomy.py).
+- **The days:** each of #463's WF days is classed by a state known at that day's open, built from closes strictly before the day.
+- **The four states:**
+  - ES trend: the prior close against its 200-session mean (roll-corrected ES 5m RTH master).
+  - VIX level, in WF terciles (14.3 / 19.8).
+  - VIX / VIX3M: inverted when the ratio is at or above 1.
+  - Scheduled macro day: FOMC, then CPI, then NFP.
+- **What is summed:** L's dollars, and each leg's, on R (the line's 45 episodes / 762 days) and on all days.
+- **Checks:** parity was checked first (121.06, 45 / 762), and the legs plus 0.264 x RES sum to L to the cent.
+
+| State | Days (R) | L on R | L on all days | L per day, all days | Worst leg on R |
+|---|---|---|---|---|---|
+| ES up (above its 200-session mean) | 2,113 (621) | -$625,718 | +$812,372 | +$384 | ENGU-Q -$239,878 |
+| ES down | 513 (141) | -$261,729 | +$513,279 | +$1,001 | ENGU-Q -$120,680 |
+| VIX low (<= 14.3) | 907 (303) | -$157,658 | +$237,356 | +$262 | ENGU-Q -$45,821 |
+| VIX mid | 869 (235) | -$292,367 | +$367,755 | +$423 | ENGU-Q -$124,163 |
+| VIX high (> 19.8) | 850 (224) | -$437,423 | +$720,540 | +$848 | ENGU-Q -$190,574 |
+| VIX / VIX3M inverted | 191 (43) | -$96,200 | +$212,324 | +$1,112 | ENGU-Q -$46,036 |
+| FOMC days | 71 (21) | -$59,055 | +$24,104 | +$339 | NOISE -$22,164 |
+| CPI days | 102 (28) | -$48,187 | +$61,041 | +$598 | ENGU-Q -$43,415 |
+| NFP days | 108 (29) | -$47,496 | +$90,152 | +$835 | ORB -$17,207 |
+
+Without the March 2020 episode the shapes hold. Of the inverted state's 43 R days, 19 are that episode. Per-leg tables, with and without it,
+are in C:\EdgeLog\_anatomy_cache\rocfrontier\ranatomy_r1\ranatomy.json.
+
+**Read.**
+- **The book is a volatility harvester.** Per day it earns most when the tape is stressed: in downtrends (+$1,001), at high VIX (+$848) and
+  with the term structure inverted (+$1,112). Its drawdown days in those states are large but are repaid within the same state.
+  - That is why long-volatility and inversion hedges (10w, Q12 / Q13) failed: they pay where the book already earns.
+  - The inverted state carries only 11% of R's losses.
+- **Its weak state is the calm tape.** At low VIX the book makes only +$262 a day; a third of those days are drawdown days, and 81% of all
+  R days fall in uptrends. The grind happens in quiet bull markets.
+- **Macro days are not where R lives.** ORB and NOISE lose on FOMC days, but only about $1,200 a year together, so a stand-down is not
+  worth a prereg.
+- **The shortlist (judgement; each still needs its own prereg, power line and Stage A):** a leg that EARNS ON A CALM, LOW-VIX UPTREND - for
+  example volatility-managed long index exposure (Moreira-Muir 2017), held when VIX is low and the trend is up and cut as VIX rises - is
+  the one shape the map says the book lacks. Its risk is the turn from calm to stress, which is exactly where the book already earns. A
+  crisis hedge is NOT on the list.
+
 ### 10ak. A3 LEAVE-ONE-OUT, restated on the S1 line: with RESMOM in, every one of #463's four legs pays its way (2026-10-08, a report)
 
 **What it is.** Scoping item A3, asked for by MANAGER (#121). Each adopted leg is taken out of #463, and out of the S1 line L, then read on the
