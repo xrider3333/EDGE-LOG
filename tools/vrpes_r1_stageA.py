@@ -48,6 +48,7 @@ SHIFTS = range(12, 97)
 NULL_DRAWS, SEED = 1000, 20261007
 PUB = os.path.join(HOME, "_research_cache", "public_series")
 PREREG = "docs/PREREG_vrpes_r1_2026-10-07.md"
+DRY = "--dryrun" in sys.argv          # smoke test of the Stage A code on COIN-FLIP sides per month: no real direction
 HALT_DAYS = [pd.Timestamp(d) for d in ("2020-03-09", "2020-03-12", "2020-03-16", "2020-03-18")]
 
 
@@ -87,6 +88,12 @@ def realized():
 def build():
     vix, pv, vraw = photo("VIX_History.csv", "CLOSE")
     R = realized()
+    # DROP rule (MANAGER 10-07): the photograph carries VIX rows on CME US-holiday sessions (stock market closed) from
+    # 2022 on. A holiday session ends with the 12:55 or 13:00 bar, complete from 09:30 (the CME schedule). Those VIX rows
+    # are dropped, so no VRP value is ever dated on a holiday; the holiday session's own returns stay in RV.
+    hol = R.index[(R["k0"] == 0) & R["k1"].isin([41, 42]) & (R["nbars"] == R["k1"] + 1)]
+    dropped = vix.index[vix.index.isin(hol)]
+    vix = vix[~vix.index.isin(hol)]
     A, ts = sessions("ES", "30m", "db_adj_rth")
     df = pd.DataFrame({"d": ts.normalize(), "o": np.asarray(A["open"], float), "c": np.asarray(A["close"], float)})
     g = df.groupby("d", sort=True)
@@ -125,7 +132,7 @@ def build():
     sw = pd.DatetimeIndex(pd.to_datetime(rolls["switch_et"]).dt.normalize())
     sw = sw[(sw >= pd.Timestamp(D0)) & (sw <= WF1)]
     return dict(days=days, O=O, C=C, starts=starts, ends=ends, sig=sig, used=used, series=series, vix=vix, prov=pv,
-                vraw=vraw, R=R, switches=sw, o_noadj=R["o_noadj"].reindex(days).to_numpy(),
+                vraw=vraw, R=R, switches=sw, hol=hol, vix_dropped=dropped, o_noadj=R["o_noadj"].reindex(days).to_numpy(),
                 rolls_status=rolls.loc[(pd.to_datetime(rolls["switch_et"]) <= WF1), "status"].value_counts().to_dict())
 
 
@@ -154,6 +161,8 @@ def pnl(D, months, side=None, cost=COST, roll=True):
     tr = []
     for j, m in enumerate(months):
         s = 1.0 if side is None else float(side[j])
+        if DRY and side is None:
+            s = float(np.random.default_rng(1000 + int(m)).integers(0, 2) * 2 - 1)
         e, z = D["starts"][m], D["ends"][m]
         x[e] += s * (C[e] - O[e]) * M - cost * M
         for t in range(e + 1, z + 1):
@@ -193,6 +202,8 @@ def predata(D, B, bdays, years):
         for d, r in short[short.index.year == 2020].iterrows()))
     for d in HALT_DAYS:
         print("  halt day %s inside RV: %s" % (d.date(), "YES, %d bars" % R.loc[d, "nbars"] if d in R.index else "NO"))
+    print("  VIX DROP RULE: %d CME-holiday sessions in the ES data; %d VIX rows dated on them DROPPED: %s" % (
+        len(D["hol"]), len(D["vix_dropped"]), ", ".join(str(d.date()) for d in D["vix_dropped"])))
     print("  overnight return available on %d of %d sessions; roll switches 2010-06..2025-06 by status %s" % (
         int(R["r_on2"].notna().sum()), len(R), D["rolls_status"]))
     first = D["days"][D["starts"]]
@@ -287,7 +298,9 @@ def stage_a(D, B, bdays, years):
     sha = subprocess.run(["git", "log", "-1", "--format=%h", "origin/main", "--", PREREG], capture_output=True, text=True,
                          cwd=ROOT).stdout.strip()
     print("  PREREG on main: %s last changed in %s" % (PREREG, sha or "NOT ON MAIN - STOP"))
-    if not sha:
+    if DRY:
+        print("  *** DRY RUN: coin-flip sides per month - every number below is NOISE, not a result ***")
+    elif not sha:
         return
     import balance_r1_stageA as BAL
     L = BAL.load_L(B)[0]
@@ -401,6 +414,7 @@ def main(argv):
           % (len(days), days[0].date(), days[-1].date(), pv["fetched_at"], pv["sha256"][:8], len(v), v.index[0].date(),
              v.index[-1].date()))
     print("  BOOK #463 WF parity: ROC@30k %.2f  Sortino %.3f" % (ref["roc"], ref["sort"]))
+    print("  VIX rows on CME-holiday sessions dropped (rule in ADDENDUM 1 edit 13): %d" % len(D["vix_dropped"]))
     if "--predata" in argv:
         predata(D, B, bdays, years)
         return

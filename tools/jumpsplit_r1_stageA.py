@@ -43,6 +43,7 @@ TERC, QUART = 1.0 / 3.0, 1.0 / 4.0
 NULL_DRAWS, SEED = 1000, 20261007
 AC_SWITCH = 0.10
 PREREG = "docs/PREREG_jumpsplit_r1_2026-10-07.md"
+DRY = "--dryrun" in sys.argv          # smoke test of the Stage A code on COIN-FLIP sides per session: no real direction
 PUB = os.path.join(HOME, "_research_cache", "public_series")
 STRETCHES = [("EARLY 2011-07..2016-06", EARLY0, EARLY1), ("WF", WF0, WF1),
              ("WF 2016-21", WF0, pd.Timestamp("2021-12-31")), ("WF 2022-25", pd.Timestamp("2022-01-01"), WF1)]
@@ -142,6 +143,8 @@ def side_of(D, lab, cell):
 def pnl(D, side, cost_mult=1.0):
     cost, m = ARMS[D["sym"]]
     G = D["G"]
+    if DRY:
+        side = side * (np.random.default_rng(7 if D["sym"] == "NQ" else 8).integers(0, 2, len(side)) * 2 - 1)
     x = np.zeros(len(side))
     t = np.flatnonzero(side != 0)
     if len(t):
@@ -284,7 +287,9 @@ def stage_a(Ds, B, bdays, years, RD, modes):
     sha = subprocess.run(["git", "log", "-1", "--format=%h", "origin/main", "--", PREREG], capture_output=True, text=True,
                          cwd=ROOT).stdout.strip()
     print("  PREREG on main: %s last changed in %s" % (PREREG, sha or "NOT ON MAIN - STOP"))
-    if not sha:
+    if DRY:
+        print("  *** DRY RUN: coin-flip sides per session - every number below is NOISE, not a result ***")
+    elif not sha:
         return
     import balance_r1_stageA as BAL
     L = BAL.load_L(B)[0]
@@ -392,7 +397,7 @@ def stage_a(Ds, B, bdays, years, RD, modes):
             net = (xp[g] + cost * m).sum() - (bps / 1e4 * D["G"]["open"][g, NOON] * m).sum()
             print("  cost curve %2d bps: net $%s" % (bps, format(int(net), ",")))
         path = []
-        for k in range(NOON + 5, NBAR, 6):
+        for k in (range(NOON + 5, NBAR, 6) if not DRY else []):     # reads prices directly: skipped in a dry run
             path.append(float((s[wf] * (D["G"]["close"][wf, k] - D["G"]["open"][wf, NOON]))[s[wf] != 0].mean() * ARMS[sym][1]))
         print("  event path (mean $ from the fill, 30m marks 12:25 .. 15:55): " + " ".join("%.0f" % v for v in path))
         print("  ARM %s VERDICT: %s" % (sym, verdict))
