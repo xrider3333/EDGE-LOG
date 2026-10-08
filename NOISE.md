@@ -3513,3 +3513,33 @@ live Webull NOISE leg.**
 **What it means for the live leg:** the Webull NOISE leg's expectations are the NQ backtest's, cut by about 6% per dollar
 of notional. At today's 60-share cap that is small money (about $2,400 a year). The edge per share is not the
 constraint; the size is. Records: ledger 2.93; RUNBOARD research row QQQ-CAL-R1.
+
+## NOISE on IWM r1 (run 2026-10-07 18:01 MST; scope A1, MANAGER #57 / #63 / #64 + amendment 1) - DEAD at Stage A
+
+The question: does the NOISE mechanism earn on the Russell 2000 cash session with IWM's own settings? No.
+- **The grid.** All 54 cells of the frozen NOISE_1_0 grid lose: median own ROC @ $30k -2.72, best -2.07 (lookback 20 /
+  long 1.0 / short 1.0 / stop 1.75).
+- **The crown:**
+  - 3,490 trades (388 a year), -$53,303 at 869 shares, PF 0.93, positive in 3 of 9 years;
+  - worst drawdown $85,923 vs DD5 $22,848: one long losing bleed;
+  - below the sign-flip family null (p95 7.62); every neighbour about -2.2 to -2.7;
+  - every bar fails (A1, A1b, A2, A3).
+  - (The 07:00 10-06 launch was lost to the PC sleeping; it ran when the lane reopened. Nothing changed in between.)
+- **It is not cost.** The crown is flat BEFORE cost (+$7,352 at 0 bps, ROC 0.46). The realised cost is 1.1 bps a round
+  trip, at 388 trades a year.
+- **It is not the NQ filters** (amendment 1). With both inherited filters off, the crown loses more: -$158,523, ROC
+  -3.09.
+  - The range filter ranked against under 252 sessions on 5.6% of WF sessions.
+  - Per-year notional grew from $115k to $189k a trade, so the year rows are in units, not constant dollars.
+- **Book add (report):** #463 + the leg reads 90.3 at the volatility size and 92.4 at the $30k twin, both below 93.8. The
+  leg had no trades in #463's worst drawdown. Most of March 2020 follows a top-5% range day, which the range filter
+  skips.
+- **Why - the day-structure check** (MANAGER #67, printed AFTER the verdict; the frozen harness did not have it and the
+  ask was missed before the launch; `tools/noise_iwm_r1_daystructure.py`):
+  - IWM has the trend-day break: its single-trade sessions (20.5% of trades) made +$83k.
+  - But it chops more. Only 714 of 1,473 sessions have one trade (NQ: 799 of 1,394). The multi-break sessions lose
+    $136k: first breaks -$117k, and the re-entries do not win it back (-$20k). On NQ they did.
+  - Small caps whipsaw across the noise band more often, and the losing first breaks outnumber the trend days.
+
+**Recorded dead, no variants.** Records: ledger 2.94; `tools/r37_results/noise_iwm_r1_stageA.txt`,
+`tools/r37_results/noise_iwm_r1_daystructure.txt`.

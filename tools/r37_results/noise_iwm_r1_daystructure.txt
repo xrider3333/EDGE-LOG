@@ -1,0 +1,5 @@
+NOISE on IWM r1 crown 20/1.0/1.0/1.75 - post-verdict day-structure report (MANAGER #67), WF exit dates 2016-07-01 .. 2025-06-27
+  net of cost: 3490 trades in 1473 sessions; single-trade sessions 714 (20.5% of trades) net $83,107; multi-break sessions 2776 trades net $-136,410 (first breaks $-116,874, later breaks $-19,536)
+  before cost: 3490 trades in 1473 sessions; single-trade sessions 714 (20.5% of trades) net $95,516; multi-break sessions 2776 trades net $-88,164 (first breaks $-103,683, later breaks $15,519)
+  crown trades entered 2020-03-02 .. 2020-03-27 (#463's worst WF drawdown): 0, net $0
+  crown DD5 (5 deepest daily drawdown episodes, 869 shares): $22,848; worst $85,923 (worst / DD5 3.76, driven by one episode)

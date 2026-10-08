@@ -185,10 +185,11 @@ filters mined this way are regime artifacts. The point is to name the mechanism,
 - **A6 QQQ calibration: DONE** inside MANAGER's QQQ VALIDATE r1. CAL 0.94 (#382) / 0.92 (#422): the NQ backtest is a fair
   guide. Run #485 (NOISE family on QQQ) WEAK on PBO only. See NOISE.md "NOISE on QQQ".
 - **Queue:**
-  1. A1 IWM own crown: Stage A launched 2026-10-07 18:01 MST. The 10-06 07:00 launch was lost to the PC sleeping; it
-     was relaunched on reopening, per MANAGER #67.
-  2. A2 sector funds in the order above;
-  3. A4 TLT fade;
-  4. A7 / A8 DIA and SPY controls;
-  5. A5 GLD;
-  6. A9 basket (after two families pass).
+  1. A2 sector funds in the order above (XLK first);
+  2. A4 TLT fade;
+  3. A7 / A8 DIA and SPY controls;
+  4. A5 GLD;
+  5. A9 basket (after two families pass).
+- **A1 IWM own crown: DEAD at Stage A.** Run 2026-10-07 18:01 MST: the 10-06 07:00 launch was lost to the PC sleeping and
+  was relaunched on reopening, per MANAGER #67. All 54 cells were negative, best -2.07; it is gross-flat before cost.
+  See NOISE.md "NOISE on IWM r1".

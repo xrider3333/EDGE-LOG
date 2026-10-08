@@ -1,0 +1,30 @@
+NOISE on IWM r1 - unit 869 shares (2016-06-30 close), cost $0.02 a share as traded; WF exit dates 2016-07-01 .. 2025-06-29
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816
+  grid: 54 cells, own ROC@30k median -2.72, best -2.07 at lookback 20 / long 1.00 / short 1.00 / stop 1.75; cells > 0: 0
+  family null (sign flips, 200 draws): family-max own ROC@30k p95 7.62
+  CROWN n 3490 (388/yr)  net $-53,303  PF 0.930  DD $85,923  own ROC@30k -2.07  Sortino -0.64  years + 3/9
+  neighbours (one step on one axis): -2.4, -2.4, -2.7, -2.2, -2.2
+  REPORT H1 2016-21  n  2236  net $   -17,462  PF 0.957
+  REPORT H2 2022-25  n  1254  net $   -35,840  PF 0.900
+  REPORT longs       n  1792  net $   -41,726  PF 0.895
+  REPORT shorts      n  1698  net $   -11,576  PF 0.968
+  REPORT per July-June year $: -3,997, 3,409, 23,250, -15,308, -30,416, 3,797, -498, -8,209, -25,330
+  REPORT per July-June year: trades / mean notional a trade: 2016: 482 / $114,651, 2017: 385 / $132,200, 2018: 370 / $136,303, 2019: 373 / $132,281, 2020: 437 / $165,481, 2021: 361 / $182,986, 2022: 349 / $156,423, 2023: 419 / $166,965, 2024: 314 / $188,805
+  REPORT trades a year 388; realised cost 1.1 bps of notional a round trip (median 1.2)
+  TWIN crown with both INHERITED NQ filters OFF: n 4237  net $-158,523  own ROC@30k -3.09  Sortino -1.43
+  REPORT WF sessions whose range filter had < 252 prior sessions: 127 of 2260 (5.6%)
+  REPORT cost  0 bps round trip: net $7,352  own ROC@30k 0.46
+  REPORT cost  5 bps round trip: net $-256,717  own ROC@30k -3.32
+  REPORT cost 10 bps round trip: net $-520,788  own ROC@30k -3.33
+  REPORT cost 20 bps round trip: net $-1,048,929  own ROC@30k -3.33
+  REPORT book #463 + NOISE-IWM at VOL scale          (x0.895 NQ): ROC@30k 90.26  Sortino 3.460  bootstrap p5 -24.9 (SD 8.1)
+  REPORT book #463 + NOISE-IWM at $30k own DD (twin) (x0.349 NQ): ROC@30k 92.42  Sortino 3.691  bootstrap p5 -9.8 (SD 3.4)
+  NOISE-IWM in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $0 at 1 NQ, $0 without its 3 best days; without 2020: own ROC@30k -1.23, net $-19,099
+
+  A1 own ROC@30k >= 15 or earner route (neither route), PF > 1, >= 100 and 50/yr, >= 6 of 9 years FAIL
+  A1b no-2020: the same route holds without calendar 2020                          FAIL
+  A2 crown above the sign-flip family null's p95 (prices the selection)            FAIL
+  A3 plateau: at least half the one-step neighbours keep half the crown's ROC      FAIL
+  A4 (REPORT, house line #45) vol-scale book add >= 98.50 / 3.816 with p5 > 0: no; map row for an equity-index family: about $40k a year at a $30k own drawdown (reported, not a bar)
+
+STAGE A: FAIL - recorded dead, no variants

@@ -68,3 +68,19 @@ IWM's OWN settings?
 - **Per July-June year:** the trade count and the mean notional a trade, beside the per-year dollars.
 - **At the crown:** trades a year, and the realised cost in bps of notional a round trip (total and median).
 - Unchanged: grid, null, bars, power line.
+
+## RESULT (run once, 2026-10-07 18:01 MST, after reading the inbox)
+- **Stage A: FAIL - recorded dead, no variants.**
+  - All 54 cells are negative. Crown -2.07 (20 / 1.0 / 1.0 / 1.75), 3,490 trades, PF 0.93, 3 of 9 years.
+  - Family null p95 7.62.
+  - Gross before cost +$7,352 (ROC 0.46).
+  - Twin with both inherited filters off -3.09.
+  - Book add 90.3 / 92.4 vs 93.8.
+- **Timing (disclosed):** the 07:00 2026-10-06 launch was lost to the PC sleeping (22:40 - 06:12). The run happened
+  when the lane reopened, per MANAGER #67, with nothing changed.
+- **Post-verdict report** (MANAGER #67's day-structure check, missed before the launch):
+  - single-trade sessions are 20.5% of trades and made +$83k;
+  - multi-break sessions lost $136k, and the re-entries do not win back the first breaks;
+  - DD5 $22,848 vs worst $85,923.
+- **Records:** `tools/r37_results/noise_iwm_r1_stageA.txt`, `tools/r37_results/noise_iwm_r1_daystructure.txt`; NOISE.md
+  "NOISE on IWM r1"; ledger 2.94.
