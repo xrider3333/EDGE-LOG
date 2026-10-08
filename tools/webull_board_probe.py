@@ -210,6 +210,18 @@ no-filters line in its body (WEBULL has nothing to filter). The interaction run 
 a redraw (all a reload has: the choice lives in storage only) keeps it open, a second tap closes it ('0') and a redraw keeps it closed. The step 11 run also
 draws the board in a 1680 px window, where the frame must be exactly 1320 px wide and centred, the list still the right-hand panel.
 
+KEEPS CHECKLIST (2026-10-07): the board features a checklist audit found on the page with no check to notice them breaking. HERO: the amber line
+'broker made $X of that (N book-only trades excluded)' - X and N are the box's own book_only_summary (the probe also recomputes both from the trades), 'trade'
+for one, no line at all when no trade is book-only (every plain case, every variant, plus one variant each for none and one); the chips PARITY MISMATCH
+('N PARITY MISMATCHES' / '1 PARITY MISMATCH': checked minus ok of the NinjaTrader-mirror summary) and FILLS BEHIND BACKTEST (the rolling flag), each drawn when
+its condition holds and left out when it does not, grey on a silent box (variants: 2 of 5 mismatched; the rolling flag alone; 1 mismatch + the rolling flag on a
+silent box; every other variant derives its chips from its own doc). SYSTEM fold: 'Running on <host> . one-computer check OK' with the doc's host name (the fresh
+variant and every variant that opens System), and its failing form (another computer holds the lease: the reason, never OK). ACCOUNT fold: the share check
+[data-qbrecon], its attribute, its word (OK / MISMATCH) and both share counts from positions_live (plain cases, every live-box variant, a MISMATCH variant, an
+open position). TRADE PANEL candles: every layer's own mark by its data-mk (signal bar = dashed rect, backtest fill = ring, book in / out = tick / open square,
+Webull attempts = triangle / filled square) with its hover title and its legend row, for every panel the runs open (the set is exactly what the stub fed); and a
+NETTED attempt (the stub feeds outcome NETTED): its diamond titled 'no Webull order - netted against another leg at <px>' and its legend rows.
+
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks; a retry that passes prints a FLAKE line.
 
@@ -218,8 +230,10 @@ Usage:
   python tools/webull_board_probe.py --file X.html  # gates X as if it were index.html
   python tools/webull_board_probe.py --selftest     # deliberately broken copies (MUTANTS) must
                                                     # FAIL, then the real file must PASS
+  python tools/webull_board_probe.py --selftest --only NAME[,NAME...]   # just those broken copies (no final run on the real file), each printed
+                                                    # caught / NOT caught with the probe's first two problem lines; an unknown NAME is an error
   python tools/webull_board_probe.py --selftest --jobs 1   # the same, one broken copy at a time (the default is four at a time, or fewer on a
-                                                           # small machine: 231 copies run one by one would take several hours)
+                                                           # small machine: 256 copies run one by one would take several hours)
 
 Stdlib only, plus a subprocess call to local Chrome.
 """
@@ -311,7 +325,11 @@ def _variant_docs(fixture):
     none = {'silent': None, 'keel': None, 'publish': None, 'pubgap': None, 'tickgap': None, 'noread': None}
     out.append(('fresh in the session', FRESH_NOW, base(), dict(none, today='today', top=('flat', 'WEBULL FLAT'),
                strip_has=['box updated 24 s ago', 'feed OK'], strip_lacks=['BOX SILENT'], stop='today',
-               orders='today', legtoday='TODAY', asof_has='as of 10:01:35', eq_stale=False, calendar=True)))
+               orders='today', legtoday='TODAY', asof_has='as of 10:01:35', eq_stale=False, calendar=True,
+               # keeps checklist: the box's own figures on the fixture, with the System fold open for its host line
+               system=True, broker_line='broker made -$3.98 of that (8 book-only trades excluded)', par_chip=None, fills_chip=False,
+               hostline='Running on PROBE-PC \u00b7 one-computer check OK',
+               recon=('ok', 'OK \u2014 Webull holds flat \u00b7 legs sum to flat'))))
     out.append(('5 minutes old in the session', '2026-10-05 10:08:06', base(), dict(none, silent='BOX SILENT 5 min',
                today='today', top=('stale', 'WEBULL STALE 5 min'),
                strip_has=['BOX SILENT 5 min', 'last update from the box Mon 10:03'], strip_lacks=['feed OK'],
@@ -471,7 +489,8 @@ def _variant_docs(fixture):
                                'total_open_pnl': 4.2, 'legs_net_qty': 10, 'broker_net_qty': 10, 'mismatch': False}
         return d
     out.append(('an open position', FRESH_NOW, opened(base()), dict(none, today='today', top=('open', 'WEBULL 1 OPEN'),
-               legpill='colour', live_has='now $600.52', live_lacks='last seen', openpnl='colour', unreal='colour', eq_stale=False)))
+               legpill='colour', live_has='now $600.52', live_lacks='last seen', openpnl='colour', unreal='colour', eq_stale=False,
+               recon=('ok', 'OK \u2014 Webull holds long 10 \u00b7 legs sum to long 10'))))
     # silent: no current price - 'last seen ... at' the box's time, never 'now', and the open figures grey
     out.append(('an open position, box silent 5 min', '2026-10-05 10:08:06', opened(base()), dict(none,
                silent='BOX SILENT 5 min', today='today', top=('stale', 'WEBULL STALE 5 min'), legpill='grey',
@@ -479,7 +498,9 @@ def _variant_docs(fixture):
     blk = base()
     blk['broker'].update({'effective_mode': 'PAPER', 'requested_mode': 'PAPER', 'lease_ok_to_send': False,
                           'lease_block_reason': 'lease held by another host'})
-    out.append(('a blocked book', FRESH_NOW, blk, dict(none, today='today', top=('blocked', 'WEBULL BLOCKED'), eq_stale=False)))
+    out.append(('a blocked book', FRESH_NOW, blk, dict(none, today='today', top=('blocked', 'WEBULL BLOCKED'), eq_stale=False,
+               # keeps checklist: another computer holds the lease -> the System fold's host line names the reason, never OK
+               system=True, hostline='Running on PROBE-PC \u00b7 one-computer check lease held by another host')))
     # a holiday is not a session: Thanksgiving noon with a doc written 5 min ago reads quiet, not silent
     out.append(('Thanksgiving noon, a fresh quiet doc', '2026-11-26 12:00:00',
                move_to(base('2026-11-25'), '2026-11-26 11:55:00', '2026-11-25', '2026-11-25 15:59:30', '11:45:00'),
@@ -565,6 +586,37 @@ def _variant_docs(fixture):
     # shown again away from the board: one read per 5 min at most there (each read is the whole doc), 30 s on the board
     out.append(('page shown again, HOME and the board', FRESH_NOW, base(), dict(none,
                tab='home', vp='laptop', top=('flat', 'WEBULL FLAT, checked 10:03'), visread=[0, 1, 1])))
+    # KEEPS CHECKLIST (2026-10-07): the hero's amber broker line (none / one / the fixture's eight, above), the PARITY MISMATCH and FILLS BEHIND BACKTEST chips (each drawn
+    # and left out; grey on a silent box), the Account fold's share check when Webull and the legs disagree
+    nobo = base()
+    nobo['book_only_summary'] = dict(nobo['book_only_summary'], book_only_count=0)
+    for t in nobo['trades_all']:
+        t['book_only'] = False
+    out.append(('no book-only trade', FRESH_NOW, nobo, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
+               broker_line=False)))
+    onebo = base()
+    onebo['book_only_summary'] = dict(onebo['book_only_summary'], book_only_count=1, broker_net=-1.25)
+    out.append(('one book-only trade', FRESH_NOW, onebo, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
+               broker_line='broker made -$1.25 of that (1 book-only trade excluded)')))
+    ntp = base()
+    ntp['parity'] = dict(ntp['parity'], checked=5, ok=3, failed=2, worst_err_usd=4.2, note='the NinjaTrader mirror check: 2 of 5 trades are off')
+    out.append(('NT parity: 2 of 5 mismatched', FRESH_NOW, ntp, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
+               par_chip='2 PARITY MISMATCHES', fills_chip=False)))
+    fbb = base()
+    fbb['broker_parity'] = dict(fbb['broker_parity'], board_flag=True)
+    out.append(('fills behind the backtest (rolling flag)', FRESH_NOW, fbb, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
+               par_chip=None, fills_chip=True)))
+    sbx = base()
+    sbx['parity'] = dict(sbx['parity'], checked=5, ok=4, failed=1, worst_err_usd=2.1, note='the NinjaTrader mirror check: 1 of 5 trades is off')
+    sbx['broker_parity'] = dict(sbx['broker_parity'], board_flag=True)
+    out.append(('one parity mismatch + fills behind, box silent 5 min', '2026-10-05 10:08:06', sbx, dict(none, silent='BOX SILENT 5 min',
+               today='today', top=('stale', 'WEBULL STALE 5 min'), strip_has=['BOX SILENT 5 min'], strip_lacks=['feed OK'], stop='today',
+               orders='today', legtoday='TODAY', eq_stale=True, mini_silent='Last known: OFF, as of Mon 10:03.',
+               par_chip='1 PARITY MISMATCH', fills_chip=True)))
+    shr = base()
+    shr['positions_live'] = dict(shr['positions_live'], mismatch=True, broker_net_qty=10, legs_net_qty=0)
+    out.append(('Webull holds 10 shares the legs do not', FRESH_NOW, shr, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
+               recon=('mismatch', 'MISMATCH \u2014 Webull holds long 10 \u00b7 legs sum to flat'))))
     # three key variants again in MONO at 390x844
     for nm, now, doc, ex in [o for o in out if o[0] in ("Saturday noon, Friday's doc",
                                                         "the page's own read failed, Friday's doc on Monday 08:50",
@@ -1543,6 +1595,108 @@ MUTANTS = [
      '  if(p)p.hidden=!on;',
      '',
      'a tap on Filters flips its header to open but its body stays hidden'),
+    # KEEPS CHECKLIST (2026-10-07): the hero's amber broker line, the PARITY MISMATCH / FILLS BEHIND BACKTEST chips, the System fold's host line, the Account
+    # fold's share check, the candle layers of the trade panel's chart, and a netted Webull attempt
+    ('broker-made-line-gone',
+     "const brokerLine=(brokerInfo&&brokerInfo.book_only_count>0)?(",
+     "const brokerLine=(false&&brokerInfo&&brokerInfo.book_only_count>0)?(",
+     "the hero's amber 'broker made $X of that (N book-only trades excluded)' line is never drawn"),
+    ('broker-made-wrong-figure',
+     "broker made '+qeMoney(brokerInfo.broker_net)+' of that ('",
+     "broker made '+qeMoney(brokerInfo.book_net)+' of that ('",
+     "the hero's broker line quotes the book's net instead of what the broker made"),
+    ('broker-made-line-at-zero',
+     "brokerInfo.book_only_count>0)?('<div style=\"color:var(--attn-amber)\"",
+     "brokerInfo.book_only_count>=0)?('<div style=\"color:var(--attn-amber)\"",
+     "the hero's broker line is drawn although no trade is book-only"),
+    ('broker-made-plural-wrong',
+     "' book-only trade'+(brokerInfo.book_only_count===1?'':'s')+' excluded)",
+     "' book-only trade'+'s'+' excluded)",
+     "the hero's broker line says '1 book-only trades excluded'"),
+    ('fills-behind-chip-gone',
+     "if(QBPAR&&QBPAR.board_flag)chips.push(qbChipG('FILLS BEHIND BACKTEST','var(--attn-red)'));",
+     '',
+     'the hero never shows FILLS BEHIND BACKTEST'),
+    ('fills-behind-chip-always',
+     "if(QBPAR&&QBPAR.board_flag)chips.push(qbChipG('FILLS BEHIND",
+     "if(QBPAR)chips.push(qbChipG('FILLS BEHIND",
+     'the hero shows FILLS BEHIND BACKTEST whenever the box sends a broker parity summary, flag up or not'),
+    ('parity-chip-gone',
+     "if(parFailedForHero>0)chips.push(qbChipG(parFailedForHero+' PARITY MISMATCH'+(parFailedForHero===1?'':'ES'),'var(--attn-red)'));",
+     '',
+     'the hero never shows PARITY MISMATCH'),
+    ('parity-chip-at-zero',
+     "if(parFailedForHero>0)chips.push(",
+     "if(parFailedForHero>=0)chips.push(",
+     'the hero shows 0 PARITY MISMATCHES when nothing mismatched'),
+    ('parity-chip-plural-wrong',
+     "(parFailedForHero===1?'':'ES')",
+     "''",
+     'the hero says 2 PARITY MISMATCH (no -ES) for several'),
+    ('host-line-gone',
+     "+modeRow+lossRow+sizeRow+hostRow+lastRow;",
+     "+modeRow+lossRow+sizeRow+lastRow;",
+     "the System fold has no 'Running on <host> . one-computer check' line"),
+    ('host-name-unknown',
+     "(hostTxt||'an unknown computer')",
+     "('an unknown computer')",
+     "the System fold names no computer ('an unknown computer') although the box sent its host"),
+    ('lease-check-always-ok',
+     "const leaseOk=BR.lease_ok_to_send!==false;",
+     "const leaseOk=true;",
+     "the System fold's one-computer check reads OK while another computer holds the lease"),
+    ('share-check-word-wrong',
+     "+(QPOSLIVE.mismatch?'<b>MISMATCH</b>",
+     "+(false?'<b>MISMATCH</b>",
+     "the Account fold's share check says OK when Webull and the legs disagree"),
+    ('share-check-attr-swapped',
+     "(QPOSLIVE.mismatch?'mismatch':'ok')",
+     "(QPOSLIVE.mismatch?'ok':'mismatch')",
+     "the Account fold's share check is tagged ok when it mismatches, and the reverse"),
+    ('share-check-counts-swapped',
+     "'Webull holds '+bw+' &middot; legs sum to '+lw",
+     "'Webull holds '+lw+' &middot; legs sum to '+bw",
+     "the Account fold's share check swaps the Webull share count and the legs' sum"),
+    ('netted-mark-gone',
+     "if(k==='netted')put('wb_netted',a.t,px!=null?px:ref,'diamond',",
+     "if(false)put('wb_netted',a.t,px!=null?px:ref,'diamond',",
+     'a netted Webull attempt draws no diamond on the chart'),
+    ('netted-label-wrong',
+     "'diamond','no Webull order - netted against another leg'+(px!=null?",
+     "'diamond','netted'+(px!=null?",
+     "the diamond of a netted attempt is not titled 'no Webull order - netted against another leg'"),
+    ('netted-legend-row-gone',
+     "if(k==='netted'){rows.push(item('diamond',",
+     "if(k==='netted'){return;rows.push(item('diamond',",
+     'the legend under the chart has no row for a netted Webull attempt'),
+    ('signal-layer-gone',
+     "if(mk.signal&&mk.signal.t)sigBar('signal',mk.signal.t,'signal bar');",
+     '',
+     'the signal bar is never outlined on the chart'),
+    ('fill-layer-gone',
+     "if(mk.bt_in)put('bt_in',mk.bt_in.t,num(mk.bt_in.px),'ring','backtest fill '+(num(mk.bt_in.px)!=null?num(mk.bt_in.px).toFixed(2):''),-1);",
+     '',
+     'the backtest fill ring is never drawn on the chart'),
+    ('fill-layer-wrong-shape',
+     "'ring','backtest fill '",
+     "'tick','backtest fill '",
+     "the backtest fill is drawn as the book's tick instead of its own ring"),
+    ('book-layer-gone',
+     "if(mk.book_in)put('book_in',mk.book_in.t,num(mk.book_in.px),'tick','book fill '+(num(mk.book_in.px)!=null?num(mk.book_in.px).toFixed(2):''),0);",
+     '',
+     'the book fill tick is never drawn on the chart'),
+    ('book-out-mark-gone',
+     "if(mk.book_out)put('book_out',mk.book_out.t,bOut,'sq-open','book exit '+(bOut!=null?bOut.toFixed(2):''),0,true);",
+     '',
+     'the book exit square is never drawn on the chart'),
+    ('attempt-layer-gone',
+     "(mk.wb_in||[]).forEach(a=>att(a,false));",
+     '',
+     'the Webull entry attempt is never drawn on the chart'),
+    ('attempt-exit-gone',
+     "(mk.wb_out||[]).forEach(a=>att(a,true));",
+     '',
+     'the Webull exit attempt is never drawn on the chart'),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -1881,6 +2035,12 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     r.keelLine=txt('[data-qbkeelline="NOISE"]');
     var ec=q('[data-qbeqchg]');r.eqChg=ec?ec.getAttribute('data-qbeqchg'):null;r.eqChgOp=effOp(ec);
     var rc=q('[data-qbrecon]');r.recon=rc?rc.getAttribute('data-qbrecon'):null;r.reconTxt=rc?(rc.textContent||'').replace(/\\s+/g,' ').trim():null;
+    // KEEPS CHECKLIST: the hero's note (the since line, then the amber broker line when a trade is book-only) with each child's tooltip, and the System fold's host line
+    var hn=q('#qb-hero-note');
+    r.heroNote=[].map.call(hn?hn.children:[],function(e){return (e.textContent||'').replace(/\\s+/g,' ').trim();});
+    r.heroNoteTitles=[].map.call(hn?hn.children:[],function(e){return e.getAttribute('title')||'';});
+    var hl=null;[].forEach.call(d.querySelectorAll('#qbf-system div'),function(e){if(hl===null&&!e.querySelector('div')&&/^Running on /.test((e.textContent||'').trim()))hl=(e.textContent||'').replace(/\\s+/g,' ').trim();});
+    r.hostLine=hl;
     r.opNotToday=effOp(q('[data-qbnottoday]'));
     r.opStop=effOp(q('[data-qbstop]'));
     r.opLegToday=effOp(q('[data-qblegtoday]'));
@@ -2347,6 +2507,13 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
     o.notes=tx3(ns);o.numbersText=tx3(nus);o.editable=p.querySelectorAll('textarea,input,select').length;
     o.buttons=[].map.call(as?as.querySelectorAll('button'):[],tx2);o.delBtn=as?as.querySelectorAll('button.del').length:0;o.actionsText=tx2(as);
     o.chartText=tx2(cs);o.chartDrawn=!!(cs&&cs.querySelector('.qb-sheet-candles-svg svg'));o.expand=!!(cs&&cs.querySelector('[data-qbcandlesexpand]'));
+    // KEEPS CHECKLIST: every candle layer's own mark (data-mk, its hover title, the shape element it draws), the legend rows under the chart, and what the stub fed
+    o.marks=cs?[].map.call(cs.querySelectorAll('.qb-sheet-candles-svg svg [data-mk]'),function(g){
+      var ti=g.querySelector('title'),sh=null;
+      [].forEach.call(g.children,function(c){if(!sh&&c.tagName.toLowerCase()!=='title')sh=c.tagName.toLowerCase();});
+      return {k:g.getAttribute('data-mk'),t:ti?(ti.textContent||'').trim():null,sh:sh};}):[];
+    o.legend=tx2(cs?cs.querySelector('.qb-candle-legend'):null);
+    o.fed=w.__stubFed||null;
     o.inApp=!!p.closest('#app');o.focusIn=p.contains(d.activeElement);o.bodyWide=b?b.scrollWidth>b.clientWidth+1:null;
     o.oldSheet=!!q('.qb-sheet');o.g=pgeo();
     if(hue)o.hue=pHue(p);
@@ -2370,10 +2537,12 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
     if(ei<0||ei>=bars.length)ei=null;
     if(xi<0||xi>=bars.length)xi=null;
     var px=function(k){return k==null?750:bars[k].c;};
+    var net=!!window.__stubNetted;
+    window.__stubFed={entry:ei!=null,exit:xi!=null,netted:net};
     return Promise.resolve({bars:bars,entry_idx:ei,exit_idx:xi,tf:'5m',src:'box',asof:'15:55',meta:{},
       marks:{side:String(x._side||'long'),tf:'5m',signal:{t:et,rule:'recorded'},book_in:{t:et,px:px(ei)},bt_in:{t:et,px:px(ei)},
-        wb_in:[{t:et,px:px(ei)+0.02,ok:true,sent:true,outcome:'FILLED'}],book_out:xi==null?null:{t:xt,px:px(xi)},
-        wb_out:xi==null?[]:[{t:xt,px:px(xi)+0.03,ok:true,sent:true,outcome:'FILLED'}],lines:[]}});
+        wb_in:[{t:et,px:px(ei)+0.02,ok:true,sent:!net,outcome:net?'NETTED':'FILLED'}],book_out:xi==null?null:{t:xt,px:px(xi)},
+        wb_out:xi==null?[]:[{t:xt,px:px(xi)+0.03,ok:true,sent:!net,outcome:net?'NETTED':'FILLED'}],lines:[]}});
   }
   function pStubOn(){
     var w=W();
@@ -2550,6 +2719,16 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
       if(x)x.click();
       await sleep(90);
       st.open=!!q('.lg-panel,.lg-panel-layer');st.g=pgeo();
+      await pShut();
+    });
+    // 4b. KEEPS CHECKLIST: a Webull attempt netted against another leg needs no order: the chart draws its diamond (titled) and the legend names it
+    await pStep(res,'netted',async function(st){
+      w.__stubNetted=true;
+      try{
+        st.clicked=await pOpen(T.k1);
+        st.drew=await waitFor(function(){return !!q(PNQ+' .qb-sheet-candles-svg svg');},6000);
+        st.read=pRead(false);
+      }finally{w.__stubNetted=false;}
       await pShut();
     });
     // 5. the chart glyph of a row opens the candles and not the panel
@@ -4827,6 +5006,9 @@ def _judge_tl_panel(tag, res, doc, cs, fails):
         fails.append('%s: a tap on the row of %s did not open the trade panel (row found=%s)' % (tag, pn['k1'], o.get('clicked')))
         return
     fails.extend(panel_problems('%s, open' % tag, rd, t1, doc))
+    fails.extend(panel_layer_problems('%s, open' % tag, rd))
+    if not (rd.get('fed') or {}).get('entry'):
+        fails.append("%s: the probe's own case is wrong: the stub's bars do not hold the newest trade's entry, so no candle layer can be judged" % tag)
     fails.extend(panel_geo_problems('%s, open' % tag, rd, sheet, base))
     if rd.get('role') != 'dialog' or rd.get('modal') != 'true':
         fails.append('%s: the panel is not marked role=dialog aria-modal=true (%r, %r)' % (tag, rd.get('role'), rd.get('modal')))
@@ -4881,6 +5063,14 @@ def _judge_tl_panel(tag, res, doc, cs, fails):
     elif s.get('open'):
         fails.append('%s: the close button did not close the panel' % tag)
     _panel_room(tag, 'after the close button', s.get('g'), base, fails)
+    # -- a Webull attempt netted against another leg: its diamond and its legend rows (the stub feeds outcome NETTED)
+    nt = st.get('netted') or {}
+    if not nt.get('clicked') or not nt.get('read'):
+        fails.append('%s: the panel did not open for the netted-attempt case (row found=%s)' % (tag, nt.get('clicked')))
+    else:
+        fails.extend(panel_layer_problems('%s, a netted Webull attempt' % tag, nt['read'], netted=True))
+        if not (nt['read'].get('fed') or {}).get('entry'):
+            fails.append("%s: the probe's own case is wrong: no entry on the netted case's bars, so no diamond can be judged" % tag)
     # -- the chart glyph opens the candles and not the panel
     gl = st.get('glyph') or {}
     gt = by_key.get(gl.get('key'))
@@ -4939,6 +5129,7 @@ def _judge_tl_panel(tag, res, doc, cs, fails):
             fails.append('%s: the panel did not open for %s (%s)' % (tag, k[3:], 'row found' if (v or {}).get('clicked') else 'no row'))
             continue
         fails.extend(panel_problems('%s, %s' % (tag, k[3:40]), v['read'], t, doc))
+        fails.extend(panel_layer_problems('%s, %s' % (tag, k[3:40]), v['read']))
         if theme == 'mono' and v['read'].get('hue'):
             hue = v['read']['hue']
             if hue.get('bad'):
@@ -5472,8 +5663,202 @@ def _judge_more(tag, r, sc_, trades, cutoff, fixture, fails):
         fails.append('%s: More stats Average hold reads %r with %d trades timed in the doc' % (tag, hold, len(timed)))
 
 
+# -- KEEPS CHECKLIST (2026-10-07): board features that were on the page and that no check would notice breaking ---------------------------------------
+FILLS_CHIP = 'FILLS BEHIND BACKTEST'
+PAR_CHIP_RE = re.compile(r'^\d+ PARITY MISMATCH(ES)?$')
+
+
+def expected_broker_line(doc):
+    """The amber line under the hero's since line (index.html brokerLine, from the box's book_only_summary): None when the box counts no book-only trade."""
+    sm = doc.get('book_only_summary') or {}
+    try:
+        n = int(sm.get('book_only_count') or 0)
+    except (TypeError, ValueError):
+        n = 0
+    if n <= 0:
+        return None
+    return 'broker made %s of that (%d book-only trade%s excluded)' % (qe_money(sm.get('broker_net')), n, '' if n == 1 else 's')
+
+
+def expected_par_chip(doc):
+    """The hero's PARITY MISMATCH chip (checked minus ok of the NinjaTrader-mirror summary): its text, None when it is not drawn, False when the doc has no summary to judge by."""
+    p = doc.get('parity')
+    if not isinstance(p, dict):
+        return False
+    try:
+        n = int(float(p.get('checked'))) - int(float(p.get('ok')))
+    except (TypeError, ValueError):
+        return False
+    return ('%d PARITY MISMATCH%s' % (n, '' if n == 1 else 'ES')) if n > 0 else None
+
+
+def expected_fills_chip(doc):
+    """FILLS BEHIND BACKTEST is drawn while the broker parity's rolling flag (board_flag) is up."""
+    return bool((doc.get('broker_parity') or {}).get('board_flag'))
+
+
+def expected_recon(doc):
+    """The Account fold's share check on a live box: (its data-qbrecon word, its text) from positions_live, None when the doc gives no share counts."""
+    pl = doc.get('positions_live')
+    if not isinstance(pl, dict):
+        return None
+    bq, lq = _num(pl.get('broker_net_qty')), _num(pl.get('legs_net_qty'))
+    if bq is None or lq is None:
+        return None
+
+    def word(q):
+        n = _js_round(abs(q))
+        return 'flat' if n == 0 else ('long ' if q > 0 else 'short ') + str(n)
+    bad = bool(pl.get('mismatch'))
+    return ('mismatch' if bad else 'ok',
+            '%s \u2014 Webull holds %s \u00b7 legs sum to %s' % ('MISMATCH' if bad else 'OK', word(bq), word(lq)))
+
+
+def expected_lease_ok(doc):
+    return (doc.get('broker') or {}).get('lease_ok_to_send') is not False
+
+
+def expected_host_line(doc):
+    """The System fold's host line while the one-computer check passes; None when it fails (its reason is then worded by the page)."""
+    host = str(((doc.get('lease') or {}).get('host_id')) or 'an unknown computer')
+    return ('Running on %s \u00b7 one-computer check OK' % host) if expected_lease_ok(doc) else None
+
+
+def _fixture_book_only_problems(fixture):
+    """The probe's own fixture: the box's book_only_summary must agree with its trades (the count of book-only trades, the broker's net of the rest)."""
+    sm = fixture.get('book_only_summary') or {}
+    rows = [t for t in fixture.get('trades_all') or [] if not _is_shadow(t)]
+    out = []
+    if int(sm.get('book_only_count') or 0) != sum(1 for t in rows if t.get('book_only')):
+        out.append("the probe's own fixture is inconsistent: book_only_summary counts %s book-only trades, the trades carry %d"
+                   % (sm.get('book_only_count'), sum(1 for t in rows if t.get('book_only'))))
+    broker = round(sum(qe_pnl_of(t) for t in rows if not t.get('book_only')), 2)
+    if _fin(sm.get('broker_net')) is None or abs(_fin(sm['broker_net']) - broker) > 0.005:
+        out.append("the probe's own fixture is inconsistent: book_only_summary says the broker made %s, the trades that reached it make %s" % (sm.get('broker_net'), broker))
+    return out
+
+
+def _hero_extras(tag, r, doc, fails, stale_like=False, colour=True, ex=None, sys_open=False):
+    """KEEPS CHECKLIST: the hero's amber broker line, the PARITY MISMATCH / FILLS BEHIND BACKTEST chips, the Account fold's share check and, with System
+    open, its host line - each against what the doc says. `ex` carries the literal values a variant states for itself, so a mirror that drifted cannot
+    agree with a broken page."""
+    ex = ex or {}
+    # -- the amber line: 'broker made $X of that (N book-only trades excluded)'
+    notes, titles = r.get('heroNote') or [], r.get('heroNoteTitles') or []
+    idx = [i for i, x in enumerate(notes) if x.startswith('broker made')]
+    got_line = [notes[i] for i in idx]
+    want = expected_broker_line(doc)
+    if 'broker_line' in ex and (ex['broker_line'] or None) != want:
+        fails.append("%s: the probe's own case is wrong: the doc implies the broker line %r, the variant says %r" % (tag, want, ex['broker_line']))
+    if want is None:
+        if got_line:
+            fails.append('%s: the hero shows %r although the box counts no book-only trade' % (tag, got_line))
+    elif got_line != [want]:
+        fails.append("%s: the hero's amber broker line reads %r, want %r (the broker net and the book-only count of the box's book_only_summary)"
+                     % (tag, got_line, want))
+    else:
+        n = int(doc['book_only_summary']['book_only_count'])
+        tw = '%d trade%s never reached the broker' % (n, '' if n == 1 else 's')
+        tip = titles[idx[0]] if idx[0] < len(titles) else ''
+        if tw not in tip:
+            fails.append("%s: the broker line's tooltip reads %r, want it to say %r" % (tag, tip, tw))
+    # -- the chips: each drawn when its condition holds, left out when it does not, grey on a silent box
+    flags = r.get('flags') or {}
+    pc = [k for k in flags if PAR_CHIP_RE.match(k)]
+    wp = expected_par_chip(doc)
+    if 'par_chip' in ex and ex['par_chip'] != wp:
+        fails.append("%s: the probe's own case is wrong: the doc implies the parity chip %r, the variant says %r" % (tag, wp, ex['par_chip']))
+    if wp is None and pc:
+        fails.append('%s: the hero draws %r although the NinjaTrader-mirror check has no mismatch' % (tag, pc))
+    elif wp and pc != [wp]:
+        fails.append('%s: the hero chips are %r, want %r (the mirror check: %s checked, %s ok)'
+                     % (tag, sorted(flags), wp, (doc.get('parity') or {}).get('checked'), (doc.get('parity') or {}).get('ok')))
+    wf = expected_fills_chip(doc)
+    if 'fills_chip' in ex and ex['fills_chip'] != wf:
+        fails.append("%s: the probe's own case is wrong: the doc implies FILLS BEHIND BACKTEST %s, the variant says %s" % (tag, wf, ex['fills_chip']))
+    if wf != (FILLS_CHIP in flags):
+        fails.append('%s: the hero %s the %s chip (the broker parity rolling flag is %s); chips %r'
+                     % (tag, 'lacks' if wf else 'shows', FILLS_CHIP, 'up' if wf else 'down', sorted(flags)))
+    if colour:
+        for k in pc + ([FILLS_CHIP] if FILLS_CHIP in flags else []):
+            if (flags[k] == 'grey') != stale_like:
+                fails.append('%s: the hero chip %s is drawn %s, want %s (a flag the box wrote is only as current as its doc)'
+                             % (tag, k, flags[k], 'grey' if stale_like else 'in colour'))
+    # -- the Account fold's share check (a live box; a silent box's grey line is judged with the Account flags)
+    rw = expected_recon(doc)
+    if 'recon' in ex and tuple(ex['recon']) != rw:
+        fails.append("%s: the probe's own case is wrong: positions_live implies the share check %r, the variant says %r" % (tag, rw, ex['recon']))
+    if rw is not None and not stale_like and (r.get('recon'), r.get('reconTxt')) != rw:
+        fails.append("%s: the Account fold's share check reads %r (data-qbrecon=%r), want %r (%r) from positions_live"
+                     % (tag, r.get('reconTxt'), r.get('recon'), rw[1], rw[0]))
+    # -- the System fold's host line and its one-computer check
+    if sys_open:
+        hl = r.get('hostLine')
+        wh = expected_host_line(doc)
+        if 'hostline' in ex and wh is not None and ex['hostline'] != wh:
+            fails.append("%s: the probe's own case is wrong: the doc implies the host line %r, the variant says %r" % (tag, wh, ex['hostline']))
+        want_h = ex.get('hostline') or wh
+        if want_h is not None and hl != want_h:
+            fails.append('%s: the System fold\'s host line reads %r, want %r' % (tag, hl, want_h))
+        if not expected_lease_ok(doc) and (hl or '').endswith('one-computer check OK'):
+            fails.append('%s: the System fold says the one-computer check is OK while another computer holds the lease (%r)' % (tag, hl))
+        if hl is None:
+            fails.append('%s: the System fold has no "Running on <host> . one-computer check" line' % tag)
+
+
+# the candle layers a trade's panel chart draws, by data-mk: (hover title, the shape element, the legend row's start, what it is)
+PN_LAYERS = {
+    'signal': (re.compile(r'^signal bar$'), 'rect', 'signal bar ', 'the signal bar'),
+    'bt_in': (re.compile(r'^backtest fill \d+\.\d\d$'), 'circle', 'backtest in ', 'the backtest fill'),
+    'book_in': (re.compile(r'^book fill \d+\.\d\d$'), 'line', 'book in ', 'the book fill'),
+    'wb_in': (re.compile(r'^Webull fill \d+\.\d\d$'), 'path', 'Webull in ', 'the Webull entry attempt'),
+    'book_out': (re.compile(r'^book exit \d+\.\d\d$'), 'rect', 'book out ', 'the book exit'),
+    'wb_out': (re.compile(r'^Webull exit \d+\.\d\d$'), 'rect', 'Webull out ', 'the Webull exit attempt'),
+    'wb_netted': (re.compile(r'^no Webull order - netted against another leg at \d+\.\d\d$'), 'path', 'no Webull order ', 'a netted Webull attempt'),
+}
+
+
+def panel_layer_problems(tag, o, netted=False):
+    """KEEPS CHECKLIST: one open panel's chart draws each candle layer's own mark - signal bar, backtest fill, book in / out, the Webull attempts (or the diamond
+    of a NETTED one) - exactly the marks the stub fed that fall on its bars, each with its hover title, its shape and its legend row."""
+    if not o.get('chartDrawn'):
+        return []             # panel_problems already says the chart never drew
+    fed = o.get('fed') or {}
+    wb = 'wb_netted' if netted else None
+    want = (['signal', 'bt_in', 'book_in', wb or 'wb_in'] if fed.get('entry') else []) + (['book_out', wb or 'wb_out'] if fed.get('exit') else [])
+    got = o.get('marks') or []
+    bad = []
+    if bool(fed.get('netted')) != bool(netted):
+        bad.append("the probe's own case is wrong: the stub fed netted=%s, the case wants %s" % (fed.get('netted'), netted))
+    if sorted(m.get('k') or '' for m in got) != sorted(want):
+        bad.append('the chart draws the layers %r, want %r (signal bar, backtest fill, book in / out, Webull attempts%s)'
+                   % (sorted(m.get('k') or '' for m in got), sorted(want), ' - the attempt netted' if netted else ''))
+    for m in got:
+        spec = PN_LAYERS.get(m.get('k'))
+        if spec is None:
+            continue
+        if not spec[0].match(m.get('t') or ''):
+            bad.append('%s is titled %r (want %s)' % (spec[3], m.get('t'), spec[0].pattern))
+        if m.get('sh') != spec[1]:
+            bad.append('%s is drawn as <%s>, want <%s>' % (spec[3], m.get('sh'), spec[1]))
+    legend = o.get('legend') or ''
+    for k in sorted(set(want)):
+        spec = PN_LAYERS[k]
+        if netted and k == 'wb_netted':
+            rows = (['no Webull order in '] if fed.get('entry') else []) + (['no Webull order out '] if fed.get('exit') else [])
+        else:
+            rows = [spec[2]]
+        for rw in rows:
+            if rw not in legend:
+                bad.append('the legend under the chart has no row for %s (%r missing from %r)' % (spec[3], rw, _first(legend, 160)))
+    if netted and want and 'netted against another leg' not in legend:
+        bad.append('the legend does not say the attempt was netted against another leg (%r)' % _first(legend, 160))
+    return ['%s: %s' % (tag, x) for x in bad]
+
+
 def _judge(data, fixture):
     fails, notes, unfinished = [], [], []
+    fails.extend(_fixture_book_only_problems(fixture))
     why = data.get('why')
     if data.get('renderApp') != 'function':
         return (INCONCLUSIVE, ['app did not boot (renderApp=%s); see preflight_boot' % data.get('renderApp')],
@@ -5572,6 +5957,7 @@ def _judge(data, fixture):
         if not r.get('top') or r['top'][0] != 'flat':
             fails.append('%s: the top bar WEBULL chip reads %r, want FLAT' % (nm, r.get('top')))
         _topbox(nm, r, fails)
+        _hero_extras(nm, r, fixture, fails, colour=cfg['theme'] == 'dark')
     _judge_variants(data, fixture, fails, unfinished, why)
     _judge_tl(data, fixture, fails, unfinished, why)
     got_st = data.get('stats') or {}
@@ -5897,6 +6283,9 @@ def _judge_variants(data, fixture, fails, unfinished, why):
             if ex.get(key) and r.get(key if key != 'openpnl' else 'openPnl') != ex[key]:
                 fails.append("%s: the NOISE row's %s is drawn %s, want %s"
                              % (tag, what, r.get(key if key != 'openpnl' else 'openPnl'), ex[key]))
+        # keeps checklist: the hero's broker line and chips, the Account share check, the System host line
+        _hero_extras(tag, r, _doc, fails, stale_like=stale_like, colour=ex.get('theme', 'dark') == 'dark', ex=ex,
+                     sys_open=bool(ex.get('system') or ex.get('ordmode')))
 
 
 def _report(t0, attempt, may_retry, chrome, alt_index, fixture):
@@ -5961,7 +6350,7 @@ def _selftest_one(path):
             return INCONCLUSIVE, ['probe process failed: %s' % e]
         if r.returncode != INCONCLUSIVE:     # a page that did not boot on a busy box gets one more try
             break
-    return r.returncode, (r.stdout or '').strip().splitlines()[:3]
+    return r.returncode, (r.stdout or '').strip().splitlines()[:4]
 
 
 def selftest(jobs=1, only=None):
@@ -5975,7 +6364,13 @@ def selftest(jobs=1, only=None):
     bad = []
     try:
         built = []
-        only_set = set(only.split(',')) if only else None
+        only_set = set(n.strip() for n in only.split(',') if n.strip()) if only else None
+        if only_set is not None:
+            unknown = sorted(only_set - set(m[0] for m in MUTANTS))
+            if unknown:
+                print('SELFTEST: ERROR -- --only names no such mutant: %s (the names are the first item of each MUTANTS entry in tools/webull_board_probe.py)'
+                      % ', '.join(unknown))
+                return FAIL
         for name, anchor, repl, why in MUTANTS:
             if only_set is not None and name not in only_set:
                 continue
@@ -5996,7 +6391,11 @@ def selftest(jobs=1, only=None):
                 for f in _cf.as_completed(futs):
                     name, why = futs[f]
                     code, head = f.result()
-                    print('-- mutant %s (%s): expect FAIL -> exit %d: %s' % (name, why, code, (head[0] if head else '')[:200]))
+                    if only_set is not None:
+                        print('-- mutant %s (%s): %s (exit %d): %s' % (name, why, 'caught' if code == FAIL else 'NOT caught', code,
+                                                                       ' | '.join(h.strip()[:230] for h in head[:3] if h.strip())))
+                    else:
+                        print('-- mutant %s (%s): expect FAIL -> exit %d: %s' % (name, why, code, (head[0] if head else '')[:200]))
                     if code != FAIL:
                         bad.append('mutant %s was NOT caught (exit %d) -- the gate has gone blind to: %s' % (name, code, why))
         else:
@@ -6005,6 +6404,8 @@ def selftest(jobs=1, only=None):
                 code = main(['--file', path, '--no-retry'])
                 if code == INCONCLUSIVE:     # a page that did not boot on a busy box gets one more try
                     code = main(['--file', path, '--no-retry'])
+                if only_set is not None:
+                    print('   -> mutant %s: %s (exit %d)' % (name, 'caught' if code == FAIL else 'NOT caught', code))
                 if code != FAIL:
                     bad.append('mutant %s was NOT caught (exit %d) -- the gate has gone blind to: %s' % (name, code, why))
         if not only_set:
@@ -6041,6 +6442,8 @@ def main(argv=None):
     ap.add_argument('--jobs', type=int, default=0,
                     help='with --selftest: how many broken copies to run side by side (default: 4, or fewer on a small machine; 1 = one by one)')
     args = ap.parse_args(argv)
+    if args.only is not None and not args.selftest:
+        ap.error('--only needs --selftest')
     if args.selftest:
         return selftest(args.jobs if args.jobs > 0 else min(4, max(1, (os.cpu_count() or 2) // 3)), args.only)
     t0 = time.time()
@@ -6060,4 +6463,10 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
+    try:   # any Chrome this run starts dies with it, however the run ends (tools/kill_on_exit.py)
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import kill_on_exit
+        kill_on_exit.install()
+    except Exception:
+        pass
     sys.exit(main())
