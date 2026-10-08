@@ -138,3 +138,20 @@ return.
   - Holiday and early-close sessions have no 15:25 / 15:30 / 15:55 bars, so they never trade.
   - The ES master's data hole on 2020-02-28 (bars only to 10:55) drops that ES afternoon. It is a stress day, and it
     is lost to the data.
+
+## Addendum 3 (2026-10-08 11:05 MST, before any return) - MANAGER rulings #51 / #52
+
+- **Addendum 1 is accepted (#51 a), with one addition:** breadth is counted over the walk-forward years that hold
+  >= 10 of the cell's trades, and two thirds of them must be positive. **If fewer than 5 years qualify, bar (g) is
+  UNDECIDABLE, which counts as NOT a pass.**
+- **The NQ and ES VIX cells are ONE test (#51 b):**
+  - they take one multiple-testing slot and are reported as a pair, with one verdict line for the pair;
+  - the family null still takes the max over all four cells, which is the more conservative reading;
+  - a pass on one VIX market and not the other is reported as such, never as two confirmations.
+- **Addendum 2 is accepted (#52).**
+- **Run before main (#52):**
+  - this file and the harness are pushed first to origin as the branch `prereg/orb-latestress-r1`, which witnesses the
+    timestamp off this PC;
+  - this file's LF sha256 goes to MANAGER before the run, and the harness checks it at start and prints it;
+  - Stage A only: walk-forward only, lockbox unread, verdicts only as this file and its addenda state;
+  - the main ship stays queued as the permanent record.

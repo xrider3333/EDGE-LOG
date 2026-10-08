@@ -1,6 +1,7 @@
 """
 LATESTRESS r1 - last-half-hour momentum on STRESS days, NQ and ES. STAGE A, walk-forward only.
-Pre-registration: docs/PREREG_orb_latestress_r1_2026-10-07.md (+ addendum 2: holiday VIX rows dropped; addendum 1: bar g = two thirds of the WF years
+Pre-registration: docs/PREREG_orb_latestress_r1_2026-10-07.md (+ addendum 3: <5 qualifying years = UNDECIDABLE, VIX pair = one test; addendum 2: holiday VIX rows dropped;
+addendum 1: bar g = two thirds of the WF years
 holding >= 10 trades; the 6/9 reading printed as a report). Scope rank 1, docs/SCOPE_ORB_2026-10-05.md.
 Run from the shared checkout:
 
@@ -24,6 +25,8 @@ STRESS = 0.25
 VIX_CSV = "C:/EdgeLog/_research_cache/public_series/cboe/VIX_History.csv"
 SEED = 20261007
 SMOKE = "--smoke" in sys.argv
+PREREG = "PREREG_orb_latestress_r1_2026-10-07.md"
+PREREG_SHA = "09c2997f23c83de98a99cc17578ce95f4ef23403f41dafd501f74036bb981e81"
 
 
 def cme_holiday_days():
@@ -97,10 +100,26 @@ def market_rows(mk, mult, cost, t1):
     return T
 
 
+def check_prereg():
+    """MANAGER #52: the run checks the prereg's LF sha256 (posted to MANAGER before the run) and prints it."""
+    import hashlib
+    here = os.path.dirname(os.path.abspath(__file__))
+    for p in (os.path.join(here, "..", "docs", PREREG), os.path.join(C.ROOT, "docs", PREREG)):
+        if os.path.exists(p):
+            h = hashlib.sha256(open(p, "rb").read().replace(b"\r\n", b"\n")).hexdigest()
+            print("PREREG %s LF sha256 %s -> %s" % (PREREG, h, "MATCH" if h == PREREG_SHA else "MISMATCH - stop"))
+            if h != PREREG_SHA and not SMOKE:
+                sys.exit(3)
+            return
+    print("PREREG file not found - stop")
+    sys.exit(3)
+
+
 def main():
     import numpy as np
     import pandas as pd
     from augur_engine.drawdowns import dd5
+    check_prereg()
 
     book, cal = C.book463(), C.session_calendar()
     ddd = C.drawdown_days(book)
@@ -144,9 +163,13 @@ def main():
                 pick.extend(rng.choice(cand, size=min(n, len(cand)), replace=False))
             ns[name] = P.iloc[sorted(pick)]
         nulls.append(ns)
-    def breadth_10(W, yrs, nyr):          # addendum 1: two thirds of the WF years holding >= 10 of the cell's trades
+    def breadth_10(W, yrs, nyr):          # addendum 1 + 3: two thirds of the WF years holding >= 10 of the cell's trades
         held = nyr[nyr >= 10].index
-        return len(held) > 0 and float((yrs.reindex(held) > 0).mean()) >= 2.0 / 3.0
+        if len(held) < 5:
+            return False, "UNDECIDABLE (%d qualifying WF years < 5) = NOT a pass" % len(held)
+        pos = int((yrs.reindex(held) > 0).sum())
+        ok = pos / len(held) >= 2.0 / 3.0
+        return ok, "%s (%d of %d qualifying WF years positive)" % ("PASS" if ok else "FAIL", pos, len(held))
 
     passes = C.evaluate(cells, nulls, book, cal, ddd, "LATESTRESS",
                         breadth=("g 2/3 of WF years with >= 10 trades", breadth_10))
@@ -183,6 +206,10 @@ def main():
         print("\n(reported, SEEN as ledger 2.14) %s ALL days: %d trades, $%+.0f, mean $%+.1f, t %.2f"
               % (mk, len(W), W.usd.sum(), W.usd.mean(), C.tstat(W.usd)))
         print("(reported) %s T1 and T2 together: %d trades, $%+.0f, t %.2f" % (mk, len(both), both.usd.sum(), C.tstat(both.usd)))
+    print("\nVIX PAIR (one test, addendum 3): NQ T1 %s | ES T1 %s" % ("PASS" if "NQ T1" in passes else "FAIL",
+                                                                      "PASS" if "ES T1" in passes else "FAIL"))
+    print("DAY-MOVE cells: NQ T2 %s | ES T2 %s" % ("PASS" if "NQ T2" in passes else "FAIL",
+                                                  "PASS" if "ES T2" in passes else "FAIL"))
     print("\nLATESTRESS verdict: %s" % ("PASS: %s" % ", ".join(passes) if passes else "DEAD at Stage A (0 of 4 cells)"))
 
 
