@@ -2,7 +2,7 @@
 # ACCEPTED BEFORE the rank are inputs. Cell M (MONTHLY): at each month-end rank long the universe names DUE next month (a predicted date in the next month's sessions), short the names not due, each side min($200,000, $10,000 x its count) split
 # equally [E8], fewer than 8 names on a side = no trade; fill at the next open, hold to the next fill (RESMOM's engine). Cell W (EVENT WINDOW): $4,000 long from the official open of the 3rd session before each predicted date p to the official open of
 # the 2nd session after it, short ES by the name's ex-ante OLS beta over the 252 sessions before the entry (252 ES pairs required [E9]; 0.5 bps a side on the hedge). A leg for BOOK #463 that must clear the STANDALONE bars (MANAGER #56) and is reported
-# INCREMENTALLY over the S1-restated reference L = #463 + 0.264 x RES [E17]. Pre-registered: tools/rocfrontier/PREREG_EAP_R1.txt (canonical LF sha256 ccf8c039...d29b = DRAFT v1 + PRE-DATA ADDENDA 1 [E1]-[E18] and 2 [E19]-[E21], which override the draft wherever they differ).
+# INCREMENTALLY over the S1-restated reference L = #463 + 0.264 x RES [E17]. Pre-registered: tools/rocfrontier/PREREG_EAP_R1.txt (canonical LF sha256 2528a420...2c34 = DRAFT v1 + PRE-DATA ADDENDA 1 [E1]-[E18], 2 [E19]-[E21], 3 [E22]-[E24] and 4 [E25]-[E26], which override the draft wherever they differ).
 # Every rule, threshold, window and cost below is that file; where it is silent the choice is marked CHOICE.
 # EAP is RESMOM r1's sibling in the same lane on the same data: r17_resmom.py is imported, never copied and never edited (its loaders, the pinned wide corporate-actions calendar, the dividend / spin-off arrays, the monthly schedule, the unit paths with the
 # dividends and hygiene edit S1's 'close' cut (rm_units / close_units / l1_pnl_x), the A2 volatility rule, the book checks, the refusals) and through it r15_ddw.py (World, universe, cell statistics, seat, draw_order); r18_divrun.py is imported for the REFERENCE
@@ -44,10 +44,12 @@ THIS = sys.modules[__name__]
 OUT_DEFAULT = r"C:\EdgeLog\_anatomy_cache\rocfrontier\eap_r1"
 OUT = os.environ.get("EDGELOG_EAP_R1", OUT_DEFAULT)                                                       # results, outside git
 PREREG = os.path.join(HERE, "PREREG_EAP_R1.txt")
-PREREG_SHA = "7887f3fc618dec559f779455f57d054bc62d3032d820d63371a3967f3393f1b6"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDA 1 ([E1]-[E18]), 2 ([E19]-[E21], the [E4] list pinned) and 3 ([E22]-[E24], the lead's review of this harness); supersedes ccf8c039
+PREREG_SHA = "2528a42065e03694b97411614bcf9dd5a746adef80062c8b07fd7773f2a72c34"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDA 1 ([E1]-[E18]), 2 ([E19]-[E21], the [E4] list pinned), 3 ([E22]-[E24], the lead's review of this harness) and 4 ([E25]-[E26], MANAGER #141); supersedes 7887f3fc
 WF0, PRE_END, LB0, LB1 = M17.WF0, M17.PRE_END, M17.LB0, M17.LB1          # WF = positions EXITED 2016-07-01 .. 2025-06-29; LB = exits 2025-06-30 .. 2026-06-30 INCLUSIVE; cuts: S.LB0 / S.END
 BOOK_WF, BOOK_LB, DEEPEST_WF = M17.BOOK_WF, M17.BOOK_LB, M17.DEEPEST_WF
 NREP, SEED, SEED_SHIFT = 500, 20261019, 20261020                         # the random-name null (both cells) and [E11] W's time-shift null
+E5_WAIVER = {"by": "MANAGER #141", "years": ("2016-17",), "addendum": "[E25]"}     # [E25] the [E5] stop FIRED (recall 79.8% in the partial first WF year 2016-17): a RECORDED waiver - Stage A goes on ONLY when every failing July-June year is in it; a recall under 80% in any other year still stops
+SENS_FROM = TS("2017-07-01")             # [E25] the SENSITIVITY: Stage A again with 2016-17 dropped (the positions / events entered and the days before 2017-07-01 left out); the STRICTER of the two verdicts governs
 CELLS = ("M", "W")                                                       # the family: 2 cells
 YEARS = D15.YEARS                                                        # the nine July-June WF years 2016-17 .. 2024-25
 SUBPERIODS = DV.SUBPERIODS                                               # the halves 2016-07-01 .. 2021-12-31 and 2022-01-01 .. 2025-06-29 (the prereg's '2016-21 / 2022-25')
@@ -85,8 +87,8 @@ SPEC = {"pred_days": 364,        # [P] p = the acceptance date + 364 days (the s
         "pair_days": 50,         # [E3] two releases predicting dates less than 50 days apart: the LATER counts
         "side_usd": 200000.0, "name_cap": 10000.0, "min_side": 8,       # M: a side's dollars = min($200,000, $10,000 x its count) [E8], split equally; fewer than 8 names on a side = no trade
         "w_slot": 4000.0, "w_pre": 3, "w_post": 2,                      # W: $4,000 from the open of p - 3 sessions to the open of p + 2 sessions
-        "beta_win": 252, "beta_need": 252,                              # [E9] W's beta: OLS with an intercept over the 252 sessions before the entry, ALL 252 pairs present (no zero fallback)
-        "m_beta_need": 230,                                             # [E13] M's ex-ante betas: CHOICE RESMOM's regression convention (sessions r-251 .. r, >= 230 pairs) - every universe name has them by the universe's own rule
+        "beta_win": 252, "beta_need": 252,                              # [E9] / [E26] W's beta: OLS with an intercept over the 252 most recent sessions before the entry ON WHICH ES HAS A RETURN (reaching back past ES's own holes), the name's own return on ALL 252 (no zero fallback)
+        "m_beta_need": 230,                                             # [E13] / [E26] M's ex-ante betas: CHOICE RESMOM's regression convention (>= 230 of the name's returns) over the 252 most recent ES-defined sessions to the rank close - every universe name has them by the universe's own rule
         "shift_lo": 27, "shift_hi": 36,                                 # [E11] the time-shift null: the whole window moves back by 27 .. 36 sessions, uniform, per event and draw
         "near": (3, 7),                                                 # [E5] precision: predicted dates within +-3 / +-7 sessions of an actual release
         "recall_stop": 0.80,                                            # [E5] recall below 80% in any WF July-June year: the run STOPS before any P&L
@@ -611,7 +613,8 @@ def member_matrix(W, mem, months, cikcol, ndx):
 def attach_eap(W, calf, mp, mem, pred=None, counts_only=False):
     """everything the cells read besides the World's own arrays -> W.ea: the release table (on the World's sessions), each column's CIK and join code, the CIK -> members-file tickers, the membership on the 1st of every rank's month, the running counts of
     split-safe returns / ES pairs, the 20-session raw dollar volume [E1], the rolling 252-session OLS beta of every name on ES (counts_only: the pair counts only - the dryload computes no regression), the ranks (r17_resmom's month-end schedule), and per rank the
-    universe, its first-reason counts, [E1]'s dropped classes and the DUE flags; the W event candidates. The audit's data events (none until apply_audit)"""
+    universe, its first-reason counts, [E1]'s dropped classes and the DUE flags; the W event candidates. The audit's data events (none until apply_audit). [E26] the betas are read over the sessions on which ES has a return (ea.es_idx; ea.cfc = each name's running count of
+    its own returns over them; ea.beta row q = the slope over the 252 ES-defined sessions es_idx[q - 251] .. es_idx[q])"""
     T, S_ = W.T, W.S
     ea = SimpleNamespace(counts_only=bool(counts_only), pred=pred)
     ea.rt = release_table(calf, W.days, pred)
@@ -626,11 +629,14 @@ def attach_eap(W, calf, mp, mem, pred=None, counts_only=False):
     ea.ces = np.r_[0, np.cumsum(esok)].astype(np.int64)
     with np.errstate(invalid="ignore"):
         ea.dv20 = D15.roll_prev(np.asarray(W.Cl, float) * np.asarray(W.Vv, float), SPEC["dv_n"])
+    ea.es_idx = np.flatnonzero(esok)                                             # [E26] the sessions on which ES has a return: every beta window counts 252 of THESE, reaching back past ES's own holes
+    ea.cfc = _cum(fin[ea.es_idx])                                                # each name's running count of its own returns over them
     if counts_only:
         ea.beta = None
     else:
+        Wc = SimpleNamespace(Rd=np.asarray(W.Rd, float)[ea.es_idx], es=SimpleNamespace(ret=np.asarray(W.es.ret, float)[ea.es_idx]))
         with DV.spec(win=SPEC["beta_win"], min_pairs=1):
-            ea.beta = DV.rolling_beta(W)[0]                                      # the slope over rows t-251 .. t at row t (NaN under 1 pair / no ES variation); the thresholds are applied where it is read
+            ea.beta = DV.rolling_beta(Wc)[0]                                     # row q: the slope over the ES-defined sessions es_idx[q-251] .. es_idx[q] (NaN under 1 pair / no ES variation); the thresholds are applied where it is read
     r_all, f_all, x_all = M17.rm_schedule(W.days)
     keep = r_all >= win - 1                                                      # a rank needs a full 252-session window (the 230 rule's): earlier ranks are warm-up
     ea.r, ea.f, ea.x = r_all[keep], f_all[keep], x_all[keep]
@@ -757,28 +763,57 @@ def w_candidates(W):
     return SimpleNamespace(n=len(out["k"]), k=g("k"), col=g("col"), rel=g("rel"), p=g("p"), e=g("e"), x=g("x"))
 
 
-def w_beta(W, e, col):
-    """[E9] the ex-ante hedge beta of names `col` at entries `e` (arrays): the OLS slope (with an intercept) of the name's split-safe TOTAL daily return (r17_resmom's W.Rd) on ES's over the 252 sessions BEFORE the entry, rows e-252 .. e-1 (the entry is at the
-    open of e: the close of e-1 is the last one known), ALL 252 (return, ES return) pairs required - a name with fewer (230 - 251 included) is no event, no zero-beta fallback -> (beta (NaN where the rule fails), the pair counts, the ES-defined sessions of the window)"""
+def es_window(W, t_end):
+    """[E26] the beta window ending at row t_end (arrays, inclusive): the 252 (SPEC beta_win) most recent sessions at or before t_end ON WHICH ES HAS A RETURN - it reaches back past ES's own missing sessions and the count stays 252 -> (q = the index of its last
+    session in ea.es_idx, ok = 252 such sessions exist, reached = the window spans more than 252 sessions: it reached back past an ES hole)"""
     ea = W.ea
-    e, col = np.asarray(e, np.int64), np.asarray(col, np.int64)
     win = SPEC["beta_win"]
-    lo = np.maximum(e - win, 0)
-    npair = ea.cpair[e, col] - ea.cpair[lo, col]
-    nes = ea.ces[e] - ea.ces[lo]
-    ok = (e - win >= 0) & (npair >= SPEC["beta_need"])
+    t_end = np.atleast_1d(np.asarray(t_end, np.int64))
+    q = ea.ces[np.clip(t_end + 1, 0, len(ea.ces) - 1)] - 1
+    ok = (t_end >= 0) & (q >= win - 1)
+    if len(ea.es_idx) < win:
+        return q, np.zeros(len(q), bool), np.zeros(len(q), bool)
+    first = ea.es_idx[np.clip(q - win + 1, 0, len(ea.es_idx) - 1)]
+    return q, ok, ok & (t_end - first + 1 > win)
+
+
+def win_pairs(W, q, ok, col):
+    """[E26] each name's own returns over the 252 ES-defined sessions of the window ending at index q of ea.es_idx (0 where the window does not exist)"""
+    ea = W.ea
+    win = SPEC["beta_win"]
+    if len(ea.es_idx) < win:
+        return np.zeros(len(q), np.int64)
+    qq = np.where(ok, q, win - 1)
+    return np.where(ok, ea.cfc[qq + 1, col] - ea.cfc[qq + 1 - win, col], 0).astype(np.int64)
+
+
+def w_beta(W, e, col):
+    """[E9] / [E26] the ex-ante hedge beta of names `col` at entries `e` (arrays): the OLS slope (with an intercept) of the name's split-safe TOTAL daily return (r17_resmom's W.Rd) on ES's over the 252 most recent sessions BEFORE the entry (rows <= e - 1: the entry is
+    at the open of e) ON WHICH ES HAS A RETURN - ES's own missing sessions are skipped and the window reaches back past them [E26] - with the name's OWN return on every one of them: a name with fewer (230 - 251 included) is no event, no zero-beta fallback ->
+    (beta (NaN where the rule fails), the name's returns over the window, reached = the window reached back past an ES hole)"""
+    ea = W.ea
+    e, col = np.atleast_1d(np.asarray(e, np.int64)), np.atleast_1d(np.asarray(col, np.int64))
+    q, ok, reached = es_window(W, e - 1)
+    npair = win_pairs(W, q, ok, col)
+    good = ok & (npair >= SPEC["beta_need"])
     b = np.full(len(e), np.nan)
-    if ea.beta is not None and ok.any():
-        b[ok] = ea.beta[e[ok] - 1, col[ok]]
-    return np.where(ok, b, np.nan), npair, nes
+    if ea.beta is not None and good.any():
+        b[good] = ea.beta[q[good], col[good]]
+    return b, npair, reached
 
 
 def m_betas(W, r, cols):
-    """[E13] the names' ex-ante ES betas at the rank close r: the rolling OLS slope over r-251 .. r (RESMOM's regression window; CHOICE: >= 230 pairs - every universe name has them by the universe's rule) -> (n,) (NaN under 230)"""
+    """[E13] / [E26] the names' ex-ante ES betas at the rank close r: the OLS slope over the 252 most recent sessions to the rank (r included) ON WHICH ES HAS A RETURN (RESMOM's regression window, reaching back past ES's own holes - [E26]); CHOICE: >= 230 of the name's
+    own returns among them (CHOICE 1's count: [E26] moves the window, not the count; every universe name has them by the universe's rule) -> (n,) (NaN under 230)"""
     ea = W.ea
-    n = win_n(ea.cpair, r, SPEC["beta_win"])[cols]
-    b = ea.beta[r, cols] if ea.beta is not None else np.full(len(cols), np.nan)
-    return np.where(n >= SPEC["m_beta_need"], b, np.nan)
+    cols = np.atleast_1d(np.asarray(cols, np.int64))
+    q, ok, _ = es_window(W, np.full(len(cols), int(r)))
+    n = win_pairs(W, q, ok, cols)
+    good = ok & (n >= SPEC["m_beta_need"])
+    b = np.full(len(cols), np.nan)
+    if ea.beta is not None and good.any():
+        b[good] = ea.beta[q[good], cols[good]]
+    return b
 
 
 # ------------------------------------------------------------------ the ES hedge paths (W's hedge, M's [E13] hedge)
@@ -960,13 +995,13 @@ def m_run(W, L, cfg, side=0, pos=False, hedged=False):
 
 
 # ------------------------------------------------------------------ cell W: the events, the windows, the run
-W_REASONS = ("no_entry_open", "no_beta_es_hole", "no_beta", "audit", "post_calendar_split", "post_spin")
+W_REASONS = ("no_entry_open", "no_beta", "audit", "post_calendar_split", "post_spin")
 
 
 def w_build(W, lo, hi, mode=JUDGED, units=True):
     """cell W's events whose EXIT session falls in [lo, hi] (CHOICE: the stretch by exit, as the house's stretches are written), from W.ea.cand (one per predicted date of a universe name at the rank before its entry). Each candidate fails at its FIRST reason: no_entry_open
-    (no official open at e: it cannot be bought), [E9] no beta (fewer than 252 (return, ES return) pairs in the 252 sessions before the entry - no zero-beta fallback; no_beta_es_hole = the name has all 252 returns and only the ES master's holes make it short of
-    252 pairs, counted apart - CHOICE: [E9] is applied literally, the ES master's own holes are missing pairs too, and the dryload / Stage A print a WARNING with their count), audit (a hand-audit data event on (entry session, name)), and in the REPORTED removal reading [E16] 'keep' an announced split / a spin-off or stock-dividend ex-date in e < t <= x. Unresolved (p + 2 past the data) and warm-up
+    (no official open at e: it cannot be bought), [E9] / [E26] no beta (the name lacks its own return on one of the 252 most recent sessions before the entry on which ES has a return - the window reaches back past ES's own holes [E26]; no zero-beta fallback; an
+    event whose window reached back is counted: beta_reached_back), audit (a hand-audit data event on (entry session, name)), and in the REPORTED removal reading [E16] 'keep' an announced split / a spin-off or stock-dividend ex-date in e < t <= x. Unresolved (p + 2 past the data) and warm-up
     (no built rank before the entry) candidates are counted by entry year. The judged reading closes a window that holds a spin-off / stock-dividend ex-date at the close before it. units: the unit paths of every name the random-name null may draw at each entry
     session (the universe at the rank before the entry with an open at e and a beta at e) - the events index into them. -> Leg(kind 'W', ev arrays, groups, cnt by entry year)"""
     ea, c = W.ea, W.ea.cand
@@ -978,11 +1013,8 @@ def w_build(W, lo, hi, mode=JUDGED, units=True):
     inwin = res & (np.asarray(W.days)[np.clip(c.x, 0, W.T - 1)] >= np.datetime64(lo)) & (np.asarray(W.days)[np.clip(c.x, 0, W.T - 1)] <= np.datetime64(hi))
     sel = np.flatnonzero(inwin)
     e, x, col = c.e[sel], c.x[sel], c.col[sel]
-    beta, npair, nes = w_beta(W, e, col)
-    nret = (ea.cret[e, col] - ea.cret[np.maximum(e - SPEC["beta_win"], 0), col]) if len(sel) else np.zeros(0, np.int64)
-    pair_ok = (npair >= SPEC["beta_need"]) & (e - SPEC["beta_win"] >= 0)
-    hole = ~pair_ok & (nret >= SPEC["beta_need"]) & (nes < SPEC["beta_win"]) & (e - SPEC["beta_win"] >= 0)
-    no_beta = ~(np.isfinite(beta) | ea.counts_only) | ~pair_ok
+    beta, npair, reach = w_beta(W, e, col)
+    no_beta = ~(np.isfinite(beta) | ea.counts_only) | (npair < SPEC["beta_need"])
     opn = np.isfinite(W.Ao[e, col]) if len(sel) else np.zeros(0, bool)
     aud = W.audw[e, col] if len(sel) else np.zeros(0, bool)
     for e_, c_ in zip(e[aud].tolist(), col[aud].tolist()):
@@ -992,7 +1024,7 @@ def w_build(W, lo, hi, mode=JUDGED, units=True):
     for q in range(len(sel)):
         p4, s_, c_ = in_hold(W, int(e[q]), int(x[q]), col[q:q + 1])
         post[:, q], sp[q], cs[q] = p4[:, 0], s_[0], c_[0]
-    reasons = [("no_entry_open", ~opn), ("no_beta_es_hole", no_beta & hole), ("no_beta", no_beta & ~hole), ("audit", aud)]
+    reasons = [("no_entry_open", ~opn), ("no_beta", no_beta), ("audit", aud)]
     if mode == "keep":
         reasons += [("post_calendar_split", cs), ("post_spin", sp)]
     first = D15.attribute(reasons, len(sel))
@@ -1008,6 +1040,7 @@ def w_build(W, lo, hi, mode=JUDGED, units=True):
         for q, h in enumerate(HYG):
             cnt[int(y)][f"kept_{h}"] += int((ok_y & post[q]).sum())
         cnt[int(y)]["kept_flagged"] += int((ok_y & post.any(axis=0)).sum())
+        cnt[int(y)]["beta_reached_back"] += int((ok_y & reach).sum())                # [E26] events whose beta window reached back past an ES hole
         if mode == "close":
             cnt[int(y)]["kept_calendar_split"] += int((ok_y & cs).sum())
             cnt[int(y)]["closed_spin"] += int((ok_y & sp).sum())
@@ -1029,8 +1062,8 @@ def w_pool(W, k, e):
     uni = W.ea.uni[k]
     if not len(uni):
         return uni
-    b = w_beta(W, np.full(len(uni), e), uni)[0]
-    ok = np.isfinite(W.Ao[e, uni]) & (np.isfinite(b) | W.ea.counts_only) & ~W.audw[e, uni]
+    b, npair, _ = w_beta(W, np.full(len(uni), e), uni)
+    ok = np.isfinite(W.Ao[e, uni]) & (np.isfinite(b) | (W.ea.counts_only & (npair >= SPEC["beta_need"]))) & ~W.audw[e, uni]
     return uni[ok]
 
 
@@ -1102,15 +1135,16 @@ def w_null(W, L, nreps, rng):
     return acc
 
 
-def shift_paths(W, L):
-    """[E11] every event's window moved back by s = 27 .. 36 sessions: the same name, the hedge rule re-applied at the new entry (CHOICE, DIVRUN's placebo convention: the beta known at the moved entry by [E9]'s rule), the same costs, [E16]'s close inside the moved window.
-    A moved window that starts before the data, has no official open at its entry or no beta there is unavailable for that s (CHOICE: the event sits out the draws that pick it, counted - no redraw). -> (paths (n, n_s, H) in $ at base cost, valid (n, n_s), entries (n, n_s))"""
+def shift_paths(W, L, t_min=0):
+    """[E11] every event's window moved back by s = 27 .. 36 sessions: the same name, the hedge rule re-applied at the new entry (CHOICE, DIVRUN's placebo convention: the beta known at the moved entry by [E9]'s rule, [E26]'s window), the same costs, [E16]'s close inside the moved
+    window. A moved window that starts before the data (or, [E25]'s sensitivity, before its stretch's first session t_min - CHOICE), has no official open at its entry or no beta there is unavailable for that s (CHOICE: the event sits out the draws that pick it,
+    counted - no redraw). -> (paths (n, n_s, H) in $ at base cost, valid (n, n_s), entries (n, n_s))"""
     ev, slot, cfg = L.ev, SPEC["w_slot"], D15.l1_cfg()
     ss = np.arange(SPEC["shift_lo"], SPEC["shift_hi"] + 1)
     H = SPEC["w_pre"] + SPEC["w_post"] + 1
     paths, valid = np.zeros((ev.n, len(ss), H)), np.zeros((ev.n, len(ss)), bool)
     E = ev.e[:, None] - ss[None, :]
-    for e2 in np.unique(E[E >= 0]):
+    for e2 in np.unique(E[E >= max(int(t_min), 0)]):
         ii, qq = np.nonzero(E == e2)
         cols = ev.col[ii]
         x2 = int(e2) + H - 1
@@ -1129,10 +1163,10 @@ def shift_paths(W, L):
     return paths, valid, E
 
 
-def w_shift_null(W, L, nreps, rng, sp=None, block=50):
+def w_shift_null(W, L, nreps, rng, sp=None, block=50, t_min=0):
     """[E11] W's SECOND null (DIVRUN's time shift): per event and draw the whole window moves back by a whole number of sessions drawn uniformly from 27 .. 36 (rng.integers, inclusive) - the middle of the quarter - with its name, hedge rule and costs (shift_paths);
     500 draws, seed 20261020, W's own ROC @ $30k per draw. -> ((nreps, T) P&L, events left out per draw (their drawn shift unavailable))"""
-    paths, valid, E = shift_paths(W, L) if sp is None else sp
+    paths, valid, E = shift_paths(W, L, t_min) if sp is None else sp
     n, H, T = L.ev.n, paths.shape[2], W.T
     acc, left = np.zeros((nreps, T)), np.zeros(nreps, np.int64)
     for b0 in range(0, nreps, block):
@@ -1203,7 +1237,7 @@ def accuracy(W, ranks=None):
     """[E5] ACCURACY BOTH WAYS, before any P&L, by WF July-June year. PRECISION: the share of the predicted dates M and W act on (every (name, p) of a universe name whose p falls in its rank's DUE window - each predicted date once) within +-3 / +-7 sessions of an actual
     release of the same CIK (the calendar's reaction session); CHOICE: by the July-June year of p, and a p within 7 sessions of the data's last session is left out (its actual may lie past the cut; counted). RECALL: the share of the actual releases of universe names
     (the names in the universe at the rank before the release's month, their reaction sessions in that month: r + 1 .. r_next) whose name M assigned DUE in that month; CHOICE: by the July-June year of the reaction session. The run STOPS before any P&L if recall is under
-    80% in any WF year (stop = the years that fail)"""
+    80% in any WF year (stop = the years that fail). [E25] the stop still FIRES as registered; a year in MANAGER's recorded waiver (E5_WAIVER: 2016-17, MANAGER #141) is waived, and the run HALTS only when a failing year is not in it (halt / halt_years)"""
     ea = W.ea
     ranks = wf_ranks(W) if ranks is None else ranks
     act = actual_rows(W)
@@ -1240,10 +1274,33 @@ def accuracy(W, ranks=None):
                  "actual": int(r_[0]), "recalled": int(r_[1]), "recall": (float(r_[1] / r_[0]) if r_[0] else float("nan"))}
     wf_years = [y for y in years if y in YEARS]
     stop = [y for y in wf_years if not (by[y]["recall"] >= SPEC["recall_stop"])]
+    waived, halt = e5_waive(stop)
     tp = sum(prec[y][0] for y in prec)
     tot = {"predicted": int(tp), **{f"within_{w_}": (float(sum(prec[y][q + 1] for y in prec) / tp) if tp else float("nan")) for q, w_ in enumerate(near)},
            "actual": int(sum(v[0] for v in rec_.values())), "recall": (float(sum(v[1] for v in rec_.values()) / sum(v[0] for v in rec_.values())) if sum(v[0] for v in rec_.values()) else float("nan"))}
-    return {"by_year": by, "total": tot, "left_out_near_the_data_end": int(cut_out), "stop_years": stop, "stop": bool(stop), "recall_floor": SPEC["recall_stop"]}
+    return {"by_year": by, "total": tot, "left_out_near_the_data_end": int(cut_out), "stop_years": stop, "stop": bool(stop), "recall_floor": SPEC["recall_stop"], "waived_years": waived, "halt_years": halt, "halt": bool(halt),
+            "waived_by": E5_WAIVER["by"] if waived else None}
+
+
+def e5_waive(stop_years):
+    """[E25] the recorded waiver read against the failing WF years: -> (the waived years - those E5_WAIVER names, the years that still STOP the run - every other failing year)"""
+    names = tuple((E5_WAIVER or {}).get("years", ()))
+    waived = [y for y in stop_years if yl(y) in names]
+    return waived, [y for y in stop_years if y not in waived]
+
+
+def e5_record(acc):
+    """[E25] what Stage A's file keeps of the stop: fired, the failing years with their recall, waived (by whom), halted"""
+    return {"fired": bool(acc["stop"]), "recall_floor": acc["recall_floor"], "failing_years": {yl(y): acc["by_year"][y]["recall"] for y in acc["stop_years"]}, "waived_years": [yl(y) for y in acc["waived_years"]],
+            "waived_by": acc["waived_by"], "waiver": dict(E5_WAIVER) if acc["waived_years"] else None, "halted": bool(acc["halt"]), "halt_years": [yl(y) for y in acc["halt_years"]]}
+
+
+def e5_phrase(acc):
+    """[E25] the waiver as the result line states it ('' when the stop did not fire, or fired and halts)"""
+    if not acc["stop"] or acc["halt"]:
+        return ""
+    return ("the [E5] recall stop FIRED at " + ", ".join(f"{acc['by_year'][y]['recall']:.1%} ({acc['by_year'][y]['recalled']:,} of {acc['by_year'][y]['actual']:,}) in {yl(y)}" for y in acc["stop_years"])
+            + f" and is WAIVED by {acc['waived_by']} [E25]")
 
 
 def print_accuracy(acc):
@@ -1254,8 +1311,13 @@ def print_accuracy(acc):
         print(f"  {yl(y)}: {v['predicted']:,} predicted: {v[f'within_{near[0]}']:.1%} / {v[f'within_{near[1]}']:.1%} | {v['actual']:,} actual: {v['recalled']:,} recalled = {v['recall']:.1%}" + ("   <- RECALL UNDER 80%" if y in acc["stop_years"] else ""))
     t = acc["total"]
     print(f"  all: {t['predicted']:,} predicted, {t[f'within_{near[0]}']:.1%} / {t[f'within_{near[1]}']:.1%}; {t['actual']:,} actual, recall {t['recall']:.1%}; {acc['left_out_near_the_data_end']} predicted dates within {near[1]} sessions of the data's end left out")
-    print("  [E5] STOP: " + (f"recall is under {acc['recall_floor']:.0%} in the WF year(s) {', '.join(yl(y) for y in acc['stop_years'])} - THE RUN STOPS BEFORE ANY P&L AND MANAGER RULES" if acc["stop"] else
-                             f"recall is at or above {acc['recall_floor']:.0%} in every WF July-June year - the run goes on"))
+    if not acc["stop"]:
+        print(f"  [E5] STOP: recall is at or above {acc['recall_floor']:.0%} in every WF July-June year - the run goes on")
+    elif acc["halt"]:
+        print(f"  [E5] STOP: recall is under {acc['recall_floor']:.0%} in the WF year(s) {', '.join(yl(y) for y in acc['halt_years'])} - THE RUN STOPS BEFORE ANY P&L AND MANAGER RULES"
+              + (f" ({', '.join(yl(y) for y in acc['waived_years'])} waived by {acc['waived_by']} [E25]; the waiver covers no other year)" if acc["waived_years"] else ""))
+    else:
+        print(f"  [E5] STOP: FIRED - {e5_phrase(acc)} (the stop is not rewritten; the waiver covers exactly {', '.join(yl(y) for y in acc['waived_years'])}: a recall under {acc['recall_floor']:.0%} in any other July-June year still stops) - the run goes on")
 
 
 def turnover(W, L):
@@ -1570,15 +1632,18 @@ def print_calendar(info, W, pairs, ranks):
 
 
 def print_events(W, Lw, years):
-    """W's events per year (entry year) with every first reason, the open positions per session (min / median / max by July-June year), the [E9] beta exclusions (the ES master's holes apart)"""
-    keys = ("candidates", "unresolved") + W_REASONS + ("events",)
-    print("W's events per year of the entry session (BEFORE ANY P&L; candidates = the predicted dates of universe names at the rank before the entry whose window exits in WF; first reasons: " + " / ".join(keys[2:-1]) + "; [E9] no beta = fewer than 252 ES pairs in the 252 sessions "
-          "before the entry, no zero-beta fallback; no_beta_es_hole = the name has all 252 returns, only the ES master's holes leave it short):")
+    """W's events per year (entry year) with every first reason, the open positions per session (min / median / max by July-June year), [E26]: ES's own sessions without a return (printed) and the events whose beta window reached back past them"""
+    keys = ("candidates", "unresolved") + W_REASONS + ("events", "beta_reached_back")
+    print("W's events per year of the entry session (BEFORE ANY P&L; candidates = the predicted dates of universe names at the rank before the entry whose window exits in WF; first reasons: " + " / ".join(keys[2:-2]) + "; [E9] / [E26] no beta = the name lacks its own return on "
+          "one of the 252 most recent sessions before the entry on which ES has a return, no zero-beta fallback; beta_reached_back = events whose window reached back past an ES hole):")
     for y, c in sorted(Lw.cnt.items()):
         print(f"  {y}: " + ", ".join(f"{k_} {c.get(k_, 0):,}" for k_ in keys))
     tot = sum((Counter(c) for c in Lw.cnt.values()), Counter())
-    print(f"  all: {tot.get('events', 0):,} events ({tot.get('events', 0) / years:.0f} a year over the WF stretch); [E9] lost to the ES master's holes alone: {tot.get('no_beta_es_hole', 0):,}"
-          + ("   <- WARNING: the registered 252-pair rule leaves no event for the sessions after an ES hole (MANAGER rules whether an addendum excuses the ES master's own holes)" if tot.get("no_beta_es_hole", 0) else ""))
+    print(f"  all: {tot.get('events', 0):,} events ({tot.get('events', 0) / years:.0f} a year over the WF stretch)")
+    wfm = np.asarray((W.days >= WF0) & (W.days <= PRE_END))
+    hole = np.flatnonzero(~np.isfinite(np.asarray(W.es.ret, float)) & wfm)
+    print(f"  [E26] ES has no close-to-close return on {len(hole)} WF session(s)" + (f" ({', '.join(f'{W.days[t]:%Y-%m-%d}' for t in hole)})" if len(hole) else "") + ": every beta window (W's [E9], [E11]'s moved entries, M's [E13]) counts the 252 most recent "
+          f"sessions on which ES has a return, reaching back past them; {tot.get('beta_reached_back', 0):,} events' windows reached back")
     ev = Lw.ev
     if ev.n:
         d = np.bincount(ev.e, minlength=W.T + 1) - np.bincount(ev.x + 1, minlength=W.T + 1)
@@ -1590,11 +1655,12 @@ def print_events(W, Lw, years):
 
 
 # ------------------------------------------------------------------ the statistics, the judge, A2 over L, DD5, dollars a year, the beta credit rule
-def stat_run(B, rows, run, lo=None, hi=None, series=None):
-    """r15's cell statistics on one stretch (default WF) of a run's daily series (series: another daily series on the stock sessions with the run's position table) -> (stats, the series on #463's index, the positions held per row)"""
+def stat_run(B, rows, run, lo=None, hi=None, series=None, years=None):
+    """r15's cell statistics on one stretch (default WF) of a run's daily series (series: another daily series on the stock sessions with the run's position table; years: the July-June years of the breadth check, default the nine WF years) -> (stats, the series on #463's
+    index, the positions held per row)"""
     lo, hi = (WF0 if lo is None else lo), (PRE_END if hi is None else hi)
     xB, cB = D15.to_B(run.x if series is None else series, rows, B.n), D15.to_B(run.cnt, rows, B.n)
-    return D15.cell_stats(B, xB, cB, lo, hi, run), xB, cB
+    return D15.cell_stats(B, xB, cB, lo, hi, run, years=YEARS if years is None else years), xB, cB
 
 
 def per_year(net, years):
@@ -1613,9 +1679,11 @@ def dd5_txt(d):
     return f"DD5 ${d['dd5']:,.0f}" + (" - driven by one episode" if d["one_episode"] else "")
 
 
-def a2_report(B, xB, ref):
+def a2_report(B, xB, ref, lo=None):
     """STAGE A2 (WF) - a REPORT, never a pass route: L (the S1-restated #463 + 0.264 x RES) + c x the cell against L, c by VOLATILITY on 2017-01-03 .. 2018-12-31 (25% of #463's daily std over those rows / the cell's: r17_resmom's A2 code through r18_divrun's a2_report),
-    0.5c and 2c reported, the plain #463 + c x the cell a reported row; an incremental pass = ROC @ $30k AND Sortino both strictly above L's. Dollars a year (MANAGER #100) and DD5 (owner rule 2026-10-07) beside every ROC"""
+    0.5c and 2c reported, the plain #463 + c x the cell a reported row; an incremental pass = ROC @ $30k AND Sortino both strictly above L's. Dollars a year (MANAGER #100) and DD5 (owner rule 2026-10-07) beside every ROC. lo after WF0 = [E25]'s sensitivity: a2_stretch"""
+    if lo is not None and TS(lo) > WF0:
+        return a2_stretch(B, xB, ref, lo)
     with patched(DV, A2_WIN=A2_WIN, A2_TARGET=A2_TARGET, A2_REPORT=A2_REPORT):
         a = DV.a2_report(B, xB, ref)
     yrs = float(ref.stats["years"])
@@ -1630,6 +1698,36 @@ def a2_report(B, xB, ref):
         pl = a["plain_463"]
         pl["usd_year"], pl["dd5"] = per_year(pl["net"], yrs), dd5_rec(B, np.asarray(B.raw, float) + c * xb)
     return a
+
+
+def a2_window(lo):
+    """[E25] CHOICE: the sensitivity's A2 window = the registered one clipped to start on its stretch's first day (2017-07-01 .. 2018-12-31): c is set on the stretch's own days, never on the days it leaves out"""
+    return (max(A2_WIN[0], TS(lo)), A2_WIN[1])
+
+
+def a2_stretch(B, xB, ref, lo):
+    """[E25] A2 on the sensitivity stretch [lo, PRE_END]: c by the registered volatility rule on a2_window(lo); L + c x the cell (and at 0.5c / 2c) against L, both read on the stretch (ref = stretch_ref's: L's numbers on it), an incremental pass = ROC @ $30k AND Sortino
+    both strictly above L's on the stretch; dollars a year and DD5 beside every ROC (no plain-#463 row: a report the full window carries)"""
+    with patched(DV, A2_WIN=a2_window(lo), A2_TARGET=A2_TARGET, A2_REPORT=A2_REPORT):
+        plain = DV.plain_a2(B, xB)
+    r, nan = ref.stats, float("nan")
+    yrs = float(r["years"])
+    raw, xb = np.asarray(ref.raw, float), np.asarray(xB, float)
+    out = {k: plain[k] for k in ("window", "rows", "target", "std_book", "std_cell", "c")}
+    out["reference"] = {"roc": float(r["roc"]), "sortino": float(r["sort"]), "net": float(r["net"]), "max_dd": float(r["max_dd"]), "weight_of_RES": DV.REF_W, "usd_year": per_year(r["net"], yrs), "dd5": dd5_rec(B, raw, lo)}
+    c = plain["c"]
+    if not (np.isfinite(c) and c > 0):
+        out.update({"roc": nan, "sortino": nan, "net": nan, "max_dd": nan, "incremental_pass": False, "book_shadow_line": False, "at_half_c": None, "at_double_c": None, "error": plain.get("error", "no c: the cell has no spread over the window")})
+        return out
+    at = DV.ref_at(B, ref, xB, c, lo, PRE_END)
+    ok = DV.incremental_pass(at, r)
+    out.update({"roc": at["roc"], "sortino": at["sortino"], "net": at["net"], "max_dd": at["max_dd"], "roc_gain": at["roc"] - float(r["roc"]), "sortino_gain": at["sortino"] - float(r["sort"]), "incremental_pass": ok, "book_shadow_line": ok,
+                "usd_year": per_year(at["net"], yrs), "dd5": dd5_rec(B, raw + c * xb, lo)})
+    for key, m in (("at_half_c", A2_REPORT[0]), ("at_double_c", A2_REPORT[1])):
+        a_ = DV.ref_at(B, ref, xB, m * c, lo, PRE_END)
+        a_.update(usd_year=per_year(a_["net"], yrs), dd5=dd5_rec(B, raw + m * c * xb, lo))
+        out[key] = a_
+    return out
 
 
 def plain_a2(B, xB):
@@ -1653,10 +1751,10 @@ def notional_series(W, cell, L):
     return s
 
 
-def beta_credit(B, ref, W, rows, xB, side):
+def beta_credit(B, ref, W, rows, xB, side, lo=None):
     """A2's beta rule: the cell's realised beta to ES (its daily $ P&L on ES's daily return, r15's es_beta) on L's drawdown days ('R's days') and on every WF day, per $ of ONE SIDE's notional (CHOICE: the mean one-side notional held over the WF sessions with a
-    position, notional_series); |beta| > 0.20 on either = the drawdown profile reported, never credited (a beta that cannot be computed refuses the credit)"""
-    k = B.mask(WF0, PRE_END)
+    position, notional_series); |beta| > 0.20 on either = the drawdown profile reported, never credited (a beta that cannot be computed refuses the credit). lo: the stretch's first day ([E25]: ref's stretch with it)"""
+    k = B.mask(WF0 if lo is None else lo, PRE_END)
     sB = D15.to_B(side, rows, B.n)[k]
     den = float(sB[sB > 0].mean()) if (sB > 0).any() else float("nan")
     with np.errstate(all="ignore"):
@@ -1666,10 +1764,10 @@ def beta_credit(B, ref, W, rows, xB, side):
     return {"side_notional": den, "beta_L_dd_days": float(dd), "beta_all_days": float(al), "cap": BETA_CAP, "within_cap": ok, "es_beta_on_L_days": eb}
 
 
-def judge_cell(cell, st, net10, nul, hedged_roc=None):
+def judge_cell(cell, st, net10, nul, hedged_roc=None, n_years=9):
     """Stage A for one cell: (a) M >= 60 traded rebalances, W >= 500 events; (b) WF ROC @ $30k >= 15 and net > 0 at 5 AND at 10 bps a side; (c) [E12] above the null's 97.5th percentile - M: the random-name null's (the MAX over the 2 cells), W: the random-name null's AND
     [E11] the time-shift null's (W's own ROC); (d) positive in >= 6 of the 9 July-June WF years and net > 0 without 2020-02-15 .. 2020-04-30; (e) profitable without its best 1% of days AND without its best 1% of name-periods (M: name-months, W: events); [E13] M also
-    needs M hedged with ES by its ex-ante beta gap at WF ROC @ $30k >= 15. (f), the hand audit, is never decided here. A NaN fails every comparison it enters"""
+    needs M hedged with ES by its ex-ante beta gap at WF ROC @ $30k >= 15. (f), the hand audit, is never decided here. A NaN fails every comparison it enters. n_years: the stretch's July-June years (9; [E25]'s sensitivity: 8 - CHOICE: the bar stays >= 6)"""
     R = RULES
     q = f"p{R['pctl']:g}"
     chk = {}
@@ -1683,7 +1781,7 @@ def judge_cell(cell, st, net10, nul, hedged_roc=None):
     chk[f"ROC>random-name null {q}"] = (st["roc"] > nul["roc_max"][q]) if R["null"] else True
     if cell == "W":
         chk[f"ROC>time-shift null {q}"] = (st["roc"] > nul["time_shift"]["roc"][q]) if R["null"] else True
-    chk[f"positive in >={R['years']} of 9 July-June years"] = st["years_pos"] >= R["years"]
+    chk[f"positive in >={R['years']} of {n_years} July-June years"] = st["years_pos"] >= R["years"]
     chk["net>0 without Feb 15 - Apr 30 2020"] = (st["net_ex2020"] > 0) if R["ex2020"] else True
     chk["profitable without its best 1% of days"] = (st["net_ex_best_days"] > 0) if R["exbest"] else True
     chk["profitable without its best 1% of " + ("name-months" if cell == "M" else "events")] = (st["net_ex_best_pos"] > 0) if R["exbest"] else True
@@ -1703,30 +1801,71 @@ def stage_a_flow(cells):
     return passing, pick_candidate(cells, passing)
 
 
+def govern(cells_full, cells_sens):
+    """[E25] the STRICTER of the two verdicts governs, pure: a cell passes only when it clears (a) - (e) (+ [E13]) on BOTH the full WF window and the sensitivity without 2016-17 (a FAIL in either fails); the candidate = pick_candidate among those (the higher full-window
+    WF ROC, a tie to M) -> {pass_full, pass_sensitivity, pass_cells (governing), candidate, differ}"""
+    pf, ps = stage_a_flow(cells_full)[0], stage_a_flow(cells_sens)[0]
+    both = [c for c in CELLS if c in pf and c in ps]
+    return {"pass_full": pf, "pass_sensitivity": ps, "pass_cells": both, "candidate": pick_candidate(cells_full, both), "differ": pf != ps}
+
+
+def sens_years(lo):
+    """the WF July-June years a stretch starting on lo holds whole (the full window: the nine 2016-17 .. 2024-25; [E25]'s sensitivity: the eight from 2017-18)"""
+    y0 = int(jyear(pd.DatetimeIndex([TS(lo)]))[0])
+    return tuple(y for y in YEARS if y >= y0)
+
+
+def sens_bounds(W, lo):
+    """[E25] CHOICE: the sensitivity keeps exactly the positions / events ENTERED on or after lo (none straddles the cut, so no day before it carries P&L): the exit bounds that select them (the legs are selected by exit) - M: the exit of the first built rank whose
+    fill is on / after lo (exits rise with the ranks); W: the session 5 after the first session on / after lo (an event exits w_pre + w_post sessions after its entry) -> (M's lo, W's lo, the first session's row)"""
+    ea = W.ea
+    t0 = int(np.searchsorted(np.asarray(W.days), np.datetime64(TS(lo))))
+    far = TS("2262-01-01")
+    ks = [k for k in range(len(ea.r)) if ea.f[k] >= t0 and ea.x[k] >= 0]
+    tw = t0 + SPEC["w_pre"] + SPEC["w_post"]
+    return (W.days[ea.x[ks[0]]] if ks else far), (W.days[tw] if tw < W.T else far), t0
+
+
+def stretch_ref(B, ref, lo):
+    """[E25] #463 and L re-read on the sensitivity stretch [lo, PRE_END]: #463's r12_mdl.Stretch on it (the nulls' ROC, SEAT) and L with its Stretch (drawdown days, the R-day sum), its r11_risk numbers and drawdown structure on it (A2, the beta credit) -> (S12, ref)"""
+    k = np.flatnonzero(B.mask(lo, PRE_END))
+    S_ = M12.Stretch(ref.raw, B.index, None, lo, PRE_END)
+    r2 = SimpleNamespace(**{**vars(ref), "S": S_, "stats": R11.stats(np.asarray(ref.raw, float)[k], B.index[k]), "structure": DV.ref_structure(S_), "rows": k})
+    return M12.Stretch(np.asarray(B.raw, float), B.index, None, lo, PRE_END), r2
+
+
 # ------------------------------------------------------------------ one reading of Stage A: the legs -> the cells -> the cost rows -> the nulls -> the checks -> A2
-def evaluate(W, B, S12, ref, rows, mode, nreps, vcode=0, full=False):
+def evaluate(W, B, S12, ref, rows, mode, nreps, vcode=0, full=False, lo=None):
     """one reading of Stage A on the WF stretch. mode 'close' = the JUDGED reading [E16] (no in-hold event removes a name; a spin-off / stock-dividend ex-date inside the hold / window closes the position at the close before it; the nulls draw the same cut paths), 'keep' =
     the REPORTED removal reading (null-less). nreps > 0 draws the nulls (vcode picks the random streams: M [20261019, 0, vcode], W [20261019, 1, vcode], W's time shift [20261020, 1, vcode]) and judges (a) - (e); full = also the reports' rows (sides, borrow / survivorship
-    stress, M's [E13] hedged twin, W's unhedged / hedge legs, the halves) -> (summary, objects)"""
-    lo, hi = WF0, PRE_END
-    legs = {"M": m_build(W, lo, hi, mode), "W": w_build(W, lo, hi, mode)}
+    stress, M's [E13] hedged twin, W's unhedged / hedge legs, the halves) -> (summary, objects). lo = the stretch's first day: None = WF0, the full WF window as registered; [E25]'s sensitivity passes 2017-07-01 with S12 / ref re-read on its stretch (stretch_ref):
+    the legs keep the positions / events ENTERED on or after it (sens_bounds), and every statistic, the cost rows, DD5, A2 (a2_stretch), the beta credit and both nulls (the same seeds; [E11]'s moved windows may not start before it) read [lo, PRE_END]"""
+    lo = WF0 if lo is None else TS(lo)
+    hi = PRE_END
+    if lo > WF0:
+        lo_m, lo_w, t0 = sens_bounds(W, lo)
+    else:
+        lo_m, lo_w, t0 = lo, lo, 0
+    yrs = sens_years(lo)
+    legs = {"M": m_build(W, lo_m, hi, mode), "W": w_build(W, lo_w, hi, mode)}
     runf = {"M": lambda cfg, **kw: m_run(W, legs["M"], cfg, **kw), "W": lambda cfg, **kw: w_run(W, legs["W"], cfg, **kw)}
     runs, series, summ, side_x = {}, {}, {}, {}
     for cell in CELLS:
         base = runf[cell](D15.l1_cfg(), pos=True)
-        st, xB, cB = stat_run(B, rows, base)
+        st, xB, cB = stat_run(B, rows, base, lo, hi, years=yrs)
         runs[cell], series[cell] = base, (xB, cB)
-        at = lambda cfg, cell=cell, **kw: stat_run(B, rows, runf[cell](cfg, **kw))[0]
-        c = {"base": st, "usd_year": per_year(st["net"], st["years"]), "dd5": dd5_rec(B, xB), "cost_curve": {f"{b:g} bps": (st if b == COST_BPS else at(D15.l1_cfg(bps=b))) for b in COST_CURVE},
-             "seat": D15.seat_measure(S12, xB), "seat_ref": D15.seat_measure(ref.S, xB), "A2": a2_report(B, xB, ref), "first_day": first_rank_day(W, legs[cell])}
+        at = lambda cfg, cell=cell, **kw: stat_run(B, rows, runf[cell](cfg, **kw), lo, hi, years=yrs)[0]
+        c = {"base": st, "n_years": len(yrs), "stretch": [f"{lo:%Y-%m-%d}", f"{hi:%Y-%m-%d}"], "usd_year": per_year(st["net"], st["years"]), "dd5": dd5_rec(B, xB, lo, hi),
+             "cost_curve": {f"{b:g} bps": (st if b == COST_BPS else at(D15.l1_cfg(bps=b))) for b in COST_CURVE}, "seat": D15.seat_measure(S12, xB), "seat_ref": D15.seat_measure(ref.S, xB), "A2": a2_report(B, xB, ref, lo),
+             "first_day": first_rank_day(W, legs[cell])}
         c["stress"] = {f"{b:g} bps": c["cost_curve"][f"{b:g} bps"] for b in STRESS_BPS}
-        c["beta"] = beta_credit(B, ref, W, rows, xB, notional_series(W, cell, legs[cell]))
+        c["beta"] = beta_credit(B, ref, W, rows, xB, notional_series(W, cell, legs[cell]), lo)
         c["A2"]["credited"] = bool(c["beta"]["within_cap"])
         c["A2"]["incremental_credit"] = bool(c["A2"]["incremental_pass"] and c["beta"]["within_cap"])
         c["rday"] = float(xB[ref.S.rows][ref.S.dd].sum())                             # the R-day sum: CHOICE R's days = L's drawdown days on MDL r1's episode rule (the qualifying episodes, the day after the peak .. the trough)
         if cell == "M":
             hr = m_run(W, legs["M"], D15.l1_cfg(), hedged=True)
-            sh = stat_run(B, rows, hr)[0]
+            sh = stat_run(B, rows, hr, lo, hi, years=yrs)[0]
             c["hedged"] = {"base": sh, "usd_year": per_year(sh["net"], sh["years"]), "unhedged_rebalances": hr.unhedged_rebalances}
         if full:
             c["sub"] = {lab: stat_run(B, rows, sub_run(W, legs[cell], base, a, b), a, b)[0] for lab, a, b in SUBPERIODS}
@@ -1747,7 +1886,7 @@ def evaluate(W, B, S12, ref, rows, mode, nreps, vcode=0, full=False):
     if nreps:
         accm = m_null(W, legs["M"], nreps, np.random.default_rng([SEED, 0, vcode]))
         accw = w_null(W, legs["W"], nreps, np.random.default_rng([SEED, 1, vcode]))
-        acct, left = w_shift_null(W, legs["W"], nreps, np.random.default_rng([SEED_SHIFT, 1, vcode]))
+        acct, left = w_shift_null(W, legs["W"], nreps, np.random.default_rng([SEED_SHIFT, 1, vcode]), t_min=t0)
         rn_roc, rn_rday = {}, {}
         for cell, acc in (("M", accm), ("W", accw)):
             rn_roc[cell], rn_rday[cell] = null_stats(S12, ref.S, acc, rows, B.n)
@@ -1755,10 +1894,10 @@ def evaluate(W, B, S12, ref, rows, mode, nreps, vcode=0, full=False):
         nul = null_summary(rn_roc, rn_rday, ts_roc, ts_rday, left)
         for cell in CELLS:
             c = summ[cell]
-            c["checks"] = judge_cell(cell, c["base"], c["stress"]["10 bps"]["net"], nul, c["hedged"]["base"]["roc"] if cell == "M" else None)
+            c["checks"] = judge_cell(cell, c["base"], c["stress"]["10 bps"]["net"], nul, c["hedged"]["base"]["roc"] if cell == "M" else None, n_years=len(yrs))
             c["PASS"] = bool(all(c["checks"].values()))
             c["rday_null"] = {"random_name_p95": nul["rday_by_cell"][cell]["p95"], **({"time_shift_p95": nul["time_shift"]["rday"]["p95"]} if cell == "W" else {})}
-    return {"variant": mode, "cells": summ, "null": nul}, SimpleNamespace(legs=legs, runs=runs, series=series, side_x=side_x)
+    return {"variant": mode, "stretch": [f"{lo:%Y-%m-%d}", f"{hi:%Y-%m-%d}"], "cells": summ, "null": nul}, SimpleNamespace(legs=legs, runs=runs, series=series, side_x=side_x)
 
 
 def first_rank_day(W, L):
@@ -2134,7 +2273,7 @@ def row(cell, c):
     s = c["base"]
     unit = "rebalances" if cell == "M" else "events"
     return (f"{cell} {unit} {s['n_units']:>5,} positions {s['n_pos']:>6,} net ${s['net']:>11,.0f} (${c['usd_year']:>9,.0f} a year) ROC@30k {s['roc']:>7.1f} / {dd5_txt(c['dd5'])} Sortino {s['sortino']:>6.2f} maxDD ${s['max_dd']:>9,.0f}; "
-            f"positive in {s['years_pos']} of 9 July-June years")
+            f"positive in {s['years_pos']} of {c.get('n_years', 9)} July-June years")
 
 
 def print_rday(res, rep, ref):
@@ -2196,6 +2335,23 @@ def print_a2(cells):
                   f"(${a2['at_double_c']['usd_year']:,.0f} a year) / {a2['at_double_c']['sortino']:.3f}; the plain #463 + c x cell (a reported row) {pl['roc']:.2f} / {dd5_txt(pl['dd5'])} (${pl['usd_year']:,.0f} a year) / {pl['sortino']:.3f}")
         else:
             print(f"     {a2.get('error', 'no c')} -> no incremental pass")
+
+
+def print_sens(resS, gov):
+    """[E25] the sensitivity without 2016-17, printed beside the full window's verdict: its nulls and cells (every check), A2 on its stretch, and the governing verdict (the stricter)"""
+    lo, hi = resS["stretch"]
+    print(f"[E25] SENSITIVITY - Stage A again with 2016-17 dropped: the positions / events entered and the days before {lo} left out; every check (a) - (e), both nulls (the same seeds), A2 and DD5 re-read on {lo} .. {hi}:")
+    print_cells(resS)
+    for cell in CELLS:
+        a2 = resS["cells"][cell]["A2"]
+        if a2.get("at_half_c"):
+            rf = a2["reference"]
+            print(f"  {cell} A2 on the stretch (a report; c x{a2['c']:.4g} on {a2['window'][0]} .. {a2['window'][1]}): L + c x cell {a2['roc']:.2f} / {dd5_txt(a2['dd5'])} (${a2['usd_year']:,.0f} a year) / {a2['sortino']:.3f} against L's {rf['roc']:.2f} / "
+                  f"{dd5_txt(rf['dd5'])} (${rf['usd_year']:,.0f} a year) / {rf['sortino']:.3f} -> " + ("an incremental pass" if a2["incremental_pass"] else "no incremental pass"))
+        else:
+            print(f"  {cell} A2 on the stretch: {a2.get('error', 'no c')}")
+    pv = lambda p: ", ".join(p) if p else "no cell"
+    print(f"  [E25] VERDICTS: the full WF window passes {pv(gov['pass_full'])}; without 2016-17 {pv(gov['pass_sensitivity'])} -> " + (f"THEY DIFFER: the STRICTER governs - {pv(gov['pass_cells'])} passes" if gov["differ"] else f"the same: {pv(gov['pass_cells'])} passes"))
 
 
 def print_live(rep):
@@ -2401,15 +2557,26 @@ def stage_a():
            "earnings_calendar": X.cinfo, "map": {k: v for k, v in X.mp.info.items() if k != "sha256"}, "members": X.minfo, "predecessors_e4": X.pinfo, "audit": aud_n, "audit_sha256": asha, "judged_post_mode": JUDGED}
     pre = pre_pnl(W, X.cinfo, X.minfo, X.pinfo, X.mp, X.es_meta, X.nq_meta, X.nq_ret)                  # ---- BEFORE ANY P&L (the legs are counted, never costed)
     out["pre_pnl"] = pre
-    if pre["accuracy"]["stop"]:                                                               # [E5] recall under 80% in a WF year: the run STOPS here, before any P&L, and MANAGER rules
-        out.update({"stopped": True, "stop_years": pre["accuracy"]["stop_years"]})
+    acc = pre["accuracy"]
+    out["e5_e25"] = e5_record(acc)
+    if acc["halt"]:                                                                           # [E5] recall under 80% in a WF year the [E25] waiver does not name: the run STOPS here, before any P&L, and MANAGER rules
+        out.update({"stopped": True, "stop_years": acc["halt_years"]})
         dump(out, STAGE_A_FILE)
-        print(f"EAP Stage A: STOPPED BEFORE ANY P&L - [E5] recall is under {SPEC['recall_stop']:.0%} in the WF year(s) {', '.join(yl(y) for y in pre['accuracy']['stop_years'])}; no cell was costed; MANAGER rules ({STAGE_A_FILE} written, judged: false)")
+        print(f"EAP Stage A: STOPPED BEFORE ANY P&L - [E5] recall is under {SPEC['recall_stop']:.0%} in the WF year(s) {', '.join(yl(y) for y in acc['halt_years'])}" + (f" (the [E25] waiver by {acc['waived_by']} covers only "
+              f"{', '.join(yl(y) for y in acc['waived_years'])})" if acc["waived_years"] else "") + f"; no cell was costed; MANAGER rules ({STAGE_A_FILE} written, judged: false)")
         return out
+    wv = e5_phrase(acc)
+    if wv:
+        print(f"[E25] {wv} - Stage A goes on (the waiver is recorded in {STAGE_A_FILE} and in the result line)")
     rows = A13.book_rows(B, W)
     t1 = time.time()
     resJ, objJ = evaluate(W, B, S12, ref, rows, JUDGED, NREP, 0, full=True)
     print(f"judged reading [E16] done ({time.time() - t1:.0f}s: the legs, the cells, the cost rows, {NREP} random-name draws per cell, {NREP} time-shift draws for W)", flush=True)
+    t1 = time.time()
+    S12s, refs = stretch_ref(B, ref, SENS_FROM)
+    resS, objS = evaluate(W, B, S12s, refs, rows, JUDGED, NREP, 0, full=False, lo=SENS_FROM)          # [E25] the sensitivity: 2016-17 dropped, every check and both nulls (the same seeds) on the shorter stretch
+    del objS
+    print(f"[E25] the sensitivity without 2016-17 done ({time.time() - t1:.0f}s: the legs from {SENS_FROM:%Y-%m-%d}, the cells, {NREP} random-name draws per cell, {NREP} time-shift draws for W)", flush=True)
     unused = unused_audit_rows(W, audit)
     t1 = time.time()
     resK, objK = evaluate(W, B, S12, ref, rows, REPORT_MODE, 0, 1, full=False)                 # [E16] the removal reading, REPORTED beside the judged one with its count, without a null
@@ -2420,7 +2587,8 @@ def stage_a():
     rep["edrift_file"] = einfo
     rep["peak_weeks"] = sorted(int(k_) for k_ in peak_keys)
     cells = resJ["cells"]
-    passing, cand = stage_a_flow(cells)
+    gov = govern(cells, resS["cells"])                                                        # [E25] the STRICTER of the two verdicts governs
+    passing, cand = gov["pass_cells"], gov["candidate"]
     cands = {c: candidate_rows(W, objJ.legs[c], c, objJ.runs[c], D15.asset_status()) for c in CELLS}
     ast = audit_status(cands, audit)
     os.makedirs(OUT, exist_ok=True)
@@ -2430,13 +2598,15 @@ def stage_a():
     print_cells(resJ, ast)
     if unused:
         print(f"  NOTE: {len(unused)} audit data_event row(s) removed nothing: {unused[:5]}")
+    print_sens(resS, gov)
     print_keep(resK, cells, objK.legs["M"], objK.legs["W"])
     print_a2(cells)
     print_seat(rep["seat_e14"])                                                               # [E14] before any correlation
     print_live(rep)
     print_reports(rep, cells)
     print(f"  audit candidates (the {AUDIT_N} largest gains per cell with their predicted / actual dates, fills and marks) -> {os.path.join(OUT, CANDS_FILE)}; the hand audit (f) is the lead's: a data event found = a row symbol, date, cell, data_event in {AUDIT_FILE} and stage_a again")
-    out.update({"judged": True, "pending_hand_audit": passing, "stageA": {"cells": cells, "null": resJ["null"], "pass_cells": passing},
+    out.update({"judged": True, "pending_hand_audit": passing, "stageA": {"cells": cells, "null": resJ["null"], "pass_cells": passing, "pass_cells_full_window": gov["pass_full"]},
+                "sensitivity_e25": {"stretch": resS["stretch"], "cells": resS["cells"], "null": resS["null"], "pass_cells": gov["pass_sensitivity"]}, "governing_e25": gov,
                 "candidate": ({"cell": cand, "c": cells[cand]["A2"]["c"], "std_book": cells[cand]["A2"]["std_book"], "std_cell": cells[cand]["A2"]["std_cell"], "window": cells[cand]["A2"]["window"], "a2_book_roc": cells[cand]["A2"]["roc"],
                                "a2_reference_roc": cells[cand]["A2"]["reference"]["roc"], "incremental_pass": cells[cand]["A2"]["incremental_pass"], "incremental_credit": cells[cand]["A2"]["incremental_credit"],
                                "beta_within_cap": cells[cand]["beta"]["within_cap"], "also_passes": [c for c in passing if c != cand]} if cand else None),
@@ -2448,15 +2618,22 @@ def stage_a():
                 "counts_by_year": {"M": {y: dict(c) for y, c in sorted(objJ.legs["M"].cnt.items())}, "W": {y: dict(c) for y, c in sorted(objJ.legs["W"].cnt.items())}},
                 "reports": rep})
     dump(out, STAGE_A_FILE)
+    cs = resS["cells"]
     for c in passing:
         a2 = cells[c]["A2"]
-        print(f"Stage A (a)-(e) pass, (f) awaits the hand audit - cell {c}; WF ROC@30k {cells[c]['base']['roc']:.1f} (${cells[c]['usd_year']:,.0f} a year, {dd5_txt(cells[c]['dd5'])}); A2 (a report): L + c x cell {a2['roc']:.2f} / {a2['sortino']:.3f} against L's "
-              f"{a2['reference']['roc']:.2f} / {a2['reference']['sortino']:.3f} -> " + ("an INCREMENTAL PASS, credited" if a2["incremental_credit"] else "no credited incremental pass"))
+        print(f"Stage A (a)-(e) pass, (f) awaits the hand audit - cell {c}; WF ROC@30k {cells[c]['base']['roc']:.1f} (${cells[c]['usd_year']:,.0f} a year, {dd5_txt(cells[c]['dd5'])}); without 2016-17 [E25] ROC@30k {cs[c]['base']['roc']:.1f} "
+              f"(${cs[c]['usd_year']:,.0f} a year, {dd5_txt(cs[c]['dd5'])}); A2 (a report): L + c x cell {a2['roc']:.2f} / {a2['sortino']:.3f} against L's {a2['reference']['roc']:.2f} / {a2['reference']['sortino']:.3f} -> "
+              + ("an INCREMENTAL PASS, credited" if a2["incremental_credit"] else "no credited incremental pass"))
+    pv = lambda p: ", ".join(p) if p else "no cell"
+    gtxt = (f" - the full WF window alone passes {pv(gov['pass_full'])} and the [E25] sensitivity without 2016-17 {pv(gov['pass_sensitivity'])}: THE VERDICTS DIFFER, the STRICTER governs" if gov["differ"] else
+            " on the full WF window and on the [E25] sensitivity without 2016-17 alike")
+    wtxt = f" ({wv})" if wv else ""
     if passing:
-        print(f"EAP Stage A: (a)-(e) pass for {passing}; (f) AWAITS THE HAND AUDIT of the {AUDIT_N} largest contributors (the harness never decides it); candidate {cand}. Stage B needs the lead's go-flag {GO_FLAG} on the stock families' one sealed-year day.")
+        print(f"EAP Stage A: (a)-(e) pass for {passing}{gtxt}{wtxt}; (f) AWAITS THE HAND AUDIT of the {AUDIT_N} largest contributors (the harness never decides it); candidate {cand}. Stage B needs the lead's go-flag {GO_FLAG} on the stock families' one "
+              "sealed-year day.")
     else:
-        print("EAP Stage A: FAIL - no cell passes (" + "; ".join(f"{c}: " + ", ".join(k for k, v in cells[c]['checks'].items() if not v) for c in CELLS) +
-              ") - EAP r1 is dead and the earnings family closes with it; no other windows, predictions or universes are tried; the lockbox stays sealed.")
+        print("EAP Stage A: FAIL - no cell passes (" + "; ".join(f"{c}: " + (", ".join(k for k, v in cells[c]['checks'].items() if not v) or "passes the full window") + " | without 2016-17: " + (", ".join(k for k, v in cs[c]['checks'].items() if not v) or "passes")
+                                                       for c in CELLS) + f"){gtxt}{wtxt} - EAP r1 is dead and the earnings family closes with it; no other windows, predictions or universes are tried; the lockbox stays sealed.")
     pm = peak_mb()
     print(f"stage_a took {time.time() - t0:.0f}s" + (f", peak memory {pm:,.0f} MB" if pm else ""))
     return out
@@ -2794,17 +2971,27 @@ def brute_m(W, Z, lo, hi, mode, cfgs=None):
     return out
 
 
-def brute_beta(W, e, j):
-    """[E9] plain python: the OLS slope (numpy least squares, an intercept) of the name's split-safe total return on ES's over rows e - win .. e - 1, every one of the win pairs present -> (beta or NaN, 'ok' | 'es_hole' | 'no_beta')"""
-    win = SPEC["beta_win"]
-    if e - win < 0:
+def brute_window(W, t_end, win=None):
+    """[E26] plain python: the `win` most recent rows at or before t_end on which ES has a return, oldest first (None when there are fewer)"""
+    win = SPEC["beta_win"] if win is None else win
+    rows_ = [t for t in range(int(t_end), -1, -1) if math.isfinite(float(W.es.ret[t]))][:win]
+    return rows_[::-1] if len(rows_) == win else None
+
+
+def brute_beta(W, e, j, t_end=None, need=None):
+    """[E9] / [E26] plain python: the OLS slope (numpy least squares, an intercept) of the name's split-safe total return on ES's over the win most recent sessions at or before t_end (default e - 1: before the entry) ON WHICH ES HAS A RETURN, at least `need` (default all win)
+    of the name's own returns among them -> (beta or NaN, 'ok' | 'no_beta')"""
+    need = SPEC["beta_need"] if need is None else need
+    t_end = e - 1 if t_end is None else t_end
+    rows_ = brute_window(W, t_end) if t_end >= 0 else None
+    if rows_ is None:
         return float("nan"), "no_beta"
-    ys = [M17.brute_ret(W, t, j) for t in range(e - win, e)]
-    xs = [float(W.es.ret[t]) for t in range(e - win, e)]
-    if all(math.isfinite(y) for y in ys) and all(math.isfinite(z) for z in xs):
-        X = np.column_stack([np.ones(win), np.asarray(xs)])
-        return float(np.linalg.lstsq(X, np.asarray(ys), rcond=None)[0][1]), "ok"
-    return float("nan"), ("es_hole" if all(math.isfinite(y) for y in ys) else "no_beta")
+    pr = [(M17.brute_ret(W, t, j), float(W.es.ret[t])) for t in rows_]
+    pr = [(y, z) for y, z in pr if math.isfinite(y)]
+    if len(pr) < need:
+        return float("nan"), "no_beta"
+    X = np.column_stack([np.ones(len(pr)), np.asarray([z for _, z in pr])])
+    return float(np.linalg.lstsq(X, np.asarray([y for y, _ in pr]), rcond=None)[0][1]), "ok"
 
 
 def brute_hedge(W, e, x, beta, c=-1, bps=HEDGE_BPS):
@@ -2822,7 +3009,7 @@ def brute_hedge(W, e, x, beta, c=-1, bps=HEDGE_BPS):
 
 
 def brute_w(W, Z, lo, hi, mode, cfgs=None):
-    """cell W end to end in plain python: every counted release of every universe name whose entry e = p - 3 falls in its rank's r + 1 .. r_next, exit x = p + 2 in [lo, hi]; the reasons in order (no open at e, [E9] no beta - the ES hole apart -, audit, the removal reading's split /
+    """cell W end to end in plain python: every counted release of every universe name whose entry e = p - 3 falls in its rank's r + 1 .. r_next, exit x = p + 2 in [lo, hi]; the reasons in order (no open at e, [E9] / [E26] no beta, audit, the removal reading's split /
     spin-off); the beta by least squares; the stock leg under each costing and the hedge -> (events sorted by (e, column), counts by entry year, unresolved by entry year)"""
     cfgs = cfgs or {"base": {}}
     ev, cnt = [], defaultdict(Counter)
@@ -2848,7 +3035,7 @@ def brute_w(W, Z, lo, hi, mode, cfgs=None):
                 if not math.isfinite(W.Od[e, j] / W.F[e, j]):
                     cnt[y]["no_entry_open"] += 1
                 elif st != "ok":
-                    cnt[y]["no_beta_es_hole" if st == "es_hole" else "no_beta"] += 1
+                    cnt[y]["no_beta"] += 1
                 elif W.audw[e, j]:
                     cnt[y]["audit"] += 1
                 elif mode == "keep" and brute_csplit(W, e + 1, x, j):
@@ -2857,6 +3044,7 @@ def brute_w(W, Z, lo, hi, mode, cfgs=None):
                     cnt[y]["post_spin"] += 1
                 else:
                     cnt[y]["events"] += 1
+                    cnt[y]["beta_reached_back"] += int(brute_window(W, e - 1)[0] < e - SPEC["beta_win"])
                     paths = {lab: brute_stock(W, e, x, j, 1, mode, **kw) for lab, kw in cfgs.items()}
                     c = paths[next(iter(paths))][1]
                     ev.append({"e": e, "x": x, "p": p, "col": j, "beta": b, "close": c, "stock": {lab: v[0] for lab, v in paths.items()}, "hedge": brute_hedge(W, e, x, b, c)})
@@ -3050,7 +3238,8 @@ def t_constants():
     assert os.path.basename(PRED_CAL_PINNED[0]) == "earnings_calendar_predecessors.csv" and PRED_CAL_PINNED[1] == "5a9c4142966c11067f990615473c2c36ba598376d0276b483194388f9215ba1a", "[E20] the predecessors' releases pinned"
     assert PRED_EXPECTED == {"AVGO": "0001649338", "FOX": "0001308161", "FOXA": "0001308161", "MRVL": "0001058057", "CEG": "0001168165"} and PRED_HOLES == ("DISH", "NXPI", "SIRI", "TEAM") and NOT_CHANGE == "NOT A CIK CHANGE"
     assert PRED_COLS == ("symbol", "predecessor_cik", "predecessor_name", "successor_cik", "first_8k_date", "last_8k_date", "edgar_source_url", "note") and PRED_LIST is None and PRED_CAL is None, "the selftest reads no real file: its groups pin their own"
-    assert PREREG_SHA == "7887f3fc618dec559f779455f57d054bc62d3032d820d63371a3967f3393f1b6" and (WF0, PRE_END, LB0, LB1) == (TS("2016-07-01"), TS("2025-06-29"), TS("2025-06-30"), TS("2026-06-30"))
+    assert PREREG_SHA == "2528a42065e03694b97411614bcf9dd5a746adef80062c8b07fd7773f2a72c34" and (WF0, PRE_END, LB0, LB1) == (TS("2016-07-01"), TS("2025-06-29"), TS("2025-06-30"), TS("2026-06-30"))
+    assert E5_WAIVER == {"by": "MANAGER #141", "years": ("2016-17",), "addendum": "[E25]"} and SENS_FROM == TS("2017-07-01") and "no_beta_es_hole" not in W_REASONS, "[E25] the waiver and the sensitivity; [E26] no ES-hole reason"
     with quiet():
         pok = prereg_ok()
     assert pok["verified"] and pok["committed"] == "match", pok
@@ -3373,10 +3562,10 @@ def t_pipeline():
             assert ev.e.tolist() == [z["e"] for z in evs] and ev.col.tolist() == [z["col"] for z in evs] and ev.p.tolist() == [z["p"] for z in evs] and ev.x.tolist() == [z["x"] for z in evs] and ev.close.tolist() == [z["close"] for z in evs]
             assert np.allclose(ev.beta, [z["beta"] for z in evs], atol=1e-9, rtol=0), "[E9] the betas against least squares"
             for y in set(bcnt) | set(Lw.cnt):
-                for key in ("candidates", "unresolved", "no_entry_open", "no_beta_es_hole", "no_beta", "audit", "post_calendar_split", "post_spin", "events"):
+                for key in ("candidates", "unresolved", "no_entry_open", "no_beta", "audit", "post_calendar_split", "post_spin", "events", "beta_reached_back"):
                     assert Lw.cnt[y].get(key, 0) == bcnt[y].get(key, 0), (mode, y, key, Lw.cnt[y].get(key, 0), bcnt[y].get(key, 0))
             tot = sum((Counter(c) for c in bcnt.values()), Counter())
-            assert tot["no_beta_es_hole"] >= 1 and tot["no_beta"] >= 1 and tot["no_entry_open"] >= 1 and tot["audit"] == 1, tot
+            assert tot["beta_reached_back"] >= 1 and tot["no_beta"] >= 1 and tot["no_entry_open"] >= 1 and tot["audit"] == 1, tot
             for lab, (cfg, _kw) in cfgs.items():
                 if lab == "borrow stress":
                     continue
@@ -3541,7 +3730,117 @@ def t_accuracy():
         assert acc2["stop"] and 2023 in acc2["stop_years"] and all(acc2["by_year"][y]["recall"] < 0.8 for y in acc2["stop_years"]), acc2["by_year"]
         with quiet():
             print_accuracy(acc2)
+        # [E25] the waiver: the stop still FIRES; Stage A goes on only when the recorded waiver names every failing year - any other failing year still stops
+        sy = acc2["stop_years"]
+        assert acc2["halt"] and acc2["halt_years"] == sy and acc2["waived_years"] == [] and e5_phrase(acc2) == "", "the registered waiver (2016-17) covers none of the toy's years"
+        with patched(THIS, E5_WAIVER={"by": "TEST #1", "years": tuple(yl(y) for y in sy), "addendum": "[E25]"}):
+            a3 = accuracy(W2)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                print_accuracy(a3)
+            rec = e5_record(a3)
+            assert a3["stop"] and not a3["halt"] and a3["waived_years"] == sy and a3["waived_by"] == "TEST #1" and "FIRED at" in e5_phrase(a3) and "WAIVED by TEST #1" in e5_phrase(a3), a3
+            assert "[E5] STOP: FIRED" in buf.getvalue() and "the run goes on" in buf.getvalue() and rec["fired"] and not rec["halted"] and rec["waived_by"] == "TEST #1" and set(rec["failing_years"]) == {yl(y) for y in sy}
+        with patched(THIS, E5_WAIVER={"by": "TEST #2", "years": (yl(sy[0]), "2099-00"), "addendum": "[E25]"}):
+            a4 = accuracy(W2)
+            assert a4["stop"] and a4["waived_years"] == sy[:1] and a4["halt_years"] == sy[1:] and a4["halt"] == bool(sy[1:]), a4
+        with patched(THIS, E5_WAIVER={"by": "TEST #3", "years": ("2099-00",), "addendum": "[E25]"}):
+            assert accuracy(W2)["halt"], "a waiver for another year waives nothing"
+        assert e5_waive([2016]) == ([2016], []) and e5_waive([2016, 2019]) == ([2016], [2019]) and e5_waive([2024]) == ([], [2024]) and e5_waive([]) == ([], []), "the registered waiver: 2016-17 alone"
     return acc["total"]
+
+
+def t_es_window():
+    """[E26] the beta window = the 252 (toy: 60) most recent sessions before the entry ON WHICH ES HAS A RETURN: across the toy ES master's hole (no return on rows 270 / 271) it reaches back two sessions and still counts 60, the beta against least squares on exactly
+    those rows; a window without the hole does not reach back; a stock missing its own return on one of the window's sessions still has no beta (planted); M's [E13] betas (the window to the rank close, >= 55 of the name's returns) and the shift null's moved entries read the
+    same windows; the dryload's counts-only path counts the same no_beta / beta_reached_back as the full one"""
+    with spec(**TOY_WIN):
+        W, calf, mp, mem, Z = toy_setup(spins=False)
+        assert np.flatnonzero(~np.isfinite(np.asarray(W.es.ret, float))).tolist() == [0, 270, 271], "the toy ES master: no return on row 0 and on the hole's two sessions"
+        j = 3
+        b, n, reach = w_beta(W, [290], [j])
+        rows_ = brute_window(W, 289)
+        assert len(rows_) == 60 and rows_[0] == 228 and 270 not in rows_ and 271 not in rows_ and n[0] == 60 and reach[0], (rows_[:3], n, reach)
+        X = np.column_stack([np.ones(60), np.asarray(W.es.ret, float)[rows_]])
+        assert close(b[0], float(np.linalg.lstsq(X, np.asarray(W.Rd, float)[rows_, j], rcond=None)[0][1]), 1e-9) and close(b[0], brute_beta(W, 290, j)[0], 1e-9), "the reached-back window against least squares"
+        b2, n2, r2 = w_beta(W, [250], [j])
+        assert brute_window(W, 249)[0] == 190 and n2[0] == 60 and not r2[0] and close(b2[0], brute_beta(W, 250, j)[0], 1e-9), "no hole in the window: rows e-60 .. e-1, no reach-back"
+        b61, b60 = w_beta(W, [61], [j]), w_beta(W, [60], [j])
+        assert b61[1][0] == 60 and np.isfinite(b61[0][0]) and b60[1][0] == 0 and not np.isfinite(b60[0][0]), "row 0 has no ES return: the first full window is rows 1 .. 60 (an entry on row 61)"
+        r = 280
+        bm = m_betas(W, r, np.array([j, 8]))
+        assert close(bm[0], brute_beta(W, 0, j, t_end=r, need=SPEC["m_beta_need"])[0], 1e-9) and brute_window(W, r)[0] == 219, "M's [E13] betas: the 60 ES-defined sessions to the rank close"
+        Lw = w_build(W, TS("2024-01-01"), TS("2025-12-31"), units=False)
+        tot = sum((Counter(c) for c in Lw.cnt.values()), Counter())
+        attach_eap(W, calf, mp, mem, W.ea.pred, counts_only=True)
+        Lc = w_build(W, TS("2024-01-01"), TS("2025-12-31"), units=False)
+        totc = sum((Counter(c) for c in Lc.cnt.values()), Counter())
+        assert all(tot.get(k, 0) == totc.get(k, 0) for k in ("candidates", "no_entry_open", "no_beta", "events", "beta_reached_back")) and tot["beta_reached_back"] >= 1, (tot, totc)
+        Rd = np.array(W.Rd, float, copy=True)
+        W.Rd[265, j] = np.nan                                                                   # planted: the stock has no return on row 265, inside the reached-back window of an entry at 290
+        attach_eap(W, calf, mp, mem, W.ea.pred)
+        b3, n3, r3 = w_beta(W, [290], [j])
+        assert n3[0] == 59 and r3[0] and not np.isfinite(b3[0]), "a stock missing its own return on a session of a reached-back window still fails [E26]"
+        b8, n8, _ = w_beta(W, [230], [8])
+        assert n8[0] == 58 and not np.isfinite(b8[0]) and brute_beta(W, 230, 8)[1] == "no_beta", "N08's lost close on row 200 (no return on 200 / 201): no beta, as the plain count says"
+        assert np.isfinite(m_betas(W, 280, np.array([j]))[0]), "M's count is >= 55 of 60: one missing return keeps M's beta"
+        W.Rd[:] = Rd
+        attach_eap(W, calf, mp, mem, W.ea.pred)
+    return int(tot["beta_reached_back"])
+
+
+def t_sensitivity():
+    """[E25] the sensitivity without 2016-17: the governing verdict is the STRICTER (a FAIL in either fails; both pass -> the candidate passes both, by the full window's ROC); the stretch's years (8) and the judge's breadth label; the legs keep exactly the positions / events
+    ENTERED on / after the stretch's first day (against the full window's legs), nothing before it carries P&L - the cells, both random-name nulls (the same seeds) and the time-shift null (a moved window may not start before it: it sits out, counted); A2 on the stretch
+    (c on the clipped window 2017-07-01 .. 2018-12-31, L + c x the cell against L on the stretch, DD5) against a plain computation"""
+    P_ = lambda ok, roc: {"PASS": ok, "base": {"roc": roc}}
+    g = govern({"M": P_(True, 30.0), "W": P_(True, 40.0)}, {"M": P_(True, 20.0), "W": P_(True, 25.0)})
+    assert g == {"pass_full": ["M", "W"], "pass_sensitivity": ["M", "W"], "pass_cells": ["M", "W"], "candidate": "W", "differ": False}, g
+    g = govern({"M": P_(True, 30.0), "W": P_(True, 40.0)}, {"M": P_(True, 20.0), "W": P_(False, 5.0)})
+    assert g["pass_cells"] == ["M"] and g["candidate"] == "M" and g["differ"], "the sensitivity fails W: the stricter verdict keeps M alone, though W has the higher full-window ROC"
+    g = govern({"M": P_(False, 10.0), "W": P_(False, 3.0)}, {"M": P_(True, 20.0), "W": P_(False, 5.0)})
+    assert g["pass_cells"] == [] and g["candidate"] is None and g["differ"], "a sensitivity pass never rescues a full-window FAIL"
+    g = govern({"M": P_(True, 30.0), "W": P_(False, 3.0)}, {"M": P_(False, 10.0), "W": P_(False, 5.0)})
+    assert g["pass_cells"] == [] and g["candidate"] is None and g["pass_full"] == ["M"] and g["differ"]
+    assert sens_years(SENS_FROM) == tuple(range(2017, 2025)) and sens_years(WF0) == YEARS and sens_years(None or WF0) == YEARS and a2_window(SENS_FROM) == (TS("2017-07-01"), TS("2018-12-31")) and a2_window(WF0) == A2_WIN
+    st = {"n_units": 100, "n_pos": 900, "roc": 40.0, "net": 1e5, "years_pos": 6, "net_ex2020": 5e4, "net_ex_best_days": 3e4, "net_ex_best_pos": 2e4}
+    nul = {"roc_max": {"p97.5": 20.0}, "time_shift": {"roc": {"p97.5": 25.0}}}
+    assert judge_cell("W", st, 5e4, nul, n_years=8)["positive in >=6 of 8 July-June years"] and not judge_cell("W", {**st, "years_pos": 5}, 5e4, nul, n_years=8)["positive in >=6 of 8 July-June years"]
+    with spec(**TOY_WIN):
+        W, calf, mp, mem, Z = toy_setup(spins=False)
+        lo2, hi = TS("2024-07-01"), TS("2025-12-31")
+        lo_m, lo_w, t0 = sens_bounds(W, lo2)
+        assert W.days[t0] == TS("2024-07-01") and W.days[t0 - 1] < lo2
+        Lm_f, Lm_s = m_build(W, WF0, hi), m_build(W, lo_m, hi)
+        assert [(r_.r, r_.f, r_.x) for r_ in Lm_s.recs] == [(r_.r, r_.f, r_.x) for r_ in Lm_f.recs if r_.f >= t0] and 0 < len(Lm_s.recs) < len(Lm_f.recs), "M: exactly the rebalances filled on / after the cut"
+        Lw_f, Lw_s = w_build(W, WF0, hi), w_build(W, lo_w, hi)
+        keep = Lw_f.ev.e >= t0
+        assert Lw_s.ev.e.tolist() == Lw_f.ev.e[keep].tolist() and Lw_s.ev.col.tolist() == Lw_f.ev.col[keep].tolist() and 0 < Lw_s.ev.n < Lw_f.ev.n, "W: exactly the events entered on / after the cut"
+        xm, xw = m_run(W, Lm_s, D15.l1_cfg()).x, w_run(W, Lw_s, D15.l1_cfg()).x
+        assert not xm[:t0].any() and not xw[:t0].any() and xm[t0:].any() and xw[t0:].any(), "no P&L before the stretch"
+        am = m_null(W, Lm_s, 4, np.random.default_rng([SEED, 0, 0]))
+        aw = w_null(W, Lw_s, 4, np.random.default_rng([SEED, 1, 0]))
+        a0, l0 = w_shift_null(W, Lw_s, 6, np.random.default_rng([SEED_SHIFT, 1, 0]))
+        a1, l1 = w_shift_null(W, Lw_s, 6, np.random.default_rng([SEED_SHIFT, 1, 0]), t_min=t0)
+        assert not am[:, :t0].any() and not aw[:, :t0].any() and not a1[:, :t0].any() and a0[:, :t0].any(), "the nulls on the stretch: nothing before it (the shift null's moved windows may not start before it)"
+        assert (l1 >= l0).all() and (l1 > l0).any(), "a moved window that would start before the stretch sits out that draw, counted"
+    days = pd.bdate_range("2016-07-01", "2019-06-28")
+    rng = np.random.default_rng(11)
+    B = ToyB(days, rng.normal(50.0, 300.0, len(days)))
+    xB = np.where(np.asarray(days >= SENS_FROM), rng.normal(5.0, 100.0, len(days)), 0.0)
+    raw_L = np.asarray(B.raw) + 0.264 * rng.normal(10.0, 200.0, len(days))
+    ref = SimpleNamespace(raw=raw_L, S=None, stats=R11.stats(raw_L, B.index))
+    S12s, refs = stretch_ref(B, ref, SENS_FROM)
+    a = a2_report(B, xB, refs, SENS_FROM)
+    k = B.mask(TS("2017-07-01"), TS("2018-12-31"))
+    c = 0.25 * np.std(np.asarray(B.raw)[k], ddof=1) / np.std(xB[k], ddof=1)
+    k2 = B.mask(SENS_FROM, PRE_END)
+    s = R11.stats((raw_L + c * xB)[k2], B.index[k2])
+    r2 = R11.stats(raw_L[k2], B.index[k2])
+    assert close(a["c"], c, 1e-12) and a["window"] == ["2017-07-01", "2018-12-31"] and close(a["roc"], s["roc"], 1e-9) and close(a["sortino"], s["sort"], 1e-9) and close(a["reference"]["roc"], r2["roc"], 1e-9), a
+    assert a["incremental_pass"] == bool(s["roc"] > r2["roc"] and s["sort"] > r2["sort"]) and close(a["dd5"]["dd5"], dd5_rec(B, raw_L + c * xB, SENS_FROM)["dd5"]) and close(a["at_double_c"]["c"], 2 * c, 1e-12)
+    assert S12s.dates[0] >= SENS_FROM and refs.S.dates[0] >= SENS_FROM and refs.S.dates[-1] == days[-1]
+    return int(Lw_s.ev.n)
 
 
 def t_judge():
@@ -3954,7 +4253,7 @@ def dryload_text_checks(txt):
     dates = [d for l_ in txt.splitlines() if "cut to dates <" not in l_ for d in re.findall(r"\b20\d\d-\d\d-\d\d\b", l_)]
     assert dates and all(d < "2025-06-30" for d in dates), [d for d in dates if d >= "2025-06-30"][:5]
     for frag in ("BEFORE ANY P&L", "[D1] TV's EDGAR earnings calendar", "releases per year", "releases per name", "[E3] the pairs of releases", "names joined / not joined by reason", "[E19] THE JOINED NAME-MONTHS PER SYMBOL", "[E20] the predecessors' releases",
-                 "NOT CIK changes - they join nothing", "predecessor-CIK releases joined to their successors", "the universe per rank", "DUE", "W's events per year", "open W positions per session",
+                 "NOT CIK changes - they join nothing", "predecessor-CIK releases joined to their successors", "[E26] ES has no close-to-close return on", "events' windows reached back", "the universe per rank", "DUE", "W's events per year", "open W positions per session",
                  "[E5] ACCURACY OF [P], BOTH WAYS", "[E5] STOP:", "[E6] M's TURNOVER", "[E7] THE POWER LINE", "[E10] NQ masters", "ES return (", "cache manifest sha256", "prereg check:", LAB_J, LAB_K):
         assert frag in txt, frag
 
@@ -4018,7 +4317,7 @@ def smoke(*a):
             add_path(want, z["e"], [SPEC["w_slot"] * (a_ + b_) for a_, b_ in zip(z["stock"]["base"], z["hedge"])])
         assert np.allclose(runw.x, want, atol=1e-6, rtol=0), float(np.abs(runw.x - want).max())
         tot = sum((Counter(c) for c in bcnt.values()), Counter())
-        assert tot["no_beta_es_hole"] > 0 and all(Lw.cnt[y].get(k_, 0) == bcnt[y].get(k_, 0) for y in bcnt for k_ in ("candidates", "no_beta_es_hole", "no_beta", "events")), "[E9]: the fake ES master's hole of 2024-03-05 leaves no event for 252 sessions"
+        assert tot["beta_reached_back"] > 0 and all(Lw.cnt[y].get(k_, 0) == bcnt[y].get(k_, 0) for y in bcnt for k_ in ("candidates", "no_beta", "events", "beta_reached_back")), "[E26]: the beta windows reach back past the fake ES master's hole of 2024-03-05"
         Lfull = w_build(W, WF0, PRE_END, JUDGED, units=False)
         assert TS(env.p_spin) in set(W.days[Lfull.ev.p[Lfull.ev.close >= 0]]), "the spin-off planted on S15's predicted date closes that window [E16]"
         print(f"  {len(Bm)} rebalances and {len(evs)} events ({lo_:%Y-%m-%d} .. {hi_:%Y-%m-%d}) against the recount ({time.time() - t0:.0f}s): every universe, DUE flag, pool, side, [E8] dollars, {n_p:,} M paths, every event's beta and stock + hedge path, both daily series; "
@@ -4067,13 +4366,21 @@ def smoke(*a):
         assert out_s["stopped"] is True and out_s["judged"] is False and out_s["stageA"] is None and {2019, 2020} & set(out_s["stop_years"]), (out_s.get("stop_years"), out_s["pre_pnl"]["accuracy"]["by_year"])
         assert "STOPPED BEFORE ANY P&L" in txt_s and not re.search(r"ROC@30k|Sortino|net [$]", txt_s[txt_s.index("BEFORE ANY P&L - THE CALENDAR"):]) and "THE R-DAY SUM FIRST" not in txt_s, "no cell is costed after the STOP"
         os.remove(sa_path)
-        print(f"Stage A on the STOP calendar (every 2020 release five weeks late): STOPPED before any P&L, recall under 80% in {[yl(y) for y in out_s['stop_years']]}")
+        print(f"Stage A on the STOP calendar (every 2020 release five weeks late): STOPPED before any P&L, recall under 80% in {[yl(y) for y in out_s['stop_years']]} - years the [E25] waiver ({E5_WAIVER['years']}) does not name")
+        wv = {"by": "SMOKE #1", "years": tuple(yl(y) for y in out_s["stop_years"]), "addendum": "[E25]"}
+        out_w, txt_w = run_stage_a("null", CAL_CSV=env.files.cal_stop, CAL_SHA=env.files.cal_stop_sha, E5_WAIVER=wv)
+        assert out_w["stopped"] is False and out_w["judged"] is True and out_w["e5_e25"]["fired"] and not out_w["e5_e25"]["halted"] and out_w["e5_e25"]["waived_by"] == "SMOKE #1", out_w["e5_e25"]
+        last = [l_ for l_ in txt_w.splitlines() if l_.startswith("EAP Stage A:")]
+        assert len(last) == 1 and "FIRED at" in last[0] and "WAIVED by SMOKE #1 [E25]" in last[0] and "[E5] STOP: FIRED" in txt_w, last
+        os.remove(sa_path)
+        print("Stage A on the STOP calendar with a recorded waiver naming those years [E25]: the stop FIRES, is waived, Stage A goes on and its result line states the waiver")
         # ---- 5. the NULL world must FAIL
         t0 = time.time()
         out_n, txt_n = run_stage_a("null")
         cells_n = out_n["stageA"]["cells"]
         assert out_n["judged"] is True and out_n["stageA"]["pass_cells"] == [] and out_n["candidate"] is None and out_n["stageA"]["null"]["draws"] == NREP == 100, {c: (v["base"]["roc"], [k for k, x in v["checks"].items() if not x]) for c, v in cells_n.items()}
         assert "EAP Stage A: FAIL - no cell passes" in txt_n and all(d < "2025-06-30" for d in dates_of(txt_n))
+        assert out_n["sensitivity_e25"]["pass_cells"] == [] and out_n["governing_e25"]["pass_cells"] == [] and out_n["sensitivity_e25"]["null"]["draws"] == NREP, out_n["governing_e25"]
         os.remove(sa_path)
         print(f"Stage A on the NULL world ({time.time() - t0:.0f}s): FAIL as it must - WF ROC@30k " + ", ".join(f"{c} {cells_n[c]['base']['roc']:.1f}" for c in CELLS) + f"; random-name null p97.5 {out_n['stageA']['null']['roc_max']['p97.5']:.1f}")
         # ---- 6. the PLANTED world: the premium must be found
@@ -4084,7 +4391,8 @@ def smoke(*a):
         assert out["judged"] is True and set(passing) == set(CELLS) and out["candidate"]["cell"] == cand and out["pending_hand_audit"] == passing, {c: (cells[c]["base"]["roc"], [k for k, v in cells[c]["checks"].items() if not v]) for c in CELLS}
         assert "(f) AWAITS THE HAND AUDIT" in txt and all(d < "2025-06-30" for d in dates_of(txt)) and {k: out.get(k) for k in stamp()} == stamp() and out["prereg_sha256_lf"] == PREREG_SHA
         order = ("BEFORE ANY P&L - THE CALENDAR", "[D1] TV's EDGAR earnings calendar", "names joined / not joined by reason", "[E19] THE JOINED NAME-MONTHS PER SYMBOL", "the universe per rank", "W's events per year", "[E5] ACCURACY OF [P]", "[E6] M's TURNOVER", "[E7] THE POWER LINE", "[E13] M's ex-ante BETA GAP",
-                 "judged reading [E16] done", "THE R-DAY SUM FIRST", "null 1 - RANDOM NAMES", "A2 (WF)", "[E14] SEAT", "[E15] THE LIVE STRETCH", "DIAGNOSTICS", "[E10] W's GROWTH TILT", "correlation: RES daily")
+                 "judged reading [E16] done", "[E25] the sensitivity without 2016-17 done", "THE R-DAY SUM FIRST", "null 1 - RANDOM NAMES", "[E25] SENSITIVITY", "[E25] VERDICTS", "A2 (WF)", "[E14] SEAT", "[E15] THE LIVE STRETCH", "DIAGNOSTICS",
+                 "[E10] W's GROWTH TILT", "correlation: RES daily")
         seq = [txt.index(s_) for s_ in order]
         assert seq == sorted(seq), ("the printout is out of the prereg's order", [o_ for o_, s_ in zip(order, seq)])
         pre = txt[seq[0]:txt.index("judged reading [E16] done")]
@@ -4098,6 +4406,9 @@ def smoke(*a):
         assert len(rep["seat_e14"]["books"]["#463"]) == 5 and rep["event_path"]["predicted"]["mean_bps"][rep["event_path"]["taus"].index(0)] > 50 and np.isfinite(rep["tilt_e10"]["loading_nq_minus_es"]) and rep["correlations"]["M"]["EDRIFT_V3_months"] > 50
         assert out["pre_pnl"]["accuracy"]["total"]["recall"] > 0.8 and len(out["pre_pnl"]["pairs_e3"]) >= 8 and all(p_["ticker"] == "S10" for p_ in out["pre_pnl"]["pairs_e3"]) and out["pre_pnl"]["calendar"]["amendments_dropped_e2"] > 30
         assert out["removal_reading"]["removed"]["W"]["post_spin"] >= 1 and sum(v.get("closed_spin", 0) for v in out["counts_by_year"]["W"].values()) >= 1
+        cs_ = out["sensitivity_e25"]["cells"]
+        assert out["sensitivity_e25"]["pass_cells"] == passing and out["governing_e25"]["pass_cells"] == passing and not out["governing_e25"]["differ"] and out["sensitivity_e25"]["stretch"][0] == "2017-07-01", out["governing_e25"]
+        assert all(0 < cs_[c]["base"]["n_pos"] < cells[c]["base"]["n_pos"] and cs_[c]["n_years"] == 8 and len(cs_[c]["base"]["by_year"]) == 8 and cs_[c]["A2"]["window"][0] == "2017-07-01" for c in CELLS), {c: cs_[c]["base"]["n_pos"] for c in CELLS}
         e19 = out["pre_pnl"]["e19_joined_name_months"]
         jn, hl = {j["symbol"]: j for j in e19["joins"]}, {h["symbol"]: h for h in e19["holes"]}
         assert jn["S20"]["from_predecessors_file"] > 15 and jn["S20"]["from_calendar"] == 0 and jn["S21"]["from_calendar"] > 10 and jn["S21"]["clipped_at_the_cut"] and out["predecessors_e4"]["clipped_at_the_cut"] == 1, jn
@@ -4187,7 +4498,7 @@ def smoke(*a):
 
 
 # ------------------------------------------------------------------ the commands
-TESTS = ("t_constants", "t_files", "t_pairs", "t_predecessors", "t_pipeline", "t_nulls", "t_accuracy", "t_judge", "t_reports", "t_audit_and_stage_b")
+TESTS = ("t_constants", "t_files", "t_pairs", "t_predecessors", "t_pipeline", "t_nulls", "t_accuracy", "t_es_window", "t_sensitivity", "t_judge", "t_reports", "t_audit_and_stage_b")
 
 
 def selftest():
