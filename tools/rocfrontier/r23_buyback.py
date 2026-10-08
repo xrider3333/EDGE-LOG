@@ -41,7 +41,7 @@ THIS = sys.modules[__name__]
 OUT_DEFAULT = r"C:\EdgeLog\_anatomy_cache\rocfrontier\buyback_r1"
 OUT = os.environ.get("EDGELOG_BUYBACK_R1", OUT_DEFAULT)                                                   # results, outside git
 PREREG = os.path.join(HERE, "PREREG_BUYBACK_R1.txt")
-PREREG_SHA = "9a99203be7b36eb21e05a0f8aeb8d99cfd4ef699cc66615e07bd0a181dd43494"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDUM 1 ([B1]-[B5]) + PRE-DATA ADDENDUM 2 ([B6]-[B12]); supersedes 97244872 (draft + addendum 1) and 2b2438af (draft)
+PREREG_SHA = "9d26bcfda956b4d61e1630390dc80054cf67eeab23e1e3f84d6484474801f686"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDUM 1 ([B1]-[B5]) + PRE-DATA ADDENDUM 2 ([B6]-[B12]) + PRE-DATA ADDENDUM 3 ([B13] hygiene edit S1, [B14] the S1-restated L, [B15] the harness's CHOICEs, [B16] the memory rule); supersedes 9a99203b (draft + addenda 1-2), 97244872 (draft + addendum 1) and 2b2438af (draft)
 WF0, PRE_END, LB0, LB1 = M17.WF0, M17.PRE_END, M17.LB0, M17.LB1          # WF = positions EXITED 2016-07-01 .. 2025-06-29; LB = exits 2025-06-30 .. 2026-06-30 INCLUSIVE; cuts: S.LB0 / S.END
 BOOK_WF, BOOK_LB, DEEPEST_WF = M17.BOOK_WF, M17.BOOK_LB, M17.DEEPEST_WF
 NREP, SEED = 500, 20261024                                               # the registered null: 500 draws of random names from each rebalance's eligible SCORED pool
