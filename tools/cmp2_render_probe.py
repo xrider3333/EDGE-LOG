@@ -100,7 +100,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 148
+N_CASES = 149
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -5164,6 +5164,138 @@ var FIX = __FIX__;
             la:la&&{val:la.val,n:la.n,one:la.one,coarse:la.coarse,sum:la.sum},ddA:ddA,hTh:hTh,hA:hA,hOne:hOne,ta:ta&&{val:ta.val,one:ta.one},resRowTxt:resRowTxt.slice(0,240),ringT:ringT.slice(0,200),errAcc:errAcc.slice(0,3)});
       })();
 
+      // -- n1 (RUNBOARD -> PAST RUNS link, owner ask 2026-10-07 via MANAGER inbox #24: "from the compare runboard tab, need a
+      //    link to the past run results view"). Every ENGINE run on the RUNBOARD carries a small link (data-rbopen) in its matrix
+      //    header and in its chart-key row that opens that run's report; the report wears a BACK TO RUNBOARD bar (data-rbback) that
+      //    returns to the same host. Wired ONCE on the shared spot, so BOTH hosts must work: COMPARE > RUNBOARD (augurSub cmp2) and
+      //    the older RUNBOARD tab (cmp) - a control wired on one host only once shipped dead on the other. Research rows (script-only
+      //    verdicts) get no link and say why on hover. Every step here CLICKS the control: a probe that only looks proves nothing.
+      (function(){
+        function mk(k,strat){var o=dfxClone(FIX);o.id=String(+FIX.id+k);o.strategy=strat;o.starred=false;delete o.famKey;delete o.famSeq;return o;}
+        var A=mk(690601,'ZN1RBA_1_0.py'),B=mk(690602,'ZN1RBB_1_0.py'),C=mk(690603,'ZN1RBC_1_0.py');
+        var IDS=[A.id,B.id,C.id];
+        var wc=dfxWin([A,B,C],"window._rbWatchRuns=[];window._rbWatchRunsState='idle';window._rbWatchRunsWant=[];window._rbBack=null;");
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function st(){var b=w.eval('window._rbBack');return {sub:w.eval('augurSub'),sel:w.eval('augurRunSel'),back:b?{sub:b.sub,run:b.run}:null};}
+        function hdrs(){return [].slice.call(d.querySelectorAll('#rb-mtx-box table thead th[data-rbc]'));}
+        function hdrState(){var ths=hdrs();
+          return {n:ths.length,ok:ths.length>0&&ths.every(function(th){var g=th.querySelector('[data-rbopen]');
+            return !!g&&g.getAttribute('data-rbopen')===th.getAttribute('data-rbc');}),
+            tip:ths.length>0&&ths.every(function(th){var g=th.querySelector('[data-rbopen]'),t=g?(g.getAttribute('title')||''):'';
+              return t.indexOf('Past Runs')>=0&&t.indexOf('BACK TO RUNBOARD')>=0&&t.indexOf('#')<0;})};}
+        // click the first header link, read the report page, click BACK, read the board page
+        function roundTrip(tag){
+          var first=hdrs()[0],id=first?first.getAttribute('data-rbc'):null,g=first?first.querySelector('[data-rbopen]'):null;
+          if(g)g.click();chk(tag+'-open');
+          var s1=st(),det=d.getElementById('res-detail'),bar=d.querySelector('[data-rbback]');
+          var o={id:id,clicked:!!g,sub:s1.sub,sel:s1.sel,backSub:s1.back?s1.back.sub:null,backRun:s1.back?s1.back.run:null,
+            names:!!det&&(dfxN(det.textContent).indexOf('#'+id)>=0||dfxN(det.textContent).indexOf(id)>=0),
+            barIn:!!(bar&&det&&det.contains(bar)),barFirst:!!(bar&&det&&det.firstElementChild===bar),
+            barH:bar?Math.round(bar.getBoundingClientRect().height):0,barTip:bar?(bar.getAttribute('title')||''):'',barTxt:bar?dfxN(bar.textContent):'',
+            noBoard:!d.getElementById('rb-mtx-box')};
+          if(bar)bar.click();chk(tag+'-back');
+          var s2=st();o.sub2=s2.sub;o.back2=s2.back;o.roc2=!!d.querySelector('[data-rbroc]');o.box2=!!d.getElementById('rb-mtx-box');o.bar2=!!d.querySelector('[data-rbback]');
+          return o;}
+
+        // 1. COMPARE > RUNBOARD (the cmp2 host): every matrix run header carries the link; click it, land on the report, click BACK
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'full',cmpIds:IDS},wc));chk('cmp2-board');
+        var hs2=hdrState();
+        var keyTog=d.querySelectorAll('.cmpovl-key [data-ovltog]').length,keyGly=d.querySelectorAll('.cmpovl-key [data-rbopen]').length;
+        var keyOk=keyTog>0&&[].slice.call(d.querySelectorAll('.cmpovl-key [data-ovltog]')).every(function(r){var g=r.querySelector('[data-rbopen]');
+          return !!g&&g.getAttribute('data-rbopen')===r.getAttribute('data-ovltog');});
+        var rt2=roundTrip('cmp2');
+
+        // 2. the same round trip from the chart key: the link opens the report and NEVER cycles the row's grey / hidden state
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'full',cmpIds:IDS},wc));chk('key');
+        var row0=d.querySelector('.cmpovl-key [data-ovltog]'),kid=row0?row0.getAttribute('data-ovltog'):null;
+        if(row0)row0.click();                                        // grey the first series (the click remounts the key)
+        function setsNow(){return JSON.stringify([Array.from(w._cmpOvlGrey||[]).map(String).sort(),Array.from(w._cmpOvlHide||[]).map(String).sort()]);}
+        var rowG=kid?d.querySelector('.cmpovl-key [data-ovltog="'+kid+'"]'):null;
+        var before=setsNow(),gKey=rowG?rowG.querySelector('[data-rbopen]'):null;
+        if(gKey)gKey.click();chk('key-open');
+        var after=setsNow(),sk=st();
+        var barK=d.querySelector('[data-rbback]');
+        if(barK)barK.click();chk('key-back');
+        var skb=st();
+
+        // 3. the older RUNBOARD tab (augurSub cmp) - the second host
+        calls.push(doRender({cmpMode:'board',rbSample:'full',rbRank:'mar',cmpIds:IDS},wc,'cmp'));chk('tab-board');
+        var hsT=hdrState();
+        var keyTabTog=d.querySelectorAll('.cmpovl-key [data-ovltog]').length,keyTabGly=d.querySelectorAll('.cmpovl-key [data-rbopen]').length;
+        var rtT=roundTrip('tab');
+
+        // 4. a view that is not the RUNBOARD carries no link at all (PICK RUNS on COMPARE beta, and on the older tab)
+        calls.push(doRender({c2Screen:'cmp',c2View:'runs',c2Src:'pick',c2Stage:'full',cmpIds:IDS},wc));chk('pick-cmp2');
+        var pickN=d.querySelectorAll('[data-rbopen]').length,pickDrawn=d.querySelectorAll('table').length>0;
+        calls.push(doRender({cmpMode:'runs',cmpIds:IDS},wc,'cmp'));chk('pick-tab');
+        var pickTabN=d.querySelectorAll('[data-rbopen]').length,pickTabDrawn=d.querySelectorAll('table').length>0;
+
+        // 5. the WATCH view with research rows: engine dot clickable; research ring and row carry no link and say why
+        var RES=[{id:'R6.01',kind:'research',name:'ZN1RESPLOT',family:'BOOK',lane:'FRONTIER',verdict:'REFERENCE',
+                  wf:{roc30:93.8,dd_usd:44849,dd_pct:44.85,roc_pct:140.2}},
+                 {id:'R6.02',kind:'research',name:'ZN1RESNONUM',family:'MISC',lane:'TV',verdict:'DEAD'}];
+        var wOk="window._rbWatch={state:'ok',runs:"+JSON.stringify([{id:+A.id,family:'ORB',lane:'ORB',verdict:'CANDIDATE'}])
+          +",research:"+JSON.stringify(RES)+",at:Date.now()};";
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full',rbFam:'__WATCH__'},wc+wOk));chk('watch');
+        var ring=d.querySelector('circle[data-rbres="R6.01"]'),ringT=ring?(ring.querySelector('title')||{textContent:''}).textContent:'';
+        var rowP=d.querySelector('[data-rbres-row="R6.01"]'),rowN=d.querySelector('[data-rbres-row="R6.02"]');
+        var resLinks=d.querySelectorAll('circle[data-rbres][data-rbopen],[data-rbres-row][data-rbopen],[data-rbres-row] [data-rbopen]').length;
+        var dot=d.querySelector('circle[data-rbres-eng]'),dotT=dot?(dot.querySelector('title')||{textContent:''}).textContent:'';
+        var dotId=dot?dot.getAttribute('data-rbopen'):null,dotCur=dot?(dot.getAttribute('style')||''):'';
+        if(dot)dot.dispatchEvent(new w.MouseEvent('click',{bubbles:true,cancelable:true}));chk('watch-open');
+        var sw=st(),barW=d.querySelector('[data-rbback]');
+        if(barW)barW.click();chk('watch-back');
+        var swb=st(),tileBack=!!d.querySelector('[data-rbres-tile]');
+
+        // 6. a stale back link never shows: a back link left set, then a render off Past Runs, then the report again
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'full',cmpIds:IDS},wc+"window._rbBack={sub:'cmp2',y:0,run:'1'};"));chk('stale');
+        var staleCleared=(w.eval('window._rbBack')===null);
+        calls.push(doRender({},wc+"augurRunSel="+JSON.stringify(A.id)+";",'runs'));chk('plain-report');
+        var plainBar=d.querySelectorAll('[data-rbback]').length,plainDet=!!d.getElementById('res-detail');
+        w.eval('window._rbBack=null');
+
+        dfxCase('n1_rb_open_report',calls,{
+          'renders OK on both hosts, the chart key, a non-board view, the WATCH view and a plain report':calls.every(function(c){return c==='OK';}),
+          'no console errors or uncaught exceptions on any render or click':errAcc.length===0,
+          'COMPARE > RUNBOARD: three run columns drawn':hs2.n===3,
+          'COMPARE > RUNBOARD: every matrix run header carries a link whose value is that column’s run id':hs2.ok,
+          'every header link says on hover that it opens the Past Runs report and that BACK TO RUNBOARD returns (no hash id in it, so the header shows the id once)':hs2.tip&&hsT.tip,
+          'COMPARE > RUNBOARD: clicking the first link lands on Past Runs':rt2.clicked&&rt2.sub==='runs',
+          'it opens exactly that run (augurRunSel is the column’s id)':rt2.sel===rt2.id,
+          'the report names that run':rt2.names,
+          'a BACK TO RUNBOARD bar is on the page, as the first thing in the report card':rt2.barIn&&rt2.barFirst,
+          'the bar is a real tap target (at least 30px tall)':rt2.barH>=30,
+          'the bar says BACK TO RUNBOARD and its hover names the run and the same tab, stage and view':rt2.barTxt.indexOf('BACK TO RUNBOARD')>=0&&rt2.barTip.indexOf(rt2.id)>=0&&rt2.barTip.indexOf('same tab, stage and view')>=0,
+          'the board is gone while the report is up':rt2.noBoard,
+          'the back link remembers the host it was opened from (cmp2) and the run':rt2.backSub==='cmp2'&&rt2.backRun===rt2.id,
+          'clicking BACK returns to COMPARE (augurSub cmp2)':rt2.sub2==='cmp2',
+          'and the RUNBOARD is drawn again (matrix box and the ROC toggle are back)':rt2.box2&&rt2.roc2,
+          'and the back link is cleared, with no bar left on the page':rt2.back2===null&&!rt2.bar2,
+          'the older RUNBOARD tab: every matrix run header carries a link whose value is the column’s run id':hsT.n===3&&hsT.ok,
+          'the older tab: clicking the first link lands on Past Runs, on that run':rtT.sub==='runs'&&rtT.sel===rtT.id&&rtT.names,
+          'the older tab: the BACK TO RUNBOARD bar is there and remembers cmp':rtT.barIn&&rtT.barH>=30&&rtT.backSub==='cmp',
+          'the older tab: clicking BACK returns to the older tab (augurSub cmp), board drawn again, link cleared':rtT.sub2==='cmp'&&rtT.box2&&rtT.roc2&&rtT.back2===null&&!rtT.bar2,
+          'the older tab: the chart key mounted and every row carries the link':keyTabTog===3&&keyTabGly===keyTabTog,
+          'PICK RUNS on COMPARE beta draws its table and carries no link':pickDrawn&&pickN===0,
+          'PICK RUNS on the older tab draws its table and carries no link':pickTabDrawn&&pickTabN===0,
+          'the chart key mounted in the probe, with one row per series':keyTog===3,
+          'every chart-key row carries the link, whose value is that series’ run id':keyOk&&keyGly===keyTog,
+          'the key link click opens that run’s report':!!gKey&&sk.sub==='runs'&&sk.sel===kid,
+          'and does NOT change the series’ grey or hidden state (the row was greyed first, so a toggle would have hidden it)':before===after&&before.indexOf(kid)>=0,
+          'the key link click also leaves a way back, and BACK returns to COMPARE':!!sk.back&&sk.back.sub==='cmp2'&&skb.sub==='cmp2'&&skb.back===null,
+          'WATCH view: the research ring has no link and its hover says there is no engine run behind it':!!ring&&!ring.getAttribute('data-rbopen')&&ringT.indexOf('No run report to open')>=0&&ringT.indexOf('script-only research verdict')>=0&&ringT.indexOf('no engine run behind it')>=0,
+          'WATCH view: both research rows (plotted and unplotted) carry no link and a hover saying why':!!rowP&&!!rowN&&!rowP.getAttribute('data-rbopen')&&!rowN.getAttribute('data-rbopen')&&(rowP.getAttribute('title')||'').indexOf('No run report to open')>=0&&(rowN.getAttribute('title')||'').indexOf('no engine run behind it')>=0,
+          'WATCH view: nothing in the research ring or rows is a link':resLinks===0,
+          'WATCH view: the engine dot is a link to its own run, shows a pointer and says click to open':!!dot&&dotId===A.id&&dotCur.indexOf('cursor:pointer')>=0&&dotT.indexOf('click to open its report')>=0,
+          'WATCH view: clicking the engine dot opens that run’s report, with a way back':sw.sub==='runs'&&sw.sel===A.id&&!!sw.back&&sw.back.sub==='cmp2'&&!!barW,
+          'WATCH view: BACK returns to the WATCH board with the research tile still drawn':swb.sub==='cmp2'&&tileBack&&swb.back===null,
+          'a back link left over from earlier is dropped by any render off Past Runs':staleCleared,
+          'and a report opened the plain way (Past Runs list, no RUNBOARD link) has no BACK bar':plainDet&&plainBar===0
+        },{hs2:hs2,hsT:hsT,keyTog:keyTog,keyGly:keyGly,keyTabTog:keyTabTog,keyTabGly:keyTabGly,rt2:rt2,rtT:rtT,kid:kid,before:before,after:after,sk:sk,skb:skb,pickN:pickN,pickDrawn:pickDrawn,pickTabN:pickTabN,pickTabDrawn:pickTabDrawn,
+          ringT:ringT.slice(0,160),dotT:dotT.slice(0,120),dotId:dotId,sw:sw,swb:swb,tileBack:tileBack,resLinks:resLinks,staleCleared:staleCleared,plainBar:plainBar,errAcc:errAcc.slice(0,3)});
+      })();
+
       // -- case y1_explore_money: MANAGER audit 2026-09-27 (ml_edge_orb_leak_answer_2026-09-27.md
       //    1.3b/1.4a/3.1e/3.3b, verify_redflags_2026-09-27.md M1/H2). Two EXPLORE fixes.
       //    (A) HYBRID recycle (redeploy) and HYBRID equal-drawdown rows: whenever the ticked
@@ -7882,6 +8014,7 @@ def main(argv=None):
     DFX += ['l1_explore_leverage']
     DFX += ['m1_lb_warm_everywhere']
     DFX += ['k5_rb_dd5']
+    DFX += ['n1_rb_open_report']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
