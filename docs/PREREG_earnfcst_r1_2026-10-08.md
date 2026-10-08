@@ -97,3 +97,24 @@ names; the twin's row; the announcement-month split and the EAP correlation (bou
 - Registered detail: SB boundary 4's announcement month = the month of an item-2.02 8-K on TV's calendar
   (earnings_calendar_ndx.csv, NDX names only) else of a 10-Q / 10-K first filing of NetIncomeLoss (a proxy); the split
   is of GROSS name-period P&L.
+
+## Power line (2026-10-08, null only; no cell or twin P&L read)
+```
+EARN-FCST r1 POWER LINE (no cell or twin P&L read): 90 monthly WF decisions; 1,000 random beta-neutral books on the eligible names (seed 20261008); 546 concepts kept.
+  null (GROSS - the cell is judged NET against it, deliberately conservative): WF ROC @ $30k 50th +0.1, 95th +9.9; for the record, the NET null's 95th +1.5; DO 95th +0.226
+  MDE in own money: about $9,792 a year at a $30k drawdown (95th minus 50th); the map bar (ROC 15) is $15,000 a year.
+  mapped share of the universe by July-June year: 2017/18 96.5%, 2018/19 96.5%, 2019/20 98.7%, 2020/21 99.4%, 2021/22 99.7%, 2022/23 100.0%, 2023/24 100.0%, 2024/25 100.0%
+  names with a usable share count (first filed before t, period end within 15 months): median 367 of 498 mapped; eligible median 411
+```
+
+## MAP CHECK (MANAGER #84, 2026-10-08 12:30 MST) - CLOSED WITHOUT A STAGE A
+tools/earnfcst_mapcheck.py: noise = 300 of the harness's random beta-neutral books on the eligible names (annualised
+P&L std $72,402 on $1M a side); signal = Chen-Cho-Dou-Lev's published hedge return (5.02 / 7.38 / 9.74% a year, all
+CRSP stocks) x McLean-Pontiff decay (x1 / x0.55) x a liquid-names haircut (x1 / x0.5) minus the cost row (5 bps a side
+at 30% or 100% monthly turnover + 1%/yr borrow: $17,200 / $34,000 a year). Full grid: C:\EdgeLog\custom_ml\earnfcst_r1\
+MAPCHECK.csv / MAPCHECK.txt.
+- CENTRAL (7.38% x0.55 x0.5, 30%/mo): gross $20,295/yr vs cost $17,200/yr -> median WF ROC @ $30k +0.2, P(>= 15) 1.7%.
+- ROC 15 is reached only with NO decay AND the all-stocks effect (9.74%: median 20.8; 7.38%: 12.9) - neither applies to
+  liquid names in 2018-2025. Every top-500 cell of the grid has median <= 5.4 and P(>= 15) <= 13%.
+MANAGER's rule (median under ~8 AND P(>= 15) under ~10%): met by the central case -> EARN-FCST r1 CLOSED, no Stage A, no
+cell return ever computed. The extract (fundamentals_detailed) and the harness stay for any later use.
