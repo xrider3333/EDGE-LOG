@@ -218,3 +218,36 @@ B STATARB turnover (positions only): 27.5% of the $2M gross a day; $138,008,004 
 C CRASH earner-route null (1,000 random beta-neutral books, gross): DO 50th -0.002 95th +0.209; rho_dd 5th -0.170 50th -0.005
 ```
 Read: within 0.1 of the 10-05 lines in every cell; the bars stand (net WF ROC above ~10 to clear the shuffle; B pays about $69,000 a year in costs; C's earner route needs DO above +0.209).
+
+---
+
+## RESULT 2026-10-07 19:15 MST - STAGE A: NO CELL PASSES. All three dead, no variants (registered). Lockbox never read.
+`python tools/xsml_r1.py run` (XSML_CA = the wide file, sha256 e5bc8487...) -> C:\EdgeLog\custom_ml\xsml_r1\STAGE_A.txt,
+arms. Book $1M a side; ROC @ $30k is scale-free. WF = positions exited 2018-01-02..2025-06-29.
+
+| cell | net WF ROC @ $30k / Sortino | gross | shuffle 95th (gross) | raw twin net | stress | worst DD / DD5 | rho_dd / DO | PF | bars failed |
+|---|---|---|---|---|---|---|---|---|---|
+| A PATTERN (weekly GBM ranker) | 2.3 / 0.21 | 12.7 | 10.3 | 8.9 / 0.83 | -3.0 | $337k / $220k (one episode) | +0.22 / +0.13 | 1.004 | 1, 2, 3, 5, 8 |
+| B STATARB (PCA residual OU) | -3.0 / -0.82 | 5.7 | 10.1 | -2.4 / -0.45 | -3.8 | $427k / $142k (one episode) | -0.10 / -0.30 | 0.906 | 1, 2, 3, 5, 7, 8 |
+| C CRASH (crash classifier) | -0.1 / -0.02 | 0.6 | 9.1 | 0.5 / 0.12 | -0.6 | $1,015k / $305k (one episode) | -0.04 / +0.24 | 0.996 | 1, 2, 3, 5, 7, 8 |
+
+- **A PATTERN:** the only cell whose GROSS ROC cleared its shuffle (12.7 vs 10.3), so the learned ranking holds some
+  information; 5 bps a side and borrow take it to 2.3, and the plain reversal + momentum twin nets more (8.9). The long
+  leg earns, the short leg loses $864k over WF; without its best 1% of name-periods (391) the cell is -$2.38M - the
+  money is a few extreme names (MARA, DJT, INO, SMCI, AMC lead the contributor list). Neighbours: 25 names 8.1, 100
+  names -1.3. Years: 3 of 7 negative.
+- **B STATARB:** gross 5.7 is below the shuffle's 95th; costs ($69k a year, as the power line said) make it -3.0. The
+  raw 5-day twin is no better (-2.4). MANAGER's prior (costs eat most of it) holds.
+- **C CRASH:** nothing gross (0.6). Its DO (+0.235) is just above its null's 95th (+0.209), but rho_dd is -0.04, not
+  <= -0.15, so the earner route fails too; PF 0.996.
+- **Delisting worst case** (delisted longs to zero): A 2.3 -> 1.1, B -3.0 -> -3.3, C -0.1 -> -1.3; the short legs lose
+  money either way, so no short-side artefact is propping anything up.
+- **DD5:** every cell's worst drawdown is more than 1.3 x its DD5 - one episode drives each ROC (2020-21 for A and C).
+
+**What this says:** on the 500 most liquid US stocks since 2018, a learned signal from daily price and volume does
+not beat the plain signals it was built from, after costs. It matches the house's 09-27 prior ("learned ML = coin
+flip"), now on the stock cross-section too. The one thing worth carrying forward is A's gross information: if
+anything learned is tried on stocks again it must trade less (monthly, fewer names) - which is the fundamentals scope
+(docs/SCOPE_CUSTOM-ML_2026-10-07.md), where the inputs are new information rather than re-cut prices.
+The twins are reported, not candidates: A's reversal + momentum composite (8.9) is below 15 and is FRONTIER's plain-sort
+territory.
