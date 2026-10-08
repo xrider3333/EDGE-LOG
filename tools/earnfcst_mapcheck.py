@@ -26,7 +26,9 @@ LIQ = {"all stocks": 1.0, "top-500 x0.5": 0.5}
 TURN = {"turnover 30%/mo": 0.30, "100%/mo": 1.00}
 
 
-def main():
+def main(lit=None, decay=None, liq=None, title="EARN-FCST r1 MAP CHECK (MANAGER #84)", stem="MAPCHECK",
+         central=("mid 7.38%", "M-P x0.55", "top-500 x0.5")):
+    lit, decay, liq = lit or LIT, decay or DECAY, liq or LIQ
     D, beta, w, elig, cell, twin, info = E.setup()
     rng = np.random.default_rng(E.SEED + 84)
     noise = []
@@ -36,9 +38,9 @@ def main():
     wfmask = (noise[0].index >= X.WF0) & (noise[0].index <= X.WF1)
     sd = float(np.mean([x[wfmask].std() for x in noise])) * np.sqrt(252)
     rows = []
-    for ln, a in LIT.items():
-        for dn, dk in DECAY.items():
-            for qn, q in LIQ.items():
+    for ln, a in lit.items():
+        for dn, dk in decay.items():
+            for qn, q in liq.items():
                 for tn, tv in TURN.items():
                     cost = X.COST * (2 * tv * X.GROSS) * 2 * 12 + X.BORROW * X.GROSS   # out + in, both sides, monthly
                     drift = (a * dk * q * X.GROSS - cost) / 252.0
@@ -48,12 +50,12 @@ def main():
                                      p_roc_ge_15=float((roc >= 15).mean())))
     R = pd.DataFrame(rows)
     os.makedirs(E.OUT, exist_ok=True)
-    R.to_csv(os.path.join(E.OUT, "MAPCHECK.csv"), index=False)
-    c = R[(R.effect == "mid 7.38%") & (R.decay == "M-P x0.55") & (R.names == "top-500 x0.5") & (R.turnover == "turnover 30%/mo")].iloc[0]
+    R.to_csv(os.path.join(E.OUT, stem + ".csv"), index=False)
+    c = R[(R.effect == central[0]) & (R.decay == central[1]) & (R.names == central[2]) & (R.turnover == "turnover 30%/mo")].iloc[0]
     best = R.sort_values("roc_median").iloc[-1]
-    lines = [f"EARN-FCST r1 MAP CHECK (MANAGER #84): {N_BOOKS} random beta-neutral books on the eligible names as the noise "
+    lines = [f"{title}: {N_BOOKS} random beta-neutral books on the eligible names as the noise "
              f"(annualised P&L std ${sd:,.0f} on $1M a side); signal = literature hedge return x decay x liquid haircut - costs.",
-             f"  CENTRAL (mid 7.38% x0.55 x0.5, 30%/mo turnover): gross ${c.gross_usd_yr:,.0f}/yr, cost ${c.cost_usd_yr:,.0f}/yr "
+             f"  CENTRAL ({' / '.join(central)}, 30%/mo turnover): gross ${c.gross_usd_yr:,.0f}/yr, cost ${c.cost_usd_yr:,.0f}/yr "
              f"-> median WF ROC @ $30k {c.roc_median:+.1f}, P(ROC >= 15) {c.p_roc_ge_15:.1%}",
              f"  MOST FAVOURABLE cell of the grid ({best.effect}, {best.decay}, {best.names}, {best.turnover}): median "
              f"{best.roc_median:+.1f}, P(>= 15) {best.p_roc_ge_15:.1%}",
@@ -62,8 +64,17 @@ def main():
                                      for r in R.itertuples())]
     txt = "\n".join(lines)
     print(txt)
-    open(os.path.join(E.OUT, "MAPCHECK.txt"), "w", encoding="utf-8").write(txt + "\n")
+    open(os.path.join(E.OUT, stem + ".txt"), "w", encoding="utf-8").write(txt + "\n")
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "lazy":
+        # LAZY-PRICES (Cohen, Malloy & Nguyen 2020, JF): value-weighted quintile hedge 0.34-0.55% a month gross on
+        # 1995-2014 filings (value-weighted = already the large names, so the liquid haircut is a sensitivity only);
+        # the WF window is wholly after the 2018 NBER paper -> McLean-Pontiff post-publication x0.42
+        main(lit={"low 0.34%/mo": 0.0408, "mid 0.45%/mo": 0.054, "high 0.55%/mo": 0.066},
+             decay={"no decay": 1.0, "post-pub x0.42": 0.42}, liq={"VW as is": 1.0, "x0.75": 0.75},
+             title="LAZY-PRICES MAP CHECK (before any pull; MANAGER #84)", stem="MAPCHECK_LAZY",
+             central=("mid 0.45%/mo", "post-pub x0.42", "VW as is"))
+    else:
+        main()
