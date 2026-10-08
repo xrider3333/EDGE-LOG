@@ -129,3 +129,10 @@ Also:
    - For registered masters the registry row decides instead.
    - An UNREGISTERED tape that is labelled wrongly is still not caught on RTH. Its stamp says "unregistered tape".
 7. Lint: a plain gap-threshold rule with renamed knobs (no quarter cue, no pick) cannot be told from real gap logic. The run-time guard, which feeds such a file jump-free prices, is the backstop.
+8. Deliberate in-process forgery is out of scope (TTM's v6 pass, 2026-10-08). None of it can reach a saved run, because the runner re-runs the winner itself through the guard. Examples:
+   - editing `trusted_module`'s cached object;
+   - setting `sys.argv[0]` to the probe path;
+   - planting a fake `sys.modules` entry;
+   - passing no-adj prices under the ADJ master's full meta.
+
+   Possible later hardening: a sha of the price arrays in meta, re-hashed by the guard; caching the trusted file's code rather than its module.
