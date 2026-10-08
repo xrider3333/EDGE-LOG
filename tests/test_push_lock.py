@@ -104,7 +104,7 @@ def test_the_name_never_stops_a_ship(lock, monkeypatch):
     assert h is not None, "a failed name write must not cost the lock"
     try:
         # and it really is held: nobody else can take it
-        assert push_lock.hold(who="other", path=lock, timeout=1, log=lambda m: None) is None
+        assert _probe(lock) == "held"
     finally:
         os.close(h)
 
@@ -112,19 +112,140 @@ def test_the_name_never_stops_a_ship(lock, monkeypatch):
         assert held is True, "same for the context-manager form"
 
 
-# ═══════════════════════════════════════════════════ it must never block a ship forever
-def test_it_fails_open_after_its_timeout_rather_than_blocking(lock):
-    """A lock that can stop every lane from pushing is worse than the contention it removes."""
+def _probe(lock):
+    """'held' or 'free', as a second lane sees it - through a handle of its own."""
+    fd = os.open(lock, os.O_RDWR)
+    try:
+        try:
+            push_lock._lock_fd(fd)
+        except OSError:
+            return "held"
+        push_lock._unlock_fd(fd)
+        return "free"
+    finally:
+        os.close(fd)
+
+
+def _clock(step, release_after, h):
+    """A fake clock that moves `step` seconds per poll, and the holder's ship ending (its handle
+    closed - what the kernel does when a process dies) after `release_after` polls."""
+    t, calls = [1000.0], [0]
+
+    def sleep(_s):
+        t[0] += step
+        calls[0] += 1
+        if calls[0] == release_after:
+            os.close(h)
+    return (lambda: t[0]), sleep, t
+
+
+def _rename(h, text):
+    """What the holder wrote past the locked byte, replaced - a hold that began hours ago."""
+    os.truncate(h, 0)
+    os.lseek(h, 0, os.SEEK_SET)
+    os.write(h, b"#" + text.encode("utf-8"))
+
+
+# ═══════════════════════════════════════════════════ a LIVE holder is waited for (2026-10-08)
+def test_a_live_holder_is_waited_for_past_the_old_timeout_with_a_line_every_ten_minutes(lock):
+    """2026-10-08: the 75-minute fail-open sent ships around a live holder and into a rejected
+    push. A held lock means a LIVE ship (the kernel frees it the moment its process dies), so the
+    waiter waits - five hours here - says who holds it every ten minutes, and never goes unlocked."""
+    h = push_lock.hold(who="tl-ship1", path=lock, log=lambda m: None)
+    now, sleep, t = _clock(60, 300, h)
+    msgs, posts = [], []
+    fd = push_lock.hold(who="waiter", path=lock, log=msgs.append, sleep=sleep, now=now,
+                        notify=posts.append)
+    try:
+        assert fd is not None, "it took the lock once the holder's ship ended"
+        assert t[0] - 1000 >= 5 * 3600 > push_lock.DEFAULT_TIMEOUT
+        assert not [m for m in msgs if "unlocked" in m.lower()], msgs
+        progress = [m for m in msgs if m.startswith("  still waiting for the push lock: ")]
+        assert 28 <= len(progress) <= 31, len(progress)
+        assert "held by tl-ship1  pid %d" % os.getpid() in progress[0], progress[0]
+        assert "this lane has waited 10 min" in progress[0], progress[0]
+        assert posts == [], "a holder of a few seconds (its own stamp) is no long hold"
+    finally:
+        if fd is not None:
+            os.close(fd)
+
+
+def test_the_context_manager_form_waits_for_a_live_holder_too(lock):
+    h = push_lock.hold(who="holder", path=lock, log=lambda m: None)
+    now, sleep, t = _clock(600, 30, h)
+    with push_lock.exclusive(who="w", path=lock, log=lambda m: None, sleep=sleep,
+                             now=now) as held:
+        assert held is True and t[0] - 1000 >= 5 * 3600
+
+
+def test_a_hold_past_three_hours_tells_manager_ONCE_and_the_waiter_keeps_waiting(lock):
+    h = push_lock.hold(who="tl-ship1", path=lock, log=lambda m: None)
+    since = time.strftime("%H:%M:%S", time.localtime(time.time() - 3 * 3600 - 600))
+    _rename(h, "tl-ship1  pid 43876  since %s" % since)
+    now, sleep, t = _clock(60, 20, h)
+    msgs, posts = [], []
+    fd = push_lock.hold(who="waiter", path=lock, log=msgs.append, sleep=sleep, now=now,
+                        notify=posts.append)
+    try:
+        assert fd is not None, "told MANAGER and kept waiting - never went around the holder"
+        assert len(posts) == 1, posts
+        assert "pid 43876" in posts[0] and "worktree tl-ship1" in posts[0], posts[0]
+        assert "3 h 1" in posts[0], posts[0]
+        assert any("told MANAGER once; still waiting" in m for m in msgs), msgs
+        # once MACHINE-WIDE: a second waiter noticing the same hold posts nothing
+        assert push_lock.report_long_hold(lock, "tl-ship1  pid 43876  since %s" % since, 11400,
+                                          posts.append, lambda m: None) is False
+        assert len(posts) == 1
+        # a later, different hold is reported again
+        assert push_lock.report_long_hold(lock, "orb  pid 999  since 01:02:03", 11400,
+                                          posts.append, lambda m: None) is True
+        assert len(posts) == 2
+    finally:
+        if fd is not None:
+            os.close(fd)
+
+
+def test_the_long_hold_line_goes_to_the_MANAGER_inbox_as_SHIP_QUEUE():
+    cmd = push_lock.inbox_command("the line")
+    assert cmd[0] == sys.executable
+    assert os.path.normcase(cmd[1]) == os.path.normcase(os.path.join(TOOLS, "chat_inbox.py"))
+    assert os.path.isfile(cmd[1])
+    assert cmd[2:] == ["post", "MANAGER", "--from", "SHIP-QUEUE", "the line"]
+
+
+def test_held_for_reads_the_holders_own_stamp():
+    at = time.mktime((2026, 10, 8, 14, 0, 0, 0, 0, -1))
+    assert push_lock.held_for("lane  pid 1  since 13:30:00", at) == 1800
+    assert push_lock.held_for("lane  pid 1  since 23:00:00", at) == 15 * 3600, "yesterday"
+    assert push_lock.held_for("no stamp here", at) is None
+    assert push_lock.held_for("", at) is None
+
+
+def test_EDGELOG_SHIP_UNLOCKED_restores_the_old_fail_open_and_says_so_loudly(lock, monkeypatch):
+    """A HUMAN's override, for one ship: the old timeout, the old unlocked push - shouted."""
+    monkeypatch.setenv("EDGELOG_SHIP_UNLOCKED", "1")
     h = push_lock.hold(who="holder", path=lock, log=lambda m: None)
     try:
         msgs = []
-        t0 = time.time()
-        assert push_lock.hold(who="waiter", path=lock, timeout=2, log=msgs.append) is None
-        assert time.time() - t0 < 30
-        assert any("unlocked" in m for m in msgs), "it must SAY it is going anyway"
-        assert any("holder" in m for m in msgs), "and name who it waited for"
+        t = [0.0]
+        polls = [0]
+
+        def sleep(_s):
+            t[0] += 60
+            polls[0] += 1
+            assert polls[0] < 500, "the override's timeout never fired: it waited like a lane"
+        assert push_lock.hold(who="waiter", path=lock, timeout=600, log=msgs.append,
+                              sleep=sleep, now=lambda: t[0]) is None
+        assert 600 <= t[0] <= 700
+        assert any(m.startswith("  !!! EDGELOG_SHIP_UNLOCKED=1") for m in msgs), msgs
+        assert any("shipping UNLOCKED, as a human asked" in m for m in msgs), msgs
+        with push_lock.exclusive(who="w", path=lock, timeout=60, log=lambda m: None,
+                                 sleep=sleep, now=lambda: t[0]) as held:
+            assert held is False
     finally:
         os.close(h)
+    monkeypatch.setenv("EDGELOG_SHIP_UNLOCKED", "0")
+    assert push_lock.unlocked_override() is False
 
 
 def test_it_fails_open_when_the_lock_cannot_be_opened_at_all(monkeypatch, lock):
@@ -136,8 +257,8 @@ def test_it_fails_open_when_the_lock_cannot_be_opened_at_all(monkeypatch, lock):
 
 
 def test_the_default_timeout_outlasts_a_real_gate():
-    """23 minutes is the normal engine tier and 40 has been seen on a busy box. A timeout
-    shorter than a real gate would make the lock fail open exactly when it is working."""
+    """Only the human override (EDGELOG_SHIP_UNLOCKED=1) uses it now, but a timeout shorter than
+    a real gate would still make that override fail open exactly when the lock is working."""
     assert push_lock.DEFAULT_TIMEOUT > 23 * 60 * 2
 
 
@@ -206,6 +327,49 @@ def test_a_killed_holder_does_not_wedge_the_lock(tmp_path, lock):
     finally:
         if p.poll() is None:
             p.kill()
+
+
+def test_a_waiter_already_waiting_gets_the_lock_the_moment_a_killed_holder_dies(tmp_path, lock):
+    """Waiting for as long as the holder is alive is only safe because death frees the lock AT
+    ONCE: a lane already waiting (no timeout to run out) must get it within seconds of the kill."""
+    holder_py = tmp_path / "holder.py"
+    holder_py.write_text(
+        "import sys, time\n"
+        "sys.path.insert(0, r'%s')\n" % TOOLS +
+        "import push_lock\n"
+        "h = push_lock.hold(who='victim', path=sys.argv[1], log=lambda m: None)\n"
+        "print('held' if h else 'failopen', flush=True)\n"
+        "time.sleep(300)\n")
+    waiter_py = tmp_path / "waiter.py"
+    waiter_py.write_text(
+        "import sys, time\n"
+        "sys.path.insert(0, r'%s')\n" % TOOLS +
+        "import push_lock\n"
+        "print('waiting', flush=True)\n"
+        "h = push_lock.hold(who='next', path=sys.argv[1], log=lambda m: None)\n"
+        "print('got %.3f' % time.time() if h else 'FAILOPEN', flush=True)\n")
+    env = dict(os.environ)
+    env.pop("EDGELOG_SHIP_UNLOCKED", None)
+    victim = subprocess.Popen([sys.executable, str(holder_py), lock], stdout=subprocess.PIPE,
+                              text=True, env=env)
+    waiter = None
+    try:
+        assert victim.stdout.readline().strip() == "held"
+        waiter = subprocess.Popen([sys.executable, str(waiter_py), lock], stdout=subprocess.PIPE,
+                                  text=True, env=env)
+        assert waiter.stdout.readline().strip() == "waiting"
+        time.sleep(3)
+        assert waiter.poll() is None, "it must wait while the holder is alive"
+        t_kill = time.time()
+        victim.kill()
+        victim.wait(timeout=30)
+        out, _ = waiter.communicate(timeout=60)
+        assert out.startswith("got "), out
+        assert float(out.split()[1]) - t_kill < 10, "freed at once, not after a timeout"
+    finally:
+        for p in (victim, waiter):
+            if p is not None and p.poll() is None:
+                p.kill()
 
 
 # ═══════════════════════════════════════════════════ how ship uses it

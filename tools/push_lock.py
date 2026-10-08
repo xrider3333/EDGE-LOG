@@ -25,20 +25,46 @@ earlier today - the breaker fired at 15s while the waiter gave up at 10s, so a l
 could never be broken and a waiter silently gave up instead. There is no leftover state here to
 get wrong.
 
-FAIL OPEN. If the lock cannot be taken at all - no state directory, no permission, a timeout -
-`ship` says so and proceeds unlocked. A lock that can stop every lane from pushing is worse than
-the contention it exists to remove.
+A LIVE HOLDER IS WAITED FOR, HOWEVER LONG (2026-10-08). This used to fail open after 75 minutes
+("shipping unlocked rather than blocking"). That was measured to be wrong the day the queue got
+long: MANAGER's table-band ship waited 75 minutes behind tl-ship1's two-hour selftest, shipped
+unlocked, passed every gate - and was rejected at the push because ORB's ship had moved main
+meanwhile. Every lane queued since 10:36 was about to do the same, so the lock was turning into
+an unlocked race plus a wasted re-run per lane. A waiter cannot be waiting on a DEAD holder - the
+kernel drops the lock the moment its process ends, however it ends - so a held lock always means
+a live ship, and going around it can only cost both of them. So now:
+  * while the lock is held, the waiter keeps waiting, saying who holds it and for how long once
+    every PROGRESS_EVERY (10 min);
+  * a holder past LONG_HOLD (3 h) is reported ONCE, machine-wide, to the MANAGER inbox
+    (tools/chat_inbox.py post MANAGER --from SHIP-QUEUE ...) with its pid and worktree - a human
+    decides; the waiter keeps waiting;
+  * EDGELOG_SHIP_UNLOCKED=1, set by a HUMAN for one ship, restores the old timeout and fail-open,
+    said loudly when it starts and when it fires.
+FAIL OPEN only when the lock MACHINERY is unusable - no state directory, no permission to open
+the file: `ship` says so and proceeds unlocked. A lock that cannot be opened at all must not stop
+every lane from pushing.
 """
 import contextlib
 import os
+import re
+import subprocess
+import sys
 import time
 
 LOCK_NAME = "push.lock"
 
-# A holder keeps it across a rebase, several render gates and the engine tier: 23 minutes is
-# normal and 40 has been seen on a busy box. 75 minutes is "something has gone wrong", not
-# "somebody is slow".
+# How long a waiter gives a live holder before going unlocked - ONLY under the human override
+# (EDGELOG_SHIP_UNLOCKED=1, see the module docstring). Without it a live holder is waited for.
 DEFAULT_TIMEOUT = 75 * 60
+
+# A progress line while waiting on a live holder (who, for how long), at most this often.
+PROGRESS_EVERY = 10 * 60
+
+# A holder past this is told to MANAGER, once per hold, machine-wide. The longest healthy hold
+# measured is a two-hour selftest; three hours is a ship that needs a human.
+LONG_HOLD = 3 * 60 * 60
+
+UNLOCKED_ENV = "EDGELOG_SHIP_UNLOCKED"
 
 
 def _home():
@@ -107,12 +133,129 @@ def _write_name(fd, who):
         pass
 
 
+def unlocked_override():
+    """EDGELOG_SHIP_UNLOCKED=1: a human asked for the old fail-open behaviour."""
+    return os.environ.get(UNLOCKED_ENV, "").strip() not in ("", "0", "false", "no")
+
+
+_SINCE = re.compile(r"since (\d\d):(\d\d):(\d\d)")
+_PID = re.compile(r"pid (\d+)")
+
+
+def held_for(text, at=None):
+    """Seconds the holder named in `text` ("lane  pid 123  since 13:06:32") has held the lock at
+    epoch `at`, from its own clock-time stamp (today, or yesterday when that is in the future).
+    None when the text carries no stamp."""
+    m = _SINCE.search(text or "")
+    if not m:
+        return None
+    at = time.time() if at is None else at
+    lt = time.localtime(at)
+    since = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, int(m.group(1)), int(m.group(2)),
+                         int(m.group(3)), 0, 0, -1))
+    if since > at + 60:
+        since -= 24 * 3600
+    return max(0.0, at - since)
+
+
+def _mins(secs):
+    secs = int(secs or 0)
+    return "%d h %02d min" % (secs // 3600, secs % 3600 // 60) if secs >= 3600 \
+        else "%d min" % (secs // 60)
+
+
+def inbox_command(text):
+    """The one line a long hold costs: a post to MANAGER's inbox, as SHIP-QUEUE."""
+    return [sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                         "chat_inbox.py"),
+            "post", "MANAGER", "--from", "SHIP-QUEUE", text]
+
+
+def _post_to_manager(text):
+    try:
+        subprocess.run(inbox_command(text), capture_output=True, timeout=60)
+    except Exception:
+        pass                    # a missed post never stops a waiter
+
+
+def report_long_hold(path, text, secs, notify=None, log=print):
+    """Tell MANAGER, ONCE per hold machine-wide, that the lock at `path` has been held `secs` by
+    the holder named in `text` - then the caller goes on waiting. Once is enforced by a marker
+    file per (pid, since) created exclusively beside the lock: however many lanes wait, only the
+    first to notice posts. Returns True when this call posted."""
+    m = _PID.search(text or "")
+    pid = m.group(1) if m else "?"
+    since = _SINCE.search(text or "")
+    tag = "%s-%s" % (pid, since.group(0)[6:].replace(":", "") if since else "nostamp")
+    d = os.path.join(os.path.dirname(path), "long_holds")
+    try:
+        os.makedirs(d, exist_ok=True)
+        fd = os.open(os.path.join(d, tag + ".posted"), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.close(fd)
+    except FileExistsError:
+        return False
+    except Exception:
+        return False            # cannot mark it: better silent than one post per waiter
+    worktree = (text or "?").split("  pid")[0].strip() or "?"
+    line = ("push lock held %s by %s (pid %s, worktree %s) - every other lane is waiting behind "
+            "it and none ships unlocked. Check that ship: kill it if it is stuck (the lock frees "
+            "the moment it dies); a human may set EDGELOG_SHIP_UNLOCKED=1 for one ship to go "
+            "around it." % (_mins(secs), worktree, pid, worktree))
+    (notify or _post_to_manager)(line)
+    log("  the push lock has been held %s by %s (pid %s) - told MANAGER once; still waiting"
+        % (_mins(secs), worktree, pid))
+    return True
+
+
+def _wait_for_lock(fd, path, timeout, log, sleep, now, notify):
+    """Block until this handle holds the lock. True when it does; False only under the human
+    override, past `timeout`. While a live holder has it: a progress line every PROGRESS_EVERY,
+    and one MANAGER post past LONG_HOLD."""
+    override = unlocked_override()
+    start = now()
+    deadline = start + timeout
+    said, next_progress = False, start + PROGRESS_EVERY
+    if override:
+        log("  !!! %s=1 - a human asked for the OLD behaviour: if the push lock is still held "
+            "after %d min this lane ships UNLOCKED (a rejected push is likely)"
+            % (UNLOCKED_ENV, timeout // 60))
+    while True:
+        try:
+            _lock_fd(fd)
+            return True
+        except OSError:
+            pass
+        t = now()
+        other = holder(path)
+        if not said:
+            log("  waiting for the push lock%s - one lane gates and pushes at a time, so "
+                "neither of us re-runs a suite for nothing; a live holder is waited for "
+                "(the lock frees the moment its ship ends, however it ends)"
+                % (" (held by %s)" % other if other else ""))
+            said = True
+        if t >= next_progress:
+            hf = held_for(other, time.time())
+            log("  still waiting for the push lock: held by %s%s; this lane has waited %s"
+                % (other or "an unnamed lane", " for %s" % _mins(hf) if hf is not None else "",
+                   _mins(t - start)))
+            next_progress = t + PROGRESS_EVERY
+        hf = held_for(other, time.time())
+        if hf is not None and hf > LONG_HOLD:
+            report_long_hold(path, other, hf, notify, log)
+        if override and t >= deadline:
+            log("  !!! push lock still held after %d min and %s=1 - shipping UNLOCKED, as a "
+                "human asked (expect a rejection)" % (timeout // 60, UNLOCKED_ENV))
+            return False
+        sleep(2.0)
+
+
 @contextlib.contextmanager
 def exclusive(who="", path=None, timeout=DEFAULT_TIMEOUT, log=print,
-              sleep=time.sleep, now=time.time):
+              sleep=time.sleep, now=time.time, notify=None):
     """Hold the machine-wide push lock. Yields True while held, False if it could not be taken.
 
-    False always means "go anyway": see FAIL OPEN above. `who` is written into the lock file so
+    False means "go anyway", and happens only when the lock cannot be opened at all, or under
+    the human override past `timeout` (module docstring). `who` is written into the lock file so
     a waiting lane can say who it is waiting for.
     """
     path = path or lock_path()
@@ -126,25 +269,9 @@ def exclusive(who="", path=None, timeout=DEFAULT_TIMEOUT, log=print,
             yield False
             return
 
-        deadline = now() + timeout
-        said = False
-        while True:
-            try:
-                _lock_fd(fd)
-                break
-            except OSError:
-                if not said:
-                    other = holder(path)
-                    log("  waiting for the push lock%s - one lane gates and pushes at a time, "
-                        "so neither of us re-runs a suite for nothing"
-                        % (" (held by %s)" % other if other else ""))
-                    said = True
-                if now() >= deadline:
-                    log("  push lock still held after %d min - shipping unlocked rather than "
-                        "blocking (expect a possible rejection)" % (timeout // 60))
-                    yield False
-                    return
-                sleep(2.0)
+        if not _wait_for_lock(fd, path, timeout, log, sleep, now, notify):
+            yield False
+            return
 
         try:
             try:
@@ -163,8 +290,11 @@ def exclusive(who="", path=None, timeout=DEFAULT_TIMEOUT, log=print,
 
 
 def hold(who="", path=None, timeout=DEFAULT_TIMEOUT, log=print,
-         sleep=time.sleep, now=time.time):
+         sleep=time.sleep, now=time.time, notify=None):
     """Take the lock FOR THE REST OF THIS PROCESS'S LIFE. Returns the open handle, or None.
+
+    None - ship proceeds unlocked - only when the lock cannot be opened at all, or under the
+    human override past `timeout`. A live holder is otherwise waited for (module docstring).
 
     There is deliberately no release. The caller - `wt.py ship` - has a dozen `raise SystemExit`
     paths between here and its push (a failed rebase, each render gate, the test tiers), and
@@ -183,28 +313,12 @@ def hold(who="", path=None, timeout=DEFAULT_TIMEOUT, log=print,
         log("  push lock unavailable (%s: %s) - shipping unlocked" % (type(e).__name__, e))
         return None
 
-    deadline = now() + timeout
-    said = False
-    while True:
+    if not _wait_for_lock(fd, path, timeout, log, sleep, now, notify):
         try:
-            _lock_fd(fd)
-            break
-        except OSError:
-            if not said:
-                other = holder(path)
-                log("  waiting for the push lock%s - one lane gates and pushes at a time, so "
-                    "neither of us re-runs a suite for nothing"
-                    % (" (held by %s)" % other if other else ""))
-                said = True
-            if now() >= deadline:
-                log("  push lock still held after %d min - shipping unlocked rather than "
-                    "blocking (a rejection is possible)" % (timeout // 60))
-                try:
-                    os.close(fd)
-                except Exception:
-                    pass
-                return None
-            sleep(2.0)
+            os.close(fd)
+        except Exception:
+            pass
+        return None
 
     try:
         _write_name(fd, who)

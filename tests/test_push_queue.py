@@ -113,36 +113,111 @@ def test_it_goes_ahead_when_the_queue_directory_cannot_be_made(monkeypatch):
     assert any("unavailable" in m for m in msgs)
 
 
-def test_it_gives_up_waiting_rather_than_never_shipping(monkeypatch):
-    """Fairness is not worth a lane not landing at all."""
-    fd = _hold_ticket_number_one()                # an older ticket, held for the whole test
+def _clock(step, release_after, fd):
+    """A fake clock moving `step` seconds per poll; the lane ahead ends (its ticket handle
+    closed, what the kernel does when its process dies) after `release_after` polls."""
+    t, calls = [1000.0], [0]
+
+    def sleep(_s):
+        t[0] += step
+        calls[0] += 1
+        if calls[0] == release_after:
+            q._unlock_fd(fd)
+            os.close(fd)
+    return (lambda: t[0]), sleep, t
+
+
+def test_a_live_queue_is_never_jumped_and_says_where_it_stands_every_ten_minutes():
+    """2026-10-08: the 3-hour "ahead out of turn" sent every lane queued after 10:36 around live
+    lanes into unlocked races and rejected pushes. A live ticket ahead means a LIVE lane (the
+    kernel drops a dead one's), so a lane waits - five hours here - and gets its own turn."""
+    fd = _hold_ticket_number_one()
+    now, sleep, t = _clock(60, 300, fd)
+    msgs, posts = [], []
+    with q.wait_turn(who="later", log=msgs.append, sleep=sleep, now=now,
+                     notify=posts.append) as n:
+        assert n == 2, "its own turn, in order - never None"
+    assert t[0] - 1000 >= 5 * 3600 > q.DEFAULT_TIMEOUT
+    assert not [m for m in msgs if "out of turn" in m.lower()], msgs
+    progress = [m for m in msgs if m.startswith("  still queued: ticket 2")]
+    assert 28 <= len(progress) <= 31, len(progress)
+    assert "1 live lane(s) ahead (oldest ticket 1); the push lock is free" in progress[0], progress[0]
+    assert posts == []
+
+
+def test_hold_turn_never_jumps_a_live_queue_either():
+    fd = _hold_ticket_number_one()
+    now, sleep, t = _clock(600, 30, fd)
+    n, mine = q.hold_turn(who="later", log=lambda m: None, sleep=sleep, now=now)
+    try:
+        assert n == 2 and mine is not None and t[0] - 1000 >= 5 * 3600
+    finally:
+        q._unlock_fd(mine)
+        os.close(mine)
+
+
+def test_the_progress_line_names_the_push_lock_holder_and_a_long_hold_is_told_once(tmp_path):
+    """While queued behind a lane whose ship has held the push lock for over 3 hours, the lane
+    says who holds it and for how long, tells MANAGER ONCE, and keeps its place."""
+    import push_lock
+    fd = _hold_ticket_number_one()
+    h = push_lock.hold(who="tl-ship1", log=lambda m: None)
+    since = time.strftime("%H:%M:%S", time.localtime(time.time() - 3 * 3600 - 900))
+    os.truncate(h, 0)
+    os.lseek(h, 0, os.SEEK_SET)
+    os.write(h, ("#tl-ship1  pid 43876  since %s" % since).encode())
+    try:
+        now, sleep, t = _clock(60, 25, fd)
+        msgs, posts = [], []
+        with q.wait_turn(who="later", log=msgs.append, sleep=sleep, now=now,
+                         notify=posts.append) as n:
+            assert n == 2
+        progress = [m for m in msgs if m.startswith("  still queued: ticket 2")]
+        assert progress and "the push lock is held by tl-ship1  pid 43876" in progress[0]
+        assert " for 3 h 1" in progress[0], progress[0]
+        assert len(posts) == 1 and "pid 43876" in posts[0] and "tl-ship1" in posts[0], posts
+    finally:
+        os.close(h)
+
+
+def test_EDGELOG_SHIP_UNLOCKED_restores_going_out_of_turn_and_says_so_loudly(monkeypatch):
+    monkeypatch.setenv("EDGELOG_SHIP_UNLOCKED", "1")
+    fd = _hold_ticket_number_one()
     try:
         msgs = []
-        with q.wait_turn(who="later", timeout=2, log=msgs.append, sleep=lambda s: None) as n:
+        t = [0.0]
+
+        def sleep(_s):
+            t[0] += 60
+        with q.wait_turn(who="later", timeout=600, log=msgs.append, sleep=sleep,
+                         now=lambda: t[0]) as n:
             assert n is None
-        assert any("out of turn" in m for m in msgs), "it must admit it jumped"
+        assert any(m.startswith("  !!! EDGELOG_SHIP_UNLOCKED=1") for m in msgs), msgs
+        assert any("going ahead OUT OF TURN, as a human asked" in m for m in msgs), msgs
+        n, mine = q.hold_turn(who="later2", timeout=600, log=lambda m: None, sleep=sleep,
+                              now=lambda: t[0])
+        assert n is None and mine is not None, "(None, handle): go ahead, ticket kept"
+        q._unlock_fd(mine)
+        os.close(mine)
     finally:
         q._unlock_fd(fd)
         os.close(fd)
 
 
 def test_the_default_timeout_outlasts_a_real_queue():
-    """A queue of three at ~24 minutes each is a routine morning, so the timeout must comfortably
-    exceed that - otherwise the lane at the back jumps the queue it was waiting in."""
+    """Only the human override uses it now - but even then the lane at the back must not jump
+    a routine queue of three."""
     assert q.DEFAULT_TIMEOUT >= 3 * q.MINUTES_PER_TURN * 60
 
 
 def test_the_wait_message_says_position_and_an_estimate():
     fd = _hold_ticket_number_one()
-    try:
-        msgs = []
-        with q.wait_turn(who="later", timeout=1, log=msgs.append, sleep=lambda s: None):
-            pass
-        joined = " ".join(msgs)
-        assert "1 lane(s) ahead" in joined and "min" in joined, joined
-    finally:
-        q._unlock_fd(fd)
-        os.close(fd)
+    now, sleep, t = _clock(1, 1, fd)
+    msgs = []
+    with q.wait_turn(who="later", log=msgs.append, sleep=sleep, now=now):
+        pass
+    joined = " ".join(msgs)
+    assert "1 lane(s) ahead" in joined and "min" in joined, joined
 
 
 # ═══════════════════════════════════════════════════ real processes: the only honest test

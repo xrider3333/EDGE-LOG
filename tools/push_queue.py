@@ -18,9 +18,22 @@ threshold (15s) was longer than the waiter's own timeout (10s), so a leftover lo
 broken and a waiter silently gave up and sent an unrecorded request. A rule the kernel enforces
 has no threshold to misjudge - see [[edgelog-cross-process-lock]].
 
-FAIRNESS IS NOT A GUARANTEE OF SERVICE. Everything here fails open the way the lock does: if the
-ticket directory cannot be made, the counter cannot be minted, or a lane waits past its timeout,
-it proceeds anyway and says so. A queue that can stop a lane shipping is worse than an unfair one.
+A LIVE QUEUE IS NEVER JUMPED (2026-10-08). This used to give up after 3 hours and go "ahead out
+of turn rather than not at all". With ~25 lanes queued on 2026-10-08 every lane that arrived
+after 10:36 hit that timeout, jumped, then hit the push lock's own timeout and shipped unlocked
+(MANAGER's table-band ship: 180 min queued, 75 min on the lock, every gate passed, rejected at the
+push because ORB's ship had moved main) - order broke down into unlocked races and wasted
+re-runs. A ticket ahead is live only while its lane's process holds its lock (the kernel proves
+it), so a lane is never waiting on a dead one; it waits as long as the lanes ahead are alive:
+  * a progress line every push_lock.PROGRESS_EVERY (10 min): position, and who holds the push
+    lock for how long;
+  * a push-lock holder past push_lock.LONG_HOLD (3 h) is reported ONCE, machine-wide, to MANAGER
+    (push_lock.report_long_hold); the lane keeps waiting;
+  * EDGELOG_SHIP_UNLOCKED=1, set by a HUMAN, restores the old timeout and going out of turn, said
+    loudly.
+It still FAILS OPEN when the queue MACHINERY is unusable - the ticket directory cannot be made or
+opened, the counter cannot be minted - and says so: a queue that cannot even be joined must not
+stop a lane shipping.
 """
 import contextlib
 import os
@@ -28,12 +41,13 @@ import re
 import time
 
 try:
-    from push_lock import _lock_fd, _unlock_fd        # one locking primitive, not two
+    import push_lock as _pl                           # one locking primitive, not two
 except ImportError:                                    # imported as tools.push_queue
-    from tools.push_lock import _lock_fd, _unlock_fd
+    from tools import push_lock as _pl
+_lock_fd, _unlock_fd = _pl._lock_fd, _pl._unlock_fd
 
-# A lane holds its ticket across the rebase, the gates and the push: 24 minutes is normal, and a
-# queue of three is routine. 3 hours is "something is wrong", not "somebody is slow".
+# How long a lane waits behind LIVE lanes before going out of turn - ONLY under the human
+# override (EDGELOG_SHIP_UNLOCKED=1). Without it a live queue is waited for.
 DEFAULT_TIMEOUT = 3 * 60 * 60
 
 # What one lane's turn costs, for the ETA. Measured on this box: the engine tier runs 9-24 min
@@ -117,6 +131,71 @@ def _is_live(path):
             pass
 
 
+class _Waiting(object):
+    """The shared wait loop of wait_turn and hold_turn: the old position message whenever the
+    number ahead changes, a progress line every PROGRESS_EVERY, the long-hold report, and - only
+    under the human override - the old timeout."""
+
+    def __init__(self, n, timeout, log, now, notify):
+        self.n, self.log, self.now, self.notify = n, log, now, notify
+        self.override = _pl.unlocked_override()
+        self.start = now()
+        self.deadline = self.start + timeout
+        self.timeout = timeout
+        self.said = None
+        self.next_progress = self.start + _pl.PROGRESS_EVERY
+        if self.override:
+            log("  !!! %s=1 - a human asked for the OLD behaviour: still queued after %d min "
+                "this lane goes ahead OUT OF TURN" % (_pl.UNLOCKED_ENV, timeout // 60))
+
+    def tick(self, ahead):
+        """Called while `ahead` (live tickets older than ours) is not empty. True: stop waiting
+        (the override's timeout ran out)."""
+        n, log = self.n, self.log
+        if len(ahead) != self.said:
+            log("  queued for the push gate: ticket %d, %d lane(s) ahead, roughly %d min"
+                % (n, len(ahead), len(ahead) * MINUTES_PER_TURN))
+            self.said = len(ahead)
+        t = self.now()
+        lock = _pl.lock_path()
+        other = _pl.holder(lock) if os.path.exists(lock) else ""
+        hf = _pl.held_for(other, time.time()) if other else None
+        if t >= self.next_progress:
+            log("  still queued: ticket %d, %d live lane(s) ahead (oldest ticket %d); the push "
+                "lock is %s; this lane has waited %s"
+                % (n, len(ahead), ahead[0][0],
+                   "held by %s%s" % (other, " for %s" % _pl._mins(hf) if hf is not None else "")
+                   if other and _held(lock) else "free", _pl._mins(t - self.start)))
+            self.next_progress = t + _pl.PROGRESS_EVERY
+        if hf is not None and hf > _pl.LONG_HOLD and _held(lock):
+            _pl.report_long_hold(lock, other, hf, self.notify, log)
+        if self.override and t >= self.deadline:
+            log("  !!! still queued after %d min and %s=1 - going ahead OUT OF TURN, as a human "
+                "asked" % (self.timeout // 60, _pl.UNLOCKED_ENV))
+            return True
+        return False
+
+
+def _held(path):
+    """Is the push lock at `path` held right now (by anyone)?"""
+    try:
+        fd = os.open(path, os.O_RDWR)
+    except Exception:
+        return False
+    try:
+        try:
+            _lock_fd(fd)
+        except OSError:
+            return True
+        _unlock_fd(fd)
+        return False
+    finally:
+        try:
+            os.close(fd)
+        except Exception:
+            pass
+
+
 def live_tickets(d=None):
     """[(number, path)] of every ticket still being waited on, lowest number first."""
     d = d or queue_dir()
@@ -141,13 +220,14 @@ def live_tickets(d=None):
 
 
 @contextlib.contextmanager
-def wait_turn(who="", timeout=DEFAULT_TIMEOUT, log=print, sleep=time.sleep, now=time.time):
+def wait_turn(who="", timeout=DEFAULT_TIMEOUT, log=print, sleep=time.sleep, now=time.time,
+              notify=None):
     """Hold a ticket until it is the oldest live one. Yields the ticket number, or None.
 
-    None means "go anyway": the queue could not be used, or the wait ran past `timeout`. The
-    caller still has to take the push lock itself - this decides WHOSE TURN it is, not who holds
-    the lock, and the two are deliberately separate so a failure here cannot let two lanes gate at
-    once.
+    None means "go anyway": the queue could not be used at all, or - only under the human
+    override - the wait ran past `timeout`. The caller still has to take the push lock itself -
+    this decides WHOSE TURN it is, not who holds the lock, and the two are deliberately separate
+    so a failure here cannot let two lanes gate at once.
     """
     d = queue_dir()
     fd = None
@@ -173,21 +253,14 @@ def wait_turn(who="", timeout=DEFAULT_TIMEOUT, log=print, sleep=time.sleep, now=
             yield None
             return
 
-        deadline = now() + timeout
-        said = None
+        w = _Waiting(n, timeout, log, now, notify)
         while True:
             ahead = [t for t in live_tickets(d) if t[0] < n]
             if not ahead:
-                if said:
+                if w.said:
                     log("  your turn (ticket %d)" % n)
                 break
-            if len(ahead) != said:
-                log("  queued for the push gate: ticket %d, %d lane(s) ahead, roughly %d min"
-                    % (n, len(ahead), len(ahead) * MINUTES_PER_TURN))
-                said = len(ahead)
-            if now() >= deadline:
-                log("  still queued after %d min - going ahead out of turn rather than not at all"
-                    % (timeout // 60))
+            if w.tick(ahead):
                 yield None
                 return
             sleep(2.0)
@@ -206,11 +279,13 @@ def wait_turn(who="", timeout=DEFAULT_TIMEOUT, log=print, sleep=time.sleep, now=
                 pass
 
 
-def hold_turn(who="", timeout=DEFAULT_TIMEOUT, log=print, sleep=time.sleep, now=time.time):
+def hold_turn(who="", timeout=DEFAULT_TIMEOUT, log=print, sleep=time.sleep, now=time.time,
+              notify=None):
     """Wait for this lane's turn and KEEP the ticket for the rest of the process's life.
 
-    Returns (number, handle), or (None, None) when the queue could not be used or the wait ran
-    out - both of which mean "go ahead anyway". There is deliberately no release, for the same
+    Returns (number, handle); (None, None) when the queue could not be used at all; (None,
+    handle) only under the human override once its timeout ran out - "go ahead anyway" (module
+    docstring: a live queue is otherwise waited for). There is deliberately no release, for the same
     reason push_lock.hold has none: `ship` has a dozen SystemExit paths between here and its push,
     and the process exit IS the release, by every route including a kill.
 
@@ -235,20 +310,13 @@ def hold_turn(who="", timeout=DEFAULT_TIMEOUT, log=print, sleep=time.sleep, now=
         log("  push queue unavailable (%s: %s) - going ahead unqueued" % (type(e).__name__, e))
         return None, None
 
-    deadline = now() + timeout
-    said = None
+    w = _Waiting(n, timeout, log, now, notify)
     while True:
         ahead = [t for t in live_tickets(d) if t[0] < n]
         if not ahead:
-            if said:
+            if w.said:
                 log("  your turn (ticket %d)" % n)
             return n, fd
-        if len(ahead) != said:
-            log("  queued for the push gate: ticket %d, %d lane(s) ahead, roughly %d min"
-                % (n, len(ahead), len(ahead) * MINUTES_PER_TURN))
-            said = len(ahead)
-        if now() >= deadline:
-            log("  still queued after %d min - going ahead out of turn rather than not at all"
-                % (timeout // 60))
+        if w.tick(ahead):
             return None, fd
         sleep(2.0)
