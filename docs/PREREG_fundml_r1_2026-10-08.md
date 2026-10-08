@@ -94,3 +94,19 @@ universe; the book-add report over L.
   in the most liquid names. Value lost 2017-2020 and rallied 2021-22; one regime may dominate (DD5 and halves are there
   for that).
 - Expected: 3-10 net at $30k standalone; the learned lift over the composite is the open question.
+
+## Addendum 1 (2026-10-08 11:50 MST, MANAGER review #81, folded in BEFORE any power or return number)
+Computed before this addendum: the coverage-only dry load (names x months with each input; no returns, no P&L).
+1. SHARE COUNTS get the BUYBACK staleness rule: the share count S comes from a fact first filed on or before the
+   session before t whose period end is within 15 months of t; otherwise market value is missing, and with it every
+   input over price or market value (book-to-market, earnings / price, cash flow / price, sales / price, buybacks /
+   MV, dividends / MV, R&D / MV) and 1-year share growth. The year-ago share count obeys the same 15 months. The
+   count of names with a usable share count is printed (dry load, power line, result).
+2. NULL BASIS: the 1,000-book null is GROSS and the cell is judged NET against it - deliberately conservative (the
+   cell must clear the null's gross 95th after paying its own costs). The NET null's 95th is printed beside it, for
+   the record only; it is not a bar.
+3. SURVIVOR TILT: the symbol -> CIK map is today's, so names that died before the map was built are more often
+   unmapped. The mapped share of the universe is printed by July-June WF year; if any year is under 85%, the result
+   line says "universe survivor-tilted in <years>". Bar 3 (vs the twin) stays as is - both carry the same tilt.
+4. MDE in own money in the power line: the null's 95th minus its 50th, in dollars a year at a $30k drawdown ($1,000
+   a year per ROC point), beside the map bar ($15,000 a year), so a dead result can be told from an undecidable one.
