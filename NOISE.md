@@ -3461,3 +3461,55 @@ not eat the trend days.
 **Nothing on NQ changes:** no filter, size or setting is taken from these tables (ledger 2.1). Records:
 `docs/PREREG_noise_r422_anatomy_2026-10-06.md` (+ amendment 1),
 `tools/noise_r422_anatomy.py`, `tools/r37_results/noise_r422_anatomy.txt`, `tools/r37_results/noise_r422_habitats.txt`.
+
+## NOISE on QQQ (2026-10-07, owner GO via MANAGER #69 / #71) - the calibration r1 and the first QQQ Auto-Validate
+
+MANAGER's builder ran both stages of `docs/PREREG_qqq_validate_r1_2026-10-07.md`. Stage 1 is this lane's QQQ calibration
+r1, run as written, with MANAGER's two additions. The NOISE lane ran nothing. Outputs:
+`C:/EdgeLog/manager/qqq_validate_1007/stage1_out.txt` and `stage2_out.txt`.
+
+**Stage 1 - calibration (walk-forward 2016-07 .. 2025-06, lockbox not read): the NQ backtest is a fair guide to the
+live Webull NOISE leg.**
+- **CAL** (QQQ's mean daily return on notional / NQ's):
+  - NOISE #382, the live base: **0.94** (90% band 0.84 - 1.03).
+  - NOISE #422, the book leg: **0.92** (0.84 - 0.99).
+  - Both are above the 0.8 line, band included.
+- **The same trades.** About 313 vs 311 trades a year. 88-89% of trades match (same session, same side, entry within one
+  bar), and daily returns correlate 0.96. Matched pairs exit on the same bar 82% of the time and agree on the P&L sign
+  92% of the time.
+- **Where the 6% gap comes from (#382, bps of notional a year):**
+  - cost -131 (2 cents a share is 1.19 bps a trade on QQQ vs NQ's 0.77);
+  - matched trades' fills -120;
+  - QQQ's own unmatched trades +105.
+  - The breakeven cost is $0.17 a share, eight times what is charged.
+- **The day structure is the same (MANAGER's addition).** Single-trade sessions are 27.5% of QQQ's trades and 100.5% of
+  its unit dollars, vs 28.6% / 97.4% on NQ. The #422 anatomy's mechanism (one trend-day break held to the close) holds
+  on QQQ.
+- **Steady over time.** CAL by July-June year is 0.80 - 1.06 except 2020-21 (1.50). H1 0.95 / H2 0.92 for #382; longs
+  0.95, shorts 0.92. The top-5% range filter ranked against under 252 sessions on 5.7% of WF sessions (to 2017-01-03).
+- **ROC @ $30k on QQQ alone, with DD5 (rule #70):**
+  - #382: **72.6 %/yr, DD5 $25.7k** (worst / DD5 1.16, no flag), vs 81.1 on NQ.
+  - #422: **64.0 %/yr, DD5 $20.6k**, vs 84.9 on NQ. **Driven by one episode** on both markets (worst / DD5 1.45 on
+    QQQ, 1.37 on NQ).
+  - So #422's ROC falls more than its CAL: a deeper single worst drawdown on QQQ, not a weaker edge.
+- **At the live size** (60 shares, the cap, tilt clamped away): about $2,400 a year with a worst drawdown about $1,200.
+  - With the tilt kept at 30 shares x tilt: #382 $1,900 a year.
+  - NQ at the same notional: $2,700 a year.
+
+**Stage 2 - run #485, a 900-trial Auto-Validate of the NOISE family (NOISE_1_1_NBHD.py) on QQQ master 113, window
+2016-01-04 .. 2026-06-30 pinned: WEAK, failing only on PBO.**
+- PBO 0.687. Folds held 8 of 8 (WFE 1.89, rolling 8 of 8), plateau HIGH GROUND (9 of 9), DSR 0.9999.
+- **The first read of QQQ's lockbox (2025-06-30 .. 2026-06-30):** 329 trades, PF 1.31, +$63,472, +$44,776 without its
+  best trade. ROC @ $30k 120.4, DD5 $21.9k (worst / DD5 1.37 - **one episode**).
+- **The winner is #382's own core with lookback 44 instead of 40.** Every other knob is the same. The live core ranks 7th
+  of 307 searched points in-sample (top 2.3%). On the lockbox the live core reads 332 trades, PF 1.32, ROC @ $30k 134.3,
+  DD5 $23.8k (no flag). Over the validate's WF stretch (2019-10 .. 2025-06) it reads 82.7, DD5 $23.5k.
+- **Reading (prereg rule):** WEAK is not a PASS. The PBO fail says the search's pick is not reliably better than its
+  neighbours, which fits a flat top: the winner differs from the live core by one lookback step. Nothing changes: replacing the
+  live settings with a QQQ-tuned winner is an owner question, and there is no case for it (lookback 44 vs 40, the live
+  core ahead on the lockbox).
+- ORB's half of the round (CAL 0.78 / 0.75, run #486 WEAK on PBO 0.976) is the ORB lane's record.
+
+**What it means for the live leg:** the Webull NOISE leg's expectations are the NQ backtest's, cut by about 6% per dollar
+of notional. At today's 60-share cap that is small money (about $2,400 a year). The edge per share is not the
+constraint; the size is. Records: ledger 2.93; RUNBOARD research row QQQ-CAL-R1.

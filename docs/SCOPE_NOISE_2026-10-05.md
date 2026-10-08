@@ -176,3 +176,19 @@ filters mined this way are regime artifacts. The point is to name the mechanism,
     their median day range, vs under 1% on QQQ / SPY / DIA / IWM.
   - Move GLD below the controls: 41% trend days, the closest to a random close.
   - Table: `tools/r37_results/noise_r422_habitats.txt`.
+
+## Queue update 2026-10-07 (MANAGER #67 approved the habitat order; #69 / #71 QQQ round done by MANAGER)
+- **Approved and applied:**
+  - The sector funds run XLK, XLY, XLI, XLV, then XLP, XLU, XLF. Cost against the median day range decides (1.7 - 5.3% at
+    2 cents a share).
+  - GLD moves below the SPY / DIA controls.
+- **A6 QQQ calibration: DONE** inside MANAGER's QQQ VALIDATE r1. CAL 0.94 (#382) / 0.92 (#422): the NQ backtest is a fair
+  guide. Run #485 (NOISE family on QQQ) WEAK on PBO only. See NOISE.md "NOISE on QQQ".
+- **Queue:**
+  1. A1 IWM own crown: Stage A launched 2026-10-07 18:01 MST. The 10-06 07:00 launch was lost to the PC sleeping; it
+     was relaunched on reopening, per MANAGER #67.
+  2. A2 sector funds in the order above;
+  3. A4 TLT fade;
+  4. A7 / A8 DIA and SPY controls;
+  5. A5 GLD;
+  6. A9 basket (after two families pass).
