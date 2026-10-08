@@ -1,0 +1,107 @@
+PRE-REGISTRATION - DIVCHG r1: DIVIDEND CHANGES in US large caps - long the dividend raisers, short the cutters and freezers, monthly
+=====================================================================================================================
+DRAFT v1 2026-10-07 19:15 MST for MANAGER review, by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (owner standing order
+10-04: a queue of 3 live preregs; MANAGER #119 (5): two new families OUTSIDE the short-growth corner, drafts to MANAGER). A
+corporate-actions EVENT family on the RESMOM harness (MANAGER #84's split: events and characteristic sorts of filings stay in
+this lane). Written before any number of this family exists. Nothing runs until MANAGER's GO and a dated pre-data addendum.
+Results: C:\EdgeLog\_anatomy_cache\rocfrontier\divchg_r1\ and RESEARCH_LEDGER.md.
+
+WHAT IS DIFFERENT (one line): the first EL family whose signal is a decision of the BOARD - the size of the regular dividend it
+declares - and whose short side is mature, cash-paying companies, never speculative growth (a non-payer is never traded).
+
+WHY NOW (house evidence first). The 2026-10-06 finding line: short-growth baskets earn in #463's drawdowns and pay for it in
+the 2019-21 growth rally; the matched-drawdown yardstick rejects them. Here every name, long or short, is a dividend payer, so
+the growth / non-payer tilt is out by construction. DIVRUN r1 (dead, 2.77) traded the run-up INTO an ex-date on event-rate
+turnover; this family trades what the board CHANGED, monthly, at RESMOM's turnover, on the same pinned calendar (no new data).
+
+THE MAP FIRST (MDL r1). A dollar-neutral basket placed as a standalone leg first and a drawdown-set candidate second.
+Standalone bar: ROC @ $30k >= 15. Placed honestly: the classic evidence is for INITIATIONS (+7.5% the next year) and OMISSIONS
+(-11%) (Michaely, Thaler & Womack 1995), with smaller drift after ordinary increases and decreases (Yoon & Starks 1995;
+Grullon, Michaely & Swaminathan 2002 find little); in the 500 most liquid names 2016-25 a few percent a year is the honest
+range - at $200,000 a side ~$4,000-10,000 a year against a drawdown of perhaps $20,000-40,000 (ROC 2-10). Its drawdown-day
+case: raisers are cash-rich, low-leverage firms and cutters are stressed ones, so the spread should widen in sell-offs - but
+a cut is known only at its ex-date, AFTER the stock has fallen, and 2020's cutters (energy, banks, REITs) led the 2020-11 ..
+2021 rebound. That bleed is this family's version of the 2019-21 risk and is printed first.
+
+MECHANISM. Boards smooth dividends and change them only when they believe the change is sustainable (Lintner 1956), so a
+change signals management's view; investors underreact to it (Michaely et al. 1995; Benartzi, Michaely & Thaler 1997 on the
+earnings that follow); dividend payers that keep raising are the 'quality' firms whose returns survive risk adjustment
+(Asness, Frazzini & Pedersen 2019). Counter-evidence written in now: (1) much of the drift is pre-2000 and in small caps; (2)
+the declaration date is not in the calendar, so the signal waits for the EX-DATE (weeks after the news); (3) cuts cluster
+in one crisis (2020); (4) the calendar starts 2016-06-01, so a 12-month change exists from about 2017-06 and an initiation
+(24 months without a dividend) from about 2018-06.
+
+DATA - HELD, NO NEW PULL. [D1] the wide corporate-actions calendar pinned for RESMOM (corporate_actions_wide.csv, sha256
+e5bc8487...): cash-dividend rows (symbol, ex_date, rate, special) and the split / spin-off rows; [D2] the SIPORB cache
+(manifest 380b05f2..., never mixed with a re-pull): the split factor F, prices, volumes; ES as RESMOM.
+
+[S] THE SCORE, known at a rank close r (only calendar rows with ex_date <= r; the amount is public before the ex-date, so this
+is late, never early). For each universe name: its REGULAR dividends = cash rows with special = False and rate > 0, on the
+split-adjusted basis D* = rate / F(ex-date) (RESMOM's [R1] convention). Its FREQUENCY = the median spacing of its last four
+regular ex-dates (monthly 20-40 days, quarterly 60-120, semiannual 150-210, annual 330-400; anything else = no score,
+counted). D*_0 = the latest regular dividend (ex-date e0 <= r); D*_1 = the regular dividend whose ex-date is nearest to
+e0 - 365 days within +-45 days. G = ln(D*_0 / D*_1). SUSPENDED: a payer whose e0 is older than 1.75 x its frequency at r ->
+G = -10 (the bottom). INITIATOR: a first regular dividend within the last 365 days after at least 730 days with none (the
+calendar must cover those 730 days) -> G = +10 (the top). No regular dividend in the last 730 days = a NON-PAYER: no score,
+never traded. A frequency change between D*_1 and D*_0, or |G| > ln(4) without a split or spin-off between them (a data
+error), = no score (listed by name).
+
+UNIVERSE: RESMOM's exactly (prior raw close >= $10, top 500 by 20-session raw dollar volume, volume >= 1,000,000, ATR > $0.50,
+>= 230 split-safe returns and ES pairs), only information known before the fill.
+
+CELLS (the family: 2).
+- G (THE SORT). At each month's last session close r, among the scored payers: long the 50 HIGHEST G, short the 50 LOWEST;
+  fewer than 150 scored names -> the top / bottom third, at least 20 a side, else nothing. Ties by ADV, highest first.
+- R (THE RECENT EVENT). Long the scored payers whose latest regular dividend is more than 1% above the previous one with that
+  ex-date in the last 63 sessions (a FRESH raise) or an initiator; short the scored payers with G <= 0 (no raise in a year, a
+  cut, a suspension). Each side $200,000 split equally among its names (CHOICE: the counts swing with the dividend calendar);
+  fewer than 20 names on either side = nothing that month (counted).
+$4,000 a name in G (RESMOM's engine), FILL at the next session's official open, HOLD to the next rebalance's fill, daily marks.
+COSTS 5 bps a side base, stress 10 and 20; borrow 0.25%/yr (RESMOM's, stress 1% and 3% on high-volatility sessions);
+dividends paid and owed exactly as RESMOM [R1] (a short in a payer pays its dividends - the cost of this family's short side,
+printed apart). HYGIENE: the house's judged reading (RESMOM restatement / NETISS [A18], 2026-10-07): a name flagged inside the
+hold STAYS on the split-safe path; only an announced split or a [D2] ex-date inside the hold removes it; the null draws from
+the same kept pool.
+
+NULL (family-aware): 500 draws, seed 20261020; at every rebalance each cell's sides are replaced by the same numbers of names
+drawn at random from that rank's SCORED payers (same sizing, fills, costs, dividends). Statistic = the MAX over the 2 cells
+of WF ROC @ $30k.
+
+#463, L and the map: the shared seat pipeline (r18_divrun's reference loader until it is in the repo): #463 refused unless WF
+93.81 / 3.816 / $44,849 reproduces; L = #463 + 0.264 x RES as FRONTIER publishes it when the GO lands (the RESMOM restatement of
+2026-10-07 may replace the registered 120.82 / 3.916 / $36,526 - the addendum pins whichever is current, with its file's sha).
+
+STRETCHES: WF = positions exited 2017-07-01 -> 2025-06-29 (the first rank with a 12-month change is about 2017-06; printed;
+every book number - #463's, L's, L + c x the cell's - on THIS stretch, the full-WF numbers printed beside them); LB =
+2025-06-30 -> 2026-06-30, SEALED - a leg veto on the stock families' one sealed-year day, never a pass route.
+
+STAGE A (WF, per cell; the standalone bars decide): (a) >= 60 traded rebalances; (b) WF ROC @ $30k >= 15, net > 0 at 5 AND 10
+bps; (c) above the null's 95th percentile; (d) positive in >= 6 of the 8 July-June WF years and net > 0 without 2020-02-15 ..
+2020-04-30; (e) profitable without its best 1% of days AND of name-months; (f) the 50 largest contributors audited by hand
+(each one's dividend rows, frequency, F and the two amounts compared) before a pass is read.
+
+A2 (WF, a REPORT): L + c x the cell against L, c by volatility (25% of #463's daily std / the cell's over 2017-07-03 ..
+2019-06-28; 0.5c and 2c reported); an incremental pass = ROC and Sortino both strictly above L's; the plain #463 + c x cell
+book a reported row; dollars a year beside every ROC (MANAGER #100) and DD5 beside every ROC (owner rule 2026-10-07, MANAGER
+#120 - 'driven by one episode' when the worst drawdown > 1.3 x DD5). |realised beta| > 0.20 (per $ of one side's notional, on
+R's days and on all WF days) = the drawdown profile reported, never credited. An incremental pass follows MANAGER #70's route.
+
+STAGE B / C: as RESMOM (the leg's veto on the shared day; a computed no-order line on the RUNBOARD).
+
+DIAGNOSTICS (none is a pass route), every cell: the R-DAY SUM FIRST (the cell's P&L inside L's drawdown days, against the
+null's p95) with L's drawdown-episode table; the 2020-11 .. 2021-12 stretch apart (the cutters' rebound); the cost curve 0 / 5
+/ 10 / 20 bps; a row per July-June year; the halves 2017-21 / 2022-25; the long and short sides apart, and the dividends the
+short side paid; the initiators and the suspended names apart (their counts are small - listed by name); the realised beta to
+ES; the correlation with RES, NETISS's N12 and DIVRUN's cells; the 20 largest name-month gains and losses.
+
+BEFORE ANY P&L the output prints (counts only): regular / special dividend rows per year; payers per rank by frequency; scored
+names per rank and each no-score reason; the raises, cuts, freezes, suspensions and initiations per year; the names listed
+for a data-error |G|.
+
+KNOWN WAYS IT COULD FOOL US: a short side that is only the 2020 crash bought late (the 2020-11 .. 2021 row, the beta rule); a
+long side that is only 'quality' (the correlation rows; FRONTIER owns quality as a seat - a pass here is reported to FRONTIER
+before any line); the ex-date lag after the declaration (late, never early - it can only cost); special dividends or a
+frequency change misread as a raise or a cut (the rules above and the hand audit); a missed split turning into a fake cut
+(the split-adjusted basis plus the |G| > ln(4) listing); survivorship (Alpaca's inactive names only); one 8-year regime.
+
+Zero passes = DIVCHG r1 dead; no other horizons, thresholds or definitions are tried.
