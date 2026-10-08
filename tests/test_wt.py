@@ -423,7 +423,7 @@ def test_gate_slots_cap_each_kind_and_a_waiter_gives_up_rather_than_wait_for_eve
     def tick(secs):
         clock[0] += secs
     now = lambda: clock[0]                                       # noqa: E731
-    assert wt.GATE_SLOTS == {'slow': 1, 'fast': 2}
+    assert wt.GATE_SLOTS == {'slow': 1, 'fast': 2, 'tests': 1}
     a = wt.hold_gate_slot('slow', 'lane-a')
     assert a is not None
     assert _other_process_sees(wt.gate_slot_paths('slow')[0]) == 'held'
@@ -447,7 +447,14 @@ def test_gate_slots_cap_each_kind_and_a_waiter_gives_up_rather_than_wait_for_eve
     def no_wait(_s):
         raise AssertionError('a free slot must not wait')
     b = wt.hold_gate_slot('slow', 'lane-b', sleep=no_wait, now=now)
-    for fd in (b, f1, f2):
+    # (2026-10-08) the heavy pre-push test runs have a pool of their own: ONE at a time, beside
+    # the selftest and the fast gates, never instead of them
+    t1 = wt.hold_gate_slot('tests', 'lane-t', sleep=no_wait, now=now)
+    assert t1 is not None
+    with pytest.raises(SystemExit) as e:
+        wt.hold_gate_slot('tests', 'lane-u', sleep=tick, now=now)
+    assert 'no test slot came free' in str(e.value) and 'lane-t' in str(e.value)
+    for fd in (b, f1, f2, t1):
         wt.release_gate_slot(fd)
     wt.release_gate_slot(None)                                   # harmless
 

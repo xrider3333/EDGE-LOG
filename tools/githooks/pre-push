@@ -17,6 +17,14 @@
 
 repo_root="$(git rev-parse --show-toplevel)"
 
+# What git is pushing ('<local ref> <local sha> <remote ref> <remote sha>' per line), read FIRST,
+# before any gate below could consume stdin. tools/hook_tests.py uses it to check that the commit
+# being pushed is the tree its tests run on (2026-10-08).
+push_refs=""
+if [ ! -t 0 ]; then
+  push_refs="$(cat)"
+fi
+
 python "$repo_root/tools/preflight_boot.py"
 status=$?
 
@@ -59,7 +67,8 @@ if [ -f "$repo_root/tools/exec_feasibility_audit.py" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# STRATEGY-CONTRACT GATE (added 2026-08-27)
+# THE TEST TIERS (strategy-contract gate added 2026-08-27; tiers 2026-08-27 / 10-02; run by
+# tools/hook_tests.py since 2026-10-08)
 #
 # WHY: CI (.github/workflows/tests.yml) runs the suite on every push to main,
 # and a red main emails the owner once PER PUSH. Twice now a broken strategy
@@ -72,110 +81,48 @@ fi
 # in under two seconds, and neither was ever run before pushing. Nothing in the
 # repo asked for them. This is that missing check.
 #
-# Scope + cost, MEASURED rather than guessed -- the suite is TIERED so the common
-# case stays cheap and the risky case is still covered:
+# The tiers - unchanged, now in tools/hook_tests.py `tiers()` so the pre-lock run and this hook
+# can never disagree about them:
 #
-#   tier 1  any *.py touched         tests/test_strategy_contract.py   557 tests    ~6s
-#   tier 2  engine/api/worker/tests  everything bar contract+surrogate 299 tests   ~34s
-#   tier 3  surrogate.py touched     tests/test_surrogate.py            17 tests  ~4min
+#   contract   any *.py touched                       tests/test_strategy_contract.py
+#   engine     augur_engine/ api/ augur_mp_worker.py  everything bar contract + surrogate
+#              tests/ touched
+#   surrogate  augur_engine/surrogate.py touched      tests/test_surrogate.py (~4 min)
+#   tools      tools/<name>.py touched, engine not    tests/test_<name>.py + companions
+#              due (65a5352c turned main red through tools/wt.py on the contract tier alone)
 #
-# A typical engine push pays ~40 SECONDS and gets 856 of the 873 tests. The 17
-# surrogate tests are the entire reason the full suite takes four minutes -- they
-# fit gaussian-process / lasso / GAM models, and the 8 slowest are ~143s between
-# them -- so they are gated on the one file that can break them rather than taxing
-# every push. Pushes touching only index.html still pay nothing.
+# WHAT CHANGED 2026-10-08: THE ENGINE TIER NO LONGER RUNS IN FULL UNDER THE PUSH LOCK. It took
+# 20-40 minutes per ship with the lock held, so 25 queued ships meant a 7-13 hour queue. `wt.py
+# ship` now runs these same tiers BEFORE it takes the lock (`hook_tests.py prelock`), and every
+# pytest run that passes on a clean worktree stamps the test files that really ran green on that
+# tree. Here, on the final tree, a needed test file is skipped only when such a stamp exists AND
+# tools/affected_tests.py - asked about the real `git diff` between that tree and this one,
+# computed in here - says the difference cannot reach it. Everything else, and a small always-run
+# SMOKE set, runs on this tree. Any doubt (no stamp, dirty worktree, a pushed commit that is not
+# the tree on disk, conftest/pytest.ini/requirements changed, a deleted or renamed module, the
+# deciding code itself changed, another Python environment, a stamp over 12 h old) runs the tier
+# in full with the very command this hook always used. The variable EDGELOG_GATE_PASSED_TREE
+# that ship sets on a retry is no longer read: a stamp is a record of a real run, the variable
+# was only ever a claim. See tools/hook_tests.py.
 #
 # A gate people route around is not a gate. The tiering exists so nobody has a
 # standing reason to reach for --no-verify.
 # ---------------------------------------------------------------------------
-base_ref="$(git merge-base HEAD origin/main 2>/dev/null || echo origin/main)"
-changed="$(git diff --name-only "$base_ref" -- 2>/dev/null)"
-
-run_tier() {          # $1 = human name for the failure message; rest = pytest args
-  tier_name="$1"
-  shift
-  python -m pytest "$@" -q
-  if [ $? -ne 0 ]; then
-    echo ""
-    echo "$tier_name gate FAILED -- this push would turn main red and start a"
-    echo "failure email for every push after it. Fix it, or override with:"
-    echo "  git push --no-verify"
-    echo ""
-    exit 1
-  fi
-}
-
-if printf '%s\n' "$changed" | grep -qE '\.py$'; then
-  run_tier "Strategy-contract" "$repo_root/tests/test_strategy_contract.py"
-
-  if printf '%s\n' "$changed" | grep -qE '^(augur_engine/|api/|augur_mp_worker\.py|tests/)'; then
-    # NARROW RE-VALIDATION (2026-10-04). The engine tier takes ~23 minutes. The push lock stops
-    # local lanes overtaking each other, but the owner's CLOUD sessions push straight to main from
-    # another machine where no local lock reaches them - TRADING-LOG lost a full 25-minute gate to
-    # exactly that. After such a rejection, ship rebases (still holding the lock) and pushes again,
-    # and re-running all 23 minutes to absorb somebody else's unrelated commit is pure waste.
-    #
-    # ship sets EDGELOG_GATE_PASSED_TREE to the tree whose FULL engine tier it has already seen
-    # pass. That is a CLAIM, and this hook verifies it rather than trusting it: it diffs that tree
-    # against the current one itself and asks tools/affected_tests.py which tests those specific
-    # paths could break. A tree that does not exist, a diff it cannot narrow, or any error at all
-    # means the full tier runs. The variable can only ever say "I already ran it HERE" - it cannot
-    # ask for work to be skipped, because this hook, not ship, decides what that implies.
-    narrow=""
-    if [ -n "$EDGELOG_GATE_PASSED_TREE" ] && \
-       git -C "$repo_root" cat-file -e "$EDGELOG_GATE_PASSED_TREE^{tree}" 2>/dev/null; then
-      since="$(git -C "$repo_root" diff --name-only "$EDGELOG_GATE_PASSED_TREE" 'HEAD^{tree}' 2>/dev/null)"
-      narrow="$(printf '%s\n' "$since" | python "$repo_root/tools/affected_tests.py" --root "$repo_root" 2>/dev/null)"
-    fi
-    if [ -n "$narrow" ]; then
-      echo "Narrow re-validation: the full engine tier already passed on this branch's tree;"
-      echo "  since then the tree differs only in files covered by:$narrow"
-      run_tier "Engine (narrowed)" $narrow
-    else
-      run_tier "Engine" "$repo_root/tests" \
-        --ignore="$repo_root/tests/test_strategy_contract.py" \
-        --ignore="$repo_root/tests/test_surrogate.py"
-    fi
-  fi
-
-  if printf '%s\n' "$changed" | grep -qE '^augur_engine/surrogate\.py$'; then
-    echo "surrogate.py changed -- running the slow surrogate battery (~4 min)"
-    run_tier "Surrogate" "$repo_root/tests/test_surrogate.py"
-  fi
-
-  # TOOLS TIER (2026-10-02). A change under tools/ alone matched neither tier above, so it got
-  # the strategy-contract tier only and nothing that actually covers the tool. That is not
-  # theoretical: 65a5352c changed tools/wt.py, took the fast tier, and turned main red for
-  # tests/test_wt_ship_console.py - which pins the exact text of ship's "pushed: " line, and
-  # which the renamed line broke. The engine tier would have caught it in the usual 23 minutes;
-  # the fast path is precisely what skipped it.
-  #
-  # So: for each changed tools/<name>.py, run tests/test_<name>.py when one exists, plus the
-  # named companions below. Seconds, not minutes, so a tools-only ship stays quick - the whole
-  # reason that fast path is worth having.
-  tool_tests=""
-  for f in $(printf '%s\n' "$changed" | grep -E '^tools/[A-Za-z0-9_]+\.py$'); do
-    base="$(basename "$f" .py)"
-    [ -f "$repo_root/tests/test_${base}.py" ] && \
-      tool_tests="$tool_tests $repo_root/tests/test_${base}.py"
-    # companions: a test file whose name does not match the tool it covers
-    if [ "$base" = "wt" ]; then
-      [ -f "$repo_root/tests/test_wt_ship_console.py" ] && \
-        tool_tests="$tool_tests $repo_root/tests/test_wt_ship_console.py"
-      [ -f "$repo_root/tests/test_push_lock.py" ] && \
-        tool_tests="$tool_tests $repo_root/tests/test_push_lock.py"
-    fi
-  done
-  tool_tests="$(printf '%s\n' $tool_tests | sort -u | tr '\n' ' ')"
-  if [ -n "$(printf '%s' "$tool_tests" | tr -d ' ')" ]; then
-    # Skipped when the engine tier already ran everything.
-    if printf '%s\n' "$changed" | grep -qE '^(augur_engine/|api/|augur_mp_worker\.py|tests/)'; then
-      echo "tools/ changed, but the engine tier above already covered it."
-    else
-      echo "tools/ changed -- running the tests that cover those tools:$tool_tests"
-      run_tier "Tools" $tool_tests
-    fi
-  fi
+if [ ! -f "$repo_root/tools/hook_tests.py" ]; then
+  echo ""
+  echo "Test gate cannot run -- tools/hook_tests.py is missing from this tree."
+  echo "Refusing to push without the test tiers. Restore it, or override with: git push --no-verify"
+  echo ""
+  exit 1
+fi
+printf '%s\n' "$push_refs" | python "$repo_root/tools/hook_tests.py" hook --root "$repo_root"
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "Test gate FAILED -- this push would turn main red and start a"
+  echo "failure email for every push after it. Fix it, or override with:"
+  echo "  git push --no-verify"
+  echo ""
+  exit 1
 fi
 
 exit 0

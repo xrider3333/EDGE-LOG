@@ -64,6 +64,11 @@ Now a ship runs in three steps:
      first takes one of a few MACHINE-WIDE GATE SLOTS (hold_gate_slot: 1 for selftests, 2 for
      fast gates, OS locks like the push lock's), so queued lanes cannot pile their Chromes onto
      the PC that runs the trading runner; a ship waiting for one says so and whom it waits for.
+     Then the PRE-PUSH TEST TIERS (2026-10-08, tools/hook_tests.py - the hook's own tiers, rule
+     for rule): run on this tree, each passing test file stamped beside the worktree's git
+     metadata. A heavy run (the engine tier: 20-40 minutes) takes the one TEST slot, a light one
+     (timed at under LOCKED_TESTS_MAX_SECONDS) a fast slot - so the machine runs at most one heavy
+     pytest and one selftest before the lock at a time. A failing test stops the ship here.
   2. LOCKED - take the ticket and the lock, fetch, rebase onto the NEWEST main, realign VERSION
      and renumber the ledger rows again against it (no-ops when main has not moved). Then each
      gate that applies to that final tree is either
@@ -79,9 +84,16 @@ Now a ship runs in three steps:
      LOCKED_RERUN_MAX_SECONDS, 3 minutes - the run-report and import time-zone ones take
      seconds): re-running it under the lock costs less than queueing again, so it does. The
      console prints every reused gate, the verdict it carries and why it holds.
-  3. PUSH - the pre-push hook still runs its own tiers here, under the lock (for an engine
-     change that is the ~13-23 minute engine tier) - then prove the sha is on origin/main and
-     fast-forward the shared checkout. The process exit releases the lock. If the remote
+     The test tiers go the same way (2026-10-08): `hook_tests.py plan --json` estimates what the
+     hook would re-run on this final tree - only what the commits that landed meanwhile can
+     reach, each file at its measured time - and over LOCKED_TESTS_MAX_SECONDS (3 minutes) the
+     lock and ticket go back (_let_go) and those tests run before the lock in the next round;
+     after PRELOCK_ROUNDS they run under it.
+  3. PUSH - the pre-push hook runs its tiers here, under the lock, on the final tree - but it
+     skips every test file the pre-lock stamp vouches for and nothing since could reach
+     (tools/hook_tests.py; for an engine change that was the full 20-40 minute engine tier until
+     2026-10-08) - then prove the sha is on origin/main and fast-forward the shared checkout.
+     The process exit releases the lock. If the remote
      refuses the push because a push from outside this machine moved main, ship rebases, realigns,
      renumbers and gates that new tree the same way under the same hold before pushing again.
 
@@ -504,6 +516,12 @@ PRELOCK_ROUNDS = 3
 # EDGELOG_SHIP_LOCKED_RERUN_MAX.
 LOCKED_RERUN_MAX_SECONDS = 180
 
+# The pre-push test tiers' equivalent (2026-10-08): a re-run the hook would make under the lock,
+# estimated over this, goes back outside the lock instead (another round), and a pre-lock run
+# estimated over it is HEAVY - it takes the one test slot rather than a fast one. Override
+# (seconds) with EDGELOG_SHIP_LOCKED_TESTS_MAX.
+LOCKED_TESTS_MAX_SECONDS = 180
+
 STAMP_FILE = 'edgelog_ship_gates.json'
 
 # FOURTH GATE's baseline: STUDIES row numbers must stay unique (2026-08-26). The render probe
@@ -836,6 +854,13 @@ def locked_rerun_max():
         return float(LOCKED_RERUN_MAX_SECONDS)
 
 
+def locked_tests_max():
+    try:
+        return float(os.environ.get('EDGELOG_SHIP_LOCKED_TESTS_MAX', LOCKED_TESTS_MAX_SECONDS))
+    except ValueError:
+        return float(LOCKED_TESTS_MAX_SECONDS)
+
+
 def too_slow_for_the_lock(g, stamp):
     """True when re-running selftest `g` under the lock would hold the other lanes up for longer
     than giving the lock back and queueing again costs: its last measured run took more than
@@ -1117,15 +1142,21 @@ def tree_moved(wt, tree):
 # minute-long probes. The gates under the push lock take NO slot: one lane holds it at a time
 # already, and waiting there on another lane's slot would stretch the very hold this exists to
 # shorten.
-GATE_SLOTS = {'slow': 1, 'fast': 2}
+GATE_SLOTS = {'slow': 1, 'fast': 2, 'tests': 1}
 
 # A waiter stops - nothing pushed, nothing held - rather than wait for ever behind a wedged
 # holder: twice the longest selftest seen (2 h) for a selftest slot, a generous multiple of the
 # minutes a fast probe takes for a fast one. Override (seconds, both kinds) with
 # EDGELOG_GATE_SLOT_WAIT_MAX.
-GATE_SLOT_WAIT_MAX = {'slow': 4 * 3600, 'fast': 3600}
+GATE_SLOT_WAIT_MAX = {'slow': 4 * 3600, 'fast': 3600, 'tests': 6 * 3600}
 
-_SLOT_WORDS = {'slow': ('selftest slot', 'selftest'), 'fast': ('gate slot', 'render gates')}
+_SLOT_WORDS = {'slow': ('selftest slot', 'selftest'), 'fast': ('gate slot', 'render gates'),
+               'tests': ('test slot', 'heavy pre-push test run')}
+# 'tests' (2026-10-08): the pre-push test tiers before the lock. A full engine tier is one busy
+# core for 20-40 minutes, so ONE at a time machine-wide, beside at most one selftest; a light run
+# (timed under LOCKED_TESTS_MAX_SECONDS - the contract tier, a tool's own tests) takes a fast
+# slot instead. A test run that waits past its limit does not stop the ship: the hook still runs
+# every tier under the lock, as it did before the pre-lock run existed (prelock_tests).
 
 
 def gate_slot_dir():
@@ -1267,6 +1298,68 @@ def run_plan(wt, root, plan, stamp, spath, tree, base, phase, explain=None):
     return ran, kept
 
 
+def tests_plan(wt):
+    """`hook_tests.py plan --json` on the worktree's tree: {need_files, run_files, est_secs}
+    - what the pre-push hook would re-run there now and its estimated seconds - or None when the
+    worktree has no hook_tests.py or the plan cannot be read (then nothing is decided from it:
+    the pre-lock run goes ahead, and nothing is sent back outside the lock)."""
+    script = os.path.join(wt, 'tools', 'hook_tests.py')
+    if not os.path.isfile(script):
+        return None
+    try:
+        r = subprocess.run([sys.executable, script, 'plan', '--root', wt, '--json'], cwd=wt,
+                           capture_output=True, text=True, encoding='utf-8', errors='replace')
+        got = json.loads((r.stdout or '').strip().splitlines()[-1]) if r.returncode == 0 else None
+        return got if isinstance(got, dict) and 'run_files' in got else None
+    except Exception:
+        return None
+
+
+def prelock_tests(wt):
+    """THE PRE-PUSH TEST TIERS, BEFORE THE LOCK (2026-10-08) - the hook's own tiers, run here by
+    tools/hook_tests.py on this tree and stamped, so under the lock the hook re-runs only what the
+    commits that land meanwhile can reach. Nothing to run (no Python change, or every needed file
+    already stamped on a tree nothing since could reach) takes no slot. A heavy run takes the one
+    machine-wide test slot, a light one a fast slot (see GATE_SLOTS). A failing test stops the
+    ship: no ticket, no lock, nothing pushed. A run that could not happen - no slot came free in
+    time, an older tree without hook_tests.py - is no pass and no failure: the hook runs every
+    tier under the lock, exactly as before."""
+    script = os.path.join(wt, 'tools', 'hook_tests.py')
+    if not os.path.isfile(script):
+        return
+    pl = tests_plan(wt)
+    if pl is not None and not pl.get('run_files'):
+        safe_print('  PRE-LOCK TESTS: nothing to run (%d needed test file(s), all already passed '
+                   'here or on a tree nothing since could reach)' % pl.get('need_files', 0))
+        return
+    heavy = pl is None or not pl.get('timed') or pl.get('est_secs', 0) > locked_tests_max()
+    kind = 'tests' if heavy else 'fast'
+    try:
+        slot = hold_gate_slot(kind, os.path.basename(wt))
+    except SystemExit as e:
+        safe_print('  PRE-LOCK TESTS: skipped - %s. The pre-push hook runs every test tier under '
+                   'the lock instead, as before.' % str(e.code).split(' - ')[0])
+        return
+    t0 = time.time()
+    try:
+        safe_print('  PRE-LOCK TESTS: %s - the pre-push test tiers, before the lock (%s run%s)'
+                   % ('running' if pl is None else '%d test file(s), ~%s'
+                      % (pl['run_files'], _mmss(pl.get('est_secs', 0))),
+                      'heavy' if heavy else 'light', '' if slot is None else ', %s slot' % kind))
+        try:
+            sys.stdout.flush()
+        except Exception:
+            pass
+        r = subprocess.run([sys.executable, '-u', script, 'prelock', '--root', wt], cwd=wt)
+    finally:
+        release_gate_slot(slot)
+    if r.returncode == 1:
+        raise SystemExit('PRE-LOCK TESTS FAILED before the push lock was taken - no ticket, no '
+                         'lock, nothing pushed. Fix it and ship again.')
+    safe_print('  PRE-LOCK TESTS: done in %s%s' % (_mmss(time.time() - t0), '' if r.returncode == 0
+               else ' - NOT run (exit %d), so the hook runs them under the lock' % r.returncode))
+
+
 def gate_before_lock(wt, root, rnd, spath, key, changed, anchors=None):
     """Step 1, with no ticket and no lock: rebase onto origin/main, realign VERSION, renumber
     this ship's RESEARCH_LEDGER rows, and run every gate that applies - selftests included -
@@ -1296,6 +1389,14 @@ def gate_before_lock(wt, root, rnd, spath, key, changed, anchors=None):
     ran, kept = run_plan(wt, root, plan, stamp, spath, tree, base, 'pre-lock')
     stamp['tree'], stamp['base'] = tree, base
     save_stamp(spath, stamp)
+    # After the gates (minutes), the test tiers (up to 40 minutes) on the same tree. The tree
+    # may not move while they run: hook_tests only stamps a pass when the worktree still holds
+    # the tree it ran on, and tree_moved below stops the ship if it did not.
+    prelock_tests(wt)
+    moved = tree_moved(wt, tree)
+    if moved:
+        raise SystemExit(moved + ' - nothing was pushed. Commit or discard the change and ship '
+                         'again.')
     safe_print('PRE-LOCK: %d gate(s) run, %d already passed, on tree %s against origin/main %s '
                '(%s) - now queueing for the push lock'
                % (ran, kept, tree[:8], base[:8], _mmss(time.time() - t0)))
@@ -1429,14 +1530,30 @@ def cmd_ship(name, message):
                 for g in applicable_gates(wt, root)]
         stale = [g for g, why in plan if g.slow and not why]
         too_slow = [g for g in stale if too_slow_for_the_lock(g, stamp)]
-        if too_slow and rnd < PRELOCK_ROUNDS:
+        # The pre-push test tiers the hook would re-run on this final tree (2026-10-08): only what
+        # the commits that landed since the pre-lock run can reach. Too long to hold the lock
+        # for, it goes back outside it like a stale slow selftest.
+        tp = tests_plan(wt)
+        tests_long = tp is not None and tp.get('est_secs', 0) > locked_tests_max()
+        if (too_slow or tests_long) and rnd < PRELOCK_ROUNDS:
             for g in too_slow:
                 safe_print('LOCK RELEASED: %s must re-run - %s. Nothing was pushed; re-running it '
                            'outside the lock, then queueing again (round %d of %d next).'
                            % (g.label, rerun_reason(g, stamp, tree, changed, anchors), rnd + 1,
                               PRELOCK_ROUNDS))
+            if tests_long:
+                safe_print('LOCK RELEASED: the pre-push tests would re-run %d test file(s) under the '
+                           'lock (~%s, over %s) - what landed meanwhile reaches them. Nothing was '
+                           'pushed; running them outside the lock, then queueing again (round %d '
+                           'of %d next).' % (tp['run_files'], _mmss(tp['est_secs']),
+                                             _mmss(locked_tests_max()), rnd + 1, PRELOCK_ROUNDS))
             _queue_ticket, _lock_handle = _let_go(_queue_ticket, _lock_handle)
             continue
+        if tests_long:
+            safe_print('LOCKED: the pre-push tests re-run %d test file(s) (~%s) under the lock - all '
+                       '%d pre-lock rounds are used (rare)' % (tp['run_files'],
+                                                               _mmss(tp['est_secs']),
+                                                               PRELOCK_ROUNDS))
         break
 
     def explain(g, after_push=False):

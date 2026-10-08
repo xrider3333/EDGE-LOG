@@ -35,6 +35,32 @@ if TOOLS not in sys.path:
 import affected_tests as at  # noqa: E402
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _parse_cache(tmp_path_factory):
+    """Every case here asks about the REAL repo, and parsing its 23 MB of Python takes ~45 s - so
+    the whole file shares one parse cache (in-process via DEFAULT_CACHE_PATH, the CLI via
+    --cache). It starts as a COPY of the machine cache when there is one: that file is only ever
+    read here, never written (C:\\EdgeLog stays untouched), and a copy is safe to use because
+    every entry is keyed by its file's git blob and by this selector's own fingerprint."""
+    path = str(tmp_path_factory.mktemp("affected_cache") / "cache.json")
+    home = os.environ.get("EDGELOG_HOME") or r"C:\EdgeLog"
+    machine = os.path.join(home, "state", "affected_tests_cache.json")
+    try:
+        if os.path.isfile(machine):
+            with open(machine, "rb") as src, open(path, "wb") as dst:
+                dst.write(src.read())
+    except Exception:
+        pass
+    old = at.DEFAULT_CACHE_PATH
+    at.DEFAULT_CACHE_PATH = path
+    _CLI_CACHE[:] = [path]
+    yield path
+    at.DEFAULT_CACHE_PATH = old
+
+
+_CLI_CACHE = []
+
+
 # ═══════════════════════════════════════════════════ the pieces, on synthetic input
 def test_module_of():
     assert at.module_of("augur_engine/data.py") == "augur_engine.data"
@@ -122,12 +148,53 @@ def test_a_changed_test_file_is_always_selected():
 
 def test_index_html_selects_the_tests_that_read_it():
     """THE CASE THE ASKED-FOR RULE GOT WRONG. index.html is not under augur_engine/, api/ or
-    tests/, so a path rule waves it through - but five test files read it."""
+    tests/, so a path rule waves it through - but five test files read it. Since 2026-10-08 a
+    test also counts when a module it imports names index.html in its CODE (rule 5) - and only
+    then: every pick is one or the other."""
     picked = at.tests_for(["index.html"], ROOT)
     assert picked is not None and len(picked) >= 3
+    readers = {q for q in at.reached_by_name(["index.html"], at.sources(ROOT), at.facts(ROOT),
+                                             read=lambda q: at.read_source(ROOT, q))}
+    imports, _ = at.import_graph(ROOT)
+    reach = at.importers_closure({at.module_of(q) for q in readers}, imports)
+    for t in at.test_files(ROOT):
+        src = open(os.path.join(ROOT, t), encoding="utf-8", errors="replace").read()
+        if "index.html" in src:
+            assert t in picked, t
     for t in picked:
         src = open(os.path.join(ROOT, t), encoding="utf-8", errors="replace").read()
-        assert "index.html" in src
+        assert "index.html" in src or at.module_of(t) in reach, t
+
+
+def test_comments_and_docstrings_are_not_reads():
+    """Rule 5 reads a module's CODE. api/runner.py-style mentions in a comment or a docstring put
+    most of the suite behind every index.html change (182 of 247 test files) until they were
+    dropped; a string literal in the code still counts."""
+    f = at.code_facts(at._parse('"""see index.html"""\n# and index.html\nX = 1\n'))
+    assert "index.html" not in f["literals"]
+    f = at.code_facts(at._parse('P = open("index.html")\n'))
+    assert '"index.html"' in f["literals"]
+
+
+def test_a_listing_call_lists_its_last_directory_not_every_one_it_names():
+    """augur_engine/strategies.py globs tools/data/<pattern>: a change to tools/push_lock.py is
+    not its input (that one rule put 180 test files behind every tools/ change), a change in
+    tools/data/ is. A recursive walk lists everything under every directory it names."""
+    f = at.code_facts(at._parse(
+        'import os, glob\nD = os.path.join(R, "tools", "data")\n'
+        'def f(v):\n    return glob.glob(os.path.join(D, v.replace("%s", "*")))\n'))
+    assert f["flat"] == {"data"} and not f["deep"] and not f["blind"]
+    f = at.code_facts(at._parse('import os\nfor x in os.walk(os.path.join(R, "tools")): pass\n'))
+    assert f["deep"] == {"tools"}
+    f = at.code_facts(at._parse('import os\ndef f(d):\n    return os.listdir(d)\n'))
+    assert f["blind"], "a directory the code does not name is BLIND, never 'nothing'"
+    srcs = {"m.py": "", "n.py": ""}
+    fx = {"m.py": {"literals": "", "flat": frozenset(["data"]), "deep": frozenset(),
+                   "blind": False},
+          "n.py": {"literals": "", "flat": frozenset(), "deep": frozenset(["tools"]),
+                   "blind": False}}
+    assert at.reached_by_name(["tools/push_lock.py"], srcs, fx) == {"n.py"}
+    assert at.reached_by_name(["tools/data/x.csv"], srcs, fx) == {"m.py", "n.py"}
 
 
 def test_a_tool_selects_its_own_tests():
@@ -140,8 +207,9 @@ def test_a_tool_selects_its_own_tests():
 
 def test_a_transitive_dependency_is_selected_even_when_the_test_never_names_it():
     """Changing rolls.py selects tests that never mention "rolls", because they import modules
-    that do. This is the measurable difference between this and a grep."""
-    picked = at.tests_for(["augur_engine/rolls.py"], ROOT)
+    that do. This is the measurable difference between this and a grep. (No size cap: with
+    relative imports resolved, rolls.py reaches most of the suite - 179 of 247 files.)"""
+    picked = at.tests_for(["augur_engine/rolls.py"], ROOT, max_share=None)
     assert picked is not None
     blind = [t for t in picked
              if "rolls" not in open(os.path.join(ROOT, t), encoding="utf-8",
@@ -173,8 +241,10 @@ def test_a_doc_selects_exactly_the_tests_that_name_it():
 
 # ═══════════════════════════════════════════════════ the CLI contract the hook relies on
 def _cli(stdin_text):
+    """Through the file's shared parse cache (see _parse_cache)."""
     p = subprocess.run([sys.executable, os.path.join(TOOLS, "affected_tests.py"),
-                        "--root", ROOT], input=stdin_text, capture_output=True, text=True)
+                        "--root", ROOT, "--cache", _CLI_CACHE[0]], input=stdin_text,
+                       capture_output=True, text=True)
     return p.returncode, p.stdout.strip()
 
 
@@ -211,26 +281,25 @@ def _read(rel):
     return open(os.path.join(ROOT, *rel.split("/")), encoding="utf-8").read()
 
 
-def test_the_hook_narrows_only_on_a_verified_claim():
-    """ship's env var says "the full tier already passed at THIS tree". The hook must check that
-    tree exists and diff it ITSELF - the variable must never be able to ask for work to be
-    skipped, only to say where it was already done."""
+def test_the_hook_narrows_only_on_a_verified_record():
+    """Since 2026-10-08 the hook's tiers run in tools/hook_tests.py, which narrows only on a STAMP
+    of test files that really ran green (its own pytest runs), and diffs that tree against the
+    pushed one ITSELF. ship's EDGELOG_GATE_PASSED_TREE claim is no longer read at all - a claim
+    can never ask for work to be skipped. tests/test_hook_tests.py pins the rest end to end."""
     src = _read("tools/githooks/pre-push")
-    assert "EDGELOG_GATE_PASSED_TREE" in src
-    assert "cat-file -e" in src, "it must confirm the tree really exists"
-    assert "diff --name-only" in src, "and compute the difference itself"
-    assert "affected_tests.py" in src
-    i_var = src.index("EDGELOG_GATE_PASSED_TREE")
-    i_narrow = src.index('run_tier "Engine (narrowed)"')
-    assert i_var < i_narrow
+    assert 'hook_tests.py" hook' in src
+    assert "$EDGELOG_GATE_PASSED_TREE" not in src
+    ht = _read("tools/hook_tests.py")
+    assert "EDGELOG_GATE_PASSED_TREE" not in ht
+    assert "'diff', '--no-renames', '--name-only'" in ht, "it computes the difference itself"
+    assert "cat-file" in ht, "and confirms the stamped tree really exists"
 
 
 def test_the_hook_falls_back_to_the_full_tier():
-    src = _read("tools/githooks/pre-push")
-    i_narrow = src.index('run_tier "Engine (narrowed)"')
-    after = src[i_narrow:i_narrow + 400]
-    assert "else" in after and 'run_tier "Engine"' in after, (
-        "empty narrowing must run the whole tier")
+    """No usable stamp: the engine tier runs with the very command the shell hook always used."""
+    ht = _read("tools/hook_tests.py")
+    assert "['tests', '--ignore=' + CONTRACT, '--ignore=' + SURROGATE]" in ht
+    assert "args = t.full_args" in ht
 
 
 def test_ship_retries_without_letting_go_of_the_lock():

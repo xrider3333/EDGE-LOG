@@ -246,14 +246,15 @@ def test_the_phase_before_the_lock_never_pushes():
 
 def test_ship_lets_go_of_the_lock_only_before_it_has_pushed_anything():
     """2026-10-07: ship gives the lock (and its ticket) back by hand in exactly ONE place - when a
-    slow selftest has to re-run because main changed what it reads, BEFORE anything is pushed -
-    so the next lane goes meanwhile. Every other route still leaves the release to the process
-    exit, and the overtaken retry after a push keeps the lock (test_affected_tests.py)."""
+    slow selftest has to re-run because main changed what it reads, or (2026-10-08) the pre-push
+    tests would re-run for longer than the lock should be held - BEFORE anything is pushed - so
+    the next lane goes meanwhile. Every other route still leaves the release to the process exit,
+    and the overtaken retry after a push keeps the lock (test_affected_tests.py)."""
     src = _wt_source()
     body = src[src.index("def cmd_ship"):src.index("def warn_pages_budget")]
     assert body.count("_let_go(") == 1, "one hand release, no more"
     i_let_go = body.index("_let_go(")
-    i_branch = body.rindex("if too_slow and rnd < PRELOCK_ROUNDS:", 0, i_let_go)
+    i_branch = body.rindex("if (too_slow or tests_long) and rnd < PRELOCK_ROUNDS:", 0, i_let_go)
     assert "continue" in body[i_let_go:i_let_go + 120], "and it goes straight back to pre-lock"
     assert i_branch < i_let_go < body.index("'push', '-q', 'origin', 'HEAD:main'")
     let_go = src[src.index("def _release_fd"):src.index("def cmd_ship")]
