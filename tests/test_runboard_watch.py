@@ -276,7 +276,7 @@ def test_research_row_carries_its_own_numbers_and_never_checks_runs(db):
                           None, "TV", False)
     e = doc["runs"][0]
     assert e["id"] == "R2.55" and e["kind"] == "research" and e["name"] == "DAILYFADE"
-    assert e["wf"] == {"roc30": 6.1, "dd_usd": 31200.0, "dd_pct": 31.2, "roc_pct": 6.34}
+    assert e["wf"] == {"roc30": 6.1, "dd_usd": 31200.0, "roc_pct": 6.34}   # no dd_pct: dd / $100k is not a DD %
     assert "lb" not in e and e["verdict_by"] == "TV" and e["verdict_at"]
 
 
@@ -286,7 +286,8 @@ def test_research_update_in_place_and_shares_verdict_note_remove(db):
     doc = rw.cmd_research(db, "R2.55", None, None, None, None, None, rw.stretch_numbers(2.0, 20000), "lb read",
                           "TV", False)
     e = doc["runs"][0]
-    assert len(doc["runs"]) == 1 and e["verdict"] == "DEAD" and e["lb"]["dd_pct"] == 20.0 and e["note"] == "lb read"
+    assert len(doc["runs"]) == 1 and e["verdict"] == "DEAD" and e["note"] == "lb read"
+    assert e["lb"]["dd_usd"] == 20000.0 and "dd_pct" not in e["lb"]
     rw.cmd_verdict(db, rw.parse_id("R2.55"), "DEAD - confirmed", "MANAGER", None, False)
     rw.cmd_note(db, rw.parse_id("R2.55"), "see ledger", "TV", False)
     e = rw._read(rw.watch_ref(db))["runs"][0]
@@ -299,7 +300,7 @@ def test_research_rows_sit_beside_engine_runs_without_touching_them(db):
     _seed_run(db, 382, famKey="NOISE")
     rw.cmd_add(db, [382], None, None, None, None, "MANAGER", False, False)
     doc = rw.cmd_research(db, "SIPORB-R2", "SIPORB", "MISC", "STRATEGY-BEATING", "DEAD",
-                          rw.stretch_numbers(3.0, 45000, dd_pct=45.0), None, None, "TV", False)
+                          rw.stretch_numbers(3.0, 45000, dd_pct_peak=45.0), None, None, "TV", False)
     assert [r["id"] for r in doc["runs"]] == [382, "SIPORB-R2"]
     assert "kind" not in doc["runs"][0]
 
@@ -326,7 +327,7 @@ def test_research_dd5_is_optional_stored_only_when_given_and_checked(db):
     It is stored only when given, so a row written before it (or without it) keeps its exact old shape."""
     assert "dd5_usd" not in rw.stretch_numbers(6.1, 31200)
     wf = rw.stretch_numbers(93.8, 44849, dd5_usd=33612.4)
-    assert wf == {"roc30": 93.8, "dd_usd": 44849.0, "dd_pct": 44.85, "roc_pct": 140.23, "dd5_usd": 33612.4}
+    assert wf == {"roc30": 93.8, "dd_usd": 44849.0, "roc_pct": 140.23, "dd5_usd": 33612.4}
     lb = rw.stretch_numbers(155.5, 21000, None, 21000)                  # n=1: DD5 equals the worst drawdown
     assert lb["dd5_usd"] == 21000.0
     doc = rw.cmd_research(db, "B463-DD5", "BOOK463", "BOOK", "MANAGER", "REFERENCE", wf, lb, None, "MANAGER", False)
@@ -358,3 +359,168 @@ def test_import_accepts_research_ids(db, tmp_path):
                               "wf": rw.stretch_numbers(3.0, 45000)}, {"id": "382", "family": "NOISE"}]))
     doc = rw.cmd_import(db, str(f), "MANAGER", False)
     assert [r["id"] for r in doc["runs"]] == ["R2.53", 382]
+
+
+# ── DD % is BROKER STYLE: "DD % from peak (start $100k)" (owner 2026-10-08, MANAGER #35 / ELWA #37) ──────────
+# The lane works the figure out with augur_engine.drawdowns.dd_pct_peak and passes it in; this tool only STORES
+# it. The old dd_pct (= 100 x dd_usd / $100,000) is retired: it is never written and never invented from dollars.
+class _Exit(Exception):
+    def __init__(self, code):
+        super().__init__(code)
+        self.code = code
+
+
+def _cli(monkeypatch, db, *argv, client=None):
+    """Run the real main() against the fake client (no credentials, no network); returns the exit code."""
+    monkeypatch.setattr(rw, "real_client", client or (lambda: db))
+    monkeypatch.setattr(sys, "argv", ["runboard_watch.py", *argv])
+
+    def fake_exit(code):
+        raise _Exit(code)
+
+    monkeypatch.setattr(rw.os, "_exit", fake_exit)
+    with pytest.raises(_Exit) as ei:
+        rw.main()
+    return ei.value.code
+
+
+def _research_args(*flags):
+    return rw.build_parser().parse_args(["research", "R9.10", "--from", "TV", *flags])
+
+
+def test_no_dd_pct_key_is_written_with_or_without_a_peak_figure(db):
+    for s in (rw.stretch_numbers(6.1, 31200), rw.stretch_numbers(6.1, 31200, 12.5),
+              rw.stretch_numbers(6.1, 31200, dd5_usd=20000), rw.stretch_numbers(6.1, 31200, 12.5, 20000)):
+        assert "dd_pct" not in s
+    doc = rw.cmd_research(db, "R9.11", "NOPCT", "MISC", "TV", "DEAD", rw.stretch_numbers(6.1, 31200),
+                          rw.stretch_numbers(2.0, 20000, 8.0), None, "TV", False)
+    e = rw._read(rw.watch_ref(db))["runs"][0]
+    assert e == doc["runs"][0] and "dd_pct" not in e["wf"] and "dd_pct" not in e["lb"]
+    with pytest.raises(TypeError):                      # the old keyword is gone: nothing can pass a share of $100k in
+        rw.stretch_numbers(6.1, 31200, dd_pct=31.2)
+
+
+def test_peak_figure_is_stored_when_given_and_absent_when_not():
+    assert "dd_pct_peak" not in rw.stretch_numbers(93.8, 44849)
+    assert rw.stretch_numbers(93.8, 44849, 12.3456)["dd_pct_peak"] == 12.35            # rounded to 2 dp
+    assert rw.stretch_numbers(93.8, 44849, dd_pct_peak=0.01)["dd_pct_peak"] == 0.01
+    assert rw.stretch_numbers(93.8, 44849, dd_pct_peak=100)["dd_pct_peak"] == 100.0    # a total wipe-out is the top
+    assert rw.stretch_numbers(93.8, 44849, 12.3, 33612.4) == {
+        "roc30": 93.8, "dd_usd": 44849.0, "roc_pct": 140.23, "dd_pct_peak": 12.3, "dd5_usd": 33612.4}
+
+
+@pytest.mark.parametrize("bad", [0, 0.0, 0.001, -1, -0.01, 100.01, 101, 117, float("nan")])
+def test_peak_figure_outside_zero_to_hundred_is_rejected(bad):
+    with pytest.raises(rw.ToolError, match=r"percent of the peak, 0-100"):
+        rw.stretch_numbers(93.8, 44849, bad)
+
+
+def test_424_case_dollar_drawdown_alone_stores_no_percent_at_all(db):
+    """Run #424: a $116,916 worst drop read ~117% (dd / $100k) though its P&L never went below zero."""
+    wf = rw.stretch_numbers(50.0, 116916)
+    assert set(wf) == {"roc30", "dd_usd", "roc_pct"}                                    # no percent of any kind
+    rw.cmd_research(db, "R4.24", "R424", "MISC", "TV", "REF", wf, None, None, "TV", False)
+    e = rw._read(rw.watch_ref(db))["runs"][0]
+    assert not [k for k in e["wf"] if "pct" in k and k != "roc_pct"]
+    # a row written before this change still carries its retired share-of-start figure; it is never shown as a DD %
+    old = rw._read(rw.watch_ref(db))
+    old["runs"].append({"id": "R4.25", "kind": "research", "family": "MISC", "verdict": "OLD",
+                        "wf": {"roc30": 50.0, "dd_usd": 116916.0, "dd_pct": 116.92, "roc_pct": 194.86}})
+    rw.watch_ref(db).set(old)
+    out = _capture_list(db)
+    for row_id in ("R4.24", "R4.25"):
+        line = [l for l in out.splitlines() if row_id in l][0]
+        assert "DD $116,916" in line and "117" not in line and "116.9" not in line and "from peak" not in line
+    # re-running the research row replaces the old wf wholesale, so the retired key is gone from it
+    doc = rw.cmd_research(db, "R4.25", None, None, None, None, rw.stretch_numbers(50.0, 116916), None, None, "TV", False)
+    assert "dd_pct" not in _find_row(doc, "R4.25")["wf"]
+
+
+def _capture_list(db):
+    import contextlib
+    import io
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rw.cmd_list(db)
+    return buf.getvalue()
+
+
+def _find_row(doc, rid):
+    return next(r for r in doc["runs"] if r["id"] == rid)
+
+
+def test_peak_figure_without_its_roc_and_dollar_drawdown_is_rejected():
+    with pytest.raises(rw.ToolError, match="belongs to a stretch"):
+        rw.stretch_numbers(None, None, 25.0)
+    with pytest.raises(rw.ToolError, match="BOTH"):
+        rw.stretch_numbers(6.1, None, 25.0)
+    with pytest.raises(rw.ToolError, match="BOTH"):
+        rw.stretch_numbers(None, 31200, 25.0)
+    with pytest.raises(rw.ToolError, match="belongs to a stretch"):                      # same rule as DD5
+        rw.research_numbers(_research_args("--wf-dd-pct-peak", "25"))
+    with pytest.raises(rw.ToolError, match="belongs to a stretch"):                      # LB peak, only WF numbers given
+        rw.research_numbers(_research_args("--wf-roc30", "6.1", "--wf-dd", "31200", "--lb-dd-pct-peak", "25"))
+    assert rw.research_numbers(_research_args()) == (None, None)
+
+
+def test_retired_dd_pct_flag_fails_naming_the_new_flags(db, monkeypatch, capsys):
+    with pytest.raises(rw.ToolError) as ei:
+        rw.research_numbers(_research_args("--wf-roc30", "6.1", "--wf-dd", "31200", "--dd-pct", "31.2"))
+    assert "--wf-dd-pct-peak" in str(ei.value) and "--lb-dd-pct-peak" in str(ei.value)
+    code = _cli(monkeypatch, db, "research", "R9.12", "--family", "MISC", "--verdict", "DEAD", "--wf-roc30", "6.1",
+                "--wf-dd", "31200", "--dd-pct", "31.2", "--from", "TV",
+                client=lambda: pytest.fail("a refused flag must not even build a Firestore client"))
+    assert code == 1 and rw._read(rw.watch_ref(db)) is None                              # refused, nothing written
+    err = capsys.readouterr().err
+    assert "--wf-dd-pct-peak" in err and "--lb-dd-pct-peak" in err
+
+
+def test_lb_and_wf_peak_flags_round_trip_through_the_cli(db, monkeypatch):
+    code = _cli(monkeypatch, db, "research", "R9.13", "--name", "PEAKS", "--family", "BOOK", "--lane", "TV",
+                "--verdict", "REFERENCE", "--wf-roc30", "93.8", "--wf-dd", "44849", "--wf-dd-pct-peak", "21.4",
+                "--wf-dd5", "33612.4", "--lb-roc30", "155.5", "--lb-dd", "21000", "--lb-dd-pct-peak", "9.876",
+                "--from", "TV")
+    assert code == 0
+    e = rw._read(rw.watch_ref(db))["runs"][0]
+    assert e["wf"] == {"roc30": 93.8, "dd_usd": 44849.0, "roc_pct": 140.23, "dd_pct_peak": 21.4, "dd5_usd": 33612.4}
+    assert e["lb"]["dd_pct_peak"] == 9.88 and e["lb"]["dd_usd"] == 21000.0 and "dd_pct" not in e["lb"]
+    # LB peak alone (no WF peak): the WF stretch carries none, the LB stretch carries its own
+    code = _cli(monkeypatch, db, "research", "R9.14", "--family", "MISC", "--verdict", "DEAD", "--wf-roc30", "6.1",
+                "--wf-dd", "31200", "--lb-roc30", "2.0", "--lb-dd", "20000", "--lb-dd-pct-peak", "7.5", "--from", "TV")
+    e2 = _find_row(rw._read(rw.watch_ref(db)), "R9.14")
+    assert code == 0 and "dd_pct_peak" not in e2["wf"] and e2["lb"]["dd_pct_peak"] == 7.5
+
+
+def test_cli_rejects_an_out_of_range_peak_and_writes_nothing(db, monkeypatch, capsys):
+    code = _cli(monkeypatch, db, "research", "R9.15", "--family", "MISC", "--verdict", "DEAD", "--wf-roc30", "6.1",
+                "--wf-dd", "31200", "--wf-dd-pct-peak", "117", "--from", "TV")
+    assert code == 1 and rw._read(rw.watch_ref(db)) is None
+    assert "percent of the peak, 0-100" in capsys.readouterr().err
+
+
+def test_dry_run_and_summary_say_from_peak_only_when_a_peak_figure_was_given(db, capsys):
+    with_peak = rw.stretch_numbers(93.8, 44849, 21.4)
+    without = rw.stretch_numbers(93.8, 44849)
+    rw.cmd_research(db, "R9.20", "WITHPK", "MISC", "TV", "DEAD", with_peak, rw.stretch_numbers(2.0, 20000, 8.0), None,
+                    "TV", True)                                                         # --dry
+    out = capsys.readouterr().out
+    assert "WF 93.8 @30k DD $44,849 / DD 21.4% from peak" in out and "LB 2.0 @30k DD $20,000 / DD 8.0% from peak" in out
+    assert "--dry: wrote nothing" in out and rw._read(rw.watch_ref(db)) is None
+    rw.cmd_research(db, "R9.21", "NOPK", "MISC", "TV", "DEAD", without, rw.stretch_numbers(2.0, 20000), None, "TV", True)
+    out = capsys.readouterr().out
+    assert "WF 93.8 @30k DD $44,849" in out and "LB 2.0 @30k DD $20,000" in out
+    assert "peak" not in out                                                            # no peak wording, no peak key
+    rw.cmd_research(db, "R9.22", "REAL", "MISC", "TV", "DEAD", with_peak, None, None, "TV", False)   # a real write prints it too
+    assert "DD 21.4% from peak" in capsys.readouterr().out
+
+
+def test_list_shows_a_percent_only_as_from_peak(db, capsys):
+    rw.cmd_research(db, "R9.30", "PK", "MISC", "TV", "DEAD", rw.stretch_numbers(6.1, 31200, 14.3, 20000), None, None,
+                    "TV", False)
+    rw.cmd_research(db, "R9.31", "NOPK", "MISC", "TV", "DEAD", rw.stretch_numbers(6.1, 31200), None, None, "TV", False)
+    capsys.readouterr()
+    out = _capture_list(db)
+    l1 = [l for l in out.splitlines() if "R9.30" in l][0]
+    l2 = [l for l in out.splitlines() if "R9.31" in l][0]
+    assert "DD $31,200 / DD 14.3% from peak DD5 $20,000" in l1
+    assert "DD $31,200" in l2 and "%" not in l2 and "peak" not in l2

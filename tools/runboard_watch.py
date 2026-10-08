@@ -25,7 +25,8 @@ Never print, copy or commit the credentials.
     python tools/runboard_watch.py import seed.json --from MANAGER
     python tools/runboard_watch.py research R2.55 --name DAILYFADE --family MISC --lane TV
                                     --verdict "DEAD at Stage A, 0 of 8 cells" --wf-roc30 6.1 --wf-dd 31200
-                                    [--wf-dd5 Z] [--lb-roc30 X --lb-dd Y [--lb-dd5 W]] [--dd-pct P]
+                                    [--wf-dd-pct-peak P] [--wf-dd5 Z]
+                                    [--lb-roc30 X --lb-dd Y [--lb-dd-pct-peak Q] [--lb-dd5 W]]
                                     [--note "..."] --from TV
     --dry on every write command prints the resulting doc and writes nothing.
 
@@ -34,14 +35,25 @@ RUNBOARD with ROC %/yr at $30k and DD%"). A script-only round has no engine run 
 numbers (a round that died before any ROC was computed - a failed Step 0 / Step 1 - has a verdict and no numbers,
 and is listed but not plotted): id = a research id that is NOT a plain number (a ledger row "R2.55" or a slug "DAILYFADE-R1"), kind =
 "research", name, family (house vocabulary - MISC for a hunt outside the named families), lane, verdict, and
-wf / lb = {roc30, dd_usd, dd_pct, roc_pct[, dd5_usd]}: ROC %/yr at a $30k worst drawdown (30 x MAR), the worst
-drawdown in dollars, the same drawdown as % of the $100,000 house account, the plain ROC %/yr that implies
-(roc30 x dd_usd / 30,000), and - optional, owner 2026-10-07 - DD5, the average depth in dollars of the stretch's 5
-worst non-overlapping drawdown episodes on the same daily curve (--wf-dd5 / --lb-dd5; compute it with
-augur_engine.drawdowns.dd5, which also says whether the worst drawdown is more than 1.3x DD5 = driven by one
-episode). A stretch without dd5_usd shows a dash for DD5 on the web; it is never invented. The web app draws
-these hollow, tagged "no engine run". verdict / note / remove take a
-research id the same way they take a run number; a research row never checks users/{uid}/runs.
+wf / lb = {roc30, dd_usd, roc_pct[, dd_pct_peak][, dd5_usd]}: ROC %/yr at a $30k worst drawdown (30 x MAR), the worst
+drawdown in dollars, the plain ROC %/yr that implies (roc30 x dd_usd / 30,000), and - both optional -
+dd_pct_peak and DD5.
+
+dd_pct_peak (owner 2026-10-08, MANAGER #35 / ELWA #37) is BROKER-STYLE "DD % from peak (start $100k)": the largest
+drop from the most recent equity high, as a % of that high, equity = $100,000 + cumulative P&L. The lane works it
+out with augur_engine.drawdowns.dd_pct_peak (or the yardstick's stretch reading) and passes it in with
+--wf-dd-pct-peak / --lb-dd-pct-peak; THIS TOOL ONLY STORES IT (a percent of the peak, 0-100) and never computes a
+percent from dollars - the worst % drop need not be the worst $ drop once the account has grown, and
+dd_usd / $100,000 is NOT a drawdown % (run #424's $116,916 worst drop read ~117% though its P&L never went below
+zero). A stretch without dd_pct_peak is stored without one and the web shows the dollar DD only. An OLD row's dd_pct
+is the retired share-of-start figure (100 x dd_usd / $100,000): no reader may use it as a drawdown %, and this tool
+never writes it any more. ACCOUNT below is now only the $100k base of the ROC %, not a drawdown denominator.
+
+DD5 (optional, owner 2026-10-07) is the average depth in dollars of the stretch's 5 worst non-overlapping drawdown
+episodes on the same daily curve (--wf-dd5 / --lb-dd5; compute it with augur_engine.drawdowns.dd5, which also says
+whether the worst drawdown is more than 1.3x DD5 = driven by one episode). A stretch without dd5_usd shows a dash
+for DD5 on the web; it is never invented. The web app draws these hollow, tagged "no engine run". verdict / note /
+remove take a research id the same way they take a run number; a research row never checks users/{uid}/runs.
 
 `add` is idempotent: only the fields you pass change on a run already on the list; a new run
 appends at the end. Each run must already exist in users/{uid}/runs (add refuses an unknown run
@@ -69,7 +81,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FAMILIES = {"ORB", "NOISE", "ENGU-Q", "ENGU", "CBU-Q", "TTM", "DIP", "GAPGO", "TTIBS", "VWAP",
             "REVERT", "SUPERTREND", "RSIDIV", "OVERNIGHT", "EMAPB", "REPLAY", "RFML", "BOOK", "MISC"}
 MAX_VERDICT = 80
-ACCOUNT = 100000.0          # the house account the drawdown % is measured against (owner yardstick)
+PEAK_HELP = ("{} DD %% from peak (start $100k): the largest drop from the most recent equity high, from "
+             "augur_engine.drawdowns.dd_pct_peak / the yardstick's stretch reading - never dd / $100k. A percent of "
+             "the peak, 0-100; needs this stretch's ROC and $ DD")
+ACCOUNT = 100000.0          # the fixed $100k house account the ROC % is measured on (owner yardstick). NOT a
+                            #   drawdown denominator any more: DD % comes from dd_pct_peak, never from dd / ACCOUNT
 
 
 class ToolError(Exception):
@@ -142,12 +158,16 @@ def _dry_or_apply(db, ref, mutate, dry):
     return mutate(_read(ref)) if dry else _apply(db, ref, mutate)
 
 
-def _finish(new, dry, msg):
+def _finish(new, dry, msg, extra=()):
     if dry:
         print(json.dumps(new, indent=2, ensure_ascii=False, sort_keys=False))
+        for line in extra:
+            print(line)
         print("--dry: wrote nothing")
     else:
         print(msg)
+        for line in extra:
+            print(line)
     return new
 
 
@@ -218,8 +238,14 @@ def _check_research_id(rid):
                         "(letter first, then letters / digits / . _ -, at most 40 characters)")
 
 
-def stretch_numbers(roc30, dd_usd, dd_pct=None, dd5_usd=None):
-    """{roc30, dd_usd, dd_pct, roc_pct[, dd5_usd]} for one stretch, or None when nothing was given.
+def stretch_numbers(roc30, dd_usd, dd_pct_peak=None, dd5_usd=None):
+    """{roc30, dd_usd, roc_pct[, dd_pct_peak][, dd5_usd]} for one stretch, or None when nothing was given.
+
+    dd_pct_peak (optional, owner 2026-10-08): "DD % from peak (start $100k)" = the largest drop from the
+    most recent equity high as a % of that high, as worked out by the lane with
+    augur_engine.drawdowns.dd_pct_peak. It is a figure handed in and only STORED (rounded to 2 dp, 0 < x <= 100);
+    it is never computed here and NEVER derived from dollars - the worst % drop need not be the worst $ drop.
+    Absent when not given. The old `dd_pct` (= 100 x dd_usd / $100,000) is retired and is never written.
 
     dd5_usd (optional, owner 2026-10-07): the average of the stretch's 5 worst drawdown episodes in
     dollars, on the same daily curve as dd_usd (augur_engine.drawdowns.dd5). It is stored only when
@@ -227,14 +253,22 @@ def stretch_numbers(roc30, dd_usd, dd_pct=None, dd5_usd=None):
     if roc30 is None and dd_usd is None:
         if dd5_usd is not None:
             raise ToolError("DD5 belongs to a stretch: give it with that stretch's ROC @ $30k and worst drawdown")
+        if dd_pct_peak is not None:
+            raise ToolError("DD % from peak belongs to a stretch: give it with that stretch's ROC @ $30k and "
+                            "worst drawdown in dollars")
         return None
     if roc30 is None or dd_usd is None:
         raise ToolError("a stretch needs BOTH its ROC @ $30k and its worst drawdown in dollars")
     if dd_usd <= 0:
         raise ToolError(f"worst drawdown must be a positive dollar figure, got {dd_usd}")
-    pct = float(dd_pct) if dd_pct is not None else round(100.0 * float(dd_usd) / ACCOUNT, 2)
-    out = {"roc30": round(float(roc30), 2), "dd_usd": round(float(dd_usd), 2), "dd_pct": pct,
+    out = {"roc30": round(float(roc30), 2), "dd_usd": round(float(dd_usd), 2),
            "roc_pct": round(float(roc30) * float(dd_usd) / 30000.0, 2)}
+    if dd_pct_peak is not None:
+        pk = float(dd_pct_peak)
+        if not (0.0 < pk <= 100.0) or round(pk, 2) <= 0.0:       # also rejects NaN
+            raise ToolError(f"DD % from peak is a percent of the peak, 0-100 (above 0, at most 100), got "
+                            f"{dd_pct_peak} - take it from augur_engine.drawdowns.dd_pct_peak, never dd / $100k")
+        out["dd_pct_peak"] = round(pk, 2)
     if dd5_usd is not None:
         d5 = float(dd5_usd)
         if not d5 > 0:
@@ -245,6 +279,18 @@ def stretch_numbers(roc30, dd_usd, dd_pct=None, dd5_usd=None):
                             "an average of the 5 worst drawdowns cannot be deeper than the worst one")
         out["dd5_usd"] = round(d5, 2)
     return out
+
+
+def stretch_text(tag, s):
+    """One stretch as plain text: 'WF 93.8 @30k DD $44,849[ / DD 12.3% from peak][ DD5 $33,612]'.
+    The dollar DD always shows; a DD % shows only when the row carries dd_pct_peak, and it says "from peak".
+    An old row's retired dd_pct is never shown - it was a share of the $100k start, not a drawdown %."""
+    txt = "%s %.1f @30k DD $%s" % (tag, s.get("roc30", 0), f"{float(s.get('dd_usd', 0)):,.0f}")
+    if s.get("dd_pct_peak") is not None:
+        txt += " / DD %.1f%% from peak" % float(s["dd_pct_peak"])
+    if s.get("dd5_usd") is not None:
+        txt += " DD5 $%s" % f"{float(s['dd5_usd']):,.0f}"
+    return txt
 
 
 # ── commands ──────────────────────────────────────────────────────────────────────────────────
@@ -260,9 +306,7 @@ def cmd_list(db):
     for r in runs:
         tag = "R " if r.get("kind") == "research" else "#"
         wf = r.get("wf") or {}
-        nums = (" WF %.1f @30k DD %.1f%%" % (wf.get("roc30", 0), wf.get("dd_pct", 0))) if wf else ""
-        if wf and wf.get("dd5_usd") is not None:
-            nums += " DD5 $%s" % f"{float(wf['dd5_usd']):,.0f}"
+        nums = (" " + stretch_text("WF", wf)) if wf else ""
         print("  %s%-10s %-10s %-44s lane=%-10s verdict_at=%s%s" % (
             tag, r.get("id"), r.get("family") or "-", (r.get("verdict") or "(no verdict yet)")[:44],
             r.get("lane") or "-", r.get("verdict_at") or "-", nums))
@@ -362,7 +406,9 @@ def cmd_research(db, rid, name, family, lane, verdict, wf, lb, note, frm, dry):
         return _finalize(runs, frm)
 
     new = _dry_or_apply(db, watch_ref(db), mutate, dry)
-    return _finish(new, dry, f"research: {rid} written by {frm}")
+    row = _find(new["runs"], rid) or {}
+    nums = ["  " + stretch_text(tag, row[key]) for tag, key in (("WF", "wf"), ("LB", "lb")) if row.get(key)]
+    return _finish(new, dry, f"research: {rid} written by {frm}", nums)
 
 
 def cmd_verdict(db, run_id, text, frm, lane, dry):
@@ -482,7 +528,17 @@ def cmd_import(db, path, frm, dry):
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────────────────────
-def main():
+def research_numbers(args):
+    """(wf, lb) stretch dicts from the parsed `research` flags. The retired --dd-pct is refused by name."""
+    if args.dd_pct is not None:
+        raise ToolError("--dd-pct is retired: it was dd / $100,000, which is not a drawdown %. Pass the figure "
+                        "from augur_engine.drawdowns.dd_pct_peak (DD % from peak, start $100k) as "
+                        "--wf-dd-pct-peak and/or --lb-dd-pct-peak, or leave it off")
+    return (stretch_numbers(args.wf_roc30, args.wf_dd, args.wf_dd_pct_peak, args.wf_dd5),
+            stretch_numbers(args.lb_roc30, args.lb_dd, args.lb_dd_pct_peak, args.lb_dd5))
+
+
+def build_parser():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -506,12 +562,14 @@ def main():
     rs.add_argument("--verdict")
     rs.add_argument("--wf-roc30", type=float)
     rs.add_argument("--wf-dd", type=float, help="walk-forward worst drawdown, dollars")
+    rs.add_argument("--wf-dd-pct-peak", type=float, help=PEAK_HELP.format("walk-forward"))
     rs.add_argument("--wf-dd5", type=float, help="walk-forward DD5: average of the 5 worst drawdowns, dollars "
                     "(augur_engine.drawdowns.dd5 on the same daily curve)")
     rs.add_argument("--lb-roc30", type=float)
     rs.add_argument("--lb-dd", type=float, help="lockbox worst drawdown, dollars")
+    rs.add_argument("--lb-dd-pct-peak", type=float, help=PEAK_HELP.format("lockbox"))
     rs.add_argument("--lb-dd5", type=float, help="lockbox DD5: average of the 5 worst drawdowns, dollars")
-    rs.add_argument("--dd-pct", type=float, help="override the walk-forward DD %% (default dd / $100,000)")
+    rs.add_argument("--dd-pct", help="RETIRED - refused with an error; use --wf-dd-pct-peak / --lb-dd-pct-peak")
     rs.add_argument("--note")
     rs.add_argument("--from", dest="frm", required=True)
     rs.add_argument("--dry", action="store_true")
@@ -544,7 +602,11 @@ def main():
     i.add_argument("file")
     i.add_argument("--from", dest="frm", required=True)
     i.add_argument("--dry", action="store_true")
+    return ap
 
+
+def main():
+    ap = build_parser()
     args = ap.parse_args()
     # a Windows console is cp1252: a verdict with an arrow or any character outside it would
     #   crash print() (the runner's own check-mark crash) - print a ? for it instead
@@ -553,17 +615,19 @@ def main():
             _s.reconfigure(errors="replace")
         except Exception:
             pass
-    db = real_client()
     try:
+        wf = lb = None
+        if args.cmd == "research":
+            wf, lb = research_numbers(args)     # a retired / bad number flag is refused before any client is built
+        db = real_client()
         if args.cmd == "list":
             cmd_list(db)
         elif args.cmd == "add":
             cmd_add(db, args.ids, args.family, args.lane, args.verdict, args.note, args.frm,
                     args.force, args.dry)
         elif args.cmd == "research":
-            cmd_research(db, args.id, args.name, args.family, args.lane, args.verdict,
-                         stretch_numbers(args.wf_roc30, args.wf_dd, args.dd_pct, args.wf_dd5),
-                         stretch_numbers(args.lb_roc30, args.lb_dd, None, args.lb_dd5), args.note, args.frm, args.dry)
+            cmd_research(db, args.id, args.name, args.family, args.lane, args.verdict, wf, lb,
+                         args.note, args.frm, args.dry)
         elif args.cmd == "verdict":
             cmd_verdict(db, args.id, args.text, args.frm, args.lane, args.dry)
         elif args.cmd == "caveat":
