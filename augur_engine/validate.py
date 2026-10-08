@@ -1085,13 +1085,26 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     lb_dd = abs(float((lb or {}).get("max_drawdown", 0) or 0))   # lockbox max drawdown magnitude (points) → MAR
     total_wr = total_sharpe = total_trades = total_dd = total_sortino = None
     total_aw = total_al = None
+    # WHY THEY ARE MISSING, WHEN THEY ARE. All four whole-run figures come from the one extra
+    #   full-window backtest below, so anything that stops it leaves four nulls behind. Saved on
+    #   its own they are indistinguishable from a run that predates the fields, and EXPLORE can
+    #   then only print a bare dash: on the ROC board 2 of 392 runs are empty this way against
+    #   178 that never carried the fields at all. Recording the reason is what lets a dash say
+    #   which kind it is. The backtest raising is the realistic cause - an exception here was
+    #   swallowed whole, on a run whose every other stage passed.
+    total_err = None
     if champ:
         try:
             full = run_backtest(strategy, instrument=instrument, timeframe=timeframe,
                                 session=session, source=source, params=champ, cost_pts=cost_pts,
                                 date_from=opt_from, date_to=date_to, return_trades=True)
-        except Exception:
+        except Exception as _fe:
             full = None
+            total_err = ("the whole-window backtest raised %s: %s"
+                         % (type(_fe).__name__, str(_fe)[:160]))
+            print("[validate] whole-run figures unavailable -", total_err)
+        if full is not None and not full:
+            total_err = "the whole-window backtest returned no result"
         if full:
             _yrs = max(0.1, ((full_hi - (full_lo or full_hi)).days) / 365.25)
             total_sharpe = _sharpe_from_trades(full.get("trades"), _yrs)
@@ -1260,6 +1273,18 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     #    lands below the OUT-OF-SAMPLE median — the overfit-of-SELECTION governor (complements DSR).
     gate_bakeoff = pbo = None
     _full_arr = None
+    # FUNCTION SCOPE ON PURPOSE. The IS|WF split date is read UNCONDITIONALLY when the
+    #   report is assembled, but it was initialised inside the gate block below - which is
+    #   entered only when there is a champion, the full arrays loaded, AND the whole-window
+    #   backtest returned trades. Any of those failing left the name unbound and
+    #   run_validate died with UnboundLocalError at the very END, after the tuning, the
+    #   walk-forward, the lockbox and the gate had all been paid for. The swallowing
+    #   `except` on the whole-window backtest above made that MORE likely rather than
+    #   safer: it turned a backtest error into a guaranteed crash. That block's own comment
+    #   says a failure there just leaves the split absent - initialising it out here is
+    #   what makes that true. The reset inside the try stays, so each attempt still starts
+    #   from None.
+    _wfA = _wfB = None
     if champ:
         try:
             _full_arr = load_master_arrays(master, date_from=opt_from, date_to=date_to)
@@ -1419,6 +1444,9 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "mc_p95": ((OV.get("mc") or mc or {}).get("p95")),   # whole-run Monte-Carlo P95 drawdown (sizing floor)
         "equity": equity, "lb_idx": lb_idx,   # PnL curve (points); lb_idx = lockbox boundary
         "total_sharpe": total_sharpe, "total_sortino": total_sortino, "total_win_rate": total_wr,
+        # None when every whole-run figure above is present; otherwise WHY they are not,
+        #   so a reader (and EXPLORE) can tell a failure from a run that predates the fields.
+        "total_err": total_err,
         "total_trades": total_trades, "total_dd": total_dd,   # whole-run champion (incl. lockbox)
         "total_avg_win": total_aw, "total_avg_loss": total_al,   # measured (points), not derived
         "lockbox": {"pnl": lb_pnl, "pf": lb_pf, "trades": lb_trades, "pass": lb_pass,
