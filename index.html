@@ -12882,6 +12882,37 @@ function _dd5Of(cum,n){
   const top=eps.slice().sort((a,b)=>(b.depth-a.depth)||(a.ti-b.ti)).slice(0,n);
   const dd5=top.length?top.reduce((s,e)=>s+e.depth,0)/top.length:0,mx=top.length?top[0].depth:0;
   return {dd5:dd5,n:top.length,eps:top,max:mx,one:(top.length>0&&mx>1.3*dd5),total:eps.length};}
+// DD% AS A BROKER STATES IT (owner ask 2026-10-08) - the twin of drawdowns.dd_pct_peak.
+//   _ddPctPeakOf(cum,mult,start) -> null (no usable curve) | {pct, atI, peakUsd, dropUsd}
+//   cum = cumulative P&L per saved point in POINTS; mult = $ per point; start = the account.
+//   The high-water mark starts AT `start`, so a curve that never makes a new high is measured
+//   against the opening balance - the same flat-start convention _dd5Of uses for its peak.
+//   NOT the dollar drawdown over the account: that was the old reading, and it made a $116.9k
+//   drop print as 117% of a $100k start on a run whose P&L never went below zero. And NOT the
+//   dollar drawdown divided by its own peak either - the worst fall in percent need not be the
+//   worst in dollars once the account has grown, so the maximum is taken point by point.
+//   Approximate for the same reason DD5 is: the saved curve is thinned, so print it with a tilde.
+const DD_PCT_START_USD=100000;
+function _ddPctPeakOf(cum,mult,start){
+  const S=(+start||DD_PCT_START_USD),M=(mult==null?1:+mult);
+  if(!(S>0)||!isFinite(S)||!isFinite(M))return null;
+  if(!Array.isArray(cum)||!cum.length)return null;
+  let eq=S,P=S,worst=0,atI=-1,pk=S,drop=0;
+  for(let i=0;i<cum.length;i++){const v=+cum[i];if(!isFinite(v))return null;
+    eq=S+v*M;
+    if(eq>P)P=eq;
+    const f=(P-eq)/P;                 // P >= S > 0, so this never divides by zero
+    if(f>worst+1e-12){worst=f;atI=i;pk=P;drop=P-eq;}}
+  return {pct:worst*100,atI:atI,peakUsd:pk,dropUsd:drop};}
+// How every surface prints it, so the wording cannot drift between them. The tilde is the same
+//   marker RUNBOARD puts on DD5 off a thinned curve.
+function _ddPctTxt(r){return (r&&isFinite(r.pct))?('~'+r.pct.toFixed(1)+'%'):'-';}
+const DD_PCT_LABEL='DD % from peak (start $100k)';
+// The owner asked for this note wherever the figure is shown: a fixed contract size means the
+//   same dollar fall is a smaller percentage as the account grows, so the percentage is NOT a
+//   ranking key - the dollars and ROC @ $30k are.
+const DD_PCT_NOTE='fixed contract size, so the same $ drop is a smaller % as the account grows; '
+  +'rank by $ DD and ROC @ $30k';
 // DD5 money: one decimal of a thousand ("$33.6k"), the precision the owner reads it at
 function _dd5Usd(v){const a=Math.abs(+v||0);return a>=1e6?('$'+(a/1e6).toFixed(2)+'M'):(a>=1000?('$'+(a/1000).toFixed(1)+'k'):('$'+Math.round(a)));}
 // The date of point i on a curve whose dates are known only at a few ANCHORS ([[index,'YYYY-MM-DD'],...]), placed by
