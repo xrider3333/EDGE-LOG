@@ -490,6 +490,9 @@ def rm_scores(W, r, uni):
 
 
 # ------------------------------------------------------------------ one rebalance: the pool, the scores, the 50 / 50 picks of each cell, the position paths
+POST_MODES = ("remove", "naive", "keep", "close")                               # rm_one's in-hold readings: 'remove' the registered (look-ahead), 'naive' [O3], 'keep' [KEEP] (superseded), 'close' [HYG-S1]
+
+
 def rm_one(W, r, f, x, post_mode, units=True):
     """one rebalance: the universe at the fill session f (sessions < f only), the scores through the rank close r, every removal in order, the pool, each cell's 50 / 50 picks and their paths -> (rec, counts).
     The pool is ONE set for both cells (CHOICE: RES and RAW rank the same names): in the universe, >= 230 own split-safe returns AND >= 230 ES pairs in the 252-session window, an open at the fill session, finite scores, and
@@ -499,13 +502,19 @@ def rm_one(W, r, f, x, post_mode, units=True):
     is removed BEFORE the ranking, so a flagged jumper never takes a slot); 'naive' = it stays in the pool and its path is the naive raw one; 'keep' = [KEEP] (MANAGER #116 / #118, the
     look-ahead fix of 2026-10-06): it stays in the pool on the SPLIT-SAFE path, and only an event known at the rank removes a name - an announced (calendar) split ex-date or a [D2] spin-off /
     stock-dividend ex-date in f < t <= x (reasons post_calendar_split, post_spin; the kept names with an in-hold flag are counted per reason as kept_<reason>). CHOICE: no large-move cross-check
-    (the prereg names none for a 12-month signal).
+    (the prereg names none for a 12-month signal). 'close' = [HYG-S1], MANAGER's hygiene edit S1 (#127, 2026-10-07; the label is new because RESMOM's own [S1] is the score identity): the pinned
+    calendar carries no announcement date, so 'an announced split removes it' cannot be shown to be known at the rank - NO in-hold event removes a name: every name flagged inside the hold stays, on the
+    split-safe path (a registered or calendar split inside the hold rides the split-adjusted series), and a [D2] spin-off / stock-dividend ex-date e in f < e <= x CLOSES the position at the official close of
+    the session before it, e-1 (CHOICE: the exchange publishes an ex-date before it happens, so the close of e-1 knows it; rec.close = that row per pool name, -1 = held to the exit; rm_units cuts the path,
+    close_units). Counted: kept_<reason>, kept_flagged, kept_calendar_split (when the calendar's splits are on the grid), closed_spin.
     Both sides are always 50 names: a rebalance trades only when the pool holds >= 100. Ties: one ascending order by (score, symbol order); the shorts are its first 50, the longs its last 50 (disjoint by position)"""
+    if post_mode not in POST_MODES:
+        raise ValueError(f"post_mode {post_mode!r}: one of {POST_MODES}")
     s = SPEC
     nn = s["n_side"]
     uni = np.flatnonzero(W.U[f])
     rec = SimpleNamespace(r=r, f=f, x=x, traded=False, pool=np.zeros(0, np.int64), naive=np.zeros(0, bool), nu=len(uni), nfull=0, score={c: np.zeros(0) for c in CELLS}, skip_ret=np.zeros(0), spin_win=np.zeros(0, np.int64), spin_hold=np.zeros(0, bool),
-                          pick={c: (np.zeros(0, np.int64), np.zeros(0, np.int64)) for c in CELLS})
+                          pick={c: (np.zeros(0, np.int64), np.zeros(0, np.int64)) for c in CELLS}, close=np.zeros(0, np.int64))
     cnt = Counter()
     cnt["rebalances"] += 1
     cnt["universe"] += len(uni)
@@ -524,7 +533,7 @@ def rm_one(W, r, f, x, post_mode, units=True):
     old = W.hyg(a, lo_pre - 1, uni)[1:]                                         # gap, tbis, jump on sessions r-251 .. r-26
     post = W.hyg(r + 1, x, uni)                                                 # all four, inside the hold: the fill session through the exit session
     post_sp = spn_hit(W, f + 1, x, uni)                                         # [D2] a spin-off / stock-dividend ex-date in f < t <= x: a data event like a hygiene flag inside the hold
-    post_cs = csplit_hit(W, f + 1, x, uni) if post_mode == "keep" else np.zeros(len(uni), bool)     # [KEEP] an announced (calendar) split ex-date in f < t <= x: known at the rank
+    post_cs = csplit_hit(W, f + 1, x, uni) if post_mode == "keep" or (post_mode == "close" and getattr(W, "cscs", None) is not None) else np.zeros(len(uni), bool)     # [KEEP] an announced (calendar) split ex-date in f < t <= x ([HYG-S1]: counted, never a removal)
     win = (W.SPN[a:r + 1][:, uni] & np.isfinite(W.Rn[a:r + 1][:, uni])).sum(axis=0)      # [D2] the returns left out of each name's regression / formation window (r-251 .. r)
     pre_any, old_any, post_any = pre.any(axis=0), old.any(axis=0), post.any(axis=0) | post_sp
     aud = W.aud1[f, uni]
@@ -543,15 +552,22 @@ def rm_one(W, r, f, x, post_mode, units=True):
     pool = (pool_k & ~post_any) if post_mode == "remove" else (pool_k & ~post_cs & ~post_sp) if post_mode == "keep" else pool_k
     if post_mode == "naive":
         cnt["kept_naive"] += int((pool & post_any).sum())
-    if post_mode == "keep":                                                     # [KEEP] the names flagged inside the hold that stay, on the split-safe path, per reason
+    if post_mode in ("keep", "close"):                                          # [KEEP] / [HYG-S1] the names flagged inside the hold that stay, on the split-safe path, per reason
         for q, h in enumerate(HYG):
             cnt[f"kept_{h}"] += int((pool & post[q]).sum())
         cnt["kept_flagged"] += int((pool & post.any(axis=0)).sum())
+    if post_mode == "close":                                                    # [HYG-S1] the calendar's splits ride the split-safe path; a [D2] ex-date inside the hold closes the position at the close before it
+        cnt["kept_calendar_split"] += int((pool & post_cs).sum())
+        cnt["closed_spin"] += int((pool & post_sp).sum())
     pidx = np.flatnonzero(pool)
     rec.pool = uni[pidx]
     rec.naive = post_any[pidx] if post_mode == "naive" else np.zeros(len(pidx), bool)
     rec.score = {"RES": res[pidx], "RAW": raw[pidx]}
     rec.spin_win, rec.spin_hold = win[pidx], post_sp[pidx]
+    rec.close = np.full(len(pidx), -1, np.int64)                                 # [HYG-S1] the row each pool name closes on: the session before its first [D2] ex-date in f < e <= x (-1 = held to the exit session)
+    if post_mode == "close" and x > f and len(pidx):
+        sp_h = W.SPN[f + 1:x + 1][:, rec.pool]
+        rec.close = np.where(sp_h.any(axis=0), f + sp_h.argmax(axis=0), -1).astype(np.int64)
     RS = W.Rd[r - s["skip"] + 1:r + 1][:, rec.pool]                             # the skipped month's split-safe TOTAL return = the compound of the same daily returns RAW compounds over the formation window (a report input: RES vs the last month)
     rec.skip_ret = np.where(np.isfinite(RS).any(axis=0), np.where(np.isfinite(RS), 1.0 + RS, 1.0).prod(axis=0) - 1.0, np.nan)
     if len(pidx) >= 2 * nn:
@@ -560,16 +576,16 @@ def rm_one(W, r, f, x, post_mode, units=True):
             rec.pick[c] = (o[::-1][:nn], o[:nn])
         rec.traded = True
         if units:                                                               # (dryload builds the pools only to count them: no path, no P&L)
-            rec.U = rm_units(W, f, x, rec.pool, rec.naive)
+            rec.U = rm_units(W, f, x, rec.pool, rec.naive, rec.close)
     else:
         cnt["small_pool"] += 1
     return rec, cnt
 
 
-def rm_units(W, f, x, cols, naive=None):
+def rm_units(W, f, x, cols, naive=None, close=None):
     """r15's unit paths (split-safe; the names flagged `naive` on the raw series) + [R1] the cash dividends: on every ex-date session t with f < t <= x a LONG receives and a SHORT pays the dividend per share held - per $1 of
     entry notional D*_t / the entry open (fractional shares: $1 / the entry open, fixed). The fill session's own ex-date is bought ex-dividend (nothing); the exit session's is sold ex-dividend, after the prior close (the
-    holder at that close is entitled): received / paid. D* = D / F_t on the split-adjusted basis; the naive raw path takes the raw amount over the raw entry open. Added to the gross marks U.G (columns 1 .. H-1) and kept in U.div"""
+    holder at that close is entitled): received / paid. D* = D / F_t on the split-adjusted basis; the naive raw path takes the raw amount over the raw entry open. Added to the gross marks U.G (columns 1 .. H-1) and kept in U.div. close = [HYG-S1] each name's close row (-1 = held to the exit): close_units cuts the path there"""
     U = D15.l1_units(W, f, x, cols, naive)
     n, H = len(cols), x - f + 1
     div = np.zeros((n, max(H - 1, 0)))
@@ -581,6 +597,32 @@ def rm_units(W, f, x, cols, naive=None):
         div = np.nan_to_num(a.T, nan=0.0)
         U.G[:, 1:] += div
     U.div = div
+    if close is not None and (np.asarray(close) >= 0).any():                    # [HYG-S1] the positions closed before a spin-off / stock-dividend ex-date
+        close_units(W, U, f, x, cols, close)
+    return U
+
+
+def close_units(W, U, f, x, cols, close):
+    """[HYG-S1] (MANAGER #127) the positions CLOSED at the official close of the session before their first [D2] spin-off / stock-dividend ex-date, in place: close = that row e-1 per name (f <= e-1 < x; -1 = held to
+    the exit). The columns after the close (rows e .. x) hold nothing - no mark, no dividend (a dividend whose ex-date is e or later belongs to whoever holds at the close of e-1: the buyer), no borrow (mk = 0 on the
+    nights before rows e .. x); the exit value is the split-safe close of e-1 per $1 of entry (a missing close carries the last mark, and the name counts as stopped printing there: the -100% and the short-at-zero
+    readings apply on that row); U.xc = each position's exit column (e-1-f; H-1 for the rest) - l1_pnl_x books the exit cost there"""
+    close = np.asarray(close, np.int64)
+    H = x - f + 1
+    q = np.flatnonzero(close >= 0)
+    xc = np.full(len(cols), H - 1, np.int64)
+    xc[q] = close[q] - f
+    if ((xc[q] < 0) | (xc[q] > H - 2)).any():
+        raise ValueError("[HYG-S1] a close row must lie in f .. x-1")
+    after = np.arange(H)[None, :] > xc[:, None]
+    ve, st = np.array(U.ve, float, copy=True), np.array(U.st, bool, copy=True)
+    ve[q] = U.mk[q, xc[q] + 1]                                                  # the mark at the close of e-1 (carried over a missing bar), per $1 of entry
+    with np.errstate(invalid="ignore"):
+        st[q] = ~np.isfinite(W.Ac[close[q], np.asarray(cols)[q]])
+    U.G, U.mk = np.where(after, 0.0, U.G), np.where(after, 0.0, U.mk)
+    if U.div.shape[1]:
+        U.div = np.where(after[:, 1:], 0.0, U.div)
+    U.ve, U.st, U.xc = ve, st, xc
     return U
 
 
@@ -639,13 +681,23 @@ _L1_PNL = D15.l1_pnl
 
 def l1_pnl_x(U, idx, side, cfg, kt=None, sq=None):
     """r15's l1_pnl plus [R2]: cfg['short0'] - a SHORT in a name that stopped printing during the hold (no open at the exit session) is valued at ZERO: the stock's last mark is never bought back, so the short keeps the full
-    gain of its entry notional (+1 per $1) and pays no exit cost; the borrow keeps accruing on the carried mark up to the exit row. Everything else is r15's"""
+    gain of its entry notional (+1 per $1) and pays no exit cost; the borrow keeps accruing on the carried mark up to the exit row. [HYG-S1] a position closed before its spin-off ex-date (U.xc, close_units) exits on
+    the close's column: r15 books the exit cost (and the -100% reading) on the last column, which holds nothing for it - both move to the exit column, and [R2] reads that column too. Everything else is r15's"""
     P = _L1_PNL(U, idx, side, cfg, kt, sq)
+    H = P.shape[1]
+    xc = getattr(U, "xc", None)
+    xe = np.full(len(idx), H - 1, np.int64) if xc is None else np.asarray(xc)[idx]
+    c = cfg["bps"] * 1e-4
+    q = np.flatnonzero(xe < H - 1)
+    if len(q):
+        st, ve, mkx = U.st[idx][q], U.ve[idx][q], U.mk[idx][q, xe[q]]
+        P[q, H - 1] = 0.0
+        P[q, xe[q]] = np.where(st, -mkx, P[q, xe[q]] - c * ve) if (side > 0 and cfg.get("lose100")) else P[q, xe[q]] - c * ve
     if side < 0 and cfg.get("short0"):
         st = U.st[idx]
         if st.any():
-            c = cfg["bps"] * 1e-4
-            P[:, -1] += np.where(st, U.mk[idx][:, -1] + c * U.ve[idx], 0.0)
+            i = np.arange(len(idx))
+            P[i, xe] += np.where(st, U.mk[idx][i, xe] + c * U.ve[idx], 0.0)
     return P
 
 
@@ -660,7 +712,7 @@ def rm_null(W, L, nreps, vcode=0):
     hygiene, sizing, fills, costs, borrow); CHOICE: each cell has its own random stream (seeds [20261005, cell, vcode]), so the MAX over the 2 cells is the better of two independent random books. -> {cell: (nreps, T) P&L by stock
     session}; r15's null_l1 does the drawing (its S twin, x k, is not used here)"""
     acc = {}
-    with D15.spec(l1_slot=SPEC["slot"], l1_n=SPEC["n_side"]):
+    with D15.spec(l1_slot=SPEC["slot"], l1_n=SPEC["n_side"]), patched(D15, l1_pnl=l1_pnl_x):          # (l1_pnl_x = r15's l1_pnl for every path but [HYG-S1]'s closed ones: their exit cost on the close's row)
         for q, cell in enumerate(CELLS):
             acc[cell] = D15.null_l1(W, cell_leg(L, cell), nreps, np.random.default_rng([SEED, q, vcode]))[0]
     return acc
@@ -1614,6 +1666,41 @@ def brute_path(W, f, x, j, sd, naive, **kw):
     return [p_ + sd * q_ for p_, q_ in zip(path, d)], stopped
 
 
+def brute_close_path(W, f, x, j, sd, e, bps=COST_BPS, borrow=(BORROW, None), kt=None, lose100=False):
+    """[HYG-S1] one position CLOSED at the official close of e-1 (e = its first [D2] ex-date, f < e <= x), plain python, the dividends included: entry at the split-safe open of f, a mark at every split-safe close of
+    rows f .. e-1 (a missing close carries the last mark), the exit at the close of e-1 (none there: it exits at its last mark and has stopped printing), bps at the fill and on the exit value on row e-1, a short's
+    borrow on the nights before rows f+1 .. e-1, a long receives / a short pays D*_t / the entry open on the ex-dates f < t <= e-1; nothing on rows e .. x. A stopped long valued at -100% loses its last mark on row e-1
+    (that row's dividend with it)"""
+    entry = W.Od[f, j] / W.F[f, j]
+    marks = [entry]
+    for t in range(f, e):
+        c = W.Cl[t, j] / W.F[t, j]
+        marks.append(c if math.isfinite(c) else marks[-1])
+    stopped = not math.isfinite(W.Cl[e - 1, j] / W.F[e - 1, j])
+    xc, exitv = e - 1 - f, marks[-1]
+    d = brute_div(W, f, x, j, False)
+    out = [0.0] * (x - f + 1)
+    for h in range(xc + 1):
+        p = sd * ((marks[h + 1] - marks[h]) / entry + d[h])
+        if h == 0:
+            p -= bps * 1e-4
+        if sd < 0 and h >= 1:
+            rate = borrow[0]
+            if borrow[1] is not None and kt is not None and kt[h] > K_STRESS:
+                rate = borrow[1]
+            p -= rate / 252.0 * marks[h] / entry
+        if h == xc:
+            p = -marks[h] / entry if (sd > 0 and lose100 and stopped) else p - bps * 1e-4 * exitv / entry
+        out[h] = p
+    return out, stopped
+
+
+def brute_pos(W, b, j, sd):
+    """one recount position's daily path at base cost: closed before its spin-off ex-date [HYG-S1], or held to the exit"""
+    ex = b["pool"][j][5]
+    return brute_close_path(W, b["f"], b["x"], j, sd, ex)[0] if ex >= 0 else brute_path(W, b["f"], b["x"], j, sd, b["pool"][j][2])[0]
+
+
 def brute_scores(W, r, j, old=False):
     """plain python (n_ret, n_pair, res, raw) of name j at rank session r: the split-safe daily returns row by row, the OLS by numpy's least squares on the finite pairs (not the closed form of rm_scores), the sums and the
     sample standard deviation over the formation rows, the compound return by a running product. The residual is return - beta x ES (v2: the alpha stays in); old=True is the v1 construction (return - alpha - beta x ES), kept
@@ -1636,7 +1723,7 @@ def brute_scores(W, r, j, old=False):
 
 def brute_rm(W, lo, hi, post_mode="remove"):
     """every rebalance whose position exits in [lo, hi], plain python end to end (the schedule from the months of consecutive sessions, the universe taken from W.U, every other rule re-implemented with loops):
-    [{r, f, x, pool: {col: (res, raw, naive)}, long: {cell: [cols]}, short: {cell: [cols]}}]"""
+    [{r, f, x, pool: {col: (res, raw, naive, window ex-dates, an ex-date in the hold, [HYG-S1] the first ex-date in the hold or -1)}, long: {cell: [cols]}, short: {cell: [cols]}}]"""
     sp, nn = SPEC, SPEC["n_side"]
     Sp = getattr(W, "Sp_in", None)
     key = [(W.days[i].year, W.days[i].month) for i in range(W.T)]
@@ -1662,7 +1749,8 @@ def brute_rm(W, lo, hi, post_mode="remove"):
             known = hold or (Cs is not None and any(bool(Cs[s, j]) for s in range(f + 1, x + 1)))                  # [KEEP] an announced split / a [D2] ex-date inside the hold
             if pre or old or W.aud1[f, j] or (post and post_mode == "remove") or (known and post_mode == "keep"):
                 continue
-            pool[j] = (res, raw, bool(post and post_mode == "naive"), win, hold)
+            ex = next((s for s in range(f + 1, x + 1) if Sp is not None and Sp[s, j]), -1) if post_mode == "close" else -1      # [HYG-S1] the first [D2] ex-date inside the hold: the position closes at the close before it
+            pool[j] = (res, raw, bool(post and post_mode == "naive"), win, hold, ex)
         rec = {"r": r, "f": f, "x": x, "pool": pool, "long": {c: [] for c in CELLS}, "short": {c: [] for c in CELLS}, "n_hold_names": n_hold, "n_win_names": n_wnames, "n_win_sessions": n_wsess}
         if len(pool) >= 2 * nn:
             for q, c in enumerate(CELLS):
@@ -1706,6 +1794,7 @@ def compare_rm(W, L, Bz, tag):
         assert rec.naive.tolist() == [b["pool"][j][2] for j in rec.pool], (tag, rec.r)
         assert close(rec.skip_ret, [brute_skip(W, rec.r, j) for j in rec.pool]), (tag, rec.r, "the skipped month's total return: the compound of the daily total returns, from raw closes, factors and the calendar's cash")
         assert rec.spin_win.tolist() == [b["pool"][j][3] for j in rec.pool] and rec.spin_hold.tolist() == [b["pool"][j][4] for j in rec.pool], (tag, rec.r, "the [D2] counts per pool name")
+        assert rec.close.tolist() == [(b["pool"][j][5] - 1 if b["pool"][j][5] >= 0 else -1) for j in rec.pool], (tag, rec.r, "[HYG-S1] the close rows")
         assert rec.traded == bool(b["long"]["RES"]), (tag, rec.r)
         if not rec.traded:
             continue
@@ -1716,14 +1805,17 @@ def compare_rm(W, L, Bz, tag):
         idx = np.arange(len(rec.pool))
         for nm, cfg, kw in cfgs:
             for sd in (1, -1):
-                P = D15.l1_pnl(rec.U, idx, sd, cfg, kt)
+                P = l1_pnl_x(rec.U, idx, sd, cfg, kt)                                      # (r15's l1_pnl + [HYG-S1]'s exit column; [R2] is not one of these costings)
                 for i, j in enumerate(rec.pool):
-                    want, _ = brute_path(W, rec.f, rec.x, int(j), sd, bool(rec.naive[i]), bps=kw.get("bps", COST_BPS), borrow=kw.get("borrow", (BORROW, None)), kt=kt if kw.get("k") else None,
-                                                lose100=kw.get("lose100", False))
+                    kw2 = {"bps": kw.get("bps", COST_BPS), "borrow": kw.get("borrow", (BORROW, None)), "kt": kt if kw.get("k") else None, "lose100": kw.get("lose100", False)}
+                    ex = b["pool"][int(j)][5]
+                    want, _ = brute_close_path(W, rec.f, rec.x, int(j), sd, ex, **kw2) if ex >= 0 else brute_path(W, rec.f, rec.x, int(j), sd, bool(rec.naive[i]), **kw2)
                     assert close(P[i], want), (tag, nm, rec.r, int(j), sd)
                     n_paths += 1
     for key, bk in (("spin_window_names", "n_win_names"), ("spin_window_sessions", "n_win_sessions"), ("spin_hold_names", "n_hold_names")):       # [D2] the counts over every universe name (not first-reason), summed over the fill years
         assert sum(c.get(key, 0) for c in L.cnt.values()) == sum(b[bk] for b in Bz), (tag, key, sum(c.get(key, 0) for c in L.cnt.values()), sum(b[bk] for b in Bz))
+    n_close = sum(1 for b in Bz for j in b["pool"] if b["pool"][j][5] >= 0)                                 # [HYG-S1] the pool names closed before an ex-date (traded or not)
+    assert sum(c.get("closed_spin", 0) for c in L.cnt.values()) == n_close, (tag, "closed_spin", n_close)
     return n_paths
 
 
@@ -1736,7 +1828,7 @@ def series_check(W, L, Bz):
                 continue
             for sd, js in ((1, b["long"][cell]), (-1, b["short"][cell])):
                 for j in js:
-                    x0[b["f"]:b["x"] + 1] += SPEC["slot"] * np.array(brute_path(W, b["f"], b["x"], j, sd, b["pool"][j][2])[0])
+                    x0[b["f"]:b["x"] + 1] += SPEC["slot"] * np.array(brute_pos(W, b, j, sd))
         assert close(run_cell(W, cell_leg(L, cell), D15.l1_cfg()).x, x0), f"{cell} series"
 
 
@@ -2085,6 +2177,13 @@ def t_hygiene():
         Lk = rm_build(W, W.days[0], W.days[-1], "keep")
         compare_rm(W, Lk, brute_rm(W, W.days[0], W.days[-1], "keep"), "hygiene keep, no calendar split")
         assert Lk.recs[0].pool.tolist() == [1, 5, 6, 7, 8, 12, 13, 14, 15] and not Lk.recs[0].naive.any() and (Lk.cnt[2024]["kept_split"], Lk.cnt[2024]["kept_flagged"]) == (1, 3), dict(Lk.cnt[2024])
+        # [HYG-S1] 'close': no in-hold event removes a name - the announced split (G) stays on the split-safe path too; no [D2] ex-date in this world, so nothing closes
+        attach_calendar_splits(W, SimpleNamespace(split=pd.DataFrame({"symbol": [str(W.syms[6])], "ex": [W.days[65]], "type": ["forward_split"]})))
+        Lc = rm_build(W, W.days[0], W.days[-1], "close")
+        compare_rm(W, Lc, brute_rm(W, W.days[0], W.days[-1], "close"), "hygiene close")
+        rec, c = Lc.recs[0], Lc.cnt[2024]
+        assert rec.pool.tolist() == [1, 5, 6, 7, 8, 12, 13, 14, 15] and not rec.naive.any() and (rec.close == -1).all(), rec.pool.tolist()
+        assert (c["post_calendar_split"], c["post_spin"], c["kept_calendar_split"], c["kept_split"], c["kept_gap"], c["kept_jump"], c["kept_flagged"], c["closed_spin"], c["pool"]) == (0, 0, 1, 1, 1, 1, 3, 0, 9), dict(c)
         del W.CSPL, W.cscs
         # the audit removes a name-month from the pool in both readings (and counts it)
         W.aud1[44, 13] = True
@@ -2173,6 +2272,89 @@ def t_pipeline():
 
 def dr_(W, s):
     return W.days.get_loc(TS(s))
+
+
+def null_replica(W, L, cell, nreps, q, vcode, pnl):
+    """rm_null's draws for one cell replayed with a given P&L function (the same seeds, the same draw order): the test that the null reads [HYG-S1]'s exit column"""
+    rng = np.random.default_rng([SEED, q, vcode])
+    acc, nn, cfg = np.zeros((nreps, W.T)), SPEC["n_side"], D15.l1_cfg()
+    for rec in cell_leg(L, cell).recs:
+        if not rec.traded:
+            continue
+        idx, kt = np.arange(len(rec.pool)), W.k[rec.f:rec.x + 1]
+        PL, PS = pnl(rec.U, idx, 1, cfg, kt), pnl(rec.U, idx, -1, cfg, kt)
+        o = D15.draw_order(rng, nreps, len(idx), 2 * nn)
+        acc[:, rec.f:rec.x + 1] += SPEC["slot"] * (PL[o[:, :nn]].sum(axis=1) + PS[o[:, nn:]].sum(axis=1))
+    return acc
+
+
+def t_close():
+    """[HYG-S1] MANAGER's hygiene edit S1 (#127, 2026-10-07), the reading 'close': no in-hold event removes a name (the pool is the look-ahead reading's, every name on the split-safe path), and a [D2] spin-off /
+    stock-dividend ex-date e in f < e <= x CLOSES the position at the official close of e-1 - nothing held on rows e .. x (no mark, no dividend whose ex-date is e or later, no borrow on the nights before them), the
+    exit value the split-safe close of e-1, the exit cost booked on that row. On the toy world (the 02-28 rank: N12's stock dividend inside the hold, N10's spin-off on its exit session - inside it - and N09's on its
+    fill session - not inside) against the plain-python recount: every pool name's path under four costings, the cells' series, the counts; the closed paths by hand; a closed name with no close on e-1 (stopped
+    printing there: -100% for a long, the full gain for a short); the null reads the same cut paths with the exit cost on the close's row (replayed draw by draw)"""
+    with spec(n_side=3), D15.spec(univ=14):
+        W = toy_world()
+        lo, hi = W.days[0], W.days[-1]
+        Lc, Bc = rm_build(W, lo, hi, "close"), brute_rm(W, lo, hi, "close")
+        n = compare_rm(W, Lc, Bc, "close")
+        series_check(W, Lc, Bc)
+        Ln = rm_build(W, lo, hi, "naive")
+        rec = next(r_ for r_ in Lc.recs if W.days[r_.r] == TS("2025-02-28"))
+        rn = next(r_ for r_ in Ln.recs if r_.r == rec.r)
+        assert (W.days[rec.f], W.days[rec.x]) == (TS("2025-03-03"), TS("2025-04-01")) and rec.traded
+        assert rec.pool.tolist() == rn.pool.tolist() and not rec.naive.any(), "no in-hold event removes a name: the look-ahead reading's pool, on the split-safe path"
+        pos = {int(j): i for i, j in enumerate(rec.pool)}
+        assert {9, 10, 12} <= set(pos), sorted(pos)
+        e12, e10 = dr_(W, "2025-03-12"), dr_(W, "2025-04-01")
+        assert rec.close[pos[12]] == e12 - 1 and rec.close[pos[10]] == e10 - 1 == rec.x - 1 and rec.close[pos[9]] == -1 and int((rec.close >= 0).sum()) == 2, rec.close.tolist()
+        H, U = rec.x - rec.f + 1, rec.U
+        for j, e in ((12, e12), (10, e10)):
+            i, xc = pos[j], e - 1 - rec.f
+            assert U.xc[i] == xc and (U.G[i, xc + 1:] == 0).all() and (U.mk[i, xc + 1:] == 0).all() and (U.div[i, xc:] == 0).all(), j
+            assert abs(U.ve[i] - W.Ac[e - 1, j] / W.Ao[rec.f, j]) < 1e-15 and not U.st[i], j
+            assert abs(U.G[i].sum() - (U.ve[i] - 1.0 + U.div[i].sum())) < 1e-12, "the cut path sums to the close of e-1 over the entry open, plus the dividends before e"
+        assert U.xc[pos[9]] == H - 1 and U.G[pos[9], -1] != 0.0
+        U0 = rm_units(W, rec.f, rec.x, rec.pool, None)                                      # the same pool held to the exit session
+        assert U0.div[pos[12]].any() and not U.div[pos[12]].any(), "N12's dividend (ex-date after its close) belongs to the buyer at the close of e-1: cut"
+        assert U.div[pos[10]].any() and np.array_equal(U.div[pos[10]], U0.div[pos[10]]), "N10's dividend (ex-date before its close) is kept"
+        # the P&L: the exit cost on the close's row, nothing after it; a short pays borrow only on the nights before rows f+1 .. e-1
+        c0, kt = COST_BPS * 1e-4, W.k[rec.f:rec.x + 1]
+        i, xc = pos[12], e12 - 1 - rec.f
+        gsum, dsum = U.ve[i] - 1.0 + U.div[i].sum(), U.div[i].sum()
+        PL = l1_pnl_x(U, np.array([i]), 1, D15.l1_cfg(), kt)[0]
+        assert (PL[xc + 1:] == 0).all() and abs(PL.sum() - (gsum - c0 - c0 * U.ve[i])) < 1e-12 and abs(PL[xc] - (U.G[i, xc] - c0 * U.ve[i])) < 1e-15
+        PS = l1_pnl_x(U, np.array([i]), -1, D15.l1_cfg(), kt)[0]
+        assert (PS[xc + 1:] == 0).all() and abs(PS.sum() - (-gsum - c0 - c0 * U.ve[i] - BORROW / 252.0 * U.mk[i, 1:xc + 1].sum())) < 1e-12
+        assert D15.l1_pnl(U, np.array([i]), 1, D15.l1_cfg(), kt)[0][-1] != 0.0, "r15's own l1_pnl books the exit cost on the last column - l1_pnl_x moves it"
+        # a closed name with no close on e-1: it exits at its last mark and has stopped printing there
+        Ac0 = W.Ac.copy()
+        W.Ac[e12 - 1, 12] = np.nan
+        Us = rm_units(W, rec.f, rec.x, np.array([12]), None, np.array([e12 - 1]))
+        W.Ac[:] = Ac0
+        assert Us.st[0] and Us.ve[0] == Us.mk[0, xc] and Us.G[0, xc] == U.div[i, xc - 1] and (Us.G[0, xc + 1:] == 0).all()
+        dl = Us.div[0, :xc - 1].sum()                                                        # the dividends before the exit column (the exit column's is lost with the mark at -100%)
+        p100 = l1_pnl_x(Us, np.array([0]), 1, D15.l1_cfg(lose100=True), kt)[0]
+        assert abs(p100.sum() - (-1.0 - c0 + dl)) < 1e-12 and p100[xc] == -Us.mk[0, xc] and (p100[xc + 1:] == 0).all(), "a long valued at -100% on the close's row"
+        z0 = l1_pnl_x(Us, np.array([0]), -1, {**D15.l1_cfg(), "short0": True}, kt)[0]
+        assert abs(z0.sum() - (1.0 - Us.div[0].sum() - c0 - BORROW / 252.0 * Us.mk[0, 1:xc + 1].sum())) < 1e-12 and (z0[xc + 1:] == 0).all(), "[R2] a short at zero keeps its full gain, on the close's row"
+        # the counts: the [D2] names inside the hold are closed, never removed
+        cnt = sum((Counter(c_) for c_ in Lc.cnt.values()), Counter())
+        assert cnt["closed_spin"] == sum(1 for b_ in Bc for j_ in b_["pool"] if b_["pool"][j_][5] >= 0) >= 2 and cnt["post_spin"] == 0 and cnt["post_calendar_split"] == 0, dict(cnt)
+        Lr = rm_build(W, lo, hi)
+        assert sum(c_.get("post_spin", 0) for c_ in Lr.cnt.values()) == cnt["closed_spin"], "the names the registered reading removed for an ex-date in the hold are the names this one closes"
+        # the null draws the cut paths with the exit cost on the close's row
+        acc = rm_null(W, Lc, 30, 0)
+        for q, cell in enumerate(CELLS):
+            assert np.allclose(acc[cell], null_replica(W, Lc, cell, 30, q, 0, l1_pnl_x), rtol=0, atol=1e-9), cell
+            assert not np.allclose(acc[cell], null_replica(W, Lc, cell, 30, q, 0, D15.l1_pnl), rtol=0, atol=1e-12), "r15's l1_pnl would book the closed names' exit cost on the exit row"
+        try:
+            rm_one(W, rec.r, rec.f, rec.x, "s1", units=False)
+            raise AssertionError("an unknown post_mode must be refused")
+        except ValueError:
+            pass
+    return n
 
 
 def t_null():
@@ -2592,7 +2774,7 @@ def t_d1():
             for b in Bz:
                 for sd, js in ((1, b["long"][cell]), (-1, b["short"][cell])):
                     for j in js:
-                        x0[b["f"]:b["x"] + 1] += SPEC["slot"] * np.array(brute_path(W, b["f"], b["x"], j, sd, b["pool"][j][2])[0])
+                        x0[b["f"]:b["x"] + 1] += SPEC["slot"] * np.array(brute_pos(W, b, j, sd))
             c = res["cells"][cell]["base"]
             assert abs(c["net"] - x0.sum()) < 1e-6 and c["n_units"] == 3 and c["n_pos"] == 3 * 6 and res_all["cells"][cell]["base"]["n_units"] == 5
         acc = rm_null(W, obj.legs, 20, 3)
@@ -2710,7 +2892,7 @@ def t_integration():
             for b in Bz:
                 for sd, js in ((1, b["long"][cell]), (-1, b["short"][cell])):
                     for j in js:
-                        x0[b["f"]:b["x"] + 1] += SPEC["slot"] * np.array(brute_path(W, b["f"], b["x"], j, sd, b["pool"][j][2])[0])
+                        x0[b["f"]:b["x"] + 1] += SPEC["slot"] * np.array(brute_pos(W, b, j, sd))
             assert abs(c["base"]["net"] - x0.sum()) < 1e-6 and c["base"]["n_units"] == len(Bz) == 5 and c["base"]["n_pos"] == 6 * 5 and abs(c["base"]["net_pos"] - x0.sum()) < 1e-6
             assert set(c["stress"]) == {"10 bps", "20 bps"} and c["stress"]["20 bps"]["net"] < c["stress"]["10 bps"]["net"] < c["base"]["net"], "more cost, less P&L (every position pays at both ends)"
             assert abs((c["sides"]["long side only"]["net"] + c["sides"]["short side only"]["net"]) - c["base"]["net"]) < 1e-6
@@ -3373,6 +3555,7 @@ def selftest():
     t_dividends()
     t_short0()
     t_hygiene()
+    n_close = t_close()
     n = t_pipeline()
     t_null()
     t_stats()
@@ -3393,6 +3576,8 @@ def selftest():
           "(from the manifest, not hard-coded) and the reported row leaves the registered first five rebalances out of the cell AND the null; [D2] a spin-off / stock-dividend ex-date INSIDE the regression / formation window leaves that "
           "session's return out of the name's beta, residuals, formation sum / product and 230-return / 230-pair counts, INSIDE the hold (f < t <= x: the fill session's own is bought ex, the exit session's is inside) removes the "
           "name-month from the cell AND the null (the look-ahead reading keeps it at naive price P&L), and the counts of the picks (window, hold; long, short) equal a plain-python recount")
+    print(f"HYGIENE EDIT S1 [HYG-S1] (MANAGER #127; proved by t_hygiene / t_close, {n_close:,} recounted paths): the reading 'close' removes no name for an in-hold event - flagged names, registered and announced splits stay "
+          "on the split-safe path - and a spin-off / stock-dividend ex-date e inside the hold closes the position at the official close of e-1: no mark, dividend or borrow after it, the exit cost on that row (the null too)")
     print("ADDENDUM 1 (proved by t_dividends / t_short0 / t_wide / t_crash_signed / t_xsml): a cash dividend on its ex-date changes the daily return, RAW's formation product, RES's regression inputs and the positions' P&L exactly - a long "
           "receives, a short pays, per share held; the fill session's own ex-date is bought ex-dividend (nothing), the exit session's is received; D / F puts it on the split-adjusted basis; no close, no dividend. The wide calendar's gates "
           "(not on file / sha not registered / not the registered file / no manifest / a missing column), the cut at read, its counts and the split cross-check by year; the shorts-at-zero row; the signed crash-month line; XSML's correlation or its absence")
