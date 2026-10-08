@@ -26,6 +26,7 @@ SEED = 20261008
 ANNUAL_FORMS = {"10-K", "10-K/A", "20-F", "20-F/A", "40-F", "40-F/A", "10-KT", "10-KT/A"}
 FLOW_MAX, STOCK_MAX = pd.Timedelta(days=456), pd.Timedelta(days=274)     # 15 and 9 months
 HGB = dict(X.HGB, random_state=SEED)
+COUNTS = {}                                                          # per decision: universe / mapped / shares / eligible
 INPUTS = ["bm", "ep", "cfp", "sp", "roe", "gpa", "op", "roa", "ag", "capex", "accr", "shg", "buyb", "divy", "lev",
           "curr", "cash", "rdm", "sga", "mom12", "r21", "vol63", "beta", "ldv"]
 
@@ -62,7 +63,7 @@ def load_shares():
     return {c.split(":")[1]: g.drop(columns=["concept"]) for c, g in S.groupby("concept")}
 
 
-def latest(tab, t, flow, back=None):
+def latest(tab, t, flow, back=None, max_age=None):
     """Per cik: the latest value known at t (first filed before t); flows = annual facts within 15 months of t,
     stocks = instant facts within 9 months. back=(lo, hi) days: the known fact ending lo..hi days before the CURRENT
     (staleness-checked) one - the year-ago value for growth inputs."""
@@ -70,7 +71,7 @@ def latest(tab, t, flow, back=None):
         return pd.Series(dtype=float)
     k = tab[tab.filed < t]
     k = k[k.annual] if flow else k[k.start.isna()]
-    fresh = k[k.end >= t - (FLOW_MAX if flow else STOCK_MAX)]
+    fresh = k[k.end >= t - (max_age if max_age is not None else (FLOW_MAX if flow else STOCK_MAX))]
     cur = fresh.sort_values(["end", "filed"]).groupby("cik")[["end", "val"]].last()
     if back is None:
         return cur.val
@@ -80,10 +81,10 @@ def latest(tab, t, flow, back=None):
     return kk.sort_values(["end", "filed"]).groupby("cik").val.last()
 
 
-def pick(facts, names, t, flow):
+def pick(facts, names, t, flow, max_age=None):
     out = None
     for n in names:
-        s = latest(facts.get(n), t, flow)
+        s = latest(facts.get(n), t, flow, max_age=max_age)
         out = s if out is None else out.combine_first(s)
     return out if out is not None else pd.Series(dtype=float)
 
@@ -105,8 +106,10 @@ def fundamentals_at(facts, shares, t):
         "ca": g(["AssetsCurrent"], False), "cl": g(["LiabilitiesCurrent"], False),
         "cash": g(["CashAndCashEquivalentsAtCarryingValue"], False),
         "assets_1y": latest(facts.get("Assets"), t, False, back=(330, 400)),
-        "sh": pick(shares, ["EntityCommonStockSharesOutstanding", "CommonStockSharesOutstanding"], t, False),
-        "sh_1y": latest(shares.get("EntityCommonStockSharesOutstanding"), t, False, back=(330, 400)),
+        "sh": pick(shares, ["EntityCommonStockSharesOutstanding", "CommonStockSharesOutstanding"], t, False,
+                   max_age=FLOW_MAX),                                   # MANAGER #81 (1): 15 months, as BUYBACK
+        "sh_1y": latest(shares.get("EntityCommonStockSharesOutstanding"), t, False, back=(330, 400),
+                        max_age=FLOW_MAX),
     })
     return d
 
@@ -156,8 +159,30 @@ def build_inputs(D, FA, FC, dates):
             frames[k].loc[t, D.syms[names]] = np.where(np.isfinite(v), v, np.nan)
         ok = np.isfinite(vals["bm"]) & np.isfinite(vals["op"]) & np.isfinite(vals["ag"])
         elig[t] = names[ok]
+        COUNTS[t] = dict(universe=len(names), mapped=int(ck.notna().sum()), shares_ok=int(np.isfinite(mv).sum()),
+                         eligible=int(ok.sum()))
         X.log(f"  {t.date()}: universe {len(names)}, mapped {int(ck.notna().sum())}, eligible {int(ok.sum())}")
     return frames, elig
+
+
+def coverage_lines(dates):
+    """MANAGER #81 (1) + (3): share-count misses and the mapped share of the universe by WF (July-June) year."""
+    c = pd.DataFrame(COUNTS).T.reindex(dates)
+    c["mapped_share"] = c.mapped / c.universe
+    yrs, flag = [], []
+    for y in range(2017, 2025):
+        k = c[(c.index >= f"{y}-07-01") & (c.index <= f"{y + 1}-06-30")]
+        if len(k):
+            v = float(k.mapped_share.mean())
+            yrs.append(f"{y}/{(y + 1) % 100:02d} {v:.1%}")
+            if v < 0.85 and y >= 2017:
+                flag.append(f"{y}/{(y + 1) % 100:02d}")
+    lines = [f"mapped share of the universe by July-June year: {', '.join(yrs)}",
+             f"names with a usable share count (first filed before t, period end within 15 months): median "
+             f"{int(c.shares_ok.median())} of {int(c.mapped.median())} mapped; eligible median {int(c.eligible.median())}"]
+    if flag:
+        lines.append("UNIVERSE SURVIVOR-TILTED IN " + ", ".join(flag) + " (mapped share under 85%; the twin carries the same tilt)")
+    return lines
 
 
 def rank_rows(frames, t, names_sym):
@@ -224,6 +249,7 @@ def dryload():
     cov["eligible"] = [len(elig[t]) for t in dates]
     cov.to_csv(os.path.join(OUT, "coverage.csv"))
     print(cov.describe().loc[["min", "50%", "max"]].round(0).to_string())
+    print("\n".join(coverage_lines([t for t in dates if t in w])))
 
 
 def books_of(D, scores, dates, beta, n=X.N_SIDE, sign=-1.0):
@@ -236,19 +262,27 @@ def power():
     D, beta, frames, elig, dates, w = setup()
     w463, days, weeks, _, _ = X.book463_ddweeks()
     rng = np.random.default_rng(SEED)
-    roc, do = [], []
+    roc, roc_net, do = [], [], []
     for _ in range(X.N_SHUF):
         books = [(t, X.side_books(D, t, elig[t], rng.random(len(elig[t])), beta=beta[D.pos(t)])) for t in w]
         x = X.periodic_book(D, books)
         roc.append(X.roc_sortino(x)[0])
+        roc_net.append(X.roc_sortino(X.periodic_book(D, books, X.COST, X.BORROW))[0])
         do.append(X.dd_stats(x, w463, days, weeks)[1])
-    roc, do = np.array(roc), np.array(do)
-    txt = (f"FUND-ML r1 POWER LINE (no cell or twin P&L read): {len(w)} monthly WF decisions; eligible names median "
-           f"{int(np.median([len(elig[t]) for t in w]))}; 1,000 random beta-neutral books (seed {SEED}), gross: WF ROC @ "
-           f"$30k 50th {np.median(roc):+.1f} 95th {np.percentile(roc, 95):+.1f}; DO 95th {np.percentile(do, 95):+.3f}")
+    roc, roc_net, do = np.array(roc), np.array(roc_net), np.array(do)
+    p50, p95 = float(np.median(roc)), float(np.percentile(roc, 95))
+    lines = [f"FUND-ML r1 POWER LINE (no cell or twin P&L read): {len(w)} monthly WF decisions; 1,000 random beta-neutral "
+             f"books on the eligible names (seed {SEED}).",
+             f"  null (GROSS - the cell is judged NET against it, deliberately conservative): WF ROC @ $30k 50th {p50:+.1f}, "
+             f"95th {p95:+.1f}; for the record, the NET null's 95th {np.percentile(roc_net, 95):+.1f}; DO 95th "
+             f"{np.percentile(do, 95):+.3f}",
+             f"  MDE in own money: the smallest lead over a random book this test can see is about "
+             f"${(p95 - p50) * 1000:,.0f} a year at a $30k drawdown (95th minus 50th, $1,000 a year per ROC point); the "
+             f"map bar (ROC 15) is $15,000 a year."] + ["  " + l for l in coverage_lines(w)]
+    txt = "\n".join(lines)
     print(txt)
     open(os.path.join(OUT, "POWER.txt"), "w", encoding="utf-8").write(txt + "\n")
-    pd.DataFrame({"roc": roc, "do": do}).to_csv(os.path.join(OUT, "nulls.csv"), index=False)
+    pd.DataFrame({"roc": roc, "roc_net": roc_net, "do": do}).to_csv(os.path.join(OUT, "nulls.csv"), index=False)
 
 
 def run():
@@ -309,6 +343,7 @@ def run():
               f"universe (per $ gross): {beta_mkt:+.3f}",
               f"  mapped / eligible names by month (median): universe {int(np.median([D.Un[D.pos(t)].sum() for t in wd]))}"
               f", eligible {int(np.median([len(elig[t]) for t in wd]))}"]
+    lines += ["  " + l for l in coverage_lines(wd)]
     lines.append("\nSTAGE A: " + ("FUND-ML PASSES -> hand audit of the 30 names, then MANAGER" if ok else
                                    "FUND-ML dead (no variants)") + " - walk-forward only; nothing after 2025-06-29 loaded")
     txt = open(os.path.join(OUT, "POWER.txt"), encoding="utf-8").read().rstrip() + "\n" + "\n".join(lines)
