@@ -44,7 +44,7 @@ THIS = sys.modules[__name__]
 OUT_DEFAULT = r"C:\EdgeLog\_anatomy_cache\rocfrontier\eap_r1"
 OUT = os.environ.get("EDGELOG_EAP_R1", OUT_DEFAULT)                                                       # results, outside git
 PREREG = os.path.join(HERE, "PREREG_EAP_R1.txt")
-PREREG_SHA = "2528a42065e03694b97411614bcf9dd5a746adef80062c8b07fd7773f2a72c34"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDA 1 ([E1]-[E18]), 2 ([E19]-[E21], the [E4] list pinned), 3 ([E22]-[E24], the lead's review of this harness) and 4 ([E25]-[E26], MANAGER #141); supersedes 7887f3fc
+PREREG_SHA = "df4f77495f2d77fa98dacbb3723fe5c1f6cf19b7725692de0d6bbeebbe532c57"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDA 1 ([E1]-[E18]), 2 ([E19]-[E21], the [E4] list pinned), 3 ([E22]-[E24], the lead's review of this harness) and 4 ([E25]-[E26], MANAGER #141); 5 ([E27], the CHOICEs 46-50); supersedes 2528a420
 WF0, PRE_END, LB0, LB1 = M17.WF0, M17.PRE_END, M17.LB0, M17.LB1          # WF = positions EXITED 2016-07-01 .. 2025-06-29; LB = exits 2025-06-30 .. 2026-06-30 INCLUSIVE; cuts: S.LB0 / S.END
 BOOK_WF, BOOK_LB, DEEPEST_WF = M17.BOOK_WF, M17.BOOK_LB, M17.DEEPEST_WF
 NREP, SEED, SEED_SHIFT = 500, 20261019, 20261020                         # the random-name null (both cells) and [E11] W's time-shift null
@@ -3238,7 +3238,7 @@ def t_constants():
     assert os.path.basename(PRED_CAL_PINNED[0]) == "earnings_calendar_predecessors.csv" and PRED_CAL_PINNED[1] == "5a9c4142966c11067f990615473c2c36ba598376d0276b483194388f9215ba1a", "[E20] the predecessors' releases pinned"
     assert PRED_EXPECTED == {"AVGO": "0001649338", "FOX": "0001308161", "FOXA": "0001308161", "MRVL": "0001058057", "CEG": "0001168165"} and PRED_HOLES == ("DISH", "NXPI", "SIRI", "TEAM") and NOT_CHANGE == "NOT A CIK CHANGE"
     assert PRED_COLS == ("symbol", "predecessor_cik", "predecessor_name", "successor_cik", "first_8k_date", "last_8k_date", "edgar_source_url", "note") and PRED_LIST is None and PRED_CAL is None, "the selftest reads no real file: its groups pin their own"
-    assert PREREG_SHA == "2528a42065e03694b97411614bcf9dd5a746adef80062c8b07fd7773f2a72c34" and (WF0, PRE_END, LB0, LB1) == (TS("2016-07-01"), TS("2025-06-29"), TS("2025-06-30"), TS("2026-06-30"))
+    assert PREREG_SHA == "df4f77495f2d77fa98dacbb3723fe5c1f6cf19b7725692de0d6bbeebbe532c57" and (WF0, PRE_END, LB0, LB1) == (TS("2016-07-01"), TS("2025-06-29"), TS("2025-06-30"), TS("2026-06-30"))
     assert E5_WAIVER == {"by": "MANAGER #141", "years": ("2016-17",), "addendum": "[E25]"} and SENS_FROM == TS("2017-07-01") and "no_beta_es_hole" not in W_REASONS, "[E25] the waiver and the sensitivity; [E26] no ES-hole reason"
     with quiet():
         pok = prereg_ok()
