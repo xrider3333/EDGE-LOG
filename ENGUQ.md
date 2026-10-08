@@ -1545,3 +1545,71 @@ turn on $140.
 data source arrives. The general form is worth keeping: before chasing a data uncertainty, price
 it - count the trades actually exposed to it and multiply by the width of the band. Here the
 exposure is one trade and the band is 12 points, which is the whole answer.
+
+### 2026-10-07 - ANATOMY r1: the crown is NOT a daily trend position, but it is 0.4 long NQ
+
+Pre-registered in `ENGUQ_ANATOMY_R1_PREREG.md` (f108224e) before any number here was read. Report
+only: no filter, no knob, no candidate. **Walk-forward only, 2016-10-01..2025-06-30**; the sealed
+year was not opened. Crown cell at its defaults, cost 0.783, roll-corrected ETH minute master,
+drawdown valued daily. 1,178 walk-forward trades, none unresolved.
+
+**Pipeline cross-check first.** This lane's #463 walk-forward reading reproduces the house
+reference to the dollar: worst drawdown **$44,849**, DD5 **$36,095** over 5 episodes, no
+one-episode flag - against MANAGER's published WF $44.8k / DD5 $36.1k. The instrument agrees with
+the house before any new claim rests on it.
+
+**THE ASSESSMENT'S READING IS NOT SUPPORTED.** The 10-05 assessment's verdict was that ENGU-Q #335
+is best read as a long-only NQ trend position sampled at one-minute entries, which would mean the
+book carries plain trend beta through this leg. The pre-registered daily-trend twin - 20-session
+high entry, 2-ATR trail or 55-session low exit, one lot, untuned - says otherwise:
+
+- the twin earned **$161,590** against the leg's **$375,267**: the leg makes 2.3 times the money;
+- daily-dollar correlation **0.413**, so the twin explains about **17%** of the leg's daily
+  variance - and part of even that is definitional, because the leg's daily series is marked from
+  NQ's closes while a position is open;
+- only **31% of the leg's net** is earned on days the twin held a position, so **more than two
+  thirds of the money comes from days the plain trend system was flat**;
+- the twin LOST money in 2016, 2018, 2022 and 2024 (-$6,970, -$2,250, -$37,645, -$18,850) and the
+  leg made money in all four (+$63, +$12,394, +$4,271, +$52,365). **2022 is the clearest: the trend
+  system gave back $37,645 while the leg finished the year up.**
+
+**BUT THE LEG IS A MODEST LONG NQ EXPOSURE, AND IT DOES NOT HEDGE.** The dollar-beta regression is
+the honest other half:
+
+- all walk-forward days: slope **0.384 contracts**, intercept **+$94/day**, R-squared 0.335;
+- inside every #463 drawdown episode: slope 0.404, intercept **-$126/day**, R-squared 0.348;
+- **inside the five deepest #463 episodes: slope 0.438, intercept -$323/day, R-squared 0.448.**
+
+So in the weeks the book falls hardest the leg's long exposure is slightly LARGER and it loses an
+extra $323 a day beyond what that exposure explains. **Nothing here makes this leg a diversifier.**
+Note also that the twin correlation COLLAPSES to **0.168** inside those five episodes while the NQ
+beta rises: in the book's worst weeks the leg is not tracking a trend system, it is just long.
+
+**Read together: the leg is roughly 0.4 long NQ contracts plus something a plain trend rule does
+not capture, and that something is where its edge over the twin lives.** The assessment is right
+that seats should be priced against NQ beta; it is wrong that the leg reduces to trend beta.
+
+**(i) Signal-day state - one R57 factor separates survivors in every era, the other does not.**
+Median risk-to-ATR at the signal bar, survivors (held 24h or more) against the rest: **10.19 vs
+9.10** in 2016-18, **10.23 vs 8.36** in 2019-21, **10.04 vs 8.19** in 2022-25. Era-stable and in
+the direction round 66 argued from the exit rule - a wider planned stop in volatility terms buys
+the time a long hold needs. The daily stretch above the 20-day average does **not** separate them:
+0.31 vs 0.21, 1.15 vs 0.98, 0.51 vs 0.00 percent. **Neither is actionable** - the owner closed the
+entry-filter direction on 10-02 and round 66 already tested exactly this factor as a filter and
+failed it.
+
+**(i) The hold path is flat across ten years**, which is the useful stability result: the share held
+past 24 hours runs 20 to 30% and past three days 10 to 16%, every year from 2016 to 2025, with no
+drift. The survivors are not a vanishing population.
+
+**AND THE NEW RULE IMMEDIATELY FLAGS THE CROWN ITSELF.** On the 10-07 convention the crown's own
+walk-forward reading is **ROC 26.5 %/yr at $30k, Sortino 3.66, worst drawdown $48,566, DD5 $30,408
+(n=5), ratio 1.60 - DRIVEN BY ONE EPISODE.** That one episode is **2022-03-29 to 2022-06-22,
+-$48,566**; the next four are $32,260, $27,121, $22,447 and $21,646. The 26.5 figure is therefore
+more fragile than a single number suggests, and any future ENGU-Q comparison must quote DD5 beside
+it. This is the first time the crown has been read on the DD5 convention.
+
+**What this round does not do.** It opens no sealed data, proposes nothing, and changes no live or
+book setting. The one actionable consequence is for FRONTIER's size-ladder report: a leg with a
+0.4-contract NQ beta that widens to 0.44 in the book's worst episodes should be sized against that
+beta, not against its standalone Sortino.
