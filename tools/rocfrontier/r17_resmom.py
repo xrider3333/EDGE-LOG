@@ -281,6 +281,32 @@ def spn_hit(W, a, b, cols):
     return (W.spcs[b + 1, cols] - W.spcs[a, cols]) > 0
 
 
+def attach_calendar_splits(W, cal):
+    """[KEEP] (MANAGER #116 / #118, 2026-10-06) the calendar's forward / reverse / unit split ex-dates on the World's grid, (T, S) bool W.CSPL + its running count W.cscs: the one in-hold
+    hygiene event besides [D2] that the KEEP reading still lets remove a name, because a split is DECLARED before its ex-date (known at the rank) - and a split the vendor's adjustment missed
+    (GE's 1-for-8 of 2021-08-02) would otherwise put a fake 8x move on the split-safe path. Placed exactly as [D2]'s rows (spin_matrix: a name the grid does not hold or an ex-date that is not a
+    session is not placed, counted). cal None / no split rows -> an empty matrix -> counts"""
+    sp = None if cal is None else getattr(cal, "split", None)
+    if sp is not None and len(sp):
+        m, info = spin_matrix(sp, W.days, np.asarray(W.syms).astype(str))
+    else:
+        m, info = np.zeros((W.T, W.S), bool), {"rows": 0, "placed": 0}
+    W.CSPL, W.cscs = m, np.vstack([np.zeros((1, W.S), np.int32), np.cumsum(m, axis=0, dtype=np.int32)])
+    W.csplit_counts = info
+    return info
+
+
+def csplit_hit(W, a, b, cols):
+    """[KEEP] (n,) bool: a calendar split ex-date falls on a session in rows a .. b (inclusive) for the names `cols` (attach_calendar_splits first)"""
+    cs = getattr(W, "cscs", None)
+    if cs is None:
+        raise RuntimeError("post_mode 'keep' needs the calendar's splits on the grid: call attach_calendar_splits(W, cal) first")
+    a, b = max(int(a), 0), min(int(b), W.T - 1)
+    if b < a:
+        return np.zeros(len(cols), bool)
+    return (cs[b + 1, cols] - cs[a, cols]) > 0
+
+
 def attach_dividends(W, draw=None, spn=None):
     """[R1] the dividend arrays of a World, (T, S) each: Dr = the cash dividends as the calendar states them (per share, on the raw basis of the ex-date session) that count, Dv = D* = Dr / F on the SPLIT-ADJUSTED basis of the
     series (CHOICE: the amount is quoted on the raw share of the ex-date session, whose raw close Cl_t is on the same basis, so dividing by that session's factor F_t = raw / split-adjusted puts it beside Ac_t = Cl_t / F_t; a
@@ -470,7 +496,10 @@ def rm_one(W, r, f, x, post_mode, units=True):
     no hygiene reason: [T2] on sessions r-25 .. r (5 sessions before the skipped month through the rank close - decisions are made after the close, so a flag dated r is known) all four reasons; CHOICE: on sessions
     r-251 .. r-26 (the regression / formation window) the three UNREGISTERED ones - gap scan (TBIS flags are OR-ed into it), TBIS, a +-50% raw gap with no factor change: each is a fake return day inside the score - while a
     registered split there is carried by the split-safe series and is not a reason; hygiene INSIDE the hold (r+1 .. x) is the look-ahead removal [O3] - and so is [D2] a spin-off / stock-dividend ex-date inside the hold (f < t <= x: the fill session's own is bought ex, the exit session's is inside; reason post_spin; one inside the regression / formation window only leaves that session's return out of the name's score, rm_scores reads Rd). post_mode 'remove' = the registered reading (a name flagged inside the hold
-    is removed BEFORE the ranking, so a flagged jumper never takes a slot); 'naive' = it stays in the pool and its path is the naive raw one. CHOICE: no large-move cross-check (the prereg names none for a 12-month signal).
+    is removed BEFORE the ranking, so a flagged jumper never takes a slot); 'naive' = it stays in the pool and its path is the naive raw one; 'keep' = [KEEP] (MANAGER #116 / #118, the
+    look-ahead fix of 2026-10-06): it stays in the pool on the SPLIT-SAFE path, and only an event known at the rank removes a name - an announced (calendar) split ex-date or a [D2] spin-off /
+    stock-dividend ex-date in f < t <= x (reasons post_calendar_split, post_spin; the kept names with an in-hold flag are counted per reason as kept_<reason>). CHOICE: no large-move cross-check
+    (the prereg names none for a 12-month signal).
     Both sides are always 50 names: a rebalance trades only when the pool holds >= 100. Ties: one ascending order by (score, symbol order); the shorts are its first 50, the longs its last 50 (disjoint by position)"""
     s = SPEC
     nn = s["n_side"]
@@ -495,6 +524,7 @@ def rm_one(W, r, f, x, post_mode, units=True):
     old = W.hyg(a, lo_pre - 1, uni)[1:]                                         # gap, tbis, jump on sessions r-251 .. r-26
     post = W.hyg(r + 1, x, uni)                                                 # all four, inside the hold: the fill session through the exit session
     post_sp = spn_hit(W, f + 1, x, uni)                                         # [D2] a spin-off / stock-dividend ex-date in f < t <= x: a data event like a hygiene flag inside the hold
+    post_cs = csplit_hit(W, f + 1, x, uni) if post_mode == "keep" else np.zeros(len(uni), bool)     # [KEEP] an announced (calendar) split ex-date in f < t <= x: known at the rank
     win = (W.SPN[a:r + 1][:, uni] & np.isfinite(W.Rn[a:r + 1][:, uni])).sum(axis=0)      # [D2] the returns left out of each name's regression / formation window (r-251 .. r)
     pre_any, old_any, post_any = pre.any(axis=0), old.any(axis=0), post.any(axis=0) | post_sp
     aud = W.aud1[f, uni]
@@ -503,14 +533,20 @@ def rm_one(W, r, f, x, post_mode, units=True):
     reasons += [(f"pre_{h}", pre[q]) for q, h in enumerate(HYG)] + [(f"old_{h}", old[q]) for q, h in enumerate(HYG[1:])]
     if post_mode == "remove":                                                   # the registered reading removes the names flagged inside the hold; the other keeps them (counted as kept_naive)
         reasons += [(f"post_{h}", post[q]) for q, h in enumerate(HYG)] + [("post_spin", post_sp)]
+    elif post_mode == "keep":                                                   # [KEEP] only the events known at the rank remove a name
+        reasons += [("post_calendar_split", post_cs), ("post_spin", post_sp)]
     D15.tally(cnt, reasons + [("audit", aud)], D15.attribute(reasons + [("audit", aud)], len(uni)))
     cnt["spin_window_names"] += int((win > 0).sum())                              # [D2] counts over the universe names at the fill session (not first-reason: a name is counted whatever else removes it)
     cnt["spin_window_sessions"] += int(win.sum())
     cnt["spin_hold_names"] += int(post_sp.sum())
     pool_k = ~short_hist & ~no_es & m_fill & ~no_score & ~pre_any & ~old_any & ~aud
-    pool = (pool_k & ~post_any) if post_mode == "remove" else pool_k
+    pool = (pool_k & ~post_any) if post_mode == "remove" else (pool_k & ~post_cs & ~post_sp) if post_mode == "keep" else pool_k
     if post_mode == "naive":
         cnt["kept_naive"] += int((pool & post_any).sum())
+    if post_mode == "keep":                                                     # [KEEP] the names flagged inside the hold that stay, on the split-safe path, per reason
+        for q, h in enumerate(HYG):
+            cnt[f"kept_{h}"] += int((pool & post[q]).sum())
+        cnt["kept_flagged"] += int((pool & post.any(axis=0)).sum())
     pidx = np.flatnonzero(pool)
     rec.pool = uni[pidx]
     rec.naive = post_any[pidx] if post_mode == "naive" else np.zeros(len(pidx), bool)
@@ -1622,7 +1658,9 @@ def brute_rm(W, lo, hi, post_mode="remove"):
             pre = any(any(D15.brute_flags(W, s, j)) for s in range(max(lo_pre, 0), r + 1))
             old = any(any(D15.brute_flags(W, s, j)[1:]) for s in range(max(a, 0), lo_pre))
             post = hold or any(any(D15.brute_flags(W, s, j)) for s in range(r + 1, x + 1))
-            if pre or old or W.aud1[f, j] or (post and post_mode == "remove"):
+            Cs = getattr(W, "CSPL", None)
+            known = hold or (Cs is not None and any(bool(Cs[s, j]) for s in range(f + 1, x + 1)))                  # [KEEP] an announced split / a [D2] ex-date inside the hold
+            if pre or old or W.aud1[f, j] or (post and post_mode == "remove") or (known and post_mode == "keep"):
                 continue
             pool[j] = (res, raw, bool(post and post_mode == "naive"), win, hold)
         rec = {"r": r, "f": f, "x": x, "pool": pool, "long": {c: [] for c in CELLS}, "short": {c: [] for c in CELLS}, "n_hold_names": n_hold, "n_win_names": n_wnames, "n_win_sessions": n_wsess}
@@ -2036,6 +2074,18 @@ def t_hygiene():
         rec, c = out["naive"]
         assert rec.pool.tolist() == [1, 5, 6, 7, 8, 12, 13, 14, 15] and [int(j) for j, nv in zip(rec.pool, rec.naive) if nv] == [6, 8, 12], (rec.pool.tolist(), rec.naive.tolist())
         assert (c["pre_split"], c["old_gap"], c["pre_tbis"], c["old_tbis"], c["old_jump"], c["post_split"], c["post_gap"], c["post_jump"], c["pool"], c["kept_naive"]) == (1, 3, 1, 1, 1, 0, 0, 0, 9, 3), dict(c)
+        # [KEEP] the in-hold flags no longer remove a name - only an announced (calendar) split or a [D2] ex-date does; the kept names are on the split-safe path (naive all False)
+        attach_calendar_splits(W, SimpleNamespace(split=pd.DataFrame({"symbol": [str(W.syms[6])], "ex": [W.days[65]], "type": ["forward_split"]})))
+        Lk = rm_build(W, W.days[0], W.days[-1], "keep")
+        compare_rm(W, Lk, brute_rm(W, W.days[0], W.days[-1], "keep"), "hygiene keep")
+        rec, c = Lk.recs[0], Lk.cnt[2024]
+        assert rec.pool.tolist() == [1, 5, 7, 8, 12, 13, 14, 15] and not rec.naive.any(), rec.pool.tolist()
+        assert (c["post_calendar_split"], c["kept_gap"], c["kept_jump"], c["kept_split"], c["kept_flagged"], c["pool"]) == (1, 1, 1, 0, 2, 8), dict(c)
+        attach_calendar_splits(W, None)                                                     # no announced split: G (a registered split on the exit session) stays too
+        Lk = rm_build(W, W.days[0], W.days[-1], "keep")
+        compare_rm(W, Lk, brute_rm(W, W.days[0], W.days[-1], "keep"), "hygiene keep, no calendar split")
+        assert Lk.recs[0].pool.tolist() == [1, 5, 6, 7, 8, 12, 13, 14, 15] and not Lk.recs[0].naive.any() and (Lk.cnt[2024]["kept_split"], Lk.cnt[2024]["kept_flagged"]) == (1, 3), dict(Lk.cnt[2024])
+        del W.CSPL, W.cscs
         # the audit removes a name-month from the pool in both readings (and counts it)
         W.aud1[44, 13] = True
         for pm in ("remove", "naive"):
