@@ -49,6 +49,10 @@ WHAT IT ASSERTS, per case
                        three SAMPLE ticks and checks the lockbox MAR cell equals the
                        annualised figure computed here from the fixture's own lockbox pnl,
                        drawdown and window - so net-over-drawdown can never come back.
+  t1_band          -- the EXPLORE table band (owner 2026-10-07): with remembered widths for every column but
+                       ROC @ $30K DD, no column may hold an empty band at 2000 / 1559 px, no heading is cut,
+                       TOTAL / DRAWDOWN / DD5 fill the freed width, KEY leaves out (and counts) what does not
+                       fit, ALL scrolls inside the table box at 390 px, DD5 matches its definition.
   k5_rb_dd5        -- DD5 (owner 2026-10-07): the RUNBOARD's DD5 row under DD on every stage, the
                        HORIZ table, the old tab and the WATCH view; hover / tap list the dips; a
                        planted one-crash curve carries the 1 EPISODE chip and an even one does
@@ -166,6 +170,105 @@ var FIX = __FIX__;
       var EMPTY_WIN="runHistory=[];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();";
       var FIX_WIN="var F="+JSON.stringify(FIX)+";var doc=(typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(F)):F;"
         +"runHistory=[doc];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();";
+
+      // ── case t1_band runs FIRST, on a fresh document: resizing the frame after the other cases have built up their
+      //    state took minutes of relayout (measured 9.5 min against 2.5 min), and the gate has a 2 minute budget.
+      // ── case t1_band (owner 2026-10-07, a screenshot of a ~900px empty band: "whats up with all this blank space. show
+      //    all the data that we can and get rid of the blank space"). The EXPLORE table of configuration rows on KEY, with a
+      //    remembered drag width for every column EXCEPT ROC @ $30K DD - the owner's own state: his widths were saved before
+      //    that column existed, and fixed layout handed it every spare pixel. At 2000 and 1559 px no visible column may hold
+      //    more than BAND_MAX px of empty width beyond its widest figure or heading, the table must fill its box exactly
+      //    (no sideways scroll in the box or on the page), no heading may be cut (TRADES / YR read "TRADE.."), and the
+      //    freed width must carry the money columns (TOTAL, DRAWDOWN, DD5). Where columns do not fit, KEY leaves them out
+      //    and the TABLES heading says how many. At 390 px KEY keeps the identifying and plotted columns and ALL shows every
+      //    column, scrolling sideways inside the table box only. DD5 is checked against the definition worked out here,
+      //    independently, from the fixture's own saved curve; a RAW row on all three stretches keeps its dash (no whole-run
+      //    drawdown is saved) and its hover gives the exact floor instead.
+      (function(){
+        var CID=String(FIX.id),BAND_MAX=60,calls=[],errAcc=[],res={};
+        var W={'RANK':30,'FAMILY':86,'RUN':58,'MAR':34,'SHARPE':44,'SORTINO':48,'PF':34,'WIN %':38,'EV R':38,'R / YR':44,'ROC % / YR':62,'$/TRD':38,'TRADES':44,'TRADES / YR':36,'READ':112,'CONFIG':230};
+        var wc=dfxWin([FIX],"window._runCfg['"+CID+"']=runHistory[0];");
+        function P(cols,segs){var o={c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:[CID],c2Tbl:true,resCols:cols,resColW:W,reSortK:'run',resOrd:'res'};
+          if(segs)o.resSegs=segs;return o;}
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        // the app fits the columns in the frame after a render (before it is painted); this case reads the table straight
+        //   after rendering, so it runs that same fit itself first
+        function RF(p){var c=doRender(p,wc);try{w.eval('if(window._reFitCols)window._reFitCols();');}catch(e){c='ERR fit: '+e;}return c;}
+        function size(px){fr.style.width=px+'px';void fr.offsetWidth;try{void d.body.offsetWidth;}catch(e){}return w.innerWidth;}
+        function meas(){
+          var sc=[].filter.call(d.querySelectorAll('[data-rescroll]'),function(b){return b.offsetParent!==null;})[0]||null;
+          var t=sc?(sc.querySelector('table[data-retbl]')||sc.querySelector('table')):null;if(!t)return {found:false};   // any table, so an old build is judged on its geometry
+          var ths=[].slice.call(t.tHead.rows[0].cells),rows=[].slice.call(t.querySelectorAll('tbody tr[data-rerow]')).slice(0,80);
+          var cols=ths.map(function(th,i){var vis=w.getComputedStyle(th).display!=='none',r=th.getBoundingClientRect(),ink=0;
+            if(vis)rows.forEach(function(tr){var c=tr.cells[i];if(!c)return;var rg=d.createRange();rg.selectNodeContents(c);var q=rg.getBoundingClientRect();if(q.width>ink)ink=q.width;});
+            var g=th.querySelector('[data-recolgrip]'),hr=d.createRange();hr.setStart(th,0);if(g)hr.setEndBefore(g);else hr.setEnd(th,th.childNodes.length);
+            var hq=hr.getBoundingClientRect(),inkC=Math.min(ink,r.width);
+            return {nm:th.getAttribute('data-recol'),vis:vis,w:Math.round(r.width),ink:Math.round(inkC),hd:Math.round(hq.width),
+              blank:Math.round(r.width-Math.max(inkC,hq.width)-10),cut:vis&&(hq.right>r.right-4)};});
+          var note=d.querySelector('[data-refitnote]');
+          return {found:true,cols:cols,box:sc.clientWidth,boxSW:sc.scrollWidth,tblW:Math.round(t.getBoundingClientRect().width),
+            pageSW:d.documentElement.scrollWidth,pageW:d.documentElement.clientWidth,rows:rows.length,hidden:t.getAttribute('data-refit-hidden')||'',
+            note:note?{t:(note.textContent||'').trim(),shown:note.style.display!=='none'}:null};}
+        function col(m,nm){return ((m&&m.cols)||[]).filter(function(c){return c.nm===nm;})[0]||null;}
+        function band(m){return ((m&&m.cols)||[]).filter(function(c){return c.vis&&c.blank>BAND_MAX;}).map(function(c){return c.nm+' '+c.blank+'px';});}
+        function cut(m){return ((m&&m.cols)||[]).filter(function(c){return c.cut;}).map(function(c){return c.nm;});}
+        function nHid(m){return ((m&&m.cols)||[]).filter(function(c){return !c.vis;}).length;}
+        function rawRow(){return [].filter.call(d.querySelectorAll('tr[data-rerow]'),function(tr){return /#[0-9]+ RAW crowned/.test(tr.textContent||'');})[0]||null;}
+        function cellOf(tr,nm){if(!tr)return null;var t=tr.closest('table'),ths=[].slice.call(t.tHead.rows[0].cells);
+          for(var i=0;i<ths.length;i++)if(ths[i].getAttribute('data-recol')===nm){var c=tr.cells[i],sp=c?c.querySelector('[title]'):null;
+            return {t:c?(c.textContent||'').trim():null,tip:sp?(sp.getAttribute('title')||''):'',dd5:(c&&c.querySelector('[data-redd5]'))?c.querySelector('[data-redd5]').getAttribute('data-redd5'):null};}
+          return null;}
+        // DD5 from its definition, worked out here and not by the page: 5 deepest non-overlapping peak-to-trough dips of the
+        //   saved in-sample + walk-forward curve (from a flat start), the deepest pinned to the saved drawdown when deeper.
+        var cand=(((FIX.selection||{}).candidates)||[]).filter(function(c){return c&&c.crowned;})[0]||null,want5=null;
+        if(cand&&cand.equity&&cand.cal&&cand.cal.pre){var mu=+FIX.multiplier||20,Pk=0,inE=false,tv=0,eps=[];
+          cand.equity.cum.forEach(function(v0){var v=(+v0)*mu;if(v>=Pk-1e-9){if(inE){eps.push(Pk-tv);inE=false;}Pk=v;}else if(!inE){inE=true;tv=v;}else if(v<tv)tv=v;});
+          if(inE)eps.push(Pk-tv);eps.sort(function(a,b){return b-a;});eps=eps.slice(0,5);
+          var top=Math.abs(+cand.cal.pre.max_drawdown)*mu;if(eps.length&&top>eps[0]+0.5)eps[0]=top;else if(!eps.length)eps=[top];
+          want5=Math.round(eps.reduce(function(a,b){return a+b;},0)/eps.length);}
+        var vw={};
+        vw.w2000=size(2000);calls.push(RF(P('key')));chk('2000 key');res.k2000=meas();
+        var tr0=rawRow();res.rawAll={dd:cellOf(tr0,'DRAWDOWN'),dd5:cellOf(tr0,'DD5'),mar:cellOf(tr0,'MAR')};
+        vw.w1559=size(1559);calls.push(RF(P('key')));chk('1559 key');res.k1559=meas();
+        calls.push(RF(P('key',['is','wf'])));chk('1559 key is+wf');var tr1=rawRow();res.rawPre={dd5:cellOf(tr1,'DD5'),dd:cellOf(tr1,'DRAWDOWN')};
+        vw.w390=size(390);calls.push(RF(P('key')));chk('390 key');res.k390=meas();
+        calls.push(RF(P('all')));chk('390 all');res.a390=meas();
+        size(1400);fr.style.height='900px';void fr.offsetHeight;
+        // leave nothing behind for the cases after it: the configs document and the fit measurement go
+        w.eval("window._runCfg={};window._runFull={};window._reFitLast=null;window._reFitRe=null;");
+        var K=res.k2000,M=res.k1559,S=res.k390,A=res.a390;
+        // what KEY left out = every column ALL builds, less the ones KEY shows (hidden by the fit, or never built)
+        var nAll=(A&&A.cols)?A.cols.length:0;
+        var wantNote=function(m){var n=nAll-((m.cols||[]).filter(function(c){return c.vis;}).length);
+          return n>0?(!!(m.note&&m.note.shown&&m.note.t.indexOf('+'+n+' COLUMN')===0)):(!m.note||!m.note.shown);};
+        dfxCase('t1_band',calls,{
+          'renders OK at 2000, 1559 and 390 px, KEY and ALL':calls.every(function(c){return c==='OK';}),
+          'no console errors on any render':errAcc.length===0,
+          'the frame really took each width':vw.w2000===2000&&vw.w1559===1559&&vw.w390===390,
+          'a table was found at every width':!!(K.found&&M.found&&S.found&&A.found),
+          '2000: no column holds an empty band':K.found&&band(K).length===0,
+          '1559: no column holds an empty band':M.found&&band(M).length===0,
+          '2000: ROC @ $30K DD is only as wide as its heading and figures':K.found&&!!col(K,'ROC @ $30K DD')&&col(K,'ROC @ $30K DD').vis&&col(K,'ROC @ $30K DD').w<=200,
+          '2000: the table fills its box, no sideways scroll in it':K.found&&Math.abs(K.tblW-K.box)<=2&&K.boxSW<=K.box+1,
+          '1559: the table fills its box, no sideways scroll in it':M.found&&Math.abs(M.tblW-M.box)<=2&&M.boxSW<=M.box+1,
+          'the page never scrolls sideways':[K,M,S,A].every(function(m){return m.found&&m.pageSW<=m.pageW+1;}),
+          '2000 and 1559: no heading is cut':K.found&&M.found&&cut(K).length===0&&cut(M).length===0,
+          '2000 and 1559: TRADES / YR shows, heading whole':K.found&&M.found&&!!col(K,'TRADES / YR')&&col(K,'TRADES / YR').vis&&!col(K,'TRADES / YR').cut&&!!col(M,'TRADES / YR')&&col(M,'TRADES / YR').vis&&!col(M,'TRADES / YR').cut,
+          '2000: the freed width carries TOTAL, DRAWDOWN and DD5':K.found&&['TOTAL','DRAWDOWN','DD5'].every(function(n){var c=col(K,n);return !!(c&&c.vis);}),
+          'KEY says how many columns it left out, or nothing when none':K.found&&M.found&&S.found&&wantNote(K)&&wantNote(M)&&wantNote(S),
+          '390 KEY: leaves columns out rather than squeezing them':S.found&&nHid(S)>0&&S.boxSW<=S.box+1,
+          '390 KEY: RANK, FAMILY and RUN stay':S.found&&['RANK','FAMILY','RUN'].every(function(n){var c=col(S,n);return !!(c&&c.vis);}),
+          '390 ALL: every column shows, scrolling sideways inside the table box':A.found&&nHid(A)===0&&A.boxSW>A.box&&!A.note,
+          'DD5 on IN-SAMPLE + WALK-FWD matches the definition worked out from the saved curve':want5!=null&&!!(res.rawPre.dd5&&res.rawPre.dd5.dd5)&&Math.abs((+res.rawPre.dd5.dd5)-want5)<=1,
+          'a RAW row on all three stretches keeps the DD5 dash, with the reason':!!res.rawAll.dd5&&res.rawAll.dd5.t==='\u2014'&&res.rawAll.dd5.tip.indexOf('No worst drawdown is saved')>=0,
+          'its DRAWDOWN dash hover gives the exact floor':!!res.rawAll.dd&&res.rawAll.dd.t==='\u2014'&&res.rawAll.dd.tip.indexOf('no combined drawdown')>=0&&res.rawAll.dd.tip.indexOf('at least $')>=0
+        },{want5:want5,vw:vw,errAcc:errAcc.slice(0,3),
+           k2000:K.found?{box:K.box,tbl:K.tblW,boxSW:K.boxSW,band:band(K),cut:cut(K),hidden:K.hidden,note:K.note,roc30:col(K,'ROC @ $30K DD')}:K,
+           k1559:M.found?{box:M.box,tbl:M.tblW,boxSW:M.boxSW,band:band(M),cut:cut(M),hidden:M.hidden,note:M.note}:M,
+           k390:S.found?{box:S.box,tbl:S.tblW,boxSW:S.boxSW,hidden:S.hidden,note:S.note,page:[S.pageSW,S.pageW]}:S,
+           a390:A.found?{box:A.box,tbl:A.tblW,boxSW:A.boxSW,hidden:A.hidden,page:[A.pageSW,A.pageW]}:A,
+           rawPre:res.rawPre,rawAll:{dd5:res.rawAll.dd5&&res.rawAll.dd5.t,dd5tip:res.rawAll.dd5&&res.rawAll.dd5.tip.slice(0,80),ddtip:res.rawAll.dd&&res.rawAll.dd.tip.slice(-200)}});
+      })();
 
       // ── case 1: empty ──────────────────────────────────────────────────────────
       (function(){
@@ -8289,7 +8392,8 @@ def main(argv=None):
         'LOCKBOX: each dash says the row records no in-sample money': all(_noIs in (_lb.get(k + '_tip') or '') for k in ('MAR', 'ROC % / YR', 'PER YEAR')),
         'all three stretches: the same dashes (the money is still only the lockbox)': all(_al.get(k) == dash5 for k in ('MAR', 'ROC % / YR', 'PER YEAR')),
         'row 696 is off the ROC chart on LOCKBOX': _lb.get('pt') is False,
-        'TRADES / YR is still the whole-row figure (36.6)': _lb.get('TRADES / YR') == '36.6' and _al.get('TRADES / YR') == '36.6',
+        # (owner 2026-10-07) TRADES / YR prints one decimal under 10 and a whole number from 10 up, so 36.6 a year reads 37
+        'TRADES / YR is still the whole-row figure (36.6, shown 37)': _lb.get('TRADES / YR') == '37' and _al.get('TRADES / YR') == '37',
         'loaded run: LOCKBOX is still placed on the year the run dates (MAR 1.36, hover says 1.00 years)':
             _ll.get('MAR') == '1.36' and '1.00 years the run this row cites dates' in (_ll.get('PER YEAR_tip') or ''),
         'loaded run: WALK-FORWARD + LOCKBOX dates only the lockbox it covers':
@@ -8465,6 +8569,7 @@ def main(argv=None):
     DFX += ['n2_rb_cold_pinned_marks']
     DFX += ['n3_rb_void_prefix']
     DFX += ['n4_rb_roll']
+    DFX += ['t1_band']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
