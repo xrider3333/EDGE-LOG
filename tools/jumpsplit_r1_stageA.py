@@ -340,7 +340,7 @@ def stage_a(Ds, B, bdays, years, RD, modes):
         xn = X["neighbour quartile"][wf].sum()
         allt = X["twin ALL sessions"]
         ok_trio, lines = TC.lead_trio(np.where(wf | early, xp, 0.0), np.where(wf | early, allt, 0.0), days, wf, early,
-                                      "DIFFUSIVE vs ALL sessions")
+                                      "DIFFUSIVE (timed) vs ALL sessions (raw)")
         print("\n".join(lines))
         a5 = all(xp[mask(days, a, b)].sum() > 0 for lab_, a, b in STRETCHES if lab_ != "WF")
         jt = X["twin JUMP mornings"][wf & (sides["twin JUMP mornings"] != 0)]
