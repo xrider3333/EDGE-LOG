@@ -33,29 +33,19 @@ def session_calendar():
     return pd.DatetimeIndex(sorted(set(idx.tz_localize(None).normalize())))
 
 
+BOOK_CSV = "C:/EdgeLog/_anatomy_cache/rocfrontier/r4/book463_daily.csv"   # the house #463 valued-daily series (sha256 d1543735b5408f50...)
+
+
 def book463():
-    """#463's walk-forward daily valued series, rebuilt with the book engine; refuses unless the reference reproduces."""
-    import numpy as np
+    """#463's valued-daily series - the house cache every DD-week lane reads (TV's ddw1/ddw2, FRONTIER r10), column mtm.
+    Refuses unless the reference reproduces. (A rebuild from the book engine's leg rows gave Sortino 3.881: it carries
+    only days with a leg row; the house series carries every session.)"""
     import pandas as pd
-    import firebase_admin
-    from firebase_admin import credentials, firestore
-    from google.cloud.firestore_v1.base_query import FieldFilter as FF
-    from augur_engine import book as B
-    if not firebase_admin._apps:
-        firebase_admin.initialize_app(credentials.Certificate("serviceAccount.json"))
-    u = firestore.client().collection("users").document(UID)
-    d = list(u.collection("backtests").where(filter=FF("run_id", "==", 463)).limit(1).stream())[0].to_dict()
-    parts = []
-    for leg in d["legs"]:
-        tr, info = B._leg_trades(leg, d["date_from"], d["date_to"])
-        m = info.get("_mtm_day")
-        pairs = m if m is not None else tr
-        s = pd.Series([float(a) for _, a in pairs], index=pd.to_datetime([str(x)[:10] for x, _ in pairs]))
-        parts.append(s.groupby(level=0).sum())
-    book = pd.concat(parts, axis=1).fillna(0).sum(axis=1).sort_index()
+    bk = pd.read_csv(BOOK_CSV, parse_dates=["date"]).set_index("date")
+    book = bk["mtm"].astype(float)
     sc = score(book, *WF)
     ok = abs(sc["roc"] - REF["roc"]) < 0.02 and abs(sc["sor"] - REF["sor"]) < 0.002 and abs(sc["dd"] - REF["dd"]) < 1.0
-    print("PARITY #463 WF: ROC %.2f Sortino %.3f DD $%.0f (reference %.2f / %.3f / $%.0f) -> %s"
+    print("PARITY #463 WF (house cache): ROC %.2f Sortino %.3f DD $%.0f (reference %.2f / %.3f / $%.0f) -> %s"
           % (sc["roc"], sc["sor"], sc["dd"], REF["roc"], REF["sor"], REF["dd"], "EXACT" if ok else "MISMATCH - stop"),
           flush=True)
     if not ok:
@@ -164,9 +154,10 @@ def evaluate(cells, null_sets, book, cal, ddd, family, report_only=()):
             "g 6/9 years": int((yrs > 0).sum()) >= 6,
             "i ex Feb-Apr 2020": x20 > 0,
             "j 2010-16": (early > 0) if early == early else True,
-            "k A2 book": best[1] >= A2_BAR["roc"] and best[2] >= A2_BAR["sor"],
+            "k A2 book (REPORT)": best[1] >= A2_BAR["roc"] and best[2] >= A2_BAR["sor"],
         }
-        ok = all(bars.values()) and name not in report_only
+        # house line (MANAGER #40 / #45): the book add is a REPORT, not a gate on a new standalone leg
+        ok = all(v for k, v in bars.items() if not k.startswith("k ")) and name not in report_only
         print("\n== %s | WF trades %d net $%.0f ROC@$30k %.1f Sortino %.2f DD $%.0f PF %.2f t %.2f | stress net $%.0f"
               % (name, len(W), sc["net"], sc["roc"], sc["sor"], sc["dd"], pf, t, ss["net"]))
         print("   years %s | drawdown days $%.0f (ex 3 best $%.0f, null 95th $%.0f) | ex Feb-Apr 2020 $%.0f | ex 2022 $%.0f | 2010-16 %s"
@@ -176,6 +167,23 @@ def evaluate(cells, null_sets, book, cal, ddd, family, report_only=()):
         print("   BAR: %s -> %s" % (" | ".join("%s %s" % (k, "PASS" if v else "FAIL") for k, v in bars.items()),
                                     "REPORT ONLY (dilution check, cannot pass)" if name in report_only else
                                     ("PASSES STAGE A" if ok else "FAILS STAGE A")))
+        # ---- REPORTED ONLY (owner rule 10-07: DD5 beside every ROC; addendum 2 of 10-05: deeper diagnostics) ----
+        from augur_engine.drawdowns import dd5 as _dd5
+        r5 = _dd5(s)
+        print("   DD5 $%.0f (n=%d), worst $%.0f%s" % (r5["dd5_usd"], r5["n"], r5["max_dd"],
+              " -> ROC DRIVEN BY ONE EPISODE" if r5["one_episode"] else ""))
+        h1, h2 = score(s, WF[0], "2021-12-31"), score(s, "2022-01-01", WF[1])
+        print("   regime halves: 2016-21 ROC %.1f net $%.0f | 2022-25 ROC %.1f net $%.0f" % (h1["roc"], h1["net"], h2["roc"], h2["net"]))
+        Wc = W.copy()
+        if "side" not in Wc:
+            Wc["side"] = 1.0
+        if "cost" not in Wc:
+            Wc["cost"] = Wc.g - Wc.usd
+        print("   long vs short: long %d trades $%.0f | short %d trades $%.0f" % (
+            int((Wc.side > 0).sum()), Wc[Wc.side > 0].usd.sum(), int((Wc.side < 0).sum()), Wc[Wc.side < 0].usd.sum()))
+        gross = (Wc.side * Wc.g) if "m" in Wc else Wc.g
+        print("   cost curve (x base cost): x0 $%.0f | x1 $%.0f | x2 $%.0f | x4 $%.0f" % tuple(
+            float((gross - k * Wc.cost).sum()) for k in (0, 1, 2, 4)))
         if ok:
             passes.append(name)
     return passes

@@ -17,6 +17,8 @@
 | **VOID runs** | **#205-#209 are VOID** (recorded 2026-09-28). They enter on the breakout touch but gate the trade on that same bar's finished volume, the look-ahead that voided #125 and ORB 3.0/3.1. #209 (ORB 3.4 with the legacy volume gate switched back on) tops some walk-forward matched-risk lists only because of it. #206 and #209 carry VOID verdicts on the RUNBOARD watch list; ignore all five on every ranking. |
 | **Dead on the legal crown (2026-10)** | Round 64: 'breakeven at +1R, then ride' - ORB already rides (the target fires 2-4 times in 16 years). Round 65: sizing by the breakout bar's relative volume FAILS every walk-forward test, and the thirds come out INVERTED - the heaviest breakout bars are the weakest third (#314 $126 a trade, #234 $50) and the middle third the best; the gap is under one standard error, so it licenses no inverse rule. Breakout-bar volume, as a gate or a tilt, is dead on ORB. `ORB_ROUND64_BE1R_RIDE.md`, `ORB_ROUND65_RVOL_TILT.md`. |
 | **Forward read: expiry week (2026-10-04)** | #314 sized 1.5x in the quarterly expiry week (exchange calendar, third-Friday week of Mar/Jun/Sep/Dec), forward from 2026-10-05, first week 2026-12-14; read at 50 expiry-week trades against a random-calendar null (`docs/PREREG_orb_rollweek_forward_2026-10-04.md`). Knowledge only (about $1.8k a year even if real). No backtest number on this calendar, ever, without a separate pre-registration: its in-sample figure was seen by accident and mixes two roll conventions. |
+| **ORB on QQQ (2026-10-07, MANAGER's QQQ VALIDATE r1, owner GO)** | **Expect about 0.75-0.78 of the NQ edge on QQQ.** Calibration QQQ/NQ: #314 0.78 (90% band 0.40-1.06), #234 0.75 (0.32-0.97). Matched trades are nearly identical: 77% of QQQ trades match NQ's, with gross 12.31 vs 12.20 bps and the P&L sign agreeing 97.9%. The gap is the unmatched trades: NQ-only signals earn, QQQ-only signals lose. #314's QQQ shorts carry 0.60 of NQ's, its longs 1.00. QQQ ORB lost from July 2019 to June 2020 (calibration -2.51 that year). ORB has no point settings, so as-is equals price-scaled; the live Webull ORB_R6 runs #314 unchanged at fixed shares. On the yardstick, #314 on QQQ reads walk-forward 2016-07..2025-06 ROC @ $30k 23.4 %/yr, DD5 $19.7k (NQ 35.8 / $22.4k), and lockbox 2025-06-30..2026-06-30 108.0 %/yr, DD5 $19.8k: QQQ's first lockbox read. **Run #486** (one 900-trial Auto-Validate of ORB_3_6.py on QQQ) is **WEAK**: PBO 0.976, 6 of 8 folds, re-fitted walk-forward 13.8 %/yr. Its winner is a touch entry (not close-confirmed) with stop 1.5, a 4.5R partial and a 9-bar trail. It differs from #314 on 11 of 13 settings, and #314 was not in the grid. **Do not adopt the #486 cell.** Any QQQ-own ORB needs a new pre-registration to MANAGER first. |
+| **New strategy types r1 (2026-10-07)** | NT1 MACRO830 (carry the 08:30 CPI/payroll futures move into the cash open) and NT3 SAFEHAVEN (IEF/GLD long on equity-stress mornings) are **both DEAD at Stage A**. The 08:30 move partly reverses into the open; bond and gold funds give back the morning. `ORB_NEWTYPES_R1.md`. |
 
 **Owner yardstick (rule 2026-09-28, every lane).** Rank by ROC %/yr at a $30k worst drawdown (drawdown valued daily; = 30 x MAR), walk-forward and lockbox shown separately. Freeze size and every ML or tilt setting before the lockbox and count only the pre-lockbox pick. A sized or ML version must beat its raw twin on that number AND on Sortino in both stretches. Minimums: 100 walk-forward trades, 50 lockbox trades, and a lockbox that stays profitable without its single biggest trade. ROC %/yr at stated size is still quoted, but judging and recommending use this. On it, #314 reads 21.7%/yr re-fitted walk-forward and 121%/yr lockbox at $30k.
 
@@ -107,6 +109,8 @@ Harness: `tools/orb_pick.py` (re-runs every PASSING legal ORB side by side over 
 ---
 
 ## ⚠ 2026-08-18 — the NOISE prior-day close-position filter does NOT transfer to ORB
+
+> **STALE - banner 2026-10-07 (MANAGER assessment 10-05 (d)).** Superseded by the ONE CROWN STATEMENT at the top and by the closed prior-day filter (validate #325 FAIL). Kept for history; do not act on it.
 
 Full round log: **`CROSSFAMILY_DAYTYPE.md`** (repo root). Fork: `augur_strategies/ORB_3_8.py`
 (the crown plus the filter, default OFF, bit-identical to `ORB_3_6.py` with the knob off,
@@ -310,6 +314,8 @@ different strategy family and by a different method, what NOISE found in its rou
 everything tuned on the old tape lost on the new one.
 
 ### The open research direction: replace the illegal gate with a PRE-KNOWN one
+
+> **STALE - banner 2026-10-07 (MANAGER assessment 10-05 (d)).** Written in the voided ORB 3.x era. Every lead below was closed on the legal crown (rounds 10-11, 59-65; the volume reads died in round 65). Kept for history; do not act on it.
 
 The fill at the level carried the money ($494k with the illegal filter, $63k with no
 filter, $43k with close fills). A resting stop at the level is fully legal — what's
