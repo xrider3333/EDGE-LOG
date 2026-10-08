@@ -1,6 +1,6 @@
 """
 LATESTRESS r1 - last-half-hour momentum on STRESS days, NQ and ES. STAGE A, walk-forward only.
-Pre-registration: docs/PREREG_orb_latestress_r1_2026-10-07.md (+ addendum 1: bar g = two thirds of the WF years
+Pre-registration: docs/PREREG_orb_latestress_r1_2026-10-07.md (+ addendum 2: holiday VIX rows dropped; addendum 1: bar g = two thirds of the WF years
 holding >= 10 trades; the 6/9 reading printed as a report). Scope rank 1, docs/SCOPE_ORB_2026-10-05.md.
 Run from the shared checkout:
 
@@ -26,18 +26,35 @@ SEED = 20261007
 SMOKE = "--smoke" in sys.argv
 
 
-def vix_flag(sessions):
-    """T1 per session: the last VIX close BEFORE the session is >= the 80th pct of the 252 closes before that one."""
+def cme_holiday_days():
+    """Addendum 2: CME US-holiday sessions (stock market closed) = RTH master sessions ending with the 12:55 or 13:00 bar
+    (memory: session calendar traps; 71 in 2010-06..2025-06). NYSE early closes end at 13:10 / 13:15 and are kept."""
+    import pandas as pd
+    from augur_engine.data import find_master, load_master_arrays
+    A = load_master_arrays(find_master("ES", "5m", "rth", "db_adj_rth"), date_from="2010-03-01", date_to=C.WF[1])
+    idx = pd.DatetimeIndex(A["index"]).tz_localize(None)
+    last = pd.Series(idx.strftime("%H:%M"), index=idx).groupby(idx.normalize()).last()
+    return set(last[last.isin(["12:55", "13:00"])].index)
+
+
+def vix_flag(sessions, drop_days=()):
+    """T1 per session: the last VIX close BEFORE the session is >= the 80th pct of the 252 closes before that one.
+    Addendum 2: VIX rows dated on CME-holiday sessions (the CBOE file carries 23 of them from 2022) are dropped first,
+    so the 252-close window and 'the prior VIX close' count stock-market days only."""
     import pandas as pd
     v = pd.read_csv(VIX_CSV)
     v = pd.Series(v.CLOSE.astype(float).values, index=pd.to_datetime(v.DATE, format="%m/%d/%Y")).sort_index()
+    n0 = len(v)
+    v = v[~v.index.isin(list(drop_days))]
+    print("VIX rows dropped on CME-holiday sessions: %d (%s)" % (n0 - len(v), ", ".join(
+        str(d.date()) for d in sorted(set(drop_days)) if d >= pd.Timestamp("2022-01-01"))[:200]))
     p80 = v.shift(1).rolling(252, min_periods=252).quantile(0.8)
     flag = (v >= p80) & p80.notna()
     prior = flag.reindex(flag.index.union(sessions)).shift(1).ffill()   # the flag of the last VIX day before each session
     return prior.reindex(sessions).fillna(False).astype(bool)
 
 
-def market_rows(mk, mult, cost):
+def market_rows(mk, mult, cost, t1):
     import numpy as np
     import pandas as pd
     from augur_engine.data import find_master, load_master_arrays
@@ -76,7 +93,7 @@ def market_rows(mk, mult, cost):
     T["usd_stress"] = T.side * T.g - (cost + STRESS) * mult
     med = T.m.abs().rolling(60, min_periods=60).median().shift(1)
     T["T2"] = (T.m.abs() >= 2.0 * med) & med.notna()
-    T["T1"] = vix_flag(pd.DatetimeIndex(T.date)).values
+    T["T1"] = t1.reindex(pd.DatetimeIndex(T.date)).fillna(False).astype(bool).values
     return T
 
 
@@ -88,7 +105,9 @@ def main():
     book, cal = C.book463(), C.session_calendar()
     ddd = C.drawdown_days(book)
     print("#463 drawdown days: %d (TV counted 460)" % len(ddd))
-    rows = {mk: market_rows(mk, *MKT[mk]) for mk in MKT}
+    sess_all = pd.DatetimeIndex(cal)
+    t1 = vix_flag(sess_all, drop_days=cme_holiday_days())
+    rows = {mk: market_rows(mk, *MKT[mk], t1) for mk in MKT}
     cells, pools = {}, {}
     for mk, T in rows.items():
         for tg in ("T1", "T2"):
