@@ -75,18 +75,42 @@ Dead and not re-tested:
   VOL scale (x0.97) SD 9.0, minimum detectable 14.9, four in five 22.5; $30k own drawdown (x1.18) 10.4 / 17.2 / 25.9.
 - **R days among its trade days:** 143.
 
-## ARM B - GEXREV (DISC; SCOPE_DISC rank 5), long-gamma days - FOR DISC TO CONFIRM IN REVIEW
-- DISC's scope: "fade 5m closes stretched from VWAP inside the NOISE band; out at VWAP, the band edge or 15:55", ES
-  primary.
-- **Proposed** (DISC edits or replaces this before any number):
-  - BALANCE r1's registered fade (docs/PREREG_balance_r1_2026-10-06.md sections 3.5-3.8: NOISE's own VWAP, the stretch
-    as a fraction of the room from VWAP to the band edge, entry at the next bar's open, target a close at or through VWAP
-    filled at the next open, stop at the live band edge on closes, flat at 15:55).
-  - Run on ES 5m RTH no-adjust, with #304's band formula (lookback 40, multipliers 0.75 / 1.5) computed on ES's own bars.
-  - The long-gamma-day state REPLACES BALANCE's noon no-break classifier. Entries from 10:00.
-  - Cells: BALANCE's two stretch thresholds.
-- Counts after the stretch filter come first; any year under 50 trades drops the arm (DISC's scope rule).
-- R days among long-gamma days: 307.
+## ARM B - GEXREV (DISC; SCOPE_DISC rank 5), long-gamma days - DISC's text (review #80, 2026-10-07 18:31), pasted in
+1. **Data.**
+   - ES 5m RTH no-adjust master 33 (NOADJ_ES_5m_RTH.csv, BALANCE's ES transfer), cut at 2025-06-29.
+   - BALANCE's ES roll sessions are never traded.
+   - $50 a point; cost 0.363 pt, stress 1.363.
+2. **Rules = BALANCE r1 sections 3.2-3.7, unchanged except the day filter and the clock:**
+   - #304's band (lookback 40, multipliers 0.75 up / 1.5 down) on ES's own bars;
+   - NOISE's VWAP; the stretch x; the side toward VWAP;
+   - entry at the next open;
+   - target: a close at or through VWAP, filled at the next open;
+   - stop: a close beyond the live band edge;
+   - flat at 15:55; re-entry allowed when flat.
+3. **Day filter.**
+   - The long-gamma state (p >= 2/3, GEX dated strictly before d) REPLACES the noon classifier.
+   - BALANCE 3.4's second half is KEPT: the day stays open only until its first raw break of either band (any bar from
+     k = 1). From that close on, no new entry is taken.
+   - A break is the damping failing: the state is a prior, the break is today's evidence.
+4. **Clock.** Signal stamps 10:00 .. 15:25 (BALANCE's last fill is 15:30). The start is 10:00 so that VWAP has 6 bars.
+   That is band geometry, chosen with no return seen.
+5. **Cells.** B1 x >= 1/2 = PRIMARY; B2 x >= 2/3 = NEIGHBOUR (BALANCE's cells, for the same reasons).
+6. **PARITY FIRST, before any gamma number.**
+   - The harness imports tools/balance_r1_stageA.py's band / VWAP / walk; nothing is re-typed.
+   - With BALANCE's noon classifier on ES, it must reproduce BALANCE r1's printed ES transfer exactly: B1 592 trades
+     PF 0.99; B2 PF 0.995.
+   - That transfer is already public, so this is not a new read.
+7. **Counts.** >= 100 WF trades AND a 9-year mean >= 50 a year (MANAGER #41 Q3 withdrew the every-year reading).
+   - Any July-June year under 25 is flagged thin (a report).
+   - A count-only miss is a RESEARCH ROW.
+8. **Twins (reports, like ARM A).** The same fade on ALL sessions and on SHORT-gamma days. The gamma claim is that
+   long-gamma beats both. **Arms A and B sit on DISJOINT days by construction** (bottom vs top tercile).
+9. **Power line for B.** Coin-flip sides on B1's real schedule, the same lines as ARM A, printed after the counts.
+10. **Prior, written down now.**
+    - BALANCE on ES was flat (PF 0.99), and the scope gives GEXREV a median ROC of 1, P(>= 15) 3%.
+    - It is ~0 in March 2020 by design (those were short-gamma days), so the earner route is unlikely.
+    - It runs because it is cheap, not because it is likely.
+- R days among long-gamma days: 307 (schedule count). The owner gate stands: no Stage A before MANAGER relays the go.
 
 ## ONE family null (MANAGER #67)
 - Within each calendar year, the session state labels (short / long / middle) are shuffled across that year's sessions,
@@ -105,7 +129,7 @@ Dead and not re-tested:
 - **A2:** the arm's primary own ROC@$30k > the family null's p95.
 - **A3:** the arm's neighbour is net positive.
 - **A4:** net > 0 without the best trade; net > 0 at 2x cost.
-- **Counts:** a cell that fails on count alone and clears the rest is a RESEARCH ROW, not a pass.
+- **Counts:** >= 100 WF trades AND a 9-year mean >= 50 a year (MANAGER #41 Q3); any July-June year under 25 is flagged thin (a report). A cell that fails on count alone and clears the rest is a RESEARCH ROW, not a pass.
 - **Every ROC @ $30k prints its DD5 beside it (#77).**
 - The arms are judged apart. A pass in one arm is that arm's pass only, and does not license the other.
 - No EARLY block: GEX starts in 2011-05, and the 252-day warm-up ends in mid-2012. 2012-06 .. 2016-06 is reported.
