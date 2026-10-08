@@ -1613,3 +1613,49 @@ it. This is the first time the crown has been read on the DD5 convention.
 book setting. The one actionable consequence is for FRONTIER's size-ladder report: a leg with a
 0.4-contract NQ beta that widens to 0.44 in the book's worst episodes should be sized against that
 beta, not against its standalone Sortino.
+
+### 2026-10-08 - the restated paper record reconciles exactly, and ALL of it is one open trade
+
+Assignment 10-05 item (d), research side. Report, nothing changed. Crown cell at its defaults on
+the restated basis (roll-corrected ETH minute master, 0.783 a round trip), run to the data edge of
+2026-10-08 08:44 ET. Since the paper leg's start of 2026-09-08 the engine has exactly three trades:
+
+- 2026-09-16 05:44 to 14:32, **+$409**, closed;
+- 2026-09-16 14:43 to 14:54, **-$3,402**, closed;
+- 2026-09-16 18:42, **still OPEN at +$36,629**, held 518 hours (21.6 days).
+
+That reproduces the restated paper record - three trades, **-$2,993** closed, plus the 09-16 18:42
+long - to the dollar. **Paper is not diverging and there is no trail bug:** a 518-hour hold is what
+the crown's trailing stop does on a wide initial risk, which is exactly the round-66 mechanism. The
+only gap stays the live side, already established as an outage rather than logic (the leg was
+disabled at 16:02 ET on 09-16 and the watchdog livelocked).
+
+**THE WHOLE FORWARD RECORD IS ONE OPEN TRADE, AND THAT IS THE FINDING.** Closed: minus $2,993 on
+three trades. The headline +$33,637 is **109% unrealised**, in a single position. This is the same
+pathology the lane has already written down twice - the sealed year where one 35-day hold was 103%
+of net, and the structural result that this family's money is in survivors. **The forward record
+carries no information yet**, about the restatement or about the leg. It is also moving fast: that
+mark was +$39.6k at the 10-06 report and +$36.6k two days later, about 7.6% given back on a
+three-week-old position. Under the owner's 10-05 decision that forward lines are harm monitors with
+paired stops, an unrealised mark on one open trade cannot produce a harm read either way.
+
+**So every forward figure for this leg states the closed total and the open mark SEPARATELY.** A
+single number would repeat an error already in this document. The live miss is likewise an
+unrealised +$36,629 - the outage's cost so far, not a booked loss.
+
+**S1 / S2 forward read, with a correction to this lane's own 10-04 line.** On 10-04 the zeros were
+called "quiet, not broken". Right verdict, wrong reason. **The crown holds at most one position at
+a time - zero of 2,053 trades begin before the previous exits** - and it has not entered since
+2026-09-16, so with the shadows armed on 09-30 the zero is structurally forced rather than a quiet
+tape. Two consequences:
+
+- **The gate excluded the trade that is the entire forward record.** S1 takes 09:30-16:00, S2 takes
+  08:00-17:00; the 09-16 18:42 entry is outside both. Had the shadows been armed before 09-16 they
+  would have skipped the position now marked +$36,629. That is the gate working as designed, and the
+  forward illustration of why the model map read S1 and S2 as a worse walk-forward (82.7 and 81.3):
+  the gate removes evening entries, and the long holds that pay can start at any hour.
+- **The 60-gated-entry checkpoint is about six months out, not weeks** - roughly 135 crown entries a
+  year, of which the gate keeps about 81% (960 of 1,178 in the round-62 run), so about 110 a year
+  from the 09-30 arming. Around April 2027, later if the leg keeps holding for weeks. Reading the
+  shadows sooner would mean lowering the checkpoint or switching to a dollar comparison, either of
+  which is a change to a pre-registered bar and therefore MANAGER's call, not this lane's.
