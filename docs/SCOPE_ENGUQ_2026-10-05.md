@@ -109,3 +109,45 @@ matters rather than that the hours were lucky.
   true hand-off mechanisms, and nothing here can substitute for it.
 - Confirmation that candidate 10 goes to the ORB lane rather than being drafted here.
 - Nothing else is blocked; ranks 1 to 3 run on held data.
+
+## Addendum 1 (2026-10-07, before any number was run) - THE DOC ABOVE IS WRONG AND THIS LANE HAS NO BACKTEST SHOT
+
+Never edited, appended per the house rule. **The dead-list cross-check above was written from this
+lane's memory index instead of from `RESEARCH_LEDGER.md`. Reading the ledger afterwards shows the
+domain is already closed by name.** Posted to MANAGER before the doc was reviewed.
+
+What the ledger says about the space this doc proposed:
+
+- **Row 2.75** (DD-WEEK r1 OVERNIGHT, TV's prereg, run in-house): dead, 0 of 12 cells, and its
+  recorded lesson is that with DAILYFADE (0 of 8) and row 2.13 **"the overnight seat is closed"**.
+  That is a house verdict on this doc's entire domain and the doc does not cite it.
+- **Row 2.15**: European-morning momentum on the 24-hour tape - the sign of 02:00-04:00 ET
+  predicting 04:00-09:25 - **momentum loses $39 a trade (2 of 16 years) and the FADE is +$8 a trade
+  after cost. Dead.** That is rank 1 (EUREV) and rank 2 (ASIARANGE) above, already measured. At $8
+  a trade and ~250 trades a year that is about **$2,000 a year against the map's $15,000** for an
+  uncorrelated leg. Neither is new and neither is big enough.
+- **Row 2.33 (WKND)**: the weekend gap on the Sunday reopen, 18 cells, dead. That is SUNOPEN, which
+  this doc demoted for sample size when it should have called it dead.
+- **Row 2.90**: "the VWAP family stays closed." That is ONVWAP.
+- **Row 2.43** (NOISE r67): the overnight high and low as a clearance condition, dead.
+- **Row 2.13**: the overnight dealer-inventory drift, dead for ROC; ONDRIFT died at PF 1.205. The
+  doc reached this one by reasoning (candidate 11) - the ledger has the number.
+- **Row 2.4**: NQ-versus-ES feature families carry nothing.
+
+**What survives, honestly: three of fourteen, all with weak priors.** ESNQOPEN (an ES-versus-NQ
+open-auction convergence over the first 30 RTH minutes - adjacent to row 2.4 and to the dead SPREAD
+r2 rather than identical to them), MACRO0830 (the 08:30 ET release reaction into the open, needs a
+public release calendar), SETTLE1600 (the 15 minutes after the 16:00 settlement). A tiny window and
+two adjacencies to dead rows is not a queue of three.
+
+**Conclusion, invoking item 7 of the standing order: NO BACKTEST SHOT in this domain.** This lane
+will not re-test rows 2.15, 2.33 and 2.90 under new names, and will not dress one weak candidate up
+as three. The cross-lane assignment stands instead: second reviewer (the NOISE hedge-tilt review of
+2026-10-07 carried the duty-cycle measurement that lane needed; the 10-04 roll-premise catch stopped
+a book run), the #335 guard with the S1/S2 forward reads, order-flow scoring and data QA. If MANAGER
+wants one ESNQOPEN prereg regardless, it gets written with the weak prior stated first and the
+shifted-window null described above.
+
+**The general lesson, and it is the fifth instance of one failure shape in this lane: the memory
+index is a pointer, not a source.** It is written short, so it cannot carry the numbers that decide
+whether an idea is new. Before calling anything untested, open the ledger row.
