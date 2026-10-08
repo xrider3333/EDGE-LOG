@@ -2,11 +2,12 @@
 # to (or raised from) its shareholders over the last four quarters, read from the cash-flow statements of its SEC filings AS FILED (the first filed value of every fact, usable from the first session after its first filing), over its
 # market value (the raw close x NETISS r1's point-in-time share count S, the split factor carrying a split between S's as-of date and the rank); at each month-end rank close long the 50 HIGHEST (the biggest net payers), short the
 # 50 LOWEST (the biggest net raisers). A leg for BOOK #463 that must clear the STANDALONE bars (MANAGER #56), reported INCREMENTALLY over the S1-RESTATED reference L = #463 + 0.264 x RES [B14]. Pre-registered:
-# tools/rocfrontier/PREREG_BUYBACK_R1.txt (canonical LF sha256 0603965f...1313 = DRAFT v1 + PRE-DATA ADDENDUM 1 ([B1] the fiscal-year change guard, [B2] the 120-day staleness print, [B3] the tag blind spot, [B4] accession numbers, [B5]
+# tools/rocfrontier/PREREG_BUYBACK_R1.txt (canonical LF sha256 d161a334...fbd8 = DRAFT v1 + PRE-DATA ADDENDUM 1 ([B1] the fiscal-year change guard, [B2] the 120-day staleness print, [B3] the tag blind spot, [B4] accession numbers, [B5]
 # memory) + PRE-DATA ADDENDUM 2 ([B6] the extract pinned, [B7] issuance read from seven concepts before the zero rule, [B8] the tax-withholding twin, [B9] the zero-rule share of the picks, [B10] the judged reading, [B11] DD5 beside every
 # ROC, [B12] the restated L) + PRE-DATA ADDENDUM 3 ([B13] MANAGER's hygiene edit S1: the judged reading is r17_resmom's post_mode 'close', [B10]'s 'keep' reading a report; [B14] the S1-restated L; [B15] the harness's CHOICEs (1) - (18)
 # fixed as built and (9)'s discrete-quarter label; [B16] the memory rule) + PRE-DATA ADDENDUM 4 ([B17] S point in time at its first-filed value and within 15 months
-# of the rank, else 'stale S')). Every rule, threshold, window and cost below is that file; where it is silent the choice is marked CHOICE (each one is listed in the commit report for the lead).
+# of the rank, else 'stale S') + PRE-DATA ADDENDUM 5 ([B18] the CHOICEs 19 - 26 fixed as built, [B19] the picked positions with a calendar split the vendor's factor does not
+# show, listed before any P&L and sent to the hand audit as data-event candidates)). Every rule, threshold, window and cost below is that file; where it is silent the choice is marked CHOICE (each one is listed in the commit report for the lead).
 # BUYBACK is NETISS r1's sibling on the same SEC photograph: r17_resmom.py (the loaders, the calendar, the schedule, fills / holds / costs / borrow, the close-before-the-ex-date paths, the cell engine, the statistics, the hygiene windows, the
 # audit rows), r18_divrun.py (the REFERENCE book, the incremental A2, the null statistics) and r21_netiss.py (the symbol -> CIK map, the share-count facts and S(r), the split factor and [A3]'s two-way split check, the foreign filers [A4], ONE
 # share class per firm [A13], the null's draw, the beta credit rule, the hedged twin, the deciles, the gate, DD5) are imported, never copied and never edited. Importing r21_netiss also points r18_divrun's reference loader at the S1-restated
@@ -47,7 +48,7 @@ THIS = sys.modules[__name__]
 OUT_DEFAULT = r"C:\EdgeLog\_anatomy_cache\rocfrontier\buyback_r1"
 OUT = os.environ.get("EDGELOG_BUYBACK_R1", OUT_DEFAULT)                                                   # results, outside git
 PREREG = os.path.join(HERE, "PREREG_BUYBACK_R1.txt")
-PREREG_SHA = "0603965f68ab780f0b98d80c0fbe440260d71a604bdb0e89b8558e4744501313"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDUM 1 ([B1]-[B5]) + PRE-DATA ADDENDUM 2 ([B6]-[B12]) + PRE-DATA ADDENDUM 3 ([B13] hygiene edit S1, [B14] the S1-restated L, [B15] the harness's CHOICEs, [B16] the memory rule) + PRE-DATA ADDENDUM 4 ([B17] stale S); supersedes 9d26bcfd (draft + addenda 1-3), 9a99203b (draft + addenda 1-2), 97244872 (draft + addendum 1) and 2b2438af (draft)
+PREREG_SHA = "d161a33414d6b29d8bb1e20d8a867aa58aa42617781fc15ddc11faaee3c1fbd8"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDUM 1 ([B1]-[B5]) + PRE-DATA ADDENDUM 2 ([B6]-[B12]) + PRE-DATA ADDENDUM 3 ([B13] hygiene edit S1, [B14] the S1-restated L, [B15] the harness's CHOICEs, [B16] the memory rule) + PRE-DATA ADDENDUM 4 ([B17] stale S) + PRE-DATA ADDENDUM 5 ([B18] CHOICEs 19-26, [B19] no-factor-move splits); supersedes 0603965f (draft + addenda 1-4), 9d26bcfd (draft + addenda 1-3), 9a99203b (draft + addenda 1-2), 97244872 (draft + addendum 1) and 2b2438af (draft)
 WF0, PRE_END, LB0, LB1 = M17.WF0, M17.PRE_END, M17.LB0, M17.LB1          # WF = positions EXITED 2016-07-01 .. 2025-06-29; LB = exits 2025-06-30 .. 2026-06-30 INCLUSIVE; cuts: S.LB0 / S.END
 BOOK_WF, BOOK_LB, DEEPEST_WF = M17.BOOK_WF, M17.BOOK_LB, M17.DEEPEST_WF
 NREP, SEED = 500, 20261024                                               # the registered null: 500 draws of random names from each rebalance's eligible SCORED pool
@@ -815,6 +816,74 @@ def b9_rows(W, L):
             ent["cells"][c] = {"picked": int(len(cols)), "zero": int(z.sum()), "zero_rep": int(zr.sum()), "zero_iss": int(zi.sum())}
         rows.append(ent)
     return rows
+
+
+def split_no_factor_move(W, f, x, j):
+    """[B19] r17_resmom_restate.no_factor_move for one name, with its sessions: the calendar split ex-dates t in f < t <= x on which the vendor's split factor does not move (no registered split flag and |F_t / F_(t-1) - 1| <= 1%, a
+    missing factor included) - a split the split-safe series may carry as a move -> [(t, F_t / F_(t-1))]"""
+    out = []
+    for t in (np.flatnonzero(np.asarray(W.CSPL[f + 1:x + 1, j])) + f + 1).tolist():
+        with np.errstate(invalid="ignore", divide="ignore"):
+            mv = float(W.F[t, j] / W.F[t - 1, j])
+        if not (bool(W.chg[t, j]) or bool(abs(mv - 1.0) > 0.01)):
+            out.append((int(t), mv))
+    return out
+
+
+def b19_rows(W, L):
+    """[B19] BEFORE ANY P&L (after the picks): every PICKED position - the cells' and the twins' picks (P, R, DIV, P8, R8, FLAT) - with a calendar split inside its hold that the vendor's factor does not show (split_no_factor_move), one row per
+    name-month and ex-date: symbol, rank, fill (the audit file's key), exit, ex-date, the calendar's split ratio (new : old, W.bb.split_ratio; 'n/a' where the calendar row is not at hand), the factor's move F_t / F_(t-1) on the ex-date, the
+    keys / sides that picked it"""
+    ratio = getattr(W.bb, "split_ratio", None) or {}
+    rows = []
+    for rec in L.recs:
+        by = defaultdict(list)
+        for k in TRADED:
+            cc = rec.cell[k]
+            if cc.traded:
+                for sd, sel in (("long", cc.long), ("short", cc.short)):
+                    for j in rec.pool[cc.idx[sel]].tolist():
+                        by[int(j)].append(f"{k} {sd}")
+        for j in sorted(by):
+            for t, mv in split_no_factor_move(W, rec.f, rec.x, j):
+                sym, ex = str(W.syms[j]), f"{W.days[t]:%Y-%m-%d}"
+                rows.append({"symbol": sym, "rank": f"{W.days[rec.r]:%Y-%m-%d}", "fill": f"{W.days[rec.f]:%Y-%m-%d}", "exit": f"{W.days[rec.x]:%Y-%m-%d}", "ex_date": ex, "split_ratio": ratio.get((sym, ex), "n/a"),
+                             "factor_move": mv, "picked_by": by[j]})
+    return rows
+
+
+def print_b19(rows):
+    print("[B19] BEFORE ANY P&L - every PICKED position (the cells' and the twins' picks) with a calendar split inside its hold that the vendor's split factor does not show (no registered split and |F_t / F_(t-1) - 1| <= 1% on the ex-date: the "
+          "split-safe path may carry it as a move; each goes to the hand audit (f) as a data-event candidate): " + (f"{len(rows)} position(s)" if rows else "none"))
+    for r_ in rows:
+        print(f"  {r_['symbol']} rank {r_['rank']} (fill {r_['fill']}, exit {r_['exit']}): calendar split ex-date {r_['ex_date']}, ratio {r_['split_ratio']}, the factor's move F_t / F_(t-1) = {r_['factor_move']:.4f}; picked by "
+              + ", ".join(r_["picked_by"]))
+
+
+def b19_candidate_rows(W, L, rows):
+    """[B19] the listed positions as rows of buyback_audit_candidates.csv - list 'b19_split_no_factor_move', data_event_candidate True, the cell = the first picking key's cell (the twins' parents: DIV / P8 -> P, R8 / FLAT -> R; a cell is a
+    label - a data event belongs to the name-month and its group), the key of the audit file (symbol + FILL date) and bb_fields"""
+    parent = {"P": "P", "DIV": "P", "P8": "P", "R": "R", "R8": "R", "FLAT": "R"}
+    by_r = {f"{W.days[rec.r]:%Y-%m-%d}": rec for rec in L.recs}
+    out = []
+    for r_ in rows:
+        rec = by_r[r_["rank"]]
+        cell = parent[r_["picked_by"][0].split()[0]]
+        out.append({"list": "b19_split_no_factor_move", "data_event_candidate": True, "symbol": r_["symbol"], "date": r_["fill"], "exit": r_["exit"], "cell": cell, "side": r_["picked_by"][0].split()[1], "ex_date": r_["ex_date"],
+                    "split_ratio": r_["split_ratio"], "factor_move": r_["factor_move"], "picked_by": "; ".join(r_["picked_by"]), **bb_fields(W, rec.r, int(pd.Index(W.syms).get_loc(r_["symbol"])), cell)})
+    return out
+
+
+def split_ratios(path, sha, cut):
+    """[B19] the calendar's split ratios (new_rate : old_rate of r16_xgap's flat CSV - r17_resmom's loader keeps only symbol / ex-date / type) from the registered wide calendar wide_load has just checked (refused unless its sha256 is still
+    the one given): {(symbol, 'YYYY-MM-DD'): 'new:old'} for the forward / reverse / unit split rows with an ex-date before the cut"""
+    if M17.sha_raw(path) != sha:
+        refuse(f"refused: {os.path.basename(path)} changed after wide_load checked it {TAIL}")
+    df = pd.read_csv(path, dtype=str, keep_default_na=False, usecols=["type", "symbol", "ex_date", "new_rate", "old_rate"])
+    df = df[df["type"].str.strip().isin(M17.SPLIT_TYPES)]
+    ex = pd.to_datetime(df["ex_date"].str.strip().replace("", np.nan), errors="coerce")
+    k = (ex.notna() & (ex < TS(cut))).to_numpy()
+    return {(s_.strip(), f"{e_:%Y-%m-%d}"): f"{n_.strip()}:{o_.strip()}" for s_, e_, n_, o_ in zip(df["symbol"][k], ex[k], df["new_rate"][k], df["old_rate"][k])}
 
 
 def print_b9(rows):
@@ -1886,6 +1955,7 @@ def stage_a():
         refuse(f"Stage A refused: the World starts {W.days[0]:%Y-%m-%d}, not at the cache's registered first session {CACHE_FIRST_SESSION:%Y-%m-%d} (nothing computed)")
     wf = (W.days >= WF0) & (W.days <= PRE_END)
     kmiss = int((~np.isfinite(W.k[wf])).sum())
+    W.bb.split_ratio = split_ratios(winfo["path"], winfo["csv_sha256"], S.LB0)               # [B19] the split ratios the listing prints
     print(f"world ready ({time.time() - t0:.0f}s): {int(wf.sum()):,} WF sessions, {W.S:,} names ever in the universe, k_t (read only by the borrow stress rows) undefined on {kmiss} WF sessions; ES masters "
           f"{es_meta['raw']['filename']} / {es_meta['adj']['filename']}", flush=True)
     es_txt, es_rec = M17.es_report(W)
@@ -1921,6 +1991,8 @@ def stage_a():
     def b9_print(L):
         b9_box["rows"] = b9_rows(W, L)
         print_b9(b9_box["rows"])
+        b9_box["b19"] = b19_rows(W, L)                                                     # [B19] the picked positions with a calendar split the factor does not show - before any P&L
+        print_b19(b9_box["b19"])
     resR, objR = evaluate(W, B, S12, ref, rows, JUDGED, NREP, 0, full=True, announce=print_power, b9=b9_print)
     print(f"judged reading [B13] done ({time.time() - t1:.0f}s: the leg, [B9], the {NREP} random-name draws per cell from the same SCORED pool with the same cut paths FIRST, the cells, the stress rows, the deciles, the twins)", flush=True)
     unused = unused_audit_rows(W, audit)
@@ -1941,7 +2013,8 @@ def stage_a():
     flags = flag15_rows(W, ranks, objR.legs)                                               # (f) every flagged name-rank, with whether the registered leg PICKED it (so after the leg)
     ast = audit_status(W, cands, flags, audit)
     os.makedirs(OUT, exist_ok=True)
-    pd.DataFrame([r_ for c in CELLS for r_ in cands[c]]).to_csv(os.path.join(OUT, "buyback_audit_candidates.csv"), index=False)
+    b19c = b19_candidate_rows(W, objR.legs, b9_box["b19"])                                  # [B19] the listed positions join the hand audit's candidates as data-event candidates
+    pd.DataFrame([{"list": "top_contributor", "data_event_candidate": False, **r_} for c in CELLS for r_ in cands[c]] + b19c).to_csv(os.path.join(OUT, "buyback_audit_candidates.csv"), index=False)
     pd.DataFrame(flags).to_csv(os.path.join(OUT, "buyback_flags.csv"), index=False)
     print(f"WF {WF0:%Y-%m-%d} -> {PRE_END:%Y-%m-%d} ({int(wf.sum()):,} sessions) - {LAB_J}; the null draws from the same SCORED pool with the same cut paths")
     print_cells(resR, ast)
@@ -1967,7 +2040,7 @@ def stage_a():
                                "a2_reference_roc": cells[cand]["A2"]["reference"]["roc"], "incremental_pass": cells[cand]["A2"]["incremental_pass"], "incremental_credit": cells[cand]["A2"]["incremental_credit"],
                                "book_shadow_line": cells[cand]["A2"]["incremental_credit"], "beta_within_cap": cells[cand]["beta"]["within_cap"], "first_traded_fill": cells[cand]["first_traded_fill"], "also_passes": [c for c in passing if c != cand]} if cand else None),
                 "parity": {c: {"net": cells[c]["base"]["net"], "n_pos": cells[c]["base"]["n_pos"], "n_units": cells[c]["base"]["n_units"], "first_traded_fill": cells[c]["first_traded_fill"]} for c in CELLS},
-                "audit": aud_n, "audit_sha256": asha, "audit_status": ast, "flags": len(flags), "flags_picked": int(sum(1 for r_ in flags if r_["picked"])), "flags_picked_groups": int(len({r_["group"] for r_ in flags if r_["picked"]})),
+                "b19_split_no_factor_move": b9_box["b19"], "audit": aud_n, "audit_sha256": asha, "audit_status": ast, "flags": len(flags), "flags_picked": int(sum(1 for r_ in flags if r_["picked"])), "flags_picked_groups": int(len({r_["group"] for r_ in flags if r_["picked"]})),
                 "spin_counts": spin, "netiss_question": nq, "calendar_splits_on_grid": W.ni.csplit,
                 "b10_removal_reading": {"post_mode": "keep", "null": resA["null"], "removed_name_months": removedA, "cells": {c: {k: resA["cells"][c][k] for k in ("base", "seat", "A2", "usd_year", "dd5")} for c in CELLS}},
                 "hygiene_counts_by_year": {"judged": {y: dict(c) for y, c in sorted(objR.legs.cnt.items())}, "b10_removal": cntA}, "reports": rep, "es_masters": es_meta})
@@ -2671,7 +2744,8 @@ def t_constants():
                  "L = #463 + 0.264 x RES = WF ROC @ $30k 121.06 / DD5 $34,392, Sortino 3.926, worst drawdown $36,526", "resmom_cells_daily_wf_close.csv (sha256 e204dd53...)", "so no NETISS line joins the reference",
                  "counts a period that does not start at its fiscal year's start (a discrete quarter) apart from a fiscal-year change (no score either way - a label only)",
                  "always at its FIRST-FILED value, never a later restated one", "must lie within 15 calendar months before the rank; otherwise the name is UNSCORED with the no-score reason 'stale S'",
-                 "The latest such usable cover-page (dei) count still comes first, else the balance-sheet (us-gaap) count"):
+                 "The latest such usable cover-page (dei) count still comes first, else the balance-sheet (us-gaap) count",
+                 "PICKED position with a calendar split inside its hold and no matching factor move is LISTED before any P&L (symbol, rank, ex-date, split ratio, the factor's move)", "None listed = said so"):
         assert frag in norm, frag
     with quiet():
         pk = prereg_ok()
@@ -3353,6 +3427,48 @@ def t_close():
                         for i3 in sel:
                             x0[rec2.f:rec2.x + 1] += slot * np.array(brute_pos(W, Bc[i2], int(cols2[i3]), sd))
                 assert close(acc[cell][d], x0), (cell, d)
+    # (9) [B19] a PICKED position with a calendar split its factor does not show is LISTED before any P&L, with the calendar's ratio and the factor's move, and joins the hand audit's candidates as a data-event candidate; N00's split
+    # on 03-14 (F and the registered flag show it) is not listed; every listed row recounted by plain python over every pick of every key
+    with spec(**TOY_SPEC), D15.spec(univ=14):
+        tt2 = bb_ready()
+        W2 = tt2.W
+        M17.attach_calendar_splits(W2, NI.cal_of([("N00", "2025-03-14", "forward_split"), ("N09", "2025-06-16", "forward_split"), ("N07", "2025-03-20", "forward_split")], start="2024-01-01"))
+        root = tempfile.mkdtemp(prefix="buyback_selftest_")
+        try:
+            pth = os.path.join(root, "ca_wide.csv")
+            with open(pth, "w", newline="\n") as fh:
+                fh.write(",".join(M17.CA_COLS) + "\n" + "\n".join(["forward_split,N07,,,2025-03-20,2025-03-20,,,,2,1,,", "reverse_split,N09,,,2025-06-16,2025-06-16,,,,1,4,,", "cash_dividend,N07,,,2025-03-21,2025-03-21,,,0.2,,,,False",
+                                                                     "forward_split,N07,,,2026-01-05,2026-01-05,,,,3,1,,"]) + "\n")
+            ratios = split_ratios(pth, M17.sha_raw(pth), "2025-12-31")
+            assert ratios == {("N07", "2025-03-20"): "2:1", ("N09", "2025-06-16"): "1:4"}, ratios
+            refused(lambda: split_ratios(pth, "0" * 64, "2025-12-31"), "changed after wide_load checked it")
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+        W2.bb.split_ratio = ratios
+        L2 = bb_build(W2, W2.days[0], W2.days[-1], "close", units=False)
+        rows = b19_rows(W2, L2)
+        want = []
+        for rec2 in L2.recs:
+            picks = sorted({int(j) for k in TRADED if rec2.cell[k].traded for j in rec2.pool[rec2.cell[k].idx[np.r_[rec2.cell[k].long, rec2.cell[k].short]]].tolist()})
+            for j in picks:
+                for t in range(rec2.f + 1, rec2.x + 1):
+                    if W2.CSPL[t, j] and not W2.chg[t, j] and not abs(W2.F[t, j] / W2.F[t - 1, j] - 1.0) > 0.01:
+                        want.append((str(W2.syms[j]), f"{W2.days[rec2.r]:%Y-%m-%d}", f"{W2.days[t]:%Y-%m-%d}"))
+        assert [(r_["symbol"], r_["rank"], r_["ex_date"]) for r_ in rows] == want, (rows, want)
+        n7 = [r_ for r_ in rows if r_["symbol"] == "N07" and r_["rank"] == "2025-02-28"]
+        assert len(n7) == 1 and n7[0]["ex_date"] == "2025-03-20" and n7[0]["split_ratio"] == "2:1" and n7[0]["factor_move"] == 1.0 and (n7[0]["fill"], n7[0]["exit"]) == ("2025-03-03", "2025-04-01") and "P long" in n7[0]["picked_by"], n7
+        assert not any(r_["symbol"] == "N00" for r_ in rows) and np.asarray(W2.CSPL[rr(W2, "2025-03-14"), 0]) and W2.chg[rr(W2, "2025-03-14"), 0], "N00's calendar split IS in its factor: not listed"
+        assert all(abs(r_["factor_move"] - 1.0) <= 0.01 or not np.isfinite(r_["factor_move"]) for r_ in rows)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            print_b19(rows)
+            print_b19([])
+        txt = buf.getvalue()
+        assert "[B19] BEFORE ANY P&L" in txt and "N07 rank 2025-02-28 (fill 2025-03-03, exit 2025-04-01): calendar split ex-date 2025-03-20, ratio 2:1, the factor's move F_t / F_(t-1) = 1.0000; picked by P long" in txt and txt.rstrip().endswith("data-event candidate): none")
+        cand = b19_candidate_rows(W2, L2, rows)
+        c7 = next(c_ for c_ in cand if c_["symbol"] == "N07" and c_["date"] == "2025-03-03")
+        assert len(cand) == len(rows) and c7["list"] == "b19_split_no_factor_move" and c7["data_event_candidate"] is True and c7["cell"] == "P" and c7["group"].split("|")[0] == "N07" and c7["rank_date"] == "2025-02-28"
+        assert json.loads(json.dumps(rows, default=R11.js)) is not None
     return n
 
 
@@ -4233,7 +4349,7 @@ def smoke(*a):
                   f"against the judged ${cells['P']['base']['net']:,.0f} / ${cells['R']['base']['net']:,.0f}")
             # BEFORE ANY P&L, [B3], [B9] and the power line print before any cell's P&L, in that order
             order = ("[B6] / [B7] the two pinned cash-flow extracts", "BEFORE ANY P&L - the payout score", "names lost to each no-score rule", "no score at |score| > 0.50", "the TTMs built per fill year", "concept used, ISSUANCE [B7]", "STALENESS", "[B2] the share of SCORED names",
-                     "[B17] STALE S", "names with no score whatever the rank, LISTED by name", "[A13] ONE SHARE CLASS PER FIRM", "[B3] THE TAG BLIND SPOT", "[B9] BEFORE ANY RETURN", "POWER LINE - printed before any cell's P&L", f"WF {WF0:%Y-%m-%d} -> ")
+                     "[B17] STALE S", "names with no score whatever the rank, LISTED by name", "[A13] ONE SHARE CLASS PER FIRM", "[B3] THE TAG BLIND SPOT", "[B9] BEFORE ANY RETURN", "[B19] BEFORE ANY P&L", "POWER LINE - printed before any cell's P&L", f"WF {WF0:%Y-%m-%d} -> ")
             seq = [txt.index(s_) for s_ in order]
             assert seq == sorted(seq), ("the pre-P&L blocks are out of order", seq)
             outcome = re.search(r"[$]\s*-?\d|ROC|Sortino|net [$]|drawdown", txt[seq[1]:seq[-2]])
@@ -4282,7 +4398,13 @@ def smoke(*a):
             fl["picked"] = fl["picked"].fillna("")
             assert {"symbol", "date", "exit", "side", "pnl", "cell", "rank_date", "cik", "ttm", "statement_end", "rep_ttm", "div_ttm", "iss_ttm", "mv", "shares", "shares_accn", "facts", "group", "zero_rule"} <= set(cd.columns), list(cd.columns)
             assert {"cell", "symbol", "date", "picked", "score", "rank_date", "facts", "group"} <= set(fl.columns) and len(fl) == out["flags"] > 0 and (fl["score"].abs() > FLAG).all() and int((fl["picked"] != "").sum()) == out["flags_picked"] > 0
-            assert set(cd["cell"]) == set(CELLS) and cd.groupby("cell").size().max() == AUDIT_N and cd["exit"].max() < "2025-06-30" and fl["date"].max() < "2025-06-30" and (cd["group"].str.split("|").str[0] == cd["symbol"]).all()
+            top_ = cd[cd["list"] == "top_contributor"]
+            b19_, cb_ = out["b19_split_no_factor_move"], cd[cd["list"] == "b19_split_no_factor_move"]
+            assert len(cb_) == len(b19_) and bool(cb_["data_event_candidate"].all()) and not bool(top_["data_event_candidate"].any()) and list(zip(cb_["symbol"], cb_["date"])) == [(r_["symbol"], r_["fill"]) for r_ in b19_], "[B19] the listed positions are the data-event candidates"
+            assert all(abs(r_["factor_move"] - 1.0) <= 0.01 and r_["split_ratio"] != "n/a" for r_ in b19_ if np.isfinite(r_["factor_move"])) and ("none" in txt[txt.index("[B19] BEFORE ANY P&L"):].split("\n")[0]) == (not b19_)
+            print(f"  [B19] picked positions with a calendar split the vendor's factor does not show, listed before any P&L and sent to the hand audit as data-event candidates: {len(b19_)}" + (" - " + "; ".join(
+                f"{r_['symbol']} {r_['rank']} ex {r_['ex_date']} {r_['split_ratio']} F move {r_['factor_move']:.4f} ({', '.join(r_['picked_by'])})" for r_ in b19_[:5]) if b19_ else ""))
+            assert set(top_["cell"]) == set(CELLS) and top_.groupby("cell").size().max() == AUDIT_N and cd["exit"].max() < "2025-06-30" and fl["date"].max() < "2025-06-30" and (cd["group"].str.split("|").str[0] == cd["symbol"]).all()
             pkw, ixw = picks_by_name_month(Lw), {n_: i_ for i_, n_ in enumerate(W.syms)}
             assert all(r_["picked"] == ", ".join(pkw.get((W.days.get_loc(TS(r_["date"])), ixw[r_["symbol"]]), [])) for r_ in fl.to_dict("records")), "every flagged name-rank's picked column is the registered leg's picks"
             assert fl.loc[fl["picked"] != "", "group"].nunique() == out["flags_picked_groups"] <= out["flags_picked"]
