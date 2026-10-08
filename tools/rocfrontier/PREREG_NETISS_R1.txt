@@ -241,3 +241,8 @@ of it reached main. This addendum fixes the bug and nothing else; the verdict is
   APC / STI map to the 2020s companies that reuse the tickers - a survivorship tilt in both cells and the null; the foreign-filer
   exclusion uses every filing through 2025-06, not those known at each rank; Alpaca's daily closes can differ from the official
   close on stress days - fills and exits are at opens, so a position's P&L is open to open and only the daily marks between move.
+- [A21] THE REFERENCE IS THE RESTATED L (added 2026-10-07 after the RESMOM restatement landed - ledger 2.93 - and before any
+  corrected NETISS number; MANAGER #116: the restated L replaces the registered one everywhere): L = #463 + 0.264 x RES from
+  resmom_cells_daily_wf_keep.csv (sha256 86721fda...), refused unless WF ROC @ $30k 120.95, Sortino 3.921 and worst drawdown
+  $36,526 reproduce (the registered 120.82 / 3.916 / $36,526 line is no longer the reference). Its drawdown days are the
+  registered ones (45 episodes, 762 days), so the #70 gate's basis does not move.
