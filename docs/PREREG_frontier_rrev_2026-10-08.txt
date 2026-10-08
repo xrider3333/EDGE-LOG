@@ -1,0 +1,53 @@
+BOOK QUEUE Q27 (scoping item B5) - RREV r1: one-month reversal in single US stocks, raw and RESIDUAL (Jegadeesh 1990; Blitz-Huij-Lansdorp-Verbeek
+2013), as a monthly basket SEAT on the S1 RESMOM line. PRE-REGISTRATION, FRONTIER, 2026-10-08 (draft v1 to MANAGER 12:10 MST; MANAGER #121:
+GO with ONE extra step first - the COST MAP CHECK below, which can close the item without a Stage A), committed before any number.
+Walk-forward only.
+
+WHY. Last month's losers out-earn last month's winners the next month - the oldest stock anomaly, and in large caps the strongest form is the
+RESIDUAL one: the part of last month's return not explained by the market. Blitz et al. find residual reversal has about twice the risk-
+adjusted return of the raw form and far smaller crashes, because it does not load on the market in sell-offs. House evidence first: DDW's
+L1 weekly reversal EARNED in #463's drawdown weeks but was long beta in crashes (long last week's losers = the wrong weeks); the scoping
+doc's B5 line says only a beta-neutral form can fix that. Here the residual cell is that form. HONEST PRIORS: (1) a month-to-month sort
+turns over most of its names (SEASON r1: 85-87%), so costs decide - the 20 bps row is the stress bar, as for SEASON; (2) the raw cell will
+likely be long beta in sell-offs (L1's flaw) - beta is printed first; (3) the house's power line for this engine: a cell needs about
+$17,500 a year of true edge for 50% power (SEASON / HIGH52 power addenda).
+
+THE ENGINE = RESMOM r1's (r17, imported unchanged) through the r25 / r26 pattern (the scores and the null's streams swapped, nothing else),
+under MANAGER #127's hygiene rule S1 ('close'), run before main by the 10-08 rule if the queue is long, r17 pinned (3151ef0a) until main
+carries it. Universe, pool, schedule (month-end rank, next-open fill, month-end exit), $4,000 slots, 50 a side, costs, borrow, dividends and
+Stage A rules (a)-(f) as RESMOM, except the stress check is at 20 bps (turnover).
+
+THE TWO CELLS (a family of 2), each long the 50 LOWEST and short the 50 HIGHEST scores (the reversal direction), dollar-neutral, monthly:
+- REV: the name's split-safe total return over the last 21 sessions (r-20 .. r), the month RESMOM skips.
+- RREV: the same 21 sessions' RESIDUALS - each daily return minus beta x ES's return, beta from RESMOM's own regression window (the OLS
+  beta r17's RES score already computes, r-251 .. r), summed and divided by their standard deviation over those 21 sessions (Blitz et al.'s
+  scaling; CHOICE: the fitted alpha is not subtracted, as RESMOM v2).
+Both cells rank one shared pool (a name needs both scores). Ties by symbol.
+STAGE A: RESMOM r1's (a)-(f) on the 'close' reading, the stress check at 20 bps; FAMILY NULL = the MAX over both cells per draw (codes 29 REV
+/ 30 RREV, 500 draws). POWER LINE FIRST: the null alone, committed as an addendum before stage_a (the r25 machinery).
+THE SEAT READ (REPORT): L (S1, 121.06) + c x X at 0.25 (binding) / 0.10; X's $ on R with and without its best episode vs the null's p95; the #70
+gate; corr(X, RES) on R; DD5 beside every ROC.
+DIAGNOSTICS: beta to ES FIRST (|beta| > 0.20 = R money reported, never credited); turnover beside the cost curve 0 / 5 / 10 / 20 bps; regime
+halves; long vs short; RESMOM's named crash months; the realised side betas over each hold (L1's flaw: is the long side long beta in
+sell-offs?).
+COULD FOOL US: (1) bid-ask bounce at month end inflates raw reversal - fills are next OPEN, which removes most of it, stated; (2) the residual
+cell can hide an industry bet (no industry codes held) - stated, not tested; (3) cost model: 5 bps a side is optimistic for 85% monthly
+turnover in names ranked by last month's move - hence the 20 bps bar.
+COST MAP CHECK FIRST (MANAGER #121; XSML r1 died on turnover). `r28_rrev.py costmap` builds each cell's monthly picks on the 'close'
+reading (scores from the last month's returns; NO hold return, no P&L) and prints, per cell:
+  (1) turnover = the share of each side's 50 names replaced from one traded rebalance to the next (r17.turnover);
+  (2) the GROSS monthly long-short spread, as a % of one side's $200,000, that a cell needs:
+      (a) to break even at 20 bps a side - under the engine's convention every position pays entry AND exit every month:
+          2 sides x 50 x $4,000 x 2 x 20 bps = $1,600 a month = 0.80%; under a changes-only reading it is 0.80% x turnover;
+      (b) to reach the Stage A bar half the time: 5 bps of costs (0.20%) + the power line's edge for 50% power (SEASON / HIGH52's null-only
+          power lines on this engine: about $17,500 a year = 0.73% a month) = about 0.93%.
+  (3) THE ANCHOR, stated now from the literature (an assumption, not a measurement): the residual one-month reversal's decile spread in
+      LARGE US stocks decayed after 2000 to roughly 0.3 - 0.7% a month gross (Blitz et al. 2013; De Groot, Huij and Zhou 2012); the UPPER
+      end, 0.70%, is used.
+  RULE: Stage A runs only if 0.70% >= 1.25 x (a) at the measured changes-only turnover of the RREV cell (the generous reading), AND
+  0.70% >= (b). Otherwise RREV closes WITHOUT a Stage A (no power run, no cell P&L), recorded as 'closed at the cost map'.
+LOOKS: two cells (none if closed at the cost map). LOCKBOX: not read. ENGINE PIN: r17_resmom.py LF sha256 3151ef0a... (on main 10-08).
+ORDER: draft -> MANAGER (GO #121) -> commit -> selftest -> COST MAP -> (if it passes) dryload -> power -> commit the power addendum -> Stage A
+WF -> record -> report. Harness: tools/rocfrontier/r28_rrev.py (from r25's template).
+NOT DRAFTED, with reasons: B4 lottery / MAX (overlaps stock BAB, dead 10-07, and would be the same negative-beta bet HIGH52 showed); B12
+frog-in-the-pan (a RESMOM refinement - HIGH52's PTHX shows the residual-on-RES route is empty); B11 industry momentum (no industry codes held).
