@@ -110,3 +110,24 @@ Computed before this addendum: the coverage-only dry load (names x months with e
    line says "universe survivor-tilted in <years>". Bar 3 (vs the twin) stays as is - both carry the same tilt.
 4. MDE in own money in the power line: the null's 95th minus its 50th, in dollars a year at a $30k drawdown ($1,000
    a year per ROC point), beside the map bar ($15,000 a year), so a dead result can be told from an undecidable one.
+
+## Addendum 2 (2026-10-08 11:35 MST, own finding while drafting DISTRESS-ML, BEFORE any power or return number)
+The power run started after addendum 1 was stopped unread and discarded. Found: the harness's prices are
+SPLIT-ADJUSTED to the pull date, which carries FUTURE splits back in time (1,412 symbols' closes differ from the
+as-traded close by more than 0.5%).
+1. MARKET VALUE: the share count is as filed (raw), so as-filed shares x a split-adjusted close understates the market
+   value of every name that later split forward - future winners would have looked cheap (high book-to-market,
+   earnings / price ...): look-ahead. Fixed: market value = as-filed shares x the AS-TRADED (raw) close at t
+   (daily_raw.parquet, same rows as daily_split).
+2. UNIVERSE FLOOR: the $5 floor on the split-adjusted close drops future forward-splitters (a later 10:1 split puts
+   the past adjusted price under $5) and admits future reverse-splitters (distressed names whose as-traded price was
+   under $5). Fixed for this cell: the floor is applied to the as-traded close (tools/xsml_r1.py Data(floor_raw=True);
+   the default stays off, so XSML r1 reproduces unchanged). Everything else in the harness is unchanged: returns,
+   dividends, features are split-invariant. The name-days that move between the two universes are printed with the
+   dry load; the cell, twin and null all use the new universe. Dry load: 1,494 of 1,004,000 universe name-days
+   (0.15%) move each way from July 2017 - out: future reverse-splitters (EXE / ECA, LCID, SNDL, AMC, SIRI ...); in:
+   future forward-splitters (NVDA 346 days, CVNA 133 ...). Coverage unchanged (eligible median 320, mapped share
+   96.5-100% by WF year, no survivor-tilt flag).
+3. Reported to MANAGER as a harness finding: XSML r1 (dead) ran on the split-adjusted floor; its verdicts are not
+   re-opened (the leak is in the universe both the cells and the nulls shared), and any other lane using the XSML
+   universe should take floor_raw=True.

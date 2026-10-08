@@ -43,7 +43,11 @@ def log(msg):
 
 # ------------------------------------------------------------------------------------------------ data
 class Data:
-    def __init__(self, ca_path=None):
+    def __init__(self, ca_path=None, floor_raw=False):
+        """floor_raw=True (FUND-ML r1 addendum 2): the $5 universe floor is applied to the RAW (as-traded) close, and the
+        raw close is kept as self.Craw for market value. The split-adjusted close carries FUTURE splits back in time (a
+        later forward split pushes a future winner under $5; a later reverse split lifts a future loser over it). XSML
+        r1 ran with floor_raw=False and is reproduced unchanged."""
         self.sha = hashlib.sha256(open(DAILY, "rb").read()).hexdigest()
         d = pd.read_parquet(DAILY, columns=["symbol", "date", "o", "h", "l", "c", "v"])
         d = d[d.date <= END]
@@ -87,11 +91,16 @@ class Data:
         last_raw = C.notna().to_numpy()[::-1].argmax(axis=0)
         last_pos = T - 1 - last_raw
         C, V = C.mask(q), V.mask(q)
+        Craw = None
+        if floor_raw:
+            rw = pd.read_parquet(DAILY.replace("daily_split", "daily_raw"), columns=["symbol", "date", "c"])
+            Craw = rw[rw.date <= END].pivot(index="date", columns="symbol", values="c").reindex(
+                index=C.index, columns=C.columns).mask(q)
         # universe at each close: close >= $5, >= 260 sessions of history, top 500 by 20-day median dollar volume
         dv = C * V
         med = dv.rolling(20, min_periods=15).median()
         hist = C.notna().cumsum()
-        elig = (C >= 5.0) & (hist >= 260) & med.notna()
+        elig = ((Craw if floor_raw else C) >= 5.0) & (hist >= 260) & med.notna()
         rk = med.where(elig).rank(axis=1, ascending=False, method="first")
         U = rk <= N_UNI
         keep = U.any(axis=0).to_numpy()
@@ -106,6 +115,7 @@ class Data:
             return d.pivot(index="date", columns="symbol", values=k).reindex(columns=self.syms).mask(qk)
         self.O, self.H, self.L = piv("o"), piv("h"), piv("l")
         self.C, self.V = C.reindex(columns=self.syms), V.reindex(columns=self.syms)
+        self.Craw = Craw.reindex(columns=self.syms) if floor_raw else None
         self.U = U.reindex(columns=self.syms).fillna(False).astype(bool)
         self.Un = self.U.to_numpy()
         self.dv = self.C * self.V
