@@ -85,3 +85,15 @@ names; the twin's row; the announcement-month split and the EAP correlation (bou
   2016: anomalies weakest there and decay after publication).
 - 09-27 audit, XSML r1, FUND-ML r1: learned models here have matched or lost to plain rules every time.
 - Expected: 0-6 net at $30k; most likely dead.
+
+## Dry load (2026-10-08 12:05 MST, before any power or return number)
+- Detailed extract: 17,030,068 annual-report facts, 9,011 concepts, 4,908 of 4,947 mapped CIKs (1,691,979 facts filed on
+  or after 2025-06-30 cut); fundamentals_detailed_manifest.json.
+- Concept list FIXED: 7,203 concepts seen in firm-year rows; 546 kept (>= 5% of the 18,194 firm-years first filed
+  2010-2017) -> 1,093 features. C:\EdgeLog\custom_ml\earnfcst_r1\CONCEPTS.txt sha256 fa1dad35e3ffacf742c53d938b9284eda8674688dba240d635e4eb1cb3b30bef.
+- Firm-years 42,183 (4,157 CIKs); 37,593 with a label; base rate (next year's net income higher) 0.545.
+- Eligible names by month: median 411 (min 375); the twin's input finite for a median 365. Mapped share 96.5-100% by
+  WF year (no survivor-tilt flag).
+- Registered detail: SB boundary 4's announcement month = the month of an item-2.02 8-K on TV's calendar
+  (earnings_calendar_ndx.csv, NDX names only) else of a 10-Q / 10-K first filing of NetIncomeLoss (a proxy); the split
+  is of GROSS name-period P&L.
