@@ -208,3 +208,19 @@ no release, score, accuracy or return computed): [E4]'s predecessor list pinned 
   2019-04 join CIK 1308161's rows there, no addition. [E5]'s accuracy, [E15]'s accepted-before rule and every release rule
   read the combined table; the joined name-months per symbol are printed before any P&L.
 - [E21] Everything else stands; the expected verdict stays DEAD ([E7]).
+PRE-DATA ADDENDUM 3 (2026-10-08 11:41 MST, before any EAP number: the harness has run only on synthetic worlds; its loader
+check read the pinned EDGAR files for counts only - 142 predecessor releases join, each once: AVGO 10, FOX / FOXA 57 from TFCF,
+MRVL 75, CEG 0): the lead's review of the harness r24_eap.py (56ddc2db).
+- [E22] THE HARNESS'S CHOICEs 1 - 45 ARE FIXED AS BUILT, each labelled CHOICE in the code. The ones a reader should know:
+  release date = the New York date of acceptance, a release accepted on the rank day waits for the next rank (8); [E3]'s pair gap
+  on acceptance dates, applied point in time (13, 14); [E1] ties to the lower symbol (18); no pre-rank hygiene removal (19); W's ES
+  hedge trades at ES's 09:30 print and is lifted with the stock at its [E16] close (21, 22), while M's basket hedge, sized on the
+  whole basket at the rank, is held to the exit even after one name's early close (25); W's null draws from names the hedge rule
+  fits, one independent draw per event (28); [E11] re-reads the beta at the moved entry (30); [E5]'s definitions (31); if both
+  cells pass, the higher WF ROC goes to Stage B, a tie to M (34); Stage A is frozen once the lockbox is read (44).
+- [E23] [E19]'s WINDOW IS A RELEASE WINDOW (the lead's ruling on CHOICE 11): a predecessor CIK's releases dated inside its row's
+  [first_8k_date, last_8k_date] join the member's release history at EVERY rank, so the history runs on across the CIK change;
+  the window never switches a member-month on or off. CEG's last date past the cut is clipped to the day before it (10). TFCF /
+  TFCFA (members for 2019-04 only) are unmapped and count as not joined. The [E19] block prints the months that would fail
+  under the other reading, as a report.
+- [E24] [E9] read literally (27): ES's own missing sessions count as missing pairs; the run prints their count as a warning.
