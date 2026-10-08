@@ -120,6 +120,17 @@ Per interaction run:
     flashes that day's header in the list and in the table; a TABLE header menu still sorts (no day headers once
     sorted by NET); the trade panel keeps EDIT / SNAPSHOT / OPEN IN TV / DELETE and edits the grade and the setup;
     the AI ASSESSMENT fold opens and fills
+  * keeps-checklist audit (steps 12-15 of the interaction run, 2026-10-07):
+    - the EQUITY | P&L switch under the chart: both halves are there, a click on P&L sets the chart (and its caption) to P&L, EQUITY switches it back
+    - the FULL table's ACCT and ACCT% columns hold the running account balance after each trade, to the cent (deposits and withdrawals in it, the
+      first trade on a $0 balance, and again with the NinjaTrader account in view); the trade panel's ACCT BALANCE / ACCT % rows equal the table cells
+    - the TF picker (a button on every FULL row, a click opens the picker with the trade's timeframes ticked and not the trade panel) and the TAGS
+      editor (on every FULL row, and in the trade panel); both pickers open and list the probe's one custom tag
+    - the toolbar buttons do their job (stubbed alert / prompt / open): ADD DEPOSIT asks date, amount and note and the new row shows, SCAN
+      DUPLICATES says so when there is none and draws its window when there is a pair, OPEN ALL opens one window per chart link in the view (all
+      trades, SHORT only, STOCKS only = the "No chart links" alert)
+    - the ledger holds a deposit AND a withdrawal (LEDGER_EVENTS): the withdrawal row sits under its day in the list as -$250.00, and the
+      DEPOSITS fold shows it as a negative chip; the fold summary, chip count and row count are derived from the fixture
 
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks (as in report_render_probe.py); a retry that
@@ -131,6 +142,13 @@ Usage:
   python tools/home_render_probe.py --selftest     # builds deliberately broken copies of the
                                                    # current index.html (MUTANTS below), asserts
                                                    # FAIL on each, then PASS on the real file
+  python tools/home_render_probe.py --selftest --only NAME[,NAME...]
+                                                   # just those mutants (an unknown name is an error),
+                                                   # one "caught / NOT caught" line each; the real-file
+                                                   # run is left out. Newest mutants: mode-toggle-dead,
+                                                   # acct-col-blank, panel-acct-off-by-one, tf-picker-gone,
+                                                   # panel-tags-gone, add-deposit-dead, scan-dupes-dead,
+                                                   # open-all-dead, withdrawal-unsigned, withdrawal-chip-unsigned
 
 Stdlib only, plus a subprocess call to local Chrome.
 """
@@ -541,6 +559,51 @@ MUTANTS = [
      "        x:'<div class=\"hm-mode\" id=\"hm-mode-toggle\">",
      "        y:'<div class=\"hm-mode\" id=\"hm-mode-toggle\">",
      'the EQUITY | P&L switch is gone from the chart foot'),
+    # keeps-checklist audit (2026-10-07): real controls on the board that no check would have noticed breaking
+    ('acct-pct-infinity',
+     "{k:'acctp',label:'ACCT%',cls:'num',td:t=>{const b=bal(t),p=(b!=null&&t.pnl&&Math.abs(b-t.pnl)>0.005)?((t.pnl/(b-t.pnl))*100):null;",
+     "{k:'acctp',label:'ACCT%',cls:'num',td:t=>{const b=bal(t),p=(b!=null&&t.pnl)?((t.pnl/(b-t.pnl))*100):null;",
+     'the FULL table prints -Infinity% for a trade with no balance before it'),
+    ('mode-toggle-dead',
+     "content.querySelectorAll('[data-hmmode]').forEach(b=>{b.onclick=()=>{homeChartMode=b.dataset.hmmode;renderApp();};});",
+     "content.querySelectorAll('[data-hmmode]').forEach(b=>{b.onclick=()=>{};});",
+     'a click on EQUITY or P&L under the chart does nothing'),
+    ('acct-col-blank',
+     "{k:'acct',label:'ACCT',td:t=>bal(t)!=null?_hmMoney(bal(t)):'--'},",
+     "{k:'acct',label:'ACCT',td:t=>'--'},",
+     'the FULL table ACCT column shows -- on every row instead of the account balance after the trade'),
+    ('panel-acct-off-by-one',
+     "['ACCT BALANCE',bal!=null?_hmMoney(bal):'--'],",
+     "['ACCT BALANCE',bal!=null?_hmMoney(bal+1):'--'],",
+     'the trade panel ACCT BALANCE is $1 off the balance the table shows'),
+    ('tf-picker-gone',
+     "{k:'tf',label:'TF',td:t=>`<button type=\"button\" class=\"tf-btn\" data-tid=\"${t.id}\"",
+     "{k:'tf',label:'TF',td:t=>''&&`<button type=\"button\" class=\"tf-btn\" data-tid=\"${t.id}\"",
+     'the TF timeframe picker button is gone from every FULL table row'),
+    ('panel-tags-gone',
+     "tags:`<div class=\"hm-tags\">${_hmTagEditorHtml(t,'hm-sheet-tagpick',false)}</div>`,",
+     "tags:'',",
+     'the trade panel lost its tag editor'),
+    ('add-deposit-dead',
+     "if(dep)dep.onclick=()=>addLedgerEvent();",
+     "if(dep)dep.onclick=()=>{};",
+     'ADD DEPOSIT does nothing when clicked'),
+    ('scan-dupes-dead',
+     "if(dup)dup.onclick=()=>scanForDuplicates();",
+     "if(dup)dup.onclick=()=>{};",
+     'SCAN DUPLICATES does nothing when clicked'),
+    ('open-all-dead',
+     "if(oa)oa.onclick=()=>window.hmOpenAllCharts();",
+     "if(oa)oa.onclick=()=>{};",
+     'OPEN ALL does nothing when clicked'),
+    ('withdrawal-unsigned',
+     '<div class="hm-rowend"><div class="r1 dep">${_hmMoney(ev.amount)}</div></div>',
+     '<div class="hm-rowend"><div class="r1 dep">${_hmMoney(Math.abs(ev.amount))}</div></div>',
+     'a withdrawal row in the trade list prints its amount without the minus sign (it looks like a deposit)'),
+    ('withdrawal-chip-unsigned',
+     "${ev.amount>0?'+':'-'}$${Math.abs(ev.amount).toFixed(2)}</span><span onclick=\"removeLedgerEvent(",
+     "$${Math.abs(ev.amount).toFixed(2)}</span><span onclick=\"removeLedgerEvent(",
+     'a withdrawal chip in the DEPOSITS fold prints its amount without the minus sign'),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -549,7 +612,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <iframe id="f" src="../index.html__QS__" style="width:1366px;height:768px;border:0;display:block"></iframe>
 <pre id="o"></pre>
 <script>
-var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, PASTE=__PASTE__, PANELS=__PANELS__, WIDTHS=__WIDTHS__, FOLDS=__FOLDS__, HOUSE=__HOUSE__, OWN=__OWN__, OLDMARKS=__OLDMARKS__;
+var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, PASTE=__PASTE__, PANELS=__PANELS__, WIDTHS=__WIDTHS__, FOLDS=__FOLDS__, HOUSE=__HOUSE__, OWN=__OWN__, OLDMARKS=__OLDMARKS__, STUBDEP=__STUBDEP__;
 (function(){
   var out={cases:{},inter:{},panels:{},widths:{},folds:{},notes:[]}, reported=false, t0=Date.now(), sink=null;
   function finish(why){
@@ -807,6 +870,10 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     r.tblBox=bx2?{sw:bx2.scrollWidth,cw:bx2.clientWidth,simple:tb2.classList.contains('hm-simple')}:null;
     r.order=Array.prototype.map.call(d.querySelectorAll('[data-lglist-frame="hm"] [data-lgtrade]'),function(e){return e.getAttribute('data-lgtrade');});
     r.depositRows=d.querySelectorAll('[data-lglist-frame="hm"] .hm-row-static').length;
+    // each deposit / withdrawal row: the day it sits under, its title and the amount as printed (a withdrawal is negative)
+    r.depRows=Array.prototype.map.call(d.querySelectorAll('[data-lglist-frame="hm"] .hm-row-static'),function(e){
+      var dy=e.closest('[data-lgday]');
+      return [dy?dy.getAttribute('data-lgday'):null,((e.querySelector('.l1')||{}).textContent||'').trim(),((e.querySelector('.r1')||{}).textContent||'').trim()];});
     var pb=d.getElementById('hm-paste-chart');r.paste=!!pb;r.pasteVisible=!!(pb&&pb.getBoundingClientRect().width>0);
     var ms=d.getElementById('hm-missed');
     r.missed=!!ms;
@@ -869,7 +936,9 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
         o.exp=b2?b2.getAttribute('aria-expanded'):null;o.body=!!body;o.len=body?(body.innerHTML||'').trim().length:0;
         if(k==='paste'){var pb=d.getElementById('hm-paste-chart');o.paste=!!pb;o.pasteVisible=!!(pb&&pb.getBoundingClientRect().width>0);}
         if(k==='missed'){var ms1=d.getElementById('hm-missed');o.missed=!!ms1;o.missedRows=ms1?ms1.querySelectorAll('tr[data-hmmissed]').length:-1;o.add=!!d.getElementById('hm-missed-add');}
-        if(k==='deps'){o.strip=!!d.querySelector('.hm-ledger-strip');o.chips=d.querySelectorAll('.hm-ledger-chip').length;}
+        if(k==='deps'){o.strip=!!d.querySelector('.hm-ledger-strip');o.chips=d.querySelectorAll('.hm-ledger-chip').length;
+          // each chip: its date and its signed amount (a withdrawal is a negative chip)
+          o.chipList=Array.prototype.map.call(d.querySelectorAll('.hm-ledger-chip'),function(c){return [((c.children[0]||{}).textContent||'').trim(),((c.children[1]||{}).textContent||'').trim()];});}
         if(k==='ai'){var ao=d.getElementById('overview-ai-output');o.out=!!ao;o.text=ao?(ao.textContent||'').trim().slice(0,60):'';o.refresh=!!d.querySelector('#hm-fold-ai .btn-d');}
         if(k==='journal'){o.form=!!d.getElementById('hm-journal-form');o.entries=d.querySelectorAll('.lesson-card').length;o.save=!!d.getElementById('hladd');}
         var b3=ownBtn(k);if(b3)b3.click();
@@ -1154,6 +1223,148 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
       if(st.text&&st.text.length>120)st.text=st.text.slice(0,120);
       if(b2){b2.click();await sleep(40);}
       var b3=q('[data-hmai-fold]');st.closedAgain=b3?b3.getAttribute('aria-expanded')==='false':null;
+    });
+    // 12. the EQUITY | P&L switch under the chart: both halves are there, P&L switches the chart (and its caption), EQUITY switches back
+    await step(res,'chartMode',async function(st){
+      w.eval('homeSheetId=null;homeChip="ALL";homeQuery="";homeChartMode="equity";renderApp();');
+      await sleep(60);
+      function mb(m){return q('#hm-mode-toggle [data-hmmode="'+m+'"]');}
+      function on(m){var b=mb(m);return !!(b&&b.classList.contains('active'));}
+      function cap(){return txt('[data-lgchartfoot="hm"] .lg-chart-cap');}
+      st.eqBtn=!!mb('equity');st.pnlBtn=!!mb('pnl');
+      st.eqOn0=on('equity');st.pnlOn0=on('pnl');st.cap0=cap();
+      var pb=mb('pnl');if(pb){pb.click();await sleep(80);}
+      st.modeAfterPnl=w.eval('homeChartMode');
+      st.pnlOn1=on('pnl');st.eqOn1=on('equity');st.cap1=cap();
+      var eb=mb('equity');if(eb){eb.click();await sleep(80);}
+      st.modeAfterEq=w.eval('homeChartMode');
+      st.eqOn2=on('equity');st.pnlOn2=on('pnl');st.cap2=cap();
+    });
+    // 13. the FULL table's ACCT and ACCT% columns: the running account balance after each trade (deposits and withdrawals in it, scoped to the
+    //     account in view), and the trade panel's ACCT BALANCE / ACCT % rows for the open trade say the same
+    await step(res,'acct',async function(st){
+      function cellsNow(){
+        var o={};
+        Array.prototype.forEach.call(D().querySelectorAll('table.lg-tl-table tbody tr[data-lgtrade]'),function(r){
+          var a=r.querySelector('td.lg-c-acct'),p=r.querySelector('td.lg-c-acctp');
+          o[r.getAttribute('data-lgtrade')]={acct:a?(a.textContent||'').trim():null,pct:p?(p.textContent||'').trim():null};});
+        return o;}
+      w.eval('homeSheetId=null;homeChip="ALL";homeQuery="";homeView="table";homeLedger="full";sortCol="date";sortDir=-1;window._thMenu=null;renderApp();');
+      await sleep(80);
+      st.heads=Array.prototype.map.call(D().querySelectorAll('table.lg-tl-table thead th'),function(h){return (h.textContent||'').trim();})
+        .filter(function(x){return x==='ACCT'||x==='ACCT%';});
+      st.all=cellsNow();
+      // the account in view: tap the NinjaTrader row of the account list - the Webull trade (and its P&L) leaves the running balance
+      var nb=q('[data-lglist="hm"] [data-lgrow="NinjaTrader"]');st.ntRow=!!nb;
+      if(nb){nb.click();await sleep(100);st.nt=cellsNow();}
+      var ab=q('[data-lglist="hm"] [data-lgrow=""]');if(ab){ab.click();await sleep(100);}
+      st.back=cellsNow();
+      // the trade panel of the trade this run opens
+      w.eval('homeSheetId='+JSON.stringify(I.tid)+';renderApp();');
+      await waitFor(function(){return !!q('.lg-panel[data-lgpanel="hm"] .lg-panel-row');},4000);
+      st.panelTrade=I.tid;st.panel={};
+      Array.prototype.forEach.call(D().querySelectorAll('.lg-panel[data-lgpanel="hm"] .lg-panel-row'),function(r){
+        var dt=r.querySelector('.lg-panel-dt'),dd=r.querySelector('.lg-panel-dd');
+        if(dt&&dd)st.panel[(dt.textContent||'').trim()]=(dd.textContent||'').trim();});
+      w.eval('homeSheetId=null;renderApp();');
+    });
+    // 14. the TF picker and the TAGS editor: every FULL row has both, a click on the TF button opens its picker (and not the trade panel), a click
+    //     on the tag editor opens its picker, and the trade panel carries the tag editor too
+    await step(res,'tfTags',async function(st){
+      w.eval('homeSheetId=null;homeChip="ALL";homeQuery="";homeView="table";homeLedger="full";renderApp();');
+      await sleep(80);
+      var T0='table.lg-tl-table tbody tr[data-lgtrade="'+I.tid+'"]';
+      st.rows=D().querySelectorAll('table.lg-tl-table tbody tr[data-lgtrade]').length;
+      st.tfBtns=D().querySelectorAll('table.lg-tl-table tbody td.lg-c-tf button.tf-btn[data-tid]').length;
+      st.tagCells=D().querySelectorAll('table.lg-tl-table tbody td.lg-c-tags .tag-cell').length;
+      var tb=q(T0+' td.lg-c-tf button.tf-btn');
+      st.tfLabel=tb?(tb.textContent||'').trim():null;
+      if(tb){
+        tb.click();await sleep(80);
+        var pop=q('#tf-pop');st.popOpen=!!pop;
+        st.popChips=pop?pop.querySelectorAll('.tf-chip').length:0;
+        st.popOn=pop?Array.prototype.map.call(pop.querySelectorAll('.tf-chip.on'),function(c){return (c.textContent||'').replace(/[^A-Za-z0-9]/g,'');}):[];
+        st.panelOpenedByTf=!!q('.lg-panel[data-lgpanel="hm"]');
+        w.eval('closeTfPicker();');
+        st.popClosed=!q('#tf-pop');
+      }
+      var tc=q(T0+' td.lg-c-tags .tag-cell');
+      if(tc&&tc.firstElementChild){
+        tc.firstElementChild.click();await sleep(50);
+        var pk=D().getElementById('tagpick-'+I.tid);
+        st.rowPick=pk?w.getComputedStyle(pk).display:null;
+        st.rowPickBtns=pk?Array.prototype.map.call(pk.querySelectorAll('button'),function(b){return (b.textContent||'').trim();}):[];
+        st.panelOpenedByTag=!!q('.lg-panel[data-lgpanel="hm"]');
+      }
+      // the trade panel
+      w.eval('homeSheetId='+JSON.stringify(I.tid)+';renderApp();');
+      await waitFor(function(){return !!q('.lg-panel[data-lgpanel="hm"] .lg-panel-row');},4000);
+      var ptc=q('.lg-panel[data-lgpanel="hm"] .hm-tags .tag-cell');st.panelTags=!!ptc;
+      if(ptc&&ptc.firstElementChild){
+        ptc.firstElementChild.click();await sleep(50);
+        var ppk=D().getElementById('hm-sheet-tagpick');
+        st.panelPick=ppk?w.getComputedStyle(ppk).display:null;
+        st.panelPickBtns=ppk?Array.prototype.map.call(ppk.querySelectorAll('button'),function(b){return (b.textContent||'').trim();}):[];
+        st.panelStillOpen=!!q('.lg-panel[data-lgpanel="hm"]');
+      }
+      w.eval('homeSheetId=null;renderApp();');
+    });
+    // 15. the toolbar buttons do their job. ADD DEPOSIT asks for a date, an amount and a note (the prompts are answered here) and the new row
+    //     appears; SCAN DUPLICATES answers (an alert when there is none, its window when there is a pair); OPEN ALL opens one window per chart
+    //     link in the view (alert / prompt / open are stubs that only record what they were given)
+    await step(res,'toolbar',async function(st){
+      var al0=w.alert,pr0=w.prompt,op0=w.open,asked=[],alerts=[],opened=[];
+      var answers=[STUBDEP.date,STUBDEP.amount,STUBDEP.desc];
+      w.alert=function(m){alerts.push(String(m));};
+      w.prompt=function(m){asked.push(String(m));var a=answers[asked.length-1];return a===undefined?null:a;};
+      w.open=function(u){opened.push(String(u));return null;};
+      try{
+        w.eval('homeSheetId=null;homeChip="ALL";homeQuery="";homeView="feed";homeFeedMode="trade";window._hmToolsOpen=false;renderApp();');
+        await sleep(80);
+        // on a phone the four buttons sit behind the ... button
+        var tt=q('#hm-tools-toggle');st.toggle=tt?w.getComputedStyle(tt).display:null;
+        if(tt&&st.toggle!=='none'){tt.click();await sleep(40);}
+        var box=q('#hm-tools');st.toolsBox=box?w.getComputedStyle(box).display:null;
+        var rowsOf=function(){return Array.prototype.map.call(D().querySelectorAll('[data-lglist-frame="hm"] .hm-row-static'),function(r){return (r.textContent||'').replace(/\\s+/g,' ').trim();});};
+        // ADD DEPOSIT
+        st.dep0=rowsOf().length;st.ledger0=w.eval('ledgerEvents.length');
+        var ad=q('#hm-add-deposit');st.addBtn=!!ad;
+        if(ad){ad.click();await sleep(100);}
+        st.asked=asked.slice();st.alertsAdd=alerts.splice(0);
+        st.ledger1=w.eval('ledgerEvents.length');
+        st.added=JSON.parse(w.eval('JSON.stringify(ledgerEvents.filter(function(e){return e.desc==='+JSON.stringify(STUBDEP.desc)+';}))'));
+        var rows1=rowsOf();st.dep1=rows1.length;
+        st.newRow=rows1.filter(function(t){return t.indexOf(STUBDEP.desc)>=0;})[0]||null;
+        w.eval('ledgerEvents=ledgerEvents.filter(function(e){return e.desc!=='+JSON.stringify(STUBDEP.desc)+';});try{localStorage.removeItem("el_ledger");}catch(e){}renderApp();');
+        await sleep(60);
+        st.dep2=rowsOf().length;
+        // SCAN DUPLICATES: no pair in the journal = an alert; with a pair = its window with the pair in it
+        var sd=q('#hm-scan-dupes');st.scanBtn=!!sd;
+        if(sd){sd.click();await sleep(100);}
+        st.scanAlerts=alerts.splice(0);st.scanWindowNoPair=D().querySelectorAll('[data-dupe-idx]').length;
+        w.eval('trades.push(Object.assign({},trades[0],{id:"probe_dup"}));');
+        sd=q('#hm-scan-dupes');
+        if(sd){sd.click();await sleep(100);}
+        st.dupePairs=D().querySelectorAll('[data-dupe-idx]').length;st.dupeAlerts=alerts.splice(0);
+        var dn=D().getElementById('dupe-done');st.dupeDone=!!dn;
+        if(dn){dn.click();await sleep(80);}
+        st.dupeClosed=D().querySelectorAll('[data-dupe-idx]').length===0;
+        w.eval('trades=trades.filter(function(x){return x.id!=="probe_dup";});renderApp();');
+        await sleep(60);
+        // OPEN ALL: every chart link in the view, once each
+        var oa=q('#hm-open-all');st.openBtn=!!oa;
+        if(oa){oa.click();await waitFor(function(){return opened.length>=2;},3000);await sleep(400);}
+        st.openedAll=opened.splice(0);st.alertsAll=alerts.splice(0);
+        w.eval('homeChip="SHORT";renderApp();');await sleep(60);
+        oa=q('#hm-open-all');if(oa){oa.click();await sleep(400);}
+        st.openedShort=opened.splice(0);
+        w.eval('homeChip="STOCKS";renderApp();');await sleep(60);
+        oa=q('#hm-open-all');if(oa){oa.click();await sleep(400);}
+        st.openedStocks=opened.splice(0);st.alertsStocks=alerts.splice(0);
+      }finally{
+        w.alert=al0;w.prompt=pr0;w.open=op0;
+        try{w.eval('homeChip="ALL";window._hmToolsOpen=false;trades=trades.filter(function(x){return x.id!=="probe_dup";});renderApp();');}catch(_x){}
+      }
     });
     try{w.eval('homeSheetId=null;window._hmMissedEdit=null;window._hmPasteNote=null;renderApp();');}catch(_e){}
     drain();
@@ -1541,6 +1752,8 @@ INSTALL_JS = r"""
     // LEDGER step 12: a Webull sync with a reconcile on file - its check is in the status line under the hero, no longer a chip in the hero
     wbSync={last_sync:Math.floor(Date.now()/1000)-300,recon:{ok:true,flat:true}};ntSync=null;
     ledgerEvents=S.ledger||[];lessons=S.lessons||[];
+    // one custom tag, so the tag editors (a FULL table row, the trade panel) have a button to show
+    customTags=[S.tag];
     // the legacy TRADES / JOURNAL tabs only draw behind ?oldtabs=1 (the app reads this flag on every render)
     window.LOG_OLDTABS_ESCAPE_HATCH=!!C.tab;window._lastLogTab=C.tab||undefined;
     activeTab=C.tab||'home';homeView=C.view;homeLedger=C.ledger;homeSheetId=null;
@@ -1643,6 +1856,18 @@ def _ps(date, t_in, hits, na=0, trend=True):
     return rec
 
 
+# The account's deposits and withdrawals (both on the NinjaTrader account). Every judge that counts them (the DEPOSITS fold chips and
+# summary, the deposit rows in the list, the running ACCT balance) derives its expectation from THIS list, not from a hard-coded 1.
+# The deposit comes a day after the first trade, so the very first trade runs on a $0 balance: its ACCT% must read -- (it read -Infinity%).
+LEDGER_EVENTS = [
+    {'date': '2026-09-29', 'amount': 1000.0, 'desc': 'probe deposit', 'broker': 'NinjaTrader'},
+    {'date': '2026-09-30', 'amount': -250.0, 'desc': 'probe withdrawal', 'broker': 'NinjaTrader'},
+]
+START_EQUITY = 0.0          # the probe seeds no starting equity (accountEquity 0, no Webull net liq, no el_broker_equity)
+PROBE_TAG = 'probe-tag'     # the one custom tag the probe defines, so the tag editors have a button to show
+STUB_DEPOSIT = {'date': '2026-10-02', 'amount': '500', 'desc': 'probe stub deposit'}    # what the ADD DEPOSIT prompts are answered with
+
+
 def build_data():
     T = []
 
@@ -1661,8 +1886,10 @@ def build_data():
        notes='probe trade with a note')
     tr('probe_t2', 'MNQ', 'SHORT', '2026-09-30', '11:15:00', '11:21:30', '10s, 1m', 20040.0, 20046.75, 1, 2,
        0.74, pointScore=_ps('2026-09-30', '11:15:00', 3, na=2), chartUrl='https://www.tradingview.com/x/PROBE0/')
+    # a second chart link (probe_t2 has the first), so OPEN ALL has two distinct links to open; probe_t3 is not the newest trade without one,
+    # so the PASTE box still files its link on the same trade as before
     tr('probe_t3', 'MES', 'LONG', '2026-10-01', '09:45:10', '09:52:40', '10s', 5801.0, 5804.25, 3, 5, 2.22,
-       pointScore=_ps('2026-10-01', '09:45:10', 6, na=0, trend=False))
+       pointScore=_ps('2026-10-01', '09:45:10', 6, na=0, trend=False), chartUrl='https://www.tradingview.com/x/PROBE1/')
     tr('probe_t4', 'MES', 'SHORT', '2026-09-29', '14:02:00', '14:30:00', '5m', 5790.5, 5786.0, 1, 5, 0.74,
        statsExcluded=True, grade='C')
     tr('probe_t5', 'MNQ', 'LONG', '2026-09-28', '09:31:00', '09:33:00', '1m', 19950.0, 19947.25, 1, 2, 0.74,
@@ -1696,12 +1923,12 @@ def build_data():
             bars[t['id']] = _bars_doc(t['date'], t['entryTime'], t['exitTime'], px[t['symbol']],
                                       True, 1000 + i, overnight=(t['id'] == 'probe_o1'))
     bars['missed_probe_m1'] = _bars_doc('2026-09-30', '10:30:00', None, 20030.0, True, 77)
-    ledger = [{'date': '2026-09-29', 'amount': 1000.0, 'desc': 'probe deposit', 'broker': 'NinjaTrader'}]
-    lessons = [{'id': 'probe_l1', 'title': 'Chased a breakout and overtraded the open', 'date': '2026-09-30',
+    ledger = [dict(ev) for ev in LEDGER_EVENTS]
+    lessons =[{'id': 'probe_l1', 'title': 'Chased a breakout and overtraded the open', 'date': '2026-09-30',
                 'tags': ['psychology', 'risk management', 'entries'],
                 'body': 'Entered the first push without waiting for the pullback. ' * 6
                         + 'A_very_long_unbroken_word_that_has_no_spaces_in_it_at_all_' * 4}]
-    return {'trades': T, 'missed': missed, 'ledger': ledger, 'lessons': lessons}, bars
+    return {'trades': T, 'missed': missed, 'ledger': ledger, 'lessons': lessons, 'tag': PROBE_TAG}, bars
 
 
 # ---------------------------------------------------------------- harness
@@ -1761,6 +1988,7 @@ def _render_page(chrome, root, alt_index, cases, inter, qs, data_obj, bars, pane
             .replace('__HOUSE__', json.dumps(HOUSE_WIDTHS))
             .replace('__OWN__', json.dumps(OWN_FOLDS))
             .replace('__OLDMARKS__', json.dumps(OLD_MARKS))
+            .replace('__STUBDEP__', json.dumps(STUB_DEPOSIT))
             .replace('__INSTALL__', json.dumps(INSTALL_JS)))
     io.open(ppath, 'w', encoding='utf-8').write(html)
 
@@ -1857,6 +2085,97 @@ def expected_days(trades):
         k = _close_day(t)
         nets[k] = nets.get(k, 0.0) + t['pnl']
     return {k: _signed(round(v, 2)) for k, v in nets.items()}
+
+
+def ledger_net():
+    """The net of every deposit and withdrawal in the fixture (the DEPOSITS fold summary prints it)."""
+    return round(sum(ev['amount'] for ev in LEDGER_EVENTS), 2)
+
+
+def expected_balances(trades, ledger, broker=None):
+    """{trade id: running account balance after that trade} - a mirror of the app's _hmRunningBalances(). The events and trades are scoped to
+    `broker` (None = ALL accounts; an event without a broker is NinjaTrader's). A day's events are added when the first trade on or after that
+    day is reached, except the ones dated on or before the very first trade, which open the account. The probe sets no starting equity."""
+    by_date = {}
+    for ev in ledger:
+        if broker and (ev.get('broker') or 'NinjaTrader') != broker:
+            continue
+        by_date[ev['date']] = by_date.get(ev['date'], 0.0) + ev['amount']
+    tr = sorted((t for t in trades if not broker or (t.get('broker') or '') == broker),
+                key=lambda t: (t['date'], t.get('entryTime') or ''))
+    first = tr[0]['date'] if tr else None
+    bal, applied = 0.0, set()
+    for d in sorted(by_date):
+        if first is None or d <= first:
+            bal += by_date[d]
+            applied.add(d)
+    if bal == 0 and START_EQUITY > 0:
+        bal = START_EQUITY
+    out = {}
+    for t in tr:
+        for d in sorted(by_date):
+            if d not in applied and d <= t['date']:
+                bal += by_date[d]
+                applied.add(d)
+        bal = round(bal + t['pnl'], 2)
+        out[t['id']] = bal
+    return out
+
+
+def _usd(v):
+    return ('-' if v < 0 else '') + '$' + format(abs(v), ',.2f')
+
+
+def _cents(text):
+    """'$1,234.56' / '-$12.00' -> integer cents, None when it is not a plain dollar amount."""
+    m = re.match(r'^(-?)\$([\d,]+)\.(\d\d)$', (text or '').strip())
+    if not m:
+        return None
+    v = int(m.group(2).replace(',', '')) * 100 + int(m.group(3))
+    return -v if m.group(1) else v
+
+
+def _pct_val(text):
+    """'+12.34%' / '-0.50%' -> float, None when it is not a plain percentage."""
+    m = re.match(r'^([+-]?\d+\.\d\d)%$', (text or '').strip())
+    return float(m.group(1)) if m else None
+
+
+def _judge_acct_cells(tag, label, got, exp_bal, T, fails):
+    """The FULL table's ACCT / ACCT% cells (`got` = {trade id: {acct, pct}}) against the running balances `exp_bal`."""
+    if not got:
+        fails.append('%s: no FULL table rows were read for %s' % (tag, label))
+        return
+    if sorted(got) != sorted(exp_bal):
+        fails.append('%s: the FULL table lists %s trades for %s, expected %s' % (tag, sorted(got), label, sorted(exp_bal)))
+        return
+    for tid, bal in sorted(exp_bal.items()):
+        c = got[tid]
+        pnl = T[tid]['pnl']
+        a, p = c.get('acct'), c.get('pct')
+        if a is None or p is None:
+            fails.append('%s: %s - the row of %s has no ACCT or ACCT%% cell (%r)' % (tag, label, tid, c))
+            continue
+        if re.search(r'NaN|undefined', a + ' ' + p):
+            fails.append('%s: %s - the ACCT cells of %s read %r / %r' % (tag, label, tid, a, p))
+            continue
+        if _cents(a) != int(round(bal * 100)):
+            fails.append('%s: %s - the ACCT cell of %s reads %r, the running balance after it is %s' % (tag, label, tid, a, _usd(bal)))
+        if not pnl:
+            if p != '--':
+                fails.append('%s: %s - the ACCT%% cell of the $0 trade %s reads %r, expected --' % (tag, label, tid, p))
+            continue
+        before = round(bal - pnl, 2)
+        if before == 0:
+            # no balance before the trade (the first trade, before the deposit): no percentage - the page printed -Infinity% here
+            if p != '--':
+                fails.append('%s: %s - the ACCT%% cell of %s reads %r on a $0 balance before it, expected --' % (tag, label, tid, p))
+            continue
+        want = pnl / before * 100
+        got_p = _pct_val(p)
+        if got_p is None or abs(got_p - want) > 0.0101:
+            fails.append('%s: %s - the ACCT%% cell of %s reads %r, expected %+.2f%% (net %s on a $%s balance before it)'
+                         % (tag, label, tid, p, want, format(pnl, ',.2f'), format(before, ',.2f')))
 
 
 def _judge_panels(panels, data_obj):
@@ -2390,7 +2709,7 @@ def _judge_step11(nm, cfg, r, fails, n_missed):
         fails.append('%s: the own folds read %r, expected %r' % (nm, [f['k'] for f in fc], OWN_FOLDS))
     want_sum = {'paste': r'^the next link goes on \S+',
                 'missed': (r'^%d setups not taken' % n_missed) if cfg['missed'] else r'^none filed yet$',
-                'deps': r'^1 event \u00b7 net \+\$1,000\.00$',
+                'deps': '^%d events? \u00b7 net %s$' % (len(LEDGER_EVENTS), re.escape(_signed(ledger_net()))),
                 'ai': r'^last 9 trades \u00b7 71% won \u00b7 profit factor ',
                 'journal': r'^1 entry \u00b7 newest 2026-09-30$'}
     for f in fc:
@@ -2424,8 +2743,13 @@ def _judge_step11(nm, cfg, r, fails, n_missed):
     if o.get('body') and not o.get('add'):
         fails.append('%s: the SHOULD HAVE TRADED fold lost its + ADD button' % nm)
     o = fo.get('deps') or {}
-    if o.get('body') and (not o.get('strip') or o.get('chips') != 1):
-        fails.append('%s: the DEPOSITS fold shows %s deposit chips (strip=%s), expected the one deposit' % (nm, o.get('chips'), o.get('strip')))
+    if o.get('body') and (not o.get('strip') or o.get('chips') != len(LEDGER_EVENTS)):
+        fails.append('%s: the DEPOSITS fold shows %s deposit chips (strip=%s), expected the %d events' % (nm, o.get('chips'), o.get('strip'), len(LEDGER_EVENTS)))
+    elif o.get('body'):
+        # a deposit is a +$ chip and a withdrawal a negative one (-$250.00), each under its own date
+        want_chips = sorted(([ev['date'], ('+' if ev['amount'] > 0 else '-') + '$' + format(abs(ev['amount']), '.2f')] for ev in LEDGER_EVENTS), key=repr)
+        if sorted(o.get('chipList') or [], key=repr) != want_chips:
+            fails.append('%s: the DEPOSITS fold chips read %r, expected %r (a withdrawal is a negative chip)' % (nm, o.get('chipList'), want_chips))
     o = fo.get('ai') or {}
     if o.get('body') and (not o.get('out') or not o.get('text') or not o.get('refresh')):
         fails.append('%s: the AI ASSESSMENT fold opened without its read or its REFRESH button (%r)' % (nm, o))
@@ -2616,8 +2940,15 @@ def _judge(data, data_obj):
             exp_order = [t['id'] for t in sorted(data_obj['trades'], key=_close_key, reverse=True)]
             if r.get('order') != exp_order:
                 fails.append('%s: the list rows run %r, expected newest close first %r' % (nm, r.get('order'), exp_order))
-            if r.get('depositRows') != 1:
-                fails.append('%s: the list shows %s deposit rows, expected the one deposit in its day' % (nm, r.get('depositRows')))
+            if r.get('depositRows') != len(LEDGER_EVENTS):
+                fails.append('%s: the list shows %s deposit rows, expected the %d events, each in its day' % (nm, r.get('depositRows'), len(LEDGER_EVENTS)))
+            else:
+                # each row sits under its own day and prints its amount signed: a withdrawal reads -$250.00
+                want_rows = sorted(([ev['date'], 'DEPOSIT' if ev['amount'] >= 0 else 'WITHDRAWAL',
+                                     ('-' if ev['amount'] < 0 else '') + '$' + format(abs(ev['amount']), ',.2f')] for ev in LEDGER_EVENTS), key=repr)
+                if sorted(r.get('depRows') or [], key=repr) != want_rows:
+                    fails.append('%s: the deposit rows in the list read %r, expected %r (a withdrawal is signed negative, under its day)'
+                                 % (nm, r.get('depRows'), want_rows))
         ai = r.get('aiFold')
         if not ai or not ai.get('closed') or ai.get('out'):
             fails.append('%s: the AI ASSESSMENT is not a closed fold (%r) - it filled the top of the page' % (nm, ai))
@@ -2948,6 +3279,121 @@ def _judge(data, data_obj):
             elif jp.get('jumpPanel') != jp.get('jumpRow') or jp.get('jumpSym') != on_day[jp['jumpRow']]:
                 fails.append('%s: clicking the flashed row %s after the jump opened %r showing %r in the trade panel'
                              % (tag, jp.get('jumpRow'), jp.get('jumpPanel'), jp.get('jumpSym')))
+        Tm = {t['id']: t for t in T}
+        # 12. the EQUITY | P&L switch under the chart
+        cm = st.get('chartMode') or {}
+        _errs(tag + ' EQUITY | P&L switch', cm, fails)
+        if cm.get('threw'):
+            fails.append('%s EQUITY | P&L switch: %s' % (tag, _first(cm['threw'])))
+        elif not cm.get('eqBtn') or not cm.get('pnlBtn'):
+            fails.append('%s: the chart foot lost a half of the EQUITY | P&L switch (EQUITY=%s P&L=%s)' % (tag, cm.get('eqBtn'), cm.get('pnlBtn')))
+        else:
+            if not cm.get('eqOn0') or cm.get('pnlOn0') or 'account equity' not in (cm.get('cap0') or ''):
+                fails.append('%s: the chart does not start on EQUITY (EQUITY pressed=%s, P&L pressed=%s, caption %r)'
+                             % (tag, cm.get('eqOn0'), cm.get('pnlOn0'), cm.get('cap0')))
+            if cm.get('modeAfterPnl') != 'pnl' or not cm.get('pnlOn1') or cm.get('eqOn1') or 'cumulative P&L' not in (cm.get('cap1') or ''):
+                fails.append('%s: a click on P&L did not switch the chart to P&L (mode=%r, P&L pressed=%s, EQUITY pressed=%s, caption %r)'
+                             % (tag, cm.get('modeAfterPnl'), cm.get('pnlOn1'), cm.get('eqOn1'), cm.get('cap1')))
+            if cm.get('modeAfterEq') != 'equity' or not cm.get('eqOn2') or cm.get('pnlOn2') or 'account equity' not in (cm.get('cap2') or ''):
+                fails.append('%s: a click on EQUITY did not switch the chart back (mode=%r, EQUITY pressed=%s, P&L pressed=%s, caption %r)'
+                             % (tag, cm.get('modeAfterEq'), cm.get('eqOn2'), cm.get('pnlOn2'), cm.get('cap2')))
+        # 13. the FULL table's ACCT / ACCT% columns and the trade panel's ACCT BALANCE / ACCT % rows
+        ac = st.get('acct') or {}
+        _errs(tag + ' ACCT columns', ac, fails)
+        if ac.get('threw'):
+            fails.append('%s ACCT columns: %s' % (tag, _first(ac['threw'])))
+        else:
+            if ac.get('heads') != ['ACCT', 'ACCT%']:
+                fails.append('%s: the FULL table has the account columns %r, expected ACCT and ACCT%%' % (tag, ac.get('heads')))
+            exp_all = expected_balances(T, LEDGER_EVENTS, None)
+            _judge_acct_cells(tag, 'all accounts', ac.get('all'), exp_all, Tm, fails)
+            if not ac.get('ntRow'):
+                fails.append('%s: the account list has no NinjaTrader row to scope the board with' % tag)
+            else:
+                _judge_acct_cells(tag, 'the NinjaTrader account', ac.get('nt'), expected_balances(T, LEDGER_EVENTS, 'NinjaTrader'), Tm, fails)
+            if ac.get('back') != ac.get('all'):
+                fails.append('%s: after ALL accounts was tapped again the ACCT cells are not what they were before the scope (%r vs %r)'
+                             % (tag, ac.get('back'), ac.get('all')))
+            pn, ptid = ac.get('panel') or {}, ac.get('panelTrade')
+            row = (ac.get('all') or {}).get(ptid) or {}
+            if not pn or 'ACCT BALANCE' not in pn or 'ACCT %' not in pn:
+                fails.append('%s: the trade panel of %s has no ACCT BALANCE / ACCT %% rows (%r)' % (tag, ptid, sorted(pn)))
+            else:
+                if pn['ACCT BALANCE'] != row.get('acct') or _cents(pn['ACCT BALANCE']) != int(round(exp_all.get(ptid, 0) * 100)):
+                    fails.append('%s: the trade panel of %s says ACCT BALANCE %r, the FULL table says %r and the running balance is %s'
+                                 % (tag, ptid, pn['ACCT BALANCE'], row.get('acct'), _usd(exp_all.get(ptid, 0))))
+                if pn['ACCT %'] != row.get('pct'):
+                    fails.append('%s: the trade panel of %s says ACCT %% %r, the FULL table says %r' % (tag, ptid, pn['ACCT %'], row.get('pct')))
+        # 14. the TF picker and the TAGS editor
+        tg = st.get('tfTags') or {}
+        _errs(tag + ' TF picker / TAGS editor', tg, fails)
+        if tg.get('threw'):
+            fails.append('%s TF picker / TAGS editor: %s' % (tag, _first(tg['threw'])))
+        else:
+            n_t = len(T)
+            if tg.get('rows') != n_t or tg.get('tfBtns') != n_t or tg.get('tagCells') != n_t:
+                fails.append('%s: the FULL table has %s rows, %s TF picker buttons and %s tag editors, expected %d of each'
+                             % (tag, tg.get('rows'), tg.get('tfBtns'), tg.get('tagCells'), n_t))
+            want_tf = sorted(re.sub(r'[^A-Za-z0-9]', '', x) for x in str(Tm[I['tid']].get('timeframe') or '').split(',') if x.strip())
+            if tg.get('tfLabel') != ' + '.join(x.strip() for x in str(Tm[I['tid']].get('timeframe') or '').split(',') if x.strip()):
+                fails.append('%s: the TF button of %s reads %r, expected the trade\'s timeframes %r' % (tag, I['tid'], tg.get('tfLabel'), want_tf))
+            if not tg.get('popOpen') or (tg.get('popChips') or 0) < 5:
+                fails.append('%s: a click on the TF button did not open its picker (open=%s, %s chips)' % (tag, tg.get('popOpen'), tg.get('popChips')))
+            elif sorted(tg.get('popOn') or []) != want_tf:
+                fails.append('%s: the TF picker ticks %r for %s, expected %r' % (tag, tg.get('popOn'), I['tid'], want_tf))
+            if tg.get('panelOpenedByTf') or tg.get('panelOpenedByTag'):
+                fails.append('%s: a click on the TF button or the tag editor inside a row opened the trade panel as well' % tag)
+            if tg.get('rowPick') != 'flex' or PROBE_TAG not in (tg.get('rowPickBtns') or []):
+                fails.append('%s: a click on the tag editor of a FULL row did not open its picker with the tag %s (display=%r, buttons %r)'
+                             % (tag, PROBE_TAG, tg.get('rowPick'), tg.get('rowPickBtns')))
+            if not tg.get('panelTags'):
+                fails.append('%s: the open trade panel has no tag editor' % tag)
+            elif tg.get('panelPick') != 'flex' or PROBE_TAG not in (tg.get('panelPickBtns') or []) or not tg.get('panelStillOpen'):
+                fails.append('%s: a click on the tag editor in the trade panel did not open its picker with the tag %s (display=%r, buttons %r, panel open=%s)'
+                             % (tag, PROBE_TAG, tg.get('panelPick'), tg.get('panelPickBtns'), tg.get('panelStillOpen')))
+        # 15. the toolbar buttons ADD DEPOSIT / SCAN DUPLICATES / OPEN ALL
+        tb = st.get('toolbar') or {}
+        _errs(tag + ' toolbar buttons', tb, fails)
+        if tb.get('threw'):
+            fails.append('%s toolbar buttons: %s' % (tag, _first(tb['threw'])))
+        else:
+            if I['vp'] == 'phone' and tb.get('toggle') != 'none' and tb.get('toolsBox') in (None, 'none'):
+                fails.append('%s: the ... button on a phone did not show the toolbar buttons (box display=%r)' % (tag, tb.get('toolsBox')))
+            asked = tb.get('asked') or []
+            if not tb.get('addBtn'):
+                fails.append('%s: there is no ADD DEPOSIT button' % tag)
+            elif len(asked) != 3 or not re.search('date', asked[0], re.I) or not re.search('amount', asked[1], re.I) \
+                    or not re.search('descr', asked[2], re.I):
+                fails.append('%s: ADD DEPOSIT asked %r, expected three questions (date, amount, description)' % (tag, asked))
+            else:
+                add = tb.get('added') or []
+                if tb.get('ledger1') != (tb.get('ledger0') or 0) + 1 or len(add) != 1 or add[0].get('date') != STUB_DEPOSIT['date'] \
+                        or float(add[0].get('amount') or 0) != float(STUB_DEPOSIT['amount']):
+                    fails.append('%s: ADD DEPOSIT answered %r did not add that deposit (events %s -> %s, new: %r)'
+                                 % (tag, STUB_DEPOSIT, tb.get('ledger0'), tb.get('ledger1'), add))
+                elif tb.get('dep1') != (tb.get('dep0') or 0) + 1 or '$500.00' not in (tb.get('newRow') or '') or 'DEPOSIT' not in (tb.get('newRow') or ''):
+                    fails.append('%s: ADD DEPOSIT added the event but the list shows %s deposit rows (was %s), new row %r'
+                                 % (tag, tb.get('dep1'), tb.get('dep0'), tb.get('newRow')))
+            if not tb.get('scanBtn'):
+                fails.append('%s: there is no SCAN DUPLICATES button' % tag)
+            elif not any('No duplicate trades found' in a for a in (tb.get('scanAlerts') or [])) or tb.get('scanWindowNoPair'):
+                fails.append('%s: SCAN DUPLICATES on a journal with no duplicate did not say so (alerts %r, window pairs %s)'
+                             % (tag, tb.get('scanAlerts'), tb.get('scanWindowNoPair')))
+            elif tb.get('dupePairs') != 1 or tb.get('dupeAlerts') or not tb.get('dupeDone') or not tb.get('dupeClosed'):
+                fails.append('%s: SCAN DUPLICATES with one duplicate pair drew %s pair(s) (alerts %r, DONE button=%s, closed again=%s), expected its window with one pair'
+                             % (tag, tb.get('dupePairs'), tb.get('dupeAlerts'), tb.get('dupeDone'), tb.get('dupeClosed')))
+            urls_all = sorted({t['chartUrl'] for t in T if t.get('chartUrl')})
+            urls_short = sorted({t['chartUrl'] for t in T if t.get('chartUrl') and t['type'] == 'SHORT'})
+            if not tb.get('openBtn'):
+                fails.append('%s: there is no OPEN ALL button' % tag)
+            else:
+                if sorted(tb.get('openedAll') or []) != urls_all or len(tb.get('openedAll') or []) != len(urls_all):
+                    fails.append('%s: OPEN ALL opened %r, expected one window per chart link in the view: %r' % (tag, tb.get('openedAll'), urls_all))
+                if sorted(tb.get('openedShort') or []) != urls_short:
+                    fails.append('%s: OPEN ALL with only SHORT trades shown opened %r, expected %r' % (tag, tb.get('openedShort'), urls_short))
+                if tb.get('openedStocks') or not any('No chart links' in a for a in (tb.get('alertsStocks') or [])):
+                    fails.append('%s: OPEN ALL with only STOCKS shown (no chart link) opened %r and alerted %r, expected no window and the "No chart links" alert'
+                                 % (tag, tb.get('openedStocks'), tb.get('alertsStocks')))
 
     of, ou = _judge_flag(data.get('flag'), data, data_obj)
     fails += of
@@ -3012,9 +3458,11 @@ def _report(t0, attempt, may_retry, chrome, root, alt_index):
     return PASS
 
 
-def selftest():
+def selftest(only=None):
     """Exit 0 when the gate FAILS every MUTANT of the current index.html and PASSES the real file;
-    1 when any expectation breaks; 2 when a mutant cannot be built (its anchor moved)."""
+    1 when any expectation breaks; 2 when a mutant cannot be built (its anchor moved).
+    `only` (a list of mutant names, --only): run just those and print a caught / NOT caught line for each; the run on the real file is
+    left out (run the probe by hand for that)."""
     try:
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     except Exception:
@@ -3024,8 +3472,9 @@ def selftest():
     t0 = time.time()
     tmpdir = tempfile.mkdtemp(prefix='homeprobe-selftest-')
     bad = []
+    muts = [m for m in MUTANTS if m[0] in only] if only else MUTANTS
     try:
-        for name, anchor, repl, why in MUTANTS:
+        for name, anchor, repl, why in muts:
             n = src.count(anchor)
             if n != 1:
                 print('SELFTEST: INCONCLUSIVE -- mutant %r cannot be built: its anchor appears %d times in '
@@ -3039,13 +3488,16 @@ def selftest():
             if code == INCONCLUSIVE:          # a Chrome hiccup is not a verdict: look once more (a PASS is never retried into a FAIL)
                 print('   (inconclusive - looking once more)')
                 code = main(['--file', path, '--no-retry'])
+            if only:
+                print('SELFTEST --only: mutant %s: %s (exit %d)' % (name, 'caught' if code == FAIL else 'NOT caught', code))
             if code != FAIL:
                 bad.append('mutant %s was NOT caught (exit %d) -- the gate has gone blind to: %s'
                            % (name, code, why))
-        print('-- current index.html: expect PASS')
-        code = main([])
-        if code != PASS:
-            bad.append('current index.html did not PASS (exit %d)' % code)
+        if not only:
+            print('-- current index.html: expect PASS')
+            code = main([])
+            if code != PASS:
+                bad.append('current index.html did not PASS (exit %d)' % code)
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
     if bad:
@@ -3053,6 +3505,10 @@ def selftest():
         for b in bad:
             print('  - ' + b)
         return FAIL
+    if only:
+        print('SELFTEST: PASS -- gate caught %d/%d of the chosen broken builds (%.1fs; the real file was not run)'
+              % (len(muts), len(muts), time.time() - t0))
+        return PASS
     print('SELFTEST: PASS -- gate caught %d/%d broken builds and passed the current one (%.1fs)'
           % (len(MUTANTS), len(MUTANTS), time.time() - t0))
     return PASS
@@ -3068,9 +3524,20 @@ def main(argv=None):
     ap.add_argument('--no-retry', action='store_true', help='do not re-render a failed attempt')
     ap.add_argument('--selftest', action='store_true',
                     help='assert FAIL on every MUTANT of index.html, then PASS on the real file')
+    ap.add_argument('--only', default=None, metavar='NAME[,NAME...]',
+                    help='with --selftest: run only these mutants (comma separated) and print a caught / NOT caught line for each')
     args = ap.parse_args(argv)
+    only = None
+    if args.only is not None:
+        if not args.selftest:
+            ap.error('--only goes with --selftest')
+        only = [x.strip() for x in args.only.split(',') if x.strip()]
+        known = [m[0] for m in MUTANTS]
+        bad_names = [x for x in only if x not in known]
+        if not only or bad_names:
+            ap.error('unknown mutant name(s) %s; known mutants: %s' % (', '.join(bad_names) or '(none given)', ', '.join(known)))
     if args.selftest:
-        return selftest()
+        return selftest(only)
     t0 = time.time()
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     alt_index = os.path.abspath(args.file) if args.file else None
@@ -3085,4 +3552,10 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
+    try:   # any Chrome this run starts dies with it, however the run ends (tools/kill_on_exit.py)
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import kill_on_exit
+        kill_on_exit.install()
+    except Exception:
+        pass
     sys.exit(main())
