@@ -112,3 +112,78 @@ one 9-year regime; a W cell that is only a pre-earnings run-up already taken by 
 
 Zero passes = EAP r1 dead and the earnings family closed with it (EDRIFT r2 is not run separately); no other windows,
 predictions or universes are tried.
+
+PRE-DATA ADDENDUM 1 (2026-10-07 19:50 MST, before any EAP number: only the counts MANAGER's review quotes from the pinned calendar
+(8f4f9f4b) and corporate actions (e5bc8487) have been read - no price, no score, no P&L): MANAGER's review #127 (GO WITH 16
+EDITS; C:/EdgeLog/manager/reviews/REVIEW_EAP_DIVCHG_2026-10-07.md) folded in edit by edit, and the reference pinned.
+- [E1] ONE LISTING PER CIK. Dual share classes share one CIK (GOOG/GOOGL for the whole sample, FOX/FOXA, LBTYA/LBTYK,
+  DISCA/DISCK, LILA/LILAK) and would join twice: at every rank only the class with the higher 20-session raw dollar volume
+  (sessions before the fill) stays in the universe; the dropped classes are counted and listed per rank.
+- [E2] THE 95 8-K/A ROWS are dropped from [P] (form '8-K/A'), counted.
+- [E3] THE PAIR RULE (replaces '40 days, the earlier counts'): when two releases of a name predict dates less than 50 days
+  apart, the LATER release counts - item 2.02 also carries pre-announcements (ILMN 2019-01-08 then 01-29, REGN 01-07 then
+  02-06, ISRG 01-09 then 01-24: the early one is the JPM-week preliminary result) and DXCM's 01-07 / 02-21 (45 days apart)
+  would otherwise leave a fake second due date. Every pair is listed by name in the pre-data print; ILMN, REGN, ISRG and DXCM
+  are its named test cases (the harness's selftest plants them).
+- [E4] PREDECESSOR CIKs AND HOLES. A CIK break pushes a member out of the universe (AVGO 33 months 2016-07..2019-03, FOX/FOXA
+  41, TEAM 29, NXPI 27, DISH 25, SIRI 17, MRVL 12, CEG 12): the predecessor CIKs (AVGO before 2018, FOX's 21CF, MRVL, TEAM,
+  NXPI, where their 8-Ks exist) are joined only through a pinned list (symbol, predecessor CIK, successor CIK, the dates it
+  covers, its EDGAR source) that TV builds and a dated pre-data addendum pins by sha256 before Stage A; a name-month the list
+  does not cover is unjoined (counted, listed). If the list is not pinned the run proceeds with those name-months unjoined
+  (about 3% of member-months) and says so in its row. The mid-sample holes (BIIB and ORLY 2019-12..2020-10, AMAT
+  2024-07..2025-05) fall out by the four-releases rule (counted, listed per name). The 16 foreign filers among the members
+  (ASML, AZN, PDD, JD, BIDU, NTES and ten more) file 6-Ks, never an 8-K item 2.02, so they never have a release and never
+  enter the universe - stated, not fixed (counted per rank).
+- [E5] ACCURACY BOTH WAYS, BEFORE ANY P&L: precision = the share of predicted dates within +-3 / +-7 sessions of an actual
+  release (the calendar's reaction_session); recall = the share of the actual releases of universe names that land in the
+  month M assigned them as DUE. If recall is below 80% in any WF July-June year, the run STOPS before any P&L and MANAGER
+  rules. Caveat stated: the calendar is also the 'actual', so a release missing from it is invisible to both measures.
+- [E6] TURNOVER FROM THE DUE LISTS ALONE (no return read), printed before any P&L: M's one-way turnover per side by month
+  and year, and the break-even monthly gross spread at 5 and 10 bps a side. The draft's 'RESMOM's turnover' and its season
+  picture are withdrawn: releases split about evenly between Jan/Feb, Apr/May, Jul/Aug and Oct/Nov and only Mar/Jun/Sep/Dec are
+  thin (10-20 names), so in 8 months of 12 the due group swaps almost completely - M's long side turns over about 100% a month
+  and the short side most of the way (MANAGER's rough cost: ~$4k a year at 5 bps, ~$8.5k at 10 bps).
+- [E7] THE POWER LINE, written now: M needs about 0.5-0.6% a month of gross spread on $200,000 a side for ROC @ $30k 15 after
+  costs - at or above Frazzini & Lamont's all-stock figure, in mega-caps where the draft itself expects less; W needs about
+  0.5% net per 5-session window (a per-event sd of about 7%, about 400 events a year). THE EXPECTED VERDICT IS DEAD; the run's
+  value is closing the earnings family on data already held. The harness prints its own computed needs (from the DUE lists,
+  the event count and the cost curve) beside the literature values before any P&L.
+- [E8] M's NAME CAP: no name holds more than $10,000 - a side's dollars = min($200,000, $10,000 x its count), split equally
+  (a thin month of ~10 names holds $100,000, never $20,000 a name). The fewer-than-8-names rule stands.
+- [E9] W's BETA needs 252 ES pairs before the entry; there is no zero-beta fallback - a name with fewer (230-251 included) is
+  no event (counted). Replaces 'zero before 252 exist'.
+- [E10] W's GROWTH TILT: what is left after the ES hedge is long Nasdaq-100 names against the S&P - the short-growth corner's
+  factor with the sign flipped, so W may lose in the same #463 drawdowns those baskets earned in. W's daily P&L is regressed
+  on ES's return and on NQ-minus-ES's (the house's NQ and ES continuous masters, read only, close to close, WF); if |the
+  NQ-minus-ES loading| > 0.20 per $ long, W's ROC @ $30k with that tilt removed is printed beside the raw one, with the
+  2019-21 and 2022 rows apart. Reported, never the verdict.
+- [E11] W's SECOND NULL (DIVRUN's time-shift): every event keeps its name, its hedge rule and its costs, but its whole window
+  moves back by a whole number of sessions drawn uniformly from 27 .. 36 per event and draw (the middle of the quarter: the
+  moved window ends at least 25 sessions before p and starts about 24 or more after the previous release); 500 draws, seed
+  20261020, W's own ROC @ $30k per draw. W's (c) needs BOTH nulls cleared.
+- [E12] (c) IS READ AT THE 97.5th PERCENTILE (EDRIFT r1 spent the earnings family's first look; alpha split over the family's
+  two rounds): M above the random-name null's p97.5 (the MAX over the 2 cells), W above the random-name null's p97.5 AND the
+  time-shift null's p97.5.
+- [E13] M's BETA: the ex-ante beta gap (long minus short, the names' OLS ES betas over the 252 sessions before the rank,
+  side-dollar weighted) printed at every rank, and M's realised ES beta on reporting-season days (the sessions of the weeks
+  in which at least 10 universe names have an actual release - the calendar's reaction_session, a report, never an input)
+  apart from the other days (Savor & Wilson's channel). A PASS of M also needs M hedged with ES by its ex-ante beta gap (x the
+  side dollars, re-set at each rank, 0.5 bps a side on the hedge) to reach WF ROC @ $30k >= 15.
+- [E14] SEAT, printed before any correlation: per stretch, each cell's P&L inside each of #463's and L's 5 deepest drawdown
+  episodes, and the share of those episodes' weeks that are peak reporting weeks (as [E13]) against the share of all WF weeks.
+- [E15] THE LIVE STRETCH: the WF book numbers (#463, L, L + c x the cell, the plain book) on the cell's live stretch - from its
+  first traded rank, printed - with the full-WF numbers beside them, as DIVCHG's draft does; the WF run loads only calendar rows
+  ACCEPTED before 2025-06-30.
+- [E16] HYGIENE = MANAGER's hygiene edit S1 (replaces the draft's HYGIENE sentence, which named the superseded 'keep' rule): no
+  in-hold event removes a name; flagged names and splits stay on the split-safe path; a spin-off / stock-dividend ex-date
+  inside the hold (W: inside the window) closes the position at the official close of the session before it (r17_resmom's
+  post_mode 'close': no mark, dividend or borrow after it, the exit cost on that row; the nulls on the same cut paths). The
+  removal reading ('keep') is printed beside the judged one as a report with its count. The draft's '[D2] ex-date' and
+  'spin-offs [D2]' read 'spin-off / stock-dividend ex-date' (in this draft [D2] is ndx_members.csv).
+- [E17] THE REFERENCE L, pinned (the draft: 'the addendum pins whichever is current'): L = #463 + 0.264 x RES from the RESMOM
+  restatement under the same hygiene edit S1 - resmom_cells_daily_wf_close.csv, sha256 e204dd53..., WF ROC @ $30k
+  121.06 / DD5 $34,392, Sortino 3.926, worst drawdown $36,526 - refused unless they
+  reproduce. #463 stays refused unless WF 93.81 / 3.816 / $44,849 reproduces.
+- [E18] UNCHANGED: the data, [P]'s 364-day rule, the cells, sizes, fills, costs, the random-name null, the stretches, the bars
+  (a), (b), (d), (e), (f), A2, Stage B / C, the diagnostics. Zero passes = EAP r1 dead and the earnings family closed (EDRIFT r2
+  is not run).
