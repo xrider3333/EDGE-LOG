@@ -303,7 +303,83 @@ def power_read(B, S12, SL, rows, acc):
 
 
 def load_line(B):
-    SL, res_line, lf = load_line(B)
+    h = hashlib.sha256(open(L_CSV, "rb").read()).hexdigest()
+    if not h.startswith(L_SHA):
+        raise SystemExit(f"refused: {L_CSV} sha {h[:12]} is not the S1 line {L_SHA}...")
+    Ld = pd.read_csv(L_CSV, parse_dates=["date"]).set_index("date")
+    idx = pd.DatetimeIndex(B.index)
+    res_line = Ld["RES"].reindex(idx).fillna(0.0).to_numpy(float)
+    SL = M12.Stretch(np.asarray(B.raw, float) + C_RES * res_line, idx, None, WF0, PRE_END)
+    lf = figs(SL.x, SL.years)
+    print(f"THE S1 LINE L: ROC@30k {lf['roc']:.2f} Sortino {lf['sort']:.3f} DD ${lf['mdd']:,.0f} | R {len(SL.qual)} episodes / {SL.n_dd_days} days (want 121.06 / 3.926 / 36,526, 45 / 762)")
+    if not (abs(lf["roc"] - 121.06) <= 0.01 and abs(lf["sort"] - 3.926) <= 0.001 and len(SL.qual) == 45 and SL.n_dd_days == 762):
+        raise SystemExit("PARITY STOP: the S1 line does not reproduce (nothing judged)")
+    return SL, res_line, lf
+
+
+def power():
+    """the family null on the 'close' pools (the same draws Stage A's evaluate makes: same streams, same pools) - NO cell is run"""
+    psha = prereg_ok()
+    pins(psha)
+    t0 = time.time()
+    B, _ = A13.load_463()
+    bk, dd, S12 = R17.book_checks(B)
+    if not (bk["ok"] and dd["ok"]):
+        raise SystemExit("refused: #463 does not reproduce the registered WF numbers / drawdown structure (nothing computed)")
+    W, aud, csi = load_world()
+    rows = A13.book_rows(B, W)
+    SL, _, _ = load_line(B)
+    with season_mode():
+        L = R17.rm_build(W, WF0, PRE_END, JUDGED)
+        acc = season_null(W, L, R17.NREP, 0)
+    pw = power_read(B, S12, SL, rows, acc)
+    pw.update({"prereg_sha256_lf": psha, "harness_sha256": hashlib.sha256(open(__file__, "rb").read()).hexdigest(), "rebalances": len(L.recs), "traded": int(sum(v.traded for v in L.recs))})
+    os.makedirs(OUT, exist_ok=True)
+    with open(POWER_JSON, "w") as f:
+        json.dump(pw, f, indent=1, default=lambda o: o.item() if hasattr(o, "item") else str(o))
+    print(f"\nSEASON r1 POWER LINE (the family null alone, {pw['draws']} draws; no cell was run): bar {pw['bar_rule']} = {pw['bar_roc']:.2f}"
+          f" (= ${pw['bar_roc'] * 1000:,.0f} a year at a $30k worst drawdown); null MAX p50 {pw['null']['roc_max']['p50']:.2f}")
+    for nm, c in pw["cells"].items():
+        print(f"  {nm}: the true edge it takes to clear the bar - 50% power ${c['mde50_usd_per_year_own_size']:,.0f} a year, 80% power ${c['mde80_usd_per_year_own_size']:,.0f} a year "
+              f"(own size: 50 a side at $4,000, {c['active_days']} active WF days); seat on R: null p50 ${c['null_on_R']['p50']:,.0f} / p95 ${c['null_on_R']['p95']:,.0f} / SD ${c['null_on_R']['sd']:,.0f} -> "
+              f"a seat needs ${c['seat_mde50_on_R_own_size']:,.0f} (50%) / ${c['seat_mde80_on_R_own_size']:,.0f} (80%) more on R at own size, "
+              f"${c['seat_mde50_on_R_at_0.25']:,.0f} / ${c['seat_mde80_on_R_at_0.25']:,.0f} at the 0.25 seat (c ~ {c['seat_c_at_0.25_median_over_draws']:.3f})")
+    print(f"written {POWER_JSON} ({time.time() - t0:.0f}s) - commit these lines as {os.path.basename(POWER_DOC)} BEFORE stage_a")
+    return pw
+
+
+def power_committed():
+    """stage_a's gate: the power addendum is committed in the repo and quotes this power file's sha256"""
+    import subprocess
+    if not (os.path.exists(POWER_JSON) and os.path.exists(POWER_DOC)):
+        raise SystemExit(f"refused: run `power` and commit {os.path.basename(POWER_DOC)} first (MANAGER #115 (1): the power line is committed before any cell P&L)")
+    ph = hashlib.sha256(open(POWER_JSON, "rb").read()).hexdigest()
+    if ph[:16] not in open(POWER_DOC, encoding="utf-8").read():
+        raise SystemExit(f"refused: {os.path.basename(POWER_DOC)} does not quote the power file's sha256 {ph[:16]}...")
+    r = subprocess.run(["git", "-C", REPO, "log", "-1", "--format=%H %ci", "--", os.path.relpath(POWER_DOC, REPO).replace(os.sep, "/")], capture_output=True, text=True)
+    if r.returncode or not r.stdout.strip():
+        raise SystemExit(f"refused: {os.path.basename(POWER_DOC)} is not committed")
+    return {"power_sha256": ph, "power_doc_commit": r.stdout.strip()}
+
+
+# ------------------------------------------------------------------ Stage A
+def stage_a():
+    psha = prereg_ok()
+    pgate = power_committed()
+    pins(psha, pgate)
+    pok = R17.prereg_ok()
+    t0 = time.time()
+    B, _ = A13.load_463()
+    bk, dd, S12 = R17.book_checks(B)
+    if not (bk["ok"] and dd["ok"]):
+        raise SystemExit("refused: #463 does not reproduce the registered WF numbers / drawdown structure (nothing computed)")
+    W, aud, csi = load_world()
+    rows = A13.book_rows(B, W)
+    SL, res_line, lf = load_line(B)                                     # the S1 line's parity first: a stop here computes no cell
+    print(f"RESMOM prereg {'verified' if pok['verified'] else 'NOT verified'}; world ready ({time.time() - t0:.0f}s); calendar splits on the grid: {csi}; RESMOM audit rows: {0 if aud is None else len(aud)}", flush=True)
+    with season_mode():
+        res, obj = R17.evaluate(W, B, S12, rows, JUDGED, R17.NREP, 0, full=True)
+    print(f"the '{JUDGED}' reading + its {R17.NREP}-draw null done ({time.time() - t0:.0f}s)", flush=True)
     idx = pd.DatetimeIndex(B.index)
     others = {}
     if os.path.exists(BAB_NPZ):
@@ -362,6 +438,11 @@ def load_line(B):
 
 # ------------------------------------------------------------------ selftest (r17's toy world; n_side 3)
 def selftest():
+    for f in ("dryload", "power", "power_committed", "stage_a", "load_line", "load_world", "power_read", "seat_read", "diagnostics"):
+        assert callable(globals().get(f)), f"the command function {f} is missing"
+    import inspect
+    assert "load_line(B)" not in inspect.getsource(globals()["load_line"]).split("\n", 1)[1], "load_line calls itself"
+    assert "evaluate(" in inspect.getsource(globals()["stage_a"]) and "season_null(" in inspect.getsource(globals()["power"])
     with R17.spec(n_side=3), D15.spec(univ=14):
         W = R17.toy_world()
         mk = month_keys(W.days)
@@ -419,7 +500,7 @@ def selftest():
                 assert np.isfinite(cpw["mde50_usd_per_year_own_size"]) and cpw["mde80_usd_per_year_own_size"] >= cpw["mde50_usd_per_year_own_size"] - 1e-6
                 assert cpw["seat_mde80_on_R_own_size"] >= cpw["seat_mde50_on_R_own_size"]
                 assert d5["dd5"] >= 0 and d5["max_dd"] >= d5["dd5"] - 1e-9
-    print(f"r25_season selftest OK ({n} name-ranks: LAG12 by brute force, AVG = LAG12 with one year on file, longs = highest scores, the null on its stream; the '{JUDGED}' Stage A + seat read + diagnostics + power read run end to end on the toy world, entry months add up to the run)")
+    print(f"r25_season selftest OK ({n} name-ranks: LAG12 by brute force, AVG = LAG12 with one year on file, longs = highest scores, the null on its stream; the '{JUDGED}' Stage A + seat read + diagnostics + power read run end to end on the toy world, entry months add up to the run; every command defined)")
 
 
 def main(argv):
