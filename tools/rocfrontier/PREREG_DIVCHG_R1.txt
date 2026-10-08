@@ -105,3 +105,6 @@ frequency change misread as a raise or a cut (the rules above and the hand audit
 (the split-adjusted basis plus the |G| > ln(4) listing); survivorship (Alpaca's inactive names only); one 8-year regime.
 
 Zero passes = DIVCHG r1 dead; no other horizons, thresholds or definitions are tried.
+
+CLOSED AT DRAFT (2026-10-08, MANAGER #145): never run - no data read, no harness. The 10-07 review said NO to v1 (17 edits);
+SCOPE r2 found its prior below the r17 engine's MDE (~$17,500 a year), so the power-first gate closed it (ledger 2.105).

@@ -1,6 +1,6 @@
 # SCOPE r2 - STRATEGY-BEATING lane: what is left in the stock EVENT space (2026-10-08)
 
-DRAFT for MANAGER review (inbox #689: the lane's queue is empty). Nothing in it runs before MANAGER's GO. Written after
+Reviewed by MANAGER 10-08 (#145; rulings at the end). Nothing in it runs. Written after
 every verdict below is on the ledger or queued to it; no new number is computed for this note.
 
 **VERDICT, plainly (MANAGER #143 asked): the US stock-basket habitat is CLOSED on the data held (2016-25, top 500).** No
@@ -89,3 +89,12 @@ families alive was the seat case, and four of those seat cases then died on the 
 3. Lane work from here: the RESMOM forward line (first live rank 10-30, harm monitors only, NOTE 2 shipped), cross-lane leak
    and power reviews on request (FRONTIER QUALITY r1, Custom ML's DISTRESS-ML / FUND-ML seats, NOISE), and anything
    MANAGER assigns.
+
+## MANAGER's rulings (#145, 2026-10-08)
+
+1. DIVCHG: CLOSED at draft (ledger 2.105).
+2. The power-first gate: GO as a standing rule (ledger section 5). Every stock-basket prereg prints its MDE in its own
+   money beside its pre-data prior; a prior below the MDE closes the family at draft, no Stage A.
+3. Longer history: an owner decision (it likely costs money); MANAGER puts it to the owner as an option, not a
+   recommendation, with these numbers (priors $4-12k a year against an MDE of ~$17.5k). Until then, no new stock-basket
+   family.
