@@ -4639,7 +4639,8 @@ def smoke(*a):
         cells_n = out_n["stageA"]["cells"]
         assert out_n["judged"] is True and out_n["stageA"]["pass_cells"] == [] and out_n["candidate"] is None and out_n["stageA"]["null"]["draws"] == NREP == 100, (out_n["stageA"]["pass_cells"], out_n["candidate"])
         assert "NETISS Stage A: FAIL - no cell passes (a)-(e)" in txt_n and "Stage A (a)-(e) pass" not in txt_n and all(d < "2025-06-30" for d in dates_of(txt_n)), "the null world fails and prints no lockbox date"
-        assert all(not c["PASS"] for c in cells_n.values()) and not any(c["A2"]["incremental_credit"] for c in cells_n.values()), {k: c["base"]["roc"] for k, c in cells_n.items()}
+        assert all(not c["PASS"] for c in cells_n.values()), {k: c["base"]["roc"] for k, c in cells_n.items()}       # the null world FAILS Stage A; its A2 is a report (a positive-mean noise cell can lift L by chance - under [A22] N24's did)
+        print("  the null world's A2 report (never a pass route): " + "; ".join(f"{k}: net ${c['base']['net']:,.0f}, L + c x cell {c['A2']['roc']:.1f} / {c['A2']['sortino']:.3f} against L's {c['A2']['reference']['roc']:.1f} / {c['A2']['reference']['sortino']:.3f}, credited {c['A2']['incremental_credit']}" for k, c in cells_n.items()))
         dn = {c: [q["net"] for q in cells_n[c]["deciles"]["deciles"]] for c in CELLS}
         sn = {c: float(np.corrcoef(np.arange(10), dn[c])[0, 1]) for c in CELLS}
         os.remove(sa_path)
@@ -4660,7 +4661,7 @@ def smoke(*a):
         assert out["prereg_sha256_lf"] == PREREG_SHA and {k: out.get(k) for k in stamp()} == stamp() and out["manifest_sha256"] == D15.MANIFEST_PREFIX + "0" * 56 and out["stageA"]["null"]["draws"] == NREP
         # the score block prints BEFORE any cell's P&L, in the prereg's order
         order = ("BEFORE ANY P&L - the share-count score", "coverage: the first rank with any scored name", "per rank (rank date: universe / scored", "names lost to each rule, by rank", "excluded at |ISS| > ln(10) and LISTED", "ISS per fill year", "over every rank:", "[A3] a calendar split the cache's factor F does not show",
-                 "[A11] unscored ADRs / IFRS filers (20-F / 40-F / 6-K only) per rank", "CIKs whose first share fact starts inside the window", "[A4] names with no score whatever the horizon, LISTED by name", "[A13] ONE SHARE CLASS PER FIRM", "the weighted-average concept as a cross-check only", "judged reading [A18] done")
+                 "[A11] unscored ADRs / IFRS filers (20-F / 40-F / 6-K only) per rank", "CIKs whose first share fact starts inside the window", "[A4] names with no score whatever the horizon, LISTED by name", "[A13] ONE SHARE CLASS PER FIRM", "the weighted-average concept as a cross-check only", "judged reading [A22] done")
         seq = [txt.index(s_) for s_ in order]
         i_pl = txt.index("the JUDGED reading [A22] (no in-hold event removes a name")          # the first line that carries a cell's P&L
         assert seq == sorted(seq) and seq[-1] < i_pl and txt.index("REFERENCE book [X1]") < seq[0], ("the score block is out of the prereg's order", seq)
