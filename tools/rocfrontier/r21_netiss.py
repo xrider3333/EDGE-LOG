@@ -43,7 +43,7 @@ THIS = sys.modules[__name__]
 OUT_DEFAULT = r"C:\EdgeLog\_anatomy_cache\rocfrontier\netiss_r1"
 OUT = os.environ.get("EDGELOG_NETISS_R1", OUT_DEFAULT)                                                    # results, outside git
 PREREG = os.path.join(HERE, "PREREG_NETISS_R1.txt")
-PREREG_SHA = "cd52f51189da546d73d87b842488d56027fecba961173d5c6984f0383f7b1f38"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDA 1-3 + POST-DATA BUG FIX ADDENDUM 4 ([A18] the judged reading keeps in-hold flags, [A19] DD5, [A20] caveats, [A21] the restated L); supersedes f2f69cd9 (draft + addenda 1-3)
+PREREG_SHA = "7d941d2c7f60eda226f02a925c021dd2dccaf28daa05b3fa23de1b26084e6b60"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDA 1-3 + POST-DATA BUG FIX ADDENDUM 4 ([A18] the judged reading keeps in-hold flags, [A19] DD5, [A20] caveats, [A21] the restated L); supersedes f2f69cd9 (draft + addenda 1-3)
 WF0, PRE_END, LB0, LB1 = M17.WF0, M17.PRE_END, M17.LB0, M17.LB1          # WF = positions EXITED 2016-07-01 .. 2025-06-29; LB = exits 2025-06-30 .. 2026-06-30 INCLUSIVE; cuts: S.LB0 / S.END
 BOOK_WF, BOOK_LB, DEEPEST_WF = M17.BOOK_WF, M17.BOOK_LB, M17.DEEPEST_WF
 NREP, SEED = 500, 20261008                                               # the registered null: 500 draws of random names from each rebalance's eligible SCORED pool
