@@ -6602,6 +6602,101 @@
    ],
    "overall": 49,
    "summary": "You shorted the open flush after most of the move was done, selling 22 points above the low on a bounce bar. The trade went about 38 points against you, past where the 09:39 high said you were wrong, and you scratched out for 4 points just as it finally dropped another 20. Next time wait for a lower high to sell, or respect the bar-high stop instead of holding through it."
+  },
+  {
+   "sym": "MNQ",
+   "date": "2026-10-08",
+   "dir": "SHORT",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "09:55",
+   "exit_time": "09:59",
+   "entry": 31167.25,
+   "exit": 31214.75,
+   "qty": 3,
+   "entry_ts": "09:55:00",
+   "exit_ts": "09:59:00",
+   "breakout_candle": "09:54",
+   "hold_to": "09:58",
+   "stop": 31210.0,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 9,
+     "note": "The open chopped in a 31199-31248 range after a 31276 spike, so the 09:54 break lower had no clear trend behind it."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 5,
+     "note": "You sold 31167.25, at the very bottom of the 41-point 09:54 flush and about 32 points below the broken range low."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 7,
+     "note": "The structural stop was the 09:54 high at 31210, about 43 points of risk from the fill."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 3,
+     "note": "With the move already extended, there was no nearby level offering anything close to 43 points of reward."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 6,
+     "note": "No setup was tagged; it reads as a range-breakdown chase rather than a defined pattern."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 7,
+     "note": "Volume was heavy (15,844 on the 09:54 bar) and ranges were wide, so fills were fine but swings were large."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 7,
+     "note": "09:55 is still inside the volatile first half hour where breakdowns often snap back."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 8,
+     "note": "You entered after the flush bar had already closed near its low instead of on a retest of 31199-31201."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 17,
+     "note": "You got out at 31214.75, about 5 points past the 31210 structural stop, as price ran up to 31214 at 09:58."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 14,
+     "note": "Best price was 31157 at 09:55 (about 10 points); in the next 15 minutes price rallied to 31260, so exiting saved more."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 8,
+     "note": "Three MNQ against a 43-point stop risked roughly $290, large for a chase entry."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 4,
+     "note": "No setup, notes or grade were logged for this trade."
+    }
+   ],
+   "overall": 48,
+   "summary": "You shorted the bottom of a big 09:54 flush, so the trade had little room and a wide stop from the start. Price gave you only about 10 points before snapping back, and you cut it near the structural stop, which kept the loss from growing as MNQ rallied to 31260 afterwards. Next time wait for a retest of the broken range low around 31200 to short with a tighter stop."
   }
  ],
  "na": [
