@@ -65,3 +65,35 @@ tradable mechanism? The test: on TLT, fade the break and take the move back to V
   parity-checked against the mirror before the validate.
 - **FAIL:** recorded dead, no variants.
 - **Either way:** a ledger row, a RUNBOARD research row (ROC, drawdown, DD5) and a NOISE.md section.
+
+## AMENDMENT 1 - STRATEGY-BEATING cross-lane review #73 / #76 and MANAGER #74 / #75 (GO WITH EDITS), 2026-10-08, before any real-direction run
+All edits are accepted. Where this amendment and the text above differ, this amendment rules.
+1. **Null.** One random sign per SESSION per draw, shared by all 54 cells, applied to each cell's realised daily gross
+   fade P&L (cost kept). 2,000 draws. The statistic is the family max.
+2. **Seeds.** The power line is seeded with the fixed seed 20261006 and reproduces. The `--dry` smoke test is seeded from
+   a stable digest (crc32).
+3. **Ex-dividend sessions.**
+   - NOISE's band uses the prior close, and the master is split-adjusted only. TLT goes ex-dividend monthly, about 12
+     sessions a year.
+   - REPORT: trades on ex-dividend sessions and their net, from MANAGER's Alpaca cash-dividend pull. The run stops if the
+     calendar is missing.
+4. **Data.**
+   - The master is the SIP feed.
+   - "Flat at the close" is priced at the session's last 5-minute bar's close (15:55 - 16:00; 12:55 - 13:00 on early
+     closes), not the closing auction. The fade's whole loss side sits on that price.
+   - The cost is the same as NOISE's ($0.02 a share). That is conservative for a fader, which supplies liquidity at the
+     break.
+5. **Freshness (replaces "Fresh test" above in substance).** TLT and IEF share 2016-25 and the rate path, and IEF's loss
+   is what motivated this test. So Stage A on TLT is a CORRELATED re-test, not independent confirmation. A Stage A pass
+   only opens the Auto-Validate: the decision rests on that validate's lockbox (the first unseen year) and a forward line.
+6. **Tail** (REPORT, before the bars):
+   - the 10 worst fade days, each with TLT's open-to-close move that session;
+   - the fade's dollars over #463's 28 drawdown episodes (house rule >= $14,950; 460 days), and how many episodes it made
+     money in. "May be uncorrelated with #463's drawdown weeks" is read from this number.
+7. **Twin with the NQ filters ON** (REPORT), for symmetry with IWM r1 and the sector funds.
+8. **Map row** (REPORT): the crown's dollars a year at a $30k own drawdown (ROC x $1,000) against the map's >= $15,000.
+
+Harness: `tools/noise_tltfade_r1_stageA.py`.
+- **Power line:** `tools/r37_results/noise_tltfade_r1_power.txt`. Coin-flip centre cell, 4,432 WF trades (493 a year).
+  Book-add lead 5% line 17.7 at the volatility size, 5.7 at the $30k twin.
+- Dividend calendar: MANAGER's pull for NOISE #613, `C:/EdgeLog/_anatomy_cache/noise_funds_r1/etf_dividends.csv` (2026-10-08 11:03, 486 rows, sha256 22776e7d354773a85eb705e34b34e2720aade7abf9da942d2e45ee31d8800621; raw pages `etf_dividends_raw.jsonl` sha256 c8a8346e90874bd3b6afac6a4e3fac0bb7393b98f17bd78e05d7fc2b84d88981). The `--dry` smoke test (coin flips everywhere, no real direction) ran the whole path clean on 2026-10-08. GO: STRATEGY-BEATING confirmed the code folds (#76); MANAGER #74 makes that confirmation plus this committed amendment the GO. Stage A runs after this commit, WF only, lockbox unread.

@@ -1,0 +1,6 @@
+NOISE FADE on TLT r1 - unit 720 shares (2016-06-30 close), cost $0.02 a share as traded; WF exit dates 2016-07-01 .. 2025-06-29
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816
+POWER LINES (coin-flip directions on the CENTRE cell's 4432 WF trades, 493 a year)
+  VOL scale (primary)        x1.898 NQ: SD of the book-add lead 10.8 points; 5% line 17.7; 80% line 26.8
+  $30k own drawdown (twin)   x0.437 NQ: SD of the book-add lead 3.5 points; 5% line 5.7; 80% line 8.6
+  (no real direction was computed; coin seed 20261006, fixed - re-running reproduces these lines)
