@@ -1,6 +1,7 @@
 """
 LATESTRESS r1 - last-half-hour momentum on STRESS days, NQ and ES. STAGE A, walk-forward only.
-Pre-registration: docs/PREREG_orb_latestress_r1_2026-10-07.md (scope rank 1, docs/SCOPE_ORB_2026-10-05.md).
+Pre-registration: docs/PREREG_orb_latestress_r1_2026-10-07.md (+ addendum 1: bar g = two thirds of the WF years
+holding >= 10 trades; the 6/9 reading printed as a report). Scope rank 1, docs/SCOPE_ORB_2026-10-05.md.
 Run from the shared checkout:
 
     python tools/orb_latestress_r1.py
@@ -124,7 +125,12 @@ def main():
                 pick.extend(rng.choice(cand, size=min(n, len(cand)), replace=False))
             ns[name] = P.iloc[sorted(pick)]
         nulls.append(ns)
-    passes = C.evaluate(cells, nulls, book, cal, ddd, "LATESTRESS")
+    def breadth_10(W, yrs, nyr):          # addendum 1: two thirds of the WF years holding >= 10 of the cell's trades
+        held = nyr[nyr >= 10].index
+        return len(held) > 0 and float((yrs.reindex(held) > 0).mean()) >= 2.0 / 3.0
+
+    passes = C.evaluate(cells, nulls, book, cal, ddd, "LATESTRESS",
+                        breadth=("g 2/3 of WF years with >= 10 trades", breadth_10))
 
     # ---- REPORTED ONLY ----
     bk = book[(book.index >= pd.Timestamp(C.WF[0])) & (book.index <= pd.Timestamp(C.WF[1]))]
