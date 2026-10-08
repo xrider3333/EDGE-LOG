@@ -3,6 +3,10 @@
 DRAFT for MANAGER review (inbox #689: the lane's queue is empty). Nothing in it runs before MANAGER's GO. Written after
 every verdict below is on the ledger or queued to it; no new number is computed for this note.
 
+**VERDICT, plainly (MANAGER #143 asked): the US stock-basket habitat is CLOSED on the data held (2016-25, top 500).** No
+candidate below clears either route - the decayed effect after costs against ROC 15, or the earner route without the
+short-growth bleed. It reopens only with a longer point-in-time history.
+
 ## Where the lane stands
 
 The 10-05 scope ([SCOPE_STRATEGY-BEATING_2026-10-05.md](SCOPE_STRATEGY-BEATING_2026-10-05.md)) ranked 17 mechanisms. Eight
