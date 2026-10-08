@@ -131,3 +131,12 @@ as-traded close by more than 0.5%).
 3. Reported to MANAGER as a harness finding: XSML r1 (dead) ran on the split-adjusted floor; its verdicts are not
    re-opened (the leak is in the universe both the cells and the nulls shared), and any other lane using the XSML
    universe should take floor_raw=True.
+
+## Power line (2026-10-08, committed before `run`; fixed data per addenda 1-2; no cell or twin P&L read)
+```
+FUND-ML r1 POWER LINE (no cell or twin P&L read): 90 monthly WF decisions; 1,000 random beta-neutral books on the eligible names (seed 20261008).
+  null (GROSS - the cell is judged NET against it, deliberately conservative): WF ROC @ $30k 50th +0.1, 95th +10.5; for the record, the NET null's 95th +1.6; DO 95th +0.207
+  MDE in own money: the smallest lead over a random book this test can see is about $10,454 a year at a $30k drawdown (95th minus 50th, $1,000 a year per ROC point); the map bar (ROC 15) is $15,000 a year.
+  mapped share of the universe by July-June year: 2017/18 96.5%, 2018/19 96.5%, 2019/20 98.7%, 2020/21 99.4%, 2021/22 99.7%, 2022/23 100.0%, 2023/24 100.0%, 2024/25 100.0%
+  names with a usable share count (first filed before t, period end within 15 months): median 433 of 498 mapped; eligible median 320
+```
