@@ -255,6 +255,60 @@ def test_a_record_for_one_gate_never_vouches_for_another():
     assert wt.reuse_reason(_gate('webull'), st, 'T1', _never) is None
 
 
+def test_a_selftest_is_not_reused_when_the_final_page_lost_one_of_its_mutant_anchors():
+    """SHOULD-FIX (ii), MANAGER #667: cover unchanged is not enough when another lane moved an
+    anchor in index.html - the recount voids the reuse, and the console says why."""
+    g = _gate('home-selftest')
+    st = _stamp(**{'home-selftest': {'tree': 'T1', 'at': '18:00', 'line': 'SELFTEST: PASS'}})
+    same = lambda a, b, p: []                                    # noqa: E731
+    gone = lambda _g: 'the final index.html no longer holds every mutant anchor exactly once (x)'
+    fine = lambda _g: None                                       # noqa: E731
+    assert wt.reuse_reason(g, st, 'T2', same, gone) is None
+    assert 'anchors re-counted' in wt.reuse_reason(g, st, 'T2', same, fine)
+    assert wt.rerun_reason(g, st, 'T2', same, gone).startswith('the final index.html no longer')
+    # on the exact tree it passed on, the run itself counted them: no recount
+    assert 'exact tree' in wt.reuse_reason(g, st, 'T1', _never, _never)
+    # a fast gate is never carried across trees, so never recounted either
+    assert wt.reuse_reason(_gate('home'), _stamp(home={'tree': 'T1'}), 'T2', _never, _never) is None
+
+
+ANCHOR_PROBE = """
+MUTANTS = [
+    ('one', 'ANCHOR-A', 'BROKEN-A', 'why'),
+    ('pair', ('ANCHOR-B', 'ANCHOR-C'), ('BROKEN-B', 'BROKEN-C'), 'why', 'expect'),
+]
+"""
+
+
+def test_anchor_check_counts_each_anchor_the_way_the_probe_builds_its_mutants(tmp_path):
+    (tmp_path / 'tools').mkdir()
+    (tmp_path / 'tools' / 'fake_probe.py').write_text(ANCHOR_PROBE, encoding='utf-8')
+    (tmp_path / 'tools' / 'no_mutants.py').write_text('KNOWN_BAD = []\n', encoding='utf-8')
+    (tmp_path / 'tools' / 'broken.py').write_text('import no_such_module_here\n', encoding='utf-8')
+    page = tmp_path / 'index.html'
+    gate = lambda script: wt.Gate('k', 'K', 'tools/%s.py' % script, ('x',), 'f', 'e',  # noqa: E731
+                                  slow=True)
+    anchors = wt.anchor_check(str(tmp_path))
+    page.write_text('ANCHOR-A ANCHOR-B ANCHOR-C', encoding='utf-8')
+    assert anchors(gate('fake_probe')) is None
+    page.write_text('ANCHOR-A ANCHOR-A ANCHOR-B ANCHOR-C', encoding='utf-8')
+    assert 'one: found 2 times' in anchors(gate('fake_probe'))
+    page.write_text('ANCHOR-A ANCHOR-B', encoding='utf-8')         # the pair's second anchor
+    assert 'pair: found 0 times' in anchors(gate('fake_probe'))
+    assert anchors(gate('no_mutants')) is None, 'nothing to recount'
+    assert 'could not be counted' in anchors(gate('broken')), 'unknown means re-run'
+    assert not list((tmp_path / 'tools').glob('__pycache__')), 'no bytecode left in the tree'
+
+
+@pytest.mark.parametrize('key', ['paper-selftest', 'report-selftest', 'importtz-selftest',
+                                 'home-selftest', 'webull-selftest'])
+def test_anchor_check_can_read_every_real_selftest_probe(key):
+    """The recount imports the real probes: it must get an answer from each. (Whether today's
+    page still holds every anchor is the selftest's business, not this suite's.)"""
+    got = wt.anchor_check(ROOT)(_gate(key))
+    assert got is None or got.startswith('the final index.html no longer holds'), got
+
+
 def test_only_a_slow_selftest_is_worth_giving_the_lock_back_for(monkeypatch):
     g = _gate('home-selftest')
     monkeypatch.delenv('EDGELOG_SHIP_LOCKED_RERUN_MAX', raising=False)
@@ -531,6 +585,8 @@ for b in range(int(os.environ.get('FAKE_LAND_BUMPS', '1'))):
     txt = open(p, encoding='utf-8', newline='').read()
     m = re.search(r"const VERSION='(\d+)\.(\d+)'", txt)
     txt = txt.replace(m.group(0), "const VERSION='%s.%d'" % (m.group(1), int(m.group(2)) + 1), 1)
+    if os.environ.get('FAKE_LAND_DROP_ANCHOR') and b == 0:
+        txt = txt.replace('FAKE-MUTANT-ANCHOR', 'FAKE-MUTANT-MOVED')
     open(p, 'w', encoding='utf-8', newline='').write(txt)
     if os.environ.get('FAKE_LAND_FILE'):
         with open(os.path.join(other, os.environ['FAKE_LAND_FILE']), 'a', encoding='utf-8') as f:
@@ -763,6 +819,7 @@ def test_main_moved_elsewhere_the_selftest_is_reused_and_the_fast_gates_rerun_lo
     assert ('reused from the pre-lock run: HOME gate SELF-TEST - SELFTEST: PASS -- gate caught '
             '1/1 broken builds (fake) (passed at ') in out, out
     assert 'differs from this one only outside tools/home_render_probe.py, tools/ledger_removed.py' in out
+    assert 'its mutant anchors re-counted in this index.html' in out, out
     assert 'LOCKED: 2 gate(s) run under the lock, 1 reused from the pre-lock run' in out, out
     # the ship carries main's VERSION + 1, and both lanes' work is on main
     idx = _git(env, origin, 'show', 'main:index.html')
@@ -816,6 +873,25 @@ def test_main_changed_a_file_the_selftest_reads_but_is_not_keyed_on_and_it_rerun
             'tools/ledger_removed.py since it passed') in out, out
     runs = [r for r in _trees(tmp_path) if r[:2] == ('home_render_probe', 'selftest')]
     assert len(runs) == 2 and runs[-1][3] == _git(env, origin, 'rev-parse', 'main^{tree}'), runs
+
+
+def test_another_lane_moved_a_mutant_anchor_so_the_carried_selftest_is_void(tmp_path):
+    """SHOULD-FIX (ii) end to end. While this lane's HOME selftest runs before the lock, another
+    lane lands a page change that moves its mutant anchor - touching nothing in the selftest's
+    cover. Under the lock the recount voids the reuse; outside it the selftest re-runs, cannot
+    build its mutant, comes back INCONCLUSIVE and stops the ship: nothing of this lane lands
+    over a selftest that could no longer have caught anything."""
+    env = _env(tmp_path, FAKE_LAND=str(tmp_path / 'land.py'), FAKE_LAND_DROP_ANCHOR='1',
+               EDGELOG_SHIP_LOCKED_RERUN_MAX='-1')
+    origin, shared, session = _sandbox(tmp_path, env)
+    rc, out = _ship(env, shared, session)
+    assert rc != 0, out
+    assert ('LOCK RELEASED: HOME gate SELF-TEST must re-run - the final index.html no longer '
+            'holds every mutant anchor exactly once (m1: found 0 times)') in out, out
+    assert 'HOME gate SELF-TEST was INCONCLUSIVE (exit 2)' in out, out
+    assert not _landed(env, origin, session)
+    assert 'FAKE-MUTANT-MOVED' in _git(env, origin, 'show', 'main:index.html')
+    _assert_lock_and_queue_free(tmp_path)
 
 
 def test_a_quick_selftest_main_invalidated_reruns_under_the_lock_instead_of_requeueing(tmp_path):

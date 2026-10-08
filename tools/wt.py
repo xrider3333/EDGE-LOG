@@ -100,7 +100,12 @@ final index.html ("the current file must PASS") is exactly the plain probe, whic
 final tree under the lock. Put another way: a reused selftest lands exactly the main the old
 flow lands when this ship goes first and the lanes that moved main meanwhile go after it - none
 of them would have re-run this probe's selftest either. The same holds for the few repo files the
-page itself fetches at run time (PARAM_LIBRARY.md, docs/*.json - none in HOME or WEBULL).
+page itself fetches at run time (PARAM_LIBRARY.md, docs/*.json - none in HOME or WEBULL). And
+the one way another lane's page change can make a carried selftest meaningless - moving one of
+its mutant anchors, so the broken copies could no longer even be built - is checked directly:
+before a selftest pass is reused on a different tree, its MUTANTS' anchors are re-counted in
+that tree's index.html (anchor_check, milliseconds); any anchor not found exactly once voids the
+reuse.
 
 Stdlib only. Safe to re-run: `new` on an existing name just prints its path.
 """
@@ -854,14 +859,77 @@ def tree_changes(wt):
     return changed
 
 
-def reuse_reason(g, stamp, tree, changed):
+_ANCHOR_COUNT = r'''
+import io, json, os, sys
+tools = sys.argv[1]
+sys.path.insert(0, tools)
+mod = __import__(sys.argv[2])
+src = io.open(os.path.join(os.path.dirname(tools), 'index.html'), encoding='utf-8',
+              newline='').read()
+bad = []
+for m in getattr(mod, 'MUTANTS', None) or []:
+    pairs = (list(zip(m[1], m[2])) if isinstance(m[1], (tuple, list)) else [(m[1], m[2])])
+    built = src
+    for a, r in pairs:
+        n = built.count(a)
+        if n != 1:
+            bad.append([m[0], n])
+            break
+        built = built.replace(a, r)
+print(json.dumps(bad))
+'''
+
+
+def anchor_check(wt):
+    """anchors(g) -> None when every MUTANT of selftest `g` can still be built from the worktree's
+    index.html - each anchor found exactly once, replaced in turn, exactly as the probe builds
+    them - else plain words for why not (2026-10-08, MANAGER #667 should-fix ii).
+
+    THE GAP IT CLOSES. index.html is in no selftest's cover (module docstring), so a selftest pass
+    can be carried onto a final page where another lane has moved one of its mutant anchors - and
+    there that selftest could no longer even build its broken copies. Recounting the anchors in
+    the final page takes milliseconds and settles that case: the reuse is invalid and the selftest
+    re-runs (and, the anchor being gone, comes back INCONCLUSIVE and stops the ship, which is the
+    lane's cue to update its MUTANTS). It reads the probe's own MUTANTS by importing the probe in a
+    child process (no bytecode written), so the ship never runs a probe's module code itself. A
+    probe with no MUTANTS (the run-report and import time-zone selftests rebuild known-bad builds
+    from git history) has nothing to recount. One that cannot be imported or counted counts as a
+    problem: re-run rather than trust it."""
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
+
+    def anchors(g):
+        mod = os.path.splitext(os.path.basename(g.script))[0]
+        try:
+            p = subprocess.run([sys.executable, '-c', _ANCHOR_COUNT, os.path.join(wt, 'tools'), mod],
+                               cwd=wt, env=env, capture_output=True, text=True, encoding='utf-8',
+                               errors='replace', timeout=120)
+        except Exception as e:
+            return 'its mutant anchors could not be counted (%s)' % type(e).__name__
+        lines = (p.stdout or '').strip().splitlines()
+        try:
+            bad = json.loads(lines[-1]) if p.returncode == 0 and lines else None
+        except ValueError:
+            bad = None
+        if not isinstance(bad, list):
+            tail = ((p.stderr or '').strip().splitlines() or ['no output'])[-1]
+            return ('its mutant anchors could not be counted in the final index.html (%s)'
+                    % tail[:160])
+        if bad:
+            return ('the final index.html no longer holds every mutant anchor exactly once (%s)'
+                    % ', '.join('%s: found %s times' % (n, c) for n, c in bad[:5]))
+        return None
+    return anchors
+
+
+def reuse_reason(g, stamp, tree, changed, anchors=None):
     """Why gate `g` need not run again on `tree`, or None when it must.
 
     Every gate is reused on the exact tree it passed on. A SLOW gate is also reused when every
     file in its cover is byte-identical between the tree it passed on and this one - which is
     what "the commits that landed meanwhile touched none of the files it reads" comes to, checked
-    on the trees themselves rather than inferred from commit lists. `changed` is tree_changes(wt)
-    (or a fake, in tests)."""
+    on the trees themselves rather than inferred from commit lists - AND, when `anchors` is given
+    (anchor_check(wt); ship always gives it), every one of its mutant anchors is still in this
+    tree's index.html. `changed` is tree_changes(wt) (or a fake, in tests)."""
     rec = ((stamp or {}).get('gates') or {}).get(g.key)
     if not isinstance(rec, dict) or not rec.get('tree') or not tree:
         return None
@@ -873,11 +941,16 @@ def reuse_reason(g, stamp, tree, changed):
     moved = changed(rec['tree'], tree, list(g.cover))
     if moved is None or moved:
         return None
-    return ('passed at %s on a tree that differs from this one only outside %s'
-            % (when, ', '.join(g.cover)))
+    if anchors is not None:
+        problem = anchors(g)
+        if problem:
+            return None
+    return ('passed at %s on a tree that differs from this one only outside %s%s'
+            % (when, ', '.join(g.cover),
+               '; its mutant anchors re-counted in this index.html' if anchors else ''))
 
 
-def rerun_reason(g, stamp, tree, changed):
+def rerun_reason(g, stamp, tree, changed, anchors=None):
     """Plain words for why a slow gate cannot be reused - for the console."""
     rec = ((stamp or {}).get('gates') or {}).get(g.key)
     if not isinstance(rec, dict) or not rec.get('tree'):
@@ -885,7 +958,10 @@ def rerun_reason(g, stamp, tree, changed):
     moved = changed(rec['tree'], tree, list(g.cover))
     if moved is None:
         return 'the tree it passed on can no longer be compared'
-    return 'main changed %s since it passed' % ', '.join(moved)
+    if moved:
+        return 'main changed %s since it passed' % ', '.join(moved)
+    problem = anchors(g) if anchors is not None else None
+    return problem or 'its pass does not carry to this tree'
 
 
 # ======================================================================= VERSION and phases
@@ -1191,7 +1267,7 @@ def run_plan(wt, root, plan, stamp, spath, tree, base, phase, explain=None):
     return ran, kept
 
 
-def gate_before_lock(wt, root, rnd, spath, key, changed):
+def gate_before_lock(wt, root, rnd, spath, key, changed, anchors=None):
     """Step 1, with no ticket and no lock: rebase onto origin/main, realign VERSION, renumber
     this ship's RESEARCH_LEDGER rows, and run every gate that applies - selftests included -
     recording each pass in the stamp. Gates that already passed (this exact tree, or a selftest
@@ -1215,7 +1291,8 @@ def gate_before_lock(wt, root, rnd, spath, key, changed):
     base = run(['git', '-C', wt, 'rev-parse', 'origin/main'])
     stamp = load_stamp(spath, key)
     t0 = time.time()
-    plan = [(g, reuse_reason(g, stamp, tree, changed)) for g in applicable_gates(wt, root)]
+    plan = [(g, reuse_reason(g, stamp, tree, changed, anchors))
+            for g in applicable_gates(wt, root)]
     ran, kept = run_plan(wt, root, plan, stamp, spath, tree, base, 'pre-lock')
     stamp['tree'], stamp['base'] = tree, base
     save_stamp(spath, stamp)
@@ -1286,9 +1363,10 @@ def cmd_ship(name, message):
 
     who = os.path.basename(wt)
     spath, key, changed = stamp_path(wt), gates_key(), tree_changes(wt)
+    anchors = anchor_check(wt)
     t_start = time.time()
     for rnd in range(1, PRELOCK_ROUNDS + 1):
-        stamp = gate_before_lock(wt, root, rnd, spath, key, changed)
+        stamp = gate_before_lock(wt, root, rnd, spath, key, changed, anchors)
         if stamp is None:
             print('nothing to ship - HEAD has no commits beyond origin/main')
             return
@@ -1347,14 +1425,15 @@ def cmd_ship(name, message):
                         check=False, quiet=True) or '?'
             safe_print('LOCKED: origin/main moved %s commit(s) since the pre-lock run (%s -> %s); '
                        'rebased onto it, tree %s' % (moved, base_then[:8], base_now[:8], tree[:8]))
-        plan = [(g, reuse_reason(g, stamp, tree, changed)) for g in applicable_gates(wt, root)]
+        plan = [(g, reuse_reason(g, stamp, tree, changed, anchors))
+                for g in applicable_gates(wt, root)]
         stale = [g for g, why in plan if g.slow and not why]
         too_slow = [g for g in stale if too_slow_for_the_lock(g, stamp)]
         if too_slow and rnd < PRELOCK_ROUNDS:
             for g in too_slow:
                 safe_print('LOCK RELEASED: %s must re-run - %s. Nothing was pushed; re-running it '
                            'outside the lock, then queueing again (round %d of %d next).'
-                           % (g.label, rerun_reason(g, stamp, tree, changed), rnd + 1,
+                           % (g.label, rerun_reason(g, stamp, tree, changed, anchors), rnd + 1,
                               PRELOCK_ROUNDS))
             _queue_ticket, _lock_handle = _let_go(_queue_ticket, _lock_handle)
             continue
@@ -1363,7 +1442,7 @@ def cmd_ship(name, message):
     def explain(g, after_push=False):
         if not g.slow:
             return None
-        why = rerun_reason(g, stamp, tree, changed)
+        why = rerun_reason(g, stamp, tree, changed, anchors)
         if after_push:
             return ('%s must re-run - %s - after the refused push, so it runs UNDER the push lock '
                     '(rare: only a push from outside this machine gets here)' % (g.label, why))
@@ -1426,7 +1505,8 @@ def cmd_ship(name, message):
         base_now = run(['git', '-C', wt, 'rev-parse', 'origin/main'])
         safe_print('LOCKED (retry): rebased onto origin/main %s, tree %s - gating it before the '
                    'second push' % (base_now[:8], tree[:8]))
-        plan = [(g, reuse_reason(g, stamp, tree, changed)) for g in applicable_gates(wt, root)]
+        plan = [(g, reuse_reason(g, stamp, tree, changed, anchors))
+                for g in applicable_gates(wt, root)]
         ran, kept = run_plan(wt, root, plan, stamp, spath, tree, base_now, 'locked',
                              lambda g: explain(g, after_push=True))
         stamp['tree'], stamp['base'] = tree, base_now
