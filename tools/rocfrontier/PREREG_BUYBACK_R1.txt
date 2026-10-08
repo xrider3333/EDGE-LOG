@@ -275,3 +275,19 @@ edit; [B13], [B14] and [B16] accepted as written; run order unchanged - EAP, the
   otherwise the name is UNSCORED with the no-score reason 'stale S', counted per rank and printed per year beside [B2]'s
   staleness print, before any P&L. The latest such usable cover-page (dei) count still comes first, else the balance-sheet
   (us-gaap) count, as [B15](8) says.
+PRE-DATA ADDENDUM 5 (2026-10-08 11:20 MST, before any BUYBACK number; only the synthetic selftest and smokes have run):
+the lead's review of the harness wired to [B13] / [B14] / [B17] (r23_buyback.py 5ff6ca3a).
+- [B18] ITS NEW CHOICEs ARE FIXED AS BUILT, each labelled in the code: (19) a [B1] failure is labelled a DISCRETE QUARTER when the
+  statement is quarter-length, starts 3 / 6 / 9 months (plus whole years, +-14 days) after FY_prev's end + 1 and no fact first
+  filed on a 10-KT / 10-QT ends after FY_prev's end - else a fiscal-year change (a label only: no score either way); (20) [B17]
+  picks S first (the latest usable dei count, else us-gaap) and then tests its age - a stale dei count does not fall back to a
+  fresher balance-sheet count (both come from the same filings in practice); (21) 'within 15 calendar months' = as-of on or
+  after the rank date less 15 months (day clipped to the month), the boundary day within; (22) an unknown post_mode refuses;
+  (23) the cells are recounted at all four costings, the twins at base cost; (24) the 'keep' report's removed name-months are
+  first-reason counts; (25) its JSON keeps base / seat / A2 / $ a year / DD5 per cell; (26) printed text never writes [D2] for
+  an ex-date.
+- [B19] A CALENDAR SPLIT THE VENDOR'S FACTOR DOES NOT SHOW. Under [B13] a calendar split inside a hold rides the split-safe path;
+  if the vendor's adjustment factor missed it (GE's 1-for-8 of 2021-08-02 is the known case) that path carries a fake move. Every
+  PICKED position with a calendar split inside its hold and no matching factor move is LISTED before any P&L (symbol, rank,
+  ex-date, split ratio, the factor's move), as RESMOM's restatement printed it; the hand audit (f) treats each as a data event
+  (its whole group removed, counted). None listed = said so.
