@@ -122,7 +122,7 @@ noise. The signals, trigger days and counts were real; no return was read.
    independent tests. The family null already takes the max across all four cells, so the bar is unchanged. The
    write-up must not count an NQ-T1 and ES-T1 pair as two confirmations.
 
-## Addendum 2 (2026-10-08 10:45 MST, before any return)
+## Addendum 2 (2026-10-08 10:38 MST, before any return)
 
 A data-hygiene fix to the VIX trigger (T1), found from the house's session-calendar note of 10-07 and not from any
 return.
@@ -139,7 +139,7 @@ return.
   - The ES master's data hole on 2020-02-28 (bars only to 10:55) drops that ES afternoon. It is a stress day, and it
     is lost to the data.
 
-## Addendum 3 (2026-10-08 11:05 MST, before any return) - MANAGER rulings #51 / #52
+## Addendum 3 (2026-10-08 10:43 MST, before any return) - MANAGER rulings #51 / #52
 
 - **Addendum 1 is accepted (#51 a), with one addition:** breadth is counted over the walk-forward years that hold
   >= 10 of the cell's trades, and two thirds of them must be positive. **If fewer than 5 years qualify, bar (g) is

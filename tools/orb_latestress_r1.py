@@ -26,7 +26,7 @@ VIX_CSV = "C:/EdgeLog/_research_cache/public_series/cboe/VIX_History.csv"
 SEED = 20261007
 SMOKE = "--smoke" in sys.argv
 PREREG = "PREREG_orb_latestress_r1_2026-10-07.md"
-PREREG_SHA = "09c2997f23c83de98a99cc17578ce95f4ef23403f41dafd501f74036bb981e81"
+PREREG_SHA = "501eb9d62af5d572cce2ce30a56dc1950c3f834290bb5b10ed0f8826a73725d7"
 
 
 def cme_holiday_days():
