@@ -1,8 +1,8 @@
 """ROLL GUARD PROBE - what the engine roll guard does to a saved run (MANAGER #54 / #58, 2026-10-08).
 
 For each run spec it prints, side by side:
-  * RAW     - the file on the unadjusted master exactly as before the guard's plan (raw prices, the
-              true seam calendar, crossings counted not refused; guard_mode "report");
+  * RAW     - the file on the unadjusted master as before the guard's plan (raw prices, the true
+              seam calendar, crossings counted not refused: roll_treatment "raw" in report mode);
   * PLANNED - the same run through the guarded engine: the signal method it gets (difference /
               ratio / raw, declared or by test), fills and P&L at raw contract prices with the roll
               step out, or the plain refusal it now meets;
@@ -46,7 +46,7 @@ def probe(spec, ae, D, R):
               date_from=spec.get("date_from") or None, date_to=spec.get("date_to") or None)
     out = dict(id=spec.get("id"), strategy=spec.get("strategy"), master=master.get("name"))
     with R.guard_mode("report"):
-        raw = ae.run_backtest(spec["strategy"], **kw)
+        raw = ae.run_backtest(spec["strategy"], **dict(kw, params=dict(kw["params"], roll_treatment="raw")))
     out["raw"] = dict(trades=raw.get("num_trades"), pnl_pts=_num(raw.get("total_pnl")),
                       max_dd_pts=_num(raw.get("max_drawdown")),
                       crossing=((raw.get("_meta") or {}).get("roll_stamp") or {}).get("trades_crossing"),

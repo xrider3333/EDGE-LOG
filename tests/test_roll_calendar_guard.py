@@ -399,7 +399,12 @@ def test_report_mode_and_live_callers_never_raise(make):
         r = ae.run_backtest(lvl, arrays=_arrays("db_noadj_rth"))
     st = r["_meta"]["roll_stamp"]
     assert st["trades_crossing"] == 1 and st["usd_roll_step"] != 0.0      # the step it booked
-    assert st["calendar"] == "raw (live/paper path)"
+    # report mode from a research script only WAIVES the refusal; the plan is the research plan and
+    # the stamp says the result is not a research result (TTM attack 8)
+    assert st["calendar"] == "raw: level-dependent" and st["guard"].startswith("report mode")
+    with R.guard_mode("report"):                                          # a point file is still adjusted
+        p = ae.run_backtest(make("hold")[0], arrays=_arrays("db_noadj_rth"))
+    assert p["_meta"]["roll_stamp"]["calendar"] == "difference-adjusted signals"
     g = {"__file__": os.path.join(ROOT, "api", "paper.py"), "ae": ae, "strat": lvl,
          "arr": _arrays("db_noadj_rth")}
     exec("res = ae.run_backtest(strat, arrays=arr)", g)
@@ -446,6 +451,120 @@ def test_sweep_reprices_ratio_fills_like_the_engine(make, workers):
                    min_trades=1, workers=workers)
     pnl, _e = _raw_hold_pnl()
     assert out["best"]["total_pnl"] == pytest.approx(pnl, abs=1e-6)
+
+
+# ── TTM's attack on v4 (2026-10-08): the holes, closed ──────────────────────────────────────────
+def test_ttm7_a_module_rebuilt_in_memory_under_a_roll_aware_name_is_not_trusted():
+    import types
+    from augur_engine.strategies import load_strategy
+    real_path = os.path.join(ROOT, "augur_strategies", "NQDIP_1_3.py")
+    real = load_strategy(real_path)
+    assert R.is_roll_aware(real_path, real)                                # the real file, as loaded
+    fake = types.ModuleType("augur_engine_strat_NQDIP_1_3_py_rebuilt")
+    fake.__file__ = real_path
+    exec(compile(STRATS, real_path, "exec"), fake.__dict__)               # other code, same __file__
+    assert not R.is_roll_aware(real_path, fake)
+    plan = R.plan_for(fake, _arrays("db_noadj_rth"), real_path, {})
+    assert plan["kind"] != "roll-aware strategy"
+    edited = types.ModuleType("augur_engine_strat_NQDIP_1_3_py_edited")    # same code, one constant changed
+    edited.__file__ = real_path
+    exec(compile(open(real_path, encoding="utf-8").read(), real_path, "exec"), edited.__dict__)
+    consts = [k for k, v in vars(edited).items() if isinstance(v, (int, float)) and not k.startswith("_")
+              and not isinstance(v, bool)]
+    if consts:
+        setattr(edited, consts[0], getattr(edited, consts[0]) + 1)
+        assert not R.is_roll_aware(real_path, edited)
+
+
+@pytest.mark.parametrize("alias", ["NQ1!", "/NQ", "NQZ6", "NQ=F", "nq", "MNQH2026"])
+def test_ttm4_instrument_aliases_are_the_root(strat, alias):
+    import augur_engine as ae
+    r = ae.run_backtest(strat, arrays=_arrays("db_noadj_rth", instrument=alias))
+    assert r["_meta"]["roll_stamp"]["calendar"] == "difference-adjusted signals"
+
+
+@pytest.mark.parametrize("alias", ["CL1!", "/GC", "CLZ6", "GC=F", "RTY1!"])
+def test_ttm4_futures_aliases_without_a_table_are_refused(strat, alias):
+    import augur_engine as ae
+    with pytest.raises(R.RollGuardError):
+        ae.run_backtest(strat, arrays=_arrays("db_noadj_rth", instrument=alias))
+
+
+def _stepped(source, steps):
+    """A 5m RTH tape 2021-01 .. 2026-09 whose prices carry (or not) every real NQ switch's step."""
+    idx, did = _rth_grid("2021-01-04", "2026-09-30")
+    n = len(idx)
+    c = 15000.0 + np.cumsum(np.full(n, 0.001))
+    if steps:
+        t = R.epoch_seconds(idx)
+        for r in R.real_switches("NQ"):
+            c = c + np.where(t >= r["switch_sec"], float(r["offset_pts"]), 0.0)
+    meta = dict(instrument="NQ", source=source, timeframe="5m", name="NQ 5m " + source)
+    return dict(open=c.copy(), high=c + 1, low=c - 1, close=c, volume=np.ones(n), day_id=did, index=idx, meta=meta)
+
+
+def test_ttm5_a_label_the_prices_contradict_is_refused(strat):
+    hold = _stepped("db_adj_rth", steps=True)                             # raw prices labelled adjusted
+    lc = R.label_check(R.epoch_seconds(hold["index"]), hold["open"], hold["close"], "NQ", 300)
+    assert lc["eligible"] >= R.LABEL_MIN_SWITCHES and lc["raw_like"] == lc["eligible"]
+    with pytest.raises(R.RollGuardError) as e:
+        R.plan_for(strat, hold, strat.__file__, {})
+    assert "label is wrong" in str(e.value)
+    with pytest.raises(R.RollGuardError):                                 # adjusted prices labelled raw
+        R.plan_for(strat, _stepped("db_noadj_rth", steps=False), strat.__file__, {})
+    ok = R.plan_for(strat, _stepped("db_adj_rth", steps=False), strat.__file__, {})   # honest labels pass
+    assert ok["kind"] == "adjusted master"
+    ok2 = R.plan_for(strat, _stepped("db_noadj_rth", steps=True), strat.__file__, {})
+    assert ok2["kind"] == "difference-adjusted signals"
+
+
+def test_ttm8_report_mode_is_for_the_audit_tool_and_tests_only(tmp_path):
+    import subprocess
+    script = tmp_path / "my_research.py"                                  # a research script, run on its own
+    script.write_text("import sys\nsys.path.insert(0, %r)\nfrom augur_engine import rolls as R\n"
+                      "try:\n    R.guard_mode('report').__enter__()\n    print('ALLOWED')\n"
+                      "except R.RollGuardError:\n    print('REFUSED')\n" % ROOT, encoding="utf-8")
+    out = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=120)
+    assert out.stdout.strip() == "REFUSED", out.stdout + out.stderr
+    g2 ={"__file__": os.path.join(ROOT, "tools", "roll_guard_probe.py"), "R": R}
+    exec("with R.guard_mode('report'):\n    ok = R.current_guard_mode()\n", g2)
+    assert g2["ok"] == "report"
+
+
+def test_ttm11_a_borrowed_live_file_name_is_not_report_only(tmp_path, make):
+    import augur_engine as ae
+    lvl = make("level")[0]
+    fake = tmp_path / "api" / "paper.py"
+    g = {"__file__": str(fake), "ae": ae, "strat": lvl, "arr": _arrays("db_noadj_rth")}
+    with pytest.raises(R.RollGuardError):
+        exec("res = ae.run_backtest(strat, arrays=arr)", g)
+
+
+def test_ttm2c_two_in_memory_modules_never_share_a_method_test():
+    import types
+    pt = types.ModuleType("mem_point")
+    exec(STRATS, pt.__dict__)
+    lv = types.ModuleType("mem_level")
+    exec(STRATS.replace('mode="hold"', 'mode="level"').replace("level=0.0", "level=4405.0"), lv.__dict__)
+    arr = _arrays("db_noadj_rth")
+    p1 = R.plan_for(pt, arr, None, {})
+    p2 = R.plan_for(lv, _arrays("db_noadj_rth"), None, {})
+    assert p1["kind"] == "difference-adjusted signals" and p2["kind"] == "raw: level-dependent"
+
+
+def test_ttm6b_a_forged_roll_plan_is_ignored_or_refused(strat, make):
+    import augur_engine as ae
+    arr = _arrays("db_noadj_rth")
+    arr["meta"] = dict(arr["meta"], roll_plan=dict(kind="declared: no contract rolls", adjust=False,
+                                                    refuse_crossings=False, root=None, ctx_root=None,
+                                                    times=R.epoch_seconds(arr["index"]), tf=300))
+    with pytest.raises(R.RollGuardError):                                 # re-planned: the level file is refused
+        ae.run_backtest(make("level")[0], arrays=arr)
+    planned = R.apply_plan(_arrays("db_noadj_rth"), R.plan_for(strat, _arrays("db_noadj_rth"), strat.__file__, {}))
+    forged = dict(planned, meta=dict(planned["meta"], roll_plan=dict(planned["meta"]["roll_plan"],
+                                                                     sc=np.zeros(len(planned["close"])))))
+    with pytest.raises(R.RollGuardError):                                 # adjusted plan with wrong factors
+        ae.run_backtest(strat, arrays=forged)
 
 
 def test_roll_aware_list_is_keyed_by_content(tmp_path):

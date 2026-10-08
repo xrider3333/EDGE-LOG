@@ -167,7 +167,8 @@ def eval_chunk(chunk):
                 if m and plan:
                     m = R.reprice_result(m, plan, 0)      # fills at raw contract prices (MANAGER #58)
                 if m and refuse:
-                    R.check_crossings(roll.get("strategy"), roll.get("meta"), roll["times"], m.get("trades"))
+                    R.check_crossings(roll.get("strategy"), roll.get("meta"), roll["times"], m.get("trades"),
+                                      roll_aware=False)
                 if m and cost > 0:
                     m = _apply_costs(m, cost)
                 if m and (cost > 0 or refuse or ratio):

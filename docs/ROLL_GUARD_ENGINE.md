@@ -85,6 +85,27 @@ Also:
 | RSIDIV_1_0 noadj (to 2026-06) | 2401 tr, 14,572.0 | 2425 tr, 15,945.0; 33 trades moved by price, all near switches |
 | NQDIP_1_2 noadj | roll-aware | unchanged (34 crossings, its own offset removal) |
 
+## Hardening after TTM's attack on v4 (2026-10-08, 7 holes, lint 14 evasions)
+
+- **Roll-aware trust:** a file is trusted only when the module that will run IS the pinned file. Every function and simple module-level constant must match a fresh compile of it. A module rebuilt in memory that borrows the file's name and `__file__` is not trusted.
+- **Instrument aliases:** NQ1!, /NQ, NQZ6, NQ=F and similar resolve to their root. A futures-looking symbol with no roll table (CL1!, GC=F, CLZ6, RTY1!) is refused.
+- **The label must agree with the prices** (`rolls.label_check`): at each switch with an offset at least 5x the gap noise, an unadjusted series jumps by about the offset and an adjusted one does not.
+  - The run is refused when at least 6 such switches are in the window and at least 70% of them contradict the label.
+  - Otherwise the stamp says "not verifiable here".
+  - On the house masters over full history: no-adj masters are 86-97% raw-like and adj masters 67-97% adjusted-like.
+- **Report mode** (`guard_mode('report')`) is allowed only for `tools/roll_guard_probe.py` and the tests. It waives refusals, but signals are still planned, and the stamp says "not a research result".
+- **Report-only live paths** are matched by their real path inside this checkout, not by file name.
+- **Method-test cache:** keyed by the code that runs (function bytecode, defaults, module constants), so two modules built in memory never share a result.
+- **Plans already on the arrays:** a plan that does not adjust is ignored and the run re-planned. An adjusting plan is used only if it fits: root, an on-the-fly source, and the table's own factors for these bars.
+- **Lint:** the fingerprint now covers lambdas, module-level code and other spellings:
+  - `mo % 3` after `mo = t.month`;
+  - `range(3, 13, 3)`;
+  - `.quarter`;
+  - `maximum(d, -d)`, `sign`, `**2`;
+  - nlargest, sort and similar picks.
+  
+  Detector names are also caught as attributes and as strings, including split strings. Strategies may not use runpy, compile, FunctionType, globals(), sys.modules, exec or eval, or name a tools/ module (tools/data roll-table paths are fine).
+
 ## Known limits (said out loud)
 
 1. The method test reads the window it is given. A level threshold no price in the window ever reaches is invisible to it, and harmless in that window.
@@ -92,3 +113,7 @@ Also:
 3. Level-reading files run raw: their indicators still see the roll step near switches, but their trades can't hold across one. The exact fix is a roll-aware or `ROLL_SIGNAL`-declared version of the file.
 4. `db_adj` masters are difference-adjusted. A %-reading file on one is warned, not converted.
 5. Bars a switch falls inside (2026 in-bar splices) are rebuilt as bodies and counted as no-fill bars.
+6. The label check needs switches whose step stands clear of the gap noise.
+   - ETH masters and RTH windows from 2022 on have them.
+   - NQ/ES RTH windows before 2022 do not: their roll offsets are smaller than ordinary overnight gaps, so a mislabelled pre-2022 RTH window cannot be told from its prices (TTM attack 5, 2019-20). The stamp says so.
+7. Lint: a plain gap-threshold rule with renamed knobs (no quarter cue, no pick) cannot be told from real gap logic. The run-time guard, which feeds such a file jump-free prices, is the backstop.

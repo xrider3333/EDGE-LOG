@@ -366,7 +366,7 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
             _delta_trades = None
 
     if _rroot is not None and _delta_trades:
-        R.check_crossings(_sname, _rmeta, _rtimes, _delta_trades)       # raises RollGuardError
+        R.check_crossings(_sname, _rmeta, _rtimes, _delta_trades, roll_aware=False)   # raises RollGuardError
     if _delta_trades is not None:
         # Same aggregation `_apply_costs` always uses — see this module's
         # docstring for why this makes delta-vs-full equality PROVABLE rather
@@ -377,7 +377,7 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
         res = _rfn(O, H, L, C, **extras, **params, return_trades=want_trades)
         _gross_trades = res.get("trades") if isinstance(res, dict) else None
         if _rroot is not None and _gross_trades:
-            R.check_crossings(_sname, _rmeta, _rtimes, _gross_trades)   # raises RollGuardError
+            R.check_crossings(_sname, _rmeta, _rtimes, _gross_trades, roll_aware=False)   # raises RollGuardError
         if res and cost_pts > 0:
             res = _apply_costs(res, cost_pts)
 
@@ -470,7 +470,10 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
                                method_source=_rplan.get("method_source"),
                                method_tests=_rplan.get("tests"),
                                no_fill_bars=_rplan.get("no_fill_bars"),
-                               warning=_rplan.get("warn"))
+                               warning=_rplan.get("warn"),
+                               label_check=_rplan.get("label_check"),
+                               guard=("report mode: refusals waived, not a research result"
+                                      if _rplan.get("report_mode") else "refuse"))
                 if roll_diff and _rplan.get("adjust"):
                     _rstamp["raw_vs_adjusted"] = R.raw_vs_adjusted(
                         fn, _raw_arrays, _gross_trades if _gross_trades is not None else res.get("trades"),

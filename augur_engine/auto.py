@@ -199,7 +199,7 @@ def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None, warm_da
             if m and _radj:
                 m = _R.reprice_result(m, _rplan, offset=a)
             if m and _rroot is not None:
-                _R.check_crossings(_sname, _rmeta, _rtimes[a:b], m.get("trades"))
+                _R.check_crossings(_sname, _rmeta, _rtimes[a:b], m.get("trades"), roll_aware=False)
             if m and cost_pts > 0:
                 m = _apply_costs(m, cost_pts)
             if m and not keep_trades:

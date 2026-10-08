@@ -376,14 +376,47 @@ ROLL_ROOTS = {"NQ": "NQ", "MNQ": "NQ", "ES": "ES", "MES": "ES"}
 POINT_VALUE = {"NQ": 20.0, "MNQ": 2.0, "ES": 50.0, "MES": 5.0}   # $ per point, for the stamp
 
 
+def normalize_instrument(instrument):
+    """'NQ1!' / '/NQ' / 'NQ=F' / 'nq ' -> 'NQ'; a contract code ('NQZ6', 'MNQH2026') -> its root.
+    Anything else comes back upper-cased and stripped (TTM attack 4, 2026-10-08)."""
+    import re
+    s = str(instrument or "").upper().strip().lstrip("/")
+    if s.endswith("=F"):
+        s = s[:-2]
+    s = re.sub(r"\d*!$", "", s)
+    m = re.match(r"^([A-Z0-9]{1,4}?)[FGHJKMNQUVXZ]\d{1,4}$", s)
+    if m and (m.group(1) in ROLL_ROOTS or m.group(1) in NO_TABLE_FUTURES):
+        return m.group(1)
+    return s
+
+
+def futures_like(instrument):
+    """True when the raw instrument string is written like a futures symbol (continuous '!', '/',
+    '=F', or a month code on a futures root) - whatever its root."""
+    import re
+    s = str(instrument or "").upper().strip()
+    return bool(s.startswith("/") or s.endswith("=F") or re.search(r"\d*!$", s) or
+                normalize_instrument(s) in NO_TABLE_FUTURES or
+                re.match(r"^[A-Z0-9]{1,4}?[FGHJKMNQUVXZ]\d{1,4}$", s) and
+                normalize_instrument(s) != s)
+
+
 def point_value(instrument):
-    return POINT_VALUE.get(str(instrument or "").upper().strip(), 1.0)
+    return POINT_VALUE.get(normalize_instrument(instrument), 1.0)
+
+
+REPORT_MODE_TOOLS = frozenset({"roll_guard_probe"})     # tools/<name>.py allowed to waive refusals
 
 
 @contextlib.contextmanager
 def guard_mode(mode):
-    """'refuse' (the default) or 'report'. Only restatement / audit tools use 'report': the run
-    completes, the crossings are counted in the stamp, nothing is raised. Thread-local."""
+    """'refuse' (the default) or 'report'. 'report' waives the refusals (they become warnings and
+    the stamp says the result is not a research result); signals are still planned. Only the roll
+    audit tool (tools/roll_guard_probe.py) and the test suite may ask for it - a research script
+    that wraps itself in report mode is refused (TTM attack 8). Thread-local."""
+    if str(mode) == "report" and not _report_mode_allowed():
+        raise RollGuardError("guard_mode('report') is for the roll audit tool (tools/roll_guard_probe.py) "
+                             "and the tests only; a research run takes the guard's answer.")
     prev = getattr(_CTX, "mode", None)
     _CTX.mode = str(mode)
     try:
@@ -417,16 +450,36 @@ def _report_only_caller():
     """True when the current call stack passes through a live / paper / nightly-shadow api module,
     or a tools/ script that builds live state or reads a live leg forward."""
     import sys
+    allowed = _report_only_paths()
+    f = sys._getframe(1)
+    while f is not None:
+        fn = str(f.f_globals.get("__file__") or "")
+        if fn and os.path.normcase(os.path.abspath(fn)) in allowed:
+            return True
+        f = f.f_back
+    return False
+
+
+def _report_mode_allowed():
+    import sys
+    tools = {os.path.normcase(os.path.join(ROOT, "tools", m + ".py")) for m in REPORT_MODE_TOOLS}
+    tests = os.path.normcase(os.path.join(ROOT, "tests")) + os.sep
     f = sys._getframe(1)
     while f is not None:
         fn = str(f.f_globals.get("__file__") or "")
         if fn:
-            parts = fn.replace("\\", "/").split("/")
-            if len(parts) >= 2 and ((parts[-2] == "api" and parts[-1][:-3] in REPORT_ONLY_MODULES) or
-                                    (parts[-2] == "tools" and parts[-1][:-3] in REPORT_ONLY_TOOLS)):
+            ap = os.path.normcase(os.path.abspath(fn))
+            if ap in tools or ap.startswith(tests):
                 return True
         f = f.f_back
     return False
+
+
+def _report_only_paths():
+    """The absolute paths of the report-only modules IN THIS CHECKOUT - a file elsewhere with the
+    same name gets no exemption (TTM attack 11)."""
+    return frozenset([os.path.normcase(os.path.join(ROOT, "api", m + ".py")) for m in REPORT_ONLY_MODULES] +
+                     [os.path.normcase(os.path.join(ROOT, "tools", m + ".py")) for m in REPORT_ONLY_TOOLS])
 
 
 def bind(fn, root, times, tf_seconds, strategy=None, table_dir=None, plan=None):
@@ -477,8 +530,9 @@ class RollContextMissing(RuntimeError):
 
 
 def roll_root(instrument):
-    """'NQ' / 'ES' for an NQ- or ES-family futures instrument, else None."""
-    return ROLL_ROOTS.get(str(instrument or "").upper().strip())
+    """'NQ' / 'ES' for an NQ- or ES-family futures instrument (any alias - normalize_instrument),
+    else None."""
+    return ROLL_ROOTS.get(normalize_instrument(instrument))
 
 
 def unadjusted_futures_root(meta):
@@ -645,9 +699,13 @@ def table_sha(root, table_dir=None):
         return ""
 
 
-def check_crossings(strategy_name, meta, times, trades, table_dir=None):
+def check_crossings(strategy_name, meta, times, trades, table_dir=None, roll_aware=None):
     """The guard: raise RollGuardError if a run on an unadjusted NQ / ES master held any trade
-    across a switch and the strategy is not ROLL_AWARE. Returns the number of crossing trades."""
+    across a switch and the strategy is not ROLL_AWARE. Returns the number of crossing trades.
+    The engine paths call it only for plans that refuse crossings, so they pass roll_aware=False:
+    the plan already decided (by the code that runs, not the file name)."""
+    if roll_aware is None:
+        roll_aware = is_roll_aware(strategy_name)
     root = unadjusted_futures_root(meta)
     if root is None or not trades:
         return 0
@@ -657,7 +715,7 @@ def check_crossings(strategy_name, meta, times, trades, table_dir=None):
     cross = crossing_trades(t, root, tf, ei, xi, table_dir)
     n = int(cross.sum())
     base = os.path.basename(str(strategy_name or ""))
-    if n and not is_roll_aware(strategy_name) and (current_guard_mode() == "report" or _report_only_caller()):
+    if n and not roll_aware and (current_guard_mode() == "report" or _report_only_caller()):
         key = (base, root)
         if key not in _WARNED:
             _WARNED.add(key)
@@ -666,7 +724,7 @@ def check_crossings(strategy_name, meta, times, trades, table_dir=None):
                   "contract switch on the unadjusted master - the roll stamp records it; a research "
                   "run of the same thing is refused." % (base or "strategy", n, root), file=sys.stderr)
         return n
-    if n and not is_roll_aware(strategy_name):
+    if n and not roll_aware:
         import pandas as pd
         days = sorted({str(pd.Timestamp(int(t[int(i)]), unit="s", tz="UTC")
                            .tz_convert("America/New_York").date()) for i in ei[cross][:6]})
@@ -735,7 +793,7 @@ def roll_stamp(meta, times, trades, mult, strategy_name=None, table_dir=None, da
         for k in np.flatnonzero(cross):
             step += stitch_usd(t, root, tf, int(ei[k]), int(xi[k]), int(sd[k]),
                                point_value(meta.get("instrument")), table_dir)
-    roll_aware = is_roll_aware(strategy_name)
+    roll_aware = (kind == "roll-aware strategy") if kind else is_roll_aware(strategy_name)
     # $ booked on switch sessions: trades whose holding window touches a session that contains or
     # first follows a switch (the sessions the old detector was meant to keep a strategy out of)
     usd_sess = 0.0
@@ -752,7 +810,7 @@ def roll_stamp(meta, times, trades, mult, strategy_name=None, table_dir=None, da
             hit[ok] = fa[k[ok]] <= xi[:len(pnl)][ok]
             usd_sess = float(pnl[hit].sum())
     calendar = kind or ("adjusted master" if adjusted else
-                        "roll-aware strategy" if is_roll_aware(strategy_name) else "true roll table")
+                        "roll-aware strategy" if roll_aware else "true roll table")
     return dict(master_type=(("unadjusted, signals %s-adjusted on the fly, fills raw"
                               % ("ratio" if "otf_ratio" in src else "difference")) if otf else
                              "adjusted" if adjusted else "unadjusted"), source=src,
@@ -830,14 +888,67 @@ def file_sha(path):
         return ""
 
 
-def is_roll_aware(strategy_name):
+def is_roll_aware(strategy_name, mod=None):
     """ROLL_AWARE by name AND by content: an edited or copied file is not trusted until its sha is
-    re-pinned (and its parity-to-adjusted test re-run) - TTM review #56 point 4."""
+    re-pinned (and its parity-to-adjusted test re-run) - TTM review #56 point 4. With the module
+    that will run, its code must also BE that file's code: every function defined in it and every
+    module-level constant must match a fresh compile of the pinned file, so a module rebuilt in
+    memory that only borrows the file's name and __file__ is not trusted (TTM attack 7)."""
     base = os.path.basename(str(strategy_name or ""))
     if base not in ROLL_AWARE:
         return False
     want = ROLL_AWARE_SHA.get(base)
-    return bool(want) and file_sha(strategy_name) == want
+    if not want or file_sha(strategy_name) != want:
+        return False
+    return mod is None or _module_is_file(mod, strategy_name)
+
+
+def _module_is_file(mod, path):
+    import ast
+    import types
+    try:
+        with open(path, "rb") as fh:
+            src = fh.read().decode("utf-8")
+        code = compile(src, getattr(mod, "__file__", None) or path, "exec")
+        fresh = {c.co_name: c for c in code.co_consts if isinstance(c, types.CodeType)}
+        name = getattr(mod, "__name__", None)
+        fns = {k: v for k, v in vars(mod).items()
+               if isinstance(getattr(v, "__code__", None), types.CodeType) and getattr(v, "__module__", None) == name}
+        if "run_backtest" not in fns or set(fns) - set(fresh):
+            return False
+        if any(fresh[k] != v.__code__ for k, v in fns.items()):
+            return False
+        for node in ast.parse(src).body:                      # module-level constants as written
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant):
+                for tg in node.targets:
+                    if isinstance(tg, ast.Name) and vars(mod).get(tg.id, node.value.value) != node.value.value:
+                        return False
+        return True
+    except Exception:
+        return False
+
+
+def _module_code_sha(mod):
+    """sha256 of the code that will run: every function defined in the module (bytecode, constants)
+    and its simple module-level constants - so two modules built in memory never share a cached
+    method test (TTM attack 2c)."""
+    import marshal
+    import types
+    h = hashlib.sha256()
+    name = getattr(mod, "__name__", None)
+    try:
+        ns = vars(mod)
+    except TypeError:
+        return ""
+    for k in sorted(ns):
+        v = ns[k]
+        co = getattr(v, "__code__", None)
+        if isinstance(co, types.CodeType) and getattr(v, "__module__", None) == name:
+            h.update(k.encode() + b"=" + marshal.dumps(co))
+            h.update(("%r|%r;" % (getattr(v, "__defaults__", None), getattr(v, "__kwdefaults__", None))).encode())
+        elif isinstance(v, (int, float, str, bool, type(None))) and not k.startswith("__"):
+            h.update(("%s=%r;" % (k, v)).encode())
+    return h.hexdigest()
 
 
 def stale_after(meta, root, table_dir=None):
@@ -943,6 +1054,49 @@ def ratio_adjust(times, opens, highs, lows, closes, root, tf_seconds, table_dir=
     return o, h, l, c, dict(ko=ko, kc=kc, no_fill=mixed.copy(), synthetic=mixed, method="ratio")
 
 
+LABEL_MIN_SWITCHES = 6         # switches with a step >= 5x the gap noise needed to judge a label
+LABEL_CONTRADICT = 0.70        # share of them that must contradict the label to refuse it
+
+
+def label_check(times, opens, closes, root, tf_seconds, table_dir=None):
+    """Do the prices carry the roll steps? At every real switch in the window that falls between
+    two bars, the gap from the last close before it to the first open after it is compared with the
+    switch's offset: an unadjusted series jumps by about the offset, an adjusted one does not. Only
+    switches whose offset is at least 5x the ordinary gap noise vote. Returns dict(eligible,
+    raw_like, adjusted_like). On the house masters, full history: no-adj 86-97% raw-like, adj 67-97%
+    adjusted-like (the rest are real weekend / overnight moves) - TTM attack 5."""
+    t = np.asarray(times, dtype="int64")
+    o = np.asarray(opens, dtype="float64")
+    c = np.asarray(closes, dtype="float64")
+    out = dict(eligible=0, raw_like=0, adjusted_like=0)
+    if len(t) < 3:
+        return out
+    tf = int(tf_seconds)
+    d = np.abs(o[1:] - c[:-1])
+    bar_noise = float(np.median(d[d > 0])) if (d > 0).any() else 0.0
+    starts = np.flatnonzero(np.diff(t) > tf) + 1
+    gap_noise = float(np.median(np.abs(o[starts] - c[starts - 1]))) if len(starts) else bar_noise
+    for r in real_switches(root, table_dir):
+        if r.get("kind") == "in_bar":
+            continue
+        s, off = int(r["switch_sec"]), float(r["offset_pts"])
+        if s <= t[0] or s >= t[-1]:
+            continue
+        b = int(np.searchsorted(t, s, side="left"))
+        if b <= 0 or b >= len(t) or t[b - 1] + tf > s:
+            continue
+        noise = gap_noise if (t[b] - t[b - 1]) > tf else bar_noise
+        if abs(off) < 5.0 * max(noise, 1e-9):
+            continue
+        gap = o[b] - c[b - 1]
+        out["eligible"] += 1
+        if abs(gap - off) < abs(gap):
+            out["raw_like"] += 1
+        else:
+            out["adjusted_like"] += 1
+    return out
+
+
 def declared_method(mod):
     m = str(getattr(mod, "ROLL_SIGNAL", "") or "").strip().lower()
     return m if m in SIGNAL_METHODS else None
@@ -957,7 +1111,7 @@ def invariance(mod, arrays, root, times, tf, params=None, strategy_name=None, wa
     with the first parameter set seen. Any failure scores both 0.0 - toward the guard."""
     meta = arrays.get("meta") or {}
     t_ = np.asarray(times, dtype="int64")
-    key = (file_sha(strategy_name), str(meta.get("instrument")), str(meta.get("source")),
+    key = (file_sha(strategy_name), _module_code_sha(mod), str(meta.get("instrument")), str(meta.get("source")),
            str(meta.get("timeframe")), tf, int(t_[0]) if len(t_) else 0, int(t_[-1]) if len(t_) else 0,
            len(t_))
     hit = _CLASS_CACHE.get(key)
@@ -1015,13 +1169,22 @@ def plan_for(mod, arrays, strategy_name=None, params=None):
     only - for arrays that do not say what market they are, a futures root with no roll table, a
     stale adjusted master, and a declared signal method its own test contradicts."""
     meta = (arrays or {}).get("meta") or {}
-    if meta.get("roll_plan"):                              # already planned: never adjusted twice
-        return _replan_cut(arrays, meta["roll_plan"])
+    if meta.get("roll_plan"):
+        stored = meta["roll_plan"]
+        if stored.get("adjust"):                           # adjusted already: never adjust twice -
+            return _checked_stored_plan(arrays, stored)    # but only a plan that fits these arrays
+        meta = {k: v for k, v in meta.items() if k != "roll_plan"}   # anything else: plan afresh
+        arrays = dict(arrays, meta=meta)
     idx = (arrays or {}).get("index")
     times = epoch_seconds(idx) if idx is not None else np.zeros(0, dtype="int64")
     tf = tf_seconds_of(meta, times)
-    report_only = current_guard_mode() == "report" or _report_only_caller()
-    inst = str(meta.get("instrument") or "").upper().strip()
+    # LIVE callers (api / tools live modules, by real path) keep raw prices and are never refused.
+    # guard_mode("report") from anywhere else only WAIVES the refusals (they become warnings and
+    # the stamp says so) - the signals and fills are planned as usual (TTM attack 8).
+    report_only = _report_only_caller()
+    waived = current_guard_mode() == "report"
+    raw_inst = meta.get("instrument")
+    inst = normalize_instrument(raw_inst)
     src = str(meta.get("source") or "")
     plan = dict(kind="undeclared", method=None, method_source=None, ctx_root=None, adjust=False,
                 refuse_crossings=False, root=None, times=times, tf=tf, warn=None, tests=None)
@@ -1036,9 +1199,10 @@ def plan_for(mod, arrays, strategy_name=None, params=None):
             # shadow leg: reported, never refused or changed - the same rule as a live caller (D2)
             plan["kind"] = "live bar builder: not roll-checked"
             return plan
-        if report_only:
+        if report_only or waived:
             plan["warn"] = ("arrays carry no instrument in meta, so this run was not roll-checked; "
                             "load them with load_master_arrays (or set meta['instrument'/'source'])")
+            plan["report_mode"] = waived and not report_only
             return plan
         raise RollGuardError(
             "these price arrays do not say which market they are (no instrument in their meta), so "
@@ -1047,25 +1211,47 @@ def plan_for(mod, arrays, strategy_name=None, params=None):
             "or stock tape sets meta['roll_mode'] = 'none'.")
     root = roll_root(inst)
     if root is None:
-        if inst in NO_TABLE_FUTURES and not report_only:
-            raise RollGuardError(
-                "%s is a futures market with no roll table (tools/data/rolls_%s.csv), so a run on it "
-                "cannot be checked for contract switches. Build the table with tools/build_roll_table.py "
-                "or run on an adjusted master." % (inst, inst))
+        if (inst in NO_TABLE_FUTURES or futures_like(raw_inst)) and not report_only:
+            msg = ("%s is a futures market with no roll table (tools/data/rolls_%s.csv), so a run on it "
+                   "cannot be checked for contract switches. Build the table with tools/build_roll_table.py "
+                   "or run on an adjusted master." % (raw_inst, inst))
+            if not waived:
+                raise RollGuardError(msg)
+            plan.update(warn=msg, report_mode=True)
         plan["kind"] = "no contract rolls"
         return plan
     plan["root"] = root
+    plan["report_mode"] = waived and not report_only
+    if not report_only and len(times):
+        lc = label_check(times, arrays["open"], arrays["close"], root, tf)
+        plan["label_check"] = lc
+        adjusted_label = src.startswith(("db_adj", "db_fadj"))
+        against = lc["raw_like"] if adjusted_label else lc["adjusted_like"]
+        lc["verdict"] = ("not verifiable here (%d switch(es) with a step clear of the gap noise; %d needed)"
+                         % (lc["eligible"], LABEL_MIN_SWITCHES) if lc["eligible"] < LABEL_MIN_SWITCHES else
+                         "contradicts the label" if against >= LABEL_CONTRADICT * lc["eligible"] else
+                         "agrees with the label")
+        if lc["eligible"] >= LABEL_MIN_SWITCHES and against >= LABEL_CONTRADICT * lc["eligible"]:
+            msg = ("these prices are labelled %s (source %r) but at %d of %d contract switches in the "
+                   "window they %s the roll step, so the label is wrong. Load the master the label names."
+                   % ("adjusted" if adjusted_label else "unadjusted", src, against, lc["eligible"],
+                      "carry" if adjusted_label else "do not carry"))
+            if not waived:
+                raise RollGuardError(msg)
+            plan["warn"] = msg
     if src.startswith(("db_adj", "db_fadj")):
         plan.update(kind="adjusted master", method="difference", method_source="master")
         st = stale_after(meta, root)
         if st is not None and len(times) and times[-1] >= st and not report_only:
-            raise RollGuardError(
-                "the adjusted master %s was built before the %s contract switch of %s, so its bars "
-                "after that switch are NOT adjusted. Rebuild the adjusted masters "
-                "(tools/build_adjusted_masters.py) or end the run before that date."
-                % (meta.get("name") or src, root,
-                   str(np.datetime64(int(st), "s"))[:16].replace("T", " ") + " UTC"))
-        if not report_only and not is_roll_aware(strategy_name) and declared_method(mod) != "difference":
+            msg = ("the adjusted master %s was built before the %s contract switch of %s, so its bars "
+                   "after that switch are NOT adjusted. Rebuild the adjusted masters "
+                   "(tools/build_adjusted_masters.py) or end the run before that date."
+                   % (meta.get("name") or src, root,
+                      str(np.datetime64(int(st), "s"))[:16].replace("T", " ") + " UTC"))
+            if not waived:
+                raise RollGuardError(msg)
+            plan["warn"] = msg
+        if not report_only and not is_roll_aware(strategy_name, mod) and declared_method(mod) != "difference":
             inv = invariance(mod, arrays, root, times, tf, params, strategy_name)
             plan["tests"] = inv
             if inv["shift"] < 1.0:
@@ -1076,7 +1262,7 @@ def plan_for(mod, arrays, strategy_name=None, params=None):
         return plan
     plan["ctx_root"] = root
     treatment = str((params or {}).get("roll_treatment") or "").lower()
-    if is_roll_aware(strategy_name):
+    if is_roll_aware(strategy_name, mod):
         plan["kind"] = "roll-aware strategy"
         return plan
     if report_only:
@@ -1096,6 +1282,11 @@ def plan_for(mod, arrays, strategy_name=None, params=None):
     usd = str(getattr(mod, "PNL_UNITS", "") or "").lower() == "usd"
     if decl in ("difference", "ratio"):
         score = inv["shift"] if decl == "difference" else inv["scale"]
+        if (score is None or score < DECLARED_MATCH_MIN) and waived:
+            plan.update(kind="raw (declared method failed its test; report mode)", method="raw",
+                        method_source="declared", refuse_crossings=True,
+                        warn="the declared ROLL_SIGNAL failed its own test")
+            return plan
         if score is None or score < DECLARED_MATCH_MIN:
             raise RollGuardError(
                 "%s declares ROLL_SIGNAL = %r, but %s of its trades move when every price is %s, so "
@@ -1159,6 +1350,33 @@ def _replan_cut(arrays, stored):
     if stored.get("adjust"):
         sub["close_ref"] = arrays["close"]
     return sub
+
+
+def _checked_stored_plan(arrays, stored):
+    """An adjusted plan found on incoming arrays is used only if it fits them: the root is the
+    instrument's, the prices say they were adjusted on the fly, and the per-bar factors are the
+    table's for these bars. Anything else is refused - a forged or transplanted plan (TTM 6b)."""
+    meta = (arrays or {}).get("meta") or {}
+    plan = _replan_cut(arrays, stored)
+    root = roll_root(meta.get("instrument"))
+    src = str(meta.get("source") or "")
+    ok = root is not None and plan.get("root") == root and src.startswith("db_adj_otf") and \
+        plan.get("method") in ("difference", "ratio") and plan.get("tf") is not None
+    try:
+        if ok and plan["method"] == "difference":
+            m = roll_map(plan["times"], root, plan["tf"])
+            ok = plan.get("sc") is not None and np.allclose(np.asarray(plan["sc"]), m["shift_close"], atol=1e-9)
+        elif ok:
+            kc = np.asarray(plan.get("kc"), dtype="float64")
+            raw_c = np.asarray(arrays["close"], dtype="float64") / kc
+            _ko, kc2 = ratio_factors(plan["times"], raw_c, root, plan["tf"])
+            ok = len(kc) == len(raw_c) and np.allclose(kc, kc2, rtol=1e-9, atol=1e-12)
+    except Exception:
+        ok = False
+    if not ok:
+        raise RollGuardError("these arrays carry a roll plan that does not fit them, so it cannot be "
+                             "trusted. Load the prices again (load_master_arrays) and run them from there.")
+    return plan
 
 
 def raw_view(arrays):

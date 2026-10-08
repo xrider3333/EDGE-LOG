@@ -55,89 +55,199 @@ def _baseline():
 
 
 QUARTER = {3, 6, 9, 12}
-PICKS = {"max", "argmax", "nanargmax", "argsort", "sorted", "idxmax"}
-DYNAMIC = {"getattr", "exec", "eval", "__import__", "import_module"}
+PICKS = {"max", "argmax", "nanargmax", "argsort", "sorted", "idxmax", "nlargest", "nsmallest", "sort",
+         "partition", "argpartition", "nanmax", "amax", "sort_values", "heappush", "heappop"}
+ABS = {"abs", "fabs", "absolute", "sign", "hypot"}
+QUARTER_ATTRS = {"quarter", "is_quarter_end", "is_quarter_start", "qyear"}
+DYNAMIC = {"getattr", "exec", "eval", "__import__", "import_module", "spec_from_file_location", "run_path",
+           "run_module"}
+STRATEGY_BANNED_CALLS = {"compile", "FunctionType", "globals", "run_path", "run_module", "exec", "eval"}
+TOOLS_MODULE_RE = re.compile(r"(^|[/\\])tools[/\\][A-Za-z_]\w*\.py$|^tools(\.[A-Za-z_]\w*)+$")
 
 
-def _has_algorithm(fn_node):
-    """The retired detector's fingerprint inside one function (nested code included)."""
-    quarter = absval = pick = False
-    for n in ast.walk(fn_node):
+def _call_name(n):
+    f = n.func
+    return f.attr if isinstance(f, ast.Attribute) else (f.id if isinstance(f, ast.Name) else "")
+
+
+def _fold(node):
+    """The string a constant expression builds ('roll_' + 'seam_check', f-strings of constants),
+    or None."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        x, y = _fold(node.left), _fold(node.right)
+        return None if x is None or y is None else x + y
+    if isinstance(node, ast.JoinedStr):
+        parts = [_fold(v) if not isinstance(v, ast.FormattedValue) else None for v in node.values]
+        return None if any(p is None for p in parts) else "".join(parts)
+    return None
+
+
+def _month_names(tree):
+    """Names assigned from a `.month` attribute anywhere (mo = t.month)."""
+    out = set()
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Assign) and isinstance(n.value, ast.Attribute) and n.value.attr == "month":
+            out |= {tg.id for tg in n.targets if isinstance(tg, ast.Name)}
+    return out
+
+
+def _quarter_names(tree):
+    """Names assigned from a quarter cue anywhere (QM = set(range(3, 13, 3)), Q = (3, 6, 9, 12)), so
+    the cue still counts where the name is used in another scope."""
+    out = set()
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Assign) and _quarter_cue_in(n.value):
+            out |= {tg.id for tg in n.targets if isinstance(tg, ast.Name)}
+    return out
+
+
+def _quarter_cue_in(node):
+    for n in ast.walk(node):
         if isinstance(n, (ast.Tuple, ast.List, ast.Set)):
+            vals = {e.value for e in n.elts if isinstance(e, ast.Constant) and isinstance(e.value, int)}
+            if QUARTER <= vals:
+                return True
+        if isinstance(n, ast.Call) and _call_name(n) in ("range", "arange") and len(n.args) == 3 and \
+                all(isinstance(x, ast.Constant) for x in n.args) and \
+                n.args[0].value == 3 and n.args[2].value == 3 and n.args[1].value in (12, 13):
+            return True
+    return False
+
+
+def _has_algorithm(node, months=frozenset(), quarters=frozenset()):
+    """The retired detector's fingerprint inside one scope (nested code included): a quarter cue,
+    an absolute value, and a pick of the largest - each in any of its common spellings."""
+    quarter = absval = pick = False
+    for n in ast.walk(node):
+        if isinstance(n, ast.Name) and n.id in quarters:
+            quarter = True
+        elif isinstance(n, (ast.Tuple, ast.List, ast.Set)):
             vals = {e.value for e in n.elts if isinstance(e, ast.Constant) and isinstance(e.value, int)}
             if QUARTER <= vals:
                 quarter = True
         elif isinstance(n, ast.BinOp) and isinstance(n.op, ast.Mod) and \
                 isinstance(n.right, ast.Constant) and n.right.value == 3 and \
-                isinstance(n.left, ast.Attribute) and n.left.attr == "month":
+                ((isinstance(n.left, ast.Attribute) and n.left.attr == "month") or
+                 (isinstance(n.left, ast.Name) and n.left.id in months)):
+            quarter = True
+        elif isinstance(n, ast.BinOp) and isinstance(n.op, ast.Pow) and \
+                isinstance(n.right, ast.Constant) and n.right.value == 2:
+            absval = True
+        elif isinstance(n, ast.Attribute) and n.attr in QUARTER_ATTRS:
             quarter = True
         elif isinstance(n, ast.Call):
-            f = n.func
-            name = f.attr if isinstance(f, ast.Attribute) else (f.id if isinstance(f, ast.Name) else "")
-            if name in ("abs", "fabs", "absolute"):
+            name = _call_name(n)
+            if name in ABS:
+                absval = True
+            if name in ("maximum", "fmax") and any(isinstance(x, ast.UnaryOp) and isinstance(x.op, ast.USub)
+                                                   for x in n.args):
                 absval = True
             if name in PICKS:
                 pick = True
+            if name in ("range", "arange") and len(n.args) == 3 and \
+                    all(isinstance(x, ast.Constant) for x in n.args) and \
+                    n.args[0].value == 3 and n.args[2].value == 3 and n.args[1].value in (12, 13):
+                quarter = True
     return quarter and absval and pick
 
 
 def detectors_in_source(src, filename="<src>"):
-    """[(function name, line)] of roll detectors defined in `src`: by name, by the retired signature,
-    or by the retired algorithm."""
+    """[(name, line)] of roll detectors in `src`: a def or lambda by name, by the retired signature, or
+    carrying the retired algorithm - module-level code counted as one more scope ('<module>')."""
     try:
         tree = ast.parse(src, filename=filename)
     except SyntaxError:
         return []
+    months, quarters = _month_names(tree), _quarter_names(tree)
     hits = []
     for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        args = {a.arg for a in node.args.args + node.args.kwonlyargs}
-        if NAME_RE.search(node.name) or {"ratio_th", "abs_th"} <= args or _has_algorithm(node):
-            hits.append((node.name, node.lineno))
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            args = {a.arg for a in node.args.args + node.args.kwonlyargs}
+            if NAME_RE.search(node.name) or {"ratio_th", "abs_th"} <= args or \
+                    _has_algorithm(node, months, quarters):
+                hits.append((node.name, node.lineno))
+        elif isinstance(node, ast.Lambda) and _has_algorithm(node, months, quarters):
+            hits.append(("<lambda>", node.lineno))
+    top = ast.Module(body=[s for s in tree.body if not isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                                                      ast.ClassDef))], type_ignores=[])
+    if not any(n == "<lambda>" for n, _ in hits) and _has_algorithm(top, months, quarters):
+        hits.append(("<module>", 1))
     return hits
 
 
+def _docstring_ids(tree):
+    out = set()
+    for n in ast.walk(tree):
+        if isinstance(n, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and n.body and \
+                isinstance(n.body[0], ast.Expr) and isinstance(n.body[0].value, ast.Constant):
+            out.add(id(n.body[0].value))
+    return out
+
+
 def evasions_in_source(src, filename="<src>", strategy=False):
-    """[(what, line)] of ways to reach a roll detector without defining one: a detector name bound
-    by assignment / lambda, imported from anywhere but augur_engine.rolls, named in a getattr / exec /
-    eval / import call; and, in a strategy file, any import from tools/ or any exec / eval."""
+    """[(what, line)] of ways to reach a roll detector without defining one:
+      * a detector name bound by assignment / lambda, imported from anywhere but augur_engine.rolls,
+        used as an attribute (mod.roll_seam_check), or written in a string or subscript key outside a
+        docstring (getattr(m, 'roll_' + 'seam_check') is folded first);
+      * in a strategy file: any import of tools/, any string naming a tools/ module or file, and
+        runpy / compile / types.FunctionType / globals() / sys.modules / exec / eval."""
     try:
         tree = ast.parse(src, filename=filename)
     except SyntaxError:
         return []
+    docs = _docstring_ids(tree)
     hits = []
     for n in ast.walk(tree):
         if isinstance(n, ast.ImportFrom):
             mod = (n.module or "")
             from_rolls = mod in ("augur_engine.rolls", "rolls") or (n.level and mod == "rolls")
-            if strategy and mod.split(".")[0] == "tools":
-                hits.append(("imports from tools/ (%s)" % mod, n.lineno))
+            if strategy and mod.split(".")[0] in ("tools", "runpy"):
+                hits.append(("imports from %s" % mod, n.lineno))
             for a in n.names:
                 if not from_rolls and (NAME_RE.search(a.name) or NAME_RE.search(a.asname or "")):
                     hits.append(("imports %s from %s" % (a.name, mod or "."), n.lineno))
         elif isinstance(n, ast.Import):
             for a in n.names:
-                if strategy and a.name.split(".")[0] == "tools":
-                    hits.append(("imports tools/ (%s)" % a.name, n.lineno))
+                if strategy and a.name.split(".")[0] in ("tools", "runpy"):
+                    hits.append(("imports %s" % a.name, n.lineno))
         elif isinstance(n, (ast.Assign, ast.AnnAssign)):
             targets = n.targets if isinstance(n, ast.Assign) else [n.target]
             for tg in targets:
                 for x in ast.walk(tg):
                     if isinstance(x, ast.Name) and NAME_RE.search(x.id):
                         hits.append(("binds %s by assignment" % x.id, n.lineno))
+        elif isinstance(n, ast.Attribute):
+            if NAME_RE.search(n.attr):
+                hits.append(("uses .%s" % n.attr, n.lineno))
+            if strategy and n.attr == "modules" and isinstance(n.value, ast.Name) and n.value.id == "sys":
+                hits.append(("uses sys.modules", n.lineno))
+            if strategy and n.attr == "FunctionType":
+                hits.append(("uses types.FunctionType", n.lineno))
         elif isinstance(n, ast.Call):
-            f = n.func
-            name = f.attr if isinstance(f, ast.Attribute) else (f.id if isinstance(f, ast.Name) else "")
+            name = _call_name(n)
+            if strategy and name in STRATEGY_BANNED_CALLS:
+                hits.append(("calls %s" % name, n.lineno))
             if name in DYNAMIC:
-                if strategy and name in ("exec", "eval"):
-                    hits.append(("calls %s" % name, n.lineno))
                 for a in n.args:
-                    for x in ast.walk(a):
-                        if isinstance(x, ast.Constant) and isinstance(x.value, str) and \
-                                (NAME_RE.search(x.value) or (strategy and x.value.startswith("tools"))):
-                            hits.append(("%s(%r)" % (name, x.value[:40]), n.lineno))
-    return hits
+                    s = _fold(a)
+                    if s is not None and (NAME_RE.search(s) or (strategy and TOOLS_MODULE_RE.search(s.strip()))):
+                        hits.append(("%s(%r)" % (name, s[:40]), n.lineno))
+        if isinstance(n, (ast.Constant, ast.BinOp, ast.JoinedStr)) and id(n) not in docs:
+            s = _fold(n)
+            if s is not None and len(s) < 200:
+                if NAME_RE.fullmatch(s.strip()) or NAME_RE.search(s.strip()) and s.strip().isidentifier():
+                    hits.append(("names %r in a string" % s[:40], getattr(n, "lineno", 0)))
+                elif strategy and TOOLS_MODULE_RE.search(s.strip()):
+                    hits.append(("names a tools/ module %r" % s[:40], getattr(n, "lineno", 0)))
+    # one report per (what, line)
+    seen, out = set(), []
+    for h in hits:
+        if h not in seen:
+            seen.add(h)
+            out.append(h)
+    return out
 
 
 def _py_files(rel_dir):
@@ -215,36 +325,103 @@ def test_the_lint_catches_a_planted_copy():
     assert names == ["detect_roll_seams", "my_gap_finder", "find_rolls"]
 
 
-def test_the_lint_catches_ttm_evasions():
-    """TTM review #56 point 6: a renamed copy with renamed knobs, the logic nested inside
-    run_backtest, a lambda, an import from a grandfathered tools/ file, getattr / exec."""
-    renamed = (
+TTM_VARIANTS = {   # TTM's attack on the lint, 2026-10-08 (C:/EdgeLog/_anatomy_cache/restate_roll/ttm_verify)
+    "A1 month % 3 via a local name": (
         "import numpy as np\n"
-        "def q(o, c, ts, r=2.5, a=15.0):\n"
-        "    gap = np.abs(o[1:] - c[:-1])\n"
-        "    qs = [t for t in ts if t.month in (3, 6, 9, 12)]\n"
-        "    return [int(np.argmax(gap))] if qs else []\n")
-    assert [n for n, _ in detectors_in_source(renamed)] == ["q"]
-    nested = (
-        "def run_backtest(open_, high, low, close, **kw):\n"
-        "    def helper(ts, g):\n"
-        "        return max((i for i, t in enumerate(ts) if t.month % 3 == 0), key=lambda i: abs(g[i]))\n"
-        "    return {}\n")
-    assert [n for n, _ in detectors_in_source(nested)] == ["run_backtest", "helper"]
-    ev = (
-        "from tools.rocfrontier_scan import detect_roll_seams as q\n"
-        "from tools.misc import helper\n"
-        "import tools.r16_misc_triage\n"
-        "detect_roll_seams = lambda *a: []\n"
-        "f = getattr(mod, 'detect_roll_seams')\n"
-        "exec('x = 1')\n")
-    whats = [w for w, _ in evasions_in_source(ev, strategy=True)]
-    assert any("imports detect_roll_seams" in w for w in whats)
-    assert sum(1 for w in whats if "tools/" in w) == 3
-    assert any("binds detect_roll_seams" in w for w in whats)
-    assert any(w.startswith("getattr(") for w in whats) and "calls exec" in whats
-    ok = "from augur_engine.rolls import seam_days as detect_roll_seams\n"
-    assert evasions_in_source(ok, strategy=True) == []
+        "def run_backtest(opens, highs, lows, closes, day_ts=None, **kw):\n"
+        "    g = np.abs(opens[1:] - closes[:-1])\n"
+        "    out = []\n"
+        "    for i, t in enumerate(day_ts[1:]):\n"
+        "        mo = t.month\n"
+        "        if mo % 3 == 0 and 14 <= t.day <= 21:\n"
+        "            out.append(i)\n"
+        "    s = max(out, key=lambda i: g[i]) if out else None\n"
+        "    return {}\n", False),
+    "A2 quarter set built by range()": (
+        "import numpy as np\n"
+        "QM = set(range(3, 13, 3))\n"
+        "def run_backtest(opens, highs, lows, closes, day_ts=None, **kw):\n"
+        "    g = np.abs(opens[1:] - closes[:-1])\n"
+        "    c = [i for i, t in enumerate(day_ts[1:]) if t.month in QM]\n"
+        "    s = int(np.argmax(g[c])) if c else None\n"
+        "    return {}\n", False),
+    "A3 abs rewritten as maximum(g, -g)": (
+        "import numpy as np\n"
+        "def run_backtest(opens, highs, lows, closes, day_ts=None, **kw):\n"
+        "    d = opens[1:] - closes[:-1]\n"
+        "    g = np.maximum(d, -d)\n"
+        "    c = [i for i, t in enumerate(day_ts[1:]) if t.month in (3, 6, 9, 12)]\n"
+        "    s = int(np.argmax(g[c])) if c else None\n"
+        "    return {}\n", False),
+    "A4 pick rewritten as nlargest": (
+        "import numpy as np\nimport pandas as pd\n"
+        "def run_backtest(opens, highs, lows, closes, day_ts=None, **kw):\n"
+        "    g = pd.Series(np.abs(opens[1:] - closes[:-1]))\n"
+        "    c = [i for i, t in enumerate(day_ts[1:]) if t.month in (3, 6, 9, 12)]\n"
+        "    s = g.iloc[c].nlargest(1).index\n"
+        "    return {}\n", False),
+    "A5 quarter from .quarter": (
+        "import numpy as np\n"
+        "def run_backtest(opens, highs, lows, closes, day_ts=None, **kw):\n"
+        "    g = np.abs(opens[1:] - closes[:-1])\n"
+        "    q = np.array([t.quarter for t in day_ts])\n"
+        "    s = int(np.argmax(g * (q[1:] == q[:-1])))\n"
+        "    return {}\n", False),
+    "A7 algorithm in a module-level lambda": (
+        "import numpy as np\n"
+        "pick = lambda ts, g: max((i for i, t in enumerate(ts) if t.month in (3, 6, 9, 12)), key=lambda i: abs(g[i]))\n"
+        "def run_backtest(opens, highs, lows, closes, day_ts=None, **kw):\n"
+        "    s = pick(day_ts[1:], opens[1:] - closes[:-1])\n"
+        "    return {}\n", False),
+    "E1 getattr with the name split in two": (
+        "import augur_engine.data_quality as dq\n"
+        "f = getattr(dq, 'roll_' + 'seam_check')\n", True),
+    "E2 plain attribute call": (
+        "import augur_engine.data_quality as dq\n"
+        "def go(m):\n"
+        "    return dq.roll_seam_check(m)\n", False),
+    "E3 tools/ file loaded by path": (
+        "import importlib.util as u\n"
+        "sp = u.spec_from_file_location('x', 'C:/repo/' + 'tools/rocfrontier_scan.py')\n"
+        "m = u.module_from_spec(sp)\nsp.loader.exec_module(m)\n", True),
+    "E4 runpy.run_path": (
+        "import runpy\n"
+        "ns = runpy.run_path('tools/rocfrontier_scan.py')\n", True),
+    "E5 sys.modules lookup": (
+        "import sys\n"
+        "def run_backtest(opens, highs, lows, closes, day_ts=None, **kw):\n"
+        "    s = sys.modules['tools.rocfrontier_scan'].detect_roll_seams(opens, closes, day_ts)\n"
+        "    return {}\n", True),
+    "E6 compile + FunctionType": (
+        "import types\n"
+        "code = compile(open('x.txt').read(), 'x', 'exec')\n"
+        "f = types.FunctionType(code.co_consts[0], {})\n", True),
+    "E7 globals()[name] binding": (
+        "import augur_engine.data_quality as dq\n"
+        "globals()['detect_roll_seams'] = dq.roll_seam_check\n", True),
+    "C1 control: detect_roll_seams defined": ("def detect_roll_seams(o, c, ts):\n    return []\n", False),
+    "C2 control: from tools import (strategy)": ("from tools.rocfrontier_scan import detect_roll_seams as q\n", True),
+}
+
+
+@pytest.mark.parametrize("name", sorted(TTM_VARIANTS))
+def test_the_lint_catches_ttm_evasions(name):
+    """TTM review #56 point 6 and the 10-08 attack on the lint: renamed copies, the algorithm in
+    other spellings / a lambda / module level, and every way of reaching a detector without defining
+    one. (A6 - a plain gap-threshold rule with renamed knobs, no quarter, no pick - is the honest
+    limit: it is indistinguishable from real gap logic; the runtime guard is the backstop.)"""
+    src, strat = TTM_VARIANTS[name]
+    assert detectors_in_source(src) or evasions_in_source(src, strategy=strat), name
+
+
+def test_the_redirect_and_a_roll_table_path_are_not_evasions():
+    ok = ("from augur_engine.rolls import seam_days as detect_roll_seams\n"
+          "import os, importlib.util\n"
+          "_T = os.path.join(os.path.dirname(__file__), 'tools', 'data', 'rolls_NQ.csv')\n"
+          "def run_backtest(o, h, l, c, **kw):\n"
+          "    s = detect_roll_seams(o, c, None)\n"
+          "    return {}\n")
+    assert evasions_in_source(ok, strategy=True) == [] and detectors_in_source(ok) == []
 
 
 def test_roll_aware_files_adjust_from_the_table():

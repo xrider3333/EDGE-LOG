@@ -223,7 +223,7 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 if m and _radj:
                     m = _R.reprice_result(m, _rplan, offset=0)
                 if m and _rroot is not None:
-                    _R.check_crossings(_sname, _rmeta, _rtimes, m.get("trades"))
+                    _R.check_crossings(_sname, _rmeta, _rtimes, m.get("trades"), roll_aware=False)
                 if m and cost_pts > 0:
                     m = _apply_costs(m, cost_pts)
                 if m and (cost_pts > 0 or _rroot is not None or _rratio):
