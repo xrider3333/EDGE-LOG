@@ -62,7 +62,7 @@ def lead_trio(xt, xr, days, wf, early, label):
     ok &= npos >= 6
     out.append("    paired d (x%.3f timed - x%.3f raw, fixed WF $30k multipliers) > 0 in %d of 9 July-June years: %s" % (
         kt, kr, npos, " ".join("%+.0fk" % (v / 1000) for v in ys)))
-    return ok, ["  RISK r1 TRIO %s vs raw: %s" % (label, "PASS" if ok else "FAIL")] + out
+    return ok, ["  RISK r1 TRIO %s: %s" % (label, "PASS" if ok else "FAIL")] + out
 
 
 def mde_line(xb, B, years, twin=True):

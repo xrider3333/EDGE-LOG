@@ -360,7 +360,7 @@ def stage_a(D, B, bdays, years):
         AL = rows["twin ALWAYS LONG"]
         ok_trio, lines = TC.lead_trio(np.r_[pr["xe"], pr["xb"]], np.r_[AL["xe"], AL["xb"]], edays.append(bdays),
                                       np.r_[np.zeros(len(edays), bool), np.ones(len(bdays), bool)],
-                                      np.r_[np.ones(len(edays), bool), np.zeros(len(bdays), bool)], "PRIMARY vs ALWAYS LONG")
+                                      np.r_[np.ones(len(edays), bool), np.zeros(len(bdays), bool)], "PRIMARY (timed) vs ALWAYS LONG (raw)")
         print("\n".join(lines))
         vx = rows["twin VIX^2 alone (A6)"]
         a6 = T > vx["st"]["roc"]
