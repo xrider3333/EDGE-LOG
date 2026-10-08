@@ -229,6 +229,21 @@ def twin_scores(D, frames, elig, dates):
     return out
 
 
+def frozen_check(prereg, files, expect):
+    """MANAGER #82 run-before-main: the LF-normalised sha256 of the prereg (+ addenda) and of every harness file must
+    equal the hashes posted to MANAGER before the run; printed in the run log; any mismatch stops the run."""
+    import hashlib
+    paths = [prereg] + list(files)
+    got = [hashlib.sha256(open(f, "rb").read().replace(b"\r\n", b"\n")).hexdigest() for f in paths]
+    for f, g in zip(paths, got):
+        print(f"sha256 (LF) {os.path.basename(f)} {g}")
+    exp = [e.strip().lower() for e in (expect or "").split(",") if e.strip()]
+    if exp != got:
+        sys.exit("FROZEN CHECK FAILED: hashes differ from those posted to MANAGER (pass them comma-separated in this "
+                 "order) - nothing run")
+    return got
+
+
 # ------------------------------------------------------------------------------------------------ steps
 def setup():
     ca = X.ca_path_required()
@@ -285,7 +300,12 @@ def power():
     pd.DataFrame({"roc": roc, "roc_net": roc_net, "do": do}).to_csv(os.path.join(OUT, "nulls.csv"), index=False)
 
 
-def run():
+PREREG = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "PREREG_fundml_r1_2026-10-08.md")
+
+
+def run(expect=None):
+    here = os.path.dirname(os.path.abspath(__file__))
+    frozen_check(PREREG, [os.path.join(here, "fundml_r1.py"), os.path.join(here, "xsml_r1.py")], expect)
     assert os.path.exists(os.path.join(OUT, "POWER.txt")), "run `power` first and commit POWER.txt"
     nl = pd.read_csv(os.path.join(OUT, "nulls.csv"))
     null95, do95 = float(np.percentile(nl.roc, 95)), float(np.percentile(nl["do"], 95))
@@ -353,4 +373,8 @@ def run():
 
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
-    {"dryload": dryload, "power": power, "run": run}.get(mode, lambda: sys.exit("usage: fundml_r1.py dryload | power | run"))()
+    if mode == "run":
+        run(sys.argv[2] if len(sys.argv) > 2 else None)
+    else:
+        {"dryload": dryload, "power": power}.get(mode, lambda: sys.exit(
+            "usage: fundml_r1.py dryload | power | run <sha prereg>,<sha fundml_r1.py>,<sha xsml_r1.py>"))()

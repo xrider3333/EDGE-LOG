@@ -281,7 +281,13 @@ def bars(D, net, net_s, twin_net, null95, do95, do50, w463, days, weeks, info, p
     return lines, all(b.values())
 
 
-def run():
+PREREG = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs",
+                      "PREREG_distressml_r1_2026-10-08.md")
+
+
+def run(expect=None):
+    here = os.path.dirname(os.path.abspath(__file__))
+    F.frozen_check(PREREG, [os.path.join(here, f) for f in ("distressml_r1.py", "fundml_r1.py", "xsml_r1.py")], expect)
     assert os.path.exists(os.path.join(OUT, "POWER.txt")), "run `power` first and commit POWER.txt"
     nl = pd.read_csv(os.path.join(OUT, "nulls.csv"))
     null95 = float(np.percentile(nl.roc, 95))
@@ -352,4 +358,9 @@ def run():
 
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
-    {"dryload": dryload, "power": power, "run": run}.get(mode, lambda: sys.exit("usage: distressml_r1.py dryload | power | run"))()
+    if mode == "run":
+        run(sys.argv[2] if len(sys.argv) > 2 else None)
+    else:
+        {"dryload": dryload, "power": power}.get(mode, lambda: sys.exit(
+            "usage: distressml_r1.py dryload | power | run <sha prereg>,<sha distressml_r1.py>,<sha fundml_r1.py>,"
+            "<sha xsml_r1.py>"))()
