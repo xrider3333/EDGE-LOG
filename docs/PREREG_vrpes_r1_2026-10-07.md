@@ -133,3 +133,104 @@ Dead and not re-tested:
   row (family MISC, with --wf-dd5), TTM.md note. No plugin and no Auto-Validate unless MANAGER relays an owner decision.
 - **FAIL:** dead; no other premium definition, horizon, lag or instrument. Ledger row, lane notes, RUNBOARD research row.
 - Nothing live or in the adopted book changes without the owner.
+
+## ADDENDUM 1 - pre-data, after MANAGER's adversarial review (2026-10-07, GO WITH EDITS)
+Review: C:/EdgeLog/manager/reviews/REVIEW_VRPES_JUMPSPLIT_2026-10-07.md (inbox #82). Written BEFORE any real-direction
+number. Where it differs from the sections above, this addendum governs. The harness is re-written to it:
+`python tools/vrpes_r1_stageA.py --predata` (schedule, inputs, counts, power) and `python tools/vrpes_r1_stageA.py`
+(Stage A; it refuses unless this file is on origin/main).
+
+**Edit 1 - RV on every session.**
+- RV now uses every ES RTH session that has any bar. A return across a missing bar counts as one return.
+- 122 sessions have fewer than 78 bars and would have been dropped by the old rule, 4-14 a year. Most are CME holiday and
+  early-close sessions.
+- The four 2020 circuit-breaker days are inside RV: 03-09 with 77 bars; 03-12, 03-16 and 03-18 with 76 each.
+- The ES holes are inside RV with what is there: 2020-02-28 has 18 bars (to 10:55), 2020-06-30 has 9.
+
+**Edit 2 - overnight variance in RV (the primary).**
+- Per-session RV = the squared overnight return + the RTH sum. The overnight return is the ADJ 30m close-to-open point gap
+  over the prior session's no-adjust close, which is exact across rolls. It is available on 3,867 of 3,868 sessions.
+- RTH-only RV becomes a REPORTED twin. At lag 1 it has 43 in-months, 34 of them shared with the primary.
+
+**Edit 3 - the schedule, restated before the run.**
+- **Lag 1 (primary):** 39 WF in-months (4.3 a year) in 22 runs. 9 fall in 2020: January, February, March and June to
+  November.
+- **Lag 2:** 40 in-months in 24 runs, 9 in 2020.
+- **The 2020 states at lag 1:**
+  - February IN: VRP dated 01-31, VIX 18.84, rank 0.948.
+  - March IN: 02-28, VIX 40.11, RV22 605, rank 0.997.
+  - April OUT: 03-31, VIX 53.54, RV22 7,885, rank 0.000.
+- **At lag 2:** February IN (0.757), March IN (0.999), April OUT (0.000).
+- Edits 1-2 moved April 2020 OUT. The draft had it IN, which bears out the review's suspicion that dropping the halt days
+  understated RV. The schedule is still LONG through March 2020.
+- **Neighbour (top quartile):** 33 in-months at lag 1, 32 at lag 2.
+- **By half:** 32 / 7 at lag 1; 32 / 8 at lag 2.
+
+**Edit 4 - every in-month's inputs** are printed by --predata: the VRP date used, its gap to entry in VIX days, VIX, RV22
+and the rank.
+- At lag 1 every gap is 1 VIX day, except September 2018. Its entry session is the CME Labor Day session (2018-09-03), so
+  no VIX day falls in between (gap 0); the VRP is still dated strictly before the entry. At lag 2 every gap is 2, except
+  that month (gap 1).
+- **No gap is larger than its lag.**
+- **Hand check against the CBOE photograph:** 01/31/2020 close 18.84; 02/28/2020 40.11; 03/31/2020 53.54; lag 2:
+  01/30 15.49, 02/27 39.16, 03/30 57.08. All six match the harness.
+- **Hole months:** February 2020's last session is the 02-28 hole, so its exit is that day's last bar in the master (the
+  10:55 close, a traded price). June 2020 exits at the 06-30 hole's last bar the same way.
+- **Holiday rows:** the VIX photograph carries rows on some CME-holiday sessions from 2022 on. They enter VRP's trailing
+  history (a few a year) but are never a decision value in this schedule.
+
+**Edit 5 - A2 on the worse lag.**
+- The circular shift is run on EACH lag's own WF state vector (k = 12 .. 96, 85 shifts, both cells together).
+- p is printed as a RANK out of 86 (85 shifts plus the real). A2 passes only if at most 4 of the 85 shifts are at or above
+  the real (rank <= 5).
+- The earner route's null is the family max of the R-day sum on the same shifts, read the same strict way.
+
+**Edit 6 - new binding A6, regime-matched.**
+- The primary's own ROC@$30k must beat a VIX^2-ALONE twin: the rank of VIX among the 756 values before it, on the same
+  dates, with the same tercile, lags and calendar.
+- At lag 1 the twin has 41 in-months, 25 of them shared with the primary (14 primary only, 16 twin only). At lag 2, 25 are
+  shared.
+- **Failing A6 files the row as "VIX-level timing, not VRP".**
+
+**Edit 7 - per stretch (Ruling 2).**
+- A4's EARLY and no-February-April-2020 tests move onto the LEAD vs always-long. They now form the RISK r1 trio:
+  - the lead (ROC@$30k timed minus always-long, each sized on its own drawdown in the stretch) is > 0 over the WF, over EX
+    (the WF without 2020-02-15 .. 04-30, rows joined end to end) and in EARLY 2013-08 .. 2016-06;
+  - paired d (daily timed minus always-long at fixed WF $30k multipliers) is > 0 in >= 6 of the 9 WF July-June years.
+- **Standalone net > 0 in BOTH WF halves is binding.** 2022-25 holds only 7 in-months at lag 1 and 8 at lag 2.
+- A4 keeps: net > 0 without the best trade, and net > 0 at 2x cost (roll charges doubled too).
+- The old A5 ("own ROC > always-long's") is replaced by the trio.
+
+**Edit 8 - can the 6-of-9 bar be met?**
+- In-months per July-June year, 2016-17 .. 2024-25: lag 1 = 4, 2, 5, 8, 9, 6, 2, 0, 3; lag 2 = 3, 3, 7, 7, 9, 5, 2, 0, 4.
+- **2023-24 has no in-month and counts as NOT positive**, so 6 of the other 8 years must be positive.
+- EARLY 2013-08 .. 2016-06 has 10 in-months at lag 1 and 7 at lag 2.
+
+**Edit 9 - roll charge.**
+- One extra 0.363 pt round trip is charged for each real ES switch held through. The switches come from
+  tools/data/rolls_ES.csv: 61 between 2010-06 and 2025-06, all 'exact'.
+- A switch counts when its evening falls on or after the month's first session and before its last.
+- 15 of the 39 lag-1 in-months carry one.
+
+**Edit 10:** the book add is also reported against the RESMOM line, L = #463 + 0.264 x RES. L's parity (120.82 / 3.916)
+is asserted via balance_r1_stageA.load_L.
+
+**Edit 11 - forward BOOK line gate.**
+- No forward BOOK line opens unless BOTH hold:
+  - the VOL-scale lead over #463 stays > 0 without calendar 2020;
+  - the leg's worst WF drawdown is not flagged one-episode (> 1.3 x DD5).
+- At about 4 trades a year, with the lockbox spent, any forward read is a HARM MONITOR only.
+
+**Edit 12 - the minimum detectable lead in own money.**
+- The power line, re-run after edits 1-2 (it moved because the coin-flip draw falls on the new schedule):
+  - VOL scale (x0.796): SD 17.0, minimum detectable 28.0, four in five 42.3.
+  - $30k own drawdown (x0.733): 16.4 / 27.1 / 40.9.
+- **Converted at the $30k-own-drawdown sizing.**
+  - At the VOL scale a sparse leg's lead SATURATES: a deterministic edge raises its daily SD as fast as its mean. So the
+    VOL line has no own-money equivalent.
+  - A book-add lead of 27.1 needs own ROC@$30k 94. That is the median over 200 coin-flip draws; p25 is 16 and p75 is 97,
+    and the spread is the sign each draw gives March 2020. It equals own **$94k a year at a $30k drawdown**.
+- **The prior median is ROC 5 = $5,000 a year** (ROC@$30k 1 = $1,000 a year at a $30k drawdown; the review's "$1.5k" reads
+  it against $30k).
+- Neither reaches the $15k MDL, let alone the minimum detectable lead. **The BOOK ADD is labelled UNDECIDABLE** and is
+  printed as a report only.
