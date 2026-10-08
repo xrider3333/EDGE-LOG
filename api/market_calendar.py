@@ -85,10 +85,31 @@ def _easter(year):
 
 
 def _observed(d):
-    """Saturday -> preceding Friday, Sunday -> following Monday, else unchanged."""
+    """Saturday -> preceding Friday, Sunday -> following Monday, else unchanged.
+
+    NOT for New Year's Day - use _observed_new_year, which carries the exchange's carve-out."""
     if d.weekday() == 5:      # Saturday
         return d - timedelta(days=1)
     if d.weekday() == 6:      # Sunday
+        return d + timedelta(days=1)
+    return d
+
+
+def _observed_new_year(year):
+    """The observed New Year's holiday for `year`, or None when there is not one.
+
+    THE CARVE-OUT, and it is the exchange's own: a Saturday holiday is observed the preceding
+    Friday UNLESS that Friday is the LAST BUSINESS DAY OF THE YEAR. New Year's Day is the only
+    holiday that can land in that case, and it lands there every time - the preceding Friday is
+    Dec 31 by definition. So a Saturday Jan 1 is not observed at all: the market TRADES on Dec 31
+    and resumes normally on Monday Jan 3.
+
+    Treating it like any other Saturday holiday is what made 2021-12-31 and 2027-12-31 read as
+    holidays in this module while the NYSE was open both days."""
+    d = date(year, 1, 1)
+    if d.weekday() == 5:          # Saturday -> would be Dec 31, the last business day: not observed
+        return None
+    if d.weekday() == 6:          # Sunday -> Monday Jan 2, which is inside the same year
         return d + timedelta(days=1)
     return d
 
@@ -99,14 +120,18 @@ _HOLIDAY_CACHE = {}
 
 def holiday_dates(year):
     """{date: name} of every NYSE/Nasdaq equity-market holiday whose OBSERVED date
-    falls in `year` -- except New Year's Day, whose observed date can fall on Dec 31
-    of the PRIOR year when Jan 1 lands on a Saturday; callers that need that case
-    covered use `_holidays_near` (checks year-1/year/year+1), which is what
-    is_session/holiday_name/session_close_et do internally."""
+    falls in `year`.
+
+    Every observed date lands inside `year`: a Saturday New Year is NOT observed at all (see
+    _observed_new_year), so nothing shifts back into December of the prior year. `_holidays_near`
+    still merges year-1/year/year+1 because a Sunday Dec 25 or Jul 4 shifts forward, and because
+    a caller near a year boundary wants both sides."""
     if year in _HOLIDAY_CACHE:
         return _HOLIDAY_CACHE[year]
     h = {}
-    h[_observed(date(year, 1, 1))] = "New Year's Day"
+    _ny = _observed_new_year(year)
+    if _ny is not None:
+        h[_ny] = "New Year's Day"
     h[_nth_weekday(year, 1, 0, 3)] = "Martin Luther King Jr. Day"
     h[_nth_weekday(year, 2, 0, 3)] = "Washington's Birthday"
     h[_easter(year) - timedelta(days=2)] = "Good Friday"
@@ -122,9 +147,11 @@ def holiday_dates(year):
 
 
 def _holidays_near(year):
-    """Merged holiday_dates for year-1/year/year+1 -- covers New Year's Day observed
-    back onto Dec 31 of the prior year (e.g. Jan 1 2022 is a Saturday -> observed
-    Friday Dec 31 2021)."""
+    """Merged holiday_dates for year-1/year/year+1, so a date near either year boundary is
+    judged against both sides.
+
+    It does NOT exist to pull a New Year's holiday back onto Dec 31 - that shift was wrong and is
+    gone (Jan 1 2022 was a Saturday and the NYSE traded Friday Dec 31 2021)."""
     merged = {}
     for y in (year - 1, year, year + 1):
         merged.update(holiday_dates(y))
@@ -201,6 +228,15 @@ def _selftest():
         ("2026-11-26", False, "Thanksgiving Day"),
         ("2026-12-25", False, "Christmas Day"),
         ("2027-01-01", False, "New Year's Day"),
+        # A SATURDAY NEW YEAR DOES NOT CLOSE THE PRECEDING FRIDAY. The exchange observes a
+        # Saturday holiday on the preceding Friday UNLESS that Friday is the last business day
+        # of the year - and for New Year's it always is. This module used to shift it back and
+        # so called two real trading days holidays.
+        ("2021-12-31", True, None),      # Jan 1 2022 was a Saturday; the NYSE traded this day
+        ("2027-12-31", True, None),      # Jan 1 2028 is a Saturday; same carve-out
+        ("2022-01-03", True, None),      # and the Monday after is an ordinary session
+        ("2023-01-02", False, "New Year's Day"),   # Sunday Jan 1 DOES shift forward to Monday
+        ("2021-01-01", False, "New Year's Day"),   # a weekday Jan 1 is itself the holiday
         # observed-shift cases: the actual Jul-4 date is a plain weekend (not itself a
         # holiday key -- only the OBSERVED date carries the name), so holiday_name is
         # None there; the observed date is what actually closes the market.

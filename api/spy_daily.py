@@ -19,7 +19,11 @@ already shipped, which is a bigger decision than a plumbing fix and is not this 
 call to make.
 
 STORAGE: users/{uid}/meta/spy_daily, ONE document, shaped
-    {updated_at, from, to, adjustment, bars: [["YYYY-MM-DD", close], ...]}
+    {updated_at, from, to, adjustment, closes: {"YYYY-MM-DD": close, ...}}
+`closes` is a FLAT MAP because Firestore rejects a nested array: this document used to
+write `bars: [["YYYY-MM-DD", close], ...]`, which is one, and so it was never written at
+all between 2026-10-02 and the fix (InvalidArgument 400 on every runner start). Readers
+here and in index.html accept the old `bars` shape too, so no stored history is lost.
 ~2,700 trading days (2015-present) at 2-decimal closes serializes to well under
 Firestore's 1 MiB/doc cap -- see tests/test_spy_daily.py for the measured size. One
 document read per browser session, never one read per bar and never one write per bar --
@@ -96,10 +100,20 @@ def _read_existing(db, uid):
         snap = _doc_ref(db, uid).get()
         data = snap.to_dict() if getattr(snap, "exists", False) else None
         out = {}
-        for row in (data or {}).get("bars") or []:
+        data = data or {}
+        # Post-fix shape first, then the pre-fix list of pairs. Both are read so that a
+        # document written by either version is usable and no history is thrown away.
+        for key, close in (data.get("closes") or {}).items():
+            if not key:
+                continue
+            try:
+                out[str(key)] = float(close)
+            except (TypeError, ValueError):
+                continue
+        for row in data.get("bars") or []:
             if isinstance(row, (list, tuple)) and len(row) == 2 and row[0]:
                 try:
-                    out[str(row[0])] = float(row[1])
+                    out.setdefault(str(row[0]), float(row[1]))
                 except (TypeError, ValueError):
                     continue
         return out
@@ -130,13 +144,16 @@ def build_merged_doc(existing, new_df, adjustment=ADJUSTMENT):
                 changed += 1
             merged[key] = close
     dates = sorted(merged)
-    bars = [[d, merged[d]] for d in dates]
     doc = {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "from": dates[0] if dates else None,
         "to": dates[-1] if dates else None,
         "adjustment": adjustment,
-        "bars": bars,
+        # A FLAT MAP, NOT A LIST OF PAIRS. Firestore rejects a nested array, and a list of
+        # two-element lists is exactly that - which is why this document was never written
+        # between 2026-10-02 and this fix. The reader builds a date -> close lookup anyway,
+        # so the list order was never used by anything.
+        "closes": {d: merged[d] for d in dates},
     }
     return doc, added, changed
 
@@ -154,13 +171,13 @@ def fetch_and_merge(db, uid, key, secret, *, now=None):
     end = (now - timedelta(minutes=20)).strftime("%Y-%m-%dT%H:%M:%SZ")
     df = fetch_bars(SYMBOL, "1Day", start, end, key, secret, feed="sip", adjustment=ADJUSTMENT)
     doc, added, changed = build_merged_doc(existing, df, ADJUSTMENT)
-    if not doc["bars"]:
+    if not doc["closes"]:
         _log(f"{uid}: fetch returned no bars (start={start[:10]}) -- nothing written")
         return {"ok": False, "added": 0, "changed": 0, "n_bars": 0}
     _doc_ref(db, uid).set(doc)
-    _log(f"{uid}: {doc['from']}..{doc['to']}, {len(doc['bars'])} bars total "
+    _log(f"{uid}: {doc['from']}..{doc['to']}, {len(doc['closes'])} bars total "
          f"(+{added} new, {changed} revised)")
-    return {"ok": True, "added": added, "changed": changed, "n_bars": len(doc["bars"])}
+    return {"ok": True, "added": added, "changed": changed, "n_bars": len(doc["closes"])}
 
 
 # -- scheduling hook for the runner's watch loop ----------------------------------------

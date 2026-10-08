@@ -12703,7 +12703,12 @@ function _loadSpyDailyDoc(){
   _spyDailyPromise=db.collection('users').doc(uid).collection('meta').doc('spy_daily').get()
     .then(snap=>{
       const data=snap.exists?snap.data():null;
-      _spyDailyDoc=(data&&Array.isArray(data.bars)&&data.bars.length)?data:null;
+      // `closes` is a flat map {date:close} (api/spy_daily.py); `bars` is the pre-fix list of
+      // pairs, which Firestore actually REFUSED to store, so it may never have existed - both
+      // are accepted so a document written by either version renders.
+      const _hasCloses=data&&data.closes&&Object.keys(data.closes).length;
+      const _hasBars=data&&Array.isArray(data.bars)&&data.bars.length;
+      _spyDailyDoc=(_hasCloses||_hasBars)?data:null;
       _spyDailyPromise=null;
       return _spyDailyDoc;
     })
@@ -12726,7 +12731,8 @@ async function fetchSPYData(startDate,endDate){
     return null;
   }
   const data={};
-  doc.bars.forEach(row=>{if(Array.isArray(row)&&row.length===2&&row[0]!=null&&row[1]!=null)data[row[0]]=row[1];});
+  if(doc.closes){Object.keys(doc.closes).forEach(d=>{const v=doc.closes[d];if(d&&v!=null)data[d]=v;});}
+  else if(Array.isArray(doc.bars)){doc.bars.forEach(row=>{if(Array.isArray(row)&&row.length===2&&row[0]!=null&&row[1]!=null)data[row[0]]=row[1];});}
   if(!Object.keys(data).length)return null;
   _spyCache[key]=data;
   return data;

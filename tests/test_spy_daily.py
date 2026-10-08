@@ -104,7 +104,7 @@ def test_full_backfill_serializes_well_under_1mib():
     assert doc["from"] == FULL_RANGE[0].isoformat()
     assert doc["to"] == FULL_RANGE[-1].isoformat()
     size = len(json.dumps(doc).encode("utf-8"))
-    print(f"\n[size] {len(doc['bars'])} bars -> {size:,} bytes serialized")
+    print(f"\n[size] {len(doc['closes'])} bars -> {size:,} bytes serialized")
     # 1 MiB cap; assert comfortably under it (10x headroom) rather than just barely.
     assert size < 200_000, f"doc unexpectedly large: {size:,} bytes"
 
@@ -113,51 +113,47 @@ def test_full_backfill_serializes_well_under_1mib():
 def test_incremental_run_appends_only_the_new_date():
     base_dates = FULL_RANGE[:-1]          # everything except the last trading day
     doc1, _, _ = SD.build_merged_doc({}, _fixture_df(base_dates))
-    existing = {d: c for d, c in doc1["bars"]}
+    existing = dict(doc1["closes"])
 
     new_day = [FULL_RANGE[-1]]
     doc2, added, changed = SD.build_merged_doc(existing, _fixture_df(new_day))
 
     assert added == 1
     assert changed == 0
-    assert len(doc2["bars"]) == len(doc1["bars"]) + 1
+    assert len(doc2["closes"]) == len(doc1["closes"]) + 1
     # every old row is byte-for-byte untouched
-    old_map = dict(doc1["bars"])
-    new_map = dict(doc2["bars"])
-    for d, c in old_map.items():
-        assert new_map[d] == c
-    # no duplicate dates
-    all_dates = [row[0] for row in doc2["bars"]]
-    assert len(all_dates) == len(set(all_dates))
+    for d, c in doc1["closes"].items():
+        assert doc2["closes"][d] == c
+    # a map cannot hold a duplicate date, which is the point of keying by date
 
 
 def test_rerun_with_same_new_bars_is_idempotent():
     doc1, _, _ = SD.build_merged_doc({}, _fixture_df(FULL_RANGE[:-1]))
-    existing = {d: c for d, c in doc1["bars"]}
+    existing = dict(doc1["closes"])
     new_day_df = _fixture_df([FULL_RANGE[-1]])
 
     doc2, added1, changed1 = SD.build_merged_doc(existing, new_day_df)
-    existing2 = {d: c for d, c in doc2["bars"]}
+    existing2 = dict(doc2["closes"])
     doc3, added2, changed2 = SD.build_merged_doc(existing2, new_day_df)
 
     assert added1 == 1 and changed1 == 0
     assert added2 == 0 and changed2 == 0            # re-running adds/changes nothing
-    assert doc2["bars"] == doc3["bars"]
+    assert doc2["closes"] == doc3["closes"]
 
 
 def test_overlapping_fetch_window_does_not_duplicate():
     """fetch_and_merge always re-asks for the last stored date onward (in case Alpaca
     restates it), so the merge must treat that overlap as a no-op, not a duplicate."""
     doc1, _, _ = SD.build_merged_doc({}, _fixture_df(FULL_RANGE[:-3]))
-    existing = {d: c for d, c in doc1["bars"]}
+    existing = dict(doc1["closes"])
     overlap_plus_new = _fixture_df(FULL_RANGE[-4:])   # re-sends 1 old date + 3 new ones
 
     doc2, added, changed = SD.build_merged_doc(existing, overlap_plus_new)
     assert added == 3
     assert changed == 0                                # same close on the overlap day
-    dates = [row[0] for row in doc2["bars"]]
+    dates = sorted(doc2["closes"])
     assert len(dates) == len(set(dates))
-    assert len(doc2["bars"]) == len(doc1["bars"]) + 3
+    assert len(doc2["closes"]) == len(doc1["closes"]) + 3
 
 
 # ── 3. full round-trip through the fake Firestore doc ────────────────────────────────
@@ -185,7 +181,7 @@ def test_fetch_and_merge_round_trips_through_the_store(monkeypatch):
     assert r2["n_bars"] == len(FULL_RANGE)
 
     stored = db.store[("users", uid, "meta", "spy_daily")]
-    dates = [row[0] for row in stored["bars"]]
+    dates = sorted(stored["closes"])
     assert len(dates) == len(set(dates))
     assert stored["adjustment"] == "split"
 
@@ -232,3 +228,93 @@ def test_key_and_secret_never_logged(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert secret_key not in out
     assert secret_val not in out
+
+
+# ── the defect this shape exists to prevent ──────────────────────────────────────────
+def _nested_arrays(value, path="doc"):
+    """Every place a list contains a list, however deep. Firestore rejects ALL of them."""
+    found = []
+    if isinstance(value, (list, tuple)):
+        for i, item in enumerate(value):
+            if isinstance(item, (list, tuple)):
+                found.append(f"{path}[{i}]")
+            found.extend(_nested_arrays(item, f"{path}[{i}]"))
+    elif isinstance(value, dict):
+        for k, v in value.items():
+            found.extend(_nested_arrays(v, f"{path}[{k!r}]"))
+    return found
+
+
+def test_the_document_contains_no_nested_array():
+    """THE ONE THAT WOULD HAVE CAUGHT IT. Firestore rejects a nested array anywhere in a
+    document with InvalidArgument 400, and `bars: [[date, close], ...]` is one - so api/spy_daily
+    raised on EVERY runner start from 2026-10-02 15:59 and the document was never written at all.
+    The vs-SPY overlay read "not available yet" for five days and no test went red, because
+    nothing here asserted the one property the store actually enforces.
+
+    This checks the whole document, not just the closes field, so the next field added cannot
+    reintroduce it either."""
+    doc, _added, _changed = SD.build_merged_doc({}, _fixture_df(FULL_RANGE))
+    offenders = _nested_arrays(doc)
+    assert not offenders, (
+        "Firestore refuses a nested array; these would make every write fail: %s" % offenders)
+
+
+def test_the_closes_field_is_a_flat_map_of_date_to_number():
+    doc, _a, _c = SD.build_merged_doc({}, _fixture_df(FULL_RANGE))
+    assert isinstance(doc["closes"], dict)
+    for key, val in doc["closes"].items():
+        assert isinstance(key, str) and len(key) == 10, key
+        assert isinstance(val, (int, float)) and not isinstance(val, bool), (key, val)
+
+
+def test_a_document_written_by_the_OLD_version_is_still_readable():
+    """A pre-fix document (if a write ever did land) must not be thrown away - discarding it
+    would make the next run re-pull years of bars to rebuild what was already stored."""
+    legacy = {"bars": [["2024-01-02", 472.65], ["2024-01-03", 470.10]]}
+
+    class _Snap:
+        exists = True
+
+        def to_dict(self):
+            return legacy
+
+    class _Ref:
+        def get(self):
+            return _Snap()
+
+    class _DB:
+        def collection(self, _n):
+            return self
+
+        def document(self, _n):
+            return self
+
+        def get(self):
+            return _Snap()
+
+    out = SD._read_existing(_DB(), "uid")
+    assert out == {"2024-01-02": 472.65, "2024-01-03": 470.10}, out
+
+
+def test_both_shapes_at_once_prefer_the_new_one():
+    """If a document somehow carries both, the flat map is the current truth."""
+    both = {"closes": {"2024-01-02": 999.0}, "bars": [["2024-01-02", 1.0]]}
+
+    class _Snap:
+        exists = True
+
+        def to_dict(self):
+            return both
+
+    class _DB:
+        def collection(self, _n):
+            return self
+
+        def document(self, _n):
+            return self
+
+        def get(self):
+            return _Snap()
+
+    assert SD._read_existing(_DB(), "uid") == {"2024-01-02": 999.0}
