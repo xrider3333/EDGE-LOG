@@ -187,3 +187,24 @@ EDITS; C:/EdgeLog/manager/reviews/REVIEW_EAP_DIVCHG_2026-10-07.md) folded in edi
 - [E18] UNCHANGED: the data, [P]'s 364-day rule, the cells, sizes, fills, costs, the random-name null, the stretches, the bars
   (a), (b), (d), (e), (f), A2, Stage B / C, the diagnostics. Zero passes = EAP r1 dead and the earnings family closed (EDRIFT r2
   is not run).
+PRE-DATA ADDENDUM 2 (2026-10-08 10:38 MST, before any EAP number: TV's two files were read for their row counts and columns only -
+no release, score, accuracy or return computed): [E4]'s predecessor list pinned (TV #133, re this lane's #94).
+- [E19] THE [E4] LIST, PINNED: C:\EdgeLog\_research_cache\edgar\edgar_predecessor_map.csv (9 rows, sha256
+  87620b86be78d46db10c3b68df3e5f6d03101595c5bc0923bbb6805cce6a3c00; columns symbol, predecessor_cik, predecessor_name,
+  successor_cik, first_8k_date, last_8k_date, edgar_source_url, note; TV's tools/edgar_predecessors.py; the pinned calendar
+  untouched, still 8f4f9f4b). Its real CIK changes: AVGO <- 0001649338 (Broadcom Pte. Ltd., 8-Ks 2015-10-20 .. 2018-04-09);
+  FOX and FOXA <- 0001308161 (Twenty-First Century Fox, until the 2019-03 spin); MRVL <- 0001058057 (Marvell Technology Group,
+  until the 2021-04 re-domicile); CEG <- 0001168165 (Constellation Energy Generation: no item 2.02 under either CIK before
+  2022-05-12, so CEG 2022-03..05 stays a gap). A member-month joins the predecessor CIK's releases only inside its row's
+  [first_8k_date, last_8k_date]; elsewhere the member's own CIK as before. The rows that are NOT CIK changes (TEAM and NXPI:
+  6-K foreign filers until 2022-10 / 2019; DISH: no item 2.02 results 8-K in 2016-18; SIRI: two results 8-Ks tagged 9.01
+  only) join nothing and stay holes, counted and listed as [E4] says; SIRI's two are not hand-added (the calendar's rule is
+  item 2.02, the same for every name).
+- [E20] THE PREDECESSORS' RELEASES, PINNED: C:\EdgeLog\_research_cache\edgar\earnings_calendar_predecessors.csv (85 rows,
+  sha256 5a9c4142966c11067f990615473c2c36ba598376d0276b483194388f9215ba1a; the calendar's own columns; ticker = ndx_tickers =
+  the member symbol; every row accepted before 2025-06-30): AVGO 10 (2016-03-03 .. 2018-03-15), MRVL 75 (2004-11 ..
+  2021-03-03), read as ONE table with the pinned calendar 8f4f9f4b - a release present in both (the same accession) refuses
+  the run. FOX / FOXA's predecessor releases are already rows of 8f4f9f4b labelled TFCF;TFCFA: their member-months before
+  2019-04 join CIK 1308161's rows there, no addition. [E5]'s accuracy, [E15]'s accepted-before rule and every release rule
+  read the combined table; the joined name-months per symbol are printed before any P&L.
+- [E21] Everything else stands; the expected verdict stays DEAD ([E7]).
