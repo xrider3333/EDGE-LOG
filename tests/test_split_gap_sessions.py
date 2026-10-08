@@ -226,3 +226,87 @@ def test_the_real_unadjusted_GE_cache_still_fires():
     hits = alp.split_like_gaps(pd.read_csv(REAL_GE))
     assert [h[0] for h in hits] == ["2021-08-02"], hits
     assert 8.0 < hits[0][1] < 8.2
+
+
+# ═══════════════════════════════════════════════ DAILY frames (TBIS #76, 2026-10-07)
+def _daily_frame(clock="00:00", new_open=104.48, vol_scales=True, n=20):
+    """A reverse split on a DAILY series, stamped at one clock time like a 1D master.
+
+    Alpaca's 1D library masters stamp every bar 00:00 ET, which is outside the regular session -
+    so the session-boundary rule found no bar on any date and skipped every day.
+    """
+    # GE's real numbers again: 12.95 regular close, 104.48 next open (8.068x)
+    old_close = 12.95
+    base = int(pd.Timestamp("2021-07-01 " + clock, tz="US/Eastern").timestamp())
+    rows = []
+    for i in range(-n, 0):
+        vb = 8_000_000 if vol_scales else 1_000_000
+        rows.append({"time": base + i * DAY, "open": 12.90, "high": 13.00, "low": 12.80,
+                     "close": old_close, "volume": vb})
+    for i in range(0, n):
+        va = 1_000_000 if vol_scales else 1_000_000
+        rows.append({"time": base + i * DAY, "open": new_open, "high": new_open + 1,
+                     "low": new_open - 1.5, "close": new_open - 0.88, "volume": va})
+    return pd.DataFrame(rows)
+
+
+def test_a_midnight_stamped_daily_master_is_no_longer_invisible():
+    """THE DEFECT TBIS FOUND, and it was mine: every 1D library master was skipped entirely, so
+    one holding a missed split passed upsert_master without a word."""
+    hits = alp.split_like_gaps(_daily_frame("00:00"))
+    assert [h[0] for h in hits] == ["2021-07-01"], hits
+    assert 8.0 < hits[0][1] < 8.2
+    assert hits[0][3] == "8:1"
+
+
+def test_the_daily_shape_is_detected_rather_than_assumed():
+    """A frame is treated as daily because of its SHAPE - one clock time for every bar, outside
+    the regular session - not because a caller said so."""
+    assert alp._is_daily_frame([0, 0, 0, 0]) is True
+    assert alp._is_daily_frame([17 * 60 + 50] * 6) is True       # an after-hours daily stamp
+    assert alp._is_daily_frame([]) is False
+    assert alp._is_daily_frame([9 * 60 + 30] * 5) is False       # inside the session: not daily
+    assert alp._is_daily_frame([0, 0, 570, 0]) is False          # mixed: an intraday frame
+
+
+def test_an_intraday_frame_with_one_stray_premarket_day_is_untouched():
+    """WHY THE DETECTOR IS NARROW. Re-stamping every row to midday - fine for a scan that owns
+    its data - would promote this stray premarket-only day into a session boundary and could
+    invent a gap. The intraday path must be unchanged by the daily fix."""
+    rows = []
+    for i in range(-6, 0):
+        rows.append(_bar(i, 9, 30, 100.0, 100.2))
+        rows.append(_bar(i, 15, 30, 100.2, 100.4))
+    rows.append(_bar(0, 4, 30, 12.5, 12.6))              # premarket only, a nonsense print
+    for i in range(1, 6):
+        rows.append(_bar(i, 9, 30, 100.4, 100.6))
+        rows.append(_bar(i, 15, 30, 100.6, 100.8))
+    assert alp.split_like_gaps(pd.DataFrame(rows)) == []
+
+
+def test_a_daily_frame_stamped_inside_the_session_still_works():
+    """TBIS's scan re-stamps to 12:00 ET before calling in. That lands inside the regular session,
+    so it goes down the ordinary path - and must give the same answer."""
+    hits = alp.split_like_gaps(_daily_frame("12:00"))
+    assert [h[0] for h in hits] == ["2021-07-01"], hits
+
+
+def test_the_volume_test_still_discriminates_on_a_daily_frame():
+    """The daily fix must not weaken the filter: a real split passes, a price move with an
+    unchanged share count does not."""
+    assert "2021-07-01" in [h[0] for h in
+                            alp.split_like_gaps(_daily_frame("00:00", vol_scales=True),
+                                                require_volume=True)]
+    assert "2021-07-01" not in [h[0] for h in
+                                alp.split_like_gaps(_daily_frame("00:00", vol_scales=False),
+                                                    require_volume=True)]
+
+
+def test_a_clean_daily_frame_raises_nothing():
+    """A daily series with no split must stay silent - the fix opens a path, it does not lower
+    the bar."""
+    base = int(pd.Timestamp("2021-07-01 00:00", tz="US/Eastern").timestamp())
+    rows = [{"time": base + i * DAY, "open": 100.0 + i * 0.1, "high": 101.0 + i * 0.1,
+             "low": 99.0 + i * 0.1, "close": 100.5 + i * 0.1, "volume": 1_000_000}
+            for i in range(-20, 20)]
+    assert alp.split_like_gaps(pd.DataFrame(rows)) == []

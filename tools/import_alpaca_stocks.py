@@ -219,14 +219,45 @@ SPLIT_VOLUME_SESSIONS = 20          # 20-day median each side, so one heavy day 
 RTH_OPEN_MIN = 9 * 60 + 30          # 09:30 ET
 
 
+def _is_daily_frame(minutes):
+    """Is this a DAILY series rather than an intraday one?
+
+    The test is the shape, not the timeframe label the caller happens to know: every bar in the
+    frame sits at ONE clock time, and that time is outside the regular session. An Alpaca 1D
+    master stamps every bar 00:00 ET and looks exactly like this; an intraday frame never does,
+    because its bars run across the session.
+
+    Deliberately narrow. Re-stamping every row to midday - which is what a scan that owns its own
+    data can do - would, on an intraday frame, promote a stray premarket-only day into a session
+    boundary and could invent a gap that is not there.
+    """
+    if not len(minutes):
+        return False
+    first = minutes[0]
+    for m in minutes:
+        if m != first:
+            return False
+    return first < RTH_OPEN_MIN or first >= EARLY_CLOSE_MIN
+
+
 def _session_bounds(day_strs, minutes, dates):
     """{date: (first_rth_idx, last_rth_idx)} using each day's ACTUAL close.
 
     The regular session is what a split is quoted against, and it is also the only boundary that
     means the same thing on an RTH frame and an ETH one. A day with no regular-session bar at all
     (a pure premarket row) simply gets no entry.
+
+    EXCEPT on a DAILY frame, where one bar IS the whole session. Without this the guard was blind
+    to every 1D master: Alpaca stamps those at 00:00 ET, no date had a regular-session bar, every
+    day was skipped, and a 1D master holding a missed split passed upsert_master silently
+    (TBIS, 2026-10-07).
     """
     out = {}
+    if _is_daily_frame(minutes):
+        for i, day in enumerate(day_strs):
+            first, last = out.get(day, (i, i))
+            out[day] = (min(first, i), max(last, i))
+        return out
     for i, day in enumerate(day_strs):
         close_min = EARLY_CLOSE_MIN if day in EARLY_CLOSE_DATES else REGULAR_CLOSE_MIN
         if minutes[i] < RTH_OPEN_MIN or minutes[i] >= close_min:
