@@ -121,3 +121,20 @@ noise. The signals, trigger days and counts were real; no return was read.
 2. **NQ T1 and ES T1 trade the SAME days** (same VIX trigger). They are one stress test on two markets, not two
    independent tests. The family null already takes the max across all four cells, so the bar is unchanged. The
    write-up must not count an NQ-T1 and ES-T1 pair as two confirmations.
+
+## Addendum 2 (2026-10-08 10:45 MST, before any return)
+
+A data-hygiene fix to the VIX trigger (T1), found from the house's session-calendar note of 10-07 and not from any
+return.
+
+- **The trap:** the CBOE VIX file has rows on 23 US stock-market holidays from 2022 on (for example 2022-05-30,
+  2023-01-16). Those were CME-holiday futures sessions, where the stock market was closed.
+- **The fix:** those rows are dropped before the 252-close percentile and the "prior VIX close" are taken. A CME-holiday
+  session is identified as an RTH master session ending with the 12:55 or 13:00 bar. NYSE early closes (13:10 / 13:15)
+  are kept.
+- **Effect, counts only (smoke run with every dollar column as noise):** T1 goes from 441 to 439 walk-forward trades on
+  NQ and from 440 to 438 on ES. T2 is unchanged.
+- **Two related facts, stated rather than fixed:**
+  - Holiday and early-close sessions have no 15:25 / 15:30 / 15:55 bars, so they never trade.
+  - The ES master's data hole on 2020-02-28 (bars only to 10:55) drops that ES afternoon. It is a stress day, and it
+    is lost to the data.
