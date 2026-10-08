@@ -28,6 +28,9 @@ owner's go.**
      so it acts no earlier than the next session.
   5. **The raw file runs to today:** the harness re-hashes the file, aborts on a mismatch, and drops every row after
      2025-06-29 on read.
+- **Calendar check (10-07):** the GEX file has NO rows on the 71 CME US-holiday sessions in the ES data (stock market
+  closed; the session ends with the 12:55 or 13:00 bar), so no drop-or-carry rule is needed. The CBOE VIX photograph,
+  by contrast, carries rows on 23 of them from 2022 on.
 - **Added here:** zero-days-to-expiry options grew sharply from 2022, and whether that changed what daily GEX measures is
   a prior. The 2016-21 and 2022-25 halves are printed apart for every arm.
 
