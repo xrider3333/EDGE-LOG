@@ -169,7 +169,76 @@ def _get_report(db, date_str):
     return snap.to_dict() if snap.exists else None
 
 
-def _cumulative(db, date_str):
+# BOOK #463's legs and weights - the same dict api/paper.py uses for the nightly book figure.
+BOOK_WEIGHTS = {"ORB": 1.0, "ENGUQ_335": 1.0, "TTM_299_SSOF2": 3.0, "NOISE_422": 1.0}
+
+
+def _bundle_trades(db):
+    """Every paper trade from the standing bundle (api/paper_bundle.py, 1-3 reads), or None."""
+    try:
+        from api import paper_bundle
+        trades, _meta = paper_bundle.read_bundle(db, UID)
+        return trades
+    except Exception:
+        return None
+
+
+def _cumulative(db, date_str, trades=None):
+    """Running totals from PAPER_START through date_str, built from the SAME trade records as
+    the review's daily rows (2026-10-07, MANAGER #88). It used to add up the nightly report
+    docs, and those are rewritten after the fact (the 10-02 exit-day re-merge; later nights
+    re-price trades from the master; backfilled trades never reached old reports), so the
+    09-30 review read ORB_R6 +$3,709.72 while the same docs summed later gave +$6,328.40.
+    Now: every CLOSED trade whose close_day is in range, summed per leg; the book at #463's
+    weights. Earlier reviews are snapshots of a moving record - the figure here is as of
+    today's records. The blend stays a sum of report snapshots (it has no trade-level form).
+    Falls back to the old report sum when there is no trade bundle."""
+    trades = _bundle_trades(db) if trades is None else trades
+    if not trades:
+        out = _cumulative_from_reports(db, date_str)
+        out["source"] = "report snapshots (no trade bundle)"
+        return out
+    per_leg, n_leg = {}, {}
+    for t in trades:
+        cd = t.get("close_day")
+        if t.get("open") or not cd or not (PAPER_START <= cd <= date_str):
+            continue
+        k = t.get("leg")
+        try:
+            v = float(t.get("pnl_usd") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        per_leg[k] = per_leg.get(k, 0.0) + v
+        n_leg[k] = n_leg.get(k, 0) + 1
+    book = sum(per_leg.get(k, 0.0) * w for k, w in BOOK_WEIGHTS.items())
+    rep = _cumulative_from_reports(db, date_str)
+    return {"since": PAPER_START, "through": date_str, "n_report_days": rep["n_report_days"],
+            "per_leg_pnl_usd": {k: round(v, 2) for k, v in per_leg.items()},
+            "per_leg_n_trades": n_leg,
+            "book_pnl_usd": round(book, 2), "blend_pnl_usd": rep["blend_pnl_usd"],
+            "source": "closed trades by close day (trade bundle), as of today's records - "
+                      "earlier reviews are snapshots; blend = sum of report snapshots"}
+
+
+def step_check(trades, date_str, rows):
+    """Per leg: cumulative(date_str) - cumulative(previous day) must equal the sum of the day's
+    counted rows. Returns the legs that disagree by more than a cent: {leg: [step, rows]}."""
+    prev = {}
+    for t in trades or []:
+        cd = t.get("close_day")
+        if t.get("open") or not cd or not (PAPER_START <= cd <= date_str):
+            continue
+        prev.setdefault(t.get("leg"), [0.0, 0.0])
+        if cd == date_str:
+            prev[t["leg"]][0] += float(t.get("pnl_usd") or 0.0)
+    for r in rows or []:
+        if r.get("counted_today") and not r.get("open"):
+            prev.setdefault(r.get("leg"), [0.0, 0.0])
+            prev[r["leg"]][1] += float(r.get("pnl_usd") or 0.0)
+    return {k: [round(a, 2), round(b, 2)] for k, (a, b) in prev.items() if abs(a - b) > 0.01}
+
+
+def _cumulative_from_reports(db, date_str):
     """Sum leg/blend/book pnl_usd across every paper_reports doc from PAPER_START to
     date_str inclusive. One .get() per trading day in range (a few dozen by now) -
     cheap, and avoids relying on a document-id range query needing a composite index."""
@@ -318,7 +387,10 @@ def _gather_facts(db, date_str):
         return None  # caller handles MISSING REPORT
     trades, roll_or_err = _trades_for_date(db, date_str)
     roll_flagged = roll_or_err if isinstance(roll_or_err, list) else []
-    cum = _cumulative(db, date_str)
+    _btrades = _bundle_trades(db)
+    cum = _cumulative(db, date_str, trades=_btrades)
+    if _btrades:
+        cum["step_mismatch"] = step_check(_btrades, date_str, trades)
     wb_doc, wb_err = _webull_doc(db)
     today_et = et_now().date().isoformat()
     webull_book = {"available": wb_doc is not None, "error": wb_err,
@@ -389,9 +461,12 @@ def _facts_md(facts):
     lines += ["", f"Blend today: ${blend}", f"Book today: ${book}"]
     cum = nt.get("cumulative") or {}
     lines += ["", f"Cumulative since {cum.get('since')} through {cum.get('through')} "
-                  f"({cum.get('n_report_days')} report days):",
+                  f"({cum.get('n_report_days')} report days; {cum.get('source', 'report snapshots')}):",
               f"  blend cumulative: ${cum.get('blend_pnl_usd')}",
               f"  book cumulative: ${cum.get('book_pnl_usd')}"]
+    if cum.get("step_mismatch"):
+        lines.append(f"  CHECK: today's cumulative step differs from today's rows for "
+                     f"{cum['step_mismatch']} (leg: [step, rows]) - a trade changed after the rows were read")
     if nt.get("roll_artifact_trade_ids"):
         lines.append(f"ROLL ARTIFACT flagged trades: {nt['roll_artifact_trade_ids']}")
     lines.append("")

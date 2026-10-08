@@ -448,3 +448,30 @@ def test_capture_health_falls_back_to_local_files_when_report_lacks_it(monkeypat
     facts = json.loads(open(os.path.join(R.INBOX, "facts.json"), encoding="utf-8").read())
     assert "error" in facts["capture_health"]["NQ"]
     assert "capture" in facts["capture_health"]["warning"]
+
+
+# ── cumulative from trade records (2026-10-07, MANAGER #88) ──────────────────────────────
+def _t(leg, day, pnl, open_=False):
+    return {"leg": leg, "close_day": None if open_ else day, "pnl_usd": pnl, "open": open_}
+
+
+def test_cumulative_from_trades_steps_by_each_days_rows():
+    trades = [_t("ORB_R6", "2026-08-11", -50.66), _t("ORB_R6", "2026-09-30", -3400.66),
+              _t("ORB_R6", "2026-10-02", -1430.66), _t("ORB", "2026-10-02", 100.0),
+              _t("ENGUQ_335", None, 40000.0, open_=True)]
+    db = FakeDB()
+    c930 = R._cumulative(db, "2026-09-30", trades=trades)
+    c1002 = R._cumulative(db, "2026-10-02", trades=trades)
+    assert c930["per_leg_pnl_usd"]["ORB_R6"] == pytest.approx(-3451.32)      # backfilled 08-11 counted
+    step = c1002["per_leg_pnl_usd"]["ORB_R6"] - c930["per_leg_pnl_usd"]["ORB_R6"]
+    assert step == pytest.approx(-1430.66)                                   # the day's row, exactly
+    assert c1002["book_pnl_usd"] == pytest.approx(100.0)                     # open trades never counted
+    assert "trade bundle" in c1002["source"]
+
+
+def test_step_check_flags_a_row_that_disagrees():
+    trades = [_t("ORB", "2026-10-02", -60.66)]
+    rows = [{"leg": "ORB", "pnl_usd": -45.66, "counted_today": True}]
+    assert R.step_check(trades, "2026-10-02", rows) == {"ORB": [-60.66, -45.66]}
+    rows[0]["pnl_usd"] = -60.66
+    assert R.step_check(trades, "2026-10-02", rows) == {}
