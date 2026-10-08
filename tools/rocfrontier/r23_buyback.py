@@ -1,27 +1,33 @@
 # BUYBACK r1 - SHAREHOLDER PAYOUT YIELD in US large caps, rebalanced MONTHLY, dollar-neutral: cells P (net payout yield = (REP + DIV - ISS) / MV, Boudoukh et al. 2007) and R (net repurchase yield = (REP - ISS) / MV) - the CASH a firm paid
 # to (or raised from) its shareholders over the last four quarters, read from the cash-flow statements of its SEC filings AS FILED (the first filed value of every fact, usable from the first session after its first filing), over its
 # market value (the raw close x NETISS r1's point-in-time share count S, the split factor carrying a split between S's as-of date and the rank); at each month-end rank close long the 50 HIGHEST (the biggest net payers), short the
-# 50 LOWEST (the biggest net raisers). A leg for BOOK #463 that must clear the STANDALONE bars (MANAGER #56), reported INCREMENTALLY over the RESTATED reference L = #463 + 0.264 x RES [B12]. Pre-registered:
-# tools/rocfrontier/PREREG_BUYBACK_R1.txt (canonical LF sha256 9a99203b...3494 = DRAFT v1 + PRE-DATA ADDENDUM 1 ([B1] the fiscal-year change guard, [B2] the 120-day staleness print, [B3] the tag blind spot, [B4] accession numbers, [B5]
+# 50 LOWEST (the biggest net raisers). A leg for BOOK #463 that must clear the STANDALONE bars (MANAGER #56), reported INCREMENTALLY over the S1-RESTATED reference L = #463 + 0.264 x RES [B14]. Pre-registered:
+# tools/rocfrontier/PREREG_BUYBACK_R1.txt (canonical LF sha256 0603965f...1313 = DRAFT v1 + PRE-DATA ADDENDUM 1 ([B1] the fiscal-year change guard, [B2] the 120-day staleness print, [B3] the tag blind spot, [B4] accession numbers, [B5]
 # memory) + PRE-DATA ADDENDUM 2 ([B6] the extract pinned, [B7] issuance read from seven concepts before the zero rule, [B8] the tax-withholding twin, [B9] the zero-rule share of the picks, [B10] the judged reading, [B11] DD5 beside every
-# ROC, [B12] the restated L)). Every rule, threshold, window and cost below is that file; where it is silent the choice is marked CHOICE (each one is listed in the commit report for the lead's pre-data addendum).
-# BUYBACK is NETISS r1's sibling on the same SEC photograph: r17_resmom.py (the loaders, the calendar, the schedule, fills / holds / costs / borrow, the cell engine, the statistics, the hygiene windows, the audit rows), r18_divrun.py (the
-# REFERENCE book, the incremental A2, the null statistics) and r21_netiss.py (the symbol -> CIK map, the share-count facts and S(r), the split factor and [A3]'s two-way split check, the foreign filers [A4], ONE share class per firm [A13],
-# the null's draw, the beta credit rule, the hedged twin, the deciles, the gate, DD5) are imported, never copied and never edited. Importing r21_netiss also points r18_divrun's reference loader at the RESTATED L [B12] - this file keeps it so.
+# ROC, [B12] the restated L) + PRE-DATA ADDENDUM 3 ([B13] MANAGER's hygiene edit S1: the judged reading is r17_resmom's post_mode 'close', [B10]'s 'keep' reading a report; [B14] the S1-restated L; [B15] the harness's CHOICEs (1) - (18)
+# fixed as built and (9)'s discrete-quarter label; [B16] the memory rule) + PRE-DATA ADDENDUM 4 ([B17] S point in time at its first-filed value and within 15 months
+# of the rank, else 'stale S')). Every rule, threshold, window and cost below is that file; where it is silent the choice is marked CHOICE (each one is listed in the commit report for the lead).
+# BUYBACK is NETISS r1's sibling on the same SEC photograph: r17_resmom.py (the loaders, the calendar, the schedule, fills / holds / costs / borrow, the close-before-the-ex-date paths, the cell engine, the statistics, the hygiene windows, the
+# audit rows), r18_divrun.py (the REFERENCE book, the incremental A2, the null statistics) and r21_netiss.py (the symbol -> CIK map, the share-count facts and S(r), the split factor and [A3]'s two-way split check, the foreign filers [A4], ONE
+# share class per firm [A13], the null's draw, the beta credit rule, the hedged twin, the deciles, the gate, DD5) are imported, never copied and never edited. Importing r21_netiss also points r18_divrun's reference loader at the S1-restated
+# L [B14] (resmom_cells_daily_wf_close.csv, sha256 e204dd53...) - this file keeps it so (t_constants checks it). In this file [D2] names the AS-FILED SHARE COUNTS (the prereg's label); RESMOM's spin-off / stock-dividend ex-dates are
+# written out in full, never as [D2] ([B13]).
 # What this file adds is the CASH: the two pinned cash-flow extracts read as ONE table, the first-filed rule per (concept, start, end), the period types, the trailing four quarters (a FY, else YTD + FY_prev - YTD_prev with the same start and
 # [B1]'s guard), the components (the zero rule after [B7]'s seven issuance concepts), the market value, the two scores and their no-score rules, the picks, the twins ([B8], the dividend-only twin, the FLAT twin), the deciles, the
 # NETISS question, the hand audit's groups by filing [B4] and the reports.
 #   python r23_buyback.py selftest    hand-made worlds + hand-made filings, no data: the first-filed rule and amendments, the cut, the period types, the TTM (a FY, YTD differencing with the same start, [B1]'s fiscal-year change, a missing
-#                                     FY_prev / YTD_prev, staleness), the components (first / fallback / mixed, the zero rule against [B7]'s alternatives and the same-value dedupe, a negative fact), the market value (a split through F, [A3] both
-#                                     ways), the scale rule, the 0.15 flag, the sides and ties, the null, the deciles, the twins, the refusals (every pinned file), every TTM / score / pool / pick / path against a plain-python recount
+#                                     FY_prev / YTD_prev, [B15](9)'s discrete quarter, staleness), the components (first / fallback / mixed, the zero rule against [B7]'s alternatives and the same-value dedupe, a negative fact), the market
+#                                     value (a split through F, [A3] both ways), the scale rule, the 0.15 flag, the sides and ties, [B13]'s closes before a spin-off / stock-dividend ex-date, the null, the deciles, the twins, the refusals
+#                                     (every pinned file), every TTM / score / pool / pick / path against a plain-python recount
 #   python r23_buyback.py smoke DIR   offline end-to-end on SYNTHETIC worlds (NETISS's synthetic market and share counts + synthetic cash-flow extracts with a planted payout effect): Stage A must find it in the planted world and not in the
 #                                     null world; DIR's name must contain 'smoke'; `smoke DIR stage_b` also runs Stage B's one read on the synthetic lockbox days
 #   python r23_buyback.py dryload     WF inputs only (every input cut to dates < 2025-06-30): prints COUNTS - the files and their concepts, the entries, scored names per rank and cell, every no-score reason, the TTM's formula, the
 #                                     concept used, the ZERO shares, the staleness buckets, [B2], [B3] - never a cash amount, score, return or P&L
-#   python r23_buyback.py stage_a     WF Stage A: the BEFORE-ANY-P&L block (and [B3]'s refusal above 10%), [B9] after the picks, the POWER LINE before any cell P&L, the cells, A2 over the reference, the twins, the NETISS question,
-#                                     the reports, the diagnostics -> buyback_stageA.json (+ buyback_audit_candidates.csv, buyback_flags.csv), PRE-LOCKBOX ONLY
+#   python r23_buyback.py stage_a     WF Stage A: the BEFORE-ANY-P&L block (and [B3]'s refusal above 10%), [B9] after the picks, the POWER LINE before any cell P&L, the cells, A2 over the reference, [B10]'s 'keep' reading beside the
+#                                     judged one (a report [B13]), the twins, the NETISS question, the reports, the diagnostics -> buyback_stageA.json (+ buyback_audit_candidates.csv, buyback_flags.csv), PRE-LOCKBOX ONLY
 #   python r23_buyback.py stage_b     Stage B (lockbox, ONCE): refuses unless the lead's go-flag buyback_stageB_GO.flag, a Stage A candidate and the lockbox year's pinned extracts (cash flows AND NETISS's share counts) are on file
-# Reads (never writes) the SIPORB cache, the ES masters, the #463 book, the sha-pinned wide calendar, the RESTATED RESMOM line file, NETISS's four sha-pinned XBRL / map files and the two sha-pinned cash-flow extracts, every one cut at read.
+# Reads (never writes) the SIPORB cache, the ES masters, the #463 book, the sha-pinned wide calendar, the S1-RESTATED RESMOM line file [B14], NETISS's four sha-pinned XBRL / map files and the two sha-pinned cash-flow extracts, every one cut
+# at read.
 # Results go to OUT (outside git). Nothing here pulls, commits, pushes or writes anywhere else, and nothing here makes a network call.
 import bisect, contextlib, io, json, math, os, re, shutil, sys, tempfile, time
 from collections import Counter, defaultdict
@@ -31,7 +37,7 @@ sys.path.insert(0, HERE)
 import numpy as np, pandas as pd
 import r17_resmom as M17            # the sibling harness (RESMOM r1): loaders, calendar, schedule, engine, statistics, audit rows
 import r18_divrun as DV             # the sibling harness (DIVRUN r1): the REFERENCE book, the incremental A2, the null statistics
-import r21_netiss as NI             # the sibling harness (NETISS r1): the map, the share counts, the split check, [A4] / [A13], the null's draw, the beta rule, the hedged twin, the deciles (importing it sets the RESTATED L [B12])
+import r21_netiss as NI             # the sibling harness (NETISS r1): the map, the share counts, the split check, [A4] / [A13], the null's draw, the beta rule, the hedged twin, the deciles (importing it sets the S1-restated L [B14])
 D15, S, R11, M12, A13 = M17.D15, M17.S, M17.R11, M17.M12, M17.A13       # r15_ddw, r5_siporb, r11_risk, r12_mdl, r13_attn - through r17's own imports
 day_i, row_le, dstr, per_year, pctl_text, nan_or, years_back = NI.day_i, NI.row_le, NI.dstr, NI.per_year, NI.pctl_text, NI.nan_or, NI.years_back
 jyear = DV.jyear
@@ -41,7 +47,7 @@ THIS = sys.modules[__name__]
 OUT_DEFAULT = r"C:\EdgeLog\_anatomy_cache\rocfrontier\buyback_r1"
 OUT = os.environ.get("EDGELOG_BUYBACK_R1", OUT_DEFAULT)                                                   # results, outside git
 PREREG = os.path.join(HERE, "PREREG_BUYBACK_R1.txt")
-PREREG_SHA = "9d26bcfda956b4d61e1630390dc80054cf67eeab23e1e3f84d6484474801f686"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDUM 1 ([B1]-[B5]) + PRE-DATA ADDENDUM 2 ([B6]-[B12]) + PRE-DATA ADDENDUM 3 ([B13] hygiene edit S1, [B14] the S1-restated L, [B15] the harness's CHOICEs, [B16] the memory rule); supersedes 9a99203b (draft + addenda 1-2), 97244872 (draft + addendum 1) and 2b2438af (draft)
+PREREG_SHA = "0603965f68ab780f0b98d80c0fbe440260d71a604bdb0e89b8558e4744501313"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDUM 1 ([B1]-[B5]) + PRE-DATA ADDENDUM 2 ([B6]-[B12]) + PRE-DATA ADDENDUM 3 ([B13] hygiene edit S1, [B14] the S1-restated L, [B15] the harness's CHOICEs, [B16] the memory rule) + PRE-DATA ADDENDUM 4 ([B17] stale S); supersedes 9d26bcfd (draft + addenda 1-3), 9a99203b (draft + addenda 1-2), 97244872 (draft + addendum 1) and 2b2438af (draft)
 WF0, PRE_END, LB0, LB1 = M17.WF0, M17.PRE_END, M17.LB0, M17.LB1          # WF = positions EXITED 2016-07-01 .. 2025-06-29; LB = exits 2025-06-30 .. 2026-06-30 INCLUSIVE; cuts: S.LB0 / S.END
 BOOK_WF, BOOK_LB, DEEPEST_WF = M17.BOOK_WF, M17.BOOK_LB, M17.DEEPEST_WF
 NREP, SEED = 500, 20261024                                               # the registered null: 500 draws of random names from each rebalance's eligible SCORED pool
@@ -58,6 +64,7 @@ A2_MONTHS = 24                                                           # A2's 
 COST_BPS, STRESS_BPS, BORROW, BORROW_STRESS = M17.COST_BPS, M17.STRESS_BPS, M17.BORROW, M17.BORROW_STRESS     # 5 bps a side (stress 10, 20); 0.25% a year on short notional (stress 1% and 3% on k_t > 1.5 sessions)
 AUDIT_N = 50                                                             # (f) the 50 largest contributors of each cell are audited by hand
 STALE_DAYS = 200                                                         # e more than 200 days before r: no score (a firm that stopped filing)
+S_MONTHS = 15                                                            # [B17] S's period end (the dei as-of date, else the balance sheet's period end) within 15 calendar months before the rank, else 'stale S' (unscored)
 STALE_PRINT = 120                                                        # [B2] the share of scored names whose statement period ended more than 120 days before the rank close, per year (a print)
 STALE_BUCKETS = (60, 120, 200)                                           # the days from e to r per year, counted in buckets (0-60, 61-120, 121-200, over 200)
 SCORE_MAX = 0.50                                                         # |score| > 0.50: no score (half the firm's value in a year), counted and LISTED by name
@@ -96,8 +103,12 @@ LB_CASHFLOW = None       # Stage B: the lockbox year's cash-flow facts (filed 20
 CHECK_BOOK = True        # refuse to judge if the #463 records / the DD structure / the cache manifest / the reference / the cache's first session do not reproduce the registered facts; a real run always checks (only smoke() may switch it)
 HYG = M17.HYG
 AUD = M17.AUD
-JUDGED = NI.JUDGED       # [B10] the judged reading is NETISS's (r17_resmom's post_mode 'keep' in this worktree; MANAGER #127 moves it to 's1' - the pool below branches on post_mode exactly as r21's ni_one does, see the [S1 HOOK]s)
-LAB_J = f"judged [B10] (post_mode '{JUDGED}': a name flagged inside the hold stays on the split-safe path; only an announced split or a [D2] ex-date inside the hold removes it)"
+JUDGED = NI.JUDGED       # [B13] MANAGER's HYGIENE EDIT S1 (#127): the judged reading and its null are r17_resmom's post_mode 'close' (NETISS's judged reading, r21_netiss [A22]; prereg_ok refuses any other) - NO in-hold event removes a name
+                         # (flagged names and registered / calendar splits stay on the split-safe path) and a spin-off / stock-dividend ex-date e inside the hold (f < e <= x) CLOSES the position at the official close of e-1; the null draws from
+                         # the same pool with the same cut paths. [B10]'s removal reading ('keep') is REPORTED beside it, null-less, with its count of removed name-months (bb_one branches on post_mode exactly as r21's ni_one does)
+LAB_J = f"judged [B13] (post_mode '{JUDGED}': no in-hold removal - flagged names and splits on the split-safe path; a spin-off / stock-dividend ex-date inside the hold closes the position at the close before it)"
+LAB_A = "[B10]'s removal reading ('keep': an announced split or a spin-off / stock-dividend ex-date inside the hold removed the name at the rank; REPORTED, never the verdict) [B13]"
+TRANSITION_FORMS = ("10-KT", "10-QT", "10-KT/A", "10-QT/A")                # [B15](9) a TRANSITION REPORT's forms: a fact first filed on one is the evidence of a fiscal-year change (CHOICE)
 GO_FLAG, READ_FLAG = "buyback_stageB_GO.flag", "buyback_stageB_READ.flag"
 RULES = M17.RULES        # Stage A (a) - (e) and Stage B's leg veto are r17_resmom's own (the booleans are switches only smoke() ever turns off)
 SPEC = {"min_scored": 150, "min_side": 20,          # fewer than 150 scored names: the bottom / top THIRD (n // 3 a side), at least 20 a side, else nothing (counted)
@@ -106,18 +117,20 @@ SPEC = {"min_scored": 150, "min_side": 20,          # fewer than 150 scored name
 TAIL = "(nothing computed, lockbox NOT read)"
 DAY0, KEYMUL, D1 = NI.DAY0, NI.KEYMUL, 100000
 BIG = np.iinfo(np.int32).max
-# the reasons a name has no score at a rank, by the FIRST rule that fails, in the prereg's order: the map / [A4] / the cash table, then no usable statement, no TTM ([B1] / FY_prev / YTD_prev), stale, a negative TTM component (CHOICE), the
-# market value (no share fact / no S / S not positive / no factor or close / [A3] both ways), |score| > 0.50; the second share class is [A13]'s POOL-level reason (bb_one counts it, score_rank never assigns it)
-(R_SCORED, R_NOT_IN_MAP, R_MAP_MISMATCH, R_MAP_AMBIGUOUS, R_MAP_UNMAPPED, R_MAP_NONCOMMON, R_MAP_OTHER, R_FOREIGN, R_NO_CF, R_NO_STATEMENT, R_FY_CHANGE, R_NO_FY_PREV, R_NO_YTD_PREV, R_STALE, R_NEG_TTM, R_NO_SHARES, R_NO_S,
- R_S_NOT_POS, R_NO_FACTOR, R_SPLIT_C, R_SPLIT_F, R_OVER50, R_SECOND_CLASS) = range(23)
-REASONS = ("scored", "not_in_map", "map_mismatch", "map_ambiguous", "map_unmapped", "map_non_common", "map_other", "foreign_filer", "no_cashflow_fact_for_cik", "no_usable_statement", "fiscal_year_change", "no_fy_prev", "no_ytd_prev",
-           "stale_over_200_days", "negative_ttm_component", "no_share_fact_for_cik", "no_share_count_at_r", "share_count_not_positive", "no_split_factor_or_close", "split_calendar_not_in_F", "split_F_not_in_calendar", "score_over_0.50",
-           "second_share_class")
+# the reasons a name has no score at a rank, by the FIRST rule that fails, in the prereg's order: the map / [A4] / the cash table, then no usable statement, no TTM ([B1] / [B15](9)'s discrete quarter / FY_prev / YTD_prev), stale, a negative
+# TTM component (CHOICE), the market value (no share fact / no S / [B17] stale S / S not positive / no factor or close / [A3] both ways), |score| > 0.50; the second share class is [A13]'s POOL-level reason (bb_one counts it, score_rank never assigns it).
+# [B15](9): the DISCRETE QUARTER is [B1]'s failure split off under its own label - the same slot, no TTM either way (a label only: no score changes)
+(R_SCORED, R_NOT_IN_MAP, R_MAP_MISMATCH, R_MAP_AMBIGUOUS, R_MAP_UNMAPPED, R_MAP_NONCOMMON, R_MAP_OTHER, R_FOREIGN, R_NO_CF, R_NO_STATEMENT, R_FY_CHANGE, R_DISCRETE_Q, R_NO_FY_PREV, R_NO_YTD_PREV, R_STALE, R_NEG_TTM, R_NO_SHARES,
+ R_NO_S, R_STALE_S, R_S_NOT_POS, R_NO_FACTOR, R_SPLIT_C, R_SPLIT_F, R_OVER50, R_SECOND_CLASS) = range(25)
+REASONS = ("scored", "not_in_map", "map_mismatch", "map_ambiguous", "map_unmapped", "map_non_common", "map_other", "foreign_filer", "no_cashflow_fact_for_cik", "no_usable_statement", "fiscal_year_change", "discrete_quarter", "no_fy_prev",
+           "no_ytd_prev", "stale_over_200_days", "negative_ttm_component", "no_share_fact_for_cik", "no_share_count_at_r", "stale_s", "share_count_not_positive", "no_split_factor_or_close", "split_calendar_not_in_F", "split_F_not_in_calendar",
+           "score_over_0.50", "second_share_class")
 REASON_TEXT = {"scored": "scored", "not_in_map": "symbol not in the map", "map_mismatch": "map: current ticker, name does not agree", "map_ambiguous": "map: name ambiguous", "map_unmapped": "map: unmapped",
                "map_non_common": "map: debenture / preferred / unit", "map_other": "map: another method", "foreign_filer": "NETISS [A4] foreign filer (20-F / 40-F / 6-K only)", "no_cashflow_fact_for_cik": "CIK with no cash-flow fact",
-               "no_usable_statement": "no usable statement (a FY or a year-to-date period with a STATEMENT fact)", "fiscal_year_change": "[B1] fiscal-year change (s not within 14 days of FY_prev's end + 1): no TTM",
+               "no_usable_statement": "no usable statement (a FY or a year-to-date period with a STATEMENT fact)", "fiscal_year_change": "[B1] fiscal-year change (s not within 14 days of FY_prev's end + 1, not [B15](9)'s discrete quarter): no TTM",
+               "discrete_quarter": "[B15](9) a discrete quarter (a statement quarter that does not start at its fiscal year's start: 3 / 6 / 9 months after FY_prev's end + 1, no transition report on file): no TTM, a label apart from [B1]",
                "no_fy_prev": "no TTM: no usable FY_prev", "no_ytd_prev": "no TTM: no usable YTD_prev", "stale_over_200_days": "stale: e more than 200 days before r", "negative_ttm_component": "a component's TTM is negative (CHOICE)",
-               "no_share_fact_for_cik": "MV: CIK with no share fact", "no_share_count_at_r": "MV: no usable share count at r", "share_count_not_positive": "MV: share count not positive", "no_split_factor_or_close": "MV: no split factor or close",
+               "no_share_fact_for_cik": "MV: CIK with no share fact", "no_share_count_at_r": "MV: no usable share count at r", "stale_s": "MV: [B17] stale S (its as-of date - the cover page's, else the balance sheet's period end - more than 15 calendar months before r)", "share_count_not_positive": "MV: share count not positive", "no_split_factor_or_close": "MV: no split factor or close",
                "split_calendar_not_in_F": "MV: [A3] a calendar split F does not show (a .. r)", "split_F_not_in_calendar": "MV: [A3] an F change the calendar does not show (a .. r)", "score_over_0.50": "|score| > 0.50 (LISTED by name)",
                "second_share_class": "NETISS [A13] second share class of a CIK (the other class has the larger dollar volume)"}
 NI_STATIC = {NI.R_NOT_IN_MAP: R_NOT_IN_MAP, NI.R_MAP_MISMATCH: R_MAP_MISMATCH, NI.R_MAP_AMBIGUOUS: R_MAP_AMBIGUOUS, NI.R_MAP_UNMAPPED: R_MAP_UNMAPPED, NI.R_MAP_NONCOMMON: R_MAP_NONCOMMON, NI.R_MAP_OTHER: R_MAP_OTHER,
@@ -146,6 +159,8 @@ def prereg_ok():
         st = D15.committed_state()
     if st == "differs":
         refuse("refused: the COMMITTED PREREG_BUYBACK_R1.txt differs from the registered sha - the file on disk is not the file in git " + TAIL)
+    if JUDGED != "close" or "close" not in M17.POST_MODES:                                    # [B13]: the judged reading is r17_resmom's post_mode 'close' (read through r21_netiss.JUDGED) - anything else is not the registered reading
+        refuse(f"refused: the judged reading is post_mode {JUDGED!r}, not [B13]'s 'close' (r21_netiss.JUDGED / r17_resmom.POST_MODES changed) " + TAIL)
     print("prereg check: PREREG_BUYBACK_R1.txt sha256 matches the registered one; committed blob: " + {"match": "matches too", "untracked": "NOT COMMITTED YET - commit it before the real run",
                                                                                                      "unknown": "git not available here (not checked)"}[st])
     return {"verified": True, "committed": st}
@@ -390,7 +405,8 @@ def attach_buyback(W, cash, fx, mp, cal):
         cn[j] = cash.cix.get(str(cik[j]), -1)
         if cn[j] < 0:
             static[j] = R_NO_CF
-    W.bb = SimpleNamespace(cash=cash, urow=urow, URW=URW, cn=cn, static=static, no_shares=(np.asarray(ni.static) == NI.R_NO_FACTS), cache={})
+    trans = np.isin(cash.E_form, [i for i, fm in enumerate(cash.forms) if fm in TRANSITION_FORMS]) if len(cash.E_form) else np.zeros(0, bool)      # [B15](9) the entries first filed on a transition report
+    W.bb = SimpleNamespace(cash=cash, urow=urow, URW=URW, cn=cn, static=static, no_shares=(np.asarray(ni.static) == NI.R_NO_FACTS), trans=trans, cache={})
     return W.bb
 
 
@@ -453,14 +469,42 @@ def comp_at(cs, U, pp):
     return out
 
 
+def on_quarter_grid(s, e0):
+    """[B15](9) CHOICE: day s lies within 14 days of e0 + 1 day + 3, 6 or 9 months + a whole number of years (pandas' month arithmetic: the day clipped to the month's length) - a QUARTER start of the fiscal calendar that a fiscal year
+    ending on day e0 implies, not its year start"""
+    base = TS(np.datetime64(int(e0) + 1, "D"))
+    q = 1
+    while True:
+        g = dnum(base + pd.DateOffset(months=3 * q))
+        if g > s + FY_GAP:
+            return False
+        if q % 4 and abs(s - g) <= FY_GAP:
+            return True
+        q += 1
+
+
+def discrete_quarter(bb, c, s, ty, e0, r):
+    """[B15](9) CHOICE: a statement period that fails [B1]'s 14-day test (it starts more than 14 days after FY_prev's end e0 + 1 day) is a DISCRETE QUARTER - a period that does not start at its fiscal year's start - when it is a quarter
+    (77-105 days long) that starts on the fiscal calendar FY_prev implies (on_quarter_grid) and no TRANSITION REPORT of the CIK c is on file: no usable fact first filed on a 10-KT / 10-QT (amendments included) usable at the rank r ends
+    after e0 (a transition period filed = the fiscal year moved: [B1]'s fiscal-year change). Everything else that fails [B1] stays the fiscal-year change. A label only: no TTM either way, no score changes"""
+    if ty != T_Q or not on_quarter_grid(s, e0):
+        return False
+    cs = bb.cash
+    lo, hi = int(np.searchsorted(cs.E_ck, c, "left")), int(np.searchsorted(cs.E_ck, c, "right"))       # the CIK's entries (sorted by CIK)
+    return not bool((bb.trans[lo:hi] & cs.E_ok[lo:hi] & (bb.urow[lo:hi] <= r) & (cs.E_end[lo:hi] > e0)).any())
+
+
 def score_rank(W, r):
     """the BUYBACK scores of every name of the World at the rank close r (universe-wide and pool-blind; [A13] is decided later, among the pool's scored names). Per name, in the prereg's order:
     the static reasons (map / NETISS [A4] / no cash-flow fact); the STATEMENT = the latest usable period ending e that is a FY or a Q / H / 9M period with a usable STATEMENT fact (CHOICE: on a tie of e the longest; a Q / H / 9M period is
-    read as a year-to-date one - cash-flow facts in 10-Qs are YTD [B6] - and a period that is not (a discrete quarter) fails the FY_prev test below); the TTM: a FY -> its own value; else YTD(s .. e) + FY_prev - YTD_prev, FY_prev = the
-    latest usable FY (with its STATEMENT fact) ending before s - none -> 'no FY_prev', one that ends more than 14 days before s -> [B1] 'fiscal-year change' (s not within 14 days of its end + 1 day; CHOICE: the draft's 'ending within 14
-    days before s' read as s - end <= 14, so [B1]'s guard holds whenever FY_prev exists) - and YTD_prev = the usable period of the same type with the SAME START as FY_prev ending within 14 days of e - 1 year (the closest; a tie to the
+    read as a year-to-date one - cash-flow facts in 10-Qs are YTD [B6] - and a period that is not (a discrete quarter) fails the FY_prev test below, counted under [B15](9)'s own label); the TTM: a FY -> its own value; else YTD(s .. e) +
+    FY_prev - YTD_prev, FY_prev = the latest usable FY (with its STATEMENT fact) ending before s - none -> 'no FY_prev', one that ends more than 14 days before s -> [B1] 'fiscal-year change' (s not within 14 days of its end + 1 day; CHOICE:
+    the draft's 'ending within 14 days before s' read as s - end <= 14, so [B1]'s guard holds whenever FY_prev exists), or [B15](9)'s 'discrete quarter' (discrete_quarter: the same slot, a label apart) - and YTD_prev = the usable period
+    of the same type with the SAME START as FY_prev ending within 14 days of e - 1 year (the closest; a tie to the
     earlier); stale (e more than 200 days before r); a negative component TTM (CHOICE: no score in the cell that reads it; 'all >= 0'); the market value MV = raw close(r) x S x F(a) / F(r) with S = NETISS's share count (the latest
-    usable cover-page value, else the balance sheet's: CHOICE, SHORTINT's S1 reading of 'NETISS's S(r)'), [A3]'s two-way split check on (a, r] where the calendar covers a; |score| > 0.50. Cached by r.
+    usable cover-page value, else the balance sheet's: CHOICE, SHORTINT's S1 reading of 'NETISS's S(r)'; [B17] point in time - NETISS's entries carry the FIRST-FILED value of each (cik, concept, as-of date), a restatement filed later never
+    replaces it, and an entry is usable only from the first session strictly after its first filing; the as-of date a of the S so chosen must lie within 15 calendar months before r, else 'stale S' - CHOICE: the order picks S first and then
+    tests it, a stale cover-page count never falls back to a fresher balance-sheet count), [A3]'s two-way split check on (a, r] where the calendar covers a; |score| > 0.50. Cached by r.
     -> SimpleNamespace: per name the TTM's periods (p0, p1, p2), kind (1 FY / 2 YTD), e, s, the TTMs rep / div / iss / tw, per period the components' sources and ZERO flags (3, S), the share-count inputs, mv, and per key in
     CODE_KEYS + ('DIV', 'REPY') the code / score / scored / flag vectors"""
     bb = W.bb
@@ -502,7 +546,12 @@ def score_rank(W, r):
         pc_ = np.clip(pos, 0, len(fyi) - 1)
         p1 = np.where(ytd & (pos >= 0) & (cs.pck[fyi[pc_]] == np.where(ytd, cn, -1)), fyi[pc_], -1)
     gap = s - cs.pend[np.maximum(p1, 0)].astype(np.int64)
-    drop(ytd & (p1 >= 0) & (gap > FY_GAP), R_FY_CHANGE)
+    fyc = ytd & (p1 >= 0) & (gap > FY_GAP)                                     # [B1] s more than 14 days after FY_prev's end + 1: no TTM
+    dq = np.zeros(S_, bool)
+    for j in np.flatnonzero(alive & fyc):                                      # [B15](9) the discrete quarters among them, under their own label (a few names a rank: a loop)
+        dq[j] = discrete_quarter(bb, int(cn[j]), int(s[j]), int(ty[j]), int(cs.pend[p1[j]]), r)
+    drop(dq, R_DISCRETE_Q)
+    drop(fyc, R_FY_CHANGE)
     drop(ytd & (p1 < 0), R_NO_FY_PREV)
     p1 = np.where(alive & ytd, p1, -1)
     p2 = np.full(S_, -1, np.int64)
@@ -551,14 +600,16 @@ def score_rank(W, r):
     a3c, a3f = covered & (unC > 0), covered & (unF > 0)
     with np.errstate(invalid="ignore", divide="ignore"):
         mv = cl * Sv * fa / fr
-    mv_fail = [(bb.no_shares, R_NO_SHARES), (sg < 0, R_NO_S), (s_np, R_S_NOT_POS), (no_f, R_NO_FACTOR), (a3c, R_SPLIT_C), (a3f, R_SPLIT_F)]
+    lim = dnum(W.days[r] - pd.DateOffset(months=S_MONTHS))                    # [B17] the oldest as-of date S may carry at r: 15 calendar months before the rank close (pandas' month arithmetic, the day clipped; that day itself is within)
+    stale_s = (sg >= 0) & (a < lim)
+    mv_fail = [(bb.no_shares, R_NO_SHARES), (sg < 0, R_NO_S), (stale_s, R_STALE_S), (s_np, R_S_NOT_POS), (no_f, R_NO_FACTOR), (a3c, R_SPLIT_C), (a3f, R_SPLIT_F)]
     rep, div, iss, tw = ttm["rep"], ttm["div"], ttm["iss"], ttm["tw"]
     with np.errstate(invalid="ignore", divide="ignore"):
         num = {"P": rep + div - iss, "R": rep - iss, "P8": rep + tw + div - iss, "R8": rep + tw - iss}
         neg = {"P": (rep < 0) | (div < 0) | (iss < 0), "R": (rep < 0) | (iss < 0)}
         neg["P8"], neg["R8"] = neg["P"] | (tw < 0), neg["R"] | (tw < 0)
     out = SimpleNamespace(r=r, p0=pp[0], p1=pp[1], p2=pp[2], kind=kind, e=np.where(kind > 0, e, -1), s=np.where(kind > 0, s, -1), has_ttm=has_ttm, rep=rep, div=div, iss=iss, tw=tw, comps=comps, sg=sg, Sv=Sv, a=a, fa=fa, fr=fr, cl=cl,
-                          mv=mv, a3c=a3c, a3f=a3f, f_alone=(sg >= 0) & ~covered, stale_days=np.where(kind > 0, dr_i - e, -1), code={}, score={}, scored={}, flag={}, base_code=code.copy())
+                          mv=mv, a3c=a3c, a3f=a3f, f_alone=(sg >= 0) & ~covered, stale_s=stale_s, stale_days=np.where(kind > 0, dr_i - e, -1), code={}, score={}, scored={}, flag={}, base_code=code.copy())
     for k in CODE_KEYS:
         c_, al = code.copy(), alive.copy()
         for msk, rs in [(neg[k], R_NEG_TTM)] + mv_fail:
@@ -734,6 +785,9 @@ def print_score_report(rows, names=True):
         f"{y}: " + " / ".join(f"{sum(r_['stale_buckets'][q] for r_ in v):,}" for q in range(len(b) + 1)) for y, v in sorted(byy.items())))
     print(f"  [B2] the share of SCORED names whose statement period ended more than {STALE_PRINT} days before the rank close (a quarterly filer's normal ceiling), per fill year: " + "; ".join(
         f"{y}: " + " / ".join(f"{k} {sum(r_['cells'][k]['stale120'] for r_ in v) / max(sum(r_['cells'][k]['scored'] for r_ in v), 1):.1%}" for k in CELLS) for y, v in sorted(byy.items())))
+    print(f"  [B17] STALE S - the names whose share count S (the latest usable cover-page count, else the balance sheet's, at its first-filed value) is as of more than {S_MONTHS} calendar months before the rank close: UNSCORED, "
+          "per fill year (name-ranks whose first no-score reason it is, P / R, of the universe name-ranks; per rank in the reason counts above): " + "; ".join(
+        f"{y}: {sum(r_['cells']['P']['reasons']['stale_s'] for r_ in v):,} / {sum(r_['cells']['R']['reasons']['stale_s'] for r_ in v):,} of {sum(r_['universe'] for r_ in v):,}" for y, v in sorted(byy.items())))
 
 
 def print_blind_spot(b3):
@@ -824,26 +878,28 @@ decile_labels = NI.decile_labels             # ten equal-count deciles, 0 = the 
 
 
 # ------------------------------------------------------------------ one rebalance: RESMOM's pool (NETISS's judged reading), the BUYBACK scores, the picks of the cells and the twins
-def pool_units(W, f, x, pool, naive, post_mode):
-    """the unit paths of the whole pool: r17_resmom.rm_units (r15's split-safe paths, the names flagged `naive` on the raw series, + [R1] the cash dividends). [S1 HOOK] MANAGER #127 (shared hygiene edit S1): under post_mode 's1' NO in-hold
-    event removes a name and a pool name with a [D2] spin-off / stock-dividend ex-date e in f < e <= x has its position CLOSED at the official close of session e - 1 (zero P&L after it, no dividends and no borrow after it; the exit value
-    is that close). r17_resmom grows that as post_mode 's1' (a per-pool-name close row from the spin matrix, rm_units(..., close_at=...)) and r21_netiss.JUDGED becomes 's1': THIS is the one place to wire it (close_at = r17's close-row helper
-    for the pool, passed to rm_units). Until the lead's 's1' commits are in this worktree the reading refuses here - nothing is ever costed on the 'keep' paths under the 's1' name. The recount's twin is brute_path_hook"""
-    if post_mode == "s1":
-        refuse("refused: post_mode 's1' needs r17_resmom's close-at-the-prior-close paths (MANAGER #127) - cherry-pick the lead's r17 / r21 's1' commits and wire close_at in pool_units / brute_path_hook [S1 HOOK] (nothing computed, lockbox NOT read)")
-    return M17.rm_units(W, f, x, pool, naive)
+def pool_units(W, f, x, pool, naive, close=None):
+    """the unit paths of the whole pool: r17_resmom.rm_units (r15's split-safe paths, the names flagged `naive` on the raw series, + [R1] the cash dividends) and [B13] the close rows (bb_one's rec.close, -1 = held to the exit): a pool
+    name with a spin-off / stock-dividend ex-date e in f < e <= x is CLOSED at the official close of e-1 (r17_resmom.close_units: no mark, no dividend whose ex-date is e or later and no borrow after it; the exit value that close - none
+    on e-1: the last mark, stopped printing there; U.xc = the exit column, where r17_resmom.l1_pnl_x books the exit cost). The recount's twins are brute_pos / brute_rec"""
+    return M17.rm_units(W, f, x, pool, naive, close)
 
 
 def bb_one(W, r, f, x, post_mode, units=True, counts_only=False):
     """one rebalance: the universe at the fill session f (sessions < f only) and the pool of r21_netiss's ni_one - the same removals in the same order and the SAME post_mode branches (short history, no ES pairs, no fill, the pre / old / post
-    hygiene windows, the [D2] spin-offs, the hand audit; 'remove' = the leaky reading, 'naive' = the look-ahead one, 'keep' = [B10] the judged reading: a name flagged inside the hold stays on the split-safe path, only an announced
-    (calendar) split or a [D2] ex-date in f < t <= x removes it; 's1' = MANAGER #127's: no in-hold removal at all, see pool_units' [S1 HOOK]) - one pool for every cell, twin and null. Per score (P, R, [B8] P8 / R8) its scored names are
+    hygiene windows, the spin-off / stock-dividend ex-dates, the hand audit; 'remove' = the leaky reading, 'naive' = the look-ahead one, 'keep' = [B10]'s removal reading, REPORTED since [B13] (a name flagged inside the hold stays on the
+    split-safe path, an announced (calendar) split or a spin-off / stock-dividend ex-date in f < t <= x removes it), 'close' = [B13] the JUDGED reading, MANAGER's hygiene edit S1 (r17_resmom's post_mode 'close', r21's [A22]): no in-hold
+    event removes a name - flagged names and splits stay on the split-safe path - and a spin-off / stock-dividend ex-date e in f < e <= x closes the position at the official close of e-1 (rec.close = that row per pool name, -1 = held to the
+    exit; pool_units cuts the path; counted: kept_<reason>, kept_flagged, kept_calendar_split, closed_spin); another post_mode is refused) - one pool for every cell, twin and null. Per score (P, R, [B8] P8 / R8) its scored names are
     the pool names with a score, [A13] less the second share classes (NETISS's share_classes: of two names on one CIK only the more liquid keeps its score, per score and rank); the sides by side_n, the 50 HIGHEST long and the 50 LOWEST short;
     the dividend-only twin on P's scored names by DIV / MV (CHOICE); the FLAT twin on R's scored names whose NETISS one-year ISS (N12's, the same rank close) is within +-2% (CHOICE: ln 0.98 <= ISS_1 <= ln 1.02), the thirds, at least 20 a
     side; the deciles of P, R and REP / MV (CHOICE: on R's scored names). counts_only: no unit path, no pick (the dryload)"""
+    if post_mode not in M17.POST_MODES:
+        raise ValueError(f"post_mode {post_mode!r}: one of {M17.POST_MODES}")
     s = M17.SPEC
     uni = np.flatnonzero(W.U[f])
-    rec = SimpleNamespace(r=r, f=f, x=x, nu=len(uni), nfull=0, traded=False, pool=np.zeros(0, np.int64), naive=np.zeros(0, bool), spin_win=np.zeros(0, np.int64), spin_hold=np.zeros(0, bool), cell={k: NI.cell0() for k in KEYS}, sc=None, U=None)
+    rec = SimpleNamespace(r=r, f=f, x=x, nu=len(uni), nfull=0, traded=False, pool=np.zeros(0, np.int64), naive=np.zeros(0, bool), spin_win=np.zeros(0, np.int64), spin_hold=np.zeros(0, bool), cell={k: NI.cell0() for k in KEYS}, sc=None, U=None,
+                          close=np.zeros(0, np.int64))
     cnt = Counter()
     cnt["rebalances"] += 1
     cnt["universe"] += len(uni)
@@ -861,8 +917,8 @@ def bb_one(W, r, f, x, post_mode, units=True, counts_only=False):
     pre = W.hyg(lo_pre, r, uni)                                                 # all four reasons, sessions r-25 .. r
     old = W.hyg(a, lo_pre - 1, uni)[1:]                                         # gap, tbis, jump on sessions r-251 .. r-26
     post = W.hyg(r + 1, x, uni)                                                 # all four, inside the hold
-    post_sp = M17.spn_hit(W, f + 1, x, uni)                                     # [D2] a spin-off / stock-dividend ex-date in f < t <= x
-    post_cs = M17.csplit_hit(W, f + 1, x, uni) if post_mode == "keep" else np.zeros(len(uni), bool)     # [B10] an announced (calendar) split ex-date in f < t <= x: known at the rank
+    post_sp = M17.spn_hit(W, f + 1, x, uni)                                     # a spin-off / stock-dividend ex-date in f < t <= x (the fill session's own is bought ex; the exit session's is inside)
+    post_cs = M17.csplit_hit(W, f + 1, x, uni) if post_mode == "keep" or (post_mode == "close" and getattr(W, "cscs", None) is not None) else np.zeros(len(uni), bool)     # [B10] an announced (calendar) split ex-date in f < t <= x ([B13]: counted, never a removal)
     win = (W.SPN[a:r + 1][:, uni] & np.isfinite(W.Rn[a:r + 1][:, uni])).sum(axis=0)
     pre_any, old_any, post_any = pre.any(axis=0), old.any(axis=0), post.any(axis=0) | post_sp
     aud = W.aud1[f, uni]
@@ -871,7 +927,7 @@ def bb_one(W, r, f, x, post_mode, units=True, counts_only=False):
     reasons += [(f"pre_{h}", pre[q]) for q, h in enumerate(HYG)] + [(f"old_{h}", old[q]) for q, h in enumerate(HYG[1:])]
     if post_mode == "remove":
         reasons += [(f"post_{h}", post[q]) for q, h in enumerate(HYG)] + [("post_spin", post_sp)]
-    elif post_mode == "keep":                                                   # [B10] only the events known at the rank remove a name
+    elif post_mode == "keep":                                                   # [B10]'s removal reading (a report since [B13]): an announced split or a spin-off / stock-dividend ex-date inside the hold removes a name
         reasons += [("post_calendar_split", post_cs), ("post_spin", post_sp)]
     D15.tally(cnt, reasons + [("audit", aud)], D15.attribute(reasons + [("audit", aud)], len(uni)))
     cnt["spin_window_names"] += int((win > 0).sum())
@@ -881,15 +937,22 @@ def bb_one(W, r, f, x, post_mode, units=True, counts_only=False):
     pool = (pool_k & ~post_any) if post_mode == "remove" else (pool_k & ~post_cs & ~post_sp) if post_mode == "keep" else pool_k
     if post_mode == "naive":
         cnt["kept_naive"] += int((pool & post_any).sum())
-    if post_mode == "keep":                                                     # [B10] the names flagged inside the hold that stay, on the split-safe path, per reason
+    if post_mode in ("keep", "close"):                                          # [B10] / [B13] the names flagged inside the hold that stay, on the split-safe path, per reason
         for q, h in enumerate(HYG):
             cnt[f"kept_{h}"] += int((pool & post[q]).sum())
         cnt["kept_flagged"] += int((pool & post.any(axis=0)).sum())
+    if post_mode == "close":                                                    # [B13] the calendar's splits ride the split-safe path; a spin-off / stock-dividend ex-date inside the hold closes the position at the close before it
+        cnt["kept_calendar_split"] += int((pool & post_cs).sum())
+        cnt["closed_spin"] += int((pool & post_sp).sum())
     pidx = np.flatnonzero(pool)
     cols = uni[pidx]
     rec.pool = cols
     rec.naive = post_any[pidx] if post_mode == "naive" else np.zeros(len(pidx), bool)
     rec.spin_win, rec.spin_hold = win[pidx], post_sp[pidx]
+    rec.close = np.full(len(pidx), -1, np.int64)                                 # [B13] the row each pool name closes on: the session before its first spin-off / stock-dividend ex-date in f < e <= x (-1 = held to the exit session)
+    if post_mode == "close" and x > f and len(pidx):
+        sp_h = W.SPN[f + 1:x + 1][:, cols]
+        rec.close = np.where(sp_h.any(axis=0), f + sp_h.argmax(axis=0), -1).astype(np.int64)
     rec.sc = sc = score_rank(W, r)
     if not len(cols):
         for k in TRADED:
@@ -944,10 +1007,10 @@ def bb_one(W, r, f, x, post_mode, units=True, counts_only=False):
             cc.traded = True
     rec.traded = any(rec.cell[c].traded for c in CELLS)
     if units and any(cc.traded or cc.dec is not None for cc in rec.cell.values()):
-        rec.U = pool_units(W, f, x, rec.pool, rec.naive, post_mode)
+        rec.U = pool_units(W, f, x, rec.pool, rec.naive, rec.close)
         for cc in rec.cell.values():
             if cc.traded or cc.dec is not None:
-                cc.U = NI.slice_units(rec.U, cc.idx)
+                cc.U = NI.slice_units(rec.U, cc.idx)                            # (r21_netiss's slice carries U.xc: every cut path of the cells, the twins, the deciles and the null exits on its close's row)
     return rec, cnt
 
 
@@ -989,7 +1052,8 @@ def print_second_classes(sm):
 # ------------------------------------------------------------------ the null: RANDOM NAMES from each rebalance's eligible SCORED pool (r21_netiss's draw, this family's seed and cells)
 def bb_null(W, L, nreps, vcode=0):
     """the registered null [prereg NULL]: r21_netiss.ni_null on this family's two cells and seed - per draw and per rebalance a cell traded, its k longs and k shorts are replaced by the same number of names drawn uniformly without replacement
-    from that rebalance's eligible SCORED pool (the cell's scored names, [A13]'s second classes out; the same hygiene, sizing, fills, costs, borrow), one random stream per cell ([20261024, cell, vcode]) -> {cell: (nreps, T)}"""
+    from that rebalance's eligible SCORED pool (the cell's scored names, [A13]'s second classes out; the same hygiene, sizing, fills, costs, borrow), one random stream per cell ([20261024, cell, vcode]). [B13]: the same pool with the same
+    cut paths - the cells' unit paths (U.xc carried by the slice) through r17_resmom.l1_pnl_x, so a drawn name closed before its ex-date exits on its close's row -> {cell: (nreps, T)}"""
     with patched(NI, CELLS=CELLS, SEED=SEED):
         return NI.ni_null(W, L, nreps, vcode)
 
@@ -1038,7 +1102,8 @@ def a2_window(d0):
 
 
 def a2_report(B, xB, ref, win):
-    """STAGE A2 (WF) - a REPORT, never a pass route: the REFERENCE book L = #463 + 0.264 x RES (the RESTATED line [B12]) + c x the cell against L, c by VOLATILITY over the cell's window (25% of #463's daily std over those rows / the cell's),
+    """STAGE A2 (WF) - a REPORT, never a pass route: the REFERENCE book L = #463 + 0.264 x RES (the S1-restated line [B14]; no NETISS line joins it - NETISS r1 is dead under S1, which settles [B12]'s 'NETISS first' rule) + c x the cell
+    against L, c by VOLATILITY over the cell's window (25% of #463's daily std over those rows / the cell's),
     0.5c and 2c reported, the plain #463 + c x the cell a reported row; an incremental pass = ROC @ $30k and Sortino both strictly above L's. r18_divrun's a2_report with the window; the dollars a year beside every ROC and [B11] DD5 beside
     every ROC - L's, L + c x the cell at c / 0.5c / 2c, the plain book (r21_netiss's a2_report, pointed at this window)"""
     with patched(DV, A2_WIN=win, A2_TARGET=A2_TARGET, A2_REPORT=A2_REPORT):
@@ -1177,7 +1242,7 @@ def evaluate(W, B, S12, ref, rows, post_mode, nreps, vcode=0, full=False, announ
 # ------------------------------------------------------------------ THE NETISS QUESTION (reported, never a pass route)
 def netiss_question(W, B, rows, L, obj, ref):
     """NETISS r1's two cells computed IN-PROCESS on the same World (r21_netiss.ni_build with its judged reading r21_netiss.JUDGED + r17_resmom.run_cell: its registered picks, sizing and costs): each BUYBACK cell's daily P&L correlation with N12,
-    N24 and with RESMOM's RES (the restated line's RES column, [B12]) over the WF days, and per rank the overlap of the picks - the share of this cell's longs among each NETISS cell's longs and of its shorts among its shorts (and the cross
+    N24 and with RESMOM's RES (the S1-restated line's RES column, [B14]) over the WF days, and per rank the overlap of the picks - the share of this cell's longs among each NETISS cell's longs and of its shorts among its shorts (and the cross
     shares). The FLAT twin is in evaluate's twins -> {cell: {corr, corr_RES, overlap: {N12, N24}}, netiss: {N12, N24: net / ROC / $ a year / DD5 / rebalances}}"""
     Ln = NI.ni_build(W, WF0, PRE_END, NI.JUDGED)
     kw = np.flatnonzero(B.mask(WF0, PRE_END))
@@ -1639,7 +1704,59 @@ def print_scored(label, cnt):
                 print(f"    {cl} {y}: " + " ".join(f"{c.get(f'ns_{cl}_{rs}', 0)}" for rs in REASONS[1:]))
 
 
-print_counts = NI.print_counts
+def print_counts(label, cnt):
+    """the pool's removals by fill year, each name at its FIRST reason (r21_netiss's columns, NI.COUNT_KEYS), and the names with an in-hold event that STAY in the pool (NI.KEPT_KEYS: under [B10]'s 'keep' the flagged ones, under the judged
+    reading [B13] also the calendar splits on the split-safe path and the positions closed before a spin-off / stock-dividend ex-date) - this family's labels on r21_netiss.print_counts' layout"""
+    keys = [k for k in NI.COUNT_KEYS if any(k in c for c in cnt.values())]
+    print(f"  {label} name-removals by fill year, each name counted once at its FIRST reason (columns: " + " / ".join(keys) + ")")
+    for y, c in sorted(cnt.items()):
+        print(f"    {y}: " + " ".join(f"{c.get(k, 0)}" for k in keys) + f"   [rebalances {c.get('rebalances', 0)}, unresolved {c.get('unresolved', 0)}, warm-up {c.get('warmup', 0)}, empty {c.get('empty', 0)}]")
+    if any(c.get(k, 0) for c in cnt.values() for k in NI.KEPT_KEYS):
+        print(f"  {label}: names with an in-hold event that STAY in the pool [B13] (flagged / a calendar split: on the split-safe path; closed_spin: closed at the close before a spin-off / stock-dividend ex-date inside the hold), by fill year "
+              "(columns: " + " / ".join(NI.KEPT_KEYS) + ")")
+        for y, c in sorted(cnt.items()):
+            print(f"    {y}: " + " ".join(f"{c.get(k, 0)}" for k in NI.KEPT_KEYS))
+
+
+def print_spin_counts(label, cnt):
+    """the spin-off / stock-dividend ex-dates (the calendar's rows RESMOM calls [D2] - in this file [D2] is the share counts, so never that label here) by fill year over the universe names of every rebalance: the names with a return left
+    out of their 252-session window (names / sessions) and the names with an ex-date inside the hold (r17_resmom.print_spin_counts' numbers)"""
+    print(f"  {label} spin-off / stock-dividend ex-dates by fill year (names with a return left out of their 252-session window: names / sessions; names with an ex-date inside the hold): " + "; ".join(
+        f"{y}: {c.get('spin_window_names', 0):,} / {c.get('spin_window_sessions', 0):,} / {c.get('spin_hold_names', 0):,}" for y, c in sorted(cnt.items()) if c.get("rebalances", 0)))
+
+
+def print_wide(ca):
+    """r17_resmom.print_wide (the wide calendar's counts) with RESMOM's '[D2]' label left off its spin-off / stock-dividend line: in this file [D2] names the share counts ([B13])"""
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        M17.print_wide(ca)
+    print(buf.getvalue().replace("spin-offs / stock dividends [D2] (", "spin-offs / stock dividends (the spin-off / stock-dividend ex-dates; ").rstrip("\n"))
+
+
+def b10_removed(cnt):
+    """[B13] the pool name-months [B10]'s 'keep' reading removed for an in-hold event, from its counts by fill year (the first-reason counts post_calendar_split / post_spin)"""
+    tot = sum((Counter(c_) for c_ in cnt.values()), Counter())
+    return {"calendar_split": int(tot.get("post_calendar_split", 0)), "spin_off_or_stock_dividend": int(tot.get("post_spin", 0))}
+
+
+def print_b10_reading(resA, removed, cnt_judged, cells):
+    """[B13] [B10]'s removal reading printed beside the judged one as a REPORT (no null): its count of removed name-months, then per cell its row and net against the judged cell's"""
+    cj = sum((Counter(c_) for c_ in cnt_judged.values()), Counter())
+    print(f"  {LAB_A}, no null - it removed {removed['calendar_split']:,} pool name-months for a calendar split and {removed['spin_off_or_stock_dividend']:,} for a spin-off / stock-dividend ex-date inside the hold (the judged reading "
+          f"keeps them: {cj.get('kept_calendar_split', 0):,} calendar splits on the split-safe path, {cj.get('closed_spin', 0):,} positions closed at the close before the ex-date):")
+    for cell in CELLS:
+        k = resA["cells"][cell]
+        print(f"    {cell}: {row(cell, k)[4:]} | the judged net ${cells[cell]['base']['net']:,.0f} against this reading's ${k['base']['net']:,.0f}")
+
+
+def print_spin_picks(spin):
+    """per reading and cell, the PICKED positions with a spin-off / stock-dividend ex-date in the window (a return left out) or inside the hold (the judged reading closes them at the close before it) - r21_netiss.ni_spin_counts' numbers"""
+    for reading, per in spin.items():
+        for cell in CELLS:
+            c = per[cell]
+            print(f"  {reading} {cell} picks (long / short) and the spin-off / stock-dividend ex-dates: positions {c['long']['positions']:,} / {c['short']['positions']:,}; window (a return left out of the name's own series) "
+                  f"{c['long']['window_positions']:,} / {c['short']['window_positions']:,} positions ({c['long']['window_sessions']:,} / {c['short']['window_sessions']:,} sessions left out); hold (an ex-date inside it) "
+                  f"{c['long']['hold_positions']:,} / {c['short']['hold_positions']:,}")
 
 
 # ------------------------------------------------------------------ the inputs, loaded once: the pinned files (cut at read), the World, the BUYBACK arrays
@@ -1709,12 +1826,14 @@ def dryload():
         f"{y}: {len(v)} rebalances, universe {min(a for a, b, c in v)}-{np.mean([a for a, b, c in v]):.0f}-{max(a for a, b, c in v)}, full {min(b for a, b, c in v)}-{np.mean([b for a, b, c in v]):.0f}-{max(b for a, b, c in v)}, "
         f"pool {min(c for a, b, c in v)}-{np.mean([c for a, b, c in v]):.0f}-{max(c for a, b, c in v)}" for y, v in sorted(by.items())))
     print_scored_stats(LAB_J, Lc, W)
-    print_scored(f"judged [B10] (the fallback rule: {SPEC['min_scored']} scored names or more -> {M17.SPEC['n_side']} a side, fewer -> the top / bottom third, at least {SPEC['min_side']} a side, else nothing)", Lc.cnt)
+    print_scored(f"judged [B13] (the fallback rule: {SPEC['min_scored']} scored names or more -> {M17.SPEC['n_side']} a side, fewer -> the top / bottom third, at least {SPEC['min_side']} a side, else nothing)", Lc.cnt)
     print_counts(LAB_J, Lc.cnt)
-    M17.print_spin_counts("judged [B10]", Lc.cnt)
+    La = bb_build(W, WF0, PRE_END, "keep", units=False, counts_only=True)                     # [B13] [B10]'s removal reading, reported: its pool counts beside the judged one's
+    print_counts(LAB_A, La.cnt)
+    print_spin_counts("judged [B13]", Lc.cnt)
     print(f"TBIS flags: {len(tbis):,} symbol-days listed before the cut, {full_match:,} match a session and a cached name, {W.tbis_rows[1]:,} a name that is ever in the universe; every listed row is a flag")
     if W.ca is not None:
-        M17.print_wide(W.ca)
+        print_wide(W.ca)
     else:
         print(f"wide corporate-actions calendar [R1]: not on file yet ({winfo['path']}) - Stage A refuses until it is on file and WIDE_CA_SHA is set; this dryload ran without dividends and without [A3]'s calendar side")
     pa, pr = W.es_cov["adj_prints"], W.es_cov["raw_prints"]
@@ -1752,8 +1871,10 @@ def stage_a():
           f"{dd['episodes']} qualifying episodes, {dd['days']} DD days, {dd['weeks']} DD weeks, by year {dd['by_year']}, the 2020-03-03 .. 03-27 episode {'found' if dd['episode_2020'] else 'NOT FOUND'}")
     if CHECK_BOOK and not (bk["ok"] and dd["ok"]):
         refuse("Stage A refused: the #463 records do not reproduce the registered WF numbers / drawdown structure (the prereg's [T5] facts) - fix the input first (nothing computed)")
-    ref = DV.ref_load(B, check_facts=CHECK_BOOK)                                           # [B12] the RESTATED line -> the REFERENCE book L: refuses (nothing computed) unless the file is the registered one and L reproduces its registered numbers
+    ref = DV.ref_load(B, check_facts=CHECK_BOOK)                                           # [B14] the S1-restated line -> the REFERENCE book L: refuses (nothing computed) unless the file is resmom_cells_daily_wf_close.csv (e204dd53) and L reproduces 121.06 / 3.926 / $36,526
     DV.print_reference(ref)
+    print(f"  [B14] L is the S1-restated line ({os.path.basename(DV.REF_CSV_PINNED)}: the RESMOM restatement under MANAGER's hygiene edit S1); [B12]'s 'NETISS first' rule is settled - NETISS r1 is DEAD under S1, so NO NETISS line "
+          "joins the reference")                                                           # [B12] / [B14]: this is where a NETISS forward line would have joined L - none does
     msha = manifest_sha()
     print(f"SIPORB cache manifest sha256: {msha} (registered: {D15.MANIFEST_PREFIX}...)")
     if CHECK_BOOK and not (msha and msha.startswith(D15.MANIFEST_PREFIX)):
@@ -1769,7 +1890,7 @@ def stage_a():
           f"{es_meta['raw']['filename']} / {es_meta['adj']['filename']}", flush=True)
     es_txt, es_rec = M17.es_report(W)
     print(es_txt)
-    M17.print_wide(W.ca)
+    print_wide(W.ca)
     out = {"prereg_sha256_lf": PREREG_SHA, "prereg_verified": pok["verified"], "prereg_committed": pok["committed"], **stamp(), "judged": False, "stageA": None, "candidate": None, "pending_hand_audit": None, "judged_post_mode": JUDGED,
            "book_check": bk, "dd_structure": dd, "reference": DV.ref_record(ref), "manifest_sha256": msha, "es_return": es_rec, "wide_calendar": W.ca, "k_undefined_wf_sessions": kmiss, "files": {k: FILE_SHA[k] for k in FILE_SHA},
            "netiss_files": dict(NI.FILE_SHA), "cash_flow": {k: v for k, v in src.cinfo.items() if k != "sha256"}, "cash_entries": src.cash.info, "facts": {k: v for k, v in src.xinfo.items() if k != "sha256"},
@@ -1801,14 +1922,19 @@ def stage_a():
         b9_box["rows"] = b9_rows(W, L)
         print_b9(b9_box["rows"])
     resR, objR = evaluate(W, B, S12, ref, rows, JUDGED, NREP, 0, full=True, announce=print_power, b9=b9_print)
-    print(f"judged reading [B10] done ({time.time() - t1:.0f}s: the leg, [B9], the {NREP} random-name draws per cell from the kept SCORED pool FIRST, the cells, the stress rows, the deciles, the twins)", flush=True)
+    print(f"judged reading [B13] done ({time.time() - t1:.0f}s: the leg, [B9], the {NREP} random-name draws per cell from the same SCORED pool with the same cut paths FIRST, the cells, the stress rows, the deciles, the twins)", flush=True)
     unused = unused_audit_rows(W, audit)
     if unused:
         print(f"  NOTE: {len(unused)} audit data_event row(s) removed nothing (the name was not in that fill session's universe): {unused[:5]}")
     t1 = time.time()
+    resA, objA = evaluate(W, B, S12, ref, rows, "keep", 0, 3, full=False)                 # [B13] [B10]'s removal reading: a REPORT beside the judged one, with its count of removed name-months, without a null (r21_netiss's resA)
+    cntA, spinA = {y: dict(c) for y, c in sorted(objA.legs.cnt.items())}, {c: NI.ni_spin_counts(objA.legs, c) for c in CELLS}
+    del objA                                                                               # (its leg's unit paths are not read again)
+    print(f"[B10]'s removal reading done ({time.time() - t1:.0f}s)", flush=True)
+    t1 = time.time()
     nq = netiss_question(W, B, rows, objR.legs, objR, ref)
     print(f"the NETISS question done ({time.time() - t1:.0f}s: NETISS's two cells in-process on this World)", flush=True)
-    spin = {"judged_reading": {c: NI.ni_spin_counts(objR.legs, c) for c in CELLS}}
+    spin = {"judged_reading": {c: NI.ni_spin_counts(objR.legs, c) for c in CELLS}, "b10_removal_reading": spinA}
     rep, cands = reports(W, B, S12, ref, rows, objR, resR["cells"], tbis, D15.asset_status(), legs_meta)
     cells = resR["cells"]
     passing, cand = stage_a_flow(cells)
@@ -1817,18 +1943,20 @@ def stage_a():
     os.makedirs(OUT, exist_ok=True)
     pd.DataFrame([r_ for c in CELLS for r_ in cands[c]]).to_csv(os.path.join(OUT, "buyback_audit_candidates.csv"), index=False)
     pd.DataFrame(flags).to_csv(os.path.join(OUT, "buyback_flags.csv"), index=False)
-    print(f"WF {WF0:%Y-%m-%d} -> {PRE_END:%Y-%m-%d} ({int(wf.sum()):,} sessions) - {LAB_J}; the null draws from the kept SCORED pool")
+    print(f"WF {WF0:%Y-%m-%d} -> {PRE_END:%Y-%m-%d} ({int(wf.sum()):,} sessions) - {LAB_J}; the null draws from the same SCORED pool with the same cut paths")
     print_cells(resR, ast)
-    with patched(NI, CELLS=CELLS):
-        NI.print_spin_picks(spin)
+    removedA = b10_removed(cntA)
+    print_b10_reading(resA, removedA, objR.legs.cnt, cells)
+    print_spin_picks(spin)
     print_twins(resR)
     print_netiss_question(nq, resR)
     print_deciles(resR)
     print_reports(rep, cells)
     print_diagnostics(resR, rep, ref)
-    print_counts("L (judged [B10])", objR.legs.cnt)
-    print_scored("L (judged [B10])", objR.legs.cnt)
-    M17.print_spin_counts("L (judged [B10])", objR.legs.cnt)
+    print_counts("L (judged [B13])", objR.legs.cnt)
+    print_counts("L ([B10]'s removal reading, reported)", cntA)
+    print_scored("L (judged [B13])", objR.legs.cnt)
+    print_spin_counts("L (judged [B13])", objR.legs.cnt)
     print(f"  audit candidates (the {AUDIT_N} largest gains per cell, with every component fact, its filing (accession number [B4]), the market value's inputs and the group) -> {os.path.join(OUT, 'buyback_audit_candidates.csv')}; every |score| > 0.15 name-rank "
           f"({len(flags):,}; picked: {sum(1 for r_ in flags if r_['picked']):,}, in {len({r_['group'] for r_ in flags if r_['picked']}):,} groups) with the cell / side that picked it and its group -> {os.path.join(OUT, 'buyback_flags.csv')}; the hand audit (f) covers the "
           f"{AUDIT_N} largest contributors per cell and every PICKED flagged name-rank, grouped by (symbol, the filings used): ONE row covers every rank on the same filings, a data_event row removes them all; the hand audit is the lead's (a data event found: "
@@ -1840,7 +1968,9 @@ def stage_a():
                                "book_shadow_line": cells[cand]["A2"]["incremental_credit"], "beta_within_cap": cells[cand]["beta"]["within_cap"], "first_traded_fill": cells[cand]["first_traded_fill"], "also_passes": [c for c in passing if c != cand]} if cand else None),
                 "parity": {c: {"net": cells[c]["base"]["net"], "n_pos": cells[c]["base"]["n_pos"], "n_units": cells[c]["base"]["n_units"], "first_traded_fill": cells[c]["first_traded_fill"]} for c in CELLS},
                 "audit": aud_n, "audit_sha256": asha, "audit_status": ast, "flags": len(flags), "flags_picked": int(sum(1 for r_ in flags if r_["picked"])), "flags_picked_groups": int(len({r_["group"] for r_ in flags if r_["picked"]})),
-                "spin_counts": spin, "netiss_question": nq, "calendar_splits_on_grid": W.ni.csplit, "hygiene_counts_by_year": {"judged": {y: dict(c) for y, c in sorted(objR.legs.cnt.items())}}, "reports": rep, "es_masters": es_meta})
+                "spin_counts": spin, "netiss_question": nq, "calendar_splits_on_grid": W.ni.csplit,
+                "b10_removal_reading": {"post_mode": "keep", "null": resA["null"], "removed_name_months": removedA, "cells": {c: {k: resA["cells"][c][k] for k in ("base", "seat", "A2", "usd_year", "dd5")} for c in CELLS}},
+                "hygiene_counts_by_year": {"judged": {y: dict(c) for y, c in sorted(objR.legs.cnt.items())}, "b10_removal": cntA}, "reports": rep, "es_masters": es_meta})
     dump(out, "buyback_stageA.json")
     for c in passing:
         a2 = cells[c]["A2"]
@@ -2045,9 +2175,32 @@ def ptype_py(s, e):
     return next((t for t, _nm, a, b in PTYPES if a <= e - s <= b), T_OTHER)
 
 
+def brute_grid(s, e0):
+    """plain python [B15](9): is day s within 14 days of e0 + 1 day + 3q months for some q that is not a multiple of 4 (the month arithmetic by hand: the day clipped to the target month's length)"""
+    epoch = TS("1970-01-01")
+    b = epoch + pd.Timedelta(days=int(e0) + 1)
+    q = 1
+    while True:
+        y, m = divmod(b.month - 1 + 3 * q, 12)
+        Y, M = b.year + y, m + 1
+        last = (TS(year=Y + (M == 12), month=M % 12 + 1, day=1) - pd.Timedelta(days=1)).day
+        g = (TS(year=Y, month=M, day=min(b.day, last)) - epoch).days
+        if g > s + FY_GAP:
+            return False
+        if q % 4 and abs(s - g) <= FY_GAP:
+            return True
+        q += 1
+
+
+def brute_discrete(use, p0, e0):
+    """plain python [B15](9): the statement p0 is a quarter on FY_prev's quarter grid and no usable entry of the CIK first filed on a transition report (10-KT / 10-QT, amendments included) ends after FY_prev's end e0"""
+    return ptype_py(*p0) == T_Q and brute_grid(p0[0], e0) and not any(v[4] in TRANSITION_FORMS and k[3] > e0 for k, v in use.items())
+
+
 def brute_ttm(ent, cik, r, dl_i):
     """plain python TTM of one cash CIK at rank row r: the usable entries (the first session strictly after the first filed date on or before r), the candidates (a typed period with a usable STATEMENT fact), the statement = the latest end (the
-    longest on a tie), a FY -> itself; else FY_prev = the latest FY candidate ending on / before s - 1 (none: no FY_prev; ending more than 14 days before s: [B1]), YTD_prev = the candidate of the statement's type with FY_prev's start whose end is
+    longest on a tie), a FY -> itself; else FY_prev = the latest FY candidate ending on / before s - 1 (none: no FY_prev; ending more than 14 days before s: [B1], or [B15](9)'s discrete quarter by brute_discrete), YTD_prev = the candidate of
+    the statement's type with FY_prev's start whose end is
     within 14 days of e - 1 year (the closest, a tie to the earlier) -> (code or None, kind, [(period, sign)], e, s, the usable entries)"""
     use = {k: v for k, v in ent.items() if k[0] == cik and v[2] and bisect.bisect_right(dl_i, v[0]) <= r}
     periods = {(k[2], k[3]) for k in use}
@@ -2063,7 +2216,7 @@ def brute_ttm(ent, cik, r, dl_i):
         return R_NO_FY_PREV, 2, [], e, s, use
     p1 = max(fys, key=lambda p: (p[1], p[1] - p[0]))
     if s - p1[1] > FY_GAP:
-        return R_FY_CHANGE, 2, [], e, s, use
+        return (R_DISCRETE_Q if brute_discrete(use, p0, p1[1]) else R_FY_CHANGE), 2, [], e, s, use
     tgt = dnum(NI.years_back_py(TS(np.datetime64(e, "D")), 1))
     ys = [p for p in cands if ptype_py(*p) == ptype_py(*p0) and p[0] == p1[0] and abs(p[1] - tgt) <= YTD_GAP]
     if not ys:
@@ -2104,6 +2257,14 @@ def brute_share(W, sh_frame, cik, r, cache):
             a = max(use)
             return a, use[a][1], con
     return None
+
+
+def brute_s_stale(a, rd):
+    """plain python [B17]: is S's as-of date a more than 15 calendar months before the rank date rd (the month arithmetic by hand: rd's day clipped to the target month's length; that day itself is within)"""
+    y, m = divmod(rd.year * 12 + rd.month - 1 - S_MONTHS, 12)
+    M = m + 1
+    last = (TS(year=y + (M == 12), month=M % 12 + 1, day=1) - pd.Timedelta(days=1)).day
+    return TS(a) < TS(year=y, month=M, day=min(rd.day, last))
 
 
 def brute_score(W, ent, sh_frame, cal, j, r, cache):
@@ -2155,6 +2316,8 @@ def brute_score(W, ent, sh_frame, cal, j, r, cache):
         mv_code = R_NO_SHARES
     elif sh is None:
         mv_code = R_NO_S
+    elif brute_s_stale(sh[0], W.days[r]):
+        mv_code = R_STALE_S
     elif not sh[1] > 0:
         mv_code = R_S_NOT_POS
     else:
@@ -2215,7 +2378,7 @@ def compare_scores(W, ent, sh_frame, cal, ranks, cols=None):
                 assert bool(sc.flag[k][j]) == b.flag[k], (tag, k, "flag")
             for k in ("DIV", DECK):
                 assert (math.isnan(b.score[k]) and math.isnan(sc.score[k][j])) or close(sc.score[k][j], b.score[k], 1e-9), (tag, k)
-            if b.kind and b.code["P"] not in (R_NO_STATEMENT, R_NO_FY_PREV, R_FY_CHANGE, R_NO_YTD_PREV):
+            if b.kind and b.code["P"] not in (R_NO_STATEMENT, R_NO_FY_PREV, R_FY_CHANGE, R_DISCRETE_Q, R_NO_YTD_PREV):
                 assert int(sc.kind[j]) == b.kind and int(sc.e[j]) == b.e, (tag, int(sc.kind[j]), b.kind, int(sc.e[j]), b.e)
                 for nm in ("rep", "div", "iss", "tw"):
                     assert close(getattr(sc, nm)[j], getattr(b, nm), 1e-6), (tag, nm, getattr(sc, nm)[j], getattr(b, nm))
@@ -2225,12 +2388,17 @@ def compare_scores(W, ent, sh_frame, cal, ranks, cols=None):
     return n
 
 
-def brute_path_hook(W, f, x, j, sd, naive, post_mode=JUDGED, **kw):
-    """the recount's daily path of one position: r17_resmom.brute_path. [S1 HOOK] (MANAGER #127): under post_mode 's1' the recount must call M17.brute_path(..., close=<the pool name's close row>) - the session e - 1 before its first [D2]
-    ex-date in f < e <= x - once the lead's r17 's1' commits are in this worktree; until then the 's1' reading is refused (pool_units refuses it too)"""
-    if post_mode == "s1":
-        raise NotImplementedError("[S1 HOOK] post_mode 's1': call M17.brute_path(..., close=close_row) once r17_resmom has it")
-    return M17.brute_path(W, f, x, j, sd, naive, **kw)
+def brute_pos(W, b, j, sd, **kw):
+    """one recount position's daily path (r21_netiss.brute_pos_ni's rule): CLOSED at the close before its first spin-off / stock-dividend ex-date inside the hold [B13] (b['pool'][j][3], the recount's own ex-date; -1 = none) by
+    r17_resmom.brute_close_path, else held to the exit by r17_resmom.brute_path on the path its naive flag says; kw = the costing (bps, borrow, kt, lose100)"""
+    ex = b["pool"][j][3]
+    return M17.brute_close_path(W, b["f"], b["x"], j, sd, ex, **kw)[0] if ex >= 0 else M17.brute_path(W, b["f"], b["x"], j, sd, b["pool"][j][0], **kw)[0]
+
+
+def brute_rec(W, rec, p, j, sd, **kw):
+    """the same from a built rebalance (r21_netiss.brute_rec_ni): its pool position p - the close row compare_bb checked against the recount, the naive flag - World column j"""
+    e = int(rec.close[p]) + 1 if int(rec.close[p]) >= 0 else -1
+    return M17.brute_close_path(W, rec.f, rec.x, j, sd, e, **kw)[0] if e >= 0 else M17.brute_path(W, rec.f, rec.x, j, sd, bool(rec.naive[p]), **kw)[0]
 
 
 def brute_side(n):
@@ -2259,8 +2427,9 @@ def brute_dec(sc):
 
 def brute_bb(W, ent, sh_frame, cal, cik_of, lo, hi, post_mode=JUDGED):
     """every rebalance whose position exits in [lo, hi], plain python end to end: the schedule from the months of consecutive sessions, the universe from W.U, the pool re-implemented with loops (r21_netiss.brute_ni's: >= 230 own returns and ES pairs,
-    an open at the fill, the pre / old / post hygiene windows and the [D2] spin-offs in the three readings, the calendar splits inside the hold under 'keep', the audit), every pool name's scores by brute_score, [A13] by r21_netiss.brute_second per
-    score, the sides by brute_side, the picks by plain sorts (the HIGHEST long), the twins (DIV on P's names, the FLAT names by NETISS's own recount of ISS_1, REP / MV on R's), the deciles -> [{r, f, x, pool, cell: {key: {...}}, counts}]"""
+    an open at the fill, the pre / old / post hygiene windows and the spin-off / stock-dividend ex-dates in the four readings, the calendar splits inside the hold under 'keep', the audit), every pool name's scores by brute_score, [A13] by
+    r21_netiss.brute_second per score, the sides by brute_side, the picks by plain sorts (the HIGHEST long), the twins (DIV on P's names, the FLAT names by NETISS's own recount of ISS_1, REP / MV on R's), the deciles -> [{r, f, x, pool: {col:
+    (naive, window ex-dates, hold ex-date, [B13] the first ex-date inside the hold under 'close' or -1)}, cell: {key: {...}}, counts}]"""
     sp = M17.SPEC
     Sp = getattr(W, "Sp_in", None)
     key = [(W.days[i].year, W.days[i].month) for i in range(W.T)]
@@ -2289,7 +2458,8 @@ def brute_bb(W, ent, sh_frame, cal, cik_of, lo, hi, post_mode=JUDGED):
             known = hold or (Cs is not None and any(bool(Cs[s, j]) for s in range(f + 1, x + 1)))
             if pre or old or W.aud1[f, j] or (post and post_mode == "remove") or (known and post_mode == "keep"):
                 continue
-            pool[j] = (bool(post and post_mode == "naive"), win, hold)
+            ex = next((t for t in range(f + 1, x + 1) if Sp is not None and Sp[t, j]), -1) if post_mode == "close" else -1      # [B13] the first spin-off / stock-dividend ex-date inside the hold: closed at the close before it
+            pool[j] = (bool(post and post_mode == "naive"), win, hold, ex)
         rec = {"r": r, "f": f, "x": x, "pool": pool, "cell": {}, "n_hold_names": n_hold, "n_win_names": n_wnames, "n_win_sessions": n_wsess}
         bs = {j: brute_score(W, ent, sh_frame, cal, j, r, cache) for j in pool}
         for kk in CODE_KEYS:
@@ -2321,9 +2491,13 @@ def brute_bb(W, ent, sh_frame, cal, cik_of, lo, hi, post_mode=JUDGED):
     return recs
 
 
-def compare_bb(W, L, Bz, tag, post_mode=JUDGED, paths=True):
-    """the vectorised build against the plain-python recount: the schedule, every pool (names, naive flags, [D2] counts), per key every scored name with its score, the mode and side size, the picks, [A13]'s second classes, the deciles, the
-    first-reason counts, and the daily path of EVERY scored name of the two cells (base and 10 bps) and of every pick of the twins -> the number of paths checked"""
+COSTINGS = (("base", D15.l1_cfg(), {}), ("10 bps", D15.l1_cfg(bps=10.0), {"bps": 10.0}), ("borrow 3%", D15.l1_cfg(borrow=(BORROW, 0.03)), {"borrow": (BORROW, 0.03), "k": True}), ("lose100", D15.l1_cfg(lose100=True), {"lose100": True}))
+
+
+def compare_bb(W, L, Bz, tag, paths=True):
+    """the vectorised build against the plain-python recount: the schedule, every pool (names, naive flags, the spin-off / stock-dividend ex-date counts, [B13] the close rows), per key every scored name with its score, the mode and side size,
+    the picks, [A13]'s second classes, the deciles, the first-reason counts, the closed positions' count, and the daily path of EVERY scored name of the two cells under four costings (r21_netiss.compare_ni's: base, 10 bps, the 3% borrow
+    stress with k_t, longs at -100%; r17_resmom.l1_pnl_x against brute_pos - a closed position by r17_resmom.brute_close_path) and of every pick of the twins (base) -> the number of paths checked"""
     assert len(L.recs) == len(Bz), (tag, len(L.recs), len(Bz))
     n_paths = 0
     want_cnt = defaultdict(Counter)
@@ -2332,6 +2506,7 @@ def compare_bb(W, L, Bz, tag, post_mode=JUDGED, paths=True):
         assert rec.pool.tolist() == sorted(b["pool"]), (tag, rec.r, rec.pool.tolist(), sorted(b["pool"]))
         assert rec.naive.tolist() == [b["pool"][j][0] for j in rec.pool], (tag, rec.r)
         assert rec.spin_win.tolist() == [b["pool"][j][1] for j in rec.pool] and rec.spin_hold.tolist() == [b["pool"][j][2] for j in rec.pool], (tag, rec.r)
+        assert rec.close.tolist() == [(b["pool"][j][3] - 1 if b["pool"][j][3] >= 0 else -1) for j in rec.pool], (tag, rec.r, "[B13] the close rows")
         y = int(W.days[b["f"]].year)
         for kk in KEYS:
             cc, bc = rec.cell[kk], b["cell"][kk]
@@ -2364,26 +2539,29 @@ def compare_bb(W, L, Bz, tag, post_mode=JUDGED, paths=True):
             if not paths:
                 continue
             kt = W.k[rec.f:rec.x + 1]
-            for nm, cfg, kw in (("base", D15.l1_cfg(), {}), ("10 bps", D15.l1_cfg(bps=10.0), {"bps": 10.0})):
+            for nm, cfg, kw in COSTINGS:
+                kw2 = {"bps": kw.get("bps", COST_BPS), "borrow": kw.get("borrow", (BORROW, None)), "kt": kt if kw.get("k") else None, "lose100": kw.get("lose100", False)}
                 for sd, sel in ((1, cc.long), (-1, cc.short)):
                     idx = np.arange(cc.n) if kk in CELLS else np.asarray(sel)
-                    P = D15.l1_pnl(cc.U, idx, sd, cfg, kt)
+                    P = M17.l1_pnl_x(cc.U, idx, sd, cfg, kt)
                     for i_, i in enumerate(idx.tolist()):
-                        want, _ = brute_path_hook(W, rec.f, rec.x, int(cols[i]), sd, bool(rec.naive[cc.idx[i]]), post_mode, bps=kw.get("bps", COST_BPS))
+                        want = brute_pos(W, b, int(cols[i]), sd, **kw2)
                         assert close(P[i_], want), (tag, nm, rec.r, kk, int(cols[i]), sd)
                         n_paths += 1
                 if kk not in CELLS:
                     break
     for key, bk in (("spin_window_names", "n_win_names"), ("spin_window_sessions", "n_win_sessions"), ("spin_hold_names", "n_hold_names")):
         assert sum(c.get(key, 0) for c in L.cnt.values()) == sum(b[bk] for b in Bz), (tag, key)
+    n_close = sum(1 for b in Bz for j in b["pool"] if b["pool"][j][3] >= 0)                                 # [B13] the pool names closed before an ex-date (scored or not)
+    assert sum(c.get("closed_spin", 0) for c in L.cnt.values()) == n_close, (tag, "closed_spin", n_close)
     for y, w in want_cnt.items():
         for k_, v in w.items():
             assert L.cnt[y][k_] == v, (tag, y, k_, L.cnt[y][k_], v)
     return n_paths
 
 
-def series_check(W, L, Bz, post_mode=JUDGED):
-    """each traded key's daily series (run_cell on r15's L1 engine, $4,000 a name) equals the sum of the recount's position paths booked on rows f .. x"""
+def series_check(W, L, Bz):
+    """each traded key's daily series (run_cell on r15's L1 engine with r17_resmom's l1_pnl_x, $4,000 a name) equals the sum of the recount's position paths (brute_pos: [B13]'s closed ones cut) booked on rows f .. x"""
     for kk in TRADED:
         x0 = np.zeros(W.T)
         for b in Bz:
@@ -2392,7 +2570,7 @@ def series_check(W, L, Bz, post_mode=JUDGED):
                 continue
             for sd, js in ((1, bc["long"]), (-1, bc["short"])):
                 for j in js:
-                    x0[b["f"]:b["x"] + 1] += M17.SPEC["slot"] * np.array(brute_path_hook(W, b["f"], b["x"], j, sd, b["pool"][j][0], post_mode)[0])
+                    x0[b["f"]:b["x"] + 1] += M17.SPEC["slot"] * np.array(brute_pos(W, b, j, sd))
         assert close(M17.run_cell(W, cell_leg(L, kk), D15.l1_cfg()).x, x0), f"{kk} series"
 
 
@@ -2477,14 +2655,23 @@ def t_constants():
                                                                                  "ProceedsFromStockPlans", "PaymentsRelatedToTaxWithholdingForShareBasedCompensation", "NetCashProvidedByUsedInFinancingActivities", "NetCashProvidedByUsedInFinancingActivitiesContinuingOperations"]
     assert FILE_SHA == {"cf": "6fe4ca5de4610072cd09ee17bb0454bdfa9888f79560d92052671fc224df1632", "cf_alt": "3edfacc7473d04e51ba3a92b97bd633a15c24723e88db28a66b1c463ede82162"} and os.path.basename(FILES["cf"]) == "cashflow_asfiled_wide.csv" and os.path.basename(FILES["cf_alt"]) == "cashflow_alt_asfiled_wide.csv"
     assert (WF0, PRE_END, LB0, LB1) == (TS("2016-07-01"), TS("2025-06-29"), TS("2025-06-30"), TS("2026-06-30")) and (S.LB0, S.END) == (LB0, R11.LBX) and YEARS == tuple(range(2016, 2025))
-    assert JUDGED == NI.JUDGED and SPEC == {"min_scored": 150, "min_side": 20, "flat_min": 20, "dec_n": 10, "dec_min": 10} and (M17.SPEC["n_side"], M17.SPEC["slot"]) == (50, 4000.0) and (COST_BPS, STRESS_BPS) == (5.0, (10.0, 20.0))
-    assert (A2_TARGET, A2_REPORT) == (0.25, (0.5, 2.0)) and BETA_CAP == 0.20 and DV.REF_SHA.startswith("86721fda") and DV.REF_FACTS == {"roc": 120.95, "sortino": 3.921, "max_dd": 36526.0} and DV.REF_W == 0.264, "[B12] the RESTATED L"
+    assert JUDGED == NI.JUDGED == "close" and "close" in M17.POST_MODES and SPEC == {"min_scored": 150, "min_side": 20, "flat_min": 20, "dec_n": 10, "dec_min": 10} and (M17.SPEC["n_side"], M17.SPEC["slot"]) == (50, 4000.0) and (COST_BPS, STRESS_BPS) == (5.0, (10.0, 20.0))
+    assert (A2_TARGET, A2_REPORT) == (0.25, (0.5, 2.0)) and BETA_CAP == 0.20 and DV.REF_W == 0.264, "A2's registered size"
+    assert DV.REF_SHA == "e204dd53419a22bcc69045cc5d17ff42c86203fb06b58fa538b10beb7ba25d18" and DV.REF_FACTS == {"roc": 121.06, "sortino": 3.926, "max_dd": 36526.0} and DV.REF_CSV_PINNED.endswith("resmom_cells_daily_wf_close.csv"), "[B14] the S1-restated L"
     assert len(REASONS) == R_SECOND_CLASS + 1 and set(REASON_TEXT) == set(REASONS) and REASONS[R_OVER50] == "score_over_0.50" and set(NI_STATIC.values()) == {R_NOT_IN_MAP, R_MAP_MISMATCH, R_MAP_AMBIGUOUS, R_MAP_UNMAPPED, R_MAP_NONCOMMON, R_MAP_OTHER, R_FOREIGN}
+    assert (REASONS[R_FY_CHANGE], REASONS[R_DISCRETE_Q], REASONS[R_NO_FY_PREV]) == ("fiscal_year_change", "discrete_quarter", "no_fy_prev") and TRANSITION_FORMS == ("10-KT", "10-QT", "10-KT/A", "10-QT/A"), "[B15](9) the label apart"
+    assert S_MONTHS == 15 and (REASONS[R_NO_S], REASONS[R_STALE_S], REASONS[R_S_NOT_POS]) == ("no_share_count_at_r", "stale_s", "share_count_not_positive"), "[B17] stale S, a market-value reason"
     assert R11.sha_lf(PREREG) == PREREG_SHA, "the pre-registration on disk is the registered one (LF sha256)"
     norm = " ".join(open(PREREG, encoding="utf-8").read().split())
     for frag in ("500 draws, seed 20261024", "Q 77-105 days, H 168-196, 9M 259-287, FY 350-380", "e more than 200 days before r", "|score| > 0.50", "|score| > 0.15", "more than 120 days before the rank close", "Above 10% of names in any year",
                  "within 14 days of FY_prev's end + 1 day", "ending within 14 days of e - 1 year", "ISS is within +-2%", "first 24 months of traded fills", "long the 50 HIGHEST", "short the 50 LOWEST", "fewer than 150 scored names trades the top / bottom third (n // 3 a side, at least 20)",
-                 "86721fda", "120.95 / 3.921 / $36,526", FILE_SHA["cf"], FILE_SHA["cf_alt"], "PaymentsRelatedToTaxWithholdingForShareBasedCompensation", "r17_resmom's post_mode 'keep'", "Two passing cells send the higher WF ROC to Stage B (a tie: P)"):
+                 FILE_SHA["cf"], FILE_SHA["cf_alt"], "PaymentsRelatedToTaxWithholdingForShareBasedCompensation", "Two passing cells send the higher WF ROC to Stage B (a tie: P)",
+                 "This is r17_resmom's post_mode 'close'", "CLOSES the position at the official close of the session before it, e-1", "The null draws from the same pool with the same cut paths",
+                 "[B10]'s removal reading ('keep': an announced split or a spin-off / stock-dividend ex-date inside the hold removes the name) is printed beside the judged one as a REPORT with its count of removed name-months, without a null",
+                 "L = #463 + 0.264 x RES = WF ROC @ $30k 121.06 / DD5 $34,392, Sortino 3.926, worst drawdown $36,526", "resmom_cells_daily_wf_close.csv (sha256 e204dd53...)", "so no NETISS line joins the reference",
+                 "counts a period that does not start at its fiscal year's start (a discrete quarter) apart from a fiscal-year change (no score either way - a label only)",
+                 "always at its FIRST-FILED value, never a later restated one", "must lie within 15 calendar months before the rank; otherwise the name is UNSCORED with the no-score reason 'stale S'",
+                 "The latest such usable cover-page (dei) count still comes first, else the balance-sheet (us-gaap) count"):
         assert frag in norm, frag
     with quiet():
         pk = prereg_ok()
@@ -2498,6 +2685,9 @@ def t_constants():
         refused(prereg_ok, "is not next to this file")
     with patched(D15, committed_state=lambda: "differs"), quiet():
         refused(prereg_ok, "COMMITTED")
+    for bad in ("keep", "remove", "s1"):
+        with patched(THIS, JUDGED=bad), quiet():
+            refused(prereg_ok, "not [B13]'s 'close'", TAIL)
 
 
 def t_files():
@@ -2625,8 +2815,15 @@ def t_ttm():
     F_ = (fy_rows("C5", "2023-01-01", "2023-12-31", "2024-02-20", REP=5e9) + fy_rows("C5", "2023-01-01", "2023-04-15", "2023-05-20", "10-Q", REP=1e9) + fy_rows("C5", "2024-01-01", "2024-03-31", "2024-04-25", "10-Q", REP=2e9))
     G_ = fy_rows("C6", "2024-01-01", "2024-03-31", "2024-04-25", "10-Q", REP=2e9) + fy_rows("C6", "2023-01-01", "2023-03-31", "2023-04-25", "10-Q", REP=1e9)
     H_ = fy_rows("C7", "2023-01-01", "2023-12-31", "2024-02-20", REP=4e9) + fy_rows("C7", "2024-04-01", "2024-06-30", "2024-08-05", "10-Q", REP=1e9) + fy_rows("C7", "2023-04-01", "2023-06-30", "2023-08-05", "10-Q", REP=1e9)
-    names = ["AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG", "HHH"]
-    W = hand_world(names, A + B_ + C_ + D_ + E_ + F_ + G_ + H_)
+    # [B15](9): III the same discrete Apr-Jun quarter after a TRANSITION REPORT on a 10-QT (Jan-Mar 2024: the fiscal year moved - [B1]'s change); JJJ the first quarter of a year whose FY_prev is two years old (it starts at its fiscal year's
+    # start: [B1]); KKK a 52/53-week filer's discrete second quarter (FY to Sat 2023-12-30, Q 2024-03-31 .. 06-29: on the grid within 14 days); LLL a discrete HALF (Apr-Sep: not a quarter - [B1])
+    I_ = (fy_rows("C8", "2023-01-01", "2023-12-31", "2024-02-20", REP=4e9) + fy_rows("C8", "2024-01-01", "2024-03-31", "2024-05-10", "10-QT", REP=1e9)
+          + fy_rows("C8", "2024-04-01", "2024-06-30", "2024-08-05", "10-Q", REP=1e9))
+    J_ = fy_rows("C9", "2022-01-01", "2022-12-31", "2023-02-20", REP=4e9) + fy_rows("C9", "2024-01-01", "2024-03-31", "2024-04-25", "10-Q", REP=1e9)
+    K_ = fy_rows("C10", "2023-01-01", "2023-12-30", "2024-02-20", REP=4e9) + fy_rows("C10", "2024-03-31", "2024-06-29", "2024-08-05", "10-Q", REP=1e9)
+    L_ = fy_rows("C11", "2023-01-01", "2023-12-31", "2024-02-20", REP=4e9) + fy_rows("C11", "2024-04-01", "2024-09-30", "2024-11-04", "10-Q", REP=1e9)
+    names = ["AAA", "BBB", "CCC", "DDD", "EEE", "FFF", "GGG", "HHH", "III", "JJJ", "KKK", "LLL"]
+    W = hand_world(names, A + B_ + C_ + D_ + E_ + F_ + G_ + H_ + I_ + J_ + K_ + L_)
     at = lambda d: score_rank(W, rr(W, d))
     sc = at("2024-01-31")
     assert REASONS[sc.code["P"][0]] == "no_ytd_prev" and sc.kind[0] == 0, "9M 2023 is the statement; its YTD_prev (9M 2022) is not on file"
@@ -2652,7 +2849,17 @@ def t_ttm():
     assert sc.kind[4] == 2 and close(sc.rep[4], 2e9 + 5e9 - 1e9), "two YTD_prev 7 days either side of e - 1 year: the earlier"
     assert REASONS[sc.code["P"][5]] == "no_ytd_prev", "YTD_prev 15 days off e - 1 year: none"
     assert REASONS[sc.code["P"][6]] == "no_fy_prev", "no FY before s at all"
-    assert REASONS[at("2024-08-30").code["P"][7]] == "fiscal_year_change", "a discrete quarter (Apr-Jun) that is not year-to-date: its 'year start' is 91 days after FY_prev's end"
+    sc = at("2024-08-30")
+    assert REASONS[sc.code["P"][7]] == "discrete_quarter" and sc.kind[7] == 0, "[B15](9) a discrete quarter (Apr-Jun) that is not year-to-date: it starts 3 months, not a year, after FY_prev's end + 1 - its own label, no TTM"
+    assert REASONS[sc.code["P"][8]] == "fiscal_year_change", "the same quarter after a transition report (10-QT): the fiscal year moved - [B1]"
+    assert REASONS[sc.code["P"][10]] == "discrete_quarter", "a 52/53-week filer's second quarter: on the grid within 14 days"
+    assert REASONS[at("2024-04-30").code["P"][9]] == "fiscal_year_change" and REASONS[at("2024-11-29").code["P"][11]] == "fiscal_year_change", "a first quarter with a two-year-old FY_prev starts at its year's start; a discrete half is no quarter: [B1]"
+    assert all(REASONS[sc.code[k][7]] == "discrete_quarter" and not sc.scored[k][7] for k in CODE_KEYS), "a label only: no score in any key"
+    assert on_quarter_grid(dnum("2024-04-01"), dnum("2023-12-31")) and on_quarter_grid(dnum("2024-10-14"), dnum("2023-12-31")) and not on_quarter_grid(dnum("2024-10-16"), dnum("2023-12-31"))
+    assert not on_quarter_grid(dnum("2025-01-01"), dnum("2023-12-31")) and on_quarter_grid(dnum("2025-04-01"), dnum("2023-12-31")) and on_quarter_grid(dnum("2024-05-01"), dnum("2024-01-30")), "a whole year is no quarter; the day clips to the month"
+    for s_, e_ in (("2024-04-01", "2023-12-31"), ("2024-10-14", "2023-12-31"), ("2024-10-16", "2023-12-31"), ("2025-01-01", "2023-12-31"), ("2025-04-01", "2023-12-31"), ("2024-05-01", "2024-01-30"), ("2024-03-31", "2023-12-30"),
+                   ("2023-02-28", "2022-11-30"), ("2024-02-29", "2023-11-30"), ("2024-08-31", "2024-02-29")):
+        assert on_quarter_grid(dnum(s_), dnum(e_)) == brute_grid(dnum(s_), dnum(e_)), (s_, e_)
     # staleness: AAA's last statement period ends 2025-03-31; a world that ends later sees it go stale after 200 days
     W2 = hand_world(["AAA"], A, days=pd.bdate_range("2022-01-03", "2025-12-31"))
     assert REASONS[score_rank(W2, rr(W2, "2025-09-30")).code["P"][0]] == "scored" and REASONS[score_rank(W2, rr(W2, "2025-10-31")).code["P"][0]] == "stale_over_200_days" and score_rank(W2, rr(W2, "2025-10-31")).stale_days[0] == 214
@@ -2697,15 +2904,16 @@ def t_components():
 def t_mv():
     """the MARKET VALUE MV = raw close(r) x S x F(a) / F(r) (S = NETISS's share count: the latest usable cover-page value, else the balance sheet's; a = its as-of date) and [A3]'s two-way split check on (a, r]: a 2-for-1 that F and the calendar both show
     (the count before the split is doubled by F(a) / F(r)), a calendar split F does not show and an F change the calendar does not show (no score until a passes the split), a window that starts before the calendar (F alone stands); no share fact for
-    the CIK, no usable S at r, S zero, no factor; the scale rule |score| > 0.50 (no score, LISTED) and the 0.15 flag; a negative component TTM (no score in the cells that read it - CHOICE)"""
+    the CIK, no usable S at r, S zero, no factor; the scale rule |score| > 0.50 (no score, LISTED) and the 0.15 flag; a negative component TTM (no score in the cells that read it - CHOICE); [B17] S point in time and fresh: an S as of 16
+    months before the rank is 'stale S', 14 months scores, exactly 15 (the clipped day) is within; a restated S filed later never replaces the first-filed value; a stale cover-page count does not fall back to a fresh balance-sheet one (CHOICE)"""
     days = pd.bdate_range("2023-01-02", "2025-06-27")
-    T, n = len(days), 13
+    T, n = len(days), 17
     sp = days.get_loc(TS("2024-06-14"))
     F, Cl = np.ones((T, n)), np.full((T, n), 100.0)
     F[:sp, 0], Cl[:sp, 0] = 2.0, 200.0
     F[:sp, 2], Cl[:sp, 2] = 2.0, 200.0
     Fy = lambda cik, **v: fy_rows(cik, "2023-01-01", "2023-12-31", "2024-02-20", **v)
-    rows = sum((Fy(f"C{i}", REP=3e9, DIV=1e9, ISS=0.5e9) for i in range(9)), []) + Fy("C9", REP=60e9) + Fy("C10", REP=20e9)
+    rows = sum((Fy(f"C{i}", REP=3e9, DIV=1e9, ISS=0.5e9) for i in list(range(9)) + [13, 14, 15, 16]), []) + Fy("C9", REP=60e9) + Fy("C10", REP=20e9)
     rows += fy_rows("C11", "2023-01-01", "2023-12-31", "2024-02-20", REP=1e9, DIV=1e9) + fy_rows("C11", "2023-01-01", "2023-03-31", "2023-05-02", "10-Q", REP=3e9, DIV=0.1e9) + fy_rows("C11", "2024-01-01", "2024-03-31", "2024-05-02", "10-Q", REP=1e9, DIV=0.2e9)
     rows += fy_rows("C12", "2023-01-01", "2023-12-31", "2024-02-20", REP=4e9, DIV=1e9) + fy_rows("C12", "2023-01-01", "2023-03-31", "2023-05-02", "10-Q", REP=1e9, DIV=3e9) + fy_rows("C12", "2024-01-01", "2024-03-31", "2024-05-02", "10-Q", REP=1e9, DIV=1e9)
     qe = [month_end(TS(f"{y}-{m:02d}-01")) for y in (2022, 2023, 2024, 2025) for m in (3, 6, 9, 12)]
@@ -2721,7 +2929,10 @@ def t_mv():
             con = GAAP if i == 6 else DEI
             val = 0.0 if i == 5 else (2e9 if i == 0 and q >= TS("2024-06-30") else 1e9)
             sh.append((cik, con, val, f"{q:%Y-%m-%d}", f"{fd:%Y-%m-%d}"))
-    names = [f"M{i:02d}" for i in range(13)]
+    sh += [("C13", DEI, 1e9, "2023-02-28", "2023-03-05"), ("C14", DEI, 1e9, "2023-04-28", "2023-05-03"),                                                  # [B17] one cover-page count each: as of 16 / 14 months before 2024-06-28
+           ("C15", DEI, 1e9, "2024-03-31", "2024-04-05"), ("C15", DEI, 3e9, "2024-03-31", "2024-05-15", "C15-RESTATED", "10-Q/A"),                           # a restated S of the same as-of date, filed later
+           ("C16", DEI, 1e9, "2023-02-28", "2023-03-05"), ("C16", GAAP, 1e9, "2024-03-31", "2024-04-05")]                                                 # a stale cover page beside a fresh balance sheet
+    names = [f"M{i:02d}" for i in range(n)]
     W = hand_world(names, rows, days=days, share_rows=sh, F=F, Cl=Cl, splits=[("M00", "2024-06-14", "forward_split"), ("M01", "2024-06-14", "forward_split")], cal_start="2016-06-01")
     W.F[rr(W, "2024-06-28"), 8] = np.nan
     W.bb.cache.clear()
@@ -2734,6 +2945,14 @@ def t_mv():
     sc5 = score_rank(W, rr(W, "2024-05-31"))
     assert all(REASONS[int(sc5.code[k][11])] == "negative_ttm_component" for k in CODE_KEYS) and close(sc5.rep[11], 1e9 + 1e9 - 3e9), "REP's TTM negative: no score in any cell"
     assert REASONS[int(sc5.code["P"][12])] == "negative_ttm_component" and REASONS[int(sc5.code["R"][12])] == "scored" and close(sc5.div[12], 1e9 + 1e9 - 3e9), "only DIV's TTM negative: P (which reads it) has no score, R has one - CHOICE"
+    # [B17]: point in time and fresh (as of 2024-06-28: 15 calendar months back is 2023-03-28)
+    assert cd(13) == "stale_s" and all(cd(13, k) == "stale_s" for k in CODE_KEYS) and sc.stale_s[13] and dstr(sc.a[13]) == "2023-02-28", "an S 16 months old: stale S, unscored"
+    assert cd(14) == "scored" and not sc.stale_s[14] and close(sc.mv[14], 100.0 * 1e9), "an S 14 months old scores"
+    assert cd(15) == "scored" and sc.Sv[15] == 1e9 and close(sc.mv[15], 100.0 * 1e9) and close(sc.score["R"][15], (3e9 - 0.5e9) / 1e11), "a restated S (3e9, filed later) never replaces the first-filed value"
+    assert cd(16) == "stale_s" and sc.sg[16] < W.ni.dei.n, "CHOICE: the cover page comes first and is then tested - a stale one does not fall back to the fresh balance sheet"
+    sb = score_rank(W, rr(W, "2024-05-31"))
+    assert REASONS[int(sb.code["P"][13])] == "scored" and dstr(sb.a[13]) == "2023-02-28", "2024-05-31 less 15 months is 2023-02-28 (the 31st clipped): that day itself is within"
+    assert not brute_s_stale(TS("2023-02-28"), TS("2024-05-31")) and brute_s_stale(TS("2023-02-27"), TS("2024-05-31")) and brute_s_stale(TS("2023-03-27"), TS("2024-06-28")) and not brute_s_stale(TS("2023-03-28"), TS("2024-06-28"))
     sc7 = score_rank(W, rr(W, "2024-07-15"))                                                  # (197 days after FY 2023's end: not stale yet)
     assert REASONS[int(sc7.code["P"][1])] == "scored" and REASONS[int(sc7.code["P"][2])] == "scored" and close(sc7.mv[0], 100.0 * 2e9), "once a passes the split the check has nothing to say"
     # a window that starts before the calendar: F alone stands (counted), no [A3] failure
@@ -2741,7 +2960,7 @@ def t_mv():
     s2 = score_rank(W2, rr(W2, "2024-06-28"))
     assert REASONS[int(s2.code["P"][2])] == "scored" and s2.f_alone[2] and close(s2.mv[2], 100.0 * 1e9 * 2.0), "a before the calendar's start: F alone stands"
     n = compare_scores(W, brute_cash(W.cash_rows), W.sh_frame, W.cal, [rr(W, d) for d in ("2024-02-29", "2024-05-31", "2024-06-28", "2024-07-15", "2024-07-31", "2025-01-31")])
-    assert n == 6 * 13
+    assert n == 6 * 17
 
 
 def random_cash_world(seed):
@@ -2939,25 +3158,27 @@ TOY_SPEC = dict(n_side=3, min_scored=8, min_side=2, dec_min=7, flat_min=1)     #
 
 
 def t_pipeline():
-    """the vectorised build against the plain-python recount on the toy world with the REGISTERED windows (252 / 230), in the three readings ('remove' / 'naive' / 'keep' = the judged one [B10]): every pool (the keep reading removes N09 for its
-    calendar split inside the 2025-05-30 rank's hold, never for a hygiene flag), every score, [A13], the sides, the picks of the cells and the twins, the deciles, the counts and the daily path of every scored name; then the planted cases one by one"""
+    """the vectorised build against the plain-python recount on the toy world with the REGISTERED windows (252 / 230), in the four readings ('remove' / 'naive' / 'keep' = [B10]'s removal reading, a report / 'close' = the judged one [B13]):
+    every pool (the 'keep' reading removes N09 for its calendar split inside the 2025-05-30 rank's hold, the judged one keeps it on the split-safe path), the close rows, every score, [A13], the sides, the picks of the cells and the twins, the
+    deciles, the counts and the daily path of every scored name under four costings; then the planted cases one by one"""
     with spec(**TOY_SPEC), D15.spec(univ=14):
         tt = bb_ready()
         W = tt.W
         W.aud1[W.days.get_loc(TS("2025-02-03")), 8] = True                                  # N08: a hand-audit data event at fill session 2025-02-03 (the rebalance ranked 2025-01-31)
         lo, hi = W.days[0], W.days[-1]
         out, n = {}, 0
-        for pm in ("remove", "naive", "keep"):
+        for pm in ("remove", "naive", "keep", "close"):
             L = bb_build(W, lo, hi, pm)
             Bz = brute_bb(W, tt.ent, tt.frame, tt.cal, tt.cik_of, lo, hi, pm)
-            n += compare_bb(W, L, Bz, f"toy {pm}", pm)
+            n += compare_bb(W, L, Bz, f"toy {pm}")
             out[pm] = (L, Bz)
-            if pm in ("remove", "keep"):
-                series_check(W, L, Bz, pm)
-        Lr, Lk, LK = out["remove"][0], out["naive"][0], out["keep"][0]
+            if pm in ("remove", "close"):
+                series_check(W, L, Bz)
+        Lr, Lk, LK, LC = out["remove"][0], out["naive"][0], out["keep"][0], out["close"][0]
+        assert JUDGED == "close"
         by = lambda L_, d: next(r_ for r_ in L_.recs if W.days[r_.r] == TS(d))
-        modes = Counter((c, rec.cell[c].mode) for rec in LK.recs for c in CELLS if len(rec.pool))
-        assert modes[("P", "top")] >= 2 and modes[("P", "third")] + modes[("P", "none")] >= 1 and sum(rec.cell["P"].traded for rec in LK.recs) >= 8, modes
+        modes = Counter((c, rec.cell[c].mode) for rec in LC.recs for c in CELLS if len(rec.pool))
+        assert modes[("P", "top")] >= 2 and modes[("P", "third")] + modes[("P", "none")] >= 1 and sum(rec.cell["P"].traded for rec in LC.recs) >= 8, modes
         # the planted cases through the whole pipeline
         at = lambda d: score_rank(W, rr(W, d))
         cd = lambda sc_, j, k="P": REASONS[int(sc_.code[k][j])]
@@ -2971,33 +3192,167 @@ def t_pipeline():
         assert cd(s2, 0) == "scored" and cd(s4, 0) == "scored" and s2.fr[0] == 2.0 and s4.fr[0] == 1.0 and 0.6 < s4.mv[0] / s2.mv[0] < 1.6, "N00's 2-for-1 (F and the calendar both show it): the market value does not jump"
         cu = comp_use(s5, np.array([5, 6, 8]))
         assert cu["rep"]["fallback"][0] and cu["rep"]["mixed"][1] and cu["iss"]["second"][2] and cu["iss"]["dedup"][2], "N05 the fallback, N06 mixed, N08 [B7]"
-        # the readings: the leaky one removes in-hold flags, the naive keeps them on the raw path, the judged one removes only the announced events (N09's calendar split in the 2025-05-30 hold)
-        assert 9 not in by(LK, "2025-05-30").pool.tolist() and 9 in by(Lk, "2025-05-30").pool.tolist() and sum(c.get("post_calendar_split", 0) for c in LK.cnt.values()) >= 1
+        # the readings: the leaky one removes in-hold flags, the naive keeps them on the raw path, [B10]'s 'keep' removes the announced events (N09's calendar split in the 2025-05-30 hold), the judged one [B13] removes nothing
+        assert 9 not in by(LK, "2025-05-30").pool.tolist() and 9 in by(Lk, "2025-05-30").pool.tolist() and 9 in by(LC, "2025-05-30").pool.tolist() and sum(c.get("post_calendar_split", 0) for c in LK.cnt.values()) >= 1
         for a_, b_ in zip(Lr.recs, Lk.recs):
             assert set(a_.pool.tolist()) <= set(b_.pool.tolist())
         for b_, k_ in zip(Lk.recs, LK.recs):
             known = set(np.flatnonzero(np.asarray(W.CSPL[k_.f + 1:k_.x + 1]).any(axis=0)).tolist()) | {int(j) for j in b_.pool[b_.spin_hold]}
             assert set(k_.pool.tolist()) == set(b_.pool.tolist()) - known and not k_.naive.any(), (W.days[k_.r], k_.pool.tolist(), b_.pool.tolist(), sorted(known))
-        for L_ in (Lr, LK):
+        # [B13] the judged 'close' reading = the look-ahead pool itself (no in-hold removal), never on the raw path; a name with a spin-off / stock-dividend ex-date inside the hold closes at the close before it (r21_netiss's t_pipeline)
+        n_cl, n_cs = 0, 0
+        for b_, c_ in zip(Lk.recs, LC.recs):
+            assert c_.pool.tolist() == b_.pool.tolist() and not c_.naive.any(), (W.days[c_.r], c_.pool.tolist(), b_.pool.tolist())
+            assert ((c_.close >= 0) == c_.spin_hold).all() and all(not W.SPN[c_.f + 1:e_ + 1, j_].any() and W.SPN[e_ + 1, j_] for j_, e_ in zip(c_.pool.tolist(), c_.close.tolist()) if e_ >= 0)
+            n_cl += int((c_.close >= 0).sum())
+            n_cs += int(np.asarray(W.CSPL[c_.f + 1:c_.x + 1][:, c_.pool]).any(axis=0).sum())
+        cC = sum((Counter(c_) for c_ in LC.cnt.values()), Counter())
+        assert cC["closed_spin"] == n_cl >= 1 and cC["kept_calendar_split"] == n_cs >= 1 and cC["post_spin"] + cC["post_calendar_split"] == 0 and cC["kept_flagged"] >= 1, dict(cC)
+        for L_ in (Lr, LK, LC):
             for y, c in L_.cnt.items():
                 assert c["universe"] == sum(c[k_] for k_ in NI.COUNT_KEYS[1:]), (y, dict(c))
-        assert 8 not in by(LK, "2025-01-31").pool.tolist() and LK.cnt[2025]["audit"] >= 1 and (AUD, int(W.days.get_loc(TS("2025-02-03"))), 8) in W.aud_hit, "the audit's data event"
+        assert 8 not in by(LC, "2025-01-31").pool.tolist() and 8 not in by(LK, "2025-01-31").pool.tolist() and LC.cnt[2025]["audit"] >= 1 and (AUD, int(W.days.get_loc(TS("2025-02-03"))), 8) in W.aud_hit, "the audit's data event"
         # a counts-only build keeps no unit path and no pick but counts the same
         Lc = bb_build(W, lo, hi, JUDGED, units=False, counts_only=True)
-        assert [rec.pool.tolist() for rec in Lc.recs] == [rec.pool.tolist() for rec in LK.recs] and all(rec.U is None and not len(rec.cell["P"].long) for rec in Lc.recs)
-        for y, c in LK.cnt.items():
-            for k_ in [k2 for k2 in c if k2.startswith(("scored_", "no_score_", "mode_", "ns_", "dec_"))]:
+        assert [rec.pool.tolist() for rec in Lc.recs] == [rec.pool.tolist() for rec in LC.recs] and all(rec.U is None and not len(rec.cell["P"].long) for rec in Lc.recs)
+        assert [rec.close.tolist() for rec in Lc.recs] == [rec.close.tolist() for rec in LC.recs]
+        for y, c in LC.cnt.items():
+            for k_ in [k2 for k2 in c if k2.startswith(("scored_", "no_score_", "mode_", "ns_", "dec_", "kept_", "closed_"))]:
                 assert Lc.cnt[y][k_] == c[k_], (y, k_)
-        assert [rec.cell[k].traded for rec in Lc.recs for k in TRADED] == [rec.cell[k].traded for rec in LK.recs for k in TRADED]
-        # [S1 HOOK]: the 's1' reading is refused until r17_resmom's close-at paths are in (the pool through the same branches; nothing costed)
-        if JUDGED != "s1":
-            refused(lambda: bb_build(W, lo, hi, "s1"), "[S1 HOOK]")
+        assert [rec.cell[k].traded for rec in Lc.recs for k in TRADED] == [rec.cell[k].traded for rec in LC.recs for k in TRADED]
+        # the mode is called 'close' ([B13]): any other name - 's1' included - is refused
+        for bad in ("s1", "judged", ""):
             try:
-                brute_path_hook(W, LK.recs[0].f, LK.recs[0].x, 0, 1, False, "s1")
-                raise AssertionError("the recount's hook must refuse 's1'")
-            except NotImplementedError as e:
-                assert "[S1 HOOK]" in str(e)
+                bb_one(W, LC.recs[0].r, LC.recs[0].f, LC.recs[0].x, bad, units=False)
+                raise AssertionError(f"post_mode {bad!r} must be refused")
+            except ValueError:
+                pass
         W.aud1[:] = False
+    return n
+
+
+def null_replica(W, L, q, cell, nreps, vcode, pnl):
+    """r21_netiss.ni_null's draws for one cell replayed with a given P&L function (the same seeds, the same draw order) -> (the P&L (nreps, T), {rebalance index: its draw order}) - the test that the null reads [B13]'s exit column"""
+    rng = np.random.default_rng([SEED, q, vcode])
+    acc, slot, cfg, orders = np.zeros((nreps, W.T)), M17.SPEC["slot"], D15.l1_cfg(), {}
+    for i, rec in enumerate(L.recs):
+        cc = rec.cell[cell]
+        if not cc.traded:
+            continue
+        idx, kt = np.arange(cc.n), W.k[rec.f:rec.x + 1]
+        PL, PS = pnl(cc.U, idx, 1, cfg, kt), pnl(cc.U, idx, -1, cfg, kt)
+        o = orders[i] = D15.draw_order(rng, nreps, cc.n, 2 * cc.k)
+        acc[:, rec.f:rec.x + 1] += slot * (PL[o[:, :cc.k]].sum(axis=1) + PS[o[:, cc.k:]].sum(axis=1))
+    return acc, orders
+
+
+def t_close():
+    """[B13] MANAGER's hygiene edit S1 (#127) - the judged reading is r17_resmom's post_mode 'close' - on the BUYBACK toy, the 2025-02-28 rank (f = 03-03, x = 04-01) case by case, each against plain python: NO in-hold event removes a
+    name (the pool is the look-ahead reading's, every name on the split-safe path): N00, FLAGGED inside the hold (its registered 2-for-1 on 03-14) and with the CALENDAR's split there, is held on the split-safe path ([B10]'s 'keep'
+    removed it), and N09's calendar split inside the 05-30 rank's hold (F does not show it) keeps it too; a spin-off / stock-dividend ex-date e in f < e <= x CLOSES the position at the close of e-1 - N12's stock dividend on 03-12
+    (closed 03-11: no mark, no dividend, no borrow after it, the exit cost on that row; its dividend of 03-21 is the buyer's) and N10's spin-off ON the exit session (inside: closed 03-31; its dividend of 03-21 kept), while N09's ex-date
+    on the FILL session is bought ex (held to the exit); every pool name's path under four costings and both sides recounted by plain python (brute_pos: r17_resmom.brute_close_path for the closed ones); N12 with NO close on e-1
+    exits at its last mark and has stopped printing there (the -100% long, the short at zero [R2]); the counts (closed_spin = the names [B10]'s 'keep' removed for an ex-date, kept_calendar_split = the ones it removed for a calendar
+    split); the null draws the same pool with the same cut paths: replayed with r17_resmom's l1_pnl_x (never r15's l1_pnl) and every draw holding a closed name recounted by plain python"""
+    with spec(**TOY_SPEC), D15.spec(univ=14):
+        tt = bb_ready()
+        W = tt.W
+        lo, hi = W.days[0], W.days[-1]
+        Lc, Bc = bb_build(W, lo, hi, "close"), brute_bb(W, tt.ent, tt.frame, tt.cal, tt.cik_of, lo, hi, "close")
+        Ln, LK = bb_build(W, lo, hi, "naive"), bb_build(W, lo, hi, "keep")
+        assert len(Lc.recs) == len(Bc) == len(Ln.recs) == len(LK.recs) and all(r_.r == b_["r"] for r_, b_ in zip(Lc.recs, Bc))
+        ri = next(i for i, r_ in enumerate(Lc.recs) if W.days[r_.r] == TS("2025-02-28"))
+        rec, b, f, x = Lc.recs[ri], Bc[ri], Lc.recs[ri].f, Lc.recs[ri].x
+        assert (W.days[f], W.days[x]) == (TS("2025-03-03"), TS("2025-04-01")) and rec.traded
+        assert rec.pool.tolist() == Ln.recs[ri].pool.tolist() and not rec.naive.any(), "no in-hold event removes a name: the look-ahead reading's pool, on the split-safe path"
+        pos = {int(j): i for i, j in enumerate(rec.pool)}
+        assert {0, 9, 10, 12} <= set(pos) and {10, 12} <= set(rec.pool[rec.cell["P"].idx].tolist()), sorted(pos)
+        e12, e10 = rr(W, "2025-03-12"), rr(W, "2025-04-01")
+        # (1) the close rows - N12 03-11, N10 03-31 (its ex-date is the EXIT session: inside), N09 none (its ex-date is the FILL session: bought ex); N09 closes in the 01-31 rank's hold, whose exit session is its ex-date
+        assert rec.close[pos[12]] == e12 - 1 and rec.close[pos[10]] == e10 - 1 == x - 1 and rec.close[pos[9]] == -1 and rec.close[pos[0]] == -1 and int((rec.close >= 0).sum()) == 2, rec.close.tolist()
+        assert [b["pool"][j][3] for j in (12, 10, 9, 0)] == [e12, e10, -1, -1], "the recount's own ex-dates"
+        r1 = Lc.recs[ri - 1]
+        assert W.days[r1.r] == TS("2025-01-31") and r1.x == f and r1.close[r1.pool.tolist().index(9)] == f - 1, "N09's ex-date on the 01-31 rank's exit session: closed at the close before it"
+        # (2) the cut paths: nothing after the close row (no mark, no dividend, no borrow), the exit value the split-safe close of e-1 over the entry open
+        H, U = x - f + 1, rec.U
+        for j, e in ((12, e12), (10, e10)):
+            i, xc = pos[j], e - 1 - f
+            assert U.xc[i] == xc and (U.G[i, xc + 1:] == 0).all() and (U.mk[i, xc + 1:] == 0).all() and (U.div[i, xc:] == 0).all(), j
+            assert abs(U.ve[i] - W.Ac[e - 1, j] / W.Ao[f, j]) < 1e-15 and not U.st[i] and abs(U.G[i].sum() - (U.ve[i] - 1.0 + U.div[i].sum())) < 1e-12, j
+        assert U.xc[pos[9]] == U.xc[pos[0]] == H - 1
+        U0 = M17.rm_units(W, f, x, rec.pool, None)                                          # the same pool held to the exit session
+        assert U0.div[pos[12]].any() and not U.div[pos[12]].any(), "N12's dividend (ex-date after its close) belongs to the buyer at the close of e-1: cut"
+        assert U.div[pos[10]].any() and np.array_equal(U.div[pos[10]], U0.div[pos[10]]), "N10's dividend (ex-date before its close) is kept"
+        # (3) every pool name's path, four costings, both sides: the harness (r17_resmom.l1_pnl_x on the pool's units) against plain python (brute_pos on the recount's own ex-dates)
+        kt, n = W.k[f:x + 1], 0
+        for nm, cfg, kw in COSTINGS:
+            kw2 = {"bps": kw.get("bps", COST_BPS), "borrow": kw.get("borrow", (BORROW, None)), "kt": kt if kw.get("k") else None, "lose100": kw.get("lose100", False)}
+            for sd in (1, -1):
+                P = M17.l1_pnl_x(U, np.arange(len(rec.pool)), sd, cfg, kt)
+                for i, j in enumerate(rec.pool.tolist()):
+                    assert close(P[i], brute_pos(W, b, j, sd, **kw2)), (nm, j, sd)
+                    n += 1
+        # (4) a closed position by hand: the exit cost on the close's row, nothing after it; a short pays borrow only on the nights before rows f+1 .. e-1
+        c0, i, xc = COST_BPS * 1e-4, pos[12], e12 - 1 - f
+        gsum = U.ve[i] - 1.0 + U.div[i].sum()
+        PL = M17.l1_pnl_x(U, np.array([i]), 1, D15.l1_cfg(), kt)[0]
+        assert (PL[xc + 1:] == 0).all() and abs(PL.sum() - (gsum - c0 - c0 * U.ve[i])) < 1e-12 and abs(PL[xc] - (U.G[i, xc] - c0 * U.ve[i])) < 1e-15
+        PS = M17.l1_pnl_x(U, np.array([i]), -1, D15.l1_cfg(), kt)[0]
+        assert (PS[xc + 1:] == 0).all() and abs(PS.sum() - (-gsum - c0 - c0 * U.ve[i] - BORROW / 252.0 * U.mk[i, 1:xc + 1].sum())) < 1e-12
+        assert D15.l1_pnl(U, np.array([i]), 1, D15.l1_cfg(), kt)[0][-1] != 0.0, "r15's own l1_pnl books the exit cost on the last column - l1_pnl_x moves it"
+        # (5) kept on the split-safe path: N00 (a hygiene flag and a calendar split inside the hold) and N09 at the 05-30 rank (a calendar split F does not show)
+        q_split = HYG.index("split")
+        assert W.hyg(rec.r + 1, x, np.array([0]))[q_split][0] and np.asarray(W.CSPL[f + 1:x + 1, 0]).any() and 0 not in LK.recs[ri].pool.tolist() and Ln.recs[ri].naive[Ln.recs[ri].pool.tolist().index(0)], "N00"
+        ua, ur = M17.rm_units(W, f, x, np.array([0]), None), M17.rm_units(W, f, x, np.array([0]), np.array([True]))
+        assert np.array_equal(U.G[pos[0]], ua.G[0]) and ur.G[0].min() < -0.4 and ua.G[0].min() > -0.2, "N00 is held on the split-safe path: the raw path's halving on 03-14 is no loss here"
+        r5 = next(i_ for i_, r_ in enumerate(Lc.recs) if W.days[r_.r] == TS("2025-05-30"))
+        c5 = Lc.recs[r5]
+        p9 = c5.pool.tolist().index(9)
+        assert np.asarray(W.CSPL[c5.f + 1:c5.x + 1, 9]).any() and 9 not in LK.recs[r5].pool.tolist() and c5.close[p9] == -1 and not c5.naive[p9] and getattr(c5.U, "xc", None) is None, "N09's calendar split inside the 05-30 hold: kept, held to the exit (no close row in that rebalance: no exit column)"
+        # (6) the counts: closed, never removed; the names [B10]'s 'keep' removed are the ones the judged reading closes / keeps on the split-safe path
+        cC, cK = (sum((Counter(c_) for c_ in L_.cnt.values()), Counter()) for L_ in (Lc, LK))
+        assert cC["closed_spin"] == sum(1 for b_ in Bc for j_ in b_["pool"] if b_["pool"][j_][3] >= 0) == cK["post_spin"] == 3 and cC["kept_calendar_split"] == cK["post_calendar_split"] == 2, (dict(cC), dict(cK))
+        assert cC["post_spin"] == cC["post_calendar_split"] == 0 and cC["kept_split"] >= 1 and cC["kept_flagged"] == cK["kept_flagged"] + 1, "N00's split flag is kept by the judged reading only"
+        # (7) no close on e-1: N12 exits at its last mark and has stopped printing there - the -100% long and the short at zero [R2] on the close's row; the harness against plain python
+        Ac0, Cl0 = W.Ac.copy(), W.Cl.copy()
+        try:
+            W.Ac[e12 - 1, 12] = W.Cl[e12 - 1, 12] = np.nan
+            rs = bb_one(W, rec.r, f, x, "close")[0]
+            ps, Us = rs.pool.tolist().index(12), rs.U
+            assert rs.close[ps] == e12 - 1 and Us.st[ps] and Us.ve[ps] == Us.mk[ps, xc] and (Us.G[ps, xc + 1:] == 0).all() and Us.xc[ps] == xc
+            for nm, cfg, kw in COSTINGS:
+                kw2 = {"bps": kw.get("bps", COST_BPS), "borrow": kw.get("borrow", (BORROW, None)), "kt": kt if kw.get("k") else None, "lose100": kw.get("lose100", False)}
+                for sd in (1, -1):
+                    got = M17.l1_pnl_x(Us, np.array([ps]), sd, cfg, kt)[0]
+                    want, stopped = M17.brute_close_path(W, f, x, 12, sd, e12, **kw2)
+                    assert stopped and close(got, want), (nm, sd)
+            p100 = M17.l1_pnl_x(Us, np.array([ps]), 1, D15.l1_cfg(lose100=True), kt)[0]
+            assert p100[xc] == -Us.mk[ps, xc] and (p100[xc + 1:] == 0).all(), "the long valued at -100% on the close's row"
+            z0 = M17.l1_pnl_x(Us, np.array([ps]), -1, {**D15.l1_cfg(), "short0": True}, kt)[0]
+            assert abs(z0.sum() - (1.0 - Us.div[ps].sum() - c0 - BORROW / 252.0 * Us.mk[ps, 1:xc + 1].sum())) < 1e-12 and (z0[xc + 1:] == 0).all(), "[R2] the short at zero keeps its full gain, on the close's row"
+        finally:
+            W.Ac[:], W.Cl[:] = Ac0, Cl0
+        # (8) the null: the same pool, the same cut paths - replayed with l1_pnl_x (r15's l1_pnl would book the closed names' exit cost on the exit row); every draw that holds a closed name at the 02-28 rank recounted by plain python
+        acc, slot = bb_null(W, Lc, 60, 0), M17.SPEC["slot"]
+        for q, cell in enumerate(CELLS):
+            rep_x, orders = null_replica(W, Lc, q, cell, 60, 0, M17.l1_pnl_x)
+            assert np.allclose(acc[cell], rep_x, rtol=0, atol=1e-9), cell
+            assert not np.allclose(acc[cell], null_replica(W, Lc, q, cell, 60, 0, D15.l1_pnl)[0], rtol=0, atol=1e-12), cell
+            cc = rec.cell[cell]
+            shut = {k_ for k_, p_ in enumerate(cc.idx.tolist()) if rec.close[p_] >= 0}
+            ds = [d for d in range(60) if set(orders[ri][d].tolist()) & shut][:3]
+            assert len(ds) == 3, (cell, ds)
+            for d in ds:
+                x0 = np.zeros(W.T)
+                for i2, rec2 in enumerate(Lc.recs):
+                    c2 = rec2.cell[cell]
+                    if not c2.traded:
+                        continue
+                    names, cols2 = orders[i2][d], rec2.pool[c2.idx]
+                    for sd, sel in ((1, names[:c2.k]), (-1, names[c2.k:])):
+                        for i3 in sel:
+                            x0[rec2.f:rec2.x + 1] += slot * np.array(brute_pos(W, Bc[i2], int(cols2[i3]), sd))
+                assert close(acc[cell][d], x0), (cell, d)
     return n
 
 
@@ -3018,7 +3373,7 @@ def t_nulls():
                 cc = rec.cell[cell]
                 if cc.traded:
                     idx, kt = np.arange(cc.n), W.k[rec.f:rec.x + 1]
-                    exp += slot * cc.k * float(D15.l1_pnl(cc.U, idx, 1, cfg, kt).mean(axis=0).sum() + D15.l1_pnl(cc.U, idx, -1, cfg, kt).mean(axis=0).sum())
+                    exp += slot * cc.k * float(M17.l1_pnl_x(cc.U, idx, 1, cfg, kt).mean(axis=0).sum() + M17.l1_pnl_x(cc.U, idx, -1, cfg, kt).mean(axis=0).sum())
             tot = acc[cell].sum(axis=1)
             assert abs(tot.mean() - exp) < 4.5 * tot.std() / math.sqrt(len(tot)), (cell, tot.mean(), exp, tot.std())
             assert (acc[cell][:, :first_fill] == 0).all(), "no P&L before the first fill"
@@ -3036,7 +3391,7 @@ def t_nulls():
                     assert len(set(names.tolist())) == 2 * cc.k and not set(names[:cc.k].tolist()) & set(names[cc.k:].tolist())
                     for sd, sel in ((1, names[:cc.k]), (-1, names[cc.k:])):
                         for i in sel:
-                            x0[rec.f:rec.x + 1] += slot * np.array(brute_path_hook(W, rec.f, rec.x, int(cols[i]), sd, bool(rec.naive[cc.idx[i]]))[0])
+                            x0[rec.f:rec.x + 1] += slot * np.array(brute_rec(W, rec, cc.idx[i], int(cols[i]), sd))
                 assert close(acc[cell][d], x0), (cell, d)
     ix = pd.bdate_range("2016-07-01", "2025-06-27")
     rng = np.random.default_rng(2)
@@ -3077,7 +3432,7 @@ def t_twins():
                 continue
             cols = rec.pool[cc.idx]
             for i, d in enumerate(cc.dec.tolist()):
-                p_ = slot * np.array(brute_path_hook(W, rec.f, rec.x, int(cols[i]), 1, bool(rec.naive[cc.idx[i]]))[0])
+                p_ = slot * np.array(brute_rec(W, rec, cc.idx[i], int(cols[i]), 1))
                 x0[d, rec.f:rec.x + 1] += p_
                 sp0[d, rec.f:rec.x + 1] += p_ - slot * esr[rec.f:rec.x + 1]
         assert close(x, x0) and close(sp, sp0) and nr == sum(rec.cell[DECK].dec is not None for rec in L.recs), "the REP / MV deciles: equal-weight long-only baskets, recounted"
@@ -3233,9 +3588,10 @@ def dryload_text_checks(txt):
     dates = [d for l in txt.splitlines() if "cut to dates <" not in l for d in re.findall(r"\b20\d\d-\d\d-\d\d\b", l)]
     assert dates and all(d < "2025-06-30" for d in dates), [d for d in dates if d >= "2025-06-30"][:5]
     for frag in ("universe size per session by year", "[B6] / [B7] the two pinned cash-flow extracts", "the concepts as read", "entries (cik, concept, start, end", "periods (cik, start, end)", "[A1] / [A8] pinned files", "BEFORE ANY P&L", "names lost to each no-score rule",
-                 "no score at |score| > 0.50", "the TTMs built per fill year", "concept used, REPURCHASES", "concept used, ISSUANCE [B7]", "STALENESS", "[B2] the share of SCORED names", "[B3] THE TAG BLIND SPOT", "[A13] ONE SHARE CLASS PER FIRM",
-                 "scored names per rebalance", LAB_J, "TBIS flags:", "ES prints on the", "cache manifest sha256", "prereg check:", "rebalances:", "names with a full window", "the fallback rule"):
+                 "no score at |score| > 0.50", "the TTMs built per fill year", "concept used, REPURCHASES", "concept used, ISSUANCE [B7]", "STALENESS", "[B2] the share of SCORED names", "[B17] STALE S", "[B3] THE TAG BLIND SPOT", "[A13] ONE SHARE CLASS PER FIRM",
+                 "scored names per rebalance", LAB_J, LAB_A, "TBIS flags:", "ES prints on the", "cache manifest sha256", "prereg check:", "rebalances:", "names with a full window", "the fallback rule"):
         assert frag in txt, frag
+    assert "[D2]" not in txt, "[B13]: the spin-off / stock-dividend ex-dates are never labelled [D2] here (the share counts' label)"
 
 
 def t_report():
@@ -3333,7 +3689,7 @@ def t_integration():
                 bc = b["cell"][cell]
                 for sd, js in ((1, bc["long"]), (-1, bc["short"])):
                     for j in js:
-                        x0[b["f"]:b["x"] + 1] += slot * np.array(brute_path_hook(W, b["f"], b["x"], j, sd, b["pool"][j][0])[0])
+                        x0[b["f"]:b["x"] + 1] += slot * np.array(brute_pos(W, b, j, sd))
                         n_pos += 1
             assert abs(c["base"]["net"] - x0.sum()) < 1e-6 and c["base"]["n_pos"] == n_pos and abs(c["usd_year"] - c["base"]["net"] / c["base"]["years"]) < 1e-9, (cell, c["base"]["net"], x0.sum())
         for cell in CELLS:
@@ -3344,7 +3700,23 @@ def t_integration():
             assert set(c["checks"]) == set(judge_cell(c["base"], 1.0, res["null"], len(c["years_held"]))) and c["PASS"] is False and c["gate70"]["credited"] is c["beta"]["within_cap"] and c["dd5"] == dd5_rec(B, obj.series[cell][0])
             assert set(c["A2"]["reference"]) >= {"roc", "sortino", "net", "usd_year", "dd5"} and c["hedged"]["ratios"] == c["base"]["n_units"] and [q["decile"] for q in c["deciles"]["deciles"]] == list(range(1, 11))
         assert set(res["twins"]) == set(TWINS) | {DECK} and res["twins"]["FLAT"]["parent"] == "R" and res["twins"]["DIV"]["parent"] == "P" and [q["decile"] for q in res["twins"][DECK]["deciles"]] == list(range(1, 11))
-        assert res["null"]["draws"] == 40 and res["null"]["seed"] == SEED
+        assert res["null"]["draws"] == 40 and res["null"]["seed"] == SEED and res["variant"] == JUDGED == "close"
+        # [B13] [B10]'s removal reading beside the judged one: a report, no null; its removed name-months recounted from the pools; its cells the sum of the recount's 'keep' paths
+        resA, objA = evaluate(W, B, S12, ref, rows, "keep", 0, 3, full=False)
+        BzA = brute_bb(W, tt.ent, tt.frame, tt.cal, tt.cik_of, wf[0], wf[1], "keep")
+        assert resA["null"] is None and resA["variant"] == "keep" and all("checks" not in resA["cells"][c] and "PASS" not in resA["cells"][c] for c in CELLS) and resA["twins"] == {}
+        remA = b10_removed(objA.legs.cnt)
+        cs_of = lambda r_: np.asarray(W.CSPL[r_.f + 1:r_.x + 1][:, r_.pool]).any(axis=0)                      # the judged pool's names with a calendar split inside the hold (the first reason of the two)
+        want_cs, want_sp = sum(int(cs_of(r_).sum()) for r_ in obj.legs.recs), sum(int((r_.spin_hold & ~cs_of(r_)).sum()) for r_ in obj.legs.recs)
+        assert remA == {"calendar_split": want_cs, "spin_off_or_stock_dividend": want_sp} and want_cs >= 1 and want_sp >= 1, (remA, want_cs, want_sp)
+        assert [sorted(set(rj.pool.tolist()) - set(ra.pool.tolist())) for rj, ra in zip(obj.legs.recs, objA.legs.recs)] == [sorted(rj.pool[cs_of(rj) | rj.spin_hold].tolist()) for rj in obj.legs.recs], "'keep' = the judged pool less those names"
+        for cell in CELLS:
+            xA = np.zeros(W.T)
+            for b in BzA:
+                for sd, js in ((1, b["cell"][cell]["long"]), (-1, b["cell"][cell]["short"])):
+                    for j in js:
+                        xA[b["f"]:b["x"] + 1] += slot * np.array(brute_pos(W, b, j, sd))
+            assert abs(resA["cells"][cell]["base"]["net"] - xA.sum()) < 1e-6, cell
         nq = netiss_question(W, B, rows, obj.legs, obj, ref)
         Ln = NI.ni_build(W, wf[0], wf[1], NI.JUDGED)
         for cell in CELLS:
@@ -3373,13 +3745,20 @@ def t_integration():
             print_reports(rep, res["cells"])
             print_diagnostics(res, rep, ref)
             print_counts("registered", obj.legs.cnt)
+            print_counts("reported", objA.legs.cnt)
+            print_b10_reading(resA, remA, obj.legs.cnt, res["cells"])
+            print_spin_picks({"judged_reading": {c: NI.ni_spin_counts(obj.legs, c) for c in CELLS}, "b10_removal_reading": {c: NI.ni_spin_counts(objA.legs, c) for c in CELLS}})
+            print_spin_counts("registered", obj.legs.cnt)
             print_scored("registered", obj.legs.cnt)
             print_scored_stats(LAB_J, obj.legs, W)
         txt = buf.getvalue()
         for frag in ("POWER LINE - printed before any cell's P&L", "seed 20261024", "BEFORE ANY P&L", "#70 gate basis", "DIAGNOSTICS", "COST CURVE", "BY JULY-JUNE YEAR", "THE TWO REGIME HALVES", "THE LONG AND SHORT SIDES APART", "A2 (a report)", "first 24 months of traded fills",
                      "TWINS - REPORTED", "ES-hedged twin", "DIVIDEND-ONLY twin", "[B8] P with the tax-withholding", "FLAT twin", "THE NETISS QUESTION", "daily P&L correlation with N12", "DECILES", "REPY (gross repurchase yield", "persistence", "dividends [R1]", "short leg [R2]",
-                     "survivorship", "a year)", "DD5 $", "THE REFERENCE BOOK'S DRAWDOWN EPISODES", "the episodes the cell helps", "hand audit (f) 0/5 of the top-50 listed (4 groups), 1/3 of the picked |score| > 0.15 groups (6 picked of 9 flagged name-ranks)"):
+                     "survivorship", "a year)", "DD5 $", "THE REFERENCE BOOK'S DRAWDOWN EPISODES", "the episodes the cell helps", "hand audit (f) 0/5 of the top-50 listed (4 groups), 1/3 of the picked |score| > 0.15 groups (6 picked of 9 flagged name-ranks)",
+                     f"{LAB_A}, no null - it removed {remA['calendar_split']:,} pool name-months for a calendar split and {remA['spin_off_or_stock_dividend']:,} for a spin-off / stock-dividend ex-date inside the hold", "closed_spin",
+                     "names with an in-hold event that STAY in the pool [B13]", "b10_removal_reading P picks (long / short) and the spin-off / stock-dividend ex-dates", "registered spin-off / stock-dividend ex-dates by fill year"):
             assert frag in txt, frag
+        assert "[D2]" not in txt and "[A18]" not in txt and "[A22]" not in txt, "[B13]: this file's prints never label the ex-dates [D2] (the share counts here) nor with NETISS's addendum labels"
 
 
 def t_stage_b_refusals():
@@ -3697,9 +4076,10 @@ def smoke_plant_checks(W, src, frame, cal, cx, env):
 
 def smoke(*a):
     """python r23_buyback.py smoke DIR [stage_b]: offline, on SYNTHETIC worlds (nothing real is read or written; DIR is wiped and its name must contain 'smoke'). r21_netiss's synthetic market and share counts (smoke_env) with this family's synthetic cash-flow extracts and a
-    planted PAYOUT effect. Order: the selftest on the real constants; the planted world through the real loaders against plain-python recounts (every score at 18 ranks, then every pool, score, pick, decile and daily path over the rebalances of 2023-06 .. 2024-08 in the judged
-    and the leaky reading, and the first rebalances); the dryload (counts only); Stage A's refusal paths (every pinned file: another sha, absent, a fact in both extracts, a column missing; [B3] above 10%; the book; the RESMOM line file); Stage A on the NULL world (must FAIL)
-    and on the PLANTED world (the effect must be found: (a) - (e) pass, (f) awaits the hand audit; BEFORE ANY P&L, [B3], [B9] and the power line print before any cell's P&L); the hand audit by groups (keep / data_event); Stage B's refusal paths; with the argument stage_b the
+    planted PAYOUT effect. Order: the selftest on the real constants; the planted world through the real loaders against plain-python recounts (every score at 18 ranks, then every pool, close row, score, pick, decile and daily path over the
+    rebalances of 2023-06 .. 2024-08 in the judged reading [B13], [B10]'s 'keep' report and the leaky reading, and the first rebalances); the dryload (counts only); Stage A's refusal paths (every pinned file: another sha, absent, a fact in
+    both extracts, a column missing; [B3] above 10%; the book; the RESMOM line file); Stage A on the NULL world (must FAIL) and on the PLANTED world (the effect must be found: (a) - (e) pass, (f) awaits the hand audit; BEFORE ANY P&L,
+    [B3], [B9] and the power line print before any cell's P&L; [B13]'s closes and the 'keep' report with its count); the hand audit by groups (keep / data_event); Stage B's refusal paths; with the argument stage_b the
     one read of Stage B on the synthetic lockbox days, the verdict = the leg's veto alone, a second read refused, Stage A frozen"""
     root = os.path.abspath(a[0] if a else os.path.join(tempfile.gettempdir(), "buyback_smoke"))
     with_b = "stage_b" in a[1:]
@@ -3732,11 +4112,11 @@ def smoke(*a):
             lo_, hi_ = TS("2023-06-01"), TS("2024-08-31")
             t0 = time.time()
             n_paths, legs = 0, {}
-            for pm in (JUDGED, "remove"):
+            for pm in (JUDGED, "keep", "remove"):                                       # [B13] the judged reading ('close'), [B10]'s 'keep' report and the leaky one, each against the recount
                 Bz = brute_bb(W, ent, frame, cal, cik_of, lo_, hi_, pm)
                 L_ = bb_build(W, lo_, hi_, pm)
-                n_paths += compare_bb(W, L_, Bz, f"smoke {pm}", pm)
-                series_check(W, L_, Bz, pm)
+                n_paths += compare_bb(W, L_, Bz, f"smoke {pm}")
+                series_check(W, L_, Bz)
                 legs[pm] = L_
             Lj = legs[JUDGED]
             modes = {c: Counter(r_.cell[c].mode for r_ in Lj.recs) for c in CELLS}
@@ -3747,9 +4127,11 @@ def smoke(*a):
             assert all(r_.cell[k].dec is not None for r_ in Lj.recs for k in DEC_KEYS) and sum(r_.cell["FLAT"].n for r_ in Lj.recs) > 0
             lo2, hi2 = TS("2016-11-01"), TS("2017-03-31")
             Bz_e, Le = brute_bb(W, ent, frame, cal, cik_of, lo2, hi2, JUDGED), bb_build(W, lo2, hi2, JUDGED)
-            n_early = compare_bb(W, Le, Bz_e, "smoke early", JUDGED)
-            print(f"  {len(Lj.recs)} rebalances ({lo_:%Y-%m-%d} .. {hi_:%Y-%m-%d}) in the judged and the leaky reading against the recount ({time.time() - t0:.0f}s): every pool, score, [A13] decision ({n_dual} second-class name-ranks of the dual pair), mode, pick, twin, "
-                  f"decile, first-reason count and {n_paths:,} paths; the first {len(Le.recs)} rebalances too ({n_early:,} paths)")
+            n_early = compare_bb(W, Le, Bz_e, "smoke early")
+            n_cl = {pm: sum(c_.get("closed_spin", 0) for c_ in L_.cnt.values()) for pm, L_ in legs.items()}
+            print(f"  {len(Lj.recs)} rebalances ({lo_:%Y-%m-%d} .. {hi_:%Y-%m-%d}) in the judged reading [B13], [B10]'s 'keep' report and the leaky one against the recount ({time.time() - t0:.0f}s): every pool, close row "
+                  f"({n_cl[JUDGED]} positions closed before a spin-off / stock-dividend ex-date), score, [A13] decision ({n_dual} second-class name-ranks of the dual pair), mode, pick, twin, decile, first-reason count and {n_paths:,} paths "
+                  f"under four costings; the first {len(Le.recs)} rebalances too ({n_early:,} paths)")
             B, legs_meta = A13.load_463()
             rowsB = A13.book_rows(B, W)
             # ---- 2. the dryload: COUNTS only
@@ -3837,10 +4219,21 @@ def smoke(*a):
             for c in passing:
                 assert f"Stage A (a)-(e) pass, (f) awaits the hand audit - cell {c}" in txt and all(cells[c]["checks"].values()), c
             assert "(f) AWAITS THE HAND AUDIT" in txt and "BUYBACK Stage A: (a)-(e) pass" in txt and "audit complete" not in txt.lower() and all(d < "2025-06-30" for d in dates_of(txt)), "the harness never decides (f); no lockbox date"
-            assert out["prereg_sha256_lf"] == PREREG_SHA and {k: out.get(k) for k in stamp()} == stamp() and out["manifest_sha256"] == D15.MANIFEST_PREFIX + "0" * 56 and out["stageA"]["null"]["draws"] == NREP and out["judged_post_mode"] == JUDGED
+            assert out["prereg_sha256_lf"] == PREREG_SHA and {k: out.get(k) for k in stamp()} == stamp() and out["manifest_sha256"] == D15.MANIFEST_PREFIX + "0" * 56 and out["stageA"]["null"]["draws"] == NREP and out["judged_post_mode"] == JUDGED == "close"
+            # [B13] the judged reading closes, never removes; [B10]'s 'keep' reading is in the file as a report (no null) with its removed name-months, printed beside the judged cells; no '[D2]' for the ex-dates in any print
+            b10, hj, ha = out["b10_removal_reading"], out["hygiene_counts_by_year"]["judged"], out["hygiene_counts_by_year"]["b10_removal"]
+            tot = lambda h_, k_: sum(v_.get(k_, 0) for v_ in h_.values())
+            rm_ = b10["removed_name_months"]
+            assert b10["post_mode"] == "keep" and b10["null"] is None and set(b10["cells"]) == set(CELLS) and rm_ == b10_removed(ha) and tot(hj, "post_spin") == tot(hj, "post_calendar_split") == 0, rm_
+            assert tot(hj, "kept_calendar_split") == rm_["calendar_split"] and tot(hj, "closed_spin") >= rm_["spin_off_or_stock_dividend"] >= 1 and tot(hj, "kept_flagged") >= 1, (rm_, tot(hj, "closed_spin"), tot(hj, "kept_calendar_split"))
+            assert f"{LAB_A}, no null - it removed {rm_['calendar_split']:,} pool name-months" in txt and "[D2]" not in txt and "[D2]" not in txt_n, "the report and its count are printed; no [D2] label for the ex-dates"
+            assert all(b10["cells"][c]["base"]["net"] != cells[c]["base"]["net"] for c in CELLS), "the judged reading and the 'keep' report differ (the closed positions, the kept splits)"
+            print(f"  [B13] the judged reading closed {tot(hj, 'closed_spin'):,} pool positions at the close before a spin-off / stock-dividend ex-date and kept {tot(hj, 'kept_calendar_split'):,} calendar splits and {tot(hj, 'kept_flagged'):,} "
+                  f"flagged names on the split-safe path; [B10]'s 'keep' report (no null) removed {rm_['spin_off_or_stock_dividend']:,} + {rm_['calendar_split']:,} name-months: P net ${b10['cells']['P']['base']['net']:,.0f} / R ${b10['cells']['R']['base']['net']:,.0f} "
+                  f"against the judged ${cells['P']['base']['net']:,.0f} / ${cells['R']['base']['net']:,.0f}")
             # BEFORE ANY P&L, [B3], [B9] and the power line print before any cell's P&L, in that order
             order = ("[B6] / [B7] the two pinned cash-flow extracts", "BEFORE ANY P&L - the payout score", "names lost to each no-score rule", "no score at |score| > 0.50", "the TTMs built per fill year", "concept used, ISSUANCE [B7]", "STALENESS", "[B2] the share of SCORED names",
-                     "names with no score whatever the rank, LISTED by name", "[A13] ONE SHARE CLASS PER FIRM", "[B3] THE TAG BLIND SPOT", "[B9] BEFORE ANY RETURN", "POWER LINE - printed before any cell's P&L", f"WF {WF0:%Y-%m-%d} -> ")
+                     "[B17] STALE S", "names with no score whatever the rank, LISTED by name", "[A13] ONE SHARE CLASS PER FIRM", "[B3] THE TAG BLIND SPOT", "[B9] BEFORE ANY RETURN", "POWER LINE - printed before any cell's P&L", f"WF {WF0:%Y-%m-%d} -> ")
             seq = [txt.index(s_) for s_ in order]
             assert seq == sorted(seq), ("the pre-P&L blocks are out of order", seq)
             outcome = re.search(r"[$]\s*-?\d|ROC|Sortino|net [$]|drawdown", txt[seq[1]:seq[-2]])
@@ -4062,7 +4455,8 @@ def smoke(*a):
 
 
 # ------------------------------------------------------------------ the commands
-TESTS = ("t_constants", "t_files", "t_cash", "t_ttm", "t_components", "t_mv", "t_random", "t_sides", "t_pipeline", "t_nulls", "t_twins", "t_judge", "t_reference", "t_rows", "t_report", "t_integration", "t_stage_b_refusals", "t_cut")
+TESTS = ("t_constants", "t_files", "t_cash", "t_ttm", "t_components", "t_mv", "t_random", "t_sides", "t_pipeline", "t_close", "t_nulls", "t_twins", "t_judge", "t_reference", "t_rows", "t_report", "t_integration", "t_stage_b_refusals",
+         "t_cut")
 
 
 def selftest(*only):
