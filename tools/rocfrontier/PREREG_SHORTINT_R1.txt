@@ -270,3 +270,23 @@ reached main. This addendum fixes the bug and nothing else; the verdict is taken
 - [A23] THE REFERENCE IS THE RESTATED L (MANAGER #116; the RESMOM restatement, ledger 2.93): L = #463 + 0.264 x RES
   from resmom_cells_daily_wf_keep.csv (sha256 86721fda...), refused unless its WF ROC @ $30k 120.95, Sortino 3.921 and worst
   drawdown $36,526 reproduce; on this stretch L is recomputed from it as before. Its drawdown days are the registered ones.
+- [A24] MANAGER'S HYGIENE EDIT S1 REPLACES [A19]'S REMOVAL RULE (MANAGER #127; review C:/EdgeLog/manager/reviews/
+  REVIEW_EAP_DIVCHG_2026-10-07.md, 'S1, shared hygiene edit'; added 2026-10-07 before any corrected SHORTINT number). The pinned
+  corporate-actions calendar carries no announcement or declaration date (its columns are ex, process, record and payable), so
+  [A19]'s 'an announced split ... removes it' cannot be shown to be known at the rank - a split announced inside the hold
+  and executed inside it would still remove the name at the rank. The judged reading now removes NO name for an in-hold event:
+  a name flagged inside the hold and a name with a registered or calendar split inside the hold stay in the pool, valued on the
+  split-safe path; a spin-off / stock-dividend ex-date e inside the hold (f < e <= x; RESMOM's [D2] - in this file [D2] names
+  TV's extract, the label clash MANAGER named, so this addendum never writes [D2] for the ex-dates) CLOSES the position at the
+  official close of the session before it, e-1 (CHOICE: the exchange publishes an ex-date before it happens, so the close of e-1
+  knows it): no mark, no dividend whose ex-date is e or later, no borrow after it; the exit cost is booked on that row; a name
+  with no close on e-1 exits at its last mark and counts as stopped printing there. The null draws from the same pool with the
+  same cut paths. This is r17_resmom's post_mode 'close', the code of the RESMOM restatement under the same rule. [A19]'s
+  removal reading ('keep': an announced split or a spin-off / stock-dividend ex-date inside the hold removes the name) is printed
+  beside the judged one as a REPORT with its count of removed name-months, without a null; the leaky 'remove' reading stays a
+  report. Everything else in [A19] - [A23] and the draft stands.
+- [A25] THE REFERENCE IS THE RESTATED L UNDER S1 (replaces [A23]'s file, whose ledger row never shipped): the RESMOM
+  restatement under the same rule gives L = #463 + 0.264 x RES = WF ROC @ $30k 121.06 / DD5 $34,392, Sortino 3.926,
+  worst drawdown $36,526 (the registered line: 120.82 / 3.916; the 'keep' reading's 120.95 /
+  3.921, superseded before it shipped). L is read from resmom_cells_daily_wf_close.csv (sha256 e204dd53...), refused unless those
+  three numbers reproduce. Its drawdown days are the registered ones (45 episodes, 762 days), so the #70 gate's basis does not move.
