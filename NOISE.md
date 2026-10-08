@@ -3512,7 +3512,7 @@ live Webull NOISE leg.**
 
 **What it means for the live leg:** the Webull NOISE leg's expectations are the NQ backtest's, cut by about 6% per dollar
 of notional. At today's 60-share cap that is small money (about $2,400 a year). The edge per share is not the
-constraint; the size is. Records: ledger 2.93; RUNBOARD research row QQQ-CAL-R1.
+constraint; the size is. Records: ledger 2.97; RUNBOARD research row QQQ-CAL-R1.
 
 ## NOISE on IWM r1 (run 2026-10-07 18:01 MST; scope A1, MANAGER #57 / #63 / #64 + amendment 1) - DEAD at Stage A
 
@@ -3541,5 +3541,5 @@ The question: does the NOISE mechanism earn on the Russell 2000 cash session wit
     $136k: first breaks -$117k, and the re-entries do not win it back (-$20k). On NQ they did.
   - Small caps whipsaw across the noise band more often, and the losing first breaks outnumber the trend days.
 
-**Recorded dead, no variants.** Records: ledger 2.94; `tools/r37_results/noise_iwm_r1_stageA.txt`,
+**Recorded dead, no variants.** Records: ledger 2.98; `tools/r37_results/noise_iwm_r1_stageA.txt`,
 `tools/r37_results/noise_iwm_r1_daystructure.txt`.
