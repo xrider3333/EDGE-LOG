@@ -140,3 +140,18 @@ FUND-ML r1 POWER LINE (no cell or twin P&L read): 90 monthly WF decisions; 1,000
   mapped share of the universe by July-June year: 2017/18 96.5%, 2018/19 96.5%, 2019/20 98.7%, 2020/21 99.4%, 2021/22 99.7%, 2022/23 100.0%, 2023/24 100.0%, 2024/25 100.0%
   names with a usable share count (first filed before t, period end within 15 months): median 433 of 498 mapped; eligible median 320
 ```
+
+## RESULT (2026-10-08 11:45 MST, Stage A, walk-forward only; lockbox never read; run-before-main #82: frozen commit
+## 3226b1cf on origin prereg/custom-ml-fundml-r1, hashes matched at start) - DEAD
+Full output: C:\EdgeLog\custom_ml\fundml_r1\STAGE_A.txt.
+- Cell: net WF ROC @ $30k -0.2 (Sortino -0.02), gross 2.6, stress -1.4; null 95th 10.5 (net lead -10.7). WF net
+  -$11,498 over 7 years on $1M a side. Worst DD $280,705, DD5 $121,695 - one episode. PF 0.998; neighbours -0.7 / -1.0.
+- Years: +38k, +24k, -33k, -82k, -42k, +96k, -36k (3 of 7); halves +$70,674 / -$82,173; without the best 1% of
+  name-periods -$829k. Cost curve 1.4 / -0.2 / -1.4 / -2.7 (0 / 5 / 10 / 20 bps): nothing even before costs.
+- Twin (B/M + operating profitability - asset growth, for FRONTIER): net -2.0 / -0.50, worst DD $1,021,390 = DD5
+  (one long drawdown). The model "beat" the twin (bar 3) only by losing less.
+- Earner report: rho_dd -0.13, DO -0.097 (null 95th +0.207) - lost inside #463's drawdowns, mostly 2025.
+- Mapped share 96.5-100% by WF year: no survivor-tilt flag. MDE ~$10,454/yr, so this is DEAD, not undecidable.
+Bars: 1 fail, 2 fail, 3 pass, 4 (RISK) fail, 5 pass / PF fail, 6 fail. FUND-ML r1 dead, no variants. Lesson: on the
+500 most liquid US names 2018-2025, filed fundamentals - learned or as the published composite - carried no monthly
+cross-sectional edge; value / quality / investment lost money in this window.
