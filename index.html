@@ -19692,7 +19692,7 @@ function renderApp(){
         const _rp=(typeof _rawP==='function'?(_rawP(col)||{}):{}),
               _cm=(_rawBScope&&col&&col.raw&&col.raw.metrics)?col.raw.metrics:{};
         const _tr1=_n1(_rp.kept!=null?_rp.kept:_cm.num_trades),_wr1=_n1(_rp.wr!=null?_rp.wr:_cm.win_rate);
-        return {pool:'RAW',label:String(col.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:pnl,dd:Math.abs(dd),key:'raw:'+cols.indexOf(col),crowned:!!col.crowned,yrs:_rawYrsFor(col),
+        return {pool:'RAW',ddp:((col&&col.dd_pct_peak!=null)?+col.dd_pct_peak:null),label:String(col.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:pnl,dd:Math.abs(dd),key:'raw:'+cols.indexOf(col),crowned:!!col.crowned,yrs:_rawYrsFor(col),
           pf:_n1(_rp.pf!=null?_rp.pf:_cm.profit_factor),wr:(_wr1!=null?(_wr1<=1?_wr1*100:_wr1):null),
           // SAME RULE THE TABLES USE. Prefer the value measured over the ticked slice;
           // fall back to the whole-window figure ONLY when the tick IS the whole window,
@@ -22379,7 +22379,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         {k:'wr',nm:'WIN %',get:x=>_num(x.wr),fmt:v=>Math.round(v)+'%'},
         {k:'ev',nm:'EV',get:x=>_num(x.ev),fmt:v=>_kfmt(v),col:v=>v>=0?'#1d9e75':'#e24b4a'},
         {k:'roc',nm:'ROC % / YR',get:x=>_rocYr(+x.pnl,x.yrs),fmt:v=>v.toFixed(1)+'%',col:v=>v>=0?'#1d9e75':'#e24b4a'},
-        {k:'ddp',nm:'DD %',get:x=>(Math.abs(+x.dd)/_rocAcct()*100),fmt:v=>'-'+Math.round(v)+'%',col:()=>'#e24b4a'},
+        // DD% is the fall from the equity HIGH (owner 2026-10-08), read from the run -
+        //   see the note on _ddPctPeakOf for why no division of x.dd can produce it.
+        {k:'ddp',nm:DD_PCT_LABEL,get:x=>((x.ddp!=null&&isFinite(x.ddp))?+x.ddp:null),fmt:v=>'-'+Math.round(v)+'%',col:()=>'#e24b4a'},
         {k:'evr',nm:'EV R',get:x=>_evInR(x.wr,x.pf,_num(x.tr)),fmt:v=>v.toFixed(2),col:v=>v>=0?'#1d9e75':'#e24b4a'},
         {k:'rpy',nm:'R / YR',get:x=>_rPerYr(_evInR(x.wr,x.pf,_num(x.tr)),_num(x.tr),x.yrs),fmt:v=>v.toFixed(1),col:v=>v>=0?'#1d9e75':'#e24b4a'},
         {k:'ddr',nm:'DD (R)',get:x=>_ddInR(x.dd,_num(x.ev),_evInR(x.wr,x.pf,_num(x.tr))),fmt:v=>v.toFixed(1),col:()=>'#e24b4a'},
@@ -22444,7 +22446,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         {nm:'WIN %',  inv:false, get:x=>_num(x.wr), fmt:v=>Math.round(v)+'%'},
         {nm:'EV',     inv:false, get:x=>_num(x.ev), fmt:v=>_kfmt(v)},
         {nm:'ROC % / YR', inv:false, get:x=>_rocYr(+x.pnl,x.yrs), fmt:v=>v.toFixed(1)+'%', tip:'Net profit PER YEAR as a percentage of a fixed account, annualised the same way MAR and R / YR are so runs of different lengths compare. It is the one reading on this board that leverage can move: every ratio beside it divides money by something that scales with position size, so the leverage cancels and a recycled hybrid reads exactly like its parent. This divides by an account you set, which does not scale. Inside one run it ranks in the same order as NET $, so it adds no new ordering - it is here to make the size decision concrete against a real account. Always read it beside DD %.'},
-        {nm:'DD %',   inv:true,  get:x=>(Math.abs(+x.dd)/_rocAcct()*100), fmt:v=>Math.round(v)+'%', tip:'The worst drawdown as a percentage of the same fixed account. NOT annualised and it cannot be: a drawdown is a single worst event, not a rate. This is the half of a leverage decision the ratios hide - sizing up multiplies the drawdown by exactly the factor it multiplies the profit by, which is why MAR and SORTINO sit still while this moves.'},
+        {nm:DD_PCT_LABEL,   inv:true,  get:x=>((x.ddp!=null&&isFinite(x.ddp))?+x.ddp:null), fmt:v=>Math.round(v)+'%', tip:'The worst fall from the account highest point so far, the way a broker states a drawdown. NOT annualised and it cannot be: a drawdown is a single worst event, not a rate. It is no longer a share of the starting balance - that reading could pass 100% on a run that never lost money overall. A run saved before this measure existed is left blank and keeps its dollar drawdown. This is the half of a leverage decision the ratios hide: sizing up multiplies the dollar drawdown by exactly the factor it multiplies the profit by, which is why MAR and SORTINO sit still while that moves - though the PERCENTAGE moves less as the account grows, so ' + DD_PCT_NOTE},
         {nm:'EV R',   inv:false, get:x=>_evInR(x.wr,x.pf,_num(x.tr)), fmt:v=>v.toFixed(2),
          tip:'Expectancy in R - the average trade divided by the average LOSING trade. Leverage-blind and instrument-blind, so two configurations on different contracts read against each other honestly. Computed exactly from this configuration own win rate and profit factor; a configuration with no losing trade has no R and draws no point.'},
         {nm:'R / YR', inv:false, get:x=>_rPerYr(_evInR(x.wr,x.pf,_num(x.tr)),_num(x.tr),x.yrs), fmt:v=>v.toFixed(1),
@@ -23012,7 +23014,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         {k:'wr',   nm:'WIN %',   inv:false, get:p=>_f(p.wr), fmt:v=>Math.round(v*(v<=1?100:1))+'%'},
         {k:'ev',   nm:'EV',      inv:false, get:_ev,       fmt:v=>_kfmt(v)},
         {k:'roc',  nm:'ROC % / YR', inv:false, get:p=>_rocYr(p.net,_phYr(p)), fmt:v=>v.toFixed(1)+'%', tip:'Net profit PER YEAR as a percentage of a fixed account, annualised the same way MAR and R / YR are so runs of different lengths compare. It is the one reading on this board that leverage can move: every ratio beside it divides money by something that scales with position size, so the leverage cancels and a recycled hybrid reads exactly like its parent. This divides by an account you set, which does not scale. Inside one run it ranks in the same order as NET $, so it adds no new ordering - it is here to make the size decision concrete against a real account. Always read it beside DD %.'},
-        {k:'ddp',  nm:'DD %',    inv:true,  get:p=>(p.dd!=null&&isFinite(p.dd))?(Math.abs(p.dd)/_rocAcct()*100):null, fmt:v=>Math.round(v)+'%', tip:'The worst drawdown as a percentage of the same fixed account. NOT annualised and it cannot be: a drawdown is a single worst event, not a rate. This is the half of a leverage decision the ratios hide - sizing up multiplies the drawdown by exactly the factor it multiplies the profit by, which is why MAR and SORTINO sit still while this moves.'},
+        {k:'ddp',  nm:DD_PCT_LABEL, inv:true,  get:p=>((p.ddp!=null&&isFinite(p.ddp))?+p.ddp:null), fmt:v=>Math.round(v)+'%', tip:'The worst fall from the account highest point so far, the way a broker states a drawdown - NOT a share of the starting balance, which is what this used to show and which could read over 100% on a run that never lost money overall. A run saved before this measure existed has no figure and is left blank; its dollar drawdown is unchanged. ' + DD_PCT_NOTE},
         // Same closed form as the all-configs chart, so one name means one thing on both.
         {k:'evr',  nm:'EV R',    inv:false, get:p=>_evInR(_f(p.wr),_f(p.pf),_f(p.tr)), fmt:v=>v.toFixed(2)},
         {k:'rpy',  nm:'R / YR',  inv:false, get:p=>_rPerYr(_evInR(_f(p.wr),_f(p.pf),_f(p.tr)),_f(p.tr),_phYr(p)), fmt:v=>v.toFixed(1)},
@@ -24558,7 +24560,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const p=_P(c);
           if(!(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd)))_scatterDrop++;
           else
-            _scatterAcc.push({pool:'GATE',label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false,yrs:p.yrs,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
+            _scatterAcc.push({pool:'GATE',ddp:((c&&c.dd_pct_peak!=null)?+c.dd_pct_peak:null),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false,yrs:p.yrs,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
               // SHARPE / SORTINO come from the SAME _shp / _srt the 2C table prints (engine
               //   per-block scalar first, sampled curve only as the older-run fallback), so a
               //   dot and its table cell can never disagree the way they did before: run 307
@@ -24976,7 +24978,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
                 //   - every HYBRID dot fell through to the grey default colour AND failed the
                 //   tabOf lookup (click never switched 1E to the HYBRID tab before scrolling).
                 // v73.7x: 'hyb2' (HYBRID RECYCLE) joins them, mapped the same way.
-                _scatterAcc.push({pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false,yrs:p.yrs,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
+                _scatterAcc.push({ddp:((c&&c.dd_pct_peak!=null)?+c.dd_pct_peak:null),pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false,yrs:p.yrs,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
                   // SHARPE / SORTINO from the SAME _shrpE / _srtE the table above prints, so a
                   //   dot and its cell can never disagree. Scale-free - the sizing tabs never
                   //   move them. shDer/soDer flag the older-run curve fallback.
