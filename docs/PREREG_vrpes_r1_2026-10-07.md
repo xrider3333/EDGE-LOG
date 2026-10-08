@@ -234,3 +234,15 @@ is asserted via balance_r1_stageA.load_L.
   it against $30k).
 - Neither reaches the $15k MDL, let alone the minimum detectable lead. **The BOOK ADD is labelled UNDECIDABLE** and is
   printed as a report only.
+
+**Edit 13 - VIX rows on CME holidays: DROP (MANAGER 10-07, after the addenda were accepted; still pre-data).**
+- The photograph carries VIX rows on 23 of the 71 CME US-holiday sessions in the ES data (stock market closed). All 23
+  are 2022-05-30 or later; every one is listed in the --predata log.
+- **They are DROPPED, so no VRP value is ever dated on a holiday.** A holiday session ends with the 12:55 or 13:00 bar,
+  complete from 09:30 (the CME schedule). Its own returns stay in RV.
+- **Effect, printed before data:** trailing ranks move by about 0.01 on a few 2024-25 months, and NO in-month changes at
+  either lag. The schedule in edit 3 stands: 39 / 40 in-months.
+- (The GEX file used by GAMMA r1 has no holiday rows.)
+
+**MANAGER 10-07 (acceptance):** the book add is undecidable (edit 12), so VRPES files as a RESEARCH ROW at best. That
+holds whatever the standalone bars say: no plugin, no Auto-Validate, no forward line.
