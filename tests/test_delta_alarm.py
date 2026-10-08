@@ -225,3 +225,43 @@ def test_gap_with_no_classified_bar_in_the_tail_says_or_earlier(tmp_path):
     _write(p, lambda i, t: (False, 3))
     blk, pushed = _run(p)
     assert pushed[0].split("\n")[1] == "Order-flow data is missing on NQ since 07:30 or earlier (0% of bars have it)."
+
+
+# -- NIGHT MODE (2026-10-07, api/nt_night_mode.py) ---------------------------------------------------------
+def _night(since_ts, until_ts):
+    from api import nt_night_mode as nm
+    nm.write_state(nm.enter({}, since_ts, until_ts, "end of day", "eod", how="clean", flat=True))
+
+
+def test_no_tick_bars_a_restart_writes_for_the_closed_night_are_not_a_gap(tmp_path):
+    """NinjaTrader restarted at the window's end and wrote the closed stretch back as no-tick bars:
+    nothing is pushed while those are the newest bars, and the alarm stays exactly as it was."""
+    p = tmp_path / "NQ_10s.csv"
+    end = NOW - 5 * 60                                   # the window ended 5 minutes ago
+    _write(p, lambda i, t: (t > end, 1 if t > end else 3))
+    assert len(_run(p)[1]) == 1                         # without night mode this IS an alert
+    _night(NOW - 16 * 3600, end)
+    blk, pushed = _run(p)
+    assert pushed == [] and blk["NQ"]["state"] == "skip"
+
+
+def test_after_the_window_and_its_grace_a_real_gap_pushes_again(tmp_path):
+    p = tmp_path / "NQ_10s.csv"
+    end = NOW - 90 * 60                                  # the window ended 90 minutes ago
+    _night(NOW - 16 * 3600, end)
+    _write(p, lambda i, t: (False, 3))                   # and the bars since are still blind
+    blk, pushed = _run(p)
+    assert len(pushed) == 1 and "Order-flow data is missing on NQ" in pushed[0]
+
+
+def test_a_late_pc_wake_back_fill_after_the_window_end_is_not_a_gap(tmp_path):
+    """The window ended 05:45 but the PC woke at 06:05: NinjaTrader writes 05:45-06:05 back as no-tick
+    bars. Inside ORDERFLOW_GRACE_MIN that is not a live gap."""
+    from api import nt_night_mode as nm
+    p = tmp_path / "NQ_10s.csv"
+    end = NOW - 25 * 60                                   # window ended 25 min ago, PC up 5 min ago
+    _night(NOW - 16 * 3600, end)
+    _write(p, lambda i, t: (t > NOW - 5 * 60, 1 if t > NOW - 5 * 60 else 3))
+    assert nm.ORDERFLOW_GRACE_MIN >= 30
+    blk, pushed = _run(p)
+    assert pushed == []

@@ -72,3 +72,27 @@ def test_roll_userdata_keeps_the_series_suffix():
 ])
 def test_market_shut(when, shut):
     assert ro.market_shut(when) is shut
+
+
+# -- NIGHT MODE (2026-10-07): a roll inside a clean, flat night is made offline ------------------------------
+def _night(how="clean", flat=True, position=None, closed="2026-10-07T13:22:00-07:00"):
+    from api import nt_night_mode as nm
+    now = nm.now_local()
+    st = nm.enter({}, now - dt.timedelta(hours=2), now + dt.timedelta(hours=10), "end of day", "eod",
+                  how=how, flat=flat, position=position)
+    st["active"]["closed_at"] = closed
+    return st
+
+
+def test_offline_roll_only_after_a_clean_flat_close_with_ninjatrader_still_closed():
+    ok, why = ro.night_flat_offline(_night(), running=False, heartbeat_utc="2026-10-07 20:21:00")
+    assert ok and "closed flat" in why
+    ok, why = ro.night_flat_offline(_night(how="killed-with-position", flat=False, position=["ENGU-Q's NQ trade"]),
+                                    running=False, heartbeat_utc=None)
+    assert not ok and "ENGU-Q's NQ trade open" in why
+    assert ro.night_flat_offline(_night(how="already-closed", flat=None), running=False)[0] is False
+    assert ro.night_flat_offline(_night(), running=True)[0] is False
+    # the add-on heartbeat says NinjaTrader ran after the close (the owner opened it by hand)
+    ok, why = ro.night_flat_offline(_night(), running=False, heartbeat_utc="2026-10-07 23:00:00")
+    assert not ok and "ran after the night-mode close" in why
+    assert ro.night_flat_offline({}, running=False) == (False, "night mode is not on")

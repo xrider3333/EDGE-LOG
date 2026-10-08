@@ -174,6 +174,14 @@ def publish(db, uid):
     except Exception as e:
         rep["watchdog"] = {"ok": False, "enabled": None, "state": "unknown",
                            "error": f"{type(e).__name__}: {e}"}
+    # NIGHT MODE (2026-10-07, api/nt_night_mode.py): NinjaTrader closed on purpose until the morning.
+    # The off-PC dead-man's switch (tools/nt_cloud_watchdog.py, GitHub Actions) can only know that
+    # through this doc, so the window rides along; a silent PC inside it is expected, not an outage.
+    try:
+        from api import nt_night_mode
+        rep["night_mode"] = nt_night_mode.public_state()
+    except Exception as e:
+        rep["night_mode"] = {"active": False, "error": f"{type(e).__name__}: {e}"}
     try:
         db.collection("users").document(uid).collection("meta").document(
             "nt_bridge").set(rep)

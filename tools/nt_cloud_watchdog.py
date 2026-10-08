@@ -56,6 +56,20 @@
 # Before this it sent "EDGELOG: NT bridge DOWN" at URGENT priority on EVERY 15-minute run
 # while a strategy was last seen Realtime -- e.g. all night when the PC was simply asleep.
 #
+# NIGHT MODE (2026-10-07, api/nt_night_mode.py). The PC closes NinjaTrader after the end-of-day
+# checks and keeps it closed until the morning start (05:45 Arizona on the next trading day). This
+# script runs on GitHub and can only know that through what the PC published: meta/nt_bridge carries
+# a "night_mode" block {since, until, grace_until, until_hhmm, position_open}. While now is before
+# grace_until (the window end + MORNING_GRACE_MIN, for the PC to wake and log in), a silent PC is
+# EXPECTED: kind "night" -> per nt_night_mode.CLOUD_NIGHT_PUSH either no push at all ("silent", the
+# default; the episode memory is left exactly as it is) or ONE low note
+#       "NinjaTrader: night mode until 05:45"   low
+#       Trading: not affected (NinjaTrader is closed for the night on purpose).
+#       The PC has been silent since 17:45; NinjaTrader starts again at 05:45.
+#       Do: nothing.
+# After grace_until the normal rules apply again, so a morning where the PC never came back still
+# pages (with the remembered positions: a trade force-closed overnight with its stop reads "position").
+#
 # REPEATS: ntfy_push.dedupe() -- the same state pushes once, then at most once a day; a
 # worse state (offline -> running -> open position) pushes at once. Its memory lives in a
 # small doc this script is the ONLY writer of, users/{uid}/meta/nt_watchdog:
@@ -97,6 +111,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api import ntfy_push  # noqa: E402  (see sys.path insert above)
 from api import nt_heartbeat  # noqa: E402
+from api import nt_night_mode  # noqa: E402
 
 AREA = "NinjaTrader"
 STATE_DOC = "nt_watchdog"
@@ -104,7 +119,7 @@ TIMEOUT_SEC = 10          # the old _ntfy_post's timeout, not the helper's defau
 REPEAT_SEC = ntfy_push.DAY_S
 WAKE = "wake the PC and open NinjaTrader"
 # dedupe problem ids -> ntfy_push.RANK of the push each one causes
-KIND_RANK = {"offline": 0, "running": 2, "unknown": 2, "position": 3}
+KIND_RANK = {"offline": 0, "running": 2, "unknown": 2, "position": 3, "night": 0}
 
 
 def _get_firestore_client():
@@ -200,15 +215,31 @@ def running_names(rep, bridge_data):
     return [] if nt_was_closed(bridge_data) else strategy_names(rep)
 
 
-def classify(rep, bridge_data, positions):
-    """-> "ok" | "offline" | "running" | "unknown" | "position" | None (cannot tell this run: the
-    bridge doc is missing or has no readable timestamp -- leave the episode exactly as it is)."""
+def night_window(bridge_data, now_ts):
+    """The PC's published night-mode block when `now_ts` is before its grace_until (NinjaTrader closed
+    on purpose and the morning start not yet overdue), else None. Judged by the doc's own times, never
+    by its "active" flag: the doc may be hours old."""
+    nmb = (bridge_data or {}).get("night_mode") if isinstance(bridge_data, dict) else None
+    if not isinstance(nmb, dict):
+        return None
+    since = nt_night_mode.to_local(nmb.get("since"))
+    grace = nt_night_mode.to_local(nmb.get("grace_until"))
+    if since is None or grace is None:
+        return None
+    return nmb if since.timestamp() <= float(now_ts) < grace.timestamp() else None
+
+
+def classify(rep, bridge_data, positions, now_ts=None):
+    """-> "ok" | "night" | "offline" | "running" | "unknown" | "position" | None (cannot tell this run:
+    the bridge doc is missing or has no readable timestamp -- leave the episode exactly as it is)."""
     sev = (rep or {}).get("severity")
     stale = (rep or {}).get("stale_minutes")
     if sev == "ok":
         return "ok"
     if stale is None or float(stale) <= nt_heartbeat.STALE_MINUTES:
         return None
+    if now_ts is not None and night_window(bridge_data, now_ts):
+        return "night"
     if positions is not None and positions.get("open"):
         return "position"
     if running_names(rep, bridge_data):
@@ -220,6 +251,15 @@ def build_note(kind, rep, bridge_data, positions, since_epoch, now_ts):
     """The plain phone note for one stale state (see the module docstring for the texts)."""
     since = ntfy_push.hhmm(since_epoch, now=now_ts) if since_epoch else "an unknown time"
     names = running_names(rep, bridge_data)
+    if kind == "night":
+        nmb = (bridge_data or {}).get("night_mode") or {}
+        until = nt_night_mode.hhmm(nmb.get("until"), now_ts) if nmb.get("until") else "the morning"
+        trading = ("not affected (NinjaTrader is closed for the night on purpose)"
+                   if not nmb.get("position_open") else
+                   "an open paper trade keeps its stop, but nothing trails it until %s" % until)
+        return ntfy_push.plain(AREA, "night mode until %s" % until, trading,
+                               "The PC has been silent since %s; NinjaTrader starts again at %s." % (since, until),
+                               "nothing", priority="low")
     if kind == "offline":
         problem = (("NinjaTrader was closed and the PC has been silent since %s." % since)
                    if nt_was_closed(bridge_data) else
@@ -254,9 +294,11 @@ def decide(rep, bridge_data, prior_state, now_ts):
     seen = positions_in_doc(bridge_data)
     if seen is not None:
         state["positions"] = seen                     # the newest ground truth, remembered
-    kind = classify(rep, bridge_data, state["positions"])
+    kind = classify(rep, bridge_data, state["positions"], now_ts)
     if kind is None:
         return None, state, None
+    if kind == "night" and nt_night_mode.CLOUD_NIGHT_PUSH != "low":
+        return None, state, None                      # expected silence: no push, episode left as it is
     current = {} if kind == "ok" else {kind: KIND_RANK[kind]}
     action, push_state = ntfy_push.dedupe(current, state["push"], now_ts, REPEAT_SEC)
     state["push"] = push_state

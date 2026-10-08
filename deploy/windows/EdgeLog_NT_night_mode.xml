@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Scheduled task "EdgeLog NT night mode" - the automatic NinjaTrader end-of-day close
+  (tools/nt_night.py eod; every setting is in api/nt_night_mode.py). Owner 2026-10-07: "make it so
+  where it does its final checks and then stops automatically after everything is backfilled after
+  market closes and stops auto starting".
+
+  Fires 13:15 and 14:15 Arizona, Monday to Friday. Arizona never changes its clocks and New York
+  does, so 16:15 New York is 13:15 here in summer and 14:15 in winter; the tool acts ONCE per
+  trading day and only from 16:15 New York, so the trigger that comes too early (or a holiday)
+  logs one line and exits. The sequence can wait up to 45 minutes for the 10-second files, so the
+  time limit is 2 hours and a second start while one runs is ignored (IgnoreNew). StartWhenAvailable:
+  a PC asleep at the trigger runs it on wake. Runs pythonw (no console window) as the logged-on user;
+  never needs a stored password, never wakes the PC.
+
+  Principal pinned to the owner's account (xride, SID S-1-5-21-2244472808-2525872006-826183432-1001),
+  as the other EdgeLog tasks are, so it registers from a normal (non-elevated) PowerShell.
+
+  INSTALL ORDER MATTERS: deploy the new nt_recover.ps1 BEFORE registering this task, or the first
+  close is undone by the old watchdog relaunching NinjaTrader three minutes later.
+  1. Bring the main checkout up to the merged sha and confirm it has the files:
+    Test-Path "C:\Users\xride\OneDrive\Desktop\EDGE-LOG\tools\nt_night.py"
+    Test-Path "C:\Users\xride\OneDrive\Desktop\EDGE-LOG\api\nt_night_mode.py"
+  2. Deploy the C:\EdgeLog copies (back up first; the repo copies are the source of truth):
+    $r = "C:\Users\xride\OneDrive\Desktop\EDGE-LOG"; $b = "bak-" + (Get-Date -Format yyyyMMdd) + "-night"
+    Copy-Item C:\EdgeLog\nt_recover.ps1 "C:\EdgeLog\nt_recover.ps1.$b"
+    Copy-Item C:\EdgeLog\nt_eod_safe.ps1 "C:\EdgeLog\nt_eod_safe.ps1.$b"
+    Copy-Item "$r\tools\nt_recover.ps1" C:\EdgeLog\nt_recover.ps1
+    Copy-Item "$r\tools\nt_eod_safe.ps1" C:\EdgeLog\nt_eod_safe.ps1
+    Copy-Item "$r\deploy\windows\nt_night_off.vbs", "$r\deploy\windows\nt_night_on.vbs" C:\EdgeLog\
+  3. Restart the runner fleet the usual way (python tools\fleet_restart.py with keep, no job in flight)
+     so the runner publishes night mode to the cloud watchdog and the order-flow alarm reads it.
+  4. Register this task (below).
+  5. Desktop switches (the visible Desktop is C:\Users\xride\OneDrive\Desktop):
+    $ws = New-Object -ComObject WScript.Shell; $desk = [Environment]::GetFolderPath("Desktop")
+    $l = $ws.CreateShortcut("$desk\NinjaTrader OFF tonight.lnk"); $l.TargetPath = "C:\Windows\System32\wscript.exe"
+    $l.Arguments = '"C:\EdgeLog\nt_night_off.vbs"'; $l.WorkingDirectory = "C:\EdgeLog"
+    $l.IconLocation = "C:\Windows\System32\shell32.dll,27"; $l.Save()
+    $l = $ws.CreateShortcut("$desk\NinjaTrader ON now.lnk"); $l.TargetPath = "C:\Windows\System32\wscript.exe"
+    $l.Arguments = '"C:\EdgeLog\nt_night_on.vbs"'; $l.WorkingDirectory = "C:\EdgeLog"
+    $l.IconLocation = "C:\Program Files\NinjaTrader 8\bin\NinjaTrader.exe,0"; $l.Save()
+  Register (PowerShell, as the owner, once):
+    Register-ScheduledTask -TaskName "EdgeLog NT night mode" -Xml (Get-Content -Raw "C:\Users\xride\OneDrive\Desktop\EDGE-LOG\deploy\windows\EdgeLog_NT_night_mode.xml")
+  Check:   schtasks /Query /TN "EdgeLog NT night mode" /V /FO LIST   (Run As User = xride)
+  Preview: python tools\nt_night.py eod -dry-run    (spelled with two hyphens; an XML comment
+           may not hold a double hyphen) - reads only, changes nothing
+  Remove:  schtasks /Delete /TN "EdgeLog NT night mode" /F
+-->
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>EDGE-LOG NinjaTrader night mode: after the close (from 16:15 New York, once per trading day) back up NinjaTrader, finish the 10-second data, check the fills, run the end-of-day safety check, then close NinjaTrader and keep the watchdog from relaunching it until 05:45 Arizona on the next trading day. Never closes it while the real account has a position or order; never strips a stop.</Description>
+    <URI>\EdgeLog NT night mode</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <CalendarTrigger>
+      <StartBoundary>2026-10-08T13:15:00</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByWeek>
+        <DaysOfWeek>
+          <Monday />
+          <Tuesday />
+          <Wednesday />
+          <Thursday />
+          <Friday />
+        </DaysOfWeek>
+        <WeeksInterval>1</WeeksInterval>
+      </ScheduleByWeek>
+    </CalendarTrigger>
+    <CalendarTrigger>
+      <StartBoundary>2026-10-08T14:15:00</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByWeek>
+        <DaysOfWeek>
+          <Monday />
+          <Tuesday />
+          <Wednesday />
+          <Thursday />
+          <Friday />
+        </DaysOfWeek>
+        <WeeksInterval>1</WeeksInterval>
+      </ScheduleByWeek>
+    </CalendarTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>S-1-5-21-2244472808-2525872006-826183432-1001</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT2H</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>C:\Users\xride\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\pythonw.exe</Command>
+      <Arguments>tools\nt_night.py eod</Arguments>
+      <WorkingDirectory>C:\Users\xride\OneDrive\Desktop\EDGE-LOG</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>

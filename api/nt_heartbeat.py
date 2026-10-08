@@ -125,7 +125,7 @@ def _tick_feed_impact_clause(qqq_signal_source):
 
 
 def evaluate_tick_feed(newest_epoch, now_et, is_session_day, prior_tick=None,
-                       qqq_signal_source=None):
+                       qqq_signal_source=None, night=None):
     """Pure function: (newest bar epoch or None, ET-aware now, is this a session day,
     prior tick_feed block, the QQQ shadow's effective signal_source or None if unknown)
     -> new tick_feed block. `alerted` latches so a single outage pages once rather than
@@ -135,13 +135,24 @@ def evaluate_tick_feed(newest_epoch, now_et, is_session_day, prior_tick=None,
     see _tick_feed_impact_clause. Left at its default (None/unknown) it stays silent
     about the QQQ shadow, the same as "engine" -- the safe default, since claiming it is
     affected when it might not be is the false alarm this exists to prevent; the caller
-    (publish(), via _qqq_signal_source) is the one that actually resolves it."""
+    (publish(), via _qqq_signal_source) is the one that actually resolves it.
+
+    `night` (2026-10-07): the NinjaTrader NIGHT MODE window now falls in (api/nt_night_mode.quiet(),
+    a dict with "end") or None. Inside it NinjaTrader is closed ON PURPOSE - the owner pressed
+    "NinjaTrader OFF tonight" during the session, or the morning start is still within its grace -
+    so a silent feed is reported as "night" and never pages."""
     prior_tick = prior_tick or {}
     in_window = bool(is_session_day) and (9, 30) <= (now_et.hour, now_et.minute) < (16, 0)
     age_min = None
     if newest_epoch is not None:
         age_min = round(max(0.0, now_et.timestamp() - float(newest_epoch)) / 60.0, 1)
 
+    if night:
+        end = night.get("end")
+        until = end.strftime("%H:%M") if hasattr(end, "strftime") else str(end or "?")
+        return {"state": "night", "age_minutes": age_min, "alerted": False,
+                "message": "NinjaTrader is closed for night mode (until %s Arizona) -- the 10s feed is "
+                           "not watched" % until}
     if not in_window:
         return {"state": "idle", "age_minutes": age_min, "alerted": False,
                 "message": "outside 09:30-16:00 ET -- the 10s feed is not watched here"}
@@ -342,9 +353,14 @@ def publish(db, uid):
         if qqq_err:
             print(f"[nt-heartbeat] QQQ shadow signal_source check failed (message will "
                  f"stay silent on the QQQ shadow, same as 'engine'): {qqq_err}")
+        try:
+            from api import nt_night_mode
+            night = nt_night_mode.quiet()
+        except Exception:
+            night = None
         tick = evaluate_tick_feed(newest_tick_bar_epoch(), now_et, session_day,
                                   (prior_alert or {}).get("tick_feed"),
-                                  qqq_signal_source=qqq_signal_source)
+                                  qqq_signal_source=qqq_signal_source, night=night)
         if tick["state"] in ("stale", "missing") and not tick["alerted"]:
             _page(f"NT 10s NQ feed stopped: {tick['message']}", "EDGELOG NT FEED")
             tick["alerted"] = True

@@ -469,3 +469,43 @@ def test_runs_before_0910_hold_back_startup_failures(world):
     assert world["pushes"] == []
     _later(world, 50)                                              # 09:20 ET: now it is a real problem
     assert len(world["pushes"]) == 1
+
+
+# -- NIGHT MODE (2026-10-07, api/nt_night_mode.py) -------------------------------------------------------
+def _night_window(since_ts, until_ts):
+    from api import nt_night_mode as nm
+    nm.write_state(nm.enter({}, since_ts, until_ts, "end of day", "eod", how="clean", flat=True))
+
+
+def test_inside_a_night_window_ninjatrader_items_skip_and_nothing_pushes(world):
+    _night_window(et_ts(2026, 10, 6, 16, 20), et_ts(2026, 10, 7, 11, 0))   # the owner kept it off this morning
+    world["bridge"] = {}                                                    # NinjaTrader closed
+    assert world["run"]() == 0
+    res = world["result"]()
+    assert res["night_mode"] is True and res["failed"] == []
+    for iid in ("bridge", "roster", "positions", "capture_fresh_NQ", "capture_30m_ES", "capture_overnight_NQ"):
+        it = next(i for i in res["items"] if i["id"] == iid)
+        assert it["status"] == "skip" and "night mode until" in it["detail"]
+    assert status(world, "gate") == "pass"                                 # the gate is still checked
+    assert world["pushes"] == []
+
+
+def test_a_failed_morning_start_after_the_window_still_pushes(world):
+    _night_window(et_ts(2026, 10, 6, 16, 20), et_ts(2026, 10, 7, 8, 45))    # ended 05:45 Arizona
+    world["bridge"] = {}                                                    # ... and NinjaTrader never came up
+    assert world["run"]() == 1
+    assert world["result"]()["night_mode"] is False
+    assert status(world, "bridge") == "fail"
+    assert world["pushes"] and world["pushes"][0]["title"] == "NinjaTrader: CHECK NOW"
+    assert world["pushes"][0]["priority"] == "high"
+
+
+def test_overnight_coverage_is_judged_from_the_window_end(world):
+    # every bar before the last 30 minutes carries NO buy/sell (the closed night as a restart writes it)
+    world["write_all"](overnight_pct=0, recent_pct=100)
+    assert world["run"]() == 1
+    assert status(world, "capture_overnight_NQ") == "fail"                  # without night mode: a real gap
+    _night_window(et_ts(2026, 10, 6, 16, 20), et_ts(2026, 10, 7, 8, 40))
+    assert world["run"]() == 0
+    it = next(i for i in world["result"]()["items"] if i["id"] == "capture_overnight_NQ")
+    assert it["status"] == "pass" and "since Wed 08:50" in it["detail"]

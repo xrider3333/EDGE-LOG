@@ -121,6 +121,32 @@ if (Test-Path $pausePath) {
   Log ('ignoring a stale pause file ({0:N0} min old)' -f $pauseAge)
 }
 
+# NIGHT MODE (2026-10-07, owner: "make it so where it does its final checks and then stops
+# automatically after everything is backfilled after market closes and stops auto starting").
+# tools/nt_night.py closes NinjaTrader after the end-of-day checks and writes
+# C:\EdgeLog\nt_night_mode.json {"active": {"since", "until", ...}}. Until that moment this script
+# must not relaunch NinjaTrader or touch it at all - for the WHOLE window, unlike the 30-minute roll
+# pause above. The window ends by itself at `until` (05:45 Arizona on the next trading day by
+# default; every setting is in api/nt_night_mode.py) and the first pass after that starts NinjaTrader
+# exactly as every morning. The desktop switch "NinjaTrader ON now" ends it early. A missing or
+# unreadable file means NO night mode: the watchdog keeps working rather than staying off by accident.
+$nightPath = 'C:\EdgeLog\nt_night_mode.json'
+function NightModeUntil {
+  try {
+    if (-not (Test-Path $nightPath)) { return $null }
+    $nm = Get-Content $nightPath -Raw | ConvertFrom-Json
+    if (-not $nm.active -or -not $nm.active.until) { return $null }
+    $u = [DateTimeOffset]::Parse("$($nm.active.until)", [Globalization.CultureInfo]::InvariantCulture)
+    if ([DateTimeOffset]::Now -lt $u) { return $u }
+  } catch {}
+  return $null
+}
+$nightUntil = NightModeUntil
+if ($nightUntil) {
+  Log ('night mode until {0} - not touching NinjaTrader (desktop switch "NinjaTrader ON now" ends it early)' -f $nightUntil.ToLocalTime().ToString('ddd HH:mm'))
+  exit 0
+}
+
 function BridgeUp {
   try { $r = Invoke-WebRequest -Uri "$bridge/health" -TimeoutSec 4 -UseBasicParsing; return $r.StatusCode -eq 200 }
   catch { return $false }
@@ -480,6 +506,9 @@ if ($WhatIf) { Log "WhatIf: stopping before any action"; exit 0 }
 # ── 2. log in / launch if needed ───────────────────────────────────────────────────
 if (-not (BridgeUp)) {
   if (-not (Test-Path $loginPs1)) { Log "FATAL: $loginPs1 missing"; exit 2 }
+  # Night mode may have started while this pass was running (the end-of-day close waits for a pass
+  # that is already in flight, but never rely on that alone): never relaunch into it.
+  if (NightModeUntil) { Log "night mode began during this pass - not launching NinjaTrader"; exit 0 }
 
   # WEDGED, not down. "Bridge unreachable" was assumed to mean NinjaTrader had exited or
   # was sitting at its login window -- so this went straight to the login script, which
@@ -516,6 +545,7 @@ if (-not (BridgeUp)) {
     Log "NOT launching NinjaTrader: no internet yet (cannot resolve its servers) - a launch without it purges the demo strategies. Next pass retries."
     exit 7
   }
+  if (NightModeUntil) { Log "night mode began during this pass - not launching NinjaTrader"; exit 0 }
   Log "running unattended login..."
   & powershell -ExecutionPolicy Bypass -File $loginPs1 2>&1 | ForEach-Object { Log "  [login] $_" }
   $deadline = (Get-Date).AddSeconds(90)

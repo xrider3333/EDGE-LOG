@@ -288,3 +288,50 @@ def test_main_readiness_exit_1_alone_does_not_alert(monkeypatch, tmp_path):
 def test_sweep_script_can_import_the_api_package():
     import sys
     assert S.ROOT in sys.path          # run as a script, only tools/ is on the path; the phone text imports api.ntfy_push
+
+
+# -- NIGHT MODE (2026-10-07, api/nt_night_mode.py) ---------------------------------------------------------
+def _night(since_ts, until_ts):
+    from api import nt_night_mode as nm
+    nm.write_state(nm.enter({}, since_ts, until_ts, "end of day", "eod", how="clean", flat=True))
+
+
+WED_1620 = int(dt.datetime(2026, 10, 7, 16, 20, tzinfo=S.ET).timestamp())
+WED_1900 = int(dt.datetime(2026, 10, 7, 19, 0, tzinfo=S.ET).timestamp())     # CME open, NinjaTrader closed
+THU_0845 = int(dt.datetime(2026, 10, 8, 8, 45, tzinfo=S.ET).timestamp())
+
+
+def test_capture_and_roster_pass_inside_the_window_and_judge_again_after_the_grace(tmp_path, monkeypatch):
+    monkeypatch.setattr(S, "EL", str(tmp_path))
+    ohlc = tmp_path / "ohlc"
+    ohlc.mkdir()
+    for sym in ("NQ", "ES"):
+        _capture_csv(ohlc / ("%s_10s.csv" % sym), WED_1620, classified=1.0)  # last bar at the close
+    assert S.check_capture(WED_1900, str(ohlc))[0]["status"] == "fail"     # no night mode: a dead feed
+    _night(WED_1620, THU_0845)
+    cap = S.check_capture(WED_1900, str(ohlc))
+    assert [c["status"] for c in cap] == ["pass"] and "night mode until 05:45" in cap[0]["detail"]
+    log = tmp_path / "nt_recover.log"
+    log.write_text("2026-10-07 13:00:00  STOP: the account is holding a position while strategies are down:\n")
+    now_local = dt.datetime.fromtimestamp(WED_1900)
+    assert S.check_roster(now_local, str(log))[0]["status"] == "pass"
+    # inside the morning grace (45 min) the feed is still not judged; after it, it is
+    assert S.check_capture(THU_0845 + 30 * 60, str(ohlc))[0]["status"] == "pass"
+    assert S.check_capture(THU_0845 + 50 * 60, str(ohlc))[0]["status"] == "fail"
+    assert S.check_roster(dt.datetime.fromtimestamp(THU_0845 + 60), str(log))[0]["status"] == "fail"
+
+
+def test_repair_does_not_count_no_tick_bars_inside_a_window(tmp_path, monkeypatch):
+    monkeypatch.setattr(S, "EL", str(tmp_path))
+    ohlc = tmp_path / "ohlc"
+    ohlc.mkdir()
+    _capture_csv(ohlc / "NQ_10s.csv", THU_0845, n=500, classified=0.0, rt_blind=True)
+    assert S.check_repair(THU_0845, str(ohlc))[0]["id"] == "repair_NQ"
+    _night(WED_1620, THU_0845)
+    assert S.check_repair(THU_0845, str(ohlc))[0]["status"] == "pass"
+
+
+def test_the_night_mode_task_is_watched_and_reads_plainly():
+    assert S.TASK_MAX_AGE_H["EdgeLog NT night mode"] == 80
+    d = S._describe(_it("task:EdgeLog NT night mode", detail="last run ended with code 2 (not 0)"))
+    assert d["problem"] == "The NinjaTrader end-of-day close failed on its last run."

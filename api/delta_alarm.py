@@ -20,6 +20,10 @@ THE RULE (per instrument, NQ and ES, evaluated against the clock - not against t
   * coverage under 80% -> ONE push. While it persists, at most one reminder per day.
   * recovery: coverage 95% or better over the last 15 minutes (at least 30 traded bars) after an
     alert -> one "back" message, and the latch clears.
+  * NIGHT MODE (2026-10-07, api/nt_night_mode.py): bars inside a night window, and in its first
+    ORDERFLOW_GRACE_MIN (45) after it, are left out before any of the above. NinjaTrader is closed on purpose
+    there; the window and its morning restart are not an order-flow gap. A latched alert from before
+    the night simply holds (fewer than 30 bars = skip) until real bars after the window judge it.
 Only the file tail is read (a seek from the end), because the files are 30 MB and growing.
 
 PHONE TEXT (2026-10-07, "make the notifications simpler to understand"). This is the ONLY alerter
@@ -202,15 +206,30 @@ def notes_for(events, now_ts=None):
     return out
 
 
-def check(now_ts, prior_block, push, instruments=("NQ", "ES"), rows_for=None):
+def _night_cover():
+    """f(bar epoch) -> True inside a NinjaTrader NIGHT MODE window (api/nt_night_mode.py) or its first
+    ORDERFLOW_GRACE_MIN after it: NinjaTrader is closed on purpose there, and the bars a restart writes for
+    that stretch (and for the minutes until the PC wakes) carry no ticks by construction. Those bars are
+    not judged - a night is not a gap."""
+    try:
+        from api import nt_night_mode
+        return nt_night_mode.covered_fn(grace_min=nt_night_mode.ORDERFLOW_GRACE_MIN)
+    except Exception:
+        return lambda ts: False
+
+
+def check(now_ts, prior_block, push, instruments=("NQ", "ES"), rows_for=None, covered=None):
     """Run every instrument. `push(message, title, priority)` is called once per kind of event (one
     'data gap' note for NQ + ES together, one 'back' note). `rows_for` overrides the file read
-    (tests). Returns the new "delta_feed" block to store (a dict keyed by instrument). Never raises."""
+    (tests). `covered(epoch)` marks bars to leave out (default: the night-mode windows, see
+    _night_cover). Returns the new "delta_feed" block to store (a dict keyed by instrument). Never raises."""
     prior_block = prior_block or {}
     out, events = {}, []
+    cov = covered if covered is not None else _night_cover()
     for inst in instruments:
         try:
             rows = rows_for(inst) if rows_for else newest_rows(inst)
+            rows = [r for r in rows if not cov(r[0])]
             st, ev = evaluate(inst, rows, now_ts, prior_block.get(inst))
             if ev:
                 events.append(ev)

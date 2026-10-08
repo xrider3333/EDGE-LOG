@@ -23,6 +23,11 @@ runner's 21:00 window falls after the PC's normal 17:45 shutdown. Not in --dry-r
 
 De-dupe: an INBOX alert is posted when the failing set CHANGES, and repeated at most every 6 hours while it stands.
 
+NIGHT MODE (2026-10-07, api/nt_night_mode.py): from the end-of-day close until the morning start (+ MORNING_GRACE_MIN
+for the PC to wake and log in) NinjaTrader is closed ON PURPOSE, so `capture` and `roster` PASS with "night mode
+until HH:MM" instead of failing, and `repair` does not count no-tick bars inside a window (+ BAR_GRACE_MIN). The
+end-of-day task itself ("EdgeLog NT night mode") is watched like the others.
+
 PHONE TEXT, ECHOES AND REPEATS (2026-10-07, "make the notifications simpler to understand"). The inbox post
 (PAPER-NT8) and C:\\EdgeLog\\nt8_sweep.json are unchanged. The phone push is separate:
   * Plain format (api/ntfy_push.py): title "Paper NT8: needs a fix" / "Paper NT8: CHECK NOW" / "Paper NT8: OK", then
@@ -74,6 +79,7 @@ TASK_MAX_AGE_H = {
     "EdgeLog pull box ledgers": 80,
     "EdgeLog push NQ master to box": 80,
     "EdgeLog nightly backup": 80,
+    "EdgeLog NT night mode": 80,         # weekdays only; covers a weekend
 }
 # LastTaskResult codes that are not failures: 0 ok, 267009 running, 267011 never run, 267014 terminated by us
 OK_RESULTS = {0, 267009, 267011, 267014}
@@ -203,7 +209,24 @@ def check_nt_backup(now_local, root=None):
     return items
 
 
+def _night(now_ts, grace=True):
+    """The night-mode window now falls in (api/nt_night_mode.quiet: + MORNING_GRACE_MIN when `grace`),
+    or None. Never raises."""
+    try:
+        from api import nt_night_mode
+        return nt_night_mode.quiet(now=now_ts, grace_min=None if grace else 0)
+    except Exception:
+        return None
+
+
+def _night_words(win):
+    return "NinjaTrader is closed for night mode until %s (on purpose)" % win["end"].strftime("%H:%M")
+
+
 def check_roster(now_local, log_path=None):
+    win = _night(now_local.timestamp(), grace=False)
+    if win:
+        return [_item("roster", "pass", "Strategies running", _night_words(win))]
     p = log_path or os.path.join(EL, "nt_recover.log")
     try:
         tail = open(p, encoding="utf-8", errors="replace").readlines()[-400:]
@@ -248,6 +271,9 @@ def check_capture(now_ts, ohlc_dir=None):
     now_et = dt.datetime.fromtimestamp(now_ts, ET)
     if not cme_open(now_et):
         return [_item("capture", "pass", "10s capture", "market closed - not checked")]
+    win = _night(now_ts)
+    if win:
+        return [_item("capture", "pass", "10s capture", _night_words(win) + " - not checked")]
     out = []
     for sym in ("NQ", "ES"):
         p = os.path.join(ohlc_dir, f"{sym}_10s.csv")
@@ -274,12 +300,17 @@ def check_capture(now_ts, ohlc_dir=None):
 def check_repair(now_ts, ohlc_dir=None):
     ohlc_dir = ohlc_dir or os.path.join(EL, "ohlc")
     out = []
+    try:
+        from api import nt_night_mode
+        cov = nt_night_mode.covered_fn()          # night-mode windows: closed on purpose, not a hole to rebuild
+    except Exception:
+        cov = lambda t: False                     # noqa: E731
     for sym in ("NQ", "ES"):
         try:
             rows = _tail_rows(os.path.join(ohlc_dir, f"{sym}_10s.csv"), 26000)
         except OSError:
             continue
-        blind = [r for r in rows if r[0] >= now_ts - 3 * 86400 and r[1] > 0 and r[3] == "3"]
+        blind = [r for r in rows if r[0] >= now_ts - 3 * 86400 and r[1] > 0 and r[3] == "3" and not cov(r[0])]
         if len(blind) >= 360:            # an hour or more of no-tick bars still in the 3-day replay reach
             first = dt.datetime.fromtimestamp(blind[0][0], ET)
             if os.path.exists(os.path.join(EL, "nt_replay_retry.OFF")):
@@ -404,6 +435,7 @@ TASK_WORDS = {
     "EdgeLog pull box ledgers": "the cloud trade-record download",
     "EdgeLog push NQ master to box": "the NQ data upload to the cloud box",
     "EdgeLog nightly backup": "the nightly backup",
+    "EdgeLog NT night mode": "the NinjaTrader end-of-day close",
 }
 ASK = "ask Claude (PAPER-NT8 chat)"
 

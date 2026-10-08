@@ -140,20 +140,39 @@ What the backfill does NOT replace:
   leg, so those are measured on DAYTIME trades only. The reconcile already scores
   slippage on matched pairs only, so this degrades coverage, not correctness.
 - **An open position.** A real demo position left on the broker at shutdown keeps its
-  resting stop but nothing trails it or takes its exit, and next morning `nt_recover`
-  (correctly) refuses to enable into that mismatch. NOISE and ORB230 flatten at the
+  resting stop but nothing trails it or takes its exit; next morning `nt_recover` re-adopts
+  ENGU-Q's own saved trade (since 2026-10-02) and refuses any other mismatch. NOISE and ORB230 flatten at the
   session close so they are never exposed; ENGU-Q holds across sessions by design --
   6 of its last 11 trades were still open at the hour the PC goes off.
 
-So before powering down:
+So before powering down, nothing needs typing any more - **NIGHT MODE** (2026-10-07) does it:
 
-```
-powershell -ExecutionPolicy Bypass -File C:\EdgeLog
-t_eod_safe.ps1
-```
+- **Automatic, every trading day** (scheduled task `EdgeLog NT night mode`, fires 13:15 and 14:15
+  Arizona, acts once from 16:15 New York): today's NinjaTrader backup, the 10-second repair from the
+  replay file plus a count of today's 09:30-16:00 bars (retried every 5 min, gives up after 45 min and
+  says so), a check that every execution is in `C:\EdgeLog\fills.csv`, then
+  `C:\EdgeLog\nt_eod_safe.ps1` and the close:
+  - **flat** -> night mode on, the strategies stopped by `nt_eod_safe.ps1`, then a clean exit;
+  - **a paper trade open with its stop** -> night mode on, NinjaTrader FORCE-closed, nothing disabled
+    (the GTC stop stays at the broker, the trail stops until the morning), one push;
+  - **a paper trade with no stop**, or **your real account 1810769 with a position or order** ->
+    NinjaTrader is left ON tonight and you get a push.
+- **Night window:** `C:\EdgeLog\nt_night_mode.json`. Until 05:45 Arizona on the next trading day
+  (Friday -> Monday, holidays skipped) `nt_recover.ps1` does nothing; its first pass after that starts
+  NinjaTrader exactly as every morning, and the 09:15 / 09:25 New York readiness check still catches a
+  failed start. The alerters (readiness, sweep, order-flow alarm, heartbeat, cloud watchdog) treat the
+  window as expected.
+- **The switches** on the Desktop: `NinjaTrader OFF tonight` (the same sequence now, one repair pass,
+  answer on screen) and `NinjaTrader ON now` (ends the window, starts NinjaTrader). To keep NinjaTrader
+  up one night: `python tools\nt_night.py skip` (or create `C:\EdgeLog\nt_night_mode.SKIP`).
+- **Every time and choice** is a constant at the top of `api/nt_night_mode.py`.
+  `python tools\nt_night.py status` says what is set; `eod --dry-run` / `off --dry-run` preview.
+- Overnight caveat: with night mode on, ENGU-Q's NinjaTrader paper leg does not trade the evening or
+  overnight session (it already did not while the PC slept); the engine paper record still tracks it.
 
-It flattens the demo account if anything is open, stops the three strategies, verifies no
-working orders remain, and refuses to say "safe" if any of that fails. `-WhatIf` previews.
+`nt_eod_safe.ps1` on its own (`powershell -ExecutionPolicy Bypass -File C:\EdgeLog\nt_eod_safe.ps1`,
+`-WhatIf` previews) only REPORTS whether powering off is safe and stops the strategies only when the
+account is flat. It never flattens (that version was retired 2026-08-19) and never closes NinjaTrader.
 
 ONE DEPENDENCY WORTH KNOWING: the 1-minute master is topped up from Yahoo, which only
 serves ~7 days of intraday history. If the machine stays off for more than a week the gap

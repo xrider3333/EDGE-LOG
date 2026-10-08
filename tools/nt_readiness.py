@@ -24,6 +24,15 @@ PHONE TEXT, ECHOES AND REPEATS (2026-10-07, "make the notifications simpler to u
     ONE low-priority "back to normal" goes out, but only if the episode had a high push
     (api/ntfy_push.dedupe). A run that holds back start-up failures (--early) never clears.
 
+NIGHT MODE (2026-10-07, api/nt_night_mode.py). While a night-mode window is ACTIVE (NinjaTrader closed
+on purpose - normally it ends at 05:45 Arizona, before this check's window opens, but the owner can
+switch it on during the day), the NinjaTrader items (bridge, roster, positions, capture freshness and
+coverage) are SKIP "night mode until HH:MM", never FAIL, so nothing is pushed for them; the gate is
+still checked. After the window has ended the checks run exactly as before - there is NO grace here,
+so the 09:15 / 09:25 New York runs still catch a failed morning start - except that the overnight and
+30-minute buy/sell coverage only judge bars from the window's end (+ BAR_GRACE_MIN) on: the closed
+stretch and the bars a restart writes for it are not a capture failure.
+
 IT ONLY READS AND ALERTS. It never enables or disables a strategy, never flattens, never
 restarts NinjaTrader, never types a credential. The bridge is touched with GET requests only.
 
@@ -431,9 +440,22 @@ def check_capture(inst, now_ts):
         return [item(fid, fl, "fail", msg, "the %s 10-second capture file cannot be read" % inst, startup=True),
                 item(cid, cl, "skip", "no data"), item(oid, ol, "skip", "no data")]
 
+    # NIGHT MODE: bars inside a window (and its first minutes after) are not judged - see the module doc.
+    try:
+        from api import nt_night_mode
+        cov = nt_night_mode.covered_fn()
+        judge_start = nt_night_mode.judge_from(start, now_ts)
+    except Exception:
+        cov, judge_start = (lambda t: False), start
+    if judge_start is None:                       # inside a window (normally handled in run_checks)
+        judge_start = now_ts
+    df_all = df                                   # freshness reads every bar, coverage only the judged ones
+    if not df.empty:
+        df = df[[not cov(t) for t in df["time"].tolist()]]
+
     items = []
     is_open = cme_open(now_et)
-    last = int(df["time"].max()) if not df.empty else _last_bar_ts(path)
+    last = int(df_all["time"].max()) if not df_all.empty else _last_bar_ts(path)
     stale = False
     if last is None:
         items.append(item(fid, fl, "fail", "no bars in the file", "the %s 10-second capture has no bars" % inst, startup=True))
@@ -469,9 +491,9 @@ def check_capture(inst, now_ts):
             else:
                 items.append(item(cid, cl, "pass", "%.0f%% of %d traded bars have buy/sell" % (pct, n)))
 
-    # overnight coverage since 18:00 ET
-    n, ok = _coverage(df)
-    since = to_et(overnight_start_ts(now_et)).strftime("%a %H:%M")
+    # overnight coverage since 18:00 ET (or since a night-mode window ended)
+    n, ok = _coverage(df[df["time"] > judge_start] if not df.empty else df)
+    since = to_et(max(start, judge_start)).strftime("%a %H:%M")
     if n == 0:
         items.append(item(oid, ol, "fail", "no traded bars since %s ET" % since,
                           "there are no %s overnight 10-second bars since %s ET" % (inst, since), startup=True))
@@ -499,8 +521,39 @@ def check_gate():
 # --------------------------------------------------------------------------------------------
 # run + push
 # --------------------------------------------------------------------------------------------
+def night_active(now_ts):
+    """The ACTIVE night-mode window at now_ts (api/nt_night_mode.active - no grace), or None."""
+    try:
+        from api import nt_night_mode
+        return nt_night_mode.active(now=now_ts)
+    except Exception:
+        return None
+
+
+def night_items(night, now_ts):
+    """Inside a night-mode window: every NinjaTrader item is SKIP with the reason, never FAIL."""
+    from api import nt_night_mode
+    why = "night mode until %s Arizona - NinjaTrader is closed on purpose" % nt_night_mode.hhmm(night.get("until"), now_ts)
+    out = [item("bridge", "NinjaTrader bridge", "skip", why), item("roster", "Strategy roster", "skip", why),
+           item("positions", "Positions", "skip", why)]
+    for inst in ("NQ", "ES"):
+        out += [item("capture_fresh_" + inst, "10s capture %s: fresh" % inst, "skip", why),
+                item("capture_30m_" + inst, "10s capture %s: buy/sell last 30 min" % inst, "skip", why),
+                item("capture_overnight_" + inst, "10s capture %s: buy/sell overnight" % inst, "skip", why)]
+    return out
+
+
 def run_checks(now_ts):
     """Every check -> list of items. Never raises: a crash in one check is itself a FAIL item."""
+    night = night_active(now_ts)
+    if night:
+        items = night_items(night, now_ts)
+        try:
+            items.append(check_gate())
+        except Exception as e:
+            items.append(item("gate", "Live ML gate", "fail", "check crashed: %s" % type(e).__name__,
+                              "the live ML gate check crashed", level="warn", startup=True))
+        return items
     items = []
     data = {}
     for key, path in (("health", "/health"), ("accounts", "/accounts"), ("strategies", "/strategies"),
@@ -665,7 +718,8 @@ def main(argv=None, now_ts=None):
     result = {"checked_at_utc": dt.datetime.fromtimestamp(now_ts, dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
               "checked_at_et": now_et.strftime("%Y-%m-%d %H:%M:%S"), "ok": not failed,
               "forced": bool(a.force and not run), "early": a.early or now_et.time() < PUSH_STARTUP_FROM, "items": items,
-              "failed": [f["id"] for f in failed], "pushed": False}
+              "failed": [f["id"] for f in failed], "pushed": False,
+              "night_mode": bool(night_active(now_ts))}
 
     if a.json:
         print(json.dumps(result, indent=2))
@@ -679,7 +733,14 @@ def main(argv=None, now_ts=None):
     # after the November clock change the 06:15 local trigger lands at 08:15 ET), so any run that early
     # holds back start-up-class failures exactly like --early. The 09:15 / 09:25 ET runs push them.
     early = a.early or now_et.time() < PUSH_STARTUP_FROM
-    action, reason, cand, new_state = decide_push(failed, state, now_ts, early)
+    if result["night_mode"]:
+        # NinjaTrader is closed on purpose: no push, and the repeat memory is left exactly as it is (an
+        # all-SKIP night run must not read as "back to normal" for an earlier episode).
+        action, reason, cand, new_state = None, "night mode - NinjaTrader is closed on purpose", [], state
+        if not a.json:
+            print("night mode is on - NinjaTrader items skipped, nothing pushed")
+    else:
+        action, reason, cand, new_state = decide_push(failed, state, now_ts, early)
     note = build_note(cand) if action == "push" else back_note(state.get("what")) if action == "clear" else None
     if (failed or action) and not a.json:
         print("push: %s" % (("would send" if a.dry_run else "sending") if action else "not sent (%s)" % reason))

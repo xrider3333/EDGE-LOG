@@ -295,3 +295,65 @@ def test_main_firestore_read_failure_is_red(env):
     env.install(store, rep())
     assert cw.main() == 2
     assert env.sent == []
+
+
+# -- NIGHT MODE (2026-10-07, api/nt_night_mode.py) ---------------------------------------------------------
+from api import nt_night_mode  # noqa: E402
+
+NIGHT = {"active": True, "since": "2026-10-07T13:20:00-07:00", "until": "2026-10-08T05:45:00-07:00",
+         "grace_until": "2026-10-08T06:30:00-07:00", "until_hhmm": "05:45", "reason": "end of day",
+         "how": "clean", "position_open": False}
+
+
+def night_bridge(**kw):
+    d = bridge(up=False, **kw)
+    d["night_mode"] = dict(NIGHT)
+    return d
+
+
+def test_pc_silent_inside_the_night_window_is_expected_and_silent():
+    prior = {"push": {}, "since": None, "positions": {"open": [{"inst": "NQ", "acct": "paper"}]}}
+    action, state, note = cw.decide(rep("critical", 30.0, ["EdgeLogENGUQ1m"]), night_bridge(), prior, NOW)
+    assert (action, note) == (None, None)
+    assert state["push"] == {}                           # the episode memory is left exactly as it was
+
+
+def test_night_window_can_send_one_low_note_instead(monkeypatch):
+    monkeypatch.setattr(nt_night_mode, "CLOUD_NIGHT_PUSH", "low")
+    action, state, note = cw.decide(rep(), night_bridge(), {}, NOW)
+    assert action == "push"
+    assert note == {"title": "NinjaTrader: night mode until 05:45", "priority": "low", "message":
+                    "Trading: not affected (NinjaTrader is closed for the night on purpose).\n"
+                    "The PC has been silent since 21:30; NinjaTrader starts again at 05:45.\n"
+                    "Do: nothing."}
+    assert ntfy_push.lint(note) == []
+    # the next run inside the window does not repeat it
+    assert cw.decide(rep(), night_bridge(), state, NOW + 900)[2] is None
+
+
+def test_a_morning_where_the_pc_never_came_back_pages_after_the_grace():
+    prior = {"push": {}, "since": None, "positions": {"open": [{"inst": "NQ", "acct": "paper"}]}}
+    late = utc_epoch(2026, 10, 8, 13, 35)                 # 06:35 Phoenix, past the 06:30 grace
+    action, state, note = cw.decide(rep("warning", 600.0), night_bridge(), prior, late)
+    assert action == "push" and note["priority"] == "urgent" and note["title"] == "NinjaTrader: CHECK NOW"
+    early = utc_epoch(2026, 10, 8, 13, 20)                # 06:20 Phoenix: still inside the grace
+    assert cw.decide(rep("warning", 600.0), night_bridge(), prior, early)[2] is None
+
+
+def test_night_block_from_before_the_window_or_unreadable_changes_nothing():
+    for blk in ({"active": False}, {"since": "garbage", "grace_until": None}, "not a dict"):
+        b = bridge()
+        b["night_mode"] = blk
+        action, _, note = cw.decide(rep(), b, {}, NOW)
+        assert action == "push" and note["title"] == "NinjaTrader: offline"
+    assert cw.night_window({"night_mode": dict(NIGHT)}, utc_epoch(2026, 10, 7, 19, 0)) is None   # before since
+
+
+def test_low_night_note_says_an_open_trade_keeps_its_stop(monkeypatch):
+    monkeypatch.setattr(nt_night_mode, "CLOUD_NIGHT_PUSH", "low")
+    b = night_bridge()
+    b["night_mode"]["position_open"] = True
+    note = cw.decide(rep(), b, {}, NOW)[2]
+    assert note["priority"] == "low" and ntfy_push.lint(note) == []
+    assert note["message"].split("\n")[0] == \
+        "Trading: AFFECTED - an open paper trade keeps its stop, but nothing trails it until 05:45."

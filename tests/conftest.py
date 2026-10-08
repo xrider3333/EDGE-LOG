@@ -60,6 +60,8 @@ tools/qqq_exec_smoke.py was isolated the same way in 550055c; this does it for e
 7. _isolate_runner_fs_heal (autouse, 2026-10-07) gives every test a fresh api.fs_heal HEALTH
    count and JOB_SLOT and no self-restart marker in the environment - the job runner's
    Firestore self-heal state lives at module level.
+8. _isolate_night_mode (autouse, 2026-10-07) points api.nt_night_mode's state / skip / log / answer
+   files at a fresh temp dir, so the owner's live night-mode window never leaks into a test.
 """
 import errno
 import itertools
@@ -381,6 +383,25 @@ def _isolate_runner_fs_heal(monkeypatch):
     monkeypatch.setattr(_fh, "HEALTH", _fh.FsHealth())
     monkeypatch.setattr(_fh, "JOB_SLOT", threading.Lock())
     monkeypatch.delenv(_fh.RELAUNCH_ENV, raising=False)
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_night_mode(monkeypatch, tmp_path_factory):
+    """api.nt_night_mode (NinjaTrader NIGHT MODE, 2026-10-07) is read by the readiness check, the
+    sweep, the order-flow alarm, the heartbeat and the cloud watchdog. Its state, skip, log and
+    switch-answer files are pointed into a fresh empty temp dir for every test, so the owner's REAL
+    C:\\EdgeLog\\nt_night_mode.json (a live window tonight) can never change what another test sees,
+    and a night-mode test can write its own world there."""
+    try:
+        from api import nt_night_mode as _nm
+    except ImportError:
+        yield
+        return
+    d = tmp_path_factory.mktemp("night_mode")
+    for name, fn in (("STATE_PATH", "nt_night_mode.json"), ("SKIP_PATH", "nt_night_mode.SKIP"),
+                     ("LOG_PATH", "nt_night_mode.log"), ("LAST_PATH", "nt_night_mode_last.txt")):
+        monkeypatch.setattr(_nm, name, str(d / fn))
     yield
 
 

@@ -27,6 +27,13 @@ WHEN IT ACTS -- all of these, or it changes nothing:
   3. nothing is OPEN: no position and no working order on any of those roots, in any account.
      A roll that finds a position DEFERS and pages; it never closes anything.
 
+NIGHT MODE (2026-10-07). NinjaTrader is closed from the end-of-day close (tools/nt_night.py) to the
+morning start, which covers the weekday halt window. When the night-mode record shows a CLEAN close
+on a FLAT account and NinjaTrader has not run since (night_flat_offline), the roll edits the closed
+workspace and database right away and does not relaunch: the morning start loads the new contract,
+and the 09:25 New York readiness check confirms the strategies run. A night closed with a position
+open defers exactly like an open position does.
+
 HOW. Pause the recover watchdog (C:\EdgeLog\nt_recover.PAUSE) so it cannot relaunch
 NinjaTrader mid-edit -> ask NinjaTrader for a CLEAN exit through the bridge (that saves the
 workspace, so a roll made by hand in the UI earlier is kept) -> back up the workspace and the
@@ -237,6 +244,44 @@ def survey(target_ym):
     return found
 
 
+ADDON_HEARTBEAT = os.path.join(EDGELOG, "addon_heartbeat.json")
+
+
+def night_flat_offline(state=None, running=None, heartbeat_utc=None):
+    """NIGHT MODE (2026-10-07, api/nt_night_mode.py). NinjaTrader is closed from the end-of-day close
+    to the morning start, which covers every roll window on a weekday, so "bridge down -> cannot prove
+    flat -> defer" would defer every roll forever. When the night-mode record proves the account was
+    FLAT with no working order at a CLEAN close (tools/nt_night.py only closes cleanly when it read flat
+    on every account, the real one included) and NinjaTrader has not run since, nothing can have been
+    opened - so the roll may edit the closed files now and leave the start to the morning.
+    -> (ok, why). `running` / `heartbeat_utc` are test seams."""
+    try:
+        from api import nt_night_mode as nm
+    except Exception as e:
+        return False, "night mode unreadable (%s)" % type(e).__name__
+    st = nm.read_state() if state is None else state
+    a = nm.active(st)
+    if not a:
+        return False, "night mode is not on"
+    if a.get("how") not in ("clean", "clean-then-killed") or a.get("flat") is not True:
+        held = a.get("position")
+        return False, ("NinjaTrader was closed for the night with %s open" % ", ".join(held) if held else
+                       "NinjaTrader was closed for the night without a flat check (%s)" % (a.get("how") or "?"))
+    if (nt_running() if running is None else running):
+        return False, "NinjaTrader is running again"
+    closed = nm.to_local(a.get("closed_at") or a.get("since"))
+    if heartbeat_utc is None:
+        try:
+            heartbeat_utc = json.load(open(ADDON_HEARTBEAT, encoding="utf-8")).get("ts_utc")
+        except Exception:
+            heartbeat_utc = None
+    hb = nm.to_local(dt.datetime.strptime(heartbeat_utc, "%Y-%m-%d %H:%M:%S").replace(tzinfo=dt.timezone.utc)
+                     ) if heartbeat_utc else None
+    if hb is not None and closed is not None and hb > closed + dt.timedelta(minutes=3):
+        return False, "NinjaTrader ran after the night-mode close (add-on heartbeat %s)" % hb.strftime("%m-%d %H:%M")
+    return True, "closed flat at %s" % (closed.strftime("%m-%d %H:%M") if closed else "?")
+
+
 def open_exposure():
     """Positions or working orders on any rolled root, in any account. None = could not tell."""
     if not bridge_up():
@@ -390,11 +435,23 @@ def main():
         return 0
 
     exposure = open_exposure()
+    offline = False
     if exposure is None:
-        log("bridge down -- cannot prove nothing is open; not rolling")
-        page("NT roll deferred", "A futures roll is due but the NinjaTrader bridge is down, so "
-             "flat could not be checked. Will retry at the next window.")
-        return 3
+        offline, why = night_flat_offline()
+        if offline:
+            exposure = []
+            log(f"NinjaTrader is closed for night mode and was flat at a clean close ({why}) -- rolling the "
+                "closed files now; the morning start loads the new contract")
+        elif why != "night mode is not on":
+            log(f"night mode: {why} -- not rolling")
+            page("NT roll deferred", f"A futures roll is due but {why}. Nothing was changed; the roll "
+                 "waits for a flat close (or roll by hand).")
+            return 3
+        else:
+            log("bridge down -- cannot prove nothing is open; not rolling")
+            page("NT roll deferred", "A futures roll is due but the NinjaTrader bridge is down, so "
+                 "flat could not be checked. Will retry at the next window.")
+            return 3
     if exposure:
         log("NOT FLAT -- deferring: " + "; ".join(exposure))
         page("NT roll deferred", "A futures roll is due but something is open: "
@@ -417,7 +474,8 @@ def main():
     os.makedirs(backup_dir, exist_ok=True)
     open(PAUSE_FILE, "w", encoding="utf-8").write(f"nt_rollover {dt.datetime.now():%Y-%m-%d %H:%M:%S}\n")
     try:
-        stop_nt_cleanly()
+        if not offline:
+            stop_nt_cleanly()
         apply_edits(target, backup_dir)
         log(f"backups in {backup_dir}")
     finally:
@@ -425,6 +483,20 @@ def main():
             os.remove(PAUSE_FILE)
         except FileNotFoundError:
             pass
+    if offline:
+        # Night mode keeps NinjaTrader closed until the morning start, so there is nothing to relaunch:
+        # confirm the closed files no longer name an old contract, and let 05:45 load them.
+        left = {k: v for k, v in survey(target).items() if v}
+        tgt = f"{target[1]:02d}-{target[0] % 100:02d}"
+        if left:
+            log("OFFLINE ROLL NEEDS ATTENTION: still stale " + json.dumps(left))
+            page("NT roll needs attention", f"Offline roll to {tgt} left old contracts behind: {json.dumps(left)}. "
+                 f"Backups: {backup_dir}")
+            return 1
+        log(f"ROLLED OFFLINE to {tgt} (NinjaTrader closed for night mode; the morning start loads it)")
+        page("NT futures rolled", f"Rolled to {tgt} while NinjaTrader was closed for the night. It starts on the "
+             "new contract at the morning start; the 09:25 New York check confirms the strategies run.")
+        return 0
     bad, live = relaunch_and_verify(target)
     summary = ", ".join(f"{x.get('name')} {x.get('state')} {x.get('instrument')}" for x in live)
     if bad:

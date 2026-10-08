@@ -204,3 +204,17 @@ def test_qqq_signal_source_never_raises_when_qqq_exec_unimportable(monkeypatch):
     src, err = h._qqq_signal_source()
     assert src is None
     assert err
+
+
+def test_night_mode_reports_night_and_never_pages():
+    """NIGHT MODE (2026-10-07): the owner pressed "NinjaTrader OFF tonight" during the session, so the
+    feed is silent on purpose - reported as "night", never stale, never latched."""
+    from api import nt_night_mode as nm
+    now = _et(11, 0)
+    stale = (now - datetime.timedelta(minutes=40)).timestamp()
+    st = nm.enter({}, now - datetime.timedelta(minutes=45), now + datetime.timedelta(hours=18), "owner switch OFF", "switch")
+    night = nm.quiet(st, now)
+    r = h.evaluate_tick_feed(stale, now, True, {"alerted": True}, night=night)
+    assert r["state"] == "night" and r["alerted"] is False and "night mode" in r["message"]
+    # without the window the same silence is a stale feed
+    assert h.evaluate_tick_feed(stale, now, True)["state"] == "stale"

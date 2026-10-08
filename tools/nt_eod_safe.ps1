@@ -22,13 +22,21 @@
 #
 # Usage:  powershell -ExecutionPolicy Bypass -File C:\EdgeLog\nt_eod_safe.ps1
 #         -WhatIf   report only, change nothing.
+# Exit:   0 flat (strategies stopped, or NinjaTrader already down) - 1 a position with NO working
+#         order next to it - 2 a position with its protective order(s) resting (nothing stopped).
+#
+# NIGHT MODE (2026-10-07): tools/nt_night.py runs this as step 4 of the end-of-day close and acts on
+# the exit code (0 -> clean close, 2 -> force-close with the stop left at the broker, 1 -> left on).
+# It sets night mode BEFORE calling this, so the watchdog cannot re-enable what this stops.
+# The repo copy (tools/nt_eod_safe.ps1) and the deployed C:\EdgeLog\nt_eod_safe.ps1 are the same
+# file (2026-10-07: the repo copy's $cli pointed at a deleted worktree; it now matches the deployed one).
 
 param([switch]$WhatIf)
 
 $ErrorActionPreference = 'Stop'
 $bridge  = 'http://127.0.0.1:8391'
 $py      = 'C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0\python3.13.exe'
-$cli     = 'C:\Users\xride\AppData\Local\EdgeLog-worktrees\paper\tools\nt_bridge.py'
+$cli     = 'C:\Users\xride\OneDrive\Desktop\EDGE-LOG\tools\nt_bridge.py'
 $logPath = 'C:\EdgeLog\nt_recover.log'
 $roster  = @('EdgeLogNOISE', 'EdgeLogENGUQ1m', 'EdgeLogORB230')
 
@@ -87,6 +95,6 @@ Log ""
 Log "Powering off now is SURVIVABLE but not free:"
 Log "  - the stop stays where it is; nothing will trail it up while the PC is off"
 Log "  - the strategy cannot take its own exit until the machine is back"
-Log "  - tomorrow, recover will refuse to start anything until this is resolved"
+Log "  - tomorrow, recover re-adopts ENGU-Q's own saved trade; any other position waits for a person"
 Log "Leaving the PC on until this trade closes is the clean option."
 exit 2
