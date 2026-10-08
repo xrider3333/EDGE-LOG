@@ -152,6 +152,19 @@ WHAT IT ASSERTS
     that are not in it, and their switches never move it; the hero says BOOK #463; with no report weights the
     board's fallback equals _BOOK
 
+  * KEEPS AUDIT G5-G8 (MANAGER keeps-checklist audit, 2026-10-07), NT8 PAPER: four features that sat on the page with no check behind them,
+    each recomputed from the FIXTURE (or the page's own source), never from a number kept here:
+      - NinjaTrader detail fold (G5): its ROSTER line - "N/M Realtime" in the one-line read, the STRATEGY table (name, account, state, position)
+        with the detail on - and its DEMO CASH figure, written the way the page writes money (cases nt-roster / nt-roster-detail, an injected
+        bridge snapshot)
+      - 10s capture fold (G6): the DATA FEED line is drawn ONCE, inside the fold, with each distinct warning of the newest report once and
+        its shared-capture note, when the feed is degraded (case feed-degraded: warnings injected into the newest report); on a healthy feed
+        (case feed-healthy: the warnings of the newest report cleared) there is no such line
+      - roll marks (G7): the strategy-row bit "incl. $X roll artifact" (to the cent, only on the strategy that has roll trades), the ROLL
+        badge on exactly the roll-splice trade rows, and the "Roll splice" line in the trade panel of such a trade (two injected roll trades
+        of NOISE #422, one with its own record note; case roll-marks), none of it on a trade that is not a roll splice
+      - strategy chips (G8): every chip an entry of PAPER_LEG_DEFS declares (read out of index.html) is on its own strategy row and on no other
+
 The declarations (archived / crown / nt) are read out of index.html's own leg
 definitions, so the probe compares what the source DECLARES against what the page
 DRAWS rather than against a list that could drift.
@@ -165,6 +178,9 @@ Usage:
                                                     # below) side by side, asserts FAIL on each - for the reason it names - and
                                                     # then PASS on the real file (a few minutes; wt.py ship runs the plain probe)
   python tools/paper_render_probe.py --selftest --only a,b  # just those mutants, no pass on the real file (quick work on a few checks)
+
+Any Chrome this run starts dies with it, however the run ends (tools/kill_on_exit.py, installed when the file is run as a script;
+harmless where that file is absent).
 
 Stdlib only, plus a subprocess call to local Chrome.
 """
@@ -365,6 +381,34 @@ S11_CASES = [
                                             'gate': {'up': True, 'stale_days': 0, 'legs': [{'leg': 'A', 'loaded': True}]}}}}),
 ]
 CASES.extend(S11_CASES)
+
+# KEEPS AUDIT G5-G8 (2026-10-07): the NinjaTrader detail fold's roster + demo cash, the DATA FEED line, the roll marks. The fixture predates all
+# of them, so each case injects what it needs (a bridge snapshot, feed warnings on the newest report; the roll trades are added by build_fixture).
+KEEPS_BRIDGE = {'checked_at': '2099-01-01 00:00:00', 'up': True, 'version': '2.1',
+                'strategies': [{'name': 'EdgeLogORB230', 'account': 'DEMO7240108', 'state': 'Realtime', 'position': 'Flat'},
+                               {'name': 'EdgeLogNOISE225', 'account': 'DEMO7240108', 'state': 'Realtime', 'position': 'Flat'},
+                               {'name': 'EdgeLogENGUQ1m', 'account': 'DEMO7240108', 'state': 'Disabled'}],
+                'connections': [{'name': 'Simulation', 'status': 'Connected'}, {'name': 'Rithmic', 'status': 'Disconnected'}],
+                'accounts': [{'name': 'Sim101', 'cash': 101375.0}, {'name': 'DEMO7240108', 'cash': 51738.59}],
+                'positions': [],
+                'gate': {'up': True, 'stale_days': 0, 'legs': [{'leg': 'A', 'loaded': True}]}}
+# warnings added to the legs of the NEWEST report: 5 in all, 2 distinct (the page shows each distinct warning once)
+KEEPS_FEED_A = '10s data looks stale: last bar 2026-08-25 09:41:10-04:00 (more than 30m before 2026-08-25 16:00:00-04:00 close)'
+KEEPS_FEED_B = 'zero fresh bars appended'
+KEEPS_FEED = {'NOISE_225': [KEEPS_FEED_A], 'ORB': [KEEPS_FEED_B, KEEPS_FEED_A], 'ORB_H': [KEEPS_FEED_B]}
+# two roll-splice trades of the NOISE #422 leg (api/paper.py flags the September 2026 contract-splice trades roll_artifact:true): a loser with a note of
+# its own, a winner without one (the page then prints its own text)
+KEEPS_ROLL_LEG = 'NOISE_422'
+KEEPS_ROLL_IDS = ('pt_NOISE_422_probe_roll1', 'pt_NOISE_422_probe_roll2')
+KEEPS_ROLL_NOTE = 'probe: September contract roll splice, kept not deleted'
+CASES.extend([
+    ('nt-roster',        {'sub': 'paper2', 'prefs': {}, 'win': {'_ntBridge': KEEPS_BRIDGE}}),
+    ('nt-roster-detail', {'sub': 'paper2', 'prefs': {}, 'win': {'_ntBridge': KEEPS_BRIDGE, '_paperNtDetail': True}}),
+    ('feed-degraded',    {'sub': 'paper2', 'prefs': {}, 'win': {}, 'feedwarn': KEEPS_FEED}),
+    ('feed-healthy',     {'sub': 'paper2', 'prefs': {}, 'win': {}, 'feedclean': True}),
+    ('roll-marks',       {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fl', 'ls': {'el_lg_view_nt8': 'list'},
+                          'roll': {'ids': list(KEEPS_ROLL_IDS) + [PANEL_TID]}}),
+])
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>paper probe</title></head>
@@ -1088,6 +1132,35 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
     try{fr.remove();}catch(e){}
     return res;
   }
+  // keeps audit G7: a roll-splice trade opened in the trade panel carries a "Roll splice" line in its notes; a control trade has none. Each trade is
+  // opened by a click on its row and read (the notes lines as [key, text]), then the panel is closed.
+  async function rollInteract(d,w,cfg){
+    var P=cfg.roll,R={trades:{}},PN='.lg-panel[data-lgpanel="nt8"]',q=function(s){return d.querySelector(s);};
+    var F=function(){return q('[data-lglist-frame="nt8"]');};
+    var shut=function(){try{w.ledgerTradePanelClose('nt8','api');}catch(e){}};
+    try{
+      w.renderApp();
+      for(var i=0;i<P.ids.length;i++){
+        var id=P.ids[i],o={row:false,open:false,trade:null,lines:[]};
+        var row=F()?F().querySelector('[data-lgtrade="'+id+'"]'):null;
+        o.row=!!row;
+        if(row){
+          (row.querySelector('.lg-c-sym')||row).click();
+          await pnSleep(80);
+          var p=q(PN);o.open=!!p;
+          if(p){
+            o.trade=p.getAttribute('data-lgpanel-trade');
+            o.lines=[].map.call(p.querySelectorAll('[data-lgpanel-slot="notes"] .p2pn-line'),function(l){var kt=_t1(l.querySelector('.p2pn-k'))||'';return [kt,(_t1(l)||'').slice(kt.length).trim()];});
+          }
+        }
+        shut();
+        await pnSleep(30);
+        R.trades[id]=o;
+      }
+    }catch(e){R.err=String(e&&e.stack?e.stack:e);}
+    shut();w._ntPanelId=null;
+    return R;
+  }
   async function report(why){
     if(reported)return; reported=true;
     var out={why:why,cases:{}};
@@ -1109,13 +1182,13 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           +"localStorage.setItem('augurPrefs',"+JSON.stringify(JSON.stringify(cfg.prefs||{}))+");"
           +"var F="+JSON.stringify(FIX)+";"
           +"window._paperTrades="+(empty?"[]":(cfg.more?("F.trades.concat("+JSON.stringify(cfg.more)+")"):"F.trades"))+";"
-          +"window._paperReports="+(empty?"[]":(nobook?"F.reports.map(function(r){var c=Object.assign({},r);delete c.book;return c;})":"F.reports"))+";"
+          +"window._paperReports="+(empty?"[]":(nobook?"F.reports.map(function(r){var c=Object.assign({},r);delete c.book;return c;})":((cfg.feedwarn||cfg.feedclean)?("F.reports.map(function(r,i){if(i)return r;var c=JSON.parse(JSON.stringify(r)),W="+JSON.stringify(cfg.feedwarn||{})+";Object.keys(c.legs||{}).forEach(function(k){"+(cfg.feedclean?"c.legs[k].warnings=[];":"")+"if(W[k])c.legs[k].warnings=(c.legs[k].warnings||[]).concat(W[k]);});return c;})"):"F.reports")))+";"
           +"window._ntBtMatch=F.ntBt;window._ntBridge=F.ntBridge;"
           +"window._paperLoaded=true;window._paperLoading=false;"
           +"window._paperOtherOn=null;window._paperOtherOpen=null;window._paperFwdOpen=null;window._paperCurveWin=null;"
           +"window._paperTradeInfo="+(empty?"{bundle:true,n_total:0}":(noinfo?"{bundle:false,n_total:null}":"F.tradeInfo"))+";"
           // every lens-style bit of window state reset per case, so cases cannot bleed
-          +"window._paperShowArchived=false;window._paperShowCfg=false;"
+          +"window._paperShowArchived=false;window._paperShowCfg=false;window._paperNtDetail=false;"
           +"window._paperMatrixScope='ALL';window._legSortCol=null;window._legSortDir=null;"
           +"window._paperFam=null;window._paperKind=null;window._paperBaseOnly=null;"
           +"window._paperLegOff=null;window._paperCalMonth=null;window._ptSel=null;window._p2Open={};"
@@ -1288,6 +1361,29 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         function _top(e){if(!e)return null;return Math.round(e.getBoundingClientRect().top+(w.pageYOffset||0));}
         r.statTiles=[].map.call(d.querySelectorAll('.lg-stats [data-lgstat]'),function(e){return {k:e.getAttribute('data-lgstat'),v:_t(e.querySelector('.lg-stat-val')),sub:_t(e.querySelector('.lg-stat-sub')),top:_top(e)};});
         r.oldStatCells=d.querySelectorAll('.p2rhstat').length;
+        // keeps audit G5: the NinjaTrader detail fold - its roster (the bold "N/M Realtime" part of the one-line read, or the STRATEGY table when the detail is on) and its demo cash
+        var _nf=d.getElementById('p2fold-nt');
+        r.ntFold=null;
+        if(_nf){
+          var _ro=null;
+          [].forEach.call(_nf.querySelectorAll('table'),function(tb){
+            var h=[].map.call(tb.querySelectorAll('thead th'),_t);
+            if(h[0]==='STRATEGY'&&h[1]==='ACCOUNT')_ro={head:h,rows:[].map.call(tb.querySelectorAll('tbody tr'),function(tr){return [].map.call(tr.cells,_t);})};
+          });
+          r.ntFold={sum:_t(d.querySelector('[data-p2sum="nt"]')),txt:_t(_nf),bold:[].map.call(_nf.querySelectorAll('b'),_t),roster:_ro};
+        }
+        // keeps audit G6: the DATA FEED line of the 10s capture fold - how many are drawn, whether inside the fold, the warning lines (text nodes between the breaks) and its note
+        r.feed=(function(){
+          var sp=[].filter.call(d.querySelectorAll('span'),function(e){return e.children.length===0&&(e.textContent||'').indexOf('DATA FEED')>=0;});
+          var o={n:sp.length,inCap:0,lines:[],note:null,capSum:_t(d.querySelector('[data-p2sum="capture"]'))};
+          sp.forEach(function(e){if(e.closest('#p2fold-capture'))o.inCap++;});
+          if(sp.length&&sp[0].nextElementSibling){
+            var bx=sp[0].nextElementSibling;
+            [].forEach.call(bx.childNodes,function(nd){if(nd.nodeType===3){var s=(nd.textContent||'').trim();if(s)o.lines.push(s);}});
+            var nt=bx.querySelector('div');o.note=nt?_t(nt):null;
+          }
+          return o;
+        })();
         var _ls0=d.querySelector('[data-lglist="p2"]');
         r.groups=_ls0?[].map.call(_ls0.querySelectorAll('.lg-grp'),function(g){var f=g.querySelector('[data-lggrp]');
           return {key:g.getAttribute('data-lggroup'),rows:g.querySelectorAll('[data-lgrow]').length,fold:!!f,open:f?f.getAttribute('aria-expanded'):null,txt:_t(g.querySelector('.lg-grp-hd'))};}):[];
@@ -1326,6 +1422,8 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         if(cfg.panel){try{r.panel=await panelInteract(d,w,cfg);}catch(e){r.panel={err:String(e&&e.stack?e.stack:e)};}}
         r.ckey=null;
         if(cfg.ckey){try{r.ckey=await chartKeyInteract(d,w,cfg);}catch(e){r.ckey={err:String(e&&e.stack?e.stack:e)};}}
+        r.roll=null;
+        if(cfg.roll){try{r.roll=await rollInteract(d,w,cfg);}catch(e){r.roll={err:String(e&&e.stack?e.stack:e)};}}
         r.s11f=null;r.s11m=null;
         if(cfg.s11==='fold'){try{r.s11f=s11Folds(d,w);}catch(e){r.s11f={err:String(e&&e.stack?e.stack:e)};}}
         r.s12f=null;
@@ -1508,6 +1606,18 @@ def build_fixture(root, fix_path):
                   # LEDGER step 9: lines the engine record may carry - the panel shows them read-only
                   reason='probe: break of the opening range', exit_reason='probe: trailing stop', gate='probe gate keep')
         fixture['trades'].append(_t)
+        # KEEPS AUDIT G7: two roll-splice trades of the NOISE #422 leg, later the same day (api/paper.py flags the September 2026 contract-splice
+        # trades roll_artifact:true). The first is a loser with a record note of its own, the second a winner without one.
+        for _k, (_usd, _note) in enumerate(((-437.37, KEEPS_ROLL_NOTE), (112.25, None))):
+            _sh = 600 * (_k + 1)
+            _rt = dict(_t, id=KEEPS_ROLL_IDS[_k], leg=KEEPS_ROLL_LEG, pnl_usd=_usd, pnl_pts=round(_usd / 20.0, 3), roll_artifact=True,
+                       entryTime=_t['entryTime'] + _sh, exitTime=_t['exitTime'] + _sh,
+                       entryIso=(datetime.datetime.fromisoformat(_t['entryIso']) + datetime.timedelta(seconds=_sh)).isoformat(),
+                       exitIso=(datetime.datetime.fromisoformat(_t['exitIso']) + datetime.timedelta(seconds=_sh)).isoformat())
+            _rt.pop('roll_note', None)
+            if _note:
+                _rt['roll_note'] = _note
+            fixture['trades'].append(_rt)
     # EXIT-DAY: an OPEN ENGU-Q trade carrying a huge mark (must reach no total, curve or day) and a trade that
     # closed on a Sunday evening (counts on the Monday).
     _e = next((t for t in fixture['trades'] if str(t.get('leg', '')).startswith('ENGUQ')), None)
@@ -3120,6 +3230,7 @@ def run(alt_index=None, timeout=300):
 
     s11_info = _judge_s11(cases, fixture, data, fails)
     s12_info = _judge_s12(cases, data, fails)
+    keeps_info = _judge_keeps(cases, fixture, alt_index or index_path, fails)
 
     if fails:
         say('PAPERPROBE: FAIL')
@@ -3134,6 +3245,7 @@ def run(alt_index=None, timeout=300):
              (cases.get('base') or {}).get('tradeRows'), len(PANEL_CASES), len(((cases.get('chartkey') or {}).get('ckey') or {}).get('steps') or [])))
     say('PAPERPROBE step 11: %s' % s11_info)
     say('PAPERPROBE step 12: %s' % s12_info)
+    say('PAPERPROBE keeps G5-G8: %s' % keeps_info)
     return PASS, out_lines
 
 
@@ -3588,6 +3700,187 @@ def _judge_s12(cases, data, fails):
     return ('%d cases in ONE page frame (max-width %s, centred in %d), %d with the list panel beside the top block, %d in one column; the status line under '
             'the hero, the chart foot under the chart, the Filters row closed in %d cases, %d click runs, remembered across a reload'
             % (n_frames, FRAME_MAX_W, n_centred, n_wide, n_narrow, n_filt, n_runs))
+
+
+def _js_unescape(s):
+    """The text of a single-quoted JS string literal body: \\uXXXX, \\xHH, \\n, \\t and a backslash before any other character."""
+    def one(m):
+        g = m.group(1)
+        if len(g) > 1 and g[0] in 'ux':
+            return chr(int(g[1:], 16))
+        return {'n': '\n', 't': '\t'}.get(g, g)
+    return re.sub(r"\\(u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|.)", one, s)
+
+
+def read_leg_chips(index_path):
+    """{leg key: the chip text its definition declares} for every PAPER_LEG_DEFS entry that has a chip: the source says what the strategy
+    row must show, so a new or reworded chip needs no edit here. Each definition is the text from its {k:'...' to the next one."""
+    src = io.open(index_path, encoding='utf-8', newline='').read()
+    i = src.find('const PAPER_LEG_DEFS=[')
+    j = src.find('\n      ];', i)
+    block = src[i:j] if i >= 0 and j > i else ''
+    starts = [m.start() for m in re.finditer(r"\{k:'[A-Z0-9_]+'", block)]
+    chips = {}
+    for n, s in enumerate(starts):
+        seg = block[s:(starts[n + 1] if n + 1 < len(starts) else len(block))]
+        key = re.match(r"\{k:'([A-Z0-9_]+)'", seg).group(1)
+        m = re.search(r"(?<![A-Za-z])chip:'((?:[^'\\\n]|\\.)*)'", seg)
+        if m:
+            chips[key] = ' '.join(_js_unescape(m.group(1)).split())
+    return chips
+
+
+def _page_usd(v):
+    """fmtUsd: whole dollars (half up), thousands separators."""
+    return ('-$' if v < 0 else '$') + format(int(abs(v) + 0.5), ',')
+
+
+def _page_signed(v):
+    """ledgerSigned: signed, to the cent."""
+    return ('+' if v >= 0 else '-') + '$' + format(abs(round(v, 2)), ',.2f')
+
+
+def _judge_keeps(cases, fixture, index_path, fails):
+    """KEEPS AUDIT G5-G8: the NinjaTrader detail fold's roster + demo cash, the DATA FEED line, the roll marks, the strategy chips.
+    Every expectation is worked out from the fixture / the injected snapshot / the page's own source, never read off the page."""
+    SEP = ' \u00b7 '
+    # ---- G5: the NinjaTrader detail fold. The injected snapshot has 3 strategies (2 Realtime), a Connected and a Disconnected connection, two accounts
+    strat = KEEPS_BRIDGE['strategies']
+    rt = sum(1 for s in strat if s['state'] == 'Realtime')
+    cash = next(a['cash'] for a in KEEPS_BRIDGE['accounts'] if a['name'] == 'DEMO7240108')
+    conns = SEP.join(c['name'] for c in KEEPS_BRIDGE['connections'] if c['status'] == 'Connected')
+    cash_line = 'connected: %s%sdemo cash %s' % (conns, SEP, _page_usd(cash))
+    roster_line = '%d/%d Realtime' % (rt, len(strat))
+    roster_rows = [[s['name'], s['account'], s['state'], s.get('position') or '\u2014'] for s in strat]
+    for nm in ('nt-roster', 'nt-roster-detail'):
+        f = (cases.get(nm) or {}).get('ntFold')
+        if not f:
+            fails.append('%s: the NinjaTrader detail fold is not in the page' % nm)
+            continue
+        if ('%d / %d live' % (rt, len(strat))) not in (f.get('sum') or ''):
+            fails.append('%s: the NinjaTrader detail fold summary does not count the roster as "%d / %d live": %r' % (nm, rt, len(strat), f.get('sum')))
+        if cash_line not in (f.get('txt') or ''):
+            fails.append('%s: the NinjaTrader detail fold has no demo cash figure - expected "%s" (the demo account holds %s), the fold reads %r'
+                         % (nm, cash_line, cash, (f.get('txt') or '')[:260]))
+    f = (cases.get('nt-roster') or {}).get('ntFold') or {}
+    if f and (roster_line not in (f.get('bold') or []) or roster_line not in (f.get('txt') or '')):
+        fails.append('nt-roster: the NinjaTrader detail fold lost its roster line "%s" (bold parts %r)' % (roster_line, f.get('bold')))
+    f = (cases.get('nt-roster-detail') or {}).get('ntFold') or {}
+    ro = f.get('roster') if f else None
+    if f and (not ro or ro.get('rows') != roster_rows):
+        fails.append('nt-roster-detail: the NinjaTrader detail fold roster table is %r, expected the %d bridge strategies %r'
+                     % ((ro or {}).get('rows'), len(strat), roster_rows))
+
+    # ---- G6: the DATA FEED line of the 10s capture fold. Degraded = the newest report's legs warn; healthy = none does
+    legs0 = (fixture['reports'][0].get('legs') or {})
+    uniq = []
+    for k in legs0:
+        for w in list(legs0[k].get('warnings') or []) + list(KEEPS_FEED.get(k, [])):
+            if w not in uniq:
+                uniq.append(w)
+    healthy_uniq = []
+    for k in legs0:
+        for w in (legs0[k].get('warnings') or []):
+            if w not in healthy_uniq:
+                healthy_uniq.append(w)
+    r = cases.get('feed-degraded') or {}
+    fd = r.get('feed') or {}
+    if fd.get('n') == 0:
+        fails.append('feed-degraded: the DATA FEED line missing from the 10s capture fold although %d distinct feed warning(s) are in the newest report' % len(uniq))
+    elif fd.get('n') != 1:
+        fails.append('feed-degraded: the DATA FEED line is drawn %s times (one shared line, not a badge on every tile)' % fd.get('n'))
+    else:
+        if fd.get('inCap') != 1:
+            fails.append('feed-degraded: the DATA FEED line is not inside the 10s capture fold')
+        if fd.get('lines') != uniq:
+            fails.append('feed-degraded: the DATA FEED line lists %r, expected each distinct warning of the newest report once, in leg order: %r' % (fd.get('lines'), uniq))
+        if 'shared 10s tick capture' not in (fd.get('note') or ''):
+            fails.append('feed-degraded: the DATA FEED line lost its note that this is the shared 10s tick capture (note %r)' % fd.get('note'))
+    want_sum = '%d feed warning%s' % (len(uniq), '' if len(uniq) == 1 else 's')
+    if want_sum not in (fd.get('capSum') or ''):
+        fails.append('feed-degraded: the 10s capture fold summary does not count the feed warnings as "%s": %r' % (want_sum, fd.get('capSum')))
+    want_chip = 'Data feed: %d warning%s' % (len(uniq), '' if len(uniq) == 1 else 's')
+    if not any(want_chip in w for w in (r.get('warns') or [])):
+        fails.append('feed-degraded: the status line has no "%s" warning chip (it has %r)' % (want_chip, r.get('warns')))
+    # a healthy feed (case feed-healthy: the warnings of the newest report cleared) has no such line; the plain cases carry whatever the fixture says
+    fh = (cases.get('feed-healthy') or {}).get('feed')
+    if fh is None:
+        fails.append('feed-healthy: the case did not report')
+    else:
+        if fh.get('n'):
+            fails.append('feed-healthy: the DATA FEED line is drawn although no leg of the newest report warns about the feed')
+        if 'feed warning' in (fh.get('capSum') or ''):
+            fails.append('feed-healthy: the 10s capture fold summary counts feed warnings although none exist: %r' % fh.get('capSum'))
+    for nm in ('paper2', 'roll-marks', 'nt-roster'):
+        fh = (cases.get(nm) or {}).get('feed') or {}
+        if healthy_uniq:
+            if fh.get('n') != 1 or fh.get('lines') != healthy_uniq:
+                fails.append('%s: the DATA FEED line lists %r (drawn %s times), expected the fixture warnings %r' % (nm, fh.get('lines'), fh.get('n'), healthy_uniq))
+        elif fh.get('n'):
+            fails.append('%s: the DATA FEED line is drawn although no leg of the newest report warns about the feed' % nm)
+
+    # ---- G7: roll marks. The trades are the roll_artifact:true ones of the fixture; the row bit is their sum on the strategy, to the cent
+    roll = [t for t in fixture['trades'] if t.get('roll_artifact')]
+    roll_ids = sorted(t['id'] for t in roll)
+    roll_leg = [t for t in roll if t.get('leg') == KEEPS_ROLL_LEG and t.get('open') is not True]
+    bit = 'incl. %s roll artifact' % _page_signed(sum(t['pnl_usd'] for t in roll_leg))
+    if not roll or sorted(KEEPS_ROLL_IDS) != roll_ids:
+        fails.append('keeps: the fixture roll trades are %r, expected %r' % (roll_ids, sorted(KEEPS_ROLL_IDS)))
+    for nm in ('paper2', 'roll-marks'):
+        r = cases.get(nm) or {}
+        rows = r.get('listRowInfo') or []
+        mine = next((x for x in rows if x.get('key') == KEEPS_ROLL_LEG), None)
+        holders = [x.get('key') for x in rows if 'roll artifact' in (x.get('sub') or '')]
+        if mine is None or (SEP + (mine.get('sub') or '') + SEP).find(SEP + bit + SEP) < 0:
+            fails.append('%s: the roll artifact bit "%s" is missing from the %s strategy row (its sub line reads %r)'
+                         % (nm, bit, KEEPS_ROLL_LEG, (mine or {}).get('sub')))
+        elif holders != [KEEPS_ROLL_LEG]:
+            fails.append('%s: the roll artifact bit is on the strategy rows %s, expected only %s' % (nm, holders, KEEPS_ROLL_LEG))
+        marked = sorted(x.get('id') for x in ((r.get('tl') or {}).get('rows') or []) if 'ROLL' in (x.get('leg') or ''))
+        if marked != roll_ids:
+            fails.append('%s: the ROLL badge is on the trade rows %s, expected exactly the roll-splice trades %s' % (nm, marked, roll_ids))
+    rr = (cases.get('roll-marks') or {}).get('roll') or {}
+    if rr.get('err') or not rr.get('trades'):
+        fails.append('roll-marks: the trade panel readout failed: %s' % (rr.get('err') or 'no readout'))
+    else:
+        for t in roll:
+            o = rr['trades'].get(t['id']) or {}
+            if not o.get('row') or not o.get('open') or o.get('trade') != t['id']:
+                fails.append('roll-marks: the trade panel did not open for the roll-splice trade %s (row %s, open %s, panel trade %s)'
+                             % (t['id'], o.get('row'), o.get('open'), o.get('trade')))
+                continue
+            ln = [x for x in (o.get('lines') or []) if x[0] == 'Roll splice']
+            if len(ln) != 1 or not ln[0][1]:
+                fails.append('roll-marks: the trade panel of the roll-splice trade %s has no Roll splice line (its notes are %r)' % (t['id'], o.get('lines')))
+            elif t.get('roll_note') and ln[0][1] != t['roll_note']:
+                fails.append('roll-marks: the Roll splice line of %s reads %r, expected the note of the record %r' % (t['id'], ln[0][1], t['roll_note']))
+        o = rr['trades'].get(PANEL_TID) or {}
+        if not o.get('open'):
+            fails.append('roll-marks: the trade panel did not open for the control trade %s' % PANEL_TID)
+        elif any(x[0] == 'Roll splice' for x in (o.get('lines') or [])):
+            fails.append('roll-marks: the trade panel of %s, which is not a roll splice, has a Roll splice line' % PANEL_TID)
+
+    # ---- G8: strategy chips. A chip a definition declares is a bit of its own row's sub line and of no other row's
+    chips = read_leg_chips(index_path)
+    if not chips:
+        fails.append('keeps: no chip found in PAPER_LEG_DEFS - the chip check proves nothing')
+    seen = set()
+    for nm in ('paper2', 'retired-open'):
+        for x in ((cases.get(nm) or {}).get('listRowInfo') or []):
+            key, sub = x.get('key'), SEP + (x.get('sub') or '') + SEP
+            want = chips.get(key)
+            if want:
+                seen.add(key)
+                if SEP + want + SEP not in sub:
+                    fails.append('%s: the strategy chip "%s" of %s is not on its row (the row reads %r)' % (nm, want, key, x.get('sub')))
+            for other in sorted(set(chips.values()) - ({want} if want else set())):
+                if SEP + other + SEP in sub:
+                    fails.append('%s: the strategy chip "%s" (declared for another strategy) leaked onto the row of %s (%r)' % (nm, other, key, x.get('sub')))
+    if chips and not seen:
+        fails.append('keeps: none of the %d declared strategy chips was on a drawn row - the chip check proves nothing' % len(chips))
+    return ('NinjaTrader detail fold roster + demo cash in 2 cases (%s, %s), DATA FEED line degraded (%d distinct warnings, 1 line) '
+            'and healthy, roll marks for %d roll trades (%s on the row, ROLL badge, Roll splice line), %d of %d declared strategy chips seen on their own rows'
+            % (roster_line, _page_usd(cash), len(uniq), len(roll), bit, len(seen), len(chips)))
 
 
 def _cap_trades(fixture):
@@ -4247,6 +4540,66 @@ MUTANTS = [
      '.lg-filters-sum{flex:1 1 auto;min-width:0;letter-spacing:.3px;text-transform:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#3fb88a}',
      'the Filters summary is drawn in a fixed green, so MONO is no longer hue-free',
      'MONO has a hue'),
+    ('roster-line-gone',
+     '+\'<b style="color:\'+(rt?\'#1d9e75\':\'#e0c341\')+\'">\'+rt+\'/\'+rs.length+\' Realtime</b>\'',
+     "+''",
+     'the NinjaTrader detail fold one-line read loses its roster line (how many of its strategies are Realtime)',
+     'roster line'),
+    ('roster-table-gone',
+     'const strat=(B.strategies||[]).map(r=>\'<tr><td style="font-weight:600">\'',
+     'const strat=([]).map(r=>\'<tr><td style="font-weight:600">\'',
+     'the NinjaTrader detail fold, detail on, draws the STRATEGY table heading with no strategy rows under it',
+     'roster table'),
+    ('demo-cash-gone',
+     "              +(demo?' \xb7 demo cash '+fmtUsd(+demo.cash||0):'')",
+     "              +''",
+     'the one-line read of the NinjaTrader detail fold drops the demo cash figure',
+     'no demo cash figure'),
+    ('demo-cash-detail-gone',
+     "+(demo?' \xb7 demo cash '+fmtUsd(+demo.cash||0):'')+'</div>'",
+     "+''+'</div>'",
+     'the NinjaTrader detail fold, detail on, drops the demo cash figure from its connected line',
+     'no demo cash figure'),
+    ('data-feed-line-gone',
+     'const dataHtml=_dataWarn.length',
+     'const dataHtml=false&&_dataWarn.length',
+     'the DATA FEED warning line is never drawn in the 10s capture fold, whatever the feed warnings say',
+     'DATA FEED line missing'),
+    ('data-feed-line-on-healthy-feed',
+     'const dataHtml=_dataWarn.length',
+     'const dataHtml=(_dataWarn.length||1)',
+     'the DATA FEED warning line is drawn (empty) on a healthy feed',
+     'DATA FEED line is drawn although'),
+    ('data-feed-not-deduped',
+     '(Array.isArray(L.warnings)?L.warnings:[]).forEach(w=>seen.add(String(w)));',
+     "(Array.isArray(L.warnings)?L.warnings:[]).forEach(w=>seen.add(String(w)+' ['+k+']'));",
+     'the DATA FEED line repeats a warning once per leg instead of listing each distinct warning once',
+     'DATA FEED line lists'),
+    ('roll-artifact-bit-gone',
+     'if(a.rollN)bits.push(',
+     'if(false&&a.rollN)bits.push(',
+     'the strategy row no longer says how much of its net is a roll-splice artifact',
+     'roll artifact bit'),
+    ('roll-badge-gone',
+     'const roll=t.roll_artifact?',
+     'const roll=false?',
+     'the ROLL badge is never drawn on a roll-splice trade row',
+     'ROLL badge'),
+    ('roll-splice-line-gone',
+     "if(t.roll_artifact)lines.push(['Roll splice',",
+     "if(false)lines.push(['Roll splice',",
+     'the trade panel of a roll-splice trade has no Roll splice line in its notes',
+     'no Roll splice line'),
+    ('strategy-chip-gone',
+     'if(def.chip)bits.push(_pnX(def.chip));',
+     'if(false&&def.chip)bits.push(_pnX(def.chip));',
+     'a strategy row never shows the chip its definition declares',
+     'is not on its row'),
+    ('strategy-chip-on-wrong-row',
+     'if(def.chip)bits.push(_pnX(def.chip));',
+     'if(def.chip||true)bits.push(_pnX(def.chip||PAPER_LEG_DEFS.find(x=>x.chip).chip));',
+     'a strategy without a chip of its own is given another strategy chip',
+     'leaked onto the row'),
 ]
 
 
