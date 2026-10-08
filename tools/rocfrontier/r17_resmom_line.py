@@ -1,18 +1,22 @@
-# RESMOM r1 - the forward BOOK line's MONTH-END COMPUTE: #463 + 0.264 x RES (RAW logged beside at 0.233), no orders. Specification: tools/rocfrontier/PREREG_RESMOM_LINE_R1.txt ([F2], LF sha256 9ab77351...) and its
-# NOTE 1 (PREREG_RESMOM_LINE_R1_NOTE1.txt, LF sha256 ea559fe9...: [N1] the monitor's constants, [N2] the month-end order pin -> rank -> mark, [N3] the reads, [N4] the sealed year as ranking inputs only, [N5] what this lane does not do).
+# RESMOM r1 - the forward BOOK line's MONTH-END COMPUTE: #463 + 0.264 x RES (RAW logged beside at 0.233), no orders. Specification: tools/rocfrontier/PREREG_RESMOM_LINE_R1.txt ([F2], LF sha256 9ab77351...), its
+# NOTE 1 (PREREG_RESMOM_LINE_R1_NOTE1.txt, LF sha256 ea559fe9...: [N1] the monitor's constants, [N2] the month-end order pin -> rank -> mark, [N3] the reads, [N4] the sealed year as ranking inputs only, [N5] what this lane does not do) and its
+# NOTE 2 (PREREG_RESMOM_LINE_R1_NOTE2.txt, LF sha256 1382813f...: MANAGER's hygiene edit S1 - [N6] a spin-off / stock-dividend ex-date inside a hold CLOSES the position at the prior close, an exit-session one is booked by the next mark, line_closes.csv; [N7] the freeze re-made
+# on the restated reading; [N8] parity on it; [N9] the gate re-read under S1 (r17_resmom_gate.py --post-mode close); [N10] unchanged); where the notes differ NOTE 2 wins.
 # The registered strategy is imported, never copied and never edited: r17_resmom.py's universe, hygiene, regression, score, pick, path, cost, borrow and dividend functions are called as they are (the way r17 wraps r15_ddw). Where the specification is silent the
-# choice is marked CHOICE [L1] .. [L21] (repeated in the hand-over). Every rule below is NOTE 1 unless marked.
-#   python tools/rocfrontier/r17_resmom_line.py freeze                          [N1] ONCE: the 101 walk-forward RES holds' P&Ls (Stage A's registered reading, refused unless they sum to Stage A's net within $1), the monitor's boundary B (false-stop
-#                                                                               calibration), the dollar read's null spread (circular block bootstrap on resmom_cells_daily_wf.csv); prints the FROZEN block; re-run after pasting it = must reproduce it exactly
+# choice is marked CHOICE [L1] .. [L31] (repeated in the hand-over). Every rule below is NOTE 1 unless marked; the reading is r17_resmom.py's post_mode 'close' ([HYG-S1]) throughout ([N6]).
+#   python tools/rocfrontier/r17_resmom_line.py freeze                          [N1] with [N7] ONCE: the 101 walk-forward RES holds' P&Ls as the S1 reading books them (post_mode 'close'; refused unless they sum to resmom_restate_close.json's nets within $1), the monitor's boundary B (false-stop
+#                                                                               calibration), the dollar read's null spread (circular block bootstrap on resmom_cells_daily_wf_close.csv); prints the FROZEN block; re-run after pasting it = must reproduce it exactly; its record is freeze_s1.json
 #   python tools/rocfrontier/r17_resmom_line.py pin  --through D [--root R]     [N2](1) hash every file the photograph's manifest lists, refuse on any mismatch, append one dated row to pins.csv (reads no bar)
 #   python tools/rocfrontier/r17_resmom_line.py rank --through D [--root R]     [N2](2) the registered functions on the pinned photograph + the house ES master through the month-end close -> rank_<D>.csv, hold_next.txt (the first rank is 2026-10-30)
-#   python tools/rocfrontier/r17_resmom_line.py mark --through D [--root R]     [N2](3) value every session after the previous pinned month-end up to D from THIS photograph alone -> line_daily.csv, line_parts.csv, line_log.csv, marks.csv; prints the overlap comparison
+#   python tools/rocfrontier/r17_resmom_line.py mark --through D [--root R]     [N2](3) with [N6]: value every session after the previous pinned month-end up to D from THIS photograph alone (a spin-off / stock-dividend ex-date closes the position at the prior close) -> line_daily.csv, line_parts.csv, line_log.csv,
+#                                                                               line_closes.csv, marks.csv; prints the overlap comparison
 #   python tools/rocfrontier/r17_resmom_line.py read                            [N3] the monitor (k, t, B, status) at holds 12 / 18 / 24 / 30 / 36 and the dollar read at hold 36; prints the rows used and the pins
-#   python tools/rocfrontier/r17_resmom_line.py parity                          walk-forward ONLY: the rank code path, the mark code path and the freeze's hold P&Ls against the registered harness and resmom_cells_daily_wf.csv
+#   python tools/rocfrontier/r17_resmom_line.py parity                          [N8] walk-forward ONLY: the rank code path, the mark code path and the freeze's hold P&Ls against the registered harness (post_mode 'close') and resmom_cells_daily_wf_close.csv
 #   python tools/rocfrontier/r17_resmom_line.py selftest                        fakes only: no network, no key, temp folders (fake photographs, fake ES master, fake TBIS file)
 # EACH MONTH-END, in this order: pull the photograph (r17_resmom_pull.py pull --through D --hold <resmom_line>\hold_next.txt) -> pin -> rank -> mark -> read; a month-end's mark needs the ranks of the two months before it, never its own.
-# Outputs: C:\EdgeLog\_anatomy_cache\rocfrontier\resmom_line\ (env EDGELOG_RESMOM_LINE), outside git: freeze.json (+ .sha256), pins.csv, ranks.csv (which code made which rank file), rank_<D>.csv, hold_next.txt, line_daily.csv, line_parts.csv, line_log.csv, marks.csv (the commit
-# record of a mark), overlap_<D>.csv (+ _calendar.csv), line.lock. Atomic writes (temp file + os.replace); append-only logs refuse a second append of the same session / hold; one OS lock around every write; every guard runs before the first write.
+# Outputs: C:\EdgeLog\_anatomy_cache\rocfrontier\resmom_line\ (env EDGELOG_RESMOM_LINE), outside git: freeze_s1.json (+ .sha256; NOTE 1's freeze.json stays on disk as the record and is never read or written), pins.csv, ranks.csv (which code made which rank file), rank_<D>.csv, hold_next.txt, line_daily.csv,
+# line_parts.csv, line_log.csv, line_closes.csv (the positions each mark closed, [N6](c)), marks.csv (the commit record of a mark), overlap_<D>.csv (+ _calendar.csv), line.lock. Atomic writes (temp file + os.replace); append-only logs refuse a second append of the same session / hold; one OS lock around every write;
+# every guard runs before the first write.
 # Never here: a network call, an Alpaca key (the pull command r17_resmom_pull.py is NOT imported: it imports the key lookup), a write under C:\EdgeLog\alpaca_cache, an order. The SEALED YEAR (2025-06-30 .. 2026-06-30) is ranking input only: no P&L, statistic or
 # figure dated inside it is computed or printed by anything here (guard_dates); freeze / parity read walk-forward data only (the harness's loaders cut every input before 2025-06-30).
 import ast, contextlib, csv, hashlib, io, json, math, os, re, shutil, socket, subprocess, sys, tempfile, time
@@ -30,13 +34,18 @@ S, D15, A13, R11 = M.S, M.D15, M.A13, M.R11
 refuse, patched, sha_raw = M.refuse, M.patched, M.sha_raw
 LINE_OUT = os.environ.get("EDGELOG_RESMOM_LINE", r"C:\EdgeLog\_anatomy_cache\rocfrontier\resmom_line")   # every output of this tool, outside git
 ROOT_DEFAULT = r"C:\EdgeLog\alpaca_cache\resmom_fwd"                                    # where r17_resmom_pull.py publishes <ROOT>\<through>\ (read only here)
-LINE_PREREG, NOTE_PREREG = os.path.join(HERE, "PREREG_RESMOM_LINE_R1.txt"), os.path.join(HERE, "PREREG_RESMOM_LINE_R1_NOTE1.txt")
+LINE_PREREG, NOTE_PREREG, NOTE2_PREREG = (os.path.join(HERE, "PREREG_RESMOM_LINE_R1.txt"), os.path.join(HERE, "PREREG_RESMOM_LINE_R1_NOTE1.txt"), os.path.join(HERE, "PREREG_RESMOM_LINE_R1_NOTE2.txt"))
 LINE_SHA = "9ab77351453c4561cf9f852fe6aea48027a181d3764d7b811d5ea416f2f28211"           # LF sha256 of the line's registration (unchanged so r17_resmom_gate.py still verifies)
-NOTE_SHA = "ea559fe9791527ff2a394802aa45a694138ab90e5804a4775a4747b102787bb1"           # LF sha256 of NOTE 1 as committed - the specification of this tool
-CELLS_CSV = os.path.join(M.OUT, "resmom_cells_daily_wf.csv")                            # RES / RAW walk-forward daily P&L on #463's index (r17_resmom_export.py)
-CELLS_CSV_SHA = "bed7bf8b98d201894471cd3e72bd146bb87260c6cc8d1ac54b8167f923d41819"     # its sha256 (the file's bytes) as exported and registered in NOTE 1 [N1](c)
-STAGE_A = os.path.join(M.OUT, "resmom_stageA.json")                                     # Stage A's record: RES / RAW walk-forward nets, harness stamps
-C_RES, C_RAW = 0.264, 0.233                                                             # the line's volatility sizes ([F2]: c 0.264 for RES; RAW logged beside at 0.233)
+NOTE_SHA = "ea559fe9791527ff2a394802aa45a694138ab90e5804a4775a4747b102787bb1"           # LF sha256 of NOTE 1 as committed (the monitor's method, the month-end order, the reads)
+NOTE2_SHA = "1382813fa89148a8183700f37df08d9ad6b6eea67ac4b4bf099288bc9280d23d"          # LF sha256 of NOTE 2 as committed (commit 39862c9d) - [N6] .. [N10], the specification of this tool where it differs from NOTE 1
+POST_MODE = "close"                                                                     # [N6] / [N7]: r17_resmom.py's reading [HYG-S1] (MANAGER's hygiene edit S1): no in-hold removal, a spin-off / stock-dividend ex-date closes the position at the close before it
+CELLS_CSV = os.path.join(M.OUT, "resmom_cells_daily_wf_close.csv")                      # [N7](c) RES / RAW walk-forward daily P&L on #463's index as the S1 reading books it (r17_resmom_restate.py)
+CELLS_CSV_SHA = "e204dd53419a22bcc69045cc5d17ff42c86203fb06b58fa538b10beb7ba25d18"     # its sha256 (the file's bytes), registered in NOTE 2 [N7](c)
+CELLS_CSV_NOTE1 = os.path.join(M.OUT, "resmom_cells_daily_wf.csv")                      # NOTE 1's export (the registered 'remove' reading) - the record only, never read here
+CELLS_CSV_SHA_NOTE1 = "bed7bf8b98d201894471cd3e72bd146bb87260c6cc8d1ac54b8167f923d41819"   # its sha256, as NOTE 1 [N1](c) registered it - the record only
+RESTATE_JSON = os.path.join(M.OUT, "resmom_restate_close.json")                         # [N7](a) the restatement's record: RES / RAW walk-forward nets and rebalance counts under post_mode 'close' (readings -> close -> cells), the export's sha256
+FREEZE_JSON, FREEZE_JSON_NOTE1 = "freeze_s1.json", "freeze.json"                        # [N7] the re-made freeze's record in the output folder; NOTE 1's record stays on disk, never read and never written
+C_RES, C_RAW = 0.264, 0.233                                                            # the line's volatility sizes ([F2]: c 0.264 for RES; RAW logged beside at 0.233)
 FIRST_RANK, FIRST_FILL = TS("2026-10-30"), TS("2026-11-02")                             # the first month-end rank of the line; its first fills at the open of the next session
 SEALED = (M.LB0, M.LB1)                                                                 # 2025-06-30 .. 2026-06-30 INCLUSIVE: ranking input only ([N4])
 LOOKS, C_STAR = (12, 18, 24, 30, 36), 2.47                                              # [N3] the monitor's looks (holds) and Q16's 36-month family-wise c* for the dollar read
@@ -49,13 +58,16 @@ MIN_SESSIONS = 290                                                              
 PINS_HEAD = ("through", "folder", "manifest_sha256", "calendar_sha256", "pinned_utc", "files")
 LOG_HEADS = {"line_daily.csv": ("date", "RES", "RAW", "RES_line", "RAW_line"), "line_parts.csv": ("through", "rank_date", "part", "from_date", "to_date", "RES", "RAW"),
              "line_log.csv": ("k", "rank_date", "fill_date", "exit_date", "RES", "RAW", "d_k"),
+             "line_closes.csv": ("through", "rank_date", "cell", "side", "symbol", "ex_date", "close_date", "kind"),         # [N6](c) the positions a mark closed: its month-end, the hold's rank, the ex-date, the session closed on, 'in month' | 'exit session'
              "marks.csv": ("through", "prev_through", "folder", "manifest_sha256", "calendar_sha256", "utc", "sessions", "first_session", "last_session", "RES", "RAW", "completed_k", "tool_sha256_lf"),
              "ranks.csv": ("through", "folder", "manifest_sha256", "rank_sha256", "pool", "utc", "tool_sha256_lf")}            # ranks.csv = which code made which rank file from which pinned photograph
-MARK_LEDGERS = ("line_daily.csv", "line_parts.csv", "line_log.csv", "marks.csv")                                            # what a mark appends to (a first photograph's mark appends to none)
+MARK_LEDGERS = ("line_daily.csv", "line_parts.csv", "line_log.csv", "line_closes.csv", "marks.csv")                         # what a mark appends to (a first photograph's mark appends to none)
+KIND_IN, KIND_EXIT = "in month", "exit session"                                                                             # [N6](c) line_closes.csv's kinds: closed by the mark of the month the ex-date fell in / booked by the next mark ([N6](b))
 RANK_HEAD = ("cell", "side", "symbol", "score")
 
-# FROZEN-BEGIN (the block the first `freeze` run printed, pasted here: the monitor's B, its false-stop table, the dollar read's spread and the 101 hold P&Ls; `read` uses it; every later `freeze` must reproduce it exactly or refuses)
-FROZEN = {
+# FROZEN_NOTE1: NOTE 1 [N1]'s block exactly as its `freeze` printed it on the registered 'remove' reading (B 3.00, 2.25% false stops, spread $24,127, hold P&Ls summing to RES $234,037 / RAW $303,028) - KEPT VERBATIM AS THE RECORD (NOTE 2 [N7]): nothing reads it;
+# `read` and `freeze` use FROZEN below, and t_frozen only checks that this block is intact. NOTE 1's freeze.json stays on disk beside it.
+FROZEN_NOTE1 = {
     "c_res": 0.264,
     "c_raw": 0.233,
     "B": 3.0,
@@ -109,6 +121,9 @@ FROZEN = {
         10603.151545, -14165.305052, -16184.53184, 16853.948735, 13549.596344,
     ],
 }
+
+# FROZEN-BEGIN (the block the first `freeze` run prints on the S1 reading, pasted here by the lead: the monitor's B, its false-stop table, the dollar read's spread and the 101 hold P&Ls as post_mode 'close' books them; `read` uses it; every later `freeze` must reproduce it exactly or refuses; None = not frozen yet, `read` refuses)
+FROZEN = None
 # FROZEN-END
 
 
@@ -275,15 +290,15 @@ def money(x):
 
 
 def check_registered():
-    """the two registrations this tool implements must still be the committed ones (a changed spec = a new file): the line's registration, NOTE 1, and the strategy's own (r17_resmom.prereg_ok: its sha and the committed blob)"""
-    for p, sha, nm in ((LINE_PREREG, LINE_SHA, "PREREG_RESMOM_LINE_R1.txt"), (NOTE_PREREG, NOTE_SHA, "PREREG_RESMOM_LINE_R1_NOTE1.txt")):
+    """the three registrations this tool implements must still be the committed ones (a changed spec = a new file): the line's registration, NOTE 1, NOTE 2, and the strategy's own (r17_resmom.prereg_ok: its sha and the committed blob)"""
+    for p, sha, nm in ((LINE_PREREG, LINE_SHA, "PREREG_RESMOM_LINE_R1.txt"), (NOTE_PREREG, NOTE_SHA, "PREREG_RESMOM_LINE_R1_NOTE1.txt"), (NOTE2_PREREG, NOTE2_SHA, "PREREG_RESMOM_LINE_R1_NOTE2.txt")):
         if not os.path.exists(p):
             refuse(f"refused: {nm} is not next to this file - the specification cannot be verified (nothing done)")
         if sha_lf(p) != sha:
             refuse(f"refused: {nm} DIFFERS from the registered text (LF sha256 {sha[:8]}...) - a changed spec is a new file (nothing done)")
     with contextlib.redirect_stdout(io.StringIO()):
         pok = M.prereg_ok()
-    return {"line_prereg_sha256_lf": LINE_SHA, "note1_sha256_lf": NOTE_SHA, "resmom_prereg_sha256_lf": M.PREREG_SHA, "resmom_prereg_committed": pok["committed"]}
+    return {"line_prereg_sha256_lf": LINE_SHA, "note1_sha256_lf": NOTE_SHA, "note2_sha256_lf": NOTE2_SHA, "resmom_prereg_sha256_lf": M.PREREG_SHA, "resmom_prereg_committed": pok["committed"]}
 
 
 # ------------------------------------------------------------------ the photograph: manifest check and the pin ([N2](1))
@@ -427,10 +442,11 @@ def check_world(W, through, need_es=False):
 
 
 # ------------------------------------------------------------------ [N2](2) RANK: the registered pool / score / pick functions at the month-end close
-def rank_picks(W, r, f, x=-1, post_mode="remove", phantom_fill=True):
-    """the registered rm_one at rank row r (units=False: picks only) -> (rec, cnt). CHOICE [L5]: at a forward rank no hold exists yet (x = -1), so the registered reading's look-ahead removals - a hygiene flag or a spin-off inside the hold,
-    which r17 applies BEFORE ranking - cannot be made; the pool is the registered one without them. CHOICE [L6]: nor can the fill be known: rm_one's 'a name with no open at the fill session cannot be filled' reads W.Ao[f], so for the call that
-    row holds the rank close's split-safe price - a name is fillable iff it has a close and a split factor at the rank session (put back afterwards). x given (parity) = the registered call"""
+def rank_picks(W, r, f, x=-1, post_mode=POST_MODE, phantom_fill=True):
+    """the registered rm_one at rank row r (units=False: picks only) -> (rec, cnt). CHOICE [L5]: at a forward rank no hold exists yet (x = -1), so a removal for what happens inside the hold cannot be made - and under the S1 reading ([N6], post_mode 'close') the
+    registered reading makes none either: a hygiene flag or a spin-off inside the hold removes no name before the ranking, so the forward pool IS the registered one ([N8](i); the old look-ahead removals of 'remove' are gone). CHOICE [L6]: the fill cannot be known:
+    rm_one's 'a name with no open at the fill session cannot be filled' reads W.Ao[f], so for the call that row holds the rank close's split-safe price - a name is fillable iff it has a close and a split factor at the rank session (put back afterwards).
+    x given (parity) = the registered call"""
     saved = None
     if phantom_fill:
         saved = W.Ao[f].copy()
@@ -567,49 +583,121 @@ def rank_cmd(through, root=None, out=None, first=None):
 
 
 # ------------------------------------------------------------------ [N2](3) MARK: sessions valued from ONE photograph with the registered path functions
-def hold_values(Wv, f, x, long_cols, short_cols):
+def hold_values(Wv, f, x, long_cols, short_cols, close=None):
     """one cell's hold priced by the registered rules over rows f .. x -> (P (x-f+1,), info). The paths are r17's rm_units (r15's unit_path: entry at the open of f, a mark at every close - a missing bar carries the last mark -, exit at the open of x or,
     for a name with no open there, at its last mark; + the cash dividends: a long receives, a short pays, the fill session's own ex-date is bought ex) and r15's l1_pnl through r17's l1_pnl_x (5 bps of the notional a side, 0.25% a year borrow on the
-    shorts' marks the night before each session after the fill) at $4,000 a name - the very functions Stage A's l1_cell sums. CHOICE [L10]: positions are priced SPLIT-SAFE whatever flag falls inside the hold (no removal is possible forward: the registered
-    reading's look-ahead removal is not made; mark counts and lists the flags). CHOICE [L11]: a pick with no open at its fill session is not filled (its slot stays empty: no P&L, no cost), counted"""
+    shorts' marks the night before each session after the fill) at $4,000 a name - the very functions Stage A's l1_cell sums. [N6] close = each position's close row, aligned with the long cols then the short cols (-1 = held to x): rm_units -> close_units cut the path
+    at the close of e-1 (no mark, dividend or borrow after it; l1_pnl_x books the exit cost on that row) - the S1 reading's own functions; None = nothing closed. CHOICE [L10] (NOTE 2 [N6] replaces it for spin-offs / stock dividends): positions are priced SPLIT-SAFE whatever
+    HYGIENE flag falls inside the hold (no removal is possible forward: the look-ahead removal is not made; mark counts and lists the flags), but a spin-off / stock-dividend ex-date no longer leaves the position held - [N6] closes it. CHOICE [L11]: a pick with no open at its
+    fill session is not filled (its slot stays empty: no P&L, no cost), counted. info['P'] = the per-position P&L matrix in $ (positions x sessions, the long cols then the short cols; an unfilled pick's row is zero), info['st'] = who stopped printing (no open at x, or no close
+    at the close row of a closed one), info['ok'] = who was filled"""
     cols = np.r_[np.asarray(long_cols, int), np.asarray(short_cols, int)]
     side = np.r_[np.ones(len(long_cols)), -np.ones(len(short_cols))]
     ok = np.isfinite(Wv.Ao[f, cols])
-    tot = np.zeros(x - f + 1)
-    info = {"filled": int(ok.sum()), "unfilled_cols": cols[~ok], "stopped_cols": np.zeros(0, int), "stopped_side": np.zeros(0)}
+    H = x - f + 1
+    tot, P = np.zeros(H), np.zeros((len(cols), H))
+    info = {"filled": int(ok.sum()), "unfilled_cols": cols[~ok], "stopped_cols": np.zeros(0, int), "stopped_side": np.zeros(0), "cols": cols, "side": side, "ok": ok, "st": np.zeros(len(cols), bool), "P": P}
     if ok.any():
-        U = M.rm_units(Wv, f, x, cols[ok], None)
+        U = M.rm_units(Wv, f, x, cols[ok], None, None if close is None else np.asarray(close, np.int64)[ok])
         sd, cfg = side[ok], D15.l1_cfg()
+        Po = np.zeros((int(ok.sum()), H))
         for s in (1, -1):
             idx = np.flatnonzero(sd == s)
             if len(idx):
-                tot += M.l1_pnl_x(U, idx, s, cfg).sum(axis=0)
+                Po[idx] = M.l1_pnl_x(U, idx, s, cfg)
+                tot += Po[idx].sum(axis=0)
+        P[ok] = M.SPEC["slot"] * Po
         st = np.asarray(U.st, bool)
+        info["st"][ok] = st
         info["stopped_cols"], info["stopped_side"] = cols[ok][st], sd[st]
     return M.SPEC["slot"] * tot, info
 
 
-def value_sessions(Wv, lo, hi, a=None, b=None):
+def close_rows(Wv, f, hi, cols):
+    """[N6] each position's close row and ex-date row for a hold filled at row f and valued through row hi: the FIRST spin-off / stock-dividend ex-date e with f < e <= hi (the fill session's own is bought ex; never the phantom row after hi), the close row = e-1 -
+    r17's rm_one formula (rec.close = f + the first hit's offset in f+1 .. x) on the sessions this photograph values; -1 = none -> (close (n,), ex (n,))"""
+    cols = np.asarray(cols, int)
+    none = np.full(len(cols), -1, np.int64)
+    if hi <= f or not len(cols):
+        return none, none.copy()
+    sp = Wv.SPN[f + 1:hi + 1][:, cols]
+    hit = sp.any(axis=0)
+    ex = np.where(hit, f + 1 + sp.argmax(axis=0), -1).astype(np.int64)
+    return np.where(hit, ex - 1, -1).astype(np.int64), ex
+
+
+def derive_closed(Wv, a, x, cell):
+    """[N6](c) what the previous mark closed in hold A (fill row a['f'], exit session x) when the photographs share ONE calendar (the in-memory emulation; the real mark reads line_closes.csv): the filled picks of the cell with a spin-off / stock-dividend ex-date in
+    f < e <= x-1 in this world -> {symbol}"""
+    cols = np.r_[a[cell][0], a[cell][1]].astype(int)
+    sp = Wv.SPN[a["f"] + 1:x][:, cols]
+    own = sp.any(axis=0) if len(sp) else np.zeros(len(cols), bool)
+    return {str(Wv.syms[c]) for c in cols[own & np.isfinite(Wv.Ao[a["f"], cols])]}
+
+
+def close_records(cell, info, close, ex):
+    """[N6](c) the positions a hold closed - its filled picks with a close row -> [{cell, side, col, ex_row, close_row}]"""
+    return [{"cell": cell, "side": "long" if info["side"][i] > 0 else "short", "col": int(info["cols"][i]), "ex_row": int(ex[i]), "close_row": int(close[i])} for i in np.flatnonzero(info["ok"] & (np.asarray(close) >= 0))]
+
+
+def value_sessions(Wv, lo, hi, a=None, b=None, a_closed=None):
     """the sessions lo .. hi valued from ONE world (one photograph's bars and calendar): hold B, filled at the open of lo (the rank was the session before), contributes its fill, its daily marks and its dividends through the close of hi; hold A, whose exit
     is the open of lo (the first session after the previous month-end), contributes its EXIT LEG only - the open against the prior close, the exit cost, the night's borrow, the exit session's dividend - because every earlier session of A was valued from
-    the earlier photographs. a / b = None or {'f': the hold's fill row, cell: (long cols, short cols)}. Wv needs a row hi + 1 (the phantom session: nothing is read from it) -> {cell: {daily (hi-lo+1,), a_exit, b_part, a, b}}"""
+    the earlier photographs. [N6] S1: in B a spin-off / stock-dividend ex-date e with lo < e <= hi (read from THIS calendar; never the phantom row) CLOSES the position at the official close of e-1 (close rows as r17's rm_one makes them; rm_units -> close_units and
+    l1_pnl_x price them, the exit cost on that row) - returned as b_closes ('in month'). In A a position the previous mark closed (a_closed = {(cell, symbol)} from line_closes.csv; None = the in-memory emulation, which takes the filled picks with an ex-date in
+    f < e <= x-1 of this world's own calendar: one calendar) has a ZERO exit leg; one with an ex-date ON x itself is a LATE close ([N6](b)): the previous mark booked its marks through the month-end's close without the exit cost, so its exit leg on x's row is the closed
+    path's column before the exit less the held path's (P_close - P_open of column -2: no overnight move, no exit-session dividend or borrow, the exit cost or the stopped rule's amount) - returned as a_closes with the amount; every other position exits at x's open as held,
+    including one with an ex-date in f < e <= x-1 of THIS calendar that the previous mark did not close (a late-recorded row, [N6](c): not closed after the fact) - returned as a_late to be listed. CHOICE [L22]: the late close's amount is valued from THIS photograph's
+    bars (the close of x-1 it prints), as every exit leg is. CHOICE [L23]: a position with a late-recorded ex-date AND an ex-date on x is a late close (rule (b) needs only the ex-date on x; the late-recorded row is listed too). a / b = None or {'f': the hold's fill row,
+    cell: (long cols, short cols)}. Wv needs a row hi + 1 (the phantom session: nothing is read from it) and SPN / syms ->
+    {cell: {daily (hi-lo+1,), a_exit, b_part, a, b, b_closes, a_closes, a_late, a_done (the symbols whose exit leg is zero because they were closed before)}}"""
     if Wv.Ao.shape[0] <= hi + 1 or Wv.Ac.shape[0] <= hi + 1:
         refuse("refused: the valued world has no row after the last session - the open hold would have no exit row (nothing valued)")
     res = {}
     for cell in M.CELLS:
-        daily, rec = np.zeros(hi - lo + 1), {"a_exit": 0.0, "b_part": 0.0, "a": None, "b": None}
+        daily, rec = np.zeros(hi - lo + 1), {"a_exit": 0.0, "b_part": 0.0, "a": None, "b": None, "b_closes": [], "a_closes": [], "a_late": [], "a_done": set()}
         if b is not None:
             if b["f"] != lo:
                 refuse(f"refused: the hold filled at row {b['f']} is not the one filled at the first valued session (row {lo}) (nothing valued)")
-            tot, rec["b"] = hold_values(Wv, lo, hi + 1, *b[cell])
+            cl, ex = close_rows(Wv, lo, hi, np.r_[b[cell][0], b[cell][1]])
+            tot, rec["b"] = hold_values(Wv, lo, hi + 1, *b[cell], close=cl)
             daily += tot[:-1]                                                          # the last column is the (absent) exit session: dropped
             rec["b_part"] = float(tot[:-1].sum())
+            rec["b_closes"] = close_records(cell, rec["b"], cl, ex)
+            sb = rec["b"]["ok"] & (cl >= 0) & rec["b"]["st"]                           # only a closed name's flag means anything here: every other held name 'stops' at the phantom exit row
+            rec["b"]["stopped_cols"], rec["b"]["stopped_side"] = rec["b"]["cols"][sb], rec["b"]["side"][sb]
         if a is not None:
             if not a["f"] < lo:
                 refuse(f"refused: the hold whose exit is the open of row {lo} was filled at row {a['f']} (nothing valued)")
-            tot, rec["a"] = hold_values(Wv, a["f"], lo, *a[cell])
-            rec["a_exit"] = float(tot[-1])
-            daily[0] += tot[-1]
+            cols = np.r_[a[cell][0], a[cell][1]].astype(int)
+            names = [str(Wv.syms[c]) for c in cols]
+            if a_closed is None:
+                closed = derive_closed(Wv, a, lo, cell)
+            else:
+                closed = {s for c_, s in a_closed if c_ == cell}
+                stray = sorted(closed - set(names))
+                if stray:
+                    refuse(f"refused: the closes on file name {stray[:10]} as closed in the {cell} picks of the hold exiting at the open of row {lo}, which that hold does not hold - line_closes.csv and the rank file disagree (nothing valued)")
+            _, ia = hold_values(Wv, a["f"], lo, *a[cell])                              # the hold as held to its exit: every position's column -1 is its exit leg
+            ok, Po = ia["ok"], ia["P"]
+            done = np.array([s in closed for s in names], bool) & ok
+            sp = Wv.SPN[a["f"] + 1:lo][:, cols]                                        # an ex-date in f < e <= x-1 of THIS calendar
+            own = sp.any(axis=0) if len(sp) else np.zeros(len(cols), bool)
+            first = a["f"] + 1 + sp.argmax(axis=0) if len(sp) else np.full(len(cols), -1)
+            late, lrec = ok & ~done & Wv.SPN[lo, cols], ok & ~done & own
+            leg, st_held, st_late = np.where(done, 0.0, Po[:, -1]), ia["st"] & ~done & ~late, np.zeros(len(cols), bool)
+            if late.any():
+                _, ic = hold_values(Wv, a["f"], lo, *a[cell], close=np.where(late, lo - 1, -1))
+                assert not np.any(ic["P"][late, -1]), "[N6](b) a position closed on the session before its exit has nothing on the exit session's column"
+                moved = ic["P"][:, -2] - Po[:, -2]
+                leg, st_late = np.where(late, moved, leg), ic["st"] & late
+                rec["a_closes"] = [{"cell": cell, "side": "long" if ia["side"][i] > 0 else "short", "col": int(cols[i]), "ex_row": lo, "close_row": lo - 1, "amount": float(moved[i])} for i in np.flatnonzero(late)]
+            rec["a_exit"] = float(leg.sum())
+            daily[0] += rec["a_exit"]
+            rec["a"] = ia
+            ia["stopped_cols"], ia["stopped_side"], ia["late_stopped_cols"], ia["late_stopped_side"] = cols[st_held], ia["side"][st_held], cols[st_late], ia["side"][st_late]
+            rec["a_late"] = [{"cell": cell, "side": "long" if ia["side"][i] > 0 else "short", "col": int(cols[i]), "ex_row": int(first[i])} for i in np.flatnonzero(lrec)]
+            rec["a_done"] = {s for s, d in zip(names, done) if d}
         rec["daily"] = daily
         res[cell] = rec
     return res
@@ -639,22 +727,30 @@ def hold_picks(W, rank_date, rows, label=None):
     return out
 
 
-def booked_flags(W, lo, hi, a=None, b=None):
-    """the hygiene reasons that fall on the booked sessions of the held names (r17's [T2] flags + [D2] spin-offs / stock dividends: B on sessions lo .. hi - the spin-off of the fill session itself is bought ex -, A on its exit session lo): COUNTED and
-    LISTED, never removed (CHOICE [L10]) -> {reason: positions} + the (cell, symbol, reasons) rows. The TBIS reason has no flag after the TBIS file's last day (printed n/a by the caller)"""
+def booked_flags(W, lo, hi, a=None, b=None, vals=None):
+    """the hygiene reasons that fall on the booked sessions of the held names (r17's [T2] flags: B on sessions lo .. hi, A on its exit session lo): COUNTED and LISTED, never removed (CHOICE [L10]) -> {reason: positions} + the (cell, symbol, reasons) rows. The TBIS
+    reason has no flag after the TBIS file's last day (printed n/a by the caller). [N6] a spin-off / stock-dividend ex-date is not one of them any more - it CLOSES the position (value_sessions' closes, printed by print_closes). CHOICE [L28]: vals (value_sessions' result) makes
+    the count follow what is held: a B position closed on the session before its ex-date counts only through that session, an A position closed before its exit (by the previous mark, or late on the session before it) is not held on the exit session at all"""
+    lim, skip = {}, set()
+    for cell, v in (vals or {}).items():
+        lim.update({(cell, c["col"]): c["close_row"] for c in v["b_closes"]})
+        skip |= {(cell, str(W.syms[c["col"]])) for c in v["a_closes"]} | {(cell, s) for s in v["a_done"]}
     names = {}
-    for tag, pk, r0, r1, s0 in (("B", b, lo, hi, lo + 1), ("A", a, lo, lo, lo)):
+    for tag, pk, r0, r1 in (("B", b, lo, hi), ("A", a, lo, lo)):
         if pk is None:
             continue
         for cell in M.CELLS:
             cols = np.r_[pk[cell][0], pk[cell][1]]
             hy = W.hyg(r0, r1, cols)
-            sp = M.spn_hit(W, s0, r1, cols)
             for q, c in enumerate(cols):
-                why = [h for h, v in zip(M.HYG, hy[:, q]) if v] + (["spin"] if sp[q] else [])
+                if tag == "A" and (cell, str(W.syms[c])) in skip:
+                    continue
+                if tag == "B" and (cell, int(c)) in lim:
+                    hy[:, q] = W.hyg(r0, lim[(cell, int(c))], np.array([c]))[:, 0]
+                why = [h for h, v in zip(M.HYG, hy[:, q]) if v]
                 if why:
                     names.setdefault((cell, str(W.syms[c])), set()).update(why)
-    cnt = {k: sum(k in v for v in names.values()) for k in (*M.HYG, "spin")}
+    cnt = {k: sum(k in v for v in names.values()) for k in M.HYG}
     return cnt, sorted((c, s, "+".join(sorted(v))) for (c, s), v in names.items())
 
 
@@ -785,9 +881,10 @@ def first_session_after(W, d):
     return i + 1, i
 
 
-def mark_core(W, t, tp, rk_b, rk_a, ta=None, ks=None):
+def mark_core(W, t, tp, rk_b, rk_a, ta=None, ks=None, a_closed=None):
     """the valuation of the sessions after the previous month-end tp up to t on a built world: -> (lo, hi, a, b, vals, flags, listed). ks = (hold number of the exiting hold or None, of the open hold): a held name the world does not hold refuses naming
-    its hold - the exiting hold A (rank ta, exits at the open of the first session here) and / or the open hold B (rank tp) - and the hold_next.txt the pull of this photograph should have been given"""
+    its hold - the exiting hold A (rank ta, exits at the open of the first session here) and / or the open hold B (rank tp) - and the hold_next.txt the pull of this photograph should have been given. a_closed = [N6](c) {(cell, symbol)} the previous mark closed
+    in hold A (line_closes.csv); the closes of this mark are in vals (b_closes, a_closes, a_late)"""
     lo, _ = first_session_after(W, tp)
     hi = W.T - 2
     if W.days[hi] != TS(t):
@@ -801,16 +898,29 @@ def mark_core(W, t, tp, rk_b, rk_a, ta=None, ks=None):
                f"they are in the hold_next.txt written after the {tp:%Y-%m-%d} rank, its --hold file (nothing valued)")
     b = hold_picks(W, tp, rk_b, label["B"])
     a = None if rk_a is None else hold_picks(W, ta, rk_a, label["A"])
-    vals = value_sessions(W, lo, hi, a, b)
-    flags, listed = booked_flags(W, lo, hi, a, b)
+    vals = value_sessions(W, lo, hi, a, b, a_closed)
+    flags, listed = booked_flags(W, lo, hi, a, b, vals)
     return lo, hi, a, b, vals, flags, listed
+
+
+def closes_rows(W, t, tp, ta, vals):
+    """[N6](c) this mark's closes as line_closes.csv rows (through, rank_date, cell, side, symbol, ex_date, close_date, kind): the open hold B's ('in month', rank tp) then the exiting hold A's late closes ('exit session', rank ta), each sorted by (cell, side, symbol).
+    CHOICE [L27]: every mark that values sessions writes line_closes.csv, header only when it closed nothing - the next mark tells 'nothing was closed' from 'the file is missing' (which refuses) by it; the late-recorded ex-dates are printed, not written"""
+    rows = []
+    for kind, key, rk in ((KIND_IN, "b_closes", tp), (KIND_EXIT, "a_closes", ta)):
+        for cell in M.CELLS:
+            rows += sorted([f"{t:%Y-%m-%d}", f"{rk:%Y-%m-%d}", cell, c["side"], str(W.syms[c["col"]]), f"{W.days[c['ex_row']]:%Y-%m-%d}", f"{W.days[c['close_row']]:%Y-%m-%d}", kind] for c in vals[cell][key])
+    return rows
 
 
 def mark_cmd(through, root=None, out=None, first=None):
     """[N2](3) MARK. Every session after the previous PINNED month-end up to this one is valued from THIS photograph's bars and calendar alone (its prior close included) - fills, daily marks, exits at the open after a rank, costs, borrow, dividends, all by
     the registered rules (hold_values) - and appended ONCE to line_daily.csv (date, RES, RAW, 0.264 x RES, 0.233 x RAW); a session is never re-valued from a later photograph. A hold's P&L is complete at the photograph that holds its exit and is appended
     once to line_log.csv (k, rank date, fill date, exit date, RES, RAW, d_k); the by-hold, by-photograph pieces are kept in line_parts.csv (CHOICE [L12]: the exit session is the previous hold's exit leg AND the next hold's first day, so a hold's total is
-    the sum of its pieces; CHOICE [L14]: k = the rank's position among the rank files on file, 1 = the first rank 2026-10-30). The first photograph (the first month-end) has no session to value (CHOICE [L13]: a no-op). Refuses a month-end already marked, a gap in the chain of pins / ranks, and a sealed-year date"""
+    the sum of its pieces; CHOICE [L14]: k = the rank's position among the rank files on file, 1 = the first rank 2026-10-30). The first photograph (the first month-end) has no session to value (CHOICE [L13]: a no-op). [N6] S1: a spin-off / stock-dividend ex-date inside a
+    hold closes the position at the prior close; the mark appends the positions it closed to line_closes.csv ('in month': its own hold B's, rank tp; 'exit session': the late closes of the exiting hold A, rank ta, whose exit cost it books on the exit session's row), BEFORE
+    marks.csv, and reads the exiting hold's 'in month' rows to give those positions a zero exit leg (CHOICE [L24]: read before the valuation, outside the lock like every ledger read of the valuation's inputs; a missing line_closes.csv with an exiting hold refuses). Refuses a
+    month-end already marked, a gap in the chain of pins / ranks, and a sealed-year date"""
     out = out or LINE_OUT
     first = FIRST_RANK if first is None else first
     t = parse_through(through, first, "the line")
@@ -831,20 +941,23 @@ def mark_cmd(through, root=None, out=None, first=None):
     rk = dict(rank_files(out))
     if tp not in rk:
         refuse(f"refused: no rank_{tp:%Y-%m-%d}.csv - the hold filled after {tp:%Y-%m-%d} is unknown (nothing appended)")
-    ta = None
+    ta, a_closed, cp = None, None, os.path.join(out, "line_closes.csv")
     if tp > first:
         ta = next((d for d in rk if prev_month_key(tp) == (d.year, d.month)), None)
         if ta is None:
             refuse(f"refused: no rank file for the month before {tp:%Y-%m-%d} - the hold that exits at the first session of this photograph is unknown (nothing appended)")
         if not any(p["rank_date"] == f"{ta:%Y-%m-%d}" and p["part"] == "fill+marks" for p in read_rows(os.path.join(out, "line_parts.csv"))):
             refuse(f"refused: the {ta:%Y-%m-%d} hold has no valued fill and marks in line_parts.csv - the previous photograph's mark is missing (nothing appended)")
+        if not os.path.exists(cp):
+            refuse(f"refused: line_closes.csv is not on file although the {ta:%Y-%m-%d} hold was marked - what the previous mark closed is unknown, and a closed position must have a zero exit leg [N6](c) (nothing appended)")
+        a_closed = {(r["cell"], r["symbol"]) for r in read_rows(cp) if r["rank_date"] == f"{ta:%Y-%m-%d}" and r["kind"] == KIND_IN}
     fold_t, pin_t, _ = open_pinned(out, t, root)
     fold_p, pin_p, _ = open_pinned(out, tp, root)
     t0 = time.time()
     W, info = photo_world(fold_t, t, "stub")
     check_world(W, t)
     order = [d for d, _ in rank_files(out)]
-    lo, hi, a, b, vals, flags, listed = mark_core(W, t, tp, read_rank(rk[tp]), None if ta is None else read_rank(rk[ta]), ta, (None if ta is None else order.index(ta) + 1, order.index(tp) + 1))
+    lo, hi, a, b, vals, flags, listed = mark_core(W, t, tp, read_rank(rk[tp]), None if ta is None else read_rank(rk[ta]), ta, (None if ta is None else order.index(ta) + 1, order.index(tp) + 1), a_closed)
     dates = [W.days[i] for i in range(lo, hi + 1)]
     guard_dates(dates, "this mark")
     print(f"mark {t:%Y-%m-%d}: photograph {os.path.basename(fold_t)} (pin {pin_t['pinned_utc']}), previous pinned month-end {tp:%Y-%m-%d} (photograph {os.path.basename(fold_p)}, pin {pin_p['pinned_utc']}); world {info['n_real']:,} sessions, built in {time.time() - t0:.0f}s")
@@ -866,6 +979,8 @@ def mark_cmd(through, root=None, out=None, first=None):
             refuse(f"refused: line_daily.csv already holds {daily[-1]['date']}; the first session of this mark is {dates[0]:%Y-%m-%d} - a session is appended once (nothing appended)")
         if ta is not None and any(int(r["k"]) == k_a for r in log):
             refuse(f"refused: hold {k_a} is already in line_log.csv - a hold is appended once (nothing appended)")
+        if any(r["through"] == f"{t:%Y-%m-%d}" for r in read_rows(cp)):
+            refuse(f"refused: line_closes.csv already holds rows of the {t:%Y-%m-%d} mark - an earlier run stopped half way; the lead repairs the ledgers by hand (nothing appended)")
         ov = overlap_compare(fold_p, fold_t, tp, ov_csv)
         print_overlap(ov, ov_csv)
         new_parts = [[f"{t:%Y-%m-%d}", f"{tp:%Y-%m-%d}", "fill+marks", f"{dates[0]:%Y-%m-%d}", f"{dates[-1]:%Y-%m-%d}", fnum(vals["RES"]["b_part"]), fnum(vals["RAW"]["b_part"])]]
@@ -875,7 +990,8 @@ def mark_cmd(through, root=None, out=None, first=None):
         new_log = [] if ta is None else [[str(k_a), f"{ta:%Y-%m-%d}", f"{W.days[a['f']]:%Y-%m-%d}", f"{dates[0]:%Y-%m-%d}", fnum(tot_a["RES"]), fnum(tot_a["RAW"]), fnum(C_RES * tot_a["RES"])]]
         mrow = [f"{t:%Y-%m-%d}", f"{tp:%Y-%m-%d}", pin_t["folder"], pin_t["manifest_sha256"], pin_t["calendar_sha256"], utc_now(), str(len(dates)), f"{dates[0]:%Y-%m-%d}", f"{dates[-1]:%Y-%m-%d}",
                 fnum(vals["RES"]["daily"].sum()), fnum(vals["RAW"]["daily"].sum()), "" if k_a is None else str(k_a), sha_lf(os.path.abspath(__file__))]
-        for nm, new in (("line_parts.csv", new_parts), ("line_log.csv", new_log), ("line_daily.csv", new_daily), ("marks.csv", [mrow])):      # marks.csv last: its row is the commit record
+        new_closes = closes_rows(W, t, tp, ta, vals)
+        for nm, new in (("line_parts.csv", new_parts), ("line_log.csv", new_log), ("line_daily.csv", new_daily), ("line_closes.csv", new_closes), ("marks.csv", [mrow])):      # marks.csv last: its row is the commit record
             old = read_rows(os.path.join(out, nm))
             write_rows(os.path.join(out, nm), LOG_HEADS[nm], [[r[h] for h in LOG_HEADS[nm]] for r in old] + new)
     print_mark(W, t, lo, hi, a, b, vals, flags, listed, dates, k_a, tot_a, info, out)
@@ -890,18 +1006,38 @@ def print_mark(W, t, lo, hi, a, b, vals, flags, listed, dates, k_a, tot_a, info,
         v, sd = vals[cell], vals[cell]["daily"]
         print(f"  {cell}: these sessions {money(sd.sum())} (x {c} = {money(c * sd.sum())}): the new hold so far {money(v['b_part'])}" + ("" if a is None else f", the exiting hold's exit leg {money(v['a_exit'])}")
               + f"; unfilled picks {len(v['b']['unfilled_cols']) + (0 if a is None else len(v['a']['unfilled_cols']))}")
+        names = lambda cols, sides: ", ".join(f"{W.syms[c_]} ({'long' if s_ > 0 else 'short'})" for c_, s_ in zip(cols, sides))
         if a is not None:
             sc, ss = v["a"]["stopped_cols"], v["a"]["stopped_side"]
             if len(sc):
-                print("      exiting names with no open at the exit session (stopped printing: exit at the last mark, the registered rule): " + ", ".join(f"{W.syms[c]} ({'long' if s > 0 else 'short'})" for c, s in zip(sc, ss)))
+                print("      exiting names with no open at the exit session (stopped printing: exit at the last mark, the registered rule): " + names(sc, ss))
+            if len(v["a"]["late_stopped_cols"]):
+                print("      late-closed names with no close on the session before the exit session (stopped printing there: the last mark, the registered rule): " + names(v["a"]["late_stopped_cols"], v["a"]["late_stopped_side"]))
+        if len(v["b"]["stopped_cols"]):
+            print("      names closed on the session before their ex-date with no close there (stopped printing: exit at the last mark, the registered rule): " + names(v["b"]["stopped_cols"], v["b"]["stopped_side"]))
     last = info["tbis_last_day"]
     tb = "tbis n/a (no forward TBIS)" if (last is None or last < W.days[lo]) else f"tbis {flags['tbis']}"
-    print(f"  hygiene flags inside the booked sessions of the held names (kept, split-safe: nothing can be removed forward [L10]): split {flags['split']}, gap {flags['gap']}, {tb}, jump {flags['jump']}, spin-off / stock dividend {flags['spin']}"
+    print(f"  hygiene flags inside the booked sessions of the held names (kept on the split-safe path: none removes or closes a name [L10]): split {flags['split']}, gap {flags['gap']}, {tb}, jump {flags['jump']}"
           + (("; " + ", ".join(f"{c} {sym} ({why})" for c, sym, why in listed[:10]) + (f", ... {len(listed) - 10} more" if len(listed) > 10 else "")) if listed else ""))
+    print_closes(W, vals)
     if k_a is not None:
         print(f"  hold {k_a} (rank {a['rank_date']:%Y-%m-%d}) is complete: RES {money(tot_a['RES'])}, RAW {money(tot_a['RAW'])}, d_{k_a} = {C_RES} x RES = {money(C_RES * tot_a['RES'])} -> line_log.csv")
     daily = read_rows(os.path.join(out, "line_daily.csv"))
-    print(f"  appended {n} rows to line_daily.csv ({len(daily)} in all: RES {money(sum(float(r['RES']) for r in daily))}, RAW {money(sum(float(r['RAW']) for r in daily))} since {daily[0]['date']}), line_parts.csv, marks.csv" + ("" if k_a is None else ", line_log.csv"))
+    print(f"  appended {n} rows to line_daily.csv ({len(daily)} in all: RES {money(sum(float(r['RES']) for r in daily))}, RAW {money(sum(float(r['RAW']) for r in daily))} since {daily[0]['date']}), line_parts.csv, line_closes.csv, marks.csv" + ("" if k_a is None else ", line_log.csv"))
+
+
+def print_closes(W, vals):
+    """[N6] the spin-off / stock-dividend ex-dates of the held names: the positions CLOSED at the official close before them - 'in month' (the open hold, closed by this mark) and at the exit session (the exiting hold's late closes, whose exit cost this mark books on the exit
+    session's row) - and the late-recorded ex-dates (a calendar row for a session an earlier photograph already valued: NOT closed after the fact, the position exits at the open as held) -> prints; the rows are in line_closes.csv"""
+    flat = lambda key: [c for cell in M.CELLS for c in vals[cell][key]]
+    inm, ex, late = flat("b_closes"), flat("a_closes"), flat("a_late")
+    one = lambda c: f"{c['cell']} {W.syms[c['col']]} ({c['side']}) ex {W.days[c['ex_row']]:%Y-%m-%d}" + (f" closed {W.days[c['close_row']]:%Y-%m-%d}" if "close_row" in c else "")
+    lst = lambda xs: ", ".join(one(c) for c in xs[:10]) + (f", ... {len(xs) - 10} more" if len(xs) > 10 else "")
+    cost = ", ".join(f"{cell} {money(sum(c['amount'] for c in vals[cell]['a_closes']))}" for cell in M.CELLS)
+    print(f"  spin-off / stock-dividend ex-dates [N6]: {len(inm) + len(ex)} positions CLOSED at the official close before them (no mark, dividend or borrow after it, the exit cost on that row): {len(inm)} in month" + (f" ({lst(inm)})" if inm else "")
+          + f", {len(ex)} on the exit session" + (f" ({lst(ex)}; the exit cost they were not charged on that close is booked on the exit session's row: {cost})" if ex else "") + " -> line_closes.csv")
+    if late:
+        print(f"  late-recorded spin-off / stock-dividend ex-dates [N6](c): {len(late)} positions with an ex-date on a session an earlier photograph already valued, in this calendar only - NOT closed after the fact, they exit at the open as held: {lst(late)}")
 
 
 # ------------------------------------------------------------------ [N1] / [N3] numerics: the weekend fold, the null spread, the false-stop calibration, the monitor, the dollar read
@@ -1040,7 +1176,7 @@ def read_cmd(out=None, frozen=None):
 
 # ------------------------------------------------------------------ [N1] FREEZE: the constants of the monitor and of the dollar read, computed ONCE from walk-forward data
 def wf_world():
-    """the world of Stage A / r17_resmom_export.py: the registered loaders on the cached bars through 2025-06-27 (every input is cut before 2025-06-30 at read), the registered wide calendar (its sha pinned by WIDE_CA_SHA), TBIS, the house ES masters
+    """the world of Stage A / r17_resmom_export.py / r17_resmom_restate.py: the registered loaders on the cached bars through 2025-06-27 (every input is cut before 2025-06-30 at read), the registered wide calendar (its sha pinned by WIDE_CA_SHA), TBIS, the house ES masters
     and the hand-audit file exactly as Stage A applied it (apply_audit(read_audit()): none on file = nothing removed)"""
     t0 = time.time()
     cal, _ = M.wide_load(S.LB0)
@@ -1055,8 +1191,8 @@ def wf_world():
 
 
 def wf_holds(W, L):
-    """per cell, every traded WF rebalance's net P&L as Stage A books it: r17's run_cell on the registered picks, the hold's positions' P&L summed over its whole path (the fill at the open after the rank through the exit at the next rebalance's fill; costs,
-    borrow and dividends in) - and the daily series by stock session -> (meta [(rank date, fill date, exit date)], {cell: (n,)}, {cell: (T,)})"""
+    """per cell, every traded WF rebalance's net P&L as the S1 reading books it ([N7](a); L = rm_build(..., 'close')): r17's run_cell on the registered picks, the hold's positions' P&L summed over its whole path (the fill at the open after the rank through the exit at
+    the next rebalance's fill, or the close of the session before a spin-off / stock-dividend ex-date; costs, borrow and dividends in) - and the daily series by stock session -> (meta [(rank date, fill date, exit date)], {cell: (n,)}, {cell: (T,)})"""
     idx = [i for i, rec in enumerate(L.recs) if rec.traded]
     meta = [(W.days[L.recs[i].r], W.days[L.recs[i].f], W.days[L.recs[i].x]) for i in idx]
     pnl, series = {}, {}
@@ -1067,13 +1203,21 @@ def wf_holds(W, L):
     return meta, pnl, series
 
 
-def stage_a_record():
-    if not os.path.exists(STAGE_A):
-        refuse(f"refused: {STAGE_A} is not on file - Stage A's record is the reference of the freeze (nothing computed)")
-    with open(STAGE_A, encoding="utf-8") as f:
-        sa = json.load(f)
-    cells = sa["stageA"]["cells"]
-    return {c: float(cells[c]["base"]["net"]) for c in M.CELLS}, {c: int(cells[c]["base"]["n_units"]) for c in M.CELLS}, sa
+def restate_record(path=None):
+    """[N7](a) the reference of the freeze and of parity: the restatement's record (r17_resmom_restate.py's resmom_restate_close.json) -> ({cell: the S1 reading's WF net}, {cell: its rebalances}, the record). Refuses a record that is not the 'close' reading's or whose
+    export is not the one registered in [N7](c) (CELLS_CSV_SHA): the two files must be the same restatement. CHOICE [L26]: NOTE 1's comparison of the harness stamps with the reference record's is dropped - the restatement's record holds none; the freeze records
+    the stamps it ran with, and the $1 check of the 101 hold P&Ls against this record's nets is the proof that the S1 reading is the one reproduced"""
+    path = path or RESTATE_JSON
+    if not os.path.exists(path):
+        refuse(f"refused: {path} is not on file - the restatement's record is the reference of the freeze (nothing computed)")
+    with open(path, encoding="utf-8") as f:
+        js = json.load(f)
+    if js.get("restated_post_mode") != POST_MODE or POST_MODE not in js.get("readings", {}):
+        refuse(f"refused: {path} is not the restatement under post_mode {POST_MODE!r} (nothing computed)")
+    if js.get("restated_csv_sha256") != CELLS_CSV_SHA:
+        refuse(f"refused: {path} records the export sha256 {str(js.get('restated_csv_sha256'))[:8]}..., not the registered {CELLS_CSV_SHA[:8]}... - the record and the export are not the same restatement (nothing computed)")
+    cells = js["readings"][POST_MODE]["cells"]
+    return {c: float(cells[c]["net"]) for c in M.CELLS}, {c: int(cells[c]["n_units"]) for c in M.CELLS}, js
 
 
 def same_value(a, b, tol=1e-6, rel=1e-9):
@@ -1104,11 +1248,28 @@ def frozen_source(fz):
     return "\n".join(lines + ["}"])
 
 
+def save_freeze(out, fz, rec):
+    """[N7] the freeze's record -> freeze_s1.json in the output folder (+ .sha256), under the lock: written once; a later run that agrees rewrites nothing, one that differs REFUSES (a freeze is never overwritten). NOTE 1's freeze.json is not looked at, not read and not written"""
+    jp = os.path.join(out, FREEZE_JSON)
+    with line_lock(out):
+        if os.path.exists(jp):
+            with open(jp, encoding="utf-8") as f:
+                old = json.load(f)
+            if frozen_diff(fz, old["frozen"]):
+                refuse(f"refused: {jp} holds a different freeze (differs in {frozen_diff(fz, old['frozen'])}) - never overwritten (nothing written)")
+            print(f"{jp} is on file and agrees with this run - nothing rewritten")
+        else:
+            write_atomic(jp, json.dumps(rec, indent=1, default=R11.js))
+            write_atomic(jp + ".sha256", f"{sha_raw(jp)}  {FREEZE_JSON}\n")
+            print(f"written {jp} (+ .sha256 {sha_raw(jp)})")
+
+
 def freeze_cmd(out=None, frozen=None):
-    """[N1] ONCE, from walk-forward data only. (a) d_k = 0.264 x RES's net P&L of WF rebalance k = 1 .. 101, each as Stage A's registered reading books it (the 101 must sum to Stage A's RES net within $1, RAW's printed and held to the same
-    standard - CHOICE [L21] - else the freeze refuses); (b) B = the smallest of 3.00, 3.25 .. 8.00 whose false-stop rate is at most 5% (4,000 paths of 36 draws from the 101 d_k with their mean removed, numpy seed 20260929, read at 12 / 18 / 24 / 30 / 36);
-    (c) the dollar read's null spread from resmom_cells_daily_wf.csv (refused unless its sha256 is the registered one): weekend stamps folded into the Friday, rows from 2017-01-03, 20,000 draws of 756 rows, block 21, one sign per block, seed 20261016.
-    Prints the FROZEN block; with a FROZEN pasted in this file the run must reproduce it exactly or it refuses"""
+    """[N1] re-made on the restated reading by NOTE 2 [N7]: ONCE, from walk-forward data only. (a) d_k = 0.264 x RES's net P&L of WF rebalance k = 1 .. 101, each as the S1 reading books it (rm_build with post_mode 'close'; the 101 must sum to the restated RES net of
+    resmom_restate_close.json within $1, RAW's printed and held to the same standard - CHOICE [L21] - else the freeze refuses); (b) B = the smallest of 3.00, 3.25 .. 8.00 whose false-stop rate is at most 5% (4,000 paths of 36 draws from the 101 d_k with their mean removed,
+    numpy seed 20260929, read at 12 / 18 / 24 / 30 / 36); (c) the dollar read's null spread from resmom_cells_daily_wf_close.csv (refused unless its sha256 is the registered one): weekend stamps folded into the Friday, rows from 2017-01-03, 20,000 draws of 756 rows, block 21,
+    one sign per block, seed 20261016. Prints the FROZEN block; with a FROZEN pasted in this file the run must reproduce it exactly or it refuses. The record is freeze_s1.json (save_freeze); NOTE 1's freeze.json is never read or written.
+    CHOICE [L25]: the block carries the reading it was frozen on ('post_mode': 'close') among its keys, so a block frozen on another reading can never be taken for this one (it would differ in ['post_mode'] and the run would refuse)"""
     out = out or LINE_OUT
     fz0 = FROZEN if frozen is None else frozen
     reg = check_registered()
@@ -1120,21 +1281,20 @@ def freeze_cmd(out=None, frozen=None):
         refuse(f"refused: the export does not run {M.WF0:%Y-%m-%d} .. {CSV_END:%Y-%m-%d} (nothing computed)")
     t0 = time.time()
     W = wf_world()
-    L = M.rm_build(W, M.WF0, M.PRE_END, "remove")
+    L = M.rm_build(W, M.WF0, M.PRE_END, POST_MODE)
     meta, pnl, _ = wf_holds(W, L)
-    nets, units, sa = stage_a_record()
-    stamp_now, stamp_a = M.stamp(), {k: sa.get(k) for k in M.stamp()}
-    same_stamp = [k for k in stamp_now if stamp_now[k] != stamp_a[k]]
-    print("harness stamps vs Stage A's: " + ("all equal (r17_resmom.py, r15_ddw.py, r5_siporb.py, r11_risk.py, r12_mdl.py, r13_attn.py, the wide calendar's sha, the half-day list)" if not same_stamp else f"DIFFER in {same_stamp} (information: the $1 check below is the proof)"))
+    nets, units, _ = restate_record()
+    stamp_now = M.stamp()
+    print("harness stamp recorded with the freeze: " + ", ".join(f"{k.replace('_sha256', '')} {str(v)[:8]}" for k, v in stamp_now.items() if k.endswith("_sha256")) + " (the $1 check below against the restatement's record is the proof of the reading)")
     n = len(meta)
-    print(f"(a) {n} walk-forward rebalances (ranks {meta[0][0]:%Y-%m-%d} .. {meta[-1][0]:%Y-%m-%d}; holds {meta[0][1]:%Y-%m-%d} .. {meta[-1][2]:%Y-%m-%d}), net P&L of each hold as Stage A's registered reading books it (a flag inside the hold removes the position before ranking):")
+    print(f"(a) {n} walk-forward rebalances (ranks {meta[0][0]:%Y-%m-%d} .. {meta[-1][0]:%Y-%m-%d}; holds {meta[0][1]:%Y-%m-%d} .. {meta[-1][2]:%Y-%m-%d}), net P&L of each hold as the S1 reading books it ([N7]; no in-hold removal, a spin-off / stock-dividend ex-date closes the position at the prior close):")
     for i, (rk, fi, ex) in enumerate(meta):
         print(f"    k {i + 1:>3}  rank {rk:%Y-%m-%d}  fill {fi:%Y-%m-%d}  exit {ex:%Y-%m-%d}  RES {pnl['RES'][i]:>11,.2f}  RAW {pnl['RAW'][i]:>11,.2f}  d_k {C_RES * pnl['RES'][i]:>10,.2f}")
     for cell in M.CELLS:
         s = float(pnl[cell].sum())
-        print(f"    {cell}: the {n} holds sum to {s:,.4f}; Stage A's WF net {nets[cell]:,.4f} (difference {s - nets[cell]:+.6f}); Stage A's rebalances {units[cell]}")
+        print(f"    {cell}: the {n} holds sum to {s:,.4f}; the restatement's WF net {nets[cell]:,.4f} (difference {s - nets[cell]:+.6f}); its rebalances {units[cell]}")
         if n != units[cell] or abs(s - nets[cell]) > 1.0:
-            refuse(f"refused: {cell}'s {n} hold P&Ls sum to {s:,.4f}, not Stage A's {nets[cell]:,.4f} within $1 ({units[cell]} rebalances there) - the registered reading is not reproduced (nothing frozen)")
+            refuse(f"refused: {cell}'s {n} hold P&Ls sum to {s:,.4f}, not the restatement's {nets[cell]:,.4f} within $1 ({units[cell]} rebalances there) - the S1 reading is not reproduced (nothing frozen)")
     for cell in M.CELLS:
         cx = float(cs[cell].sum())
         if abs(cx - float(pnl[cell].sum())) > 0.01:
@@ -1154,11 +1314,11 @@ def freeze_cmd(out=None, frozen=None):
           f"sd of the draws' sums x {C_RES}):")
     print(f"    registered rows {reg_rows.index[0]:%Y-%m-%d} .. {reg_rows.index[-1]:%Y-%m-%d} ({sp['rows']:,} weekday rows): sd of the sums {sp['sd_sum']:,.2f}, SPREAD = {C_RES} x that = {sp['spread']:,.2f}")
     print(f"    beside, never used: all rows from {all_rows.index[0]:%Y-%m-%d} ({sp_all['rows']:,} rows): sd of the sums {sp_all['sd_sum']:,.2f}, spread {sp_all['spread']:,.2f}")
-    fz = {"c_res": C_RES, "c_raw": C_RAW, "B": float(B), "false_stop": {f"{b:.2f}": float(r) for b, r in tried}, "boot": dict(BOOT), "stop": {"paths": STOP["paths"], "steps": STOP["steps"], "seed": STOP["seed"], "looks": list(LOOKS)},
+    fz = {"c_res": C_RES, "c_raw": C_RAW, "post_mode": POST_MODE, "B": float(B), "false_stop": {f"{b:.2f}": float(r) for b, r in tried}, "boot": dict(BOOT), "stop": {"paths": STOP["paths"], "steps": STOP["steps"], "seed": STOP["seed"], "looks": list(LOOKS)},
           "rows_from": f"{reg_rows.index[0]:%Y-%m-%d}", "rows_to": f"{reg_rows.index[-1]:%Y-%m-%d}", "n_rows": int(sp["rows"]), "sd_sum": sp["sd_sum"], "spread": sp["spread"], "cells_csv_sha256": CELLS_CSV_SHA,
           "res_net": round(float(pnl["RES"].sum()), 6), "raw_net": round(float(pnl["RAW"].sum()), 6), "res_holds": [round(float(x), 6) for x in pnl["RES"]], "raw_holds": [round(float(x), 6) for x in pnl["RAW"]]}
     rec = {"frozen": fz, "holds": [{"k": i + 1, "rank": f"{rk:%Y-%m-%d}", "fill": f"{fi:%Y-%m-%d}", "exit": f"{ex:%Y-%m-%d}", "RES": float(pnl["RES"][i]), "RAW": float(pnl["RAW"][i]), "d_k": float(d[i])} for i, (rk, fi, ex) in enumerate(meta)],
-           "spread_all_rows_beside_never_used": {"rows": sp_all["rows"], "sd_sum": sp_all["sd_sum"], "spread": sp_all["spread"]}, "stage_a": {"net": nets, "rebalances": units, "harness_stamp_differs": same_stamp},
+           "spread_all_rows_beside_never_used": {"rows": sp_all["rows"], "sd_sum": sp_all["sd_sum"], "spread": sp_all["spread"]}, "restatement": {"net": nets, "rebalances": units, "record": RESTATE_JSON, "export": CELLS_CSV, "export_sha256": CELLS_CSV_SHA},
            "registered": reg, "harness_stamp": stamp_now, "tool_sha256_lf": sha_lf(os.path.abspath(__file__)), "created_utc": utc_now()}
     if fz0 is not None:
         bad = frozen_diff(fz, fz0)
@@ -1168,18 +1328,7 @@ def freeze_cmd(out=None, frozen=None):
     else:
         print("\nFROZEN block (paste it between FROZEN-BEGIN and FROZEN-END in r17_resmom_line.py, then run `freeze` again: it must reproduce it exactly):")
         print(frozen_source(fz))
-    jp = os.path.join(out, "freeze.json")
-    with line_lock(out):
-        if os.path.exists(jp):
-            with open(jp, encoding="utf-8") as f:
-                old = json.load(f)
-            if frozen_diff(fz, old["frozen"]):
-                refuse(f"refused: {jp} holds a different freeze (differs in {frozen_diff(fz, old['frozen'])}) - never overwritten (nothing written)")
-            print(f"{jp} is on file and agrees with this run - nothing rewritten")
-        else:
-            write_atomic(jp, json.dumps(rec, indent=1, default=R11.js))
-            write_atomic(jp + ".sha256", f"{sha_raw(jp)}  freeze.json\n")
-            print(f"written {jp} (+ .sha256 {sha_raw(jp)})")
+    save_freeze(out, fz, rec)
     return fz
 
 
@@ -1221,13 +1370,16 @@ def photo_from_cache(through, folder):
     return write_photo(folder, through, frames["raw"], frames["split"], df[(ev >= start) & (ev <= through)])
 
 
-# ------------------------------------------------------------------ PARITY: walk-forward only, against the registered harness and resmom_cells_daily_wf.csv
+# ------------------------------------------------------------------ PARITY: walk-forward only, against the registered harness (post_mode 'close') and resmom_cells_daily_wf_close.csv
 class View:
-    """a causal slice of a World for the mark path: the arrays hold_values reads, rows 0 .. hi and ONE NaN row after them (the phantom exit row) - nothing after hi is visible, so a month's mark cannot see the future"""
+    """a causal slice of a World for the mark path: the arrays hold_values / value_sessions read, rows 0 .. hi and ONE padding row after them (the phantom exit row: no price, no dividend, no spin-off / stock-dividend ex-date) - nothing after hi is visible, so a month's
+    mark cannot see the future. [N6] SPN (the spin-off / stock-dividend ex-date sessions) and its running count spcs (shape T+1, as attach_dividends builds it) are what close_rows, M.spn_hit and the close path of rm_units read; syms names the columns"""
     def __init__(self, W, hi):
         pad = lambda a, v=np.nan: np.vstack([a[:hi + 1], np.full((1, a.shape[1]), v)])
         self.Ao, self.Ac, self.Od, self.Cl, self.Dv, self.Dr = pad(W.Ao), pad(W.Ac), pad(W.Od), pad(W.Cl), pad(W.Dv, 0.0), pad(W.Dr, 0.0)
-        self.T = hi + 2
+        self.SPN = pad(W.SPN, False)
+        self.spcs = np.vstack([np.zeros((1, self.SPN.shape[1]), np.int32), np.cumsum(self.SPN, axis=0, dtype=np.int32)])
+        self.syms, self.T = W.syms, hi + 2
 
 
 def rec_hold(rec):
@@ -1237,37 +1389,50 @@ def rec_hold(rec):
 
 def emulate_marks(W, L):
     """the code path `mark` uses (value_sessions) run month by month over the registered rebalances: for each month-end photograph m the world is the causal View through its close, hold B = rebalance m-1 (filled at the first session after the previous
-    month-end, marked through this close) and hold A = rebalance m-2 (its exit leg at that session). The last step is the exit leg of the last resolved hold alone (its exit session is the first one after the last month-end in the data).
-    -> daily {cell: (T,) by stock session}, parts {cell: (n,) each hold's fill+marks piece + exit leg}"""
+    month-end, marked through this close) and hold A = rebalance m-2 (its exit leg at that session). [N6] / [N8](ii): the positions hold B closes at month m are handed to month m+1 as its a_closed - what the real mark reads back from line_closes.csv - and the
+    in-memory derivation (a_closed None: the filled picks with an ex-date in f < e <= x-1 of the one calendar) is cross-checked to be that very set (CHOICE [L29]: that cross-check is this tool's own addition to [N8](ii)). The last step is the exit leg of the last resolved hold alone (its exit session is the first one after the last
+    month-end in the data). -> daily {cell: (T,) by stock session}, parts {cell: (n,) each hold's fill+marks piece + exit leg}, extra {'late': the exit-session closes [{cell, side, col, x (the exit row), amount (booked on x's row), step}], 'rows': every close of a real
+    month-end as a line_closes.csv row tuple, 'bad': the (rank date, cell) whose derived set is not the handed-over one}"""
     recs = L.recs
     n = len(recs)
     ranks = [rec.r for rec in recs] + [r for r in M.rm_schedule(W.days)[0].tolist() if r > recs[-1].r][:1]
     daily, parts = {c: np.zeros(W.T) for c in M.CELLS}, {c: np.zeros(n) for c in M.CELLS}
     pk = rec_hold
+    late, rows, bad, handed = [], [], [], {}
     for m in range(1, n + 2):
         lo = ranks[m - 1] + 1
         hi = ranks[m] if m < len(ranks) else lo
         b = pk(recs[m - 1]) if m - 1 < n else None
         a = pk(recs[m - 2]) if 2 <= m and m - 2 < n else None
-        v = value_sessions(View(W, hi), lo, hi, a, b)
+        Wv = View(W, hi)
+        ac = None if a is None else {(c, s) for c in M.CELLS for s in handed.get(m - 2, {}).get(c, set())}
+        v = value_sessions(Wv, lo, hi, a, b, ac)
+        through = f"{W.days[hi]:%Y-%m-%d}" if m < len(ranks) else None
         for c in M.CELLS:
             daily[c][lo:hi + 1] += v[c]["daily"]
             if b is not None:
                 parts[c][m - 1] += v[c]["b_part"]
+                handed.setdefault(m - 1, {})[c] = {str(W.syms[x["col"]]) for x in v[c]["b_closes"]}
             if a is not None:
                 parts[c][m - 2] += v[c]["a_exit"]
-    return daily, parts
+                if derive_closed(Wv, a, lo, c) != handed.get(m - 2, {}).get(c, set()):
+                    bad.append((f"{W.days[recs[m - 2].r]:%Y-%m-%d}", c))
+                late += [{**x, "x": lo, "step": m} for x in v[c]["a_closes"]]
+            if through is not None:
+                for kind, key, i in ((KIND_IN, "b_closes", m - 1), (KIND_EXIT, "a_closes", m - 2)):
+                    rows += [(through, f"{W.days[recs[i].r]:%Y-%m-%d}", c, x["side"], str(W.syms[x["col"]]), f"{W.days[x['ex_row']]:%Y-%m-%d}", f"{W.days[x['close_row']]:%Y-%m-%d}", kind) for x in v[c][key]]
+    return daily, parts, {"late": late, "rows": rows, "bad": bad}
 
 
 def check_rank_identity(W, L):
-    """(i-1) the rank code path at the 101 WF ranks, given the registered inputs (the hold's exit row, so rm_one's look-ahead hygiene is the registered one): its picks - written to the rank file's bytes and read back - equal Stage A's
-    registered picks (names, sides, order, scores) in both cells -> (ok, worst rank date or None, n ranks)"""
+    """(i-1) the rank code path at the 101 WF ranks, given the registered inputs (the hold's exit row, post_mode 'close'): its picks - written to the rank file's bytes and read back - equal the S1 reading's registered picks (names, sides, order, scores) in both cells
+    -> (ok, worst rank date or None, n ranks)"""
     bad, n = [], 0
     for rec in L.recs:
         if not rec.traded:
             continue
         n += 1
-        rec2, _ = rank_picks(W, rec.r, rec.f, rec.x, "remove", phantom_fill=False)
+        rec2, _ = rank_picks(W, rec.r, rec.f, rec.x, POST_MODE, phantom_fill=False)
         back = list(csv.DictReader(io.StringIO(rank_bytes(rank_rows_of(W, rec2)).decode("ascii"))))
         for c in M.CELLS:
             for sd, idx in (("long", rec.pick[c][0]), ("short", rec.pick[c][1])):
@@ -1279,13 +1444,14 @@ def check_rank_identity(W, L):
 
 
 def check_forward_information(W, L):
-    """(i-2) the forward rank cannot know the hold (CHOICE [L5]) nor the fill's open (CHOICE [L6]): at each of the 101 WF ranks, rank_picks with x = -1 and the phantom fill rule against Stage A's registered picks. Differences must be explained: every name the
-    forward picks hold and the registered ones do not must be a name the registered reading removed before ranking (a hygiene flag or a spin-off inside the hold, no open at the fill session) -> (ok, info dict)"""
+    """(i-2) the forward rank cannot know the hold (CHOICE [L5]) nor the fill's open (CHOICE [L6]): at each of the 101 WF ranks, rank_picks with x = -1 and the phantom fill rule against the S1 reading's registered picks. [N8](i): under post_mode 'close' no in-hold
+    event removes a name, so a difference can come from the fill rule alone - every name the forward picks hold and the registered ones do not must be a name with no real open at its fill session ('no_real_open'); a hygiene flag or a spin-off inside the hold explains
+    nothing any more (a difference carrying only those is UNEXPLAINED and fails) -> (ok, info dict)"""
     n_diff_ranks, n_names, n_picks, why, unexplained, worst = 0, 0, 0, {}, [], (0, None)
     for rec in L.recs:
         if not rec.traded:
             continue
-        rec2, _ = rank_picks(W, rec.r, rec.f, -1, "remove", phantom_fill=True)
+        rec2, _ = rank_picks(W, rec.r, rec.f, -1, POST_MODE, phantom_fill=True)
         k = 0
         for c in M.CELLS:
             for q, sd in ((0, "long"), (1, "short")):
@@ -1294,13 +1460,13 @@ def check_forward_information(W, L):
                 n_picks += len(reg)
                 for j in sorted(fwd - reg):
                     k += 1
-                    hy = W.hyg(rec.f, rec.x, np.array([j]))[:, 0]
-                    sp = bool(M.spn_hit(W, rec.f + 1, rec.x, np.array([j]))[0])
-                    reasons = ["post_" + h for h, v in zip(M.HYG, hy) if v] + (["post_spin"] if sp else []) + (["no_real_open"] if not np.isfinite(W.Ao[rec.f, j]) else [])
-                    for rs in reasons or ["UNEXPLAINED"]:
-                        why[rs] = why.get(rs, 0) + 1
-                    if not reasons:
-                        unexplained.append((f"{W.days[rec.r]:%Y-%m-%d}", c, sd, str(W.syms[j])))
+                    if not np.isfinite(W.Ao[rec.f, j]):
+                        why["no_real_open"] = why.get("no_real_open", 0) + 1
+                    else:
+                        why["UNEXPLAINED"] = why.get("UNEXPLAINED", 0) + 1
+                        hy = W.hyg(rec.f, rec.x, np.array([j]))[:, 0]
+                        sp = bool(M.spn_hit(W, rec.f + 1, rec.x, np.array([j]))[0])
+                        unexplained.append((f"{W.days[rec.r]:%Y-%m-%d}", c, sd, str(W.syms[j]), "+".join(["post_" + h for h, v in zip(M.HYG, hy) if v] + (["post_spin"] if sp else [])) or "no flag"))
         n_names += k
         n_diff_ranks += int(k > 0)
         if k > worst[0]:
@@ -1308,25 +1474,43 @@ def check_forward_information(W, L):
     return not unexplained, {"ranks": sum(r.traded for r in L.recs), "ranks_differing": n_diff_ranks, "names_differing": n_names, "picks": n_picks, "reasons": why, "unexplained": unexplained[:5], "worst": worst}
 
 
-def check_daily(W, daily, cs):
-    """(ii) the mark path's daily series against resmom_cells_daily_wf.csv. The CSV is on #463's index (weekdays and weekend stamps, every row a date of that index); the mark path's series is by stock session. Common index = the CSV's rows: the mark path's
-    value on a date that is not a stock session is zero by construction, and the check also sums what the mark path books on dates the CSV does not have (must be 0) -> {cell: record}"""
+def check_daily(W, daily, cs, late=()):
+    """(ii) the mark path's daily series against resmom_cells_daily_wf_close.csv. The CSV is on #463's index (weekdays and weekend stamps, every row a date of that index); the mark path's series is by stock session. Common index = the CSV's rows: the mark path's
+    value on a date that is not a stock session is zero by construction, and the check also sums what the mark path books on dates the CSV does not have (must be 0). [N8](ii): every row to the cent EXCEPT the pairs (x-1, x) of the exit-session closes `late`
+    ([N6](b)): the registered S1 series books such a position's exit cost on the session before its exit session, the mark path on the exit session's row, so on each pair (mark path - CSV) must be minus the moved amount on x-1 and plus it on x (the pair's two rows
+    sum to the CSV's) -> {cell: record}; the record counts the late closes, their pairs and the dollars moved. CHOICE [L29]: [N8](ii) asks that a pair's two rows SUM to the CSV's to the cent and the moved amounts be listed; this check is the stricter form - each row
+    of the pair is off by exactly the moved amount the mark path books (so the sum follows) - and a pair row missing from the CSV's index fails"""
     idx = pd.DatetimeIndex(cs["date"])
+    at = {d: i for i, d in enumerate(idx)}
     res = {}
     for c in M.CELLS:
         s = pd.Series(daily[c], index=W.days)
         mine = s.reindex(idx).fillna(0.0).to_numpy()
-        diff = mine - cs[c].to_numpy(float)
+        want = cs[c].to_numpy(float).copy()
+        n_late, pairs, moved, missing = 0, set(), 0.0, 0
+        for l in late:
+            if l["cell"] != c:
+                continue
+            i0, i1 = at.get(W.days[l["x"] - 1]), at.get(W.days[l["x"]])
+            if i0 is None or i1 is None:
+                missing += 1
+                continue
+            want[i0] -= l["amount"]
+            want[i1] += l["amount"]
+            n_late, moved = n_late + 1, moved + l["amount"]
+            pairs.add(l["x"])
+        diff = mine - want
         j = int(np.argmax(np.abs(diff)))
-        res[c] = {"rows": int(len(idx)), "max_abs": float(abs(diff[j])), "worst_date": idx[j], "mine": float(mine[j]), "csv": float(cs[c].to_numpy(float)[j]), "off_index": float(np.abs(s[~s.index.isin(idx)]).sum()),
-                  "sum_mine": float(mine.sum()), "sum_csv": float(cs[c].sum())}
+        res[c] = {"rows": int(len(idx)), "max_abs": float("inf") if missing else float(abs(diff[j])), "worst_date": idx[j], "mine": float(mine[j]), "csv": float(cs[c].to_numpy(float)[j]), "want": float(want[j]),
+                  "off_index": float(np.abs(s[~s.index.isin(idx)]).sum()), "sum_mine": float(mine.sum()), "sum_csv": float(cs[c].sum()), "late": n_late, "pairs": len(pairs), "moved": moved, "missing_rows": missing}
     return res
 
 
-def check_chain(W, L, meta, pnl, cs, tmp, dates, make=None):
+def check_chain(W, L, meta, pnl, cs, tmp, dates, make=None, emu=None):
     """(iv) the whole forward chain on real WF data: photographs of the cache for consecutive month-ends (built in a temp folder), rank files written from the REGISTERED picks (so the valuation alone is under test), then pin -> mark for each month through the
-    code the real run uses (the first month-end of the chain plays the line's first photograph) -> the sessions line_daily.csv books equal the CSV's rows to the cent (the first session less the exit leg of the hold before the chain's first rank: the line has no hold before its
-    first rank), and each completed hold equals the freeze's hold P&L"""
+    code the real run uses (the first month-end of the chain plays the line's first photograph) -> the sessions line_daily.csv books equal the CSV's rows to the cent by [N8](ii)'s rule (the first session less the exit leg of the hold before the chain's first rank: the line
+    has no hold before its first rank; the (x-1, x) pairs of the chain's exit-session closes moved by the amounts the emulation `emu` = emulate_marks(W, L)'s result says - and a HALF pair when x-1 is the chain's last session: that mark booked the marks through the close without the exit
+    cost, the next photograph's mark - not in the chain - would book it; CHOICE [L29]: the half pair is this tool's reading of [N8](iv) for the chain's last month), each completed hold equals the freeze's hold P&L, and line_closes.csv holds exactly the emulation's closes of the chain's marks"""
     root, out = os.path.join(tmp, "photos"), os.path.join(tmp, "line_out")
     os.makedirs(root)
     first = TS(dates[0])
@@ -1334,7 +1518,21 @@ def check_chain(W, L, meta, pnl, cs, tmp, dates, make=None):
     lo0 = int(W.days.get_loc(first)) + 1                                                                                  # the line starts with the hold of its first rank: the hold BEFORE it (rank i0 - 1) exits at the open of lo0, a leg the line does not have - the registered series does
     i0 = ranks[first]
     prev = value_sessions(View(W, lo0), lo0, lo0, rec_hold(L.recs[i0 - 1]), None) if i0 > 0 else None
-    adj, first_day = {c: (prev[c]["a_exit"] if prev else 0.0) for c in M.CELLS}, f"{W.days[lo0]:%Y-%m-%d}"
+    adj = {c: (prev[c]["a_exit"] - sum(x["amount"] for x in prev[c]["a_closes"]) if prev else 0.0) for c in M.CELLS}      # what the CSV books on that row for the hold before the chain (an exit-session close's cost is on the CSV's row before it)
+    first_day = f"{W.days[lo0]:%Y-%m-%d}"
+    emu = emu or emulate_marks(W, L)
+    last_row = int(W.days.get_loc(TS(dates[-1])))
+    pair, full_x, half_x = {}, set(), set()
+    for l in emu[2]["late"]:
+        if lo0 < l["x"] <= last_row + 1:                                                                                  # the hold was marked through x-1 inside the chain: that row lacks the exit cost ...
+            key = (l["cell"], f"{W.days[l['x'] - 1]:%Y-%m-%d}")
+            pair[key] = pair.get(key, 0.0) - l["amount"]
+            if l["x"] <= last_row:                                                                                        # ... and the mark that books it on x's row is in the chain too (a full pair), or it is the next photograph's (a half pair)
+                key = (l["cell"], f"{W.days[l['x']]:%Y-%m-%d}")
+                pair[key] = pair.get(key, 0.0) + l["amount"]
+                full_x.add(l["x"])
+            else:
+                half_x.add(l["x"])
     for d in dates:
         (make or photo_from_cache)(d, os.path.join(root, f"{TS(d):%Y-%m-%d}"))
         i = ranks[TS(d)]
@@ -1349,7 +1547,7 @@ def check_chain(W, L, meta, pnl, cs, tmp, dates, make=None):
     worst, nrows = (0.0, None, None), 0
     for r in daily:
         for c in M.CELLS:
-            e = abs(float(r[c]) - (float(getattr(csv_by[r["date"]], c)) - (adj[c] if r["date"] == first_day else 0.0)))
+            e = abs(float(r[c]) - (float(getattr(csv_by[r["date"]], c)) - (adj[c] if r["date"] == first_day else 0.0) + pair.get((c, r["date"]), 0.0)))
             nrows += 1
             if e > worst[0]:
                 worst = (e, r["date"], c)
@@ -1360,8 +1558,13 @@ def check_chain(W, L, meta, pnl, cs, tmp, dates, make=None):
             e = abs(float(r[c]) - float(pnl[c][i]))
             if e > hold_err[0]:
                 hold_err = (e, r["rank_date"])
-    ok = bool(daily) and worst[0] < 0.005 and hold_err[0] < 0.005 and len(log) == len(dates) - 2
-    return ok, {"months": [f"{TS(d):%Y-%m-%d}" for d in dates], "sessions": len(daily), "cells_compared": nrows, "worst": worst, "holds_completed": len(log), "hold_worst": hold_err, "overlap_clean": "all identical" in buf.getvalue() or "differ" not in buf.getvalue()}
+    marks_ = {f"{TS(d):%Y-%m-%d}" for d in dates[1:]}
+    got = sorted(tuple(r[h] for h in LOG_HEADS["line_closes.csv"]) for r in read_rows(os.path.join(out, "line_closes.csv")))
+    want = sorted(r for r in emu[2]["rows"] if r[0] in marks_ and r[1] >= f"{first:%Y-%m-%d}")                              # the emulation's closes of the chain's marks (the first mark has no exiting hold: the one before the chain's first rank is not the line's)
+    closes_ok = got == want
+    ok = bool(daily) and worst[0] < 0.005 and hold_err[0] < 0.005 and len(log) == len(dates) - 2 and closes_ok
+    return ok, {"months": [f"{TS(d):%Y-%m-%d}" for d in dates], "sessions": len(daily), "cells_compared": nrows, "worst": worst, "holds_completed": len(log), "hold_worst": hold_err, "overlap_clean": "all identical" in buf.getvalue() or "differ" not in buf.getvalue(),
+                "closes": len(got), "closes_ok": closes_ok, "pairs": len(full_x), "half_pairs": len(half_x), "moved": float(sum(v for v in pair.values() if v > 0))}
 
 
 def check_photo_picks(W, dates, tmp, make=None):
@@ -1374,7 +1577,7 @@ def check_photo_picks(W, dates, tmp, make=None):
         with contextlib.redirect_stdout(io.StringIO()):
             _, _, _, _, _, _, rows = rank_core(folder, TS(d))
         i = int(W.days.get_loc(TS(d)))
-        rec2, _ = rank_picks(W, i, i + 1, -1, "remove", phantom_fill=True)
+        rec2, _ = rank_picks(W, i, i + 1, -1, POST_MODE, phantom_fill=True)
         rows2 = rank_rows_of(W, rec2)
         ok = len(rows) == len(rows2) and all(a[:3] == b[:3] and abs(a[3] - b[3]) <= 1e-12 * max(1.0, abs(b[3])) for a, b in zip(rows, rows2))
         res.append((f"{TS(d):%Y-%m-%d}", len(rows), ok))
@@ -1382,9 +1585,11 @@ def check_photo_picks(W, dates, tmp, make=None):
 
 
 def parity_cmd(out=None):
-    """walk-forward ONLY (every input is cut before 2025-06-30 by the harness's loaders; the photographs below are slices of that cut cache): PASS / FAIL per check with the worst row. The checks: (i-1) the rank code path reproduces Stage A's registered
-    picks at the 101 ranks; (i-2) the forward-information picks differ from them only by the registered reading's look-ahead removals (counted, explained); (i-3) the rank path through a photograph equals the same function on the full cache; (ii) the mark
-    code path, month by month, reproduces resmom_cells_daily_wf.csv's RES and RAW columns to the cent; (iii) the freeze's 101 hold P&Ls equal the daily series summed by hold; (iv) pin -> mark through photographs of the cache reproduce the CSV's rows"""
+    """[N8] walk-forward ONLY (every input is cut before 2025-06-30 by the harness's loaders; the photographs below are slices of that cut cache): PASS / FAIL per check with the worst row, against the S1 reading (rm_build with post_mode 'close') and
+    resmom_cells_daily_wf_close.csv. The checks: (i-1) the rank code path reproduces the S1 reading's registered picks at the 101 ranks; (i-2) the forward-information picks differ from them only by the fill rule (no real open at the fill session); (i-3) the rank path
+    through a photograph equals the same function on the full cache; (ii) the mark code path, month by month (each month's closes handed to the next, the in-memory derivation cross-checked), reproduces the CSV's RES and RAW columns to the cent on every row except the
+    (x-1, x) pairs of the exit-session closes, where the two rows move by exactly the amount booked a session later; (iii) the freeze's 101 hold P&Ls equal the daily series summed by hold; (iv) pin -> mark through photographs of the cache reproduce the CSV's rows by
+    the same rule, the holds and line_closes.csv"""
     check_registered()
     if not os.path.exists(CELLS_CSV) or sha_raw(CELLS_CSV) != CELLS_CSV_SHA:
         refuse(f"refused: {CELLS_CSV} is not the registered export (nothing computed)")
@@ -1392,39 +1597,45 @@ def parity_cmd(out=None):
     guard_dates(cs["date"], "the parity run")
     t0, fails = time.time(), []
     W = wf_world()
-    L = M.rm_build(W, M.WF0, M.PRE_END, "remove")
+    L = M.rm_build(W, M.WF0, M.PRE_END, POST_MODE)
     meta, pnl, series = wf_holds(W, L)
-    nets, units, _ = stage_a_record()
-    print(f"parity (walk-forward only): {len(meta)} registered rebalances, RES {pnl['RES'].sum():,.2f} / RAW {pnl['RAW'].sum():,.2f} (Stage A {nets['RES']:,.2f} / {nets['RAW']:,.2f})")
+    nets, units, _ = restate_record()
+    print(f"parity (walk-forward only): {len(meta)} rebalances of the S1 reading (post_mode '{POST_MODE}'), RES {pnl['RES'].sum():,.2f} / RAW {pnl['RAW'].sum():,.2f} (the restatement {nets['RES']:,.2f} / {nets['RAW']:,.2f})")
 
     def verdict(name, ok, text):
         print(f"{name}: {'PASS' if ok else 'FAIL'} - {text}")
         if not ok:
             fails.append(name)
     ok, worst, n = check_rank_identity(W, L)
-    verdict("(i-1) rank path = Stage A's registered picks", ok, f"{n} ranks x 2 cells x (50 long + 50 short): names, sides, order and scores equal after the rank file's write / read-back" + ("" if ok else f"; first mismatch {worst:%Y-%m-%d}"))
+    verdict("(i-1) rank path = the S1 reading's registered picks", ok, f"{n} ranks x 2 cells x (50 long + 50 short): names, sides, order and scores equal after the rank file's write / read-back" + ("" if ok else f"; first mismatch {worst:%Y-%m-%d}"))
     ok, info = check_forward_information(W, L)
-    print(f"(i-2) {'PASS' if ok else 'FAIL'} - forward-information picks (no hold known, no fill open: [L5] [L6]) against the registered picks: {info['ranks_differing']} of {info['ranks']} ranks differ, {info['names_differing']} of {info['picks']:,} picks "
-          f"({info['names_differing'] / max(info['picks'], 1):.2%}) are names the registered reading removed before ranking; by reason (a name may carry several) {info['reasons']}; worst rank {info['worst'][1]:%Y-%m-%d} ({info['worst'][0]} names)"
+    print(f"(i-2) {'PASS' if ok else 'FAIL'} - forward-information picks (no hold known, no fill open: [L5] [L6]) against the S1 reading's picks: {info['ranks_differing']} of {info['ranks']} ranks differ, {info['names_differing']} of {info['picks']:,} picks "
+          f"({info['names_differing'] / max(info['picks'], 1):.2%}) are names with no real open at their fill session - the fill rule alone, [N8](i): no hygiene reason can explain a difference under S1; by reason (a name may carry several) {info['reasons']}; worst rank {info['worst'][1]:%Y-%m-%d} ({info['worst'][0]} names)"
           + ("" if ok else f"; UNEXPLAINED {info['unexplained']}"))
     if not ok:
         fails.append("(i-2)")
-    daily, parts = emulate_marks(W, L)
-    res = check_daily(W, daily, cs)
-    ok = all(r["max_abs"] < 0.005 and r["off_index"] == 0.0 for r in res.values())
-    verdict("(ii) mark path = resmom_cells_daily_wf.csv", ok, "; ".join(f"{c}: {r['rows']:,} rows, worst {r['worst_date']:%Y-%m-%d} (mark path {r['mine']:,.6f} vs CSV {r['csv']:,.6f}, |diff| {r['max_abs']:.2e}), booked off the CSV's index {r['off_index']:.2f}, sums {r['sum_mine']:,.4f} / {r['sum_csv']:,.4f}"
-                                                                for c, r in res.items()) + " (the CSV is on #463's index - weekdays plus Sunday stamps; the stock cell's value there is 0 and the mark path books by stock session: compared on the CSV's rows)")
+    daily, parts, ex = emulate_marks(W, L)
+    res = check_daily(W, daily, cs, ex["late"])
+    ok = all(r["max_abs"] < 0.005 and r["off_index"] == 0.0 for r in res.values()) and not ex["bad"]
+    n_in, n_ex = sum(r[7] == KIND_IN for r in ex["rows"]), sum(r[7] == KIND_EXIT for r in ex["rows"])
+    verdict("(ii) mark path = resmom_cells_daily_wf_close.csv", ok, "; ".join(f"{c}: {r['rows']:,} rows, worst {r['worst_date']:%Y-%m-%d} (mark path {r['mine']:,.6f} vs CSV {r['csv']:,.6f}" + (f", expected {r['want']:,.6f} after its exit-session pair" if r["want"] != r["csv"] else "")
+                                                                                                    + f", |diff| {r['max_abs']:.2e}), booked off the CSV's index {r['off_index']:.2f}, sums {r['sum_mine']:,.4f} / {r['sum_csv']:,.4f}" for c, r in res.items())
+            + f". Closed by the marks: {n_in} 'in month' and {n_ex} 'exit session' (line_closes.csv rows of both cells); exit-session closes " + "; ".join(f"{c} {r['late']} on {r['pairs']} pairs (x-1, x), the exit cost moved ${r['moved']:,.2f} to the later row, each pair's two rows sum to the CSV's" for c, r in res.items())
+            + ("; the in-memory derivation of 'closed by the previous mark' = what the previous month's mark closed at every hold" if not ex["bad"] else f"; DERIVED CLOSED SET != THE PREVIOUS MARK'S at {ex['bad'][:5]}")
+            + " (the CSV is on #463's index - weekdays plus Sunday stamps; the stock cell's value there is 0 and the mark path books by stock session: compared on the CSV's rows)")
     err = {c: np.abs(parts[c] - pnl[c]) for c in M.CELLS}
     worst_i = {c: int(np.argmax(err[c])) for c in M.CELLS}
     ok = all(err[c].max() < 0.005 for c in M.CELLS)
-    verdict("(iii) freeze's hold P&Ls = the daily series summed by hold", ok, "; ".join(f"{c}: {len(pnl[c])} holds, worst k {worst_i[c] + 1} (rank {meta[worst_i[c]][0]:%Y-%m-%d}) |diff| {err[c].max():.2e}" for c in M.CELLS))
+    verdict("(iii) freeze's hold P&Ls = the daily series summed by hold", ok, "; ".join(f"{c}: {len(pnl[c])} holds, worst k {worst_i[c] + 1} (rank {meta[worst_i[c]][0]:%Y-%m-%d}) |diff| {err[c].max():.2e}" for c in M.CELLS) + " (an exit-session close moves its exit cost between two sessions of the same hold: the hold's total is the S1 total)")
     tmp = tempfile.mkdtemp(prefix="resmomline_parity_")
     try:
         ok, res3 = check_photo_picks(W, ("2018-06-29", "2020-03-31", "2025-04-30"), tmp)
         verdict("(i-3) rank path through a photograph = the full cache", ok, "; ".join(f"{d}: {n} rows {'equal' if o else 'DIFFER'}" for d, n, o in res3))
-        ok, r4 = check_chain(W, L, meta, pnl, cs, tmp, ("2020-02-28", "2020-03-31", "2020-04-30", "2020-05-29"))
+        ok, r4 = check_chain(W, L, meta, pnl, cs, tmp, ("2020-02-28", "2020-03-31", "2020-04-30", "2020-05-29"), emu=(daily, parts, ex))
+        same_closes = "= the emulation's closes of those marks" if r4["closes_ok"] else "DIFFER from the emulation's closes of those marks"
         verdict("(iv) pin -> mark through photographs = the CSV", ok, f"months {', '.join(r4['months'])} (the first plays the line's first photograph): {r4['sessions']} sessions, {r4['cells_compared']} cell-rows compared, worst |diff| {r4['worst'][0]:.2e} "
-                                                                    f"({r4['worst'][1]} {r4['worst'][2]}); {r4['holds_completed']} completed holds vs the freeze's, worst |diff| {r4['hold_worst'][0]:.2e} ({r4['hold_worst'][1]}); overlap between consecutive photographs {'identical' if r4['overlap_clean'] else 'DIFFERS'}")
+                                                                    f"({r4['worst'][1]} {r4['worst'][2]}) by the pair rule ({r4['pairs']} exit-session pairs in the chain, {r4['half_pairs']} half pair at its end); {r4['holds_completed']} completed holds vs the freeze's, worst |diff| {r4['hold_worst'][0]:.2e} ({r4['hold_worst'][1]}); "
+                                                                    f"line_closes.csv {r4['closes']} rows {same_closes}; overlap between consecutive photographs {'identical' if r4['overlap_clean'] else 'DIFFERS'}")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print(f"PARITY: {'ALL PASS' if not fails else 'FAIL ' + ', '.join(fails)} ({time.time() - t0:.0f}s)")
@@ -1483,9 +1694,14 @@ class FakeMarket:
     days; a split taken by then adjusts the split frame of every photograph pulled after it, never the raw frame). The market return is the fake ES master's own (r15_ddw.ESFake), so the regression recovers the planted betas. Planted: UPA / SPLX / NOFILL / DLST are persistent winners
     (DLST's last bar is 2026-11-18: it is delisted inside the first hold; NOFILL has no bar on 2026-11-02, the first hold's fill session; SPLX splits 2-for-1 on 2026-12-09, inside the second hold), EARLY / LATE / UPB are winners for ONE stretch only (EARLY inside the formation window of the
     2026-10-30 rank alone, LATE and UPB inside the 2026-11-30 rank's alone: the two ranks' picks differ), DNA .. DNE are persistent losers (DNA falls 15% on a spin-off ex-date, 2026-11-12, DNB pays dividends while it is short); UPA pays dividends on 2026-11-13, on 2026-12-01 (the first
-    hold's exit session = the second hold's fill session) and on 2026-12-18; N03 carries one TBIS flag (2025-12-05); 24 noise names fill the universe"""
+    hold's exit session = the second hold's fill session) and on 2026-12-18; N03 carries one TBIS flag (2025-12-05); 24 noise names fill the universe.
+    [N6] S1: the spin-off / stock-dividend calendar rows planted for the held names - IN MONTH: DNA's spin-off (2026-11-12, a short of the first hold), UPB's stock dividend 2026-12-10 (a long of the second hold), DNE's stock dividend 2026-12-17 (a short of the second hold) with
+    NO bar on 2026-12-16, the session before it (a name with no close at e-1: it exits at its last mark); ON AN EXIT SESSION: DND's stock dividend on 2026-12-01 (the first hold's exit session = the second hold's fill session) and LATE's on 2027-01-04 (the second hold's exit session
+    = the third hold's fill session) - a late close for the hold that exits, bought ex for the hold that fills -, plus DNA's second spin-off row on 2026-12-01 (already closed by 11-12's); and late_row(), the one calendar row only a later pull holds (DNC's spin-off of 2026-11-20, a
+    session inside the first hold that the month-end photograph had already valued: a late-recorded row)"""
     FIRST, LAST = "2024-11-01", "2027-02-26"
     SPLIT_DAY, DELIST_DAY, SPIN_DAY, NOFILL_DAY, TBIS_DAY = TS("2026-12-09"), TS("2026-11-18"), TS("2026-11-12"), TS("2026-11-02"), "2025-12-05"
+    EXIT1_DAY, EXIT2_DAY, UPB_DAY, DNE_DAY, DNE_GAP_DAY, LATE_ROW_DAY = TS("2026-12-01"), TS("2027-01-04"), TS("2026-12-10"), TS("2026-12-17"), TS("2026-12-16"), TS("2026-11-20")
 
     def __init__(self, seed=5):
         rng = np.random.default_rng(seed)
@@ -1513,7 +1729,7 @@ class FakeMarket:
             o = np.r_[c[0], c[:-1]] * (1.0 + gap)
             frames.append(pd.DataFrame({"symbol": name, "date": days, "o": o, "h": np.maximum(o, c) * 1.01, "l": np.minimum(o, c) * 0.99, "c": c, "v": rng.uniform(2e6, 5e6, T).astype("int64")}))
         eco = pd.concat(frames, ignore_index=True)
-        gone = ((eco["symbol"] == "DLST") & (eco["date"] > self.DELIST_DAY)) | ((eco["symbol"] == "NOFILL") & (eco["date"] == self.NOFILL_DAY))
+        gone = ((eco["symbol"] == "DLST") & (eco["date"] > self.DELIST_DAY)) | ((eco["symbol"] == "NOFILL") & (eco["date"] == self.NOFILL_DAY)) | ((eco["symbol"] == "DNE") & (eco["date"] == self.DNE_GAP_DAY))
         self.eco = eco[~gone].reset_index(drop=True)                                       # the economic series: split-adjusted as of the latest pull
         self.raw = self.eco.copy()
         pre = ((self.raw["symbol"] == "SPLX") & (self.raw["date"] < self.SPLIT_DAY)).to_numpy()
@@ -1531,6 +1747,11 @@ class FakeMarket:
         add("cash_dividend", "ZZZZ", "2026-11-16", "0.1")                                    # a name no photograph holds: counted by the loader, never placed
         add("forward_split", "SPLX", self.SPLIT_DAY, "2", "2", "1")
         add("spin_off", "DNA", self.SPIN_DAY)
+        add("spin_off", "DNA", self.EXIT1_DAY)                                               # [N6] DNA again, on the first hold's exit session: the position was closed on 11-11 already (a zero exit leg, not a late close)
+        add("stock_dividend", "DND", self.EXIT1_DAY)                                         # [N6](b) the first hold's exit session: its short in DND is a LATE close; the second hold's fill session: bought ex
+        add("stock_dividend", "UPB", self.UPB_DAY)                                           # [N6] in month, a long of the second hold
+        add("stock_dividend", "DNE", self.DNE_DAY)                                           # [N6] in month, a short of the second hold, with no bar on the session before (DNE_GAP_DAY)
+        add("stock_dividend", "LATE", self.EXIT2_DAY)                                        # [N6](b) the second hold's exit session (late close) = the third hold's fill session (bought ex)
         self.ca = pd.DataFrame(rows)
 
     def photograph(self, through):
@@ -1540,6 +1761,10 @@ class FakeMarket:
         cut = lambda df: df[(df["date"] >= start) & (df["date"] <= through)].reset_index(drop=True)
         ev = pd.to_datetime(self.ca["ex_date"])
         return cut(self.raw), cut(self.eco if through >= self.SPLIT_DAY else self.raw), self.ca[(ev >= start) & (ev <= through)].reset_index(drop=True)
+
+    def late_row(self):
+        """the calendar row only a later pull holds ([N6](c)): DNC's spin-off on LATE_ROW_DAY, a session inside the first hold that the month-end photograph of 2026-11-30 had already valued"""
+        return {**{c_: "" for c_ in M.CA_COLS}, "type": "spin_off", "symbol": "DNC", "ex_date": f"{self.LATE_ROW_DAY:%Y-%m-%d}", "process_date": f"{self.LATE_ROW_DAY:%Y-%m-%d}", "special": "false"}
 
     def make(self, through, folder):
         raw, spl, cal = self.photograph(through)
@@ -1587,10 +1812,12 @@ def world_with_calendar(folder, t, es="stub"):
 
 
 def oracle_daily(W, ranks, rows, hi):
-    """plain python: every cell's daily P&L by session of the holds of `ranks` (hold k = rank k: filled at the open after it, exits at the open after the NEXT rank; the last is open and valued through row hi), from the rank files' names and M.brute_path (carried marks, 5 bps a side,
-    borrow, dividends) at $4,000 a name; a pick with no open at its fill session is not filled -> ({cell: (T,)}, {(rank date, cell): the hold's total through min(exit, hi)})"""
+    """plain python: every cell's daily P&L by session of the holds of `ranks` (hold k = rank k: filled at the open after it, exits at the open after the NEXT rank; the last is open and valued through row hi), from the rank files' names, at $4,000 a name; a pick with no open at its fill
+    session is not filled. The S1 reading ([N6]) by r17's own plain-python paths: a name with a spin-off / stock-dividend ex-date e in f < e <= x is priced by M.brute_close_path (closed at the close of e-1: carried marks, 5 bps a side, the exit cost on that row, borrow and dividends before e),
+    any other by M.brute_path (held to the exit: carried marks, 5 bps a side, borrow, dividends) -> ({cell: (T,)} the S1 reading's own daily series, {(rank date, cell): the hold's total through min(exit, hi)}, {'closes': [(k, cell, side, symbol, e)] the closed positions, 'moved':
+    [(k, cell, x, amount)] the exit-session ones (e = x) with the exit cost - brute_close_path less brute_path on the column before the exit - that the mark books on x's row instead of the row before it})"""
     ix = {str(s_): j for j, s_ in enumerate(W.syms)}
-    out, tot = {c: np.zeros(W.T) for c in M.CELLS}, {}
+    out, tot, closes, moved = {c: np.zeros(W.T) for c in M.CELLS}, {}, [], []
     for k, rk in enumerate(ranks):
         f = int(W.days.get_loc(rk)) + 1
         x = int(W.days.get_loc(ranks[k + 1])) + 1 if k + 1 < len(ranks) else hi + 1
@@ -1601,11 +1828,20 @@ def oracle_daily(W, ranks, rows, hi):
                 j = ix[r["symbol"]]
                 if r["cell"] != c or not math.isfinite(W.Od[f, j] / W.F[f, j]):
                     continue
-                path, _ = M.brute_path(W, f, x, j, 1 if r["side"] == "long" else -1, False)
+                sd = 1 if r["side"] == "long" else -1
+                e = next((s_ for s_ in range(f + 1, x + 1) if W.Sp_in[s_, j]), -1)
+                if e >= 0:
+                    path, _ = M.brute_close_path(W, f, x, j, sd, e)
+                    closes.append((k, c, r["side"], r["symbol"], e))
+                    if e == x:
+                        held, _ = M.brute_path(W, f, x, j, sd, False)
+                        moved.append((k, c, x, M.SPEC["slot"] * (path[x - 1 - f] - held[x - 1 - f])))
+                else:
+                    path, _ = M.brute_path(W, f, x, j, sd, False)
                 v = M.SPEC["slot"] * np.array(path[:last - f + 1])
                 out[c][f:last + 1] += v
                 tot[(rk, c)] += float(v.sum())
-    return out, tot
+    return out, tot, {"closes": closes, "moved": moved}
 
 
 def brute_forward_rank(W, r, f):
@@ -1648,17 +1884,23 @@ FZ_TEST = {"c_res": C_RES, "B": 3.0, "false_stop": {"3.00": 0.049}, "spread": 10
 
 
 def t_constants():
-    """the registered numbers as written in NOTE 1 / the line's registration, and the two registrations unchanged"""
+    """the registered numbers as written in NOTE 1 / NOTE 2 / the line's registration, and the three registrations unchanged"""
     assert (C_RES, C_RAW, LOOKS, C_STAR, FIRST_RANK, FIRST_FILL) == (0.264, 0.233, (12, 18, 24, 30, 36), 2.47, TS("2026-10-30"), TS("2026-11-02"))
     assert BOOT == {"draws": 20000, "rows": 756, "block": 21, "chunk": 2500, "seed": 20261016} and BOOT["rows"] == 36 * BOOT["block"]
     assert STOP["paths"] == 4000 and STOP["steps"] == 36 and STOP["seed"] == 20260929 and STOP["max_false"] == 0.05 and len(STOP["bounds"]) == 21 and STOP["bounds"][0] == 3.0 and STOP["bounds"][-1] == 8.0 and BOUND_EX == 2.0
     assert SEALED == (TS("2025-06-30"), TS("2026-06-30")) and WF_ROWS_FROM == TS("2017-01-03") and WF_ROWS_ALL == TS("2016-07-01") and CSV_END == TS("2025-06-29")
-    assert CELLS_CSV_SHA == "bed7bf8b98d201894471cd3e72bd146bb87260c6cc8d1ac54b8167f923d41819" and M.CELLS == ("RES", "RAW") and M.SPEC["n_side"] == 50 and M.SPEC["slot"] == 4000.0
+    assert M.CELLS == ("RES", "RAW") and M.SPEC["n_side"] == 50 and M.SPEC["slot"] == 4000.0
+    assert POST_MODE == "close" and POST_MODE in M.POST_MODES and NOTE2_SHA == "1382813fa89148a8183700f37df08d9ad6b6eea67ac4b4bf099288bc9280d23d" and (KIND_IN, KIND_EXIT) == ("in month", "exit session")
+    assert CELLS_CSV_SHA == "e204dd53419a22bcc69045cc5d17ff42c86203fb06b58fa538b10beb7ba25d18" and os.path.basename(CELLS_CSV) == "resmom_cells_daily_wf_close.csv"                              # [N7](c) the restated export
+    assert CELLS_CSV_SHA_NOTE1 == "bed7bf8b98d201894471cd3e72bd146bb87260c6cc8d1ac54b8167f923d41819" and os.path.basename(CELLS_CSV_NOTE1) == "resmom_cells_daily_wf.csv"                      # NOTE 1's, the record only
+    assert os.path.basename(RESTATE_JSON) == "resmom_restate_close.json" and (FREEZE_JSON, FREEZE_JSON_NOTE1) == ("freeze_s1.json", "freeze.json") and LOG_HEADS["line_closes.csv"][:2] == ("through", "rank_date") and "line_closes.csv" in MARK_LEDGERS and MARK_LEDGERS[-1] == "marks.csv"
     reg = check_registered()
-    assert reg["note1_sha256_lf"] == NOTE_SHA and reg["line_prereg_sha256_lf"] == LINE_SHA
-    with patched(sys.modules[__name__], NOTE_SHA="0" * 64):
-        refuses(check_registered, "DIFFERS from the registered text", "a changed NOTE 1")
-    say("constants as registered (c 0.264 / 0.233, looks 12 .. 36, c* 2.47, bootstrap 20,000 x 756 block 21 seed 20261016, stop 4,000 x 36 seed 20260929 B 3.00 .. 8.00, bound 2.0); the line's registration and NOTE 1 verified by LF sha256, a changed one refuses")
+    assert reg["note1_sha256_lf"] == NOTE_SHA and reg["note2_sha256_lf"] == NOTE2_SHA and reg["line_prereg_sha256_lf"] == LINE_SHA
+    for nm in ("LINE_SHA", "NOTE_SHA", "NOTE2_SHA"):
+        with patched(sys.modules[__name__], **{nm: "0" * 64}):
+            refuses(check_registered, "DIFFERS from the registered text", f"a changed {nm}")
+    say("constants as registered (c 0.264 / 0.233, looks 12 .. 36, c* 2.47, bootstrap 20,000 x 756 block 21 seed 20261016, stop 4,000 x 36 seed 20260929 B 3.00 .. 8.00, bound 2.0; NOTE 2: the reading 'close', the restated export e204dd53..., the record resmom_restate_close.json, freeze_s1.json, "
+        "line_closes.csv before marks.csv); the line's registration, NOTE 1 and NOTE 2 verified by LF sha256, a changed one refuses")
 
 
 def t_hold_next(tmp):
@@ -1695,18 +1937,24 @@ def t_hold_next(tmp):
 
 
 def t_frozen():
-    """the pasted FROZEN block is internally consistent (a damaged paste cannot pass): the constants are the registered ones, B is on the grid and the smallest bound within 5% of the printed table, the net / spread / hold counts agree with each other"""
+    """NOTE 1's block is kept intact as the record (FROZEN_NOTE1: B 3.00, spread $24,126.51, 101 holds summing to the nets, its own export's sha256) and is not the block the tool reads; the S1 block FROZEN (None until the lead pastes the re-freeze) is, once pasted, internally consistent
+    (a damaged paste cannot pass): the S1 reading and export, the constants of [N1], B on the grid and the smallest bound within 5% of the printed table, the net / spread / hold counts agreeing with each other"""
+    n1 = FROZEN_NOTE1
+    assert n1["B"] == 3.0 and n1["false_stop"] == {"3.00": 0.0225} and n1["spread"] == 24126.50784954107 and n1["sd_sum"] == 91388.28730886769 and n1["n_rows"] == 2214 and n1["rows_to"] == "2025-06-27" and n1["cells_csv_sha256"] == CELLS_CSV_SHA_NOTE1
+    assert len(n1["res_holds"]) == len(n1["raw_holds"]) == 101 and n1["res_net"] == 234037.217375 and n1["raw_net"] == 303027.760496 and abs(sum(n1["res_holds"]) - n1["res_net"]) < 1e-3 and abs(sum(n1["raw_holds"]) - n1["raw_net"]) < 1e-3
+    assert n1["res_holds"][0] == 3668.281272 and n1["res_holds"][-1] == 3149.350873 and n1["raw_holds"][0] == 5195.089808 and n1["raw_holds"][-1] == 13549.596344 and "post_mode" not in n1 and n1["cells_csv_sha256"] != CELLS_CSV_SHA
     if FROZEN is None:
-        say("FROZEN is not pasted yet (read refuses until it is)")
+        say("FROZEN (the S1 re-freeze, [N7]) is not pasted yet (read refuses until it is); FROZEN_NOTE1 intact as the record (B 3.00, spread $24,126.51, 101 + 101 holds summing to $234,037 / $303,028, its own export's sha256) and never read")
         return
     fz = FROZEN
-    assert fz["c_res"] == C_RES and fz["c_raw"] == C_RAW and fz["boot"] == BOOT and fz["cells_csv_sha256"] == CELLS_CSV_SHA and fz["stop"] == {"paths": STOP["paths"], "steps": STOP["steps"], "seed": STOP["seed"], "looks": list(LOOKS)}
+    assert fz is not FROZEN_NOTE1 and fz != FROZEN_NOTE1 and fz["post_mode"] == POST_MODE and fz["cells_csv_sha256"] == CELLS_CSV_SHA
+    assert fz["c_res"] == C_RES and fz["c_raw"] == C_RAW and fz["boot"] == BOOT and fz["stop"] == {"paths": STOP["paths"], "steps": STOP["steps"], "seed": STOP["seed"], "looks": list(LOOKS)}
     assert fz["rows_from"] == f"{WF_ROWS_FROM:%Y-%m-%d}" and fz["n_rows"] > 2000 and abs(fz["spread"] - C_RES * fz["sd_sum"]) < 1e-6 * fz["spread"]
     assert len(fz["res_holds"]) == len(fz["raw_holds"]) == 101 and abs(sum(fz["res_holds"]) - fz["res_net"]) < 1e-3 and abs(sum(fz["raw_holds"]) - fz["raw_net"]) < 1e-3
     tried = sorted(float(k) for k in fz["false_stop"])
     assert tried == [b for b in STOP["bounds"] if b <= fz["B"]] and fz["B"] in STOP["bounds"] and all(fz["false_stop"][f"{b:.2f}"] > STOP["max_false"] for b in tried[:-1]) and fz["false_stop"][f"{fz['B']:.2f}"] <= STOP["max_false"]
     assert frozen_diff(json.loads(json.dumps(fz)), fz) == []
-    say(f"FROZEN block consistent: B {fz['B']:.2f} on the grid and the smallest bound within 5% of its printed table ({', '.join(f'{k}: {v:.2%}' for k, v in fz['false_stop'].items())}), spread = 0.264 x the sd of the sums, 101 RES / RAW holds summing to the nets, the registered constants")
+    say(f"FROZEN block consistent: the S1 reading, B {fz['B']:.2f} on the grid and the smallest bound within 5% of its printed table ({', '.join(f'{k}: {v:.2%}' for k, v in fz['false_stop'].items())}), spread = 0.264 x the sd of the sums, 101 RES / RAW holds summing to the nets, the registered constants; FROZEN_NOTE1 intact beside it")
 
 
 def t_calendar():
@@ -1910,8 +2158,10 @@ def t_read(tmp):
 
 # ---- the chain on fake photographs: pin -> rank -> mark, four month-ends, every refusal
 def t_chain(tmp, mk):
-    """four fake photographs (2026-10-30 / 11-30 / 12-31 / 2027-01-29 - the line's first four month-ends; the third as Alpaca pulled it that day: the close of UPA on 11-30 restated +1%, one bar of N10 missing, one calendar row more) through pin, rank and mark by the code the real run uses, with
-    the numbers recounted by plain python (r17's brute_* on ONE unrestated world) -> the facts parity-on-fakes and the hand-over use"""
+    """four fake photographs (2026-10-30 / 11-30 / 12-31 / 2027-01-29 - the line's first four month-ends; the third as Alpaca pulled it that day: the close of UPA on 11-30 restated +1%, one bar of N10 missing, two calendar rows more - a cash dividend of a name nobody holds and DNC's spin-off
+    of 2026-11-20, a LATE-RECORDED row) through pin, rank and mark by the code the real run uses, with the numbers recounted by plain python (r17's brute_* on ONE unrestated world; the S1 reading's brute_close_path for every name with a spin-off / stock-dividend ex-date in its hold) -> the facts
+    parity-on-fakes and the hand-over use. The S1 cases ([N6]): (a) in month - DNA's spin-off (a short, hold 1), UPB's stock dividend (a long, hold 2), DNE's (a short, hold 2) with no bar on the session before it; (b) on the exit session - DND's (a short, hold 1: a late close, the second hold's
+    fill session) and LATE's (a long, hold 2: a late close), DNA's second row on hold 1's exit session (already closed: a zero exit leg); (c) on the fill session - DND in hold 2 and LATE in hold 3 are bought ex, not closed; (d) the late-recorded DNC row: not closed, listed"""
     me = sys.modules[__name__]
     root, out = os.path.join(tmp, "photos"), os.path.join(tmp, "line_out")
     T = [TS(d) for d in ("2026-10-30", "2026-11-30", "2026-12-31", "2027-01-29")]
@@ -1924,7 +2174,7 @@ def t_chain(tmp, mk):
             df.loc[m_, "c"] = df.loc[m_, "c"] * 1.01
         gone = lambda df: df[~((df["symbol"] == "N10") & (df["date"] == TS("2026-11-12")))].reset_index(drop=True)
         extra = {**{c_: "" for c_ in M.CA_COLS}, "type": "cash_dividend", "symbol": "QQQQ", "ex_date": "2026-11-16", "process_date": "2026-11-16", "rate": "0.15", "special": "false"}
-        return gone(raw), gone(spl), pd.concat([cal, pd.DataFrame([extra])], ignore_index=True)
+        return gone(raw), gone(spl), pd.concat([cal, pd.DataFrame([extra, mk.late_row()])], ignore_index=True)           # + [N6](c) DNC's spin-off of 2026-11-20: a row this pull holds and the 11-30 photograph did not, on a session already valued
 
     def tweak(raw, spl, cal):
         m_ = ((raw["symbol"] == "N00") & (raw["date"] == T[0])).to_numpy()
@@ -2063,8 +2313,11 @@ def t_chain(tmp, mk):
     days1 = list(mk.days[(mk.days > T[0]) & (mk.days <= T[1])])
     L = lambda n: read_rows(os.path.join(out, n))
     assert r1["dates"] == days1 and len(days1) == 20 and r1["completed_k"] is None
-    assert [len(L(n)) for n in ("line_daily.csv", "line_parts.csv", "line_log.csv", "marks.csv")] == [20, 1, 0, 1] and [r_["date"] for r_ in L("line_daily.csv")] == [f"{d:%Y-%m-%d}" for d in days1]
-    assert text1.count("unfilled picks 1") == 2 and "tbis n/a (no forward TBIS)" in text1 and r1["flags"]["spin"] == 2 and ("RES", "DNA", "spin") in r1["listed"], (text1, r1["listed"])
+    assert [len(L(n)) for n in ("line_daily.csv", "line_parts.csv", "line_log.csv", "line_closes.csv", "marks.csv")] == [20, 1, 0, 2, 1] and [r_["date"] for r_ in L("line_daily.csv")] == [f"{d:%Y-%m-%d}" for d in days1]
+    assert text1.count("unfilled picks 1") == 2 and "tbis n/a (no forward TBIS)" in text1 and set(r1["flags"]) == set(M.HYG), (text1, r1["flags"])        # [N6] the spin-off is no hygiene flag any more: it closes the position
+    assert [tuple(r_[h] for h in LOG_HEADS["line_closes.csv"]) for r_ in L("line_closes.csv")] == [(D[1], D[0], c, "short", "DNA", "2026-11-12", "2026-11-11", "in month") for c in M.CELLS], L("line_closes.csv")      # DNA's spin-off of 11-12 closes both cells' short at the close of 11-11
+    assert "2 positions CLOSED at the official close before them" in text1 and "2 in month (RES DNA (short) ex 2026-11-12 closed 2026-11-11, RAW DNA (short) ex 2026-11-12 closed 2026-11-11), 0 on the exit session" in text1 and "late-recorded" not in text1, text1
+    assert all(r1["vals"][c]["a"] is None and not r1["vals"][c]["a_closes"] and not r1["vals"][c]["a_late"] and len(r1["vals"][c]["b_closes"]) == 1 and not len(r1["vals"][c]["b"]["stopped_cols"]) for c in M.CELLS)
     ov = r1["overlap"]
     assert text1.count("all identical") == 2 and ov["cells_total"] == 0 and all(f_["differing_rows"] == f_["only_prev"] == f_["only_cur"] == 0 for f_ in ov["frames"].values()) and ov["calendar"]["only_prev"] == ov["calendar"]["only_cur"] == 0
     assert ov["rows_total"] == 0 and ov["calendar_csv"] is None and not os.path.exists(os.path.join(out, f"overlap_{D[1]}.csv")) and L("marks.csv")[0]["sessions"] == "20" and L("marks.csv")[0]["completed_k"] == "" and len(L("marks.csv")[0]["tool_sha256_lf"]) == 64
@@ -2075,16 +2328,19 @@ def t_chain(tmp, mk):
     refuses(lambda: mark_cmd(D[1], root, out), "line_parts.csv already holds rows of the 2026-11-30 mark", "a mark that stopped half way: its parts are on file")
     write_rows(os.path.join(out, "line_parts.csv"), LOG_HEADS["line_parts.csv"], [])
     refuses(lambda: mark_cmd(D[1], root, out), "line_daily.csv already holds", "a session already in line_daily.csv")
+    write_rows(os.path.join(out, "line_daily.csv"), LOG_HEADS["line_daily.csv"], [])
+    refuses(lambda: mark_cmd(D[1], root, out), "line_closes.csv already holds rows of the 2026-11-30 mark", "a mark that stopped half way: its closes are on file")                      # [N6](c) the new ledger has its half-way guard too
     os.replace(os.path.join(tmp, "marks_aside.csv"), os.path.join(out, "marks.csv"))
-    with open(os.path.join(out, "line_parts.csv"), "wb") as fh:
-        fh.write(snap["line_parts.csv"])
+    for n in ("line_parts.csv", "line_daily.csv"):
+        with open(os.path.join(out, n), "wb") as fh:
+            fh.write(snap[n])
     assert all(open(os.path.join(out, n), "rb").read() == snap[n] for n in MARK_LEDGERS)
     out_n = os.path.join(tmp, "line_out_nan")
     os.makedirs(out_n)
     write_rows(os.path.join(out_n, "pins.csv"), PINS_HEAD, [[p_[h] for h in PINS_HEAD] for p_ in read_rows(os.path.join(out, "pins.csv")) if p_["through"] in (D[0], D[1])])
     for n in (f"rank_{D[0]}.csv", f"rank_{D[1]}.csv"):
         shutil.copy(os.path.join(out, n), os.path.join(out_n, n))
-    nan_vals = lambda W_, lo_, hi_, a_=None, b_=None: {c: {"daily": np.full(hi_ - lo_ + 1, np.nan), "a_exit": 0.0, "b_part": float("nan")} for c in M.CELLS}
+    nan_vals = lambda W_, lo_, hi_, a_=None, b_=None, ac_=None: {c: {"daily": np.full(hi_ - lo_ + 1, np.nan), "a_exit": 0.0, "b_part": float("nan"), "a": None, "b": None, "b_closes": [], "a_closes": [], "a_late": [], "a_done": set()} for c in M.CELLS}
     with patched(me, value_sessions=nan_vals):
         refuses(lambda: mark_cmd(D[1], root, out_n), "a non-finite value in the valuation", "a valuation that is not a number")
     assert not any(os.path.exists(os.path.join(out_n, n)) for n in MARK_LEDGERS)
@@ -2120,8 +2376,18 @@ def t_chain(tmp, mk):
     for n in ("pins.csv", f"rank_{D[0]}.csv", f"rank_{D[1]}.csv"):
         shutil.copy(os.path.join(out, n), os.path.join(out_k, n))
     refuses(lambda: mark_cmd(D[2], root, out_k), "no valued fill and marks", "the previous photograph was never marked")
-    say("mark 2026-11-30 (the first photograph that can append): 20 sessions valued from this photograph, 1 part, no completed hold, appended once to line_daily / line_parts / marks; the NOFILL pick unfilled (counted), the DNA spin-off flagged and kept; the overlap with the 10-30 photograph all identical; "
-        "a duplicate refuses (marks.csv, and with that row removed the half-way guards on line_parts.csv and line_daily.csv) leaving every ledger byte-equal, a valuation that is not a number refuses before any write; refuses a gap in the chain of pins, a missing rank file, a missing pin, a held name the photograph does not carry (naming the hold: number, rank, role) and a previous photograph never marked")
+    out_x = os.path.join(tmp, "line_out_nocloses")                                                                         # [N6](c) the exiting hold's zero exit legs come from line_closes.csv: without it the mark cannot know what was closed
+    shutil.copytree(out, out_x)
+    os.remove(os.path.join(out_x, "line_closes.csv"))
+    refuses(lambda: mark_cmd(D[2], root, out_x), "line_closes.csv is not on file although the 2026-10-30 hold was marked", "the previous mark's closes are gone")
+    out_y = os.path.join(tmp, "line_out_stray")                                                                            # ... and a row naming a position the hold does not hold is a ledger that disagrees with the rank file
+    shutil.copytree(out, out_y)
+    write_rows(os.path.join(out_y, "line_closes.csv"), LOG_HEADS["line_closes.csv"], [[r_[h] for h in LOG_HEADS["line_closes.csv"]] for r_ in L("line_closes.csv")] + [[D[1], D[0], "RES", "long", "ZZZZ", "2026-11-12", "2026-11-11", KIND_IN]])
+    refuses(lambda: mark_cmd(D[2], root, out_y), "['ZZZZ'] as closed in the RES picks of the hold exiting", "a close on file for a name the hold does not hold")
+    assert not any(os.path.exists(os.path.join(p_, "line_daily.csv")) and len(read_rows(os.path.join(p_, "line_daily.csv"))) != 20 for p_ in (out_x, out_y))
+    say("mark 2026-11-30 (the first photograph that can append): 20 sessions valued from this photograph, 1 part, no completed hold, appended once to line_daily / line_parts / line_closes / marks; the NOFILL pick unfilled (counted), DNA's spin-off of 11-12 CLOSES the short in both cells at the close of 11-11 (line_closes.csv: 'in month') and the "
+        "hygiene flags carry no spin-off any more; the overlap with the 10-30 photograph all identical; a duplicate refuses (marks.csv, and with that row removed the half-way guards on line_parts.csv, line_daily.csv and line_closes.csv) leaving every ledger byte-equal, a valuation that is not a number refuses before any write; refuses a gap in the chain of pins, "
+        "a missing rank file, a missing pin, a held name the photograph does not carry (naming the hold: number, rank, role), a previous photograph never marked, a line_closes.csv that is gone and one that names a position the exiting hold does not hold")
 
     real_pw = photo_world
     calls = []
@@ -2135,35 +2401,43 @@ def t_chain(tmp, mk):
     log = L("line_log.csv")
     assert r2["completed_k"] == 1 and [x_["k"] for x_ in log] == ["1"] and log[0]["rank_date"] == D[0] and log[0]["fill_date"] == "2026-11-02" and log[0]["exit_date"] == "2026-12-01"
     assert "hold 1 (rank 2026-10-30) is complete" in text2 and "DLST (long)" in text2 and text2.count("unfilled picks 1") == 2 and any(x_[1] == "SPLX" and "split" in x_[2] for x_ in r2["listed"]) and r2["flags"]["split"] >= 1
+    assert "exiting names with no open at the exit session (stopped printing: exit at the last mark, the registered rule): DLST (long)" in text2                                    # the registered stopped rule at the exit, unchanged by S1
+    assert "names closed on the session before their ex-date with no close there (stopped printing: exit at the last mark, the registered rule): DNE (short)" in text2 and text2.count("names closed on the session before their ex-date") == 2       # (e) DNE: no bar on 12-16, closed there
+    assert "6 positions CLOSED at the official close before them" in text2 and "4 in month (" in text2 and "2 on the exit session (" in text2 and "ex 2026-12-01 closed 2026-11-30" in text2 and "ex 2026-12-10 closed 2026-12-09" in text2 and "ex 2026-12-17 closed 2026-12-16" in text2, text2
+    assert "late-recorded spin-off / stock-dividend ex-dates [N6](c): 2 positions" in text2 and "RES DNC (short) ex 2026-11-20" in text2 and "RAW DNC (short) ex 2026-11-20" in text2                          # (d) the row only this pull holds: listed, not closed
+    assert all(r2["vals"][c]["a_done"] == {"DNA"} and len(r2["vals"][c]["a_closes"]) == 1 and len(r2["vals"][c]["a_late"]) == 1 and len(r2["vals"][c]["b_closes"]) == 2 for c in M.CELLS)      # DNA closed in month by the 11-30 mark (zero exit leg), DND a late close, DNC late-recorded, UPB + DNE closed in this mark
     lo_ = max(TS(json.load(open(os.path.join(root, f, "manifest.json")))["start"]) for f in (D[1], D[2]))
     n_win = int(((mk.days >= lo_) & (mk.days <= T[1])).sum())
     ov = r2["overlap"]
     assert ov["frames"]["raw"]["differing_rows"] == 1 and ov["frames"]["raw"]["cells_by_field"] == {"o": 0, "h": 0, "l": 0, "c": 1, "v": 0} and ov["frames"]["raw"]["only_prev"] == 1 and ov["frames"]["raw"]["only_cur"] == 0
     assert ov["frames"]["split"]["differing_rows"] == n_win + 1 and ov["frames"]["split"]["cells_by_field"] == {"o": n_win, "h": n_win, "l": n_win, "c": n_win + 1, "v": 0} and ov["frames"]["split"]["only_prev"] == 1
-    assert ov["calendar"]["only_prev"] == 0 and ov["calendar"]["only_cur"] == 1 and ov["cells_total"] == 4 * n_win + 2 and "differ" in text2
+    assert ov["calendar"]["only_prev"] == 0 and ov["calendar"]["only_cur"] == 2 and ov["cells_total"] == 4 * n_win + 2 and "differ" in text2
     csv_rows = read_rows(os.path.join(out, f"overlap_{D[2]}.csv"))
     assert len(csv_rows) == ov["cells_total"] + ov["rows_total"] == ov["lines_written"] and ov["rows_total"] == 2 and sum(r_["kind"] == "row_only_previous" and r_["symbol"] == "N10" for r_ in csv_rows) == 2
     assert [r_["symbol"] for r_ in csv_rows if r_["kind"] == "cell" and r_["symbol"] == "UPA"] == ["UPA", "UPA"] and any(r_["symbol"] == "UPA" and r_["date"] == D[1] and r_["field"] == "c" and r_["frame"] == "raw" for r_ in csv_rows)
     cal_rows = read_rows(ov["calendar_csv"])
-    assert len(cal_rows) == 1 and cal_rows[0]["side"] == "current_only" and cal_rows[0]["symbol"] == "QQQQ" and cal_rows[0]["ex_date"] == "2026-11-16"
-    assert "only in the current: cash_dividend QQQQ ex 2026-11-16" in text2 and "N10 2026-11-12: a bar only in the previous photograph" in text2 and f"UPA {D[1]} c: previous" in text2 and "more cells / one-sided bars of this frame in" in text2
-    say(f"mark 2026-12-31 builds exactly ONE world (this photograph's: no earlier photograph's bars are valued), completes hold 1 (RES / RAW, d_1 = 0.264 x RES) in line_log.csv, exits the delisted DLST by the registered rule (no open at the exit session: its last mark, printed), flags SPLX's split inside the booked hold; "
-        f"the overlap print reports EVERY difference against the 11-30 photograph - the restated UPA close (1 cell in each frame), the missing N10 bar, the extra calendar row and the {n_win} SPLX sessions the split restated in the split frame ({4 * n_win + 2} cells, all written to overlap_{D[2]}.csv)")
+    assert sorted((r_["side"], r_["symbol"]) for r_ in cal_rows) == [("current_only", "DNC"), ("current_only", "QQQQ")] and {r_["ex_date"] for r_ in cal_rows} == {"2026-11-16", "2026-11-20"}
+    assert "only in the current: cash_dividend QQQQ ex 2026-11-16" in text2 and "only in the current: spin_off DNC ex 2026-11-20" in text2 and "N10 2026-11-12: a bar only in the previous photograph" in text2 and f"UPA {D[1]} c: previous" in text2 and "more cells / one-sided bars of this frame in" in text2
+    say(f"mark 2026-12-31 builds exactly ONE world (this photograph's: no earlier photograph's bars are valued), completes hold 1 (RES / RAW, d_1 = 0.264 x RES) in line_log.csv, exits the delisted DLST by the registered rule (no open at the exit session: its last mark, printed); [N6] 6 closes (3 a cell) - UPB (a long) and "
+        f"DNE (a short, NO close on the session before its ex-date: stopped, printed) closed in month by this mark, DND's short closed late (its ex-date is hold 1's exit session: the exit cost moved to the exit session's row), DNA's exit leg zero (closed in month by the previous mark) - and DNC's late-recorded row listed, not closed; "
+        f"the overlap print reports EVERY difference against the 11-30 photograph - the restated UPA close (1 cell in each frame), the missing N10 bar, the two extra calendar rows and the {n_win} SPLX sessions the split restated in the split frame ({4 * n_win + 2} cells, all written to overlap_{D[2]}.csv)")
 
     r3, text3 = captured(mark_cmd, D[3], root, out)
     ov = r3["overlap"]
     assert r3["completed_k"] == 2 and ov["frames"]["raw"]["differing_rows"] == 1 and ov["frames"]["raw"]["only_cur"] == 1 and ov["frames"]["raw"]["only_prev"] == 0 and ov["frames"]["split"]["differing_rows"] == 1 and ov["frames"]["split"]["only_cur"] == 1
-    assert ov["calendar"]["only_prev"] == 1 and ov["calendar"]["only_cur"] == 0
+    assert ov["calendar"]["only_prev"] == 2 and ov["calendar"]["only_cur"] == 0
+    assert "2 positions CLOSED at the official close before them" in text3 and "0 in month" in text3 and "2 on the exit session (RES LATE (long) ex 2027-01-04 closed 2026-12-31, RAW LATE (long) ex 2027-01-04 closed 2026-12-31;" in text3 and "late-recorded" not in text3, text3
+    assert all(r3["vals"][c]["a_done"] == {"UPB", "DNE"} and len(r3["vals"][c]["a_closes"]) == 1 and not r3["vals"][c]["a_late"] and not r3["vals"][c]["b_closes"] for c in M.CELLS)           # hold 2: UPB + DNE closed in month by the 12-31 mark (zero exit legs), LATE a late close; hold 3: LATE bought ex on its fill session, nothing closed
     snap_final = {n: open(os.path.join(out, n), "rb").read() for n in MARK_LEDGERS}
-    assert snap_final["line_daily.csv"].startswith(snap["line_daily.csv"]) and snap_final["line_parts.csv"].startswith(snap["line_parts.csv"])                  # append-only: the first mark's rows are byte-for-byte where they were
+    assert snap_final["line_daily.csv"].startswith(snap["line_daily.csv"]) and snap_final["line_parts.csv"].startswith(snap["line_parts.csv"]) and snap_final["line_closes.csv"].startswith(snap["line_closes.csv"])      # append-only: the first mark's rows are byte-for-byte where they were
 
-    # ---------------------------------------------------------------- every appended number against ONE unrestated world, recounted in plain python
+    # ---------------------------------------------------------------- every appended number against ONE unrestated world, recounted in plain python (the S1 reading: M.brute_close_path for every name with an ex-date in its hold)
     (W3, info3), _ = captured(world_with_calendar, os.path.join(root, D[3]), T[3], "stub")
     ranks = [d for d, _ in rank_files(out)][:3]
     rows_by = {d: read_rank(p) for d, p in rank_files(out)}
     hi = W3.T - 2
     assert W3.days[hi] == T[3] and ranks == T[:3]
-    orc, tot = oracle_daily(W3, ranks, rows_by, hi)
+    orc, tot, info_o = oracle_daily(W3, ranks, rows_by, hi)
     ix = {str(s_): j for j, s_ in enumerate(W3.syms)}
     jU, f0_, i1 = ix["UPA"], int(W3.days.get_loc(T[0])) + 1, int(W3.days.get_loc(T[1]))
     mrel = W3.Ac[i1, jU] / W3.Ao[f0_, jU]
@@ -2172,30 +2446,97 @@ def t_chain(tmp, mk):
         side = next((1 if r_["side"] == "long" else -1 for r_ in rows_by[T[0]] if r_["cell"] == c and r_["symbol"] == "UPA"), 0)
         delta[c] = M.SPEC["slot"] * (side * (-0.01 * mrel) - (side < 0) * (M.BORROW / 252.0) * 0.01 * mrel)
     assert delta["RES"] != 0.0
+    # the S1 cases the oracle sees in its ONE calendar are exactly the planted ones ((a) in month, (b) on the exit session) - and none of the bought-ex ones ((c) an ex-date on the fill session); DNC's late-recorded row is in no photograph but the 12-31 one
+    closed = sorted({(k, side, sym) for k, c_, side, sym, e in info_o["closes"]})
+    assert closed == [(0, "short", "DNA"), (0, "short", "DND"), (1, "long", "LATE"), (1, "long", "UPB"), (1, "short", "DNE")], closed
+    assert all(sum(1 for k, c_, side, sym, e in info_o["closes"] if (k, side, sym) == key) == 2 for key in closed)             # both cells hold each of them
+    f_of = lambda k: int(W3.days.get_loc(ranks[k])) + 1
+    assert W3.Sp_in[f_of(1), ix["DND"]] and W3.Sp_in[f_of(1), ix["DNA"]] and W3.Sp_in[f_of(2), ix["LATE"]]                       # an ex-date ON the fill session of hold 2 (DND, DNA) and of hold 3 (LATE) ...
+    assert not any((k == 1 and sym in ("DND", "DNA")) or (k == 2 and sym == "LATE") for k, c_, side, sym, e in info_o["closes"])    # ... bought ex: held, not closed
+    assert not W3.Sp_in[:, ix["DNC"]].any() and sorted((k, c_) for k, c_, x_, a_ in info_o["moved"]) == [(0, "RAW"), (0, "RES"), (1, "RAW"), (1, "RES")] and all(-2.6 < a_ < -1.4 for k, c_, x_, a_ in info_o["moved"])
+    pair = {}
+    for k, c, x_row, amount in info_o["moved"]:                                                                              # the exit-session closes: the S1 series books the exit cost on the session before the exit session, the mark on the exit session's row
+        for dx, sg in ((-1, -1.0), (0, 1.0)):
+            pair[(c, x_row + dx)] = pair.get((c, x_row + dx), 0.0) + sg * amount
     daily = L("line_daily.csv")
     first_row = int(W3.days.get_loc(T[0])) + 1
     assert [r_["date"] for r_ in daily] == [f"{d:%Y-%m-%d}" for d in W3.days[first_row:hi + 1]], len(daily)
     exit_day = f"{W3.days[i1 + 1]:%Y-%m-%d}"
-    worst = 0.0
+    worst, worst_plain = 0.0, 0.0
     for r_ in daily:
         i = int(W3.days.get_loc(TS(r_["date"])))
         for c in M.CELLS:
-            worst = max(worst, abs(float(r_[c]) - (orc[c][i] + (delta[c] if r_["date"] == exit_day else 0.0))))
+            base = orc[c][i] + (delta[c] if r_["date"] == exit_day else 0.0)
+            worst = max(worst, abs(float(r_[c]) - (base + pair.get((c, i), 0.0))))
+            worst_plain = max(worst_plain, abs(float(r_[c]) - base))
         assert abs(float(r_["RES_line"]) - C_RES * float(r_["RES"])) < 1e-9 and abs(float(r_["RAW_line"]) - C_RAW * float(r_["RAW"])) < 1e-9
     assert worst < 1e-6, worst
+    assert worst_plain > 1.0, worst_plain                                                                                     # without the pair rule the rows would not match: the exit costs really are booked a session later
     log = L("line_log.csv")
     assert [x_["k"] for x_ in log] == ["1", "2"] and [x_["rank_date"] for x_ in log] == [D[0], D[1]] and log[1]["fill_date"] == "2026-12-01" and log[1]["exit_date"] == "2027-01-04"
     for k in (0, 1):
         for c in M.CELLS:
-            assert abs(float(log[k][c]) - (tot[(ranks[k], c)] + (delta[c] if k == 0 else 0.0))) < 1e-6, (k, c, log[k][c], tot[(ranks[k], c)])
+            assert abs(float(log[k][c]) - (tot[(ranks[k], c)] + (delta[c] if k == 0 else 0.0))) < 1e-6, (k, c, log[k][c], tot[(ranks[k], c)])           # a hold's total is the S1 total (brute_close_path) to the cent, closes in month or late
         assert abs(float(log[k]["d_k"]) - C_RES * float(log[k]["RES"])) < 1e-9
+
+    def exit_leg(k, c):
+        """plain python: hold k's exit leg as the mark books it ([N6]) - a position closed in month 0, an exit-session close the moved cost, every other filled pick its held path's exit column"""
+        f, x = f_of(k), f_of(k + 1)
+        leg = 0.0
+        for r_ in rows_by[ranks[k]]:
+            j = ix[r_["symbol"]]
+            if r_["cell"] != c or not math.isfinite(W3.Od[f, j] / W3.F[f, j]):
+                continue
+            sd = 1 if r_["side"] == "long" else -1
+            e = next((s_ for s_ in range(f + 1, x + 1) if W3.Sp_in[s_, j]), -1)
+            held, _ = M.brute_path(W3, f, x, j, sd, False)
+            if e < 0:
+                leg += M.SPEC["slot"] * held[-1]
+            elif e == x:
+                shut, _ = M.brute_close_path(W3, f, x, j, sd, e)
+                leg += M.SPEC["slot"] * (shut[x - 1 - f] - held[x - 1 - f])
+        return leg
     parts = L("line_parts.csv")
     assert [(p["rank_date"], p["part"]) for p in parts] == [(D[0], "fill+marks"), (D[0], "exit"), (D[1], "fill+marks"), (D[1], "exit"), (D[2], "fill+marks")]
     for c in M.CELLS:
         assert abs(float(parts[4][c]) - tot[(ranks[2], c)]) < 1e-6 and abs(sum(float(p[c]) for p in parts) - sum(float(r_[c]) for r_ in daily)) < 1e-6
+        assert abs(float(parts[1][c]) - (exit_leg(0, c) + delta[c])) < 1e-6 and abs(float(parts[3][c]) - exit_leg(1, c)) < 1e-6                                  # the exit legs: zero for the closed-in-month, the moved cost for the late closes, the held exit column for the rest (DNC, late-recorded, included)
+        assert abs(float(parts[0][c]) - (tot[(ranks[0], c)] - exit_leg(0, c))) < 1e-6 and abs(float(parts[2][c]) - (tot[(ranks[1], c)] - exit_leg(1, c))) < 1e-6   # and the fill+marks pieces are the rest of the S1 totals
     assert abs(float(parts[0]["RES"]) + float(parts[1]["RES"]) - float(log[0]["RES"])) < 1e-9 and abs(float(parts[2]["RES"]) + float(parts[3]["RES"]) - float(log[1]["RES"])) < 1e-9
-    say(f"every appended number against ONE unrestated world and M.brute_path (plain python: carried marks, 5 bps a side, borrow, the dividends incl. the one on the exit session, the 2-for-1 split, the delisting, the spin-off): {len(daily)} sessions x 2 cells equal to {worst:.1e}, except the restated-close session which "
-        f"moves by exactly the analytic {delta['RES']:+,.2f} (RES); hold 1 and hold 2 totals (RES / RAW), the open hold 3's piece and every part sum to the same figures; line_log d_k = 0.264 x RES; the first mark's rows are untouched by later marks (append-only)")
+    want_cl = []                                                                                                             # line_closes.csv against the oracle's closes: the mark of the month-end before the exit session records an 'in month' close, the one after it an 'exit session' one
+    for k, c, side, sym, e in info_o["closes"]:
+        x_k = f_of(k + 1) if k + 1 < len(ranks) else hi + 1
+        kind = KIND_IN if e < x_k else KIND_EXIT
+        through = T[k + 1] if kind == KIND_IN else (T[k + 2] if k + 2 < len(T) else None)
+        if through is not None:
+            want_cl.append((f"{through:%Y-%m-%d}", f"{ranks[k]:%Y-%m-%d}", c, side, sym, f"{W3.days[e]:%Y-%m-%d}", f"{W3.days[e - 1]:%Y-%m-%d}", kind))
+    got_cl = [tuple(r_[h] for h in LOG_HEADS["line_closes.csv"]) for r_ in L("line_closes.csv")]
+    assert sorted(got_cl) == sorted(want_cl) and len(got_cl) == 10 and sum(r_[7] == KIND_EXIT for r_ in got_cl) == 4, (got_cl, want_cl)
+    tot_err = max(abs(float(log[k][c]) - (tot[(ranks[k], c)] + (delta[c] if k == 0 else 0.0))) for k in (0, 1) for c in M.CELLS)
+    moved_txt = ", ".join(f"{a_:+.2f}" for k, c_, x_, a_ in info_o["moved"] if c_ == "RES")
+    say(f"every appended number against ONE unrestated world and the S1 reading's plain-python paths (M.brute_path held to the exit, M.brute_close_path closed at the close of e-1: carried marks, 5 bps a side, the exit cost on that row, borrow, the dividends incl. the one on the exit session, the 2-for-1 split, the delisting, a bar missing on e-1): "
+        f"{len(daily)} sessions x 2 cells equal to {worst:.1e} - except the restated-close session, which moves by exactly the analytic {delta['RES']:+,.2f} (RES), and the 2 pairs of exit-session closes (DND, LATE: exit cost {moved_txt} a cell), "
+        f"which the mark books on the exit session's row and not on the row before (without that rule the rows are off by up to {worst_plain:.2f}); hold 1 and hold 2 totals (RES / RAW) = the S1 totals to {tot_err:.1e}, "
+        f"every exit leg (zero for DNA / UPB / DNE closed in month, the moved cost for DND / LATE, held for DNC's late-recorded row) and every fill+marks piece, the open hold 3's piece (LATE bought ex on its fill session, not closed), every part sum; the 10 rows of line_closes.csv = the oracle's closes "
+        f"(6 'in month', 4 'exit session'); line_log d_k = 0.264 x RES; the earlier marks' rows are untouched by later marks (append-only)")
+
+    # ---------------------------------------------------------------- the same exit legs under three ledgers: value_sessions on the 12-31 photograph's world with what the previous mark closed GIVEN (the real run), DERIVED from this calendar (the emulation) and EMPTY
+    (W2, _), _ = captured(world_with_calendar, os.path.join(root, D[2]), T[2], "stub")
+    lo2, hi2 = int(W2.days.get_loc(T[1])) + 1, W2.T - 2
+    ha, hb = hold_picks(W2, T[0], rows_by[T[0]]), hold_picks(W2, T[1], rows_by[T[1]])
+    v_led, v_none, v_empty = (value_sessions(W2, lo2, hi2, ha, hb, ac) for ac in ({(c, "DNA") for c in M.CELLS}, None, set()))
+    sym = lambda col: str(W2.syms[int(col)])
+    for c in M.CELLS:
+        ia = v_led[c]["a"]
+        pc = {sym(col): float(ia["P"][q, -1]) for q, col in enumerate(ia["cols"])}                                              # each position's exit column as held to the exit
+        assert v_led[c]["a_done"] == {"DNA"} and [sym(x_["col"]) for x_ in v_led[c]["a_late"]] == ["DNC"] and [sym(x_["col"]) for x_ in v_led[c]["a_closes"]] == ["DND"]
+        assert v_none[c]["a_done"] == {"DNA", "DNC"} and not v_none[c]["a_late"]                                               # one calendar: the derivation takes DNC's late-recorded row as closed (the emulation has no late rows)
+        assert v_empty[c]["a_done"] == set() and sorted(sym(x_["col"]) for x_ in v_empty[c]["a_late"]) == ["DNA", "DNC"] and sorted(sym(x_["col"]) for x_ in v_empty[c]["a_closes"]) == ["DNA", "DND"]      # CHOICE [L23]: DNA's 11-12 row is late-recorded here AND it has an ex-date on the exit session: a late close, and listed
+        dna_amt = next(x_["amount"] for x_ in v_empty[c]["a_closes"] if sym(x_["col"]) == "DNA")
+        assert abs((v_led[c]["a_exit"] - v_none[c]["a_exit"]) - pc["DNC"]) < 1e-9 and abs((v_empty[c]["a_exit"] - v_led[c]["a_exit"]) - dna_amt) < 1e-9
+        assert abs(v_led[c]["b_part"] - v_none[c]["b_part"]) < 1e-12 and abs(v_led[c]["b_part"] - v_empty[c]["b_part"]) < 1e-12 and np.allclose(v_led[c]["daily"][1:], v_none[c]["daily"][1:], rtol=0, atol=1e-12)
+    say("the exit legs under three ledgers on the 12-31 world: what the previous mark closed GIVEN ({DNA}) - DNA zero, DND a late close, DNC (a calendar row for an already valued session) held to the exit and listed; DERIVED from this calendar (the emulation) - DNC taken as closed, "
+        "the exit leg differs by exactly DNC's held exit column; EMPTY - DNA (a late-recorded row AND an ex-date on the exit session) is a late close, listed too; the open hold's piece is the same under all three")
 
     _, text = captured(read_cmd, out, FZ_TEST)
     assert "line_log.csv 2 complete holds" in text and "4 month-ends pinned" in text and text.count("manifest sha256") >= 3 and "look 12: not yet (k = 2 of 12)" in text
@@ -2217,14 +2558,16 @@ def t_sealed(tmp, mk):
 
 # ---- the parity machinery on the fake market's REGISTERED world, then the odds and ends
 def t_parity_fake(tmp, mk):
-    """the parity checks (i) .. (iv) on the fake market's registered world (the harness's own loaders on ONE full-history folder, the registered 'remove' reading): they pass where they must - the rank path equals the registered picks, the forward-information picks differ only by
-    the look-ahead removals the registered reading makes (here: SPLX's split inside the second hold, DNA's spin-off inside the first, NOFILL's missing fill open, each counted and explained), the mark path equals the registered daily series and hold P&Ls, a rank through a photograph equals the
-    full world's, and pin -> mark over four photographs reproduces the series - and they FAIL when a number is moved"""
+    """the parity checks (i) .. (iv) on the fake market's registered world (the harness's own loaders on ONE full-history folder, the S1 reading post_mode 'close'): they pass where they must - the rank path equals the registered picks, the forward-information picks differ only by the fill rule
+    (NOFILL's missing fill open: [N8](i), no hygiene reason explains anything under S1), the mark path equals the registered daily series on every row except the (x-1, x) pairs of the exit-session closes (DND and LATE: their exit cost one session later, to the cent) and every hold's P&L,
+    a rank through a photograph equals the full world's, and pin -> mark over four photographs reproduces the series by the same rule, the holds and the closes - and they FAIL when a number moves (a $1 move on one row, a late close without its pair rule, a moved amount off by 1%, a derivation
+    that disagrees with what the previous month closed)"""
+    me = sys.modules[__name__]
     full = os.path.join(tmp, "full_history")
     mk.write_full(full)
     (W, info), _ = captured(photo_world, full, mk.days[-1], "real")
     assert W.days[-2] == mk.days[-1]
-    L = M.rm_build(W, W.days[0], W.days[-2], "remove")
+    L = M.rm_build(W, W.days[0], W.days[-2], POST_MODE)
     n = len(L.recs)
     assert n >= 12 and all(rec.traded for rec in L.recs) and W.days[L.recs[-1].r] == TS("2026-12-31"), (n, W.days[L.recs[-1].r])
     meta, pnl, series = wf_holds(W, L)
@@ -2232,34 +2575,166 @@ def t_parity_fake(tmp, mk):
     ok, worst, n_r = check_rank_identity(W, L)
     assert ok and worst is None and n_r == n
     ok, inf = check_forward_information(W, L)
-    assert ok and not inf["unexplained"] and inf["names_differing"] >= 3 and {"post_split", "post_spin", "no_real_open"} <= set(inf["reasons"]), inf
-    daily, parts = emulate_marks(W, L)
+    assert ok and not inf["unexplained"] and inf["names_differing"] >= 2 and set(inf["reasons"]) == {"no_real_open"}, inf                  # [N8](i): the fill rule alone - under 'remove' the splits and spin-offs inside the hold explained the rest
+    daily, parts, ex = emulate_marks(W, L)
     cs = pd.DataFrame({"date": W.days, "RES": series["RES"], "RAW": series["RAW"]})
-    res = check_daily(W, daily, cs)
+    res = check_daily(W, daily, cs, ex["late"])
     assert all(r_["max_abs"] < 1e-6 and r_["off_index"] == 0.0 and r_["rows"] == len(W.days) for r_ in res.values()), res
-    assert all(np.abs(parts[c] - pnl[c]).max() < 1e-6 for c in M.CELLS)
+    assert all(np.abs(parts[c] - pnl[c]).max() < 1e-6 for c in M.CELLS)                                                                    # a hold's total is the S1 total whenever its exit cost is booked
+    assert not ex["bad"] and sorted((l["cell"], f"{W.days[l['x']]:%Y-%m-%d}") for l in ex["late"]) == [("RAW", "2026-12-01"), ("RAW", "2027-01-04"), ("RES", "2026-12-01"), ("RES", "2027-01-04")]
+    assert all(res[c]["late"] == 2 and res[c]["pairs"] == 2 and -4.5 < res[c]["moved"] < -2.8 and res[c]["missing_rows"] == 0 for c in M.CELLS), res            # DND (hold 1) and LATE (hold 2): two exit-session closes, about $1.8 of exit cost each, per cell
+    kinds = [r_[7] for r_ in ex["rows"]]
+    assert kinds.count(KIND_EXIT) == 4 and kinds.count(KIND_IN) == 6 and max(r_[0] for r_ in ex["rows"]) == "2027-01-29"                    # 6 'in month' (DNA; UPB, DNE; both cells), 4 'exit session' (DND at the 12-31 mark, LATE at the 01-29 one; the very last step has no photograph: no row)
     bad = {c: daily[c].copy() for c in M.CELLS}
     i = int(W.days.get_loc(TS("2026-12-15")))
     bad["RES"][i] += 1.0
-    rb = check_daily(W, bad, cs)
+    rb = check_daily(W, bad, cs, ex["late"])
     assert abs(rb["RES"]["max_abs"] - 1.0) < 1e-9 and rb["RES"]["worst_date"] == W.days[i] and rb["RAW"]["max_abs"] < 1e-6
     off = {c: daily[c].copy() for c in M.CELLS}
     off["RAW"][-1] += 5.0                                                                                                   # a value booked on a date the series does not have (the phantom row): caught beside the common index
-    assert check_daily(W, off, cs.iloc[:-1])["RAW"]["off_index"] == 5.0
+    assert check_daily(W, off, cs.iloc[:-1], ex["late"])["RAW"]["off_index"] == 5.0
+    assert all(r_["max_abs"] > 1.5 for r_ in check_daily(W, daily, cs).values())                                            # without the pair rule the exit-session closes' rows are off by their exit cost ...
+    assert all(0.015 < r_["max_abs"] < 0.05 for r_ in check_daily(W, daily, cs, [{**l, "amount": l["amount"] * 1.01} for l in ex["late"]]).values())      # ... and an amount off by 1% is caught to the cent
+    shifted = {c: daily[c].copy() for c in M.CELLS}
+    shifted["RES"][ex["late"][0]["x"]] += 0.5                                                                               # the exit cost booked 0.50 off on the exit session's row
+    assert abs(check_daily(W, shifted, cs, ex["late"])["RES"]["max_abs"] - 0.5) < 1e-6
+    with patched(me, derive_closed=lambda Wv, a, x, cell: {"ZZZZ"}):                                                        # the in-memory derivation disagreeing with what the previous month's mark closed is reported at every hold
+        assert len(emulate_marks(W, L)[2]["bad"]) == 2 * n
     ptmp = os.path.join(tmp, "parity")
     os.makedirs(ptmp)
     ok3, res3 = check_photo_picks(W, ("2026-09-30", "2026-10-30"), ptmp, make=mk.make)
     assert ok3 and [(d_, n_, o_) for d_, n_, o_ in res3] == [("2026-09-30", 20, True), ("2026-10-30", 20, True)]
-    ok4, r4 = check_chain(W, L, meta, pnl, cs, ptmp, ("2026-09-30", "2026-10-30", "2026-11-30", "2026-12-31"), make=mk.make)
+    ok4, r4 = check_chain(W, L, meta, pnl, cs, ptmp, ("2026-09-30", "2026-10-30", "2026-11-30", "2026-12-31"), make=mk.make, emu=(daily, parts, ex))
     assert ok4 and r4["holds_completed"] == 2 and r4["worst"][0] < 0.005 and r4["hold_worst"][0] < 0.005 and r4["sessions"] == int(((W.days > TS("2026-09-30")) & (W.days <= TS("2026-12-31"))).sum()), r4
+    assert r4["closes_ok"] and r4["closes"] == 8 and r4["pairs"] == 1 and r4["half_pairs"] == 1 and 6.5 < r4["moved"] < 8.5, r4                  # the chain's ledger: DNA (2) at the 11-30 mark; UPB, DNE (4) in month and DND (2) late at the 12-31 mark - the pair (11-30, 12-01) is in its rows, and LATE's half pair (its exit cost belongs on 01-04, after the chain)
     r_, f_ = int(W.days.get_loc(TS("2026-10-30"))), int(W.days.get_loc(TS("2026-10-30"))) + 1
     rec, cnt = rank_picks(W, r_, f_)
     for last, na in ((TS("2025-12-05"), True), (None, True), (W.days[r_], False)):                                          # the TBIS reason prints 'n/a' while the TBIS file ends before the hygiene window starts, its count once the file reaches it
         _, txt = captured(print_counts, W, {"tbis_last_day": last, "tbis_rows": 0 if last is None else 1}, r_, rec, cnt)
         assert ("pre_tbis n/a (no forward TBIS)" in txt) == na and (f"pre_tbis {cnt.get('pre_tbis', 0)}" in txt) == (not na), txt
-    say(f"parity machinery on the fake market's registered world ({n} rebalances 2025-11 .. 2026-12): (i-1) the rank path = the registered picks (names, sides, order, scores, through the rank file's write / read-back); (i-2) the forward-information picks differ in {inf['names_differing']} of {inf['picks']} picks, all explained "
-        f"{inf['reasons']}; (ii) the mark path = the registered daily series on every row and (iii) = every hold's P&L ({max(np.abs(parts[c] - pnl[c]).max() for c in M.CELLS):.1e}); (i-3) the rank through a photograph = the full world's at 2 dates; (iv) pin -> mark over 4 photographs reproduces the series "
-        f"(worst {r4['worst'][0]:.1e}) and both completed holds; a $1 move on one row is caught (|diff| 1.000, on that date), a value off the CSV's index is caught; the TBIS 'n/a' print follows the file's last day")
+    say(f"parity machinery on the fake market's S1 world ({n} rebalances 2025-11 .. 2026-12, post_mode 'close'): (i-1) the rank path = the registered picks (names, sides, order, scores, through the rank file's write / read-back); (i-2) the forward-information picks differ in {inf['names_differing']} of {inf['picks']} picks, all of them the fill rule "
+        f"{inf['reasons']}; (ii) the mark path = the registered daily series on every row except the (x-1, x) pairs of the 4 exit-session closes (moved ${res['RES']['moved']:,.2f} RES, per-cell pair rule to the cent) and (iii) = every hold's P&L ({max(np.abs(parts[c] - pnl[c]).max() for c in M.CELLS):.1e}); the in-memory derivation of the closed set = what the previous month closed; "
+        f"(i-3) the rank through a photograph = the full world's at 2 dates; (iv) pin -> mark over 4 photographs reproduces the series by the same rule (worst {r4['worst'][0]:.1e}), both completed holds and the 8 rows of line_closes.csv; a $1 move on one row is caught (|diff| 1.000, on that date), "
+        f"so are a late close without its pair rule, an amount off by 1%, a cost booked 0.50 off and a derivation that disagrees; a value off the CSV's index is caught; the TBIS 'n/a' print follows the file's last day")
+
+
+def t_freeze_record(tmp):
+    """[N7] the freeze's record and its reference: save_freeze writes freeze_s1.json (+ .sha256) once and never touches NOTE 1's freeze.json (a planted corrupt one stays byte-equal and is never read); a later run that agrees rewrites nothing, one that differs refuses and leaves the
+    record byte-equal. restate_record reads the restatement's nets and rebalance counts from readings -> close -> cells and refuses a record of another reading, of another export, or none"""
+    out = os.path.join(tmp, "freeze_rec_out")
+    os.makedirs(out)
+    old_path = os.path.join(out, FREEZE_JSON_NOTE1)
+    write_atomic(old_path, b"NOTE 1's record - a corrupt file that nothing may read")
+    before = open(old_path, "rb").read()
+    fz = {"c_res": C_RES, "post_mode": POST_MODE, "B": 3.25, "res_holds": [float(i) + 0.5 for i in range(101)]}
+    rec = {"frozen": fz, "tool_sha256_lf": "x"}
+    _, text = captured(save_freeze, out, fz, rec)
+    jp = os.path.join(out, FREEZE_JSON)
+    assert os.path.basename(jp) == "freeze_s1.json" and sorted(os.listdir(out)) == ["freeze.json", "freeze_s1.json", "freeze_s1.json.sha256", "line.lock"] and "written" in text
+    assert json.load(open(jp))["frozen"] == fz and open(jp + ".sha256").read() == f"{sha_raw(jp)}  freeze_s1.json\n" and open(old_path, "rb").read() == before
+    snap1 = open(jp, "rb").read()
+    _, text = captured(save_freeze, out, json.loads(json.dumps(fz)), {**rec, "created_utc": "later"})
+    assert "agrees with this run - nothing rewritten" in text and open(jp, "rb").read() == snap1
+    refuses(lambda: save_freeze(out, {**fz, "B": 3.5}, rec), "holds a different freeze (differs in ['B']) - never overwritten", "a different freeze")
+    assert open(jp, "rb").read() == snap1 and open(old_path, "rb").read() == before
+    js = {"restated_post_mode": POST_MODE, "restated_csv_sha256": CELLS_CSV_SHA, "readings": {"remove": {"cells": {"RES": {"net": 1.0, "n_units": 1}, "RAW": {"net": 2.0, "n_units": 2}}},
+                                                                                              POST_MODE: {"cells": {"RES": {"net": 243929.0834622149, "n_units": 101}, "RAW": {"net": 310202.76536237495, "n_units": 101}}}}}
+    pj = os.path.join(tmp, "restate_fake.json")
+    write_atomic(pj, json.dumps(js))
+    nets, units, got = restate_record(pj)
+    assert nets == {"RES": 243929.0834622149, "RAW": 310202.76536237495} and units == {"RES": 101, "RAW": 101} and got == js
+    for bad, frag in (({**js, "restated_post_mode": "keep"}, "is not the restatement under post_mode 'close'"), ({k: v for k, v in js.items() if k != "readings"}, "is not the restatement under post_mode 'close'"),
+                      ({**js, "restated_csv_sha256": "0" * 64}, "records the export sha256 00000000..., not the registered e204dd53...")):
+        write_atomic(pj, json.dumps(bad))
+        refuses(lambda: restate_record(pj), frag, f"a restatement record: {frag}")
+    refuses(lambda: restate_record(os.path.join(tmp, "no_such_record.json")), "is not on file", "no restatement record")
+    say("freeze record: freeze_s1.json (+ .sha256) written once under the lock, NOTE 1's freeze.json (planted corrupt) never read or touched, a second run that agrees rewrites nothing, a different one refuses and leaves the record byte-equal; the restatement's record gives RES 243,929.08 / RAW 310,202.77 and 101 rebalances "
+        "from readings -> close -> cells, and refuses another reading, another export sha256 or no file")
+
+
+def t_gate(tmp):
+    """r17_resmom_gate.py's glue on stubs (no data: every harness call the gate makes is replaced by a few lines, the record folder is a temp one): the default run still reads Stage A's draws, builds the registered 'remove' reading and writes resmom_line_gate.json; --post-mode close ([N9])
+    verifies NOTE 2's sha, builds L with post_mode 'close', attaches the calendar's splits as the restatement did, reads the restatement's ROC p95 by cell (refuses draws that differ by more than 1e-9), writes ONLY resmom_line_gate_close.json (the registered record stays byte-equal),
+    prints the registered gate's numbers beside its own, says what a FAIL under S1 means; a second run that agrees rewrites nothing, one that differs never overwrites; the arguments are parsed strictly"""
+    from types import SimpleNamespace
+    import r17_resmom_gate as G
+    for argv, want in (([], "remove"), (["--post-mode", "close"], "close"), (["--post-mode=close"], "close"), (["--post-mode", "remove"], "remove"), (["--post-mode=remove"], "remove")):
+        assert G.parse_args(argv) == want, argv
+    for argv in (["--post-mode"], ["--post-mode", "keep"], ["--post-mode=naive"], ["--bogus"], ["close"], ["--post-mode", "close", "extra"]):
+        refuses(lambda a=argv: G.parse_args(a), "gate refused", f"gate arguments {argv}")
+    gd = os.path.join(tmp, "gate_out")
+    os.makedirs(gd)
+    paths = {"OUT": os.path.join(gd, "resmom_line_gate.json"), "OUT_CLOSE": os.path.join(gd, "resmom_line_gate_close.json"), "RESTATE_JSON": os.path.join(gd, "resmom_restate_close.json"), "STAGE_A_JSON": os.path.join(gd, "resmom_stageA.json")}
+    write_atomic(paths["STAGE_A_JSON"], json.dumps({"stageA": {"null": {"by_cell": {c: {"p95": 2.5} for c in M.CELLS}}}}))
+    write_atomic(paths["RESTATE_JSON"], json.dumps({"readings": {"close": {"null": {"by_cell_p95": {c: 2.5 for c in M.CELLS}}}}}))
+    S12 = SimpleNamespace(x=np.array([-5.0, -3.0, 2.0, -1.0]), dd=np.array([True, True, False, True]), n_dd_days=3, rows=np.arange(4))              # book_loss 9.0; a cell's drawdown-day dollars 6.0
+    state = {"calls": [], "DO": 0.5, "eps": [{"peak": "2020-01-01", "trough": "2020-02-01", "dd_days": 2, "cell_pnl": 4.0}, {"peak": "2021-01-01", "trough": "2021-02-01", "dd_days": 1, "cell_pnl": 2.0}], "roc": 2.5}
+    note = lambda *a: state["calls"].append(a)
+    stubs_m = dict(prereg_ok=lambda: {"verified": True, "committed": "match"}, wide_load=lambda cut, **k: (None, {}), book_checks=lambda B: ({"ok": True}, {"ok": True}, S12), load_data=lambda t: object(), read_audit=lambda: None, build_world=lambda D, t, es, tb, cal: SimpleNamespace(tag="W"), apply_audit=lambda W, a: None,
+                   attach_calendar_splits=lambda W, cal: note("attach"), rm_build=lambda W, lo, hi, pm, *a, **k: (note("rm_build", pm), SimpleNamespace(recs=[]))[1], rm_null=lambda W, L, n, v=0: (note("rm_null", n, v), {c: None for c in M.CELLS})[1],
+                   cell_leg=lambda L, c: c, run_cell=lambda W, CL, cfg, **k: SimpleNamespace(x=np.array([2.0, 1.0, 0.0, 3.0])))
+    stubs_a = dict(load_463=lambda: (SimpleNamespace(n=4), None), book_rows=lambda B, W: "rows")
+    stubs_d = dict(l1_cfg=lambda: None, load_tbis=lambda t: None, load_es=lambda t: (None, None), release=lambda D: None, to_B=lambda x, rows, n: np.asarray(x, float), seat_measure=lambda S12_, xB: {"DO": state["DO"], "rho_dd": 0.1}, episodes_table=lambda S12_, xB: state["eps"],
+                   null_cell=lambda S12_, acc, rows, nb: (np.full(10, state["roc"]), None, np.linspace(-0.1, 0.1, 101)))
+
+    def run(argv):
+        state["calls"].clear()
+        with patched(M, **stubs_m), patched(A13, **stubs_a), patched(D15, **stubs_d), patched(G, **paths):
+            return captured(G.main, argv)
+
+    res, text = run([])                                                                                                       # the registered gate, as it always ran
+    assert [c for c in state["calls"] if c[0] == "rm_build"] == [("rm_build", "remove")] and ("attach",) not in state["calls"] and ("rm_null", M.NREP, 0) in state["calls"]
+    assert os.path.exists(paths["OUT"]) and not os.path.exists(paths["OUT_CLOSE"]) and "GATE PASS - the forward BOOK line opens ([F2])" in text and "NOTE 2" not in text and "beside" not in text and "written " + paths["OUT"] in text, text
+    reg = json.load(open(paths["OUT"]))
+    assert list(reg)[:4] == ["line_prereg_sha256_lf", "resmom_prereg_sha256_lf", "harness_sha256", "gate_sha256"] and "post_mode" not in reg and reg["gate_pass"] and reg["cells"]["RES"]["null_roc_p95_reproduces_stage_a"] == 2.5 and "null_roc_p95_reproduces_restatement" not in reg["cells"]["RES"]
+    assert reg["cells"]["RES"]["dd_days_usd"] == 6.0 and reg["cells"]["RES"]["dd_days_usd_without_best_episode"] == 2.0 and reg["cells"]["RES"]["best_episode"]["cell_pnl"] == 4.0 and abs(reg["book_loss_over_dd_days"] - 9.0) < 1e-12
+    reg_bytes = open(paths["OUT"], "rb").read()
+    write_atomic(paths["STAGE_A_JSON"], json.dumps({"stageA": {"null": {"by_cell": {c: {"p95": 2.5 + 1e-6} for c in M.CELLS}}}}))      # the registered reading must reproduce STAGE A's draws: a record that differs refuses
+    refuses(lambda: run([]), f"do not reproduce Stage A's (RES ROC p95 2.5 vs {2.5 + 1e-6}) - nothing judged", "the registered gate with other draws")
+    write_atomic(paths["STAGE_A_JSON"], json.dumps({"stageA": {"null": {"by_cell": {c: {"p95": 2.5} for c in M.CELLS}}}}))
+    assert open(paths["OUT"], "rb").read() == reg_bytes
+    res, text = run(["--post-mode", "close"])                                                                                 # [N9]: the same gate on the S1 reading
+    assert [c for c in state["calls"] if c[0] == "rm_build"] == [("rm_build", "close")] and ("attach",) in state["calls"] and ("rm_null", M.NREP, 0) in state["calls"]
+    assert open(paths["OUT"], "rb").read() == reg_bytes and os.path.exists(paths["OUT_CLOSE"]), "the registered record must stay byte-equal"
+    assert "NOTE 2 (LF sha256 1382813f...) matches" in text and "GATE PASS under S1 - the forward BOOK line opens ([F2], NOTE 2 [N9])" in text and "written " + paths["OUT_CLOSE"] in text, text
+    assert "beside, RES: registered gate (post_mode 'remove') DO +0.500 vs the null's p95 +0.090, $2 without its best episode (2020-01-01 .. 2020-02-01); S1 (post_mode 'close') DO +0.500 vs +0.090, $2 without its best episode (2020-01-01 .. 2020-02-01)" in text, text
+    assert "the registered gate read 'GATE PASS - the forward BOOK line opens ([F2])'; the S1 re-read reads 'GATE PASS under S1" in text
+    sj = json.load(open(paths["OUT_CLOSE"]))
+    assert list(sj)[:3] == ["post_mode", "note2_sha256_lf", "restatement_record"] and sj["post_mode"] == "close" and sj["note2_sha256_lf"] == G.NOTE2_SHA and sj["gate_pass"] and sj["registered_gate"]["gate_pass"] is True
+    assert sj["cells"]["RES"]["null_roc_p95_reproduces_restatement"] == 2.5 and "null_roc_p95_reproduces_stage_a" not in sj["cells"]["RES"] and sj["registered_gate"]["cells"]["RES"]["dd_days_usd_without_best_episode"] == 2.0 and sj["cells"]["RAW"]["gate_a"]
+    close_bytes = open(paths["OUT_CLOSE"], "rb").read()
+    res, text = run(["--post-mode=close"])                                                                                    # a second run that agrees rewrites nothing
+    assert "is on file and agrees with this run - nothing rewritten" in text and open(paths["OUT_CLOSE"], "rb").read() == close_bytes and open(paths["OUT"], "rb").read() == reg_bytes
+    state["DO"] = 0.4
+    refuses(lambda: run(["--post-mode", "close"]), "holds a different gate record", "a different S1 gate record on file")                    # one that differs never overwrites it
+    assert open(paths["OUT_CLOSE"], "rb").read() == close_bytes
+    state["DO"] = 0.5
+    write_atomic(paths["RESTATE_JSON"], json.dumps({"readings": {"close": {"null": {"by_cell_p95": {"RES": 2.5 + 1e-6, "RAW": 2.5}}}}}))
+    refuses(lambda: run(["--post-mode", "close"]), f"do not reproduce the restatement's (RES ROC p95 2.5 vs {2.5 + 1e-6}) - nothing judged", "S1 draws that are not the restatement's")
+    assert not os.path.exists(paths["OUT_CLOSE"]) or open(paths["OUT_CLOSE"], "rb").read() == close_bytes
+    write_atomic(paths["RESTATE_JSON"], json.dumps({"readings": {"close": {"null": {"by_cell_p95": {c: 2.5 for c in M.CELLS}}}}}))
+    os.remove(paths["OUT_CLOSE"])
+    state["DO"] = 0.05                                                                                                        # a FAIL under S1: RES's DO (0.05) is below the null's p95 (0.09) - no line opens, said so
+    res, text = run(["--post-mode", "close"])
+    assert not res["gate_pass"] and not res["cells"]["RES"]["gate_a"] and res["cells"]["RES"]["gate_b"] and "GATE FAIL under S1" in text and "NO line opens: nothing is ranked on 2026-10-30 and the lane tells MANAGER (NOTE 2 [N9])" in text, text
+    assert json.load(open(paths["OUT_CLOSE"]))["verdict"].startswith("GATE FAIL under S1") and open(paths["OUT"], "rb").read() == reg_bytes
+    os.remove(paths["OUT_CLOSE"])
+    state["DO"], state["eps"] = 0.5, [{"peak": "2020-01-01", "trough": "2020-02-01", "dd_days": 2, "cell_pnl": 8.0}]               # (b) fails: without its best episode the drawdown-day dollars are negative (6 - 8)
+    res, text = run(["--post-mode", "close"])
+    assert not res["gate_pass"] and res["cells"]["RES"]["gate_a"] and not res["cells"]["RES"]["gate_b"] and "GATE FAIL under S1" in text
+    os.remove(paths["OUT_CLOSE"])
+    os.remove(paths["OUT"])
+    res, text = run(["--post-mode", "close"])                                                                                 # no registered record on file: said so, nothing to compare
+    assert "the registered gate's record" in text and "is not on file (nothing to compare)" in text and res["registered_gate"] is None
+    with patched(G, NOTE2_SHA="0" * 64, **paths):
+        refuses(lambda: run(["--post-mode", "close"]), "PREREG_RESMOM_LINE_R1_NOTE2.txt is not the registered text", "NOTE 2 changed: the S1 gate")
+        run([])                                                                                                               # the registered gate does not read NOTE 2
+    with patched(G, NOTE2_PREREG=os.path.join(tmp, "nowhere.txt"), **paths):
+        refuses(lambda: run(["--post-mode", "close"]), "PREREG_RESMOM_LINE_R1_NOTE2.txt is not the registered text", "NOTE 2 missing: the S1 gate")
+    with patched(G, LINE_SHA="0" * 64, **paths):
+        refuses(lambda: run(["--post-mode", "close"]), "PREREG_RESMOM_LINE_R1.txt is not the registered text", "the line's registration changed: the S1 gate")
+    say("gate script on stubs: the default run is the registered gate (Stage A's draws reproduced, post_mode 'remove', resmom_line_gate.json, no NOTE 2 text); --post-mode close builds the 'close' reading, attaches the calendar's splits, reproduces the restatement's p95 by cell (refuses 1e-6 off), writes only resmom_line_gate_close.json "
+        "(the registered record byte-equal), prints both gates' numbers beside, reads FAIL under S1 as 'no line opens ... tell MANAGER' (on (a) and on (b)), rewrites nothing when it agrees and never overwrites a different record; NOTE 2 / the line's registration changed or missing refuse; the arguments are parsed strictly")
 
 
 def t_misc(tmp):
@@ -2273,8 +2748,15 @@ def t_misc(tmp):
     assert not os.path.exists(fz_out)
     with patched(me, NOTE_PREREG=os.path.join(tmp, "nowhere.txt")):
         refuses(check_registered, "is not next to this file", "NOTE 1 missing")
+    with patched(me, NOTE2_PREREG=os.path.join(tmp, "nowhere.txt")):
+        refuses(check_registered, "PREREG_RESMOM_LINE_R1_NOTE2.txt is not next to this file", "NOTE 2 missing")
     with patched(me, LINE_SHA="0" * 64):
         refuses(lambda: freeze_cmd(fz_out), "DIFFERS from the registered text", "the line's registration changed")
+    with patched(me, NOTE2_SHA="0" * 64):
+        refuses(lambda: freeze_cmd(fz_out), "PREREG_RESMOM_LINE_R1_NOTE2.txt DIFFERS from the registered text", "NOTE 2 changed: freeze")
+        refuses(parity_cmd, "PREREG_RESMOM_LINE_R1_NOTE2.txt DIFFERS from the registered text", "NOTE 2 changed: parity")
+        refuses(lambda: mark_cmd("2026-11-30", None, os.path.join(tmp, "mark_out_unused")), "PREREG_RESMOM_LINE_R1_NOTE2.txt DIFFERS from the registered text", "NOTE 2 changed: mark")
+    assert not os.path.exists(fz_out) and not os.path.exists(os.path.join(tmp, "mark_out_unused"))
     seen = []
     with patched(me, pin_cmd=lambda *a: seen.append(("pin", a)), rank_cmd=lambda *a: seen.append(("rank", a)), mark_cmd=lambda *a: seen.append(("mark", a))):
         main(["prog", "pin", "--through=2026-10-30", "--root", r"C:\x", "--rev", "2"])
@@ -2285,12 +2767,12 @@ def t_misc(tmp):
                        (["p", "mark", "--through", "2026-10-30", "--through", "2026-11-30"], "given twice"), (["p", "read", "--through", "2026-10-30"], "unknown option"), (["p", "pin", "--through", "2026-10-30", "--rev", "x"], "not a whole number"),
                        (["p", "rank", "2026-10-30"], "unexpected argument")):
         refuses(lambda a=argv: main(a), frag, f"arguments {argv}")
-    say("odds and ends: freeze / parity refuse another export before loading anything, a changed registration refuses every command, the command line is parsed strictly (options with = or a space, a missing value, a repeated or unknown option, a bad --rev, a stray argument)")
+    say("odds and ends: freeze / parity refuse another export before loading anything, a changed registration (the line's, NOTE 1's, NOTE 2's) or a missing NOTE 2 refuses every command, the command line is parsed strictly (options with = or a space, a missing value, a repeated or unknown option, a bad --rev, a stray argument)")
 
 
 def selftest():
-    """fakes only (no network - a socket connect raises -, no key, no real file; every output in one temp folder): constants / calendar / guard / files / locks / numerics / monitor / read, then the chain pin -> rank -> mark on four fake photographs with every refusal and every number recounted in plain
-    python, the sealed-year guard, the parity machinery on the fake market's registered world, the command line"""
+    """fakes only (no network - a socket connect raises -, no key, no real file; every output in one temp folder): constants / calendar / guard / files / locks / numerics / monitor / read / the freeze record, then the chain pin -> rank -> mark on four fake photographs with every refusal and every number
+    recounted in plain python (the S1 reading: spin-off / stock-dividend closes in month, on the exit session, on the fill session, late-recorded, with no close on the session before), the sealed-year guard, the parity machinery on the fake market's registered world, the command line, r17_resmom_gate.py's glue on stubs (t_gate)"""
     t0 = time.time()
     tmp = tempfile.mkdtemp(prefix="resmomline_selftest_")
     print(f"selftest of r17_resmom_line.py: fakes only, temp folder {tmp}; the registered harness r17_resmom.py imported as it is")
@@ -2304,8 +2786,10 @@ def selftest():
         t_numerics()
         t_monitor()
         t_read(tmp)
+        t_freeze_record(tmp)
+        t_gate(tmp)
         mk = FakeMarket()
-        say(f"fake market: {len(mk.eco['symbol'].unique())} names x {len(mk.days)} sessions {mk.days[0]:%Y-%m-%d} .. {mk.days[-1]:%Y-%m-%d}, {len(mk.ca)} calendar rows, the fake ES master (r15_ddw.ESFake) as the market factor")
+        say(f"fake market: {len(mk.eco['symbol'].unique())} names x {len(mk.days)} sessions {mk.days[0]:%Y-%m-%d} .. {mk.days[-1]:%Y-%m-%d}, {len(mk.ca)} calendar rows (spin-offs / stock dividends in month, on exit sessions, on fill sessions, and one late-recorded row), the fake ES master (r15_ddw.ESFake) as the market factor")
         with fake_env(mk, tmp):
             t_chain(tmp, mk)
             t_sealed(tmp, mk)
@@ -2315,18 +2799,20 @@ def selftest():
         assert "alpaca_keys" not in sys.modules and "r17_resmom_pull" not in sys.modules, "the key lookup or the pull module was imported"
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    print(f"selftest ok ({time.time() - t0:.0f}s): constants and registrations, the month-end rule (= the pull's closure table), the sealed-year guard, atomic writes and the cross-process lock, the bootstrap (deterministic, chunk-invariant, plain-python draw order), the false-stop calibration "
-          "(recounted), the stop rule's exceptions, the monitor and the dollar read, pin / rank / mark on four fake photographs with every refusal (a changed byte, a re-pull, no pin, a gap, a missing rank, a missing name, a duplicate, a sealed-year session) and every ledger number equal to a plain-python "
-          "recount - the delisting, the split, the spin-off, the dividends, the restated bar and the overlap print included -, hold_next = the last two ranks, and the parity checks passing on a registered world and failing when a number moves")
+    print(f"selftest ok ({time.time() - t0:.0f}s): constants and registrations (the line's, NOTE 1's, NOTE 2's), the month-end rule (= the pull's closure table), the sealed-year guard, atomic writes and the cross-process lock, the bootstrap (deterministic, chunk-invariant, plain-python draw order), the false-stop calibration "
+          "(recounted), the stop rule's exceptions, the monitor and the dollar read, the freeze record (freeze_s1.json, NOTE 1's never touched), pin / rank / mark on four fake photographs with every refusal (a changed byte, a re-pull, no pin, a gap, a missing rank, a missing name, a duplicate, a sealed-year session, a missing or "
+          "disagreeing line_closes.csv) and every ledger number equal to a plain-python recount of the S1 reading - the delisting, the split, the dividends, the restated bar, the overlap print and the spin-off / stock-dividend closes (in month, on the exit session, on the fill session, late-recorded, with no close on the session before) "
+          "included -, hold_next = the last two ranks, the parity checks passing on a registered S1 world and failing when a number moves, and the gate script's glue on stubs (--post-mode close: NOTE 2's sha, the S1 reading, the restatement's p95 reproduced, "
+          "resmom_line_gate_close.json only, the registered record untouched)")
 
 
 USAGE = """usage (from the worktree, EDGELOG_ROOT = the shared checkout): python tools/rocfrontier/r17_resmom_line.py <command>
-    freeze                                   [N1] once: the monitor's B and the dollar read's spread from walk-forward data; prints the FROZEN block
+    freeze                                   [N1] with [N7] once: the monitor's B and the dollar read's spread from walk-forward data on the S1 reading (post_mode 'close'); prints the FROZEN block; the record is freeze_s1.json
     pin  --through YYYY-MM-DD [--root R] [--rev N]    [N2](1) hash the photograph's files against its manifest, append one dated row to pins.csv
     rank --through YYYY-MM-DD [--root R]              [N2](2) the registered picks at the month-end close -> rank_<D>.csv, hold_next.txt
-    mark --through YYYY-MM-DD [--root R]              [N2](3) value the sessions since the previous month-end from this photograph alone -> line_daily.csv, line_log.csv
+    mark --through YYYY-MM-DD [--root R]              [N2](3) with [N6]: value the sessions since the previous month-end from this photograph alone (a spin-off / stock-dividend ex-date closes the position at the prior close) -> line_daily.csv, line_log.csv, line_closes.csv
     read                                     [N3] the monitor's state and the dollar read
-    parity                                   walk-forward only: the rank, mark and freeze code paths against the registered harness
+    parity                                   [N8] walk-forward only: the rank, mark and freeze code paths against the registered harness (post_mode 'close') and the restated export
     selftest                                 fakes only"""
 
 
