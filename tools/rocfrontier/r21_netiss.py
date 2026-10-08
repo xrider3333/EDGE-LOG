@@ -31,19 +31,19 @@ import r17_resmom as M17            # the sibling harness (RESMOM r1): its loade
 import r18_divrun as DV             # the sibling harness (DIVRUN r1): the REFERENCE book [X1], the incremental A2, the null statistics, the generic diagnostics, the synthetic market of the smoke
 D15, S, R11, M12, A13 = M17.D15, M17.S, M17.R11, M17.M12, M17.A13       # r15_ddw (World, cell statistics, seat, null engine), r5_siporb, r11_risk, r12_mdl, r13_attn - through r17's own imports
 from augur_engine.drawdowns import dd5 as _dd5                         # noqa: E402  [A19] the owner's DD5 (MANAGER #120; the repo root is on the path through r11_risk)
-# [A21] THE REFERENCE IS THE RESTATED L (MANAGER #116: once the RESMOM restatement landed - ledger 2.93, 2026-10-07 - it replaces the registered L everywhere): r18_divrun's loader reads the restated line file (the
+# [A21] / [A23] THE REFERENCE IS THE RESTATED L (MANAGER #116 / #127: the RESMOM restatement under MANAGER's hygiene edit S1 replaces the registered L everywhere): r18_divrun's loader reads the restated line file (the
 # same columns, #463's WF index row for row) and refuses unless its sha256 and its WF numbers are these. Set at import so NETISS and SHORTINT (which imports this file) read the same L; the selftests and the smokes
 # still point the loader at their stubs. r18_divrun itself (DIVRUN r1, closed) keeps the registered file.
-DV.REF_CSV = DV.REF_CSV_PINNED = r"C:\EdgeLog\_anatomy_cache\rocfrontier\resmom_r1\resmom_cells_daily_wf_keep.csv"
-DV.REF_SHA = "86721fda625ce24eeae6735f58b2247a2043693bcacb8ede9290f8ce6f6de3e6"
-DV.REF_FACTS = {"roc": 120.95, "sortino": 3.921, "max_dd": 36526.0}
+DV.REF_CSV = DV.REF_CSV_PINNED = r"C:\EdgeLog\_anatomy_cache\rocfrontier\resmom_r1\resmom_cells_daily_wf_close.csv"
+DV.REF_SHA = "e204dd53419a22bcc69045cc5d17ff42c86203fb06b58fa538b10beb7ba25d18"
+DV.REF_FACTS = {"roc": 121.06, "sortino": 3.926, "max_dd": 36526.0}
 
 TS = pd.Timestamp
 THIS = sys.modules[__name__]
 OUT_DEFAULT = r"C:\EdgeLog\_anatomy_cache\rocfrontier\netiss_r1"
 OUT = os.environ.get("EDGELOG_NETISS_R1", OUT_DEFAULT)                                                    # results, outside git
 PREREG = os.path.join(HERE, "PREREG_NETISS_R1.txt")
-PREREG_SHA = "7d941d2c7f60eda226f02a925c021dd2dccaf28daa05b3fa23de1b26084e6b60"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDA 1-3 + POST-DATA BUG FIX ADDENDUM 4 ([A18] the judged reading keeps in-hold flags, [A19] DD5, [A20] caveats, [A21] the restated L); supersedes f2f69cd9 (draft + addenda 1-3)
+PREREG_SHA = "7caebf3a32a869aa982c07e2dfab49790aee7ace8d57daa467951704402d2373"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDA 1-3 + POST-DATA BUG FIX ADDENDUM 4 ([A18] the judged reading keeps in-hold flags, [A19] DD5, [A20] caveats, [A21] the restated L, [A22] hygiene edit S1, [A23] the S1-restated L); supersedes 7d941d2c (draft + addenda 1-3)
 WF0, PRE_END, LB0, LB1 = M17.WF0, M17.PRE_END, M17.LB0, M17.LB1          # WF = positions EXITED 2016-07-01 .. 2025-06-29; LB = exits 2025-06-30 .. 2026-06-30 INCLUSIVE; cuts: S.LB0 / S.END
 BOOK_WF, BOOK_LB, DEEPEST_WF = M17.BOOK_WF, M17.BOOK_LB, M17.DEEPEST_WF
 NREP, SEED = 500, 20261008                                               # the registered null: 500 draws of random names from each rebalance's eligible SCORED pool
@@ -2280,7 +2280,7 @@ def t_constants():
     assert (NREP, SEED, CELLS, KS, AUDIT_N) == (500, 20261008, ("N12", "N24"), {"N12": 1, "N24": 2}, 50) and YEARS == tuple(range(2016, 2025))
     assert A2_WINS == {"N12": (TS("2017-02-01"), TS("2019-01-31")), "N24": (TS("2018-02-01"), TS("2020-01-31"))} and (A2_TARGET, A2_REPORT) == (0.25, (0.5, 2.0)) == (M17.A2_TARGET, M17.A2_REPORT)
     assert (WF0, PRE_END, LB0, LB1) == (TS("2016-07-01"), TS("2025-06-29"), TS("2025-06-30"), TS("2026-06-30")) and (S.LB0, S.END) == (LB0, R11.LBX) and CACHE_FIRST_SESSION == TS("2016-01-04")
-    assert (BOOK_WF, BOOK_LB, DEEPEST_WF) == ((93.81, 3.816), (155.54, 4.15), 44849.0) and DV.REF_W == 0.264 and DV.REF_FACTS == {"roc": 120.95, "sortino": 3.921, "max_dd": 36526.0} and DV.REF_SHA.startswith("86721fda") and DV.REF_CSV_PINNED.endswith("resmom_cells_daily_wf_keep.csv")
+    assert (BOOK_WF, BOOK_LB, DEEPEST_WF) == ((93.81, 3.816), (155.54, 4.15), 44849.0) and DV.REF_W == 0.264 and DV.REF_FACTS == {"roc": 121.06, "sortino": 3.926, "max_dd": 36526.0} and DV.REF_SHA.startswith("e204dd53") and DV.REF_CSV_PINNED.endswith("resmom_cells_daily_wf_close.csv")
     assert (COST_BPS, STRESS_BPS, BORROW, BORROW_STRESS) == (5.0, (10.0, 20.0), 0.0025, (0.01, 0.03)) and M17.SPEC == {"win": 252, "form_n": 231, "skip": 21, "min_n": 230, "n_side": 50, "slot": 4000.0, "hyg_lead": 5}
     assert SPEC == {"min_scored": 150, "min_side": 20, "dec_n": 10, "dec_min": 10, "hedge_win": 252, "hedge_min": 230}, "150 scored names or the thirds, at least 20 a side, ten deciles, a 252-session hedge window"
     assert (LN10, LN15, BAND_DAYS, SPLIT_TOL, SPLIT_NEAR, STALE_DAYS, BETA_CAP) == (math.log(10.0), math.log(1.5), 35, 0.01, 3, 60, 0.20)
