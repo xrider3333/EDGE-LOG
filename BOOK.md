@@ -1190,6 +1190,32 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10ai. THE RESMOM LINE IS RESTATED UNDER HYGIENE RULE S1 - every FRONTIER seat read now uses 121.06 (2026-10-08)
+
+**What changed.** STRATEGY-BEATING's restatement landed on main (ledger 2.99; r17_resmom.py's 'close' reading, MANAGER #127). The reference
+line L = #463 + 0.264 x RES now reads, walk-forward:
+- **ROC @ $30k 121.06**, DD5 $34,392, Sortino 3.926, worst drawdown $36,526, $147,395 a year. File resmom_cells_daily_wf_close.csv,
+  sha256 e204dd53... (FRONTIER checked it independently, to the dollar).
+- The registered 120.82 (file bed7bf8b) is history only. The 'keep' reading (120.95, 86721fda) was never adopted.
+- L's drawdown days R do not move: still 45 episodes and 762 days. So 10ab's seat yardstick and every seat read on R keep their basis.
+
+**What FRONTIER switched.**
+- **The adoption page (v9):** the RESMOM row now reads 121.1 (+29%), $147,395 a year (+$7,160 over #463), DD5 $34,392.
+- **The ENGU-Q size ladder on the S1 line** (Q23, the same prereg re-read; a report):
+
+| ENGU-Q size | ROC @ $30k | Sortino | Worst DD | DD5 | $ a year |
+|---|---|---|---|---|---|
+| x1.00 | 121.06 | 3.926 | $36,526 | $34,392 | $147,395 |
+| x0.75 | 126.10 | 4.074 | $32,553 | $30,779 | $136,829 |
+| x0.50 | 111.84 | 4.166 | $33,868 | $28,972 | $126,262 |
+| x0 (reference) | 82.04 | 3.935 | $38,444 | $29,208 (one episode) | $105,129 |
+
+  This matches the registered ladder to within 0.3 ROC on every row. Three quarters of ENGU-Q still reads higher, with a smaller drawdown,
+  while making $10,566 a year less. It stays a report, with no change recommended (10ad).
+- **The seat pipeline's parity** (augur_engine/seat_pipeline.py, still a draft with ELWA): line_L = (121.06, 3.926, 36,526).
+- **SEASON r1 and HIGH52 r1 (10ah)** ran on this line with r17 pinned to STRATEGY-BEATING's witness commit. Main's r17 hashes the same
+  (LF sha256 3151ef0a...), so neither run needs repeating.
+
 ### 10ah. Q24 SEASON r1 and Q25 HIGH52 r1 (scoping items B2 / B3): both DEAD at Stage A, and neither is a seat (2026-10-08)
 
 **What ran.** Two monthly stock-basket families on RESMOM r1's engine (r17, imported unchanged). Each was judged under MANAGER's hygiene
