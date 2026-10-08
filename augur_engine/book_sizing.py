@@ -48,6 +48,8 @@ otherwise quietly become the at-close curve, the reading round 58's dial failed 
 from __future__ import annotations
 
 import numpy as np
+
+from . import drawdowns as _drawdowns
 import pandas as pd
 
 VT_DEFAULTS = {"lookback": 20, "ref": 250, "lo": 0.5, "hi": 2.0, "decimals": 1}
@@ -287,8 +289,15 @@ def stretch_reading(daily, lo, hi):
     yrs = (z.index[-1] - z.index[0]).days / 365.25
     dn = float(np.sqrt(np.mean(np.minimum(x, 0.0) ** 2)))
     net = float(x.sum())
+    # DD% AS A BROKER STATES IT (owner ask 2026-10-08). The drop from the most recent equity
+    #   HIGH, not a share of the starting account - that old reading made #424's $116.9k worst
+    #   drop print about 117% on an account whose P&L never went below zero. Produced HERE
+    #   because this is where the daily curve is: every surface that prints a DD% has only the
+    #   dollar figure to hand, so none of them can derive it. One definition, in
+    #   augur_engine/drawdowns.dd_pct_peak.
     return {"from": str(z.index[0].date()), "to": str(z.index[-1].date()), "net": round(net, 2),
             "max_drawdown": round(dd, 2),
+            "dd_pct_peak": _drawdowns.dd_pct_peak(z),
             "roc_30k": round(30.0 * (net / yrs) / dd, 3) if dd > 0 and yrs > 0 else None,
             "sortino": round(float(x.mean() / dn * np.sqrt(252)), 4) if dn > 0 else None}
 

@@ -90,6 +90,55 @@ def episodes(daily_pnl, dates=None):
     return out
 
 
+DEFAULT_START_USD = 100_000.0
+
+
+def dd_pct_peak(daily_pnl, start=DEFAULT_START_USD, dates=None):
+    """The worst drawdown as a PERCENTAGE, the way a broker states it (owner ask 2026-10-08).
+
+    max over t of (peak equity up to t - equity at t) / peak equity up to t, where
+    equity = `start` + the running sum of the daily P&L. Returned as a percentage (10.0 = 10%).
+
+    WHY THIS REPLACED dd_usd / start. That ratio is a share of the STARTING account, not a
+    drawdown: run #424's worst drop of $116.9k read about 117% while its P&L never went below
+    zero. No open account can fall 117%.
+
+    WHY IT IS ITS OWN PASS over the curve rather than one division applied to the worst dollar
+    drawdown: the deepest drop in dollars and the deepest in percent need not be the same
+    episode, because the denominator grows with the account. An early $40k fall from a $200k
+    high is 20%; a late $90k fall from a $900k high is 10%. Taking the worst dollar episode and
+    dividing by its peak would report 10% and miss the 20%.
+
+    The high-water mark starts AT `start`, before any row - the flat account is its own first
+    peak, matching the peak-from-zero convention the dollar figures use. So a curve that never
+    makes a new high is measured against `start` throughout.
+
+    Not capped. If equity falls below zero the drop exceeds the high that preceded it and the
+    figure passes 100%, which is the honest reading of an account that lost more than it held.
+
+    0.0 for an empty stretch, and for one that never draws down.
+    """
+    start = float(start)
+    if not math.isfinite(start) or start <= 0:
+        raise ValueError("dd_pct_peak: start must be a positive number of dollars (%r)" % (start,))
+    vals, _dts = _rows(daily_pnl, dates)
+    for i, v in enumerate(vals):
+        if not math.isfinite(v):
+            raise ValueError("dd_pct_peak: daily P&L row %d is not a finite number (%r)" % (i, v))
+    equity = start
+    peak = start
+    worst = 0.0
+    for v in vals:
+        equity += v
+        if equity > peak:
+            peak = equity
+        # peak >= start > 0 always, so this never divides by zero
+        frac = (peak - equity) / peak
+        if frac > worst:
+            worst = frac
+    return round(worst * 100.0, 4)
+
+
 def dd5(daily_pnl, n=5, dates=None, ratio=ONE_EPISODE_RATIO):
     """DD5 of one stretch's daily P&L (see the module docstring for the definition).
 

@@ -148,3 +148,80 @@ def test_bad_input_is_refused():
     with pytest.raises(ValueError):
         dd5([1.0], n=0)
     assert math.isfinite(dd5([1.0, -2.0])["dd5_usd"])
+
+
+# ═════════════════════════ DD% as a broker states it (owner ask 2026-10-08)
+# dd_pct used to be dd_usd / 100k - a share of the STARTING account, not a drawdown. Run #424's
+# worst drop of $116.9k read about 117% while its P&L never went below zero, and no open account
+# can fall 117%. dd_pct_peak is the fall from the high-water mark.
+from augur_engine.drawdowns import DEFAULT_START_USD, dd_pct_peak
+
+
+def test_the_owners_example_reads_ten_percent():
+    """Peak $1M, drop $100k = 10%. The figure the ask was written around."""
+    assert dd_pct_peak([900_000.0, -100_000.0]) == 10.0
+
+
+def test_a_curve_that_never_makes_a_new_high_is_measured_against_the_start():
+    """The flat account is its own first peak, matching the peak-from-zero convention the dollar
+    figures use. Losing $50k of a $100k account is 50%, not 50% of something larger."""
+    assert dd_pct_peak([-50_000.0]) == 50.0
+    assert dd_pct_peak([-10_000.0, -10_000.0, -5_000.0]) == 25.0
+
+
+def test_the_worst_percent_is_not_always_the_worst_dollar_episode():
+    """WHY THIS IS ITS OWN PASS over the curve. The denominator grows with the account, so an
+    early $40k fall from a $200k high (20%) is worse in percent than a late $90k fall from a
+    $900k high (10%) - while the LATE one is worse in dollars. Dividing the worst dollar
+    drawdown by its own peak would report 10% and miss the 20%."""
+    curve = [100_000.0, -40_000.0, 40_000.0, 700_000.0, -90_000.0]
+    assert dd_pct_peak(curve) == 20.0
+    # the worst DOLLAR drawdown on the same curve is the later one, and it is only 10%
+    assert dd5(pd.Series(curve))["max_dd"] == 90_000.0
+
+
+def test_it_is_not_the_old_share_of_the_starting_account():
+    """THE MUTANT TARGET. #424's shape: a drop larger than the starting account, on a curve whose
+    P&L never goes below zero. The old formula gives 117%; the drop is from a high of $1.1M, so a
+    broker calls it about 10.6%."""
+    pct = dd_pct_peak([1_000_000.0, -116_900.0])
+    assert 10.0 < pct < 11.0, pct
+    old = 116_900.0 / DEFAULT_START_USD * 100.0
+    assert old > 100.0 and abs(pct - old) > 100.0, "still reading as a share of the start"
+
+
+def test_a_fall_below_zero_passes_one_hundred_percent_and_is_not_capped():
+    """An account that lost more than it ever held has fallen more than 100% from its high, and
+    saying so is the honest reading. Capping would hide a blown account."""
+    assert dd_pct_peak([-140_000.0]) == 140.0
+
+
+def test_no_drawdown_and_no_rows_are_both_zero():
+    assert dd_pct_peak([]) == 0.0
+    assert dd_pct_peak([1_000.0, 2_000.0, 3_000.0]) == 0.0
+
+
+def test_the_start_is_configurable_and_must_be_positive():
+    """The $100k start is the house default, not a law - a reader comparing a different account
+    size passes its own. Zero or negative would divide by a peak that is not an account."""
+    assert dd_pct_peak([-25_000.0], start=50_000.0) == 50.0
+    assert DEFAULT_START_USD == 100_000.0
+    for bad in (0, -1, float("nan")):
+        with pytest.raises(ValueError):
+            dd_pct_peak([-1.0], start=bad)
+
+
+def test_it_accepts_the_same_input_shapes_dd5_does():
+    """One definition, one set of callers: a Series, a bare sequence, or (date, $) pairs."""
+    want = 10.0
+    rows = [900_000.0, -100_000.0]
+    assert dd_pct_peak(pd.Series(rows, index=pd.to_datetime(["2020-01-02", "2020-01-03"]))) == want
+    assert dd_pct_peak(rows) == want
+    assert dd_pct_peak([("2020-01-02", rows[0]), ("2020-01-03", rows[1])]) == want
+
+
+def test_a_non_finite_row_is_refused_rather_than_silently_skipped():
+    with pytest.raises(ValueError):
+        dd_pct_peak([1.0, float("nan"), -2.0])
+    with pytest.raises(ValueError):
+        dd_pct_peak([1.0, float("inf")])
