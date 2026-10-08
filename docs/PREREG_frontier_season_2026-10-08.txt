@@ -1,0 +1,75 @@
+BOOK QUEUE Q24 (scoping item B2) - SEASON r1: same-calendar-month return seasonality in single US stocks (Heston-Sadka 2008), as a monthly
+basket SEAT on the RESMOM line. PRE-REGISTRATION, FRONTIER, 2026-10-08 (draft v1 to MANAGER 2026-10-07 18:17 MST; v2 the S1 engine rule; v3
+AVG >= 1 year; v4 = MANAGER's review #115 / #116, GO WITH 4 EDITS, folded in below), committed before any number of this item.
+Walk-forward only (owner decision b, 10-05).
+
+WHY. Heston and Sadka (2008) found that a stock's return in the same calendar month of past years predicts its return this month (lag
+12, 24, ... months), independent of momentum and reversal; Keloharju-Linnainmaa-Nyberg (2016) find the same across asset classes and say it
+is a risk premium earned in specific months. It is a different clock from RESMOM (12-1 momentum) and BAB (beta): it is the house's cheapest
+untested basket signal on held data (scoping doc B2). Q20's map: a seat must EARN ON R (the RESMOM line's drawdown days) to matter.
+DATA LIMIT, stated first: the SIPORB stock cache starts 2016-01-04, so a rank in WF year k has only k prior same-month observations (1 in
+2017, 9 in 2025); the published signal averages 10-20 years. Power is low and it rises through the stretch.
+
+THE ENGINE = RESMOM r1's (tools/rocfrontier/r17_resmom.py, imported, never edited) through FRONTIER's r19_bab.py pattern (the scores and
+the null's streams swapped, nothing else), JUDGED UNDER MANAGER #127's hygiene rule S1 = r17's post_mode 'close' ([HYG-S1], STRATEGY-
+BEATING's restatement): no name is dropped for a flag inside the hold; flagged names ride the split-safe path; a spin-off / stock-dividend
+ex-date inside the hold closes that position at the official close of the session before it. The registered 'remove' reading is NOT
+run (it is the look-ahead TTM found). This prereg is not run until that r17 is on main; its pool, schedule, fills, costs, borrow,
+dividends and Stage A rules are then used as is, and the seat read uses the S1-restated L (121.06, file e204dd53...).
+
+THE TWO CELLS (a family of 2), each long the 50 HIGHEST and short the 50 LOWEST scores, dollar-neutral, $4,000 slots, monthly:
+- LAG12: the name's split-safe total return in the SAME calendar month one year earlier (the month being entered, a year ago). Needs that
+  month's returns complete (at least 15 finite daily returns).
+- AVG: the mean of the name's same-calendar-month returns over EVERY prior year on file with a complete month (1 in 2017 .. 9 in 2025),
+  at least 1 (v3: the two cells rank ONE shared pool, which needs both scores; requiring 2 years would empty 2017 for LAG12 too) - so AVG
+  equals LAG12 in the first WF year and the cells differ from 2018; CHOICE: equal weights, no shrinkage. Both cells start at RESMOM's
+  first rank with a full 252-session window (2016-12-30, entering January 2017: LAG12 = January 2016, the cache's first month).
+Ties by symbol, as RESMOM. Both cells rank the same pool.
+
+STAGE A (the research row; house line #45): RESMOM r1's rules (a)-(f) verbatim on the fixed reading, except that the stress check is at
+20 bps (MANAGER edit 4, below). A cell that fails is DEAD as a leg; its seat numbers are still printed.
+THE SEAT READ (REPORT; the owner's call; BOOK.md 10ab via augur_engine/seat_pipeline.py once shipped): L + c x X at c = 0.25 (10ab, binding)
+and 0.10 (Q20, reported; the map is shape-only) of L's daily SD; X's dollars on R with and without its best R episode against the random-name
+null's p95 on R; the #70 gate on #463's 460 days; corr(X, RES), corr(X, BAB's two cells) on R; DD5 beside every ROC (owner rule 10-07).
+DIAGNOSTICS (owner addendum 2): regime halves 2016-21 / 2022-25; cost 0 / 5 / 10 / 20 bps; per-year and per-episode rows; long vs short;
+the signal's strength by WF year (does it grow with the number of years on file, as the data limit predicts); turnover; the realised beta to
+ES of each cell (the BAB lesson: a dollar-neutral sort can be a short-market bet - |beta| > 0.20 = its drawdown-day money is reported,
+never credited).
+COULD FOOL US: one or two calendar months (January, December) can carry a seasonal sort - the net by calendar month of entry is printed, and
+the cell must stay positive without its best entry month; the short history makes year-to-year noise large.
+LOOKS: two cells added to the house's count. Seeds: RESMOM's null scheme, cell codes 23 (LAG12) and 24 (AVG).
+FAMILY NULL (MANAGER edit 2): the two cells are identical in 2017 and highly correlated after, so the family statistic is the MAX over BOTH
+cells per draw (r17's null_summary: each cell draws its own random-name books on its own stream, 500 draws; the bar is that MAX's p95).
+POWER LINE FIRST (MANAGER edit 1): before any cell is run, `r25_season.py power` runs the family null ALONE on the 'close' pools (the same
+draws Stage A makes) and prints, per cell: the bar (ROC @ $30k >= max(15, the MAX-over-cells null p95)) and the true edge it takes to
+clear it - a daily drift added to the null's random books on the cell's active rows - at 50% power and at 80% power, in OWN MONEY ($ a
+year at the cell's size, 50 a side at $4,000) and as $ a year at a $30k worst drawdown (= the bar's ROC x $1,000); and for the seat, the
+null's dollars on R (p50 / p95 / SD) and the lead on R a seat needs (p95 - p50 at 50%; + 0.842 SD at 80%), at own size and at the 0.25
+seat. Those lines are committed as docs/PREREG_frontier_season_2026-10-08_power.txt (quoting season_power.json's sha256) BEFORE stage_a;
+stage_a refuses until that file is committed. With 1-9 prior same-month years the item may be undecidable - that is known first.
+EARNINGS SEASON (MANAGER edit 3, report only): the held EDGAR earnings calendar (TV's, the one EDRIFT and EAP use) covers Nasdaq-100
+members only, not the 500-name pool, so the result line says 'earnings season: not separated'.
+TURNOVER AND STRESS (MANAGER edit 4): a same-month sort turns over nearly 100% of its names a month. Turnover per rebalance is printed
+beside the cost curve (0 / 5 / 10 / 20 bps), and the 20 bps row decides 'net > 0 at stress' (it replaces r17's 10 bps check (b); every
+other r17 check is unchanged).
+THE PASS RULE, in one line: a cell PASSES Stage A when r17's judge_cell checks all hold on the 'close' reading (its 500-draw null on this
+family's streams, the MAX over both cells), with the stress check at 20 bps instead of 10, AND its WF net stays positive without its best
+calendar month of entry (above); a passing cell's audit candidates
+(its top 50 name-months) are then checked as RESMOM's (f) - until then it reads 'PASS (audit pending)'. Neither a pass nor the seat read
+adopts anything: the seat read is a REPORT for the owner (BOOK.md 10ab); the #70 gate and the earner flag are printed beside it.
+THE LINE: L = #463 + 0.264 x RES from resmom_cells_daily_wf_close.csv (sha256 e204dd53419a22bc...); the harness refuses any other file and
+stops unless L reproduces 121.06 / Sortino 3.926 / 45 episodes / 762 days (checked 2026-10-08 without any SEASON number: 121.0602 /
+3.9258 / $36,526 / DD5 $34,392 / 45 / 762).
+HARNESS: tools/rocfrontier/r25_season.py (imports r17_resmom.py unchanged; swaps only rm_scores - r17's 'RES' slot carries LAG12, 'RAW'
+carries AVG - and rm_null's streams). Commands: selftest (toy world: LAG12 by brute force, AVG = LAG12 with one year, longs = the highest
+scores, the null on its stream, Stage A + seat read + diagnostics + power read end to end), dryload (counts only), power (the null alone),
+stage_a (writes season_stageA.json
+outside git, C:\EdgeLog\_anatomy_cache\rocfrontier\season_r1). The harness refuses unless this file's LF sha256 is the one it is given.
+LOCKBOX: not read. Lockbox rows are never computed by this harness (WF only, owner decision b).
+ENGINE PIN (run-before-main, MANAGER #117 / #118): r17_resmom.py with LF sha256 3151ef0ac6229972e897cf26634b465d87d608f0bf026215ea371058a5001f7c
+(STRATEGY-BEATING's witness branch prereg/sb-r17-close, commit d873fd07, byte-identical to its queued ship ticket 160); the harness
+refuses any other r17 and prints every pinned hash at the start of each run. When that ship lands, main's r17 is checked to hash the
+same; if it does not, the run is repeated before anything is recorded. This prereg's own commit is pushed as a witness branch
+(prereg/frontier-season-1008) before any number; the main ship stays queued as the permanent record.
+ORDER: draft -> MANAGER (GO with 4 edits, #115 / #116) -> wait for r17's 'close' reading on main -> commit before any number -> selftest -> dryload ->
+power -> commit the power addendum -> Stage A WF -> record (BOOK.md, ledger, RUNBOARD with DD5) -> report.
