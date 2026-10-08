@@ -235,6 +235,9 @@ def main():
                     help="refresh the registry rows from the files already on disk, without "
                          "rewriting 1.7 GB of CSV - for a provenance-only change")
     ap.add_argument("--only", default="", help="comma list of source filenames to do")
+    ap.add_argument("--no-refresh", action="store_true",
+                    help="do NOT top up the no-adjust parents first - re-derive from the files "
+                         "exactly as they sit on disk (hand runs, and anything offline)")
     ap.add_argument("--db", default=DEFAULT_DB)
     ap.add_argument("--uploads", default=DEFAULT_UP)
     a = ap.parse_args()
@@ -270,6 +273,23 @@ def main():
                   "self-consistent, they just do not match the table on disk.")
         conn.close()
         return 1 if stale else 0
+    # REFRESH THE PARENTS FIRST (MANAGER GO 2026-10-08). A twin is a faithful snapshot of its
+    #   parent, so building before the day's refresh pinned a tail the feed had not finished
+    #   reporting: ADJ_NQ_5m_RTH carried 10-07 15:55 at volume 2,645 against the true 14,755 -
+    #   one bar out of 322,426, and the only one that disagreed. The refresh now corrects a
+    #   bounded recent window (RESTATE_WINDOW_S), so running it here is what makes this work;
+    #   before that change it could only append and this call would have changed nothing.
+    #   Best-effort on purpose: a twin built from a slightly stale parent is exactly today's
+    #   behaviour, so a refresh failure must not stop the build and make things worse.
+    if a.apply and not a.no_refresh:
+        try:
+            import refresh_noadj_yahoo
+            print("topping up the no-adjust parents before the build ...")
+            refresh_noadj_yahoo.main()
+        except Exception as _re:
+            print("  parent refresh FAILED (%s: %s) - building from the parents as they stand; "
+                  "the newest bar of each twin may be provisional"
+                  % (type(_re).__name__, str(_re)[:120]))
     want = {x.strip() for x in a.only.split(",") if x.strip()}
     srcs = [m for m in noadj_masters(conn) if not want or m["filename"] in want]
     if not srcs:

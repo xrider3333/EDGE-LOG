@@ -44,6 +44,13 @@ YTK  = {"NQ": "NQ=F", "ES": "ES=F"}
 YINT = {"5m": "5m", "1m": "1m"}
 TF_SECONDS = {"5m": 300, "1m": 60}
 YAHOO_SETTLE_S = 15 * 60   # Yahoo's CME futures feed runs ~10 min behind; 15 min is safe
+# HOW FAR BACK A REFRESH MAY CORRECT A BAR IT ALREADY HAS. Yahoo under-reports a bar it has
+# already CLOSED - 10-07 15:55 was appended at volume 2,645 against a true 14,755, well past
+# the settle margin - so a clock guard cannot catch it and only re-reading the bar can. Kept
+# small on purpose: the append-only rule exists because a freely restating feed could rewrite
+# years from one bad pull, so only the last few days are correctable and settled history is
+# not. The 5m pull already asks for 60 days, so this costs no extra request.
+RESTATE_WINDOW_S = 3 * 24 * 60 * 60
 
 
 def _to_tv(h):
@@ -82,6 +89,56 @@ def _rth(df):
     return df[(mins >= 9*60+30) & (mins < 16*60) & (et.dt.dayofweek < 5)].reset_index(drop=True)
 
 
+_BAR_COLS = ("open", "high", "low", "close", "volume")
+
+
+def _restatements(cur, fresh):
+    """[(time, column, was, now)] where the feed now disagrees with a bar we already hold.
+
+    Compared on the bar's own values rather than on a hash, so the print names the field that
+    moved - almost always volume, which is what gave the defect away.
+    """
+    out = []
+    if not len(fresh) or not len(cur):
+        return out
+    have = cur.set_index("time")
+    for row in fresh.itertuples(index=False):
+        t = int(getattr(row, "time"))
+        if t not in have.index:
+            continue
+        old = have.loc[t]
+        for col in _BAR_COLS:
+            if col not in fresh.columns or col not in cur.columns:
+                continue
+            a, b = old[col], getattr(row, col)
+            try:
+                if float(a) == float(b):
+                    continue
+            except Exception:
+                continue
+            out.append((t, col, a, b))
+    return out
+
+
+def _apply_restatements(cur, fresh):
+    """`cur` with the overlapping bars taken from `fresh`. Row count and order are unchanged.
+
+    Only the bar columns move. `source` is left as it was: the row is still the same bar from the
+    same feed, and rewriting its provenance would hide that it was ever corrected.
+    """
+    if not len(fresh):
+        return cur
+    out = cur.set_index("time")
+    f = fresh.set_index("time")
+    common = out.index.intersection(f.index)
+    if not len(common):
+        return cur
+    for col in _BAR_COLS:
+        if col in out.columns and col in f.columns:
+            out.loc[common, col] = f.loc[common, col].values
+    return out.reset_index()[list(cur.columns)]
+
+
 def main(now_s=None):
     try:
         import yfinance as yf
@@ -115,8 +172,22 @@ def main(now_s=None):
             print(f"  {fn}: skipped {n_skipped} unfinished bar(s) (still forming)")
         if str(sess).lower() == "rth":
             new = _rth(new)
+        # TWO JOBS FROM ONE PULL: append what is past the seam, and correct what the feed has
+        #   restated inside the recent window. Everything older than the window is untouchable -
+        #   see RESTATE_WINDOW_S for why that line exists at all.
+        restate_from = now_s - RESTATE_WINDOW_S
+        fresh = new[(new["time"] <= last) & (new["time"] >= restate_from)]
         new = new[new["time"] > last]                       # only bars past the seam
-        if not len(new):
+        restated = _restatements(cur, fresh)
+        if len(restated):
+            # NEVER SILENT. An unannounced write to a master is what let the 2026-09-29
+            #   truncation look fine for a day.
+            for _t, _col, _was, _now in restated[:6]:
+                print(f"  {fn}: RESTATED {pd.to_datetime(_t,unit='s')} {_col} {_was} -> {_now}")
+            if len(restated) > 6:
+                print(f"  {fn}: ... and {len(restated)-6} more restated value(s)")
+            cur = _apply_restatements(cur, fresh)
+        if not len(new) and not len(restated):
             print(f"  {fn}: already current (last {pd.to_datetime(last,unit='s')})"); continue
         # Refuse a bar that spans a contract switch. Everything from the suspect bar
         # onwards is held back, not lost: the next run sees it again, once a human has
