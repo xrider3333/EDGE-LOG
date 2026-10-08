@@ -20,6 +20,7 @@ Never print, copy or commit the credentials.
                                     [--verdict "LIVE - Webull NOISE leg"] [--note "..."] --from MANAGER
     python tools/runboard_watch.py verdict 382 "LIVE - Webull NOISE leg" --from NOISE [--lane NOISE]
     python tools/runboard_watch.py note 382 "keep an eye on the tail" --from NOISE
+    python tools/runboard_watch.py caveat 234 replay --from ELwA-FEATURES   (cold | replay | none)
     python tools/runboard_watch.py remove 382 [383 ...] --from MANAGER
     python tools/runboard_watch.py import seed.json --from MANAGER
     python tools/runboard_watch.py research R2.55 --name DAILYFADE --family MISC --lane TV
@@ -163,6 +164,29 @@ def _et_today():
 def _check_family(fam):
     if fam not in FAMILIES:
         raise ToolError(f"family {fam!r} is not in the house vocabulary ({', '.join(sorted(FAMILIES))})")
+
+
+# ── CAVEAT MARKERS (MANAGER #72 item 2, 2026-10-05) ──────────────────────────────────────
+# Rows whose numbers do not mean what a reader assumes. A FIXED vocabulary, because a marker
+# only works if it reads the same every time - free text becomes a dozen phrasings of one
+# warning and stops being seen. The explanation travels WITH the key so the web app renders
+# the house wording rather than inventing its own.
+CAVEATS = {
+    "cold": ("cold-restart reload - the saved strip is re-entered from flat, so roughly a "
+             "quarter of the year's trades are missing and this figure is not comparable "
+             "with a continuous read"),
+    "replay": ("pinned-card in-sample replay - the card was fixed using the whole stretch, so "
+               "the walk-forward column here is NOT out-of-sample"),
+}
+
+
+def _check_caveat(key):
+    """`none` clears it; anything else must be a known marker."""
+    if key == "none":
+        return
+    if key not in CAVEATS:
+        raise ToolError("unknown caveat %r - use one of %s, or 'none' to clear"
+                        % (key, ", ".join(sorted(CAVEATS)) ))
 
 
 def _check_verdict(text):
@@ -359,6 +383,31 @@ def cmd_verdict(db, run_id, text, frm, lane, dry):
     return _finish(new, dry, f"verdict: #{run_id} set by {lane or frm}: {text!r}")
 
 
+def cmd_caveat(db, run_id, key, frm, dry):
+    """Mark (or clear) why a row's numbers are not what they look like."""
+    _check_caveat(key)
+    today = _et_today()
+
+    def mutate(cur):
+        runs = list((cur or {}).get("runs") or [])
+        entry = _find(runs, run_id)
+        if entry is None:
+            raise ToolError(f"{run_id} is not on the watch list yet - add it first")
+        if key == "none":
+            for k in ("caveat", "caveat_why", "caveat_by", "caveat_at"):
+                entry.pop(k, None)
+        else:
+            entry["caveat"] = key
+            entry["caveat_why"] = CAVEATS[key]
+            entry["caveat_by"] = frm
+            entry["caveat_at"] = today
+        return _finalize(runs, frm)
+
+    new = _dry_or_apply(db, watch_ref(db), mutate, dry)
+    what = "cleared" if key == "none" else key
+    return _finish(new, dry, f"caveat: {run_id} {what} by {frm}")
+
+
 def cmd_note(db, run_id, text, frm, dry):
     def mutate(cur):
         runs = list((cur or {}).get("runs") or [])
@@ -474,6 +523,12 @@ def main():
     v.add_argument("--lane")
     v.add_argument("--dry", action="store_true")
 
+    c = sub.add_parser("caveat")
+    c.add_argument("id", type=parse_id)
+    c.add_argument("key", help="cold | replay | none")
+    c.add_argument("--from", dest="frm", required=True)
+    c.add_argument("--dry", action="store_true")
+
     n = sub.add_parser("note")
     n.add_argument("id", type=parse_id)
     n.add_argument("text")
@@ -511,6 +566,8 @@ def main():
                          stretch_numbers(args.lb_roc30, args.lb_dd, None, args.lb_dd5), args.note, args.frm, args.dry)
         elif args.cmd == "verdict":
             cmd_verdict(db, args.id, args.text, args.frm, args.lane, args.dry)
+        elif args.cmd == "caveat":
+            cmd_caveat(db, args.id, args.key, args.frm, args.dry)
         elif args.cmd == "note":
             cmd_note(db, args.id, args.text, args.frm, args.dry)
         elif args.cmd == "remove":
