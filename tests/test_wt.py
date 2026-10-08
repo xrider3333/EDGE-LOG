@@ -1014,6 +1014,53 @@ def test_a_failing_fast_gate_before_the_lock_takes_no_lock_and_says_so(tmp_path)
     assert _never_queued(tmp_path)
 
 
+def _stamp_of(env, session):
+    gd = _git(env, session, 'rev-parse', '--absolute-git-dir')
+    with open(os.path.join(gd, wt.STAMP_FILE), encoding='utf-8') as f:
+        return json.load(f)
+
+
+def test_an_inconclusive_selftest_is_never_stamped_and_stops_the_ship_before_the_lock(tmp_path):
+    """SHOULD-FIX (i), MANAGER #667: 'Chrome timed out under load' - likelier now that lanes
+    gate side by side - is no verdict. Stamped, it would be reused as a pass on every later
+    tree whose cover matches. It stops the ship before the lock instead, and the next ship runs
+    it again."""
+    env = _env(tmp_path, FAKE_INCONCLUSIVE='home_render_probe selftest')
+    origin, shared, session = _sandbox(tmp_path, env)
+    before = _git(env, origin, 'rev-parse', 'main')
+    rc, out = _ship(env, shared, session)
+    assert rc != 0, out
+    assert 'HOME gate SELF-TEST was INCONCLUSIVE (exit 2) - a selftest that reached no verdict is ' \
+           'not a pass, so it is not stamped and nothing was pushed' in out, out
+    assert ('PRE-LOCK: HOME gate SELF-TEST was INCONCLUSIVE before the push lock was taken - no '
+            'ticket, no lock, nothing pushed') in out, out
+    assert _git(env, origin, 'rev-parse', 'main') == before and _never_queued(tmp_path)
+    assert 'home-selftest' not in _stamp_of(env, session)['gates'], 'never stamped'
+    assert set(_stamp_of(env, session)['gates']) == {'boot', 'home'}, 'real passes still are'
+
+    rc, out = _ship(_env(tmp_path), shared, session)              # Chrome is fine again
+    assert rc == 0, out
+    assert _landed(env, origin, session), out
+    assert _log(tmp_path).count('home_render_probe selftest unlocked') == 2, out
+
+
+def test_an_inconclusive_fast_gate_never_blocks_but_runs_again_on_the_final_tree(tmp_path):
+    """The other half of (i): a render gate's INCONCLUSIVE has never blocked a push, and still
+    does not - but it is not stamped, so the final tree gets its own run under the lock rather
+    than inheriting a non-verdict."""
+    env = _env(tmp_path, FAKE_INCONCLUSIVE='home_render_probe plain')
+    origin, shared, session = _sandbox(tmp_path, env)
+    rc, out = _ship(env, shared, session)
+    assert rc == 0, out
+    assert _landed(env, origin, session), out
+    log = _log(tmp_path)
+    assert log.count('home_render_probe plain unlocked') == 1, out
+    assert log.count('home_render_probe plain locked') == 1, 'it must run again on the final tree'
+    assert log.count('preflight_boot plain locked') == 0, 'a real pass on the same tree is reused'
+    assert 'HOME render gate: INCONCLUSIVE never blocks a render gate, but it is no pass either' in out
+    assert 'home' not in _stamp_of(env, session)['gates']
+
+
 def test_a_gate_failing_under_the_lock_pushes_nothing_and_lets_the_lock_go(tmp_path):
     """INVARIANT (c) on a gate failure: main moved, so the boot gate re-runs on the final tree
     under the lock - and fails there."""

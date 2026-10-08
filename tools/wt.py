@@ -744,9 +744,15 @@ def applicable_gates(wt, root):
 
 
 def run_gate(wt, root, g):
-    """Run one gate and print its verdict line, exactly as ship always has. Returns that line.
-    A failing gate raises SystemExit with the message it always had. INCONCLUSIVE (exit 2)
-    never blocks."""
+    """Run one gate and print its verdict line, exactly as ship always has. Returns (that line,
+    the exit code). A failing gate raises SystemExit with the message it always had.
+
+    INCONCLUSIVE (exit 2: no Chrome, Chrome timed out under load, a mutant anchor that moved) is
+    no verdict, and since 2026-10-08 (MANAGER #667) it is never STAMPED as a pass (run_plan). A
+    fast gate's INCONCLUSIVE still never blocks - as always - but it runs again on the final
+    tree under the lock instead of being reused. A SELFTEST's stops the ship: carried forward it
+    would vouch for a gate nobody saw catch anything, and re-running it round the pre-lock loop
+    would cost an hour a time for the same answer."""
     r = subprocess.run(gate_command(wt, root, g), cwd=wt, capture_output=True, text=True,
                        encoding='utf-8', errors='replace')
     out = (r.stdout or '') + (r.stderr or '')
@@ -759,14 +765,21 @@ def run_gate(wt, root, g):
         line = 'STUDIES REGISTRY: OK' + (' (%d known duplicate row(s) baselined)'
                                          % len(dups & KNOWN_DUP_ROWS) if dups else '')
         safe_print(line)
-        return line
+        return line, 0
     line = g.pick(out)
     safe_print(line)
     if r.returncode == 1:
         if g.dump:
             sys.stderr.write(out)
         raise SystemExit(g.fail)
-    return line
+    if g.slow and r.returncode != 0:
+        if g.dump:
+            sys.stderr.write(out)
+        raise SystemExit('%s was INCONCLUSIVE (exit %d) - a selftest that reached no verdict is '
+                         'not a pass, so it is not stamped and nothing was pushed. If Chrome '
+                         'timed out under load, ship again; if a mutant anchor moved, update the '
+                         'MUTANTS in %s first.' % (g.label, r.returncode, g.script))
+    return line, r.returncode
 
 
 # ================================================================================= the stamp
@@ -1124,7 +1137,8 @@ def run_plan(wt, root, plan, stamp, spath, tree, base, phase, explain=None):
 
     A gate that FAILS stops the ship with the message it always had, after one line saying which
     phase it failed in (before the lock: no ticket, no lock, nothing pushed). A pass is recorded
-    only when the worktree still holds `tree` after the gate ran (tree_moved). Before the lock
+    only when the gate exited 0 (never an INCONCLUSIVE - see run_gate) and the worktree still
+    holds `tree` after it ran (tree_moved). Before the lock
     each gate run holds a machine-wide gate slot while it runs (hold_gate_slot); under the lock
     none is taken."""
     ran = kept = 0
@@ -1146,14 +1160,15 @@ def run_plan(wt, root, plan, stamp, spath, tree, base, phase, explain=None):
                 if phase == 'pre-lock' else None)
         t_gate = time.time()
         try:
-            line = run_gate(wt, root, g)
-        except SystemExit:
+            line, code = run_gate(wt, root, g)
+        except SystemExit as e:
+            word = 'was INCONCLUSIVE' if 'INCONCLUSIVE (exit' in str(e.code) else 'FAILED'
             if phase == 'pre-lock':
-                safe_print('PRE-LOCK: %s FAILED before the push lock was taken - no ticket, no '
-                           'lock, nothing pushed' % g.label)
+                safe_print('PRE-LOCK: %s %s before the push lock was taken - no ticket, no '
+                           'lock, nothing pushed' % (g.label, word))
             else:
-                safe_print('LOCKED: %s FAILED on the final tree - nothing was pushed; the push '
-                           'lock goes with this process' % g.label)
+                safe_print('LOCKED: %s %s on the final tree - nothing was pushed; the push '
+                           'lock goes with this process' % (g.label, word))
             raise
         finally:
             release_gate_slot(slot)
@@ -1161,8 +1176,13 @@ def run_plan(wt, root, plan, stamp, spath, tree, base, phase, explain=None):
         if moved:
             raise SystemExit(moved + ' - so the %s pass is NOT recorded and nothing was pushed. '
                              'Commit or discard the change and ship again.' % g.label)
-        record_pass(stamp, g, tree, base, line, phase, round(time.time() - t_gate, 1))
-        save_stamp(spath, stamp)
+        if code == 0:
+            record_pass(stamp, g, tree, base, line, phase, round(time.time() - t_gate, 1))
+            save_stamp(spath, stamp)
+        else:
+            safe_print('  %s: INCONCLUSIVE never blocks a render gate, but it is no pass either - '
+                       'not stamped%s' % (g.label, ', so it runs again on the final tree under '
+                                          'the lock' if phase == 'pre-lock' else ''))
         ran += 1
     moved = tree_moved(wt, tree)
     if moved:
