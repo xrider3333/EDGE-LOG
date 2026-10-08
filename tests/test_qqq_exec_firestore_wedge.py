@@ -365,9 +365,16 @@ def test_still_failing_after_a_rebuild_pushes_once_high_and_backs_off(monkeypatc
     assert qe._maybe_rebuild_firestore(h, state, log=logs.append, now=t + 10) == "alerted"
     assert len(pushes) == 1
     title, msg, priority = pushes[0]
-    assert priority == "high" and "FIRESTORE" in title
-    assert "still unreachable" in msg and "Webull orders stay blocked" in msg
-    assert any(e.get("kind") == "firestore_down" for e in state.get("events", []))
+    # WEBULL PUSH PLAN 10-07: the plain phone note; the developer text is in the log + event
+    assert priority == "high" and title == "QQQ book: CHECK NOW"
+    assert msg.startswith("Trading: AFFECTED - the QQQ book cannot send orders.\n")
+    assert "The cloud database has been unreachable for" in msg
+    assert "keeps reconnecting" in msg
+    assert qe.ntfy_push.lint({"title": title, "message": msg, "priority": priority}) == []
+    downs = [e for e in state.get("events", []) if e.get("kind") == "firestore_down"]
+    assert downs and "still unreachable" in downs[0]["text"]
+    assert "Webull orders stay blocked" in downs[0]["text"]
+    assert any("still unreachable" in ln for ln in logs)
     fail(5)
     assert qe._maybe_rebuild_firestore(h, state, log=logs.append, now=t + 20) is None
     assert len(pushes) == 1, "one push per episode, not one per pass"
@@ -499,12 +506,14 @@ def test_a_process_that_cannot_rebuild_alerts_once(monkeypatch, pushes):
     h = qe._as_firestore_handle(_Client(_Store()))
     for _ in range(2):
         qe._FS_HEALTH.note_fail(RuntimeError(WEDGE_ERR))
-    assert qe._maybe_rebuild_firestore(h, {}, log=NOOP) == "alerted"
+    st = {}
+    assert qe._maybe_rebuild_firestore(h, st, log=NOOP) == "alerted"
     for _ in range(5):
         qe._FS_HEALTH.note_fail(RuntimeError(WEDGE_ERR))
-    assert qe._maybe_rebuild_firestore(h, {}, log=NOOP) is None
+    assert qe._maybe_rebuild_firestore(h, st, log=NOOP) is None
     assert len(pushes) == 1 and pushes[0][2] == "high"
-    assert "cannot rebuild" in pushes[0][1] and h.generation == 0
+    assert "needs a restart" in pushes[0][1] and h.generation == 0
+    assert any("cannot rebuild" in e.get("text", "") for e in st.get("events", []))
 
 
 # -- end to end: the serving loop wedges, rebuilds, and the lease lands after it ----------------
@@ -641,7 +650,15 @@ def test_notify_reports_whether_the_push_went_out(monkeypatch):
     monkeypatch.delenv("NTFY_TOPIC", raising=False)
     assert qe._notify("m", "t", log=NOOP) is None
     monkeypatch.setenv("NTFY_TOPIC", "test-topic")
-    monkeypatch.setattr(qe.urllib.request, "urlopen", lambda req, timeout=4: object())
+    class _Ok:  # an ntfy 200 (api/ntfy_push.push_result reads it as a context manager)
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+    monkeypatch.setattr(qe.urllib.request, "urlopen", lambda req, timeout=4: _Ok())
     assert qe._notify("m", "t", log=NOOP) is True
 
     def down(req, timeout=4):

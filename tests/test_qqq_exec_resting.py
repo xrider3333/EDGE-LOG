@@ -331,7 +331,10 @@ def test_three_failed_tries_then_one_push_and_the_engine_exit(book, monkeypatch)
         clock[0] += 30.0
     assert len(calls) == 3
     assert book.blk()["counts"]["fallback"] == 1
-    assert sum("could not be placed after 3 tries" in m for m, _ in book.pushes) == 1
+    # WEBULL PUSH PLAN 10-07, group H: ONE default note (ORB still exits, on the bar close); the
+    # developer line stays in the log
+    assert [p for m, p in book.pushes if "stop order could not be placed" in m] == ["default"]
+    assert sum("could not be placed after 3 tries" in ln for ln in book.lines) == 1
 
 
 # ── the gateway: cancel first, re-arm with the new side ────────────────────────────
@@ -1203,7 +1206,10 @@ def test_an_escaped_record_pushes_and_asks_for_a_reconcile(book):
     book.state["_reconcile_due"] = False
     assert qe._book_resting_fills(book.state, book.adapter, at(11, 0), log=book.log) == 0
     assert book.state["_reconcile_due"] is True
-    assert [p for m, p in book.pushes if "settled ABSENT" in m] == ["high"]
+    # WEBULL PUSH PLAN 10-07, group D (orders still flow): default; the record id and status are
+    # on the timeline
+    assert [p for m, p in book.pushes if "without a final answer" in m] == ["default"]
+    assert any("settled ABSENT" in e["text"] for e in book.state["events"])
     assert not [r for r in book.rows() if r["intent"] == "CLOSE"]
 
 
@@ -1256,7 +1262,8 @@ def test_boot_sweep_without_the_lease_cancels_nothing(tmp_path, monkeypatch):
     _foreign(b)
     qe._reconcile_broker_at_boot(log=b.log)
     assert b.book.orders["otherhostP1"]["status"] == "SUBMITTED"
-    assert any("NOT cancelled: this host does not hold the lease" in m for m, _ in b.pushes)
+    assert [p for m, p in b.pushes if "(left in place)" in m] == ["default"]
+    assert any("NOT cancelled: this host does not hold the lease" in ln for ln in b.lines)
 
 
 def test_off_boot_sweep_asks_webull_nothing(tmp_path, monkeypatch):
@@ -1337,7 +1344,9 @@ def test_a_filled_stop_whose_lookups_fail_then_the_engine_exit_never_closes_twic
     assert [(r["client_order_id"], r["shares"], r["broker_fill_px"]) for r in closes] == [
         (stop["coid"], "10", "")]
     assert "inferred" in closes[0]["reason"]
-    assert [p for m, p in b.pushes if "INFERRED" in m] == ["high"]
+    # WEBULL PUSH PLAN 10-07, group F: an inferred fill (price unknown) needs a fix today
+    assert [p for m, p in b.pushes if "its price is not known" in m] == ["default"]
+    assert any("INFERRED" in e["text"] for e in b.state["events"])
     b.exit(at(11, 0, 5), "ORB_R6", ORB_TID, 741.0, "short")
     for s in range(10, 30, 5):
         b.tick(at(11, 0, s))
@@ -1354,11 +1363,13 @@ def test_an_undecided_absent_stop_holds_orbs_close_back_and_pushes_once(book):
     book.book.pos -= 13                                  # shares nobody in the books knows
     _fail_lookups_past_the_escape(book, stop["coid"], at(10, 55))
     book.tick(at(10, 56), captures=0)
-    assert [p for m, p in book.pushes if "cannot be told yet" in m] == ["high"]
+    # WEBULL PUSH PLAN 10-07, group C: the plain "orders on hold" note (high)
+    assert [p for m, p in book.pushes if "cannot say yet if it filled" in m] == ["high"]
+    assert any("cannot be told yet" in e["text"] for e in book.state["events"])
     book.exit(at(11, 0, 5), "ORB_R6", ORB_TID, 741.0, "short")
     book.tick(at(11, 0, 10))
     assert book.book.markets()[1:] == [], "no second close while the stop's fill is undecided"
-    assert len([m for m, _p in book.pushes if "cannot be told yet" in m]) == 1
+    assert len([m for m, _p in book.pushes if "cannot say yet if it filled" in m]) == 1
 
 
 def test_log_only_boot_sweep_lists_a_foreign_order_and_never_cancels_it(tmp_path, monkeypatch):
@@ -1369,7 +1380,9 @@ def test_log_only_boot_sweep_lists_a_foreign_order_and_never_cancels_it(tmp_path
     _foreign(b)
     qe._reconcile_broker_at_boot(log=b.log)
     assert b.book.orders["otherhostP1"]["status"] == "SUBMITTED" and b.book.sent("cancel") == []
-    assert [p for m, p in b.pushes if "NOT cancelled: orb_resting.mode is 'log_only'" in m] == [None]
+    # WEBULL PUSH PLAN 10-07, group D: listed and left in place -- default (was a plain default push)
+    assert [p for m, p in b.pushes if "(left in place)" in m] == ["default"]
+    assert any("NOT cancelled: orb_resting.mode is 'log_only'" in ln for ln in b.lines)
     assert b.adapter.halt_state()[0] is False
 
 
@@ -1379,7 +1392,9 @@ def test_stop_mode_boot_sweep_still_cancels_a_foreign_order(tmp_path, monkeypatc
     _foreign(b)
     qe._reconcile_broker_at_boot(log=b.log)
     assert b.book.orders["otherhostP1"]["status"] == "CANCELLED"
-    assert [p for m, p in b.pushes if "did not know -- cancelled" in m] == ["high"]
+    # WEBULL PUSH PLAN 10-07, group C: cancelled + entries halted is a hold (high)
+    assert [p for m, p in b.pushes if "they were cancelled" in m] == ["high"]
+    assert any("did not know -- cancelled" in ln for ln in b.lines)
 
 
 def test_a_lost_lease_cancels_the_resting_stop_but_an_unverifiable_one_keeps_it(book, monkeypatch):
@@ -1591,7 +1606,8 @@ def test_log_only_boot_sweep_cancels_a_crashed_stop_hosts_resting_order(tmp_path
     qe._resting_boot_sweep(b.adapter, log=b.log)
     assert b.book.orders["qxORBR620260928T144500ZSP2"]["status"] == "CANCELLED"
     assert b.book.orders["otherhostP1"]["status"] == "SUBMITTED"
-    assert [p for m, p in b.pushes if "did not know -- cancelled (1 of them)" in m] == ["high"]
+    assert [p for m, p in b.pushes if "they were cancelled" in m] == ["high"]
+    assert any("did not know -- cancelled (1 of them)" in ln for ln in b.lines)
     assert b.adapter.halt_state()[0] is True
 
 

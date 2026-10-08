@@ -169,14 +169,17 @@ def test_a_leg_that_keeps_failing_gives_up_after_three_tries(tmp_path, monkeypat
         tmp_path, monkeypatch, believed={"ORB": 10}, shadow_legs=[])
     client.order_v3.place_order.side_effect = RuntimeError("broker says no")
     sent = []
-    monkeypatch.setattr(qe, "_notify", lambda msg, title, log: sent.append(title))
+    monkeypatch.setattr(qe, "_notify",
+                        lambda msg, title, log=print, priority=None: sent.append((title, priority)))
 
     for sec in range(4):
         qe._maybe_flatten_orphan_broker(state, cfg, datetime.datetime(2026, 9, 21, 9, 31, sec * 5))
 
     assert len(_broker_rows(out)) == qe.FLATTEN_MAX_TRIES == 3
     assert not trigger.exists(), "gives up and stops, rather than hammering Webull every 5 s"
-    assert sent == ["EDGELOG QQQ BROKER REPAIR FAILED"], "and tells the owner on the phone"
+    # and tells the owner on the phone -- URGENT since the WEBULL PUSH PLAN 10-07 (group A:
+    # Webull still holds the shares and nobody is retrying)
+    assert sent == [("QQQ book: CHECK NOW", "urgent")]
     assert adapter._state["believed_positions"]["ORB"]["qty"] == 10, "still held -- say so"
 
 

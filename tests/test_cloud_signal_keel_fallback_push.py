@@ -52,9 +52,10 @@ def test_healthy_fresh_state_has_no_reason(tmp_path):
 
 def test_stale_beyond_the_push_threshold_gives_a_reason(tmp_path):
     """KEEL_PUSH_STALE_SESSIONS (1) is deliberately tighter than KEEL_MAX_STALE_SESSIONS
-    (5) -- a state 2+ sessions behind must trigger the PUSH even though it is nowhere
-    near stale enough to change live SIZING yet (see _keel_size_for_entry's own
-    KEEL_MAX_STALE_SESSIONS tests, which stay green: no sizing behaviour changed)."""
+    (5) -- a state 2+ sessions behind is NOTED (a reason, kept in state.json and the log)
+    even though it is nowhere near stale enough to change live SIZING yet. Since the
+    WEBULL PUSH PLAN 10-07 only a REAL fallback (_keel_fallback_is_real) is PUSHED -- see
+    tests/test_webull_push_plan_phone.py."""
     arrays = _arrays(base=pd.Timestamp("2026-09-08 09:30:00", tz=cs.TZ))
     state, _ = _fitted_state(arrays)
     now = arrays["index"][-1]
@@ -212,7 +213,11 @@ def test_scoring_exception_at_a_real_entry_pushes_once(tmp_path, monkeypatch):
                 cfg=cfg1, arrays=arrays, fetch=True)
 
     assert len(pushed) == 1
-    assert "NOISE_382" in pushed[0] and "keel scoring error" in pushed[0]
+    # WEBULL PUSH PLAN 10-07: the plain phone note names the strategy in words; the
+    # developer reason stays on the leg's own record (state.json) and in the log
+    assert "NOISE trades at base size without its sizing model" in pushed[0]
+    assert "failed to size a NOISE trade" in pushed[0]
+    assert "keel scoring error" in leg_state["keel_alert"]["last_reason"]
 
 
 def test_scoring_exception_push_needs_fetch_and_cloud_role_too(tmp_path, monkeypatch):
@@ -309,7 +314,7 @@ def test_step_pushes_when_the_wired_leg_keel_state_is_missing(tmp_path, monkeypa
 
     cs.step(now=now, legs=legs, paths=paths, fetch=True)
     assert pushed, "step() must push once its wired leg's KEEL state is found missing"
-    assert "NOISE_382" in pushed[0]
+    assert "NOISE trades at base size" in pushed[0] and "could not be read" in pushed[0]
 
 
 def test_no_push_on_the_pc_even_with_a_live_fetching_tick(tmp_path, monkeypatch):

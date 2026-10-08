@@ -264,7 +264,9 @@ def test_hand_typed_near_misses_fall_back_and_never_raise(monkeypatch):
         assert ev_sh[0]["keel_size"] == 1.0
         assert [e["event"] for e in ev] == ["ENTRY"]
         assert ev[0]["keel_size"] == 1.0 and ev[0]["size"] == 1.75
-    assert len(sent) == 3 and all("no state_path" in m or "unknown keel mode" in m for m in sent)
+    # WEBULL PUSH PLAN 10-07: the plain note (the reason itself is on the leg's record)
+    assert len(sent) == 3 and all("KEEL sizing setting on the cloud box is not valid" in m
+                                  for m in sent)
 
 
 def _one_new_entry(A, bar):
@@ -292,8 +294,10 @@ def test_fixed_scoring_error_is_one_point_zero_with_the_learned_paths_push(monke
                       cfg={"keel": dict(FIXED)}, arrays=A, fetch=True, log=lambda *a, **k: None)
     assert [e["event"] for e in ev] == ["ENTRY"]
     assert ev[0]["keel_size"] == 1.0 and ev[0]["size"] == 1.75
-    assert len(sent) == 1 and "keel fixed tilts error" in sent[0][0]
-    assert "KEEL fell back to 1.0" in sent[0][1]
+    # WEBULL PUSH PLAN 10-07: the plain note on the phone, the reason on the leg's record
+    assert len(sent) == 1 and "KEEL fixed sizing failed to size a NOISE trade" in sent[0][0]
+    assert sent[0][1] == "QQQ book: CHECK NOW"
+    assert "keel fixed tilts error" in leg_state["keel_alert"]["last_reason"]
     # the shipped NOISE_422_FIXED cfg is a SHADOW leg: same 1.0 fallback, no push at all
     ev = cs._diff_leg("NOISE_422_FIXED", [t], {"seeded": True, "trades": {}}, now,
                       max_entry_age_sec=900, cfg=cs.SHADOW_LEGS["NOISE_422_FIXED"], arrays=A,

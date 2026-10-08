@@ -83,30 +83,29 @@ WRITES under --out-dir (nothing else on the filesystem, no Firestore writes, no 
                                      last_nq_session -- versions). Plain JSON --
                                      safe to read from any process/host as a
                                      status field.
-  nq_stale_alert.json             -- the NQ FRESHNESS ALERT's one-push-per-stale-day
-                                     marker (see check_nq_freshness); removed again
-                                     once the data is current.
+  nq_stale_alert.json             -- the NQ FRESHNESS check's marker: which day the
+                                     master is behind on, and whether its last day
+                                     was incomplete (see check_nq_freshness) -- what
+                                     the box monitor tools/webull_freshness.py reads
+                                     for its nq_master note; removed again once the
+                                     data is current.
 
 NQ FRESHNESS ALERT (2026-10-05). The PC's nightly push (tools/push_nq_master_to_box.py)
 failed 09-30, 10-01 and 10-03 and did not run 10-02, so the box's master stayed at 09-29 and
 this script rebuilt KEEL on stale data every night without a word. Every run that loads
 the master now compares the newest COMPLETE NQ session in it with the last completed
 trading day (api/market_calendar, counting a session as completed STALE_AFTER_CLOSE_MIN
-after its close -- the push lands ~17:20 ET). Behind: one log line every run, and ONE
-push per stale trading day (the marker above): a fix that does not land by the next
-trading day's check is a new fact and pushes once more, so a multi-day outage sends at
-most one push a trading day. Never fails the build -- KEEL still trains on what it has;
-the owner is simply told.
+after its close -- the push lands ~17:20 ET). Behind: one log line every run and the marker
+above. Never fails the build -- KEEL still trains on what it has.
 
-PHONE TEXT (2026-10-07, owner GO "yes deploy box pings"): the push is an api/ntfy_push.plain()
-note at default priority (fix it today; trading itself is not stopped -- the box freshness
-monitor's own "KEEL not rebuilt" check pushes high when the live model is actually old):
-    QQQ book: needs a fix
-    Trading: not affected.
-    The NQ price history on the cloud box stops at 09-29, so the KEEL sizing model is rebuilt on old data.
-    Do: make sure the PC is on at 14:20, or ask Claude (PAPER-WB chat).
-(14:20 is the PC upload task on the owner's Arizona clock.) It was "EDGELOG KEEL NQ STALE" at
-high priority with file paths and New York times; that developer text still goes to the log.
+NO PUSH FROM HERE (WEBULL PUSH PLAN 10-07, MANAGER #86, section 3: "NQ data did not reach the
+box" has ONE owner). The box monitor tools/webull_freshness.py (its nq_master check, from
+18:00 ET -- before this 18:30 ET build, so a hand re-run of the upload can still land) is the
+one pusher: it runs every 2 minutes around the clock, keeps a persisted outbox and pushes once
+per episode. This script's one unique view -- "the last day in the file is INCOMPLETE" (a
+cut-short upload passes the monitor's newest-bar test) -- reaches the owner through the marker:
+the monitor reads nq_stale_alert.json and names the incomplete day in its note. Until 10-08
+this pushed "QQQ book: needs a fix" itself, once per stale trading day.
 """
 import argparse
 import hashlib
@@ -298,42 +297,19 @@ def last_completed_session(now_et):
     return d
 
 
-STALE_PUSH_PRIORITY = "default"     # fix it today; trading itself is not stopped (PHONE TEXT)
-
-
-def _default_stale_push(message, title, log=print):
-    from api import ntfy_push
-    return ntfy_push.push(message, title=title, priority=STALE_PUSH_PRIORITY, log=log)
-
-
-def stale_note(newest, incomplete_day=None):
-    """The plain phone note for stale NQ data (api/ntfy_push.plain; see the module docstring's
-    PHONE TEXT). `newest` / `incomplete_day` are ISO dates or None; shown as MM-DD."""
-    from api import ntfy_push
-
-    def md(day):
-        return str(day)[5:10] if day else "an unknown day"
-    if incomplete_day:
-        problem = ("The NQ price history on the cloud box has an incomplete last day (%s), so the "
-                   "KEEL sizing model is rebuilt on old data." % md(incomplete_day))
-    else:
-        problem = ("The NQ price history on the cloud box stops at %s, so the KEEL sizing model "
-                   "is rebuilt on old data." % md(newest))
-    return ntfy_push.plain("QQQ book", "needs a fix", None, problem,
-                           "make sure the PC is on at 14:20, or ask Claude (PAPER-WB chat)",
-                           priority=STALE_PUSH_PRIORITY)
-
-
-def check_nq_freshness(master, out_dir, nq_file=None, now_et=None, push=None, log=print):
-    """NQ FRESHNESS ALERT: is the newest complete session in `master` (a load_master()
-    dict) at least the last completed trading day? Logs a line every stale run and pushes
-    ONCE per stale trading day -- the marker (out_dir/STALE_MARKER) keys on the newest
-    session AND the expected one, so the same stale file pushes again when the next
-    trading day completes without it; clears the marker once current. A last session the build dropped as incomplete counts as stale too -- KEEL
-    then trains one day behind -- except on a recognised half day, whose shorter session
-    this build always drops (that is the build's own rule, not a missing push). Returns
-    {"stale", "newest", "expected", "pushed"}. Never raises."""
-    out = {"stale": False, "newest": None, "expected": None, "pushed": False}
+def check_nq_freshness(master, out_dir, nq_file=None, now_et=None, log=print):
+    """NQ FRESHNESS CHECK: is the newest complete session in `master` (a load_master()
+    dict) at least the last completed trading day? Logs a line every stale run and writes
+    the marker (out_dir/STALE_MARKER: {"newest", "expected", "incomplete_day", "noted_at"})
+    -- rewritten when the facts change, kept while they stand, removed once current. A last
+    session the build dropped as incomplete counts as stale too -- KEEL then trains one day
+    behind -- except on a recognised half day, whose shorter session this build always drops
+    (that is the build's own rule, not a missing upload). NO PUSH (WEBULL PUSH PLAN 10-07):
+    tools/webull_freshness.py's nq_master check owns the phone and reads this marker.
+    Returns {"stale", "newest", "expected", "incomplete_day", "noted"} ("noted": the marker
+    was (re)written this run). Never raises."""
+    out = {"stale": False, "newest": None, "expected": None, "incomplete_day": None,
+           "noted": False}
     try:
         import pandas as pd
         from api import market_calendar as _mc
@@ -355,7 +331,9 @@ def check_nq_freshness(master, out_dir, nq_file=None, now_et=None, push=None, lo
             return out
         out["stale"] = True
         where = nq_file or "the NQ master"
-        if dropped == expected.isoformat():
+        incomplete = dropped if dropped == expected.isoformat() else None
+        out["incomplete_day"] = incomplete
+        if incomplete:
             why = (f"its last session ({dropped}) is incomplete, so the newest complete one is "
                    f"{out['newest']}")
         else:
@@ -363,9 +341,10 @@ def check_nq_freshness(master, out_dir, nq_file=None, now_et=None, push=None, lo
         msg = (f"KEEL NQ data is STALE: {why}, but the last completed trading day is "
                f"{out['expected']}. The PC's nightly push to the box "
                "(tools/push_nq_master_to_box.py, 17:20 ET) did not land a current file -- "
-               f"KEEL v12 is training on old data ({where}).")
+               f"KEEL v12 is training on old data ({where}). No push from here: the box "
+               "monitor's nq_master check owns it.")
         log(f"[keel-live-state] {msg}")
-        key = {"newest": out["newest"], "expected": out["expected"]}
+        key = {"newest": out["newest"], "expected": out["expected"], "incomplete_day": incomplete}
         prev = None
         try:
             with open(marker, encoding="utf-8") as f:
@@ -373,23 +352,14 @@ def check_nq_freshness(master, out_dir, nq_file=None, now_et=None, push=None, lo
         except (OSError, ValueError):
             prev = None
         if isinstance(prev, dict) and all(prev.get(k) == v for k, v in key.items()):
-            log("[keel-live-state] (already pushed for this stale file -- not pushing again)")
+            log("[keel-live-state] (stale file already noted in the marker)")
             return out
-        note = stale_note(out["newest"], dropped if dropped == expected.isoformat() else None)
-        res = (push if push is not None else _default_stale_push)(note["message"], note["title"],
-                                                                  log=log)
-        # api/ntfy_push.push reports a failed send (network, non-2xx, no topic) by returning
-        # False, not by raising: write no marker then, so the next run tries again. None (a
-        # sender that returns nothing) counts as sent.
-        if res is False:
-            log("[keel-live-state] stale-data push did not go out -- will try again next run")
-            return out
-        out["pushed"] = True
         os.makedirs(out_dir, exist_ok=True)
         tmp = marker + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(dict(key, pushed_at=_dt_now_iso()), f)
+            json.dump(dict(key, noted_at=_dt_now_iso()), f)
         os.replace(tmp, marker)
+        out["noted"] = True
     except Exception as e:
         log(f"[keel-live-state] NQ freshness check failed (non-fatal): {type(e).__name__}: {e}")
     return out

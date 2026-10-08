@@ -55,6 +55,12 @@ from api import webull_orders as WO
 
 NOOP = lambda *a, **k: None  # noqa: E731 -- a log=... sink, matches the harness note
 
+
+def _events(state):
+    """The timeline texts -- where the developer wording of a push lives since the WEBULL
+    PUSH PLAN 10-07 (the phone gets a plain note, or none for the benign cases)."""
+    return [e.get("text", "") for e in state.get("events", [])]
+
 # The lot this whole incident is about: NOISE entered 2026-09-21 09:45:12 ET, 10
 # shares long at 729.82, trade id NOISE_304-20260921T134000Z-L.
 NOWDT = datetime.datetime(2026, 9, 21, 9, 45, 12)
@@ -295,7 +301,9 @@ def test_halted_open_is_queued_then_resent_and_the_close_then_succeeds(tmp_path,
     assert order["side"] == "BUY"
     assert order["quantity"] == "10"
     assert state.get("_broker_resend") == {}
-    assert any("re-sent and accepted" in msg for _title, msg in sent)
+    # WEBULL PUSH PLAN 10-07, group E (fixed itself): on the timeline, never a push
+    assert any("re-sent and accepted" in t for t in _events(state))
+    assert not any("re-sent" in msg for _title, msg in sent)
 
     # the book now closes NOISE -- the guard must see the re-sent shares and let a real
     # sell through instead of silently no-op'ing
@@ -328,7 +336,9 @@ def test_close_without_a_resend_tells_the_owner_and_sends_nothing(tmp_path, monk
                          trade_id=NOISE_TRADE_ID, log=NOOP)
 
     assert client.order_v3.place_order.call_count == 0, "nothing was ever sent to close"
-    assert any("never held it" in msg for _title, msg in sent)
+    # WEBULL PUSH PLAN 10-07, group E: the owner is told on the timeline, not by a push
+    assert sent == []
+    assert any("never held it" in t for t in _events(state))
     rows = _broker_rows(out)
     close_rows = [r for r in rows if r["intent"] == "CLOSE"]
     assert len(close_rows) == 1
@@ -392,7 +402,10 @@ def test_resend_gives_up_after_the_open_window_passes(tmp_path, monkeypatch):
 
     assert client.order_v3.place_order.call_count == 0
     assert state.get("_broker_resend") == {}
-    assert any("gave up" in msg and "its window passed" in msg for _title, msg in sent)
+    assert any("gave up" in t and "its window passed" in t for t in _events(state))
+    # WEBULL PUSH PLAN 10-07, group B: the give-up folds into the strategy's one "entry missed"
+    # note of the day -- never a second push for the same missed entry
+    assert [t for t, _m in sent].count("QQQ book: entry missed") == 1
 
 
 def test_duplicate_reject_resent_under_a_fresh_client_order_id(tmp_path, monkeypatch):

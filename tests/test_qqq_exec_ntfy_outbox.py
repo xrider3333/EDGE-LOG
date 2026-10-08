@@ -30,6 +30,12 @@ class Opener:
 
         class R:
             status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
         return R()
 
 

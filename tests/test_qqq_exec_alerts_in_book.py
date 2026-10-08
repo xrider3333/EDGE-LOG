@@ -2,11 +2,14 @@
 gaps in api/qqq_exec.py, same "no exit fails silently" theme:
   1. a signal-engine stall (cloud_signal's own heartbeat gone stale) while the book
      holds an open lot pushes one high-priority alert per stall EPISODE, plus one
-     recovery push when the heartbeat comes back -- _check_feed_engine.
+     recovery push when the heartbeat comes back -- _check_feed_engine. WEBULL PUSH PLAN
+     10-07: NO PUSH any more (the box monitor's engine_hb is the one pusher and names the
+     open lot); a timeline event and the log line instead.
   2. a broker reconcile MISMATCH or READ FAILURE pushes the first occurrence of the
      calendar day at once, then at most once every 30 minutes while it persists --
      _maybe_notify_reconcile_halt, called from _maybe_run_broker_reconcile's own
-     failure branch.
+     failure branch. WEBULL PUSH PLAN 10-07: one "orders on hold" note a day (the shared
+     repeat rule), shared with every other hold.
   3. three or more CONSECUTIVE failed ticks of qqq_exec_thread's own while loop push
      one high-priority alert per episode, never once per failure after that --
      _note_tick_result.
@@ -151,30 +154,36 @@ def _write_heartbeat(cs_mod, age_sec, ok=True):
         json.dump({"ts": ts.isoformat(), "ok": ok}, f)
 
 
-def test_signal_stall_with_open_lot_pushes_high_priority_once(tmp_path, monkeypatch):
+def test_signal_stall_with_open_lot_is_logged_on_the_timeline_not_pushed(tmp_path, monkeypatch):
+    """WEBULL PUSH PLAN 10-07 (group I, DROP): the box monitor (tools/webull_freshness.py
+    engine_hb, which names the open lot) is the ONE pusher of a signal stall. The executor
+    keeps the log line and a timeline event with the same wording."""
     cs_mod = _fake_cs(tmp_path, monkeypatch)
     _write_heartbeat(cs_mod, age_sec=200)   # well past ENGINE_HEARTBEAT_STALE_SEC (90s)
     pushed = _capture_notify(monkeypatch)
+    logged = []
     state = {"legs": {"NOISE": {"shares_remaining": 10}}, "events": []}
 
-    stale = qe._check_feed_engine(state, log=NOOP)
+    stale = qe._check_feed_engine(state, log=logged.append)
 
     assert stale is True
-    assert len(pushed) == 1
-    title, msg, priority = pushed[0]
-    assert priority == "high"
+    assert pushed == []
+    ev = [e for e in state["events"] if e["kind"] == "signal_stall"]
+    assert len(ev) == 1
+    msg = ev[0]["text"]
     assert "NOISE" in msg
     assert "STALLED" in msg
-    assert state["_signal_stall_alerted"] is True
+    assert any("STALLED" in ln for ln in logged)
     # item 6 (2026-09-26 minor review): must say SIGNAL-DRIVEN exits are blocked, and
     # that the rail-driven closes still work -- the old wording ("exits are blocked")
     # falsely implied the EOD flatten/KILL/breaker could not close the lot either.
     assert "signal-driven exits are blocked" in msg
     assert "end-of-day flatten, KILL and breaker still work" in msg
 
-    # a second stale tick must not page again -- one push per episode
+    # a second stale tick must not log the episode again
     qe._check_feed_engine(state, log=NOOP)
-    assert len(pushed) == 1
+    assert len([e for e in state["events"] if e["kind"] == "signal_stall"]) == 1
+    assert pushed == []
 
 
 def test_signal_stall_with_no_open_lot_never_pages(tmp_path, monkeypatch):
@@ -190,20 +199,20 @@ def test_signal_stall_with_no_open_lot_never_pages(tmp_path, monkeypatch):
     assert not state.get("_signal_stall_alerted")
 
 
-def test_signal_stall_recovery_pushes_once_after_an_alerted_stall(tmp_path, monkeypatch):
+def test_signal_stall_recovery_is_logged_not_pushed(tmp_path, monkeypatch):
     cs_mod = _fake_cs(tmp_path, monkeypatch)
     _write_heartbeat(cs_mod, age_sec=200)
     pushed = _capture_notify(monkeypatch)
     state = {"legs": {"ORB": {}}, "events": []}
     qe._check_feed_engine(state, log=NOOP)
-    assert len(pushed) == 1
+    assert pushed == []
 
     _write_heartbeat(cs_mod, age_sec=1)
     stale = qe._check_feed_engine(state, log=NOOP)
 
     assert stale is False
-    assert len(pushed) == 2
-    assert "recovered" in pushed[1][1].lower()
+    assert pushed == [], "the box monitor sends the one OK after its own high push"
+    assert any(e["kind"] == "feed_up" and "recovered" in e["text"] for e in state["events"])
     assert not state.get("_signal_stall_alerted")
 
 
@@ -245,7 +254,12 @@ def test_reconcile_mismatch_pushes_the_first_occurrence(monkeypatch):
     assert len(pushed) == 1
     title, msg, priority = pushed[0]
     assert priority == "high"
-    assert "MISMATCH" in msg
+    # WEBULL PUSH PLAN 10-07, group C: the plain "orders on hold" note; "MISMATCH" and the
+    # mismatch list stay in the log line and the timeline event
+    assert title == "QQQ book: orders on hold"
+    assert "The book and Webull disagree on QQQ shares" in msg
+    assert qe.ntfy_push.lint({"title": title, "message": msg, "priority": priority}) == []
+    assert any("mismatch" in e["text"] and "ORB off by 5" in e["text"] for e in state["events"])
 
 
 def test_reconcile_read_failure_labeled_as_read_failure(monkeypatch):
@@ -257,7 +271,8 @@ def test_reconcile_read_failure_labeled_as_read_failure(monkeypatch):
     qe._maybe_run_broker_reconcile(state, {}, adapter, None, active=True, log=NOOP)
 
     assert len(pushed) == 1
-    assert "READ FAILURE" in pushed[0][1]
+    assert "position could not be read" in pushed[0][1]
+    assert any("read failure" in e["text"] for e in state["events"])
 
 
 def test_reconcile_ok_never_pages(monkeypatch):
@@ -270,7 +285,10 @@ def test_reconcile_ok_never_pages(monkeypatch):
     assert pushed == []
 
 
-def test_reconcile_alert_capped_at_30_minutes_while_it_persists(monkeypatch):
+def test_reconcile_alert_once_a_day_while_it_persists(monkeypatch):
+    """WEBULL PUSH PLAN 10-07: the 30-minute repeat is replaced by the shared repeat rule --
+    the same hold pushes once, then at most once a day while it stands (re-checked every
+    30 s while halted, a flapping reconcile never pages twice the same day)."""
     adapter = _FakeReconcileAdapter(result={"ok": False, "mismatches": ["ORB off by 5"]})
     pushed = _capture_notify(monkeypatch)
     clock = [1_000_000.0]
@@ -283,12 +301,54 @@ def test_reconcile_alert_capped_at_30_minutes_while_it_persists(monkeypatch):
     clock[0] += 5 * 60
     state["_reconcile_due"] = True
     qe._maybe_run_broker_reconcile(state, {}, adapter, None, active=True, log=NOOP)
-    assert len(pushed) == 1, "still under 30 minutes since the last push -- must not page again"
+    assert len(pushed) == 1, "the same hold the same day -- must not page again"
 
     clock[0] += 26 * 60
     state["_reconcile_due"] = True
     qe._maybe_run_broker_reconcile(state, {}, adapter, None, active=True, log=NOOP)
-    assert len(pushed) == 2, "30+ minutes elapsed while it persists -- pages again"
+    assert len(pushed) == 1, "31 minutes on, still the same hold -- no second page"
+
+    clock[0] += 24 * 3600
+    state["_reconcile_due"] = True
+    qe._maybe_run_broker_reconcile(state, {}, adapter, None, active=True, log=NOOP)
+    assert len(pushed) == 2, "a day on and still holding -- pages once more"
+
+
+def test_reconcile_hold_ends_after_agreeing_and_a_new_hold_pushes(monkeypatch):
+    """10-08 review (plan group C, one note per hold EPISODE): a hold that flaps back after
+    one agreeing look is the same episode (no second page); after RECONCILE_HOLD_CLEAR_OKS
+    agreeing looks in a row it is over -- but the reconcile hold pushes at most once per New
+    York day (the plan's "at most once a day"), so a separate hold the same day stays quiet
+    and the next day's hold pages again."""
+    adapter = _FakeReconcileAdapter(result=None)
+    pushed = _capture_notify(monkeypatch)
+    clock = [1_000_000.0]
+    monkeypatch.setattr(qe.time, "time", lambda: clock[0])
+    state = {"events": []}
+    bad = {"ok": False, "mismatches": ["ORB off by 5"]}
+    good = {"ok": True, "mismatches": []}
+
+    def look(result):
+        adapter._result = result
+        clock[0] += 60
+        state["_reconcile_due"] = True
+        qe._maybe_run_broker_reconcile(state, {}, adapter, None, active=True, log=NOOP)
+
+    look(bad)
+    assert len(pushed) == 1
+    look(good)
+    look(bad)
+    assert len(pushed) == 1, "one agreeing look then a mismatch again: the same episode"
+    for _ in range(qe.RECONCILE_HOLD_CLEAR_OKS):
+        look(good)
+    assert qe.hold_key("reconcile") not in state.get("_phone_dedupe", {})
+    look(bad)
+    assert len(pushed) == 1, "a separate hold the same New York day: capped, no second page"
+    assert any("reconcile mismatch" in e["text"].lower() for e in state["events"][-1:]), \
+        "the capped hold still logs its timeline event"
+    clock[0] += 24 * 3600
+    look(bad)
+    assert len(pushed) == 2, "the next day's hold pages again"
 
 
 def test_reconcile_alert_first_occurrence_repeats_on_a_new_day(monkeypatch):
@@ -439,7 +499,11 @@ def test_broker_send_timeout_on_open_pushes_and_is_never_auto_resent(tmp_path, m
     assert len(pushed) == 1
     title, msg, priority = pushed[0]
     assert priority == "high"
-    assert "UNKNOWN" in msg
+    # WEBULL PUSH PLAN 10-07, group B: the plain "entry missed" note; "UNKNOWN" and the order
+    # id stay on the timeline
+    assert title == "QQQ book: entry missed"
+    assert "Webull did not answer the ORB buy in time" in msg
+    assert any("OUTCOME UNKNOWN" in e["text"] for e in state["events"])
     assert state.get("_broker_resend", {}) == {}, \
         "an UNKNOWN OPEN must never be queued for auto-resend"
 
@@ -464,7 +528,10 @@ def test_broker_send_timeout_on_close_queues_needs_verify_close_retry(tmp_path, 
     assert len(pushed) == 1 and pushed[0][2] == "high"
 
 
-def test_alert_broker_send_unknown_pushes_every_time_never_throttled(monkeypatch):
+def test_alert_broker_send_unknown_logs_every_hang_and_pushes_once_per_strategy_a_day(monkeypatch):
+    """WEBULL PUSH PLAN 10-07, group B: a missed entry is high ONCE per strategy per day --
+    every real hang still gets its own timeline event (with its order id); another strategy
+    is its own note."""
     pushed = _capture_notify(monkeypatch)
     state = {"events": []}
 
@@ -473,9 +540,13 @@ def test_alert_broker_send_unknown_pushes_every_time_never_throttled(monkeypatch
     qe._alert_broker_send_unknown(state, leg="ORB", intent="OPEN", side="BUY", shares=5,
                                   reason="timed out again", client_order_id="abc124", log=NOOP)
 
-    assert len(pushed) == 2, "unlike _alert_broker_not_ok's OPEN throttle, this always pages"
-    assert all(p == "high" for _t, _m, p in pushed)
-    assert "abc123" in pushed[0][1] and "abc124" in pushed[1][1]
+    assert len(pushed) == 1 and pushed[0][2] == "high"
+    texts = [e["text"] for e in state["events"]]
+    assert any("abc123" in t for t in texts) and any("abc124" in t for t in texts)
+
+    qe._alert_broker_send_unknown(state, leg="NOISE", intent="OPEN", side="BUY", shares=5,
+                                  reason="timed out", client_order_id="abc125", log=NOOP)
+    assert len(pushed) == 2 and "NOISE" in pushed[1][1]
 
 
 # ═══ review fix major #2: a second send must never queue behind a hung first one ═══

@@ -287,7 +287,8 @@ def _loop_env(tmp_path, monkeypatch, host):
     env.log = lambda m: env.logs.append(str(m))
     monkeypatch.setattr(qe, "_lease_host_id", lambda: host)
     monkeypatch.setattr(qe, "_reconcile_broker_at_boot", lambda log=print: None)
-    monkeypatch.setattr(qe, "_notify", lambda msg, title, log=print: env.pushes.append((title, msg)))
+    monkeypatch.setattr(qe, "_notify", lambda msg, title, log=print, priority=None:
+                        env.pushes.append((title, msg)))
     monkeypatch.setattr(qe, "TICK_SEC", 0.02)
 
     def fake_tick(**kw):
@@ -603,7 +604,9 @@ def test_serving_loop_stands_down_when_another_host_takes_the_lease(tmp_path, mo
         assert len(store.sets) == writes, "no publish after standing down"
         assert _holder(store) == "cloud-vm"
         assert any("STANDING DOWN" in m and "cloud-vm" in m for m in env.logs)
-        assert env.pushes and "STOOD DOWN" in env.pushes[-1][0]
+        # WEBULL PUSH PLAN 10-07: the plain note "QQQ book: stopped here" (high)
+        assert env.pushes and env.pushes[-1][0] == "QQQ book: stopped here"
+        assert "Another computer holds the QQQ book." in env.pushes[-1][1]
         assert qe.standby_fresh()[0]
         assert any(e.get("kind") == "lease_lost" for e in qe.load_state().get("events", []))
         assert not os.path.exists(qe.SERVING_LOCK)

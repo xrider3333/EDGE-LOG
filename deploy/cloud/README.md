@@ -395,7 +395,11 @@ shell running as the user. If `systemctl --failed` ever lists `logrotate.service
 `edgelog-freshness.timer` runs `tools/webull_freshness.py` every 2 minutes, 24/7, as the
 box user. It reads local files only (no Firestore, no Webull) and pages ntfy once per
 problem plus once when it clears: executor publish down / blocking broker sends / tick
-loop dead, failed units, disk, NQ master and KEEL behind after 19:00 ET, the signal
+loop dead, failed units, disk, the NQ master behind after 18:00 ET (before the 18:30 KEEL
+rebuild; the ONE pusher of "NQ data did not reach the box" since the WEBULL PUSH PLAN 10-07 --
+`keel_live_state.py` only logs and writes `keel/nq_stale_alert.json`, which this monitor
+reads) and KEEL behind after 19:00 ET (default while 1-4 sessions old, high at the
+5-session fallback, folded into an open NQ note), the signal
 engine, bars and tick gaps in session, the EOD flatten and Webull-flat check from 16:10 ET,
 and a pre-open gate at 08:30 and 09:15 ET that pushes "QQQ book: OK" (low, once a day) or
 "QQQ book: CHECK NOW" with what is missing. Every push is in the plain phone format

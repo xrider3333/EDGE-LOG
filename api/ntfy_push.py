@@ -11,9 +11,10 @@ who clones it -- moving to a PRIVATE topic with an access token means every send
 the SAME two new env vars (NTFY_TOKEN, NTFY_SERVER) wired the same way, or one of them
 quietly stays on the old public channel. One helper, one place to get it right.
 
-api/qqq_exec.py keeps its own single POST (_ntfy_post, same NTFY_TOPIC / NTFY_TOKEN /
-NTFY_SERVER contract) but sends every HIGH or URGENT push through this module's Outbox
-(below), as does api/cloud_signal.py's engine alerts -- see PERSISTED OUTBOX.
+api/qqq_exec.py's single POST (_ntfy_post) IS push_result() below since the WEBULL PUSH PLAN
+10-07 (MANAGER #86), and so is api/cloud_signal.py's KEEL fallback push (until then a raw POST
+to a hard-coded https://ntfy.sh/<topic> that ignored NTFY_TOKEN / NTFY_SERVER). Both send every
+HIGH or URGENT push through this module's Outbox (below) -- see PERSISTED OUTBOX.
 
 Also still carrying the OLD literal topic and needing a manual fix at integration --
 all of this is on the owner's PC, none of it on the Oracle cloud box (see
@@ -62,9 +63,12 @@ alerter now builds its push with plain() below -- and, since the box-pings chang
 so do the box and off-PC alerters (tools/webull_freshness.py, tools/keel_live_state.py, and the
 GitHub Actions dead-man's switches tools/nt_cloud_watchdog.py and tools/qqq_deadman.py), and the
 pushes added with the executor outbox / KEEL-vs-FIXED work in api/cloud_signal.py (KEEL size
-differs, prices stopped / on the backup source) and api/qqq_exec.py (re-price failed). NOT yet:
-the OLDER pushes of api/qqq_exec.py and api/cloud_signal.py, and deploy/cloud/healthcheck.sh
-(off on the box) -- so the lock screen always reads the same way:
+differs, prices stopped / on the backup source) and api/qqq_exec.py (re-price failed), and --
+WEBULL PUSH PLAN 10-07 (MANAGER #86) -- EVERY push of api/qqq_exec.py (its _say(): plain() +
+dedupe per problem; ~10 benign or other-owner sites keep only their log line and timeline
+event) and api/cloud_signal.py's KEEL fallback push (now only for a REAL fallback to 1.0).
+NOT yet: deploy/cloud/healthcheck.sh (off on the box) -- so the lock screen always reads the
+same way:
 
     title   "<area>: <status>"   under 40 characters, e.g. "Order flow: data gap",
                                  "NinjaTrader: CHECK NOW", "Paper NT8: OK" -- no shouting, no jargon
@@ -81,7 +85,13 @@ the OLDER pushes of api/qqq_exec.py and api/cloud_signal.py, and deploy/cloud/he
     default  something broke that needs a fix today but trading is fine (a failed backup,
              a paper strategy trading outside its size limit)
     low      data-only / informational / "back to normal" / fills           -> ntfy priority 2, no buzz
-  ONE OWNER PER PROBLEM: "today's close was not settled" (end-of-day exits recorded late) is
+  ONE OWNER PER PROBLEM: "NQ data did not reach the box" is pushed ONLY by
+  tools/webull_freshness.py's nq_master check (tools/keel_live_state.py keeps its log line and
+  its nq_stale_alert.json marker, which the monitor reads; the PC sweep keeps it in its JSON
+  and inbox). "Webull not flat after the close": api/qqq_exec.py pushes the RESULT of its own
+  check, tools/webull_freshness.py only "the check did not run". The signal-engine stall is
+  tools/webull_freshness.py's (engine_hb); api/qqq_exec.py logs it on its timeline.
+  "today's close was not settled" (end-of-day exits recorded late) is
   pushed ONLY by tools/webull_freshness.py's eod_settled check; api/cloud_signal.py records the
   give-up and api/qqq_exec.py logs the board event, neither pushes it. Order-flow completeness
   (the buy/sell split of the 10-second bars) is pushed ONLY by api/delta_alarm.py; the morning
@@ -203,6 +213,15 @@ ACCOUNT_WORDS = {"DEMO7240108": "paper", "1810769": "your real account"}
 BANNED = ("rt=3", "tick replay", "exit code", "pipeline", "sidecar", "no-tick", "ntfy",
           "firestore", "bridge", "watchdog")
 _BANNED_RE = re.compile(r"\bDEMO\d+\b|\b\d{6,}\b|\bUTC\b|\bET\b")
+
+
+def with_article(word):
+    """'ORB' -> 'an ORB', 'ENGU-Q' -> 'an ENGU-Q', 'NOISE' -> 'a NOISE' (each said as a word);
+    text that already starts with 'a ' / 'an ' is returned as it is."""
+    w = str(word or "").strip()
+    if not w or w.lower().startswith(("a ", "an ")):
+        return w or "a"
+    return ("an " if w[0].upper() in "AEIOU" else "a ") + w
 
 
 def strategy_word(name):

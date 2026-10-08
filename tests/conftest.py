@@ -435,6 +435,15 @@ def _isolate_ntfy_outbox(monkeypatch, _broker_isolation_root):
         monkeypatch.setattr(qe, "NTFY_OUTBOX_PATH", str(d / "ntfy_outbox.json"))
         monkeypatch.setattr(qe, "NTFY_OUTBOX_BACKGROUND", False)
         monkeypatch.setattr(qe, "_NTFY_OUTBOX", {"box": None})
+    if hasattr(qe, "_PHONE_PROCESS_STORE"):
+        # WEBULL PUSH PLAN 10-07: _say() with no state (start-up, the Firestore alert with no
+        # state) dedupes in process memory -- every test starts with it empty
+        monkeypatch.setattr(qe, "_PHONE_PROCESS_STORE", {})
+    if hasattr(qe, "TICK_CRASH_MARKER"):
+        # 10-08 review: the tick crash marker beside state.json -- never the live qqq_exec dir
+        d = _broker_isolation_root / f"tickcrash_{next(_ntfy_outbox_dirs)}"
+        monkeypatch.setattr(qe, "TICK_CRASH_MARKER", str(d / "tick_crash.json"))
+        monkeypatch.setattr(qe, "_TICK_CRASH_MARKER_SWEPT", {"done": False})
     cs = sys.modules.get("api.cloud_signal")
     if cs is not None and hasattr(cs, "ENGINE_OUTBOX_BACKGROUND"):
         monkeypatch.setattr(cs, "ENGINE_OUTBOX_BACKGROUND", False)

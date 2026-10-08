@@ -44,8 +44,9 @@ RAILS (identical logic shadow and, eventually, live):
       every open lot is closed and tagged "EOD".
   (d) kill file present -> no new lots; close every open lot, tagged "KILL".
   (e) feed staleness (NinjaTrader AddOn heartbeat older than 90s, via
-      api.nt_sync._addon_heartbeat) blocks new entries and pushes at most one ntfy
-      alert per 30 minutes while it persists.
+      api.nt_sync._addon_heartbeat) blocks new entries and logs at most one line per
+      30 minutes while it persists (no phone push since the WEBULL PUSH PLAN 10-07: the
+      box runs signal_source "engine", so this check never runs there).
 
 RECORDS: C:\\EdgeLog\\qqq_exec\\orders.csv (every shadow order), \\trades.csv (every
 closed round-trip), \\state.json (cursor + open lots + rail state -- this IS the
@@ -73,7 +74,7 @@ import threading
 import time
 import traceback
 import urllib.error
-import urllib.request
+import urllib.request  # noqa: F401 -- api/ntfy_push posts through it; tests patch qe.urllib.request
 from datetime import datetime, timedelta, timezone
 
 from . import market_calendar
@@ -777,57 +778,255 @@ def _notify(msg, title, log=print, priority=None):
 
 def _ntfy_post(msg, title, priority=None):
     """ONE ntfy POST, (ok, detail): ok True/False, None when NTFY_TOPIC is unset. Never
-    raises, never logs (the caller -- _notify or the outbox -- logs the outcome)."""
-    topic = (os.environ.get("NTFY_TOPIC") or "").strip()
-    if not topic:
-        return None, "NTFY_TOPIC unset"
-    headers = {"Title": title, "Priority": priority or "default"}
-    # Private topic (WEBULL_GO_LIVE 1.10): same NTFY_TOKEN / NTFY_SERVER contract as
-    # api/ntfy_push.py; unset keeps today's public ntfy.sh behaviour.
-    token = (os.environ.get("NTFY_TOKEN") or "").strip()
-    if token and "CHANGE-ME" not in token:
-        headers["Authorization"] = f"Bearer {token}"
-    server = ((os.environ.get("NTFY_SERVER") or "").strip() or "https://ntfy.sh").rstrip("/")
+    raises, never logs (the caller -- _notify or the outbox -- logs the outcome).
+
+    WEBULL PUSH PLAN 10-07 (MANAGER #86, section 2): this used to be a second private copy
+    of api/ntfy_push's POST. It now IS api/ntfy_push.push_result -- the one place the topic,
+    NTFY_TOKEN and NTFY_SERVER are read -- so a private topic reaches this sender the day it
+    is turned on. No priority still sends the "default" header, as before."""
     try:
-        req = urllib.request.Request(
-            f"{server}/{topic}", data=msg.encode("utf-8"), method="POST",
-            headers=headers)
-        resp = urllib.request.urlopen(req, timeout=4)
-    except Exception as e:
+        ok, detail = ntfy_push.push_result(msg, title=title, priority=priority or "default",
+                                           timeout=4)
+    except Exception as e:      # push_result never raises; belt and braces
         return False, f"{type(e).__name__}: {e}"
-    status = getattr(resp, "status", None)
+    return ok, detail
+
+
+# -- THE PLAIN PHONE FORMAT for EVERY executor push (WEBULL PUSH PLAN 10-07, MANAGER #86) --------
+# C:\EdgeLog\manager\paperwb_1007\WEBULL_PUSH_PLAN_1007.md section 1: the executor's ~38 push
+# sites cover 9 problems. Each push now builds its text with ntfy_push.plain() -- title
+# "QQQ book: <status>" (or "QQQ fill: <leg> <what>"), "Trading: ...", ONE plain problem line
+# with at most one number, "Do: ...", times on the owner's clock (ntfy_push.hhmm, Arizona),
+# strategies as words (ORB / ENGU-Q / NOISE) -- and goes through _say(), which runs the shared
+# repeat rule (ntfy_push.dedupe) per problem key on state["_phone_dedupe"] (saved with
+# state.json): a problem pushes once, again at once only when it gets WORSE (high -> urgent),
+# else at most once a day while it stands. Problem ids carry the ET date, so "once per
+# strategy per day" (a missed entry) and "once per day" fall out of the same rule. The
+# developer text is unchanged in the log line and the timeline event. Priority (plan table):
+#   A exit (sell) did not go through   first failure high; give-up / stall / after the bell /
+#                                       repair gave up urgent             key exit:<leg>
+#                                       (10-08: an accepted sell Webull later killed with
+#                                       shares unsold is this group's high -- _say_order_outcome)
+#   B entry (buy) did not go through   high, once per strategy per day; a give-up or a failed
+#                                       remainder folds into that note    key entry:<leg>
+#                                       (10-08: an accepted buy Webull later rejected or only
+#                                       part-filled is this group too; a split buy's refused
+#                                       rest waits for its one re-send before any push)
+#   C orders on hold                   high, one note per hold episode     key hold:<cause>;
+#                                       the reconcile hold at most once per New York day
+#   D book and Webull disagree         default; high only for "sell by hand"
+#   E fixed itself / benign            NO PUSH (log + timeline only)
+#   F fills                            low; one note per exit (none when the resting stop
+#                                       already reported it); an inferred stop fill default
+#   G end of day                       not flat urgent, unread high, the day summary low
+#   H safety stops                     daily stop high (one note, lots or flat); kill low;
+#                                       ORB stop not placed default
+#   I program health                   tick crashes / database / stood down high; the signal
+#                                       stall and the NinjaTrader feed: NO PUSH (the box
+#                                       monitor owns the stall; the feed is dead on the box)
+PHONE_AREA = "QQQ book"
+PHONE_ASK = "ask Claude (PAPER-WB chat)"
+PHONE_LEG_WORDS = {"ENGUQ": "ENGU-Q", "ORB": "ORB", "NOISE": "NOISE"}
+# a call with no state (start-up: the resting boot sweep) dedupes in process memory
+_PHONE_PROCESS_STORE = {}
+
+
+def _leg_word(leg):
+    """'ENGUQ' -> 'ENGU-Q'; 'ORB' / 'NOISE' as they are; anything else -> 'a strategy'."""
+    s = str(leg or "").strip()
+    return PHONE_LEG_WORDS.get(s.upper(), s) or "a strategy"
+
+
+def _a_leg_word(leg):
+    """The strategy word with its article, capitalised to start a sentence: 'An ORB',
+    'A NOISE', 'A strategy' (10-08 review: never 'A ORB')."""
+    w = ntfy_push.with_article(_leg_word(leg))
+    return w[:1].upper() + w[1:]
+
+
+def _legs_words(legs):
+    """['NOISE', 'ORB'] -> 'NOISE and ORB'."""
+    ws = [_leg_word(x) for x in legs if x]
+    return " and ".join([", ".join(ws[:-1]), ws[-1]]) if len(ws) > 1 else (ws[0] if ws else "a strategy")
+
+
+def _phone_epoch(when=None):
+    """Epoch seconds of `when` (None = now; a naive datetime is New York wall time, as every
+    nowdt in this module)."""
+    if when is None:
+        return time.time()
+    if isinstance(when, (int, float)):
+        return float(when)
     try:
-        close = getattr(resp, "close", None)
-        if callable(close):
-            close()
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=_NY) if _NY else when.replace(tzinfo=timezone.utc)
+        return when.timestamp()
     except Exception:
-        pass
-    if isinstance(status, int) and not (200 <= status < 300):
-        return False, f"HTTP {status}"
-    return True, (f"HTTP {status}" if isinstance(status, int) else "sent")
+        return time.time()
 
 
-def _phone_note(state, key, problem_id, note, log=print):
-    """THE PLAIN PHONE FORMAT for this executor's NEW pushes (re-price failed -- api/ntfy_push
-    PLAIN FORMAT, v73.1120/1121): `note` is an ntfy_push.plain()
-    dict; the shared repeat rule (ntfy_push.dedupe) runs per `key` on state["_phone_dedupe"]
-    (persisted with state.json), lint() problems are logged, and a "push" goes out through
-    _notify (so a high/urgent note still uses the outbox). Returns the dedupe action. Never
+def _phone_clock(when=None):
+    """'12:59' -- `when` on the owner's clock (Arizona), never New York."""
+    e = _phone_epoch(when)
+    return ntfy_push.hhmm(e, now=e)
+
+
+def _phone_day(nowdt=None):
+    """The ET trading date a problem id carries ('2026-10-08')."""
+    return (nowdt or _now_et()).strftime("%Y-%m-%d")
+
+
+def _phone_close(nowdt=None):
+    """Today's flatten deadline (15:59 New York on a full day) on the owner's clock."""
+    try:
+        return _phone_clock(_session_flatten_deadline(nowdt or _now_et()))
+    except Exception:
+        return "the close"
+
+
+def _phone_why(reason):
+    """A broker reason in a few plain words for the phone (no codes, ids or numbers); the
+    raw text stays in the log line and the timeline event."""
+    s = str(reason or "")
+    low = s.lower()
+    m = _WEBULL_ERROR_CODE_RE.search(s)
+    if m and "SIDE_NOT_MATCH" in m.group(1):
+        return "Webull says the account holds the other side of QQQ"
+    if m and "SHORT" in m.group(1):
+        return "this account cannot short"
+    if "insufficient" in low or "not enough" in low:
+        return "not enough shares to sell"
+    if "timed out" in low or "timeout" in low or "unknown" in low:
+        return "Webull did not answer in time"
+    if "halt" in low:
+        return "orders were on hold"
+    if "lease" in low:
+        return "another computer holds the QQQ book"
+    if "kill" in low:
+        return "the kill switch is on"
+    if "in flight" in low or "in-flight" in low or "busy" in low:
+        return "an earlier order was still being sent"
+    return "Webull did not accept it"
+
+
+def _phone_host_word():
+    """'the cloud box' on the box (EDGELOG_HOST_ROLE=cloud), else 'the PC'."""
+    role = str(os.environ.get("EDGELOG_HOST_ROLE") or "").strip().lower()
+    return "the cloud box" if role == "cloud" else "the PC"
+
+
+def _say(state, key, problem_id, note, log=print):
+    """Send one plain() note through the shared repeat rule -> (action, sent).
+
+    `key` names the problem (one dedupe slot in state["_phone_dedupe"], saved with
+    state.json); `problem_id` is this occurrence ("2026-10-08"); the note's priority is its
+    rank, so the same id pushes again only when it gets worse. action is ntfy_push.dedupe's
+    (None held / "push"); sent is what _notify returned (True, "queued", None = no topic
+    set, False = the send failed) or None when held. A push whose send FAILED (False) does
+    not count: the dedupe slot is put back, so the next call tries again -- while None (no
+    topic set) counts as done, so a box with no topic never loops. lint() problems are
+    logged. `state` None (start-up, no state.json yet) dedupes in process memory. Never
     raises."""
     try:
         for p in ntfy_push.lint(note):
             log(f"[qqq-exec] phone note lint: {p}: {note.get('title')}")
-        store = state.setdefault("_phone_dedupe", {})
-        action = ntfy_push.dedupe_in(store, key, {str(problem_id): ntfy_push.RANK.get(
-            note.get("priority"), 0)}, time.time())
-        if action == "push":
-            _notify(note["message"], note["title"], log, priority=note["priority"])
-        else:
+        store = (state.setdefault("_phone_dedupe", {}) if isinstance(state, dict)
+                 else _PHONE_PROCESS_STORE)
+        before = json.loads(json.dumps(store.get(key))) if key in store else None
+        rank = ntfy_push.RANK.get(note.get("priority"), 0)
+        # 10-08 review: a held call at a LOWER rank (a "sell is late" high after the same
+        # day's urgent) must not lower the stored rank -- else the next urgent for the same
+        # fact would count as "worse" and buzz a second time
+        try:
+            prior = ((before or {}).get("set") or {}).get(str(problem_id))
+            if prior is not None:
+                rank = max(rank, int(prior))
+        except Exception:
+            pass
+        action = ntfy_push.dedupe_in(store, key, {str(problem_id): rank}, time.time())
+        if action != "push":
             log(f"[qqq-exec] phone note held by the repeat rule: {note.get('title')}")
-        return action
+            return action, None
+        sent = _notify(note["message"], note["title"], log, priority=note["priority"])
+        if sent is False:
+            if before is None:
+                store.pop(key, None)
+            else:
+                store[key] = before
+        return action, sent
     except Exception as e:
         log(f"[qqq-exec] phone note failed ({type(e).__name__}: {e})")
-        return None
+        return None, False
+
+
+def _say_clear(state, key, log=print):
+    """The problem `key` is over: end its episode quietly (no push), so the next occurrence
+    -- even the same day -- pushes again. Never raises."""
+    try:
+        store = (state.get("_phone_dedupe") if isinstance(state, dict)
+                 else _PHONE_PROCESS_STORE)
+        if isinstance(store, dict):
+            store.pop(key, None)
+    except Exception as e:
+        log(f"[qqq-exec] phone note clear failed ({type(e).__name__}: {e})")
+
+
+def _fill_note(leg, what, problem):
+    """A fill (plan group F): low, no buzz -- "QQQ fill: NOISE bought"."""
+    return ntfy_push.plain("QQQ fill", f"{_leg_word(leg)} {what}", None, problem, "nothing",
+                           priority="low")
+
+
+def _exit_reason_words(reason):
+    """'EOD (px: live_stream)' -> 'end-of-day close'; 'signal exit' -> 'strategy exit'."""
+    r = str(reason or "").strip().upper()
+    if r.startswith("EOD SETTLE"):
+        return "end-of-day settle"
+    if r.startswith("EOD"):
+        return "end-of-day close"
+    if r.startswith("KILL"):
+        return "kill switch"
+    if r.startswith("BREAKER"):
+        return "daily stop"
+    return "strategy exit"
+
+
+def _kill_note():
+    """The kill switch (plan group H): low -- the owner switched it on."""
+    return ntfy_push.plain(
+        PHONE_AREA, "kill switch on", "the kill switch closed every QQQ trade",
+        "The kill switch is on: QQQ trades were closed and new ones are blocked",
+        "nothing if you switched it on, else " + PHONE_ASK, priority="low")
+
+
+def _stood_down_note():
+    """This host stood down (plan group I): high -- trading on this machine stopped."""
+    return ntfy_push.plain(
+        PHONE_AREA, "stopped here", f"{_phone_host_word()} stopped running the QQQ book",
+        "Another computer holds the QQQ book",
+        PHONE_ASK + " which computer should run it", priority="high")
+
+
+def _repair_gave_up_note(legs):
+    """The Webull-only repair gave up (plan group A): urgent -- shares are still held."""
+    return ntfy_push.plain(
+        PHONE_AREA, "CHECK NOW", "Webull still holds shares the book does not",
+        f"The repair could not sell the {_legs_words(legs)} shares Webull still holds",
+        "sell them by hand in the Webull app", priority="urgent")
+
+
+def _say_daily_stop(state, total, what, nowdt=None, log=print):
+    """The daily stop (plan group H): ONE high note a day, lots or flat."""
+    return _say(state, "daily_stop", _phone_day(nowdt), ntfy_push.plain(
+        PHONE_AREA, "daily stop hit", "no new QQQ trades today",
+        f"Today's loss reached {ntfy_push.usd(total)}, past the daily limit; {what}",
+        "nothing - it resets tomorrow", priority="high"), log=log)
+
+
+def _phone_note(state, key, problem_id, note, log=print):
+    """_say() returning only the dedupe action (the re-price alert's original helper).
+    Never raises."""
+    return _say(state, key, problem_id, note, log=log)[0]
 
 
 # The executor's ntfy outbox (finding 16) -- see _notify. None: ntfy_outbox.json in the same
@@ -1854,80 +2053,102 @@ def _is_serving_standalone():
 # EXIT SAFETY item 3 (2026-09-26, LEAD DECISION on the "alerts in book" review): a CLOSE
 # that keeps failing across many backoff retries used to page on EVERY one of them (each
 # not-ok _mirror_to_broker call fires its own alert, and a close_retry can retry every
-# 5-30s for hours) -- a real outage would then page every few seconds for as long as it
-# lasts. The lead's call: page on the FIRST failure (so the owner hears about it right
-# away), then at most once every CLOSE_FAIL_ALERT_GAP_SEC per leg while it keeps
-# failing, plus the give-up push (_maybe_resend_broker_orders), which always fires
-# regardless of this gate, at urgent priority. NOT one push per retry.
-CLOSE_FAIL_ALERT_GAP_SEC = 300.0
+# 5-30s for hours). WEBULL PUSH PLAN 10-07 (MANAGER #86): the per-site throttles (this
+# 5-minute CLOSE gap, the once-a-day OPEN stamp, the 30-minute reconcile gap) are replaced
+# by the ONE shared repeat rule, _say() / ntfy_push.dedupe, per problem key: a failing
+# CLOSE (key exit:<leg>) pushes on its FIRST failure (high), again only when it gets worse
+# -- the give-up, a stalled retry, a sell after the bell (urgent) -- and otherwise at most
+# once a day while it stands. NOT one push per retry, and no longer one every 5 minutes.
+def _exit_key(leg):
+    return f"exit:{leg}"
 
 
-def _close_fail_should_alert(state, leg, log=print):
-    """True the first time this leg's CLOSE has failed since its last resolved episode,
-    or again once CLOSE_FAIL_ALERT_GAP_SEC has passed since the last push while it keeps
-    failing; False for every push in between (the ordinary not-ok log line at the
-    caller's own call site still runs regardless -- nothing is silently lost, only the
-    repeat phone push). Records the push time when it returns True so the next call
-    measures from it. Never raises (fails OPEN -- a bug here must never silently swallow
-    a real safety push)."""
-    try:
-        now = time.time()
-        throttle = state.setdefault("_close_fail_alert", {})
-        last = throttle.get(leg)
-        if last is None or (now - float(last)) >= CLOSE_FAIL_ALERT_GAP_SEC:
-            throttle[leg] = now
-            return True
-        return False
-    except Exception:
-        return True
+def _entry_key(leg):
+    return f"entry:{leg}"
 
 
 def _close_fail_alert_reset(state, leg):
-    """Clears the throttle above once a leg's CLOSE-failure episode is resolved (a
-    retry finally lands, the retry queue gives up, or the position is confirmed already
-    closed some other way) -- so the NEXT failure for this leg (a different trade, a
-    later day) pages immediately again rather than inheriting the old episode's
-    cooldown. PAGING (minor, THIRD 2026-09-26 review): the CLOSE-retry "stalled" push
-    (_maybe_resend_broker_orders) now shares this SAME throttle key (`leg`) rather than
-    a separate "<leg>#stall" one -- point 3 of the spec caps a failing CLOSE at one push
-    per leg per CLOSE_FAIL_ALERT_GAP_SEC, not one budget for the send failure and a
-    second independent one for the stall -- so there is only ever this one key to clear.
-    Never raises."""
+    """A leg's CLOSE-failure episode is resolved (a retry finally lands, the retry queue
+    gives up, or the position is confirmed already closed some other way): end its phone
+    episode (key exit:<leg>), so the NEXT failure for this leg -- a different trade, later
+    the same day -- pushes at once again rather than inheriting the old episode. Never
+    raises."""
     try:
-        throttle = state.get("_close_fail_alert") or {}
-        throttle.pop(leg, None)
+        state.pop("_close_fail_alert", None)      # the retired 5-minute throttle's memory
+        _say_clear(state, _exit_key(leg))
     except Exception:
         pass
+
+
+def _open_word(side):
+    return "short sale" if str(side or "").upper() in ("SHORT", "SELL_SHORT") else "buy"
+
+
+def _close_word(side):
+    """Closing words for either vocabulary: the broker side ('BUY' closes a short) or the
+    lot side ('short' -- 10-08 review: fill capture and the PENDING pass pass the lot's)."""
+    return "buy-back" if str(side or "").upper() in ("BUY", "SHORT") else "sell"
+
+
+def _say_exit_late(state, leg, why, side=None, log=print, problem=None):
+    """A first exit failure (plan group A, high): the sell keeps retrying. `problem`
+    overrides the problem line (an UNKNOWN outcome must not say the sell did not go
+    through -- it may have)."""
+    w, act = _leg_word(leg), _close_word(side)
+    return _say(state, _exit_key(leg), _phone_day(), ntfy_push.plain(
+        PHONE_AREA, "CHECK NOW", f"the {w} {act} is late",
+        problem or f"The {w} {act} did not go through ({why})",
+        "nothing yet - it keeps retrying; a second note comes only if it gives up",
+        priority="high"), log=log)
+
+
+def _say_exit_stuck(state, leg, problem, problem_id=None, log=print):
+    """An exit nobody is retrying any more (plan group A, urgent): Webull may still hold
+    the shares. `problem_id` (default the ET date) names a distinct fact -- the after-the-bell
+    block has its own, so it is not held behind an earlier same-day "sell is stuck"."""
+    w = _leg_word(leg)
+    return _say(state, _exit_key(leg), problem_id or _phone_day(), ntfy_push.plain(
+        PHONE_AREA, "CHECK NOW", f"Webull may still hold {w} shares", problem,
+        f"check the Webull app and sell {w} by hand if it is still held",
+        priority="urgent"), log=log)
+
+
+def _say_entry_missed(state, leg, problem, side=None, log=print, trading=None):
+    """An entry that did not reach Webull (plan group B, high): ONCE per strategy per day --
+    a give-up or a failed split remainder for the same strategy folds into this note.
+    `trading` overrides the Trading line's text (an UNKNOWN outcome says the buy "may not"
+    be at Webull, matching its problem line)."""
+    w = _leg_word(leg)
+    return _say(state, _entry_key(leg), _phone_day(), ntfy_push.plain(
+        PHONE_AREA, "entry missed", trading or f"the {w} {_open_word(side)} is not at Webull",
+        problem.rstrip(".") + "; the book still counts the trade",
+        "nothing - " + PHONE_ASK + " if it happens again tomorrow", priority="high"), log=log)
 
 
 def _alert_broker_not_ok(state, *, leg, intent, side, shares, reason, log=print):
     """Phone alert for a broker record that came back NOT ok (refused, exception/
     timeout, BLOCKED) -- EXIT SAFETY item 1, right after the 'NOT ok' log line at this
-    function's own call site. An OPEN pushes at most once per leg per calendar day
-    (state['_open_fail_notified'][leg] = that day's date) -- a leg blocked all morning
-    by the same stale lease would otherwise page every 5s tick. A CLOSE pushes on the
-    FIRST failure, then at most once per CLOSE_FAIL_ALERT_GAP_SEC per leg while it keeps
-    failing (item 3, 2026-09-26 lead decision -- see _close_fail_should_alert; NOT once
-    per retry). Also logs one timeline event either way. Never raises.
+    function's own call site. WEBULL PUSH PLAN 10-07: an OPEN is plan group B ("entry
+    missed", high, once per strategy per day -- a leg blocked all morning by the same stale
+    lease pushes once); a CLOSE is group A (first failure high, then nothing more until it
+    gets worse or a day passes -- NOT once per retry). The timeline event is logged with
+    each push. Never raises.
 
-    REVIEW FIX (2026-09-26 review, minor): the pushed message is now built from
-    _plain_broker_error(reason) -- the raw ServerException text (HTTP status, Webull
-    code, RequestID) is unreadable on a phone push, and the "NOT ok" log line right
-    above this function's own call site already carries the raw text, so nothing is
-    lost by translating it here."""
+    The raw ServerException text (HTTP status, Webull code, RequestID) stays in the "NOT
+    ok" log line at the call site and, translated by _plain_broker_error, in the timeline
+    event; the phone gets a few plain words (_phone_why)."""
     try:
-        if intent == "OPEN":
-            today = _now_et().strftime("%Y-%m-%d")
-            notified = state.setdefault("_open_fail_notified", {})
-            if notified.get(leg) == today:
-                return
-            notified[leg] = today
-        elif not _close_fail_should_alert(state, leg, log=log):
-            return
         plain_reason = _plain_broker_error(reason) or reason or "no reason given"
         msg = f"QQQ BROKER {intent} NOT OK: {leg} {side} {shares}sh -- {plain_reason}"
-        _log_event(state, "broker", msg, log=log)
-        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+        why = _phone_why(reason)
+        if intent == "OPEN":
+            action, _sent = _say_entry_missed(
+                state, leg, f"The {_leg_word(leg)} {_open_word(side)} did not reach Webull ({why})",
+                side=side, log=log)
+        else:
+            action, _sent = _say_exit_late(state, leg, why, side=side, log=log)
+        if action == "push":
+            _log_event(state, "broker", msg, log=log)
     except Exception as e:
         log(f"[qqq-exec] broker-not-ok alert failed (non-fatal): {type(e).__name__}: {e}")
 
@@ -1935,20 +2156,28 @@ def _alert_broker_not_ok(state, *, leg, intent, side, shares, reason, log=print)
 def _alert_broker_send_unknown(state, *, leg, intent, side, shares, reason,
                                client_order_id, log=print):
     """Phone alert for a broker send whose outcome is UNKNOWN (item 4, 2026-09-26 --
-    see _place_stock_order_with_timeout). An OPEN always pushes -- it is never retried,
-    so this can only ever fire once per real hang. A CLOSE (item 3, 2026-09-26 lead
-    decision, NARROWING this from "always pushes") is gated by the same per-leg
-    CLOSE_FAIL_ALERT_GAP_SEC as _alert_broker_not_ok: a repeated timeout across many
-    close_retry attempts is still "a CLOSE that keeps failing", not a fresh emergency
-    each time -- see _close_fail_should_alert. Also logs one timeline event. Never
-    raises."""
+    see _place_stock_order_with_timeout). The timeline event is logged always for an OPEN
+    (one per real hang: an OPEN is never retried); for a CLOSE once per pushed note. WEBULL PUSH PLAN 10-07: an OPEN is plan group B (the
+    strategy's one "entry missed" note of the day); a CLOSE is group A, sharing the leg's
+    exit:<leg> episode with _alert_broker_not_ok -- a repeated timeout across many
+    close_retry attempts is "a CLOSE that keeps failing", not a fresh emergency each time.
+    Never raises."""
     try:
-        if intent == "CLOSE" and not _close_fail_should_alert(state, leg, log=log):
-            return
         msg = (f"QQQ BROKER {intent} OUTCOME UNKNOWN: {leg} {side} {shares}sh (order id "
               f"{client_order_id}) -- {reason}")
-        _log_event(state, "broker", msg, log=log)
-        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+        w = _leg_word(leg)
+        if intent == "OPEN":
+            action, _sent = _say_entry_missed(
+                state, leg, f"Webull did not answer the {w} {_open_word(side)} in time (it may "
+                f"or may not have landed)", side=side, log=log,
+                trading=f"the {w} {_open_word(side)} may not be at Webull")
+        else:
+            action, _sent = _say_exit_late(
+                state, leg, "Webull did not answer in time", side=side, log=log,
+                problem=(f"Webull did not answer the {w} {_close_word(side)} in time (it may "
+                         f"or may not have gone through)"))
+        if intent == "OPEN" or action == "push":
+            _log_event(state, "broker", msg, log=log)
     except Exception as e:
         log(f"[qqq-exec] broker-unknown alert failed (non-fatal): {type(e).__name__}: {e}")
 
@@ -2039,7 +2268,7 @@ def _check_webull_flat_after_eod(state, log=print):
                   ") -- check the Webull app by hand")
             log(f"[qqq-exec] {msg}")
             _log_event(state, "broker", msg, log=log)
-            _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+            state["_eod_flat_pushed"] = _say_eod_unread(state, log=log)
             return None, None
         qty = float(broker.get(BROKER_SYMBOL, 0.0) or 0.0)
         if abs(qty) > 1e-9:
@@ -2048,13 +2277,42 @@ def _check_webull_flat_after_eod(state, log=print):
                   f"the Webull app")
             log(f"[qqq-exec] {msg}")
             _log_event(state, "broker", msg, log=log)
-            _notify(msg, "EDGELOG QQQ BROKER NOT FLAT", log, priority="urgent")
+            _action, sent = _say(state, "eod_flat", _phone_day(), ntfy_push.plain(
+                PHONE_AREA, "CHECK NOW", "Webull still holds shares after the close",
+                f"Webull still holds {shares} QQQ shares",
+                "sell them by hand in the Webull app", priority="urgent"), log=log)
+            state["_eod_flat_pushed"] = sent is not False
             return False, shares
         return True, 0
     except Exception as e:
         log(f"[qqq-exec] Webull flat-check after EOD failed (non-fatal): "
             f"{type(e).__name__}: {e}")
+        # the result (None = unverified) is stamped as this executor's own, so the box
+        # monitor stays quiet on it: the executor must push it here too
+        try:
+            state["_eod_flat_pushed"] = _say_eod_unread(state, log=log)
+        except Exception:
+            pass
         return None, None
+
+
+def _say_eod_unread(state, log=print):
+    """WEBULL PUSH PLAN 10-07, group G: the executor owns the RESULT of the after-close
+    check (high when unread, urgent when not flat -- same key, so "not flat" after "unread"
+    still pushes); the box monitor owns "the check did not run". Returns False only when the
+    note did not go out (the send failed -- then the monitor pushes it: see the "pushed" stamp
+    on state['_webull_flat_after_eod']), else True (sent, queued, no topic, or already sent
+    today). Never raises."""
+    try:
+        _action, sent = _say(state, "eod_flat", _phone_day(), ntfy_push.plain(
+            PHONE_AREA, "CHECK NOW", "nobody has confirmed Webull is flat after the close",
+            "Webull's QQQ position could not be read after the close",
+            "check the Webull app is flat and sell by hand if needed",
+            priority="high"), log=log)
+        return sent is not False
+    except Exception as e:
+        log(f"[qqq-exec] after-close unread push failed (non-fatal): {type(e).__name__}: {e}")
+        return False
 
 
 def _maybe_check_webull_flat_after_eod(state, cfg, nowdt, log=print):
@@ -2123,11 +2381,17 @@ def _maybe_check_webull_flat_after_eod(state, cfg, nowdt, log=print):
                                  for v in (state.get("_broker_resend") or {}).values())
             if still_retrying:
                 return
+        state.pop("_eod_flat_pushed", None)
         flat, qty = _check_webull_flat_after_eod(state, log=log)
         state["eod_flat_check_date"] = today
         state["_eod_flat_checked_for"] = {"date": today, "flat_by": have_flat_by,
                                           "kill": have_kill}
+        # "pushed": the executor's own note for a not-flat / unread result went out (10-08
+        # fourth review) -- the box monitor stays quiet on that result only when it did
+        pushed = bool(state.pop("_eod_flat_pushed", False))
         state["_webull_flat_after_eod"] = {"date": today, "flat": flat, "shares": qty}
+        if flat is not True:
+            state["_webull_flat_after_eod"]["pushed"] = pushed
     except Exception as e:
         log(f"[qqq-exec] EOD Webull flat-check scheduling failed (non-fatal): "
             f"{type(e).__name__}: {e}")
@@ -2643,7 +2907,7 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
         _queue_broker_fill_capture(state, leg=leg, intent=intent, signal_id=signal_id,
                                    account_id=rec.get("account_id"), shadow_px=shadow_px,
                                    parts=rec_parts if rec_parts and len(rec_parts) > 1 else None,
-                                   log=log,
+                                   log=log, side=side,
                                    # for _requeue_close_unfilled
                                    retry=({"side": side, "ts": None if ts is None else str(ts),
                                            "seq": seq, "trade_id": trade_id,
@@ -2677,6 +2941,16 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
             _alert_broker_send_unknown(state, leg=leg, intent=intent, side=row["side"],
                                        shares=shares, reason=row["reason"],
                                        client_order_id=row["client_order_id"], log=log)
+        elif (requeue and intent == "OPEN" and trade_id and not rec.get("nothing_to_close")
+              and sum(int(p.get("qty") or 0) for p in rec.get("unsent_parts") or [])):
+            # 10-08 review (plan group B / E): part of a split OPEN landed and its refused
+            # rest is queued below for ONE re-send a few seconds from now -- no push yet. The
+            # re-send decides: accepted is group E (timeline only), refused or never sent
+            # pushes the strategy's one "entry missed" note then.
+            _log_event(state, "broker",
+                       f"QQQ BROKER OPEN NOT OK: {leg} {row['side']} {shares}sh -- part of the "
+                       f"split order was refused ({_plain_broker_error(row['reason']) or row['reason']}); "
+                       f"the rest is re-sent once", log=log)
         elif requeue and not rec.get("nothing_to_close") and not rec.get("inflight_blocked"):
             # PAGING STORM (minor, 2026-09-26 review): `inflight_blocked` (see
             # _place_stock_order_with_timeout) means this specific record is just this
@@ -2688,10 +2962,11 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
             _alert_broker_not_ok(state, leg=leg, intent=intent, side=row["side"],
                                  shares=shares, reason=row["reason"], log=log)
     if rec.get("nothing_to_close"):
+        # WEBULL PUSH PLAN 10-07, group E (the safe outcome): timeline + log only, no push
         msg = (f"QQQ BROKER: {leg} closed in the book, but Webull never held it (its buy "
                f"never went through) -- no sell sent, Webull stays flat for {leg}")
+        log(f"[qqq-exec] {msg}")
         _log_event(state, "broker", msg, log=log)
-        _notify(msg, "EDGELOG QQQ BROKER", log)
     unsent_qty = sum(int(p.get("qty") or 0) for p in rec.get("unsent_parts") or [])
     open_rest = (unsent_qty and intent == "OPEN" and requeue and trade_id
                  and not _is_unknown_outcome(rec))
@@ -2704,9 +2979,16 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
         # push the same way "nothing to close" is -- both are "the book and the broker
         # disagree" situations the owner needs to look at, not something later ticks
         # self-heal.
+        # WEBULL PUSH PLAN 10-07: an OPEN is group B (the strategy's one "entry missed"
+        # note of the day), a CLOSE group A (the close_retry re-sends the rest)
         msg = (f"QQQ BROKER: {leg} {intent} only PARTIALLY reached Webull: {row['reason']}")
         _log_event(state, "broker", msg, log=log)
-        _notify(msg, "EDGELOG QQQ BROKER", log)
+        if intent == "OPEN":
+            _say_entry_missed(state, leg, f"Only part of the {_leg_word(leg)} "
+                              f"{_open_word(row['side'])} reached Webull", side=row["side"], log=log)
+        else:
+            _say_exit_late(state, leg, "only part of it reached Webull", side=row["side"],
+                           log=log)
     if unsent_qty and intent == "OPEN" and requeue and trade_id and not open_rest:
         # part 1 is UNKNOWN: the rest could stack on shares that landed -- not re-sent
         log(f"[qqq-exec] broker OPEN for {leg}: {unsent_qty} share(s) of a split order not "
@@ -3331,7 +3613,13 @@ def _apply_unacked_close_fill(state, leg, qty, log=print, part_outcomes=None):
                f"for {leg} until they are corrected")
         log(f"[qqq-exec] {msg}")
         _log_event(state, "broker", msg, log=log)
-        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+        # WEBULL PUSH PLAN 10-07, group D: the books and Webull disagree, orders still flow
+        w = _leg_word(leg)
+        _say(state, f"books:{leg}", _phone_day(), ntfy_push.plain(
+            PHONE_AREA, "needs a fix", None,
+            f"The book counts {qty} more {w} shares than Webull holds",
+            PHONE_ASK + " - and do not use the Webull-only repair for " + w + " until it is fixed",
+            priority="default"), log=log)
     except Exception as e:
         log(f"[qqq-exec] booking an unacked close fill failed (non-fatal): "
             f"{type(e).__name__}: {e}")
@@ -3370,10 +3658,10 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
         NEVER used to release a re-send: one margin account nets every leg, so it cannot
         say which leg's shares are still out. Two or more unverifiable holds (a working answer
         in between does not reset the count)
-        push urgently (sharing the leg's own CLOSE-failure throttle -- first failure,
-        then at most once per CLOSE_FAIL_ALERT_GAP_SEC) telling the owner to check
-        Webull and sell by hand; the hold ends at the flatten deadline with the urgent
-        give-up push, and the after-close Webull-flat check is the backstop.
+        push urgently (the leg's own exit:<leg> phone episode -- the first failure was
+        high, the stall is worse, so it goes out once; WEBULL PUSH PLAN 10-07) telling the
+        owner to check Webull and sell by hand; the hold ends at the flatten deadline with
+        the urgent give-up push, and the after-close Webull-flat check is the backstop.
     Giving up, or running out of window/market/deadline, logs an event and sends a phone
     alert."""
     q = state.get("_broker_resend") or {}
@@ -3414,17 +3702,11 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                       or (not close_retry and tries >= BROKER_RESEND_MAX_TRIES))
             if give_up:
                 q.pop(key, None)
-                if intent == "CLOSE":
-                    # item 3 (2026-09-26 lead decision): the give-up push always fires,
-                    # regardless of the throttle above, and this leg's next CLOSE
-                    # failure (a new trade) should page immediately again rather than
-                    # inherit this episode's cooldown.
-                    _close_fail_alert_reset(state, leg)
                 cause = ("its window passed" if late
-                        else "it is from an earlier trading day" if stale_day
-                        else "the session flatten deadline passed" if deadline_passed
-                        else "the market window closed" if not active
-                        else f"{tries} re-sends failed")
+                         else "it is from an earlier trading day" if stale_day
+                         else "the session flatten deadline passed" if deadline_passed
+                         else "the market window closed" if not active
+                         else f"{tries} re-sends failed")
                 why_txt = ("blocked by a reconcile halt" if why == "halt"
                           else "rejected by Webull as a duplicate" if why == "duplicate"
                           else "held back by the order gateway" if why == "busy"
@@ -3435,12 +3717,23 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                           else f"Webull may still hold {leg}'s shares -- check and sell by hand."))
                 log(f"[qqq-exec] {msg}")
                 _log_event(state, "broker", msg, log=log)
-                # item 3 (2026-09-26 lead decision): the give-up push is "urgent" for a
-                # CLOSE -- Webull may still hold real shares with nobody retrying any
-                # more, the one case worse than an ordinary safety push -- and stays
-                # "high" for an OPEN (the book just holds a trade Webull never got).
-                _notify(msg, "EDGELOG QQQ BROKER", log,
-                       priority=("urgent" if intent == "CLOSE" else None))
+                # WEBULL PUSH PLAN 10-07: a CLOSE give-up is group A at URGENT -- Webull may
+                # still hold real shares with nobody retrying any more; an OPEN give-up folds
+                # into the strategy's one "entry missed" note of the day (group B)
+                if intent == "CLOSE":
+                    # 10-08 review: the give-up runs through the leg's exit:<leg> episode
+                    # FIRST -- after a same-day urgent "sell is stuck" for this trade it is
+                    # the same fact and is held (one urgent, not two) -- and only THEN
+                    # ends that episode, so this leg's NEXT CLOSE failure (a new trade,
+                    # later the same day) pushes at once again instead of being held
+                    # behind this give-up's urgent until its own give-up.
+                    _say_exit_stuck(state, leg, f"The {_leg_word(leg)} sell gave up at "
+                                    f"{_phone_clock(nowdt)} (still not sent)", log=log)
+                    _close_fail_alert_reset(state, leg)
+                else:
+                    _say_entry_missed(state, leg, f"The {_leg_word(leg)} buy never reached "
+                                      f"Webull (the re-sends gave up)",
+                                      side=item.get("side"), log=log)
                 continue
             if why == "halt" and _broker_halt_source(log=log) is not None:
                 continue  # still halted -- the 30 s halted re-check clears a false one
@@ -3462,7 +3755,10 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                     log(f"[qqq-exec] {msg}")
                     _log_event(state, "broker", msg, log=log)
                     if held is None:
-                        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+                        # group B: folds into the strategy's one "entry missed" note
+                        _say_entry_missed(state, leg, f"The rest of the {_leg_word(leg)} buy "
+                                          f"was not sent (the books could not be read)",
+                                          side=item.get("side"), log=log)
                     continue
                 _mirror_to_broker(state, leg=leg, side=item.get("side"), shares=shares,
                                   shadow_px=item.get("shadow_px"), intent=intent,
@@ -3477,7 +3773,11 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                           f"-- the book holds more {leg} than Webull; no further tries"))
                 log(f"[qqq-exec] {msg}")
                 _log_event(state, "broker", msg, log=log)
-                _notify(msg, "EDGELOG QQQ BROKER", log, priority=None if ok else "high")
+                if not ok:
+                    # group B (folds into the "entry missed" note); re-sent OK is group E:
+                    # timeline + log only
+                    _say_entry_missed(state, leg, f"The rest of the {_leg_word(leg)} buy could "
+                                      f"not be sent", side=item.get("side"), log=log)
                 return  # ONE re-send per tick
             if close_retry:
                 # NEVER DOUBLE-SELL (item 2): re-check the adapter's own believed
@@ -3490,10 +3790,9 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                     _close_fail_alert_reset(state, leg)
                     msg = (f"Re-send of the {leg} sell dropped: Webull's own position "
                           f"already reads flat for {leg} -- no send")
+                    # WEBULL PUSH PLAN 10-07, group E: the safe outcome -- log + timeline only
                     log(f"[qqq-exec] {msg}")
                     _log_event(state, "broker", msg, log=log)
-                    _notify(msg + " (check Webull if in doubt)", "EDGELOG QQQ BROKER", log,
-                           priority="high")
                     continue
                 if item.get("needs_verify"):
                     # EXIT SAFETY item 1 critical (2026-09-26), NARROWED item 2 major
@@ -3578,7 +3877,14 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                                   f"double-sell; check Webull and the book by hand")
                             log(f"[qqq-exec] {msg}")
                             _log_event(state, "broker", msg, log=log)
-                            _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+                            # WEBULL PUSH PLAN 10-07, group D (orders still flow)
+                            _say(state, f"resend_landed:{leg}", _phone_day(nowdt),
+                                 ntfy_push.plain(
+                                     PHONE_AREA, "needs a fix", None,
+                                     f"{_a_leg_word(leg)} sell re-send was dropped: Webull "
+                                     f"shows the earlier try landed",
+                                     f"check the board and Webull agree on {_leg_word(leg)}, "
+                                     f"or {PHONE_ASK}", priority="default"), log=log)
                             continue
                         if remaining is not None:
                             # the attempt is DEAD at Webull (REJECTED/CANCELLED/FAILED
@@ -3612,19 +3918,20 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                             f"reached Webull -- will check again")
                         if holds >= 2:
                             # 2+ unverifiable holds: the order lookup itself is not
-                            # answering (an outage, not a blip). Push urgently, sharing
-                            # the leg's own CLOSE-failure throttle (first failure, then
-                            # at most once per CLOSE_FAIL_ALERT_GAP_SEC per leg -- never a
-                            # second independent stream; THIRD/FOURTH 2026-09-26
-                            # reviews). The item stays held until the flatten deadline
-                            # gives up with its own urgent push; the after-close
-                            # Webull-flat check reads the real position.
-                            if _close_fail_should_alert(state, leg, log=log):
-                                stall_msg = (f"CLOSE retry for {leg} stalled: cannot "
-                                            f"verify the previous attempt -- check Webull")
+                            # answering (an outage, not a blip). Push urgently in the
+                            # leg's own exit:<leg> episode (WEBULL PUSH PLAN 10-07: worse
+                            # than the first failure, so once; never a second independent
+                            # stream -- THIRD/FOURTH 2026-09-26 reviews). The item stays
+                            # held until the flatten deadline gives up with its own urgent
+                            # push; the after-close Webull-flat check reads the real
+                            # position.
+                            stall_msg = (f"CLOSE retry for {leg} stalled: cannot "
+                                        f"verify the previous attempt -- check Webull")
+                            action, _sent = _say_exit_stuck(
+                                state, leg, f"The {_leg_word(leg)} sell is stuck: Webull "
+                                f"cannot confirm the last try", log=log)
+                            if action == "push":
                                 _log_event(state, "broker", stall_msg, log=log)
-                                _notify(stall_msg + " and sell by hand if it is still held",
-                                       "EDGELOG QQQ BROKER", log, priority="urgent")
                         continue
                 if believed is not None and shares is not None:
                     shares = int(min(float(shares), float(believed)))
@@ -3648,8 +3955,9 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                           else "after a same-instant duplicate" if why == "duplicate"
                           else "after the order gateway held it back" if why == "busy"
                           else "after a retry") + ")")
+                # WEBULL PUSH PLAN 10-07, group E (fixed itself): log + timeline only
+                log(f"[qqq-exec] {msg}")
                 _log_event(state, "broker", msg, log=log)
-                _notify(msg, "EDGELOG QQQ BROKER", log)
             elif close_retry and key in q and int(q[key].get("tries") or 0) == tries + 1:
                 # still not ok -- stays queued (see _queue_broker_resend); the per-record
                 # "NOT ok" alert from _mirror_to_broker's own call above already paged
@@ -3658,6 +3966,11 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                 # failed for a reason that is not worth another try (kill file, rails,
                 # nothing held at Webull) -- _mirror_to_broker already logged why
                 q.pop(key, None)
+                if intent == "CLOSE":
+                    # the retry queue is done with this sell: end its phone episode, so a
+                    # later trade's first CLOSE failure on this leg today pushes at once
+                    # (10-08 fourth review)
+                    _close_fail_alert_reset(state, leg)
                 _log_event(state, "broker", f"Re-send of the {leg} {what} refused: "
                           f"{last.get('reason') or 'see the broker log'}", log=log)
             return  # ONE re-send per tick
@@ -3808,7 +4121,7 @@ BROKER_FILL_CAPTURE_MAX_AGE_SEC = 60.0       # give up "after about a minute"
 
 
 def _queue_broker_fill_capture(state, *, leg, intent, signal_id, account_id, shadow_px,
-                               parts=None, log=print, retry=None):
+                               parts=None, log=print, retry=None, side=None):
     """Queue a deferred order_status() query for a just-accepted real send -- serviced
     later by _maybe_capture_broker_fills, from tick(). A pure `state` write: no network
     call, cannot block or raise into the order path. Never raises.
@@ -3842,6 +4155,8 @@ def _queue_broker_fill_capture(state, *, leg, intent, signal_id, account_id, sha
             "account_id": account_id, "shadow_px": shadow_px,
             "tries": 0, "first_at": now, "last_at": 0.0, "last_note": None,
         }
+        if side is not None:
+            job["side"] = side     # for the phone note's "buy" / "short sale" (10-08 review)
         if parts and len(parts) > 1:
             job["parts"] = [
                 {"client_order_id": p.get("client_order_id"), "qty": p.get("qty"),
@@ -4057,9 +4372,97 @@ def _push_fill_outcome(state, item, order_id, outcome, log=print, nowdt=None):
                f"the filled shares"
                + (f"; re-sending the unsold {unsold}" if requeued else ""))
         _log_event(state, "broker", msg, log=log)
-        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+        _say_order_outcome(state, item.get("leg"), item.get("intent"),
+                           item.get("side") or ((item.get("retry") or {}).get("side")),
+                           outcome.get("status"), _whole_qty(outcome.get("filled")) or 0,
+                           unsold, requeued, bool((item.get("retry") or {}).get("trade_id")),
+                           nowdt=nowdt, log=log,
+                           book_holds=(item.get("intent") != "OPEN" or _book_holds_open(
+                               state, item.get("leg"), item.get("signal_id") or order_id)))
     except Exception as e:
         log(f"[qqq-exec] fill-outcome push failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _phone_dead_verb(status):
+    """Webull's dead status as the verb the phone uses: 'rejected' / 'cancelled' / 'did not
+    fill'."""
+    s = str(status or "").upper()
+    if s == "REJECTED":
+        return "rejected"
+    if s in ("CANCELLED", "CANCELED"):
+        return "cancelled"
+    return "did not fill"
+
+
+def _book_holds_open(state, leg, order_id):
+    """True when state["legs"][leg] is the trade whose OPEN went out as `order_id` (the
+    signal id, a netting part id or a seq'd re-send of it). A lot with no trade id, or no
+    order id to match, counts as held (the old wording). Never raises."""
+    try:
+        lot = (state.get("legs") or {}).get(leg)
+        if not lot:
+            return False
+        tid, oid = lot.get("trade_id"), str(order_id or "")
+        if not tid or not oid:
+            return True
+        base = webull_orders._sanitize_client_order_id(
+            _broker_signal_id(leg, None, "OPEN", trade_id=tid))
+        if base.startswith("sig"):
+            return True    # a hashed id (too long) has no prefix to match: the old wording
+        core = re.sub(r"-\d+$", "", webull_orders._sanitize_client_order_id(oid))
+        return bool(core) and (core.startswith(base) or base.startswith(core))
+    except Exception:
+        return True
+
+
+def _say_order_outcome(state, leg, intent, side, status, filled, unsold, requeued,
+                       has_trade, nowdt=None, log=print, book_holds=True):
+    """The phone note for an order Webull ACCEPTED and later killed or only part-filled
+    (fill capture, plan groups A / B -- 10-08 review). The strategy's trade did not (fully)
+    happen at Webull, so trading IS affected:
+      OPEN   group B, high, the strategy's one "entry missed" note of the day: "Webull
+             rejected the ORB buy" / "Webull filled only 4 shares of the ORB buy".
+      CLOSE  group A: unsold shares re-sent (or already being re-sent) -> the first-failure
+             high "sell is late"; unsold shares nothing re-sends (no trade to retry) ->
+             urgent "sell by hand".
+    Anything else (a close with nothing unsold, or an OPEN whose trade the book no longer
+    holds -- `book_holds` False, 10-08 review: "the book still counts the trade" would be
+    wrong) is group D, default. Never raises."""
+    try:
+        w = _leg_word(leg)
+        verb = _phone_dead_verb(status)
+        if intent == "OPEN" and not book_holds:
+            what = (f"Webull filled only {filled} shares of the {w} {_open_word(side)}"
+                    if filled > 0 else f"Webull {verb} the {w} {_open_word(side)}")
+            return _say(state, f"part_fill:{leg}", _phone_day(nowdt), ntfy_push.plain(
+                PHONE_AREA, "needs a fix", None,
+                f"{what} after the book closed that trade; the books now match Webull",
+                PHONE_ASK, priority="default"), log=log)
+        if intent == "OPEN":
+            act = _open_word(side)
+            if filled > 0:
+                return _say_entry_missed(
+                    state, leg, f"Webull filled only {filled} shares of the {w} {act}",
+                    side=side, log=log, trading=f"only part of the {w} {act} is at Webull")
+            return _say_entry_missed(state, leg, f"Webull {verb} the {w} {act}", side=side,
+                                     log=log)
+        act = _close_word(side)
+        if unsold > 0:
+            what = (f"Webull {verb} the {w} {act}" if filled <= 0
+                    else f"Webull did not fill {unsold} shares of the {w} {act}")
+            if requeued or has_trade:
+                rest = (("it is re-sent" if filled <= 0 else "they are re-sent") if requeued
+                        else "the queued re-send is checking it")
+                return _say_exit_late(state, leg, verb, side=side, log=log,
+                                      problem=f"{what}; {rest}")
+            return _say_exit_stuck(state, leg, f"{what} and nothing re-sends them", log=log)
+        return _say(state, f"part_fill:{leg}", _phone_day(nowdt), ntfy_push.plain(
+            PHONE_AREA, "needs a fix", None,
+            f"Webull's answer on the {w} {act} changed the books; they now match Webull",
+            PHONE_ASK, priority="default"), log=log)
+    except Exception as e:
+        log(f"[qqq-exec] order-outcome note failed (non-fatal): {type(e).__name__}: {e}")
+        return None, False
 
 
 def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
@@ -4357,6 +4760,7 @@ def _push_pending_changes(state, adapter, log=print, nowdt=None):
                    f"{ev.get('client_order_id')} (outcome was not known) came back "
                    f"{ev.get('status')} -- the adapter's books now count {ev.get('booked')} "
                    f"of {ev.get('qty')} share(s)")
+            sell_by_hand = 0
             unsold = -int(ev.get("change") or 0)
             if (ev.get("intent") == "CLOSE" and unsold > 0
                     and ev.get("status") in webull_orders.DEAD_STATUSES):
@@ -4376,41 +4780,167 @@ def _push_pending_changes(state, adapter, log=print, nowdt=None):
                 else:
                     msg += (f"; Webull still holds {unsold} {leg} share(s) -- sell them "
                             f"by hand")
-            if ev.get("intent") == "OPEN" and int(ev.get("booked") or 0) > 0 \
-                    and not (state.get("legs") or {}).get(leg):
+                    sell_by_hand = unsold
+            orphan_buy = (ev.get("intent") == "OPEN" and int(ev.get("booked") or 0) > 0
+                          and not (state.get("legs") or {}).get(leg))
+            if orphan_buy:
                 msg += (f"; the book holds no {leg}, so Webull may hold shares the book "
                         f"does not -- check Webull")
             _log_event(state, "broker", msg, log=log)
-            _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+            # WEBULL PUSH PLAN 10-07, group D: the books now match Webull (default); HIGH only
+            # when the text says "sell by hand" (no trade context to re-send the rest).
+            # 10-08 review: a dead CLOSE whose unsold shares are re-sent is group A (the
+            # sell is late, high); a dead / part-filled OPEN the book still holds is group B
+            # (the strategy's one "entry missed" note, high); an unclear buy that landed
+            # after the book closed that trade leaves shares nobody will sell (high).
+            w = _leg_word(leg)
+            act = "buy" if ev.get("intent") == "OPEN" else "sell"
+            status_w = str(ev.get("status") or "with an answer").replace("_", " ").lower()
+            dead = ev.get("status") in webull_orders.DEAD_STATUSES
+            lot = (state.get("legs") or {}).get(leg) or {}
+            if ev.get("intent") == "CLOSE" and dead and unsold > 0 and not sell_by_hand:
+                booked = _whole_qty(ev.get("booked")) or 0
+                _say_order_outcome(state, leg, "CLOSE", lot.get("side"), ev.get("status"),
+                                   booked, unsold, not verifying, True, nowdt=nowdt, log=log)
+                continue
+            booked = _whole_qty(ev.get("booked"))
+            qty = _whole_qty(ev.get("qty"))
+            if (ev.get("intent") == "OPEN" and lot and dead and booked is not None
+                    and qty is not None and booked < qty):
+                _say_order_outcome(state, leg, "OPEN", lot.get("side"), ev.get("status"),
+                                   booked, 0, False, False, nowdt=nowdt, log=log,
+                                   book_holds=_book_holds_open(state, leg,
+                                                               ev.get("client_order_id")))
+                continue
+            if sell_by_hand:
+                note = ntfy_push.plain(
+                    PHONE_AREA, "CHECK NOW", f"Webull still holds {w} shares nobody will sell",
+                    f"Webull still holds {sell_by_hand} {w} shares after an unclear sell",
+                    "sell them by hand in the Webull app", priority="high")
+            elif orphan_buy:
+                note = ntfy_push.plain(
+                    PHONE_AREA, "CHECK NOW", f"Webull may hold {w} shares the book does not",
+                    f"An unclear {w} buy landed at Webull after the book closed that trade",
+                    f"check the Webull app and sell any {w} shares the book does not hold "
+                    f"by hand, or {PHONE_ASK}", priority="high")
+            else:
+                note = ntfy_push.plain(
+                    PHONE_AREA, "needs a fix", None,
+                    f"An unclear {w} {act} order came back {status_w}; the books now match "
+                    f"Webull", PHONE_ASK, priority="default")
+            # 10-08 review: a "sell by hand" is a distinct fact per order (each one is real
+            # shares nobody will sell) -- its own id, so a second order's unsold shares the
+            # same day are not held behind the first (its own slot, so the default notes
+            # keep their once-a-day slot unclear:<leg>)
+            if sell_by_hand or orphan_buy:
+                _say(state, f"unclear_hand:{leg}",
+                     f"{_phone_day(nowdt)} {ev.get('client_order_id')}", note, log=log)
+            else:
+                _say(state, f"unclear:{leg}", _phone_day(nowdt), note, log=log)
     except Exception as e:
         log(f"[qqq-exec] pending-order push failed (non-fatal): {type(e).__name__}: {e}")
 
 
-RECONCILE_ALERT_REPEAT_SEC = 30 * 60.0  # item 2 (2026-09-26): cap while it persists
+# WEBULL PUSH PLAN 10-07, group C ("orders on hold"): high, ONE note per hold EPISODE. Each
+# cause of a hold is its own problem (its own dedupe slot, hold:<cause>), so a hold that
+# starts later the same day for a DIFFERENT reason -- above all one that blocks the close --
+# still pushes even after an earlier, unrelated hold:
+#   hold:reconcile          the book and Webull disagree / Webull unreadable (new entries
+#                           wait); id = the ET date. The episode ends only after
+#                           RECONCILE_HOLD_CLEAR_OKS agreeing reconciles in a row (the halt
+#                           lifts at the first; the next look is the 5-minute periodic one),
+#                           so a reconcile that flaps in and out of MISMATCH pages once, while
+#                           a separate hold later the same day pages again (10-08 review)
+#   hold:resting_hang       a resting call to Webull that does not answer (EVERY order waits,
+#                           the close included); id = the hung call, one note per hung call
+#   hold:resting_undecided  a resting stop Webull no longer lists and nobody can settle
+#                           (every order waits); id = that order
+#   hold:boot               unknown orders cancelled at start-up (no state.json yet: process
+#                           memory); id = the ET date
+HOLD_KEY = "hold"            # the prefix; hold_key(cause) is the slot
+
+
+def hold_key(cause):
+    return f"{HOLD_KEY}:{cause}"
+
+
+def _say_hold(state, trading, problem, action, cause="reconcile", problem_id=None,
+              log=print):
+    return _say(state, hold_key(cause), problem_id or _phone_day(), ntfy_push.plain(
+        PHONE_AREA, "orders on hold", trading, problem, action, priority="high"), log=log)
+
+
+RECONCILE_HOLD_CLEAR_OKS = 2   # agreeing reconciles in a row that end hold:reconcile
+# 10-08 review: the episode ending after RECONCILE_HOLD_CLEAR_OKS agreeing looks let a reconcile
+# that flaps all day push once per flap. The plan's "at most once a day": a hold CAUSE whose
+# note already went out this New York day stays quiet (log + timeline only) for the rest of
+# that day, even after its episode ended. state["_hold_pushed_day"] = {cause: "YYYY-MM-DD"},
+# saved with state.json. Only the reconcile hold is capped: a hung resting call or an
+# undecided resting stop blocks every order, the close included, and keeps one note per call
+# / per order.
+HOLD_DAILY_CAP_CAUSES = ("reconcile",)
+
+
+def _hold_ny_day():
+    """Today's New York date from time.time() (the clock tests move)."""
+    try:
+        return datetime.fromtimestamp(time.time(), _NY or timezone.utc).strftime("%Y-%m-%d")
+    except Exception:
+        return _phone_day()
+
+
+def _say_hold_capped(state, trading, problem, action, cause="reconcile", log=print):
+    """_say_hold, at most once per `cause` per New York day (HOLD_DAILY_CAP_CAUSES). A push
+    whose send failed (False) does not count. Never raises."""
+    try:
+        day = _hold_ny_day()
+        pushed = state.setdefault("_hold_pushed_day", {}) if isinstance(state, dict) else {}
+        if cause in HOLD_DAILY_CAP_CAUSES and pushed.get(cause) == day:
+            log(f"[qqq-exec] orders-on-hold note ({cause}) already pushed today -- held")
+            return None, None
+        action_, sent = _say_hold(state, trading, problem, action, cause=cause,
+                                  problem_id=day, log=log)
+        if action_ == "push" and sent is not False:
+            pushed[cause] = day
+        return action_, sent
+    except Exception as e:
+        log(f"[qqq-exec] orders-on-hold note failed ({type(e).__name__}: {e})")
+        return None, False
+
+
+def _note_reconcile_agreed(state, log=print):
+    """A reconcile agreed: count it, and once RECONCILE_HOLD_CLEAR_OKS have agreed in a row
+    end the open hold:reconcile episode quietly (no push), so the next, separate hold pushes
+    again even the same day (plan group C, "one note per hold episode"). Never raises."""
+    try:
+        n = int(state.get("_reconcile_ok_streak") or 0) + 1
+        state["_reconcile_ok_streak"] = n
+        key = hold_key("reconcile")
+        if n >= RECONCILE_HOLD_CLEAR_OKS and key in (state.get("_phone_dedupe") or {}):
+            _say_clear(state, key, log=log)
+            log(f"[qqq-exec] broker reconcile agreed {n} times in a row -- the orders-on-hold "
+                f"episode is over; a new hold pushes again")
+    except Exception as e:
+        log(f"[qqq-exec] reconcile-agreed bookkeeping failed (non-fatal): "
+            f"{type(e).__name__}: {e}")
 
 
 def _maybe_notify_reconcile_halt(state, kind, reason, log=print):
     """Phone push for a broker reconcile MISMATCH or READ FAILURE (item 2, 2026-09-26,
     "alerts in book") -- called from _maybe_run_broker_reconcile's own failure branch,
-    right after its log line and timeline event. Pushes the FIRST occurrence of the
-    calendar day at once, then at most once every RECONCILE_ALERT_REPEAT_SEC (30 min)
-    for as long as it keeps recurring that same day -- state["_reconcile_alert"] =
-    {"day", "last_at"}. Deliberately keyed by DAY, not by episode: a reconcile that
-    clears and fails again later the same day still counts against the same 30-minute
-    cap rather than paging immediately a second time, which is the conservative choice
-    against a reconcile that flaps in and out of MISMATCH. A new calendar day always
-    pages again on its own first occurrence. Never raises."""
+    right after its log line and timeline event. WEBULL PUSH PLAN 10-07, group C: one
+    "orders on hold" note per hold episode for this cause (hold:reconcile, see HOLD_KEY;
+    the episode ends in _note_reconcile_agreed) -- this function is re-entered every 30 s
+    while halted, and the repeat rule holds every one of those; a different hold (a hung
+    resting call) keeps its own note. The reason stays
+    in the log line and the timeline event. Never raises."""
     try:
-        today = _now_et().strftime("%Y-%m-%d")
-        info = state.get("_reconcile_alert") or {}
-        now = time.time()
-        due = info.get("day") != today or (now - float(info.get("last_at") or 0)
-                                           >= RECONCILE_ALERT_REPEAT_SEC)
-        if not due:
-            return
-        state["_reconcile_alert"] = {"day": today, "last_at": now}
-        msg = f"QQQ BROKER RECONCILE {kind}: new broker entries halted -- {reason}"
-        _notify(msg, "EDGELOG QQQ BROKER RECONCILE", log, priority="high")
+        problem = ("Webull's QQQ position could not be read, so new QQQ entries wait"
+                   if kind == "READ FAILURE" else
+                   "The book and Webull disagree on QQQ shares, so new QQQ entries wait")
+        _say_hold_capped(state, "new QQQ entries wait until the book and Webull agree",
+                         problem, "nothing yet - it checks again every 30 seconds; " + PHONE_ASK
+                         + " if it lasts", log=log)
     except Exception as e:
         log(f"[qqq-exec] reconcile-halt alert failed (non-fatal): {type(e).__name__}: {e}")
 
@@ -4491,7 +5021,9 @@ def _maybe_run_broker_reconcile(state, cfg, adapter, nowdt, active, log=print):
         return
     if result.get("ok"):
         log(f"[qqq-exec] broker reconcile OK ({why})")
+        _note_reconcile_agreed(state, log=log)
     else:
+        state["_reconcile_ok_streak"] = 0
         reason = result.get("error") or result.get("mismatches")
         kind = "READ FAILURE" if result.get("error") else "MISMATCH"
         log(f"[qqq-exec] BROKER RECONCILE {kind} ({why}) -- new broker entries "
@@ -4680,8 +5212,15 @@ def _resting_hang_alert(state, log=print):
                f"answered for {age:.0f}s -- every QQQ order (NOISE's exits and the 15:59 "
                f"flatten included) waits for it. Check Webull's open QQQ orders by hand "
                f"before 15:59")
+        log(f"[qqq-exec] {msg}")
         _log_event(state, "broker", msg, log=log)
-        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+        close = _phone_close()
+        started = float(_resting_inflight.get("started_at") or 0.0)
+        _say_hold(state, f"every QQQ order waits, the {close} close included",
+                  f"Webull has not answered the {_leg_word(RESTING_LEG)} stop order for "
+                  f"{max(1, int(round(age / 60.0)))} min",
+                  f"check Webull's open QQQ orders before {close}", cause="resting_hang",
+                  problem_id=f"{_phone_day()} {started:.0f}", log=log)
     except Exception as e:
         log(f"[qqq-exec] resting hang alert failed (non-fatal): {type(e).__name__}: {e}")
 
@@ -4962,7 +5501,12 @@ def _book_resting_escape(state, ev, nowdt, log=print):
            f"without a final answer from Webull ({ev.get('reason')}) -- the books count it "
            f"unfilled; no stop re-arms until a reconcile agrees")
     _log_event(state, "broker", msg, log=log)
-    _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+    # WEBULL PUSH PLAN 10-07, group D: orders still flow (the engine exit still closes ORB)
+    w = _leg_word(ev.get("leg") or RESTING_LEG)
+    _say(state, "resting_escape", _phone_day(nowdt), ntfy_push.plain(
+        PHONE_AREA, "needs a fix", None,
+        f"The {w} stop order ended at Webull without a final answer; no new stop until the "
+        f"books agree", PHONE_ASK, priority="default"), log=log)
 
 
 def _book_resting_undecided(state, ev, nowdt, log=print):
@@ -4978,7 +5522,14 @@ def _book_resting_undecided(state, ev, nowdt, log=print):
            f"FILLED cannot be told yet ({ev.get('reason')}) -- it stays open in the books and "
            f"every QQQ order waits until it is settled; check Webull if this lasts")
     _log_event(state, "broker", msg, log=log)
-    _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+    close = _phone_close(nowdt)
+    _say_hold(state, f"every QQQ order waits, the {close} close included",
+              f"Webull no longer lists the {_leg_word(ev.get('leg') or RESTING_LEG)} stop order "
+              f"and cannot say yet if it filled",
+              f"check Webull's open QQQ orders if this lasts past {close}",
+              cause="resting_undecided",
+              problem_id=f"{_phone_day(nowdt)} {ev.get('client_order_id') or ''}".strip(),
+              log=log)
 
 
 def _resting_fill_stamp(ev, now_et):
@@ -5075,7 +5626,23 @@ def _book_one_resting_fill(state, adapter, ev, mode, nowdt, log=print):
                   f"fill ({ev.get('reason')}); Webull's fill price is not known"
                   if inferred else "") + late_note)
         _log_event(state, "broker", msg, log=log)
-        _notify(msg, "EDGELOG QQQ BROKER", log, **({"priority": "high"} if inferred else {}))
+        # WEBULL PUSH PLAN 10-07, group F: a fill is low (no buzz); an INFERRED one (fill price
+        # unknown) needs a fix today (default). The strategy's own exit, when it comes, sends
+        # no second fill note for this lot (lot["broker_closed"] -- see _reduce_lot).
+        w = _leg_word(leg)
+        part = "" if ev.get("final", True) else " (part of it)"
+        if inferred:
+            note = ntfy_push.plain(
+                PHONE_AREA, "needs a fix", None,
+                f"The {w} {kind} order filled at Webull{part}, but its price is not known",
+                PHONE_ASK, priority="default")
+        else:
+            note = ntfy_push.plain(
+                "QQQ fill", f"{w} {kind} filled", None,
+                (f"The {w} {kind} order filled at Webull at {ntfy_push.price(fill_px)}{part}"
+                 if fill_px is not None else f"The {w} {kind} order filled at Webull{part}"),
+                "nothing", priority="low")
+        _say(state, f"fill:{leg}", f"stop {ev.get('client_order_id')} {change}", note, log=log)
     except Exception as e:
         log(f"[qqq-exec] resting fill {ev.get('client_order_id')} booked, but its follow-up "
             f"failed (non-fatal): {type(e).__name__}: {e}")
@@ -5120,7 +5687,13 @@ def _book_resting_fills(state, adapter, nowdt, log=print):
                            f"{RESTING_EVENT_MAX_REQUEUES} tries ({type(e).__name__}: {e}) -- "
                            f"dropped; the books count it, the fill ledger does not")
                     log(f"[qqq-exec] {msg}")
-                    _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+                    _log_event(state, "broker", msg, log=log)
+                    # WEBULL PUSH PLAN 10-07, group D
+                    _say(state, "fill_ledger", _phone_day(nowdt), ntfy_push.plain(
+                        PHONE_AREA, "needs a fix", None,
+                        f"{_a_leg_word(r.get('leg') or RESTING_LEG)} stop fill could not be "
+                        f"written to the fill record (the books count it)",
+                        PHONE_ASK, priority="default"), log=log)
                     continue
                 rest.append(r)
             put = getattr(adapter, "requeue_resting_events", None)
@@ -5181,7 +5754,11 @@ def _resting_try_failed(state, blk, key, text, nowdt, log=print):
         msg = (f"QQQ BROKER: ORB's resting stop could not be placed after {t['n']} tries "
                f"({text}) -- ORB exits on the engine's bar close for this trade")
         _resting_note(state, blk, "fallback", msg, nowdt, log=log)
-        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+        # WEBULL PUSH PLAN 10-07, group H: default -- ORB still exits, on the bar close
+        _say(state, "resting_place", _phone_day(nowdt), ntfy_push.plain(
+            PHONE_AREA, "needs a fix", None,
+            "ORB's stop order could not be placed at Webull; ORB exits on the bar close "
+            "instead", PHONE_ASK, priority="default"), log=log)
     else:
         _resting_note(state, blk, "retry", f"try {t['n']} of {RESTING_MAX_TRIES} failed: {text}",
                       nowdt, log=log)
@@ -5340,14 +5917,28 @@ def _resting_boot_sweep(adapter, log=print):
                 log(f"[qqq-exec] resting boot sweep: open QQQ order(s) this book did not know, "
                     f"already reported: {', '.join(o.get('client_order_id') or '' for o in res['unknown'])}")
                 return
-            _notify(f"QQQ BROKER: at start-up Webull held {len(res['unknown'])} open QQQ order(s) "
-                    f"this book did not know -- "
-                    + ("cancelled" + (f" ({n_cx} of them)" if n_cx < len(res["unknown"]) else "")
-                       + ", and new entries halted until a reconcile agrees"
-                       if cancelled else f"NOT cancelled: {why_not}")
-                    + f" ({res.get('reason')})",
-                    "EDGELOG QQQ BROKER", log,
-                    **({"priority": "high"} if cancelled or not lease_ok else {}))
+            msg = (f"QQQ BROKER: at start-up Webull held {len(res['unknown'])} open QQQ order(s) "
+                   f"this book did not know -- "
+                   + ("cancelled" + (f" ({n_cx} of them)" if n_cx < len(res["unknown"]) else "")
+                      + ", and new entries halted until a reconcile agrees"
+                      if cancelled else f"NOT cancelled: {why_not}")
+                   + f" ({res.get('reason')})")
+            log(f"[qqq-exec] {msg}")
+            # WEBULL PUSH PLAN 10-07: cancelled + entries halted is group C (a hold, high);
+            # listed and left in place is group D (default). No state.json here (start-up):
+            # _say dedupes in process memory; the adapter already lists an id only once.
+            n = len(res["unknown"])
+            if cancelled:
+                _say_hold(None, "new QQQ entries wait until the book and Webull agree",
+                          f"At start-up Webull held {n} QQQ orders the book did not know; "
+                          f"they were cancelled",
+                          "check Webull's open QQQ orders, or " + PHONE_ASK, cause="boot",
+                          log=log)
+            else:
+                _say(None, "boot_unknown", _phone_day(), ntfy_push.plain(
+                    PHONE_AREA, "needs a fix", None,
+                    f"At start-up Webull held {n} QQQ orders the book did not know (left in "
+                    f"place)", PHONE_ASK, priority="default"), log=log)
     except Exception as e:
         log(f"[qqq-exec] resting boot sweep failed (non-fatal): {type(e).__name__}: {e}")
 
@@ -6279,32 +6870,25 @@ def _check_feed_engine(state, log=print):
                   "cloud_signal engine heartbeat stale/missing -- new entries blocked", log=log)
         # item 1 (2026-09-26, "alerts in book"): a stall while the book holds an open
         # lot is the dangerous case -- neither a fresh ENTRY nor a SIGNAL-DRIVEN exit can
-        # reach this adapter until the heartbeat recovers, so an open lot rides unmanaged
-        # by the strategy for as long as the stall lasts. The end-of-day flatten, KILL
-        # file and daily-loss breaker are rail-driven, not signal-driven (_close_all is
-        # called directly by tick()'s own rail checks -- see the module docstring), and
-        # keep working the whole time; the wording below (item 6, 2026-09-26 minor
-        # review) must never claim otherwise, or the owner reads a stalled heartbeat as
-        # "nothing can close this" when EOD/KILL/breaker still can. Push once per stall
-        # EPISODE (state["legs"] checked at the moment the stall begins, since a new lot
-        # cannot open while stale -- entries_blocked already covers that in tick()) and
-        # remember it so the recovery branch below pushes its matching "cleared" push. A
-        # stall with no open lot at the time stays a log-only event, same as before this
-        # item.
+        # reach this adapter until the heartbeat recovers. The end-of-day flatten, KILL
+        # file and daily-loss breaker are rail-driven, not signal-driven, and keep working
+        # the whole time; the wording below (item 6, 2026-09-26 minor review) must never
+        # claim otherwise. WEBULL PUSH PLAN 10-07 (MANAGER #86, group I): NO PUSH from here
+        # -- ONE ALERTER PER PROBLEM: the box monitor (tools/webull_freshness.py engine_hb, a
+        # separate process that pages a stall lot or no lot, and its one "OK" after) owns
+        # the phone. This keeps the log line and a timeline event naming the open lots.
         if state.get("legs"):
-            state["_signal_stall_alerted"] = True
             legs_txt = ", ".join(sorted(state["legs"].keys()))
             msg = (f"QQQ SIGNAL ENGINE STALLED with an open lot held ({legs_txt}) -- "
                   f"new entries and signal-driven exits are blocked until the heartbeat "
                   f"recovers; the end-of-day flatten, KILL and breaker still work")
-            _notify(msg, "EDGELOG QQQ SIGNAL STALL", log, priority="high")
+            log(f"[qqq-exec] {msg}")
+            _log_event(state, "signal_stall", msg, log=log)
     elif was and not stale:
         log("[qqq-exec] engine heartbeat recovered")
         state["relaunch_at"] = _now_et().strftime("%Y-%m-%d %H:%M:%S")
         _log_event(state, "feed_up", "cloud_signal engine heartbeat recovered", log=log)
-        if state.pop("_signal_stall_alerted", False):
-            _notify("QQQ SIGNAL ENGINE recovered -- heartbeat is fresh again",
-                   "EDGELOG QQQ SIGNAL STALL", log)
+        state.pop("_signal_stall_alerted", None)      # the retired push's memory
     return stale
 
 
@@ -7179,7 +7763,11 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
                  "signal entry", log, fill_dt=(f.get("dt") if f else sig_dt),
                  signal_source=signal_source, shares_wanted=wanted_shares, size=sized,
                  decided_at_ref=decided_at_ref)
-    _notify(f"QQQ SHADOW {leg} {side} {shares} @ {fill_px:.2f}", "EDGELOG QQQ SHADOW", log)
+    # WEBULL PUSH PLAN 10-07, group F: a fill is a low note (no buzz)
+    _say(state, f"fill:{leg}", f"open {lot.get('trade_id') or lot.get('entry_ts')}",
+         _fill_note(leg, "bought" if side == "long" else "sold short",
+                    f"{'Bought' if side == 'long' else 'Sold short'} QQQ at "
+                    f"{ntfy_push.price(fill_px)} (share count stays on the board)"), log=log)
     # BROKER MIRROR: after the shadow's own order is already recorded above -- see the
     # "broker mirror" section docstring near _mirror_to_broker. A broker error here
     # never unwinds the shadow lot just opened.
@@ -7241,8 +7829,17 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
                  state["_px_source"], reason, log, fill_dt=(f.get("dt") if f else sig_dt),
                  signal_source=(signal_source or lot.get("signal_source")),
                  size=lot.get("size"), decided_at_ref=decided_at_ref)
-    _notify(f"QQQ SHADOW {leg} {reason.lower()} {shares_close} @ {fill_px:.2f}",
-           "EDGELOG QQQ SHADOW", log)
+    # WEBULL PUSH PLAN 10-07, group F: ONE fill note per exit -- none when the resting stop
+    # already closed this lot at Webull and sent its own (lot["broker_closed"])
+    if not lot.get("broker_closed"):
+        long_ = lot.get("side") == "long"
+        _say(state, f"fill:{leg}",
+             f"close {lot.get('trade_id') or lot.get('entry_ts')} {lot['shares_remaining']}",
+             _fill_note(leg, "sold" if long_ else "bought back",
+                        f"{'Sold' if long_ else 'Bought back'} QQQ at "
+                        f"{ntfy_push.price(fill_px)} ({_exit_reason_words(reason)})"), log=log)
+    else:
+        log(f"[qqq-exec] {leg} exit: no fill note -- the resting stop already reported it")
     # BROKER MIRROR: mirrors every reduce, not just a full close -- a ninjatrader-mode
     # partial exit closes only part of the broker position too. `seq` disambiguates more
     # than one reduce against the SAME lot (engine mode never needs it -- see module
@@ -7506,7 +8103,10 @@ def _alert_close_blocked_after_close(state, leg, nowdt, log=print):
                f"ET) and was NOT sent -- Webull may still hold {held} share(s) for {leg}; "
                f"check the account and flatten by hand")
         _log_event(state, "broker", msg, log=log)
-        _notify(msg, "EDGELOG QQQ BROKER", log, priority="high")
+        # WEBULL PUSH PLAN 10-07, group A: urgent (nobody will send this sell any more)
+        _say_exit_stuck(state, leg, f"The {_leg_word(leg)} sell came after the close at "
+                        f"{_phone_clock(nowdt)} and was not sent",
+                        problem_id=f"{day} after-bell", log=log)
     except Exception as e:
         log(f"[qqq-exec] after-close blocked-CLOSE alert failed (non-fatal): "
             f"{type(e).__name__}: {e}")
@@ -7619,8 +8219,9 @@ def _maybe_flatten_orphan_broker(state, cfg, nowdt, log=print):
                 f"on {gave_up} -- still held at the broker, trigger consumed")
             _log_event(state, "broker", f"Flatten-broker repair gave up -- still held: {gave_up}",
                       log=log)
-            _notify(f"QQQ SHADOW: could NOT flatten {gave_up} after {FLATTEN_MAX_TRIES} "
-                    f"tries each -- sell by hand", "EDGELOG QQQ BROKER REPAIR FAILED", log)
+            # WEBULL PUSH PLAN 10-07, group A: urgent -- Webull still holds these shares
+            _say(state, "exit:repair", _phone_day(nowdt),
+                 _repair_gave_up_note([leg for leg, _qty in orphans]), log=log)
             consume = True
         else:
             leg, qty = live[0]
@@ -7821,8 +8422,7 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=Non
             f"-{limit:.2f} -- closing all lots")
         _close_all(state, cfg, "BREAKER", quote_fn, ratio_fn, log=log, nowdt=nowdt)
         state["breaker_tripped"] = True
-        _notify(f"QQQ SHADOW breaker tripped: {total:.2f} (limit -{limit:.2f})",
-               "EDGELOG QQQ SHADOW BREAKER", log)
+        _say_daily_stop(state, total, "open trades were closed", nowdt, log=log)
         _log_event(state, "breaker",
                   f"Daily loss breaker tripped at ${total:.2f} (limit -${limit:.2f}) -- "
                   f"all shadow lots closed", log=log)
@@ -7915,8 +8515,7 @@ def _check_breaker_while_flat(state, cfg, log=print, nowdt=None):
                 f"-{limit:.2f} -- new entries blocked for the day")
             now = nowdt or _now_et()
             if (9, 30) <= _et_hhmm(now) < (16, 0):
-                _notify(f"QQQ SHADOW breaker tripped while flat: {total:.2f} "
-                        f"(limit -{limit:.2f})", "EDGELOG QQQ SHADOW BREAKER", log)
+                _say_daily_stop(state, total, "no trades were open", now, log=log)
             _log_event(state, "breaker",
                        f"Daily loss breaker tripped at ${total:.2f} (limit -${limit:.2f}) "
                        f"with no lots open -- new entries blocked for the day", log=log)
@@ -8227,8 +8826,12 @@ def _check_feed(state, fills_path, log=print):
                   f"-- new entries blocked", log=log)
     if stale and (time.time() - float(state.get("last_feed_alert", 0) or 0)
                  > FEED_ALERT_COOLDOWN_SEC):
-        _notify(f"NinjaTrader fill feed stale ({('%.0fs' % age) if age is not None else 'no heartbeat'}) "
-               f"-- QQQ SHADOW is not opening new lots", "EDGELOG QQQ SHADOW: feed stale", log)
+        # WEBULL PUSH PLAN 10-07, group I: NO PUSH -- this check only runs for
+        # signal_source "ninjatrader" (never on the box, which runs "engine"); the log line
+        # keeps its 30-minute rhythm
+        log(f"[qqq-exec] NinjaTrader fill feed stale "
+            f"({('%.0fs' % age) if age is not None else 'no heartbeat'}) -- QQQ SHADOW is not "
+            f"opening new lots")
         state["last_feed_alert"] = time.time()
     elif not stale and was:
         log("[qqq-exec] feed heartbeat recovered")
@@ -9877,7 +10480,22 @@ def _maybe_send_eod_summary(state, doc, nowdt, log=print):
         msg = (f"Trades {n} | {pnl_txt} | fills vs backtest checked/flagged last "
               f"{parity['checked']}/{parity['failed']}{all_txt}{roll_txt} | feed uptime {uptime_txt} | "
               f"rail trips {rail_trips} | {flat_txt}")
-        _notify(msg, "EDGELOG QQQ SHADOW: EOD summary", log)
+        log(f"[qqq-exec] EOD summary: {msg}")
+        # WEBULL PUSH PLAN 10-07, group G: the day summary is a low note; the full line stays
+        # in the log and the timeline event
+        pnl = rec_pnl if isinstance(rec_pnl, (int, float)) else book_pnl
+        where = "at Webull prices" if isinstance(rec_pnl, (int, float)) else "in the book"
+        flat_words = ("Webull's position was not checked" if flat_info.get("date") != today
+                      else "Webull is NOT flat" if flat_info.get("flat") is False
+                      else "Webull's position could not be read" if flat_info.get("flat") is None
+                      else "Webull is flat")
+        if not n:
+            problem = f"No trades today; {flat_words}"
+        else:
+            problem = (f"{'Made' if float(pnl or 0) >= 0 else 'Lost'} {ntfy_push.usd(pnl or 0)} "
+                       f"today {where}; {flat_words}")
+        _say(state, "day_summary", today, ntfy_push.plain(
+            PHONE_AREA, "day done", None, problem, "nothing", priority="low"), log=log)
         state["eod_summary_done_date"] = today
         _log_event(state, "eod_summary", msg, log=log)
     except Exception as e:
@@ -10974,7 +11592,8 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
         # (kill_done itself is a sticky boolean, not a per-day marker: it stays True for
         # as long as the kill file is present, which can span more than one day).
         state["kill_flatten_date"] = today
-        _notify("QQQ SHADOW: kill file present, all lots closed", "EDGELOG QQQ SHADOW KILL", log)
+        # WEBULL PUSH PLAN 10-07, group H: low -- the owner switched it on
+        _say(state, "kill", today, _kill_note(), log=log)
         _log_event(state, "kill", "Kill file present -- all shadow lots closed, new entries blocked",
                   log=log)
     elif not kill_present and state.get("kill_done"):
@@ -11201,6 +11820,77 @@ def _reconcile_broker_at_boot(log=print):
 
 TICK_FAILURE_ALERT_THRESHOLD = 3  # item 3 (2026-09-26): consecutive failed ticks -> push
 
+# TICK CRASH MARKER (10-08 review, WEBULL PUSH PLAN "Tick loop crashing vs stuck"): the box
+# monitor (tools/webull_freshness.py tick_gap) stays quiet while THIS process's own crash
+# episode is open -- but a failed tick never reaches save_state (a half-mutated state must not
+# be saved), so state.json cannot carry that fact. The episode lives in this small file beside
+# state.json instead: written atomically (tmp + os.replace) the moment the crash note goes
+# out, REFRESHED (at_epoch) on every failed tick after it, removed on the first good tick after
+# it (and once by each new process's first good tick). The monitor trusts it only while it is
+# fresh (tools/webull_freshness.py TICK_CRASH_MARKER_FRESH_SEC): a process that has since hung
+# or died stops refreshing it, so its stall is paged in the normal window even when no later
+# process ever reaches a good tick to remove it. It also carries the ET day the note went out:
+# a NEW process that starts into the same crash loop (no good tick in between -- the repeat
+# memory in state.json is never saved by a failed tick) does not push the same note again
+# that day (10-08 fourth review).
+TICK_CRASH_MARKER = os.path.join(OUT_DIR, "tick_crash.json")
+_TICK_CRASH_MARKER_SWEPT = {"done": False}
+
+
+def _read_tick_crash_marker():
+    """The open crash episode's marker (a dict), or None when there is none / unreadable."""
+    try:
+        with open(TICK_CRASH_MARKER, "r", encoding="utf-8") as fh:
+            body = json.load(fh)
+        return body if isinstance(body, dict) else None
+    except Exception:
+        return None
+
+
+def _write_tick_crash_marker(streak, exc=None, log=print, prior=None):
+    """The crash episode is open: {at_epoch (this failed tick), at_utc, streak, error, pid,
+    day + pushed_epoch (when the crash note went out -- kept from `prior` on a refresh)}.
+    Never raises."""
+    try:
+        path = TICK_CRASH_MARKER
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        now = time.time()
+        prior = prior if isinstance(prior, dict) else {}
+        body = {"at_epoch": now,
+                "at_utc": datetime.fromtimestamp(now, timezone.utc).isoformat(timespec="seconds"),
+                "streak": int(streak), "pid": os.getpid(),
+                "error": type(exc).__name__ if exc is not None else None,
+                "day": prior.get("day") or _phone_day(),
+                "pushed_epoch": prior.get("pushed_epoch") or now}
+        tmp = f"{path}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(body, fh)
+        _replace_with_retry(tmp, path, log=log, what="tick_crash.json")
+    except Exception as e:
+        log(f"[qqq-exec] tick crash marker write failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _clear_tick_crash_marker(log=print):
+    """The crash episode is over (or belonged to an earlier process). Never raises."""
+    try:
+        if os.path.exists(TICK_CRASH_MARKER):
+            os.remove(TICK_CRASH_MARKER)
+    except OSError as e:
+        log(f"[qqq-exec] tick crash marker remove failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _drop_crash_from_tick_gap(state):
+    """A crash episode whose note went out is not a STALL: forget the last tick's wall time,
+    so the first good tick after it starts a fresh baseline (_track_tick_gap returns None)
+    instead of recording the whole crash as tick_gap_max_s_today -- which the box monitor's
+    tick_gap 'rose' check would push after the marker is gone, a second push for one crash
+    (10-08 fourth review). Needed because a tick that crashes before _track_tick_gap (or in
+    load_config / the stream step) never advances it. In memory only, like the streak."""
+    try:
+        state["_last_tick_wall"] = None
+    except Exception:
+        pass
+
 
 def _note_tick_result(state, ok, exc=None, log=print):
     """Tracks CONSECUTIVE tick() failures across iterations of qqq_exec_thread's own
@@ -11217,23 +11907,56 @@ def _note_tick_result(state, ok, exc=None, log=print):
     only for the life of the process, which is what makes it a per-EPISODE signal
     rather than a per-day one. A single call covers both directions: ok=True resets
     the streak (and logs a plain recovery line once one was ever counted, no push --
-    the episode already got its one alert going in). Never raises."""
+    the episode already got its one alert going in). The open episode is ALSO written to
+    TICK_CRASH_MARKER beside state.json (see there) -- the one place the box monitor can see
+    it, since this branch never saves state.json. Never raises."""
     try:
         if ok:
             streak = int(state.get("_tick_fail_streak") or 0)
             if streak:
                 log(f"[qqq-exec] tick loop recovered after {streak} consecutive failure(s)")
+            was_alerted = bool(state.get("_tick_fail_alerted"))
             state["_tick_fail_streak"] = 0
             state["_tick_fail_alerted"] = False
+            _say_clear(state, "tick_crash")     # a fresh episode may push again
+            if was_alerted or not _TICK_CRASH_MARKER_SWEPT["done"]:
+                _TICK_CRASH_MARKER_SWEPT["done"] = True
+                _clear_tick_crash_marker(log=log)
             return
         streak = int(state.get("_tick_fail_streak") or 0) + 1
         state["_tick_fail_streak"] = streak
-        if streak >= TICK_FAILURE_ALERT_THRESHOLD and not state.get("_tick_fail_alerted"):
+        if state.get("_tick_fail_alerted"):
+            # the episode's note already went out: keep its marker fresh for the monitor, and
+            # keep the crash out of today's tick gap (see _drop_crash_from_tick_gap)
+            _drop_crash_from_tick_gap(state)
+            _write_tick_crash_marker(streak, exc=exc, log=log, prior=_read_tick_crash_marker())
+            return
+        if streak >= TICK_FAILURE_ALERT_THRESHOLD:
             state["_tick_fail_alerted"] = True
             msg = (f"QQQ EXEC: {streak} consecutive tick failures -- latest: "
                   f"{type(exc).__name__ if exc is not None else 'unknown'}: {exc}")
             _log_event(state, "tick_failures", msg, log=log)
-            _notify(msg, "EDGELOG QQQ TICK LOOP", log, priority="high")
+            prior = _read_tick_crash_marker()
+            if prior is not None and prior.get("day") == _phone_day():
+                # an earlier process pushed this same crash loop today and no good tick has
+                # run since (its marker is still here): once a day, not once per restart
+                log("[qqq-exec] crash note already pushed today by an earlier process "
+                    "(tick_crash.json) -- not pushed again")
+                sent = True
+            else:
+                prior = None
+                # WEBULL PUSH PLAN 10-07, group I: high, once an episode (and at most once a day)
+                _action, sent = _say(state, "tick_crash", _phone_day(), ntfy_push.plain(
+                    PHONE_AREA, "CHECK NOW", "the QQQ order program keeps crashing",
+                    f"Its last {streak} checks crashed in a row", PHONE_ASK,
+                    priority="high"), log=log)
+            if sent is False:
+                # the note did not go out (not even queued): try again on the next failed
+                # tick, and leave the box monitor's stall push free meanwhile
+                state["_tick_fail_alerted"] = False
+            else:
+                _drop_crash_from_tick_gap(state)
+                _write_tick_crash_marker(streak, exc=exc, log=log, prior=prior)
     except Exception as e:
         log(f"[qqq-exec] tick-failure alert bookkeeping failed (non-fatal): {type(e).__name__}: {e}")
 
@@ -12163,6 +12886,7 @@ class _FsHealth:
         self.backoff = None         # None = FS_REBUILD_BACKOFF_SEC (read when used)
         self.oks = 0                # working calls in a row
         self.last_fail_at = None    # the latest connection-class failure
+        self.phone_clear = False    # an episode ended: clear the "database" phone slot
 
     def note_ok(self, log=print, now=None):
         """A call that worked. Resets the in-a-row failure count at once; ENDS the episode
@@ -12185,6 +12909,12 @@ class _FsHealth:
             self.rebuilds, self.alerted = 0, False
             self.alert_tries, self.next_alert_at = 0, 0.0
             self.next_rebuild_at, self.backoff = 0.0, None
+            # the outage is over: its phone note ("database") ends too, so a NEW outage --
+            # even the same day -- pushes again (WEBULL PUSH PLAN 10-07 repeat rule). The
+            # process store is cleared here; state.json's slot by _maybe_rebuild_firestore,
+            # which holds the state, on its next pass.
+            self.phone_clear = True
+        _say_clear(None, "database", log=log)
         try:
             log("[qqq-exec] Firestore reachable again"
                 + (f" after rebuilding the connection {rebuilds} time(s)" if rebuilds else "")
@@ -12421,6 +13151,27 @@ def _maybe_rebuild_firestore(db, state=None, log=print, now=None):
         h = _FS_HEALTH
         can = isinstance(db, _FirestoreHandle) and db.can_rebuild
         with h._lock:
+            clear_phone, h.phone_clear = bool(getattr(h, "phone_clear", False)), False
+        if clear_phone:
+            _say_clear(state, "database", log=log)
+        with h._lock:
+            if not h.tripped(now):
+                # 10-08 review: a "database" slot left in state.json by an outage BEFORE a
+                # restart is never ended by note_ok (this fresh process never entered that
+                # episode). Firestore calls working with no episode open = that outage is
+                # over: end its slot, so a new outage the same day pushes again.
+                stale_slot = (h.streak == 0 and h.oks > 0
+                              and not (h.rebuilds or h.alerted or h.alert_tries
+                                       or h.backoff is not None)
+                              and isinstance(state, dict)
+                              and "database" in (state.get("_phone_dedupe") or {}))
+            else:
+                stale_slot = None
+        if stale_slot is not None:
+            if stale_slot:
+                _say_clear(state, "database", log=log)
+            return None
+        with h._lock:
             if not h.tripped(now):
                 return None
             streak, since, err, rebuilds = h.streak, h.first_fail_at, h.last_err, h.rebuilds
@@ -12456,7 +13207,16 @@ def _maybe_rebuild_firestore(db, state=None, log=print, now=None):
                 if state is not None:
                     _log_event(state, "firestore_down", msg, log=log)
             try:
-                sent = _notify(msg, "EDGELOG QQQ FIRESTORE", log, priority="high")
+                # WEBULL PUSH PLAN 10-07, group I: the executor OWNS "cloud database
+                # unreachable" (it sees it first and knows the cause). Plain text through
+                # _say (once a day); a send that FAILED (False) is put back by _say, so the
+                # retry below goes out; None (no topic) / True / "queued" / held end it.
+                _action, sent = _say(state, "database", _phone_day(), ntfy_push.plain(
+                    PHONE_AREA, "CHECK NOW", "the QQQ book cannot send orders",
+                    f"The cloud database has been unreachable for {max(1, round(mins))} min",
+                    ("nothing yet - it keeps reconnecting; " + PHONE_ASK + " if it lasts")
+                    if can else PHONE_ASK + " - the QQQ order program needs a restart",
+                    priority="high"), log=log)
             except Exception as e:
                 log(f"[qqq-exec] Firestore alert push failed: {type(e).__name__}: {e}")
                 sent = False
@@ -12601,14 +13361,18 @@ def _stand_down(state, uid, reason, log=print):
     # alert per real loss, not one per systemd restart while reads keep flapping.
     repeat, _note = standby_fresh()
     _note_standby(reason, log=log)
+    if not repeat:
+        # WEBULL PUSH PLAN 10-07, group I: high -- trading on this machine stopped (before
+        # the save below, so the repeat rule's memory is saved with it). Accepted cost (10-08
+        # review): the outbox makes one synchronous try first (up to its POST timeout, ~4 s)
+        # before it queues, so on a slow network this save can wait that long -- this is the
+        # terminal stand-down path; this host has already stopped trading.
+        _say(state, "stood_down", _phone_day(), _stood_down_note(), log=log)
     try:
         _log_event(state, "lease_lost", f"Stood down on {host}: {reason}", log=log)
         save_state(state, log=log)
     except Exception as e:
         log(f"[qqq-exec] could not record the stand-down: {type(e).__name__}: {e}")
-    if not repeat:
-        _notify(f"QQQ SHADOW on {host} stood down: {reason}", "EDGELOG QQQ SHADOW STOOD DOWN",
-                log)
 
 
 def serve(db, uids, log=print):

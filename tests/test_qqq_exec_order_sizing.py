@@ -496,7 +496,9 @@ def test_resend_after_duplicate_reject_uses_the_lots_own_sized_quantity(tmp_path
     assert client.order_v3.place_order.call_count == 2
     assert _order_dicts(client)[1]["quantity"] == "14"
     assert state.get("_broker_resend") == {}
-    assert any("re-sent and accepted" in msg for msg in sent)
+    # WEBULL PUSH PLAN 10-07, group E: on the timeline, not pushed
+    assert any("re-sent and accepted" in e["text"] for e in state["events"])
+    assert not any("re-sent and accepted" in msg for msg in sent)
 
     # the book now exits -- CLOSE must send the SAME 14, matching the OPEN exactly
     exit_iso = "2026-09-23T10:00:00-04:00"

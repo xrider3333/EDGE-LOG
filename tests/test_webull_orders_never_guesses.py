@@ -311,7 +311,9 @@ def _patch_qqq(tmp_path, monkeypatch, adapter):
 def test_qqq_fill_capture_pushes_once_when_webull_rejects_an_acked_order(tmp_path, monkeypatch):
     adapter, fake = _adapter(tmp_path, monkeypatch)
     pushed, clock = _patch_qqq(tmp_path, monkeypatch, adapter)
-    state = {"legs": {}, "events": []}
+    # the book still holds the trade (10-08 review: else the note is group D, default)
+    state = {"legs": {"ORB": {"trade_id": TID, "side": "long", "shares_remaining": 10}},
+             "events": []}
     qe._mirror_to_broker(state, leg="ORB", side="long", shares=10, shadow_px=500.0,
                          intent="OPEN", ts="x", trade_id=TID, log=NOOP)
     assert _sent(adapter, "ORB") == 10 and "ORB:OPEN" in state["_broker_fill_capture"]
@@ -321,8 +323,11 @@ def test_qqq_fill_capture_pushes_once_when_webull_rejects_an_acked_order(tmp_pat
     qe._maybe_capture_broker_fills(state, {}, None, True, log=NOOP)
 
     assert (_sent(adapter, "ORB"), _believed(adapter, "ORB")) == (0, 0)
-    high = [m for m, p in pushed if p == "high" and "REJECTED" in m]
-    assert len(high) == 1
+    # WEBULL PUSH PLAN 10-07 group B (10-08 review): the strategy's trade did not happen
+    # at Webull -- trading affected, high, in plain words
+    high = [m for m, p in pushed if p == "high" and "Webull rejected the ORB buy" in m]
+    assert len(high) == 1 and "Trading: AFFECTED" in high[0]
+    assert not any(" a ORB" in m for m, _p in pushed)
     assert state["_broker_fill_capture"] == {}          # dead: no price will ever come
     clock[0] += 60
     qe._maybe_capture_broker_fills(state, {}, None, True, log=NOOP)
@@ -434,7 +439,10 @@ def test_qqq_open_split_remainder_is_resent_once(tmp_path, monkeypatch):
 
     assert [(s[1], s[2]) for s in fake.sent] == [("BUY", 4), ("BUY", 6), ("BUY", 6)]
     assert _sent(adapter, "ORB") == 10 and state["_broker_resend"] == {}
-    assert any("re-sent and accepted" in m for m, _p in pushed)
+    # WEBULL PUSH PLAN 10-07 group E: the remainder re-sent and accepted is timeline only,
+    # and the refused part 2 waits for that re-send (10-08 review): no push at all
+    assert any("re-sent and accepted" in e["text"] for e in state["events"])
+    assert pushed == []
     _resend(state, clock, 60)
     assert len(fake.sent) == 3
     _no_duplicate_ids(fake)
@@ -453,7 +461,10 @@ def test_qqq_open_split_remainder_failing_again_pushes_and_stops(tmp_path, monke
     _resend(state, clock, 60)
 
     assert len(fake.sent) == 3 and state["_broker_resend"] == {}
-    assert any(p == "high" and "could not be sent either" in m for m, p in pushed)
+    assert any("could not be sent either" in e["text"] for e in state["events"])
+    # WEBULL PUSH PLAN 10-07 group B: ONE high "entry missed" note, sent when the re-send fails
+    assert [p for _m, p in pushed] == ["high"]
+    assert "The rest of the ORB buy could not be sent" in pushed[0][0]
     _no_duplicate_ids(fake)
 
 
@@ -469,7 +480,10 @@ def test_qqq_open_split_with_unknown_part1_never_resends_the_rest(tmp_path, monk
     _resend(state, clock, 60)
 
     assert len(fake.sent) == 1 and not state.get("_broker_resend")
-    assert any(p == "high" and "OUTCOME UNKNOWN" in m for m, p in pushed)
+    assert any("OUTCOME UNKNOWN" in e["text"] for e in state["events"])
+    # WEBULL PUSH PLAN 10-07 group B: high, the "may not be at Webull" plain note
+    assert any(p == "high" and "Webull did not answer the ORB buy in time" in m
+               for m, p in pushed)
 
 
 def test_qqq_close_split_refused_part2_is_resent_through_close_retry(tmp_path, monkeypatch):
@@ -674,7 +688,10 @@ def test_qqq_close_found_live_at_send_then_cancelled_is_resent_once(tmp_path, mo
     clock[0] += qe.BROKER_FILL_CAPTURE_FIRST_DELAY_SEC + 1
     qe._maybe_capture_broker_fills(state, {}, NOWDT, True, log=NOOP)
     assert _sent(adapter, "ORB") == 6
-    assert any(p == "high" and "re-sending the unsold 6" in m for m, p in pushed)
+    assert any("re-sending the unsold 6" in e["text"] for e in state["events"])
+    # WEBULL PUSH PLAN 10-07 group A: unsold shares are trading affected -- high
+    assert any(p == "high" and "Webull did not fill 6 shares of the ORB sell; they are "
+               "re-sent" in m for m, p in pushed)
 
     for _ in range(3):
         _resend(state, clock, 60)
@@ -724,9 +741,12 @@ def test_reconcile_booking_an_unknown_open_the_book_no_longer_holds_pushes_high(
     state["_reconcile_due"] = True
     qe._maybe_run_broker_reconcile(state, {}, adapter, NOWDT, True, log=NOOP)
 
-    new = [(m, p) for m, p in pushed[n_before:] if "outcome was not known" in m]
+    assert any("outcome was not known" in e["text"] and "the book holds no ORB" in e["text"]
+               for e in state["events"])
+    # WEBULL PUSH PLAN 10-07 group D's "sell by hand" case: high, plain
+    new = [(m, p) for m, p in pushed[n_before:] if "landed at Webull after the book" in m]
     assert len(new) == 1 and new[0][1] == "high"
-    assert "the book holds no ORB" in new[0][0]
+    assert "sell any ORB shares the book does not hold by hand" in new[0][0]
     assert _sent(adapter, "ORB") == 10
 
 
@@ -905,7 +925,9 @@ def test_qqq_fill_capture_keeps_a_partial_open_then_books_only_the_fill(tmp_path
     past the one-minute give-up, then CANCELLED 4 of 10 books 4 with one high push."""
     adapter, fake = _adapter(tmp_path, monkeypatch)
     pushed, clock = _patch_qqq(tmp_path, monkeypatch, adapter)
-    state = {"legs": {}, "events": []}
+    # the book still holds the trade (10-08 review: else the note is group D, default)
+    state = {"legs": {"ORB": {"trade_id": TID, "side": "long", "shares_remaining": 10}},
+             "events": []}
     qe._mirror_to_broker(state, leg="ORB", side="long", shares=10, shadow_px=500.0,
                          intent="OPEN", ts="x", trade_id=TID, log=NOOP)
     fake.detail["*"] = [dict(od("PARTIAL_FILLED", 4), filled_price="500.10")]
@@ -922,7 +944,10 @@ def test_qqq_fill_capture_keeps_a_partial_open_then_books_only_the_fill(tmp_path
 
     assert state["_broker_fill_capture"] == {}
     assert (_sent(adapter, "ORB"), _believed(adapter, "ORB")) == (4, 4)
+    # WEBULL PUSH PLAN 10-07 group B: only part of the buy is at Webull -- high
     assert len([m for m, p in pushed if p == "high"]) == 1
+    assert "Webull filled only 4 shares of the ORB buy" in pushed[0][0]
+    assert "only part of the ORB buy is at Webull" in pushed[0][0]
     clock[0] += 120
     qe._maybe_capture_broker_fills(state, {}, None, True, log=NOOP)
     assert len(pushed) == 1
@@ -971,8 +996,12 @@ def test_qqq_dead_close_settled_by_reconcile_requeues_the_unsold_shares(tmp_path
     qe._maybe_run_broker_reconcile(state, {}, adapter, NOWDT, True, log=NOOP)
 
     assert _sent(adapter, "ORB") == 6
-    high = [m for m, p in pushed if p == "high" and "outcome was not known" in m]
-    assert len(high) == 1 and "re-sending the unsold 6" in high[0]
+    assert any("outcome was not known" in e["text"] and "re-sending the unsold 6" in e["text"]
+               for e in state["events"])
+    # WEBULL PUSH PLAN 10-07 group A: unsold shares are trading affected -- high, once
+    high = [m for m, p in pushed if p == "high"]
+    assert len(high) == 1
+    assert "Webull did not fill 6 shares of the ORB sell; they are re-sent" in high[0]
     for _ in range(3):
         _resend(state, clock, 60)
     state["_reconcile_due"] = True
@@ -980,6 +1009,7 @@ def test_qqq_dead_close_settled_by_reconcile_requeues_the_unsold_shares(tmp_path
 
     assert [(s[1], s[2]) for s in fake.sent] == [("SELL", 10), ("SELL", 6)]
     assert _sent(adapter, "ORB") == 0
+    assert len([m for m, p in pushed if "ORB sell" in m]) == 1, "never twice"
     _no_duplicate_ids(fake)
 
 

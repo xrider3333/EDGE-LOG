@@ -19,10 +19,15 @@ def test_eod_summary_leads_with_the_pnl_of_record(monkeypatch):
            "broker_parity": {"checked": 10, "failed": 3, "board_flag": False,
                              "checked_all": 31, "flagged_all": 5},
            "feed_days": [{"date": "2026-09-28", "uptime_pct": 1.0}], "breaker_tripped": False}
-    qe._maybe_send_eod_summary({}, doc, nowdt, log=NOOP)
-    assert "P&L $-84.50 at Webull fills (book $-88.95)" in pushed[0]
+    logs = []
+    qe._maybe_send_eod_summary({}, doc, nowdt, log=logs.append)
+    # WEBULL PUSH PLAN 10-07, group G: the phone note leads with the P&L of record in plain words;
+    # the full line (both figures, the fills-vs-backtest check) is the log line and event
+    assert "Lost $84 today at Webull prices" in pushed[0]
+    line = next(ln for ln in logs if "EOD summary" in ln)
+    assert "P&L $-84.50 at Webull fills (book $-88.95)" in line
     # the last-20 window, and the whole history beside it so an old flag stays visible
-    assert "fills vs backtest checked/flagged last 10/3, all 31/5" in pushed[0]
+    assert "fills vs backtest checked/flagged last 10/3, all 31/5" in line
 
 
 def test_engine_events_never_carry_the_notional_shares(tmp_path, monkeypatch):

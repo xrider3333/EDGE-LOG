@@ -616,18 +616,23 @@ def test_a_close_blocked_after_the_bell_pushes_once_while_the_adapter_holds_shar
     qe._close_all(state, cfg, "EOD", None, None, log=NOOP,
                   nowdt=datetime.datetime(2026, 9, 28, 16, 0, 5))
     assert fake.sent[opens_sent:] == []
-    high = [p for p in pushes if p[1].get("priority") == "high"]
-    assert len(high) == 1 and "after the bell" in high[0][0][0] and "10 share(s)" in high[0][0][0]
+    # WEBULL PUSH PLAN 10-07, group A: URGENT (nobody will send this sell any more); the share count
+    # and the ET time stay on the timeline
+    high = [p for p in pushes if p[1].get("priority") == "urgent"]
+    assert len(high) == 1 and "came after the close" in high[0][0][0]
+    assert any("after the bell" in e["text"] and "10 share(s)" in e["text"]
+               for e in state["events"])
     # a second blocked CLOSE for the same leg that day does not push again
     qe._mirror_to_broker(state, leg="ORB", side="short", shares=10, shadow_px=736.5,
                          intent="CLOSE", trade_id=ORB_TID,
                          nowdt=datetime.datetime(2026, 9, 28, 16, 1, 0), log=NOOP)
-    assert len([p for p in pushes if p[1].get("priority") == "high"]) == 1
+    assert len([p for p in pushes if p[1].get("priority") == "urgent"]) == 1
     # a blocked OPEN never pushes
+    n_before = len(pushes)
     qe._mirror_to_broker(state, leg="NOISE", side="long", shares=10, shadow_px=736.5,
                          intent="OPEN", trade_id=NOISE_TID,
                          nowdt=datetime.datetime(2026, 9, 28, 16, 1, 0), log=NOOP)
-    assert len([p for p in pushes if p[1].get("priority") == "high"]) == 1
+    assert len(pushes) == n_before
 
 
 def test_a_close_blocked_after_the_bell_does_not_push_for_a_leg_webull_never_held(book, monkeypatch):

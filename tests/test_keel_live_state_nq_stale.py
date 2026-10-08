@@ -1,11 +1,12 @@
 """tests/test_keel_live_state_nq_stale.py -- tools/keel_live_state.py's NQ FRESHNESS ALERT
 (2026-10-05). The PC's nightly push failed 09-30, 10-01 and 10-03 (and did not run 10-02),
 the box's master stayed at 09-29, and KEEL v12 rebuilt on it every night without a word.
-check_nq_freshness now logs every stale run and pushes ONCE per stale trading day -- since
-2026-10-07 as one plain api/ntfy_push note ("QQQ book: needs a fix", default priority).
+check_nq_freshness now logs every stale run and writes a marker (nq_stale_alert.json) with the
+facts. WEBULL PUSH PLAN 10-07 (MANAGER #86): it no longer pushes -- the box monitor's nq_master
+check is the one pusher of "NQ data did not reach the box" and reads the marker.
 
-No clock, no network, no live files: `now_et` and `push` are passed in, the marker lives in
-tmp_path, and the master is a hand-built load_master()-shaped dict.
+No clock, no network, no live files: `now_et` is passed in, the marker lives in tmp_path, and
+the master is a hand-built load_master()-shaped dict.
 """
 import datetime
 import os
@@ -34,10 +35,20 @@ def _master(*days, dropped=None):
             "dropped_session": dropped}
 
 
-class _Pushes(list):
-    def __call__(self, msg, title, log=print):
-        self.append((title, msg))
-        return True
+def _no_push(monkeypatch):
+    """WEBULL PUSH PLAN 10-07: this script never pushes -- any push fails the test."""
+    from api import ntfy_push
+
+    def boom(*a, **k):
+        raise AssertionError("tools/keel_live_state.py must not push (the box monitor owns it)")
+    monkeypatch.setattr(ntfy_push, "push", boom)
+    monkeypatch.setattr(ntfy_push, "push_result", boom)
+
+
+def _marker(tmp_path):
+    import json
+    with open(tmp_path / kls.STALE_MARKER, encoding="utf-8") as f:
+        return json.load(f)
 
 
 # -- last completed trading day ---------------------------------------------------------
@@ -58,109 +69,93 @@ def test_last_completed_session_skips_holidays_and_knows_half_days():
     assert kls.last_completed_session(_et(2026, 11, 27, 14, 0)) == datetime.date(2026, 11, 25)
 
 
-# -- the alert ----------------------------------------------------------------------------
-def test_the_october_incident_logs_every_run_and_pushes_once_a_day(tmp_path):
+# -- the check (no push: WEBULL PUSH PLAN 10-07 -- tools/webull_freshness.py owns the phone) --
+def test_the_october_incident_logs_every_run_and_notes_the_marker(tmp_path, monkeypatch):
     """The box's master stuck at 09-29; the 18:30 ET timer runs Thursday 10-01, Friday
-    10-02 and Monday 10-05: one push for the file, a log line every run."""
-    pushes, logs = _Pushes(), []
+    10-02: a log line every run, the marker written once per fact, NEVER a push."""
+    _no_push(monkeypatch)
+    logs = []
     m = _master("2026-09-28", "2026-09-29")
     r = kls.check_nq_freshness(m, str(tmp_path), nq_file="/box/nq/NOADJ_NQ_5m_RTH.csv",
-                               now_et=_et(2026, 10, 1, 18, 30), push=pushes, log=logs.append)
-    assert r["stale"] and r["pushed"]
+                               now_et=_et(2026, 10, 1, 18, 30), log=logs.append)
+    assert r["stale"] and r["noted"] and r["incomplete_day"] is None
     assert r["newest"] == "2026-09-29" and r["expected"] == "2026-10-01"
-    assert len(pushes) == 1
-    title, msg = pushes[0]
-    # the plain phone format (2026-10-07): the developer text (dates, the push script, the
-    # file path) stays in the log line
-    assert title == "QQQ book: needs a fix"
-    assert msg == ("Trading: not affected.\n"
-                   "The NQ price history on the cloud box stops at 09-29, so the KEEL sizing "
-                   "model is rebuilt on old data.\n"
-                   "Do: make sure the PC is on at 14:20, or ask Claude (PAPER-WB chat).")
-    from api import ntfy_push
-    assert ntfy_push.lint({"title": title, "message": msg,
-                           "priority": kls.STALE_PUSH_PRIORITY}) == []
-    assert kls.STALE_PUSH_PRIORITY == "default"
-    assert any("2026-09-29" in ln and "2026-10-01" in ln and "push" in ln for ln in logs)
-    assert os.path.exists(tmp_path / kls.STALE_MARKER)
-    # the same stale file next night: logged again, NOT pushed again
+    assert "pushed" not in r
+    # the developer text (dates, the push script, the file path) is in the log line
+    assert any("2026-09-29" in ln and "2026-10-01" in ln and "push" in ln
+               and "NOADJ_NQ_5m_RTH.csv" in ln for ln in logs)
+    mk = _marker(tmp_path)
+    assert (mk["newest"], mk["expected"], mk["incomplete_day"]) == ("2026-09-29", "2026-10-01",
+                                                                   None)
+    # the same stale file later the same night: logged again, marker unchanged
     logs.clear()
     r = kls.check_nq_freshness(m, str(tmp_path), now_et=_et(2026, 10, 1, 22, 0),
-                               push=pushes, log=logs.append)
-    assert r["stale"] and not r["pushed"] and len(pushes) == 1
+                               log=logs.append)
+    assert r["stale"] and not r["noted"]
     assert any("STALE" in line for line in logs)
-    # a NEW last completed day with the file still stuck is a new fact: one more push
+    # a NEW last completed day with the file still stuck: the marker moves on
     r = kls.check_nq_freshness(m, str(tmp_path), now_et=_et(2026, 10, 2, 18, 30),
-                               push=pushes, log=logs.append)
-    assert r["pushed"] and len(pushes) == 2
+                               log=logs.append)
+    assert r["noted"] and _marker(tmp_path)["expected"] == "2026-10-02"
 
 
-def test_current_data_is_quiet_and_clears_the_marker(tmp_path):
-    pushes, logs = _Pushes(), []
+def test_current_data_is_quiet_and_clears_the_marker(tmp_path, monkeypatch):
+    _no_push(monkeypatch)
+    logs = []
     stale = _master("2026-09-29")
-    kls.check_nq_freshness(stale, str(tmp_path), now_et=_et(2026, 10, 1, 18, 30), push=pushes,
+    kls.check_nq_freshness(stale, str(tmp_path), now_et=_et(2026, 10, 1, 18, 30),
                            log=logs.append)
-    assert len(pushes) == 1
+    assert os.path.exists(tmp_path / kls.STALE_MARKER)
     fresh = _master("2026-09-30", "2026-10-01")
     r = kls.check_nq_freshness(fresh, str(tmp_path), now_et=_et(2026, 10, 1, 18, 30),
-                               push=pushes, log=logs.append)
-    assert not r["stale"] and len(pushes) == 1
+                               log=logs.append)
+    assert not r["stale"]
     assert not os.path.exists(tmp_path / kls.STALE_MARKER)
     assert any("current again" in line for line in logs)
-    # a later stale episode pushes again
-    kls.check_nq_freshness(stale, str(tmp_path), now_et=_et(2026, 10, 1, 18, 30), push=pushes,
-                           log=logs.append)
-    assert len(pushes) == 2
+    # a later stale episode is noted again
+    r = kls.check_nq_freshness(stale, str(tmp_path), now_et=_et(2026, 10, 1, 18, 30),
+                               log=logs.append)
+    assert r["noted"] and os.path.exists(tmp_path / kls.STALE_MARKER)
 
 
-def test_an_incomplete_last_session_is_stale_too(tmp_path):
-    """A push that carried only part of the day: the build drops it, KEEL trains a day behind."""
-    pushes = _Pushes()
+def test_an_incomplete_last_session_is_stale_and_the_marker_names_it(tmp_path, monkeypatch):
+    """An upload that carried only part of the day: the build drops it, KEEL trains a day
+    behind. This script's one unique view -- the marker carries it to the box monitor."""
+    _no_push(monkeypatch)
     m = _master("2026-09-30", dropped="2026-10-01")
-    r = kls.check_nq_freshness(m, str(tmp_path), now_et=_et(2026, 10, 1, 18, 30), push=pushes,
+    r = kls.check_nq_freshness(m, str(tmp_path), now_et=_et(2026, 10, 1, 18, 30),
                                log=lambda *_: None)
-    assert r["stale"] and len(pushes) == 1
-    assert "incomplete" in pushes[0][1]
+    assert r["stale"] and r["incomplete_day"] == "2026-10-01"
+    assert _marker(tmp_path)["incomplete_day"] == "2026-10-01"
 
 
-def test_a_half_day_the_build_drops_is_not_a_missing_push(tmp_path):
-    pushes = _Pushes()
+def test_a_half_day_the_build_drops_is_not_a_missing_upload(tmp_path, monkeypatch):
+    _no_push(monkeypatch)
     m = _master("2026-11-25", dropped="2026-11-27")
-    r = kls.check_nq_freshness(m, str(tmp_path), now_et=_et(2026, 11, 27, 18, 30), push=pushes,
+    r = kls.check_nq_freshness(m, str(tmp_path), now_et=_et(2026, 11, 27, 18, 30),
                                log=lambda *_: None)
-    assert not r["stale"] and pushes == []
+    assert not r["stale"] and not os.path.exists(tmp_path / kls.STALE_MARKER)
 
 
-def test_a_push_that_did_not_go_out_is_tried_again_next_run(tmp_path):
-    """api/ntfy_push.push returns False on a failed send (it does not raise): no marker
-    then, so ntfy being down at 18:30 does not silence the whole stale day."""
-    sent, logs = _Pushes(), []
-
-    def failed(msg, title, log=print):
-        return False
-    m = _master("2026-09-29")
-    r = kls.check_nq_freshness(m, str(tmp_path), now_et=_et(2026, 10, 1, 18, 30), push=failed,
-                               log=logs.append)
-    assert r["stale"] and not r["pushed"]
-    assert not os.path.exists(tmp_path / kls.STALE_MARKER)
-    assert any("did not go out" in line for line in logs)
-    r = kls.check_nq_freshness(m, str(tmp_path), now_et=_et(2026, 10, 1, 22, 0), push=sent,
-                               log=logs.append)
-    assert r["pushed"] and len(sent) == 1
-    assert os.path.exists(tmp_path / kls.STALE_MARKER)
+def test_the_module_has_no_push_left(monkeypatch):
+    """ONE ALERTER PER PROBLEM: the old sender and its phone note are gone."""
+    assert not hasattr(kls, "_default_stale_push") and not hasattr(kls, "stale_note")
+    import inspect
+    assert "push" not in inspect.signature(kls.check_nq_freshness).parameters
 
 
-def test_the_check_never_raises(tmp_path):
+def test_the_check_never_raises(tmp_path, monkeypatch):
     logs = []
 
-    def boom(msg, title, log=print):
-        raise RuntimeError("ntfy down")
+    def boom(*a, **k):
+        raise OSError("disk gone")
+    monkeypatch.setattr(kls.os, "replace", boom)
     r = kls.check_nq_freshness(_master("2026-09-29"), str(tmp_path),
-                               now_et=_et(2026, 10, 2, 18, 30), push=boom, log=logs.append)
+                               now_et=_et(2026, 10, 2, 18, 30), log=logs.append)
     assert r["stale"]
     assert any("non-fatal" in line for line in logs)
     r = kls.check_nq_freshness({"arr": {}}, str(tmp_path), now_et=_et(2026, 10, 2, 18, 30),
-                               push=_Pushes(), log=logs.append)
+                               log=logs.append)
     assert r["stale"] is False
 
 

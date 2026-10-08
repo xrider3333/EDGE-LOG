@@ -526,11 +526,17 @@ def test_nq_master_and_keel_due_after_1900(tmp_path):
 
 
 def test_evening_before_1900_expects_the_previous_session(tmp_path):
-    t = et(2026, 10, 5, 18, 0)
+    """KEEL is checked from 19:00 ET. The NQ master from 18:00 ET since the WEBULL PUSH PLAN
+    10-07 (before the 18:30 ET rebuild, so a hand re-run of the upload still lands)."""
+    t = et(2026, 10, 5, 17, 59)
     h = Home(tmp_path, t)
     h.bars(t, nq_day=dt.date(2026, 10, 2))
     h.keel(through="2026-10-02")
     assert not ({"nq_master", "keel:NOISE_382_v12"} & failing(h.run()))
+    h.advance(et(2026, 10, 5, 18, 0))
+    out = h.run()
+    assert "nq_master" in failing(out)
+    assert "keel:NOISE_382_v12" not in failing(out)
 
 
 def test_evening_over_a_weekend_and_a_holiday(tmp_path):
@@ -1176,16 +1182,34 @@ def test_priority_follows_what_the_problem_does_to_trading(tmp_path):
 
 
 def test_eod_not_flat_text(tmp_path):
+    """WEBULL PUSH PLAN 10-07: the executor owns the RESULT of its after-close check (it
+    pushed "Webull still holds 133 QQQ shares" urgently the moment it read it), so this
+    episode is QUIET here -- tracked for status.json and the PC relay, not pushed again. Only
+    when its stamp says that note went out ("pushed", 10-08 fourth review)."""
     h = Home(tmp_path, et(2026, 10, 5, 16, 12))
-    h.exec_state(_webull_flat_after_eod={"date": "2026-10-05", "flat": False, "shares": 133})
-    h.run()
-    assert h.pushes == [{"title": "QQQ book: CHECK NOW", "priority": "urgent", "message":
-                         "Trading: AFFECTED - the QQQ book may still hold shares after the close.\n"
-                         "Webull still holds 133 QQQ shares after the close.\n"
-                         "Do: check the Webull app is flat and sell by hand if needed."}]
+    h.exec_state(_webull_flat_after_eod={"date": "2026-10-05", "flat": False, "shares": 133,
+                                         "pushed": True})
+    out = h.run()
+    assert "webull_flat" in failing(out)
+    assert h.pushes == []
+    rec = out["opened"][[r["key"] for r in out["opened"]].index("webull_flat")]
+    assert rec["quiet"] is True
+    assert rec["plain"]["problem"] == "Webull still holds 133 QQQ shares after the close."
     # the developer text the PC relay and status.json carry is unchanged
     v = h.status()["verdicts"]["webull_flat"]
     assert v["title"] == "Webull NOT confirmed flat" and "133" in v["detail"]
+
+
+def test_eod_flat_check_that_did_not_run_is_this_monitors_push(tmp_path):
+    """The other half of the Webull-flat owner pick: the executor cannot report its own
+    absence -- "the check did not run" stays this monitor's URGENT push."""
+    h = Home(tmp_path, et(2026, 10, 5, 16, 12))
+    h.exec_state(_webull_flat_after_eod={"date": "2026-10-02", "flat": True})
+    out = h.run()
+    assert "webull_flat" in failing(out)
+    flat = [p for p in h.pushes if "position check did not run" in p["message"]]
+    assert len(flat) == 1 and flat[0]["priority"] == "urgent"
+    assert flat[0]["title"] == "QQQ book: CHECK NOW"
 
 
 def test_a_unit_the_book_trades_through_is_check_now(tmp_path):
@@ -1199,14 +1223,32 @@ def test_a_unit_the_book_trades_through_is_check_now(tmp_path):
 
 
 def test_two_keel_legs_count_once_and_the_lead_problem_sets_the_text(tmp_path):
+    """The NQ data landed but KEEL was not rebuilt: both legs' "not rebuilt" count once, at
+    DEFAULT (WEBULL PUSH PLAN 10-07: the model is 1 session old -- sizing still uses it)."""
     h = Home(tmp_path, et(2026, 10, 5, 19, 5))
-    h.bars(h.now, nq_day=dt.date(2026, 10, 2))                 # nq_master (default) ...
-    h.keel(through="2026-10-02")                                # ... and both KEEL legs (high)
+    h.bars(h.now)                                               # the NQ upload landed ...
+    h.keel(through="2026-10-02")                                # ... but both KEEL legs are old
     h.run()
-    assert h.pushes == [{"title": "QQQ book: CHECK NOW", "priority": "high", "message":
-                         "Trading: AFFECTED - the QQQ book sizes NOISE trades on an old model.\n"
-                         "The KEEL sizing model was not rebuilt after the close. +1 more.\n"
+    assert h.pushes == [{"title": "QQQ book: needs a fix", "priority": "default", "message":
+                         "Trading: not affected.\n"
+                         "The KEEL sizing model was not rebuilt after the close (it is 1 "
+                         "session old).\n"
                          "Do: ask Claude (PAPER-WB chat)."}]
+
+
+def test_keel_not_rebuilt_folds_into_the_missed_nq_upload(tmp_path):
+    """One missed night, one push: the KEEL legs that open while nq_master is failing are
+    QUIET (folded into the NQ note), however the runs fall."""
+    h = Home(tmp_path, et(2026, 10, 5, 19, 5))
+    h.bars(h.now, nq_day=dt.date(2026, 10, 2))                 # the upload never landed
+    h.keel(through="2026-10-02")
+    out = h.run()
+    assert {"nq_master", "keel:NOISE_382_v12", "keel:NOISE_422_KEEL_v12"} <= failing(out)
+    assert h.pushes == [{"title": "QQQ book: needs a fix", "priority": "default", "message":
+                         "Trading: not affected.\n"
+                         "The PC's after-close NQ data upload did not reach the cloud box.\n"
+                         "Do: run the upload on the PC (the model rebuilds when it lands), or "
+                         "ask Claude (PAPER-WB chat)."}]
 
 
 def test_an_episode_saved_before_the_plain_format_still_pushes_plain_text(tmp_path):

@@ -33,8 +33,10 @@ stayed at 09-29 and KEEL v12 rebuilt on stale data for days. Now:
     worked were most likely Git's ssh, and with a stripped environment Windows OpenSSH has
     been seen to exit 255 with no output at all -- so one client failing blank no longer
     fails the try, and its line is logged before the other client runs;
-  - the box side checks too: tools/keel_live_state.py logs and pushes once when the newest NQ
-    session it was given is older than the last completed trading day.
+  - the box side checks too: tools/keel_live_state.py logs it and writes nq_stale_alert.json
+    when the newest NQ session it was given is older than the last completed trading day (no
+    push); the box monitor's nq_master check (tools/webull_freshness.py, from 18:00 ET) is the
+    ONE pusher of "NQ data did not reach the box".
 A failed run changes nothing on the box. KEEL keeps scoring from the last state it has and
 falls back to size 1.0 on its own once that state is more than 5 sessions old
 (api/cloud_signal.KEEL_MAX_STALE_SESSIONS), so a PC that is off for a night costs nothing.

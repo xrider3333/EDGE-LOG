@@ -1970,12 +1970,15 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, f
 _KEEL_STATE_CACHE = {}   # state_path -> (mtime, state, summary-or-None)
 
 # KEEL FALLBACK PUSH (deadman/deadman_keel_guard, 2026-09-26). How many trading sessions
-# a KEEL state may lag "now" (by data_through/last_nq_session) before this module tells
-# the owner about it -- DELIBERATELY TIGHTER than KEEL_MAX_STALE_SESSIONS above (which
-# governs when the SIZING itself gives up and falls back to 1.0). A state that is one
-# session behind is not yet stale enough to change what a trade gets sized at, but it is
-# already stale enough that the owner should hear the nightly rebuild missed a night --
-# well before KEEL_MAX_STALE_SESSIONS quiet sessions would actually change live sizing.
+# a KEEL state may lag "now" (by data_through/last_nq_session) before this module NOTES it
+# (_keel_fallback_reason) -- DELIBERATELY TIGHTER than KEEL_MAX_STALE_SESSIONS above (which
+# governs when the SIZING itself gives up and falls back to 1.0).
+# WEBULL PUSH PLAN 10-07 (MANAGER #86, section 2): the phone used to hear "KEEL fell back to
+# 1.0" from 2 stale sessions on, while sizing only falls back past KEEL_MAX_STALE_SESSIONS --
+# a false title most of the time (box proof: NOISE_382 pushed 10-05 at 4 stale sessions).
+# Now a STALE-ONLY reason within KEEL_MAX_STALE_SESSIONS is a fact for the log and
+# state["keel_alerts"] only (the box monitor tools/webull_freshness.py owns "KEEL not
+# rebuilt"); the phone hears only a REAL fallback (_keel_fallback_is_real).
 KEEL_PUSH_STALE_SESSIONS = 1
 
 
@@ -2404,11 +2407,13 @@ def _keel_fallback_reason(keel_cfg, now, arrays=None, log=print):
     leg can be hours or days away; a broken/stale KEEL state should not have to wait
     for a trade to be noticed (deadman/deadman_keel_guard, 2026-09-26).
 
-    Checks, in order: the state file itself (missing/unreadable -- see
-    _load_keel_state), staleness by data_through/last_nq_session against
-    KEEL_PUSH_STALE_SESSIONS (tighter than KEEL_MAX_STALE_SESSIONS -- see that
-    constant's own comment), and -- only when `arrays` is given -- the feature-column
-    match _keel_size_for_entry also checks. `arrays` is optional because this is called
+    Checks: the state file itself (missing/unreadable -- see _load_keel_state),
+    staleness by data_through/last_nq_session against KEEL_PUSH_STALE_SESSIONS (tighter
+    than KEEL_MAX_STALE_SESSIONS -- see that constant's own comment), and -- only when
+    `arrays` is given -- the feature-column match _keel_size_for_entry also checks. A
+    feature-column mismatch is a REAL fallback to 1.0, so it wins over a stale reason
+    (10-08 review: a model 2-5 sessions old with a mismatch used to read as stale-only,
+    so this step-time check stayed silent on a real fallback). `arrays` is optional because this is called
     every tick a leg's bars actually advance (see step()), and the two array-free
     checks alone already cover the failure modes that matter most: a dead nightly
     build, or a state file that stops updating.
@@ -2434,18 +2439,19 @@ def _keel_fallback_reason(keel_cfg, now, arrays=None, log=print):
         state, summary = _load_keel_state(state_path, keel_cfg.get("summary_path", ""), log=log)
         if state is None:
             return "keel state unavailable"
+        stale = None
         last_session = (summary or {}).get("data_through") or (summary or {}).get("last_nq_session")
         if last_session:
             sessions = market_calendar.sessions_between(last_session, now.date().isoformat())
             n_stale = max(0, len(sessions) - 1)
             if n_stale > KEEL_PUSH_STALE_SESSIONS:
-                return f"keel state stale: {n_stale} session(s) since {last_session}"
+                stale = f"keel state stale: {n_stale} session(s) since {last_session}"
         if arrays is not None:
             from augur_engine import ml_keel as _keel
             F, names = _keel.keel_features(arrays)
             if list(names) != list(state.get("feature_names") or []):
                 return "keel feature columns do not match the state"
-        return None
+        return stale
     except Exception as e:
         return f"keel freshness check error: {type(e).__name__}: {e}"
 
@@ -2488,36 +2494,151 @@ def _this_host_id():
         return "unknown-host"
 
 
-def _keel_ntfy_push(msg, title, log=print):
-    """Best-effort ntfy.sh push -- same shape as api/qqq_exec.py's _notify (this module
-    has never needed to push a phone alert before this feature). Reads the topic from
-    NTFY_TOPIC so the topic itself is never hardcoded/committed. Never raises."""
-    topic = os.environ.get("NTFY_TOPIC")
-    if not topic:
-        log(f"[cloud-signal] NTFY_TOPIC unset, push skipped: {title}: {msg}")
-        return
+def _keel_ntfy_push(msg, title, log=print, priority="high"):
+    """ONE KEEL fallback push through api/ntfy_push -- WEBULL PUSH PLAN 10-07, section 2: this
+    used to be a raw POST to a hard-coded https://ntfy.sh/<topic> (no NTFY_TOKEN, no
+    NTFY_SERVER, no stripped topic, no result), which would have gone silent the day a
+    private topic is turned on. Now the token-aware helper, and a high push goes through
+    this engine's persisted outbox (_engine_outbox) like its other alerts.
+    Returns None when no topic is set (nothing to send to -- counts as done), True / "queued"
+    when it went out or the outbox keeps it, False when the send failed (the caller tries
+    again on a later tick). Never raises."""
     try:
-        import urllib.request
-        req = urllib.request.Request(
-            f"https://ntfy.sh/{topic}", data=msg.encode("utf-8"), method="POST",
-            headers={"Title": title, "Priority": "default"})
-        urllib.request.urlopen(req, timeout=4)
+        from api import ntfy_push
+        if not (os.environ.get("NTFY_TOPIC") or "").strip():
+            log(f"[cloud-signal] NTFY_TOPIC unset, push skipped: {title}: {msg}")
+            return None
+        if ntfy_push.is_durable(priority):
+            r = _engine_outbox(DEFAULT_PATHS).send(msg, title, priority, log=log)
+            if r is not False:
+                return r
+            log(f"[cloud-signal] ntfy outbox could not take the push -- one plain try: {title}")
+        ok, detail = ntfy_push.push_result(msg, title=title, priority=priority, timeout=4)
+        if ok is False:
+            log(f"[cloud-signal] ntfy push failed ({detail}): {title}")
+        return ok
     except Exception as e:
         log(f"[cloud-signal] ntfy push failed: {type(e).__name__}: {e}")
+        return False
+
+
+_KEEL_STALE_PREFIX = "keel state stale: "
+
+
+def _keel_stale_sessions(reason):
+    """The session count in a "keel state stale: N session(s) since D" reason, else None."""
+    s = str(reason or "")
+    if not s.startswith(_KEEL_STALE_PREFIX):
+        return None
+    try:
+        return int(s[len(_KEEL_STALE_PREFIX):].split()[0])
+    except (ValueError, IndexError):
+        return None
+
+
+def _keel_fallback_is_real(reason):
+    """True when `reason` means sizing REALLY falls back to 1.0 (WEBULL PUSH PLAN 10-07): the
+    state missing or unreadable, a feature mismatch, a scoring or check error, an unknown
+    mode -- or a stale state past KEEL_MAX_STALE_SESSIONS, the exact bound
+    _keel_size_for_entry uses. A stale state within it still sizes on the model: False."""
+    if not reason:
+        return False
+    n = _keel_stale_sessions(reason)
+    return n is None or n > KEEL_MAX_STALE_SESSIONS
+
+
+def _keel_leg_word(leg_key):
+    head = str(leg_key or "NOISE").split("_")[0]
+    return {"ENGUQ": "ENGU-Q"}.get(head, head)
+
+
+def _keel_fallback_note(leg_key, reason):
+    """The plain phone note for a REAL KEEL fallback (api/ntfy_push.plain): high -- the
+    leg's trades are sized at base size without their model."""
+    from api import ntfy_push
+    w = _keel_leg_word(leg_key)
+    n = _keel_stale_sessions(reason)
+    r = str(reason or "")
+    if n is not None:
+        problem = f"The KEEL sizing model is {n} trading sessions old, too old to use"
+    elif "feature columns" in r:
+        problem = "The KEEL sizing model does not match the price data it is given"
+    elif "fixed tilts error" in r:
+        problem = f"The KEEL fixed sizing failed to size {ntfy_push.with_article(w)} trade"
+    elif "no state_path" in r or "unknown keel mode" in r or "unsupported version" in r:
+        problem = "The KEEL sizing setting on the cloud box is not valid"
+    elif "scoring" in r:
+        problem = f"The KEEL sizing model failed to size {ntfy_push.with_article(w)} trade"
+    elif "check error" in r:
+        problem = "The KEEL sizing model check failed on the cloud box"
+    else:
+        problem = "The KEEL sizing model could not be read on the cloud box"
+    return ntfy_push.plain("QQQ book", "CHECK NOW",
+                           f"{w} trades at base size without its sizing model", problem,
+                           "ask Claude (PAPER-WB chat)", priority="high")
+
+
+def _monitor_owns_keel_stale(leg_key, paths=None):
+    """True when the box monitor (tools/webull_freshness.py) already pushed this leg's
+    "KEEL too old" episode (an open, not-quiet keel_fallback:<leg>... alert in
+    <home>/freshness/state.json): ONE ALERTER PER PROBLEM -- a stale-only fallback is then
+    recorded here, not pushed a second time. Reads one small local file; never raises."""
+    try:
+        home = (paths or DEFAULT_PATHS).get("home") or edgelog_home()
+        with open(os.path.join(home, "freshness", "state.json"), encoding="utf-8") as f:
+            alerts = (json.load(f) or {}).get("alerts") or {}
+        for key, rec in alerts.items():
+            name = str(key)[len("keel_fallback:"):] if str(key).startswith("keel_fallback:") else None
+            if (name and (name == leg_key or name.startswith(f"{leg_key}_"))
+                    and isinstance(rec, dict) and rec.get("open") and not rec.get("quiet")):
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def _keel_fallback_push_once(leg_key, reason, today, stamps, log=print):
+    """Push one REAL KEEL fallback for `leg_key` at most once a day. `stamps` are the dicts
+    that remember the day it went out (state["keel_alerts"][leg] and the leg's own
+    leg_state["keel_alert"]) -- either one stamped today holds it, so the step-time check
+    and the scoring-time fallback never push the same day's problem twice. A send that
+    FAILED (False) stamps nothing, so a later tick tries again; None (no topic set) counts
+    as done, so a box with no topic never loops. Returns True when it pushed."""
+    if any(s.get("last_pushed_date") == today for s in stamps):
+        return False
+    n = _keel_stale_sessions(reason)
+    if n is not None and _monitor_owns_keel_stale(leg_key):
+        log(f"[cloud-signal] KEEL fallback on {leg_key} ({reason}) -- the box monitor already "
+            f"pushed its old-model episode; recorded, no second push")
+        for s in stamps:
+            s["last_pushed_date"] = today
+            s["last_reason"] = reason
+        return False
+    note = _keel_fallback_note(leg_key, reason)
+    res = _keel_ntfy_push(note["message"], note["title"], log=log)
+    if res is False:
+        log(f"[cloud-signal] KEEL fallback push for {leg_key} did not go out -- trying again "
+            f"on a later tick")
+        return False
+    for s in stamps:
+        s["last_pushed_date"] = today
+        s["last_reason"] = reason
+    return True
 
 
 def _maybe_push_keel_fallback(leg_key, keel_cfg, now, state, arrays=None, log=print):
-    """Pushes ONCE PER (ET calendar) DAY when `leg_key`'s KEEL overlay would currently
-    fall back to keel_size 1.0 -- see _keel_fallback_reason for the conditions this
-    covers (state missing/unreadable, stale by data_through beyond
-    KEEL_PUSH_STALE_SESSIONS, a feature-column mismatch, or an exception in the check
-    itself). Dedupe lives in state["keel_alerts"][leg_key]["last_pushed_date"] --
-    state.json, the SAME ledger step() already loads/persists every tick, so no
-    separate store is needed. A reason on a day already pushed is a no-op; a day with
-    NO reason leaves the stamp untouched (not cleared) -- so the run this actually
-    recovers is quiet, and the NEXT bad day pages again rather than the alert going
-    silent forever after its first page. Never raises -- a broken alerter must never
-    take down step()."""
+    """Tells the owner, ONCE PER (ET calendar) DAY, when `leg_key`'s KEEL overlay REALLY
+    falls back to keel_size 1.0 -- WEBULL PUSH PLAN 10-07: the state missing/unreadable, a
+    feature-column mismatch, an exception in the check itself, or a state stale PAST
+    KEEL_MAX_STALE_SESSIONS (_keel_fallback_is_real). A stale state within that bound
+    (KEEL_PUSH_STALE_SESSIONS < n <= KEEL_MAX_STALE_SESSIONS) still sizes on the model: it
+    is logged once a day and kept in state["keel_alerts"][leg_key] (last_reason,
+    stale_sessions, last_stale_date) -- no push; the box monitor owns "KEEL not rebuilt".
+    Dedupe lives in state["keel_alerts"][leg_key]["last_pushed_date"] (and the leg's own
+    leg_state["keel_alert"], shared with the scoring-time push in _diff_leg) -- state.json,
+    the SAME ledger step() already loads/persists every tick. A day with NO reason leaves
+    the stamps untouched -- the NEXT bad day pages again. Never raises -- a broken alerter
+    must never take down step()."""
     try:
         reason = _keel_fallback_reason(keel_cfg, now, arrays=arrays, log=log)
         if not reason:
@@ -2525,12 +2646,18 @@ def _maybe_push_keel_fallback(leg_key, keel_cfg, now, state, arrays=None, log=pr
         alerts = state.setdefault("keel_alerts", {})
         rec = alerts.setdefault(leg_key, {})
         today = now.date().isoformat()
-        if rec.get("last_pushed_date") == today:
-            return
-        _keel_ntfy_push(f"{leg_key}: {reason}",
-                       f"EDGELOG QQQ ({_this_host_id()}): KEEL fell back to 1.0", log=log)
-        rec["last_pushed_date"] = today
         rec["last_reason"] = reason
+        if not _keel_fallback_is_real(reason):
+            rec["stale_sessions"] = _keel_stale_sessions(reason)
+            if rec.get("last_stale_date") != today:
+                rec["last_stale_date"] = today
+                log(f"[cloud-signal] KEEL {leg_key}: {reason} -- still sizing on the model "
+                    f"(falls back only past {KEEL_MAX_STALE_SESSIONS}); no push, the box "
+                    f"monitor owns it")
+            return
+        leg_alert = ((state.get("legs") or {}).get(leg_key) or {}).get("keel_alert")
+        stamps = [rec] + ([leg_alert] if isinstance(leg_alert, dict) else [])
+        _keel_fallback_push_once(leg_key, reason, today, stamps, log=log)
     except Exception as e:
         log(f"[cloud-signal] KEEL fallback push failed: {type(e).__name__}: {e}")
 
@@ -3459,15 +3586,12 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 # runner scores KEEL too (import-only, no state directory), so without
                 # this gate it would page a false "keel state unavailable" on its own.
                 # Never for a shadow leg (cfg["shadow"] -- see _push_allowed).
+                # WEBULL PUSH PLAN 10-07: the plain note through api/ntfy_push, at most once a
+                # day per leg across this push and step()'s (_keel_fallback_push_once) -- every
+                # reason here is a REAL fallback (this trade was just sized at 1.0).
                 if isinstance(_diag, str) and _push_allowed(cfg, fetch):
                     alert = leg_state.setdefault("keel_alert", {})
-                    if alert.get("last_pushed_date") != today:
-                        _keel_ntfy_push(
-                            f"{leg_key}: {_diag}",
-                            f"EDGELOG QQQ ({_this_host_id()}): KEEL fell back to 1.0",
-                            log=log)
-                        alert["last_pushed_date"] = today
-                        alert["last_reason"] = _diag
+                    _keel_fallback_push_once(leg_key, _diag, today, [alert], log=log)
                 # KEEL ENTRY EXTRAS (logging only, MANAGER #76): computed AFTER keel_size and
                 # final_size are fixed above, from the same arrays and entry bar; they ride
                 # on the row only -- see _keel_entry_extras. Learned legs only.

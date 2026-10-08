@@ -44,10 +44,10 @@ FOURTH REVIEW (2026-09-26, same day): one more critical/major double-sell gap pl
 minor findings against the SECOND/THIRD review's own fixes above:
   * item 1 major: (SUPERSEDED by the FINAL RULE below) the account-position fallback
     was withheld for a grace period after the unclear send.
-  * item 3 minor (paging): the CLOSE-retry "stalled" push now shares the leg's own plain
-    CLOSE-failure throttle key (_close_fail_should_alert(state, leg, ...)) instead of a
-    separate "<leg>#stall" one -- the separate key let a leg page twice per 5 minutes
-    (once NOT OK/UNKNOWN, once stalled), not the one point 3 calls for.
+  * item 3 minor (paging): the CLOSE-retry "stalled" push now shares the leg's own
+    CLOSE-failure episode instead of a separate "<leg>#stall" one. Since the WEBULL PUSH
+    PLAN 10-07 that episode is the shared repeat rule's key exit:<leg> (_say): the first
+    failure (high), the stall once (urgent), never one push per retry.
   * item 2 minor (docstring): _order_known_at_broker_any's docstring and the dead "every
     part positively never reached the book -- safe to retry" (False) return path are
     removed -- _order_known_at_broker itself can no longer produce that answer.
@@ -204,12 +204,20 @@ def test_notify_still_no_network_when_topic_unset(monkeypatch):
 
 # EXIT SAFETY item 3 (2026-09-26, LEAD DECISION on the "alerts in book" review): a CLOSE
 # that keeps failing across many backoff retries used to page on EVERY not-ok
-# _mirror_to_broker call -- a real outage could then page every 5-30s for hours. The
-# lead's call: page on the FIRST failure, then at most once per CLOSE_FAIL_ALERT_GAP_SEC
-# per leg while it keeps failing, plus the give-up push (always, at urgent priority).
-# NOT one push per retry -- see _close_fail_should_alert/_close_fail_alert_reset.
+# _mirror_to_broker call -- a real outage could then page every 5-30s for hours.
+# WEBULL PUSH PLAN 10-07 (MANAGER #86): the 5-minute gap is replaced by the shared repeat
+# rule (_say / ntfy_push.dedupe, key exit:<leg>): page on the FIRST failure (high), again
+# only when it gets WORSE (a stall, the give-up -- urgent) or a day later while it stands.
+# NOT one push per retry -- see _say_exit_late / _say_exit_stuck / _close_fail_alert_reset.
 
-def test_alert_close_pages_first_failure_then_throttles_until_the_gap_elapses(monkeypatch):
+
+def _event_has(state, *needles):
+    """Some timeline event carries every needle -- the developer text the plain phone note
+    no longer carries lives there (and in the log line)."""
+    return any(all(n in e.get("text", "") for n in needles) for e in state.get("events", []))
+
+
+def test_alert_close_pages_first_failure_then_only_when_worse_or_a_day_later(monkeypatch):
     pushed = []
     state = {"events": []}
     clock = [1_000_000.0]
@@ -222,23 +230,29 @@ def test_alert_close_pages_first_failure_then_throttles_until_the_gap_elapses(mo
                             shares=10, reason="refused", log=NOOP)
     assert len(pushed) == 1, "the first failure must always page"
 
-    clock[0] += 5   # well inside CLOSE_FAIL_ALERT_GAP_SEC
+    clock[0] += 5
     qe._alert_broker_not_ok(state, leg="NOISE", intent="CLOSE", side="SELL",
                             shares=10, reason="refused again", log=NOOP)
-    assert len(pushed) == 1, "a retry inside the gap must not page again (not per-retry)"
+    assert len(pushed) == 1, "a retry must not page again (not per-retry)"
 
-    clock[0] += qe.CLOSE_FAIL_ALERT_GAP_SEC + 1
+    clock[0] += 301   # past the old 5-minute gap: the same problem, no worse -- still held
     qe._alert_broker_not_ok(state, leg="NOISE", intent="CLOSE", side="SELL",
                             shares=10, reason="still refused", log=NOOP)
-    assert len(pushed) == 2, "once the gap elapses, the still-failing CLOSE pages again"
-    assert all(p == "high" for _t, _m, p in pushed)
-    assert all("CLOSE NOT OK" in m for _t, m, _p in pushed)
-    # a throttled failure (same style as the pre-existing OPEN once-per-day throttle)
-    # logs no timeline event either -- the caller's own "NOT ok" log line (right above
-    # this function's call site in _mirror_to_broker) already recorded it either way.
-    assert len(state["events"]) == 2
+    assert len(pushed) == 1, "the same failing CLOSE no longer re-pages every 5 minutes"
 
-    # a different leg's own failure must page immediately, independent of NOISE's gate
+    clock[0] += 24 * 3600   # a day on and still failing: at most once a day
+    qe._alert_broker_not_ok(state, leg="NOISE", intent="CLOSE", side="SELL",
+                            shares=10, reason="still refused", log=NOOP)
+    assert len(pushed) == 2
+    assert all(p == "high" for _t, _m, p in pushed)
+    assert all(t == "QQQ book: CHECK NOW" and "The NOISE sell did not go through" in m
+               for t, m, _p in pushed)
+    # a held failure logs no timeline event either -- the caller's own "NOT ok" log line
+    # (right above this function's call site in _mirror_to_broker) records every one
+    assert len(state["events"]) == 2
+    assert all("CLOSE NOT OK" in e["text"] for e in state["events"])
+
+    # a different leg's own failure must page immediately, independent of NOISE's
     qe._alert_broker_not_ok(state, leg="ORB", intent="CLOSE", side="SELL",
                             shares=5, reason="refused", log=NOOP)
     assert len(pushed) == 3
@@ -306,7 +320,10 @@ def test_alert_broker_not_ok_translates_the_raw_servererror_text(tmp_path, monke
                                 shares=10, reason=raw, log=NOOP)
     assert len(pushed) == 1
     assert "HTTP Status" not in pushed[0] and "RequestID" not in pushed[0]
-    assert "already holds the opposite side of QQQ" in pushed[0]
+    # the phone gets a few plain words; _plain_broker_error's sentence is on the timeline
+    assert "the account holds the other side of QQQ" in pushed[0]
+    assert _event_has(state, "already holds the opposite side of QQQ")
+    assert not _event_has(state, "RequestID")
 
 
 def test_mirror_to_broker_alerts_high_priority_on_close_failure(tmp_path, monkeypatch):
@@ -324,9 +341,14 @@ def test_mirror_to_broker_alerts_high_priority_on_close_failure(tmp_path, monkey
                          intent="CLOSE", ts="x", trade_id=ORB_TRADE_ID, log=NOOP)
 
     # 2026-09-26 (the order path never guesses): a bare exception with no clear answer
-    # from Webull's own order record is now an UNKNOWN outcome -- still one high push
-    assert any(p == "high" and ("CLOSE NOT OK" in m or "CLOSE OUTCOME UNKNOWN" in m)
-               for _t, m, p in pushed)
+    # from Webull's own order record is now an UNKNOWN outcome -- still one high push.
+    # 10-08 review: its problem line says the sell may or may not have gone through (it
+    # never claims the sell failed)
+    assert any(p == "high" and t == "QQQ book: CHECK NOW"
+               and "Webull did not answer the ORB sell in time" in m
+               and "may or may not have gone through" in m and "did not go through" not in m
+               for t, m, p in pushed)
+    assert _event_has(state, "CLOSE NOT OK") or _event_has(state, "CLOSE OUTCOME UNKNOWN")
 
 
 def test_mirror_to_broker_does_not_alert_on_confirmed_nothing_to_close(tmp_path, monkeypatch):
@@ -342,9 +364,11 @@ def test_mirror_to_broker_does_not_alert_on_confirmed_nothing_to_close(tmp_path,
     qe._mirror_to_broker(state, leg="ORB", side="long", shares=5, shadow_px=500.0,
                          intent="CLOSE", ts="x", trade_id=ORB_TRADE_ID, log=NOOP)
 
-    assert not any("NOT OK" in m for _t, m, _p in pushed), \
-        "the confirmed-benign nothing-to-close case must not also fire the generic alert"
-    assert any("never held it" in m for _t, m, _p in pushed)
+    # WEBULL PUSH PLAN 10-07, group E: the confirmed-benign nothing-to-close case is the
+    # SAFE outcome -- timeline + log only, no push at all (and never the generic alert)
+    assert pushed == []
+    assert _event_has(state, "never held it")
+    assert not _event_has(state, "NOT OK")
     assert client.order_v3.place_order.call_count == 0
 
 
@@ -481,8 +505,8 @@ def test_close_retry_gives_up_at_the_session_flatten_deadline(tmp_path, monkeypa
     assert state.get("_broker_resend") == {}
     # item 3 (2026-09-26 lead decision): the give-up push for a CLOSE is now "urgent" --
     # Webull may still hold real shares with nobody retrying any more.
-    assert any("gave up" in m and "flatten deadline" in m and p == "urgent"
-              for m, p in pushed)
+    assert any("gave up" in m and "by hand" in m and p == "urgent" for m, p in pushed)
+    assert _event_has(state, "gave up", "flatten deadline")
 
 
 def test_close_retry_never_double_sells_when_already_flat(tmp_path, monkeypatch):
@@ -588,7 +612,10 @@ def test_close_retry_drops_when_webulls_own_record_shows_the_order_landed(tmp_pa
     assert client.order_v3.place_order.call_count == 1, \
         "must never send a second place_order once Webull's own record shows the first landed"
     assert state.get("_broker_resend") == {}
-    assert any("reached the book" in m and p == "high" for m, p in pushed)
+    # WEBULL PUSH PLAN 10-07, group D (default): the books and Webull disagree, orders
+    # still flow; the developer text ("reached the book") is on the timeline
+    assert any("the earlier try landed" in m and p == "default" for m, p in pushed)
+    assert _event_has(state, "reached the book")
 
 
 def test_close_retry_holds_when_the_order_status_lookup_itself_fails(tmp_path, monkeypatch):
@@ -659,9 +686,9 @@ def test_close_retry_holds_on_a_rejected_lookup_no_longer_a_shortcut(tmp_path, m
     assert client.order_v3.place_order.call_count == 1, \
         "still held at 2 holds -- the account read showing 5 shares never releases it"
     assert state["_broker_resend"][key]["verify_holds"] == 2
-    # the stalled push shares the leg's own CLOSE-failure throttle -- the t=0 "NOT OK"
-    # push already used this window's budget
-    assert len(pushed) == 1
+    # the stalled push shares the leg's own exit:<leg> episode with the t=0 "NOT OK" push:
+    # it is WORSE (urgent), so it goes out once -- never a second independent stream
+    assert [p for _m, p in pushed] == ["high", "urgent"]
 
 
 def test_close_retry_skips_the_lookup_when_the_previous_attempt_never_sent(tmp_path, monkeypatch):
@@ -792,7 +819,8 @@ def test_close_retry_holds_on_an_order_not_found_lookup_no_longer_a_shortcut(
 
     assert client.account_v2.get_account_position.call_count == positions_reads, \
         "the hold is decided by the order lookup alone -- never an account position read"
-    assert len(pushed) == 1   # throttled: the t=0 push used this window's budget
+    # the t=0 push (high) and ONE stall push (urgent, worse); every later hold is held
+    assert [p for _m, p in pushed] == ["high", "urgent"]
 
 
 def test_close_retry_stays_held_on_a_5xx_lookup_failure(tmp_path, monkeypatch):
@@ -863,7 +891,7 @@ def test_close_retry_stalled_after_two_holds_stays_held_even_when_shares_still_o
         "never re-sent on account arithmetic -- the account read showing 5 is not proof"
     assert key in state["_broker_resend"]
     assert state["_broker_resend"][key]["verify_holds"] == 2
-    assert len(pushed) == 1   # inside the t=0 push's own throttle window
+    assert [p for _m, p in pushed] == ["high", "urgent"]   # the t=0 push + the one stall
 
 
 # ═ FINAL CLOSE RE-SEND RULE (2026-09-26): an unverifiable CLOSE holds and pages ═
@@ -877,7 +905,8 @@ def test_close_retry_not_found_lookup_holds_pages_urgently_then_gives_up_at_the_
     """Not found on every lookup -> hold and page: the t=0 failure pages at once (high);
     the 2+-hold stall push fires URGENT, telling the owner to check Webull and sell by
     hand, once the leg's throttle window has passed; the hold never re-sends; at the
-    session flatten deadline the retry gives up with its own urgent push."""
+    session flatten deadline the retry gives up (logged + timeline; its urgent push is held
+    behind the same day's urgent stall -- one urgent per stuck sell, 10-08 review)."""
     _patch_qqq_paths(tmp_path, monkeypatch)
     adapter, client = _paper_adapter(tmp_path, monkeypatch)
     monkeypatch.setattr(qe, "_get_broker_adapter", lambda log=print: adapter)
@@ -904,13 +933,14 @@ def test_close_retry_not_found_lookup_holds_pages_urgently_then_gives_up_at_the_
     qe._maybe_resend_broker_orders(state, cfg, nowdt, True, log=NOOP)   # hold 1
     assert len(pushed) == 1, "one hold is not a stall yet"
 
-    clock[0] += qe.CLOSE_FAIL_ALERT_GAP_SEC + 1
+    clock[0] += 301
     qe._maybe_resend_broker_orders(state, cfg, nowdt, True, log=NOOP)   # hold 2
     assert client.order_v3.place_order.call_count == 1
     assert len(pushed) == 2
     stall_msg, stall_pri = pushed[1]
     assert stall_pri == "urgent"
-    assert "stalled" in stall_msg and "check Webull" in stall_msg and "sell by hand" in stall_msg
+    assert "stuck" in stall_msg and "check the Webull app" in stall_msg and "by hand" in stall_msg
+    assert _event_has(state, "stalled", "check Webull")
 
     clock[0] += 35
     qe._maybe_resend_broker_orders(state, cfg, nowdt, True, log=NOOP)   # hold 3
@@ -922,8 +952,13 @@ def test_close_retry_not_found_lookup_holds_pages_urgently_then_gives_up_at_the_
     qe._maybe_resend_broker_orders(state, cfg, past_deadline, True, log=NOOP)
     assert key not in state["_broker_resend"]
     assert client.order_v3.place_order.call_count == 1, "never re-sent at any point"
-    assert any("gave up" in m and "flatten deadline" in m and "sell by hand" in m
-               and p == "urgent" for m, p in pushed)
+    # 10-08 review: the give-up is the SAME fact as the urgent stall pushed earlier the same
+    # day ("check the Webull app and sell NOISE by hand") -- held, not a second urgent buzz;
+    # its log line and timeline event stay, and the give-up ENDS the leg's exit episode
+    assert len(pushed) == 2, "one urgent per stuck sell (the stall already said it)"
+    assert _event_has(state, "gave up", "flatten deadline", "sell by hand")
+    assert "exit:ORB" not in (state.get("_phone_dedupe") or {}), \
+        "the give-up ends the episode: the leg's next CLOSE failure pushes at once"
 
 
 def test_close_retry_not_dropped_on_an_account_read_showing_flat(tmp_path, monkeypatch):
@@ -958,9 +993,11 @@ def test_close_retry_not_dropped_on_an_account_read_showing_flat(tmp_path, monke
     assert state["_broker_resend"][key]["verify_holds"] == 2
 
 
+# WEBULL PUSH PLAN 10-07: the stalled push and the per-send "NOT OK" push are ONE episode
+# (key exit:<leg>): the first failure (high), the stall once (urgent: worse), nothing more.
 # ═══ item 3 minor (2026-09-26 THIRD review, CONSOLIDATED FOURTH review): the "CLOSE ═══
 # retry ... stalled" push must be throttled the same as any other CLOSE-failure push --
-# at most once per CLOSE_FAIL_ALERT_GAP_SEC PER LEG TOTAL while retries continue, never
+# (then: at most once per 5 minutes PER LEG TOTAL; now one exit:<leg> episode) never
 # once per 2-hold episode AND never a second independent stream alongside the plain
 # per-send "NOT OK" push. FOURTH REVIEW (2026-09-26, minor): the THIRD review's own fix
 # throttled the stalled push against itself via a SEPARATE "<leg>#stall" key, which let
@@ -970,13 +1007,13 @@ def test_close_retry_not_dropped_on_an_account_read_showing_flat(tmp_path, monke
 # the gate first in a window wins, exactly like two ordinary "NOT OK" pushes would.
 
 def test_close_retry_failure_pushes_throttled_across_many_rebuilt_cycles(tmp_path, monkeypatch):
-    """The very first CLOSE failure (t=0, this attempt's own 'NOT OK' push) already uses
-    up the leg's per-5-minute budget. Runs several more unverifiable holds afterward --
-    each 2+-hold step would, under the OLD separate-budget scheme, add its own
-    'stalled' push -- all inside one CLOSE_FAIL_ALERT_GAP_SEC window, and checks for at
-    most the ONE push from t=0 throughout, whatever its own wording. Then advances past
-    the gap and confirms the still-held CLOSE pages again. (FINAL CLOSE RE-SEND RULE:
-    the holds never re-send -- the account-position fallback is deleted.)"""
+    """The very first CLOSE failure (t=0, this attempt's own 'NOT OK' push, high) opens the
+    leg's exit:<leg> episode. Runs several more unverifiable holds afterward -- each
+    2+-hold step would, under the OLD separate-budget scheme, add its own 'stalled'
+    push -- and checks for exactly the t=0 push plus ONE stall push (urgent: worse)
+    throughout. Past the old 5-minute gap it stays held; a day on, still stalled, it pages
+    once more (WEBULL PUSH PLAN 10-07). (FINAL CLOSE RE-SEND RULE: the holds never
+    re-send -- the account-position fallback is deleted.)"""
     _patch_qqq_paths(tmp_path, monkeypatch)
     adapter, client = _paper_adapter(tmp_path, monkeypatch)
     monkeypatch.setattr(qe, "_get_broker_adapter", lambda log=print: adapter)
@@ -1010,17 +1047,22 @@ def test_close_retry_failure_pushes_throttled_across_many_rebuilt_cycles(tmp_pat
         clock[0] += 35
         qe._maybe_resend_broker_orders(state, cfg, nowdt, True, log=NOOP)   # hold 2+
 
-    assert len(pushed) == 1, \
-        "must page at most once per 5 minutes total -- the stalled push and every " \
-        "resend's own NOT OK push must share the first failure's own budget"
+    assert [p for _m, p in pushed] == ["high", "urgent"], \
+        "the stalled push and every resend's own NOT OK push share ONE episode: the first " \
+        "failure, then the stall once (worse) -- never once per hold"
 
-    clock[0] += qe.CLOSE_FAIL_ALERT_GAP_SEC + 1
+    clock[0] += 301
     clock[0] += 35
-    qe._maybe_resend_broker_orders(state, cfg, nowdt, True, log=NOOP)   # hold 1, fresh episode
+    qe._maybe_resend_broker_orders(state, cfg, nowdt, True, log=NOOP)   # hold 1
     clock[0] += 35
-    qe._maybe_resend_broker_orders(state, cfg, nowdt, True, log=NOOP)   # hold 2 -> pages again
+    qe._maybe_resend_broker_orders(state, cfg, nowdt, True, log=NOOP)   # hold 2
 
-    assert len(pushed) == 2, "once the gap elapses, a still-failing CLOSE pages again"
+    assert len(pushed) == 2, "past the old 5-minute gap: the same stalled CLOSE stays held"
+
+    clock[0] += 24 * 3600
+    qe._maybe_resend_broker_orders(state, cfg, nowdt, True, log=NOOP)   # hold, a day on
+    assert len(pushed) == 3 and pushed[-1][1] == "urgent", \
+        "a day on and still stalled: at most once a day while it stands"
 
 
 # ═══════ item 4 minor (2026-09-26 review): a close_retry from an earlier day ═══════
@@ -1053,8 +1095,8 @@ def test_close_retry_gives_up_when_left_over_from_an_earlier_trading_day(tmp_pat
     assert client.order_v3.place_order.call_count == 0
     assert key not in state["_broker_resend"]
     # item 3 (2026-09-26 lead decision): the give-up push for a CLOSE is now "urgent".
-    assert any("gave up" in m and "earlier trading day" in m and p == "urgent"
-              for m, p in pushed)
+    assert any("gave up" in m and p == "urgent" for m, p in pushed)
+    assert _event_has(state, "gave up", "earlier trading day")
 
 
 # ═══ SECOND REVIEW (2026-09-26) of item 4's "alerts in book" hard-timeout work ═══
@@ -1156,7 +1198,10 @@ def test_close_retry_preserves_s0s_unresolved_verify_across_an_inflight_blocked_
     assert status_calls == [s0, s0, s0], "must verify S0 again, not a different id"
     assert len(send_calls) == 2, "must NOT re-send once Webull shows S0 reached the book"
     assert key not in state["_broker_resend"]
-    assert any("reached the book" in m and p == "high" for m, p in pushed)
+    # WEBULL PUSH PLAN 10-07, group D (default): the books and Webull disagree, orders
+    # still flow; the developer text ("reached the book") is on the timeline
+    assert any("the earlier try landed" in m and p == "default" for m, p in pushed)
+    assert _event_has(state, "reached the book")
 
 
 def test_queue_broker_resend_keeps_needs_verify_true_directly(tmp_path, monkeypatch):
@@ -1495,7 +1540,10 @@ def test_close_retry_terminal_with_everything_filled_is_dropped(tmp_path, monkey
 
     assert client.order_v3.place_order.call_count == 1
     assert key not in state["_broker_resend"]
-    assert any("reached the book" in m and p == "high" for m, p in pushed)
+    # WEBULL PUSH PLAN 10-07, group D (default): the books and Webull disagree, orders
+    # still flow; the developer text ("reached the book") is on the timeline
+    assert any("the earlier try landed" in m and p == "default" for m, p in pushed)
+    assert _event_has(state, "reached the book")
 
 
 def test_close_retry_waits_while_the_previous_attempt_is_still_working(tmp_path, monkeypatch):
@@ -1507,7 +1555,7 @@ def test_close_retry_waits_while_the_previous_attempt_is_still_working(tmp_path,
     for status in ("SUBMITTED", "PENDING", "PARTIAL_FILLED", "SUBMITTED"):
         client.order_v3.get_order_detail.return_value.json.return_value = {
             "orders": [{"status": status, "filled_quantity": "0"}]}
-        clock[0] += qe.CLOSE_FAIL_ALERT_GAP_SEC + 1
+        clock[0] += 301
         qe._maybe_resend_broker_orders(state, cfg, nowdt, True, log=NOOP)
         assert client.order_v3.place_order.call_count == 1, f"{status}: must not re-send"
         assert key in state["_broker_resend"]
@@ -1534,7 +1582,10 @@ def test_close_retry_dropped_when_the_lookup_reads_filled(tmp_path, monkeypatch)
 
     assert client.order_v3.place_order.call_count == 1
     assert key not in state["_broker_resend"]
-    assert any("reached the book" in m and p == "high" for m, p in pushed)
+    # WEBULL PUSH PLAN 10-07, group D (default): the books and Webull disagree, orders
+    # still flow; the developer text ("reached the book") is on the timeline
+    assert any("the earlier try landed" in m and p == "default" for m, p in pushed)
+    assert _event_has(state, "reached the book")
 
 
 def test_close_retry_not_found_holds_and_pages_urgently_at_two_holds(tmp_path, monkeypatch):
@@ -1556,7 +1607,8 @@ def test_close_retry_not_found_holds_and_pages_urgently_at_two_holds(tmp_path, m
     assert client.order_v3.place_order.call_count == 1
     assert key in state["_broker_resend"]
     assert pushed[-1][1] == "urgent"
-    assert "check Webull" in pushed[-1][0] and "sell by hand" in pushed[-1][0]
+    assert "check the Webull app" in pushed[-1][0] and "by hand" in pushed[-1][0]
+    assert _event_has(state, "stalled", "check Webull")
 
 
 def test_split_close_retry_resends_only_the_dead_parts_unfilled_shares(tmp_path, monkeypatch):
@@ -1979,7 +2031,7 @@ def test_flat_check_reports_not_flat_urgent_push(monkeypatch):
     flat, qty = qe._check_webull_flat_after_eod(state, log=NOOP)
 
     assert (flat, qty) == (False, 7)
-    assert pushed == [("EDGELOG QQQ BROKER NOT FLAT", "urgent")]
+    assert pushed == [("QQQ book: CHECK NOW", "urgent")]
     assert "still holds 7 QQQ" in state["events"][-1]["text"]
 
 
@@ -2003,7 +2055,8 @@ def test_flat_check_unverifiable_read_failure_pushes_high(monkeypatch):
     flat, qty = qe._check_webull_flat_after_eod(state, log=NOOP)
 
     assert (flat, qty) == (None, None)
-    assert pushed == [("EDGELOG QQQ BROKER", "high")]
+    assert pushed == [("QQQ book: CHECK NOW", "high")]
+    assert _event_has(state, "could not read Webull's own position")
 
 
 def test_flat_check_off_mode_nothing_to_check(monkeypatch):
@@ -2042,7 +2095,7 @@ def test_flat_check_bounded_when_the_positions_read_hangs(monkeypatch):
 
     assert elapsed < 1.5, "must give up at RECONCILE_HARD_TIMEOUT_SEC, not wait for the call"
     assert (flat, qty) == (None, None)
-    assert pushed == [("EDGELOG QQQ BROKER", "high")]
+    assert pushed == [("QQQ book: CHECK NOW", "high")]
 
 
 def test_scheduler_skips_when_no_flatten_fired_today(monkeypatch):
@@ -2184,7 +2237,9 @@ def test_eod_summary_line_flat(monkeypatch):
     today = nowdt.strftime("%Y-%m-%d")
     state = {"_webull_flat_after_eod": {"date": today, "flat": True, "shares": 0}}
     qe._maybe_send_eod_summary(state, _min_doc(today), nowdt, log=NOOP)
-    assert any("Webull flat: yes" in m for m in pushed)
+    # WEBULL PUSH PLAN 10-07, group G: a low plain note; the full summary line is the event
+    assert any("Webull is flat" in m for m in pushed)
+    assert _event_has(state, "Webull flat: yes")
 
 
 def test_eod_summary_line_not_flat(monkeypatch):
@@ -2195,7 +2250,8 @@ def test_eod_summary_line_not_flat(monkeypatch):
     today = nowdt.strftime("%Y-%m-%d")
     state = {"_webull_flat_after_eod": {"date": today, "flat": False, "shares": 7}}
     qe._maybe_send_eod_summary(state, _min_doc(today), nowdt, log=NOOP)
-    assert any("Webull flat: NO (7 shares)" in m for m in pushed)
+    assert any("Webull is NOT flat" in m for m in pushed)
+    assert _event_has(state, "Webull flat: NO (7 shares)")
 
 
 def test_eod_summary_line_not_checked_when_never_run_today(monkeypatch):
@@ -2208,8 +2264,10 @@ def test_eod_summary_line_not_checked_when_never_run_today(monkeypatch):
                         lambda msg, title, log=print, priority=None: pushed.append(msg))
     nowdt = datetime.datetime(2026, 9, 25, 16, 10, 0)   # a Friday
     today = nowdt.strftime("%Y-%m-%d")
-    qe._maybe_send_eod_summary({}, _min_doc(today), nowdt, log=NOOP)
-    assert any("Webull flat: not checked" in m for m in pushed)
+    state = {}
+    qe._maybe_send_eod_summary(state, _min_doc(today), nowdt, log=NOOP)
+    assert any("Webull's position was not checked" in m for m in pushed)
+    assert _event_has(state, "Webull flat: not checked")
 
 
 def test_eod_summary_line_not_checked_when_stale_from_a_prior_day(monkeypatch):
@@ -2223,8 +2281,10 @@ def test_eod_summary_line_not_checked_when_stale_from_a_prior_day(monkeypatch):
     today = nowdt.strftime("%Y-%m-%d")
     state = {"_webull_flat_after_eod": {"date": "2026-09-24", "flat": False, "shares": 5}}
     qe._maybe_send_eod_summary(state, _min_doc(today), nowdt, log=NOOP)
-    assert any("Webull flat: not checked" in m for m in pushed)
-    assert not any("Webull flat: NO" in m for m in pushed)
+    assert any("Webull's position was not checked" in m for m in pushed)
+    assert not any("NOT flat" in m for m in pushed)
+    assert _event_has(state, "Webull flat: not checked")
+    assert not _event_has(state, "Webull flat: NO")
 
 
 # ═════════════════════════ item 5: half-day flat_by/last_entry clamp ═══════════════
@@ -2526,7 +2586,10 @@ def test_close_retry_filled_booking_skipped_and_paged_while_a_send_is_in_flight(
 
     assert key not in state["_broker_resend"]
     assert adapter._state["broker_sent_positions"]["ORB"]["qty"] == 5, "not forced"
-    assert any("FLATTEN_BROKER" in m and p == "high" for m, p in pushed)
+    # WEBULL PUSH PLAN 10-07, group D (default): plain words for the repair; the developer
+    # text naming FLATTEN_BROKER is on the timeline
+    assert any("Webull-only repair" in m and p == "default" for m, p in pushed)
+    assert _event_has(state, "FLATTEN_BROKER")
 
 
 def test_order_known_unrecognised_or_garbage_status_is_unverifiable():

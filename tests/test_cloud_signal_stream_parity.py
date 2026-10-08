@@ -466,9 +466,12 @@ def test_stream_scoring_never_pushes_the_keel_fallback(tmp_path, monkeypatch):
     arrays = cs.closed_arrays(cs.historical_bars("5m", paths), _eff("10:00"), "5m", 5)
     trades, diff_arrays = cs.leg_decision_trades(legs[LEG], arrays, LEG, "5m", _eff("10:00"),
                                                  paths, False, log=_quiet)
-    cs._diff_leg(LEG, trades, _baseline(paths), _eff("10:00"), cfg=legs[LEG],
+    base = _baseline(paths)
+    cs._diff_leg(LEG, trades, base, _eff("10:00"), cfg=legs[LEG],
                  arrays=diff_arrays, log=_quiet)
-    assert len(pushed) == 1 and "keel state unavailable" in pushed[0]
+    # WEBULL PUSH PLAN 10-07: the plain note on the phone, the reason on the leg's record
+    assert len(pushed) == 1 and "KEEL sizing model could not be read" in pushed[0]
+    assert base["keel_alert"]["last_reason"] == "keel state unavailable"
 
 
 # ── follow-up 2: first bar of the day vs the not-yet-refreshed daily cache ────────────────

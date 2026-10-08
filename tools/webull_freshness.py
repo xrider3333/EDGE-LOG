@@ -21,12 +21,26 @@ from api/market_calendar):
                      state.json's mtime) older than 10 min -- process wedged or gone.
     failed_unit:<u>  `systemctl --failed` lists a unit -- #17, #28, #33.
     disk / log_size  / at or above 80 %, any log over 100 MB -- #33.
-    nq_master        the NQ master's last bar is older than the latest session whose 19:00 ET
-                     has passed -- #10 (checked from 19:00 on each session day and kept open
-                     until the data lands, so a night-long miss is still open at 08:30).
-    keel:<leg>       a KEEL summary's data_through older than that same session (or the session
-                     before it when that one was a half day: the builder drops a short final
-                     session) -- #11, #12.
+    nq_master        the NQ master's last bar is older than the latest session whose 18:00 ET
+                     has passed, or tools/keel_live_state.py's marker (keel/nq_stale_alert.json)
+                     says that session's day is INCOMPLETE in the file -- #10. Checked from
+                     18:00 ET (15:00 Arizona) on each session day -- after the PC's 17:20 ET
+                     upload plus margin, BEFORE the 18:30 ET KEEL rebuild, so a hand re-run of
+                     the upload still lands in time -- and kept open until the data lands.
+                     THE ONE PUSHER of "NQ data did not reach the box" (WEBULL PUSH PLAN 10-07,
+                     MANAGER #86 section 3): keel_live_state keeps its log line and marker, the
+                     PC sweep its JSON and inbox, cloud_signal its state.json; none of them
+                     pushes it. Default priority (KEEL still sizes on yesterday's model).
+    keel:<leg>       a KEEL summary's data_through older than the latest session whose 19:00 ET
+                     has passed (or the session before it when that one was a half day: the
+                     builder drops a short final session) -- #11, #12. DEFAULT while the model
+                     is 1 to 4 sessions old (sizing still uses it; the pre-open gate too), and
+                     QUIET -- folded into the
+                     nq_master note -- when it opens while nq_master is failing.
+    keel_fallback:<leg>  that model is KEEL_FALLBACK_SESSIONS (5) or more sessions old: from the
+                     next session the live leg sizes at base size without it (api/cloud_signal
+                     KEEL_MAX_STALE_SESSIONS). HIGH -- the second and last push of a missed-night
+                     run; api/cloud_signal records instead of pushing while this is open.
   SESSION (09:30 to the close, 13:00 on half days)
     engine_hb        cloud_signal heartbeat over 3 min old or ok=false, lot or no lot -- #5.
     bar_age          newest CLOSED 5m bar closed more than 660 s ago (from 09:41) -- #6.
@@ -44,14 +58,23 @@ from api/market_calendar):
                      pushed) while a fresh engine heartbeat carries yf_fallback_streak: the
                      engine pages it ("QQQ book: backup prices") after 3 fetches in a row.
     tick_gap         tick loop silent over 30 s now, or the day's max gap rose past 30 s -- #3.
+                     QUIET while the executor's own tick crash episode is open (its
+                     tick_crash.json marker beside state.json, written when it pushed the
+                     crash, refreshed on every failed tick, newer than the last good tick
+                     and at most TICK_CRASH_MARKER_FRESH_SEC old): it already pushed it. A
+                     process that has hung or died stops refreshing it -- paged as usual.
     qqq_1d           from 09:40, QQQ_1d's newest bar is not the previous session (the
                      engine refreshes it once a day at ~09:35) -- #14, 2 runs in a row.
     shadow_hb        shadow-legs heartbeat over 10 min old or ok=false -- #25 (MEDIUM).
   EOD (session days, from 16:10 ET)
     eod_summary / webull_flat   eod_summary_done_date and _webull_flat_after_eod (flat) are
-                     TODAY -- #7, URGENT: nothing else checks the book went flat at Webull.
-                     (webull_flat is HIGH, saying so, while the executor's KILL file is
-                     present: a halted book skips the flatten, so the check cannot run.)
+                     TODAY -- #7, URGENT. (webull_flat is HIGH, saying so, while the executor's
+                     KILL file is present: a halted book skips the flatten, so the check cannot
+                     run.) ONE OWNER (WEBULL PUSH PLAN 10-07): the executor pushes the RESULT of
+                     its after-close check (Webull not flat / position unreadable) the moment it
+                     has it, so an episode that opens on such a result is QUIET here (status.json
+                     and the PC inbox relay only); this monitor pushes "the check did not run"
+                     (the executor cannot report its own absence) and the KILL case.
     eod_settled      cloud_signal eod_settled has today -- #30. The ONE pusher of "today's close
                      was not settled": the engine only records eod_gave_up[today] (named here
                      when present) and the executor only logs the board event.
@@ -61,7 +84,10 @@ from api/market_calendar):
     max(90 s, 2x renew)), not halted (breaker/kill today, KILL files), engine heartbeat fresh,
     Webull token NORMAL with more than 5 days left (#12, #14, #18, #19). The first slot that
     passes pushes "QQQ book: OK" (low, once a day -- which also proves the alert path works,
-    #16); a miss pushes "QQQ book: CHECK NOW" (high) -- see PHONE TEXT.
+    #16); a miss pushes "QQQ book: CHECK NOW" (high) -- see PHONE TEXT. A KEEL miss already in
+    an open episode that pushed (nq_master, keel:<leg> -- quiet ones were folded into the
+    nq_master note -- keel_fallback:<leg>, keel:none) stays in the JSON and status only: the
+    morning brings no second buzz for the same missed night.
 
 ALERTS (#16). One push per EPISODE (the run a check first fails -- or its 2nd run in a row for
 the debounced ones) and, when it passes again, one "OK" only if that episode's push was high or
@@ -227,6 +253,10 @@ TICK_GAP_SESSION_SEC = 30.0
 SESSION_OPEN = (9, 30)
 EOD_CHECK_FROM = (16, 10)
 EVENING_CHECK_FROM = (19, 0)
+NQ_CHECK_FROM = (18, 0)              # before the 18:30 ET KEEL rebuild (WEBULL PUSH PLAN 10-07)
+KEEL_REBUILD_AT = (18, 30)           # deploy/cloud/edgelog-keel-state.timer, New York time
+KEEL_FALLBACK_SESSIONS = 5           # = api/cloud_signal.KEEL_MAX_STALE_SESSIONS (a test pins it)
+NQ_MARKER = "nq_stale_alert.json"    # tools/keel_live_state.STALE_MARKER, in the keel dir
 PREOPEN_SLOTS = ((8, 30), (9, 15))
 PREOPEN_LEASE_FLOOR_SEC = 90.0
 PREOPEN_LEASE_MARGIN = 2.0
@@ -260,6 +290,7 @@ def default_paths(home=None):
         "exec_kill": os.path.join(exec_dir, "KILL"),
         "serving_lock": os.path.join(exec_dir, "SERVING.lock"),
         "serving_standby": os.path.join(exec_dir, "SERVING.lock.standby"),
+        "exec_tick_crash": os.path.join(exec_dir, "tick_crash.json"),
         "exec_log": os.path.join(home, "logs", "qqq_exec.log"),
         "logs_dir": os.path.join(home, "logs"),
         "orders_config": env.get("EDGELOG_WEBULL_ORDERS_CONFIG")
@@ -538,6 +569,10 @@ def collect(paths, run_cmd=None):
     snap["exec_state_mtime"] = mtime(paths["exec_state"])
     snap["serving_epoch"] = serving_lock_epoch(paths["serving_lock"])
     snap["standby_mtime"] = mtime(paths["serving_standby"])
+    if paths.get("exec_tick_crash"):
+        crash, _err = read_json(paths["exec_tick_crash"])
+        snap["tick_crash"] = crash if isinstance(crash, dict) else None
+        snap["tick_crash_mtime"] = mtime(paths["exec_tick_crash"])
     exec_cfg, _ = read_json(paths["exec_config"])
     kill_file = (exec_cfg or {}).get("kill_file") if isinstance(exec_cfg, dict) else None
     snap["kill_files"] = [p for p in (kill_file or paths["exec_kill"], paths["orders_kill"])
@@ -557,8 +592,14 @@ def collect(paths, run_cmd=None):
     for p in sorted(glob.glob(os.path.join(paths["keel_dir"], "*_summary.json"))):
         data, err = read_json(p)
         name = os.path.basename(p)[:-len("_summary.json")]
-        keel[name] = (data or {}).get("data_through") if isinstance(data, dict) else None
+        # the same rule as api/cloud_signal's staleness check: data_through, else
+        # ml_keel's own last_nq_session (an older summary); neither = cloud_signal skips
+        # the stale check and keeps using the model
+        keel[name] = ((data.get("data_through") or data.get("last_nq_session"))
+                      if isinstance(data, dict) else None)
     snap["keel"] = keel
+    marker, _err = read_json(os.path.join(paths["keel_dir"], NQ_MARKER))
+    snap["nq_marker"] = marker if isinstance(marker, dict) else None
     snap["keel_diffs"] = read_keel_diffs(paths["keel_diffs"]) if paths.get("keel_diffs") else []
     tokens = {}
     for p in paths["token_files"]:
@@ -655,6 +696,23 @@ def _verdict(key, group, ok, severity, title, detail="", min_runs=1, hold_sec=WI
     return v
 
 
+def _exec_pushed_database(st, now_epoch, publish_age):
+    """True when the executor's own "cloud database unreachable" note (state.json
+    _phone_dedupe.database, api/qqq_exec._maybe_rebuild_firestore) went out DURING this
+    outage -- after its last good publish. ONE OWNER (WEBULL PUSH PLAN 10-07, "Book stopped
+    publishing"): the executor owns the database outage; exec_publish / exec_suppress then
+    track the episode without a second push. A note from an earlier outage (pushed before
+    the last good publish) or no note at all: False, and this monitor pushes as before."""
+    try:
+        rec = ((st or {}).get("_phone_dedupe") or {}).get("database") or {}
+        at = float(rec.get("at") or 0)
+        if not at or not rec.get("set") or publish_age is None:
+            return False
+        return at >= now_epoch - float(publish_age)
+    except Exception:
+        return False
+
+
 # -- the checks -------------------------------------------------------------------------------
 def check_exec(snap, now_et, mstate, ev):
     out = []
@@ -678,6 +736,7 @@ def check_exec(snap, now_et, mstate, ev):
         if snap.get("standby_mtime") else ""
     now_epoch = now_et.timestamp()
     last_seen = ("at " + ntfy_push.hhmm(now_epoch - age, now=now_epoch)) if age is not None else None
+    exec_paged_db = _exec_pushed_database(snap.get("exec_state"), now_epoch, age)
     out.append(_verdict(
         "exec_publish", "exec", not stale, sev_live,
         "executor Firestore publish DOWN",
@@ -686,7 +745,8 @@ def check_exec(snap, now_et, mstate, ev):
         f"blocked (fail-CLOSED).{standby}",
         plain=_plain(("The QQQ order program stopped reporting %s - the board is frozen." % last_seen)
                      if last_seen else "The QQQ order program has not reported since it started.",
-                     affects=NO_ORDERS if armed else None)))
+                     affects=NO_ORDERS if armed else None),
+        quiet=exec_paged_db))
     # "suppressing broker sends" -- the lease read failed and a real order was blocked
     log_state = mstate.setdefault("exec_log", {})
     hits, new_off = snap.get("_suppress_hits", 0), snap.get("_suppress_offset")
@@ -706,16 +766,22 @@ def check_exec(snap, now_et, mstate, ev):
         f"{SUPPRESS_WINDOW_SEC / 60:.0f} min -- the lease read is failing, so no real order "
         f"can go out (reason: {st.get('_broker_lease_reason') or 'n/a'}).",
         plain=_plain("The QQQ order program is blocking its own orders - its safety check "
-                     "against a second copy is failing.", affects=NO_ORDERS)))
+                     "against a second copy is failing.", affects=NO_ORDERS),
+        quiet=exec_paged_db))
     loop_age = ev["loop_age"]
     silent = loop_age is None or loop_age > EXEC_LOOP_SILENT_SEC
+    # 10-08 review (plan "Tick loop crashing vs stuck"): while the executor's own crash note is
+    # out and its tick_crash.json marker is FRESH (tick_crash_open), the loop is crashing, not
+    # stuck -- the executor owns it; exec_loop is tracked (JSON, status) without a push. A
+    # stale marker (the crash turned into a hang, or the process died) never silences it.
     out.append(_verdict(
         "exec_loop", "exec", not silent, HIGH, "executor tick loop not running",
         f"no tick for {fmt_age(loop_age)} (SERVING.lock / state.json not rewritten). The "
         f"process is wedged, crash-looping or standing by.{standby}",
         plain=_plain(("The QQQ order program has been stuck for %s." % _plain_age(loop_age))
                      if loop_age is not None else "The QQQ order program is not running.",
-                     affects="the QQQ book is not running")))
+                     affects="the QQQ book is not running"),
+        quiet=tick_crash_open(snap, now_et, loop_age)))
     return out
 
 
@@ -754,22 +820,64 @@ def check_disk(snap):
     return out
 
 
-def check_evening(snap, now_et):
-    """NQ master + KEEL freshness against the latest session whose 19:00 ET has passed."""
-    due = latest_session_due(now_et, EVENING_CHECK_FROM)
-    if due is None:
+def _keel_behind(through, want):
+    """Trading sessions between a KEEL summary's data_through and the session it should be
+    trained through (0 = current); None when data_through is missing or unreadable."""
+    try:
+        if not through:
+            return None
+        start = _dt.date.fromisoformat(str(through)[:10])
+        return max(0, len(market_calendar.sessions_between(start, want)) - 1)
+    except Exception:
         return None
+
+
+def _keel_leg_word(name):
+    """'NOISE_382_v12' -> 'NOISE'."""
+    head = str(name or "NOISE").split("_")[0]
+    return {"ENGUQ": "ENGU-Q"}.get(head, head)
+
+
+def check_evening(snap, now_et, mstate=None):
+    """NQ master freshness against the latest session whose 18:00 ET has passed (WEBULL PUSH
+    PLAN 10-07: before the 18:30 ET rebuild), KEEL freshness against the latest session whose
+    19:00 ET has passed. See the module docstring (nq_master, keel:<leg>,
+    keel_fallback:<leg>) for who pushes what."""
+    nq_due = latest_session_due(now_et, NQ_CHECK_FROM)
+    due = latest_session_due(now_et, EVENING_CHECK_FROM)
+    if due is None and nq_due is None:
+        return None
+    alerts = (mstate or {}).get("alerts") or {}
     out = []
-    nq = snap.get("nq_last")
-    nq_day = epoch_to_et_date(nq) if nq else None
-    out.append(_verdict(
-        "nq_master", "evening", nq_day is not None and nq_day >= due, HIGH,
-        "NQ master on the box is behind",
-        f"last bar {nq_day or 'missing'}, expected {due} -- the PC's 17:20 ET push did not "
-        f"land, so tonight's KEEL build trains on old data.",
-        plain=_plain("The PC's after-close NQ data upload did not reach the cloud box, so "
-                     "tonight's KEEL rebuild uses old data.",
-                     action="make sure the PC is on at 14:20, or " + ASK)))
+    nq_bad = False
+    if nq_due is not None:
+        nq = snap.get("nq_last")
+        nq_day = epoch_to_et_date(nq) if nq else None
+        marker = snap.get("nq_marker") or {}
+        cut_short = marker.get("incomplete_day") == nq_due.isoformat()
+        nq_bad = nq_day is None or nq_day < nq_due or cut_short
+        deadline = ntfy_push.hhmm(at(nq_due, KEEL_REBUILD_AT).timestamp(),
+                                  now=now_et.timestamp())
+        if now_et < at(nq_due, KEEL_REBUILD_AT):
+            act = f"run the upload on the PC before {deadline}, or " + ASK
+        else:
+            act = "run the upload on the PC (the model rebuilds when it lands), or " + ASK
+        out.append(_verdict(
+            "nq_master", "evening", not nq_bad, HIGH, "NQ master on the box is behind",
+            (f"last bar {nq_day or 'missing'}, expected {nq_due}"
+             + (f" -- keel_live_state found {nq_due} INCOMPLETE in the file" if cut_short else "")
+             + " -- the PC's 17:20 ET push did not land a current file, so the 18:30 ET KEEL "
+               "build trains on old data."),
+            plain=_plain(("The PC's after-close NQ data upload reached the cloud box cut short "
+                          "(its last day is incomplete).") if cut_short and nq_day is not None
+                         and nq_day >= nq_due else
+                         "The PC's after-close NQ data upload did not reach the cloud box.",
+                         action=act, priority="default")))
+    if due is None:
+        return out
+    # a KEEL miss that opens while the NQ data is missing is the SAME missed night: tracked,
+    # folded into the nq_master note (quiet), never a second push
+    fold = nq_bad or bool((alerts.get("nq_master") or {}).get("open"))
     want = keel_expected(due)
     keel = snap.get("keel") or {}
     if not keel:
@@ -779,13 +887,60 @@ def check_evening(snap, now_et):
                                          affects="the QQQ book sizes NOISE trades without its model")))
     for leg, through in sorted(keel.items()):
         ok = bool(through) and str(through) >= want.isoformat()
+        behind = _keel_behind(through, want)
+        w = _keel_leg_word(leg)
+        # an unreadable age (behind None) is NOT a fallback: api/cloud_signal keeps using
+        # a model whose summary carries no session date (keel:<leg> names it, at default)
+        old_enough = behind is not None and behind >= KEEL_FALLBACK_SESSIONS
         out.append(_verdict(
             f"keel:{leg}", "evening", ok, HIGH, f"KEEL STALE ({leg}), still sizing",
-            f"trained through {through or 'unknown'}, expected {want}. The live leg keeps "
-            f"sizing on the stale model until it is rebuilt.",
-            plain=_plain("The KEEL sizing model was not rebuilt after the close.",
-                         affects=OLD_MODEL)))
+            f"trained through {through or 'unknown'}, expected {want}"
+            + (f" ({behind} session(s) behind)" if behind is not None else "")
+            + ". The live leg keeps sizing on the stale model until it is rebuilt.",
+            plain=_plain(("The KEEL sizing model was not rebuilt after the close (it is %d "
+                          "session%s old)." % (behind, "" if behind == 1 else "s")) if behind else
+                         "The KEEL sizing model was not rebuilt after the close.",
+                         priority="default"),
+            quiet=fold and not ok))
+        out.append(_verdict(
+            f"keel_fallback:{leg}", "evening", ok or not old_enough, HIGH,
+            f"KEEL TOO OLD ({leg}): sizing falls back to 1.0",
+            f"trained through {through or 'unknown'}, expected {want} -- past "
+            f"api/cloud_signal's KEEL_MAX_STALE_SESSIONS from the next session on: the live "
+            f"leg sizes at 1.0 (no model) until it is rebuilt.",
+            plain=_plain("The KEEL sizing model is %s sessions old, too old to use from the "
+                         "next session." % (behind if behind is not None else "too many"),
+                         affects=f"{w} trades at base size without its sizing model",
+                         priority="high")))
     return out
+
+
+# the executor refreshes its tick_crash.json marker on every failed tick (every ~5 s): one
+# older than this belongs to a process that has since hung or died, not a live crash loop
+TICK_CRASH_MARKER_FRESH_SEC = 120.0
+
+
+def tick_crash_open(snap, now_et, loop_age):
+    """True while the executor's tick crash episode is open: its tick_crash.json marker is
+    present, was written no earlier than the last good tick (SERVING.lock / state.json), so a
+    marker an older process left behind never silences a later stall, and is fresh (at most
+    TICK_CRASH_MARKER_FRESH_SEC old), so a crash that turned into a hang -- or a process that
+    died mid-crash with nothing after it to remove the marker -- is paged as usual."""
+    marker = snap.get("tick_crash")
+    if not isinstance(marker, dict):
+        return False
+    try:
+        at = float(marker.get("at_epoch"))
+    except (TypeError, ValueError):
+        at = snap.get("tick_crash_mtime")
+    if at is None:
+        return False
+    if now_et.timestamp() - float(at) > TICK_CRASH_MARKER_FRESH_SEC:
+        return False
+    if loop_age is None:
+        return True
+    last_tick = now_et.timestamp() - float(loop_age)
+    return at >= last_tick - 1.0
 
 
 def check_session(snap, now_et, mstate, ev):
@@ -803,7 +958,7 @@ def check_session(snap, now_et, mstate, ev):
         f"cloud_signal heartbeat {fmt_age(age)} old, ok={hb.get('ok')} "
         f"({hb.get('note') or snap.get('cs_hb_err') or ''}). New entries are blocked while "
         f"it is stale, lot or no lot.", min_runs=2,
-        plain=_plain(_engine_problem(age, hb), affects="the QQQ book cannot open new trades")))
+        plain=_plain(_engine_problem(age, hb, snap), affects="the QQQ book cannot open new trades")))
     # newest closed 5m bar (#6) and its source (#15)
     cs = snap.get("cs_state") if isinstance(snap.get("cs_state"), dict) else {}
     src = ((cs.get("bar_source") or {}).get("5m") or {}) if cs else {}
@@ -874,12 +1029,18 @@ def check_session(snap, now_et, mstate, ev):
     seen.update({"day": day, "max": gmax})
     loop_age = ev.get("loop_age")
     gap_now = loop_age is not None and loop_age > TICK_GAP_SESSION_SEC
+    # WEBULL PUSH PLAN 10-07 ("Tick loop crashing vs stuck"): while the executor's own tick
+    # crash episode is open it owns the problem -- tick_gap is tracked (JSON, status) without
+    # a second push. 10-08 review: read from its tick_crash.json marker (api/qqq_exec
+    # TICK_CRASH_MARKER), never state.json -- a failed tick never saves state.json
+    crash_open = tick_crash_open(snap, now_et, loop_age)
     out.append(_verdict(
         "tick_gap", "session", not (gap_now or rose), HIGH, "executor tick loop STALLING",
         f"current gap {fmt_age(loop_age)}, today's max {gmax:.0f}s (limit "
         f"{TICK_GAP_SESSION_SEC:.0f}s) -- entries, exits and the EOD rails run late.",
         plain=_plain("The QQQ order program stalled for %s." % _plain_age(loop_age if gap_now else gmax),
-                     affects="the QQQ book's entries and exits run late")))
+                     affects="the QQQ book's entries and exits run late"),
+        quiet=crash_open))
     # shadow legs heartbeat (#25)
     sh = snap.get("shadow_hb") if isinstance(snap.get("shadow_hb"), dict) else {}
     sts = parse_iso(sh.get("ts")) if sh else None
@@ -894,12 +1055,25 @@ def check_session(snap, now_et, mstate, ev):
     return out
 
 
-def _engine_problem(age, hb):
+def _open_lot_words(snap):
+    """', with an open NOISE trade' from the executor's state.json legs ('' when flat) -- the
+    ONE signal-stall pusher names what rides unmanaged (WEBULL PUSH PLAN 10-07: the executor
+    no longer pushes its own stall note)."""
+    st = (snap or {}).get("exec_state") if isinstance((snap or {}).get("exec_state"), dict) else {}
+    legs = sorted((st.get("legs") or {}).keys()) if isinstance(st.get("legs"), dict) else []
+    if not legs:
+        return ""
+    ws = [{"ENGUQ": "ENGU-Q"}.get(str(x), str(x)) for x in legs]
+    return ", with an open %s trade" % (" and ".join(ws) if len(ws) < 3 else ", ".join(ws))
+
+
+def _engine_problem(age, hb, snap=None):
+    lot = _open_lot_words(snap)
     if age is not None and age <= ENGINE_HB_STALE_SEC and hb.get("ok") is False:
-        return "The QQQ signal program reports a problem."
+        return "The QQQ signal program reports a problem%s." % lot
     if age is None:
-        return "The QQQ signal program is not reporting."
-    return "The QQQ signal program has not reported for %s." % _plain_age(age)
+        return "The QQQ signal program is not reporting%s." % lot
+    return "The QQQ signal program has not reported for %s%s." % (_plain_age(age), lot)
 
 
 def check_eod(snap, now_et):
@@ -944,9 +1118,16 @@ def check_eod(snap, now_et):
     else:
         why = "the post-close Webull position read could not be verified"
         problem = "The after-close Webull position could not be read."
+    # ONE OWNER (WEBULL PUSH PLAN 10-07): a RESULT of the executor's own check (not flat /
+    # could not read) was already pushed by the executor -- tracked here, not pushed again.
+    # Only when the executor stamped that its note went out ("pushed", 10-08 fourth review):
+    # a note whose one send failed is pushed here instead of by nobody
+    exec_owns = (flat.get("date") == today and flat.get("flat") is not True
+                 and flat.get("pushed") is True)
     out.append(_verdict("webull_flat", "eod", flat_ok, sev, "Webull NOT confirmed flat",
                         why + " -- check the Webull app and sell by hand if needed.",
-                        plain=_plain(problem, action=FLAT_DO, affects=affects)))
+                        plain=_plain(problem, action=FLAT_DO, affects=affects),
+                        quiet=exec_owns))
     cs = snap.get("cs_state") if isinstance(snap.get("cs_state"), dict) else {}
     settled = today in ((cs or {}).get("eod_settled") or {})
     # ONE ALERTER PER PROBLEM (api/ntfy_push): this check is the only pusher of "today's close
@@ -1007,8 +1188,13 @@ def preopen_checks(snap, now_et, ev):
              affects="the QQQ book sizes NOISE trades without its model")
     for leg, through in sorted(keel.items()):
         if want and (not through or str(through) < want.isoformat()):
+            # WEBULL PUSH PLAN 10-07: a model 1-4 sessions old still sizes (default); only
+            # at the fallback age (api/cloud_signal sizes at 1.0) is trading affected (high)
+            behind = _keel_behind(through, want)
+            fallback = behind is not None and behind >= KEEL_FALLBACK_SESSIONS
             miss("keel:" + leg, f"KEEL {leg} trained through {through}, expected {want}",
-                 "The KEEL sizing model was not rebuilt after the last close.", affects=OLD_MODEL)
+                 "The KEEL sizing model was not rebuilt after the last close.",
+                 affects=OLD_MODEL if fallback else None)
     # QQQ_1d.csv is refreshed by cloud_signal's step(), which only runs in RTH, at most once
     # per calendar day (_maybe_refresh_daily_cache): the previous session's bar first lands
     # at about 09:35 ET. Before the open the most the cache can hold is the session BEFORE
@@ -1075,6 +1261,25 @@ def preopen_misses(snap, now_et, ev):
     return [m["text"] for m in preopen_checks(snap, now_et, ev)]
 
 
+def _keel_miss_pushed(mid, alerts):
+    """True for a pre-open KEEL miss ("keel" / "keel:<leg>") whose problem an OPEN episode
+    already pushed: nq_master (the missed night), keel:<leg> (a quiet one was folded into
+    the nq_master note), keel_fallback:<leg>, or keel:none. Any other miss: False."""
+    def is_open(key, loud_only=False):
+        r = alerts.get(key) or {}
+        return bool(r.get("open")) and not (loud_only and r.get("quiet"))
+    if mid == "keel":
+        return is_open("keel:none", loud_only=True)
+    if not mid.startswith("keel:"):
+        return False
+    leg = mid[len("keel:"):]
+    # a QUIET keel:<leg> was folded into the nq_master note: it counts only while that
+    # episode is open (the nq_master test above); once the data landed and nq_master closed,
+    # a model still not rebuilt has never been named on the phone, so the gate says it
+    return (is_open("nq_master", loud_only=True) or is_open("keel:" + leg, loud_only=True)
+            or is_open("keel_fallback:" + leg, loud_only=True))
+
+
 def preopen_step(snap, now_et, mstate, alerts, ev):
     """Runs the gate once per slot. Returns [(title, message, priority)] to push (PHONE TEXT: a
     miss pushes once a day unless a NEW or WORSE miss shows up at the later slot; the first
@@ -1102,14 +1307,21 @@ def preopen_step(snap, now_et, mstate, alerts, ev):
                     "last_bad_epoch": now_epoch, "hold_sec": hold, "quiet_expire": True,
                     "bad_runs": int(rec.get("bad_runs", 0)) + 1})
         alerts["preopen"] = rec
+        # a KEEL miss an open episode already pushed (the missed night) stays in the JSON and
+        # status only -- no second buzz the next morning (WEBULL PUSH PLAN 10-07)
+        loud = [m for m in checks if not _keel_miss_pushed(m["id"], alerts)]
+        if len(loud) < len(checks):
+            po["keel_already_pushed"] = [m["id"] for m in checks if m not in loud]
+        if not loud:
+            return []
         # the same misses push once a day (po starts fresh each day); a new or worse one at once
         action, po["push"] = ntfy_push.dedupe(
-            {m["id"]: ntfy_push.RANK[m["priority"]] for m in checks}, po.get("push") or {},
+            {m["id"]: ntfy_push.RANK[m["priority"]] for m in loud}, po.get("push") or {},
             now_epoch, ntfy_push.DAY_S)
         if action != "push":
             return []
         # among equally serious misses, the ones only the owner can fix lead the note
-        lead = sorted(checks, key=lambda m: m["id"].split(":")[0] not in OWNER_FIXES)
+        lead = sorted(loud, key=lambda m: m["id"].split(":")[0] not in OWNER_FIXES)
         note = compose_note([dict(m, area=BOOK, rank=ntfy_push.RANK[m["priority"]])
                              for m in lead])
         return [(note["title"], note["message"], note["priority"])]
@@ -1428,7 +1640,7 @@ def evaluate(snap, now_et, mstate):
         ("exec", lambda: check_exec(snap, now_et, mstate, ev)),
         ("systemd", lambda: check_systemd(snap)),
         ("disk", lambda: check_disk(snap)),
-        ("evening", lambda: check_evening(snap, now_et)),
+        ("evening", lambda: check_evening(snap, now_et, mstate)),
         ("session", lambda: check_session(snap, now_et, mstate, ev)),
         ("eod", lambda: check_eod(snap, now_et)),
     ]
