@@ -1,0 +1,117 @@
+HASH FREEZE (MANAGER #84 RUN-BEFORE-MAIN; origin branch prereg/ttm-vrpjump = a91157cd): worktree HEAD a91157cd (frozen a91157cd) OK
+  024c5e66329629036eec5c628684f80c1654b56db41ce7640ee636287d972db7 docs/PREREG_vrpes_r1_2026-10-07.md OK
+  9672ef0ad99e9efd0dafed0fae8927e2d33747df92b21c583ea6f613c5b68945 docs/PREREG_jumpsplit_r1_2026-10-07.md OK
+  6801c0772c65f1cb6cbb996c3811033528377de88492455dc7698c1889f00b3b tools/vrpes_r1_stageA.py OK
+  f2d3f565f06b8b49bd8eb81066b3f952621928950b6b0fa5aa6d8ecd5e34f55d tools/jumpsplit_r1_stageA.py OK
+  ffc4a7c9b366123c917db3b10163790d001af69112457179f200c047e29287c2 tools/ttm_r1_common.py OK
+  7c99c248367707383a58636ba67c56e34d489994888dba22f27e18193358e7ee tools/halfhour_r1_stageA.py OK
+  fb1c83ecf3b662eea91e4f4bfcd82c4a4948ec2e1caa675f4f1e5621d7d48959 tools/balance_r1_stageA.py OK
+JUMPSPLIT r1 - NQ / ES 5m RTH no-adjust; arms judged apart
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816
+  PREREG on main: docs/PREREG_jumpsplit_r1_2026-10-07.md last changed in a91157cd (HASH FREEZE, not yet on main)
+  FAMILY NULL (1000 draws; NQ within year x morning-RV-tercile SHUFFLE, ES within year x morning-RV-tercile SHUFFLE): family-max own ROC@30k p95 24.30; family-max R-day sum p95 $9,336
+=== ARM NQ ===
+  PRIMARY diffusive tercile 
+      EARLY 2011-07..2016-06 n 424: ROC@30k  -5.10  Sortino -0.88  net $  -14,785  DD $ 17,403 / DD5 $  9,100 (x1.91, DRIVEN BY ONE EPISODE)
+      WF n 760: ROC@30k   4.81  Sortino  0.60  net $   69,648  DD $ 48,315 / DD5 $ 19,865 (x2.43, DRIVEN BY ONE EPISODE)
+      WF 2016-21 n 461: ROC@30k  -3.42  Sortino -0.45  net $  -27,314  DD $ 43,608 / DD5 $ 13,639 (x3.20, DRIVEN BY ONE EPISODE)
+      WF 2022-25 n 299: ROC@30k  42.13  Sortino  1.80  net $   96,963  DD $ 19,811 / DD5 $ 15,198 (x1.30, DRIVEN BY ONE EPISODE)
+  neighbour quartile        
+      EARLY 2011-07..2016-06 n 318: ROC@30k  -4.50  Sortino -0.67  net $   -8,345  DD $ 11,122 / DD5 $  5,604 (x1.98, DRIVEN BY ONE EPISODE)
+      WF n 560: ROC@30k   5.81  Sortino  0.56  net $   54,430  DD $ 31,243 / DD5 $ 16,146 (x1.93, DRIVEN BY ONE EPISODE)
+      WF 2016-21 n 340: ROC@30k  -2.25  Sortino -0.29  net $  -12,344  DD $ 29,986 / DD5 $  9,992 (x3.00, DRIVEN BY ONE EPISODE)
+      WF 2022-25 n 220: ROC@30k  32.77  Sortino  1.34  net $   66,775  DD $ 17,539 / DD5 $ 14,114 (x1.24)
+  twin ALL sessions         
+      EARLY 2011-07..2016-06 n 1231: ROC@30k  -4.94  Sortino -0.62  net $  -16,187  DD $ 19,654 / DD5 $  7,685 (x2.56, DRIVEN BY ONE EPISODE)
+      WF n 2233: ROC@30k  17.20  Sortino  1.06  net $  211,176  DD $ 40,953 / DD5 $ 29,015 (x1.41, DRIVEN BY ONE EPISODE)
+      WF 2016-21 n 1365: ROC@30k   6.27  Sortino  0.45  net $   39,224  DD $ 34,129 / DD5 $ 15,590 (x2.19, DRIVEN BY ONE EPISODE)
+      WF 2022-25 n 868: ROC@30k  36.14  Sortino  1.69  net $  171,952  DD $ 40,953 / DD5 $ 26,292 (x1.56, DRIVEN BY ONE EPISODE)
+  twin JUMP mornings        
+      EARLY 2011-07..2016-06 n 409: ROC@30k  -4.67  Sortino -0.90  net $  -14,390  DD $ 18,487 / DD5 $  9,259 (x2.00, DRIVEN BY ONE EPISODE)
+      WF n 752: ROC@30k   1.08  Sortino  0.20  net $   23,644  DD $ 72,699 / DD5 $ 24,499 (x2.97, DRIVEN BY ONE EPISODE)
+      WF 2016-21 n 475: ROC@30k   7.88  Sortino  0.64  net $   26,252  DD $ 18,160 / DD5 $  9,572 (x1.90, DRIVEN BY ONE EPISODE)
+      WF 2022-25 n 277: ROC@30k  -0.31  Sortino -0.04  net $   -2,608  DD $ 72,699 / DD5 $ 20,991 (x3.46, DRIVEN BY ONE EPISODE)
+  RISK r1 TRIO DIFFUSIVE (timed) vs ALL sessions (raw): FAIL
+    WF                         lead  -12.40  timed ROC@30k   4.81  Sortino  0.64  net $   69,648  DD $ 48,315 / DD5 $ 19,865 (x2.43, DRIVEN BY ONE EPISODE) | raw ROC@30k  17.21  Sortino  1.13  net $  211,176  DD $ 40,953 / DD5 $ 29,015 (x1.41, DRIVEN BY ONE EPISODE)
+    EX (no 2020-02-15..04-30)  lead  -11.50  timed ROC@30k   5.95  Sortino  0.73  net $   75,550  DD $ 42,413 / DD5 $ 18,684 (x2.27, DRIVEN BY ONE EPISODE) | raw ROC@30k  17.45  Sortino  1.20  net $  214,093  DD $ 40,953 / DD5 $ 27,132 (x1.51, DRIVEN BY ONE EPISODE)
+    EARLY                      lead   -0.16  timed ROC@30k  -5.10  Sortino -0.88  net $  -14,785  DD $ 17,403 / DD5 $  9,100 (x1.91, DRIVEN BY ONE EPISODE) | raw ROC@30k  -4.94  Sortino -0.62  net $  -16,187  DD $ 19,654 / DD5 $  7,685 (x2.56, DRIVEN BY ONE EPISODE)
+    paired d (x0.621 timed - x0.733 raw, fixed WF $30k multipliers) > 0 in 2 of 9 July-June years: -0k -9k +7k -12k -29k -41k -10k -21k +4k
+  A7 pole: diffusive per-trade $91.6 vs jump-morning per-trade $31.4
+  R-DAY SUM $-62,489 (family null p95 $9,336); dollars inside #463's worst WF drawdown (2020-03-02 .. 2020-03-27) $-5,613
+  PRIMARY WF: n 760 (85/yr)  ROC@30k   4.81  Sortino  0.60  net $   69,648  DD $ 48,315 / DD5 $ 19,865 (x2.43, DRIVEN BY ONE EPISODE)  PF 1.16  years + 4/9  no-2020 ROC 9.54
+    A1 route (>= 15, or >= 5 + R-day sum > family p95)                     FAIL
+    A1 count (>= 100 and 50 a year)                                        pass
+    PF > 1                                                                 pass
+    >= 6 of 9 July-June years                                              FAIL
+    A1b route without 2020                                                 FAIL
+    A2 own ROC > family null p95                                           FAIL
+    A3 neighbour net > 0                                                   pass
+    A4 net > 0 w/o best trade, at 2x cost, w/o 2020-02-15..04-30           pass
+    A5 standalone net > 0 in EARLY, WF 2016-21, WF 2022-25                 FAIL
+    A5 RISK r1 trio vs all sessions                                        FAIL
+    A7 diffusive per-trade > jump per-trade                                pass
+  OVERLAP at 12:00: NOISE #422 same side on 31% of NQ-arm trades (opposite 0%); ORB same 46%
+  overlap of held bars: ORB same 44% / opposite 3%; NOISE same 31% / opposite 1%; same-side with either 58% of its held bars
+  REPORT #463 + JUMPSPLIT NQ at VOL scale        (x0.975): ROC@30k  83.21  Sortino  3.62  net $1,329,175  DD $ 53,285 / DD5 $ 41,019 (x1.30)  lead -10.60  bootstrap p5 -26.3
+  REPORT #463 + JUMPSPLIT NQ at $30k own DD twin (x0.621): ROC@30k  87.20  Sortino  3.73  net $1,304,500  DD $ 49,900 / DD5 $ 38,957 (x1.28)  lead -6.61  bootstrap p5 -17.2
+  REPORT RESMOM line + JUMPSPLIT NQ at VOL scale        (x0.975): ROC@30k  97.19  Sortino  3.73  net $1,390,960  DD $ 47,739 / DD5 $ 40,051 (x1.19)  lead -23.63  bootstrap p5 -27.6
+  REPORT RESMOM line + JUMPSPLIT NQ at $30k own DD twin (x0.621): ROC@30k 104.59  Sortino  3.83  net $1,366,286  DD $ 43,572 / DD5 $ 37,789 (x1.15)  lead -16.23  bootstrap p5 -18.9
+  long vs short: long $65,836 (429) / short $3,811 (331)
+  cost curve  0 bps: net $77,750
+  cost curve  5 bps: net $-10,612
+  cost curve 10 bps: net $-98,974
+  cost curve 20 bps: net $-275,699
+  event path (mean $ from the fill, 30m marks 12:25 .. 15:55): 22 11 1 30 29 35 76 102
+  ARM NQ VERDICT: FAIL
+=== ARM ES ===
+  PRIMARY diffusive tercile 
+      EARLY 2011-07..2016-06 n 421: ROC@30k  -4.72  Sortino -0.76  net $  -13,429  DD $ 17,076 / DD5 $  4,104 (x4.16, DRIVEN BY ONE EPISODE)
+      WF n 744: ROC@30k  -0.47  Sortino -0.10  net $   -7,704  DD $ 54,935 / DD5 $ 11,953 (x4.60, DRIVEN BY ONE EPISODE)
+      WF 2016-21 n 462: ROC@30k  -3.21  Sortino -0.49  net $  -18,173  DD $ 30,850 / DD5 $  7,136 (x4.32, DRIVEN BY ONE EPISODE)
+      WF 2022-25 n 282: ROC@30k   2.42  Sortino  0.27  net $   10,469  DD $ 37,241 / DD5 $ 10,906 (x3.41, DRIVEN BY ONE EPISODE)
+  neighbour quartile        
+      EARLY 2011-07..2016-06 n 314: ROC@30k  -3.75  Sortino -0.44  net $   -6,324  DD $ 10,130 / DD5 $  2,670 (x3.79, DRIVEN BY ONE EPISODE)
+      WF n 555: ROC@30k   1.12  Sortino  0.16  net $   10,714  DD $ 31,946 / DD5 $  8,114 (x3.94, DRIVEN BY ONE EPISODE)
+      WF 2016-21 n 339: ROC@30k  -3.92  Sortino -0.58  net $  -18,728  DD $ 26,083 / DD5 $  7,522 (x3.47, DRIVEN BY ONE EPISODE)
+      WF 2022-25 n 216: ROC@30k  17.20  Sortino  0.92  net $   29,442  DD $ 14,735 / DD5 $  8,678 (x1.70, DRIVEN BY ONE EPISODE)
+  twin ALL sessions         
+      EARLY 2011-07..2016-06 n 1221: ROC@30k  -2.92  Sortino -0.47  net $  -12,386  DD $ 25,491 / DD5 $  6,204 (x4.11, DRIVEN BY ONE EPISODE)
+      WF n 2220: ROC@30k   1.69  Sortino  0.17  net $   21,782  DD $ 43,036 / DD5 $ 16,620 (x2.59, DRIVEN BY ONE EPISODE)
+      WF 2016-21 n 1358: ROC@30k  -4.74  Sortino -0.51  net $  -32,798  DD $ 37,715 / DD5 $ 12,637 (x2.98, DRIVEN BY ONE EPISODE)
+      WF 2022-25 n 862: ROC@30k  17.16  Sortino  0.86  net $   54,580  DD $ 27,376 / DD5 $ 18,700 (x1.46, DRIVEN BY ONE EPISODE)
+  twin JUMP mornings        
+      EARLY 2011-07..2016-06 n 407: ROC@30k  -2.91  Sortino -0.69  net $   -9,500  DD $ 19,613 / DD5 $  5,793 (x3.39, DRIVEN BY ONE EPISODE)
+      WF n 744: ROC@30k   0.41  Sortino  0.05  net $    3,659  DD $ 29,931 / DD5 $ 13,917 (x2.15, DRIVEN BY ONE EPISODE)
+      WF 2016-21 n 457: ROC@30k  -0.16  Sortino -0.01  net $     -307  DD $ 10,547 / DD5 $  5,734 (x1.84, DRIVEN BY ONE EPISODE)
+      WF 2022-25 n 287: ROC@30k   1.14  Sortino  0.10  net $    3,966  DD $ 29,931 / DD5 $ 11,877 (x2.52, DRIVEN BY ONE EPISODE)
+  RISK r1 TRIO DIFFUSIVE (timed) vs ALL sessions (raw): FAIL
+    WF                         lead   -2.16  timed ROC@30k  -0.47  Sortino -0.11  net $   -7,704  DD $ 54,935 / DD5 $ 11,953 (x4.60, DRIVEN BY ONE EPISODE) | raw ROC@30k   1.69  Sortino  0.18  net $   21,782  DD $ 43,036 / DD5 $ 16,620 (x2.59, DRIVEN BY ONE EPISODE)
+    EX (no 2020-02-15..04-30)  lead   -3.38  timed ROC@30k   0.13  Sortino  0.03  net $    1,723  DD $ 45,508 / DD5 $ 10,764 (x4.23, DRIVEN BY ONE EPISODE) | raw ROC@30k   3.51  Sortino  0.30  net $   33,953  DD $ 32,286 / DD5 $ 17,957 (x1.80, DRIVEN BY ONE EPISODE)
+    EARLY                      lead   -1.80  timed ROC@30k  -4.72  Sortino -0.76  net $  -13,429  DD $ 17,076 / DD5 $  4,104 (x4.16, DRIVEN BY ONE EPISODE) | raw ROC@30k  -2.92  Sortino -0.47  net $  -12,386  DD $ 25,491 / DD5 $  6,204 (x4.11, DRIVEN BY ONE EPISODE)
+    paired d (x0.546 timed - x0.697 raw, fixed WF $30k multipliers) > 0 in 2 of 9 July-June years: +4k -1k -2k -2k +10k -4k -1k -12k -10k
+  A7 pole: diffusive per-trade $-10.4 vs jump-morning per-trade $4.9
+  R-DAY SUM $-24,675 (family null p95 $9,336); dollars inside #463's worst WF drawdown (2020-03-02 .. 2020-03-27) $-2,471
+  PRIMARY WF: n 744 (83/yr)  ROC@30k  -0.47  Sortino -0.10  net $   -7,704  DD $ 54,935 / DD5 $ 11,953 (x4.60, DRIVEN BY ONE EPISODE)  PF 0.97  years + 4/9  no-2020 ROC -0.78
+    A1 route (>= 15, or >= 5 + R-day sum > family p95)                     FAIL
+    A1 count (>= 100 and 50 a year)                                        pass
+    PF > 1                                                                 FAIL
+    >= 6 of 9 July-June years                                              FAIL
+    A1b route without 2020                                                 FAIL
+    A2 own ROC > family null p95                                           FAIL
+    A3 neighbour net > 0                                                   pass
+    A4 net > 0 w/o best trade, at 2x cost, w/o 2020-02-15..04-30           FAIL
+    A5 standalone net > 0 in EARLY, WF 2016-21, WF 2022-25                 FAIL
+    A5 RISK r1 trio vs all sessions                                        FAIL
+    A7 diffusive per-trade > jump per-trade                                FAIL
+  ES arm vs #463's ES leg (TTM #459 x3): daily P&L correlation 0.009 on all WF days, 0.221 on days both trade (58 days)
+  REPORT #463 + JUMPSPLIT ES at VOL scale        (x1.295): ROC@30k  75.07  Sortino  3.52  net $1,251,280  DD $ 55,596 / DD5 $ 40,347 (x1.38, DRIVEN BY ONE EPISODE)  lead -18.73  bootstrap p5 -29.8
+  REPORT #463 + JUMPSPLIT ES at $30k own DD twin (x0.546): ROC@30k  85.80  Sortino  3.72  net $1,257,046  DD $ 48,872 / DD5 $ 37,786 (x1.29)  lead -8.01  bootstrap p5 -12.3
+  REPORT RESMOM line + JUMPSPLIT ES at VOL scale        (x1.295): ROC@30k  95.00  Sortino  3.64  net $1,313,066  DD $ 46,104 / DD5 $ 39,321 (x1.17)  lead -25.82  bootstrap p5 -30.5
+  REPORT RESMOM line + JUMPSPLIT ES at $30k own DD twin (x0.546): ROC@30k 111.71  Sortino  3.83  net $1,318,832  DD $ 39,381 / DD5 $ 36,217 (x1.09)  lead -9.11  bootstrap p5 -12.7
+  long vs short: long $31,816 (402) / short $-39,519 (342)
+  cost curve  0 bps: net $5,800
+  cost curve  5 bps: net $-63,496
+  cost curve 10 bps: net $-132,792
+  cost curve 20 bps: net $-271,385
+  event path (mean $ from the fill, 30m marks 12:25 .. 15:55): 11 20 9 8 6 11 16 8
+  ARM ES VERDICT: FAIL

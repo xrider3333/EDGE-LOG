@@ -1,0 +1,77 @@
+HASH FREEZE (MANAGER #84 RUN-BEFORE-MAIN; origin branch prereg/ttm-vrpjump = a91157cd): worktree HEAD a91157cd (frozen a91157cd) OK
+  024c5e66329629036eec5c628684f80c1654b56db41ce7640ee636287d972db7 docs/PREREG_vrpes_r1_2026-10-07.md OK
+  9672ef0ad99e9efd0dafed0fae8927e2d33747df92b21c583ea6f613c5b68945 docs/PREREG_jumpsplit_r1_2026-10-07.md OK
+  6801c0772c65f1cb6cbb996c3811033528377de88492455dc7698c1889f00b3b tools/vrpes_r1_stageA.py OK
+  f2d3f565f06b8b49bd8eb81066b3f952621928950b6b0fa5aa6d8ecd5e34f55d tools/jumpsplit_r1_stageA.py OK
+  ffc4a7c9b366123c917db3b10163790d001af69112457179f200c047e29287c2 tools/ttm_r1_common.py OK
+  7c99c248367707383a58636ba67c56e34d489994888dba22f27e18193358e7ee tools/halfhour_r1_stageA.py OK
+  fb1c83ecf3b662eea91e4f4bfcd82c4a4948ec2e1caa675f4f1e5621d7d48959 tools/balance_r1_stageA.py OK
+VRPES r1 - ES 30m RTH ADJ 3868 sessions (2010-06-07 .. 2025-06-27); VIX photograph 2026-10-05T14:51:50-07:00 sha256 6edc3e39.. verified; VRP days 3762 (2010-07-07 .. 2025-06-27)
+  BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816
+  VIX rows on CME-holiday sessions dropped (rule in ADDENDUM 1 edit 13): 23
+  PREREG on main: docs/PREREG_vrpes_r1_2026-10-07.md last changed in a91157cd (HASH FREEZE, not yet on main)
+=== LAG 1 ===
+  PRIMARY top tercile      n  39  ROC@30k   0.77  Sortino  0.09  net $   14,657  DD $ 63,806 / DD5 $ 30,827 (x2.07, DRIVEN BY ONE EPISODE)  PF 1.12  years + 5/9  R-day sum $-62,466  no-2020 ROC 3.36  halves $10,313 / $4,343  EARLY net $22,582
+  neighbour top quartile   n  33  ROC@30k   0.89  Sortino  0.11  net $   16,984  DD $ 63,801 / DD5 $ 29,938 (x2.13, DRIVEN BY ONE EPISODE)  PF 1.16  years + 3/9  R-day sum $-37,894  no-2020 ROC 2.99  halves $17,472 / $-488  EARLY net $24,286
+  twin VIX^2 alone (A6)    n  41  ROC@30k   4.90  Sortino  0.50  net $   91,477  DD $ 62,324 / DD5 $ 36,885 (x1.69, DRIVEN BY ONE EPISODE)  PF 1.76  years + 6/9  R-day sum $-82,988  no-2020 ROC 7.16  halves $70,025 / $21,451  EARLY net $14,800
+  twin RTH-only RV         n  43  ROC@30k   2.40  Sortino  0.29  net $   47,986  DD $ 66,614 / DD5 $ 30,296 (x2.20, DRIVEN BY ONE EPISODE)  PF 1.39  years + 4/9  R-day sum $-39,656  no-2020 ROC 5.56  halves $30,855 / $17,131  EARLY net $26,370
+  twin ALWAYS LONG         n 108  ROC@30k   7.49  Sortino  0.58  net $  139,861  DD $ 62,324 / DD5 $ 48,706 (x1.28)  PF 1.48  years + 8/9  R-day sum $-169,594  no-2020 ROC 6.44  halves $102,427 / $37,433  EARLY net $25,996
+  NULL circular shift (k 12..96, 85 draws, family max of both cells): ROC p95 11.55; real 0.77 = rank 76 of 86 (75 draws >= real); R-day sum p95 $2,505, real rank 53 of 86
+  REPORTED within-year shuffle null (x1000): family-max ROC p95 10.56 (circular p95 11.55; gap +0.99)
+  RISK r1 TRIO PRIMARY (timed) vs ALWAYS LONG (raw): FAIL
+    WF                         lead   -6.72  timed ROC@30k   0.77  Sortino  0.09  net $   14,657  DD $ 63,806 / DD5 $ 30,827 (x2.07, DRIVEN BY ONE EPISODE) | raw ROC@30k   7.49  Sortino  0.58  net $  139,861  DD $ 62,324 / DD5 $ 48,706 (x1.28)
+    EX (no 2020-02-15..04-30)  lead   -2.06  timed ROC@30k   6.74  Sortino  0.45  net $   58,806  DD $ 29,093 / DD5 $ 22,500 (x1.29) | raw ROC@30k   8.80  Sortino  0.75  net $  162,741  DD $ 61,661 / DD5 $ 39,637 (x1.56, DRIVEN BY ONE EPISODE)
+    EARLY                      lead   +3.66  timed ROC@30k  22.47  Sortino  1.56  net $   22,582  DD $ 10,349 / DD5 $  4,981 (x2.08, DRIVEN BY ONE EPISODE) | raw ROC@30k  18.81  Sortino  0.95  net $   25,997  DD $ 14,235 / DD5 $  7,552 (x1.89, DRIVEN BY ONE EPISODE)
+    paired d (x0.470 timed - x0.481 raw, fixed WF $30k multipliers) > 0 in 1 of 9 July-June years: -5k -9k -3k -18k -9k +27k -16k -19k -10k
+  A6 regime-matched: primary 0.77 vs VIX^2-alone 4.90 -> FAIL - file as 'VIX-level timing, not VRP'; in-month overlap 25 of 39 / 41
+    A1 route (>= 15, or >= 5 + R-day sum > circular p95)                           FAIL
+    A1 count (>= 100 trades and 50 a year)                                         FAIL
+    PF > 1                                                                         pass
+    >= 6 of 9 July-June years                                                      FAIL
+    A1b route without 2020                                                         FAIL
+    A2 ROC > circular p95 (strict rank)                                            FAIL
+    A3 neighbour net > 0                                                           pass
+    A4 net > 0 without best trade and at 2x cost                                   FAIL
+    A5 RISK r1 trio vs always-long (WF / EX / EARLY lead > 0, paired d >= 6/9)     FAIL
+    A5 standalone net > 0 in both WF halves                                        pass
+    A6 beats VIX^2 alone                                                           FAIL
+  LAG 1 VERDICT: FAIL
+  dollars inside #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $-27,293
+  REPORT #463 + VRPES at VOL scale        (x0.796): ROC@30k  54.00  Sortino  3.51  net $1,272,918  DD $ 78,635 / DD5 $ 43,915 (x1.79, DRIVEN BY ONE EPISODE)  lead -39.81  bootstrap p5 -51.0
+  REPORT #463 + VRPES at $30k own DD twin (x0.470): ROC@30k  66.61  Sortino  3.67  net $1,268,145  DD $ 63,500 / DD5 $ 39,688 (x1.60, DRIVEN BY ONE EPISODE)  lead -27.19  bootstrap p5 -34.9
+  REPORT RESMOM line + VRPES at VOL scale        (x0.796): ROC@30k  63.33  Sortino  3.63  net $1,334,704  DD $ 70,297 / DD5 $ 42,847 (x1.64, DRIVEN BY ONE EPISODE)  lead -57.49  bootstrap p5 -58.2
+  REPORT RESMOM line + VRPES at $30k own DD twin (x0.470): ROC@30k  84.07  Sortino  3.79  net $1,329,931  DD $ 52,768 / DD5 $ 38,259 (x1.38, DRIVEN BY ONE EPISODE)  lead -36.75  bootstrap p5 -38.3
+  VOL-scale lead over #463 WITHOUT calendar 2020: +2.03 (ROC@30k  98.86  Sortino  3.69  net $1,137,847  DD $ 38,394 / DD5 $ 34,670 (x1.11))
+  every in-month: 2016-09 $-73; 2016-11 $3,631; 2017-01 $1,131; 2017-03 $-1,023; 2018-02 $-5,193; 2018-06 $-223; 2018-07 $5,656; 2018-08 $4,069; 2018-09 $251; 2019-03 $1,426; 2019-05 $-10,118; 2019-07 $-5; 2019-08 $-2,918; 2019-10 $2,444; 2019-12 $4,063; 2020-01 $-1,218; 2020-02 $-17,280; 2020-03 $-19,873; 2020-06 $1,538; 2020-07 $8,506; 2020-08 $10,456; 2020-09 $-7,111; 2020-10 $-5,618; 2020-11 $15,919; 2021-01 $-2,693; 2021-02 $3,219; 2021-03 $5,938; 2021-05 $-368; 2021-08 $5,594; 2021-09 $-11,198; 2021-10 $14,094; 2021-12 $7,288; 2022-03 $9,151; 2022-05 $244; 2022-09 $-17,661; 2022-10 $12,331; 2024-11 $14,519; 2025-01 $4,831; 2025-03 $-19,073
+  cost curve  0 bps a round trip (no-adjust entry price): net $15,637
+  cost curve  5 bps a round trip (no-adjust entry price): net $10,889
+  cost curve 10 bps a round trip (no-adjust entry price): net $6,141
+  cost curve 20 bps a round trip (no-adjust entry price): net $-3,354
+  event path, mean $ by session of the month: -242 177 470 23 225 -868 380 -37 -678 680 405 420 -401 -238 35 467 -98 89 -32 -107 241 -386 -148
+=== LAG 2 ===
+  PRIMARY top tercile      n  40  ROC@30k   0.08  Sortino  0.01  net $    1,899  DD $ 75,518 / DD5 $ 31,419 (x2.40, DRIVEN BY ONE EPISODE)  PF 1.01  years + 4/9  R-day sum $-68,900  no-2020 ROC 1.65  halves $9,843 / $-7,944  EARLY net $16,711
+  neighbour top quartile   n  32  ROC@30k   0.49  Sortino  0.06  net $    9,932  DD $ 67,870 / DD5 $ 30,547 (x2.22, DRIVEN BY ONE EPISODE)  PF 1.10  years + 4/9  R-day sum $-36,146  no-2020 ROC 2.18  halves $19,571 / $-9,639  EARLY net $14,960
+  twin VIX^2 alone (A6)    n  41  ROC@30k   3.26  Sortino  0.33  net $   63,064  DD $ 64,485 / DD5 $ 41,022 (x1.57, DRIVEN BY ONE EPISODE)  PF 1.45  years + 6/9  R-day sum $-90,500  no-2020 ROC 2.13  halves $75,205 / $-12,141  EARLY net $17,086
+  twin RTH-only RV         n  41  ROC@30k   3.10  Sortino  0.35  net $   57,889  DD $ 62,324 / DD5 $ 32,054 (x1.94, DRIVEN BY ONE EPISODE)  PF 1.44  years + 6/9  R-day sum $-51,327  no-2020 ROC 7.24  halves $34,225 / $23,664  EARLY net $12,837
+  twin ALWAYS LONG         n 108  ROC@30k   7.49  Sortino  0.58  net $  139,861  DD $ 62,324 / DD5 $ 48,706 (x1.28)  PF 1.48  years + 8/9  R-day sum $-169,594  no-2020 ROC 6.44  halves $102,427 / $37,433  EARLY net $25,996
+  NULL circular shift (k 12..96, 85 draws, family max of both cells): ROC p95 11.10; real 0.08 = rank 80 of 86 (79 draws >= real); R-day sum p95 $-1,990, real rank 62 of 86
+  REPORTED within-year shuffle null (x1000): family-max ROC p95 9.86 (circular p95 11.10; gap +1.24)
+  RISK r1 TRIO PRIMARY (timed) vs ALWAYS LONG (raw): FAIL
+    WF                         lead   -7.40  timed ROC@30k   0.08  Sortino  0.01  net $    1,899  DD $ 75,518 / DD5 $ 31,419 (x2.40, DRIVEN BY ONE EPISODE) | raw ROC@30k   7.49  Sortino  0.58  net $  139,861  DD $ 62,324 / DD5 $ 48,706 (x1.28)
+    EX (no 2020-02-15..04-30)  lead   -4.23  timed ROC@30k   4.58  Sortino  0.34  net $   46,048  DD $ 33,566 / DD5 $ 23,511 (x1.43, DRIVEN BY ONE EPISODE) | raw ROC@30k   8.80  Sortino  0.75  net $  162,741  DD $ 61,661 / DD5 $ 39,637 (x1.56, DRIVEN BY ONE EPISODE)
+    EARLY                      lead  +13.63  timed ROC@30k  32.44  Sortino  1.43  net $   16,712  DD $  5,306 / DD5 $  3,806 (x1.39, DRIVEN BY ONE EPISODE) | raw ROC@30k  18.81  Sortino  0.95  net $   25,997  DD $ 14,235 / DD5 $  7,552 (x1.89, DRIVEN BY ONE EPISODE)
+    paired d (x0.397 timed - x0.481 raw, fixed WF $30k multipliers) > 0 in 1 of 9 July-June years: -5k -8k -6k -17k -11k +23k -15k -19k -8k
+  A6 regime-matched: primary 0.08 vs VIX^2-alone 3.26 -> FAIL - file as 'VIX-level timing, not VRP'; in-month overlap 25 of 40 / 41
+    A1 route (>= 15, or >= 5 + R-day sum > circular p95)                           FAIL
+    A1 count (>= 100 trades and 50 a year)                                         FAIL
+    PF > 1                                                                         pass
+    >= 6 of 9 July-June years                                                      FAIL
+    A1b route without 2020                                                         FAIL
+    A2 ROC > circular p95 (strict rank)                                            FAIL
+    A3 neighbour net > 0                                                           pass
+    A4 net > 0 without best trade and at 2x cost                                   FAIL
+    A5 RISK r1 trio vs always-long (WF / EX / EARLY lead > 0, paired d >= 6/9)     FAIL
+    A5 standalone net > 0 in both WF halves                                        FAIL
+    A6 beats VIX^2 alone                                                           FAIL
+  LAG 2 VERDICT: FAIL
+VERDICT (worse of lag 1 and lag 2): FAIL   [lag 1 FAIL; lag 2 FAIL]
