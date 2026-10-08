@@ -23,6 +23,7 @@ import time
 import sqlite3
 import hashlib
 from datetime import datetime, timezone, timedelta, date
+from decimal import Decimal, ROUND_HALF_UP
 
 # The AddOn's fills.csv timestamp follows NinjaTrader's *display* time-zone setting, which
 # the user can change (observed: some fills logged UTC, later ones logged Pacific) — so it is
@@ -91,7 +92,7 @@ PRESETS = {
     "ES": (12.50, 0.25), "MES": (1.25, 0.25), "NQ": (5.00, 0.25), "MNQ": (0.50, 0.25),
     "CL": (10.00, 0.01), "GC": (10.00, 0.10), "SI": (25.00, 0.005), "ZB": (31.25, 0.03125),
     "RTY": (5.00, 0.10), "YM": (5.00, 1.00), "MGC": (1.00, 0.10), "MCL": (1.00, 0.01),
-    "ZN": (31.25, 0.015625), "ZC": (12.50, 0.25), "NG": (10.00, 0.001),
+    "ZN": (15.625, 0.015625), "ZC": (12.50, 0.25), "NG": (10.00, 0.001),   # ZN: 1/64 of a $1,000 point (ZB's 1/32 is $31.25)
 }
 
 # All-in broker fee per contract, PER SIDE (exchange + clearing + NFA + commission).
@@ -175,16 +176,23 @@ def is_fut(sym):
     return sym in PRESETS
 
 
+def _r2(x):
+    """x to the cent, a half-cent rounded away from zero (one ZN tick, $15.625, settles as $15.63) - JavaScript's
+    toFixed(2) on the same double, so the sync and the page agree to the cent (Python's round() would give 15.62)."""
+    return float(Decimal(x).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
 def calc_pnl(sym, side, entry, exit_, size, fees):
-    """Return (gross, net). side is 'LONG' or 'SHORT'. Mirrors index.html calcPnl."""
+    """Return (gross, net). side is 'LONG' or 'SHORT'. Mirrors index.html calcPnl: gross to the cent, net = that gross
+    less fees."""
     d = 1 if side == "LONG" else -1
     if is_fut(sym):
         tv, ts = PRESETS[sym]
         gross = (((exit_ - entry) * d) / ts) * tv * size
     else:
         gross = (exit_ - entry) * d * size
-    gross = round(gross, 2)
-    return gross, round(gross - (fees or 0.0), 2)
+    gross = _r2(gross)
+    return gross, _r2(gross - (fees or 0.0))
 
 
 def _parse_dt(s):

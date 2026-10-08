@@ -80,5 +80,5 @@ GC $100/pt, tick 0.10 = $10, cost $15.66; RTY $50/pt, tick 0.10 = $5, cost $10.6
 3. Build and data gates (roll tables, sessions, precision, a spot-check against NinjaTrader) - then the
    pre-registered test, `PREREG_TRANSFER_R1.txt`.
 
-Side note for the owner's journal (not this lane): `api/nt_sync.py` and `index.html` value a ZN tick at $31.25;
-ZN's 1/64 tick is $15.625 ($31.25 is ZB's 1/32 tick). It only matters if ZN trades are ever logged.
+Side note for the owner's journal (not this lane): `api/nt_sync.py` and `index.html` valued a ZN tick at $31.25;
+ZN's 1/64 tick is $15.625 ($31.25 is ZB's 1/32 tick). FIXED 2026-10-08 in both (no ZN trade was in the journal).

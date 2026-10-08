@@ -48,6 +48,16 @@ def test_calc_pnl_subtracts_fees_for_net():
     assert N.calc_pnl("MNQ", "LONG", 100, 110, 1, 1.90) == (20.0, 18.1)
 
 
+def test_calc_pnl_treasury_ticks():
+    # ZN: a 1/64 tick of a $1,000 point = $15.625 (not ZB's $31.25), so one point = $1,000
+    assert N.calc_pnl("ZN", "LONG", 110, 111, 1, 0.0) == (1000.0, 1000.0)
+    assert N.calc_pnl("ZB", "LONG", 110, 111, 1, 0.0) == (1000.0, 1000.0)
+    # one ZN tick settles as $15.63 (a half cent away from zero, as the page's toFixed(2)); net = that gross - fees
+    assert N.calc_pnl("ZN", "LONG", 110, 110.015625, 1, 1.90) == (15.63, 13.73)
+    assert N.calc_pnl("ZN", "SHORT", 110, 110.015625, 1, 0.0) == (-15.63, -15.63)
+    assert N.calc_pnl("ZN", "LONG", 110, 110.046875, 1, 0.0) == (46.88, 46.88)      # 3 ticks = $46.875
+
+
 def test_calc_pnl_non_future_is_plain_price_move():
     # unknown symbol -> stock math: (exit-entry)*dir*size
     assert N.calc_pnl("AAPL", "LONG", 100, 110, 10, 0.0) == (100.0, 100.0)
