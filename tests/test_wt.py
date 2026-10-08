@@ -67,11 +67,14 @@ def _never(*a):
 # =========================================================== the gate table never loses a gate
 def test_every_gate_ship_has_run_is_still_in_the_table_in_the_same_order():
     """Never weaken a gate: the table is every gate cmd_ship ran inline before 2026-10-07, in the
-    same order, with the same failure message - nothing was dropped in the move."""
+    same order, with the same failure message - nothing was dropped in the move - plus the PAPER
+    selftest (2026-10-08, TRADING-LOG #67 / MANAGER #667), the one gate added since."""
     assert [(g.key, g.fail) for g in wt.GATES] == [
         ('boot', 'boot gate FAILED - not pushing'),
         ('studies', 'studies render gate FAILED - not pushing'),
         ('paper', 'paper render gate FAILED - not pushing'),
+        ('paper-selftest', 'PAPER gate SELF-TEST FAILED - the gate no longer catches a '
+                           'deliberately broken build - not pushing'),
         ('report', 'run-report render gate FAILED - not pushing'),
         ('report-selftest', 'run-report gate SELF-TEST FAILED - the gate no longer catches a '
                             'known-bad build - not pushing'),
@@ -102,12 +105,47 @@ def test_the_triggers_are_the_ones_ship_always_used():
     assert trig['home-selftest'] == ('tools/home_render_probe.py',)
     assert trig['webull-selftest'] == ('tools/webull_board_probe.py',
                                        'tools/fixtures/qqq_exec_box1005.json')
+    assert trig['paper-selftest'] == ('tools/paper_render_probe.py',
+                                      'tools/fixtures/paper_board.json')
+
+
+def test_the_paper_selftest_row_is_the_one_trading_log_specified():
+    """MANAGER #667, verbatim - except that the cover also lists tools/ledger_removed.py, which
+    the probe imports (the cover test caught it) - and the probe on this tree really takes those
+    options."""
+    g = _gate('paper-selftest')
+    assert (g.label, g.script, g.prefix, g.args, g.slow) == (
+        'PAPER gate SELF-TEST', 'tools/paper_render_probe.py', 'SELFTEST',
+        ('--selftest', '--jobs', '3'), True)
+    assert g.empty == '(paper probe self-test produced no output)'
+    assert g.cover == ('tools/paper_render_probe.py', 'tools/fixtures/paper_board.json',
+                       'tools/kill_on_exit.py', 'tools/ledger_removed.py')
+    assert g.pick('-- mutant x: caught\nSELFTEST: PASS -- 9/9') == 'SELFTEST: PASS -- 9/9'
+    assert g.pick('SELFTEST (only 2 mutants): PASS -- each') == 'SELFTEST (only 2 mutants): PASS -- each'
+    assert wt.gate_command(ROOT, ROOT, g)[-3:] == ['--selftest', '--jobs', '3']
+
+
+def test_a_selftest_whose_probe_lacks_its_options_does_not_apply(tmp_path):
+    """An older probe without --selftest (or --jobs) would exit 2 on argparse - and an
+    INCONCLUSIVE selftest stops a ship. So such a row skips, as a row whose script is missing
+    always has."""
+    (tmp_path / 'tools').mkdir()
+    probe = tmp_path / 'tools' / 'paper_render_probe.py'
+    probe.write_text("import argparse\nap = argparse.ArgumentParser()\n"
+                     "ap.add_argument('--selftest', action='store_true')\n", encoding='utf-8')
+    g = _gate('paper-selftest')
+    assert wt.gate_command(str(tmp_path), str(tmp_path), g) is None, 'no --jobs: does not apply'
+    probe.write_text(probe.read_text(encoding='utf-8') + "ap.add_argument('--jobs', type=int)\n",
+                     encoding='utf-8')
+    assert wt.gate_command(str(tmp_path), str(tmp_path), g)[-3:] == ['--selftest', '--jobs', '3']
+    assert wt.gate_command(str(tmp_path), str(tmp_path), _gate('paper'))[-1].endswith(
+        'paper_render_probe.py'), 'the plain probe takes no options and always applies'
 
 
 def test_the_slow_gates_are_exactly_the_selftests():
     slow = [g for g in wt.GATES if g.slow]
-    assert [g.key for g in slow] == ['report-selftest', 'importtz-selftest', 'home-selftest',
-                                     'webull-selftest']
+    assert [g.key for g in slow] == ['paper-selftest', 'report-selftest', 'importtz-selftest',
+                                     'home-selftest', 'webull-selftest']
     for g in slow:
         assert '--selftest' in g.args
         assert set(g.trigger) <= set(g.cover), 'a selftest is keyed on at least its trigger'
@@ -131,8 +169,8 @@ def _repo_reads(rel, seen):
     return out
 
 
-@pytest.mark.parametrize('key', ['report-selftest', 'importtz-selftest', 'home-selftest',
-                                 'webull-selftest'])
+@pytest.mark.parametrize('key', ['paper-selftest', 'report-selftest', 'importtz-selftest',
+                                 'home-selftest', 'webull-selftest'])
 def test_a_selftest_cover_lists_every_repo_file_its_probe_reads(key):
     """The reuse rule is only as good as the cover. A probe that starts importing another tool
     (or a tool it imports starts importing one), or reading another fixture, without its cover
@@ -144,6 +182,15 @@ def test_a_selftest_cover_lists_every_repo_file_its_probe_reads(key):
     reads.discard(g.script)
     missing = sorted(reads - set(g.cover))
     assert not missing, '%s reads %s - add it to that Gate\'s cover in tools/wt.py' % (key, missing)
+
+
+def test_every_chrome_selftest_cover_carries_kill_on_exit():
+    """MANAGER #667: TRADING-LOG's queued ships wire tools/kill_on_exit.py into the HOME and
+    WEBULL probes. Listed in every selftest cover NOW, so the cover test above does not go red
+    for whichever lane runs the engine tier after those ships land."""
+    for g in wt.GATES:
+        if g.slow:
+            assert 'tools/kill_on_exit.py' in g.cover, g.key
 
 
 def test_a_gate_prints_the_line_it_always_printed():

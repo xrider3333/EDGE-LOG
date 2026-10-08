@@ -483,7 +483,7 @@ def rebase_onto_main(wt, cmd):
 
 # Bump when a gate's MEANING changes without its row below changing (a new verdict rule, a probe
 # re-purposed). A row change already changes gates_key() on its own, through the fingerprint.
-GATE_LIST_VERSION = '2026-10-07.1'
+GATE_LIST_VERSION = '2026-10-08.1'
 
 # How many times a ship goes back outside the lock to re-run a selftest that main invalidated
 # while it queued. Past this it runs it under the lock: rare, and better than never landing.
@@ -571,6 +571,20 @@ GATES = [
     # NinjaTrader must never be shown refusing a trade on a leg it does not run.
     Gate('paper', 'PAPER render gate', 'tools/paper_render_probe.py', 'index',
          'paper render gate FAILED - not pushing', '(paper probe produced no output)', first=True),
+    # ... and its SELF-TEST (2026-10-08, TRADING-LOG #67 / MANAGER #667): deliberately broken
+    # copies of the current index.html (MUTANTS) must each FAIL for the reason they name, and the
+    # real file must PASS - whenever the probe or its fixture changed. Three broken builds render
+    # side by side (--jobs 3). Its last line starts 'SELFTEST:' or 'SELFTEST (only N mutants):'.
+    # The cover adds tools/ledger_removed.py to the one #667 gave: the probe lints with it (the
+    # cover test in tests/test_wt.py caught that), and a cover may only ever be a superset.
+    Gate('paper-selftest', 'PAPER gate SELF-TEST', 'tools/paper_render_probe.py',
+         ('tools/paper_render_probe.py', 'tools/fixtures/paper_board.json'),
+         fail='PAPER gate SELF-TEST FAILED - the gate no longer catches a deliberately broken '
+              'build - not pushing',
+         empty='(paper probe self-test produced no output)',
+         prefix='SELFTEST', args=('--selftest', '--jobs', '3'), slow=True,
+         cover=('tools/paper_render_probe.py', 'tools/fixtures/paper_board.json',
+                'tools/kill_on_exit.py', 'tools/ledger_removed.py')),
 
     # REPORT GATE (2026-09-02): the RESULTS run report, which shipped broken behind a green boot
     # gate THREE times in a week (v73.367 _reXNm undefined; v73.442 an _hRow without its heat
@@ -632,13 +646,16 @@ GATES = [
          'HOME render gate FAILED - not pushing', '(HOME probe produced no output)',
          prefix='HOMEPROBE:'),
     # ... and its SELF-TEST (deliberately broken copies of index.html must FAIL) when the probe
-    # changed. It also lints with tools/ledger_removed.py, so that is part of what it reads.
+    # changed. It also lints with tools/ledger_removed.py, so that is part of what it reads, and
+    # its entry point is getting tools/kill_on_exit.py (TRADING-LOG's queued ship) - a cover may
+    # be a superset of what the probe reads, never a subset.
     Gate('home-selftest', 'HOME gate SELF-TEST', 'tools/home_render_probe.py',
          ('tools/home_render_probe.py',),
          'HOME gate SELF-TEST FAILED - the gate no longer catches a deliberately broken build - '
          'not pushing', '(HOME probe self-test produced no output)',
          prefix='SELFTEST:', args=('--selftest',), slow=True,
-         cover=('tools/home_render_probe.py', 'tools/ledger_removed.py')),
+         cover=('tools/home_render_probe.py', 'tools/ledger_removed.py',
+                'tools/kill_on_exit.py')),
 
     # WEBULL GATE (2026-10-05): LEDGER > WEBULL PAPER, the same per-board render probe as HOME's.
     # webull_board_probe.py hands the board a fixed copy of the box's status doc
@@ -654,7 +671,7 @@ GATES = [
          'not pushing', '(WEBULL probe self-test produced no output)',
          prefix='SELFTEST:', args=('--selftest',), slow=True,
          cover=('tools/webull_board_probe.py', 'tools/fixtures/qqq_exec_box1005.json',
-                'tools/ledger_removed.py')),
+                'tools/ledger_removed.py', 'tools/kill_on_exit.py')),
 
     # FOURTH GATE: STUDIES row numbers stay unique (see KNOWN_DUP_ROWS above). Judged by
     # studies_gate_verdict, not by its exit code alone.
@@ -683,6 +700,18 @@ def gate_command(wt, root, g):
     worktree's index.html via --file."""
     own = os.path.join(wt, *g.script.split('/'))
     if os.path.isfile(own):
+        # A selftest whose probe does not have the options it is run with yet (an older tree, a
+        # probe a lane has not given --selftest / --jobs to) does not apply: argparse would exit
+        # 2, and an INCONCLUSIVE selftest stops a ship (run_gate) - it must not stop one for that.
+        opts = [a for a in g.args if a.startswith('--')]
+        if opts:
+            try:
+                with open(own, encoding='utf-8', errors='replace') as f:
+                    src = f.read()
+            except OSError:
+                return None
+            if any(("'%s'" % o) not in src and ('"%s"' % o) not in src for o in opts):
+                return None
         return [sys.executable, own] + list(g.args)
     if g.key == 'boot':
         shared = os.path.join(root, 'tools', 'preflight_boot.py')
