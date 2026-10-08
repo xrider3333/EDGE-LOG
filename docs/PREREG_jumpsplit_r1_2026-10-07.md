@@ -126,3 +126,99 @@ this reading in review if "per stretch" meant something else.
 - **FAIL:** dead; no other window, estimator (truncated RJ, the Lee-Mykland test, tri-power) or instrument. Ledger row,
   TTM.md note, RUNBOARD research rows (family MISC, with --wf-dd5).
 - Nothing live or in the adopted book changes without the owner.
+
+## ADDENDUM 1 - pre-data, after MANAGER's adversarial review (2026-10-07, GO WITH EDITS)
+Review: C:/EdgeLog/manager/reviews/REVIEW_VRPES_JUMPSPLIT_2026-10-07.md (inbox #82). Written BEFORE any real-direction
+number. Where it differs from the sections above, this addendum governs. The harness is re-written to it:
+`python tools/jumpsplit_r1_stageA.py --predata` and `python tools/jumpsplit_r1_stageA.py` (Stage A; it refuses unless this
+file is on origin/main).
+
+**Edit 1 - timing asserted in code.**
+- The morning arrays are the 09:30 open plus the closes of bars k 0..29, and nothing else.
+- The fill is bar k 30's open. The exit is asserted to be after the fill bar.
+- Every trade row stores `signal_ts` (the 11:55 bar) and `fill_ts` (the 12:00 bar). The run asserts fill - signal = 5
+  minutes and a 12:00 fill.
+
+**Edit 2 - eligibility from the morning and the calendar only.**
+- A session is ELIGIBLE when bars k 0..30 are present and it is neither:
+  - a CME US-holiday session (it ends with the 12:55 or 13:00 bar): 71 sessions; nor
+  - an early close (it ends with the 13:10 or 13:15 bar): 31 sessions, EXACTLY the NYSE rule list (the day after
+    Thanksgiving; Dec 24 and Jul 3 on Monday to Thursday), with zero mismatches either way.
+- The CME schedule is published in advance.
+- **The VIX photograph is NOT the stock calendar:** it carries rows on 23 CME-holiday sessions from 2022 on.
+- Eligible sessions: 3,747 per arm.
+- The 78-bar rule would drop ONE eligible session for an afternoon-only gap, 2020-03-18 (the halt). Its 15:55 bar is
+  present, so the exit is unchanged.
+- The exit is the last bar at or before 15:55 that is present.
+- The 252-session history counts eligible sessions only.
+
+**Edit 3:** the null shuffles the NESTED label (bottom quartile / tercile but not quartile / other), so the null's
+quartile sits inside its tercile.
+
+**Edit 4 - the regime-matched null.** Labels are shuffled within calendar year x morning-RV tercile strata. The RV tercile
+is the morning RV's rank among the 252 prior eligible sessions, known at 12:00. 1,000 draws, seed 20261007.
+
+**Edit 5 - diagnostics, WF, printed before data.**
+
+| | NQ diffusive / middle / jump | ES diffusive / middle / jump |
+|---|---|---|
+| Spearman RJ vs morning RV | +0.005 | -0.026 |
+| Spearman RJ vs abs(move) / sqrt(RV) | +0.030 | +0.054 |
+| share of zero 5m returns | 0.013 / 0.012 / 0.016 | 0.042 / 0.047 / 0.062 |
+| 09:30 bar's share of morning RV | 0.056 / 0.082 / 0.128 | 0.050 / 0.071 / 0.101 |
+| median morning vol (annualised) | 14.7 / 15.6 / 14.8% | 10.2 / 10.5 / 9.4% |
+| median morning-RV rank | 0.49 / 0.51 / 0.48 | 0.44 / 0.52 / 0.44 |
+
+**Reading:**
+- On neither arm is the diffusive tercile a high-vol tercile: RJ is uncorrelated with RV, and the RV rank sits mid-range.
+- ES tick discreteness is visible (4-6% zero returns, against 1-2% on NQ). It pushes quiet ES mornings slightly toward
+  "jumpy": the jump tercile has the most zeros and the lowest vol.
+- On both arms the jump tercile's 09:30 bar carries about twice the diffusive tercile's share of RV. "Jump" here largely
+  means "the opening bar dominated the morning".
+
+**Edit 6 - state autocorrelation, lags 1-5.**
+- NQ: +0.004, -0.007, +0.013, +0.017, +0.007.
+- ES: +0.021, +0.000, +0.019, +0.006, +0.016.
+- All are below 0.10, so the null is the stratified SHUFFLE (edit 4), not a within-year circular shift.
+
+**Edit 7:** the earner route's null is the family max of the R-day sum over the four cells (two arms x two cells), on the
+same 1,000 draws. The route needs own ROC@$30k >= 5 AND an R-day sum above that p95.
+
+**Edit 8 - per stretch (Ruling 2).**
+- **The RISK r1 trio, DIFFUSIVE vs the ALL-SESSIONS twin (the dead LDM parent), per arm:**
+  - the lead (ROC@$30k difference, each sized on its own drawdown in the stretch) is > 0 over the WF, over EX (the WF
+    without 2020-02-15 .. 04-30, rows joined end to end) and in EARLY;
+  - paired d (daily diffusive minus all-sessions at fixed WF $30k multipliers) is > 0 in >= 6 of the 9 WF July-June years.
+- **A5's standalone net > 0 in EARLY, WF 2016-21 and WF 2022-25 stays binding.**
+- EARLY = 2011-07-01 .. 2016-06-30: the house 2010-06 .. 2016-06 block minus the 252-session warm-up. It holds NQ 424 and
+  ES 421 primary trades.
+
+**Edit 9 - new binding A7, the hypothesis's pole:** in each arm, the diffusive per-trade net must beat the jump-morning
+per-trade net over the WF.
+
+**Edit 10 - the overlap's pre-written consequence.**
+- If NOISE #422 holds the same side at the 12:00 bar on more than 50% of NQ-arm trades, the NQ arm is also printed on
+  NOISE-flat sessions.
+- If that subset nets <= 0, an NQ pass is filed **"NOISE re-expression"** and gets no plugin until MANAGER rules.
+
+**Edit 11 - the ES arm against #463's ES leg (TTM #459 x3).** The daily P&L correlation is printed on all WF days and on
+the days both trade. The per-leg dailies come from balance_r1_stageA.book_leg_dailies, which sum to #463 within $0.01.
+
+**Edit 12 - book add and the minimum detectable lead in own money.**
+- The book add is also reported against the RESMOM line (120.82 / 3.916 asserted).
+- Power lines, re-run on the edit-2 schedule:
+  - **NQ:** VOL scale (x0.977) SD 13.0 / minimum detectable 21.4 / four in five 32.3; $30k twin (x0.338) 5.1 / 8.4 / 12.7.
+  - **ES:** VOL scale (x1.293) 15.1 / 24.9 / 37.7; $30k twin (x0.841) 10.8 / 17.7 / 26.8.
+- **In own money (at the $30k-own-drawdown sizing; at the VOL scale a lead saturates and has no own-money equivalent):**
+  - NQ needs own ROC@$30k 20.4 (p25 4.9 / p75 34.3 over 200 coin-flip draws) = **$20.4k a year at a $30k drawdown**.
+  - ES needs 39.8 (15.2 / 65.4) = **$39.8k a year**.
+  - Against the $15k MDL: the prior median (ROC 0) cannot reach it on either arm, so **the book add is UNDECIDABLE at the
+    prior**. An NQ result near ROC 20 would be detectable.
+
+**Counts restated (WF; schedule only):**
+- **NQ:** primary 760 (85 a year), long 429 / short 331; neighbour 560.
+  - Stretches: EARLY 424, WF 2016-21 461, WF 2022-25 299.
+  - Twins: all sessions 2,233; jump mornings 752.
+- **ES:** primary 744 (83 a year), long 402 / short 342; neighbour 555.
+  - Stretches: EARLY 421, 2016-21 462, 2022-25 282.
+  - Twins: all sessions 2,220; jump mornings 744.
