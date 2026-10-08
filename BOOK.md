@@ -1190,6 +1190,116 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10ag. THE CAPACITY LINE (MANAGER assessment 10-05 order 5c): what #463 and its candidate seats need in margin, in contracts the owner can trade (2026-10-07)
+
+**Sources (provenance in `C:\EdgeLog\_research_cache\margins\margins_provenance_20261008.json`).**
+- **Broker:** NinjaTrader's public margin page, https://ninjatrader.com/pricing/margins/. Fetched 2026-10-07 18:11 MST; saved as
+  `ninjatrader_margins_20261008.html`, sha256 5d917bbb...; the page says "Margins as of 2026-08-31".
+- **Exchange:** CME's margin page was NOT read. It timed out to a fetch tool, and CME's margin service answered 403 with a scraping block
+  (its terms forbid automated access); this was not retried or worked around. The broker's overnight initial is exactly 110% of its
+  maintenance on all four contracts, which is CME's speculator ratio, so the overnight figures below are exchange-level. **The owner
+  should confirm them on cmegroup.com.**
+
+| Contract | Day (intraday) margin | Overnight maintenance | Overnight initial |
+|---|---|---|---|
+| NQ | $1,000 | $42,248.33 | $46,473.17 |
+| MNQ (1/10 NQ) | $100 | $4,224.83 | $4,647.32 |
+| ES | $500 | $26,028.77 | $28,631.65 |
+| MES (1/10 ES) | $50 | $2,602.88 | $2,863.17 |
+
+**#463 as adopted (1 NQ per NQ leg, 3 ES).** Only ENGU-Q holds overnight (a multi-day trend rider). ORB and NOISE are flat by the close
+(flat_eod), and TTM exits within its end-of-day cutoff.
+- **ENGU-Q, 1 NQ:** $46,473 to carry overnight.
+- **ORB and NOISE, 1 NQ each:** $1,000 each, day margin.
+- **TTM, 3 ES:** $1,500 at the base size, up to $3,500 at its 7-contract tilt.
+- **All on at once:** about $52,000 of margin. Add the walk-forward worst drawdown of $44,849 (DD5 $36,095) and the account must hold
+  about $96,800 at the worst moment. That leaves about $3,200 inside the $100,000 house account.
+- **On the lockbox's $49,855 drawdown it would not fit** (about $101,800). **#463 at its adopted size is at the house account's limit.**
+
+**Fractional sizes, in contracts that exist.**
+- **NOISE x1.25:** +0.25 NQ = 2.5 MNQ, so trade 2 MNQ (x1.2) or 3 MNQ (x1.3). That adds $200-300 of day margin.
+- **ENGU-Q x0.75 (Q23 report):** 7.5 MNQ, so trade 7 MNQ (x0.70, overnight initial $32,531) or 8 MNQ (x0.80, $37,179), against $46,473
+  for 1 NQ. Either frees $9-14k of margin.
+- **KEEL's TTM tilts:** up to 7 ES intraday, $3,500 of day margin.
+
+**A basket seat is a separate-account question.**
+- **The size:** the RESMOM line's 0.264 x RES is $105,600 of gross stock - $52,800 long and $52,800 short, about $1,056 a name across 100
+  names.
+- **The margin:** under standard Reg T (not fetched: 50% initial each side; maintenance about 25% long / 30% short) it needs about $52,800
+  to open and about $29,000 to hold, in a stock margin account.
+- **Whole shares only on the short side:** shorts generally cannot be fractional, so a name priced above about $1,056 cannot be held at
+  that size.
+- **It does not fit:** with the futures book needing about $96,800 at its worst, the seat does not fit in the $100,000 house account. A
+  basket seat that passes the house line goes forward only with its own stock account (about $55,000 or more), or at a size that account
+  can carry. A seat that passes only at an untradeable size is a research row (assessment order 5c).
+
+**OWNER'S OWN FIGURES (overwrite these with the account's):** broker ____; NQ day ____ / overnight ____; ES day ____ / overnight ____;
+MNQ ____; MES ____; futures account equity ____; stock margin account for basket seats ____.
+
+### 10af. DD5 beside every ROC (owner rule 10-07, MANAGER #105): the open book lines re-read - which wins were one episode (2026-10-07)
+
+**What.** A report on lines already registered and read (script `C:\EdgeLog\_anatomy_cache\bookq\dd5_lines.py`, output
+`C:\EdgeLog\_anatomy_cache\dd5\dd5_lines.json`; the lines rebuilt exactly as Q16 rebuilt them, at parity). DD5 = the average depth of the
+five deepest non-overlapping drawdown episodes of the same daily curve (augur_engine/drawdowns.dd5); a worst drawdown above 1.3 x DD5 =
+the ROC is driven by one episode. "ROC on DD5" = 30 x net a year / DD5, printed only to show how much of a gain the worst episode carries.
+Parity: #463 WF DD $44,849 / DD5 $36,095; LB DD $49,855 / DD5 $35,034 (flagged).
+
+| Line (walk-forward) | ROC at $30k | Worst DD | DD5 | DD / DD5 | ROC on DD5 | Net a year |
+|---|---|---|---|---|---|---|
+| #463 | 93.81 | $44,849 | $36,095 | 1.24 | 116.6 | $140,235 |
+| ORB314 | 125.55 | $33,735 | $31,775 | 1.06 | 133.3 | $141,182 |
+| Q4 | 110.98 | $36,949 | $31,310 | 1.18 | 131.0 | $136,682 |
+| ORB239 | 101.76 | $41,319 | $35,668 | 1.16 | 117.9 | $140,147 |
+| NOISE125 | 99.83 | $45,879 | $37,929 | 1.21 | 120.8 | $152,678 |
+| KEEL | 119.01 | $41,376 | $36,550 | 1.13 | 134.7 | $164,138 |
+| VT | 117.81 | $35,304 | $31,704 | 1.11 | 131.2 | $138,642 |
+| NOTTM (#463 without TTM) | 99.56 | $37,825 | $34,798 | 1.09 | 108.2 | $125,527 |
+| L = #463 + 0.264 x RES (under restatement) | 120.82 | $36,526 | $34,363 | 1.06 | 128.4 | $147,105 |
+| L with ENGU-Q x0.75 | 125.83 | $32,553 | $30,750 | 1.06 | 133.2 | $136,539 |
+| L with ENGU-Q x0.50 | 111.59 | $33,868 | $28,972 | 1.17 | 130.4 | $125,972 |
+
+- **No walk-forward line is flagged.** #463 itself sits at 1.24: its March 2020 episode is the one a line can trim.
+- **Half of ORB314's, VT's and L's gain is the 2020 crash.** On ROC on DD5 their lead over #463 falls from +31.7 / +24.0 / +27.0 to
+  +16.7 / +14.6 / +11.9.
+- **Q4, KEEL and NOISE125 gain more broadly:** +17.2 -> +14.4, +25.2 -> +18.2 and +6.0 -> +4.2.
+- **ORB239's gain is one episode** (+7.9 -> +1.3).
+- **The no-TTM line's gain is ONLY the one episode.** It leads by +5.8 but trails by 8.3 on ROC on DD5, which strengthens the KEEP-TTM
+  recommendation (10ad).
+- **The ENGU-Q x0.75 gain over L is broad** (+5.0 -> +4.8), but it still costs $10.6k a year (10ad).
+- **The lockbox (spent, quoted only):** #463 and six of the seven book lines with a lockbox are flagged, on the June 2026 episode; only VT
+  is not (DD $32,941 / DD5 $28,651).
+
+### 10ae. Q21 BAB r1 (scoping item B1): betting against beta and low volatility in single stocks - DEAD at Stage A, both cells (2026-10-06)
+
+**What.** Prereg `docs/PREREG_frontier_bab_2026-10-05.txt` (+ addendum 1 = MANAGER #95's edits; committed 0d43cc58 before any number).
+Harness `tools/rocfrontier/r19_bab.py`: it imports STRATEGY-BEATING's RESMOM engine (r17) unchanged and swaps in only the two scores (BETA =
+each name's OLS beta to ES over 252 sessions, long the 50 lowest / short the 50 highest, beta-neutral at $400k gross; VOL = 252-session
+volatility, low minus high, dollar-neutral), the side sizes and the null's own streams. Output `C:\EdgeLog\_anatomy_cache\rocfrontier\bab_r1\`.
+Toy-world selftest passed (BETA's beta rebuilds RESMOM's residual exactly). The synthetic-world smoke was NOT run: r17's smoke is RESMOM-
+specific. Dryload: 101 WF rebalances, about 485 eligible names each - RESMOM's pool. Stage A ran 2026-10-06 09:32 MST.
+
+**Stage A: both cells fail.**
+- **BETA:** WF net $79,825, ROC at $30k 2.69 (worst DD $98,870, DD5 $50,893 - one episode). It fails ROC >= 15, the null (p95 3.12),
+  and profitable without its best 1% of days / name-months. 6 of 9 years are positive; the long side makes $209k, the short side loses
+  $129k.
+- **VOL:** WF net -$86,979, ROC -1.00; it fails 8 of 9 checks.
+
+**The leak (TTM's post-hoc review #103, MANAGER #104).** The judged reading uses the engine's in-hold removal (names with a hygiene flag
+INSIDE the hold are dropped before ranking - the same leak as SHORTINT / RESMOM, now under restatement). It flattered both cells, but
+cannot flip the verdict. The kept-names figures are the honest ones: BETA $62,813 (ROC 2.12), VOL -$125,261. Any future seat read on
+this engine needs the split-adjusted kept-names fix first.
+
+**The seat read, reported only (a seat line needs Stage A).**
+- **BETA loses on R:** -$90,792 against the random-name null's p95 of $23,915. The #70 gate fails, and the book add at 10ab's 0.25 size
+  reads 85.3 against L's 120.8.
+- **VOL makes $242,936 on R** (null p95 $20,537; #70 gate DO +0.439, a pass). But its realised beta to ES is -0.47 (side betas 0.43 long /
+  1.73 short), so that money is plain short-market exposure (prereg WHAT COULD FOOL US 3), on a leg that loses money alone.
+- **VOL against TLT:** the low-volatility side correlates with TLT -0.26 in 2016-21 and +0.21 in 2022-25; VOL made $133,529 in 2022.
+- **TV's fund BAB in the same frame:** K5 makes $5,985 on R, K3 $14,959 - small.
+
+**Verdict.** BAB is closed in its stock form too (TV closed the fund form); do not re-test. Low volatility's drawdown-day money is short
+beta, not a seat. Ledger row in RESEARCH_LEDGER.md; RUNBOARD research row Q21-BAB-R1.
+
 ### 10ad. Q22 + Q23 (MANAGER assessment 10-05, owner-ordered): the "#463 without TTM" monitor line is open; the ENGU-Q size ladder over the RESMOM line (2026-10-05)
 
 **Q22 - the TTM seat question gets a forward line.** `book_shadow_nottm` = ORB x1 + ENGU-Q #335 x1 + NOISE #422 x1, i.e. the book
@@ -1247,8 +1357,10 @@ it (s 0.516 so its mean matches; daily correlation with #463 on #463's drawdown 
 - **Fails:** the level at the registered size. 120.8 is above the generator's 90th percentile (112.6).
 - **Why:** RESMOM's help is concentrated in March 2020, the one episode that sets the $30k scaling (10ab). The generator spreads the
   same average correlation over all 460 days. Adding RESMOM's own off-drawdown correlation (-0.039) changes nothing (99.8).
-- **Open oddity, routed to STRATEGY-BEATING:** on the drawdown days RES moves against #463 day by day (-0.153) but slightly WITH it
-  week by week (+0.078; the generator's seats read -0.050). A one-day stamp lag between #463's UTC days and stock closes would do this.
+- **Oddity RESOLVED (STRATEGY-BEATING's lag test, 2026-10-05, `C:\EdgeLog\_anatomy_cache\rocfrontier\resmom_r1\stamp_lag_test_2026-10-05.py`):**
+  RES moves against #463 day by day on the drawdown days (-0.153) but slightly with it week by week (+0.078). This is NOT a stamp lag:
+  both series co-move only within the same session, and shifting RES a day either way lowers the line (118.7 / 120.6). RES earns a
+  positive level through the drawdowns (weekly DO 0.173).
 
 **The map (shape only).**
 - **Seats that earn while the line falls** (rho_dd -0.3) peak at c = 0.10 of L's daily SD each (0.15 at s 0.75). Each extra
