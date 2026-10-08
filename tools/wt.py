@@ -265,6 +265,121 @@ def resolve_version_changelog_conflict(path):
     return True
 
 
+LEDGER_FILE = 'RESEARCH_LEDGER.md'
+_LEDGER_ROW = re.compile(r'^\| (\d+)\.(\d+) \|')
+
+
+def resolve_ledger_row_conflict(path):
+    """RESEARCH_LEDGER.md rows race between lanes (2026-10-06: 2.84 / 2.86 went to TTM while two other
+    lanes' rows queued, and each had to rebuild by hand). A conflict made ONLY of table rows - each
+    lane appended its own row(s) at the end of a section - is settled by keeping main's rows and
+    putting this ship's rows after them; renumber_ledger_rows() then gives them free numbers.
+    Returns True when resolved, False when any hunk holds anything but table rows."""
+    with open(path, encoding='utf-8', newline='') as f:
+        text = f.read()
+    nl = '\r\n' if '\r\n' in text[:5000] else '\n'
+    lines = text.split(nl)
+    out, i = [], 0
+    while i < len(lines):
+        if not lines[i].startswith('<<<<<<< '):
+            out.append(lines[i]); i += 1
+            continue
+        try:
+            j = lines.index('=======', i)
+            k = next(x for x in range(j, len(lines)) if lines[x].startswith('>>>>>>> '))
+        except (ValueError, StopIteration):
+            return False
+        head, mine = lines[i + 1:j], lines[j + 1:k]
+        rows = [x for x in head + mine if x.strip()]
+        if not rows or not all(_LEDGER_ROW.match(x) for x in rows):
+            return False
+        out.extend(head)
+        out.extend(x for x in mine if x not in head)
+        i = k + 1
+    with open(path, 'w', encoding='utf-8', newline='') as f:
+        f.write(nl.join(out))
+    return True
+
+
+def renumber_ledger_rows(wt):
+    """Give this ship's NEW RESEARCH_LEDGER rows numbers nobody on main holds. A row is this ship's
+    when its line is a + line in the ship own diff; when its number now appears TWICE in the file (another
+    lane took it while this one waited), it moves to the next free number in its section. Rows that
+    are main's are never touched. Returns [(old, new)] and amends the commit when anything moved."""
+    path = os.path.join(wt, LEDGER_FILE)
+    if not os.path.isfile(path):
+        return []
+    diff = run(['git', '-C', wt, 'diff', 'origin/main', '--', LEDGER_FILE], check=False, quiet=True)
+    added = set(ln[1:] for ln in (diff or '').splitlines()
+                if ln.startswith('+') and not ln.startswith('+++') and _LEDGER_ROW.match(ln[1:]))
+    if not added:
+        return []
+    with open(path, encoding='utf-8', newline='') as f:
+        text = f.read()
+    nl = '\r\n' if '\r\n' in text[:5000] else '\n'
+    lines = text.split(nl)
+    # NEW rows are this ship's added lines whose number main does not hold, or holds AND this file now
+    # holds twice (another lane took it first - a CLASH). A row this ship only EDITED keeps its number:
+    # main holds it and it appears once. When a section has a clash, all of this ship's new rows in that
+    # section are renumbered in file order from main's highest number + 1, so they stay consecutive.
+    theirs = run(['git', '-C', wt, 'show', 'origin/main:' + LEDGER_FILE], check=False, quiet=True) or ''
+    on_main = set()
+    for ln in theirs.splitlines():
+        m = _LEDGER_ROW.match(ln)
+        if m:
+            on_main.add((int(m.group(1)), int(m.group(2))))
+    count = {}
+    for ln in lines:
+        m = _LEDGER_ROW.match(ln)
+        if m:
+            key = (int(m.group(1)), int(m.group(2)))
+            count[key] = count.get(key, 0) + 1
+    new_rows, clash_secs = [], set()
+    for n, ln in enumerate(lines):
+        m = _LEDGER_ROW.match(ln)
+        if not m or ln not in added:
+            continue
+        key = (int(m.group(1)), int(m.group(2)))
+        if key in on_main and count[key] < 2:
+            continue                                    # an edit of main's own row
+        new_rows.append((n, key, m.end()))
+        if key in on_main:
+            clash_secs.add(key[0])
+    moved, nxt = [], {}
+    for n, key, end in new_rows:
+        sec = key[0]
+        if sec not in clash_secs:
+            continue
+        if sec not in nxt:
+            nxt[sec] = max([b for a, b in on_main if a == sec] + [0]) + 1
+        new = (sec, nxt[sec])
+        nxt[sec] += 1
+        if new != key:
+            lines[n] = '| %d.%d |' % new + lines[n][end:]
+            moved.append(('%d.%d' % key, '%d.%d' % new))
+    if not moved:
+        return []
+    with open(path, 'w', encoding='utf-8', newline='') as f:
+        f.write(nl.join(lines))
+    run(['git', '-C', wt, 'add', LEDGER_FILE])
+    run(['git', '-C', wt, 'commit', '-q', '--amend', '--no-edit'])
+    # the lane may have quoted its row number elsewhere in this ship (a README line, BOOK.md, a doc)
+    names = run(['git', '-C', wt, 'diff', '--name-only', 'origin/main'], check=False, quiet=True).split()
+    for old, new in moved:
+        hits = []
+        for nm in names:
+            if nm == LEDGER_FILE:
+                continue
+            body = run(['git', '-C', wt, 'diff', 'origin/main', '--', nm], check=False, quiet=True) or ''
+            if any(ln.startswith('+') and re.search(r'(?<![\d.])' + re.escape(old) + r'(?![\d])', ln)
+                   for ln in body.splitlines()):
+                hits.append(nm)
+        safe_print('RESEARCH_LEDGER row %s is now %s (another lane numbered its rows first)%s'
+                   % (old, new, ('; this ship also quotes %s in: %s - check those' % (old, ', '.join(hits)))
+                      if hits else ''))
+    return moved
+
+
 def rebase_onto_main(wt, cmd):
     """git rebase origin/main, settling VERSION / CHANGELOG-only conflicts on the way (a lane's
     own entry against another lane's, the one collision every lane hits). Returns the failed
@@ -277,13 +392,20 @@ def rebase_onto_main(wt, cmd):
             return None
         unmerged = run(['git', '-C', wt, 'diff', '--name-only', '--diff-filter=U'],
                        check=False, quiet=True).split()
-        idx = os.path.join(wt, 'index.html')
-        if unmerged != ['index.html'] or not resolve_version_changelog_conflict(idx):
+        settled = []
+        for nm in unmerged:
+            fn = {'index.html': resolve_version_changelog_conflict,
+                  LEDGER_FILE: resolve_ledger_row_conflict}.get(nm)
+            if not fn or not fn(os.path.join(wt, nm)):
+                run(['git', '-C', wt, 'rebase', '--abort'], check=False, quiet=True)
+                return p
+            settled.append(nm)
+        if not settled:
             run(['git', '-C', wt, 'rebase', '--abort'], check=False, quiet=True)
             return p
-        safe_print('rebase: VERSION / CHANGELOG conflict settled (main keeps its version, this '
-                   "ship's entry goes on top)")
-        run(['git', '-C', wt, 'add', 'index.html'])
+        safe_print('rebase: settled %s (main keeps its version / rows, this ship goes on top)'
+                   % ' + '.join(settled))
+        run(['git', '-C', wt, 'add'] + settled)
         p = subprocess.run(['git', '-C', wt, 'rebase', '--continue'], capture_output=True,
                            text=True, encoding='utf-8', errors='replace',
                            env=dict(os.environ, GIT_EDITOR='true'))
@@ -413,6 +535,9 @@ def cmd_ship(name, message):
                       % (mine, want, theirs,
                          '' if retagged else "; CHANGELOG untouched - this ship added "
                          "no entry of its own"))
+
+    # RESEARCH_LEDGER rows another lane numbered first move to the next free number (MANAGER #69).
+    renumber_ledger_rows(wt)
 
     # The boot gate must test the WORKTREE's index.html. preflight_boot.py resolves its
     # target from its own __file__ location (not cwd), so running the shared checkout's

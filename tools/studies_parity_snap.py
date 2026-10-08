@@ -331,4 +331,10 @@ def main():
 
 
 if __name__ == '__main__':
+    try:   # any Chrome this run starts dies with it, however the run ends (tools/kill_on_exit.py)
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import kill_on_exit
+        kill_on_exit.install()
+    except Exception:
+        pass
     sys.exit(main())
