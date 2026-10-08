@@ -35,7 +35,7 @@ THIS = sys.modules[__name__]
 OUT_DEFAULT = r"C:\EdgeLog\_anatomy_cache\rocfrontier\shortint_r1"
 OUT = os.environ.get("EDGELOG_SHORTINT_R1", OUT_DEFAULT)                                                  # results, outside git
 PREREG = os.path.join(HERE, "PREREG_SHORTINT_R1.txt")
-PREREG_SHA = "097d982e1ee420e879ea80cd0558a95e1ee480d6f173f8ea4b2c2f3191709235"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDA 1-3 + POST-DATA BUG FIX ADDENDUM 4 ([A19] the judged reading keeps in-hold flags, [A20] DD5, [A21] caveats, [A22] both ways, [A23] the restated L); supersedes 56a4bd40 (draft + addenda 1-3)
+PREREG_SHA = "036db647be304cafd6a42800e5200a9b951fd740c08eb9a91686d59bcbd7f340"                      # canonical (LF) sha256 of the pre-registration: DRAFT v1 + PRE-DATA ADDENDA 1-3 + POST-DATA BUG FIX ADDENDUM 4 ([A19] the judged reading keeps in-hold flags, [A20] DD5, [A21] caveats, [A22] both ways, [A23] the restated L, [A24] hygiene edit S1, [A25] the S1-restated L); supersedes 097d982e (draft + addenda 1-3)
 WF0, PRE_END, LB0, LB1 = TS("2018-08-01"), M17.PRE_END, M17.LB0, M17.LB1  # THIS family's WF = positions EXITED 2018-08-01 .. 2025-06-29 (the house WF starts 2016-07-01; the archive starts 2018-06); LB = exits 2025-06-30 .. 2026-06-30 INCLUSIVE; cuts: S.LB0 / S.END
 BOOK_WF, BOOK_LB, DEEPEST_WF = M17.BOOK_WF, M17.BOOK_LB, M17.DEEPEST_WF
 NREP, SEED = 500, 20261018                                               # the registered null: 500 draws of random names from each rebalance's eligible SCORED pool (funds out)
@@ -2740,7 +2740,7 @@ def jmut(fn):
 def t_constants():
     assert (NREP, SEED, CELLS, AUDIT_N, SQUEEZE_N, A2_YEARS) == (500, 20261018, ("D1", "S1"), 50, 20, 2) and YEARS == tuple(range(2018, 2025))
     assert (WF0, PRE_END, LB0, LB1) == (TS("2018-08-01"), TS("2025-06-29"), TS("2025-06-30"), TS("2026-06-30")) and (S.LB0, S.END) == (LB0, R11.LBX) and CACHE_FIRST_SESSION == TS("2016-01-04")
-    assert (BOOK_WF, BOOK_LB, DEEPEST_WF) == ((93.81, 3.816), (155.54, 4.15), 44849.0) and DV.REF_W == 0.264 and DV.REF_FACTS == {"roc": 120.95, "sortino": 3.921, "max_dd": 36526.0} and DV.REF_SHA.startswith("86721fda") and DV.REF_CSV_PINNED.endswith("resmom_cells_daily_wf_keep.csv")
+    assert (BOOK_WF, BOOK_LB, DEEPEST_WF) == ((93.81, 3.816), (155.54, 4.15), 44849.0) and DV.REF_W == 0.264 and DV.REF_FACTS == {"roc": 121.06, "sortino": 3.926, "max_dd": 36526.0} and DV.REF_SHA.startswith("e204dd53") and DV.REF_CSV_PINNED.endswith("resmom_cells_daily_wf_close.csv")
     assert (COST_BPS, STRESS_BPS, BORROW, BORROW_STRESS, BORROW_FLAT) == (5.0, (10.0, 20.0), 0.0025, (0.01, 0.03), 0.03) and BORROW_CURVE == (0.0, 0.0025, 0.01, 0.03, 0.05, 0.10, 0.20)
     assert M17.SPEC == {"win": 252, "form_n": 231, "skip": 21, "min_n": 230, "n_side": 50, "slot": 4000.0, "hyg_lead": 5} and (A2_TARGET, A2_REPORT) == (0.25, (0.5, 2.0)) == (M17.A2_TARGET, M17.A2_REPORT)
     assert SPEC == {"min_scored": 150, "min_side": 20, "lag": 12, "adv_n": 20, "adv_min": 15, "stale": 200, "old": 100, "cover": 0.90, "min_reb": 60, "hedge_win": 252, "hedge_min": 230}
