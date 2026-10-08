@@ -86,14 +86,6 @@ class _FakeStreamer:
         return {"connected": True, "fresh": True}
 
 
-class _SlowFakeStreamer(_FakeStreamer):
-    """start() takes a moment -- simulates the real ~20s MQTT connect wait, used to
-    exercise the stop-while-connecting race."""
-    def start(self):
-        time.sleep(0.15)
-        self.started = True
-
-
 class _BoomOnConstructStreamer:
     def __init__(self, *a, **k):
         raise RuntimeError("simulated: could not build the SDK client")
@@ -206,12 +198,30 @@ def test_a_failed_start_does_not_block_a_later_retry(monkeypatch):
 # ── the stop-while-connecting race ───────────────────────────────────────────────────────
 
 def test_stop_while_still_connecting_tears_down_immediately(monkeypatch):
-    monkeypatch.setattr(qe, "_webull_stream_factory", lambda: _SlowFakeStreamer)
+    # 2026-10-08 (STRATEGY-BEATING saw it fail once in a 68-min full suite): the old
+    # version slept 0.02 s / 0.3 s around a 0.15 s fake connect, so a busy box could run
+    # the asserts on the wrong side of the connect. The connect is now HELD by the test:
+    # it ends exactly when the test releases it, and the test waits for the outcome.
+    entered, release, made = threading.Event(), threading.Event(), []
+
+    class _GatedStreamer(_FakeStreamer):
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            made.append(self)
+
+        def start(self):
+            entered.set()
+            release.wait(STREAM_WAIT)
+            self.started = True
+
+    monkeypatch.setattr(qe, "_webull_stream_factory", lambda: _GatedStreamer)
     qe._start_qqq_stream({}, log=lambda *_: None)
-    time.sleep(0.02)   # still inside the simulated slow .start()
+    assert entered.wait(STREAM_WAIT), "the start thread never reached .start()"
     assert qe._qqq_stream_instance() is None, "not published yet -- still connecting"
     qe._stop_qqq_stream(log=lambda *_: None)   # stand-down arrives mid-connect
-    time.sleep(0.3)   # let the slow .start() finish
+    release.set()                              # now the connect finishes
+    assert _wait_for(lambda: bool(made) and made[0].stopped), (
+        "a streamer that finished connecting after stand-down must be stopped at once")
     assert qe._qqq_stream_instance() is None, (
         "a streamer that finished connecting AFTER stand-down must never be handed to "
         "the rest of the process")
