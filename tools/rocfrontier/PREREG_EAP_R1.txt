@@ -224,3 +224,19 @@ MRVL 75, CEG 0): the lead's review of the harness r24_eap.py (56ddc2db).
   TFCFA (members for 2019-04 only) are unmapped and count as not joined. The [E19] block prints the months that would fail
   under the other reading, as a report.
 - [E24] [E9] read literally (27): ES's own missing sessions count as missing pairs; the run prints their count as a warning.
+PRE-DATA ADDENDUM 4 (2026-10-08 11:51 MST, after the counts-only dryload and before any return is read): MANAGER's rulings
+#141 on the dryload's two findings (eap_dryload_run1_stdout.txt).
+- [E25] THE [E5] STOP FIRED - A RECORDED MANAGER WAIVER (the stop itself is not rewritten). Recall into the DUE month was 79.8% in
+  the partial first WF year 2016-17 (99 of 124 actual releases: one short of 80%; 7 ranks), 80.0% in 2024-25 (248 of 310), 81.4 -
+  86.2% in every other year, 83.7% over the whole WF stretch; precision 71.9% within 3 sessions, 95.7% within 7 - no sign of a
+  broken calendar. MANAGER waives the stop for this run and the waiver is written in the result line. Stage A runs on the FULL
+  WF window as registered AND, as a sensitivity, with 2016-17 dropped (positions, events and days before 2017-07-01 left out,
+  every check (a) - (e) and the null recomputed on the shorter stretch). If the two verdicts differ, the STRICTER governs and the
+  result line says so. No hand-hunting for the missing release. The waiver covers exactly this failure: a recall under 80% in
+  any other July-June year still stops the run.
+- [E26] [E9]'s 252 ES PAIRS ARE COUNTED OVER SESSIONS WHERE ES HAS A RETURN (MANAGER: GO). The ES master has no close-to-close
+  return on 4 sessions (2020-02-28, 2020-03-02, 2020-06-30, 2020-07-01: missing 16:00 prints); read literally, [E9] then left no W
+  event for a year after each (371 events lost, W empty through 2020-21). The beta window is now the 252 most recent sessions
+  before the entry on which ES's return is defined - it reaches back past ES's own holes, the count stays 252 - and a stock still
+  needs its own return on each of them. The run log prints the 4 dates. [E11]'s moved entries and M's betas ([E13], CHOICE 1)
+  follow the same rule.
