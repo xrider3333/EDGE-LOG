@@ -49,8 +49,10 @@ ENGU-Q moved to the shadow legs by OWNER DECISION 2026-09-28 -- see SHADOW LEGS 
 
 SHADOW LEGS (OWNER DECISION 2026-09-28, via MANAGER) -- SHADOW_LEGS below. Same engine,
 same bars, NO orders: they write only to their own store, <home>/cloud_signal/shadow/
-(state.json + signals.csv -- see shadow_paths), which api/qqq_exec.py never reads, so
-nothing they do can reach Webull, the live legs, their caps or their state. They exist
+(state.json + signals.csv -- see shadow_paths), which api/qqq_exec.py never reads for
+orders (its one read, since 2026-10-09, is the display-only "shadow_trades" block of its
+status doc -- _build_shadow_trades), so nothing they do can reach Webull, the live legs,
+their caps or their state. They exist
 so the Custom ML chat can score would-be trades (docs/PREREG_noise_shadow_forward_
 2026-09-28.md; tools/shadow_legs_report.py reads the ledger). Run by run_shadow_step()
 from cloud_signal_thread, after the live step, on fetch ticks only.
@@ -194,8 +196,10 @@ def shadow_paths(live_paths=None):
     """The SHADOW LEGS' store (OWNER DECISION 2026-09-28): the same keys as _paths(), with
     ohlc_dir = the LIVE store's own bar cache (the shadow legs read the very bars the live
     legs do -- QQQ_5m/QQQ_1m/QQQ_1d.csv and any backfill -- and never write them) and every
-    state file under <live state_dir>/shadow/. api/qqq_exec.py reads only
-    DEFAULT_PATHS["signals_path"], so nothing written here can ever become an order.
+    state file under <live state_dir>/shadow/. api/qqq_exec.py takes orders only from
+    DEFAULT_PATHS["signals_path"], so nothing written here can ever become an order (it
+    reads this store's signals.csv for one display-only block of its status doc,
+    "shadow_trades" -- see api/qqq_exec.py _build_shadow_trades).
     Built from `live_paths` (default DEFAULT_PATHS, read at call time) so a test that
     repoints DEFAULT_PATHS gets a matching shadow store under it."""
     live_paths = live_paths or DEFAULT_PATHS

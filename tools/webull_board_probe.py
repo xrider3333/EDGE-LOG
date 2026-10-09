@@ -238,6 +238,28 @@ legend rows; and three caveat trades whose Webull exit try came back REFUSED, NE
 STATIC: the chart key says 'book only = order never reached Webull' and 'book price = no Webull fill price' (L6; the phone key keeps its one short line, the 757 px phone list limit), and
 the page never says Webull has no paper API (L4).
 
+SHADOW TRADES (MANAGER #87 d, 2026-10-09): the box's status doc carries the no-order shadow legs' would-be trades in ONE separate
+top-level key, shadow_trades (api/qqq_exec.py _build_shadow_trades, paired by tools/shadow_legs_report.pair_trades), never inside
+trades_all. The board feeds it into the strategy list's "Shadow - not counted" fold and nowhere else. The block comes from
+tools/fixtures/qqq_exec_shadow_trades.json (a read-only copy of the box's shadow ledger up to the base fixture's own 10:03:06, plus
+ENGU-Q #335's 09-28 long that the seed carry writes, still open, marked at the doc's own last QQQ price), laid over the base fixture.
+Seven stats cases: the block on a laptop (ALL, both folds open) and on a 375x812 phone in MONO (folds closed) are each checked against a
+twin render WITHOUT the block (the laptop ALL case; a plain 375x812 MONO case): the account number, the today line, the stat tiles,
+More stats, the chart's own paths, its legend, the calendar's days and month line, the list header, the BOOK rows and the trade list are
+identical, and on the phone the trade list starts exactly where it did (the fold is closed, it adds no height; the 757 px limit holds);
+the block on a 375x812 phone with both folds open (one line a row); the box's error form (no legs, no trades, its reason in the fold's
+note); ENGU-Q's trade closed 10-08 at 746.8612 (TODAY, MONO, both
+folds open: +$88.32, 1 trade, 100% won; the range cut leaves one NOISE #422 trade a leg; the box dropped 12 older trades and the
+note says so); and a trades_all shadow row whose trade id the block
+also carries (the older path still works, and the trade is shown once, from the block). The phone case with both folds open also
+stores the phone's one-line Strategies fold open, so every Shadow row is drawn there and must be one line. In each, the fold's rows are worked out here
+from the doc (expected_shadow_rows): its count = one row per leg the box lists (+ any older shadow-flagged trades_all leg), ENGU-Q #335
+first then the box's order, each row faded with the range's would-be P&L, trades and win rate, the sub-line 'shadow · no orders · not
+counted', the open line ('1 open, long since 09-28 @ 738.03 · +$137.01 at 751.73'), 'carried from seed' on the leg with a seeded trade,
+and on ENGU-Q the hover naming the live Webull order for the same signal (flattened 09-28 15:59 for its P&L of record, the book price
+beside it, in the Retired ENGU-Q #335 row) and no such sentence on any other leg. The trade list run 'a shadow row closed today' gets the
+block too: neither the list nor the CSV may hold one of its trades.
+
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks; a retry that passes prints a FLAKE line.
 
@@ -271,6 +293,8 @@ import time
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIXTURE = os.path.join(ROOT, 'tools', 'fixtures', 'qqq_exec_box1005.json')
+# MANAGER #87 d: the status doc's separate shadow_trades block, laid over FIXTURE by the shadow block cases
+SHADOW_FIXTURE = os.path.join(ROOT, 'tools', 'fixtures', 'qqq_exec_shadow_trades.json')
 
 VIEWPORTS = {'laptop': [1366, 768], 'phone': [375, 812], 'phone390': [390, 844]}
 CASES = [['%s/%s' % (vp, th), {'vp': vp, 'theme': th}] for vp in ('laptop', 'phone') for th in ('dark', 'mono')]
@@ -740,6 +764,11 @@ _EQB = "              +'<div class=\"qbx-lgchart\" id=\"qb-lg-chart\"></div>'"
 _EQC = ("              +ledgerChartFootHtml({id:'qb',cap:'<span class=\"qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'\">'+qbRangeCap+'</span>',"
         "key:keyHtml})+'</div>';")
 # the strategy list's Filters row (passed to ledgerListHtml as o.filters)
+# MANAGER #87 d mutants: the box's shadow_trades block mapped into trades_all-shaped rows (the leg key as %s), the way a careless merge
+# would do it, so a mutant can push the block's closed trades into something that counts
+_SH_AS_ROWS = ("((QE.shadow_trades||{}).trades||[]).filter(x=>x.exit_time).map(x=>({leg:%s,trade_id:x.trade_id,side:x.side,"
+               "entry_ts:String(x.entry_time).slice(0,19).replace('T',' '),exit_ts:String(x.exit_time).slice(0,19).replace('T',' '),"
+               "entry_px:x.entry_px,exit_px:x.exit_px,shares:x.shares,pnl_record:x.pnl_usd}))")
 _QB_FILT = (_CRLF + "            filters:ledgerFiltersHtml({id:'qb',none:'This list has no filters: every strategy counts. Retired and Shadow are the folds below.'})});")
 
 MUTANTS = [
@@ -1914,6 +1943,83 @@ MUTANTS = [
      "(mk.wb_out||[]).forEach(a=>att(a,true));",
      '',
      'the Webull exit attempt is never drawn on the chart'),
+    # MANAGER #87 d (2026-10-09): the box's shadow_trades block feeds the Shadow - not counted fold and nothing else
+    ('shadow-trades-not-read',
+     "const qbShB=(QE.shadow_trades&&typeof QE.shadow_trades==='object'",
+     "const qbShB=(QE.shadow_trades_x&&typeof QE.shadow_trades==='object'",
+     "the board never reads the box's shadow_trades block, so the Shadow fold stays empty"),
+    ('shadow-trades-in-account',
+     "const trades=(QE.trades_all||[]).filter(t=>!qbIsShadowRow(t));",
+     "const trades=(QE.trades_all||[]).filter(t=>!qbIsShadowRow(t)).concat(" + (_SH_AS_ROWS % 'x.leg') + ");",
+     "the shadow block's closed trades are added to the board's trades (the account number, chart, tiles, calendar, list, CSV)"),
+    ('shadow-trades-in-calendar',
+     "const qbCalDays=ledgerCalDays(qbRangeTrades,{pnl:qePnlOf,day:qeTradeDate});",
+     "const qbCalDays=ledgerCalDays(qbRangeTrades.concat(qbShRangeClosed),{pnl:qePnlOf,day:t=>t.exitDate||qeTradeDate(t)});",
+     "the shadow block's trades are added into the calendar's days and month total"),
+    ('shadow-trades-in-list-total',
+     "const fg=qbRangeFigs(qbRangeTrades.filter(t=>t.leg===key));",
+     "const fg=qbRangeFigs(qbRangeTrades.concat(qbShRangeClosed.map(t=>Object.assign({},t,{leg:t.leg.split('_')[0]}))).filter(t=>t.leg===key));",
+     "the shadow block's trades are added into their family's BOOK row (NOISE #422 into NOISE #382)"),
+    ('shadow-trades-in-chart',
+     "const chrono=qbRangeTrades.slice().sort((a,b)=>tsOf(a)<tsOf(b)?-1:tsOf(a)>tsOf(b)?1:0);",
+     "const chrono=qbRangeTrades.concat(" + (_SH_AS_ROWS % 'x.leg') + ").sort((a,b)=>tsOf(a)<tsOf(b)?-1:tsOf(a)>tsOf(b)?1:0);",
+     "the shadow block's trades are drawn into the equity chart"),
+    ('shadow-trades-in-trade-list',
+     'const qbAllVm=qbRangeTrades.map(qbVm);',
+     "const qbAllVm=qbRangeTrades.concat(" + (_SH_AS_ROWS % "String(x.leg).split('_')[0]") + ").map(qbVm);",
+     "the shadow block's trades are drawn in the trade list and counted in it"),
+    ('shadow-trades-in-csv',
+     'window._qeTradesForExport=qbMatchedVm.map(v=>v._t);',
+     "window._qeTradesForExport=qbMatchedVm.map(v=>v._t).concat(" + (_SH_AS_ROWS % 'x.leg') + ");",
+     "the CSV carries the shadow block's trades"),
+    ('shadow-seed-tag-missing',
+     "tag:seeded?'<span class=\"qbx-sh-seed\"",
+     "tag:false?'<span class=\"qbx-sh-seed\"",
+     "a trade carried from the leg's cold-start seed loses its 'carried from seed' tag"),
+    ('shadow-open-line-missing',
+     "(s.open.length?'<span data-qbshopen=\"1\">'",
+     "(false?'<span data-qbshopen=\"1\">'",
+     "a shadow leg's open trade has no open line ('1 open, long since 09-28 @ 738.03')"),
+    ('shadow-enguq-not-first',
+     "qbShLegs.sort((a,b)=>(/^ENGUQ/i.test(b)?1:0)-(/^ENGUQ/i.test(a)?1:0));",
+     "",
+     "ENGU-Q #335 is no longer the Shadow fold's first row (the box lists it last)"),
+    ('shadow-hover-no-live-order',
+     "if(lv){const rec=qePnlOf(lv)",
+     "if(false){const rec=qePnlOf(lv)",
+     "ENGU-Q's hover no longer says the live Webull order for this signal was flattened 09-28 15:59"),
+    ('shadow-open-counted-as-trade',
+     "const qbShClosed=qbShTr.filter(t=>!t.open&&t.pnl_record!==null&&t.exitDate);",
+     "const qbShClosed=qbShTr.filter(t=>t.pnl_record!==null||t.open);",
+     "an open shadow trade is counted as a closed $0 trade in its row"),
+    ('shadow-dedupe-lost',
+     "const shOld=qbShadowRange.filter(t=>!qbShIds.has(String((t&&t.trade_id)||'')));",
+     "const shOld=qbShadowRange;",
+     "a trade the block carries is shown twice (once more from a trades_all row flagged shadow)"),
+    ('shadow-old-path-lost',
+     "shOld.forEach(t=>shGet(qeTradeLegName(t),null).closed.push(t));",
+     "",
+     "trades_all rows flagged shadow (the older path) no longer reach the fold's figures"),
+    ('shadow-range-ignored',
+     "const qbShRangeClosed=qbRange?ledgerInRange(qbShClosed,qbRange):qbShClosed;",
+     "const qbShRangeClosed=qbShClosed;",
+     "the shadow rows count every block trade whatever range is chosen"),
+    ('shadow-sub-line-words',
+     "'<span>shadow &middot; no orders &middot; not counted</span></span>'",
+     "'<span>shadow &middot; no orders</span></span>'",
+     "a shadow row's sub-line no longer says it is not counted"),
+    ('shadow-capped-note-missing',
+     "+(qeFin(qbShB.capped)>0?' Only the newest '",
+     "+(false?' Only the newest '",
+     "the fold no longer says the box left older shadow trades out"),
+    ('shadow-error-note-missing',
+     "+(qbShB.error?' The box sent no shadow trades this time ('",
+     "+(false?' The box sent no shadow trades this time ('",
+     "the fold no longer says why the box sent no shadow trades"),
+    ('shadow-open-with-block',
+     "const gShadow={key:'shadow',title:'Shadow - not counted',fold:true,open:qbShadowOpen,",
+     "const gShadow={key:'shadow',title:'Shadow - not counted',fold:true,open:qbShadowOpen||qbShTr.length>0,",
+     "the Shadow fold opens by itself when the box sends shadow trades (the phone list grows)"),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -2019,7 +2125,9 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       var v=b.querySelector('.lg-row-val'),vc=v?v.cloneNode(true):null,sm=vc?vc.querySelector('small'):null,sm0=v?v.querySelector('small'):null,v2=null;
       if(sm){v2=(sm.textContent||'').replace(/\\s+/g,' ').trim();sm.parentNode.removeChild(sm);}
       var sb=b.querySelector('.lg-row-sub'),rc=b.getBoundingClientRect(),ex=b.nextElementSibling;
+      var shl=b.querySelector('[data-qbshleg]'),shs=b.querySelector('[data-qbshseed]'),sho=b.querySelector('[data-qbshopen]');
       return {key:b.getAttribute('data-lgrow'),name:cn?(cn.textContent||'').replace(/\\s+/g,' ').trim():null,tag:tg,
+        tip:shl?shl.getAttribute('title'):null,seed:shs?(shs.textContent||'').trim():null,open:sho?(sho.textContent||'').replace(/\\s+/g,' ').trim():null,
         sub:sb?(sb.textContent||'').replace(/\\s+/g,' ').trim():null,subShown:sb?w.getComputedStyle(sb).display!=='none':false,
         value:vc?(vc.textContent||'').replace(/\\s+/g,' ').trim():null,value2:v2,value2Shown:sm0?w.getComputedStyle(sm0).display!=='none':false,
         off:b.classList.contains('off'),h:Math.round(rc.height),sw:b.querySelectorAll('[data-lgsw]').length,
@@ -2171,6 +2279,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     r.chartTicks=csv?csv.querySelectorAll('[data-lgtick]').length:0;
     r.chartBands=csv?csv.querySelectorAll('[data-lgband]').length:0;
     r.chartMarks=csv?csv.querySelectorAll('[data-lgmark]').length:0;
+    r.chartSig=csv?[].map.call(csv.querySelectorAll('path,polyline'),function(e){return e.getAttribute('d')||e.getAttribute('points')||'';}).join('|'):null;
     var mk=csv?csv.querySelector('[data-lgmark]'):null;
     r.markText=mk&&mk.nextElementSibling?(mk.nextElementSibling.textContent||'').trim():null;
     r.lines=[].map.call(d.querySelectorAll('#qb-lg-chart .lg-legend [data-lgline]'),function(b){return (b.textContent||'').trim();});
@@ -2558,7 +2667,7 @@ __S11JS__
         out.stats={};
         for(var k=0;k<STATS.length;k++){
           var S=STATS[k];
-          await runCase('__st'+k,{vp:S.vp,theme:S.theme,fix:S.doc,range:S.range,todayNY:S.today,calMonth:S.calMonth,moreOpen:S.more,calOpen:S.calOpen,folds:S.folds,nowMs:S.nowMs});
+          await runCase('__st'+k,{vp:S.vp,theme:S.theme,fix:S.doc,range:S.range,todayNY:S.today,calMonth:S.calMonth,moreOpen:S.more,calOpen:S.calOpen,folds:S.folds,foldOpen:S.foldOpen,nowMs:S.nowMs});
           out.stats[S.name]=out.cases['__st'+k];delete out.cases['__st'+k];
         }
         try{W().eval("ledgerTodayNY=window.__probeLTN||ledgerTodayNY;");}catch(e){}
@@ -4036,6 +4145,129 @@ def _shadow_doc(fixture):
     return doc
 
 
+# MANAGER #87 d (2026-10-09): the box's shadow_trades block -- a separate top-level key of the status doc, never rows in trades_all.
+SHADOW_SUB = 'shadow · no orders · not counted'     # every shadow row's sub-line
+SEED_TAG = 'carried from seed'                        # the tag on a leg whose trade was carried from its cold-start seed
+SHADOW_FIRST = 'ENGU-Q #335'                          # the fold's first row
+ENGUQ_EXIT = ('2026-10-08T13:01:00-04:00', 746.8612)  # ENGU-Q #335's seeded 09-28 long, closed (the shadow ledger, 10-08)
+SHADOW_CAPPED = 12                                    # a block whose box dropped this many older trades (the fold's note says so)
+SHADOW_ERROR = 'shadow ledger not found'              # api/qqq_exec.py's error form: the block is there, with no legs and no trades
+_SHADOW_BLOCK = {}
+
+
+def _shadow_block():
+    """The fixture's shadow_trades block (a fresh copy each call)."""
+    if 'b' not in _SHADOW_BLOCK:
+        _SHADOW_BLOCK['b'] = json.load(io.open(SHADOW_FIXTURE, encoding='utf-8'))['shadow_trades']
+    return json.loads(json.dumps(_SHADOW_BLOCK['b']))
+
+
+def _shtr_doc(base, closed=False, dup_of=None, capped=0, error=None):
+    """`base` plus the box's shadow_trades block. closed: ENGU-Q's seeded long has closed (ENGUQ_EXIT). dup_of: a trades_all shadow
+    row whose trade id the block also carries (as a NOISE #422 plain trade with its own price), so the fold must show it once.
+    capped: the box dropped that many older trades (the fold's note says so). error: the box could not read its shadow ledger
+    (api/qqq_exec.py's error form: no legs, no trades, the reason)."""
+    doc = json.loads(json.dumps(base))
+    b = _shadow_block()
+    b['capped'] = capped
+    if error:
+        b.update({'legs': [], 'trades': [], 'error': error})
+        doc['shadow_trades'] = b
+        return doc
+    if closed:
+        for t in b['trades']:
+            if t['leg'] == 'ENGUQ_335' and t.get('exit_time') is None:
+                px = ENGUQ_EXIT[1]
+                t.update({'exit_time': ENGUQ_EXIT[0], 'exit_px': px, 'mark_px': None, 'unreal_usd': None,
+                          'pnl_usd': round((px - t['entry_px']) * t['shares'], 2)})
+    if dup_of is not None:
+        b['trades'].insert(0, {'leg': 'NOISE_422_PLAIN', 'trade_id': dup_of['trade_id'], 'side': 'long',
+                               'entry_time': '2026-10-05T15:20:00-04:00', 'entry_px': 750.0, 'exit_time': '2026-10-05T15:50:00-04:00',
+                               'exit_px': 751.25, 'size': 1.0, 'shares': 10, 'seeded': False, 'pnl_usd': 12.5,
+                               'mark_px': None, 'unreal_usd': None})
+    doc['shadow_trades'] = b
+    return doc
+
+
+def _shadow_both_doc(fixture):
+    """The trade list run's doc: a trades_all shadow row closed today AND the box's shadow_trades block."""
+    return _shtr_doc(_shadow_doc(fixture))
+
+
+def _ny_wall(s):
+    """index.html qbShWhen: an ISO stamp with an offset (or Z) -> its New York (day, 'HH:MM'); a bare stamp is New York already."""
+    import datetime as _dt
+    s = str(s or '').strip()
+    if not s:
+        return None
+    if re.search(r'(Z|[+-]\d{2}:?\d{2})$', s):
+        try:
+            t = _dt.datetime.fromisoformat(s.replace('Z', '+00:00'))
+        except ValueError:
+            return None
+        ms = t.timestamp() * 1000
+        for off in (4, 5):
+            w = t.astimezone(_dt.timezone(_dt.timedelta(hours=-off))).replace(tzinfo=None)
+            if abs(et_ms(w.strftime('%Y-%m-%d %H:%M:%S')) - ms) < 1000:
+                return (w.strftime('%Y-%m-%d'), w.strftime('%H:%M'))
+        return None
+    m = re.match(r'^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}))?', s)
+    return (m.group(1), m.group(2) or '') if m else None
+
+
+def shadow_leg_name(k):
+    """index.html qbShLegName: 'ENGUQ_335' -> 'ENGU-Q #335', 'NOISE_422_KEEL' -> 'NOISE #422 KEEL', 'NOISE_422_PLAIN' -> 'NOISE #422 plain'."""
+    m = re.match(r'^([A-Za-z]+)_(\d+)(?:_(\w+))?$', str(k or ''))
+    if not m:
+        return str(k) if k not in (None, '') else '—'
+    v = m.group(3) or ''
+    v = 'KEEL' if v.upper() == 'KEEL' else v.lower().replace('_', ' ')
+    return FAMILY.get(m.group(1).upper(), m.group(1).upper()) + ' #' + m.group(2) + (' ' + v if v else '')
+
+
+def _shadow_block_trades(doc):
+    """index.html qbShTr: the block's trades with their New York entry / exit, price, shares and whether still open."""
+    b = doc.get('shadow_trades')
+    if not isinstance(b, dict):
+        return None, []
+    base = _fin(b.get('base_shares'))
+    base = base if base and base > 0 else 10
+    out = []
+    for x in b.get('trades') or []:
+        if not isinstance(x, dict) or not x.get('leg'):
+            continue
+        side = 'short' if str(x.get('side') or 'long').lower() == 'short' else 'long'
+        en = _ny_wall(x.get('entry_time'))
+        ex = _ny_wall(x.get('exit_time')) if x.get('exit_time') else None
+        ep, xp = _fin(x.get('entry_px')), _fin(x.get('exit_px'))
+        sz = _fin(x.get('size'))
+        sz = sz if sz and sz > 0 else 1.0
+        sh = _fin(x.get('shares'))
+        sh = sh if sh is not None else _js_round(base * sz)
+        pnl = _fin(x.get('pnl_usd'))
+        if pnl is None and ex and ep is not None and xp is not None:
+            pnl = _js_round((xp - ep) * sh * (-1 if side == 'short' else 1) * 100) / 100.0
+        is_open = not x.get('exit_time')
+        out.append({'leg': str(x['leg']), 'trade_id': str(x.get('trade_id') or ''), 'side': side, 'en': en, 'ep': ep,
+                    'open': is_open, 'pnl': pnl if (ex and pnl is not None) else None, 'exit_day': ex[0] if ex else None,
+                    'seeded': x.get('seeded') is True, 'mark': None if x.get('exit_time') else _fin(x.get('mark_px')),
+                    'unreal': None if x.get('exit_time') else _fin(x.get('unreal_usd'))})
+    return base, out
+
+
+def _shadow_open_line(os_):
+    """index.html shOpenLine: '1 open, long since 09-28 @ 738.03 · +$137.01 at 751.73'."""
+    t = sorted(os_, key=lambda x: (x['en'][0] + ' ' + x['en'][1]) if x['en'] else '', reverse=True)[0]
+    one = len(os_) == 1
+    s = '%d open, %s%s since %s' % (len(os_), '' if one else 'the newest ', t['side'], t['en'][0][5:] if t['en'] else '?')
+    if t['ep'] is not None:
+        s += ' @ %.2f' % t['ep']
+    u = [x['unreal'] for x in os_ if x['unreal'] is not None]
+    if len(u) == len(os_):
+        s += ' · ' + signed(round(sum(u), 2)) + ((' at %.2f' % t['mark']) if one and t['mark'] is not None else ' at the last price')
+    return s
+
+
 # LEDGER unify steps 7 + 10: the shared calendar and the shared strategy list, recomputed here from the fixture (never read off
 # the page). The calendar takes the chosen range's trades at the P&L of record on their close day; the list's rows are the legs
 # the board names (ORB #314, ENGU-Q #335, NOISE #382), the range's P&L of record, trades and win rate.
@@ -4190,18 +4422,75 @@ def expected_list_count(trades, cutoff, range_key):
     return '%s · %s' % (signed(round(sum(qe_pnl_of(t) for t in rows), 2)), RANGE_WORD[range_key])
 
 
-def expected_shadow_rows(trades, cutoff=None):
-    """{row name: signed money} of the no-order shadow rows in the range (the list's Shadow group, never counted)."""
-    out = {}
+def expected_shadow_rows(doc, cutoff=None):
+    """The Shadow - not counted fold's rows, in order (never counted): one per leg the box's shadow_trades block lists (ENGU-Q #335
+    first, then the box's order), then the older path's trades_all rows flagged shadow, one per family + run (sorted), a trade id the
+    block carries left out. Each: name, value (the range's would-be P&L, '—' with nothing closed in it), value2 (trades, win rate),
+    open (the open line, or None), seed (a seeded trade among them), live (the hover's sentence on the live order for the same signal,
+    or None), block (a row from the block)."""
+    trades = doc.get('trades_all') or []
+    b = doc.get('shadow_trades') if isinstance(doc.get('shadow_trades'), dict) else {}
+    base, bt = _shadow_block_trades(doc)
+    ids = set(t['trade_id'] for t in bt if t['trade_id'])
+    order, by = [], {}
+
+    def get(nm, lk):
+        if nm not in by:
+            by[nm] = {'name': nm, 'lk': lk, 'vals': [], 'open': [], 'seed': False, 'mine': []}
+            order.append(nm)
+        return by[nm]
+    legs = []
+    for k in list(b.get('legs') or []) + [t['leg'] for t in bt]:
+        k = str(k or '')
+        if k and k not in legs:
+            legs.append(k)
+    legs.sort(key=lambda k: 0 if re.match(r'^ENGUQ', k, re.I) else 1)
+    for k in legs:
+        get(shadow_leg_name(k), k)
+    for t in bt:
+        if t['open']:
+            g = get(shadow_leg_name(t['leg']), t['leg'])
+            g['open'].append(t)
+            g['seed'] = g['seed'] or t['seeded']
+        elif t['pnl'] is not None and t['exit_day'] and (not cutoff or t['exit_day'] >= cutoff):
+            g = get(shadow_leg_name(t['leg']), t['leg'])
+            g['vals'].append(t['pnl'])
+            g['seed'] = g['seed'] or t['seeded']
+    old = [t for t in trades if _is_shadow(t) and not (cutoff and (_close_day(t) or '') < cutoff)
+           and str(t.get('trade_id') or '') not in ids]
+    for nm in sorted(set(expected_leg_name(t) for t in old)):
+        get(nm, None)
+    for t in old:
+        get(expected_leg_name(t), None)['vals'].append(qe_pnl_of(t))
+    # the hover's live-order sentence: the newest live (counted) trade sharing a trade id with one of the leg's block trades
+    live_by_id = {}
     for t in trades:
-        if not _is_shadow(t):
-            continue
-        d = _close_day(t) or ''
-        if cutoff and d < cutoff:
-            continue
-        nm = expected_leg_name(t)
-        out[nm] = out.get(nm, 0.0) + qe_pnl_of(t)
-    return dict((k, signed(round(v, 2))) for k, v in out.items())
+        if not _is_shadow(t) and t.get('trade_id'):
+            live_by_id[str(t['trade_id'])] = t
+    held = 'ENGUQ' in _positions(doc)
+    out = []
+    for nm in order:
+        g = by[nm]
+        f = _row_figs(g['vals'])
+        lv = None
+        if g['lk']:
+            for t in bt:
+                x = live_by_id.get(t['trade_id']) if (t['leg'] == g['lk'] and t['trade_id']) else None
+                if x is not None and (lv is None or str(x.get('exit_ts') or '') > str(lv.get('exit_ts') or '')):
+                    lv = x
+        live = None
+        if lv is not None:
+            rec, bk, xt = qe_pnl_of(lv), _fin(lv.get('pnl')), str(lv.get('exit_ts') or '')
+            k = lv.get('leg')
+            grp = ('BOOK' if held else 'Retired') if k == 'ENGUQ' else ('BOOK' if k in FAMILY else 'Other legs')
+            live = ('The live Webull order for this signal was %s %s for %s%s, in the %s %s row. This row is the strategy\u2019s own hold.'
+                    % ('flattened' if re.match(r'^EOD', str(lv.get('exit_reason') or ''), re.I) else 'closed',
+                       xt[5:16] if xt else '(time not known)', signed(rec),
+                       (' (book price %s)' % signed(bk)) if (bk is not None and abs(bk - rec) >= 0.005) else '',
+                       grp, expected_leg_name(lv)))
+        out.append({'name': nm, 'value': f['value'], 'value2': f['value2'], 'open': _shadow_open_line(g['open']) if g['open'] else None,
+                    'seed': g['seed'], 'live': live, 'block': g['lk'] is not None})
+    return out
 
 
 def _positions(doc):
@@ -4367,7 +4656,7 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         fails.append('%s: the Retired group reads %r (fold %s), want a fold saying "flat since %s"'
                      % (tag, rt.get('head'), rt.get('fold'), RETIRED_SINCE))
     sh = by['shadow']
-    shadow = expected_shadow_rows(trades, cutoff)
+    shadow = expected_shadow_rows(doc, cutoff)
     if not sh.get('fold') or (sh.get('head') or '').replace('▾', '').strip() != 'Shadow - not counted · %d' % len(shadow):
         fails.append('%s: the Shadow group reads %r (fold %s), want a fold reading "Shadow - not counted · %d"'
                      % (tag, sh.get('head'), sh.get('fold'), len(shadow)))
@@ -4393,11 +4682,33 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
             fails.append('%s: BOOK + Retired add up to %s, the P&L of record of the range is %s (a shadow leg, or a leg with no row, '
                          'moved the list off the account number)' % (tag, signed(round(sum(counted), 2)), signed(want_tot)))
     if shadow_open:
-        sn = dict((x['name'], x['value']) for x in sh.get('rows') or [])
-        if sn != shadow:
-            fails.append('%s: the Shadow rows are %r, the fixture says %r' % (tag, sn, shadow))
-        if any(not x.get('off') for x in sh.get('rows') or []):
+        srows = sh.get('rows') or []
+        sn = [(x.get('name'), x.get('value')) for x in srows]
+        want_sn = [(e['name'], e['value']) for e in shadow]
+        if sn != want_sn:
+            fails.append('%s: the Shadow rows are %r, the doc says %r (one row per shadow leg, ENGU-Q #335 first, then the box\'s order; '
+                         'the range\'s would-be P&L)' % (tag, sn, want_sn))
+        if any(not x.get('off') for x in srows):
             fails.append('%s: a shadow row is not drawn faded (it is not counted)' % tag)
+        if shadow and len(srows) == len(shadow):
+            for x, e in zip(srows, shadow):
+                nm = e['name']
+                if (x.get('tag') == SEED_TAG) != e['seed'] or (x.get('seed') == SEED_TAG) != e['seed']:
+                    fails.append("%s: the Shadow row %s carries the tag %r, want %s" % (tag, nm, x.get('tag'), repr(SEED_TAG) if e['seed'] else 'none'))
+                tip = x.get('tip') or ''
+                if not tip.startswith(nm + ': a shadow leg.') or 'never counted' not in tip:
+                    fails.append('%s: the Shadow row %s hover reads %r (want it named, a shadow leg, never counted)' % (tag, nm, _first(tip, 160)))
+                if e['live'] and e['live'] not in tip:
+                    fails.append('%s: the Shadow row %s hover does not say %r (it says %r)' % (tag, nm, e['live'], _first(tip, 400)))
+                if not e['live'] and 'live Webull order' in tip:
+                    fails.append('%s: the Shadow row %s hover names a live Webull order it has none of: %r' % (tag, nm, _first(tip, 400)))
+                if not vp.startswith('phone'):
+                    if x.get('value2') != e['value2']:
+                        fails.append("%s: the Shadow row %s reads %r under its money, the doc says %r" % (tag, nm, x.get('value2'), e['value2']))
+                    if SHADOW_SUB not in (x.get('sub') or ''):
+                        fails.append('%s: the Shadow row %s sub-line reads %r, want it to say %r' % (tag, nm, x.get('sub'), SHADOW_SUB))
+                    if (x.get('open') or None) != e['open']:
+                        fails.append('%s: the Shadow row %s open line reads %r, the doc says %r' % (tag, nm, x.get('open'), e['open']))
     rows = [x for g in groups for x in g.get('rows') or []]
     if vp.startswith('phone'):
         tall = [(x['name'], x['h']) for x in rows if x.get('h', 0) > PHONE_ROW_MAX_H]
@@ -4550,9 +4861,10 @@ def _stats_cases(fixture):
     z = _zero_doc(fixture)
 
     def c(name, rg, doc, vp='laptop', th='dark', cal=None, today=STAT_TODAY, more=False, empty=False, now=None,
-          cal_open=None, folds=False):
+          cal_open=None, folds=False, list_open=False):
+        # list_open: the phone's one-line Strategies fold is stored open, so its rows are drawn (and measured) on a phone
         return {'name': name, 'range': rg, 'doc': doc, 'vp': vp, 'theme': th, 'cal': cal, 'today': today,
-                'more': more, 'empty': empty, 'now': now or FRESH_NOW, 'cal_open': cal_open, 'folds': folds}
+                'more': more, 'empty': empty, 'now': now or FRESH_NOW, 'cal_open': cal_open, 'folds': folds, 'list_open': list_open}
     return [c('ALL', 'ALL', fixture),
             c('1W', '1W', fixture),
             c('1W (MONO, 390x844, More stats open)', '1W', fixture, vp='phone390', th='mono', more=True, cal_open='1'),
@@ -4564,7 +4876,104 @@ def _stats_cases(fixture):
             c('a shadow row closed today (ALL, More stats open)', 'ALL', _shadow_doc(fixture), th='mono', more=True, folds=True),
             c('an unlisted strategy leg (ALL, 375x812, both folds open)', 'ALL', _other_doc(fixture), vp='phone', folds=True),
             c('ENGU-Q holds a position (ALL, 1366x768)', 'ALL', _enguq_open_doc(fixture)),
-            c('ENGU-Q holds a position (ALL, 375x812)', 'ALL', _enguq_open_doc(fixture), vp='phone')]
+            c('ENGU-Q holds a position (ALL, 375x812)', 'ALL', _enguq_open_doc(fixture), vp='phone'),
+            # MANAGER #87 d: the box's shadow_trades block (judged in _judge_list and _judge_shadow_block), each block case against a
+            # twin render without it where it names one
+            c('ALL (375x812, MONO)', 'ALL', fixture, vp='phone', th='mono'),
+            dict(c("the box's shadow block, ENGU-Q held (ALL, both folds open)", 'ALL', _shtr_doc(fixture), folds=True), twin='ALL'),
+            dict(c("the box's shadow block, ENGU-Q held (ALL, 375x812, MONO)", 'ALL', _shtr_doc(fixture), vp='phone', th='mono'),
+                 twin='ALL (375x812, MONO)'),
+            c("the box's shadow block, ENGU-Q held (ALL, 375x812, the list and both folds open)", 'ALL', _shtr_doc(fixture), vp='phone',
+              folds=True, list_open=True),
+            c("the box's shadow block, ENGU-Q closed 10-08 (TODAY, MONO, both folds open)", 'TODAY',
+              _shtr_doc(fixture, closed=True, capped=SHADOW_CAPPED), th='mono', folds=True),
+            c("the box's shadow block could not read its ledger (ALL, both folds open)", 'ALL', _shtr_doc(fixture, error=SHADOW_ERROR),
+              folds=True),
+            c("a shadow row closed today the box's block also carries (ALL, both folds open)", 'ALL',
+              _shtr_doc(_shadow_doc(fixture), dup_of={'trade_id': 'NOISE-20261005T195000Z-L'}), folds=True)]
+
+
+SHADOW_TWIN_KEYS = [('heroBig', 'the account number'), ('heroToday', 'the today line'), ('stats', 'the stat tiles'),
+                    ('more', 'More stats'), ('chartSig', "the chart's own lines"), ('chartDates', 'the chart dates'),
+                    ('chartTicks', 'the chart price labels'), ('chartBands', 'the caveat days on the chart'), ('lines', 'the chart legend'),
+                    ('calWon', 'the calendar month line'), ('tradeRows', 'the trade list'), ('tradeLegs', 'the trade list strategies')]
+
+
+def _shadow_phone_top(r):
+    """phone: how far under the board top the trade list starts (the step 11 marker positions)."""
+    pp = ((r or {}).get('s11') or {}).get('pos') or {}
+    return (pp.get('trades') or {}).get('t', 0) - (pp.get('shell') or {}).get('t', 0) if pp.get('trades') and pp.get('shell') else None
+
+
+def _judge_shadow_block(tag, r, sc_, doc, got_st, fails):
+    """MANAGER #87 d: a stats case whose doc carries the box's shadow_trades block (the fold's rows themselves are judged in _judge_list
+    against expected_shadow_rows). The probe's own case first, then -- where the case names a twin render WITHOUT the block -- adding
+    the block must move nothing that counts: the same account number, today line, tiles, More stats, chart lines, legend, calendar days
+    and month line, list header, BOOK rows and trade list, and on a phone the trade list starts exactly where it did (the fold is shut)."""
+    b = doc.get('shadow_trades') or {}
+    rows = expected_shadow_rows(doc, _cutoff(sc_['range'], sc_['today']))
+    lg = r.get('lg') or {}
+    sh = [g for g in lg.get('groups') or [] if g.get('key') == 'shadow']
+    note = (sh[0].get('note') or '') if sh else ''
+    if b.get('error'):
+        # the error form: the fold says there is nothing and why, in plain words, and draws no row
+        if rows or not sh or (sh[0].get('head') or '').replace('▾', '').strip() != 'Shadow - not counted · 0' or sh[0].get('rows') \
+                or SHADOW_NOTE not in note or ('(%s)' % b['error']) not in note:
+            fails.append('%s: with the box\'s error form (%r) the Shadow fold reads %r, note %r (want no row, %r and the reason)'
+                         % (tag, b['error'], sh[0].get('head') if sh else None, note, SHADOW_NOTE))
+        return
+    want_cap = ('Only the newest %d trades are here; %d older ones were left out.' % (len(b.get('trades') or []), b['capped'])
+                if b.get('capped') else None)
+    if sh and sc_['folds'] and ((want_cap and want_cap not in note) or (not want_cap and 'older ones were left out' in note)):
+        fails.append('%s: the Shadow fold note reads %r; the block says %d older trades were left out' % (tag, note, b.get('capped') or 0))
+    if not any(t.get('seeded') for t in b.get('trades') or []) or not rows or rows[0]['name'] != SHADOW_FIRST \
+            or not rows[0]['live'] or (b.get('legs') or [None])[0] == 'ENGUQ_335':
+        fails.append("%s: the probe's own case is wrong: its block has no seeded ENGU-Q trade, no live twin for it, or already lists ENGU-Q "
+                     "first (legs %r)" % (tag, b.get('legs')))
+    if sh and (sh[0].get('head') or '').replace('▾', '').strip() != 'Shadow - not counted · %d' % len(rows):
+        fails.append('%s: the Shadow fold reads %r, want "Shadow - not counted · %d" (one row per shadow leg the box lists)'
+                     % (tag, sh[0].get('head'), len(rows)))
+    if sc_.get('list_open'):
+        hs = [(x.get('name'), x.get('h')) for g in sh for x in g.get('rows') or []]
+        if len(hs) != len(rows) or any(not h for _n, h in hs):
+            fails.append("%s: with the phone's Strategies fold open the Shadow rows are not all drawn (%r)" % (tag, hs))
+    elif sc_['vp'].startswith('phone'):
+        tp = _shadow_phone_top(r)
+        if tp is None or tp > S11_PHONE_TOP_MAX:
+            fails.append('%s: on a phone the trade list starts %s px under the board top with the shadow block; the limit is %d'
+                         % (tag, tp, S11_PHONE_TOP_MAX))
+    if not sc_.get('twin'):
+        return
+    tw = got_st.get(sc_['twin'])
+    if not tw or tw.get('call') != 'OK':
+        fails.append('%s: its twin without the shadow block (%s) did not render' % (tag, sc_['twin']))
+        return
+    for k, what in SHADOW_TWIN_KEYS:
+        if r.get(k) != tw.get(k):
+            fails.append('%s: adding the shadow_trades block changed %s (%s, without it %s)'
+                         % (tag, what, _first(json.dumps(r.get(k)), 160), _first(json.dumps(tw.get(k)), 160)))
+
+    def cal_days(x):
+        c = (x or {}).get('lgcal') or {}
+        return [(d.get('ds'), d.get('m'), d.get('n')) for d in c.get('days') or [] if d.get('traded')], c.get('sum'), c.get('foldText')
+    if cal_days(r) != cal_days(tw):
+        fails.append('%s: adding the shadow_trades block changed the calendar (%s, without it %s)'
+                     % (tag, _first(json.dumps(cal_days(r)), 160), _first(json.dumps(cal_days(tw)), 160)))
+
+    def book(x):
+        gs = ((x or {}).get('lg') or {}).get('groups') or []
+        return [(y.get('name'), y.get('value'), y.get('value2')) for g in gs if g.get('key') == 'book' for y in g.get('rows') or []]
+    if book(r) != book(tw) or lg.get('count') != (tw.get('lg') or {}).get('count'):
+        fails.append('%s: adding the shadow_trades block changed the BOOK rows or the list header (%r / %r, without it %r / %r)'
+                     % (tag, lg.get('count'), book(r), (tw.get('lg') or {}).get('count'), book(tw)))
+
+    def tl_ids(x):
+        return [y.get('id') for d in (((x or {}).get('tl') or {}).get('days') or []) for y in d.get('rows') or []]
+    if tl_ids(r) != tl_ids(tw):
+        fails.append('%s: adding the shadow_trades block changed the trade list (%d rows, without it %d)' % (tag, len(tl_ids(r)), len(tl_ids(tw))))
+    if sc_['vp'].startswith('phone') and _shadow_phone_top(r) != _shadow_phone_top(tw):
+        fails.append('%s: on a phone the shadow block moved the trade list from %s to %s px under the board top (the fold is shut: it '
+                     'must add no height)' % (tag, _shadow_phone_top(tw), _shadow_phone_top(r)))
 
 
 # ---------------------------------------------------------------------------------------------------------------------------------
@@ -5689,7 +6098,8 @@ def _judge_tl_zero(tag, res, doc, fails):
 
 
 def _judge_tl_shadow(tag, res, fixture, doc, fails):
-    """A shadow row closed today: it is in the list, the count, the day net and the CSV nowhere."""
+    """A shadow row closed today, and the box's shadow_trades block beside it: none of their trades is in the list, the count, a day
+    net or the CSV."""
     shadow = [t for t in doc.get('trades_all') or [] if _is_shadow(t)]
     if len(shadow) != 1:
         fails.append("%s: the probe's own case is wrong: %d shadow rows" % (tag, len(shadow)))
@@ -5706,6 +6116,13 @@ def _judge_tl_shadow(tag, res, fixture, doc, fails):
     fails.extend(csv_problems('%s [CSV]' % tag, res.get('csv'), tl_rows(doc)))
     if sk[3:] in ((res.get('csv') or {}).get('t') or ''):
         fails.append('%s [CSV]: the shadow row is in the CSV' % tag)
+    live_ids = set(str(t.get('trade_id')) for t in fixture.get('trades_all') or [] if t.get('trade_id'))
+    blk = [str(t.get('trade_id')) for t in ((doc.get('shadow_trades') or {}).get('trades') or []) if t.get('trade_id')]
+    if not blk:
+        fails.append("%s: the probe's own case is wrong: the doc carries no shadow_trades block" % tag)
+    got = [x for x in blk if x not in live_ids and x in ((res.get('csv') or {}).get('t') or '')]
+    if got:
+        fails.append('%s [CSV]: trades of the shadow_trades block are in the CSV: %s' % (tag, got[:3]))
 
 
 def _judge_tl_overnight(tag, res, doc, fails):
@@ -5760,7 +6177,7 @@ def _tl_cases(fixture):
         return {'name': name, 'scen': scen, 'doc': doc, 'vp': vp, 'theme': th, 'today': TL_TODAY, 'wh': wh}
     out = [c('laptop 1366x768', 'main'),
            c('a $0 trade', 'zero', _zero_doc(fixture)),
-           c('a shadow row closed today', 'shadow', _shadow_doc(fixture)),
+           c('a shadow row closed today', 'shadow', _shadow_both_doc(fixture)),
            c('a trade held over a weekend', 'overnight', _overnight_doc(fixture)),
            c('phone 375x812', 'phone', vp='phone'),
            c('phone 390x844 MONO', 'phone', vp='phone390', th='mono')]
@@ -5850,7 +6267,7 @@ def _attempt(chrome, alt_index, fixture):
                 for nm, now, doc, exp in _variant_docs(fixture)]
     stats = [{'name': c['name'], 'range': c['range'], 'doc': c['doc'], 'vp': c['vp'], 'theme': c['theme'],
               'calMonth': c['cal'], 'today': c['today'], 'more': c['more'], 'calOpen': c['cal_open'], 'folds': c['folds'],
-              'nowMs': et_ms(c['now'])}
+              'foldOpen': ['list'] if c.get('list_open') else None, 'nowMs': et_ms(c['now'])}
              for c in _stats_cases(fixture)]
     tls = [dict({'name': c['name'], 'scen': c['scen'], 'doc': c['doc'], 'vp': c['vp'], 'theme': c['theme'], 'today': c['today'], 'wh': c['wh'],
                  'widths': c.get('widths'), 'page': TL_PAGE}, **(c.get('pn') or {})) for c in _tl_cases(fixture)]
@@ -6382,11 +6799,14 @@ def _judge(data, fixture):
         _judge_tiles(tag, r, want, fails)
         _judge_strip(tag, r, vp, fails)
         _judge_more(tag, r, sc_, tr, cut, fixture, fails)
-        _judge_list(tag, r.get('lg'), vp, sc_['theme'], doc, cut, rg, sc_['folds'], sc_['folds'], fails, distance=not sc_['more'])
+        _judge_list(tag, r.get('lg'), vp, sc_['theme'], doc, cut, rg, sc_['folds'], sc_['folds'], fails,
+                    distance=not (sc_['more'] or sc_.get('list_open')))
+        if isinstance(doc.get('shadow_trades'), dict):
+            _judge_shadow_block(tag, r, sc_, doc, got_st, fails)
         _judge_cal(tag, r.get('lgcal'), vp, sc_['theme'], doc, cut, cm, _cal_open_want(vp, sc_['cal_open']), sc_['today'], fails)
         _s11_order_problems(tag, r.get('s11') or {}, r.get('innerW') or 0, doc, fails)
         _frame_problems(tag, (r.get('s11') or {}).get('frame'), r.get('innerW') or 0, fails)
-        _judge_tl_frame(tag, r.get('tl'), doc, cut, fails, vp=vp, theme=sc_['theme'], top_check=not sc_['more'], today=sc_['today'],
+        _judge_tl_frame(tag, r.get('tl'), doc, cut, fails, vp=vp, theme=sc_['theme'], top_check=not (sc_['more'] or sc_.get('list_open')), today=sc_['today'],
                         none_text=('no trades closed today \u00b7 %d more outside this range' % len(tl_range_rows(doc))) if sc_['empty'] else None)
         if nm == '$0 trade':
             if '1 even' not in (want['winrate'][1] or ''):
@@ -6751,16 +7171,24 @@ def _report(t0, attempt, may_retry, chrome, alt_index, fixture):
     pnl_ = ((((data.get('tl') or {}).get('panel laptop 1366x768 glass') or {}).get('steps') or {}).get('open') or {}).get('read') or {}
     pnp_ = ((((data.get('tl') or {}).get('panel phone 375x812 glass') or {}).get('steps') or {}).get('open') or {}).get('read') or {}
     pnl_r, pnp_r = pnl_.get('rect') or {}, pnp_.get('rect') or {}
+    shp = (data.get('stats') or {}).get("the box's shadow block, ENGU-Q held (ALL, 375x812, MONO)") or {}
+    shl = (data.get('stats') or {}).get("the box's shadow block, ENGU-Q held (ALL, both folds open)") or {}
+    shg = [g for g in ((shl.get('lg') or {}).get('groups') or []) if g.get('key') == 'shadow']
+    sh_rows = (shg[0].get('rows') or []) if shg else []
+    shg_geo = (shp.get('lg') or {}).get('geo') or {}
     print('WEBULLPROBE: PASS (VERSION=%s, %d cases + interaction + %d stats cases + %d trade list runs + %d freshness variants + the ?oldboards=1 page, %.1fs; '
           'laptop chart %spx, %s dates, %s price labels, %s caveat days, marker %r; tiles %s; calendar %s %s; list %s, %s; '
           'phone trade list %s px under the board top, its frame %s px (limit %d); '
-          'trade panel %sx%s px on a laptop, a sheet %sx%s px on a phone, %d panel runs + %d widths)'
+          'trade panel %sx%s px on a laptop, a sheet %sx%s px on a phone, %d panel runs + %d widths; '
+          'shadow fold %r, phone trade list with the shadow block %s)'
           % (data.get('VERSION'), len(CASES), len(data.get('stats') or {}), len(data.get('tl') or {}), len(data.get('vars') or {}), elapsed, lap.get('chartH'),
              lap.get('chartDates'), lap.get('chartTicks'), lap.get('chartBands'), lap.get('markText'),
              ' | '.join('%s %s' % (x[0], x[1]) for x in (lap.get('stats') or [])),
              cal0.get('title'), (cal0.get('sum') or '').split(' · ')[0], lg0.get('count'), book,
              (pg.get('histTop') or 0) - (pg.get('shellTop') or 0), tlp.get('frameTop'), TL_FRAME_TOP_MAX,
-             pnl_r.get('w'), pnl_r.get('h'), pnp_r.get('w'), pnp_r.get('h'), len(PN_RUNS), 2 * len(PN_WIDTHS)))
+             pnl_r.get('w'), pnl_r.get('h'), pnp_r.get('w'), pnp_r.get('h'), len(PN_RUNS), 2 * len(PN_WIDTHS),
+             ' | '.join('%s %s%s' % (x.get('name'), x.get('value'), (' (' + x['open'] + ')') if x.get('open') else '') for x in sh_rows),
+             '%s px (frame %s px)' % ((shg_geo.get('histTop') or 0) - (shg_geo.get('shellTop') or 0), _shadow_phone_top(shp))))
     if first:
         print('  FLAKE: attempt 1 did not pass on this same file, the retry did. It said:')
         for f in first[1][:4]:
@@ -6894,6 +7322,9 @@ def main(argv=None):
         return INCONCLUSIVE
     if not os.path.isfile(FIXTURE):
         print('WEBULLPROBE: INCONCLUSIVE -- fixture missing: %s' % FIXTURE)
+        return INCONCLUSIVE
+    if not os.path.isfile(SHADOW_FIXTURE):
+        print('WEBULLPROBE: INCONCLUSIVE -- fixture missing: %s' % SHADOW_FIXTURE)
         return INCONCLUSIVE
     fixture = json.load(io.open(FIXTURE, encoding='utf-8'))
     chrome = find_chrome()

@@ -413,6 +413,19 @@ def test_shadow_legs_report_numbers(tmp_path, capsys):
     assert "NOISE_422_FIXED" in capsys.readouterr().out
 
 
+def test_read_rows_missing_file_is_empty_unless_strict(tmp_path):
+    """The report reads a missing ledger as no rows; qqq_exec's shadow_trades block asks for
+    strict=True so it can say the ledger could not be read."""
+    missing = str(tmp_path / "nope" / "signals.csv")
+    assert rpt.read_rows(missing) == []
+    with pytest.raises(OSError):
+        rpt.read_rows(missing, strict=True)
+    os.makedirs(tmp_path / "adir")
+    assert rpt.read_rows(str(tmp_path / "adir")) == []
+    with pytest.raises(OSError):
+        rpt.read_rows(str(tmp_path / "adir"), strict=True)
+
+
 def test_pull_box_ledgers_copies_the_shadow_store_and_the_new_keel_summary():
     for rel in ("cloud_signal/shadow/signals.csv", "cloud_signal/shadow/state.json",
                 "cloud_signal/shadow/heartbeat.json",

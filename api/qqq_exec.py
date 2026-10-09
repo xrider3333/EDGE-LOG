@@ -145,8 +145,12 @@ LEGS = ("ORB", "ENGUQ", "NOISE")
 #
 # ENGUQ_335 LEFT cloud_signal.CROWN_LEGS on 2026-09-28 (OWNER DECISION -- it is a shadow leg
 # now, cloud_signal.SHADOW_LEGS, writing only to <state_dir>/shadow/signals.csv, which this
-# module never reads). Its key stays here for the same reason NOISE_304's does: an old live
-# ledger row still resolves. No new live ENGU-Q row is ever written, so no ENGU-Q order is sent.
+# module never reads FOR ORDERS). Its key stays here for the same reason NOISE_304's does: an
+# old live ledger row still resolves. No new live ENGU-Q row is ever written, so no ENGU-Q
+# order is sent. Since 2026-10-09 (MANAGER #87 (d)) this module DOES read the shadow ledger
+# in exactly one place -- _build_shadow_trades, the status doc's separate, display-only
+# "shadow_trades" block for the board's "Shadow - not counted" fold. That read never reaches
+# an order, a lot, a rail, P&L, trades_all, readiness or the export (see SHADOW TRADES).
 ENGINE_LEG_MAP = {"ORB_R6": "ORB", "ENGUQ_335": "ENGUQ", "NOISE_382": "NOISE", "NOISE_304": "NOISE"}
 ENGINE_HEARTBEAT_STALE_SEC = 90.0     # mirrors FEED_STALE_SEC's role, for cloud_signal's own heartbeat
 ENGINE_CONSUME_STALE_SEC = 30 * 60.0  # this adapter was down too long to act on a queued signal
@@ -6926,7 +6930,8 @@ def _engine_leg_cfg(cs, cs_key):
     ENGUQ_335 moved there, OWNER DECISION). Used ONLY for the key's timeframe (its bar cache,
     its bar width): an old ENGUQ order row keeps its after-close latency, and a leftover
     ENGUQ lot could still be marked and flattened. It never makes a shadow leg's signals
-    reach this module -- those live in a ledger this module never reads. None for no key."""
+    reach this module -- those live in a ledger this module never reads for orders (its one
+    read is the display-only shadow_trades block, _build_shadow_trades). None for no key."""
     if not cs_key:
         return None
     return cs.CROWN_LEGS.get(cs_key) or (getattr(cs, "SHADOW_LEGS", None) or {}).get(cs_key)
@@ -10625,6 +10630,270 @@ def _build_keel_status(log=print):
             log(f"[qqq-exec] KEEL status unreadable for {engine_key}: {type(e).__name__}: {e}")
     return out
 
+# -- SHADOW TRADES (2026-10-09, MANAGER #87 (d)) -------------------------------------------
+# The WEBULL PAPER board's "Shadow - not counted" fold reads ONE separate top-level key of
+# the status doc, "shadow_trades": the SHADOW LEGS' would-be trades (api/cloud_signal.py
+# SHADOW_LEGS -- ENGUQ_335, NOISE_422_PLAIN/FIXED/KEEL), read from their own ledger
+# <cloud_signal state_dir>/shadow/signals.csv and paired by tools/shadow_legs_report.py's own
+# read_rows/pair_trades, so the board and that report agree on what a trade is.
+#   {"as_of", "source", "base_shares", "legs": [...], "capped": N, "trades": [newest entry
+#    first: {leg, trade_id, side, entry_time, entry_px, exit_time, exit_px, size, shares,
+#    seeded, pnl_usd, mark_px, unreal_usd}], "error": only when the ledger could not be read}
+# DISPLAY ONLY, READ ONLY. Nothing here reaches an order, a lot, a rail, the breaker,
+# readiness, trades_all, cum_pnl, any today/P&L figure or the export: it is built from its
+# own file into its own key, and fitted into the Firestore budget AFTER trades_all has been
+# (_fit_shadow_trades), so it can never cost trades_all a row. Any failure publishes
+# {"error": ..., "trades": []} and the rest of the doc builds exactly as before. The parsed
+# ledger is cached by the file's (mtime, size), so the tick never re-reads an unchanged file.
+# OPEN TRADES ARE NEVER CUT while a closed one is left: the count cap and the budget fit drop
+# the oldest CLOSED trades. Newest-entry-first puts a long hold (ENGU-Q's multi-day hold) LAST,
+# so a plain tail cut would drop exactly the trade a leg still holds and the board would show
+# that leg flat (_cap_shadow_trades, _fit_shadow_trades).
+# SIZE: ~300 bytes and 15 counted index entries a trade, so the 300-trade cap is ~90 KB and
+# ~4,500 entries at most (~70 trades on 2026-10-08) -- and whatever the doc has left under
+# FS_DOC_BUDGET_* bounds it again.
+SHADOW_TRADES_CAP = 300
+SHADOW_TRADES_SOURCE = "cloud_signal/shadow/signals.csv"
+SHADOW_BASE_SHARES_FALLBACK = 10   # tools/shadow_legs_report.BASE_SHARES, if that cannot import
+_SHADOW_LEDGER_COLS = ("leg", "event", "side", "ref_time", "ref_price", "trade_id")
+# key (path, mtime_ns, size) -> value (trades, legs, error); "logged": the last error logged
+_SHADOW_TRADES_CACHE = {"key": None, "value": None, "logged": None}
+# timeframe -> ((path, mtime_ns, size), (bar_time, close) or None)
+_SHADOW_MARK_CACHE = {}
+
+
+def _shadow_report():
+    """tools/shadow_legs_report.py, imported lazily (like _cs_module) so a broken report
+    module can only ever cost the shadow block, never this module's import."""
+    import tools.shadow_legs_report as slr
+    return slr
+
+
+def _shadow_stat_key(path):
+    st = os.stat(path)
+    return (path, st.st_mtime_ns, st.st_size)
+
+
+def _parse_shadow_ledger(path, slr, cs):
+    """(trades, legs, error) from the shadow ledger at `path`: every trade
+    tools/shadow_legs_report.pair_trades makes of it, each with its "leg", newest ENTRY
+    first; `legs` in api/cloud_signal.SHADOW_LEGS order, then any other leg found."""
+    try:
+        rows = slr.read_rows(path, strict=True)
+    except (OSError, UnicodeDecodeError, csv.Error) as e:
+        return [], [], f"shadow ledger unreadable ({type(e).__name__})"
+    if rows:
+        missing = [c for c in _SHADOW_LEDGER_COLS if c not in rows[0]]
+        if missing:
+            return [], [], "shadow ledger header not recognised (no " + ", ".join(missing) + ")"
+    by_leg = slr.pair_trades(rows)
+    order = list(getattr(cs, "SHADOW_LEGS", None) or {})
+    legs = [k for k in order if k in by_leg] + sorted(k for k in by_leg if k not in order)
+    trades = [dict(t, leg=leg) for leg in legs for t in by_leg[leg]]
+    trades.sort(key=lambda t: (str(t.get("entry_time") or ""), str(t["leg"]),
+                               str(t.get("trade_id") or "")), reverse=True)
+    return trades, legs, None
+
+
+def _shadow_ledger_trades(path, slr, cs):
+    """_parse_shadow_ledger, cached by the file's (mtime, size): an unchanged ledger is
+    never re-read. A file that changed while it was being read is not cached (the next
+    build reads it again)."""
+    try:
+        key = _shadow_stat_key(path)
+    except FileNotFoundError:
+        return [], [], "shadow ledger not found"
+    except OSError as e:
+        return [], [], f"shadow ledger unreadable ({type(e).__name__})"
+    if _SHADOW_TRADES_CACHE.get("key") == key and _SHADOW_TRADES_CACHE.get("value") is not None:
+        return _SHADOW_TRADES_CACHE["value"]
+    value = _parse_shadow_ledger(path, slr, cs)
+    try:
+        if _shadow_stat_key(path) == key:
+            _SHADOW_TRADES_CACHE["key"], _SHADOW_TRADES_CACHE["value"] = key, value
+    except OSError:
+        pass
+    return value
+
+
+def _shadow_base_shares(cfg, default):
+    """The shadow trades' base unit: this book's own configured shares for ENGU-Q (the base
+    its live leg traded, config.json shares.ENGUQ = 10), else NOISE's, else `default`
+    (tools/shadow_legs_report.BASE_SHARES)."""
+    shares = (cfg or {}).get("shares")
+    if isinstance(shares, dict):
+        for leg in ("ENGUQ", "NOISE"):
+            v = _finite_or_none(shares.get(leg))
+            if v is not None and v > 0:
+                return int(round(v))
+    return int(default)
+
+
+def _shadow_bar_mark(cs):
+    """The newest closed bar close in api.cloud_signal's own bar cache over the timeframes
+    the shadow legs read (the newer bar wins), each file cached by its (mtime, size). None
+    when there is none."""
+    best = None
+    tfs = sorted({str(c.get("timeframe")) for c in (getattr(cs, "SHADOW_LEGS", None) or {}).values()
+                  if (c or {}).get("timeframe")})
+    for tf in tfs:
+        try:
+            path = cs._cache_path(tf, cs.DEFAULT_PATHS)
+            key = _shadow_stat_key(path)
+            hit = _SHADOW_MARK_CACHE.get(tf)
+            if hit and hit[0] == key:
+                bar = hit[1]
+            else:
+                bar = None
+                df = cs.load_cached_bars(tf, cs.DEFAULT_PATHS)
+                if df is not None and len(df):
+                    df = df.dropna(subset=["time", "close"])
+                    if len(df):
+                        last = df.sort_values("time").iloc[-1]
+                        bar = (float(last["time"]), float(last["close"]))
+                _SHADOW_MARK_CACHE[tf] = (key, bar)
+        except Exception:
+            continue
+        if bar and _finite_or_none(bar[1]) is not None and (best is None or bar[0] > best[0]):
+            best = bar
+    return best[1] if best else None
+
+
+def _shadow_mark_px(positions_live, cs, log=print):
+    """The doc's own latest QQQ price, to mark an OPEN shadow trade: a live price this very
+    doc already carries (positions_live), else the live Webull stream's last print when it
+    is fresh, else the newest closed bar close (_shadow_bar_mark). None if none of them has
+    one. Read only; never raises."""
+    try:
+        for lg in (positions_live or {}).get("legs") or []:
+            px = _finite_or_none((lg or {}).get("live_px"))
+            if px is not None:
+                return px
+    except Exception:
+        pass
+    try:
+        streamer = _qqq_stream_instance()
+        if streamer is not None and streamer.is_fresh():
+            px = _finite_or_none((streamer.last_trade() or {}).get("price"))
+            if px is not None:
+                return px
+    except Exception as e:
+        log(f"[qqq-exec] shadow_trades: live stream read failed ({type(e).__name__}: {e})")
+    try:
+        return _shadow_bar_mark(cs)
+    except Exception:
+        return None
+
+
+def _round2(v):
+    return round(v, 2) if v is not None and math.isfinite(v) else None
+
+
+def _shadow_trade_row(t, base_shares, mark_px, slr):
+    """One published shadow trade. Priced at round(base_shares x size) whole shares, by
+    tools/shadow_legs_report.trade_dollars' own sign rule. Open (no EXIT row yet): exit_*
+    and pnl_usd None, mark_px/unreal_usd off `mark_px`. Closed: mark_px/unreal_usd None."""
+    size = _finite_or_none(t.get("size"))
+    size = 1.0 if size is None else size
+    shares = int(round(base_shares * size))
+    is_open = t.get("exit_time") is None
+    priced = dict(t, entry_px=_finite_or_none(t.get("entry_px")),
+                  exit_px=_finite_or_none(t.get("exit_px")))
+    pnl = mark = unreal = None
+    if is_open:
+        mark = _finite_or_none(mark_px)
+        if mark is not None:
+            unreal = slr.trade_dollars(dict(priced, exit_px=mark), base_shares=shares, size=1.0)
+    else:
+        pnl = slr.trade_dollars(priced, base_shares=shares, size=1.0)
+    return {"leg": t.get("leg"), "trade_id": t.get("trade_id"), "side": t.get("side") or "long",
+            "entry_time": t.get("entry_time"), "entry_px": priced["entry_px"],
+            "exit_time": None if is_open else t.get("exit_time"),
+            "exit_px": None if is_open else priced["exit_px"],
+            "size": float(size), "shares": shares, "seeded": bool(t.get("seeded")),
+            "pnl_usd": _round2(pnl), "mark_px": mark, "unreal_usd": _round2(unreal)}
+
+
+def _cap_shadow_trades(trades, cap):
+    """At most `cap` of `trades` (newest ENTRY first), kept in their own order: every OPEN
+    trade (no exit_time) -- the newest `cap` of them in the odd case there are more -- plus the
+    newest CLOSED trades in the room that is left. A long hold has the oldest entry, so a plain
+    trades[:cap] would cut exactly the trade its leg still holds."""
+    open_left = cap
+    closed_left = max(0, cap - sum(1 for t in trades if t.get("exit_time") is None))
+    kept = []
+    for t in trades:
+        if t.get("exit_time") is None:
+            if open_left > 0:
+                kept.append(t)
+                open_left -= 1
+        elif closed_left > 0:
+            kept.append(t)
+            closed_left -= 1
+    return kept
+
+
+def _build_shadow_trades(cfg, positions_live=None, log=print):
+    """The doc's "shadow_trades" block -- see SHADOW TRADES above. Never raises: any
+    failure is {"error": "...", "trades": []} with the rest of the block's keys."""
+    block = {"as_of": _now_et().isoformat(timespec="seconds"), "source": SHADOW_TRADES_SOURCE,
+             "base_shares": SHADOW_BASE_SHARES_FALLBACK, "legs": [], "capped": 0, "trades": []}
+    err = None
+    try:
+        slr = _shadow_report()
+        base = _shadow_base_shares(cfg, getattr(slr, "BASE_SHARES", SHADOW_BASE_SHARES_FALLBACK))
+        block["base_shares"] = base
+        cs = _cs_module()
+        path = cs.shadow_paths(cs.DEFAULT_PATHS)["signals_path"]
+        trades, legs, err = _shadow_ledger_trades(path, slr, cs)
+        block["legs"] = list(legs)
+        if not err:
+            kept = _cap_shadow_trades(trades, SHADOW_TRADES_CAP)
+            block["capped"] = len(trades) - len(kept)
+            mark = (_shadow_mark_px(positions_live, cs, log=log)
+                    if any(t.get("exit_time") is None for t in kept) else None)
+            block["trades"] = [_shadow_trade_row(t, base, mark, slr) for t in kept]
+    except Exception as e:
+        err = f"{type(e).__name__}: {str(e)[:160]}"
+        block["trades"] = []
+    if err:
+        block["error"] = err
+        if err != _SHADOW_TRADES_CACHE.get("logged") and err != "shadow ledger not found":
+            log(f"[qqq-exec] shadow_trades block empty: {err} (display only -- nothing else changes)")
+    _SHADOW_TRADES_CACHE["logged"] = err
+    return block
+
+
+def _fit_shadow_trades(doc, block, log=print):
+    """Puts the shadow block on the doc as doc["shadow_trades"], AFTER _fit_doc_budget has
+    settled trades_all: when the doc plus the block would pass FS_DOC_BUDGET_BYTES/_LEAVES
+    it drops the block's OWN oldest CLOSED trades (added to "capped"; an open trade only once
+    no closed one is left), never a trades_all row.
+    Never raises; a failure here publishes the block's error form instead."""
+    try:
+        trades = block.get("trades") or []
+        size = _fs_size(doc) + 232 + len("shadow_trades") + 1 + _fs_size(block)
+        leaves = _fs_leaves(doc) + _fs_leaves(block)
+        dropped = 0
+        while trades and (size > FS_DOC_BUDGET_BYTES or leaves > FS_DOC_BUDGET_LEAVES):
+            # the oldest CLOSED trade (rows are newest entry first); an open one only as a last resort
+            i = next((j for j in range(len(trades) - 1, -1, -1)
+                      if trades[j].get("exit_time") is not None), len(trades) - 1)
+            r = trades.pop(i)
+            size -= _fs_size(r)
+            leaves -= 1 + _fs_leaves(r)
+            dropped += 1
+        if dropped:
+            block["capped"] = int(block.get("capped") or 0) + dropped
+            log(f"[qqq-exec] shadow_trades: dropped the {dropped} oldest shadow trade(s) to keep "
+                f"the status doc under its Firestore budget (trades_all untouched)")
+        doc["shadow_trades"] = block
+    except Exception as e:
+        doc["shadow_trades"] = {"as_of": (block or {}).get("as_of"), "source": SHADOW_TRADES_SOURCE,
+                                "base_shares": (block or {}).get("base_shares"), "legs": [],
+                                "capped": 0, "trades": [],
+                                "error": f"{type(e).__name__}: {str(e)[:160]}"}
+
 
 def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     orders = []
@@ -10744,6 +11013,10 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     positions_live = _build_positions_live(state, cfg, log=log)
     equity = _build_equity_status(state, _now_et(), log=log)
     keel_status = _build_keel_status(log=log)
+    # SHADOW TRADES (2026-10-09, MANAGER #87 (d)): display only, its own key, never inside
+    # trades_all and never counted -- see SHADOW TRADES above _build_doc. Placed on the doc
+    # by _fit_shadow_trades below, after trades_all's own budget fit.
+    shadow_trades = _build_shadow_trades(cfg, positions_live, log=log)
 
     doc = {
         "mode": cfg.get("mode"), "updated_at": _now_et().strftime("%Y-%m-%d %H:%M:%S"),
@@ -10832,6 +11105,9 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     # now pack what rides on each published trade row, then make sure the doc fits.
     _compact_published_trades(doc["trades_all"])
     _fit_doc_budget(doc, log=log)
+    # SHADOW TRADES: added only now, so trades_all's budget fit above is exactly what it was
+    # without it -- the block fits itself into what is left (drops its own oldest trades).
+    _fit_shadow_trades(doc, shadow_trades, log=log)
     return doc
 
 

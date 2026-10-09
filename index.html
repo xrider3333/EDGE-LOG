@@ -609,6 +609,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-side .lg-row-sub .qbx-leg-live{display:block;padding:0;font-size:10px;line-height:1.4}
 .qbx-side .lg-row-sub .qbx-leg-live>span{display:block}
 .qbx-lg-pill{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.04em;line-height:14px;padding:0 7px;border-radius:999px;border:1px solid currentColor;white-space:nowrap;vertical-align:1px}
+.qbx-sh-seed{display:inline-block;font-size:9px;line-height:13px;padding:0 6px;border-radius:999px;border:1px dashed currentColor;white-space:nowrap;vertical-align:1px}
 .qbx-lg-extra{padding:0 16px 10px;font-size:11px;color:var(--text4);line-height:1.5}
 .qbx-lg-extra .qb-leg-detail{margin-top:4px}
 .qbx-lg-extra .qb-leg-today-note{margin-top:0}
@@ -39966,6 +39967,40 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // trades in the range - how many, the P&L of record they add up to (to the cent, as the hero's range line does) and the win
         // rate (a $0 trade is neither a win nor a loss). The shadow legs' own trades in the range stay in qbShadowRange, never counted.
         const qbShadowRange=qbRange?ledgerInRange(qbShadowRows.map(t=>({exitDate:qeTradeDate(t),_t:t})),qbRange).map(r=>r._t):qbShadowRows;
+        // THE SHADOW LEGS' OWN BLOCK (MANAGER #87 d, 2026-10-09): the box sends the no-order shadow legs' would-be trades (api/cloud_signal.py
+        // SHADOW_LEGS: ENGU-Q #335, NOISE #422 plain / fixed / KEEL) as ONE separate top-level key, QE.shadow_trades = {as_of, source,
+        // base_shares, legs, trades:[{leg, trade_id, side, entry_time, entry_px, exit_time, exit_px, size, shares, seeded, pnl_usd, mark_px,
+        // unreal_usd}], capped, error}, paired from its shadow ledger by tools/shadow_legs_report.pair_trades - never rows in trades_all. Only
+        // the strategy list's "Shadow - not counted" fold reads qbShTr: never the account number, the chart, the stats, the calendar, the trade
+        // list, the export or the BOOK / Retired groups. A trade id the block carries is shown once, from the block (an older shadow-flagged
+        // trades_all row with the same id is left out of the fold). Times are the box's ISO stamps, read as New York days and clock times.
+        const qbShB=(QE.shadow_trades&&typeof QE.shadow_trades==='object'&&!Array.isArray(QE.shadow_trades))?QE.shadow_trades:null;
+        const qbShBase=(qbShB&&qeFin(qbShB.base_shares)>0)?qeFin(qbShB.base_shares):10;
+        const qbShWhen=s=>{s=String(s||'').trim();if(!s)return null;
+          if(/(Z|[+-]\d{2}:?\d{2})$/.test(s)){const ms=Date.parse(s);if(!isFinite(ms))return null;const p=qbNyParts(ms);return {date:p.date,hm:p.hm};}
+          const m=/^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}))?/.exec(s);return m?{date:m[1],hm:m[2]||''}:null;};
+        const qbShTr=(qbShB&&Array.isArray(qbShB.trades)?qbShB.trades:[]).filter(x=>x&&typeof x==='object'&&x.leg).map(x=>{
+          const side=String(x.side||'long').toLowerCase()==='short'?'short':'long',en=qbShWhen(x.entry_time),ex=x.exit_time?qbShWhen(x.exit_time):null;
+          const ep=qeFinRec(x.entry_px),xp=qeFinRec(x.exit_px),sz=qeFinRec(x.size)>0?qeFin(x.size):1;
+          const sh=qeFinRec(x.shares)!==null?qeFin(x.shares):Math.round(qbShBase*sz);
+          let pnl=qeFinRec(x.pnl_usd);
+          if(pnl===null&&ex&&ep!==null&&xp!==null)pnl=Math.round((xp-ep)*sh*(side==='short'?-1:1)*100)/100;
+          return {leg:String(x.leg),trade_id:String(x.trade_id||''),side:side,en:en,ex:ex,ep:ep,xp:xp,size:sz,shares:sh,seeded:x.seeded===true,
+            open:!x.exit_time,pnl_record:(ex&&pnl!==null)?pnl:null,exitDate:ex?ex.date:null,
+            mark:x.exit_time?null:qeFinRec(x.mark_px),unreal:x.exit_time?null:qeFinRec(x.unreal_usd)};
+        });
+        const qbShIds=new Set(qbShTr.map(t=>t.trade_id).filter(Boolean));
+        // closed in the chosen range (by the New York day each closed, the board's rule), and the trades still open (shown at every range)
+        const qbShClosed=qbShTr.filter(t=>!t.open&&t.pnl_record!==null&&t.exitDate);
+        const qbShRangeClosed=qbRange?ledgerInRange(qbShClosed,qbRange):qbShClosed;
+        const qbShOpenTr=qbShTr.filter(t=>t.open);
+        // one row per leg the box lists, ENGU-Q #335 first, the rest in the box's order; named family + run number + variant ('NOISE #422 KEEL')
+        const qbShLegs=[];
+        (qbShB&&Array.isArray(qbShB.legs)?qbShB.legs:[]).concat(qbShTr.map(t=>t.leg)).forEach(k=>{k=String(k||'');if(k&&qbShLegs.indexOf(k)<0)qbShLegs.push(k);});
+        qbShLegs.sort((a,b)=>(/^ENGUQ/i.test(b)?1:0)-(/^ENGUQ/i.test(a)?1:0));
+        const qbShLegName=k=>{const m=/^([A-Za-z]+)_(\d+)(?:_(\w+))?$/.exec(String(k||''));if(!m)return String(naS(k));
+          const f=QE_LEGS.find(x=>x[0]===m[1].toUpperCase()),v=m[3]?(m[3].toUpperCase()==='KEEL'?'KEEL':m[3].toLowerCase().replace(/_/g,' ')):'';
+          return (f?f[1]:m[1].toUpperCase())+' #'+m[2]+(v?' '+v:'');};
         const qbRangeFigs=rows=>{
           let net=0,w=0,l=0;
           rows.forEach(t=>{const v=qePnlOf(t);net+=v;if(v>0)w++;else if(v<0)l++;});
@@ -40214,11 +40249,38 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const oth=qbRangeFigs(qbRangeTrades.filter(t=>!QE_LEGS.some(l=>l[0]===t.leg)));
           if(oth.n)bookRows.push({key:'~other',name:'Other legs',sub:'not in the strategy roster',value:ledgerSigned(oth.net),cls:ledgerCls(oth.net),value2:qbFigsLine(oth)});
           const retOne=retModels.length===1?qbRetiredInfo[0]:null;
-          // the shadow legs, one row per family + run, faded: their money is never part of anything above
-          const shByName={};
-          qbShadowRange.forEach(t=>{const nm=qeTradeLegName(t);(shByName[nm]=shByName[nm]||[]).push(t);});
-          const shRows=Object.keys(shByName).sort().map((nm,i)=>{const f=qbRangeFigs(shByName[nm]);
-            return {key:'~s'+i,name:esc(nm),sub:'shadow &middot; no orders',value:ledgerSigned(f.net),cls:ledgerCls(f.net),value2:qbFigsLine(f),off:true};});
+          // the shadow legs, one row per leg, faded: their money is never part of anything above. Two sources: the box's own block
+          // (qbShTr: one row for every leg it lists, ENGU-Q #335 first, with the range's closed would-be trades and an open line for a
+          // trade still held) and the older path, trades_all rows flagged shadow (a trade id the block carries is shown once, from the block)
+          const shBy={},shOrd=[];
+          const shGet=(nm,lk)=>{if(!shBy[nm]){shBy[nm]={nm:nm,lk:lk,closed:[],open:[]};shOrd.push(nm);}return shBy[nm];};
+          qbShLegs.forEach(k=>shGet(qbShLegName(k),k));
+          qbShRangeClosed.forEach(t=>shGet(qbShLegName(t.leg),t.leg).closed.push(t));
+          qbShOpenTr.forEach(t=>shGet(qbShLegName(t.leg),t.leg).open.push(t));
+          const shOld=qbShadowRange.filter(t=>!qbShIds.has(String((t&&t.trade_id)||'')));
+          shOld.map(qeTradeLegName).filter((nm,i,a)=>a.indexOf(nm)===i).sort().forEach(nm=>shGet(nm,null));
+          shOld.forEach(t=>shGet(qeTradeLegName(t),null).closed.push(t));
+          // the live order a shadow trade shares its signal with (ENGU-Q's 09-28 long: Webull flattened it that day, the shadow leg holds on)
+          const shLiveById={};trades.forEach(t=>{const id=String((t&&t.trade_id)||'');if(id)shLiveById[id]=t;});
+          const shLiveGroup=k=>{const m=qbLegModels.find(x=>x.key===k);return m?(m.retired?'Retired':'BOOK'):'Other legs';};
+          const shOpenLine=os=>{const by=t=>(t.en?t.en.date+' '+t.en.hm:'');const t=os.slice().sort((a,b)=>by(a)<by(b)?1:by(a)>by(b)?-1:0)[0];
+            const u=os.map(x=>x.unreal).filter(v=>v!==null),one=os.length===1;
+            return os.length+' open, '+(one?'':'the newest ')+t.side+' since '+(t.en?t.en.date.slice(5):'?')+(t.ep!==null?' @ '+t.ep.toFixed(2):'')
+              +(u.length===os.length?(' &middot; '+ledgerSigned(u.reduce((s,v)=>s+v,0))+(one&&t.mark!==null?' at '+t.mark.toFixed(2):' at the last price')):'');};
+          const shRows=shOrd.map((nm,i)=>{const s=shBy[nm],f=qbRangeFigs(s.closed),mine=s.closed.concat(s.open);
+            let tip=nm+': a shadow leg. '+(s.lk?('Its would-be trades from its own signals, priced at '+qbShBase+' shares \u00d7 its size at the signal prices. '):'')
+              +'No orders go to Webull, and it is never counted in the account number, the chart, the stats or the calendar.';
+            let lv=null;
+            if(s.lk)qbShTr.forEach(t=>{const x=t.leg===s.lk&&t.trade_id?shLiveById[t.trade_id]:null;if(x&&(!lv||String(x.exit_ts||'')>String(lv.exit_ts||'')))lv=x;});
+            if(lv){const rec=qePnlOf(lv),bk=qeFinRec(lv.pnl),xt=String(lv.exit_ts||'');
+              tip+=' The live Webull order for this signal was '+(/^EOD/i.test(String(lv.exit_reason||''))?'flattened':'closed')+' '+(xt?xt.slice(5,16):'(time not known)')
+                +' for '+ledgerSigned(rec)+((bk!==null&&Math.abs(bk-rec)>=0.005)?' (book price '+ledgerSigned(bk)+')':'')
+                +', in the '+shLiveGroup(lv.leg)+' '+qeTradeLegName(lv)+' row. This row is the strategy\u2019s own hold.';}
+            const seeded=mine.some(t=>t.seeded===true);
+            return {key:'~s'+i,name:'<span data-qbshleg="'+esc(s.lk||nm)+'" title="'+esc(tip)+'">'+esc(nm)+'</span>',
+              tag:seeded?'<span class="qbx-sh-seed" data-qbshseed="1" title="This trade was already open when the shadow leg started logging; it was carried over from that start (its seed) at its own entry time and price.">carried from seed</span>':'',
+              sub:'<span class="qbx-leg-live">'+(s.open.length?'<span data-qbshopen="1">'+shOpenLine(s.open)+'</span>':'')+'<span>shadow &middot; no orders &middot; not counted</span></span>',
+              value:f.n?ledgerSigned(f.net):'&mdash;',cls:f.n?ledgerCls(f.net):'',value2:qbFigsLine(f),off:true};});
           const gBook={key:'book',title:'BOOK',count:bookRows.length,rows:bookRows};
           const gRet=retModels.length?{key:'retired',title:'Retired',fold:true,open:qbRetOpen,
             count:retOne?(retOne.since?'flat since '+retOne.since:'no trades yet'):(retModels.length+' strategies'),
@@ -40226,7 +40288,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'. No longer trading on Webull; its old trades still count in the account number and the chart total.',
             rows:retModels.map(m=>m.row)}:null;
           const gShadow={key:'shadow',title:'Shadow - not counted',fold:true,open:qbShadowOpen,count:shRows.length,
-            note:'No-order shadow legs. Their trades are never in the account number, the chart, the stats or the calendar.'+(shRows.length?'':' None are in the box’s status doc right now.'),
+            note:'No-order shadow legs. Their trades are never in the account number, the chart, the stats or the calendar.'+(shRows.length?'':' None are in the box’s status doc right now.')
+              +(qbShB?((qbShTr.length?' Would-be P&amp;L at '+qbShBase+' shares \u00d7 size, from the signal prices.':'')
+                +(qeFin(qbShB.capped)>0?' Only the newest '+qbShTr.length+' trades are here; '+qeFin(qbShB.capped)+' older ones were left out.':'')
+                +(qbShB.error?' The box sent no shadow trades this time ('+esc(String(qbShB.error).slice(0,160))+').':'')):''),
             rows:shRows};
           let lh=ledgerListHtml([gBook,gRet,gShadow].filter(Boolean),{id:'qb',title:'Strategies',
             count:qbRangeTrades.length?(ledgerSigned(qbRangePnl)+' &middot; '+qbRangeWord):qbRangeNone,

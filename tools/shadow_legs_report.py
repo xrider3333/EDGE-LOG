@@ -48,12 +48,16 @@ PRIMARY_PLAIN = "NOISE_382 plain (derived)"
 KEEL_SUMMARY_LEGS = ("NOISE_382", "NOISE_422_KEEL")
 
 
-def read_rows(path):
-    """Every row of a signals.csv as a dict; [] when the file is missing or unreadable."""
+def read_rows(path, strict=False):
+    """Every row of a signals.csv as a dict; [] when the file is missing or unreadable.
+    strict=True raises the OSError instead (api/qqq_exec.py's shadow_trades block, which
+    says why it has no rows rather than showing an empty list as if the ledger were empty)."""
     try:
         with open(path, encoding="utf-8", newline="") as f:
             return list(csv.DictReader(f))
     except OSError:
+        if strict:
+            raise
         return []
 
 
