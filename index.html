@@ -1199,6 +1199,15 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
    every cell. Padding and the bottom border stay inline on the cell - themes set both on every td, and only
    an inline style is sure to win over them, exactly as before. */
 .retd{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+/* EXPLORE / STUDIES TABLES - COLUMN GROUPS (owner 2026-10-09: colour the columns by kind so the eye can find a group).
+   A 2px band under each heading and a very light tint down its column (a <col> of the same class), by kind: IDENTITY,
+   PERFORMANCE, RISK, ACTIVITY. Theme tokens, so every theme carries them; under MONO, where every hue is a grey, the four
+   bands still differ by lightness alone (--green white, --blue light grey, --text5 mid grey, --red dark grey). */
+th.recg{box-shadow:inset 0 -2px 0 var(--recg)}
+.recg-id{--recg:var(--text5)}.recg-perf{--recg:var(--green)}.recg-risk{--recg:var(--red)}.recg-act{--recg:var(--blue)}
+col.recg-perf{background:color-mix(in srgb,var(--green) 4%,transparent)}
+col.recg-risk{background:color-mix(in srgb,var(--red) 6%,transparent)}
+col.recg-act{background:color-mix(in srgb,var(--blue) 5%,transparent)}
 </style>
 </head>
 <body>
@@ -1243,7 +1252,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1158';
+const VERSION='73.1159';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1261,7 +1270,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1153',date:'2026-10-07',notes:['EXPLORE and STUDIES TABLES: NO MORE BLANK BAND (owner 10-07). The empty stretch in the middle of the table was the ROC @ $30K DD column: once a column width had been dragged, the table gave every spare pixel to any column without a saved width, and that column was added after your widths were saved. Every column now gets exactly the width its heading and figures need, and the room left over is shared out so no column holds a gap.','The freed room now shows more data: on KEY the table fills its width with every column that fits, most useful first - MAR, ROC @ $30K DD, PF, EV R, $/TRD, TRADES and TRADES / YR, then the other ratios, then CONFIG and READ, then TOTAL, DRAWDOWN, the new DD5 and the three stage money columns, then the data window, date and description. The column the table is sorted on and the columns the chart is plotting always stay. When some do not fit, the TABLES heading says how many (+5 COLUMNS - ALL) and a click opens ALL, which shows every column and scrolls sideways inside the table only, never the page. On a phone the table keeps RANK, FAMILY, RUN and the columns the chart is plotting.','DD5 column: the average of the 5 worst drawdowns on the stage in view, as on the RUNBOARD, read off the curve each run or configuration saved (hover for the dips, ~ when the curve is too thin to tell them apart, 1 EPISODE when the worst drawdown is more than 1.3 times DD5). A row with no curve or no saved drawdown for the stage - a written-up study, an older run, a stage the saved curves do not mark - shows a dash with the reason.','TRADES / YR is never cut off now (no heading is) and shows one decimal under 10 and whole numbers above. It is the trade count over the years of the stage in view, the same count and years R / YR uses. The money columns now sit after the ratios. A dragged width now only narrows that one column while room is short.','RAW rows still show a dash for MAR, SHARPE, SORTINO and ROC @ $30K DD with all three stages ticked: the run saves a RAW configuration only its in-sample + walk-forward and lockbox figures separately, and the thinned curves cannot rebuild the whole-run figures honestly (a Sharpe off them read 1.38 against 2.10 saved). The hover now gives what is known exactly: the worst drawdown is at least the deeper of the two saved ones.']},
+const CHANGELOG=[{v:'73.1159',date:'2026-10-09',notes:['EXPLORE and STUDIES TABLES: WHICH STRATEGY, AT EVERY WIDTH (owner 10-09, phone screenshot). FAMILY now starts with the strategy name in full - ENGU-Q, DIP, NOISE - and then the configuration type (RAW, GATE, TILT, HYBRID, KEEL) in smaller type. When the column is narrow it is the type that gets cut short, never the name; the shape of the mark still says the type and the hover gives both. RANK and RUN always fit their widest figure, so a rank like 1056 no longer reads 10..','Rows of one run can be told apart: after the run number each configuration row now shows the name the run report gives it in its 1E tabs (Past Runs) - R2 is the RAW configuration ranked 2 on walk-forward (the crowned one wears the crown), XGB 55% a gate model and cut-off, rf (SL) a tilt model and size shape, a hybrid goes by its model and KEEL by its version. Hover it for the settings. Where the run report itself heads two configurations alike, they read ·1 and ·2 in its order.','Laptop: CONFIG is held to 200 px while columns are being left out for want of room (its full name is in the READ hover), so DRAWDOWN and DD5 now show on a 1400 px screen. When every column fits, CONFIG still gets its full width.','Column groups: a thin band under each heading and a very light tint down the column say what kind of figure it is - grey for what the row is (rank, family, run, config), green for performance, red for risk (drawdown, DD5), blue for activity (trades, trades a year). Under the MONO theme the four bands differ by lightness. RANK is right-aligned like every other number, and the headings keep their band and border while the rows scroll under them.','DD % ON THE EXPLORE CHART IS NOW DD % FROM PEAK. The chart axis was still the worst dollar drawdown over the starting account - the reading retired on 10-08 - and now plots the fall from the highest the account had been, the same figure the run report tables print, read off each row own saved curve for the ticked stretch. A row with no saved curve for that stretch has no figure rather than the old one. The buttons say DD % from peak. LEVERAGE LINE now plots against the dollar drawdown, which grows exactly with size (DD % from peak does not), so every ABOVE / ON / BELOW call reads exactly as before.','SMOOTHER SCROLLING. While a backtest ran, every progress update (about every 1.5 seconds) rebuilt the whole page, and on a 2,000-row EXPLORE board one rebuild takes 5 to 9 seconds - the board was being rebuilt back to back. On EXPLORE and STUDIES an update now redraws only the queue dials in the top bar (the NT GATE check redraws only its chip, a Webull sync nothing). Scrolling the table itself: the pinned left columns are pinned only when the table is wider than its box, a phone address bar sliding away no longer re-fits the columns, and rows passing under a still pointer no longer light up. Measured on a 2,200-row board: scroll frames from about 39 ms to 22 ms on average, mouse-wheel frames from about 75-98 ms to 20-22 ms.']},
+{v:'73.1153',date:'2026-10-07',notes:['EXPLORE and STUDIES TABLES: NO MORE BLANK BAND (owner 10-07). The empty stretch in the middle of the table was the ROC @ $30K DD column: once a column width had been dragged, the table gave every spare pixel to any column without a saved width, and that column was added after your widths were saved. Every column now gets exactly the width its heading and figures need, and the room left over is shared out so no column holds a gap.','The freed room now shows more data: on KEY the table fills its width with every column that fits, most useful first - MAR, ROC @ $30K DD, PF, EV R, $/TRD, TRADES and TRADES / YR, then the other ratios, then CONFIG and READ, then TOTAL, DRAWDOWN, the new DD5 and the three stage money columns, then the data window, date and description. The column the table is sorted on and the columns the chart is plotting always stay. When some do not fit, the TABLES heading says how many (+5 COLUMNS - ALL) and a click opens ALL, which shows every column and scrolls sideways inside the table only, never the page. On a phone the table keeps RANK, FAMILY, RUN and the columns the chart is plotting.','DD5 column: the average of the 5 worst drawdowns on the stage in view, as on the RUNBOARD, read off the curve each run or configuration saved (hover for the dips, ~ when the curve is too thin to tell them apart, 1 EPISODE when the worst drawdown is more than 1.3 times DD5). A row with no curve or no saved drawdown for the stage - a written-up study, an older run, a stage the saved curves do not mark - shows a dash with the reason.','TRADES / YR is never cut off now (no heading is) and shows one decimal under 10 and whole numbers above. It is the trade count over the years of the stage in view, the same count and years R / YR uses. The money columns now sit after the ratios. A dragged width now only narrows that one column while room is short.','RAW rows still show a dash for MAR, SHARPE, SORTINO and ROC @ $30K DD with all three stages ticked: the run saves a RAW configuration only its in-sample + walk-forward and lockbox figures separately, and the thinned curves cannot rebuild the whole-run figures honestly (a Sharpe off them read 1.38 against 2.10 saved). The hover now gives what is known exactly: the worst drawdown is at least the deeper of the two saved ones.']},
 {v:'73.1150',date:'2026-10-08',notes:['TRADING LOG: ZN TICK VALUE FIXED. A 10-year T-note tick (1/64 of a point) is worth $15.625, not $31.25 - that is the 30-year bond tick. Any ZN trade typed in, imported or synced from NinjaTrader would have shown double its real P&L; the journal holds no ZN trades, so no saved trade changes. A one-tick ZN result now reads $15.63 as the broker settles it: the page and the NinjaTrader sync round half a cent up, and net P&L is the rounded gross less fees.']},{v:'73.1133',date:'2026-10-07',notes:['RUNBOARD TO RUN REPORT (owner ask 10-07). Every engine run on COMPARE > RUNBOARD now has a small ↗ beside its number - in the table header, in the chart key and on the WATCH view’s research plane - that opens that run’s report in Past Runs. The report then shows a BACK TO RUNBOARD bar that returns to the same tab, stage and view. Research verdicts have no engine run, so they carry no link and their hover says why.']},{v:'73.1125',date:'2026-10-07',notes:['RUNBOARD: DD5 BESIDE EVERY WORST DRAWDOWN (owner go 10-07). ROC @ $30K DD divides by ONE drawdown, so a change that only trims one crash can look like a big win - book round 62’s volatility sizing read 116 against #463’s 94 while earning less money, purely by shaving the 2020 crash. A new DD5 row right under DD shows the average of the 5 worst drawdowns on the stage in view, each a separate dip from a high to its low before that high was regained. A dip still open at the end of the stretch counts, and a stage with fewer than five dips averages what it has and says so (n=3).','Hover a DD5 figure for the list of dips (high date, low date, depth), or tap it to open the same list under the figure. When the worst drawdown is more than 1.3 times DD5 the cell carries a 1 EPISODE tag in words: the ROC figure on that stage rests on that one episode. ROC, MAR and the RANK order are unchanged.','DD5 is read off the curve each run saves, which is thinned for storage, so the smaller dips can read a little shallow and their dates are approximate (marked ~). A stretch with too few saved points to tell its dips apart - a lockbox year is usually only 20 to 30 of them - shows its DD5 with a ~ and makes no 1 EPISODE call; the hover gives the worst-to-DD5 ratio either way. Where the thinned curve reads the deepest dip shallower than the DD row, the DD row’s own figure - the one the ROC figure divides by - is used for it. A single run’s in-sample stage (a tuning score that no saved curve covers), a lockbox read from the continuous replay and a stage with no saved curve show a dash with the reason. Research rows on the WATCH view show the DD5 their lane supplied, or a dash, never a made-up figure. The same row is on the RUNBOARD tab, the board inside COMPARE and the WATCH view.']},
 {v:'73.1148',date:'2026-10-08',notes:['SCORES: 1 trade from 2026-10-08 scored, 0 marked NA (no price data).']},{v:'73.1135',date:'2026-10-07',notes:['NINJATRADER NIGHT MODE (owner 10-07). After the close NinjaTrader now does its final checks and then stops by itself: from 16:15 New York on trading days it takes the day backup, finishes the 10-second data (retries up to 45 minutes and logs any gap it cannot fill), checks every fill was recorded, then closes NinjaTrader and keeps it closed until 05:45 Arizona on the next trading day (Friday to Monday, holidays skipped). Flat: the strategies stop and NinjaTrader closes cleanly. A paper trade open with its stop: NinjaTrader is force-closed with nothing switched off, so the stop stays at the broker but does not trail until the morning. A paper trade with no stop, or your real account holding a position or an order: NinjaTrader stays on that night and you get a push.','Two Desktop switches: NinjaTrader OFF tonight (the same checks, right now) and NinjaTrader ON now (ends night mode and starts NinjaTrader). The morning check, the 30-minute sweep, the order-flow alarm and the cloud watchdog treat the night as expected; a failed morning start still alerts. While NinjaTrader is closed the ENGU-Q NinjaTrader paper leg does not trade the evening and overnight session; the engine paper record still tracks it. Every time and choice lives in one settings file.']},
 {v:'73.1146',date:'2026-10-08',notes:['DD % NOW READS LIKE A BROKER (owner ask 10-08). It used to be the worst drawdown in dollars divided by the fixed starting account, which is a share of the opening balance and not a drawdown at all: run #424 worst drop of 116,900 dollars printed as about 117 per cent on a run whose profit and loss never once went below zero. No open account can fall 117 per cent. It is now the fall from the highest the account has been, which is what a broker shows you - a 100,000 dollar drop after the account reached a million reads 10 per cent.','One definition, written once and checked. The engine owns it and the page carries the same rule so a hover does not wait on a round trip, exactly as DD5 already works. A new check runs the page copy in a real browser and compares it against the engine on six curves, and it deliberately plants two wrong formulas - the old share-of-the-start one, and the plausible one that measures each dip against its own high instead of the account high - and fails on both.','What it is NOT used for: nothing about ranking changed. Crowns, the frontier and the house yardstick still read dollars of drawdown and ROC per year at a 30,000 dollar drawdown, with DD5 beside them. The reason is on the hover: contract size is fixed, so the same dollar fall is a smaller percentage as the account grows - the percentage tells you how a drop FELT against the account at the time, the dollars tell you how big it was.','A run saved before today has no such figure stored and the page cannot work one out backwards - the worst fall in percentage is not always the same episode as the worst fall in dollars once the account has grown, so no division of a stored dollar figure recovers it. Those cells are left blank rather than filled with the old number; their dollar drawdown is unchanged and says everything it always said.']},{v:'73.1135',date:'2026-10-07',notes:['NINJATRADER NIGHT MODE (owner 10-07). After the close NinjaTrader now does its final checks and then stops by itself: from 16:15 New York on trading days it takes the day backup, finishes the 10-second data (retries up to 45 minutes and logs any gap it cannot fill), checks every fill was recorded, then closes NinjaTrader and keeps it closed until 05:45 Arizona on the next trading day (Friday to Monday, holidays skipped). Flat: the strategies stop and NinjaTrader closes cleanly. A paper trade open with its stop: NinjaTrader is force-closed with nothing switched off, so the stop stays at the broker but does not trail until the morning. A paper trade with no stop, or your real account holding a position or an order: NinjaTrader stays on that night and you get a push.','Two Desktop switches: NinjaTrader OFF tonight (the same checks, right now) and NinjaTrader ON now (ends night mode and starts NinjaTrader). The morning check, the 30-minute sweep, the order-flow alarm and the cloud watchdog treat the night as expected; a failed morning start still alerts. While NinjaTrader is closed the ENGU-Q NinjaTrader paper leg does not trade the evening and overnight session; the engine paper record still tracks it. Every time and choice lives in one settings file.']},
@@ -4660,7 +4670,7 @@ function _btFetchRecent(){
       const _sig=(_btRecent||[]).filter(b=>b.status==='done').map(b=>b.id).join(',');
       if(window._btDoneSig!=null&&_sig!==window._btDoneSig)_refreshRunsLite();
       window._btDoneSig=_sig;
-      if(activeTab==='augur')renderApp();
+      _jobsRedraw();
     }).catch(e=>{console.warn('[jobs] recent-jobs read failed:',(e&&e.message)||e);});
   },300);
 }
@@ -5389,7 +5399,7 @@ function subscribeAll(uid){
     _btMerge();
     // a job that LEFT the live set is a job that finished, errored or was cancelled
     if(was.some(id=>now.indexOf(id)<0))_btFetchRecent();
-    if(activeTab==='augur')renderApp();
+    _jobsRedraw();
   },e=>{console.warn('[jobs] live-jobs listener failed:',(e&&e.message)||e);});
   _btFetchRecent();          // first read of the finished list, on login
   runsRef=db.collection('users').doc(uid).collection('runs');
@@ -5410,7 +5420,7 @@ function subscribeAll(uid){
   //   IMPORT / EXPORT panel if that is the thing open.
   unsubNT=metaRef.doc('nt_sync').onSnapshot(d=>{ntSync=d.data()||null;if((activeTab==='import_export'&&(window._dataSubTab||'import')==='import')||activeTab==='trades'||activeTab==='home')renderApp();else if(window.refreshImportExportPanel)window.refreshImportExportPanel();});
   if(unsubWB)unsubWB();
-  unsubWB=metaRef.doc('webull_sync').onSnapshot(d=>{wbSync=d.data()||null;renderApp();}); // net_liq drives Webull's per-account balance
+  unsubWB=metaRef.doc('webull_sync').onSnapshot(d=>{wbSync=d.data()||null;if(_onResTables())return;renderApp();}); // net_liq drives Webull's per-account balance
   setTimeout(loadGateChip,1500);   // first read for the top-bar ML GATE chip
 }
 // ── ML GATE chip in the GLOBAL TOP BAR (owner 2026-08-16: "put this at the top with the
@@ -5426,7 +5436,7 @@ function loadGateChip(){
     const u=auth&&auth.currentUser&&auth.currentUser.uid;
     if(!db||!u)return;
     db.collection('users').doc(u).collection('meta').doc('nt_bridge').get()
-      .then(d=>{ if(d.exists){ window._ntBridge=d.data(); renderApp(); } })
+      .then(d=>{ if(d.exists){ window._ntBridge=d.data(); if(_onResTables()&&_tbSwap('tb-gate',_tbGateHtml()))return; renderApp(); } })
       .catch(()=>{});
   }catch(e){}
 }
@@ -13736,6 +13746,8 @@ function openEditModal(tradeId){
 //   match the two. Hoisted to a global so BOTH places share the exact same lookup and can never
 //   drift out of sync if scheme values ever change.
 const _TILT_SCHEME_AB={tier:'ST',linear:'SL'};
+// the short names the run report heads a GATE column with (2C), shared with the EXPLORE / STUDIES config rows
+const _GATE_MODEL_AB={logistic:'LOGIT',rf:'RF',xgb:'XGB'};
 // v73.47 (owner: no two naming conventions anywhere — never show the raw scheme key 'tier'/
 //   'linear' to the user): shared friendly full-name map for the internal scheme key, used
 //   everywhere a scheme is rendered so only "steps"/"sliding" (+ ST/SL) are ever visible.
@@ -15906,75 +15918,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
     }
 }
 
-function renderApp(){
-  if(window._finishLoad){window._finishLoad();delete window._finishLoad;}
-  // WEBULL PAPER (LEDGER step 9): its trade panel lives in <body>; anywhere but the board it is closed here, before the screen is replaced
-  try{if(!(activeTab==='augur'&&augurSub==='qqqpaper'))ledgerTradePanelClose('wb','leave');}catch(e){}
-  // HOME: keep half-typed NEW TRADE / JOURNAL / trade-note text across this redraw (_hmBeforeRender).
-  try{_hmBeforeRender();}catch(e){}
-  // NT8 PAPER (LEDGER step 9): its trade panel lives in <body>; anywhere but the PAPER boards it is closed here, before the screen is replaced
-  try{if(!(activeTab==='augur'&&(augurSub==='paper2'||augurSub==='paper')))ledgerTradePanelClose('nt8','leave');}catch(e){}
-  // BUILDER: a data refresh waits while a field there is being typed in or pressed (see _bbHold).
-  if(activeTab==='augur'&&augurSub==='exec2'&&!window._bbForce&&_bbHold())return;
-  // v73.20: SETTINGS left the tab bars for the topbar gear. A browser that saved the old
-  //   view (el_view) can still restore activeTab 'settings' / augurSub 'set' — send those
-  //   back to a real tab so the user never lands on a tab that no longer has a button.
-  if(activeTab==='settings')activeTab=(window._lastLogTab&&window._lastLogTab!=='settings')?window._lastLogTab:'home';
-  // OVERVIEW is retired from the tab bar (v73.7xx) - a stale lastLogTab pointing at it
-  // (or at 'settings' before that) must not hand it back out except via the URL escape hatch.
-  if(activeTab==='overview'&&!window.LOG_OVERVIEW_ESCAPE_HATCH)activeTab='home';
-  // TABS-NAV COLLAPSE: same for TRADES / JOURNAL / IMPORT-EXPORT - whichever path hands one of
-  // them out (a stale remembered tab, the SETTINGS fallback just above), it opens HOME unless
-  // ?oldtabs=1. See _liveLogTab next to the el_view restore block.
-  activeTab=_liveLogTab(activeTab);
-  if(window._lastLogTab)window._lastLogTab=_liveLogTab(window._lastLogTab);
-  if(augurSub==='set')augurSub='lib';
-  // v73.378: the two paper tabs merged (owner: "there are still two paper tabs. redo
-  // this"). 'paper' no longer has a button, so a browser restoring the old saved view
-  // is routed to the merged tab instead of landing somewhere unreachable.
-  if(augurSub==='paper')augurSub='paper2';
-  // the old BUILDER tab is retired: anything that still asks for it gets the new BUILDER
-  if(augurSub==='exec')augurSub='exec2';
-  // 2026-09-14: PAPER and QQQ PAPER merged into one PAPER TRADE tab (owner: "create one paper
-  // trade tab and put the two current tabs as subtabs to toggle between"). The two views keep
-  // their own ids so every loader and handler keyed on them is untouched; this only remembers
-  // which one was open so the PAPER TRADE button returns to it.
-  if(activeTab==='augur'&&(augurSub==='paper2'||augurSub==='qqqpaper')){try{localStorage.setItem('el_paperSub',augurSub);}catch(e){}}
-  // TABS-NAV COLLAPSE (2026-09-26): LIBRARY and REFERENCE are now inner toggles inside BUILDER
-  // and RESEARCH, the same PAPER TRADE pattern just above - remember which one was open so the
-  // BUILDER / RESEARCH strip button returns to it (see the [data-asubtop] handler below).
-  if(activeTab==='augur'&&(augurSub==='exec2'||augurSub==='lib')){try{localStorage.setItem('el_builderSub',augurSub);}catch(e){}}
-  if(activeTab==='augur'&&(augurSub==='research'||augurSub==='ref')){try{localStorage.setItem('el_researchSub',augurSub);}catch(e){}}
-  // ONE ROW OF TABS: remember which HOME subtab (REAL / NT8 PAPER / WEBULL PAPER) was open so the
-  // HOME button returns to it.
-  {const _hs=activeTab==='home'?'real':((activeTab==='augur'&&(augurSub==='paper2'||augurSub==='qqqpaper'))?augurSub:'');
-   if(_hs){try{localStorage.setItem('el_homeSub',_hs);}catch(e){}}}
-  _qqqExecEnsureLive(); // attach/detach the qqq_exec live listener to match the tab we're about to render (defined near loadQqqExec)
-  try{window._setStage('RENDER: '+activeTab);}catch(e){}
-  _saveView();
-
-  const S=calcStats(trades);
-  const filtered=applyFilters(trades);
-  const app=document.getElementById('app');
-  // Fade only when the tab actually changes — re-rendering the same tab (e.g. a
-  // Library row select, sort, or filter) shouldn't flash the whole screen blank.
-  const _fadeOn=(window._lastRenderTab!==activeTab);window._lastRenderTab=activeTab;
-  const wrap=document.createElement('div');wrap.className=_fadeOn?'fade':'';
-
-  // TOPBAR
-  const tb=document.createElement('div');tb.className='topbar';
-  tb.innerHTML=`
-    <div style="display:flex;align-items:center;gap:10px;padding:6px 14px 6px 0;border-right:1px solid var(--border);margin-right:2px;cursor:pointer;flex-shrink:0" id="logo-area">
-      ${userLogo?`<img src="${userLogo}" style="height:28px;max-width:70px;object-fit:contain" title="Click to change logo"/>`:``}
-      <div>
-        <div style="font-family:'Bebas Neue',monospace;font-size:${userLogo?'13':'18'}px;letter-spacing:3px;color:var(--green);line-height:1">EDGE LOG</div>
-        <div style="font-size:var(--fsxs);color:var(--text5);letter-spacing:1px;margin-top:1px;display:flex;align-items:center;gap:6px">
-          <span class="vbadge">v${VERSION}</span><span style="color:var(--text5)">·</span>
-          <span>${bScope(trades).length}${activeBroker?' '+activeBroker:''} trades</span><span style="color:var(--text5)">·</span>
-          <span class="${S?ledgerCls(S.net):''}" style="${S?'':'color:var(--text5)'}" title="Net P&amp;L of every trade in this account, all time">${S?ledgerSigned(S.net):'—'}</span>
-          ${autoHandle?'<span style="color:var(--text5)">·</span><span style="color:var(--yellow)"><span class="pulse-y"></span> AUTO</span>':''}
-          ${(()=>{const w=window._dataFeedWarn?window._dataFeedWarn():[];return w.length?'<span style="color:var(--text5)">·</span><span title="'+w.join(' | ').replace(/"/g,'&quot;')+' - shared 10s tick capture, affects every leg equally" style="cursor:help;color:#e0c341">&#9888; DATA</span>':'';})()}
-          ${(()=>{
+// THE TOP BAR'S NT GATE CHIP AND QUEUE DIALS, built by name so a background tick can redraw just them (see _onResTables).
+function _tbGateHtml(){
             // ML GATE chip -- owner 2026-08-16: "just put this at the top with the demo
             // status". It belongs up here for the same reason the DATA warning does: it is
             // a machine-level condition, not a PAPER-tab detail, and its failure mode is
@@ -16012,16 +15957,8 @@ function renderApp(){
             return '<span style="color:var(--text5)">·</span>'
               +'<a href="'+href+'" target="_blank" rel="noopener" title="'+tip.replace(/"/g,'&quot;')
               +'" style="cursor:pointer;text-decoration:none;color:'+col+'">&#9679; '+txt+'</a>';
-          })()}
-        </div>
-      </div>
-    </div>
-    ${typeof qbTopChipHtml==='function'?qbTopChipHtml():''}
-    ${window.LOG_OLDTABS_ESCAPE_HATCH?[['log','TRADING LOG','◫'],['backtester','BACKTESTER','⊞']].map(m=>{
-      const on=(m[0]==='backtester')===(activeTab==='augur');
-      return `<button class="btn-ghost master-tab${on?' active':''}" data-master="${m[0]}" style="font-size:13px;letter-spacing:1px"><span style="margin-right:7px;font-size:14px;opacity:.8">${m[2]}</span>${m[1]}</button>`;
-    }).join(''):''}
-    ${(()=>{
+}
+function _tbQueueHtml(){
       // QUEUE GAUGES (owner ask 2026-09-11, replacing the single-job chip). ONE SMALL DIAL
       //   PER LIVE JOB - everything running or waiting, visible from every screen, instead
       //   of the top job plus a "+3" the owner had to click to read.
@@ -16110,7 +16047,99 @@ function renderApp(){
         if(extra>0)html+='<span data-queuechip style="cursor:pointer;font-size:10px;color:var(--text4);margin-right:9px">+'+extra+'</span>';
         return '<span class="master-tab" style="display:inline-flex;align-items:center;padding:0 2px">'+html+'</span>';
       }catch(e){return '';}
-    })()}
+}
+// Swap one of them in place: the same markup renderApp puts there, the dials wired to the same click, and the sticky
+//   sub-tab strip re-pinned under the bar in case the bar changed height (the same step qbTopChipRefresh takes).
+function _tbSwap(id,html){try{const el=document.getElementById(id);if(!el)return false;
+  el.innerHTML=html;
+  el.querySelectorAll('[data-queuechip]').forEach(_qc=>{_qc.onclick=()=>{activeTab='augur';augurSub='exec2';savePref('augurSub','exec2');renderApp();};});
+  const tb=document.querySelector('#app .topbar'),sb=tb&&tb.nextElementSibling;if(tb&&sb&&sb.style.position==='sticky')sb.style.top=tb.offsetHeight+'px';
+  return true;}catch(e){return false;}}
+// THE RESEARCH TABLES ARE ON SCREEN (COMPARE > EXPLORE / STUDIES). A 2,000-row board takes 6 to 9 seconds to build, and a
+//   background tick that changes nothing on those tables used to rebuild them all (owner 2026-10-09: "scrolling the TABLES
+//   is laggy"): the runner writes a running job's progress about every 1.5 s and its heartbeat every minute, and every write
+//   redrew the whole app - the board was rebuilt back to back for as long as a job ran. On those screens a tick now redraws
+//   only what it changes: the queue dials, the NT GATE chip, or nothing (a Webull sync shows on the trading log only).
+function _onResTables(){try{return activeTab==='augur'&&!!document.querySelector('table[data-retbl]');}catch(e){return false;}}
+function _jobsRedraw(){if(activeTab!=='augur')return;if(_onResTables()&&_tbSwap('tb-queue',_tbQueueHtml()))return;renderApp();}
+function renderApp(){
+  if(window._finishLoad){window._finishLoad();delete window._finishLoad;}
+  // WEBULL PAPER (LEDGER step 9): its trade panel lives in <body>; anywhere but the board it is closed here, before the screen is replaced
+  try{if(!(activeTab==='augur'&&augurSub==='qqqpaper'))ledgerTradePanelClose('wb','leave');}catch(e){}
+  // HOME: keep half-typed NEW TRADE / JOURNAL / trade-note text across this redraw (_hmBeforeRender).
+  try{_hmBeforeRender();}catch(e){}
+  // NT8 PAPER (LEDGER step 9): its trade panel lives in <body>; anywhere but the PAPER boards it is closed here, before the screen is replaced
+  try{if(!(activeTab==='augur'&&(augurSub==='paper2'||augurSub==='paper')))ledgerTradePanelClose('nt8','leave');}catch(e){}
+  // BUILDER: a data refresh waits while a field there is being typed in or pressed (see _bbHold).
+  if(activeTab==='augur'&&augurSub==='exec2'&&!window._bbForce&&_bbHold())return;
+  // v73.20: SETTINGS left the tab bars for the topbar gear. A browser that saved the old
+  //   view (el_view) can still restore activeTab 'settings' / augurSub 'set' — send those
+  //   back to a real tab so the user never lands on a tab that no longer has a button.
+  if(activeTab==='settings')activeTab=(window._lastLogTab&&window._lastLogTab!=='settings')?window._lastLogTab:'home';
+  // OVERVIEW is retired from the tab bar (v73.7xx) - a stale lastLogTab pointing at it
+  // (or at 'settings' before that) must not hand it back out except via the URL escape hatch.
+  if(activeTab==='overview'&&!window.LOG_OVERVIEW_ESCAPE_HATCH)activeTab='home';
+  // TABS-NAV COLLAPSE: same for TRADES / JOURNAL / IMPORT-EXPORT - whichever path hands one of
+  // them out (a stale remembered tab, the SETTINGS fallback just above), it opens HOME unless
+  // ?oldtabs=1. See _liveLogTab next to the el_view restore block.
+  activeTab=_liveLogTab(activeTab);
+  if(window._lastLogTab)window._lastLogTab=_liveLogTab(window._lastLogTab);
+  if(augurSub==='set')augurSub='lib';
+  // v73.378: the two paper tabs merged (owner: "there are still two paper tabs. redo
+  // this"). 'paper' no longer has a button, so a browser restoring the old saved view
+  // is routed to the merged tab instead of landing somewhere unreachable.
+  if(augurSub==='paper')augurSub='paper2';
+  // the old BUILDER tab is retired: anything that still asks for it gets the new BUILDER
+  if(augurSub==='exec')augurSub='exec2';
+  // 2026-09-14: PAPER and QQQ PAPER merged into one PAPER TRADE tab (owner: "create one paper
+  // trade tab and put the two current tabs as subtabs to toggle between"). The two views keep
+  // their own ids so every loader and handler keyed on them is untouched; this only remembers
+  // which one was open so the PAPER TRADE button returns to it.
+  if(activeTab==='augur'&&(augurSub==='paper2'||augurSub==='qqqpaper')){try{localStorage.setItem('el_paperSub',augurSub);}catch(e){}}
+  // TABS-NAV COLLAPSE (2026-09-26): LIBRARY and REFERENCE are now inner toggles inside BUILDER
+  // and RESEARCH, the same PAPER TRADE pattern just above - remember which one was open so the
+  // BUILDER / RESEARCH strip button returns to it (see the [data-asubtop] handler below).
+  if(activeTab==='augur'&&(augurSub==='exec2'||augurSub==='lib')){try{localStorage.setItem('el_builderSub',augurSub);}catch(e){}}
+  if(activeTab==='augur'&&(augurSub==='research'||augurSub==='ref')){try{localStorage.setItem('el_researchSub',augurSub);}catch(e){}}
+  // ONE ROW OF TABS: remember which HOME subtab (REAL / NT8 PAPER / WEBULL PAPER) was open so the
+  // HOME button returns to it.
+  {const _hs=activeTab==='home'?'real':((activeTab==='augur'&&(augurSub==='paper2'||augurSub==='qqqpaper'))?augurSub:'');
+   if(_hs){try{localStorage.setItem('el_homeSub',_hs);}catch(e){}}}
+  _qqqExecEnsureLive(); // attach/detach the qqq_exec live listener to match the tab we're about to render (defined near loadQqqExec)
+  try{window._setStage('RENDER: '+activeTab);}catch(e){}
+  _saveView();
+
+  const S=calcStats(trades);
+  const filtered=applyFilters(trades);
+  const app=document.getElementById('app');
+  // Fade only when the tab actually changes — re-rendering the same tab (e.g. a
+  // Library row select, sort, or filter) shouldn't flash the whole screen blank.
+  const _fadeOn=(window._lastRenderTab!==activeTab);window._lastRenderTab=activeTab;
+  const wrap=document.createElement('div');wrap.className=_fadeOn?'fade':'';
+
+  // TOPBAR
+  const tb=document.createElement('div');tb.className='topbar';
+  tb.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 14px 6px 0;border-right:1px solid var(--border);margin-right:2px;cursor:pointer;flex-shrink:0" id="logo-area">
+      ${userLogo?`<img src="${userLogo}" style="height:28px;max-width:70px;object-fit:contain" title="Click to change logo"/>`:``}
+      <div>
+        <div style="font-family:'Bebas Neue',monospace;font-size:${userLogo?'13':'18'}px;letter-spacing:3px;color:var(--green);line-height:1">EDGE LOG</div>
+        <div style="font-size:var(--fsxs);color:var(--text5);letter-spacing:1px;margin-top:1px;display:flex;align-items:center;gap:6px">
+          <span class="vbadge">v${VERSION}</span><span style="color:var(--text5)">·</span>
+          <span>${bScope(trades).length}${activeBroker?' '+activeBroker:''} trades</span><span style="color:var(--text5)">·</span>
+          <span class="${S?ledgerCls(S.net):''}" style="${S?'':'color:var(--text5)'}" title="Net P&amp;L of every trade in this account, all time">${S?ledgerSigned(S.net):'—'}</span>
+          ${autoHandle?'<span style="color:var(--text5)">·</span><span style="color:var(--yellow)"><span class="pulse-y"></span> AUTO</span>':''}
+          ${(()=>{const w=window._dataFeedWarn?window._dataFeedWarn():[];return w.length?'<span style="color:var(--text5)">·</span><span title="'+w.join(' | ').replace(/"/g,'&quot;')+' - shared 10s tick capture, affects every leg equally" style="cursor:help;color:#e0c341">&#9888; DATA</span>':'';})()}
+          <span id="tb-gate" style="display:contents">${_tbGateHtml()}</span>
+        </div>
+      </div>
+    </div>
+    ${typeof qbTopChipHtml==='function'?qbTopChipHtml():''}
+    ${window.LOG_OLDTABS_ESCAPE_HATCH?[['log','TRADING LOG','◫'],['backtester','BACKTESTER','⊞']].map(m=>{
+      const on=(m[0]==='backtester')===(activeTab==='augur');
+      return `<button class="btn-ghost master-tab${on?' active':''}" data-master="${m[0]}" style="font-size:13px;letter-spacing:1px"><span style="margin-right:7px;font-size:14px;opacity:.8">${m[2]}</span>${m[1]}</button>`;
+    }).join(''):''}
+    <span id="tb-queue" style="display:contents">${_tbQueueHtml()}</span>
     <div style="margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 4px">
       <!-- Gross/Net toggle -->
       <div class="toggle-pill" title="Switch KPIs between Gross (before fees) and Net (after fees) P&L">
@@ -18667,7 +18696,7 @@ function renderApp(){
       const pop=document.createElement('div');pop.id='infopop';
       pop.style.cssText='position:fixed;z-index:9999;display:none;max-width:440px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:11px;line-height:1.55;color:var(--text2);box-shadow:0 8px 30px rgba(0,0,0,.45)';
       document.body.appendChild(pop);
-      const close=()=>{pop.style.display='none';};
+      const close=()=>{if(pop.style.display!=='none')pop.style.display='none';};
       const place=el=>{pop.style.display='block';pop.style.left='0px';pop.style.top='0px';
         const r=el.getBoundingClientRect(),pw=pop.offsetWidth,ph=pop.offsetHeight;
         let x=Math.min(r.left,window.innerWidth-pw-10),y=r.bottom+6;
@@ -24289,7 +24318,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // B4 (compact): LOGISTIC is the one model name wide enough to force horizontal scroll on
         //   its own (3 columns × the longest label) — abbreviated to LOGIT (the standard short
         //   form) in the header only; the info-icon tip and the row title keep the full word.
-        const _mNm={logistic:'LOGIT',rf:'RF',xgb:'XGB'};
+        const _mNm=_GATE_MODEL_AB;
         // v64.95 (owner ask): every candidate already carries a saved equity curve spanning the
         //   WHOLE run (pre-lockbox + the held-out final year), so each variant's LOCKBOX SLICE is
         //   sitting in the run doc already — nothing re-run, nothing recomputed, no new engine
@@ -32302,7 +32331,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   justified when its ROC grows at least in proportion to its drawdown. Read straight off
         //   APREF, never off _reXAxis / _reRel below - both are declared further down this function,
         //   so reading THEM here would throw on the const's own temporal dead zone.
-        const _reLevOn=(APREF.resLev===true&&APREF.resAxis==='roc'&&APREF.resXAxis==='ddp'&&APREF.resRel!=='crown');
+        //   (2026-10-09) it plots the DOLLAR drawdown across (see _reLevX); a view saved on the old DD % pick still opens it.
+        const _reLevOn=(APREF.resLev===true&&APREF.resAxis==='roc'&&(APREF.resXAxis==='dd'||APREF.resXAxis==='ddp')&&APREF.resRel!=='crown');
         // SPLIT LAYOUT. SIDE puts the chart beside the study tables, STACK keeps it above them.
         //   The toggle lives in the sub-tab bar beside the other split toggles this app already
         //   has (RESULTS, LIBRARY, RESEARCH), so it is where the owner already looks for it. The
@@ -32554,13 +32584,22 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   row is still readable however far right you scroll to reach a KPI. Fixed widths (by
         //   the same NAME resColW keys, so a drag-resize still wins) keep the offsets exact.
         const _reStickyDef={RANK:30,FAMILY:86,RUN:58};
-        const _reStickyW=nm=>{const w=+_reColW[nm];return (w>0)?w:_reStickyDef[nm];};
-        const _reStickyL={RANK:0,FAMILY:_reStickyW('RANK'),RUN:_reStickyW('RANK')+_reStickyW('FAMILY')};
+        // (owner 2026-10-09) The fit pass sizes these three to their content now - RANK to its widest number, FAMILY to at
+        //   least the strategy name, RUN to the run number and the configuration label - and a table is drawn at the widths
+        //   the last fit gave them (_reFitC.sw), so it lays out once. _reFitC is declared below; both are only called later.
+        const _reStickyW=nm=>{const c=(_reFitC&&_reFitC.sw)?+_reFitC.sw[nm]:0;if(c>0)return c;const w=+_reColW[nm];return (w>0)?w:_reStickyDef[nm];};
+        const _reStickyLOf=nm=>(nm==='RANK')?0:((nm==='FAMILY')?_reStickyW('RANK'):(_reStickyW('RANK')+_reStickyW('FAMILY')));
         // OPENS WITH ITS OWN SEMICOLON: every builder it is handed to appends it straight after a
         //   declaration of its own (the body cell ends on tabular-nums, the header cell on its
         //   background). Without it the two fused into one invalid declaration and the browser
         //   dropped both - the body cells never stuck and the headers lost their fill.
-        const _reStickyCss=(nm,z)=>';position:sticky;left:'+_reStickyL[nm]+'px;z-index:'+z+';width:'+_reStickyW(nm)+'px;min-width:'+_reStickyW(nm)+'px;max-width:'+_reStickyW(nm)+'px;overflow:hidden;text-overflow:ellipsis;';
+        // PINNED ONLY WHERE THE TABLE CAN SCROLL SIDEWAYS (owner 2026-10-09: "scrolling the TABLES is laggy"). The browser
+        //   gives every pinned body cell a layer of its own - 6,600 of them on a 2,200-row board - and moving them all took
+        //   about half of every scroll frame, measured in headless Chrome. A body cell pins through --restk, which a table
+        //   carries only when it is wider than its box (ALL, or KEY on a phone whose identifying columns do not fit): a
+        //   table that fits its box cannot scroll sideways, so pinning bought nothing there. The headings always pin.
+        const _reStickyCss=(nm,z)=>{const W=_reStickyW(nm);
+          return ';position:'+((z>1)?'sticky':'var(--restk,static)')+';left:'+_reStickyLOf(nm)+'px;z-index:'+z+';width:'+W+'px;min-width:'+W+'px;max-width:'+W+'px;overflow:hidden;text-overflow:ellipsis;';};
         // a pinned body cell needs an OPAQUE fill, or the KPI cells scrolling underneath show
         //   through it. It is the tables tile's own ground; a champion row's see-through tint is
         //   laid over that ground, so the pinned cells read exactly like the rest of the row.
@@ -32576,7 +32615,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   fixed layout, and the fit pass finds nothing to change. A column the last fit never saw keeps the old way.
         const _reFitC=(function(){const L=window._reFitLast||null;
           return (L&&L.cw&&L.tot>0&&L.vw===(window.innerWidth||0)&&L.split===_reSplit&&L.all===_reFull)?L:null;})();
-        const _reTblSty=_reFitC?('table-layout:fixed;width:'+_reFitC.tot+'px;'):'width:100%;';
+        const _reTblSty=(_reFitC?('table-layout:fixed;width:'+_reFitC.tot+'px;'):'width:100%;')+((_reFull||(_reFitC&&_reFitC.stk))?'--restk:sticky;':'');
         // THE FREED-WIDTH COLUMNS (owner 2026-10-07: "show all the data that we can and get rid of the blank space").
         //   KEY used to leave the money columns out whatever the width. Each one is built when the table box should
         //   have room for it past the KEY columns, in the order the fit pass keeps them, and the fit pass then shows
@@ -32940,9 +32979,36 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const p=_reSegVal(rw,segOv),d=_reNum(rw,'dd'),y=_reYrs(st,rw,segOv);
           const m=(p==null||d==null||!d||!(y>0))?null:_marAnn(p,y,d);
           return (m==null||!isFinite(m))?null:(m*30000/_rocAcct()*100);};
-        // DD % - the worst peak-to-trough loss as a percentage of that same account.
-        const _reDdp=(st,rw)=>{const d=_reNum(rw,'dd'),a=_rocAcct();
-          return (d!=null&&a>0)?(Math.abs(d)/a*100):null;};
+        // DD % FROM PEAK (v73.1146, owner 2026-10-08; this axis caught up 2026-10-09). The fall from the highest the account
+        //   has been, the way a broker states it - the page twin _ddPctPeakOf through _ddPctOfCfg, exactly as the run report
+        //   tables read it - on the curve the row saved for the ticked stretch (the same curve DD5 reads), the account starting
+        //   at the ROC account chip. This axis used to divide the worst DOLLAR drawdown by that fixed account, the reading
+        //   v73.1146 retired (a $116.9k drop on a run that never went below zero printed 117%). A row with no curve for the
+        //   stretch has no figure: a stored dollar drawdown cannot be turned back into one. _reDd5 is declared further down;
+        //   both are only called once the board is built.
+        const _reDdpMemo=new WeakMap();
+        const _reDdpOf=(st,rw)=>{if(!rw||typeof rw!=='object')return {why:'No row.'};
+          const sk=_reSegsEff.slice().sort().join(','),k=sk+'|'+_rocAcct();
+          const m0=_reDdpMemo.get(rw);if(m0&&m0.k===k)return m0.o;
+          const d=_reDd5(st,rw);let o;
+          if(d&&d.cv&&!d.why){
+            const key=({'is':'is','wf':'wf','lb':'lb','is,wf':'pre','lb,wf':'wf_lb','is,lb':'is_lb','is,lb,wf':'full'})[sk]||'';
+            const B=(rw._st&&key)?rw._st[key]:null;
+            // the engine's own figure for this stretch where its block carries one (it measures the daily series, the saved
+            //   curve is thinned) - unless the page resized the row, since a percentage does not scale with size
+            const sv=(B&&B.dd_pct_peak!=null&&isFinite(+B.dd_pct_peak)&&(+rw._sf||1)===1)?+B.dd_pct_peak:null;
+            const v=_ddPctOfCfg({dd_pct_peak:sv,equity:{cum:d.cv}},1);
+            o=(v!=null&&isFinite(v))?{v:v,src:(sv!=null)?'the engine figure for this stretch':d.src}:{why:'The saved curve holds a value this page cannot read.'};}
+          else o={why:'DD % from peak is read off the curve this row saved for the '+_reDd5Nm()+' - the curve DD5 reads - and there is none to read here: '
+            +String((d&&d.why)||'no curve is saved.')+' A stored dollar drawdown cannot be turned into one: the worst fall in percent need not be the worst in dollars once the account has grown.'};
+          _reDdpMemo.set(rw,{k:k,o:o});return o;};
+        const _reDdp=(st,rw)=>{const o=_reDdpOf(st,rw);return (o&&o.v!=null)?o.v:null;};
+        const _reDdpWhy=(st,rw)=>{const o=_reDdpOf(st,rw);return (o&&o.why)||'This row has no DD % from peak for the ticked stretch.';};
+        // THE LEVERAGE LINE READS DOLLARS (2026-10-09). Its test - does ROC grow at least in step with drawdown - needs a
+        //   drawdown that grows exactly with size. The worst dollar drawdown does; DD % from peak does not (the high it is
+        //   measured from grows with size too), so a config that only traded bigger would have read ABOVE its plain twin.
+        //   The old DD % axis was this same dollar figure over a fixed account, so every ABOVE / ON / BELOW call is unchanged.
+        const _reLevX=(st,rw)=>{const d=_reNum(rw,'dd');return (d!=null&&isFinite(d))?Math.abs(d):null;};
         // LEVERAGE LINE's PLAIN TWIN (owner ask via MANAGER, 2026-09-28, inbox #12): every config
         //   row of a run is stamped _twin at build time - see the UNGby block below - with either
         //   the gate bake-off's own UNGATED reading on the same blocks (the honest plain twin) or,
@@ -32951,7 +33017,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   axes _reDdp / _reRoc place every other row on, so it moves with STAGE like they do.
         const _reTwinOf=(st,rw)=>{
           const twin=(rw&&rw._twin)||null;if(!twin)return null;
-          const x=_reDdp(st,twin),y=_reRoc(st,twin);
+          const x=_reLevX(st,twin),y=_reRoc(st,twin);
           return (x!=null&&y!=null)?{x:x,y:y,row:twin,fallback:!!(rw&&rw._twinFallback)}:null;};
         // LEVERAGE LINE's classifier (owner ask via MANAGER, 2026-09-28, inbox #12). ML / sized
         //   rows only - GATE, TILT, either HYBRID sizing or KEEL; never RAW (RAW rows are the crown
@@ -32963,7 +33029,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _reLevOf=(st,rw)=>{
           if(!(rw&&rw._cfg&&_reLevTabs.indexOf(rw._tab)>=0))return null;
           const tw=_reTwinOf(st,rw);if(!tw)return null;
-          const x=_reDdp(st,rw),y=_reRoc(st,rw);
+          const x=_reLevX(st,rw),y=_reRoc(st,rw);
           if(x==null||y==null)return null;
           const tx=tw.x,ty=tw.y;
           if(!(tx>0))return null;    // its plain twin has no drawdown on this stretch
@@ -32976,8 +33042,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const rocTxt=(rocPct==null)?'a changed ROC':(Math.round(Math.abs(rocPct))+'% '+((rocPct>=0)?'more':'less')+' ROC');
           const ddTxt=Math.round(Math.abs(ddPct))+'% '+((ddPct>=0)?'more':'less')+' drawdown';
           const ratioTxt=(ratio==null)?'not measurable here':(ratio.toFixed(2)+'x the twin\u2019s');
-          const why=String(rw.name)+': '+rocTxt+' for '+ddTxt+' -> '+clsWord+' its plain twin (ROC per % of drawdown '+ratioTxt+'; ON means within 10%, the plain config traded bigger). '
-            +'Plain twin #'+rw._run+': '+ty.toFixed(1)+'%/yr at '+tx.toFixed(1)+'% drawdown.';
+          const why=String(rw.name)+': '+rocTxt+' for '+ddTxt+' -> '+clsWord+' its plain twin (ROC per dollar of drawdown '+ratioTxt+'; ON means within 10%, the plain config traded bigger). '
+            +'Plain twin #'+rw._run+': '+ty.toFixed(1)+'%/yr at a '+_reExact(tx)+' worst drawdown.';
           return {cls:cls,rocPct:rocPct,ddPct:ddPct,ratio:ratio,twin:tw,why:why};};
         // the CONFIG-column chip (table only - the chart reads _reLevOf straight from the point
         //   loop, since it also needs the class for the mark's fill). '' off the view, on a row
@@ -33069,7 +33135,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(_reMode()==='rpy')return 'R / YR needs an expectancy in R, a trade count and a window. This row is missing at least one.';
           if(_reMode()==='roc')return (_reSegVal(rw)!=null&&_reWrPartial(rw))?_reWrPartWhy(rw,'ROC % / YR'):'ROC needs a profit for the ticked stretch and a window to annualise it over. This row is missing one of them.';
           if(_reMode()==='roc30')return _reMarWhy(st,rw)||'ROC at a $30k drawdown needs a profit, a drawdown and a window for the ticked stretch - the same three inputs MAR reads.';
-          if(_reMode()==='ddp'||_reMode()==='ddr'||_reMode()==='dd')return _reWhy(st,rw,'dd');
+          if(_reMode()==='ddp')return _reDdpWhy(st,rw);
+          if(_reMode()==='ddr'||_reMode()==='dd')return _reWhy(st,rw,'dd');
           if(_reMode()==='ratio'&&_reSegVal(rw)!=null&&_reNum(rw,'dd')&&!(_reYrs(st,rw)>0))return _reWrPartial(rw)?_reWrPartWhy(rw,'MAR'):'This row records no date window, so its MAR cannot be put on a per-year basis.';
           const miss=_reSegMiss(rw);
           return (miss.length===_reSegsEff.length)?_reWhy(st,rw,miss[0]):_reWhy(st,rw,'dd');};
@@ -33107,7 +33174,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           rpy:'R per year — HIGHER is better',
           roc:'Return on the account, per year — HIGHER is better',
           roc30:'ROC at a $30k worst drawdown — HIGHER is better',
-          ddp:'Drawdown, percent of the account — LOWER is better',
+          ddp:'DD % from peak — LOWER is better',
           ddr:'Drawdown in losing trades — LOWER is better',
           dd:'Drawdown, in dollars — LOWER is better'};
         const _reYcapAll=(items,com)=>{const rat=(_reMode()==='ratio');
@@ -33707,7 +33774,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const repCell=reps.length?('<span title="'+_reEsc('This exact configuration was validated a second time on 18 August 2026, as run '+reps.join(' and ')+', because a duplicate job was queued by mistake. The repeat produced identical figures, so it added no new evidence. It has been ARCHIVED, which hides it from Past Runs without deleting it, and it is not counted in the run number beside this.')+'" style="color:var(--text5);font-size:9px;cursor:help"> ↺'+reps.length+' archived</span>'):'';
           const runCell=runs.length
             ?('<span title="'+_reEsc('This result was persisted as a real run. Click the row to open its report.')+'" style="color:var(--text2)">#'+runs[0]+'</span>'
-              +(runs.length>1?('<span title="'+_reEsc('The same configuration was run '+runs.length+' times: runs '+runs.join(', ')+'. The row opens the first one.')+'" style="color:var(--text5);font-size:9px;cursor:help"> +'+(runs.length-1)+'</span>'):'')+repCell)
+              +(runs.length>1?('<span title="'+_reEsc('The same configuration was run '+runs.length+' times: runs '+runs.join(', ')+'. The row opens the first one.')+'" style="color:var(--text5);font-size:9px;cursor:help"> +'+(runs.length-1)+'</span>'):'')+repCell
+              // THE CONFIGURATION, BY THE NAME ITS RUN REPORT GIVES IT (owner 2026-10-09) - see _reCidOf
+              +(rw._cid?(' <span data-recid title="'+_reEsc(rw._cidTip||rw._cid)+'" style="color:var(--text3);font-weight:600;cursor:help">'+_reEsc(rw._cid)+'</span>'):''))
             :('<span title="'+_reEsc('Local research only. This was computed on the machine and never persisted as an Auto-Validate run, so it has no run number and no date ran.')+'" style="color:var(--text5);font-style:italic;cursor:help">local</span>');
           const dCell=(_reSOn==='ran')
             ?(runs.length?(_reRunDate(runs[0])||_reDash('This run exists but its saved date could not be read from run history.')):_reDash('This row was never run as a validate run, so it has no date ran.'))
@@ -33784,7 +33853,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           return '<tr data-rerow="'+st.key+':'+rw.n+'"'+(runs.length?(' data-rank-run="'+runs[0]+'"'):'')
             +(bg?(' title="'+_reEsc(_reBgWhy[rw.tone]||'')+'"'):'')
             +' style="'+(runs.length?'cursor:pointer;':'')+(_reFlGrey?'opacity:0.5;':'')+(bg?('background:'+bg):'')+'">'
-            +td('<span style="color:var(--text4)">'+(rank?rank:_reDash(_reZeroOr(rw,'This row has no figure for the stage now selected, so it cannot be ranked on it.')))+'</span>','left',_reStickyCss('RANK',1)+_reStickyBg(bg))
+            +td('<span style="color:var(--text4)">'+(rank?rank:_reDash(_reZeroOr(rw,'This row has no figure for the stage now selected, so it cannot be ranked on it.')))+'</span>',null,_reStickyCss('RANK',1)+_reStickyBg(bg))
             +td((function(){const isCfg=!!rw._cfg,fam=String((isCfg&&rw.fam)||'RAW');
                 const stratCol=(isCfg&&_reByStrat&&rw._strat)?_reStratCol(rw._strat):null;
                 const fc=stratCol||_reCfgPal[fam]||'var(--text3)';
@@ -33794,9 +33863,15 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
                 //   shape still says the config type, whatever colour is doing.
                 const mark=isCfg?('<svg width="10" height="10" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:5px">'+_reCfgMark(fam,8,8,4.2,fc,1,rw.tone==='champ',false)+'</svg>')
                                 :('<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+fc+';margin-right:5px"></span>');
-                const stratTag=(isCfg&&_reByStrat&&rw._strat)?('<span title="'+_reEsc('Strategy: '+rw._strat)+'" style="color:'+fc+';font-size:7px;font-weight:700;margin-left:3px;cursor:help">'+_reEsc(rw._strat)+'</span>'):'';
-                return mark+'<span style="color:'+fc+';font-weight:700">'+_reEsc(fam)+'</span>'+stratTag;})(),'left',_reStickyCss('FAMILY',1)+_reStickyBg(bg))
-            +td(runCell,null,_reStickyCss('RUN',1)+_reStickyBg(bg))
+                // THE STRATEGY NAME FIRST AND WHOLE (owner 2026-10-09, a phone screenshot reading "TILT ENGU..", "HYBRID .."):
+                //   which strategy a row is was the part being cut off. The name never shrinks - the fit pass never makes this
+                //   column narrower than it (data-restrat) - and the configuration type after it is what gives way, with an
+                //   ellipsis, when the column is narrow. The mark's shape still says the type and the hover gives both whole.
+                const sn=isCfg?String(rw._strat||'UNTAGGED'):_reFamOf(st,rw);
+                return '<div style="display:flex;align-items:center;min-width:0">'+mark
+                  +'<span data-restrat title="'+_reEsc('Strategy family: '+sn+'. Configuration type: '+fam+'.')+'" style="flex:none;white-space:nowrap;color:'+fc+';font-weight:700;cursor:help">'+_reEsc(sn)+'</span> '
+                  +'<span data-retype title="'+_reEsc('Configuration type: '+fam+'. Strategy family: '+sn+'.')+'" style="min-width:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:4px;color:'+fc+';opacity:.8;font-size:7px;font-weight:600;cursor:help">'+_reEsc(fam)+'</span></div>';})(),'left',_reStickyCss('FAMILY',1)+_reStickyBg(bg))
+            +td(runCell,'left',_reStickyCss('RUN',1)+_reStickyBg(bg))
             // the ratio block, in the 1E ALL table order: MAR SHARPE SORTINO PF WIN % EV R
             +td(pddCell)
             +td((function(){const v=_reShOf(st,rw);return (v==null||!isFinite(v))?_reDash(_reCfgDashWhy(rw,'This row records no Sharpe.','sh')):v.toFixed(2);})())
@@ -33873,7 +33948,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // DEFAULTS ARE THE COMPARABLE PAIR (owner 2026-08-28): Sortino across, EV in R up. The
         //   board opens on the reading that survives different instruments, sizes and windows,
         //   rather than on dollars, which do not.
-        const _reXAxis=(['dd','sh','so','evr','pf','wr','rpy','roc','roc30','ddp','ddr','raw','ratio','ppt'].indexOf(APREF.resXAxis)>=0)?APREF.resXAxis:'so';
+        const _reXAxis=_reLevOn?'dd':((['dd','sh','so','evr','pf','wr','rpy','roc','roc30','ddp','ddr','raw','ratio','ppt'].indexOf(APREF.resXAxis)>=0)?APREF.resXAxis:'so');
         const _reXv=(st,rw,modeOv,segOv)=>{
           const M=modeOv||_reXAxis;
           if(M==='sh')return _reShOf(st,rw);
@@ -33903,12 +33978,13 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(_reXAxis==='rpy')return 'R / YR needs an expectancy in R, a trade count and a window.';
           if(_reXAxis==='roc')return (_reSegVal(rw)!=null&&_reWrPartial(rw))?_reWrPartWhy(rw,'ROC % / YR'):'ROC needs a profit for the ticked stretch and a window to annualise it over.';
           if(_reXAxis==='roc30')return _reMarWhy(st,rw)||'ROC at a $30k drawdown needs a profit, a drawdown and a window for the ticked stretch - the same three inputs MAR reads.';
-          if(_reXAxis==='ddp'||_reXAxis==='ddr')return _reWhy(st,rw,'dd');
+          if(_reXAxis==='ddp')return _reDdpWhy(st,rw);
+          if(_reXAxis==='ddr')return _reWhy(st,rw,'dd');
           if(_reXAxis==='raw'){const ms=_reSegMiss(rw);return _reWhy(st,rw,ms.length?ms[0]:'tot');}
           if(_reXAxis==='ratio'){const ms=_reSegMiss(rw);if(ms.length===_reSegsEff.length)return _reWhy(st,rw,ms[0]);if(_reNum(rw,'dd')!=null&&!(_reYrs(st,rw)>0))return _reWrPartial(rw)?_reWrPartWhy(rw,'MAR'):'This row records no date window, so its MAR cannot be put on a per-year basis.';return _reWhy(st,rw,'dd');}
           if(_reXAxis==='ppt')return _rePptWhy(st,rw);
           return _reWhy(st,rw,'dd');};
-        const _reXNm={dd:'MAX DRAWDOWN ($)',sh:'SHARPE',so:'SORTINO',evr:'EV IN R',pf:'PF',rpy:'R / YR',roc:'ROC % / YR',roc30:'ROC @ $30K DD',ddp:'DD %',ddr:'DD (R)',raw:'PROFIT ($)',ratio:'MAR',ppt:'EV ($ PER TRADE)',wr:'WIN %'};
+        const _reXNm={dd:'MAX DRAWDOWN ($)',sh:'SHARPE',so:'SORTINO',evr:'EV IN R',pf:'PF',rpy:'R / YR',roc:'ROC % / YR',roc30:'ROC @ $30K DD',ddp:'DD % FROM PEAK',ddr:'DD (R)',raw:'PROFIT ($)',ratio:'MAR',ppt:'EV ($ PER TRADE)',wr:'WIN %'};
         const _reXBetter={dd:'deeper to the right',sh:'higher to the right',so:'higher to the right',
           evr:'higher to the right',pf:'higher to the right',rpy:'higher to the right',
           roc:'higher to the right',ddp:'deeper to the right',ddr:'deeper to the right',
@@ -35370,6 +35446,23 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             ?('No Auto-Validate run of '+_reFilt.fam.join(' or ')+' has configuration records to read. '
               +'Pick another strategy on the rail, or untick it to see every run.')
             :'No Auto-Validate run is in the list to read configurations from.';}
+          // THE NAME A CONFIGURATION GOES BY ON ITS RUN REPORT (owner 2026-10-09: the rows of one run read "TILT ENGU-Q #326"
+          //   four times over and could not be told apart, nor matched to Past Runs). Each config row carries the short label the
+          //   run report heads that configuration's column with in its 1E tabs: RAW R2 = its walk-forward rank (the crowned one
+          //   wears the crown), GATE XGB 55% = model and cut-off, TILT rf (SL) = model and size shape, a HYBRID by its model,
+          //   KEEL by its version. It is printed after the run number; the hover gives the settings.
+          const _reCidOf=function(kind,rec,crown){const o=rec||{};
+            if(kind==='GATE')return (crown?'\ud83d\udc51 ':'')+(_GATE_MODEL_AB[o.model]||String(o.model||'').toUpperCase())+' '+Math.round((+o.threshold||0)*100)+'%';
+            if(kind==='TILT')return String(o.model||'')+' ('+(_TILT_SCHEME_AB[o.scheme]||String(o.scheme||'?').slice(0,2).toUpperCase())+')';
+            if(kind==='KEEL')return String(o.version||'KEEL');
+            return String(o.model||'');};
+          const _reCidTip=function(kind,rec,lbl,what){const o=rec||{},bits=[];
+            const put=(k,v)=>{if(v==null||v==='')return;bits.push(k+' '+String(v));};
+            if(kind==='RAW'){const p=o.params||{};Object.keys(p).forEach(function(k){put(k,p[k]);});}
+            else{put('model',o.model);if(o.threshold!=null&&isFinite(+o.threshold))put('cut-off',Math.round(+o.threshold*100)+'%');
+              put('size shape',o.scheme);put('rule',o.rule);if(o.cutoff!=null&&isFinite(+o.cutoff))put('survivor cut-off',Math.round(+o.cutoff*100)+'%');put('version',o.version);}
+            return 'On the run report (Past Runs, the '+kind+' tab of 1E) this configuration is headed '+(lbl||'by this label')+(what?(' - '+what):'')+'.'
+              +(bits.length?(' Settings: '+bits.join(', ')+'.'):'');};
           _reCfgIds.forEach(function(RID){
             // the CONFIGS-ONLY document, not the whole run - see _hydrateCfg
             const full=(window._runCfg||{})[RID]||(window._runFull||{})[RID];
@@ -35455,6 +35548,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                            :((c.equity&&Array.isArray(c.equity.cum))?ddCum(c.equity.cum):null);
                 _cn++;_reCfgCounts.raw++;
                 CROWS.push({n:_cn,name:'#'+RID+' RAW '+(c.crowned?'crowned':('#'+(i+1))),fam:'RAW',_strat:_stratNm,
+                      _cid:(c.crowned?'\ud83d\udc51':'')+'R'+(i+1),_cidTip:_reCidTip('RAW',c,'R'+(i+1),'its walk-forward rank in this run, '+(i+1)+' of '+raws.length),
                       what:'A raw configuration from run #'+RID+'. Scored on the optimize window; the lockbox never judged it.',
                       tone:(c.crowned?'champ':'ref'),read:(c.crowned?'Crowned in this run':'Candidate'),
                       is:isV,wf:wfV,lb:lbSlice,tot:((lbEnd!=null)?lbEnd:((isV||0)+(wfV||0))),
@@ -35489,6 +35583,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   const isCh=!!(gch&&gch.model===c.model&&Math.abs((gch.threshold||0)-(c.threshold||0))<1e-6);
                   _cn++;_reCfgCounts.gate++;
                   CROWS.push({n:_cn,name:'#'+RID+' GATE '+String(c.model||'')+' @ '+Math.round((c.threshold||0)*100)+'%',fam:'GATE',_strat:_stratNm,
+                        _cid:_reCidOf('GATE',c,isCh),_cidTip:_reCidTip('GATE',c,_reCidOf('GATE',c,isCh),isCh?'the gate this run chose':''),
                         what:'A skip-gate variant from run #'+RID+', measured before the lockbox.',
                         tone:(isCh?'champ':'ref'),read:(isCh?'Chosen gate':'Gate variant'),
                         // pre_pnl is the PRE-LOCKBOX pool (tuning years); the gate also
@@ -35584,6 +35679,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const dd=(st2.max_drawdown!=null)?Math.abs(st2.max_drawdown)*mult*f:null;
                 _cn++;_reCfgCounts[(tabNm==='TILT')?'tilt':((tabNm==='KEEL')?'keel':'hyb')]++;
                 CROWS.push({n:_cn,name:'#'+RID+' '+label,fam:tabNm,_strat:_stratNm,
+                      _cid:_reCidOf(tabNm,x,false),_cidTip:_reCidTip(tabNm,x,_reCidOf(tabNm,x,false),''),
                       what:'A '+tabNm.toLowerCase()+' variant from run #'+RID+'.',
                       tone:'ref',read:tabNm+' variant',
                       // every stretch at the ONE size of the ticked sample, so they add up
@@ -35628,6 +35724,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   whose keel walk FAILED carries {error} - both contribute no row at all.
               (function(){const K=(GV&&GV.keel&&!GV.keel.error)?GV.keel:null;if(!K)return;
                 szRow(K,'KEEL','KEEL '+String(K.version||''),'one');})();
+              // NO TWO ROWS OF ONE RUN AND TYPE READ ALIKE (owner 2026-10-09). The run report can head two columns with the
+              //   same label (two tilts on the same model and size shape); each then carries its place in the report order.
+              (function(){const grp={};
+                CROWS.forEach(function(r){if(r._run!==RID||!r._cid)return;(grp[r.fam]=grp[r.fam]||[]).push(r);});
+                Object.keys(grp).forEach(function(k){const cnt={},seen={};
+                  grp[k].forEach(function(r){cnt[r._cid]=(cnt[r._cid]||0)+1;});
+                  grp[k].forEach(function(r){if(cnt[r._cid]<2)return;const c0=r._cid;seen[c0]=(seen[c0]||0)+1;
+                    r._cidTip=String(r._cidTip||'')+' '+cnt[c0]+' configurations of this run go by '+c0+' on the run report; this is number '+seen[c0]+' of them, in the order the report lists them.';
+                    r._cid=c0+' \u00b7'+seen[c0];});});})();
               // LEVERAGE LINE's PLAIN TWIN, stamped once per run rather than re-derived per row.
               //   UNGby IS the plain twin - the gate bake-off's own ungated fixed champion on the
               //   SAME blocks the GATE / TILT / HYBRID / KEEL rows above were just measured on - so
@@ -35645,11 +35750,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   lb:((U.lb&&U.lb.total_pnl!=null)?U.lb.total_pnl*mult:null),
                   tot:((U.full&&U.full.total_pnl!=null)?U.full.total_pnl*mult:null),
                   dd:((U.full&&U.full.max_drawdown!=null)?Math.abs(U.full.max_drawdown)*mult:null)}:null;
-                const uOk=!!(uTwin&&_reDdp(null,uTwin)!=null&&_reRoc(null,uTwin)!=null);
+                const uOk=!!(uTwin&&_reLevX(null,uTwin)!=null&&_reRoc(null,uTwin)!=null);
                 let twin=uOk?uTwin:null,fellBack=false;
                 if(!twin){
                   const champ=CROWS.filter(function(r){return r._run===RID&&r._tab==='RAW'&&r.tone==='champ';})[0]||null;
-                  if(champ&&_reDdp(null,champ)!=null&&_reRoc(null,champ)!=null){twin=champ;fellBack=true;}
+                  if(champ&&_reLevX(null,champ)!=null&&_reRoc(null,champ)!=null){twin=champ;fellBack=true;}
                 }
                 CROWS.forEach(function(r){if(r._run===RID){r._twin=twin;r._twinFallback=fellBack;}});
               })();
@@ -35781,10 +35886,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _reColWCssF=nm=>{const c=(_reFitC&&!_reStickyDef[nm])?+_reFitC.cw[nm]:0;
           return (c>0)?('width:'+c+'px;max-width:'+c+'px;'):_reColWCss(nm);};
         const _reGrip='<span data-recolgrip style="position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:3"></span>';
-        const _reHdCell=(t,al,tip,extra)=>{
+        // COLUMN GROUPS (owner 2026-10-09): IDENTITY - what the row is (rank, family, run and configuration, its verdict,
+        //   description, date and data window); PERFORMANCE - the ratios and the money it made; RISK - drawdown and DD5;
+        //   ACTIVITY - trades, trades a year and the years covered. Every heading carries one (class recg-*, styles beside
+        //   .retd); a <col> per heading carries the column tint (_reColsOf).
+        const _reGrpMap={MAR:'perf',SHARPE:'perf',SORTINO:'perf',PF:'perf','WIN %':'perf','EV R':'perf','R / YR':'perf','ROC % / YR':'perf',
+          'ROC @ $30K DD':'perf','$/TRD':'perf','WALK-FWD':'perf',LOCKBOX:'perf',TOTAL:'perf','PER YEAR':'perf','MAR / YR':'perf',
+          DRAWDOWN:'risk',DD5:'risk',TRADES:'act','TRADES / YR':'act',YEARS:'act'};
+        const _reGrpOf=nm=>_reGrpMap[nm]||'id';
+        const _reColsOf=hd=>{let s='';String(hd).replace(/<th [^>]*?class="recg recg-([a-z]+)"/g,(m,g)=>{s+='<col class="recg-'+g+'">';return m;});return s;};
+        const _reHdCell=(t,al,tip,extra,grp)=>{
           const _nm=String(t).replace(/<[^>]*>/g,'').trim();
           const _w=+_reColW[_nm];
-          return '<th data-recol="'+_reEsc(_nm)+'"'+_reColAttr(_nm)+(tip?(' title="'+_reEsc(tip)+'"'):'')
+          return '<th data-recol="'+_reEsc(_nm)+'" class="recg recg-'+(grp||_reGrpOf(_nm))+'"'+_reColAttr(_nm)+(tip?(' title="'+_reEsc(tip)+'"'):'')
             +' style="position:relative;'+_reColWCssF(_nm)
             +'text-align:'+(al||'right')+';font-size:7px;letter-spacing:.8px;color:var(--text5);font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2;background:var(--bg2)'+(extra||'')+(tip?';cursor:help':'')+'">'+t+_reGrip+'</th>';};
         // the table header, per study - or for the merged table, with a synthetic st carrying
@@ -35795,18 +35909,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const _sk=String(APREF.reSortK||'');
           //   every sortable heading says so in its own tooltip, because five of them used to
           //   be clickable and the rest were not with nothing on screen to tell them apart.
-          const _hs=(k,t,tip,extra)=>'<th data-resort="'+k+'" data-recol="'+_reEsc(String(t).replace(/<[^>]*>/g,'').trim())+'"'+_reColAttr(String(t).replace(/<[^>]*>/g,'').trim())+' title="'+_reEsc(tip+' \u00b7 click to order every table on this column, click again to release it.')+'" style="position:relative;'+_reColWCssF(String(t).replace(/<[^>]*>/g,'').trim())+'position:sticky;top:0;z-index:2;background:var(--bg2);'+(extra||'')+';text-align:right;font-size:7px;letter-spacing:.8px;font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;color:'+((_sk===k)?'var(--text)':'var(--text5)')+'">'+t+((_sk===k)?' &#8595;':'')+_reGrip+'</th>';
+          const _hs=(k,t,tip,extra)=>'<th data-resort="'+k+'" data-recol="'+_reEsc(String(t).replace(/<[^>]*>/g,'').trim())+'" class="recg recg-'+_reGrpOf(String(t).replace(/<[^>]*>/g,'').trim())+'"'+_reColAttr(String(t).replace(/<[^>]*>/g,'').trim())+' title="'+_reEsc(tip+' \u00b7 click to order every table on this column, click again to release it.')+'" style="position:relative;'+_reColWCssF(String(t).replace(/<[^>]*>/g,'').trim())+'position:sticky;top:0;z-index:2;background:var(--bg2);'+(extra||'')+';text-align:'+((k==='run')?'left':'right')+';font-size:7px;letter-spacing:.8px;font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;color:'+((_sk===k)?'var(--text)':'var(--text5)')+'">'+t+((_sk===k)?' &#8595;':'')+_reGrip+'</th>';
           // the columns KEY builds only when the table box has room for them (see _reXtra), marked for the fit pass
-          const _hdx=(x,t,al,tip,extra)=>_reXtra[x]?_hd(t,al,tip,extra).replace('<th ','<th data-rextra="'+x+'" '):'';
+          const _hdx=(x,t,al,tip,extra)=>_reXtra[x]?_hd(t,al,tip,extra,({is:'perf',wf:'perf',lb:'perf',tot:'perf',dd:'risk'})[x]).replace('<th ','<th data-rextra="'+x+'" '):'';
           const _hsx=(x,k,t,tip,extra)=>_reXtra[x]?_hs(k,t,tip,extra).replace('<th ','<th data-rextra="'+x+'" '):'';
           const basHd=(_reBasis==='year')
               ?(_hd('PER YEAR',null,'The '+stg.toLowerCase()+' profit on this row divided by the number of years the row OWN window covers.',_reEmH('is')&&'')
                 +_hd('YEARS',null,'How many years this row covers: for a configuration or a run row, the stretches now ticked added up from their own dates; for a study write-up, the whole window it records. Only a row that records no window at all shows a dash here. A write-up whose ticked money covers only part of the window it records still shows that window length, and PER YEAR beside it dashes instead of dividing by it.')
                 +_hd('MAR / YR',null,'The per-year profit divided by the worst drawdown.'))
               :'';
-          return '<tr>'+_hd('RANK','left','Where this row places among the rows now shown, on the stage and axis selected above.'+(merged?' In ONE TABLE view the ranking runs across every study at once.':''),_reStickyCss('RANK',5))
-            +_hd('FAMILY','left','Which 1E family the row belongs to - RAW, GATE, TILT, HYBRID, recycled hybrid or equal-DD hybrid - in the same colour the run report key and the chart use.',_reStickyCss('FAMILY',5))
-            +_hs('run','RUN','The Auto-Validate run this row was read out of, so configurations from different runs can be told apart and grouped. Ordering puts the newest run first. local means it was never saved as a run, and those sit last.',_reStickyCss('RUN',5))
+          return '<tr>'+_hd('RANK',null,'Where this row places among the rows now shown, on the stage and axis selected above.'+(merged?' In ONE TABLE view the ranking runs across every study at once.':''),_reStickyCss('RANK',5))
+            +_hd('FAMILY','left','The strategy family the row belongs to (ENGU-Q, NOISE, ORB ...), always in full, then its 1E configuration type - RAW, GATE, TILT, HYBRID, recycled hybrid, equal-DD hybrid or KEEL - in smaller type. When the column is narrow the type is the part cut short; the shape of the mark says it too, and the hover gives both.',_reStickyCss('FAMILY',5))
+            +_hs('run','RUN','The Auto-Validate run this row was read out of, so configurations from different runs can be told apart and grouped. Ordering puts the newest run first. local means it was never saved as a run, and those sit last. On a configuration row the short label after the number is the name the run report gives that configuration in its 1E tabs (Past Runs): R2 = the RAW configuration ranked 2 on walk-forward (the crowned one wears the crown), XGB 55% = gate model and cut-off, rf (SL) = tilt model and size shape, a hybrid by its model, KEEL by its version. Hover the label for its settings.',_reStickyCss('RUN',5))
             +_hs('mar','MAR','Profit per year divided by the worst drawdown, same name as on the RUNBOARD and the 1E matrix. Click to sort.')
             +_hs('sh','SHARPE','Return over its full volatility. Click to sort.')
             +_hs('so','SORTINO','Return over its DOWNSIDE deviation only. Click to sort.')
@@ -35928,7 +36042,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<span style="margin-left:auto;font-size:8px;color:var(--text5)">'+_reEsc(st.disc||'')+'</span></div>'
             +'<div data-rebody="'+_reEsc(st.key)+'" style="'+(open?'':'display:none;')+'padding:0 0 11px">'
             +'<div style="font-size:9px;color:var(--text4);line-height:1.6;margin:0 0 7px;max-width:960px">'+_reEsc(st.sub)+'</div>'
-            +'<div data-rescroll="'+_reEsc(st.key)+'" style="position:relative;max-height:'+(_reSplit?520:430)+'px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table data-retbl="'+(_reFull?'all':'key')+'" style="'+_reTblFix+_reTblSty+'border-collapse:collapse;font-size:8.5px"><thead>'+hd+'</thead><tbody>'+bodyRows+'</tbody></table></div>'
+            +'<div data-rescroll="'+_reEsc(st.key)+'" style="position:relative;max-height:'+(_reSplit?520:430)+'px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table data-retbl="'+(_reFull?'all':'key')+'" style="'+_reTblFix+_reTblSty+'border-collapse:separate;border-spacing:0;font-size:8.5px"><colgroup>'+_reColsOf(hd)+'</colgroup><thead>'+hd+'</thead><tbody>'+bodyRows+'</tbody></table></div>'
             +(notes.length?('<ul style="font-size:9px;color:var(--text5);line-height:1.75;margin:8px 0 0;padding-left:15px;max-width:960px">'
                 +notes.map(n=>'<li style="margin-bottom:4px">'+_reEsc(n)+'</li>').join('')+'</ul>'):'')
             +(st.liveIndex?_reLiveIndex(st):'')
@@ -35998,7 +36112,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   2026-08-28: "remove text after the tables"). The count is already on the
           //   TABLES heading and the VIEW control is two inches away in the sidebar.
           return ''
-            +'<div data-rescroll="__merged__" style="position:relative;max-height:'+(_reSplit?560:520)+'px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table data-retbl="'+(_reFull?'all':'key')+'" style="'+_reTblFix+_reTblSty+'border-collapse:collapse;font-size:8.5px"><thead>'+_reHd(synth,1)+'</thead><tbody>'+bodyRows+'</tbody></table></div>';};
+            +'<div data-rescroll="__merged__" style="position:relative;max-height:'+(_reSplit?560:520)+'px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table data-retbl="'+(_reFull?'all':'key')+'" style="'+_reTblFix+_reTblSty+'border-collapse:separate;border-spacing:0;font-size:8.5px">'+(function(){const h=_reHd(synth,1);return '<colgroup>'+_reColsOf(h)+'</colgroup><thead>'+h+'</thead>';})()+'<tbody>'+bodyRows+'</tbody></table></div>';};
         const _reBody=(_c2Exp&&!_c2Tbl)?'':tile('<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:2px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">TABLES</span>'
             +'<span style="font-size:8px;color:var(--text5)">'+(_reOneTbl?(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' pooled into one table'):(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' \u00b7 click one to open it'))
@@ -36152,14 +36266,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             _reBtn('data-respreset="edge"','EDGE',(_reAxis==='evr'&&_reXAxis==='rpy'),'EDGE - expectancy in R up the side against R per year across. How much the average bet wins, against how much of that edge the strategy actually collects in a year. The ranking pair: upper right is the most efficient config. Both are leverage-blind, so a one-contract row and a ten-contract row compare honestly.',_TONE.samp)
             +_reBtn('data-respreset="risk"','RISK',(_reAxis==='evr'&&_reXAxis==='ddr'),'RISK - expectancy in R up the side against DRAWDOWN IN R across. Reward and risk measured in the SAME unit, the average losing trade, so the pair is honest about size. Upper LEFT is the good corner: a big edge per bet that never dug a deep hole. This is the pair to check a candidate on before adopting it.',_TONE.samp)
             +_reBtn('data-respreset="qual"','QUALITY',(_reAxis==='evr'&&_reXAxis==='so'),'QUALITY - Sortino across against expectancy in R up the side. Sortino charges a strategy only for its DOWNSIDE swings, so this asks whether the edge arrived smoothly or in a few lucky jumps. Upper right is a big edge earned calmly.',_TONE.samp)
-            +_reBtn('data-respreset="money"','MONEY',(_reAxis==='raw'&&_reXAxis==='ddp'),'MONEY - the profit itself up the side against drawdown as a percent of the account across. The reporting pair, not the picking pair: it says what the strategy would have paid and what it would have cost to sit through, in units you can compare against anything else you might do with the capital.',_TONE.samp)
-            +_reBtn('data-respreset="lev"','LEVERAGE LINE',_reLevOn,'LEVERAGE LINE - the owner\u2019s grey-area test for an ML or sized row: is its ROC growing at least in proportion to its drawdown? Plots ROC % / YR up the side against worst drawdown as a percent of the account across, draws a straight line from zero through each run\u2019s PLAIN TWIN (its ungated reading on the same blocks the gate bake-off measured), and marks every GATE, TILT, HYBRID or KEEL row of that run ABOVE the line (more ROC per % of drawdown - efficiency), ON it within 10% (the plain config just traded bigger - leverage) or BELOW (worse). Needs 1E CONFIGS: a per-run dot has no ML or sized variant to grade.',_TONE.samp)
+            +_reBtn('data-respreset="money"','MONEY',(_reAxis==='raw'&&_reXAxis==='ddp'),'MONEY - the profit itself up the side against DD % from peak across: the worst fall from the highest the account had been, as a broker states it. The reporting pair, not the picking pair: it says what the strategy would have paid and what it would have cost to sit through, in units you can compare against anything else you might do with the capital.',_TONE.samp)
+            +_reBtn('data-respreset="lev"','LEVERAGE LINE',_reLevOn,'LEVERAGE LINE - the owner\u2019s grey-area test for an ML or sized row: is its ROC growing at least in proportion to its drawdown? Plots ROC % / YR up the side against the worst drawdown in DOLLARS across (a dollar drawdown grows exactly with size, so a config that only traded bigger lands ON the line; DD % from peak grows slower than size, because the high it is measured from grows too, so it is not used here), draws a straight line from zero through each run\u2019s PLAIN TWIN (its ungated reading on the same blocks the gate bake-off measured), and marks every GATE, TILT, HYBRID or KEEL row of that run ABOVE the line (more ROC per dollar of drawdown - efficiency), ON it within 10% (the plain config just traded bigger - leverage) or BELOW (worse). Needs 1E CONFIGS: a per-run dot has no ML or sized variant to grade.',_TONE.samp)
           ,_TONE.samp);
         const _reXAxisBtns=_reCtl('','HORIZONTAL AXIS','what the width of the chart measures. DRAWDOWN is the original question - what a variant cost in pain for what it paid - but it is measured in DOLLARS, so it flatters a row that traded small and punishes one that ran long. The other three are size-blind and window-blind. For a straight comparison across everything, put SORTINO here and EV IN R up the side.',
             _reBtn('data-resxaxis="so"','SORTINO',_reXAxis==='so','annualised return charged for its DOWNSIDE only. Size-blind and frequency-fair, which makes it the best single across-everything measure this board holds.',_TONE.samp)
            +_reBtn('data-resxaxis="sh"','SHARPE',_reXAxis==='sh','annualised return over its own dispersion. Same idea as Sortino but it charges for upside swings as well, which a trader is not actually hurt by.',_TONE.samp)
            +_reBtn('data-resxaxis="ddr"','DD (R)',_reXAxis==='ddr','the worst peak-to-trough loss measured in AVERAGE LOSING TRADES - the same unit EV R uses. Leverage-blind: it says how many losing trades in a row the worst stretch was worth, so a one-contract row and a ten-contract row compare honestly. LOWER is better.',_TONE.samp)
-           +_reBtn('data-resxaxis="ddp"','DD %',_reXAxis==='ddp','the worst peak-to-trough loss as a percent of that same account. LOWER is better, so the good rows sit toward the LEFT on this axis.',_TONE.samp)
+           +_reBtn('data-resxaxis="ddp"','DD % from peak',_reXAxis==='ddp','DD % from peak: the worst fall from the highest the account had been on the ticked stretch, as a percent of that high - the way a broker states a drawdown, and the same figure the run report tables print. Read off the curve each row saved, the account starting at the ROC account chip; a row with no saved curve for the stretch has none. Contract size is fixed, so the same dollar fall is a smaller percent as the account grows: rank by the dollar DRAWDOWN and ROC @ $30K DD. LOWER is better, so the good rows sit toward the LEFT on this axis.',_TONE.samp)
            +_reBtn('data-resxaxis="dd"','DRAWDOWN',_reXAxis==='dd','the worst peak-to-trough loss, in dollars. Deeper to the right.',_TONE.samp)
            +_reBtn('data-resxaxis="ratio"','MAR',_reXAxis==='ratio','MAR - the ticked stretch profit PER YEAR divided by its worst drawdown, the same annualised MAR the MAR column, the vertical axis, the RUNBOARD and the 1E matrix print.',_TONE.samp)
            +_reBtn('data-resxaxis="roc30"','ROC @ $30K DD',_reXAxis==='roc30','ROC % / YR at a $30k worst drawdown: the row resized so its worst drawdown on the ticked stretch is $30,000 - return per unit of risk in ROC terms. Equals 30 x MAR on a $100k account.',_TONE.samp)
@@ -36175,7 +36289,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             _reBtn('data-resaxis="so"','SORTINO',_reAxis==='so','plot the annualised Sortino - Sharpe with only the DOWNSIDE charged for. A max drawdown is one worst event and this project measured its confidence interval to be wider than the statistic, so Sortino is the sturdier read of the same idea.',_TONE.samp)
            +_reBtn('data-resaxis="sh"','SHARPE',_reAxis==='sh','plot the annualised Sharpe.',_TONE.samp)
            +_reBtn('data-resaxis="ddr"','DD (R)',_reAxis==='ddr','plot the worst peak-to-trough loss measured in AVERAGE LOSING TRADES - the same unit EV R uses. Leverage-blind: it says how many losing trades in a row the worst stretch was worth, so a one-contract row and a ten-contract row compare honestly. LOWER is better.',_TONE.samp)
-           +_reBtn('data-resaxis="ddp"','DD %',_reAxis==='ddp','plot the worst peak-to-trough loss as a percent of that same account. LOWER is better, so the good rows sit toward the LEFT on this axis.',_TONE.samp)
+           +_reBtn('data-resaxis="ddp"','DD % from peak',_reAxis==='ddp','plot DD % from peak: the worst fall from the highest the account had been on the ticked stretch, as a percent of that high - the way a broker states a drawdown, and the same figure the run report tables print. Read off the curve each row saved, the account starting at the ROC account chip; a row with no saved curve for the stretch has none. LOWER is better, so the good rows sit toward the BOTTOM.',_TONE.samp)
            +_reBtn('data-resaxis="dd"','DRAWDOWN',_reAxis==='dd','plot the worst peak-to-trough loss in DOLLARS. LOWER is better, so the good rows sit toward the BOTTOM and the ranking puts the shallowest first. Dollars scale with size and with how long the row ran, so use DD % or DD (R) to compare strategies traded at different sizes.',_TONE.samp)
            +_reBtn('data-resaxis="ratio"','MAR',_reAxis==='ratio','plot MAR - profit PER YEAR divided by the worst drawdown, the same annualised MAR the MAR column, the RUNBOARD and the 1E matrix print. The ticks read as plain numbers, not dollars. Be careful with it: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so this is the most fragile of the readings here',_TONE.rank)
            +_reBtn('data-resaxis="roc30"','ROC @ $30K DD',_reAxis==='roc30','plot ROC % / YR at a $30k worst drawdown: the row resized so its worst drawdown on the ticked stretch is $30,000 - return per unit of risk in ROC terms. Equals 30 x MAR on a $100k account.',_TONE.rank)
@@ -36545,7 +36659,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +' <span title="These configurations are in the table but record nothing for one of the two ticked axes, so they cannot be placed. Almost always a run validated before the engine started writing Sharpe and Sortino onto every candidate block - re-validating that run fills them in. The count follows the axes you pick." style="cursor:help">ⓘ</span>';})();
         const _reLevLegend=_reLevOn?('<div style="font-size:8.5px;color:var(--text5);margin-top:7px">'
           +'<b style="color:var(--text4)">LEVERAGE LINE</b> \u2014 each line runs from zero through a run\u2019s plain twin. '
-          +'\u25b2 above = more ROC per % of drawdown (efficiency); = on the line (within 10%) = the plain config traded bigger (leverage); \u25bc below = worse. '
+          +'\u25b2 above = more ROC per dollar of drawdown (efficiency); = on the line (within 10%) = the plain config traded bigger (leverage); \u25bc below = worse. Across: the worst drawdown in dollars, which grows exactly with size. '
           +(_reShowCfg?'Needs 1E CONFIGS.':'The lines appear on 1E CONFIGS.')
           +'</div>'):'';
         const _reChartTile=tile(
@@ -44732,7 +44846,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const mv=ev=>{w=Math.max(lo,Math.min(Math.max(hi,w0),w0+(ev.clientX-x0)));
             // every table on the board shares one heading set, so move them together
             content.querySelectorAll('th[data-recol="'+CSS.escape(nm)+'"]').forEach(t2=>{
-              t2.style.width=w+'px';t2.style.maxWidth=w+'px';
+              t2.style.setProperty('width',w+'px','important');t2.style.setProperty('max-width',w+'px','important');t2.style.setProperty('min-width',w+'px','important');
               t2.style.overflow='hidden';t2.style.textOverflow='ellipsis';});
             tws.forEach(p=>{if(p[0].style.tableLayout==='fixed')p[0].style.width=Math.round(p[1]+(w-w0))+'px';});};
           const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
@@ -44750,7 +44864,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // QUALITY used to set vertical Sortino / horizontal EV R - the opposite of what
         //   its own description says (item 11, owner audit round 2). The description is the
         //   owner's intent; the click now matches it.
-        const P={edge:['evr','rpy'],risk:['evr','ddr'],qual:['evr','so'],money:['raw','ddp'],lev:['roc','ddp']}
+        const P={edge:['evr','rpy'],risk:['evr','ddr'],qual:['evr','so'],money:['raw','ddp'],lev:['roc','dd']}
                  [b.getAttribute('data-respreset')];
         if(!P)return;savePref('resAxis',P[0]);savePref('resXAxis',P[1]);
         // LEVERAGE LINE also flips its own pref, drops CHAMPION mode (it reads absolute figures
@@ -44989,6 +45103,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //    room is short, and never below its heading - a heading is never cut (the old "TRADE..").
       if(!window._reFitCols){
         const STK={RANK:1,FAMILY:1,RUN:1};
+        // (owner 2026-10-09, a phone screenshot: a rank read "10..", and "TILT ENGU.." had lost the strategy) THE PINNED
+        //   COLUMNS FIT THEIR CONTENT TOO. RANK and RUN take their widest figure - RUN carries the configuration label now -
+        //   and FAMILY at least its strategy name, which never shrinks (data-restrat); the configuration type after the name
+        //   is what gives way. A remembered drag width can narrow FAMILY only down to the name, and never RANK or RUN.
+        //   CAP: CONFIG (long names and their chips) is held to 200px while columns are being left out for want of room -
+        //   its full name is in the READ hover. At the old 320px it took 363px of a 1400px laptop while DRAWDOWN and DD5 sat
+        //   behind "+N COLUMNS" (COMPARE review 2026-10-09). With every column showing, the room left over still gives it
+        //   back its full width.
+        const CAP={CONFIG:200};
         window._reFitCols=function(){try{
           const css=document.getElementById('reFitCss')||(function(){const s=document.createElement('style');s.id='reFitCss';document.head.appendChild(s);return s;})();
           const tbls=Array.prototype.slice.call(document.querySelectorAll('table[data-retbl]'));
@@ -44997,6 +45120,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           if(!vis.length)return null;
           const t0=vis[0],hr0=t0.tHead&&t0.tHead.rows[0];if(!hr0)return null;
           const N=hr0.cells.length,all=(t0.getAttribute('data-retbl')==='all');
+          const nmH=Array.prototype.map.call(hr0.cells,th=>th.getAttribute('data-recol')||'');
+          const iR=nmH.indexOf('RANK'),iF=nmH.indexOf('FAMILY'),iN=nmH.indexOf('RUN');
           // a sample of rows from every table - the first 40, then 80 spread over the rest - is enough to find each
           //   column widest figure without laying a 2,000-row board out a second time
           const rowsAll=[];
@@ -45004,90 +45129,140 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             Array.prototype.forEach.call(tb.rows,tr=>{if(tr.cells.length===N&&tr.hasAttribute('data-rerow'))rowsAll.push(tr);});});
           const nR=rowsAll.length,f0=Math.min(nR,40),pick=rowsAll.slice(0,f0);
           if(nR>f0){const k=Math.min(80,nR-f0);for(let j=0;j<k;j++)pick.push(rowsAll[f0+Math.floor(j*(nR-f0)/k)]);}
-          const box0=t0.parentElement,mt=t0.cloneNode(false);mt.removeAttribute('data-retbl');
-          mt.style.tableLayout='auto';mt.style.width='auto';mt.style.position='absolute';mt.style.left='0';mt.style.top='0';
-          mt.style.visibility='hidden';mt.style.pointerEvents='none';
-          const mh=t0.tHead.cloneNode(true),mb=document.createElement('tbody');
-          pick.forEach(tr=>mb.appendChild(tr.cloneNode(true)));
-          mt.appendChild(mh);mt.appendChild(mb);
-          const mths=Array.prototype.slice.call(mh.rows[0].cells);
-          mths.forEach(th=>{if(!STK[th.getAttribute('data-recol')||'']){th.style.width='';th.style.maxWidth='';th.style.minWidth='';}});
-          box0.appendChild(mt);
-          const nm=[],pr=[],rem=[],nat=[],hw=[],xt=[];
-          mths.forEach((th,i)=>{nm[i]=th.getAttribute('data-recol')||'';pr[i]=+(th.getAttribute('data-recolp')||99);
-            rem[i]=+(th.getAttribute('data-recolw')||0);xt[i]=th.hasAttribute('data-rextra');
-            const g=th.querySelector('[data-recolgrip]'),rg=document.createRange();
-            rg.setStart(th,0);if(g)rg.setEndBefore(g);else rg.setEnd(th,th.childNodes.length);
-            hw[i]=Math.ceil(rg.getBoundingClientRect().width)+12;
-            nat[i]=Math.ceil(th.getBoundingClientRect().width);});
-          box0.removeChild(mt);
-          // CONFIG (long names and their chips) is held to 320px while room is short, like a remembered width; the room
-          //   left over gives it back its full width first
-          const CAP={CONFIG:320};
-          const want=nat.map((w,i)=>STK[nm[i]]?w:Math.max(hw[i],(rem[i]>0)?Math.min(w,rem[i]):(CAP[nm[i]]?Math.min(w,CAP[nm[i]]):w)));
+          // ...plus one row for every different RANK, FAMILY and RUN cell shape on the whole board (digits read alike: the
+          //   figures are tabular). The widest of each can sit anywhere - a 4-digit rank under DATE order, the one run with a
+          //   long configuration label - and these three columns must never cut their text. Reads text only, no layout.
+          {const seen={},tx=(tr,i)=>(i>=0&&tr.cells[i])?String(tr.cells[i].textContent||'').replace(/[0-9]/g,'0'):'';
+            rowsAll.forEach(tr=>{['r'+tx(tr,iR),'f'+tx(tr,iF),'n'+tx(tr,iN)].forEach(k=>{if(!seen[k]){seen[k]=1;pick.push(tr);}});});}
+          const hdSig=Array.prototype.map.call(hr0.cells,th=>(th.getAttribute('data-recol')||'')+','+(th.getAttribute('data-recolp')||'')+','+(th.getAttribute('data-recolw')||'')+','+(th.hasAttribute('data-rextra')?1:0)+','+(th.textContent||'')).join('|');
+          // ONE MEASUREMENT PER CHANGE OF WHAT IS MEASURED (owner 2026-10-09: "scrolling the TABLES is laggy"). The natural
+          //   widths depend on the headings and the sampled rows only, so a render that redraws the same board - a click on
+          //   a control that changes no row, a background refresh - reuses the last measurement instead of laying a clone
+          //   of the board out again. The box width is read every time: the choice of columns below is cheap.
+          const cs0=getComputedStyle(t0);
+          const msig=[window.innerWidth||0,!!document.querySelector('[data-resplitl]'),cs0.fontSize,cs0.fontFamily].join('|')+'#'+hdSig+'#'+pick.map(tr=>tr.textContent).join('\u0001');
+          let M=(window._reFitM&&window._reFitM.sig===msig)?window._reFitM:null;const remeasured=!M;
+          if(!M){
+            const box0=t0.parentElement,mt=t0.cloneNode(false);mt.removeAttribute('data-retbl');
+            mt.style.tableLayout='auto';mt.style.width='auto';mt.style.position='absolute';mt.style.left='0';mt.style.top='0';
+            mt.style.visibility='hidden';mt.style.pointerEvents='none';
+            const mh=t0.tHead.cloneNode(true),mb=document.createElement('tbody');
+            pick.forEach(tr=>mb.appendChild(tr.cloneNode(true)));
+            mt.appendChild(mh);mt.appendChild(mb);
+            const mths=Array.prototype.slice.call(mh.rows[0].cells);
+            mths.forEach(th=>{th.style.width='';th.style.maxWidth='';th.style.minWidth='';});
+            // the pinned columns carry their width on every body cell too: cleared here, so their natural width shows
+            [iR,iF,iN].forEach(i=>{if(i<0)return;Array.prototype.forEach.call(mb.rows,tr=>{const c=tr.cells[i];if(c){c.style.width='';c.style.maxWidth='';c.style.minWidth='';}});});
+            box0.appendChild(mt);
+            const nat=[],hw=[];
+            mths.forEach((th,i)=>{
+              const g=th.querySelector('[data-recolgrip]'),rg=document.createRange();
+              rg.setStart(th,0);if(g)rg.setEndBefore(g);else rg.setEnd(th,th.childNodes.length);
+              hw[i]=Math.ceil(rg.getBoundingClientRect().width)+12;
+              nat[i]=Math.ceil(th.getBoundingClientRect().width);});
+            // FAMILY never narrower than its widest strategy name: the name, the 4px gap, 10px of the type (room for its
+            //   ellipsis) and the cell's 5px padding
+            let fmn=0;
+            if(iF>=0)Array.prototype.forEach.call(mb.rows,tr=>{const c=tr.cells[iF],s=c&&c.querySelector('[data-restrat]');if(!s)return;
+              const v=Math.ceil(s.getBoundingClientRect().right-c.getBoundingClientRect().left)+4+10+5+1;if(v>fmn)fmn=v;});
+            box0.removeChild(mt);
+            M=window._reFitM={sig:msig,nat:nat,hw:hw,fmn:fmn};}
+          const nat=M.nat,hw=M.hw,fmn=M.fmn;
+          const nm=nmH,pr=[],rem=[],xt=[];
+          Array.prototype.forEach.call(hr0.cells,(th,i)=>{pr[i]=+(th.getAttribute('data-recolp')||99);
+            rem[i]=+(th.getAttribute('data-recolw')||0);xt[i]=th.hasAttribute('data-rextra');});
+          const want=nat.map((w,i)=>{
+            if(nm[i]==='FAMILY'){const lo=Math.max(hw[i],fmn||w);return Math.max(lo,Math.min(w,(rem[i]>0)?rem[i]:lo));}
+            if(STK[nm[i]])return Math.max(hw[i],w);
+            let v=w;if(rem[i]>0)v=Math.min(v,rem[i]);if(CAP[nm[i]])v=Math.min(v,CAP[nm[i]]);return Math.max(hw[i],v);});
           const avail=Math.floor(Math.min.apply(null,vis.map(t=>t.parentElement.clientWidth)));
           const show=want.map(()=>all);
           if(!all){let used=0;
             want.map((w,i)=>i).sort((a,b)=>(pr[a]-pr[b])||(a-b)).forEach(i=>{if(pr[i]===0||used+want[i]<=avail){show[i]=true;used+=want[i];}});}
+          // the freed-width columns this render built (and so could show), and those it never built
+          const builtX={},defX=window._reXtraDef||{};
+          Array.prototype.forEach.call(hr0.cells,th=>{const k=th.getAttribute('data-rextra');if(k)builtX[k]=1;});
+          const unbuilt=all?[]:Object.keys(defX).filter(k=>!builtX[k]);
+          const short=!all&&(show.some(s=>!s)||unbuilt.length>0);
+          const lim=i=>(short&&CAP[nm[i]])?Math.max(want[i],Math.min(nat[i],CAP[nm[i]])):nat[i];
           const fin=want.slice();let sum=0;show.forEach((s,i)=>{if(s)sum+=fin[i];});
           let extra=avail-sum;
+          // FAMILY first, back to its full width - the configuration type after the strategy name
+          if(extra>0&&iF>=0&&show[iF]&&nat[iF]>fin[iF]){const a=Math.min(extra,nat[iF]-fin[iF]);fin[iF]+=a;extra-=a;}
           if(extra>0){const cut=[];let need=0;
-            show.forEach((s,i)=>{if(s&&!STK[nm[i]]&&nat[i]>fin[i]){cut.push(i);need+=nat[i]-fin[i];}});
+            show.forEach((s,i)=>{if(s&&!STK[nm[i]]&&lim(i)>fin[i]){cut.push(i);need+=lim(i)-fin[i];}});
             if(need>0){const give=Math.min(extra,need);let g2=0;
-              cut.forEach((i,k)=>{const a=(k===cut.length-1)?(give-g2):Math.floor(give*(nat[i]-fin[i])/need);fin[i]+=a;g2+=a;});extra-=give;}}
-          if(extra>0){const fl=[];let fs=0;show.forEach((s,i)=>{if(s&&!STK[nm[i]]){fl.push(i);fs+=fin[i];}});
+              cut.forEach((i,k)=>{const a=(k===cut.length-1)?(give-g2):Math.floor(give*(lim(i)-fin[i])/need);fin[i]+=a;g2+=a;});extra-=give;}}
+          if(extra>0){const fl=[];let fs=0;show.forEach((s,i)=>{if(s&&!STK[nm[i]]&&!(short&&CAP[nm[i]])){fl.push(i);fs+=fin[i];}});
             if(fs>0){let g3=0;const ex=extra;fl.forEach((i,k)=>{const a=(k===fl.length-1)?(ex-g3):Math.floor(ex*fin[i]/fs);fin[i]+=a;g3+=a;});}}
           let total=0;show.forEach((s,i)=>{if(s)total+=fin[i];});
           const hid=[];show.forEach((s,i)=>{if(!s)hid.push(i);});
-          const cssT=hid.length?(hid.map(i=>'table[data-retbl]>thead>tr>:nth-child('+(i+1)+'),table[data-retbl]>tbody>tr[data-rerow]>:nth-child('+(i+1)+')').join(',')+'{display:none}'):'';
+          const sel=i=>'table[data-retbl]>thead>tr>:nth-child('+(i+1)+'),table[data-retbl]>tbody>tr[data-rerow]>:nth-child('+(i+1)+')';
+          // the pinned columns' widths and left offsets for every table at once - one rule each, not a write per cell
+          const sw={},stkCss=[];let off=0;
+          [iR,iF,iN].forEach(i=>{if(i<0)return;sw[nm[i]]=fin[i];
+            stkCss.push(sel(i)+'{width:'+fin[i]+'px!important;min-width:'+fin[i]+'px!important;max-width:'+fin[i]+'px!important;left:'+off+'px!important}');off+=fin[i];});
+          // the column group tints ride on <col> elements, so a hidden column hides its <col> too
+          const cssT=(hid.length?(hid.map(i=>sel(i)+',table[data-retbl]>colgroup>col:nth-child('+(i+1)+')').join(',')+'{display:none}'):'')+stkCss.join('');
           if(css.textContent!==cssT)css.textContent=cssT;
+          // the body cells pin (--restk, see _reStickyCss) only where the table is wider than its box; ALL always pins
+          const stk=all||(total>avail+1);
           // ONLY WHAT CHANGED IS WRITTEN: a table drawn at the last fit's widths (_reFitC) needs no second layout
           let lv=-1;show.forEach((s,i)=>{if(s)lv=i;});
           tbls.forEach(t=>{const hr=t.tHead&&t.tHead.rows[0];if(!hr||hr.cells.length!==N)return;
             if(t.style.tableLayout!=='fixed')t.style.tableLayout='fixed';
             if(t.style.width!==total+'px')t.style.width=total+'px';
-            Array.prototype.forEach.call(hr.cells,(th,i)=>{th.setAttribute('data-renat',String(nat[i]));th.setAttribute('data-rehw',String(hw[i]));
+            if((t.style.getPropertyValue('--restk')||'').trim()!==(stk?'sticky':'')){if(stk)t.style.setProperty('--restk','sticky');else t.style.removeProperty('--restk');}
+            Array.prototype.forEach.call(hr.cells,(th,i)=>{
+              // a drag never narrows RANK or RUN below their figures, nor FAMILY below its strategy name
+              const lo=(nm[i]==='FAMILY')?Math.max(hw[i],fmn||0):(STK[nm[i]]?nat[i]:hw[i]);
+              if(th.getAttribute('data-renat')!==String(nat[i]))th.setAttribute('data-renat',String(nat[i]));
+              if(th.getAttribute('data-rehw')!==String(lo))th.setAttribute('data-rehw',String(lo));
               // the drag grip hangs 3px past its heading edge; on the last visible heading that overhang made the box scroll 3px sideways
               const g=th.querySelector('[data-recolgrip]'),gr=(i===lv)?'0px':'';if(g&&g.style.right!==gr)g.style.right=gr;
               if(STK[nm[i]]||!show[i])return;const fw=fin[i]+'px';
               if(th.style.width!==fw)th.style.width=fw;if(th.style.maxWidth!==fw)th.style.maxWidth=fw;if(th.style.minWidth)th.style.minWidth='';});
             Array.prototype.forEach.call(t.querySelectorAll('td[colspan]'),td=>{const cs=Math.max(1,N-hid.length);if(td.colSpan!==cs)td.colSpan=cs;});
-            t.setAttribute('data-refit-hidden',hid.map(i=>nm[i]).join('|'));});
+            const hv=hid.map(i=>nm[i]).join('|');if(t.getAttribute('data-refit-hidden')!==hv)t.setAttribute('data-refit-hidden',hv);});
           let keySum=0;want.forEach((w,i)=>{if(!xt[i])keySum+=w;});
           // each freed-width column width, measured where it was built and remembered where it was not; and whether
           //   one that was not built would fit in the room left now (a resize, or a first estimate that ran short)
-          const wantX=Object.assign({},(window._reFitLast&&window._reFitLast.wantX)||{}),builtX={},defX=window._reXtraDef||{};
-          mths.forEach((th,i)=>{const k=th.getAttribute('data-rextra');if(k){wantX[k]=want[i];builtX[k]=1;}});
+          const wantX=Object.assign({},(window._reFitLast&&window._reFitLast.wantX)||{});
+          Array.prototype.forEach.call(hr0.cells,(th,i)=>{const k=th.getAttribute('data-rextra');if(k)wantX[k]=want[i];});
           // the SAME rule the render builds by (_reXtra): room past the KEY columns, each in keep order. Asking it any
           //   other way (the room the fit happened to leave) disagreed with the build whenever KEY itself did not fit,
           //   and asked for a rebuild that could never add anything.
           // the KEY columns by name, and the same keep-order choice the render makes (_reXtraFill): a freed-width column
           //   it would show that this render never built asks for one rebuild
-          const wantN={};mths.forEach((th,i)=>{if(!th.getAttribute('data-rextra'))wantN[nm[i]]=want[i];});
+          const wantN={};Array.prototype.forEach.call(hr0.cells,(th,i)=>{if(!th.getAttribute('data-rextra'))wantN[nm[i]]=want[i];});
           let more=false;
           if(!all){const PX=window._reXtraP||{};
-            const it=mths.map((th,i)=>({x:th.getAttribute('data-rextra'),p:pr[i],w:want[i]})).filter(c=>!c.x)
+            const it=nm.map((n,i)=>({x:xt[i]?'x':null,p:pr[i],w:want[i]})).filter(c=>!c.x)
               .concat(Object.keys(defX).map(k=>({x:k,p:(PX[k]!=null)?PX[k]:99,w:wantX[k]||defX[k]})));
             let used=0;it.sort((p,q)=>p.p-q.p).forEach(c=>{if(c.p===0||used+c.w<=avail){used+=c.w;if(c.x&&!builtX[c.x])more=true;}});}
           // what KEY left out at this width: the columns it built and hid, and the freed-width ones it never built
           const XN={tot:'TOTAL',dd:'DRAWDOWN',dd5:'DD5',lb:'LOCKBOX',wf:'WALK-FWD',is:'IN-SAMPLE',win:'DATA WINDOW',date:'DATE',what:'WHAT IT DOES'};
-          const left=all?[]:hid.map(i=>nm[i]).concat(Object.keys(defX).filter(k=>!builtX[k]).map(k=>XN[k]||k));
+          const left=all?[]:hid.map(i=>nm[i]).concat(unbuilt.map(k=>XN[k]||k));
           document.querySelectorAll('[data-refitnote]').forEach(el=>{
-            if(left.length){el.textContent='+'+left.length+' COLUMN'+((left.length===1)?'':'S')+' \u00b7 ALL';
+            if(left.length){const tx='+'+left.length+' COLUMN'+((left.length===1)?'':'S')+' · ALL';if(el.textContent!==tx)el.textContent=tx;
               el.title='Not every column fits this width, so the '+left.length+' used least ('+left.join(', ')+') are left out rather than squeezed. Click for ALL: every column, with the table scrolling sideways inside its own box.';
-              el.style.display='';}
-            else{el.textContent='';el.style.display='none';}});
-          tbls.forEach(t=>t.setAttribute('data-refit-left',String(left.length)));
+              if(el.style.display)el.style.display='';}
+            else{if(el.textContent)el.textContent='';if(el.style.display!=='none')el.style.display='none';}});
+          tbls.forEach(t=>{if(t.getAttribute('data-refit-left')!==String(left.length))t.setAttribute('data-refit-left',String(left.length));});
           window._reFitLast={vw:window.innerWidth||0,split:!!document.querySelector('[data-resplitl]'),box:avail,keySum:keySum,
-            wantX:wantX,wantN:wantN,more:more,hidden:hid.map(i=>nm[i]),left:left,all:all,
+            wantX:wantX,wantN:wantN,more:more,hidden:hid.map(i=>nm[i]),left:left,all:all,stk:stk,sw:sw,measured:remeasured,
             cw:(function(){const o={};show.forEach((s,i)=>{if(s&&!STK[nm[i]])o[nm[i]]=fin[i];});return o;})(),tot:total};
           return window._reFitLast;}catch(e){try{console.warn('column fit',e);}catch(_){}return null;}};
-        let _reFitT=null;
-        window.addEventListener('resize',()=>{clearTimeout(_reFitT);_reFitT=setTimeout(()=>{
+        let _reFitT=null,_reFitVW=window.innerWidth||0;
+        window.addEventListener('resize',()=>{
+          // A PHONE FIRES resize EVERY TIME ITS ADDRESS BAR SLIDES AWAY ON A SCROLL - a change of height only. The columns
+          //   fit the WIDTH, and a re-fit can rebuild the whole board, so only a change of width re-fits.
+          const vw=window.innerWidth||0;if(vw===_reFitVW)return;_reFitVW=vw;
+          clearTimeout(_reFitT);_reFitT=setTimeout(()=>{
           if(!document.querySelector('table[data-retbl]'))return;
           const L=window._reFitCols();
           // the box grew past the room a freed-width column needs and this render never built it: build it
-          if(L&&L.more&&typeof renderApp==='function')renderApp();},160);});}
+          if(L&&L.more&&typeof renderApp==='function')renderApp();},160);},{passive:true});}
       // RUN BEFORE THE NEXT PAINT, NOT INSIDE THE RENDER. Measuring forces the board to lay out, and a render the page
       //   replaces before it is ever painted (a burst of control clicks, or a render probe walking 150 states) never
       //   needed that layout at all - done here it tripled the COMPARE beta gate. A frame is the latest it can run
@@ -45181,7 +45356,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _reKeep=(sc,key)=>{
           const pos=window._reScrollPos[key];
           if(pos){sc.scrollLeft=pos.l;sc.scrollTop=pos.t;}
-          sc.addEventListener('scroll',()=>{window._reScrollPos[key]={l:sc.scrollLeft,t:sc.scrollTop};},{passive:true});};
+          sc.addEventListener('scroll',()=>{window._reLastScroll=performance.now();window._reScrollPos[key]={l:sc.scrollLeft,t:sc.scrollTop};},{passive:true});};
+        if(!window._reScrollStamp){window._reScrollStamp=1;window.addEventListener('scroll',()=>{window._reLastScroll=performance.now();},{passive:true});}
         content.querySelectorAll('[data-restackl]').forEach(sc=>_reKeep(sc,'__stackl__'));
         content.querySelectorAll('[data-resplitl]').forEach(sc=>_reKeep(sc,'__splitl__'));
         content.querySelectorAll('[data-rescroll]').forEach(sc=>_reKeep(sc,'box:'+(sc.getAttribute('data-rescroll')||'')));
@@ -45198,7 +45374,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   its targets fresh, by data-repoint / data-rerow, every time it is called, so it
         //   works the same whether the point it is lighting came from the last full render or
         //   from a chart-only redraw just now.
+        window._reHLLit=window._reHLLit||new Set();
         window._reSetHL=function(k,on){
+          // (owner 2026-10-09, scroll lag) a row the pointer leaves that was never lit has nothing to put back
+          if(!on&&!window._reHLLit.has(k))return;
+          if(on)window._reHLLit.add(k);else window._reHLLit.delete(k);
           const HL='color-mix(in srgb,var(--text) 16%,transparent)';
           document.querySelectorAll('[data-repoint="'+CSS.escape(k)+'"]').forEach(function(p){
             const h=p.querySelector('.rehl');if(h)h.setAttribute('opacity',on?'1':'0');});
@@ -45207,7 +45387,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             else{t.style.background=t.dataset.rebg||'';}
             // (D15) the pinned RANK / FAMILY / RUN cells paint their own opaque ground, which hid the row tint: the
             //   highlight is laid over that ground, so they light with the row and stay opaque
-            Array.prototype.forEach.call(t.children,function(td){if(td.style.position!=='sticky')return;
+            Array.prototype.forEach.call(t.children,function(td){if(!td.style.left)return;
               if(td.dataset.rebg==null)td.dataset.rebg=td.style.background||'';
               td.style.background=on?('linear-gradient('+HL+','+HL+'),'+(td.dataset.rebg||'var(--bg2)')):(td.dataset.rebg||'');});});};
         // REDRAW JUST THE CHART (owner 2026-09-22: "remove said dot on the chart and the chart
@@ -45290,7 +45470,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   table, so these rows and their listeners survive it untouched; window._reWireChart
         //   above covers everything that lives inside the chart box instead.
         content.querySelectorAll('tr[data-rerow]').forEach(t=>{const k=t.getAttribute('data-rerow');
-          t.addEventListener('mouseenter',()=>window._reSetHL(k,true));
+          // A ROW SLIDING UNDER A STILL POINTER IS NOT A HOVER (owner 2026-10-09: scroll lag). While the board scrolls the
+          //   browser sends an enter for every row that passes under the pointer, and each one lit a row and its chart point.
+          t.addEventListener('mouseenter',e=>{if(e&&e.isTrusted&&(performance.now()-(window._reLastScroll||0))<200)return;window._reSetHL(k,true);});
           t.addEventListener('mouseleave',()=>{if(!window._reHLTimer)window._reSetHL(k,false);});});
         window._reWireChart(content);
       })();

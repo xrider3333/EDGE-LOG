@@ -53,6 +53,11 @@ WHAT IT ASSERTS, per case
                        ROC @ $30K DD, no column may hold an empty band at 2000 / 1559 px, no heading is cut,
                        TOTAL / DRAWDOWN / DD5 fill the freed width, KEY leaves out (and counts) what does not
                        fit, ALL scrolls inside the table box at 390 px, DD5 matches its definition.
+  t2_names         -- the EXPLORE / STUDIES tables at 2000 / 1400 / 390 px (owner 2026-10-09): three strategies' runs on
+                       KEY; every strategy name whole, RANK / RUN never cut, no two rows of one run and type alike
+                       (the run report's configuration label), a column group on every heading, DRAWDOWN and DD5 back
+                       at 1400 with CONFIG held to 200px, no pinned body cells in a table that fits; a planted FAMILY
+                       squeeze must fail the name check; the DD % axis reads DD % from peak off the saved curve.
   k5_rb_dd5        -- DD5 (owner 2026-10-07): the RUNBOARD's DD5 row under DD on every stage, the
                        HORIZ table, the old tab and the WATCH view; hover / tap list the dips; a
                        planted one-crash curve carries the 1 EPISODE chip and an even one does
@@ -104,7 +109,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 153
+N_CASES = 154
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -268,6 +273,118 @@ var FIX = __FIX__;
            k390:S.found?{box:S.box,tbl:S.tblW,boxSW:S.boxSW,hidden:S.hidden,note:S.note,page:[S.pageSW,S.pageW]}:S,
            a390:A.found?{box:A.box,tbl:A.tblW,boxSW:A.boxSW,hidden:A.hidden,page:[A.pageSW,A.pageW]}:A,
            rawPre:res.rawPre,rawAll:{dd5:res.rawAll.dd5&&res.rawAll.dd5.t,dd5tip:res.rawAll.dd5&&res.rawAll.dd5.tip.slice(0,80),ddtip:res.rawAll.dd&&res.rawAll.dd.tip.slice(-200)}});
+      })();
+
+      // ── case t2_names (owner 2026-10-09, a phone screenshot of the TABLES: "TILT ENGU..", "HYBRID ..", "KEEL DIP" - the
+      //    strategy cut off - and a rank reading "10.."; four rows of one run that all read "TILT ENGU-Q #326"; and COMPARE's
+      //    laptop review: CONFIG at 363px while DRAWDOWN and DD5 sat behind "+N COLUMNS"). Three runs of three strategies
+      //    (ENGU-Q, DIP, NOISE) on KEY with the owner's remembered narrow widths, at 2000, 1400 and 390 px: every row's
+      //    strategy name is whole and inside its cell, RANK and RUN never cut their text, no two rows of one run and
+      //    configuration type read alike, every heading carries its column group (with one <col> per heading), at 1400
+      //    DRAWDOWN and DD5 show with CONFIG held to 200px, and a table that fits its box pins no body cell. A planted
+      //    truncation - the FAMILY column squeezed to 20px - must be caught by the same name check. The DD % axis is DD % from
+      //    peak: its button says so, and a plotted row reads the from-peak figure worked out here from the row's own saved
+      //    curve, not its dollar drawdown over the account.
+      (function(){
+        var calls=[],errAcc=[],res={};
+        var STRS=['ENGUQ_1_0.py','NQDIP_1_1.py','NOISE_1_0.py'];
+        var docs=STRS.map(function(s,i){var x=dfxClone(FIX);x.id=String(8810001+i);x.strategy=s;x.starred=false;return x;});
+        var IDS=docs.map(function(x){return String(x.id);});
+        var wc=dfxWin(docs,IDS.map(function(id){return "window._runCfg['"+id+"']=window._runFull['"+id+"'];";}).join(''));
+        var W={'RANK':30,'FAMILY':86,'RUN':58,'CONFIG':230};
+        function P(extra){var o={c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:IDS,c2Tbl:true,resCols:'key',resColW:W,reSortK:'run',resOrd:'res'};
+          for(var k in (extra||{}))o[k]=extra[k];return o;}
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function RF(p,win){var c=doRender(p,win||wc);try{w.eval('if(window._reFitCols)window._reFitCols();');}catch(e){c='ERR fit: '+e;}return c;}
+        function size(px){fr.style.width=px+'px';void fr.offsetWidth;try{void d.body.offsetWidth;}catch(e){}return w.innerWidth;}
+        function visTbl(){var sc=[].filter.call(d.querySelectorAll('[data-rescroll]'),function(b){return b.offsetParent!==null;})[0]||null;
+          return sc?(sc.querySelector('table[data-retbl]')||sc.querySelector('table')):null;}
+        // the checks, on what is on screen
+        function look(){var t=visTbl();if(!t)return {found:false};
+          var ths=[].slice.call(t.tHead.rows[0].cells),rows=[].slice.call(t.querySelectorAll('tbody tr[data-rerow]'));
+          var ix=function(nm){for(var i=0;i<ths.length;i++)if(ths[i].getAttribute('data-recol')===nm)return i;return -1;};
+          var iR=ix('RANK'),iF=ix('FAMILY'),iN=ix('RUN');
+          var o={found:true,rows:rows.length,noName:0,nameBad:[],rankCut:[],runCut:[],dup:[],grp:{},maxGrp:0};
+          rows.forEach(function(tr){var f=tr.cells[iF],s=f?f.querySelector('[data-restrat]'):null;
+            if(!s){o.noName++;}
+            else{var fr2=f.getBoundingClientRect(),sr=s.getBoundingClientRect(),pad=parseFloat(w.getComputedStyle(f).paddingRight)||0;
+              // whole: drawn at full width, inside the cell's content box, nothing of it scrolled out of view or ellipsized
+              if(!(sr.width>0&&sr.left>=fr2.left-0.5&&sr.right<=fr2.right-pad+0.5&&s.scrollWidth<=s.clientWidth+1&&(s.textContent||'').trim().length>1))o.nameBad.push((s.textContent||'').trim());}
+            var a=tr.cells[iR],n=tr.cells[iN];
+            if(a&&a.scrollWidth>a.clientWidth)o.rankCut.push((a.textContent||'').trim());
+            if(n&&n.scrollWidth>n.clientWidth)o.runCut.push((n.textContent||'').trim());
+            var ty=f?f.querySelector('[data-retype]'):null,run=n?((n.textContent||'').trim().split(' ')[0]):'';
+            var g=run+'|'+(s?s.textContent:'')+'|'+(ty?ty.textContent:''),vis=(f?f.textContent:'')+'|'+(n?n.textContent:'');
+            o.grp[g]=o.grp[g]||{};if(o.grp[g][vis])o.dup.push(vis);o.grp[g][vis]=1;});
+          o.groups=Object.keys(o.grp).length;Object.keys(o.grp).forEach(function(g){var k=Object.keys(o.grp[g]).length;if(k>o.maxGrp)o.maxGrp=k;});delete o.grp;
+          o.hdrNoGrp=ths.filter(function(th){return !/(^| )recg-(id|perf|risk|act)( |$)/.test(th.className||'');}).map(function(th){return th.getAttribute('data-recol');});
+          o.nCol=t.querySelectorAll('colgroup>col').length;o.nTh=ths.length;
+          o.colsMatch=[].slice.call(t.querySelectorAll('colgroup>col')).every(function(c,i){var th=ths[i];return !!th&&c.className===((th.className.match(/recg-[a-z]+/)||[''])[0])&&(w.getComputedStyle(c).display==='none')===(w.getComputedStyle(th).display==='none');});
+          var vis2=function(nm){var i=ix(nm);return i>=0&&w.getComputedStyle(ths[i]).display!=='none';};
+          o.ddVis=vis2('DRAWDOWN');o.dd5Vis=vis2('DD5');o.cfgW=(ix('CONFIG')>=0&&vis2('CONFIG'))?Math.round(ths[ix('CONFIG')].getBoundingClientRect().width):null;
+          o.famW=iF>=0?Math.round(ths[iF].getBoundingClientRect().width):null;o.rankW=iR>=0?Math.round(ths[iR].getBoundingClientRect().width):null;
+          o.hidden=t.getAttribute('data-refit-hidden')||'';o.left=+(t.getAttribute('data-refit-left')||0);
+          o.pin=rows.length?w.getComputedStyle(rows[0].cells[0]).position:null;
+          var sc=t.parentElement;o.box=sc.clientWidth;o.boxSW=sc.scrollWidth;
+          o.sampleRun=rows.slice(0,3).map(function(tr){return (tr.cells[iN].textContent||'').trim();});
+          o.sampleFam=rows.slice(0,3).map(function(tr){return (tr.cells[iF].textContent||'').trim();});
+          return o;}
+        var vw={},L={};
+        vw.w2000=size(2000);calls.push(RF(P()));chk('2000');L.k2000=look();
+        vw.w1400=size(1400);calls.push(RF(P()));chk('1400');L.k1400=look();
+        // the same board drawn again at the same width (the second draw builds the columns the first fit chose, the third
+        //   draws exactly that again): the fit reuses its measurement instead of laying the board out a second time
+        calls.push(RF(P()));chk('1400 again');calls.push(RF(P()));chk('1400 third');res.again=w.eval('window._reFitLast?window._reFitLast.measured:null');
+        vw.w390=size(390);calls.push(RF(P()));chk('390');L.k390=look();
+        // the planted truncation: the FAMILY column squeezed below its strategy names must fail the name check (the fixed
+        //   table hands the room it frees back to every column, so it is planted well below any name)
+        var mut=d.createElement('style');mut.id='t2mut';
+        mut.textContent='table[data-retbl]>thead>tr>:nth-child(2),table[data-retbl]>tbody>tr[data-rerow]>:nth-child(2){width:20px!important;min-width:20px!important;max-width:20px!important}';
+        d.head.appendChild(mut);void d.body.offsetWidth;L.mut=look();mut.remove();
+        // DD % from peak, on one run, in-sample + walk-forward (its saved optimize-window curve), plotted across
+        size(1400);
+        calls.push(doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:[IDS[2]],resSegs:['is','wf'],resAxis:'evr',resXAxis:'ddp',c2Tbl:true,resCols:'key'},wc));chk('ddp');
+        var btn=d.querySelector('[data-resxaxis="ddp"]');res.ddpBtn=btn?(btn.textContent||'').trim():null;
+        var cand=(((FIX.selection||{}).candidates)||[]).filter(function(c){return c&&c.crowned;})[0]||null;
+        var mu=+FIX.multiplier||20,S0=100000,wantP=null,oldP=null;
+        if(cand&&cand.equity&&Array.isArray(cand.equity.cum)){var P0=S0,worst=0;
+          cand.equity.cum.forEach(function(v){var eq=S0+(+v)*mu;if(eq>P0)P0=eq;var f=(P0-eq)/P0;if(f>worst)worst=f;});wantP=worst*100;
+          if(cand.cal&&cand.cal.pre&&cand.cal.pre.max_drawdown!=null)oldP=Math.abs(+cand.cal.pre.max_drawdown)*mu/S0*100;}
+        var tip=null;[].slice.call(d.querySelectorAll('[data-repoint] title')).forEach(function(t){var s=t.textContent||'';if(tip===null&&/RAW CROWNED/i.test(s)&&s.indexOf('#'+IDS[2])>=0)tip=s;});
+        var m=tip&&tip.match(/dd % from peak ([0-9.]+)/i);res.ddpGot=m?parseFloat(m[1]):null;res.ddpWant=wantP;res.ddpOld=oldP;
+        size(1400);
+        // leave nothing behind for the cases after it - the fit's own rules included, which the next render would wear
+        //   until its fit runs (a probe never gives it the frame it runs in)
+        w.eval("window._runCfg={};window._runFull={};window._reFitLast=null;window._reFitRe=null;window._reFitM=null;var _fs=document.getElementById('reFitCss');if(_fs)_fs.textContent='';");
+        var K=L.k2000,M=L.k1400,S=L.k390,X=L.mut,ok=function(o){return !!(o&&o.found);};
+        var allOk=function(f){return [K,M,S].every(function(o){return ok(o)&&f(o);});};
+        dfxCase('t2_names',calls,{
+          'renders OK at 2000, 1400 and 390 px, and on the DD % axis':calls.every(function(c){return c==='OK';}),
+          'no console errors on any render':errAcc.length===0,
+          'the frame really took each width':vw.w2000===2000&&vw.w1400===1400&&vw.w390===390,
+          'a table of all three runs at every width (165 rows)':allOk(function(o){return o.rows===165;}),
+          'every row carries its strategy name':allOk(function(o){return o.noName===0;}),
+          'every row shows its strategy name whole, at 2000, 1400 and 390':allOk(function(o){return o.nameBad.length===0;}),
+          'no RANK cell is cut':allOk(function(o){return o.rankCut.length===0;}),
+          'no RUN cell (run number and configuration label) is cut':allOk(function(o){return o.runCut.length===0;}),
+          'no two rows of one run and configuration type read alike':allOk(function(o){return o.dup.length===0&&o.maxGrp>=2;}),
+          'every heading carries its column group':allOk(function(o){return o.hdrNoGrp.length===0;}),
+          'one <col> per heading, same group, hidden with it':allOk(function(o){return o.nCol===o.nTh&&o.colsMatch;}),
+          '1400: DRAWDOWN and DD5 show':ok(M)&&M.ddVis&&M.dd5Vis,
+          '1400: CONFIG is held to 200px while columns are left out':ok(M)&&M.left>0&&M.cfgW!=null&&M.cfgW<=201,
+          '2000: every column shows, as before':ok(K)&&K.left===0&&K.hidden==='',
+          'a table that fits its box pins no body cell (no per-cell layers to move on scroll)':allOk(function(o){return o.boxSW>o.box+1||o.pin==='static';}),
+          'no sideways scroll in the box at any width':allOk(function(o){return o.boxSW<=o.box+1;}),
+          'a second render of the same board reuses the measurement':res.again===false,
+          'the planted FAMILY squeeze is caught by the name check':ok(X)&&X.nameBad.length>0,
+          'the DD % axis button reads DD % from peak':res.ddpBtn==='DD % from peak',
+          'the plotted DD % is the fall from the high, worked out here from the saved curve':res.ddpWant!=null&&res.ddpGot!=null&&Math.abs(res.ddpGot-res.ddpWant)<=0.011,
+          'and not the dollar drawdown over the account':res.ddpOld!=null&&res.ddpGot!=null&&Math.abs(res.ddpGot-res.ddpOld)>0.05
+        },{vw:vw,errAcc:errAcc.slice(0,3),again:res.again,ddp:{btn:res.ddpBtn,got:res.ddpGot,want:res.ddpWant,old:res.ddpOld},
+           k2000:ok(K)?{rows:K.rows,bad:K.nameBad.slice(0,3),rank:K.rankCut.slice(0,3),run:K.runCut.slice(0,3),dup:K.dup.slice(0,3),famW:K.famW,rankW:K.rankW,left:K.left,hidden:K.hidden,pin:K.pin,noGrp:K.hdrNoGrp,run3:K.sampleRun,fam3:K.sampleFam}:K,
+           k1400:ok(M)?{bad:M.nameBad.slice(0,3),dd:M.ddVis,dd5:M.dd5Vis,cfgW:M.cfgW,famW:M.famW,left:M.left,hidden:M.hidden,pin:M.pin,box:[M.box,M.boxSW]}:M,
+           k390:ok(S)?{bad:S.nameBad.slice(0,3),famW:S.famW,rankW:S.rankW,left:S.left,hidden:S.hidden,pin:S.pin,box:[S.box,S.boxSW]}:S,
+           mut:ok(X)?{bad:X.nameBad.length,famW:X.famW}:X});
       })();
 
       // ── case 1: empty ──────────────────────────────────────────────────────────
@@ -2131,7 +2248,8 @@ var FIX = __FIX__;
         r.b2=rd(P(['is','lb'],true), wcMod(UNK));rb=rawRow();r.bIsLb=cellsTr(rb);
         // (c) GATE rows with no lockbox block
         r.c1=rd(P(['lb'],true), wcMod(NOGLB));
-        r.gates=[].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){var c=cellsTr(t);return c.FAMILY&&c.FAMILY[0]==='GATE';})
+        // the configuration type: its own span since FAMILY leads with the strategy name (2026-10-09), the whole cell before
+        r.gates=[].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){var c=cellsTr(t),ty=t.querySelector('[data-retype]');return c.FAMILY&&(ty?(ty.textContent||'').trim():c.FAMILY[0])==='GATE';})
           .map(function(t){return cellsTr(t).TRADES;});
       })();
 
@@ -8570,6 +8688,7 @@ def main(argv=None):
     DFX += ['n3_rb_void_prefix']
     DFX += ['n4_rb_roll']
     DFX += ['t1_band']
+    DFX += ['t2_names']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
