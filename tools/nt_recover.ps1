@@ -124,6 +124,29 @@ function NoiseAdoptRefusal($p) {
 # called. Returns $true when the row is (now) set to adopt.
 function EnsureEnguqAdopt { return (EnsureAdopt $enguqName) }
 
+# CONNECTION LOSS (2026-10-09, owner via MANAGER #138: 'pick up where they left off'). NinjaTrader's default
+# (Recalculate, 10 s, 4 restarts in 5 min) DISABLED both strategies on 10-08 when the price feed flapped 17
+# times in 23 s, and NOISE's short then sat unmanaged overnight. Every strategy this script starts must
+# start with KeepRunning + a 30 s disconnect delay. Settable only while the strategy is stopped (the bridge
+# refuses otherwise) - exactly when this is called. A bridge that cannot set them (an older dll) is logged
+# and the strategy is enabled anyway: no worse than before.
+$connLoss = [ordered]@{ ConnectionLossHandling = 'KeepRunning'; DisconnectDelaySeconds = '30' }
+function EnsureConnLoss($name) {
+  try {
+    $pj = (Invoke-WebRequest -Uri "$bridge/strategy/params?name=$name" -TimeoutSec 10 -UseBasicParsing).Content | ConvertFrom-Json
+    foreach ($k in $connLoss.Keys) {
+      $cur = "$(@($pj.base_settings | Where-Object { $_.name -eq $k })[0].value)"
+      if ($cur -eq $connLoss[$k]) { continue }
+      if ($WhatIf) { Log "[WhatIf] would set $name $k '$cur' -> $($connLoss[$k])"; continue }
+      Log "$name $k is '$cur' - setting $($connLoss[$k]) so a feed drop does not switch it off"
+      Invoke-WebRequest -Uri "$bridge/strategy/setparam?name=$name&param=$k&value=$($connLoss[$k])" -Method POST -TimeoutSec 10 -UseBasicParsing | Out-Null
+    }
+    $pj = (Invoke-WebRequest -Uri "$bridge/strategy/params?name=$name" -TimeoutSec 10 -UseBasicParsing).Content | ConvertFrom-Json
+    $bad = @($connLoss.Keys | Where-Object { $k = $_; "$(@($pj.base_settings | Where-Object { $_.name -eq $k })[0].value)" -ne $connLoss[$k] })
+    if ($bad.Count -gt 0) { Log "WARN: $name connection-loss settings not as wanted ($($bad -join ', ')) - enabling anyway" }
+  } catch { Log "WARN: could not read/set $name connection-loss settings: $_ - enabling anyway" }
+}
+
 # Sets a stopped strategy's grid row to AdoptAccountPosition (ENGU-Q always; NOISE only when the
 # account holds NOISE's own saved trade). Returns $true when the row is (now) set to adopt.
 function EnsureAdopt($name) {
@@ -723,6 +746,7 @@ do {
       Log "  $enguqName is not set to adopt yet (chart still loading?) - not enabling it this pass"
       continue
     }
+    EnsureConnLoss $s
     Log "enabling $s..."
     & $py $cli strategy enable --name $s --yes 2>&1 | ForEach-Object { Log "  [enable] $_" }
     Start-Sleep -Seconds 4
