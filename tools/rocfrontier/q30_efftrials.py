@@ -140,7 +140,8 @@ def t485():
             seen.add(sig)
             cfgs.append(cfg)
     best = json.dumps({k: R["best_params"][k] for k in keys}, sort_keys=True)
-    cols, ntr = {}, {}
+    cols, ntr, ntr_is = {}, {}, {}
+    split = pd.Timestamp(R["validate"]["windows"]["wf_split"])                # the run's validity rule: >= min_trades on its IS split (auto.py _eval_one)
     sess = pd.DatetimeIndex(sorted(set(day[(day >= pd.Timestamp(J["date_from"])) & (day <= pd.Timestamp(win[1]))])))
     for i, cfg in enumerate(cfgs):
         bt = run_backtest(J["strategy"], arrays=arr, params=cfg, cost_pts=float(J["cost_pts"]), return_trades=True)
@@ -148,15 +149,16 @@ def t485():
         s = pd.Series([float(t[2]) * float(J["mult"]) for t in tr], index=[day[min(int(t[1]), len(day) - 1)] for t in tr]).groupby(level=0).sum()
         nm = "champion" if json.dumps(cfg, sort_keys=True) == best else f"s{i:03d}"
         cols[nm], ntr[nm] = s.reindex(sess).fillna(0.0), len(tr)
+        ntr_is[nm] = sum(1 for t in tr if day[min(int(t[1]), len(day) - 1)] < split)
         if (i + 1) % 25 == 0:
             print(f"   {i + 1}/{len(cfgs)} settings", flush=True)
     df = pd.DataFrame(cols)
     df.index.name = "date"
-    valid = [c for c in df.columns if ntr[c] >= int(J["min_trades"])]
+    valid = [c for c in df.columns if ntr_is[c] >= int(J["min_trades"])]
     df[valid].to_csv(os.path.join(OUT, "t485_daily.csv"))
-    json.dump({"distinct": len(cfgs), "valid": len(valid), "run_n_valid": R["n_valid"], "window": [J["date_from"], win[1]], "trades": ntr,
+    json.dump({"distinct": len(cfgs), "valid": len(valid), "run_n_valid": R["n_valid"], "window": [J["date_from"], win[1]], "trades": ntr, "trades_is": ntr_is, "is_split": str(split.date()),
                "champion_in": "champion" in valid}, open(os.path.join(OUT, "t485_meta.json"), "w"), indent=1)
-    print(f"#485: {len(cfgs)} distinct settings, {len(valid)} with >= {J['min_trades']} trades (the run counted {R['n_valid']}); champion found: {'champion' in cols}")
+    print(f"#485: {len(cfgs)} distinct settings, {len(valid)} with >= {J['min_trades']} trades on the IS split before {split.date()} (the run counted {R['n_valid']}); champion found: {'champion' in cols}")
 
 
 # ------------------------------------------------------------------ ONC (Lopez de Prado & Lewis 2019; MLAM snippets 4.1 / 4.2)
