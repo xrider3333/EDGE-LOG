@@ -61,7 +61,12 @@ def main():
         except SystemExit as e:
             print("  %-4s not loaded: %s" % (f, e))
             continue
-        row(f, d, 1e4 * R8.COST / float(np.median(d.c)))
+        # cost AS TRADED (QA 10-09 / NOISE.md correction): $0.02 a REAL share over the RAW price. The master is split-
+        # adjusted, so divide the adjusted close by the split/raw ratio of its day (XLK / XLY / XLU split 2-for-1 on
+        # 2025-12-05; before it the adjusted close is half the raw one, which made the first table's cost read 2x high).
+        q = R8.share_ratio(f, R8.LB0)[0]
+        r = q.reindex(q.index.union(d.index)).ffill().bfill().reindex(d.index).to_numpy(float)
+        row(f, d, 1e4 * R8.COST / float(np.median(d.c.to_numpy() / r)))
 
 
 if __name__ == "__main__":
