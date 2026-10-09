@@ -19436,6 +19436,71 @@ function renderApp(){
     const _mlSum=(t,segs)=>{const K={is:'is_rng',wf:'wf_rng',lb:'lockbox'};let net=0,dd=0,any=false;
       segs.forEach(k=>{const sl=t&&t[K[k]];if(!sl)return;any=true;net+=(+sl.total_pnl||0);dd=Math.max(dd,Math.abs(+sl.max_drawdown||0));});
       return any?{net:net,dd:dd,mar:(dd>1e-9?net/dd:null)}:null;};
+    // ── EQUAL RISK (owner 2026-10-07, MANAGER #78) ───────────────────────────────────────
+    //    "another pnl line that takes the best raw or ml and sizes it up ... its better to trade
+    //    this config at x leverage than that ml". Run #424 KEEL made $1,344k against a $162k worst
+    //    drawdown while the crowned RAW made $1,116k against $99k - KEEL wins dollars only by
+    //    trading bigger, and at the same risk the ranking can invert. This resizes every family
+    //    line to ONE risk budget so the comparison is about edge, not size.
+    //
+    //    WHERE THE DRAWDOWN COMES FROM, and why not from the drawn curves. A saved run holds NO
+    //    daily series; a gate/tilt/hybrid curve is {cum,n} - 300 points over trades, no time axis
+    //    at all - and a RAW curve is 160. Measuring drawdown off those would compare the two
+    //    families at different resolutions over the same years, which is precisely the comparison
+    //    this toggle exists to make. Every line instead carries engine max_drawdown from real
+    //    per-trade data at four scopes, so the factor reads is_rng (the in-sample stretch BEFORE
+    //    the first walk-forward fold) and is applied unchanged to WF and LB - the owner's
+    //    no-hindsight rule, met with dense numbers rather than a sample. It is per-TRADE
+    //    peak-to-trough, not daily, which is the conservative direction: per-trade drawdown is
+    //    generally deeper, so factors come out smaller and equal-risk dollars understated.
+    const _EQR_DEF_BUDGET=30000;        // the house yardstick ($30k worst drawdown)
+    // A factor this large means the in-sample drawdown was so shallow that the budget implies
+    //   absurd leverage - almost always a very short or very quiet in-sample stretch rather than
+    //   a real edge. Capped and SAID, never silently.
+    const _EQR_MAX_FACTOR=25;
+    const _eqrDDusd=(blk,mult)=>{const v=blk&&blk.max_drawdown;const n=(v==null)?NaN:Math.abs(+v);
+      return (isFinite(n)&&n>1e-9)?n*(+mult||1):null;};
+    // The one place a factor is decided. Returns null when the line cannot be sized honestly -
+    //   the caller then draws it unsized and labels it "no IS drawdown", never guesses a 1.0.
+    const _eqrFactor=(cfg,budget,mult)=>{
+      const dd=_eqrDDusd(cfg&&cfg.is_rng,mult);
+      if(dd==null)return null;
+      const raw=(+budget||_EQR_DEF_BUDGET)/dd;
+      if(!isFinite(raw)||raw<=0)return null;
+      return {f:Math.min(raw,_EQR_MAX_FACTOR),capped:raw>_EQR_MAX_FACTOR,raw:raw,ddIS:dd};};
+    // The HINDSIGHT factor, for the hover only: what the whole run's drawdown would have allowed
+    //   if you had known it in advance. Shown beside the honest one and marked as hindsight,
+    //   because the gap between them IS the thing a reader should see.
+    const _eqrHind=(cfg,budget,mult)=>{
+      const dd=_eqrDDusd(cfg&&(cfg.full||cfg.wf_lb),mult);
+      if(dd==null)return null;
+      const raw=(+budget||_EQR_DEF_BUDGET)/dd;
+      return isFinite(raw)&&raw>0?{f:raw,ddFull:dd}:null;};
+    // Equal-risk dollars for one scope, at the IN-SAMPLE factor. Net $ comes from the engine's
+    //   own per-scope total_pnl (points) x multiplier - never from reading a sampled curve's end.
+    const _eqrNet=(cfg,scope,mult)=>{const b=cfg&&cfg[scope];const v=b&&b.total_pnl;
+      return (v==null||!isFinite(+v))?null:(+v)*(+mult||1);};
+    // What a line SHOWS when EQUAL RISK is on: the factor, the ending dollars the owner asked to
+    //   sort by (walk-forward + lockbox at the in-sample factor), and the hindsight comparison.
+    const _eqrRead=(cfg,budget,mult)=>{
+      const fr=_eqrFactor(cfg,budget,mult);if(!fr)return null;
+      const wf=_eqrNet(cfg,'wf_rng',mult),lb=_eqrNet(cfg,'lockbox',mult);
+      const wfLb=_eqrNet(cfg,'wf_lb',mult);
+      // wf_lb when the engine saved it, else wf + lb, else whichever exists. The owner's sort key
+      //   is "equal-risk ending $", which is the held-out money - NOT the in-sample money, which
+      //   the factor was derived from and would reward a shallow in-sample stretch twice.
+      const held=(wfLb!=null)?wfLb:((wf!=null||lb!=null)?((wf||0)+(lb||0)):null);
+      return {f:fr.f,capped:fr.capped,rawF:fr.raw,ddIS:fr.ddIS,
+              endUsd:(held==null)?null:held*fr.f,heldUsd:held,
+              wfUsd:(wf==null)?null:wf*fr.f,lbUsd:(lb==null)?null:lb*fr.f,
+              hind:_eqrHind(cfg,budget,mult)};};
+    const _eqrOn=()=>+(APREF.a2eqr||0)===1;
+    // The budget: $30k by default, or matched to the crowned ML line's own in-sample drawdown so
+    //   every line is read at the risk that line actually ran.
+    const _eqrBudget=(crownedMl,mult)=>{
+      if(String(APREF.a2eqrb||'')!=='ml')return _EQR_DEF_BUDGET;
+      const dd=_eqrDDusd(crownedMl&&crownedMl.is_rng,mult);
+      return (dd==null)?_EQR_DEF_BUDGET:dd;};
     const _mlPick=(arr)=>{
       const segs=_segsOf(['is','wf','lb']);
       const rule=(['rec','pnl','floor'].indexOf(String(APREF.g2rank||''))>=0)?String(APREF.g2rank):'floor';
@@ -21148,10 +21213,59 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.75;
         //   Every family line registers its dollar curve + its own x-mapping here; the drawdown
         //   pane below then draws ONE underwater line per family, in that family's colour, inside
         //   the same show/hide group as its equity line.
+        // EQUAL RISK: one budget for the whole chart, decided once. The "crowned ML line" for
+        //   MATCH ML is the chosen gate when the run has one, else the best tilt - the ML line
+        //   the run itself promoted.
+        const _eqrCrownMl=(d.gate_validate&&d.gate_validate.chosen)||_bestTiltC||null;
+        // THE GATE LINE SIZES OFF ITS OWN CONFIG, resolved from the same two places its CURVE is
+        //   (_gEq above). The crowned-ML variable has a different job - the MATCH ML budget
+        //   reference - and it falls back to the best TILT when no gate config is saved. Sizing
+        //   the gate line by that fallback would scale it, label it and sort it by another
+        //   family's drawdown. The two coincide on most runs, which is exactly why it would not
+        //   have shown up in use.
+        const _eqrGateCfg=(d.gate_validate&&d.gate_validate.chosen)
+                          ||(d.ml_gate&&d.ml_gate.chosen)||null;
+        const _eqrB=_eqrBudget(_eqrCrownMl,mult);
+        // 1.0 when the toggle is off, so EQUAL RISK off draws byte-identically to before.
+        // A line with no in-sample drawdown saved cannot be sized honestly: it stays at 1.0 and
+        //   its label says so rather than implying it was already at the budget.
+        const _eqrMul=cfg=>{if(!_eqrOn())return 1;const r=_eqrRead(cfg,_eqrB,mult);return (r&&isFinite(r.f))?r.f:1;};
+        const _eqrLab=cfg=>{if(!_eqrOn())return '';const r=_eqrRead(cfg,_eqrB,mult);
+          if(!r)return ' (no IS drawdown)';
+          return ' \u00d7'+(r.f<10?r.f.toFixed(2):r.f.toFixed(1))+(r.capped?'!':'');};
+        // The EQUAL RISK hover for one family line: the basis, the hindsight factor beside it,
+        //   and DD5. DD5 is read off the DRAWN array, which is already scaled by the factor, so it
+        //   is the drawdown this line would have run at the budget. It is marked with a tilde and
+        //   its point count, exactly as RUNBOARD prints it (v73.1125): the saved curves are thinned,
+        //   and on THIS chart a RAW line holds about 160 points where an ML line holds 300, so two
+        //   DD5 figures here are not equally resolved and the reader is told which is coarser.
+        const _eqrTip=(cfg,curve)=>{
+          if(!_eqrOn())return '';
+          const bits=[];
+          const r=_eqrRead(cfg,_eqrB,mult);
+          if(!r){bits.push('no in-sample drawdown is saved for this line, so it is drawn at its own size');}
+          else{
+            bits.push('sized \u00d7'+(r.f<10?r.f.toFixed(2):r.f.toFixed(1))
+                      +' off an in-sample drawdown of '+_dd5Usd(r.ddIS)
+                      +(r.capped?(' (capped: the budget implied \u00d7'+r.rawF.toFixed(1)
+                                  +', which is leverage no quiet stretch can justify)'):''));
+            if(r.endUsd!=null)bits.push('held-out total at that size '+_dd5Usd(r.endUsd));
+            if(r.hind&&isFinite(r.hind.f))bits.push('the WHOLE run drawdown of '+_dd5Usd(r.hind.ddFull)
+                      +' would have allowed \u00d7'+r.hind.f.toFixed(2)+' - HINDSIGHT, not used');
+          }
+          try{
+            const q=(Array.isArray(curve)&&curve.length>2)?_dd5Of(curve,5):null;
+            if(q&&q.n)bits.push('DD5 ~'+_dd5Usd(q.dd5)
+                      +((q.n<5)?(' (only '+q.n+' dips)'):'')
+                      +' off '+curve.length+' saved points'
+                      +(q.one?' - 1 EPISODE: the worst dip is more than 1.3\u00d7 DD5':''));
+          }catch(_de){}
+          if(!bits.length)return '';
+          return ' \u00b7 EQUAL RISK: '+bits.join('; ')+'.';};
         const _famDD=[];
         // the drawn array is the stitched line when the lockbox tail checks out (_mlTail); the pill
         //   keeps reading the saved curve's own last value, which the tail ends on
-        if(_hasGate){const _gS=_mlTail(_gEq,'cum_gated','lb_tail_gated'),gc=_gS?_gS.a:_gEq.cum_gated,gn=gc.length,_gf=_gEq.cum_gated[_gEq.cum_gated.length-1]*mult;
+        if(_hasGate){const _gcF=_eqrMul(_eqrGateCfg),_gS=_mlTail(_gEq,'cum_gated','lb_tail_gated'),gc=_gS?_gS.a:_gEq.cum_gated,gn=gc.length,_gf=_gEq.cum_gated[_gEq.cum_gated.length-1]*mult*_gcF;
           // v64.94 (owner spotted this): the gate line USED to be spread linearly across the whole
           //   plot width, but this funnel WARPS its x — the optimize window occupies xL..xFull
           //   (84%) and the lockbox the remaining 16%, while in TRADE terms the lockbox is only
@@ -21181,9 +21295,12 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.75;
           //   The RAW IS/WF/LB dash split below stays: there the dash means something.
           gateOv='<polyline points="'+gp+'" fill="none" stroke="#e24b4a" stroke-width="0.85" opacity="1" stroke-linecap="round"/>';
           // sp only on a stitched line: DOORS then cuts at that exact index instead of recovering it
-          const _gDD={a:gc.map(v=>v*mult),x:_gx,col:'#e24b4a',kg:'gate',nm:'GATE'};if(_gS)_gDD.sp=_gS.sp;
+          // the GATE line is sized like every other family. Leaving it at 1x on an
+          //   equal-risk chart would make it the only unsized line there.
+          const _gDD={a:gc.map(v=>v*mult*_gcF),x:_gx,col:'#e24b4a',kg:'gate',nm:'GATE'};if(_gS)_gDD.sp=_gS.sp;
+          _gDD.eqrTip=_eqrTip(_eqrGateCfg,_gDD.a);
           _famDD.push(_gDD);
-          labs.push({y:Yv(_gf),col:'#e24b4a',kg:'gate',txt:_kUsd(_gf)+' 🚪'});}
+          labs.push({y:Yv(_gf),col:'#e24b4a',kg:'gate',txt:_kUsd(_gf)+' 🚪'+_eqrLab(_eqrGateCfg)});}
         // IS-max total into the gutter (its in-chart door label is removed). Crowned already has a
         //   lockbox pill; IS-max may not, so add it here.
         if(_a2kAll&&isMaxC&&isMaxC!==crownedC){const _isf=isMaxC.equity.cum[isMaxC.equity.cum.length-1]*mult;labs.push({y:Yv(_isf),col:'#3a9bdc',kg:'ismax',txt:_kUsd(_isf)+' IS'});}
@@ -21241,24 +21358,27 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.75;
         //   (2D) by held-out MAR draws on the funnel too — full span, amber, so filter vs tilt vs
         //   champion reads off one picture without expanding. Trade-grid mapped piecewise: its
         //   pre-lockbox trades spread start→lockbox door, held-out trades door→right edge.
-        let _tiltOv='',_tiltEnd=null;
+        let _tiltOv='',_tiltEnd=null,_tiltEqr='';
         try{
           const _bt=_bestTiltC;
           if(_bt&&_bt.equity&&Array.isArray(_bt.equity.cum)&&_bt.equity.cum.length>2){
             // stitched with its lockbox tail when that checks out; its index door is used as is,
             //   never through the 0.02..0.98 clamp the trade-count split needs
             const _tS=_mlTail(_bt.equity,'cum','lb_tail');
-            const _ta=(_tS?_tS.a:_bt.equity.cum).map(v=>v*mult),_tn=_ta.length;
+            const _taF=_eqrMul(_bt);
+            const _ta=(_tS?_tS.a:_bt.equity.cum).map(v=>v*mult*_taF),_tn=_ta.length;
             const _tf=_tS?_tS.sp:Math.max(0.02,Math.min(0.98,(+_bt.kept_pre||0)/Math.max(1,+_bt.n_trades||_tn)));
             const _tp=[];
             for(let j=0;j<_tn;j++){const f=_tn<=1?1:j/(_tn-1);
               const x=(f<=_tf)?(xL+(xFull-xL)*(f/_tf)):(xFull+(xR-xFull)*((f-_tf)/(1-_tf)));
               _tp.push(x.toFixed(1)+' '+Yv(_ta[j]).toFixed(1));}
-            _tiltOv='<g data-kg="tilt"><polyline points="'+_tp.join(' ')+'" fill="none" stroke="#f0b429" stroke-width="0.85" opacity="1"><title>best size tilt (2D): '+String(_bt.model||'')+' · '+(_TILT_SCHEME_NM[_bt.scheme]||String(_bt.scheme||''))+' ('+(_TILT_SCHEME_AB[_bt.scheme]||String(_bt.scheme||'?').slice(0,2).toUpperCase())+')</title></polyline></g>';
+            _tiltOv='<g data-kg="tilt"><polyline points="'+_tp.join(' ')+'" fill="none" stroke="#f0b429" stroke-width="0.85" opacity="1"><title>best size tilt (2D): '+String(_bt.model||'')+' · '+(_TILT_SCHEME_NM[_bt.scheme]||String(_bt.scheme||''))+' ('+(_TILT_SCHEME_AB[_bt.scheme]||String(_bt.scheme||'?').slice(0,2).toUpperCase())+')'+_eqrTip(_bt,_ta)+'</title></polyline></g>';
             const _tDD={a:_ta,x:function(j){const f=_tn<=1?1:j/(_tn-1);return (f<=_tf)?(xL+(xFull-xL)*(f/_tf)):(xFull+(xR-xFull)*((f-_tf)/(1-_tf)));},col:'#f0b429',kg:'tilt',nm:'TILT'};
             if(_tS)_tDD.sp=_tS.sp;
+            _tDD.eqrTip=_eqrTip(_bt,_tDD.a);
             _famDD.push(_tDD);
-            _tiltEnd=_bt.equity.cum[_bt.equity.cum.length-1]*mult;}
+            _tiltEnd=_bt.equity.cum[_bt.equity.cum.length-1]*mult*_taF;
+            _tiltEqr=_eqrLab(_bt);}
         }catch(_te){}
         // v73.7xx (owner, twice: "i dont see keel on auto validates" / "not seeing it on the
         //   charts"): KEEL now draws as its own family top with its own key row. It used to be
@@ -21266,23 +21386,26 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.75;
         //   the row also ran v4 (average size 1.00, fixed the same day) its line sat exactly on
         //   the raw curve even once revealed. Two reasons to see nothing at all.
         //   Same trade-grid mapping as the tilt above: the lockbox door sits at kept_pre/n_trades.
-        let _keelOv='',_keelEnd=null,_keelVer='';
+        let _keelOv='',_keelEnd=null,_keelVer='',_keelEqr='';
         try{
           const _bk=(function(){try{const k=(d.gate_validate||{}).keel;return (k&&!k.error)?k:null;}catch(_e){return null;}})();
           if(_bk&&_bk.equity&&Array.isArray(_bk.equity.cum)&&_bk.equity.cum.length>2){
             _keelVer=String(_bk.version||'');
             const _kS=_mlTail(_bk.equity,'cum','lb_tail');   // stitched lockbox, as the tilt above
-            const _ka=(_kS?_kS.a:_bk.equity.cum).map(v=>v*mult),_kn=_ka.length;
+            const _kaF=_eqrMul(_bk);
+            const _ka=(_kS?_kS.a:_bk.equity.cum).map(v=>v*mult*_kaF),_kn=_ka.length;
             const _kf=_kS?_kS.sp:Math.max(0.02,Math.min(0.98,(+_bk.kept_pre||0)/Math.max(1,+_bk.n_trades||_kn)));
             const _kp=[];
             for(let j=0;j<_kn;j++){const f=_kn<=1?1:j/(_kn-1);
               const x=(f<=_kf)?(xL+(xFull-xL)*(f/_kf)):(xFull+(xR-xFull)*((f-_kf)/(1-_kf)));
               _kp.push(x.toFixed(1)+' '+Yv(_ka[j]).toFixed(1));}
-            _keelOv='<g data-kg="keel"><polyline points="'+_kp.join(' ')+'" fill="none" stroke="#38bdf8" stroke-width="0.85" opacity="1"><title>KEEL '+_keelVer+' (skill-gated expectancy tilt) · average size '+String(_bk.avg_size!=null?_bk.avg_size:'?')+'x · comparison only, never crownable</title></polyline></g>';
+            _keelOv='<g data-kg="keel"><polyline points="'+_kp.join(' ')+'" fill="none" stroke="#38bdf8" stroke-width="0.85" opacity="1"><title>KEEL '+_keelVer+' (skill-gated expectancy tilt) · average size '+String(_bk.avg_size!=null?_bk.avg_size:'?')+'x · comparison only, never crownable'+_eqrTip(_bk,_ka)+'</title></polyline></g>';
             const _kDD={a:_ka,x:function(j){const f=_kn<=1?1:j/(_kn-1);return (f<=_kf)?(xL+(xFull-xL)*(f/_kf)):(xFull+(xR-xFull)*((f-_kf)/(1-_kf)));},col:'#38bdf8',kg:'keel',nm:'KEEL'};
             if(_kS)_kDD.sp=_kS.sp;
+            _kDD.eqrTip=_eqrTip(_bk,_kDD.a);
             _famDD.push(_kDD);
-            _keelEnd=_bk.equity.cum[_bk.equity.cum.length-1]*mult;}
+            _keelEnd=_bk.equity.cum[_bk.equity.cum.length-1]*mult*_kaF;
+            _keelEqr=_eqrLab(_bk);}
         }catch(_ke2){}
         // WHERE THE LOCKBOX DOOR FALLS ON A CURVE SAVED ACROSS THE WHOLE UNGATED TRADE LIST.
         //   A hybrid's curve has one point per trade of the FULL list - a skipped trade just adds
@@ -21299,43 +21422,48 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.75;
           if(c!=null){const n=+(((c&&c.equity)||{}).n)||0;if(n!==p+l)return null;}
           return Math.max(0.02,Math.min(0.98,p/(p+l)));}catch(_e){return null;}};
         // v68.6: the best HYBRID (2E) draws too — violet, same trade-grid mapping as the tilt.
-        let _hybOv='',_hybEnd=null;
+        let _hybOv='',_hybEnd=null,_hybEqr='';
         try{
           const _bh=_bestHybC;
           if(_bh&&_bh.equity&&Array.isArray(_bh.equity.cum)&&_bh.equity.cum.length>2){
             // a stitched lockbox already sits on the ungated door (the engine cuts it at the
             //   ungated pre-lockbox count), so its index door replaces both splits below
             const _hS=_mlTail(_bh.equity,'cum','lb_tail');
-            const _ha=(_hS?_hS.a:_bh.equity.cum).map(v=>v*mult),_hn=_ha.length;
+            const _haF=_eqrMul(_bh);
+            const _ha=(_hS?_hS.a:_bh.equity.cum).map(v=>v*mult*_haF),_hn=_ha.length;
             const _hf=_hS?_hS.sp:((_ungSplit(_bh)!=null)?_ungSplit(_bh):Math.max(0.02,Math.min(0.98,(+_bh.kept_pre||0)/Math.max(1,+_bh.n_trades||_hn))));
             const _hp2=[];
             for(let j=0;j<_hn;j++){const f=_hn<=1?1:j/(_hn-1);
               const x=(f<=_hf)?(xL+(xFull-xL)*(f/_hf)):(xFull+(xR-xFull)*((f-_hf)/(1-_hf)));
               _hp2.push(x.toFixed(1)+' '+Yv(_ha[j]).toFixed(1));}
-            _hybOv='<g data-kg="hyb"><polyline points="'+_hp2.join(' ')+'" fill="none" stroke="#c084fc" stroke-width="0.85" opacity="1"><title>best hybrid (2E): '+String(_bh.model||'')+' · gate + tilt</title></polyline></g>';
+            _hybOv='<g data-kg="hyb"><polyline points="'+_hp2.join(' ')+'" fill="none" stroke="#c084fc" stroke-width="0.85" opacity="1"><title>best hybrid (2E): '+String(_bh.model||'')+' · gate + tilt'+_eqrTip(_bh,_ha)+'</title></polyline></g>';
             const _hDD={a:_ha,x:function(j){const f=_hn<=1?1:j/(_hn-1);return (f<=_hf)?(xL+(xFull-xL)*(f/_hf)):(xFull+(xR-xFull)*((f-_hf)/(1-_hf)));},col:'#c084fc',kg:'hyb',nm:'HYBRID'};
             if(_hS)_hDD.sp=_hS.sp;
+            _hDD.eqrTip=_eqrTip(_bh,_hDD.a);
             _famDD.push(_hDD);
-            _hybEnd=_bh.equity.cum[_bh.equity.cum.length-1]*mult;}
+            _hybEnd=_bh.equity.cum[_bh.equity.cum.length-1]*mult*_haF;
+            _hybEqr=_eqrLab(_bh);}
         }catch(_he){}
         // v71.6: the SAME hybrid book with the freed-up contracts put back to work - the HYBRID
         //   recycle tab, drawn. Same trades, more size, so it finishes higher and digs deeper.
-        let _hyb2Ov='',_hyb2End=null;
+        let _hyb2Ov='',_hyb2End=null,_hyb2Eqr='';
         try{
           const _bh3=_bestHybC;
           if(_hyRdF&&_bh3&&_bh3.equity&&Array.isArray(_bh3.equity.cum)&&_bh3.equity.cum.length>2){
             const _hS3=_mlTail(_bh3.equity,'cum','lb_tail');   // same stitched line, sized up
-            const _ha3=(_hS3?_hS3.a:_bh3.equity.cum).map(v=>v*mult*_hyRdF),_hn3=_ha3.length;
+            const _ha3F=_eqrMul(_bh3);
+            const _ha3=(_hS3?_hS3.a:_bh3.equity.cum).map(v=>v*mult*_hyRdF*_ha3F),_hn3=_ha3.length;
             const _hf3=_hS3?_hS3.sp:((_ungSplit(_bh3)!=null)?_ungSplit(_bh3):Math.max(0.02,Math.min(0.98,(+_bh3.kept_pre||0)/Math.max(1,+_bh3.n_trades||_hn3))));
             const _hp3=[];
             for(let j=0;j<_hn3;j++){const f=_hn3<=1?1:j/(_hn3-1);
               const x=(f<=_hf3)?(xL+(xFull-xL)*(f/_hf3)):(xFull+(xR-xFull)*((f-_hf3)/(1-_hf3)));
               _hp3.push(x.toFixed(1)+' '+Yv(_ha3[j]).toFixed(1));}
-            _hyb2Ov='<g data-kg="hyb2"><polyline points="'+_hp3.join(' ')+'" fill="none" stroke="#f0abfc" stroke-width="0.85" opacity="1"><title>hybrid with contracts redeployed - '+_hyRdF.toFixed(2)+'x the size of the plain hybrid line</title></polyline></g>';
+            _hyb2Ov='<g data-kg="hyb2"><polyline points="'+_hp3.join(' ')+'" fill="none" stroke="#f0abfc" stroke-width="0.85" opacity="1"><title>hybrid with contracts redeployed - '+_hyRdF.toFixed(2)+'x the size of the plain hybrid line'+_eqrTip(_bh,_ha3)+'</title></polyline></g>';
             const _h3DD={a:_ha3,x:function(j){const f=_hn3<=1?1:j/(_hn3-1);return (f<=_hf3)?(xL+(xFull-xL)*(f/_hf3)):(xFull+(xR-xFull)*((f-_hf3)/(1-_hf3)));},col:'#f0abfc',kg:'hyb2',nm:'HYBRID recycle'};
             if(_hS3)_h3DD.sp=_hS3.sp;
+            _h3DD.eqrTip=_eqrTip(_bh,_h3DD.a);
             _famDD.push(_h3DD);
-            _hyb2End=_bh3.equity.cum[_bh3.equity.cum.length-1]*mult*_hyRdF;}
+            _hyb2End=_bh3.equity.cum[_bh3.equity.cum.length-1]*mult*_hyRdF*_ha3F;}
         }catch(_he3){}
         // v68.3 (owner: "add the drawdown graph"): a compact drawdown strip along the plot floor —
         //   the crowned champion's whole-run drawdown (incl. the held-out year), red area, same
@@ -21415,9 +21543,9 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.75;
         //   five families had no endpoint to read against the scale. They all do now, which is why
         //   the gutter is built HERE instead of 90 lines earlier: it has to wait until every
         //   overlay has reported where it finished.
-        if(_tiltEnd!=null)labs.push({y:Yv(_tiltEnd),col:'#f0b429',kg:'tilt',txt:_kUsd(_tiltEnd)+' T'});
-        if(_hybEnd!=null)labs.push({y:Yv(_hybEnd),col:'#c084fc',kg:'hyb',txt:_kUsd(_hybEnd)+' H'});
-        if(_hyb2End!=null)labs.push({y:Yv(_hyb2End),col:'#f0abfc',kg:'hyb2',txt:_kUsd(_hyb2End)+' H♻'});
+        if(_tiltEnd!=null)labs.push({y:Yv(_tiltEnd),col:'#f0b429',kg:'tilt',txt:_kUsd(_tiltEnd)+' T'+_tiltEqr});
+        if(_hybEnd!=null)labs.push({y:Yv(_hybEnd),col:'#c084fc',kg:'hyb',txt:_kUsd(_hybEnd)+' H'+_hybEqr});
+        if(_hyb2End!=null)labs.push({y:Yv(_hyb2End),col:'#f0abfc',kg:'hyb2',txt:_kUsd(_hyb2End)+' H♻'+_hyb2Eqr});
         // v71.13: the drawdown pane gets pills too - the realised worst and the Monte-Carlo
         //   P95 floor, the same two 1A prints beside its lower pane.
         if(_ddYv&&_ddWorst!=null)labs.push({y:_ddYv(_ddWorst),col:'#d6557a',kg:'dd',txt:_kUsd(_ddWorst)});
@@ -21455,7 +21583,7 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.75;
         // v68.6 (owner): the KEY is the expanded-view style BOX inside the plot again, top-left,
         //   with exactly four family rows: RAW · GATE · TILT · HYBRID. Each row shows its family's
         //   top line value; clicking a row reveals / hides the rest of that family.
-        const _gateEndV=(_hasGate&&_gEq&&Array.isArray(_gEq.cum_gated)&&_gEq.cum_gated.length)?_gEq.cum_gated[_gEq.cum_gated.length-1]*mult:null;
+        const _gateEndV=(_hasGate&&_gEq&&Array.isArray(_gEq.cum_gated)&&_gEq.cum_gated.length)?_gEq.cum_gated[_gEq.cum_gated.length-1]*mult*_eqrMul(_eqrGateCfg):null;
         // DOORS drops the $ from the key rows: they are whole-run finishes, and no panel draws one,
         //   so the row keeps its name and carries the figure in its hover text - half the width.
         const _kDz=+(APREF.a2doors||0)===1;
@@ -21474,7 +21602,7 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.75;
         //   line is the whole search space by design - it used to read as data gone missing.
         const _pin1Key=(d.n_evaluated!=null&&+d.n_evaluated===1);
         const _kOrder=[['raw','👑 RAW'+(_pin1Key?' <span style="opacity:.75">(1 of 1)</span>':''),(_crV!=null?_crV:null),'#1d9e75',(_pin1Key?'PINNED SINGLE-CONFIG RUN - the search space held exactly 1 configuration by design, so this one line is the entire population':''),0]];
-        if(_hasGate)_kOrder.push(['gate','GATE',_gateEndV,'#e24b4a',
+        if(_hasGate)_kOrder.push(['gate','GATE'+_eqrLab(_eqrGateCfg),_gateEndV,'#e24b4a',
           (_a2gate?'the crowned book with the trade filter applied':'the filtered book - currently HIDDEN, click to draw it'),(_a2gate?0:1)]);
         // v73.34: LB MAR appended to each family's tooltip — the lockbox recovery factor
         //   (_tRc0/_hRc0) that ACTUALLY picked this member out of its siblings, previously
@@ -21485,10 +21613,10 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.75;
         const _rkTxt={rec:'MAR',pnl:'NET $',floor:'NET $ + 80% MAR floor'};
         const _marSuf=(m,R)=>{const sl=R&&R.segs?R.segs.toUpperCase():'',rk=R?(_rkTxt[R.rule]||R.rule):'';
           return (R?(' · picked on '+sl+' by '+rk):'')+((m!=null&&isFinite(m))?(' · MAR '+m.toFixed(1)+'×'):'');};
-        if(_tiltEnd!=null)_kOrder.push(['tilt','TILT',_tiltEnd,'#f0b429','best of the size-tilt models'+_marSuf(_bestTiltMar,_bestTiltRule),0]);
-        if(_keelEnd!=null)_kOrder.push(['keel','KEEL'+(_keelVer?(' <span style="font-weight:400;opacity:.7">'+_keelVer+'</span>'):''),_keelEnd,'#38bdf8','the skill-gated expectancy tilt - every trade taken, only re-sized, comparison only and never crownable',0]);
-        if(_hybEnd!=null)_kOrder.push(['hyb','HYBRID',_hybEnd,'#c084fc','best of the hybrid models'+_marSuf(_bestHybMar,_bestHybRule),0]);
-        if(_hyb2KeyV!=null)_kOrder.push([(_hyb2End!=null?'hyb2':'hyb'),'HYBRID &#9851;'+(_hyb2End!=null?'':' <span style="opacity:.7">1.00&times;</span>'),_hyb2KeyV,'#f0abfc',
+        if(_tiltEnd!=null)_kOrder.push(['tilt','TILT'+_tiltEqr,_tiltEnd,'#f0b429','best of the size-tilt models'+_marSuf(_bestTiltMar,_bestTiltRule),0]);
+        if(_keelEnd!=null)_kOrder.push(['keel','KEEL'+(_keelVer?(' <span style="font-weight:400;opacity:.7">'+_keelVer+'</span>'):'')+_keelEqr,_keelEnd,'#38bdf8','the skill-gated expectancy tilt - every trade taken, only re-sized, comparison only and never crownable',0]);
+        if(_hybEnd!=null)_kOrder.push(['hyb','HYBRID'+_hybEqr,_hybEnd,'#c084fc','best of the hybrid models'+_marSuf(_bestHybMar,_bestHybRule),0]);
+        if(_hyb2KeyV!=null)_kOrder.push([(_hyb2End!=null?'hyb2':'hyb'),'HYBRID &#9851;'+_hyb2Eqr+(_hyb2End!=null?'':' <span style="opacity:.7">1.00&times;</span>'),_hyb2KeyV,'#f0abfc',
               (_hyb2End!=null?('the same hybrid book sized up '+(_hyRdF||1).toFixed(2)+'x - the contracts the filter freed, put back to work'+_marSuf(_bestHybMar,_bestHybRule))
                             :'the top hybrid refuses no trades on this run, so recycling frees nothing - same book, same size as HYBRID'+_marSuf(_bestHybMar,_bestHybRule)),0]);
         _kOrder.sort(function(a,b){return ((b[2]!=null?b[2]:-Infinity)-(a[2]!=null?a[2]:-Infinity));});
@@ -21628,7 +21756,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             if(_twoP&&sp>0.999&&F.kg==='gate'&&_ugS!=null)sp=_ugS;
             const xOf=_twoP?(j=>xL+(xEnd-xL)*Math.min(1,(n<=1?1:j/(n-1))/sp)):F.x;
             push({grp:F.kg,sel:null,pieces:runPieces(F.a,xOf,sp),col:F.col,wd:0.85,dash:()=>'',cap:(F.kg==='gate'?'round':''),
-                  title:(famTitle[F.kg]||F.nm),fold:(F.kg!=='gate'||!!_a2gate)});});
+                  title:(famTitle[F.kg]||F.nm)+(F.eqrTip||''),fold:(F.kg!=='gate'||!!_a2gate)});});
           (window._a2EqSeries||[]).forEach(sr=>{
             if(!sr||sr.famTop||sr.dim)return;if(!(sr.gateCand||sr.tiltCand||sr.hybCand||sr.hybRcy))return;
             if(!Array.isArray(sr.eq)||sr.eq.length<2)return;
@@ -21765,7 +21893,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   plot since v71.20 — so neither chip was the only way to reach its setting.
         ?(tag?'<div style="margin:5px 0 3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;row-gap:4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' '+_hInfo+' CONFIG FUNNEL ')+cfgSlider
           +_hdrRight(_tabStrip(_tabBtn('data-a2doors="0"','ONE CURVE',+(APREF.a2doors||0)!==1,'every line on one continuous $ scale across the whole run','var(--blue)')
-            +_tabBtn('data-a2doors="1"','DOORS',+(APREF.a2doors||0)===1,'in-sample, walk-forward and lockbox side by side - every line restarts at $0 at its own door and each panel has its own $ scale; the drawdown strip underneath stays one continuous account path','var(--blue)'),false,'var(--blue)'))+'</div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
+            +_tabBtn('data-a2doors="1"','DOORS',+(APREF.a2doors||0)===1,'in-sample, walk-forward and lockbox side by side - every line restarts at $0 at its own door and each panel has its own $ scale; the drawdown strip underneath stays one continuous account path','var(--blue)'),false,'var(--blue)')
+            // EQUAL RISK (owner 2026-10-07): its OWN strip, not a third option in the one above -
+            //   it composes with either of those, so making it exclusive with them would be wrong.
+            +_tabStrip(_tabBtn('data-a2eqr="'+(_eqrOn()?0:1)+'"','EQUAL RISK',_eqrOn(),'resize every family line so its IN-SAMPLE worst drawdown is the same risk budget, then apply that size unchanged to walk-forward and lockbox - so a raw config and an ML config are compared on edge rather than on how big they trade. The size comes from the in-sample stretch only, before the first walk-forward fold, so there is no hindsight in it. Each line is labelled with its factor and its equal-risk ending $; the hover also shows the hindsight factor the whole run would have allowed, marked as hindsight.','var(--violet)'),false,'var(--violet)')
+            +(_eqrOn()?_tabStrip(_tabBtn('data-a2eqrb="30k"','$30k',String(APREF.a2eqrb||'')!=='ml','size every line to a $30,000 worst in-sample drawdown - the house yardstick','var(--violet)')
+              +_tabBtn('data-a2eqrb="ml"','MATCH ML',String(APREF.a2eqrb||'')==='ml','size every line to the crowned ML line own in-sample drawdown, so each is read at the risk that line actually ran','var(--violet)'),false,'var(--violet)'):''))+'</div>':'<div class="lbl">WF-CHECKED SELECTION</div>')
         :(tag?'<div style="margin:5px 0 3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;row-gap:4px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;min-height:22px">'+(noTag?'':tag+' '+_hInfo+' TOP CONFIGS PNL ')+selDrop+cfgSlider+'<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px">'+_gateChipNS+'</span></div>':'<div class="lbl" title="'+_eqTip+'" style="cursor:help;margin:8px 0 6px;display:flex;align-items:center;flex-wrap:wrap">TOP CONFIGS PNL · '+series.length+' best configs · colour'+selDrop+'</div>');
       // v64.46 (owner): the funnel (selMode) now ALSO carries a data-xh descriptor, so the expand
       //   modal's crosshair shows date + equity $ under the cursor (same readout as 1A). x is a
@@ -47392,6 +47525,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // v64.49 (owner): 2A "🚪 gated" toggle — overlay the ML Trade Filter gated curve on the funnel.
       content.querySelectorAll('[data-a2gate]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('a2gate',+b.dataset.a2gate);renderApp();};});
       content.querySelectorAll('[data-a2doors]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('a2doors',+b.dataset.a2doors);renderApp();};});
+      content.querySelectorAll('[data-a2eqr]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('a2eqr',+b.dataset.a2eqr);renderApp();};});
+      content.querySelectorAll('[data-a2eqrb]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('a2eqrb',String(b.dataset.a2eqrb));renderApp();};});
       // GATE SWEEP hover: snap to the nearest 1% cut-off and print every model tuning-years MAR
       //   and net $ side by side, so the peaks the line shows can be read as dollars without
       //   flipping the RANK button back and forth.

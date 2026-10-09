@@ -240,6 +240,13 @@ CASES = [
     ('rollstamp-chip', {'prefs': {'repCols': '3'},
                         'win': {'_diagOpenKey': 'stamp', '_runExpo': {'state': 'ok', 'runs': {'163': WITH_CURVE}, 'at': 0}},
                         'setId': 163, 'pre': "doc.roll_stamp=" + json.dumps(STAMP_CLEAN) + ";", 'sSteps': SSTEPS}),
+    # EQUAL RISK ON (owner 2026-10-07, MANAGER #78). The same funnel, every family line resized to
+    # one in-sample risk budget. A case that only checked "nothing threw" would pass with the
+    # sizing silently absent - which is exactly the failure that matters, a toggle that looks on
+    # and changes nothing - so the assertions below read the chip's state AND count the factor
+    # labels the resize is supposed to print.
+    ('funnel-eqr', {'prefs': {'repCols': '3', 'repLayout': 'classic', 'eqTab': 'funnel', 'a2gate': 1,
+                              'a2kAll': 1, 'a2cfgAll': 1, 'a2doors': 0, 'a2eqr': 1}, 'win': {}}),
 ]
 
 # Builds this gate exists to catch. Each is a commit on main whose index.html blanked every
@@ -351,6 +358,69 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
         // stretch (gate_validate.ungated_lockbox, 334 trades) - it qualifies for the same
         // warm-lockbox swap _lbWarmOf already makes on RUNBOARD / EXPLORE / the LEADERBOARD,
         // and the 1E KPI MATRIX's LOCKBOX column should show that reading, tagged.
+        // EQUAL RISK: is the chip there, is it ON, and did the resize actually label any line?
+        //   The factor label is the multiplication sign followed by a number, printed by _eqrLab.
+        var eqrChip=det?det.querySelector('[data-a2eqr]'):null;
+        r.eqrChip=!!eqrChip;
+        // the chip's data attribute holds what a CLICK would set it to, so 0 means it is on now
+        r.eqrOn=eqrChip?(String(eqrChip.dataset.a2eqr)==='0'):false;
+        r.eqrBudgetChip=det?!!det.querySelector('[data-a2eqrb]'):false;
+        r.eqrFactorLabels=(txt.match(/\u00d7[0-9]+[.][0-9]+/g)||[]).length;
+        r.eqrNoDD=(txt.indexOf('no IS drawdown')>=0);
+        // THE HOVER (#582). The sentence is the only place a reader learns what the factor was
+        //   computed OFF and that DD5 here comes off a thinned curve of a known length, so it is
+        //   checked separately from the factor label: a build that dropped it would satisfy both
+        //   existing checks. Counted per family title, with the parts a label cannot fake.
+        try{
+          var tts=det?det.querySelectorAll('svg title'):[];
+          var nTip=0,hasDD5=false,hasHind=false,hasPts=false,hasBasis=false;
+          for(var ti=0;ti<tts.length;ti++){
+            var tx=tts[ti].textContent||'';
+            if(tx.indexOf('EQUAL RISK:')<0)continue;
+            nTip++;
+            if(tx.indexOf('DD5 ~')>=0)hasDD5=true;
+            if(tx.indexOf('saved points')>=0)hasPts=true;
+            if(tx.indexOf('HINDSIGHT')>=0)hasHind=true;
+            if(tx.indexOf('in-sample drawdown')>=0)hasBasis=true;
+          }
+          r.eqrTips=nTip;r.eqrTipDD5=hasDD5;r.eqrTipPts=hasPts;
+          r.eqrTipHind=hasHind;r.eqrTipBasis=hasBasis;
+        }catch(_te){r.eqrTips=-1;}
+        // THE LEGEND (spec item 4): each family row as [key, ending $, factor or null], in DOM
+        //   order. _kUsd prints -$ or $ then either a plain number or one with a k suffix, so the
+        //   parse covers both. The factor comes off the same row, printed by _eqrLab.
+        try{
+          var krow=det?det.querySelector('[data-a2krow]'):null;
+          var kr=krow?krow.querySelectorAll('[data-a2k]'):[];
+          var ord=[];
+          for(var ki=0;ki<kr.length;ki++){
+            var tx2=kr[ki].textContent||'';
+            var m=/(-?)\$([0-9]+(?:\.[0-9]+)?)(k?)/.exec(tx2);
+            if(!m)continue;
+            var fm=/\u00d7([0-9]+\.[0-9]+)/.exec(tx2);
+            ord.push([kr[ki].getAttribute('data-a2k'),
+                      (m[1]?-1:1)*parseFloat(m[2])*(m[3]?1000:1),
+                      fm?parseFloat(fm[1]):null]);
+          }
+          r.eqrLegend=ord;
+        }catch(_le){r.eqrLegend=null;}
+        // A DIGEST OF THE DRAWN GEOMETRY. The label alone is not evidence: the factor text is
+        //   computed independently of the curve, so a build that labels "x8.60" while drawing the
+        //   line at its original size would satisfy a label check and mislead every reader. The
+        //   aggregation step compares this between the toggle-off and toggle-on cases and
+        //   requires them to differ.
+        try{
+          var polys=det?det.querySelectorAll('svg polyline[points]'):[];
+          var acc=0,cnt=0;
+          for(var pi=0;pi<polys.length;pi++){
+            var ps=polys[pi].getAttribute('points')||'';
+            if(ps.length<20)continue;
+            cnt++;
+            for(var ci=0;ci<ps.length;ci++){acc=(acc*31+ps.charCodeAt(ci))|0;}
+          }
+          r.eqrPolyCount=cnt;
+          r.eqrPolyDigest=String(acc);
+        }catch(_pe){r.eqrPolyDigest='';r.eqrPolyCount=-1;}
         var lbTags=det?[].filter.call(det.querySelectorAll('span[title]'),function(sp){return (sp.textContent||'').indexOf('LB warm')>=0;}):[];
         r.lbWarmTagCount=lbTags.length;
         r.lbWarmTagTip=lbTags.length?(lbTags[0].getAttribute('title')||''):'';
@@ -470,6 +540,50 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
 """
 
 
+
+# MUTANTS -- the same idea as KNOWN_BAD, for features with no history to point at. Each entry
+# edits the CURRENT index.html to break ONE behaviour the probe claims to check, and --selftest
+# requires the gate to FAIL on it. A mutant that passes means the check is decoration.
+#   (name, find, replace, why it must fail)
+MUTANTS = [
+    ('equal-risk sizing removed',
+     'const _eqrMul=cfg=>{if(!_eqrOn())return 1;',
+     'const _eqrMul=cfg=>{if(1)return 1;',
+     'every family line stays at 1x, so EQUAL RISK renders but resizes nothing -- the toggle '
+     'would look on and change the chart not at all'),
+    ('equal-risk labels removed',
+     "const _eqrLab=cfg=>{if(!_eqrOn())return '';",
+     "const _eqrLab=cfg=>{if(1)return '';",
+     'the lines are resized but no line says by how much, so a reader cannot tell what leverage '
+     'each number assumes'),
+    ('equal-risk legend sorts on an unsized finish',
+     "_tiltEnd=_bt.equity.cum[_bt.equity.cum.length-1]*mult*_taF;",
+     "_tiltEnd=_bt.equity.cum[_bt.equity.cum.length-1]*mult;",
+     'TILT takes its place in the legend on money it never made at that size while its row '
+     'still prints the factor -- and the order check alone cannot see it, because a wrong '
+     'value still sorts descending. GATE was the line that actually shipped this way, but it '
+     'has no saved tuning drawdown on the fixture, so it is left at its own size either way '
+     'and cannot carry the mutant'),
+    ('equal-risk hover removed',
+     "return ' \\u00b7 EQUAL RISK: '+bits.join('; ')+'.';};",
+     "return '';};",
+     'the lines are resized and labelled but no line says what the factor was computed off, and '
+     'DD5 goes unprinted -- the one return in _eqrTip feeds all nine call sites, so killing it '
+     'silences every family at once'),
+]
+
+
+def _mutate(root, tmpdir, name, find, repl):
+    """Write a copy of the live index.html with one behaviour broken. None when the anchor is
+    gone (the feature was refactored -- INCONCLUSIVE, never a silent pass)."""
+    src = os.path.join(root, 'index.html')
+    raw = io.open(src, encoding='utf-8', newline='').read()
+    if raw.count(find) != 1:
+        return None
+    out = os.path.join(tmpdir, 'mutant_%s.html' % re.sub(r'[^a-z0-9]+', '_', name.lower()))
+    io.open(out, 'w', encoding='utf-8', newline='').write(raw.replace(find, repl, 1))
+    return out
+
 def find_chrome():
     cands = [r"C:\Program Files\Google\Chrome\Application\chrome.exe",
              r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"]
@@ -540,6 +654,20 @@ def selftest(fixture=None):
             if code != FAIL:
                 bad.append('v%s (%s) was NOT caught (exit %d) -- the gate has gone blind to: %s'
                            % (ver, commit, code, why))
+        for name, find, repl, why in MUTANTS:
+            path = _mutate(root, tmpdir, name, find, repl)
+            if path is None:
+                print('-- mutant "%s": INCONCLUSIVE, anchor not found' % name)
+                bad.append('mutant "%s" could not be built -- its anchor is gone, so the check '
+                           'it guards is unverified: %s' % (name, why))
+                continue
+            print('-- mutant "%s": expect FAIL' % name)
+            code = main(['--file', path, '--no-retry'] +
+                        (['--fixture', fixture] if fixture else []))
+            results.append(('mutant:' + name, code))
+            if code != FAIL:
+                bad.append('mutant "%s" was NOT caught (exit %d) -- the check is decoration: %s'
+                           % (name, code, why))
         print('-- current index.html: expect PASS')
         code = main(['--fixture', fixture] if fixture else [])
         results.append(('current', code))
@@ -552,8 +680,9 @@ def selftest(fixture=None):
         for b in bad:
             print('  - ' + b)
         return FAIL
-    print('SELFTEST: PASS -- gate caught %d/%d known-bad builds and passed the current one (%.1fs)'
-          % (len(KNOWN_BAD), len(KNOWN_BAD), time.time() - t0))
+    print('SELFTEST: PASS -- gate caught %d/%d known-bad builds + %d/%d mutants and passed the '
+          'current one (%.1fs)'
+          % (len(KNOWN_BAD), len(KNOWN_BAD), len(MUTANTS), len(MUTANTS), time.time() - t0))
     return PASS
 
 
@@ -1016,6 +1145,101 @@ def _attempt(chrome, root, alt_index, fixture):
             fails.append('%s: report body is only %s chars' % (nm, r.get('detailLen')))
         if not r.get('namesRun'):
             fails.append('%s: report never names run %s' % (nm, fixture.get('id')))
+        # ── EQUAL RISK (owner 2026-10-07). The chip must exist on every funnel case, and on the
+        #    funnel-eqr case it must be ON and must have actually resized something. Counting the
+        #    factor labels is the part that cannot pass with the sizing removed - which is what
+        #    the --selftest mutant checks.
+        if nm in ('funnel-1a', 'funnel-eqr'):
+            if not r.get('eqrChip'):
+                fails.append('%s: the EQUAL RISK chip is not on the funnel header' % nm)
+        if nm == 'funnel-eqr':
+            if not r.get('eqrOn'):
+                fails.append('%s: EQUAL RISK was set in prefs but the chip did not read as on' % nm)
+            if not r.get('eqrBudgetChip'):
+                fails.append('%s: the budget chips ($30k / MATCH ML) did not appear with EQUAL '
+                             'RISK on' % nm)
+            if not (r.get('eqrFactorLabels') or 0) and not r.get('eqrNoDD'):
+                fails.append('%s: EQUAL RISK is on but NO line carries a size factor and none '
+                             'says "no IS drawdown" - the toggle changed nothing, which is the '
+                             'one failure a render-only check would miss' % nm)
+            # ── THE HOVER (#582). Separate from the label check above: the label says BY how much,
+            #    the hover says OFF WHAT, and only the hover can tell a reader that DD5 here is
+            #    read off a 160-point RAW curve against a 300-point ML one.
+            if (r.get('eqrTips') or 0) < 2:
+                fails.append('%s: only %s family line(s) carry the EQUAL RISK hover - a resized '
+                             'line that does not say what it was sized off is a number with no '
+                             'basis a reader can check' % (nm, r.get('eqrTips')))
+            if not r.get('eqrTipBasis'):
+                fails.append('%s: no EQUAL RISK hover names the in-sample drawdown the factor was '
+                             'computed off - without it the factor cannot be checked' % nm)
+            if not r.get('eqrTipDD5'):
+                fails.append('%s: no EQUAL RISK hover prints DD5 (#582)' % nm)
+            if not r.get('eqrTipPts'):
+                fails.append('%s: a hover prints DD5 without its saved-point count, so a reader '
+                             'cannot tell the coarser of two DD5 figures on a chart that exists '
+                             'to compare a RAW curve against an ML one' % nm)
+            # Measured on this fixture: every config carrying an in-sample drawdown also carries
+            #   full and wf_lb, so the hindsight factor is computable wherever the honest one is -
+            #   this cannot fail for a missing field. It is asserted because it is the INTEGRITY
+            #   half of the hover: full is about 6.5x is_rng here, so an unmarked hindsight factor
+            #   reads as a size the method achieved when it is a size only foresight would allow.
+            if not r.get('eqrTipHind'):
+                fails.append('%s: no EQUAL RISK hover marks its hindsight factor as HINDSIGHT - '
+                             'unmarked, a factor read off the whole curve reads as a result the '
+                             'no-hindsight sizing achieved' % nm)
+        # ── THE LEGEND ORDER (spec item 4). Checked in BOTH states: the legend sorts on ending
+        #    dollars either way, so a broken sort is a failure with the toggle off too.
+        if nm in ('funnel-1a', 'funnel-eqr'):
+            _leg = r.get('eqrLegend') or []
+            if len(_leg) < 3:
+                fails.append('%s: the funnel legend shows only %d family row(s) with a figure - '
+                             'the order check needs the families to be there at all'
+                             % (nm, len(_leg)))
+            else:
+                _inv = ['%s %s above %s %s' % (_leg[i][0], _leg[i][1], _leg[i + 1][0],
+                                               _leg[i + 1][1])
+                        for i in range(len(_leg) - 1) if _leg[i][1] < _leg[i + 1][1]]
+                if _inv:
+                    fails.append('%s: the legend is not ordered by ending $ - %s'
+                                 % (nm, '; '.join(_inv)))
+        if nm == 'funnel-1a' and (r.get('eqrTips') or 0):
+            fails.append('%s: the EQUAL RISK hover is printed with the toggle OFF - the off state '
+                         'must read exactly as it did before the toggle existed' % nm)
+        if nm == 'funnel-1a' and (r.get('eqrFactorLabels') or 0):
+            fails.append('%s: a size factor is printed with EQUAL RISK OFF - the off state must '
+                         'be byte-identical to before the toggle existed' % nm)
+    # ── EQUAL RISK, the check a label cannot satisfy. The two funnel cases draw the same run with
+    #    the toggle off and on; if the geometry is identical then nothing was resized, however
+    #    many factors the labels printed. A mutant that strips the multiplication and keeps the
+    #    labels passes every other assertion here and fails this one.
+    _off, _on = cases.get('funnel-1a') or {}, cases.get('funnel-eqr') or {}
+    # ── A SIZED FIGURE MOVES WHEN THE TOGGLE IS THROWN (spec item 4). The order check above
+    #    cannot catch a line that sorts on its UNSIZED finish: a wrong value still descends, so
+    #    the legend looks perfectly ordered while that line sits in the wrong place. GATE did
+    #    exactly this - it printed 6.54x beside an ending figure identical with the toggle off,
+    #    about 6.5 times too low among sized lines. So any row claiming a factor other than 1.00
+    #    must show a DIFFERENT figure in the two states.
+    _lo = {k: v for k, v, f in (_off.get('eqrLegend') or [])}
+    for _k, _v, _f in (_on.get('eqrLegend') or []):
+        if _f is None or abs(_f - 1.0) < 0.005 or _k not in _lo:
+            continue
+        if abs(_lo[_k] - _v) < 0.5:
+            fails.append('equal-risk: the %s legend row prints a factor of %.2fx but its ending '
+                         'figure is %s with EQUAL RISK off and on alike - a sized figure moves '
+                         'when the toggle is thrown, so this row is sorting and labelling on '
+                         'its UNSIZED finish' % (_k, _f, _v))
+    if _off.get('call') == 'OK' and _on.get('call') == 'OK' and _off.get('detail') and _on.get('detail'):
+        _d0, _d1 = _off.get('eqrPolyDigest'), _on.get('eqrPolyDigest')
+        if not _d0 or not _d1:
+            notes.append('equal-risk: no polyline digest captured, geometry unverified')
+        elif (_off.get('eqrPolyCount') or 0) < 2:
+            notes.append('equal-risk: only %s polylines in the off case, geometry unverified'
+                         % _off.get('eqrPolyCount'))
+        elif _d0 == _d1:
+            fails.append('equal-risk: the funnel draws IDENTICAL geometry with the toggle off and '
+                         'on (%s polylines, digest %s) - nothing was actually resized, so any '
+                         'size factor printed on the chart is a number with no line behind it'
+                         % (_on.get('eqrPolyCount'), _d1))
         # LOCKBOX column / LB warm tag (2026-09-28, owner via MANAGER): fixture run 306 scored
         # its own lockbox cold (301 trades, ~$9,826) and carries a continuous replay of the
         # same stretch (334 trades) in gate_validate.ungated_lockbox, so it qualifies for the
