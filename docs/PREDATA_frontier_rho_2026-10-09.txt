@@ -1,0 +1,24 @@
+BOOK QUEUE Q39 - FAMILY LUCK BAR PRE-WORK: THE EFFECTIVE-TRIAL RATIO (rho) PER FAMILY (MANAGER #142 (b); the draft rule is
+bookq/DRAFT_family_luck_bar_2026-10-09.txt, LF f8053fac). PRE-DATA NOTE for MANAGER, 2026-10-09. Accounting + clustering only: no crown's Sharpe
+or deflated Sharpe is computed here (that waits for the rule freeze, MANAGER #142 (c)).
+
+DONE BEFORE THIS NOTE (counts only): the run docs the cache lacked were read by id (133 reads; 77 docs, #411-#488; the other ids do not
+exist). Valid configs per lineage over 437 run docs (#1-#488): ENGU-Q 8,447 in 50 runs (186,779 in 129 with ENGU's grid ancestors); DIP
+(with the retired NQDIP / ETFDIP names) 13,395 in 27; ORB 10,460 in 77; NOISE 8,530 in 60; TTM 1,485 in 31.
+
+THE MEASUREMENT (Q30's method exactly: q30_efftrials.py's ONC, distance sqrt((1 - rho) / 2), 10 initialisations, seed 20261009, a second
+seed 20261010 printed beside). For ONE validate per family, every stored setting ("points") is re-run on that run's own tuning window
+(date_from .. validate.windows.optimize end) on its own master and cost, its daily $ booked by exit day; a setting counts as valid if it has
+at least 30 trades (auto.py's min_trades default; the docs store no other value) before the run's IS split (validate.windows.wf_split; as auto.py _eval_one). E = ONC clusters of the valid
+settings' daily series; rho = E / valid. The runs: per family the run with the most stored settings AMONG RUNS THAT RECORD THEIR IS SPLIT (older runs do not), the crown run where it qualifies:
+  ORB #314 (crown, ORB_3_6_R6, 382 points); ENGU-Q #335 (crown, ENGUQ_1M_ETH_R2_1_0, 527); NOISE #395 (NOISE_1_4_C3N, 729 - #422 stores
+  only 27); TTM #479 (TTMSQZ_3_0_ES30TOF2 ES 30m, 81 - #459 stores only 9, and the 450-point TTM runs predate the split field); DIP #358 (ETFDIP_RSI2_1_0 QQQ daily, 479).
+THE ENGU GRID CANNOT BE MEASURED as MANAGER asked: #14 (65,436 configs) stored no settings; #19 (42,240) stored 1,200 settings' TOTALS only,
+on a 74-day TradingView CSV upload (2026-03-12..05-25) from the legacy app, with no strategy file (a code snapshot). PROPOSAL: bound it - a
+coarse grid is more redundant than a validate, so rho(ENGU grid) <= rho(ENGU-Q #335); E for the ancestors is printed at that upper bound
+(the harsh end) and E_fam is printed with and without ancestors for every family (#142 (a)).
+OUTPUT: per family - points, distinct, valid rebuilt (beside the run's own n_valid), E (both seeds), rho; then E_fam = rho x N_fam with and
+without ancestors. No threshold moves; the rule text is frozen by sha256 after this, before any crown number.
+COULD FOOL US: one run per family stands in for all its runs; a validate's stored points are its sampled settings, not the whole space;
+rebuilt validity can differ from the run's own count (printed).
+Script: bookq/q39_rho.py, witness branch prereg/frontier-rho-1009 before the run.
