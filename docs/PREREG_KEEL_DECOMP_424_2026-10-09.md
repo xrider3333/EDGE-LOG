@@ -89,3 +89,82 @@ Seeds 20261009 / 20261010.
 - No lockbox. No change to KEEL, ml_keel.py or any live leg.
 - Code: a new script, tools/rocfrontier/r28_keel_decomp.py, which imports ml_keel / engine / backfill_keel's
   loaders unchanged. Its sha256 goes to MANAGER + TTM before it runs.
+
+## ADDENDUM 1 (2026-10-09, before any twin is computed): MANAGER #147's four edits + TTM's eleven pins (DM 10-09 06:05)
+
+Read since the note, while checking formats: the header and the first two rows of DISC's trade files (two 2011 warm-up trades),
+and DISC's published restatement table (RESTATE_ROLL22_2026-10-08.md: #424 RAW full-window ROC 17.7 on the saved list, 21.1 on
+PURE). No KEEL number and no twin number has been read. Where this addendum and the note differ, this addendum wins.
+
+**A1 - THE TRADE LIST (MANAGER edit 3).**
+- PRIMARY: DISC's PURE roll-restated list, C:/EdgeLog/_anatomy_cache/restate_roll/dip424_pure_trades.csv (3,404 trades; the
+  true-roll twin with no entry or exit fill on a roll session; verified by TTM).
+- SECOND COLUMN: the saved list, dip424_saved_trades.csv (3,431 trades), printed beside it on every line, because it carries the
+  roll defect.
+- Each file's (entry, exit) times are ET wall-clock bar STARTS. Each maps to the bar of the doc's master (NOADJ_NQ_5m_RTH,
+  index US/Eastern) whose start equals it exactly, and that gives keel_walk's entry and exit bars. Any time without an exact
+  match refuses the run.
+- pnl is the file's dollar P&L at size 1. Arrays = that master over the doc's window 2010-06-07 .. 2026-08-24; KEEL's features
+  come from it, as in the validate.
+- Guard on the saved list: its trades entered before 2025-08-24 must match the doc's ungated pre block (3,185 trades exactly,
+  net within 0.5%), else the run refuses.
+
+**A2 - KEEL IS TODAY'S WALK (TTM 1).** KEEL = today's ml_keel.keel_walk(version "v12") on the list being read. The doc's KEEL row
+(avg size 1.253, trust-on 45.9%; computed 09-24 on another master build) is printed beside it as a figure, not a parity target.
+TTM's reproduction on the saved list reads 1.248.
+
+**A3 - KEEL'S OWN PROVENANCE (MANAGER edit 2).**
+- The per-trade parts are causal. The two members (logit, ExtraTrees) refit every 25 trades on resolved trades only. Trust
+  comes from the 600-trade dollar ledger, cut by the 50-trade fast ledger, and the shade branch reads only resolved trades.
+- KEEL'S DESIGN WAS NOT. Its schedule (v5: floor 0.75, slope 1.5, trust from t 0.5 to 1.0), fast window (v6 / v10: 50 trades),
+  shade (v7 / v8), compression x1.5 (v9), Friday x1.5 (v11) and pre-FOMC x0.5 (v12) were chosen 2026-09-06 .. 09-09. They were
+  read on the NQ walks of NOISE #243 / #304 (and ORB, ENGU-Q) over 2010-06 .. 2026-06, lockboxes included.
+- That data overlaps #424's WF window (2016-07-18 .. 2025-08-24) in the same market. DIP was not used.
+- **So KEEL's reading on #424 is IN-SAMPLE for its design (out-of-family, same market and years), and the result line says so.**
+  F, FT's tilts and M carry the same caveat only where they inherit KEEL's choices: FT inherits the tilts, F and M inherit only
+  the mean size.
+
+**A4 - "RESOLVED" (MANAGER edit 1, TTM 3-4).**
+- Everywhere in this note, a trade is RESOLVED for trade i when its EXIT bar is strictly before trade i's ENTRY bar.
+- For M, the resolved trades are ordered by exit bar (ties broken by entry order, a stable sort).
+- R_k = the sum of r over resolved trades k-19 .. k in that order, defined from the 20th resolved trade.
+- At trade i, with K = the number of resolved trades:
+  - m_i = R_K;
+  - sd_i = the sample sd (ddof 1) of R_20 .. R_K;
+  - z_i = m_i / sd_i;
+  - z_i = 0 while K < 100. The warm-up counts resolved trades.
+- KEEL's own ledgers use ml_keel's definition, unchanged.
+
+**A5 - M AND P1 (TTM 5).** M requires b >= 0 (searched on [0, 20]). P1 = slope -b with a RE-SOLVED so P1's WF mean size is s_bar,
+the same clip. The note's "same a" is withdrawn.
+
+**A6 - THE NULLS (TTM 6, 8).**
+- Plain shuffle: seed 20261009. Block shuffle: seed 20261010. Each is a fresh generator per reading.
+- Blocks are runs of 20 consecutive WF trades in entry order. The partial last block is kept as its own block, and whole blocks
+  are permuted.
+- P2 gets both nulls, around P2's own WF mean.
+
+**A7 - THE DAILY SERIES (TTM 2, 7).**
+- WF = entry time (ET wall clock) in [2016-07-18 00:00, 2025-08-24 00:00) ET.
+- Exit session = the exit bar's ET date.
+- Rows = every master session date from the first session on or after 2016-07-18 to the last WF trade's exit date, zero days
+  included.
+- Sortino = mean / sqrt(mean(min(x, 0)^2)) x sqrt(252) over all rows (r11_risk.stats).
+- Years = (last row - first row) / 365.25.
+
+**A8 - P2's F (TTM 8).** F_flip = the flipped RAW x P2's own WF mean size.
+
+**A9 - LO AND SHADE (TTM 9).**
+- LO = L_i, the learned part INCLUDING the shade branch: everything before the three a-priori tilts.
+- Shade share = the WF trades whose L_i differs from clip(1 + 1.5 x trust_i x z_i, 0.75, 2.0). The shade lean cannot coincide
+  with that value, so the detection is exact. This is t_fast < -0.5 and z != 0, as TTM states.
+
+**A10 - COSTS (MANAGER edit 4, TTM 11): #424's P&L is ALREADY NET.**
+- The job's cost_pts is 0 because NQDIP_1_1 charges its own costs inside the plugin: 0.783 pt per round trip (the overnight NQ
+  round trip) x $2 x MNQ micros, plus 0.25 pt per quarterly roll crossed. Micros = round(100,000 / (entry price x 2)).
+- So r_i is net at size 1. A size multiplier s scales micros, and so the cost, linearly. s x r_i is the net at s, with
+  fractional micros and no rounding.
+- The "with costs" row is therefore every reading as computed.
+- The added "without costs" row adds back c_i = s_i x 0.783 x $2 x micros_i, with micros_i from the master's OPEN at the entry
+  bar. The roll part is not added back, so it is labelled approximate gross.
+- The house RTH cost (0.533 pt) is not used: DIP holds overnight and its own 0.783 is the run's convention.
