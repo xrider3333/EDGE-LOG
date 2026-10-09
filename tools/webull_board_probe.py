@@ -1073,8 +1073,8 @@ MUTANTS = [
      ".qbx-lgstats{padding:16px 0 0}\r\n[data-theme=mono] .qbx-lgstats .lg-ms-row .v.lg-up{color:#e33}",
      "a More stats value is drawn in a colour under MONO (MONO has no hue)"),
     ('empty-fold-no-gap',
-     "'<div class=\"lg-ms-grid\" style=\"margin-top:16px\">'",
-     "'<div class=\"lg-ms-grid\">'",
+     '.lg-ms-own-empty{margin-top:18px}',
+     '.lg-ms-own-empty{margin-top:0}',
      "with no trade in the range, 'No trades in this range.' runs into the ACCOUNT heading"),
     # LEDGER steps 7 + 10 (shared calendar and strategy list on the board)
     ('calendar-wrong-total',
