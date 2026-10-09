@@ -1,0 +1,34 @@
+BOOK QUEUE Q36 - ENGU-Q #335 ON REAL QQQ PRINTS UNDER THE WEBULL EXECUTOR (MANAGER #141 item 1; follows Q34 / BOOK.md 10as, which used NQ
+prices as the proxy). PRE-DATA NOTE for MANAGER + ENGUQ + PAPER-WB, 2026-10-09. A REPORT, WF only (the S1 stretch 2016-07-01..2025-06-29),
+lockbox unread, no adoption. No number of this item has been computed. The QQQ data was pulled before this note (no P&L read); its file and
+sha256 are pinned below.
+
+DATA
+- QQQ 1-minute regular-hours bars 2016-01-04..2026-06-30, Alpaca SIP full volume, split-adjusted (QQQ had no split in the window, so the
+  prices are as printed; dividends are not in them), pulled 2026-10-09 by tools/import_alpaca_stocks.py --symbols QQQ --timeframe 1Min
+  --rth; master file and sha256: see PINS at the end. Bars are start-stamped like every master.
+- ENGU-Q #335 as in Q31 / Q34: ENGUQ_1M_ETH_R2_1_0.py, #335's parameters, NQ 1m ETH back-adjusted master, cost 0.783 pt a round trip.
+- SIZE: one NQ contract's notional in QQQ shares, FIXED: S = 20 x the median over the WF of (raw NQ daily close / QQQ daily close), from
+  the raw NQ 5m RTH master and the QQQ master, rounded to a whole share; the ratio's WF range is printed (it drifts only with QQQ's
+  dividends and fee). QQQ cost: $0.01 a share a side (the paper book's), so $0.02 x S a round trip. ROC@30k does not depend on S.
+
+ROWS (standalone ROC@30k, $ a year at S, DD5, Sortino; and each as a seat on L in ENGU-Q's place, like Q31 / Q34)
+- LEG: ENGU-Q #335 on NQ (the book's leg; Q34 read 26.09).
+- B = NQ #335's own signals, EXECUTED ON QQQ under the Webull executor: a signal at an NQ minute for which QQQ has a bar fills at that
+  QQQ bar's close; any other signal (overnight, pre-market, a CME-holiday session, after an early close) fills at the OPEN of the next QQQ
+  bar (the next session's 09:30); positions held overnight (ENGU-Q is exempt from the 15:59 flatten); an entry and an exit landing on the
+  same open cancel (no trade, no cost); long only, S shares.
+- B-NQ = the same executor on NQ prices (Q34's executor leg, read from q34_daily.csv) - the QQQ-vs-NQ price effect alone is B minus B-NQ.
+- A = THE PAPER LEG AS IT RUNS: ENGUQ_1M_ETH_R2_1_0.py with #335's parameters run on the QQQ 1m regular-hours bars themselves (its own
+  signals and fills; held overnight; S shares; $0.02 a share round trip), valued through augur_engine.book like any leg. This is the
+  mismatch api/cloud_signal.py flags (regime_len counts sessions, the $0.50 risk and 0.25 ATR floors bind at QQQ prices).
+- Also: trade counts on the WF; B's cancelled trades; how many of A's entries fall on a session where NQ #335 also entered.
+
+POWER LINES FIRST (tools/power_line.py): leg vs B, leg vs A, A vs B - printed before any lead.
+READ (pre-set wording): for B and for A, "keeps X% of the leg's $ a year at the same notional"; and the ROC difference to the leg against
+its power line: inside it = "not distinguishable at this resolution", outside it = "the QQQ executor costs the leg" / "beats the leg".
+A vs B answers "does running the NQ crown's settings on the QQQ tape cost more than executing NQ's own signals on QQQ".
+COULD FOOL US: QQQ's dividends are left out (an overnight long earns them; about 0.6% a year of notional while held); 1-minute QQQ closes
+are SIP prints, not Webull fills; S is one fixed share count for nine years; 2016-25 favours holding; A's settings were tuned on NQ ETH.
+LOOKS: none on the lockbox. Script: bookq/q36_enguq_qqq.py, on witness branch prereg/frontier-enguqqqq-1009 before the run.
+PINS: QQQ 1m master augur_uploads/master_dd092f50.csv (1,023,757 rows, 2016-01-04..2026-06-30), sha256 bdca25959ad8c6113c600b6b0e9dc63660792329359ff88f3f3b79c2bc720545; pull log bookq/q36_qqq1m_pull.log.
