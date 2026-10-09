@@ -144,6 +144,21 @@ WHAT IT ASSERTS
         a click opens it (el_lg_filters_p2 = 1, every control drawn, each tray one line), Baselines only works from the open row (the board
         redraws, the row stays open), a second click closes it (0), and open / closed is remembered across a real reload
       - in MONO the status line, the chart foot and the Filters row carry no hue
+  * NT8 BOARD FIX (owner 2026-10-09, "nt8 paper trade tab is a hot mess"), each judged from the case's own bridge / window and the fixture:
+      - NEEDS YOU: a bridge whose held_back list is not empty draws ONE alert banner directly between the hero and the status line, titled NEEDS YOU, with one
+        line per held item (data-p2held = its short name: EdgeLogNOISE -> NOISE, EdgeLogENGUQ1m -> ENGU-Q; the record's own reason text when it gives one);
+        an empty or missing held_back draws none
+      - STATUS SENTENCE: the status summary is ONE plain sentence of whole tokens - "NinjaTrader is running R of N strateg(y|ies)" (N from the preflight roster,
+        else the bridge list; red when none run or R < N), "K position(s) open", then ONE warning token ("W check(s) need(s) a look") or "all checks clear";
+        it may wrap to two lines (34 px), a token is never cut (every token inside the summary box); the per-warning counts (Reconcile 9, Fills log 1,
+        the live count, the gate) are in the tooltip of the status header and in the chips of its body
+      - AUTO-RECOVER SWITCH: in the status header next to REFRESH, visible with every fold closed, "Auto-recover ON" / "OFF"; with night mode on it adds
+        "NinjaTrader off for the night until HH:MM" (laptop) or "NT8 off till HH:MM" (phone, no sideways scroll); on a phone the sentence takes the full
+        width and the switch + REFRESH sit on a second row, right-aligned
+      - SYSTEM HEALTH: the 10s capture, NinjaTrader detail, cross-engine and gate audit folds sit inside ONE closed fold (summary "n of N need a look" /
+        "all N clear", tooltip naming them); reports stays its own fold after it; a warning chip opens the health fold AND the card inside it
+      - Forward tests & controls is closed to start (pref paperFwdOpen2): a click opens it, draws its rows and saves the choice
+      - a trade closed by hand (exit_signal "Close", or the lane's manual_exit note) reads "closed by hand" in the trade panel notes
   * money colours FOLLOW THE THEME (owner decision 8, 2026-10-05): no fixed green / red hex on a money cell, and
     every headline money cell carries an arrow and a sign, every dense one a sign
   * BOOK (owner 2026-10-04): the big number is the BOOK #463 figure - exactly the legs of api/paper.py _BOOK at
@@ -214,7 +229,8 @@ CASES = [
     ('paper2-cols-all', {'sub': 'paper2', 'prefs': {'paperCols': 'all'}, 'win': {}}),
     ('fam-NOISE',       {'sub': 'paper',  'prefs': {'paperFam': 'NOISE'}, 'win': {}}),
     ('fam-ENGUQ',       {'sub': 'paper',  'prefs': {'paperFam': 'ENGU-Q'}, 'win': {}}),
-    ('kind-ML',         {'sub': 'paper',  'prefs': {'paperKind': 'ML'}, 'win': {}}),
+    # the ML kind lists forward tests only: that group is closed to start (NT8 board fix 10-09), so this case opens it for its rows
+    ('kind-ML',         {'sub': 'paper',  'prefs': {'paperKind': 'ML'}, 'win': {'_paperFwdOpen': True}}),
     ('kind-RAW',        {'sub': 'paper',  'prefs': {'paperKind': 'RAW'}, 'win': {}}),
     ('baselines',       {'sub': 'paper',  'prefs': {'paperBaseOnly': True}, 'win': {}}),
     ('legs-off',        {'sub': 'paper',
@@ -271,7 +287,9 @@ CASES = [
     ('other-open',      {'sub': 'paper2', 'prefs': {}, 'win': {'_paperOtherOpen': True}}),
     ('other-on',        {'sub': 'paper2', 'prefs': {'paperOtherOn': ['ORB_257', 'NOISE_H'], 'paperOtherOpen': True},
                          'win': {}}),
-    ('fwd-closed',      {'sub': 'paper2', 'prefs': {'paperFwdOpen': False}, 'win': {}}),
+    # Forward tests & controls is closed to start (pref paperFwdOpen2, NT8 board fix 10-09): a stored closed choice and a stored open choice
+    ('fwd-closed',      {'sub': 'paper2', 'prefs': {'paperFwdOpen2': False}, 'win': {}}),
+    ('fwd-open',        {'sub': 'paper2', 'prefs': {'paperFwdOpen2': True}, 'win': {}}),
     ('range-today',     {'sub': 'paper2', 'prefs': {}, 'win': {'_paperCurveWin': 'TODAY'}}),
     ('range-1w',        {'sub': 'paper2', 'prefs': {}, 'win': {'_paperCurveWin': '1W'}}),
     ('range-1m',        {'sub': 'paper2', 'prefs': {}, 'win': {'_paperCurveWin': '1M'}}),
@@ -354,11 +372,14 @@ CASES.append(CHARTKEY_CASE)
 # calendar and the trades on a page narrower than the two-column one; from 1100 px it is the right-hand column).
 # LEDGER step 12: the status line is a section of its own directly under the hero, and the markup runs in this ONE order at every width - the shared page
 # frame's top block (hero to calendar), its side panel (the strategy list: the right-hand panel from 1100 px) and the rest (the trades, the own folds).
-SECTION_ORDER = ['hero', 'status', 'pills', 'chart', 'stats', 'more', 'cal', 'list', 'trades', 'capture', 'nt', 'recon', 'gate', 'reports']
+# NT8 board fix 2026-10-09: the four plumbing checks (10s capture, NinjaTrader detail, cross-engine, gate audit) sit INSIDE one closed fold, 'health'
+# (System health); 'reports' stays its own fold after it. A section inside a closed fold is in the markup order but has no box on the page.
+SECTION_ORDER = ['hero', 'status', 'pills', 'chart', 'stats', 'more', 'cal', 'list', 'trades', 'health', 'capture', 'nt', 'recon', 'gate', 'reports']
 TOP_SECTIONS = ['hero', 'status', 'pills', 'chart', 'stats', 'more', 'cal']   # LEDGER step 12: the frame top block, in this order
 FRAME_MAX_W = '1320px'                                             # LEDGER step 12: .lg-frame max-width (WEBULL's column), centred
-OWN_FOLDS = ['capture', 'nt', 'recon', 'gate', 'reports']          # the board own folds after the trades (the status fold lives in the status line)
-S11_KEYS = ['status', 'capture', 'nt', 'recon', 'gate', 'reports', 'list']   # every remembered fold: localStorage el_lg_<key>_nt8
+OWN_FOLDS = ['health', 'capture', 'nt', 'recon', 'gate', 'reports']   # the board own folds after the trades, parent before children (the status fold lives in the status line)
+HEALTH_KIDS = ['capture', 'nt', 'recon', 'gate']                   # the folds inside the System health fold
+S11_KEYS = ['status', 'health', 'capture', 'nt', 'recon', 'gate', 'reports', 'list']   # every remembered fold: localStorage el_lg_<key>_nt8
 HOUSE_WIDTHS = [600, 601, 740, 800, 920, 1100]                     # the one set of breakpoints (contract 5b); 601 is the other side of 600
 S11_PHONE_LIST_TOP = 797                                           # px under the board top before the step (LEDGER mistake #12) - it must not grow
 # what the removed previous board drew: none of it may be in the page, in any case (the page-side readout lists the ones it finds). #ptrades-wrap
@@ -382,6 +403,50 @@ S11_CASES = [
 ]
 CASES.extend(S11_CASES)
 
+# NT8 BOARD FIX 2026-10-09 (owner: "nt8 paper trade tab is a hot mess"): the NEEDS YOU banner, the one-sentence status line, the auto-recover switch on the
+# status line (words, night mode, phone). The fixture predates held_back, night_mode and a preflight roster, so each case injects what it needs through its
+# window, the way the keeps cases do. The strategy names below are the watchdog's own (EdgeLog + family + run).
+NT8_ROSTER = ['EdgeLogORB230', 'EdgeLogNOISE225']                 # meta/nt_preflight.expected: what NinjaTrader SHOULD run
+NT8_HELD = [{'strategy': 'EdgeLogNOISE', 'reason': 'probe reason: NOISE is off with a 2 NQ long open and nothing managing it.'},
+            {'strategy': 'EdgeLogENGUQ1m', 'instrument': 'NQ 12-26', 'qty': 1, 'side': 'Long', 'avg': 21000.5, 'stop': 20950.0,
+             'since': '2026-10-09T09:31:00'}]                       # the second item has no reason: the board words the line itself
+NT8_HELD_SHORT = ['NOISE', 'ENGU-Q']                                # EdgeLogNOISE -> NOISE, EdgeLogENGUQ1m -> ENGU-Q
+
+
+def _nt8_bridge(**kw):
+    b = {'checked_at': '2099-01-01 00:00:00', 'up': True, 'version': '2.1',
+         'strategies': [{'name': 'EdgeLogORB230', 'account': 'DEMO7240108', 'state': 'Realtime', 'position': 'Flat'},
+                        {'name': 'EdgeLogNOISE225', 'account': 'DEMO7240108', 'state': 'Realtime', 'position': 'Flat'}],
+         'positions': [], 'gate': {'up': True, 'stale_days': 0, 'legs': [{'leg': 'A', 'loaded': True}]}}
+    b.update(kw)
+    return b
+
+
+_NT8_NIGHT = {'active': True, 'until_hhmm': '05:45'}
+NT8FIX_CASES = [
+    ('needs-you',        {'sub': 'paper2', 'prefs': {}, 'frame': 'fl', 'win': {'_ntBridge': _nt8_bridge(held_back=NT8_HELD)}}),
+    ('needs-empty',      {'sub': 'paper2', 'prefs': {}, 'frame': 'fl', 'win': {'_ntBridge': _nt8_bridge(held_back=[])}}),
+    ('mono-needs',       {'sub': 'paper2', 'prefs': {}, 'frame': 'fl', 'theme': 'mono', 'ls': _ALL_OPEN, 's11': 'mono',
+                          'win': {'_ntBridge': _nt8_bridge(held_back=NT8_HELD)}}),
+    # expected 2 (the preflight roster), one Realtime -> "1 of 2 strategies", red; both Realtime -> "2 of 2", not red; one position open
+    ('nt-count-partial', {'sub': 'paper2', 'prefs': {}, 'frame': 'fl',
+                          'win': {'_ntPreflight': {'expected': NT8_ROSTER},
+                                  '_ntBridge': _nt8_bridge(positions=[{'instrument': 'NQ 12-26', 'qty': 1}],
+                                                           strategies=[{'name': 'EdgeLogORB230', 'account': 'DEMO7240108', 'state': 'Realtime', 'position': 'Flat'},
+                                                                       {'name': 'EdgeLogNOISE225', 'account': 'DEMO7240108', 'state': 'Disabled', 'position': 'Flat'}])}}),
+    ('nt-count-all',     {'sub': 'paper2', 'prefs': {}, 'frame': 'fl',
+                          'win': {'_ntPreflight': {'expected': NT8_ROSTER}, '_ntBridge': _nt8_bridge()}}),
+    ('nt-down',          {'sub': 'paper2', 'prefs': {}, 'frame': 'fl', 'win': {'_ntBridge': _nt8_bridge(up=False)}}),
+    ('nt-none',          {'sub': 'paper2', 'prefs': {}, 'frame': 'fl', 'win': {'_ntBridge': None}}),
+    # the auto-recover switch: ON (s11-watchdog above), OFF, and with night mode on a laptop and on a phone
+    ('wd-off',           {'sub': 'paper2', 'prefs': {}, 'frame': 'fl', 'win': {'_ntBridge': _nt8_bridge(watchdog={'enabled': False})}}),
+    ('wd-night',         {'sub': 'paper2', 'prefs': {}, 'frame': 'fl',
+                          'win': {'_ntBridge': _nt8_bridge(watchdog={'enabled': True}, night_mode=_NT8_NIGHT)}}),
+    ('wd-night-phone',   {'sub': 'paper2', 'prefs': {}, 'frame': 'fp',
+                          'win': {'_ntBridge': _nt8_bridge(watchdog={'enabled': True}, night_mode=_NT8_NIGHT)}}),
+]
+CASES.extend(NT8FIX_CASES)
+
 # KEEPS AUDIT G5-G8 (2026-10-07): the NinjaTrader detail fold's roster + demo cash, the DATA FEED line, the roll marks. The fixture predates all
 # of them, so each case injects what it needs (a bridge snapshot, feed warnings on the newest report; the roll trades are added by build_fixture).
 KEEPS_BRIDGE = {'checked_at': '2099-01-01 00:00:00', 'up': True, 'version': '2.1',
@@ -401,13 +466,17 @@ KEEPS_FEED = {'NOISE_225': [KEEPS_FEED_A], 'ORB': [KEEPS_FEED_B, KEEPS_FEED_A], 
 KEEPS_ROLL_LEG = 'NOISE_422'
 KEEPS_ROLL_IDS = ('pt_NOISE_422_probe_roll1', 'pt_NOISE_422_probe_roll2')
 KEEPS_ROLL_NOTE = 'probe: September contract roll splice, kept not deleted'
+# NT8 board fix 10-09: two trades of the NOISE #422 leg closed BY HAND (the trade panel notes say so): the first carries exit_signal 'Close' (the closing fill
+# name) and no exit reason, the second the NT8 lane's manual_exit note on a row whose record has an exit reason of its own
+HAND_IDS = ('pt_NOISE_422_probe_hand1', 'pt_NOISE_422_probe_hand2')
+HAND_NOTE = 'MANUAL EXIT test note'
 CASES.extend([
     ('nt-roster',        {'sub': 'paper2', 'prefs': {}, 'win': {'_ntBridge': KEEPS_BRIDGE}}),
     ('nt-roster-detail', {'sub': 'paper2', 'prefs': {}, 'win': {'_ntBridge': KEEPS_BRIDGE, '_paperNtDetail': True}}),
     ('feed-degraded',    {'sub': 'paper2', 'prefs': {}, 'win': {}, 'feedwarn': KEEPS_FEED}),
     ('feed-healthy',     {'sub': 'paper2', 'prefs': {}, 'win': {}, 'feedclean': True}),
     ('roll-marks',       {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fl', 'ls': {'el_lg_view_nt8': 'list'},
-                          'roll': {'ids': list(KEEPS_ROLL_IDS) + [PANEL_TID]}}),
+                          'roll': {'ids': list(KEEPS_ROLL_IDS) + list(HAND_IDS) + [PANEL_TID]}}),
 ])
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -938,19 +1007,41 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
     var b0=bd.getBoundingClientRect(),tx=function(e){return e?(e.textContent||'').replace(/\\s+/g,' ').trim():null;};
     o.vw=w.innerWidth;
     o.sec=[].map.call(d.querySelectorAll('[data-p2sec]'),function(e){var r=e.getBoundingClientRect();
-      return {k:e.getAttribute('data-p2sec'),top:Math.round(r.top-b0.top),left:Math.round(r.left),h:Math.round(r.height),w:Math.round(r.width),inBoard:bd.contains(e)};});
+      return {k:e.getAttribute('data-p2sec'),top:Math.round(r.top-b0.top),left:Math.round(r.left),h:Math.round(r.height),w:Math.round(r.width),inBoard:bd.contains(e),
+        hid:!!e.closest('[hidden]')};});   // NT8 board fix 10-09: a section inside a closed fold (the System health children) is in the markup, with no box
     o.folds=[].map.call(d.querySelectorAll('[data-p2fold]'),function(f){
       var k=f.getAttribute('data-p2fold'),b=f.querySelector('.p2fold-hd'),s=f.querySelector('[data-p2sum]'),bb=f.querySelector('.p2fold-body');
       var hr=b?b.getBoundingClientRect():null,sr=s?s.getBoundingClientRect():null;
       var x={k:k,exp:b?b.getAttribute('aria-expanded'):null,hidden:bb?bb.hidden:null,sum:tx(s),sumH:sr?Math.round(sr.height):null,hdH:hr?Math.round(hr.height):null,
         clip:s?(s.scrollWidth>s.clientWidth+1):null,bodyLen:bb?tx(bb).length:0,inSec:!!f.closest('.p2rh'),
-        ls:(function(){try{return w.localStorage.getItem('el_lg_'+k+'_nt8');}catch(e){return 'ERR';}})()};
-      if(k==='status'&&s){var tk=[].slice.call(s.querySelectorAll('.p2st')),t0=tk.length?tk[0].offsetTop:0;
-        x.tok=tk.map(function(e){return {t:tx(e),line:e.offsetTop>t0+4?2:1};});}
+        ls:(function(){try{return w.localStorage.getItem('el_lg_'+k+'_nt8');}catch(e){return 'ERR';}})(),tip:b?b.getAttribute('title'):null,
+        par:(function(){var p=f.parentElement?f.parentElement.closest('[data-p2fold]'):null;return p?p.getAttribute('data-p2fold'):null;})()};
+      // NT8 board fix 10-09: the status summary is ONE sentence of whole tokens that may wrap to a second line (line pitch 16 px + 2 px gap); a token is never
+      // cut: it sits fully inside the summary box (right and bottom edge). The per-warning detail is in the tooltip (title of the header) and the body chips.
+      if(k==='status'&&s){var tk=[].slice.call(s.querySelectorAll('.p2st')),t0=tk.length?tk[0].offsetTop:0,sbx=s.getBoundingClientRect();
+        x.tok=tk.map(function(e){var er=e.getBoundingClientRect();
+          return {t:tx(e),line:1+Math.round((e.offsetTop-t0)/18),c:(typeof e.className==='string'?e.className:''),fit:er.right<=sbx.right+1&&er.bottom<=sbx.bottom+1,
+            over:Math.max(Math.round(er.right-sbx.right),Math.round(er.bottom-sbx.bottom)),boxW:Math.round(sbx.width)};});
+        x.bodyTxt=bb?tx(bb):'';}
       return x;});
     var rf=d.querySelector('[data-paperrefresh]'),rr=rf?rf.getBoundingClientRect():null;
     o.refresh=rf?{n:d.querySelectorAll('[data-paperrefresh]').length,vis:rr.width>0&&rr.height>0,right:Math.round(rr.right),inFold:!!rf.closest('.p2fold-body'),txt:tx(rf)}:null;
     o.warnChips=[].map.call(d.querySelectorAll('[data-lgstatus="p2"] .p2warn'),tx);   // LEDGER step 12: in the status line under the hero
+    // NT8 board fix 10-09: which card each warning chip opens (the System health summary counts the cards that need a look), the status header row (the sentence,
+    // then the auto-recover switch and REFRESH in .p2fold-act), the switch itself (its words as drawn: display:none text is left out) and the NEEDS YOU banner
+    o.warnCards=[].map.call(d.querySelectorAll('[data-lgstatus="p2"] .p2warn'),function(e){return {card:e.getAttribute('data-p2warn')||'',txt:(tx(e)||'').replace(/^[^A-Za-z0-9]+/,'')};});
+    var rbx=function(e){if(!e)return null;var r=e.getBoundingClientRect();return {top:Math.round(r.top-b0.top),bottom:Math.round(r.bottom-b0.top),left:Math.round(r.left),right:Math.round(r.right),w:Math.round(r.width),h:Math.round(r.height)};};
+    var hdS=d.querySelector('.p2fold-hd[data-p2card="status"]'),actS=hdS?hdS.parentElement.querySelector('.p2fold-act'):null;
+    o.statusRow={hd:rbx(hdS),act:rbx(actS),row:rbx(hdS?hdS.parentElement:null),rf:rbx(rf)};
+    var wdE=d.querySelector('[data-p2wd]'),wdR=wdE?wdE.getBoundingClientRect():null;
+    o.wdsw=wdE?{n:d.querySelectorAll('[data-p2wd]').length,vis:wdR.width>0&&wdR.height>0,toggle:wdE.getAttribute('data-wdtoggle'),inAct:!!wdE.closest('.p2fold-act'),
+      inStatusAct:!!(actS&&actS.contains(wdE)),beforeRefresh:!!(rf&&(wdE.compareDocumentPosition(rf)&4)),txt:(wdE.innerText||'').replace(/\\s+/g,' ').trim(),
+      state:tx(wdE.querySelector('[data-p2wdstate]')),statusOpen:hdS?hdS.getAttribute('aria-expanded'):null,box:rbx(wdE)}:null;
+    var NE=d.querySelectorAll('[data-p2needs]');o.needsN=NE.length;
+    if(NE.length){var n0=NE[0],np0=n0.previousElementSibling,nn0=n0.nextElementSibling;
+      o.needs={role:n0.getAttribute('role'),key:tx(n0.querySelector('.p2needs-k')),
+        lines:[].map.call(n0.querySelectorAll('.p2needs-line'),function(l){return {held:l.getAttribute('data-p2held'),txt:tx(l)};}),
+        prev:np0?np0.getAttribute('data-p2sec'):null,next:nn0?nn0.getAttribute('data-p2sec'):null,inTop:!!(n0.parentElement&&n0.parentElement.hasAttribute('data-lgframe-top')),box:rbx(n0)};}
     o.bp=s11bp(d);
     var cf=d.querySelector('[data-lgcalfold="p2"]'),mf=d.querySelector('[data-lgmore="p2"]');
     o.calOpen=cf?cf.getAttribute('aria-expanded'):null;o.moreOpen=mf?mf.getAttribute('aria-expanded'):null;
@@ -990,7 +1081,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
     o.keeps={ticks:d.querySelectorAll('input[data-pttick]').length,openBtn:!!d.querySelector('[data-ptopen]'),allCharts:!!d.querySelector('[data-ptallcharts]'),
       kind:d.querySelectorAll('[data-pkind]').length,fam:d.querySelectorAll('[data-pfam]').length,sort:d.querySelectorAll('[data-lsort]').length,base:!!d.querySelector('[data-pbase]'),
       rows:d.querySelectorAll('[data-lglist-frame="nt8"] [data-lgtrade]').length,sw:d.querySelectorAll('[data-lglist="p2"] [data-lgsw]').length,calDays:d.querySelectorAll('[data-lgcalday]').length,wd:d.querySelectorAll('[data-wdtoggle]').length,
-      wdInBody:!!d.querySelector('.p2fold-body [data-wdtoggle]'),frame:d.querySelectorAll('[data-lglist-frame="nt8"]').length};
+      wdInAct:!!d.querySelector('[data-lgstatus="p2"] .p2fold-act [data-p2wd][data-wdtoggle]'),wdInBody:!!d.querySelector('.p2fold-body [data-p2wd]'),frame:d.querySelectorAll('[data-lglist-frame="nt8"]').length};
     o.oldMarks=OLDMARKS.filter(function(s){return !!d.querySelector(s);});
     o.flagConst=(function(){try{return w.eval('typeof LEDGER_OLDBOARDS');}catch(e){return 'error';}})();
     if(nm==='paper2'||nm==='flag-paper2'){
@@ -1012,9 +1103,15 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
     var body=function(k){return d.getElementById('p2fold-'+k);};
     var vis=function(e){var r=e.getBoundingClientRect();return r.width>0&&r.height>0;};
     var keys=[].map.call(d.querySelectorAll('[data-p2fold]'),function(f){return f.getAttribute('data-p2fold');});
+    // NT8 board fix 10-09: capture / nt / recon / gate sit inside the System health fold. The keys come in document order (parent first); a child is clicked with
+    // its parent OPEN (nobody can click what is hidden, and its body has no box while the parent is closed), and the parent goes back to what it was afterwards.
+    var parentOf=function(k){var f=d.querySelector('[data-p2fold="'+k+'"]'),p=f&&f.parentElement?f.parentElement.closest('[data-p2fold]'):null;return p?p.getAttribute('data-p2fold'):null;};
     keys.forEach(function(k){
       var o={},b=btn(k);
       if(!b){R.folds[k]={btn:false};return;}
+      var pk=parentOf(k),pWas=null;
+      if(pk&&btn(pk)){pWas=btn(pk).getAttribute('aria-expanded');if(pWas!=='true')btn(pk).click();}
+      o.parent=pk;
       o.btn=true;o.was=b.getAttribute('aria-expanded');
       if(o.was==='true')b.click();
       o.closed=btn(k).getAttribute('aria-expanded');o.closedHidden=body(k).hidden;o.lsClosed=LSg(k);
@@ -1026,13 +1123,18 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
       btn(k).click();
       o.back=btn(k).getAttribute('aria-expanded');o.backHidden=body(k).hidden;o.lsBack=LSg(k);
       if(o.was==='true')btn(k).click();
+      if(pk&&btn(pk)&&pWas!=='true')btn(pk).click();
       R.folds[k]=o;
     });
     // a warning chip opens the card that explains it (and the choice is stored)
     var wcb=d.querySelector('[data-p2warn="recon"]'),rb=btn('recon');
-    if(wcb&&rb){var rw=rb.getAttribute('aria-expanded');if(rw==='true')rb.click();
-      wcb.click();R.warnOpens={exp:btn('recon').getAttribute('aria-expanded'),hidden:body('recon').hidden,ls:LSg('recon')};
-      if(rw!=='true')btn('recon').click();}
+    if(wcb&&rb){var hb=btn('health'),hw=hb?hb.getAttribute('aria-expanded'):null;
+      if(hb&&hw==='true')hb.click();   // the System health fold starts closed: the chip has to open it as well as the card inside it
+      var rw=rb.getAttribute('aria-expanded');if(rw==='true')rb.click();
+      wcb.click();R.warnOpens={exp:btn('recon').getAttribute('aria-expanded'),hidden:body('recon').hidden,ls:LSg('recon'),shown:vis(body('recon')),
+        hExp:hb?btn('health').getAttribute('aria-expanded'):null,hHidden:hb?body('health').hidden:null,hLs:hb?LSg('health'):null};
+      if(rw!=='true')btn('recon').click();
+      if(hb&&btn('health').getAttribute('aria-expanded')!==hw)btn('health').click();}
     // the two shared folds (they redraw the board): More stats and the calendar
     [['more','[data-lgmore="p2"]','p2-more'],['cal','[data-lgcalfold="p2"]','p2-cal']].forEach(function(s){
       var b=d.querySelector(s[1]);if(!b){R[s[0]]={btn:false};return;}
@@ -1049,7 +1151,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
   // MONO: nothing the step drew has a hue - the hero, the status line (LEDGER step 12, with the status chips), every fold row (title, summary, chevron), REFRESH,
   // the pills row, the chart foot and the Filters row of the strategy list (step 12)
   function s11Mono(d,w){
-    var roots=[].slice.call(d.querySelectorAll('.lg-hero,[data-lgstatus="p2"],.p2fold-row,.p2ctl,[data-lgchartfoot="p2"],[data-lgfilters="p2"]')),n=0,bad=[];
+    var roots=[].slice.call(d.querySelectorAll('.lg-hero,[data-lgstatus="p2"],.p2needs,.p2fold-row,.p2ctl,[data-lgchartfoot="p2"],[data-lgfilters="p2"]')),n=0,bad=[];
     roots.forEach(function(r){var x=hueScan(r,w);n+=x.checked;bad=bad.concat(x.bad);});
     return {roots:roots.length,checked:n,bad:bad.slice(0,8),theme:d.documentElement.getAttribute('data-theme')};
   }
@@ -1107,7 +1209,8 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
     };
     var states=function(){var d=fr.contentDocument,o={};[].forEach.call(d.querySelectorAll('.p2fold-hd'),function(b){o[b.getAttribute('data-p2card')]=b.getAttribute('aria-expanded');});return o;};
     var lsAll=function(){var o={};try{S11K.forEach(function(k){o[k]=fr.contentWindow.localStorage.getItem('el_lg_'+k+'_nt8');});}catch(e){}return o;};
-    var clickAll=function(){[].forEach.call(fr.contentDocument.querySelectorAll('.p2fold-hd'),function(b){b.click();});};
+    // document order opens the System health fold before the folds inside it; the closing pass walks it backwards (the folds inside first, then the parent)
+    var clickAll=function(rev){var l=[].slice.call(fr.contentDocument.querySelectorAll('.p2fold-hd'));if(rev)l.reverse();l.forEach(function(b){b.click();});};
     // LEDGER step 12: the Filters row of the strategy list (open / closed in el_lg_filters_p2)
     var filt=function(){var b=fr.contentDocument.querySelector('[data-lgfilt="p2"]');return b?b.getAttribute('aria-expanded'):null;};
     var lsFilt=function(){try{return fr.contentWindow.localStorage.getItem('el_lg_filters_p2');}catch(e){return 'ERR';}};
@@ -1123,7 +1226,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
       clickFilt();res.filtOpened=filt();res.lsFiltOpened=lsFilt();
       await reload();res.seed2=await seed();
       res.afterReload=states();res.lsAfter=lsAll();res.err1=drain(id);res.filtAfter=filt();
-      clickAll();res.closed=states();res.lsClosed=lsAll();
+      clickAll(true);res.closed=states();res.lsClosed=lsAll();
       clickFilt();res.filtClosed=filt();res.lsFiltClosed=lsFilt();
       await reload();res.seed3=await seed();
       res.afterReload2=states();res.err2=drain(id);res.filtAfter2=filt();
@@ -1183,7 +1286,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           +"var F="+JSON.stringify(FIX)+";"
           +"window._paperTrades="+(empty?"[]":(cfg.more?("F.trades.concat("+JSON.stringify(cfg.more)+")"):"F.trades"))+";"
           +"window._paperReports="+(empty?"[]":(nobook?"F.reports.map(function(r){var c=Object.assign({},r);delete c.book;return c;})":((cfg.feedwarn||cfg.feedclean)?("F.reports.map(function(r,i){if(i)return r;var c=JSON.parse(JSON.stringify(r)),W="+JSON.stringify(cfg.feedwarn||{})+";Object.keys(c.legs||{}).forEach(function(k){"+(cfg.feedclean?"c.legs[k].warnings=[];":"")+"if(W[k])c.legs[k].warnings=(c.legs[k].warnings||[]).concat(W[k]);});return c;})"):"F.reports")))+";"
-          +"window._ntBtMatch=F.ntBt;window._ntBridge=F.ntBridge;"
+          +"window._ntBtMatch=F.ntBt;window._ntBridge=F.ntBridge;window._ntPreflight=null;"
           +"window._paperLoaded=true;window._paperLoading=false;"
           +"window._paperOtherOn=null;window._paperOtherOpen=null;window._paperFwdOpen=null;window._paperCurveWin=null;"
           +"window._paperTradeInfo="+(empty?"{bundle:true,n_total:0}":(noinfo?"{bundle:false,n_total:null}":"F.tradeInfo"))+";"
@@ -1502,8 +1605,15 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
             // the switches: from here the calendar shows the earlier month, where the ORB trades closed
             I.flip0=_snap();
             if(_click('[data-lgsw="ORB"]')){I.flip1=_snap();_click('[data-lgsw="ORB"]');I.flip2=_snap();}
+            // Forward tests & controls is closed to start (NT8 board fix 10-09): a click on its header opens it, draws its rows and saves the choice; a second click folds it
+            var _fg=function(){var g=d.querySelector('[data-lglist="p2"] .lg-grp[data-lggroup="fwd"]'),h=g?g.querySelector('[data-lggrp]'):null;
+              return g?{open:h?h.getAttribute('aria-expanded'):null,rows:g.querySelectorAll('[data-lgrow]').length}:null;};
+            var _fp=function(){try{return JSON.parse(localStorage.getItem('augurPrefs')||'{}').paperFwdOpen2;}catch(e){return 'ERR';}};
+            I.fwd0=_fg();
+            if(_click('[data-lglist="p2"] [data-lggrp="fwd"]')){I.fwd1=_fg();I.fwdPref1=_fp();}
             // a strategy outside the book: its switch lists its trades and never moves a counted figure
             if(_click('[data-lgsw="NOISE_H"]')){I.oth1=_snap();_click('[data-lgsw="NOISE_H"]');I.oth2=_snap();}
+            if(I.fwd1&&_click('[data-lglist="p2"] [data-lggrp="fwd"]')){I.fwd2=_fg();I.fwdPref2=_fp();}
             // tapping the row does what its switch does
             if(_click('[data-lglist="p2"] [data-lgrow="ORB"]')){I.rowTap=_snap();_click('[data-lglist="p2"] [data-lgrow="ORB"]');}
             _click('[data-lgcal="p2"][data-lgcalmo="1"]');
@@ -1618,6 +1728,19 @@ def build_fixture(root, fix_path):
             if _note:
                 _rt['roll_note'] = _note
             fixture['trades'].append(_rt)
+        # NT8 board fix 10-09: two trades closed by hand, later the same day (not roll splices, so the roll checks do not see them)
+        for _k, (_usd, _hand) in enumerate(((25.0, {'exit_signal': 'Close', 'exit_reason': None}), (-40.0, {'manual_exit': HAND_NOTE}))):
+            _sh = 1500 + 300 * _k
+            _ht = dict(_t, id=HAND_IDS[_k], leg=KEEPS_ROLL_LEG, pnl_usd=_usd, pnl_pts=round(_usd / 20.0, 3),
+                       entryTime=_t['entryTime'] + _sh, exitTime=_t['exitTime'] + _sh,
+                       entryIso=(datetime.datetime.fromisoformat(_t['entryIso']) + datetime.timedelta(seconds=_sh)).isoformat(),
+                       exitIso=(datetime.datetime.fromisoformat(_t['exitIso']) + datetime.timedelta(seconds=_sh)).isoformat())
+            for _hk, _hv in _hand.items():
+                if _hv is None:
+                    _ht.pop(_hk, None)
+                else:
+                    _ht[_hk] = _hv
+            fixture['trades'].append(_ht)
     # EXIT-DAY: an OPEN ENGU-Q trade carrying a huge mark (must reach no total, curve or day) and a trade that
     # closed on a Sunday evening (counts on the Monday).
     _e = next((t for t in fixture['trades'] if str(t.get('leg', '')).startswith('ENGUQ')), None)
@@ -1849,7 +1972,7 @@ def run(alt_index=None, timeout=300):
                   if t.get('leg') in defs and not _w(t) and not defs[t['leg']]['archived'])
     exp_other = sum(t.get('pnl_usd') or 0 for t in closed if t.get('leg') not in defs and not _w(t))
     n_all = len(fixture['trades'])
-    TIE = ('paper2', 'other-open', 'other-on', 'legs-off-p2', 'warn-stale-bridge', 'fwd-closed', 'book-fallback',
+    TIE = ('paper2', 'other-open', 'other-on', 'legs-off-p2', 'warn-stale-bridge', 'fwd-closed', 'fwd-open', 'book-fallback',
            'retired-open', 'stats-open', 'cal-closed', 'cal-aug', 'phone375')
     for nm in TIE:
         r = cases.get(nm) or {}
@@ -1866,7 +1989,7 @@ def run(alt_index=None, timeout=300):
                          % (nm, hn, be, li['net'], li.get('tie')))
         if 'book #463 \u00b7 nt8 futures paper' not in (r.get('cap') or '').lower():
             fails.append('%s: the hero label is not BOOK #463 - NT8 futures paper: %r' % (nm, r.get('cap')))
-    for nm in ('paper2', 'other-open', 'other-on', 'warn-stale-bridge', 'fwd-closed', 'book-fallback'):
+    for nm in ('paper2', 'other-open', 'other-on', 'warn-stale-bridge', 'fwd-closed', 'fwd-open', 'book-fallback'):
         r = cases.get(nm) or {}
         if r.get('heroNum') is not None and abs(r['heroNum'] - exp_book) > 1.0:
             fails.append('%s: big NET %s is not the BOOK figure %s (a leg outside _BOOK leaked in, a book leg dropped, '
@@ -1893,10 +2016,14 @@ def run(alt_index=None, timeout=300):
     lst = [k for k in (r.get('otherRowKeys') or []) if k in defs]
     if unl:
         fails.append('paper2: the Other / shadow group should be closed by default but drew %s' % unl)
-    if not lst:
-        fails.append('paper2: the Forward tests & controls group drew no rows by default')
-    if any(k in book_w for k in lst):
-        fails.append('paper2: a book leg is also listed under Forward tests & controls')
+    if lst:
+        fails.append('paper2: the Forward tests & controls group is closed by default (NT8 board fix 10-09) but drew rows: %s' % lst)
+    ro_ = cases.get('fwd-open') or {}
+    lst_o = [k for k in (ro_.get('otherRowKeys') or []) if k in defs]
+    if not lst_o:
+        fails.append('fwd-open: the Forward tests & controls group drew no rows although its saved choice is open (paperFwdOpen2)')
+    if any(k in book_w for k in lst_o):
+        fails.append('fwd-open: a book leg is also listed under Forward tests & controls')
     r = cases.get('fwd-closed') or {}
     if r.get('otherRows'):
         fails.append('fwd-closed: the folded Forward tests & controls group still drew rows')
@@ -2242,8 +2369,8 @@ def run(alt_index=None, timeout=300):
                 fails.append('paper2: the %s group is titled %r, expected %r' % (k, byk[k].get('txt'), ttl))
         if byk['book'].get('fold') or byk['book'].get('rows') != len(book_w):
             fails.append('paper2: the BOOK group should be open with one row per book leg (%d), got %s' % (len(book_w), byk['book']))
-        if not byk['fwd'].get('fold') or byk['fwd'].get('open') != 'true' or not byk['fwd'].get('rows'):
-            fails.append('paper2: the Forward tests & controls group should be a fold, open by default: %s' % byk['fwd'])
+        if not byk['fwd'].get('fold') or byk['fwd'].get('open') != 'false' or byk['fwd'].get('rows'):
+            fails.append('paper2: the Forward tests & controls group should be a fold, CLOSED by default, drawing no rows: %s' % byk['fwd'])
         for k in ('other', 'retired'):
             if not byk[k].get('fold') or byk[k].get('open') != 'false' or byk[k].get('rows'):
                 fails.append('paper2: the %s group should be a fold, closed by default, drawing no rows: %s' % (k, byk[k]))
@@ -2251,6 +2378,13 @@ def run(alt_index=None, timeout=300):
         ret_legs = ((cases.get('paper2') or {}).get('retHd') or {}).get('legs')
         if not retired_defs or ret_legs != len(retired_defs):
             fails.append('paper2: the Retired group counts %s strategies, the source declares %d archived' % (ret_legs, len(retired_defs)))
+    # Forward tests & controls opens on a click on its header: its rows are drawn and the choice is saved (paperFwdOpen2); a second click folds it again
+    f1_, f2_ = I.get('fwd1') or {}, I.get('fwd2') or {}
+    if f1_.get('open') != 'true' or not f1_.get('rows') or I.get('fwdPref1') is not True:
+        fails.append('paper2: a click on the Forward tests & controls header did not open it, draw its rows and save the choice (paperFwdOpen2): %r, saved %r'
+                     % (f1_, I.get('fwdPref1')))
+    if f2_.get('open') != 'false' or f2_.get('rows') or I.get('fwdPref2') is not False:
+        fails.append('paper2: a second click on the Forward tests & controls header did not fold it again and save the choice: %r, saved %r' % (f2_, I.get('fwdPref2')))
     rr = cases.get('retired-open') or {}
     rk = [x['key'] for x in (rr.get('listRowInfo') or []) if x.get('group') == 'retired']
     if sorted(rk) != sorted(k for k, d in defs.items() if d['archived']):
@@ -3231,6 +3365,7 @@ def run(alt_index=None, timeout=300):
     s11_info = _judge_s11(cases, fixture, data, fails)
     s12_info = _judge_s12(cases, data, fails)
     keeps_info = _judge_keeps(cases, fixture, alt_index or index_path, fails)
+    nt8_info = _judge_nt8(cases, fixture, fails)
 
     if fails:
         say('PAPERPROBE: FAIL')
@@ -3246,7 +3381,44 @@ def run(alt_index=None, timeout=300):
     say('PAPERPROBE step 11: %s' % s11_info)
     say('PAPERPROBE step 12: %s' % s12_info)
     say('PAPERPROBE keeps G5-G8: %s' % keeps_info)
+    say('PAPERPROBE NT8 board fix: %s' % nt8_info)
     return PASS, out_lines
+
+
+def _nt_expect(cfg, fixture):
+    """NT8 board fix 10-09: what the FIRST token of the status sentence must read for a case, worked out from the bridge snapshot the case shows (its own
+    window, else the fixture's) and the preflight roster it injects (meta/nt_preflight.expected, the watchdog's own list of what NinjaTrader should run;
+    without one, every strategy the bridge lists). Returns (text, red, positions open)."""
+    win = cfg.get('win') or {}
+    B = win['_ntBridge'] if '_ntBridge' in win else fixture.get('ntBridge')
+    Pf = win.get('_ntPreflight')
+    exp = [str(x) for x in Pf['expected']] if isinstance(Pf, dict) and isinstance(Pf.get('expected'), list) and Pf['expected'] else None
+    up = bool(B) and bool(B.get('up'))
+    strats = list(B.get('strategies') or []) if up else []
+    rt = [str(x.get('name') or '') for x in strats if str(x.get('state')) == 'Realtime']
+    n = len(exp) if exp else len(strats)
+    run = len([x for x in exp if x in rt]) if exp else len(rt)
+    pos = len(B.get('positions') or []) if up else 0
+    if B is None:
+        return 'No NinjaTrader snapshot yet', True, 0
+    if B.get('up') is False:
+        return 'NinjaTrader is not answering', True, 0
+    if not n:
+        return 'NinjaTrader is running no strategy', True, pos
+    return 'NinjaTrader is running %d of %d strateg%s' % (run, n, 'y' if n == 1 else 'ies'), run < n, pos
+
+
+def _health_expect(cards, has_cap):
+    """NT8 board fix 10-09: the System health fold summary and the names its tooltip must give, from the warning chips on the page: the 10s capture check is
+    bad when a chip starts 10s capture / Data feed, the others by the card their chip opens. N = 4 with a capture fold, else 3."""
+    n = (1 if has_cap else 0) + 3
+    bad = []
+    if has_cap and any(re.match(r'^(10s capture|Data feed)', c.get('txt') or '') for c in cards):
+        bad.append('10s capture')
+    for key, name in (('nt', 'NinjaTrader'), ('recon', 'reconcile'), ('gate', 'gate audit')):
+        if any(c.get('card') == key for c in cards):
+            bad.append(name)
+    return (('%d of %d need a look' % (len(bad), n)) if bad else ('all %d clear' % n)), bad
 
 
 def _judge_s11(cases, fixture, data, fails):
@@ -3286,15 +3458,16 @@ def _judge_s11(cases, fixture, data, fails):
         if ks != order:
             fails.append('%s: the page sections run %r, expected the fixed order %r at %d px' % (nm, ks, order, vw))
         else:
-            byk = dict((x['k'], x) for x in sec)
+            vsec = [x for x in sec if not x.get('hid')]       # a section inside a closed fold (the System health children) has no box on the page
+            byk = dict((x['k'], x) for x in vsec)
             lst = byk['list']
             if two:
                 # every section but the list panel is stacked in the fixed order: the top block, then the trades and the own folds under it
-                main = [x for x in sec if x['k'] != 'list']
+                main = [x for x in vsec if x['k'] != 'list']
                 tp = [x['top'] for x in main]
                 if any(b <= a for a, b in zip(tp, tp[1:])):
                     fails.append('%s: the page sections are not stacked top to bottom in the fixed order at %d px (tops %r)' % (nm, vw, tp))
-                right = max(x['left'] + x['w'] for x in sec if x['k'] in TOP_SECTIONS)
+                right = max(x['left'] + x['w'] for x in vsec if x['k'] in TOP_SECTIONS)
                 if lst['left'] < right or abs(lst['top'] - byk['hero']['top']) > 24:
                     fails.append('%s: from 1100 px the strategy list must be the right-hand panel beside the top block, level with the hero (list left %s top %s, '
                                  'top block right edge %s, hero top %s)' % (nm, lst['left'], lst['top'], right, byk['hero']['top']))
@@ -3303,15 +3476,15 @@ def _judge_s11(cases, fixture, data, fails):
                     fails.append('%s: the strategy list panel is sticky (or missing) at %d px (%r) - since LEDGER step 12 it sits level with the top block and '
                                  'scrolls inside it' % (nm, vw, rl))
             else:
-                at = [x['top'] for x in sec]
+                at = [x['top'] for x in vsec]
                 if any(b <= a for a, b in zip(at, at[1:])):
                     fails.append('%s: the page sections are not stacked top to bottom in the fixed order at %d px (tops %r)' % (nm, vw, at))
-            if any((x['h'] or 0) <= 0 for x in sec):
-                fails.append('%s: a page section is drawn with no height: %s' % (nm, ', '.join(x['k'] for x in sec if (x['h'] or 0) <= 0)))
+            if any((x['h'] or 0) <= 0 for x in vsec):
+                fails.append('%s: a page section is drawn with no height: %s' % (nm, ', '.join(x['k'] for x in vsec if (x['h'] or 0) <= 0)))
             if not all(x.get('inBoard') for x in sec):
                 fails.append('%s: a page section sits outside the board (.p2rh)' % nm)
             n_orders += 1
-        # the folds as drawn: exactly the status fold, the five own folds and (below 1100 px) the strategy list fold
+        # the folds as drawn: exactly the status fold, the six own folds (System health with the four plumbing folds inside it, daily reports) and (below 1100 px) the strategy list fold
         folds = s.get('folds') or []
         fk = [f['k'] for f in folds]
         wantf = ['status'] + ([] if two else ['list']) + [k for k in OWN_FOLDS if not (nm == 'empty' and k == 'capture')]
@@ -3329,7 +3502,10 @@ def _judge_s11(cases, fixture, data, fails):
                     fails.append('%s summary has stray markup or a bad value: %r' % (tag, sm))
                 if f.get('clip') and k != 'status':
                     fails.append('%s summary is cut off at %d px: %r' % (tag, vw, sm))
-            if (f.get('sumH') or 0) > 20:
+            if k == 'status':
+                if (f.get('sumH') or 0) > 34:
+                    fails.append('%s sentence is %s px tall - it may wrap to two lines (34 px) and no more' % (tag, f.get('sumH')))
+            elif (f.get('sumH') or 0) > 20:
                 fails.append('%s summary is %s px tall - the summary must stay on one line (20 px or less)' % (tag, f.get('sumH')))
             if (f.get('hdH') or 0) > 60:
                 fails.append('%s header is %s px tall' % (tag, f.get('hdH')))
@@ -3342,33 +3518,89 @@ def _judge_s11(cases, fixture, data, fails):
                 if f.get('exp') != want_open or (f.get('hidden') is not (want_open == 'false')):
                     fails.append('%s is %s to start with (aria-expanded=%r, body hidden=%r), expected %s' % (
                         tag, 'open' if f.get('exp') == 'true' else 'closed', f.get('exp'), f.get('hidden'), 'open' if want_open == 'true' else 'closed'))
+            # NT8 board fix 10-09: the four plumbing folds sit INSIDE the System health fold, nothing else is nested
+            want_par = 'health' if k in HEALTH_KIDS else None
+            if f.get('par') != want_par:
+                fails.append('%s sits inside the %r fold, expected %s' % (tag, f.get('par'), ('the %r fold' % want_par) if want_par else 'no other fold'))
+            if k == 'health':
+                w_sum, w_bad = _health_expect(s.get('warnCards') or [], 'capture' in fk)
+                if sm != w_sum:
+                    fails.append('%s summary reads %r, expected %r (the warning chips on the page: %r)' % (tag, sm, w_sum, [c.get('txt') for c in (s.get('warnCards') or [])]))
+                w_tip = f.get('tip') or ''
+                if (w_bad and not all(b in w_tip for b in w_bad)) or (not w_bad and 'clear' not in w_tip.lower()):
+                    fails.append('%s tooltip does not name %s: %r' % (tag, ', '.join(w_bad) if w_bad else 'the all-clear', w_tip))
             n_fold_reads += 1
-        # the status line keeps every warning count: one token per warning chip, the total first, the counts the fixture holds
+        # the status header row (NT8 board fix 10-09): on a laptop the sentence, the auto-recover switch and REFRESH share one row; on a phone (600 px and narrower)
+        # the sentence takes the full width and the switch + REFRESH sit on a second row, right-aligned
+        sr = s.get('statusRow') or {}
+        hd_, act_, row_, rf_ = sr.get('hd'), sr.get('act'), sr.get('row'), sr.get('rf')
+        if not (hd_ and act_ and row_ and rf_):
+            fails.append('%s: the status header row could not be measured (%r)' % (nm, sr))
+        elif vw <= 600:
+            if act_['top'] < hd_['bottom'] - 2:
+                fails.append('%s: on a phone (%d px) the auto-recover switch and REFRESH must sit on a second row under the status sentence (sentence %s..%s, switch row from %s)'
+                             % (nm, vw, hd_['top'], hd_['bottom'], act_['top']))
+            if hd_['w'] < row_['w'] - 4:
+                fails.append('%s: on a phone (%d px) the status sentence must take the full width of its row (sentence %s px of %s px)' % (nm, vw, hd_['w'], row_['w']))
+            if rf_['right'] < row_['right'] - 20:
+                fails.append('%s: on a phone (%d px) REFRESH must sit at the right of its row (REFRESH ends at %s, the row at %s)' % (nm, vw, rf_['right'], row_['right']))
+        elif act_['top'] >= hd_['bottom'] - 2:
+            # wider than a phone the switch row drops under the sentence ONLY when the sentence would keep less than 420 px beside it
+            # (night mode adds long words to the switch); then the sentence takes the full width and REFRESH stays at the right
+            if row_['w'] - act_['w'] - 8 >= 420:
+                fails.append('%s: at %d px the switch and REFRESH wrapped under the status sentence although the sentence keeps %s px beside them (420 px is enough)'
+                             % (nm, vw, row_['w'] - act_['w'] - 8))
+            if hd_['w'] < row_['w'] - 4:
+                fails.append('%s: at %d px the switch row wrapped but the status sentence does not take the full width (sentence %s px of %s px)' % (nm, vw, hd_['w'], row_['w']))
+            if rf_['right'] < row_['right'] - 20:
+                fails.append('%s: at %d px REFRESH must sit at the right of its row (REFRESH ends at %s, the row at %s)' % (nm, vw, rf_['right'], row_['right']))
+        elif hd_['w'] < 400:
+            fails.append('%s: at %d px the status sentence is squeezed to %s px beside the switch and REFRESH (it keeps 420 px, or they wrap under it)' % (nm, vw, hd_['w']))
+        # the status summary is ONE plain sentence of whole tokens (NT8 board fix 10-09), each judged from the case's own bridge: how many of the strategies
+        # NinjaTrader should run are Realtime (red when there is none or fewer), then "K positions open" when something is open, then ONE warning token (the
+        # number of warning chips) or "all checks clear". The per-warning detail lives in the status fold tooltip and in the chips of its body.
         st = [f for f in folds if f['k'] == 'status']
         if st:
             st = st[0]
             tok = st.get('tok') or []
-            wc = s.get('warnChips') or []
-            first = (tok[0]['t'] if tok else '')
-            m = _re.match(r'^\u26a0 (\d+)$', first)
-            if wc and (not m or int(m.group(1)) != len(wc)):
-                fails.append('%s: the status line leads with %r but it holds %d warning chip(s)' % (nm, first, len(wc)))
-            if not wc and first != 'all clear':
-                fails.append('%s: no warning chip, the status line should lead with "all clear" (%r)' % (nm, first))
-            wtok = tok[1:1 + len(wc)]
-            if len(wtok) != len(wc):
-                fails.append('%s: the status line has %d warning token(s) for %d warning chip(s): %r' % (nm, len(wtok), len(wc), [t['t'] for t in tok]))
-            if (vw >= 1366 or 1000 <= vw < 1100) and any(t['line'] != 1 for t in tok):
-                fails.append('%s: a token of the status line does not fit on its one line at %d px: %r' % (nm, vw, [t['t'] for t in tok if t['line'] != 1]))
-            if any(t['line'] != 1 for t in wtok) or (tok and tok[0]['line'] != 1):
-                fails.append('%s: a warning token of the status line does not fit on its one line at %d px (the states go first, never a warning): %r'
-                             % (nm, vw, [t['t'] for t in tok[:1 + len(wc)] if t['line'] != 1]))
-            stxt = ' '.join(t['t'] for t in tok)
+            wcs = s.get('warnChips') or []
+            nt_txt, nt_bad, n_pos = _nt_expect(CASE_CFG.get(nm) or {}, fixture)
+            want_tok = [nt_txt]
+            if n_pos:
+                want_tok.append('\u00b7 %d position%s open' % (n_pos, '' if n_pos == 1 else 's'))
+            want_tok.append(('\u00b7 \u26a0 %d check%s a look' % (len(wcs), ' needs' if len(wcs) == 1 else 's need')) if wcs else '\u00b7 all checks clear')
+            got_tok = [t['t'] for t in tok]
+            if got_tok != want_tok:
+                fails.append('%s: the status sentence reads %r, expected the tokens %r (%d warning chip(s))' % (nm, got_tok, want_tok, len(wcs)))
+            elif tok:
+                cls = [(t.get('c') or '').split() for t in tok]
+                if 'p2st-nt' not in cls[0]:
+                    fails.append('%s: the first token of the status sentence is not the NinjaTrader count (class %r)' % (nm, cls[0]))
+                elif nt_bad and 'p2st-bad' not in cls[0]:
+                    fails.append('%s: the NinjaTrader count must be red (p2st-bad) when %r - it is not (class %r)' % (nm, nt_txt, cls[0]))
+                elif not nt_bad and 'p2st-bad' in cls[0]:
+                    fails.append('%s: the NinjaTrader count must not be red when %r (class %r)' % (nm, nt_txt, cls[0]))
+                warn_n = len([c for c in cls if 'p2st-warn' in c])
+                if warn_n != (1 if wcs else 0):
+                    fails.append('%s: %d warning token(s) (p2st-warn) in the status sentence for %d warning chip(s), expected %d' % (nm, warn_n, len(wcs), 1 if wcs else 0))
+            if any((t.get('line') or 1) > 2 for t in tok):
+                fails.append('%s: the status sentence runs onto a third line at %d px: %r' % (nm, vw, [t['t'] for t in tok if (t.get('line') or 1) > 2]))
+            if any(t.get('fit') is False for t in tok):
+                fails.append('%s: a token of the status sentence is cut by the edge of its box at %d px (right or bottom edge): %r (over by %s px, the box is %s px wide)'
+                             % (nm, vw, [t['t'] for t in tok if t.get('fit') is False], [t.get('over') for t in tok if t.get('fit') is False], tok[0].get('boxW')))
+            # the warning counts are in the tooltip of the status fold header and in the chips of its body
+            stip = st.get('tip') or ''
             if nm == 'paper2' or nm.startswith('s11-') and 'mono' not in nm and nm != 's11-watchdog':
-                if rec_n is not None and not _re.search(r'Recon %d\b' % rec_n, stxt):
-                    fails.append('%s: the status line lost the reconcile warning count (%d problems in the fixture): %r' % (nm, rec_n, stxt))
-                if fills_n and not _re.search(r'Fills %d\b' % fills_n, stxt):
-                    fails.append('%s: the status line lost the fills log warning count (%d in the fixture): %r' % (nm, fills_n, stxt))
+                if rec_n is not None:
+                    if not _re.search(r'Reconcile: %d problems?\b' % rec_n, stip):
+                        fails.append('%s: the status tooltip lost the reconcile warning count (%d problems in the fixture): %r' % (nm, rec_n, stip))
+                    if not any(_re.search(r'Reconcile: %d problems?\b' % rec_n, c) for c in wcs):
+                        fails.append('%s: the status chips lost the reconcile warning count (%d problems in the fixture): %r' % (nm, rec_n, wcs))
+                if fills_n:
+                    if not _re.search(r'Fills log: %d warnings?\b' % fills_n, stip):
+                        fails.append('%s: the status tooltip lost the fills log warning count (%d in the fixture): %r' % (nm, fills_n, stip))
+                    if not any(_re.search(r'Fills log: %d warnings?\b' % fills_n, c) for c in wcs):
+                        fails.append('%s: the status chips lost the fills log warning count (%d in the fixture): %r' % (nm, fills_n, wcs))
         # REFRESH stays on the page line, never inside a closed fold
         rf = s.get('refresh')
         if not rf or rf.get('n') != 1:
@@ -3442,6 +3674,8 @@ def _judge_s11(cases, fixture, data, fails):
         wo = f.get('warnOpens') or {}
         if wo.get('exp') != 'true' or wo.get('hidden') or wo.get('ls') != '1':
             fails.append('%s: a warning chip did not open the card that explains it (%r)' % (nm, wo))
+        if wo.get('hExp') != 'true' or wo.get('hHidden') or wo.get('hLs') != '1' or not wo.get('shown'):
+            fails.append('%s: a warning chip did not open the System health fold round the card it explains - the card stays hidden inside a closed fold (%r)' % (nm, wo))
         for k in ('more', 'cal'):
             o = f.get(k) or {}
             if not o.get('btn') or o.get('exp') != 'true' or o.get('hidden') or not o.get('len') or not o.get('vis') or o.get('back') != 'false':
@@ -3478,7 +3712,7 @@ def _judge_s11(cases, fixture, data, fails):
         if r.get('afterReload2') != shut:
             fails.append('%s: after a reload the folds closed before it are not closed (%r) - open / closed is not remembered' % (t, r.get('afterReload2')))
     # -- MONO: nothing the step drew has a hue
-    for nm in ('s11-mono-laptop', 's11-mono-phone'):
+    for nm in ('s11-mono-laptop', 's11-mono-phone', 'mono-needs'):
         r = cases.get(nm) or {}
         hu = r.get('s11m') or {}
         if hu.get('err'):
@@ -3497,13 +3731,15 @@ def _judge_s11(cases, fixture, data, fails):
         phone_top = g['frameTop'] - g['boardTop']
         if phone_top > S11_PHONE_LIST_TOP:
             fails.append('phone375: the trade list starts %d px under the board top; it was %d before step 11 - it must not grow' % (phone_top, S11_PHONE_LIST_TOP))
-    # -- the keeps that need a bridge with a watchdog: the auto-recover switch is a chip of the status row
-    wd = ((cases.get('s11-watchdog') or {}).get('s11') or {}).get('keeps') or {}
-    if not wd.get('wd') or not wd.get('wdInBody'):
-        fails.append('s11-watchdog: the auto-recover switch is gone from the status chips (%r)' % wd)
-    wsum = ' '.join(t['t'] for f in (((cases.get('s11-watchdog') or {}).get('s11') or {}).get('folds') or []) if f['k'] == 'status' for t in (f.get('tok') or []))
-    if '1 / 1 live' not in wsum or 'gate up' not in wsum:
-        fails.append('s11-watchdog: the status line does not carry the NinjaTrader states (live count, gate): %r' % wsum)
+    # -- the keeps that need a bridge with a watchdog: the auto-recover switch sits in the status fold header next to REFRESH (NT8 board fix 10-09), never in the fold body
+    wcase = (cases.get('s11-watchdog') or {}).get('s11') or {}
+    wd = wcase.get('keeps') or {}
+    if not wd.get('wd') or not wd.get('wdInAct') or wd.get('wdInBody'):
+        fails.append('s11-watchdog: the auto-recover switch is not in the status fold header next to REFRESH, or it is back inside the fold body (%r)' % wd)
+    stf = [f for f in (wcase.get('folds') or []) if f['k'] == 'status']
+    wtip, wbody = ((stf[0].get('tip') or ''), (stf[0].get('bodyTxt') or '')) if stf else ('', '')
+    if '1 / 1 live' not in wtip or 'gate up' not in wtip or '1 / 1 live' not in wbody or 'Gate up' not in wbody:
+        fails.append('s11-watchdog: the status fold does not carry the NinjaTrader states (live count, gate): tooltip %r, body chips %r' % (wtip[-90:], wbody[:110]))
     # -- ?oldboards=1 draws the same board as the plain page: the same css and the same markup tree (text is left out: it carries the age of a report)
     pd_ = ((cases.get('paper2') or {}).get('s11') or {}).get('dig') or {}
     o = ((cases.get('flag-paper2') or {}).get('s11') or {}).get('dig') or {}
@@ -3521,6 +3757,98 @@ def _judge_s11(cases, fixture, data, fails):
             % (n_orders, len(OWN_FOLDS), n_folds_run, '/'.join(str(int(x)) for x in sorted(set(
                 px for n_, r_ in p2_cases for px in (((r_.get('s11') or {}).get('bp') or {}).get('widths') or [])))), phone_top, S11_PHONE_LIST_TOP,
                o.get('css'), o.get('tree'), o.get('treeN')))
+
+
+def _judge_nt8(cases, fixture, fails):
+    """NT8 BOARD FIX 2026-10-09 (see the docstring): the NEEDS YOU banner, the NinjaTrader count in the status sentence, the auto-recover switch on the status
+    line (ON / OFF in words, night mode on a laptop and on a phone). Every expectation comes from the case's own window and the fixture, never from a
+    number kept here. Returns the line the PASS output prints."""
+    import re as _re
+    n_ban = n_none = 0
+
+    def _short(name):
+        return _re.sub(r'^ENGUQ.*$', 'ENGU-Q', _re.sub(r'^EdgeLog', '', str(name or '')))
+
+    # -- the NEEDS YOU banner: one on a board whose bridge holds something back, directly between the hero and the status line (the page-order judge measures that),
+    #    one line per held item - its short name, the record's own reason when it gives one - and none when held_back is empty or missing
+    for nm, r in cases.items():
+        s = r.get('s11') or {}
+        if not s.get('board') or s.get('err'):
+            continue
+        win = (CASE_CFG.get(nm) or {}).get('win') or {}
+        B = win['_ntBridge'] if '_ntBridge' in win else fixture.get('ntBridge')
+        hb = (B or {}).get('held_back')
+        held = [h for h in hb if isinstance(h, dict)] if isinstance(hb, list) else []
+        if (s.get('needsN') or 0) != (1 if held else 0):
+            fails.append('%s: %s NEEDS YOU banner(s) on the board, expected %d (the bridge holds back %d item(s))' % (nm, s.get('needsN'), 1 if held else 0, len(held)))
+            continue
+        if not held:
+            n_none += 1
+            continue
+        n_ban += 1
+        nd = s.get('needs') or {}
+        if nd.get('role') != 'alert' or nd.get('key') != 'NEEDS YOU' or (nd.get('box') or {}).get('h', 0) <= 0:
+            fails.append('%s: the NEEDS YOU banner is not a visible alert titled NEEDS YOU (role %r, title %r, box %r)' % (nm, nd.get('role'), nd.get('key'), nd.get('box')))
+        lines = nd.get('lines') or []
+        want_short = [_short(h.get('strategy')) for h in held]
+        if [l.get('held') for l in lines] != want_short or (nm == 'needs-you' and want_short != NT8_HELD_SHORT):
+            fails.append('%s: the NEEDS YOU banner has a line for %r, expected one line per held item, by short name %r' % (nm, [l.get('held') for l in lines], want_short))
+        else:
+            for h, l in zip(held, lines):
+                txt = l.get('txt') or ''
+                if h.get('reason') and h['reason'] not in txt:
+                    fails.append('%s: the NEEDS YOU line for %s does not carry the reason of the record %r: %r' % (nm, l['held'], h['reason'], txt))
+                if not h.get('reason') and l['held'] not in txt:
+                    fails.append('%s: the NEEDS YOU line for %s (no reason given) does not name it: %r' % (nm, l['held'], txt))
+
+    # -- the NinjaTrader count, the first token of the status sentence (every case is judged against its own bridge in the page-order judge; these are the
+    #    four named by the owner's rules, with the words written out here so that a wrong recomputation cannot hide a wrong board)
+    def _tok(nm):
+        st = [f for f in ((cases.get(nm) or {}).get('s11') or {}).get('folds') or [] if f['k'] == 'status']
+        return (st[0].get('tok') or []) if st else []
+    for nm, want_txt, want_bad, want_pos in (
+            ('nt-count-partial', 'NinjaTrader is running 1 of 2 strategies', True, '\u00b7 1 position open'),
+            ('nt-count-all', 'NinjaTrader is running 2 of 2 strategies', False, None),
+            ('nt-down', 'NinjaTrader is not answering', True, None),
+            ('nt-none', 'No NinjaTrader snapshot yet', True, None),
+            ('paper2', 'NinjaTrader is running no strategy', True, None)):
+        tok = _tok(nm)
+        if not tok or tok[0]['t'] != want_txt:
+            fails.append('%s: the NinjaTrader count in the status sentence reads %r, expected %r' % (nm, tok[0]['t'] if tok else None, want_txt))
+            continue
+        red = 'p2st-bad' in (tok[0].get('c') or '').split()
+        if red != want_bad:
+            fails.append('%s: the NinjaTrader count %r %s (class %r)' % (nm, want_txt, 'must be red (p2st-bad) and is not' if want_bad else 'must not be red and is', tok[0].get('c')))
+        pos = [t['t'] for t in tok if 'position' in t['t']]
+        if pos != ([want_pos] if want_pos else []):
+            fails.append('%s: the open positions in the status sentence read %r, expected %r' % (nm, pos, [want_pos] if want_pos else []))
+
+    # -- the auto-recover switch sits on the status line, visible with every fold closed, and says its state in words; night mode adds the words for it
+    for nm, word in (('s11-watchdog', 'ON'), ('wd-off', 'OFF'), ('wd-night', 'ON'), ('wd-night-phone', 'ON')):
+        r = cases.get(nm) or {}
+        s = r.get('s11') or {}
+        w = s.get('wdsw')
+        if not w or w.get('n') != 1 or not w.get('vis') or not w.get('inStatusAct') or w.get('statusOpen') != 'false' or not w.get('beforeRefresh'):
+            fails.append('%s: the auto-recover switch is not on the status line - one switch, in the status header next to REFRESH, visible with every fold closed (%r)' % (nm, w))
+            continue
+        txt = w.get('txt') or ''
+        if w.get('toggle') != ('on' if word == 'OFF' else 'off') or w.get('state') != word or not txt.startswith('Auto-recover ' + word):
+            fails.append('%s: the auto-recover switch reads %r (state %r, offers to turn %r), expected "Auto-recover %s"' % (nm, txt, w.get('state'), w.get('toggle'), word))
+        night, phone = nm.startswith('wd-night'), nm == 'wd-night-phone'
+        lap_w, ph_w = 'NinjaTrader off for the night until 05:45', 'NT8 off till 05:45'
+        if night and not phone and (lap_w not in txt or 'NT8 off' in txt):
+            fails.append('%s: on a laptop the switch must say "%s" (it reads %r)' % (nm, lap_w, txt))
+        if phone:
+            if ph_w not in txt or 'off for the night' in txt:
+                fails.append('%s: on a phone (375 px) the switch must say "%s" (it reads %r)' % (nm, ph_w, txt))
+            g = r.get('geo') or {}
+            if s.get('vw') != 375 or (g.get('scrollW') or 0) > (g.get('clientW') or 0):
+                fails.append('%s: the page scrolls sideways at 375 px with night mode on (width %s, scrollWidth %s > clientWidth %s)'
+                             % (nm, s.get('vw'), g.get('scrollW'), g.get('clientW')))
+        if not night and ('off for the night' in txt or 'NT8 off' in txt):
+            fails.append('%s: the auto-recover switch talks about night mode although the bridge has none on (%r)' % (nm, txt))
+    return ('NEEDS YOU banner on %d board(s) and on none of %d others, the NinjaTrader count judged on 5 named cases, the auto-recover switch (ON / OFF / night laptop / night phone)'
+            % (n_ban, n_none))
 
 
 def _filters_expected(cfg):
@@ -3565,8 +3893,9 @@ def _judge_s12(cases, data, fails):
                              % (nm, vw, fm.get('gapL'), fm.get('gapR'), fm.get('w'), fm.get('parW')))
         if not fm.get('inBoard'):
             fails.append('%s: the page frame sits outside the board (.p2rh)' % nm)
-        if fm.get('topKids') != TOP_SECTIONS:
-            fails.append('%s: the frame top block holds the sections %r, expected %r in that order' % (nm, fm.get('topKids'), TOP_SECTIONS))
+        kids_ = [k_ for k_ in (fm.get('topKids') or []) if not (k_ is None and s.get('needsN'))]      # the NEEDS YOU banner is no section
+        if kids_ != TOP_SECTIONS:
+            fails.append('%s: the frame top block holds the sections %r, expected %r in that order' % (nm, kids_, TOP_SECTIONS))
         if fm.get('inSide') != ['list']:
             fails.append('%s: the strategy list is not in the frame side panel [data-lgframe-side] (the panel holds %r)' % (nm, fm.get('inSide')))
         want_rest = ['trades'] + [k for k in OWN_FOLDS if not (nm == 'empty' and k == 'capture')]
@@ -3612,8 +3941,15 @@ def _judge_s12(cases, data, fails):
             if not st.get('fold') or not st.get('refresh'):
                 fails.append('%s: the status line does not hold the status fold with REFRESH on its line (%r)' % (nm, st))
             h_, s_, p_ = byk.get('hero'), byk.get('status'), byk.get('pills')
-            gap = (s_['top'] - (h_['top'] + h_['h'])) if (h_ and s_) else None
-            if st.get('prev') != 'hero' or st.get('next') != 'pills' or not st.get('inTop') or st.get('inHero') or gap is None or gap < -1 or gap > 40 \
+            nd_ = s.get('needs') or {}
+            under_ = (h_['top'] + h_['h']) if h_ else None
+            if nd_ and under_ is not None:           # the NEEDS YOU banner sits between the hero and the status line: the gaps are measured round it
+                if nd_.get('prev') != 'hero' or nd_.get('next') != 'status' or not nd_.get('inTop') or not -1 <= nd_['box']['top'] - under_ <= 40:
+                    fails.append('%s: the NEEDS YOU banner is not directly between the hero and the status line (after %r, before %r, in the top block %s, %s px under the hero)'
+                                 % (nm, nd_.get('prev'), nd_.get('next'), nd_.get('inTop'), nd_['box']['top'] - under_))
+                under_ = nd_['box']['bottom']
+            gap = (s_['top'] - under_) if (under_ is not None and s_) else None
+            if (nd_.get('prev') if nd_ else st.get('prev')) != 'hero' or st.get('next') != 'pills' or not st.get('inTop') or st.get('inHero') or gap is None or gap < -1 or gap > 40 \
                     or not p_ or s_['top'] >= p_['top']:
                 fails.append('%s: the status line is not directly under the hero (above the pills) at %d px (after %r, before %r, in the top block %s, inside '
                              'the hero %s, %s px under the hero)' % (nm, vw, st.get('prev'), st.get('next'), st.get('inTop'), st.get('inHero'), gap))
@@ -3859,6 +4195,26 @@ def _judge_keeps(cases, fixture, index_path, fails):
             fails.append('roll-marks: the trade panel did not open for the control trade %s' % PANEL_TID)
         elif any(x[0] == 'Roll splice' for x in (o.get('lines') or [])):
             fails.append('roll-marks: the trade panel of %s, which is not a roll splice, has a Roll splice line' % PANEL_TID)
+        elif any(x[0] == 'Manual exit' or (x[0] == 'Exit reason' and 'by hand' in x[1]) for x in (o.get('lines') or [])):
+            fails.append('roll-marks: the trade panel of %s, which was not closed by hand, says closed by hand (its notes are %r)' % (PANEL_TID, o.get('lines')))
+        # NT8 board fix 10-09: a trade closed by hand reads so in its notes - exit_signal "Close" (the closing fill name), or the lane's manual_exit note, which
+        # also shows as a Manual exit line; the record's own exit reason is kept in brackets
+        for hid, note in zip(HAND_IDS, (None, HAND_NOTE)):
+            o = rr['trades'].get(hid) or {}
+            if not o.get('open') or o.get('trade') != hid:
+                fails.append('roll-marks: the trade panel did not open for the closed-by-hand trade %s (open %s, panel trade %s)' % (hid, o.get('open'), o.get('trade')))
+                continue
+            ex = [x for x in (o.get('lines') or []) if x[0] == 'Exit reason']
+            mx = [x for x in (o.get('lines') or []) if x[0] == 'Manual exit']
+            if len(ex) != 1 or not ex[0][1].startswith('closed by hand'):
+                fails.append('roll-marks: the trade panel of %s, closed by hand (%s), has no closed by hand Exit reason line (its notes are %r)'
+                             % (hid, 'exit_signal Close' if note is None else 'manual_exit', o.get('lines')))
+            elif note is not None and 'probe: trailing stop' not in ex[0][1]:
+                fails.append('roll-marks: the closed by hand line of %s drops the exit reason of the record (it reads %r)' % (hid, ex[0][1]))
+            if note is None and mx:
+                fails.append('roll-marks: the trade panel of %s has a Manual exit line although the record carries no manual_exit (%r)' % (hid, mx))
+            if note is not None and (len(mx) != 1 or mx[0][1] != note):
+                fails.append('roll-marks: the trade panel of %s has no Manual exit line reading %r (its Manual exit lines are %r)' % (hid, note, mx))
 
     # ---- G8: strategy chips. A chip a definition declares is a bit of its own row's sub line and of no other row's
     chips = read_leg_chips(index_path)
@@ -4060,8 +4416,8 @@ MUTANTS = [
      'a row click no longer records the trade id',
      'a row click must record its trade id'),
     ('search-focus-lost',
-     "if(keep){const s=document.getElementById(ID+'-search');if(s){s.focus({preventScroll:true});",
-     "if(false){const s=document.getElementById(ID+'-search');if(s){s.focus({preventScroll:true});",
+     'if(F&&F.on&&F.el!==q&&',
+     'if(false&&F&&F.on&&F.el!==q&&',
      'the search box loses its focus and cursor while it filters',
      'lost its focus or cursor'),
     ('ticks-not-pruned',
@@ -4378,9 +4734,19 @@ MUTANTS = [
      'the calendar opens by default from 760 px instead of above 600',
      'the calendar fold is'),
     ('mono-hue-in-fold',
-     "'.p2fold-sum b{font-weight:700;color:var(--text)}'",
-     "'.p2fold-sum b{font-weight:700;color:#3fb88a}'",
-     'a fold summary is drawn in a fixed green, so MONO is no longer hue-free',
+     ".p2st-nt{font-weight:600;color:var(--text2)}",
+     ".p2st-nt{font-weight:600;color:#3fb88a}",
+     'the NinjaTrader count of the status sentence is drawn in a fixed green, so MONO is no longer hue-free',
+     'MONO has a hue'),
+    ('mono-sentence-red',
+     '[data-theme="mono"] .p2st-nt.p2st-bad{color:var(--text);text-decoration:underline;text-underline-offset:3px}',
+     '',
+     'the red NinjaTrader count of the status sentence keeps its hue in MONO',
+     'MONO has a hue'),
+    ('mono-needs-hue',
+     '[data-theme="mono"] .p2needs{border-color:var(--text2);background:transparent}[data-theme="mono"] .p2needs-k{color:var(--text)}',
+     '',
+     'the NEEDS YOU banner keeps its red border and tint in MONO',
      'MONO has a hue'),
     ('mono-chip-dot-hue',
      """'[data-theme="mono"] .p2rh .p2dot[style*="e0a33a"]{background:var(--text2)!important}'""",
@@ -4388,9 +4754,9 @@ MUTANTS = [
      'the amber dots of the status chips keep their hue in MONO',
      'MONO has a hue'),
     ('warning-count-dropped',
-     "[/^Reconcile: (\\d+) problems?$/,'Recon $1']",
-     "[/^Reconcile: (\\d+) problems?$/,'Recon']",
-     'the status line says Recon but not how many problems',
+     "if(pr.length)add('recon','Reconcile: '+pr.length+' problem'+(pr.length===1?'':'s'),pr.join(' | '));",
+     "if(pr.length)add('recon','Reconcile: problems',pr.join(' | '));",
+     'the reconcile warning (status tooltip and chip) says problems but not how many',
      'lost the reconcile warning count'),
     ('warning-chips-lost',
      "'<div class=\"p2chips\">'+_p2Status+_p2WarnChips+'</div>'",
@@ -4398,13 +4764,13 @@ MUTANTS = [
      'the warning chips are gone from the status fold',
      'the warning chips are not inside the status line'),
     ('refresh-missing',
-     "{cls:'p2fold-status',sec:false,tip:tip,act:rf}",
-     "{cls:'p2fold-status',sec:false,tip:tip}",
+     "{cls:'p2fold-status',sec:false,tip:tip,act:_wdSw+rf}",
+     "{cls:'p2fold-status',sec:false,tip:tip,act:_wdSw}",
      'REFRESH is gone from the status line',
      'REFRESH'),
     ('refresh-folded',
-     "'<div class=\"p2chips\">'+_p2Status+_p2WarnChips+'</div>',{cls:'p2fold-status',sec:false,tip:tip,act:rf}",
-     "'<div class=\"p2chips\">'+_p2Status+_p2WarnChips+rf+'</div>',{cls:'p2fold-status',sec:false,tip:tip}",
+     "'<div class=\"p2chips\">'+_p2Status+_p2WarnChips+'</div>',{cls:'p2fold-status',sec:false,tip:tip,act:_wdSw+rf}",
+     "'<div class=\"p2chips\">'+_p2Status+_p2WarnChips+rf+'</div>',{cls:'p2fold-status',sec:false,tip:tip,act:_wdSw}",
      'REFRESH is inside the closed status fold',
      'REFRESH is folded away'),
     # ---- LEDGER step 12: ONE page frame, the status line under the hero, the chart foot, the Filters row of the strategy list ----
@@ -4466,7 +4832,7 @@ MUTANTS = [
      'the status line sits under the chart instead of directly under the hero',
      'the status line is not directly under the hero'),
     ('status-in-hero-chips',
-     ("chips:''});", 'status:_p2StatFold,'),
+     ("chips:''});", 'status:_p2NeedsYou+_p2StatFold,'),
      ('chips:_p2StatFold});', "status:'',"),
      'the status fold is back in the hero chip row (as in step 11) instead of the status line under the hero',
      'the status line is not directly under the hero'),
@@ -4600,6 +4966,52 @@ MUTANTS = [
      'if(def.chip||true)bits.push(_pnX(def.chip||PAPER_LEG_DEFS.find(x=>x.chip).chip));',
      'a strategy without a chip of its own is given another strategy chip',
      'leaked onto the row'),
+    # ---- NT8 BOARD FIX 2026-10-09: NEEDS YOU, the status sentence, the auto-recover switch, System health, Forward tests closed, hand-closed trades ----
+    ('needs-you-gone',
+     "const H=_p2Nt.held.filter(h=>h&&typeof h==='object');",
+     "const H=[];",
+     'the NEEDS YOU banner is never drawn, whatever the bridge holds back',
+     'NEEDS YOU banner(s) on the board'),
+    ('nt-count-never-red',
+     'const ntBad=!B||B.up===false||!F.nExp||F.run<F.nExp;',
+     'const ntBad=false;',
+     'the NinjaTrader count of the status sentence is never red, even when fewer strategies run than should',
+     'NinjaTrader count must be red'),
+    ('wd-switch-hidden',
+     'act:_wdSw+rf',
+     'act:rf',
+     'the auto-recover switch is not on the status line any more (only REFRESH is)',
+     'auto-recover switch is not on the status line'),
+    ('night-words-gone',
+     "const _wdNight=(_NM&&_NM.active)?('NinjaTrader off for the night until '+(_wdUntil||'the morning')):'';",
+     "const _wdNight='';",
+     'the auto-recover switch says nothing about night mode, on a laptop or on a phone',
+     'switch must say'),
+    ('health-parent-not-opened',
+     "if(ph&&ph!==fh&&ph.getAttribute('aria-expanded')!=='true')p2FoldApply(ph,true);",
+     "",
+     'a warning chip opens the card it explains but leaves the System health fold round it closed',
+     'did not open the System health fold'),
+    ('fwd-open-by-default',
+     'if(window._paperFwdOpen==null)window._paperFwdOpen=!!APREF.paperFwdOpen2;',
+     'if(window._paperFwdOpen==null)window._paperFwdOpen=!APREF.paperFwdOpen2;',
+     'the Forward tests & controls group starts open again',
+     'closed by default'),
+    ('health-starts-open',
+     "{cls:'p2fold-health',tip:_p2HealthSum.tip}",
+     "{cls:'p2fold-health',tip:_p2HealthSum.tip,open:true}",
+     'the System health fold starts open',
+     'health fold is open to start with'),
+    ('hand-exit-unlabelled',
+     "if(/^close$/i.test(xs)||pprim(t.manual_exit)){",
+     "if(false){",
+     'the trade panel of a trade closed by hand (exit_signal Close, or a manual_exit note) does not say so',
+     'has no closed by hand Exit reason line'),
+    ('manual-exit-note-gone',
+     "if(pprim(t.manual_exit))lines.push(['Manual exit',",
+     "if(false)lines.push(['Manual exit',",
+     'the trade panel drops the manual_exit note of a trade closed by hand',
+     'has no Manual exit line'),
 ]
 
 
