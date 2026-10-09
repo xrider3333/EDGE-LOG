@@ -800,6 +800,11 @@ namespace NinjaTrader.NinjaScript.AddOns
             "IsExitOnSessionCloseStrategy",  // flatten at session end
             "ExitOnSessionCloseSeconds",     // how early before the close
             "BarsRequiredToTrade",           // warm-up bar floor
+            "ConnectionLossHandling",        // KeepRunning / Recalculate / StopStrategy (2026-10-09: the default
+                                             // Recalculate disabled NOISE + ENGU-Q after 4 feed drops in 5 min)
+            "DisconnectDelaySeconds",        // how long a drop may last before it counts
+            "NumberRestartAttempts",         // drops allowed within RestartsWithinMinutes before disabling
+            "RestartsWithinMinutes",
         };
 
         /// <summary>Pre-flights a strategy: checks EVERY current parameter value against its
