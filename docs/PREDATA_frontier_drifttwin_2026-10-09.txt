@@ -1,0 +1,45 @@
+BOOK QUEUE Q31 - DRIFT TWIN for ENGU-Q (MANAGER #128 item 2; Huang, Li, Wang & Zhou 2020, "Time-series momentum: is it there?").
+PRE-DATA NOTE v2, 2026-10-09 (v1 06:10 -> MANAGER #130 GO + one addition; ENGUQ second review #131 / #132 GO WITH FOUR EDITS - all folded,
+marked [M] / [E1]-[E4]). A REPORT, no adoption, WF only (the S1 line's 2016-07-01..2025-06-29), the lockbox not read. No twin P&L has been
+computed; ENGU-Q's own curve is #463's registered leg.
+
+QUESTION. Does ENGU-Q #335's seat add anything over long-NQ holdings at the SAME average exposure - and if so, is it WHEN it holds (day /
+bar selection) or HOW it trades the position (fills, exits)? Huang et al. find much of time-series momentum is drift earned by being long
+on average.
+
+FACTS (positions only, from the leg's own trades on the WF bars; ENGUQ's exposure shape #131):
+- ENGU-Q (ENGUQ_1M_ETH_R2_1_0.py, NQ 1m ETH back-adjusted master) is LONG-ONLY: 2,053 trades, every one long, one contract.
+- In the market on 60.5% of WF bars: time-average position 0.605 NQ. [E2] Its beta to NQ on ETH day marks is 0.443 (ENGUQ; the 0.384 in
+  ANATOMY r1 was RTH-marked); on days it is FULLY held its beta is 0.982 (R2 0.962) - while on, the leg IS one long NQ contract, switched
+  on and off. [E1] On the days it is fully flat (23% of days) NQ averaged -$769 a day vs +$381 on exposed days (ENGUQ, 2016-10..2025-06):
+  an always-on twin holds through days the leg sits out. Many flat days follow a trailing-stop exit during a continuing decline - real
+  timing (the leg got out), NOT evidence of predictive timing at entry.
+
+THE ROWS (all valued exactly like the leg's daily curve: NQ 1m ETH back-adjusted master, the book's UTC day stamps, $20 a point):
+1. THE LEG - ENGU-Q as in #463.
+2. ALWAYS-ON TWIN (the decision line vs the seat): a constant long of W = 0.605 NQ (the leg's time-average position), valued at the last
+   bar close of each book day; pays 0.783 pts a contract round trip x W on the entry and on each roll.
+3. [E1] IN-POSITION TWIN: 1.0 NQ long on exactly the bars the leg holds, flat otherwise (average exposure 0.605 by construction), valued
+   close-to-close on the bars; pays the leg's own 0.783-pt round trip on each of the leg's trades. Rows 2 -> 3 isolate WHEN the exposure is
+   carried (the day / bar selection); rows 3 -> 1 isolate HOW the position is traded (entry / exit fills vs the bar closes).
+4. [E2] DISCLOSURE ONLY: a beta-matched always-on twin at 0.443 (ETH-marked).
+[E4] Rolls from the audited table tools/data/rolls_NQ.csv (LF sha256 1cfe7b59...; 71 NQ switches; the ADJ master is built from it), each
+charged on the book UTC day of its switch time. [E4] Every row is printed net AND gross of costs (the leg pays ~1,180 WF round trips; the
+always-on twin ~37), so friction is not read as edge.
+
+THE READ (WF; parity first: L 121.06 / 45 / 762 and #463 93.81; DD5 beside every ROC):
+- Standalone: rows 1-4 - ROC@30k, Sortino, DD5, worst DD, $ a year, $ on R; net and gross.
+- Seat: L (ENGU-Q in) vs L' = L - ENGU-Q + row 2, and L'' = L - ENGU-Q + row 3; L without ENGU-Q (A3: 82.04) for scale; the same on #463.
+- [M] Worst 5 drawdown EPISODES side by side (peak, trough, recovery dates, $) for rows 1-3, L and L' - where the timing helps or hurts.
+- Leg minus row 2, and leg minus row 3, by July-June year.
+- [E3] POWER FIRST: before any lead is printed, tools/power_line.py (paired stationary bootstrap, block 20, 1,000 draws, seed 20261005)
+  prints the minimum detectable ROC@30k lead for L vs L', leg vs row 2 and leg vs row 3 - the lead itself is printed only after.
+PRE-SET WORDING (decided now, [E3]-softened): a lead below its 50% line = "not distinguishable at this resolution (MDE x points)". Else,
+if L' >= L: "ENGU-Q's seat adds nothing over a constant-exposure NQ holding at its average exposure"; if L > L': "ENGU-Q beats a
+constant-exposure NQ holding by x ROC points on L ($y a year)" - never "beats drift", since rows 2 vs 3 show how much is day selection
+(including the stop-exit timing above). Either way: no weight change, no adoption, no forward line (book changes are the owner's; the
+lockbox is spent - 10y/10z).
+COULD FOOL US: 2016-25 is a strong NQ decade (favours row 2); the flat-day selection runs hard the other way ([E1]); ENGU-Q's own WF
+ROC is driven by one episode (spring 2022, worst $48.6k vs DD5 $30.4k per ENGUQ) - hence the episode table; the twins are fractional
+(a report, not tradable legs).
+LOOKS: none on the lockbox. Witness branch + hashes before the run (MANAGER #130). Script: tools/rocfrontier/q31_drifttwin.py on the branch.
