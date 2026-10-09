@@ -1190,6 +1190,51 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10am. Q29 CALMTAPE r1: long ES held only on a calm uptrend FAILS against buy-and-hold at the same exposure (2026-10-09, WF, Stage A)
+
+**What it is.** The one shape Q28's map (10al) shortlisted: a long ES leg held only when the tape is calm and trending up, flat otherwise,
+read as a seat on the S1 line. It is walk-forward only, with the lockbox unread, and it ran before main from branch
+prereg/frontier-calmtape-1009 (prereg LF sha256 01da6b00...; harness tools/rocfrontier/r30_calmtape.py, LF d7feea47...; the power line was
+committed first, at 11c9ad4b). Reviews: MANAGER #125 (the bar) and #126 (2 edits, folded before any number).
+- **The legs:** CT1 holds 1 MES unit when VIX <= 16 and ES is above its 200-session mean. CT2 holds min(2, 16 / VIX) units on every uptrend
+  day.
+- **Timing (#126):** the state comes from day t's closes (ES's 16:00 print, the CBOE VIX close); the fill is day t+1's 09:30 open. VIX rows
+  on CME-holiday sessions are dropped (23 rows).
+- **Costs:** $2.50 a side, and two sides a unit on each roll.
+- **The bar (#125):** each leg must beat buy-and-hold ES at the SAME average exposure:
+  - (i) its ROC lead over the twin above the family null's p95 = 5.49 points. The null is random 20-session hold blocks with the leg's own
+    count; the statistic is the max over both legs.
+  - (ii) more dollars on R than the twin, also with the leg's best R episode taken out of both.
+  - (iii) at least 6 of 9 years positive, and positive without its best 1% of days.
+
+| Line (WF 2016-07..2025-06, per MES unit) | ROC@30k | DD5 | Worst DD | Sortino | $ a year |
+|---|---|---|---|---|---|
+| CT1 (VIX <= 16 and uptrend, 1 unit) | 4.29 | $1,963 (one episode) | $4,292 | 0.65 | $614 |
+| Twin, buy-and-hold at 0.443 units | 9.85 | $2,068 | $2,686 | 0.81 | $882 |
+| CT2 (uptrend, 16 / VIX units) | 10.75 | $2,663 (one episode) | $3,632 | 0.86 | $1,302 |
+| Twin, buy-and-hold at 0.845 units | 9.85 | $3,941 | $5,118 | 0.81 | $1,680 |
+
+- **CT1: FAIL.** Its lead is -5.56 against the 5.49 bar. It is negative without its best 1% of days, and positive in 8 of 9 years.
+- **CT2: FAIL.** Its lead is +0.91 against the 5.49 bar. It passes (ii) and (iii): 7 of 9 years positive, +$2,843 without its best 1%.
+- **On R, neither leg earns.** Both lose on the line's drawdown days (CT1 -$1,016, CT2 -$7,162), just less than their twins (-$6,703 /
+  -$12,774). Bar (ii) passes only because long ES itself loses on R.
+- **The halves:**
+  - CT1: 15.1 vs its twin's 9.6 in 2016-07..2020-12, then 3.6 vs 10.6 in 2021-01..2025-06.
+  - CT1's worst year is 2024-25 (-$3,224): the calm filter was on into the August and December 2024 drops.
+  - CT2: 15.6 vs 9.6, then 11.6 vs 10.6.
+- **Seat read (report only; no candidate):**
+  - CT1 at share 0.25: L + cX = 123.72 / DD5 $34,860 / Sortino 3.912 (L: 121.06 / $34,392 / 3.926).
+  - CT2 at share 0.25: 114.02 / $36,023.
+
+**Read.**
+- **The calm tape is cheap to hold for a reason.** Equity days in that state pay little, and the turn from calm to stress gives no warning.
+  CT1's worst days (2024-12-18, 2024-07-24, 2024-09-03) all started in the calm state.
+- **The trend filter alone is not an edge here.** It sits out the downtrends, but buy-and-hold at the same average exposure earns as much
+  or more per unit of drawdown. CT2's +0.91 lies well inside what random 20-session holding gives.
+- This agrees with VRPES (2.103, VIX-level timing loses to always-long) and with Cederburg et al. (2020: volatility-managed exposure fails
+  in real time).
+- **The calm-tape line is CLOSED:** no NQ cell, no third threshold. The book's weak state (10al) stays unfilled with the data we hold.
+
 ### 10al. Q28 R ANATOMY r1: the S1 line's drawdown days, by market state - the book harvests volatility and is weakest on a calm tape (2026-10-08, a map)
 
 **What it is.** A map, not a strategy: it runs nothing, scores no candidate and adds no looks. It is walk-forward only, and it ran before main
