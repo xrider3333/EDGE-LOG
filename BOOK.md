@@ -1190,6 +1190,107 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10ar. The harm monitor is built (tools/harm_monitor.py) - its first read trips NOISE's A1 on July; ENGU-Q reads from 08-07 (2026-10-09)
+
+**What it is.** MANAGER #140 OK'd 10aq and said build it. tools/harm_monitor.py is the weekly read.
+- It re-runs #463's four legs on #463's pinned masters through augur_engine.book, the same path the bands came from. It reads no Firestore.
+- It does not use the runner's paper shadow, which runs ORB and TTM on the no-adjust master rather than #463's.
+- Output: one post to MANAGER's inbox each Monday (trips first, then each leg's distance to A1 / A2 in plain words) and a copy under
+  C:\EdgeLog\harm_monitor. There is no phone push and no change to any leg.
+- Tests (tests/test_harm_monitor.py): a planted shortfall and a planted drawdown trip; an on-pace path and a WF-like random path do not.
+- The Monday 06:10 MST trigger is drafted (bookq/EdgeLog_FRONTIER_harm_monitor.xml), not registered: MANAGER first, then the owner.
+
+**Three build choices that 10aq did not spell out.**
+- **Rows** are the book's calendar, as on the walk-forward: every regular session plus any day a leg has $, zero where a leg is flat.
+  The record ends at the last session before the run day that every RTH master holds.
+- **A1 is checked every 6th row from the start**, exactly as calibrated. A trip stays a trip.
+- **ENGU-Q and the #463 total read from 2026-08-07, not 07-01.**
+  - The NQ 1m ETH master has no bars from 07-01 to 08-05 (the known hole; free sources keep 7 days of 1m).
+  - The engine carries ENGU-Q's 06-29 trade across the hole and books its whole loss, -$20,406, on 08-06.
+  - 08-07 is the first day ENGU-Q starts flat after that.
+  - From now on, a gap of two or more sessions in any leg's master pauses that leg (and the total) instead of reading it.
+
+**First read (2026-10-09, data through 10-08).**
+
+| Leg | Days | Forward net | Against the backtest's pace | A2 drawdown (deepest / alarm) |
+|---|---|---|---|---|
+| ORB | 75 | $15,186 | $6,584 ahead | $13,886 / $48,721 |
+| TTM (x3) | 75 | -$2,309 | $6,088 behind (27% of the way to A1) | $2,309 / $35,583 |
+| NOISE | 75 | $10,509 | **A1 TRIPPED at the 07-17 check** (-2.71 vs -2.44); now $2,276 behind | $13,932 / $23,068 |
+| ENGU-Q | 49 (from 08-07) | $19,775 | $12,682 ahead | $12,772 / $63,754 |
+| #463 | 49 (from 08-07) | $18,394 | $5,141 behind (8%) | $22,046 / $62,640 |
+
+- ORB's big-day watch line: 3 days above $5,898 against about 0.8 expected. TTM: 0 against 0.8.
+- **NOISE.**
+  - Ten losing days from 07-01 to 07-24 put it $13.7k behind pace by the 07-17 check, past its line.
+  - It made the money back from 07-29 to 08-04 (+$23k) and is now near pace.
+  - By the frozen rule that is a trip: worse than the backtested leg does 2.5% of the time. It is harm shown, not decay proven. Reported to
+    MANAGER the same day (#805). Nothing changes unless the owner decides.
+- **Checked.**
+  - From 08-13, the engine's NOISE days equal the runner's paper shadow (NOISE #422, same master) to the dollar, apart from small
+    differences in the last week where recent bars were restated. That took 1 Firestore read, by document id.
+  - The paper shadow has no NOISE #422 rows before 08-13, so the July losses rest on the complete 5m master alone.
+
+### 10aq. Q33 FORWARD HARM-MONITOR SPEC for #463's legs, weighted by decay exposure: ORB and TTM first (2026-10-09, a spec)
+
+**What it is.** MANAGER #139 item 1. It is a spec only: nothing is built or read forward yet. It turns 10ao's decay ranking into the weekly
+check on each leg's forward record.
+- The lockbox stays spent, and no candidate is passed or failed by these reads.
+- The book lines' registered paired stops (10y) are unchanged.
+- Alarm lines and power come from each leg's walk-forward daily $ (marked to market, book days; bookq/q33_harm_spec.py, a stationary block
+  bootstrap with mean block 20, 2,000 three-year paths). No forward data was read to set them.
+
+**What is read each week (Monday, before the open), in this order: ORB, TTM, then NOISE, ENGU-Q, and #463 as a whole.**
+- **The record:** each leg's forward daily $ at #463's size, from 2026-07-01 (the first day after the backtests' last bar).
+- **Two cuts of that record:**
+  - DECAY reads the engine shadow (the runner's daily re-run on new bars): the strategy exactly as backtested, on new data.
+  - EXECUTION reads the paper fills of record (Webull paper; NinjaTrader demo where a leg trades there) minus the shadow.
+  - Only DECAY is judged against the bands below. The execution gap goes to the paper lanes' reconcile as it does now.
+- **A1, SHORTFALL:** the forward sum of (each day's $ minus the walk-forward daily mean), against minus c x sd x sqrt(days).
+  - c is set so a leg exactly as backtested crosses within 36 months only 2.5% of the time.
+- **A2, DRAWDOWN:** the forward running drawdown against the depth a three-year path of the backtested leg exceeds only 2.5% of the time.
+- **ORB and TTM only, a WATCH line (never an alarm):** the forward count of "big days" (above the leg's own walk-forward 99th percentile; about
+  3 a year).
+  - 81% of ORB's walk-forward net and 166% of TTM's come from those days (10ao), so a year without them is the earliest hint of decay.
+  - It has no power to decide anything, so it is only shown.
+
+| Leg | WF Sharpe a year | A1 line c | A2 drawdown alarm (WF worst) | Big-day threshold |
+|---|---|---|---|---|
+| ORB | 1.14 | 2.53 | $48,721 ($29,142) | $5,898 |
+| TTM (x3) | 0.73 | 2.20 | $35,583 ($17,730) | $3,032 |
+| NOISE | 2.00 | 2.44 | $23,068 ($17,591) | - |
+| ENGU-Q | 1.09 | 2.40 | $63,754 ($48,599) | - |
+| #463 | 1.98 | 2.23 | $62,640 ($44,849) | - |
+
+**When an alarm trips.**
+- FRONTIER reports to MANAGER the same day: the leg, which alarm, the forward record against its band, and the execution gap beside it.
+  MANAGER takes it to the owner.
+- Never an automatic change. The leg keeps trading as it is until the owner decides.
+- A trip means "the forward record is worse than the backtested leg produces 2.5% of the time". It is evidence of harm, not proof of
+  decay.
+- False alarms: a leg exactly as backtested trips A1 or A2 within 36 months about 4% of the time (the two alarms overlap). Across the five
+  monitored lines, expect one false alarm somewhere in 36 months about one time in five.
+
+**Power: how much forward data before it can say anything** (the chance of an alarm when the leg has changed; bootstrap of its own days):
+
+| Leg | Edge cut to 55% (the decay paper's average): by 12 / 24 / 36 months | Edge gone: by 12 / 24 / 36 months (median) | Losing as fast as it used to win: median |
+|---|---|---|---|
+| ORB | 3% / 10% / 17% | 13% / 41% / 63% (29 months) | 10 months |
+| TTM (x3) | 3% / 6% / 12% | 7% / 22% / 40% (beyond 36) | 17 months |
+| NOISE | 14% / 33% / 47% | 61% / 90% / 98% (10 months) | 3 months |
+| ENGU-Q | 5% / 9% / 14% | 14% / 33% / 51% (35 months) | 11 months |
+| #463 | 13% / 30% / 47% | 63% / 91% / 98% (9 months) | 3 months |
+
+**Read.**
+- **What the monitor can promise:** a leg that starts LOSING is caught within a year (TTM within about 17 months).
+- **What it cannot see:** a leg whose edge merely halves is invisible within 36 months for every leg.
+- **Where silent decay can hide:** NOISE and the book show an edge that has gone to zero within about 10 months. ORB, ENGU-Q and above all
+  TTM can lose their whole edge and still not trip in 36 months a third to a half of the time (ORB 37%, ENGU-Q 49%, TTM 60%). Their low Sharpe and their dependence on a few big
+  days are why.
+- **That is the decay weighting:** ORB and TTM are read first, carry the big-day watch line, and a quiet 36 months for them is stated in
+  advance as "not shown", never as "fine".
+- **Next, if MANAGER approves:** FRONTIER builds the weekly read on the runner's shadow (a small script and a RUNBOARD note line per leg).
+
 ### 10ap. Q30 EFFECTIVE TRIALS: the book looks are about 2 independent ideas, not 71; #485's 307 settings are about 30 (2026-10-09, a report)
 
 **What it is.** MANAGER #128 item 1, from the owner's reading list: Lopez de Prado & Lewis (2019) for the count, and Bailey & Lopez de Prado
