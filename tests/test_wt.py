@@ -801,7 +801,10 @@ def test_quiet_main_every_gate_runs_before_the_lock_and_nothing_runs_under_it(tm
     slots = dict((r[:2], r[5]) for r in _trees(tmp_path))
     assert slots == {('preflight_boot', 'plain'): '0/1', ('home_render_probe', 'plain'): '0/1',
                      ('home_render_probe', 'selftest'): '1/0'}, slots
-    for p in wt.gate_slot_paths('slow') + wt.gate_slot_paths('fast'):
+    # the subprocess ran with a tmp EDGELOG_HOME (no night mode) - name its daytime slots, not this
+    # process's: the real PC may be in NT night mode while the suite runs (2026-10-09)
+    for p in (wt.gate_slot_paths('slow', wt.GATE_SLOTS['slow'])
+              + wt.gate_slot_paths('fast', wt.GATE_SLOTS['fast'])):
         p = str(tmp_path / 'home' / 'state' / 'gate_slots' / os.path.basename(p))
         assert _other_process_sees(p) == 'free', 'a gate slot outlived its gate'
 
