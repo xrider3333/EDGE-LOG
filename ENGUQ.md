@@ -1659,3 +1659,47 @@ tape. Two consequences:
   from the 09-30 arming. Around April 2027, later if the leg keeps holding for weeks. Reading the
   shadows sooner would mean lowering the checkpoint or switching to a dollar comparison, either of
   which is a change to a pre-registered bar and therefore MANAGER's call, not this lane's.
+
+### 2026-10-09 - ANATOMY r1 addendum: WHILE IT IS ON, the leg IS one long NQ contract (0.982, R2 0.962)
+
+Review support for FRONTIER's DRIFT-TWIN seat read (MANAGER #51), and a correction to this lane's
+own published figure. **Exposure shape only - no drift-twin comparison was computed here, because
+that is FRONTIER's pre-registered test and the house must not see its answer before the bar exists.**
+Crown at its defaults, roll-corrected ETH minute master, 0.783, walk-forward, marks valued daily,
+2,720 days.
+
+**The leg's beta to NQ depends entirely on whether it is holding:**
+
+- all days: **0.443**, intercept +$88 a day, R-squared 0.449;
+- days with any exposure: 0.593, intercept -$46 a day, R-squared 0.597;
+- **days fully held: 0.982, intercept -$15 a day, R-squared 0.962**;
+- days fully flat: 0.000 (632 days).
+
+Mean daily exposure is 0.596; 23.2% of days are fully flat and 40.5% fully held. **So on a day it
+holds, the leg is a long NQ contract to within 2%, and 96% of its daily variance is NQ's move.** The
+low all-days number is that 0.982 diluted by flat days, nothing more. A twin matched in-position at
+the same average exposure would run about 0.743 contracts while on.
+
+**CORRECTION to ANATOMY r1's headline, and it is a specification point rather than an error of
+arithmetic.** That round published 0.384. It took NQ's daily closes from the RTH 5-minute master;
+marking days on the ETH master the leg actually trades gives **0.443**, about 15% apart. Neither is
+wrong - they are different quantities, because "a day" ends at a different clock time. The ETH
+convention is the right one for this leg and is used from here on; anything quoting 0.384 should say
+it is the RTH-marked figure.
+
+**The fact that matters most, with the caveat that must travel with it.** Splitting NQ's OWN daily
+move by whether the leg was exposed: on the 2,088 exposed days NQ averaged **+$380.5** a day, and on
+the 632 fully-flat days it averaged **-$768.6** - a $1,149-a-day difference in the underlying,
+before anything about the leg's own sizing. **The leg is systematically absent on NQ's bad days.**
+
+The caveat, because that number reads stronger than it is: this conditions on something
+outcome-adjacent. The leg exits on a trailing stop, so many fully-flat days are days AFTER a stop
+was hit, during the continuation of a decline. **That is real timing - the leg got out - but it is
+not evidence of predictive timing at entry**, and nothing should be built on it as though it were.
+The clean separation is a three-way decomposition, offered to FRONTIER to pre-register: the leg's
+dollars split into beta times NQ on exposed days, the selection of which days are exposed, and the
+residual. One twin number cannot stand in for all three.
+
+**And a power warning handed to FRONTIER rather than discovered afterwards:** with an in-position
+R-squared of 0.962, the residual the leg has to win on is small, so the note needs a power line
+saying what lead would even be detectable before it reports whether a lead exists.
