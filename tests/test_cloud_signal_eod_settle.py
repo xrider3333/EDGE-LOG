@@ -144,7 +144,8 @@ def test_the_real_legs_flag_orb_and_every_noise_but_not_enguq():
     assert cs.CROWN_LEGS["NOISE_382"].get("eod_flat") is True
     # the #422 shadow legs are flat at the close like the primary. ENGU-Q, live again since
     # 2026-10-09 with its pre-09-28 cfg, has no eod_flat: its STRATEGY holds overnight in the
-    # backtest (the book is still flat at qqq_exec's flat_by -- that is the executor's rail)
+    # backtest, and since the 10-09 owner GO (MANAGER #106) the book holds it too: qqq_exec's
+    # flat_by flatten keeps ENGU-Q (HOLD_OVERNIGHT_LEGS) and sells it on this EXIT
     for key in ("NOISE_422_PLAIN", "NOISE_422_FIXED", "NOISE_422_KEEL"):
         assert cs.SHADOW_LEGS[key].get("eod_flat") is True, key
     assert "ENGUQ_335" in cs.CROWN_LEGS and "ENGUQ_335" not in cs.SHADOW_LEGS

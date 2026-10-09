@@ -1146,3 +1146,273 @@ def test_feed_stall_and_gave_up_wording_name_the_held_lot():
                                 "shares_remaining": 10}}}
     assert "ENGU-Q is held overnight" in qe._eod_gave_up_order_words(state)
     assert qe._eod_gave_up_order_words({"legs": {}}) == "No order depends on it."
+
+
+# ── END TO END: the live engine's EXIT reaches the held lot (ENGU-Q live + hold, 2026-10-09) ──
+# ENGU-Q is a CROWN_LEGS leg again (MANAGER #102) AND its lot holds overnight (MANAGER #106).
+# Nothing between the two halves is stubbed here: api/cloud_signal.step() (fetch=False, a
+# temp 1m bar cache, the SHIPPED ENGUQ_335 cfg -- live_since included -- with only its
+# strategy swapped for a scripted one) writes the SEED / ENTRY / EXIT rows into its own
+# signals.csv, qqq_exec's real _consume_engine_signals reads them on its own cursor, and the
+# held lot's prior close / open marks come from that same bar cache (_held_session_marks).
+
+E2E_A, E2E_B, E2E_C = DAY2, MON, (2026, 10, 13)          # Fri, Mon, Tue
+E2E_BASE = {"2026-10-08": 710.0, "2026-10-09": 700.0, "2026-10-12": 690.0, "2026-10-13": 705.0}
+# (entry, exit, side, entry_px, exit_px): T1 is bought Friday 11:00 and exits Monday 10:30 in
+# regular hours; T2 is bought Monday 11:00 and exits on Monday's last 1m bar (15:59), which the
+# engine first sees after the bell (an eod_settle row)
+E2E_T1 = ("2026-10-09T11:00:00-04:00", "2026-10-12T10:30:00-04:00", 1, 700.90, 690.65)
+E2E_T2 = ("2026-10-12T11:00:00-04:00", "2026-10-12T15:59:00-04:00", 1, 690.90, 693.95)
+
+
+def _e2e_strategy(trades):
+    """A strategy module that takes exactly `trades` whenever their entry bar is in the window
+    it is handed (matched by bar time); a trade whose exit bar is not in it yet is still open
+    (marked at the last close, which run_leg_trades reads as open)."""
+    import types
+    import pandas as pd
+    mod = types.ModuleType("hold_e2e_scripted")
+    mod.DEFAULT_PARAMS = {}
+
+    def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=None,
+                     return_trades=False, **kw):
+        pos = {pd.Timestamp(x).value: i for i, x in enumerate(index)}
+        n, out = len(closes), []
+        for entry_ts, exit_ts, side, entry_px, exit_px in trades:
+            i = pos.get(pd.Timestamp(entry_ts).value)
+            if i is None:
+                continue
+            j = pos.get(pd.Timestamp(exit_ts).value)
+            if j is None:
+                out.append((i, n - 1, (float(closes[n - 1]) - entry_px) * side, side, entry_px))
+            else:
+                out.append((i, j, (exit_px - entry_px) * side, side, entry_px))
+        return {"trades": out if return_trades else None, "num_trades": len(out),
+                "total_pnl": sum(t[2] for t in out), "win_rate": 0, "profit_factor": 0,
+                "max_drawdown": 0, "avg_pnl": 0, "wins": 0, "losses": 0}
+
+    mod.run_backtest = run_backtest
+    return mod
+
+
+class _Engine:
+    """api/cloud_signal driven by hand: its own clock (the ledger's emitted_at), its 1m bar
+    cache as of `now` (only the bars closed by then, `time` = the bar's START epoch, as the
+    live cache holds them) and a real step() on the shipped ENGUQ_335 cfg."""
+
+    def __init__(self, monkeypatch):
+        import datetime as dtm
+        from zoneinfo import ZoneInfo
+        import pandas as pd
+        self.ny = ZoneInfo("America/New_York")
+        self.paths = cs.DEFAULT_PATHS                     # the env's private cloud_signal home
+        os.makedirs(self.paths["ohlc_dir"], exist_ok=True)
+        os.makedirs(self.paths["state_dir"], exist_ok=True)
+        self.clock = [None]
+        clock = self.clock
+
+        class FixedDT(dtm.datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return clock[0].astimezone(tz) if tz else clock[0].replace(tzinfo=None)
+        monkeypatch.setattr(cs, "_dt", SimpleNamespace(datetime=FixedDT, timedelta=dtm.timedelta,
+                                                       time=dtm.time, date=dtm.date))
+        self.rows = []
+        for d, base in sorted(E2E_BASE.items()):
+            start = pd.Timestamp(d + " 09:30", tz=cs.TZ)
+            for b in range(390):
+                o = round(base + 0.01 * b, 2)
+                self.rows.append((int((start + pd.Timedelta(minutes=b)).timestamp()), o,
+                                  round(o + 0.05, 2), round(o - 0.05, 2), round(o + 0.01, 2), 1000.0))
+        self.legs = {"ENGUQ_335": dict(cs.CROWN_LEGS["ENGUQ_335"], warmup_sessions=10,
+                                       strategy=_e2e_strategy([E2E_T1, E2E_T2]))}
+
+    def step(self, now):
+        aware = now.replace(tzinfo=self.ny)
+        self.clock[0] = aware
+        cut = aware.timestamp()
+        with open(os.path.join(self.paths["ohlc_dir"], "QQQ_1m.csv"), "w", newline="",
+                  encoding="utf-8") as f:
+            w = csv.writer(f)
+            w.writerow(["time", "open", "high", "low", "close", "volume"])
+            w.writerows(r for r in self.rows if r[0] + 60 <= cut)
+        return cs.step(now=aware, legs=self.legs, paths=self.paths, fetch=False)
+
+    def ledger(self):
+        return _rows(self.paths["signals_path"])
+
+
+def test_end_to_end_the_engine_exit_rows_sell_the_held_enguq_lot(env, monkeypatch):
+    """ENGU-Q live + held overnight, end to end: the engine cold-starts the leg (SEED only),
+    emits T1's ENTRY Friday 11:01 -> the book buys 10; the 15:59 flatten keeps it (the engine's
+    own trade stays open past the bell too: no eod_flat, no settle EXIT); it rides the weekend
+    and a restart; Monday's open mark comes from the engine's own cache; the engine's later-day
+    EXIT (Monday 10:30 bar, regular hours) sells it at market at Monday's price -- P&L of record
+    exit - entry, the gap in its own column, the $400 rail exit - open mark on both rail sites.
+    T2 then enters Monday and exits on Monday's last bar, first seen by the post-close step (an
+    eod_settle EXIT): nothing is sent after the bell; Tuesday 09:30 sells it at market at
+    Tuesday's price, never the row's own Monday price."""
+    e = env
+    monkeypatch.setattr(qe, "_consume_engine_signals", _REAL_CONSUME)
+    monkeypatch.setattr(qe, "_held_session_marks", _REAL_MARKS)
+    eng = _Engine(monkeypatch)
+    tid1 = cs._trade_id.make("ENGUQ_335", E2E_T1[0], "long")
+    tid2 = cs._trade_id.make("ENGUQ_335", E2E_T2[0], "long")
+    assert tid1 == TID_E2
+
+    e.tick(at(E2E_A, 9, 40))                  # the book arms its cursor before any row exists
+    assert e.state["engine_cursor"] == 0
+    seed = eng.step(at(E2E_A, 9, 45, 10))
+    assert [r["event"] for r in seed] == ["SEED"] and "live_since=2026-10-09" in seed[0]["reason"]
+
+    # Friday: the ENTRY row -> the book buys 10
+    (row,) = eng.step(at(E2E_A, 11, 1, 10))
+    assert (row["event"], row["trade_id"], row["ref_price"]) == ("ENTRY", tid1, 700.9)
+    e.px["ENGUQ"] = e.fake.fill_px = 700.9
+    e.tick(at(E2E_A, 11, 1, 15))
+    assert e.lot("ENGUQ")["trade_id"] == tid1 and e.fake.pos == 10
+    assert [(s, q) for s, q, _ in e.fake.sent] == [("BUY", 10)]
+
+    # 15:59: the flatten keeps it; after the bell the engine's own trade is still open
+    e.px["ENGUQ"] = 703.9
+    e.tick(at(E2E_A, 15, 59, 5))
+    assert e.lot("ENGUQ")["hold"]["since"] == ds(E2E_A) and e.fake.pos == 10
+    assert eng.step(at(E2E_A, 16, 0, 35)) == [], "no eod_flat: the strategy's trade stays open"
+    e.tick(at(E2E_A, 16, 0, 40))
+    assert e.state["_webull_flat_after_eod"]["held"] == {"ENGUQ": 10}
+
+    # the weekend, a restart
+    e.tick(at(SAT, 12, 0))
+    e.restart()
+    assert e.lot("ENGUQ")["trade_id"] == tid1 and e.books() == {"ENGUQ": 10}
+
+    # Monday 09:31: the open mark from the engine's own 1m cache (Friday's last close 703.90,
+    # Monday's first open 690.00 -> gap -139.00)
+    eng.step(at(E2E_B, 9, 31, 0))
+    e.px["ENGUQ"] = 690.01
+    e.tick(at(E2E_B, 9, 31, 5))
+    h = e.lot("ENGUQ")["hold"]
+    assert (h["close_mark_px"], h["open_mark_px"], h["gap_today_usd"], h["nights"]) == \
+        (703.9, 690.0, -139.0, 1)
+
+    # Monday 10:31: the engine's later-day EXIT for the ENTRY it emitted on Friday
+    (row,) = eng.step(at(E2E_B, 10, 31, 10))
+    assert (row["event"], row["trade_id"], row["ref_price"]) == ("EXIT", tid1, 690.65)
+    assert row["reason"] == "strategy_exit" and row["ref_time"] == E2E_T1[1]
+    led = eng.ledger()[-1]                     # the exact row the book reads, SIGNAL_COLS
+    assert list(led) == list(cs.SIGNAL_COLS)
+    assert (led["event"], led["trade_id"], led["ref_price"]) == ("EXIT", tid1, "690.65")
+    sent = len(e.fake.sent)
+    e.px["ENGUQ"] = e.fake.fill_px = 690.65
+    e.tick(at(E2E_B, 10, 31, 15))
+    assert "ENGUQ" not in e.state["legs"]
+    assert [(s, q) for s, q, _ in e.fake.sent[sent:]] == [("SELL", 10)], "at market, in regular hours"
+    assert e.fake.pos == 0 and e.books() == {"ENGUQ": 0}
+    (t1,) = e.trades()
+    assert t1["trade_id"] == tid1 and t1["exit_ts"].startswith(ds(E2E_B))
+    assert float(t1["exit_px"]) == 690.65 and float(t1["pnl"]) == pytest.approx(-102.5)
+    assert float(t1["overnight_gap_usd"]) == -139.0 and t1["nights_held"] == "1"
+    assert qe._rail_realized_today(e.state) == pytest.approx(6.5), "exit - open mark, the gap left out"
+    assert e.adapter._state["daily_pnl"] == pytest.approx(6.5), "the adapter's rail agrees"
+
+    # Monday 11:01: T2's ENTRY -- the leg is free again
+    (row,) = eng.step(at(E2E_B, 11, 1, 10))
+    assert (row["event"], row["trade_id"]) == ("ENTRY", tid2)
+    e.px["ENGUQ"] = e.fake.fill_px = 690.9
+    e.tick(at(E2E_B, 11, 1, 15))
+    assert e.lot("ENGUQ")["trade_id"] == tid2 and e.fake.pos == 10
+    e.px["ENGUQ"] = 693.89
+    e.tick(at(E2E_B, 15, 59, 5))
+    assert e.lot("ENGUQ")["hold"]["since"] == ds(E2E_B)
+    assert eng.step(at(E2E_B, 15, 59, 10)) == [], "its exit bar (15:59) has not closed yet"
+
+    # after the bell: the settle step sees the 15:59 bar -> EXIT tagged eod_settle; the book
+    # keeps the lot and sends nothing
+    (row,) = eng.step(at(E2E_B, 16, 0, 35))
+    assert (row["event"], row["trade_id"], row["ref_price"]) == ("EXIT", tid2, 693.95)
+    assert row["reason"] == "strategy_exit; eod_settle"
+    sent = len(e.fake.sent)
+    e.tick(at(E2E_B, 16, 0, 40))
+    cp = e.lot("ENGUQ")["close_pending"]
+    assert (cp["reason"], cp["trade_id"], cp["px"]) == ("signal exit", tid2, 693.95)
+    assert len(e.fake.sent) == sent and e.fake.pos == 10
+    e.tick(at(E2E_C, 9, 25))
+    assert len(e.fake.sent) == sent and "ENGUQ" in e.state["legs"]
+
+    # Tuesday 09:30: sold at market at Tuesday's price (705.00), not the row's 693.95
+    e.px["ENGUQ"] = e.fake.fill_px = 705.0
+    e.tick(at(E2E_C, 9, 30, 5))
+    assert "ENGUQ" not in e.state["legs"]
+    assert [(s, q) for s, q, _ in e.fake.sent[sent:]] == [("SELL", 10)]
+    assert e.fake.pos == 0 and e.books() == {"ENGUQ": 0} and e.fake.refused == []
+    t2 = e.trades()[-1]
+    assert t2["trade_id"] == tid2 and t2["exit_reason"] == qe.HELD_EXIT_REASON
+    assert t2["exit_ts"].startswith(ds(E2E_C)) and float(t2["exit_px"]) == 705.0
+    assert float(t2["pnl"]) == pytest.approx(141.0)
+    assert float(t2["overnight_gap_usd"]) == pytest.approx(111.0), "Monday's last close 693.90 to 705.00"
+    assert qe._rail_realized_today(e.state) == pytest.approx(0.0), "sold at its own open mark"
+    assert [r["event"] for r in eng.ledger()] == ["SEED", "ENTRY", "EXIT", "ENTRY", "EXIT"]
+    assert not e.state.get("trade_id_checks", {}).get("today"), "every row matched its lot"
+
+
+def test_status_doc_carries_the_held_lot_and_the_shadow_block_inside_the_firestore_budget(env, monkeypatch):
+    """The two 10-09 additions to the status doc side by side: the held lot's fields
+    (positions / positions_live / today / rails) and the display-only shadow_trades block
+    (MANAGER #87 d). Both present, the shadow rows never in trades_all, the doc inside its
+    Firestore budget; with the budget squeezed the block drops its own oldest trades and the
+    held lot's fields are untouched."""
+    e = env
+    _hold_enguq(e)
+    e.marks.update(prior_close=690.0, today_open=640.0, today_last=645.0)
+    e.px["ENGUQ"] = 645.0
+    e.tick(at(DAY2, 9, 45))
+    monkeypatch.setattr(qe, "_build_doc", _REAL_BUILD_DOC)
+    for name, fn in (("_trade_parity", lambda row, log=print: {}),
+                     ("_load_reprice_sidecar", lambda log=print: {}),
+                     ("_engine_prices_by_trade", lambda *a, **k: {}),
+                     ("_build_price_status", lambda cfg, state, log=print: {}),
+                     ("_build_run_location", lambda: {}),
+                     ("_build_ratio_health", lambda state, nowdt, cfg=None, log=print: {}),
+                     ("_build_keel_status", lambda log=print: {}),
+                     ("_build_equity_status", lambda state, nowdt, log=print: {}),
+                     ("_live_price_for_leg", lambda leg, log=print: (645.0, 1.0, "live_stream"))):
+        monkeypatch.setattr(qe, name, fn)
+    shadow = cs.shadow_paths(cs.DEFAULT_PATHS)["signals_path"]
+    os.makedirs(os.path.dirname(shadow), exist_ok=True)
+
+    def srow(leg, ev, ts, px, tid, side="long"):
+        return {"emitted_at": ts, "leg": leg, "event": ev, "side": side, "ref_time": ts,
+                "ref_price": px, "shares": "135", "reason": ev.lower(), "bar_source": "webull",
+                "trade_id": tid, "size": "1.0", "keel_size": ""}
+    with open(shadow, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=cs.SIGNAL_COLS, restval="")
+        w.writeheader()
+        for i in range(6):
+            tid = "NOISE_422_PLAIN-202610%02dT143500Z-S" % (1 + i)
+            w.writerow(srow("NOISE_422_PLAIN", "ENTRY", "2026-10-%02dT10:35:00-04:00" % (1 + i), "741.00",
+                            tid, side="short"))
+            w.writerow(srow("NOISE_422_PLAIN", "EXIT", "2026-10-%02dT11:10:00-04:00" % (1 + i), "739.50",
+                            tid, side="short"))
+
+    def build():
+        monkeypatch.setattr(qe, "_SHADOW_TRADES_CACHE", {"key": None, "value": None, "logged": None})
+        monkeypatch.setattr(qe, "_SHADOW_MARK_CACHE", {})
+        return qe._build_doc(e.cfg, e.state, False, -550.0, log=NOOP)
+
+    doc = build()
+    held = {k: v for k, v in doc["positions"]["ENGUQ"].items()}
+    assert held["held_overnight"] is True and held["gap_usd"] == -500.0
+    assert doc["today"]["overnight_gap_usd"] == -500.0 and doc["rails"]["hold_overnight_legs"] == ["ENGUQ"]
+    st = doc["shadow_trades"]
+    assert "error" not in st and len(st["trades"]) == 6 and st["capped"] == 0
+    assert not {t.get("trade_id") for t in st["trades"]} & {t.get("trade_id") for t in doc["trades_all"]}
+    size, leaves = qe._fs_size(doc) + 232, qe._fs_leaves(doc)
+    assert size <= qe.FS_DOC_BUDGET_BYTES and leaves <= qe.FS_DOC_BUDGET_LEAVES
+    json.dumps(doc, allow_nan=False)
+
+    monkeypatch.setattr(qe, "FS_DOC_BUDGET_BYTES", size - 1)
+    squeezed = build()
+    assert squeezed["shadow_trades"]["capped"] >= 1 and len(squeezed["shadow_trades"]["trades"]) < 6
+    assert squeezed["trades_all_trimmed"] == 0, "the block gives way, never trades_all"
+    assert squeezed["positions"]["ENGUQ"] == held, "the held lot's fields are never trimmed"
+    assert qe._fs_size(squeezed) + 232 <= size - 1

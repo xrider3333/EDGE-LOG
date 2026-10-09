@@ -50,10 +50,14 @@ ENGU-Q back on the order-placing book by OWNER DECISION 2026-10-09 -- see ENGUQ_
               LIVE AGAIN SINCE 2026-10-09 (OWNER DECISION via MANAGER #102, reversing the
               2026-09-28 move to the shadow legs). It was taken off the book because every
               ENGU-Q Webull order had been closed by qqq_exec's 15:59 end-of-day flatten, never
-              by the strategy's own multi-day exit; the owner now accepts that, and QQQ's
-              RTH-only tape ("idc if its not getting 24hr data"). Nothing is added for it:
-              qqq_exec only opens it inside its session window and flattens every leg at
-              flat_by, so no overnight holding. Same cfg it had live before 2026-09-28 (commit
+              by the strategy's own multi-day exit; the owner accepts QQQ's RTH-only tape
+              ("idc if its not getting 24hr data"), and since the same day (owner GO
+              2026-10-09, MANAGER #106) the book HOLDS ENGU-Q OVERNIGHT: qqq_exec's 15:59
+              flat_by flatten sells the other legs but keeps the ENGU-Q lot (qqq_exec
+              HOLD_OVERNIGHT_LEGS), which sells on this leg's own EXIT on a later day -- the
+              exit of an emitted ENTRY fires on any later day, also when first seen after
+              the close (EOD SETTLE). qqq_exec only opens it inside its session window.
+              Same cfg it had live before 2026-09-28 (commit
               fb0f32f0's parent: phantom_safe, max_entry_age_sec, no eod_flat) plus
               "live_since" -- it STARTS FLAT (see LIVE SINCE above _apply_live_since: its old
               live state is discarded and it cold-starts, so no catch-up ENTRY and no EXIT
@@ -335,8 +339,9 @@ CROWN_LEGS = {
     # LIVE AGAIN SINCE 2026-10-09 (OWNER DECISION via MANAGER #102) -- see the module
     # docstring. The cfg it had live before 2026-09-28 (fb0f32f0's parent), key for key,
     # plus "live_since". No "eod_flat": its strategy holds overnight in the backtest, so its
-    # engine trade may stay open past the close; the BOOK is flat at qqq_exec's flat_by
-    # anyway (that is the executor's rail, not the strategy's exit).
+    # engine trade may stay open past the close -- and since 2026-10-09 (owner GO, MANAGER
+    # #106) the BOOK holds it too: qqq_exec's flat_by flatten skips ENGUQ
+    # (HOLD_OVERNIGHT_LEGS) and sells it on this leg's own EXIT on a later day.
     "ENGUQ_335": {
         "strategy": "ENGUQ_1M_ETH_R2_1_0.py",
         "timeframe": "1m",
@@ -4321,14 +4326,22 @@ def _shadow_tick(now, fetch, log=print):
 # last bar (state["eod_settled"][date]); past the window it gives up with one log line
 # and the next morning emits as before. With post_close set no ENTRY is ever emitted
 # (_diff_leg), and run_leg_trades' EOD FLAT rule closes the eod_flat legs' trades at that
-# last bar -- the backtest's own end-of-day fill. SIGNALS ONLY: api/qqq_exec.py never
-# sends a broker order for these rows (its after-close guard; no lot -> nothing to close).
+# last bar -- the backtest's own end-of-day fill. SIGNALS ONLY for every leg that is flat
+# at the close: api/qqq_exec.py never sends a broker order for these rows (its after-close
+# guard; no lot -> nothing to close). The one exception is a lot qqq_exec HOLDS OVERNIGHT
+# (ENGU-Q since 2026-10-09, owner GO, MANAGER #106 -- qqq_exec HOLD_OVERNIGHT_LEGS): a settle
+# EXIT for its trade (the exit of an emitted ENTRY, tagged eod_settle) keeps the lot and is
+# sold at market at the next open (qqq_exec _defer_held_close), never at the row's price.
+# Only the eod_flat legs' last bars are waited for: an ENGU-Q exit on its 1m 15:59 bar that
+# misses the settle comes with the next session's first step instead and is sold the same
+# way, at market at a price from that day.
 #
 # KNOWN LIMIT (accepted, 2026-09-28 review): a settle EXIT's price is fixed by the FIRST
 # fetch that holds the last bar, and _diff_leg never re-emits an exit once emitted -- so
 # if that REST bar is later revised (09-28: stream-vs-REST close differences up to 0.005
 # on just-closed bars), backtest_exit_px keeps the provisional value. It feeds signals and
-# parity only; no order depends on it.
+# parity only; no order depends on it (a held lot's settle EXIT is sold at market at the
+# next open, never at this price -- see SIGNALS ONLY above).
 #
 # A step() that RAISES inside the window is caught here, never by the thread's own
 # except-branch: the heartbeat stays ok=True with an "eod settle failed" note (nothing

@@ -7134,7 +7134,9 @@ def _engine_key_for_leg(leg, cs=None):
 def _engine_leg_cfg(cs, cs_key):
     """cloud_signal's cfg for an engine key -- CROWN_LEGS first, then SHADOW_LEGS. Used ONLY
     for the key's timeframe (its bar cache, its bar width). ENGUQ_335 resolves from
-    CROWN_LEGS again since 2026-10-09 (live again, OWNER DECISION); the SHADOW_LEGS fallback
+    CROWN_LEGS again since 2026-10-09 (live again, OWNER DECISION; its lot HOLDS OVERNIGHT
+    since the same day's owner GO, MANAGER #106 -- HOLD_OVERNIGHT_LEGS -- so a held ENGU-Q
+    lot is marked off this 1m cache across the night, not flattened); the SHADOW_LEGS fallback
     -- added 2026-09-28 while it was a shadow leg -- only matters for an exec leg whose every
     engine key is off the live book, so a leftover lot can still be marked and flattened and
     an old order row keeps its after-close latency. It never makes a shadow leg's signals

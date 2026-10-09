@@ -1029,7 +1029,7 @@ MUTANTS = [
      "const badgeColor=false?'var(--text4)':(",
      "the strategy rows' position pills stay in colour on a silent box (finding 8)"),
     ('top-chip-always-flat',
-     "txt=(nOpen>0?('WEBULL '+nOpen+' OPEN'):'WEBULL FLAT')+chkTxt",
+     "txt=(nOpen>0?('WEBULL '+nOpen+(allHeld?' HELD':' OPEN')):'WEBULL FLAT')+chkTxt",
      "txt='WEBULL FLAT'+chkTxt",
      "the top bar chip says FLAT with a position open"),
     # review fixes (fifth pass)

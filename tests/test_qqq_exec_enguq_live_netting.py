@@ -7,19 +7,26 @@ _plan_broker_parts, from the ACCOUNT net = the sum of every leg's broker_sent_po
   BUY direction:  BUY, split at zero when it crosses short -> long.
 
 Driven the way the box drives it: engine ENTRY/EXIT rows through
-api/qqq_exec._route_engine_events (the engine-mode consumer), the end-of-day flatten through
-_close_all at flat_by (15:59), a real api.webull_orders.OrderAdapter in PAPER, and a fake
-Webull account (FakeAccount below) that holds ONE QQQ position and enforces Webull's rules.
+api/qqq_exec._route_engine_events (the engine-mode consumer), a close of every open lot at once
+through _close_all, a real api.webull_orders.OrderAdapter in PAPER, and a fake Webull account
+(FakeAccount below) that holds ONE QQQ position and enforces Webull's rules.
+
+HOLD OVERNIGHT (owner GO 2026-10-09, MANAGER #106): the 15:59 flat_by flatten no longer closes
+ENGU-Q -- it holds overnight and sells on its own exit (tests/test_qqq_exec_hold_overnight.py,
+incl. the flatten never crossing a closing leg against the held lot). Cases 1, 3 and 4 below call
+_close_all over EVERY open lot (reason "EOD", at 15:59): what the flatten does with the hold
+turned off (session.hold_overnight_legs []), and what KILL and the daily loss BREAKER still do
+to ENGU-Q inside regular hours -- the netting is the same.
 
 COVERS:
   1. A realistic day: NOISE short 10 open -> ENGU-Q BUY 10 (covers at the broker, books
      NOISE -10 / ENGUQ +10, account flat) -> NOISE's cover BUY 10 (the broker opens long 10)
-     -> the 15:59 flatten SELLs ENGU-Q's 10 -> the account and every book are flat.
+     -> a close of every lot at 15:59 SELLs ENGU-Q's 10 -> the account and every book are flat.
   2. ENGU-Q long first, then NOISE short: the SELL 10 nets against the account's long 10 ->
      a plain closing SELL, never a SHORT (Webull refuses a short while long).
-  3. Both open at flat_by, opposite sides (ENGU-Q long + NOISE short, account flat): one tick
+  3. Both closed at once, opposite sides (ENGU-Q long + NOISE short, account flat): one tick
      crosses them in the books -- ZERO orders, nothing refused.
-  4. Both open at flat_by, SAME side (ORB long + ENGU-Q long, account +20): two identical
+  4. Both closed at once, SAME side (ORB long + ENGU-Q long, account +20): two identical
      SELL 10s in one tick -- Webull's DUPLICATE_ORDER_CHECK refuses the second while the first
      is working; it is queued and re-sent a tick later under a fresh id; the account ends flat.
   5. ENGU-Q's entry refused by the session window (bar after last_entry / after the bell)
@@ -245,8 +252,10 @@ def test_noise_short_then_enguq_long_then_noise_cover_then_eod_flatten(account):
     assert _books(adapter) == {"NOISE": 0, "ENGUQ": 10}
     assert set(state["legs"]) == {"ENGUQ"}
 
+    # every open lot closed at once (the hold off, or KILL / BREAKER in regular hours): with the
+    # default hold the 15:59 flatten keeps ENGU-Q -- see tests/test_qqq_exec_hold_overnight.py
     qe._close_all(state, _cfg(), "EOD", None, None, log=NOOP, nowdt=_at(15, 59, 1))
-    assert _orders(fake, 3) == [("SELL", 10)], "the 15:59 flatten sells ENGU-Q's 10"
+    assert _orders(fake, 3) == [("SELL", 10)], "closing every lot sells ENGU-Q's 10"
     assert fake.pos == 0 and adapter._account_net("QQQ") == 0
     assert _books(adapter) == {"NOISE": 0, "ENGUQ": 0}
     assert state["legs"] == {} and fake.refused == []
@@ -267,7 +276,8 @@ def test_enguq_long_first_then_noise_short_sells_against_the_account_long(accoun
     assert fake.pos == 0 and _books(adapter) == {"ENGUQ": 10, "NOISE": -10}
 
 
-# ── 3. both open at flat_by, opposite sides: crossed in one tick, zero orders ───────────
+# ── 3. both closed at once, opposite sides: crossed in one tick, zero orders ────────────
+# (_close_all over every lot -- the 15:59 flatten itself keeps ENGU-Q since the hold, 10-09)
 def test_enguq_long_and_noise_short_at_flat_by_cross_with_no_order(account):
     adapter, fake, _clock = account
     state = {"legs": {}, "events": [], "_px_source": "test"}
@@ -286,7 +296,8 @@ def test_enguq_long_and_noise_short_at_flat_by_cross_with_no_order(account):
     assert {r["leg"] for r in rows} == {"ENGUQ", "NOISE"} and {r["outcome"] for r in rows} == {"NETTED"}
 
 
-# ── 4. both open at flat_by, same side: Webull's duplicate check, then the re-send ──────
+# ── 4. both closed at once, same side: Webull's duplicate check, then the re-send ───────
+# (_close_all over every lot -- the 15:59 flatten itself keeps ENGU-Q since the hold, 10-09)
 def test_orb_and_enguq_long_at_flat_by_survive_webull_s_duplicate_order_check(account):
     adapter, fake, clock = account
     state = {"legs": {}, "events": [], "_px_source": "test"}
@@ -301,7 +312,7 @@ def test_orb_and_enguq_long_at_flat_by_survive_webull_s_duplicate_order_check(ac
     assert _orders(fake, n) == [("SELL", 10)], "ORB's SELL 10 went out"
     assert fake.refused == [("SELL", 10, "OPENAPI_ORDER_RISK_RULE_DUPLICATE_ORDER_CHECK")], \
         "ENGU-Q's identical SELL 10 in the same instant is Webull's duplicate"
-    assert state["legs"] == {}, "the book closed both lots at the flatten"
+    assert state["legs"] == {}, "the book closed both lots"
     queued = state.get("_broker_resend") or {}
     assert [q.get("leg") for q in queued.values()] == ["ENGUQ"]
 
