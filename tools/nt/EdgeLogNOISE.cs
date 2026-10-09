@@ -104,6 +104,24 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool   stopPlaced;
         private int    lastDir;                      // +1/-1 of the position we believe we hold
 
+        // ── resume after a restart (2026-10-09, owner: "pick up where they left off") ──
+        // On 10-08 a feed flap disabled NOISE with a 10 MNQ short on; the GTC stop held at the
+        // broker but nothing ran the VWAP exit or the session-close exit, and the short sat
+        // open overnight. What dies with an instance is its memory of the trade: the stop
+        // level it computed once at entry. This file keeps it, written only in real time, so
+        // a restart started with StartBehavior=AdoptAccountPosition can take the SAME trade
+        // back. Anything that does not match -- side, size, contract, a missing or flat file --
+        // is not adopted and is left strictly alone (no stop, no exit, no entry), exactly the
+        // ENGU-Q rule (EdgeLogENGUQ1m.RestoreState): managing a position with the wrong stop is
+        // worse than not managing it, and the watchdog holds such a position for a person.
+        private const string StateFile = @"C:\EdgeLog\noise_state.json";
+        private bool   stateChecked;                 // restore runs once, on the first live bar
+        private bool   adopted;                      // this instance took the trade over from a saved file
+        private bool   foreign;                      // the account holds a position that is not ours: hands off
+        private bool   savedInPos;                   // what the file last said, so flat bars do not rewrite it
+        private Order  adoptStop;                                        // our stop placed on adopt
+        private List<Order> staleStops;                                  // the dead instance's stops
+
         // ── decision ledger state ────────────────────────────────────────────
         // The date of the last "nothing can happen today" row, so that state is
         // recorded once per session instead of once per bar.
@@ -576,6 +594,172 @@ namespace NinjaTrader.NinjaScript.Strategies
             return s.Replace(',', ';').Replace('"', '\'').Replace('\r', ' ').Replace('\n', ' ');
         }
 
+        /// <summary>Exits must name no entry signal on an ADOPTED position: it has none, and
+        /// NinjaTrader silently ignores an exit tied to one (ENGU-Q, live 2026-08-25).</summary>
+        private string FromSig { get { return adopted ? "" : "NZ"; } }
+
+        /// <summary>Persist the open trade (or flat) so a restart can resume it. Real time
+        /// only -- the historical pass rebuilds trades from scratch and must never overwrite
+        /// a live trade's file (ENGU-Q lost one that way on 2026-08-19). Never throws.</summary>
+        private void SaveState(bool inPos)
+        {
+            if (State != State.Realtime) return;
+            try
+            {
+                var ci = System.Globalization.CultureInfo.InvariantCulture;
+                string inst = Instrument != null ? Instrument.FullName : "";
+                string json = "{"
+                    + "\"inPos\":" + (inPos ? "true" : "false")
+                    + ",\"dir\":" + (inPos ? lastDir : 0).ToString(ci)
+                    + ",\"qty\":" + (inPos ? Position.Quantity : 0).ToString(ci)
+                    + ",\"avg\":" + (inPos ? Position.AveragePrice : 0.0).ToString("R", ci)
+                    + ",\"stop\":" + (inPos && !double.IsNaN(stopLevel) ? stopLevel : 0.0).ToString("R", ci)
+                    + ",\"instrument\":\"" + inst + "\""
+                    + ",\"saved_utc\":\"" + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss", ci) + "\""
+                    + "}";
+                System.IO.File.WriteAllText(StateFile, json);
+                savedInPos = inPos;
+            }
+            catch { }
+        }
+
+        private static double JsonNum(string js, string key, double dflt)
+        {
+            try
+            {
+                int i = js.IndexOf("\"" + key + "\":");
+                if (i < 0) return dflt;
+                i += key.Length + 3;
+                int j = i;
+                while (j < js.Length && (char.IsDigit(js[j]) || js[j] == '.' || js[j] == '-'
+                       || js[j] == '+' || js[j] == 'E' || js[j] == 'e')) j++;
+                return double.Parse(js.Substring(i, j - i), System.Globalization.CultureInfo.InvariantCulture);
+            }
+            catch { return dflt; }
+        }
+
+        private static bool JsonHas(string js, string key, string val)
+        {
+            return js.IndexOf("\"" + key + "\":" + val) >= 0
+                || js.IndexOf("\"" + key + "\":\"" + val + "\"") >= 0;
+        }
+
+        /// <summary>On the first live bar: if the account holds a position, take it back only
+        /// when it is this strategy's own saved trade (same contract, side and size, a stop on
+        /// file); otherwise leave it alone. Starting flat clears a stale file. Never throws.</summary>
+        private void RestoreState()
+        {
+            if (stateChecked) return;
+            stateChecked = true;
+            // Only an ADOPT start hands this strategy the account's position. Under WaitUntilFlat
+            // Position is the historical pass's virtual trade, which must never get a real stop,
+            // and says nothing about the account -- so the file is left exactly as it is.
+            if (StartBehavior != StartBehavior.AdoptAccountPosition) return;
+            try
+            {
+                string js = System.IO.File.Exists(StateFile) ? System.IO.File.ReadAllText(StateFile) : "";
+                if (Position.MarketPosition == MarketPosition.Flat)
+                {
+                    stopPlaced = false; stopLevel = double.NaN;
+                    if (JsonHas(js, "inPos", "true"))
+                    { SaveState(false); Print("NOISE resume: starting flat, so the saved trade is stale - cleared"); }
+                    else savedInPos = false;
+                    return;
+                }
+                int dir = Position.MarketPosition == MarketPosition.Long ? 1 : -1;
+                string inst = Instrument != null ? Instrument.FullName : "";
+                double sDir = JsonNum(js, "dir", double.NaN), sQty = JsonNum(js, "qty", double.NaN);
+                double sStop = JsonNum(js, "stop", double.NaN), sAvg = JsonNum(js, "avg", double.NaN);
+                string why = js.Length == 0 ? "there is no saved trade"
+                    : !JsonHas(js, "inPos", "true") ? "the saved trade says flat"
+                    : !JsonHas(js, "instrument", inst) ? "the saved trade is for a different contract"
+                    : (int)sDir != dir ? "the saved trade is on the other side"
+                    : double.IsNaN(sQty) || (int)sQty != Position.Quantity
+                        ? "the account holds " + Position.Quantity + " but the saved trade is " + (double.IsNaN(sQty) ? "unknown" : ((int)sQty).ToString())
+                    : double.IsNaN(sAvg) || Math.Abs(sAvg - Position.AveragePrice) > TickSize / 2
+                        ? "the account's average price " + Position.AveragePrice.ToString("F2") + " is not the saved trade's " + (double.IsNaN(sAvg) ? "unknown" : sAvg.ToString("F2"))
+                    : double.IsNaN(sStop) || sStop <= 0 ? "the saved trade has no stop"
+                    : null;
+                if (why != null)
+                {
+                    foreign = true;
+                    Print("NOISE resume: account is " + Position.MarketPosition + " " + Position.Quantity + " but " + why
+                        + " - this position is not mine, NOT managing it (no stop, no exit, no entry)");
+                    return;
+                }
+                adopted = true; lastDir = dir; stopLevel = sStop; stopPlaced = true; savedInPos = true;
+                double px = Instrument.MasterInstrument.RoundToTickSize(stopLevel);
+                Order mine = dir > 0 ? ExitLongStopMarket(0, true, Position.Quantity, px, "NZstop", "")
+                                     : ExitShortStopMarket(0, true, Position.Quantity, px, "NZstop", "");
+                Print("NOISE resume: adopted the open trade - " + Position.MarketPosition + " " + Position.Quantity
+                    + " @ " + Position.AveragePrice.ToString("F2") + ", stop " + px.ToString("F2"));
+                CancelStaleStops(mine, dir);
+            }
+            catch (Exception ex) { foreign = true; Print("NOISE resume failed, NOT managing the position: " + ex.Message); }
+        }
+
+        /// <summary>Remember the stops a dead instance left resting at the broker (its GTC
+        /// NZstop survives a disable); they are cancelled in OnOrderUpdate only once our own
+        /// stop is ACCEPTED, so the trade is never without one, and never with two (two stops
+        /// for one position can fill twice and flip it). Never throws.</summary>
+        private void CancelStaleStops(Order mine, int dir)
+        {
+            try
+            {
+                if (mine == null || Account == null) { Print("NOISE resume: own stop not confirmed - leaving any older stop in place"); return; }
+                string inst = Instrument != null ? Instrument.FullName : "";
+                OrderAction closing = dir > 0 ? OrderAction.Sell : OrderAction.BuyToCover;
+                var stale = new List<Order>();
+                lock (Account.Orders)
+                    foreach (Order o in Account.Orders)
+                    {
+                        if (o == null || o == mine || Orders.Contains(o)) continue;
+                        if (o.Instrument == null || o.Instrument.FullName != inst) continue;
+                        if (o.OrderAction != closing && !(dir < 0 && o.OrderAction == OrderAction.Buy)) continue;
+                        if (o.OrderType != OrderType.StopMarket && o.OrderType != OrderType.StopLimit) continue;
+                        if (o.OrderState != OrderState.Working && o.OrderState != OrderState.Accepted
+                            && o.OrderState != OrderState.TriggerPending) continue;
+                        stale.Add(o);
+                    }
+                if (stale.Count == 0) return;
+                foreach (Order o in stale)
+                    Print("NOISE resume: stop left by the previous instance - " + o.Name + " qty " + o.Quantity
+                        + " @ " + o.StopPrice.ToString("F2") + " - will cancel once our own stop is accepted");
+                adoptStop = mine;
+                staleStops = stale;
+            }
+            catch (Exception ex) { Print("NOISE resume: stale-stop cleanup failed: " + ex.Message); }
+        }
+
+        protected override void OnOrderUpdate(Order order, double limitPrice, double stopPrice,
+            int quantity, int filled, double averageFillPrice, OrderState orderState,
+            DateTime time, ErrorCode error, string comment)
+        {
+            try
+            {
+                if (staleStops == null || adoptStop == null || order == null) return;
+                if (order != adoptStop && !(order.Name == "NZstop" && Orders.Contains(order))) return;
+                if (orderState == OrderState.Accepted || orderState == OrderState.Working
+                    || orderState == OrderState.TriggerPending)
+                {
+                    var cancel = new List<Order>();
+                    foreach (Order o in staleStops)
+                        if (o.OrderState == OrderState.Working || o.OrderState == OrderState.Accepted
+                            || o.OrderState == OrderState.TriggerPending) cancel.Add(o);
+                    staleStops = null; adoptStop = null;
+                    if (cancel.Count == 0) return;
+                    Print("NOISE resume: own stop accepted - cancelling " + cancel.Count + " stop(s) left by the previous instance");
+                    Account.Cancel(cancel);
+                }
+                else if (orderState == OrderState.Rejected || orderState == OrderState.Cancelled)
+                {
+                    Print("NOISE resume: own stop " + orderState + " - KEEPING the previous instance's stop");
+                    staleStops = null; adoptStop = null;
+                }
+            }
+            catch (Exception ex) { Print("NOISE resume: OnOrderUpdate failed: " + ex.Message); }
+        }
+
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
@@ -589,6 +773,10 @@ namespace NinjaTrader.NinjaScript.Strategies
                 ExitOnSessionCloseSeconds = 30;
                 IsInstantiatedOnEachOptimizationIteration = false;
                 StartBehavior = StartBehavior.WaitUntilFlat;
+                // Lets the watchdog start NOISE with StartBehavior=AdoptAccountPosition when the
+                // account holds NOISE's own saved trade (RestoreState). The default stays
+                // WaitUntilFlat, so nothing changes until the watchdog chooses to adopt.
+                IsAdoptAccountPositionAware = true;
                 BarsRequiredToTrade = 20;
 
                 // Defaults moved to the #231 crowned config on 2026-08-16 (three
@@ -804,6 +992,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         protected override void OnBarUpdate()
         {
             if (BarsInProgress != 0) return;
+            if (State == State.Realtime) RestoreState();
 
             if (Bars.IsFirstBarOfSession)
             {
@@ -851,6 +1040,14 @@ namespace NinjaTrader.NinjaScript.Strategies
             DateTime barTime = BarOpenTime();
 
             // ── in a position ───────────────────────────────────────────────
+            if (Position.MarketPosition != MarketPosition.Flat && foreign)
+            {
+                // Not our trade (RestoreState): no stop, no exit, no entry -- the watchdog holds it
+                // for a person. Bookkeeping only, so the bands are right once the account is flat.
+                barOfDay++;
+                prevSessionClose = Close[0];
+                return;
+            }
             if (Position.MarketPosition != MarketPosition.Flat)
             {
                 lastDir = Position.MarketPosition == MarketPosition.Long ? 1 : -1;
@@ -873,9 +1070,10 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (!double.IsNaN(stopLevel))
                     {
                         double px = Instrument.MasterInstrument.RoundToTickSize(stopLevel);
-                        if (lastDir > 0) ExitLongStopMarket(0, true, posQty, px, "NZstop", "NZ");
-                        else             ExitShortStopMarket(0, true, posQty, px, "NZstop", "NZ");
+                        if (lastDir > 0) ExitLongStopMarket(0, true, posQty, px, "NZstop", FromSig);
+                        else             ExitShortStopMarket(0, true, posQty, px, "NZstop", FromSig);
                         stopPlaced = true;
+                        SaveState(true);
                     }
                 }
 
@@ -885,8 +1083,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     bool trig = (lastDir > 0 && Close[0] < vwap) || (lastDir < 0 && Close[0] > vwap);
                     if (trig)
                     {
-                        if (lastDir > 0) ExitLong(posQty, "NZexit", "NZ");
-                        else             ExitShort(posQty, "NZexit", "NZ");
+                        if (lastDir > 0) ExitLong(posQty, "NZexit", FromSig);
+                        else             ExitShort(posQty, "NZexit", FromSig);
                         stopPlaced = false; stopLevel = double.NaN;
                     }
                 }
@@ -910,6 +1108,8 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
             stopPlaced = false; stopLevel = double.NaN;
+            adopted = false; foreign = false;
+            if (savedInPos) SaveState(false);
 
             // ── flat: look for a band-break entry at this bar's close ────────
             // Skipped on the session's first bar and on the session's LAST bar —
