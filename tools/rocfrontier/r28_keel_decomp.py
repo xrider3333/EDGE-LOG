@@ -161,13 +161,14 @@ def calibrate(z, target_mean, target_sd):
 def keel_parts(arrays, T, ML):
     """v12's walk, and the SAME walk with the a-priori tilts off (= the learned part L, shade included): the tilts are applied after
     the loop and never feed the ledgers, so L is exact; asserted by rebuilding v12's size from L"""
-    kw = ML.keel_walk(arrays, T, version=VERSION)
+    feats = ML.keel_features(arrays)                                                   # (F, names), computed once for every walk
+    kw = ML.keel_walk(arrays, T, feats=feats, version=VERSION)
     cfg = copy.deepcopy(ML.CFG[VERSION])
     for k in ("dow", "comp", "event"):
         cfg.pop(k, None)
     ML.CFG["_r28_learned"] = cfg
     try:
-        kl = ML.keel_walk(arrays, T, version="_r28_learned")
+        kl = ML.keel_walk(arrays, T, feats=feats, version="_r28_learned")
     finally:
         ML.CFG.pop("_r28_learned", None)
     assert np.array_equal(kw["E"], kl["E"]) and np.allclose(np.nan_to_num(kw["z"]), np.nan_to_num(kl["z"]))
@@ -176,15 +177,15 @@ def keel_parts(arrays, T, ML):
     idx = pd.DatetimeIndex(arrays["index"]); E = kw["E"]
     wd = idx[np.clip(E, 0, len(idx) - 1)].dayofweek
     s = np.minimum(L * np.array([float(v["dow"].get(str(int(w)), 1.0)) for w in wd]), float(v["dow"].get("cap", 3.0)))
-    names = list(kw["feature_names"])
-    on = kw["X"][:, names.index(v["comp"]["feature"])] > 0
+    F, names = feats                                                                  # keel_walk returns "X" = the EXIT bars, not the features
+    on = np.asarray(F)[np.clip(E, 0, len(F) - 1)][:, list(names).index(v["comp"]["feature"])] > 0
     s = np.minimum(np.where(on, s * float(v["comp"]["mult"]), s), float(v["comp"].get("cap", 3.0)))
     s = np.where(ML.pre_statement_mask(arrays, E, v["event"].get("cut_hour", 14)), s * float(v["event"].get("mult", 0.5)), s)
     assert np.allclose(s, kw["size"], atol=1e-12), "v12's size is not event(comp(dow(L)))"
     nonshade = np.clip(1.0 + float(v["K"]) * kl["trust"] * np.nan_to_num(kl["z"]), float(v["LO"]), float(v["HI"]))
     shade = ~np.isclose(L, nonshade, atol=1e-12)                                      # A9
     FT = ML.fixed_tilt_sizes_v12(arrays, E)
-    return kw, L, FT, shade
+    return kw, L, FT, shade, feats
 
 
 # ------------------------------------------------------------------ A1: a trade file -> keel_walk's (entry bar, exit bar, pnl)
@@ -203,7 +204,7 @@ def load_list(path, arrays):
 # ------------------------------------------------------------------ the decomposition on one list
 def decompose(arrays, T, wf0, wf1, ML):
     wall = pd.DatetimeIndex(arrays["index"]).tz_localize(None); nb = len(wall)
-    kw, L, FT, shade = keel_parts(arrays, T, ML)
+    kw, L, FT, shade, feats = keel_parts(arrays, T, ML)
     E = np.asarray(kw["E"], int)
     Xb = np.array([t[1] for t in kw["trades"]], int)
     r = np.asarray(kw["P"], float)
@@ -239,7 +240,7 @@ def decompose(arrays, T, wf0, wf1, ML):
                        "ols_keel_on_z": float(np.polyfit(z, S, 1)[0]) if z.std() > 0 else float("nan"),
                        "z_zero_share_wf": float((z == 0).mean())}
     Tf = [(e, x, -p) for (e, x, p) in kw["trades"]]                                                     # [8] P2
-    kf = ML.keel_walk(arrays, Tf, version=VERSION)
+    kf = ML.keel_walk(arrays, Tf, feats=feats, version=VERSION)
     assert np.array_equal(kf["E"], kw["E"])
     Sf = kf["size"][wf]
     R["RAW_flip"] = reading("RAW on the flipped series", np.ones(wf.sum()), -rw, xw, days)
