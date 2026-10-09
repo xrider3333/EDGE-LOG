@@ -1309,12 +1309,12 @@ MUTANTS = [
      "if(!ledgerTradeMatch(v,qbChipSel,'',{pnl:x=>x.pnl,hay:qbHay}))return false;",
      'typing in the search box filters nothing'),
     ('tl-search-loses-focus',
-     'try{sbx.focus({preventScroll:true});sbx.setSelectionRange(qbHold.s,qbHold.e);}catch(e){}',
-     'try{sbx.setSelectionRange(qbHold.s,qbHold.e);}catch(e){}',
+     'if(F&&F.on&&F.el!==q&&',
+     'if(false&&F&&F.on&&F.el!==q&&',
      'the search box loses its focus on every redraw, so the first letter typed ends the typing'),
     ('tl-keyboard-done-refocuses',
-     'if(sbx&&(window._qbSearchFocused||(qbBlur&&qbBlur.inRedraw))){',
-     'if(sbx){',
+     'if(F2&&q.isConnected&&document.activeElement!==q)F2.on=false;',
+     'if(false)F2.on=false;',
      "the search box takes its focus back at the next redraw after the viewer left it (the phone keyboard's Done), so the keyboard comes back"),
     ('tl-own-columns-missing',
      'cols:qbCols,',
@@ -2135,7 +2135,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       // LEDGER step 9: no trade panel open, none remembered
       +"window._qbPanelKey=null;window._qbPanelPos=null;try{ledgerTradePanelClose('wb','probe');}catch(e){}"
       // the trade list's own state: the view stored for this board, the search text, the chip, the search box's held focus
-      +"try{localStorage.removeItem('el_lg_view_wb');}catch(e){}window._qeTradesQuery='';window._qeTradesChip='ALL';window._qbSearchHold=null;"
+      +"try{localStorage.removeItem('el_lg_view_wb');}catch(e){}window._qeTradesQuery='';window._qeTradesChip='ALL';try{delete _lgTlFind.wb;}catch(e){}"
       +"window._qbLegNoteOpen={};if(window.__probeOpenLeg)window._qbLegNoteOpen[window.__probeOpenLeg]=true;"
       +"try{var ap=JSON.parse(localStorage.getItem('augurPrefs')||'{}');ap.qqqSystemOpen=window.__probeSystemOpen;ap.qqqRailsOpen=0;ap.qqqEventsOpen=0;ap.qqqFeedSigOpen=0;ap.qqqModelOpen=0;localStorage.setItem('augurPrefs',JSON.stringify(ap));}catch(e){}"
       // LEDGER step 11: every own fold starts shut (nothing stored, nothing in memory), unless a case opens some
@@ -2815,7 +2815,7 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
     // the viewer leaves the box (the phone keyboard's Done is a blur outside any redraw): the next redraw must not bring it back; typing again keeps it
     var bx=q('#wb-search');bx.focus();await sleep(30);bx.blur();await sleep(60);
     w.eval('renderApp();');await sleep(120);
-    res.doneKept={focus:D().activeElement===q('#wb-search'),hold:!!w._qbSearchHold};
+    res.doneKept={focus:D().activeElement===q('#wb-search'),hold:!!w.eval("(typeof _lgTlFind!=='undefined'&&_lgTlFind.wb)?_lgTlFind.wb.on:false")};
     res.retyped=await typeIn('o');await typeIn('');
     // the trade panel opens for the trade that was tapped: after a chip changed the rows, and after a search then clear
     await clickChip('SHORT');

@@ -46188,27 +46188,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const x=rows.find(q=>String(q._no)===b.getAttribute('data-qbchartkey'));
             if(x)window._openTradeCandles(x,b,{B:{},all:()=>rows,order:()=>rows});};
           b.onclick=openCandles;b.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openCandles(e);}};});
-        // The search box keeps its focus and caret across a redraw (typing redraws the board, and so does the box's own refresh). renderApp
-        // rebuilds the whole page before this board is drawn, so the box in use is already gone by now: its state is tracked as it is used
-        // (focus, typing, caret) and the box is put back while the viewer's last use is recent. The viewer leaving it ends that: a tap elsewhere,
-        // Tab, Escape, or the phone keyboard's Done (a blur outside any redraw). A redraw that takes the box away blurs it too (in Chrome) but
-        // inside its own call; the microtask below tells the two apart, so Done is not answered by the keyboard coming back at the next redraw.
-        if(!window._qbSearchWired){window._qbSearchWired=true;
-          const box=e=>!!(e.target&&e.target.id==='wb-search');
-          const mark=e=>{if(box(e)&&!window._qbSearchRestoring){const t=e.target;window._qbSearchHold={s:t.selectionStart,e:t.selectionEnd,at:Date.now()};}};
-          ['focusin','input','keyup','click'].forEach(n=>document.addEventListener(n,mark,true));
-          document.addEventListener('focusin',e=>{if(box(e))window._qbSearchFocused=true;},true);
-          document.addEventListener('focusout',e=>{if(!box(e))return;window._qbSearchFocused=false;const b=window._qbSearchBlur={inRedraw:true};Promise.resolve().then(()=>{b.inRedraw=false;});},true);
-          document.addEventListener('pointerdown',e=>{if(!box(e))window._qbSearchHold=null;},true);
-          document.addEventListener('keydown',e=>{if(box(e)&&(e.key==='Tab'||e.key==='Escape'))window._qbSearchHold=null;},true);}
-        const qbHold=window._qbSearchHold,qbBlur=window._qbSearchBlur;
-        if(qbHold&&Date.now()-qbHold.at<30000){const sbx=content.querySelector('#wb-search');
-          // still focused when this redraw began (no blur event: Safari) or blurred by this very redraw (Chrome): put it back; blurred by the viewer: leave it
-          if(sbx&&(window._qbSearchFocused||(qbBlur&&qbBlur.inRedraw))){
-            window._qbSearchRestoring=true;
-            try{sbx.focus({preventScroll:true});sbx.setSelectionRange(qbHold.s,qbHold.e);}catch(e){}
-            window._qbSearchRestoring=false;}
-          else if(!window._qbSearchFocused)window._qbSearchHold=null;}
+        // The search box keeps its focus and caret across a redraw, and lets go after the viewer leaves it (the phone keyboard's Done, Tab,
+        // a tap elsewhere): since shared parts round 1 (v73.1141, contract 4f) ledgerTradeListWire does both itself, so this board keeps no
+        // tracker of its own (TRADING-LOG #101).
         _qbSyncPanel();   // LEDGER step 9: the trade panel (in <body>, outside this redraw) is made to match window._qbPanelKey: refreshed in place, or closed when its trade is gone
       }
       // B. event timeline "show more"
