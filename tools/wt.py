@@ -1163,9 +1163,49 @@ def gate_slot_dir():
     return os.path.join(os.environ.get('EDGELOG_HOME') or r'C:\EdgeLog', 'state', 'gate_slots')
 
 
-def gate_slot_paths(kind):
+# MORE SLOTS WHILE NINJATRADER IS CLOSED (2026-10-09, MANAGER). With ONE test slot about 14 ships
+# queued for hours behind 25-30 minute test runs. The cap exists to keep the PC responsive while
+# NinjaTrader trades (the 10-08 12:22 feed flap came 80 s after a Windows 'low on virtual memory'
+# warning), so it stays as GATE_SLOTS while NT runs and rises to NIGHT_GATE_SLOTS while NT NIGHT
+# MODE holds NinjaTrader closed (tools/nt_night.py: <EDGELOG_HOME>/nt_night_mode.json, active.until
+# in the future). <gate_slot_dir>/limits.json {"tests": 2, ...} overrides both by hand (clamped
+# 1..GATE_SLOT_MAX). A waiter re-reads the cap on every poll, so a rise reaches ships already waiting.
+NIGHT_GATE_SLOTS = {'slow': 1, 'fast': 3, 'tests': 3}
+GATE_SLOT_MAX = 4
+
+
+def nt_night_active(clock=time.time):
+    """True while NT night mode holds NinjaTrader closed; any problem reading it = False (the
+    daytime cap - the safe side)."""
+    p = os.path.join(os.environ.get('EDGELOG_HOME') or r'C:\EdgeLog', 'nt_night_mode.json')
+    try:
+        from datetime import datetime
+        with open(p, encoding='utf-8') as f:
+            until = ((json.load(f) or {}).get('active') or {}).get('until')
+        return bool(until) and datetime.fromisoformat(str(until)).timestamp() > clock()
+    except Exception:
+        return False
+
+
+def gate_slot_count(kind):
+    """How many `kind` slots are open right now: limits.json by hand, else NIGHT_GATE_SLOTS
+    while NT night mode is on, else GATE_SLOTS."""
+    try:
+        with open(os.path.join(gate_slot_dir(), 'limits.json'), encoding='utf-8') as f:
+            v = (json.load(f) or {}).get(kind)
+        if v is not None:
+            return max(1, min(GATE_SLOT_MAX, int(v)))
+    except Exception:
+        pass
+    if nt_night_active():
+        return max(GATE_SLOTS[kind], min(GATE_SLOT_MAX, NIGHT_GATE_SLOTS.get(kind, 1)))
+    return GATE_SLOTS[kind]
+
+
+def gate_slot_paths(kind, count=None):
+    n = gate_slot_count(kind) if count is None else count
     return [os.path.join(gate_slot_dir(), '%s-%d.lock' % (kind, i))
-            for i in range(1, GATE_SLOTS[kind] + 1)]
+            for i in range(1, n + 1)]
 
 
 def _slot_wait_max(kind):
@@ -1183,14 +1223,14 @@ def hold_gate_slot(kind, who, sleep=time.sleep, now=time.time):
     not stop a ship. Raises SystemExit when none comes free within _slot_wait_max(kind)."""
     if push_lock is None:
         return None
-    paths = gate_slot_paths(kind)
-    fds = []
+    opened = {}                          # path -> descriptor; grows when the cap rises
     try:
         os.makedirs(gate_slot_dir(), exist_ok=True)
+        paths = gate_slot_paths(kind)
         for p in paths:
-            fds.append(os.open(p, os.O_CREAT | os.O_RDWR))
+            opened[p] = os.open(p, os.O_CREAT | os.O_RDWR)
     except Exception as e:
-        for fd in fds:
+        for fd in opened.values():
             _release_fd(fd, lambda _fd: None)
         safe_print('  gate slots unavailable (%s: %s) - running this gate without one'
                    % (type(e).__name__, e))
@@ -1199,7 +1239,15 @@ def hold_gate_slot(kind, who, sleep=time.sleep, now=time.time):
     deadline = now() + _slot_wait_max(kind)
     said = False
     while True:
-        for i, fd in enumerate(fds):
+        try:
+            paths = gate_slot_paths(kind)            # the cap is re-read on every poll
+            for p in paths:
+                if p not in opened:
+                    opened[p] = os.open(p, os.O_CREAT | os.O_RDWR)
+        except Exception:
+            paths = [p for p in paths if p in opened]
+        for p in paths:
+            fd = opened[p]
             try:
                 push_lock._lock_fd(fd)
             except OSError:
@@ -1208,8 +1256,9 @@ def hold_gate_slot(kind, who, sleep=time.sleep, now=time.time):
                 push_lock._write_name(fd, who)
             except Exception:
                 pass                     # the name is a convenience; never fail a ship over it
-            for other in fds[:i] + fds[i + 1:]:
-                _release_fd(other, lambda _fd: None)
+            for q, other in opened.items():
+                if q != p:
+                    _release_fd(other, lambda _fd: None)
             if said:
                 safe_print('  got a %s' % noun)
             return fd
@@ -1223,7 +1272,7 @@ def hold_gate_slot(kind, who, sleep=time.sleep, now=time.time):
                 pass
             said = True
         if now() >= deadline:
-            for fd in fds:
+            for fd in opened.values():
                 _release_fd(fd, lambda _fd: None)
             raise SystemExit('no %s came free in %d min (held by: %s) - stopping before the push '
                              'lock: nothing was pushed and nothing is held. Ship again later.'

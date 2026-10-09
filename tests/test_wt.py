@@ -1299,3 +1299,60 @@ def test_a_re_run_ship_on_an_unchanged_tree_reuses_the_stamp(tmp_path):
     assert out.count('already passed, not re-run: ') == 3, out
     assert 'PRE-LOCK: 0 gate(s) run, 3 already passed' in out, out
     _assert_fast_gates_passed_on_what_landed(env, origin, tmp_path)
+
+
+# =========================================================== more slots while NT is closed
+def _night_file(home, until):
+    import json as _json
+    os.makedirs(str(home), exist_ok=True)
+    with open(os.path.join(str(home), 'nt_night_mode.json'), 'w', encoding='utf-8') as f:
+        _json.dump({'active': {'until': until}}, f)
+
+
+def test_gate_slot_cap_rises_while_nt_night_mode_holds_ninjatrader_closed(tmp_path, monkeypatch):
+    """(2026-10-09, MANAGER) the daytime caps hold while NinjaTrader runs; NT night mode (an
+    active.until in the future) opens NIGHT_GATE_SLOTS; an expired or broken file is daytime;
+    limits.json overrides both, clamped to 1..GATE_SLOT_MAX."""
+    home = tmp_path / 'home'
+    monkeypatch.setenv('EDGELOG_HOME', str(home))
+    assert wt.GATE_SLOTS == {'slow': 1, 'fast': 2, 'tests': 1}
+    assert [wt.gate_slot_count(k) for k in ('slow', 'fast', 'tests')] == [1, 2, 1]
+    _night_file(home, '2099-01-01T05:45:00-07:00')
+    assert wt.nt_night_active()
+    assert [wt.gate_slot_count(k) for k in ('slow', 'fast', 'tests')] == [1, 3, 3]
+    assert len(wt.gate_slot_paths('tests')) == 3
+    _night_file(home, '2020-01-01T05:45:00-07:00')
+    assert not wt.nt_night_active() and wt.gate_slot_count('tests') == 1
+    with open(os.path.join(str(home), 'nt_night_mode.json'), 'w') as f:
+        f.write('{not json')
+    assert not wt.nt_night_active() and wt.gate_slot_count('tests') == 1
+    os.makedirs(wt.gate_slot_dir(), exist_ok=True)
+    with open(os.path.join(wt.gate_slot_dir(), 'limits.json'), 'w') as f:
+        f.write('{"tests": 2, "fast": 99}')
+    assert wt.gate_slot_count('tests') == 2
+    assert wt.gate_slot_count('fast') == wt.GATE_SLOT_MAX
+    assert wt.gate_slot_count('slow') == 1
+
+
+def test_a_waiter_takes_a_slot_the_moment_the_cap_rises(tmp_path, monkeypatch, capsys):
+    """A ship already waiting for the one test slot must pick up the second slot as soon as the
+    cap rises (night mode starts) - without a restart - and hold nothing else."""
+    home = tmp_path / 'home'
+    monkeypatch.setenv('EDGELOG_HOME', str(home))
+    a = wt.hold_gate_slot('tests', 'lane-a')
+    assert a is not None
+    polls = [0]
+
+    def tick(_s):
+        polls[0] += 1
+        if polls[0] == 2:
+            _night_file(home, '2099-01-01T05:45:00-07:00')
+    b = wt.hold_gate_slot('tests', 'lane-b', sleep=tick, now=lambda: 0.0)
+    assert b is not None and polls[0] == 2
+    assert 'waiting for a test slot' in capsys.readouterr().out
+    paths = wt.gate_slot_paths('tests')
+    assert _other_process_sees(paths[0]) == 'held' and _other_process_sees(paths[1]) == 'held'
+    assert _other_process_sees(paths[2]) == 'free'
+    wt.release_gate_slot(b)
+    wt.release_gate_slot(a)
+    assert all(_other_process_sees(p) == 'free' for p in paths)
