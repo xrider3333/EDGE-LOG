@@ -1190,6 +1190,53 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10at. Q35 NOISE TRIP ANATOMY: July was a run of failed short breaks; the 10aq bands are sized in 2016-25 dollars and over-alarm at today's prices (2026-10-09, a report)
+
+**What it is.** The harm monitor's first read tripped NOISE #422's A1 at the 07-17 check (10ar). This report asks what the July stretch was, and
+whether the alarm was the right size. Nothing changes; no rule is mined from it. Scripts: bookq/q35_noise_trip.py, q35_scale_check.py,
+q35_level_bands.py, q35_recent_bands.py.
+
+**What July was.**
+- 07-01 to 07-28: 12 trades, -$13,518. Eleven were failed breaks cut at VWAP (the leg's normal share is 69%), eight of them shorts; one
+  trend-day break was held to the close (+$994).
+- Each failed break lost about $1,319, against $279 on the walk-forward.
+- Then three trend-day breaks held to the close made +$23,579 between 07-29 and 08-04. That is #422's normal mechanism (10-05 anatomy): a
+  bad run of its losing half, then its winning half.
+- No 12-row stretch on the walk-forward fell that far behind pace in walk-forward dollars (0 of 2,615 windows). That changes once size is
+  read in today's dollars (below).
+
+**The sizing flaw.**
+- #463's legs trade fixed contracts, so their daily dollars grow with the index.
+  - NQ averaged about 15.0k over the walk-forward and about 29.9k on the forward rows.
+  - NOISE's daily spread rose from $439 (2016) to $2,294 (2024).
+- The 10aq bands use the whole walk-forward's spread. Forward daily spreads run 1.43 to 1.76 times the bands' (NOISE 1.55, ORB 1.43, ENGU-Q
+  1.76, #463 1.56). So the alarms fire far more often than the 2.5% they promise.
+
+| Option | NOISE's forward read | Band spread against the forward spread | Power if the edge is gone, by 36 months |
+|---|---|---|---|
+| 1 Frozen 10aq bands (whole walk-forward) | TRIP (-2.75 vs -2.44) | 0.57-0.70x (too tight) | ORB 63%, TTM 40%, NOISE 98%, ENGU-Q 51%, #463 98% |
+| 2 Last three walk-forward years (2022-07 to 2025-06), re-calibrated | clear by a whisker (-2.31 vs -2.33) | 0.78-0.95x | ORB 89%, TTM 35%, NOISE 99%, ENGU-Q 67%, #463 100% |
+| 3 Whole walk-forward restated at the 2026-06-30 price level | clear (-1.43 vs -2.32) | 1.3-1.6x (too wide) | (not computed) |
+
+- Every other leg is clear under every option.
+- **Recommended: option 2.**
+  - It sits closest to the forward spreads.
+  - It uses no forward data.
+  - It has more power if an edge vanishes, because the recent years' edge is larger against their spread.
+- **Disclosed:** the fix was drafted after the trip was seen. The NOISE trip stays on the record under the frozen rule either way.
+
+**Decision (MANAGER #141): option 2.**
+- tools/harm_monitor.py now carries the bands re-calibrated on 2022-07-01 to 2025-06-29 (872 book rows).
+- ORB and TTM's big-day lines are now that window's 99th-percentile day: $7,334 and $4,887.
+- Every post prints NOISE's 07-17 trip as an "On record" line.
+- **Re-read on 10-09 (data through 10-08), no alarm:**
+  - ORB is $503 behind pace (1% of the way to A1).
+  - TTM is $6,059 behind (27%).
+  - NOISE is $8,423 behind (22%).
+  - ENGU-Q is $9,206 ahead.
+  - #463 is $17,266 behind (20%).
+  - The deepest drawdowns are all under their alarms.
+
 ### 10as. Q34 ENGU-Q TIMING SPLIT: an RTH-only executor that holds overnight keeps the leg's edge within the noise; the dollars sit in the exits (2026-10-09, a report)
 
 **What it is.**
