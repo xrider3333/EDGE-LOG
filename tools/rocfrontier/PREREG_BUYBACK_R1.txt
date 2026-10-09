@@ -1,0 +1,305 @@
+PRE-REGISTRATION - BUYBACK r1: SHAREHOLDER PAYOUT YIELD in US large caps - long the biggest net payers, short the biggest net
+raisers of cash, monthly
+=====================================================================================================================
+DRAFT v1 2026-10-06 10:00 MST for MANAGER review, by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (owner standing order
+10-04 + addendum 2: a queue that never drops below 3 live preregs; MANAGER #84 keeps BUYBACK in this lane as a characteristic
+sort on the RESMOM harness; MANAGER #100 / #102: BUYBACK queued after NETISS). Written before any number of this family exists,
+before its data is extracted, AND before any NETISS r1 return exists (NETISS's Stage A has not run) - on purpose: the two
+families read the same SEC photograph and neighbouring mechanisms, so this design cannot lean on NETISS's result. Nothing runs
+until MANAGER's GO, the extract below is pinned and NETISS's Stage A verdict is on the ledger. Results:
+C:\EdgeLog\_anatomy_cache\rocfrontier\buyback_r1\ and RESEARCH_LEDGER.md.
+
+WHAT IS DIFFERENT (one line): the signal is the CASH a firm paid to (or raised from) its shareholders over the last four
+quarters, read from the cash-flow statement in its SEC filings and divided by its market value - NETISS counts SHARES; the two
+part ways wherever buybacks only offset stock compensation (cash out, share count flat) and wherever shares are issued for no
+cash (stock pay, stock-paid deals).
+
+WHY NOW (house evidence first). RESMOM r1 (ledger 2.65) showed that a monthly 50-long / 50-short basket of the 500 most liquid
+US stocks survives costs and that a leg's value is decided by WHERE it earns: RES earned in #463's drawdown days and lifted the
+book's WF from 93.8 to 120.8. MANAGER #100: the only structural improvement left is a new leg that earns on the reference
+line's residual drawdown set (45 episodes / 762 days). Firms that hand cash back are mature and profitable; firms that raise
+cash from shareholders are the young, cash-burning growth corner that falls hardest in the sell-offs behind #463's drawdown
+weeks - the drawdown-week story of NETISS, measured in dollars instead of shares.
+
+THE MAP FIRST (MDL r1). A dollar-neutral basket; the mechanism predicts it EARNS in growth sell-offs (short the raisers, long
+the payers), so it is placed as a drawdown-week candidate first and a standalone leg second. Standalone bar ROC @ $30k >= 15;
+the route for a cell that fails it but earns in the book's drawdowns is MANAGER #70's (a gate against the random-name null,
+then at most one forward book line), judged INCREMENTALLY over the reference line. Placed honestly: the literature's spread is
+a few percent a year and smaller among the largest stocks; at $200,000 a side that is ~$4,000-8,000 a year (ROC 4-8 at a
+$30,000 drawdown) - the family is worth the round only for its drawdown-day profile, and its overlap with NETISS is the first
+risk.
+
+MECHANISM. Net payout yield - dividends plus repurchases less issuance, over market value - predicts returns better than the
+dividend yield alone, because since the 1980s firms pay out through buybacks (Boudoukh, Michaely, Richardson & Roberts 2007;
+Grullon & Michaely 2002); firms that announce open-market repurchases outperform for years (Ikenberry, Lakonishok & Vermaelen
+1995; Peyer & Vermaelen 2009) and firms that raise equity underperform (Loughran & Ritter 1995) - managers time the market in
+their own stock and investors under-react. Counter-evidence written in now: payout yield is close to a VALUE sort, and value
+lost to growth through most of 2017-2020; 2016-25's biggest buyback programmes sit at the largest growth firms, so the long
+side is not purely defensive; much large-cap buyback spending only offsets stock compensation, so a high cash yield need not
+mean a shrinking share count; and the effect is documented mostly in broad samples, not the 500 largest names.
+
+DATA - NO NEW PULL (no keys, no money): a second extract of the SEC photograph NETISS already pinned, made by TV with the same
+tool, plus held data.
+[D1] C:\EdgeLog\_research_cache\xbrl_companyfacts\companyfacts.zip (TV's one GET of 2026-10-05, 1,410,049,978 bytes, sha256
+  db35d36bd7b34ac79fdbd32140b680e580fb6f2e81658657cc59db913f21765c, provenance file beside it - NETISS [A1]). TV extracts ONE
+  flat file with tools/extract_companyfacts.py's method (one row per fact x filing: cik, symbols, concept, unit, val, start,
+  end, accn, fy, fp, form, filed, frame), for the CIKs of the pinned symbol -> CIK map (19adc9ba...) plus TV's 14 reviewed
+  additions (6bf8dfab...), concepts (unit USD, duration facts):
+    REPURCHASES  us-gaap:PaymentsForRepurchaseOfCommonStock, else us-gaap:PaymentsForRepurchaseOfEquity
+    DIVIDENDS    us-gaap:PaymentsOfDividendsCommonStock, else us-gaap:PaymentsOfDividends
+    ISSUANCE     us-gaap:ProceedsFromIssuanceOfCommonStock
+    STATEMENT    us-gaap:NetCashProvidedByUsedInFinancingActivities, else ...ContinuingOperations (proves a cash-flow statement
+                 exists for the period)
+  facts FILED on or after 2025-06-30 not extracted (the sealed year) and cut again at read; pinned by sha256 in a dated
+  pre-data addendum before any number, with counts per concept (counts only).
+[D2] held, pinned by NETISS: the as-filed share counts (shares_asfiled_wide.csv 02387a4f... + the reviewed additions
+  d10626d8...) for the market value; the SIPORB cache (raw + split-adjusted daily bars, manifest sha256 380b05f2..., never
+  mixed with a re-pull) for prices and the split factor F = raw close / split-adjusted close; the wide corporate-actions
+  calendar (e5bc8487...; dividends exactly as RESMOM [R1], splits for the check below); ES 5-minute RTH masters (RESMOM's
+  series).
+
+UNIVERSE (each rebalance, only information known before the fill): RESMOM's exactly (prior raw close >= $10, the 500 largest by
+mean raw dollar volume over the previous 20 sessions, mean volume >= 1,000,000 shares, ATR > $0.50, no registered split in the
+previous 14 sessions, >= 230 split-safe returns and ES pairs in the 252-session window), less NETISS's foreign filers [A4] and
+NETISS's second share classes [A13] (one class per firm: the larger 20-session raw dollar volume).
+
+CASH KNOWN AT A RANK CLOSE r (point in time, NETISS [A2]): a fact (concept, start, end) is usable at r when the first session
+after its FIRST filed date is on or before r; its value is the value in that first filing (amendments never replace a usable
+value). Period types by length: Q 77-105 days, H 168-196, 9M 259-287, FY 350-380. The STATEMENT the score reads is the latest
+usable period ending e that is a FY or a year-to-date period (start = the fiscal year's start s) with a usable STATEMENT fact.
+TRAILING FOUR QUARTERS: if that period is a FY, TTM = its value; else TTM = YTD(s .. e) + FY_prev - YTD_prev, where FY_prev is
+the usable FY ending within 14 days before s and YTD_prev the usable period of the same type ending within 14 days of e - 1
+year (each must have its STATEMENT fact). Each component is read on exactly those periods, period by period: its first concept
+that has a fact for the period, else its fallback; a component with neither on a period whose STATEMENT fact exists reads ZERO
+for that period (the line is not on the statement: no buyback, no dividend, no issue - a firm that starts or stops buying back
+inside the window is the common case). REP, DIV and ISS are the components' TTMs (all >= 0; a negative fact is unusable).
+
+MARKET VALUE MV(r) = raw close(r) x S x F(a) / F(r), where S is NETISS's S(r) (its concept order, as-of date a) and the factor
+carries a split between a and r into the share count; the window a .. r is split-checked both ways against the calendar exactly
+as NETISS [A3] / [A9] (a miss voids the score).
+
+SCORES and CELLS (the family: 2), at each month's last session close r:
+- P (net payout yield, Boudoukh et al.): P = (REP + DIV - ISS) / MV(r).
+- R (net repurchase yield - the buyback channel without dividends, so the cell is not a dividend-yield sort): R = (REP - ISS) /
+  MV(r).
+A name has NO score in a cell when: no usable statement; no TTM (a missing FY_prev or YTD_prev); e more than 200 days before r
+(stale - a firm that stopped filing); MV missing, not positive or split-check failed; |score| > 0.50 (half the firm's value
+in a year: a unit / scale error or a deal that remade the firm - counted and listed by name, never kept). Among the universe
+names WITH a score: long the 50 HIGHEST (biggest net payers), short the 50 LOWEST (biggest net raisers); fewer than 150 scored
+names trades the top / bottom third (n // 3 a side, at least 20), else nothing (counted); ties by symbol. $4,000 each,
+fractional shares, dollar-neutral, FILL at the next session's official open, HOLD to the next rebalance's fill, daily marks, no
+compounding - RESMOM's engine unchanged. COSTS: 5 bps a side base, stress 10 and 20; borrow 0.25%/yr on short notional, stress
+1% and 3%/yr on high-volatility sessions (RESMOM's rule); dividends paid and owed exactly as RESMOM [R1].
+
+NULL (family-aware): 500 draws, seed 20261024; at every rebalance each cell's longs and shorts are replaced by the same number
+of names drawn at random from that rebalance's eligible SCORED pool (same hygiene, sizing, fills, costs); statistic = the MAX
+over the 2 cells of WF ROC @ $30k. POWER LINE FIRST (SHORTINT [A6]): the null is computed before the cells' P&L, and its p50 /
+p95 for each cell and for the max are printed before any cell number.
+
+#463 and the map: exactly RESMOM's (r11_risk's rule-U records, refused unless WF 93.81 / 3.816 / $44,849 and LB 155.54 / 4.150
+reproduce; DO and rho_dd by r12_mdl.Stretch) - and the REFERENCE book below.
+
+STRETCHES: WF = positions exited 2016-07-01 -> 2025-06-29 (each cell's first rank with a score and its first traded fill
+printed); LB = 2025-06-30 -> 2026-06-30, SEALED; the family joins the stock families' ONE sealed-year day as a leg veto
+(MANAGER #48), and under the owner's lockbox rule of 2026-10-05 the sealed year can never pass it; Stage B's facts come from
+the same photographed zip, extracted by TV only after a Stage A pass and pinned before Stage B reads one (NETISS [A17]).
+
+STAGE A (WF, per cell; the standalone bars decide - MANAGER #56): RESMOM's (a)-(f) with NETISS's [A15] readings - (a) >= 60
+rebalances traded; (b) WF ROC @ $30k >= 15 and net > 0 at 5 AND 10 bps; (c) above the null's 95th percentile; (d) positive in
+at least two thirds (rounded up) of the July-June WF years the cell holds positions in, and net > 0 without 2020-02-15 ..
+2020-04-30; (e) profitable without its best 1% of days AND of name-months; (f) the 50 largest contributors of each cell, and
+every PICKED name-rank with |score| > 0.15 (the audit flag - listed per rank, never a filter), audited by hand with the
+component facts, their filings and the market value's inputs, grouped by (symbol, the filings used) before a pass is read. Two
+passing cells send the higher WF ROC to Stage B (a tie: P).
+
+BETA (NETISS [A6] / [A15]): the cells stay dollar-neutral and primary; each cell's realised beta (its daily $ P&L on ES's daily
+return, per $200,000 of one side) is printed on #463's drawdown days and on all WF days; a cell's drawdown-day profile is
+CREDITED only if both are within +-0.20 (else REPORTED, never credited: no incremental A2 pass, no gate, no line). An ES-hedged
+twin (overlay sized ex ante by the OLS beta of the cell's own daily P&L on ES over the 252 sessions before the rank; zero
+before 252 exist; 0.5 bps a side) is REPORTED beside each cell.
+
+A2 (WF, a REPORT): the REFERENCE book #463 + 0.264 x RES (RESMOM's registered WF daily P&L, resmom_cells_daily_wf.csv, sha256
+bed7bf8b..., refused if different; WF ROC @ $30k 120.82 / Sortino 3.916 / worst drawdown $36,526) + c x the cell against the
+reference, c by volatility (25% of #463's daily std / the cell's, over the cell's first 24 months of traded fills, dates
+printed; 0.5c and 2c reported); an incremental pass = ROC and Sortino both strictly above the reference's; the plain #463 + c x
+cell book is a reported row. Every book-add report prints the dollars a year (net / years) beside each ROC @ $30k and the
+reference line's drawdown-episode table (its 45 qualifying WF episodes by MDL r1's rule) with the cell's P&L inside each and
+which episodes it helps (MANAGER #100). NETISS FIRST, REGISTERED NOW: if NETISS r1 opens a forward book line before this Stage
+A runs, the reference becomes #463 + 0.264 x RES + NETISS's line at its registered size, so one finding is never credited
+twice; if NETISS dies, the reference stays as written. An incremental pass follows MANAGER #70's route: a gate registered first
+(the cell's DO over the reference's drawdown days above the random-name null's 95th percentile AND positive without its best
+episode), then at most ONE forward book line. The shared seat-pipeline harness is used once it is in the repo; until then
+r18_divrun's reference loader stands in.
+
+THE NETISS QUESTION (reported, never a pass route): each cell's daily P&L correlation with each NETISS cell (N12, N24) and with
+RESMOM's RES; the overlap of the picks per rank (the share of this cell's longs in NETISS's longs, shorts in shorts); and a
+FLAT twin - the R sort among the scored names whose NETISS one-year ISS is within +-2% (share count flat over the year: the
+buyback-offsets-stock-pay firms), top / bottom third, at least 20 a side, else nothing - which shows whether the CASH measure
+carries anything the share count does not.
+
+DIAGNOSTICS (owner standing order addendum 2; none is a pass route), every cell: the cost curve at 0 / 5 / 10 / 20 bps a side;
+a row per July-June year; the regime halves 2016-07 .. 2021-12 and 2022-01 .. 2025-06; a row per drawdown episode of the
+reference book; the LONG and SHORT sides apart; the realised betas above; the score's persistence (the share of names still in
+the same tail one rebalance later) and turnover; the 20 largest name-month gains; deciles - ten equal-count score deciles per
+rank, each an equal-weight long-only basket at $4,000 a name, WF net and ROC @ $30k and the spread over ES (a crowded payer
+tail shows); a DIVIDEND-ONLY twin (DIV / MV, same picks rule) so P's result can be told apart from a dividend-yield sort; the
+gross repurchase yield (REP / MV) deciles.
+
+BEFORE ANY P&L the output prints (counts and score facts only): scored names per rank and cell, and the names lost to each
+no-score rule; the TTMs built from a FY vs the year-to-date formula, per year; per component, the concept used (first /
+fallback / the two mixed across one TTM's periods) and the share of periods read as ZERO (no line on the statement); the median
+and the 5th / 95th percentiles of P and R per year and the share of scored names with R > 0 (net repurchasers); the |score| >
+0.15 flags per rank; the days from e to r (staleness) per year.
+
+KNOWN WAYS IT COULD FOOL US: a filing's tag choice (a firm that books buybacks under an unlisted concept reads as ZERO - the
+zero-share print and the hand audit watch it); option-exercise and employee-plan proceeds are tagged in several ways, so
+ISSUANCE misses some small inflows (written in: it is the big raises that matter for the short side); the market value rests on
+a cover-page share count of possibly another class (dual-class firms - the |score| > 0.50 rule and the audit); value vs growth
+regimes (2017-20 against, 2022 for - the halves row); NETISS overlap (one finding twice - the reference rule above);
+survivorship (Alpaca's inactive names only); a short-side profile that is only beta.
+
+Zero passes = BUYBACK r1 dead; no other yields, horizons, concepts or thresholds are tried - the next family comes from the
+next mechanism.
+
+PRE-DATA ADDENDUM 1 (2026-10-06 10:20 MST, before any BUYBACK number and before its extract exists; no NETISS return exists
+either): MANAGER's review (inbox #112, GO WITH EDITS; BUYBACK keeps its place - it runs only after NETISS's Stage A verdict is
+on the ledger and after the live queue NETISS / NEWISSUE / SHORTINT) folded:
+- [B1] FISCAL-YEAR CHANGE GUARD. A year-to-date TTM also needs the current fiscal year's start s to fall within 14 days of
+  FY_prev's end + 1 day; a firm in a transition period (a changed fiscal year end) gets NO TTM at that rank, counted per year
+  as 'fiscal-year change'.
+- [B2] STALENESS PRINT. Per year, the share of scored names whose statement period ended more than 120 days before the rank
+  close (a quarterly filer's normal ceiling) is printed before any P&L; the 200-day cut stays the no-score rule.
+- [B3] THE TAG BLIND SPOT. Per year, the share of universe names that have a STATEMENT fact but read ZERO on all three
+  components over the four quarters is printed by the counts-only dryload and reported in the pre-data addendum that pins the
+  extract, before any cell number. Above 10% of names in any year, that addendum says the zero-reading rule is suspect, lists
+  that year's names, and Stage A waits for MANAGER's ruling.
+- [B4] ACCESSION NUMBERS. The extract keeps each fact's accession number (accn, already in [D1]'s columns) and the hand audit
+  (f) cites every filing by it.
+- [B5] MEMORY. Stage A starts only when the machine is quiet (>= 7.5 GB free on two checks 30 s apart and no headless-Chrome
+  ship probe running), under the job-object limit with the 2,500 MB free-memory floor; a run the floor kills is kept and
+  re-run unchanged; the owner's applications are never touched.
+
+PRE-DATA ADDENDUM 2 (2026-10-07 19:10 MST, before any BUYBACK number: the extract exists, only TV's provenance counts were read -
+rows and CIKs per concept; no value, score or return): TV's extract (inbox #123) pinned, TV's second review (#125, GO WITH ONE
+PRE-DATA FIX) and MANAGER's relay (#126) folded, and the house rules of 2026-10-07 written in.
+- [B6] THE EXTRACT, PINNED. C:\EdgeLog\_research_cache\xbrl_companyfacts\cashflow_asfiled_wide.csv (118,117,039 bytes, sha256
+  6fe4ca5de4610072cd09ee17bb0454bdfa9888f79560d92052671fc224df1632; manifest beside it e68c8da5...): tools/extract_companyfacts.py
+  on the photographed zip db35d36b, one row per fact x filing (cik, symbols, concept, unit, val, start, end, accn, fy, fp, form,
+  filed, frame), unit USD, duration facts only, the maps 19adc9ba + 6bf8dfab read as one table, facts filed on / after 2025-06-30
+  left out (87,325) and cut again at read. TV's counts: 791,898 rows, 4,922 of the zip's 4,961 CIKs, filed 2009-04-15 ..
+  2025-06-27. Cash-flow facts are YEAR-TO-DATE in 10-Qs - the draft's TTM rule already reads them that way (YTD + FY_prev -
+  YTD_prev, same start); a quarter is never read alone.
+- [B7] ISSUANCE BEFORE THE ZERO RULE (TV's fix, MANAGER #126). TV counted the draft's ISSUANCE concept on only 36.4% of the
+  base list's 10-K firm-years and the REPURCHASE pair on 53.5%; equity proceeds are tagged under other standard concepts, and
+  under the zero rule they read as NO issuance - biased toward zero exactly on the option-heavy growth firms of the short side.
+  ISSUANCE on a period = the first present of ProceedsFromIssuanceOfCommonStock, ProceedsFromIssuanceOrSaleOfEquity,
+  ProceedsFromIssuanceInitialPublicOffering, PLUS the stock-plan proceeds - ProceedsFromStockOptionsExercised,
+  ProceedsFromIssuanceOfSharesUnderIncentiveAndShareBasedCompensationPlansIncludingStockOptions,
+  ProceedsFromIssuanceOfSharesUnderIncentiveAndShareBasedCompensationPlans, ProceedsFromStockPlans - summed over the distinct
+  concepts present in the same filing for that period (CHOICE: two of them carrying the same value in one filing count once - a
+  total tagged beside its own part is not added twice); a period with none of the seven reads ZERO only when its STATEMENT fact
+  exists. The seven concepts come from TV's separate extract, pinned here: cashflow_alt_asfiled_wide.csv (43,802,538 bytes,
+  sha256 3edfacc7473d04e51ba3a92b97bd633a15c24723e88db28a66b1c463ede82162; manifest 4edc9766...; same columns, maps and cut;
+  277,902 rows), read as one table with [B6]'s file (a fact present in both is refused).
+- [B8] A REPORTED TWIN, never the verdict: REPURCHASES plus PaymentsRelatedToTaxWithholdingForShareBasedCompensation (net share
+  settlement - cash paid to retire shares, a buyback in substance), both cells, beside the registered ones.
+- [B9] BEFORE ANY P&L, per rank: the share of the PICKED names whose ISSUANCE or REPURCHASES on any of the four quarters came
+  from the zero rule; and [B3]'s tag blind-spot print counts the seven issuance concepts before it decides a name reads zero
+  everywhere (above 10% of universe names in any year, Stage A still waits for MANAGER's ruling).
+- [B10] THE JUDGED READING (the house rule since the RESMOM restatement, ledger 2.93; MANAGER #116 / #118): a name with a hygiene
+  flag inside its hold stays in the pool on the split-adjusted path; only an announced split or a [D2] spin-off / stock-dividend
+  ex-date inside the hold removes it (r17_resmom's post_mode 'keep'); the null draws from that kept pool. No in-hold removal
+  that reads the future, in any reading this file judges.
+- [B11] DD5 beside every ROC @ $30k (owner rule of 2026-10-07, MANAGER #120) - each cell, the reference, the reference + c x the
+  cell at c / 0.5c / 2c, the plain book; a worst drawdown above 1.3 x DD5 is called driven by one episode. Reported only.
+- [B12] THE REFERENCE is the RESTATED L (MANAGER #116): #463 + 0.264 x RES from resmom_cells_daily_wf_keep.csv (sha256
+  86721fda...; WF 120.95 / 3.921 / $36,526), refused if different; the draft's 'NETISS first' rule stands (a NETISS forward line,
+  if NETISS's corrected Stage A opens one, joins the reference at its registered size before this Stage A runs).
+PRE-DATA ADDENDUM 3 (2026-10-07 20:50 MST, before any BUYBACK number: no value, score or return of the extract has been read):
+MANAGER's hygiene edit S1 (#127), the reference restated under it, the lead's review of the harness and the memory rule.
+- [B13] MANAGER'S HYGIENE EDIT S1 REPLACES [B10]'S REMOVAL RULE (MANAGER #127; review C:/EdgeLog/manager/reviews/
+  REVIEW_EAP_DIVCHG_2026-10-07.md, 'S1, shared hygiene edit'). The pinned corporate-actions calendar carries no announcement or
+  declaration date (its columns are ex, process, record and payable), so [B10]'s 'an announced split ... removes it' cannot be
+  shown to be known at the rank. The judged reading now removes NO name for an in-hold event: a name flagged inside the hold
+  and a name with a registered or calendar split inside the hold stay in the pool, valued on the split-safe path; a spin-off /
+  stock-dividend ex-date e inside the hold (f < e <= x; RESMOM's [D2] - in this file [D2] names the as-filed share counts, the
+  label clash MANAGER named, so this addendum never writes [D2] for the ex-dates, and [B10]'s '[D2] spin-off' means RESMOM's)
+  CLOSES the position at the official close of the session before it, e-1 (CHOICE: the exchange publishes an ex-date before it
+  happens, so the close of e-1 knows it): no mark, no dividend whose ex-date is e or later, no borrow after it; the exit cost
+  is booked on that row; a name with no close on e-1 exits at its last mark and counts as stopped printing there. The null
+  draws from the same pool with the same cut paths. This is r17_resmom's post_mode 'close', the code of the RESMOM restatement
+  under the same rule. [B10]'s removal reading ('keep': an announced split or a spin-off / stock-dividend ex-date inside the
+  hold removes the name) is printed beside the judged one as a REPORT with its count of removed name-months, without a null.
+  Everything else in [B1] - [B12] and the draft stands.
+- [B14] THE REFERENCE IS THE RESTATED L UNDER S1 (replaces [B12]'s file, whose ledger row never shipped): the RESMOM
+  restatement under the same rule gives L = #463 + 0.264 x RES = WF ROC @ $30k 121.06 / DD5 $34,392, Sortino 3.926, worst
+  drawdown $36,526 (the registered line: 120.82 / 3.916; the 'keep' reading's 120.95 / 3.921, superseded before it shipped).
+  L is read from resmom_cells_daily_wf_close.csv (sha256 e204dd53...), refused unless those three numbers reproduce. Its
+  drawdown days are the registered ones (45 episodes, 762 days), so the seat basis does not move. [B12]'s 'NETISS first'
+  rule is settled: NETISS r1 is DEAD under S1 (N12 0.3 / N24 7.7 % a year at $30k), so no NETISS line joins the reference.
+- [B15] THE LEAD'S REVIEW OF THE HARNESS (r23_buyback.py as built 2026-10-07; only its synthetic selftest and smokes have run -
+  no dryload, no value of the extracts read). Its CHOICEs are fixed as built, each labelled CHOICE in the code: (1) a period's
+  length is end - start; the STATEMENT period is the latest end, the longest on a tie; (2) FY_prev = the latest usable FY
+  period ending on or before s - 1, and s more than 14 days after its end is [B1]'s fiscal-year change (the draft's 'within 14
+  days before s' and [B1]'s 'within 14 days of FY_prev's end + 1' differ by one day: the stricter is kept); (3) YTD_prev = the
+  same period type and start rule as FY_prev ([B6]), ending within +-14 days of e - 1 year, the closest, a tie to the earlier;
+  (4) Q / H / 9M periods are read as year-to-date ([B6]); (5) a negative COMPONENT fact is unusable (absent: the zero rule then
+  applies only where the STATEMENT fact exists); a negative STATEMENT fact stays usable; a negative component TTM leaves the
+  name unscored in the cells that read it; (6) [B7]'s same-value rule runs over every summed item, the primary concept
+  included; 'one filing' = the same first-filed accession; items first filed in different filings are summed; (7) NETISS
+  [A2]'s entry rules apply to the cash entries (an ambiguous first day, a missing value, a period ending after its first
+  filing: unusable; a tie to the smaller accession); (8) S for the market value = the latest usable cover-page (dei) count,
+  else the balance-sheet (us-gaap) count, no staleness rule (MV reads S alone; NETISS's concept order is for its (S, S')
+  pair); (9) the no-score reasons in this order: static -> no statement -> fiscal-year change / no FY_prev / no YTD_prev ->
+  stale -> negative TTM -> market-value reasons -> |score| > 0.50, and the print counts a period that does not start at its
+  fiscal year's start (a discrete quarter) apart from a fiscal-year change (no score either way - a label only); (10) [B3]'s
+  share = universe NAME-RANKS with a TTM (stale included), pooled per fill year; above 10% in any year Stage A refuses until
+  MANAGER rules; (11) [B9]'s 'any of the four quarters' = any period inside the TTM; [B2] is printed per cell and year; (12)
+  A2's volatility window = the cell's first traded fill through 24 months less a day later, clipped to WF0; (13) the DIV twin
+  sorts P's scored names, the REPY deciles cut R's; the FLAT twin trades thirds, at least 20 a side; P8 / R8 have their own
+  pools and share-class decisions; deciles are cut for P, R and REPY only; (14) the audit group = the symbol + every accession
+  behind P's TTM + S's accession, the same for both cells; a data_event removes the whole group; (15) 'a fact in both
+  extracts' = the same (cik, concept, start, end, accn); (16) twins carry no null; Stage A computes no leaky reading and no
+  no-dividend reading; (17) components are counted over all names with a TTM, stale included; (18) Stage B re-reads only the
+  candidate cell. The judged reading is wired to [B13] and the reference to [B14] before the dryload, and the selftest and
+  both smokes are re-run on that code.
+- [B16] [B5]'s 'no headless-Chrome ship probe running' is replaced by >= 9 GB free on both checks 30 s apart: other lanes'
+  ship probes now start almost continuously, and the condition exists for memory. The job-object limit, the 2,500 MB floor,
+  'a run the floor kills is kept and re-run unchanged' and 'the owner's applications are never touched' stand.
+PRE-DATA ADDENDUM 4 (2026-10-08 11:05 MST, before any BUYBACK number): MANAGER's review of addendum 3 (#136: GO with ONE
+edit; [B13], [B14] and [B16] accepted as written; run order unchanged - EAP, then BUYBACK last).
+- [B17] S IS POINT-IN-TIME AND FRESH (amends [B15](8)). S for the market value is read only from an entry first filed before
+  the rank - its first filed date's first session STRICTLY AFTER is on or before the rank (NETISS [A2]'s rule, the one every
+  fact in this file follows) - and always at its FIRST-FILED value, never a later restated one. Its period end (the dei
+  cover-page count's as-of date, or the balance sheet's period end) must lie within 15 calendar months before the rank;
+  otherwise the name is UNSCORED with the no-score reason 'stale S', counted per rank and printed per year beside [B2]'s
+  staleness print, before any P&L. The latest such usable cover-page (dei) count still comes first, else the balance-sheet
+  (us-gaap) count, as [B15](8) says.
+PRE-DATA ADDENDUM 5 (2026-10-08 11:20 MST, before any BUYBACK number; only the synthetic selftest and smokes have run):
+the lead's review of the harness wired to [B13] / [B14] / [B17] (r23_buyback.py 5ff6ca3a).
+- [B18] ITS NEW CHOICEs ARE FIXED AS BUILT, each labelled in the code: (19) a [B1] failure is labelled a DISCRETE QUARTER when the
+  statement is quarter-length, starts 3 / 6 / 9 months (plus whole years, +-14 days) after FY_prev's end + 1 and no fact first
+  filed on a 10-KT / 10-QT ends after FY_prev's end - else a fiscal-year change (a label only: no score either way); (20) [B17]
+  picks S first (the latest usable dei count, else us-gaap) and then tests its age - a stale dei count does not fall back to a
+  fresher balance-sheet count (both come from the same filings in practice); (21) 'within 15 calendar months' = as-of on or
+  after the rank date less 15 months (day clipped to the month), the boundary day within; (22) an unknown post_mode refuses;
+  (23) the cells are recounted at all four costings, the twins at base cost; (24) the 'keep' report's removed name-months are
+  first-reason counts; (25) its JSON keeps base / seat / A2 / $ a year / DD5 per cell; (26) printed text never writes [D2] for
+  an ex-date.
+- [B19] A CALENDAR SPLIT THE VENDOR'S FACTOR DOES NOT SHOW. Under [B13] a calendar split inside a hold rides the split-safe path;
+  if the vendor's adjustment factor missed it (GE's 1-for-8 of 2021-08-02 is the known case) that path carries a fake move. Every
+  PICKED position with a calendar split inside its hold and no matching factor move is LISTED before any P&L (symbol, rank,
+  ex-date, split ratio, the factor's move), as RESMOM's restatement printed it; the hand audit (f) treats each as a data event
+  (its whole group removed, counted). None listed = said so.
+PRE-DATA ADDENDUM 6 (2026-10-08 12:31 MST, before any BUYBACK number: the counts-only dryload ran on r23_buyback.py
+86cd6891 - no return, score value or P&L read; stdout C:\EdgeLog\_anatomy_cache\rocfrontier\buyback_dryload_run1_stdout.txt).
+- [B20] THE DRYLOAD'S COUNTS, REPORTED AS [B3] REQUIRES; NOTHING CHANGES. (a) [B3] tag blind spot (universe name-ranks with a TTM
+  that read zero on all three components / the name-ranks with a TTM) per fill year: 2017 1.5%, 2018 1.4%, 2019 0.8%, 2020 0.7%,
+  2021 1.1%, 2022 0.7%, 2023 0.8%, 2024 1.4%, 2025 1.4% - no year above 10%, so the zero-reading rule stands and Stage A needs no
+  ruling. (b) 101 WF rebalances (first fill 2017-01-03); scored names per rebalance P 338 / 376 / 402 and R 340 / 377 / 402
+  (min / median / max): every rebalance trades the top 50 a side, none falls back to thirds or nothing. (c) [B2] scored names
+  whose statement period ended over 120 days before the rank: 14.4% - 23.4% a year; [B17] stale S unscored 167 - 330 name-ranks
+  a year of 6,000. (d) [A13] fires on one firm only (GOOG / GOOGL, 99 name-ranks). (e) [B13] closes 25 positions before a
+  spin-off / stock-dividend ex-date over the stretch; the wide calendar's splits on names ever in the universe: 289 agree with
+  the price rule, 18 calendar-only, 59 price-only - [B19]'s list is drawn after the picks at Stage A, before any P&L. (f) The
+  calendar starts 2016-06-01: the first ranks' 252-session windows are partly price-only (printed as a warning; as registered).

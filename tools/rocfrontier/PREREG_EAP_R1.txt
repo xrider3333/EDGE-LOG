@@ -1,0 +1,250 @@
+PRE-REGISTRATION - EAP r1: THE EARNINGS-ANNOUNCEMENT PREMIUM in Nasdaq-100 names, on PREDICTED release dates - monthly and around the date
+=====================================================================================================================
+DRAFT v1 2026-10-07 19:00 MST for MANAGER review, by the STRATEGY-BEATING-FRONTIER-MODELS-ON-ROC-Y lane (owner standing order
+10-04: a queue of 3 live preregs; MANAGER #119 (5): two new families OUTSIDE the short-growth corner, drafts to MANAGER;
+MANAGER #84: earnings is ONE family in this lane - EDRIFT r1 (dead, 2.85), EDRIFT r2 and EAP are counted once). Written
+before any number of this family exists. Nothing runs until MANAGER's GO and a dated pre-data addendum. Results:
+C:\EdgeLog\_anatomy_cache\rocfrontier\eap_r1\ and RESEARCH_LEDGER.md.
+
+WHAT IS DIFFERENT (one line): the first EL stock family that is LONG A SCHEDULE - names are bought because a release is due,
+never because of what a price, a filing or other traders did - and both sides are the same kind of company.
+
+WHY NOW (house evidence first). The lesson of 2026-10-06 (ledger finding line): every short-growth basket this lane built
+(NETISS, SHORTINT, NEWISSUE) earned inside #463's drawdowns and lost it back in the 2019-21 growth rally; the matched-drawdown
+yardstick rejects that trade. EAP holds no characteristic tilt by construction: in any month the long side (names due to
+report) and the short side (names not due) are drawn from the same Nasdaq-100 pool, and which side a company sits on rotates
+with its fiscal calendar, not with its style. EDRIFT r1 died on event-rate costs; this family's primary cell trades MONTHLY
+(RESMOM's turnover, which survives costs), and its event-window cell is the one honest event-rate shot, judged by the same bars.
+
+THE MAP FIRST (MDL r1). A dollar-neutral (cell M) and an ES-hedged (cell W) basket, placed as a standalone leg first and a
+drawdown-set candidate second. Standalone bar: ROC @ $30k >= 15. Placed honestly: Frazzini & Lamont (2007) report about 7%
+a year for announcers minus non-announcers across US stocks; in 100 mega-caps a few percent is plausible - at $200,000 a side
+~$4,000-10,000 a year against a drawdown of perhaps $15,000-30,000 (ROC 3-15). Savor & Wilson (2016) read the premium as pay
+for MARKET risk revealed at announcements - so its drawdown-day profile may be the wrong sign; that is printed first, not hoped
+away.
+
+MECHANISM. Announcers earn more than non-announcers in the weeks around a scheduled release: attention-driven buying by
+individual investors (Frazzini & Lamont 2007; Barber & Odean 2008), compensation for the market-wide news that announcements
+carry (Savor & Wilson 2016), and demand for the anticipated volatility (Johnson & So 2018). Barber, De George, Lehavy & Trueman
+(2013) find it in most countries, concentrated in the days around the release. Counter-evidence written in now: (1) the
+premium is weaker in large, liquid names; (2) a predicted date can miss the actual one by a week (companies move their
+calendars); (3) Nasdaq-100 coverage only: ~100 names a rank, so 50 a side is impossible - sides are sized by dollars, not
+counts (below); (4) the 2016-25 sample has one growth boom and bust, but here both sides are Nasdaq-100 names.
+
+DATA - HELD, NO NEW PULL. [D1] TV's EDGAR earnings calendar (C:/EdgeLog/_research_cache/edgar/earnings_calendar_ndx.csv,
+sha256 8f4f9f4b... - the rebuilt file EDRIFT r1 pinned in its addendum 4; every 8-K with item 2.02 of the Nasdaq-100 members
+ever listed, 2004-26, columns ticker, ndx_tickers, cik, name, form, accepted_et, reaction_session, timing, items, accession);
+re-pinned in a dated addendum if TV has rebuilt it since. Only acceptance dates BEFORE the rank are ever read for a signal.
+[D2] tools/data/ndx_members.csv (point-in-time Nasdaq-100 members on the 1st of each month, built for NQBRD). [D3] the SIPORB
+cache (manifest 380b05f2..., never mixed with a re-pull), the wide corporate-actions calendar e5bc8487... (dividends [R1],
+spin-offs [D2], announced splits) and ES exactly as RESMOM.
+
+UNIVERSE (each rank, only information known before the fill): RESMOM's liquidity screen (prior raw close >= $10, top 500 by
+20-session raw dollar volume, volume >= 1,000,000 shares, ATR > $0.50, >= 230 split-safe returns and ES pairs) AND a
+Nasdaq-100 member on the 1st of the rank's month AND at least FOUR calendar releases accepted in the 400 days before the rank
+(a known reporting rhythm). The symbol joins the calendar through its CIK (the calendar's cik column and NETISS's pinned map);
+a name the map cannot join gets no score (counted, listed).
+
+[P] THE PREDICTED DATE, known at a rank r (no look-ahead: every input accepted before r). For each release d of the name
+accepted in the window r - 400 .. r - 1 calendar days, the predicted next-year date is p = d + 364 days (same weekday), moved
+to the next session if p is not one; a name is DUE in a stretch when one of its p falls in it. If two releases predict dates
+less than 40 days apart (a restated or duplicate 8-K) only the earlier counts (listed). The ACTUAL release (reaction_session)
+is never an input; it is a REPORTED accuracy check (share of predicted dates within +-3 / +-7 sessions of the actual one).
+
+CELLS (the family: 2).
+- M (MONTHLY, the Frazzini-Lamont rule). At each month's last session close r, among the universe names: LONG the names DUE
+  in the next month (a predicted date in the sessions r+1 .. the next month's last session), SHORT the names NOT due. Each
+  side gets $200,000 split equally among its names (CHOICE: sides sized by dollars, because the counts swing with the
+  reporting season - about 75 due in January / April / July / October, about 10 in the months between); a month with fewer
+  than 8 names on either side trades nothing (counted). FILL at the next session's official open, HOLD to the next
+  rebalance's fill (RESMOM's engine, the per-name size the side's dollars over its count).
+- W (EVENT WINDOW). Each predicted date p of a universe name (universe taken at the rank before the entry): LONG $4,000 from
+  the official open of the 3rd session before p to the official open of the 2nd session after p (5 sessions, covering a
+  release on p before the open or after the close), HEDGED with ES by the name's ex-ante beta (OLS with an intercept over the
+  252 sessions before the entry, zero before 252 exist; DIVRUN r1's hedge, 0.5 bps a side on the hedge); positions overlap
+  freely (no cap; the count per session is printed).
+COSTS: 5 bps a side base, stress 10 and 20; borrow 0.25%/yr on short notional (RESMOM's, stress 1% and 3% on high-volatility
+sessions); dividends paid and owed exactly as RESMOM [R1]. HYGIENE: the house's judged reading (RESMOM restatement / NETISS
+[A18], 2026-10-07): a name flagged inside the hold STAYS on the split-safe path; only an announced split or a [D2] ex-date
+inside the hold removes it; the null draws from the same kept pool.
+
+NULL (family-aware): 500 draws, seed 20261019. M: at every rebalance the DUE side is replaced by the same number of names drawn
+at random from that rank's universe and the rest is the short side (same sizing, fills, costs). W: every event keeps its dates
+and its hedge rule but its name is drawn at random from the universe at its rank. Statistic = the MAX over the 2 cells of WF
+ROC @ $30k.
+
+#463, L and the map: the shared seat pipeline (r18_divrun's reference loader until it is in the repo): #463 refused unless WF
+93.81 / 3.816 / $44,849 reproduces; L = #463 + 0.264 x RES as FRONTIER publishes it when the GO lands (the RESMOM restatement of
+2026-10-07 may replace the registered 120.82 / 3.916 / $36,526 - the addendum pins whichever is current, with its file's sha).
+
+STRETCHES: WF = positions exited 2016-07-01 -> 2025-06-29 (the first rank with four known releases is about 2016-12; printed);
+LB = 2025-06-30 -> 2026-06-30, SEALED - a leg veto on the stock families' one sealed-year day, never a pass route.
+
+STAGE A (WF, per cell; the standalone bars decide): (a) M >= 60 traded rebalances, W >= 500 events; (b) WF ROC @ $30k >= 15,
+net > 0 at 5 AND 10 bps; (c) above the null's 95th percentile; (d) positive in >= 6 of the 9 July-June WF years and net > 0
+without 2020-02-15 .. 2020-04-30; (e) profitable without its best 1% of days AND of name-periods; (f) the 50 largest
+contributors audited by hand (each one's predicted and actual dates, its fills and marks) before a pass is read.
+
+A2 (WF, a REPORT): L + c x the cell against L, c by volatility (25% of #463's daily std / the cell's over 2017-01-03 ..
+2018-12-31; 0.5c and 2c reported); an incremental pass = ROC and Sortino both strictly above L's; the plain #463 + c x cell book
+a reported row; dollars a year beside every ROC (MANAGER #100) and DD5 beside every ROC (owner rule 2026-10-07, MANAGER #120 -
+'driven by one episode' when the worst drawdown > 1.3 x DD5). |realised beta| > 0.20 (per $ of one side's notional, on R's days
+and on all WF days) = the drawdown profile reported, never credited. An incremental pass follows MANAGER #70's route (a
+registered gate, then at most ONE forward book line).
+
+STAGE B / C: as RESMOM (the leg's veto on the shared day; a computed no-order line on the RUNBOARD).
+
+DIAGNOSTICS (owner standing order addendum 2 + MANAGER #100; none is a pass route), every cell: the R-DAY SUM FIRST (the cell's
+P&L inside L's drawdown days, against the null's p95) with L's drawdown-episode table; the cost curve 0 / 5 / 10 / 20 bps a
+side; a row per July-June year; the halves 2016-21 / 2022-25; the long and short sides apart (M); the EVENT-TIME PATH of W's
+positions (mean return by session from p-10 to p+10) and of the same names around their ACTUAL release (reported, never
+traded); the prediction accuracy by year; the realised beta to ES; the correlation with RES and with EDRIFT r1's cells; the
+reporting-season months (Jan / Apr / Jul / Oct) apart from the others; the 20 largest name-month gains and losses.
+
+BEFORE ANY P&L the output prints (counts only): calendar releases per year and per name; names joined / not joined by reason;
+universe names per rank; DUE / NOT-DUE counts per rank; W's events per year and the open-position count per session; the
+accuracy of [P].
+
+KNOWN WAYS IT COULD FOOL US: a premium that is market beta paid at announcements (the 0.20 rule, the R-day sum); a calendar
+that misses releases (8-K 2.02 only - a company that releases by press wire without an 8-K is invisible: printed per name);
+moved reporting dates (the accuracy check); Nasdaq-100 survivorship (TV's delisted-member mapping; unjoined names listed);
+one 9-year regime; a W cell that is only a pre-earnings run-up already taken by others (the cost curve says).
+
+Zero passes = EAP r1 dead and the earnings family closed with it (EDRIFT r2 is not run separately); no other windows,
+predictions or universes are tried.
+
+PRE-DATA ADDENDUM 1 (2026-10-07 19:50 MST, before any EAP number: only the counts MANAGER's review quotes from the pinned calendar
+(8f4f9f4b) and corporate actions (e5bc8487) have been read - no price, no score, no P&L): MANAGER's review #127 (GO WITH 16
+EDITS; C:/EdgeLog/manager/reviews/REVIEW_EAP_DIVCHG_2026-10-07.md) folded in edit by edit, and the reference pinned.
+- [E1] ONE LISTING PER CIK. Dual share classes share one CIK (GOOG/GOOGL for the whole sample, FOX/FOXA, LBTYA/LBTYK,
+  DISCA/DISCK, LILA/LILAK) and would join twice: at every rank only the class with the higher 20-session raw dollar volume
+  (sessions before the fill) stays in the universe; the dropped classes are counted and listed per rank.
+- [E2] THE 95 8-K/A ROWS are dropped from [P] (form '8-K/A'), counted.
+- [E3] THE PAIR RULE (replaces '40 days, the earlier counts'): when two releases of a name predict dates less than 50 days
+  apart, the LATER release counts - item 2.02 also carries pre-announcements (ILMN 2019-01-08 then 01-29, REGN 01-07 then
+  02-06, ISRG 01-09 then 01-24: the early one is the JPM-week preliminary result) and DXCM's 01-07 / 02-21 (45 days apart)
+  would otherwise leave a fake second due date. Every pair is listed by name in the pre-data print; ILMN, REGN, ISRG and DXCM
+  are its named test cases (the harness's selftest plants them).
+- [E4] PREDECESSOR CIKs AND HOLES. A CIK break pushes a member out of the universe (AVGO 33 months 2016-07..2019-03, FOX/FOXA
+  41, TEAM 29, NXPI 27, DISH 25, SIRI 17, MRVL 12, CEG 12): the predecessor CIKs (AVGO before 2018, FOX's 21CF, MRVL, TEAM,
+  NXPI, where their 8-Ks exist) are joined only through a pinned list (symbol, predecessor CIK, successor CIK, the dates it
+  covers, its EDGAR source) that TV builds and a dated pre-data addendum pins by sha256 before Stage A; a name-month the list
+  does not cover is unjoined (counted, listed). If the list is not pinned the run proceeds with those name-months unjoined
+  (about 3% of member-months) and says so in its row. The mid-sample holes (BIIB and ORLY 2019-12..2020-10, AMAT
+  2024-07..2025-05) fall out by the four-releases rule (counted, listed per name). The 16 foreign filers among the members
+  (ASML, AZN, PDD, JD, BIDU, NTES and ten more) file 6-Ks, never an 8-K item 2.02, so they never have a release and never
+  enter the universe - stated, not fixed (counted per rank).
+- [E5] ACCURACY BOTH WAYS, BEFORE ANY P&L: precision = the share of predicted dates within +-3 / +-7 sessions of an actual
+  release (the calendar's reaction_session); recall = the share of the actual releases of universe names that land in the
+  month M assigned them as DUE. If recall is below 80% in any WF July-June year, the run STOPS before any P&L and MANAGER
+  rules. Caveat stated: the calendar is also the 'actual', so a release missing from it is invisible to both measures.
+- [E6] TURNOVER FROM THE DUE LISTS ALONE (no return read), printed before any P&L: M's one-way turnover per side by month
+  and year, and the break-even monthly gross spread at 5 and 10 bps a side. The draft's 'RESMOM's turnover' and its season
+  picture are withdrawn: releases split about evenly between Jan/Feb, Apr/May, Jul/Aug and Oct/Nov and only Mar/Jun/Sep/Dec are
+  thin (10-20 names), so in 8 months of 12 the due group swaps almost completely - M's long side turns over about 100% a month
+  and the short side most of the way (MANAGER's rough cost: ~$4k a year at 5 bps, ~$8.5k at 10 bps).
+- [E7] THE POWER LINE, written now: M needs about 0.5-0.6% a month of gross spread on $200,000 a side for ROC @ $30k 15 after
+  costs - at or above Frazzini & Lamont's all-stock figure, in mega-caps where the draft itself expects less; W needs about
+  0.5% net per 5-session window (a per-event sd of about 7%, about 400 events a year). THE EXPECTED VERDICT IS DEAD; the run's
+  value is closing the earnings family on data already held. The harness prints its own computed needs (from the DUE lists,
+  the event count and the cost curve) beside the literature values before any P&L.
+- [E8] M's NAME CAP: no name holds more than $10,000 - a side's dollars = min($200,000, $10,000 x its count), split equally
+  (a thin month of ~10 names holds $100,000, never $20,000 a name). The fewer-than-8-names rule stands.
+- [E9] W's BETA needs 252 ES pairs before the entry; there is no zero-beta fallback - a name with fewer (230-251 included) is
+  no event (counted). Replaces 'zero before 252 exist'.
+- [E10] W's GROWTH TILT: what is left after the ES hedge is long Nasdaq-100 names against the S&P - the short-growth corner's
+  factor with the sign flipped, so W may lose in the same #463 drawdowns those baskets earned in. W's daily P&L is regressed
+  on ES's return and on NQ-minus-ES's (the house's NQ and ES continuous masters, read only, close to close, WF); if |the
+  NQ-minus-ES loading| > 0.20 per $ long, W's ROC @ $30k with that tilt removed is printed beside the raw one, with the
+  2019-21 and 2022 rows apart. Reported, never the verdict.
+- [E11] W's SECOND NULL (DIVRUN's time-shift): every event keeps its name, its hedge rule and its costs, but its whole window
+  moves back by a whole number of sessions drawn uniformly from 27 .. 36 per event and draw (the middle of the quarter: the
+  moved window ends at least 25 sessions before p and starts about 24 or more after the previous release); 500 draws, seed
+  20261020, W's own ROC @ $30k per draw. W's (c) needs BOTH nulls cleared.
+- [E12] (c) IS READ AT THE 97.5th PERCENTILE (EDRIFT r1 spent the earnings family's first look; alpha split over the family's
+  two rounds): M above the random-name null's p97.5 (the MAX over the 2 cells), W above the random-name null's p97.5 AND the
+  time-shift null's p97.5.
+- [E13] M's BETA: the ex-ante beta gap (long minus short, the names' OLS ES betas over the 252 sessions before the rank,
+  side-dollar weighted) printed at every rank, and M's realised ES beta on reporting-season days (the sessions of the weeks
+  in which at least 10 universe names have an actual release - the calendar's reaction_session, a report, never an input)
+  apart from the other days (Savor & Wilson's channel). A PASS of M also needs M hedged with ES by its ex-ante beta gap (x the
+  side dollars, re-set at each rank, 0.5 bps a side on the hedge) to reach WF ROC @ $30k >= 15.
+- [E14] SEAT, printed before any correlation: per stretch, each cell's P&L inside each of #463's and L's 5 deepest drawdown
+  episodes, and the share of those episodes' weeks that are peak reporting weeks (as [E13]) against the share of all WF weeks.
+- [E15] THE LIVE STRETCH: the WF book numbers (#463, L, L + c x the cell, the plain book) on the cell's live stretch - from its
+  first traded rank, printed - with the full-WF numbers beside them, as DIVCHG's draft does; the WF run loads only calendar rows
+  ACCEPTED before 2025-06-30.
+- [E16] HYGIENE = MANAGER's hygiene edit S1 (replaces the draft's HYGIENE sentence, which named the superseded 'keep' rule): no
+  in-hold event removes a name; flagged names and splits stay on the split-safe path; a spin-off / stock-dividend ex-date
+  inside the hold (W: inside the window) closes the position at the official close of the session before it (r17_resmom's
+  post_mode 'close': no mark, dividend or borrow after it, the exit cost on that row; the nulls on the same cut paths). The
+  removal reading ('keep') is printed beside the judged one as a report with its count. The draft's '[D2] ex-date' and
+  'spin-offs [D2]' read 'spin-off / stock-dividend ex-date' (in this draft [D2] is ndx_members.csv).
+- [E17] THE REFERENCE L, pinned (the draft: 'the addendum pins whichever is current'): L = #463 + 0.264 x RES from the RESMOM
+  restatement under the same hygiene edit S1 - resmom_cells_daily_wf_close.csv, sha256 e204dd53..., WF ROC @ $30k
+  121.06 / DD5 $34,392, Sortino 3.926, worst drawdown $36,526 - refused unless they
+  reproduce. #463 stays refused unless WF 93.81 / 3.816 / $44,849 reproduces.
+- [E18] UNCHANGED: the data, [P]'s 364-day rule, the cells, sizes, fills, costs, the random-name null, the stretches, the bars
+  (a), (b), (d), (e), (f), A2, Stage B / C, the diagnostics. Zero passes = EAP r1 dead and the earnings family closed (EDRIFT r2
+  is not run).
+PRE-DATA ADDENDUM 2 (2026-10-08 10:38 MST, before any EAP number: TV's two files were read for their row counts and columns only -
+no release, score, accuracy or return computed): [E4]'s predecessor list pinned (TV #133, re this lane's #94).
+- [E19] THE [E4] LIST, PINNED: C:\EdgeLog\_research_cache\edgar\edgar_predecessor_map.csv (9 rows, sha256
+  87620b86be78d46db10c3b68df3e5f6d03101595c5bc0923bbb6805cce6a3c00; columns symbol, predecessor_cik, predecessor_name,
+  successor_cik, first_8k_date, last_8k_date, edgar_source_url, note; TV's tools/edgar_predecessors.py; the pinned calendar
+  untouched, still 8f4f9f4b). Its real CIK changes: AVGO <- 0001649338 (Broadcom Pte. Ltd., 8-Ks 2015-10-20 .. 2018-04-09);
+  FOX and FOXA <- 0001308161 (Twenty-First Century Fox, until the 2019-03 spin); MRVL <- 0001058057 (Marvell Technology Group,
+  until the 2021-04 re-domicile); CEG <- 0001168165 (Constellation Energy Generation: no item 2.02 under either CIK before
+  2022-05-12, so CEG 2022-03..05 stays a gap). A member-month joins the predecessor CIK's releases only inside its row's
+  [first_8k_date, last_8k_date]; elsewhere the member's own CIK as before. The rows that are NOT CIK changes (TEAM and NXPI:
+  6-K foreign filers until 2022-10 / 2019; DISH: no item 2.02 results 8-K in 2016-18; SIRI: two results 8-Ks tagged 9.01
+  only) join nothing and stay holes, counted and listed as [E4] says; SIRI's two are not hand-added (the calendar's rule is
+  item 2.02, the same for every name).
+- [E20] THE PREDECESSORS' RELEASES, PINNED: C:\EdgeLog\_research_cache\edgar\earnings_calendar_predecessors.csv (85 rows,
+  sha256 5a9c4142966c11067f990615473c2c36ba598376d0276b483194388f9215ba1a; the calendar's own columns; ticker = ndx_tickers =
+  the member symbol; every row accepted before 2025-06-30): AVGO 10 (2016-03-03 .. 2018-03-15), MRVL 75 (2004-11 ..
+  2021-03-03), read as ONE table with the pinned calendar 8f4f9f4b - a release present in both (the same accession) refuses
+  the run. FOX / FOXA's predecessor releases are already rows of 8f4f9f4b labelled TFCF;TFCFA: their member-months before
+  2019-04 join CIK 1308161's rows there, no addition. [E5]'s accuracy, [E15]'s accepted-before rule and every release rule
+  read the combined table; the joined name-months per symbol are printed before any P&L.
+- [E21] Everything else stands; the expected verdict stays DEAD ([E7]).
+PRE-DATA ADDENDUM 3 (2026-10-08 11:41 MST, before any EAP number: the harness has run only on synthetic worlds; its loader
+check read the pinned EDGAR files for counts only - 142 predecessor releases join, each once: AVGO 10, FOX / FOXA 57 from TFCF,
+MRVL 75, CEG 0): the lead's review of the harness r24_eap.py (56ddc2db).
+- [E22] THE HARNESS'S CHOICEs 1 - 45 ARE FIXED AS BUILT, each labelled CHOICE in the code. The ones a reader should know:
+  release date = the New York date of acceptance, a release accepted on the rank day waits for the next rank (8); [E3]'s pair gap
+  on acceptance dates, applied point in time (13, 14); [E1] ties to the lower symbol (18); no pre-rank hygiene removal (19); W's ES
+  hedge trades at ES's 09:30 print and is lifted with the stock at its [E16] close (21, 22), while M's basket hedge, sized on the
+  whole basket at the rank, is held to the exit even after one name's early close (25); W's null draws from names the hedge rule
+  fits, one independent draw per event (28); [E11] re-reads the beta at the moved entry (30); [E5]'s definitions (31); if both
+  cells pass, the higher WF ROC goes to Stage B, a tie to M (34); Stage A is frozen once the lockbox is read (44).
+- [E23] [E19]'s WINDOW IS A RELEASE WINDOW (the lead's ruling on CHOICE 11): a predecessor CIK's releases dated inside its row's
+  [first_8k_date, last_8k_date] join the member's release history at EVERY rank, so the history runs on across the CIK change;
+  the window never switches a member-month on or off. CEG's last date past the cut is clipped to the day before it (10). TFCF /
+  TFCFA (members for 2019-04 only) are unmapped and count as not joined. The [E19] block prints the months that would fail
+  under the other reading, as a report.
+- [E24] [E9] read literally (27): ES's own missing sessions count as missing pairs; the run prints their count as a warning.
+PRE-DATA ADDENDUM 4 (2026-10-08 11:51 MST, after the counts-only dryload and before any return is read): MANAGER's rulings
+#141 on the dryload's two findings (eap_dryload_run1_stdout.txt).
+- [E25] THE [E5] STOP FIRED - A RECORDED MANAGER WAIVER (the stop itself is not rewritten). Recall into the DUE month was 79.8% in
+  the partial first WF year 2016-17 (99 of 124 actual releases: one short of 80%; 7 ranks), 80.0% in 2024-25 (248 of 310), 81.4 -
+  86.2% in every other year, 83.7% over the whole WF stretch; precision 71.9% within 3 sessions, 95.7% within 7 - no sign of a
+  broken calendar. MANAGER waives the stop for this run and the waiver is written in the result line. Stage A runs on the FULL
+  WF window as registered AND, as a sensitivity, with 2016-17 dropped (positions, events and days before 2017-07-01 left out,
+  every check (a) - (e) and the null recomputed on the shorter stretch). If the two verdicts differ, the STRICTER governs and the
+  result line says so. No hand-hunting for the missing release. The waiver covers exactly this failure: a recall under 80% in
+  any other July-June year still stops the run.
+- [E26] [E9]'s 252 ES PAIRS ARE COUNTED OVER SESSIONS WHERE ES HAS A RETURN (MANAGER: GO). The ES master has no close-to-close
+  return on 4 sessions (2020-02-28, 2020-03-02, 2020-06-30, 2020-07-01: missing 16:00 prints); read literally, [E9] then left no W
+  event for a year after each (371 events lost, W empty through 2020-21). The beta window is now the 252 most recent sessions
+  before the entry on which ES's return is defined - it reaches back past ES's own holes, the count stays 252 - and a stock still
+  needs its own return on each of them. The run log prints the 4 dates. [E11]'s moved entries and M's betas ([E13], CHOICE 1)
+  follow the same rule.
+PRE-DATA ADDENDUM 5 (2026-10-08 12:17 MST, before any return is read): the lead's review of the harness wired to addendum 4
+(r24_eap.py 96de1e68; selftest 12 groups and both smokes pass on synthetic worlds).
+- [E27] ITS NEW CHOICEs ARE FIXED AS BUILT: (46) M's betas keep CHOICE 1's minimum of 230 of the stock's own returns - [E26] moves
+  the window, not the count; (47) the 2016-17-dropped sensitivity keeps exactly the positions and events ENTERED on or after
+  2017-07-01, so nothing straddles the cut; (48) its A2 volatility window is the registered one clipped to 2017-07-01 ..
+  2018-12-31; (49) its breadth bar (d) is two thirds rounded up of the 8 remaining July-June years, i.e. 6; (50) in its [E11]
+  null a time-shifted window that would start before 2017-07-01 sits out that draw, counted. CHOICE 27 (the literal ES-hole
+  reading) is retired by [E26]. Windows that reached back past ES's own holes are counted as beta_reached_back.
