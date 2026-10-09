@@ -90,7 +90,9 @@ Structure EVERY substantive reply top-to-bottom as:
    REDEPLOY and EQUAL-DRAWDOWN sizing). There is no 2C or 2D section letter any more — those
    are tabs. **IS / WF / LB** stay the names for the three stretches ("LB", never
    "held-out year"/"lockbox year" alternations). **LEDGER** is the on-screen name of the tab
-   formerly called HOME (owner-approved 2026-10-03 via MANAGER; internal names stay 'home').
+   formerly called HOME (owner-approved 2026-10-03 via MANAGER; internal names stay 'home'). **ROLL CHECK** is the
+   board tag for a run whose saved roll stamp says its prices may not follow the true contract roll table, and
+   **ROLLS** is the run-report chip that shows that stamp (named 2026-10-09, MANAGER #31).
    Only the OWNER renames these; if a new concept
    truly needs a name, pick it ONCE, say "calling this X from now on", and add it here in the
    same commit.

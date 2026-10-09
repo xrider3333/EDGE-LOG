@@ -70,6 +70,16 @@ with two polylines - the run solid, the buy-and-hold twin carrying stroke-dashar
 entry prints one line "No exposure reading: ...", a mostly-flat entry reads "mostly flat", and the fixture under its own id (306, no entry) shows no chip and no
 readout. Every other case runs as run 306 with no entry: it must show no EXPOSURE chip and no readout.
 
+One more case (rollstamp-chip, 2026-10-09, MANAGER #31 part b: the roll stamp the PC runner saves with every new run) renders the fixture AS RUN #163 (a ROLL run with an injected
+EXPOSURE entry) with a roll_stamp put on the document: the ROBUSTNESS rail must carry a ROLLS chip right after the EXPOSURE chip, reading "true roll table" for a clean futures stamp,
+and the readout it opens (data-stampchip="163") must print the plain-word table (roll table version, calendar, signals read on, contract switches with the estimated ones, trades held across a
+switch, pure roll step, net on switch sessions, no-fill bars), the raw-versus-adjusted line and the footer, with NO problems list. The same case then steps the page: a warning -> the chip
+reads "check", the warning in plain words and one problem, and the CAUTIONS strip names it; no stamp -> no chip and no readout; an error stamp -> "no stamp made"; a no-contract-rolls stamp -> "no
+contract rolls" and nothing to check; a book stamp (lists, summed dollars, a pure roll step) -> "check" with the sums and the legs stamped; a raw-versus-adjusted "not run" string; and the
+fixture under run 306 (no ROLL, no EXPOSURE chip) -> the chip sits right after COST AND LIMITS. Every other case has no stamp: it must show no ROLLS chip and no readout.
+A warning is the engine's own text and is never printed: a warning about the price source reads as a plain sentence (a problem); a method-only warning (the file declares raw prices) is a
+Note, not a problem - the chip reads "true roll table" plus "raw signals" and nothing joins the CAUTIONS strip.
+
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks).
 
 RETRY-ONCE. A non-PASS attempt is rendered a second time before it blocks a push.
@@ -153,6 +163,44 @@ STEPS = [
     "window._runExpo.runs['163']=" + json.dumps(WITH_CURVE) + ";runHistory[0].id='306';augurRunSel='306';renderApp();",
 ]
 
+# ROLLS chip fixtures (rollstamp-chip case): the roll_stamp field of a run document as the runner's roll guard writes it (augur_engine/rolls.py roll_stamp + engine.py, 2026-10-08).
+STAMP_RVA = {"trades_raw": 125, "trades_adjusted": 125, "same": 120, "only_raw": 5, "only_adjusted": 5, "file_skips_roll_days": True, "moved_by_roll_day_skip": 2,
+             "moved_by_price": 3, "price_moves_near_switch": 3, "price_moves_elsewhere": 0, "near_sessions": 20, "usd_only_raw": 1200.0, "usd_only_adjusted": -800.0,
+             "verdict": "differs near switches (signals that read the roll step - removed by the plan)"}
+STAMP_CLEAN = {"master_type": "unadjusted", "source": "db_noadj_rth", "roll_source": "rolls_NQ.csv 3fa9c1d2e7b4", "calendar": "difference-adjusted signals",
+               "switches_in_window": 62, "switches_estimated": 3, "trades_crossing": 4, "usd_crossing_trades": 18250.0, "usd_roll_step": 0.0, "usd_switch_sessions": 4125.5,
+               "roll_step_removed_by_strategy_per_contract_usd": 0.0, "signal_method": "difference", "method_source": "declared",
+               "method_tests": {"trades": 40, "shift": 1.0, "scale": None}, "no_fill_bars": 7, "warning": None,
+               "label_check": {"eligible": 40, "raw_like": 39, "adjusted_like": 1, "verdict": "agrees with the label"},
+               "registry": "master id 12 (NQ_5m_noadj.csv)", "guard": "refuse", "raw_vs_adjusted": STAMP_RVA}
+STAMP_WARN = dict(STAMP_CLEAN, warning="this file's trades move when every price shifts by a constant (it reads levels or %: 12% of them moved), and this master is difference-adjusted, so its signals read shifted levels. Run it on the unadjusted master: the engine then picks its signal method and prices fills raw.")
+STAMP_METHOD = dict(STAMP_CLEAN, warning="ROLL_SIGNAL = 'raw': signals read raw prices; a trade across a switch is refused")
+STAMP_ERR = {"error": "RollGuardError: roll table missing for this window"}
+STAMP_NONE = {"master_type": "no contract rolls", "source": "db_stock_rth", "roll_source": "", "calendar": "not used", "switches_in_window": 0, "switches_estimated": 0,
+              "trades_crossing": 0, "usd_crossing_trades": 0.0, "usd_roll_step": 0.0, "usd_switch_sessions": 0.0}
+STAMP_BOOK = {"legs_stamped": 3, "switches_in_window": 180, "switches_estimated": 3, "trades_crossing": 2, "usd_crossing_trades": 5000.0, "usd_roll_step": 512.5,
+              "usd_switch_sessions": -8605.4, "master_type": ["no contract rolls", "unadjusted"], "source": ["db_stock_rth", "db_noadj_rth"],
+              "calendar": ["not used", "difference-adjusted signals"], "roll_source": ["", "rolls_NQ.csv 3fa9c1d2e7b4"]}
+STAMP_RAWSTR = dict(STAMP_CLEAN, raw_vs_adjusted="not run: signals were not adjusted (raw (declared))")
+SSTEPS = [
+    # 1: a warning
+    "runHistory[0].roll_stamp=" + json.dumps(STAMP_WARN) + ";renderApp();",
+    # 2: no stamp (a run saved before the roll guard)
+    "delete runHistory[0].roll_stamp;renderApp();",
+    # 3: the runner could not make one
+    "runHistory[0].roll_stamp=" + json.dumps(STAMP_ERR) + ";renderApp();",
+    # 4: a market with no contract rolls
+    "runHistory[0].roll_stamp=" + json.dumps(STAMP_NONE) + ";renderApp();",
+    # 5: a book's combined stamp (lists, sums, a pure roll step)
+    "runHistory[0].roll_stamp=" + json.dumps(STAMP_BOOK) + ";renderApp();",
+    # 6: the raw-versus-adjusted check was not run
+    "runHistory[0].roll_stamp=" + json.dumps(STAMP_RAWSTR) + ";renderApp();",
+    # 7: a method-only warning (the file declares raw prices): a Note, not a problem
+    "runHistory[0].roll_stamp=" + json.dumps(STAMP_METHOD) + ";renderApp();",
+    # 8: the clean stamp under run 306 (not a ROLL run, no exposure entry): the chip falls back to sit right after COST AND LIMITS
+    "runHistory[0].roll_stamp=" + json.dumps(STAMP_CLEAN) + ";runHistory[0].id='306';augurRunSel='306';renderApp();",
+]
+
 # name -> {prefs, win}: prefs land in localStorage augurPrefs (and APREF), win on the
 # iframe window before renderApp.
 CASES = [
@@ -186,6 +234,12 @@ CASES = [
     ('exposure-chip', {'prefs': {'repCols': '3'},
                        'win': {'_diagOpenKey': 'expo', '_runExpo': {'state': 'ok', 'runs': {'163': WITH_CURVE}, 'at': 0}},
                        'setId': 163, 'steps': STEPS}),
+    # ROLLS chip (2026-10-09, MANAGER #31 part b): the fixture rendered AS RUN #163 (a ROLL run, with an injected EXPOSURE entry so the chip order can be read) carrying a clean roll_stamp,
+    # the ROLLS readout opened. 'pre' puts the stamp on the document before renderApp; 'sSteps' then change the page in place (each one evaluated, the page re-rendered, the chip and the
+    # readout read again). Every case above has no stamp and must show NO ROLLS chip.
+    ('rollstamp-chip', {'prefs': {'repCols': '3'},
+                        'win': {'_diagOpenKey': 'stamp', '_runExpo': {'state': 'ok', 'runs': {'163': WITH_CURVE}, 'at': 0}},
+                        'setId': 163, 'pre': "doc.roll_stamp=" + json.dumps(STAMP_CLEAN) + ";", 'sSteps': SSTEPS}),
 ]
 
 # Builds this gate exists to catch. Each is a commit on main whose index.html blanked every
@@ -313,6 +367,8 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
           cols:rlCard?[].map.call(rlCard.querySelectorAll('thead th'),function(e){return (e.textContent||'').trim();}):[]};
         // EXPOSURE chip (2026-10-09): what the rail and the opened readout show right now (read again after every step of a case that carries steps)
         r.expo=expoRead();
+        // ROLLS chip (2026-10-09): what the rail and the opened readout show right now (read again after every step of a case that carries sSteps)
+        r.stamp=stampRead();
         // COST AND LIMITS card (stubbed-runner cases): what is drawn, in what order, and what the app asked the runner
         if(cfg.stub){
           var box=det?det.querySelector(cfg.stub==='share'?'[data-conccard]':'[data-rdcard],[data-rdna]'):null, cn=box?box.querySelector('[data-rdcounts]'):null;
@@ -328,6 +384,7 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
         r.uncaught=sink.uncaught.slice(0,20);
       }catch(e){r.sampleErr=String(e&&e.stack?e.stack:e);}
       if(cfg.steps&&!r.sampleErr){r.expoSteps=[];stepExpo(0);return;}
+      if(cfg.sSteps&&!r.sampleErr){r.stampSteps=[];stepStamp(0);return;}
       out.cases[nm]=r;
       runCase(i+1);
     }
@@ -356,6 +413,30 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
       }
       try{w.eval(cfg.steps[k]);}catch(e){r.stepErr=String(e&&e.stack?e.stack:e);}
       setTimeout(function(){stepExpo(k+1);},800);
+    }
+    // ROLLS chip: the rail chip, where it sits against the EXPOSURE / COST AND LIMITS chips, the opened readout, its problems list and the CAUTIONS strip
+    function stampRead(){
+      var det=d.getElementById('res-detail');
+      var chip=d.querySelector('[data-diagchip="stamp"]'), expo=d.querySelector('[data-diagchip="expo"]'), rd=d.querySelector('[data-diagchip="rd"]');
+      var card=det?det.querySelector('[data-stampchip]'):null, warn=det?det.querySelector('[data-warnstrip]'):null;
+      return {chip:!!chip, chipText:chip?(chip.innerText||chip.textContent||''):'', sameRail:!!(chip&&rd&&chip.parentNode===rd.parentNode),
+        hasExpo:!!expo, afterExpo:!!(chip&&expo&&chip.previousElementSibling===expo), afterRd:!!(chip&&rd&&chip.previousElementSibling===rd),
+        card:!!card, cardId:card?card.getAttribute('data-stampchip'):null, cardText:card?(card.innerText||card.textContent||''):'',
+        cardN:det?det.querySelectorAll('[data-stampchip]').length:0, issues:card?card.querySelectorAll('[data-stampissues] li').length:0,
+        raw:card?!!card.querySelector('[data-stampraw]'):false, note:card?!!card.querySelector('[data-stampnote]'):false, cardHtml:card?card.outerHTML:'', chipHtml:chip?chip.outerHTML:'',
+        cautions:warn?(warn.innerText||warn.textContent||''):''};
+    }
+    function stepStamp(k){
+      r.stampSteps.push(stampRead());
+      if(k>=cfg.sSteps.length){
+        r.errors=sink.errors.slice(0,20);
+        r.uncaught=sink.uncaught.slice(0,20);
+        out.cases[nm]=r;
+        runCase(i+1);
+        return;
+      }
+      try{w.eval(cfg.sSteps[k]);}catch(e){r.stepErr=String(e&&e.stack?e.stack:e);}
+      setTimeout(function(){stepStamp(k+1);},500);
     }
   }
   document.getElementById('f').addEventListener('load',function(){
@@ -613,7 +694,7 @@ def _check_readings(nm, r, rd, fixture):
 def _check_roll(nm, r, rl):
     f = []
     if nm != 'roll-chip':
-        if nm != 'exposure-chip' and (rl.get('chip') or rl.get('cardN')):   # exposure-chip runs as #163, a roll-restated run: its ROLL chip is expected
+        if nm not in ('exposure-chip', 'rollstamp-chip') and (rl.get('chip') or rl.get('cardN')):   # exposure-chip and rollstamp-chip run as #163, a roll-restated run: its ROLL chip is expected
             f.append('%s: run 306 is not one of the 22 roll-restated runs but the report shows a ROLL chip / readout' % nm)
         return f
     txt = ' '.join((rl.get('cardText') or '').split())
@@ -650,7 +731,7 @@ def _check_roll(nm, r, rl):
 def _check_expo(nm, r, ex):
     f = []
     if nm != 'exposure-chip':
-        if ex.get('chip') or ex.get('cardN'):
+        if nm != 'rollstamp-chip' and (ex.get('chip') or ex.get('cardN')):   # rollstamp-chip injects an exposure entry for run 163 on purpose (chip order)
             f.append('%s: run 306 has no exposure entry but the report shows an EXPOSURE chip / readout' % nm)
         return f
     steps = r.get('expoSteps') or []
@@ -711,6 +792,126 @@ def _check_expo(nm, r, ex):
         f.append('%s: a step threw -- %s' % (nm, str(r.get('stepErr')).splitlines()[0][:200]))
     if r.get('errors') or r.get('uncaught'):
         f.append('%s: console errors with the EXPOSURE readout open -- %s' % (nm, ((r.get('errors') or []) + (r.get('uncaught') or []))[0].splitlines()[0][:200]))
+    return f
+
+
+# ROLLS chip (2026-10-09, MANAGER #31 part b): a clean stamp on the fixture as run #163 gives a ROLLS chip right after the EXPOSURE chip and a plain-word readout with no problems list; the
+# steps then change the stamp in place (a warning, none, an error, no contract rolls, a book, a "not run" check, run 306). Every other case has no stamp: no chip, no readout.
+def _check_stamp(nm, r, st):
+    f = []
+    if nm != 'rollstamp-chip':
+        if st.get('chip') or st.get('cardN'):
+            f.append('%s: the fixture carries no roll stamp but the report shows a ROLLS chip / readout' % nm)
+        return f
+    steps = r.get('stampSteps') or []
+    if len(steps) != len(SSTEPS) + 1:
+        f.append('%s: the page was read %d times, wanted %d (a step did not run: %s)' % (nm, len(steps), len(SSTEPS) + 1, r.get('stepErr')))
+        return f
+
+    def tx(x):
+        return ' '.join((x.get('cardText') or '').split())
+
+    def ch(x):
+        return ' '.join((x.get('chipText') or '').split())
+    s0, s1, s2, s3, s4, s5, s6, sm, s7 = steps
+    t0 = tx(s0)
+    # step 0: a clean futures stamp
+    if not s0.get('chip'):
+        f.append('%s: no ROLLS chip in the ROBUSTNESS rail of run #163 although it carries a roll stamp' % nm)
+    else:
+        if 'ROLLS' not in ch(s0) or 'true roll table' not in ch(s0):
+            f.append('%s: the ROLLS chip does not read ROLLS / true roll table -- %r' % (nm, ch(s0)))
+        if not s0.get('sameRail'):
+            f.append('%s: the ROLLS chip is not in the same rail as the COST AND LIMITS chip' % nm)
+        if not s0.get('hasExpo') or not s0.get('afterExpo'):
+            f.append('%s: the ROLLS chip does not sit right after the EXPOSURE chip (expo chip there: %s)' % (nm, s0.get('hasExpo')))
+    if not s0.get('card') or s0.get('cardN') != 1:
+        f.append('%s: the opened ROLLS readout [data-stampchip] is not on the page exactly once (found %s)' % (nm, s0.get('cardN')))
+        return f
+    if s0.get('cardId') != '163':
+        f.append('%s: the readout is marked for run %r, not 163' % (nm, s0.get('cardId')))
+    for want in ('ROLLS', 'price series unadjusted', 'roll dates from true roll table for NQ (version 3fa9c1d2e7b4)', 'calendar difference-adjusted signals',
+                 'signals read on prices adjusted by difference, chosen by: the strategy file declared it',
+                 'contract switches in the window 62 (3 estimated)', 'trades held across a switch 4, net $18,250', 'pure roll step booked $0',
+                 'net on switch sessions $4,126', 'synthetic no-fill bars 7',
+                 'Same file on raw prices: 120 of 125 trades identical; 2 moved by its own roll-day skip, 3 moved by price (3 near a switch, 0 elsewhere).',
+                 'Verdict: differs near switches',
+                 'Stamped by the PC runner' + chr(8217) + 's roll guard when this run was saved. A report - it changes no figure of the run.'):
+        if want not in t0:
+            f.append('%s: the ROLLS readout does not say %r' % (nm, want))
+    if s0.get('issues') or 'may not follow' in t0:
+        f.append('%s: a clean true-table stamp lists problems (%s)' % (nm, s0.get('issues')))
+    if '.csv' in t0 or '.py' in t0 or 'rolls_' in t0:
+        f.append('%s: the readout prints a file name -- %r' % (nm, t0[:200]))
+    if 'ROLLS' in (s0.get('cautions') or ''):
+        f.append('%s: a clean stamp put ROLLS on the CAUTIONS strip' % nm)
+    # step 1: a warning
+    t1 = tx(s1)
+    if ch(s1).find('check') < 0 or 'true roll table' in ch(s1):
+        f.append('%s: a stamp with a warning should leave a chip that reads "check" -- %r' % (nm, ch(s1)))
+    if ('it reads price levels or percentages but ran on an adjusted price file, so its signals read shifted levels' not in t1 or s1.get('issues') != 1
+            or 'may not follow the true contract roll table' not in t1 or s1.get('note')):
+        f.append('%s: the warning stamp should list its warning as ONE problem -- issues=%s %r' % (nm, s1.get('issues'), t1[-260:]))
+    if 'ROLLS - check' not in (s1.get('cautions') or ''):
+        f.append('%s: a "check" chip is not named on the CAUTIONS strip -- %r' % (nm, (s1.get('cautions') or '')[:160]))
+    # step 2: no stamp
+    if s2.get('chip') or s2.get('cardN'):
+        f.append('%s: a run with no roll stamp (saved before the roll guard) still shows a ROLLS chip / readout' % nm)
+    if 'ROLLS' in (s2.get('cautions') or ''):
+        f.append('%s: a run with no stamp is named on the CAUTIONS strip' % nm)
+    # step 3: the error stamp
+    t3 = tx(s3)
+    if 'no stamp made' not in ch(s3):
+        f.append('%s: an error stamp should leave a chip that reads "no stamp made" -- %r' % (nm, ch(s3)))
+    if 'could not be made when this run was saved' not in t3 or 'roll table missing' in t3 or 'RollGuardError' in t3:
+        f.append('%s: the error readout should say "could not be made" in plain words, without the runner message or its code name -- %r' % (nm, t3[:200]))
+    if 'ROLLS - no stamp made' not in (s3.get('cautions') or ''):
+        f.append('%s: a "no stamp made" chip is not named on the CAUTIONS strip' % nm)
+    # step 4: no contract rolls
+    t4 = tx(s4)
+    if 'no contract rolls' not in ch(s4) or s4.get('issues'):
+        f.append('%s: a no-contract-rolls stamp should leave a chip that reads "no contract rolls" and list no problem -- %r' % (nm, ch(s4)))
+    if 'nothing to check' not in t4 or 'ROLLS' in (s4.get('cautions') or ''):
+        f.append('%s: a no-contract-rolls readout should say there is nothing to check and stay off the CAUTIONS strip -- %r' % (nm, t4[:200]))
+    # step 5: a book
+    t5 = tx(s5)
+    if 'check' not in ch(s5):
+        f.append('%s: a book stamp with a pure roll step should leave a chip that reads "check" -- %r' % (nm, ch(s5)))
+    for want in ('legs stamped 3', 'price series, by leg no contract rolls; unadjusted', 'true roll table for NQ (version 3fa9c1d2e7b4)',
+                 'contract switches in the window 180 (3 estimated)', 'trades held across a switch 2, net $5,000', 'pure roll step booked $513',
+                 'net on switch sessions -$8,605', 'it booked $513 of pure roll step'):
+        if want not in t5:
+            f.append('%s: the book readout does not say %r' % (nm, want))
+    if s5.get('issues') != 1 or s5.get('raw'):
+        f.append('%s: the book readout should list ONE problem and no raw-versus-adjusted line -- issues=%s raw=%s' % (nm, s5.get('issues'), s5.get('raw')))
+    # step 6: the raw-versus-adjusted check was not run
+    t6 = tx(s6)
+    if 'Same file on raw prices: not run: signals were not adjusted (raw (declared))' not in t6 or 'true roll table' not in ch(s6):
+        f.append('%s: a "not run" raw-versus-adjusted string should be printed as it was saved, with a clean chip -- %r' % (nm, t6[-200:]))
+    # step 7: a method-only warning -> a Note, not a problem
+    tm = tx(sm)
+    if 'true roll table ' + chr(183) + ' raw signals' not in ch(sm) or 'check' in ch(sm).replace('true roll table', ''):
+        f.append('%s: a method-only warning should leave a chip that reads "true roll table" and "raw signals" -- %r' % (nm, ch(sm)))
+    if sm.get('issues') or 'may not follow' in tm or not sm.get('note') or ('Note the file declares raw prices: signals read raw prices, and a trade held across a contract switch is refused.' not in tm):
+        f.append('%s: a method-only warning should show a Note sentence and no problem -- issues=%s note=%s %r' % (nm, sm.get('issues'), sm.get('note'), tm[-260:]))
+    if 'ROLLS' in (sm.get('cautions') or ''):
+        f.append('%s: a method-only warning put ROLLS on the CAUTIONS strip' % nm)
+    # the engine wording is never printed: not in the chip, the readout or a title, at any step
+    for i, x in enumerate(steps):
+        blob = ((x.get('cardHtml') or '') + ' ' + (x.get('chipHtml') or '') + ' ' + (x.get('cautions') or '')).lower()
+        for w in ('roll_signal', 'roll_treatment', 'load_master_arrays', 'shifts by a constant', 'a trade across a switch is refused', 'level-reading', '.py'):
+            if w in blob:
+                f.append('%s: step %d prints the engine wording %r' % (nm, i, w))
+    if s0.get('note'):
+        f.append('%s: a clean stamp shows a Note line' % nm)
+    # step 8: run 306
+    if not s7.get('chip') or s7.get('hasExpo') or not s7.get('afterRd') or s7.get('cardId') != '306':
+        f.append('%s: under run 306 (no ROLL, no EXPOSURE chip) the ROLLS chip should sit right after COST AND LIMITS with its readout marked 306 (chip=%s expo=%s afterRd=%s id=%r)'
+                 % (nm, s7.get('chip'), s7.get('hasExpo'), s7.get('afterRd'), s7.get('cardId')))
+    if r.get('stepErr'):
+        f.append('%s: a step threw -- %s' % (nm, str(r.get('stepErr')).splitlines()[0][:200]))
+    if r.get('errors') or r.get('uncaught'):
+        f.append('%s: console errors with the ROLLS readout open -- %s' % (nm, ((r.get('errors') or []) + (r.get('uncaught') or []))[0].splitlines()[0][:200]))
     return f
 
 
@@ -842,6 +1043,8 @@ def _attempt(chrome, root, alt_index, fixture):
             fails.extend(_check_roll(nm, r, r['roll']))
         if r.get('expo') is not None:
             fails.extend(_check_expo(nm, r, r['expo']))
+        if r.get('stamp') is not None:
+            fails.extend(_check_stamp(nm, r, r['stamp']))
 
     if fails:
         return FAIL, fails, notes, data, True

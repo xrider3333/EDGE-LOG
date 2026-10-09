@@ -109,7 +109,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 157
+N_CASES = 158
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -6641,6 +6641,222 @@ var FIX = __FIX__;
            dots:dots.map(function(x){return x.id+' '+x.t.slice(0,50);}),swRes:swRes,pills:pills.length,lg:[LG1.length,LG2.length],lgClick:lgClick,landChips:landChips,errAcc:errAcc.slice(0,3)});
       })();
 
+      // -- n8 (owner ask 2026-10-08 via MANAGER #31 part b: "the roll defect must not recur"). ROLL CHECK on NEW runs. The PC runner saves a roll_stamp with every new run; the Past Runs list reads
+      //    only ten small subfields of it (master_type, roll_source, calendar, warning, guard, registry, error, usd_roll_step, trades_crossing, legs_stamped), so every board run here carries
+      //    ONLY those - the shape the list read really gives. The tag shows ONLY when the run does not follow the true roll table: a warning (B), a registry that says "unregistered tape" (C),
+      //    an error stamp (F), a guard in report mode + roll dates not from the table + a pure roll step (H), a book with a pure roll step 512.5. A clean true-table stamp (A, and A2 on an adjusted
+      //    master), no stamp at all (D, a run saved before the guard), a market with no contract rolls (E) and a book with a combined clean stamp draw nothing. A TAG and a report, never a void
+      //    and never a sink: B is given the BEST figures and must stay column 1 with the crown and the green best mark, and the same board with every stamp removed has the same column order.
+      //    The tag also rides the sideways board, the older RUNBOARD tab, the LEADERBOARD (family rows and opened run rows, singles and books), the BOOKS board and the WATCH cut-off note.
+      //    Follow-up (coordinator review): NOT EVERY WARNING IS A SOURCE PROBLEM. The saved warning is the engine's own text; it is classified by substring. Warnings about the price SOURCE (no
+      //    instrument, no roll table, a wrong label, a stale adjusted file, a level-reading file on an adjusted file, three registry mismatches, and a note the list does not know) wear the tag with
+      //    their own plain sentence; METHOD-only warnings (opt-out, declared raw, failed its own test, saw no trades, level-dependent, dollars from a percentage file) wear NO tag. No hover carries
+      //    the engine wording (ROLL_SIGNAL, roll_treatment, load_master_arrays, a file name).
+      //    Every check reads the DRAWN page.
+      (function(){
+        var N=function(k){return String(+FIX.id+k);};
+        var CR=String.fromCharCode(55357,56401);   // the crown, U+1F451
+        var AP=String.fromCharCode(8217);          // the apostrophe the hover prints
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function wcOf(docs){return dfxWin(docs,"window._rbWatchRuns=[];window._rbWatchRunsState='idle';window._rbWatchRunsWant=[];");}
+        function watchOf(rows,research){return "window._rbWatch={state:'ok',runs:"+JSON.stringify(rows)+",research:"+JSON.stringify(research||[])+",at:Date.now()};";}
+        function hdrIds(){return [].map.call(d.querySelectorAll('#rb-mtx-box table thead th[data-rbc]'),function(th){return th.getAttribute('data-rbc');});}
+        function hdr(id){return d.querySelector('#rb-mtx-box table thead th[data-rbc="'+id+'"]');}
+        function rowLabelled(lbl){var tr=null;
+          [].forEach.call(d.querySelectorAll('#rb-mtx-box table tr'),function(t){if(tr)return;var c=t.children;if(!c.length)return;if(dfxN(c[0].textContent)===lbl)tr=t;});return tr;}
+        function cell(lbl,id){var tr=rowLabelled(lbl);return tr?tr.querySelector('td[data-rbc="'+id+'"]'):null;}
+        function greenIn(td){return !!(td&&td.querySelector('b[style*="color:var(--green)"]'));}
+        function tipOf(e){return e?(e.getAttribute('title')||''):'';}
+        function tagIn(id){var h=hdr(id);return h?h.querySelector('[data-rbstamp="'+id+'"]'):null;}
+        function anyTags(root){return [].slice.call(d.querySelectorAll(root+' [data-rbstamp]')).map(function(e){return e.getAttribute('data-rbstamp');}).sort().join(',');}
+        function famRow(strat){return [].filter.call(d.querySelectorAll('.c2-row[data-c2fam]'),function(r){return decodeURIComponent(r.getAttribute('data-c2fam'))===strat;})[0];}
+        function lrow(id){return d.querySelector('[data-c2run="'+id+'"]');}
+        function mk(id,strat,net,ddRaw){var o={};Object.keys(FIX).forEach(function(k){var j=JSON.stringify(FIX[k]);if(j!==undefined&&j.length<2000)o[k]=JSON.parse(j);});
+          o.id=String(id);o.strategy=strat;o.starred=false;o.multiplier=20;delete o.famKey;delete o.famSeq;delete o.n_evaluated;delete o.equity;delete o.best_params;
+          o.date_from='2010-01-01';o.date_to='2026-06-01';o.timestamp='2026-09-20 09:00';o.best_pnl_usd=net;
+          o.validate={verdict:'PASS',total_trades:5000,total_win_rate:41,total_avg_win:150,total_avg_loss:-90,total_dd:ddRaw,total_sharpe:1.1,total_sortino:1.6,
+            n_pass:5,n_gates:5,wfe:1,dsr:1,
+            windows:{optimize:['2010-01-01','2018-01-01'],wf_split:'2018-01-01',lockbox:['2025-06-01','2026-06-01']},
+            lockbox:{pnl:4000,trades:200,pf:1.5,win_rate:44,dd:400,sortino:2,pass:true}};
+          return o;}
+        function bkBlk(net,tr,wins,losses,wr,pf,dd){var gl=net/(pf-1),gw=pf*gl;
+          return {total_pnl:net,num_trades:tr,wins:wins,losses:losses,win_rate:wr,profit_factor:pf,max_drawdown:dd,gross_win:gw,gross_loss:gl};}
+        function bookRun(id,leg,netPre){var pre=bkBlk(netPre,9085,3000,6085,33.02,1.49,34000),lbk=bkBlk(289811,622,200,422,32.15,1.56,28066),whole=bkBlk(1685715,9707,3200,6507,32.97,1.50,36562);
+          var r=mk(id,'BOOK: PROBE N8 '+id,pre.total_pnl,9000);r.multiplier=1;
+          r.best_pf=pre.profit_factor;r.best_trades=pre.num_trades;r.best_dd_usd=pre.max_drawdown;r.best_win_rate=pre.win_rate;
+          r.book={name:'BOOK: PROBE N8 '+id,legs:[{strategy:leg,weight:1}],whole:whole,pre_lockbox:pre,lockbox:lbk,lockbox_from:'2025-06-30',date_from:'2010-06-07',date_to:'2026-08-13'};
+          r.validate={verdict:'PASS',lockbox:{pnl:lbk.total_pnl,pf:lbk.profit_factor,trades:lbk.num_trades,pass:true},book:true};
+          return r;}
+        // the ten subfields the list read asks for; a board run carries only these (what the projected read gives)
+        var LITE=['master_type','roll_source','calendar','warning','guard','registry','error','usd_roll_step','trades_crossing','legs_stamped'];
+        function lite(st){var o={};LITE.forEach(function(k){if(Object.prototype.hasOwnProperty.call(st,k))o[k]=st[k];});return o;}
+        // a full clean true-table futures stamp as the runner writes it (the heavy fields are dropped by lite())
+        function clean(extra){var st={master_type:'unadjusted',source:'db_noadj_rth',roll_source:'rolls_NQ.csv 3fa9c1d2e7b4',calendar:'difference-adjusted signals',switches_in_window:62,switches_estimated:3,
+            trades_crossing:4,usd_crossing_trades:18250,usd_roll_step:0,usd_switch_sessions:4125.5,signal_method:'difference',method_source:'declared',method_tests:{trades:40,shift:1,scale:null},no_fill_bars:null,
+            warning:null,label_check:{eligible:40,raw_like:39,adjusted_like:1,verdict:'agrees with the label'},registry:'master id 12 (NQ_5m_noadj.csv)',guard:'refuse',
+            raw_vs_adjusted:{trades_raw:125,trades_adjusted:125,same:125,verdict:'identical'}};
+          Object.keys(extra||{}).forEach(function(k){st[k]=extra[k];});return st;}
+
+        // ---- the runs: B has the BEST figures ----
+        var A=mk(N(698001),'ZN8CLEANA_1_0.py',300000,9000),A2=mk(N(698002),'ZN8ADJUSTEDA2_1_0.py',280000,9000),B=mk(N(698003),'ZN8WARNB_1_0.py',1000000,3000),
+            C=mk(N(698004),'ZN8UNREGC_1_0.py',260000,9000),D=mk(N(698005),'ZN8NOSTAMPD_1_0.py',240000,9000),E=mk(N(698006),'ZN8NOROLLSE_1_0.py',220000,9000),
+            F=mk(N(698007),'ZN8ERRORF_1_0.py',200000,9000),H=mk(N(698008),'ZN8WAIVEDH_1_0.py',180000,9000);
+        A.roll_stamp=lite(clean());
+        A2.roll_stamp=lite(clean({master_type:'adjusted',roll_source:'adjusted master built from rolls_NQ.csv (table now 3fa9c1d2e7b4)',calendar:'adjusted master'}));
+        B.roll_stamp=lite(clean({warning:'level-reading file on an adjusted master'}));
+        C.roll_stamp=lite(clean({registry:'unregistered tape'}));
+        E.roll_stamp=lite({master_type:'no contract rolls',source:'db_stock_rth',roll_source:'',calendar:'not used',trades_crossing:0,usd_roll_step:0});
+        F.roll_stamp=lite({error:'RuntimeError: roll table missing for this window'});
+        H.roll_stamp=lite(clean({guard:'report mode: refusals waived, not a research result',roll_source:'yfinance guess',usd_roll_step:-8605.4}));
+        // the engine's own warning texts (augur_engine/rolls.py plan["warn"] and registry_check) and the plain sentence each must turn into
+        var WS=[
+          ['ZN8NOINSTS1_1_0.py',"arrays carry no instrument in meta, so this run was not roll-checked; load them with load_master_arrays (or set meta['instrument'/'source'])",
+            'its prices do not say which market they are, so it was not checked for contract rolls'],
+          ['ZN8NOTABLES2_1_0.py',"CL is a futures market with no roll table (tools/data/rolls_CL.csv), so a run on it cannot be checked for contract switches. Build the table with tools/build_roll_table.py or run on an adjusted master.",
+            'it ran on a futures market that has no roll table, so its contract switches could not be checked'],
+          ['ZN8LABELS3_1_0.py',"these prices are labelled adjusted (source 'db_adj_rth') but at 9 of 10 contract switches in the window they carry the roll step, so the label is wrong. Load the master the label names.",
+            'its price file is labelled adjusted or unadjusted, but at the contract switches the prices behave the other way'],
+          ['ZN8STALES4_1_0.py',"the adjusted master NQ_5m_adj.csv was built before the NQ contract switch of 2026-09-18 13:00 UTC, so its bars after that switch are NOT adjusted. Rebuild the adjusted masters (tools/build_adjusted_masters.py) or end the run before that date.",
+            'its adjusted price file was built before a later contract switch, so the bars after that switch are not adjusted'],
+          ['ZN8SHIFTS5_1_0.py',"this file's trades move when every price shifts by a constant (it reads levels or %: 12% of them moved), and this master is difference-adjusted, so its signals read shifted levels. Run it on the unadjusted master: the engine then picks its signal method and prices fills raw.",
+            'it reads price levels or percentages but ran on an adjusted price file, so its signals read shifted levels'],
+          ['ZN8REGR1_1_0.py',"these prices name registry master id '12' / file 'x.csv', which the registry does not have",
+            'its price file names a registered master that the registry does not have'],
+          ['ZN8REGR2_1_0.py',"these prices name registry id '12' but file 'y.csv', which belong to different masters",
+            'its price file names an id and a file that belong to different registered masters'],
+          ['ZN8REGR3_1_0.py',"these prices say source 'db_adj_rth', instrument 'NQ', but they come from registry master id 12 (NQ_5m_noadj.csv): source 'db_noadj_rth', instrument 'NQ'. Load the master you mean with load_master_arrays.",
+            'its price file does not match the registered master (the source or market it claims differs from the registry)']];
+        var MS=[
+          ['ZN8METH1_1_0.py',"roll_treatment=raw: signals read raw prices across contract switches"],
+          ['ZN8METH2_1_0.py',"ROLL_SIGNAL = 'raw': signals read raw prices; a trade across a switch is refused"],
+          ['ZN8METH3_1_0.py',"the declared ROLL_SIGNAL failed its own test"],
+          ['ZN8METH4_1_0.py',"the signal-method test saw no trades, so the file runs on raw prices; declare ROLL_SIGNAL to choose"],
+          ['ZN8METH5_1_0.py',"this file's trades move under both a constant shift (3%) and a constant scale (5%), so it runs on raw prices; its indicators still read the roll step near switches - declare ROLL_SIGNAL, or a roll-aware version of the file is the exact fix"],
+          ['ZN8METH6_1_0.py',"a ratio-logic file that reports P&L in dollars cannot have its fills re-priced, so it runs on raw prices"]];
+        var WSRUNS=WS.map(function(x,i){var r=mk(N(698011+i),x[0],170000-i*1000,9000);r.roll_stamp=lite(clean({warning:x[1]}));return r;});
+        var MSRUNS=MS.map(function(x,i){var r=mk(N(698031+i),x[0],150000-i*1000,9000);r.roll_stamp=lite(clean({warning:x[1]}));return r;});
+        // a method-only warning saved in report mode: the guard flags it, the note itself is not a source problem
+        var MG=mk(N(698041),'ZN8METHGUARD_1_0.py',140000,9000);MG.roll_stamp=lite(clean({warning:MS[2][1],guard:'report mode: refusals waived, not a research result'}));
+        function TIPFOR(sent){return 'Roll check: this run'+AP+'s saved stamp says its prices may not follow the true contract roll table - '+sent+'. A report, not a void: ranking and verdict use the saved figures. Open the run report for the full roll stamp.';}
+        var ALL=[A,A2,B,C,D,E,F,H].concat(WSRUNS,MSRUNS,[MG]),IDS=ALL.map(function(r){return r.id;});
+        var WROWS=ALL.map(function(r){return {id:+r.id,family:'ZN8',lane:'X',verdict:'CANDIDATE'};});
+        var base=wcOf(ALL)+watchOf(WROWS);
+        var BOARD={c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'full',rbFam:'__WATCH__'};
+        var WANT=[B.id,C.id,F.id,H.id,MG.id].concat(WSRUNS.map(function(r){return r.id;})).sort().join(',');
+
+        // ---- (a) the WATCH board: every tag, every non-tag ----
+        calls.push(doRender(BOARD,base));chk('a-board');
+        var aIds=hdrIds(),tA=tagIn(A.id),tA2=tagIn(A2.id),tB=tagIn(B.id),tC=tagIn(C.id),tD=tagIn(D.id),tE=tagIn(E.id),tF=tagIn(F.id),tH=tagIn(H.id);
+        var aAny=anyTags('#rb-mtx-box');
+        var crownB=!!hdr(B.id)&&(hdr(B.id).textContent||'').indexOf(CR)>=0,crownOther=IDS.some(function(i){return i!==B.id&&!!hdr(i)&&(hdr(i).textContent||'').indexOf(CR)>=0;});
+        var greenB=greenIn(cell('TOTAL',B.id)),greenOther=IDS.some(function(i){return i!==B.id&&greenIn(cell('TOTAL',i));});
+        var tipB=tipOf(tB),tipC=tipOf(tC),tipF=tipOf(tF),tipH=tipOf(tH);
+        var boardHtml=((d.getElementById('rb-mtx-box')||{innerHTML:''}).innerHTML||'').toLowerCase();
+        var aTips=ALL.map(function(r){return tipOf(tagIn(r.id));}).filter(function(t){return t.length>0;});
+        var wsTags=WSRUNS.map(function(r){return tagIn(r.id);}),wsTips=wsTags.map(function(t){return tipOf(t);}),wsTxt=wsTags.map(function(t){return t?t.textContent:'';});
+        var msHdr=MSRUNS.map(function(r){return !!hdr(r.id);}),msTag=MSRUNS.map(function(r){return !!tagIn(r.id);});
+        var mgHdr=!!hdr(MG.id),mgTip=tipOf(tagIn(MG.id));
+
+        // ---- (a2) the same board with every stamp removed: the same column order, no tag ----
+        var BARE=ALL.map(function(r){var c=dfxClone(r);delete c.roll_stamp;return c;});
+        calls.push(doRender(BOARD,wcOf(BARE)+watchOf(WROWS)));chk('a-bare');
+        var bareIds=hdrIds(),bareTags=d.querySelectorAll('[data-rbstamp]').length;
+
+        // ---- (b) the same, sideways ----
+        calls.push(doRender(Object.assign({},BOARD,{rbOrient:'h'}),base));chk('b-horiz');
+        var hT=d.querySelector('#rb-mtx-box table[data-rbhoriz]'),hTagB=!!(hT&&hT.querySelector('[data-rbstamp="'+B.id+'"]')),hTagA=!!(hT&&hT.querySelector('[data-rbstamp="'+A.id+'"]')),hAny=anyTags('#rb-mtx-box');
+
+        // ---- (c) the older RUNBOARD tab ----
+        calls.push(doRender({cmpMode:'board',rbSample:'full',rbRank:'mar',rbFam:'__WATCH__'},base,'cmp'));chk('c-tab');
+        var cIds=hdrIds(),cTagB=tagIn(B.id),cTagA=tagIn(A.id),cAny=anyTags('#rb-mtx-box');
+
+        // ---- (d) the LEADERBOARD, singles: the family rows, then the run rows with every family opened ----
+        calls.push(doRender({c2Screen:'lead',c2Rank:'rpy',c2Stage:'lb'},wcOf(ALL)));chk('d-lead');
+        var dAny=anyTags('body'),dFamB=famRow('ZN8WARNB_1_0'),dFamA=famRow('ZN8CLEANA_1_0');
+        var dFamTagB=!!(dFamB&&dFamB.querySelector('[data-rbstamp="'+B.id+'"]')),dFamTagA=!!(dFamA&&dFamA.querySelector('[data-rbstamp]'));
+        var dFams=[].slice.call(d.querySelectorAll('.c2-row[data-c2fam]')).map(function(r){return decodeURIComponent(r.getAttribute('data-c2fam'));});
+        calls.push(doRender({c2Screen:'lead',c2Rank:'rpy',c2Stage:'lb'},wcOf(ALL)+"window._c2Open=new Set("+JSON.stringify(dFams)+");"));chk('d-lead-open');
+        var dRunB=lrow(B.id),dRunA=lrow(A.id),dRunTagB=dRunB?dRunB.querySelector('[data-rbstamp="'+B.id+'"]'):null,dRunTagA=dRunA?dRunA.querySelector('[data-rbstamp]'):null;
+
+        // ---- (e) the BOOKS board: a combined clean stamp (a no-contract-rolls leg and a table leg) and one with a pure roll step 512.5 ----
+        var G1=bookRun(N(698101),'ZN8LEG_1_0.py',1395904),G2=bookRun(N(698102),'ZN8LEG_1_0.py',2395904);
+        G1.roll_stamp=lite({legs_stamped:2,master_type:['no contract rolls','unadjusted'],roll_source:['','rolls_NQ.csv 3fa9c1d2e7b4'],calendar:['not used','difference-adjusted signals'],trades_crossing:0,usd_roll_step:0});
+        G2.roll_stamp=lite({legs_stamped:2,master_type:['no contract rolls','unadjusted'],roll_source:['','rolls_NQ.csv 3fa9c1d2e7b4'],calendar:['not used','difference-adjusted signals'],trades_crossing:2,usd_roll_step:512.5});
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',rbFam:'BOOKS'},wcOf([G1,G2])));chk('e-books');
+        var eIds=hdrIds(),eTagG1=tagIn(G1.id),eTagG2=tagIn(G2.id),eAny=anyTags('#rb-mtx-box'),tipG2=tipOf(eTagG2);
+
+        // ---- (f) the LEADERBOARD, books: the BOOKS family row (its champion is the stepped book) and the run rows ----
+        calls.push(doRender({c2Screen:'lead',c2Rank:'rpy',c2Stage:'lb'},wcOf([G1,G2])+"window._c2Open=new Set(['BOOKS']);"));chk('f-lead-books');
+        var fFam=famRow('BOOKS'),fFamTag=!!(fFam&&fFam.querySelector('[data-rbstamp="'+G2.id+'"]'));
+        var fRunG1=lrow(G1.id),fRunG2=lrow(G2.id),fRunTagG2=!!(fRunG2&&fRunG2.querySelector('[data-rbstamp="'+G2.id+'"]')),fRunTagG1=!!(fRunG1&&fRunG1.querySelector('[data-rbstamp]'));
+
+        // ---- (g) the WATCH cut-off note: 42 watched runs, the last one (worst figures) carries a warning stamp ----
+        var CUT=[],CROWS=[];
+        for(var i=0;i<42;i++){var cr=mk(N(698200+i),'ZN8CUT'+i+'_1_0.py',4000-i*50,400);cr.validate.lockbox.pnl=4000-i*50;cr.famKey='ZN8';cr.famSeq=i+1;
+          if(i===41)cr.roll_stamp=lite(clean({warning:'level-reading file on an adjusted master'}));
+          else if(i===40)cr.roll_stamp=lite(clean());
+          CUT.push(cr);CROWS.push({id:+cr.id,family:'ZN8',lane:'X',verdict:'CANDIDATE'});}
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',rbFam:'__WATCH__'},wcOf(CUT)+watchOf(CROWS)));chk('g-cut');
+        var noteEl=[].filter.call(d.querySelectorAll('div'),function(x){return /^[+][0-9]+ more watched run/.test(dfxN(x.textContent));})
+          .sort(function(a,b){return (a.textContent||'').length-(b.textContent||'').length;})[0];
+        var note=noteEl?dfxN(noteEl.textContent):'';
+
+        // ---- (h) the list read ----
+        var LF=w.eval('RUNS_LITE_FIELDS'),stampLF=LF.filter(function(x){return String(x).indexOf('roll_stamp')===0;});
+        var plain=function(t){var lt=t.toLowerCase();return ['.py','tools/','.csv','roll_stamp','usd_roll_step','roll_source','master_type','runtimeerror','rollguarderror','roll_signal','roll_treatment','load_master_arrays'].every(function(x){return lt.indexOf(x)<0;});};
+        var HOVERS=aTips.concat([tipG2]);
+
+        dfxCase('n8_rb_rollstamp',calls,{
+          'renders OK on the WATCH board (both ways round), the older tab, the LEADERBOARD (singles and books), the BOOKS board and the cut-off note':calls.every(function(c){return c==='OK';}),
+          'no console errors or uncaught exceptions on any render':errAcc.length===0,
+          'the Past Runs list read asks for exactly the ten small stamp subfields as dotted paths - never the whole stamp, the method tests, the label check or the raw-versus-adjusted check':
+            Array.isArray(LF)&&stampLF.length===LITE.length&&LITE.every(function(k){return LF.indexOf('roll_stamp.'+k)>=0;})&&LF.indexOf('roll_stamp')<0,
+          // ---- the runs that wear the tag ----
+          'B (warning "level-reading file on an adjusted master") wears the tag ROLL CHECK, a bordered chip carrying the run id':
+            !!tB&&tB.textContent==='ROLL CHECK'&&tB.getAttribute('data-rbstamp')===B.id&&(tB.getAttribute('style')||'').indexOf('border:1px solid')>=0,
+          'its hover is the whole sentence: Roll check, the saved stamp says its prices may not follow the true contract roll table, the cautious note for a warning the list does not know (the roll guard left a note, its wording kept in the saved stamp - never the engine wording), then the not-a-void sentence and the pointer to the run report':
+            tipB===TIPFOR('the roll guard left a note on this run (its wording is kept in the saved stamp)')&&tipB.indexOf('level-reading')<0,
+          'C (registry "unregistered tape") wears the tag; its hover says the price file is not a registered master':!!tC&&tC.textContent==='ROLL CHECK'&&tipC.indexOf('the price file is not a registered master')>=0,
+          'F (the runner could not make a stamp) wears the tag; its hover says the stamp could not be made, in plain words - neither the runner message nor its code name':
+            !!tF&&tF.textContent==='ROLL CHECK'&&tipF.indexOf('the roll stamp could not be made when the run was saved')>=0&&tipF.indexOf('roll table missing')<0&&tipF.indexOf('RuntimeError')<0,
+          'H (guard in report mode, roll dates not from the table, pure roll step -$8,605) wears ONE tag that lists all three in plain words':
+            !!tH&&tipH.indexOf('it was saved with the guard'+AP+'s refusals waived - not a research result; its roll dates do not come from the true roll table; it booked -$8,605 of pure roll step - a contract switch counted as profit or loss')>=0,
+          'plain words: no file name, folder, field name or code name in any ROLL CHECK hover':HOVERS.every(function(t){return t.length>0&&plain(t);}),
+          // ---- the runs that wear nothing ----
+          'A (a clean true-table futures stamp, warning null) wears no tag':!tA,
+          'A2 (a clean adjusted-master stamp whose roll source is built from the roll table) wears no tag':!tA2,
+          'D (no stamp at all: a run saved before the roll guard) wears no tag':!tD,
+          'E (a market with no contract rolls) wears no tag':!tE,
+          'exactly the runs whose prices do not follow the true roll table carry the tag on the WATCH board (B, C, F, H, the five source warnings, the three registry mismatches, and the method-only note saved in report mode)':aAny===WANT,
+          'every warning about the PRICE SOURCE wears the tag with its own plain sentence - no instrument, no roll table, a wrong label, a STALE adjusted file, a level-reading file on an adjusted file, three registry mismatches - and never the engine wording':
+            WSRUNS.length===8&&wsTags.every(function(t,i){return !!t&&wsTxt[i]==='ROLL CHECK'&&wsTips[i]===TIPFOR(WS[i][2])&&wsTips[i].toLowerCase().indexOf(WS[i][1].slice(0,16).toLowerCase())<0;}),
+          'the stale-master warning (an adjusted price file built before a later contract switch) wears the tag':!!wsTags[3]&&wsTips[3].indexOf('its adjusted price file was built before a later contract switch, so the bars after that switch are not adjusted')>=0,
+          'a METHOD-only warning - the file declares raw prices (ROLL_SIGNAL = raw: signals read raw prices; a trade across a switch is refused) - wears NO tag, and its run stays on the board':msHdr[1]&&!msTag[1],
+          'all six method-only warnings (opt-out, declared raw, failed its own test, saw no trades, level-dependent file, dollars from a percentage file) wear no tag':MSRUNS.length===6&&msHdr.every(function(x){return x;})&&!msTag.some(function(x){return x;}),
+          'a method-only note saved in report mode still wears the tag for the guard, in the guard words only (the note is not a source problem)':mgHdr&&mgTip===TIPFOR('it was saved with the guard'+AP+'s refusals waived - not a research result'),
+          'no hover or title on the board carries the engine wording: ROLL_SIGNAL, roll_treatment, load_master_arrays':boardHtml.length>0&&boardHtml.indexOf('roll_signal')<0&&boardHtml.indexOf('roll_treatment')<0&&boardHtml.indexOf('load_master_arrays')<0,
+          // ---- not a sink ----
+          'B has the BEST figures and is still column 1, with the crown and the green best mark on TOTAL; no other run has either':aIds.length===ALL.length&&aIds[0]===B.id&&crownB&&!crownOther&&greenB&&!greenOther,
+          'the tag changes no ranking: the same board with every stamp removed has the same column order and no tag':bareIds.length===ALL.length&&bareIds.join(',')===aIds.join(',')&&bareTags===0,
+          // ---- the other hosts ----
+          'SIDEWAYS: the tag is on the B header, not on A, and the same four runs wear it':hTagB&&!hTagA&&hAny===WANT,
+          'the older RUNBOARD tab wears the tag on the same four runs, not on A, and B is still column 1':cIds.length===ALL.length&&cIds[0]===B.id&&!!cTagB&&!cTagA&&cAny===WANT,
+          'LEADERBOARD: the B family row wears the tag, the clean A family row does not, and exactly B, C, F and H wear it':dFamTagB&&!dFamTagA&&dAny===WANT,
+          'LEADERBOARD: with the families opened the B run row wears the tag with the same hover and the clean A run row does not':
+            !!dRunB&&!!dRunTagB&&tipOf(dRunTagB)===tipB&&!!dRunA&&!dRunTagA,
+          // ---- books ----
+          'BOOKS board: the book with a combined clean stamp (a no-contract-rolls leg and a table leg, blank entry in the list) wears nothing':eIds.indexOf(G1.id)>=0&&!eTagG1,
+          'BOOKS board: the book with a pure roll step of 512.5 wears the tag; its hover holds "$513" and says it was a contract switch counted as profit or loss':
+            eIds.indexOf(G2.id)>=0&&!!eTagG2&&eTagG2.textContent==='ROLL CHECK'&&(tipG2.indexOf('$513')>=0||tipG2.indexOf('$512')>=0)&&tipG2.indexOf('a contract switch counted as profit or loss')>=0&&eAny===G2.id,
+          'LEADERBOARD: the BOOKS family row and the stepped book run row wear the tag; the clean book run row does not':fFamTag&&fRunTagG2&&!fRunTagG1,
+          // ---- the WATCH cut-off note ----
+          'the WATCH cut-off note marks the cut run with ROLL CHECK after its alias, and not its clean neighbour':
+            note.indexOf('#'+CUT[41].id+' ZN8-42 ROLL CHECK')>=0&&note.indexOf('#'+CUT[40].id+' ZN8-41')>=0&&note.indexOf('#'+CUT[40].id+' ZN8-41 ROLL')<0
+        },{aIds:aIds,bareIds:bareIds,aAny:aAny,hAny:hAny,cAny:cAny,dAny:dAny,eAny:eAny,eIds:eIds,tipB:tipB.slice(0,330),tipC:tipC.slice(0,200),tipF:tipF.slice(0,260),tipH:tipH.slice(0,330),tipG2:tipG2.slice(0,260),
+           fFamTag:fFamTag,fRunTagG2:fRunTagG2,fRunTagG1:fRunTagG1,ncols:aIds.length,methodTagged:msTag.filter(function(x){return x;}).length,tipS4:(wsTips[3]||'').slice(0,330),note:note.slice(0,240),stampLF:stampLF,errAcc:errAcc.slice(0,3)});
+      })();
+
       // -- case y1_explore_money: MANAGER audit 2026-09-27 (ml_edge_orb_leak_answer_2026-09-27.md
       //    1.3b/1.4a/3.1e/3.3b, verify_redflags_2026-09-27.md M1/H2). Two EXPLORE fixes.
       //    (A) HYBRID recycle (redeploy) and HYBRID equal-drawdown rows: whenever the ticked
@@ -7265,7 +7481,7 @@ def main(argv=None):
                      '--hide-scrollbars', '--virtual-time-budget=30000',
                      '--user-data-dir=' + ud, '--dump-dom', url]
             try:
-                # 300 s (was 120): 157 cases take ~2 min on an idle machine since the n7 link sweep (2026-10-09), so a busy
+                # 300 s (was 120): the cases take ~2 min on an idle machine since the n7 link sweep (2026-10-09), so a busy
                 #   machine timed out and the gate read INCONCLUSIVE - no verdict at all. The cases themselves are unchanged.
                 out = subprocess.run(cargs, capture_output=True, text=True, encoding='utf-8',
                                      errors='replace', timeout=300).stdout or ''
@@ -9371,6 +9587,7 @@ def main(argv=None):
     DFX += ['n5_rb_plane_dollars']
     DFX += ['n6_rb_exposure']
     DFX += ['n7_links_family']
+    DFX += ['n8_rb_rollstamp']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
